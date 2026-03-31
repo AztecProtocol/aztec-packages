@@ -37,7 +37,12 @@ const DEFAULT_FAILED_PEER_BAN_TIME_MS = 5 * 60 * 1000; // 5 minutes timeout afte
 const GOODBYE_DIAL_TIMEOUT_MS = 1000;
 const FAILED_AUTH_HANDSHAKE_EXPIRY_MS = 60 * 60 * 1000; // 1 hour
 const AUTH_HANDSHAKE_RETRY_DELAY_MS = 500;
-const AUTH_HANDSHAKE_MAX_RETRIES = 3;
+const AUTH_HANDSHAKE_MAX_RETRIES = 1;
+// Grace period during which gossipsub accepts messages from peers awaiting AUTH.
+// Derived from retry config so it stays in sync: (1 + retries) * delay + buffer.
+// Without this, gossipsub drops subscription RPCs before AUTH completes (appSpecificScore = -Infinity),
+// permanently isolating the peer from topic-level gossip (IHAVE, mesh, message forwarding).
+const AUTH_HANDSHAKE_GRACE_PERIOD_MS = (1 + AUTH_HANDSHAKE_MAX_RETRIES) * AUTH_HANDSHAKE_RETRY_DELAY_MS + 1000;
 
 type CachedPeer = {
   peerId: PeerId;
@@ -71,6 +76,8 @@ export class PeerManager implements PeerManagerInterface {
   private authenticatedValidatorAddressToPeerId: Map<string, PeerId> = new Map();
   private peersToBeDisconnected: Set<string> = new Set();
   private failedAuthHandshakes: Map<string, FailedAuthHandshakeEntry> = new Map();
+  /** Peers currently undergoing AUTH handshake. Value is the timestamp when AUTH started. */
+  private pendingAuthPeers: Map<string, number> = new Map();
   private validatorAddresses: EthAddress[] = [];
   private initializedPreferredPeers: boolean = false;
 
@@ -432,8 +439,20 @@ export class PeerManager implements PeerManagerInterface {
   }
 
   public shouldDisableP2PGossip(peerId: string): boolean {
-    const isAuthenticated = this.isAuthenticatedPeer(peerIdFromString(peerId));
-    return (this.config.p2pAllowOnlyValidators ?? false) && !isAuthenticated;
+    if (!this.config.p2pAllowOnlyValidators) {
+      return false;
+    }
+    if (this.isAuthenticatedPeer(peerIdFromString(peerId))) {
+      return false;
+    }
+    // Allow gossip during the AUTH grace period so gossipsub subscription exchange
+    // can complete before AUTH finishes. Without this, gossipsub drops subscription
+    // RPCs (appSpecificScore = -Infinity) and the peer is permanently invisible.
+    const authStarted = this.pendingAuthPeers.get(peerId);
+    if (authStarted !== undefined) {
+      return this.dateProvider.now() - authStarted > AUTH_HANDSHAKE_GRACE_PERIOD_MS;
+    }
+    return true;
   }
 
   public getPeers(includePending = false): PeerInfo[] {
@@ -667,6 +686,7 @@ export class PeerManager implements PeerManagerInterface {
   private markPeerForDisconnect(peer: PeerId) {
     const peerIdStr = peer.toString();
     this.logger.debug(`Scheduling peer ${peerIdStr} for disconnection`);
+    this.pendingAuthPeers.delete(peerIdStr);
     this.peersToBeDisconnected.add(peerIdStr);
   }
 
@@ -889,6 +909,12 @@ export class PeerManager implements PeerManagerInterface {
   private async exchangeAuthHandshake(peerId: PeerId, retryCount = 0): Promise<void> {
     const peerIdString = peerId.toString();
 
+    // Track the start of AUTH so shouldDisableP2PGossip can grant a grace period.
+    // Only set on first attempt — retries keep the original timestamp.
+    if (retryCount === 0) {
+      this.pendingAuthPeers.set(peerIdString, this.dateProvider.now());
+    }
+
     try {
       const ourStatus = await this.createStatusMessage();
       const authRequest = new AuthRequest(ourStatus, Fr.random());
@@ -1019,6 +1045,7 @@ export class PeerManager implements PeerManagerInterface {
    * Removes any failed previous attempts
    * */
   private markAuthHandshakeSuccess(peerId: PeerId) {
+    this.pendingAuthPeers.delete(peerId.toString());
     this.failedAuthHandshakes.delete(peerId.toString());
 
     const connections = this.libP2PNode.getConnections(peerId);

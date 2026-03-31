@@ -1262,18 +1262,47 @@ describe('PeerManager', () => {
       };
       (newPeerManager as any).handleConnectedPeerEvent(ev);
 
+      // During AUTH grace period, gossip should be allowed (so gossipsub subscriptions aren't dropped)
       await retryFastUntil(() => mockReqResp.sendRequestToPeer.mock.calls.length >= 1, 'auth request to be sent');
+      expect(newPeerManager.shouldDisableP2PGossip(peerId.toString())).toBeFalsy();
 
-      expect(mockReqResp.sendRequestToPeer).toHaveBeenCalledTimes(1);
-      expect(mockReqResp.sendRequestToPeer).toHaveBeenLastCalledWith(
-        peerId,
-        ReqRespSubProtocol.AUTH,
-        expect.any(Buffer),
-      );
+      // Wait for all retries to complete (1 initial + 1 retry = 2 calls)
+      await retryFastUntil(() => mockReqResp.sendRequestToPeer.mock.calls.length >= 2, 'auth retries to complete');
+
       expect(newPeerManager.isAuthenticatedPeer(peerId)).toBe(false);
 
-      //For an unauthenticated peer, the peer we should disable gossiping
+      // After AUTH definitively fails and peer is scheduled for disconnect, gossip should be disabled
       expect(newPeerManager.shouldDisableP2PGossip(peerId.toString())).toBeTruthy();
+    });
+
+    it('should allow gossip during auth grace period to prevent subscription drops', async () => {
+      const { privateKey, peerId } = await generateTestKeyPair();
+      const enr = SignableENR.createFromPrivateKey(privateKey);
+      enr.setLocationMultiaddr(multiaddr('/ip4/127.0.0.1/tcp/8000'));
+
+      const newPeerManager = createMockPeerManager('test', mockLibP2PNode, 3, [], [], [], {
+        p2pAllowOnlyValidators: true,
+      });
+
+      newPeerManager.initializePeers();
+
+      // Before AUTH starts, gossip should be disabled (unknown peer)
+      expect(newPeerManager.shouldDisableP2PGossip(peerId.toString())).toBeTruthy();
+
+      // Simulate AUTH starting by adding to pending set via handleConnectedPeerEvent.
+      // Use a slow mock so AUTH stays in progress while we test.
+      mockReqResp.sendRequestToPeer.mockImplementation(
+        () => new Promise(resolve => setTimeout(() => resolve({ status: ReqRespStatus.FAILURE }), 5000)),
+      );
+
+      const ev = { detail: peerId };
+      (newPeerManager as any).handleConnectedPeerEvent(ev);
+
+      // During the AUTH grace period, gossip should be ALLOWED
+      // This is critical: without this, gossipsub drops subscription RPCs from
+      // peers that haven't completed AUTH yet, permanently isolating them.
+      await retryFastUntil(() => mockReqResp.sendRequestToPeer.mock.calls.length >= 1, 'auth request to be sent');
+      expect(newPeerManager.shouldDisableP2PGossip(peerId.toString())).toBeFalsy();
     });
 
     it('should authenticate peer if auth handshake succeeds', async () => {
@@ -1411,10 +1440,13 @@ describe('PeerManager', () => {
       );
       expect(receivedAuth?.status.compressedComponentsVersion).toEqual(protocolVersion);
       expect(receivedAuth?.status.latestBlockHash).toEqual(blockHash);
-      expect(newPeerManager.isAuthenticatedPeer(peerId)).toBe(false);
 
-      //For an unauthenticated peer, the peer we should disable gossiping
-      expect(newPeerManager.shouldDisableP2PGossip(peerId.toString())).toBeTruthy();
+      // Wait for the full AUTH flow to complete (validator check → disconnect)
+      await retryFastUntil(
+        () => newPeerManager.shouldDisableP2PGossip(peerId.toString()),
+        'gossip to be disabled after auth failure',
+      );
+      expect(newPeerManager.isAuthenticatedPeer(peerId)).toBe(false);
     });
 
     it('should remove authentication if peer is no longer a registered validator', async () => {
