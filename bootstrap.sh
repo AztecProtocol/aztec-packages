@@ -671,7 +671,7 @@ case "$cmd" in
     make yarn-project
 
     integration_timeout="${1:-30m}"
-    e2e_timeout="${2:-80m}"
+    e2e_timeout="${2:-60m}"
     hash="grind"
     failed=0
 
@@ -691,9 +691,9 @@ case "$cmd" in
 
     # P2P e2e tests (lower parallelism — each test spins up 7 full Aztec nodes)
     e2e_tests=(
-      # "e2e_p2p/gossip_network.test.ts"
-      # "e2e_p2p/rediscovery.test.ts"
-      # "e2e_p2p/reqresp/reqresp.test.ts"
+      "e2e_p2p/gossip_network.test.ts"
+      "e2e_p2p/rediscovery.test.ts"
+      "e2e_p2p/reqresp/reqresp.test.ts"
       "e2e_p2p/preferred_gossip_network.test.ts"
     )
     for test in "${e2e_tests[@]}"; do
