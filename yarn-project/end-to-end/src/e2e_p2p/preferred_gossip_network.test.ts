@@ -366,17 +366,12 @@ describe('e2e_p2p_preferred_network', () => {
     }
 
     t.logger.info('Waiting for transactions to be mined');
-    // Use a longer timeout (6 slots instead of 3) because the picky validator relies on
-    // IHAVE/IWANT gossip relay through preferred nodes, adding latency. When the picky
-    // validator is proposer for consecutive slots, the default 3-slot timeout may not
-    // be enough for the tx to propagate and get included.
-    const extendedTxTimeout = WAIT_FOR_TX_TIMEOUT * 2;
     // now ensure that all txs were successfully mined
     const receipts = await Promise.all(
       txsSentViaDifferentNodes.flatMap((txs, i) =>
         txs.map((txHash, j) => {
           t.logger.info(`Waiting for tx ${i}-${j}: ${txHash.toString()} to be mined`);
-          return waitForTx(nodes[0], txHash, { timeout: extendedTxTimeout });
+          return waitForTx(nodes[0], txHash, { timeout: WAIT_FOR_TX_TIMEOUT });
         }),
       ),
     );
