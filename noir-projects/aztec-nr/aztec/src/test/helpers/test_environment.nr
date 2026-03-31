@@ -432,6 +432,8 @@ impl TestEnvironment {
         let test_account = txe_oracles::add_account(self.contract_account_secret.next());
         let address = test_account.address;
 
+        // We set the deployed account contract's address as "from" such that the scopes are correctly set and the
+        // constructor can access its own keys.
         let _ = self.call_private(
             address,
             PrivateCall::<_, _, ()>::new(
