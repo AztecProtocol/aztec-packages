@@ -143,7 +143,7 @@ template <typename FF_> class CircuitBuilderBase {
     // Increment the gate count by the specified amount
     void increment_num_gates(size_t count = 1)
     {
-        BB_ASSERT_DEBUG(!circuit_finalized, "Cannot add gates after circuit is finalized");
+        BB_ASSERT(!circuit_finalized, "Cannot add gates after circuit is finalized");
         _num_gates += count;
     }
 
