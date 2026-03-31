@@ -72,6 +72,7 @@ CircuitProve::Response _prove(std::vector<uint8_t>&& bytecode,
         info("WARNING: computing verification key while proving. Pass in a precomputed vk for better performance.");
         vk = std::make_shared<VerificationKey>(prover_instance->get_precomputed());
     } else {
+        validate_vk_size<VerificationKey>(vk_bytes);
         vk = std::make_shared<VerificationKey>(from_buffer<VerificationKey>(vk_bytes));
     }
 
