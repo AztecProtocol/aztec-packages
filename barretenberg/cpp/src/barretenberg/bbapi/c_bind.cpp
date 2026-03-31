@@ -1,7 +1,7 @@
 #include "c_bind.hpp"
-#include "barretenberg/common/try_catch_shim.hpp"
 #include "barretenberg/bbapi/bbapi_shared.hpp"
 #include "barretenberg/bbapi/generated/bb_ipc_server.hpp"
+#include "barretenberg/common/try_catch_shim.hpp"
 #include "barretenberg/serialize/msgpack_impl.hpp"
 
 namespace bb::bbapi {
