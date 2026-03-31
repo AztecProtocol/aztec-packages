@@ -367,7 +367,7 @@ export abstract class BaseWallet implements Wallet {
             feeOptions,
             scopes: this.scopesFrom(opts.from, opts.additionalScopes),
             skipTxValidation: opts.skipTxValidation,
-            skipFeeEnforcement: opts.skipFeeEnforcement,
+            skipFeeEnforcement: opts.skipFeeEnforcement ?? true,
           })
         : Promise.resolve(null),
     ]);
