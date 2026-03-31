@@ -149,7 +149,6 @@ impl<T> CapsuleArray<T> {
 }
 
 mod test {
-    use crate::protocol::address::AztecAddress;
     use crate::test::helpers::test_environment::TestEnvironment;
     use super::CapsuleArray;
 
