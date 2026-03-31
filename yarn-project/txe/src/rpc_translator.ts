@@ -830,6 +830,13 @@ export class RPCTranslator {
   }
 
   // eslint-disable-next-line camelcase
+  async aztec_utl_getLogsByTag_v2(foreignRequestArrayBaseSlot: ForeignCallSingle) {
+    const requestArrayBaseSlot = fromSingle(foreignRequestArrayBaseSlot);
+    const responseSlot = await this.handlerAsUtility().getLogsByTagV2(requestArrayBaseSlot);
+    return toForeignCallResult([toSingle(responseSlot)]);
+  }
+
+  // eslint-disable-next-line camelcase
   async aztec_utl_getMessageContextsByTxHash_v2(foreignRequestArrayBaseSlot: ForeignCallSingle) {
     const requestArrayBaseSlot = fromSingle(foreignRequestArrayBaseSlot);
     const responseSlot = await this.handlerAsUtility().getMessageContextsByTxHashV2(requestArrayBaseSlot);

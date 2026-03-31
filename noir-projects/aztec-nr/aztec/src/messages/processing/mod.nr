@@ -44,10 +44,6 @@ global LOG_RETRIEVAL_REQUESTS_ARRAY_BASE_SLOT: Field = sha256_to_field(
     "AZTEC_NR::LOG_RETRIEVAL_REQUESTS_ARRAY_BASE_SLOT".as_bytes(),
 );
 
-global LOG_RETRIEVAL_RESPONSES_ARRAY_BASE_SLOT: Field = sha256_to_field(
-    "AZTEC_NR::LOG_RETRIEVAL_RESPONSES_ARRAY_BASE_SLOT".as_bytes(),
-);
-
 /// An offchain-delivered message with resolved context, ready for processing during sync.
 #[derive(Serialize, Deserialize)]
 pub struct OffchainMessageWithContext {
@@ -160,18 +156,13 @@ pub unconstrained fn validate_and_store_enqueued_notes_and_events(contract_addre
 /// for the responses that correspond to the pending partial notes at the same index.
 ///
 /// For example, given an array with pending partial notes `[ p1, p2, p3 ]`, where `p1` and `p3` have corresponding
-/// completion logs but `p2` does not, the returned `CapsuleArray` will have contents `[some(p1_log), none(),
+/// completion logs but `p2` does not, the returned `EphemeralArray` will have contents `[some(p1_log), none(),
 /// some(p3_log)]`.
 pub(crate) unconstrained fn get_pending_partial_notes_completion_logs(
     contract_address: AztecAddress,
     pending_partial_notes: CapsuleArray<DeliveredPendingPartialNote>,
-    scope: AztecAddress,
-) -> CapsuleArray<Option<LogRetrievalResponse>> {
-    let log_retrieval_requests = CapsuleArray::at(
-        contract_address,
-        LOG_RETRIEVAL_REQUESTS_ARRAY_BASE_SLOT,
-        scope,
-    );
+) -> EphemeralArray<Option<LogRetrievalResponse>> {
+    let log_retrieval_requests = EphemeralArray::at(LOG_RETRIEVAL_REQUESTS_ARRAY_BASE_SLOT);
 
     // We create a LogRetrievalRequest for each PendingPartialNote in the CapsuleArray. Because we need the indices in
     // the request array to match the indices in the partial note array, we can't use CapsuleArray::for_each, as that
@@ -191,16 +182,5 @@ pub(crate) unconstrained fn get_pending_partial_notes_completion_logs(
         i += 1;
     }
 
-    oracle::message_processing::get_logs_by_tag(
-        contract_address,
-        LOG_RETRIEVAL_REQUESTS_ARRAY_BASE_SLOT,
-        LOG_RETRIEVAL_RESPONSES_ARRAY_BASE_SLOT,
-        scope,
-    );
-
-    CapsuleArray::at(
-        contract_address,
-        LOG_RETRIEVAL_RESPONSES_ARRAY_BASE_SLOT,
-        scope,
-    )
+    oracle::message_processing::get_logs_by_tag(LOG_RETRIEVAL_REQUESTS_ARRAY_BASE_SLOT)
 }

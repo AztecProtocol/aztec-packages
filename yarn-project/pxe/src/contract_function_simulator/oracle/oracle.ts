@@ -583,6 +583,12 @@ export class Oracle {
   }
 
   // eslint-disable-next-line camelcase
+  async aztec_utl_getLogsByTag_v2([requestArrayBaseSlot]: ACVMField[]): Promise<ACVMField[]> {
+    const responseSlot = await this.handlerAsUtility().getLogsByTagV2(Fr.fromString(requestArrayBaseSlot));
+    return [toACVMField(responseSlot)];
+  }
+
+  // eslint-disable-next-line camelcase
   async aztec_utl_getMessageContextsByTxHash_v2([requestArrayBaseSlot]: ACVMField[]): Promise<ACVMField[]> {
     const responseSlot = await this.handlerAsUtility().getMessageContextsByTxHashV2(
       Fr.fromString(requestArrayBaseSlot),

@@ -1,5 +1,7 @@
 use crate::ephemeral::EphemeralArray;
-use crate::messages::processing::{MessageContext, pending_tagged_log::PendingTaggedLog};
+use crate::messages::processing::{
+    log_retrieval_response::LogRetrievalResponse, MessageContext, pending_tagged_log::PendingTaggedLog,
+};
 use crate::protocol::address::AztecAddress;
 
 /// Finds new private logs that may have been sent to all registered accounts in PXE in the current contract and
@@ -42,27 +44,16 @@ unconstrained fn validate_and_store_enqueued_notes_and_events_oracle(
     scope: AztecAddress,
 ) {}
 
+/// Fetches logs by tag from an ephemeral request array and returns a response ephemeral array.
 pub(crate) unconstrained fn get_logs_by_tag(
-    contract_address: AztecAddress,
-    log_retrieval_requests_array_base_slot: Field,
-    log_retrieval_responses_array_base_slot: Field,
-    scope: AztecAddress,
-) {
-    get_logs_by_tag_oracle(
-        contract_address,
-        log_retrieval_requests_array_base_slot,
-        log_retrieval_responses_array_base_slot,
-        scope,
-    );
+    request_array_base_slot: Field,
+) -> EphemeralArray<Option<LogRetrievalResponse>> {
+    let response_slot = get_logs_by_tag_v2_oracle(request_array_base_slot);
+    EphemeralArray::at(response_slot)
 }
 
-#[oracle(aztec_utl_getLogsByTag)]
-unconstrained fn get_logs_by_tag_oracle(
-    contract_address: AztecAddress,
-    log_retrieval_requests_array_base_slot: Field,
-    log_retrieval_responses_array_base_slot: Field,
-    scope: AztecAddress,
-) {}
+#[oracle(aztec_utl_getLogsByTag_v2)]
+unconstrained fn get_logs_by_tag_v2_oracle(request_array_base_slot: Field) -> Field {}
 
 /// Resolves message contexts for tx hashes in an ephemeral request array and returns a response ephemeral array.
 pub(crate) unconstrained fn get_message_contexts_by_tx_hash(

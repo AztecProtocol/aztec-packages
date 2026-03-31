@@ -635,6 +635,17 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     );
   }
 
+  public async getLogsByTagV2(requestArrayBaseSlot: Fr): Promise<Fr> {
+    const logRetrievalRequests = this.ephemeralArrayService
+      .readArrayAt(requestArrayBaseSlot)
+      .map(LogRetrievalRequest.fromFields);
+    const logService = this.#createLogService();
+
+    const maybeLogRetrievalResponses = await logService.fetchLogsByTag(this.contractAddress, logRetrievalRequests);
+
+    return this.ephemeralArrayService.newArray(maybeLogRetrievalResponses.map(LogRetrievalResponse.toSerializedOption));
+  }
+
   public async getMessageContextsByTxHash(
     contractAddress: AztecAddress,
     messageContextRequestsArrayBaseSlot: Fr,
