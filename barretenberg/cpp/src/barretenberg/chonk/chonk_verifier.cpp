@@ -21,7 +21,8 @@ namespace bb {
  *   2. Databus consistency check
  *   3. Merge verification (using t_j, T_prev)
  *   4. ECCVM verification → get v, x, accumulated_result, IPA claim
- *   5. Translator Oink + Joint sumcheck + Joint PCS → pairing check
+ *   5. ECCVM IPA claim + Hiding Kernel IPA claim → accumulate for deferred verification
+ *   6. Translator Oink + Joint sumcheck + Joint PCS → pairing check
  */
 template <> ChonkVerifier<false>::IPAReductionResult ChonkVerifier<false>::reduce_to_ipa_claim(const Proof& proof)
 {
@@ -76,9 +77,16 @@ template <> ChonkVerifier<false>::IPAReductionResult ChonkVerifier<false>::reduc
         info("ChonkVerifier: verification failed at ECCVM step");
         return { {}, {}, false };
     }
-    auto translator_input = eccvm_verifier.get_translator_input_data();
 
-    // Step 5: Translator Oink + Joint sumcheck + Joint PCS
+    // Step 5: Accumulate ECCVM IPA claim and Hiding Kernel IPA claim for deferred verification
+    CommitmentKey<curve::Grumpkin> ck{ ECCVMFlavor::ECCVM_FIXED_SIZE };
+    auto kernel_ipa_transcript = std::make_shared<Transcript>(proof.io_ipa_proof);
+    auto eccvm_ipa_transcript = std::make_shared<Transcript>(proof.eccvm_ipa_proof);
+    auto [accumulated_ipa_claim, accumulated_ipa_proof] = IPA<typename curve::Grumpkin>::accumulate(
+        ck, kernel_ipa_transcript, kernel_io.ipa_claim, eccvm_ipa_transcript, eccvm_result.ipa_claim);
+
+    // Step 6: Translator Oink + Joint sumcheck + Joint PCS
+    auto translator_input = eccvm_verifier.get_translator_input_data();
     auto batched_result = batched_verifier.verify(proof.joint_proof,
                                                   translator_input.evaluation_challenge_x,
                                                   translator_input.batching_challenge_v,
@@ -95,7 +103,7 @@ template <> ChonkVerifier<false>::IPAReductionResult ChonkVerifier<false>::reduc
         return { {}, {}, false };
     }
 
-    return { std::move(eccvm_result.ipa_claim), proof.ipa_proof, true };
+    return { accumulated_ipa_claim, accumulated_ipa_proof, true };
 }
 
 /**
@@ -130,8 +138,9 @@ template <> ChonkVerifier<false>::Output ChonkVerifier<false>::verify(const Proo
  *   2. Databus consistency check (in-circuit)
  *   3. Merge verification → merge pairing points
  *   4. ECCVM verification → IPA claim + translator input data
- *   5. Translator Oink + Joint sumcheck + Joint PCS → batched pairing points
- *   6. Aggregate all pairing points (PI, Merge, Batched PCS)
+ *   5. ECCVM IPA claim + Hiding Kernel IPA claim → accumulate for deferred verification
+ *   6. Translator Oink + Joint sumcheck + Joint PCS → batched pairing points
+ *   7. Aggregate all pairing points (PI, Merge, Batched PCS)
  *
  * Returns ReductionResult with aggregated pairing points and IPA claim for deferred verification.
  */
@@ -165,9 +174,21 @@ template <> ChonkVerifier<true>::Output ChonkVerifier<true>::verify(const Proof&
     auto eccvm_result = eccvm_verifier.reduce_to_ipa_opening();
     vinfo("ChonkRecursiveVerifier: ECCVM reduced to IPA opening: ",
           eccvm_result.reduction_succeeded ? "true" : "false");
-    auto translator_input = eccvm_verifier.get_translator_input_data();
 
-    // Step 5: Translator Oink + Joint sumcheck + Joint PCS
+    // Step 5: Accumulate ECCVM IPA claim and Hiding Kernel IPA claim for deferred verification
+    CommitmentKey<curve::Grumpkin> ck{ ECCVMFlavor::ECCVM_FIXED_SIZE };
+    auto kernel_ipa_transcript = std::make_shared<Transcript>(proof.io_ipa_proof);
+    auto eccvm_ipa_transcript = std::make_shared<Transcript>(proof.eccvm_ipa_proof);
+    auto [accumulated_ipa_claim, accumulated_ipa_proof] =
+        IPA<typename GoblinVerifier::ECCVMVerifier::Curve>::accumulate(
+            ck, kernel_ipa_transcript, kernel_io.ipa_claim, eccvm_ipa_transcript, eccvm_result.ipa_claim);
+
+    // Convert proof to stdlib proof
+    typename ChonkVerifier::Builder* builder = kernel_io.kernel_return_data.get_context();
+    stdlib::Proof<typename ChonkVerifier::Builder> stdlib_accumulated_ipa_proof(*builder, accumulated_ipa_proof);
+
+    // Step 6: Translator Oink + Joint sumcheck + Joint PCS
+    auto translator_input = eccvm_verifier.get_translator_input_data();
     auto batched_result = batched_verifier.verify(proof.joint_proof,
                                                   translator_input.evaluation_challenge_x,
                                                   translator_input.batching_challenge_v,
@@ -176,7 +197,7 @@ template <> ChonkVerifier<true>::Output ChonkVerifier<true>::verify(const Proof&
     vinfo("ChonkRecursiveVerifier: Batched translator+joint reduction: ",
           batched_result.reduction_succeeded ? "true" : "false");
 
-    // Step 6: Aggregate all pairing points (PI, Merge, Batched PCS)
+    // Step 7: Aggregate all pairing points (PI, Merge, Batched PCS)
     std::vector<PairingPoints> pairing_points_to_aggregate;
     pairing_points_to_aggregate.reserve(NUM_PAIRING_POINTS);
 
@@ -196,8 +217,8 @@ template <> ChonkVerifier<true>::Output ChonkVerifier<true>::verify(const Proof&
         merge_result.reduction_succeeded && eccvm_result.reduction_succeeded && batched_result.reduction_succeeded;
 
     return ReductionResult{ .pairing_points = std::move(aggregated_pairing_points),
-                            .ipa_claim = std::move(eccvm_result.ipa_claim),
-                            .ipa_proof = proof.ipa_proof,
+                            .ipa_claim = std::move(accumulated_ipa_claim),
+                            .ipa_proof = std::move(stdlib_accumulated_ipa_proof),
                             .all_checks_passed = all_checks_passed };
 }
 

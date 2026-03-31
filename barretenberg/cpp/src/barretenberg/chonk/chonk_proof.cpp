@@ -22,8 +22,9 @@ std::vector<typename ChonkProof_<IsRecursive>::FF> ChonkProof_<IsRecursive>::to_
     proof.insert(proof.end(), hiding_oink_proof.begin(), hiding_oink_proof.end());
     proof.insert(proof.end(), merge_proof.begin(), merge_proof.end());
     proof.insert(proof.end(), eccvm_proof.begin(), eccvm_proof.end());
-    proof.insert(proof.end(), ipa_proof.begin(), ipa_proof.end());
+    proof.insert(proof.end(), eccvm_ipa_proof.begin(), eccvm_ipa_proof.end());
     proof.insert(proof.end(), joint_proof.begin(), joint_proof.end());
+    proof.insert(proof.end(), io_ipa_proof.begin(), io_ipa_proof.end());
     return proof;
 };
 
@@ -43,7 +44,7 @@ ChonkProof_<IsRecursive> ChonkProof_<IsRecursive>::from_field_elements(const std
 
     // MegaZK Oink proof size = total - all other fixed-size components.
     // This correctly accounts for any ACIR public inputs prepended to the oink portion.
-    constexpr size_t fixed_total = merge_size + eccvm_size + ipa_size + joint_size;
+    constexpr size_t fixed_total = merge_size + eccvm_size + ipa_size + joint_size + ipa_size;
     if (fields.size() < fixed_total) {
         throw_or_abort("ChonkProof::from_field_elements: proof too short");
     }
@@ -60,17 +61,16 @@ ChonkProof_<IsRecursive> ChonkProof_<IsRecursive>::from_field_elements(const std
     HonkProof eccvm_proof_out(it, it + static_cast<std::ptrdiff_t>(eccvm_size));
     it += static_cast<std::ptrdiff_t>(eccvm_size);
 
-    HonkProof ipa_proof_out(it, it + static_cast<std::ptrdiff_t>(ipa_size));
+    HonkProof eccvm_ipa_proof_out(it, it + static_cast<std::ptrdiff_t>(ipa_size));
     it += static_cast<std::ptrdiff_t>(ipa_size);
 
-    // Remainder is the joint_proof
-    HonkProof joint_proof_out(it, fields.end());
+    HonkProof joint_proof_out(it, it + static_cast<std::ptrdiff_t>(joint_size));
+    it += static_cast<std::ptrdiff_t>(joint_size);
 
-    return ChonkProof_{ std::move(hiding_oink_proof),
-                        std::move(merge_proof_out),
-                        std::move(eccvm_proof_out),
-                        std::move(ipa_proof_out),
-                        std::move(joint_proof_out) };
+    HonkProof io_ipa_proof_out(it, it + static_cast<std::ptrdiff_t>(ipa_size));
+
+    return ChonkProof_{ std::move(hiding_oink_proof),   std::move(merge_proof_out), std::move(eccvm_proof_out),
+                        std::move(eccvm_ipa_proof_out), std::move(joint_proof_out), std::move(io_ipa_proof_out) };
 }
 
 // Explicit template instantiations

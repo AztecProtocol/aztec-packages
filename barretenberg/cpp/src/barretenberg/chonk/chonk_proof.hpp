@@ -41,8 +41,9 @@ template <bool IsRecursive = false> struct ChonkProof_ {
     HonkProof hiding_oink_proof; // Hiding kernel Oink (pre-sumcheck only)
     HonkProof merge_proof;       // Merge proof
     HonkProof eccvm_proof;       // ECCVM proof
-    HonkProof ipa_proof;         // IPA opening proof (separate transcript)
+    HonkProof eccvm_ipa_proof;   // ECCVM IPA opening proof (separate transcript)
     HonkProof joint_proof;       // Translator Oink + joint sumcheck + joint PCS
+    HonkProof io_ipa_proof;      // IPA proof contained in KernelIO
 
     // Sub-proof sizes (in field elements, excluding public inputs).
     static constexpr size_t HIDING_OINK_LENGTH = ProofLength::Oink<MegaZKFlavor>::LENGTH_WITHOUT_PUB_INPUTS;
@@ -51,20 +52,23 @@ template <bool IsRecursive = false> struct ChonkProof_ {
     static constexpr size_t JOINT_PROOF_LENGTH =
         TranslatorFlavor::COMMITTED_SUMCHECK_PROOF_LENGTH + MegaZKFlavor::NUM_ALL_ENTITIES;
 
-    static constexpr size_t PROOF_LENGTH_WITHOUT_PUB_INPUTS =
-        HIDING_OINK_LENGTH + MERGE_PROOF_SIZE + ECCVMFlavor::PROOF_LENGTH + IPA_PROOF_LENGTH + JOINT_PROOF_LENGTH;
+    static constexpr size_t PROOF_LENGTH_WITHOUT_PUB_INPUTS = HIDING_OINK_LENGTH + MERGE_PROOF_SIZE +
+                                                              ECCVMFlavor::PROOF_LENGTH + IPA_PROOF_LENGTH +
+                                                              JOINT_PROOF_LENGTH + IPA_PROOF_LENGTH;
     static constexpr size_t PROOF_LENGTH = PROOF_LENGTH_WITHOUT_PUB_INPUTS + bb::HidingKernelIO::PUBLIC_INPUTS_SIZE;
 
     // Default constructor
     ChonkProof_() = default;
 
     // 5-arg constructor
-    ChonkProof_(HonkProof mega_zk, HonkProof merge, HonkProof eccvm, HonkProof ipa, HonkProof joint)
+    ChonkProof_(
+        HonkProof mega_zk, HonkProof merge, HonkProof eccvm, HonkProof eccvm_ipa, HonkProof joint, HonkProof io_ipa)
         : hiding_oink_proof(std::move(mega_zk))
         , merge_proof(std::move(merge))
         , eccvm_proof(std::move(eccvm))
-        , ipa_proof(std::move(ipa))
+        , eccvm_ipa_proof(std::move(eccvm_ipa))
         , joint_proof(std::move(joint))
+        , io_ipa_proof(std::move(io_ipa))
     {}
 
     // Constructs a stdlib Chonk proof from a native Chonk proof
@@ -74,14 +78,15 @@ template <bool IsRecursive = false> struct ChonkProof_ {
         : hiding_oink_proof(builder, proof.hiding_oink_proof)
         , merge_proof(builder, proof.merge_proof)
         , eccvm_proof(builder, proof.eccvm_proof)
-        , ipa_proof(builder, proof.ipa_proof)
+        , eccvm_ipa_proof(builder, proof.eccvm_ipa_proof)
         , joint_proof(builder, proof.joint_proof)
+        , io_ipa_proof(builder, proof.io_ipa_proof)
     {}
 
     size_t size() const
     {
-        return hiding_oink_proof.size() + merge_proof.size() + eccvm_proof.size() + ipa_proof.size() +
-               joint_proof.size();
+        return hiding_oink_proof.size() + merge_proof.size() + eccvm_proof.size() + eccvm_ipa_proof.size() +
+               joint_proof.size() + io_ipa_proof.size();
     }
 
     /**
@@ -175,7 +180,7 @@ template <bool IsRecursive = false> struct ChonkProof_ {
         {}
     };
 
-    SERIALIZATION_FIELDS(hiding_oink_proof, merge_proof, eccvm_proof, ipa_proof, joint_proof);
+    SERIALIZATION_FIELDS(hiding_oink_proof, merge_proof, eccvm_proof, eccvm_ipa_proof, joint_proof, io_ipa_proof);
     bool operator==(const ChonkProof_& other) const = default;
 };
 

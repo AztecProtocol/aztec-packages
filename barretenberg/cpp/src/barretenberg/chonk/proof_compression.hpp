@@ -402,7 +402,7 @@ class ProofCompressor {
         2 * BN254_FRS_PER_COMM;                                                                                    // shplonk Q + KZG W
     // Cross-check: walk-based count must match ChonkProof's structural constants
     static_assert(EXPECTED_HIDING_OINK_FRS + EXPECTED_MERGE_FRS + EXPECTED_ECCVM_FRS + EXPECTED_IPA_FRS +
-                      EXPECTED_JOINT_FRS ==
+                      EXPECTED_JOINT_FRS + EXPECTED_IPA_FRS ==
                   ChonkProof::PROOF_LENGTH_WITHOUT_PUB_INPUTS);
     // clang-format on
 
