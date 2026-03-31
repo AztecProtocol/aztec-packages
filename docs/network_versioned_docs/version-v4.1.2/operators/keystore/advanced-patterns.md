@@ -80,7 +80,9 @@ All publisher accounts must be funded with ETH. Monitor balances to avoid missed
 
 Run multiple sequencer identities in a single node. This is useful when you operate multiple sequencers but want to consolidate infrastructure.
 
-:::info
+:::info High Availability Across Nodes
+If you want to run the **same** sequencer across multiple nodes for redundancy and high availability, see the [High Availability Sequencers guide](../setup/high-availability.md). That guide covers running one sequencer identity on multiple physical nodes.
+
 This section covers running **multiple different sequencer identities** on a single node.
 :::
 
@@ -148,6 +150,8 @@ Each sequencer with its own publisher, coinbase, and fee recipient:
   ]
 }
 ```
+
+For high availability configurations where you run the same sequencer across multiple nodes, see the [High Availability Sequencers guide](../setup/high-availability.md).
 
 ## Infrastructure provider scenarios
 
@@ -274,6 +278,8 @@ After generation, you'll have a keystore with one attester and multiple publishe
 **Node 3** - Uses publisher at index 3
 
 Each node's keystore will have the **same attester keys** (both ETH and BLS) but a **different publisher key**.
+
+For detailed step-by-step HA setup instructions, see the [High Availability Sequencers guide](../setup/high-availability.md).
 
 ## Next steps
 

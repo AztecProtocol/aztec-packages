@@ -44,13 +44,13 @@ cd bob_token
 yarn init
 # This is to ensure yarn uses node_modules instead of pnp for dependency installation
 yarn config set nodeLinker node-modules
-yarn add @aztec/aztec.js@4.2.0-aztecnr-rc.2 @aztec/accounts@4.2.0-aztecnr-rc.2 @aztec/test-wallet@4.2.0-aztecnr-rc.2 @aztec/kv-store@4.2.0-aztecnr-rc.2
+yarn add @aztec/aztec.js@4.2.0-aztecnr-rc.2 @aztec/accounts@4.2.0-aztecnr-rc.2 @aztec/kv-store@4.2.0-aztecnr-rc.2
 aztec init
 ```
 
 ## Contract structure
 
-The `aztec init` command created a workspace with two crates: a `bob_token_contract` crate for your smart contract code and a `bob_token_test` crate for Noir tests. In `bob_token_contract/src/main.nr` we even have a proto-contract. Let's replace it with a simple starting point:
+The `aztec init` command created a contract project with `Nargo.toml` and `src/main.nr`. Let's replace the boilerplate in `src/main.nr` with a simple starting point:
 
 ```rust
 use aztec::macros::aztec;

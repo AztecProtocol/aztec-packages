@@ -10,6 +10,7 @@ import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { type L1RollupConstants, getNextL1SlotTimestamp, getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
 import { GasFees } from '@aztec/stdlib/gas';
 import type {
+  BuildCheckpointGlobalVariablesOpts,
   CheckpointGlobalVariables,
   GlobalVariableBuilder as GlobalVariableBuilderInterface,
 } from '@aztec/stdlib/tx';
@@ -119,6 +120,7 @@ export class GlobalVariableBuilder implements GlobalVariableBuilderInterface {
     coinbase: EthAddress,
     feeRecipient: AztecAddress,
     slotNumber: SlotNumber,
+    opts?: BuildCheckpointGlobalVariablesOpts,
   ): Promise<CheckpointGlobalVariables> {
     const { chainId, version } = this;
 
@@ -127,9 +129,19 @@ export class GlobalVariableBuilder implements GlobalVariableBuilderInterface {
       l1GenesisTime: this.l1GenesisTime,
     });
 
-    // We can skip much of the logic in getCurrentMinFees since it we already check that we are not within a slot elsewhere.
-    // TODO(palla/mbps): Can we use a cached value here?
-    const gasFees = new GasFees(0, await this.rollupContract.getManaMinFeeAt(timestamp, true));
+    // When pipelining, force the proposed checkpoint number and fee header to the parent so that
+    // the fee computation matches what L1 will see when the previous pipelined checkpoint has landed.
+    const pendingNumberOverride = await this.rollupContract.makePendingCheckpointNumberOverride(
+      opts?.forcePendingCheckpointNumber,
+    );
+    const feeHeaderOverride = opts?.forceProposedFeeHeader
+      ? await this.rollupContract.makeFeeHeaderOverride(
+          opts.forceProposedFeeHeader.checkpointNumber,
+          opts.forceProposedFeeHeader.feeHeader,
+        )
+      : [];
+    const stateOverride = RollupContract.mergeStateOverrides(pendingNumberOverride, feeHeaderOverride);
+    const gasFees = new GasFees(0, await this.rollupContract.getManaMinFeeAt(timestamp, true, stateOverride));
 
     return { chainId, version, slotNumber, timestamp, coinbase, feeRecipient, gasFees };
   }

@@ -28,7 +28,7 @@ import { EpochsTestContext } from './epochs_test.js';
 jest.setTimeout(1000 * 60 * 20);
 
 const NODE_COUNT = 4;
-const EXPECTED_BLOCKS_PER_CHECKPOINT = 1;
+const EXPECTED_BLOCKS_PER_CHECKPOINT = 3;
 
 // Send enough transactions to trigger multiple blocks within a checkpoint assuming 2 txs per block.
 const TX_COUNT = 10;
@@ -72,6 +72,7 @@ describe('e2e_epochs/epochs_mbps_pipeline', () => {
       mockGossipSubNetwork: true,
       disableAnvilTestWatcher: true,
       startProverNode: true,
+      perBlockAllocationMultiplier: 1,
       aztecEpochDuration: 4,
       enforceTimeTable: true,
       ethereumSlotDuration: 4,
@@ -80,6 +81,7 @@ describe('e2e_epochs/epochs_mbps_pipeline', () => {
       l1PublishingTime: 2,
       attestationPropagationTime: 0.5,
       aztecTargetCommitteeSize: 3,
+      inboxLag: 2,
       ...setupOpts,
       pxeOpts: { syncChainTip },
     });

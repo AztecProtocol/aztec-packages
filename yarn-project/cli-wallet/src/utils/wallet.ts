@@ -56,7 +56,12 @@ export class CLIWallet extends BaseWallet {
 
   override async getAccounts(): Promise<Aliased<AztecAddress>[]> {
     const accounts = (await this.db?.listAliases('accounts')) ?? [];
-    return Promise.resolve(accounts.map(({ key, value }) => ({ alias: value, item: AztecAddress.fromString(key) })));
+    return Promise.resolve(
+      accounts.map(({ key, value }) => {
+        const alias = key.includes(':') ? key.slice(key.indexOf(':') + 1) : key;
+        return { alias, item: AztecAddress.fromString(value) };
+      }),
+    );
   }
 
   private async createCancellationTxExecutionRequest(

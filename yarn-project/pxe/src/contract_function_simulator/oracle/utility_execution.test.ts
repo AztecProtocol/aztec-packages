@@ -232,11 +232,15 @@ describe('Utility Execution test suite', () => {
     let utilityExecutionOracle: UtilityExecutionOracle;
     const syncedBlockNumber = 100;
 
+    let scope: AztecAddress;
+
     beforeEach(async () => {
       contractAddress = await AztecAddress.random();
       anchorBlockHeader = BlockHeader.empty({
         globalVariables: GlobalVariables.empty({ blockNumber: BlockNumber(syncedBlockNumber) }),
       });
+
+      scope = await AztecAddress.random();
 
       utilityExecutionOracle = new UtilityExecutionOracle({
         contractAddress,
@@ -250,12 +254,12 @@ describe('Utility Execution test suite', () => {
         aztecNode,
         recipientTaggingStore,
         senderAddressBookStore,
-        capsuleService: new CapsuleService(capsuleStore, 'ALL_SCOPES'),
+        capsuleService: new CapsuleService(capsuleStore, [scope]),
         privateEventStore,
         messageContextService,
         contractSyncService,
         jobId: 'test-job-id',
-        scopes: 'ALL_SCOPES',
+        scopes: [scope],
       });
     });
 
@@ -268,8 +272,7 @@ describe('Utility Execution test suite', () => {
     });
 
     describe('capsules', () => {
-      it('forwards scope to the capsule store', async () => {
-        const scope = await AztecAddress.random();
+      it('forwards scope to the capsule service', async () => {
         const slot = Fr.random();
         const srcSlot = Fr.random();
         const dstSlot = Fr.random();
@@ -317,12 +320,12 @@ describe('Utility Execution test suite', () => {
           aztecNode,
           recipientTaggingStore,
           senderAddressBookStore,
-          capsuleService: new CapsuleService(capsuleStore, 'ALL_SCOPES'),
+          capsuleService: new CapsuleService(capsuleStore, [scope]),
           privateEventStore,
           messageContextService,
           contractSyncService,
           jobId: 'test-job-id',
-          scopes: 'ALL_SCOPES',
+          scopes: [scope],
         });
 
         capsuleStore.getCapsule.mockResolvedValueOnce(persisted);
@@ -358,7 +361,6 @@ describe('Utility Execution test suite', () => {
     describe('utilityResolveMessageContexts', () => {
       const requestSlot = Fr.random();
       const responseSlot = Fr.random();
-      const scope = AztecAddress.fromBigInt(42n);
 
       it('throws when contractAddress does not match', async () => {
         const wrongAddress = await AztecAddress.random();
@@ -498,12 +500,12 @@ describe('Utility Execution test suite', () => {
             aztecNode,
             recipientTaggingStore,
             senderAddressBookStore,
-            capsuleService: new CapsuleService(capsuleStore, 'ALL_SCOPES'),
+            capsuleService: new CapsuleService(capsuleStore, []),
             privateEventStore,
             messageContextService,
             contractSyncService,
             jobId: 'test-job-id',
-            scopes: 'ALL_SCOPES',
+            scopes: [],
           });
 
         const oracleA = makeOracle(contractAddressA);

@@ -178,26 +178,32 @@ pub unconstrained fn do_sync_state<CustomMessageHandlerEnv>(
 }
 
 mod test {
+    use crate::ephemeral::EphemeralArray;
     use crate::messages::{
         discovery::{CustomMessageHandler, do_sync_state},
         logs::note::MAX_NOTE_PACKED_LEN,
-        processing::offchain::OffchainInboxSync,
+        processing::{offchain::OffchainInboxSync, pending_tagged_log::PendingTaggedLog},
     };
     use crate::protocol::address::AztecAddress;
     use crate::test::helpers::test_environment::TestEnvironment;
 
-    global SCOPE: AztecAddress = AztecAddress { inner: 0xcafe };
-
     #[test]
     unconstrained fn do_sync_state_does_not_panic_on_empty_logs() {
-        let env = TestEnvironment::new();
+        let mut env = TestEnvironment::new();
+        let scope = env.create_light_account();
 
         let contract_address = AztecAddress { inner: 0xdeadbeef };
 
         env.utility_context_at(contract_address, |_| {
-            // Mock the oracle call to return a base slot pointing to an empty ephemeral array.
+            // Mock the oracle call to return a known base slot, then populate an ephemeral
+            // array at that slot so do_sync_state processes a non-empty log list.
+            let base_slot = 42;
             let mock = std::test::OracleMock::mock("aztec_utl_getPendingTaggedLogs_v2");
-            let _ = mock.returns(42);
+            let _ = mock.returns(base_slot);
+
+            let logs: EphemeralArray<PendingTaggedLog> = EphemeralArray::at(base_slot);
+            logs.push(PendingTaggedLog { log: BoundedVec::new(), context: std::mem::zeroed() });
+            assert_eq(logs.len(), 1);
 
             let no_handler: Option<CustomMessageHandler<()>> = Option::none();
             let no_inbox_sync: Option<OffchainInboxSync<()>> = Option::none();
@@ -207,7 +213,7 @@ mod test {
                 dummy_compute_note_nullifier,
                 no_handler,
                 no_inbox_sync,
-                SCOPE,
+                scope,
             );
         });
     }

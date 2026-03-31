@@ -546,8 +546,8 @@ export class HttpBlobClient implements BlobClientInterface {
       baseUrl += `?${params.toString()}`;
     }
 
-    const { url, ...options } = getBeaconNodeFetchOptions(baseUrl, this.config, l1ConsensusHostIndex);
-    this.log.debug(`Fetching blob sidecar for ${blockHashOrSlot}`, { url, ...options });
+    const { url, logSafeUrl, ...options } = getBeaconNodeFetchOptions(baseUrl, this.config, l1ConsensusHostIndex);
+    this.log.debug(`Fetching blob sidecar for ${blockHashOrSlot}`, { url: logSafeUrl, ...options });
     // No retry here — this is called inside the main retry loop in getBlobSidecar
     return fetch(url, options);
   }
@@ -555,8 +555,8 @@ export class HttpBlobClient implements BlobClientInterface {
   private async getLatestSlotNumber(hostUrl: string, l1ConsensusHostIndex?: number): Promise<number | undefined> {
     try {
       const baseUrl = `${hostUrl}/eth/v1/beacon/headers/head`;
-      const { url, ...options } = getBeaconNodeFetchOptions(baseUrl, this.config, l1ConsensusHostIndex);
-      this.log.debug(`Fetching latest slot number`, { url, ...options });
+      const { url, logSafeUrl, ...options } = getBeaconNodeFetchOptions(baseUrl, this.config, l1ConsensusHostIndex);
+      this.log.debug(`Fetching latest slot number`, { url: logSafeUrl, ...options });
       const res = await this.fetch(url, options);
       if (res.ok) {
         const body = await res.json();
@@ -819,12 +819,16 @@ function getBeaconNodeFetchOptions(url: string, config: BlobClientConfig, l1Cons
     l1ConsensusHostApiKeyHeaders[l1ConsensusHostIndex];
 
   let formattedUrl = url;
+  let logSafeUrl = url;
   if (l1ConsensusHostApiKey && l1ConsensusHostApiKey.getValue() !== '' && !l1ConsensusHostApiKeyHeader) {
-    formattedUrl += `${formattedUrl.includes('?') ? '&' : '?'}key=${l1ConsensusHostApiKey.getValue()}`;
+    const separator = formattedUrl.includes('?') ? '&' : '?';
+    formattedUrl += `${separator}key=${l1ConsensusHostApiKey.getValue()}`;
+    logSafeUrl += `${separator}key=[REDACTED]`;
   }
 
   return {
     url: formattedUrl,
+    logSafeUrl,
     ...(l1ConsensusHostApiKey &&
       l1ConsensusHostApiKeyHeader && {
         headers: {
