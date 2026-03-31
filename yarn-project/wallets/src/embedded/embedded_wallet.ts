@@ -9,8 +9,9 @@ import { Fq, Fr } from '@aztec/foundation/curves/bn254';
 import type { Logger } from '@aztec/foundation/log';
 import type { PXEConfig, PXECreationOptions } from '@aztec/pxe/client/lazy';
 import type { PXE } from '@aztec/pxe/server';
+import type { ContractArtifact } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { getContractInstanceFromInstantiationParams } from '@aztec/stdlib/contract';
+import { type ContractInstanceWithAddress, getContractInstanceFromInstantiationParams } from '@aztec/stdlib/contract';
 import { GasSettings } from '@aztec/stdlib/gas';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import { deriveSigningKey } from '@aztec/stdlib/keys';
@@ -94,11 +95,7 @@ export class EmbeddedWallet extends BaseWallet {
     executionPayload: ExecutionPayload,
     opts: SendOptions<W>,
   ): Promise<SendReturn<W>> {
-    const feeOptions = await this.completeFeeOptionsForEstimation(
-      opts.from,
-      executionPayload.feePayer,
-      opts.fee?.gasSettings,
-    );
+    const feeOptions = await this.completeFeeOptions(opts.from, executionPayload.feePayer, opts.fee?.gasSettings);
 
     // Simulate the transaction first to estimate gas and capture required
     // private authwitnesses based on offchain effects.
@@ -146,6 +143,43 @@ export class EmbeddedWallet extends BaseWallet {
   }
 
   /**
+   * Builds simulation overrides for all provided addresses by replacing their account contracts with stub implementations.
+   */
+  protected async buildAccountOverrides(
+    addresses: AztecAddress[],
+  ): Promise<Record<string, { instance: ContractInstanceWithAddress; artifact: ContractArtifact }>> {
+    const accounts = await this.getAccounts();
+    const contracts: Record<string, { instance: ContractInstanceWithAddress; artifact: ContractArtifact }> = {};
+
+    const stubArtifact = await this.accountContracts.getStubAccountContractArtifact();
+
+    const filtered = accounts.filter(acc => addresses.some(addr => addr.equals(acc.item)));
+
+    for (const account of filtered) {
+      const address = account.item;
+      const originalAccount = await this.getAccountFromAddress(address);
+      const completeAddress = originalAccount.getCompleteAddress();
+      const contractInstance = await this.pxe.getContractInstance(completeAddress.address);
+      if (!contractInstance) {
+        throw new Error(
+          `No contract instance found for address: ${completeAddress.address} during account override building. This is a bug!`,
+        );
+      }
+
+      const stubInstance = await getContractInstanceFromInstantiationParams(stubArtifact, {
+        salt: Fr.random(),
+      });
+
+      contracts[address.toString()] = {
+        instance: stubInstance,
+        artifact: stubArtifact,
+      };
+    }
+
+    return contracts;
+  }
+
+  /**
    * Simulates calls via a stub account entrypoint, bypassing real account authorization.
    * This allows kernelless simulation with contract overrides, skipping expensive
    * private kernel circuit execution.
@@ -162,16 +196,17 @@ export class EmbeddedWallet extends BaseWallet {
       : executionPayload;
     const chainInfo = await this.getChainInfo();
 
-    let overrides: SimulationOverrides | undefined;
+    const accountOverrides = await this.buildAccountOverrides(this.scopesFrom(from, opts.additionalScopes));
+    const overrides = new SimulationOverrides(Object.keys(accountOverrides).length > 0 ? accountOverrides : undefined);
+
     let txRequest: TxExecutionRequest;
     if (from === NO_FROM) {
       const entrypoint = new DefaultEntrypoint();
       txRequest = await entrypoint.createTxExecutionRequest(finalExecutionPayload, feeOptions.gasSettings, chainInfo);
     } else {
-      const { account, instance, artifact } = await this.getFakeAccountDataFor(from);
-      overrides = {
-        contracts: { [from.toString()]: { instance, artifact } },
-      };
+      const originalAccount = await this.getAccountFromAddress(from);
+      const completeAddress = originalAccount.getCompleteAddress();
+      const account = await this.accountContracts.createStubAccount(completeAddress);
       const executionOptions: DefaultAccountEntrypointOptions = {
         txNonce: Fr.random(),
         cancellable: this.cancellableTransactions,
@@ -193,25 +228,6 @@ export class EmbeddedWallet extends BaseWallet {
       overrides,
       scopes,
     });
-  }
-
-  private async getFakeAccountDataFor(address: AztecAddress) {
-    const originalAccount = await this.getAccountFromAddress(address);
-    const originalAddress = originalAccount.getCompleteAddress();
-    const contractInstance = await this.pxe.getContractInstance(originalAddress.address);
-    if (!contractInstance) {
-      throw new Error(`No contract instance found for address: ${originalAddress.address}`);
-    }
-    const stubAccount = await this.accountContracts.createStubAccount(originalAddress);
-    const stubArtifact = await this.accountContracts.getStubAccountContractArtifact();
-    const instance = await getContractInstanceFromInstantiationParams(stubArtifact, {
-      salt: Fr.random(),
-    });
-    return {
-      account: stubAccount,
-      instance,
-      artifact: stubArtifact,
-    };
   }
 
   protected async createAccountInternal(
