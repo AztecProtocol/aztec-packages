@@ -357,24 +357,22 @@ export class DeployMethod<TContract extends ContractBase = ContractBase> extends
    */
   public async getInstance(options?: RequestDeployOptions): Promise<ContractInstanceWithAddress> {
     const requestedSalt = options?.contractAddressSalt;
-    const requestedDeployer = options?.deployer ?? AztecAddress.ZERO;
 
-    if (this.instance) {
-      // An explicit salt was requested but differs from the cached one — recompute.
-      const saltMismatch = requestedSalt !== undefined && !requestedSalt.equals(this.instance.salt);
-      const deployerMismatch = !requestedDeployer.equals(this.instance.deployer);
-      if (!saltMismatch && !deployerMismatch) {
-        return this.instance;
-      }
+    // If an explicit salt is provided and differs from the cached instance's salt, recompute.
+    // Without this check, a cached instance with a randomly-generated salt would be returned
+    // even when the caller supplies an explicit salt, silently deploying to the wrong address.
+    const saltMismatch =
+      requestedSalt !== undefined && this.instance !== undefined && !requestedSalt.equals(this.instance.salt);
+
+    if (!this.instance || saltMismatch) {
+      this.instance = await getContractInstanceFromInstantiationParams(this.artifact, {
+        constructorArgs: this.args,
+        salt: requestedSalt ?? Fr.random(),
+        publicKeys: this.publicKeys,
+        constructorArtifact: this.constructorArtifact,
+        deployer: options?.deployer ?? AztecAddress.ZERO,
+      });
     }
-
-    this.instance = await getContractInstanceFromInstantiationParams(this.artifact, {
-      constructorArgs: this.args,
-      salt: requestedSalt ?? Fr.random(),
-      publicKeys: this.publicKeys,
-      constructorArtifact: this.constructorArtifact,
-      deployer: requestedDeployer,
-    });
     return this.instance;
   }
 
