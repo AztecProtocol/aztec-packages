@@ -15,7 +15,6 @@ import {
   type TopicValidatorResult,
   TypedEventEmitter,
 } from '@libp2p/interface';
-import type { AddressManager, ConnectionManager } from '@libp2p/interface-internal';
 
 import type { P2PConfig } from '../config.js';
 import type { MemPools } from '../mem_pools/interface.js';
@@ -213,14 +212,6 @@ export class MockPubSub implements PubSubLibp2p {
   get services() {
     return {
       pubsub: this.gossipSub,
-      components: {
-        addressManager: {
-          removeObservedAddr: () => {},
-          addObservedAddr: () => {},
-          confirmObservedAddr: () => {},
-        } as unknown as AddressManager,
-        connectionManager: {} as unknown as ConnectionManager,
-      },
     };
   }
 
