@@ -1992,7 +1992,7 @@ void bigfield<Builder, T>::unsafe_assert_less_than(const uint256_t& upper_limit,
         r2.get_witness_index(),
         r3.get_witness_index(),
         static_cast<size_t>(NUM_LIMB_BITS),
-        static_cast<size_t>(NUM_LIMB_BITS),
+        static_cast<size_t>(NUM_LAST_LIMB_BITS),
         msg == "bigfield::unsafe_assert_less_than" ? "bigfield::unsafe_assert_less_than: r2 or r3 too large" : msg);
 }
 
