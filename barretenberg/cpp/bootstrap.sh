@@ -99,6 +99,7 @@ function build_preset {
   local preset=$1
   local build_dir=$(scripts/preset-build-dir $preset)
   if ! cache_download barretenberg-$preset-$hash.zst; then
+    (cd ../codegen && ./bootstrap.sh generate)
     cmake_build $preset
     cache_upload barretenberg-$preset-$hash.zst $(preset_cache_paths $preset $build_dir)
   fi
@@ -133,6 +134,7 @@ function build_cross_objects {
   set -eu
   target=$1
   if ! cache_exists barretenberg-$target-$hash.zst; then
+    (cd ../codegen && ./bootstrap.sh generate)
     cmake_build $target --target barretenberg vm2_stub vm2_sim circuit_checker honk
   fi
 }
@@ -145,6 +147,7 @@ function build_gcc_syntax_check_only {
   if cache_download barretenberg-gcc-$hash.zst; then
     return
   fi
+  (cd ../codegen && ./bootstrap.sh generate)
   cmake --preset gcc -DSYNTAX_ONLY=1
   cmake --build --preset gcc --target bb
   # Note: There's no real artifact here, we fake one for consistency.
@@ -158,6 +161,7 @@ function build_fuzzing_syntax_check_only {
   if cache_download barretenberg-fuzzing-$hash.zst; then
     return
   fi
+  (cd ../codegen && ./bootstrap.sh generate)
   cmake --preset fuzzing -DSYNTAX_ONLY=1
   cmake --build --preset fuzzing
   cmake --preset fuzzing-avm -DSYNTAX_ONLY=1
