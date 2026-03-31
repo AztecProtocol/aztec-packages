@@ -22,6 +22,23 @@ function toCamelCase(name: string): string {
 
 export class TypeScriptCodegen {
   private errorTypeName: string = 'ErrorResponse';
+  /** Prefix to strip from command names when generating method names (e.g. "Bb" -> BbCircuitProve becomes circuitProve) */
+  private methodPrefix: string = '';
+
+  constructor(options?: { stripMethodPrefix?: string }) {
+    if (options?.stripMethodPrefix) {
+      this.methodPrefix = options.stripMethodPrefix;
+    }
+  }
+
+  /** Strip the method prefix and convert to camelCase for API method names */
+  private toMethodName(commandName: string): string {
+    let name = commandName;
+    if (this.methodPrefix && name.startsWith(this.methodPrefix)) {
+      name = name.slice(this.methodPrefix.length);
+    }
+    return toCamelCase(name);
+  }
 
   // Type mapping: Schema type -> TypeScript type
   private mapType(type: Type): string {
@@ -288,7 +305,7 @@ ${conversions}
 
     // BbApiBase interface
     const apiMethods = schema.commands
-      .map(c => `  ${toCamelCase(c.name)}(command: ${toPascalCase(c.name)}): Promise<${toPascalCase(c.responseType)}>;`)
+      .map(c => `  ${this.toMethodName(c.name)}(command: ${toPascalCase(c.name)}): Promise<${toPascalCase(c.responseType)}>;`)
       .join('\n');
 
     const hashLine = schemaHash ? `\n/** Schema version hash for compatibility checking */\nexport const SCHEMA_HASH = '${schemaHash}';\n` : '';
@@ -321,7 +338,7 @@ ${apiMethods}
 
   // Generate API method
   private generateAsyncApiMethod(command: Command): string {
-    const methodName = toCamelCase(command.name);
+    const methodName = this.toMethodName(command.name);
     const cmdType = toPascalCase(command.name);
     const respType = toPascalCase(command.responseType);
 
@@ -340,7 +357,7 @@ ${apiMethods}
   }
 
   private generateSyncApiMethod(command: Command): string {
-    const methodName = toCamelCase(command.name);
+    const methodName = this.toMethodName(command.name);
     const cmdType = toPascalCase(command.name);
     const respType = toPascalCase(command.responseType);
 
@@ -457,7 +474,7 @@ ${methods}
     const handlerMethods = schema.commands
       .filter(c => !c.name.endsWith('Shutdown'))
       .map(c => {
-        const methodName = toCamelCase(c.name);
+        const methodName = this.toMethodName(c.name);
         const cmdType = toPascalCase(c.name);
         const respType = toPascalCase(c.responseType);
         return `  ${methodName}(command: ${cmdType}): Promise<${respType}>;`;
@@ -468,7 +485,7 @@ ${methods}
     const dispatchCases = schema.commands
       .filter(c => !c.name.endsWith('Shutdown'))
       .map(c => {
-        const methodName = toCamelCase(c.name);
+        const methodName = this.toMethodName(c.name);
         const cmdType = toPascalCase(c.name);
         const respType = toPascalCase(c.responseType);
         return `      case '${c.name}': {
@@ -541,7 +558,7 @@ ${dispatchCases}
     const stubs = schema.commands
       .filter(c => !c.name.endsWith('Shutdown'))
       .map(c => {
-        const methodName = toCamelCase(c.name);
+        const methodName = this.toMethodName(c.name);
         const cmdType = toPascalCase(c.name);
         const respType = toPascalCase(c.responseType);
         return `  async ${methodName}(command: ${cmdType}): Promise<${respType}> {

@@ -3,7 +3,7 @@
 //! This module defines a simple, pluggable interface for Barretenberg backends.
 //! Users can easily implement custom backends (FFI, WASM, IPC, etc.).
 
-use crate::error::Result;
+use super::error::Result;
 
 /// Simple interface for msgpack backend implementations.
 ///

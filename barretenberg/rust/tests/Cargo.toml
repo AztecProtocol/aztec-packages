@@ -9,7 +9,7 @@ publish = false
 ffi = ["barretenberg-rs/ffi"]
 
 [dependencies]
-barretenberg-rs = { path = "../barretenberg-rs", default-features = false, features = ["native", "async"] }
+barretenberg-rs = { path = "../barretenberg-rs", default-features = false, features = ["uds"] }
 
 # Serialization
 serde.workspace = true

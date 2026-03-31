@@ -5,7 +5,7 @@
  * The C++ AVM connects to this server via the same socket protocol
  * (4-byte LE length prefix + msgpack).
  */
-import { type CdbHandler, cdbDispatch } from '@aztec/bb.js';
+import { type CdbHandler, cdbDispatch } from '@aztec/bb.js/aztec-cdb';
 import type {
   CdbAddContracts,
   CdbAddContractsResponse,
@@ -23,7 +23,7 @@ import type {
   CdbGetDebugFunctionNameResponse,
   CdbRevertCheckpoint,
   CdbRevertCheckpointResponse,
-} from '@aztec/bb.js';
+} from '@aztec/bb.js/aztec-cdb';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { FunctionSelector } from '@aztec/stdlib/abi';

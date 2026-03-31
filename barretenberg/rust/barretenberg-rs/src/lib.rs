@@ -43,8 +43,8 @@ pub mod generated {
 // Re-exports for convenience
 pub use generated::backend::Backend;
 pub use generated::error::{BarretenbergError, Result};
-pub use generated::bb_client::BarretenbergApi;
-pub use generated::bb_types::BbGrumpkinPoint;
+pub use generated::bb_client::BbApi;
+pub use generated::bb_types::{Fr, GrumpkinPoint};
 
 #[cfg(feature = "uds")]
 pub use generated::uds_backend::UdsBackend;

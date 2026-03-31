@@ -54,6 +54,7 @@ interface Args {
   uds: boolean;
   ffi: boolean;
   curveConstants: boolean;
+  stripMethodPrefix: boolean;
 }
 
 function parseArgs(argv: string[]): Args {
@@ -62,7 +63,7 @@ function parseArgs(argv: string[]): Args {
     server: false, client: false, skeleton: '',
     cppNamespace: '', cppWireNamespace: 'wire', cppIncludeDir: '',
     uds: false, ffi: false,
-    curveConstants: false,
+    curveConstants: false, stripMethodPrefix: false,
   };
 
   for (let i = 0; i < argv.length; i++) {
@@ -80,6 +81,7 @@ function parseArgs(argv: string[]): Args {
       case '--uds': args.uds = true; break;
       case '--ffi': args.ffi = true; break;
       case '--curve-constants': args.curveConstants = true; break;
+      case '--strip-method-prefix': args.stripMethodPrefix = true; break;
       default:
         console.error(`Unknown flag: ${argv[i]}`);
         process.exit(1);
@@ -102,7 +104,8 @@ Optional:
   --cpp-namespace <ns>     C++ namespace (e.g. bb::wsdb)
   --cpp-wire-namespace <ns> Wire types sub-namespace (default: wire)
   --cpp-include-dir <path> Include path for generated dir (e.g. barretenberg/wsdb/generated)
-  --curve-constants        Generate TS curve constants`);
+  --curve-constants        Generate TS curve constants
+  --strip-method-prefix    Strip prefix from TS method names (e.g. BbCircuitProve -> circuitProve)`);
     process.exit(1);
   }
 
@@ -209,7 +212,7 @@ function generate(args: Args) {
 
   switch (args.lang) {
     case 'ts': {
-      const gen = new TypeScriptCodegen();
+      const gen = new TypeScriptCodegen({ stripMethodPrefix: args.stripMethodPrefix ? prefix : undefined });
       writeFile('api_types.ts', gen.generateTypes(compiled, schemaHash));
       if (args.server) {
         writeFile('server.ts', gen.generateServerApi(compiled));

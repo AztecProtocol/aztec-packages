@@ -38,9 +38,9 @@ export class RustCodegen {
     this.opts = {
       prefix,
       apiStructName: options?.apiStructName ?? `${name}Api`,
-      backendImport: options?.backendImport ?? 'crate::backend::Backend',
-      errorImport: options?.errorImport ?? `crate::error::{${name}Error, Result}`,
-      typesImport: options?.typesImport ?? 'crate::types_gen::*',
+      backendImport: options?.backendImport ?? 'super::backend::Backend',
+      errorImport: options?.errorImport ?? `super::error::{BarretenbergError, Result}`,
+      typesImport: options?.typesImport ?? `super::${toSnakeCase(prefix || 'bb')}_types::*`,
       typesDocComment: options?.typesDocComment ?? `Generated types for ${name} IPC protocol`,
       apiDocComment: options?.apiDocComment ?? `${name} IPC client API`,
     };

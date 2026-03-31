@@ -15,6 +15,9 @@
     "./aztec-wsdb": {
       "default": "./dest/node/aztec-wsdb/index.js"
     },
+    "./aztec-cdb": {
+      "default": "./dest/node/aztec-cdb/index.js"
+    },
     "./aztec-avm": {
       "default": "./dest/node/aztec-avm/index.js"
     },
