@@ -8,18 +8,16 @@ import { Fr } from '@aztec/aztec.js/fields';
 import { createLogger } from '@aztec/aztec.js/log';
 import { DeployAccountOptions } from '@aztec/aztec.js/wallet';
 import type { AztecNode } from '@aztec/aztec.js/node';
-import { type FeeOptions } from '@aztec/wallet-sdk/base-wallet';
+import { type CompleteFeeOptionsOpts, type FeeOptions } from '@aztec/wallet-sdk/base-wallet';
 import { SPONSORED_FPC_SALT } from '@aztec/constants';
-import type { FieldsOf } from '@aztec/foundation/types';
 import { randomBytes } from '@aztec/foundation/crypto/random';
 import { getInitialTestAccountsData } from '@aztec/accounts/testing/lazy';
-import { GasSettings } from '@aztec/stdlib/gas';
 import { AccountFeePaymentMethodOptions } from '@aztec/entrypoints/account';
 import {
   EmbeddedWallet as EmbeddedWalletBase,
   type EmbeddedWalletOptions,
 } from '@aztec/wallets/embedded';
-import { NO_FROM, NoFrom } from '@aztec/aztec.js/account';
+import { NO_FROM } from '@aztec/aztec.js/account';
 
 const logger = createLogger('wallet');
 const LocalStorageKey = 'aztec-account';
@@ -38,49 +36,27 @@ export class EmbeddedWallet extends EmbeddedWalletBase {
   /**
    * Completes partial user-provided fee options with wallet defaults.
    * This wallet will use the sponsoredFPC payment method unless otherwise stated.
-   * @param from - The address where the transaction is being sent from
-   * @param feePayer - The address paying for fees (if any fee payment method is embedded in the execution payload)
-   * @param gasSettings - User-provided partial gas settings
-   * @returns - Complete fee options that can be used to create a transaction execution request
    */
   override async completeFeeOptions(
-    from: AztecAddress | NoFrom,
-    feePayer?: AztecAddress,
-    gasSettings?: Partial<FieldsOf<GasSettings>>
+    opts: CompleteFeeOptionsOpts
   ): Promise<FeeOptions> {
-    const maxFeesPerGas =
-      gasSettings?.maxFeesPerGas ??
-      (await this.aztecNode.getCurrentMinFees()).mul(1 + this.minFeePadding);
-    let accountFeePaymentMethodOptions;
-    let walletFeePaymentMethod;
-    // If from is an address, we need to determine the appropriate fee payment method options for the
-    // account contract entrypoint to use
-    if (from !== NO_FROM) {
+    const { from, feePayer } = opts;
+    // Delegate to base for gas settings, then override with sponsored FPC if needed
+    const baseFeeOptions = await super.completeFeeOptions(opts);
+    let { accountFeePaymentMethodOptions, walletFeePaymentMethod } =
+      baseFeeOptions;
+    if (from !== NO_FROM && !feePayer) {
       // The transaction does not include a fee payment method, so we
       // use the sponsoredFPC
-      if (!feePayer) {
-        accountFeePaymentMethodOptions =
-          AccountFeePaymentMethodOptions.EXTERNAL;
-        const sponsoredFPCAddress = await this.#getSponsoredFPCAddress();
-
-        walletFeePaymentMethod = new SponsoredFeePaymentMethod(
-          sponsoredFPCAddress
-        );
-      } else {
-        // The transaction includes fee payment method, so we check if we are the fee payer for it
-        // (this can only happen if the embedded payment method is FeeJuiceWithClaim)
-        accountFeePaymentMethodOptions = from.equals(feePayer)
-          ? AccountFeePaymentMethodOptions.FEE_JUICE_WITH_CLAIM
-          : AccountFeePaymentMethodOptions.EXTERNAL;
-      }
+      accountFeePaymentMethodOptions =
+        AccountFeePaymentMethodOptions.EXTERNAL;
+      const sponsoredFPCAddress = await this.#getSponsoredFPCAddress();
+      walletFeePaymentMethod = new SponsoredFeePaymentMethod(
+        sponsoredFPCAddress
+      );
     }
-    const fullGasSettings: GasSettings = GasSettings.default({
-      ...gasSettings,
-      maxFeesPerGas,
-    });
-    this.log.debug(`Using L2 gas settings`, fullGasSettings);
     return {
-      gasSettings: fullGasSettings,
+      ...baseFeeOptions,
       walletFeePaymentMethod,
       accountFeePaymentMethodOptions,
     };
