@@ -61,16 +61,9 @@ fi
 
 # Build Zig binaries
 echo "Building Zig echo binaries..."
-if command -v zig &>/dev/null; then
-  if (cd zig && zig build-exe echo_server.zig -ODebug 2>&1 && zig build-exe echo_client.zig -ODebug 2>&1); then
-    SERVERS+=("zig:zig/echo_server:Zig")
-    CLIENTS+=("zig:zig/echo_client:Zig")
-  else
-    echo "  (skipping Zig — build failed, msgpack module may be missing)"
-  fi
-else
-  echo "  (skipping Zig — zig not found)"
-fi
+(cd zig && zig build 2>&1)
+SERVERS+=("zig:zig/zig-out/bin/echo_server:Zig")
+CLIENTS+=("zig:zig/zig-out/bin/echo_client:Zig")
 
 run_pair() {
   local server_cmd="$1"

@@ -329,7 +329,7 @@ ${this.generateResponseUnion(schema)}
         const zigCmdName = toPascalCase(c.name);
         const zigRespName = toPascalCase(c.responseType);
         return `        pub fn ${methodName}(self: *Self, cmd: types.${zigCmdName}) !types.${zigRespName} {
-            const request_bytes = try self.encode("${c.name}", try cmd.toPayload(alloc));
+            const request_bytes = try Self.encode("${c.name}", try cmd.toPayload(alloc));
             defer alloc.free(request_bytes);
             const response_bytes = try self.backend.call(request_bytes);
             defer alloc.free(response_bytes);
@@ -380,10 +380,10 @@ ${methods}
 
         // --- internal helpers ---
 
-        fn encode(cmd_name: []const u8, fields: Payload) ![]u8 {
+        fn encode(cmd_name: []const u8, cmd_fields: Payload) ![]u8 {
             var inner = try Payload.arrPayload(2, alloc);
             try inner.setArrElement(0, try Payload.strToPayload(cmd_name, alloc));
-            try inner.setArrElement(1, fields);
+            try inner.setArrElement(1, cmd_fields);
             var outer = try Payload.arrPayload(1, alloc);
             try outer.setArrElement(0, inner);
 
@@ -423,7 +423,7 @@ ${methods}
         const zigCmdName = toPascalCase(c.name);
         const zigRespName = toPascalCase(c.responseType);
         return `        if (std.mem.eql(u8, cmd_name, "${c.name}")) {
-            const cmd = types.${zigCmdName}.fromPayload(fields) catch return makeError("deser failed");
+            const cmd = types.${zigCmdName}.fromPayload(cmd_fields) catch return makeError("deser failed");
             const resp = ${methodName}(cmd) catch return makeError("not implemented: ${c.name}");
             return .{ .resp_name = "${c.responseType}", .resp_payload = resp.toPayload(alloc) };
         }`;
@@ -462,7 +462,7 @@ pub fn serve(socket_path: []const u8) !void {
     try ipc_server.serve(socket_path, dispatch);
 }
 
-fn dispatch(cmd_name: []const u8, fields: Payload) ipc_server.DispatchResult {
+fn dispatch(cmd_name: []const u8, cmd_fields: Payload) ipc_server.DispatchResult {
     // Shutdown
     if (std.mem.eql(u8, cmd_name, "${prefix}Shutdown")) {
         return .{ .resp_name = "${prefix}ShutdownResponse", .resp_payload = Payload.mapPayload(alloc) };
