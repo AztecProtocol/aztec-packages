@@ -48,15 +48,13 @@ void MemoryProfile::add_circuit(CircuitMemoryStats stats)
 void MemoryProfile::add_rss_checkpoint(const std::string& stage, size_t circuit_index)
 {
     std::lock_guard<std::mutex> lock(mutex);
-    rss_checkpoints.push_back(RssCheckpoint{ stage, circuit_index, get_peak_rss_mb() });
+    rss_checkpoints.push_back(RssCheckpoint{ stage, circuit_index, current_circuit_name, get_peak_rss_mb() });
 }
 
-void MemoryProfile::set_crs_size(size_t num_points)
+void MemoryProfile::set_circuit_name(const std::string& name)
 {
     std::lock_guard<std::mutex> lock(mutex);
-    if (num_points > crs_points) {
-        crs_points = num_points;
-    }
+    current_circuit_name = name;
 }
 
 void MemoryProfile::clear()
@@ -64,7 +62,7 @@ void MemoryProfile::clear()
     std::lock_guard<std::mutex> lock(mutex);
     circuits.clear();
     rss_checkpoints.clear();
-    crs_points = 0;
+    current_circuit_name.clear();
 }
 
 namespace {
@@ -111,15 +109,12 @@ void MemoryProfile::serialize_json(std::ostream& os) const
     }
 
     // Find peak RSS checkpoint
-    RssCheckpoint peak_rss{ "unknown", 0, 0 };
+    RssCheckpoint peak_rss{ "unknown", 0, "", 0 };
     for (const auto& cp : rss_checkpoints) {
         if (cp.rss_mb > peak_rss.rss_mb) {
             peak_rss = cp;
         }
     }
-
-    // CRS memory: num_points * 128 bytes (with Pippenger point table)
-    double crs_mb = static_cast<double>(crs_points) * 128.0 / (1024.0 * 1024.0);
 
     os << "{\n";
 
@@ -148,16 +143,13 @@ void MemoryProfile::serialize_json(std::ostream& os) const
         }
         const auto& cp = rss_checkpoints[i];
         os << "    { \"stage\": \"" << cp.stage << "\", \"circuit_index\": " << cp.circuit_index
-           << ", \"rss_mb\": " << cp.rss_mb << " }";
+           << ", \"circuit_name\": \"" << cp.circuit_name << "\", \"rss_mb\": " << cp.rss_mb << " }";
     }
     os << "\n  ],\n";
 
     // Peak RSS
     os << "  \"peak_rss\": { \"stage\": \"" << peak_rss.stage << "\", \"circuit_index\": " << peak_rss.circuit_index
-       << ", \"rss_mb\": " << peak_rss.rss_mb << " },\n";
-
-    // CRS
-    os << "  \"crs_mb\": " << std::fixed << std::setprecision(2) << crs_mb << "\n";
+       << ", \"rss_mb\": " << peak_rss.rss_mb << " }\n";
 
     os << "}\n";
 }

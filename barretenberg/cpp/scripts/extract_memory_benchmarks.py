@@ -37,29 +37,18 @@ try:
                 "extra": f"stacked-area:{name_path}/memory/polynomial_categories"
             })
 
-        # Total polynomial memory (peak circuit)
+    # RSS timeline: each checkpoint becomes a line on the per-commit dashboard chart
+    for cp in data.get("rss_checkpoints", []):
+        circuit_name = cp.get("circuit_name", "")
+        idx = cp["circuit_index"]
+        stage = cp["stage"]
+        # Build a stable label like "07_EcdsaRAccount:entrypoint/after_accumulate"
+        label = f"{idx:02d}_{circuit_name}/{stage}" if circuit_name else f"{idx:02d}/{stage}"
         entries.append({
-            "name": f"{name_path}/memory/total_polynomial_MB",
+            "name": f"{name_path}/memory/rss/{label}",
             "unit": "MB",
-            "value": round(peak_circuit.get("total_polynomial_mb", 0), 2)
-        })
-
-    # CRS memory
-    crs_mb = data.get("crs_mb", 0)
-    if crs_mb > 0:
-        entries.append({
-            "name": f"{name_path}/memory/crs_MB",
-            "unit": "MB",
-            "value": round(crs_mb, 2)
-        })
-
-    # Peak RSS from checkpoints
-    peak_rss = data.get("peak_rss", {})
-    if peak_rss.get("rss_mb", 0) > 0:
-        entries.append({
-            "name": f"{name_path}/memory/peak_rss_MB",
-            "unit": "MB",
-            "value": peak_rss["rss_mb"]
+            "value": cp["rss_mb"],
+            "extra": f"stacked:{name_path}/memory/rss_timeline"
         })
 
     # Append to existing benchmarks file

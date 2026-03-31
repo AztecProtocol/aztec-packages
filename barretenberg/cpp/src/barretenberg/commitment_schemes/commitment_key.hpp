@@ -11,7 +11,6 @@
  */
 
 #include "barretenberg/common/bb_bench.hpp"
-#include "barretenberg/common/memory_profile.hpp"
 #include "barretenberg/common/ref_span.hpp"
 #include "barretenberg/ecc/scalar_multiplication/scalar_multiplication.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
@@ -54,11 +53,7 @@ template <class Curve> class CommitmentKey {
     CommitmentKey(const size_t num_points)
         : srs(srs::get_crs_factory<Curve>()->get_crs(num_points))
         , srs_size(num_points)
-    {
-        if (detail::use_memory_profile) {
-            detail::GLOBAL_MEMORY_PROFILE.set_crs_size(num_points);
-        }
-    }
+    {}
     /**
      * @brief Checks the commitment key is properly initialized.
      *
