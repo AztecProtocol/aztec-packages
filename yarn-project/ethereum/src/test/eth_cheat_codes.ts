@@ -310,11 +310,16 @@ export class EthCheatCodes {
       await this.setIntervalMining(0, { silent: true });
     }
 
+    // Anvil computes finalized = latest - slotsInAnEpoch * 2 blocks. Mine extra blocks
+    // beyond the target so that the finalized block also advances past the target timestamp.
+    // 3 extra blocks covers slotsInAnEpoch=1 (the default, needs 2 extra) with margin.
+    const extraBlocks = 3;
+
     try {
       // Mine blocks one by one with explicit timestamps, since Anvil's hardhat_mine ignores
       // the interval parameter when anvil_setBlockTimestampInterval has been set (which the
       // deploy script does). Using evm_setNextBlockTimestamp + evm_mine gives us full control.
-      for (let i = 1; i <= blocksNeeded; i++) {
+      for (let i = 1; i <= blocksNeeded + extraBlocks; i++) {
         const blockTs = currentTimestamp + i * blockInterval;
         await this.doRpcCall('evm_setNextBlockTimestamp', [blockTs]);
         await this.doRpcCall('evm_mine', []);
