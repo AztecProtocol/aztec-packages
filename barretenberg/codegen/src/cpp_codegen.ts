@@ -807,18 +807,22 @@ ${handlerEntries},
         std::string cmd_name(inner.via.array.ptr[0].via.str.ptr, inner.via.array.ptr[0].via.str.size);
         auto& cmd_payload = inner.via.array.ptr[1];
 
+        auto it = table.find(cmd_name);
+        if (it == table.end()) {
+            return detail::make_error("unknown command: " + cmd_name);
+        }
+#ifdef BB_NO_EXCEPTIONS
+        return it->second(ctx, cmd_payload);
+#else
         try {
-            auto it = table.find(cmd_name);
-            if (it == table.end()) {
-                return detail::make_error("unknown command: " + cmd_name);
-            }
             return it->second(ctx, cmd_payload);
         } catch (const ::ipc::ShutdownRequested&) {
-            RETHROW;
+            throw;
         } catch (const std::exception& e) {
             std::cerr << "Error processing " << cmd_name << ": " << e.what() << '\\n';
             return detail::make_error(e.what());
         }
+#endif
     };
 }
 
