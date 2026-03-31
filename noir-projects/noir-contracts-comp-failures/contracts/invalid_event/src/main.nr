@@ -1,6 +1,7 @@
 use aztec::macros::aztec;
 
 #[aztec]
+<<<<<<< HEAD
 pub contract InvalidEventContract {
     use aztec::{
         event::event_interface::EventInterface,
@@ -21,10 +22,19 @@ pub contract InvalidEventContract {
 
         fn stream_serialize<let K: u32>(self, _writer: &mut Writer<K>) {}
     }
+=======
+contract InvalidEventContract {
+    use crate::invalid_event::InvalidEvent;
+    use aztec::{macros::functions::external, messages::message_delivery::MessageDelivery};
+>>>>>>> ed8f9f9272 (feat: move event size check from declaration to private emission (#22168))
 
-    // We have here this function in order for the static_assert in `get_event_type_id` to get triggered.
+    // Emitting an oversized event privately should fail at compile time because its serialized length exceeds
+    // MAX_EVENT_SERIALIZED_LEN.
     #[external("private")]
     fn trigger_event_check() {
-        let _ = InvalidEvent::get_event_type_id();
+        self.emit(InvalidEvent {}).deliver_to(
+            self.msg_sender(),
+            MessageDelivery.ONCHAIN_UNCONSTRAINED,
+        );
     }
 }
