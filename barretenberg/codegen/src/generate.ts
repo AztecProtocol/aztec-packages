@@ -258,11 +258,15 @@ function generate(args: Args) {
       if (args.client) {
         writeFile(`${toSnakeCase(prefix)}_client.zig`, gen.generateClient(compiled));
       }
+      // Backend templates (copied once, not overwritten)
+      if (args.uds || args.ffi) {
+        copyTemplateOnce('zig', 'backend.zig', absOut);
+      }
       if (args.uds) {
-        copyTemplateOnce('zig', 'ipc_client.zig', absOut);
+        copyTemplateOnce('zig', 'uds_backend.zig', absOut);
       }
       if (args.ffi) {
-        copyTemplateOnce('zig', 'ffi_client.zig', absOut);
+        copyTemplateOnce('zig', 'ffi_backend.zig', absOut);
       }
       break;
     }

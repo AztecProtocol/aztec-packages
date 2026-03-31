@@ -30,6 +30,8 @@ function generate {
     --server --client --prefix Bb --curve-constants
   gen --schema $S/bb_schema.json --lang rust --out ../rust/barretenberg-rs/src/generated \
     --client --uds --ffi --prefix Bb
+  gen --schema $S/bb_schema.json --lang zig --out $ZIG/bb \
+    --client --uds --ffi --prefix Bb
 
   # --- WSDB ---
   gen --schema $S/wsdb_schema.json --lang cpp --out $CPP/wsdb/generated \
@@ -37,7 +39,7 @@ function generate {
   gen --schema $S/wsdb_schema.json --lang ts --out $TS/aztec-wsdb/generated \
     --server --client --prefix Wsdb
   gen --schema $S/wsdb_schema.json --lang zig --out $ZIG/wsdb \
-    --server --client --prefix Wsdb
+    --server --client --uds --ffi --prefix Wsdb
 
   # --- CDB ---
   gen --schema $S/cdb_schema.json --lang cpp --out $CPP/cdb/generated \
@@ -45,7 +47,7 @@ function generate {
   gen --schema $S/cdb_schema.json --lang ts --out $TS/aztec-cdb/generated \
     --server --client --prefix Cdb
   gen --schema $S/cdb_schema.json --lang zig --out $ZIG/cdb \
-    --server --client --prefix Cdb
+    --client --uds --ffi --prefix Cdb
 
   # --- AVM ---
   gen --schema $S/avm_schema.json --lang cpp --out $CPP/avm/generated \
@@ -53,7 +55,7 @@ function generate {
   gen --schema $S/avm_schema.json --lang ts --out $TS/aztec-avm/generated \
     --server --client --prefix Avm
   gen --schema $S/avm_schema.json --lang zig --out $ZIG/avm \
-    --server --client --prefix Avm
+    --server --client --uds --ffi --prefix Avm
 }
 
 case "$cmd" in

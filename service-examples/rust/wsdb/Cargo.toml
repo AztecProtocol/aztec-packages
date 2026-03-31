@@ -1,0 +1,11 @@
+[package]
+name = "wsdb-service-example"
+version = "0.1.0"
+edition = "2021"
+description = "Example WSDB service implementation in Rust using codegen"
+
+[dependencies]
+rmp = "0.8"
+rmp-serde = "1"
+serde = { version = "1", features = ["derive"] }
+thiserror = "2"
