@@ -15,29 +15,34 @@ const path = require("path");
 const BUILD_DIR = path.join(__dirname, "..", "build");
 const STATIC_DIR = path.join(__dirname, "..", "static");
 
-// Load version from developer_versions.json (same as docusaurus.config.js)
+// Load version config (source of truth for type→version mapping)
+let developerVersionConfig;
+try {
+  developerVersionConfig = require("../developer_version_config.json");
+} catch {
+  // Fallback to legacy array-based detection
+  developerVersionConfig = null;
+}
 const developerVersions = require("../developer_versions.json");
 
-// Find devnet and testnet versions dynamically (same logic as docusaurus.config.js)
-const devnetVersion = developerVersions.find((v) => v.includes("devnet"));
-if (!devnetVersion) {
-  console.warn("Warning: No devnet version found in developer_versions.json");
-}
-const testnetVersion = developerVersions.find((v) => v.includes("rc") || v.includes("testnet"));
+// Determine the default (highest-priority) API docs version to append.
+// Only include one set to avoid bloating llms.txt. Priority: mainnet > testnet > devnet.
+const defaultType = developerVersionConfig?.mainnet ? "mainnet"
+  : developerVersionConfig?.testnet ? "testnet"
+  : developerVersionConfig?.devnet ? "devnet"
+  : null;
+const defaultVersion = defaultType ? developerVersionConfig[defaultType] : (developerVersions[0] || null);
 
-// The API docs directories use stable folder names
-const API_DIRS = [
-  {
+const API_DIRS = [];
+if (defaultType && fs.existsSync(path.join(STATIC_DIR, `aztec-nr-api/${defaultType}`))) {
+  API_DIRS.push({
     name: "Aztec.nr API Reference",
-    dir: "aztec-nr-api/devnet",
-    description: `Auto-generated API documentation for Aztec.nr (${devnetVersion || "devnet"})`,
-  },
-  ...(testnetVersion ? [{
-    name: "Aztec.nr API Reference (Testnet)",
-    dir: "aztec-nr-api/testnet",
-    description: `Auto-generated API documentation for Aztec.nr (${testnetVersion})`,
-  }] : []),
-];
+    dir: `aztec-nr-api/${defaultType}`,
+    description: `Auto-generated API documentation for Aztec.nr (${defaultVersion})`,
+  });
+} else if (!defaultType) {
+  console.warn("Warning: No default version found for API docs");
+}
 
 /**
  * Extract text content from HTML, stripping tags and normalizing whitespace.

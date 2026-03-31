@@ -11,7 +11,7 @@ import {
   createUpDownCounterWithDefault,
 } from '@aztec/telemetry-client';
 
-import type { BlockProposalValidationFailureReason } from './block_proposal_handler.js';
+import type { BlockProposalValidationFailureReason } from './proposal_handler.js';
 
 export class ValidatorMetrics {
   private failedReexecutionCounter: UpDownCounter;

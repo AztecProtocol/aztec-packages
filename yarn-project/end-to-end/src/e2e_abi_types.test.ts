@@ -1,4 +1,6 @@
-import { AztecAddress } from '@aztec/aztec.js/addresses';
+import { FunctionSelector } from '@aztec/aztec.js/abi';
+import { AztecAddress, EthAddress } from '@aztec/aztec.js/addresses';
+import { Fr } from '@aztec/aztec.js/fields';
 import type { Wallet } from '@aztec/aztec.js/wallet';
 import { MAX_FIELD_VALUE } from '@aztec/constants';
 import { AbiTypesContract } from '@aztec/noir-test-contracts.js/AbiTypes';
@@ -82,6 +84,39 @@ describe('AbiTypes', () => {
       I64_MAX,
       { w: MAX_FIELD_VALUE, x: true, y: U64_MAX, z: I64_MAX },
     ]);
+  });
+
+  it('decodes EthAddress return value', async () => {
+    const ethAddr = EthAddress.fromString('0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045');
+
+    const { result } = await abiTypesContract.methods
+      .return_eth_address(ethAddr)
+      .simulate({ from: defaultAccountAddress });
+
+    expect(result).toBeInstanceOf(EthAddress);
+    expect(result).toEqual(ethAddr);
+  });
+
+  it('decodes FunctionSelector return value', async () => {
+    const selector = FunctionSelector.fromField(new Fr(0xdeadbeefn));
+
+    const { result } = await abiTypesContract.methods
+      .return_function_selector(selector)
+      .simulate({ from: defaultAccountAddress });
+
+    expect(result).toBeInstanceOf(FunctionSelector);
+    expect(result).toEqual(selector);
+  });
+
+  it('decodes wrapped field struct as Fr', async () => {
+    const value = new Fr(42n);
+
+    const { result } = await abiTypesContract.methods
+      .return_wrapped_field(42n)
+      .simulate({ from: defaultAccountAddress });
+
+    expect(result).toBeInstanceOf(Fr);
+    expect(result).toEqual(value);
   });
 
   it('passes utility parameters', async () => {

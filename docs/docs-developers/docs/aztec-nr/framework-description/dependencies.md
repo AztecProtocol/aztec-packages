@@ -18,25 +18,17 @@ aztec = { git="https://github.com/AztecProtocol/aztec-nr/", tag="#include_aztec_
 ### Aztec (required)
 
 ```toml
-aztec = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="noir-projects/aztec-nr/aztec" }
+aztec = { git="https://github.com/AztecProtocol/aztec-nr/", tag="#include_aztec_version", directory="aztec" }
 ```
 
 The core Aztec library required for every Aztec.nr smart contract.
-
-### Protocol Types
-
-```toml
-protocol = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="noir-projects/noir-protocol-circuits/crates/types"}
-```
-
-Contains types used in the Aztec protocol (addresses, constants, hashes, etc.).
 
 ## Note Types
 
 ### Address Note
 
 ```toml
-address_note = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="noir-projects/aztec-nr/address-note" }
+address_note = { git="https://github.com/AztecProtocol/aztec-nr/", tag="#include_aztec_version", directory="address-note" }
 ```
 
 Provides `AddressNote`, a note type for storing `AztecAddress` values.
@@ -76,3 +68,24 @@ compressed_string = { git="https://github.com/AztecProtocol/aztec-nr/", tag="#in
 ```
 
 Provides `CompressedString` and `FieldCompressedString` utilities for working with compressed string data.
+
+## Updating your aztec dependencies
+
+When `aztec compile` warns that your aztec dependency tag does not match the CLI version, update
+the `tag` field in every Aztec.nr entry in your `Nargo.toml` to match the CLI version you are
+running.
+
+For example, if your CLI is `v#include_aztec_version`, change:
+
+```toml
+aztec = { git="https://github.com/AztecProtocol/aztec-nr/", tag="v<old-version>", directory="aztec" }
+```
+
+to:
+
+```toml
+aztec = { git="https://github.com/AztecProtocol/aztec-nr/", tag="v#include_aztec_version", directory="aztec" }
+```
+
+Repeat for every other Aztec.nr dependency in your `Nargo.toml` (e.g. `address_note`,
+`balance_set`, etc.). You can check your current CLI version with `aztec --version`.

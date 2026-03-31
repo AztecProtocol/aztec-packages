@@ -226,15 +226,24 @@ jobs:
           COMMIT_TAG=${{ env.NIGHTLY_TAG }} RELEASE_TYPE=nightly yarn build
 
           # Create the versioned docs for Developer docs only
-          # Network docs have separate versions for testnet/ignition releases
+          # Network docs have separate versions for mainnet/testnet releases
           yarn docusaurus docs:version:developer ${{ env.NIGHTLY_TAG }}
 
           echo "Created Aztec Developer docs version: ${{ env.NIGHTLY_TAG }}"
 
-      - name: Update Aztec Docs developer_versions.json with new version
-        working-directory: ./docs/scripts
+      - name: Update Aztec Docs version config with new nightly version
+        working-directory: ./docs
         run: |
-          ./update_docs_versions.sh developer
+          # Update developer_version_config.json with the new nightly version
+          node -e "
+            const fs = require('fs');
+            const config = require('./developer_version_config.json');
+            config.nightly = '${{ env.NIGHTLY_TAG }}';
+            fs.writeFileSync('./developer_version_config.json', JSON.stringify(config, null, 2) + '\n');
+            console.log('Updated developer_version_config.json:', JSON.stringify(config, null, 2));
+          "
+          # Also update the Docusaurus-compatible array file
+          scripts/update_docs_versions.sh developer
 
       - name: Cleanup Barretenberg docs nightly versions
         working-directory: ./barretenberg/docs

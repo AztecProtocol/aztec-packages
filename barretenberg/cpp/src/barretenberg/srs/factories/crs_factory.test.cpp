@@ -10,6 +10,7 @@
 #include "barretenberg/srs/factories/mem_grumpkin_crs_factory.hpp"
 #include "barretenberg/srs/factories/native_crs_factory.hpp"
 #include "barretenberg/srs/global_crs.hpp"
+#include "http_download.hpp"
 #include <gtest/gtest.h>
 #include <span>
 #include <utility>
@@ -25,13 +26,8 @@ void check_bn254_consistency(const fs::path& crs_download_path, size_t num_point
 {
     NativeBn254CrsFactory file_crs(crs_download_path, allow_download);
 
-    // read compressed G1 and decompress
-    auto g1_compressed = read_file(bb::srs::bb_crs_path() / "bn254_g1_compressed.dat", num_points * sizeof(uint256_t));
-    std::vector<g1::affine_element> g1_points(num_points);
-    for (size_t i = 0; i < num_points; ++i) {
-        auto c = from_buffer<uint256_t>(g1_compressed, i * sizeof(uint256_t));
-        g1_points[i] = g1::affine_element::from_compressed(c);
-    }
+    // Use get_bn254_g1_data to load reference points (handles compressed/uncompressed automatically)
+    auto g1_points = bb::get_bn254_g1_data(bb::srs::bb_crs_path(), num_points, /*allow_download=*/false);
 
     // read G2
     auto g2_buf = read_file(bb::srs::bb_crs_path() / "bn254_g2.dat", sizeof(g2::affine_element));
@@ -129,8 +125,10 @@ TEST(CrsFactory, DISABLED_Bn254Fallback)
 
 TEST(CrsFactory, Bn254CompressedChunkHashFirstChunk)
 {
-    // Verify that the first 4MB chunk of the compressed CRS matches the embedded hash
-    auto data = read_file(bb::srs::bb_crs_path() / "bn254_g1_compressed.dat", bb::srs::SRS_CHUNK_SIZE_BYTES);
+    // Download the first chunk of compressed CRS from CDN and verify its hash.
+    // We don't require compressed data on disk; only uncompressed is cached.
+    auto data = bb::srs::http_download(
+        "http://crs.aztec-cdn.foundation/g1_compressed.dat", 0, bb::srs::SRS_CHUNK_SIZE_BYTES - 1);
     auto chunk = std::span<const uint8_t>(data.data(), data.size());
     auto hash = bb::crypto::sha256(chunk);
     EXPECT_EQ(hash, bb::srs::BN254_G1_CHUNK_HASHES[0]);
@@ -138,8 +136,9 @@ TEST(CrsFactory, Bn254CompressedChunkHashFirstChunk)
 
 TEST(CrsFactory, Bn254CompressedChunkHashCorruptionDetected)
 {
-    // Verify that corrupted data fails chunk hash verification
-    auto data = read_file(bb::srs::bb_crs_path() / "bn254_g1_compressed.dat", bb::srs::SRS_CHUNK_SIZE_BYTES);
+    // Download compressed data and verify that corruption is detected.
+    auto data = bb::srs::http_download(
+        "http://crs.aztec-cdn.foundation/g1_compressed.dat", 0, bb::srs::SRS_CHUNK_SIZE_BYTES - 1);
 
     data[bb::srs::SRS_CHUNK_SIZE_BYTES / 2] ^= 0xFF;
     auto chunk = std::span<const uint8_t>(data.data(), data.size());

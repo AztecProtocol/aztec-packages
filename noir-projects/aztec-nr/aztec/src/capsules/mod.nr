@@ -10,20 +10,25 @@ pub struct CapsuleArray<T> {
     /// after the base slot. For example, with base slot 5: the length is at slot 5, the first element (index 0) is at
     /// slot 6, the second element (index 1) is at slot 7, and so on.
     base_slot: Field,
+    /// Scope for capsule isolation. Capsule operations are scoped to the given address, allowing multiple independent
+    /// namespaces within the same contract.
+    scope: AztecAddress,
 }
 
 impl<T> CapsuleArray<T> {
-    /// Returns a CapsuleArray connected to a contract's capsules at a base slot. Array elements are stored in
-    /// contiguous slots following the base slot, so there should be sufficient space between array base slots to
-    /// accommodate elements. A reasonable strategy is to make the base slot a hash of a unique value.
-    pub unconstrained fn at(contract_address: AztecAddress, base_slot: Field) -> Self {
-        Self { contract_address, base_slot }
+    /// Returns a CapsuleArray scoped to a specific address.
+    ///
+    /// Array elements are stored in contiguous slots
+    /// following the base slot, so there should be sufficient space between array base slots to accommodate elements.
+    /// A reasonable strategy is to make the base slot a hash of a unique value.
+    pub unconstrained fn at(contract_address: AztecAddress, base_slot: Field, scope: AztecAddress) -> Self {
+        Self { contract_address, base_slot, scope }
     }
 
     /// Returns the number of elements stored in the array.
     pub unconstrained fn len(self) -> u32 {
         // An uninitialized array defaults to a length of 0.
-        capsules::load(self.contract_address, self.base_slot).unwrap_or(0) as u32
+        capsules::load(self.contract_address, self.base_slot, self.scope).unwrap_or(0) as u32
     }
 
     /// Stores a value at the end of the array.
@@ -35,11 +40,21 @@ impl<T> CapsuleArray<T> {
 
         // The slot corresponding to the index `current_length` is the first slot immediately after the end of the
         // array, which is where we want to place the new value.
-        capsules::store(self.contract_address, self.slot_at(current_length), value);
+        capsules::store(
+            self.contract_address,
+            self.slot_at(current_length),
+            value,
+            self.scope,
+        );
 
         // Then we simply update the length.
         let new_length = current_length + 1;
-        capsules::store(self.contract_address, self.base_slot, new_length);
+        capsules::store(
+            self.contract_address,
+            self.base_slot,
+            new_length,
+            self.scope,
+        );
     }
 
     /// Retrieves the value stored in the array at `index`. Throws if the index is out of bounds.
@@ -49,7 +64,7 @@ impl<T> CapsuleArray<T> {
     {
         assert(index < self.len(), "Attempted to read past the length of a CapsuleArray");
 
-        capsules::load(self.contract_address, self.slot_at(index)).unwrap()
+        capsules::load(self.contract_address, self.slot_at(index), self.scope).unwrap()
     }
 
     /// Deletes the value stored in the array at `index`. Throws if the index is out of bounds.
@@ -67,13 +82,23 @@ impl<T> CapsuleArray<T> {
                 self.slot_at(index + 1),
                 self.slot_at(index),
                 current_length - index - 1,
+                self.scope,
             );
         }
 
         // We can now delete the last element (which has either been copied to the slot immediately before it, or was
         // the element we meant to delete in the first place) and update the length.
-        capsules::delete(self.contract_address, self.slot_at(current_length - 1));
-        capsules::store(self.contract_address, self.base_slot, current_length - 1);
+        capsules::delete(
+            self.contract_address,
+            self.slot_at(current_length - 1),
+            self.scope,
+        );
+        capsules::store(
+            self.contract_address,
+            self.base_slot,
+            current_length - 1,
+            self.scope,
+        );
     }
 
     /// Calls a function on each element of the array.
@@ -124,10 +149,12 @@ impl<T> CapsuleArray<T> {
 }
 
 mod test {
+    use crate::protocol::address::AztecAddress;
     use crate::test::helpers::test_environment::TestEnvironment;
     use super::CapsuleArray;
 
     global SLOT: Field = 1230;
+    global SCOPE: AztecAddress = AztecAddress { inner: 0xface };
 
     #[test]
     unconstrained fn empty_array() {
@@ -135,7 +162,7 @@ mod test {
         env.private_context(|context| {
             let contract_address = context.this_address();
 
-            let array: CapsuleArray<Field> = CapsuleArray::at(contract_address, SLOT);
+            let array: CapsuleArray<Field> = CapsuleArray::at(contract_address, SLOT, SCOPE);
             assert_eq(array.len(), 0);
         });
     }
@@ -146,7 +173,7 @@ mod test {
         env.private_context(|context| {
             let contract_address = context.this_address();
 
-            let array = CapsuleArray::at(contract_address, SLOT);
+            let array = CapsuleArray::at(contract_address, SLOT, SCOPE);
             let _: Field = array.get(0);
         });
     }
@@ -157,7 +184,7 @@ mod test {
         env.private_context(|context| {
             let contract_address = context.this_address();
 
-            let array = CapsuleArray::at(contract_address, SLOT);
+            let array = CapsuleArray::at(contract_address, SLOT, SCOPE);
             array.push(5);
 
             assert_eq(array.len(), 1);
@@ -171,7 +198,7 @@ mod test {
         env.private_context(|context| {
             let contract_address = context.this_address();
 
-            let array = CapsuleArray::at(contract_address, SLOT);
+            let array = CapsuleArray::at(contract_address, SLOT, SCOPE);
             array.push(5);
 
             let _ = array.get(1);
@@ -184,7 +211,7 @@ mod test {
         env.private_context(|context| {
             let contract_address = context.this_address();
 
-            let array = CapsuleArray::at(contract_address, SLOT);
+            let array = CapsuleArray::at(contract_address, SLOT, SCOPE);
 
             array.push(5);
             array.remove(0);
@@ -199,7 +226,7 @@ mod test {
         env.private_context(|context| {
             let contract_address = context.this_address();
 
-            let array = CapsuleArray::at(contract_address, SLOT);
+            let array = CapsuleArray::at(contract_address, SLOT, SCOPE);
 
             array.push(7);
             array.push(8);
@@ -224,7 +251,7 @@ mod test {
         env.private_context(|context| {
             let contract_address = context.this_address();
 
-            let array = CapsuleArray::at(contract_address, SLOT);
+            let array = CapsuleArray::at(contract_address, SLOT, SCOPE);
 
             array.push(7);
             array.push(8);
@@ -243,7 +270,7 @@ mod test {
         let env = TestEnvironment::new();
         env.private_context(|context| {
             let contract_address = context.this_address();
-            let array = CapsuleArray::at(contract_address, SLOT);
+            let array = CapsuleArray::at(contract_address, SLOT, SCOPE);
 
             array.push(4);
             array.push(5);
@@ -266,7 +293,7 @@ mod test {
         let env = TestEnvironment::new();
         env.private_context(|context| {
             let contract_address = context.this_address();
-            let array = CapsuleArray::at(contract_address, SLOT);
+            let array = CapsuleArray::at(contract_address, SLOT, SCOPE);
 
             array.push(4);
             array.push(5);
@@ -289,7 +316,7 @@ mod test {
         let env = TestEnvironment::new();
         env.private_context(|context| {
             let contract_address = context.this_address();
-            let array = CapsuleArray::at(contract_address, SLOT);
+            let array = CapsuleArray::at(contract_address, SLOT, SCOPE);
 
             array.push(4);
             array.push(5);
@@ -306,7 +333,7 @@ mod test {
         let env = TestEnvironment::new();
         env.private_context(|context| {
             let contract_address = context.this_address();
-            let array = CapsuleArray::at(contract_address, SLOT);
+            let array = CapsuleArray::at(contract_address, SLOT, SCOPE);
 
             array.push(4);
             array.push(5);
@@ -319,6 +346,30 @@ mod test {
             array.for_each(|index, _| { array.remove(index); });
 
             assert_eq(mock.times_called(), 0);
+        });
+    }
+
+    #[test]
+    unconstrained fn different_scopes_are_isolated() {
+        let env = TestEnvironment::new();
+        env.private_context(|context| {
+            let contract_address = context.this_address();
+            let scope_a = AztecAddress { inner: 0xaaa };
+            let scope_b = AztecAddress { inner: 0xbbb };
+
+            let array_a = CapsuleArray::at(contract_address, SLOT, scope_a);
+            let array_b = CapsuleArray::at(contract_address, SLOT, scope_b);
+
+            array_a.push(10);
+            array_a.push(20);
+            array_b.push(99);
+
+            assert_eq(array_a.len(), 2);
+            assert_eq(array_a.get(0), 10);
+            assert_eq(array_a.get(1), 20);
+
+            assert_eq(array_b.len(), 1);
+            assert_eq(array_b.get(0), 99);
         });
     }
 }

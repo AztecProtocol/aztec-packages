@@ -554,9 +554,9 @@ template <> wire::BbGrumpkinBatchMulResponse handle_grumpkin_batch_mul(BbRequest
 }
 
 template <>
-wire::BbGrumpkinGetRandomFrResponse handle_grumpkin_get_random_fr(BbRequest& ctx, wire::BbGrumpkinGetRandomFr&& w)
+wire::BbGrumpkinGetRandomFrResponse handle_grumpkin_get_random_fr(BbRequest& ctx, wire::BbGrumpkinGetRandomFr&& /*w*/)
 {
-    auto resp = BbGrumpkinGetRandomFr{ .dummy = w.dummy }.execute(ctx);
+    auto resp = BbGrumpkinGetRandomFr{}.execute(ctx);
     return { .value = field_to_wire(resp.value) };
 }
 
@@ -586,9 +586,10 @@ template <> wire::BbSecp256k1MulResponse handle_secp256k1_mul(BbRequest& ctx, wi
 }
 
 template <>
-wire::BbSecp256k1GetRandomFrResponse handle_secp256k1_get_random_fr(BbRequest& ctx, wire::BbSecp256k1GetRandomFr&& w)
+wire::BbSecp256k1GetRandomFrResponse handle_secp256k1_get_random_fr(BbRequest& ctx,
+                                                                    wire::BbSecp256k1GetRandomFr&& /*w*/)
 {
-    auto resp = BbSecp256k1GetRandomFr{ .dummy = w.dummy }.execute(ctx);
+    auto resp = BbSecp256k1GetRandomFr{}.execute(ctx);
     return { .value = field_to_wire(resp.value) };
 }
 
@@ -848,19 +849,18 @@ template <> wire::BbSrsInitSrsResponse handle_srs_init_srs(BbRequest& ctx, wire:
             .g2_point = std::move(w.g2_point),
         }
             .execute(ctx);
-    return { .dummy = resp.dummy };
+    return { .points_buf = std::move(resp.points_buf) };
 }
 
 template <>
 wire::BbSrsInitGrumpkinSrsResponse handle_srs_init_grumpkin_srs(BbRequest& ctx, wire::BbSrsInitGrumpkinSrs&& w)
 {
-    auto resp =
-        BbSrsInitGrumpkinSrs{
-            .points_buf = std::move(w.points_buf),
-            .num_points = w.num_points,
-        }
-            .execute(ctx);
-    return { .dummy = resp.dummy };
+    BbSrsInitGrumpkinSrs{
+        .points_buf = std::move(w.points_buf),
+        .num_points = w.num_points,
+    }
+        .execute(ctx);
+    return {};
 }
 
 // Explicit instantiation of the dispatch handler for BbRequest

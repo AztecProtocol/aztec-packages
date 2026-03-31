@@ -278,7 +278,7 @@ export class AttestationPool {
    * @returns Result indicating whether the proposal was added and duplicate detection info
    */
   public async tryAddCheckpointProposal(proposal: CheckpointProposalCore): Promise<TryAddResult> {
-    return await this.store.transactionAsync(async () => {
+    const result = await this.store.transactionAsync(async () => {
       const proposalId = proposal.archive.toString();
 
       // Check if already exists
@@ -304,6 +304,8 @@ export class AttestationPool {
 
       return { added: true, alreadyExists: false, count: count + 1 };
     });
+
+    return result;
   }
 
   /** Internal method - must be called within a transaction. */
@@ -345,7 +347,7 @@ export class AttestationPool {
     await this.store.transactionAsync(async () => {
       for (const attestation of attestations) {
         const slotNumber = attestation.payload.header.slotNumber;
-        const proposalId = attestation.archive;
+        const proposalId = attestation.archive.toString();
         const sender = attestation.getSender();
 
         // Skip attestations with invalid signatures

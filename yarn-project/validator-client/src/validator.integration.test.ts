@@ -193,7 +193,6 @@ describe('ValidatorClient Integration', () => {
         attestationPollingIntervalMs: 100,
         disableValidator: false,
         disabledValidators: [],
-        validatorReexecute: true,
         slashBroadcastedInvalidBlockPenalty: 10n,
         slashDuplicateProposalPenalty: 10n,
         slashDuplicateAttestationPenalty: 10n,

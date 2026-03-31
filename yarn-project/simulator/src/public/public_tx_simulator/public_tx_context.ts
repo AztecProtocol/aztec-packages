@@ -247,8 +247,12 @@ export class PublicTxContext {
   }
 
   /**
-   * The gasUsed by public and private,
-   * as if the entire teardown gas limit was consumed.
+   * The gasUsed by public and private, as if the entire teardown gas limit was consumed.
+   *
+   * This is intentional: teardown is used for gas accounting and refunds, so the transaction
+   * fee must be deterministic _before_ teardown executes. If fees depended on teardown's actual
+   * consumption there would be a circular dependency. Billing the full teardown gas limit
+   * (set by the user) makes the fee known in advance and available to the teardown function.
    */
   getTotalGasUsed(): Gas {
     return this.gasUsedByPrivate.add(this.gasUsedByPublic);
