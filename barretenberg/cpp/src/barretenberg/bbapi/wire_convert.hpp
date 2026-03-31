@@ -1,10 +1,13 @@
 #pragma once
 /**
- * @brief Zero-cost conversion between wire types (Fr = array<uint8_t,32>) and
+ * @brief Conversion between wire types (Fr = array<uint8_t,32>) and
  *        barretenberg domain types (bb::fr, grumpkin::fr, affine_element, etc.)
  *
- * All field elements are 32-byte Montgomery form both on wire and in memory,
- * so conversion is just memcpy. affine_element is {Fq x, Fq y} = 2×32 bytes.
+ * Wire format: 32-byte big-endian canonical form (matching bb::fr msgpack serialization).
+ * Domain format: little-endian Montgomery form (bb::fr internal representation).
+ *
+ * The conversion performs endian swap + Montgomery form conversion to match
+ * the existing msgpack_pack/msgpack_unpack in field_impl.hpp.
  */
 
 #include <algorithm>
@@ -13,28 +16,60 @@
 #include <cstring>
 #include <vector>
 
+#ifdef _WIN32
+#include <winsock2.h>
+#else
+#include <arpa/inet.h>
+#endif
+
+// htonll/ntohll may not be defined on all platforms
+#ifndef htonll
+#define htonll(x) ((((uint64_t)htonl((uint32_t)(x))) << 32) | htonl((uint32_t)((x) >> 32)))
+#endif
+#ifndef ntohll
+#define ntohll(x) htonll(x)
+#endif
+
 namespace bb::bbapi {
 
-/// Wire field element: 32-byte Montgomery form (same as bb::fr in memory)
+/// Wire field element: 32-byte big-endian canonical form
 using Fr = std::array<uint8_t, 32>;
 
 // ---------------------------------------------------------------------------
-// Field element conversion (all 32-byte Montgomery types)
+// Field element conversion
+// Wire format: 32-byte big-endian canonical (same as bb::fr msgpack wire format)
+// Domain format: 4×uint64_t little-endian Montgomery (bb::fr internal)
 // ---------------------------------------------------------------------------
 
-/// Convert wire Fr → any 32-byte field type (bb::fr, grumpkin::fr, secp256k1::fr, etc.)
+/// Convert wire Fr (big-endian canonical) → any 32-byte field type (bb::fr, grumpkin::fr, etc.)
+/// Matches the logic of bb::field::msgpack_unpack in field_impl.hpp.
 template <typename FieldType> inline FieldType field_from_wire(const Fr& w)
 {
+    // Read big-endian uint64_t's and swap to host endianness (matching msgpack_unpack)
+    const auto* cast_data = reinterpret_cast<const uint64_t*>(w.data()); // NOLINT
     FieldType r;
-    std::memcpy(static_cast<void*>(&r), w.data(), 32);
+    r.data[0] = ntohll(cast_data[3]);
+    r.data[1] = ntohll(cast_data[2]);
+    r.data[2] = ntohll(cast_data[1]);
+    r.data[3] = ntohll(cast_data[0]);
+    // Convert from canonical to Montgomery form
+    r = r.to_montgomery_form_reduced();
     return r;
 }
 
-/// Convert any 32-byte field type → wire Fr
+/// Convert any 32-byte field type → wire Fr (big-endian canonical)
+/// Matches the logic of bb::field::msgpack_pack in field_impl.hpp.
 template <typename FieldType> inline Fr field_to_wire(const FieldType& d)
 {
+    // Convert from Montgomery form to canonical [0, p)
+    auto adjusted = d.from_montgomery_form_reduced();
+    // Write as big-endian (matching msgpack_pack)
     Fr r;
-    std::memcpy(r.data(), static_cast<const void*>(&d), 32);
+    auto* out = reinterpret_cast<uint64_t*>(r.data()); // NOLINT
+    out[0] = htonll(adjusted.data[3]);
+    out[1] = htonll(adjusted.data[2]);
+    out[2] = htonll(adjusted.data[1]);
+    out[3] = htonll(adjusted.data[0]);
     return r;
 }
 
@@ -81,20 +116,22 @@ template <typename FieldType> inline std::vector<Fr> field_vec_to_wire(const std
 // ---------------------------------------------------------------------------
 
 /// Convert a wire point struct (with .x, .y as Fr) to an affine_element
+/// Uses field_from_wire for proper big-endian canonical → Montgomery conversion.
 template <typename AffineType, typename WirePoint> inline AffineType point_from_wire(const WirePoint& w)
 {
     AffineType r;
-    std::memcpy(static_cast<void*>(&r.x), w.x.data(), 32);
-    std::memcpy(static_cast<void*>(&r.y), w.y.data(), 32);
+    r.x = field_from_wire<typename AffineType::Fq>(w.x);
+    r.y = field_from_wire<typename AffineType::Fq>(w.y);
     return r;
 }
 
 /// Convert an affine_element to a wire point struct
+/// Uses field_to_wire for proper Montgomery → big-endian canonical conversion.
 template <typename WirePoint, typename AffineType> inline WirePoint point_to_wire(const AffineType& d)
 {
     WirePoint r;
-    std::memcpy(r.x.data(), static_cast<const void*>(&d.x), 32);
-    std::memcpy(r.y.data(), static_cast<const void*>(&d.y), 32);
+    r.x = field_to_wire<typename AffineType::Fq>(d.x);
+    r.y = field_to_wire<typename AffineType::Fq>(d.y);
     return r;
 }
 
