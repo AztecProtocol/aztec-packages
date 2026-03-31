@@ -299,6 +299,7 @@ locals {
         service = {
           p2p = { publicIP = var.P2P_PUBLIC_IP }
         }
+        node = { env = { LOG_LEVEL = var.LOG_LEVEL } }
       })]
       custom_settings = {
         "nodeType"                    = "p2p-bootstrap"
