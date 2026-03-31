@@ -3,8 +3,8 @@
  * Usage: npx tsx echo_server.ts --socket /tmp/echo.sock
  */
 import { createServer } from './generated/ipc_server.js';
-import { dispatch } from './generated/echo_server.js';
-import type { Handler } from './generated/echo_server.js';
+import { dispatch } from './generated/server.js';
+import type { Handler } from './generated/server.js';
 import type {
   EchoBytes, EchoBytesResponse,
   EchoFields, EchoFieldsResponse,

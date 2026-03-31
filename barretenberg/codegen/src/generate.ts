@@ -210,14 +210,14 @@ function generate(args: Args) {
   switch (args.lang) {
     case 'ts': {
       const gen = new TypeScriptCodegen();
-      writeFile(`${toSnakeCase(prefix)}_types.ts`, gen.generateTypes(compiled, schemaHash));
+      writeFile('api_types.ts', gen.generateTypes(compiled, schemaHash));
       if (args.server) {
-        writeFile(`${toSnakeCase(prefix)}_server.ts`, gen.generateServerApi(compiled));
+        writeFile('server.ts', gen.generateServerApi(compiled));
         copyTemplate('ts', 'ipc_server.ts', absOut);
       }
       if (args.client) {
-        writeFile(`${toSnakeCase(prefix)}_async.ts`, gen.generateAsyncApi(compiled));
-        writeFile(`${toSnakeCase(prefix)}_sync.ts`, gen.generateSyncApi(compiled));
+        writeFile('async.ts', gen.generateAsyncApi(compiled));
+        writeFile('sync.ts', gen.generateSyncApi(compiled));
         copyTemplate('ts', 'ipc_client.ts', absOut);
       }
       if (args.curveConstants) {
