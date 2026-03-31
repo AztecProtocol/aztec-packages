@@ -60,10 +60,11 @@ class ECCOpQueue {
     // Tracks number of muls and size of eccvm in real time as the op queue is updated
     EccvmRowTracker eccvm_row_tracker;
 
-    bool is_zk = false;
+    bool is_zk = true;
 
   public:
     void set_is_zk(bool _is_zk) { is_zk = _is_zk; }
+    bool get_is_zk() const { return is_zk; }
 
     static const size_t OP_QUEUE_SIZE = 1 << CONST_OP_QUEUE_LOG_SIZE;
     /**
