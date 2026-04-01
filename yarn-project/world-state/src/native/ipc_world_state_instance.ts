@@ -194,9 +194,7 @@ function convertStatusFull(s: WsdbStatusFull): WorldStateStatusFull {
 }
 
 /** Convert Wsdb SiblingPathAndIndex to NAPI format. */
-function convertSiblingPathAndIndex(
-  s: WsdbSiblingPathAndIndex | undefined,
-): { index: bigint; path: Buffer[] } | undefined {
+function convertSiblingPathAndIndex(s: WsdbSiblingPathAndIndex | null): { index: bigint; path: Buffer[] } | undefined {
   if (!s) {
     return undefined;
   }
