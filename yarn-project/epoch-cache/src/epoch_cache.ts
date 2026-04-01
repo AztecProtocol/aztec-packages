@@ -44,12 +44,12 @@ export type SlotTag = 'now' | 'next' | SlotNumber;
 /** Resolved cache entry with L1 provenance metadata. */
 type CachedEpochEntry = {
   data: EpochCommitteeInfo;
-  /** L1 block number at which we queried. */
-  l1BlockNumber: bigint;
-  /** L1 block hash at which we queried. */
-  l1BlockHash: `0x${string}`;
-  /** L1 block timestamp at which we queried. */
-  l1BlockTimestamp: bigint;
+  /** L1 block number at which the committee data was originally queried. */
+  lastQueryL1BlockNumber: bigint;
+  /** L1 block hash at which the committee data was originally queried. Used to detect reorgs. */
+  lastQueryL1BlockHash: `0x${string}`;
+  /** Latest L1 block timestamp at the time of the most recent refresh (full fetch or lightweight check). */
+  lastRefreshL1Timestamp: bigint;
   /** Whether the epoch's sampling data falls within finalized L1 history. */
   finalized: boolean;
 };
@@ -340,7 +340,7 @@ export class EpochCache implements EpochCacheInterface {
   /** Returns true if a non-finalized cache entry is older than one Ethereum slot. */
   private isStale(entry: CachedEpochEntry): boolean {
     const nowSeconds = BigInt(this.dateProvider.nowInSeconds());
-    return nowSeconds - entry.l1BlockTimestamp >= BigInt(this.l1constants.ethereumSlotDuration);
+    return nowSeconds - entry.lastRefreshL1Timestamp >= BigInt(this.l1constants.ethereumSlotDuration);
   }
 
   /** Whether a cached epoch entry has been marked as finalized. Returns undefined if not cached or still in-flight. */
@@ -352,13 +352,13 @@ export class EpochCache implements EpochCacheInterface {
     return entry.finalized;
   }
 
-  /** Returns the L1 block number at which the cached entry was queried. Undefined if not cached or in-flight. */
-  public getCachedL1BlockNumber(epoch: EpochNumber): bigint | undefined {
+  /** Returns the latest L1 timestamp stored in the cached entry. Undefined if not cached or in-flight. */
+  public getCachedLastRefreshL1Timestamp(epoch: EpochNumber): bigint | undefined {
     const entry = this.cache.get(epoch);
     if (!entry || entry instanceof Promise) {
       return undefined;
     }
-    return entry.l1BlockNumber;
+    return entry.lastRefreshL1Timestamp;
   }
 
   /** Computes the sampling timestamp for an epoch's committee data. */
@@ -378,21 +378,21 @@ export class EpochCache implements EpochCacheInterface {
    * entry to finalized. If there was a reorg (hash mismatch), we fall back to a full fetch.
    */
   private async refreshStaleEntry(stale: CachedEpochEntry, epoch: EpochNumber, ts: bigint): Promise<CachedEpochEntry> {
-    const [blockAtOriginal, l1FinalizedBlock] = await Promise.all([
-      this.rollup.client.getBlock({ blockNumber: stale.l1BlockNumber, includeTransactions: false }),
+    const [blockAtOriginal, l1FinalizedBlock, latestBlock] = await Promise.all([
+      this.rollup.client.getBlock({ blockNumber: stale.lastQueryL1BlockNumber, includeTransactions: false }),
       this.rollup.client.getBlock({ blockTag: 'finalized', includeTransactions: false }),
+      this.rollup.client.getBlock({ includeTransactions: false }),
     ]);
 
-    if (blockAtOriginal.hash === stale.l1BlockHash) {
+    if (blockAtOriginal.hash === stale.lastQueryL1BlockHash) {
       // No reorg: the data is still valid. Check if we can now mark it as finalized.
       const samplingTs = this.getSamplingTimestamp(epoch);
       const finalized =
         !!(stale.data.committee && stale.data.committee.length > 0) && samplingTs <= l1FinalizedBlock.timestamp;
 
-      const latestBlock = await this.rollup.client.getBlock({ includeTransactions: false });
       const refreshed: CachedEpochEntry = {
         ...stale,
-        l1BlockTimestamp: latestBlock.timestamp,
+        lastRefreshL1Timestamp: latestBlock.timestamp,
         finalized,
       };
       this.cache.set(epoch, refreshed);
@@ -400,12 +400,16 @@ export class EpochCache implements EpochCacheInterface {
     }
 
     // Reorg detected: block hash mismatch. Do a full re-fetch.
-    this.log.warn(`L1 reorg detected for epoch ${epoch}: block ${stale.l1BlockNumber} hash changed`, {
+    // Pass the already-fetched block timestamps to avoid redundant queries.
+    this.log.warn(`L1 reorg detected for epoch ${epoch}: block ${stale.lastQueryL1BlockNumber} hash changed`, {
       epoch,
-      expectedHash: stale.l1BlockHash,
+      expectedHash: stale.lastQueryL1BlockHash,
       actualHash: blockAtOriginal.hash,
     });
-    return this.fetchAndCache(epoch, ts);
+    return this.fetchAndCache(epoch, ts, {
+      latestTimestamp: latestBlock.timestamp,
+      finalizedTimestamp: l1FinalizedBlock.timestamp,
+    });
   }
 
   /**
@@ -414,21 +418,32 @@ export class EpochCache implements EpochCacheInterface {
    * Uses `lagInEpochsForRandao` (the binding constraint, always <= lagInEpochsForValidatorSet)
    * and computes the sampling timestamp from the epoch start to match the L1 contract's logic.
    */
-  private async fetchAndCache(epoch: EpochNumber, ts: bigint): Promise<CachedEpochEntry> {
+  private async fetchAndCache(
+    epoch: EpochNumber,
+    ts: bigint,
+    prefetched?: { latestTimestamp: bigint; finalizedTimestamp: bigint },
+  ): Promise<CachedEpochEntry> {
     const [committee, seedBuffer, l1Block, l1FinalizedBlock, isEscapeHatchOpen] = await Promise.all([
       this.rollup.getCommitteeAt(ts),
       this.rollup.getSampleSeedAt(ts),
-      this.rollup.client.getBlock({ includeTransactions: false }),
-      this.rollup.client.getBlock({ blockTag: 'finalized', includeTransactions: false }),
+      prefetched
+        ? ({ number: 0n, hash: '0x', timestamp: prefetched.latestTimestamp } as const)
+        : this.rollup.client.getBlock({ includeTransactions: false }),
+      prefetched
+        ? ({ timestamp: prefetched.finalizedTimestamp } as const)
+        : this.rollup.client.getBlock({ blockTag: 'finalized', includeTransactions: false }),
       this.rollup.isEscapeHatchOpen(epoch),
     ]);
 
+    // When timestamps are prefetched we still need the actual latest block for provenance.
+    const latestBlock = prefetched ? await this.rollup.client.getBlock({ includeTransactions: false }) : l1Block;
+
     const samplingTs = this.getSamplingTimestamp(epoch);
 
-    if (samplingTs > l1Block.timestamp) {
+    if (samplingTs > latestBlock.timestamp) {
       throw new Error(
         `Cannot query committee for future epoch ${epoch}: ` +
-          `sampling timestamp ${samplingTs} is beyond latest L1 block at ${l1Block.timestamp}. ` +
+          `sampling timestamp ${samplingTs} is beyond latest L1 block at ${latestBlock.timestamp}. ` +
           `Check your Ethereum node is synced.`,
       );
     }
@@ -439,9 +454,9 @@ export class EpochCache implements EpochCacheInterface {
     const data: EpochCommitteeInfo = { committee, seed: seedBuffer.toBigInt(), epoch, isEscapeHatchOpen };
     const entry: CachedEpochEntry = {
       data,
-      l1BlockNumber: l1Block.number!,
-      l1BlockHash: l1Block.hash!,
-      l1BlockTimestamp: l1Block.timestamp,
+      lastQueryL1BlockNumber: latestBlock.number!,
+      lastQueryL1BlockHash: latestBlock.hash!,
+      lastRefreshL1Timestamp: latestBlock.timestamp,
       finalized,
     };
 

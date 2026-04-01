@@ -170,9 +170,9 @@ describe('EpochCache integration', () => {
     expect(before.committee).toBeDefined();
     expect(epochCache.isFinalized(epochBefore)).toBe(false);
 
-    // Record the L1 block number at which the cache entry was fetched.
-    const l1BlockBefore = epochCache.getCachedL1BlockNumber(epochBefore);
-    expect(l1BlockBefore).toBeDefined();
+    // Record the L1 timestamp at which the cache entry was last refreshed.
+    const l1TsBefore = epochCache.getCachedLastRefreshL1Timestamp(epochBefore);
+    expect(l1TsBefore).toBeDefined();
 
     // Rollback past the setupEpoch block and mine new blocks so the chain tip changes.
     await cheatCodes.reorg(2);
@@ -197,10 +197,10 @@ describe('EpochCache integration', () => {
     expect(after.committee).toBeDefined();
     expect(after.epoch).toBe(before.epoch);
 
-    // The cache was re-fetched from L1: the L1 block number stored in the entry must
-    // have changed because the chain was reorged and new blocks were mined.
-    const l1BlockAfter = epochCache.getCachedL1BlockNumber(epochBefore);
-    expect(l1BlockAfter).toBeDefined();
-    expect(l1BlockAfter).not.toBe(l1BlockBefore);
+    // The cache was refreshed: the L1 timestamp must have advanced because
+    // the chain was reorged and new blocks were mined.
+    const l1TsAfter = epochCache.getCachedLastRefreshL1Timestamp(epochBefore);
+    expect(l1TsAfter).toBeDefined();
+    expect(l1TsAfter).not.toBe(l1TsBefore);
   });
 });

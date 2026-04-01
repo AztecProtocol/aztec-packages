@@ -17,9 +17,9 @@ class TestEpochCache extends EpochCache {
   public seedCache(epoch: EpochNumber, committeeInfo: EpochCommitteeInfo): void {
     this.cache.set(epoch, {
       data: committeeInfo,
-      l1BlockNumber: 0n,
-      l1BlockHash: '0x0000000000000000000000000000000000000000000000000000000000000000',
-      l1BlockTimestamp: BigInt(Math.floor(Date.now() / 1000)) + 10000n,
+      lastQueryL1BlockNumber: 0n,
+      lastQueryL1BlockHash: '0x0000000000000000000000000000000000000000000000000000000000000000',
+      lastRefreshL1Timestamp: BigInt(Math.floor(Date.now() / 1000)) + 10000n,
       finalized: true,
     });
   }
