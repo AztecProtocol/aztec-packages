@@ -82,7 +82,7 @@ import type { DebugLogStore, LogFilter, SiloedTag, Tag, TxScopedL2Log } from '@a
 import { InMemoryDebugLogStore, NullDebugLogStore } from '@aztec/stdlib/logs';
 import { InboxLeaf, type L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import type { Offense, SlashPayloadRound } from '@aztec/stdlib/slashing';
-import type { NullifierLeafPreimage, PublicDataTreeLeaf, PublicDataTreeLeafPreimage } from '@aztec/stdlib/trees';
+import type { NullifierLeafPreimage, PublicDataTreeLeafPreimage } from '@aztec/stdlib/trees';
 import { MerkleTreeId, NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
 import {
   type BlockHeader,
