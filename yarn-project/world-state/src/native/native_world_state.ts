@@ -48,8 +48,8 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
   protected initialHeader: BlockHeader | undefined;
   // This is read heavily and only changes when data is persisted, so we cache it
   private cachedStatusSummary: WorldStateStatusSummary | undefined;
-  /** Maps archive root (hex) → fork ID for forks that have built blocks and are awaiting SYNC_BLOCK. */
-  private registeredForks = new Map<string, number>();
+  /** The single registered fork awaiting SYNC_BLOCK. Only one fork is active at a time. */
+  private registeredFork: { archiveRoot: string; forkId: number } | undefined;
 
   protected constructor(
     protected instance: NativeWorldState,
@@ -195,7 +195,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
   }
 
   public registerForkForBlock(archiveRoot: Fr, forkId: number): void {
-    this.registeredForks.set(archiveRoot.toString(), forkId);
+    this.registeredFork = { archiveRoot: archiveRoot.toString(), forkId };
   }
 
   public getInitialHeader(): BlockHeader {
@@ -205,20 +205,20 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
   public async handleL2BlockAndMessages(l2Block: L2Block, l1ToL2Messages: Fr[]): Promise<WorldStateStatusFull> {
     // Check if a fork already built this block (registered via registerForkForBlock).
     // If so, commit the fork directly instead of recalculating via SYNC_BLOCK.
-    const registeredForkId = this.registeredForks.get(l2Block.archive.root.toString());
-    if (registeredForkId !== undefined) {
-      this.registeredForks.delete(l2Block.archive.root.toString());
-      this.log.debug(`Committing registered fork ${registeredForkId} for block ${l2Block.number}`);
+    const registered = this.registeredFork;
+    if (registered && registered.archiveRoot === l2Block.archive.root.toString()) {
+      this.registeredFork = undefined;
+      this.log.debug(`Committing registered fork ${registered.forkId} for block ${l2Block.number}`);
       try {
         return await this.instance.call(
           WorldStateMessageType.COMMIT_FORK,
-          { forkId: registeredForkId, canonical: true as const },
+          { forkId: registered.forkId, canonical: true as const },
           this.sanitizeAndCacheSummaryFromFull.bind(this),
           this.deleteCachedSummary.bind(this),
         );
       } catch (err) {
         this.log.warn(
-          `Failed to commit registered fork ${registeredForkId} for block ${l2Block.number}, falling back to SYNC_BLOCK`,
+          `Failed to commit registered fork ${registered.forkId} for block ${l2Block.number}, falling back to SYNC_BLOCK`,
           { err },
         );
       }
@@ -355,7 +355,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
    */
   public async unwindBlocks(toBlockNumber: BlockNumber) {
     // Clear any registered forks — they're invalid after a reorg.
-    this.registeredForks.clear();
+    this.registeredFork = undefined;
     try {
       const result = await this.instance.call(
         WorldStateMessageType.UNWIND_BLOCKS,
