@@ -46,11 +46,13 @@ See the [guide on fees](./how_to_pay_fees.md#sponsored-fee-payment-contracts) fo
 
 ### Using Fee Juice
 
-If your account already has Fee Juice (for example, [bridged from L1](./how_to_pay_fees.md#bridge-fee-juice-from-l1)):
+If your account has Fee Juice from a [bridge from L1](./how_to_pay_fees.md#bridge-fee-juice-from-l1), you can claim it and deploy in one step using `FeeJuicePaymentMethodWithClaim`:
 
-#include_code deploy_account_fee_juice /docs/examples/ts/aztecjs_connection/index.ts typescript
+#include_code bridge_fee_juice_claim /docs/examples/ts/aztecjs_connection/index.ts typescript
 
-The `from: NO_FROM` signals that this transaction should be executed without account contract mediation. The wallet will directly execute it via a default entrypoint with no authorization
+If the account already has Fee Juice on L2 (for example, from a faucet or a previously claimed bridge), no special payment method is needed — just call `send({ from: NO_FROM })` and Fee Juice is used automatically.
+
+The `from: NO_FROM` signals that this transaction should be executed without account contract mediation. The wallet will directly execute it via a default entrypoint with no authorization.
 
 ## Verify deployment
 
