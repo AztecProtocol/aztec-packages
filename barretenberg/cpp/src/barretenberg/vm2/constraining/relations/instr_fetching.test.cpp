@@ -891,8 +891,8 @@ TEST(InstrFetchingConstrainingTest, NegativeTagOutOfRangeNoTag)
     ASSERT_EQ(trace.get(C::instr_fetching_sel_has_tag, 1), 0);
     trace.set(C::instr_fetching_tag_out_of_range, 1, 1); // Mutate by toggling the error.
 
-    EXPECT_THROW_WITH_MESSAGE(check_relation<instr_fetching>(trace, instr_fetching::SR_TAG_OUT_OF_RANGE_VALIDATION),
-                              "TAG_OUT_OF_RANGE_VALIDATION");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<instr_fetching>(trace, instr_fetching::SR_TAG_OUT_OF_RANGE_ZERO),
+                              "TAG_OUT_OF_RANGE_ZERO");
 }
 
 // Negative test on not toggling instr_out_of_range when instr_size > bytes_to_read

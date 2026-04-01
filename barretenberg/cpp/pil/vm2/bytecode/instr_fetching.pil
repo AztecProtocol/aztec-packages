@@ -150,7 +150,7 @@ pol commit sel_tag_is_op2; // @boolean (by lookup only when sel_pc_in_range == 1
 sel_has_tag * (1 - sel_pc_in_range) = 0;
 
 // We can only have a tag error when a tag exists.
-#[TAG_OUT_OF_RANGE_VALIDATION]
+#[TAG_OUT_OF_RANGE_ZERO]
 tag_out_of_range * (1 - sel_has_tag) = 0;
 
 // Value to validate as tag. According to our instruction specifications, there is a maximum of one tag per instruction

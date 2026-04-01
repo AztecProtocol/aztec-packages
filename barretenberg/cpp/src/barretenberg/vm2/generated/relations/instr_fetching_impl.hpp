@@ -98,7 +98,7 @@ void instr_fetchingImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
                    (FF(1) - static_cast<View>(in.get(C::instr_fetching_sel_pc_in_range)));
         std::get<10>(evals) += (tmp * scaling_factor);
     }
-    { // TAG_OUT_OF_RANGE_VALIDATION
+    { // TAG_OUT_OF_RANGE_ZERO
         using View = typename std::tuple_element_t<11, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::instr_fetching_tag_out_of_range)) *
                    (FF(1) - static_cast<View>(in.get(C::instr_fetching_sel_has_tag)));
