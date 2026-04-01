@@ -8,7 +8,10 @@ import { Fr } from '@aztec/aztec.js/fields';
 import { createLogger } from '@aztec/aztec.js/log';
 import { DeployAccountOptions } from '@aztec/aztec.js/wallet';
 import type { AztecNode } from '@aztec/aztec.js/node';
-import { type CompleteFeeOptionsOpts, type FeeOptions } from '@aztec/wallet-sdk/base-wallet';
+import {
+  type CompleteFeeOptionsOpts,
+  type FeeOptions,
+} from '@aztec/wallet-sdk/base-wallet';
 import { SPONSORED_FPC_SALT } from '@aztec/constants';
 import { randomBytes } from '@aztec/foundation/crypto/random';
 import { getInitialTestAccountsData } from '@aztec/accounts/testing/lazy';
@@ -45,11 +48,10 @@ export class EmbeddedWallet extends EmbeddedWalletBase {
     const baseFeeOptions = await super.completeFeeOptions(opts);
     let { accountFeePaymentMethodOptions, walletFeePaymentMethod } =
       baseFeeOptions;
+    // If from is and address and the transaction does not include a fee payment
+    // method, we use the sponsoredFPC
     if (from !== NO_FROM && !feePayer) {
-      // The transaction does not include a fee payment method, so we
-      // use the sponsoredFPC
-      accountFeePaymentMethodOptions =
-        AccountFeePaymentMethodOptions.EXTERNAL;
+      accountFeePaymentMethodOptions = AccountFeePaymentMethodOptions.EXTERNAL;
       const sponsoredFPCAddress = await this.#getSponsoredFPCAddress();
       walletFeePaymentMethod = new SponsoredFeePaymentMethod(
         sponsoredFPCAddress

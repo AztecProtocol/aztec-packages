@@ -104,7 +104,7 @@ export class GasSettings {
     return new GasSettings(Gas.empty(), Gas.empty(), GasFees.empty(), GasFees.empty());
   }
 
-  /** Fills in gas limits at an arbitrary maximum that still allows transactions to be included. */
+  /** Fills in gas limits that still allows transactions to be included. */
   static withMaxLimits(overrides: {
     gasLimits?: Gas;
     teardownGasLimits?: Gas;
