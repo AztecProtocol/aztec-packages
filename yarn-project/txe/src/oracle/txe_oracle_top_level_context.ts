@@ -311,6 +311,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     isStaticCall: boolean = false,
     jobId: string,
   ) {
+    throw new Error('this should break tests');
     this.logger.verbose(
       `Executing external function ${await this.contractStore.getDebugFunctionName(targetContractAddress, functionSelector)}@${targetContractAddress} isStaticCall=${isStaticCall}`,
     );
