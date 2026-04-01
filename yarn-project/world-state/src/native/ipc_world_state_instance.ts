@@ -165,30 +165,30 @@ function convertTreeMeta(m: WsdbTreeMeta): TreeMeta {
     name: m.name,
     depth: m.depth,
     size: m.size,
-    committedSize: m.committedsize,
+    committedSize: m.committedSize,
     root: m.root,
-    initialSize: m.initialsize,
-    initialRoot: m.initialroot,
-    oldestHistoricBlock: m.oldesthistoricblock,
-    unfinalizedBlockHeight: m.unfinalizedblockheight,
-    finalizedBlockHeight: m.finalizedblockheight,
+    initialSize: m.initialSize,
+    initialRoot: m.initialRoot,
+    oldestHistoricBlock: m.oldestHistoricBlock,
+    unfinalizedBlockHeight: m.unfinalizedBlockHeight,
+    finalizedBlockHeight: m.finalizedBlockHeight,
   } as unknown as TreeMeta;
 }
 
 function convertWorldStateMeta(m: WsdbMeta): WorldStateMeta {
   return {
-    noteHashTreeMeta: convertTreeMeta(m.notehashtreemeta),
-    messageTreeMeta: convertTreeMeta(m.messagetreemeta),
-    archiveTreeMeta: convertTreeMeta(m.archivetreemeta),
-    publicDataTreeMeta: convertTreeMeta(m.publicdatatreemeta),
-    nullifierTreeMeta: convertTreeMeta(m.nullifiertreemeta),
+    noteHashTreeMeta: convertTreeMeta(m.noteHashTreeMeta),
+    messageTreeMeta: convertTreeMeta(m.messageTreeMeta),
+    archiveTreeMeta: convertTreeMeta(m.archiveTreeMeta),
+    publicDataTreeMeta: convertTreeMeta(m.publicDataTreeMeta),
+    nullifierTreeMeta: convertTreeMeta(m.nullifierTreeMeta),
   } as unknown as WorldStateMeta;
 }
 
 function convertStatusFull(s: WsdbStatusFull): WorldStateStatusFull {
   return {
     summary: convertStatusSummary(s.summary),
-    dbStats: convertWorldStateDBStats(s.dbstats),
+    dbStats: convertWorldStateDBStats(s.dbStats),
     meta: convertWorldStateMeta(s.meta),
   } as unknown as WorldStateStatusFull;
 }
