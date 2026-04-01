@@ -75,15 +75,13 @@ struct NullifierLeafValue {
 
     static NullifierLeafValue from_wire(const bb::wsdb::wire::NullifierLeafValue& w)
     {
-        fr n;
-        std::memcpy(static_cast<void*>(&n), w.nullifier.data(), 32);
-        return NullifierLeafValue(n);
+        return NullifierLeafValue(fr::serialize_from_buffer(w.nullifier.data()));
     }
 
     bb::wsdb::wire::NullifierLeafValue to_wire() const
     {
         bb::wsdb::wire::NullifierLeafValue w;
-        std::memcpy(w.nullifier.data(), static_cast<const void*>(&nullifier), 32);
+        fr::serialize_to_buffer(nullifier, w.nullifier.data());
         return w;
     }
 };
@@ -151,17 +149,14 @@ struct PublicDataLeafValue {
 
     static PublicDataLeafValue from_wire(const bb::wsdb::wire::PublicDataLeafValue& w)
     {
-        fr s, v;
-        std::memcpy(static_cast<void*>(&s), w.slot.data(), 32);
-        std::memcpy(static_cast<void*>(&v), w.value.data(), 32);
-        return PublicDataLeafValue(s, v);
+        return PublicDataLeafValue(fr::serialize_from_buffer(w.slot.data()), fr::serialize_from_buffer(w.value.data()));
     }
 
     bb::wsdb::wire::PublicDataLeafValue to_wire() const
     {
         bb::wsdb::wire::PublicDataLeafValue w;
-        std::memcpy(w.slot.data(), static_cast<const void*>(&slot), 32);
-        std::memcpy(w.value.data(), static_cast<const void*>(&value), 32);
+        fr::serialize_to_buffer(slot, w.slot.data());
+        fr::serialize_to_buffer(value, w.value.data());
         return w;
     }
 };
