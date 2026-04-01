@@ -559,9 +559,12 @@ impl PrivateContext {
     pub fn end_setup(&mut self) {
         // Incrementing the side effect counter when ending setup ensures non ambiguity for the counter where we change
         // phases.
-        self.side_effect_counter += 1;
-        aztecnr_trace_log_format!("Ending setup at counter {0}")([self.side_effect_counter as Field]);
         self.min_revertible_side_effect_counter = self.next_counter();
+        aztecnr_trace_log_format!(
+            "Ending setup, minimum revertible side effect counter is {0}",
+        )(
+            [self.min_revertible_side_effect_counter as Field],
+        );
         notify_revertible_phase_start(self.min_revertible_side_effect_counter);
     }
 
@@ -1162,8 +1165,9 @@ impl PrivateContext {
         // ); if item.public_inputs.min_revertible_side_effect_counter
         //     > self.min_revertible_side_effect_counter { self.min_revertible_side_effect_counter =
         // item.public_inputs.min_revertible_side_effect_counter; }
-        self.side_effect_counter = end_side_effect_counter + 1; // TODO: call `next_counter`
-        // instead, for consistency
+
+        // Increment side-effect counter
+        let _ = self.next_counter();
         ReturnsHash::new(returns_hash)
     }
 
