@@ -5,12 +5,15 @@ import type { Logger } from '@aztec/aztec.js/log';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import { AMMContract } from '@aztec/noir-contracts.js/AMM';
 import { type TokenContract, TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
+import { AuthWitTestContract, AuthWitTestContractArtifact } from '@aztec/noir-test-contracts.js/AuthWitTest';
+import { GenericProxyContract } from '@aztec/noir-test-contracts.js/GenericProxy';
 import { PendingNoteHashesContract } from '@aztec/noir-test-contracts.js/PendingNoteHashes';
 import { type AbiDecoded, decodeFromAbi, getFunctionArtifact } from '@aztec/stdlib/abi';
 import { computeOuterAuthWitHash } from '@aztec/stdlib/auth-witness';
 
 import { jest } from '@jest/globals';
 
+import { simulateThroughAuthwitProxy } from './fixtures/authwit_proxy.js';
 import { deployToken, mintTokensToPrivate } from './fixtures/token_utils.js';
 import { setup } from './fixtures/utils.js';
 import type { TestWallet } from './test-wallet/test_wallet.js';
@@ -325,6 +328,65 @@ describe('Kernelless simulation', () => {
 
       expect(kernellessGas.gasLimits.daGas).toEqual(withKernelsGas.gasLimits.daGas);
       expect(kernellessGas.gasLimits.l2Gas).toEqual(withKernelsGas.gasLimits.l2Gas);
+    });
+  });
+
+  describe('authorize_once with multi-field struct parameters', () => {
+    let authWitTestContract: AuthWitTestContract;
+    let proxy: GenericProxyContract;
+
+    beforeAll(async () => {
+      [{ contract: authWitTestContract }, { contract: proxy }] = await Promise.all([
+        AuthWitTestContract.deploy(wallet).send({ from: adminAddress }),
+        GenericProxyContract.deploy(wallet).send({ from: adminAddress }),
+      ]);
+    });
+
+    it('emits offchain effect with correct serialized args length for struct parameters', async () => {
+      // auth_with_struct(from: AztecAddress, data: MultiFieldStruct, amount: Field, authwit_nonce: Field)
+      // MultiFieldStruct serializes to 3 fields, so total serialized args = 1 + 3 + 1 + 1 = 6.
+      // Before the fix, the macro used parameters().len() = 4 instead of the sum of Serialize::N = 6.
+      const structData = { a: Fr.random(), b: Fr.random(), c: Fr.random() };
+      const amount = Fr.random();
+      const nonce = Fr.random();
+
+      // We call through a proxy so that msg_sender (proxy address) differs from the `from` arg (adminAddress),
+      // triggering the authwit path. The tx sender is adminAddress, whose notes are in scope for verification.
+      const interaction = authWitTestContract.methods.auth_with_struct(adminAddress, structData, amount, nonce);
+
+      wallet.setSimulationMode('kernelless-override');
+      const { offchainEffects } = await simulateThroughAuthwitProxy(proxy, interaction, {
+        from: adminAddress,
+        includeMetadata: true,
+      });
+
+      expect(offchainEffects.length).toBe(1);
+
+      const callAuthRequest = await CallAuthorizationRequest.fromFields(offchainEffects[0].data);
+
+      expect(offchainEffects[0].contractAddress).toEqual(authWitTestContract.address);
+
+      // The critical check: args should contain all 6 serialized fields, not just 4 (parameter count).
+      expect(callAuthRequest.args).toHaveLength(6);
+
+      expect(callAuthRequest.onBehalfOf).toEqual(adminAddress);
+      expect(callAuthRequest.msgSender).toEqual(proxy.address);
+
+      const functionAbi = await getFunctionArtifact(AuthWitTestContractArtifact, callAuthRequest.functionSelector);
+      const decodedArgs = decodeFromAbi(
+        functionAbi.parameters.map(param => param.type),
+        callAuthRequest.args,
+      ) as AbiDecoded[];
+
+      expect(decodedArgs).toHaveLength(4);
+      expect(decodedArgs[0]).toEqual(adminAddress);
+      expect(decodedArgs[1]).toEqual({
+        a: structData.a.toBigInt(),
+        b: structData.b.toBigInt(),
+        c: structData.c.toBigInt(),
+      });
+      expect(decodedArgs[2]).toEqual(amount.toBigInt());
+      expect(decodedArgs[3]).toEqual(nonce.toBigInt());
     });
   });
 
