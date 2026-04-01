@@ -42,15 +42,13 @@ namespace {
 
 inline bb::fr fr_from_wire(const Fr& w)
 {
-    bb::fr r;
-    std::memcpy(static_cast<void*>(&r), w.data(), 32);
-    return r;
+    return bb::fr::serialize_from_buffer(w.data());
 }
 
 inline Fr fr_to_wire(const bb::fr& d)
 {
     Fr r;
-    std::memcpy(r.data(), static_cast<const void*>(&d), 32);
+    bb::fr::serialize_to_buffer(d, r.data());
     return r;
 }
 
@@ -91,7 +89,7 @@ inline StateReference state_ref_from_wire(
     for (const auto& [k, v] : wire) {
         bb::fr root;
         if (v.first.size() >= 32) {
-            std::memcpy(static_cast<void*>(&root), v.first.data(), 32);
+            root = bb::fr::serialize_from_buffer(v.first.data());
         }
         result[static_cast<MerkleTreeId>(k)] = { root, v.second };
     }
@@ -104,7 +102,7 @@ inline std::unordered_map<uint32_t, std::pair<std::vector<uint8_t>, uint64_t>> s
     std::unordered_map<uint32_t, std::pair<std::vector<uint8_t>, uint64_t>> result;
     for (const auto& [k, v] : domain) {
         std::vector<uint8_t> root_bytes(32);
-        std::memcpy(root_bytes.data(), static_cast<const void*>(&v.first), 32);
+        bb::fr::serialize_to_buffer(v.first, root_bytes.data());
         result[static_cast<uint32_t>(k)] = { std::move(root_bytes), v.second };
     }
     return result;
