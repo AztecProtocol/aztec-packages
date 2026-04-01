@@ -121,6 +121,76 @@ function validate-ts {
   (cd ts && ./bootstrap.sh "$@")
 }
 
+function validate-webapp-tutorial {
+  echo_header "Validating webapp-tutorial build"
+  local TUTORIAL_DIR="$REPO_ROOT/docs/examples/webapp-tutorial"
+  local ARTIFACTS_DIR="$REPO_ROOT/docs/target"
+  local BUILDER_CLI="$REPO_ROOT/yarn-project/builder/dest/bin/cli.js"
+  local YP="$REPO_ROOT/yarn-project"
+
+  # Compile the pod_racing_contract (uses existing compile infrastructure)
+  compile webapp-tutorial/contracts
+
+  (
+    cd "$TUTORIAL_DIR"
+
+    # Backup files we'll modify
+    cp package.json package.json.bak
+    cp yarn.lock yarn.lock.bak
+
+    cleanup() {
+      local exit_code=$?
+      echo_stderr "Cleaning up webapp-tutorial..."
+      mv package.json.bak package.json
+      mv yarn.lock.bak yarn.lock
+      rm -rf node_modules .yarn 2>/dev/null || true
+      return $exit_code
+    }
+    trap cleanup EXIT
+
+    # Replace #include_aztec_version with link: paths to local yarn-project packages
+    echo_stderr "Linking local @aztec packages..."
+    node -e "
+      const fs = require('fs');
+      const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+      const yp = '$YP';
+      for (const section of ['dependencies', 'devDependencies']) {
+        for (const [name, ver] of Object.entries(pkg[section] || {})) {
+          if (ver === '#include_aztec_version' && name.startsWith('@aztec/')) {
+            const dir = name.replace('@aztec/', '');
+            pkg[section][name] = 'link:' + yp + '/' + dir;
+          }
+        }
+      }
+      fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
+    "
+
+    # Fresh yarn setup for linking
+    yarn config set nodeLinker node-modules 2>/dev/null || true
+    yarn install
+
+    # Copy compiled contract artifact and run codegen
+    mkdir -p src/artifacts
+    local artifact="$ARTIFACTS_DIR/pod_racing_contract-PodRacing.json"
+    if [ ! -f "$artifact" ]; then
+      echo_stderr "ERROR: Contract artifact not found at $artifact"
+      return 1
+    fi
+    cp "$artifact" src/artifacts/
+    node --no-warnings "$BUILDER_CLI" codegen "$artifact" -o src/artifacts
+
+    # Type check (build mode follows project references in tsconfig.json)
+    echo_stderr "Type checking webapp-tutorial..."
+    npx tsc -b --noEmit
+
+    # Vite production build
+    echo_stderr "Running vite build..."
+    npx vite build
+
+    echo_stderr "webapp-tutorial validated successfully"
+  )
+}
+
 function execute-examples {
   echo_header "Executing TypeScript documentation examples"
   local COMPOSE_DIR="$REPO_ROOT/docs/examples/ts"
@@ -263,6 +333,7 @@ case "$cmd" in
     run_step "Compile (Noir contracts)" compile
     run_step "Compile (Solidity)" compile-solidity
     run_step "TypeScript validation" validate-ts
+    run_step "Webapp tutorial build" validate-webapp-tutorial
 
     if [[ ${#FAILED_STEPS[@]} -gt 0 ]]; then
       send_failure_slack_message
