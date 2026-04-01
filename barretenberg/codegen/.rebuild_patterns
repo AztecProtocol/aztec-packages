@@ -1,4 +1,5 @@
 ^barretenberg/codegen/src/.*\.ts$
 ^barretenberg/codegen/schemas/.*\.(json|msgpack)$
+^barretenberg/codegen/templates/
 ^barretenberg/codegen/package\.json$
 ^barretenberg/codegen/bootstrap\.sh$
