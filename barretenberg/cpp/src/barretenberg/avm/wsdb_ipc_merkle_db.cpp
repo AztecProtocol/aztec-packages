@@ -21,15 +21,13 @@ namespace {
 inline ::Fr fr_to_wire(const bb::fr& d)
 {
     ::Fr r;
-    std::memcpy(r.data(), &d, 32);
+    bb::fr::serialize_to_buffer(d, r.data());
     return r;
 }
 
 inline bb::fr fr_from_wire(const ::Fr& w)
 {
-    bb::fr r;
-    std::memcpy(&r, w.data(), 32);
-    return r;
+    return bb::fr::serialize_from_buffer(w.data());
 }
 
 inline std::vector<bb::fr> fr_vec_from_wire(const std::vector<::Fr>& wire)
