@@ -13,8 +13,15 @@ import type { GetBlockReturnType } from 'viem';
 import { EpochCache, type EpochCommitteeInfo, PROPOSER_PIPELINING_SLOT_OFFSET } from './epoch_cache.js';
 
 class TestEpochCache extends EpochCache {
+  /** Seeds the cache with a finalized entry so tests don't need to hit the mock rollup for known epochs. */
   public seedCache(epoch: EpochNumber, committeeInfo: EpochCommitteeInfo): void {
-    this.cache.set(epoch, committeeInfo);
+    this.cache.set(epoch, {
+      data: committeeInfo,
+      l1BlockNumber: 0n,
+      l1BlockHash: '0x0000000000000000000000000000000000000000000000000000000000000000',
+      l1BlockTimestamp: BigInt(Math.floor(Date.now() / 1000)) + 10000n,
+      finalized: true,
+    });
   }
 
   public setCacheSize(size: number): void {
@@ -34,7 +41,6 @@ describe('EpochCache', () => {
   // Test constants
   const SLOT_DURATION = 12;
   const EPOCH_DURATION = 32; // 384 seconds
-  // const L1_GENESIS_TIME = 1000n;
   let l1GenesisTime: bigint;
 
   const testCommittee = [
@@ -56,13 +62,17 @@ describe('EpochCache', () => {
 
     l1GenesisTime = BigInt(Math.floor(Date.now() / 1000));
 
-    // Mock the client.getBlock method for timestamp retrieval
-    // Return a timestamp far enough in the future to accommodate test queries
-    // lagInEpochsForValidatorSet * epochDuration * slotDuration = 2 * 32 * 12 = 768 seconds
+    // Mock the client.getBlock method for timestamp retrieval.
+    // Return a timestamp far enough in the future to accommodate test queries.
+    // lagInEpochsForRandao * epochDuration * slotDuration = 2 * 32 * 12 = 768 seconds
     // Add extra buffer for random slots in tests (e.g., 1000 slots = 12000 seconds)
     client = mock<ViemPublicClient>();
     const futureTimestamp = l1GenesisTime + BigInt(768 + 12000);
-    client.getBlock.mockResolvedValue({ timestamp: futureTimestamp } as GetBlockReturnType);
+    client.getBlock.mockResolvedValue({
+      timestamp: futureTimestamp,
+      number: 100n,
+      hash: '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
+    } as unknown as GetBlockReturnType);
     (rollupContract as any).client = client;
 
     // Setup fake timers
@@ -275,17 +285,170 @@ describe('EpochCache', () => {
 
     // Mock the client to return a current L1 timestamp that's close to genesis
     const currentL1Timestamp = l1GenesisTime + BigInt(100); // Just 100 seconds after genesis
-    client.getBlock.mockResolvedValue({ timestamp: currentL1Timestamp } as GetBlockReturnType);
+    client.getBlock.mockResolvedValue({
+      timestamp: currentL1Timestamp,
+      number: 1n,
+      hash: '0x0000000000000000000000000000000000000000000000000000000000000001',
+    } as unknown as GetBlockReturnType);
 
     // Calculate a slot far in the future (epoch 100) that's definitely not cached
-    // and is beyond the allowed lag (lagInEpochsForValidatorSet * epochDuration * slotDuration = 2 * 32 * 12 = 768 seconds)
+    // and is beyond the allowed lag
     const futureEpoch = BigInt(100);
     const futureSlot = futureEpoch * BigInt(epochDuration);
 
     // Attempt to get committee for this future slot should throw
     await expect(epochCache.getCommittee(SlotNumber.fromBigInt(futureSlot))).rejects.toThrow(
-      /Cannot query committee for future epoch.*with timestamp.*\(current L1 time is/,
+      /Cannot query committee for future epoch.*sampling timestamp.*beyond latest L1 block/,
     );
+  });
+
+  describe('TTL-based caching', () => {
+    it('should re-query non-finalized data after ethereumSlotDuration', async () => {
+      const epoch1Slot = SlotNumber(EPOCH_DURATION); // first slot of epoch 1
+      const epoch1Ts = l1GenesisTime + BigInt(EPOCH_DURATION * SLOT_DURATION);
+      // samplingTs = epochStartTs - lag*epochDuration*slotDuration = epoch1Ts - 768
+      // For epoch 1 with lag 2: samplingTs = l1GenesisTime + 384 - 768 = l1GenesisTime - 384
+      const samplingTs = epoch1Ts - BigInt(2 * EPOCH_DURATION * SLOT_DURATION);
+
+      // Use a "latest" timestamp close to the current wall-clock time so isStale works.
+      // samplingTs < l1GenesisTime, so even l1GenesisTime as latest satisfies the guard.
+      const mockBlock = () => {
+        const nowSec = BigInt(Math.floor(Date.now() / 1000));
+        return (args: any) => {
+          if (args?.blockTag === 'finalized') {
+            // Finalized is behind sampling ts → NOT finalized
+            return Promise.resolve({ timestamp: samplingTs - 1n, number: 50n, hash: '0xaaa' } as any);
+          }
+          // Latest tracks wall-clock time so isStale triggers correctly
+          return Promise.resolve({ timestamp: nowSec, number: 100n, hash: '0xbbb' } as any);
+        };
+      };
+
+      client.getBlock.mockImplementation(mockBlock());
+      rollupContract.getCommitteeAt.mockResolvedValue(testCommittee);
+      rollupContract.getSampleSeedAt.mockResolvedValue(Buffer32.fromBigInt(42n));
+
+      // First call: fetches from L1
+      const result1 = await epochCache.getCommittee(epoch1Slot);
+      expect(result1.committee).toEqual(testCommittee);
+      expect(epochCache.isFinalized(EpochNumber(1))).toBe(false);
+      expect(rollupContract.getCommitteeAt).toHaveBeenCalledTimes(1);
+
+      // Within TTL: should return cached, no new L1 call
+      rollupContract.getCommitteeAt.mockClear();
+      const result2 = await epochCache.getCommittee(epoch1Slot);
+      expect(result2.committee).toEqual(testCommittee);
+      expect(rollupContract.getCommitteeAt).toHaveBeenCalledTimes(0);
+
+      // Advance past TTL (ethereumSlotDuration = 12s)
+      jest.setSystemTime(Date.now() + SLOT_DURATION * 1000);
+      client.getBlock.mockImplementation(mockBlock());
+
+      const updatedCommittee = [...testCommittee, extraTestValidator];
+      rollupContract.getCommitteeAt.mockResolvedValue(updatedCommittee);
+      rollupContract.getSampleSeedAt.mockResolvedValue(Buffer32.fromBigInt(99n));
+
+      // After TTL: should re-query
+      const result3 = await epochCache.getCommittee(epoch1Slot);
+      expect(result3.committee).toEqual(updatedCommittee);
+      expect(result3.seed).toBe(99n);
+      expect(rollupContract.getCommitteeAt).toHaveBeenCalledTimes(1);
+    });
+
+    it('should NOT re-query finalized data after ethereumSlotDuration', async () => {
+      const epoch1Slot = SlotNumber(EPOCH_DURATION);
+      const epoch1Ts = l1GenesisTime + BigInt(EPOCH_DURATION * SLOT_DURATION);
+      const latestTs = epoch1Ts + 10000n;
+      // Finalized block is far enough that sampling ts <= finalizedTs
+      const finalizedTs = epoch1Ts + 10000n;
+
+      client.getBlock.mockImplementation((args: any) => {
+        if (args?.blockTag === 'finalized') {
+          return Promise.resolve({ timestamp: finalizedTs, number: 90n, hash: '0xccc' } as any);
+        }
+        return Promise.resolve({ timestamp: latestTs, number: 100n, hash: '0xddd' } as any);
+      });
+
+      rollupContract.getCommitteeAt.mockResolvedValue(testCommittee);
+      rollupContract.getSampleSeedAt.mockResolvedValue(Buffer32.fromBigInt(42n));
+
+      await epochCache.getCommittee(epoch1Slot);
+      expect(epochCache.isFinalized(EpochNumber(1))).toBe(true);
+      expect(rollupContract.getCommitteeAt).toHaveBeenCalledTimes(1);
+
+      // Advance well past TTL
+      jest.setSystemTime(Date.now() + SLOT_DURATION * 10 * 1000);
+      rollupContract.getCommitteeAt.mockClear();
+
+      // Should still return cached data, no re-query
+      await epochCache.getCommittee(epoch1Slot);
+      expect(rollupContract.getCommitteeAt).toHaveBeenCalledTimes(0);
+    });
+
+    it('should coalesce concurrent requests for the same epoch', async () => {
+      const epoch1Slot = SlotNumber(EPOCH_DURATION);
+      const epoch1Ts = l1GenesisTime + BigInt(EPOCH_DURATION * SLOT_DURATION);
+      const latestTs = epoch1Ts + 10000n;
+
+      client.getBlock.mockResolvedValue({
+        timestamp: latestTs,
+        number: 100n,
+        hash: '0xeee',
+      } as any);
+
+      let resolveCommittee: (v: EthAddress[]) => void;
+      rollupContract.getCommitteeAt.mockImplementation(() => new Promise(resolve => (resolveCommittee = resolve)));
+      rollupContract.getSampleSeedAt.mockResolvedValue(Buffer32.fromBigInt(0n));
+
+      // Fire two concurrent requests
+      const p1 = epochCache.getCommittee(epoch1Slot);
+      const p2 = epochCache.getCommittee(epoch1Slot);
+
+      // Only one L1 call should be in-flight
+      expect(rollupContract.getCommitteeAt).toHaveBeenCalledTimes(1);
+
+      // Resolve and both promises should return the same result
+      resolveCommittee!(testCommittee);
+      const [r1, r2] = await Promise.all([p1, p2]);
+      expect(r1.committee).toEqual(testCommittee);
+      expect(r2.committee).toEqual(testCommittee);
+    });
+
+    it('should eventually mark a non-finalized entry as finalized on re-query', async () => {
+      const epoch1Slot = SlotNumber(EPOCH_DURATION);
+      const epoch1Ts = l1GenesisTime + BigInt(EPOCH_DURATION * SLOT_DURATION);
+      const samplingTs = epoch1Ts - BigInt(2 * EPOCH_DURATION * SLOT_DURATION); // lag=2
+      const nowSec = BigInt(Math.floor(Date.now() / 1000));
+
+      // First call: not finalized (finalized block behind sampling ts)
+      client.getBlock.mockImplementation((args: any) => {
+        if (args?.blockTag === 'finalized') {
+          return Promise.resolve({ timestamp: samplingTs - 1n, number: 50n, hash: '0xf1' } as any);
+        }
+        return Promise.resolve({ timestamp: nowSec, number: 100n, hash: '0xf2' } as any);
+      });
+
+      rollupContract.getCommitteeAt.mockResolvedValue(testCommittee);
+      rollupContract.getSampleSeedAt.mockResolvedValue(Buffer32.fromBigInt(42n));
+
+      await epochCache.getCommittee(epoch1Slot);
+      expect(epochCache.isFinalized(EpochNumber(1))).toBe(false);
+
+      // Advance past TTL
+      jest.setSystemTime(Date.now() + SLOT_DURATION * 1000);
+      const newNowSec = BigInt(Math.floor(Date.now() / 1000));
+
+      // Second call: now finalized (finalized block caught up)
+      client.getBlock.mockImplementation((args: any) => {
+        if (args?.blockTag === 'finalized') {
+          return Promise.resolve({ timestamp: samplingTs + 1n, number: 90n, hash: '0xf3' } as any);
+        }
+        return Promise.resolve({ timestamp: newNowSec, number: 110n, hash: '0xf4' } as any);
+      });
+
+      await epochCache.getCommittee(epoch1Slot);
+      expect(epochCache.isFinalized(EpochNumber(1))).toBe(true);
+    });
   });
 
   describe('proposer pipelining', () => {
