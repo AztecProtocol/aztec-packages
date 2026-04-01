@@ -364,7 +364,7 @@ ${apiMethods}
     return `  ${methodName}(command: ${cmdType}): ${respType} {
     const msgpackCommand = from${cmdType}(command);
     const [variantName, result] = msgpackCall(this.backend, [["${command.name}", msgpackCommand]]);
-    if (variantName === 'ErrorResponse') {
+    if (variantName === '${this.errorTypeName}') {
       throw new BBApiException(result.message || 'Unknown error from barretenberg');
     }
     if (variantName !== '${command.responseType}') {
