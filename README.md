@@ -7,6 +7,15 @@ All the packages that make up [Aztec](https://docs.aztec.network).
 - [**`noir-projects`**](/noir-projects): Noir code for Aztec contracts and protocol circuits.
 - [**`yarn-project`**](/yarn-project): Typescript code for client and backend
 - [**`docs`**](/docs): Documentation source for the docs site
+### Running the docs site locally
+
+To preview changes to the documentation:
+
+1. Bootstrap the monorepo (see the local development setup section).
+2. Change into the `docs` package:
+
+``bash
+cd docs
 
 ## Popular packages
 
