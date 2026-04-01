@@ -115,6 +115,13 @@ BbBn254G1FromCompressed::Response BbBn254G1FromCompressed::execute(BbRequest& re
 {
     // Convert 32-byte array to uint256_t
     uint256_t compressed_value = from_buffer<uint256_t>(compressed.data());
+    // Bit 255 encodes the y-parity; mask it off to get the x-coordinate
+    uint256_t x_coord = compressed_value;
+    x_coord.data[3] &= 0x7FFFFFFFFFFFFFFFULL; // Clear bit 255
+    // Reject x-coordinates >= field modulus
+    if (x_coord >= bb::fq::modulus) {
+        throw_or_abort("Compressed x-coordinate is out of field range");
+    }
     // Decompress the point
     auto point = bb::g1::affine_element::from_compressed(compressed_value);
     // Verify the decompressed point is on the curve
