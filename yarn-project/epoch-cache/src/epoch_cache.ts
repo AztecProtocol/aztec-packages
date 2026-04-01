@@ -41,6 +41,9 @@ export type EpochCommitteeInfo = {
 
 export type SlotTag = 'now' | 'next' | SlotNumber;
 
+/** Minimal L1 block info used for cache provenance. */
+type L1BlockInfo = { number: bigint; hash: `0x${string}`; timestamp: bigint };
+
 /** Resolved cache entry with L1 provenance metadata. */
 type CachedEpochEntry = {
   data: EpochCommitteeInfo;
@@ -406,10 +409,7 @@ export class EpochCache implements EpochCacheInterface {
       expectedHash: stale.lastQueryL1BlockHash,
       actualHash: blockAtOriginal.hash,
     });
-    return this.fetchAndCache(epoch, ts, {
-      latestTimestamp: latestBlock.timestamp,
-      finalizedTimestamp: l1FinalizedBlock.timestamp,
-    });
+    return this.fetchAndCache(epoch, ts, { latestBlock, finalizedBlock: l1FinalizedBlock });
   }
 
   /**
@@ -417,26 +417,22 @@ export class EpochCache implements EpochCacheInterface {
    *
    * Uses `lagInEpochsForRandao` (the binding constraint, always <= lagInEpochsForValidatorSet)
    * and computes the sampling timestamp from the epoch start to match the L1 contract's logic.
+   *
+   * When called from refreshStaleEntry after a reorg, the latest and finalized blocks are
+   * passed in to avoid redundant L1 queries.
    */
   private async fetchAndCache(
     epoch: EpochNumber,
     ts: bigint,
-    prefetched?: { latestTimestamp: bigint; finalizedTimestamp: bigint },
+    prefetched?: { latestBlock: L1BlockInfo; finalizedBlock: { timestamp: bigint } },
   ): Promise<CachedEpochEntry> {
-    const [committee, seedBuffer, l1Block, l1FinalizedBlock, isEscapeHatchOpen] = await Promise.all([
+    const [committee, seedBuffer, latestBlock, finalizedBlock, isEscapeHatchOpen] = await Promise.all([
       this.rollup.getCommitteeAt(ts),
       this.rollup.getSampleSeedAt(ts),
-      prefetched
-        ? ({ number: 0n, hash: '0x', timestamp: prefetched.latestTimestamp } as const)
-        : this.rollup.client.getBlock({ includeTransactions: false }),
-      prefetched
-        ? ({ timestamp: prefetched.finalizedTimestamp } as const)
-        : this.rollup.client.getBlock({ blockTag: 'finalized', includeTransactions: false }),
+      prefetched?.latestBlock ?? this.rollup.client.getBlock({ includeTransactions: false }),
+      prefetched?.finalizedBlock ?? this.rollup.client.getBlock({ blockTag: 'finalized', includeTransactions: false }),
       this.rollup.isEscapeHatchOpen(epoch),
     ]);
-
-    // When timestamps are prefetched we still need the actual latest block for provenance.
-    const latestBlock = prefetched ? await this.rollup.client.getBlock({ includeTransactions: false }) : l1Block;
 
     const samplingTs = this.getSamplingTimestamp(epoch);
 
@@ -450,7 +446,7 @@ export class EpochCache implements EpochCacheInterface {
 
     // Empty committees are never marked finalized so they always get re-queried after TTL.
     const hasCommittee = !!(committee && committee.length > 0);
-    const finalized = hasCommittee && samplingTs <= l1FinalizedBlock.timestamp;
+    const finalized = hasCommittee && samplingTs <= finalizedBlock.timestamp;
     const data: EpochCommitteeInfo = { committee, seed: seedBuffer.toBigInt(), epoch, isEscapeHatchOpen };
     const entry: CachedEpochEntry = {
       data,
