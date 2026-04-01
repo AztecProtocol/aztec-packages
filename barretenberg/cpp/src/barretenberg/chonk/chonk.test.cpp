@@ -401,6 +401,7 @@ TEST_F(ChonkTests, VKIndependenceFromCircuitSize)
  * @brief Test to establish the "max" number of apps that can be accumulated due to limitations on the ECCVM size
  *
  */
+#ifdef NDEBUG
 HEAVY_TEST(ChonkKernelCapacity, MaxCapacityPassing)
 {
     bb::srs::init_file_crs_factory(bb::srs::bb_crs_path());
@@ -411,6 +412,7 @@ HEAVY_TEST(ChonkKernelCapacity, MaxCapacityPassing)
     bool verified = ChonkTests::verify_chonk(proof, vk);
     EXPECT_TRUE(verified);
 };
+#endif
 
 /**
  * @brief Test methods for serializing and deserializing a proof to/from a file/buffer in msgpack format
