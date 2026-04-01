@@ -71,6 +71,12 @@ template <typename Flavor> ProverInstance_<Flavor>::ProverInstance_(Circuit& cir
         polynomials.set_shifted();
     }
 
+    if (detail::use_memory_profile) {
+        // Checkpoint after allocating polynomial backing memory, before populating with trace data
+        size_t circuit_idx = detail::GLOBAL_MEMORY_PROFILE.circuits.size();
+        detail::GLOBAL_MEMORY_PROFILE.add_rss_checkpoint("after_alloc", circuit_idx);
+    }
+
     // Construct and add to proving key the wire, selector and copy constraint polynomials
     vinfo("populating trace...");
     TraceToPolynomials<Flavor>::populate(circuit, polynomials);
@@ -103,7 +109,7 @@ template <typename Flavor> ProverInstance_<Flavor>::ProverInstance_(Circuit& cir
     if (detail::use_memory_profile) {
         auto stats = analyze_prover_polynomials_categorized(polynomials);
         detail::GLOBAL_MEMORY_PROFILE.add_circuit(std::move(stats));
-        detail::GLOBAL_MEMORY_PROFILE.add_rss_checkpoint("after_poly_allocation",
+        detail::GLOBAL_MEMORY_PROFILE.add_rss_checkpoint("after_trace",
                                                          detail::GLOBAL_MEMORY_PROFILE.circuits.size() - 1);
     }
 }

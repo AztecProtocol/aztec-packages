@@ -6,6 +6,7 @@
 
 #include "barretenberg/hypernova/hypernova_prover.hpp"
 #include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
+#include "barretenberg/common/memory_profile.hpp"
 #include "barretenberg/hypernova/hypernova_batching_challenges.hpp"
 #include "barretenberg/multilinear_batching/multilinear_batching_prover.hpp"
 
@@ -118,6 +119,11 @@ HypernovaFoldingProver::Accumulator HypernovaFoldingProver::instance_to_accumula
     auto precomputed_vk = honk_vk ? honk_vk : std::make_shared<VerificationKey>(instance->get_precomputed());
     MegaOinkProver oink_prover{ instance, precomputed_vk, transcript };
     oink_prover.prove();
+    if (detail::use_memory_profile) {
+        size_t circuit_idx =
+            detail::GLOBAL_MEMORY_PROFILE.circuits.empty() ? 0 : detail::GLOBAL_MEMORY_PROFILE.circuits.size() - 1;
+        detail::GLOBAL_MEMORY_PROFILE.add_rss_checkpoint("after_oink", circuit_idx);
+    }
 
     instance->gate_challenges = transcript->template get_dyadic_powers_of_challenge<FF>(
         "HypernovaFoldingProver:gate_challenge", Flavor::VIRTUAL_LOG_N);
@@ -131,6 +137,11 @@ HypernovaFoldingProver::Accumulator HypernovaFoldingProver::instance_to_accumula
                                 instance->relation_parameters,
                                 Flavor::VIRTUAL_LOG_N);
     auto sumcheck_output = sumcheck.prove();
+    if (detail::use_memory_profile) {
+        size_t circuit_idx =
+            detail::GLOBAL_MEMORY_PROFILE.circuits.empty() ? 0 : detail::GLOBAL_MEMORY_PROFILE.circuits.size() - 1;
+        detail::GLOBAL_MEMORY_PROFILE.add_rss_checkpoint("after_sumcheck", circuit_idx);
+    }
 
     Accumulator accumulator = sumcheck_output_to_accumulator(sumcheck_output, instance, precomputed_vk);
 
