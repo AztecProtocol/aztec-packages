@@ -839,6 +839,12 @@ case "$cmd" in
     export AVM_TRANSPILER=0
     barretenberg/cpp/bootstrap.sh ci
     ;;
+  "ci-barretenberg-tracy-profile")
+    export CI=1
+    export AVM=0
+    export AVM_TRANSPILER=0
+    barretenberg/cpp/scripts/run_tracy_profile.sh
+    ;;
   "ci-barretenberg")
     export CI=1
     export USE_TEST_CACHE=1
