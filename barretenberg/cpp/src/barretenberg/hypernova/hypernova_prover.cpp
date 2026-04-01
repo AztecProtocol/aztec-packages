@@ -120,9 +120,7 @@ HypernovaFoldingProver::Accumulator HypernovaFoldingProver::instance_to_accumula
     MegaOinkProver oink_prover{ instance, precomputed_vk, transcript };
     oink_prover.prove();
     if (detail::use_memory_profile) {
-        size_t circuit_idx =
-            detail::GLOBAL_MEMORY_PROFILE.circuits.empty() ? 0 : detail::GLOBAL_MEMORY_PROFILE.circuits.size() - 1;
-        detail::GLOBAL_MEMORY_PROFILE.add_rss_checkpoint("after_oink", circuit_idx);
+        detail::GLOBAL_MEMORY_PROFILE.add_rss_checkpoint("after_oink");
     }
 
     instance->gate_challenges = transcript->template get_dyadic_powers_of_challenge<FF>(
@@ -138,9 +136,7 @@ HypernovaFoldingProver::Accumulator HypernovaFoldingProver::instance_to_accumula
                                 Flavor::VIRTUAL_LOG_N);
     auto sumcheck_output = sumcheck.prove();
     if (detail::use_memory_profile) {
-        size_t circuit_idx =
-            detail::GLOBAL_MEMORY_PROFILE.circuits.empty() ? 0 : detail::GLOBAL_MEMORY_PROFILE.circuits.size() - 1;
-        detail::GLOBAL_MEMORY_PROFILE.add_rss_checkpoint("after_sumcheck", circuit_idx);
+        detail::GLOBAL_MEMORY_PROFILE.add_rss_checkpoint("after_sumcheck");
     }
 
     Accumulator accumulator = sumcheck_output_to_accumulator(sumcheck_output, instance, precomputed_vk);

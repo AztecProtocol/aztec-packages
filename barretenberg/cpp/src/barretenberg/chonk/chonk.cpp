@@ -540,9 +540,8 @@ void Chonk::accumulate_and_fold(ClientCircuit& circuit,
     }
 
     if (detail::use_memory_profile) {
-        size_t circuit_idx =
-            detail::GLOBAL_MEMORY_PROFILE.circuits.empty() ? 0 : detail::GLOBAL_MEMORY_PROFILE.circuits.size() - 1;
-        detail::GLOBAL_MEMORY_PROFILE.add_rss_checkpoint("after_accumulate", circuit_idx);
+        detail::GLOBAL_MEMORY_PROFILE.add_rss_checkpoint("after_accumulate");
+        detail::GLOBAL_MEMORY_PROFILE.next_circuit();
     }
 
     VerifierInputs queue_entry{ std::move(proof), precomputed_vk, queue_type, is_kernel };

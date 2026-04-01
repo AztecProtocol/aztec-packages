@@ -168,7 +168,7 @@ This creates `yarn-project/end-to-end/example-app-ivc-inputs-out/<flow>/ivc-inpu
 
 ## Memory profiling
 
-The `--memory_profile_out <file>` flag on `bb prove` outputs a JSON breakdown of memory consumption: per-circuit polynomial memory by category (wires, sigmas, selectors, etc.), CRS size, and RSS checkpoints at key proving stages (after polynomial allocation, after oink, after sumcheck, after PCS).
+The `--memory_profile_out <file>` flag on `bb prove` outputs a JSON array of RSS checkpoints at key proving stages (after alloc, trace, oink, sumcheck, accumulate) for each circuit, with circuit names and indices.
 
 ```bash
 cd barretenberg/cpp
@@ -180,11 +180,17 @@ cd barretenberg/cpp
   --memory_profile_out /tmp/proof-out/memory_profile.json
 ```
 
-The extraction script converts the JSON into dashboard-friendly benchmark entries:
+For a visual timeline of a single run, pipe verbose output to `plot_memory.py`:
+
+```bash
+bb prove --scheme chonk ... -v 2>&1 | python3 scripts/plot_memory.py > memory.html
+```
+
+The extraction script converts the JSON into dashboard benchmark entries (one overlaid line per circuit stage, tracked across commits):
 
 ```bash
 echo '[]' > /tmp/proof-out/benchmarks.bench.json
 python3 scripts/extract_memory_benchmarks.py /tmp/proof-out "app-proving/flow/native"
 ```
 
-This appends stacked chart entries (polynomial memory by category) and line chart entries (total polynomial MB, CRS MB, peak RSS) to `benchmarks.bench.json`. In CI, this is integrated into `ci_benchmark_ivc_flows.sh` and uploaded to the benchmark dashboard.
+In CI, this is integrated into `ci_benchmark_ivc_flows.sh` (native only) and uploaded to the benchmark dashboard.

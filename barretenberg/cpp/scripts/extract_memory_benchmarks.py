@@ -35,7 +35,8 @@ try:
         "after_sumcheck": "3_sumcheck",
         "after_accumulate": "4_accumulate",
     }
-    for cp in data.get("rss_checkpoints", []):
+    # JSON is a flat array of checkpoints (msgpack-serialized from C++)
+    for cp in data:
         circuit_name = cp.get("circuit_name", "")
         idx = cp["circuit_index"]
         stage = STAGE_ORDER.get(cp["stage"], cp["stage"])

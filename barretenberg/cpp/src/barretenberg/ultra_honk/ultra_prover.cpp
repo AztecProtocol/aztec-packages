@@ -80,9 +80,7 @@ template <typename Flavor> typename UltraProver_<Flavor>::Proof UltraProver_<Fla
     oink_prover.prove();
     vinfo("created oink proof");
     if (detail::use_memory_profile) {
-        size_t circuit_idx =
-            detail::GLOBAL_MEMORY_PROFILE.circuits.empty() ? 0 : detail::GLOBAL_MEMORY_PROFILE.circuits.size() - 1;
-        detail::GLOBAL_MEMORY_PROFILE.add_rss_checkpoint("after_oink", circuit_idx);
+        detail::GLOBAL_MEMORY_PROFILE.add_rss_checkpoint("after_oink");
     }
 
     generate_gate_challenges();
@@ -91,17 +89,13 @@ template <typename Flavor> typename UltraProver_<Flavor>::Proof UltraProver_<Fla
     execute_sumcheck_iop();
     vinfo("finished relation check rounds");
     if (detail::use_memory_profile) {
-        size_t circuit_idx =
-            detail::GLOBAL_MEMORY_PROFILE.circuits.empty() ? 0 : detail::GLOBAL_MEMORY_PROFILE.circuits.size() - 1;
-        detail::GLOBAL_MEMORY_PROFILE.add_rss_checkpoint("after_sumcheck", circuit_idx);
+        detail::GLOBAL_MEMORY_PROFILE.add_rss_checkpoint("after_sumcheck");
     }
     // Execute Shplemini PCS
     execute_pcs();
     vinfo("finished PCS rounds");
     if (detail::use_memory_profile) {
-        size_t circuit_idx =
-            detail::GLOBAL_MEMORY_PROFILE.circuits.empty() ? 0 : detail::GLOBAL_MEMORY_PROFILE.circuits.size() - 1;
-        detail::GLOBAL_MEMORY_PROFILE.add_rss_checkpoint("after_pcs", circuit_idx);
+        detail::GLOBAL_MEMORY_PROFILE.add_rss_checkpoint("after_pcs");
     }
 
     return export_proof();

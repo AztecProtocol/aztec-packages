@@ -8,6 +8,7 @@
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/common/log.hpp"
+#include "barretenberg/common/memory_profile.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/flavor/mega_avm_flavor.hpp"
 #include "barretenberg/honk/composer/composer_lib.hpp"
@@ -72,9 +73,7 @@ template <typename Flavor> ProverInstance_<Flavor>::ProverInstance_(Circuit& cir
     }
 
     if (detail::use_memory_profile) {
-        // Checkpoint after allocating polynomial backing memory, before populating with trace data
-        size_t circuit_idx = detail::GLOBAL_MEMORY_PROFILE.circuits.size();
-        detail::GLOBAL_MEMORY_PROFILE.add_rss_checkpoint("after_alloc", circuit_idx);
+        detail::GLOBAL_MEMORY_PROFILE.add_rss_checkpoint("after_alloc");
     }
 
     // Construct and add to proving key the wire, selector and copy constraint polynomials
@@ -107,10 +106,7 @@ template <typename Flavor> ProverInstance_<Flavor>::ProverInstance_(Circuit& cir
         analyze_prover_polynomials(polynomials);
     }
     if (detail::use_memory_profile) {
-        auto stats = analyze_prover_polynomials_categorized(polynomials);
-        detail::GLOBAL_MEMORY_PROFILE.add_circuit(std::move(stats));
-        detail::GLOBAL_MEMORY_PROFILE.add_rss_checkpoint("after_trace",
-                                                         detail::GLOBAL_MEMORY_PROFILE.circuits.size() - 1);
+        detail::GLOBAL_MEMORY_PROFILE.add_rss_checkpoint("after_trace");
     }
 }
 
