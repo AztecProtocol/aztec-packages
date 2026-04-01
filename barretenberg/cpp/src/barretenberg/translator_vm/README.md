@@ -517,18 +517,18 @@ This section details how the Translator circuit's witness polynomials are popula
 
 ### Overview
 
-Witness generation transforms the `EccOpQueue` from the Mega circuit into the 91 polynomials required by the Translator circuit:
+Witness generation transforms the `EccOpQueue` from the Mega circuit into the 92 polynomials required by the Translator circuit:
 
 ```
 Input:  EccOpQueue (n operations)
         Evaluation challenge x ∈ Fq
         Batching challenge v ∈ Fq
 
-Output: 91 polynomials of size 2^17
+Output: 92 polynomials of size 2^17
         - 81 witness polynomials
         - 5 ordered range constraint polynomials
         - 5 concatenated polynomials (committed)
-        - 1 precomputed extra numerator
+        - 1 grand product polynomial (z_perm, for the permutation argument)
 ```
 
 **Note:** Witness generation happens in the **mini-circuit size** (2¹³ = 8,192 rows), then is expanded to **full circuit size** (2¹⁷ = 131,072 rows) through concatenation and zero-padding.
