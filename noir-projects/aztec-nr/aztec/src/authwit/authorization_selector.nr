@@ -2,7 +2,7 @@ use crate::protocol::{hash::poseidon2_hash_bytes, traits::{Deserialize, Empty, F
 
 #[derive(Eq, Serialize, Deserialize)]
 pub struct AuthorizationSelector {
-    // 1st 4-bytes (big-endian leftmost) of abi-encoding of an event.
+    // Low 32 bits of the poseidon2 hash of the function signature.
     inner: u32,
 }
 
