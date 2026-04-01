@@ -106,7 +106,7 @@ describe('veto slash', () => {
       t.bootstrapNodeEnr,
       NUM_NODES, // Note we do not create the last validator yet, so it shows as offline
       BOOT_NODE_UDP_PORT,
-      t.prefilledPublicData,
+      t.genesis,
 
       DATA_DIR,
     );

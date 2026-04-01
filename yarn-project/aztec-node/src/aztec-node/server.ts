@@ -82,7 +82,7 @@ import type { DebugLogStore, LogFilter, SiloedTag, Tag, TxScopedL2Log } from '@a
 import { InMemoryDebugLogStore, NullDebugLogStore } from '@aztec/stdlib/logs';
 import { InboxLeaf, type L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import type { Offense, SlashPayloadRound } from '@aztec/stdlib/slashing';
-import type { NullifierLeafPreimage, PublicDataTreeLeaf, PublicDataTreeLeafPreimage } from '@aztec/stdlib/trees';
+import type { NullifierLeafPreimage, PublicDataTreeLeafPreimage } from '@aztec/stdlib/trees';
 import { MerkleTreeId, NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
 import {
   type BlockHeader,
@@ -97,6 +97,7 @@ import {
 } from '@aztec/stdlib/tx';
 import { getPackageVersion } from '@aztec/stdlib/update-checker';
 import type { SingleValidatorStats, ValidatorsStats } from '@aztec/stdlib/validators';
+import type { GenesisData } from '@aztec/stdlib/world-state';
 import {
   Attributes,
   type TelemetryClient,
@@ -207,7 +208,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       slashingProtectionDb?: SlashingProtectionDatabase;
     } = {},
     options: {
-      prefilledPublicData?: PublicDataTreeLeaf[];
+      genesis?: GenesisData;
       dontStartSequencer?: boolean;
       dontStartProverNode?: boolean;
     } = {},
@@ -310,12 +311,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     );
 
     // now create the merkle trees and the world state synchronizer
-    const worldStateSynchronizer = await createWorldStateSynchronizer(
-      config,
-      archiver,
-      options.prefilledPublicData,
-      telemetry,
-    );
+    const worldStateSynchronizer = await createWorldStateSynchronizer(config, archiver, options.genesis, telemetry);
     const useRealVerifiers = config.realProofs || config.debugForceTxProofVerification;
     let peerProofVerifier: ClientProtocolCircuitVerifier;
     let rpcProofVerifier: ClientProtocolCircuitVerifier;

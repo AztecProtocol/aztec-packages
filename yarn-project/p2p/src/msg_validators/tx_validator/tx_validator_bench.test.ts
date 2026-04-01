@@ -14,6 +14,7 @@ import { ContractClassLogFields } from '@aztec/stdlib/logs';
 import { makeSelector, mockTx, mockTxForRollup } from '@aztec/stdlib/testing';
 import { DatabasePublicStateSource, MerkleTreeId, PublicDataTreeLeaf } from '@aztec/stdlib/trees';
 import type { Tx } from '@aztec/stdlib/tx';
+import type { GenesisData } from '@aztec/stdlib/world-state';
 import { NativeWorldStateService } from '@aztec/world-state';
 
 import { jest } from '@jest/globals';
@@ -144,8 +145,11 @@ describe('TxValidator: Benchmarks', () => {
 
     // Create real LMDB-backed world state with fee payer balance
     const feePayerLeafSlot = await computeFeePayerBalanceLeafSlot(gasTx.data.feePayer);
-    const prefilledPublicData = [new PublicDataTreeLeaf(feePayerLeafSlot, new Fr(10n ** 18n))];
-    worldStateService = await NativeWorldStateService.tmp(undefined, true, prefilledPublicData);
+    const genesis: GenesisData = {
+      prefilledPublicData: [new PublicDataTreeLeaf(feePayerLeafSlot, new Fr(10n ** 18n))],
+      genesisTimestamp: 0n,
+    };
+    worldStateService = await NativeWorldStateService.tmp(undefined, true, genesis);
     const merkleTree = worldStateService.getCommitted();
 
     const nullifierSource: NullifierSource = {
@@ -363,9 +367,10 @@ describe('TxValidator: Benchmarks', () => {
 
       // Create world state with fee payer balance only (initial tree size limits prefilled data)
       const feePayerLeafSlot = await computeFeePayerBalanceLeafSlot(gasTx.data.feePayer);
-      localWs = await NativeWorldStateService.tmp(undefined, true, [
-        new PublicDataTreeLeaf(feePayerLeafSlot, new Fr(10n ** 18n)),
-      ]);
+      localWs = await NativeWorldStateService.tmp(undefined, true, {
+        prefilledPublicData: [new PublicDataTreeLeaf(feePayerLeafSlot, new Fr(10n ** 18n))],
+        genesisTimestamp: 0n,
+      });
       localFork = await localWs.fork();
 
       // Fill public data tree via fork

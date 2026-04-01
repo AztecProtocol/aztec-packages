@@ -21,7 +21,7 @@ import { protocolContractsHash } from '@aztec/protocol-contracts';
 import { SequencerState } from '@aztec/sequencer-client';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ProvingJobBroker } from '@aztec/stdlib/interfaces/server';
-import type { PublicDataTreeLeaf } from '@aztec/stdlib/trees';
+import type { GenesisData } from '@aztec/stdlib/world-state';
 import {
   type TelemetryClient,
   getConfigEnvVars as getTelemetryClientConfig,
@@ -151,7 +151,7 @@ export async function createLocalNetwork(config: Partial<LocalNetworkConfig> = {
     ...(initialAccounts.length ? [bananaFPC, sponsoredFPC] : []),
     ...prefundAddresses,
   ];
-  const { genesisArchiveRoot, prefilledPublicData, fundingNeeded } = await getGenesisValues(fundedAddresses);
+  const { genesisArchiveRoot, genesis, fundingNeeded } = await getGenesisValues(fundedAddresses);
 
   const dateProvider = new TestDateProvider();
 
@@ -190,7 +190,7 @@ export async function createLocalNetwork(config: Partial<LocalNetworkConfig> = {
   const telemetry = await initTelemetryClient(getTelemetryClientConfig());
   // Create a local blob client client inside the local network, no http connectivity
   const blobClient = createBlobClient();
-  const node = await createAztecNode(aztecNodeConfig, { telemetry, blobClient, dateProvider }, { prefilledPublicData });
+  const node = await createAztecNode(aztecNodeConfig, { telemetry, blobClient, dateProvider }, { genesis });
 
   // Now that the node is up, let the watcher check for pending txs so it can skip unfilled slots faster when
   // transactions are waiting in the mempool. Also let it check if the sequencer is actively building, to avoid
@@ -259,7 +259,7 @@ export async function createAztecNode(
     dateProvider?: DateProvider;
     proverBroker?: ProvingJobBroker;
   } = {},
-  options: { prefilledPublicData?: PublicDataTreeLeaf[] } = {},
+  options: { genesis?: GenesisData } = {},
 ) {
   // TODO(#12272): will clean this up. This is criminal.
   const { l1Contracts, ...rest } = getConfigEnvVars();
