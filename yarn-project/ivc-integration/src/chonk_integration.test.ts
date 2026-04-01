@@ -103,12 +103,12 @@ describe.each([BackendType.Wasm, BackendType.NativeUnixSocket])('Client IVC Inte
   });
 });
 
-describe('Client IVC Integration - Goblin Flush', () => {
+describe.each([BackendType.Wasm, BackendType.NativeUnixSocket])('Client IVC Integration - Goblin Flush', backend => {
   let barretenberg: Barretenberg;
 
   beforeAll(async () => {
     barretenberg = await Barretenberg.initSingleton({
-      backend: BackendType.NativeUnixSocket,
+      backend,
       threads: 16,
       logger: (m: string) => logger.info(m),
     });
