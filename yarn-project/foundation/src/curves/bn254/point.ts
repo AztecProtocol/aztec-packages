@@ -148,7 +148,7 @@ export class Bn254G2Point {
     const api = BarretenbergSync.getSingleton();
 
     const response = api.bn254G2Mul({
-      point: BN254_G2_GENERATOR as BbApiBn254G2Point,
+      point: BN254_G2_GENERATOR as unknown as BbApiBn254G2Point,
       scalar: scalar.toBuffer(),
     });
 

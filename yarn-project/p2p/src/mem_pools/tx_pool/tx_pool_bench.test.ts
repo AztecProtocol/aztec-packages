@@ -164,6 +164,7 @@ describe('TxPool: Benchmarks', () => {
         };
         return Promise.resolve({
           proposed: { number: BlockNumber.ZERO, hash: GENESIS_BLOCK_HEADER_HASH.toString() },
+          proposedCheckpoint: tipId,
           checkpointed: tipId,
           proven: tipId,
           finalized: tipId,
