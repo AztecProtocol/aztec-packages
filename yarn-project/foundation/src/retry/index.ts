@@ -105,6 +105,36 @@ export async function retryUntil<T>(
 }
 
 /**
+ * Retry an asynchronous function until it returns a truthy value or the maximum number of retries is exceeded.
+ * The function is retried periodically with a fixed interval between attempts.
+ *
+ * @param fn - The asynchronous function to be retried, which should return a truthy value upon success or undefined otherwise.
+ * @param name - The optional name of the operation, used for generating error messages.
+ * @param maxRetries - The maximum number of retry attempts before throwing an error.
+ * @param retryInterval - The optional interval, in seconds, between retry attempts. Defaults to 1 second.
+ * @returns A Promise that resolves with the successful (truthy) result of the provided function, or rejects if retries are exhausted.
+ */
+export async function retryTimes<T>(
+  fn: () => (T | undefined) | Promise<T | undefined>,
+  name = '',
+  maxRetries: number,
+  retryInterval = 1,
+) {
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    const result = await fn();
+    if (result) {
+      return result;
+    }
+
+    if (attempt < maxRetries) {
+      await sleep(retryInterval * 1000);
+    }
+  }
+
+  throw new Error(name ? `Retries exhausted awaiting ${name}` : 'Retries exhausted');
+}
+
+/**
  * Convenience wrapper around retryUntil with fast polling for tests.
  * Uses 10s timeout and 100ms polling interval by default.
  *
