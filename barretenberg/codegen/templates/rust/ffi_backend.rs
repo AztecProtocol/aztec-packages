@@ -14,10 +14,10 @@
 //! # Example
 //!
 //! ```ignore
-//! use barretenberg_rs::{BarretenbergApi, backends::FfiBackend};
+//! use barretenberg_rs::{BbApi, FfiBackend};
 //!
 //! let backend = FfiBackend::new()?;
-//! let mut api = BarretenbergApi::new(backend);
+//! let mut api = BbApi::new(backend);
 //!
 //! let response = api.blake2s(b"hello world")?;
 //! println!("Hash: {:?}", response.hash);
@@ -140,7 +140,7 @@ impl Default for FfiBackend {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::api::BarretenbergApi;
+    use crate::generated::bb_client::BbApi;
 
     #[test]
     fn test_ffi_backend_creation() {
@@ -151,10 +151,10 @@ mod tests {
     #[test]
     fn test_ffi_blake2s() {
         let backend = FfiBackend::new().unwrap();
-        let mut api = BarretenbergApi::new(backend);
+        let mut api = BbApi::new(backend);
 
         let response = api.blake2s(b"hello world").unwrap();
-        assert_eq!(response.hash.len(), 32);
+        assert_eq!(response.hash.as_slice().len(), 32);
 
         // Verify deterministic output
         let response2 = api.blake2s(b"hello world").unwrap();
