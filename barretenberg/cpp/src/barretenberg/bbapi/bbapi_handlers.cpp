@@ -27,22 +27,19 @@ namespace bb::bbapi {
 
 namespace {
 
-/// Convert vector<uint8_t> (32 bytes) → uint256_t
+/// Convert vector<uint8_t> (32 bytes, big-endian) → uint256_t
 inline uint256_t uint256_from_bytes(const std::vector<uint8_t>& bytes)
 {
-    uint256_t val(0);
     if (bytes.size() >= 32) {
-        std::memcpy(static_cast<void*>(&val), bytes.data(), 32);
+        return from_buffer<uint256_t>(bytes.data());
     }
-    return val;
+    return uint256_t(0);
 }
 
-/// Convert uint256_t → vector<uint8_t> (32 bytes)
+/// Convert uint256_t → vector<uint8_t> (32 bytes, big-endian)
 inline std::vector<uint8_t> uint256_to_bytes(const uint256_t& val)
 {
-    std::vector<uint8_t> buf(32);
-    std::memcpy(buf.data(), static_cast<const void*>(&val), 32);
-    return buf;
+    return to_buffer(val);
 }
 
 /// Convert vector<vector<uint8_t>> → vector<uint256_t>
