@@ -214,7 +214,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
       // king-of-the-hill attacks, instead of failing we use a random tag. By including a correct-looking tag in the
       // log, the transaction shape is preserved and no privacy is leaked, even if the tag is bogus.
       this.logger.warn(
-        `Computing a tag for invalid recipient ${recipient} - using a random shared secret with index 0 instead`,
+        `Computing a tag for invalid recipient ${recipient} - returning a random tag instead`,
         { contractAddress: this.contractAddress },
       );
       return new Tag(Fr.random());
