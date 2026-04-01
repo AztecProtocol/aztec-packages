@@ -46,6 +46,12 @@ pub struct ColumnInfo {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub array_size: Option<u64>,
     pub is_boolean: bool,
+    /// How boolean status was determined:
+    /// - "explicit": has a `x * (1 - x) = 0` constraint
+    /// - "derived": intermediate derived from booleans (product, 1-x)
+    /// - null: not boolean
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub boolean_source: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub boolean_constraint_source: Option<String>,
     pub is_shifted: bool,
@@ -68,6 +74,12 @@ pub struct ConstraintInfo {
     pub degree: u64,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub gating_selector: Option<String>,
+    /// For lookup/permutation/connect: the left (source) selector column.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub left_selector: Option<String>,
+    /// For lookup/permutation/connect: the right (dest) selector column.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub right_selector: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -97,6 +109,12 @@ pub struct ColumnMapping {
 #[derive(Serialize, Clone)]
 pub struct SelectorInfo {
     pub name: String,
+    /// How the selector's boolean nature was established:
+    /// - "explicit": has a `x * (1 - x) = 0` constraint
+    /// - "derived": intermediate derived from booleans (product, 1-x)
+    /// - "assumed": gates constraints but no boolean proof found locally
+    ///   (may be boolean via lookup/permutation from another namespace)
+    pub boolean_source: String,
     pub is_composite: bool,
     pub composite_of: Vec<String>,
     pub gates_identities: Vec<u64>,

@@ -1,7 +1,7 @@
 use crate::analysis::columns::default_ns;
 use crate::analysis::helpers::{
-    collect_column_names, format_source_ref, get_ref_name, namespace_of, render_expression,
-    short_source_file,
+    collect_column_names, collect_references, format_source_ref, get_ref_name, namespace_of,
+    render_expression, short_source_file,
 };
 use crate::analysis::types::{
     ColumnMapping, ConstraintInfo, CrossNamespaceConnection, NamespaceAnalysis,
@@ -10,11 +10,10 @@ use crate::expression_evaluation::get_expression_degree;
 
 use powdr_ast::analyzed::{
     AlgebraicBinaryOperation, AlgebraicBinaryOperator, AlgebraicExpression, Analyzed, Identity,
-    IdentityKind,
+    IdentityKind, PolynomialType,
 };
 use powdr_number::FieldElement;
 use std::collections::{BTreeMap, BTreeSet, HashMap};
-use std::path::Path;
 
 /// Result of identity analysis.
 pub struct IdentityResult {
@@ -79,7 +78,7 @@ pub fn build_identities<F: FieldElement>(
 
         // Detect gating selector for polynomial identities
         let gating_selector = if identity.kind == IdentityKind::Polynomial {
-            detect_gating_selector(identity, namespaces)
+            detect_gating_selector(identity)
         } else {
             None
         };
@@ -95,22 +94,34 @@ pub fn build_identities<F: FieldElement>(
                 (None, None, None, None, Vec::new())
             };
 
-        // Determine which namespace this identity belongs to
-        let identity_ns = from_ns
-            .clone()
-            .or_else(|| cols_used.first().map(|c| namespace_of(c)))
-            .unwrap_or_else(|| {
-                identity
-                    .source
-                    .file_name
-                    .as_ref()
-                    .and_then(|f| {
-                        Path::new(f.as_ref())
-                            .file_stem()
-                            .map(|s| s.to_string_lossy().replace(".pil", ""))
-                    })
-                    .unwrap_or_else(|| "unknown".to_string())
-            });
+        // Determine which namespace this identity belongs to.
+        //
+        // For lookups/permutations, `from_ns` (derived from the left selector) is
+        // authoritative — use it directly.
+        //
+        // For polynomial identities, `from_ns` is always None. We must not blindly
+        // use `cols_used.first()` because that BTreeSet sorts lexicographically and
+        // cross-namespace intermediate columns (e.g. `constants.MEM_TAG_FF`,
+        // `ecc.INFINITY_X`) often sort before the constraint's own namespace columns,
+        // causing the identity to be attributed to the wrong namespace.
+        //
+        // Instead, for polynomial identities we walk the expression references and
+        // pick the first committed or constant (non-intermediate) column's namespace.
+        // Intermediate polys from foreign namespaces (defined as `pol X = expr`) are
+        // skipped because they exist purely as aliases and do not indicate ownership.
+        // If no committed/constant column is found we fall back to the full sorted
+        // `cols_used` set (which still handles the all-intermediate edge case), and
+        // finally to "unknown".
+        let identity_ns = if identity.kind == IdentityKind::Polynomial {
+            namespace_from_non_intermediate_refs(identity)
+                .or_else(|| cols_used.first().map(|c| namespace_of(c)))
+                .unwrap_or_else(|| "unknown".to_string())
+        } else {
+            from_ns
+                .clone()
+                .or_else(|| cols_used.first().map(|c| namespace_of(c)))
+                .unwrap_or_else(|| "unknown".to_string())
+        };
 
         let constraint = ConstraintInfo {
             identity_id: identity.id,
@@ -123,6 +134,8 @@ pub fn build_identities<F: FieldElement>(
             columns_used: cols_used.iter().cloned().collect(),
             degree,
             gating_selector,
+            left_selector: left_sel.clone(),
+            right_selector: right_sel.clone(),
         };
 
         let ns_info = namespaces.entry(identity_ns.clone()).or_insert_with(default_ns);
@@ -234,7 +247,6 @@ fn collect_identity_columns<F>(
 
 fn detect_gating_selector<F: FieldElement>(
     identity: &Identity<AlgebraicExpression<F>>,
-    namespaces: &BTreeMap<String, NamespaceAnalysis>,
 ) -> Option<String> {
     let expr = identity.left.selector.as_ref()?;
 
@@ -258,43 +270,65 @@ fn detect_gating_selector<F: FieldElement>(
         expr
     };
 
-    // Check if outermost is Mul(ref, body) where ref is boolean
+    // Check if outermost is Mul(gate, body) where gate is a single column reference.
+    // We don't require the ref to be provably boolean here — the selector builder
+    // will tag it as "assumed" if no boolean proof exists.
+    //
+    // By PIL convention the gate is always the outermost LEFT factor: `gate * body = 0`.
+    // Left-associativity means `a * b * c` parses as `((a * b) * c)`, so in a three-factor
+    // chain the outermost right is the innermost value being zeroed, not the gate.
+    //
+    // The only exception is "copy" constraints of the form `(col' - col) * gate = 0`, where
+    // the left contains a next-row reference and the right IS the gating selector.  We detect
+    // that case by checking for a next-row (`'`) reference in the left sub-expression before
+    // falling through to the right.
     if let AlgebraicExpression::BinaryOperation(AlgebraicBinaryOperation {
         left,
         op: AlgebraicBinaryOperator::Mul,
         right,
     }) = inner
     {
-        if let Some(name) = try_extract_boolean_gate(left, namespaces) {
+        if let Some(name) = try_extract_gate(left) {
             return Some(name);
         }
-        if let Some(name) = try_extract_boolean_gate(right, namespaces) {
-            return Some(name);
+        // Only try the right side when the left contains a next-row reference.
+        // Without this guard, `(1 - write) * clk = 0` would wrongly return `clk` as the
+        // gate (since left `1 - write` is complex but right `clk` is a plain reference), and
+        // `sel * (1 - exists) * col = 0` (parsed left-associatively as
+        // `(sel * (1 - exists)) * col`) would wrongly return `col`.
+        // The one valid right-side gate pattern in the PIL is `(col' - col) * gate = 0`
+        // (e.g. ff_gt.pil's shift-consistency constraints), where the left always has a `'`.
+        if expression_contains_next_ref(left) {
+            if let Some(name) = try_extract_gate(right) {
+                return Some(name);
+            }
         }
     }
     None
 }
 
-fn try_extract_boolean_gate<F>(
-    expr: &AlgebraicExpression<F>,
-    namespaces: &BTreeMap<String, NamespaceAnalysis>,
-) -> Option<String> {
-    let r = match expr {
-        AlgebraicExpression::Reference(r) => r,
-        _ => return None,
-    };
-
-    let ns = namespace_of(&r.name);
-    if let Some(ns_info) = namespaces.get(&ns) {
-        if ns_info
-            .columns
-            .iter()
-            .any(|c| c.name == r.name && c.is_boolean)
-        {
-            return Some(r.name.clone());
+/// Returns true if the expression contains any next-row reference (a column with `'`).
+fn expression_contains_next_ref<F>(expr: &AlgebraicExpression<F>) -> bool {
+    match expr {
+        AlgebraicExpression::Reference(r) => r.next,
+        AlgebraicExpression::BinaryOperation(op) => {
+            expression_contains_next_ref(&op.left) || expression_contains_next_ref(&op.right)
         }
+        AlgebraicExpression::UnaryOperation(op) => expression_contains_next_ref(&op.expr),
+        AlgebraicExpression::Number(_)
+        | AlgebraicExpression::PublicReference(_)
+        | AlgebraicExpression::Challenge(_) => false,
     }
-    None
+}
+
+fn try_extract_gate<F>(expr: &AlgebraicExpression<F>) -> Option<String> {
+    match expr {
+        // A gating selector is always a current-row boolean — never a next-row reference.
+        // Rejecting shifted references prevents `value'` in `(gate_expr) * (1 - rw') * value' = 0`
+        // from being mistaken for the gate when expression_contains_next_ref fires on the left.
+        AlgebraicExpression::Reference(r) if !r.next => Some(r.name.clone()),
+        _ => None,
+    }
 }
 
 fn extract_connection_info<F: FieldElement>(
@@ -352,6 +386,55 @@ fn extract_connection_info<F: FieldElement>(
         .collect();
 
     (ls, rs, from, to, mapping)
+}
+
+/// Return the namespace of the first committed column referenced by a polynomial
+/// identity, or `None` if the identity contains only intermediate or constant
+/// references (or no references at all).
+///
+/// This is used to attribute polynomial identities to the correct namespace.
+/// Using `cols_used.first()` (a lexicographically-sorted set of plain strings)
+/// is unreliable because intermediate columns from foreign namespaces — such as
+/// `constants.MEM_TAG_FF` (defined as `pol MEM_TAG_FF = 0`) or `ecc.INFINITY_X`
+/// — sort before the owning namespace's committed columns, causing the identity
+/// to be mis-attributed.  Skipping intermediates ensures we anchor on a column
+/// that actually belongs to the circuit being constrained.
+fn namespace_from_non_intermediate_refs<F: FieldElement>(
+    identity: &Identity<AlgebraicExpression<F>>,
+) -> Option<String> {
+    let mut refs = Vec::new();
+    if let Some(sel) = &identity.left.selector {
+        collect_references(sel, &mut refs);
+    }
+    for expr in &identity.left.expressions {
+        collect_references(expr, &mut refs);
+    }
+    // Polynomial identities don't use right-hand side expressions or selectors,
+    // but scan them anyway for completeness.
+    if let Some(sel) = &identity.right.selector {
+        collect_references(sel, &mut refs);
+    }
+    for expr in &identity.right.expressions {
+        collect_references(expr, &mut refs);
+    }
+
+    // Collect the namespace of the first committed column in expression-tree
+    // traversal order.
+    //
+    // We skip PolynomialType::Intermediate because intermediate polys defined as
+    // `pol X = <expr>` in a foreign namespace (e.g. `constants.MEM_TAG_FF`,
+    // `ecc.INFINITY_X`) were the original source of mis-attribution.
+    //
+    // We also skip PolynomialType::Constant because constant columns (e.g.
+    // `precomputed.first_row`) appear in many namespaces' initialization
+    // constraints and would falsely attribute those constraints to `precomputed`
+    // when the constant appears as the leftmost leaf of the expression tree
+    // (e.g. `(1 - precomputed.first_row) * (1 - sha256.sel) * sha256.sel'`).
+    // Constant columns are lookup table values — they never "own" a constraint.
+    refs.iter()
+        .filter(|r| r.poly_id.ptype == PolynomialType::Committed)
+        .map(|r| namespace_of(&r.name))
+        .next()
 }
 
 fn update_column_refs<F>(

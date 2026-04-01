@@ -3,41 +3,126 @@ use crate::analysis::types::{NamespaceAnalysis, SelectorInfo};
 
 use powdr_ast::analyzed::{AlgebraicExpression, Analyzed};
 use powdr_number::FieldElement;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet, HashSet};
 
 /// Build selector info for each namespace.
 ///
-/// A selector is a boolean column whose name contains "sel".
-/// Composite selectors are intermediates whose defining expression is a sum of boolean references.
+/// A column is a selector if:
+/// 1. It is boolean-constrained (explicit or derived) AND appears as a
+///    top-level multiplicative factor in other constraints or as a
+///    selector in lookups/permutations.
+/// 2. OR it is not provably boolean but still appears as a top-level gate
+///    (tagged as "assumed" — may be boolean via lookup from another namespace).
+///
+/// Intermediate polynomials that combine selectors via addition are tagged
+/// as composite selectors.
 pub fn build_selectors<F: FieldElement>(
     analyzed: &Analyzed<F>,
     namespaces: &mut BTreeMap<String, NamespaceAnalysis>,
 ) {
-    // Collect boolean column names across all namespaces
-    let mut boolean_cols: BTreeMap<String, bool> = BTreeMap::new(); // name -> is_selector_name
-    for (_ns, ns_info) in namespaces.iter() {
+    // Collect all boolean column names and their source type
+    let mut boolean_cols: BTreeMap<String, String> = BTreeMap::new(); // name -> boolean_source
+    for ns_info in namespaces.values() {
         for col in &ns_info.columns {
             if col.is_boolean {
-                let short = col
-                    .name
-                    .split('.')
-                    .last()
-                    .unwrap_or(&col.name)
-                    .to_lowercase();
-                boolean_cols.insert(col.name.clone(), short.contains("sel"));
+                if let Some(src) = &col.boolean_source {
+                    boolean_cols.insert(col.name.clone(), src.clone());
+                }
             }
         }
     }
 
+    // Collect all columns that appear as gating selectors in any constraint
+    let mut gating_cols: HashSet<String> = HashSet::new();
+    for ns_info in namespaces.values() {
+        for constraint in &ns_info.constraints {
+            if let Some(gate) = &constraint.gating_selector {
+                gating_cols.insert(gate.clone());
+            }
+        }
+    }
+
+    // Also collect columns used as left/right selectors in lookups/permutations.
+    // These are the actual selector columns from the identity's SelectedExpressions,
+    // not just any column that appears in the identity.
+    let mut lookup_selector_cols: HashSet<String> = HashSet::new();
+    for ns_info in namespaces.values() {
+        for constraint in &ns_info.constraints {
+            if constraint.kind == "lookup" || constraint.kind == "permutation" {
+                if let Some(ls) = &constraint.left_selector {
+                    lookup_selector_cols.insert(ls.clone());
+                }
+                if let Some(rs) = &constraint.right_selector {
+                    lookup_selector_cols.insert(rs.clone());
+                }
+            }
+        }
+    }
+
+    // Build the full selector set:
+    // - Boolean columns that gate or appear in lookups → "explicit" or "derived"
+    // - Non-boolean columns that gate → "assumed"
+    let mut selector_info_map: BTreeMap<String, String> = BTreeMap::new(); // name -> boolean_source
+
+    for name in &gating_cols {
+        if let Some(src) = boolean_cols.get(name) {
+            selector_info_map.insert(name.clone(), src.clone());
+        } else {
+            selector_info_map.insert(name.clone(), "assumed".to_string());
+        }
+    }
+
+    for name in &lookup_selector_cols {
+        if !selector_info_map.contains_key(name) {
+            if let Some(src) = boolean_cols.get(name) {
+                selector_info_map.insert(name.clone(), src.clone());
+            } else {
+                selector_info_map.insert(name.clone(), "assumed".to_string());
+            }
+        }
+    }
+
+    let selector_names: BTreeSet<&String> = selector_info_map.keys().collect();
+
     // Detect composite selectors from intermediate columns
     let mut composite_map: BTreeMap<String, Vec<String>> = BTreeMap::new();
     for (_name, (sym, exprs)) in &analyzed.intermediate_columns {
-        for (elem_name, _poly_id) in sym.array_elements() {
-            if let Some(expr) = exprs.first() {
-                if let Some(sub_sels) = detect_composite(expr, &boolean_cols) {
+        for (idx, (elem_name, _poly_id)) in sym.array_elements().enumerate() {
+            if let Some(expr) = exprs.get(idx) {
+                if let Some(sub_sels) = detect_composite(expr, &selector_names) {
                     if sub_sels.len() >= 2 {
                         composite_map.insert(elem_name, sub_sels);
                     }
+                }
+            }
+        }
+    }
+
+    // Pre-build cross-namespace maps for gates and lookup selectors.
+    // A column may gate constraints or serve as a lookup selector in a different namespace
+    // than where it is defined (e.g., tx.is_teardown gates a constraint in the constants namespace).
+    let mut gating_identities: BTreeMap<String, Vec<u64>> = BTreeMap::new();
+    let mut lookup_sel_identities: BTreeMap<String, Vec<u64>> = BTreeMap::new();
+    for ns_info in namespaces.values() {
+        for constraint in &ns_info.constraints {
+            if let Some(gate) = &constraint.gating_selector {
+                gating_identities
+                    .entry(gate.clone())
+                    .or_default()
+                    .push(constraint.identity_id);
+            }
+            if constraint.kind == "lookup" || constraint.kind == "permutation" {
+                if let Some(ls) = &constraint.left_selector {
+                    lookup_sel_identities
+                        .entry(ls.clone())
+                        .or_default()
+                        .push(constraint.identity_id);
+                }
+                if let Some(rs) = &constraint.right_selector {
+                    lookup_sel_identities
+                        .entry(rs.clone())
+                        .or_default()
+                        .push(constraint.identity_id);
                 }
             }
         }
@@ -48,37 +133,22 @@ pub fn build_selectors<F: FieldElement>(
         let mut selectors: Vec<SelectorInfo> = Vec::new();
 
         for col in &ns_info.columns {
-            let short = col
-                .name
-                .split('.')
-                .last()
-                .unwrap_or(&col.name)
-                .to_lowercase();
-            if !col.is_boolean || !short.contains("sel") {
-                continue;
-            }
+            let bool_source = match selector_info_map.get(&col.name) {
+                Some(src) => src.clone(),
+                None => continue,
+            };
 
-            // Find identities gated by this selector
-            let mut gates_identities: Vec<u64> = Vec::new();
-            for constraint in &ns_info.constraints {
-                if constraint.gating_selector.as_deref() == Some(&col.name) {
-                    gates_identities.push(constraint.identity_id);
-                }
-            }
+            // Find identities gated by this selector (across all namespaces)
+            let gates_identities = gating_identities
+                .get(&col.name)
+                .cloned()
+                .unwrap_or_default();
 
-            // Find lookups where this column is a selector
-            let mut in_lookups_as_selector: Vec<u64> = Vec::new();
-            for constraint in &ns_info.constraints {
-                if constraint.kind == "lookup" || constraint.kind == "permutation" {
-                    // The selector column appears in columns_used for these identities
-                    if constraint.columns_used.iter().any(|c| {
-                        let base = c.trim_end_matches('\'');
-                        base == col.name
-                    }) {
-                        in_lookups_as_selector.push(constraint.identity_id);
-                    }
-                }
-            }
+            // Find lookups/permutations where this column is a selector (across all namespaces)
+            let in_lookups_as_selector = lookup_sel_identities
+                .get(&col.name)
+                .cloned()
+                .unwrap_or_default();
 
             let (is_composite, composite_of) = composite_map
                 .get(&col.name)
@@ -87,6 +157,7 @@ pub fn build_selectors<F: FieldElement>(
 
             selectors.push(SelectorInfo {
                 name: col.name.clone(),
+                boolean_source: bool_source,
                 is_composite,
                 composite_of,
                 gates_identities,
@@ -94,13 +165,14 @@ pub fn build_selectors<F: FieldElement>(
             });
         }
 
-        // Also check for composite selectors that might be intermediates in this namespace
+        // Also add composite selectors that are intermediates (not in column list as selectors)
         for (comp_name, sub_sels) in &composite_map {
             if namespace_of(comp_name) == *ns_name {
-                // Check if we already added it as a boolean column
                 if !selectors.iter().any(|s| s.name == *comp_name) {
+                    // Composite selectors derived from selectors are themselves derived
                     selectors.push(SelectorInfo {
                         name: comp_name.clone(),
+                        boolean_source: "derived".to_string(),
                         is_composite: true,
                         composite_of: sub_sels.clone(),
                         gates_identities: Vec::new(),
@@ -115,15 +187,14 @@ pub fn build_selectors<F: FieldElement>(
     }
 }
 
-/// Check if an intermediate expression is a sum of boolean references.
-/// Returns the sub-selector names if so.
+/// Check if an intermediate expression is a sum of selector references.
 fn detect_composite<F>(
     expr: &AlgebraicExpression<F>,
-    boolean_cols: &BTreeMap<String, bool>,
+    selector_names: &BTreeSet<&String>,
 ) -> Option<Vec<String>> {
     let mut refs = Vec::new();
     collect_add_refs(expr, &mut refs);
-    if refs.len() >= 2 && refs.iter().all(|r| boolean_cols.contains_key(r)) {
+    if refs.len() >= 2 && refs.iter().all(|r| selector_names.contains(r)) {
         Some(refs)
     } else {
         None
@@ -142,6 +213,6 @@ fn collect_add_refs<F>(expr: &AlgebraicExpression<F>, out: &mut Vec<String>) {
             collect_add_refs(&op.left, out);
             collect_add_refs(&op.right, out);
         }
-        _ => {} // Non-add structure — not a simple composite
+        _ => {}
     }
 }

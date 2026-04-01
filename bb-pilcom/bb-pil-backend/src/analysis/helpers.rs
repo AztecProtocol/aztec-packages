@@ -84,7 +84,6 @@ pub fn collect_column_names<T>(expr: &AlgebraicExpression<T>, out: &mut BTreeSet
 }
 
 /// Collect all AlgebraicReference structs (with full poly_id, next info) from an expression.
-#[allow(dead_code)]
 pub fn collect_references<'a, T>(
     expr: &'a AlgebraicExpression<T>,
     out: &mut Vec<&'a AlgebraicReference>,

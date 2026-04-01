@@ -18,10 +18,15 @@ pub fn detect_blocks(namespaces: &mut BTreeMap<String, NamespaceAnalysis>) {
                 .to_lowercase();
 
             // Counter columns: names containing round/step/counter/ctr
-            if short.contains("round")
-                || short.contains("step")
-                || short.contains("counter")
-                || short.contains("ctr")
+            // AND must be a committed column that is actually shifted (appears with ' in constraints).
+            // This filters out inverse helpers (e.g., ctr_min_one_inv) and selectors
+            // that happen to have "ctr" in the name (e.g., sel_get_ctr).
+            if col.kind == "committed"
+                && col.is_shifted
+                && (short.contains("round")
+                    || short.contains("step")
+                    || short.contains("counter")
+                    || short.contains("ctr"))
             {
                 counter_columns.push(col.name.clone());
             }
@@ -32,27 +37,24 @@ pub fn detect_blocks(namespaces: &mut BTreeMap<String, NamespaceAnalysis>) {
             {
                 latch_conditions.push(col.name.clone());
             }
-        }
 
-        // Cross-row state: columns appearing both shifted and unshifted in the same constraint
-        for constraint in &ns_info.constraints {
-            let shifted: HashSet<&str> = constraint
-                .columns_used
-                .iter()
-                .filter(|c| c.ends_with('\''))
-                .map(|c| c.trim_end_matches('\''))
-                .collect();
-            let unshifted: HashSet<&str> = constraint
-                .columns_used
-                .iter()
-                .filter(|c| !c.ends_with('\''))
-                .map(|c| c.as_str())
-                .collect();
-
-            for s in &shifted {
-                if unshifted.contains(s) {
-                    cross_row_state.insert(s.to_string());
-                }
+            // Cross-row state: committed columns that are shifted (appear with `'` in any
+            // constraint or expression in the namespace).
+            //
+            // The previous heuristic required a column to appear BOTH shifted and unshifted
+            // in the *same* constraint, which works for simple copy-propagation constraints
+            // like `(1 - LATCH) * (dst_addr' - dst_addr) = 0`.  However it misses state
+            // columns whose next-row value is set by a computation rather than a direct
+            // copy, e.g. `(1 - LATCH) * (state_in_00' - state_iota_00) = 0`.  There
+            // `state_in_00'` appears but `state_in_00` does not — yet `state_in_00` is
+            // clearly cross-row state: round N's output feeds round N+1's input.
+            //
+            // Using `is_shifted` (which is set whenever the column's name appears with
+            // `next == true` anywhere in the analyzed PIL) is both simpler and more
+            // accurate.  We restrict to committed columns to exclude intermediate
+            // helper polynomials that happen to be shifted.
+            if col.kind == "committed" && col.is_shifted {
+                cross_row_state.insert(col.name.clone());
             }
         }
 
