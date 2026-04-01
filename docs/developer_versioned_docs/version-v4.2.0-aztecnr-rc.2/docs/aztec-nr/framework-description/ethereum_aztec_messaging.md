@@ -126,8 +126,8 @@ L2 to L1 messages are only available after the epoch proof is submitted to L1. S
  * @param _amount - The amount to withdraw
  * @param _withCaller - Flag to use `msg.sender` as caller, otherwise address(0)
  * @param _epoch - The epoch the message is in
- * @param _leafIndex - The amount to withdraw
- * @param _path - Flag to use `msg.sender` as caller, otherwise address(0)
+ * @param _leafIndex - The index of the message leaf in the tree
+ * @param _path - The Merkle proof path for the message leaf
  * Must match the caller of the message (specified from L2) to consume it.
  */
 function withdraw(
