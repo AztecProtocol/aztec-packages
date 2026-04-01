@@ -82,7 +82,15 @@ export type P2P = P2PClient & {
    *
    * @param handler - A function taking a received checkpoint proposal and producing attestations
    */
-  registerCheckpointProposalHandler(callback: P2PCheckpointReceivedCallback): void;
+  registerValidatorCheckpointProposalHandler(callback: P2PCheckpointReceivedCallback): void;
+
+  /**
+   * Registers a callback that runs for ALL nodes (not just validators) when a checkpoint proposal is received.
+   * Used to set the proposed checkpoint number on the archiver so the sequencer can build on top of it.
+   *
+   * @param handler - A function taking a received checkpoint proposal
+   */
+  registerAllNodesCheckpointProposalHandler(callback: P2PCheckpointReceivedCallback): void;
 
   /**
    * Registers a callback invoked when a duplicate proposal is detected (equivocation).

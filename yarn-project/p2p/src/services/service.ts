@@ -117,7 +117,12 @@ export interface P2PService {
   // Leaky abstraction: fix https://github.com/AztecProtocol/aztec-packages/issues/7963
   registerBlockReceivedCallback(callback: P2PBlockReceivedCallback): void;
 
-  registerCheckpointReceivedCallback(callback: P2PCheckpointReceivedCallback): void;
+  registerValidatorCheckpointReceivedCallback(callback: P2PCheckpointReceivedCallback): void;
+
+  registerAllNodesCheckpointReceivedCallback(callback: P2PCheckpointReceivedCallback): void;
+
+  /** Fires the all-nodes checkpoint callback for our own proposal (gossipsub doesn't deliver own messages). */
+  notifyOwnCheckpointProposal(checkpoint: CheckpointProposalCore): Promise<void>;
 
   /**
    * Registers a callback invoked when a duplicate proposal is detected (equivocation).
@@ -195,13 +200,6 @@ export interface PeerDiscoveryService extends EventEmitter {
    */
   on(event: 'peer:discovered', listener: (enr: ENR) => void): this;
   emit(event: 'peer:discovered', enr: ENR): boolean;
-
-  /**
-   * Event emitted when our public IP is discovered or changes via discv5 peer interactions.
-   * Only emitted when enrUpdate is enabled (i.e. queryForIp=true and no static p2pIp).
-   */
-  on(event: 'ip:changed', listener: (ip: string) => void): this;
-  emit(event: 'ip:changed', ip: string): boolean;
 
   getStatus(): PeerDiscoveryState;
 

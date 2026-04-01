@@ -25,7 +25,7 @@ namespace bb {
 Chonk::Chonk(size_t num_circuits)
     : num_circuits(num_circuits)
 {
-    BB_ASSERT_GT(num_circuits, 0UL, "Number of circuits must be specified and greater than 0.");
+    BB_ASSERT_GTE(num_circuits, 4UL, "Number of circuits must be at least 4 (get_queue_type uses num_circuits - 3).");
 }
 
 /**
