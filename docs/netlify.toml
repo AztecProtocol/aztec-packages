@@ -324,17 +324,21 @@
 # Getting started on testnet redirect
 [[redirects]]
     from = "/developers/guides/getting_started_on_testnet"
-    to = "/developers/getting_started_on_devnet"
+    to = "/developers/getting_started_on_local_network"
 
 # Sandbox reference redirect
 [[redirects]]
     from = "/developers/guides/local_env/sandbox-reference"
     to = "/developers/getting_started_on_local_network"
 
-# FaceID wallet redirect
+# FaceID wallet redirect (page removed)
 [[redirects]]
     from = "/developers/tutorials/codealong/faceid_wallet"
-    to = "/developers/docs/tutorials/faceid_wallet"
+    to = "/developers/docs/tutorials"
+
+[[redirects]]
+    from = "/developers/docs/tutorials/faceid_wallet"
+    to = "/developers/docs/tutorials"
 
 # Legacy network paths - SPECIFIC PATHS MUST COME BEFORE WILDCARDS
 # (Netlify processes redirects top-to-bottom, first match wins)
@@ -708,7 +712,7 @@
 
 [[redirects]]
     from = "/nightly/*"
-    to = "/developers/nightly/:splat"
+    to = "/developers/:splat"
 
 # =============================================================================
 # ACTIVE REDIRECTS: Catch-All Path Migrations
@@ -768,22 +772,22 @@
 [[redirects]]
     # Aztec-nr: custom message was received but no handler was configured
     from = "/errors/2"
-    to = "/aztec-nr-api/nightly/noir_aztec/macros/struct.AztecConfig.html"
+    to = "/aztec-nr-api/mainnet/noir_aztec/macros/struct.AztecConfig.html"
 
 [[redirects]]
     # Aztec-nr: message received with message type ID in the range reserved for future aztec.nr built-in message types
     from = "/errors/3"
-    to = "/aztec-nr-api/nightly/noir_aztec/messages/msg_type/index.html"
+    to = "/aztec-nr-api/mainnet/noir_aztec/messages/msg_type/index.html"
 
 [[redirects]]
     # Aztec-nr: note packed length exceeds MAX_NOTE_PACKED_LEN
     from = "/errors/4"
-    to = "/aztec-nr-api/nightly/noir_aztec/macros/notes/fn.note.html"
+    to = "/aztec-nr-api/mainnet/noir_aztec/macros/notes/fn.note.html"
 
 [[redirects]]
     # Aztec-nr: event serialized length exceeds MAX_EVENT_SERIALIZED_LEN
     from = "/errors/5"
-    to = "/aztec-nr-api/nightly/noir_aztec/macros/events/fn.event.html"
+    to = "/aztec-nr-api/mainnet/noir_aztec/macros/events/fn.event.html"
 
 [[redirects]]
     # Aztec-nr: direct invocation of contract functions is not supported
@@ -793,7 +797,7 @@
 [[redirects]]
     # Aztec-nr: user-defined 'offchain_receive' is not allowed
     from = "/errors/7"
-    to = "/aztec-nr-api/nightly/noir_aztec/messages/processing/offchain/fn.receive.html"
+    to = "/aztec-nr-api/mainnet/noir_aztec/messages/processing/offchain/fn.receive.html"
 
 [[redirects]]
     # PXE: incompatible oracle version between contract and PXE

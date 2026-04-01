@@ -16,8 +16,6 @@ export const useApiVersion = () => {
   const label = version.label || "";
   if (label.startsWith("Alpha")) return "mainnet";
   if (label.startsWith("Testnet")) return "testnet";
-  if (label.startsWith("Devnet")) return "devnet";
-  if (label.includes("nightly")) return "nightly";
   return version.name;
 };
 
