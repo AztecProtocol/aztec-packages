@@ -339,7 +339,6 @@ export class BotFactory {
     existingToken?: TokenContract | PrivateTokenContract,
   ): Promise<TokenContract | PrivateTokenContract> {
     let deploy: DeployMethod<TokenContract | PrivateTokenContract>;
-    let tokenInstance: ContractInstanceWithAddress | undefined;
     const deployOpts: DeployOptions = {
       from: sender,
       contractAddressSalt: this.config.tokenSalt,
@@ -348,8 +347,8 @@ export class BotFactory {
     let token: TokenContract | PrivateTokenContract;
     if (this.config.contract === SupportedTokenContracts.TokenContract) {
       deploy = TokenContract.deploy(this.wallet, sender, 'BotToken', 'BOT', 18);
-      tokenInstance = await deploy.getInstance(deployOpts);
-      token = TokenContract.at(tokenInstance.address, this.wallet);
+      const instance = await deploy.getInstance(deployOpts);
+      token = TokenContract.at(instance.address, this.wallet);
     } else if (this.config.contract === SupportedTokenContracts.PrivateTokenContract) {
       // Generate keys for the contract since PrivateToken uses SinglePrivateMutable which requires keys
       const tokenSecretKey = Fr.random();
@@ -360,7 +359,7 @@ export class BotFactory {
       deployOpts.skipInitialization = false;
 
       // Register the contract with the secret key before deployment
-      tokenInstance = await deploy.getInstance(deployOpts);
+      const tokenInstance = await deploy.getInstance(deployOpts);
       token = PrivateTokenContract.at(tokenInstance.address, this.wallet);
       await this.wallet.registerContract(tokenInstance, PrivateTokenContract.artifact, tokenSecretKey);
       // The contract constructor initializes private storage vars that need the contract's own nullifier key.
@@ -369,43 +368,8 @@ export class BotFactory {
       throw new Error(`Unsupported token contract type: ${this.config.contract}`);
     }
 
-    const address = tokenInstance?.address ?? (await deploy.getInstance(deployOpts)).address;
-    const metadata = await this.wallet.getContractMetadata(address);
-    if (metadata.isContractPublished) {
-      this.log.info(`Token at ${address.toString()} already deployed`);
-      await deploy.register();
-      return existingToken ?? token;
-    }
-
-    this.log.info(`Deploying token contract at ${address.toString()}`);
-    const balance = await getFeeJuiceBalance(sender, this.aztecNode);
-    const useClaim =
-      balance < FEE_JUICE_TOP_UP_THRESHOLD &&
-      this.config.feePaymentMethod === 'fee_juice' &&
-      this.config.l1RpcUrls?.length;
-    const mnemonicOrPrivateKey = this.config.l1PrivateKey?.getValue() ?? this.config.l1Mnemonic?.getValue();
-
-    if (useClaim && mnemonicOrPrivateKey) {
-      const claim = await this.getOrCreateBridgeClaim(sender);
-      const paymentMethod = new FeeJuicePaymentMethodWithClaim(sender, claim);
-      const { estimatedGas } = await deploy.simulate({ ...deployOpts, fee: { estimateGas: true, paymentMethod } });
-      const maxFeesPerGas = (await this.aztecNode.getCurrentMinFees()).mul(1 + this.config.minFeePadding);
-      const gasSettings = GasSettings.from({ ...estimatedGas!, maxFeesPerGas, maxPriorityFeesPerGas: GasFees.empty() });
-      await this.withNoMinTxsPerBlock(async () => {
-        const { txHash } = await deploy.send({ ...deployOpts, fee: { gasSettings, paymentMethod }, wait: NO_WAIT });
-        this.log.info(`Sent token deploy tx ${txHash.toString()} (using bridge claim, balance was ${balance})`);
-        return waitForTx(this.aztecNode, txHash, { timeout: this.config.txMinedWaitSeconds });
-      });
-      await this.store.deleteBridgeClaim(sender);
-    } else {
-      const { estimatedGas } = await deploy.simulate({ ...deployOpts, fee: { estimateGas: true } });
-      const { txHash } = await deploy.send({ ...deployOpts, fee: { gasSettings: estimatedGas }, wait: NO_WAIT });
-      this.log.info(`Sent tx for token setup with hash ${txHash.toString()}`, { estimatedGas });
-      await this.withNoMinTxsPerBlock(() =>
-        waitForTx(this.aztecNode, txHash, { timeout: this.config.txMinedWaitSeconds }),
-      );
-    }
-    return token;
+    await this.registerOrDeployContract('token', deploy, deployOpts);
+    return existingToken ?? token;
   }
 
   /**
