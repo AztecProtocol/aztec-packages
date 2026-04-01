@@ -7,6 +7,7 @@ members = [
     "examples/contracts/nft_bridge",
     "examples/contracts/recursive_verification_contract",
     "examples/contracts/example_uniswap",
+    "examples/webapp-tutorial/contracts",
     "examples/contracts/aave_bridge",
     "examples/contracts/logging_example",
     "examples/contracts/logging_example_test"
