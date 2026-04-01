@@ -29,21 +29,21 @@ Aztec.nr provides pre-built note types for common use cases:
 
 ```toml
 # In Nargo.toml
-uint_note = { git="https://github.com/AztecProtocol/aztec-packages/", tag="v4.2.0-aztecnr-rc.2", directory="noir-projects/aztec-nr/uint-note" }
+uint_note = { git="https://github.com/AztecProtocol/aztec-nr", tag="v4.2.0-aztecnr-rc.2", directory="uint-note" }
 ```
 
 **FieldNote** - For storing single Field values:
 
 ```toml
 # In Nargo.toml
-field_note = { git="https://github.com/AztecProtocol/aztec-packages/", tag="v4.2.0-aztecnr-rc.2", directory="noir-projects/aztec-nr/field-note" }
+field_note = { git="https://github.com/AztecProtocol/aztec-nr", tag="v4.2.0-aztecnr-rc.2", directory="field-note" }
 ```
 
 **AddressNote** - For storing Aztec addresses:
 
 ```toml
 # In Nargo.toml
-address_note = { git="https://github.com/AztecProtocol/aztec-packages/", tag="v4.2.0-aztecnr-rc.2", directory="noir-projects/aztec-nr/address-note" }
+address_note = { git="https://github.com/AztecProtocol/aztec-nr", tag="v4.2.0-aztecnr-rc.2", directory="address-note" }
 ```
 
 :::

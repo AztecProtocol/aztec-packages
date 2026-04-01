@@ -40,6 +40,10 @@ This is an Aztec smart contract project. Always use the `aztec` CLI wrapper inst
 - Prefer `T` return types over `T | null` when null would indicate a bug rather than a valid state.
 - Do not add `.catch(() => defaultValue)` to promises. If something fails, the caller needs to know.
 
+## Version Compatibility
+
+The Aztec developer SDK/aztec-nr version (used for writing and compiling contracts) may differ from the node version (used by operators to run the network). For example, aztec-nr `4.2.0-aztecnr-rc.2` is compatible with node version `4.1.2`. Check the [Networks page](https://docs.aztec.network/networks) for current network versions. When in doubt, use the version from the developer docs you are reading — it is the correct SDK version for contract development on that network.
+
 ## Hashing: Default to Poseidon2
 
 When writing Aztec.nr contract code that requires hashing, **always use Poseidon2** unless a specific protocol or interoperability requirement calls for a different hash.

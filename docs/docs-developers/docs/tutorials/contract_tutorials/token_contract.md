@@ -39,18 +39,17 @@ We'll create BOB tokens with:
 Let's create a simple yarn + aztec.nr project:
 
 ```bash
-mkdir bob_token
+aztec new bob_token
 cd bob_token
 yarn init
 # This is to ensure yarn uses node_modules instead of pnp for dependency installation
 yarn config set nodeLinker node-modules
-yarn add @aztec/aztec.js@#include_aztec_version @aztec/accounts@#include_aztec_version @aztec/test-wallet@#include_aztec_version @aztec/kv-store@#include_aztec_version
-aztec init
+yarn add @aztec/aztec.js@#include_aztec_version @aztec/accounts@#include_aztec_version @aztec/kv-store@#include_aztec_version @aztec/wallets@#include_aztec_version
 ```
 
 ## Contract structure
 
-The `aztec init` command created a workspace with two crates: a `bob_token_contract` crate for your smart contract code and a `bob_token_test` crate for Noir tests. In `bob_token_contract/src/main.nr` we even have a proto-contract. Let's replace it with a simple starting point:
+The `aztec new` command created a contract project with `Nargo.toml` and `src/main.nr`. Let's replace the boilerplate in `src/main.nr` with a simple starting point:
 
 ```rust
 #include_code start /docs/examples/contracts/bob_token_contract/src/main.nr raw
@@ -60,7 +59,7 @@ The `aztec init` command created a workspace with two crates: a `bob_token_contr
 
 The `#[aztec]` macro transforms our contract code to work with Aztec's privacy protocol.
 
-Let's make sure the Aztec.nr library is listed in our dependencies in `bob_token_contract/Nargo.toml`:
+Replace the contents of `Nargo.toml` with the following:
 
 ```toml
 [package]
@@ -212,7 +211,7 @@ npx tsx index.ts
 
 :::tip
 
-What's this `tsx` dark magic? Well, it just compiles and runs typescript using reasonable defaults. Pretty cool for small snippets like this!
+What's this `tsx` dark magic? `tsx` is a tool that compiles and runs TypeScript using reasonable defaults. `npx` will auto-install it if you don't have it. If you'd prefer to install it explicitly, run `yarn add -D tsx` first.
 
 :::
 
@@ -254,7 +253,7 @@ In this case, all that the network sees (including Giggle) is just "something ha
 
 ### Updating Storage for Privacy
 
-For something like balances, you can use a simple library called `easy_private_state` which abstracts away a custom private Note. A Note is at the core of how private state works in Aztec and you can read about it [here](../../foundational-topics/state_management.md). For now, let's just import the library in `bob_token_contract/Nargo.toml`:
+For something like balances, you can use a simple library called `easy_private_state` which abstracts away a custom private Note. A Note is at the core of how private state works in Aztec and you can read about it [here](../../foundational-topics/state_management.md). For now, let's add it by replacing the `[dependencies]` section in `Nargo.toml`:
 
 ```toml
 [dependencies]
