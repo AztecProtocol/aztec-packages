@@ -3,7 +3,7 @@
 //! Ported from zkpassport/aztec-packages bb_rs secp256k1_tests.rs
 
 #[cfg(test)]
-use barretenberg_rs::{backends::FfiBackend, generated_types::Secp256k1Point, BarretenbergApi};
+use barretenberg_rs::{FfiBackend, generated::bb_types::Secp256k1Point, BbApi};
 
 // secp256k1 generator point G
 // x = 0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F81798
@@ -31,7 +31,7 @@ fn secp256k1_generator() -> Secp256k1Point {
 #[test]
 fn test_secp256k1_scalar_multiplication() {
     let backend = FfiBackend::new().expect("Failed to create backend");
-    let mut api = BarretenbergApi::new(backend);
+    let mut api = BbApi::new(backend);
 
     let point = secp256k1_generator();
     let mut scalar = vec![0u8; 32];
@@ -52,7 +52,7 @@ fn test_secp256k1_scalar_multiplication() {
 #[test]
 fn test_secp256k1_scalar_multiplication_by_one() {
     let backend = FfiBackend::new().expect("Failed to create backend");
-    let mut api = BarretenbergApi::new(backend);
+    let mut api = BbApi::new(backend);
 
     let point = secp256k1_generator();
 
@@ -73,7 +73,7 @@ fn test_secp256k1_scalar_multiplication_by_one() {
 #[test]
 fn test_secp256k1_random_scalar_generation() {
     let backend = FfiBackend::new().expect("Failed to create backend");
-    let mut api = BarretenbergApi::new(backend);
+    let mut api = BbApi::new(backend);
 
     let response1 = api
         .secp256k1_get_random_fr(0)
@@ -94,7 +94,7 @@ fn test_secp256k1_random_scalar_generation() {
 #[test]
 fn test_secp256k1_random_scalar_multiple_calls() {
     let backend = FfiBackend::new().expect("Failed to create backend");
-    let mut api = BarretenbergApi::new(backend);
+    let mut api = BbApi::new(backend);
 
     let mut scalars = Vec::new();
     for _ in 0..10 {
@@ -121,7 +121,7 @@ fn test_secp256k1_random_scalar_multiple_calls() {
 #[test]
 fn test_secp256k1_reduce512() {
     let backend = FfiBackend::new().expect("Failed to create backend");
-    let mut api = BarretenbergApi::new(backend);
+    let mut api = BbApi::new(backend);
 
     let large_input = [0xffu8; 64]; // Maximum 512-bit value
 
@@ -140,7 +140,7 @@ fn test_secp256k1_reduce512() {
 #[test]
 fn test_secp256k1_reduce512_small_value() {
     let backend = FfiBackend::new().expect("Failed to create backend");
-    let mut api = BarretenbergApi::new(backend);
+    let mut api = BbApi::new(backend);
 
     let mut small_input = [0u8; 64];
     small_input[63] = 42; // A small value
@@ -160,7 +160,7 @@ fn test_secp256k1_reduce512_small_value() {
 #[test]
 fn test_secp256k1_reduce512_zero() {
     let backend = FfiBackend::new().expect("Failed to create backend");
-    let mut api = BarretenbergApi::new(backend);
+    let mut api = BbApi::new(backend);
 
     let zero_input = [0u8; 64];
 
@@ -177,7 +177,7 @@ fn test_secp256k1_reduce512_zero() {
 #[test]
 fn test_secp256k1_reduce512_various_inputs() {
     let backend = FfiBackend::new().expect("Failed to create backend");
-    let mut api = BarretenbergApi::new(backend);
+    let mut api = BbApi::new(backend);
 
     // Test with different patterns
     let mut input1 = [0u8; 64];
@@ -201,7 +201,7 @@ fn test_secp256k1_reduce512_various_inputs() {
 #[test]
 fn test_secp256k1_mul_deterministic() {
     let backend = FfiBackend::new().expect("Failed to create backend");
-    let mut api = BarretenbergApi::new(backend);
+    let mut api = BbApi::new(backend);
 
     let point = secp256k1_generator();
 
@@ -225,7 +225,7 @@ fn test_secp256k1_mul_deterministic() {
 #[test]
 fn test_secp256k1_reduce512_deterministic() {
     let backend = FfiBackend::new().expect("Failed to create backend");
-    let mut api = BarretenbergApi::new(backend);
+    let mut api = BbApi::new(backend);
 
     let large_scalar_512 = [0xffu8; 64];
 

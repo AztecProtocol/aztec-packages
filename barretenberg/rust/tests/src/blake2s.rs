@@ -1,24 +1,14 @@
 //! Blake2s hash tests
-//!
-//! Parallels barretenberg/ts/src/barretenberg/blake2s.test.ts
-//!
-//! These tests require the BB binary to be built. They are skipped if the binary is not found.
 
 #[cfg(test)]
-use barretenberg_rs::{backends::PipeBackend, BarretenbergApi, Fr};
-#[cfg(test)]
-use crate::utils::get_bb_binary_path;
+use barretenberg_rs::Fr;
 #[cfg(test)]
 use crate::require_bb_binary;
 
 #[test]
 fn test_blake2s() {
     require_bb_binary!();
-    let bb_path = get_bb_binary_path();
-
-    let backend = PipeBackend::new(&bb_path, Some(1))
-        .expect("Failed to create backend");
-    let mut api = BarretenbergApi::new(backend);
+    let (mut api, mut _bb_child) = crate::utils::spawn_bb_api();
 
     let input = b"abcdefghijklmnopqrstuvwxyz0123456789abcdefghijklmnopqrstuvwxyz0123456789";
     let expected: [u8; 32] = [
@@ -28,12 +18,7 @@ fn test_blake2s() {
     ];
 
     let response = api.blake2s(input).expect("Blake2s failed");
-
-    assert_eq!(
-        response.hash.as_slice(),
-        &expected,
-        "Blake2s hash mismatch"
-    );
+    assert_eq!(response.hash.as_slice(), &expected, "Blake2s hash mismatch");
 
     api.destroy().expect("Failed to destroy backend");
 }
@@ -41,25 +26,16 @@ fn test_blake2s() {
 #[test]
 fn test_blake2s_to_field() {
     require_bb_binary!();
-    let bb_path = get_bb_binary_path();
-
-    let backend = PipeBackend::new(&bb_path, Some(1))
-        .expect("Failed to create backend");
-    let mut api = BarretenbergApi::new(backend);
+    let (mut api, mut _bb_child) = crate::utils::spawn_bb_api();
 
     let input = b"abcdefghijklmnopqrstuvwxyz0123456789abcdefghijklmnopqrstuvwxyz0123456789";
-    // Blake2sToField returns the hash reduced to a field element
-    let expected_field: [u8; 32] = [
+    let expected = Fr([
         20, 121, 140, 198, 220, 129, 15, 87, 8, 247, 67, 149, 155, 244, 18, 125,
         20, 232, 66, 122, 55, 70, 227, 140, 193, 28, 146, 32, 181, 158, 18, 66,
-    ];
-
-    let expected = Fr(expected_field);
+    ]);
 
     let response = api.blake2s_to_field(input).expect("Blake2sToField failed");
-    let result = Fr::from_buffer_reduce(&response.field);
-
-    assert_eq!(result, expected, "Blake2sToField result mismatch");
+    assert_eq!(response.field, expected, "Blake2sToField result mismatch");
 
     api.destroy().expect("Failed to destroy backend");
 }

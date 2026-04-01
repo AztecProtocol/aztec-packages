@@ -1,24 +1,16 @@
-//! Pipe backend tests
-//!
-//! Tests for the pipe (stdin/stdout) backend implementation
-//!
-//! These tests require the BB binary to be built. They are skipped if the binary is not found.
+//! UDS backend tests
 
 #[cfg(test)]
-use barretenberg_rs::{backends::PipeBackend, BarretenbergApi, Fr};
+use barretenberg_rs::{Fr, GrumpkinPoint};
 #[cfg(test)]
-use crate::utils::get_bb_binary_path;
+use crate::utils::fr_from_u64;
 #[cfg(test)]
 use crate::require_bb_binary;
 
 #[test]
-fn test_pipe_blake2s() {
+fn test_uds_blake2s() {
     require_bb_binary!();
-    let bb_path = get_bb_binary_path();
-
-    let backend = PipeBackend::new(&bb_path, Some(1))
-        .expect("Failed to create pipe backend");
-    let mut api = BarretenbergApi::new(backend);
+    let (mut api, mut _bb_child) = crate::utils::spawn_bb_api();
 
     let input = b"abcdefghijklmnopqrstuvwxyz0123456789abcdefghijklmnopqrstuvwxyz0123456789";
     let expected: [u8; 32] = [
@@ -28,74 +20,40 @@ fn test_pipe_blake2s() {
     ];
 
     let response = api.blake2s(input).expect("Blake2s failed");
-
-    assert_eq!(
-        response.hash.as_slice(),
-        &expected,
-        "Blake2s hash mismatch"
-    );
+    assert_eq!(response.hash.as_slice(), &expected, "Blake2s hash mismatch");
 
     api.destroy().expect("Failed to destroy backend");
 }
 
 #[test]
-fn test_pipe_pedersen_hash() {
+fn test_uds_pedersen_hash() {
     require_bb_binary!();
-    let bb_path = get_bb_binary_path();
+    let (mut api, mut _bb_child) = crate::utils::spawn_bb_api();
 
-    let backend = PipeBackend::new(&bb_path, Some(1))
-        .expect("Failed to create pipe backend");
-    let mut api = BarretenbergApi::new(backend);
-
-    let inputs = vec![
-        Fr::from_u64(4).to_buffer(),
-        Fr::from_u64(8).to_buffer(),
-    ];
-
+    let inputs = vec![fr_from_u64(4), fr_from_u64(8)];
     let response = api.pedersen_hash(inputs, 7).expect("PedersenHash failed");
-    let result = Fr::from_buffer_reduce(&response.hash);
-
-    // Print result for snapshot comparison
-    println!("Pedersen hash result (pipe): {:?}", hex::encode(&result.0));
+    println!("Pedersen hash result (UDS): {:?}", hex::encode(&response.hash.0));
 
     api.destroy().expect("Failed to destroy backend");
 }
 
 #[test]
-fn test_pipe_poseidon2_hash() {
+fn test_uds_poseidon2_hash() {
     require_bb_binary!();
-    let bb_path = get_bb_binary_path();
+    let (mut api, mut _bb_child) = crate::utils::spawn_bb_api();
 
-    let backend = PipeBackend::new(&bb_path, Some(1))
-        .expect("Failed to create pipe backend");
-    let mut api = BarretenbergApi::new(backend);
-
-    let inputs = vec![
-        Fr::from_u64(4).to_buffer(),
-        Fr::from_u64(8).to_buffer(),
-    ];
-
+    let inputs = vec![fr_from_u64(4), fr_from_u64(8)];
     let response = api.poseidon2_hash(inputs).expect("Poseidon2Hash failed");
-    let result = Fr::from_buffer_reduce(&response.hash);
-
-    // Print result for snapshot comparison
-    println!("Poseidon2 hash result (pipe): {:?}", hex::encode(&result.0));
+    println!("Poseidon2 hash result (UDS): {:?}", hex::encode(&response.hash.0));
 
     api.destroy().expect("Failed to destroy backend");
 }
 
 #[test]
-fn test_pipe_grumpkin_add() {
+fn test_uds_grumpkin_add() {
     require_bb_binary!();
-    let bb_path = get_bb_binary_path();
+    let (mut api, mut _bb_child) = crate::utils::spawn_bb_api();
 
-    let backend = PipeBackend::new(&bb_path, Some(1))
-        .expect("Failed to create pipe backend");
-    let mut api = BarretenbergApi::new(backend);
-
-    // Grumpkin generator point (from precomputed_generators_grumpkin_impl.hpp)
-    // x = 0x2df8b940e5890e4e1377e05373fae69a1d754f6935e6a780b666947431f2cdcd
-    // y = 0x2ecd88d15967bc53b885912e0d16866154acb6aac2d3f85e27ca7eefb2c19083
     let generator_x: [u8; 32] = [
         0x2d, 0xf8, 0xb9, 0x40, 0xe5, 0x89, 0x0e, 0x4e,
         0x13, 0x77, 0xe0, 0x53, 0x73, 0xfa, 0xe6, 0x9a,
@@ -109,62 +67,33 @@ fn test_pipe_grumpkin_add() {
         0x27, 0xca, 0x7e, 0xef, 0xb2, 0xc1, 0x90, 0x83,
     ];
 
-    use barretenberg_rs::GrumpkinPoint;
-    let point_a = GrumpkinPoint {
-        x: generator_x.to_vec(),
-        y: generator_y.to_vec(),
-    };
+    let point_a = GrumpkinPoint { x: Fr(generator_x), y: Fr(generator_y) };
     let point_b = point_a.clone();
 
     let response = api.grumpkin_add(point_a, point_b).expect("GrumpkinAdd failed");
     println!("GrumpkinAdd result: x={}, y={}",
-             hex::encode(&response.point.x),
-             hex::encode(&response.point.y));
+             hex::encode(&response.point.x.0),
+             hex::encode(&response.point.y.0));
 
     api.destroy().expect("Failed to destroy backend");
 }
 
 #[test]
-fn test_pipe_error_response() {
+fn test_uds_error_response() {
     require_bb_binary!();
-    let bb_path = get_bb_binary_path();
+    let (mut api, mut _bb_child) = crate::utils::spawn_bb_api();
 
-    let backend = PipeBackend::new(&bb_path, Some(1))
-        .expect("Failed to create pipe backend");
-    let mut api = BarretenbergApi::new(backend);
+    let mut invalid_bytes = [0u8; 32];
+    invalid_bytes[31] = 1;
 
-    // Create an invalid point (off-curve) to trigger an error
-    // This point has x=1, y=1 which is NOT on the Grumpkin curve
-    let invalid_x: [u8; 32] = [
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01,
-    ];
-    let invalid_y: [u8; 32] = [
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01,
-    ];
+    let invalid_point = GrumpkinPoint { x: Fr(invalid_bytes), y: Fr(invalid_bytes) };
 
-    use barretenberg_rs::GrumpkinPoint;
-    let invalid_point = GrumpkinPoint {
-        x: invalid_x.to_vec(),
-        y: invalid_y.to_vec(),
-    };
-
-    // This should fail because the point is not on the curve
     let result = api.grumpkin_add(invalid_point.clone(), invalid_point);
 
     match result {
-        Ok(_) => {
-            // Some backends might not validate points, which is also acceptable
-            println!("Note: Backend did not validate point on curve");
-        },
+        Ok(_) => println!("Note: Backend did not validate point on curve"),
         Err(e) => {
             println!("Got expected error for off-curve point: {:?}", e);
-            // Verify it's a backend error (ErrorResponse)
             assert!(
                 format!("{:?}", e).contains("Backend") || format!("{:?}", e).contains("error"),
                 "Expected a backend error, got: {:?}", e

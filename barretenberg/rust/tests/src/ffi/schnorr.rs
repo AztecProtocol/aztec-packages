@@ -3,12 +3,12 @@
 //! Tests for Schnorr signatures over the Grumpkin curve.
 
 #[cfg(test)]
-use barretenberg_rs::{backends::FfiBackend, BarretenbergApi};
+use barretenberg_rs::{FfiBackend, BbApi};
 
 #[test]
 fn test_schnorr_compute_public_key() {
     let backend = FfiBackend::new().expect("Failed to create backend");
-    let mut api = BarretenbergApi::new(backend);
+    let mut api = BbApi::new(backend);
 
     // A valid private key (32 bytes)
     let private_key: [u8; 32] = [
@@ -33,7 +33,7 @@ fn test_schnorr_compute_public_key() {
 #[test]
 fn test_schnorr_compute_public_key_deterministic() {
     let backend = FfiBackend::new().expect("Failed to create backend");
-    let mut api = BarretenbergApi::new(backend);
+    let mut api = BbApi::new(backend);
 
     let private_key: [u8; 32] = [
         0x12, 0x34, 0x56, 0x78, 0x9a, 0xbc, 0xde, 0xf0, 0x12, 0x34, 0x56, 0x78, 0x9a, 0xbc, 0xde,
@@ -58,7 +58,7 @@ fn test_schnorr_compute_public_key_deterministic() {
 #[test]
 fn test_schnorr_different_private_keys() {
     let backend = FfiBackend::new().expect("Failed to create backend");
-    let mut api = BarretenbergApi::new(backend);
+    let mut api = BbApi::new(backend);
 
     let private_key1: [u8; 32] = [
         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -90,7 +90,7 @@ fn test_schnorr_different_private_keys() {
 #[test]
 fn test_schnorr_sign_and_verify() {
     let backend = FfiBackend::new().expect("Failed to create backend");
-    let mut api = BarretenbergApi::new(backend);
+    let mut api = BbApi::new(backend);
 
     // Private key
     let private_key: [u8; 32] = [
@@ -129,7 +129,7 @@ fn test_schnorr_sign_and_verify() {
 #[test]
 fn test_schnorr_verify_wrong_message() {
     let backend = FfiBackend::new().expect("Failed to create backend");
-    let mut api = BarretenbergApi::new(backend);
+    let mut api = BbApi::new(backend);
 
     let private_key: [u8; 32] = [
         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,

@@ -3,12 +3,12 @@
 //! Tests for BN254 field operations (sqrt).
 
 #[cfg(test)]
-use barretenberg_rs::{backends::FfiBackend, BarretenbergApi};
+use barretenberg_rs::{FfiBackend, BbApi};
 
 #[test]
 fn test_bn254_fr_sqrt_of_zero() {
     let backend = FfiBackend::new().expect("Failed to create backend");
-    let mut api = BarretenbergApi::new(backend);
+    let mut api = BbApi::new(backend);
 
     // Square root of zero should be zero
     let zero = vec![0u8; 32];
@@ -28,7 +28,7 @@ fn test_bn254_fr_sqrt_of_zero() {
 #[test]
 fn test_bn254_fr_sqrt_of_one() {
     let backend = FfiBackend::new().expect("Failed to create backend");
-    let mut api = BarretenbergApi::new(backend);
+    let mut api = BbApi::new(backend);
 
     // Square root of one should be one
     let mut one = vec![0u8; 32];
@@ -48,7 +48,7 @@ fn test_bn254_fr_sqrt_of_one() {
 #[test]
 fn test_bn254_fr_sqrt_of_four() {
     let backend = FfiBackend::new().expect("Failed to create backend");
-    let mut api = BarretenbergApi::new(backend);
+    let mut api = BbApi::new(backend);
 
     // Square root of four should be two
     let mut four = vec![0u8; 32];
@@ -72,7 +72,7 @@ fn test_bn254_fr_sqrt_of_four() {
 #[test]
 fn test_bn254_fr_sqrt_deterministic() {
     let backend = FfiBackend::new().expect("Failed to create backend");
-    let mut api = BarretenbergApi::new(backend);
+    let mut api = BbApi::new(backend);
 
     let mut input = vec![0u8; 32];
     input[31] = 16; // Perfect square
@@ -90,7 +90,7 @@ fn test_bn254_fr_sqrt_deterministic() {
 #[test]
 fn test_bn254_fq_sqrt() {
     let backend = FfiBackend::new().expect("Failed to create backend");
-    let mut api = BarretenbergApi::new(backend);
+    let mut api = BbApi::new(backend);
 
     // Test Fq sqrt (base field) with a perfect square
     let mut four = vec![0u8; 32];

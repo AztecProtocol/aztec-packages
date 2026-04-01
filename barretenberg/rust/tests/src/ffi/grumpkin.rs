@@ -3,7 +3,7 @@
 //! Ported from zkpassport/aztec-packages bb_rs grumpkin_tests.rs
 
 #[cfg(test)]
-use barretenberg_rs::{backends::FfiBackend, generated_types::GrumpkinPoint, BarretenbergApi};
+use barretenberg_rs::{FfiBackend, generated::bb_types::GrumpkinPoint, BbApi};
 
 // Grumpkin generator point
 // x = 1
@@ -32,7 +32,7 @@ fn grumpkin_generator() -> GrumpkinPoint {
 #[test]
 fn test_grumpkin_scalar_multiplication() {
     let backend = FfiBackend::new().expect("Failed to create backend");
-    let mut api = BarretenbergApi::new(backend);
+    let mut api = BbApi::new(backend);
 
     let point = grumpkin_generator();
     let mut scalar = vec![0u8; 32];
@@ -53,7 +53,7 @@ fn test_grumpkin_scalar_multiplication() {
 #[test]
 fn test_grumpkin_scalar_multiplication_by_one() {
     let backend = FfiBackend::new().expect("Failed to create backend");
-    let mut api = BarretenbergApi::new(backend);
+    let mut api = BbApi::new(backend);
 
     let point = grumpkin_generator();
 
@@ -74,7 +74,7 @@ fn test_grumpkin_scalar_multiplication_by_one() {
 #[test]
 fn test_grumpkin_random_scalar_generation() {
     let backend = FfiBackend::new().expect("Failed to create backend");
-    let mut api = BarretenbergApi::new(backend);
+    let mut api = BbApi::new(backend);
 
     let response1 = api
         .grumpkin_get_random_fr(0)
@@ -95,7 +95,7 @@ fn test_grumpkin_random_scalar_generation() {
 #[test]
 fn test_grumpkin_random_scalar_multiple_calls() {
     let backend = FfiBackend::new().expect("Failed to create backend");
-    let mut api = BarretenbergApi::new(backend);
+    let mut api = BbApi::new(backend);
 
     let mut scalars = Vec::new();
     for _ in 0..10 {
@@ -122,7 +122,7 @@ fn test_grumpkin_random_scalar_multiple_calls() {
 #[test]
 fn test_grumpkin_reduce512() {
     let backend = FfiBackend::new().expect("Failed to create backend");
-    let mut api = BarretenbergApi::new(backend);
+    let mut api = BbApi::new(backend);
 
     let large_input = [0xffu8; 64]; // Maximum 512-bit value
 
@@ -141,7 +141,7 @@ fn test_grumpkin_reduce512() {
 #[test]
 fn test_grumpkin_reduce512_small_value() {
     let backend = FfiBackend::new().expect("Failed to create backend");
-    let mut api = BarretenbergApi::new(backend);
+    let mut api = BbApi::new(backend);
 
     let mut small_input = [0u8; 64];
     small_input[63] = 42; // A small value
@@ -161,7 +161,7 @@ fn test_grumpkin_reduce512_small_value() {
 #[test]
 fn test_grumpkin_reduce512_zero() {
     let backend = FfiBackend::new().expect("Failed to create backend");
-    let mut api = BarretenbergApi::new(backend);
+    let mut api = BbApi::new(backend);
 
     let zero_input = [0u8; 64];
 
@@ -178,7 +178,7 @@ fn test_grumpkin_reduce512_zero() {
 #[test]
 fn test_grumpkin_mul_deterministic() {
     let backend = FfiBackend::new().expect("Failed to create backend");
-    let mut api = BarretenbergApi::new(backend);
+    let mut api = BbApi::new(backend);
 
     let point = grumpkin_generator();
 
@@ -202,7 +202,7 @@ fn test_grumpkin_mul_deterministic() {
 #[test]
 fn test_grumpkin_reduce512_deterministic() {
     let backend = FfiBackend::new().expect("Failed to create backend");
-    let mut api = BarretenbergApi::new(backend);
+    let mut api = BbApi::new(backend);
 
     let large_scalar_512 = [0xffu8; 64];
 

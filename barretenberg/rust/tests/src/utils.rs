@@ -3,6 +3,13 @@
 use std::time::Instant;
 use barretenberg_rs::Fr;
 
+/// Create an Fr from a u64 value (big-endian, zero-padded)
+pub fn fr_from_u64(val: u64) -> Fr {
+    let mut bytes = [0u8; 32];
+    bytes[24..32].copy_from_slice(&val.to_be_bytes());
+    Fr(bytes)
+}
+
 /// Generate a pseudo-random Fr for testing (NOT cryptographically secure)
 pub fn random_fr() -> Fr {
     use std::time::SystemTime;
@@ -52,6 +59,47 @@ impl Default for Timer {
     fn default() -> Self {
         Self::new()
     }
+}
+
+/// Spawn a BB process and connect via UDS.
+/// Returns the BbApi and the child process handle.
+pub fn spawn_bb_api() -> (barretenberg_rs::BbApi<barretenberg_rs::UdsBackend>, std::process::Child) {
+    use std::process::{Command, Stdio};
+    use std::sync::atomic::{AtomicU64, Ordering};
+    use std::thread;
+    use std::time::Duration;
+
+    static COUNTER: AtomicU64 = AtomicU64::new(0);
+    let id = COUNTER.fetch_add(1, Ordering::SeqCst);
+
+    let bb_path = get_bb_binary_path();
+    let socket_path = format!("/tmp/bb-test-{}-{}.sock", std::process::id(), id);
+
+    // Clean up any stale socket
+    let _ = std::fs::remove_file(&socket_path);
+
+    // Spawn bb in msgpack UDS server mode
+    let child = Command::new(&bb_path)
+        .args(["msgpack", "run", "--input", &socket_path])
+        .env("HARDWARE_CONCURRENCY", "1")
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn()
+        .expect("Failed to spawn bb binary");
+
+    // Wait for socket to appear
+    for _ in 0..30 {
+        if std::path::Path::new(&socket_path).exists() {
+            break;
+        }
+        thread::sleep(Duration::from_millis(100));
+    }
+
+    let backend = barretenberg_rs::UdsBackend::connect(&socket_path)
+        .expect("Failed to connect to bb UDS socket");
+    let api = barretenberg_rs::BbApi::new(backend);
+
+    (api, child)
 }
 
 /// Get path to BB binary for testing

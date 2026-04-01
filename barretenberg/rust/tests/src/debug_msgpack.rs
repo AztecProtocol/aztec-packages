@@ -1,11 +1,15 @@
 //! Debug msgpack serialization format
 
 #[cfg(test)]
-use barretenberg_rs::{generated_types::*, Fr};
+use barretenberg_rs::generated::bb_types::*;
+#[cfg(test)]
+use barretenberg_rs::Fr;
+#[cfg(test)]
+use crate::utils::fr_from_u64;
 
 #[test]
 fn test_msgpack_format() {
-    let cmd = Command::Blake2s(Blake2s::new(b"test".to_vec()));
+    let cmd = Command::BbBlake2s(BbBlake2s::new(b"test".to_vec()));
     let bytes = rmp_serde::to_vec_named(&vec![cmd]).unwrap();
 
     println!("\n=== Msgpack Format Debug (Blake2s with to_vec_named) ===");
@@ -22,12 +26,9 @@ fn test_msgpack_format() {
 
 #[test]
 fn test_pedersen_msgpack_format() {
-    let inputs: Vec<Vec<u8>> = vec![
-        Fr::from_u64(4).to_buffer().to_vec(),
-        Fr::from_u64(8).to_buffer().to_vec(),
-    ];
+    let inputs = vec![fr_from_u64(4), fr_from_u64(8)];
 
-    let cmd = Command::PedersenHash(PedersenHash::new(inputs, 7));
+    let cmd = Command::BbPedersenHash(BbPedersenHash::new(inputs, 7));
     let bytes = rmp_serde::to_vec_named(&vec![cmd]).unwrap();
 
     println!("\n=== Msgpack Format Debug (PedersenHash) ===");

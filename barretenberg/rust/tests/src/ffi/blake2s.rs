@@ -3,12 +3,14 @@
 //! Parallels barretenberg/ts/src/barretenberg/blake2s.test.ts
 
 #[cfg(test)]
-use barretenberg_rs::{backends::FfiBackend, BarretenbergApi, Fr};
+use barretenberg_rs::{FfiBackend, BbApi, Fr};
+#[cfg(test)]
+use crate::utils::fr_from_u64;
 
 #[test]
 fn test_blake2s() {
     let backend = FfiBackend::new().expect("Failed to create backend");
-    let mut api = BarretenbergApi::new(backend);
+    let mut api = BbApi::new(backend);
 
     let input = b"abcdefghijklmnopqrstuvwxyz0123456789abcdefghijklmnopqrstuvwxyz0123456789";
     let expected: [u8; 32] = [
@@ -31,7 +33,7 @@ fn test_blake2s() {
 #[test]
 fn test_blake2s_to_field() {
     let backend = FfiBackend::new().expect("Failed to create backend");
-    let mut api = BarretenbergApi::new(backend);
+    let mut api = BbApi::new(backend);
 
     let input = b"abcdefghijklmnopqrstuvwxyz0123456789abcdefghijklmnopqrstuvwxyz0123456789";
     // Blake2sToField returns the hash reduced to a field element
@@ -43,7 +45,7 @@ fn test_blake2s_to_field() {
     let expected = Fr(expected_field);
 
     let response = api.blake2s_to_field(input).expect("Blake2sToField failed");
-    let result = Fr::from_buffer_reduce(&response.field);
+    let result = response.field;
 
     assert_eq!(result, expected, "Blake2sToField result mismatch");
 
