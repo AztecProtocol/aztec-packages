@@ -26,17 +26,7 @@ import {
   SenderTaggingStore,
   enrichPublicSimulationError,
 } from '@aztec/pxe/server';
-import {
-  ExecutionNoteCache,
-  ExecutionTaggingIndexCache,
-  HashedValuesCache,
-  type IMiscOracle,
-  Oracle,
-  PrivateExecutionOracle,
-  UtilityExecutionOracle,
-  executePrivateFunction,
-  generateSimulatedProvingResult,
-} from '@aztec/pxe/simulator';
+import { type IMiscOracle, Oracle, UtilityExecutionOracle } from '@aztec/pxe/simulator';
 import {
   ExecutionError,
   WASMSimulator,
@@ -58,7 +48,7 @@ import { PublicSimulatorConfig } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { type ContractInstanceWithAddress, computePartialAddress } from '@aztec/stdlib/contract';
 import { Gas, GasFees, GasSettings } from '@aztec/stdlib/gas';
-import { computeCalldataHash, computeProtocolNullifier, siloNullifier } from '@aztec/stdlib/hash';
+import { computeCalldataHash, siloNullifier } from '@aztec/stdlib/hash';
 import {
   PartialPrivateTailPublicInputsForPublic,
   PrivateKernelTailCircuitPublicInputs,
@@ -68,18 +58,7 @@ import {
 import { ChonkProof } from '@aztec/stdlib/proofs';
 import { makeGlobalVariables } from '@aztec/stdlib/testing';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
-import {
-  CallContext,
-  HashedValues,
-  PrivateCallExecutionResult,
-  PrivateExecutionResult,
-  Tx,
-  TxConstantData,
-  TxContext,
-  TxEffect,
-  TxHash,
-  collectNested,
-} from '@aztec/stdlib/tx';
+import { HashedValues, Tx, TxConstantData, TxContext, TxEffect, TxHash } from '@aztec/stdlib/tx';
 import type { UInt64 } from '@aztec/stdlib/types';
 import { ForkCheckpoint } from '@aztec/world-state';
 
@@ -302,233 +281,18 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     await this.stateMachine.handleL2Block(block);
   }
 
-  async privateCallNewFlow(
-    from: AztecAddress,
-    targetContractAddress: AztecAddress = AztecAddress.zero(),
-    functionSelector: FunctionSelector = FunctionSelector.empty(),
-    args: Fr[],
-    argsHash: Fr = Fr.zero(),
-    isStaticCall: boolean = false,
-    jobId: string,
+  privateCallNewFlow(
+    _from: AztecAddress,
+    _targetContractAddress: AztecAddress = AztecAddress.zero(),
+    _functionSelector: FunctionSelector = FunctionSelector.empty(),
+    _args: Fr[],
+    _argsHash: Fr = Fr.zero(),
+    _isStaticCall: boolean = false,
+    _jobId: string,
   ) {
     throw new Error('this should break tests');
-    this.logger.verbose(
-      `Executing external function ${await this.contractStore.getDebugFunctionName(targetContractAddress, functionSelector)}@${targetContractAddress} isStaticCall=${isStaticCall}`,
-    );
 
-    const artifact = await this.contractStore.getFunctionArtifact(targetContractAddress, functionSelector);
-    if (!artifact) {
-      const message = functionSelector.equals(await FunctionSelector.fromSignature('verify_private_authwit(Field)'))
-        ? 'Found no account contract artifact for a private authwit check - use `create_contract_account` instead of `create_light_account` for authwit support.'
-        : 'Function Artifact does not exist';
-      throw new Error(message);
-    }
-
-    // When `from` is the zero address (e.g. when deploying a new account contract), we return an
-    // empty scope list which acts as deny-all: no notes are visible and no keys are accessible.
-    const effectiveScopes = from.isZero() ? [] : [from];
-
-    // Sync notes before executing private function to discover notes from previous transactions
-    const utilityExecutor = async (call: FunctionCall, execScopes: AztecAddress[]) => {
-      await this.executeUtilityCall(call, execScopes, jobId);
-    };
-
-    const blockHeader = await this.stateMachine.anchorBlockStore.getBlockHeader();
-    await this.stateMachine.contractSyncService.ensureContractSynced(
-      targetContractAddress,
-      functionSelector,
-      utilityExecutor,
-      blockHeader,
-      jobId,
-      effectiveScopes,
-    );
-
-    const blockNumber = await this.getNextBlockNumber();
-
-    const callContext = new CallContext(from, targetContractAddress, functionSelector, isStaticCall);
-
-    const gasLimits = new Gas(DEFAULT_DA_GAS_LIMIT, DEFAULT_L2_GAS_LIMIT);
-    const teardownGasLimits = new Gas(DEFAULT_TEARDOWN_DA_GAS_LIMIT, DEFAULT_TEARDOWN_L2_GAS_LIMIT);
-    const gasSettings = new GasSettings(gasLimits, teardownGasLimits, GasFees.empty(), GasFees.empty());
-
-    const txContext = new TxContext(this.chainId, this.version, gasSettings);
-
-    const protocolNullifier = await computeProtocolNullifier(getSingleTxBlockRequestHash(blockNumber));
-    const noteCache = new ExecutionNoteCache(protocolNullifier);
-    // In production, the account contract sets the min revertible counter before calling the app function.
-    // Since TXE bypasses the account contract, we simulate this by setting minRevertibleSideEffectCounter to 1,
-    // marking all side effects as revertible.
-    const minRevertibleSideEffectCounter = 1;
-    await noteCache.setMinRevertibleSideEffectCounter(minRevertibleSideEffectCounter);
-    const taggingIndexCache = new ExecutionTaggingIndexCache();
-
-    const simulator = new WASMSimulator();
-
-    const privateExecutionOracle = new PrivateExecutionOracle({
-      argsHash,
-      txContext,
-      callContext,
-      anchorBlockHeader: blockHeader,
-      utilityExecutor,
-      authWitnesses: Array.from(this.authwits.values()),
-      capsules: [],
-      executionCache: HashedValuesCache.create([new HashedValues(args, argsHash)]),
-      noteCache,
-      taggingIndexCache,
-      contractStore: this.contractStore,
-      noteStore: this.noteStore,
-      keyStore: this.keyStore,
-      addressStore: this.addressStore,
-      aztecNode: this.stateMachine.node,
-      senderTaggingStore: this.senderTaggingStore,
-      recipientTaggingStore: this.recipientTaggingStore,
-      senderAddressBookStore: this.senderAddressBookStore,
-      capsuleService: new CapsuleService(this.capsuleStore, effectiveScopes),
-      privateEventStore: this.privateEventStore,
-      contractSyncService: this.stateMachine.contractSyncService,
-      jobId,
-      totalPublicCalldataCount: 0,
-      sideEffectCounter: minRevertibleSideEffectCounter,
-      scopes: effectiveScopes,
-      // In TXE, the typical transaction entrypoint is skipped, so we need to simulate the actions that such a
-      // contract would perform, including setting senderForTags.
-      senderForTags: from,
-      simulator,
-      messageContextService: this.stateMachine.messageContextService,
-    });
-
-    // Note: This is a slight modification of simulator.run without any of the checks. Maybe we should modify simulator.run with a boolean value to skip checks.
-    let result: PrivateExecutionResult;
-    let executionResult: PrivateCallExecutionResult;
-    try {
-      executionResult = await executePrivateFunction(
-        simulator,
-        privateExecutionOracle,
-        artifact,
-        targetContractAddress,
-        functionSelector,
-      );
-
-      const publicCallRequests = collectNested([executionResult], r =>
-        r.publicInputs.publicCallRequests
-          .getActiveItems()
-          .map(r => r.inner)
-          .concat(r.publicInputs.publicTeardownCallRequest.isEmpty() ? [] : [r.publicInputs.publicTeardownCallRequest]),
-      );
-      const publicFunctionsCalldata = await Promise.all(
-        publicCallRequests.map(async r => {
-          const calldata = await privateExecutionOracle.getHashPreimage(r.calldataHash);
-          return new HashedValues(calldata, r.calldataHash);
-        }),
-      );
-
-      noteCache.finish();
-      const nonceGenerator = noteCache.getNonceGenerator();
-      result = new PrivateExecutionResult(executionResult, nonceGenerator, publicFunctionsCalldata);
-    } catch (err) {
-      throw createSimulationError(err instanceof Error ? err : new Error('Unknown error during private execution'));
-    }
-
-    // According to the protocol rules, there must be at least one nullifier in the tx. The first nullifier is used as
-    // the nonce generator for the note hashes.
-    // We pass the non-zero minRevertibleSideEffectCounter to make sure the side effects are split correctly.
-    const { publicInputs } = await generateSimulatedProvingResult(
-      result,
-      (addr, sel) => this.contractStore.getDebugFunctionName(addr, sel),
-      this.stateMachine.node,
-      minRevertibleSideEffectCounter,
-    );
-
-    const globals = makeGlobalVariables();
-    globals.blockNumber = blockNumber;
-    globals.timestamp = this.nextBlockTimestamp;
-    globals.chainId = this.chainId;
-    globals.version = this.version;
-    globals.gasFees = GasFees.empty();
-
-    const forkedWorldTrees = await this.stateMachine.synchronizer.nativeWorldStateService.fork();
-
-    const bindings = this.logger.getBindings();
-    const contractsDB = new PublicContractsDB(
-      new TXEPublicContractDataSource(blockNumber, this.contractStore),
-      bindings,
-    );
-    const guardedMerkleTrees = new GuardedMerkleTreeOperations(forkedWorldTrees);
-    const config = PublicSimulatorConfig.from({
-      skipFeeEnforcement: true,
-      collectDebugLogs: true,
-      collectHints: false,
-      collectStatistics: false,
-      collectCallMetadata: true,
-    });
-    const processor = new PublicProcessor(
-      globals,
-      guardedMerkleTrees,
-      contractsDB,
-      new CppPublicTxSimulator(guardedMerkleTrees, contractsDB, globals, config, bindings),
-      new TestDateProvider(),
-      undefined,
-      createLogger('simulator:public-processor', bindings),
-    );
-
-    const tx = await Tx.create({
-      data: publicInputs,
-      chonkProof: ChonkProof.empty(),
-      contractClassLogFields: [],
-      publicFunctionCalldata: result.publicFunctionCalldata,
-    });
-
-    let checkpoint;
-    if (isStaticCall) {
-      checkpoint = await ForkCheckpoint.new(forkedWorldTrees);
-    }
-
-    const results = await processor.process([tx]);
-
-    const [processedTx] = results[0];
-    const failedTxs = results[1];
-
-    if (failedTxs.length !== 0) {
-      throw new Error(`Public execution has failed: ${failedTxs[0].error}`);
-    } else if (!processedTx.revertCode.isOK()) {
-      if (processedTx.revertReason) {
-        try {
-          await enrichPublicSimulationError(processedTx.revertReason, this.contractStore, this.logger);
-          // eslint-disable-next-line no-empty
-        } catch {}
-        throw new Error(`Contract execution has reverted: ${processedTx.revertReason.getMessage()}`);
-      } else {
-        throw new Error('Contract execution has reverted');
-      }
-    }
-
-    if (isStaticCall) {
-      await checkpoint!.revert();
-
-      await forkedWorldTrees.close();
-      return executionResult.returnValues ?? [];
-    }
-
-    const txEffect = TxEffect.empty();
-
-    txEffect.noteHashes = processedTx!.txEffect.noteHashes;
-    txEffect.nullifiers = processedTx!.txEffect.nullifiers;
-    txEffect.privateLogs = processedTx!.txEffect.privateLogs;
-    txEffect.publicLogs = processedTx!.txEffect.publicLogs;
-    txEffect.publicDataWrites = processedTx!.txEffect.publicDataWrites;
-
-    txEffect.txHash = new TxHash(new Fr(blockNumber));
-
-    const l1ToL2Messages = Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(0).map(Fr.zero);
-    await forkedWorldTrees.appendLeaves(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, l1ToL2Messages);
-
-    const l2Block = await makeTXEBlock(forkedWorldTrees, globals, [txEffect]);
-
-    await this.stateMachine.handleL2Block(l2Block);
-
-    await forkedWorldTrees.close();
-
-    return executionResult.returnValues ?? [];
+    return Promise.resolve([new Fr(1)]);
   }
 
   async publicCallNewFlow(
