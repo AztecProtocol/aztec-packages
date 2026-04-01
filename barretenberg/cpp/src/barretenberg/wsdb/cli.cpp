@@ -17,7 +17,8 @@ int parse_and_run_wsdb(int argc, char* argv[])
     CLI::App app{ "aztec-wsdb: Standalone world state database server" };
     app.require_subcommand(1);
 
-    auto* msgpack_run_command = app.add_subcommand("msgpack run", "Start the IPC server");
+    auto* msgpack_command = app.add_subcommand("msgpack", "Msgpack API interface");
+    auto* msgpack_run_command = msgpack_command->add_subcommand("run", "Start the IPC server");
 
     std::string input_path;
     msgpack_run_command->add_option("--input", input_path, "Socket path (.sock)")->required();

@@ -44,7 +44,7 @@ static std::unordered_map<MerkleTreeId, uint64_t> parse_tree_uint64_map(const st
     }
     std::string cleaned;
     for (char c : json) {
-        if (c != '{' && c != '}' && c != ' ') {
+        if (c != '{' && c != '}' && c != ' ' && c != '"') {
             cleaned += c;
         }
     }
