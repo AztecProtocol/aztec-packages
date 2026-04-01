@@ -140,8 +140,7 @@ describe('AVM proven gadgets test: test vectors', () => {
       ],
     );
     expect(result.revertCode.isOK()).toBe(true);
-    const returnValues = result.getAppLogicReturnValues()[0].values!;
-    const outputBytes = returnValues.map(fr => Number(fr.toBigInt()));
+    const outputBytes = result.getAppLogicReturnValues()?.[0]?.values?.map(fr => Number(fr.toBigInt()));
     const expected = [...Buffer.from('f0ae86a6257e615bce8b0fe73794934deda00c13d58f80b466a9354e306c9eb0', 'hex')];
     expect(outputBytes).toEqual(expected);
   }, 180_000);
@@ -163,8 +162,7 @@ describe('AVM proven gadgets test: test vectors', () => {
       ],
     );
     expect(result.revertCode.isOK()).toBe(true);
-    const returnValues = result.getAppLogicReturnValues()[0].values!;
-    const outputBytes = returnValues.map(fr => Number(fr.toBigInt()));
+    const outputBytes = result.getAppLogicReturnValues()?.[0]?.values?.map(fr => Number(fr.toBigInt()));
     const expected = [...Buffer.from('a679e749a6af300c36e7ff2255d220864eab27b382f9cfdc5aa4d13563ba36ff', 'hex')];
     expect(outputBytes).toEqual(expected);
   }, 180_000);
@@ -185,8 +183,7 @@ describe('AVM proven gadgets test: test vectors', () => {
       ],
     );
     expect(result.revertCode.isOK()).toBe(true);
-    const returnValues = result.getAppLogicReturnValues()[0].values!;
-    const outputBytes = returnValues.map(fr => Number(fr.toBigInt()));
+    const outputBytes = result.getAppLogicReturnValues()?.[0]?.values?.map(fr => Number(fr.toBigInt()));
     const expected = [...Buffer.from('1f825aa2f0020ef7cf91dfa30da4668d791c5d4824fc8e41354b89ec05795ab3', 'hex')];
     expect(outputBytes).toEqual(expected);
   }, 180_000);
@@ -208,8 +205,7 @@ describe('AVM proven gadgets test: test vectors', () => {
       ],
     );
     expect(result.revertCode.isOK()).toBe(true);
-    const returnValues = result.getAppLogicReturnValues()[0].values!;
-    const outputBytes = returnValues.map(fr => Number(fr.toBigInt()));
+    const outputBytes = result.getAppLogicReturnValues()?.[0]?.values?.map(fr => Number(fr.toBigInt()));
     const expected = [...Buffer.from('3f8591112c6bbe5c963965954e293108b7208ed2af893e500d859368c654eabe', 'hex')];
     expect(outputBytes).toEqual(expected);
   }, 180_000);
