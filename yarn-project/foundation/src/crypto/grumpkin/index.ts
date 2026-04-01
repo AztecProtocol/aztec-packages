@@ -71,7 +71,7 @@ export class Grumpkin {
   public static async getRandomFr(): Promise<Fr> {
     await BarretenbergSync.initSingleton();
     const api = BarretenbergSync.getSingleton();
-    const response = api.grumpkinGetRandomFr({ dummy: 0 });
+    const response = api.grumpkinGetRandomFr({ pointsBuf: new Uint8Array() });
     return Fr.fromBuffer(Buffer.from(response.value));
   }
 

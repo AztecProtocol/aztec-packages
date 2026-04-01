@@ -43,7 +43,7 @@ export class Secp256k1 {
   public async getRandomFr() {
     await BarretenbergSync.initSingleton();
     const api = BarretenbergSync.getSingleton();
-    const response = api.secp256k1GetRandomFr({ dummy: 0 });
+    const response = api.secp256k1GetRandomFr({ pointsBuf: new Uint8Array() });
     return Buffer.from(response.value);
   }
 
