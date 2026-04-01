@@ -312,6 +312,7 @@ class WorldState {
                                uint64_t maxReaders);
 
     Fork::SharedPtr retrieve_fork(const uint64_t& forkId) const;
+    Fork::SharedPtr retrieve_and_remove_fork(const uint64_t& forkId);
     Fork::SharedPtr create_new_fork(const block_number_t& blockNumber);
     void remove_forks_for_block(const block_number_t& blockNumber);
 

@@ -192,6 +192,19 @@ Fork::SharedPtr WorldState::retrieve_fork(const uint64_t& forkId) const
     }
     return it->second;
 }
+
+Fork::SharedPtr WorldState::retrieve_and_remove_fork(const uint64_t& forkId)
+{
+    std::unique_lock lock(mtx);
+    auto it = _forks.find(forkId);
+    if (it == _forks.end()) {
+        throw std::runtime_error("Fork not found");
+    }
+    Fork::SharedPtr fork = it->second;
+    _forks.erase(it);
+    return fork;
+}
+
 uint64_t WorldState::create_fork(const std::optional<block_number_t>& blockNumber)
 {
     block_number_t blockNumberForFork = 0;
@@ -234,13 +247,9 @@ void WorldState::delete_fork(const uint64_t& forkId)
     if (forkId == 0) {
         throw std::runtime_error("Unable to delete canonical fork");
     }
-    // Retrieving the shared pointer here means we throw if the fork is not available, it also means we are not under a
-    // lock when we destroy the object
-    Fork::SharedPtr fork = retrieve_fork(forkId);
-    {
-        std::unique_lock lock(mtx);
-        _forks.erase(forkId);
-    }
+    // Atomically retrieve and remove so no concurrent caller can obtain a reference.
+    // The local shared_ptr ensures the fork is destroyed outside the lock.
+    Fork::SharedPtr fork = retrieve_and_remove_fork(forkId);
 }
 
 WorldStateStatusFull WorldState::commit_fork(const uint64_t& forkId)
@@ -250,7 +259,9 @@ WorldStateStatusFull WorldState::commit_fork(const uint64_t& forkId)
     }
     validate_trees_are_equally_synched();
 
-    Fork::SharedPtr fork = retrieve_fork(forkId);
+    // Atomically retrieve and remove so no concurrent caller can obtain a reference.
+    // The local shared_ptr keeps the fork alive for the duration of this method.
+    Fork::SharedPtr fork = retrieve_and_remove_fork(forkId);
 
     // Validate tip hasn't moved since fork was created
     auto archiveMeta = get_tree_info(WorldStateRevision::committed(), MerkleTreeId::ARCHIVE);
@@ -289,12 +300,6 @@ WorldStateStatusFull WorldState::commit_fork(const uint64_t& forkId)
 
     // Rollback canonical so it re-reads the updated LMDB state
     rollback();
-
-    // Destroy the fork
-    {
-        std::unique_lock lock(mtx);
-        _forks.erase(forkId);
-    }
 
     populate_status_summary(status);
     return status;
