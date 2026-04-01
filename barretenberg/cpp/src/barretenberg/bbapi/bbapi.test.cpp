@@ -3,9 +3,11 @@
 #include "barretenberg/bbapi/bbapi_shared.hpp"
 #include "barretenberg/bbapi/generated/bb_types.hpp"
 #include "barretenberg/common/serialize.hpp"
+#include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/serialize/test_helper.hpp"
 #include <gtest/gtest.h>
 
+using namespace bb;
 using namespace bb::bbapi::wire;
 
 // Template for testing roundtrip serialization of wire types
@@ -40,7 +42,7 @@ TYPED_TEST(BBApiMsgpack, DefaultConstructorRoundtrip)
 
 TEST(BBApiInputValidation, NonCanonicalPublicInputRejected)
 {
-    using Flavor = UltraFlavor;
+    using Flavor = bb::UltraFlavor;
     // A value >= BN254 scalar field modulus should be rejected
     uint256_t non_canonical = fr::modulus + 1;
     std::vector<uint256_t> bad_public_inputs = { non_canonical };
@@ -51,7 +53,7 @@ TEST(BBApiInputValidation, NonCanonicalPublicInputRejected)
 
 TEST(BBApiInputValidation, NonCanonicalProofElementRejected)
 {
-    using Flavor = UltraFlavor;
+    using Flavor = bb::UltraFlavor;
     // The modulus itself is non-canonical (valid range is [0, modulus))
     uint256_t non_canonical = fr::modulus;
     std::vector<uint256_t> public_inputs = { uint256_t(42) };
@@ -62,7 +64,7 @@ TEST(BBApiInputValidation, NonCanonicalProofElementRejected)
 
 TEST(BBApiInputValidation, CanonicalValuesAccepted)
 {
-    using Flavor = UltraFlavor;
+    using Flavor = bb::UltraFlavor;
     // modulus - 1 is the largest canonical value
     uint256_t max_canonical = fr::modulus - 1;
     std::vector<uint256_t> public_inputs = { uint256_t(0), max_canonical };
