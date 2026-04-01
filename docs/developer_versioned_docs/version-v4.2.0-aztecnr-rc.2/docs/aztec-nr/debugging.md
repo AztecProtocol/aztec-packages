@@ -5,8 +5,6 @@ tags: [debugging, errors, logging, local_network, aztec.nr]
 description: This guide shows you how to debug issues in your Aztec contracts.
 ---
 
-<!-- need to move some into aztec.js  -->
-
 This guide shows you how to debug issues in your Aztec development environment.
 
 ## Prerequisites
@@ -33,7 +31,7 @@ Log values from your contract using `debug_log`:
 
 ```rust
 // Import debug logging
-use dep::aztec::oracle::debug_log::{ debug_log, debug_log_format };
+use aztec::oracle::logging::{ debug_log, debug_log_format };
 
 // Log simple messages
 debug_log("checkpoint reached");
@@ -49,7 +47,7 @@ debug_log_format("values: {0}, {1}, {2}", [val1, val2, val3]);
 ```
 
 :::note
-Debug logs appear only during local execution. Private functions always execute locally, but public functions must be simulated to show logs. Use `.simulate()` or `.prove()` in TypeScript, or `env.simulate_public_function()` in TXE tests.
+Debug logs appear only during local execution. Private functions always execute locally, but public functions must be simulated to show logs. Use `.simulate()` or `.prove()` in TypeScript, or `env.call_public()` in TXE tests.
 :::
 
 To see debug logs from your tests, set `LOG_LEVEL` when running:
@@ -160,7 +158,7 @@ link.click();
 
 ## Interpret error messages
 
-### Kernel circuit errors (2xxx)
+### Circuit and protocol errors
 
 - **Private kernel errors (2xxx)**: Issues with private function execution
 - **Public kernel errors (3xxx)**: Issues with public function execution
@@ -207,7 +205,7 @@ LOG_LEVEL=verbose aztec start --local-network
 ### Common debug imports
 
 ```rust
-use dep::aztec::oracle::debug_log::{ debug_log, debug_log_format };
+use aztec::oracle::logging::{ debug_log, debug_log_format };
 ```
 
 ### Check contract registration
@@ -218,7 +216,7 @@ await wallet.getContractMetadata(myContractInstance.address);
 
 ### Decode L1 errors
 
-Check hex errors against [Errors.sol](https://github.com/AztecProtocol/aztec-packages/blob/master/l1-contracts/src/core/libraries/Errors.sol)
+Check hex errors against [Errors.sol](https://github.com/AztecProtocol/aztec-packages/blob/v4.2.0-aztecnr-rc.2/l1-contracts/src/core/libraries/Errors.sol)
 
 ## Tips
 
