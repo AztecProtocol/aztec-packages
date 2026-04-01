@@ -72,7 +72,6 @@ class WorkerClientManager {
   destroy() {
     this.cleanup().catch((error: Error) => {
       this.logger.error('Failed to cleanup worker client manager', error);
-      process.exit(1);
     });
   }
 

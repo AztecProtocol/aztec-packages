@@ -14,7 +14,7 @@ import { type BlockData, BlockHash, CommitteeAttestation, L2Block } from '../blo
 import type { L2Tips } from '../block/l2_block_source.js';
 import type { ValidateCheckpointResult } from '../block/validate_block_result.js';
 import { Checkpoint } from '../checkpoint/checkpoint.js';
-import type { CheckpointData } from '../checkpoint/checkpoint_data.js';
+import type { CheckpointData, ProposedCheckpointData } from '../checkpoint/checkpoint_data.js';
 import { L1PublishedData, PublishedCheckpoint } from '../checkpoint/published_checkpoint.js';
 import { getContractClassFromArtifact } from '../contract/contract_class.js';
 import {
@@ -30,8 +30,10 @@ import type { LogFilter } from '../logs/log_filter.js';
 import { SiloedTag } from '../logs/siloed_tag.js';
 import { Tag } from '../logs/tag.js';
 import { TxScopedL2Log } from '../logs/tx_scoped_l2_log.js';
+import { CheckpointHeader } from '../rollup/checkpoint_header.js';
 import { randomTxScopedPrivateL2Log } from '../tests/factories.js';
 import { getTokenContractArtifact } from '../tests/fixtures.js';
+import { AppendOnlyTreeSnapshot } from '../trees/append_only_tree_snapshot.js';
 import { BlockHeader } from '../tx/block_header.js';
 import type { IndexedTxEffect } from '../tx/indexed_tx_effect.js';
 import { TxEffect } from '../tx/tx_effect.js';
@@ -254,6 +256,7 @@ describe('ArchiverApiSchema', () => {
     expect(result).toEqual({
       proposed: { number: 1, hash: `0x01` },
       checkpointed: expectedTipId,
+      proposedCheckpoint: expectedTipId,
       proven: expectedTipId,
       finalized: expectedTipId,
     });
@@ -355,6 +358,34 @@ describe('ArchiverApiSchema', () => {
     expect(result).toBe(1n);
   });
 
+  it('getProposedCheckpoint', async () => {
+    const result = await context.client.getProposedCheckpoint();
+    expect(result).toEqual({
+      checkpointNumber: 1,
+      header: expect.any(CheckpointHeader),
+      archive: expect.any(AppendOnlyTreeSnapshot),
+      checkpointOutHash: expect.any(Fr),
+      blockCount: 1,
+      startBlock: 1,
+      totalManaUsed: 1n,
+      feeAssetPriceModifier: 1n,
+    });
+  });
+
+  it('getProposedCheckpointOnly', async () => {
+    const result = await context.client.getProposedCheckpointOnly();
+    expect(result).toEqual({
+      checkpointNumber: 1,
+      header: expect.any(CheckpointHeader),
+      archive: expect.any(AppendOnlyTreeSnapshot),
+      checkpointOutHash: expect.any(Fr),
+      blockCount: 1,
+      startBlock: 1,
+      totalManaUsed: 1n,
+      feeAssetPriceModifier: 1n,
+    });
+  });
+
   it('getPendingChainValidationStatus', async () => {
     const result = await context.client.getPendingChainValidationStatus();
     expect(result).toEqual({ valid: true });
@@ -387,6 +418,21 @@ class MockArchiver implements ArchiverApi {
   }
   getPendingChainValidationStatus(): Promise<ValidateCheckpointResult> {
     return Promise.resolve({ valid: true });
+  }
+  getProposedCheckpoint(): Promise<ProposedCheckpointData | undefined> {
+    return this.getProposedCheckpointOnly();
+  }
+  getProposedCheckpointOnly(): Promise<ProposedCheckpointData | undefined> {
+    return Promise.resolve({
+      checkpointNumber: CheckpointNumber(1),
+      header: CheckpointHeader.random(),
+      archive: AppendOnlyTreeSnapshot.random(),
+      checkpointOutHash: Fr.random(),
+      blockCount: 1,
+      startBlock: BlockNumber(1),
+      totalManaUsed: 1n,
+      feeAssetPriceModifier: 1n,
+    });
   }
   syncImmediate() {
     return Promise.resolve();
@@ -563,6 +609,7 @@ class MockArchiver implements ArchiverApi {
     return Promise.resolve({
       proposed: { number: BlockNumber(1), hash: `0x01` },
       checkpointed: tipId,
+      proposedCheckpoint: tipId,
       proven: tipId,
       finalized: tipId,
     });

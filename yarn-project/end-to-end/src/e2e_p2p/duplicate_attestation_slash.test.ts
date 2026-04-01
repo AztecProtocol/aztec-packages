@@ -68,6 +68,7 @@ describe('e2e_p2p_duplicate_attestation_slash', () => {
       basePort: BOOT_NODE_UDP_PORT,
       metricsPort: shouldCollectMetrics(),
       initialConfig: {
+        anvilSlotsInAnEpoch: 4,
         listenAddress: '127.0.0.1',
         aztecEpochDuration,
         ethereumSlotDuration: ETHEREUM_SLOT_DURATION,

@@ -156,7 +156,7 @@ TEST_F(MultilinearBatchingInstanceRelationConsistency, SkipLogic)
 
     EXPECT_FALSE(Relation::skip(accumulator_eq_zero));
 
-    // Test case 4: eq_instance is zero but eq_accumulator is non-zero -> should not skip
+    // Test case 4: eq_instance is zero -> should skip (both subrelations multiply by eq_instance)
     InputElements instance_eq_zero;
     instance_eq_zero.batched_unshifted_accumulator = FF::random_element();
     instance_eq_zero.batched_unshifted_instance = FF::random_element();
@@ -165,7 +165,7 @@ TEST_F(MultilinearBatchingInstanceRelationConsistency, SkipLogic)
     instance_eq_zero.eq_accumulator = FF(1);
     instance_eq_zero.eq_instance = FF(0);
 
-    EXPECT_FALSE(Relation::skip(instance_eq_zero));
+    EXPECT_TRUE(Relation::skip(instance_eq_zero));
 
     // Test case 5: all non-zero -> should not skip
     InputElements all_non_zero;
