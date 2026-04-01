@@ -83,25 +83,26 @@ See the [guide on fees](./how_to_pay_fees.md#sponsored-fee-payment-contracts) fo
 
 ### Using Fee Juice
 
-If your account already has Fee Juice (for example, [bridged from L1](./how_to_pay_fees.md#bridge-fee-juice-from-l1)):
+If your account has Fee Juice from a [bridge from L1](./how_to_pay_fees.md#bridge-fee-juice-from-l1), you can claim it and deploy in one step using `FeeJuicePaymentMethodWithClaim`:
 
-```typescript title="deploy_account_fee_juice" showLineNumbers 
-// Deploy the account using the bridged Fee Juice
-const deployMethodFeeJuice = await feeJuiceAccount.getDeployMethod();
-await deployMethodFeeJuice.send({
+```typescript title="bridge_fee_juice_claim" showLineNumbers
+import { FeeJuicePaymentMethodWithClaim } from "@aztec/aztec.js/fee";
+
+// claim is from the bridgeTokensPublic step above
+// Create a payment method that claims the bridged Fee Juice and uses it to pay
+const bridgePaymentMethod = new FeeJuicePaymentMethodWithClaim(feeJuiceAccount.address, claim);
+
+// Use it to pay for any transaction — here we deploy the account in one step
+const deployMethodBridged = await feeJuiceAccount.getDeployMethod();
+await deployMethodBridged.send({
   from: NO_FROM,
-  fee: {
-    paymentMethod: new FeeJuicePaymentMethodWithClaim(
-      feeJuiceAccount.address,
-      claim,
-    ),
-  },
+  fee: { paymentMethod: bridgePaymentMethod },
 });
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v4.2.0-aztecnr-rc.2/docs/examples/ts/aztecjs_connection/index.ts#L143-L155" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aztecjs_connection/index.ts#L143-L155</a></sub></sup>
 
+If the account already has Fee Juice on L2 (for example, from a faucet or a previously claimed bridge), no special payment method is needed — just call `send({ from: NO_FROM })` and Fee Juice is used automatically.
 
-The `from: NO_FROM` signals that this transaction should be executed without account contract mediation. The wallet will directly execute it via a default entrypoint with no authorization
+The `from: NO_FROM` signals that this transaction should be executed without account contract mediation. The wallet will directly execute it via a default entrypoint with no authorization.
 
 ## Verify deployment
 
