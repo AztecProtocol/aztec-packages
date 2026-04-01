@@ -281,7 +281,7 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
       // Create the new state for monitoring
       const l1TxState: L1TxState = {
         ...baseState,
-        id: (await this.store?.consumeNextStateId(account)) ?? Math.max(...this.txs.map(tx => tx.id), 0),
+        id: (await this.store?.consumeNextStateId(account)) ?? Math.max(...this.txs.map(tx => tx.id), -1) + 1,
         txHashes: [txHash],
         cancelTxHashes: [],
         status: TxUtilsState.IDLE,
