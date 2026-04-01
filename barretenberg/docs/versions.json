@@ -1,4 +1,8 @@
 [
+<<<<<<< HEAD
   "v0.87.0",
   "v4.0.0-nightly.20260217"
+=======
+  "v0.87.0"
+>>>>>>> 787e818703 (chore(docs): remove v5 nightly and devnet versioned docs)
 ]

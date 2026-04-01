@@ -34,7 +34,7 @@ import { General, Fees } from '@site/src/components/Snippets/general_snippets';
 Run:
 
 ```bash
-VERSION=#include_version_without_prefix bash -i <(curl -sL https://install.aztec.network/#include_version_without_prefix)
+VERSION=4.2.0-aztecnr-rc.2 bash -i <(curl -sL https://install.aztec.network/4.2.0-aztecnr-rc.2)
 ```
 
 This will install the following tools:

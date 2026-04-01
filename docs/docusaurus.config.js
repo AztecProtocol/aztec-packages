@@ -22,10 +22,20 @@ const macros = require("./src/katex-macros.js");
 const developerVersions = require("./developer_versions.json");
 const networkVersions = require("./network_versions.json");
 
+<<<<<<< HEAD
 // Find specific versions dynamically for Developer docs
 const nightlyVersion = developerVersions.find((v) => v.includes("nightly"));
 const devnetVersion = developerVersions.find((v) => v.includes("devnet"));
 const developerTestnetVersion = developerVersions.find((v) => v.includes("rc"));
+=======
+const developerVersionConfig = syncVersionsFromConfig(
+  "./developer_version_config.json",
+  "developer_versions.json",
+  "developer_versioned_docs"
+);
+const mainnetDeveloperVersion = developerVersionConfig.mainnet || null;
+const developerTestnetVersion = developerVersionConfig.testnet || null;
+>>>>>>> 787e818703 (chore(docs): remove v5 nightly and devnet versioned docs)
 
 // Find specific versions dynamically for Network docs
 const ignitionVersion = networkVersions.find((v) => v.includes("ignition"));
@@ -108,7 +118,11 @@ const config = {
     },
   ],
   plugins: [
+<<<<<<< HEAD
     // Developer docs instance - testnet/devnet/nightly versions
+=======
+    // Developer docs instance - mainnet/testnet versions
+>>>>>>> 787e818703 (chore(docs): remove v5 nightly and devnet versioned docs)
     [
       "@docusaurus/plugin-content-docs",
       {
@@ -124,7 +138,11 @@ const config = {
         },
         // Version configuration for Build docs
         includeCurrentVersion: process.env.CONTEXT !== "production",
+<<<<<<< HEAD
         lastVersion: developerTestnetVersion || devnetVersion,
+=======
+        lastVersion: mainnetDeveloperVersion || developerTestnetVersion,
+>>>>>>> 787e818703 (chore(docs): remove v5 nightly and devnet versioned docs)
         versions: {
           ...(developerTestnetVersion && {
             [developerTestnetVersion]: {
@@ -133,6 +151,7 @@ const config = {
               banner: "none",
             },
           }),
+<<<<<<< HEAD
           ...(devnetVersion && {
             [devnetVersion]: {
               label: `Devnet (${devnetVersion})`,
@@ -146,6 +165,8 @@ const config = {
               banner: "unreleased",
             },
           }),
+=======
+>>>>>>> 787e818703 (chore(docs): remove v5 nightly and devnet versioned docs)
           ...(process.env.CONTEXT !== "production" && {
             current: {
               label: "dev",
@@ -237,12 +258,19 @@ const config = {
       {
         generateLLMsTxt: true,
         generateLLMsFullTxt: true,
+<<<<<<< HEAD
         docsDir: developerTestnetVersion
           ? `developer_versioned_docs/version-${developerTestnetVersion}/`
           : `developer_versioned_docs/version-${developerVersions[0]}/`,
         title: "Aztec Protocol Documentation",
         excludeImports: true,
         version: developerTestnetVersion || developerVersions[0],
+=======
+        docsDir: `developer_versioned_docs/version-${mainnetDeveloperVersion || developerTestnetVersion}/`,
+        title: "Aztec Protocol Documentation",
+        excludeImports: true,
+        version: mainnetDeveloperVersion || developerTestnetVersion,
+>>>>>>> 787e818703 (chore(docs): remove v5 nightly and devnet versioned docs)
         pathTransformation: {
           ignorePaths: ["docs"],
         },
