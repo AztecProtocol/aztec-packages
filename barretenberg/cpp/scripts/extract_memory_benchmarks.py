@@ -26,17 +26,6 @@ try:
 
     entries = []
 
-    # Stacked chart: polynomial memory by category (peak circuit)
-    peak_circuit = data.get("peak_circuit")
-    if peak_circuit:
-        for category, stats in peak_circuit.get("categories", {}).items():
-            entries.append({
-                "name": f"{name_path}/memory/{category}_MB",
-                "unit": "MB",
-                "value": round(stats["actual_mb"], 2),
-                "extra": f"stacked-area:{name_path}/memory/polynomial_categories"
-            })
-
     # RSS timeline: each checkpoint becomes a line on the per-commit dashboard chart
     for cp in data.get("rss_checkpoints", []):
         circuit_name = cp.get("circuit_name", "")
