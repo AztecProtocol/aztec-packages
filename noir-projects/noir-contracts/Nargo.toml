@@ -44,6 +44,7 @@ members = [
     "contracts/test/counter/counter_contract",
     "contracts/test/custom_message_contract",
     "contracts/test/event_only_contract",
+    "contracts/test/large_public_event_contract",
     "contracts/test/import_test_contract",
     "contracts/test/init_test_contract",
     "contracts/test/invalid_account_contract",
