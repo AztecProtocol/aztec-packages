@@ -98,15 +98,16 @@ use aztec::macros::aztec;
 pub contract MyContract {
     use aztec::{
         macros::storage,
-        state_vars::{PrivateMutable, PublicMutable}
+        state_vars::{Owned, PrivateMutable, PublicMutable}
     };
+    use uint_note::UintNote;
 
     // The storage struct can have any name, but is typically called `Storage`. It must have the `#[storage]` macro applied to it.
     // This struct must also have a generic type called C or Context.
     #[storage]
     struct Storage<Context> {
         // A private numeric value which can change over time. This value will be hidden, and only those with the secret can know its current value.
-        my_private_state_variable: Owned<PrivateMutable<NoteType, Context>>,
+        my_private_state_variable: Owned<PrivateMutable<UintNote, Context>, Context>,
         // A public numeric value which can change over time. This value will be known to everyone and is equivalent to the Solidity example above.
         my_public_state_variable: PublicMutable<u128, Context>,
     }
@@ -142,6 +143,7 @@ use aztec::macros::aztec;
 #[aztec]
 contract MyContract {
     use aztec::macros::functions::external;
+    use aztec::protocol::address::AztecAddress;
 
     #[external("private")]
     fn my_private_function(parameter_a: u128, parameter_b: AztecAddress) {
@@ -154,7 +156,7 @@ contract MyContract {
     }
 
     #[external("utility")]
-    fn my_utility_function(parameter_a: u128, parameter_b: AztecAddress) {
+    unconstrained fn my_utility_function(parameter_a: u128, parameter_b: AztecAddress) {
         // ...
     }
 }

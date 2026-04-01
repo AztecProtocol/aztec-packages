@@ -209,6 +209,16 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
       recipient,
     );
 
+    if (!extendedSecret) {
+      // We'd only fail to compute an extended secret if the recipient is an invalid address. To prevent
+      // king-of-the-hill attacks, instead of failing we use a random tag. By including a correct-looking tag in the
+      // log, the transaction shape is preserved and no privacy is leaked, even if the tag is bogus.
+      this.logger.warn(`Computing a tag for invalid recipient ${recipient} - returning a random tag instead`, {
+        contractAddress: this.contractAddress,
+      });
+      return new Tag(Fr.random());
+    }
+
     const index = await this.#getIndexToUseForSecret(extendedSecret);
     this.logger.debug(
       `Incrementing tagging index for sender: ${sender}, recipient: ${recipient}, contract: ${this.contractAddress} to ${index}`,
