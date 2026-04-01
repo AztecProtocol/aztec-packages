@@ -3,7 +3,7 @@
 //! Tests for Schnorr signatures over the Grumpkin curve.
 
 #[cfg(test)]
-use barretenberg_rs::{FfiBackend, BbApi};
+use barretenberg_rs::{Fr, FfiBackend, BbApi};
 
 #[test]
 fn test_schnorr_compute_public_key() {
@@ -22,10 +22,10 @@ fn test_schnorr_compute_public_key() {
         .expect("schnorr_compute_public_key failed");
 
     // Should return a valid public key point
-    assert_eq!(response.public_key.x.len(), 32);
-    assert_eq!(response.public_key.y.len(), 32);
+    assert_eq!(response.public_key.x.as_slice().len(), 32);
+    assert_eq!(response.public_key.y.as_slice().len(), 32);
     // Should not be zero
-    assert_ne!(response.public_key.x, vec![0u8; 32]);
+    assert_ne!(response.public_key.x, Fr([0u8; 32]));
 
     api.destroy().expect("Failed to destroy backend");
 }
@@ -113,8 +113,8 @@ fn test_schnorr_sign_and_verify() {
         .expect("schnorr_construct_signature failed");
 
     // Signature should have s and e components (32 bytes each)
-    assert_eq!(sign_response.s.len(), 32);
-    assert_eq!(sign_response.e.len(), 32);
+    assert_eq!(sign_response.s.as_slice().len(), 32);
+    assert_eq!(sign_response.e.as_slice().len(), 32);
 
     // Verify
     let verify_response = api

@@ -6,8 +6,6 @@
 use barretenberg_rs::{FfiBackend, BbApi, Fr};
 #[cfg(test)]
 use crate::utils::fr_from_u64;
-#[cfg(test)]
-use crate::utils::fr_from_u64;
 
 #[test]
 fn test_poseidon2_hash() {

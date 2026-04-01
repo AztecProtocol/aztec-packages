@@ -3,7 +3,7 @@
 //! Ported from zkpassport/aztec-packages bb_rs secp256k1_tests.rs
 
 #[cfg(test)]
-use barretenberg_rs::{FfiBackend, generated::bb_types::Secp256k1Point, BbApi};
+use barretenberg_rs::{Fr, FfiBackend, generated::bb_types::Secp256k1Point, BbApi};
 
 // secp256k1 generator point G
 // x = 0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F81798
@@ -23,8 +23,8 @@ fn secp256k1_generator() -> Secp256k1Point {
         0x9c, 0x47, 0xd0, 0x8f, 0xfb, 0x10, 0xd4, 0xb8,
     ];
     Secp256k1Point {
-        x: generator_x.to_vec(),
-        y: generator_y.to_vec(),
+        x: Fr(generator_x),
+        y: Fr(generator_y),
     }
 }
 
@@ -34,17 +34,16 @@ fn test_secp256k1_scalar_multiplication() {
     let mut api = BbApi::new(backend);
 
     let point = secp256k1_generator();
-    let mut scalar = vec![0u8; 32];
-    scalar[31] = 3; // scalar = 3
+    let scalar = { let mut b = [0u8; 32]; b[31] = 3; Fr(b) }; // scalar = 3
 
     let response = api
-        .secp256k1_mul(point.clone(), &scalar)
+        .secp256k1_mul(point.clone(), scalar.clone())
         .expect("secp256k1_mul failed");
 
     // Result should be different from input (3*G != G)
     assert_ne!(response.point.x, point.x);
     // Result should be a valid point (non-zero)
-    assert_ne!(response.point.x, vec![0u8; 32]);
+    assert_ne!(response.point.x, Fr([0u8; 32]));
 
     api.destroy().expect("Failed to destroy backend");
 }
@@ -56,11 +55,10 @@ fn test_secp256k1_scalar_multiplication_by_one() {
 
     let point = secp256k1_generator();
 
-    let mut scalar = vec![0u8; 32];
-    scalar[31] = 1; // scalar = 1
+    let scalar = { let mut b = [0u8; 32]; b[31] = 1; Fr(b) }; // scalar = 1
 
     let response = api
-        .secp256k1_mul(point.clone(), &scalar)
+        .secp256k1_mul(point.clone(), scalar.clone())
         .expect("secp256k1_mul failed");
 
     // Multiplying by 1 should give the same point
@@ -85,8 +83,8 @@ fn test_secp256k1_random_scalar_generation() {
     // Random scalars should be different (very high probability)
     assert_ne!(response1.value, response2.value);
     // Should not be zero
-    assert_ne!(response1.value, vec![0u8; 32]);
-    assert_ne!(response2.value, vec![0u8; 32]);
+    assert_ne!(response1.value, Fr([0u8; 32]));
+    assert_ne!(response2.value, Fr([0u8; 32]));
 
     api.destroy().expect("Failed to destroy backend");
 }
@@ -130,7 +128,7 @@ fn test_secp256k1_reduce512() {
         .expect("secp256k1_reduce512 failed");
 
     // Should produce a valid field element
-    assert_ne!(response.value, vec![0u8; 32]);
+    assert_ne!(response.value, Fr([0u8; 32]));
     // Should be different from the first 32 bytes of input (since we're reducing)
     assert_ne!(response.value.as_slice(), &large_input[..32]);
 
@@ -150,8 +148,7 @@ fn test_secp256k1_reduce512_small_value() {
         .expect("secp256k1_reduce512 failed");
 
     // For a small value, the reduction should preserve it
-    let mut expected = vec![0u8; 32];
-    expected[31] = 42;
+    let expected = { let mut b = [0u8; 32]; b[31] = 42; Fr(b) };
     assert_eq!(response.value, expected);
 
     api.destroy().expect("Failed to destroy backend");
@@ -169,7 +166,7 @@ fn test_secp256k1_reduce512_zero() {
         .expect("secp256k1_reduce512 failed");
 
     // Zero should remain zero after reduction
-    assert_eq!(response.value, vec![0u8; 32]);
+    assert_eq!(response.value, Fr([0u8; 32]));
 
     api.destroy().expect("Failed to destroy backend");
 }
@@ -205,14 +202,13 @@ fn test_secp256k1_mul_deterministic() {
 
     let point = secp256k1_generator();
 
-    let mut scalar = vec![0u8; 32];
-    scalar[31] = 5;
+    let scalar = { let mut b = [0u8; 32]; b[31] = 5; Fr(b) };
 
     let result1 = api
-        .secp256k1_mul(point.clone(), &scalar)
+        .secp256k1_mul(point.clone(), scalar.clone())
         .expect("secp256k1_mul failed");
     let result2 = api
-        .secp256k1_mul(point, &scalar)
+        .secp256k1_mul(point, scalar.clone())
         .expect("secp256k1_mul failed");
 
     // Should be deterministic

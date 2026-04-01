@@ -3,7 +3,7 @@
 //! Tests for ECDSA secp256k1 signatures.
 
 #[cfg(test)]
-use barretenberg_rs::{FfiBackend, generated::bb_types::Secp256k1Point, BbApi};
+use barretenberg_rs::{Fr, FfiBackend, generated::bb_types::Secp256k1Point, BbApi};
 
 #[test]
 fn test_ecdsa_compute_public_key() {
@@ -22,10 +22,10 @@ fn test_ecdsa_compute_public_key() {
         .expect("ecdsa_secp256k1_compute_public_key failed");
 
     // Should return a valid public key point
-    assert_eq!(response.public_key.x.len(), 32);
-    assert_eq!(response.public_key.y.len(), 32);
+    assert_eq!(response.public_key.x.as_slice().len(), 32);
+    assert_eq!(response.public_key.y.as_slice().len(), 32);
     // Should not be all zeros
-    assert_ne!(response.public_key.x, vec![0u8; 32]);
+    assert_ne!(response.public_key.x, Fr([0u8; 32]));
 
     api.destroy().expect("Failed to destroy backend");
 }
@@ -121,8 +121,8 @@ fn test_ecdsa_sign_and_verify() {
         .expect("ecdsa_secp256k1_construct_signature failed");
 
     // Signature should have r, s, and v components
-    assert_eq!(sign_response.r.len(), 32);
-    assert_eq!(sign_response.s.len(), 32);
+    assert_eq!(sign_response.r.as_slice().len(), 32);
+    assert_eq!(sign_response.s.as_slice().len(), 32);
 
     // Verify
     let verify_response = api
