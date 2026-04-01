@@ -72,7 +72,7 @@ export class TypeScriptCodegen {
       }
 
       case 'optional':
-        return `${this.mapType(type.element!)} | undefined`;
+        return `${this.mapType(type.element!)} | null`;
 
       case 'struct':
         return toPascalCase(type.struct!.name);
@@ -112,7 +112,7 @@ export class TypeScriptCodegen {
       }
 
       case 'optional':
-        return `${this.mapMsgpackType(type.element!)} | undefined`;
+        return `${this.mapMsgpackType(type.element!)} | null`;
 
       case 'struct':
         return `Msgpack${toPascalCase(type.struct!.name)}`;
