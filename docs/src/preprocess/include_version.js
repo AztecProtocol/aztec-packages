@@ -33,11 +33,7 @@ function getReleaseVersion(
     case "testnet":
       return testnetTag.startsWith("v") ? testnetTag.substring(1) : testnetTag;
     case "mainnet":
-<<<<<<< HEAD
     case "ignition":
-      // For mainnet/ignition, use mainnet tag and strip 'v' prefix
-=======
->>>>>>> 787e818703 (chore(docs): remove v5 nightly and devnet versioned docs)
       return mainnetTag.startsWith("v") ? mainnetTag.substring(1) : mainnetTag;
     default:
       throw new Error(
@@ -78,27 +74,14 @@ function getReleaseNetwork(releaseType) {
 async function preprocessIncludeVersion(markdownContent, filePath = "unknown") {
   const originalContent = markdownContent;
 
-<<<<<<< HEAD
   // Get environment variables
-  // NIGHTLY_TAG: version for nightly releases (e.g., "v3.0.0-nightly.20251222")
-=======
-  // Get environment variables, falling back to version config file defaults
->>>>>>> 787e818703 (chore(docs): remove v5 nightly and devnet versioned docs)
   // COMMIT_TAG: kept for backwards compatibility with #include_aztec_version
   const nightlyTag =
-<<<<<<< HEAD
     process.env.NIGHTLY_TAG || process.env.COMMIT_TAG || "0.0.0-nightly.0";
   const testnetTag = process.env.TESTNET_TAG || "4.1.0-rc.2";
-  const devnetTag = process.env.DEVNET_TAG || "4.0.0-devnet.2-patch.1";
+  const devnetTag = process.env.DEVNET_TAG || "0.0.0";
   const mainnetTag = process.env.MAINNET_TAG || "2.1.11";
-  const releaseType = process.env.RELEASE_TYPE || "nightly";
-=======
-    process.env.NIGHTLY_TAG || process.env.COMMIT_TAG || stripV(developerVersionConfig.nightly) || "0.0.0";
-  const devnetTag = process.env.DEVNET_TAG || stripV(developerVersionConfig.devnet) || "0.0.0";
-  const testnetTag = process.env.TESTNET_TAG || stripV(developerVersionConfig.testnet) || "0.0.0";
-  const mainnetTag = process.env.MAINNET_TAG || stripV(developerVersionConfig.mainnet) || "0.0.0";
   const releaseType = process.env.RELEASE_TYPE || "mainnet";
->>>>>>> 787e818703 (chore(docs): remove v5 nightly and devnet versioned docs)
   // COMMIT_TAG kept for backwards compatibility
   const commitTag = process.env.COMMIT_TAG || "next";
 
@@ -119,16 +102,9 @@ async function preprocessIncludeVersion(markdownContent, filePath = "unknown") {
   );
   const releaseNetwork = getReleaseNetwork(releaseType);
 
-<<<<<<< HEAD
-  // New macro for API ref paths
-  const apiRefVersion = releaseType === "nightly" ? "nightly"
-                      : releaseType === "devnet" ? "devnet"
-                      : releaseType === "testnet" ? "testnet"
-=======
   // API ref paths
   const apiRefVersion = releaseType === "testnet" ? "testnet"
-                      : releaseType === "mainnet" ? "mainnet"
->>>>>>> 787e818703 (chore(docs): remove v5 nightly and devnet versioned docs)
+                      : releaseType === "mainnet" || releaseType === "ignition" ? "mainnet"
                       : "next";
 
   // Step 1: Process conditional blocks FIRST (before version substitution)

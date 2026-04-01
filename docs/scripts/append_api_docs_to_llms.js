@@ -18,39 +18,11 @@ const STATIC_DIR = path.join(__dirname, "..", "static");
 // Load version from developer_versions.json (same as docusaurus.config.js)
 const developerVersions = require("../developer_versions.json");
 
-<<<<<<< HEAD
-// Find devnet and testnet versions dynamically (same logic as docusaurus.config.js)
-const devnetVersion = developerVersions.find((v) => v.includes("devnet"));
-if (!devnetVersion) {
-  console.warn("Warning: No devnet version found in developer_versions.json");
-=======
-// Determine the default (highest-priority) API docs version to append.
-// Only include one set to avoid bloating llms.txt. Priority: mainnet > testnet.
-const defaultType = developerVersionConfig?.mainnet ? "mainnet"
-  : developerVersionConfig?.testnet ? "testnet"
-  : null;
-const defaultVersion = defaultType ? developerVersionConfig[defaultType] : (developerVersions[0] || null);
-
-const API_DIRS = [];
-if (defaultType && fs.existsSync(path.join(STATIC_DIR, `aztec-nr-api/${defaultType}`))) {
-  API_DIRS.push({
-    name: "Aztec.nr API Reference",
-    dir: `aztec-nr-api/${defaultType}`,
-    description: `Auto-generated API documentation for Aztec.nr (${defaultVersion})`,
-  });
-} else if (!defaultType) {
-  console.warn("Warning: No default version found for API docs");
->>>>>>> 787e818703 (chore(docs): remove v5 nightly and devnet versioned docs)
-}
+// Find testnet version dynamically (same logic as docusaurus.config.js)
 const testnetVersion = developerVersions.find((v) => v.includes("rc") || v.includes("testnet"));
 
 // The API docs directories use stable folder names
 const API_DIRS = [
-  {
-    name: "Aztec.nr API Reference",
-    dir: "aztec-nr-api/devnet",
-    description: `Auto-generated API documentation for Aztec.nr (${devnetVersion || "devnet"})`,
-  },
   ...(testnetVersion ? [{
     name: "Aztec.nr API Reference (Testnet)",
     dir: "aztec-nr-api/testnet",
