@@ -1157,17 +1157,12 @@ impl PrivateContext {
             },
         );
 
-        // TODO (fees) figure out why this crashes the prover and enable it we need this in order to pay fees inside
-        // child call contexts assert(
-        //     (item.public_inputs.min_revertible_side_effect_counter == 0 as u32)
-        //     | (item.public_inputs.min_revertible_side_effect_counter
-        //         > self.min_revertible_side_effect_counter)
-        // ); if item.public_inputs.min_revertible_side_effect_counter
-        //     > self.min_revertible_side_effect_counter { self.min_revertible_side_effect_counter =
-        // item.public_inputs.min_revertible_side_effect_counter; }
-
-        // Increment side-effect counter
+        // The kernel circuits ensure that end_side_effect_counter is greater than start_side_effect_counter, and that
+        // all side effects emitted in the child call have counters within the range [start_side_effect_counter,
+        // end_side_effect_counter]. Therefore, we only need to ensure that the next side effect from the current call
+        // starts after the end side effect from the child call.
         let _ = self.next_counter();
+
         ReturnsHash::new(returns_hash)
     }
 
