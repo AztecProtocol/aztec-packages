@@ -540,7 +540,7 @@ void Chonk::accumulate_and_fold(ClientCircuit& circuit,
     }
 
     if (detail::use_memory_profile) {
-        detail::GLOBAL_MEMORY_PROFILE.add_rss_checkpoint("after_accumulate");
+        detail::GLOBAL_MEMORY_PROFILE.add_checkpoint("after_accumulate");
         detail::GLOBAL_MEMORY_PROFILE.next_circuit();
     }
 
