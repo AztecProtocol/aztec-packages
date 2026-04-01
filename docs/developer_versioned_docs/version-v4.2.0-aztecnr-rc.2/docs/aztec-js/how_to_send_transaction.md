@@ -24,22 +24,22 @@ import { General } from '@site/src/components/Snippets/general_snippets';
 After connecting to a contract:
 
 ```typescript
-import { Contract } from "@aztec/aztec.js";
+import { Contract } from "@aztec/aztec.js/contracts";
+import { TokenContract } from "@aztec/noir-contracts.js/Token";
 
-// wallet is from the connection guide; contractAddress and artifact are from your deployed contract
-const contract = await Contract.at(contractAddress, artifact, wallet);
+// wallet is from the connection guide; token is the contract deployed in the deploy guide
+const contract = await Contract.at(token.address, TokenContract.artifact, wallet);
 ```
 
 Call a function and wait for it to be mined:
 
 ```typescript
-// contract is from the step above; alice is from the connection guide
-const receipt = await contract.methods
-  .transfer(bobAddress, amount)
+// contract is from the step above; aliceAddress is from the connection guide
+const { receipt: sendReceipt } = await contract.methods
+  .transfer_in_public(aliceAddress, bobAddress, 100n, 0n)
   .send({ from: aliceAddress });
-
-console.log(`Transaction mined in block ${receipt.blockNumber}`);
-console.log(`Transaction fee: ${receipt.transactionFee}`);
+console.log(`Transaction mined in block ${sendReceipt.blockNumber}`);
+console.log(`Transaction fee: ${sendReceipt.transactionFee}`);
 ```
 
 The `from` field specifies which account sends the transaction. If that account has Fee Juice, it pays for the transaction automatically. For other fee payment options, see [paying fees](./how_to_pay_fees.md).
@@ -123,7 +123,7 @@ console.log(`Transaction fee: ${txReceipt.transactionFee}`);
 
 The receipt includes:
 
-- `status` - Transaction status (`success`, `reverted`, `dropped`, or `pending`)
+- `status` - Transaction status (`pending`, `proposed`, `checkpointed`, `proven`, `finalized`, or `dropped`)
 - `blockNumber` - Block where the transaction was included
 - `transactionFee` - Fee paid for the transaction
 - `error` - Error message if the transaction reverted
