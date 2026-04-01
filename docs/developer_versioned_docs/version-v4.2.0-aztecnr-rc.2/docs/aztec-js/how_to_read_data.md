@@ -18,7 +18,15 @@ import { General } from '@site/src/components/Snippets/general_snippets';
 
 The `simulate` method executes a contract function locally and returns its result. It works with private, public, and utility functions. No transaction is created and no gas is spent.
 
-#include_code simulate_function /docs/examples/ts/aztecjs_connection/index.ts typescript
+```typescript title="simulate_function" showLineNumbers 
+const { result: balance } = await token.methods
+  .balance_of_public(aliceAddress)
+  .simulate({ from: aliceAddress });
+
+console.log(`Alice's token balance: ${balance}`);
+```
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v4.2.0-aztecnr-rc.2/docs/examples/ts/aztecjs_connection/index.ts#L135-L141" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aztecjs_connection/index.ts#L135-L141</a></sub></sup>
+
 
 The `from` option specifies which account context to use for the simulation. This is required for all simulations. For private functions, it determines which account's private state is accessed. For public functions, it sets the `msg_sender` context.
 
@@ -37,7 +45,14 @@ const { result: [value1, value2] } = await contract.methods
 
 Set `includeMetadata: true` to get additional information about the simulation:
 
-#include_code simulate_with_metadata /docs/examples/ts/aztecjs_advanced/index.ts typescript
+```typescript title="simulate_with_metadata" showLineNumbers
+const metaResult = await token.methods
+  .balance_of_public(aliceAddress)
+  .simulate({ from: aliceAddress, includeMetadata: true });
+console.log("Balance:", metaResult.result);
+console.log("L2 gas limit:", metaResult.estimatedGas.gasLimits.l2Gas);
+console.log("DA gas limit:", metaResult.estimatedGas.gasLimits.daGas);
+```
 
 The result includes `result` (the function return value), `stats` (execution statistics), `offchainEffects`, and `estimatedGas` (with `gasLimits` and `teardownGasLimits`).
 
@@ -45,9 +60,12 @@ The result includes `result` (the function return value), `stats` (execution sta
 
 When simulating private functions, the caller must have access to any private state being read. The PXE only has visibility into notes belonging to registered accounts.
 
-#include_code simulate_private_access /docs/examples/ts/aztecjs_advanced/index.ts typescript
-
-If the caller doesn't have access to another address's notes, the simulation will fail with an error.
+```typescript
+// This works if aliceAddress owns the notes
+const { result: privateBalance } = await token.methods
+  .balance_of_private(aliceAddress)
+  .simulate({ from: aliceAddress });
+```
 
 :::warning
 Simulation runs locally without generating proofs. No correctness guarantees are provided on the result. See [Call Types](../foundational-topics/call_types.md#simulate) for more details.
@@ -70,11 +88,23 @@ Contracts emit data in two forms you can read:
 
 Use `aztecNode.getPublicLogs()` to retrieve raw log data:
 
-#include_code read_public_logs /docs/examples/ts/aztecjs_advanced/index.ts typescript
+```typescript title="read_public_logs" showLineNumbers
+const publicLogs = await node.getPublicLogs({ fromBlock: 1, toBlock: await node.getBlockNumber() + 1 });
+if (publicLogs.logs.length > 0) {
+  const rawFields = publicLogs.logs[0].log.getEmittedFields(); // Fr[]
+  console.log("Raw log fields:", rawFields.length);
+}
+```
 
 You can also filter by transaction hash or block range:
 
-#include_code read_logs_by_filter /docs/examples/ts/aztecjs_advanced/index.ts typescript
+```typescript
+// Get logs for a specific transaction
+const txLogs = await node.getPublicLogs({ txHash: gsReceipt.txHash });
+
+// Get logs for a block range
+const rangeLogs = await node.getPublicLogs({ fromBlock: 1, toBlock: await node.getBlockNumber() + 1 });
+```
 
 ## Reading events
 
@@ -84,9 +114,30 @@ Events provide typed access to contract emissions. The event metadata from your 
 
 Use the `getPublicEvents` helper to retrieve typed public events:
 
-#include_code import_get_public_events /docs/examples/ts/aztecjs_advanced/index.ts typescript
+```typescript
+import { getPublicEvents } from "@aztec/aztec.js/events";
+```
 
-#include_code get_public_events yarn-project/end-to-end/src/e2e_event_logs.test.ts typescript
+```typescript title="get_public_events" showLineNumbers 
+const publicEventFilter: PublicEventFilter = {
+  fromBlock: BlockNumber(firstTx.blockNumber!),
+  toBlock: BlockNumber(lastTx.blockNumber! + 1),
+};
+
+const { events: collectedEvent0s } = await getPublicEvents<ExampleEvent0>(
+  aztecNode,
+  TestLogContract.events.ExampleEvent0,
+  publicEventFilter,
+);
+
+const { events: collectedEvent1s } = await getPublicEvents<ExampleEvent1>(
+  aztecNode,
+  TestLogContract.events.ExampleEvent1,
+  publicEventFilter,
+);
+```
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v4.2.0-aztecnr-rc.2/yarn-project/end-to-end/src/e2e_event_logs.test.ts#L140-L157" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/e2e_event_logs.test.ts#L140-L157</a></sub></sup>
+
 
 The function parameters are:
 
@@ -104,11 +155,35 @@ Each returned event includes both the decoded `event` data and `metadata` (block
 
 Private events are stored in the PXE with privacy scoping. Use `wallet.getPrivateEvents()` to retrieve them:
 
-#include_code import_private_event_types /docs/examples/ts/aztecjs_advanced/index.ts typescript
+```typescript
+import type { PrivateEventFilter } from "@aztec/aztec.js/wallet";
+import { BlockNumber } from "@aztec/aztec.js/fields";
+```
 
 The `BlockNumber` type is a branded type that wraps raw numbers for type safety. Use it when setting `fromBlock` and `toBlock` in filters.
 
-#include_code get_private_events yarn-project/end-to-end/src/e2e_event_logs.test.ts typescript
+```typescript title="get_private_events" showLineNumbers 
+const eventFilter: PrivateEventFilter = {
+  contractAddress: testLogContract.address,
+  fromBlock: BlockNumber(firstBlockNumber),
+  toBlock: BlockNumber(lastBlockNumber + 1),
+  scopes: [account1Address, account2Address],
+};
+
+// Each emit_encrypted_events call emits 2 ExampleEvent0s and 1 ExampleEvent1
+// So with 5 calls we expect 10 ExampleEvent0s and 5 ExampleEvent1s
+const collectedEvent0s = await wallet.getPrivateEvents<ExampleEvent0>(
+  TestLogContract.events.ExampleEvent0,
+  eventFilter,
+);
+
+const collectedEvent1s = await wallet.getPrivateEvents<ExampleEvent1>(
+  TestLogContract.events.ExampleEvent1,
+  eventFilter,
+);
+```
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v4.2.0-aztecnr-rc.2/yarn-project/end-to-end/src/e2e_event_logs.test.ts#L71-L90" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/e2e_event_logs.test.ts#L71-L90</a></sub></sup>
+
 
 The `PrivateEventFilter` includes:
 
@@ -129,7 +204,38 @@ collectedEvents.forEach((ev) => {
 
 To continuously monitor for new events, poll at regular intervals while tracking the last processed block:
 
-#include_code poll_for_events /docs/examples/ts/aztecjs_advanced/index.ts typescript
+```typescript title="poll_for_events" showLineNumbers 
+// Poll for new events at regular intervals
+let lastProcessedBlock = await node.getBlockNumber();
+
+async function pollForTransferEvents() {
+  const currentBlock = await node.getBlockNumber();
+
+  if (currentBlock > lastProcessedBlock) {
+    const { events } = await getPublicEvents<Transfer>(
+      node,
+      TokenContract.events.Transfer,
+      {
+        fromBlock: BlockNumber(lastProcessedBlock + 1),
+        toBlock: BlockNumber(currentBlock + 1), // toBlock is exclusive
+      },
+    );
+
+    for (const { event, metadata } of events) {
+      // Process each transfer event
+      console.log(`Transfer: ${event.amount} from ${event.from} to ${event.to}`);
+      console.log(`  in block ${metadata.l2BlockNumber}, tx ${metadata.txHash}`);
+    }
+
+    lastProcessedBlock = currentBlock;
+  }
+}
+
+// Example: poll once (in production, use setInterval)
+await pollForTransferEvents();
+```
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v4.2.0-aztecnr-rc.2/docs/examples/ts/aztecjs_advanced/index.ts#L277-L306" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aztecjs_advanced/index.ts#L277-L306</a></sub></sup>
+
 
 For private events, use the same pattern with `wallet.getPrivateEvents()` and update the `fromBlock` in your filter accordingly.
 

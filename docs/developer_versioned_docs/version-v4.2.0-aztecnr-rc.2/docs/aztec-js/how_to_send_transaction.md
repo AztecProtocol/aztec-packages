@@ -23,11 +23,24 @@ import { General } from '@site/src/components/Snippets/general_snippets';
 
 After connecting to a contract:
 
-#include_code connect_to_contract /docs/examples/ts/aztecjs_advanced/index.ts typescript
+```typescript
+import { Contract } from "@aztec/aztec.js/contracts";
+import { TokenContract } from "@aztec/noir-contracts.js/Token";
+
+// wallet is from the connection guide; token is the contract deployed in the deploy guide
+const contract = await Contract.at(token.address, TokenContract.artifact, wallet);
+```
 
 Call a function and wait for it to be mined:
 
-#include_code basic_send_transaction /docs/examples/ts/aztecjs_advanced/index.ts typescript
+```typescript
+// contract is from the step above; aliceAddress is from the connection guide
+const { receipt: sendReceipt } = await contract.methods
+  .transfer_in_public(aliceAddress, bobAddress, 100n, 0n)
+  .send({ from: aliceAddress });
+console.log(`Transaction mined in block ${sendReceipt.blockNumber}`);
+console.log(`Transaction fee: ${sendReceipt.transactionFee}`);
+```
 
 The `from` field specifies which account sends the transaction. If that account has Fee Juice, it pays for the transaction automatically. For other fee payment options, see [paying fees](./how_to_pay_fees.md).
 
@@ -40,7 +53,9 @@ When using `EmbeddedWallet`, calling `send()` triggers a **simulation** step bef
 
 This means a simple `.send()` is all most apps need. You can adjust the gas padding if desired:
 
-#include_code set_gas_padding /docs/examples/ts/aztecjs_advanced/index.ts typescript
+```typescript
+wallet.setEstimatedGasPadding(0.2); // 20% padding instead of the default 10%
+```
 
 :::note
 Public authwits still need to be set explicitly before the transaction, as they require a separate onchain transaction. See [Using Authentication Witnesses](./how_to_use_authwit.md) for details.
@@ -50,13 +65,37 @@ Public authwits still need to be set explicitly before the transaction, as they 
 
 Use the `NO_WAIT` option to get the transaction hash immediately without waiting for inclusion:
 
-#include_code no_wait_transaction /docs/examples/ts/aztecjs_advanced/index.ts typescript
+```typescript title="no_wait_transaction" showLineNumbers 
+// Use NO_WAIT for regular transactions too
+const { txHash: transferTxHash } = await token.methods
+  .transfer(bobAddress, 100n)
+  .send({ from: aliceAddress, wait: NO_WAIT });
+
+console.log(`Transaction sent: ${transferTxHash.toString()}`);
+
+// Wait for inclusion later using the node
+const transferReceipt = await waitForTx(node, transferTxHash);
+console.log(`Transaction mined in block ${transferReceipt.blockNumber}`);
+```
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v4.2.0-aztecnr-rc.2/docs/examples/ts/aztecjs_advanced/index.ts#L153-L164" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aztecjs_advanced/index.ts#L153-L164</a></sub></sup>
+
 
 ## Send batch transactions
 
 Execute multiple calls atomically using `BatchCall`:
 
-#include_code batch_call /docs/examples/ts/aztecjs_advanced/index.ts typescript
+```typescript title="batch_call" showLineNumbers 
+// Execute multiple calls atomically using BatchCall
+const batch = new BatchCall(wallet, [
+  token.methods.mint_to_public(aliceAddress, 500n),
+  token.methods.transfer(bobAddress, 200n),
+]);
+
+const { receipt: batchReceipt } = await batch.send({ from: aliceAddress });
+console.log(`Batch executed in block ${batchReceipt.blockNumber}`);
+```
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v4.2.0-aztecnr-rc.2/docs/examples/ts/aztecjs_advanced/index.ts#L166-L175" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aztecjs_advanced/index.ts#L166-L175</a></sub></sup>
+
 
 :::warning
 All calls in a batch must succeed or the entire batch reverts. Use batch transactions when you need atomic execution of multiple operations.
@@ -66,7 +105,21 @@ All calls in a batch must succeed or the entire batch reverts. Use batch transac
 
 After sending a transaction without waiting, you can query its receipt using the node:
 
-#include_code query_tx_status /docs/examples/ts/aztecjs_advanced/index.ts typescript
+```typescript title="query_tx_status" showLineNumbers 
+// Query transaction status after sending without waiting
+const { txHash: statusTxHash } = await token.methods
+  .transfer(bobAddress, 10n)
+  .send({ from: aliceAddress, wait: NO_WAIT });
+
+// Check status using the node
+const txReceipt = await node.getTxReceipt(statusTxHash);
+
+console.log(`Status: ${txReceipt.status}`);
+console.log(`Block number: ${txReceipt.blockNumber}`);
+console.log(`Transaction fee: ${txReceipt.transactionFee}`);
+```
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v4.2.0-aztecnr-rc.2/docs/examples/ts/aztecjs_advanced/index.ts#L198-L210" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aztecjs_advanced/index.ts#L198-L210</a></sub></sup>
+
 
 The receipt includes:
 
