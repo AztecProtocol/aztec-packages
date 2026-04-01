@@ -70,7 +70,7 @@ function compile {
   else
     local contract
     for contract in "$CONTRACTS_DIR"/*/; do
-      if [ -f "$contract/Nargo.toml" ]; then
+      if [ -f "$contract/Nargo.toml" ] && grep -q '^type = "contract"' "$contract/Nargo.toml"; then
         contracts+=("contracts/$(basename "$contract")")
       fi
     done

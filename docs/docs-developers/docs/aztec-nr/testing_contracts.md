@@ -2,7 +2,7 @@
 title: Testing Contracts
 tags: [contracts, tests, testing, noir]
 keywords: [tests, testing, noir]
-sidebar_position: 5
+sidebar_position: 6
 description: Write and run tests for your Aztec smart contracts using Noir's TestEnvironment.
 ---
 
@@ -107,7 +107,7 @@ let deployer = env.deploy("../other_contract");
 ```
 
 :::warning
-It is always necessary to deploy a contract in order to test it. **It is important to compile before testing**, as `aztec test` does not recompile them on changes. Think of it as regenerating the bytecode and ABI so it becomes accessible externally.
+It is always necessary to deploy a contract in order to test it. `aztec test` automatically compiles contracts when changes are detected, but you can also manually compile with `aztec compile` to regenerate the bytecode and ABI.
 :::
 
 You can then choose whatever you need to initialize by interfacing with your initializer and calling it:
