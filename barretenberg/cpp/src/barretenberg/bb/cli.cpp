@@ -29,6 +29,7 @@
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/common/get_bytecode.hpp"
+#include "barretenberg/common/memory_profile.hpp"
 #include "barretenberg/common/thread.hpp"
 #include "barretenberg/common/version.hpp"
 #include "barretenberg/dsl/acir_format/serde/index.hpp"
@@ -389,6 +390,15 @@ int parse_and_run_cli_command(int argc, char* argv[])
                          "parent-child relationships) as json.")
             ->group(advanced_group);
     };
+    std::string memory_profile_out;
+    const auto add_memory_profile_out_option = [&](CLI::App* subcommand) {
+        return subcommand
+            ->add_option("--memory_profile_out",
+                         memory_profile_out,
+                         "Path to write memory profile data (polynomial breakdown by category, RSS "
+                         "checkpoints, CRS size) as json.")
+            ->group(advanced_group);
+    };
 
     /***************************************************************************************************************
      * Top-level flags
@@ -482,6 +492,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
     add_print_bench_flag(prove);
     add_bench_out_option(prove);
     add_bench_out_hierarchical_option(prove);
+    add_memory_profile_out_option(prove);
     add_storage_budget_option(prove);
     add_output_format_option(prove);
 
@@ -811,6 +822,10 @@ int parse_and_run_cli_command(int argc, char* argv[])
     if (!flags.storage_budget.empty()) {
         storage_budget = parse_size_string(flags.storage_budget);
     }
+    if (!memory_profile_out.empty()) {
+        bb::detail::use_memory_profile = true;
+        vinfo("Memory profiling enabled via --memory_profile_out");
+    }
     if (print_bench || !bench_out.empty() || !bench_out_hierarchical.empty()) {
         bb::detail::use_bb_bench = true;
         vinfo("BB_BENCH enabled via --print_bench or --bench_out");
@@ -987,6 +1002,11 @@ int parse_and_run_cli_command(int argc, char* argv[])
                     bb::detail::GLOBAL_BENCH_STATS.serialize_aggregate_data_json(file);
                 }
 #endif
+                if (!memory_profile_out.empty()) {
+                    std::ofstream file(memory_profile_out);
+                    bb::detail::GLOBAL_MEMORY_PROFILE.serialize_json(file);
+                    vinfo("Memory profile written to ", memory_profile_out);
+                }
                 return 0;
             }
             if (check->parsed()) {

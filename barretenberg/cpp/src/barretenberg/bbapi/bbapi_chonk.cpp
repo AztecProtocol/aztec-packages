@@ -5,6 +5,7 @@
 #include "barretenberg/commitment_schemes/ipa/ipa.hpp"
 #include "barretenberg/commitment_schemes/verification_key.hpp"
 #include "barretenberg/common/log.hpp"
+#include "barretenberg/common/memory_profile.hpp"
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
@@ -90,6 +91,9 @@ ChonkAccumulate::Response ChonkAccumulate::execute(BBApiRequest& request) &&
     }
 
     info("ChonkAccumulate - accumulating circuit '", request.loaded_circuit_name, "'");
+    if (detail::use_memory_profile) {
+        detail::GLOBAL_MEMORY_PROFILE.set_circuit_name(request.loaded_circuit_name);
+    }
     request.ivc_in_progress->accumulate(circuit, precomputed_vk);
     request.ivc_stack_depth++;
 

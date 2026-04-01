@@ -8,6 +8,7 @@
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/common/log.hpp"
+#include "barretenberg/common/memory_profile.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/flavor/mega_avm_flavor.hpp"
 #include "barretenberg/honk/composer/composer_lib.hpp"
@@ -71,6 +72,10 @@ template <typename Flavor> ProverInstance_<Flavor>::ProverInstance_(Circuit& cir
         polynomials.set_shifted();
     }
 
+    if (detail::use_memory_profile) {
+        detail::GLOBAL_MEMORY_PROFILE.add_rss_checkpoint("after_alloc");
+    }
+
     // Construct and add to proving key the wire, selector and copy constraint polynomials
     vinfo("populating trace...");
     TraceToPolynomials<Flavor>::populate(circuit, polynomials);
@@ -99,6 +104,9 @@ template <typename Flavor> ProverInstance_<Flavor>::ProverInstance_(Circuit& cir
 
     if (std::getenv("BB_POLY_STATS")) {
         analyze_prover_polynomials(polynomials);
+    }
+    if (detail::use_memory_profile) {
+        detail::GLOBAL_MEMORY_PROFILE.add_rss_checkpoint("after_trace");
     }
 }
 
