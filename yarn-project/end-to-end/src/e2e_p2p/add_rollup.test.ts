@@ -151,6 +151,9 @@ describe('e2e_p2p_add_rollup', () => {
     const initialTestAccounts = await getInitialTestAccountsData();
     const { genesisArchiveRoot, fundingNeeded, genesis } = await getGenesisValues(
       initialTestAccounts.map(a => a.address),
+      undefined,
+      undefined,
+      t.ctx.genesis!.genesisTimestamp,
     );
     const { rollup: newRollup } = await deployRollupForUpgrade(
       t.baseAccountPrivateKey,

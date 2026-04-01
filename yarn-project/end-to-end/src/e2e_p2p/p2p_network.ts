@@ -372,7 +372,12 @@ export class P2PNetworkTest {
     const sponsoredFPCAddress = await getSponsoredFPCAddress();
     const initialFundedAccounts = [...this.context.initialFundedAccounts.map(a => a.address), sponsoredFPCAddress];
 
-    const { genesis } = await getGenesisValues(initialFundedAccounts);
+    const { genesis } = await getGenesisValues(
+      initialFundedAccounts,
+      undefined,
+      undefined,
+      this.context.genesis!.genesisTimestamp,
+    );
     this.genesis = genesis;
 
     const rollupContract = RollupContract.getFromL1ContractsValues(this.context.deployL1ContractsValues);

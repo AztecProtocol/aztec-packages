@@ -225,6 +225,9 @@ export class FullProverTest {
     const sponsoredFPCAddress = await getSponsoredFPCAddress();
     const { genesis } = await getGenesisValues(
       this.context.initialFundedAccounts.map(a => a.address).concat(sponsoredFPCAddress),
+      undefined,
+      undefined,
+      this.context.genesis!.genesisTimestamp,
     );
 
     const proverNodeConfig: Parameters<typeof AztecNodeService.createAndSync>[0] = {
