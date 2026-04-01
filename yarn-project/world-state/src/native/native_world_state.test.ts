@@ -32,7 +32,7 @@ import { join } from 'path';
 import type { WorldStateTreeMapSizes } from '../synchronizer/factory.js';
 import { assertSameState, compareChains, mockBlock, mockEmptyBlock } from '../test/utils.js';
 import { INITIAL_NULLIFIER_TREE_SIZE, INITIAL_PUBLIC_DATA_TREE_SIZE } from '../world-state-db/merkle_tree_db.js';
-import type { WorldStateStatusSummary } from './message.js';
+import { WorldStateMessageType, type WorldStateStatusSummary } from './message.js';
 import { NativeWorldStateService, WORLD_STATE_DB_VERSION, WORLD_STATE_DIR } from './native_world_state.js';
 
 jest.setTimeout(60_000);
@@ -2070,6 +2070,41 @@ describe('NativeWorldState', () => {
 
       // Fork should be destroyed — operations on it should fail
       await expect(fork.getTreeInfo(MerkleTreeId.NULLIFIER_TREE)).rejects.toThrow('Fork not found');
+    });
+
+    it('uses COMMIT_FORK and not SYNC_BLOCK when fork is registered', async () => {
+      const fork = await ws.fork();
+      const { block, messages } = await mockBlock(BlockNumber(1), 1, fork);
+
+      // Spy on the native instance to track which message types are sent
+      const instance = (ws as any).instance;
+      const callSpy = jest.spyOn(instance, 'call');
+
+      ws.registerForkForBlock(block.archive.root, fork.forkId);
+      await ws.handleL2BlockAndMessages(block, messages);
+
+      const messageTypes = callSpy.mock.calls.map(call => call[0]);
+      expect(messageTypes).toContain(WorldStateMessageType.COMMIT_FORK);
+      expect(messageTypes).not.toContain(WorldStateMessageType.SYNC_BLOCK);
+
+      callSpy.mockRestore();
+    });
+
+    it('uses SYNC_BLOCK and not COMMIT_FORK when no fork is registered', async () => {
+      const fork = await ws.fork();
+      const { block, messages } = await mockBlock(BlockNumber(1), 1, fork);
+      await fork.close();
+
+      const instance = (ws as any).instance;
+      const callSpy = jest.spyOn(instance, 'call');
+
+      await ws.handleL2BlockAndMessages(block, messages);
+
+      const messageTypes = callSpy.mock.calls.map(call => call[0]);
+      expect(messageTypes).toContain(WorldStateMessageType.SYNC_BLOCK);
+      expect(messageTypes).not.toContain(WorldStateMessageType.COMMIT_FORK);
+
+      callSpy.mockRestore();
     });
   });
 });

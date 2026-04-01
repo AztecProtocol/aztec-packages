@@ -31,7 +31,7 @@ import { mockTx } from '@aztec/stdlib/testing';
 import type { PublicDataTreeLeaf } from '@aztec/stdlib/trees';
 import { BlockHeader, type CheckpointGlobalVariables, Tx } from '@aztec/stdlib/tx';
 import { ServerWorldStateSynchronizer } from '@aztec/world-state';
-import { NativeWorldStateService } from '@aztec/world-state/native';
+import { NativeWorldStateService, WorldStateMessageType } from '@aztec/world-state/native';
 import { getGenesisValues } from '@aztec/world-state/testing';
 
 import { describe, expect, it, jest } from '@jest/globals';
@@ -379,6 +379,31 @@ describe('ValidatorClient Integration', () => {
   });
 
   describe('happy path', () => {
+    it('uses COMMIT_FORK instead of SYNC_BLOCK when validating blocks', async () => {
+      const blockCount = 5;
+      const { blocks } = await buildCheckpoint(
+        CheckpointNumber(1),
+        slotNumber,
+        emptyL1ToL2Messages,
+        emptyPreviousCheckpointOutHashes,
+        BlockNumber(1),
+        blockCount,
+        () => buildTxs(2),
+      );
+
+      // Spy on the attestor's native world state to track message types sent to C++
+      const instance = (attestor.worldStateDb as any).instance;
+      const callSpy = jest.spyOn(instance, 'call');
+
+      await attestorValidateBlocks(blocks);
+
+      const messageTypes = callSpy.mock.calls.map(call => call[0] as WorldStateMessageType);
+      expect(messageTypes.filter(t => t === WorldStateMessageType.COMMIT_FORK)).toHaveLength(blockCount);
+      expect(messageTypes.filter(t => t === WorldStateMessageType.SYNC_BLOCK)).toHaveLength(0);
+
+      callSpy.mockRestore();
+    });
+
     it('validates multiple blocks and attests to checkpoint', async () => {
       const { blocks, proposal } = await buildCheckpoint(
         CheckpointNumber(1),
