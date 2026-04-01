@@ -18,7 +18,12 @@ import type { BlockData, L2Block, L2BlockSink, L2BlockSource } from '@aztec/stdl
 import { validateCheckpoint } from '@aztec/stdlib/checkpoint';
 import { getEpochAtSlot, getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
 import { Gas } from '@aztec/stdlib/gas';
-import type { ITxProvider, ValidatorClientFullConfig, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
+import type {
+  ITxProvider,
+  MerkleTreeWriteOperations,
+  ValidatorClientFullConfig,
+  WorldStateSynchronizer,
+} from '@aztec/stdlib/interfaces/server';
 import {
   type L1ToL2MessageSource,
   accumulateCheckpointOutHashes,
@@ -341,6 +346,11 @@ export class ProposalHandler {
       .filter(c => c.checkpointNumber < checkpointNumber)
       .map(c => c.checkpointOutHash);
 
+    // Fork before the block to be built
+    const parentBlockNumber = BlockNumber(blockNumber - 1);
+    await this.worldState.syncImmediate(parentBlockNumber);
+    await using fork = await this.worldState.fork(parentBlockNumber);
+
     // Try re-executing the transactions in the proposal if needed
     let reexecutionResult;
     try {
@@ -352,6 +362,7 @@ export class ProposalHandler {
         txs,
         l1ToL2Messages,
         previousCheckpointOutHashes,
+        fork,
       );
     } catch (error) {
       this.log.error(`Error reexecuting txs while processing block proposal`, error, proposalInfo);
@@ -359,9 +370,11 @@ export class ProposalHandler {
       return { isValid: false, blockNumber, reason, reexecutionResult };
     }
 
-    // If we succeeded, push this block into the archiver (unless disabled)
+    // If we succeeded, push this block into the archiver and commit the fork to LMDB
     if (reexecutionResult?.block && this.config.skipPushProposedBlocksToArchiver === false) {
+      this.worldState.registerForkForBlock(reexecutionResult.block.archive.root, fork.forkId);
       await this.blockSource.addBlock(reexecutionResult.block);
+      await this.worldState.syncImmediate(blockNumber);
     }
 
     this.log.info(
@@ -595,6 +608,7 @@ export class ProposalHandler {
     txs: Tx[],
     l1ToL2Messages: Fr[],
     previousCheckpointOutHashes: Fr[],
+    fork: MerkleTreeWriteOperations,
   ): Promise<ReexecuteTransactionsResult> {
     const { blockHeader, txHashes } = proposal;
 
@@ -612,11 +626,6 @@ export class ProposalHandler {
     // Get prior blocks in this checkpoint (same slot before current block)
     const allBlocksInSlot = await this.blockSource.getBlocksForSlot(slot);
     const priorBlocks = allBlocksInSlot.filter(b => b.number < blockNumber && b.header.getSlot() === slot);
-
-    // Fork before the block to be built
-    const parentBlockNumber = BlockNumber(blockNumber - 1);
-    await this.worldState.syncImmediate(parentBlockNumber);
-    await using fork = await this.worldState.fork(parentBlockNumber);
 
     // Verify the fork's archive root matches the proposal's expected last archive.
     // If they don't match, our world state synced to a different chain and reexecution would fail.
