@@ -158,10 +158,10 @@ export function parsePaymentMethod(
           const { FeeJuicePaymentMethodWithClaim } = await import('@aztec/aztec.js/fee');
           return new FeeJuicePaymentMethodWithClaim(from, {
             claimAmount: (typeof claimAmount === 'string'
-              ? Fr.fromHexString(claimAmount)
+              ? Fr.fromString(claimAmount)
               : new Fr(claimAmount)
             ).toBigInt(),
-            claimSecret: Fr.fromHexString(claimSecret),
+            claimSecret: typeof claimSecret === 'string' ? Fr.fromString(claimSecret) : claimSecret,
             messageLeafIndex: BigInt(messageLeafIndex),
           });
         } else {
