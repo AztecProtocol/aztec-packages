@@ -103,7 +103,7 @@ template <typename FF> struct GateSeparatorPolynomial {
      */
     FF current_element() const
     {
-        if (current_element_idx >= betas.size()) {
+        if (betas.empty()) {
             return FF(1);
         };
         return betas[current_element_idx];
@@ -112,13 +112,7 @@ template <typename FF> struct GateSeparatorPolynomial {
     /**
      * @brief Evaluate  \f$ ((1−X_{i}) + X_{i}\cdot \beta_{i})\f$ at the challenge point \f$ X_{i}=u_{i} \f$.
      */
-    FF univariate_eval(FF challenge) const
-    {
-        if (current_element_idx >= betas.size()) {
-            return FF(1);
-        }
-        return (FF(1) + (challenge * (betas[current_element_idx] - FF(1))));
-    };
+    FF univariate_eval(FF challenge) const { return (FF(1) + (challenge * (betas[current_element_idx] - FF(1)))); };
 
     /**
      * @brief Partially evaluate the \f$pow_{\beta} \f$-polynomial at the new challenge and update \f$ c_i \f$
@@ -128,10 +122,12 @@ template <typename FF> struct GateSeparatorPolynomial {
      */
     void partially_evaluate(FF challenge)
     {
-        FF current_univariate_eval = univariate_eval(challenge);
-        partial_evaluation_result *= current_univariate_eval;
-        current_element_idx++;
-        periodicity *= 2;
+        if (!betas.empty()) {
+            FF current_univariate_eval = univariate_eval(challenge);
+            partial_evaluation_result *= current_univariate_eval;
+            current_element_idx++;
+            periodicity *= 2;
+        }
     }
 
     /**
