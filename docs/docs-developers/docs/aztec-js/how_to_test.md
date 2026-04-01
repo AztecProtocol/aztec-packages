@@ -25,29 +25,13 @@ The `EmbeddedWallet` manages accounts, tracks deployed contracts, and handles tr
 
 The local network comes with pre-funded accounts. Load them into your wallet:
 
-```typescript
-import { registerInitialLocalNetworkAccountsInWallet } from "@aztec/wallets/testing";
-
-// wallet is the EmbeddedWallet from the setup section above
-const [alice, bob] = await registerInitialLocalNetworkAccountsInWallet(wallet);
-```
+#include_code load_test_accounts /docs/examples/ts/aztecjs_testing/index.ts typescript
 
 ## Deploying contracts in tests
 
 Deploy contracts using the generated contract class:
 
-```typescript
-import { TokenContract } from "@aztec/noir-contracts.js/Token";
-
-// wallet is from the setup section; alice is from registerInitialLocalNetworkAccountsInWallet
-const contract = await TokenContract.deploy(
-  wallet,
-  alice, // admin
-  "TestToken",
-  "TST",
-  18,
-).send({ from: alice });
-```
+#include_code deploy_test_contract /docs/examples/ts/aztecjs_testing/index.ts typescript
 
 ## Verifying contract state
 
@@ -79,20 +63,7 @@ Here's a complete test example showing the typical structure with setup, test ca
 
 Test that invalid operations revert as expected:
 
-```typescript
-// token, alice, and bob are from the test setup in beforeAll
-it("reverts when transferring more than balance", async () => {
-  const balance = await token.methods
-    .balance_of_public(alice)
-    .simulate({ from: alice });
-
-  await expect(
-    token.methods
-      .transfer_in_public(bob, balance + 1n)
-      .simulate({ from: alice }),
-  ).rejects.toThrow();
-});
-```
+#include_code test_revert_case /docs/examples/ts/aztecjs_testing/index.ts typescript
 
 Use `.simulate()` to test reverts without spending gas. The simulation will throw if the transaction would fail onchain.
 
