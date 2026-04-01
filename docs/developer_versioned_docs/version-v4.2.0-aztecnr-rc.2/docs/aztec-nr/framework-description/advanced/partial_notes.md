@@ -27,7 +27,7 @@ pub struct UintNote {
 
 The `UintNote` struct itself only contains the `value` field. Additional fields including `owner`, `randomness`, and `storage_slot` are passed as parameters during note hash computation.
 
-When creating the note locally during private execution, the `owner` and `storage_slot` are known, but the `value` potentially is not (e.g., it depends on some onchain dynamic variable). First, a **partial note** can be created during private execution that commits to the `owner`, `randomness`, and `storage_slot`, and then the note is *"completed"* to create a full note by later adding the `value` field, usually during public execution.
+When creating the note locally during private execution, the `owner` and `storage_slot` are known, but the `value` potentially is not (e.g., it depends on some onchain dynamic variable). First, a **partial note** can be created during private execution that commits to the `owner` and `randomness`, and then the note is *"completed"* to create a full note by later adding the `storage_slot` and `value` fields, usually during public execution.
 
 <Image img={require("@site/static/img/partial-notes.png")} />
 
@@ -62,7 +62,7 @@ pub struct UintNote {
 
 **Phase 1: Partial Commitment (Private Execution)**
 
-The private fields (`owner`, `randomness`, and `storage_slot`) are committed during local, private execution:
+The private fields (`owner` and `randomness`) are committed during local, private execution:
 
 ```rust title="compute_partial_commitment" showLineNumbers 
 fn compute_partial_commitment(owner: AztecAddress, randomness: Field) -> Field {
@@ -75,7 +75,7 @@ fn compute_partial_commitment(owner: AztecAddress, randomness: Field) -> Field {
 This creates a partial note commitment:
 
 ```
-partial_commitment = H(owner, storage_slot, randomness)
+partial_commitment = H(owner, randomness)
 ```
 
 **Phase 2: Note Completion (Public Execution)**
@@ -99,8 +99,8 @@ fn compute_complete_note_hash(self, storage_slot: Field, value: u128) -> Field {
 The resulting structure is a nested commitment:
 
 ```
-note_hash = H(H(owner, storage_slot, randomness), value)
-          = H(partial_commitment, value)
+note_hash = H(H(owner, randomness), storage_slot, value)
+          = H(partial_commitment, storage_slot, value)
 ```
 
 ## Universal Note Format
@@ -109,8 +109,8 @@ All notes in Aztec use the partial note format internally, even when all data is
 
 When a note is created with all fields known (including `owner`, `storage_slot`, `randomness`, and `value`):
 
-1. A partial commitment is computed from the private fields (`owner`, `storage_slot`, `randomness`)
-2. The partial commitment is immediately completed with the `value` field
+1. A partial commitment is computed from the private fields (`owner`, `randomness`)
+2. The partial commitment is immediately completed with the `storage_slot` and `value` fields
 
 ```rust title="compute_note_hash" showLineNumbers 
 fn compute_note_hash(self, owner: AztecAddress, storage_slot: Field, randomness: Field) -> Field {
@@ -135,7 +135,6 @@ fn compute_note_hash(self, owner: AztecAddress, storage_slot: Field, randomness:
 
 This two-step process ensures that notes with identical field values produce identical note hashes, regardless of whether they were created as partial notes or complete notes.
 
-<Image img={require("@site/static/img/shrek.jpeg")} />
 
 ## Partial Notes in Practice
 

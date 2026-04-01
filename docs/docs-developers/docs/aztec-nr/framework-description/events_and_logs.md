@@ -34,7 +34,7 @@ use aztec::messages::message_delivery::MessageDelivery;
 
 #[external("private")]
 fn transfer(to: AztecAddress, amount: u128) {
-    let from = self.msg_sender().unwrap();
+    let from = self.msg_sender();
 
     // ... transfer logic ...
 

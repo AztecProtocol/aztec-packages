@@ -81,7 +81,7 @@ pub struct PrivateContextInputs {
 > <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v4.2.0-aztecnr-rc.2/noir-projects/aztec-nr/aztec/src/context/inputs/private_context_inputs.nr#L7-L15" target="_blank" rel="noopener noreferrer">Source code: noir-projects/aztec-nr/aztec/src/context/inputs/private_context_inputs.nr#L7-L15</a></sub></sup>
 
 
-As shown in the snippet, the application context is made up of 4 main structures. The call context, the block header, and the private global variables.
+As shown in the snippet, the application context is made up of 3 main structures. The call context, the block header, and the private global variables.
 
 First of all, the call context.
 
@@ -110,13 +110,12 @@ The call context contains information about the current call being made:
 
 <Image img={require("@site/static/img/context/sender_context_change.png")} />
 
-2. Storage contract address
+2. Contract address
 
-   - This value is the address of the current context's contract address. This value will be the value of the current contract that is being executed except for when the current call is a delegate call (Warning: This is yet to be implemented). In this case the value will be that of the sending contract.
+   - This value is the address of the current context's contract address. This value will be the value of the current contract that is being executed.
 
 3. Flags
    - Furthermore there are a series of flags that are stored within the application context:
-     - is_delegate_call: Denotes whether the current call is a delegate call. If true, then the storage contract address will be the address of the sender.
      - is_static_call: This will be set if and only if the current call is a static call. In a static call, state changing altering operations are not allowed.
 
 ### Block Header
@@ -166,14 +165,14 @@ pub struct TxContext {
 
 To allow for flexibility in the number of arguments supported by Aztec functions, all function inputs are reduced to a singular value which can be proven from within the application.
 
-The `args_hash` is the result of pedersen hashing all of a function's inputs.
+The `args_hash` is the result of poseidon2 hashing all of a function's inputs.
 
 ### Return Values
 
 The return values are a set of values that are returned from an applications execution to be passed to other functions through the kernel. Developers do not need to worry about passing their function return values to the `context` directly as `Aztec.nr` takes care of it for you. See the documentation surrounding `Aztec.nr` [macro expansion](./function_transforms.md#function-transformation) for more details.
 
 ```rust
-return_values : BoundedVec\<Field, RETURN_VALUES_LENGTH\>,
+return_hash: Field,
 ```
 ## Expiration Timestamp
 
