@@ -247,7 +247,7 @@ ${conversions}
         return value;
       case 'optional':
         if (this.needsConversion(type.element!)) {
-          return `${value} != null ? ${this.generateToConverter(type.element!, value)} : undefined`;
+          return `${value} != null ? ${this.generateToConverter(type.element!, value)} : null`;
         }
         return value;
       case 'struct':
@@ -271,7 +271,7 @@ ${conversions}
         return value;
       case 'optional':
         if (this.needsConversion(type.element!)) {
-          return `${value} != null ? ${this.generateFromConverter(type.element!, value)} : undefined`;
+          return `${value} != null ? ${this.generateFromConverter(type.element!, value)} : null`;
         }
         return value;
       case 'struct':
