@@ -26,7 +26,7 @@ import { createBootstrapNodeFromPrivateKey, getBootstrapNodeEnr } from '@aztec/p
 import { tryStop } from '@aztec/stdlib/interfaces/server';
 import { SlashFactoryContract } from '@aztec/stdlib/l1-contracts';
 import { TopicType } from '@aztec/stdlib/p2p';
-import type { PublicDataTreeLeaf } from '@aztec/stdlib/trees';
+import type { GenesisData } from '@aztec/stdlib/world-state';
 import { ZkPassportProofParams } from '@aztec/stdlib/zkpassport';
 import { getGenesisValues } from '@aztec/world-state/testing';
 
@@ -77,7 +77,7 @@ export class P2PNetworkTest {
   public validators: Operator[] = [];
 
   public deployedAccounts: InitialAccountData[] = [];
-  public prefilledPublicData: PublicDataTreeLeaf[] = [];
+  public genesis: GenesisData | undefined;
 
   // The re-execution test needs a wallet and a spam contract
   public wallet?: TestWallet;
@@ -372,8 +372,13 @@ export class P2PNetworkTest {
     const sponsoredFPCAddress = await getSponsoredFPCAddress();
     const initialFundedAccounts = [...this.context.initialFundedAccounts.map(a => a.address), sponsoredFPCAddress];
 
-    const { prefilledPublicData } = await getGenesisValues(initialFundedAccounts);
-    this.prefilledPublicData = prefilledPublicData;
+    const { genesis } = await getGenesisValues(
+      initialFundedAccounts,
+      undefined,
+      undefined,
+      this.context.genesis!.genesisTimestamp,
+    );
+    this.genesis = genesis;
 
     const rollupContract = RollupContract.getFromL1ContractsValues(this.context.deployL1ContractsValues);
     this.monitor = new ChainMonitor(rollupContract, this.context.dateProvider).start();

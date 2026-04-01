@@ -23,6 +23,7 @@ import type { MerkleTreeLeafType, MerkleTreeWriteOperations } from '@aztec/stdli
 import { makeGlobalVariables } from '@aztec/stdlib/testing';
 import { AppendOnlyTreeSnapshot, MerkleTreeId, PublicDataTreeLeaf } from '@aztec/stdlib/trees';
 import { BlockHeader } from '@aztec/stdlib/tx';
+import type { GenesisData } from '@aztec/stdlib/world-state';
 
 import { jest } from '@jest/globals';
 import { copyFile, lstat, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'fs/promises';
@@ -1321,16 +1322,14 @@ describe('NativeWorldState', () => {
       const { state: initialState, ...initialRest } = ws.getInitialHeader();
 
       // With prefilled.
-      const prefilledPublicData = [
-        new PublicDataTreeLeaf(new Fr(1000), new Fr(2000)),
-        new PublicDataTreeLeaf(new Fr(3000), new Fr(4000)),
-      ];
-      const wsPrefilled = await NativeWorldStateService.new(
-        EthAddress.random(),
-        dataDir,
-        wsTreeMapSizes,
-        prefilledPublicData,
-      );
+      const genesis: GenesisData = {
+        prefilledPublicData: [
+          new PublicDataTreeLeaf(new Fr(1000), new Fr(2000)),
+          new PublicDataTreeLeaf(new Fr(3000), new Fr(4000)),
+        ],
+        genesisTimestamp: 0n,
+      };
+      const wsPrefilled = await NativeWorldStateService.new(EthAddress.random(), dataDir, wsTreeMapSizes, genesis);
       const { state: prefilledState, ...prefilledRest } = wsPrefilled.getInitialHeader();
 
       // The root of the public data tree has changed.
