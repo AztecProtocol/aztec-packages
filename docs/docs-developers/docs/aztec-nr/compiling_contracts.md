@@ -33,7 +33,7 @@ Use generated interfaces instead of manual function calls:
 
 ```rust
 contract MyContract {
-    use dep::token::Token;
+    use token::Token;
 
     #[external("private")]
     fn transfer_tokens(token_address: AztecAddress, recipient: AztecAddress, amount: u128) {

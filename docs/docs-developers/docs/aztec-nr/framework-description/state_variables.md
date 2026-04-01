@@ -72,7 +72,7 @@ Consider, for example, a `PublicMutable` state variable, which is a value that i
 ```rust
 #[storage]
 struct Storage<Context> {
-    my_public_variable: PublicMutable<NoteType, Context>,
+    my_public_variable: PublicMutable<Field, Context>,
 }
 
 #[external("public")]
@@ -229,7 +229,7 @@ They also have some metadata, including a storage slot to avoid collisions with 
 
 The note content plus the metadata are all hashed together, and it is this hash that gets stored onchain in the note hash tree. This hash is called a commitment. The underlying note content (the note hash preimage) is not stored anywhere onchain, so third parties cannot access it and it remains private. The note hash tree is append-only - if it wasn't, when a note was spent, external observers would notice that the tree leaf inserted in some transaction was modified in a second transaction, linking them together and leaking privacy. For example, when a user made a payment to a third party, the recipient would be able to know when they spent the received funds. Nullifiers exist to solve this issue.
 
-Note: Aztec.nr comes with some prebuilt note types, including [`UintNote`](https://github.com/AztecProtocol/aztec-packages/tree/08935f75dbc3052ce984add225fc7a0dac863050/noir-projects/aztec-nr/uint-note) and [`AddressNote`](https://github.com/AztecProtocol/aztec-packages/tree/08935f75dbc3052ce984add225fc7a0dac863050/noir-projects/aztec-nr/address-note), but users are also free to create their own with the `#[note]` macro.
+Note: Aztec.nr comes with some prebuilt note types, including [`UintNote`](https://github.com/AztecProtocol/aztec-packages/tree/#include_aztec_version/noir-projects/aztec-nr/uint-note) and [`AddressNote`](https://github.com/AztecProtocol/aztec-packages/tree/#include_aztec_version/noir-projects/aztec-nr/address-note), but users are also free to create their own with the `#[note]` macro.
 
 ##### Note Lifecycle
 
@@ -273,7 +273,7 @@ When working with private state variables, many operations return a `NoteMessage
 #### Delivery Methods
 
 Private notes need to be communicated to their recipients so they know the note exists and can use it. The [`NoteMessage`](pathname:///aztec-nr-api/#api_ref_version/noir_aztec/note/struct.NoteMessage) wrapper forces you to make an explicit choice about how this happens:
-  - [`MessageDelivery.ONCHAIN_CONSTRAINED`](pathname:///aztec-nr-api/#api_ref_version/noir_aztec/messages/message_delivery/struct.MessageDeliveryEnum#structfield.ONCHAIN_UNCONSTRAINED): Verified in the circuit (most secure, but highest cost) - Use when the sender cannot be trusted to deliver correctly (e.g., protocol fees, multisig config updates). **Warning:** Currently [not fully constrained](https://github.com/AztecProtocol/aztec-packages/issues/14565) - the log's tag is unconstrained.
+  - [`MessageDelivery.ONCHAIN_CONSTRAINED`](pathname:///aztec-nr-api/#api_ref_version/noir_aztec/messages/message_delivery/struct.MessageDeliveryEnum#structfield.ONCHAIN_CONSTRAINED): Verified in the circuit (most secure, but highest cost) - Use when the sender cannot be trusted to deliver correctly (e.g., protocol fees, multisig config updates). **Warning:** Currently [not fully constrained](https://github.com/AztecProtocol/aztec-packages/issues/14565) - the log's tag is unconstrained.
   - [`MessageDelivery.ONCHAIN_UNCONSTRAINED`](pathname:///aztec-nr-api/#api_ref_version/noir_aztec/messages/message_delivery/struct.MessageDeliveryEnum#structfield.ONCHAIN_UNCONSTRAINED): Message stored onchain but no guarantees on content - Use when the sender is incentivized to deliver correctly but may not have an offchain channel to the recipient.
   - [`MessageDelivery.OFFCHAIN`](pathname:///aztec-nr-api/#api_ref_version/noir_aztec/messages/message_delivery/struct.MessageDeliveryEnum#structfield.OFFCHAIN): Lowest cost, no onchain data - Use when the sender and recipient can communicate and the sender is incentivized to deliver correctly.
 
@@ -324,7 +324,7 @@ fn perform_admin_action() {
     // value of the counter and can update it again in the future.
     self.storage.admin_call_count
         .replace(|current| UintNote{ value: current.value + 1 }) // wouldn't it be great if we didn't have to deal with this wrapping and unwrapping?
-        .deliver(admin);
+        .deliver(MessageDelivery.ONCHAIN_CONSTRAINED);
 
     // ...
 }
@@ -380,7 +380,7 @@ This function allows us to get the note of a `PrivateMutable`, essentially readi
 ```rust
 #[external("private")]
 fn read_settings() {
-    let owner = self.msg_sender().unwrap();
+    let owner = self.msg_sender();
     self.storage.user_settings.at(owner).get_note().deliver(MessageDelivery.ONCHAIN_CONSTRAINED);
 }
 ```
@@ -557,7 +557,7 @@ fn transfer(from: AztecAddress, to: AztecAddress, amount: u128) {
     let notes = self.storage.balances.at(from).pop_notes(options);
 
     // Access the balance for the 'to' address
-    let new_note = UintNote::new(amount, to);
+    let new_note = UintNote { value: amount };
     self.storage.balances.at(to).insert(new_note).deliver(MessageDelivery.ONCHAIN_UNCONSTRAINED);
 }
 ```
@@ -573,7 +573,7 @@ Both `PublicMutable` and `PublicImmutable` are generic over any serializable typ
 To use a custom struct in public storage, it must implement the `Packable` trait:
 
 ```rust
-use dep::aztec::protocol_types::{
+use aztec::protocol::{
     address::AztecAddress,
     traits::{Deserialize, Packable, Serialize}
 };
