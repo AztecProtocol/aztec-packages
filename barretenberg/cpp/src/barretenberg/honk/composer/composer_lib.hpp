@@ -34,6 +34,8 @@ void construct_lookup_table_polynomials(const RefArray<typename Flavor::Polynomi
             offset++;
         }
     }
+    BB_ASSERT(offset <= table_polynomials[0].end_index(),
+              "construct_lookup_table_polynomials: total lookup table entries exceed polynomial size");
 }
 
 /**

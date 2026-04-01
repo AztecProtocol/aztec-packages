@@ -267,8 +267,7 @@ template <typename Curve> class GeminiProver_ {
 
     static std::vector<Polynomial> compute_fold_polynomials(const size_t log_n,
                                                             std::span<const Fr> multilinear_challenge,
-                                                            const Polynomial& A_0,
-                                                            const bool& has_zk = false);
+                                                            const Polynomial& A_0);
 
     static std::vector<Claim> construct_univariate_opening_claims(const size_t log_n,
                                                                   Polynomial&& A_0_pos,
