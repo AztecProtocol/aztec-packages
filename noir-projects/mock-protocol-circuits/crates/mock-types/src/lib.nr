@@ -1,7 +1,7 @@
 pub global MAX_COMMITMENTS_PER_CALL: u32 = 2;
-pub global MAX_COMMITMENTS_PER_TX: u32 = 4;
+pub global MAX_COMMITMENTS_PER_TX: u32 = 34;
 pub global MAX_COMMITMENT_READ_REQUESTS_PER_CALL: u32 = 2;
-pub global MAX_COMMITMENT_READ_REQUESTS_PER_TX: u32 = 4;
+pub global MAX_COMMITMENT_READ_REQUESTS_PER_TX: u32 = 34;
 
 pub use protocol_types::{
     abis::avm_circuit_public_inputs::AvmCircuitPublicInputs,

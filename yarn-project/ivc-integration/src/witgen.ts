@@ -115,7 +115,7 @@ export async function getVkAsFields({
   return mapVerificationKeyToNoir(vk, MEGA_VK_LENGTH_IN_FIELDS);
 }
 
-export const MOCK_MAX_COMMITMENTS_PER_TX = 4;
+export const MOCK_MAX_COMMITMENTS_PER_TX = 34;
 
 function foreignCallHandler(name: string, args: ForeignCallInput[]): Promise<ForeignCallOutput[]> {
   if (name === 'debugLog') {
@@ -279,15 +279,15 @@ export async function witnessGenMockPrivateKernelGoblinCircuit(
 }
 
 export async function generateTestingIVCStack(
-  // A call to the creator app creates 1 commitment. A tx can have at most 2 commitments.
+  // A call to the creator app creates 1 commitment. A tx can have at most 34 commitments.
   numCreatorAppCalls: number,
   // A call to the reader app creates 1 read request. A reset kernel will be run if there are 2 read requests in the
   // public inputs. All read requests must be cleared before running the tail kernel.
   numReaderAppCalls: number,
   add_flush: boolean = false,
 ): Promise<[Uint8Array[], Uint8Array[], KernelPublicInputs, Uint8Array[]]> {
-  if (numCreatorAppCalls > 2) {
-    throw new Error('The creator app can only be called at most twice.');
+  if (numCreatorAppCalls > MOCK_MAX_COMMITMENTS_PER_TX) {
+    throw new Error(`The creator app can only be called at most ${MOCK_MAX_COMMITMENTS_PER_TX} times.`);
   }
 
   const tx = {
@@ -340,7 +340,7 @@ export async function generateTestingIVCStack(
       commitment_read_hints: padArrayEnd(
         commitmentToReset.map(r => commitments.findIndex(c => c === r)!.toString(16)),
         MOCK_MAX_COMMITMENTS_PER_TX.toString(),
-        4,
+        MOCK_MAX_COMMITMENTS_PER_TX,
       ),
     });
     witnessStack.push(result.witness);
@@ -368,7 +368,7 @@ export async function generateTestingIVCStack(
     };
   };
 
-  const commitments = ['0x1', '0x2'];
+  const commitments = Array.from({ length: MOCK_MAX_COMMITMENTS_PER_TX }, (_, i) => `0x${(i + 1).toString(16)}`);
   for (let i = 0; i < numCreatorAppCalls; i++) {
     const result = await witnessGenCreatorAppMockCircuit({ commitments_to_create: [commitments[i], '0x0'] });
     witnessStack.push(result.witness);
@@ -382,9 +382,20 @@ export async function generateTestingIVCStack(
     }
   }
 
+  if (add_flush) {
+    // Goblin App
+    const result = await witnessGenMockGoblinAppCircuit({ commitments_to_create: [commitments[0], '0x0'] });
+    witnessStack.push(result.witness);
+    bytecodes.push(MockGoblinAppCircuit.bytecode);
+    vks.push(MockGoblinAppVk.keyAsBytes);
+
+    // Goblin Kernel
+    await createGoblinKernel(result, MockGoblinAppVk.keyAsFields);
+  }
+
   let commitmentToReset: string[] = [];
   for (let i = 0; i < numReaderAppCalls; i++) {
-    const commitmentToRead = commitments[Math.min(i, numCreatorAppCalls) % 2];
+    const commitmentToRead = commitments[Math.min(i, numCreatorAppCalls) % MOCK_MAX_COMMITMENTS_PER_TX];
     const result = await witnessGenReaderAppMockCircuit({ commitments_to_read: [commitmentToRead, '0x0'] });
     witnessStack.push(result.witness);
     bytecodes.push(MockAppReaderCircuit.bytecode);
@@ -400,17 +411,6 @@ export async function generateTestingIVCStack(
       await createReset(commitmentToReset);
       commitmentToReset = [];
     }
-  }
-
-  if (add_flush) {
-    // Goblin App
-    const result = await witnessGenMockGoblinAppCircuit({ commitments_to_create: [commitments[0], '0x0'] });
-    witnessStack.push(result.witness);
-    bytecodes.push(MockGoblinAppCircuit.bytecode);
-    vks.push(MockGoblinAppVk.keyAsBytes);
-
-    // Goblin Kernel
-    await createGoblinKernel(result, MockGoblinAppVk.keyAsFields);
   }
 
   const tailWitnessGenResult = await witnessGenMockPrivateKernelTailCircuit({

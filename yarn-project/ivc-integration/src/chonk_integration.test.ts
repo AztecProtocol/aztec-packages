@@ -78,19 +78,6 @@ describe.each([BackendType.Wasm, BackendType.NativeUnixSocket])('Client IVC Inte
       expect(verified.valid).toBe(true);
     });
 
-    // Skip for Wasm — goblin flush runs ECCVM + Translator proving during circuit building,
-    // which exceeds WASM linear memory limits.
-    (backend === BackendType.NativeUnixSocket ? it : it.skip)(
-      'Should generate a verifiable client IVC proof with a goblin flush',
-      async () => {
-        const [bytecodes, witnessStack, , vks] = await generateTestingIVCStack(1, 0, true);
-        const ivcBackend = new AztecClientBackend(bytecodes, barretenberg);
-        const { proof, vk } = await ivcBackend.prove(witnessStack, vks);
-        const verified = await ivcBackend.verify(proof, vk);
-        expect(verified).toBe(true);
-      },
-    );
-
     it('Should generate an array of gate numbers for the stack of programs being proved by ClientIVC', async () => {
       // Create ACIR bytecodes
       const bytecodes = [
@@ -113,5 +100,29 @@ describe.each([BackendType.Wasm, BackendType.NativeUnixSocket])('Client IVC Inte
       // eyeball against logs to start... better is to make another test that actually pins the sizes since the mock protocol circuits are
       // intended not to change, though for sure there will be some friction, and such test should actually just be located in barretenberg/ts)
     });
+  });
+});
+
+describe('Client IVC Integration - Goblin Flush', () => {
+  let barretenberg: Barretenberg;
+
+  beforeAll(async () => {
+    barretenberg = await Barretenberg.initSingleton({
+      backend: BackendType.NativeUnixSocket,
+      threads: 16,
+      logger: (m: string) => logger.info(m),
+    });
+  });
+
+  afterAll(async () => {
+    await Barretenberg.destroySingleton();
+  });
+
+  it('Should generate a verifiable client IVC proof with a goblin flush and more than 17 kernels', async () => {
+    const [bytecodes, witnessStack, , vks] = await generateTestingIVCStack(19, 1, true);
+    const backend = new AztecClientBackend(bytecodes, barretenberg);
+    const { proof, vk } = await backend.prove(witnessStack, vks);
+    const verified = await backend.verify(proof, vk);
+    expect(verified).toBe(true);
   });
 });
