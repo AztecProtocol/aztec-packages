@@ -315,6 +315,7 @@ class ProofCompressor {
         walk_eccvm_proof(grumpkin_scalar, grumpkin_comm);
         walk_ipa_proof(grumpkin_scalar, grumpkin_comm);
         walk_joint_proof(bn254_scalar, bn254_comm);
+        walk_ipa_proof(grumpkin_scalar, grumpkin_comm);
     }
 
     // =========================================================================

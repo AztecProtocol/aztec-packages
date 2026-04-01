@@ -299,8 +299,9 @@ export function flattenChonkProofFields(proof: ChonkProof): Uint8Array[] {
     proof.hidingOinkProof,
     proof.mergeProof,
     proof.eccvmProof,
-    proof.ipaProof,
+    proof.eccvmIpaProof,
     proof.jointProof,
+    proof.ioIpaProof,
   ].flat();
 }
 

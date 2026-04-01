@@ -128,11 +128,15 @@ TEST_F(MockVerifierInputsTest, MockMegaHonkProofSize)
     HonkProof app_proof = create_mock_honk_proof<Flavor, stdlib::recursion::honk::AppIO>();
     EXPECT_EQ(app_proof.size(), HONK_LENGTH + stdlib::recursion::honk::AppIO::PUBLIC_INPUTS_SIZE);
 
+    // We need to correct the length of the proof to take into account the IPA proof
     HonkProof kernel_proof = create_mock_honk_proof<Flavor, stdlib::recursion::honk::KernelIO>();
-    EXPECT_EQ(kernel_proof.size(), HONK_LENGTH + stdlib::recursion::honk::KernelIO::PUBLIC_INPUTS_SIZE);
+    EXPECT_EQ(kernel_proof.size(),
+              HONK_LENGTH + stdlib::recursion::honk::KernelIO::PUBLIC_INPUTS_SIZE + IPA_PROOF_LENGTH);
 
+    // We need to correct the length of the proof to take into account the IPA proof
     HonkProof hiding_proof = create_mock_honk_proof<Flavor, stdlib::recursion::honk::HidingKernelIO<Builder>>();
-    EXPECT_EQ(hiding_proof.size(), HONK_LENGTH + stdlib::recursion::honk::HidingKernelIO<Builder>::PUBLIC_INPUTS_SIZE);
+    EXPECT_EQ(hiding_proof.size(),
+              HONK_LENGTH + stdlib::recursion::honk::HidingKernelIO<Builder>::PUBLIC_INPUTS_SIZE + IPA_PROOF_LENGTH);
 }
 
 /**
