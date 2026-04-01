@@ -6,6 +6,27 @@
 
 #include "barretenberg/serialize/msgpack_impl.hpp"
 
+#if defined(__linux__)
+#include <malloc.h>
+#endif
+
+namespace {
+
+size_t heap_allocated_mb()
+{
+#if defined(__linux__)
+    struct mallinfo2 info = mallinfo2();
+    return info.uordblks / (1024ULL * 1024ULL);
+#elif defined(__wasm__)
+    return 0;
+#else
+    // mallinfo2 is Linux-specific; fall back to peak RSS on other platforms
+    return peak_rss_bytes() / (1024ULL * 1024ULL);
+#endif
+}
+
+} // namespace
+
 namespace bb::detail {
 
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
@@ -13,15 +34,10 @@ bool use_memory_profile = false;
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 MemoryProfile GLOBAL_MEMORY_PROFILE;
 
-void MemoryProfile::add_rss_checkpoint(const std::string& stage)
+void MemoryProfile::add_checkpoint(const std::string& stage)
 {
     std::lock_guard<std::mutex> lock(mutex);
-#ifdef __wasm__
-    size_t rss_mb = 0;
-#else
-    size_t rss_mb = static_cast<size_t>(peak_rss_bytes() / (1024ULL * 1024ULL));
-#endif
-    rss_checkpoints.push_back(RssCheckpoint{ stage, current_circuit_index, current_circuit_name, rss_mb });
+    checkpoints.push_back(MemoryCheckpoint{ stage, current_circuit_index, current_circuit_name, heap_allocated_mb() });
 }
 
 void MemoryProfile::set_circuit_name(const std::string& name)
@@ -39,7 +55,7 @@ void MemoryProfile::next_circuit()
 void MemoryProfile::clear()
 {
     std::lock_guard<std::mutex> lock(mutex);
-    rss_checkpoints.clear();
+    checkpoints.clear();
     current_circuit_name.clear();
     current_circuit_index = 0;
 }
@@ -48,7 +64,7 @@ void MemoryProfile::serialize_json(std::ostream& os) const
 {
     // Use msgpack round-trip to produce JSON (same pattern as bb_bench.cpp)
     msgpack::sbuffer buffer;
-    msgpack::pack(buffer, rss_checkpoints);
+    msgpack::pack(buffer, checkpoints);
     msgpack::object_handle oh = msgpack::unpack(buffer.data(), buffer.size());
     os << oh.get() << std::endl;
 }
