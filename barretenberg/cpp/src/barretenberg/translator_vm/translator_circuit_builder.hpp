@@ -359,14 +359,9 @@ class TranslatorCircuitBuilder : public CircuitBuilderBase<bb::fr> {
 
     TranslatorCircuitBuilder() = default;
     TranslatorCircuitBuilder(const TranslatorCircuitBuilder& other) = delete;
-    TranslatorCircuitBuilder(TranslatorCircuitBuilder&& other) noexcept
-        : CircuitBuilderBase(std::move(other)) {};
+    TranslatorCircuitBuilder(TranslatorCircuitBuilder&& other) = delete;
     TranslatorCircuitBuilder& operator=(const TranslatorCircuitBuilder& other) = delete;
-    TranslatorCircuitBuilder& operator=(TranslatorCircuitBuilder&& other) noexcept
-    {
-        CircuitBuilderBase::operator=(std::move(other));
-        return *this;
-    };
+    TranslatorCircuitBuilder& operator=(TranslatorCircuitBuilder&& other) = delete;
     ~TranslatorCircuitBuilder() override = default;
 
     /**

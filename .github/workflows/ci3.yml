@@ -161,6 +161,27 @@ jobs:
           fail-on-alert: false
           max-items-in-chart: 100
 
+  # Validates that a nightly tag's embedded date matches today's UTC date.
+  # Prevents stale or replayed nightly tags from triggering scenario tests.
+  validate-nightly-tag:
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v') && contains(github.ref_name, '-nightly.')
+    outputs:
+      is_current: ${{ steps.check.outputs.is_current }}
+    steps:
+      - name: Check nightly tag date matches today (UTC)
+        id: check
+        run: |
+          tag_date=$(echo "${{ github.ref_name }}" | grep -oP '(?<=-nightly\.)\d{8}')
+          today_utc=$(date -u +%Y%m%d)
+          echo "Tag date: $tag_date"
+          echo "Today (UTC): $today_utc"
+          if [[ "$tag_date" == "$today_utc" ]]; then
+            echo "is_current=true" >> $GITHUB_OUTPUT
+          else
+            echo "::warning::Nightly tag date ($tag_date) does not match today's UTC date ($today_utc). Skipping scenario tests."
+          fi
+
   # End-to-end tests that target a network deployment.
   # We run this every release (at minimum, nightly), or when explicitly requested.
   # This task runs against a real testnet deployment. This uses resources on GCP (not AWS, thank free credit incentives).
@@ -174,9 +195,17 @@ jobs:
       fail-fast: false
       matrix:
         test_set: ["1", "2"]
-    # We run on nightly tags only, or when the ci-network-scenario label is present in a PR.
-    needs: ci
-    if: github.event.pull_request.head.repo.fork != true && github.event.pull_request.draft == false && ((startsWith(github.ref, 'refs/tags/v') && contains(github.ref_name, '-nightly.')) || contains(github.event.pull_request.labels.*.name, 'ci-network-scenario'))
+    # We run on current nightly tags only, or when the ci-network-scenario label is present in a PR.
+    needs: [ci, validate-nightly-tag]
+    if: |
+      always()
+      && (needs.ci.result == 'success' || needs.ci.result == 'skipped')
+      && github.event.pull_request.head.repo.fork != true
+      && github.event.pull_request.draft == false
+      && (
+        needs.validate-nightly-tag.outputs.is_current == 'true'
+        || contains(github.event.pull_request.labels.*.name, 'ci-network-scenario')
+      )
     steps:
       - name: Remove label (one-time use)
         if: github.event.pull_request && contains(github.event.pull_request.labels.*.name, 'ci-network-scenario')

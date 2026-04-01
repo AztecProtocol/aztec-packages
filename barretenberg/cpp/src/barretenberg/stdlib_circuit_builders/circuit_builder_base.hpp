@@ -127,9 +127,9 @@ template <typename FF_> class CircuitBuilderBase {
     CircuitBuilderBase(bool is_write_vk_mode = false);
 
     CircuitBuilderBase(const CircuitBuilderBase& other) = default;
-    CircuitBuilderBase(CircuitBuilderBase&& other) noexcept = default;
+    CircuitBuilderBase(CircuitBuilderBase&& other) = delete;
     CircuitBuilderBase& operator=(const CircuitBuilderBase& other) = default;
-    CircuitBuilderBase& operator=(CircuitBuilderBase&& other) noexcept = default;
+    CircuitBuilderBase& operator=(CircuitBuilderBase&& other) = delete;
     virtual ~CircuitBuilderBase() = default;
 
     bool operator==(const CircuitBuilderBase& other) const = default;
@@ -143,7 +143,7 @@ template <typename FF_> class CircuitBuilderBase {
     // Increment the gate count by the specified amount
     void increment_num_gates(size_t count = 1)
     {
-        BB_ASSERT_DEBUG(!circuit_finalized, "Cannot add gates after circuit is finalized");
+        BB_ASSERT(!circuit_finalized, "Cannot add gates after circuit is finalized");
         _num_gates += count;
     }
 

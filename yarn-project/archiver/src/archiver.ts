@@ -19,7 +19,7 @@ import {
   type L2Tips,
   type ValidateCheckpointResult,
 } from '@aztec/stdlib/block';
-import { PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
+import { type ProposedCheckpointInput, PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 import {
   type L1RollupConstants,
   getEpochAtSlot,
@@ -207,6 +207,10 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
         this.log.error(`Sync immediate call failed: ${err}`);
       });
     });
+  }
+
+  public async setProposedCheckpoint(pending: ProposedCheckpointInput): Promise<void> {
+    await this.updater.setProposedCheckpoint(pending);
   }
 
   /**
@@ -486,7 +490,10 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
     await this.store.rollbackL1ToL2MessagesToCheckpoint(targetCheckpointNumber);
     this.log.info(`Setting L1 syncpoints to ${targetL1BlockNumber}`);
     await this.store.setCheckpointSynchedL1BlockNumber(targetL1BlockNumber);
-    await this.store.setMessageSynchedL1Block({ l1BlockNumber: targetL1BlockNumber, l1BlockHash: targetL1BlockHash });
+    await this.store.setMessageSyncState(
+      { l1BlockNumber: targetL1BlockNumber, l1BlockHash: targetL1BlockHash },
+      undefined,
+    );
     if (targetL2BlockNumber < currentProvenBlock) {
       this.log.info(`Rolling back proven L2 checkpoint to ${targetCheckpointNumber}`);
       await this.updater.setProvenCheckpointNumber(targetCheckpointNumber);
