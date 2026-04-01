@@ -312,6 +312,20 @@ void BytecodeTraceBuilder::process_retrieval(
     trace.invert_columns({ { C::bc_retrieval_remaining_bytecodes_inv } });
 }
 
+/**
+ * @brief Process instruction fetching events and populate the relevant columns in the trace.
+ *  Corresponds to instr_fetching.pil.
+ *
+ * Uses a single row per event. Note that events are already deduplicated by simulation (see See
+ * InstructionFetchingEvent and DeduplicatingEventEmitter used in simulate_for_witgen), so no further
+ * deduplication is performed here.
+ *
+ * This function does not perform any error detection itself; all error classification has
+ * already been done in simulation so we simply read directly from the event's error field.
+ *
+ * @param events The container of instruction fetching events to process.
+ * @param trace The trace container.
+ */
 void BytecodeTraceBuilder::process_instruction_fetching(
     const simulation::EventEmitterInterface<simulation::InstructionFetchingEvent>::Container& events,
     TraceContainer& trace)
@@ -323,7 +337,7 @@ void BytecodeTraceBuilder::process_instruction_fetching(
     using simulation::InstrDeserializationEventError::TAG_OUT_OF_RANGE;
 
     // We start from row 1 because we need a row of zeroes for the shifts.
-    uint32_t row = 1;
+    uint32_t row = 1; // TODO(MW): do we? Are there any shifts here?
 
     for (const auto& event : events) {
         const auto bytecode_id = event.bytecode_id;
@@ -332,6 +346,7 @@ void BytecodeTraceBuilder::process_instruction_fetching(
         const bool parsing_error_non_tag = event.error == PC_OUT_OF_RANGE || event.error == OPCODE_OUT_OF_RANGE ||
                                            event.error == INSTRUCTION_OUT_OF_RANGE;
 
+        // TODO(MW): rework and document
         auto get_operand = [&](size_t i) -> FF {
             return i < event.instruction.operands.size() && !parsing_error_non_tag
                        ? static_cast<FF>(event.instruction.operands[i])

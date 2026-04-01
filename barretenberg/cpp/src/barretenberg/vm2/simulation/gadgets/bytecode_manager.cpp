@@ -147,11 +147,47 @@ BytecodeId TxBytecodeManager::get_bytecode(const AztecAddress& address)
     return bytecode_id;
 }
 
+/**
+ * @brief Reads and deserializes the instruction given by the pair [ @p bytecode_id, @p pc ]. Corresponds to
+ *  instr_fetching.pil.
+ *
+ *  Overloaded helper fn which looks up the bytecode data by bytecode_id and delegates to
+ *  read_instruction(bytecode_id, bytecode_ptr, pc) below.
+ *
+ * @throws InstructionFetchingError if any parse error is detected (see below).
+ * @param bytecode_id The bytecode identifier (public bytecode commitment).
+ * @param pc The program counter.
+ * @return The deserialized instruction.
+ */
 Instruction TxBytecodeManager::read_instruction(const BytecodeId& bytecode_id, PC pc)
 {
     return read_instruction(bytecode_id, get_bytecode_data(bytecode_id), pc);
 }
 
+/**
+ * @brief Reads and deserializes the instruction given by the pair [ @p bytecode_id, @p pc ] and emits an
+ * InstructionFetchingEvent. Corresponds to the subtrace instr_fetching.pil.
+ *
+ * Attempts to deserialize the instruction at @p pc in the provided bytecode @p bytecode_ptr and check its tag
+ * operand (if any). If any parsing error occurs (see below), the event is still emitted with the error.
+ *
+ * @throws InstructionFetchingError if any parse error is detected:
+ *          - PC_OUT_OF_RANGE (pc_out_of_range column): thrown by deserialize_instruction() if pc >= bytecode.size().
+ *          - OPCODE_OUT_OF_RANGE (opcode_out_of_range column): thrown by deserialize_instruction() if the opcode byte
+ *            does not correspond to a valid wire opcode.
+ *          - INSTRUCTION_OUT_OF_RANGE (instr_out_of_range column): thrown by deserialize_instruction() if
+ *            instruction_size > bytes_to_read from the bytecode.
+ *          - TAG_OUT_OF_RANGE (tag_out_of_range column): if the instruction has a tag operand which does not correspond
+ *            to a valid memory tag i.e. when the operand value > MemoryTag::MAX, as determined by check_tag().
+ *
+ * Note that only one parsing error can occur for each event with heirarchy in the order above. This disjointedness is
+ * enforced in the circuit. See deserialize_instruction() and instr_fetching.pil for more detailed error information.
+ *
+ * @param bytecode_id The bytecode identifier (public bytecode commitment).
+ * @param bytecode_ptr Shared pointer to the raw bytecode bytes.
+ * @param pc The program counter.
+ * @return The deserialized instruction.
+ */
 Instruction TxBytecodeManager::read_instruction(const BytecodeId& bytecode_id,
                                                 std::shared_ptr<std::vector<uint8_t>> bytecode_ptr,
                                                 PC pc)
@@ -159,6 +195,7 @@ Instruction TxBytecodeManager::read_instruction(const BytecodeId& bytecode_id,
     BB_BENCH_NAME("TxBytecodeManager::read_instruction");
 
     // We'll be filling in the event as we progress.
+    // TODO(MW): don't fill event incrementally
     InstructionFetchingEvent instr_fetching_event;
 
     instr_fetching_event.bytecode_id = bytecode_id;
@@ -178,16 +215,20 @@ Instruction TxBytecodeManager::read_instruction(const BytecodeId& bytecode_id,
             instr_fetching_event.error = InstrDeserializationEventError::TAG_OUT_OF_RANGE;
         };
     } catch (const InstrDeserializationError& error) {
+        // Assign the error type. Note that we do not assign any part of the instruction (which may exist for some
+        // errors). This matches circuit behaviour (see #[OP1..7_BYTES_DECOMPOSITION] relations).
         instr_fetching_event.error = error.type;
     }
 
+    // TODO(MW): explore empty bytecode, document
     // We are showing whether bytecode_size > pc or not. If there is no fetching error,
     // we always have bytecode_size > pc.
     const auto bytecode_size = bytecode.size();
     const uint128_t pc_diff = bytecode_size > pc ? bytecode_size - pc - 1 : pc - bytecode_size;
+    // Emits RangeCheckEvent, see #[INSTR_ABS_DIFF_POSITIVE] in instr_fetching.pil.
     range_check.assert_range(pc_diff, AVM_PC_SIZE_IN_BITS);
 
-    // The event will be deduplicated internally.
+    // The event will be deduplicated internally (see DeduplicatingEventEmitter used in simulate_for_witgen).
     fetching_events.emit(InstructionFetchingEvent(instr_fetching_event));
 
     // Communicate error to the caller.

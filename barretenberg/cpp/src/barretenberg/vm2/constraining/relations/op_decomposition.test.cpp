@@ -25,7 +25,7 @@ into the operands of the opcode as defined by WireOpCode_WIRE_FORMAT.
 Example: op4 = sel_op_dc_0 * (bd9 * 2**8 + bd10 * 2**0) + sel_op_dc_4 * (bd8 * 2**8 + bd9 * 2**0) + sel_op_dc_7 * (bd8 *
 2**0);
 
-We have 8 operands: indirect, op1, op2, op3, op4, op5, op6, op7
+We have 8 operands: addressing_mode, op1, op2, op3, op4, op5, op6, op7
 Bytes of bytecode are denoted: bd0, bd1, bd2, bd3, ...., bd37 where bd0 is the
 opcode and never appears in the above pil relation as it is trivially not an operand.
 
@@ -47,7 +47,7 @@ Example SET_128: { OperandType::INDIRECT8, OperandType::UINT16, OperandType::TAG
 The algorithm consists in processing WireOpCode_WIRE_FORMAT and map every combination
 [op_idx, op_layout] to a subset of opcodes. Continuing example above, SET_128 opcode
 would be present in the subsets indexed by the following [op_idx, op_layout] triples:
-[indirect, {0,1}]
+[addressing_mode, {0,1}]
 [op1, {1,2}]
 [op2, {3,1}]
 [op3, {4,16}]
@@ -79,6 +79,7 @@ constexpr std::string BYTE_PREFIX = "bd";
 constexpr std::string SELECTOR_PREFIX = "sel_op_dc_";
 
 constexpr size_t NUM_OF_OPERANDS = 8; // Need 8 to cover ECADD
+// TODO: does ^ this mean if we remove is_inf, this can be reduced?
 
 struct OperandLayout {
     uint8_t offset = 0;

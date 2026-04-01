@@ -13,7 +13,6 @@
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/common/serialize.hpp"
-#include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/vm2/common/addressing.hpp"
 #include "barretenberg/vm2/common/instruction_spec.hpp"
 #include "barretenberg/vm2/common/opcodes.hpp"
@@ -230,6 +229,26 @@ bool is_wire_opcode_valid(uint8_t w_opcode)
 
 } // namespace
 
+/**
+ * @brief Attempts to deserialize the instruction at position @p pos in bytecode. Called by
+ * bytecode managers during instruction fetching to extract and check for parse errors.
+ *
+ * If no error is thrown, reads the opcode byte at @p pos, then deserializes each operand in
+ * the order defined by the wire format for that opcode (from get_wire_opcode_wire_format()).
+ * The addressing mode (INDIRECT8 or INDIRECT16 operand type) is extracted separately and
+ * not included in the returned operands vector.
+ *
+ * @throws InstrDeserializationError if:
+ *           - PC_OUT_OF_RANGE: pos >= bytecode.size(), thrown immediately.
+ *           - OPCODE_OUT_OF_RANGE: the byte at bytecode[pos] does not map to a valid wire opcode i.e. the byte >
+ *             WireOpCode::LAST_OPCODE_SENTINEL.
+ *           - INSTRUCTION_OUT_OF_RANGE: pos + instruction_size > bytecode.size(), i.e. the instruction body is
+ *             truncated, where the size is gathered from the wire specification table (get_wire_instruction_spec(),
+ *             corresponds to instr_size looked up in #[WIRE_INSTRUCTION_INFO] in instr_fetching.pil).
+ * @param bytecode The raw bytecode bytes.
+ * @param pos The program counter (pc) to start at.
+ * @return The deserialized instruction.
+ */
 Instruction deserialize_instruction(std::span<const uint8_t> bytecode, size_t pos)
 {
     const auto bytecode_length = bytecode.size();
@@ -263,6 +282,7 @@ Instruction deserialize_instruction(std::span<const uint8_t> bytecode, size_t po
 
     // We know we will encounter a parsing error, but continue processing because
     // we need the partial instruction to be parsed for witness generation.
+    // TODO(MW): ^ looks like this is no longer true?
     if (pos + instruction_size > bytecode_length) {
         std::string error_msg = format("Instruction at PC ",
                                        pos,
@@ -275,7 +295,7 @@ Instruction deserialize_instruction(std::span<const uint8_t> bytecode, size_t po
         throw InstrDeserializationError(InstrDeserializationEventError::INSTRUCTION_OUT_OF_RANGE, error_msg);
     }
 
-    pos++; // move after opcode byte
+    pos++; // move after opcode byte // TODO(MW): check
 
     uint16_t addressing_mode = 0;
     std::vector<Operand> operands;
@@ -428,8 +448,32 @@ std::vector<uint8_t> Instruction::serialize() const
     return output;
 }
 
+/**
+ * @brief Checks whether the tag operand of an @p instruction is a valid MemoryTag. Called by
+ * bytecode managers during instruction fetching to check tag operands.
+ *
+ * Reads the wire format for the instruction's opcode (from get_wire_opcode_wire_format()) and looks for a tag operand.
+ * Instructions with no tags return true unconditionally (corresponding to sel_has_tag = 0 in instr_fetching.pil, where
+ * tag validation is skipped). Otherwise we check:
+ *    - The operands vector is too small to contain the tag.
+ *    - The operand cannot be cast to a uint8.
+ *    - The operand value > MemoryTag::MAX.
+ * If any of these checks fail, we return false. These are not treated as errors here; that is delegated
+ * to the bytecode manager, which handles them as TAG_OUT_OF_RANGE errors (tag_out_of_range in instr_fetching.pil).
+ *
+ * @param instruction The deserialized instruction to validate.
+ * @return true if the tag operand is valid or absent, false otherwise.
+ */
 bool check_tag(const Instruction& instruction)
 {
+    // TODO(MW): check_tag is only called after deserialize_instruction which checks the below, needed?
+    // May be a footgun since check_tag returning false means the TAG_OUT_OF_RANGE error is set in simulation
+    // but the below actually corresponds to OPCODE_OUT_OF_RANGE.
+    // Claude says:
+    //  *  Note: the LAST_OPCODE_SENTINEL guard at the top is defensive — in practice this function is
+    //  *  only called after deserialize_instruction() which already rejects invalid opcodes. Setting
+    //  *  tag_out_of_range via an invalid opcode path would be inconsistent with the circuit hierarchy
+    //  *  (opcode_out_of_range takes priority). See TODO in the implementation.
     if (instruction.opcode == WireOpCode::LAST_OPCODE_SENTINEL) {
         vinfo("Instruction does not contain a valid wire opcode.");
         return false;

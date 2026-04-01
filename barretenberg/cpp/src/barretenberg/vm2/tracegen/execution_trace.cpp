@@ -772,6 +772,7 @@ void ExecutionTraceBuilder::process(
     invert_columns(trace);
 }
 
+// TODO(MW): document
 void ExecutionTraceBuilder::process_instr_fetching(const simulation::Instruction& instruction,
                                                    TraceContainer& trace,
                                                    uint32_t row)
@@ -779,7 +780,7 @@ void ExecutionTraceBuilder::process_instr_fetching(const simulation::Instruction
     trace.set(row,
               { {
                   { C::execution_sel_instruction_fetching_success, 1 },
-                  { C::execution_ex_opcode, static_cast<uint8_t>(instruction.get_exec_opcode()) },
+                  { C::execution_exec_opcode, static_cast<uint8_t>(instruction.get_exec_opcode()) },
                   { C::execution_addressing_mode, instruction.addressing_mode },
                   { C::execution_instr_length, instruction.size_in_bytes() },
               } });
