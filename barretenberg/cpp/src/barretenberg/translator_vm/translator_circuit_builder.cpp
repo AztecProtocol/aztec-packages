@@ -536,6 +536,10 @@ void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(const std::shared_
     for (size_t i = ops_end; i < ultra_ops.size(); ++i) {
         process_random_op(ultra_ops[i]);
     }
+
+    // The Translator uses a strict 2-row trace structure (even=computation, odd=transfer).
+    // An odd gate count would shift the entire witness layout, corrupting all relations.
+    BB_ASSERT(num_gates() % 2 == 0, "Translator circuit gate count must be even for 2-row trace structure");
 }
 std::array<TranslatorCircuitBuilder::Fr, TranslatorCircuitBuilder::NUM_MICRO_LIMBS> TranslatorCircuitBuilder::
     split_limb_into_microlimbs(const Fr& limb, size_t num_bits)
