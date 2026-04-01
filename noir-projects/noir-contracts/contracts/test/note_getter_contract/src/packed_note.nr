@@ -31,12 +31,10 @@ impl Packable for PackedNote {
 }
 
 impl PackedNote {
-    /// PropertySelector for the `high` sub-field: second-least significant byte.
     pub fn high_selector() -> PropertySelector {
         PropertySelector { index: 0, offset: 1, length: 1 }
     }
 
-    /// PropertySelector for the `low` sub-field: least significant byte.
     pub fn low_selector() -> PropertySelector {
         PropertySelector { index: 0, offset: 0, length: 1 }
     }
