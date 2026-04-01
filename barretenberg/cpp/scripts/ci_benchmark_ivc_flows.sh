@@ -141,9 +141,9 @@ EOF
     python3 scripts/extract_component_benchmarks.py "$output" "$name_path"
   fi
 
-  # Extract memory breakdown metrics if available
+  # Extract memory profile metrics if available
   if [[ -f "$output/memory_profile.json" ]]; then
-    echo "Extracting memory breakdown metrics..."
+    echo "Extracting memory profile metrics..."
     python3 scripts/extract_memory_benchmarks.py "$output" "$name_path"
   fi
 }
@@ -186,7 +186,7 @@ if [[ "${CI:-}" == "1" ]] && [[ "${CI_USE_BUILD_INSTANCE_KEY:-0}" == "1" ]]; the
     echo "Warning: benchmark breakdown file not found at $benchmark_breakdown_file"
   fi
 
-  # Upload memory breakdown to S3
+  # Upload memory profile to S3
   memory_profile_file="bench-out/app-proving/$flow_name/$runtime/memory_profile.json"
   if [[ -f "$memory_profile_file" ]]; then
     tmp_memory_file="/tmp/memory_profile_${runtime}_${flow_name}_$$.json"
@@ -196,6 +196,6 @@ if [[ "${CI:-}" == "1" ]] && [[ "${CI_USE_BUILD_INSTANCE_KEY:-0}" == "1" ]]; the
       cat "$tmp_memory_file" | gzip | cache_s3_transfer_to "bench/bb-breakdown" "$memory_disk_key"
       rm -f "$tmp_memory_file"
     } &
-    echo "Uploaded memory breakdown to S3: bench/bb-breakdown/$memory_disk_key"
+    echo "Uploaded memory profile to S3: bench/bb-breakdown/$memory_disk_key"
   fi
 fi

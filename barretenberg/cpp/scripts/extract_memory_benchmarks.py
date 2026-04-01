@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Extracts memory breakdown metrics from a memory profile JSON and appends
+"""Extracts memory profile metrics from a memory profile JSON and appends
 them to the benchmark JSON file as dashboard entries.
 
 Usage: extract_memory_benchmarks.py <output_dir> <name_path>
@@ -56,6 +56,6 @@ try:
     with open(f"{output_dir}/benchmarks.bench.json", "w") as f:
         json.dump(existing, f, indent=2)
 
-    print(f"Extracted {len(entries)} memory breakdown metrics")
+    print(f"Extracted {len(entries)} memory profile metrics")
 except Exception as e:
-    print(f"Warning: Could not extract memory breakdown: {e}", file=sys.stderr)
+    print(f"Warning: Could not extract memory profile: {e}", file=sys.stderr)

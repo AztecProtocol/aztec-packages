@@ -177,7 +177,7 @@ cd barretenberg/cpp
   --ivc_inputs_path <path-to>/ivc-inputs.msgpack \
   -o /tmp/proof-out \
   -v \
-  --memory_profile_out /tmp/proof-out/memory_breakdown.json
+  --memory_profile_out /tmp/proof-out/memory_profile.json
 ```
 
 The extraction script converts the JSON into dashboard-friendly benchmark entries:
