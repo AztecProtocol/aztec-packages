@@ -1,5 +1,8 @@
 #include "memory_profile.hpp"
+
+#ifndef __wasm__
 #include "barretenberg/env/logstr.hpp"
+#endif
 
 #include "barretenberg/serialize/msgpack_impl.hpp"
 
@@ -13,8 +16,12 @@ MemoryProfile GLOBAL_MEMORY_PROFILE;
 void MemoryProfile::add_rss_checkpoint(const std::string& stage)
 {
     std::lock_guard<std::mutex> lock(mutex);
-    rss_checkpoints.push_back(
-        RssCheckpoint{ stage, current_circuit_index, current_circuit_name, peak_rss_bytes() / (1024ULL * 1024ULL) });
+#ifdef __wasm__
+    size_t rss_mb = 0;
+#else
+    size_t rss_mb = static_cast<size_t>(peak_rss_bytes() / (1024ULL * 1024ULL));
+#endif
+    rss_checkpoints.push_back(RssCheckpoint{ stage, current_circuit_index, current_circuit_name, rss_mb });
 }
 
 void MemoryProfile::set_circuit_name(const std::string& name)
