@@ -40,7 +40,7 @@ try:
         circuit_name = cp.get("circuit_name", "")
         idx = cp["circuit_index"]
         stage = STAGE_ORDER.get(cp["stage"], cp["stage"])
-        label = f"{idx:02d}_{circuit_name}/{stage}" if circuit_name else f"{idx:02d}/{stage}"
+        label = f"{idx:02d}_{circuit_name}_{stage}" if circuit_name else f"{idx:02d}_{stage}"
         entries.append({
             "name": f"{name_path}/{label}",
             "unit": "MB",
