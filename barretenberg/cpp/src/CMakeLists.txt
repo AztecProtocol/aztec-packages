@@ -49,7 +49,7 @@ if(WASM)
     set(CMAKE_C_FLAGS_DEBUG "-O1 -g")
     set(CMAKE_CXX_FLAGS_RELEASE "-Oz -DNDEBUG")
     set(CMAKE_C_FLAGS_RELEASE "-Oz -DNDEBUG")
-    add_link_options(-Wl,--export-memory,--import-memory,--stack-first,-z,stack-size=8388608,--max-memory=4294967296)
+    add_link_options(-Wl,--export-memory,--import-memory,--stack-first,-z,stack-size=2097152,--max-memory=4294967296)
 endif()
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR} ${MSGPACK_INCLUDE} ${TRACY_INCLUDE} ${LMDB_INCLUDE} ${LIBDEFLATE_INCLUDE} ${HTTPLIB_INCLUDE} ${BACKWARD_INCLUDE} ${NLOHMANN_JSON_INCLUDE})

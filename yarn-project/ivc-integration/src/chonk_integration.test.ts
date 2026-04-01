@@ -119,7 +119,7 @@ describe.each([BackendType.Wasm, BackendType.NativeUnixSocket])('Client IVC Inte
   });
 
   it('Should generate a verifiable client IVC proof with a goblin flush and more than 17 kernels', async () => {
-    const [bytecodes, witnessStack, , vks] = await generateTestingIVCStack(19, 1, true);
+    const [bytecodes, witnessStack, , vks] = await generateTestingIVCStack(19, 5, true);
     const backend = new AztecClientBackend(bytecodes, barretenberg);
     const { proof, vk } = await backend.prove(witnessStack, vks);
     const verified = await backend.verify(proof, vk);
