@@ -42,13 +42,18 @@ export class LightweightCheckpointBuilder {
   private blocks: L2Block[] = [];
   private blobFields: Fr[] = [];
 
+  /** Replaces the database used for subsequent block builds. */
+  setDb(db: MerkleTreeWriteOperations): void {
+    this.db = db;
+  }
+
   constructor(
     public readonly checkpointNumber: CheckpointNumber,
     public readonly constants: CheckpointGlobalVariables,
     public feeAssetPriceModifier: bigint,
     public readonly l1ToL2Messages: Fr[],
     private readonly previousCheckpointOutHashes: Fr[],
-    public db: MerkleTreeWriteOperations,
+    private db: MerkleTreeWriteOperations,
     bindings?: LoggerBindings,
   ) {
     this.logger = createLogger('checkpoint-builder', {

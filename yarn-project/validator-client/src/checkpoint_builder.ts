@@ -64,7 +64,7 @@ export class CheckpointBuilder implements ICheckpointBlockBuilder {
   public async setFork(fork: MerkleTreeWriteOperations): Promise<void> {
     await this.fork.close();
     this.fork = fork;
-    this.checkpointBuilder.db = fork;
+    this.checkpointBuilder.setDb(fork);
   }
 
   constructor(

@@ -2106,5 +2106,155 @@ describe('NativeWorldState', () => {
 
       callSpy.mockRestore();
     });
+
+    it('unwind correctly reverses state committed via commit_fork', async () => {
+      // Commit 4 blocks via COMMIT_FORK
+      const treeInfosAfterBlock: Awaited<ReturnType<MerkleTreeWriteOperations['getTreeInfo']>>[] = [];
+
+      for (let i = 1; i <= 4; i++) {
+        const fork = await ws.fork();
+        const { block, messages } = await mockBlock(BlockNumber(i), 1, fork);
+        ws.registerForkForBlock(block.archive.root, fork.forkId);
+        await ws.handleL2BlockAndMessages(block, messages);
+        treeInfosAfterBlock.push(await ws.getCommitted().getTreeInfo(MerkleTreeId.NULLIFIER_TREE));
+      }
+
+      expect((await ws.getStatusSummary()).unfinalizedBlockNumber).toBe(4);
+
+      // Unwind back to block 2
+      const unwindStatus = await ws.unwindBlocks(BlockNumber(2));
+      expect(unwindStatus.summary.unfinalizedBlockNumber).toBe(2);
+
+      // State matches what it was after block 2
+      const treeInfoAfterUnwind = await ws.getCommitted().getTreeInfo(MerkleTreeId.NULLIFIER_TREE);
+      expect(treeInfoAfterUnwind).toEqual(treeInfosAfterBlock[1]);
+
+      // Can build and commit new blocks on top of the unwound state
+      const fork = await ws.fork();
+      const { block, messages } = await mockBlock(BlockNumber(3), 1, fork);
+      ws.registerForkForBlock(block.archive.root, fork.forkId);
+      await ws.handleL2BlockAndMessages(block, messages);
+      expect((await ws.getStatusSummary()).unfinalizedBlockNumber).toBe(3);
+    });
+
+    it('falls back to SYNC_BLOCK when COMMIT_FORK fails (fork deleted before commit)', async () => {
+      const fork = await ws.fork();
+      const { block, messages } = await mockBlock(BlockNumber(1), 1, fork);
+
+      ws.registerForkForBlock(block.archive.root, fork.forkId);
+      await fork.close();
+
+      const instance = (ws as any).instance;
+      const callSpy = jest.spyOn(instance, 'call');
+
+      await ws.handleL2BlockAndMessages(block, messages);
+
+      const messageTypes = callSpy.mock.calls.map(call => call[0]);
+      expect(messageTypes).toContain(WorldStateMessageType.COMMIT_FORK);
+      expect(messageTypes).toContain(WorldStateMessageType.SYNC_BLOCK);
+
+      const status = await ws.getStatusSummary();
+      expect(status.unfinalizedBlockNumber).toEqual(1);
+
+      callSpy.mockRestore();
+    });
+
+    it('registered fork is not used after unwindBlocks', async () => {
+      // Commit block 1
+      const fork1 = await ws.fork();
+      const { block: block1, messages: messages1 } = await mockBlock(BlockNumber(1), 1, fork1);
+      ws.registerForkForBlock(block1.archive.root, fork1.forkId);
+      await ws.handleL2BlockAndMessages(block1, messages1);
+
+      // Register fork for block 2 but don't sync it
+      const fork2 = await ws.fork();
+      const { block: block2 } = await mockBlock(BlockNumber(2), 1, fork2);
+      ws.registerForkForBlock(block2.archive.root, fork2.forkId);
+
+      // Unwind to genesis
+      await ws.unwindBlocks(BlockNumber(0));
+
+      // Build a new block 1 with different content
+      const fork3 = await ws.fork();
+      const { block: newBlock1, messages: newMessages1 } = await mockBlock(BlockNumber(1), 2, fork3);
+      await fork3.close();
+
+      const instance = (ws as any).instance;
+      const callSpy = jest.spyOn(instance, 'call');
+
+      await ws.handleL2BlockAndMessages(newBlock1, newMessages1);
+
+      const messageTypes = callSpy.mock.calls.map(call => call[0]);
+      expect(messageTypes).toContain(WorldStateMessageType.SYNC_BLOCK);
+      expect(messageTypes).not.toContain(WorldStateMessageType.COMMIT_FORK);
+      expect((await ws.getStatusSummary()).unfinalizedBlockNumber).toEqual(1);
+
+      callSpy.mockRestore();
+    });
+
+    it('commits an empty block via COMMIT_FORK', async () => {
+      const fork = await ws.fork();
+      const { block, messages } = await mockEmptyBlock(BlockNumber(1), fork);
+
+      ws.registerForkForBlock(block.archive.root, fork.forkId);
+
+      const instance = (ws as any).instance;
+      const callSpy = jest.spyOn(instance, 'call');
+
+      await ws.handleL2BlockAndMessages(block, messages);
+
+      const messageTypes = callSpy.mock.calls.map(call => call[0]);
+      expect(messageTypes).toContain(WorldStateMessageType.COMMIT_FORK);
+      expect(messageTypes).not.toContain(WorldStateMessageType.SYNC_BLOCK);
+      expect((await ws.getStatusSummary()).unfinalizedBlockNumber).toEqual(1);
+
+      callSpy.mockRestore();
+    });
+
+    it('COMMIT_FORK produces the same state as SYNC_BLOCK', async () => {
+      // Instance A: commit via COMMIT_FORK
+      const wsA = await NativeWorldStateService.tmp();
+      const forkA = await wsA.fork();
+      const { block, messages } = await mockBlock(BlockNumber(1), 1, forkA);
+      wsA.registerForkForBlock(block.archive.root, forkA.forkId);
+      await wsA.handleL2BlockAndMessages(block, messages);
+
+      // Instance B: commit via SYNC_BLOCK (no fork registration)
+      const wsB = await NativeWorldStateService.tmp();
+      await wsB.handleL2BlockAndMessages(block, messages);
+
+      // State references must be identical
+      const stateRefA = await wsA.getCommitted().getStateReference();
+      const stateRefB = await wsB.getCommitted().getStateReference();
+      expect(stateRefA).toEqual(stateRefB);
+
+      const archiveA = await wsA.getCommitted().getTreeInfo(MerkleTreeId.ARCHIVE);
+      const archiveB = await wsB.getCommitted().getTreeInfo(MerkleTreeId.ARCHIVE);
+      expect(archiveA).toEqual(archiveB);
+
+      await wsA.close();
+      await wsB.close();
+    });
+
+    it('commits 5 sequential blocks via COMMIT_FORK (proposer flow)', async () => {
+      const blockCount = 5;
+      const instance = (ws as any).instance;
+      const callSpy = jest.spyOn(instance, 'call');
+
+      for (let i = 0; i < blockCount; i++) {
+        const fork = await ws.fork();
+        const { block, messages } = await mockBlock(BlockNumber(i + 1), 1, fork);
+        ws.registerForkForBlock(block.archive.root, fork.forkId);
+        await ws.handleL2BlockAndMessages(block, messages);
+      }
+
+      const messageTypes = callSpy.mock.calls.map(call => call[0]);
+      expect(messageTypes.filter(t => t === WorldStateMessageType.CREATE_FORK)).toHaveLength(blockCount);
+      expect(messageTypes.filter(t => t === WorldStateMessageType.COMMIT_FORK)).toHaveLength(blockCount);
+      expect(messageTypes.filter(t => t === WorldStateMessageType.SYNC_BLOCK)).toHaveLength(0);
+      expect((await ws.getStatusSummary()).unfinalizedBlockNumber).toEqual(blockCount);
+
+      callSpy.mockRestore();
+    });
   });
 });
