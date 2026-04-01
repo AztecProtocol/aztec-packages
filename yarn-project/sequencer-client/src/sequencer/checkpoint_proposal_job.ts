@@ -264,6 +264,8 @@ export class CheckpointProposalJob implements Traceable {
     };
   })
   private async proposeCheckpoint(): Promise<CheckpointProposalResult | undefined> {
+    let fork: Awaited<ReturnType<WorldStateSynchronizer['fork']>> | undefined;
+    let checkpointBuilder: CheckpointBuilder | undefined;
     try {
       // Get operator configured coinbase and fee recipient for this attestor
       const coinbase = this.validatorClient.getCoinbaseForAttestor(this.attestorAddress);
@@ -321,10 +323,10 @@ export class CheckpointProposalJob implements Traceable {
       // Create a forked world state for the checkpoint builder.
       // The fork is registered for each built block so SYNC_BLOCK can commit it.
       // After each block, a new fork is created at the advanced tip.
-      const fork = await this.worldState.fork(this.syncedToBlockNumber, { closeDelayMs: 12_000 });
+      fork = await this.worldState.fork(this.syncedToBlockNumber, { closeDelayMs: 12_000 });
 
       // Create checkpoint builder for the entire slot
-      const checkpointBuilder = await this.checkpointsBuilder.startCheckpoint(
+      checkpointBuilder = await this.checkpointsBuilder.startCheckpoint(
         this.checkpointNumber,
         checkpointGlobalVariables,
         feeAssetPriceModifier,
@@ -488,6 +490,13 @@ export class CheckpointProposalJob implements Traceable {
 
       this.log.error(`Error building checkpoint at slot ${this.targetSlot}`, err);
       return undefined;
+    } finally {
+      // Close forks to release native resources. Already-committed forks silently handle "Fork not found".
+      const currentFork = checkpointBuilder?.getFork();
+      if (currentFork && currentFork !== fork) {
+        await currentFork.close();
+      }
+      await fork?.close();
     }
   }
 
@@ -604,7 +613,7 @@ export class CheckpointProposalJob implements Traceable {
       if (!this.config.skipPushProposedBlocksToArchiver) {
         await this.worldState.syncImmediate(blockNumber);
         const newFork = await this.worldState.fork(undefined, { closeDelayMs: 12_000 });
-        checkpointBuilder.setFork(newFork);
+        await checkpointBuilder.setFork(newFork);
       }
 
       // Wait until the next block's start time
