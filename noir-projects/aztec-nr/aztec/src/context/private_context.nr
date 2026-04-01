@@ -1161,7 +1161,7 @@ impl PrivateContext {
         // all side effects emitted in the child call have counters within the range [start_side_effect_counter,
         // end_side_effect_counter]. Therefore, we only need to ensure that the next side effect from the current call
         // starts after the end side effect from the child call.
-        let _ = self.next_counter();
+        self.side_effect_counter = end_side_effect_counter + 1;
 
         ReturnsHash::new(returns_hash)
     }
