@@ -224,6 +224,142 @@ template <class Curve> class ScalarMultiplicationTest : public ::testing::Test {
         }
     }
 
+    // Regression test: radix sort zero-counting bug for bucket_index_bits > 16 (3+ recursion levels).
+    // The recursive call passes `keys` instead of `top_level_keys`, causing num_zero_entries to be
+    // overwritten by non-zero-bucket counts when the MSD radix sort recurses 3+ levels deep.
+    void test_radix_sort_count_zero_entries_wide_buckets()
+    {
+        // Use bucket_index_bits = 17, which pads to 24 bits → 3 recursion levels (shift: 16→8→0).
+        // At the 3rd level, the top_level_keys bug causes zero-counting to fire for every
+        // level-0 bucket's sub-bucket-0, not just the bucket-0 chain.
+        constexpr uint32_t bucket_index_bits = 17;
+        constexpr size_t num_entries = 1000;
+
+        std::vector<uint64_t> schedule(num_entries);
+
+        // Place some entries with bucket_index = 0 (true zero-bucket entries)
+        const size_t num_true_zeros = 10;
+        for (size_t i = 0; i < num_true_zeros; ++i) {
+            schedule[i] = static_cast<uint64_t>(i) << 32; // point_index=i, bucket_index=0
+        }
+
+        // Place entries with bucket_index = 65536 (= 1 << 16). These have bits [0:16) all zero,
+        // so the buggy code counts them as zero-bucket entries after the final recursion level
+        // overwrites num_zero_entries from the level-0 bucket 1 path.
+        const size_t num_false_zeros = 20;
+        for (size_t i = 0; i < num_false_zeros; ++i) {
+            size_t idx = num_true_zeros + i;
+            schedule[idx] = (static_cast<uint64_t>(idx) << 32) | 65536ULL;
+        }
+
+        // Fill remaining entries with random non-zero bucket indices that won't confuse the count
+        for (size_t i = num_true_zeros + num_false_zeros; i < num_entries; ++i) {
+            uint32_t bucket = (engine.get_random_uint32() % ((1U << bucket_index_bits) - 1)) + 1;
+            // Avoid bucket_index values with all lower 16 bits zero (i.e., multiples of 65536)
+            if ((bucket & 0xFFFF) == 0) {
+                bucket |= 1;
+            }
+            schedule[i] = (static_cast<uint64_t>(i) << 32) | static_cast<uint64_t>(bucket);
+        }
+
+        size_t result = scalar_multiplication::sort_point_schedule_and_count_zero_buckets(
+            schedule.data(), num_entries, bucket_index_bits);
+
+        // Count actual zero-bucket entries after sort
+        size_t expected = 0;
+        for (size_t i = 0; i < num_entries; ++i) {
+            if ((schedule[i] & scalar_multiplication::BUCKET_INDEX_MASK) == 0) {
+                expected++;
+            }
+        }
+
+        EXPECT_EQ(result, expected) << "Zero-bucket count is wrong for bucket_index_bits=" << bucket_index_bits
+                                    << ". Got " << result << ", expected " << expected
+                                    << " (likely overwritten by count from a non-zero bucket)";
+
+        // Also verify the array is sorted
+        for (size_t i = 1; i < num_entries; ++i) {
+            uint32_t prev = static_cast<uint32_t>(schedule[i - 1]);
+            uint32_t curr = static_cast<uint32_t>(schedule[i]);
+            EXPECT_LE(prev, curr) << "Array not sorted at index " << i;
+        }
+    }
+
+    // Exploit: the zero-counting bug causes valid points to be silently dropped from an MSM round.
+    //
+    // When bucket_index_bits > 16, sort_point_schedule_and_count_zero_buckets returns an inflated
+    // num_zero_entries. The caller creates a span starting at point_schedule[num_zero_entries],
+    // skipping valid entries with small non-zero bucket indices. Those points' contributions
+    // vanish from the round — a silent correctness failure.
+    void test_zero_count_bug_drops_points()
+    {
+        using PointScheduleEntry = scalar_multiplication::MSM<Curve>::PointScheduleEntry;
+
+        constexpr uint32_t bucket_index_bits = 17;
+        constexpr size_t num_pts = 200;
+
+        auto points = std::vector<AffineElement>(generators.begin(), generators.begin() + num_pts);
+
+        // Craft a point schedule:
+        // - 5 entries with bucket_index = 0 (true zeros, should be skipped)
+        // - 10 entries with bucket_index = 1 (valid, should NOT be skipped)
+        // - 15 entries with bucket_index = 65536 (trigger: overwrites zero count to 15)
+        // - rest with bucket_index = 100
+        //
+        // Bug sets num_zero_entries = 15 instead of 5. The span skips 15 entries from front.
+        // After sorting: [5 zeros | 10 bucket-1 | ... | 15 bucket-65536 | ...]
+        // Buggy span starts at index 15, dropping all 10 bucket-1 entries.
+        constexpr size_t NUM_ZERO = 5;
+        constexpr size_t NUM_BUCKET_1 = 10;
+        constexpr size_t NUM_BUCKET_65536 = 15;
+
+        std::vector<uint64_t> schedule(num_pts);
+        std::vector<uint32_t> bucket_assignments(num_pts, 100);
+
+        for (size_t i = 0; i < NUM_ZERO; ++i) {
+            bucket_assignments[i] = 0;
+        }
+        for (size_t i = NUM_ZERO; i < NUM_ZERO + NUM_BUCKET_1; ++i) {
+            bucket_assignments[i] = 1;
+        }
+        for (size_t i = NUM_ZERO + NUM_BUCKET_1; i < NUM_ZERO + NUM_BUCKET_1 + NUM_BUCKET_65536; ++i) {
+            bucket_assignments[i] = 65536;
+        }
+
+        for (size_t i = 0; i < num_pts; ++i) {
+            schedule[i] = PointScheduleEntry::create(static_cast<uint32_t>(i), bucket_assignments[i]).data;
+        }
+
+        size_t reported_zero_count = scalar_multiplication::sort_point_schedule_and_count_zero_buckets(
+            schedule.data(), num_pts, bucket_index_bits);
+
+        // True zero count
+        size_t true_zero_count = 0;
+        for (size_t i = 0; i < num_pts; ++i) {
+            if ((schedule[i] & scalar_multiplication::BUCKET_INDEX_MASK) == 0) {
+                true_zero_count++;
+            }
+        }
+
+        // The reported count must equal the true count. If the bug is present, it won't.
+        EXPECT_EQ(reported_zero_count, true_zero_count)
+            << "Bug: sort returned " << reported_zero_count << " zero entries but only " << true_zero_count
+            << " actually have bucket_index=0. The span will skip " << (reported_zero_count - true_zero_count)
+            << " valid points from the MSM round.";
+
+        // Show exactly which valid points would be silently dropped
+        if (reported_zero_count > true_zero_count) {
+            for (size_t i = true_zero_count; i < reported_zero_count && i < num_pts; ++i) {
+                PointScheduleEntry entry{ schedule[i] };
+                info("DROPPED: point_index=",
+                     entry.point_index(),
+                     " bucket_index=",
+                     entry.bucket_index(),
+                     " (valid non-zero entry silently excluded from MSM round)");
+            }
+        }
+    }
+
     void test_pippenger_low_memory()
     {
         std::span<ScalarField> test_scalars(&scalars[0], num_points);
@@ -570,6 +706,14 @@ TYPED_TEST(ScalarMultiplicationTest, ConsumePointBatchAndAccumulate)
 TYPED_TEST(ScalarMultiplicationTest, RadixSortCountZeroEntries)
 {
     this->test_radix_sort_count_zero_entries();
+}
+TYPED_TEST(ScalarMultiplicationTest, RadixSortCountZeroEntriesWideBuckets)
+{
+    this->test_radix_sort_count_zero_entries_wide_buckets();
+}
+TYPED_TEST(ScalarMultiplicationTest, ZeroCountBugDropsPoints)
+{
+    this->test_zero_count_bug_drops_points();
 }
 TYPED_TEST(ScalarMultiplicationTest, PippengerLowMemory)
 {

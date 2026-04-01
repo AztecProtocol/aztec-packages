@@ -1,5 +1,6 @@
 
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
+#include "barretenberg/common/thread.hpp"
 #include "barretenberg/srs/global_crs.hpp"
 
 #include <gtest/gtest.h>
@@ -153,6 +154,66 @@ TYPED_TEST(CommitmentKeyTest, BatchCommit)
 TYPED_TEST(CommitmentKeyTest, CommitWithStartIndex)
 {
     TestFixture::test_commit_with_start_index();
+}
+
+// Exploit: Pippenger zero-counting bug causes CommitmentKey::commit to produce wrong results
+// for polynomials with ≥5M coefficients (bits_per_slice > 16 → 3-level radix sort → bug).
+//
+// Multi-threading masks the bug by splitting MSM across cores, so each work unit stays below
+// the threshold. We force single-threaded execution to expose it.
+//
+// The test computes the same commitment two ways:
+// 1. ck.commit(poly) with 1 thread (full MSM, triggers bug)
+// 2. Sum of ck.commit(chunk_i) over 1M-sized chunks (each chunk is bug-free)
+TEST(CommitmentKeyExploit, DISABLED_PippengerZeroCountBugCorruptsCommitment)
+{
+    using Curve = curve::BN254;
+    using CK = CommitmentKey<Curve>;
+    using Fr = Curve::ScalarField;
+    using Commitment = Curve::AffineElement;
+    using GroupElement = Curve::Element;
+    using Polynomial = bb::Polynomial<Fr>;
+
+    srs::init_file_crs_factory(srs::bb_crs_path());
+
+    // 5M coefficients → bits_per_slice = 17 → 3-level radix sort → bug triggers
+    constexpr size_t n = 5000000;
+    CK ck(n);
+
+    auto poly = Polynomial::random(n);
+
+    // 1. Commit via the real CommitmentKey::commit, single-threaded
+    info("Computing ck.commit() on degree-", n, " polynomial (single-threaded)...");
+    size_t original_concurrency = get_num_cpus();
+    set_parallel_for_concurrency(1);
+    Commitment buggy_commitment = ck.commit(poly);
+    set_parallel_for_concurrency(original_concurrency);
+
+    // 2. Reference: sum of commitments over small chunks (each uses bits_per_slice ≤ 15)
+    info("Computing chunked reference commitment...");
+    constexpr size_t chunk_size = 1UL << 20; // 1M per chunk
+    auto srs_points = ck.get_monomial_points();
+    GroupElement correct_sum;
+    correct_sum.self_set_infinity();
+
+    for (size_t offset = 0; offset < n; offset += chunk_size) {
+        size_t this_chunk = std::min(chunk_size, n - offset);
+        // Build a PolynomialSpan for this chunk of coefficients
+        std::span<const Fr> chunk_coeffs(&poly[offset], this_chunk);
+        PolynomialSpan<const Fr> chunk_span(0, chunk_coeffs);
+        std::span<const Commitment> chunk_points = srs_points.subspan(offset, this_chunk);
+
+        auto chunk_result = scalar_multiplication::pippenger_unsafe<Curve>(chunk_span, chunk_points);
+        correct_sum += chunk_result;
+    }
+    Commitment correct_commitment(correct_sum);
+
+    EXPECT_EQ(buggy_commitment, correct_commitment)
+        << "CommitmentKey::commit produced WRONG commitment for a degree-" << n << " polynomial.\n"
+        << "  commit() result:  " << buggy_commitment << "\n"
+        << "  correct result:   " << correct_commitment << "\n"
+        << "Root cause: Pippenger zero-counting bug in sort_point_schedule_and_count_zero_buckets "
+        << "(bucket_index_bits=17 triggers 3-level radix sort where top_level_keys is not propagated).";
 }
 
 } // namespace bb
