@@ -14,7 +14,16 @@ Partial notes are notes created with incomplete data, usually during private exe
 
 Let's say, for example, we have a `UintNote`:
 
-#include_code uint_note_def /noir-projects/aztec-nr/uint-note/src/uint_note.nr rust
+```rust title="uint_note_def" showLineNumbers 
+#[derive(Deserialize, Eq, Serialize, Packable)]
+#[custom_note]
+pub struct UintNote {
+    /// The number stored in the note.
+    pub value: u128,
+}
+```
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v4.2.0-aztecnr-rc.2/noir-projects/aztec-nr/uint-note/src/uint_note.nr#L30-L37" target="_blank" rel="noopener noreferrer">Source code: noir-projects/aztec-nr/uint-note/src/uint_note.nr#L30-L37</a></sub></sup>
+
 
 The `UintNote` struct itself only contains the `value` field. Additional fields including `owner`, `randomness`, and `storage_slot` are passed as parameters during note hash computation.
 
@@ -38,7 +47,16 @@ All notes in Aztec use the partial note format internally. This ensures that not
 
 The `UintNote` struct contains only the `value` field:
 
-#include_code uint_note_def /noir-projects/aztec-nr/uint-note/src/uint_note.nr rust
+```rust title="uint_note_def" showLineNumbers 
+#[derive(Deserialize, Eq, Serialize, Packable)]
+#[custom_note]
+pub struct UintNote {
+    /// The number stored in the note.
+    pub value: u128,
+}
+```
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v4.2.0-aztecnr-rc.2/noir-projects/aztec-nr/uint-note/src/uint_note.nr#L30-L37" target="_blank" rel="noopener noreferrer">Source code: noir-projects/aztec-nr/uint-note/src/uint_note.nr#L30-L37</a></sub></sup>
+
 
 ### Two-Phase Commitment Process
 
@@ -46,7 +64,13 @@ The `UintNote` struct contains only the `value` field:
 
 The private fields (`owner` and `randomness`) are committed during local, private execution:
 
-#include_code compute_partial_commitment /noir-projects/aztec-nr/uint-note/src/uint_note.nr rust
+```rust title="compute_partial_commitment" showLineNumbers 
+fn compute_partial_commitment(owner: AztecAddress, randomness: Field) -> Field {
+    poseidon2_hash_with_separator([owner.to_field(), randomness], DOM_SEP__NOTE_HASH)
+}
+```
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v4.2.0-aztecnr-rc.2/noir-projects/aztec-nr/uint-note/src/uint_note.nr#L147-L151" target="_blank" rel="noopener noreferrer">Source code: noir-projects/aztec-nr/uint-note/src/uint_note.nr#L147-L151</a></sub></sup>
+
 
 This creates a partial note commitment:
 
@@ -58,7 +82,19 @@ partial_commitment = H(owner, randomness)
 
 The note is completed by hashing the partial commitment with the public value:
 
-#include_code compute_complete_note_hash /noir-projects/aztec-nr/uint-note/src/uint_note.nr rust
+```rust title="compute_complete_note_hash" showLineNumbers 
+fn compute_complete_note_hash(self, storage_slot: Field, value: u128) -> Field {
+    // Here we finalize the note hash by including the (public) storage slot and value into the partial note
+    // commitment. Note that we use the same separator as we used for the first round of poseidon - this is not
+    // an issue.
+    poseidon2_hash_with_separator(
+        [self.commitment, storage_slot, value.to_field()],
+        DOM_SEP__NOTE_HASH,
+    )
+}
+```
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v4.2.0-aztecnr-rc.2/noir-projects/aztec-nr/uint-note/src/uint_note.nr#L261-L271" target="_blank" rel="noopener noreferrer">Source code: noir-projects/aztec-nr/uint-note/src/uint_note.nr#L261-L271</a></sub></sup>
+
 
 The resulting structure is a nested commitment:
 
@@ -76,7 +112,26 @@ When a note is created with all fields known (including `owner`, `storage_slot`,
 1. A partial commitment is computed from the private fields (`owner`, `randomness`)
 2. The partial commitment is immediately completed with the `storage_slot` and `value` fields
 
-#include_code compute_note_hash /noir-projects/aztec-nr/uint-note/src/uint_note.nr rust
+```rust title="compute_note_hash" showLineNumbers 
+fn compute_note_hash(self, owner: AztecAddress, storage_slot: Field, randomness: Field) -> Field {
+    // Partial notes can be implemented by having the note hash be either the result of multiscalar multiplication
+    // (MSM), or two rounds of poseidon. MSM results in more constraints and is only required when multiple
+    // variants of partial notes are supported. Because UintNote has just one variant (where the value is public),
+    // we use poseidon instead.
+
+    // We must compute the same note hash as would be produced by a partial note created and completed with the
+    // same values, so that notes all behave the same way regardless of how they were created. To achieve this, we
+    // perform both steps of the partial note computation.
+
+    // First we create the partial note from a commitment to the private content.
+    let partial_note = PartialUintNote { commitment: compute_partial_commitment(owner, randomness) };
+
+    // Then compute the completion note hash. In a real partial note this step would be performed in public.
+    partial_note.compute_complete_note_hash(storage_slot, self.value)
+}
+```
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v4.2.0-aztecnr-rc.2/noir-projects/aztec-nr/uint-note/src/uint_note.nr#L40-L57" target="_blank" rel="noopener noreferrer">Source code: noir-projects/aztec-nr/uint-note/src/uint_note.nr#L40-L57</a></sub></sup>
+
 
 This two-step process ensures that notes with identical field values produce identical note hashes, regardless of whether they were created as partial notes or complete notes.
 

@@ -31,7 +31,7 @@ Log values from your contract using `debug_log`:
 
 ```rust
 // Import debug logging
-use dep::aztec::oracle::debug_log::{ debug_log, debug_log_format };
+use aztec::oracle::logging::{ debug_log, debug_log_format };
 
 // Log simple messages
 debug_log("checkpoint reached");
@@ -47,7 +47,7 @@ debug_log_format("values: {0}, {1}, {2}", [val1, val2, val3]);
 ```
 
 :::note
-Debug logs appear only during local execution. Private functions always execute locally, but public functions must be simulated to show logs. Use `.simulate()` or `.prove()` in TypeScript, or `env.simulate_public_function()` in TXE tests.
+Debug logs appear only during local execution. Private functions always execute locally, but public functions must be simulated to show logs. Use `.simulate()` or `.prove()` in TypeScript, or `env.call_public()` in TXE tests.
 :::
 
 To see debug logs from your tests, set `LOG_LEVEL` when running:
@@ -88,7 +88,7 @@ LOG_LEVEL="info;debug:simulator:client_execution_context;debug:simulator:client_
 
 | Error                                                    | Solution                                                                                                                                                        |
 | -------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `Aztec dependency not found`                             | Add to Nargo.toml: `aztec = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="noir-projects/aztec-nr/aztec" }` |
+| `Aztec dependency not found`                             | Add to Nargo.toml: `aztec = { git="https://github.com/AztecProtocol/aztec-packages/", tag="v4.2.0-aztecnr-rc.2", directory="noir-projects/aztec-nr/aztec" }` |
 | `Public state writes only supported in public functions` | Move state writes to public functions                                                                                                                           |
 | `Unknown contract 0x0`                                   | Call `wallet.registerContract(...)` to register contract                                                                                                        |
 | `No public key registered for address`                   | Call `wallet.registerSender(...)`                                                                                                                               |
@@ -205,7 +205,7 @@ LOG_LEVEL=verbose aztec start --local-network
 ### Common debug imports
 
 ```rust
-use dep::aztec::oracle::debug_log::{ debug_log, debug_log_format };
+use aztec::oracle::logging::{ debug_log, debug_log_format };
 ```
 
 ### Check contract registration
@@ -216,7 +216,7 @@ await wallet.getContractMetadata(myContractInstance.address);
 
 ### Decode L1 errors
 
-Check hex errors against [Errors.sol](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/l1-contracts/src/core/libraries/Errors.sol)
+Check hex errors against [Errors.sol](https://github.com/AztecProtocol/aztec-packages/blob/v4.2.0-aztecnr-rc.2/l1-contracts/src/core/libraries/Errors.sol)
 
 ## Tips
 

@@ -42,7 +42,7 @@ contract MyContract {
 }
 ```
 
-In Aztec.nr, we define a [`struct`](https://noir-lang.org/docs/noir/concepts/data_types/structs) that holds _all_ state variables. This struct is called **the storage struct**, and it is identified by having the [`#[storage]` macro](pathname:///aztec-nr-api/#api_ref_version/noir_aztec/macros/storage/fn.storage) applied to it.
+In Aztec.nr, we define a [`struct`](https://noir-lang.org/docs/noir/concepts/data_types/structs) that holds _all_ state variables. This struct is called **the storage struct**, and it is identified by having the [`#[storage]` macro](pathname:///aztec-nr-api/mainnet/noir_aztec/macros/storage/fn.storage) applied to it.
 
 ```rust
 use aztec::macros::aztec;
@@ -106,9 +106,9 @@ Below is a table comparing the key properties of the different public state vari
 
 | State variable         | Mutable?            | Readable in private? | Writable in private? | Example use case                                                                   |
 | ---------------------- | ------------------- | -------------------- | -------------------- | ---------------------------------------------------------------------------------- |
-| [`PublicMutable`](pathname:///aztec-nr-api/#api_ref_version/noir_aztec/state_vars/struct.PublicMutable)        | yes                 | no                   | no                   | Configuration of admins, global state (e.g. token total supply, total votes) |
-| [`PublicImmutable`](pathname:///aztec-nr-api/#api_ref_version/noir_aztec/state_vars/struct.PublicImmutable)      | no                  | yes                  | no                   | Fixed configuration, one-way actions (e.g. initialization settings for a proposal) |
-| [`DelayedPublicMutable`](pathname:///aztec-nr-api/#api_ref_version/noir_aztec/state_vars/struct.DelayedPublicMutable) | yes (after a delay) | yes                  | no                   | Non time sensitive system configuration                                            |
+| [`PublicMutable`](pathname:///aztec-nr-api/mainnet/noir_aztec/state_vars/struct.PublicMutable)        | yes                 | no                   | no                   | Configuration of admins, global state (e.g. token total supply, total votes) |
+| [`PublicImmutable`](pathname:///aztec-nr-api/mainnet/noir_aztec/state_vars/struct.PublicImmutable)      | no                  | yes                  | no                   | Fixed configuration, one-way actions (e.g. initialization settings for a proposal) |
+| [`DelayedPublicMutable`](pathname:///aztec-nr-api/mainnet/noir_aztec/state_vars/struct.DelayedPublicMutable) | yes (after a delay) | yes                  | no                   | Non time sensitive system configuration                                            |
 
 ### PublicMutable
 
@@ -122,19 +122,35 @@ Store mutable public state using `PublicMutable<T>` for values that need to be u
 
 For example, storing the address of the collateral asset in a lending contract:
 
-#include_code public_mutable /noir-projects/noir-contracts/contracts/app/lending_contract/src/main.nr rust
+```rust title="public_mutable" showLineNumbers 
+collateral_asset: PublicMutable<AztecAddress, Context>,
+```
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v4.2.0-aztecnr-rc.2/noir-projects/noir-contracts/contracts/app/lending_contract/src/main.nr#L34-L36" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/lending_contract/src/main.nr#L34-L36</a></sub></sup>
+
 
 #### `read`
 
 `PublicMutable` variables have a `read` method to read the value at the location in storage:
 
-#include_code public_mutable_read /noir-projects/noir-contracts/contracts/app/lending_contract/src/main.nr rust
+```rust title="public_mutable_read" showLineNumbers 
+#[external("public")]
+#[view]
+fn get_assets() -> pub [AztecAddress; 2] {
+    [self.storage.collateral_asset.read(), self.storage.stable_coin.read()]
+}
+```
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v4.2.0-aztecnr-rc.2/noir-projects/noir-contracts/contracts/app/lending_contract/src/main.nr#L303-L309" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/lending_contract/src/main.nr#L303-L309</a></sub></sup>
+
 
 #### `write`
 
 The `write` method on `PublicMutable` variables takes the value to write as an input and saves this in storage:
 
-#include_code public_mutable_write /noir-projects/noir-contracts/contracts/app/lending_contract/src/main.nr rust
+```rust title="public_mutable_write" showLineNumbers 
+self.storage.collateral_asset.write(collateral_asset);
+```
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v4.2.0-aztecnr-rc.2/noir-projects/noir-contracts/contracts/app/lending_contract/src/main.nr#L76-L78" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/lending_contract/src/main.nr#L76-L78</a></sub></sup>
+
 
 ### PublicImmutable
 
@@ -146,13 +162,25 @@ Due to the value being immutable, you can also read it during private execution 
 
 For example, in the `Storage` struct in a simple token contract, the name, symbol, and decimals are `PublicImmutable` variables:
 
-#include_code public_immutable /noir-projects/noir-contracts/contracts/app/simple_token_contract/src/main.nr rust
+```rust title="public_immutable" showLineNumbers 
+symbol: PublicImmutable<FieldCompressedString, Context>,
+name: PublicImmutable<FieldCompressedString, Context>,
+decimals: PublicImmutable<u8, Context>,
+```
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v4.2.0-aztecnr-rc.2/noir-projects/noir-contracts/contracts/app/simple_token_contract/src/main.nr#L45-L49" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/simple_token_contract/src/main.nr#L45-L49</a></sub></sup>
+
 
 #### `initialize`
 
 This function sets the immutable value. It can only be called once.
 
-#include_code public_immutable_initialize /noir-projects/noir-contracts/contracts/app/simple_token_contract/src/main.nr rust
+```rust title="public_immutable_initialize" showLineNumbers 
+self.storage.name.initialize(FieldCompressedString::from_string(name));
+self.storage.symbol.initialize(FieldCompressedString::from_string(symbol));
+self.storage.decimals.initialize(decimals);
+```
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v4.2.0-aztecnr-rc.2/noir-projects/noir-contracts/contracts/app/simple_token_contract/src/main.nr#L55-L59" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/simple_token_contract/src/main.nr#L55-L59</a></sub></sup>
+
 
 :::warning
 A `PublicImmutable`'s storage **must** only be set once via `initialize`. Attempting to override this by manually accessing the underlying storage slots breaks all properties of the data structure, rendering it useless.
@@ -162,7 +190,15 @@ A `PublicImmutable`'s storage **must** only be set once via `initialize`. Attemp
 
 Returns the stored immutable value. This function is available in public, private and utility contexts.
 
-#include_code public_immutable_read /noir-projects/noir-contracts/contracts/app/simple_token_contract/src/main.nr rust
+```rust title="public_immutable_read" showLineNumbers 
+#[external("public")]
+#[view]
+fn public_get_name() -> FieldCompressedString {
+    self.storage.name.read()
+}
+```
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v4.2.0-aztecnr-rc.2/noir-projects/noir-contracts/contracts/app/simple_token_contract/src/main.nr#L62-L68" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/simple_token_contract/src/main.nr#L62-L68</a></sub></sup>
+
 
 ### DelayedPublicMutable
 
@@ -176,19 +212,47 @@ The existence of minimum delays means that a private function that reads a publi
 
 Unlike other state variables, `DelayedPublicMutable` receives not only a type parameter for the underlying datatype, but also a `DELAY` type parameter with the value change delay as a number of seconds.
 
-#include_code delayed_public_mutable_storage /noir-projects/noir-contracts/contracts/app/auth_contract/src/main.nr rust
+```rust title="delayed_public_mutable_storage" showLineNumbers 
+// Authorizing a new address has a certain delay before it goes into effect. Set to 180 seconds.
+pub(crate) global CHANGE_AUTHORIZED_DELAY: u64 = 180;
+
+#[storage]
+struct Storage<Context> {
+    // Admin can change the value of the authorized address via set_authorized()
+    admin: PublicImmutable<AztecAddress, Context>,
+    authorized: DelayedPublicMutable<AztecAddress, CHANGE_AUTHORIZED_DELAY, Context>,
+}
+```
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v4.2.0-aztecnr-rc.2/noir-projects/noir-contracts/contracts/app/auth_contract/src/main.nr#L15-L25" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/auth_contract/src/main.nr#L15-L25</a></sub></sup>
+
 
 #### `schedule_value_change`
 
 This is the means by which a `DelayedPublicMutable` variable mutates its contents. It schedules a value change for the variable at a future timestamp after the `DELAY` has elapsed.
 
-#include_code schedule_value_change /noir-projects/noir-contracts/contracts/app/auth_contract/src/main.nr rust
+```rust title="schedule_value_change" showLineNumbers 
+#[external("public")]
+fn set_authorized(authorized: AztecAddress) {
+    assert_eq(self.storage.admin.read(), self.msg_sender(), "caller is not admin");
+    self.storage.authorized.schedule_value_change(authorized);
+}
+```
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v4.2.0-aztecnr-rc.2/noir-projects/noir-contracts/contracts/app/auth_contract/src/main.nr#L34-L40" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/auth_contract/src/main.nr#L34-L40</a></sub></sup>
+
 
 #### `get_current_value`
 
 Returns the current value in a public, private or utility execution context.
 
-#include_code get_current_value /noir-projects/noir-contracts/contracts/app/auth_contract/src/main.nr rust
+```rust title="get_current_value" showLineNumbers 
+#[external("public")]
+#[view]
+fn get_authorized() -> AztecAddress {
+    self.storage.authorized.get_current_value()
+}
+```
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v4.2.0-aztecnr-rc.2/noir-projects/noir-contracts/contracts/app/auth_contract/src/main.nr#L42-L48" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/auth_contract/src/main.nr#L42-L48</a></sub></sup>
+
 
 :::warning Privacy Consideration
 Reading `DelayedPublicMutable` in private sets the `expiration_timestamp` property, which may reveal timing information. Choose delays that align with common values to maximize privacy sets.
@@ -198,7 +262,15 @@ Reading `DelayedPublicMutable` in private sets the `expiration_timestamp` proper
 
 Returns the scheduled value and when it takes effect:
 
-#include_code get_scheduled_value /noir-projects/noir-contracts/contracts/app/auth_contract/src/main.nr rust
+```rust title="get_scheduled_value" showLineNumbers 
+#[external("public")]
+#[view]
+fn get_scheduled_authorized() -> (AztecAddress, u64) {
+    self.storage.authorized.get_scheduled_value()
+}
+```
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v4.2.0-aztecnr-rc.2/noir-projects/noir-contracts/contracts/app/auth_contract/src/main.nr#L50-L56" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/auth_contract/src/main.nr#L50-L56</a></sub></sup>
+
 
 ## Private State Variables
 
@@ -229,7 +301,7 @@ They also have some metadata, including a storage slot to avoid collisions with 
 
 The note content plus the metadata are all hashed together, and it is this hash that gets stored onchain in the note hash tree. This hash is called a commitment. The underlying note content (the note hash preimage) is not stored anywhere onchain, so third parties cannot access it and it remains private. The note hash tree is append-only - if it wasn't, when a note was spent, external observers would notice that the tree leaf inserted in some transaction was modified in a second transaction, linking them together and leaking privacy. For example, when a user made a payment to a third party, the recipient would be able to know when they spent the received funds. Nullifiers exist to solve this issue.
 
-Note: Aztec.nr comes with some prebuilt note types, including [`UintNote`](https://github.com/AztecProtocol/aztec-packages/tree/#include_aztec_version/noir-projects/aztec-nr/uint-note) and [`AddressNote`](https://github.com/AztecProtocol/aztec-packages/tree/#include_aztec_version/noir-projects/aztec-nr/address-note), but users are also free to create their own with the `#[note]` macro.
+Note: Aztec.nr comes with some prebuilt note types, including [`UintNote`](https://github.com/AztecProtocol/aztec-packages/tree/v4.2.0-aztecnr-rc.2/noir-projects/aztec-nr/uint-note) and [`AddressNote`](https://github.com/AztecProtocol/aztec-packages/tree/v4.2.0-aztecnr-rc.2/noir-projects/aztec-nr/address-note), but users are also free to create their own with the `#[note]` macro.
 
 ##### Note Lifecycle
 
@@ -272,12 +344,35 @@ When working with private state variables, many operations return a `NoteMessage
 
 #### Delivery Methods
 
-Private notes need to be communicated to their recipients so they know the note exists and can use it. The [`NoteMessage`](pathname:///aztec-nr-api/#api_ref_version/noir_aztec/note/struct.NoteMessage) wrapper forces you to make an explicit choice about how this happens:
-  - [`MessageDelivery.ONCHAIN_CONSTRAINED`](pathname:///aztec-nr-api/#api_ref_version/noir_aztec/messages/message_delivery/struct.MessageDeliveryEnum#structfield.ONCHAIN_CONSTRAINED): Verified in the circuit (most secure, but highest cost) - Use when the sender cannot be trusted to deliver correctly (e.g., protocol fees, multisig config updates). **Warning:** Currently [not fully constrained](https://github.com/AztecProtocol/aztec-packages/issues/14565) - the log's tag is unconstrained.
-  - [`MessageDelivery.ONCHAIN_UNCONSTRAINED`](pathname:///aztec-nr-api/#api_ref_version/noir_aztec/messages/message_delivery/struct.MessageDeliveryEnum#structfield.ONCHAIN_UNCONSTRAINED): Message stored onchain but no guarantees on content - Use when the sender is incentivized to deliver correctly but may not have an offchain channel to the recipient.
-  - [`MessageDelivery.OFFCHAIN`](pathname:///aztec-nr-api/#api_ref_version/noir_aztec/messages/message_delivery/struct.MessageDeliveryEnum#structfield.OFFCHAIN): Lowest cost, no onchain data - Use when the sender and recipient can communicate and the sender is incentivized to deliver correctly.
+Private notes need to be communicated to their recipients so they know the note exists and can use it. The [`NoteMessage`](pathname:///aztec-nr-api/mainnet/noir_aztec/note/struct.NoteMessage) wrapper forces you to make an explicit choice about how this happens:
+  - [`MessageDelivery.ONCHAIN_CONSTRAINED`](pathname:///aztec-nr-api/mainnet/noir_aztec/messages/message_delivery/struct.MessageDeliveryEnum#structfield.ONCHAIN_CONSTRAINED): Verified in the circuit (most secure, but highest cost) - Use when the sender cannot be trusted to deliver correctly (e.g., protocol fees, multisig config updates). **Warning:** Currently [not fully constrained](https://github.com/AztecProtocol/aztec-packages/issues/14565) - the log's tag is unconstrained.
+  - [`MessageDelivery.ONCHAIN_UNCONSTRAINED`](pathname:///aztec-nr-api/mainnet/noir_aztec/messages/message_delivery/struct.MessageDeliveryEnum#structfield.ONCHAIN_UNCONSTRAINED): Message stored onchain but no guarantees on content - Use when the sender is incentivized to deliver correctly but may not have an offchain channel to the recipient.
+  - [`MessageDelivery.OFFCHAIN`](pathname:///aztec-nr-api/mainnet/noir_aztec/messages/message_delivery/struct.MessageDeliveryEnum#structfield.OFFCHAIN): Lowest cost, no onchain data - Use when the sender and recipient can communicate and the sender is incentivized to deliver correctly.
 
-#include_code note_delivery /noir-projects/noir-contracts/contracts/app/private_token_contract/src/main.nr rust
+```rust title="note_delivery" showLineNumbers 
+#[external("private")]
+fn mint(amount: u128, recipient: AztecAddress) {
+    let replacement_note_message = self.storage.admin.get_note();
+    let admin = replacement_note_message.get_note().address;
+    assert(admin == self.msg_sender(), "Only admin can mint");
+
+    // We deliver the new note message to the admin using unconstrained delivery, since the admin is motivated to
+    // deliver the message to themselves (hence no need to constrain it).
+    replacement_note_message.deliver(MessageDelivery.ONCHAIN_UNCONSTRAINED);
+    // We increase the total supply and once again use unconstrained delivery, since the admin is motivated to
+    // deliver the message (he's the owner of the new note as well).
+    self
+        .storage
+        .total_supply
+        .replace(|current| UintNote { value: current.value + amount }, admin)
+        .deliver(MessageDelivery.ONCHAIN_UNCONSTRAINED);
+
+    // At last we mint the tokens to the recipient.
+    self.storage.balances.at(recipient).add(amount).deliver(MessageDelivery.ONCHAIN_CONSTRAINED);
+}
+```
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v4.2.0-aztecnr-rc.2/noir-projects/noir-contracts/contracts/app/private_token_contract/src/main.nr#L55-L78" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/private_token_contract/src/main.nr#L55-L78</a></sub></sup>
+
 
 Methods that return `NoteMessage` include `initialize()`, `get_note()`, and `replace()` on `PrivateMutable`, `initialize()` on `PrivateImmutable`, and `insert()` on `PrivateSet` (more on these methods and private state variable types shortly).
 
@@ -285,7 +380,7 @@ Methods that return `NoteMessage` include `initialize()`, `get_note()`, and `rep
 
 Implementing a private state variable requires careful coordination of multiple primitives and concepts (creating notes, encrypting, delivering, discovering and processing messages, reading notes, and computing their nullifiers). Aztec.nr provides convenient types and functions that handle all of these low-level details to allow developers to write safe code without having to understand the nitty-gritty.
 
-By applying the `#[note]` [macro](pathname:///aztec-nr-api/#api_ref_version/noir_aztec/macros/notes/fn.note) to a [noir struct](https://noir-lang.org/docs/noir/concepts/data_types/structs), users can define values that will be storable in notes. Private state variables can then hold these notes and be used to read, write, and deliver note messages to the intended recipient.
+By applying the `#[note]` [macro](pathname:///aztec-nr-api/mainnet/noir_aztec/macros/notes/fn.note) to a [noir struct](https://noir-lang.org/docs/noir/concepts/data_types/structs), users can define values that will be storable in notes. Private state variables can then hold these notes and be used to read, write, and deliver note messages to the intended recipient.
 
 :::note
 Advanced users can change this default behavior by either defining their [own custom note](./custom_notes.md) hash and nullifier functions, implementing their own state variables, or even accessing the note hash and nullifiers tree directly.
@@ -338,9 +433,9 @@ Below is a table comparing certain key properties of the different private state
 
 | State variable     | Mutable? | Cost to read? | Writable by third parties? | Example use case                                                                                               |
 | ------------------ | -------- | ------------- | -------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| [`PrivateMutable`](pathname:///aztec-nr-api/#api_ref_version/noir_aztec/state_vars/struct.PrivateMutable)   | yes      | yes           | no                         | Mutable user state only accessible by them (e.g. user settings or keys)                                        |
-| [`PrivateImmutable`](pathname:///aztec-nr-api/#api_ref_version/noir_aztec/state_vars/struct.PrivateImmutable) | no       | no            | no                         | Fixed configuration, one-way actions (e.g. initialization settings for a proposal)                             |
-| [`PrivateSet`](pathname:///aztec-nr-api/#api_ref_version/noir_aztec/state_vars/struct.PrivateSet)       | yes      | yes           | yes                        | Aggregated state others can add to, e.g. token balance (set of amount notes), nft collections (set of nft ids) |
+| [`PrivateMutable`](pathname:///aztec-nr-api/mainnet/noir_aztec/state_vars/struct.PrivateMutable)   | yes      | yes           | no                         | Mutable user state only accessible by them (e.g. user settings or keys)                                        |
+| [`PrivateImmutable`](pathname:///aztec-nr-api/mainnet/noir_aztec/state_vars/struct.PrivateImmutable) | no       | no            | no                         | Fixed configuration, one-way actions (e.g. initialization settings for a proposal)                             |
+| [`PrivateSet`](pathname:///aztec-nr-api/mainnet/noir_aztec/state_vars/struct.PrivateSet)       | yes      | yes           | yes                        | Aggregated state others can add to, e.g. token balance (set of amount notes), nft collections (set of nft ids) |
 
 ### Owned State Variables
 
@@ -359,19 +454,41 @@ Access the underlying state variable for a specific owner using `.at(owner)`
 
 #### Declaration
 
-#include_code owned_private_mutable /noir-projects/noir-contracts/contracts/app/app_subscription_contract/src/main.nr rust
+```rust title="owned_private_mutable" showLineNumbers 
+subscriptions: Owned<PrivateMutable<SubscriptionNote, Context>, Context>,
+```
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v4.2.0-aztecnr-rc.2/noir-projects/noir-contracts/contracts/app/app_subscription_contract/src/main.nr#L60-L62" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/app_subscription_contract/src/main.nr#L60-L62</a></sub></sup>
+
 
 #### `is_initialized`
 
 An unconstrained method to check whether the `PrivateMutable` has been initialized or not:
 
-#include_code owned_private_mutable_is_initialized /noir-projects/noir-contracts/contracts/app/app_subscription_contract/src/main.nr rust
+```rust title="owned_private_mutable_is_initialized" showLineNumbers 
+#[external("utility")]
+unconstrained fn is_initialized(subscriber: AztecAddress) -> bool {
+    self.storage.subscriptions.at(subscriber).is_initialized()
+}
+```
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v4.2.0-aztecnr-rc.2/noir-projects/noir-contracts/contracts/app/app_subscription_contract/src/main.nr#L172-L177" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/app_subscription_contract/src/main.nr#L172-L177</a></sub></sup>
+
 
 #### `initialize` and `initialize_or_replace`
 
 The `PrivateMutable` should be initialized to create the first note and value. This can be done with either `initialize` or `initialize_or_replace`:
 
-#include_code owned_private_mutable_initialize /noir-projects/noir-contracts/contracts/app/app_subscription_contract/src/main.nr rust
+```rust title="owned_private_mutable_initialize" showLineNumbers 
+self
+    .storage
+    .subscriptions
+    .at(subscriber)
+    .initialize_or_replace(|_| {
+        SubscriptionNote { expiry_block_number, remaining_txs: tx_count }
+    })
+    .deliver(MessageDelivery.ONCHAIN_CONSTRAINED);
+```
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v4.2.0-aztecnr-rc.2/noir-projects/noir-contracts/contracts/app/app_subscription_contract/src/main.nr#L160-L169" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/app_subscription_contract/src/main.nr#L160-L169</a></sub></sup>
+
 
 #### `get_note`
 
@@ -395,7 +512,27 @@ Reading a `PrivateMutable` nullifies and recreates the note. This makes reads in
 
 To update the value of a `PrivateMutable`, we can use the `replace` method:
 
-#include_code owned_single_private_mutable_replace /noir-projects/noir-contracts/contracts/app/private_token_contract/src/main.nr rust
+```rust title="owned_single_private_mutable_replace" showLineNumbers 
+#[external("private")]
+fn transfer_admin(new_admin: AztecAddress) {
+    self
+        .storage
+        .admin
+        .replace(
+            |old| {
+                assert(
+                    old.address == self.msg_sender(),
+                    "Only admin can transfer admin privileges",
+                );
+                AddressNote { address: new_admin }
+            },
+            new_admin,
+        )
+        .deliver(MessageDelivery.ONCHAIN_CONSTRAINED);
+}
+```
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v4.2.0-aztecnr-rc.2/noir-projects/noir-contracts/contracts/app/private_token_contract/src/main.nr#L81-L99" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/private_token_contract/src/main.nr#L81-L99</a></sub></sup>
+
 
 ### PrivateImmutable
 
@@ -405,7 +542,11 @@ Unlike `PrivateMutable`, the `get_note` function for a `PrivateImmutable` doesn'
 
 #### Declaration
 
-#include_code private_immutable /noir-projects/noir-contracts/contracts/test/test_contract/src/main.nr rust
+```rust title="private_immutable" showLineNumbers 
+note_in_private_immutable: Owned<PrivateImmutable<TestNote, Context>, Context>,
+```
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v4.2.0-aztecnr-rc.2/noir-projects/noir-contracts/contracts/test/test_contract/src/main.nr#L85-L87" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/test/test_contract/src/main.nr#L85-L87</a></sub></sup>
+
 
 `PrivateImmutable` variables also have the `initialize` and `get_note` functions on them but no `initialize_or_replace` since they cannot be modified.
 
@@ -422,13 +563,24 @@ The set's current value is the collection of notes in the set that have not yet 
 
 For example, to add private token balances to storage:
 
-#include_code private_set /noir-projects/noir-contracts/contracts/test/pending_note_hashes_contract/src/main.nr rust
+```rust title="private_set" showLineNumbers 
+#[storage]
+struct Storage<Context> {
+    balances: Owned<PrivateSet<FieldNote, Context>, Context>,
+}
+```
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v4.2.0-aztecnr-rc.2/noir-projects/noir-contracts/contracts/test/pending_note_hashes_contract/src/main.nr#L27-L32" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/test/pending_note_hashes_contract/src/main.nr#L27-L32</a></sub></sup>
+
 
 #### `insert`
 
 Allows us to modify the storage by inserting a note into the `PrivateSet`:
 
-#include_code private_set_insert /noir-projects/noir-contracts/contracts/test/pending_note_hashes_contract/src/main.nr rust
+```rust title="private_set_insert" showLineNumbers 
+owner_balance.insert(note).deliver(MessageDelivery.ONCHAIN_CONSTRAINED);
+```
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v4.2.0-aztecnr-rc.2/noir-projects/noir-contracts/contracts/test/pending_note_hashes_contract/src/main.nr#L51-L53" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/test/pending_note_hashes_contract/src/main.nr#L51-L53</a></sub></sup>
+
 
 Note: The `Owned` wrapper requires calling `.at(owner)` to access the underlying `PrivateSet` for a specific owner. This binds the owner to the state variable instance.
 
@@ -436,13 +588,24 @@ Note: The `Owned` wrapper requires calling `.at(owner)` to access the underlying
 
 Retrieves notes the account has access to. You can optionally provide filtering options. Returns `RetrievedNote` instances:
 
-#include_code private_set_get_notes /noir-projects/noir-contracts/contracts/test/pending_note_hashes_contract/src/main.nr rust
+```rust title="private_set_get_notes" showLineNumbers 
+let options = NoteGetterOptions::with_filter(filter_notes_min_sum, amount);
+// get note (note inserted at bottom of function shouldn't exist yet)
+let notes = owner_balance.get_notes(options);
+```
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v4.2.0-aztecnr-rc.2/noir-projects/noir-contracts/contracts/test/pending_note_hashes_contract/src/main.nr#L70-L74" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/test/pending_note_hashes_contract/src/main.nr#L70-L74</a></sub></sup>
+
 
 #### `pop_notes`
 
 This function pops (gets, removes and returns) the notes the account has access to. Unlike `get_notes`, this immediately nullifies the notes and returns them directly (not wrapped in `RetrievedNote`):
 
-#include_code private_set_pop_notes /noir-projects/noir-contracts/contracts/test/pending_note_hashes_contract/src/main.nr rust
+```rust title="private_set_pop_notes" showLineNumbers 
+let options = NoteGetterOptions::new().set_limit(1);
+let note = owner_balance.pop_notes(options).get(0);
+```
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v4.2.0-aztecnr-rc.2/noir-projects/noir-contracts/contracts/test/pending_note_hashes_contract/src/main.nr#L137-L140" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/test/pending_note_hashes_contract/src/main.nr#L137-L140</a></sub></sup>
+
 
 #### `remove`
 

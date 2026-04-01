@@ -29,21 +29,21 @@ Aztec.nr provides pre-built note types for common use cases:
 
 ```toml
 # In Nargo.toml
-uint_note = { git="https://github.com/AztecProtocol/aztec-nr", tag="#include_aztec_version", directory="uint-note" }
+uint_note = { git="https://github.com/AztecProtocol/aztec-nr", tag="v4.2.0-aztecnr-rc.2", directory="uint-note" }
 ```
 
 **FieldNote** - For storing single Field values:
 
 ```toml
 # In Nargo.toml
-field_note = { git="https://github.com/AztecProtocol/aztec-nr", tag="#include_aztec_version", directory="field-note" }
+field_note = { git="https://github.com/AztecProtocol/aztec-nr", tag="v4.2.0-aztecnr-rc.2", directory="field-note" }
 ```
 
 **AddressNote** - For storing Aztec addresses:
 
 ```toml
 # In Nargo.toml
-address_note = { git="https://github.com/AztecProtocol/aztec-nr", tag="#include_aztec_version", directory="address-note" }
+address_note = { git="https://github.com/AztecProtocol/aztec-nr", tag="v4.2.0-aztecnr-rc.2", directory="address-note" }
 ```
 
 :::
@@ -52,7 +52,17 @@ address_note = { git="https://github.com/AztecProtocol/aztec-nr", tag="#include_
 
 Define your custom note with the `#[note]` macro:
 
-#include_code nft_note_struct /docs/examples/contracts/nft/src/nft.nr rust
+```rust title="nft_note_struct" showLineNumbers 
+use aztec::{macros::notes::note, protocol::traits::Packable};
+
+#[derive(Eq, Packable)]
+#[note]
+pub struct NFTNote {
+    pub token_id: Field,
+}
+```
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v4.2.0-aztecnr-rc.2/docs/examples/contracts/nft/src/nft.nr#L1-L9" target="_blank" rel="noopener noreferrer">Source code: docs/examples/contracts/nft/src/nft.nr#L1-L9</a></sub></sup>
+
 
 The `#[note]` macro generates the following for your struct:
 
@@ -99,13 +109,49 @@ struct Storage<Context> {
 
 ### Inserting notes
 
-#include_code mint /docs/examples/contracts/nft/src/main.nr rust
+```rust title="mint" showLineNumbers 
+#[external("private")]
+fn mint(to: AztecAddress, token_id: Field) {
+    assert(
+        self.storage.minter.read().eq(self.msg_sender()),
+        "caller is not the authorized minter",
+    );
+
+    // we create an NFT note and insert it to the PrivateSet - a collection of notes meant to be read in private
+    let new_nft = NFTNote { token_id };
+    self.storage.owners.at(to).insert(new_nft).deliver(MessageDelivery.ONCHAIN_CONSTRAINED);
+
+    // calling the internal public function above to indicate that the NFT is taken
+    self.enqueue_self._mark_nft_exists(token_id, true);
+}
+```
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v4.2.0-aztecnr-rc.2/docs/examples/contracts/nft/src/main.nr#L50-L65" target="_blank" rel="noopener noreferrer">Source code: docs/examples/contracts/nft/src/main.nr#L50-L65</a></sub></sup>
+
 
 ### Reading and removing notes
 
 Use `pop_notes` to read and nullify notes atomically. This is the recommended pattern for most use cases:
 
-#include_code burn /docs/examples/contracts/nft/src/main.nr rust
+```rust title="burn" showLineNumbers 
+#[external("private")]
+fn burn(from: AztecAddress, token_id: Field) {
+    assert(
+        self.storage.minter.read().eq(self.msg_sender()),
+        "caller is not the authorized minter",
+    );
+
+    // from the NFTNote properties, selects token_id and compares it against the token_id to be burned
+    let options = NoteGetterOptions::new()
+        .select(NFTNote::properties().token_id, Comparator.EQ, token_id)
+        .set_limit(1);
+    let notes = self.storage.owners.at(from).pop_notes(options);
+    assert(notes.len() == 1, "NFT not found");
+
+    self.enqueue_self._mark_nft_exists(token_id, false);
+}
+```
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v4.2.0-aztecnr-rc.2/docs/examples/contracts/nft/src/main.nr#L75-L92" target="_blank" rel="noopener noreferrer">Source code: docs/examples/contracts/nft/src/main.nr#L75-L92</a></sub></sup>
+
 
 :::warning
 There's also a `get_notes` function that reads without nullifying, but use it with caution - the returned notes may have already been spent in another transaction.
@@ -194,7 +240,29 @@ The secret returned by `request_nhk_app` is the **nullifier hiding key** (abbrev
 
 For read-only queries without constraints:
 
-#include_code view_notes /noir-projects/noir-contracts/contracts/app/nft_contract/src/main.nr rust
+```rust title="view_notes" showLineNumbers 
+#[external("utility")]
+unconstrained fn get_private_nfts(
+    owner: AztecAddress,
+    page_index: u32,
+) -> ([Field; MAX_NOTES_PER_PAGE], bool) {
+    let offset = page_index * MAX_NOTES_PER_PAGE;
+    let options = NoteViewerOptions::new().set_offset(offset);
+    let notes = self.storage.private_nfts.at(owner).view_notes(options);
+
+    let mut owned_nft_ids = [0; MAX_NOTES_PER_PAGE];
+    for i in 0..options.limit {
+        if i < notes.len() {
+            owned_nft_ids[i] = notes.get_unchecked(i).token_id;
+        }
+    }
+
+    let page_limit_reached = notes.len() == options.limit;
+    (owned_nft_ids, page_limit_reached)
+}
+```
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v4.2.0-aztecnr-rc.2/noir-projects/noir-contracts/contracts/app/nft_contract/src/main.nr#L293-L313" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/nft_contract/src/main.nr#L293-L313</a></sub></sup>
+
 
 ## Further reading
 

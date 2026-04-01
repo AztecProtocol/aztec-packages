@@ -44,7 +44,7 @@ fn update_to(new_class_id: ContractClassId) {
 :::info
 To use the `ContractInstanceRegistry`, add this dependency to your `Nargo.toml`:
 ```toml
-contract_instance_registry = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="noir-projects/noir-contracts/contracts/protocol_interface/contract_instance_registry_interface" }
+contract_instance_registry = { git="https://github.com/AztecProtocol/aztec-packages/", tag="v4.2.0-aztecnr-rc.2", directory="noir-projects/noir-contracts/contracts/protocol_interface/contract_instance_registry_interface" }
 ```
 :::
 

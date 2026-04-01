@@ -60,7 +60,14 @@ Utility functions perform state queries from an offchain client and are never in
 
 A reasonable mental model is a Solidity `view` function that can only be invoked via `eth_call`, never in a transaction. Unlike Solidity `view` functions, utility functions can also modify local offchain PXE state.
 
-#include_code balance_of_private /noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr rust
+```rust title="balance_of_private" showLineNumbers 
+#[external("utility")]
+unconstrained fn balance_of_private(owner: AztecAddress) -> u128 {
+    self.storage.balances.at(owner).balance_of()
+}
+```
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v4.2.0-aztecnr-rc.2/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L527-L532" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L527-L532</a></sub></sup>
+
 
 :::info
 Utility functions can access both private and historical public data since they're not part of transactions—there's no risk of using stale or unverified state.
@@ -76,7 +83,15 @@ All data inserted into private storage from a public function will be publicly v
 
 To create a public function you can annotate it with the `#[external("public")]` attribute. This will make the public context available within the function's execution scope.
 
-#include_code set_minter /noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr rust
+```rust title="set_minter" showLineNumbers 
+#[external("public")]
+fn set_minter(minter: AztecAddress, approve: bool) {
+    assert(self.storage.admin.read().eq(self.msg_sender()), "caller is not admin");
+    self.storage.minters.at(minter).write(approve);
+}
+```
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v4.2.0-aztecnr-rc.2/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L149-L155" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L149-L155</a></sub></sup>
+
 
 Under the hood, the macro:
 
