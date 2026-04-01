@@ -16,7 +16,9 @@ import { ungzip } from 'pako';
 
 import MockAppCreatorCircuit from '../artifacts/app_creator.json' with { type: 'json' };
 import MockAppReaderCircuit from '../artifacts/app_reader.json' with { type: 'json' };
+import MockGoblinAppCircuit from '../artifacts/goblin_app.json' with { type: 'json' };
 import MockHidingCircuit from '../artifacts/mock_hiding.json' with { type: 'json' };
+import MockPrivateKernelGoblinCircuit from '../artifacts/mock_private_kernel_goblin.json' with { type: 'json' };
 import MockPrivateKernelInitCircuit from '../artifacts/mock_private_kernel_init.json' with { type: 'json' };
 import MockPrivateKernelInnerCircuit from '../artifacts/mock_private_kernel_inner.json' with { type: 'json' };
 import MockPrivateKernelResetCircuit from '../artifacts/mock_private_kernel_reset.json' with { type: 'json' };
@@ -30,8 +32,10 @@ import type {
   AppPublicInputs,
   AppReaderInputType,
   FixedLengthArray,
+  GoblinAppInputType,
   KernelPublicInputs,
   MockHidingInputType,
+  MockPrivateKernelGoblinInputType,
   MockPrivateKernelInitInputType,
   MockPrivateKernelInnerInputType,
   MockPrivateKernelResetInputType,
@@ -65,6 +69,8 @@ const MockRollupTxBasePrivateVk = extractVkFromCircuit(MockRollupTxBasePrivateCi
 const MockRollupTxBasePublicVk = extractVkFromCircuit(MockRollupTxBasePublicCircuit);
 const MockRollupTxMergeVk = extractVkFromCircuit(MockRollupTxMergeCircuit);
 const MockRollupRootVk = extractVkFromCircuit(MockRollupRootCircuit);
+const MockGoblinAppVk = extractVkFromCircuit(MockGoblinAppCircuit);
+const MockPrivateKernelGoblinVk = extractVkFromCircuit(MockPrivateKernelGoblinCircuit);
 
 // Re export the circuit jsons
 export {
@@ -89,6 +95,10 @@ export {
   MockRollupTxMergeVk,
   MockRollupRootCircuit,
   MockRollupRootVk,
+  MockGoblinAppCircuit,
+  MockGoblinAppVk,
+  MockPrivateKernelGoblinCircuit,
+  MockPrivateKernelGoblinVk,
 };
 
 /* eslint-disable camelcase */
@@ -246,19 +256,42 @@ export async function witnessGenMockRollupRootCircuit(
   };
 }
 
+export async function witnessGenMockGoblinAppCircuit(
+  args: GoblinAppInputType,
+): Promise<WitnessGenResult<AppPublicInputs>> {
+  const program = new Noir(MockGoblinAppCircuit);
+  const { witness, returnValue } = await program.execute(args, foreignCallHandler);
+  return {
+    witness,
+    publicInputs: returnValue as AppPublicInputs,
+  };
+}
+
+export async function witnessGenMockPrivateKernelGoblinCircuit(
+  args: MockPrivateKernelGoblinInputType,
+): Promise<WitnessGenResult<PrivateKernelPublicInputs>> {
+  const program = new Noir(MockPrivateKernelGoblinCircuit);
+  const { witness, returnValue } = await program.execute(args, foreignCallHandler);
+  return {
+    witness,
+    publicInputs: returnValue as PrivateKernelPublicInputs,
+  };
+}
+
 export async function generateTestingIVCStack(
   // A call to the creator app creates 1 commitment. A tx can have at most 2 commitments.
   numCreatorAppCalls: number,
   // A call to the reader app creates 1 read request. A reset kernel will be run if there are 2 read requests in the
   // public inputs. All read requests must be cleared before running the tail kernel.
   numReaderAppCalls: number,
+  add_flush: boolean = false,
 ): Promise<[Uint8Array[], Uint8Array[], KernelPublicInputs, Uint8Array[]]> {
   if (numCreatorAppCalls > 2) {
     throw new Error('The creator app can only be called at most twice.');
   }
 
   const tx = {
-    number_of_calls: `0x${(numCreatorAppCalls + numReaderAppCalls).toString(16)}`,
+    number_of_calls: `0x${(numCreatorAppCalls + numReaderAppCalls + (add_flush ? 1 : 0)).toString(16)}`,
   };
 
   const witnessStack: Uint8Array[] = [];
@@ -319,6 +352,22 @@ export async function generateTestingIVCStack(
     };
   };
 
+  const createGoblinKernel = async (appResult: WitnessGenResult<AppPublicInputs>, appVkAsFields: string[]) => {
+    const result = await witnessGenMockPrivateKernelGoblinCircuit({
+      prev_kernel_public_inputs: previousKernel.publicInputs,
+      kernel_vk: await getVkAsFields(previousKernel),
+      app_inputs: appResult.publicInputs,
+      app_vk: await getVkAsFields({ keyAsFields: appVkAsFields }),
+    });
+    witnessStack.push(result.witness);
+    bytecodes.push(MockPrivateKernelGoblinCircuit.bytecode);
+    vks.push(MockPrivateKernelGoblinVk.keyAsBytes);
+    previousKernel = {
+      publicInputs: result.publicInputs,
+      keyAsFields: MockPrivateKernelGoblinVk.keyAsFields,
+    };
+  };
+
   const commitments = ['0x1', '0x2'];
   for (let i = 0; i < numCreatorAppCalls; i++) {
     const result = await witnessGenCreatorAppMockCircuit({ commitments_to_create: [commitments[i], '0x0'] });
@@ -351,6 +400,17 @@ export async function generateTestingIVCStack(
       await createReset(commitmentToReset);
       commitmentToReset = [];
     }
+  }
+
+  if (add_flush) {
+    // Goblin App
+    const result = await witnessGenMockGoblinAppCircuit({ commitments_to_create: [commitments[0], '0x0'] });
+    witnessStack.push(result.witness);
+    bytecodes.push(MockGoblinAppCircuit.bytecode);
+    vks.push(MockGoblinAppVk.keyAsBytes);
+
+    // Goblin Kernel
+    await createGoblinKernel(result, MockGoblinAppVk.keyAsFields);
   }
 
   const tailWitnessGenResult = await witnessGenMockPrivateKernelTailCircuit({

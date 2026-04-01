@@ -78,6 +78,19 @@ describe.each([BackendType.Wasm, BackendType.NativeUnixSocket])('Client IVC Inte
       expect(verified.valid).toBe(true);
     });
 
+    // Skip for Wasm — goblin flush runs ECCVM + Translator proving during circuit building,
+    // which exceeds WASM linear memory limits.
+    (backend === BackendType.NativeUnixSocket ? it : it.skip)(
+      'Should generate a verifiable client IVC proof with a goblin flush',
+      async () => {
+        const [bytecodes, witnessStack, , vks] = await generateTestingIVCStack(1, 0, true);
+        const ivcBackend = new AztecClientBackend(bytecodes, barretenberg);
+        const { proof, vk } = await ivcBackend.prove(witnessStack, vks);
+        const verified = await ivcBackend.verify(proof, vk);
+        expect(verified).toBe(true);
+      },
+    );
+
     it('Should generate an array of gate numbers for the stack of programs being proved by ClientIVC', async () => {
       // Create ACIR bytecodes
       const bytecodes = [

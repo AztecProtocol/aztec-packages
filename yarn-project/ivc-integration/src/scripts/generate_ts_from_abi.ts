@@ -19,6 +19,8 @@ const circuits = [
   'mock_rollup_tx_base_private',
   'mock_rollup_tx_merge',
   'mock_rollup_root',
+  'goblin_app',
+  'mock_private_kernel_goblin',
 ];
 
 const main = async () => {
