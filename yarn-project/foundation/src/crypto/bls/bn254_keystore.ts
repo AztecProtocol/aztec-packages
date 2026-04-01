@@ -262,26 +262,3 @@ export function decryptBn254KeystoreFromObject(keystore: Bn254Keystore, password
     throw new Bn254KeystoreError(`Failed to decrypt keystore: ${String(error)}`, error as Error);
   }
 }
-
-/**
- * Validates that a decrypted private key matches the public key in the keystore.
- *
- * @param privateKeyHex - Decrypted private key (0x-prefixed)
- * @param expectedPubkey - Expected public key from keystore
- * @param computePublicKey - Function to compute public key from private key
- * @returns true if keys match, false otherwise
- */
-export function verifyBn254Keypair(
-  privateKeyHex: string,
-  expectedPubkey: string,
-  computePublicKey: (privateKey: string) => string,
-): boolean {
-  try {
-    const computedPubkey = computePublicKey(privateKeyHex);
-    const normalizedExpected = expectedPubkey.toLowerCase().replace(/^0x/i, '');
-    const normalizedComputed = computedPubkey.toLowerCase().replace(/^0x/i, '');
-    return normalizedExpected === normalizedComputed;
-  } catch {
-    return false;
-  }
-}
