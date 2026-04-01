@@ -81,6 +81,18 @@ variable "PROVER_TEST_VERIFICATION_DELAY_MS" {
   default     = 10
 }
 
+variable "BB_CHONK_VERIFY_MAX_BATCH" {
+  description = "Upper bound on proofs per batch for the peer chonk batch verifier"
+  type        = number
+  default     = 16
+}
+
+variable "BB_CHONK_VERIFY_BATCH_CONCURRENCY" {
+  description = "Thread count for the peer batch verifier parallel reduce (0 = auto)"
+  type        = number
+  default     = 6
+}
+
 variable "K8S_CLUSTER_CONTEXT" {
   description = "GKE cluster context"
   type        = string
@@ -227,6 +239,12 @@ variable "VALIDATOR_HA_REPLICAS" {
   description = "Number of additional HA validator releases (0 = no HA, 1 = primary + 1 HA, etc.)"
   type        = number
   default     = 0
+}
+
+variable "VALIDATOR_HA_OLD_DUTIES_MAX_AGE_H" {
+  description = "Clean up old signed HA duties after this many hours (prevents unbounded DB growth)"
+  type        = number
+  default     = 24
 }
 
 variable "ADMIN_API_KEY_HASH" {
@@ -649,6 +667,18 @@ variable "BOT_CROSS_CHAIN_PXE_SYNC_CHAIN_TIP" {
   default     = "checkpointed"
 }
 
+variable "BOT_DA_GAS_LIMIT" {
+  description = "DA gas limit for bot transactions (empty to use gas estimation)"
+  type        = string
+  default     = ""
+}
+
+variable "BOT_L2_GAS_LIMIT" {
+  description = "L2 gas limit for bot transactions (empty to use gas estimation)"
+  type        = string
+  default     = ""
+}
+
 # RPC ingress configuration (GKE-specific)
 variable "RPC_INGRESS_ENABLED" {
   description = "Enable GKE ingress for RPC nodes"
@@ -736,6 +766,12 @@ variable "BLOB_FILE_STORE_UPLOAD_URL" {
   type        = string
   nullable    = true
   default     = null
+}
+
+variable "BLOB_FILE_STORE_URLS" {
+  description = "Comma-separated URLs for reading blobs from filestore. Set to ',' to disable."
+  type        = string
+  default     = ""
 }
 
 variable "TX_FILE_STORE_ENABLED" {

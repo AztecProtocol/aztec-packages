@@ -1,4 +1,5 @@
 import { getInitialTestAccountsData } from '@aztec/accounts/testing';
+import { NO_FROM } from '@aztec/aztec.js/account';
 import { Fr } from '@aztec/aztec.js/fields';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import { TxReceipt } from '@aztec/aztec.js/tx';
@@ -17,7 +18,6 @@ import { MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT, MAX_PROCESSABLE_L2_GAS } from '@
 import { SecretValue } from '@aztec/foundation/config';
 import { bufferToHex } from '@aztec/foundation/string';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
-import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 import { EmbeddedWallet } from '@aztec/wallets/embedded';
 
@@ -47,7 +47,7 @@ describe('e2e_bot', () => {
     wallet = await EmbeddedWallet.create(aztecNode, { ephemeral: true });
     const accountManager = await wallet.createSchnorrAccount(botAccount.secret, botAccount.salt, botAccount.signingKey);
     const deployMethod = await accountManager.getDeployMethod();
-    await deployMethod.send({ from: AztecAddress.ZERO });
+    await deployMethod.send({ from: NO_FROM });
   });
 
   afterAll(() => teardown());

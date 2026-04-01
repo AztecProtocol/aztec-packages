@@ -1,6 +1,6 @@
 # Chonk Audit Scope
 
-Repository: https://github.com/AztecProtocol/aztec-packages
+Repository: https://github.com/AztecProtocol/aztec-packages-private
 Commit hash: Most recent commit on branch 'next'
 
 Chonk is an RCG system designed for proving private smart contract execution on Aztec. It uses HyperNova folding to accumulate circuits with deferred PCS verification, combined with Goblin to defer non-native elliptic curve operations to a separate VM - Elliptic Curve Virtual Machine. The goal of the audit is to ensure that soundness and completeness of the protocol **assuming** the soundness of several building blocks audited separately -  Circuit Builders, Field, Bigfield, ECCVM, Translator, Biggroup, Transcript, DSL/ACIR, Sumcheck, and PCS.
@@ -37,32 +37,40 @@ Note: Paths relative to `aztec-packages/barretenberg/cpp/src/barretenberg`
 ### Chonk Core
 19. `chonk/chonk.cpp`
 20. `chonk/chonk.hpp`
-21. `chonk/private_execution_steps.cpp`
-22. `chonk/chonk_proof.cpp`
-23. `chonk/chonk_proof.hpp`
+21. `chonk/chonk_base.hpp`
+22. `chonk/private_execution_steps.hpp`
+23. `chonk/private_execution_steps.cpp`
+24. `chonk/chonk_proof.cpp`
+25. `chonk/chonk_proof.hpp`
+26. `chonk/proof_compression.hpp`
+
+### Batched Honk Translator
+27. `chonk/batched_honk_translator/batched_honk_translator_prover.hpp`
+28. `chonk/batched_honk_translator/batched_honk_translator_prover.cpp`
 
 ### Relations
-24. `relations/multilinear_batching/multilinear_batching_relation.hpp`
+29. `relations/multilinear_batching/multilinear_batching_relation.hpp`
 
 ### Special Public Inputs
-25. `special_public_inputs/special_public_inputs.hpp`
-26. `stdlib/primitives/public_input_component/public_input_component.hpp`
+30. `special_public_inputs/special_public_inputs.hpp`
+31. `stdlib/primitives/public_input_component/public_input_component.hpp`
 
 ### Flavor
-27. `flavor/multilinear_batching_flavor.hpp`
-28. `flavor/multilinear_batching_flavor.cpp`
-29. `flavor/multilinear_batching_recursive_flavor.hpp`
+32. `flavor/multilinear_batching_flavor.hpp`
+33. `flavor/multilinear_batching_flavor.cpp`
+34. `flavor/multilinear_batching_recursive_flavor.hpp`
 
 ### Databus
-30. `stdlib/primitives/databus/databus.hpp`
-31. `stdlib/primitives/databus/databus.cpp`
-32. `dsl/acir_format/block_constraint.cpp` (only the databus parts: `CallData`/`ReturnData` handling. The RAM/ROM parts are covered by the RAM/ROM audit scope.)
+35. `stdlib/primitives/databus/databus.hpp`
+36. `stdlib/primitives/databus/databus.cpp`
+37. `dsl/acir_format/block_constraint.cpp` (only the databus parts: `CallData`/`ReturnData` handling. The RAM/ROM parts are covered by the RAM/ROM audit scope.)
 
 ### ACIR Integration
-33. `dsl/acir_format/hypernova_recursion_constraint.hpp`
-34. `dsl/acir_format/hypernova_recursion_constraint.cpp`
-35. `dsl/acir_format/recursion_constraint.cpp` (only `process_hn_recursion_constraints()` method)
-36. `dsl/acir_format/recursion_constraint.cpp`
+38. `dsl/acir_format/hypernova_recursion_constraint.hpp`
+39. `dsl/acir_format/hypernova_recursion_constraint.cpp`
+40. `dsl/acir_format/recursion_constraint.cpp` (only `process_hn_recursion_constraints()` method)
+41. `dsl/acir_format/chonk_recursion_constraints.hpp`
+42. `dsl/acir_format/chonk_recursion_constraints.cpp`
 ---
 
 ## Critical Files
@@ -91,10 +99,8 @@ Note: Paths relative to `aztec-packages/barretenberg/cpp/src/barretenberg`
 |------|-------|
 | `chonk/chonk.test.cpp` | Chonk orchestration, QUEUE_TYPE state machine, accumulation flow |
 | `hypernova/hypernova_prover.test.cpp` | HyperNova folding prover tests |
-| `chonk/chonk_transcript_invariants.test.cpp` | Transcript consistency, tampering detection, M_tail propagation |
 | `hypernova/hypernova_verifier.test.cpp` | Folding proof verification, accumulator batching |
 | `multilinear_batching/multilinear_batching_prover.test.cpp` | Polynomial claim batching, eq consistency |
-| `goblin/merge.test.cpp` | Merge protocol correctness, degree checks, PREPEND/APPEND modes |
 | `relations/databus_lookup_relation_consistency.test.cpp` | Databus lookup relation soundness |
 | `stdlib/primitives/databus/databus.test.cpp` | Databus read/write tests |
 
@@ -112,6 +118,7 @@ Note: Paths relative to `aztec-packages/barretenberg/cpp/src/barretenberg`
 
 | Component | Documentation | Key Topics |
 |-----------|--------------|------------|
-| **Chonk** | [README.md](README.md) | HyperNova folding, multilinear batching, databus, proof structure, verification architecture, soundness mechanisms |
+| **Chonk** | [chonk/README.md](../../../src/barretenberg/chonk/README.md) | HyperNova folding, multilinear batching, databus, proof structure, batched verification architecture, soundness mechanisms |
 | **Merge Protocol** | [MERGE_PROTOCOL.md](../goblin/MERGE_PROTOCOL.md) | Concatenation identities, degree bounds, PREPEND/APPEND modes, Chonk integration |
+| **Batched Honk Translator** | [README.md](batched_honk_translator/README.md) | Batched proving of Honk and Translator together |
 | **Transcripts** | [transcript/README.md](../transcript/README.md) | Manifest structure, transcript isolation, origin tags, VK binding |

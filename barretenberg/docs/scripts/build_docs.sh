@@ -2,6 +2,12 @@
 
 set -e
 
+if ! command -v doxygen &> /dev/null; then
+  echo "Doxygen not found - skipping API docs generation."
+  echo "Install doxygen to build API reference locally."
+  exit 0
+fi
+
 echo "Building Doxygen documentation..."
 cd "$(dirname "$0")/../../cpp"
 doxygen -q docs/Doxyfile

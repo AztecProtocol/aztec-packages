@@ -36,7 +36,7 @@ import {
 } from '@aztec/wallet-sdk/manager';
 import { hashToEmoji } from '@aztec/wallet-sdk/crypto';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import type { Wallet } from '@aztec/aztec.js/wallet';
+import { ContractInitializationStatus, type Wallet } from '@aztec/aztec.js/wallet';
 
 type ExtendedWalletProvider = Omit<WalletProvider, 'type'> & {
   type: WalletProvider['type'] | 'embedded';
@@ -86,8 +86,8 @@ async function discoverTestAccounts(wallet: EmbeddedWallet) {
     return;
   }
 
-  const { isContractInitialized } = await wallet.getContractMetadata(sampleAccount.address);
-  if (!isContractInitialized) {
+  const { initializationStatus } = await wallet.getContractMetadata(sampleAccount.address);
+  if (initializationStatus !== ContractInitializationStatus.INITIALIZED) {
     return;
   }
 

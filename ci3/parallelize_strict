@@ -75,12 +75,17 @@ num_jobs=0
 
 # We'll handle errors explicitly.
 set +e
-run_tests | tee $output
+set -o pipefail
+run_tests | tee "$output"
+run_exit=$?
 
 # Loop to monitor jobs until one fails or all finish.
 while (( $(jobs -p | wc -l) > 0 )); do
   wait_for_job
 done
+
+# Propagate failure from run_tests (which runs in a subshell due to the pipe).
+[ $run_exit -ne 0 ] && exit $run_exit
 
 function filter_long_times {
   grep -E '\([0-9]+s\)$' |           # Match lines ending with (number)s

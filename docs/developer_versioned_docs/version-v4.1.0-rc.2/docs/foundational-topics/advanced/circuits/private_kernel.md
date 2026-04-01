@@ -1,6 +1,6 @@
 ---
 title: Private Kernel Circuit
-sidebar_position: 0
+sidebar_position: 1
 tags: [protocol, circuits]
 description: Learn about the Private Kernel Circuit, the only zero-knowledge circuit in Aztec that handles private data and ensures transaction privacy by executing on user devices.
 ---
@@ -78,7 +78,50 @@ As the kernel processes each private call, it accumulates:
 
 Each item is scoped with the contract address that emitted it, ensuring proper attribution.
 
+## Performance Impact
+
+The kernel circuits add significant overhead to every transaction. Understanding this overhead is important when designing contracts and profiling performance.
+
+### Gate counts per phase
+
+Consider a typical transaction where a user calls a single contract function. This actually involves **two** private function calls — the account entrypoint (e.g. `SchnorrAccount:entrypoint`) and your contract function — so the kernel processes both:
+
+```text
+Account entrypoint:      22,000 gates   (1st private call → processed by init)
+Your function:           14,000 gates   (2nd private call → processed by inner)
+private_kernel_init:     ~46,000 gates
+private_kernel_inner:   ~101,000 gates
+private_kernel_reset:   ~200,000 gates
+private_kernel_tail:     ~44,000 gates
+─────────────────────────────────────
+Total transaction:      ~427,000 gates
+```
+
+The init circuit handles the first private function call (the account entrypoint), and inner handles each subsequent one. The exact kernel gate counts vary depending on the transaction's complexity (number of note hashes, nullifiers, read requests, etc.), but the key takeaway is: **kernel overhead is substantial and scales with the number of private function calls**.
+
+Each additional private function call in a transaction adds at least one more kernel inner circuit (~101k gates). This means that architectural decisions — like whether to inline logic into one function vs. splitting across multiple function calls — can have a significant impact on total proving time.
+
+:::tip Design tip
+When profiling shows high gate counts, consider whether you can reduce the number of distinct private function calls in your transaction. For example, inlining a verification step into the calling function saves an entire kernel fold (~101k gates), even if it slightly increases the calling function's own gate count.
+:::
+
+:::info Large circuits do not prevent transaction inclusion
+
+A contract with a high gate count is **not** uncallable. The only effect of a large circuit is that it takes longer to prove on the client. Your transaction will still be included in a block as long as it is valid by the time the proof is submitted.
+
+In practice, there are only two edge cases where slow proving could cause issues:
+
+1. **Transaction expiry**: If proving takes so long (e.g. over an hour) that the transaction becomes invalid by the time you're done. This is unlikely for most use cases.
+2. **Fee volatility**: If network fees increase rapidly while you're proving, your transaction may be underpriced by the time it's broadcast. This is similar to signing an Ethereum transaction and waiting before submitting it. You can mitigate this by overpaying for fees if rapid inclusion is a priority.
+
+One of the major benefits of Aztec is that private computation is proven client-side: you can do as much computation as you want in private functions — the network cost is the same regardless.
+:::
+
+For tools to measure these costs, see the [profiling guide](../../../aztec-nr/framework-description/advanced/how_to_profile_transactions.md).
+
 ## Related Pages
 
 - [Transactions](../../transactions.md) - How private kernel fits into transaction execution
 - [Public Execution](./public_execution.md) - How public functions are executed by the AVM
+- [Profiling Transactions](../../../aztec-nr/framework-description/advanced/how_to_profile_transactions.md) - Measuring gate counts and identifying bottlenecks
+- [Writing Efficient Contracts](../../../aztec-nr/framework-description/advanced/writing_efficient_contracts.md) - Optimization strategies

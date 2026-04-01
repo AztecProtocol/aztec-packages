@@ -20,7 +20,7 @@ import { L1Metrics, type TelemetryClient } from '@aztec/telemetry-client';
 import { FullNodeCheckpointsBuilder, NodeKeystoreAdapter, type ValidatorClient } from '@aztec/validator-client';
 
 import { type SequencerClientConfig, getPublisherConfigFromSequencerConfig } from '../config.js';
-import { GlobalVariableBuilder } from '../global_variable_builder/index.js';
+import type { GlobalVariableBuilder } from '../global_variable_builder/index.js';
 import { SequencerPublisherFactory } from '../publisher/sequencer-publisher-factory.js';
 import { Sequencer, type SequencerConfig } from '../sequencer/index.js';
 
@@ -65,7 +65,9 @@ export class SequencerClient {
       dateProvider: DateProvider;
       epochCache?: EpochCache;
       l1TxUtils: L1TxUtils[];
+      funderL1TxUtils?: L1TxUtils;
       nodeKeyStore: KeystoreManager;
+      globalVariableBuilder: GlobalVariableBuilder;
     },
   ) {
     const {
@@ -87,16 +89,14 @@ export class SequencerClient {
       publicClient,
       l1TxUtils.map(x => x.getSenderAddress()),
     );
-    const publisherManager = new PublisherManager(
-      l1TxUtils,
-      getPublisherConfigFromSequencerConfig(config),
-      log.getBindings(),
-    );
+    const publisherManager = new PublisherManager(l1TxUtils, getPublisherConfigFromSequencerConfig(config), {
+      bindings: log.getBindings(),
+      funder: deps.funderL1TxUtils,
+    });
     const rollupContract = new RollupContract(publicClient, config.l1Contracts.rollupAddress.toString());
-    const [l1GenesisTime, slotDuration, rollupVersion, rollupManaLimit] = await Promise.all([
+    const [l1GenesisTime, slotDuration, rollupManaLimit] = await Promise.all([
       rollupContract.getL1GenesisTime(),
       rollupContract.getSlotDuration(),
-      rollupContract.getVersion(),
       rollupContract.getManaLimit().then(Number),
     ] as const);
 
@@ -140,13 +140,7 @@ export class SequencerClient {
 
     const ethereumSlotDuration = config.ethereumSlotDuration;
 
-    const globalsBuilder = new GlobalVariableBuilder({
-      ...config,
-      l1GenesisTime,
-      slotDuration: Number(slotDuration),
-      ethereumSlotDuration,
-      rollupVersion,
-    });
+    const globalsBuilder = deps.globalVariableBuilder;
 
     // When running in anvil, assume we can post a tx up until one second before the end of an L1 slot.
     // Otherwise, we need the full L1 slot duration for publishing to ensure inclusion.
@@ -202,7 +196,7 @@ export class SequencerClient {
     await this.validatorClient?.start();
     this.sequencer.start();
     this.l1Metrics?.start();
-    await this.publisherManager.loadState();
+    await this.publisherManager.start();
   }
 
   /**
@@ -211,7 +205,7 @@ export class SequencerClient {
   public async stop() {
     await this.sequencer.stop();
     await this.validatorClient?.stop();
-    this.publisherManager.interrupt();
+    await this.publisherManager.stop();
     this.l1Metrics?.stop();
   }
 

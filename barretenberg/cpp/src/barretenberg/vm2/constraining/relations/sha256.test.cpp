@@ -8,7 +8,11 @@
 #include "barretenberg/vm2/generated/relations/lookups_sha256.hpp"
 #include "barretenberg/vm2/generated/relations/sha256.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
+#include "barretenberg/vm2/simulation/gadgets/bitwise.hpp"
+#include "barretenberg/vm2/simulation/gadgets/field_gt.hpp"
+#include "barretenberg/vm2/simulation/gadgets/gt.hpp"
 #include "barretenberg/vm2/simulation/gadgets/memory.hpp"
+#include "barretenberg/vm2/simulation/gadgets/range_check.hpp"
 #include "barretenberg/vm2/simulation/lib/sha256_compression.hpp"
 #include "barretenberg/vm2/simulation/standalone/pure_bitwise.hpp"
 #include "barretenberg/vm2/simulation/standalone/pure_gt.hpp"
@@ -203,21 +207,13 @@ TEST(Sha256ConstrainingTest, Interaction)
                       lookup_sha256_range_comp_next_a_rhs_settings,
                       lookup_sha256_range_comp_next_e_lhs_settings,
                       lookup_sha256_range_comp_next_e_rhs_settings,
-                      lookup_sha256_range_comp_a_lhs_settings,
                       lookup_sha256_range_comp_a_rhs_settings,
-                      lookup_sha256_range_comp_b_lhs_settings,
                       lookup_sha256_range_comp_b_rhs_settings,
-                      lookup_sha256_range_comp_c_lhs_settings,
                       lookup_sha256_range_comp_c_rhs_settings,
-                      lookup_sha256_range_comp_d_lhs_settings,
                       lookup_sha256_range_comp_d_rhs_settings,
-                      lookup_sha256_range_comp_e_lhs_settings,
                       lookup_sha256_range_comp_e_rhs_settings,
-                      lookup_sha256_range_comp_f_lhs_settings,
                       lookup_sha256_range_comp_f_rhs_settings,
-                      lookup_sha256_range_comp_g_lhs_settings,
                       lookup_sha256_range_comp_g_rhs_settings,
-                      lookup_sha256_range_comp_h_lhs_settings,
                       lookup_sha256_range_comp_h_rhs_settings>(trace);
 
     check_relation<sha256>(trace);

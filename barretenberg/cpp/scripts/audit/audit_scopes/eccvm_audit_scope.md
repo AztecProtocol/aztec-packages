@@ -1,5 +1,5 @@
 # External Audit Scope: ECCVM
-Repository: https://github.com/AztecProtocol/aztec-packages
+Repository: https://github.com/AztecProtocol/aztec-packages-private
 Commit: 2a49eb6
 
 ## What is this document?

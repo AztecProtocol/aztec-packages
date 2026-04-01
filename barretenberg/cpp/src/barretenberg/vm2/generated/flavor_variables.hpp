@@ -74,7 +74,6 @@
 #include "relations/lookups_bc_hashing.hpp"
 #include "relations/lookups_bc_retrieval.hpp"
 #include "relations/lookups_bitwise.hpp"
-#include "relations/lookups_calldata.hpp"
 #include "relations/lookups_calldata_hashing.hpp"
 #include "relations/lookups_class_id_derivation.hpp"
 #include "relations/lookups_context.hpp"
@@ -120,6 +119,7 @@
 #include "relations/lookups_update_check.hpp"
 #include "relations/perms_addressing.hpp"
 #include "relations/perms_bc_hashing.hpp"
+#include "relations/perms_calldata_hashing.hpp"
 #include "relations/perms_context.hpp"
 #include "relations/perms_data_copy.hpp"
 #include "relations/perms_ecc_mem.hpp"
@@ -141,10 +141,10 @@ namespace bb::avm2 {
 
 struct AvmFlavorVariables {
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 122;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 3012;
-    static constexpr size_t NUM_SHIFTED_ENTITIES = 363;
-    static constexpr size_t NUM_WIRES = 2559;
-    static constexpr size_t NUM_ALL_ENTITIES = 3497;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 2948;
+    static constexpr size_t NUM_SHIFTED_ENTITIES = 362;
+    static constexpr size_t NUM_WIRES = 2504;
+    static constexpr size_t NUM_ALL_ENTITIES = 3432;
 
     // Need to be templated for recursive verifier
     template <typename FF_>
@@ -253,12 +253,10 @@ struct AvmFlavorVariables {
         lookup_bc_retrieval_retrieved_bytecodes_insertion_relation<FF_>,
         lookup_bitwise_byte_operations_relation<FF_>,
         lookup_bitwise_integral_tag_length_relation<FF_>,
-        lookup_calldata_hashing_check_final_size_relation<FF_>,
         lookup_calldata_hashing_get_calldata_field_0_relation<FF_>,
         lookup_calldata_hashing_get_calldata_field_1_relation<FF_>,
         lookup_calldata_hashing_get_calldata_field_2_relation<FF_>,
         lookup_calldata_hashing_poseidon2_hash_relation<FF_>,
-        lookup_calldata_range_check_context_id_diff_relation<FF_>,
         lookup_class_id_derivation_class_id_poseidon2_0_relation<FF_>,
         lookup_class_id_derivation_class_id_poseidon2_1_relation<FF_>,
         lookup_context_ctx_stack_return_relation<FF_>,
@@ -271,8 +269,8 @@ struct AvmFlavorVariables {
         lookup_data_copy_check_dst_addr_in_range_relation<FF_>,
         lookup_data_copy_check_src_addr_in_range_relation<FF_>,
         lookup_data_copy_col_read_relation<FF_>,
-        lookup_data_copy_data_index_upper_bound_gt_offset_relation<FF_>,
         lookup_data_copy_offset_plus_size_is_gt_data_size_relation<FF_>,
+        lookup_data_copy_sel_has_reads_relation<FF_>,
         lookup_ecc_mem_check_dst_addr_in_range_relation<FF_>,
         lookup_ecc_mem_input_output_ecc_add_relation<FF_>,
         lookup_emit_notehash_notehash_tree_write_relation<FF_>,
@@ -517,21 +515,13 @@ struct AvmFlavorVariables {
         lookup_sha256_mem_check_input_addr_in_range_relation<FF_>,
         lookup_sha256_mem_check_output_addr_in_range_relation<FF_>,
         lookup_sha256_mem_check_state_addr_in_range_relation<FF_>,
-        lookup_sha256_range_comp_a_lhs_relation<FF_>,
         lookup_sha256_range_comp_a_rhs_relation<FF_>,
-        lookup_sha256_range_comp_b_lhs_relation<FF_>,
         lookup_sha256_range_comp_b_rhs_relation<FF_>,
-        lookup_sha256_range_comp_c_lhs_relation<FF_>,
         lookup_sha256_range_comp_c_rhs_relation<FF_>,
-        lookup_sha256_range_comp_d_lhs_relation<FF_>,
         lookup_sha256_range_comp_d_rhs_relation<FF_>,
-        lookup_sha256_range_comp_e_lhs_relation<FF_>,
         lookup_sha256_range_comp_e_rhs_relation<FF_>,
-        lookup_sha256_range_comp_f_lhs_relation<FF_>,
         lookup_sha256_range_comp_f_rhs_relation<FF_>,
-        lookup_sha256_range_comp_g_lhs_relation<FF_>,
         lookup_sha256_range_comp_g_rhs_relation<FF_>,
-        lookup_sha256_range_comp_h_lhs_relation<FF_>,
         lookup_sha256_range_comp_h_rhs_relation<FF_>,
         lookup_sha256_range_comp_next_a_lhs_relation<FF_>,
         lookup_sha256_range_comp_next_a_rhs_relation<FF_>,
@@ -616,6 +606,7 @@ struct AvmFlavorVariables {
         perm_bc_hashing_get_packed_field_0_relation<FF_>,
         perm_bc_hashing_get_packed_field_1_relation<FF_>,
         perm_bc_hashing_get_packed_field_2_relation<FF_>,
+        perm_calldata_hashing_check_final_size_relation<FF_>,
         perm_context_ctx_stack_call_relation<FF_>,
         perm_data_copy_mem_read_relation<FF_>,
         perm_data_copy_mem_write_relation<FF_>,

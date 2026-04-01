@@ -2,11 +2,11 @@ import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { BlockHash } from '@aztec/stdlib/block';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
+import { MessageContext } from '@aztec/stdlib/logs';
 import { TxHash } from '@aztec/stdlib/tx';
 
 import { mock } from 'jest-mock-extended';
 
-import { MessageTxContext } from '../contract_function_simulator/noir-structs/message_tx_context.js';
 import { MessageContextService } from './message_context_service.js';
 
 describe('MessageContextService', () => {
@@ -20,7 +20,7 @@ describe('MessageContextService', () => {
   });
 
   it('returns null for zero tx hash', async () => {
-    const results = await service.resolveMessageContexts([Fr.ZERO], anchorBlockNumber);
+    const results = await service.getMessageContextsByTxHash([Fr.ZERO], anchorBlockNumber);
 
     expect(results).toEqual([null]);
     expect(aztecNode.getTxEffect).not.toHaveBeenCalled();
@@ -30,7 +30,7 @@ describe('MessageContextService', () => {
     const txHash = TxHash.random();
     aztecNode.getTxEffect.mockResolvedValueOnce(undefined);
 
-    const results = await service.resolveMessageContexts([txHash.hash], anchorBlockNumber);
+    const results = await service.getMessageContextsByTxHash([txHash.hash], anchorBlockNumber);
 
     expect(results).toEqual([null]);
   });
@@ -44,7 +44,7 @@ describe('MessageContextService', () => {
       data: { txHash, noteHashes: [Fr.random()], nullifiers: [Fr.random()] },
     } as any);
 
-    const results = await service.resolveMessageContexts([txHash.hash], anchorBlockNumber);
+    const results = await service.getMessageContextsByTxHash([txHash.hash], anchorBlockNumber);
 
     expect(results).toEqual([null]);
   });
@@ -58,12 +58,12 @@ describe('MessageContextService', () => {
       data: { txHash, noteHashes: [Fr.random()], nullifiers: [] },
     } as any);
 
-    await expect(service.resolveMessageContexts([txHash.hash], anchorBlockNumber)).rejects.toThrow(
+    await expect(service.getMessageContextsByTxHash([txHash.hash], anchorBlockNumber)).rejects.toThrow(
       `Tx effect for ${txHash} has no nullifiers`,
     );
   });
 
-  it('resolves a valid tx hash into a MessageTxContext', async () => {
+  it('resolves a valid tx hash into a MessageContext', async () => {
     const txHash = TxHash.random();
     const noteHashes = [Fr.random(), Fr.random()];
     const firstNullifier = Fr.random();
@@ -75,9 +75,9 @@ describe('MessageContextService', () => {
       data: { txHash, noteHashes, nullifiers: [firstNullifier, Fr.random()] },
     } as any);
 
-    const results = await service.resolveMessageContexts([txHash.hash], anchorBlockNumber);
+    const results = await service.getMessageContextsByTxHash([txHash.hash], anchorBlockNumber);
 
-    expect(results).toEqual([new MessageTxContext(txHash, noteHashes, firstNullifier)]);
+    expect(results).toEqual([new MessageContext(txHash, noteHashes, firstNullifier)]);
   });
 
   it('resolves tx hashes in different situations', async () => {
@@ -108,17 +108,17 @@ describe('MessageContextService', () => {
       return undefined; // notFoundTxHash
     });
 
-    const results = await service.resolveMessageContexts(
+    const results = await service.getMessageContextsByTxHash(
       [
         Fr.ZERO, // zero → null
-        validTxHash.hash, // valid → MessageTxContext
+        validTxHash.hash, // valid → MessageContext
         notFoundTxHash.hash, // not found → null
         futureTxHash.hash, // beyond anchor → null
       ],
       anchorBlockNumber,
     );
 
-    expect(results).toEqual([null, new MessageTxContext(validTxHash, validNoteHashes, validNullifier), null, null]);
+    expect(results).toEqual([null, new MessageContext(validTxHash, validNoteHashes, validNullifier), null, null]);
 
     // Zero hash should not trigger getTxEffect
     expect(aztecNode.getTxEffect).toHaveBeenCalledTimes(3);

@@ -75,9 +75,12 @@ namespace gemini {
  */
 template <class Fr> inline std::vector<Fr> powers_of_rho(const Fr& rho, const size_t num_powers)
 {
-    std::vector<Fr> rhos = { Fr(1), rho };
+    std::vector<Fr> rhos;
     rhos.reserve(num_powers);
-    for (size_t j = 2; j < num_powers; j++) {
+    if (num_powers >= 1) {
+        rhos.emplace_back(Fr(1));
+    }
+    for (size_t j = 1; j < num_powers; j++) {
         rhos.emplace_back(rhos[j - 1] * rho);
     }
     return rhos;
@@ -250,14 +253,12 @@ template <typename Curve> class GeminiProver_ {
 
             Fr r_inv = r_challenge.invert();
             if (has_to_be_shifted_by_one()) {
-                batched_to_be_shifted_by_one *= r_inv;
-                A_0_pos += batched_to_be_shifted_by_one;
-                A_0_neg -= batched_to_be_shifted_by_one;
+                A_0_pos.add_scaled(batched_to_be_shifted_by_one, r_inv);
+                A_0_neg.add_scaled(batched_to_be_shifted_by_one, -r_inv);
             }
             if (!batched_shifted_tail_.is_empty()) {
-                batched_shifted_tail_ *= r_inv;
-                A_0_pos += batched_shifted_tail_;
-                A_0_neg -= batched_shifted_tail_;
+                A_0_pos.add_scaled(batched_shifted_tail_, r_inv);
+                A_0_neg.add_scaled(batched_shifted_tail_, -r_inv);
             }
 
             return { A_0_pos, A_0_neg };

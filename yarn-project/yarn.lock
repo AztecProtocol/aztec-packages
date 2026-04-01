@@ -931,6 +931,7 @@ __metadata:
     commander: "npm:^12.1.0"
     jest: "npm:^30.0.0"
     jest-mock-extended: "npm:^4.0.0"
+    msgpackr: "npm:^1.11.2"
     pako: "npm:^2.1.0"
     source-map-support: "npm:^0.5.21"
     ts-node: "npm:^10.9.1"
@@ -1631,13 +1632,12 @@ __metadata:
 
 "@aztec/noir-noir_js@file:../noir/packages/noir_js::locator=%40aztec%2Faztec3-packages%40workspace%3A.":
   version: 1.0.0-beta.19
-  resolution: "@aztec/noir-noir_js@file:../noir/packages/noir_js#../noir/packages/noir_js::hash=c16cdc&locator=%40aztec%2Faztec3-packages%40workspace%3A."
+  resolution: "@aztec/noir-noir_js@file:../noir/packages/noir_js#../noir/packages/noir_js::hash=c0ce11&locator=%40aztec%2Faztec3-packages%40workspace%3A."
   dependencies:
     "@aztec/noir-acvm_js": "npm:1.0.0-beta.19"
     "@aztec/noir-noirc_abi": "npm:1.0.0-beta.19"
     "@aztec/noir-types": "npm:1.0.0-beta.19"
     pako: "npm:^2.1.0"
-  checksum: 10/68fc1ab58b0a51ae30d56b933d43c6fa3b702e53759e9387ce4e4c63a6e6730ebae9214e79bb3addcca9f512274871998a1777a19c848443474835518f5185b4
   languageName: node
   linkType: hard
 

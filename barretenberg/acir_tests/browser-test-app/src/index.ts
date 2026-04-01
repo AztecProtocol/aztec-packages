@@ -97,7 +97,7 @@ function installChonkGlobal() {
     logger.debug("starting test...");
     const bb = await Barretenberg.new({ threads, logger: bbLogger });
     const backend = new AztecClientBackend(acirBufs, bb, circuitNames);
-    const [_, proof, verificationKey] = await backend.prove(
+    const { proof, vk: verificationKey } = await backend.prove(
       witnessBufs,
       vkBufs
     );

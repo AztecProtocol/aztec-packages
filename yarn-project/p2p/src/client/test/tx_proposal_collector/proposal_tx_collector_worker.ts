@@ -1,5 +1,4 @@
 import { MockL2BlockSource } from '@aztec/archiver/test';
-import type { EpochCache } from '@aztec/epoch-cache';
 import { SecretValue } from '@aztec/foundation/config';
 import { createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
@@ -15,7 +14,6 @@ import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-clien
 
 import type { PeerId } from '@libp2p/interface';
 import { peerIdFromString } from '@libp2p/peer-id';
-import { mock } from 'jest-mock-extended';
 
 import type { P2PConfig } from '../../../config.js';
 import { BatchTxRequesterCollector, SendBatchRequestCollector } from '../../../services/index.js';
@@ -29,6 +27,7 @@ import {
   InMemoryTxPool,
   UNLIMITED_RATE_LIMIT_QUOTA,
   calculateInternalTimeout,
+  createMockEpochCache,
   createMockWorldStateSynchronizer,
 } from '../../../test-helpers/index.js';
 import { createP2PClient } from '../../index.js';
@@ -99,7 +98,7 @@ function sendMessage(message: WorkerResponse): Promise<void> {
 async function startClient(config: P2PConfig, clientIndex: number) {
   txPool = new InMemoryTxPool();
   attestationPool = new InMemoryAttestationPool();
-  const epochCache = mock<EpochCache>();
+  const epochCache = createMockEpochCache();
   const worldState = createMockWorldStateSynchronizer();
   const l2BlockSource = new MockL2BlockSource();
   const proofVerifier = new AlwaysTrueCircuitVerifier();
