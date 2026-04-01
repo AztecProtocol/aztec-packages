@@ -292,19 +292,26 @@ export class EpochCache implements EpochCacheInterface {
       return cached.data;
     }
 
-    // No entry, or stale non-finalized entry: start a fetch and store the promise in the cache.
+    // Stale non-finalized entry: do a lightweight refresh first (check block hash + finalized ts).
+    // Only fall back to a full re-fetch if the L1 block was reorged.
+    if (cached) {
+      const promise = this.refreshStaleEntry(cached, epoch, ts);
+      this.cache.set(epoch, promise);
+      try {
+        return (await promise).data;
+      } catch (err) {
+        this.cache.set(epoch, cached);
+        throw err;
+      }
+    }
+
+    // No entry at all: full fetch.
     const promise = this.fetchAndCache(epoch, ts);
     this.cache.set(epoch, promise);
     try {
       return (await promise).data;
     } catch (err) {
-      // On failure, remove the promise so the next caller retries instead of awaiting a rejected promise.
-      // If the old stale entry is still useful, restore it; otherwise just delete.
-      if (cached) {
-        this.cache.set(epoch, cached);
-      } else {
-        this.cache.delete(epoch);
-      }
+      this.cache.delete(epoch);
       throw err;
     }
   }
@@ -317,6 +324,17 @@ export class EpochCache implements EpochCacheInterface {
     } else {
       return this.getEpochAndSlotAtSlot(slot);
     }
+  }
+
+  /** Evicts oldest cache entries (resolved or in-flight) beyond cacheSize. */
+  private purgeCache(): void {
+    if (this.cache.size <= this.config.cacheSize) {
+      return;
+    }
+    const toPurge = Array.from(this.cache.keys())
+      .sort((a, b) => Number(b - a))
+      .slice(this.config.cacheSize);
+    toPurge.forEach(key => this.cache.delete(key));
   }
 
   /** Returns true if a non-finalized cache entry is older than one Ethereum slot. */
@@ -343,6 +361,53 @@ export class EpochCache implements EpochCacheInterface {
     return entry.l1BlockNumber;
   }
 
+  /** Computes the sampling timestamp for an epoch's committee data. */
+  private getSamplingTimestamp(epoch: EpochNumber): bigint {
+    const { lagInEpochsForRandao, epochDuration, slotDuration } = this.l1constants;
+    const epochStartTs = getStartTimestampForEpoch(epoch, this.l1constants);
+    return epochStartTs - BigInt(lagInEpochsForRandao) * BigInt(epochDuration) * BigInt(slotDuration);
+  }
+
+  /**
+   * Lightweight refresh for a stale non-finalized entry. Queries only the block hash at
+   * the original block number and the finalized block timestamp — avoids the expensive
+   * getCommitteeAt and getSampleSeedAt calls on the rollup contract.
+   *
+   * If the block hash still matches (no L1 reorg), we keep the existing data and just
+   * update the provenance timestamp. If the finalized block has caught up, we promote the
+   * entry to finalized. If there was a reorg (hash mismatch), we fall back to a full fetch.
+   */
+  private async refreshStaleEntry(stale: CachedEpochEntry, epoch: EpochNumber, ts: bigint): Promise<CachedEpochEntry> {
+    const [blockAtOriginal, l1FinalizedBlock] = await Promise.all([
+      this.rollup.client.getBlock({ blockNumber: stale.l1BlockNumber, includeTransactions: false }),
+      this.rollup.client.getBlock({ blockTag: 'finalized', includeTransactions: false }),
+    ]);
+
+    if (blockAtOriginal.hash === stale.l1BlockHash) {
+      // No reorg: the data is still valid. Check if we can now mark it as finalized.
+      const samplingTs = this.getSamplingTimestamp(epoch);
+      const finalized =
+        !!(stale.data.committee && stale.data.committee.length > 0) && samplingTs <= l1FinalizedBlock.timestamp;
+
+      const latestBlock = await this.rollup.client.getBlock({ includeTransactions: false });
+      const refreshed: CachedEpochEntry = {
+        ...stale,
+        l1BlockTimestamp: latestBlock.timestamp,
+        finalized,
+      };
+      this.cache.set(epoch, refreshed);
+      return refreshed;
+    }
+
+    // Reorg detected: block hash mismatch. Do a full re-fetch.
+    this.log.warn(`L1 reorg detected for epoch ${epoch}: block ${stale.l1BlockNumber} hash changed`, {
+      epoch,
+      expectedHash: stale.l1BlockHash,
+      actualHash: blockAtOriginal.hash,
+    });
+    return this.fetchAndCache(epoch, ts);
+  }
+
   /**
    * Fetches committee data from L1, determines finalization status, and stores in the cache.
    *
@@ -358,10 +423,7 @@ export class EpochCache implements EpochCacheInterface {
       this.rollup.isEscapeHatchOpen(epoch),
     ]);
 
-    const { lagInEpochsForRandao, epochDuration, slotDuration } = this.l1constants;
-    const epochStartTs = getStartTimestampForEpoch(epoch, this.l1constants);
-    const lagSeconds = BigInt(lagInEpochsForRandao) * BigInt(epochDuration) * BigInt(slotDuration);
-    const samplingTs = epochStartTs - lagSeconds;
+    const samplingTs = this.getSamplingTimestamp(epoch);
 
     if (samplingTs > l1Block.timestamp) {
       throw new Error(
@@ -371,7 +433,9 @@ export class EpochCache implements EpochCacheInterface {
       );
     }
 
-    const finalized = samplingTs <= l1FinalizedBlock.timestamp;
+    // Empty committees are never marked finalized so they always get re-queried after TTL.
+    const hasCommittee = !!(committee && committee.length > 0);
+    const finalized = hasCommittee && samplingTs <= l1FinalizedBlock.timestamp;
     const data: EpochCommitteeInfo = { committee, seed: seedBuffer.toBigInt(), epoch, isEscapeHatchOpen };
     const entry: CachedEpochEntry = {
       data,
@@ -381,18 +445,8 @@ export class EpochCache implements EpochCacheInterface {
       finalized,
     };
 
-    if (data.committee && data.committee.length > 0) {
-      this.cache.set(epoch, entry);
-      // LRU purge: only count resolved entries
-      const resolved = Array.from(this.cache.entries()).filter(([, v]) => !(v instanceof Promise));
-      if (resolved.length > this.config.cacheSize) {
-        const toPurge = resolved.sort(([a], [b]) => Number(b - a)).slice(this.config.cacheSize);
-        toPurge.forEach(([key]) => this.cache.delete(key));
-      }
-    } else {
-      // Don't cache empty committees — remove the in-flight promise placeholder.
-      this.cache.delete(epoch);
-    }
+    this.cache.set(epoch, entry);
+    this.purgeCache();
 
     return entry;
   }

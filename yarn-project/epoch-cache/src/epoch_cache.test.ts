@@ -303,23 +303,21 @@ describe('EpochCache', () => {
   });
 
   describe('TTL-based caching', () => {
-    it('should re-query non-finalized data after ethereumSlotDuration', async () => {
-      const epoch1Slot = SlotNumber(EPOCH_DURATION); // first slot of epoch 1
-      const epoch1Ts = l1GenesisTime + BigInt(EPOCH_DURATION * SLOT_DURATION);
-      // samplingTs = epochStartTs - lag*epochDuration*slotDuration = epoch1Ts - 768
-      // For epoch 1 with lag 2: samplingTs = l1GenesisTime + 384 - 768 = l1GenesisTime - 384
-      const samplingTs = epoch1Ts - BigInt(2 * EPOCH_DURATION * SLOT_DURATION);
+    it('should do a lightweight refresh (no full re-fetch) after TTL if no reorg', async () => {
+      const epoch1Slot = SlotNumber(EPOCH_DURATION);
+      const samplingTs =
+        l1GenesisTime + BigInt(EPOCH_DURATION * SLOT_DURATION) - BigInt(2 * EPOCH_DURATION * SLOT_DURATION);
 
-      // Use a "latest" timestamp close to the current wall-clock time so isStale works.
-      // samplingTs < l1GenesisTime, so even l1GenesisTime as latest satisfies the guard.
       const mockBlock = () => {
         const nowSec = BigInt(Math.floor(Date.now() / 1000));
         return (args: any) => {
           if (args?.blockTag === 'finalized') {
-            // Finalized is behind sampling ts → NOT finalized
             return Promise.resolve({ timestamp: samplingTs - 1n, number: 50n, hash: '0xaaa' } as any);
           }
-          // Latest tracks wall-clock time so isStale triggers correctly
+          // Return the SAME hash for blockNumber queries (no reorg)
+          if (args?.blockNumber !== undefined) {
+            return Promise.resolve({ timestamp: nowSec, number: args.blockNumber, hash: '0xbbb' } as any);
+          }
           return Promise.resolve({ timestamp: nowSec, number: 100n, hash: '0xbbb' } as any);
         };
       };
@@ -328,31 +326,62 @@ describe('EpochCache', () => {
       rollupContract.getCommitteeAt.mockResolvedValue(testCommittee);
       rollupContract.getSampleSeedAt.mockResolvedValue(Buffer32.fromBigInt(42n));
 
-      // First call: fetches from L1
+      // First call: full fetch
       const result1 = await epochCache.getCommittee(epoch1Slot);
       expect(result1.committee).toEqual(testCommittee);
-      expect(epochCache.isFinalized(EpochNumber(1))).toBe(false);
       expect(rollupContract.getCommitteeAt).toHaveBeenCalledTimes(1);
-
-      // Within TTL: should return cached, no new L1 call
       rollupContract.getCommitteeAt.mockClear();
-      const result2 = await epochCache.getCommittee(epoch1Slot);
-      expect(result2.committee).toEqual(testCommittee);
-      expect(rollupContract.getCommitteeAt).toHaveBeenCalledTimes(0);
 
-      // Advance past TTL (ethereumSlotDuration = 12s)
+      // Advance past TTL
       jest.setSystemTime(Date.now() + SLOT_DURATION * 1000);
       client.getBlock.mockImplementation(mockBlock());
 
+      // After TTL: lightweight refresh — block hash matches, so NO call to getCommitteeAt
+      const result2 = await epochCache.getCommittee(epoch1Slot);
+      expect(result2.committee).toEqual(testCommittee); // same data, no reorg
+      expect(result2.seed).toBe(42n);
+      expect(rollupContract.getCommitteeAt).toHaveBeenCalledTimes(0);
+    });
+
+    it('should do a full re-fetch after TTL if a reorg is detected', async () => {
+      const epoch1Slot = SlotNumber(EPOCH_DURATION);
+      const samplingTs =
+        l1GenesisTime + BigInt(EPOCH_DURATION * SLOT_DURATION) - BigInt(2 * EPOCH_DURATION * SLOT_DURATION);
+
+      const mockBlock = (hash: string) => {
+        const nowSec = BigInt(Math.floor(Date.now() / 1000));
+        return (args: any) => {
+          if (args?.blockTag === 'finalized') {
+            return Promise.resolve({ timestamp: samplingTs - 1n, number: 50n, hash: '0xfin' } as any);
+          }
+          if (args?.blockNumber !== undefined) {
+            return Promise.resolve({ timestamp: nowSec, number: args.blockNumber, hash } as any);
+          }
+          return Promise.resolve({ timestamp: nowSec, number: 100n, hash } as any);
+        };
+      };
+
+      client.getBlock.mockImplementation(mockBlock('0xoriginal'));
+      rollupContract.getCommitteeAt.mockResolvedValue(testCommittee);
+      rollupContract.getSampleSeedAt.mockResolvedValue(Buffer32.fromBigInt(42n));
+
+      await epochCache.getCommittee(epoch1Slot);
+      expect(rollupContract.getCommitteeAt).toHaveBeenCalledTimes(1);
+      rollupContract.getCommitteeAt.mockClear();
+
+      // Advance past TTL
+      jest.setSystemTime(Date.now() + SLOT_DURATION * 1000);
+
+      // Simulate reorg: block at the same number now has a different hash
       const updatedCommittee = [...testCommittee, extraTestValidator];
+      client.getBlock.mockImplementation(mockBlock('0xreorged'));
       rollupContract.getCommitteeAt.mockResolvedValue(updatedCommittee);
       rollupContract.getSampleSeedAt.mockResolvedValue(Buffer32.fromBigInt(99n));
 
-      // After TTL: should re-query
-      const result3 = await epochCache.getCommittee(epoch1Slot);
-      expect(result3.committee).toEqual(updatedCommittee);
-      expect(result3.seed).toBe(99n);
-      expect(rollupContract.getCommitteeAt).toHaveBeenCalledTimes(1);
+      const result = await epochCache.getCommittee(epoch1Slot);
+      expect(result.committee).toEqual(updatedCommittee);
+      expect(result.seed).toBe(99n);
+      expect(rollupContract.getCommitteeAt).toHaveBeenCalledTimes(1); // full re-fetch
     });
 
     it('should NOT re-query finalized data after ethereumSlotDuration', async () => {
