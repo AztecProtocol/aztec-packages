@@ -343,15 +343,10 @@ describe('Kernelless simulation', () => {
     });
 
     it('emits offchain effect with correct serialized args length for struct parameters', async () => {
-      // auth_with_struct(from: AztecAddress, data: MultiFieldStruct, amount: Field, authwit_nonce: Field)
-      // MultiFieldStruct serializes to 3 fields, so total serialized args = 1 + 3 + 1 + 1 = 6.
-      // Before the fix, the macro used parameters().len() = 4 instead of the sum of Serialize::N = 6.
       const structData = { a: Fr.random(), b: Fr.random(), c: Fr.random() };
       const amount = Fr.random();
       const nonce = Fr.random();
 
-      // We call through a proxy so that msg_sender (proxy address) differs from the `from` arg (adminAddress),
-      // triggering the authwit path. The tx sender is adminAddress, whose notes are in scope for verification.
       const interaction = authWitTestContract.methods.auth_with_struct(adminAddress, structData, amount, nonce);
 
       wallet.setSimulationMode('kernelless-override');
@@ -366,7 +361,6 @@ describe('Kernelless simulation', () => {
 
       expect(offchainEffects[0].contractAddress).toEqual(authWitTestContract.address);
 
-      // The critical check: args should contain all 6 serialized fields, not just 4 (parameter count).
       expect(callAuthRequest.args).toHaveLength(6);
 
       expect(callAuthRequest.onBehalfOf).toEqual(adminAddress);

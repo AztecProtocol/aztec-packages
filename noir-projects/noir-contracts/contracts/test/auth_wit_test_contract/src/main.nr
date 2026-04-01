@@ -8,8 +8,6 @@ pub contract AuthWitTest {
         protocol::{address::AztecAddress, traits::{Deserialize, Serialize}},
     };
 
-    /// A struct that serializes to 3 fields. Used to test that #[authorize_once] computes the
-    /// serialized args length (sum of Serialize::N) rather than the parameter count.
     #[derive(Serialize, Deserialize)]
     pub struct MultiFieldStruct {
         pub a: Field,
