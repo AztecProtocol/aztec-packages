@@ -55,7 +55,7 @@ Deploy contracts using the generated contract class:
 import { TokenContract } from "@aztec/noir-contracts.js/Token";
 
 // wallet is from the setup section; alice is from registerInitialLocalNetworkAccountsInWallet
-const contract = await TokenContract.deploy(
+const { contract: testToken } = await TokenContract.deploy(
   wallet,
   alice, // admin
   "TestToken",
@@ -217,19 +217,27 @@ runTests().catch(console.error);
 
 Test that invalid operations revert as expected:
 
-```typescript
-// token, alice, and bob are from the test setup in beforeAll
-it("reverts when transferring more than balance", async () => {
-  const balance = await token.methods
-    .balance_of_public(alice)
-    .simulate({ from: alice });
+```typescript title="test_revert_case" showLineNumbers
+// token, aliceAddress, and bobAddress are from the test setup
+async function testRevertExample() {
+  const { result: balance } = await token.methods
+    .balance_of_public(aliceAddress)
+    .simulate({ from: aliceAddress });
 
-  await expect(
-    token.methods
-      .transfer_in_public(bob, balance + 1n)
-      .simulate({ from: alice }),
-  ).rejects.toThrow();
-});
+  let reverted = false;
+  try {
+    await token.methods
+      .transfer_in_public(aliceAddress, bobAddress, balance + 1n, 0n)
+      .simulate({ from: aliceAddress });
+  } catch (error) {
+    reverted = true;
+  }
+
+  if (!reverted) {
+    throw new Error("Expected simulation to revert for over-transfer");
+  }
+  console.log("✓ Revert on over-transfer test passed");
+}
 ```
 
 Use `.simulate()` to test reverts without spending gas. The simulation will throw if the transaction would fail onchain.
