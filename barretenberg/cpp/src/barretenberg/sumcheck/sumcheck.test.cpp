@@ -185,11 +185,8 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
 
         FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
 
-        std::vector<FF> gate_challenges(multivariate_d);
-        for (size_t idx = 0; idx < gate_challenges.size(); idx++) {
-            gate_challenges[idx] =
-                transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
-        }
+        auto gate_challenges =
+            transcript->template get_dyadic_powers_of_challenge<FF>("Sumcheck:gate_challenge", CONST_PROOF_SIZE_LOG_N);
 
         SumcheckProver<Flavor> sumcheck(
             multivariate_n, full_polynomials, transcript, alpha, gate_challenges, {}, CONST_PROOF_SIZE_LOG_N);
