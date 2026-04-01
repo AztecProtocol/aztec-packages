@@ -5,24 +5,25 @@
  * The C++ AVM connects to this server via the same socket protocol
  * (4-byte LE length prefix + msgpack).
  */
-import { type CdbHandler, cdbDispatch } from '@aztec/bb.js/aztec-cdb';
-import type {
-  CdbAddContracts,
-  CdbAddContractsResponse,
-  CdbCommitCheckpoint,
-  CdbCommitCheckpointResponse,
-  CdbCreateCheckpoint,
-  CdbCreateCheckpointResponse,
-  CdbGetBytecodeCommitment,
-  CdbGetBytecodeCommitmentResponse,
-  CdbGetContractClass,
-  CdbGetContractClassResponse,
-  CdbGetContractInstance,
-  CdbGetContractInstanceResponse,
-  CdbGetDebugFunctionName,
-  CdbGetDebugFunctionNameResponse,
-  CdbRevertCheckpoint,
-  CdbRevertCheckpointResponse,
+import {
+  type CdbAddContracts,
+  type CdbAddContractsResponse,
+  type CdbCommitCheckpoint,
+  type CdbCommitCheckpointResponse,
+  type CdbCreateCheckpoint,
+  type CdbCreateCheckpointResponse,
+  type CdbGetBytecodeCommitment,
+  type CdbGetBytecodeCommitmentResponse,
+  type CdbGetContractClass,
+  type CdbGetContractClassResponse,
+  type CdbGetContractInstance,
+  type CdbGetContractInstanceResponse,
+  type CdbGetDebugFunctionName,
+  type CdbGetDebugFunctionNameResponse,
+  type CdbHandler,
+  type CdbRevertCheckpoint,
+  type CdbRevertCheckpointResponse,
+  cdbDispatch,
 } from '@aztec/bb.js/aztec-cdb';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { type Logger, createLogger } from '@aztec/foundation/log';
@@ -199,37 +200,35 @@ export class CdbIpcServer {
         return { name: name ?? null } as any;
       },
 
-      cdbAddContracts: async (cmd: CdbAddContracts): Promise<CdbAddContractsResponse> => {
+      cdbAddContracts: (cmd: CdbAddContracts): Promise<CdbAddContractsResponse> => {
         const { db } = this.getFork(cmd.forkId);
         const data = ContractDeploymentData.fromPlainObject(cmd.contractDeploymentData);
         db.addContracts(data);
-        return {} as any;
+        return Promise.resolve({} as any);
       },
 
-      cdbCreateCheckpoint: async (cmd: CdbCreateCheckpoint): Promise<CdbCreateCheckpointResponse> => {
+      cdbCreateCheckpoint: (cmd: CdbCreateCheckpoint): Promise<CdbCreateCheckpointResponse> => {
         const { db } = this.getFork(cmd.forkId);
         db.createCheckpoint();
-        return {} as any;
+        return Promise.resolve({} as any);
       },
 
-      cdbCommitCheckpoint: async (cmd: CdbCommitCheckpoint): Promise<CdbCommitCheckpointResponse> => {
+      cdbCommitCheckpoint: (cmd: CdbCommitCheckpoint): Promise<CdbCommitCheckpointResponse> => {
         const { db } = this.getFork(cmd.forkId);
         db.commitCheckpoint();
-        return {} as any;
+        return Promise.resolve({} as any);
       },
 
-      cdbRevertCheckpoint: async (cmd: CdbRevertCheckpoint): Promise<CdbRevertCheckpointResponse> => {
+      cdbRevertCheckpoint: (cmd: CdbRevertCheckpoint): Promise<CdbRevertCheckpointResponse> => {
         const { db } = this.getFork(cmd.forkId);
         db.revertCheckpoint();
-        return {} as any;
+        return Promise.resolve({} as any);
       },
 
-      // These additional commands may exist in the schema but aren't used by this server.
-      // Provide no-op implementations.
-      cdbAddContractClass: async () => ({}) as any,
-      cdbAddContractInstance: async () => ({}) as any,
-      cdbRegisterFunctionSignatures: async () => ({}) as any,
-      cdbGetContractClassIds: async () => ({ classIds: [] }) as any,
+      cdbAddContractClass: () => Promise.resolve({} as any),
+      cdbAddContractInstance: () => Promise.resolve({} as any),
+      cdbRegisterFunctionSignatures: () => Promise.resolve({} as any),
+      cdbGetContractClassIds: () => Promise.resolve({ classIds: [] } as any),
     };
   }
 
