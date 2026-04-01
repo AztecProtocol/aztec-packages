@@ -75,10 +75,10 @@ fn test_grumpkin_random_scalar_generation() {
     let mut api = BbApi::new(backend);
 
     let response1 = api
-        .grumpkin_get_random_fr(0)
+        .grumpkin_get_random_fr(&[])
         .expect("grumpkin_get_random_fr failed");
     let response2 = api
-        .grumpkin_get_random_fr(0)
+        .grumpkin_get_random_fr(&[])
         .expect("grumpkin_get_random_fr failed");
 
     // Random scalars should be different (very high probability)
@@ -98,7 +98,7 @@ fn test_grumpkin_random_scalar_multiple_calls() {
     let mut scalars = Vec::new();
     for _ in 0..10 {
         let response = api
-            .grumpkin_get_random_fr(0)
+            .grumpkin_get_random_fr(&[])
             .expect("grumpkin_get_random_fr failed");
         scalars.push(response.value);
     }

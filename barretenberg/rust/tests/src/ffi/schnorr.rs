@@ -18,7 +18,7 @@ fn test_schnorr_compute_public_key() {
     ];
 
     let response = api
-        .schnorr_compute_public_key(&private_key)
+        .schnorr_compute_public_key(Fr(private_key))
         .expect("schnorr_compute_public_key failed");
 
     // Should return a valid public key point
@@ -42,10 +42,10 @@ fn test_schnorr_compute_public_key_deterministic() {
     ];
 
     let response1 = api
-        .schnorr_compute_public_key(&private_key)
+        .schnorr_compute_public_key(Fr(private_key))
         .expect("schnorr_compute_public_key failed");
     let response2 = api
-        .schnorr_compute_public_key(&private_key)
+        .schnorr_compute_public_key(Fr(private_key))
         .expect("schnorr_compute_public_key failed");
 
     // Same private key should produce same public key
@@ -72,10 +72,10 @@ fn test_schnorr_different_private_keys() {
     ];
 
     let response1 = api
-        .schnorr_compute_public_key(&private_key1)
+        .schnorr_compute_public_key(Fr(private_key1))
         .expect("schnorr_compute_public_key failed");
     let response2 = api
-        .schnorr_compute_public_key(&private_key2)
+        .schnorr_compute_public_key(Fr(private_key2))
         .expect("schnorr_compute_public_key failed");
 
     // Different private keys should produce different public keys
@@ -101,7 +101,7 @@ fn test_schnorr_sign_and_verify() {
 
     // Compute public key
     let pub_key_response = api
-        .schnorr_compute_public_key(&private_key)
+        .schnorr_compute_public_key(Fr(private_key))
         .expect("schnorr_compute_public_key failed");
 
     // Message (arbitrary bytes)
@@ -109,7 +109,7 @@ fn test_schnorr_sign_and_verify() {
 
     // Sign
     let sign_response = api
-        .schnorr_construct_signature(message, &private_key)
+        .schnorr_construct_signature(message, Fr(private_key))
         .expect("schnorr_construct_signature failed");
 
     // Signature should have s and e components (32 bytes each)
@@ -118,7 +118,7 @@ fn test_schnorr_sign_and_verify() {
 
     // Verify
     let verify_response = api
-        .schnorr_verify_signature(message, pub_key_response.public_key.clone(), &sign_response.s, &sign_response.e)
+        .schnorr_verify_signature(message, pub_key_response.public_key.clone(), sign_response.s.clone(), sign_response.e.clone())
         .expect("schnorr_verify_signature failed");
 
     assert!(verify_response.verified, "Signature should be valid");
@@ -138,7 +138,7 @@ fn test_schnorr_verify_wrong_message() {
     ];
 
     let pub_key_response = api
-        .schnorr_compute_public_key(&private_key)
+        .schnorr_compute_public_key(Fr(private_key))
         .expect("schnorr_compute_public_key failed");
 
     let message1 = b"Original message";
@@ -146,12 +146,12 @@ fn test_schnorr_verify_wrong_message() {
 
     // Sign with message1
     let sign_response = api
-        .schnorr_construct_signature(message1, &private_key)
+        .schnorr_construct_signature(message1, Fr(private_key))
         .expect("schnorr_construct_signature failed");
 
     // Verify with message2 - should fail
     let verify_response = api
-        .schnorr_verify_signature(message2, pub_key_response.public_key.clone(), &sign_response.s, &sign_response.e)
+        .schnorr_verify_signature(message2, pub_key_response.public_key.clone(), sign_response.s.clone(), sign_response.e.clone())
         .expect("schnorr_verify_signature failed");
 
     assert!(!verify_response.verified, "Signature should be invalid for wrong message");

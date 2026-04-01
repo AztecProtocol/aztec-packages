@@ -74,10 +74,10 @@ fn test_secp256k1_random_scalar_generation() {
     let mut api = BbApi::new(backend);
 
     let response1 = api
-        .secp256k1_get_random_fr(0)
+        .secp256k1_get_random_fr(&[])
         .expect("secp256k1_get_random_fr failed");
     let response2 = api
-        .secp256k1_get_random_fr(0)
+        .secp256k1_get_random_fr(&[])
         .expect("secp256k1_get_random_fr failed");
 
     // Random scalars should be different (very high probability)
@@ -97,7 +97,7 @@ fn test_secp256k1_random_scalar_multiple_calls() {
     let mut scalars = Vec::new();
     for _ in 0..10 {
         let response = api
-            .secp256k1_get_random_fr(0)
+            .secp256k1_get_random_fr(&[])
             .expect("secp256k1_get_random_fr failed");
         scalars.push(response.value);
     }

@@ -31,7 +31,7 @@ fn test_poseidon2_hash_deterministic() {
     let backend = FfiBackend::new().expect("Failed to create backend");
     let mut api = BbApi::new(backend);
 
-    let input = vec![42u8; 32];
+    let input = Fr([42u8; 32]);
 
     let response1 = api.poseidon2_hash(vec![input.clone()]).expect("Poseidon2Hash failed");
     let response2 = api.poseidon2_hash(vec![input]).expect("Poseidon2Hash failed");
@@ -47,8 +47,8 @@ fn test_poseidon2_hash_different_inputs() {
     let backend = FfiBackend::new().expect("Failed to create backend");
     let mut api = BbApi::new(backend);
 
-    let input1 = vec![1u8; 32];
-    let input2 = vec![2u8; 32];
+    let input1 = Fr([1u8; 32]);
+    let input2 = Fr([2u8; 32]);
 
     let response1 = api.poseidon2_hash(vec![input1]).expect("Poseidon2Hash failed");
     let response2 = api.poseidon2_hash(vec![input2]).expect("Poseidon2Hash failed");
@@ -64,7 +64,7 @@ fn test_poseidon2_hash_zero_input() {
     let backend = FfiBackend::new().expect("Failed to create backend");
     let mut api = BbApi::new(backend);
 
-    let input = vec![0u8; 32];
+    let input = Fr([0u8; 32]);
 
     let response = api.poseidon2_hash(vec![input.clone()]).expect("Poseidon2Hash failed");
 
@@ -82,15 +82,15 @@ fn test_poseidon2_permutation_js_compatibility_cpp() {
 
     // JS test: poseidon2Permutation([0, 1, 2, 3])
     // Expected results from the JS test
-    let mut inputs = [vec![0u8; 32], vec![0u8; 32], vec![0u8; 32], vec![0u8; 32]];
+    let mut inputs = [Fr([0u8; 32]), Fr([0u8; 32]), Fr([0u8; 32]), Fr([0u8; 32])];
     // inputs[0] stays 0
-    inputs[1][31] = 1;
-    inputs[2][31] = 2;
-    inputs[3][31] = 3;
+    inputs[1].0[31] = 1;
+    inputs[2].0[31] = 2;
+    inputs[3].0[31] = 3;
 
     let response = api.poseidon2_permutation(inputs).expect("Poseidon2Permutation failed");
 
-    assert_eq!(response.outputs.len(), 4);
+    // outputs is [Fr; 4]
 
     // Expected results from the JS test
     let expected_0: [u8; 32] = [
@@ -128,18 +128,18 @@ fn test_poseidon2_permutation_js_compatibility_noir() {
     let mut api = BbApi::new(backend);
 
     // JS test: poseidon2Permutation([1n, 2n, 3n, 0x0a0000000000000000n])
-    let mut inputs = [vec![0u8; 32], vec![0u8; 32], vec![0u8; 32], vec![0u8; 32]];
+    let mut inputs = [Fr([0u8; 32]), Fr([0u8; 32]), Fr([0u8; 32]), Fr([0u8; 32])];
 
     // Set the values in big-endian
-    inputs[0][31] = 1; // 1n
-    inputs[1][31] = 2; // 2n
-    inputs[2][31] = 3; // 3n
+    inputs[0].0[31] = 1; // 1n
+    inputs[1].0[31] = 2; // 2n
+    inputs[2].0[31] = 3; // 3n
     // 0x0a0000000000000000n = 720575940379279360
-    inputs[3][23] = 0x0a; // Set the appropriate byte for this large number
+    inputs[3].0[23] = 0x0a; // Set the appropriate byte for this large number
 
     let response = api.poseidon2_permutation(inputs).expect("Poseidon2Permutation failed");
 
-    assert_eq!(response.outputs.len(), 4);
+    // outputs is [Fr; 4]
 
     // Expected results from the JS test
     let expected_0: [u8; 32] = [

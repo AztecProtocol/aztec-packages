@@ -3,6 +3,7 @@
 #[cfg(test)]
 use barretenberg_rs::{FfiBackend, BbApi, Fr};
 
+#[cfg(test)]
 fn fr_val(v: u8) -> Fr {
     let mut bytes = [0u8; 32];
     bytes[31] = v;

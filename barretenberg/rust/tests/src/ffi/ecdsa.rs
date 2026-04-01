@@ -18,7 +18,7 @@ fn test_ecdsa_compute_public_key() {
     ];
 
     let response = api
-        .ecdsa_secp256k1_compute_public_key(&private_key)
+        .ecdsa_secp256k1_compute_public_key(Fr(private_key))
         .expect("ecdsa_secp256k1_compute_public_key failed");
 
     // Should return a valid public key point
@@ -42,10 +42,10 @@ fn test_ecdsa_compute_public_key_deterministic() {
     ];
 
     let response1 = api
-        .ecdsa_secp256k1_compute_public_key(&private_key)
+        .ecdsa_secp256k1_compute_public_key(Fr(private_key))
         .expect("ecdsa_secp256k1_compute_public_key failed");
     let response2 = api
-        .ecdsa_secp256k1_compute_public_key(&private_key)
+        .ecdsa_secp256k1_compute_public_key(Fr(private_key))
         .expect("ecdsa_secp256k1_compute_public_key failed");
 
     // Same private key should produce same public key
@@ -72,10 +72,10 @@ fn test_ecdsa_different_private_keys() {
     ];
 
     let response1 = api
-        .ecdsa_secp256k1_compute_public_key(&private_key1)
+        .ecdsa_secp256k1_compute_public_key(Fr(private_key1))
         .expect("ecdsa_secp256k1_compute_public_key failed");
     let response2 = api
-        .ecdsa_secp256k1_compute_public_key(&private_key2)
+        .ecdsa_secp256k1_compute_public_key(Fr(private_key2))
         .expect("ecdsa_secp256k1_compute_public_key failed");
 
     // Different private keys should produce different public keys
@@ -101,7 +101,7 @@ fn test_ecdsa_sign_and_verify() {
 
     // Compute public key
     let pub_key_response = api
-        .ecdsa_secp256k1_compute_public_key(&private_key)
+        .ecdsa_secp256k1_compute_public_key(Fr(private_key))
         .expect("ecdsa_secp256k1_compute_public_key failed");
     let public_key = Secp256k1Point {
         x: pub_key_response.public_key.x.clone(),
@@ -117,7 +117,7 @@ fn test_ecdsa_sign_and_verify() {
 
     // Sign
     let sign_response = api
-        .ecdsa_secp256k1_construct_signature(&message_hash, &private_key)
+        .ecdsa_secp256k1_construct_signature(&message_hash, Fr(private_key))
         .expect("ecdsa_secp256k1_construct_signature failed");
 
     // Signature should have r, s, and v components
@@ -126,7 +126,7 @@ fn test_ecdsa_sign_and_verify() {
 
     // Verify
     let verify_response = api
-        .ecdsa_secp256k1_verify_signature(&message_hash, public_key, &sign_response.r, &sign_response.s, sign_response.v)
+        .ecdsa_secp256k1_verify_signature(&message_hash, public_key, sign_response.r.clone(), sign_response.s.clone(), sign_response.v)
         .expect("ecdsa_secp256k1_verify_signature failed");
 
     assert!(verify_response.verified, "Signature should be valid");
@@ -146,7 +146,7 @@ fn test_ecdsa_verify_wrong_message() {
     ];
 
     let pub_key_response = api
-        .ecdsa_secp256k1_compute_public_key(&private_key)
+        .ecdsa_secp256k1_compute_public_key(Fr(private_key))
         .expect("ecdsa_secp256k1_compute_public_key failed");
     let public_key = Secp256k1Point {
         x: pub_key_response.public_key.x.clone(),
@@ -158,12 +158,12 @@ fn test_ecdsa_verify_wrong_message() {
 
     // Sign with message_hash1
     let sign_response = api
-        .ecdsa_secp256k1_construct_signature(&message_hash1, &private_key)
+        .ecdsa_secp256k1_construct_signature(&message_hash1, Fr(private_key))
         .expect("ecdsa_secp256k1_construct_signature failed");
 
     // Verify with message_hash2 - should fail
     let verify_response = api
-        .ecdsa_secp256k1_verify_signature(&message_hash2, public_key, &sign_response.r, &sign_response.s, sign_response.v)
+        .ecdsa_secp256k1_verify_signature(&message_hash2, public_key, sign_response.r.clone(), sign_response.s.clone(), sign_response.v)
         .expect("ecdsa_secp256k1_verify_signature failed");
 
     assert!(!verify_response.verified, "Signature should be invalid for wrong message");
