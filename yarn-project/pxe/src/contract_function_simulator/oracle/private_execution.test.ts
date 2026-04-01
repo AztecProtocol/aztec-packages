@@ -206,7 +206,7 @@ describe('Private Execution test suite', () => {
       anchorBlockHeader,
       senderForTags,
       jobId: TEST_JOB_ID,
-      scopes: 'ALL_SCOPES',
+      scopes: [owner],
     });
   };
 
@@ -290,8 +290,7 @@ describe('Private Execution test suite', () => {
     // Configure mock to actually perform sync_state calls (needed for nested call tests)
     contractSyncService.ensureContractSynced.mockImplementation(
       async (contractAddress, functionToInvokeAfterSync, utilityExecutor, anchorBlockHeader, jobId, scopes) => {
-        const scopeAddresses = scopes === 'ALL_SCOPES' ? [owner] : scopes;
-        for (const scope of scopeAddresses) {
+        for (const scope of scopes) {
           await syncState(
             contractAddress,
             contractStore,
@@ -349,6 +348,19 @@ describe('Private Execution test suite', () => {
     });
 
     keyStore.getAccounts.mockResolvedValue([owner, recipient, senderForTags]);
+
+    keyStore.accountHasKey.mockImplementation(async (account: AztecAddress, pkMHash: Fr) => {
+      if (account.equals(owner)) {
+        return pkMHash.equals(await ownerCompleteAddress.publicKeys.masterNullifierPublicKey.hash());
+      }
+      if (account.equals(recipient)) {
+        return pkMHash.equals(await recipientCompleteAddress.publicKeys.masterNullifierPublicKey.hash());
+      }
+      if (account.equals(senderForTags)) {
+        return pkMHash.equals(await senderForTagsCompleteAddress.publicKeys.masterNullifierPublicKey.hash());
+      }
+      return false;
+    });
 
     keyStore.getKeyValidationRequest.mockImplementation(async (pkMHash: Fr, contractAddress: AztecAddress) => {
       if (pkMHash.equals(await ownerCompleteAddress.publicKeys.masterNullifierPublicKey.hash())) {
