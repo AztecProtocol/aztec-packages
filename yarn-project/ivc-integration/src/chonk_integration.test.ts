@@ -10,6 +10,7 @@ import {
   MockPrivateKernelInitCircuit,
   MockPrivateKernelTailCircuit,
   generateTestingIVCStack,
+  generateTestingIVCStackWithFlushes,
 } from './witgen.js';
 
 const logger = createLogger('ivc-integration:test:wasm');
@@ -104,25 +105,43 @@ describe.each([BackendType.Wasm, BackendType.NativeUnixSocket])('Client IVC Inte
 });
 
 describe.each([BackendType.Wasm, BackendType.NativeUnixSocket])('Client IVC Integration - Goblin Flush', backend => {
-  let barretenberg: Barretenberg;
+  describe(backend, () => {
+    let barretenberg: Barretenberg;
 
-  beforeAll(async () => {
-    barretenberg = await Barretenberg.initSingleton({
-      backend,
-      threads: 16,
-      logger: (m: string) => logger.info(m),
+    beforeAll(async () => {
+      barretenberg = await Barretenberg.initSingleton({
+        backend,
+        threads: 16,
+        logger: (m: string) => logger.info(m),
+      });
     });
-  });
 
-  afterAll(async () => {
-    await Barretenberg.destroySingleton();
-  });
+    afterAll(async () => {
+      await Barretenberg.destroySingleton();
+    });
 
-  it('Should generate a verifiable client IVC proof with a goblin flush and more than 17 kernels', async () => {
-    const [bytecodes, witnessStack, , vks] = await generateTestingIVCStack(19, 5, true);
-    const backend = new AztecClientBackend(bytecodes, barretenberg);
-    const { proof, vk } = await backend.prove(witnessStack, vks);
-    const verified = await backend.verify(proof, vk);
-    expect(verified).toBe(true);
+    it('1 flush with 19 creator apps', async () => {
+      const [bytecodes, witnessStack, , vks] = await generateTestingIVCStackWithFlushes([19]);
+      const backend = new AztecClientBackend(bytecodes, barretenberg);
+      const { proof, vk } = await backend.prove(witnessStack, vks);
+      const verified = await backend.verify(proof, vk);
+      expect(verified).toBe(true);
+    });
+
+    it('2 flushes with 19 and 5 creator apps', async () => {
+      const [bytecodes, witnessStack, , vks] = await generateTestingIVCStackWithFlushes([19, 5]);
+      const backend = new AztecClientBackend(bytecodes, barretenberg);
+      const { proof, vk } = await backend.prove(witnessStack, vks);
+      const verified = await backend.verify(proof, vk);
+      expect(verified).toBe(true);
+    });
+
+    it('3 flushes with 15, 15, and 1 creator apps', async () => {
+      const [bytecodes, witnessStack, , vks] = await generateTestingIVCStackWithFlushes([15, 15, 1]);
+      const backend = new AztecClientBackend(bytecodes, barretenberg);
+      const { proof, vk } = await backend.prove(witnessStack, vks);
+      const verified = await backend.verify(proof, vk);
+      expect(verified).toBe(true);
+    });
   });
 });

@@ -322,12 +322,30 @@ TEST_F(GoblinFlushRecursionConstraintTest, EndToEndSingleFlush)
 {
     // 5 apps (A0, A1, A_G, + 0 padding) + 5 kernels (K0, K1, K_G, K_reset, K_tail) + hiding = 9 circuits
     // Actually: A0, K0, A1, K1, A_G, K_G, K_reset, K_tail, K_hiding = 9 circuits
-    auto ivc = std::make_shared<Chonk>(/*num_circuits=*/9);
+    auto ivc = std::make_shared<Chonk>(/*num_circuits=*/13);
 
     // A0: normal app
     construct_and_accumulate_mock_app(ivc);
 
     // K0: init kernel
+    construct_and_accumulate_mock_kernel(ivc);
+
+    // A1: normal app
+    construct_and_accumulate_mock_app(ivc);
+
+    // K1: inner kernel
+    construct_and_accumulate_mock_kernel(ivc);
+
+    // A_G: goblin flush app (built from ULTRA_GOBLIN ACIR constraint)
+    {
+        AcirProgram program = construct_goblin_flush_program();
+        ProgramMetadata metadata{ ivc };
+        auto ag_circuit = acir_format::create_circuit<Builder>(program, metadata);
+        auto ag_vk = get_verification_key(ag_circuit);
+        ivc->accumulate(ag_circuit, ag_vk);
+    }
+
+    // K_G: goblin flush kernel (normal kernel - complete_kernel_circuit_logic handles the flush)
     construct_and_accumulate_mock_kernel(ivc);
 
     // A1: normal app

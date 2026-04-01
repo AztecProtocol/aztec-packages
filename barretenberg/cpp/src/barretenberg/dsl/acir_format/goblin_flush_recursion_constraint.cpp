@@ -100,6 +100,7 @@ HonkRecursionConstraintOutput<MegaCircuitBuilder> create_goblin_flush_recursion_
         // Prove goblin with AVM_MODE = true and IS_ZK = false
         goblin.set_avm_mode(true);
         goblin.set_op_queue_zk(false);
+        goblin.transcript = std::make_shared<NativeTranscript>();
 
         goblin.prove_eccvm();
         goblin.prove_translator();
@@ -107,6 +108,7 @@ HonkRecursionConstraintOutput<MegaCircuitBuilder> create_goblin_flush_recursion_
         // Reset goblin
         goblin.set_avm_mode(false);
         goblin.set_op_queue_zk(true);
+        goblin.transcript = std::make_shared<NativeTranscript>();
 
         goblin_proof = goblin.goblin_proof;
     }
