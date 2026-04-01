@@ -59,8 +59,8 @@ function run_bb_cli_bench {
 
   if [[ "$runtime" == "native" ]]; then
     # Add --bench_out_hierarchical flag for native builds to capture hierarchical op counts and timings
-    memusage "./$native_build_dir/bin/bb" "$@" "--bench_out_hierarchical" "$output/benchmark_breakdown.json" "--memory_profile_out" "$output/memory_breakdown.json" || {
-      echo "bb native failed with args: $@ --bench_out_hierarchical $output/benchmark_breakdown.json --memory_profile_out $output/memory_breakdown.json"
+    memusage "./$native_build_dir/bin/bb" "$@" "--bench_out_hierarchical" "$output/benchmark_breakdown.json" "--memory_profile_out" "$output/memory_profile.json" || {
+      echo "bb native failed with args: $@ --bench_out_hierarchical $output/benchmark_breakdown.json --memory_profile_out $output/memory_profile.json"
       exit 1
     }
   else # wasm
@@ -142,7 +142,7 @@ EOF
   fi
 
   # Extract memory breakdown metrics if available
-  if [[ -f "$output/memory_breakdown.json" ]]; then
+  if [[ -f "$output/memory_profile.json" ]]; then
     echo "Extracting memory breakdown metrics..."
     python3 scripts/extract_memory_benchmarks.py "$output" "$name_path"
   fi
@@ -187,10 +187,10 @@ if [[ "${CI:-}" == "1" ]] && [[ "${CI_USE_BUILD_INSTANCE_KEY:-0}" == "1" ]]; the
   fi
 
   # Upload memory breakdown to S3
-  memory_breakdown_file="bench-out/app-proving/$flow_name/$runtime/memory_breakdown.json"
-  if [[ -f "$memory_breakdown_file" ]]; then
-    tmp_memory_file="/tmp/memory_breakdown_${runtime}_${flow_name}_$$.json"
-    cp "$memory_breakdown_file" "$tmp_memory_file"
+  memory_profile_file="bench-out/app-proving/$flow_name/$runtime/memory_profile.json"
+  if [[ -f "$memory_profile_file" ]]; then
+    tmp_memory_file="/tmp/memory_profile_${runtime}_${flow_name}_$$.json"
+    cp "$memory_profile_file" "$tmp_memory_file"
     memory_disk_key="memory-${runtime}-${flow_name}-${current_sha}"
     {
       cat "$tmp_memory_file" | gzip | cache_s3_transfer_to "bench/bb-breakdown" "$memory_disk_key"
