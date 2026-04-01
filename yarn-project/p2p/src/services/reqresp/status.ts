@@ -1,4 +1,17 @@
 /**
+ * Local-only classification of why a reqresp call failed locally (not sent over the wire).
+ * This is orthogonal to `ReqRespStatus`, which represents the remote peer's response code.
+ */
+export enum ReqRespFailureSource {
+  /** Transport-level error: stream reset, connection closed, muxer closed, etc. */
+  TRANSPORT = 'TRANSPORT',
+  /** Timeout waiting for peer response. */
+  TIMEOUT = 'TIMEOUT',
+  /** Unknown or uncategorized local error. */
+  UNKNOWN = 'UNKNOWN',
+}
+
+/**
  * The error codes for the ReqResp protocol
  */
 export enum ReqRespStatus {

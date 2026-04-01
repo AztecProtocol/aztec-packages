@@ -44,7 +44,13 @@ import {
   RequestResponseRateLimiter,
   prettyPrintRateLimitStatus,
 } from './rate-limiter/rate_limiter.js';
-import { ReqRespStatus, ReqRespStatusError, parseStatusChunk, prettyPrintReqRespStatus } from './status.js';
+import {
+  ReqRespFailureSource,
+  ReqRespStatus,
+  ReqRespStatusError,
+  parseStatusChunk,
+  prettyPrintReqRespStatus,
+} from './status.js';
 
 /**
  * The Request Response Service
@@ -475,7 +481,7 @@ export class ReqResp implements ReqRespInterface {
 
       // If there is an exception, we return an unknown response
       this.logger.debug(`Error sending request to peer ${peerId.toString()} on sub protocol ${subProtocol}: ${e}`);
-      return { status: ReqRespStatus.FAILURE };
+      return { status: ReqRespStatus.FAILURE, failureSource: ReqResp.classifyFailureSource(e) };
     } finally {
       // Only close the stream if we created it
       // Note even if we aborted the stream, calling close on it is ok, it's just a no-op
@@ -791,6 +797,37 @@ export class ReqResp implements ReqRespInterface {
     return this.categorizeConnectionErrors(e, peerId, subProtocol);
   }
 
+  /** Classifies a local error into a `ReqRespFailureSource` for callers to branch on. */
+  static classifyFailureSource(e: any): ReqRespFailureSource {
+    if (e instanceof IndividualReqRespTimeoutError || e instanceof TimeoutError) {
+      return ReqRespFailureSource.TIMEOUT;
+    }
+    if (ReqResp.isTransportError(e)) {
+      return ReqRespFailureSource.TRANSPORT;
+    }
+    return ReqRespFailureSource.UNKNOWN;
+  }
+
+  /** Returns true if the error is a transient transport-level issue (not peer misbehavior). */
+  static isTransportError(e: any): boolean {
+    if (e instanceof AbortError || e?.code === 'ABORT_ERR' || e?.name === 'AbortError') {
+      return true;
+    }
+    return (
+      e?.code === 'ERR_CONNECTION_BEING_CLOSED' ||
+      e?.name === 'ConnectionClosingError' ||
+      e?.code === 'ERR_CONNECTION_CLOSED' ||
+      e?.name === 'ConnectionClosedError' ||
+      e?.code === 'ERR_TRANSIENT_CONNECTION' ||
+      e?.name === 'LimitedConnectionError' ||
+      e?.name === 'StreamResetError' ||
+      e?.message?.includes('stream reset') ||
+      e?.message?.includes('Muxer already closed') ||
+      e?.message?.includes('muxer closed') ||
+      e?.message?.includes('ended pushable')
+    );
+  }
+
   /*
    * Errors specific to connection  handling
    * These can happen  both when sending request and response*/
@@ -810,19 +847,7 @@ export class ReqResp implements ReqRespInterface {
     // at the transport layer. StreamResetError occurs in yamux when both sides open streams
     // simultaneously during connection establishment — this is a transport race, not peer misbehavior.
     // Check both .code (v1) and .name (v2) for libp2p errors
-    if (
-      e?.code === 'ERR_CONNECTION_BEING_CLOSED' ||
-      e?.name === 'ConnectionClosingError' ||
-      e?.code === 'ERR_CONNECTION_CLOSED' ||
-      e?.name === 'ConnectionClosedError' ||
-      e?.code === 'ERR_TRANSIENT_CONNECTION' ||
-      e?.name === 'LimitedConnectionError' ||
-      e?.name === 'StreamResetError' ||
-      e?.message?.includes('stream reset') ||
-      e?.message?.includes('Muxer already closed') ||
-      e?.message?.includes('muxer closed') ||
-      e?.message?.includes('ended pushable')
-    ) {
+    if (ReqResp.isTransportError(e)) {
       this.logger.debug(
         `Connection/stream closed to peer: ${peerId.toString()} (${e?.message ?? 'missing error message'})`,
         logTags,

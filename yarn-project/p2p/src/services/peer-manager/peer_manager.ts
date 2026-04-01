@@ -24,7 +24,7 @@ import { AuthRequest, AuthResponse } from '../reqresp/protocols/auth.js';
 import { GoodByeReason, prettyGoodbyeReason } from '../reqresp/protocols/goodbye.js';
 import { StatusMessage } from '../reqresp/protocols/status.js';
 import type { ReqResp } from '../reqresp/reqresp.js';
-import { ReqRespStatus } from '../reqresp/status.js';
+import { ReqRespFailureSource, ReqRespStatus } from '../reqresp/status.js';
 import type { PeerDiscoveryService } from '../service.js';
 import type { PeerManagerInterface } from './interface.js';
 import { PeerManagerMetrics } from './metrics.js';
@@ -882,17 +882,25 @@ export class PeerManager implements PeerManagerInterface {
       const response = await this.reqresp.sendRequestToPeer(peerId, ReqRespSubProtocol.STATUS, ourStatus.toBuffer());
       const { status } = response;
       if (status !== ReqRespStatus.SUCCESS) {
-        // Don't disconnect on FAILURE — transport errors (StreamResetError, timeout, etc.)
-        // return FAILURE and disconnecting here causes a reconnect→handshake→fail churn loop
-        // that prevents gossipsub mesh formation. Bad peers are caught by data validation below
-        // and by peer scoring.
-        //TODO: maybe hard ban these peers in the future.
-        //We could allow this to happen up to N times, and then hard ban?
-        //Hard ban: Disallow connection via e.g. libp2p's Gater
-        this.logger.debug(`Status handshake returned non-success for peer ${peerId}, keeping connection`, {
+        const { failureSource } = response;
+        if (failureSource === ReqRespFailureSource.TRANSPORT || failureSource === ReqRespFailureSource.TIMEOUT) {
+          // Transport errors (StreamResetError, timeout, etc.) are transient — don't disconnect.
+          // Disconnecting here causes a reconnect→handshake→fail churn loop that prevents
+          // gossipsub mesh formation.
+          this.logger.debug(`Status handshake transport error for peer ${peerId}, keeping connection`, {
+            peerId,
+            status: ReqRespStatus[status],
+            failureSource,
+          });
+          return;
+        }
+        // Genuine protocol failure (remote peer explicitly rejected, or unknown error) — disconnect.
+        this.logger.debug(`Disconnecting peer ${peerId} due to status handshake failure`, {
           peerId,
           status: ReqRespStatus[status],
+          failureSource,
         });
+        this.markPeerForDisconnect(peerId);
         return;
       }
 
@@ -942,14 +950,15 @@ export class PeerManager implements PeerManagerInterface {
       const { status } = response;
       if (status !== ReqRespStatus.SUCCESS) {
         this.markAuthHandshakeFailed(peerId);
+        const { failureSource } = response;
+        const isTransient =
+          failureSource === ReqRespFailureSource.TRANSPORT || failureSource === ReqRespFailureSource.TIMEOUT;
 
-        // Transport errors (StreamResetError, timeout) return FAILURE and are transient —
-        // retry once after a short delay to distinguish from genuine auth failures.
-        // If the retry also fails, the failure is persistent (non-validator) → disconnect.
-        if (retryCount < AUTH_HANDSHAKE_MAX_RETRIES) {
+        // Only retry on transient transport errors — genuine auth rejections disconnect immediately.
+        if (isTransient && retryCount < AUTH_HANDSHAKE_MAX_RETRIES) {
           this.logger.verbose(
-            `Auth handshake returned non-success for peer ${peerId}, retrying (${retryCount + 1}/${AUTH_HANDSHAKE_MAX_RETRIES})`,
-            { peerId, status: ReqRespStatus[status] },
+            `Auth handshake transport error for peer ${peerId}, retrying (${retryCount + 1}/${AUTH_HANDSHAKE_MAX_RETRIES})`,
+            { peerId, status: ReqRespStatus[status], failureSource },
           );
           await sleep(AUTH_HANDSHAKE_RETRY_DELAY_MS);
           return this.exchangeAuthHandshake(peerId, retryCount + 1);

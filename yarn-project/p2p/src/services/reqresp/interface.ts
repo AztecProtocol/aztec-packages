@@ -15,7 +15,7 @@ import {
 } from './protocols/block_txs/block_txs_reqresp.js';
 import { StatusMessage } from './protocols/status.js';
 import { calculateTxResponseSize } from './protocols/tx.js';
-import type { ReqRespStatus } from './status.js';
+import type { ReqRespFailureSource, ReqRespStatus } from './status.js';
 
 /*
  * Request Response Sub Protocols
@@ -56,7 +56,7 @@ export type ReqRespSubProtocolRateLimits = Record<ReqRespSubProtocol, ProtocolRa
  */
 export type ReqRespResponse =
   | { status: ReqRespStatus.SUCCESS; data: Buffer }
-  | { status: Exclude<ReqRespStatus, ReqRespStatus.SUCCESS> };
+  | { status: Exclude<ReqRespStatus, ReqRespStatus.SUCCESS>; failureSource?: ReqRespFailureSource };
 
 /**
  * A rate limit quota

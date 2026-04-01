@@ -32,7 +32,7 @@ import type { FullLibp2p } from '../../util.js';
 import { ReqRespSubProtocol } from '../reqresp/interface.js';
 import { AuthRequest, AuthResponse, GoodByeReason, StatusMessage } from '../reqresp/protocols/index.js';
 import { ReqResp } from '../reqresp/reqresp.js';
-import { ReqRespStatus } from '../reqresp/status.js';
+import { ReqRespFailureSource, ReqRespStatus } from '../reqresp/status.js';
 import { PeerManager } from './peer_manager.js';
 import { PeerScoring } from './peer_scoring.js';
 
@@ -1246,15 +1246,13 @@ describe('PeerManager', () => {
 
       newPeerManager.initializePeers();
 
-      // Mock the auth request to fail
+      // Mock the auth request to fail with a transport error (triggers retry)
       mockReqResp.sendRequestToPeer.mockImplementation(
-        (_peerId: PeerId, _subProtocol: ReqRespSubProtocol, _payload: Buffer, _dialTimeout?: number) => {
-          const returnData = {
-            status: ReqRespStatus.FAILURE,
-            data: Buffer.alloc(0),
-          };
-          return Promise.resolve(returnData);
-        },
+        (_peerId: PeerId, _subProtocol: ReqRespSubProtocol, _payload: Buffer, _dialTimeout?: number) =>
+          Promise.resolve({
+            status: ReqRespStatus.FAILURE as const,
+            failureSource: ReqRespFailureSource.TRANSPORT,
+          }),
       );
 
       const ev = {
@@ -1292,7 +1290,17 @@ describe('PeerManager', () => {
       // Simulate AUTH starting by adding to pending set via handleConnectedPeerEvent.
       // Use a slow mock so AUTH stays in progress while we test.
       mockReqResp.sendRequestToPeer.mockImplementation(
-        () => new Promise(resolve => setTimeout(() => resolve({ status: ReqRespStatus.FAILURE }), 5000)),
+        () =>
+          new Promise(resolve =>
+            setTimeout(
+              () =>
+                resolve({
+                  status: ReqRespStatus.FAILURE as const,
+                  failureSource: ReqRespFailureSource.TRANSPORT,
+                }),
+              5000,
+            ),
+          ),
       );
 
       const ev = { detail: peerId };
