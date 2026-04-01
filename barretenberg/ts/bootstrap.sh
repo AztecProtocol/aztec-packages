@@ -10,6 +10,7 @@ source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 # plus our own source files, release status, and AVM transpiler setting.
 hash=$(hash_str \
   $(../codegen/bootstrap.sh hash) \
+  $(../cpp/bootstrap.sh hash) \
   $(cache_content_hash .rebuild_patterns) \
   $(semver check $REF_NAME && echo 1 || echo 0) \
   ${AVM_TRANSPILER:-1})
