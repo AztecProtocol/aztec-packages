@@ -456,6 +456,10 @@ void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(const std::shared_
         process_random_op(ultra_ops[i]);
     }
 
+    // Guard against unsigned wraparound when computing ops_end below
+    const size_t min_ops = NUM_NO_OPS_START + NUM_RANDOM_OPS_START + (avm_mode ? 0 : NUM_RANDOM_OPS_END);
+    BB_ASSERT(ultra_ops.size() >= min_ops, "Op queue too small for Translator circuit construction");
+
     const size_t ops_end = avm_mode ? ultra_ops.size() : ultra_ops.size() - NUM_RANDOM_OPS_END;
     // Range of UltraOps for which we should construct accumulation gates
     std::span ultra_ops_span(ultra_ops.begin() + static_cast<std::ptrdiff_t>(NUM_NO_OPS_START + NUM_RANDOM_OPS_START),
