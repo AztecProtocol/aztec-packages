@@ -23,7 +23,7 @@ This is an intermediate tutorial that assumes you have:
 - Completed the [Counter Contract tutorial](./counter_contract.md)
 - A Running Aztec local network (see the Counter tutorial for setup)
 - Basic understanding of Aztec.nr syntax and structure
-- Aztec toolchain installed (`VERSION=#include_version_without_prefix bash -i <(curl -sL https://install.aztec.network/#include_version_without_prefix)`)
+- Aztec toolchain installed (`VERSION=4.2.0-aztecnr-rc.2 bash -i <(curl -sL https://install.aztec.network/4.2.0-aztecnr-rc.2)`)
 
 If you haven't completed the Counter Contract tutorial, please do so first as we'll skip the basic setup steps covered there.
 
@@ -44,7 +44,7 @@ cd bob_token
 yarn init
 # This is to ensure yarn uses node_modules instead of pnp for dependency installation
 yarn config set nodeLinker node-modules
-yarn add @aztec/aztec.js@#include_aztec_version @aztec/accounts@#include_aztec_version @aztec/kv-store@#include_aztec_version @aztec/wallets@#include_aztec_version
+yarn add @aztec/aztec.js@4.2.0-aztecnr-rc.2 @aztec/accounts@4.2.0-aztecnr-rc.2 @aztec/kv-store@4.2.0-aztecnr-rc.2 @aztec/wallets@4.2.0-aztecnr-rc.2
 ```
 
 ## Contract structure
@@ -52,7 +52,10 @@ yarn add @aztec/aztec.js@#include_aztec_version @aztec/accounts@#include_aztec_v
 The `aztec new` command created a contract project with `Nargo.toml` and `src/main.nr`. Let's replace the boilerplate in `src/main.nr` with a simple starting point:
 
 ```rust
-#include_code start /docs/examples/contracts/bob_token_contract/src/main.nr raw
+use aztec::macros::aztec;
+
+#[aztec]
+pub contract BobToken {
     // We'll build the mental health token here
 }
 ```
@@ -67,13 +70,20 @@ name = "bob_token_contract"
 type = "contract"
 
 [dependencies]
-aztec = { git = "https://github.com/AztecProtocol/aztec-nr/", tag = "#include_aztec_version", directory = "aztec" }
+aztec = { git = "https://github.com/AztecProtocol/aztec-nr/", tag = "v4.2.0-aztecnr-rc.2", directory = "aztec" }
 ```
 
 Since we're here, let's import more specific stuff from this library:
 
 ```rust
-#include_code imports /docs/examples/contracts/bob_token_contract/src/main.nr raw
+#[aztec]
+pub contract BobToken {
+    use aztec::{
+        macros::{functions::{external, initializer, only_self}, storage::storage},
+        messages::message_delivery::MessageDelivery,
+        protocol::address::AztecAddress,
+        state_vars::{Map, Owned, PublicMutable},
+    };
 }
 ```
 
@@ -106,7 +116,12 @@ Let's start with the public components that Giggle will use to mint and track in
 First, define the storage for our BOB tokens:
 
 ```rust
-#include_code public_storage /docs/examples/contracts/bob_token_contract/src/main.nr raw
+#[storage]
+struct Storage<Context> {
+    // Giggle's admin address
+    owner: PublicMutable<AztecAddress, Context>,
+    // Public balances - visible for transparency
+    public_balances: Map<AztecAddress, PublicMutable<u64, Context>, Context>,
 }
 ```
 
@@ -128,7 +143,16 @@ While employees want privacy when spending, having public balances during mintin
 
 When deploying the contract, we need to set Giggle as the owner:
 
-#include_code setup /docs/examples/contracts/bob_token_contract/src/main.nr rust
+```rust title="setup" showLineNumbers 
+#[initializer]
+#[external("public")]
+fn setup() {
+    // Giggle becomes the owner who can mint mental health tokens
+    self.storage.owner.write(self.msg_sender());
+}
+```
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v4.2.0-aztecnr-rc.2/docs/examples/contracts/bob_token_contract/src/main.nr#L32-L39" target="_blank" rel="noopener noreferrer">Source code: docs/examples/contracts/bob_token_contract/src/main.nr#L32-L39</a></sub></sup>
+
 
 The `#[initializer]` decorator ensures this runs once during deployment. Only Giggle's address will have the power to mint new BOB tokens for employees.
 
@@ -136,7 +160,19 @@ The `#[initializer]` decorator ensures this runs once during deployment. Only Gi
 
 Giggle needs a way to allocate mental health tokens to employees:
 
-#include_code mint_public /docs/examples/contracts/bob_token_contract/src/main.nr rust
+```rust title="mint_public" showLineNumbers 
+#[external("public")]
+fn mint_public(employee: AztecAddress, amount: u64) {
+    // Only Giggle can mint tokens
+    assert_eq(self.msg_sender(), self.storage.owner.read(), "Only Giggle can mint BOB tokens");
+
+    // Add tokens to employee's public balance
+    let current_balance = self.storage.public_balances.at(employee).read();
+    self.storage.public_balances.at(employee).write(current_balance + amount);
+}
+```
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v4.2.0-aztecnr-rc.2/docs/examples/contracts/bob_token_contract/src/main.nr#L41-L51" target="_blank" rel="noopener noreferrer">Source code: docs/examples/contracts/bob_token_contract/src/main.nr#L41-L51</a></sub></sup>
+
 
 This public minting function:
 
@@ -152,7 +188,23 @@ Imagine Giggle allocating 100 BOB tokens to each employee at the start of the ye
 
 While most transfers will be private, we'll add public transfers for cases where transparency is desired:
 
-#include_code transfer_public /docs/examples/contracts/bob_token_contract/src/main.nr rust
+```rust title="transfer_public" showLineNumbers 
+#[external("public")]
+fn transfer_public(to: AztecAddress, amount: u64) {
+    let sender = self.msg_sender();
+    let sender_balance = self.storage.public_balances.at(sender).read();
+    assert(sender_balance >= amount, "Insufficient BOB tokens");
+
+    // Deduct from sender
+    self.storage.public_balances.at(sender).write(sender_balance - amount);
+
+    // Add to recipient
+    let recipient_balance = self.storage.public_balances.at(to).read();
+    self.storage.public_balances.at(to).write(recipient_balance + amount);
+}
+```
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v4.2.0-aztecnr-rc.2/docs/examples/contracts/bob_token_contract/src/main.nr#L53-L67" target="_blank" rel="noopener noreferrer">Source code: docs/examples/contracts/bob_token_contract/src/main.nr#L53-L67</a></sub></sup>
+
 
 This might be used when:
 
@@ -164,7 +216,19 @@ This might be used when:
 
 In case Giggle's mental health program administration changes:
 
-#include_code transfer_ownership /docs/examples/contracts/bob_token_contract/src/main.nr rust
+```rust title="transfer_ownership" showLineNumbers 
+#[external("public")]
+fn transfer_ownership(new_owner: AztecAddress) {
+    assert_eq(
+        self.msg_sender(),
+        self.storage.owner.read(),
+        "Only current admin can transfer ownership",
+    );
+    self.storage.owner.write(new_owner);
+}
+```
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v4.2.0-aztecnr-rc.2/docs/examples/contracts/bob_token_contract/src/main.nr#L69-L79" target="_blank" rel="noopener noreferrer">Source code: docs/examples/contracts/bob_token_contract/src/main.nr#L69-L79</a></sub></sup>
+
 
 ## Your First Deployment - Let's See It Work
 
@@ -195,9 +259,48 @@ aztec start --local-network
 Then we will use the `giggleWallet` to deploy our contract, mint 100 BOB to Alice, then transfer 10 of those to Bob's Clinic publicly... for now. Let's go:
 
 ```typescript
-#include_code imports /docs/examples/ts/bob_token_contract/index.ts raw
+import { BobTokenContract } from "./artifacts/BobToken.js";
+import { AztecAddress } from "@aztec/aztec.js/addresses";
+import { createAztecNodeClient } from "@aztec/aztec.js/node";
+import { getInitialTestAccountsData } from "@aztec/accounts/testing";
+import { EmbeddedWallet } from "@aztec/wallets/embedded";
 
-#include_code checkpoint_1 /docs/examples/ts/bob_token_contract/index.ts raw
+async function main() {
+  // Connect to local network
+  const node = createAztecNodeClient("http://localhost:8080");
+
+  const wallet = await EmbeddedWallet.create(node);
+
+  const [giggleWalletData, aliceWalletData, bobClinicWalletData] =
+    await getInitialTestAccountsData();
+  const giggleAccountManager = await wallet.createSchnorrAccount(
+    giggleWalletData.secret,
+    giggleWalletData.salt,
+  );
+  const aliceAccountManager = await wallet.createSchnorrAccount(
+    aliceWalletData.secret,
+    aliceWalletData.salt,
+  );
+  const bobClinicAccountManager = await wallet.createSchnorrAccount(
+    bobClinicWalletData.secret,
+    bobClinicWalletData.salt,
+  );
+
+  const giggleAddress = giggleAccountManager.address;
+  const aliceAddress = aliceAccountManager.address;
+  const bobClinicAddress = bobClinicAccountManager.address;
+
+  const { contract: bobToken } = await BobTokenContract.deploy(wallet).send({
+    from: giggleAddress,
+  });
+
+  await bobToken.methods
+    .mint_public(aliceAddress, 100n)
+    .send({ from: giggleAddress });
+
+  await bobToken.methods
+    .transfer_public(bobClinicAddress, 10n)
+    .send({ from: aliceAddress });
 }
 
 main().catch(console.error);
@@ -257,8 +360,8 @@ For something like balances, you can use a simple library called `easy_private_s
 
 ```toml
 [dependencies]
-aztec = { git="https://github.com/AztecProtocol/aztec-nr", tag="#include_aztec_version", directory="aztec" }
-balance_set = { git = "https://github.com/AztecProtocol/aztec-nr/", tag = "#include_aztec_version", directory = "balance-set" }
+aztec = { git="https://github.com/AztecProtocol/aztec-nr", tag="v4.2.0-aztecnr-rc.2", directory="aztec" }
+balance_set = { git = "https://github.com/AztecProtocol/aztec-nr/", tag = "v4.2.0-aztecnr-rc.2", directory = "balance-set" }
 ```
 
 Then import `BalanceSet` in our contract:
@@ -276,7 +379,19 @@ pub contract BobToken {
 
 We need to update the contract storage to have private balances as well:
 
-#include_code storage /docs/examples/contracts/bob_token_contract/src/main.nr rust
+```rust title="storage" showLineNumbers 
+#[storage]
+struct Storage<Context> {
+    // Giggle's admin address
+    owner: PublicMutable<AztecAddress, Context>,
+    // Public balances - visible for transparency
+    public_balances: Map<AztecAddress, PublicMutable<u64, Context>, Context>,
+    // Private balances - only the owner can see these
+    private_balances: Owned<BalanceSet<Context>, Context>,
+}
+```
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v4.2.0-aztecnr-rc.2/docs/examples/contracts/bob_token_contract/src/main.nr#L19-L30" target="_blank" rel="noopener noreferrer">Source code: docs/examples/contracts/bob_token_contract/src/main.nr#L19-L30</a></sub></sup>
+
 
 The `private_balances` use `BalanceSet` which manages encrypted notes automatically.
 
@@ -284,11 +399,34 @@ The `private_balances` use `BalanceSet` which manages encrypted notes automatica
 
 Great, now our contract knows about private balances. Let's implement a method to allow users to move their publicly minted tokens there:
 
-#include_code public_to_private /docs/examples/contracts/bob_token_contract/src/main.nr rust
+```rust title="public_to_private" showLineNumbers 
+#[external("private")]
+fn public_to_private(amount: u64) {
+    let sender = self.msg_sender();
+    // This will enqueue a public function to deduct from public balance
+    self.enqueue_self._deduct_public_balance(sender, amount);
+    // Add to private balance
+    self.storage.private_balances.at(sender).add(amount as u128).deliver(
+        MessageDelivery.ONCHAIN_CONSTRAINED,
+    );
+}
+```
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v4.2.0-aztecnr-rc.2/docs/examples/contracts/bob_token_contract/src/main.nr#L81-L92" target="_blank" rel="noopener noreferrer">Source code: docs/examples/contracts/bob_token_contract/src/main.nr#L81-L92</a></sub></sup>
+
 
 And the helper function:
 
-#include_code _deduct_public_balance /docs/examples/contracts/bob_token_contract/src/main.nr rust
+```rust title="_deduct_public_balance" showLineNumbers 
+#[external("public")]
+#[only_self]
+fn _deduct_public_balance(owner: AztecAddress, amount: u64) {
+    let balance = self.storage.public_balances.at(owner).read();
+    assert(balance >= amount, "Insufficient public BOB tokens");
+    self.storage.public_balances.at(owner).write(balance - amount);
+}
+```
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v4.2.0-aztecnr-rc.2/docs/examples/contracts/bob_token_contract/src/main.nr#L94-L102" target="_blank" rel="noopener noreferrer">Source code: docs/examples/contracts/bob_token_contract/src/main.nr#L94-L102</a></sub></sup>
+
 
 By calling `public_to_private` we're telling the network "deduct this amount from my balance" while simultaneously creating a Note with that balance in privateland.
 
@@ -296,7 +434,22 @@ By calling `public_to_private` we're telling the network "deduct this amount fro
 
 Now for the crucial privacy feature - transferring BOB tokens in privacy. This is actually pretty simple:
 
-#include_code transfer_private /docs/examples/contracts/bob_token_contract/src/main.nr rust
+```rust title="transfer_private" showLineNumbers 
+#[external("private")]
+fn transfer_private(to: AztecAddress, amount: u64) {
+    let sender = self.msg_sender();
+    // Spend sender's notes (consumes existing notes)
+    self.storage.private_balances.at(sender).sub(amount as u128).deliver(
+        MessageDelivery.ONCHAIN_CONSTRAINED,
+    );
+    // Create new notes for recipient
+    self.storage.private_balances.at(to).add(amount as u128).deliver(
+        MessageDelivery.ONCHAIN_CONSTRAINED,
+    );
+}
+```
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v4.2.0-aztecnr-rc.2/docs/examples/contracts/bob_token_contract/src/main.nr#L104-L117" target="_blank" rel="noopener noreferrer">Source code: docs/examples/contracts/bob_token_contract/src/main.nr#L104-L117</a></sub></sup>
+
 
 This function simply nullifies the sender's notes, while adding them to the recipient.
 
@@ -314,7 +467,19 @@ When an employee uses 50 BOB tokens at Bob's clinic, this private transfer ensur
 
 Employees can check their BOB token balances without hitting the network by using utility unconstrained functions:
 
-#include_code check_balances /docs/examples/contracts/bob_token_contract/src/main.nr rust
+```rust title="check_balances" showLineNumbers 
+#[external("utility")]
+unconstrained fn private_balance_of(owner: AztecAddress) -> pub u128 {
+    self.storage.private_balances.at(owner).balance_of()
+}
+
+#[external("utility")]
+unconstrained fn public_balance_of(owner: AztecAddress) -> pub u64 {
+    self.storage.public_balances.at(owner).read()
+}
+```
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v4.2.0-aztecnr-rc.2/docs/examples/contracts/bob_token_contract/src/main.nr#L119-L129" target="_blank" rel="noopener noreferrer">Source code: docs/examples/contracts/bob_token_contract/src/main.nr#L119-L129</a></sub></sup>
+
 
 ## Part 3: Securing Private Minting
 
@@ -343,11 +508,32 @@ We want Giggle to mint BOB tokens directly to employees' private balances (for m
 
 Let's use a clever pattern where private functions enqueue public validation checks. First we make a little helper function in public. Remember, public functions always run _after_ private functions, since private functions run client-side.
 
-#include_code _assert_is_owner /docs/examples/contracts/bob_token_contract/src/main.nr rust
+```rust title="_assert_is_owner" showLineNumbers 
+#[external("public")]
+#[only_self]
+fn _assert_is_owner(address: AztecAddress) {
+    assert_eq(address, self.storage.owner.read(), "Only Giggle can mint BOB tokens");
+}
+```
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v4.2.0-aztecnr-rc.2/docs/examples/contracts/bob_token_contract/src/main.nr#L131-L137" target="_blank" rel="noopener noreferrer">Source code: docs/examples/contracts/bob_token_contract/src/main.nr#L131-L137</a></sub></sup>
+
 
 Now we can add a secure private minting function. It looks pretty easy, and it is, since the whole thing will revert if the public function fails:
 
-#include_code mint_private /docs/examples/contracts/bob_token_contract/src/main.nr rust
+```rust title="mint_private" showLineNumbers 
+#[external("private")]
+fn mint_private(employee: AztecAddress, amount: u64) {
+    // Enqueue ownership check (will revert if not Giggle)
+    self.enqueue_self._assert_is_owner(self.msg_sender());
+
+    // If check passes, mint tokens privately
+    self.storage.private_balances.at(employee).add(amount as u128).deliver(
+        MessageDelivery.ONCHAIN_CONSTRAINED,
+    );
+}
+```
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v4.2.0-aztecnr-rc.2/docs/examples/contracts/bob_token_contract/src/main.nr#L139-L150" target="_blank" rel="noopener noreferrer">Source code: docs/examples/contracts/bob_token_contract/src/main.nr#L139-L150</a></sub></sup>
+
 
 This pattern ensures:
 
@@ -360,7 +546,27 @@ This pattern ensures:
 
 For the sake of completeness, let's also have a function that brings the tokens back to publicland:
 
-#include_code private_to_public /docs/examples/contracts/bob_token_contract/src/main.nr rust
+```rust title="private_to_public" showLineNumbers 
+#[external("private")]
+fn private_to_public(amount: u64) {
+    let sender = self.msg_sender();
+    // Remove from private balance
+    self.storage.private_balances.at(sender).sub(amount as u128).deliver(
+        MessageDelivery.ONCHAIN_CONSTRAINED,
+    );
+    // Enqueue public credit
+    self.enqueue_self._credit_public_balance(sender, amount);
+}
+
+#[external("public")]
+#[only_self]
+fn _credit_public_balance(owner: AztecAddress, amount: u64) {
+    let balance = self.storage.public_balances.at(owner).read();
+    self.storage.public_balances.at(owner).write(balance + amount);
+}
+```
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v4.2.0-aztecnr-rc.2/docs/examples/contracts/bob_token_contract/src/main.nr#L152-L170" target="_blank" rel="noopener noreferrer">Source code: docs/examples/contracts/bob_token_contract/src/main.nr#L152-L170</a></sub></sup>
+
 
 Now you've made changes to your contract, you need to recompile your contract.
 
@@ -381,7 +587,44 @@ Let's stop being lazy and add a nice little "log" function that just spits out e
 
 ```typescript
 // at the top of your file
-#include_code get_balances /docs/examples/ts/bob_token_contract/index.ts raw
+async function getBalances(
+  contract: BobTokenContract,
+  aliceAddress: AztecAddress,
+  bobAddress: AztecAddress,
+) {
+  await Promise.all([
+    contract.methods
+      .public_balance_of(aliceAddress)
+      .simulate({ from: aliceAddress })
+      .then(({ result }) => result),
+    contract.methods
+      .private_balance_of(aliceAddress)
+      .simulate({ from: aliceAddress })
+      .then(({ result }) => result),
+    contract.methods
+      .public_balance_of(bobAddress)
+      .simulate({ from: bobAddress })
+      .then(({ result }) => result),
+    contract.methods
+      .private_balance_of(bobAddress)
+      .simulate({ from: bobAddress })
+      .then(({ result }) => result),
+  ]).then(
+    ([
+      alicePublicBalance,
+      alicePrivateBalance,
+      bobPublicBalance,
+      bobPrivateBalance,
+    ]) => {
+      console.log(
+        `📊 Alice has ${alicePublicBalance} public BOB tokens and ${alicePrivateBalance} private BOB tokens`,
+      );
+      console.log(
+        `📊 Bob's Clinic has ${bobPublicBalance} public BOB tokens and ${bobPrivateBalance} private BOB tokens`,
+      );
+    },
+  );
+}
 ```
 
 Looks ugly but it does what it says: prints Alice's and Bob's balances. This will make it easier to see our contract working.
@@ -391,7 +634,34 @@ Now let's add some more stuff to our `index.ts`:
 ```typescript
 async function main() {
     // ...etc
-#include_code checkpoint_2 /docs/examples/ts/bob_token_contract/index.ts raw
+  await bobToken.methods
+    .mint_public(aliceAddress, 100n)
+    .send({ from: giggleAddress });
+  await getBalances(bobToken, aliceAddress, bobClinicAddress);
+
+  await bobToken.methods
+    .transfer_public(bobClinicAddress, 10n)
+    .send({ from: aliceAddress });
+  await getBalances(bobToken, aliceAddress, bobClinicAddress);
+
+  await bobToken.methods.public_to_private(90n).send({ from: aliceAddress });
+  await getBalances(bobToken, aliceAddress, bobClinicAddress);
+
+  await bobToken.methods
+    .transfer_private(bobClinicAddress, 50n)
+    .send({ from: aliceAddress });
+  await getBalances(bobToken, aliceAddress, bobClinicAddress);
+
+  await bobToken.methods.private_to_public(10n).send({ from: aliceAddress });
+  await getBalances(bobToken, aliceAddress, bobClinicAddress);
+
+  await bobToken.methods
+    .mint_private(aliceAddress, 100n)
+    .send({ from: giggleAddress });
+  await getBalances(bobToken, aliceAddress, bobClinicAddress);
+}
+
+main().catch(console.error);
 ```
 
 The flow is something like:
