@@ -27,17 +27,24 @@ try:
     entries = []
 
     # RSS timeline: each checkpoint becomes a line on the per-commit dashboard chart
+    # Stage ordering: prefix with sequence number so alphabetical sort = execution order
+    STAGE_ORDER = {
+        "after_alloc": "0_alloc",
+        "after_trace": "1_trace",
+        "after_oink": "2_oink",
+        "after_sumcheck": "3_sumcheck",
+        "after_accumulate": "4_accumulate",
+    }
     for cp in data.get("rss_checkpoints", []):
         circuit_name = cp.get("circuit_name", "")
         idx = cp["circuit_index"]
-        stage = cp["stage"]
-        # Build a stable label like "07_EcdsaRAccount:entrypoint/after_accumulate"
+        stage = STAGE_ORDER.get(cp["stage"], cp["stage"])
         label = f"{idx:02d}_{circuit_name}/{stage}" if circuit_name else f"{idx:02d}/{stage}"
         entries.append({
-            "name": f"{name_path}/memory/rss/{label}",
+            "name": f"{name_path}/{label}",
             "unit": "MB",
             "value": cp["rss_mb"],
-            "extra": f"stacked:{name_path}/memory/rss_timeline"
+            "extra": f"stacked:{name_path}/rss_over_stages"
         })
 
     # Append to existing benchmarks file

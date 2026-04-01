@@ -66,8 +66,9 @@ function run_bb_cli_bench {
   else # wasm
     export WASMTIME_ALLOWED_DIRS="--dir=$flow_folder --dir=$output"
     # Add --bench_out_hierarchical flag for wasm builds to capture hierarchical op counts and timings
-    memusage scripts/wasmtime.sh $WASMTIME_ALLOWED_DIRS ./build-wasm-threads/bin/bb "$@" "--bench_out_hierarchical" "$output/benchmark_breakdown.json" "--memory_profile_out" "$output/memory_breakdown.json" || {
-      echo "bb wasm failed with args: $@ --bench_out_hierarchical $output/benchmark_breakdown.json --memory_profile_out $output/memory_breakdown.json"
+    # Note: --memory_profile_out is native-only (getrusage not available in wasm)
+    memusage scripts/wasmtime.sh $WASMTIME_ALLOWED_DIRS ./build-wasm-threads/bin/bb "$@" "--bench_out_hierarchical" "$output/benchmark_breakdown.json" || {
+      echo "bb wasm failed with args: $@ --bench_out_hierarchical $output/benchmark_breakdown.json"
       exit 1
     }
   fi
