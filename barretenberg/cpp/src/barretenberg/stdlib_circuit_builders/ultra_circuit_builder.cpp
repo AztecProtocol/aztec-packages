@@ -559,7 +559,13 @@ plookup::ReadData<uint32_t> UltraCircuitBuilder_<ExecutionTrace>::create_gates_f
 
         // Get basic lookup table; construct and add to builder.lookup_tables if not already present
         plookup::BasicTable& table = get_table(multi_table.basic_table_ids[i]);
-        table.lookup_gates.emplace_back(read_values.lookup_entries[i]);
+        // In cursor mode, defer the lookup gate entry to avoid races on table.lookup_gates
+        if (this->get_variable_cursor() != this->VARIABLE_CURSOR_DISABLED) {
+            auto tidx = get_parallel_thread_index();
+            deferred_lookup_gates_[tidx].push_back({ multi_table.basic_table_ids[i], read_values.lookup_entries[i] });
+        } else {
+            table.lookup_gates.emplace_back(read_values.lookup_entries[i]);
+        }
 
         // Create witness variables: first lookup reuses user's input indices, subsequent create new variables
         const auto first_idx = is_first_lookup ? key_a_index : this->add_variable(read_values[ColumnIdx::C1][i]);
@@ -756,6 +762,13 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_small_range_constraint(const u
                                                                          const uint64_t target_range,
                                                                          std::string const msg)
 {
+    // In cursor mode, defer range constraint to avoid races on range_lists and real_variable_tags
+    if (this->get_variable_cursor() != this->VARIABLE_CURSOR_DISABLED) {
+        auto tidx = get_parallel_thread_index();
+        deferred_range_constraints_[tidx].push_back({ variable_index, target_range });
+        return;
+    }
+
     // make sure `target_range` is not too big.
     BB_ASSERT_GTE(MAX_SMALL_RANGE_CONSTRAINT_VAL, target_range);
     const bool is_out_of_range = (uint256_t(this->get_variable(variable_index)).data[0] > target_range);

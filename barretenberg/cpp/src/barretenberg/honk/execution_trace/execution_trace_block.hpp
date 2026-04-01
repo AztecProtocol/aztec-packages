@@ -19,6 +19,19 @@
 
 namespace bb {
 
+// Thread-local index for parallel circuit construction. Used by Selector, ExecutionTraceBlock,
+// and CircuitBuilderBase to route operations through per-thread cursors.
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
+inline thread_local size_t parallel_thread_idx = 0;
+inline void set_parallel_thread_index(size_t idx)
+{
+    parallel_thread_idx = idx;
+}
+inline size_t get_parallel_thread_index()
+{
+    return parallel_thread_idx;
+}
+
 #ifdef CHECK_CIRCUIT_STACKTRACES
 struct BbStackTrace : backward::StackTrace {
     BbStackTrace() { load_here(32); }
@@ -119,6 +132,46 @@ template <typename FF> class Selector {
      * @brief Release all memory held by this selector.
      */
     virtual void free_memory() {}
+
+    /**
+     * @brief Enable cursor mode for a specific thread.
+     * @details Used for parallel circuit construction where blocks are pre-allocated and threads write at
+     * pre-determined offsets. The underlying storage must already be sized to accommodate the writes.
+     * Thread index is set via set_active_thread_index() before processing opcodes.
+     */
+    void enable_cursor_mode(size_t thread_idx, size_t start)
+    {
+        if (thread_idx >= cursors_.size()) {
+            cursors_.resize(thread_idx + 1, CURSOR_DISABLED);
+        }
+        cursors_[thread_idx] = start;
+    }
+
+    // Legacy single-thread interface (uses thread index 0)
+    void enable_cursor_mode(size_t start) { enable_cursor_mode(0, start); }
+
+    void disable_cursor_mode(size_t thread_idx)
+    {
+        if (thread_idx < cursors_.size()) {
+            cursors_[thread_idx] = CURSOR_DISABLED;
+        }
+    }
+    void disable_cursor_mode() { disable_cursor_mode(0); }
+
+    bool is_cursor_mode() const { return active_cursor() != CURSOR_DISABLED; }
+
+    size_t active_cursor() const
+    {
+        auto idx = get_parallel_thread_index();
+        return (cursors_.empty() || idx >= cursors_.size()) ? CURSOR_DISABLED : cursors_[idx];
+    }
+
+    size_t& active_cursor_ref() { return cursors_[get_parallel_thread_index()]; }
+
+    static constexpr size_t CURSOR_DISABLED = std::numeric_limits<size_t>::max();
+
+  protected:
+    std::vector<size_t> cursors_; // per-thread cursors
 };
 
 /**
@@ -134,13 +187,21 @@ template <typename FF> class ZeroSelector : public Selector<FF> {
     void emplace_back(int value) override
     {
         BB_ASSERT_EQ(value, 0, "Calling ZeroSelector::emplace_back with a non zero value.");
-        size_++;
+        if (this->is_cursor_mode()) {
+            this->active_cursor_ref()++;
+        } else {
+            size_++;
+        }
     }
 
     void push_back(const FF& value) override
     {
         BB_ASSERT(value.is_zero());
-        size_++;
+        if (this->is_cursor_mode()) {
+            this->active_cursor_ref()++;
+        } else {
+            size_++;
+        }
     }
 
     void set(size_t, int) override { BB_ASSERT(false, "ZeroSelector::set should not be called"); }
@@ -179,8 +240,22 @@ template <typename FF> class SlabVectorSelector : public Selector<FF> {
   public:
     using Selector<FF>::emplace_back;
 
-    void emplace_back(int i) override { data.emplace_back(i); }
-    void push_back(const FF& value) override { data.push_back(value); }
+    void emplace_back(int i) override
+    {
+        if (this->is_cursor_mode()) {
+            data[this->active_cursor_ref()++] = i;
+        } else {
+            data.emplace_back(i);
+        }
+    }
+    void push_back(const FF& value) override
+    {
+        if (this->is_cursor_mode()) {
+            data[this->active_cursor_ref()++] = value;
+        } else {
+            data.push_back(value);
+        }
+    }
     void set(size_t idx, int i) override { data[idx] = i; }
     void set(size_t idx, const FF& value) override { data[idx] = value; }
     void resize(size_t new_size) override { data.resize(new_size); }
@@ -246,6 +321,14 @@ template <typename FF, size_t NUM_WIRES_> class ExecutionTraceBlock {
     size_t cached_size_ = 0;                                       // set by free_data() so size() works after freeing
     bool data_freed_ = false;                                      // true after free_data() has been called
     uint32_t trace_offset_ = std::numeric_limits<uint32_t>::max(); // where this block starts in the trace
+    std::vector<size_t> wire_cursors_;                             // per-thread wire cursors
+
+    size_t wire_active_cursor() const
+    {
+        auto idx = get_parallel_thread_index();
+        return (wire_cursors_.empty() || idx >= wire_cursors_.size()) ? Selector<FF>::CURSOR_DISABLED
+                                                                      : wire_cursors_[idx];
+    }
 
     uint32_t trace_offset() const
     {
@@ -256,6 +339,37 @@ template <typename FF, size_t NUM_WIRES_> class ExecutionTraceBlock {
     bool operator==(const ExecutionTraceBlock& other) const = default;
 
     size_t size() const { return data_freed_ ? cached_size_ : std::get<0>(this->wires).size(); }
+
+    /**
+     * @brief Enable cursor mode for a thread: subsequent gate writes go to position `start` and advance.
+     * @details The block's wires and selectors must already be sized to accommodate the writes.
+     * Used for parallel circuit construction where threads write to pre-allocated regions.
+     */
+    void enable_cursor_mode(size_t thread_idx, size_t start)
+    {
+        if (thread_idx >= wire_cursors_.size()) {
+            wire_cursors_.resize(thread_idx + 1, Selector<FF>::CURSOR_DISABLED);
+        }
+        wire_cursors_[thread_idx] = start;
+        for (auto& sel : get_selectors()) {
+            sel.enable_cursor_mode(thread_idx, start);
+        }
+    }
+
+    // Legacy single-thread interface
+    void enable_cursor_mode(size_t start) { enable_cursor_mode(0, start); }
+
+    void disable_cursor_mode(size_t thread_idx)
+    {
+        if (thread_idx < wire_cursors_.size()) {
+            wire_cursors_[thread_idx] = Selector<FF>::CURSOR_DISABLED;
+        }
+        for (auto& sel : get_selectors()) {
+            sel.disable_cursor_mode(thread_idx);
+        }
+    }
+
+    void disable_cursor_mode() { disable_cursor_mode(0); }
 
 #ifdef TRACY_HACK_GATES_AS_MEMORY
     ~ExecutionTraceBlock()
@@ -295,10 +409,19 @@ template <typename FF, size_t NUM_WIRES_> class ExecutionTraceBlock {
         this->stack_traces.populate();
 #endif
         this->tracy_gate();
-        this->wires[0].emplace_back(idx_1);
-        this->wires[1].emplace_back(idx_2);
-        this->wires[2].emplace_back(idx_3);
-        this->wires[3].emplace_back(idx_4);
+        size_t wc = wire_active_cursor();
+        if (wc != Selector<FF>::CURSOR_DISABLED) {
+            this->wires[0][wc] = idx_1;
+            this->wires[1][wc] = idx_2;
+            this->wires[2][wc] = idx_3;
+            this->wires[3][wc] = idx_4;
+            wire_cursors_[get_parallel_thread_index()]++;
+        } else {
+            this->wires[0].emplace_back(idx_1);
+            this->wires[1].emplace_back(idx_2);
+            this->wires[2].emplace_back(idx_3);
+            this->wires[3].emplace_back(idx_4);
+        }
     }
 
     auto& w_l() { return std::get<0>(this->wires); };

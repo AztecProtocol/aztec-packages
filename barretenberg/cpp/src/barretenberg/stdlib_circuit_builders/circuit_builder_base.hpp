@@ -9,6 +9,7 @@
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
+#include "barretenberg/honk/execution_trace/execution_trace_block.hpp" // for get_parallel_thread_index
 #include "barretenberg/honk/execution_trace/gate_data.hpp"
 #include "barretenberg/public_input_component/public_component_key.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
@@ -51,6 +52,14 @@ template <typename FF_> class CircuitBuilderBase {
     uint32_t _zero_idx = 0;
 
     size_t _num_gates = 0;
+
+  public:
+    // Cursor for parallel variable allocation. When enabled, add_variable writes at cursor position
+    // instead of appending. The variable vectors must be pre-sized to accommodate the writes.
+    static constexpr uint32_t VARIABLE_CURSOR_DISABLED = UINT32_MAX;
+
+  private:
+    std::vector<uint32_t> variable_cursors_; // per-thread variable cursors
 
     /**
      * @brief Update all variables from index in equivalence class to have real variable new_real_index
@@ -144,6 +153,10 @@ template <typename FF_> class CircuitBuilderBase {
     void increment_num_gates(size_t count = 1)
     {
         BB_ASSERT(!circuit_finalized, "Cannot add gates after circuit is finalized");
+        // In cursor mode, gate count is pre-computed; skip to avoid races in parallel construction
+        if (get_variable_cursor() != VARIABLE_CURSOR_DISABLED) {
+            return;
+        }
         _num_gates += count;
     }
 
@@ -210,6 +223,50 @@ template <typename FF_> class CircuitBuilderBase {
      * @return The index of the new variable in the variables vector
      */
     virtual uint32_t add_variable(const FF& in);
+
+    /**
+     * @brief Enable variable cursor mode for parallel construction.
+     * @details When enabled, add_variable writes at the cursor position instead of appending.
+     * The variables/real_variable_index/next_var_index/prev_var_index/real_variable_tags vectors
+     * must be pre-sized to accommodate the writes.
+     */
+    void enable_variable_cursor(size_t thread_idx, uint32_t start)
+    {
+        if (thread_idx >= variable_cursors_.size()) {
+            variable_cursors_.resize(thread_idx + 1, VARIABLE_CURSOR_DISABLED);
+        }
+        variable_cursors_[thread_idx] = start;
+    }
+    // Legacy single-thread interface
+    void enable_variable_cursor(uint32_t start) { enable_variable_cursor(0, start); }
+
+    void disable_variable_cursor(size_t thread_idx)
+    {
+        if (thread_idx < variable_cursors_.size()) {
+            variable_cursors_[thread_idx] = VARIABLE_CURSOR_DISABLED;
+        }
+    }
+    void disable_variable_cursor() { disable_variable_cursor(0); }
+
+    uint32_t get_variable_cursor() const
+    {
+        auto idx = get_parallel_thread_index();
+        return (variable_cursors_.empty() || idx >= variable_cursors_.size()) ? VARIABLE_CURSOR_DISABLED
+                                                                              : variable_cursors_[idx];
+    }
+
+    /**
+     * @brief Pre-allocate variable storage for parallel construction.
+     * @param total_size The total number of variables (existing + new from all threads).
+     */
+    void resize_variables(size_t total_size)
+    {
+        variables.resize(total_size);
+        real_variable_index.resize(total_size);
+        next_var_index.resize(total_size);
+        prev_var_index.resize(total_size);
+        real_variable_tags.resize(total_size);
+    }
 
     // Disallow add_variable for non-FF types to prevent implicit conversions (specifically, using indices rather
     // than values)

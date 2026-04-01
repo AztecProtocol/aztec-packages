@@ -45,6 +45,17 @@ void CircuitBuilderBase<FF_>::update_real_variable_indices(uint32_t index, uint3
 
 template <typename FF_> uint32_t CircuitBuilderBase<FF_>::add_variable(const FF& in)
 {
+    uint32_t cursor = get_variable_cursor();
+    if (cursor != VARIABLE_CURSOR_DISABLED) {
+        auto thread_idx = get_parallel_thread_index();
+        const uint32_t index = variable_cursors_[thread_idx]++;
+        variables[index] = in;
+        real_variable_index[index] = index;
+        next_var_index[index] = REAL_VARIABLE;
+        prev_var_index[index] = FIRST_VARIABLE_IN_CLASS;
+        real_variable_tags[index] = DEFAULT_TAG;
+        return index;
+    }
     variables.emplace_back(in);
     const uint32_t index = static_cast<uint32_t>(variables.size()) - 1U;
     real_variable_index.emplace_back(index);

@@ -200,6 +200,58 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
     // The set of variables which have been constrained to a particular value via an arithmetic gate
     std::unordered_map<FF, uint32_t> constant_variable_indices;
 
+    // Deferred lookup gate entries for parallel construction. In cursor mode, plookup reads append here
+    // instead of to table.lookup_gates. Replayed after parallel phase via apply_deferred_lookup_gates().
+    struct DeferredLookupEntry {
+        plookup::BasicTableId table_id;
+        plookup::BasicTable::LookupEntry entry;
+    };
+    std::vector<std::vector<DeferredLookupEntry>> deferred_lookup_gates_; // per-thread
+
+    // Deferred range constraint entries for parallel construction. In cursor mode, range constraints
+    // buffer here instead of modifying range_lists. Replayed via apply_deferred_range_constraints().
+    struct DeferredRangeConstraint {
+        uint32_t variable_index;
+        uint64_t target_range;
+    };
+    std::vector<std::vector<DeferredRangeConstraint>> deferred_range_constraints_; // per-thread
+
+    /**
+     * @brief Initialize deferred buffers for N threads.
+     */
+    void init_deferred_buffers(size_t num_threads)
+    {
+        deferred_lookup_gates_.resize(num_threads);
+        deferred_range_constraints_.resize(num_threads);
+    }
+
+    /**
+     * @brief Replay all deferred lookup gate entries into the appropriate tables.
+     */
+    void apply_deferred_lookup_gates()
+    {
+        for (auto& thread_buf : deferred_lookup_gates_) {
+            for (auto& [table_id, entry] : thread_buf) {
+                auto& table = get_table(table_id);
+                table.lookup_gates.emplace_back(entry);
+            }
+            thread_buf.clear();
+        }
+    }
+
+    /**
+     * @brief Replay all deferred range constraints.
+     */
+    void apply_deferred_range_constraints()
+    {
+        for (auto& thread_buf : deferred_range_constraints_) {
+            for (auto& [variable_index, target_range] : thread_buf) {
+                create_small_range_constraint(variable_index, target_range);
+            }
+            thread_buf.clear();
+        }
+    }
+
     // Rom/Ram logic
     RomRamLogic rom_ram_logic;
 
