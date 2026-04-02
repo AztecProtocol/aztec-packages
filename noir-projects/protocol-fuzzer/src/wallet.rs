@@ -365,35 +365,27 @@ fn with_retry<T>(label: &str, f: impl Fn() -> anyhow::Result<T>) -> anyhow::Resu
 // Parsing helpers
 // ---------------------------------------------------------------------------
 
+fn capture_u128(caps: &regex::Captures, i: usize) -> u128 {
+    caps.get(i)
+        .unwrap()
+        .as_str()
+        .parse()
+        .expect("matched digits should parse as u128")
+}
+
 /// Parse "Simulation result:  12345n" -> Some(12345)
 pub fn parse_simulation_result(stdout: &str) -> Option<u128> {
-    RE_SINGLE.captures(stdout).map(|caps| {
-        caps.get(1)
-            .unwrap()
-            .as_str()
-            .parse::<u128>()
-            .expect("matched digits should parse as u128")
-    })
+    RE_SINGLE
+        .captures(stdout)
+        .map(|caps| capture_u128(&caps, 1))
 }
 
 /// Parse "Simulation result:  [12345n, 67890n]" -> Some([12345, 67890])
 /// Uses (?s) so \s matches newlines (sandbox wraps long arrays across lines).
 pub fn parse_simulation_result_pair(stdout: &str) -> Option<[u128; 2]> {
-    RE_PAIR.captures(stdout).map(|caps| {
-        let a = caps
-            .get(1)
-            .unwrap()
-            .as_str()
-            .parse::<u128>()
-            .expect("matched digits should parse as u128");
-        let b = caps
-            .get(2)
-            .unwrap()
-            .as_str()
-            .parse::<u128>()
-            .expect("matched digits should parse as u128");
-        [a, b]
-    })
+    RE_PAIR
+        .captures(stdout)
+        .map(|caps| [capture_u128(&caps, 1), capture_u128(&caps, 2)])
 }
 
 #[cfg(test)]

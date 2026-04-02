@@ -642,13 +642,11 @@ impl<'a> smt::StateMachine for SideEffectMachine<'a> {
                 value,
                 ..
             } => {
-                let name = cmd.name();
-                debug!("{name} value={value} owner={owner} slot={storage_slot}");
-                assert!(
-                    result.is_ok(),
-                    "{name} failed for value {value}, owner {owner}, slot {storage_slot}: {:?}",
-                    result.err()
+                debug!(
+                    "{} value={value} owner={owner} slot={storage_slot}",
+                    cmd.name()
                 );
+                assert_expected(cmd.name(), true, &result);
             }
             DestroyNote {
                 owner,
@@ -674,27 +672,18 @@ impl<'a> smt::StateMachine for SideEffectMachine<'a> {
                 assert_expected(cmd.name(), true, &result);
             }
             SendL2ToL1Message { .. } => {
-                let name = cmd.name();
-                assert!(
-                    result.is_ok(),
-                    "{name} unexpectedly failed: {:?}",
-                    result.err()
-                );
+                assert_expected(cmd.name(), true, &result);
                 if let Some(ref effects) = result.unwrap().tx_effects {
                     assert!(
                         effects.l2_to_l1_msg_count >= 1,
-                        "{name}: expected at least 1 L2→L1 message in TxEffect, got {}",
+                        "{}: expected at least 1 L2→L1 message in TxEffect, got {}",
+                        cmd.name(),
                         effects.l2_to_l1_msg_count,
                     );
                 }
             }
             EmitPrivateLog { tag, content, .. } => {
-                let name = cmd.name();
-                assert!(
-                    result.is_ok(),
-                    "{name} unexpectedly failed: {:?}",
-                    result.err()
-                );
+                assert_expected(cmd.name(), true, &result);
                 if let Some(ref effects) = result.unwrap().tx_effects {
                     let tag_str = tag.to_string();
                     let content_str = content.to_string();
@@ -705,19 +694,15 @@ impl<'a> smt::StateMachine for SideEffectMachine<'a> {
                     });
                     assert!(
                         found,
-                        "{name}: no private log with tag={tag} content={content} found in TxEffect. \
+                        "{}: no private log with tag={tag} content={content} in TxEffect. \
                          logs={:?}",
+                        cmd.name(),
                         effects.private_logs,
                     );
                 }
             }
             RequestOvskApp { .. } | TestSettingTeardown { .. } => {
-                assert!(
-                    result.is_ok(),
-                    "{} unexpectedly failed: {:?}",
-                    cmd.name(),
-                    result.err()
-                );
+                assert_expected(cmd.name(), true, &result);
             }
             ViewNotesMany {
                 owner,
@@ -733,12 +718,7 @@ impl<'a> smt::StateMachine for SideEffectMachine<'a> {
                 offset,
                 ..
             } => {
-                let name = cmd.name();
-                assert!(
-                    result.is_ok(),
-                    "{name} failed for owner {owner}, slot {storage_slot}: {:?}",
-                    result.as_ref().err()
-                );
+                assert_expected(cmd.name(), true, &result);
                 let expected = expected_notes(
                     pre_state,
                     *storage_slot,
@@ -747,7 +727,7 @@ impl<'a> smt::StateMachine for SideEffectMachine<'a> {
                     *offset,
                 );
                 check_multi_note_query(
-                    name,
+                    cmd.name(),
                     *storage_slot,
                     *owner,
                     &result.unwrap().stdout,

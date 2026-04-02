@@ -49,24 +49,19 @@ impl From<&SideEffectCommand> for WalletCommand {
                 active_or_nullified,
                 offset,
                 from,
-            } => (
-                "call_view_notes_many",
-                format!("accounts:test{from}"),
-                vec![
-                    format!("accounts:test{owner}"),
-                    format!("{storage_slot}"),
-                    format!("{active_or_nullified}"),
-                    format!("{offset}"),
-                ],
-            ),
-            GetNotesMany {
+            }
+            | GetNotesMany {
                 owner,
                 storage_slot,
                 active_or_nullified,
                 offset,
                 from,
             } => (
-                "call_get_notes_many",
+                if matches!(cmd, ViewNotesMany { .. }) {
+                    "call_view_notes_many"
+                } else {
+                    "call_get_notes_many"
+                },
                 format!("accounts:test{from}"),
                 vec![
                     format!("accounts:test{owner}"),
@@ -80,32 +75,32 @@ impl From<&SideEffectCommand> for WalletCommand {
                 storage_slot,
                 from,
                 ..
-            } => (
-                "call_destroy_note",
-                format!("accounts:test{from}"),
-                vec![format!("accounts:test{owner}"), format!("{storage_slot}")],
-            ),
-            TestNoteInclusion {
+            }
+            | TestNoteInclusion {
                 owner,
                 storage_slot,
                 from,
                 ..
             } => (
-                "test_note_inclusion",
+                if matches!(cmd, DestroyNote { .. }) {
+                    "call_destroy_note"
+                } else {
+                    "test_note_inclusion"
+                },
                 format!("accounts:test{from}"),
                 vec![format!("accounts:test{owner}"), format!("{storage_slot}")],
             ),
             EmitNullifier {
                 nullifier, from, ..
-            } => (
-                "emit_nullifier",
-                format!("accounts:test{from}"),
-                vec![format!("{nullifier}")],
-            ),
-            TestNullifierInclusion {
+            }
+            | TestNullifierInclusion {
                 nullifier, from, ..
             } => (
-                "test_settled_nullifier_inclusion",
+                if matches!(cmd, EmitNullifier { .. }) {
+                    "emit_nullifier"
+                } else {
+                    "test_settled_nullifier_inclusion"
+                },
                 format!("accounts:test{from}"),
                 vec![format!("{nullifier}")],
             ),

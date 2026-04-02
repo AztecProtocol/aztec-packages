@@ -15,19 +15,18 @@ impl From<&TokenCommand> for WalletCommand {
                 amount,
                 from,
                 to,
-            } => (
-                "mint_to_public",
-                format!("contracts:token{token}"),
-                format!("accounts:test{from}"),
-                vec![format!("accounts:test{to}"), format!("{amount}")],
-            ),
-            MintPrivate {
+            }
+            | MintPrivate {
                 token,
                 amount,
                 from,
                 to,
             } => (
-                "mint_to_private",
+                if matches!(cmd, MintPublic { .. }) {
+                    "mint_to_public"
+                } else {
+                    "mint_to_private"
+                },
                 format!("contracts:token{token}"),
                 format!("accounts:test{from}"),
                 vec![format!("accounts:test{to}"), format!("{amount}")],
@@ -36,22 +35,17 @@ impl From<&TokenCommand> for WalletCommand {
                 token,
                 amount,
                 from,
-            } => (
-                "burn_public",
-                format!("contracts:token{token}"),
-                format!("accounts:test{from}"),
-                vec![
-                    format!("accounts:test{from}"),
-                    format!("{amount}"),
-                    "0".into(),
-                ],
-            ),
-            BurnPrivate {
+            }
+            | BurnPrivate {
                 token,
                 amount,
                 from,
             } => (
-                "burn_private",
+                if matches!(cmd, BurnPublic { .. }) {
+                    "burn_public"
+                } else {
+                    "burn_private"
+                },
                 format!("contracts:token{token}"),
                 format!("accounts:test{from}"),
                 vec![
@@ -65,24 +59,25 @@ impl From<&TokenCommand> for WalletCommand {
                 to,
                 amount,
                 from,
-            } => (
-                "transfer_in_public",
-                format!("contracts:token{token}"),
-                format!("accounts:test{from}"),
-                vec![
-                    format!("accounts:test{from}"),
-                    format!("accounts:test{to}"),
-                    format!("{amount}"),
-                    "0".into(),
-                ],
-            ),
-            TransferPrivate {
+            }
+            | TransferPrivate {
+                token,
+                to,
+                amount,
+                from,
+            }
+            | TransferPrivateToPublic {
                 token,
                 to,
                 amount,
                 from,
             } => (
-                "transfer_in_private",
+                match cmd {
+                    TransferPublic { .. } => "transfer_in_public",
+                    TransferPrivate { .. } => "transfer_in_private",
+                    TransferPrivateToPublic { .. } => "transfer_to_public",
+                    _ => unreachable!(),
+                },
                 format!("contracts:token{token}"),
                 format!("accounts:test{from}"),
                 vec![
@@ -103,38 +98,21 @@ impl From<&TokenCommand> for WalletCommand {
                 format!("accounts:test{from}"),
                 vec![format!("accounts:test{to}"), format!("{amount}")],
             ),
-            TransferPrivateToPublic {
-                token,
-                to,
-                amount,
-                from,
-            } => (
-                "transfer_to_public",
-                format!("contracts:token{token}"),
-                format!("accounts:test{from}"),
-                vec![
-                    format!("accounts:test{from}"),
-                    format!("accounts:test{to}"),
-                    format!("{amount}"),
-                    "0".into(),
-                ],
-            ),
             BalanceOfPublic {
                 token,
                 from,
                 address,
-            } => (
-                "balance_of_public",
-                format!("contracts:token{token}"),
-                format!("accounts:test{from}"),
-                vec![format!("accounts:test{address}")],
-            ),
-            BalanceOfPrivate {
+            }
+            | BalanceOfPrivate {
                 token,
                 from,
                 address,
             } => (
-                "balance_of_private",
+                if matches!(cmd, BalanceOfPublic { .. }) {
+                    "balance_of_public"
+                } else {
+                    "balance_of_private"
+                },
                 format!("contracts:token{token}"),
                 format!("accounts:test{from}"),
                 vec![format!("accounts:test{address}")],

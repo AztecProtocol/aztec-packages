@@ -44,10 +44,14 @@ pub contract SideEffect {
             note_getter_options::{NoteGetterOptions, NoteStatus, PropertySelector, SortOrder},
             note_viewer_options::NoteViewerOptions,
         },
-        protocol::abis::function_selector::FunctionSelector,
-        protocol::address::{AztecAddress, EthAddress},
-        protocol::constants::PRIVATE_LOG_CIPHERTEXT_LEN,
+        protocol::{
+            abis::function_selector::FunctionSelector,
+            address::{AztecAddress, EthAddress},
+            constants::PRIVATE_LOG_CIPHERTEXT_LEN,
+        },
     };
+
+    global VALUE_SELECTOR = PropertySelector { index: 0, offset: 0, length: 32 };
 
     use uint_note::{PartialUintNote, UintNote};
 
@@ -98,7 +102,7 @@ pub contract SideEffect {
     fn call_destroy_note(owner: AztecAddress, storage_slot: Field) {
         let options: NoteGetterOptions<UintNote, _, _, _> = NoteGetterOptions::new()
             .set_owner(owner)
-            .sort(PropertySelector { index: 0, offset: 0, length: 32 }, SortOrder.ASC);
+            .sort(VALUE_SELECTOR, SortOrder.ASC);
         let confirmed_notes = get_notes(self.context, storage_slot, options);
 
         destroy_note(self.context, confirmed_notes.get(0));
@@ -113,7 +117,7 @@ pub contract SideEffect {
         let options: NoteGetterOptions<UintNote, _, _, _> = NoteGetterOptions::new()
             .set_owner(owner)
             .set_limit(1)
-            .sort(PropertySelector { index: 0, offset: 0, length: 32 }, SortOrder.ASC);
+            .sort(VALUE_SELECTOR, SortOrder.ASC);
 
         let confirmed_notes = get_notes(self.context, storage_slot, options);
         assert_eq(confirmed_notes.len(), 1);
@@ -132,7 +136,7 @@ pub contract SideEffect {
         let mut options = NoteViewerOptions::new()
             .set_owner(owner)
             .set_offset(offset)
-            .sort(PropertySelector { index: 0, offset: 0, length: 32 }, SortOrder.ASC);
+            .sort(VALUE_SELECTOR, SortOrder.ASC);
         if (active_or_nullified) {
             options = options.set_status(NoteStatus.ACTIVE_OR_NULLIFIED);
         }
@@ -154,7 +158,7 @@ pub contract SideEffect {
         let mut options: NoteGetterOptions<UintNote, _, _, _> = NoteGetterOptions::new()
             .set_owner(owner)
             .set_offset(offset)
-            .sort(PropertySelector { index: 0, offset: 0, length: 32 }, SortOrder.ASC);
+            .sort(VALUE_SELECTOR, SortOrder.ASC);
         if (active_or_nullified) {
             options = options.set_status(NoteStatus.ACTIVE_OR_NULLIFIED);
         }
