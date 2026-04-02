@@ -63,7 +63,7 @@ template <class Curve> class EcdsaTests : public ::testing::Test {
 
         if (random_signature) {
             // Logging in case of random signature
-            info("The private key used generate this signature is: ", private_key);
+            info("The private key used generate this signature is: ", account.private_key);
         }
 
         return { account, signature };
