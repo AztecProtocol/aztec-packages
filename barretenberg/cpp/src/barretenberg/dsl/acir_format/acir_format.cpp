@@ -252,42 +252,88 @@ template void build_constraints<UltraCircuitBuilder>(UltraCircuitBuilder&, AcirF
 template void build_constraints<MegaCircuitBuilder>(MegaCircuitBuilder&, AcirFormat&, const ProgramMetadata&);
 
 /**
- * @brief Helper: run the first two instances of a constraint type as warmup, measure the steady-state
- * per-instance size from the second, and collect remaining instances as tasks for parallel execution.
- * @details The first instance triggers one-time setup (range list creation, lookup table creation, etc.)
- * and is inflated. The second instance represents steady-state cost. If only one instance exists,
- * it's processed during warmup and nothing is collected for parallel execution.
+ * @brief Profile data for a constraint type, extracted from a throwaway builder.
+ * @details Eventually this will be a compile-time table lookup. For now, it's computed
+ * by running constraints on a throwaway builder and extracting the resulting state.
+ */
+struct ConstraintProfile {
+    UltraCircuitBuilder::TaskBlockSizes block_sizes;
+    std::vector<bb::fr> constants;                // constant values to pre-register
+    std::vector<uint64_t> range_list_targets;     // range list target ranges to pre-create
+    std::vector<plookup::BasicTableId> table_ids; // lookup tables to pre-create
+};
+
+/**
+ * @brief Profile a constraint type by running it on a throwaway builder and extracting cache state.
+ * @details Runs two instances: the first triggers one-time setup, the second measures steady-state cost.
+ * Extracts all constants, range list targets, and lookup table IDs that the constraint type needs.
+ * This simulates the eventual table lookup.
  */
 template <typename ConstraintType, typename Handler>
-void warmup_and_collect(UltraCircuitBuilder& builder,
-                        std::vector<ConstraintType>& items,
-                        Handler&& handler,
-                        std::vector<std::function<void(UltraCircuitBuilder&)>>& tasks,
-                        std::vector<UltraCircuitBuilder::TaskBlockSizes>& task_sizes)
+ConstraintProfile profile_constraint_type(ConstraintType representative, Handler&& handler, size_t num_witnesses)
 {
-    if (items.empty()) {
-        return;
+    ConstraintProfile profile;
+
+    // Create a throwaway builder with enough witness slots
+    WitnessVector dummy_witness(num_witnesses, bb::fr(0));
+    UltraCircuitBuilder throwaway{ dummy_witness, {}, false };
+
+    // First instance: triggers one-time setup
+    handler(throwaway, representative);
+
+    // Second instance: measures steady-state cost
+    auto before = throwaway.snapshot_block_sizes();
+    handler(throwaway, representative);
+    auto after = throwaway.snapshot_block_sizes();
+    profile.block_sizes = UltraCircuitBuilder::delta(before, after);
+
+    // Extract constants
+    for (const auto& [value, _] : throwaway.constant_variable_indices) {
+        profile.constants.push_back(value);
     }
 
-    using TaskBlockSizes = UltraCircuitBuilder::TaskBlockSizes;
-
-    // First instance: warmup to populate caches (size is inflated by one-time setup)
-    handler(builder, items[0]);
-
-    if (items.size() == 1) {
-        return;
+    // Extract range list targets
+    for (const auto& [target_range, _] : throwaway.range_lists) {
+        profile.range_list_targets.push_back(target_range);
     }
 
-    // Second instance: measure steady-state per-instance size
-    auto before = builder.snapshot_block_sizes();
-    handler(builder, items[1]);
-    auto after = builder.snapshot_block_sizes();
-    TaskBlockSizes per_instance = UltraCircuitBuilder::delta(before, after);
+    // Extract lookup table IDs
+    for (const auto& table : throwaway.get_lookup_tables()) {
+        profile.table_ids.push_back(table.id);
+    }
 
-    // Collect remaining instances (from index 2 onward) as tasks
-    for (size_t i = 2; i < items.size(); i++) {
-        tasks.emplace_back([&handler, &items, i](UltraCircuitBuilder& b) { handler(b, items[i]); });
-        task_sizes.push_back(per_instance);
+    return profile;
+}
+
+/**
+ * @brief Prepare a builder's caches from constraint profiles WITHOUT running any constraints.
+ * @details Populates the builder's constant cache, range lists, and lookup tables using data
+ * extracted from profiles. After this, all parallel constraint execution will find everything
+ * cached — no cache misses, no one-time setup costs.
+ */
+void prepare_builder_from_profiles(UltraCircuitBuilder& builder, const std::vector<ConstraintProfile>& profiles)
+{
+    // Register all constants from all profiles
+    for (const auto& profile : profiles) {
+        for (const auto& value : profile.constants) {
+            builder.put_constant_variable(value);
+        }
+    }
+
+    // Create all needed range lists
+    for (const auto& profile : profiles) {
+        for (const auto target_range : profile.range_list_targets) {
+            if (builder.range_lists.count(target_range) == 0) {
+                builder.range_lists.insert({ target_range, builder.create_range_list(target_range) });
+            }
+        }
+    }
+
+    // Create all needed lookup tables
+    for (const auto& profile : profiles) {
+        for (const auto table_id : profile.table_ids) {
+            builder.get_table(table_id);
+        }
     }
 }
 
@@ -297,125 +343,73 @@ void build_constraints_parallel(UltraCircuitBuilder& builder,
                                 size_t num_threads)
 {
     using TaskBlockSizes = UltraCircuitBuilder::TaskBlockSizes;
+    size_t num_witnesses = constraints.max_witness_index + 1;
+
+    // Phase 1: Profile each constraint type on throwaway builders (simulates table lookup).
+    // Collect ALL instances as parallel tasks.
+    std::vector<ConstraintProfile> profiles;
     std::vector<std::function<void(UltraCircuitBuilder&)>> tasks;
     std::vector<TaskBlockSizes> task_sizes;
 
-    // Phase 1: Warmup — run one instance of each constraint type sequentially, in the same order
-    // as build_constraints. This populates caches (constants, range lists, lookup tables) so that
-    // subsequent parallel instances find everything cached. Also measure per-instance sizes.
-    warmup_and_collect(
-        builder,
-        constraints.quad_constraints,
-        [](UltraCircuitBuilder& b, QuadConstraint& c) { create_quad_constraint(b, c); },
-        tasks,
-        task_sizes);
+    // Helper: profile a constraint type and register all its instances as tasks
+    auto profile_and_collect = [&](auto& items, auto handler) {
+        if (items.empty()) {
+            return;
+        }
+        auto profile = profile_constraint_type(items[0], handler, num_witnesses);
+        profiles.push_back(profile);
+        for (size_t i = 0; i < items.size(); i++) {
+            tasks.emplace_back([handler, &items, i](UltraCircuitBuilder& b) { handler(b, items[i]); });
+            task_sizes.push_back(profile.block_sizes);
+        }
+    };
 
-    warmup_and_collect(
-        builder,
-        constraints.big_quad_constraints,
-        [](UltraCircuitBuilder& b, BigQuadConstraint& c) { create_big_quad_constraint(b, c); },
-        tasks,
-        task_sizes);
+    profile_and_collect(constraints.quad_constraints,
+                        [](UltraCircuitBuilder& b, QuadConstraint& c) { create_quad_constraint(b, c); });
+    profile_and_collect(constraints.big_quad_constraints,
+                        [](UltraCircuitBuilder& b, BigQuadConstraint& c) { create_big_quad_constraint(b, c); });
+    profile_and_collect(constraints.logic_constraints, [](UltraCircuitBuilder& b, const LogicConstraint& c) {
+        create_logic_gate(b, c.a, c.b, c.result, c.num_bits, c.is_xor_gate);
+    });
+    profile_and_collect(constraints.range_constraints, [](UltraCircuitBuilder& b, const RangeConstraint& c) {
+        b.create_dyadic_range_constraint(c.witness, c.num_bits, "parallel range constraint");
+    });
+    profile_and_collect(constraints.aes128_constraints,
+                        [](UltraCircuitBuilder& b, const AES128Constraint& c) { create_aes128_constraints(b, c); });
+    profile_and_collect(constraints.sha256_compression, [](UltraCircuitBuilder& b, const Sha256Compression& c) {
+        create_sha256_compression_constraints(b, c);
+    });
+    profile_and_collect(constraints.ecdsa_k1_constraints, [](UltraCircuitBuilder& b, const EcdsaConstraint& c) {
+        create_ecdsa_verify_constraints<stdlib::secp256k1<UltraCircuitBuilder>>(b, c);
+    });
+    profile_and_collect(constraints.ecdsa_r1_constraints, [](UltraCircuitBuilder& b, const EcdsaConstraint& c) {
+        create_ecdsa_verify_constraints<stdlib::secp256r1<UltraCircuitBuilder>>(b, c);
+    });
+    profile_and_collect(constraints.blake2s_constraints,
+                        [](UltraCircuitBuilder& b, const Blake2sConstraint& c) { create_blake2s_constraints(b, c); });
+    profile_and_collect(constraints.blake3_constraints,
+                        [](UltraCircuitBuilder& b, const Blake3Constraint& c) { create_blake3_constraints(b, c); });
+    profile_and_collect(constraints.keccak_permutations, [](UltraCircuitBuilder& b, const Keccakf1600& c) {
+        create_keccak_permutations_constraints(b, c);
+    });
+    profile_and_collect(constraints.poseidon2_constraints, [](UltraCircuitBuilder& b, const Poseidon2Constraint& c) {
+        create_poseidon2_permutations_constraints(b, c);
+    });
+    profile_and_collect(constraints.multi_scalar_mul_constraints, [](UltraCircuitBuilder& b, const MultiScalarMul& c) {
+        create_multi_scalar_mul_constraint(b, c);
+    });
+    profile_and_collect(constraints.ec_add_constraints,
+                        [](UltraCircuitBuilder& b, const EcAdd& c) { create_ec_add_constraint(b, c); });
 
-    warmup_and_collect(
-        builder,
-        constraints.logic_constraints,
-        [](UltraCircuitBuilder& b, const LogicConstraint& c) {
-            create_logic_gate(b, c.a, c.b, c.result, c.num_bits, c.is_xor_gate);
-        },
-        tasks,
-        task_sizes);
+    // Phase 2: Prepare the builder's caches from profiles (no constraint execution).
+    prepare_builder_from_profiles(builder, profiles);
 
-    warmup_and_collect(
-        builder,
-        constraints.range_constraints,
-        [](UltraCircuitBuilder& b, const RangeConstraint& c) {
-            b.create_dyadic_range_constraint(c.witness, c.num_bits, "parallel range constraint");
-        },
-        tasks,
-        task_sizes);
-
-    warmup_and_collect(
-        builder,
-        constraints.aes128_constraints,
-        [](UltraCircuitBuilder& b, const AES128Constraint& c) { create_aes128_constraints(b, c); },
-        tasks,
-        task_sizes);
-
-    warmup_and_collect(
-        builder,
-        constraints.sha256_compression,
-        [](UltraCircuitBuilder& b, const Sha256Compression& c) { create_sha256_compression_constraints(b, c); },
-        tasks,
-        task_sizes);
-
-    warmup_and_collect(
-        builder,
-        constraints.ecdsa_k1_constraints,
-        [](UltraCircuitBuilder& b, const EcdsaConstraint& c) {
-            create_ecdsa_verify_constraints<stdlib::secp256k1<UltraCircuitBuilder>>(b, c);
-        },
-        tasks,
-        task_sizes);
-
-    warmup_and_collect(
-        builder,
-        constraints.ecdsa_r1_constraints,
-        [](UltraCircuitBuilder& b, const EcdsaConstraint& c) {
-            create_ecdsa_verify_constraints<stdlib::secp256r1<UltraCircuitBuilder>>(b, c);
-        },
-        tasks,
-        task_sizes);
-
-    warmup_and_collect(
-        builder,
-        constraints.blake2s_constraints,
-        [](UltraCircuitBuilder& b, const Blake2sConstraint& c) { create_blake2s_constraints(b, c); },
-        tasks,
-        task_sizes);
-
-    warmup_and_collect(
-        builder,
-        constraints.blake3_constraints,
-        [](UltraCircuitBuilder& b, const Blake3Constraint& c) { create_blake3_constraints(b, c); },
-        tasks,
-        task_sizes);
-
-    warmup_and_collect(
-        builder,
-        constraints.keccak_permutations,
-        [](UltraCircuitBuilder& b, const Keccakf1600& c) { create_keccak_permutations_constraints(b, c); },
-        tasks,
-        task_sizes);
-
-    warmup_and_collect(
-        builder,
-        constraints.poseidon2_constraints,
-        [](UltraCircuitBuilder& b, const Poseidon2Constraint& c) { create_poseidon2_permutations_constraints(b, c); },
-        tasks,
-        task_sizes);
-
-    warmup_and_collect(
-        builder,
-        constraints.multi_scalar_mul_constraints,
-        [](UltraCircuitBuilder& b, const MultiScalarMul& c) { create_multi_scalar_mul_constraint(b, c); },
-        tasks,
-        task_sizes);
-
-    warmup_and_collect(
-        builder,
-        constraints.ec_add_constraints,
-        [](UltraCircuitBuilder& b, const EcAdd& c) { create_ec_add_constraint(b, c); },
-        tasks,
-        task_sizes);
-
-    // Phase 2: Execute all remaining instances in parallel
+    // Phase 3: Execute ALL instances in parallel
     if (!tasks.empty()) {
         builder.execute_parallel(tasks, task_sizes, num_threads);
     }
 
-    // Phase 3: Block constraints and recursion constraints are processed sequentially — they have
-    // complex interdependencies and are typically few in number.
+    // Phase 4: Block constraints and recursion constraints are processed sequentially.
     for (const auto& [constraint, opcode_indices] :
          zip_view(constraints.block_constraints, constraints.original_opcode_indices.block_constraints)) {
         create_block_constraints(builder, constraint);
