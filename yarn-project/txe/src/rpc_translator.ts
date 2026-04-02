@@ -264,7 +264,6 @@ export class RPCTranslator {
   // PXE oracles
 
   // eslint-disable-next-line camelcase
-  // eslint-disable-next-line camelcase
   aztec_utl_assertCompatibleOracleVersionV2(foreignMajor: ForeignCallSingle, foreignMinor: ForeignCallSingle) {
     const major = fromSingle(foreignMajor).toNumber();
     const minor = fromSingle(foreignMinor).toNumber();

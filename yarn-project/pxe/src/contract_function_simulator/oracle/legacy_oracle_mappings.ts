@@ -23,7 +23,6 @@ export function buildLegacyOracleCallbacks(oracle: Oracle): ACIRCallback {
     utilityAssertCompatibleOracleVersion: (version: ACVMField[]): Promise<ACVMField[]> =>
       oracle.aztec_utl_assertCompatibleOracleVersionV2(version, [toACVMField(0)]),
     // Old 1-arg oracle before minor/major split. Maps to V2 with minor=0.
-    // TODO(F-416): Remove on v5 when protocol contracts are redeployed.
     // eslint-disable-next-line camelcase
     aztec_utl_assertCompatibleOracleVersion: (version: ACVMField[]): Promise<ACVMField[]> =>
       oracle.aztec_utl_assertCompatibleOracleVersionV2(version, [toACVMField(0)]),
