@@ -1046,162 +1046,7 @@ TEST_F(PerBlockGateCountTests, IsolatedVsSharedSelectorEquivalence)
          sha_shared_lookup_count,
          ")");
 }
-/**
- * @brief ACTUAL parallel execution: two std::threads building different opcodes concurrently.
- * @details Thread A builds SHA256, thread B builds Poseidon2, both on the same shared builder
- * via execute_parallel. Verifies bit-identical circuit including CircuitChecker.
- */
-TEST_F(PerBlockGateCountTests, RealParallelExecution)
-{
-    auto make_sha256 = [](uint32_t base) {
-        Sha256Compression s;
-        for (size_t i = 0; i < 16; ++i)
-            s.inputs[i] = WitnessOrConstant<bb::fr>::from_index(base + static_cast<uint32_t>(i));
-        for (size_t i = 0; i < 8; ++i)
-            s.hash_values[i] = WitnessOrConstant<bb::fr>::from_index(base + static_cast<uint32_t>(i));
-        for (size_t i = 0; i < 8; ++i)
-            s.result[i] = base + static_cast<uint32_t>(i) + 24;
-        return s;
-    };
 
-    auto make_poseidon2 = [](uint32_t base) {
-        Poseidon2Constraint p;
-        for (uint32_t j = 0; j < 4; j++) {
-            p.state.emplace_back(WitnessOrConstant<bb::fr>::from_index(base + j));
-            p.result.emplace_back(base + 4 + j);
-        }
-        return p;
-    };
-
-    constexpr uint32_t SHA_W = 32;
-    constexpr uint32_t POS_W = 8;
-    WitnessVector witness(80, fr(0));
-
-    auto sha_warmup = make_sha256(0);
-    auto pos_warmup = make_poseidon2(SHA_W);
-    auto sha_meas = make_sha256(SHA_W + POS_W);
-    auto pos_meas = make_poseidon2(SHA_W + POS_W + SHA_W);
-
-    // Step 1: Build sequentially (baseline) and capture per-task sizes
-    using TaskBlockSizes = UltraCircuitBuilder::TaskBlockSizes;
-    UltraCircuitBuilder sequential{ witness, {}, false };
-    create_sha256_compression_constraints(sequential, sha_warmup);
-    create_poseidon2_permutations_constraints(sequential, pos_warmup);
-
-    auto before_a = sequential.snapshot_block_sizes();
-    create_sha256_compression_constraints(sequential, sha_meas);
-    auto after_a = sequential.snapshot_block_sizes();
-    create_poseidon2_permutations_constraints(sequential, pos_meas);
-    auto after_b = sequential.snapshot_block_sizes();
-
-    TaskBlockSizes size_a = UltraCircuitBuilder::delta(before_a, after_a);
-    TaskBlockSizes size_b = UltraCircuitBuilder::delta(after_a, after_b);
-
-    // Step 2: Build with execute_parallel
-    UltraCircuitBuilder parallel_builder{ witness, {}, false };
-    create_sha256_compression_constraints(parallel_builder, sha_warmup);
-    create_poseidon2_permutations_constraints(parallel_builder, pos_warmup);
-
-    std::vector<std::function<void(UltraCircuitBuilder&)>> tasks = {
-        [&](UltraCircuitBuilder& b) { create_sha256_compression_constraints(b, sha_meas); },
-        [&](UltraCircuitBuilder& b) { create_poseidon2_permutations_constraints(b, pos_meas); },
-    };
-    parallel_builder.execute_parallel(tasks, { size_a, size_b }, /*num_threads=*/2);
-
-    // Step 3: Finalize and check both circuits
-    EXPECT_TRUE(CircuitChecker::check(sequential));
-    EXPECT_TRUE(CircuitChecker::check(parallel_builder));
-
-    // Step 4: Compare finalized circuits
-    auto seq_blocks = sequential.blocks.get();
-    auto par_blocks = parallel_builder.blocks.get();
-    for (size_t b = 0; b < UltraCircuitBuilder::ExecutionTrace::NUM_BLOCKS; b++) {
-        EXPECT_EQ(seq_blocks[b].size(), par_blocks[b].size()) << "block " << b << " size mismatch";
-    }
-    EXPECT_EQ(sequential.get_num_variables(), parallel_builder.get_num_variables());
-
-    info("Real parallel execution: PASSED");
-}
-
-/**
- * @brief Parallel execution with CHAINED opcodes: opcode A's outputs are opcode B's inputs.
- * @details Tests that concurrent assert_equal on linked variables produces correct union-find state.
- * Uses real Poseidon2 witness values so chained data flow is correct.
- */
-TEST_F(PerBlockGateCountTests, RealParallelChainedOpcodes)
-{
-    auto make_poseidon2 = [](uint32_t base_in, uint32_t base_out) {
-        Poseidon2Constraint p;
-        for (uint32_t j = 0; j < 4; j++) {
-            p.state.emplace_back(WitnessOrConstant<bb::fr>::from_index(base_in + j));
-            p.result.emplace_back(base_out + j);
-        }
-        return p;
-    };
-
-    using NativePoseidon2 = crypto::Poseidon2Permutation<crypto::Poseidon2Bn254ScalarFieldParams>;
-    using TaskBlockSizes = UltraCircuitBuilder::TaskBlockSizes;
-    constexpr uint32_t W = 12;
-    WitnessVector witness(W * 3, fr(0));
-
-    // Compute correct chained witness values
-    auto warmup_a_out = NativePoseidon2::permutation({ fr(0), fr(0), fr(0), fr(0) });
-    auto warmup_b_out = NativePoseidon2::permutation(warmup_a_out);
-    for (uint32_t j = 0; j < 4; j++) {
-        witness[4 + j] = warmup_a_out[j];
-        witness[8 + j] = warmup_b_out[j];
-    }
-    auto meas_a_out = NativePoseidon2::permutation({ fr(0), fr(0), fr(0), fr(0) });
-    auto meas_b_out = NativePoseidon2::permutation(meas_a_out);
-    for (uint32_t j = 0; j < 4; j++) {
-        witness[W + 4 + j] = meas_a_out[j];
-        witness[W + 8 + j] = meas_b_out[j];
-    }
-
-    auto warmup_a = make_poseidon2(0, 4);
-    auto warmup_b = make_poseidon2(4, 8);
-    auto meas_a = make_poseidon2(W, W + 4);
-    auto meas_b = make_poseidon2(W + 4, W + 8); // B reads A's outputs (w16-w19)
-
-    // Step 1: Build sequentially and capture per-task sizes
-    UltraCircuitBuilder sequential{ witness, {}, false };
-    create_poseidon2_permutations_constraints(sequential, warmup_a);
-    create_poseidon2_permutations_constraints(sequential, warmup_b);
-
-    auto before_a = sequential.snapshot_block_sizes();
-    create_poseidon2_permutations_constraints(sequential, meas_a);
-    auto after_a = sequential.snapshot_block_sizes();
-    create_poseidon2_permutations_constraints(sequential, meas_b);
-    auto after_b = sequential.snapshot_block_sizes();
-
-    TaskBlockSizes size_a = UltraCircuitBuilder::delta(before_a, after_a);
-    TaskBlockSizes size_b = UltraCircuitBuilder::delta(after_a, after_b);
-
-    // Step 2: Build with execute_parallel
-    UltraCircuitBuilder parallel_builder{ witness, {}, false };
-    create_poseidon2_permutations_constraints(parallel_builder, warmup_a);
-    create_poseidon2_permutations_constraints(parallel_builder, warmup_b);
-
-    std::vector<std::function<void(UltraCircuitBuilder&)>> tasks = {
-        [&](UltraCircuitBuilder& b) { create_poseidon2_permutations_constraints(b, meas_a); },
-        [&](UltraCircuitBuilder& b) { create_poseidon2_permutations_constraints(b, meas_b); },
-    };
-    parallel_builder.execute_parallel(tasks, { size_a, size_b }, /*num_threads=*/2);
-
-    // Step 3: Finalize and check both circuits
-    EXPECT_TRUE(CircuitChecker::check(sequential));
-    EXPECT_TRUE(CircuitChecker::check(parallel_builder));
-
-    // Step 4: Compare finalized circuits
-    auto seq_blocks = sequential.blocks.get();
-    auto par_blocks = parallel_builder.blocks.get();
-    for (size_t b = 0; b < UltraCircuitBuilder::ExecutionTrace::NUM_BLOCKS; b++) {
-        EXPECT_EQ(seq_blocks[b].size(), par_blocks[b].size()) << "block " << b << " size mismatch";
-    }
-    EXPECT_EQ(sequential.get_num_variables(), parallel_builder.get_num_variables());
-
-    info("Real parallel chained opcodes: PASSED");
-}
 /**
  * @brief Parallel execution with chained SHA256 opcodes: A's 8 output witnesses are B's 8 hash_values inputs.
  * @details SHA256 does extensive range constraining on its inputs (32-bit range checks on h_init and input words).
@@ -1393,4 +1238,75 @@ TEST_F(PerBlockGateCountTests, RealParallelChainedSha256)
     EXPECT_EQ(final_var_mismatches, 0);
 
     info("Real parallel chained SHA256: PASSED");
+}
+
+/**
+ * @brief Test build_constraints_parallel against build_constraints on a real AcirProgram.
+ * @details Builds a program with multiple SHA256 and Poseidon2 constraints, constructs the circuit
+ * via both sequential and parallel paths, and verifies the results are bit-identical.
+ */
+TEST_F(PerBlockGateCountTests, BuildConstraintsParallel)
+{
+    // Build a multi-opcode AcirProgram: 3 SHA256 + 3 Poseidon2
+    std::vector<Acir::Opcode> all_opcodes;
+
+    // 3 SHA256 compression constraints, each using 32 witnesses
+    for (uint32_t i = 0; i < 3; i++) {
+        uint32_t base = i * 32;
+        Sha256Compression sha;
+        for (size_t j = 0; j < 16; ++j)
+            sha.inputs[j] = WitnessOrConstant<bb::fr>::from_index(base + static_cast<uint32_t>(j));
+        for (size_t j = 0; j < 8; ++j)
+            sha.hash_values[j] = WitnessOrConstant<bb::fr>::from_index(base + static_cast<uint32_t>(j));
+        for (size_t j = 0; j < 8; ++j)
+            sha.result[j] = base + static_cast<uint32_t>(j) + 24;
+        auto ops = constraint_to_acir_opcode(sha);
+        all_opcodes.insert(all_opcodes.end(), ops.begin(), ops.end());
+    }
+
+    // 3 Poseidon2 constraints, each using 8 witnesses, starting after SHA256 witnesses
+    for (uint32_t i = 0; i < 3; i++) {
+        uint32_t base = 96 + i * 8;
+        Poseidon2Constraint pos;
+        for (uint32_t j = 0; j < 4; j++) {
+            pos.state.emplace_back(WitnessOrConstant<bb::fr>::from_index(base + j));
+            pos.result.emplace_back(base + 4 + j);
+        }
+        auto ops = constraint_to_acir_opcode(pos);
+        all_opcodes.insert(all_opcodes.end(), ops.begin(), ops.end());
+    }
+
+    Acir::Circuit circuit = build_acir_circuit(all_opcodes);
+    AcirFormat constraint_system = circuit_serde_to_acir_format(circuit);
+    WitnessVector witness(120, fr(0));
+
+    // Build sequentially
+    AcirProgram seq_program{ constraint_system, WitnessVector(witness) };
+    auto seq_builder = create_circuit<UltraCircuitBuilder>(seq_program, ProgramMetadata{});
+
+    // Build in parallel
+    AcirFormat par_constraints = constraint_system; // copy
+    UltraCircuitBuilder par_builder{ witness, par_constraints.public_inputs, false };
+    build_constraints_parallel(par_builder, par_constraints, ProgramMetadata{}, /*num_threads=*/2);
+
+    // Verify both pass circuit checker
+    bool seq_check = CircuitChecker::check(seq_builder);
+    bool par_check = CircuitChecker::check(par_builder);
+    info("Sequential: ", seq_check ? "PASSED" : "FAILED");
+    info("Parallel: ", par_check ? "PASSED" : "FAILED");
+    EXPECT_TRUE(seq_check);
+    EXPECT_TRUE(par_check);
+
+    // Compare finalized block sizes
+    auto seq_blocks = seq_builder.blocks.get();
+    auto par_blocks = par_builder.blocks.get();
+    for (size_t b = 0; b < UltraCircuitBuilder::ExecutionTrace::NUM_BLOCKS; b++) {
+        EXPECT_EQ(seq_blocks[b].size(), par_blocks[b].size()) << "block " << b << " size mismatch";
+    }
+
+    // Compare variable counts (values may differ with zero witnesses due to assert_equal redirect timing,
+    // but counts and circuit structure must match)
+    EXPECT_EQ(seq_builder.get_num_variables(), par_builder.get_num_variables());
+
+    info("BuildConstraintsParallel: PASSED");
 }

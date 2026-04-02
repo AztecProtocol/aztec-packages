@@ -251,4 +251,190 @@ template <> MegaCircuitBuilder create_circuit(AcirProgram& program, const Progra
 template void build_constraints<UltraCircuitBuilder>(UltraCircuitBuilder&, AcirFormat&, const ProgramMetadata&);
 template void build_constraints<MegaCircuitBuilder>(MegaCircuitBuilder&, AcirFormat&, const ProgramMetadata&);
 
+/**
+ * @brief Helper: run the first two instances of a constraint type as warmup, measure the steady-state
+ * per-instance size from the second, and collect remaining instances as tasks for parallel execution.
+ * @details The first instance triggers one-time setup (range list creation, lookup table creation, etc.)
+ * and is inflated. The second instance represents steady-state cost. If only one instance exists,
+ * it's processed during warmup and nothing is collected for parallel execution.
+ */
+template <typename ConstraintType, typename Handler>
+void warmup_and_collect(UltraCircuitBuilder& builder,
+                        std::vector<ConstraintType>& items,
+                        Handler&& handler,
+                        std::vector<std::function<void(UltraCircuitBuilder&)>>& tasks,
+                        std::vector<UltraCircuitBuilder::TaskBlockSizes>& task_sizes)
+{
+    if (items.empty()) {
+        return;
+    }
+
+    using TaskBlockSizes = UltraCircuitBuilder::TaskBlockSizes;
+
+    // First instance: warmup to populate caches (size is inflated by one-time setup)
+    handler(builder, items[0]);
+
+    if (items.size() == 1) {
+        return;
+    }
+
+    // Second instance: measure steady-state per-instance size
+    auto before = builder.snapshot_block_sizes();
+    handler(builder, items[1]);
+    auto after = builder.snapshot_block_sizes();
+    TaskBlockSizes per_instance = UltraCircuitBuilder::delta(before, after);
+
+    // Collect remaining instances (from index 2 onward) as tasks
+    for (size_t i = 2; i < items.size(); i++) {
+        tasks.emplace_back([&handler, &items, i](UltraCircuitBuilder& b) { handler(b, items[i]); });
+        task_sizes.push_back(per_instance);
+    }
+}
+
+void build_constraints_parallel(UltraCircuitBuilder& builder,
+                                AcirFormat& constraints,
+                                const ProgramMetadata& metadata,
+                                size_t num_threads)
+{
+    using TaskBlockSizes = UltraCircuitBuilder::TaskBlockSizes;
+    std::vector<std::function<void(UltraCircuitBuilder&)>> tasks;
+    std::vector<TaskBlockSizes> task_sizes;
+
+    // Phase 1: Warmup — run one instance of each constraint type sequentially, in the same order
+    // as build_constraints. This populates caches (constants, range lists, lookup tables) so that
+    // subsequent parallel instances find everything cached. Also measure per-instance sizes.
+    warmup_and_collect(
+        builder,
+        constraints.quad_constraints,
+        [](UltraCircuitBuilder& b, QuadConstraint& c) { create_quad_constraint(b, c); },
+        tasks,
+        task_sizes);
+
+    warmup_and_collect(
+        builder,
+        constraints.big_quad_constraints,
+        [](UltraCircuitBuilder& b, BigQuadConstraint& c) { create_big_quad_constraint(b, c); },
+        tasks,
+        task_sizes);
+
+    warmup_and_collect(
+        builder,
+        constraints.logic_constraints,
+        [](UltraCircuitBuilder& b, const LogicConstraint& c) {
+            create_logic_gate(b, c.a, c.b, c.result, c.num_bits, c.is_xor_gate);
+        },
+        tasks,
+        task_sizes);
+
+    warmup_and_collect(
+        builder,
+        constraints.range_constraints,
+        [](UltraCircuitBuilder& b, const RangeConstraint& c) {
+            b.create_dyadic_range_constraint(c.witness, c.num_bits, "parallel range constraint");
+        },
+        tasks,
+        task_sizes);
+
+    warmup_and_collect(
+        builder,
+        constraints.aes128_constraints,
+        [](UltraCircuitBuilder& b, const AES128Constraint& c) { create_aes128_constraints(b, c); },
+        tasks,
+        task_sizes);
+
+    warmup_and_collect(
+        builder,
+        constraints.sha256_compression,
+        [](UltraCircuitBuilder& b, const Sha256Compression& c) { create_sha256_compression_constraints(b, c); },
+        tasks,
+        task_sizes);
+
+    warmup_and_collect(
+        builder,
+        constraints.ecdsa_k1_constraints,
+        [](UltraCircuitBuilder& b, const EcdsaConstraint& c) {
+            create_ecdsa_verify_constraints<stdlib::secp256k1<UltraCircuitBuilder>>(b, c);
+        },
+        tasks,
+        task_sizes);
+
+    warmup_and_collect(
+        builder,
+        constraints.ecdsa_r1_constraints,
+        [](UltraCircuitBuilder& b, const EcdsaConstraint& c) {
+            create_ecdsa_verify_constraints<stdlib::secp256r1<UltraCircuitBuilder>>(b, c);
+        },
+        tasks,
+        task_sizes);
+
+    warmup_and_collect(
+        builder,
+        constraints.blake2s_constraints,
+        [](UltraCircuitBuilder& b, const Blake2sConstraint& c) { create_blake2s_constraints(b, c); },
+        tasks,
+        task_sizes);
+
+    warmup_and_collect(
+        builder,
+        constraints.blake3_constraints,
+        [](UltraCircuitBuilder& b, const Blake3Constraint& c) { create_blake3_constraints(b, c); },
+        tasks,
+        task_sizes);
+
+    warmup_and_collect(
+        builder,
+        constraints.keccak_permutations,
+        [](UltraCircuitBuilder& b, const Keccakf1600& c) { create_keccak_permutations_constraints(b, c); },
+        tasks,
+        task_sizes);
+
+    warmup_and_collect(
+        builder,
+        constraints.poseidon2_constraints,
+        [](UltraCircuitBuilder& b, const Poseidon2Constraint& c) { create_poseidon2_permutations_constraints(b, c); },
+        tasks,
+        task_sizes);
+
+    warmup_and_collect(
+        builder,
+        constraints.multi_scalar_mul_constraints,
+        [](UltraCircuitBuilder& b, const MultiScalarMul& c) { create_multi_scalar_mul_constraint(b, c); },
+        tasks,
+        task_sizes);
+
+    warmup_and_collect(
+        builder,
+        constraints.ec_add_constraints,
+        [](UltraCircuitBuilder& b, const EcAdd& c) { create_ec_add_constraint(b, c); },
+        tasks,
+        task_sizes);
+
+    // Phase 2: Execute all remaining instances in parallel
+    if (!tasks.empty()) {
+        builder.execute_parallel(tasks, task_sizes, num_threads);
+    }
+
+    // Phase 3: Block constraints and recursion constraints are processed sequentially — they have
+    // complex interdependencies and are typically few in number.
+    for (const auto& [constraint, opcode_indices] :
+         zip_view(constraints.block_constraints, constraints.original_opcode_indices.block_constraints)) {
+        create_block_constraints(builder, constraint);
+    }
+
+    const bool is_hn_recursion_constraints = !constraints.hn_recursion_constraints.empty();
+    GateCounter gate_counter{ &builder, false };
+    std::vector<size_t> dummy_gates_per_opcode;
+    HonkRecursionConstraintsOutput<UltraCircuitBuilder> output = create_recursion_constraints<UltraCircuitBuilder>(
+        builder,
+        gate_counter,
+        dummy_gates_per_opcode,
+        metadata.ivc,
+        { constraints.honk_recursion_constraints, constraints.original_opcode_indices.honk_recursion_constraints },
+        { constraints.avm_recursion_constraints, constraints.original_opcode_indices.avm_recursion_constraints },
+        { constraints.hn_recursion_constraints, constraints.original_opcode_indices.hn_recursion_constraints },
+        { constraints.chonk_recursion_constraints, constraints.original_opcode_indices.chonk_recursion_constraints });
+
+    output.finalize(builder, is_hn_recursion_constraints, metadata.has_ipa_claim);
+}
+
 } // namespace acir_format
