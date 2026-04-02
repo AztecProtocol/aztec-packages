@@ -89,6 +89,8 @@ enum BasicTableId {
     // Used by straus_plookup_table for fixed-base MSM with constant EC points (e.g. IPA verifier SRS elements).
     // Each table instance gets this id; uniqueness within a circuit is ensured by table_index, not id.
     STRAUS_EC_POINT,
+    // Sentinel ID for dynamically-registered tables (never matched by get_table())
+    DYNAMIC_TABLE,
 };
 
 enum MultiTableId {
@@ -154,6 +156,9 @@ struct MultiTable {
     std::vector<bb::fr> column_3_coefficients;
     MultiTableId id;
     std::vector<BasicTableId> basic_table_ids;
+    // For dynamically-created tables: indices into the builder's lookup_tables deque
+    // (used by the MultiTable overload of create_gates_from_plookup_accumulators)
+    std::vector<size_t> basic_table_indices;
     std::vector<uint64_t> slice_sizes;
     std::vector<bb::fr> column_1_step_sizes;
     std::vector<bb::fr> column_2_step_sizes;
@@ -196,7 +201,7 @@ struct MultiTable {
         column_2_coefficients.emplace_back(1);
         column_3_coefficients.emplace_back(1);
 
-        for (size_t i = 1; i < num_lookups; ++i) {
+        for (size_t i = 0; i < num_lookups; ++i) {
             column_1_coefficients.emplace_back(column_1_coefficients.back() * col_1_repeated_coeff);
             column_2_coefficients.emplace_back(column_2_coefficients.back() * col_2_repeated_coeff);
             column_3_coefficients.emplace_back(column_3_coefficients.back() * col_3_repeated_coeff);

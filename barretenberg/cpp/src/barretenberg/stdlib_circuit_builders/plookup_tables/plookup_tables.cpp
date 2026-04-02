@@ -154,14 +154,32 @@ ReadData<bb::fr> get_lookup_accumulators(const MultiTableId id,
                                          const fr& key_b,
                                          const bool is_2_to_1_lookup)
 {
-    // return multi-table, populating global array of all multi-tables if need be
-    const auto& multi_table = get_multitable(id);
-    const size_t num_lookups = multi_table.basic_table_ids.size();
+    return get_lookup_accumulators(get_multitable(id), key_a, key_b, is_2_to_1_lookup);
+}
 
-    // All MultiTable vectors must be consistently sized
-    BB_ASSERT_EQ(multi_table.column_1_coefficients.size(), num_lookups, "MultiTable coefficient/table count mismatch");
-    BB_ASSERT_EQ(multi_table.get_table_values.size(), num_lookups, "MultiTable get_table_values/table count mismatch");
-    BB_ASSERT_EQ(multi_table.slice_sizes.size(), num_lookups, "MultiTable slice_sizes/table count mismatch");
+/**
+ * @brief Given a MultiTable and the key(s) for a key-value lookup, return the lookup accumulators.
+ * @details In general the number of bits in original key/value is greater than what can be efficiently supported in
+ * lookup tables. For this reason we actually perform lookups on the corresponding limbs. However, since we're
+ * interested in the original values and not the limbs, its convenient to structure the witnesses of lookup gates to
+ * store the former. This way we don't have to waste gates reaccumulating the limbs to compute the actual value of
+ * interest. The way to do this is to populate the wires with 'accumulator' values such that the first gate in the
+ * series contains the full accumulated values, and successive gates contain prior stages of the accumulator such that
+ * wire_i - r*wire_{i-1} = v_i, where r = num limb bits and v_i is a limb that explicitly appears in one of the lookup
+ * tables. See the detailed comment block below and also ./README.md for more explanation.
+ *
+ * @param multi_table
+ * @param key_a
+ * @param key_b
+ * @param is_2_to_1_lookup
+ * @return ReadData<bb::fr>
+ */
+ReadData<bb::fr> get_lookup_accumulators(const MultiTable& multi_table,
+                                         const fr& key_a,
+                                         const fr& key_b,
+                                         const bool is_2_to_1_lookup)
+{
+    const size_t num_lookups = multi_table.get_table_values.size();
 
     ReadData<bb::fr> lookup;
     const auto key_a_slices = numeric::slice_input_using_variable_bases(key_a, multi_table.slice_sizes);
