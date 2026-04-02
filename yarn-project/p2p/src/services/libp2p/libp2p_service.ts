@@ -393,6 +393,10 @@ export class LibP2PService extends WithTracer implements P2PService {
       connectionEncrypters: [noise()],
       connectionMonitor: {
         protocolPrefix: 'aztec',
+        pingInterval: 20_000,
+        pingTimeout: {
+          minTimeout: 30_000,
+        },
       },
       connectionManager: {
         // We set maxConnections above maxPeerCount because if we hit limit of maxPeerCount
