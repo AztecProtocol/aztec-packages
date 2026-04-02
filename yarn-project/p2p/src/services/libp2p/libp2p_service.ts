@@ -393,9 +393,9 @@ export class LibP2PService extends WithTracer implements P2PService {
       connectionEncrypters: [noise()],
       connectionMonitor: {
         protocolPrefix: 'aztec',
-        pingInterval: 20_000,
+        pingInterval: 30_000,
         pingTimeout: {
-          minTimeout: 30_000,
+          minTimeout: 60_000,
         },
       },
       connectionManager: {
@@ -403,7 +403,7 @@ export class LibP2PService extends WithTracer implements P2PService {
         // libp2p will start aggressively rejecting all new connections, preventing network discovery and crawling.
         maxConnections: maxPeerCount * 2,
         maxParallelDials: 100,
-        dialTimeout: 30_000,
+        dialTimeout: 60_000,
         maxPeerAddrsToDial: 5,
         maxIncomingPendingConnections: 5,
       },
@@ -433,11 +433,11 @@ export class LibP2PService extends WithTracer implements P2PService {
         identify: identify({
           protocolPrefix: 'aztec',
           runOnConnectionOpen: true,
-          timeout: 30_000,
+          timeout: 60_000,
         }),
         identifyPush: identifyPush({
           protocolPrefix: 'aztec',
-          timeout: 30_000,
+          timeout: 60_000,
         }),
         ping: ping({
           protocolPrefix: 'aztec',
