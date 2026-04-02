@@ -201,6 +201,8 @@ template <typename FF_> class CircuitBuilderBase {
     }
 
     const std::vector<uint32_t>& public_inputs() const { return _public_inputs; };
+    const std::vector<uint32_t>& get_next_var_index() const { return next_var_index; }
+    const std::vector<uint32_t>& get_prev_var_index() const { return prev_var_index; }
 
     /**
      * @brief Set the _public_inputs_finalized to true to prevent any new public inputs from being added

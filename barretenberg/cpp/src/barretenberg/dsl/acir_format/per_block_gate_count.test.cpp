@@ -11,9 +11,11 @@
  */
 
 #include <gtest/gtest.h>
-#include <thread>
 
 #include "acir_format.hpp"
+#include "barretenberg/circuit_checker/circuit_checker.hpp"
+#include "barretenberg/crypto/poseidon2/poseidon2.hpp"
+#include "barretenberg/crypto/sha256/sha256.hpp"
 #include "barretenberg/dsl/acir_format/arithmetic_constraints.hpp"
 #include "barretenberg/dsl/acir_format/blake2s_constraint.hpp"
 #include "barretenberg/dsl/acir_format/ec_operations.hpp"
@@ -1046,8 +1048,8 @@ TEST_F(PerBlockGateCountTests, IsolatedVsSharedSelectorEquivalence)
 }
 /**
  * @brief ACTUAL parallel execution: two std::threads building different opcodes concurrently.
- * @details This is the real test. Thread A builds SHA256, thread B builds Poseidon2, both on the same
- * shared builder with cursor mode. After joining, apply deferred operations and compare to sequential.
+ * @details Thread A builds SHA256, thread B builds Poseidon2, both on the same shared builder
+ * via execute_parallel. Verifies bit-identical circuit including CircuitChecker.
  */
 TEST_F(PerBlockGateCountTests, RealParallelExecution)
 {
@@ -1075,126 +1077,242 @@ TEST_F(PerBlockGateCountTests, RealParallelExecution)
     constexpr uint32_t POS_W = 8;
     WitnessVector witness(80, fr(0));
 
-    // Step 1: Build sequentially (baseline)
+    auto sha_warmup = make_sha256(0);
+    auto pos_warmup = make_poseidon2(SHA_W);
+    auto sha_meas = make_sha256(SHA_W + POS_W);
+    auto pos_meas = make_poseidon2(SHA_W + POS_W + SHA_W);
+
+    // Step 1: Build sequentially (baseline) and capture per-task sizes
+    using TaskBlockSizes = UltraCircuitBuilder::TaskBlockSizes;
     UltraCircuitBuilder sequential{ witness, {}, false };
-    create_sha256_compression_constraints(sequential, make_sha256(0));
-    create_poseidon2_permutations_constraints(sequential, make_poseidon2(SHA_W));
+    create_sha256_compression_constraints(sequential, sha_warmup);
+    create_poseidon2_permutations_constraints(sequential, pos_warmup);
 
-    size_t warmup_arith = sequential.blocks.arithmetic.size();
-    size_t warmup_lookup = sequential.blocks.lookup.size();
-    size_t warmup_pos_ext = sequential.blocks.poseidon2_external.size();
-    size_t warmup_pos_int = sequential.blocks.poseidon2_internal.size();
-    size_t warmup_vars = sequential.get_num_variables();
+    auto before_a = sequential.snapshot_block_sizes();
+    create_sha256_compression_constraints(sequential, sha_meas);
+    auto after_a = sequential.snapshot_block_sizes();
+    create_poseidon2_permutations_constraints(sequential, pos_meas);
+    auto after_b = sequential.snapshot_block_sizes();
 
-    create_sha256_compression_constraints(sequential, make_sha256(SHA_W + POS_W));
-    size_t after_sha_arith = sequential.blocks.arithmetic.size();
-    size_t after_sha_vars = sequential.get_num_variables();
+    TaskBlockSizes size_a = UltraCircuitBuilder::delta(before_a, after_a);
+    TaskBlockSizes size_b = UltraCircuitBuilder::delta(after_a, after_b);
 
-    create_poseidon2_permutations_constraints(sequential, make_poseidon2(SHA_W + POS_W + SHA_W));
-    size_t total_arith = sequential.blocks.arithmetic.size();
-    size_t total_lookup = sequential.blocks.lookup.size();
-    size_t total_pos_ext = sequential.blocks.poseidon2_external.size();
-    size_t total_pos_int = sequential.blocks.poseidon2_internal.size();
+    // Step 2: Build with execute_parallel
+    UltraCircuitBuilder parallel_builder{ witness, {}, false };
+    create_sha256_compression_constraints(parallel_builder, sha_warmup);
+    create_poseidon2_permutations_constraints(parallel_builder, pos_warmup);
+
+    std::vector<std::function<void(UltraCircuitBuilder&)>> tasks = {
+        [&](UltraCircuitBuilder& b) { create_sha256_compression_constraints(b, sha_meas); },
+        [&](UltraCircuitBuilder& b) { create_poseidon2_permutations_constraints(b, pos_meas); },
+    };
+    parallel_builder.execute_parallel(tasks, { size_a, size_b }, /*num_threads=*/2);
+
+    // Step 3: Finalize and check both circuits
+    EXPECT_TRUE(CircuitChecker::check(sequential));
+    EXPECT_TRUE(CircuitChecker::check(parallel_builder));
+
+    // Step 4: Compare finalized circuits
+    auto seq_blocks = sequential.blocks.get();
+    auto par_blocks = parallel_builder.blocks.get();
+    for (size_t b = 0; b < UltraCircuitBuilder::ExecutionTrace::NUM_BLOCKS; b++) {
+        EXPECT_EQ(seq_blocks[b].size(), par_blocks[b].size()) << "block " << b << " size mismatch";
+    }
+    EXPECT_EQ(sequential.get_num_variables(), parallel_builder.get_num_variables());
+
+    info("Real parallel execution: PASSED");
+}
+
+/**
+ * @brief Parallel execution with CHAINED opcodes: opcode A's outputs are opcode B's inputs.
+ * @details Tests that concurrent assert_equal on linked variables produces correct union-find state.
+ * Uses real Poseidon2 witness values so chained data flow is correct.
+ */
+TEST_F(PerBlockGateCountTests, RealParallelChainedOpcodes)
+{
+    auto make_poseidon2 = [](uint32_t base_in, uint32_t base_out) {
+        Poseidon2Constraint p;
+        for (uint32_t j = 0; j < 4; j++) {
+            p.state.emplace_back(WitnessOrConstant<bb::fr>::from_index(base_in + j));
+            p.result.emplace_back(base_out + j);
+        }
+        return p;
+    };
+
+    using NativePoseidon2 = crypto::Poseidon2Permutation<crypto::Poseidon2Bn254ScalarFieldParams>;
+    using TaskBlockSizes = UltraCircuitBuilder::TaskBlockSizes;
+    constexpr uint32_t W = 12;
+    WitnessVector witness(W * 3, fr(0));
+
+    // Compute correct chained witness values
+    auto warmup_a_out = NativePoseidon2::permutation({ fr(0), fr(0), fr(0), fr(0) });
+    auto warmup_b_out = NativePoseidon2::permutation(warmup_a_out);
+    for (uint32_t j = 0; j < 4; j++) {
+        witness[4 + j] = warmup_a_out[j];
+        witness[8 + j] = warmup_b_out[j];
+    }
+    auto meas_a_out = NativePoseidon2::permutation({ fr(0), fr(0), fr(0), fr(0) });
+    auto meas_b_out = NativePoseidon2::permutation(meas_a_out);
+    for (uint32_t j = 0; j < 4; j++) {
+        witness[W + 4 + j] = meas_a_out[j];
+        witness[W + 8 + j] = meas_b_out[j];
+    }
+
+    auto warmup_a = make_poseidon2(0, 4);
+    auto warmup_b = make_poseidon2(4, 8);
+    auto meas_a = make_poseidon2(W, W + 4);
+    auto meas_b = make_poseidon2(W + 4, W + 8); // B reads A's outputs (w16-w19)
+
+    // Step 1: Build sequentially and capture per-task sizes
+    UltraCircuitBuilder sequential{ witness, {}, false };
+    create_poseidon2_permutations_constraints(sequential, warmup_a);
+    create_poseidon2_permutations_constraints(sequential, warmup_b);
+
+    auto before_a = sequential.snapshot_block_sizes();
+    create_poseidon2_permutations_constraints(sequential, meas_a);
+    auto after_a = sequential.snapshot_block_sizes();
+    create_poseidon2_permutations_constraints(sequential, meas_b);
+    auto after_b = sequential.snapshot_block_sizes();
+
+    TaskBlockSizes size_a = UltraCircuitBuilder::delta(before_a, after_a);
+    TaskBlockSizes size_b = UltraCircuitBuilder::delta(after_a, after_b);
+
+    // Step 2: Build with execute_parallel
+    UltraCircuitBuilder parallel_builder{ witness, {}, false };
+    create_poseidon2_permutations_constraints(parallel_builder, warmup_a);
+    create_poseidon2_permutations_constraints(parallel_builder, warmup_b);
+
+    std::vector<std::function<void(UltraCircuitBuilder&)>> tasks = {
+        [&](UltraCircuitBuilder& b) { create_poseidon2_permutations_constraints(b, meas_a); },
+        [&](UltraCircuitBuilder& b) { create_poseidon2_permutations_constraints(b, meas_b); },
+    };
+    parallel_builder.execute_parallel(tasks, { size_a, size_b }, /*num_threads=*/2);
+
+    // Step 3: Finalize and check both circuits
+    EXPECT_TRUE(CircuitChecker::check(sequential));
+    EXPECT_TRUE(CircuitChecker::check(parallel_builder));
+
+    // Step 4: Compare finalized circuits
+    auto seq_blocks = sequential.blocks.get();
+    auto par_blocks = parallel_builder.blocks.get();
+    for (size_t b = 0; b < UltraCircuitBuilder::ExecutionTrace::NUM_BLOCKS; b++) {
+        EXPECT_EQ(seq_blocks[b].size(), par_blocks[b].size()) << "block " << b << " size mismatch";
+    }
+    EXPECT_EQ(sequential.get_num_variables(), parallel_builder.get_num_variables());
+
+    info("Real parallel chained opcodes: PASSED");
+}
+/**
+ * @brief Parallel execution with chained SHA256 opcodes: A's 8 output witnesses are B's 8 hash_values inputs.
+ * @details SHA256 does extensive range constraining on its inputs (32-bit range checks on h_init and input words).
+ * This tests whether range constraints on shared ACIR witnesses produce identical circuits.
+ */
+TEST_F(PerBlockGateCountTests, RealParallelChainedSha256)
+{
+    // SHA256 compression: 16 input words (w) + 8 hash values (h) → 8 output hash values (r)
+    // Use non-overlapping witness layout to avoid confusion:
+    //   per instance: 16 inputs + 8 hash_values + 8 results = 32 witnesses
+    auto make_sha256_explicit = [](uint32_t w_base, uint32_t h_base, uint32_t r_base) {
+        Sha256Compression s;
+        for (size_t i = 0; i < 16; ++i)
+            s.inputs[i] = WitnessOrConstant<bb::fr>::from_index(w_base + static_cast<uint32_t>(i));
+        for (size_t i = 0; i < 8; ++i)
+            s.hash_values[i] = WitnessOrConstant<bb::fr>::from_index(h_base + static_cast<uint32_t>(i));
+        for (size_t i = 0; i < 8; ++i)
+            s.result[i] = r_base + static_cast<uint32_t>(i);
+        return s;
+    };
+
+    // Compute native SHA256 compression for correct witness values
+    std::array<uint32_t, 8> h_init = { 0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a,
+                                       0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19 };
+    std::array<uint32_t, 16> msg = {};
+    for (size_t i = 0; i < 16; i++) {
+        msg[i] = static_cast<uint32_t>(i + 1);
+    }
+
+    // Layout: each SHA256 uses 32 witnesses [w0-w15 inputs, w16-w23 hash, w24-w31 results]
+    // Instance 0 (warmup A): witnesses [0..31]
+    // Instance 1 (warmup B): witnesses [32..63], hash=A's results
+    // Instance 2 (meas A):   witnesses [64..95]
+    // Instance 3 (meas B):   witnesses [96..127], hash_values = meas A's results [88..95]
+    WitnessVector witness(128, fr(0));
+
+    auto fill_sha256_witness = [&](uint32_t base,
+                                   const std::array<uint32_t, 16>& inputs,
+                                   const std::array<uint32_t, 8>& hash_vals,
+                                   const std::array<uint32_t, 8>& results) {
+        for (size_t i = 0; i < 16; i++)
+            witness[base + i] = fr(inputs[i]);
+        for (size_t i = 0; i < 8; i++)
+            witness[base + 16 + i] = fr(hash_vals[i]);
+        for (size_t i = 0; i < 8; i++)
+            witness[base + 24 + i] = fr(results[i]);
+    };
+
+    // Warmup A: SHA256(h_init, msg) -> warmup_a_out
+    auto warmup_a_out = crypto::sha256_block(h_init, msg);
+    fill_sha256_witness(0, msg, h_init, warmup_a_out);
+
+    // Warmup B: SHA256(warmup_a_out, msg) -> warmup_b_out (chained)
+    auto warmup_b_out = crypto::sha256_block(warmup_a_out, msg);
+    fill_sha256_witness(32, msg, warmup_a_out, warmup_b_out);
+
+    // Meas A: SHA256(h_init, msg) -> meas_a_out
+    auto meas_a_out = crypto::sha256_block(h_init, msg);
+    fill_sha256_witness(64, msg, h_init, meas_a_out);
+
+    // Meas B: SHA256(meas_a_out, msg) -> meas_b_out
+    // B's hash_values are A's results — but they live at DIFFERENT witness indices
+    // A's results are at [88..95], B's hash_values reference [88..95]
+    auto meas_b_out = crypto::sha256_block(meas_a_out, msg);
+    // Fill B's inputs and results at [96..127], but B's hash_values reference [88..95] (already filled by A)
+    for (size_t i = 0; i < 16; i++)
+        witness[96 + i] = fr(msg[i]);
+    for (size_t i = 0; i < 8; i++)
+        witness[120 + i] = fr(meas_b_out[i]);
+    // witness[88..95] already has meas_a_out from fill_sha256_witness(64, ...)
+
+    // Construct constraints with non-overlapping layout
+    auto warmup_a = make_sha256_explicit(0, 16, 24);
+    auto warmup_b = make_sha256_explicit(32, 48, 56);
+    auto meas_a = make_sha256_explicit(64, 80, 88);
+
+    // Meas B: inputs=[96..111], hash_values=[88..95] (A's results!), results=[120..127]
+    auto meas_b = make_sha256_explicit(96, 88, 120);
+
+    // Step 1: Build sequentially
+    UltraCircuitBuilder sequential{ witness, {}, false };
+    create_sha256_compression_constraints(sequential, warmup_a);
+    create_sha256_compression_constraints(sequential, warmup_b);
+
+    auto before_a = sequential.snapshot_block_sizes();
+    create_sha256_compression_constraints(sequential, meas_a);
+    auto after_a = sequential.snapshot_block_sizes();
+    create_sha256_compression_constraints(sequential, meas_b);
+    auto after_b = sequential.snapshot_block_sizes();
+
     size_t total_vars = sequential.get_num_variables();
 
-    size_t sha_arith = after_sha_arith - warmup_arith;
-    size_t sha_vars = after_sha_vars - warmup_vars;
+    // Compute per-task sizes from the sequential run
+    using TaskBlockSizes = UltraCircuitBuilder::TaskBlockSizes;
+    TaskBlockSizes size_a = UltraCircuitBuilder::delta(before_a, after_a);
+    TaskBlockSizes size_b = UltraCircuitBuilder::delta(after_a, after_b);
 
-    // Step 2: Build with real parallel threads
+    // Step 2: Build with real parallel threads using execute_parallel
     UltraCircuitBuilder parallel_builder{ witness, {}, false };
-    create_sha256_compression_constraints(parallel_builder, make_sha256(0));
-    create_poseidon2_permutations_constraints(parallel_builder, make_poseidon2(SHA_W));
+    create_sha256_compression_constraints(parallel_builder, warmup_a);
+    create_sha256_compression_constraints(parallel_builder, warmup_b);
 
-    // Pre-allocate
-    auto pre_allocate_block = [](auto& block, size_t target_size) {
-        for (auto& wire : block.wires) {
-            wire.resize(target_size, 0);
-        }
-        for (auto& sel : block.get_selectors()) {
-            sel.resize(target_size);
-        }
+    std::vector<std::function<void(UltraCircuitBuilder&)>> tasks = {
+        [&](UltraCircuitBuilder& b) { create_sha256_compression_constraints(b, meas_a); },
+        [&](UltraCircuitBuilder& b) { create_sha256_compression_constraints(b, meas_b); },
     };
-    pre_allocate_block(parallel_builder.blocks.arithmetic, total_arith);
-    pre_allocate_block(parallel_builder.blocks.lookup, total_lookup);
-    pre_allocate_block(parallel_builder.blocks.poseidon2_external, total_pos_ext);
-    pre_allocate_block(parallel_builder.blocks.poseidon2_internal, total_pos_int);
-    parallel_builder.resize_variables(total_vars);
+    std::vector<TaskBlockSizes> task_sizes = { size_a, size_b };
 
-    // Initialize per-thread deferred buffers
-    parallel_builder.init_deferred_buffers(2);
+    parallel_builder.execute_parallel(tasks, task_sizes, /*num_threads=*/2);
 
-    // Set up per-thread cursors: thread 0 = SHA256, thread 1 = Poseidon2
-    // Block cursors
-    parallel_builder.blocks.arithmetic.enable_cursor_mode(0, warmup_arith);             // thread 0
-    parallel_builder.blocks.arithmetic.enable_cursor_mode(1, warmup_arith + sha_arith); // thread 1
-    parallel_builder.blocks.lookup.enable_cursor_mode(0, warmup_lookup);                // thread 0 only
-    parallel_builder.blocks.poseidon2_external.enable_cursor_mode(1, warmup_pos_ext);   // thread 1 only
-    parallel_builder.blocks.poseidon2_internal.enable_cursor_mode(1, warmup_pos_int);   // thread 1 only
-
-    // Variable cursors
-    parallel_builder.enable_variable_cursor(0, static_cast<uint32_t>(warmup_vars));
-    parallel_builder.enable_variable_cursor(1, static_cast<uint32_t>(warmup_vars + sha_vars));
-
-    // Run BOTH threads concurrently
-    auto sha_constraint = make_sha256(SHA_W + POS_W);
-    auto pos_constraint = make_poseidon2(SHA_W + POS_W + SHA_W);
-
-    std::thread thread_a([&]() {
-        set_parallel_thread_index(0);
-        create_sha256_compression_constraints(parallel_builder, sha_constraint);
-    });
-
-    std::thread thread_b([&]() {
-        set_parallel_thread_index(1);
-        create_poseidon2_permutations_constraints(parallel_builder, pos_constraint);
-    });
-
-    thread_a.join();
-    thread_b.join();
-
-    // Disable all cursors
-    parallel_builder.blocks.arithmetic.disable_cursor_mode(0);
-    parallel_builder.blocks.arithmetic.disable_cursor_mode(1);
-    parallel_builder.blocks.lookup.disable_cursor_mode(0);
-    parallel_builder.blocks.poseidon2_external.disable_cursor_mode(1);
-    parallel_builder.blocks.poseidon2_internal.disable_cursor_mode(1);
-    parallel_builder.disable_variable_cursor(0);
-    parallel_builder.disable_variable_cursor(1);
-
-    // Apply deferred operations
-    parallel_builder.apply_deferred_lookup_gates();
-    parallel_builder.apply_deferred_range_constraints();
-
-    // Step 3: Compare
-    auto compare_full_block = [](auto& seq_block, auto& cur_block, size_t count, const std::string& name) {
-        size_t wire_mismatches = 0;
-        size_t sel_mismatches = 0;
-        for (size_t w = 0; w < 4; w++) {
-            for (size_t i = 0; i < count; i++) {
-                if (seq_block.wires[w][i] != cur_block.wires[w][i])
-                    wire_mismatches++;
-            }
-        }
-        auto seq_sels = seq_block.get_selectors();
-        auto cur_sels = cur_block.get_selectors();
-        for (size_t s = 0; s < seq_sels.size(); s++) {
-            for (size_t i = 0; i < count; i++) {
-                if (seq_sels[s][i] != cur_sels[s][i])
-                    sel_mismatches++;
-            }
-        }
-        info(name, ": wire_mismatches=", wire_mismatches, " sel_mismatches=", sel_mismatches);
-        EXPECT_EQ(wire_mismatches, 0) << name << " wire mismatch";
-        EXPECT_EQ(sel_mismatches, 0) << name << " selector mismatch";
-    };
-
-    compare_full_block(sequential.blocks.arithmetic, parallel_builder.blocks.arithmetic, total_arith, "arithmetic");
-    compare_full_block(sequential.blocks.lookup, parallel_builder.blocks.lookup, total_lookup, "lookup");
-    compare_full_block(
-        sequential.blocks.poseidon2_external, parallel_builder.blocks.poseidon2_external, total_pos_ext, "pos2_ext");
-    compare_full_block(
-        sequential.blocks.poseidon2_internal, parallel_builder.blocks.poseidon2_internal, total_pos_int, "pos2_int");
-
+    // Step 3: Compare pre-finalization (blocks that were written during parallel phase)
     size_t var_mismatches = 0;
     for (size_t i = 0; i < total_vars; i++) {
         if (sequential.get_variable(static_cast<uint32_t>(i)) !=
@@ -1204,5 +1322,75 @@ TEST_F(PerBlockGateCountTests, RealParallelExecution)
     info("Variable mismatches: ", var_mismatches, " / ", total_vars);
     EXPECT_EQ(var_mismatches, 0);
 
-    info("Real parallel execution (sequential threads): PASSED");
+    // Step 4: Finalize both circuits and run circuit checker
+    bool seq_check = CircuitChecker::check(sequential);
+    info("Sequential circuit checker: ", seq_check ? "PASSED" : "FAILED");
+    EXPECT_TRUE(seq_check);
+
+    bool par_check = CircuitChecker::check(parallel_builder);
+    info("Parallel circuit checker: ", par_check ? "PASSED" : "FAILED");
+    EXPECT_TRUE(par_check);
+
+    // Step 5: Compare finalized circuits — including delta_range block populated by process_range_lists
+    auto compare_finalized_block = [](auto& seq_block, auto& par_block, const std::string& name) {
+        EXPECT_EQ(seq_block.size(), par_block.size()) << name << " size mismatch";
+        if (seq_block.size() != par_block.size()) {
+            info(name, ": SIZE MISMATCH seq=", seq_block.size(), " par=", par_block.size());
+            return;
+        }
+        size_t count = seq_block.size();
+        size_t wire_mismatches = 0;
+        size_t sel_mismatches = 0;
+        for (size_t w = 0; w < 4; w++) {
+            for (size_t i = 0; i < count; i++) {
+                if (seq_block.wires[w][i] != par_block.wires[w][i])
+                    wire_mismatches++;
+            }
+        }
+        auto seq_sels = seq_block.get_selectors();
+        auto par_sels = par_block.get_selectors();
+        for (size_t s = 0; s < seq_sels.size(); s++) {
+            for (size_t i = 0; i < count; i++) {
+                if (seq_sels[s][i] != par_sels[s][i])
+                    sel_mismatches++;
+            }
+        }
+        info(name,
+             " (finalized): size=",
+             count,
+             " wire_mismatches=",
+             wire_mismatches,
+             " sel_mismatches=",
+             sel_mismatches);
+        EXPECT_EQ(wire_mismatches, 0) << name << " finalized wire mismatch";
+        EXPECT_EQ(sel_mismatches, 0) << name << " finalized selector mismatch";
+    };
+
+    compare_finalized_block(sequential.blocks.arithmetic, parallel_builder.blocks.arithmetic, "arithmetic");
+    compare_finalized_block(sequential.blocks.lookup, parallel_builder.blocks.lookup, "lookup");
+    compare_finalized_block(sequential.blocks.delta_range, parallel_builder.blocks.delta_range, "delta_range");
+    compare_finalized_block(sequential.blocks.elliptic, parallel_builder.blocks.elliptic, "elliptic");
+    compare_finalized_block(
+        sequential.blocks.poseidon2_external, parallel_builder.blocks.poseidon2_external, "pos2_ext");
+    compare_finalized_block(
+        sequential.blocks.poseidon2_internal, parallel_builder.blocks.poseidon2_internal, "pos2_int");
+    compare_finalized_block(sequential.blocks.pub_inputs, parallel_builder.blocks.pub_inputs, "pub_inputs");
+
+    // Compare total variable counts after finalization
+    size_t seq_final_vars = sequential.get_num_variables();
+    size_t par_final_vars = parallel_builder.get_num_variables();
+    info("Finalized variables: seq=", seq_final_vars, " par=", par_final_vars);
+    EXPECT_EQ(seq_final_vars, par_final_vars);
+
+    // Compare all variable values after finalization
+    size_t final_var_mismatches = 0;
+    for (size_t i = 0; i < std::min(seq_final_vars, par_final_vars); i++) {
+        if (sequential.get_variable(static_cast<uint32_t>(i)) !=
+            parallel_builder.get_variable(static_cast<uint32_t>(i)))
+            final_var_mismatches++;
+    }
+    info("Finalized variable mismatches: ", final_var_mismatches, " / ", std::min(seq_final_vars, par_final_vars));
+    EXPECT_EQ(final_var_mismatches, 0);
+
+    info("Real parallel chained SHA256: PASSED");
 }

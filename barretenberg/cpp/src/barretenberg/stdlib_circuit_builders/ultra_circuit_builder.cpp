@@ -484,12 +484,18 @@ uint32_t UltraCircuitBuilder_<ExecutionTrace>::put_constant_variable(const FF& v
 {
     if (constant_variable_indices.contains(variable)) {
         return constant_variable_indices.at(variable);
-    } else {
+    }
+    // In cursor mode (parallel construction), don't insert into the shared cache.
+    // The cache is read-only after warmup; new constants get fresh variables without deduplication.
+    if (this->get_variable_cursor() != this->VARIABLE_CURSOR_DISABLED) {
         uint32_t variable_index = this->add_variable(variable);
         fix_witness(variable_index, variable);
-        constant_variable_indices.insert({ variable, variable_index });
         return variable_index;
     }
+    uint32_t variable_index = this->add_variable(variable);
+    fix_witness(variable_index, variable);
+    constant_variable_indices.insert({ variable, variable_index });
+    return variable_index;
 }
 
 /**

@@ -14,7 +14,9 @@
 #include "circuit_builder_base.hpp"
 #include "rom_ram_logic.hpp"
 #include <deque>
+#include <functional>
 #include <optional>
+#include <thread>
 #include <unordered_set>
 
 #include "barretenberg/serialize/msgpack.hpp"
@@ -250,6 +252,153 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
             }
             thread_buf.clear();
         }
+    }
+
+    /**
+     * @brief Per-block gate counts and variable count for a task (one or more opcodes).
+     */
+    struct TaskBlockSizes {
+        std::array<size_t, ExecutionTrace::NUM_BLOCKS> block_sizes{};
+        size_t num_variables = 0;
+    };
+
+    /**
+     * @brief Snapshot the current block sizes and variable count.
+     */
+    TaskBlockSizes snapshot_block_sizes() const
+    {
+        TaskBlockSizes s;
+        auto block_refs = blocks.get();
+        for (size_t i = 0; i < ExecutionTrace::NUM_BLOCKS; i++) {
+            s.block_sizes[i] = block_refs[i].size();
+        }
+        s.num_variables = this->get_num_variables();
+        return s;
+    }
+
+    /**
+     * @brief Compute the delta between two snapshots (after - before).
+     */
+    static TaskBlockSizes delta(const TaskBlockSizes& before, const TaskBlockSizes& after)
+    {
+        TaskBlockSizes d;
+        for (size_t i = 0; i < ExecutionTrace::NUM_BLOCKS; i++) {
+            d.block_sizes[i] = after.block_sizes[i] - before.block_sizes[i];
+        }
+        d.num_variables = after.num_variables - before.num_variables;
+        return d;
+    }
+
+    /**
+     * @brief Execute tasks in parallel on this builder. Each task is a lambda that adds gates to the builder.
+     * @details Pre-allocates blocks and variables based on per-task sizes, then dispatches tasks across threads
+     * with per-thread cursors. After joining, replays deferred lookup and range constraint operations.
+     *
+     * @param tasks Vector of lambdas, each taking (UltraCircuitBuilder_&) and adding gates
+     * @param task_sizes Per-task block sizes and variable counts (must match tasks.size())
+     * @param num_threads Number of threads to use (tasks are distributed round-robin)
+     */
+    void execute_parallel(const std::vector<std::function<void(UltraCircuitBuilder_&)>>& tasks,
+                          const std::vector<TaskBlockSizes>& task_sizes,
+                          size_t num_threads)
+    {
+        BB_ASSERT(tasks.size() == task_sizes.size());
+        if (tasks.empty()) {
+            return;
+        }
+        num_threads = std::min(num_threads, tasks.size());
+
+        // Compute total sizes and per-task offsets
+        auto base = snapshot_block_sizes();
+        std::vector<TaskBlockSizes> offsets(tasks.size());
+        TaskBlockSizes running = base;
+        for (size_t t = 0; t < tasks.size(); t++) {
+            offsets[t] = running;
+            for (size_t b = 0; b < ExecutionTrace::NUM_BLOCKS; b++) {
+                running.block_sizes[b] += task_sizes[t].block_sizes[b];
+            }
+            running.num_variables += task_sizes[t].num_variables;
+        }
+
+        // Pre-allocate all blocks and variables to total size
+        auto block_refs = blocks.get();
+        for (size_t b = 0; b < ExecutionTrace::NUM_BLOCKS; b++) {
+            auto& block = block_refs[b];
+            for (auto& wire : block.wires) {
+                wire.resize(running.block_sizes[b], 0);
+            }
+            for (auto& sel : block.get_selectors()) {
+                sel.resize(running.block_sizes[b]);
+            }
+        }
+        this->resize_variables(running.num_variables);
+        init_deferred_buffers(num_threads);
+
+        // Assign tasks to threads (round-robin)
+        std::vector<std::vector<size_t>> thread_tasks(num_threads);
+        for (size_t t = 0; t < tasks.size(); t++) {
+            thread_tasks[t % num_threads].push_back(t);
+        }
+
+        // Pre-initialize all cursors on the main thread to avoid races on cursor vector resizing.
+        // For threads with multiple tasks, we set the cursor to the first task's offset;
+        // within the thread, cursors are updated sequentially between tasks.
+        auto block_refs_setup = blocks.get();
+        for (size_t tid = 0; tid < num_threads; tid++) {
+            if (!thread_tasks[tid].empty()) {
+                size_t first_task = thread_tasks[tid][0];
+                for (size_t b = 0; b < ExecutionTrace::NUM_BLOCKS; b++) {
+                    if (task_sizes[first_task].block_sizes[b] > 0) {
+                        block_refs_setup[b].enable_cursor_mode(tid, offsets[first_task].block_sizes[b]);
+                    }
+                }
+                this->enable_variable_cursor(tid, static_cast<uint32_t>(offsets[first_task].num_variables));
+            }
+        }
+
+        // Dispatch threads
+        std::vector<std::thread> threads;
+        threads.reserve(num_threads);
+
+        for (size_t tid = 0; tid < num_threads; tid++) {
+            threads.emplace_back([this, tid, &tasks, &task_sizes, &offsets, &thread_tasks]() {
+                set_parallel_thread_index(tid);
+
+                for (size_t i = 0; i < thread_tasks[tid].size(); i++) {
+                    size_t task_idx = thread_tasks[tid][i];
+
+                    // For subsequent tasks (not the first), update cursors to this task's offsets
+                    if (i > 0) {
+                        auto block_refs_local = blocks.get();
+                        for (size_t b = 0; b < ExecutionTrace::NUM_BLOCKS; b++) {
+                            if (task_sizes[task_idx].block_sizes[b] > 0) {
+                                block_refs_local[b].enable_cursor_mode(tid, offsets[task_idx].block_sizes[b]);
+                            }
+                        }
+                        this->enable_variable_cursor(tid, static_cast<uint32_t>(offsets[task_idx].num_variables));
+                    }
+
+                    // Execute the task
+                    tasks[task_idx](*this);
+                }
+
+                // Disable all cursors for this thread
+                auto block_refs_local = blocks.get();
+                for (size_t b = 0; b < ExecutionTrace::NUM_BLOCKS; b++) {
+                    block_refs_local[b].disable_cursor_mode(tid);
+                }
+                this->disable_variable_cursor(tid);
+            });
+        }
+
+        // Join all threads
+        for (auto& t : threads) {
+            t.join();
+        }
+
+        // Replay deferred operations
+        apply_deferred_lookup_gates();
+        apply_deferred_range_constraints();
     }
 
     // Rom/Ram logic
@@ -687,7 +836,14 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
      * gate However, there are some cases where we want to exclude certain variables from this detection (for example,
      * when we show that x!=0 -> x*(x^-1) = 1).
      */
-    void update_used_witnesses(uint32_t var_idx) { used_witnesses.emplace_back(var_idx); }
+    void update_used_witnesses(uint32_t var_idx)
+    {
+        // Skip in cursor mode to avoid races on shared used_witnesses vector
+        if (this->get_variable_cursor() != this->VARIABLE_CURSOR_DISABLED) {
+            return;
+        }
+        used_witnesses.emplace_back(var_idx);
+    }
 
     /**
      * @brief Add a list of witness indices to the boomerang exclusion list
@@ -698,6 +854,10 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
      */
     void update_used_witnesses(const std::vector<uint32_t>& used_indices)
     {
+        // Skip in cursor mode to avoid races on shared used_witnesses vector
+        if (this->get_variable_cursor() != this->VARIABLE_CURSOR_DISABLED) {
+            return;
+        }
         used_witnesses.reserve(used_witnesses.size() + used_indices.size());
         for (const auto& it : used_indices) {
             used_witnesses.emplace_back(it);
@@ -711,7 +871,13 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
      * circuit are all connected. However, during finalization we intentionally create some subcircuits that are only
      * connected through the set permutation. We want to exclude these variables from this detection.
      */
-    void update_finalize_witnesses(uint32_t var_idx) { finalize_witnesses.insert(var_idx); }
+    void update_finalize_witnesses(uint32_t var_idx)
+    {
+        if (this->get_variable_cursor() != this->VARIABLE_CURSOR_DISABLED) {
+            return;
+        }
+        finalize_witnesses.insert(var_idx);
+    }
 
     /**
      * @brief Add a list of witness indices to the finalize exclusion list
@@ -722,6 +888,9 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
      */
     void update_finalize_witnesses(const std::vector<uint32_t>& finalize_indices)
     {
+        if (this->get_variable_cursor() != this->VARIABLE_CURSOR_DISABLED) {
+            return;
+        }
         for (const auto& it : finalize_indices) {
             finalize_witnesses.insert(it);
         }
