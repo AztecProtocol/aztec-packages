@@ -881,9 +881,17 @@ export class CheckpointProposalJob implements Traceable {
    * Adds the proposed block to the archiver so it's available via P2P.
    * Gossip doesn't echo messages back to the sender, so the proposer's archiver/world-state
    * would never receive its own block without this explicit sync.
+   *
+   * In fisherman mode we skip this push: the fisherman builds blocks locally for validation
+   * and fee analysis only, and pushing them to the archiver causes spurious reorg cascades
+   * whenever the real proposer's block arrives from L1.
    */
   private async syncProposedBlockToArchiver(block: L2Block): Promise<void> {
+<<<<<<< HEAD
     if (this.config.skipPushProposedBlocksToArchiver !== false) {
+=======
+    if (this.config.skipPushProposedBlocksToArchiver || this.config.fishermanMode) {
+>>>>>>> c4220cef5d (fix: separate fisherman StatefulSet from rpc-node and stop archiver pollution (#22183))
       this.log.warn(`Skipping push of proposed block ${block.number} to archiver`, {
         blockNumber: block.number,
         slot: block.header.globalVariables.slotNumber,
