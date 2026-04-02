@@ -204,7 +204,7 @@ constexpr std::optional<affine_element<Fq, Fr, T>> affine_element<Fq, Fr, T>::de
  *                   we need to a way to canonically distinguish between these 2 values and select a "preferred" one
  *              11e. return (x, y)
  *
- * @note This algorihm is constexpr: we can hash-to-curve (and derive generators) at compile-time!
+ * @note Generators derived via this method are precomputed; see precomputed_generators_bn254_impl.hpp.
  * @tparam Fq
  * @tparam Fr
  * @tparam T
@@ -213,8 +213,8 @@ constexpr std::optional<affine_element<Fq, Fr, T>> affine_element<Fq, Fr, T>::de
  * @return constexpr affine_element<Fq, Fr, T>
  */
 template <class Fq, class Fr, class T>
-constexpr affine_element<Fq, Fr, T> affine_element<Fq, Fr, T>::hash_to_curve(const std::vector<uint8_t>& seed,
-                                                                             uint8_t attempt_count) noexcept
+affine_element<Fq, Fr, T> affine_element<Fq, Fr, T>::hash_to_curve(const std::vector<uint8_t>& seed,
+                                                                   uint8_t attempt_count) noexcept
     requires SupportsHashToCurve<T>
 {
     std::vector<uint8_t> target_seed(seed);
