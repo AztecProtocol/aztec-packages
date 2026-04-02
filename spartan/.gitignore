@@ -15,11 +15,6 @@ environments/*
 !environments/five-tps-long-epoch.env
 !environments/devnet-next.env
 !environments/devnet.env
-<<<<<<< HEAD
-!environments/ignition-fisherman.env
-=======
-!environments/block-capacity.env
->>>>>>> c4220cef5d (fix: separate fisherman StatefulSet from rpc-node and stop archiver pollution (#22183))
 !environments/next-net.env
 !environments/next-scenario.env
 !environments/scenario.local.env

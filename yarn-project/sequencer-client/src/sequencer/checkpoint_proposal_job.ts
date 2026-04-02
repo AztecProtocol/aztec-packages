@@ -887,11 +887,7 @@ export class CheckpointProposalJob implements Traceable {
    * whenever the real proposer's block arrives from L1.
    */
   private async syncProposedBlockToArchiver(block: L2Block): Promise<void> {
-<<<<<<< HEAD
-    if (this.config.skipPushProposedBlocksToArchiver !== false) {
-=======
-    if (this.config.skipPushProposedBlocksToArchiver || this.config.fishermanMode) {
->>>>>>> c4220cef5d (fix: separate fisherman StatefulSet from rpc-node and stop archiver pollution (#22183))
+    if (this.config.skipPushProposedBlocksToArchiver !== false || this.config.fishermanMode) {
       this.log.warn(`Skipping push of proposed block ${block.number} to archiver`, {
         blockNumber: block.number,
         slot: block.header.globalVariables.slotNumber,
