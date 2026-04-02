@@ -95,9 +95,7 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
     // records the `u_challenges_inv`, the Pederson commitment to the `h` -polynomial, a.k.a. the challenge
     // polynomial, given as ∏_{i ∈ [k]} (1 + u_{len-i}^{-1}.X^{2^{i-1}}), and the running truth value of the IPA
     // accumulation claim.
-    using VerifierAccumulator = std::conditional_t<Curve::is_stdlib_type,
-                                                   stdlib::recursion::honk::RecursiveIpaAccumulator<Curve>,
-                                                   stdlib::recursion::honk::NativeIpaAccumulator<Curve>>;
+    using VerifierAccumulator = stdlib::recursion::honk::IpaAccumulator<Curve>;
 
     // Compute the length of the vector of coefficients of a polynomial being opened.
     static constexpr size_t poly_length = 1UL << log_poly_length;
@@ -599,7 +597,7 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
                 generator_challenge * a_zero.madd(b_zero, { -opening_claim.opening_pair.evaluation });
         } else {
             msm_scalars[(2 * log_poly_length) + 1] =
-                generator_challenge * (a_zero * b_zero - a_zero * opening_claim.opening_pair.evaluation);
+                generator_challenge * (a_zero * b_zero - opening_claim.opening_pair.evaluation);
         }
         GroupElement ipa_relation = GroupElement::batch_mul(msm_elements, msm_scalars);
         auto neg_commitment = -opening_claim.commitment;

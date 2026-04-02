@@ -30,11 +30,13 @@ class GoblinFlushCircuitTests : public testing::Test {
         auto op_queue = std::make_shared<ECCOpQueue>();
         MegaCircuitBuilder builder(op_queue);
 
+        // Structurally required operations
         builder.queue_ecc_no_op();
         builder.queue_ecc_no_op();
         builder.queue_ecc_no_op();
         builder.queue_ecc_no_op();
         builder.queue_ecc_eq();
+        // Some more ops
         builder.queue_ecc_add_accum(bb::g1::affine_element::one());
 
         // Use GoblinWithoutMerge with the accumulated op queue

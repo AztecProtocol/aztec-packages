@@ -19,12 +19,12 @@ namespace bb {
  * This is used by the AVM recursive verifier and the Goblin flush mechanism.
  */
 class GoblinWithoutMerge : public Goblin {
+    // Store original ZK setting of the op queue to restore after proving
+    bool original_is_zk;
+
   public:
     using ECCVMVerificationKey = ECCVMFlavor::VerificationKey;
     using TranslatorVerificationKey = TranslatorFlavor::VerificationKey;
-
-    // Store original ZK setting of the op queue to restore after proving
-    bool original_is_zk;
 
     /**
      * @brief Construct for AVM case: takes a builder, adds required initial ECC ops

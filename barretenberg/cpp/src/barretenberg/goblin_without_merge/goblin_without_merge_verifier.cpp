@@ -26,8 +26,7 @@ GoblinWithoutMergeRecursiveVerifier::ReductionResult GoblinWithoutMergeRecursive
 
     // Step 2: Verify the Translator proof
     // - Pass `table_commitments` as the one with which GoblinWithoutMerge was initialized (which commits all the ECC
-    // ops of the
-    //   circuit containing the AVM recursive verifier).
+    // ops that have to be verified).
     // - `accumulated_result` and corresponding challenges ensure non-native computation matches ECCVM's native result
     TranslatorVerifier translator_verifier{ transcript,
                                             proof.translator_proof,

@@ -35,6 +35,7 @@ GoblinWithoutMerge::GoblinWithoutMerge(MegaBuilder& builder, const std::shared_p
      * Add required initial ops to the op queue:
      * - Add 1 no-op (for shiftability)
      * - Add 3 no-op (in place of the 3 random ops for ZK hiding).
+     * - Add 1 EQ op (op code 3 is required by Translator's relations)
      * This matches the structure expected by Translator. In Chonk, these ops are added automatically during
      * circuit accumulation, but AVM uses Goblin directly without the full Chonk IVC flow.
      *

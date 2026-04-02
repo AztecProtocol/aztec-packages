@@ -101,7 +101,6 @@ class GoblinRecursiveVerifierTests : public testing::Test {
  */
 TEST_F(GoblinRecursiveVerifierTests, NativeVerification)
 {
-    BB_DISABLE_ASSERTS();
     auto [proof, merge_commitments, _] = create_goblin_prover_output();
 
     auto transcript = std::make_shared<NativeTranscript>();
