@@ -30,8 +30,6 @@ template <typename Fr> Fr evaluate(std::span<const Fr> coeffs, const Fr& z)
 {
     return evaluate(coeffs, z, coeffs.size());
 };
-template <typename Fr> Fr evaluate(const std::vector<Fr*> coeffs, const Fr& z, const size_t large_n);
-
 template <typename Fr>
     requires SupportsFFT<Fr>
 void fft_inner_parallel(

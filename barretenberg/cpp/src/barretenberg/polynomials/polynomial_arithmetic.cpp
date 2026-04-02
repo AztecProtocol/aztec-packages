@@ -358,7 +358,6 @@ void compute_efficient_interpolation(const Fr* src, Fr* dest, const Fr* evaluati
 }
 
 template fr evaluate<fr>(const fr*, const fr&, const size_t);
-template fr evaluate<fr>(const std::vector<fr*>, const fr&, const size_t);
 template void fft_inner_parallel<fr>(fr*, fr*, const EvaluationDomain<fr>&, const fr&, const std::vector<fr*>&);
 template void ifft<fr>(fr*, fr*, const EvaluationDomain<fr>&);
 template fr compute_sum<fr>(const fr*, const size_t);
@@ -366,7 +365,6 @@ template void compute_linear_polynomial_product<fr>(const fr*, fr*, const size_t
 template void compute_efficient_interpolation<fr>(const fr*, fr*, const fr*, const size_t);
 
 template grumpkin::fr evaluate<grumpkin::fr>(const grumpkin::fr*, const grumpkin::fr&, const size_t);
-template grumpkin::fr evaluate<grumpkin::fr>(const std::vector<grumpkin::fr*>, const grumpkin::fr&, const size_t);
 template grumpkin::fr compute_sum<grumpkin::fr>(const grumpkin::fr*, const size_t);
 template void compute_linear_polynomial_product<grumpkin::fr>(const grumpkin::fr*, grumpkin::fr*, const size_t);
 template void compute_efficient_interpolation<grumpkin::fr>(const grumpkin::fr*,
