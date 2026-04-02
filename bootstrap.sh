@@ -675,14 +675,20 @@ case "$cmd" in
     hash="grind"
     failed=0
 
-    # P2P e2e tests (lower parallelism — each test spins up 7 full Aztec nodes)
     e2e_tests=(
+      "e2e_p2p/gossip_network.test.ts"
+      "e2e_p2p/rediscovery.test.ts"
+      "e2e_p2p/reqresp/reqresp.test.ts"
+      "e2e_p2p/reqresp/reqresp_no_handshake.test.ts"
       "e2e_p2p/preferred_gossip_network.test.ts"
+      "e2e_p2p/gossip_network_no_cheat.test.ts"
+      "e2e_p2p/validators_sentinel.test.ts"
+      "e2e_p2p/inactivity_slash_with_consecutive_epochs.test.ts"
     )
     for test in "${e2e_tests[@]}"; do
       echo_header "Grinding: $test"
       full_cmd="${hash}:ISOLATE=1:MAKEFILE_TARGET=yarn-project:NAME=${test} LOG_LEVEL=\"verbose; debug:p2p\" yarn-project/end-to-end/scripts/run_test.sh simple src/${test}"
-      grind_test "$full_cmd" "$e2e_timeout" 10 || { echo "FAILED: $test"; failed=1; }
+      grind_test "$full_cmd" "$e2e_timeout" 100 || { echo "FAILED: $test"; failed=1; }
     done
 
     exit $failed
