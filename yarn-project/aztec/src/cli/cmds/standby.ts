@@ -28,11 +28,11 @@ export async function computeExpectedGenesisRoot(config: GenesisStateConfig, use
 
   userLog(`Initial funded accounts: ${initialFundedAccounts.map(a => a.toString()).join(', ')}`);
 
-  const { genesisArchiveRoot, genesis } = await getGenesisValues(initialFundedAccounts);
+  const { genesisArchiveRoot, prefilledPublicData } = await getGenesisValues(initialFundedAccounts);
 
   userLog(`Genesis archive root: ${genesisArchiveRoot.toString()}`);
 
-  return { genesisArchiveRoot, genesis };
+  return { genesisArchiveRoot, prefilledPublicData };
 }
 
 async function checkRollupCompatibility(

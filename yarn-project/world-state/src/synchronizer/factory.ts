@@ -2,7 +2,7 @@ import type { LoggerBindings } from '@aztec/foundation/log';
 import type { L2BlockSource } from '@aztec/stdlib/block';
 import type { DataStoreConfig } from '@aztec/stdlib/kv-store';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
-import { EMPTY_GENESIS_DATA, type GenesisData } from '@aztec/stdlib/world-state';
+import type { PublicDataTreeLeaf } from '@aztec/stdlib/trees';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import { WorldStateInstrumentation } from '../instrumentation/instrumentation.js';
@@ -21,12 +21,12 @@ export interface WorldStateTreeMapSizes {
 export async function createWorldStateSynchronizer(
   config: WorldStateConfig & DataStoreConfig,
   l2BlockSource: L2BlockSource & L1ToL2MessageSource,
-  genesis: GenesisData = EMPTY_GENESIS_DATA,
+  prefilledPublicData: PublicDataTreeLeaf[] = [],
   client: TelemetryClient = getTelemetryClient(),
   bindings?: LoggerBindings,
 ) {
   const instrumentation = new WorldStateInstrumentation(client);
-  const merkleTrees = await createWorldState(config, genesis, instrumentation, bindings);
+  const merkleTrees = await createWorldState(config, prefilledPublicData, instrumentation, bindings);
   return new ServerWorldStateSynchronizer(merkleTrees, l2BlockSource, config, instrumentation);
 }
 
@@ -42,7 +42,7 @@ export async function createWorldState(
     | 'publicDataTreeMapSizeKb'
   > &
     Pick<DataStoreConfig, 'dataDirectory' | 'dataStoreMapSizeKb' | 'l1Contracts'>,
-  genesis: GenesisData = EMPTY_GENESIS_DATA,
+  prefilledPublicData: PublicDataTreeLeaf[] = [],
   instrumentation: WorldStateInstrumentation = new WorldStateInstrumentation(getTelemetryClient()),
   bindings?: LoggerBindings,
 ) {
@@ -66,14 +66,14 @@ export async function createWorldState(
         config.l1Contracts.rollupAddress,
         dataDirectory,
         wsTreeMapSizes,
-        genesis,
+        prefilledPublicData,
         instrumentation,
         bindings,
       )
     : await NativeWorldStateService.tmp(
         config.l1Contracts.rollupAddress,
         !['true', '1'].includes(process.env.DEBUG_WORLD_STATE!),
-        genesis,
+        prefilledPublicData,
         instrumentation,
         bindings,
       );
