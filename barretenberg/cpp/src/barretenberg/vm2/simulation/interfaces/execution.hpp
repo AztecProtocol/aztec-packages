@@ -15,9 +15,19 @@ namespace bb::avm2::simulation {
 // Forward declarations
 class ContextInterface;
 
+enum HaltingMode : uint8_t {
+    UNDEFINED,
+    RETURN,
+    REVERT,
+    EXCEPTIONAL_HALT,
+};
+
 struct EnqueuedCallResult {
     bool success;
     Gas gas_used;
+    // For debugging.
+    HaltingMode halting_mode;
+    std::optional<std::string> halting_message;
 };
 
 class ExecutionInterface {
