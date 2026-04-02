@@ -445,11 +445,7 @@ locals {
             type    = local.is_kind ? "ClusterIP" : "LoadBalancer"
           }
         }
-        })], var.FISHERMAN_MODE ? [yamlencode({
-        node = {
-          logLevel = var.FISHERMAN_LOG_LEVEL
-        }
-      })] : [])
+        })])
 
       custom_settings = merge({
         "replicaCount"                = var.RPC_REPLICAS
@@ -478,18 +474,7 @@ locals {
         "node.env.TX_FILE_STORE_ENABLED"              = var.TX_FILE_STORE_ENABLED
         "node.env.TX_FILE_STORE_URL"                  = var.TX_FILE_STORE_URL
         "node.env.TX_COLLECTION_FILE_STORE_URLS"      = var.TX_COLLECTION_FILE_STORE_URLS
-        },
-        # Only set RPC mnemonic config in fisherman mode)
-        var.FISHERMAN_MODE ? {
-          "node.secret.envEnabled"       = true
-          "node.env.FISHERMAN_MODE"      = "true"
-          "node.secret.mnemonic"         = var.FISHERMAN_MNEMONIC
-          "node.secret.mnemonicIndex"    = var.FISHERMAN_MNEMONIC_START_INDEX
-          "node.env.KEY_INDEX_START"     = var.FISHERMAN_MNEMONIC_START_INDEX
-          "node.env.VALIDATORS_PER_NODE" = "1"
-          "node.preStartScript"          = "source /scripts/get-private-key.sh"
-        } : {}
-      )
+      }
       boot_node_host_path  = "node.env.BOOT_NODE_HOST"
       bootstrap_nodes_path = "node.env.BOOTSTRAP_NODES"
       wait                 = true

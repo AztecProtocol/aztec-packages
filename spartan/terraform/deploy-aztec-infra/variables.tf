@@ -811,12 +811,6 @@ variable "FULL_NODE_INCLUDE_METRICS" {
   default     = null
 }
 
-variable "FISHERMAN_MODE" {
-  description = "Whether to run in fisherman mode (applies to the rpc-node; prefer FISHERMAN_REPLICAS for a dedicated fisherman StatefulSet)"
-  type        = bool
-  default     = false
-}
-
 variable "FISHERMAN_REPLICAS" {
   description = "Number of dedicated fisherman node replicas (separate from the rpc-node)"
   type        = number
