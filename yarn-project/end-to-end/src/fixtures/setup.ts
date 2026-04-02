@@ -52,7 +52,6 @@ import { type ContractInstanceWithAddress, getContractInstanceFromInstantiationP
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 import { tryStop } from '@aztec/stdlib/interfaces/server';
 import type { PublicDataTreeLeaf } from '@aztec/stdlib/trees';
-import type { GenesisData } from '@aztec/stdlib/world-state';
 import {
   type TelemetryClient,
   type TelemetryClientConfig,
@@ -250,8 +249,8 @@ export type EndToEndContext = {
   sequencerDelayer: Delayer | undefined;
   /** Delayer for prover node L1 txs (only when enableDelayer and startProverNode are true). */
   proverDelayer: Delayer | undefined;
-  /** Genesis data used for setting up nodes. */
-  genesis: GenesisData | undefined;
+  /** Prefilled public data used for setting up nodes. */
+  prefilledPublicData: PublicDataTreeLeaf[] | undefined;
   /** ACVM config (only set if running locally). */
   acvmConfig: Awaited<ReturnType<typeof getACVMConfig>>;
   /** BB config (only set if running locally). */
@@ -376,12 +375,10 @@ export async function setup(
       addressesToFund.push(sponsoredFPCAddress);
     }
 
-    const genesisTimestamp = BigInt(Math.floor(Date.now() / 1000));
-    const { genesisArchiveRoot, genesis, fundingNeeded } = await getGenesisValues(
+    const { genesisArchiveRoot, prefilledPublicData, fundingNeeded } = await getGenesisValues(
       addressesToFund,
       opts.initialAccountFeeJuice,
       opts.genesisPublicData,
-      genesisTimestamp,
     );
 
     const wasAutomining = await ethCheatCodes.isAutoMining();
@@ -499,7 +496,11 @@ export async function setup(
     }
 
     const aztecNodeService = await withLoggerBindings({ actor: 'node-0' }, () =>
-      AztecNodeService.createAndSync(config, { dateProvider, telemetry: telemetryClient, p2pClientDeps }, { genesis }),
+      AztecNodeService.createAndSync(
+        config,
+        { dateProvider, telemetry: telemetryClient, p2pClientDeps },
+        { prefilledPublicData },
+      ),
     );
     const sequencerClient = aztecNodeService.getSequencer();
 
@@ -523,7 +524,7 @@ export async function setup(
           dataDirectory: proverNodeDataDirectory,
         },
         { dateProvider, p2pClientDeps, telemetry: telemetryClient },
-        { genesis },
+        { prefilledPublicData },
       ));
     }
 
@@ -628,7 +629,7 @@ export async function setup(
       initialFundedAccounts,
       logger,
       mockGossipSubNetwork,
-      genesis,
+      prefilledPublicData,
       proverNode,
       sequencerDelayer,
       proverDelayer,
@@ -728,7 +729,7 @@ export function createAndSyncProverNode(
     dateProvider: DateProvider;
     p2pClientDeps?: P2PClientDeps;
   },
-  options: { genesis?: GenesisData; dontStart?: boolean },
+  options: { prefilledPublicData: PublicDataTreeLeaf[]; dontStart?: boolean },
 ): Promise<{ proverNode: AztecNodeService }> {
   return withLoggerBindings({ actor: 'prover-0' }, async () => {
     const proverNode = await AztecNodeService.createAndSync(
@@ -741,7 +742,7 @@ export function createAndSyncProverNode(
         proverPublisherPrivateKeys: [new SecretValue(proverNodePrivateKey)],
       },
       deps,
-      { genesis: options.genesis, dontStartProverNode: options.dontStart },
+      { ...options, dontStartProverNode: options.dontStart },
     );
 
     if (!proverNode.getProverNode()) {

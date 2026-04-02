@@ -5,7 +5,6 @@
  * and Web3Signer for remote signing. Verifies that blocks are produced,
  * attestations are signed, and no double-signing occurs.
  */
-import type { InitialAccountData } from '@aztec/accounts/testing';
 import { type AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
 import { NO_FROM } from '@aztec/aztec.js/account';
 import { AztecAddress, EthAddress } from '@aztec/aztec.js/addresses';
@@ -26,7 +25,6 @@ import type { TestDateProvider } from '@aztec/foundation/timer';
 import { GovernanceProposerAbi } from '@aztec/l1-artifacts/GovernanceProposerAbi';
 import { StatefulTestContractArtifact } from '@aztec/noir-test-contracts.js/StatefulTest';
 import { type AttestationInfo, getAttestationInfoFromPublishedCheckpoint } from '@aztec/stdlib/block';
-import type { GenesisData } from '@aztec/stdlib/world-state';
 import type { ValidatorClient } from '@aztec/validator-client';
 import { PostgresSlashingProtectionDatabase } from '@aztec/validator-ha-signer/db';
 import { type DutyRow, DutyStatus, DutyType } from '@aztec/validator-ha-signer/types';
@@ -69,9 +67,9 @@ describe('HA Full Setup', () => {
   let aztecNode: AztecNode;
   let config: AztecNodeConfig;
   let teardown: () => Promise<void>;
-  let initialFundedAccounts: InitialAccountData[];
+  let initialFundedAccounts: any[];
   let dateProvider: TestDateProvider;
-  let genesis: GenesisData | undefined;
+  let prefilledPublicData: any[] | undefined;
 
   // HA specific resources
   let haNodePools: Pool[]; // Database pools for HA nodes (for cleanup)
@@ -143,7 +141,7 @@ describe('HA Full Setup', () => {
       initialFundedAccounts,
       dateProvider,
       deployL1ContractsValues,
-      genesis,
+      prefilledPublicData,
     } = await setup(1, {
       initialValidators,
       sequencerPublisherPrivateKeys: [new SecretValue(publisherPrivateKeys[0])],
@@ -240,7 +238,7 @@ describe('HA Full Setup', () => {
       };
 
       const nodeService = await withLoggerBindings({ actor: `HA-${i}` }, async () => {
-        return await AztecNodeService.createAndSync(nodeConfig, { dateProvider }, { genesis });
+        return await AztecNodeService.createAndSync(nodeConfig, { dateProvider }, { prefilledPublicData });
       });
 
       haNodeServices.push(nodeService);

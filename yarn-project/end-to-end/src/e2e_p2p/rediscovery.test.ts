@@ -58,7 +58,7 @@ describe('e2e_p2p_rediscovery', () => {
       t.bootstrapNodeEnr,
       NUM_VALIDATORS,
       BOOT_NODE_UDP_PORT,
-      t.genesis,
+      t.prefilledPublicData,
       DATA_DIR,
       // To collect metrics - run in aztec-packages `docker compose --profile metrics up`
       shouldCollectMetrics(),
@@ -91,7 +91,7 @@ describe('e2e_p2p_rediscovery', () => {
         i + 1 + BOOT_NODE_UDP_PORT,
         undefined,
         i,
-        t.genesis,
+        t.prefilledPublicData,
         `${DATA_DIR}-${i}`,
       );
       t.logger.info(`Node ${i} restarted`);
