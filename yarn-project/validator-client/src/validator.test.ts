@@ -2,7 +2,13 @@ import type { BlobClientInterface } from '@aztec/blob-client/client';
 import { GENESIS_ARCHIVE_ROOT } from '@aztec/constants';
 import type { EpochCache } from '@aztec/epoch-cache';
 import { MAX_FEE_ASSET_PRICE_MODIFIER_BPS } from '@aztec/ethereum/contracts';
-import { BlockNumber, CheckpointNumber, IndexWithinCheckpoint, SlotNumber } from '@aztec/foundation/branded-types';
+import {
+  BlockNumber,
+  CheckpointNumber,
+  EpochNumber,
+  IndexWithinCheckpoint,
+  SlotNumber,
+} from '@aztec/foundation/branded-types';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { times } from '@aztec/foundation/collection';
 import { SecretValue, getConfigFromMappings } from '@aztec/foundation/config';
@@ -23,7 +29,7 @@ import {
 } from '@aztec/p2p';
 import { OffenseType, WANT_TO_SLASH_EVENT } from '@aztec/slasher';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { BlockData, L2Block, L2BlockSink, L2BlockSource } from '@aztec/stdlib/block';
+import { type BlockData, L2Block, type L2BlockSink, type L2BlockSource } from '@aztec/stdlib/block';
 import type { getEpochAtSlot } from '@aztec/stdlib/epoch-helpers';
 import type { SlasherConfig, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import { type L1ToL2MessageSource, computeInHashFromL1ToL2Messages } from '@aztec/stdlib/messaging';
@@ -51,6 +57,7 @@ import type {
 } from './checkpoint_builder.js';
 import { type ValidatorClientConfig, validatorClientConfigMappings } from './config.js';
 import { HAKeyStore } from './key_store/ha_key_store.js';
+import { ProposalHandler } from './proposal_handler.js';
 import { ValidatorClient } from './validator.js';
 
 function makeKeyStore(validator: {
@@ -84,7 +91,7 @@ describe('ValidatorClient', () => {
     > & {
       disableTransactions: boolean;
     };
-  let validatorClient: TestValidatorClient;
+  let validatorClient: ValidatorClient;
   let p2pClient: MockProxy<P2P>;
   let blockSource: MockProxy<L2BlockSource & L2BlockSink>;
   let l1ToL2MessageSource: MockProxy<L1ToL2MessageSource>;
@@ -119,6 +126,25 @@ describe('ValidatorClient', () => {
     epochCache.getL1Constants.mockReturnValue({ epochDuration: 8 } satisfies Parameters<
       typeof getEpochAtSlot
     >[1] as any);
+    epochCache.getEpochAndSlotNow.mockReturnValue({
+      epoch: EpochNumber(1),
+      slot: SlotNumber(1),
+      ts: 0n,
+      nowMs: 0n,
+    });
+    epochCache.getEpochAndSlotInNextL1Slot.mockReturnValue({
+      epoch: EpochNumber(1),
+      slot: SlotNumber(1),
+      ts: 0n,
+      nowSeconds: 0n,
+    });
+    epochCache.getTargetSlot.mockReturnValue(SlotNumber(1));
+    epochCache.getTargetEpochAndSlotInNextL1Slot.mockReturnValue({
+      epoch: EpochNumber(1),
+      slot: SlotNumber(2),
+      ts: 0n,
+      nowSeconds: 0n,
+    });
 
     blockSource = mock<L2BlockSource & L2BlockSink>();
     blockSource.getCheckpointedBlocksForEpoch.mockResolvedValue([]);
@@ -148,7 +174,6 @@ describe('ValidatorClient', () => {
       attestationPollingIntervalMs: 1000,
       disableValidator: false,
       disabledValidators: [],
-      validatorReexecute: false,
       slashBroadcastedInvalidBlockPenalty: 1n,
       slashDuplicateProposalPenalty: 1n,
       slashDuplicateAttestationPenalty: 1n,
@@ -176,7 +201,7 @@ describe('ValidatorClient', () => {
       keyStoreManager,
       blobClient,
       dateProvider,
-    )) as TestValidatorClient;
+    )) as ValidatorClient;
   });
 
   describe('createBlockProposal', () => {
@@ -309,18 +334,6 @@ describe('ValidatorClient', () => {
 
     const makeTxFromHash = (txHash: TxHash) => ({ getTxHash: () => txHash, txHash }) as Tx;
 
-    const enableReexecution = () => {
-      validatorClient.updateConfig({ validatorReexecute: true });
-      mockCheckpointBuilder = mock<CheckpointBuilder>();
-      mockCheckpointBuilder.buildBlock.mockImplementation(() => Promise.resolve(blockBuildResult));
-      checkpointsBuilder.openCheckpoint.mockResolvedValue(mockCheckpointBuilder);
-      worldState.fork.mockResolvedValue({
-        close: () => Promise.resolve(),
-        [Symbol.asyncDispose]: () => Promise.resolve(),
-        getTreeInfo: () => Promise.resolve({ root: proposal.blockHeader.lastArchive.root.toBuffer() }),
-      } as never);
-    };
-
     beforeEach(async () => {
       const emptyInHash = computeInHashFromL1ToL2Messages([]);
       const blockHeader = makeBlockHeader(1, { blockNumber: BlockNumber(100), slotNumber: SlotNumber(100) });
@@ -346,6 +359,25 @@ describe('ValidatorClient', () => {
       epochCache.getTargetAndNextSlot.mockReturnValue({
         targetSlot: proposal.slotNumber,
         nextSlot: SlotNumber(proposal.slotNumber + 1),
+      });
+      epochCache.getEpochAndSlotNow.mockReturnValue({
+        epoch: EpochNumber(1),
+        slot: proposal.slotNumber,
+        ts: 0n,
+        nowMs: 0n,
+      });
+      epochCache.getEpochAndSlotInNextL1Slot.mockReturnValue({
+        epoch: EpochNumber(1),
+        slot: proposal.slotNumber,
+        ts: 0n,
+        nowSeconds: 0n,
+      });
+      epochCache.getTargetSlot.mockReturnValue(proposal.slotNumber);
+      epochCache.getTargetEpochAndSlotInNextL1Slot.mockReturnValue({
+        epoch: EpochNumber(1),
+        slot: SlotNumber(proposal.slotNumber + 1),
+        ts: 0n,
+        nowSeconds: 0n,
       });
       epochCache.getProposerAttesterAddressInSlot.mockResolvedValue(proposal.getSender());
       epochCache.filterInCommittee.mockResolvedValue([EthAddress.fromString(validatorAccounts[0].address)]);
@@ -382,6 +414,16 @@ describe('ValidatorClient', () => {
           indexWithinCheckpoint: IndexWithinCheckpoint(0),
         } as unknown as L2Block,
       };
+
+      // Set up reexecution mocks (reexecution is always enabled)
+      mockCheckpointBuilder = mock<CheckpointBuilder>();
+      mockCheckpointBuilder.buildBlock.mockImplementation(() => Promise.resolve(blockBuildResult));
+      checkpointsBuilder.openCheckpoint.mockResolvedValue(mockCheckpointBuilder);
+      worldState.fork.mockResolvedValue({
+        close: () => Promise.resolve(),
+        [Symbol.asyncDispose]: () => Promise.resolve(),
+        getTreeInfo: () => Promise.resolve({ root: proposal.blockHeader.lastArchive.root.toBuffer() }),
+      } as never);
     });
 
     it('should validate block proposal', async () => {
@@ -396,12 +438,14 @@ describe('ValidatorClient', () => {
       const selfProposal = await makeBlockProposal({
         blockHeader: proposal.blockHeader,
         inHash: emptyInHash,
+        archiveRoot: proposal.archive,
+        txHashes: proposal.txHashes,
         signer: selfSigner,
       });
 
       epochCache.getProposerAttesterAddressInSlot.mockResolvedValue(selfSigner.address);
 
-      const handleSpy = jest.spyOn(validatorClient.getBlockProposalHandler(), 'handleBlockProposal');
+      const handleSpy = jest.spyOn(validatorClient.getProposalHandler(), 'handleBlockProposal');
       const isValid = await validatorClient.validateBlockProposal(selfProposal, sender);
       expect(isValid).toBe(true);
       expect(handleSpy).toHaveBeenCalled();
@@ -410,7 +454,7 @@ describe('ValidatorClient', () => {
     it('should return early when escape hatch is open', async () => {
       epochCache.isEscapeHatchOpenAtSlot.mockResolvedValueOnce(true);
 
-      const handleSpy = jest.spyOn(validatorClient.getBlockProposalHandler(), 'handleBlockProposal');
+      const handleSpy = jest.spyOn(validatorClient.getProposalHandler(), 'handleBlockProposal');
 
       const isValid = await validatorClient.validateBlockProposal(proposal, sender);
       expect(isValid).toBe(false);
@@ -479,7 +523,10 @@ describe('ValidatorClient', () => {
 
     it('should attest to a checkpoint proposal after validating a block for that slot', async () => {
       const addCheckpointAttestationsSpy = jest.spyOn(p2pClient, 'addOwnCheckpointAttestations');
-      const uploadBlobsSpy = jest.spyOn(validatorClient, 'uploadBlobsForCheckpoint');
+      const uploadBlobsSpy = jest.spyOn(
+        validatorClient.getProposalHandler() as TestProposalHandler,
+        'tryUploadBlobsForCheckpoint',
+      );
 
       const didValidate = await validatorClient.validateBlockProposal(proposal, sender);
       expect(didValidate).toBe(true);
@@ -494,10 +541,15 @@ describe('ValidatorClient', () => {
         },
       });
 
+      // Mock validateCheckpointProposal to pass, so handleCheckpointProposal runs its
+      // own checks (signature, fee modifier) and then proceeds to blob upload.
+      const validateCheckpointSpy = jest
+        .spyOn(validatorClient.getProposalHandler(), 'validateCheckpointProposal')
+        .mockResolvedValue({ isValid: true });
+
       // Enable blob upload for this attestation
       blobClient.canUpload.mockReturnValue(true);
 
-      validatorClient.updateConfig({ skipCheckpointProposalValidation: true });
       const attestations = await validatorClient.attestToCheckpointProposal(checkpointProposal, sender);
 
       expect(attestations).toBeDefined();
@@ -506,6 +558,7 @@ describe('ValidatorClient', () => {
       expect(uploadBlobsSpy).toHaveBeenCalled();
 
       uploadBlobsSpy.mockRestore();
+      validateCheckpointSpy.mockRestore();
     });
 
     it('should not attest to a checkpoint proposal that references a middle block instead of the last', async () => {
@@ -558,7 +611,6 @@ describe('ValidatorClient', () => {
     });
 
     it('should re-execute and validate proposal', async () => {
-      enableReexecution();
       const isValid = await validatorClient.validateBlockProposal(proposal, sender);
       expect(isValid).toBe(true);
     });
@@ -566,7 +618,6 @@ describe('ValidatorClient', () => {
     it('should not validate proposal if roots do not match and should emit WANT_TO_SLASH_EVENT', async () => {
       // Block builder returns a block with a different root
       const emitSpy = jest.spyOn(validatorClient, 'emit');
-      enableReexecution();
       blockBuildResult.block.archive.root = Fr.random();
 
       // Proposal should be invalid
@@ -588,7 +639,6 @@ describe('ValidatorClient', () => {
 
     it('should not validate proposal if a random field in the proposal does not match', async () => {
       // Block builder returns a block with a different archive root
-      enableReexecution();
       blockBuildResult.block.archive.root = Fr.random();
 
       // Proposal should be invalid
@@ -597,7 +647,6 @@ describe('ValidatorClient', () => {
     });
 
     it('should not validate proposal if the proposed block number is taken', async () => {
-      enableReexecution();
       blockSource.getBlockHeader.mockResolvedValue({} as BlockHeader);
       const isValid = await validatorClient.validateBlockProposal(proposal, sender);
       expect(isValid).toBe(false);
@@ -608,7 +657,6 @@ describe('ValidatorClient', () => {
       validatorClient.updateConfig({ slashBroadcastedInvalidBlockPenalty: 0n });
 
       const emitSpy = jest.spyOn(validatorClient, 'emit');
-      enableReexecution();
       blockBuildResult.block.archive.root = Fr.random();
 
       const isValid = await validatorClient.validateBlockProposal(proposal, sender);
@@ -641,7 +689,6 @@ describe('ValidatorClient', () => {
     });
 
     it('should return false if the transactions are not available', async () => {
-      enableReexecution();
       txProvider.getTxsForBlockProposal.mockImplementation(proposal =>
         Promise.resolve({
           txs: [],
@@ -654,7 +701,6 @@ describe('ValidatorClient', () => {
     });
 
     it('should return false if re-execution fails', async () => {
-      enableReexecution();
       mockCheckpointBuilder.buildBlock.mockImplementation(() => {
         throw new Error('Failed to build block');
       });
@@ -697,13 +743,31 @@ describe('ValidatorClient', () => {
         targetSlot: SlotNumber(proposal.slotNumber + 20),
         nextSlot: SlotNumber(proposal.slotNumber + 21),
       });
+      epochCache.getEpochAndSlotNow.mockReturnValue({
+        epoch: EpochNumber(1),
+        slot: SlotNumber(proposal.slotNumber + 20),
+        ts: 0n,
+        nowMs: 0n,
+      });
+      epochCache.getEpochAndSlotInNextL1Slot.mockReturnValue({
+        epoch: EpochNumber(1),
+        slot: SlotNumber(proposal.slotNumber + 20),
+        ts: 0n,
+        nowSeconds: 0n,
+      });
+      epochCache.getTargetSlot.mockReturnValue(SlotNumber(proposal.slotNumber + 20));
+      epochCache.getTargetEpochAndSlotInNextL1Slot.mockReturnValue({
+        epoch: EpochNumber(1),
+        slot: SlotNumber(proposal.slotNumber + 21),
+        ts: 0n,
+        nowSeconds: 0n,
+      });
 
       const isValid = await validatorClient.validateBlockProposal(proposal, sender);
       expect(isValid).toBe(false);
     });
 
     it('should return false if messages do not match', async () => {
-      enableReexecution();
       l1ToL2MessageSource.getL1ToL2Messages.mockResolvedValue([Fr.random()]);
 
       const isValid = await validatorClient.validateBlockProposal(proposal, sender);
@@ -718,7 +782,6 @@ describe('ValidatorClient', () => {
       // L1 messages for the checkpoint) will catch it.
 
       it('should return false if global variables do not match parent for non-first block in checkpoint', async () => {
-        enableReexecution();
         // Create a proposal with indexWithinCheckpoint > 0 (non-first block in checkpoint)
         const parentSlotNumber = 100;
         const parentBlockNumber = 10;
@@ -759,6 +822,25 @@ describe('ValidatorClient', () => {
           targetSlot: nonFirstBlockProposal.slotNumber,
           nextSlot: SlotNumber(nonFirstBlockProposal.slotNumber + 1),
         });
+        epochCache.getEpochAndSlotNow.mockReturnValue({
+          epoch: EpochNumber(1),
+          slot: nonFirstBlockProposal.slotNumber,
+          ts: 0n,
+          nowMs: 0n,
+        });
+        epochCache.getEpochAndSlotInNextL1Slot.mockReturnValue({
+          epoch: EpochNumber(1),
+          slot: nonFirstBlockProposal.slotNumber,
+          ts: 0n,
+          nowSeconds: 0n,
+        });
+        epochCache.getTargetSlot.mockReturnValue(nonFirstBlockProposal.slotNumber);
+        epochCache.getTargetEpochAndSlotInNextL1Slot.mockReturnValue({
+          epoch: EpochNumber(1),
+          slot: SlotNumber(nonFirstBlockProposal.slotNumber + 1),
+          ts: 0n,
+          nowSeconds: 0n,
+        });
 
         // Mock parent block data returned by getBlockDataByArchive
         blockSource.getBlockDataByArchive.mockResolvedValue({
@@ -797,7 +879,7 @@ describe('ValidatorClient', () => {
       // blocks in the same checkpoint share the same checkpointNumber, they will always
       // compute the same inHash from the same L1 messages. If a malicious proposal has a
       // different inHash, it will fail the existing validation at lines 192-200 in
-      // block_proposal_handler.ts.
+      // proposal_handler.ts.
     });
 
     it('should validate proposals in fisherman mode but not create or broadcast attestations', async () => {
@@ -805,7 +887,6 @@ describe('ValidatorClient', () => {
       validatorClient.updateConfig({ fishermanMode: true });
 
       // Enable re-execution (required in fisherman mode)
-      enableReexecution();
 
       // Set up so validator is NOT in the committee
       epochCache.filterInCommittee.mockResolvedValueOnce([]);
@@ -896,13 +977,15 @@ describe('ValidatorClient', () => {
     const proposalInfo = { slotNumber: 1, archive: '0x00', proposer: '0x00', txCount: 0 };
 
     it('should send blobs from blocks in the slot to filestore', async () => {
-      const blobFields = [Fr.random(), Fr.random()];
-      const mockBlock = { toBlobFields: () => blobFields } as unknown as L2Block;
+      const mockBlock = L2Block.empty();
       blockSource.getBlockHeaderByArchive.mockResolvedValue(makeBlockHeader());
       blockSource.getBlocksForSlot.mockResolvedValue([mockBlock]);
 
       const proposal = await makeCheckpointProposal({ lastBlock: {} });
-      await validatorClient.uploadBlobsForCheckpoint(proposal, proposalInfo);
+      await (validatorClient.getProposalHandler() as TestProposalHandler).uploadBlobsForCheckpoint(
+        proposal,
+        proposalInfo,
+      );
 
       expect(blockSource.getBlocksForSlot).toHaveBeenCalledWith(proposal.slotNumber);
       expect(blobClient.sendBlobsToFilestore).toHaveBeenCalled();
@@ -912,19 +995,24 @@ describe('ValidatorClient', () => {
       blockSource.getBlockHeaderByArchive.mockResolvedValue(undefined);
 
       const proposal = await makeCheckpointProposal({ lastBlock: {} });
-      await validatorClient.uploadBlobsForCheckpoint(proposal, proposalInfo);
+      await (validatorClient.getProposalHandler() as TestProposalHandler).uploadBlobsForCheckpoint(
+        proposal,
+        proposalInfo,
+      );
 
       expect(blobClient.sendBlobsToFilestore).not.toHaveBeenCalled();
     });
 
     it('should not throw when blob upload fails', async () => {
-      const mockBlock = { toBlobFields: () => [Fr.random()] } as unknown as L2Block;
+      const mockBlock = L2Block.empty();
       blockSource.getBlockHeaderByArchive.mockResolvedValue(makeBlockHeader());
       blockSource.getBlocksForSlot.mockResolvedValue([mockBlock]);
       blobClient.sendBlobsToFilestore.mockRejectedValue(new Error('upload failed'));
 
       const proposal = await makeCheckpointProposal({ lastBlock: {} });
-      await expect(validatorClient.uploadBlobsForCheckpoint(proposal, proposalInfo)).resolves.toBeUndefined();
+      await expect(
+        (validatorClient.getProposalHandler() as TestProposalHandler).uploadBlobsForCheckpoint(proposal, proposalInfo),
+      ).resolves.toBeUndefined();
     });
   });
 
@@ -1089,8 +1177,11 @@ describe('ValidatorClient', () => {
 });
 
 /** Exposes protected methods for direct testing */
-class TestValidatorClient extends ValidatorClient {
+class TestProposalHandler extends ProposalHandler {
   declare public uploadBlobsForCheckpoint: (
-    ...args: Parameters<ValidatorClient['uploadBlobsForCheckpoint']>
+    ...args: Parameters<ProposalHandler['uploadBlobsForCheckpoint']>
   ) => Promise<void>;
+  declare public tryUploadBlobsForCheckpoint: (
+    ...args: Parameters<ProposalHandler['tryUploadBlobsForCheckpoint']>
+  ) => void;
 }

@@ -8,12 +8,12 @@ import { getInitialTestAccountsData } from "@aztec/accounts/testing";
 import { TokenContract, type Transfer } from "@aztec/noir-contracts.js/Token";
 import { SponsoredFPCContract } from "@aztec/noir-contracts.js/SponsoredFPC";
 import { Fr } from "@aztec/aztec.js/fields";
-import { NO_WAIT, BatchCall } from "@aztec/aztec.js/contracts";
+import { NO_WAIT, BatchCall, Contract } from "@aztec/aztec.js/contracts";
 import { SponsoredFeePaymentMethod } from "@aztec/aztec.js/fee/testing";
 import { getContractInstanceFromInstantiationParams } from "@aztec/stdlib/contract";
 import { PublicKeys } from "@aztec/stdlib/keys";
 import { getPublicEvents } from "@aztec/aztec.js/events";
-import { BlockNumber } from "@aztec/aztec.js/fields";
+import { GasSettings } from "@aztec/stdlib/gas";
 
 // Setup: connect to network
 const node = createAztecNodeClient(process.env.AZTEC_NODE_URL ?? "http://localhost:8080");
@@ -304,5 +304,136 @@ async function pollForTransferEvents() {
 // Example: poll once (in production, use setInterval)
 await pollForTransferEvents();
 // docs:end:poll_for_events
+
+// docs:start:connect_to_contract
+// wallet is from the connection guide; token is the contract deployed in the deploy guide
+const contract = await Contract.at(token.address, TokenContract.artifact, wallet);
+// docs:end:connect_to_contract
+
+// docs:start:basic_send_transaction
+// contract is from the step above; aliceAddress is from the connection guide
+const { receipt: sendReceipt } = await contract.methods
+  .transfer_in_public(aliceAddress, bobAddress, 100n, 0n)
+  .send({ from: aliceAddress });
+console.log(`Transaction mined in block ${sendReceipt.blockNumber}`);
+console.log(`Transaction fee: ${sendReceipt.transactionFee}`);
+// docs:end:basic_send_transaction
+
+// docs:start:set_gas_padding
+wallet.setEstimatedGasPadding(0.2); // 20% padding instead of the default 10%
+// docs:end:set_gas_padding
+
+// docs:start:simulate_with_metadata
+const metaResult = await token.methods
+  .balance_of_public(aliceAddress)
+  .simulate({ from: aliceAddress, includeMetadata: true });
+console.log("Balance:", metaResult.result);
+console.log("L2 gas limit:", metaResult.estimatedGas.gasLimits.l2Gas);
+console.log("DA gas limit:", metaResult.estimatedGas.gasLimits.daGas);
+// docs:end:simulate_with_metadata
+
+// docs:start:read_public_logs
+const publicLogs = await node.getPublicLogs({ fromBlock: 1, toBlock: await node.getBlockNumber() + 1 });
+if (publicLogs.logs.length > 0) {
+  const rawFields = publicLogs.logs[0].log.getEmittedFields(); // Fr[]
+  console.log("Raw log fields:", rawFields.length);
+}
+// docs:end:read_public_logs
+
+// docs:start:estimate_mana
+const { estimatedGas } = await token.methods
+  .transfer_in_public(aliceAddress, bobAddress, 1n, 0n)
+  .simulate({
+    from: aliceAddress,
+    fee: { estimateGas: true, estimatedGasPadding: 0.1 },
+  });
+// docs:end:estimate_mana
+
+// docs:start:compute_fee_from_estimate
+const currentFees = await node.getCurrentMinFees();
+const estimatedFee = estimatedGas.gasLimits.computeFee(currentFees).toBigInt();
+console.log("Estimated fee:", estimatedFee);
+// docs:end:compute_fee_from_estimate
+
+// docs:start:get_fee_from_receipt
+const { receipt: feeReceipt } = await token.methods
+  .mint_to_public(aliceAddress, 1n)
+  .send({ from: aliceAddress });
+console.log("Transaction fee:", feeReceipt.transactionFee);
+// docs:end:get_fee_from_receipt
+
+// docs:start:check_receipt_status
+console.log("Succeeded:", feeReceipt.hasExecutionSucceeded());
+console.log("Block:", feeReceipt.blockNumber);
+console.log("Fee paid:", feeReceipt.transactionFee);
+// docs:end:check_receipt_status
+
+// docs:start:pay_with_fee_juice
+// contract is a deployed contract instance; aliceAddress is from the connection guide
+const { receipt: feeJuiceReceipt } = await token.methods
+  .mint_to_public(aliceAddress, 1n)
+  .send({
+    from: aliceAddress,
+    // no fee payment method needed — Fee Juice is used automatically
+  });
+console.log("Transaction fee:", feeJuiceReceipt.transactionFee);
+// docs:end:pay_with_fee_juice
+
+// docs:start:custom_gas_settings
+// Query current network fees to set realistic limits
+const networkFees = await node.getCurrentMinFees();
+const gasSettings = GasSettings.from({
+  gasLimits: { daGas: 100_000, l2Gas: 2_000_000 },
+  teardownGasLimits: { daGas: 100_000, l2Gas: 2_000_000 },
+  maxFeesPerGas: { feePerDaGas: networkFees.feePerDaGas * 2n, feePerL2Gas: networkFees.feePerL2Gas * 2n },
+  maxPriorityFeesPerGas: { feePerDaGas: 0n, feePerL2Gas: 0n },
+});
+// docs:end:custom_gas_settings
+
+// docs:start:send_with_gas_settings
+const { receipt: gsReceipt } = await token.methods.mint_to_public(aliceAddress, 1n).send({
+  from: aliceAddress,
+  fee: { gasSettings },
+});
+// docs:end:send_with_gas_settings
+
+// docs:start:read_logs_by_filter
+// Get logs for a specific transaction
+const txLogs = await node.getPublicLogs({ txHash: gsReceipt.txHash });
+
+// Get logs for a block range
+const rangeLogs = await node.getPublicLogs({ fromBlock: 1, toBlock: await node.getBlockNumber() + 1 });
+// docs:end:read_logs_by_filter
+
+// docs:start:auto_gas_estimation
+// Estimate gas for a transaction before sending
+const { estimatedGas: autoEstimate } = await token.methods
+  .mint_to_public(aliceAddress, 1n)
+  .simulate({
+    from: aliceAddress,
+    fee: {
+      estimateGas: true,
+      estimatedGasPadding: 0.2, // 20% padding
+    },
+  });
+console.log("Auto-estimated L2 gas:", autoEstimate.gasLimits.l2Gas);
+// docs:end:auto_gas_estimation
+
+// docs:start:import_get_public_events
+import { getPublicEvents as _importCheck } from "@aztec/aztec.js/events";
+// docs:end:import_get_public_events
+
+// docs:start:import_private_event_types
+import type { PrivateEventFilter } from "@aztec/aztec.js/wallet";
+import { BlockNumber } from "@aztec/aztec.js/fields";
+// docs:end:import_private_event_types
+
+// docs:start:simulate_private_access
+// This works if aliceAddress owns the notes
+const { result: privateBalance } = await token.methods
+  .balance_of_private(aliceAddress)
+  .simulate({ from: aliceAddress });
+// docs:end:simulate_private_access
+
 
 console.log("All advanced examples completed successfully");

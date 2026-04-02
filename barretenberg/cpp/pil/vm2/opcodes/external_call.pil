@@ -9,8 +9,8 @@ include "../gt.pil";
 // - l2_gas: allocated L2 gas                            (register[0])
 // - da_gas: allocated DA gas                            (register[1])
 // - contract_address: address of the contract to call   (register[2])
-// - cd_size: size of the calldata to copy               (register[3])
-// - cd_offset: offset of the calldata to copy           (rop[4])
+// - args_size: size of the args to pass                 (register[3])
+// - args_offset: offset of the args to pass             (rop[4])
 //
 // We only use register[0] and register[1] here.
 //

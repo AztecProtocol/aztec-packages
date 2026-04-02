@@ -117,8 +117,8 @@ export class SequencerPublisherFactory {
     };
   }
 
-  /** Interrupts all publishers managed by this factory. Used during sequencer shutdown. */
-  public interruptAll(): void {
-    this.deps.publisherManager.interrupt();
+  /** Stops all publishers managed by this factory. Used during sequencer shutdown. */
+  public async stopAll(): Promise<void> {
+    await this.deps.publisherManager.stop();
   }
 }

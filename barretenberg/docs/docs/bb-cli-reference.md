@@ -10,7 +10,7 @@ sidebar_position: 1000
 *This documentation is auto-generated from the `bb` CLI help output.*
 
 
-*Generated: Thu 19 Mar 2026 04:49:00 UTC*
+*Generated: Fri 20 Mar 2026 04:43:15 UTC*
 
 *Command: `bb`*
 

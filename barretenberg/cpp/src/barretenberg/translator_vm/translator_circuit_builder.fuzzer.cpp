@@ -14,8 +14,6 @@
 extern "C" int LLVMFuzzerTestOneInput(const unsigned char* data, size_t size)
 {
     // Parse the queue and challenges
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/869): composer generates the initial challenge through
-    // FS, so we have to do that, too
     auto parsing_result = parse_and_construct_opqueue(data, size);
     if (!parsing_result.has_value()) {
         return 0;

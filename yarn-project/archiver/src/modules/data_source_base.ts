@@ -6,7 +6,13 @@ import { isDefined } from '@aztec/foundation/types';
 import type { FunctionSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { type BlockData, type BlockHash, CheckpointedL2Block, L2Block, type L2Tips } from '@aztec/stdlib/block';
-import { Checkpoint, type CheckpointData, PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
+import {
+  Checkpoint,
+  type CheckpointData,
+  type CommonCheckpointData,
+  type ProposedCheckpointData,
+  PublishedCheckpoint,
+} from '@aztec/stdlib/checkpoint';
 import type { ContractClassPublic, ContractDataSource, ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import { type L1RollupConstants, getSlotRangeForEpoch } from '@aztec/stdlib/epoch-helpers';
 import type { GetContractClassLogsResponse, GetPublicLogsResponse } from '@aztec/stdlib/interfaces/client';
@@ -155,6 +161,14 @@ export abstract class ArchiverDataSourceBase
 
   public getSettledTxReceipt(txHash: TxHash): Promise<TxReceipt | undefined> {
     return this.store.getSettledTxReceipt(txHash, this.l1Constants);
+  }
+
+  public getProposedCheckpoint(): Promise<CommonCheckpointData | undefined> {
+    return this.store.getProposedCheckpoint();
+  }
+
+  public getProposedCheckpointOnly(): Promise<ProposedCheckpointData | undefined> {
+    return this.store.getProposedCheckpointOnly();
   }
 
   public isPendingChainInvalid(): Promise<boolean> {

@@ -1,10 +1,17 @@
 import { type FunctionCall, FunctionType, decodeFromAbi } from '@aztec/stdlib/abi';
-import { ExecutionPayload, TxSimulationResult, UtilityExecutionResult, mergeExecutionPayloads } from '@aztec/stdlib/tx';
+import {
+  ExecutionPayload,
+  HashedValues,
+  TxSimulationResult,
+  UtilityExecutionResult,
+  mergeExecutionPayloads,
+} from '@aztec/stdlib/tx';
 
 import type { BatchedMethod, Wallet } from '../wallet/wallet.js';
 import { BaseContractInteraction } from './base_contract_interaction.js';
 import { getGasLimits } from './get_gas_limits.js';
 import {
+  NO_FROM,
   type RequestInteractionOptions,
   type SimulateInteractionOptions,
   type SimulationResult,
@@ -18,6 +25,7 @@ export class BatchCall extends BaseContractInteraction {
   constructor(
     wallet: Wallet,
     protected interactions: (BaseContractInteraction | ExecutionPayload)[],
+    private extraHashedArgs: HashedValues[] = [],
   ) {
     super(wallet);
   }
@@ -33,9 +41,18 @@ export class BatchCall extends BaseContractInteraction {
     const feeExecutionPayload = options.fee?.paymentMethod
       ? await options.fee.paymentMethod.getExecutionPayload()
       : undefined;
+    const { authWitnesses, capsules } = options;
+
+    // Propagates the included authwitnesses, capsules, and extraHashedArgs potentially baked into the interaction
+    const initialExecutionPayload = new ExecutionPayload(
+      [],
+      this.authWitnesses.concat(authWitnesses ?? []),
+      this.capsules.concat(capsules ?? []),
+      this.extraHashedArgs,
+    );
     const finalExecutionPayload = feeExecutionPayload
-      ? mergeExecutionPayloads([feeExecutionPayload, ...requests])
-      : mergeExecutionPayloads([...requests]);
+      ? mergeExecutionPayloads([initialExecutionPayload, feeExecutionPayload, ...requests])
+      : mergeExecutionPayloads([initialExecutionPayload, ...requests]);
     return finalExecutionPayload;
   }
 
@@ -80,7 +97,7 @@ export class BatchCall extends BaseContractInteraction {
     for (const [call] of utility) {
       batchRequests.push({
         name: 'executeUtility' as const,
-        args: [call, { scope: options.from, authWitnesses: options.authWitnesses }],
+        args: [call, { scopes: options.from === NO_FROM ? [] : [options.from], authWitnesses: options.authWitnesses }],
       });
     }
 

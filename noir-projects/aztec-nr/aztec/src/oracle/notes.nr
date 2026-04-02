@@ -1,5 +1,4 @@
 use crate::note::{HintedNote, note_interface::NoteType};
-use crate::utils::array::assert_bounded_vec_trimmed;
 
 use crate::protocol::{address::AztecAddress, traits::Packable};
 
@@ -143,7 +142,6 @@ where
         MaxNotes,
         <HintedNote<Note> as Packable>::N,
     );
-    assert_bounded_vec_trimmed(packed_hinted_notes);
 
     let mut notes = BoundedVec::<_, MaxNotes>::new();
     for i in 0..packed_hinted_notes.len() {
@@ -170,9 +168,7 @@ where
     // both a preprocessor and a filter.
     let mut notes_array = [Option::none(); MaxNotes];
     for i in 0..notes.len() {
-        if i < notes.len() {
-            notes_array[i] = Option::some(notes.get_unchecked(i));
-        }
+        notes_array[i] = Option::some(notes.get_unchecked(i));
     }
 
     notes_array

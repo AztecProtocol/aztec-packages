@@ -211,19 +211,13 @@ Use `aztec new` to generate the contract project structure:
 aztec new contract --name ValueNotEqual
 ```
 
-This creates a workspace with two crates:
+This creates:
 
 ```tree
 contract/
-├── Nargo.toml           # Workspace root
-├── contract/
-│   ├── src/
-│   │   └── main.nr      # Contract code
-│   └── Nargo.toml       # Contract configuration
-└── test/
-    ├── src/
-    │   └── lib.nr        # Test code
-    └── Nargo.toml        # Test configuration
+├── src/
+│   └── main.nr      # Contract code
+└── Nargo.toml       # Contract configuration
 ```
 
 ### Contract Configuration
@@ -460,7 +454,10 @@ The proof generation script executes the circuit offchain and produces the proof
 
 Create `scripts/generate_data.ts`:
 
-#include_code generate_data /docs/examples/ts/recursive_verification/scripts/generate_data.ts typescript
+```js
+import circuitJson from "../circuit/target/hello_circuit.json" with { type: "json" };
+#include_code generate_data /docs/examples/ts/recursive_verification/scripts/generate_data.ts raw
+```
 
 ### Understanding the Proof Generation Pipeline
 

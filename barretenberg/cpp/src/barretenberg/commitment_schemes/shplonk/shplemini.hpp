@@ -242,8 +242,7 @@ template <typename Curve, bool HasZK = false> class ShpleminiVerifier_ {
         const Fr gemini_evaluation_challenge = transcript->template get_challenge<Fr>("Gemini:r");
 
         // - Get negative fold evaluations (A₀(−r), A₁(−r²), ... , Aₙ₋₁(−r²⁽ⁿ⁻¹⁾))
-        const std::vector<Fr> gemini_fold_neg_evaluations =
-            GeminiVerifier::get_gemini_evaluations(virtual_log_n, transcript);
+        std::vector<Fr> gemini_fold_neg_evaluations = GeminiVerifier::get_gemini_evaluations(virtual_log_n, transcript);
 
         // - Compute vector (r, r², ... , r^{2^{d-1}}), where d = log_n
         const std::vector<Fr> gemini_eval_challenge_powers =
@@ -290,7 +289,7 @@ template <typename Curve, bool HasZK = false> class ShpleminiVerifier_ {
         if constexpr (Curve::is_stdlib_type) {
             const auto challenge_tag = shplonk_evaluation_challenge.get_origin_tag();
             // Tag the Gemini fold evaluations
-            for (auto& eval : const_cast<std::vector<Fr>&>(gemini_fold_neg_evaluations)) {
+            for (auto& eval : gemini_fold_neg_evaluations) {
                 eval.set_origin_tag(challenge_tag);
             }
         }
@@ -369,8 +368,10 @@ template <typename Curve, bool HasZK = false> class ShpleminiVerifier_ {
                 libra_evaluations, gemini_evaluation_challenge, multivariate_challenge, libra_univariate_evaluation);
         }
 
-        // Currently, only used in ECCVM
+        // Used in ECCVM and BatchedHonkTranslator. The nu power offset in batch_sumcheck_round_claims
+        // assumes ZK claims (NUM_SMALL_IPA_EVALUATIONS) precede sumcheck round claims in the batching order.
         if (committed_sumcheck) {
+            BB_ASSERT(HasZK, "committed sumcheck requires ZK for correct nu power indexing");
             batch_sumcheck_round_claims(commitments,
                                         scalars,
                                         constant_term_accumulator,
@@ -466,8 +467,10 @@ template <typename Curve, bool HasZK = false> class ShpleminiVerifier_ {
 
             // Accumulate the const term contribution given by
             // v^{2j} * A_j(r^{2^j}) /(z - r^{2^j}) + v^{2j+1} * A_j(-r^{2^j}) /(z+ r^{2^j})
-            constant_term_accumulator +=
-                scaling_factor_neg * gemini_neg_evaluations[j] + scaling_factor_pos * gemini_pos_evaluations[j];
+            // For padding rounds (j >= log_n), padding_indicator_array[j] = 0, zeroing the contribution.
+            // This ensures prover-sent negative evaluations for padding rounds don't affect the constant term.
+            constant_term_accumulator += padding_indicator_array[j] * (scaling_factor_neg * gemini_neg_evaluations[j] +
+                                                                       scaling_factor_pos * gemini_pos_evaluations[j]);
 
             // Place the scaling factor to the 'scalars' vector
             scalars.emplace_back(-padding_indicator_array[j] * (scaling_factor_neg + scaling_factor_pos));
@@ -512,18 +515,28 @@ template <typename Curve, bool HasZK = false> class ShpleminiVerifier_ {
         }
 
         // Erase the duplicate entries (higher-index range first to preserve lower indices)
-        auto erase_range = [&](size_t start, size_t count) {
+        auto erase_range = [&](size_t duplicate_start, size_t original_start, size_t count) {
             for (size_t i = 0; i < count; ++i) {
-                scalars.erase(scalars.begin() + static_cast<std::ptrdiff_t>(start));
-                commitments.erase(commitments.begin() + static_cast<std::ptrdiff_t>(start));
+                // Verify the commitment being erased matches its original (native only).
+                // Each erase shifts elements down, so duplicate_start always points to the
+                // next duplicate; the original at original_start + i is unaffected since
+                // we erase higher-index ranges first.
+                if constexpr (!Curve::is_stdlib_type) {
+                    BB_ASSERT(commitments[duplicate_start] == commitments[original_start + i],
+                              "remove_repeated_commitments: commitment mismatch at duplicate index " +
+                                  std::to_string(duplicate_start) + " vs original index " +
+                                  std::to_string(original_start + i));
+                }
+                scalars.erase(scalars.begin() + static_cast<std::ptrdiff_t>(duplicate_start));
+                commitments.erase(commitments.begin() + static_cast<std::ptrdiff_t>(duplicate_start));
             }
         };
         if (second_duplicate_start > first_duplicate_start) {
-            erase_range(second_duplicate_start, r2.count);
-            erase_range(first_duplicate_start, r1.count);
+            erase_range(second_duplicate_start, second_original_start, r2.count);
+            erase_range(first_duplicate_start, first_original_start, r1.count);
         } else {
-            erase_range(first_duplicate_start, r1.count);
-            erase_range(second_duplicate_start, r2.count);
+            erase_range(first_duplicate_start, first_original_start, r1.count);
+            erase_range(second_duplicate_start, second_original_start, r2.count);
         }
     }
 

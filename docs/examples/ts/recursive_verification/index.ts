@@ -6,7 +6,7 @@ import { getSponsoredFPCInstance } from "./scripts/sponsored_fpc.js";
 import { SponsoredFPCContract } from "@aztec/noir-contracts.js/SponsoredFPC";
 import { ValueNotEqualContract } from "./artifacts/ValueNotEqual.js";
 import { EmbeddedWallet } from "@aztec/wallets/embedded";
-import { AztecAddress } from "@aztec/aztec.js/addresses";
+import { NO_FROM } from "@aztec/aztec.js/account";
 import { Fr } from "@aztec/aztec.js/fields";
 import assert from "node:assert";
 import fs from "node:fs";
@@ -14,13 +14,15 @@ import fs from "node:fs";
 
 // docs:start:sample_data
 if (!fs.existsSync("data.json")) {
-  console.error("data.json not found. Run 'yarn data' first to generate proof data.");
+  console.error(
+    "data.json not found. Run 'yarn data' first to generate proof data.",
+  );
   process.exit(1);
 }
 const data = JSON.parse(fs.readFileSync("data.json", "utf-8"));
 // docs:end:sample_data
 
-export const NODE_URL = "http://localhost:8080";
+export const NODE_URL = process.env.AZTEC_NODE_URL ?? "http://localhost:8080";
 
 // docs:start:setup_wallet
 // Setup sponsored fee payment - the FPC pays transaction fees for us
@@ -35,7 +37,7 @@ export const setupWallet = async (): Promise<EmbeddedWallet> => {
   try {
     // Create wallet with embedded PXE
     // The wallet manages accounts and connects to the node
-    let wallet = await EmbeddedWallet.create(NODE_URL);
+    let wallet = await EmbeddedWallet.create(NODE_URL, { ephemeral: true });
 
     // Register the sponsored FPC so the wallet knows about it
     await wallet.registerContract(sponsoredFPC, SponsoredFPCContract.artifact);
@@ -57,7 +59,7 @@ async function main() {
   // Deploy the account contract
   const deployMethod = await manager.getDeployMethod();
   await deployMethod.send({
-    from: AztecAddress.ZERO,
+    from: NO_FROM,
     fee: { paymentMethod: sponsoredPaymentMethod },
   });
 
@@ -84,9 +86,11 @@ async function main() {
 
   // Step 3: Read initial counter value
   // simulate() executes without submitting a transaction
-  let counterValue = (await valueNotEqual.methods
-    .get_counter(accounts[0].item)
-    .simulate({ from: accounts[0].item })).result;
+  let counterValue = (
+    await valueNotEqual.methods
+      .get_counter(accounts[0].item)
+      .simulate({ from: accounts[0].item })
+  ).result;
   console.log(`Counter value: ${counterValue}`); // Should be 10
 
   // Step 4: Call increment() with proof data
@@ -107,9 +111,11 @@ async function main() {
   await interaction.send(opts);
 
   // Step 6: Read updated counter
-  counterValue = (await valueNotEqual.methods
-    .get_counter(accounts[0].item)
-    .simulate({ from: accounts[0].item })).result;
+  counterValue = (
+    await valueNotEqual.methods
+      .get_counter(accounts[0].item)
+      .simulate({ from: accounts[0].item })
+  ).result;
   console.log(`Counter value: ${counterValue}`); // Should be 11
 
   assert(counterValue === 11n, "Counter should be 11 after verification");

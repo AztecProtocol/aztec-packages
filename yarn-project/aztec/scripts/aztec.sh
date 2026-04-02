@@ -23,7 +23,7 @@ case $cmd in
     # Attempt to compile, no-op if there are no changes
     node --no-warnings "$script_dir/../dest/bin/index.js" compile
 
-    export LOG_LEVEL="${LOG_LEVEL:-"error;trace:contract_log"}"
+    export LOG_LEVEL="${LOG_LEVEL:-"error;trace:contract"}"
     aztec start --txe --port 8081 &
     server_pid=$!
     trap 'kill $server_pid &>/dev/null || true' EXIT

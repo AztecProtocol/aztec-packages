@@ -30,6 +30,9 @@ export class HttpBlobClient implements BlobClientInterface {
   /** Cached beacon slot duration in seconds. Fetched once at startup. */
   private beaconSecondsPerSlot?: number;
 
+  /** Indexes of consensus hosts that serve blob sidecars (supernodes). Populated by testSources(). */
+  private superNodeHostIndexes?: Set<number>;
+
   constructor(
     config?: BlobClientConfig,
     private readonly opts: {
@@ -95,44 +98,75 @@ export class HttpBlobClient implements BlobClientInterface {
     const archiveUrl = this.archiveClient?.getBaseUrl();
     this.log.info(`Testing configured blob sources`, { l1ConsensusHostUrls, archiveUrl });
 
-    let successfulSourceCount = 0;
+    let consensusSuperNodes = 0;
+    let consensusNonSuperNodes = 0;
+    let archiveSources = 0;
+    let blobSinks = 0;
+
+    const detectedSuperNodes = new Set<number>();
 
     if (l1ConsensusHostUrls && l1ConsensusHostUrls.length > 0) {
       for (let l1ConsensusHostIndex = 0; l1ConsensusHostIndex < l1ConsensusHostUrls.length; l1ConsensusHostIndex++) {
         const l1ConsensusHostUrl = l1ConsensusHostUrls[l1ConsensusHostIndex];
         try {
           const { url, ...options } = getBeaconNodeFetchOptions(
-            `${l1ConsensusHostUrl}/eth/v1/beacon/headers`,
+            `${l1ConsensusHostUrl}/eth/v1/beacon/headers/head`,
             this.config,
             l1ConsensusHostIndex,
           );
           const res = await this.fetch(url, options);
-          if (res.ok) {
-            this.log.info(`L1 consensus host is reachable`, { l1ConsensusHostUrl });
-            successfulSourceCount++;
-          } else {
+          if (!res.ok) {
             this.log.error(`Failure reaching L1 consensus host: ${res.statusText} (${res.status})`, {
               l1ConsensusHostUrl,
             });
+            continue;
+          }
+
+          this.log.info(`L1 consensus host is reachable`, { l1ConsensusHostUrl });
+
+          // Check if the host serves blob sidecars (supernode/semi-supernode).
+          // Post-Fusaka (PeerDAS), non-supernode beacon nodes no longer serve the
+          // blob sidecar endpoint. A 200 response (even with an empty data array
+          // for a slot with no blobs) means the node supports serving blob sidecars.
+          const body = await res.json();
+          const headSlot = body?.data?.header?.message?.slot;
+          if (headSlot) {
+            const { url: blobUrl, ...blobOptions } = getBeaconNodeFetchOptions(
+              `${l1ConsensusHostUrl}/eth/v1/beacon/blobs/${headSlot}`,
+              this.config,
+              l1ConsensusHostIndex,
+            );
+            const blobRes = await this.fetch(blobUrl, blobOptions);
+            if (blobRes.ok) {
+              this.log.info(`L1 consensus host serves blob sidecars (supernode)`, { l1ConsensusHostUrl });
+              detectedSuperNodes.add(l1ConsensusHostIndex);
+              consensusSuperNodes++;
+            } else {
+              this.log.info(`L1 consensus host does not serve blob sidecars, skipping for blob fetching`, {
+                l1ConsensusHostUrl,
+              });
+              consensusNonSuperNodes++;
+            }
+          } else {
+            this.log.info(`L1 consensus host is reachable but could not determine head slot`, { l1ConsensusHostUrl });
+            consensusNonSuperNodes++;
           }
         } catch (err) {
           this.log.error(`Error reaching L1 consensus host`, err, { l1ConsensusHostUrl });
         }
       }
-    } else {
-      this.log.warn('No L1 consensus host urls configured');
     }
+
+    this.superNodeHostIndexes = detectedSuperNodes;
 
     if (this.archiveClient) {
       try {
         const latest = await this.archiveClient.getLatestBlock();
         this.log.info(`Archive client is reachable and synced to L1 block ${latest.number}`, { latest, archiveUrl });
-        successfulSourceCount++;
+        archiveSources++;
       } catch (err) {
         this.log.error(`Error reaching archive client`, err, { archiveUrl });
       }
-    } else {
-      this.log.warn('No archive client configured');
     }
 
     if (this.fileStoreClients.length > 0) {
@@ -141,7 +175,7 @@ export class HttpBlobClient implements BlobClientInterface {
           const accessible = await fileStoreClient.testConnection();
           if (accessible) {
             this.log.info(`FileStore is reachable`, { url: fileStoreClient.getBaseUrl() });
-            successfulSourceCount++;
+            blobSinks++;
           } else {
             this.log.warn(`FileStore is not accessible`, { url: fileStoreClient.getBaseUrl() });
           }
@@ -151,12 +185,24 @@ export class HttpBlobClient implements BlobClientInterface {
       }
     }
 
+    // Emit a single summary after validating all sources
+    const successfulSourceCount = consensusSuperNodes + archiveSources + blobSinks;
+
+    let summary = `Blob client running with consensusSuperNodes=${consensusSuperNodes} archiveSources=${archiveSources} blobSinks=${blobSinks}`;
+    if (consensusNonSuperNodes > 0) {
+      summary += `. ${consensusNonSuperNodes} consensus client(s) ignored because they are not running in supernode or semi-supernode mode`;
+    }
+
     if (successfulSourceCount === 0) {
       if (this.config.blobAllowEmptySources) {
-        this.log.warn('No blob sources are reachable');
+        this.log.warn(summary);
       } else {
-        throw new Error('No blob sources are reachable');
+        throw new Error(summary);
       }
+    } else if (consensusSuperNodes === 0) {
+      this.log.warn(summary);
+    } else {
+      this.log.info(summary);
     }
   }
 
@@ -182,18 +228,15 @@ export class HttpBlobClient implements BlobClientInterface {
   }
 
   /**
-   * Get the blob sidecar
+   * Get the blob sidecar.
    *
-   * If requesting from the blob client, we send the blobkHash
-   * If requesting from the beacon node, we send the slot number
-   *
-   * Source ordering depends on sync state:
-   * - Historical sync: blob client → FileStore → L1 consensus → Archive
-   * - Near tip sync: blob client → FileStore → L1 consensus → FileStore (with retries) → Archive (eg blobscan)
+   * Alternates between two primary sources (consensus and filestore) in a retry loop,
+   * then falls back to archive if blobs are still missing. The order of the primary
+   * sources is configurable via `blobPreferFilestores`.
    *
    * @param blockHash - The block hash
    * @param blobHashes - The blob hashes to fetch
-   * @param opts - Options including isHistoricalSync flag
+   * @param opts - Options for slot resolution
    * @returns The blobs
    */
   public async getBlobSidecar(
@@ -206,12 +249,11 @@ export class HttpBlobClient implements BlobClientInterface {
       return [];
     }
 
-    const isHistoricalSync = opts?.isHistoricalSync ?? false;
     // Accumulate blobs across sources, preserving order and handling duplicates
     // resultBlobs[i] will contain the blob for blobHashes[i], or undefined if not yet found
     const resultBlobs: (Blob | undefined)[] = new Array(blobHashes.length).fill(undefined);
 
-    // Helper to get  missing blob hashes that we still need to fetch
+    // Helper to get missing blob hashes that we still need to fetch
     const getMissingBlobHashes = (): Buffer[] =>
       blobHashes
         .map((bh, i) => (resultBlobs[i] === undefined ? bh : undefined))
@@ -240,84 +282,60 @@ export class HttpBlobClient implements BlobClientInterface {
       return blobs;
     };
 
-    const { l1ConsensusHostUrls } = this.config;
-
     const ctx = { blockHash, blobHashes: blobHashes.map(bufferToHex) };
 
-    // Try filestore (quick, no retries) - useful for both historical and near-tip sync
-    if (this.fileStoreClients.length > 0 && getMissingBlobHashes().length > 0) {
-      await this.tryFileStores(getMissingBlobHashes, fillResults, ctx);
-      if (getMissingBlobHashes().length === 0) {
-        return returnWithCallback(getFilledBlobs());
+    // Lazily resolve the slot number — only resolved when consensus hosts are actually tried.
+    let slotNumber: number | undefined;
+    let slotResolved = false;
+    const getSlotNumber = async (): Promise<number | undefined> => {
+      if (!slotResolved) {
+        slotNumber = await this.resolveSlotNumber(blockHash, opts);
+        slotResolved = true;
       }
-    }
+      return slotNumber;
+    };
 
-    const missingAfterSink = getMissingBlobHashes();
-    if (missingAfterSink.length > 0 && l1ConsensusHostUrls && l1ConsensusHostUrls.length > 0) {
-      // The beacon api can query by slot number, so we get that first
-      const consensusCtx = { l1ConsensusHostUrls, ...ctx };
-      this.log.trace(`Attempting to get slot number for block hash`, consensusCtx);
-      const slotNumber = await this.getSlotNumber(blockHash, opts?.parentBeaconBlockRoot, opts?.l1BlockTimestamp);
-      this.log.debug(`Got slot number ${slotNumber} from consensus host for querying blobs`, consensusCtx);
+    // Build the two source-try functions. The order depends on the config.
+    const tryConsensus = () => this.tryConsensusHosts(getSlotNumber, getMissingBlobHashes, fillResults, ctx);
+    const tryFilestores = () => this.tryFileStores(getMissingBlobHashes, fillResults, ctx);
 
-      if (slotNumber) {
-        let l1ConsensusHostUrl: string;
-        for (let l1ConsensusHostIndex = 0; l1ConsensusHostIndex < l1ConsensusHostUrls.length; l1ConsensusHostIndex++) {
-          const missingHashes = getMissingBlobHashes();
-          if (missingHashes.length === 0) {
-            break;
+    const preferFilestores = this.config.blobPreferFilestores ?? false;
+    const [trySourceA, trySourceB] = preferFilestores ? [tryFilestores, tryConsensus] : [tryConsensus, tryFilestores];
+
+    // Historical sync: blobs should already exist, use shorter backoff for transient errors.
+    // Near-tip sync: blobs may still be uploading, use longer backoff for eventual consistency.
+    const isHistoricalSync = opts?.isHistoricalSync ?? false;
+    const backoff = isHistoricalSync ? [1, 1] : [1, 1, 1, 2, 2];
+
+    // Retry loop: alternate between the two primary sources with backoff.
+    try {
+      await retry(
+        async () => {
+          if (getMissingBlobHashes().length > 0) {
+            await trySourceA();
           }
-
-          l1ConsensusHostUrl = l1ConsensusHostUrls[l1ConsensusHostIndex];
-          this.log.trace(`Attempting to get ${missingHashes.length} blobs from consensus host`, {
-            slotNumber,
-            l1ConsensusHostUrl,
-            ...ctx,
-          });
-          const blobs = await this.getBlobsFromHost(
-            l1ConsensusHostUrl,
-            slotNumber,
-            l1ConsensusHostIndex,
-            getMissingBlobHashes(),
-          );
-          const result = await fillResults(blobs);
-          this.log.debug(
-            `Got ${blobs.length} blobs from consensus host (total: ${result.length}/${blobHashes.length})`,
-            { slotNumber, l1ConsensusHostUrl, ...ctx },
-          );
-          if (result.length === blobHashes.length) {
-            return returnWithCallback(result);
+          if (getMissingBlobHashes().length > 0) {
+            await trySourceB();
           }
-        }
-      }
+          if (getMissingBlobHashes().length > 0) {
+            throw new Error('Still missing blobs after trying all primary sources');
+          }
+        },
+        'blob retrieval',
+        makeBackoff(backoff),
+        this.log,
+        true, // failSilently — expected during eventual consistency
+      );
+      return returnWithCallback(getFilledBlobs());
+    } catch {
+      // Exhausted retries, continue to archive fallback
     }
 
-    // For near-tip sync, retry filestores with backoff (eventual consistency)
-    // This handles the case where blobs are still being uploaded by other validators
-    if (!isHistoricalSync && this.fileStoreClients.length > 0 && getMissingBlobHashes().length > 0) {
-      try {
-        await retry(
-          async () => {
-            await this.tryFileStores(getMissingBlobHashes, fillResults, ctx);
-            if (getMissingBlobHashes().length > 0) {
-              throw new Error('Still missing blobs from filestores');
-            }
-          },
-          'filestore blob retrieval',
-          makeBackoff([1, 1, 2]),
-          this.log,
-          true, // failSilently - expected to fail during eventual consistency
-        );
-        return returnWithCallback(getFilledBlobs());
-      } catch {
-        // Exhausted retries, continue to archive fallback
-      }
-    }
-
-    const missingAfterConsensus = getMissingBlobHashes();
-    if (missingAfterConsensus.length > 0 && this.archiveClient) {
+    // Archive fallback
+    const missingAfterPrimary = getMissingBlobHashes();
+    if (missingAfterPrimary.length > 0 && this.archiveClient) {
       const archiveCtx = { archiveUrl: this.archiveClient.getBaseUrl(), ...ctx };
-      this.log.trace(`Attempting to get ${missingAfterConsensus.length} blobs from archive`, archiveCtx);
+      this.log.trace(`Attempting to get ${missingAfterPrimary.length} blobs from archive`, archiveCtx);
       const allBlobs = await this.archiveClient.getBlobsFromBlock(blockHash);
       if (!allBlobs) {
         this.log.debug('No blobs found from archive client', archiveCtx);
@@ -339,13 +357,78 @@ export class HttpBlobClient implements BlobClientInterface {
       this.log.warn(
         `Failed to fetch all blobs for ${blockHash} from all blob sources (got ${result.length}/${blobHashes.length})`,
         {
-          l1ConsensusHostUrls,
+          l1ConsensusHostUrls: this.config.l1ConsensusHostUrls,
           archiveUrl: this.archiveClient?.getBaseUrl(),
           fileStoreUrls: this.fileStoreClients.map(c => c.getBaseUrl()),
         },
       );
     }
     return returnWithCallback(result);
+  }
+
+  /** Resolves the beacon slot number for the given block hash. Returns undefined if no consensus hosts. */
+  private resolveSlotNumber(
+    blockHash: `0x${string}`,
+    opts?: GetBlobSidecarOptions,
+  ): Promise<number | undefined> | undefined {
+    const { l1ConsensusHostUrls } = this.config;
+    if (!l1ConsensusHostUrls || l1ConsensusHostUrls.length === 0) {
+      return undefined;
+    }
+    // If no supernodes, no point resolving the slot
+    if (this.superNodeHostIndexes && this.superNodeHostIndexes.size === 0) {
+      return undefined;
+    }
+    return this.getSlotNumber(blockHash, opts?.parentBeaconBlockRoot, opts?.l1BlockTimestamp);
+  }
+
+  /**
+   * Try all supernode consensus hosts for blob sidecars.
+   * Skips hosts that were detected as non-supernodes during testSources().
+   */
+  private async tryConsensusHosts(
+    getSlotNumber: () => Promise<number | undefined>,
+    getMissingBlobHashes: () => Buffer[],
+    fillResults: (blobs: BlobJson[]) => Promise<Blob[]>,
+    ctx: { blockHash: string; blobHashes: string[] },
+  ): Promise<void> {
+    const { l1ConsensusHostUrls } = this.config;
+    if (!l1ConsensusHostUrls || l1ConsensusHostUrls.length === 0) {
+      return;
+    }
+
+    const slotNumber = await getSlotNumber();
+    if (!slotNumber) {
+      return;
+    }
+
+    for (let l1ConsensusHostIndex = 0; l1ConsensusHostIndex < l1ConsensusHostUrls.length; l1ConsensusHostIndex++) {
+      const missingHashes = getMissingBlobHashes();
+      if (missingHashes.length === 0) {
+        break;
+      }
+
+      // Skip non-supernode hosts if we've already detected supernodes
+      if (this.superNodeHostIndexes && !this.superNodeHostIndexes.has(l1ConsensusHostIndex)) {
+        this.log.trace(`Skipping non-supernode consensus host`, {
+          l1ConsensusHostUrl: l1ConsensusHostUrls[l1ConsensusHostIndex],
+        });
+        continue;
+      }
+
+      const l1ConsensusHostUrl = l1ConsensusHostUrls[l1ConsensusHostIndex];
+      this.log.trace(`Attempting to get ${missingHashes.length} blobs from consensus host`, {
+        slotNumber,
+        l1ConsensusHostUrl,
+        ...ctx,
+      });
+      const blobs = await this.getBlobsFromHost(l1ConsensusHostUrl, slotNumber, l1ConsensusHostIndex, missingHashes);
+      const result = await fillResults(blobs);
+      this.log.debug(
+        `Got ${blobs.length} blobs from consensus host (total: ${result.length}/${ctx.blobHashes.length})`,
+        { slotNumber, l1ConsensusHostUrl, ...ctx },
+      );
+    }
   }
 
   /**
@@ -463,16 +546,17 @@ export class HttpBlobClient implements BlobClientInterface {
       baseUrl += `?${params.toString()}`;
     }
 
-    const { url, ...options } = getBeaconNodeFetchOptions(baseUrl, this.config, l1ConsensusHostIndex);
-    this.log.debug(`Fetching blob sidecar for ${blockHashOrSlot}`, { url, ...options });
-    return this.fetch(url, options);
+    const { url, logSafeUrl, ...options } = getBeaconNodeFetchOptions(baseUrl, this.config, l1ConsensusHostIndex);
+    this.log.debug(`Fetching blob sidecar for ${blockHashOrSlot}`, { url: logSafeUrl, ...options });
+    // No retry here — this is called inside the main retry loop in getBlobSidecar
+    return fetch(url, options);
   }
 
   private async getLatestSlotNumber(hostUrl: string, l1ConsensusHostIndex?: number): Promise<number | undefined> {
     try {
       const baseUrl = `${hostUrl}/eth/v1/beacon/headers/head`;
-      const { url, ...options } = getBeaconNodeFetchOptions(baseUrl, this.config, l1ConsensusHostIndex);
-      this.log.debug(`Fetching latest slot number`, { url, ...options });
+      const { url, logSafeUrl, ...options } = getBeaconNodeFetchOptions(baseUrl, this.config, l1ConsensusHostIndex);
+      this.log.debug(`Fetching latest slot number`, { url: logSafeUrl, ...options });
       const res = await this.fetch(url, options);
       if (res.ok) {
         const body = await res.json();
@@ -735,12 +819,16 @@ function getBeaconNodeFetchOptions(url: string, config: BlobClientConfig, l1Cons
     l1ConsensusHostApiKeyHeaders[l1ConsensusHostIndex];
 
   let formattedUrl = url;
+  let logSafeUrl = url;
   if (l1ConsensusHostApiKey && l1ConsensusHostApiKey.getValue() !== '' && !l1ConsensusHostApiKeyHeader) {
-    formattedUrl += `${formattedUrl.includes('?') ? '&' : '?'}key=${l1ConsensusHostApiKey.getValue()}`;
+    const separator = formattedUrl.includes('?') ? '&' : '?';
+    formattedUrl += `${separator}key=${l1ConsensusHostApiKey.getValue()}`;
+    logSafeUrl += `${separator}key=[REDACTED]`;
   }
 
   return {
     url: formattedUrl,
+    logSafeUrl,
     ...(l1ConsensusHostApiKey &&
       l1ConsensusHostApiKeyHeader && {
         headers: {

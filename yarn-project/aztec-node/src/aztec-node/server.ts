@@ -1,5 +1,6 @@
 import { Archiver, createArchiver } from '@aztec/archiver';
-import { BBCircuitVerifier, QueuedIVCVerifier, TestCircuitVerifier } from '@aztec/bb-prover';
+import { BBCircuitVerifier, BatchChonkVerifier, QueuedIVCVerifier } from '@aztec/bb-prover';
+import { TestCircuitVerifier } from '@aztec/bb-prover/test';
 import { type BlobClientInterface, createBlobClientWithFileStores } from '@aztec/blob-client/client';
 import { Blob } from '@aztec/blob-lib';
 import { ARCHIVE_HEIGHT, type L1_TO_L2_MSG_TREE_HEIGHT, type NOTE_HASH_TREE_HEIGHT } from '@aztec/constants';
@@ -8,6 +9,7 @@ import { createEthereumChain } from '@aztec/ethereum/chain';
 import { getPublicClient, makeL1HttpTransport } from '@aztec/ethereum/client';
 import { RegistryContract, RollupContract } from '@aztec/ethereum/contracts';
 import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
+import type { L1TxUtils } from '@aztec/ethereum/l1-tx-utils';
 import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { chunkBy, compactArray, pick, unique } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
@@ -108,7 +110,7 @@ import {
   FullNodeCheckpointsBuilder,
   NodeKeystoreAdapter,
   ValidatorClient,
-  createBlockProposalHandler,
+  createProposalHandler,
   createValidatorClient,
 } from '@aztec/validator-client';
 import type { SlashingProtectionDatabase } from '@aztec/validator-ha-signer/types';
@@ -151,7 +153,8 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     protected readonly globalVariableBuilder: GlobalVariableBuilderInterface,
     protected readonly epochCache: EpochCacheInterface,
     protected readonly packageVersion: string,
-    private proofVerifier: ClientProtocolCircuitVerifier,
+    private peerProofVerifier: ClientProtocolCircuitVerifier,
+    private rpcProofVerifier: ClientProtocolCircuitVerifier,
     private telemetry: TelemetryClient = getTelemetryClient(),
     private log = createLogger('node'),
     private blobClient?: BlobClientInterface,
@@ -171,6 +174,11 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     if (debugLogStore.isEnabled && config.realProofs) {
       throw new Error('debugLogStore should never be enabled when realProofs are set');
     }
+  }
+
+  /** @internal Exposed for testing — returns the RPC proof verifier. */
+  public getProofVerifier(): ClientProtocolCircuitVerifier {
+    return this.rpcProofVerifier;
   }
 
   public async getWorldStateSyncStatus(): Promise<WorldStateSyncStatus> {
@@ -308,10 +316,17 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       options.prefilledPublicData,
       telemetry,
     );
-    const circuitVerifier =
-      config.realProofs || config.debugForceTxProofVerification
-        ? await BBCircuitVerifier.new(config)
-        : new TestCircuitVerifier(config.proverTestVerificationDelayMs);
+    const useRealVerifiers = config.realProofs || config.debugForceTxProofVerification;
+    let peerProofVerifier: ClientProtocolCircuitVerifier;
+    let rpcProofVerifier: ClientProtocolCircuitVerifier;
+    if (useRealVerifiers) {
+      peerProofVerifier = await BatchChonkVerifier.new(config, config.bbChonkVerifyMaxBatch, 'peer');
+      const rpcVerifier = await BBCircuitVerifier.new(config);
+      rpcProofVerifier = new QueuedIVCVerifier(rpcVerifier, config.numConcurrentIVCVerifiers);
+    } else {
+      peerProofVerifier = new TestCircuitVerifier(config.proverTestVerificationDelayMs);
+      rpcProofVerifier = new TestCircuitVerifier(config.proverTestVerificationDelayMs);
+    }
 
     let debugLogStore: DebugLogStore;
     if (!config.realProofs) {
@@ -325,8 +340,6 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       debugLogStore = new NullDebugLogStore();
     }
 
-    const proofVerifier = new QueuedIVCVerifier(config, circuitVerifier);
-
     const proverOnly = config.enableProverNode && config.disableValidator;
     if (proverOnly) {
       log.info('Starting in prover-only mode: skipping validator, sequencer, sentinel, and slasher subsystems');
@@ -336,7 +349,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     const p2pClient = await createP2PClient(
       config,
       archiver,
-      proofVerifier,
+      peerProofVerifier,
       worldStateSynchronizer,
       epochCache,
       packageVersion,
@@ -387,28 +400,35 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       // like attestations or auths will fail.
       if (validatorClient) {
         watchers.push(validatorClient);
+
+        const vc = validatorClient;
+        const getValidatorAddresses = () => vc.getValidatorAddresses().map(a => a.toString());
+        validatorClient.getProposalHandler().register(p2pClient, true, archiver, getValidatorAddresses);
+
         if (!options.dontStartSequencer) {
           await validatorClient.registerHandlers();
         }
       }
     }
 
-    // If there's no validator client, create a BlockProposalHandler to handle block proposals
+    // If there's no validator client, create a ProposalHandler to handle block and checkpoint proposals
     // for monitoring or reexecution. Reexecution (default) allows us to follow the pending chain,
     // while non-reexecution is used for validating the proposals and collecting their txs.
+    // Checkpoint proposals rebuild blobs if the blob client can upload blobs.
     if (!validatorClient) {
       const reexecute = !!config.alwaysReexecuteBlockProposals;
-      log.info(`Setting up block proposal handler` + (reexecute ? ' with reexecution of proposals' : ''));
-      createBlockProposalHandler(config, {
+      log.info(`Setting up proposal handler` + (reexecute ? ' with reexecution of proposals' : ''));
+      createProposalHandler(config, {
         checkpointsBuilder: validatorCheckpointsBuilder,
         worldState: worldStateSynchronizer,
         epochCache,
         blockSource: archiver,
         l1ToL2MessageSource: archiver,
         p2pClient,
+        blobClient,
         dateProvider,
         telemetry,
-      }).register(p2pClient, reexecute);
+      }).register(p2pClient, reexecute, archiver);
     }
 
     // Start world state and wait for it to sync to the archiver.
@@ -458,6 +478,14 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       })
       .catch(err => log.error('Failed to start p2p services after archiver sync', err));
 
+    const globalVariableBuilder = new GlobalVariableBuilder(dateProvider, publicClient, {
+      l1Contracts: config.l1Contracts,
+      ethereumSlotDuration: config.ethereumSlotDuration,
+      rollupVersion: BigInt(config.rollupVersion),
+      l1GenesisTime,
+      slotDuration: Number(slotDuration),
+    });
+
     // Validator enabled, create/start relevant service
     let sequencer: SequencerClient | undefined;
     let slasherClient: SlasherClientInterface | undefined;
@@ -495,6 +523,19 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
             { telemetry, logger: log.createChild('l1-tx-utils'), dateProvider, kzg: Blob.getViemKzgInstance() },
           );
 
+      // Create a funder L1TxUtils from the keystore funding account (if configured)
+      const fundingSigner = keyStoreManager?.createFundingSigner();
+      let funderL1TxUtils: L1TxUtils | undefined;
+      if (fundingSigner) {
+        const [funder] = await createL1TxUtilsFromSigners(
+          publicClient,
+          [fundingSigner],
+          { ...config, scope: 'sequencer' },
+          { telemetry, logger: log.createChild('l1-tx-utils:funder'), dateProvider },
+        );
+        funderL1TxUtils = funder;
+      }
+
       // Create and start the sequencer client
       const checkpointsBuilder = new CheckpointsBuilder(
         { ...config, l1GenesisTime, slotDuration: Number(slotDuration), rollupManaLimit },
@@ -509,6 +550,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
         ...deps,
         epochCache,
         l1TxUtils,
+        funderL1TxUtils,
         validatorClient,
         p2pClient,
         worldStateSynchronizer,
@@ -520,6 +562,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
         dateProvider,
         blobClient,
         nodeKeyStore: keyStoreManager!,
+        globalVariableBuilder,
       });
     }
 
@@ -553,13 +596,6 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       }
     }
 
-    const globalVariableBuilder = new GlobalVariableBuilder({
-      ...config,
-      rollupVersion: BigInt(config.rollupVersion),
-      l1GenesisTime,
-      slotDuration: Number(slotDuration),
-    });
-
     const node = new AztecNodeService(
       config,
       p2pClient,
@@ -578,7 +614,8 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       globalVariableBuilder,
       epochCache,
       packageVersion,
-      proofVerifier,
+      peerProofVerifier,
+      rpcProofVerifier,
       telemetry,
       log,
       blobClient,
@@ -925,7 +962,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     await tryStop(this.validatorsSentinel);
     await tryStop(this.epochPruneWatcher);
     await tryStop(this.slasherClient);
-    await tryStop(this.proofVerifier);
+    await Promise.all([tryStop(this.peerProofVerifier), tryStop(this.rpcProofVerifier)]);
     await tryStop(this.sequencer);
     await tryStop(this.proverNode);
     await tryStop(this.p2pClient);
@@ -1053,6 +1090,10 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     // which is the archive tree root BEFORE the anchor block was added (i.e. the state after block N-1).
     // So we need the world state at block N-1, not block N, to produce a sibling path matching that root.
     const referenceBlockNumber = await this.resolveBlockNumber(referenceBlock);
+    if (referenceBlockNumber === BlockNumber.ZERO) {
+      // Block 0 (the initial block) has an empty archive, so no membership witness can exist.
+      return undefined;
+    }
     const committedDb = await this.getWorldState(BlockNumber(referenceBlockNumber - 1));
     const [pathAndIndex] = await committedDb.findSiblingPaths<MerkleTreeId.ARCHIVE>(MerkleTreeId.ARCHIVE, [blockHash]);
     return pathAndIndex === undefined
@@ -1315,7 +1356,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     { isSimulation, skipFeeEnforcement }: { isSimulation?: boolean; skipFeeEnforcement?: boolean } = {},
   ): Promise<TxValidationResult> {
     const db = this.worldStateSynchronizer.getCommitted();
-    const verifier = isSimulation ? undefined : this.proofVerifier;
+    const verifier = isSimulation ? undefined : this.rpcProofVerifier;
 
     // We accept transactions if they are not expired by the next slot (checked based on the ExpirationTimestamp field)
     const { ts: nextSlotTimestamp } = this.epochCache.getEpochAndSlotInNextL1Slot();
@@ -1364,7 +1405,15 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       archiver.updateConfig(config);
     }
     if (newConfig.realProofs !== this.config.realProofs) {
-      this.proofVerifier = config.realProofs ? await BBCircuitVerifier.new(newConfig) : new TestCircuitVerifier();
+      await Promise.all([tryStop(this.peerProofVerifier), tryStop(this.rpcProofVerifier)]);
+      if (newConfig.realProofs) {
+        this.peerProofVerifier = await BatchChonkVerifier.new(newConfig, newConfig.bbChonkVerifyMaxBatch, 'peer');
+        const rpcVerifier = await BBCircuitVerifier.new(newConfig);
+        this.rpcProofVerifier = new QueuedIVCVerifier(rpcVerifier, newConfig.numConcurrentIVCVerifiers);
+      } else {
+        this.peerProofVerifier = new TestCircuitVerifier();
+        this.rpcProofVerifier = new TestCircuitVerifier();
+      }
     }
 
     this.config = newConfig;

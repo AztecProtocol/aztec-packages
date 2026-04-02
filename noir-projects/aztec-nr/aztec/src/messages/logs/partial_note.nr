@@ -1,18 +1,12 @@
 use crate::{
     messages::{
         encoding::{encode_message, MAX_MESSAGE_CONTENT_LEN, MESSAGE_EXPANDED_METADATA_LEN},
-        encryption::{aes128::AES128, message_encryption::MessageEncryption},
-        logs::utils::prefix_with_tag,
         msg_type::PARTIAL_NOTE_PRIVATE_MSG_TYPE_ID,
     },
     note::note_interface::NoteType,
     utils::array,
 };
-use crate::protocol::{
-    address::AztecAddress,
-    constants::PRIVATE_LOG_SIZE_IN_FIELDS,
-    traits::{FromField, Packable, ToField},
-};
+use crate::protocol::{address::AztecAddress, traits::{FromField, Packable, ToField}};
 
 /// The number of fields in a private note message content that are not the note's packed representation.
 pub(crate) global PARTIAL_NOTE_PRIVATE_MSG_PLAINTEXT_RESERVED_FIELDS_LEN: u32 = 3;
@@ -24,28 +18,6 @@ pub(crate) global PARTIAL_NOTE_PRIVATE_MSG_PLAINTEXT_NOTE_COMPLETION_LOG_TAG_IND
 /// (e.g. the storage slot, note completion log tag, etc.).
 pub global MAX_PARTIAL_NOTE_PRIVATE_PACKED_LEN: u32 =
     MAX_MESSAGE_CONTENT_LEN - PARTIAL_NOTE_PRIVATE_MSG_PLAINTEXT_RESERVED_FIELDS_LEN;
-
-// TODO(#16881): once partial notes support delivery via an offchain message we will most likely want to remove this.
-pub fn compute_partial_note_private_content_log<PartialNotePrivateContent>(
-    partial_note_private_content: PartialNotePrivateContent,
-    owner: AztecAddress,
-    randomness: Field,
-    recipient: AztecAddress,
-    note_completion_log_tag: Field,
-) -> [Field; PRIVATE_LOG_SIZE_IN_FIELDS]
-where
-    PartialNotePrivateContent: NoteType + Packable,
-{
-    let message_plaintext = encode_partial_note_private_message(
-        partial_note_private_content,
-        owner,
-        randomness,
-        note_completion_log_tag,
-    );
-    let message_ciphertext = AES128::encrypt(message_plaintext, recipient);
-
-    prefix_with_tag(message_ciphertext, recipient)
-}
 
 /// Creates the plaintext for a partial note private message (i.e. one of type [`PARTIAL_NOTE_PRIVATE_MSG_TYPE_ID`]).
 ///

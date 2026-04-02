@@ -409,7 +409,7 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
 
         // Step 5.
         // Compute C_zero = C' + ∑_{j ∈ [k]} u_j^{-1}L_j + ∑_{j ∈ [k]} u_jR_j
-        GroupElement LR_sums = scalar_multiplication::pippenger_unsafe<Curve>(
+        GroupElement LR_sums = scalar_multiplication::pippenger<Curve>(
             { 0, { &msm_scalars[0], /*size*/ pippenger_size } }, { &msm_elements[0], /*size*/ pippenger_size });
         GroupElement C_zero = C_prime + LR_sums;
 
@@ -575,14 +575,14 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
 
         // Step 6.
         // Receive a_zero from the prover
-        const auto a_zero = transcript->template receive_from_prover<Fr>("IPA:a_0");
+        auto a_zero = transcript->template receive_from_prover<Fr>("IPA:a_0");
 
         // OriginTag false positive: G_zero and a_zero are fully determined once all round challenges are fixed - the
         // prover must send the correct values or the final relation check fails.
         if constexpr (Curve::is_stdlib_type) {
             const auto last_round_tag = round_challenges.back().get_origin_tag();
             G_zero.set_origin_tag(last_round_tag);
-            const_cast<Fr&>(a_zero).set_origin_tag(last_round_tag);
+            a_zero.set_origin_tag(last_round_tag);
         }
 
         // Step 7.

@@ -19,7 +19,7 @@ import {
   type L2Tips,
   type ValidateCheckpointResult,
 } from '@aztec/stdlib/block';
-import { PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
+import { type ProposedCheckpointInput, PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 import {
   type L1RollupConstants,
   getEpochAtSlot,
@@ -209,6 +209,10 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
     });
   }
 
+  public async setProposedCheckpoint(pending: ProposedCheckpointInput): Promise<void> {
+    await this.updater.setProposedCheckpoint(pending);
+  }
+
   /**
    * Processes all queued blocks, adding them to the store.
    * Called at the beginning of each sync iteration.
@@ -341,19 +345,33 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
     return Promise.resolve(this.synchronizer.getL1Timestamp());
   }
 
-  public getSyncedL2SlotNumber(): Promise<SlotNumber | undefined> {
+  public async getSyncedL2SlotNumber(): Promise<SlotNumber | undefined> {
+    // The synced L2 slot is the latest slot for which we have all L1 data,
+    // either because we have seen all L1 blocks for that slot, or because
+    // we have seen the corresponding checkpoint.
+
+    let slotFromL1Sync: SlotNumber | undefined;
     const l1Timestamp = this.synchronizer.getL1Timestamp();
-    if (l1Timestamp === undefined) {
-      return Promise.resolve(undefined);
+    if (l1Timestamp !== undefined) {
+      const nextL1BlockSlot = getSlotAtNextL1Block(l1Timestamp, this.l1Constants);
+      if (Number(nextL1BlockSlot) > 0) {
+        slotFromL1Sync = SlotNumber.add(nextL1BlockSlot, -1);
+      }
     }
-    // The synced slot is the last L2 slot whose all L1 blocks have been processed.
-    // If the next L1 block (at l1Timestamp + ethereumSlotDuration) falls in slot N,
-    // then we've fully synced slot N-1.
-    const nextL1BlockSlot = getSlotAtNextL1Block(l1Timestamp, this.l1Constants);
-    if (Number(nextL1BlockSlot) === 0) {
-      return Promise.resolve(undefined);
+
+    let slotFromCheckpoint: SlotNumber | undefined;
+    const latestCheckpointNumber = await this.store.getSynchedCheckpointNumber();
+    if (latestCheckpointNumber > 0) {
+      const checkpointData = await this.store.getCheckpointData(latestCheckpointNumber);
+      if (checkpointData) {
+        slotFromCheckpoint = checkpointData.header.slotNumber;
+      }
     }
-    return Promise.resolve(SlotNumber(nextL1BlockSlot - 1));
+
+    if (slotFromL1Sync === undefined && slotFromCheckpoint === undefined) {
+      return undefined;
+    }
+    return SlotNumber(Math.max(slotFromL1Sync ?? 0, slotFromCheckpoint ?? 0));
   }
 
   public async getSyncedL2EpochNumber(): Promise<EpochNumber | undefined> {
@@ -472,7 +490,10 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
     await this.store.rollbackL1ToL2MessagesToCheckpoint(targetCheckpointNumber);
     this.log.info(`Setting L1 syncpoints to ${targetL1BlockNumber}`);
     await this.store.setCheckpointSynchedL1BlockNumber(targetL1BlockNumber);
-    await this.store.setMessageSynchedL1Block({ l1BlockNumber: targetL1BlockNumber, l1BlockHash: targetL1BlockHash });
+    await this.store.setMessageSyncState(
+      { l1BlockNumber: targetL1BlockNumber, l1BlockHash: targetL1BlockHash },
+      undefined,
+    );
     if (targetL2BlockNumber < currentProvenBlock) {
       this.log.info(`Rolling back proven L2 checkpoint to ${targetCheckpointNumber}`);
       await this.updater.setProvenCheckpointNumber(targetCheckpointNumber);

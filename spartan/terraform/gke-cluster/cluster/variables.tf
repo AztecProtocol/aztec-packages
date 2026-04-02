@@ -20,3 +20,10 @@ variable "service_account" {
 variable "node_version" {
   default = "1.30.5-gke.1713000"
 }
+
+variable "enable_workload_identity" {
+  description = "Enable Workload Identity on the cluster"
+  type        = bool
+  default     = false
+}
+

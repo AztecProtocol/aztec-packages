@@ -1887,6 +1887,39 @@ describe('PeerManager', () => {
       expect(failedHandshakes.get(peerIdStr).count).toBe(2);
     });
 
+    it('should clean up expired failed-auth entries during heartbeat', async () => {
+      const peerId = await createSecp256k1PeerId();
+      const peerIdStr = peerId.toString();
+      const ipAddress = '10.0.0.1';
+
+      const mockConnection = {
+        remotePeer: peerId,
+        remoteAddr: {
+          nodeAddress: () => ({ address: ipAddress }),
+        },
+      };
+      mockLibP2PNode.getConnections.mockReturnValue([mockConnection]);
+
+      // Exceed the threshold so the peer is blocked
+      for (let i = 0; i < 4; i++) {
+        (peerManager as any).markAuthHandshakeFailed(peerId);
+      }
+
+      expect(peerManager.isNodeAllowedToConnect(peerIdStr)).toBe(false);
+      expect(peerManager.isNodeAllowedToConnect(ipAddress)).toBe(false);
+
+      // Advance time past expiry (1 hour + 1 minute)
+      jest.advanceTimersByTime(61 * 60 * 1000);
+
+      // Trigger heartbeat — should proactively clean up stale entries without needing
+      // isNodeAllowedToConnect to be called first for each peer
+      await peerManager.heartbeat();
+
+      const failedHandshakes = (peerManager as any).failedAuthHandshakes;
+      expect(failedHandshakes.has(peerIdStr)).toBe(false);
+      expect(failedHandshakes.has(ipAddress)).toBe(false);
+    });
+
     it('should handle auth failure during actual handshake process', async () => {
       jest.useRealTimers(); // needed here to allow sleep couple of lines below
       const peerId = await createSecp256k1PeerId();

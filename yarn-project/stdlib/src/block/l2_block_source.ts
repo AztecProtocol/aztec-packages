@@ -13,7 +13,7 @@ import type { TypedEventEmitter } from '@aztec/foundation/types';
 import { z } from 'zod';
 
 import type { Checkpoint } from '../checkpoint/checkpoint.js';
-import type { CheckpointData } from '../checkpoint/checkpoint_data.js';
+import type { CheckpointData, CommonCheckpointData, ProposedCheckpointData } from '../checkpoint/checkpoint_data.js';
 import type { PublishedCheckpoint } from '../checkpoint/published_checkpoint.js';
 import type { L1RollupConstants } from '../epoch-helpers/index.js';
 import { CheckpointHeader } from '../rollup/checkpoint_header.js';
@@ -175,8 +175,10 @@ export interface L2BlockSource {
   getSettledTxReceipt(txHash: TxHash): Promise<TxReceipt | undefined>;
 
   /**
-   * Returns the last L2 slot number that has been fully synchronized from L1.
-   * An L2 slot is fully synced when all L1 blocks that fall within its time range have been processed.
+   * Returns the last L2 slot number for which we have all L1 data needed to build the next checkpoint.
+   * Determined by the max of two signals: L1 block sync progress and latest synced checkpoint slot.
+   * The checkpoint signal handles missed L1 blocks, since a published checkpoint seals the message tree
+   * for the next checkpoint via the inbox LAG mechanism.
    */
   getSyncedL2SlotNumber(): Promise<SlotNumber | undefined>;
 
@@ -226,6 +228,12 @@ export interface L2BlockSource {
    * checkpoint that is invalid, along with the reason for being invalid, which can be used to trigger an invalidation.
    */
   getPendingChainValidationStatus(): Promise<ValidateCheckpointResult>;
+
+  /** Returns the checkpoint at the proposed chain tip. */
+  getProposedCheckpoint(): Promise<CommonCheckpointData | undefined>;
+
+  /** Returns proposed checkpoint, if set, undefined if not*/
+  getProposedCheckpointOnly(): Promise<ProposedCheckpointData | undefined>;
 
   /** Force a sync. */
   syncImmediate(): Promise<void>;
@@ -310,12 +318,13 @@ export interface L2BlockSourceEventEmitter extends L2BlockSource {
  * - proven: Proven block on L1.
  * - finalized: Proven block on a finalized L1 block (not implemented, set to proven for now).
  */
-export type L2BlockTag = 'proposed' | 'checkpointed' | 'proven' | 'finalized';
+export type L2BlockTag = 'proposed' | 'proposedCheckpoint' | 'checkpointed' | 'proven' | 'finalized';
 
 /** Tips of the L2 chain. */
 export type L2Tips = {
   proposed: L2BlockId;
   checkpointed: L2TipId;
+  proposedCheckpoint: L2TipId;
   proven: L2TipId;
   finalized: L2TipId;
 };
@@ -360,6 +369,7 @@ const L2TipIdSchema = z.object({
 export const L2TipsSchema = z.object({
   proposed: L2BlockIdSchema,
   checkpointed: L2TipIdSchema,
+  proposedCheckpoint: L2TipIdSchema,
   proven: L2TipIdSchema,
   finalized: L2TipIdSchema,
 });
