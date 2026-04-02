@@ -61,7 +61,6 @@ import {
 import type { ConnectionManager } from '@libp2p/interface-internal';
 import { ping } from '@libp2p/ping';
 import { tcp } from '@libp2p/tcp';
-import { multiaddr } from '@multiformats/multiaddr';
 import { createLibp2p } from 'libp2p';
 
 import type { P2PConfig } from '../../config.js';
