@@ -6,7 +6,7 @@ pub contract Parent {
         macros::functions::{external, initializer},
         protocol::{
             abis::function_selector::FunctionSelector,
-            address::AztecAddress,
+            address::{AztecAddress, EthAddress},
             traits::ToField,
         },
     };
@@ -79,5 +79,49 @@ pub contract Parent {
             selector,
             [owner.to_field(), storage_slot],
         );
+    }
+
+    // Forward a call to send_l2_to_l1_message(Field, EthAddress) on the target contract.
+    #[external("private")]
+    fn forward_send_l2_to_l1_message(
+        target: AztecAddress,
+        content: Field,
+        recipient: EthAddress,
+    ) {
+        let selector =
+            comptime { FunctionSelector::from_signature("send_l2_to_l1_message(Field,(Field))") };
+        let _ = self.context.call_private_function(
+            target,
+            selector,
+            [content, recipient.to_field()],
+        );
+    }
+
+    // Forward a call to emit_private_log(Field, Field) on the target contract.
+    #[external("private")]
+    fn forward_emit_private_log(target: AztecAddress, tag: Field, content: Field) {
+        let selector =
+            comptime { FunctionSelector::from_signature("emit_private_log(Field,Field)") };
+        let _ = self.context.call_private_function(target, selector, [tag, content]);
+    }
+
+    // Forward a call to request_ovsk_app(AztecAddress) on the target contract.
+    #[external("private")]
+    fn forward_request_ovsk_app(target: AztecAddress, account: AztecAddress) {
+        let selector =
+            comptime { FunctionSelector::from_signature("request_ovsk_app((Field))") };
+        let _ = self.context.call_private_function(
+            target,
+            selector,
+            [account.to_field()],
+        );
+    }
+
+    // Forward a call to test_setting_teardown() on the target contract.
+    #[external("private")]
+    fn forward_test_setting_teardown(target: AztecAddress) {
+        let selector =
+            comptime { FunctionSelector::from_signature("test_setting_teardown()") };
+        let _ = self.context.call_private_function(target, selector, []);
     }
 }

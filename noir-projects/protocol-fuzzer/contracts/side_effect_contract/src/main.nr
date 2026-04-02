@@ -14,6 +14,10 @@ use aztec::macros::aztec;
 /// - Note read requests: `call_get_notes_many`
 /// - Unconstrained note queries: `call_view_notes_many`
 /// - Archive inclusion proofs: `test_note_inclusion`, `test_settled_nullifier_inclusion`
+/// - L2→L1 messages: `send_l2_to_l1_message`
+/// - Private log emissions: `emit_private_log`
+/// - Key validation requests: `request_ovsk_app`
+/// - Public teardown execution: `test_setting_teardown` / `dummy_public_call`
 ///
 /// Uses `UintNote` with caller-chosen storage slots (no declared storage)
 /// so the fuzzer can exercise multiple independent note sets.
@@ -26,6 +30,7 @@ pub contract SideEffect {
     use aztec::{
         hash::compute_siloed_nullifier,
         history::nullifier::assert_nullifier_existed_by,
+        keys::getters::get_public_keys,
         macros::{
             functions::{external, initializer, noinitcheck},
             storage::storage,
@@ -39,7 +44,9 @@ pub contract SideEffect {
             note_getter_options::{NoteGetterOptions, NoteStatus, PropertySelector, SortOrder},
             note_viewer_options::NoteViewerOptions,
         },
-        protocol::address::AztecAddress,
+        protocol::abis::function_selector::FunctionSelector,
+        protocol::address::{AztecAddress, EthAddress},
+        protocol::constants::PRIVATE_LOG_CIPHERTEXT_LEN,
     };
 
     use uint_note::{PartialUintNote, UintNote};
@@ -159,14 +166,45 @@ pub contract SideEffect {
         [v0, v1]
     }
 
-    // TODO: Add more functions that push data directly to the context (both
-    // private and public) to test more side-effect scenarios -- e.g. pushing
-    // note hashes, log hashes, l2-to-l1 messages directly.
     #[external("private")]
     #[noinitcheck]
     fn emit_nullifier(nullifier: Field) {
         self.context.push_nullifier(nullifier);
     }
+
+    #[external("private")]
+    #[noinitcheck]
+    fn send_l2_to_l1_message(content: Field, recipient: EthAddress) {
+        self.context.message_portal(recipient, content);
+    }
+
+    #[external("private")]
+    #[noinitcheck]
+    fn emit_private_log(tag: Field, content: Field) {
+        let log = [content].concat([0; PRIVATE_LOG_CIPHERTEXT_LEN - 1]);
+        self.context.emit_private_log_unsafe(tag, log, 1);
+    }
+
+    #[external("private")]
+    #[noinitcheck]
+    fn request_ovsk_app(account: AztecAddress) {
+        let ovpk_m = get_public_keys(account).ovpk_m;
+        let _ = self.context.request_ovsk_app(ovpk_m.hash());
+    }
+
+    #[external("private")]
+    #[noinitcheck]
+    fn test_setting_teardown() {
+        self.context.set_public_teardown_function(
+            self.address,
+            comptime { FunctionSelector::from_signature("dummy_public_call()") },
+            [],
+            false,
+        );
+    }
+
+    #[external("public")]
+    fn dummy_public_call() {}
 
     #[external("private")]
     fn test_settled_nullifier_inclusion(nullifier: Field) {

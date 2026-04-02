@@ -116,7 +116,7 @@ pub fn run_batched<T>(
     max_batch_size: usize,
 ) -> arbitrary::Result<()>
 where
-    T: StateMachine<Result = anyhow::Result<String>>,
+    T: StateMachine,
     T::Command: Batchable,
 {
     let state = t.gen_state(u)?;

@@ -159,7 +159,9 @@ impl From<&TokenCommand> for WalletCommand {
 
 impl<'a> TokenSystem<'a> {
     pub(crate) fn execute_command(&self, cmd: &TokenCommand) -> anyhow::Result<String> {
-        self.bridge.execute(&WalletCommand::from(cmd))
+        self.bridge
+            .execute(&WalletCommand::from(cmd))
+            .map(|o| o.stdout)
     }
 
     pub(crate) fn execute_command_batch(
@@ -167,7 +169,11 @@ impl<'a> TokenSystem<'a> {
         cmds: &[TokenCommand],
     ) -> Vec<anyhow::Result<String>> {
         let wallet_cmds: Vec<WalletCommand> = cmds.iter().map(WalletCommand::from).collect();
-        self.bridge.execute_many(&wallet_cmds)
+        self.bridge
+            .execute_many(&wallet_cmds)
+            .into_iter()
+            .map(|r| r.map(|o| o.stdout))
+            .collect()
     }
 
     pub(crate) fn deploy_token(

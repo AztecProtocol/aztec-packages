@@ -6,11 +6,14 @@ use log::debug;
 
 use super::system::SideEffectSystem;
 use crate::smt::{self, Batchable};
-use crate::wallet::{self, AccountId, Bridge};
+use crate::wallet::{self, AccountId, Bridge, ExecOutput};
 
 pub(crate) type NoteValue = u128;
 pub(crate) type NullifierValue = u128;
 pub(crate) type StorageSlotId = u8;
+pub(crate) type L2ToL1Content = u128;
+pub(crate) type LogTag = u128;
+pub(crate) type LogContent = u128;
 
 /// Upper bound on the number of storage slots. Keeps the state space manageable.
 const MAX_STORAGE_SLOTS: usize = 20;
@@ -77,6 +80,26 @@ pub enum SideEffectCommand {
         from: AccountId,
         via_parent: bool,
     },
+    SendL2ToL1Message {
+        content: L2ToL1Content,
+        recipient: u128,
+        from: AccountId,
+        via_parent: bool,
+    },
+    EmitPrivateLog {
+        tag: LogTag,
+        content: LogContent,
+        from: AccountId,
+        via_parent: bool,
+    },
+    RequestOvskApp {
+        from: AccountId,
+        via_parent: bool,
+    },
+    TestSettingTeardown {
+        from: AccountId,
+        via_parent: bool,
+    },
 }
 
 impl SideEffectCommand {
@@ -90,6 +113,10 @@ impl SideEffectCommand {
             Self::TestNoteInclusion { .. } => "TestNoteInclusion",
             Self::EmitNullifier { .. } => "EmitNullifier",
             Self::TestNullifierInclusion { .. } => "TestNullifierInclusion",
+            Self::SendL2ToL1Message { .. } => "SendL2ToL1Message",
+            Self::EmitPrivateLog { .. } => "EmitPrivateLog",
+            Self::RequestOvskApp { .. } => "RequestOvskApp",
+            Self::TestSettingTeardown { .. } => "TestSettingTeardown",
         }
     }
 
@@ -105,7 +132,11 @@ impl SideEffectCommand {
             | Self::DestroyNote { .. }
             | Self::TestNoteInclusion { .. }
             | Self::EmitNullifier { .. }
-            | Self::TestNullifierInclusion { .. } => wallet::Verb::Send,
+            | Self::TestNullifierInclusion { .. }
+            | Self::SendL2ToL1Message { .. }
+            | Self::EmitPrivateLog { .. }
+            | Self::RequestOvskApp { .. }
+            | Self::TestSettingTeardown { .. } => wallet::Verb::Send,
         }
     }
 
@@ -123,7 +154,11 @@ impl SideEffectCommand {
             Self::CreateNote { .. }
             | Self::CreateAndCompletePartialNote { .. }
             | Self::DestroyNote { .. }
-            | Self::EmitNullifier { .. } => false,
+            | Self::EmitNullifier { .. }
+            | Self::SendL2ToL1Message { .. }
+            | Self::EmitPrivateLog { .. }
+            | Self::RequestOvskApp { .. }
+            | Self::TestSettingTeardown { .. } => false,
         }
     }
 
@@ -133,7 +168,11 @@ impl SideEffectCommand {
             | Self::DestroyNote { via_parent, .. }
             | Self::TestNoteInclusion { via_parent, .. }
             | Self::EmitNullifier { via_parent, .. }
-            | Self::TestNullifierInclusion { via_parent, .. } => *via_parent,
+            | Self::TestNullifierInclusion { via_parent, .. }
+            | Self::SendL2ToL1Message { via_parent, .. }
+            | Self::EmitPrivateLog { via_parent, .. }
+            | Self::RequestOvskApp { via_parent, .. }
+            | Self::TestSettingTeardown { via_parent, .. } => *via_parent,
             Self::CreateAndCompletePartialNote { .. }
             | Self::ViewNotesMany { .. }
             | Self::GetNotesMany { .. } => false,
@@ -166,7 +205,11 @@ impl SideEffectCommand {
             Self::ViewNotesMany { .. }
             | Self::GetNotesMany { .. }
             | Self::EmitNullifier { .. }
-            | Self::TestNullifierInclusion { .. } => None,
+            | Self::TestNullifierInclusion { .. }
+            | Self::SendL2ToL1Message { .. }
+            | Self::EmitPrivateLog { .. }
+            | Self::RequestOvskApp { .. }
+            | Self::TestSettingTeardown { .. } => None,
         }
     }
 
@@ -180,7 +223,11 @@ impl SideEffectCommand {
             | Self::DestroyNote { .. }
             | Self::TestNoteInclusion { .. }
             | Self::ViewNotesMany { .. }
-            | Self::GetNotesMany { .. } => None,
+            | Self::GetNotesMany { .. }
+            | Self::SendL2ToL1Message { .. }
+            | Self::EmitPrivateLog { .. }
+            | Self::RequestOvskApp { .. }
+            | Self::TestSettingTeardown { .. } => None,
         }
     }
 }
@@ -219,6 +266,8 @@ pub struct SideEffectState {
     pub active_notes: HashMap<(StorageSlotId, AccountId), Vec<NoteValue>>,
     pub destroyed_notes: HashMap<(StorageSlotId, AccountId), Vec<NoteValue>>,
     pub emitted_nullifiers: HashSet<NullifierValue>,
+    pub l2_to_l1_messages: Vec<(L2ToL1Content, u128)>,
+    pub private_logs: Vec<(LogTag, LogContent)>,
 }
 
 fn choose_account(u: &mut Unstructured, state: &SideEffectState) -> arbitrary::Result<AccountId> {
@@ -254,7 +303,7 @@ fn populated_slots(state: &SideEffectState) -> Vec<(StorageSlotId, AccountId)> {
     slots
 }
 
-fn assert_expected(name: &str, expect_ok: bool, result: &anyhow::Result<String>) {
+fn assert_expected(name: &str, expect_ok: bool, result: &anyhow::Result<ExecOutput>) {
     if expect_ok {
         debug!("{name}: expecting success");
         assert!(
@@ -328,7 +377,7 @@ impl<'a> smt::StateMachine for SideEffectMachine<'a> {
     type System = SideEffectSystem<'a>;
     type State = SideEffectState;
     type Command = SideEffectCommand;
-    type Result = Result<String>;
+    type Result = Result<ExecOutput>;
 
     fn gen_state(&mut self, _u: &mut Unstructured) -> arbitrary::Result<Self::State> {
         let mut state = Self::State {
@@ -359,6 +408,10 @@ impl<'a> smt::StateMachine for SideEffectMachine<'a> {
             ("create_note", 8),
             ("create_partial_note", 3),
             ("emit_nullifier", 3),
+            ("send_l2_to_l1_message", 3),
+            ("emit_private_log", 3),
+            ("request_ovsk_app", 2),
+            ("test_setting_teardown", 2),
         ]);
 
         if !pop.is_empty() {
@@ -455,6 +508,26 @@ impl<'a> smt::StateMachine for SideEffectMachine<'a> {
                     via_parent: bool::arbitrary(u)?,
                 }
             }
+            "send_l2_to_l1_message" => SideEffectCommand::SendL2ToL1Message {
+                content: u128::arbitrary(u)?,
+                recipient: u128::arbitrary(u)?,
+                from: choose_account(u, state)?,
+                via_parent: bool::arbitrary(u)?,
+            },
+            "emit_private_log" => SideEffectCommand::EmitPrivateLog {
+                tag: u128::arbitrary(u)?,
+                content: u128::arbitrary(u)?,
+                from: choose_account(u, state)?,
+                via_parent: bool::arbitrary(u)?,
+            },
+            "request_ovsk_app" => SideEffectCommand::RequestOvskApp {
+                from: choose_account(u, state)?,
+                via_parent: bool::arbitrary(u)?,
+            },
+            "test_setting_teardown" => SideEffectCommand::TestSettingTeardown {
+                from: choose_account(u, state)?,
+                via_parent: bool::arbitrary(u)?,
+            },
             _ => unreachable!(),
         };
 
@@ -519,11 +592,23 @@ impl<'a> smt::StateMachine for SideEffectMachine<'a> {
             EmitNullifier { nullifier, .. } => {
                 state.emitted_nullifiers.insert(*nullifier);
             }
-            // Query commands don't change state
+            SendL2ToL1Message {
+                content,
+                recipient,
+                ..
+            } => {
+                state.l2_to_l1_messages.push((*content, *recipient));
+            }
+            EmitPrivateLog { tag, content, .. } => {
+                state.private_logs.push((*tag, *content));
+            }
+            // Query commands and stateless sends don't change state
             ViewNotesMany { .. }
             | GetNotesMany { .. }
             | TestNoteInclusion { .. }
-            | TestNullifierInclusion { .. } => {}
+            | TestNullifierInclusion { .. }
+            | RequestOvskApp { .. }
+            | TestSettingTeardown { .. } => {}
         };
 
         state
@@ -588,6 +673,52 @@ impl<'a> smt::StateMachine for SideEffectMachine<'a> {
             TestNullifierInclusion { .. } => {
                 assert_expected(cmd.name(), true, &result);
             }
+            SendL2ToL1Message { .. } => {
+                let name = cmd.name();
+                assert!(
+                    result.is_ok(),
+                    "{name} unexpectedly failed: {:?}",
+                    result.err()
+                );
+                if let Some(ref effects) = result.unwrap().tx_effects {
+                    assert!(
+                        effects.l2_to_l1_msg_count >= 1,
+                        "{name}: expected at least 1 L2→L1 message in TxEffect, got {}",
+                        effects.l2_to_l1_msg_count,
+                    );
+                }
+            }
+            EmitPrivateLog { tag, content, .. } => {
+                let name = cmd.name();
+                assert!(
+                    result.is_ok(),
+                    "{name} unexpectedly failed: {:?}",
+                    result.err()
+                );
+                if let Some(ref effects) = result.unwrap().tx_effects {
+                    let tag_str = tag.to_string();
+                    let content_str = content.to_string();
+                    let found = effects.private_logs.iter().any(|log| {
+                        log.fields.len() >= 2
+                            && log.fields[0] == tag_str
+                            && log.fields[1] == content_str
+                    });
+                    assert!(
+                        found,
+                        "{name}: no private log with tag={tag} content={content} found in TxEffect. \
+                         logs={:?}",
+                        effects.private_logs,
+                    );
+                }
+            }
+            RequestOvskApp { .. } | TestSettingTeardown { .. } => {
+                assert!(
+                    result.is_ok(),
+                    "{} unexpectedly failed: {:?}",
+                    cmd.name(),
+                    result.err()
+                );
+            }
             ViewNotesMany {
                 owner,
                 storage_slot,
@@ -615,7 +746,13 @@ impl<'a> smt::StateMachine for SideEffectMachine<'a> {
                     *active_or_nullified,
                     *offset,
                 );
-                check_multi_note_query(name, *storage_slot, *owner, &result.unwrap(), &expected);
+                check_multi_note_query(
+                    name,
+                    *storage_slot,
+                    *owner,
+                    &result.unwrap().stdout,
+                    &expected,
+                );
             }
         }
     }
@@ -1229,6 +1366,161 @@ mod tests {
         assert_eq!(expected_notes(&state, 5, 0, false, 0), vec![20]);
     }
 
+    // -- SendL2ToL1Message / EmitPrivateLog tests --
+
+    #[test]
+    fn send_l2_to_l1_message_tracks_in_model() {
+        let m = machine();
+        let state = make_state();
+        let cmd = SideEffectCommand::SendL2ToL1Message {
+            content: 123,
+            recipient: 456,
+            from: 0,
+            via_parent: false,
+        };
+        let state = m.next_state(&cmd, state);
+        assert_eq!(state.l2_to_l1_messages, vec![(123, 456)]);
+    }
+
+    #[test]
+    fn emit_private_log_tracks_in_model() {
+        let m = machine();
+        let state = make_state();
+        let cmd = SideEffectCommand::EmitPrivateLog {
+            tag: 10,
+            content: 20,
+            from: 1,
+            via_parent: false,
+        };
+        let state = m.next_state(&cmd, state);
+        assert_eq!(state.private_logs, vec![(10, 20)]);
+    }
+
+    #[test]
+    fn stateless_sends_dont_change_note_or_nullifier_state() {
+        let m = machine();
+        let mut state = make_state();
+        state.active_notes.insert((5, 0), vec![42]);
+        state.emitted_nullifiers.insert(99);
+
+        let cmds = vec![
+            SideEffectCommand::SendL2ToL1Message {
+                content: 1,
+                recipient: 2,
+                from: 0,
+                via_parent: false,
+            },
+            SideEffectCommand::EmitPrivateLog {
+                tag: 3,
+                content: 4,
+                from: 0,
+                via_parent: false,
+            },
+            SideEffectCommand::RequestOvskApp {
+                from: 0,
+                via_parent: false,
+            },
+            SideEffectCommand::TestSettingTeardown {
+                from: 0,
+                via_parent: false,
+            },
+        ];
+
+        for cmd in &cmds {
+            let new_state = m.next_state(cmd, state.clone());
+            assert_eq!(new_state.active_notes, state.active_notes);
+            assert_eq!(new_state.destroyed_notes, state.destroyed_notes);
+            assert_eq!(new_state.emitted_nullifiers, state.emitted_nullifiers);
+        }
+    }
+
+    #[test]
+    fn l2_to_l1_messages_dont_conflict_with_each_other() {
+        let a = SideEffectCommand::SendL2ToL1Message {
+            content: 1,
+            recipient: 2,
+            from: 0,
+            via_parent: false,
+        };
+        let b = SideEffectCommand::SendL2ToL1Message {
+            content: 3,
+            recipient: 4,
+            from: 1,
+            via_parent: false,
+        };
+        assert!(!a.conflicts(&b));
+    }
+
+    #[test]
+    fn private_logs_dont_conflict_with_each_other() {
+        let a = SideEffectCommand::EmitPrivateLog {
+            tag: 1,
+            content: 2,
+            from: 0,
+            via_parent: false,
+        };
+        let b = SideEffectCommand::EmitPrivateLog {
+            tag: 3,
+            content: 4,
+            from: 1,
+            via_parent: false,
+        };
+        assert!(!a.conflicts(&b));
+    }
+
+    #[test]
+    fn l2_to_l1_and_note_dont_conflict() {
+        let a = SideEffectCommand::SendL2ToL1Message {
+            content: 1,
+            recipient: 2,
+            from: 0,
+            via_parent: false,
+        };
+        let b = SideEffectCommand::CreateNote {
+            value: 42,
+            owner: 0,
+            storage_slot: 5,
+            from: 0,
+            via_parent: false,
+        };
+        assert!(!a.conflicts(&b));
+    }
+
+    #[test]
+    fn private_log_and_nullifier_dont_conflict() {
+        let a = SideEffectCommand::EmitPrivateLog {
+            tag: 1,
+            content: 2,
+            from: 0,
+            via_parent: false,
+        };
+        let b = SideEffectCommand::EmitNullifier {
+            nullifier: 42,
+            from: 0,
+            via_parent: false,
+        };
+        assert!(!a.conflicts(&b));
+    }
+
+    #[test]
+    fn l2_to_l1_conflicts_with_query() {
+        let a = SideEffectCommand::SendL2ToL1Message {
+            content: 1,
+            recipient: 2,
+            from: 0,
+            via_parent: false,
+        };
+        let b = SideEffectCommand::ViewNotesMany {
+            owner: 0,
+            storage_slot: 1,
+            active_or_nullified: false,
+            offset: 0,
+            from: 0,
+        };
+        assert!(a.conflicts(&b));
+        assert!(b.conflicts(&a));
+    }
+
     /// CreateNote and CreateAndCompletePartialNote produce equivalent model state.
     #[test]
     fn create_and_partial_create_are_equivalent_in_model() {
@@ -1256,5 +1548,73 @@ mod tests {
         );
 
         assert_eq!(state1.active_notes, state2.active_notes);
+    }
+
+    // -- RequestOvskApp / TestSettingTeardown conflict tests --
+
+    #[test]
+    fn request_ovsk_app_no_conflict_with_send() {
+        let a = SideEffectCommand::RequestOvskApp {
+            from: 0,
+            via_parent: false,
+        };
+        let b = SideEffectCommand::CreateNote {
+            value: 1,
+            owner: 0,
+            storage_slot: 5,
+            from: 0,
+            via_parent: false,
+        };
+        assert!(!a.conflicts(&b));
+    }
+
+    #[test]
+    fn teardown_no_conflict_with_send() {
+        let a = SideEffectCommand::TestSettingTeardown {
+            from: 0,
+            via_parent: false,
+        };
+        let b = SideEffectCommand::CreateNote {
+            value: 1,
+            owner: 0,
+            storage_slot: 5,
+            from: 0,
+            via_parent: false,
+        };
+        assert!(!a.conflicts(&b));
+    }
+
+    #[test]
+    fn request_ovsk_app_conflicts_with_query() {
+        let a = SideEffectCommand::RequestOvskApp {
+            from: 0,
+            via_parent: false,
+        };
+        let b = SideEffectCommand::ViewNotesMany {
+            owner: 0,
+            storage_slot: 1,
+            active_or_nullified: false,
+            offset: 0,
+            from: 0,
+        };
+        assert!(a.conflicts(&b));
+        assert!(b.conflicts(&a));
+    }
+
+    #[test]
+    fn teardown_conflicts_with_query() {
+        let a = SideEffectCommand::TestSettingTeardown {
+            from: 0,
+            via_parent: false,
+        };
+        let b = SideEffectCommand::ViewNotesMany {
+            owner: 0,
+            storage_slot: 1,
+            active_or_nullified: false,
+            offset: 0,
+            from: 0,
+        };
+        assert!(a.conflicts(&b));
+        assert!(b.conflicts(&a));
     }
 }

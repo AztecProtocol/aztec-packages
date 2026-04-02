@@ -114,7 +114,31 @@ const handlers = {
         ? send(w, node, sender, method, callArgs, artifact, target, true, false, feeOpts, [], 'mined', false, log)
         : simulate(w, node, sender, method, callArgs, artifact, target, feeOpts, [], false, log),
     );
-    return { ok: true, stdout };
+    const result = { ok: true, stdout };
+
+    // For sends, extract TxEffect data for verification in the fuzzer.
+    if (verb === 'send') {
+      const hashMatch = stdout.match(/Transaction hash:\s+(0x[a-f0-9]+)/i);
+      if (hashMatch) {
+        try {
+          const { TxHash } = await import('@aztec/stdlib/tx');
+          const effect = await node.getTxEffect(TxHash.fromString(hashMatch[1]));
+          if (effect) {
+            const d = effect.data;
+            result.txEffects = {
+              l2ToL1MsgCount: d.l2ToL1Msgs.filter(m => !m.isZero()).length,
+              privateLogs: d.privateLogs.filter(l => !l.isEmpty()).map(l => ({
+                fields: l.getEmittedFields().map(f => f.toBigInt().toString()),
+              })),
+            };
+          }
+        } catch (err) {
+          console.warn('Failed to fetch TxEffect:', err.message);
+        }
+      }
+    }
+
+    return result;
   },
 };
 

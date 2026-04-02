@@ -1,5 +1,5 @@
 use super::machine::SideEffectCommand;
-use crate::wallet::{AccountId, Bridge, WalletCommand};
+use crate::wallet::{AccountId, Bridge, ExecOutput, WalletCommand};
 
 pub struct SideEffectSystem<'a> {
     side_effect_artifact: String,
@@ -109,6 +109,36 @@ impl From<&SideEffectCommand> for WalletCommand {
                 format!("accounts:test{from}"),
                 vec![format!("{nullifier}")],
             ),
+            SendL2ToL1Message {
+                content,
+                recipient,
+                from,
+                ..
+            } => (
+                "send_l2_to_l1_message",
+                format!("accounts:test{from}"),
+                vec![format!("{content}"), format!("{recipient}")],
+            ),
+            EmitPrivateLog {
+                tag,
+                content,
+                from,
+                ..
+            } => (
+                "emit_private_log",
+                format!("accounts:test{from}"),
+                vec![format!("{tag}"), format!("{content}")],
+            ),
+            RequestOvskApp { from, .. } => (
+                "request_ovsk_app",
+                format!("accounts:test{from}"),
+                vec![format!("accounts:test{from}")],
+            ),
+            TestSettingTeardown { from, .. } => (
+                "test_setting_teardown",
+                format!("accounts:test{from}"),
+                vec![],
+            ),
         };
 
         let (contract, method, args) = if cmd.via_parent() {
@@ -130,14 +160,14 @@ impl From<&SideEffectCommand> for WalletCommand {
 }
 
 impl<'a> SideEffectSystem<'a> {
-    pub(crate) fn execute_command(&self, cmd: &SideEffectCommand) -> anyhow::Result<String> {
+    pub(crate) fn execute_command(&self, cmd: &SideEffectCommand) -> anyhow::Result<ExecOutput> {
         self.bridge.execute(&WalletCommand::from(cmd))
     }
 
     pub(crate) fn execute_command_batch(
         &self,
         cmds: &[SideEffectCommand],
-    ) -> Vec<anyhow::Result<String>> {
+    ) -> Vec<anyhow::Result<ExecOutput>> {
         let wallet_cmds: Vec<WalletCommand> = cmds.iter().map(WalletCommand::from).collect();
         self.bridge.execute_many(&wallet_cmds)
     }

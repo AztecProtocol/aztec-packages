@@ -87,6 +87,23 @@ pub struct WalletCommand {
     pub args: Vec<String>,
 }
 
+#[derive(Debug, Clone, Default)]
+pub struct TxEffects {
+    pub l2_to_l1_msg_count: usize,
+    pub private_logs: Vec<PrivateLogData>,
+}
+
+#[derive(Debug, Clone)]
+pub struct PrivateLogData {
+    pub fields: Vec<String>,
+}
+
+#[derive(Debug, Clone)]
+pub struct ExecOutput {
+    pub stdout: String,
+    pub tx_effects: Option<TxEffects>,
+}
+
 // ---------------------------------------------------------------------------
 // Bridge -- persistent connection to the Node.js bridge server
 // ---------------------------------------------------------------------------
@@ -162,9 +179,10 @@ impl Bridge {
         }
     }
 
-    /// Execute a wallet command and return stdout.  Retries automatically on
-    /// transient sandbox errors (e.g. block-hash-not-found after a reorg).
-    pub fn execute(&self, cmd: &WalletCommand) -> anyhow::Result<String> {
+    /// Execute a wallet command and return output including optional TxEffect
+    /// data.  Retries automatically on transient sandbox errors (e.g.
+    /// block-hash-not-found after a reorg).
+    pub fn execute(&self, cmd: &WalletCommand) -> anyhow::Result<ExecOutput> {
         let book = self.address_book.lock().unwrap();
         let resolved_from = book.resolve(&cmd.from);
         let resolved_contract = book.resolve(&cmd.contract);
@@ -193,7 +211,8 @@ impl Bridge {
             let result = self.post("/execute", &body)?;
             let stdout = result["stdout"].as_str().unwrap_or("").to_string();
             debug!("bridge execute stdout: {stdout}");
-            Ok(stdout)
+            let tx_effects = parse_tx_effects(&result);
+            Ok(ExecOutput { stdout, tx_effects })
         })
     }
 
@@ -265,7 +284,7 @@ impl Bridge {
 
     /// Execute multiple wallet commands in parallel using scoped threads.
     /// Returns results in the same order as the input commands.
-    pub fn execute_many(&self, cmds: &[WalletCommand]) -> Vec<anyhow::Result<String>> {
+    pub fn execute_many(&self, cmds: &[WalletCommand]) -> Vec<anyhow::Result<ExecOutput>> {
         std::thread::scope(|s| {
             let handles: Vec<_> = cmds
                 .iter()
@@ -274,6 +293,39 @@ impl Bridge {
             handles.into_iter().map(|h| h.join().unwrap()).collect()
         })
     }
+}
+
+// ---------------------------------------------------------------------------
+// TxEffect parsing
+// ---------------------------------------------------------------------------
+
+/// Parse the optional `txEffects` field from a bridge JSON response.
+fn parse_tx_effects(result: &serde_json::Value) -> Option<TxEffects> {
+    let effects = result.get("txEffects")?;
+    let l2_to_l1_msg_count = effects["l2ToL1MsgCount"].as_u64().unwrap_or(0) as usize;
+    let private_logs = effects
+        .get("privateLogs")
+        .and_then(|v| v.as_array())
+        .map(|arr| {
+            arr.iter()
+                .map(|log| PrivateLogData {
+                    fields: log
+                        .get("fields")
+                        .and_then(|f| f.as_array())
+                        .map(|fs| {
+                            fs.iter()
+                                .filter_map(|f| f.as_str().map(String::from))
+                                .collect()
+                        })
+                        .unwrap_or_default(),
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+    Some(TxEffects {
+        l2_to_l1_msg_count,
+        private_logs,
+    })
 }
 
 // ---------------------------------------------------------------------------
