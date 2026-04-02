@@ -575,6 +575,37 @@ export class LibP2PService extends WithTracer implements P2PService {
 
     await this.node.start();
 
+    // Debug: log connection lifecycle events to diagnose mesh formation issues under load
+    (this.node as any).addEventListener('connection:open', (evt: CustomEvent) => {
+      const conn = evt.detail;
+      this.logger.debug(`Connection opened to ${conn.remotePeer} via ${conn.remoteAddr}`, {
+        direction: conn.direction,
+        streams: conn.streams?.length ?? 0,
+        connectionId: conn.id,
+      });
+    });
+    (this.node as any).addEventListener('connection:close', (evt: CustomEvent) => {
+      const conn = evt.detail;
+      this.logger.debug(`Connection closed to ${conn.remotePeer}`, {
+        direction: conn.direction,
+        connectionId: conn.id,
+        durationMs: conn.timeline?.close ? conn.timeline.close - conn.timeline.open : undefined,
+        rtt: conn.rtt,
+      });
+    });
+    // Debug: log identify results to track protocol discovery
+    (this.node as any).addEventListener('peer:identify', (evt: CustomEvent) => {
+      const result = evt.detail;
+      const protocols = result.protocols?.length ?? 0;
+      const hasGossipsub = result.protocols?.some((p: string) => p.includes('meshsub')) ?? false;
+      this.logger.debug(`Identify completed for ${result.peerId}`, {
+        protocols,
+        hasGossipsub,
+        protocolList: result.protocols?.join(','),
+        observedAddr: result.observedAddr?.toString(),
+      });
+    });
+
     // Subscribe to standard GossipSub topics by default
     for (const topic of getTopicsForConfig(this.config.disableTransactions)) {
       this.subscribeToTopic(this.topicStrings[topic]);
@@ -582,6 +613,37 @@ export class LibP2PService extends WithTracer implements P2PService {
 
     // add GossipSub listener
     this.node.services.pubsub.addEventListener(GossipSubEvent.MESSAGE, this.gossipSubEventHandler);
+
+    // Debug: log gossipsub mesh GRAFT/PRUNE events to track mesh formation
+    this.node.services.pubsub.addEventListener('gossipsub:graft', ((evt: CustomEvent) => {
+      const { peerId, topic } = evt.detail;
+      this.logger.info(`GossipSub GRAFT: added ${peerId} to mesh for topic ${topic}`);
+    }) as EventListener);
+    this.node.services.pubsub.addEventListener('gossipsub:prune', ((evt: CustomEvent) => {
+      const { peerId, topic } = evt.detail;
+      this.logger.info(`GossipSub PRUNE: removed ${peerId} from mesh for topic ${topic}`);
+    }) as EventListener);
+    this.node.services.pubsub.addEventListener('gossipsub:heartbeat', (() => {
+      const pubsub = this.node.services.pubsub as GossipSub;
+      const meshPeers: Record<string, number> = {};
+      for (const [topicType, topicStr] of Object.entries(this.topicStrings)) {
+        meshPeers[topicType] = pubsub.getMeshPeers(topicStr).length;
+      }
+      const totalConns = (this.node as any).getConnections?.()?.length ?? 'unknown';
+      // Log peer scores to understand why gossipsub might not graft peers
+      const txTopic = this.topicStrings[TopicType.tx];
+      const subscribers = pubsub.getSubscribers(txTopic);
+      const peerScores: Record<string, number> = {};
+      for (const peer of subscribers) {
+        peerScores[peer.toString().slice(-8)] = Math.round(pubsub.score.score(peer.toString()) * 100) / 100;
+      }
+      this.logger.debug(`GossipSub heartbeat`, {
+        meshPeers,
+        totalConnections: totalConns,
+        txSubscribers: subscribers.length,
+        peerScores,
+      });
+    }) as EventListener);
 
     // Start running promise for peer discovery and metrics collection
     if (!this.config.p2pDiscoveryDisabled) {

@@ -878,8 +878,13 @@ export class PeerManager implements PeerManagerInterface {
       const ourStatus = await this.createStatusMessage();
       //Note: Technically we don't have to send out status to peer as well, but we do.
       //It will be easier to update protocol in the future this way if need be.
-      this.logger.trace(`Initiating status handshake with peer ${peerId}`);
+      const handshakeStart = Date.now();
+      this.logger.debug(`Initiating status handshake with peer ${peerId}`);
       const response = await this.reqresp.sendRequestToPeer(peerId, ReqRespSubProtocol.STATUS, ourStatus.toBuffer());
+      this.logger.debug(`Status handshake completed for peer ${peerId}`, {
+        durationMs: Date.now() - handshakeStart,
+        status: ReqRespStatus[response.status],
+      });
       const { status } = response;
       if (status !== ReqRespStatus.SUCCESS) {
         const { failureSource } = response;
