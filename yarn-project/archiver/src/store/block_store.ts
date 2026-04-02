@@ -266,14 +266,14 @@ export class BlockStore {
         throw new InitialCheckpointNumberNotSequentialError(firstCheckpointNumber, previousCheckpointNumber);
       }
 
-<<<<<<< HEAD
       // Extract the previous checkpoint if there is one
+      const currentFirstCheckpointNumber = checkpoints[0].checkpoint.number;
       let previousCheckpointData: CheckpointData | undefined = undefined;
-      if (previousCheckpointNumber !== INITIAL_CHECKPOINT_NUMBER - 1) {
+      if (currentFirstCheckpointNumber - 1 !== INITIAL_CHECKPOINT_NUMBER - 1) {
         // There should be a previous checkpoint
-        previousCheckpointData = await this.getCheckpointData(previousCheckpointNumber);
+        previousCheckpointData = await this.getCheckpointData(CheckpointNumber(currentFirstCheckpointNumber - 1));
         if (previousCheckpointData === undefined) {
-          throw new CheckpointNotFoundError(previousCheckpointNumber);
+          throw new CheckpointNotFoundError(CheckpointNumber(currentFirstCheckpointNumber - 1));
         }
       }
 
@@ -289,10 +289,6 @@ export class BlockStore {
           throw new BlockNotFoundError(previousBlockNumber);
         }
       }
-=======
-      // Get the last block of the previous checkpoint for archive chaining
-      let previousBlock = await this.getPreviousCheckpointBlock(checkpoints[0].checkpoint.number);
->>>>>>> 13f6840679 (fix(archiver): handle duplicate checkpoint from L1 reorg (#22252))
 
       // Iterate over checkpoints array and insert them, checking that the block numbers are sequential.
       let previousCheckpoint: PublishedCheckpoint | undefined = undefined;
@@ -367,8 +363,6 @@ export class BlockStore {
     });
   }
 
-<<<<<<< HEAD
-=======
   /**
    * Handles checkpoints at the start of a batch that are already stored (e.g. due to L1 reorg).
    * Verifies the archive root matches, updates L1 metadata, and returns only the new checkpoints.
@@ -413,69 +407,6 @@ export class BlockStore {
     return checkpoints.slice(i);
   }
 
-  /**
-   * Gets the last block of the checkpoint before the given one.
-   * Returns undefined if there is no previous checkpoint (i.e. genesis).
-   */
-  private async getPreviousCheckpointBlock(checkpointNumber: CheckpointNumber): Promise<L2Block | undefined> {
-    const previousCheckpointNumber = CheckpointNumber(checkpointNumber - 1);
-    if (previousCheckpointNumber === INITIAL_CHECKPOINT_NUMBER - 1) {
-      return undefined;
-    }
-
-    const previousCheckpointData = await this.getCheckpointData(previousCheckpointNumber);
-    if (previousCheckpointData === undefined) {
-      throw new CheckpointNotFoundError(previousCheckpointNumber);
-    }
-
-    const previousBlockNumber = BlockNumber(previousCheckpointData.startBlock + previousCheckpointData.blockCount - 1);
-    const previousBlock = await this.getBlock(previousBlockNumber);
-    if (previousBlock === undefined) {
-      throw new BlockNotFoundError(previousBlockNumber);
-    }
-
-    return previousBlock;
-  }
-
-  /**
-   * Validates that blocks are sequential, have correct indexes, and chain via archive roots.
-   * This is the same validation used for both confirmed checkpoints (addCheckpoints) and
-   * proposed checkpoints (setProposedCheckpoint).
-   */
-  private validateCheckpointBlocks(blocks: L2Block[], previousBlock: L2Block | undefined): void {
-    for (const block of blocks) {
-      if (previousBlock) {
-        if (previousBlock.number !== block.number - 1) {
-          throw new BlockNumberNotSequentialError(block.number, previousBlock.number);
-        }
-        if (previousBlock.checkpointNumber === block.checkpointNumber) {
-          if (previousBlock.indexWithinCheckpoint !== block.indexWithinCheckpoint - 1) {
-            throw new BlockIndexNotSequentialError(block.indexWithinCheckpoint, previousBlock.indexWithinCheckpoint);
-          }
-        } else if (block.indexWithinCheckpoint !== 0) {
-          throw new BlockIndexNotSequentialError(block.indexWithinCheckpoint, previousBlock.indexWithinCheckpoint);
-        }
-        if (!previousBlock.archive.root.equals(block.header.lastArchive.root)) {
-          throw new BlockArchiveNotConsistentError(
-            block.number,
-            previousBlock.number,
-            block.header.lastArchive.root,
-            previousBlock.archive.root,
-          );
-        }
-      } else {
-        if (block.indexWithinCheckpoint !== 0) {
-          throw new BlockIndexNotSequentialError(block.indexWithinCheckpoint, undefined);
-        }
-        if (block.number !== INITIAL_L2_BLOCK_NUM) {
-          throw new BlockNumberNotSequentialError(block.number, undefined);
-        }
-      }
-      previousBlock = block;
-    }
-  }
-
->>>>>>> 13f6840679 (fix(archiver): handle duplicate checkpoint from L1 reorg (#22252))
   private async addBlockToDatabase(block: L2Block, checkpointNumber: number, indexWithinCheckpoint: number) {
     const blockHash = await block.hash();
 
