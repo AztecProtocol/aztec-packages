@@ -93,11 +93,7 @@ describe('ValidatorClient', () => {
   let checkpointsBuilder: MockProxy<FullNodeCheckpointsBuilder>;
   let worldState: MockProxy<WorldStateSynchronizer>;
   let validatorAccounts: PrivateKeyAccount[];
-<<<<<<< HEAD
-  let validatorPrivateKeys: `0x${string}`[];
-=======
   let validatorPrivateKeys: ReturnType<typeof generatePrivateKey>[];
->>>>>>> origin/v4
   let dateProvider: TestDateProvider;
   let txProvider: MockProxy<TxProvider>;
   let keyStoreManager: KeystoreManager;
@@ -403,11 +399,7 @@ describe('ValidatorClient', () => {
 
       epochCache.getProposerAttesterAddressInSlot.mockResolvedValue(selfSigner.address);
 
-<<<<<<< HEAD
-      const handleSpy = jest.spyOn(validatorClient.getBlockProposalHandler(), 'handleBlockProposal');
-=======
       const handleSpy = jest.spyOn(validatorClient.getProposalHandler(), 'handleBlockProposal');
->>>>>>> origin/v4
       const isValid = await validatorClient.validateBlockProposal(selfProposal, sender);
       expect(isValid).toBe(true);
       expect(handleSpy).toHaveBeenCalled();

@@ -18,14 +18,10 @@ import type { MemPools } from '../mem_pools/interface.js';
 import type { TxPoolV2 } from '../mem_pools/tx_pool_v2/interfaces.js';
 import { AztecKVTxPoolV2 } from '../mem_pools/tx_pool_v2/tx_pool_v2.js';
 import {
-<<<<<<< HEAD
   createCheckAllowedSetupCalls,
-  createTxValidatorForTransactionsEnteringPendingTxPool,
-  getDefaultAllowedSetupFunctions,
-=======
   createTxValidatorForReqResponseReceivedTxs,
   createTxValidatorForTransactionsEnteringPendingTxPool,
->>>>>>> origin/v4
+  getDefaultAllowedSetupFunctions,
 } from '../msg_validators/index.js';
 import { DummyP2PService } from '../services/dummy_service.js';
 import { LibP2PService } from '../services/index.js';
