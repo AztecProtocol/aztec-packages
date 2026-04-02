@@ -80,7 +80,7 @@ template <typename Flavor> typename UltraProver_<Flavor>::Proof UltraProver_<Fla
     oink_prover.prove();
     vinfo("created oink proof");
     if (detail::use_memory_profile) {
-        detail::GLOBAL_MEMORY_PROFILE.add_rss_checkpoint("after_oink");
+        detail::GLOBAL_MEMORY_PROFILE.add_checkpoint("after_oink");
     }
 
     generate_gate_challenges();
@@ -89,13 +89,13 @@ template <typename Flavor> typename UltraProver_<Flavor>::Proof UltraProver_<Fla
     execute_sumcheck_iop();
     vinfo("finished relation check rounds");
     if (detail::use_memory_profile) {
-        detail::GLOBAL_MEMORY_PROFILE.add_rss_checkpoint("after_sumcheck");
+        detail::GLOBAL_MEMORY_PROFILE.add_checkpoint("after_sumcheck");
     }
     // Execute Shplemini PCS
     execute_pcs();
     vinfo("finished PCS rounds");
     if (detail::use_memory_profile) {
-        detail::GLOBAL_MEMORY_PROFILE.add_rss_checkpoint("after_pcs");
+        detail::GLOBAL_MEMORY_PROFILE.add_checkpoint("after_pcs");
     }
 
     return export_proof();

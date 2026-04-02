@@ -44,8 +44,8 @@ try:
         entries.append({
             "name": f"{name_path}/{label}",
             "unit": "MB",
-            "value": cp["rss_mb"],
-            "extra": f"stacked:{name_path}/rss_over_stages"
+            "value": cp["heap_mb"],
+            "extra": f"stacked:{name_path}/heap_over_stages"
         })
 
     # Append to existing benchmarks file
