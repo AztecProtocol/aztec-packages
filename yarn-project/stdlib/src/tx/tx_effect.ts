@@ -245,7 +245,10 @@ export class TxEffect {
   getTxStartMarker(): TxStartMarker {
     const flatPublicLogs = FlatPublicLogs.fromLogs(this.publicLogs);
     const partialTxStartMarker = {
-      revertCode: this.revertCode.getCode(),
+      // The circuit encodes revert_code as a boolean (0 or 1) since the AVM only exposes
+      // a `reverted: bool` field. We must match that encoding here so the tx start marker
+      // in the blob data is identical.
+      revertCode: this.revertCode.isOK() ? 0 : 1,
       numNoteHashes: this.noteHashes.length,
       numNullifiers: this.nullifiers.length,
       numL2ToL1Msgs: this.l2ToL1Msgs.length,
