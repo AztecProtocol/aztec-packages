@@ -154,7 +154,7 @@ template <typename Curve> class CommitmentKeyTest : public ::testing::Test {
     //
     //   Fr(1) entries must be non-zero (zero scalars are filtered before the MSM) but still
     //   land in bucket 0 for round 13. They ensure point_schedule[0] has bucket_index=0 after
-    //   sorting, bypassing the safety check at line 99 of process_buckets.cpp.
+    //   sorting, bypassing the post-sort safety check in sort_point_schedule_and_count_zero_buckets.
     //
     //   The bug overwrites num_zero_entries from 100 (correct) to ~5M (count at bucket 65536).
     //   The MSM span then starts ~5M entries into the sorted schedule, skipping all 10 target
