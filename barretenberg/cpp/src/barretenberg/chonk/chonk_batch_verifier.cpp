@@ -226,8 +226,14 @@ bool ChonkBatchVerifier::batch_check(const std::vector<ReduceResult>& results, c
         transcripts.push_back(std::make_shared<NativeTranscript>(results[idx].ipa_proof));
     }
 
-    auto ipa_vk = VerifierCommitmentKey<curve::Grumpkin>{ ECCVMFlavor::ECCVM_FIXED_SIZE };
-    return IPA<curve::Grumpkin>::batch_reduce_verify(ipa_vk, claims, transcripts);
+    try {
+        auto ipa_vk = VerifierCommitmentKey<curve::Grumpkin>{ ECCVMFlavor::ECCVM_FIXED_SIZE };
+        return IPA<curve::Grumpkin>::batch_reduce_verify(ipa_vk, claims, transcripts);
+    } catch (...) {
+        // Corrupted proofs can cause deserialization errors (e.g. "point not on curve").
+        // Treat any exception as a batch failure so bisection can isolate the bad proof(s).
+        return false;
+    }
 }
 
 void ChonkBatchVerifier::bisect(std::vector<ReduceResult>& results,
