@@ -37,7 +37,7 @@ mod test {
         assert_compatible_oracle_version_oracle(ORACLE_VERSION_MAJOR, ORACLE_VERSION_MINOR);
     }
 
-    #[test(should_fail_with = "Incompatible")]
+    #[test(should_fail_with = "Incompatible aztec cli version:")]
     unconstrained fn incompatible_oracle_version_major() {
         let arbitrary_incorrect_major = 318183437;
         assert_compatible_oracle_version_oracle(arbitrary_incorrect_major, ORACLE_VERSION_MINOR);
