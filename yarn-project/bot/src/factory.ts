@@ -276,7 +276,7 @@ export class BotFactory {
       this.log.info(`Token at ${address.toString()} already deployed, refueling before setup`);
       await this.ensureFeeJuiceBalance(sender, token);
     }
-    return this.setupToken(sender, token);
+    return this.setupToken(sender);
   }
 
   /**
@@ -334,10 +334,7 @@ export class BotFactory {
    * @param existingToken - Optional token instance when called from setupTokenWithOptionalEarlyRefuel.
    * @returns The TokenContract or PrivateTokenContract instance.
    */
-  private async setupToken(
-    sender: AztecAddress,
-    existingToken?: TokenContract | PrivateTokenContract,
-  ): Promise<TokenContract | PrivateTokenContract> {
+  private async setupToken(sender: AztecAddress): Promise<TokenContract | PrivateTokenContract> {
     let deploy: DeployMethod<TokenContract | PrivateTokenContract>;
     const deployOpts: DeployOptions = {
       from: sender,
@@ -369,7 +366,7 @@ export class BotFactory {
     }
 
     await this.registerOrDeployContract('token', deploy, deployOpts);
-    return existingToken ?? token;
+    return token;
   }
 
   /**
