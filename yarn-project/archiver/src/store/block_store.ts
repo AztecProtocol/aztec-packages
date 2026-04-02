@@ -252,21 +252,34 @@ export class BlockStore {
     }
 
     return await this.db.transactionAsync(async () => {
-      // Check that the checkpoint immediately before the first block to be added is present in the store.
       const firstCheckpointNumber = checkpoints[0].checkpoint.number;
       const previousCheckpointNumber = await this.getLatestCheckpointNumber();
 
-      if (previousCheckpointNumber !== firstCheckpointNumber - 1 && !opts.force) {
+      // Handle already-stored checkpoints at the start of the batch.
+      // This can happen after an L1 reorg re-includes a checkpoint in a different L1 block.
+      // We accept them if archives match (same content) and update their L1 metadata.
+      if (!opts.force && firstCheckpointNumber <= previousCheckpointNumber) {
+        checkpoints = await this.skipOrUpdateAlreadyStoredCheckpoints(checkpoints, previousCheckpointNumber);
+        if (checkpoints.length === 0) {
+          return true;
+        }
+        // Re-check sequentiality after skipping
+        const newFirstNumber = checkpoints[0].checkpoint.number;
+        if (previousCheckpointNumber !== newFirstNumber - 1) {
+          throw new InitialCheckpointNumberNotSequentialError(newFirstNumber, previousCheckpointNumber);
+        }
+      } else if (previousCheckpointNumber !== firstCheckpointNumber - 1 && !opts.force) {
         throw new InitialCheckpointNumberNotSequentialError(firstCheckpointNumber, previousCheckpointNumber);
       }
 
       // Extract the previous checkpoint if there is one
+      const currentFirstCheckpointNumber = checkpoints[0].checkpoint.number;
       let previousCheckpointData: CheckpointData | undefined = undefined;
-      if (previousCheckpointNumber !== INITIAL_CHECKPOINT_NUMBER - 1) {
+      if (currentFirstCheckpointNumber - 1 !== INITIAL_CHECKPOINT_NUMBER - 1) {
         // There should be a previous checkpoint
-        previousCheckpointData = await this.getCheckpointData(previousCheckpointNumber);
+        previousCheckpointData = await this.getCheckpointData(CheckpointNumber(currentFirstCheckpointNumber - 1));
         if (previousCheckpointData === undefined) {
-          throw new CheckpointNotFoundError(previousCheckpointNumber);
+          throw new CheckpointNotFoundError(CheckpointNumber(currentFirstCheckpointNumber - 1));
         }
       }
 
@@ -354,6 +367,50 @@ export class BlockStore {
       await this.#lastSynchedL1Block.set(checkpoints[checkpoints.length - 1].l1.blockNumber);
       return true;
     });
+  }
+
+  /**
+   * Handles checkpoints at the start of a batch that are already stored (e.g. due to L1 reorg).
+   * Verifies the archive root matches, updates L1 metadata, and returns only the new checkpoints.
+   */
+  private async skipOrUpdateAlreadyStoredCheckpoints(
+    checkpoints: PublishedCheckpoint[],
+    latestStored: CheckpointNumber,
+  ): Promise<PublishedCheckpoint[]> {
+    let i = 0;
+    for (; i < checkpoints.length && checkpoints[i].checkpoint.number <= latestStored; i++) {
+      const incoming = checkpoints[i];
+      const stored = await this.getCheckpointData(incoming.checkpoint.number);
+      if (!stored) {
+        // Should not happen if latestStored is correct, but be safe
+        break;
+      }
+      // Verify the checkpoint content matches (archive root)
+      if (!stored.archive.root.equals(incoming.checkpoint.archive.root)) {
+        throw new Error(
+          `Checkpoint ${incoming.checkpoint.number} already exists in store but with a different archive root. ` +
+            `Stored: ${stored.archive.root}, incoming: ${incoming.checkpoint.archive.root}`,
+        );
+      }
+      // Update L1 metadata and attestations for the already-stored checkpoint
+      this.#log.warn(
+        `Checkpoint ${incoming.checkpoint.number} already stored, updating L1 info ` +
+          `(L1 block ${stored.l1.blockNumber} -> ${incoming.l1.blockNumber})`,
+      );
+      await this.#checkpoints.set(incoming.checkpoint.number, {
+        header: incoming.checkpoint.header.toBuffer(),
+        archive: incoming.checkpoint.archive.toBuffer(),
+        checkpointOutHash: incoming.checkpoint.getCheckpointOutHash().toBuffer(),
+        l1: incoming.l1.toBuffer(),
+        attestations: incoming.attestations.map(a => a.toBuffer()),
+        checkpointNumber: incoming.checkpoint.number,
+        startBlock: incoming.checkpoint.blocks[0].number,
+        blockCount: incoming.checkpoint.blocks.length,
+      });
+      // Update the sync point to reflect the new L1 block
+      await this.#lastSynchedL1Block.set(incoming.l1.blockNumber);
+    }
+    return checkpoints.slice(i);
   }
 
   private async addBlockToDatabase(block: L2Block, checkpointNumber: number, indexWithinCheckpoint: number) {
