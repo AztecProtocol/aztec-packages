@@ -199,7 +199,7 @@ template <typename Fq_, typename Fr_, typename Params_> class alignas(64) affine
      * @param masking_scalar Ignored for native (needed for safe offset generators in stdlib)
      */
     static affine_element batch_mul(std::span<const affine_element> points,
-                                    std::span<const Fr> scalars,
+                                    std::span<Fr> scalars,
                                     size_t max_num_bits = 0,
                                     bool with_edgecases = true,
                                     const Fr& masking_scalar = Fr(1)) noexcept;

@@ -14,7 +14,7 @@ namespace bb {
 
 template <size_t N>
 HypernovaFoldingProver::Commitment HypernovaFoldingProver::batch_mul(const RefArray<Commitment, N>& _points,
-                                                                     const std::vector<FF>& scalars)
+                                                                     std::vector<FF>& scalars)
 {
     std::vector<Commitment> points(N);
     for (size_t idx = 0; idx < N; ++idx) {

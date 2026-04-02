@@ -39,6 +39,9 @@ template <typename Curve> class MSM {
 
     // Maximum bits per scalar slice (2^20 = 1M buckets, far beyond practical use)
     static constexpr size_t MAX_SLICE_BITS = 20;
+    static_assert(MAX_SLICE_BITS < 64,
+                  "get_scalar_slice uses 1ULL << lo_slice_bits where lo_slice_bits <= MAX_SLICE_BITS - 1; "
+                  "shifting uint64_t by >= 64 is UB.");
 
     // Number of points to look ahead for memory prefetching
     static constexpr size_t PREFETCH_LOOKAHEAD = 32;
