@@ -227,7 +227,15 @@ bool ChonkBatchVerifier::batch_check(const std::vector<ReduceResult>& results, c
     }
 
     auto ipa_vk = VerifierCommitmentKey<curve::Grumpkin>{ ECCVMFlavor::ECCVM_FIXED_SIZE };
-    return IPA<curve::Grumpkin>::batch_reduce_verify(ipa_vk, claims, transcripts);
+    try {
+        return IPA<curve::Grumpkin>::batch_reduce_verify(ipa_vk, claims, transcripts);
+    } catch (const std::exception& e) {
+        info("ChonkBatchVerifier: batch_check threw: ", e.what());
+        return false;
+    } catch (...) {
+        info("ChonkBatchVerifier: batch_check threw unknown exception");
+        return false;
+    }
 }
 
 void ChonkBatchVerifier::bisect(std::vector<ReduceResult>& results,
