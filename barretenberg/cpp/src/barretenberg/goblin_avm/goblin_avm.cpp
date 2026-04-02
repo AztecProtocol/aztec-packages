@@ -21,7 +21,7 @@
 
 namespace bb {
 
-GoblinAvm::GoblinAvm(MegaBuilder& builder, const std::shared_ptr<Transcript>& avm_transcript)
+GoblinWithoutMerge::GoblinWithoutMerge(MegaBuilder& builder, const std::shared_ptr<Transcript>& avm_transcript)
 {
     // Set members of base Goblin class
     avm_mode = true;
@@ -46,12 +46,12 @@ GoblinAvm::GoblinAvm(MegaBuilder& builder, const std::shared_ptr<Transcript>& av
     builder.queue_ecc_hiding_op(Fq(0), Fq(0));
 }
 
-GoblinAvmProof GoblinAvm::prove()
+GoblinWithoutMergeProof GoblinWithoutMerge::prove()
 {
-    BB_BENCH_NAME("GoblinAvm::prove");
+    BB_BENCH_NAME("GoblinWithoutMerge::prove");
 
     op_queue->merge();
-    info("GoblinAvm: num ultra ops = ", op_queue->get_ultra_ops_count());
+    info("GoblinWithoutMerge: num ultra ops = ", op_queue->get_ultra_ops_count());
 
     vinfo("prove eccvm...");
     prove_eccvm();
@@ -60,7 +60,7 @@ GoblinAvmProof GoblinAvm::prove()
     prove_translator();
     vinfo("finished translator proving.");
 
-    return GoblinAvmProof{
+    return GoblinWithoutMergeProof{
         .eccvm_proof = std::move(goblin_proof.eccvm_proof),
         .ipa_proof = std::move(goblin_proof.ipa_proof),
         .translator_proof = std::move(goblin_proof.translator_proof),

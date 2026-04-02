@@ -10,10 +10,11 @@
 namespace bb {
 
 /**
- * @brief Reduce GoblinAvm proof to pairing check and IPA opening claim
+ * @brief Reduce GoblinWithoutMerge proof to pairing check and IPA opening claim
  * @details Processes ECCVM and Translator sub-proofs sequentially.
  */
-GoblinAvmRecursiveVerifier::ReductionResult GoblinAvmRecursiveVerifier::reduce_to_pairing_check_and_ipa_opening()
+GoblinWithoutMergeRecursiveVerifier::ReductionResult GoblinWithoutMergeRecursiveVerifier::
+    reduce_to_pairing_check_and_ipa_opening()
 {
     // Step 1: Verify the ECCVM proof
     ECCVMVerifier eccvm_verifier{ transcript, proof.eccvm_proof };
@@ -24,7 +25,8 @@ GoblinAvmRecursiveVerifier::ReductionResult GoblinAvmRecursiveVerifier::reduce_t
     auto translator_input = eccvm_verifier.get_translator_input_data();
 
     // Step 2: Verify the Translator proof
-    // - Pass `table_commitments` as the one with which GoblinAvm was initialized (which commits all the ECC ops of the
+    // - Pass `table_commitments` as the one with which GoblinWithoutMerge was initialized (which commits all the ECC
+    // ops of the
     //   circuit containing the AVM recursive verifier).
     // - `accumulated_result` and corresponding challenges ensure non-native computation matches ECCVM's native result
     TranslatorVerifier translator_verifier{ transcript,

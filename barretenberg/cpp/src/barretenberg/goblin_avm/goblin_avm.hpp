@@ -12,27 +12,30 @@
 namespace bb {
 
 /**
- * @brief Specialization of Goblin for the AVM
+ * @brief Specialization of Goblin without the Merge protocol
  *
- * @details The AVM uses Goblin for recursive verification to avoid bloating circuit size due to the large number of
- * witness entities. As there is only one circuit, we don't need to perform a Merge, we can simply use as input to the
- * Goblin proof the table of ECC ops produced by the circuit containing the AVM recursive verifier. This class
- * specializes the Goblin constructor and Goblin::prove() method for the AVM case.
+ * @details Used when there is only one circuit (or a single merged table is provided externally), so we
+ * don't need to perform a Merge. The Goblin proof consists only of ECCVM + Translator.
+ * This is used by the AVM recursive verifier and the Goblin flush mechanism.
  */
-class GoblinAvm : public Goblin {
+class GoblinWithoutMerge : public Goblin {
   public:
     using ECCVMVerificationKey = ECCVMFlavor::VerificationKey;
     using TranslatorVerificationKey = TranslatorFlavor::VerificationKey;
 
-    explicit GoblinAvm(MegaBuilder& builder,
-                       const std::shared_ptr<Transcript>& avm_transcript = std::make_shared<Transcript>());
+    /**
+     * @brief Construct for AVM case: takes a builder, adds required initial ECC ops
+     */
+    explicit GoblinWithoutMerge(MegaBuilder& builder,
+                                const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
 
     /**
-     * @brief Constuct a full GoblinAvm proof (ECCVM, Translator)
+     * @brief Construct a full proof without merge (ECCVM, Translator)
      *
-     * @return Proof
+     * @return GoblinWithoutMergeProof
      */
-    GoblinAvmProof prove();
+    GoblinWithoutMergeProof prove();
 };
+using GoblinAvm = GoblinWithoutMerge;
 
 } // namespace bb

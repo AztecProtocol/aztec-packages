@@ -18,16 +18,16 @@
 namespace bb {
 
 /**
- * @brief GoblinAvm verifier
+ * @brief Recursive verifier for Goblin proofs without merge
  *
- * @details Orchestrates verification of the two Goblin sub-protocols (as the AVM only doesn't have a merge protocol):
+ * @details Orchestrates verification of the two Goblin sub-protocols (without merge):
  *   1. ECCVM verification - Proves correct execution of elliptic curve operations
  *   2. Translator verification - Proves consistency between BN254 ↔ Grumpkin field element representations
  *
  * This verifier does NOT perform final verification - it returns reduction results for deferred verification.
  *
  */
-class GoblinAvmRecursiveVerifier {
+class GoblinWithoutMergeRecursiveVerifier {
   public:
     using Curve = stdlib::bn254<UltraCircuitBuilder>;
     using Transcript = UltraStdlibTranscript;
@@ -35,12 +35,12 @@ class GoblinAvmRecursiveVerifier {
     using ECCVMVerifier = ECCVMVerifier_<ECCVMRecursiveFlavor>;
     using TranslatorVerifier = TranslatorVerifier_<TranslatorRecursiveFlavor>;
     // Proof and commitment types
-    using GoblinProof = GoblinAvmStdlibProof;
+    using GoblinProof = GoblinWithoutMergeStdlibProof;
     using Commitment = Curve::AffineElement;
     using TableCommitments = std::array<Commitment, UltraCircuitBuilder::NUM_WIRES>;
 
     /**
-     * @brief Result of GoblinAvm verification
+     * @brief Result of Goblin-without-merge verification
      * @details Both pairing and IPA verification deferred for batched verification
      */
     struct ReductionResult {
@@ -54,14 +54,14 @@ class GoblinAvmRecursiveVerifier {
     };
 
     /**
-     * @brief Construct a GoblinAvm verifier
+     * @brief Construct a Goblin-without-merge verifier
      * @param transcript Shared transcript for Fiat-Shamir
-     * @param proof The complete GoblinAvm proof containing ECCVM, IPA, and Translator proofs
+     * @param proof The complete proof containing ECCVM, IPA, and Translator proofs
      * @param table_commitments The commitments to the full table of ECC ops
      */
-    GoblinAvmRecursiveVerifier(std::shared_ptr<Transcript> transcript,
-                               const GoblinProof& proof,
-                               const TableCommitments& table_commitments)
+    GoblinWithoutMergeRecursiveVerifier(std::shared_ptr<Transcript> transcript,
+                                        const GoblinProof& proof,
+                                        const TableCommitments& table_commitments)
 
         : transcript(std::move(transcript))
         , proof(proof)
@@ -82,5 +82,6 @@ class GoblinAvmRecursiveVerifier {
     GoblinProof proof;
     TableCommitments table_commitments;
 };
+using GoblinAvmRecursiveVerifier = GoblinWithoutMergeRecursiveVerifier;
 
 } // namespace bb

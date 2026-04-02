@@ -13,7 +13,7 @@
 
 namespace bb {
 
-struct GoblinAvmProof {
+struct GoblinWithoutMergeProof {
 
     HonkProof eccvm_proof;
     HonkProof ipa_proof;
@@ -22,22 +22,24 @@ struct GoblinAvmProof {
     size_t size() const { return eccvm_proof.size() + ipa_proof.size() + translator_proof.size(); };
 
     SERIALIZATION_FIELDS(eccvm_proof, ipa_proof, translator_proof);
-    bool operator==(const GoblinAvmProof& other) const = default;
+    bool operator==(const GoblinWithoutMergeProof& other) const = default;
 };
+using GoblinAvmProof = GoblinWithoutMergeProof;
 
-struct GoblinAvmStdlibProof {
+struct GoblinWithoutMergeStdlibProof {
     using Proof = stdlib::Proof<UltraCircuitBuilder>;
     Proof eccvm_proof;
     Proof ipa_proof;
     Proof translator_proof;
 
     size_t size() const { return eccvm_proof.size() + ipa_proof.size() + translator_proof.size(); };
-    GoblinAvmStdlibProof() = default;
-    GoblinAvmStdlibProof(UltraCircuitBuilder& builder, const GoblinAvmProof& goblin_proof)
+    GoblinWithoutMergeStdlibProof() = default;
+    GoblinWithoutMergeStdlibProof(UltraCircuitBuilder& builder, const GoblinWithoutMergeProof& goblin_proof)
         : eccvm_proof(builder, goblin_proof.eccvm_proof)
         , ipa_proof(builder, goblin_proof.ipa_proof)
         , translator_proof(builder, goblin_proof.translator_proof)
     {}
-    bool operator==(const GoblinAvmStdlibProof& other) const = default;
+    bool operator==(const GoblinWithoutMergeStdlibProof& other) const = default;
 };
+using GoblinAvmStdlibProof = GoblinWithoutMergeStdlibProof;
 } // namespace bb
