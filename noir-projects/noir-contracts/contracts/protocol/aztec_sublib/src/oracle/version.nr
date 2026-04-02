@@ -26,7 +26,7 @@ unconstrained fn assert_compatible_oracle_version_wrapper() {
     assert_compatible_oracle_version_oracle(ORACLE_VERSION_MAJOR, ORACLE_VERSION_MINOR);
 }
 
-#[oracle(aztec_utl_assertCompatibleOracleVersion)]
+#[oracle(aztec_utl_assertCompatibleOracleVersionV2)]
 unconstrained fn assert_compatible_oracle_version_oracle(major: Field, minor: Field) {}
 
 mod test {

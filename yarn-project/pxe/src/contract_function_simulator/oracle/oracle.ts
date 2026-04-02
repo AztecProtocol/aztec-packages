@@ -166,11 +166,11 @@ export class Oracle {
   }
 
   // eslint-disable-next-line camelcase
-  aztec_utl_assertCompatibleOracleVersion([major]: ACVMField[], minor?: ACVMField[]) {
-    const majorNum = Fr.fromString(major).toNumber();
-    // Old contracts (compiled before minor/major split) send a single arg. Default minor to 0 for backward compat.
-    const minorNum = minor ? Fr.fromString(minor[0]).toNumber() : 0;
-    this.handlerAsMisc().assertCompatibleOracleVersion(majorNum, minorNum);
+  aztec_utl_assertCompatibleOracleVersionV2([major]: ACVMField[], [minor]: ACVMField[]) {
+    this.handlerAsMisc().assertCompatibleOracleVersion(
+      Fr.fromString(major).toNumber(),
+      Fr.fromString(minor).toNumber(),
+    );
     return Promise.resolve([]);
   }
 
