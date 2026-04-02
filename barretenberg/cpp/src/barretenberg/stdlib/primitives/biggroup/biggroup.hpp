@@ -695,15 +695,17 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
      *
      **/
     struct batch_lookup_table_plookup {
+
         batch_lookup_table_plookup(const std::vector<element>& points)
             : num_points(points.size())
-            , num_sevens(num_points / 7)
+            , num_sevens(0)
             , num_sixes(0)
             , num_fives(0)
         {
-            // size-7 is the primary table; fall back to size-6, size-5, then small tables.
-            // For the N=63-81 MSMs in recursive verifiers, k=7 gives the fewest gates.
-            size_t remaining_points = num_points - (num_sevens * 7);
+            // Greedily allocate tables from k = 7 downward
+            size_t remaining_points = num_points;
+            num_sevens = remaining_points / 7;
+            remaining_points -= num_sevens * 7;
             num_sixes = remaining_points / 6;
             remaining_points -= num_sixes * 6;
             num_fives = remaining_points / 5;
