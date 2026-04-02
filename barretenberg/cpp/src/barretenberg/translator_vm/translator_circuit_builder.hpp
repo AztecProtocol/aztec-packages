@@ -269,7 +269,7 @@ class TranslatorCircuitBuilder : public CircuitBuilderBase<bb::fr> {
     static constexpr uint512_t NEGATIVE_PRIME_MODULUS = BINARY_BASIS_MODULUS - MODULUS_U512;
 
     // Negated modulus of the target emulated field in the binary modulus split into 4 binary limbs + the final limb is
-    // the negated modulus of the target emulated field in the scalar field
+    // the negated modulus of the target emulated field in the scalar field.
     static constexpr std::array<Fr, 5> NEGATIVE_MODULUS_LIMBS = {
         Fr(NEGATIVE_PRIME_MODULUS.slice(0, NUM_LIMB_BITS).lo),
         Fr(NEGATIVE_PRIME_MODULUS.slice(NUM_LIMB_BITS, NUM_LIMB_BITS * 2).lo),
@@ -279,10 +279,22 @@ class TranslatorCircuitBuilder : public CircuitBuilderBase<bb::fr> {
     };
 
     /**
+     * @brief Compute ((-q) mod 2^4L) for an arbitrary field type FF where L = 68.
+     */
+    template <typename FF> static std::array<FF, 5> compute_negative_modulus_limbs()
+    {
+        return { FF(NEGATIVE_PRIME_MODULUS.slice(0, NUM_LIMB_BITS).lo),
+                 FF(NEGATIVE_PRIME_MODULUS.slice(NUM_LIMB_BITS, NUM_LIMB_BITS * 2).lo),
+                 FF(NEGATIVE_PRIME_MODULUS.slice(NUM_LIMB_BITS * 2, NUM_LIMB_BITS * 3).lo),
+                 FF(NEGATIVE_PRIME_MODULUS.slice(NUM_LIMB_BITS * 3, NUM_LIMB_BITS * 4).lo),
+                 -FF(Fq::modulus) };
+    }
+
+    /**
      * @brief The accumulation input structure contains all the necessary values to initalize an accumulation gate as
      * well as additional values for checking its correctness
      *
-     * @details For example, we don't really need the prime limbs, but they serve to check the correctness of over
+     * @details For example, we don't really need the prime limbs, but they serve to check the correctness of other
      * values. We also don't need the values of x's and v's limbs during circuit construction, since they are added to
      * relations directly, but this allows us to check correctness of the computed accumulator
      */
