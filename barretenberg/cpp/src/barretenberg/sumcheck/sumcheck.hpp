@@ -598,7 +598,8 @@ template <typename Flavor> class SumcheckProver {
                 transcript->template get_challenge<FF>("Sumcheck:u_" + std::to_string(round_idx));
             multivariate_challenge.emplace_back(round_challenge);
 
-            // Fold masking values BEFORE partially_evaluate (need to read PE at active positions)
+            // Fold masking values BEFORE partially_evaluate: after PE, disabled-edge positions for
+            // masked witness polys are stale; correct values are in masking_tail.folded.
             if constexpr (UseRowDisablingPolynomial<Flavor>) {
                 masking_tail.fold_masking_values(
                     round_challenge, round_idx, round.round_size, &partially_evaluated_polynomials);
