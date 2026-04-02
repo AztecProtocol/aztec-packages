@@ -502,7 +502,11 @@ describe('e2e_synching', () => {
           async (opts: Partial<EndToEndContext>, variant: TestVariant) => {
             // All the blocks have been "re-played" and we are now to simply get a new node up to speed
             const timer = new Timer();
-            const freshNode = await AztecNodeService.createAndSync({ ...opts.config!, disableValidator: true });
+            const freshNode = await AztecNodeService.createAndSync(
+              { ...opts.config!, disableValidator: true },
+              {},
+              { genesis: opts.genesis },
+            );
             const syncTime = timer.s();
 
             const blockNumber = await freshNode.getBlockNumber();
@@ -548,7 +552,7 @@ describe('e2e_synching', () => {
             );
             await watcher.start();
 
-            const aztecNode = await AztecNodeService.createAndSync(opts.config!);
+            const aztecNode = await AztecNodeService.createAndSync(opts.config!, {}, { genesis: opts.genesis });
             const sequencer = aztecNode.getSequencer();
 
             const { wallet } = await setupPXEAndGetWallet(aztecNode!);
@@ -589,7 +593,7 @@ describe('e2e_synching', () => {
           );
           const pendingCheckpointNumber = CheckpointNumber.fromBigInt(await rollup.read.getPendingCheckpointNumber());
 
-          const worldState = await createWorldStateSynchronizer(opts.config!, archiver);
+          const worldState = await createWorldStateSynchronizer(opts.config!, archiver, opts.genesis);
           await worldState.start();
 
           // We prune the last token and schnorr contract
@@ -675,7 +679,7 @@ describe('e2e_synching', () => {
           const offset = CheckpointNumber(variant.checkpointCount / 2);
           await opts.cheatCodes!.rollup.markAsProven(CheckpointNumber(pendingCheckpointNumber - offset));
 
-          const aztecNode = await AztecNodeService.createAndSync(opts.config!);
+          const aztecNode = await AztecNodeService.createAndSync(opts.config!, {}, { genesis: opts.genesis });
           const sequencer = aztecNode.getSequencer();
 
           const blockBeforePrune = await aztecNode.getBlockNumber();
@@ -757,7 +761,7 @@ describe('e2e_synching', () => {
           await watcher.start();
 
           // The sync here could likely be avoided by using the node we just synched.
-          const aztecNode = await AztecNodeService.createAndSync(opts.config!);
+          const aztecNode = await AztecNodeService.createAndSync(opts.config!, {}, { genesis: opts.genesis });
           const sequencer = aztecNode.getSequencer();
 
           const { wallet: newWallet } = await setupPXEAndGetWallet(aztecNode!);

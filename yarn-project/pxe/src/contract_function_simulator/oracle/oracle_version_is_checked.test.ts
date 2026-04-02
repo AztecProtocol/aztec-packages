@@ -149,7 +149,7 @@ describe('Oracle Version Check test suite', () => {
         anchorBlockHeader,
         senderForTags,
         jobId: 'test',
-        scopes: 'ALL_SCOPES',
+        scopes: [],
       });
 
       expect(assertCompatibleOracleVersionSpy).toHaveBeenCalledTimes(1);
@@ -206,7 +206,7 @@ describe('Oracle Version Check test suite', () => {
         messageContextService,
         contractSyncService,
         jobId: 'test',
-        scopes: 'ALL_SCOPES',
+        scopes: [],
       });
     });
 

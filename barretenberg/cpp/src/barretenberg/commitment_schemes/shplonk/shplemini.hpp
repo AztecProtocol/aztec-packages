@@ -368,8 +368,10 @@ template <typename Curve, bool HasZK = false> class ShpleminiVerifier_ {
                 libra_evaluations, gemini_evaluation_challenge, multivariate_challenge, libra_univariate_evaluation);
         }
 
-        // Currently, only used in ECCVM
+        // Used in ECCVM and BatchedHonkTranslator. The nu power offset in batch_sumcheck_round_claims
+        // assumes ZK claims (NUM_SMALL_IPA_EVALUATIONS) precede sumcheck round claims in the batching order.
         if (committed_sumcheck) {
+            BB_ASSERT(HasZK, "committed sumcheck requires ZK for correct nu power indexing");
             batch_sumcheck_round_claims(commitments,
                                         scalars,
                                         constant_term_accumulator,
@@ -513,18 +515,28 @@ template <typename Curve, bool HasZK = false> class ShpleminiVerifier_ {
         }
 
         // Erase the duplicate entries (higher-index range first to preserve lower indices)
-        auto erase_range = [&](size_t start, size_t count) {
+        auto erase_range = [&](size_t duplicate_start, size_t original_start, size_t count) {
             for (size_t i = 0; i < count; ++i) {
-                scalars.erase(scalars.begin() + static_cast<std::ptrdiff_t>(start));
-                commitments.erase(commitments.begin() + static_cast<std::ptrdiff_t>(start));
+                // Verify the commitment being erased matches its original (native only).
+                // Each erase shifts elements down, so duplicate_start always points to the
+                // next duplicate; the original at original_start + i is unaffected since
+                // we erase higher-index ranges first.
+                if constexpr (!Curve::is_stdlib_type) {
+                    BB_ASSERT(commitments[duplicate_start] == commitments[original_start + i],
+                              "remove_repeated_commitments: commitment mismatch at duplicate index " +
+                                  std::to_string(duplicate_start) + " vs original index " +
+                                  std::to_string(original_start + i));
+                }
+                scalars.erase(scalars.begin() + static_cast<std::ptrdiff_t>(duplicate_start));
+                commitments.erase(commitments.begin() + static_cast<std::ptrdiff_t>(duplicate_start));
             }
         };
         if (second_duplicate_start > first_duplicate_start) {
-            erase_range(second_duplicate_start, r2.count);
-            erase_range(first_duplicate_start, r1.count);
+            erase_range(second_duplicate_start, second_original_start, r2.count);
+            erase_range(first_duplicate_start, first_original_start, r1.count);
         } else {
-            erase_range(first_duplicate_start, r1.count);
-            erase_range(second_duplicate_start, r2.count);
+            erase_range(first_duplicate_start, first_original_start, r1.count);
+            erase_range(second_duplicate_start, second_original_start, r2.count);
         }
     }
 
