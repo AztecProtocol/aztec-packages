@@ -323,8 +323,7 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Pr
       this.jobsCache.delete(id);
       const deferred = this.promises.get(id);
       if (deferred) {
-        deferred.promise.catch(() => {}); // prevent unhandled rejection when no consumer is awaiting
-        deferred.reject(new Error('Proving job cleaned up'));
+        deferred.resolve({ status: 'rejected', reason: 'Proving job cleaned up' });
       }
       this.promises.delete(id);
       this.resultsCache.delete(id);
@@ -637,10 +636,8 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Pr
       const now = this.msTimeSource();
       const msSinceLastUpdate = now - metadata.lastUpdatedAt;
       if (msSinceLastUpdate >= this.jobTimeoutMs) {
-        const retries = this.retries.get(id) ?? 0;
         this.logger.warn(`Proving job id=${id} timed out. Adding it back to the queue.`, { provingJobId: id });
         this.inProgress.delete(id);
-        this.retries.set(id, retries + 1);
         this.enqueueJobInternal(item);
         this.instrumentation.incTimedOutJobs(item.type);
       }

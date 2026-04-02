@@ -894,7 +894,7 @@ describe.each([
       await assertJobStatus(id, 'not-found');
     });
 
-    it('rejects pending promises when a stale job is cleaned up', async () => {
+    it('settles pending promises with a rejected status when a stale job is cleaned up', async () => {
       const id = makeRandomProvingJobId();
       await broker.enqueueProvingJob({
         id,
@@ -903,11 +903,8 @@ describe.each([
         inputsUri: makeInputsUri(),
       });
 
-      // Grab the internal promise and attach a rejection handler immediately so it
-      // doesn't become an unhandled rejection when the cleanup pass fires during the sleep below
       const jobPromise = (broker as any).promises.get(id)?.promise;
       expect(jobPromise).toBeDefined();
-      const rejectionAssertion = expect(jobPromise).rejects.toThrow('Proving job cleaned up');
 
       // Advance the epoch height so epoch 1 becomes stale (oldestEpochToKeep = 3 - 1 = 2)
       await broker.enqueueProvingJob({
@@ -921,34 +918,8 @@ describe.each([
       await sleep(brokerIntervalMs * 2);
       await assertJobStatus(id, 'not-found');
 
-      // The promise must have been rejected rather than left pending
-      await rejectionAssertion;
-    });
-
-    it('counts timeouts towards the retry limit', async () => {
-      const id = makeRandomProvingJobId();
-      await broker.enqueueProvingJob({
-        id,
-        type: ProvingRequestType.PARITY_BASE,
-        epochNumber: EpochNumber(1),
-        inputsUri: makeInputsUri(),
-      });
-
-      // Pick up the job and let it time out — retry count should increment to 1
-      await getAndAssertNextJobId(id);
-      await assertJobStatus(id, 'in-progress');
-      await sleep(jobTimeoutMs);
-      await assertJobTransition(id, 'in-progress', 'in-queue');
-      expect((broker as any).retries.get(id)).toBe(1);
-
-      // Pick it up again — the next explicit error with retry=true should be rejected
-      // because timeouts have already consumed the retry budget (maxRetries=2, retries=1 → 1+1 >= 2)
-      await getAndAssertNextJobId(id);
-      await broker.reportProvingJobError(id, 'final error', true);
-      await expect(broker.getProvingJobStatus(id)).resolves.toEqual({
-        status: 'rejected',
-        reason: 'final error',
-      });
+      // The promise must have been settled (resolved with a rejected status) rather than left pending
+      await expect(jobPromise).resolves.toEqual({ status: 'rejected', reason: 'Proving job cleaned up' });
     });
 
     it('keeps the jobs in progress while it is alive', async () => {
