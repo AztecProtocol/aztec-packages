@@ -1,12 +1,19 @@
-/// The ORACLE_VERSION constant is used to check that the oracle interface is in sync between PXE and Aztec.nr. We need
-/// to version the oracle interface to ensure that developers get a reasonable error message if they use incompatible
-/// versions of Aztec.nr and PXE. The Noir counterpart is in `noir-projects/aztec-nr/aztec/src/oracle/version.nr`.
+/// The oracle version constants are used to check that the oracle interface is in sync between PXE and Aztec.nr.
+/// We version the oracle interface as `major.minor` where:
+///   - `major` = backward-breaking changes (must match exactly between PXE and Aztec.nr)
+///   - `minor` = oracle additions (non-breaking; PXE minor >= contract minor)
 ///
-/// @dev Whenever a contract function or Noir test is run, the `aztec_utl_assertCompatibleOracleVersion` oracle is called
-/// and if the oracle version is incompatible an error is thrown.
-export const ORACLE_VERSION = 22;
+/// The Noir counterparts are in `noir-projects/aztec-nr/aztec/src/oracle/version.nr`.
+///
+/// @dev Whenever a contract function or Noir test is run, the `aztec_utl_assertCompatibleOracleVersion` oracle is called.
+/// If the major version is incompatible, an error is thrown immediately. The minor version is recorded by the PXE and
+/// used to provide helpful error messages if a contract calls an oracle that doesn't exist. We don't throw immediately
+/// if AZTEC_NR_MINOR > PXE_MINOR because if a contract is updated to use a newer Aztec.nr dependency without actually
+/// using any of the new oracles then there is no reason to throw.
+export const ORACLE_VERSION_MAJOR = 22;
+export const ORACLE_VERSION_MINOR = 0;
 
-/// This hash is computed as by hashing the Oracle interface and it is used to detect when the Oracle interface changes,
-/// which in turn implies that you need to update the ORACLE_VERSION constant in this file and in
+/// This hash is computed by hashing the Oracle interface and it is used to detect when the Oracle interface changes,
+/// which in turn implies that you need to update the ORACLE_VERSION_MAJOR constant in this file and in
 /// `noir-projects/aztec-nr/aztec/src/oracle/version.nr`.
-export const ORACLE_INTERFACE_HASH = '83f1de1a9741a34916fd58cf12b857d0bac90f74bf00751b20304301a3f5c8eb';
+export const ORACLE_INTERFACE_HASH = 'd2a26491cf115907e90896b46d627aeea5b0c01644aeb230e121fa13a0549802';

@@ -1,4 +1,7 @@
-use crate::{oracle::version::ORACLE_VERSION, test::helpers::test_environment::TestEnvironment};
+use crate::{
+    oracle::version::{ORACLE_VERSION_MAJOR, ORACLE_VERSION_MINOR},
+    test::helpers::test_environment::TestEnvironment,
+};
 use std::test::OracleMock;
 
 #[test]
@@ -44,5 +47,5 @@ unconstrained fn oracle_version_is_checked_upon_env_creation() {
     let _env = TestEnvironment::new();
 
     assert_eq(mock.times_called(), 1);
-    assert_eq(mock.get_last_params::<Field>(), ORACLE_VERSION);
+    assert_eq(mock.get_last_params::<(Field, Field)>(), (ORACLE_VERSION_MAJOR, ORACLE_VERSION_MINOR));
 }

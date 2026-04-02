@@ -15,6 +15,7 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { BlockHash } from '@aztec/stdlib/block';
 import { ContractClassLog, ContractClassLogFields } from '@aztec/stdlib/logs';
 
+import { ORACLE_VERSION_MAJOR, ORACLE_VERSION_MINOR } from '../../oracle_version.js';
 import type { IMiscOracle, IPrivateExecutionOracle, IUtilityExecutionOracle } from './interfaces.js';
 import { buildLegacyOracleCallbacks } from './legacy_oracle_mappings.js';
 import { packAsHintedNote } from './note_packing_utils.js';
@@ -111,12 +112,49 @@ export class Oracle {
       return acc;
     }, {} as ACIRCallback);
 
-    return { ...callback, ...buildLegacyOracleCallbacks(this) };
+    const allCallbacks = { ...callback, ...buildLegacyOracleCallbacks(this) };
+
+    // Wrap in a Proxy to intercept access to missing oracle names and provide enhanced error messages when the
+    // contract's minor version is higher than the PXE's (i.e. the contract expects oracles that were added in a newer
+    // minor version).
+    const handler = this.handler;
+    return new Proxy(allCallbacks, {
+      get(target, prop: string) {
+        if (prop in target) {
+          return target[prop];
+        }
+        // Return a function that throws with an enhanced error message if applicable
+        return () => {
+          // We do the ugliness below because it would be messy to exposing the function on the oracle interface would
+          // be too messy.
+          const contractVersion =
+            'non_oracle_function_getContractOracleVersion' in handler
+              ? (
+                  handler as unknown as {
+                    non_oracle_function_getContractOracleVersion(): { major: number; minor: number } | undefined;
+                  }
+                ).non_oracle_function_getContractOracleVersion()
+              : undefined;
+          if (contractVersion && contractVersion.minor > ORACLE_VERSION_MINOR) {
+            throw new Error(
+              `Oracle '${prop}' not found. The contract reports oracle version ${contractVersion.major}.${contractVersion.minor}` +
+                ` but this PXE supports version ${ORACLE_VERSION_MAJOR}.${ORACLE_VERSION_MINOR}.` +
+                ` It is likely that '${prop}' was added in a newer minor version.` +
+                ` Upgrade your PXE/wallet to a compatible version.`,
+            );
+          }
+          throw new Error(`Oracle callback ${prop} not found`);
+        };
+      },
+    });
   }
 
   // eslint-disable-next-line camelcase
-  aztec_utl_assertCompatibleOracleVersion([version]: ACVMField[]) {
-    this.handlerAsMisc().assertCompatibleOracleVersion(Fr.fromString(version).toNumber());
+  aztec_utl_assertCompatibleOracleVersion([major]: ACVMField[], minor?: ACVMField[]) {
+    const majorNum = Fr.fromString(major).toNumber();
+    // Old contracts (compiled before minor/major split) send a single arg. Default minor to 0 for backward compat.
+    const minorNum = minor ? Fr.fromString(minor[0]).toNumber() : 0;
+    this.handlerAsMisc().assertCompatibleOracleVersion(majorNum, minorNum);
     return Promise.resolve([]);
   }
 
