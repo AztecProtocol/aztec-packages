@@ -69,6 +69,7 @@ import {
   type AztecNodeAdmin,
   type AztecNodeAdminConfig,
   AztecNodeAdminConfigSchema,
+  type AztecNodeDebug,
   type GetContractClassLogsResponse,
   type GetPublicLogsResponse,
 } from '@aztec/stdlib/interfaces/client';
@@ -130,7 +131,7 @@ import { NodeMetrics } from './node_metrics.js';
 /**
  * The aztec node.
  */
-export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
+export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDebug, Traceable {
   private metrics: NodeMetrics;
   private initialHeaderHashPromise: Promise<BlockHash> | undefined = undefined;
   private ethCheatCodes: EthCheatCodes | undefined;

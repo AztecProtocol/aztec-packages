@@ -7,7 +7,7 @@ import {
 } from '@aztec/foundation/json-rpc/server';
 import type { LogFn, Logger } from '@aztec/foundation/log';
 import type { ChainConfig } from '@aztec/stdlib/config';
-import { AztecNodeAdminApiSchema, AztecNodeApiSchema } from '@aztec/stdlib/interfaces/client';
+import { AztecNodeAdminApiSchema, AztecNodeApiSchema, AztecNodeDebugApiSchema } from '@aztec/stdlib/interfaces/client';
 import { getPackageVersion } from '@aztec/stdlib/update-checker';
 import { getVersioningMiddleware } from '@aztec/stdlib/versioning';
 import { getOtelJsonRpcPropagationMiddleware } from '@aztec/telemetry-client';
@@ -51,6 +51,7 @@ export async function aztecStart(options: any, userLog: LogFn, debugLogger: Logg
     signalHandlers.push(stop);
     services.node = [node, AztecNodeApiSchema];
     adminServices.node = [node, AztecNodeAdminApiSchema];
+    adminServices.nodeDebug = [node, AztecNodeDebugApiSchema];
   } else {
     // Route --prover-node through startNode
     if (options.proverNode && !options.node) {

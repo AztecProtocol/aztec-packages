@@ -4,7 +4,7 @@ import { createExtendedL1Client } from '@aztec/ethereum/client';
 import type { Anvil } from '@aztec/ethereum/test';
 import type { ExtendedViemWalletClient } from '@aztec/ethereum/types';
 import { DateProvider } from '@aztec/foundation/timer';
-import type { AztecNode, AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
+import type { AztecNode, AztecNodeDebug } from '@aztec/stdlib/interfaces/client';
 
 import { parseEther } from 'viem';
 import { mnemonicToAccount } from 'viem/accounts';
@@ -137,15 +137,15 @@ describe('e2e_cheat_codes', () => {
     });
   });
 
-  describe('L2 admin time manipulation', () => {
+  describe('L2 debug time manipulation', () => {
     let context: EndToEndContext;
     let aztecNode: AztecNode;
-    let aztecNodeAdmin: AztecNodeAdmin;
+    let aztecNodeDebug: AztecNodeDebug;
 
     beforeAll(async () => {
       context = await setup(0);
       aztecNode = context.aztecNode;
-      aztecNodeAdmin = context.aztecNodeAdmin;
+      aztecNodeDebug = context.aztecNodeService;
     });
 
     afterAll(async () => {
@@ -154,8 +154,8 @@ describe('e2e_cheat_codes', () => {
 
     it('setNextBlockTimestamp + mineBlock produces a block with the target timestamp', async () => {
       const targetTimestamp = Math.floor(Date.now() / 1000) + 1000;
-      await aztecNodeAdmin.setNextBlockTimestamp(targetTimestamp);
-      await aztecNodeAdmin.mineBlock();
+      await aztecNodeDebug.setNextBlockTimestamp(targetTimestamp);
+      await aztecNodeDebug.mineBlock();
 
       const blockNumber = await aztecNode.getBlockNumber();
       const block = await aztecNode.getBlock(blockNumber);
@@ -168,8 +168,8 @@ describe('e2e_cheat_codes', () => {
       const timestampBefore = Number(blockBeforeAdvance!.header.globalVariables.timestamp);
 
       const advancement = 100;
-      await aztecNodeAdmin.advanceNextBlockTimestampBy(advancement);
-      await aztecNodeAdmin.mineBlock();
+      await aztecNodeDebug.advanceNextBlockTimestampBy(advancement);
+      await aztecNodeDebug.mineBlock();
 
       const blockNumber = await aztecNode.getBlockNumber();
       const block = await aztecNode.getBlock(blockNumber);
@@ -183,7 +183,7 @@ describe('e2e_cheat_codes', () => {
       const firstBlock = await aztecNode.getBlock(firstBlockNumber);
       const firstSlot = firstBlock!.header.globalVariables.slotNumber;
 
-      await aztecNodeAdmin.mineBlock();
+      await aztecNodeDebug.mineBlock();
       const secondBlockNumber = await aztecNode.getBlockNumber();
       const secondBlock = await aztecNode.getBlock(secondBlockNumber);
       const secondSlot = secondBlock!.header.globalVariables.slotNumber;
@@ -191,7 +191,7 @@ describe('e2e_cheat_codes', () => {
       expect(secondSlot).toBeGreaterThan(firstSlot);
 
       // Second call is still in the same slot, so mineBlock must warp to the next slot
-      await aztecNodeAdmin.mineBlock();
+      await aztecNodeDebug.mineBlock();
       const thirdBlockNumber = await aztecNode.getBlockNumber();
       const thirdBlock = await aztecNode.getBlock(thirdBlockNumber);
       const thirdSlot = thirdBlock!.header.globalVariables.slotNumber;

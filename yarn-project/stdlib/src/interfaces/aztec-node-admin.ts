@@ -69,15 +69,6 @@ export interface AztecNodeAdmin {
    *   A validator with an unknown publisher key will cause the reload to be rejected.
    */
   reloadKeystore(): Promise<void>;
-
-  /** Sets the L1 timestamp for the next block via `evm_setNextBlockTimestamp`. Does not mine. */
-  setNextBlockTimestamp(timestamp: number): Promise<void>;
-
-  /** Advances the L1 timestamp by the given duration (in seconds) via `evm_setNextBlockTimestamp`. Does not mine. */
-  advanceNextBlockTimestampBy(duration: number): Promise<void>;
-
-  /** Mines an L1 block, ensures we're in a new L2 slot, and forces the sequencer to produce an L2 block. */
-  mineBlock(): Promise<void>;
 }
 
 // L1 contracts are not mutable via admin updates.
@@ -116,9 +107,6 @@ export const AztecNodeAdminApiSchema: ApiSchemaFor<AztecNodeAdmin> = {
     .args(z.union([z.bigint(), z.literal('all'), z.literal('current')]))
     .returns(z.array(OffenseSchema)),
   reloadKeystore: z.function().returns(z.void()),
-  setNextBlockTimestamp: z.function().args(z.number()).returns(z.void()),
-  advanceNextBlockTimestampBy: z.function().args(z.number()).returns(z.void()),
-  mineBlock: z.function().returns(z.void()),
 };
 
 export function createAztecNodeAdminClient(

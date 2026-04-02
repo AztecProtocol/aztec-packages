@@ -1,0 +1,40 @@
+import { createSafeJsonRpcClient, defaultFetch } from '@aztec/foundation/json-rpc/client';
+
+import { z } from 'zod';
+
+import type { ApiSchemaFor } from '../schemas/schemas.js';
+import { type ComponentsVersions, getVersioningResponseHandler } from '../versioning/index.js';
+
+/**
+ * Debug interface for Aztec node available in sandbox/local-network mode.
+ */
+export interface AztecNodeDebug {
+  /** Sets the L1 timestamp for the next block via `evm_setNextBlockTimestamp`. Does not mine. */
+  setNextBlockTimestamp(timestamp: number): Promise<void>;
+
+  /** Advances the L1 timestamp by the given duration (in seconds) via `evm_setNextBlockTimestamp`. Does not mine. */
+  advanceNextBlockTimestampBy(duration: number): Promise<void>;
+
+  /** Mines an L1 block, ensures we're in a new L2 slot, and forces the sequencer to produce an L2 block. */
+  mineBlock(): Promise<void>;
+}
+
+export const AztecNodeDebugApiSchema: ApiSchemaFor<AztecNodeDebug> = {
+  setNextBlockTimestamp: z.function().args(z.number()).returns(z.void()),
+  advanceNextBlockTimestampBy: z.function().args(z.number()).returns(z.void()),
+  mineBlock: z.function().returns(z.void()),
+};
+
+export function createAztecNodeDebugClient(
+  url: string,
+  versions: Partial<ComponentsVersions> = {},
+  fetch = defaultFetch,
+  apiKey?: string,
+): AztecNodeDebug {
+  return createSafeJsonRpcClient<AztecNodeDebug>(url, AztecNodeDebugApiSchema, {
+    namespaceMethods: 'nodeDebug',
+    fetch,
+    onResponse: getVersioningResponseHandler(versions),
+    ...(apiKey ? { extraHeaders: { 'x-api-key': apiKey } } : {}),
+  });
+}
