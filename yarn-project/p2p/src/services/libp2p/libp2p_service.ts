@@ -433,9 +433,11 @@ export class LibP2PService extends WithTracer implements P2PService {
         identify: identify({
           protocolPrefix: 'aztec',
           runOnConnectionOpen: true,
+          timeout: 30_000,
         }),
         identifyPush: identifyPush({
           protocolPrefix: 'aztec',
+          timeout: 30_000,
         }),
         ping: ping({
           protocolPrefix: 'aztec',
