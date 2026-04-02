@@ -144,6 +144,7 @@ export class Oracle {
             logger.warn(
               `Contract oracle version not set when looking up oracle '${prop}'. This is unexpected - the version check oracle should always be called first.`,
             );
+            throw new Error(`Oracle callback ${prop} not found`);
           } else if (contractVersion.minor > ORACLE_VERSION_MINOR) {
             throw new Error(
               `Oracle '${prop}' not found. The contract reports oracle version ${contractVersion.major}.${contractVersion.minor}` +
@@ -151,8 +152,14 @@ export class Oracle {
                 ` It is likely that '${prop}' was added in a newer minor version.` +
                 ` Upgrade your PXE/wallet to a compatible version.`,
             );
+          } else {
+            throw new Error(
+              `Oracle '${prop}' not found. The contract reports oracle version ${contractVersion.major}.${contractVersion.minor}` +
+                ` and this PXE supports version ${ORACLE_VERSION_MAJOR}.${ORACLE_VERSION_MINOR}` +
+                ` which should include all oracles the contract needs.` +
+                ` This is likely a bug in the contract.`,
+            );
           }
-          throw new Error(`Oracle callback ${prop} not found`);
         };
       },
     });

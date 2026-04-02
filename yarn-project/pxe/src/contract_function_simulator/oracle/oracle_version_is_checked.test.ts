@@ -252,12 +252,23 @@ describe('Oracle Version Check test suite', () => {
       );
     });
 
-    it('provides generic error when oracle not found and minor versions match', () => {
-      // Register matching minor version
+    it('suggests contract bug when oracle not found and contract minor == PXE minor', () => {
       oracle.assertCompatibleOracleVersion(ORACLE_VERSION_MAJOR, ORACLE_VERSION_MINOR);
 
       const callback = new Oracle(oracle).toACIRCallback();
-      expect(() => callback['aztec_utl_someNewOracle']()).toThrow('Oracle callback aztec_utl_someNewOracle not found');
+      expect(() => callback['aztec_utl_someNewOracle']()).toThrow(
+        /Oracle 'aztec_utl_someNewOracle' not found.*should include all oracles.*likely a bug in the contract/,
+      );
+    });
+
+    it('suggests contract bug when oracle not found and contract minor < PXE minor', () => {
+      // PXE supports a higher minor than the contract reports — should still be compatible
+      oracle.assertCompatibleOracleVersion(ORACLE_VERSION_MAJOR, ORACLE_VERSION_MINOR - 1);
+
+      const callback = new Oracle(oracle).toACIRCallback();
+      expect(() => callback['aztec_utl_someNewOracle']()).toThrow(
+        /Oracle 'aztec_utl_someNewOracle' not found.*should include all oracles.*likely a bug in the contract/,
+      );
     });
   });
 });
