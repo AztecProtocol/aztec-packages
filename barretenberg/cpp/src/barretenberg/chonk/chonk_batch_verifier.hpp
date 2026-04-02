@@ -33,8 +33,10 @@ class ChonkBatchVerifier {
      */
     struct ReduceResult {
         uint64_t request_id = 0;
-        OpeningClaim<curve::Grumpkin> ipa_claim;
-        ::bb::HonkProof ipa_proof;
+        OpeningClaim<curve::Grumpkin> eccvm_ipa_claim;
+        ::bb::HonkProof eccvm_ipa_proof;
+        OpeningClaim<curve::Grumpkin> kernel_ipa_claim;
+        ::bb::HonkProof kernel_ipa_proof;
         bool all_checks_passed = false;
         std::string error_message;
         std::chrono::steady_clock::time_point enqueue_time;

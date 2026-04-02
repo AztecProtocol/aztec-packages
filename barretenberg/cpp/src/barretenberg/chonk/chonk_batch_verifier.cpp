@@ -174,8 +174,10 @@ std::vector<ChonkBatchVerifier::ReduceResult> ChonkBatchVerifier::parallel_reduc
 
                     results[idx] = ReduceResult{
                         .request_id = req.request_id,
-                        .ipa_claim = std::move(reduced.ipa_claim),
-                        .ipa_proof = std::move(reduced.ipa_proof),
+                        .eccvm_ipa_claim = std::move(reduced.eccvm_ipa_claim),
+                        .eccvm_ipa_proof = std::move(reduced.eccvm_ipa_proof),
+                        .kernel_ipa_claim = std::move(reduced.kernel_ipa_claim),
+                        .kernel_ipa_proof = std::move(reduced.kernel_ipa_proof),
                         .all_checks_passed = reduced.all_checks_passed,
                         .error_message = reduced.all_checks_passed ? "" : "reduction failed",
                         .enqueue_time = req.enqueue_time,
@@ -220,11 +222,13 @@ bool ChonkBatchVerifier::batch_check(const std::vector<ReduceResult>& results, c
         // Collect IPA claims and transcripts for batch verification
         std::vector<OpeningClaim<curve::Grumpkin>> claims;
         std::vector<std::shared_ptr<NativeTranscript>> transcripts;
-        claims.reserve(indices.size());
-        transcripts.reserve(indices.size());
+        claims.reserve(indices.size() * 2);
+        transcripts.reserve(indices.size() * 2);
         for (size_t idx : indices) {
-            claims.push_back(results[idx].ipa_claim);
-            transcripts.push_back(std::make_shared<NativeTranscript>(results[idx].ipa_proof));
+            claims.push_back(results[idx].eccvm_ipa_claim);
+            transcripts.push_back(std::make_shared<NativeTranscript>(results[idx].eccvm_ipa_proof));
+            claims.push_back(results[idx].kernel_ipa_claim);
+            transcripts.push_back(std::make_shared<NativeTranscript>(results[idx].kernel_ipa_proof));
         }
 
         auto ipa_vk = VerifierCommitmentKey<curve::Grumpkin>{ ECCVMFlavor::ECCVM_FIXED_SIZE };

@@ -21,8 +21,7 @@ namespace bb {
  *   2. Databus consistency check
  *   3. Merge verification (using t_j, T_prev)
  *   4. ECCVM verification → get v, x, accumulated_result, IPA claim
- *   5. ECCVM IPA claim + Hiding Kernel IPA claim → accumulate for deferred verification
- *   6. Translator Oink + Joint sumcheck + Joint PCS → pairing check
+ *   5. Translator Oink + Joint sumcheck + Joint PCS → pairing check
  */
 template <> ChonkVerifier<false>::IPAReductionResult ChonkVerifier<false>::reduce_to_ipa_claim(const Proof& proof)
 {
@@ -49,7 +48,7 @@ template <> ChonkVerifier<false>::IPAReductionResult ChonkVerifier<false>::reduc
     vinfo("ChonkVerifier: databus consistency verified: ", databus_consistency_verified);
     if (!databus_consistency_verified) {
         info("ChonkVerifier: verification failed at databus consistency check");
-        return { {}, {}, false };
+        return { {}, {}, {}, {}, false };
     }
 
     // Step 3: Merge verification
@@ -61,11 +60,11 @@ template <> ChonkVerifier<false>::IPAReductionResult ChonkVerifier<false>::reduc
 
     if (!merge_result.reduction_succeeded) {
         info("ChonkVerifier: verification failed at Merge reduction");
-        return { {}, {}, false };
+        return { {}, {}, {}, {}, false };
     }
     if (!merge_result.pairing_points.check()) {
         info("ChonkVerifier: verification failed at Merge pairing check");
-        return { {}, {}, false };
+        return { {}, {}, {}, {}, false };
     }
 
     // Step 4: ECCVM verification
@@ -75,15 +74,10 @@ template <> ChonkVerifier<false>::IPAReductionResult ChonkVerifier<false>::reduc
 
     if (!eccvm_result.reduction_succeeded) {
         info("ChonkVerifier: verification failed at ECCVM step");
-        return { {}, {}, false };
+        return { {}, {}, {}, {}, false };
     }
-
-    // Step 5: Accumulate ECCVM IPA claim and Hiding Kernel IPA claim for deferred verification
-    CommitmentKey<curve::Grumpkin> ck{ ECCVMFlavor::ECCVM_FIXED_SIZE };
-    auto kernel_ipa_transcript = std::make_shared<Transcript>(proof.io_ipa_proof);
-    auto eccvm_ipa_transcript = std::make_shared<Transcript>(proof.eccvm_ipa_proof);
-    auto [accumulated_ipa_claim, accumulated_ipa_proof] = IPA<typename curve::Grumpkin>::accumulate(
-        ck, kernel_ipa_transcript, kernel_io.ipa_claim, eccvm_ipa_transcript, eccvm_result.ipa_claim);
+    // Step 5: Collect both IPA claims for deferred batch verification
+    // (No accumulation needed — both claims will be batch-verified together via batch_reduce_verify)
 
     // Step 6: Translator Oink + Joint sumcheck + Joint PCS
     auto translator_input = eccvm_verifier.get_translator_input_data();
@@ -96,14 +90,14 @@ template <> ChonkVerifier<false>::IPAReductionResult ChonkVerifier<false>::reduc
 
     if (!batched_result.reduction_succeeded) {
         info("ChonkVerifier: verification failed at batched translator+joint reduction");
-        return { {}, {}, false };
+        return { {}, {}, {}, {}, false };
     }
     if (!batched_result.pairing_points.check()) {
         info("ChonkVerifier: verification failed at batched translator+joint pairing check");
-        return { {}, {}, false };
+        return { {}, {}, {}, {}, false };
     }
 
-    return { accumulated_ipa_claim, accumulated_ipa_proof, true };
+    return { eccvm_result.ipa_claim, proof.eccvm_ipa_proof, kernel_io.ipa_claim, proof.io_ipa_proof, true };
 }
 
 /**
@@ -117,13 +111,17 @@ template <> ChonkVerifier<false>::Output ChonkVerifier<false>::verify(const Proo
         return false;
     }
 
-    // Step 6: Verify IPA opening
-    auto ipa_transcript = std::make_shared<Goblin::Transcript>(result.ipa_proof);
+    // Step 6: Batch-verify both IPA openings (ECCVM + Hiding Kernel) with a single SRS MSM
+    std::vector<OpeningClaim<curve::Grumpkin>> ipa_claims = { result.eccvm_ipa_claim, result.kernel_ipa_claim };
+    std::vector<std::shared_ptr<NativeTranscript>> ipa_transcripts = {
+        std::make_shared<NativeTranscript>(result.eccvm_ipa_proof),
+        std::make_shared<NativeTranscript>(result.kernel_ipa_proof),
+    };
     auto ipa_vk = VerifierCommitmentKey<curve::Grumpkin>{ ECCVMFlavor::ECCVM_FIXED_SIZE };
-    bool ipa_verified = IPA<curve::Grumpkin>::reduce_verify(ipa_vk, result.ipa_claim, ipa_transcript);
-    vinfo("ChonkVerifier: Goblin IPA verified: ", ipa_verified);
+    bool ipa_verified = IPA<curve::Grumpkin>::batch_reduce_verify(ipa_vk, ipa_claims, ipa_transcripts);
+    vinfo("ChonkVerifier: Goblin IPA batch verified: ", ipa_verified);
     if (!ipa_verified) {
-        info("ChonkVerifier: Chonk verification failed at IPA check");
+        info("ChonkVerifier: Chonk verification failed at IPA batch check");
         return false;
     }
 

@@ -529,8 +529,8 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
      * step failed or passed.
      */
     static VerifierAccumulator reduce_verify_internal_recursive(const OpeningClaim<Curve>& opening_claim,
-                                                                auto& transcript,
-                                                                auto g1_identity)
+                                                                auto& transcript)
+        requires Curve::is_stdlib_type
     {
         // Step 1.
         // Done by `add_claim_to_hash_buffer`.
@@ -538,6 +538,7 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
         // Step 2.
         // Receive generator challenge u and compute auxiliary generator
         const Fr generator_challenge = transcript->template get_challenge<Fr>("IPA:generator_challenge");
+        typename Curve::Builder* builder = generator_challenge.get_context();
 
         auto pippenger_size =
             2 * log_poly_length +
@@ -590,28 +591,17 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
         // Compute R = ∑_{j ∈ [k]} u_j^{-1}L_j + ∑_{j ∈ [k]} u_jR_j - G₀ * a₀ - (a₀ * b₀ - f(\beta)) ⋅ U
         // If everything is correct, then R == -C.
         msm_elements[(2 * log_poly_length)] = -G_zero;
-        msm_elements[(2 * log_poly_length) + 1] = -g1_identity;
+        msm_elements[(2 * log_poly_length) + 1] = -Commitment::one(builder);
         msm_scalars[(2 * log_poly_length)] = a_zero;
-        if constexpr (Curve::is_stdlib_type) {
-            msm_scalars[(2 * log_poly_length) + 1] =
-                generator_challenge * a_zero.madd(b_zero, { -opening_claim.opening_pair.evaluation });
-        } else {
-            msm_scalars[(2 * log_poly_length) + 1] =
-                generator_challenge * (a_zero * b_zero - opening_claim.opening_pair.evaluation);
-        }
+        msm_scalars[(2 * log_poly_length) + 1] =
+            generator_challenge * a_zero.madd(b_zero, { -opening_claim.opening_pair.evaluation });
         GroupElement ipa_relation = GroupElement::batch_mul(msm_elements, msm_scalars);
         auto neg_commitment = -opening_claim.commitment;
 
-        bool ipa_relation_holds = false;
-        if constexpr (Curve::is_stdlib_type) {
-            ipa_relation_holds = ipa_relation.get_value() == -opening_claim.commitment.get_value();
-            // the below is the only constraint.
-            ipa_relation.assert_equal(neg_commitment);
-        } else {
-            ipa_relation_holds = Commitment(ipa_relation) == -opening_claim.commitment;
-        }
+        // the below is the only constraint.
+        ipa_relation.assert_equal(neg_commitment);
 
-        return { round_challenges_inv, G_zero, ipa_relation_holds };
+        return { round_challenges_inv, G_zero, ipa_relation.get_value() == -opening_claim.commitment.get_value() };
     }
 
     /**
@@ -758,18 +748,13 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
      *@remark The verification procedure documentation is in \link IPA::verify_internal verify_internal \endlink
      */
     static VerifierAccumulator reduce_verify(const OpeningClaim<Curve>& opening_claim, const auto& transcript)
+        requires(Curve::is_stdlib_type)
     {
         // The output of `reduce_verify_internal_recursive` consists of a `VerifierAccumulator` and a boolean, recording
         // the truth value of the last verifier-compatibility check. This simply forgets the boolean and returns the
         // `VerifierAccumulator`.
         add_claim_to_hash_buffer(opening_claim, transcript);
-
-        if constexpr (Curve::is_stdlib_type) {
-            auto* builder = opening_claim.opening_pair.challenge.get_context();
-            return reduce_verify_internal_recursive(opening_claim, transcript, Commitment::one(builder));
-        } else {
-            return reduce_verify_internal_recursive(opening_claim, transcript, Commitment::one());
-        }
+        return reduce_verify_internal_recursive(opening_claim, transcript);
     }
 
     /**
@@ -799,9 +784,7 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
         }
 
         add_claim_to_hash_buffer(opening_claim, transcript);
-        auto* builder = opening_claim.opening_pair.challenge.get_context();
-        VerifierAccumulator verifier_accumulator =
-            reduce_verify_internal_recursive(opening_claim, transcript, Commitment::one(builder));
+        VerifierAccumulator verifier_accumulator = reduce_verify_internal_recursive(opening_claim, transcript);
         auto round_challenges_inv = verifier_accumulator.u_challenges_inv;
         auto claimed_G_zero = verifier_accumulator.comm;
 
@@ -903,9 +886,7 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
     {
         const auto opening_claim = reduce_batch_opening_claim(batch_opening_claim);
         add_claim_to_hash_buffer(opening_claim, transcript);
-
-        auto* builder = opening_claim.opening_pair.challenge.get_context();
-        return reduce_verify_internal_recursive(opening_claim, transcript, Commitment::one(builder));
+        return reduce_verify_internal_recursive(opening_claim, transcript);
     }
 
     /**
@@ -1034,12 +1015,11 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
                                                                 OpeningClaim<Curve> claim_1,
                                                                 auto& transcript_2,
                                                                 OpeningClaim<Curve> claim_2)
+        requires Curve::is_stdlib_type
     {
         using NativeCurve = curve::Grumpkin;
-        using Transcript = std::remove_pointer_t<std::remove_reference_t<decltype(transcript_1)>>::element_type;
-        using Fr =
-            std::conditional_t<Curve::is_stdlib_type, typename Curve::ScalarField, typename NativeCurve::ScalarField>;
-
+        using Transcript =
+            std::conditional_t<IsUltraBuilder<typename Curve::Builder>, UltraStdlibTranscript, MegaStdlibTranscript>;
         // Step 1: Run the partial verifier for each IPA instance
         VerifierAccumulator verifier_accumulator_1 = reduce_verify(claim_1, transcript_1);
         VerifierAccumulator verifier_accumulator_2 = reduce_verify(claim_2, transcript_2);
@@ -1064,38 +1044,19 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
         std::vector<bb::fq> native_u_challenges_inv_1;
         std::vector<bb::fq> native_u_challenges_inv_2;
         for (Fr u_inv_i : verifier_accumulator_1.u_challenges_inv) {
-            if constexpr (Curve::is_stdlib_type) {
-                native_u_challenges_inv_1.push_back(bb::fq(u_inv_i.get_value()));
-            } else {
-                native_u_challenges_inv_1.push_back(bb::fq(u_inv_i));
-            }
+            native_u_challenges_inv_1.push_back(bb::fq(u_inv_i.get_value()));
         }
         for (Fr u_inv_i : verifier_accumulator_2.u_challenges_inv) {
-            if constexpr (Curve::is_stdlib_type) {
-                native_u_challenges_inv_2.push_back(bb::fq(u_inv_i.get_value()));
-            } else {
-                native_u_challenges_inv_2.push_back(bb::fq(u_inv_i));
-            }
+            native_u_challenges_inv_2.push_back(bb::fq(u_inv_i.get_value()));
         }
 
-        Polynomial<bb::fq> challenge_poly;
-        if constexpr (Curve::is_stdlib_type) {
-            challenge_poly =
-                create_challenge_poly(native_u_challenges_inv_1, native_u_challenges_inv_2, bb::fq(alpha.get_value()));
-        } else {
-            challenge_poly = create_challenge_poly(native_u_challenges_inv_1, native_u_challenges_inv_2, bb::fq(alpha));
-        }
+        Polynomial<bb::fq> challenge_poly =
+            create_challenge_poly(native_u_challenges_inv_1, native_u_challenges_inv_2, bb::fq(alpha.get_value()));
 
         // Compute proof for the claim
         auto prover_transcript = std::make_shared<NativeTranscript>();
-        OpeningPair<NativeCurve> opening_pair;
-        if constexpr (Curve::is_stdlib_type) {
-            opening_pair = { bb::fq(output_claim.opening_pair.challenge.get_value()),
-                             bb::fq(output_claim.opening_pair.evaluation.get_value()) };
-        } else {
-            opening_pair = { bb::fq(output_claim.opening_pair.challenge),
-                             bb::fq(output_claim.opening_pair.evaluation) };
-        }
+        const OpeningPair<NativeCurve> opening_pair{ bb::fq(output_claim.opening_pair.challenge.get_value()),
+                                                     bb::fq(output_claim.opening_pair.evaluation.get_value()) };
 
         BB_ASSERT_EQ(challenge_poly.evaluate(opening_pair.challenge),
                      opening_pair.evaluation,
@@ -1104,9 +1065,7 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
         IPA<NativeCurve, log_poly_length>::compute_opening_proof(
             ck, { challenge_poly, opening_pair }, prover_transcript);
 
-        if constexpr (Curve::is_stdlib_type) {
-            output_claim.opening_pair.evaluation.self_reduce();
-        }
+        output_claim.opening_pair.evaluation.self_reduce();
         return { output_claim, prover_transcript->export_proof() };
     }
 

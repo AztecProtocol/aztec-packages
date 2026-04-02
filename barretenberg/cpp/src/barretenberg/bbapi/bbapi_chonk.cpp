@@ -198,8 +198,8 @@ ChonkBatchVerify::Response ChonkBatchVerify::execute(const BBApiRequest& /*reque
     // Phase 1: Run all non-IPA verification for each proof, collecting IPA claims
     std::vector<OpeningClaim<curve::Grumpkin>> ipa_claims;
     std::vector<std::shared_ptr<NativeTranscript>> ipa_transcripts;
-    ipa_claims.reserve(proofs.size());
-    ipa_transcripts.reserve(proofs.size());
+    ipa_claims.reserve(proofs.size() * 2);
+    ipa_transcripts.reserve(proofs.size() * 2);
 
     for (size_t i = 0; i < proofs.size(); ++i) {
         validate_vk_size<VerificationKey>(vks[i]);
@@ -218,8 +218,10 @@ ChonkBatchVerify::Response ChonkBatchVerify::execute(const BBApiRequest& /*reque
         if (!result.all_checks_passed) {
             return { .valid = false };
         }
-        ipa_claims.push_back(std::move(result.ipa_claim));
-        ipa_transcripts.push_back(std::make_shared<NativeTranscript>(std::move(result.ipa_proof)));
+        ipa_claims.push_back(std::move(result.eccvm_ipa_claim));
+        ipa_transcripts.push_back(std::make_shared<NativeTranscript>(std::move(result.eccvm_ipa_proof)));
+        ipa_claims.push_back(std::move(result.kernel_ipa_claim));
+        ipa_transcripts.push_back(std::make_shared<NativeTranscript>(std::move(result.kernel_ipa_proof)));
     }
 
     // Phase 2: Batch IPA verification with single SRS MSM

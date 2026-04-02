@@ -106,18 +106,20 @@ template <bool IsRecursive> class ChonkVerifier {
     [[nodiscard("IPA claim and pairing points must be accumulated")]] Output verify(const Proof& proof);
 
     /**
-     * @brief Result of reducing Chonk verification to an IPA opening claim (native mode only).
-     * @details Contains the IPA claim and proof from non-IPA verification (MegaZK, databus, Goblin),
-     * allowing batch IPA verification across multiple Chonk proofs.
+     * @brief Result of reducing Chonk verification to IPA opening claims (native mode only).
+     * @details Contains the two IPA claims (ECCVM and Hiding Kernel) and their proofs from non-IPA
+     * verification (MegaZK, databus, Goblin), allowing batch IPA verification across multiple Chonk proofs.
      */
     struct IPAReductionResult {
-        OpeningClaim<curve::Grumpkin> ipa_claim;
-        ::bb::HonkProof ipa_proof;
+        OpeningClaim<curve::Grumpkin> eccvm_ipa_claim;
+        ::bb::HonkProof eccvm_ipa_proof;
+        OpeningClaim<curve::Grumpkin> kernel_ipa_claim;
+        ::bb::HonkProof kernel_ipa_proof;
         bool all_checks_passed;
     };
 
     /**
-     * @brief Run Chonk verification up to but not including IPA, returning the IPA claim for deferred verification.
+     * @brief Run Chonk verification up to but not including IPA, returning the IPA claims for deferred verification.
      * @details Verifies the MegaZK proof, databus consistency, and Goblin proof (merge/eccvm/translator),
      * then returns the IPA opening claim and proof without performing the final IPA MSM.
      * This enables batch IPA verification across multiple Chonk proofs.
