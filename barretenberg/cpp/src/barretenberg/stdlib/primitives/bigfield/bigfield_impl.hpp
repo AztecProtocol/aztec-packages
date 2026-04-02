@@ -273,7 +273,7 @@ template <typename Builder, typename T> bigfield<Builder, T>::bigfield(const byt
     const auto res = bigfield::unsafe_construct_from_limbs(limb0, limb1, limb2, limb3, true);
 
     const auto num_last_limb_bits = 256 - (NUM_LIMB_BITS * 3);
-    res.binary_basis_limbs[3].maximum_value = (uint64_t(1) << num_last_limb_bits);
+    res.binary_basis_limbs[3].maximum_value = (uint64_t(1) << num_last_limb_bits) - 1;
     *this = res;
     set_origin_tag(bytes.get_origin_tag());
 }
@@ -1992,14 +1992,14 @@ void bigfield<Builder, T>::unsafe_assert_less_than(const uint256_t& upper_limit,
         r2.get_witness_index(),
         r3.get_witness_index(),
         static_cast<size_t>(NUM_LIMB_BITS),
-        static_cast<size_t>(NUM_LIMB_BITS),
+        static_cast<size_t>(NUM_LAST_LIMB_BITS),
         msg == "bigfield::unsafe_assert_less_than" ? "bigfield::unsafe_assert_less_than: r2 or r3 too large" : msg);
 }
 
 // check elements are equal mod p by proving their integer difference is a multiple of p.
 // This relies on the minus operator for a-b increasing a by a multiple of p large enough so diff is non-negative
 // When one of the elements is a constant and another is a witness we check equality of limbs, so if the witness
-// bigfield element is in an unreduced form, it needs to be reduced first. We don't have automatice reduced form
+// bigfield element is in an unreduced form, it needs to be reduced first. We don't have automatic reduced form
 // detection for now, so it is up to the circuit writer to detect this
 template <typename Builder, typename T>
 void bigfield<Builder, T>::assert_equal(const bigfield& other, std::string const& msg) const
@@ -2010,13 +2010,16 @@ void bigfield<Builder, T>::assert_equal(const bigfield& other, std::string const
         BB_ASSERT_EQ(get_value(), other.get_value(), "We expect constants to be less than the target modulus");
         return;
     } else if (other.is_constant()) {
-        // NOTE(https://github.com/AztecProtocol/barretenberg/issues/998): This can lead to a situation where
-        // an honest prover cannot satisfy the constraints, because `this` is not reduced, but `other` is, i.e.,
-        // `this` = kp + r  and  `other` = r
-        // where k is a positive integer. In such a case, the prover cannot satisfy the constraints
-        // because the limb-differences would not be 0 mod r. Therefore, an honest prover needs to make sure that
-        // `this` is reduced before calling this method. Also `other` should never be greater than the modulus by
-        // design. As a precaution, we assert that the circuit-constant `other` is less than the modulus.
+        // NOTE(https://github.com/AztecProtocol/barretenberg/issues/998): This does a limb-wise integer
+        // comparison, so `this` must already be in reduced form (value in [0, p)) before calling this method.
+        // If `this = kp + r` and `other = r`, the limbs differ and an honest prover cannot satisfy the
+        // constraints. Callers are responsible for calling self_reduce() first when necessary; we omit it
+        // here to avoid adding spurious gates in the common case where `this` is already reduced.
+        // `other` should never exceed the modulus by design; we assert this as a precaution.
+        BB_ASSERT_LT(get_value(),
+                     modulus_u512,
+                     "bigfield::assert_equal: 'this' is not reduced (value >= p). Call self_reduce() before comparing "
+                     "against a constant.");
         BB_ASSERT_LT(other.get_value(), modulus_u512);
         field_t<Builder> t0 = (binary_basis_limbs[0].element - other.binary_basis_limbs[0].element);
         field_t<Builder> t1 = (binary_basis_limbs[1].element - other.binary_basis_limbs[1].element);
@@ -2072,8 +2075,10 @@ void bigfield<Builder, T>::assert_equal(const bigfield& other, std::string const
 
 // construct a proof that points are different mod p, when they are different mod r
 // WARNING: This method doesn't have perfect completeness - for points equal mod r (or with certain difference kp
-// mod r) but different mod p, you can't construct a proof. The chances of an honest prover running afoul of this
-// condition are extremely small (TODO: compute probability) Note also that the number of constraints depends on how
+// mod r) but different mod p, you can't construct a proof. The failure probability is at most
+// (L + R + 1) / r where L = floor(a.max / p), R = floor(b.max / p), r = native field size (~2^254).
+// With max bounded by 2^256 - 1 and p >= 2^249, we get L,R <= 127, so probability < 2^{-246}.
+// Note also that the number of constraints depends on how
 // much the values have overflown beyond p e.g. due to an addition chain The function is based on the following.
 // Suppose a-b = 0 mod p. Then a-b = k*p for k in a range [-R,L] for largest L and R such that L*p>= a, R*p>=b.
 // And also a-b = k*p mod r for such k. Thus we can verify a-b is non-zero mod p by taking the product of such values
@@ -2147,7 +2152,7 @@ template <typename Builder, typename T> void bigfield<Builder, T>::self_reduce()
 
     BB_ASSERT_LT((uint1024_t(1) << maximum_quotient_bits) * uint1024_t(modulus_u512) + DEFAULT_MAXIMUM_REMAINDER,
                  get_maximum_crt_product());
-    quotient.binary_basis_limbs[0] = Limb(quotient_limb, uint256_t(1) << maximum_quotient_bits);
+    quotient.binary_basis_limbs[0] = Limb(quotient_limb, (uint256_t(1) << maximum_quotient_bits) - 1);
     quotient.binary_basis_limbs[1] = Limb(field_t<Builder>::from_witness_index(context, context->zero_idx()), 0);
     quotient.binary_basis_limbs[2] = Limb(field_t<Builder>::from_witness_index(context, context->zero_idx()), 0);
     quotient.binary_basis_limbs[3] = Limb(field_t<Builder>::from_witness_index(context, context->zero_idx()), 0);
