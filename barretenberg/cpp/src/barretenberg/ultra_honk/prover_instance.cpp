@@ -73,7 +73,7 @@ template <typename Flavor> ProverInstance_<Flavor>::ProverInstance_(Circuit& cir
     }
 
     if (detail::use_memory_profile) {
-        detail::GLOBAL_MEMORY_PROFILE.add_rss_checkpoint("after_alloc");
+        detail::GLOBAL_MEMORY_PROFILE.add_checkpoint("after_alloc");
     }
 
     // Construct and add to proving key the wire, selector and copy constraint polynomials
@@ -106,7 +106,7 @@ template <typename Flavor> ProverInstance_<Flavor>::ProverInstance_(Circuit& cir
         analyze_prover_polynomials(polynomials);
     }
     if (detail::use_memory_profile) {
-        detail::GLOBAL_MEMORY_PROFILE.add_rss_checkpoint("after_trace");
+        detail::GLOBAL_MEMORY_PROFILE.add_checkpoint("after_trace");
     }
 }
 
