@@ -4,7 +4,7 @@
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
-#include "goblin_avm_verifier.hpp"
+#include "goblin_without_merge_verifier.hpp"
 #include "barretenberg/common/log.hpp"
 
 namespace bb {

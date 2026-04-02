@@ -7,7 +7,7 @@
 #pragma once
 
 #include "barretenberg/goblin/goblin.hpp"
-#include "barretenberg/goblin_avm/types.hpp"
+#include "barretenberg/goblin_without_merge/types.hpp"
 
 namespace bb {
 

@@ -1,7 +1,7 @@
 #include "goblin_flush_circuit.hpp"
 
 #include "barretenberg/common/log.hpp"
-#include "barretenberg/goblin_avm/goblin_avm_verifier.hpp"
+#include "barretenberg/goblin_without_merge/goblin_without_merge_verifier.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
 

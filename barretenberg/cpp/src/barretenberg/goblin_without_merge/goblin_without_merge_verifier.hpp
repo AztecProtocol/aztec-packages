@@ -10,7 +10,7 @@
 #include "barretenberg/eccvm/eccvm_verifier.hpp"
 #include "barretenberg/flavor/ultra_flavor.hpp"
 #include "barretenberg/goblin/goblin_verifier.hpp"
-#include "barretenberg/goblin_avm/types.hpp"
+#include "barretenberg/goblin_without_merge/types.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/stdlib/primitives/curves/grumpkin.hpp"
 #include "barretenberg/translator_vm/translator_verifier.hpp"

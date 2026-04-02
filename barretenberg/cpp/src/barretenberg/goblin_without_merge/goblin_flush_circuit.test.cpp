@@ -1,10 +1,10 @@
-#include "barretenberg/goblin/goblin_flush_circuit.hpp"
+#include "barretenberg/goblin_without_merge/goblin_flush_circuit.hpp"
 
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/common/test.hpp"
 #include "barretenberg/eccvm/eccvm_verifier.hpp"
 #include "barretenberg/goblin/mock_circuits.hpp"
-#include "barretenberg/goblin_avm/goblin_avm.hpp"
+#include "barretenberg/goblin_without_merge/goblin_without_merge.hpp"
 #include "barretenberg/srs/global_crs.hpp"
 #include "barretenberg/translator_vm/translator_verifier.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"

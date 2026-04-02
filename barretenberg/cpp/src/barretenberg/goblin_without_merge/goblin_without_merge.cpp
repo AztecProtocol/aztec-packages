@@ -4,7 +4,7 @@
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
-#include "goblin_avm.hpp"
+#include "goblin_without_merge.hpp"
 
 #include "barretenberg/commitment_schemes/ipa/ipa.hpp"
 #include "barretenberg/common/assert.hpp"
@@ -43,6 +43,7 @@ GoblinWithoutMerge::GoblinWithoutMerge(MegaBuilder& builder, const std::shared_p
     builder.queue_ecc_no_op();
     builder.queue_ecc_no_op();
     builder.queue_ecc_no_op();
+    builder.queue_ecc_eq();
 }
 
 GoblinWithoutMerge::GoblinWithoutMerge(std::shared_ptr<OpQueue>& existing_op_queue,

@@ -1,7 +1,7 @@
 #pragma once
 
 #include "barretenberg/goblin/merge_verifier.hpp"
-#include "barretenberg/goblin_avm/types.hpp"
+#include "barretenberg/goblin_without_merge/types.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 
 namespace bb {
