@@ -1,8 +1,7 @@
 #pragma once
 
-#include "barretenberg/goblin/goblin_verifier.hpp"
-#include "barretenberg/goblin/types.hpp"
-#include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
+#include "barretenberg/goblin/merge_verifier.hpp"
+#include "barretenberg/goblin_avm/types.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 
 namespace bb {
@@ -16,11 +15,11 @@ namespace bb {
  *   - IPA opening claim (from ECCVM, over Grumpkin)
  *   - merged_table (the table used by Translator to recursively verify the proof)
  *
- * @param native_proof The native Goblin proof (eccvm + ipa + translator)
+ * @param native_proof The native proof without merge (eccvm + ipa + translator)
  * @param merged_table The native merge table commitments (merged table)
  * @return UltraCircuitBuilder
  */
-UltraCircuitBuilder build_goblin_flush_circuit(const GoblinProof& native_proof,
+UltraCircuitBuilder build_goblin_flush_circuit(const GoblinWithoutMergeProof& native_proof,
                                                const MergeVerifier::TableCommitments& merged_table);
 
 } // namespace bb

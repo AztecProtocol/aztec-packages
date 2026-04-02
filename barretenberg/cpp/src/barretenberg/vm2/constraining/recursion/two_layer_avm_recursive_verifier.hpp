@@ -189,6 +189,7 @@ class TwoLayerAvmRecursiveVerifier {
 
         // Construct the GoblinAvm proof \pi_G (includes ECCVM, IPA, and Translator proofs)
         goblin.transcript = transcript;
+        inner_builder.op_queue->merge();
         GoblinAvmProof goblin_proof = goblin.prove();
 
         return {

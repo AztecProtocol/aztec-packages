@@ -23,11 +23,22 @@ class GoblinWithoutMerge : public Goblin {
     using ECCVMVerificationKey = ECCVMFlavor::VerificationKey;
     using TranslatorVerificationKey = TranslatorFlavor::VerificationKey;
 
+    // Store original ZK setting of the op queue to restore after proving
+    bool original_is_zk;
+
     /**
      * @brief Construct for AVM case: takes a builder, adds required initial ECC ops
      */
     explicit GoblinWithoutMerge(MegaBuilder& builder,
                                 const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
+
+    /**
+     * @brief Construct for flush case: uses an existing op queue directly
+     * @param existing_op_queue The op queue to prove over
+     * @param flush_transcript The transcript to use
+     */
+    explicit GoblinWithoutMerge(std::shared_ptr<OpQueue>& existing_op_queue,
+                                const std::shared_ptr<Transcript>& flush_transcript = std::make_shared<Transcript>());
 
     /**
      * @brief Construct a full proof without merge (ECCVM, Translator)

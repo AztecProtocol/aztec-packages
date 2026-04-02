@@ -2,9 +2,11 @@
 
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/common/test.hpp"
-#include "barretenberg/goblin/goblin.hpp"
+#include "barretenberg/eccvm/eccvm_verifier.hpp"
 #include "barretenberg/goblin/mock_circuits.hpp"
+#include "barretenberg/goblin_avm/goblin_avm.hpp"
 #include "barretenberg/srs/global_crs.hpp"
+#include "barretenberg/translator_vm/translator_verifier.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
 
@@ -18,31 +20,37 @@ class GoblinFlushCircuitTests : public testing::Test {
     static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 
     struct ProverOutput {
-        GoblinProof proof;
+        GoblinWithoutMergeProof proof;
         TableCommitments merge_commitments;
     };
 
-    static ProverOutput create_goblin_prover_output(const size_t num_circuits = 5)
+    static ProverOutput create_goblin_prover_output()
     {
-        // Generate some tables and merge them
-        Goblin goblin;
-        GoblinMockCircuits::construct_and_merge_mock_circuits(goblin, num_circuits);
-        goblin.prove_merge(goblin.transcript, MergeSettings::APPEND);
+        // Generate OP_QUEUE and populate it with some operations
+        auto op_queue = std::make_shared<ECCOpQueue>();
+        MegaCircuitBuilder builder(op_queue);
 
-        // Reset the transcript as the goblin verification starts a new transcript
-        goblin.transcript = std::make_shared<NativeTranscript>();
-        goblin.prove_eccvm();
-        goblin.prove_translator();
+        builder.queue_ecc_no_op();
+        builder.queue_ecc_no_op();
+        builder.queue_ecc_no_op();
+        builder.queue_ecc_no_op();
+        builder.queue_ecc_eq();
+        builder.queue_ecc_add_accum(bb::g1::affine_element::one());
+
+        // Use GoblinWithoutMerge with the accumulated op queue
+        op_queue->merge();
+        GoblinWithoutMerge flush_goblin(op_queue);
+        auto flush_proof = flush_goblin.prove();
 
         // Extract merge commitments from op_queue
         TableCommitments table_commitments;
-        auto merged_table = goblin.op_queue->construct_ultra_ops_table_columns();
-        CommitmentKey<curve::BN254> pcs_commitment_key(goblin.op_queue->get_ultra_ops_table_num_rows());
+        auto merged_table = op_queue->construct_ultra_ops_table_columns();
+        CommitmentKey<curve::BN254> pcs_commitment_key(op_queue->get_ultra_ops_table_num_rows());
         for (size_t idx = 0; idx < MegaFlavor::NUM_WIRES; idx++) {
             table_commitments[idx] = pcs_commitment_key.commit(merged_table[idx]);
         }
 
-        return { goblin.goblin_proof, table_commitments };
+        return { flush_proof, table_commitments };
     }
 };
 

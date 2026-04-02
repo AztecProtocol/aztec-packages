@@ -91,6 +91,7 @@ class GoblinAvmRecursiveVerifierTests : public testing::Test {
         GoblinAvm goblin(inner_builder);
         MockCircuits::construct_arithmetic_circuit(inner_builder);
 
+        op_queue->merge();
         auto goblin_proof = goblin.prove();
 
         // Subtable values and commitments
