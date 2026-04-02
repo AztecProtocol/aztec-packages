@@ -60,6 +60,7 @@ class GoblinRecursiveVerifierTests : public testing::Test {
      */
     static ProverOutput create_goblin_prover_output(Builder* outer_builder = nullptr, const size_t num_circuits = 5)
     {
+
         Goblin goblin;
         GoblinMockCircuits::construct_and_merge_mock_circuits(goblin, num_circuits);
 

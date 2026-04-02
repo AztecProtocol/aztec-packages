@@ -371,13 +371,12 @@ template <class Builder_> class HidingKernelIO {
 };
 
 /**
- * @brief Manages the data that is propagated on the public inputs of the Goblin flush circuit (Circuit C)
+ * @brief Manages the data that is propagated on the public inputs of the Goblin flush circuit
  *
- * @details Circuit C recursively verifies a Goblin proof (Merge + ECCVM + Translator) and exposes:
- *   - pairing_inputs: aggregated KZG pairing points from Merge and Translator verification
+ * @details The Goblin flush circuit recursively verifies a Goblin proof (ECCVM + Translator) and exposes:
+ *   - pairing_inputs: KZG pairing points from Translator verification
  *   - ipa_claim: IPA opening claim from ECCVM verification (Grumpkin curve)
- *   - T_prev: merge table commitments to the circuit before the last kernel
- *   - t: subtable commitments to the operations performed by the last kernel
+ *   - merged_table: the table used for verification in the Translator
  */
 template <class Builder_> class GoblinFlushIO {
   public:
@@ -394,7 +393,7 @@ template <class Builder_> class GoblinFlushIO {
     using PublicPairingPoints = stdlib::PublicInputComponent<PairingInputs>;
     using PublicIpaClaim = stdlib::PublicInputComponent<IpaClaim>;
 
-    PairingInputs pairing_inputs;  // Aggregated KZG pairing points from Merge + Translator
+    PairingInputs pairing_inputs;  // KZG pairing points from Translator verification
     IpaClaim ipa_claim;            // IPA opening claim from ECCVM recursive verifier
     TableCommitments merged_table; // Merged table commitments used in the GoblinFlush app
 

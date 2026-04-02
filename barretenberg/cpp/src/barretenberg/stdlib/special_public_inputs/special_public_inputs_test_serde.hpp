@@ -103,14 +103,6 @@ class KernelIOSerde {
             }
         };
 
-        auto serialize_grumpkin_fr = [&](const curve::Grumpkin::ScalarField& fr_val) {
-            constexpr uint64_t NUM_LIMB_BITS = 2 * NUM_LIMB_BITS_IN_FIELD_SIMULATION;
-            constexpr uint256_t LIMB_MASK = (uint256_t(1) << NUM_LIMB_BITS) - 1;
-            uint256_t val = static_cast<uint256_t>(fr_val);
-            proof[idx++] = NativeFF(val & LIMB_MASK);
-            proof[idx++] = NativeFF((val >> NUM_LIMB_BITS) & LIMB_MASK);
-        };
-
         serialize_point(pairing_inputs.P0());
         serialize_point(pairing_inputs.P1());
         serialize_point(kernel_return_data);
@@ -120,8 +112,9 @@ class KernelIOSerde {
         }
         proof[idx++] = output_hn_accum_hash;
         // Serialize IPA claim: challenge (2 limbs) + evaluation (2 limbs) + commitment (2 fr)
-        serialize_grumpkin_fr(ipa_claim.opening_pair.challenge);
-        serialize_grumpkin_fr(ipa_claim.opening_pair.evaluation);
+        // Grumpkin::Fr = BN254::Fq
+        serialize_fq(ipa_claim.opening_pair.challenge);
+        serialize_fq(ipa_claim.opening_pair.evaluation);
         proof[idx++] = NativeFF(ipa_claim.commitment.x);
         proof[idx++] = NativeFF(ipa_claim.commitment.y);
     }
@@ -210,22 +203,15 @@ class HidingKernelIOSerde {
             }
         };
 
-        auto serialize_grumpkin_fr = [&](const curve::Grumpkin::ScalarField& fr_val) {
-            constexpr uint64_t NUM_LIMB_BITS = 2 * NUM_LIMB_BITS_IN_FIELD_SIMULATION;
-            constexpr uint256_t LIMB_MASK = (uint256_t(1) << NUM_LIMB_BITS) - 1;
-            uint256_t val = static_cast<uint256_t>(fr_val);
-            proof[idx++] = NativeFF(val & LIMB_MASK);
-            proof[idx++] = NativeFF((val >> NUM_LIMB_BITS) & LIMB_MASK);
-        };
-
         serialize_point(pairing_inputs.P0());
         serialize_point(pairing_inputs.P1());
         serialize_point(kernel_return_data);
         for (const auto& commitment : ecc_op_tables) {
             serialize_point(commitment);
         }
-        serialize_grumpkin_fr(ipa_claim.opening_pair.challenge);
-        serialize_grumpkin_fr(ipa_claim.opening_pair.evaluation);
+        // Grumpkin::Fr = BN254::Fq
+        serialize_fq(ipa_claim.opening_pair.challenge);
+        serialize_fq(ipa_claim.opening_pair.evaluation);
         proof[idx++] = NativeFF(ipa_claim.commitment.x);
         proof[idx++] = NativeFF(ipa_claim.commitment.y);
     }

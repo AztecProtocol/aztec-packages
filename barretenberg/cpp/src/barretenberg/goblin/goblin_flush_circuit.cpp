@@ -43,8 +43,8 @@ UltraCircuitBuilder build_goblin_flush_circuit(const GoblinProof& native_proof,
     auto translator_input = eccvm_verifier.get_translator_input_data();
 
     // Step 2: Verify the Translator proof
-    // - Pass `table_commitments` as the one with which GoblinAvm was initialized (which commits all the ECC ops of the
-    //   circuit containing the AVM recursive verifier).
+    // - Pass `recursive_merged_table` as the table over which to perform verification (which commits to all the ecc ops
+    // performed by apps and kernels up to this point in the Chonk accumulation)
     // - `accumulated_result` and corresponding challenges ensure non-native computation matches ECCVM's native result
     TranslatorRecursiveVerifier translator_verifier{ transcript,
                                                      stdlib_proof.translator_proof,

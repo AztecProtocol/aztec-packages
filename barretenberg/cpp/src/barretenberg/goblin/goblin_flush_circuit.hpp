@@ -8,17 +8,17 @@
 namespace bb {
 
 /**
- * @brief Build Circuit C: the Goblin flush verification circuit.
+ * @brief Build the Goblin flush verification circuit.
  *
- * @details Circuit C is an UltraCircuitBuilder that recursively verifies a complete Goblin proof
- * (Merge + ECCVM + Translator). It exposes GoblinFlushIO as public inputs:
- *   - Aggregated KZG pairing points (from Merge and Translator)
+ * @details This circuit is an UltraCircuitBuilder that recursively verifies an ECCVM proof and a Translator proof. It
+ * exposes GoblinFlushIO as public inputs:
+ *   - KZG pairing points (from Translator)
  *   - IPA opening claim (from ECCVM, over Grumpkin)
- *   - merged_table (if the sequence is A, K, A_G, then merged_table is the merge of the ecc operations up to K)
+ *   - merged_table (the table used by Translator to recursively verify the proof)
  *
- * @param native_proof The native Goblin proof (merge + eccvm + ipa + translator)
+ * @param native_proof The native Goblin proof (eccvm + ipa + translator)
  * @param merged_table The native merge table commitments (merged table)
- * @return UltraCircuitBuilder The circuit builder for Circuit C with GoblinFlushIO public inputs
+ * @return UltraCircuitBuilder
  */
 UltraCircuitBuilder build_goblin_flush_circuit(const GoblinProof& native_proof,
                                                const MergeVerifier::TableCommitments& merged_table);

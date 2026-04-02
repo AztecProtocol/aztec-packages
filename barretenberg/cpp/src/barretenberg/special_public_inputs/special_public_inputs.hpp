@@ -154,7 +154,7 @@ class RollupIO {
 };
 
 /**
- * @brief Native version of GoblinFlushIO for the Goblin flush circuit (Circuit C)
+ * @brief Native version of GoblinFlushIO for the Goblin flush circuit
  */
 class GoblinFlushIO {
   public:
@@ -201,7 +201,8 @@ class GoblinFlushIO {
      */
     template <typename Builder> static void add_default(Builder& builder)
     {
-        // GoblinFlushIO doesn't have a stdlib add_default yet; not needed for native verification
+        // We never need to add default inputs for GoblinFlushIO
+        bb::assert_failure("GoblinFlushIO does not support adding default inputs.");
         (void)builder;
     }
 };
