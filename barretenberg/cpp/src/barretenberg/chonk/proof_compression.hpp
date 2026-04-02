@@ -36,6 +36,11 @@ class ProofCompressor {
 
     static constexpr uint256_t SIGN_BIT_MASK = uint256_t(1) << 255;
 
+    // Non-canonical Fq value used as the point-at-infinity marker for BN254 commitments.
+    // Using Fq::modulus avoids ambiguity with x=0, which is a valid BN254 curve point (y²=3 is a QR mod p).
+    // Grumpkin does not need this since x=0 is not on the Grumpkin curve (y²=-17 is not a QR mod r).
+    static constexpr uint256_t BN254_INFINITY_MARKER = Fq::modulus;
+
     // Fq values are stored as (lo, hi) Fr pairs split at 2*NUM_LIMB_BITS = 136 bits.
     static constexpr uint64_t NUM_LIMB_BITS = 68;
     static constexpr uint64_t FQ_SPLIT_BITS = NUM_LIMB_BITS * 2; // 136
@@ -448,7 +453,7 @@ class ProofCompressor {
             bool is_infinity = flat[offset].is_zero() && flat[offset + 1].is_zero() && flat[offset + 2].is_zero() &&
                                flat[offset + 3].is_zero();
             if (is_infinity) {
-                write_u256(out, uint256_t(0));
+                write_u256(out, BN254_INFINITY_MARKER);
                 offset += 4;
                 return;
             }
@@ -511,16 +516,17 @@ class ProofCompressor {
 
         auto bn254_comm = [&]() {
             uint256_t raw = read_u256(compressed, pos);
-            bool sign = (raw & SIGN_BIT_MASK) != 0;
-            uint256_t x_val = raw & ~SIGN_BIT_MASK;
 
-            if (x_val == uint256_t(0) && !sign) {
+            // Point-at-infinity is encoded as Fq::modulus (a non-canonical value)
+            if (raw == BN254_INFINITY_MARKER) {
                 for (int j = 0; j < 4; j++) {
                     flat.emplace_back(Fr::zero());
                 }
                 return;
             }
 
+            bool sign = (raw & SIGN_BIT_MASK) != 0;
+            uint256_t x_val = raw & ~SIGN_BIT_MASK;
             BB_ASSERT(x_val < Fq::modulus);
             Fq x(x_val);
             Fq y_squared = x * x * x + Bn254G1Params::b;
