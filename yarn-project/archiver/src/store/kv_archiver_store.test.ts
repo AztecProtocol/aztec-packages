@@ -61,6 +61,7 @@ import {
   makeInboxMessage,
   makeInboxMessages,
   makeInboxMessagesWithFullBlocks,
+  makeL1PublishedData,
   makePrivateLog,
   makePrivateLogTag,
   makePublicLog,
@@ -138,10 +139,56 @@ describe('KVArchiverDataStore', () => {
       await expect(store.addCheckpoints(publishedCheckpoints)).resolves.toBe(true);
     });
 
-    it('throws on duplicate checkpoints', async () => {
-      await store.addCheckpoints(publishedCheckpoints);
-      await expect(store.addCheckpoints(publishedCheckpoints)).rejects.toThrow(
-        InitialCheckpointNumberNotSequentialError,
+    it('accepts duplicate checkpoints with matching archives and updates L1 info', async () => {
+      // Add first 3 checkpoints
+      const first3 = publishedCheckpoints.slice(0, 3);
+      await store.addCheckpoints(first3);
+
+      // Verify initial L1 block number for checkpoint 3
+      const beforeData = await store.getCheckpointData(CheckpointNumber(3));
+      expect(beforeData).toBeDefined();
+      const originalL1Block = beforeData!.l1.blockNumber;
+
+      // Re-add checkpoint 3 with the same content but different L1 published data
+      // This simulates an L1 reorg that moved the checkpoint to a different L1 block
+      const cp3WithNewL1 = new PublishedCheckpoint(
+        first3[2].checkpoint,
+        makeL1PublishedData(999),
+        first3[2].attestations,
+      );
+      // Also add checkpoint 4 (the next one) in the same batch
+      await store.addCheckpoints([cp3WithNewL1, publishedCheckpoints[3]]);
+
+      // Checkpoint 3's L1 info should be updated
+      const afterData = await store.getCheckpointData(CheckpointNumber(3));
+      expect(afterData).toBeDefined();
+      expect(afterData!.l1.blockNumber).toEqual(999n);
+      expect(afterData!.l1.blockNumber).not.toEqual(originalL1Block);
+
+      // Checkpoint 4 should be stored
+      expect(await store.getSynchedCheckpointNumber()).toEqual(CheckpointNumber(4));
+    });
+
+    it('accepts a batch that is entirely already-stored checkpoints', async () => {
+      const first3 = publishedCheckpoints.slice(0, 3);
+      await store.addCheckpoints(first3);
+
+      // Re-add the same 3 checkpoints — should succeed without error
+      await expect(store.addCheckpoints(first3)).resolves.toBe(true);
+    });
+
+    it('throws on duplicate checkpoints with mismatching archives', async () => {
+      const first3 = publishedCheckpoints.slice(0, 3);
+      await store.addCheckpoints(first3);
+
+      // Create a fake checkpoint 3 with a different archive root (content mismatch)
+      const differentCheckpoint3 = await Checkpoint.random(CheckpointNumber(3), {
+        numBlocks: 1,
+        startBlockNumber: 3,
+      });
+      const mismatchedCp3 = makePublishedCheckpoint(differentCheckpoint3, 999);
+      await expect(store.addCheckpoints([mismatchedCp3])).rejects.toThrow(
+        'already exists in store but with a different archive',
       );
     });
 
@@ -278,7 +325,7 @@ describe('KVArchiverDataStore', () => {
       await expect(store.addCheckpoints([publishedCheckpoint])).resolves.toBe(true);
     });
 
-    it('throws on duplicate initial checkpoint', async () => {
+    it('throws on duplicate checkpoint with different content', async () => {
       const block1 = await L2Block.random(BlockNumber(1), {
         checkpointNumber: CheckpointNumber(1),
         indexWithinCheckpoint: IndexWithinCheckpoint(0),
@@ -307,7 +354,7 @@ describe('KVArchiverDataStore', () => {
 
       await expect(store.addCheckpoints([publishedCheckpoint])).resolves.toBe(true);
       await expect(store.addCheckpoints([publishedCheckpoint2])).rejects.toThrow(
-        InitialCheckpointNumberNotSequentialError,
+        'already exists in store but with a different archive',
       );
     });
 
