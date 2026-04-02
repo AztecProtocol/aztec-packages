@@ -1,6 +1,7 @@
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { Point } from '@aztec/foundation/curves/grumpkin';
+import { createLogger } from '@aztec/foundation/log';
 import {
   type ACIRCallback,
   type ACVMField,
@@ -49,6 +50,8 @@ export class UnavailableOracleError extends Error {
  *   - Standalone verbs (`delete`, `copy`, `decrypt`, `log`, etc) are used when no generic verb fits.
  */
 export class Oracle {
+  private logger = createLogger('simulator:oracle');
+
   constructor(private handler: IMiscOracle | IUtilityExecutionOracle | IPrivateExecutionOracle) {}
 
   private handlerAsMisc(): IMiscOracle {
@@ -118,6 +121,7 @@ export class Oracle {
     // contract's minor version is higher than the PXE's (i.e. the contract expects oracles that were added in a newer
     // minor version).
     const handler = this.handler;
+    const logger = this.logger;
     return new Proxy(allCallbacks, {
       get(target, prop: string) {
         if (prop in target) {
@@ -125,8 +129,6 @@ export class Oracle {
         }
         // Return a function that throws with an enhanced error message if applicable
         return () => {
-          // We do the ugliness below because it would be messy to exposing the function on the oracle interface would
-          // be too messy.
           const contractVersion =
             'non_oracle_function_getContractOracleVersion' in handler
               ? (
@@ -135,7 +137,14 @@ export class Oracle {
                   }
                 ).non_oracle_function_getContractOracleVersion()
               : undefined;
-          if (contractVersion && contractVersion.minor > ORACLE_VERSION_MINOR) {
+          if (!contractVersion) {
+            // contractVersion should always be populated because aztec_utl_assertCompatibleOracleVersion is injected
+            // by the #[aztec] macro as the very first oracle call in every private/utility function. Hence we show
+            // this warning.
+            logger.warn(
+              `Contract oracle version not set when looking up oracle '${prop}'. This is unexpected - the version check oracle should always be called first.`,
+            );
+          } else if (contractVersion.minor > ORACLE_VERSION_MINOR) {
             throw new Error(
               `Oracle '${prop}' not found. The contract reports oracle version ${contractVersion.major}.${contractVersion.minor}` +
                 ` but this PXE supports version ${ORACLE_VERSION_MAJOR}.${ORACLE_VERSION_MINOR}.` +
