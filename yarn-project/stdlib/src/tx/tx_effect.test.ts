@@ -2,6 +2,7 @@ import { BlobDeserializationError } from '@aztec/blob-lib';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
 
+import { RevertCode } from '../avm/revert_code.js';
 import { TxEffect } from './tx_effect.js';
 
 describe('TxEffect', () => {
@@ -18,13 +19,13 @@ describe('TxEffect', () => {
   });
 
   it('converts to and from blob data', async () => {
-    const txEffect = await TxEffect.random();
+    const txEffect = await TxEffect.random({ revertCode: RevertCode.APP_LOGIC_REVERTED });
     const data = txEffect.toTxBlobData();
     expect(TxEffect.fromTxBlobData(data)).toEqual(txEffect);
   });
 
   it('converts to and from blob fields', async () => {
-    const txEffect = await TxEffect.random();
+    const txEffect = await TxEffect.random({ revertCode: RevertCode.APP_LOGIC_REVERTED });
     const fields = txEffect.toBlobFields();
     expect(TxEffect.fromBlobFields(fields)).toEqual(txEffect);
   });

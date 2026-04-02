@@ -193,6 +193,7 @@ export class TxEffect {
     numPublicLogsPerCall = 1,
     numContractClassLogs,
     maxEffects,
+    revertCode,
   }: {
     numNoteHashes?: number;
     numNullifiers?: number;
@@ -203,12 +204,13 @@ export class TxEffect {
     numPublicLogsPerCall?: number;
     numContractClassLogs?: number;
     maxEffects?: number;
+    revertCode?: RevertCode;
   } = {}): Promise<TxEffect> {
     const count = (max: number, num?: number) => num ?? Math.min(maxEffects ?? randomInt(max), max);
     // Every tx effect must have at least 1 nullifier (the first nullifier is used for log indexing)
     const countNullifiers = (max: number, num?: number) => Math.max(1, count(max, num));
     return new TxEffect(
-      RevertCode.random(),
+      revertCode ?? RevertCode.random(),
       TxHash.random(),
       new Fr(Math.floor(Math.random() * 100_000)),
       makeTuple(count(MAX_NOTE_HASHES_PER_TX, numNoteHashes), Fr.random),

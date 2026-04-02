@@ -1,5 +1,6 @@
 import { jsonStringify } from '@aztec/foundation/json-rpc';
 
+import { RevertCode } from '../avm/revert_code.js';
 import { Body } from './body.js';
 
 describe('Body', () => {
@@ -10,7 +11,7 @@ describe('Body', () => {
   });
 
   it('converts to and from blob data', async () => {
-    const body = await Body.random();
+    const body = await Body.random({ revertCode: RevertCode.APP_LOGIC_REVERTED });
     const fields = body.toTxBlobData();
     expect(Body.fromTxBlobData(fields)).toEqual(body);
   });
