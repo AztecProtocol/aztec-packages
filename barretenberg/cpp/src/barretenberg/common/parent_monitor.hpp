@@ -44,11 +44,10 @@ inline void monitor_parent_process([[maybe_unused]] std::function<void()> on_par
     if (prctl(PR_SET_PDEATHSIG, SIGTERM) == -1) {
         std::cerr << "Warning: Could not set parent death signal\n";
     }
-    // Race check: parent may have exited between fork() and prctl()
-    if (getppid() == 1) {
-        std::cerr << "Parent already exited, shutting down\n";
-        on_parent_exit();
-    }
+    // Note: no getppid() == 1 race check here. In Docker containers,
+    // Node.js often runs as PID 1, so getppid() == 1 is a false positive.
+    // prctl(PR_SET_PDEATHSIG) handles the race correctly — the kernel
+    // delivers SIGTERM immediately if the parent already exited.
 #elif defined(__APPLE__)
     pid_t parent_pid = getppid();
     std::thread([parent_pid, on_parent_exit = std::move(on_parent_exit)]() {
