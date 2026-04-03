@@ -93,7 +93,7 @@ struct lookup_execution_instruction_fetching_body_settings_ {
         ColumnAndShifts::execution_pc,
         ColumnAndShifts::execution_bytecode_id,
         ColumnAndShifts::execution_exec_opcode,
-        ColumnAndShifts::execution_instr_length,
+        ColumnAndShifts::execution_instr_size,
         ColumnAndShifts::execution_addressing_mode,
         ColumnAndShifts::execution_op_0_,
         ColumnAndShifts::execution_op_1_,

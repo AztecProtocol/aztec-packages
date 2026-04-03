@@ -56,7 +56,7 @@ include "../precomputed.pil";
  * in execution.pil):
  *      sel_instruction_fetching_success {
  *          pc, bytecode_id, exec_opcode,
- *          instr_length, addressing_mode,
+ *          instr_size, addressing_mode,
  *          op[0], op[1], op[2], op[3], op[4],
             op[5], op[6]
  *      } in instr_fetching.sel {
@@ -209,7 +209,7 @@ sel { instr_abs_diff } in precomputed.sel_range_8 { precomputed.idx };
 // to be 1 iff we have a wire opcode (represented by bd0) with a tag as defined in the instruction spec.
 pol commit sel_has_tag; // @boolean (by lookup only when sel_pc_in_range == 1)
 
-// Whether the tag exists at op2 (== 1) or op3, if exists ( == 0 && sel_has_tag == 1 ==> op3 is a tag).
+// Whether the tag exists at op2 (== 1) or op3, if exists (sel_tag_is_op2 == 0 && sel_has_tag == 1 ==> op3 is a tag).
 // Constrained, like sel_has_tag, by the precomputed table (#[WIRE_INSTRUCTION_INFO]) against the wire opcode.
 pol commit sel_tag_is_op2; // @boolean (by lookup only when sel_pc_in_range == 1)
 

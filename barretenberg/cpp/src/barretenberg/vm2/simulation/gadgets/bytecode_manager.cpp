@@ -1,6 +1,7 @@
 #include "barretenberg/vm2/simulation/gadgets/bytecode_manager.hpp"
 
 #include <cassert>
+#include <optional>
 
 #include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/common/log.hpp"
@@ -194,33 +195,26 @@ Instruction TxBytecodeManager::read_instruction(const BytecodeId& bytecode_id,
 {
     BB_BENCH_NAME("TxBytecodeManager::read_instruction");
 
-    // We'll be filling in the event as we progress.
-    // TODO(MW): don't fill event incrementally
-    InstructionFetchingEvent instr_fetching_event;
-
-    instr_fetching_event.bytecode_id = bytecode_id;
-    instr_fetching_event.pc = pc;
-
     const auto& bytecode = *bytecode_ptr;
-    instr_fetching_event.bytecode = std::move(bytecode_ptr);
 
-    // Keep full error for exception message, but only store enum in event
-    std::optional<InstrDeserializationError> deserialization_error;
+    // Keep full error for exception message, but only store enum in event.
+    std::optional<InstrDeserializationError> deserialization_error = std::nullopt;
+    // Initialise instruction.
+    Instruction instruction;
 
     try {
-        instr_fetching_event.instruction = deserialize_instruction(bytecode, pc);
+        instruction = deserialize_instruction(bytecode, pc);
 
         // If the following code is executed, no error was thrown in deserialize_instruction().
-        if (!check_tag(instr_fetching_event.instruction)) {
-            instr_fetching_event.error = InstrDeserializationEventError::TAG_OUT_OF_RANGE;
+        if (!check_tag(instruction)) {
+            deserialization_error = InstrDeserializationEventError::TAG_OUT_OF_RANGE;
         };
     } catch (const InstrDeserializationError& error) {
-        // Assign the error type. Note that we do not assign any part of the instruction (which may exist for some
+        // Assign the error. Note that we do not assign any part of the instruction on failure (which may exist for some
         // errors). This matches circuit behaviour (see #[OP1..7_BYTES_DECOMPOSITION] relations).
-        instr_fetching_event.error = error.type;
+        deserialization_error = error;
     }
 
-    // TODO(MW): explore empty bytecode, document
     // We are showing whether bytecode_size > pc or not. If there is no fetching error,
     // we always have bytecode_size > pc.
     const auto bytecode_size = bytecode.size();
@@ -228,16 +222,22 @@ Instruction TxBytecodeManager::read_instruction(const BytecodeId& bytecode_id,
     // Emits RangeCheckEvent, see #[INSTR_ABS_DIFF_POSITIVE] in instr_fetching.pil.
     range_check.assert_range(pc_diff, AVM_PC_SIZE_IN_BITS);
 
-    // The event will be deduplicated internally (see DeduplicatingEventEmitter used in simulate_for_witgen).
-    fetching_events.emit(InstructionFetchingEvent(instr_fetching_event));
+    // Emits InstructionFetchingEvent, which  will be deduplicated internally (see DeduplicatingEventEmitter used in
+    // simulate_for_witgen).
+    fetching_events.emit({ .bytecode_id = bytecode_id,
+                           .pc = pc,
+                           .instruction = instruction,
+                           .bytecode = std::move(bytecode_ptr),
+                           .error = deserialization_error.has_value() ? std::make_optional(deserialization_error->type)
+                                                                      : std::nullopt });
 
     // Communicate error to the caller.
-    if (instr_fetching_event.error.has_value()) {
+    if (deserialization_error.has_value()) {
         throw InstructionFetchingError("Instruction fetching error: " +
-                                       std::to_string(static_cast<int>(instr_fetching_event.error.value())));
+                                       std::to_string(static_cast<int>(deserialization_error.value().type)));
     }
 
-    return instr_fetching_event.instruction;
+    return instruction;
 }
 
 std::shared_ptr<std::vector<uint8_t>> TxBytecodeManager::get_bytecode_data(const BytecodeId& bytecode_id)

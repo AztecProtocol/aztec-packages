@@ -463,7 +463,7 @@ void ExecutionTraceBuilder::process(
             process_instr_fetching(ex_event.wire_instruction, trace, row);
 
             // If we fetched an instruction successfully, we can set the next PC.
-            // In circuit, we enforce next_pc to be pc + instr_length, but in simulation,
+            // In circuit, we enforce next_pc to be pc + instr_size, but in simulation,
             // we set next_pc (as member of the context) to be the real pc of the next instruction
             // which is different for JUMP, JUMPI, INTERNALCALL, and INTERNALRETURN.
             // Therefore, we must not use after_context_event.pc (which is simulation next_pc) to set
@@ -782,7 +782,7 @@ void ExecutionTraceBuilder::process_instr_fetching(const simulation::Instruction
                   { C::execution_sel_instruction_fetching_success, 1 },
                   { C::execution_exec_opcode, static_cast<uint8_t>(instruction.get_exec_opcode()) },
                   { C::execution_addressing_mode, instruction.addressing_mode },
-                  { C::execution_instr_length, instruction.size_in_bytes() },
+                  { C::execution_instr_size, instruction.size_in_bytes() },
               } });
 
     // At this point we can assume instruction fetching succeeded.

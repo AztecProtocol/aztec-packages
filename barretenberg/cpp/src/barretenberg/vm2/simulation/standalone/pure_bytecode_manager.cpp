@@ -10,7 +10,6 @@
 #include "barretenberg/vm2/simulation/interfaces/bytecode_manager.hpp"
 #include "barretenberg/vm2/simulation/interfaces/contract_instance_manager.hpp"
 #include "barretenberg/vm2/simulation/interfaces/db.hpp"
-#include "barretenberg/vm2/simulation/interfaces/memory.hpp"
 #include "barretenberg/vm2/simulation/lib/serialization.hpp"
 
 namespace bb::avm2::simulation {
@@ -141,7 +140,7 @@ Instruction PureTxBytecodeManager::read_instruction(const BytecodeId& bytecode_i
  *            i.e. when the operand value > MemoryTag::MAX, as determined by check_tag().
  * @param bytecode_ptr Shared pointer to the raw bytecode bytes.
  * @param pc The program counter.
- * @return The deserialized Instruction.
+ * @return The deserialized instruction.
  */
 Instruction PureTxBytecodeManager::read_instruction(const BytecodeId&,
                                                     std::shared_ptr<std::vector<uint8_t>> bytecode_ptr,

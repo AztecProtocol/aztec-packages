@@ -196,7 +196,7 @@ sel_bytecode_retrieval_success = sel * (1 - sel_bytecode_retrieval_failure);
  *  Temporality group 2: Instruction fetching
  **************************************************************************************************/
 
-pol commit instr_length; // Need this for shift col on next_pc
+pol commit instr_size; // Need this for shift col on next_pc
 pol commit sel_instruction_fetching_failure; // @boolean (by definition below)
 
 pol commit exec_opcode;
@@ -235,7 +235,7 @@ sel_instruction_fetching_success {
     pc,
     bytecode_id,
     exec_opcode,
-    instr_length,
+    instr_size,
     addressing_mode,
     op[0],
     op[1],
