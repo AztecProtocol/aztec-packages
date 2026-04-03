@@ -2170,24 +2170,18 @@ TEST_P(AcirTestParallelEquivalence, SequentialN1N2)
     }
 
     // 1. Build sequentially via create_circuit (uses build_constraints)
-    info("  building sequential...");
     AcirProgram seq_program{ constraints, WitnessVector(witness) };
     auto seq_builder = create_circuit<UltraCircuitBuilder>(seq_program, ProgramMetadata{});
-    info("  sequential done");
 
     // 2. Build via parallel path with N=1
-    info("=== N=1 BUILD START ===");
     AcirFormat n1_constraints = constraints;
     UltraCircuitBuilder n1_builder{ WitnessVector(witness), n1_constraints.public_inputs, false };
     build_constraints_parallel(n1_builder, n1_constraints, ProgramMetadata{}, /*num_threads=*/1);
-    info("=== N=1 BUILD END ===");
 
     // 3. Build via parallel path with N=2
-    info("=== N=2 BUILD START ===");
     AcirFormat n2_constraints = constraints;
     UltraCircuitBuilder n2_builder{ WitnessVector(witness), n2_constraints.public_inputs, false };
     build_constraints_parallel(n2_builder, n2_constraints, ProgramMetadata{}, /*num_threads=*/2);
-    info("=== N=2 BUILD END ===");
 
     // Print block sizes for all three builders
     {
@@ -2205,18 +2199,6 @@ TEST_P(AcirTestParallelEquivalence, SequentialN1N2)
              n1_builder.get_num_variables(),
              " n2=",
              n2_builder.get_num_variables());
-        info("  ecc_fusions: seq_add=",
-             seq_builder.ecc_add_fuse_count_,
-             " seq_dbl=",
-             seq_builder.ecc_dbl_fuse_count_,
-             " n1_add=",
-             n1_builder.ecc_add_fuse_count_,
-             " n1_dbl=",
-             n1_builder.ecc_dbl_fuse_count_,
-             " n2_add=",
-             n2_builder.ecc_add_fuse_count_,
-             " n2_dbl=",
-             n2_builder.ecc_dbl_fuse_count_);
         info("  constants: seq=",
              seq_builder.constant_variable_indices.size(),
              " n1=",

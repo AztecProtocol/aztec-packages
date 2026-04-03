@@ -378,22 +378,10 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_ecc_add_gate(const ecc_add_gat
     // The elliptic curve relation assumes q_sign² = 1 (see elliptic_relation.hpp)
     const FF q_sign = in.is_addition ? FF(1) : FF(-1);
 
-    // Determine whether we can fuse this addition operation into the previous gate in the block.
-    // NOTE: This fusion decision depends on wire VALUES (witness-dependent). In sequential mode this is
-    // deterministic for a given witness. For future work-stealing parallelism where task execution order
-    // may differ, this fusion pattern could vary and must be handled (e.g., by disabling fusion in
-    // parallel mode or by ensuring tasks that chain elliptic ops are never split across threads).
-    //
-    // In cursor mode, use the cursor position (not block.size()) to find the previous gate.
-    // NOTE: This fusion decision depends on wire VALUES (witness-dependent). In sequential mode this is
-    // deterministic for a given witness. For future work-stealing parallelism where task execution order
-    // may differ, this fusion pattern could vary and must be handled (e.g., by disabling fusion in
-    // parallel mode or by ensuring tasks that chain elliptic ops are never split across threads).
-    //
-    // In cursor mode, use cursor position to find the previous gate (not block.size() which returns
-    // the pre-allocated total). We can only fuse if the cursor has advanced (i.e., we've written at
-    // least one gate in this task's region).
-    // Use cursor position in cursor mode, block.size() otherwise.
+    // Determine whether we can fuse this addition into the previous gate in the block.
+    // In cursor mode, use cursor position (not block.size() which returns pre-allocated total).
+    // NOTE: For future work-stealing parallelism where task execution order may differ, fusion
+    // across task boundaries must be handled carefully to maintain determinism.
     size_t cursor = block.wire_active_cursor();
     bool can_fuse_into_previous_gate;
     size_t prev_idx;
@@ -404,9 +392,6 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_ecc_add_gate(const ecc_add_gat
         prev_idx = block.size() - 1;
         can_fuse_into_previous_gate =
             block.size() > 0 && block.w_r()[prev_idx] == in.x1 && block.w_o()[prev_idx] == in.y1;
-    }
-    if (can_fuse_into_previous_gate) {
-        ecc_add_fuse_count_++;
     }
 
     if (can_fuse_into_previous_gate) {
@@ -464,10 +449,6 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_ecc_dbl_gate(const ecc_dbl_gat
         can_fuse_into_previous_gate =
             block.size() > 0 && block.w_r()[dbl_prev_idx] == in.x1 && block.w_o()[dbl_prev_idx] == in.y1;
     }
-    if (can_fuse_into_previous_gate) {
-        ecc_dbl_fuse_count_++;
-    }
-
     // If possible, update the previous gate to be the first gate in the pair, otherwise create a new gate
     if (can_fuse_into_previous_gate) {
         block.q_elliptic().set(dbl_prev_idx, 1); // set q_ecc of previous gate to 1

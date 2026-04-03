@@ -339,24 +339,7 @@ ConstraintProfile profile_constraint_type(ConstraintType representative, Handler
 void prepare_builder_from_profiles(UltraCircuitBuilder& builder, const std::vector<ConstraintProfile>& profiles)
 {
     // Register all constants from all profiles
-    for (size_t p = 0; p < profiles.size(); p++) {
-        const auto& profile = profiles[p];
-        std::string table_str;
-        for (auto tid : profile.table_ids)
-            table_str += " " + std::to_string(static_cast<int>(tid));
-        info("  profile[",
-             p,
-             "]: blk2=",
-             profile.block_sizes.block_sizes[2],
-             " vars=",
-             profile.block_sizes.num_variables,
-             " constants=",
-             profile.constants.size(),
-             " range_targets=",
-             profile.range_list_targets.size(),
-             " tables=[",
-             table_str,
-             " ]");
+    for (const auto& profile : profiles) {
         for (const auto& value : profile.constants) {
             builder.put_constant_variable(value);
         }
@@ -569,14 +552,11 @@ void build_constraints_parallel(UltraCircuitBuilder& builder,
         }
     }
 
-    info("  Phase 3: executing ", tasks.size(), " tasks with ", num_threads, " threads");
-
     // Phase 3: Execute ALL instances in parallel
     // execute_parallel will set up per-thread ROM/RAM cursors using the num_rom/ram_arrays in task_sizes
     if (!tasks.empty()) {
         builder.execute_parallel(tasks, task_sizes, num_threads);
     }
-    info("  Phase 3: done");
 
     // Phase 4: Block constraints and recursion constraints are processed sequentially.
     for (const auto& [constraint, opcode_indices] :
