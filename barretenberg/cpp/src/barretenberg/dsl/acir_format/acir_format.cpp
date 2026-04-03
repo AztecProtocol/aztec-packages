@@ -330,7 +330,18 @@ ConstraintProfile profile_constraint_type(ConstraintType representative, Handler
 void prepare_builder_from_profiles(UltraCircuitBuilder& builder, const std::vector<ConstraintProfile>& profiles)
 {
     // Register all constants from all profiles
-    for (const auto& profile : profiles) {
+    for (size_t p = 0; p < profiles.size(); p++) {
+        const auto& profile = profiles[p];
+        info("  profile[",
+             p,
+             "]: blk2=",
+             profile.block_sizes.block_sizes[2],
+             " vars=",
+             profile.block_sizes.num_variables,
+             " constants=",
+             profile.constants.size(),
+             " range_targets=",
+             profile.range_list_targets.size());
         for (const auto& value : profile.constants) {
             builder.put_constant_variable(value);
         }
@@ -388,8 +399,30 @@ void build_constraints_parallel(UltraCircuitBuilder& builder,
 
     profile_and_collect(constraints.quad_constraints,
                         [](UltraCircuitBuilder& b, QuadConstraint& c) { create_quad_constraint(b, c); });
-    profile_and_collect(constraints.big_quad_constraints,
-                        [](UltraCircuitBuilder& b, BigQuadConstraint& c) { create_big_quad_constraint(b, c); });
+    // BigQuad constraints must be grouped by size() since different sizes produce different gate counts.
+    {
+        std::map<size_t, std::vector<size_t>> big_quad_groups;
+        for (size_t i = 0; i < constraints.big_quad_constraints.size(); i++) {
+            big_quad_groups[constraints.big_quad_constraints[i].size()].push_back(i);
+        }
+        auto handler = [](UltraCircuitBuilder& b, BigQuadConstraint& c) { create_big_quad_constraint(b, c); };
+        for (auto& [sz, indices] : big_quad_groups) {
+            auto& representative = constraints.big_quad_constraints[indices[0]];
+            auto profile = profile_constraint_type(representative, handler, num_witnesses);
+            size_t profile_idx = profiles.size();
+            profiles.push_back(profile);
+            auto sizes = profile.block_sizes;
+            sizes.num_rom_arrays = profile.num_rom_arrays_per_instance;
+            sizes.num_ram_arrays = profile.num_ram_arrays_per_instance;
+            for (size_t idx : indices) {
+                tasks.emplace_back([handler, &constraints, idx](UltraCircuitBuilder& b) {
+                    handler(b, constraints.big_quad_constraints[idx]);
+                });
+                task_sizes.push_back(sizes);
+                task_profile_indices.push_back(profile_idx);
+            }
+        }
+    }
     profile_and_collect(constraints.logic_constraints, [](UltraCircuitBuilder& b, const LogicConstraint& c) {
         create_logic_gate(b, c.a, c.b, c.result, c.num_bits, c.is_xor_gate);
     });

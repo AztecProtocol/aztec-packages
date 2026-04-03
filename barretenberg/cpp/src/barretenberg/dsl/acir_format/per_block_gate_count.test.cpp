@@ -1691,6 +1691,29 @@ TEST_P(AcirTestParallelEquivalence, SequentialN1N2)
              n1_builder.get_num_variables(),
              " n2=",
              n2_builder.get_num_variables());
+        info("  constants: seq=",
+             seq_builder.constant_variable_indices.size(),
+             " n1=",
+             n1_builder.constant_variable_indices.size(),
+             " n2=",
+             n2_builder.constant_variable_indices.size());
+        info("  range_lists: seq=",
+             seq_builder.range_lists.size(),
+             " n1=",
+             n1_builder.range_lists.size(),
+             " n2=",
+             n2_builder.range_lists.size());
+        for (const auto& [target, rl] : seq_builder.range_lists) {
+            auto n1_it = n1_builder.range_lists.find(target);
+            size_t n1_count = (n1_it != n1_builder.range_lists.end()) ? n1_it->second.variable_indices.size() : 0;
+            info("    range ", target, ": seq=", rl.variable_indices.size(), " n1=", n1_count);
+        }
+        // Check for range lists in n1 that aren't in seq
+        for (const auto& [target, rl] : n1_builder.range_lists) {
+            if (seq_builder.range_lists.find(target) == seq_builder.range_lists.end()) {
+                info("    range ", target, ": seq=MISSING n1=", rl.variable_indices.size());
+            }
+        }
     }
 
     // All three must pass circuit checker
