@@ -118,12 +118,15 @@ template <typename Curve> class MSM {
                                       std::span<uint64_t> point_schedule_buffer,
                                       const MSMWorkUnit& work_unit) noexcept
         {
+            const auto& indices = all_indices[work_unit.batch_msm_index];
+            // Avoid indexing into an empty vector when all scalars are zero (work_unit.size == 0)
+            std::span<const uint32_t> scalar_indices =
+                work_unit.size > 0 ? std::span<const uint32_t>{ &indices[work_unit.start_index], work_unit.size }
+                                   : std::span<const uint32_t>{};
             return MSMData{
                 .scalars = all_scalars[work_unit.batch_msm_index],
                 .points = all_points[work_unit.batch_msm_index],
-                .scalar_indices =
-                    std::span<const uint32_t>{ &all_indices[work_unit.batch_msm_index][work_unit.start_index],
-                                               work_unit.size },
+                .scalar_indices = scalar_indices,
                 .point_schedule = point_schedule_buffer,
             };
         }
