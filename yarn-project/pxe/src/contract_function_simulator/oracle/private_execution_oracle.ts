@@ -25,7 +25,6 @@ import {
   type TxContext,
 } from '@aztec/stdlib/tx';
 
-import type { AccessScopes } from '../../access_scopes.js';
 import { NoteService } from '../../notes/note_service.js';
 import type { SenderTaggingStore } from '../../storage/tagging_store/sender_tagging_store.js';
 import { syncSenderTaggingIndexes } from '../../tagging/index.js';
@@ -43,7 +42,7 @@ export type PrivateExecutionOracleArgs = Omit<UtilityExecutionOracleArgs, 'contr
   txContext: TxContext;
   callContext: CallContext;
   /** Needed to trigger contract synchronization before nested calls */
-  utilityExecutor: (call: FunctionCall, scopes: AccessScopes) => Promise<void>;
+  utilityExecutor: (call: FunctionCall, scopes: AztecAddress[]) => Promise<void>;
   executionCache: HashedValuesCache;
   noteCache: ExecutionNoteCache;
   taggingIndexCache: ExecutionTaggingIndexCache;
@@ -76,7 +75,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
   private readonly argsHash: Fr;
   private readonly txContext: TxContext;
   private readonly callContext: CallContext;
-  private readonly utilityExecutor: (call: FunctionCall, scopes: AccessScopes) => Promise<void>;
+  private readonly utilityExecutor: (call: FunctionCall, scopes: AztecAddress[]) => Promise<void>;
   private readonly executionCache: HashedValuesCache;
   private readonly noteCache: ExecutionNoteCache;
   private readonly taggingIndexCache: ExecutionTaggingIndexCache;
@@ -209,6 +208,16 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
       sender,
       recipient,
     );
+
+    if (!extendedSecret) {
+      // We'd only fail to compute an extended secret if the recipient is an invalid address. To prevent
+      // king-of-the-hill attacks, instead of failing we use a random tag. By including a correct-looking tag in the
+      // log, the transaction shape is preserved and no privacy is leaked, even if the tag is bogus.
+      this.logger.warn(`Computing a tag for invalid recipient ${recipient} - returning a random tag instead`, {
+        contractAddress: this.contractAddress,
+      });
+      return new Tag(Fr.random());
+    }
 
     const index = await this.#getIndexToUseForSecret(extendedSecret);
     this.logger.debug(

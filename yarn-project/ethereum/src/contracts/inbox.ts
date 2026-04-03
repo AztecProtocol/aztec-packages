@@ -82,10 +82,10 @@ export class InboxContract {
       .map(log => this.mapMessageSentLog(log));
   }
 
-  /** Fetches MessageSent events for a specific message hash within the given block range. */
-  async getMessageSentEventByHash(hash: Hex, fromBlock: bigint, toBlock: bigint): Promise<MessageSentLog[]> {
-    const logs = await this.inbox.getEvents.MessageSent({ hash }, { fromBlock, toBlock });
-    return logs.map(log => this.mapMessageSentLog(log));
+  /** Fetches MessageSent events for a specific message hash at a specific block. */
+  async getMessageSentEventByHash(msgHash: Hex, l1BlockHash: Hex): Promise<MessageSentLog> {
+    const [log] = await this.inbox.getEvents.MessageSent({ hash: msgHash }, { blockHash: l1BlockHash });
+    return log && this.mapMessageSentLog(log);
   }
 
   private mapMessageSentLog(log: {

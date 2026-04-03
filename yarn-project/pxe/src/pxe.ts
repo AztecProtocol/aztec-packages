@@ -52,7 +52,6 @@ import {
 
 import { inspect } from 'util';
 
-import type { AccessScopes } from './access_scopes.js';
 import { BlockSynchronizer } from './block_synchronizer/index.js';
 import type { PXEConfig } from './config/index.js';
 import { BenchmarkedNodeFactory } from './contract_function_simulator/benchmarked_node.js';
@@ -96,7 +95,7 @@ export type ProfileTxOpts = {
   /** If true, proof generation is skipped during profiling. Defaults to true. */
   skipProofGeneration?: boolean;
   /** Addresses whose private state and keys are accessible during private execution. */
-  scopes: AccessScopes;
+  scopes: AztecAddress[];
 };
 
 /** Options for PXE.simulateTx. */
@@ -112,7 +111,7 @@ export type SimulateTxOpts = {
   /** State overrides for the simulation, such as contract instances and artifacts. Requires skipKernels: true */
   overrides?: SimulationOverrides;
   /** Addresses whose private state and keys are accessible during private execution */
-  scopes: AccessScopes;
+  scopes: AztecAddress[];
 };
 
 /** Options for PXE.executeUtility. */
@@ -120,7 +119,7 @@ export type ExecuteUtilityOpts = {
   /** The authentication witnesses required for the function call. */
   authwits?: AuthWitness[];
   /** The accounts whose notes we can access in this call */
-  scopes: AccessScopes;
+  scopes: AztecAddress[];
 };
 
 /** Args for PXE.create. */
@@ -215,7 +214,6 @@ export class PXE {
       node,
       contractStore,
       noteStore,
-      () => keyStore.getAccounts(),
       createLogger('pxe:contract_sync', bindings),
     );
     const messageContextService = new MessageContextService(node);
@@ -369,7 +367,7 @@ export class PXE {
   async #executePrivate(
     contractFunctionSimulator: ContractFunctionSimulator,
     txRequest: TxExecutionRequest,
-    scopes: AccessScopes,
+    scopes: AztecAddress[],
     jobId: string,
   ): Promise<PrivateExecutionResult> {
     const { origin: contractAddress, functionSelector } = txRequest;
@@ -418,7 +416,7 @@ export class PXE {
     contractFunctionSimulator: ContractFunctionSimulator,
     call: FunctionCall,
     authWitnesses: AuthWitness[] | undefined,
-    scopes: AccessScopes,
+    scopes: AztecAddress[],
     jobId: string,
   ) {
     try {
@@ -1043,7 +1041,7 @@ export class PXE {
           inspect(txRequest),
           `simulatePublic=${simulatePublic}`,
           `skipTxValidation=${skipTxValidation}`,
-          `scopes=${scopes === 'ALL_SCOPES' ? scopes : scopes.map(s => s.toString()).join(', ')}`,
+          `scopes=${scopes.map(s => s.toString()).join(', ')}`,
         );
       }
     });
@@ -1055,7 +1053,7 @@ export class PXE {
    */
   public executeUtility(
     call: FunctionCall,
-    { authwits, scopes }: ExecuteUtilityOpts = { scopes: 'ALL_SCOPES' },
+    { authwits, scopes }: ExecuteUtilityOpts = { scopes: [] },
   ): Promise<UtilityExecutionResult> {
     // We disable concurrent executions since those might execute oracles which read and write to the PXE stores (e.g.
     // to the capsules), and we need to prevent concurrent runs from interfering with one another (e.g. attempting to
@@ -1113,7 +1111,7 @@ export class PXE {
         throw this.#contextualizeError(
           err,
           `executeUtility ${to}:${name}(${stringifiedArgs})`,
-          `scopes=${scopes === 'ALL_SCOPES' ? scopes : scopes.map(s => s.toString()).join(', ')}`,
+          `scopes=${scopes.map(s => s.toString()).join(', ')}`,
         );
       }
     });

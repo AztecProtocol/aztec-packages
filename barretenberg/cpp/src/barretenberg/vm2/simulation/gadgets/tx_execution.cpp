@@ -18,6 +18,23 @@ class TxExecutionException : public std::runtime_error {
     {}
 };
 
+std::string get_halting_information(const EnqueuedCallResult& result)
+{
+    std::string halting_message =
+        result.halting_message.has_value() ? " with message: " + result.halting_message.value() : "";
+
+    switch (result.halting_mode) {
+    case HaltingMode::RETURN:
+        return "RETURN" + halting_message;
+    case HaltingMode::REVERT:
+        return "REVERT" + halting_message;
+    case HaltingMode::EXCEPTIONAL_HALT:
+        return "EXCEPTIONAL_HALT";
+    default:
+        return "UNKNOWN" + halting_message;
+    }
+}
+
 } // namespace
 
 /**
@@ -115,6 +132,11 @@ TxExecutionResult TxExecution::simulate(const Tx& tx)
             // This call should not throw unless it's an unexpected unrecoverable failure.
             EnqueuedCallResult result = call_execution.execute(std::move(context));
             tx_context.gas_used = result.gas_used;
+            vinfo("[SETUP] Enqueued call to ",
+                  call.request.contract_address,
+                  " halted via ",
+                  get_halting_information(result));
+
             emit_public_call_request(call,
                                      TransactionPhase::SETUP,
                                      /*transaction_fee=*/FF(0),
@@ -175,6 +197,10 @@ TxExecutionResult TxExecution::simulate(const Tx& tx)
                 // This call should not throw unless it's an unexpected unrecoverable failure.
                 EnqueuedCallResult result = call_execution.execute(std::move(context));
                 tx_context.gas_used = result.gas_used;
+                vinfo("[APP_LOGIC] Enqueued call to ",
+                      call.request.contract_address,
+                      " halted via ",
+                      get_halting_information(result));
 
                 emit_public_call_request(call,
                                          TransactionPhase::APP_LOGIC,
@@ -239,6 +265,11 @@ TxExecutionResult TxExecution::simulate(const Tx& tx)
             // This call should not throw unless it's an unexpected unrecoverable failure.
             EnqueuedCallResult result = call_execution.execute(std::move(context));
             gas_used_by_teardown = result.gas_used;
+            vinfo("[TEARDOWN] Enqueued call to ",
+                  teardown_enqueued_call.request.contract_address,
+                  " halted via ",
+                  get_halting_information(result));
+
             emit_public_call_request(teardown_enqueued_call,
                                      TransactionPhase::TEARDOWN,
                                      fee,

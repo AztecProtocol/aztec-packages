@@ -11,7 +11,7 @@ This page explains what happens under the hood when you create a function in an 
 
 Private functions in Aztec compile to standalone circuits that must conform to the protocol's kernel circuit interface. Public functions compile to AVM bytecode. The transformations described below bridge the gap between developer-friendly Aztec.nr syntax and these underlying requirements.
 
-Utility functions (marked with `#[utility]`) do not undergo these transformations—they remain as regular Noir functions.
+Utility functions (marked with `#[external("utility")]`) do not undergo these transformations—they remain as regular Noir functions.
 
 ## Function transformation
 

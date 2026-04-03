@@ -1809,23 +1809,13 @@ describe('KVArchiverDataStore', () => {
       } satisfies ArchiverL1SynchPoint);
     });
 
-    it('returns the L1 block number that most recently added messages from inbox', async () => {
+    it('returns the L1 block set via setMessageSyncState', async () => {
       const l1BlockHash = Buffer32.random();
       const l1BlockNumber = 10n;
-      await store.setMessageSynchedL1Block({ l1BlockNumber: 5n, l1BlockHash: Buffer32.random() });
-      await store.addL1ToL2Messages([makeInboxMessage(Buffer16.ZERO, { l1BlockNumber, l1BlockHash })]);
-      await expect(store.getSynchPoint()).resolves.toEqual({
-        blocksSynchedTo: undefined,
-        messagesSynchedTo: { l1BlockHash, l1BlockNumber },
-      } satisfies ArchiverL1SynchPoint);
-    });
-
-    it('returns the latest syncpoint if latest message is behind', async () => {
-      const l1BlockHash = Buffer32.random();
-      const l1BlockNumber = 10n;
-      await store.setMessageSynchedL1Block({ l1BlockNumber, l1BlockHash });
-      const msg = makeInboxMessage(Buffer16.ZERO, { l1BlockNumber: 5n, l1BlockHash: Buffer32.random() });
-      await store.addL1ToL2Messages([msg]);
+      await store.setMessageSyncState({ l1BlockNumber, l1BlockHash }, 1n);
+      await store.addL1ToL2Messages([
+        makeInboxMessage(Buffer16.ZERO, { l1BlockNumber: 5n, l1BlockHash: Buffer32.random() }),
+      ]);
       await expect(store.getSynchPoint()).resolves.toEqual({
         blocksSynchedTo: undefined,
         messagesSynchedTo: { l1BlockHash, l1BlockNumber },
@@ -2243,7 +2233,7 @@ describe('KVArchiverDataStore', () => {
         await store.addL1ToL2Messages(msgs);
 
         // Set treeInProgress to 7, meaning checkpoints 5 and 6 are sealed, 7+ are not
-        await store.setInboxTreeInProgress(7n);
+        await store.setMessageSyncState({ l1BlockNumber: 1n, l1BlockHash: Buffer32.random() }, 7n);
 
         // Sealed checkpoint should succeed
         await expect(store.getL1ToL2Messages(CheckpointNumber(5))).resolves.toEqual([msgs[0].leaf]);
@@ -2259,7 +2249,7 @@ describe('KVArchiverDataStore', () => {
         const msgs = makeInboxMessages(3, { initialCheckpointNumber: CheckpointNumber(10) });
         await store.addL1ToL2Messages(msgs);
 
-        await store.setInboxTreeInProgress(13n);
+        await store.setMessageSyncState({ l1BlockNumber: 1n, l1BlockHash: Buffer32.random() }, 13n);
 
         await expect(store.getL1ToL2Messages(CheckpointNumber(10))).resolves.toEqual([msgs[0].leaf]);
         await expect(store.getL1ToL2Messages(CheckpointNumber(11))).resolves.toEqual([msgs[1].leaf]);
@@ -2269,7 +2259,7 @@ describe('KVArchiverDataStore', () => {
         const msgs = makeInboxMessages(2, { initialCheckpointNumber: CheckpointNumber(1) });
         await store.addL1ToL2Messages(msgs);
 
-        // No setInboxTreeInProgress call — guard should be permissive
+        // No setMessageSyncState call — guard should be permissive
         await expect(store.getL1ToL2Messages(CheckpointNumber(1))).resolves.toEqual([msgs[0].leaf]);
       });
     });

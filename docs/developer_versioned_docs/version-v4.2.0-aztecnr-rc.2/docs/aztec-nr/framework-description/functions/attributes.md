@@ -141,7 +141,7 @@ It is also useful in private functions when dealing with tasks of an unknown siz
 This macro inserts a check at the beginning of the function to ensure that the caller is the contract itself. This is done by adding the following assertion:
 
 ```rust
-assert(self.msg_sender().unwrap() == self.address, "Function can only be called internally");
+assert(self.msg_sender() == self.address, "Function can only be called internally");
 ```
 
 ## #[allow_phase_change]
