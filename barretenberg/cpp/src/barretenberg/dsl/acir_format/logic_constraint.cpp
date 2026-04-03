@@ -23,6 +23,14 @@ void create_logic_gate(Builder& builder,
     field_ct right = to_field_ct(b, builder);
 
     field_ct computed_result = bb::stdlib::logic<Builder>::create_logic_constraint(left, right, num_bits, is_xor_gate);
+
+    // In write-VK mode the result witness holds a dummy zero. When both inputs are constant the computed result is a
+    // compile-time constant, so assert_equal would spuriously fail. Patch the witness value so the downstream
+    // assertion sees the correct value.
+    if (builder.is_write_vk_mode() && computed_result.is_constant()) {
+        builder.set_variable(result, computed_result.get_value());
+    }
+
     field_ct acir_result = field_ct::from_witness_index(&builder, result);
     computed_result.assert_equal(acir_result);
 }
