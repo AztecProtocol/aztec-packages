@@ -239,10 +239,13 @@ typename TranslatorVerifier_<Flavor>::ReductionResult TranslatorVerifier_<Flavor
         combined_shifted_evals.push_back(eval);
     }
 
-    BB_ASSERT_EQ(combined_unshifted_comms.size(), TranslatorFlavor::NUM_PCS_UNSHIFTED);
-    BB_ASSERT_EQ(combined_unshifted_evals.size(), TranslatorFlavor::NUM_PCS_UNSHIFTED);
-    BB_ASSERT_EQ(combined_shifted_comms.size(), TranslatorFlavor::NUM_PCS_TO_BE_SHIFTED);
-    BB_ASSERT_EQ(combined_shifted_evals.size(), TranslatorFlavor::NUM_PCS_TO_BE_SHIFTED);
+    if (combined_unshifted_comms.size() != TranslatorFlavor::NUM_PCS_UNSHIFTED ||
+        combined_unshifted_evals.size() != TranslatorFlavor::NUM_PCS_UNSHIFTED ||
+        combined_shifted_comms.size() != TranslatorFlavor::NUM_PCS_TO_BE_SHIFTED ||
+        combined_shifted_evals.size() != TranslatorFlavor::NUM_PCS_TO_BE_SHIFTED) {
+        info("Translator verification failed: PCS commitment/evaluation size mismatch");
+        return { {}, false };
+    }
 
     ClaimBatcher claim_batcher{ .unshifted = ClaimBatch{ combined_unshifted_comms, combined_unshifted_evals },
                                 .shifted = ClaimBatch{ combined_shifted_comms, combined_shifted_evals } };

@@ -475,6 +475,7 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
                 scalar_multiplication::pippenger_unsafe<Curve>(data.s_vec, { &srs_elements[0], /*size*/ poly_length });
         }
         if (G_zero != data.G_zero_from_prover) {
+            info("IPA verification failed: G_0 mismatch");
             return false;
         }
 
@@ -669,8 +670,14 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
         requires(!Curve::is_stdlib_type)
     {
         const size_t num_claims = opening_claims.size();
-        BB_ASSERT(num_claims == transcripts.size());
-        BB_ASSERT(num_claims > 0);
+        if (num_claims != transcripts.size()) {
+            info("IPA batch verification failed: claims/transcripts size mismatch");
+            return false;
+        }
+        if (num_claims == 0) {
+            info("IPA batch verification failed: no claims provided");
+            return false;
+        }
 
         // Phase 1: Per-proof transcript processing (sequential, each proof is cheap)
         std::vector<GroupElement> C_zeros(num_claims);
@@ -806,12 +813,19 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
         // Compute G_zero
         // In the native verifier, this uses pippenger. Here we use batch_mul.
         std::vector<Commitment> srs_elements = vk.get_monomial_points();
-        BB_ASSERT_GTE(srs_elements.size(), poly_length, "Not enough SRS points for IPA!");
+        if (srs_elements.size() < poly_length) {
+            info("IPA recursive verification failed: not enough SRS points");
+            return false;
+        }
         srs_elements.resize(poly_length);
         Commitment computed_G_zero = Commitment::batch_mul(srs_elements, s_vec);
         // check the computed G_zero and the claimed G_zero are the same.
         // The circuit constraint enforces correctness; mismatched witnesses will produce an unsatisfiable circuit.
         claimed_G_zero.assert_equal(computed_G_zero, "G_zero doesn't match received G_zero.");
+        if (computed_G_zero.get_value() != claimed_G_zero.get_value()) {
+            info("IPA recursive verification failed: G_zero mismatch");
+            return false;
+        }
 
         bool running_truth_value = verifier_accumulator.running_truth_value;
         return running_truth_value;
