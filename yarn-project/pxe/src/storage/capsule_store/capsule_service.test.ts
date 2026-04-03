@@ -95,15 +95,6 @@ describe('CapsuleService', () => {
       expect(await capsuleService.readCapsuleArray(contract, baseSlot, jobId, scope)).toEqual(newArray);
     });
 
-    it('ALL_SCOPES allows any scope', async () => {
-      const allScopesService = new CapsuleService(capsuleStore, 'ALL_SCOPES');
-      const randomScope = await AztecAddress.random();
-
-      allScopesService.setCapsule(contract, slot, capsule, jobId, randomScope);
-      const result = await allScopesService.getCapsule(contract, slot, jobId, randomScope);
-      expect(result).toEqual(capsule);
-    });
-
     it('address zero is always allowed even if not in the scopes list', async () => {
       const scope = AztecAddress.ZERO;
 

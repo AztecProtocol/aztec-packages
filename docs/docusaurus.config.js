@@ -48,8 +48,6 @@ const developerVersionConfig = syncVersionsFromConfig(
 );
 const mainnetDeveloperVersion = developerVersionConfig.mainnet || null;
 const developerTestnetVersion = developerVersionConfig.testnet || null;
-const devnetVersion = developerVersionConfig.devnet || null;
-const nightlyVersion = developerVersionConfig.nightly || null;
 
 const networkVersionConfig = syncVersionsFromConfig(
   "./network_version_config.json",
@@ -136,7 +134,7 @@ const config = {
     },
   ],
   plugins: [
-    // Developer docs instance - mainnet/testnet/devnet/nightly versions
+    // Developer docs instance - mainnet/testnet versions
     [
       "@docusaurus/plugin-content-docs",
       {
@@ -152,7 +150,7 @@ const config = {
         },
         // Version configuration for Build docs
         includeCurrentVersion: process.env.CONTEXT !== "production",
-        lastVersion: mainnetDeveloperVersion || developerTestnetVersion || devnetVersion,
+        lastVersion: mainnetDeveloperVersion || developerTestnetVersion,
         versions: {
           ...(mainnetDeveloperVersion && {
             [mainnetDeveloperVersion]: {
@@ -166,19 +164,6 @@ const config = {
               label: `Testnet (${developerTestnetVersion})`,
               path: mainnetDeveloperVersion ? "testnet" : "",
               banner: "none",
-            },
-          }),
-          ...(devnetVersion && {
-            [devnetVersion]: {
-              label: `Devnet (${devnetVersion})`,
-              path: (mainnetDeveloperVersion || developerTestnetVersion) ? "devnet" : "",
-              banner: "none",
-            },
-          }),
-          ...(nightlyVersion && {
-            [nightlyVersion]: {
-              path: "nightly",
-              banner: "unreleased",
             },
           }),
           ...(process.env.CONTEXT !== "production" && {
@@ -275,10 +260,10 @@ const config = {
       {
         generateLLMsTxt: true,
         generateLLMsFullTxt: true,
-        docsDir: `developer_versioned_docs/version-${mainnetDeveloperVersion || developerTestnetVersion || devnetVersion || nightlyVersion}/`,
+        docsDir: `developer_versioned_docs/version-${mainnetDeveloperVersion || developerTestnetVersion}/`,
         title: "Aztec Protocol Documentation",
         excludeImports: true,
-        version: mainnetDeveloperVersion || developerTestnetVersion || devnetVersion || nightlyVersion,
+        version: mainnetDeveloperVersion || developerTestnetVersion,
         pathTransformation: {
           ignorePaths: ["docs"],
         },
