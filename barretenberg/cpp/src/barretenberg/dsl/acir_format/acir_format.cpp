@@ -341,6 +341,9 @@ void prepare_builder_from_profiles(UltraCircuitBuilder& builder, const std::vect
     // Register all constants from all profiles
     for (size_t p = 0; p < profiles.size(); p++) {
         const auto& profile = profiles[p];
+        std::string table_str;
+        for (auto tid : profile.table_ids)
+            table_str += " " + std::to_string(static_cast<int>(tid));
         info("  profile[",
              p,
              "]: blk2=",
@@ -350,7 +353,10 @@ void prepare_builder_from_profiles(UltraCircuitBuilder& builder, const std::vect
              " constants=",
              profile.constants.size(),
              " range_targets=",
-             profile.range_list_targets.size());
+             profile.range_list_targets.size(),
+             " tables=[",
+             table_str,
+             " ]");
         for (const auto& value : profile.constants) {
             builder.put_constant_variable(value);
         }
@@ -365,12 +371,8 @@ void prepare_builder_from_profiles(UltraCircuitBuilder& builder, const std::vect
         }
     }
 
-    // Create all needed lookup tables
-    for (const auto& profile : profiles) {
-        for (const auto table_id : profile.table_ids) {
-            builder.get_table(table_id);
-        }
-    }
+    // Note: lookup tables are NOT created here. They are created in task order in Phase 2b
+    // so that table indices match sequential constraint processing order.
 }
 
 void build_constraints_parallel(UltraCircuitBuilder& builder,
@@ -381,260 +383,184 @@ void build_constraints_parallel(UltraCircuitBuilder& builder,
     using TaskBlockSizes = UltraCircuitBuilder::TaskBlockSizes;
     size_t num_witnesses = constraints.max_witness_index + 1;
 
-    // Phase 1: Profile each constraint type on throwaway builders (simulates table lookup).
-    // Collect ALL instances as parallel tasks.
+    // Phase 1: Profile each constraint type to build a map from grouping key to profile.
+    // Each constraint type has a key function that determines which instances share the same
+    // gate count profile. We profile one representative per unique key.
+    //
+    // Phase 1b: Collect tasks in the SAME ORDER as sequential build_constraints processes them.
+    // This ensures that lookup tables, ROM arrays, and other ordering-dependent state are created
+    // in an order that matches sequential, making the circuits identical up to gate reordering.
+
     std::vector<ConstraintProfile> profiles;
     std::vector<std::function<void(UltraCircuitBuilder&)>> tasks;
     std::vector<TaskBlockSizes> task_sizes;
-    std::vector<size_t> task_profile_indices; // which profile each task belongs to
+    std::vector<size_t> task_profile_indices;
 
-    // Helper: profile a constraint type and register all its instances as tasks
-    auto profile_and_collect = [&](auto& items, auto handler) {
-        if (items.empty()) {
-            return;
-        }
-        auto profile = profile_constraint_type(items[0], handler, num_witnesses);
-        size_t profile_idx = profiles.size();
-        profiles.push_back(profile);
-        auto sizes = profile.block_sizes;
-        sizes.num_rom_arrays = profile.num_rom_arrays_per_instance;
-        sizes.num_ram_arrays = profile.num_ram_arrays_per_instance;
+    // Helper: given a constraint vector, a handler, and a key function, profile unique keys
+    // and return a map from key to profile index. Does NOT add tasks (that happens in order below).
+    auto profile_grouped = [&](auto& items, auto handler, auto key_fn) -> std::map<decltype(key_fn(items[0])), size_t> {
+        using Key = decltype(key_fn(items[0]));
+        std::map<Key, size_t> key_to_profile;
         for (size_t i = 0; i < items.size(); i++) {
+            Key k = key_fn(items[i]);
+            if (key_to_profile.count(k) == 0) {
+                auto profile = profile_constraint_type(items[i], handler, num_witnesses);
+                size_t profile_idx = profiles.size();
+                profiles.push_back(profile);
+                key_to_profile[k] = profile_idx;
+            }
+        }
+        return key_to_profile;
+    };
+
+    // Helper: add tasks for a constraint vector in vector order, looking up each instance's profile.
+    auto collect_tasks = [&](auto& items, auto handler, const auto& key_to_profile, auto key_fn) {
+        for (size_t i = 0; i < items.size(); i++) {
+            auto k = key_fn(items[i]);
+            size_t profile_idx = key_to_profile.at(k);
+            const auto& profile = profiles[profile_idx];
+            auto sizes = profile.block_sizes;
+            sizes.num_rom_arrays = profile.num_rom_arrays_per_instance;
+            sizes.num_ram_arrays = profile.num_ram_arrays_per_instance;
             tasks.emplace_back([handler, &items, i](UltraCircuitBuilder& b) { handler(b, items[i]); });
             task_sizes.push_back(sizes);
             task_profile_indices.push_back(profile_idx);
         }
     };
 
-    profile_and_collect(constraints.quad_constraints,
-                        [](UltraCircuitBuilder& b, QuadConstraint& c) { create_quad_constraint(b, c); });
-    // BigQuad constraints must be grouped by size() since different sizes produce different gate counts.
-    {
-        std::map<size_t, std::vector<size_t>> big_quad_groups;
-        for (size_t i = 0; i < constraints.big_quad_constraints.size(); i++) {
-            big_quad_groups[constraints.big_quad_constraints[i].size()].push_back(i);
-        }
-        auto handler = [](UltraCircuitBuilder& b, BigQuadConstraint& c) { create_big_quad_constraint(b, c); };
-        for (auto& [sz, indices] : big_quad_groups) {
-            auto& representative = constraints.big_quad_constraints[indices[0]];
-            auto profile = profile_constraint_type(representative, handler, num_witnesses);
-            size_t profile_idx = profiles.size();
-            profiles.push_back(profile);
-            auto sizes = profile.block_sizes;
-            sizes.num_rom_arrays = profile.num_rom_arrays_per_instance;
-            sizes.num_ram_arrays = profile.num_ram_arrays_per_instance;
-            for (size_t idx : indices) {
-                tasks.emplace_back([handler, &constraints, idx](UltraCircuitBuilder& b) {
-                    handler(b, constraints.big_quad_constraints[idx]);
-                });
-                task_sizes.push_back(sizes);
-                task_profile_indices.push_back(profile_idx);
-            }
-        }
-    }
-    // Logic constraints must be grouped by (num_bits, is_xor_gate) since both affect gate count.
-    {
-        std::map<std::pair<uint32_t, bool>, std::vector<size_t>> logic_groups;
-        for (size_t i = 0; i < constraints.logic_constraints.size(); i++) {
-            const auto& c = constraints.logic_constraints[i];
-            logic_groups[{ c.num_bits, c.is_xor_gate }].push_back(i);
-        }
-        auto handler = [](UltraCircuitBuilder& b, const LogicConstraint& c) {
-            create_logic_gate(b, c.a, c.b, c.result, c.num_bits, c.is_xor_gate);
-        };
-        for (auto& [key, indices] : logic_groups) {
-            auto& representative = constraints.logic_constraints[indices[0]];
-            auto profile = profile_constraint_type(representative, handler, num_witnesses);
-            size_t profile_idx = profiles.size();
-            profiles.push_back(profile);
-            auto sizes = profile.block_sizes;
-            sizes.num_rom_arrays = profile.num_rom_arrays_per_instance;
-            sizes.num_ram_arrays = profile.num_ram_arrays_per_instance;
-            for (size_t idx : indices) {
-                tasks.emplace_back([handler, &constraints, idx](UltraCircuitBuilder& b) {
-                    handler(b, constraints.logic_constraints[idx]);
-                });
-                task_sizes.push_back(sizes);
-                task_profile_indices.push_back(profile_idx);
-            }
-        }
-    }
-    // Range constraints must be grouped by num_bits since different bit widths produce different gate counts.
-    {
-        // Group range constraints by num_bits
-        std::map<uint32_t, std::vector<size_t>> range_groups; // num_bits -> indices into range_constraints
-        for (size_t i = 0; i < constraints.range_constraints.size(); i++) {
-            range_groups[constraints.range_constraints[i].num_bits].push_back(i);
-        }
-        auto handler = [](UltraCircuitBuilder& b, const RangeConstraint& c) {
-            b.create_dyadic_range_constraint(c.witness, c.num_bits, "parallel range constraint");
-        };
-        for (auto& [num_bits, indices] : range_groups) {
-            auto& representative = constraints.range_constraints[indices[0]];
-            auto profile = profile_constraint_type(representative, handler, num_witnesses);
-            size_t profile_idx = profiles.size();
-            profiles.push_back(profile);
-            auto sizes = profile.block_sizes;
-            sizes.num_rom_arrays = profile.num_rom_arrays_per_instance;
-            sizes.num_ram_arrays = profile.num_ram_arrays_per_instance;
-            for (size_t idx : indices) {
-                tasks.emplace_back([handler, &constraints, idx](UltraCircuitBuilder& b) {
-                    handler(b, constraints.range_constraints[idx]);
-                });
-                task_sizes.push_back(sizes);
-                task_profile_indices.push_back(profile_idx);
-            }
-        }
-    }
-    // AES128 constraints must be grouped by inputs.size() since different input lengths produce different gate counts.
-    {
-        std::map<size_t, std::vector<size_t>> aes_groups;
-        for (size_t i = 0; i < constraints.aes128_constraints.size(); i++) {
-            aes_groups[constraints.aes128_constraints[i].inputs.size()].push_back(i);
-        }
-        auto handler = [](UltraCircuitBuilder& b, const AES128Constraint& c) { create_aes128_constraints(b, c); };
-        for (auto& [sz, indices] : aes_groups) {
-            auto& representative = constraints.aes128_constraints[indices[0]];
-            auto profile = profile_constraint_type(representative, handler, num_witnesses);
-            size_t profile_idx = profiles.size();
-            profiles.push_back(profile);
-            auto sizes = profile.block_sizes;
-            sizes.num_rom_arrays = profile.num_rom_arrays_per_instance;
-            sizes.num_ram_arrays = profile.num_ram_arrays_per_instance;
-            for (size_t idx : indices) {
-                tasks.emplace_back([handler, &constraints, idx](UltraCircuitBuilder& b) {
-                    handler(b, constraints.aes128_constraints[idx]);
-                });
-                task_sizes.push_back(sizes);
-                task_profile_indices.push_back(profile_idx);
-            }
-        }
-    }
-    profile_and_collect(constraints.sha256_compression, [](UltraCircuitBuilder& b, const Sha256Compression& c) {
+    // For constraint types with no grouping (fixed gate count), the key is a constant.
+    auto const_key = [](const auto&) -> int { return 0; };
+
+    // Define key functions for each grouped type
+    auto big_quad_key = [](const BigQuadConstraint& c) -> size_t { return c.size(); };
+    auto logic_key = [](const LogicConstraint& c) -> std::pair<uint32_t, bool> {
+        return { c.num_bits, c.is_xor_gate };
+    };
+    auto range_key = [](const RangeConstraint& c) -> uint32_t { return c.num_bits; };
+    auto aes_key = [](const AES128Constraint& c) -> size_t { return c.inputs.size(); };
+    auto blake2s_key = [](const Blake2sConstraint& c) -> size_t { return c.inputs.size(); };
+    auto blake3_key = [](const Blake3Constraint& c) -> size_t { return c.inputs.size(); };
+    auto pos2_key = [](const Poseidon2Constraint& c) -> size_t { return c.state.size(); };
+    auto msm_key = [](const MultiScalarMul& c) -> std::vector<bool> {
+        std::vector<bool> key;
+        key.reserve(c.points.size() + c.scalars.size());
+        for (const auto& p : c.points)
+            key.push_back(p.is_constant);
+        for (const auto& s : c.scalars)
+            key.push_back(s.is_constant);
+        return key;
+    };
+
+    // Define handlers
+    auto quad_handler = [](UltraCircuitBuilder& b, QuadConstraint& c) { create_quad_constraint(b, c); };
+    auto big_quad_handler = [](UltraCircuitBuilder& b, BigQuadConstraint& c) { create_big_quad_constraint(b, c); };
+    auto logic_handler = [](UltraCircuitBuilder& b, const LogicConstraint& c) {
+        create_logic_gate(b, c.a, c.b, c.result, c.num_bits, c.is_xor_gate);
+    };
+    auto range_handler = [](UltraCircuitBuilder& b, const RangeConstraint& c) {
+        b.create_dyadic_range_constraint(c.witness, c.num_bits, "parallel range constraint");
+    };
+    auto aes_handler = [](UltraCircuitBuilder& b, const AES128Constraint& c) { create_aes128_constraints(b, c); };
+    auto sha_handler = [](UltraCircuitBuilder& b, const Sha256Compression& c) {
         create_sha256_compression_constraints(b, c);
-    });
-    profile_and_collect(constraints.ecdsa_k1_constraints, [](UltraCircuitBuilder& b, const EcdsaConstraint& c) {
+    };
+    auto ecdsa_k1_handler = [](UltraCircuitBuilder& b, const EcdsaConstraint& c) {
         create_ecdsa_verify_constraints<stdlib::secp256k1<UltraCircuitBuilder>>(b, c);
-    });
-    profile_and_collect(constraints.ecdsa_r1_constraints, [](UltraCircuitBuilder& b, const EcdsaConstraint& c) {
+    };
+    auto ecdsa_r1_handler = [](UltraCircuitBuilder& b, const EcdsaConstraint& c) {
         create_ecdsa_verify_constraints<stdlib::secp256r1<UltraCircuitBuilder>>(b, c);
-    });
-    // Blake2s constraints must be grouped by inputs.size() since different input lengths produce different gate counts.
-    {
-        std::map<size_t, std::vector<size_t>> blake2s_groups;
-        for (size_t i = 0; i < constraints.blake2s_constraints.size(); i++) {
-            blake2s_groups[constraints.blake2s_constraints[i].inputs.size()].push_back(i);
-        }
-        auto handler = [](UltraCircuitBuilder& b, const Blake2sConstraint& c) { create_blake2s_constraints(b, c); };
-        for (auto& [sz, indices] : blake2s_groups) {
-            auto& representative = constraints.blake2s_constraints[indices[0]];
-            auto profile = profile_constraint_type(representative, handler, num_witnesses);
-            size_t profile_idx = profiles.size();
-            profiles.push_back(profile);
-            auto sizes = profile.block_sizes;
-            sizes.num_rom_arrays = profile.num_rom_arrays_per_instance;
-            sizes.num_ram_arrays = profile.num_ram_arrays_per_instance;
-            for (size_t idx : indices) {
-                tasks.emplace_back([handler, &constraints, idx](UltraCircuitBuilder& b) {
-                    handler(b, constraints.blake2s_constraints[idx]);
-                });
-                task_sizes.push_back(sizes);
-                task_profile_indices.push_back(profile_idx);
-            }
-        }
-    }
-    // Blake3 constraints must be grouped by inputs.size() since different input lengths produce different gate counts.
-    {
-        std::map<size_t, std::vector<size_t>> blake3_groups;
-        for (size_t i = 0; i < constraints.blake3_constraints.size(); i++) {
-            blake3_groups[constraints.blake3_constraints[i].inputs.size()].push_back(i);
-        }
-        auto handler = [](UltraCircuitBuilder& b, const Blake3Constraint& c) { create_blake3_constraints(b, c); };
-        for (auto& [sz, indices] : blake3_groups) {
-            auto& representative = constraints.blake3_constraints[indices[0]];
-            auto profile = profile_constraint_type(representative, handler, num_witnesses);
-            size_t profile_idx = profiles.size();
-            profiles.push_back(profile);
-            auto sizes = profile.block_sizes;
-            sizes.num_rom_arrays = profile.num_rom_arrays_per_instance;
-            sizes.num_ram_arrays = profile.num_ram_arrays_per_instance;
-            for (size_t idx : indices) {
-                tasks.emplace_back([handler, &constraints, idx](UltraCircuitBuilder& b) {
-                    handler(b, constraints.blake3_constraints[idx]);
-                });
-                task_sizes.push_back(sizes);
-                task_profile_indices.push_back(profile_idx);
-            }
-        }
-    }
-    profile_and_collect(constraints.keccak_permutations, [](UltraCircuitBuilder& b, const Keccakf1600& c) {
+    };
+    auto blake2s_handler = [](UltraCircuitBuilder& b, const Blake2sConstraint& c) { create_blake2s_constraints(b, c); };
+    auto blake3_handler = [](UltraCircuitBuilder& b, const Blake3Constraint& c) { create_blake3_constraints(b, c); };
+    auto keccak_handler = [](UltraCircuitBuilder& b, const Keccakf1600& c) {
         create_keccak_permutations_constraints(b, c);
-    });
-    // Poseidon2 constraints must be grouped by state.size() since different widths produce different gate counts.
-    {
-        std::map<size_t, std::vector<size_t>> pos2_groups;
-        for (size_t i = 0; i < constraints.poseidon2_constraints.size(); i++) {
-            pos2_groups[constraints.poseidon2_constraints[i].state.size()].push_back(i);
-        }
-        auto handler = [](UltraCircuitBuilder& b, const Poseidon2Constraint& c) {
-            create_poseidon2_permutations_constraints(b, c);
-        };
-        for (auto& [sz, indices] : pos2_groups) {
-            auto& representative = constraints.poseidon2_constraints[indices[0]];
-            auto profile = profile_constraint_type(representative, handler, num_witnesses);
-            size_t profile_idx = profiles.size();
-            profiles.push_back(profile);
-            auto sizes = profile.block_sizes;
-            sizes.num_rom_arrays = profile.num_rom_arrays_per_instance;
-            sizes.num_ram_arrays = profile.num_ram_arrays_per_instance;
-            for (size_t idx : indices) {
-                tasks.emplace_back([handler, &constraints, idx](UltraCircuitBuilder& b) {
-                    handler(b, constraints.poseidon2_constraints[idx]);
-                });
-                task_sizes.push_back(sizes);
-                task_profile_indices.push_back(profile_idx);
-            }
-        }
-    }
-    // MultiScalarMul constraints must be grouped by points.size() since different point counts
-    // produce different gate counts and different numbers of ROM arrays.
-    {
-        std::map<size_t, std::vector<size_t>> msm_groups;
-        for (size_t i = 0; i < constraints.multi_scalar_mul_constraints.size(); i++) {
-            msm_groups[constraints.multi_scalar_mul_constraints[i].points.size()].push_back(i);
-        }
-        auto handler = [](UltraCircuitBuilder& b, const MultiScalarMul& c) {
-            create_multi_scalar_mul_constraint(b, c);
-        };
-        for (auto& [sz, indices] : msm_groups) {
-            auto& representative = constraints.multi_scalar_mul_constraints[indices[0]];
-            auto profile = profile_constraint_type(representative, handler, num_witnesses);
-            size_t profile_idx = profiles.size();
-            profiles.push_back(profile);
-            auto sizes = profile.block_sizes;
-            sizes.num_rom_arrays = profile.num_rom_arrays_per_instance;
-            sizes.num_ram_arrays = profile.num_ram_arrays_per_instance;
-            for (size_t idx : indices) {
-                tasks.emplace_back([handler, &constraints, idx](UltraCircuitBuilder& b) {
-                    handler(b, constraints.multi_scalar_mul_constraints[idx]);
-                });
-                task_sizes.push_back(sizes);
-                task_profile_indices.push_back(profile_idx);
-            }
-        }
-    }
-    profile_and_collect(constraints.ec_add_constraints,
-                        [](UltraCircuitBuilder& b, const EcAdd& c) { create_ec_add_constraint(b, c); });
+    };
+    auto pos2_handler = [](UltraCircuitBuilder& b, const Poseidon2Constraint& c) {
+        create_poseidon2_permutations_constraints(b, c);
+    };
+    auto msm_handler = [](UltraCircuitBuilder& b, const MultiScalarMul& c) {
+        create_multi_scalar_mul_constraint(b, c);
+    };
+    auto ec_add_handler = [](UltraCircuitBuilder& b, const EcAdd& c) { create_ec_add_constraint(b, c); };
+
+    // Profile all types (order doesn't matter here — just building the key→profile maps)
+    auto quad_profiles = !constraints.quad_constraints.empty()
+                             ? profile_grouped(constraints.quad_constraints, quad_handler, const_key)
+                             : decltype(profile_grouped(constraints.quad_constraints, quad_handler, const_key)){};
+    auto big_quad_profiles =
+        !constraints.big_quad_constraints.empty()
+            ? profile_grouped(constraints.big_quad_constraints, big_quad_handler, big_quad_key)
+            : decltype(profile_grouped(constraints.big_quad_constraints, big_quad_handler, big_quad_key)){};
+    auto logic_profiles = !constraints.logic_constraints.empty()
+                              ? profile_grouped(constraints.logic_constraints, logic_handler, logic_key)
+                              : decltype(profile_grouped(constraints.logic_constraints, logic_handler, logic_key)){};
+    auto range_profiles = !constraints.range_constraints.empty()
+                              ? profile_grouped(constraints.range_constraints, range_handler, range_key)
+                              : decltype(profile_grouped(constraints.range_constraints, range_handler, range_key)){};
+    auto aes_profiles = !constraints.aes128_constraints.empty()
+                            ? profile_grouped(constraints.aes128_constraints, aes_handler, aes_key)
+                            : decltype(profile_grouped(constraints.aes128_constraints, aes_handler, aes_key)){};
+    auto sha_profiles = !constraints.sha256_compression.empty()
+                            ? profile_grouped(constraints.sha256_compression, sha_handler, const_key)
+                            : decltype(profile_grouped(constraints.sha256_compression, sha_handler, const_key)){};
+    auto ecdsa_k1_profiles =
+        !constraints.ecdsa_k1_constraints.empty()
+            ? profile_grouped(constraints.ecdsa_k1_constraints, ecdsa_k1_handler, const_key)
+            : decltype(profile_grouped(constraints.ecdsa_k1_constraints, ecdsa_k1_handler, const_key)){};
+    auto ecdsa_r1_profiles =
+        !constraints.ecdsa_r1_constraints.empty()
+            ? profile_grouped(constraints.ecdsa_r1_constraints, ecdsa_r1_handler, const_key)
+            : decltype(profile_grouped(constraints.ecdsa_r1_constraints, ecdsa_r1_handler, const_key)){};
+    auto blake2s_profiles =
+        !constraints.blake2s_constraints.empty()
+            ? profile_grouped(constraints.blake2s_constraints, blake2s_handler, blake2s_key)
+            : decltype(profile_grouped(constraints.blake2s_constraints, blake2s_handler, blake2s_key)){};
+    auto blake3_profiles =
+        !constraints.blake3_constraints.empty()
+            ? profile_grouped(constraints.blake3_constraints, blake3_handler, blake3_key)
+            : decltype(profile_grouped(constraints.blake3_constraints, blake3_handler, blake3_key)){};
+    auto keccak_profiles =
+        !constraints.keccak_permutations.empty()
+            ? profile_grouped(constraints.keccak_permutations, keccak_handler, const_key)
+            : decltype(profile_grouped(constraints.keccak_permutations, keccak_handler, const_key)){};
+    auto pos2_profiles = !constraints.poseidon2_constraints.empty()
+                             ? profile_grouped(constraints.poseidon2_constraints, pos2_handler, pos2_key)
+                             : decltype(profile_grouped(constraints.poseidon2_constraints, pos2_handler, pos2_key)){};
+    auto msm_profiles =
+        !constraints.multi_scalar_mul_constraints.empty()
+            ? profile_grouped(constraints.multi_scalar_mul_constraints, msm_handler, msm_key)
+            : decltype(profile_grouped(constraints.multi_scalar_mul_constraints, msm_handler, msm_key)){};
+    auto ec_add_profiles = !constraints.ec_add_constraints.empty()
+                               ? profile_grouped(constraints.ec_add_constraints, ec_add_handler, const_key)
+                               : decltype(profile_grouped(constraints.ec_add_constraints, ec_add_handler, const_key)){};
+
+    // Collect tasks in the same order as sequential build_constraints
+    collect_tasks(constraints.quad_constraints, quad_handler, quad_profiles, const_key);
+    collect_tasks(constraints.big_quad_constraints, big_quad_handler, big_quad_profiles, big_quad_key);
+    collect_tasks(constraints.logic_constraints, logic_handler, logic_profiles, logic_key);
+    collect_tasks(constraints.range_constraints, range_handler, range_profiles, range_key);
+    collect_tasks(constraints.aes128_constraints, aes_handler, aes_profiles, aes_key);
+    collect_tasks(constraints.sha256_compression, sha_handler, sha_profiles, const_key);
+    collect_tasks(constraints.ecdsa_k1_constraints, ecdsa_k1_handler, ecdsa_k1_profiles, const_key);
+    collect_tasks(constraints.ecdsa_r1_constraints, ecdsa_r1_handler, ecdsa_r1_profiles, const_key);
+    collect_tasks(constraints.blake2s_constraints, blake2s_handler, blake2s_profiles, blake2s_key);
+    collect_tasks(constraints.blake3_constraints, blake3_handler, blake3_profiles, blake3_key);
+    collect_tasks(constraints.keccak_permutations, keccak_handler, keccak_profiles, const_key);
+    collect_tasks(constraints.poseidon2_constraints, pos2_handler, pos2_profiles, pos2_key);
+    collect_tasks(constraints.multi_scalar_mul_constraints, msm_handler, msm_profiles, msm_key);
+    collect_tasks(constraints.ec_add_constraints, ec_add_handler, ec_add_profiles, const_key);
 
     // Phase 2: Prepare the builder's caches from profiles (no constraint execution).
     prepare_builder_from_profiles(builder, profiles);
 
-    // Phase 2b: Pre-create ROM/RAM arrays for all task instances in deterministic (sequential) order.
-    // Each task instance creates a known number of ROM/RAM arrays (from profiling).
-    // We pre-create them all now so that create_ROM_array/create_RAM_array can return
-    // pre-assigned IDs via per-thread cursors without any races or nondeterminism.
+    // Phase 2b: Pre-create lookup tables and ROM/RAM arrays in task order (matching sequential
+    // constraint processing order). This ensures table indices and ROM IDs are deterministic
+    // and match what sequential build_constraints would produce.
     for (size_t t = 0; t < tasks.size(); t++) {
         const auto& profile = profiles[task_profile_indices[t]];
+        for (const auto table_id : profile.table_ids) {
+            builder.get_table(table_id); // no-op if already created
+        }
         for (size_t r = 0; r < profile.num_rom_arrays_per_instance; r++) {
             builder.rom_ram_logic.create_ROM_array(profile.rom_array_sizes[r]);
         }

@@ -1978,6 +1978,71 @@ size_t check_semantic_equivalence(const std::string& label, UltraCircuitBuilder&
 
             if (a_tuples != b_tuples) {
                 info(label, ": block ", bl, " gate multiset mismatch (", count, " gates)");
+                // Find first difference
+                size_t a_only = 0;
+                size_t b_only = 0;
+                size_t ai = 0;
+                size_t bi = 0;
+                while (ai < a_tuples.size() && bi < b_tuples.size()) {
+                    if (a_tuples[ai] == b_tuples[bi]) {
+                        ai++;
+                        bi++;
+                    } else if (a_tuples[ai] < b_tuples[bi]) {
+                        a_only++;
+                        ai++;
+                    } else {
+                        b_only++;
+                        bi++;
+                    }
+                }
+                a_only += a_tuples.size() - ai;
+                b_only += b_tuples.size() - bi;
+                info(label, ": block ", bl, " a_only=", a_only, " b_only=", b_only);
+                // Print first differing tuple from each side
+                ai = 0;
+                bi = 0;
+                bool printed_a = false;
+                bool printed_b = false;
+                while (ai < a_tuples.size() && bi < b_tuples.size() && (!printed_a || !printed_b)) {
+                    if (a_tuples[ai] == b_tuples[bi]) {
+                        ai++;
+                        bi++;
+                    } else if (a_tuples[ai] < b_tuples[bi]) {
+                        if (!printed_a) {
+                            std::string sels_a;
+                            for (size_t s = 4; s < a_tuples[ai].size(); s++)
+                                sels_a += " s" + std::to_string(s - 4) + "=" + (a_tuples[ai][s].is_zero() ? "0" : "1");
+                            info("    a_only[0]: w0=",
+                                 a_tuples[ai][0],
+                                 " w1=",
+                                 a_tuples[ai][1],
+                                 " w2=",
+                                 a_tuples[ai][2],
+                                 " w3=",
+                                 a_tuples[ai][3],
+                                 sels_a);
+                            printed_a = true;
+                        }
+                        ai++;
+                    } else {
+                        if (!printed_b) {
+                            std::string sels_b;
+                            for (size_t s = 4; s < b_tuples[bi].size(); s++)
+                                sels_b += " s" + std::to_string(s - 4) + "=" + (b_tuples[bi][s].is_zero() ? "0" : "1");
+                            info("    b_only[0]: w0=",
+                                 b_tuples[bi][0],
+                                 " w1=",
+                                 b_tuples[bi][1],
+                                 " w2=",
+                                 b_tuples[bi][2],
+                                 " w3=",
+                                 b_tuples[bi][3],
+                                 sels_b);
+                            printed_b = true;
+                        }
+                        bi++;
+                    }
+                }
                 failures++;
             }
         }
@@ -2084,6 +2149,25 @@ TEST_P(AcirTestParallelEquivalence, SequentialN1N2)
          constraints.ec_add_constraints.size(),
          " aes128=",
          constraints.aes128_constraints.size());
+
+    // Skip circuits with no parallelizable constraints (e.g., brillig-only programs)
+    bool has_constraints = !constraints.quad_constraints.empty() || !constraints.big_quad_constraints.empty() ||
+                           !constraints.logic_constraints.empty() || !constraints.range_constraints.empty() ||
+                           !constraints.sha256_compression.empty() || !constraints.ecdsa_k1_constraints.empty() ||
+                           !constraints.ecdsa_r1_constraints.empty() || !constraints.poseidon2_constraints.empty() ||
+                           !constraints.multi_scalar_mul_constraints.empty() ||
+                           !constraints.ec_add_constraints.empty() || !constraints.aes128_constraints.empty() ||
+                           !constraints.blake2s_constraints.empty() || !constraints.blake3_constraints.empty() ||
+                           !constraints.keccak_permutations.empty();
+    if (!has_constraints) {
+        GTEST_SKIP() << "No parallelizable constraints";
+    }
+
+    // Skip recursion programs (need pre-computed proof data not available in this test)
+    if (!constraints.honk_recursion_constraints.empty() || !constraints.avm_recursion_constraints.empty() ||
+        !constraints.hn_recursion_constraints.empty() || !constraints.chonk_recursion_constraints.empty()) {
+        GTEST_SKIP() << "Recursion constraints not supported in this test";
+    }
 
     // 1. Build sequentially via create_circuit (uses build_constraints)
     info("  building sequential...");
