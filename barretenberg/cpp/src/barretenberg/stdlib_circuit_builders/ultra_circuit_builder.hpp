@@ -218,6 +218,10 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
     };
     std::vector<std::vector<DeferredRangeConstraint>> deferred_range_constraints_; // per-thread
 
+    // Deferred non-native field multiplications for parallel construction. In cursor mode,
+    // these are buffered per-thread to avoid races on the shared vector.
+    std::vector<std::vector<cached_partial_non_native_field_multiplication>> deferred_non_native_field_muls_;
+
     /**
      * @brief Initialize deferred buffers for N threads.
      */
@@ -225,6 +229,20 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
     {
         deferred_lookup_gates_.resize(num_threads);
         deferred_range_constraints_.resize(num_threads);
+        deferred_non_native_field_muls_.resize(num_threads);
+    }
+
+    /**
+     * @brief Replay all deferred non-native field multiplications into the shared cache.
+     */
+    void apply_deferred_non_native_field_muls()
+    {
+        for (auto& thread_buf : deferred_non_native_field_muls_) {
+            for (auto& entry : thread_buf) {
+                cached_partial_non_native_field_multiplications.emplace_back(entry);
+            }
+            thread_buf.clear();
+        }
     }
 
     /**
@@ -467,6 +485,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
         // Replay deferred operations
         apply_deferred_lookup_gates();
         apply_deferred_range_constraints();
+        apply_deferred_non_native_field_muls();
         {
             size_t total_deferred = 0;
             for (size_t t = 0; t < this->deferred_assert_equals_.size(); t++) {

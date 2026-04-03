@@ -1576,7 +1576,8 @@ std::array<uint32_t, 2> UltraCircuitBuilder_<ExecutionTrace>::queue_partial_non_
     const uint32_t hi_0_idx = this->add_variable(hi_0);
     const uint32_t hi_1_idx = this->add_variable(hi_1);
 
-    // Add witnesses into the multiplication cache (duplicates removed during circuit finalization)
+    // Add witnesses into the multiplication cache (duplicates removed during circuit finalization).
+    // In cursor mode, defer to per-thread buffer to avoid races on the shared vector.
     cached_partial_non_native_field_multiplication cache_entry{
         .a = input.a,
         .b = input.b,
@@ -1584,7 +1585,11 @@ std::array<uint32_t, 2> UltraCircuitBuilder_<ExecutionTrace>::queue_partial_non_
         .hi_0 = hi_0_idx,
         .hi_1 = hi_1_idx,
     };
-    cached_partial_non_native_field_multiplications.emplace_back(cache_entry);
+    if (this->get_variable_cursor() != this->VARIABLE_CURSOR_DISABLED) {
+        deferred_non_native_field_muls_[get_parallel_thread_index()].emplace_back(cache_entry);
+    } else {
+        cached_partial_non_native_field_multiplications.emplace_back(cache_entry);
+    }
     return std::array<uint32_t, 2>{ lo_0_idx, hi_1_idx };
 }
 
