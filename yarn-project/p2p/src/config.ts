@@ -67,6 +67,9 @@ export interface P2PConfig
   /** DEBUG: Disable colocation penalty - for testing purposes only */
   debugDisableColocationPenalty: boolean;
 
+  /** DEBUG: Don't abort connections when ping fails - for grind testing under CPU starvation */
+  debugDisableAbortOnPingFailure: boolean;
+
   /** The frequency in which to check for new peers. */
   peerCheckIntervalMS: number;
 
@@ -259,6 +262,11 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
   debugDisableColocationPenalty: {
     env: 'DEBUG_P2P_DISABLE_COLOCATION_PENALTY',
     description: 'DEBUG: Disable colocation penalty - NEVER set to true in production',
+    ...booleanConfigHelper(false),
+  },
+  debugDisableAbortOnPingFailure: {
+    env: 'DEBUG_P2P_DISABLE_ABORT_ON_PING_FAILURE',
+    description: 'DEBUG: Do not abort connections on ping failure - for grind testing under CPU starvation',
     ...booleanConfigHelper(false),
   },
   peerCheckIntervalMS: {
