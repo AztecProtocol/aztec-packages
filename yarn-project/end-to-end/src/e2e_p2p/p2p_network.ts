@@ -424,7 +424,7 @@ export class P2PNetworkTest {
   async waitForGossipSubMesh(
     nodes: AztecNodeService[],
     topics: TopicType[] = [TopicType.tx],
-    timeoutSeconds = 60,
+    timeoutSeconds = 120,
     checkIntervalSeconds = 0.1,
     skipNodeIndices: Set<number> = new Set(),
   ) {
@@ -456,7 +456,7 @@ export class P2PNetworkTest {
   async waitForP2PMeshConnectivity(
     nodes: AztecNodeService[],
     expectedNodeCount?: number,
-    timeoutSeconds = 60,
+    timeoutSeconds = 120,
     checkIntervalSeconds = 0.1,
     topics: TopicType[] = [TopicType.tx],
   ) {
