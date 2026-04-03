@@ -261,6 +261,10 @@ struct ConstraintProfile {
     std::vector<bb::fr> constants;                // constant values to pre-register
     std::vector<uint64_t> range_list_targets;     // range list target ranges to pre-create
     std::vector<plookup::BasicTableId> table_ids; // lookup tables to pre-create
+    size_t num_rom_arrays_per_instance = 0;       // ROM arrays created per constraint instance
+    size_t num_ram_arrays_per_instance = 0;       // RAM arrays created per constraint instance
+    std::vector<size_t> rom_array_sizes;          // sizes of ROM arrays created per instance
+    std::vector<size_t> ram_array_sizes;          // sizes of RAM arrays created per instance
 };
 
 /**
@@ -283,9 +287,21 @@ ConstraintProfile profile_constraint_type(ConstraintType representative, Handler
 
     // Second instance: measures steady-state cost
     auto before = throwaway.snapshot_block_sizes();
+    size_t rom_before = throwaway.rom_ram_logic.rom_arrays.size();
+    size_t ram_before = throwaway.rom_ram_logic.ram_arrays.size();
     handler(throwaway, representative);
     auto after = throwaway.snapshot_block_sizes();
     profile.block_sizes = UltraCircuitBuilder::delta(before, after);
+
+    // Extract ROM/RAM array counts per instance
+    profile.num_rom_arrays_per_instance = throwaway.rom_ram_logic.rom_arrays.size() - rom_before;
+    profile.num_ram_arrays_per_instance = throwaway.rom_ram_logic.ram_arrays.size() - ram_before;
+    for (size_t i = rom_before; i < throwaway.rom_ram_logic.rom_arrays.size(); i++) {
+        profile.rom_array_sizes.push_back(throwaway.rom_ram_logic.rom_arrays[i].state.size());
+    }
+    for (size_t i = ram_before; i < throwaway.rom_ram_logic.ram_arrays.size(); i++) {
+        profile.ram_array_sizes.push_back(throwaway.rom_ram_logic.ram_arrays[i].state.size());
+    }
 
     // Extract constants
     for (const auto& [value, _] : throwaway.constant_variable_indices) {
@@ -350,6 +366,7 @@ void build_constraints_parallel(UltraCircuitBuilder& builder,
     std::vector<ConstraintProfile> profiles;
     std::vector<std::function<void(UltraCircuitBuilder&)>> tasks;
     std::vector<TaskBlockSizes> task_sizes;
+    std::vector<size_t> task_profile_indices; // which profile each task belongs to
 
     // Helper: profile a constraint type and register all its instances as tasks
     auto profile_and_collect = [&](auto& items, auto handler) {
@@ -357,10 +374,15 @@ void build_constraints_parallel(UltraCircuitBuilder& builder,
             return;
         }
         auto profile = profile_constraint_type(items[0], handler, num_witnesses);
+        size_t profile_idx = profiles.size();
         profiles.push_back(profile);
+        auto sizes = profile.block_sizes;
+        sizes.num_rom_arrays = profile.num_rom_arrays_per_instance;
+        sizes.num_ram_arrays = profile.num_ram_arrays_per_instance;
         for (size_t i = 0; i < items.size(); i++) {
             tasks.emplace_back([handler, &items, i](UltraCircuitBuilder& b) { handler(b, items[i]); });
-            task_sizes.push_back(profile.block_sizes);
+            task_sizes.push_back(sizes);
+            task_profile_indices.push_back(profile_idx);
         }
     };
 
@@ -404,7 +426,22 @@ void build_constraints_parallel(UltraCircuitBuilder& builder,
     // Phase 2: Prepare the builder's caches from profiles (no constraint execution).
     prepare_builder_from_profiles(builder, profiles);
 
+    // Phase 2b: Pre-create ROM/RAM arrays for all task instances in deterministic (sequential) order.
+    // Each task instance creates a known number of ROM/RAM arrays (from profiling).
+    // We pre-create them all now so that create_ROM_array/create_RAM_array can return
+    // pre-assigned IDs via per-thread cursors without any races or nondeterminism.
+    for (size_t t = 0; t < tasks.size(); t++) {
+        const auto& profile = profiles[task_profile_indices[t]];
+        for (size_t r = 0; r < profile.num_rom_arrays_per_instance; r++) {
+            builder.rom_ram_logic.create_ROM_array(profile.rom_array_sizes[r]);
+        }
+        for (size_t r = 0; r < profile.num_ram_arrays_per_instance; r++) {
+            builder.rom_ram_logic.create_RAM_array(profile.ram_array_sizes[r]);
+        }
+    }
+
     // Phase 3: Execute ALL instances in parallel
+    // execute_parallel will set up per-thread ROM/RAM cursors using the num_rom/ram_arrays in task_sizes
     if (!tasks.empty()) {
         builder.execute_parallel(tasks, task_sizes, num_threads);
     }

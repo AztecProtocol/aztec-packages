@@ -13,7 +13,9 @@
 #include <gtest/gtest.h>
 
 #include "acir_format.hpp"
+#include "acir_to_constraint_buf.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
+#include "barretenberg/common/get_bytecode.hpp"
 #include "barretenberg/crypto/poseidon2/poseidon2.hpp"
 #include "barretenberg/crypto/sha256/sha256.hpp"
 #include "barretenberg/dsl/acir_format/arithmetic_constraints.hpp"
@@ -24,6 +26,8 @@
 #include "barretenberg/dsl/acir_format/sha256_constraint.hpp"
 #include "barretenberg/dsl/acir_format/test_class.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
+
+#include <filesystem>
 
 using namespace bb;
 using namespace acir_format;
@@ -1447,3 +1451,272 @@ TEST_F(PerBlockGateCountTests, SequentialVsParallelSemanticEquivalence)
     }
     info("Wire-level differences (expected due to gate reordering): ", total_wire_diffs);
 }
+
+// Find the acir_tests directory relative to the source tree
+std::filesystem::path find_acir_tests_dir()
+{
+    // Walk up from the build dir to find the repo root
+    // The acir_tests are at barretenberg/acir_tests/acir_tests/
+    std::filesystem::path candidate = std::filesystem::current_path();
+    for (int i = 0; i < 10; i++) {
+        auto test_dir = candidate / "barretenberg" / "acir_tests" / "acir_tests";
+        if (std::filesystem::exists(test_dir)) {
+            return test_dir;
+        }
+        candidate = candidate.parent_path();
+    }
+    return {};
+}
+
+// Collect all acir_test directories that have compiled artifacts
+std::vector<std::filesystem::path> collect_acir_test_programs()
+{
+    auto acir_dir = find_acir_tests_dir();
+    if (acir_dir.empty()) {
+        return {};
+    }
+    std::vector<std::filesystem::path> programs;
+    for (const auto& entry : std::filesystem::directory_iterator(acir_dir)) {
+        if (!entry.is_directory())
+            continue;
+        auto program_json = entry.path() / "target" / "program.json";
+        auto witness_gz = entry.path() / "target" / "witness.gz";
+        if (std::filesystem::exists(program_json) && std::filesystem::exists(witness_gz)) {
+            programs.push_back(entry.path());
+        }
+    }
+    std::sort(programs.begin(), programs.end());
+    return programs;
+}
+
+// Check semantic equivalence between two builders: same block sizes, variable counts,
+// copy cycle structure, constants, range lists, and lookup tables.
+// Returns number of failures (0 = all invariants hold).
+size_t check_semantic_equivalence(const std::string& label, const UltraCircuitBuilder& a, const UltraCircuitBuilder& b)
+{
+    size_t failures = 0;
+
+    // Block sizes must match
+    auto a_blocks = a.blocks.get();
+    auto b_blocks = b.blocks.get();
+    for (size_t bl = 0; bl < UltraCircuitBuilder::ExecutionTrace::NUM_BLOCKS; bl++) {
+        if (a_blocks[bl].size() != b_blocks[bl].size()) {
+            info(label, ": block ", bl, " size mismatch: ", a_blocks[bl].size(), " vs ", b_blocks[bl].size());
+            failures++;
+        }
+    }
+
+    // Variable count
+    if (a.get_num_variables() != b.get_num_variables()) {
+        info(label, ": variable count mismatch: ", a.get_num_variables(), " vs ", b.get_num_variables());
+        failures++;
+    }
+
+    // Copy cycle roots (distinct real_variable_index values)
+    auto count_roots = [](const UltraCircuitBuilder& builder) -> size_t {
+        std::set<uint32_t> roots;
+        for (size_t i = 0; i < builder.get_num_variables(); i++) {
+            roots.insert(builder.real_variable_index[i]);
+        }
+        return roots.size();
+    };
+    size_t a_roots = count_roots(a);
+    size_t b_roots = count_roots(b);
+    if (a_roots != b_roots) {
+        info(label, ": copy cycle roots mismatch: ", a_roots, " vs ", b_roots);
+        failures++;
+    }
+
+    // Constant count
+    if (a.constant_variable_indices.size() != b.constant_variable_indices.size()) {
+        info(label,
+             ": constant count mismatch: ",
+             a.constant_variable_indices.size(),
+             " vs ",
+             b.constant_variable_indices.size());
+        failures++;
+    }
+
+    // Range lists: same targets, same variable counts per target
+    if (a.range_lists.size() != b.range_lists.size()) {
+        info(label, ": range list count mismatch: ", a.range_lists.size(), " vs ", b.range_lists.size());
+        failures++;
+    }
+    for (const auto& [target, a_rl] : a.range_lists) {
+        auto it = b.range_lists.find(target);
+        if (it == b.range_lists.end()) {
+            info(label, ": range target ", target, " missing from second builder");
+            failures++;
+        } else if (a_rl.variable_indices.size() != it->second.variable_indices.size()) {
+            info(label,
+                 ": range target ",
+                 target,
+                 " variable count mismatch: ",
+                 a_rl.variable_indices.size(),
+                 " vs ",
+                 it->second.variable_indices.size());
+            failures++;
+        }
+    }
+
+    // Lookup tables
+    if (a.get_lookup_tables().size() != b.get_lookup_tables().size()) {
+        info(label,
+             ": lookup table count mismatch: ",
+             a.get_lookup_tables().size(),
+             " vs ",
+             b.get_lookup_tables().size());
+        failures++;
+    }
+
+    return failures;
+}
+
+// Check bit-identical circuits (every wire, selector, variable, and union-find entry must match).
+// Returns number of mismatches (0 = identical).
+size_t check_bit_identical(const std::string& label, UltraCircuitBuilder& a, UltraCircuitBuilder& b)
+{
+    size_t mismatches = 0;
+
+    auto a_blocks = a.blocks.get();
+    auto b_blocks = b.blocks.get();
+    for (size_t bl = 0; bl < UltraCircuitBuilder::ExecutionTrace::NUM_BLOCKS; bl++) {
+        if (a_blocks[bl].size() != b_blocks[bl].size()) {
+            info(label, ": block ", bl, " size mismatch: ", a_blocks[bl].size(), " vs ", b_blocks[bl].size());
+            mismatches++;
+            continue;
+        }
+        size_t count = a_blocks[bl].size();
+        for (size_t w = 0; w < 4; w++) {
+            for (size_t i = 0; i < count; i++) {
+                if (a_blocks[bl].wires[w][i] != b_blocks[bl].wires[w][i])
+                    mismatches++;
+            }
+        }
+        auto a_sels = a_blocks[bl].get_selectors();
+        auto b_sels = b_blocks[bl].get_selectors();
+        for (size_t s = 0; s < a_sels.size(); s++) {
+            for (size_t i = 0; i < count; i++) {
+                if (a_sels[s][i] != b_sels[s][i])
+                    mismatches++;
+            }
+        }
+    }
+
+    if (a.get_num_variables() != b.get_num_variables()) {
+        info(label, ": variable count mismatch");
+        mismatches++;
+    } else {
+        for (size_t i = 0; i < a.get_num_variables(); i++) {
+            if (a.real_variable_index[i] != b.real_variable_index[i])
+                mismatches++;
+        }
+    }
+
+    return mismatches;
+}
+
+// Parameterized test that runs the 3-way comparison on every acir_test program.
+class AcirTestParallelEquivalence : public ::testing::TestWithParam<std::filesystem::path> {
+  protected:
+    static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
+};
+
+TEST_P(AcirTestParallelEquivalence, SequentialN1N2)
+{
+    auto test_dir = GetParam();
+    std::string test_name = test_dir.filename().string();
+    auto program_path = test_dir / "target" / "program.json";
+    auto witness_path = test_dir / "target" / "witness.gz";
+
+    // Load bytecode and witness
+    auto bytecode = get_bytecode(program_path.string());
+    AcirFormat constraints = circuit_buf_to_acir_format(std::move(bytecode));
+    auto witness_buf = gunzip(witness_path.string());
+    WitnessVector witness = witness_buf_to_witness_vector(std::move(witness_buf));
+
+    // Print constraint breakdown for diagnostics
+    info("  quad=",
+         constraints.quad_constraints.size(),
+         " big_quad=",
+         constraints.big_quad_constraints.size(),
+         " logic=",
+         constraints.logic_constraints.size(),
+         " range=",
+         constraints.range_constraints.size(),
+         " sha256=",
+         constraints.sha256_compression.size(),
+         " ecdsa_k1=",
+         constraints.ecdsa_k1_constraints.size(),
+         " ecdsa_r1=",
+         constraints.ecdsa_r1_constraints.size(),
+         " poseidon2=",
+         constraints.poseidon2_constraints.size(),
+         " block=",
+         constraints.block_constraints.size(),
+         " msm=",
+         constraints.multi_scalar_mul_constraints.size(),
+         " ec_add=",
+         constraints.ec_add_constraints.size(),
+         " aes128=",
+         constraints.aes128_constraints.size());
+
+    // 1. Build sequentially via create_circuit (uses build_constraints)
+    AcirProgram seq_program{ constraints, WitnessVector(witness) };
+    auto seq_builder = create_circuit<UltraCircuitBuilder>(seq_program, ProgramMetadata{});
+
+    // 2. Build via parallel path with N=1
+    AcirFormat n1_constraints = constraints;
+    UltraCircuitBuilder n1_builder{ WitnessVector(witness), n1_constraints.public_inputs, false };
+    build_constraints_parallel(n1_builder, n1_constraints, ProgramMetadata{}, /*num_threads=*/1);
+
+    // 3. Build via parallel path with N=2
+    AcirFormat n2_constraints = constraints;
+    UltraCircuitBuilder n2_builder{ WitnessVector(witness), n2_constraints.public_inputs, false };
+    build_constraints_parallel(n2_builder, n2_constraints, ProgramMetadata{}, /*num_threads=*/2);
+
+    // Print block sizes for all three builders
+    {
+        auto sb = seq_builder.blocks.get();
+        auto n1b = n1_builder.blocks.get();
+        auto n2b = n2_builder.blocks.get();
+        for (size_t bl = 0; bl < UltraCircuitBuilder::ExecutionTrace::NUM_BLOCKS; bl++) {
+            if (sb[bl].size() > 0 || n1b[bl].size() > 0 || n2b[bl].size() > 0) {
+                info("  block ", bl, ": seq=", sb[bl].size(), " n1=", n1b[bl].size(), " n2=", n2b[bl].size());
+            }
+        }
+        info("  vars: seq=",
+             seq_builder.get_num_variables(),
+             " n1=",
+             n1_builder.get_num_variables(),
+             " n2=",
+             n2_builder.get_num_variables());
+    }
+
+    // All three must pass circuit checker
+    bool seq_ok = CircuitChecker::check(seq_builder);
+    bool n1_ok = CircuitChecker::check(n1_builder);
+    bool n2_ok = CircuitChecker::check(n2_builder);
+    EXPECT_TRUE(seq_ok) << test_name << ": sequential CircuitChecker failed";
+    EXPECT_TRUE(n1_ok) << test_name << ": N=1 CircuitChecker failed";
+    EXPECT_TRUE(n2_ok) << test_name << ": N=2 CircuitChecker failed";
+
+    // Sequential vs N=1: semantic equivalence (same constraints, different order)
+    size_t seq_n1_failures = check_semantic_equivalence(test_name + " seq-vs-n1", seq_builder, n1_builder);
+    EXPECT_EQ(seq_n1_failures, 0) << test_name << ": sequential vs N=1 semantic equivalence failed";
+
+    // Sequential vs N=2: semantic equivalence
+    size_t seq_n2_failures = check_semantic_equivalence(test_name + " seq-vs-n2", seq_builder, n2_builder);
+    EXPECT_EQ(seq_n2_failures, 0) << test_name << ": sequential vs N=2 semantic equivalence failed";
+
+    // N=1 vs N=2: must be bit-identical
+    size_t n1_n2_mismatches = check_bit_identical(test_name + " n1-vs-n2", n1_builder, n2_builder);
+    EXPECT_EQ(n1_n2_mismatches, 0) << test_name << ": N=1 vs N=2 bit-identical check failed";
+}
+
+INSTANTIATE_TEST_SUITE_P(AcirTests,
+                         AcirTestParallelEquivalence,
+                         ::testing::ValuesIn(collect_acir_test_programs()),
+                         [](const ::testing::TestParamInfo<std::filesystem::path>& info) {
+                             return info.param.filename().string();
+                         });

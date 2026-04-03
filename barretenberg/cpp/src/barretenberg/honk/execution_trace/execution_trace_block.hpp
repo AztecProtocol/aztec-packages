@@ -341,6 +341,34 @@ template <typename FF, size_t NUM_WIRES_> class ExecutionTraceBlock {
     size_t size() const { return data_freed_ ? cached_size_ : std::get<0>(this->wires).size(); }
 
     /**
+     * @brief Get the index of the gate most recently written (via populate_wires).
+     * @details In cursor mode, populate_wires writes at the cursor and then increments it,
+     * so the last gate is at cursor - 1. In normal mode, it's size() - 1 as usual.
+     * Must be called immediately after populate_wires (before any other writes to this block).
+     */
+    size_t last_gate_index() const
+    {
+        size_t wc = wire_active_cursor();
+        if (wc != Selector<FF>::CURSOR_DISABLED) {
+            return wc - 1;
+        }
+        return size() - 1;
+    }
+
+    /**
+     * @brief Get the index where the next gate will be written.
+     * @details In cursor mode, returns the current cursor position. In normal mode, returns size().
+     */
+    size_t next_gate_index() const
+    {
+        size_t wc = wire_active_cursor();
+        if (wc != Selector<FF>::CURSOR_DISABLED) {
+            return wc;
+        }
+        return size();
+    }
+
+    /**
      * @brief Enable cursor mode for a thread: subsequent gate writes go to position `start` and advance.
      * @details The block's wires and selectors must already be sized to accommodate the writes.
      * Used for parallel circuit construction where threads write to pre-allocated regions.

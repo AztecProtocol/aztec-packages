@@ -260,6 +260,8 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
     struct TaskBlockSizes {
         std::array<size_t, ExecutionTrace::NUM_BLOCKS> block_sizes{};
         size_t num_variables = 0;
+        size_t num_rom_arrays = 0;
+        size_t num_ram_arrays = 0;
     };
 
     /**
@@ -318,6 +320,8 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
                 running.block_sizes[b] += task_sizes[t].block_sizes[b];
             }
             running.num_variables += task_sizes[t].num_variables;
+            running.num_rom_arrays += task_sizes[t].num_rom_arrays;
+            running.num_ram_arrays += task_sizes[t].num_ram_arrays;
         }
 
         // Pre-allocate all blocks and variables to total size
@@ -353,6 +357,8 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
                     }
                 }
                 this->enable_variable_cursor(tid, static_cast<uint32_t>(offsets[first_task].num_variables));
+                rom_ram_logic.enable_rom_cursor(tid, offsets[first_task].num_rom_arrays);
+                rom_ram_logic.enable_ram_cursor(tid, offsets[first_task].num_ram_arrays);
             }
         }
 
@@ -376,6 +382,8 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
                             }
                         }
                         this->enable_variable_cursor(tid, static_cast<uint32_t>(offsets[task_idx].num_variables));
+                        rom_ram_logic.enable_rom_cursor(tid, offsets[task_idx].num_rom_arrays);
+                        rom_ram_logic.enable_ram_cursor(tid, offsets[task_idx].num_ram_arrays);
                     }
 
                     // Execute the task
@@ -395,6 +403,10 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
         for (auto& t : threads) {
             t.join();
         }
+
+        // Clear ROM/RAM cursors so subsequent sequential operations use normal path
+        rom_ram_logic.rom_id_cursors_.clear();
+        rom_ram_logic.ram_id_cursors_.clear();
 
         // Replay deferred operations
         apply_deferred_lookup_gates();
