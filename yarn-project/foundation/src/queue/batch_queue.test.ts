@@ -161,4 +161,19 @@ describe('BatchQueue', () => {
 
     expect(processSpy).toHaveBeenCalledTimes(batches);
   });
+
+  it('flushes a partial batch on stop', async () => {
+    // Add fewer items than maxBatchSize so the batch stays unflushed
+    const itemCount = maxBatchSize - 1;
+    const promises: Promise<void>[] = [];
+    for (let i = 0; i < itemCount; i++) {
+      promises.push(queue.put(i, 0));
+    }
+
+    await queue.stop();
+    await Promise.all(promises);
+
+    expect(processSpy).toHaveBeenCalledTimes(1);
+    expect(processSpy).toHaveBeenCalledWith(range(itemCount), 0);
+  });
 });
