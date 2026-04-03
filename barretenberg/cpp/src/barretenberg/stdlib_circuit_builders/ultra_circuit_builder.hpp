@@ -337,6 +337,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
         }
         this->resize_variables(running.num_variables);
         init_deferred_buffers(num_threads);
+        this->init_deferred_assert_equal_buffers(tasks.size());
 
         // Assign tasks to threads (round-robin)
         std::vector<std::vector<size_t>> thread_tasks(num_threads);
@@ -351,10 +352,10 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
         for (size_t tid = 0; tid < num_threads; tid++) {
             if (!thread_tasks[tid].empty()) {
                 size_t first_task = thread_tasks[tid][0];
+                // Enable cursors for ALL blocks, not just ones the first task uses.
+                // Later tasks on this thread may use blocks the first task doesn't.
                 for (size_t b = 0; b < ExecutionTrace::NUM_BLOCKS; b++) {
-                    if (task_sizes[first_task].block_sizes[b] > 0) {
-                        block_refs_setup[b].enable_cursor_mode(tid, offsets[first_task].block_sizes[b]);
-                    }
+                    block_refs_setup[b].enable_cursor_mode(tid, offsets[first_task].block_sizes[b]);
                 }
                 this->enable_variable_cursor(tid, static_cast<uint32_t>(offsets[first_task].num_variables));
                 rom_ram_logic.enable_rom_cursor(tid, offsets[first_task].num_rom_arrays);
@@ -377,17 +378,72 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
                     if (i > 0) {
                         auto block_refs_local = blocks.get();
                         for (size_t b = 0; b < ExecutionTrace::NUM_BLOCKS; b++) {
-                            if (task_sizes[task_idx].block_sizes[b] > 0) {
-                                block_refs_local[b].enable_cursor_mode(tid, offsets[task_idx].block_sizes[b]);
-                            }
+                            block_refs_local[b].enable_cursor_mode(tid, offsets[task_idx].block_sizes[b]);
                         }
                         this->enable_variable_cursor(tid, static_cast<uint32_t>(offsets[task_idx].num_variables));
                         rom_ram_logic.enable_rom_cursor(tid, offsets[task_idx].num_rom_arrays);
                         rom_ram_logic.enable_ram_cursor(tid, offsets[task_idx].num_ram_arrays);
                     }
 
+                    // Diagnostic: check cursor position at task start
+                    if (task_sizes[task_idx].block_sizes[4] > 0) {
+                        auto block_refs_pre = blocks.get();
+                        size_t pre_cursor = block_refs_pre[4].wire_active_cursor();
+                        size_t expected_start = offsets[task_idx].block_sizes[4];
+                        if (pre_cursor != expected_start) {
+                            info("PRE-TASK MISMATCH task ",
+                                 task_idx,
+                                 " block 4: cursor=",
+                                 pre_cursor,
+                                 " expected_start=",
+                                 expected_start);
+                        }
+                    }
+
                     // Execute the task
+                    this->set_current_task_index(task_idx);
                     tasks[task_idx](*this);
+
+                    // Diagnostic: check cursor advancement matches profiled sizes
+                    {
+                        size_t expected_var_end = offsets[task_idx].num_variables + task_sizes[task_idx].num_variables;
+                        size_t actual_var_pos = this->get_variable_cursor();
+                        if (actual_var_pos != expected_var_end) {
+                            info("CURSOR MISMATCH task ",
+                                 task_idx,
+                                 ": var cursor=",
+                                 actual_var_pos,
+                                 " expected=",
+                                 expected_var_end,
+                                 " (diff=",
+                                 static_cast<int64_t>(actual_var_pos) - static_cast<int64_t>(expected_var_end),
+                                 ")");
+                        }
+                        auto block_refs_check = blocks.get();
+                        for (size_t b = 0; b < ExecutionTrace::NUM_BLOCKS; b++) {
+                            size_t offset_b = offsets[task_idx].block_sizes[b];
+                            size_t size_b = task_sizes[task_idx].block_sizes[b];
+                            size_t expected_blk_end = offset_b + size_b;
+                            size_t actual_blk_pos = block_refs_check[b].wire_active_cursor();
+                            if (size_b > 0 && actual_blk_pos != Selector<FF>::CURSOR_DISABLED &&
+                                actual_blk_pos != expected_blk_end) {
+                                info("CURSOR MISMATCH task ",
+                                     task_idx,
+                                     " block ",
+                                     b,
+                                     ": cursor=",
+                                     actual_blk_pos,
+                                     " offset=",
+                                     offset_b,
+                                     " profiled_size=",
+                                     size_b,
+                                     " expected_end=",
+                                     expected_blk_end,
+                                     " actual_produced=",
+                                     actual_blk_pos - offset_b);
+                            }
+                        }
+                    }
                 }
 
                 // Disable all cursors for this thread
@@ -411,6 +467,17 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
         // Replay deferred operations
         apply_deferred_lookup_gates();
         apply_deferred_range_constraints();
+        {
+            size_t total_deferred = 0;
+            for (size_t t = 0; t < this->deferred_assert_equals_.size(); t++) {
+                if (!this->deferred_assert_equals_[t].empty()) {
+                    info("    task ", t, ": ", this->deferred_assert_equals_[t].size(), " deferred assert_equals");
+                }
+                total_deferred += this->deferred_assert_equals_[t].size();
+            }
+            info("  Replaying ", total_deferred, " deferred assert_equals across ", tasks.size(), " tasks");
+        }
+        this->apply_deferred_assert_equals();
     }
 
     // Rom/Ram logic
@@ -418,6 +485,10 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
 
     // Stores gate index of ROM/RAM reads (required by proving key)
     std::vector<uint32_t> memory_read_records;
+
+    // Diagnostic counters for ECC gate fusion (temporary, for debugging)
+    size_t ecc_add_fuse_count_ = 0;
+    size_t ecc_dbl_fuse_count_ = 0;
     // Stores gate index of RAM writes (required by proving key)
     std::vector<uint32_t> memory_write_records;
     // Range constraints to be batched, keyed by target_range. See create_small_range_constraint() for details.

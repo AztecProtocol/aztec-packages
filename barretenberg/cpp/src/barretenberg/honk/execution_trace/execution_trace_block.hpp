@@ -322,6 +322,7 @@ template <typename FF, size_t NUM_WIRES_> class ExecutionTraceBlock {
     bool data_freed_ = false;                                      // true after free_data() has been called
     uint32_t trace_offset_ = std::numeric_limits<uint32_t>::max(); // where this block starts in the trace
     std::vector<size_t> wire_cursors_;                             // per-thread wire cursors
+    std::vector<size_t> wire_cursor_starts_;                       // per-thread cursor start positions (task boundary)
 
     size_t wire_active_cursor() const
     {
@@ -377,11 +378,24 @@ template <typename FF, size_t NUM_WIRES_> class ExecutionTraceBlock {
     {
         if (thread_idx >= wire_cursors_.size()) {
             wire_cursors_.resize(thread_idx + 1, Selector<FF>::CURSOR_DISABLED);
+            wire_cursor_starts_.resize(thread_idx + 1, 0);
         }
         wire_cursors_[thread_idx] = start;
+        wire_cursor_starts_[thread_idx] = start;
         for (auto& sel : get_selectors()) {
             sel.enable_cursor_mode(thread_idx, start);
         }
+    }
+
+    /**
+     * @brief Get the start position of the current task's region in this block.
+     * @details Returns the position where enable_cursor_mode was last called for this thread.
+     * Used to prevent gate fusion across task boundaries.
+     */
+    size_t wire_cursor_start() const
+    {
+        auto idx = get_parallel_thread_index();
+        return (wire_cursor_starts_.empty() || idx >= wire_cursor_starts_.size()) ? 0 : wire_cursor_starts_[idx];
     }
 
     // Legacy single-thread interface

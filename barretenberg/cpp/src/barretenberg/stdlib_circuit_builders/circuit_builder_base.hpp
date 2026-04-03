@@ -58,6 +58,35 @@ template <typename FF_> class CircuitBuilderBase {
     // instead of appending. The variable vectors must be pre-sized to accommodate the writes.
     static constexpr uint32_t VARIABLE_CURSOR_DISABLED = UINT32_MAX;
 
+    // Deferred assert_equal entries for parallel construction. In cursor mode, assert_equal calls
+    // are recorded per-thread and replayed in deterministic task order after all threads join.
+    // This prevents nondeterministic union-find results when multiple threads assert_equal on
+    // the same shared ACIR witness.
+    struct DeferredAssertEqual {
+        uint32_t a_variable_idx;
+        uint32_t b_variable_idx;
+        std::string msg;
+    };
+    std::vector<std::vector<DeferredAssertEqual>> deferred_assert_equals_; // per-task
+
+    void init_deferred_assert_equal_buffers(size_t num_tasks) { deferred_assert_equals_.resize(num_tasks); }
+
+    // Set which task index the current thread is executing (for assert_equal deferral).
+    // Thread-local so concurrent threads don't overwrite each other's task index.
+    void set_current_task_index(size_t task_idx) { current_task_idx_ = task_idx; }
+    static inline thread_local size_t current_task_idx_ = 0;
+
+    void apply_deferred_assert_equals()
+    {
+        // Replay in task order (0, 1, 2, ...) for deterministic union-find results
+        for (auto& task_buf : deferred_assert_equals_) {
+            for (auto& [a, b, msg] : task_buf) {
+                assert_equal(a, b, msg);
+            }
+            task_buf.clear();
+        }
+    }
+
   private:
     std::vector<uint32_t> variable_cursors_; // per-thread variable cursors
 

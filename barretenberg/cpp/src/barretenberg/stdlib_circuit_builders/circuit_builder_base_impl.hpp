@@ -125,6 +125,13 @@ void CircuitBuilderBase<FF>::assert_equal(const uint32_t a_variable_idx,
                                           const uint32_t b_variable_idx,
                                           std::string const& msg)
 {
+    // In cursor mode, defer assert_equal to avoid nondeterministic union-find results
+    // when multiple threads modify chains rooted at the same shared witness.
+    // Deferred entries are stored per-task and replayed in task order after all threads join.
+    if (get_variable_cursor() != VARIABLE_CURSOR_DISABLED) {
+        deferred_assert_equals_[current_task_idx_].push_back({ a_variable_idx, b_variable_idx, msg });
+        return;
+    }
     assert_valid_variables({ a_variable_idx, b_variable_idx });
     bool values_equal = (get_variable(a_variable_idx) == get_variable(b_variable_idx));
     if (!values_equal && !failed()) {

@@ -1452,6 +1452,356 @@ TEST_F(PerBlockGateCountTests, SequentialVsParallelSemanticEquivalence)
     info("Wire-level differences (expected due to gate reordering): ", total_wire_diffs);
 }
 
+// Compare profiled vs real gate/variable counts for each constraint in embedded_curve_ops
+// Also check: does running on a SHARED pre-warmed builder produce different counts?
+TEST_F(PerBlockGateCountTests, MsmProfileVsRealGateCounts)
+{
+    auto acir_dir = std::filesystem::current_path();
+    for (int i = 0; i < 10; i++) {
+        auto test_dir = acir_dir / "barretenberg" / "acir_tests" / "acir_tests" / "embedded_curve_ops";
+        if (std::filesystem::exists(test_dir / "target" / "program.json")) {
+            acir_dir = test_dir;
+            break;
+        }
+        acir_dir = acir_dir.parent_path();
+    }
+    auto bytecode = get_bytecode((acir_dir / "target" / "program.json").string());
+    AcirFormat constraints = circuit_buf_to_acir_format(std::move(bytecode));
+    auto witness_buf = gunzip((acir_dir / "target" / "witness.gz").string());
+    WitnessVector witness = witness_buf_to_witness_vector(std::move(witness_buf));
+
+    size_t num_witnesses = constraints.max_witness_index + 1;
+
+    // For each MSM constraint: compare profiled (write_vk, 2nd instance) vs real (with witnesses, warmed builder)
+    for (size_t i = 0; i < constraints.multi_scalar_mul_constraints.size(); i++) {
+        auto& msm = constraints.multi_scalar_mul_constraints[i];
+
+        // Profile: write_vk mode, run twice, measure delta
+        WitnessVector dummy(num_witnesses, fr(0));
+        UltraCircuitBuilder prof_builder{ dummy, {}, true };
+        create_multi_scalar_mul_constraint(prof_builder, msm); // warmup
+        auto before = prof_builder.snapshot_block_sizes();
+        create_multi_scalar_mul_constraint(prof_builder, msm); // measure
+        auto after = prof_builder.snapshot_block_sizes();
+        auto delta = UltraCircuitBuilder::delta(before, after);
+
+        // Real: with real witnesses, warmed builder (run warmup first)
+        UltraCircuitBuilder real_builder{ WitnessVector(witness), constraints.public_inputs, false };
+        create_multi_scalar_mul_constraint(real_builder, msm); // warmup
+        auto real_before = real_builder.snapshot_block_sizes();
+        create_multi_scalar_mul_constraint(real_builder, msm); // measure
+        auto real_after = real_builder.snapshot_block_sizes();
+        auto real_delta = UltraCircuitBuilder::delta(real_before, real_after);
+
+        info("msm[", i, "] points=", msm.points.size());
+        for (size_t b = 0; b < UltraCircuitBuilder::ExecutionTrace::NUM_BLOCKS; b++) {
+            if (delta.block_sizes[b] > 0 || real_delta.block_sizes[b] > 0) {
+                info("  block ", b, ": profiled=", delta.block_sizes[b], " real=", real_delta.block_sizes[b]);
+            }
+        }
+        info("  vars: profiled=", delta.num_variables, " real=", real_delta.num_variables);
+
+        // Check ROM array counts: profiler (write_vk) vs real
+        {
+            WitnessVector dummy_w(num_witnesses, fr(0));
+            UltraCircuitBuilder vk_b{ dummy_w, {}, true };
+            size_t vk_rom_before = vk_b.rom_ram_logic.rom_arrays.size();
+            create_multi_scalar_mul_constraint(vk_b, msm);
+            size_t vk_rom_after_warmup = vk_b.rom_ram_logic.rom_arrays.size();
+            create_multi_scalar_mul_constraint(vk_b, msm);
+            size_t vk_rom_after_2nd = vk_b.rom_ram_logic.rom_arrays.size();
+
+            UltraCircuitBuilder real_b{ WitnessVector(witness), constraints.public_inputs, false };
+            size_t real_rom_before = real_b.rom_ram_logic.rom_arrays.size();
+            create_multi_scalar_mul_constraint(real_b, msm);
+            size_t real_rom_after_warmup = real_b.rom_ram_logic.rom_arrays.size();
+            create_multi_scalar_mul_constraint(real_b, msm);
+            size_t real_rom_after_2nd = real_b.rom_ram_logic.rom_arrays.size();
+
+            info("  ROM arrays: vk_warmup=",
+                 vk_rom_after_warmup - vk_rom_before,
+                 " vk_2nd=",
+                 vk_rom_after_2nd - vk_rom_after_warmup,
+                 " real_warmup=",
+                 real_rom_after_warmup - real_rom_before,
+                 " real_2nd=",
+                 real_rom_after_2nd - real_rom_after_warmup);
+        }
+
+        // CURSOR MODE TEST: warmup normally, then enable cursors and run one more MSM
+        {
+            UltraCircuitBuilder cb{ WitnessVector(witness), constraints.public_inputs, false };
+            create_multi_scalar_mul_constraint(cb, msm); // warmup (normal mode)
+            auto base = cb.snapshot_block_sizes();
+
+            // Pre-allocate and enable cursor mode (mimicking execute_parallel)
+            auto blk_refs = cb.blocks.get();
+            for (size_t b = 0; b < UltraCircuitBuilder::ExecutionTrace::NUM_BLOCKS; b++) {
+                size_t alloc = base.block_sizes[b] + delta.block_sizes[b] * 10; // very generous
+                for (auto& w : blk_refs[b].wires)
+                    w.resize(alloc, 0);
+                for (auto& s : blk_refs[b].get_selectors())
+                    s.resize(alloc);
+                blk_refs[b].enable_cursor_mode(0, base.block_sizes[b]);
+            }
+            cb.resize_variables(base.num_variables + delta.num_variables * 3);
+            cb.enable_variable_cursor(0, static_cast<uint32_t>(base.num_variables));
+            // Pre-create ROM arrays for cursor mode
+            size_t warmup_roms = cb.rom_ram_logic.rom_arrays.size();
+            // We need to figure out how many per instance. Use the profiler's data.
+            // rom_before was captured in the profiling section above... but it's out of scope.
+            // Let's just pre-create the same number as warmup created (1 instance = N roms)
+            for (size_t r = 0; r < warmup_roms; r++) {
+                size_t sz = cb.rom_ram_logic.rom_arrays[r].state.size();
+                cb.rom_ram_logic.create_ROM_array(sz);
+            }
+            cb.rom_ram_logic.enable_rom_cursor(0, warmup_roms);
+            cb.rom_ram_logic.enable_ram_cursor(0, 0);
+            cb.init_deferred_buffers(1);
+
+            set_parallel_thread_index(0);
+            info("  cursor mode: rom_arrays=",
+                 cb.rom_ram_logic.rom_arrays.size(),
+                 " rom_cursor_active=",
+                 cb.rom_ram_logic.rom_cursor_active(),
+                 " vars=",
+                 cb.get_num_variables(),
+                 " var_cursor=",
+                 cb.get_variable_cursor());
+            create_multi_scalar_mul_constraint(cb, msm);
+
+            // Report per-block cursor advancement
+            info("  CURSOR MODE (manual):");
+            auto blk_refs2 = cb.blocks.get();
+            for (size_t b = 0; b < UltraCircuitBuilder::ExecutionTrace::NUM_BLOCKS; b++) {
+                size_t cursor_pos = blk_refs2[b].wire_active_cursor();
+                size_t produced = cursor_pos - base.block_sizes[b];
+                if (produced > 0 || delta.block_sizes[b] > 0) {
+                    info("    block ",
+                         b,
+                         ": produced=",
+                         produced,
+                         " profiled=",
+                         delta.block_sizes[b],
+                         produced != delta.block_sizes[b] ? " MISMATCH" : " ok");
+                }
+            }
+        }
+
+        // Shared builder: pre-warmed by running MSM once (warmup), then measure a SINGLE run
+        // But also pre-register constants from the warmup so the cache is populated
+        // This matches what execute_parallel does: setup first, then each task runs once
+        {
+            // Run warmup on a throwaway to extract constants/range lists
+            UltraCircuitBuilder warmup_builder{ WitnessVector(witness), constraints.public_inputs, false };
+            create_multi_scalar_mul_constraint(warmup_builder, msm);
+
+            // Create shared builder, pre-register constants from warmup
+            UltraCircuitBuilder shared_builder{ WitnessVector(witness), constraints.public_inputs, false };
+            for (const auto& [val, idx] : warmup_builder.constant_variable_indices) {
+                shared_builder.put_constant_variable(val);
+            }
+            for (const auto& [target, rl] : warmup_builder.range_lists) {
+                if (shared_builder.range_lists.count(target) == 0) {
+                    shared_builder.range_lists.insert({ target, shared_builder.create_range_list(target) });
+                }
+            }
+            for (const auto& table : warmup_builder.get_lookup_tables()) {
+                shared_builder.get_table(table.id);
+            }
+
+            // Now run MSM once (no warmup on this builder) — this is what execute_parallel does
+            auto shared_before = shared_builder.snapshot_block_sizes();
+            create_multi_scalar_mul_constraint(shared_builder, msm);
+            auto shared_after = shared_builder.snapshot_block_sizes();
+            auto shared_delta = UltraCircuitBuilder::delta(shared_before, shared_after);
+            info("  SHARED (pre-warmed, single run):");
+            for (size_t b = 0; b < UltraCircuitBuilder::ExecutionTrace::NUM_BLOCKS; b++) {
+                if (shared_delta.block_sizes[b] > 0 || delta.block_sizes[b] > 0) {
+                    info("    block ", b, ": shared=", shared_delta.block_sizes[b], " profiled=", delta.block_sizes[b]);
+                }
+            }
+            info("    vars: shared=", shared_delta.num_variables, " profiled=", delta.num_variables);
+        }
+    }
+
+    // Same for ec_add
+    for (size_t i = 0; i < constraints.ec_add_constraints.size(); i++) {
+        auto& ec = constraints.ec_add_constraints[i];
+
+        WitnessVector dummy(num_witnesses, fr(0));
+        UltraCircuitBuilder prof_builder{ dummy, {}, true };
+        create_ec_add_constraint(prof_builder, ec);
+        auto before = prof_builder.snapshot_block_sizes();
+        create_ec_add_constraint(prof_builder, ec);
+        auto after = prof_builder.snapshot_block_sizes();
+        auto delta = UltraCircuitBuilder::delta(before, after);
+
+        UltraCircuitBuilder real_builder{ WitnessVector(witness), constraints.public_inputs, false };
+        create_ec_add_constraint(real_builder, ec);
+        auto real_before = real_builder.snapshot_block_sizes();
+        create_ec_add_constraint(real_builder, ec);
+        auto real_after = real_builder.snapshot_block_sizes();
+        auto real_delta = UltraCircuitBuilder::delta(real_before, real_after);
+
+        info("ec_add[",
+             i,
+             "]",
+             " profiled: blk2=",
+             delta.block_sizes[2],
+             " vars=",
+             delta.num_variables,
+             " real: blk2=",
+             real_delta.block_sizes[2],
+             " vars=",
+             real_delta.num_variables);
+    }
+}
+
+// Test: MSM-only from embedded_curve_ops, N=1 vs N=2 bit-identical check
+TEST_F(PerBlockGateCountTests, MsmOnlyN1vsN2)
+{
+    auto acir_dir = std::filesystem::current_path();
+    for (int i = 0; i < 10; i++) {
+        auto test_dir = acir_dir / "barretenberg" / "acir_tests" / "acir_tests" / "embedded_curve_ops";
+        if (std::filesystem::exists(test_dir / "target" / "program.json")) {
+            acir_dir = test_dir;
+            break;
+        }
+        acir_dir = acir_dir.parent_path();
+    }
+    auto bytecode = get_bytecode((acir_dir / "target" / "program.json").string());
+    AcirFormat constraints = circuit_buf_to_acir_format(std::move(bytecode));
+    auto witness_buf = gunzip((acir_dir / "target" / "witness.gz").string());
+    WitnessVector witness = witness_buf_to_witness_vector(std::move(witness_buf));
+
+    // Keep everything (quads + MSMs + ec_add)
+
+    // N=1
+    AcirFormat n1c = constraints;
+    UltraCircuitBuilder n1{ WitnessVector(witness), n1c.public_inputs, false };
+    build_constraints_parallel(n1, n1c, ProgramMetadata{}, 1);
+
+    // N=2
+    AcirFormat n2c = constraints;
+    UltraCircuitBuilder n2{ WitnessVector(witness), n2c.public_inputs, false };
+    build_constraints_parallel(n2, n2c, ProgramMetadata{}, 2);
+
+    size_t num_vars = std::min(n1.get_num_variables(), n2.get_num_variables());
+    size_t mismatches = 0;
+    for (size_t i = 0; i < num_vars; i++) {
+        if (n1.real_variable_index[i] != n2.real_variable_index[i]) {
+            if (mismatches < 5)
+                info("  DIFF var=", i, " n1=", n1.real_variable_index[i], " n2=", n2.real_variable_index[i]);
+            mismatches++;
+        }
+    }
+    info("MSM-only: ", mismatches, " real_variable_index mismatches");
+    EXPECT_EQ(mismatches, 0);
+}
+
+// Minimal repro: two ec_add constraints sharing input witnesses.
+// ec_add internally calls assert_equal on input witnesses via cycle_group construction.
+TEST_F(PerBlockGateCountTests, SharedWitnessAssertEqualRepro)
+{
+    // We need two ec_add constraints that share some input witness indices.
+    // ec_add takes: input1_x, input1_y, input1_infinite, input2_x, input2_y, input2_infinite,
+    //               predicate, result_x, result_y, result_infinite
+    //
+    // Make ec_add #1 and #2 share input1_x (witness 0).
+
+    AcirFormat constraints{};
+    constraints.num_acir_opcodes = 2;
+
+    // ec_add #1: input1=(w0,w1,w2), input2=(w3,w4,w5), pred=constant true, result=(w6,w7,w8)
+    EcAdd ec1;
+    ec1.input1_x = WitnessOrConstant<fr>::from_index(0);
+    ec1.input1_y = WitnessOrConstant<fr>::from_index(1);
+    ec1.input1_infinite = WitnessOrConstant<fr>::from_index(2);
+    ec1.input2_x = WitnessOrConstant<fr>::from_index(3);
+    ec1.input2_y = WitnessOrConstant<fr>::from_index(4);
+    ec1.input2_infinite = WitnessOrConstant<fr>::from_index(5);
+    ec1.predicate = WitnessOrConstant<fr>{ .value = 1, .is_constant = true };
+    ec1.result_x = 6;
+    ec1.result_y = 7;
+    ec1.result_infinite = 8;
+
+    // ec_add #2: input1=(w0,w9,w10), input2=(w11,w12,w13), pred=constant true, result=(w14,w15,w16)
+    // NOTE: w0 is shared with ec_add #1
+    EcAdd ec2;
+    ec2.input1_x = WitnessOrConstant<fr>::from_index(0); // shared!
+    ec2.input1_y = WitnessOrConstant<fr>::from_index(9);
+    ec2.input1_infinite = WitnessOrConstant<fr>::from_index(10);
+    ec2.input2_x = WitnessOrConstant<fr>::from_index(11);
+    ec2.input2_y = WitnessOrConstant<fr>::from_index(12);
+    ec2.input2_infinite = WitnessOrConstant<fr>::from_index(13);
+    ec2.predicate = WitnessOrConstant<fr>{ .value = 1, .is_constant = true };
+    ec2.result_x = 14;
+    ec2.result_y = 15;
+    ec2.result_infinite = 16;
+
+    constraints.ec_add_constraints = { ec1, ec2 };
+    constraints.max_witness_index = 16;
+
+    // Use generator point coordinates as valid witnesses
+    auto gen = bb::grumpkin::g1::affine_one;
+    auto gen2 = bb::grumpkin::g1::affine_element(bb::grumpkin::g1::one + bb::grumpkin::g1::one);
+    auto gen3 = bb::grumpkin::g1::affine_element(bb::grumpkin::g1::one + bb::grumpkin::g1::one + bb::grumpkin::g1::one);
+
+    WitnessVector witness(17, fr(0));
+    // ec_add #1: point1 = gen, point2 = gen2
+    witness[0] = gen.x;
+    witness[1] = gen.y;
+    witness[2] = fr(0); // not infinite
+    witness[3] = gen2.x;
+    witness[4] = gen2.y;
+    witness[5] = fr(0);
+    // result = gen + gen2 = gen3
+    witness[6] = gen3.x;
+    witness[7] = gen3.y;
+    witness[8] = fr(0);
+    // ec_add #2: point1 = (gen.x, gen2.y) — intentionally a non-valid point, but we're testing
+    // assert_equal behavior, not circuit correctness. Use write_vk-style dummy values.
+    witness[9] = gen.y;
+    witness[10] = fr(0);
+    witness[11] = gen2.x;
+    witness[12] = gen2.y;
+    witness[13] = fr(0);
+    witness[14] = gen3.x;
+    witness[15] = gen3.y;
+    witness[16] = fr(0);
+
+    // Build N=1
+    AcirFormat n1_constraints = constraints;
+    UltraCircuitBuilder n1_builder{ WitnessVector(witness), n1_constraints.public_inputs, false };
+    build_constraints_parallel(n1_builder, n1_constraints, ProgramMetadata{}, /*num_threads=*/1);
+
+    // Build N=2
+    AcirFormat n2_constraints = constraints;
+    UltraCircuitBuilder n2_builder{ WitnessVector(witness), n2_constraints.public_inputs, false };
+    build_constraints_parallel(n2_builder, n2_constraints, ProgramMetadata{}, /*num_threads=*/2);
+
+    // Check bit-identical real_variable_index
+    EXPECT_EQ(n1_builder.get_num_variables(), n2_builder.get_num_variables());
+    size_t num_vars = std::min(n1_builder.get_num_variables(), n2_builder.get_num_variables());
+    size_t real_idx_mismatches = 0;
+    for (size_t i = 0; i < num_vars; i++) {
+        if (n1_builder.real_variable_index[i] != n2_builder.real_variable_index[i]) {
+            if (real_idx_mismatches < 5) {
+                info("  REAL_VAR_IDX DIFF var=",
+                     i,
+                     " n1=",
+                     n1_builder.real_variable_index[i],
+                     " n2=",
+                     n2_builder.real_variable_index[i]);
+            }
+            real_idx_mismatches++;
+        }
+    }
+    info("Total real_variable_index mismatches: ", real_idx_mismatches);
+    EXPECT_EQ(real_idx_mismatches, 0) << "N=1 vs N=2 real_variable_index differs";
+}
+
 // Find the acir_tests directory relative to the source tree
 std::filesystem::path find_acir_tests_dir()
 {
@@ -1492,7 +1842,7 @@ std::vector<std::filesystem::path> collect_acir_test_programs()
 // Check semantic equivalence between two builders: same block sizes, variable counts,
 // copy cycle structure, constants, range lists, and lookup tables.
 // Returns number of failures (0 = all invariants hold).
-size_t check_semantic_equivalence(const std::string& label, const UltraCircuitBuilder& a, const UltraCircuitBuilder& b)
+size_t check_semantic_equivalence(const std::string& label, UltraCircuitBuilder& a, UltraCircuitBuilder& b)
 {
     size_t failures = 0;
 
@@ -1512,29 +1862,56 @@ size_t check_semantic_equivalence(const std::string& label, const UltraCircuitBu
         failures++;
     }
 
-    // Copy cycle roots (distinct real_variable_index values)
-    auto count_roots = [](const UltraCircuitBuilder& builder) -> size_t {
-        std::set<uint32_t> roots;
+    // Copy cycles: compare as sorted list of (value, cycle_size) pairs.
+    // Each cycle is a set of variables with the same real_variable_index root.
+    // The cycle's "value" is the field element at that root (all vars in the cycle share it).
+    // This checks that the same groups of variables are assert_equal'd, up to reordering.
+    auto collect_cycles = [](const UltraCircuitBuilder& builder) -> std::vector<std::pair<bb::fr, size_t>> {
+        std::map<uint32_t, size_t> root_sizes;
         for (size_t i = 0; i < builder.get_num_variables(); i++) {
-            roots.insert(builder.real_variable_index[i]);
+            root_sizes[builder.real_variable_index[i]]++;
         }
-        return roots.size();
+        std::vector<std::pair<bb::fr, size_t>> cycles;
+        cycles.reserve(root_sizes.size());
+        for (const auto& [root, sz] : root_sizes) {
+            cycles.emplace_back(builder.get_variable(root), sz);
+        }
+        std::sort(cycles.begin(), cycles.end(), [](const auto& x, const auto& y) {
+            if (x.second != y.second)
+                return x.second < y.second;
+            return x.first < y.first;
+        });
+        return cycles;
     };
-    size_t a_roots = count_roots(a);
-    size_t b_roots = count_roots(b);
-    if (a_roots != b_roots) {
-        info(label, ": copy cycle roots mismatch: ", a_roots, " vs ", b_roots);
+    auto a_cycles = collect_cycles(a);
+    auto b_cycles = collect_cycles(b);
+    if (a_cycles.size() != b_cycles.size()) {
+        info(label, ": copy cycle count mismatch: ", a_cycles.size(), " vs ", b_cycles.size());
         failures++;
+    } else {
+        size_t cycle_mismatches = 0;
+        for (size_t i = 0; i < a_cycles.size(); i++) {
+            if (a_cycles[i] != b_cycles[i]) {
+                cycle_mismatches++;
+            }
+        }
+        if (cycle_mismatches > 0) {
+            info(label, ": ", cycle_mismatches, " copy cycle (value, size) mismatches out of ", a_cycles.size());
+            failures++;
+        }
     }
 
-    // Constant count
-    if (a.constant_variable_indices.size() != b.constant_variable_indices.size()) {
-        info(label,
-             ": constant count mismatch: ",
-             a.constant_variable_indices.size(),
-             " vs ",
-             b.constant_variable_indices.size());
-        failures++;
+    // Constants: same set of constant values (not just count)
+    {
+        std::set<bb::fr> a_consts, b_consts;
+        for (const auto& [val, _] : a.constant_variable_indices)
+            a_consts.insert(val);
+        for (const auto& [val, _] : b.constant_variable_indices)
+            b_consts.insert(val);
+        if (a_consts != b_consts) {
+            info(label, ": constant value sets differ: a has ", a_consts.size(), " b has ", b_consts.size());
+            failures++;
+        }
     }
 
     // Range lists: same targets, same variable counts per target
@@ -1556,6 +1933,53 @@ size_t check_semantic_equivalence(const std::string& label, const UltraCircuitBu
                  " vs ",
                  it->second.variable_indices.size());
             failures++;
+        }
+    }
+
+    // Gate multiset comparison: for each block, collect all gate tuples (resolved wire values +
+    // selector values), sort them, and compare. This checks that the same gates exist in both
+    // circuits regardless of ordering.
+    {
+        auto a_blks = a.blocks.get();
+        auto b_blks = b.blocks.get();
+        for (size_t bl = 0; bl < UltraCircuitBuilder::ExecutionTrace::NUM_BLOCKS; bl++) {
+            if (a_blks[bl].size() != b_blks[bl].size()) {
+                continue; // already reported as block size mismatch
+            }
+            size_t count = a_blks[bl].size();
+            if (count == 0) {
+                continue;
+            }
+
+            // Collect gate tuples: 4 resolved wire values + all selector values
+            auto a_sels = a_blks[bl].get_selectors();
+            auto b_sels = b_blks[bl].get_selectors();
+            size_t tuple_size = 4 + a_sels.size();
+
+            auto collect_tuples = [&](const auto& blk, const auto& sels, const UltraCircuitBuilder& builder) {
+                std::vector<std::vector<bb::fr>> tuples;
+                tuples.reserve(count);
+                for (size_t i = 0; i < count; i++) {
+                    std::vector<bb::fr> t(tuple_size);
+                    for (size_t w = 0; w < 4; w++) {
+                        t[w] = builder.get_variable(blk.wires[w][i]);
+                    }
+                    for (size_t s = 0; s < sels.size(); s++) {
+                        t[4 + s] = sels[s][i];
+                    }
+                    tuples.push_back(std::move(t));
+                }
+                std::sort(tuples.begin(), tuples.end());
+                return tuples;
+            };
+
+            auto a_tuples = collect_tuples(a_blks[bl], a_sels, a);
+            auto b_tuples = collect_tuples(b_blks[bl], b_sels, b);
+
+            if (a_tuples != b_tuples) {
+                info(label, ": block ", bl, " gate multiset mismatch (", count, " gates)");
+                failures++;
+            }
         }
     }
 
@@ -1662,18 +2086,24 @@ TEST_P(AcirTestParallelEquivalence, SequentialN1N2)
          constraints.aes128_constraints.size());
 
     // 1. Build sequentially via create_circuit (uses build_constraints)
+    info("  building sequential...");
     AcirProgram seq_program{ constraints, WitnessVector(witness) };
     auto seq_builder = create_circuit<UltraCircuitBuilder>(seq_program, ProgramMetadata{});
+    info("  sequential done");
 
     // 2. Build via parallel path with N=1
+    info("=== N=1 BUILD START ===");
     AcirFormat n1_constraints = constraints;
     UltraCircuitBuilder n1_builder{ WitnessVector(witness), n1_constraints.public_inputs, false };
     build_constraints_parallel(n1_builder, n1_constraints, ProgramMetadata{}, /*num_threads=*/1);
+    info("=== N=1 BUILD END ===");
 
     // 3. Build via parallel path with N=2
+    info("=== N=2 BUILD START ===");
     AcirFormat n2_constraints = constraints;
     UltraCircuitBuilder n2_builder{ WitnessVector(witness), n2_constraints.public_inputs, false };
     build_constraints_parallel(n2_builder, n2_constraints, ProgramMetadata{}, /*num_threads=*/2);
+    info("=== N=2 BUILD END ===");
 
     // Print block sizes for all three builders
     {
@@ -1691,6 +2121,18 @@ TEST_P(AcirTestParallelEquivalence, SequentialN1N2)
              n1_builder.get_num_variables(),
              " n2=",
              n2_builder.get_num_variables());
+        info("  ecc_fusions: seq_add=",
+             seq_builder.ecc_add_fuse_count_,
+             " seq_dbl=",
+             seq_builder.ecc_dbl_fuse_count_,
+             " n1_add=",
+             n1_builder.ecc_add_fuse_count_,
+             " n1_dbl=",
+             n1_builder.ecc_dbl_fuse_count_,
+             " n2_add=",
+             n2_builder.ecc_add_fuse_count_,
+             " n2_dbl=",
+             n2_builder.ecc_dbl_fuse_count_);
         info("  constants: seq=",
              seq_builder.constant_variable_indices.size(),
              " n1=",
@@ -1734,6 +2176,46 @@ TEST_P(AcirTestParallelEquivalence, SequentialN1N2)
 
     // N=1 vs N=2: must be bit-identical
     size_t n1_n2_mismatches = check_bit_identical(test_name + " n1-vs-n2", n1_builder, n2_builder);
+    if (n1_n2_mismatches > 0) {
+        // Print first few wire mismatches
+        auto n1b = n1_builder.blocks.get();
+        auto n2b = n2_builder.blocks.get();
+        size_t printed = 0;
+        for (size_t b = 0; b < UltraCircuitBuilder::ExecutionTrace::NUM_BLOCKS && printed < 5; b++) {
+            size_t count = std::min(n1b[b].size(), n2b[b].size());
+            for (size_t w = 0; w < 4 && printed < 5; w++) {
+                for (size_t i = 0; i < count && printed < 5; i++) {
+                    if (n1b[b].wires[w][i] != n2b[b].wires[w][i]) {
+                        info("  WIRE DIFF block=",
+                             b,
+                             " gate=",
+                             i,
+                             " wire=",
+                             w,
+                             " n1=",
+                             n1b[b].wires[w][i],
+                             " n2=",
+                             n2b[b].wires[w][i]);
+                        printed++;
+                    }
+                }
+            }
+        }
+        // Print first few real_variable_index mismatches
+        size_t num_vars = std::min(n1_builder.get_num_variables(), n2_builder.get_num_variables());
+        printed = 0;
+        for (size_t i = 0; i < num_vars && printed < 5; i++) {
+            if (n1_builder.real_variable_index[i] != n2_builder.real_variable_index[i]) {
+                info("  REAL_VAR_IDX DIFF var=",
+                     i,
+                     " n1=",
+                     n1_builder.real_variable_index[i],
+                     " n2=",
+                     n2_builder.real_variable_index[i]);
+                printed++;
+            }
+        }
+    }
     EXPECT_EQ(n1_n2_mismatches, 0) << test_name << ": N=1 vs N=2 bit-identical check failed";
 }
 

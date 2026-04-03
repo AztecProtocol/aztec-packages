@@ -378,15 +378,40 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_ecc_add_gate(const ecc_add_gat
     // The elliptic curve relation assumes q_sign² = 1 (see elliptic_relation.hpp)
     const FF q_sign = in.is_addition ? FF(1) : FF(-1);
 
-    // Determine whether we can fuse this addition operation into the previous gate in the block
-    bool can_fuse_into_previous_gate =
-        block.size() > 0 &&                       /* a previous gate exists in the block */
-        block.w_r()[block.size() - 1] == in.x1 && /* output x coord of previous gate is input of this one */
-        block.w_o()[block.size() - 1] == in.y1;   /* output y coord of previous gate is input of this one */
+    // Determine whether we can fuse this addition operation into the previous gate in the block.
+    // NOTE: This fusion decision depends on wire VALUES (witness-dependent). In sequential mode this is
+    // deterministic for a given witness. For future work-stealing parallelism where task execution order
+    // may differ, this fusion pattern could vary and must be handled (e.g., by disabling fusion in
+    // parallel mode or by ensuring tasks that chain elliptic ops are never split across threads).
+    //
+    // In cursor mode, use the cursor position (not block.size()) to find the previous gate.
+    // NOTE: This fusion decision depends on wire VALUES (witness-dependent). In sequential mode this is
+    // deterministic for a given witness. For future work-stealing parallelism where task execution order
+    // may differ, this fusion pattern could vary and must be handled (e.g., by disabling fusion in
+    // parallel mode or by ensuring tasks that chain elliptic ops are never split across threads).
+    //
+    // In cursor mode, use cursor position to find the previous gate (not block.size() which returns
+    // the pre-allocated total). We can only fuse if the cursor has advanced (i.e., we've written at
+    // least one gate in this task's region).
+    // Use cursor position in cursor mode, block.size() otherwise.
+    size_t cursor = block.wire_active_cursor();
+    bool can_fuse_into_previous_gate;
+    size_t prev_idx;
+    if (cursor != Selector<FF>::CURSOR_DISABLED) {
+        prev_idx = cursor - 1;
+        can_fuse_into_previous_gate = cursor > 0 && block.w_r()[prev_idx] == in.x1 && block.w_o()[prev_idx] == in.y1;
+    } else {
+        prev_idx = block.size() - 1;
+        can_fuse_into_previous_gate =
+            block.size() > 0 && block.w_r()[prev_idx] == in.x1 && block.w_o()[prev_idx] == in.y1;
+    }
+    if (can_fuse_into_previous_gate) {
+        ecc_add_fuse_count_++;
+    }
 
     if (can_fuse_into_previous_gate) {
-        block.q_1().set(block.size() - 1, q_sign);   // set q_sign of previous gate
-        block.q_elliptic().set(block.size() - 1, 1); // set q_ecc of previous gate to 1
+        block.q_1().set(prev_idx, q_sign);   // set q_sign of previous gate
+        block.q_elliptic().set(prev_idx, 1); // set q_ecc of previous gate to 1
     } else {
         block.populate_wires(this->zero_idx(), in.x1, in.y1, this->zero_idx());
         block.q_3().emplace_back(0);
@@ -427,16 +452,26 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_ecc_dbl_gate(const ecc_dbl_gat
 
     auto& block = blocks.elliptic;
 
-    // Determine whether we can fuse this doubling operation into the previous gate in the block
-    bool can_fuse_into_previous_gate =
-        block.size() > 0 &&                       /* a previous gate exists in the block */
-        block.w_r()[block.size() - 1] == in.x1 && /* output x coord of previous gate is input of this one */
-        block.w_o()[block.size() - 1] == in.y1;   /* output y coord of previous gate is input of this one */
+    size_t dbl_cursor = block.wire_active_cursor();
+    bool can_fuse_into_previous_gate;
+    size_t dbl_prev_idx;
+    if (dbl_cursor != Selector<FF>::CURSOR_DISABLED) {
+        dbl_prev_idx = dbl_cursor - 1;
+        can_fuse_into_previous_gate =
+            dbl_cursor > 0 && block.w_r()[dbl_prev_idx] == in.x1 && block.w_o()[dbl_prev_idx] == in.y1;
+    } else {
+        dbl_prev_idx = block.size() - 1;
+        can_fuse_into_previous_gate =
+            block.size() > 0 && block.w_r()[dbl_prev_idx] == in.x1 && block.w_o()[dbl_prev_idx] == in.y1;
+    }
+    if (can_fuse_into_previous_gate) {
+        ecc_dbl_fuse_count_++;
+    }
 
     // If possible, update the previous gate to be the first gate in the pair, otherwise create a new gate
     if (can_fuse_into_previous_gate) {
-        block.q_elliptic().set(block.size() - 1, 1); // set q_ecc of previous gate to 1
-        block.q_m().set(block.size() - 1, 1);        // set q_m (q_is_double) of previous gate to 1
+        block.q_elliptic().set(dbl_prev_idx, 1); // set q_ecc of previous gate to 1
+        block.q_m().set(dbl_prev_idx, 1);        // set q_m (q_is_double) of previous gate to 1
     } else {
         block.populate_wires(this->zero_idx(), in.x1, in.y1, this->zero_idx());
         block.q_m().emplace_back(1);
@@ -486,7 +521,7 @@ uint32_t UltraCircuitBuilder_<ExecutionTrace>::put_constant_variable(const FF& v
         return constant_variable_indices.at(variable);
     }
     // In cursor mode (parallel construction), don't insert into the shared cache.
-    // The cache is read-only after warmup; new constants get fresh variables without deduplication.
+    // New constants that weren't pre-registered get fresh variables without deduplication.
     if (this->get_variable_cursor() != this->VARIABLE_CURSOR_DISABLED) {
         uint32_t variable_index = this->add_variable(variable);
         fix_witness(variable_index, variable);
