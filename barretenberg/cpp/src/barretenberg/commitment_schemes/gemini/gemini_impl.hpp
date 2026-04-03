@@ -137,8 +137,8 @@ std::vector<typename GeminiProver_<Curve>::Polynomial> GeminiProver_<Curve>::com
         // size of the previous polynomial/2
         const size_t n_l = 1 << (log_n - l - 1);
 
-        // Opening point is the same for all
-        const Fr u_l = multilinear_challenge[l];
+        // Opening point is the same for all; use zero for rounds beyond the challenge size
+        const Fr u_l = l < virtual_log_n ? multilinear_challenge[l] : Fr(0);
 
         // A_l_fold = Aₗ₊₁(X) = (1-uₗ)⋅even(Aₗ)(X) + uₗ⋅odd(Aₗ)(X)
         auto A_l_fold = fold_polynomials[l].data();
@@ -161,7 +161,7 @@ std::vector<typename GeminiProver_<Curve>::Polynomial> GeminiProver_<Curve>::com
     // value at every point, (f(X) - f(x)) / (X - x) = 0, so these contribute nothing to the Shplonk quotient Q(X).
     // On the verifier side, padding_indicator_array zeros their contributions independently.
     const auto& last = fold_polynomials.back();
-    const Fr u_last = multilinear_challenge[log_n - 1];
+    const Fr u_last = (log_n - 1) < virtual_log_n ? multilinear_challenge[log_n - 1] : Fr(0);
     const Fr final_eval = last.at(0) + u_last * (last.at(1) - last.at(0));
     Polynomial const_fold(1);
     const_fold.at(0) = final_eval;
