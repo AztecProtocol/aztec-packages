@@ -55,6 +55,8 @@ void scale_by_generator(Fr* coeffs,
                         const Fr& generator_shift,
                         const size_t generator_size)
 {
+    BB_ASSERT(generator_size % domain.num_threads == 0,
+              "generator_size must be divisible by num_threads to avoid silently skipping elements");
     parallel_for(domain.num_threads, [&](size_t j) {
         Fr thread_shift = generator_shift.pow(static_cast<uint64_t>(j * (generator_size / domain.num_threads)));
         Fr work_generator = generator_start * thread_shift;
