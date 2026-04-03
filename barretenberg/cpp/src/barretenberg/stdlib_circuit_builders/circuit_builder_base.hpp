@@ -66,6 +66,7 @@ template <typename FF_> class CircuitBuilderBase {
         uint32_t a_variable_idx;
         uint32_t b_variable_idx;
         std::string msg;
+        bool operator==(const DeferredAssertEqual&) const = default;
     };
     std::vector<std::vector<DeferredAssertEqual>> deferred_assert_equals_; // per-task
 
