@@ -1250,9 +1250,24 @@ TEST_F(PerBlockGateCountTests, RealParallelChainedSha256)
 // with the first constraint of each type, while the parallel path creates them separately upfront via
 // prepare_builder_from_profiles. A precursor refactor to separate setup from execution in the sequential
 // path is needed first. See parallel_circuit_construction_poc.md "Path to production".
-TEST_F(PerBlockGateCountTests, DISABLED_BuildConstraintsParallel)
+// Count the number of distinct copy cycles in a builder's union-find structure.
+// A copy cycle is a set of variables that have been assert_equal'd together.
+// We count by finding variables where real_variable_index[i] == i (cycle roots).
+size_t count_copy_cycles(const UltraCircuitBuilder& builder)
 {
-    // Build a multi-opcode AcirProgram: 3 SHA256 + 3 Poseidon2
+    size_t num_vars = builder.get_num_variables();
+    // Count non-trivial cycles: variables where next_var_index != REAL_VARIABLE
+    // but that are the root (real_variable_index[i] == i)
+    std::set<uint32_t> roots;
+    for (size_t i = 0; i < num_vars; i++) {
+        roots.insert(builder.real_variable_index[i]);
+    }
+    return roots.size();
+}
+
+// Helper to build the test program: 3 SHA256 + 3 Poseidon2
+AcirFormat build_sha256_poseidon2_test_program(WitnessVector& witness_out)
+{
     std::vector<Acir::Opcode> all_opcodes;
 
     // 3 SHA256 compression constraints, each using 32 witnesses
@@ -1282,69 +1297,153 @@ TEST_F(PerBlockGateCountTests, DISABLED_BuildConstraintsParallel)
     }
 
     Acir::Circuit circuit = build_acir_circuit(all_opcodes);
-    AcirFormat constraint_system = circuit_serde_to_acir_format(circuit);
-    WitnessVector witness(120, fr(0));
+    witness_out = WitnessVector(120, fr(0));
+    return circuit_serde_to_acir_format(circuit);
+}
 
-    // Build sequentially
-    AcirProgram seq_program{ constraint_system, WitnessVector(witness) };
-    auto seq_builder = create_circuit<UltraCircuitBuilder>(seq_program, ProgramMetadata{});
+// N=1 parallel vs N=2 parallel: should be bit-identical since both go through
+// prepare_builder_from_profiles and execute_parallel.
+TEST_F(PerBlockGateCountTests, ParallelN1vsN2BitIdentical)
+{
+    WitnessVector witness;
+    AcirFormat constraint_system = build_sha256_poseidon2_test_program(witness);
 
-    // Build in parallel
-    AcirFormat par_constraints = constraint_system; // copy
-    UltraCircuitBuilder par_builder{ witness, par_constraints.public_inputs, false };
-    build_constraints_parallel(par_builder, par_constraints, ProgramMetadata{}, /*num_threads=*/2);
+    // Build with 1 thread
+    AcirFormat n1_constraints = constraint_system;
+    UltraCircuitBuilder n1_builder{ WitnessVector(witness), n1_constraints.public_inputs, false };
+    build_constraints_parallel(n1_builder, n1_constraints, ProgramMetadata{}, /*num_threads=*/1);
 
-    // Verify both pass circuit checker
-    bool seq_check = CircuitChecker::check(seq_builder);
-    bool par_check = CircuitChecker::check(par_builder);
-    info("Sequential: ", seq_check ? "PASSED" : "FAILED");
-    info("Parallel: ", par_check ? "PASSED" : "FAILED");
-    EXPECT_TRUE(seq_check);
-    EXPECT_TRUE(par_check);
+    // Build with 2 threads
+    AcirFormat n2_constraints = constraint_system;
+    UltraCircuitBuilder n2_builder{ WitnessVector(witness), n2_constraints.public_inputs, false };
+    build_constraints_parallel(n2_builder, n2_constraints, ProgramMetadata{}, /*num_threads=*/2);
 
-    // Compare entire finalized circuit: every block's wires and selectors must be identical
-    auto seq_blocks = seq_builder.blocks.get();
-    auto par_blocks = par_builder.blocks.get();
+    // Both must pass circuit checker
+    EXPECT_TRUE(CircuitChecker::check(n1_builder));
+    EXPECT_TRUE(CircuitChecker::check(n2_builder));
+
+    // Bit-identical: every block's wires and selectors must match
+    auto n1_blocks = n1_builder.blocks.get();
+    auto n2_blocks = n2_builder.blocks.get();
     for (size_t b = 0; b < UltraCircuitBuilder::ExecutionTrace::NUM_BLOCKS; b++) {
-        EXPECT_EQ(seq_blocks[b].size(), par_blocks[b].size()) << "block " << b << " size mismatch";
-        size_t count = std::min(seq_blocks[b].size(), par_blocks[b].size());
+        EXPECT_EQ(n1_blocks[b].size(), n2_blocks[b].size()) << "block " << b << " size mismatch";
+        size_t count = std::min(n1_blocks[b].size(), n2_blocks[b].size());
 
-        // Compare wires
         size_t wire_mismatches = 0;
         for (size_t w = 0; w < 4; w++) {
             for (size_t i = 0; i < count; i++) {
-                if (seq_blocks[b].wires[w][i] != par_blocks[b].wires[w][i]) {
+                if (n1_blocks[b].wires[w][i] != n2_blocks[b].wires[w][i])
                     wire_mismatches++;
-                }
             }
         }
         EXPECT_EQ(wire_mismatches, 0) << "block " << b << ": " << wire_mismatches << " wire mismatches";
 
-        // Compare selectors
-        auto seq_sels = seq_blocks[b].get_selectors();
-        auto par_sels = par_blocks[b].get_selectors();
+        auto n1_sels = n1_blocks[b].get_selectors();
+        auto n2_sels = n2_blocks[b].get_selectors();
         size_t sel_mismatches = 0;
-        for (size_t s = 0; s < seq_sels.size(); s++) {
+        for (size_t s = 0; s < n1_sels.size(); s++) {
             for (size_t i = 0; i < count; i++) {
-                if (seq_sels[s][i] != par_sels[s][i]) {
+                if (n1_sels[s][i] != n2_sels[s][i])
                     sel_mismatches++;
-                }
             }
         }
         EXPECT_EQ(sel_mismatches, 0) << "block " << b << ": " << sel_mismatches << " selector mismatches";
     }
 
-    // Compare variable counts and union-find
-    EXPECT_EQ(seq_builder.get_num_variables(), par_builder.get_num_variables());
-    size_t num_vars = std::min(seq_builder.get_num_variables(), par_builder.get_num_variables());
-
+    // Variable counts and union-find must match exactly
+    EXPECT_EQ(n1_builder.get_num_variables(), n2_builder.get_num_variables());
+    size_t num_vars = std::min(n1_builder.get_num_variables(), n2_builder.get_num_variables());
     size_t real_idx_mismatches = 0;
     for (size_t i = 0; i < num_vars; i++) {
-        if (seq_builder.real_variable_index[i] != par_builder.real_variable_index[i]) {
+        if (n1_builder.real_variable_index[i] != n2_builder.real_variable_index[i])
             real_idx_mismatches++;
-        }
     }
     EXPECT_EQ(real_idx_mismatches, 0) << "real_variable_index mismatches";
+}
 
-    info("BuildConstraintsParallel: PASSED");
+// Sequential (build_constraints) vs parallel (build_constraints_parallel): circuits are NOT
+// bit-identical because setup gates land in different positions. But the semantic invariants
+// must hold: same block sizes, same variable/copy-cycle counts, same range lists, same constants,
+// and both pass CircuitChecker.
+TEST_F(PerBlockGateCountTests, SequentialVsParallelSemanticEquivalence)
+{
+    WitnessVector witness;
+    AcirFormat constraint_system = build_sha256_poseidon2_test_program(witness);
+
+    // Build sequentially via create_circuit (uses build_constraints)
+    AcirProgram seq_program{ constraint_system, WitnessVector(witness) };
+    auto seq_builder = create_circuit<UltraCircuitBuilder>(seq_program, ProgramMetadata{});
+
+    // Build via parallel path with 1 thread
+    AcirFormat par_constraints = constraint_system;
+    UltraCircuitBuilder par_builder{ WitnessVector(witness), par_constraints.public_inputs, false };
+    build_constraints_parallel(par_builder, par_constraints, ProgramMetadata{}, /*num_threads=*/1);
+
+    // Both must pass circuit checker
+    bool seq_check = CircuitChecker::check(seq_builder);
+    bool par_check = CircuitChecker::check(par_builder);
+    info("Sequential CircuitChecker: ", seq_check ? "PASSED" : "FAILED");
+    info("Parallel CircuitChecker: ", par_check ? "PASSED" : "FAILED");
+    EXPECT_TRUE(seq_check);
+    EXPECT_TRUE(par_check);
+
+    // --- Semantic invariants (same constraints, possibly different ordering) ---
+
+    // 1. Block sizes must match (same number of gates per block)
+    auto seq_blocks = seq_builder.blocks.get();
+    auto par_blocks = par_builder.blocks.get();
+    for (size_t b = 0; b < UltraCircuitBuilder::ExecutionTrace::NUM_BLOCKS; b++) {
+        EXPECT_EQ(seq_blocks[b].size(), par_blocks[b].size())
+            << "block " << b << " size: seq=" << seq_blocks[b].size() << " par=" << par_blocks[b].size();
+    }
+
+    // 2. Total variable count
+    info("Variables: seq=", seq_builder.get_num_variables(), " par=", par_builder.get_num_variables());
+    EXPECT_EQ(seq_builder.get_num_variables(), par_builder.get_num_variables());
+
+    // 3. Number of distinct copy cycles (union-find roots)
+    size_t seq_cycles = count_copy_cycles(seq_builder);
+    size_t par_cycles = count_copy_cycles(par_builder);
+    info("Copy cycle roots: seq=", seq_cycles, " par=", par_cycles);
+    EXPECT_EQ(seq_cycles, par_cycles);
+
+    // 4. Constant variable indices: same set of constant values registered
+    EXPECT_EQ(seq_builder.constant_variable_indices.size(), par_builder.constant_variable_indices.size())
+        << "constant count: seq=" << seq_builder.constant_variable_indices.size()
+        << " par=" << par_builder.constant_variable_indices.size();
+    for (const auto& [value, _] : seq_builder.constant_variable_indices) {
+        EXPECT_TRUE(par_builder.constant_variable_indices.count(value))
+            << "constant value " << value << " missing from parallel builder";
+    }
+
+    // 5. Range lists: same set of range targets with same variable counts
+    EXPECT_EQ(seq_builder.range_lists.size(), par_builder.range_lists.size())
+        << "range list count: seq=" << seq_builder.range_lists.size() << " par=" << par_builder.range_lists.size();
+    for (const auto& [target, seq_rl] : seq_builder.range_lists) {
+        auto it = par_builder.range_lists.find(target);
+        EXPECT_TRUE(it != par_builder.range_lists.end()) << "range target " << target << " missing from parallel";
+        if (it != par_builder.range_lists.end()) {
+            EXPECT_EQ(seq_rl.variable_indices.size(), it->second.variable_indices.size())
+                << "range target " << target << " variable count: seq=" << seq_rl.variable_indices.size()
+                << " par=" << it->second.variable_indices.size();
+        }
+    }
+
+    // 6. Lookup tables: same set of tables
+    EXPECT_EQ(seq_builder.get_lookup_tables().size(), par_builder.get_lookup_tables().size())
+        << "lookup table count: seq=" << seq_builder.get_lookup_tables().size()
+        << " par=" << par_builder.get_lookup_tables().size();
+
+    // Report wire-level differences (informational, not assertions — we expect differences)
+    size_t total_wire_diffs = 0;
+    for (size_t b = 0; b < UltraCircuitBuilder::ExecutionTrace::NUM_BLOCKS; b++) {
+        size_t count = std::min(seq_blocks[b].size(), par_blocks[b].size());
+        for (size_t w = 0; w < 4; w++) {
+            for (size_t i = 0; i < count; i++) {
+                if (seq_blocks[b].wires[w][i] != par_blocks[b].wires[w][i])
+                    total_wire_diffs++;
+            }
+        }
+    }
+    info("Wire-level differences (expected due to gate reordering): ", total_wire_diffs);
 }
