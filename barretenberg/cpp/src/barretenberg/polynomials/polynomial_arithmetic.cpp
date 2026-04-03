@@ -12,6 +12,7 @@
 #include <math.h>
 #include <memory.h>
 #include <memory>
+#include <mutex>
 
 namespace bb::polynomial_arithmetic {
 
@@ -19,6 +20,8 @@ namespace {
 
 template <typename Fr> std::shared_ptr<Fr[]> get_scratch_space(const size_t num_elements)
 {
+    static std::mutex scratch_mutex;
+    std::lock_guard lock(scratch_mutex);
     static std::shared_ptr<Fr[]> working_memory = nullptr;
     static size_t current_size = 0;
     if (num_elements > current_size) {
