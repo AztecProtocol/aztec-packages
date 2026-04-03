@@ -397,6 +397,7 @@ export class LibP2PService extends WithTracer implements P2PService {
         pingTimeout: {
           minTimeout: 60_000,
         },
+        abortConnectionOnPingFailure: false,
       },
       connectionManager: {
         // We set maxConnections above maxPeerCount because if we hit limit of maxPeerCount
@@ -586,11 +587,15 @@ export class LibP2PService extends WithTracer implements P2PService {
     });
     (this.node as any).addEventListener('connection:close', (evt: CustomEvent) => {
       const conn = evt.detail;
+      const openStreams = conn.streams?.filter((s: any) => s.status === 'open')?.length ?? 0;
+      const durationMs = conn.timeline?.close ? conn.timeline.close - conn.timeline.open : undefined;
       this.logger.debug(`Connection closed to ${conn.remotePeer}`, {
         direction: conn.direction,
         connectionId: conn.id,
-        durationMs: conn.timeline?.close ? conn.timeline.close - conn.timeline.open : undefined,
+        durationMs,
         rtt: conn.rtt,
+        openStreamsAtClose: openStreams,
+        totalStreams: conn.streams?.length ?? 0,
       });
     });
     // Debug: log identify results to track protocol discovery
