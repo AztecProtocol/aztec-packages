@@ -259,7 +259,13 @@ class UltraEccOpsTable {
         }
         return base_size;
     }
-    size_t current_ultra_subtable_size() const { return table.get()[current_subtable_idx].size() * NUM_ROWS_PER_OP; }
+    size_t current_ultra_subtable_size() const
+    {
+        if (table.num_subtables() == 0) {
+            return 0;
+        }
+        return table.get()[current_subtable_idx].size() * NUM_ROWS_PER_OP;
+    }
     size_t previous_ultra_table_size() const { return (num_ultra_rows() - current_ultra_subtable_size()); }
     void create_new_subtable(size_t size_hint = 0) { table.create_new_subtable(size_hint); }
     void push(const UltraOp& op) { table.push(op); }
@@ -386,6 +392,9 @@ class UltraEccOpsTable {
     ColumnPolynomials construct_column_polynomials_with_fixed_append(const size_t poly_size) const
     {
         ColumnPolynomials column_polynomials;
+        if (poly_size == 0) {
+            return column_polynomials;
+        }
         for (auto& poly : column_polynomials) {
             poly = Polynomial<Fr>(poly_size); // Initialized to zeros
         }
@@ -424,6 +433,9 @@ class UltraEccOpsTable {
                                                                   const size_t subtable_end_idx) const
     {
         ColumnPolynomials column_polynomials;
+        if (poly_size == 0) {
+            return column_polynomials;
+        }
         for (auto& poly : column_polynomials) {
             poly = Polynomial<Fr>(poly_size);
         }
