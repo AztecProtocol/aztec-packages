@@ -59,7 +59,7 @@ template <typename FF_> class CircuitBuilderBase {
     static constexpr uint32_t VARIABLE_CURSOR_DISABLED = UINT32_MAX;
 
     // Deferred assert_equal entries for parallel construction. In cursor mode, assert_equal calls
-    // are recorded per-thread and replayed in deterministic task order after all threads join.
+    // are recorded per-task and replayed in deterministic task order after all threads join.
     // This prevents nondeterministic union-find results when multiple threads assert_equal on
     // the same shared ACIR witness.
     struct DeferredAssertEqual {
@@ -80,8 +80,8 @@ template <typename FF_> class CircuitBuilderBase {
     {
         // Replay in task order (0, 1, 2, ...) for deterministic union-find results
         for (auto& task_buf : deferred_assert_equals_) {
-            for (auto& [a, b, msg] : task_buf) {
-                assert_equal(a, b, msg);
+            for (auto& entry : task_buf) {
+                assert_equal(entry.a_variable_idx, entry.b_variable_idx, entry.msg);
             }
             task_buf.clear();
         }

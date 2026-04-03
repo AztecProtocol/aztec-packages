@@ -202,74 +202,50 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
     // The set of variables which have been constrained to a particular value via an arithmetic gate
     std::unordered_map<FF, uint32_t> constant_variable_indices;
 
-    // Deferred lookup gate entries for parallel construction. In cursor mode, plookup reads append here
-    // instead of to table.lookup_gates. Replayed after parallel phase via apply_deferred_lookup_gates().
+    /**
+     * @brief Per-thread buffer for deferring operations during parallel construction.
+     * @details Operations that modify shared builder state are buffered per-thread during
+     * execute_parallel and replayed sequentially after all threads join. The replay callback
+     * receives each entry and applies it to the builder.
+     */
+    template <typename Entry> struct DeferredBuffer {
+        std::vector<std::vector<Entry>> thread_buffers;
+
+        void init(size_t num_threads) { thread_buffers.resize(num_threads); }
+
+        void defer(size_t thread_idx, Entry&& entry) { thread_buffers[thread_idx].emplace_back(std::move(entry)); }
+
+        void defer(size_t thread_idx, const Entry& entry) { thread_buffers[thread_idx].push_back(entry); }
+
+        template <typename Callback> void apply(Callback&& callback)
+        {
+            for (auto& buf : thread_buffers) {
+                for (auto& entry : buf) {
+                    callback(entry);
+                }
+                buf.clear();
+            }
+        }
+    };
+
     struct DeferredLookupEntry {
         plookup::BasicTableId table_id;
         plookup::BasicTable::LookupEntry entry;
     };
-    std::vector<std::vector<DeferredLookupEntry>> deferred_lookup_gates_; // per-thread
-
-    // Deferred range constraint entries for parallel construction. In cursor mode, range constraints
-    // buffer here instead of modifying range_lists. Replayed via apply_deferred_range_constraints().
     struct DeferredRangeConstraint {
         uint32_t variable_index;
         uint64_t target_range;
     };
-    std::vector<std::vector<DeferredRangeConstraint>> deferred_range_constraints_; // per-thread
 
-    // Deferred non-native field multiplications for parallel construction. In cursor mode,
-    // these are buffered per-thread to avoid races on the shared vector.
-    std::vector<std::vector<cached_partial_non_native_field_multiplication>> deferred_non_native_field_muls_;
+    DeferredBuffer<DeferredLookupEntry> deferred_lookup_gates_;
+    DeferredBuffer<DeferredRangeConstraint> deferred_range_constraints_;
+    DeferredBuffer<cached_partial_non_native_field_multiplication> deferred_non_native_field_muls_;
 
-    /**
-     * @brief Initialize deferred buffers for N threads.
-     */
     void init_deferred_buffers(size_t num_threads)
     {
-        deferred_lookup_gates_.resize(num_threads);
-        deferred_range_constraints_.resize(num_threads);
-        deferred_non_native_field_muls_.resize(num_threads);
-    }
-
-    /**
-     * @brief Replay all deferred non-native field multiplications into the shared cache.
-     */
-    void apply_deferred_non_native_field_muls()
-    {
-        for (auto& thread_buf : deferred_non_native_field_muls_) {
-            for (auto& entry : thread_buf) {
-                cached_partial_non_native_field_multiplications.emplace_back(entry);
-            }
-            thread_buf.clear();
-        }
-    }
-
-    /**
-     * @brief Replay all deferred lookup gate entries into the appropriate tables.
-     */
-    void apply_deferred_lookup_gates()
-    {
-        for (auto& thread_buf : deferred_lookup_gates_) {
-            for (auto& [table_id, entry] : thread_buf) {
-                auto& table = get_table(table_id);
-                table.lookup_gates.emplace_back(entry);
-            }
-            thread_buf.clear();
-        }
-    }
-
-    /**
-     * @brief Replay all deferred range constraints.
-     */
-    void apply_deferred_range_constraints()
-    {
-        for (auto& thread_buf : deferred_range_constraints_) {
-            for (auto& [variable_index, target_range] : thread_buf) {
-                create_small_range_constraint(variable_index, target_range);
-            }
-            thread_buf.clear();
-        }
+        deferred_lookup_gates_.init(num_threads);
+        deferred_range_constraints_.init(num_threads);
+        deferred_non_native_field_muls_.init(num_threads);
     }
 
     /**
@@ -427,9 +403,14 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
         rom_ram_logic.ram_id_cursors_.clear();
 
         // Replay deferred operations
-        apply_deferred_lookup_gates();
-        apply_deferred_range_constraints();
-        apply_deferred_non_native_field_muls();
+        deferred_lookup_gates_.apply([this](auto& e) {
+            auto& table = get_table(e.table_id);
+            table.lookup_gates.emplace_back(e.entry);
+        });
+        deferred_range_constraints_.apply(
+            [this](auto& e) { create_small_range_constraint(e.variable_index, e.target_range); });
+        deferred_non_native_field_muls_.apply(
+            [this](auto& e) { cached_partial_non_native_field_multiplications.emplace_back(e); });
         this->apply_deferred_assert_equals();
     }
 

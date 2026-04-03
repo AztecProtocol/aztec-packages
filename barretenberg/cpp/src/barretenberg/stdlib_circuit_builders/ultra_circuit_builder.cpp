@@ -584,7 +584,7 @@ plookup::ReadData<uint32_t> UltraCircuitBuilder_<ExecutionTrace>::create_gates_f
         // In cursor mode, defer the lookup gate entry to avoid races on table.lookup_gates
         if (this->get_variable_cursor() != this->VARIABLE_CURSOR_DISABLED) {
             auto tidx = get_parallel_thread_index();
-            deferred_lookup_gates_[tidx].push_back({ multi_table.basic_table_ids[i], read_values.lookup_entries[i] });
+            deferred_lookup_gates_.defer(tidx, { multi_table.basic_table_ids[i], read_values.lookup_entries[i] });
         } else {
             table.lookup_gates.emplace_back(read_values.lookup_entries[i]);
         }
@@ -787,7 +787,7 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_small_range_constraint(const u
     // In cursor mode, defer range constraint to avoid races on range_lists and real_variable_tags
     if (this->get_variable_cursor() != this->VARIABLE_CURSOR_DISABLED) {
         auto tidx = get_parallel_thread_index();
-        deferred_range_constraints_[tidx].push_back({ variable_index, target_range });
+        deferred_range_constraints_.defer(tidx, { variable_index, target_range });
         return;
     }
 
@@ -1567,7 +1567,7 @@ std::array<uint32_t, 2> UltraCircuitBuilder_<ExecutionTrace>::queue_partial_non_
         .hi_1 = hi_1_idx,
     };
     if (this->get_variable_cursor() != this->VARIABLE_CURSOR_DISABLED) {
-        deferred_non_native_field_muls_[get_parallel_thread_index()].emplace_back(cache_entry);
+        deferred_non_native_field_muls_.defer(get_parallel_thread_index(), cache_entry);
     } else {
         cached_partial_non_native_field_multiplications.emplace_back(cache_entry);
     }

@@ -379,28 +379,26 @@ void build_constraints_parallel(UltraCircuitBuilder& builder,
     std::vector<TaskBlockSizes> task_sizes;
     std::vector<size_t> task_profile_indices;
 
-    // Helper: given a constraint vector, a handler, and a key function, profile unique keys
-    // and return a map from key to profile index. Does NOT add tasks (that happens in order below).
-    auto profile_grouped = [&](auto& items, auto handler, auto key_fn) -> std::map<decltype(key_fn(items[0])), size_t> {
+    // Helper: profile unique keys in a constraint vector, then add tasks in vector order.
+    // Combines profiling and task collection in a single call per constraint type.
+    auto profile_and_collect = [&](auto& items, auto handler, auto key_fn) {
+        if (items.empty()) {
+            return;
+        }
         using Key = decltype(key_fn(items[0]));
         std::map<Key, size_t> key_to_profile;
+        // Phase 1: profile unique keys
         for (size_t i = 0; i < items.size(); i++) {
             Key k = key_fn(items[i]);
             if (key_to_profile.count(k) == 0) {
                 auto profile = profile_constraint_type(items[i], handler, num_witnesses);
-                size_t profile_idx = profiles.size();
+                key_to_profile[k] = profiles.size();
                 profiles.push_back(profile);
-                key_to_profile[k] = profile_idx;
             }
         }
-        return key_to_profile;
-    };
-
-    // Helper: add tasks for a constraint vector in vector order, looking up each instance's profile.
-    auto collect_tasks = [&](auto& items, auto handler, const auto& key_to_profile, auto key_fn) {
+        // Phase 1b: add tasks in vector order
         for (size_t i = 0; i < items.size(); i++) {
-            auto k = key_fn(items[i]);
-            size_t profile_idx = key_to_profile.at(k);
+            size_t profile_idx = key_to_profile.at(key_fn(items[i]));
             const auto& profile = profiles[profile_idx];
             auto sizes = profile.block_sizes;
             sizes.num_rom_arrays = profile.num_rom_arrays_per_instance;
@@ -466,72 +464,22 @@ void build_constraints_parallel(UltraCircuitBuilder& builder,
     };
     auto ec_add_handler = [](UltraCircuitBuilder& b, const EcAdd& c) { create_ec_add_constraint(b, c); };
 
-    // Profile all types (order doesn't matter here — just building the key→profile maps)
-    auto quad_profiles = !constraints.quad_constraints.empty()
-                             ? profile_grouped(constraints.quad_constraints, quad_handler, const_key)
-                             : decltype(profile_grouped(constraints.quad_constraints, quad_handler, const_key)){};
-    auto big_quad_profiles =
-        !constraints.big_quad_constraints.empty()
-            ? profile_grouped(constraints.big_quad_constraints, big_quad_handler, big_quad_key)
-            : decltype(profile_grouped(constraints.big_quad_constraints, big_quad_handler, big_quad_key)){};
-    auto logic_profiles = !constraints.logic_constraints.empty()
-                              ? profile_grouped(constraints.logic_constraints, logic_handler, logic_key)
-                              : decltype(profile_grouped(constraints.logic_constraints, logic_handler, logic_key)){};
-    auto range_profiles = !constraints.range_constraints.empty()
-                              ? profile_grouped(constraints.range_constraints, range_handler, range_key)
-                              : decltype(profile_grouped(constraints.range_constraints, range_handler, range_key)){};
-    auto aes_profiles = !constraints.aes128_constraints.empty()
-                            ? profile_grouped(constraints.aes128_constraints, aes_handler, aes_key)
-                            : decltype(profile_grouped(constraints.aes128_constraints, aes_handler, aes_key)){};
-    auto sha_profiles = !constraints.sha256_compression.empty()
-                            ? profile_grouped(constraints.sha256_compression, sha_handler, const_key)
-                            : decltype(profile_grouped(constraints.sha256_compression, sha_handler, const_key)){};
-    auto ecdsa_k1_profiles =
-        !constraints.ecdsa_k1_constraints.empty()
-            ? profile_grouped(constraints.ecdsa_k1_constraints, ecdsa_k1_handler, const_key)
-            : decltype(profile_grouped(constraints.ecdsa_k1_constraints, ecdsa_k1_handler, const_key)){};
-    auto ecdsa_r1_profiles =
-        !constraints.ecdsa_r1_constraints.empty()
-            ? profile_grouped(constraints.ecdsa_r1_constraints, ecdsa_r1_handler, const_key)
-            : decltype(profile_grouped(constraints.ecdsa_r1_constraints, ecdsa_r1_handler, const_key)){};
-    auto blake2s_profiles =
-        !constraints.blake2s_constraints.empty()
-            ? profile_grouped(constraints.blake2s_constraints, blake2s_handler, blake2s_key)
-            : decltype(profile_grouped(constraints.blake2s_constraints, blake2s_handler, blake2s_key)){};
-    auto blake3_profiles =
-        !constraints.blake3_constraints.empty()
-            ? profile_grouped(constraints.blake3_constraints, blake3_handler, blake3_key)
-            : decltype(profile_grouped(constraints.blake3_constraints, blake3_handler, blake3_key)){};
-    auto keccak_profiles =
-        !constraints.keccak_permutations.empty()
-            ? profile_grouped(constraints.keccak_permutations, keccak_handler, const_key)
-            : decltype(profile_grouped(constraints.keccak_permutations, keccak_handler, const_key)){};
-    auto pos2_profiles = !constraints.poseidon2_constraints.empty()
-                             ? profile_grouped(constraints.poseidon2_constraints, pos2_handler, pos2_key)
-                             : decltype(profile_grouped(constraints.poseidon2_constraints, pos2_handler, pos2_key)){};
-    auto msm_profiles =
-        !constraints.multi_scalar_mul_constraints.empty()
-            ? profile_grouped(constraints.multi_scalar_mul_constraints, msm_handler, msm_key)
-            : decltype(profile_grouped(constraints.multi_scalar_mul_constraints, msm_handler, msm_key)){};
-    auto ec_add_profiles = !constraints.ec_add_constraints.empty()
-                               ? profile_grouped(constraints.ec_add_constraints, ec_add_handler, const_key)
-                               : decltype(profile_grouped(constraints.ec_add_constraints, ec_add_handler, const_key)){};
-
-    // Collect tasks in the same order as sequential build_constraints
-    collect_tasks(constraints.quad_constraints, quad_handler, quad_profiles, const_key);
-    collect_tasks(constraints.big_quad_constraints, big_quad_handler, big_quad_profiles, big_quad_key);
-    collect_tasks(constraints.logic_constraints, logic_handler, logic_profiles, logic_key);
-    collect_tasks(constraints.range_constraints, range_handler, range_profiles, range_key);
-    collect_tasks(constraints.aes128_constraints, aes_handler, aes_profiles, aes_key);
-    collect_tasks(constraints.sha256_compression, sha_handler, sha_profiles, const_key);
-    collect_tasks(constraints.ecdsa_k1_constraints, ecdsa_k1_handler, ecdsa_k1_profiles, const_key);
-    collect_tasks(constraints.ecdsa_r1_constraints, ecdsa_r1_handler, ecdsa_r1_profiles, const_key);
-    collect_tasks(constraints.blake2s_constraints, blake2s_handler, blake2s_profiles, blake2s_key);
-    collect_tasks(constraints.blake3_constraints, blake3_handler, blake3_profiles, blake3_key);
-    collect_tasks(constraints.keccak_permutations, keccak_handler, keccak_profiles, const_key);
-    collect_tasks(constraints.poseidon2_constraints, pos2_handler, pos2_profiles, pos2_key);
-    collect_tasks(constraints.multi_scalar_mul_constraints, msm_handler, msm_profiles, msm_key);
-    collect_tasks(constraints.ec_add_constraints, ec_add_handler, ec_add_profiles, const_key);
+    // Profile and collect tasks in the same order as sequential build_constraints.
+    // Each call profiles unique keys, then adds tasks in constraint vector order.
+    profile_and_collect(constraints.quad_constraints, quad_handler, const_key);
+    profile_and_collect(constraints.big_quad_constraints, big_quad_handler, big_quad_key);
+    profile_and_collect(constraints.logic_constraints, logic_handler, logic_key);
+    profile_and_collect(constraints.range_constraints, range_handler, range_key);
+    profile_and_collect(constraints.aes128_constraints, aes_handler, aes_key);
+    profile_and_collect(constraints.sha256_compression, sha_handler, const_key);
+    profile_and_collect(constraints.ecdsa_k1_constraints, ecdsa_k1_handler, const_key);
+    profile_and_collect(constraints.ecdsa_r1_constraints, ecdsa_r1_handler, const_key);
+    profile_and_collect(constraints.blake2s_constraints, blake2s_handler, blake2s_key);
+    profile_and_collect(constraints.blake3_constraints, blake3_handler, blake3_key);
+    profile_and_collect(constraints.keccak_permutations, keccak_handler, const_key);
+    profile_and_collect(constraints.poseidon2_constraints, pos2_handler, pos2_key);
+    profile_and_collect(constraints.multi_scalar_mul_constraints, msm_handler, msm_key);
+    profile_and_collect(constraints.ec_add_constraints, ec_add_handler, const_key);
 
     // Phase 2: Prepare the builder's caches from profiles (no constraint execution).
     prepare_builder_from_profiles(builder, profiles);
