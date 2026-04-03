@@ -56,6 +56,9 @@ void compute_efficient_interpolation(const Fr* src, Fr* dest, const Fr* evaluati
 template <typename Fr> void factor_roots(std::span<Fr> polynomial, const Fr& root)
 {
     const size_t size = polynomial.size();
+    if (size == 0) {
+        return;
+    }
     if (root.is_zero()) {
         // if one of the roots is 0 after having divided by all other roots,
         // then p(X) = a₁⋅X + ⋯ + aₙ₋₁⋅Xⁿ⁻¹
