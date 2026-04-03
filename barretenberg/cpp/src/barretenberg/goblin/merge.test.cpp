@@ -478,9 +478,6 @@ template <typename Curve> class MergeTests : public testing::Test {
             auto native_proof = prover_transcript->export_proof();
 
             // === Verify with unmodified verifier (which has BB_ASSERT_GT for shift_size > 0) ===
-            // Disable the assert so we can test the math
-            BB_DISABLE_ASSERTS();
-
             // Build input commitments: t = empty (zero commits), T_prev = right table
             InputCommitments input_commitments;
             for (size_t idx = 0; idx < NUM_WIRES; idx++) {

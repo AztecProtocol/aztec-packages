@@ -230,7 +230,7 @@ class UltraEccOpsTable {
     using UltraOpsTable = EccOpsTable<UltraOp>;
     using ColumnPolynomials = std::array<Polynomial<Fr>, TABLE_WIDTH>;
 
-    size_t current_subtable_idx = 0; // index of the current subtable being constructed
+    std::optional<size_t> current_subtable_idx; // index of the most recently merged subtable (nullopt if empty merge)
     UltraOpsTable table;
 
     // For fixed-location append functionality
@@ -261,16 +261,17 @@ class UltraEccOpsTable {
     }
     size_t current_ultra_subtable_size() const
     {
-        if (table.num_subtables() == 0) {
+        if (!current_subtable_idx.has_value()) {
             return 0;
         }
-        return table.get()[current_subtable_idx].size() * NUM_ROWS_PER_OP;
+        return table.get()[current_subtable_idx.value()].size() * NUM_ROWS_PER_OP;
     }
     size_t previous_ultra_table_size() const { return (num_ultra_rows() - current_ultra_subtable_size()); }
     void create_new_subtable(size_t size_hint = 0) { table.create_new_subtable(size_hint); }
     void push(const UltraOp& op) { table.push(op); }
     void merge(MergeSettings settings = MergeSettings::PREPEND, std::optional<size_t> offset = std::nullopt)
     {
+        const size_t num_subtables_before = table.num_subtables();
         if (settings == MergeSettings::APPEND) {
             // All appends are treated as fixed-location for ultra ops
             BB_ASSERT(!has_fixed_append, "Can only perform fixed-location append once");
@@ -281,7 +282,9 @@ class UltraEccOpsTable {
             current_subtable_idx = table.num_subtables() - 1;
         } else { // MergeSettings::PREPEND
             table.merge(settings);
-            current_subtable_idx = 0;
+            // Only update current_subtable_idx if a subtable was actually added (non-empty merge)
+            current_subtable_idx =
+                (table.num_subtables() > num_subtables_before) ? std::optional<size_t>(0) : std::nullopt;
         }
     }
 
@@ -348,8 +351,13 @@ class UltraEccOpsTable {
     ColumnPolynomials construct_previous_table_columns() const
     {
         const size_t poly_size = previous_ultra_table_size();
-        const size_t subtable_start_idx = current_subtable_idx == 0 ? 1 : 0;
-        const size_t subtable_end_idx = current_subtable_idx == 0 ? table.num_subtables() : table.num_subtables() - 1;
+        if (!current_subtable_idx.has_value()) {
+            // Empty merge: the entire table is "previous"
+            return construct_column_polynomials_from_subtables(poly_size, 0, table.num_subtables());
+        }
+        const size_t idx = current_subtable_idx.value();
+        const size_t subtable_start_idx = idx == 0 ? 1 : 0;
+        const size_t subtable_end_idx = idx == 0 ? table.num_subtables() : table.num_subtables() - 1;
 
         return construct_column_polynomials_from_subtables(poly_size, subtable_start_idx, subtable_end_idx);
     }
@@ -358,9 +366,13 @@ class UltraEccOpsTable {
     // depening on whether it has been prepended or appended
     ColumnPolynomials construct_current_ultra_ops_subtable_columns() const
     {
+        if (!current_subtable_idx.has_value()) {
+            // Empty merge: return empty column polynomials
+            return ColumnPolynomials{};
+        }
         const size_t poly_size = current_ultra_subtable_size();
-        const size_t subtable_start_idx = current_subtable_idx;
-        const size_t subtable_end_idx = current_subtable_idx + 1;
+        const size_t subtable_start_idx = current_subtable_idx.value();
+        const size_t subtable_end_idx = current_subtable_idx.value() + 1;
 
         return construct_column_polynomials_from_subtables(poly_size, subtable_start_idx, subtable_end_idx);
     }
