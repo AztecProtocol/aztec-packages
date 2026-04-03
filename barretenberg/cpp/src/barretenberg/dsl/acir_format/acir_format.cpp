@@ -393,9 +393,33 @@ void build_constraints_parallel(UltraCircuitBuilder& builder,
     profile_and_collect(constraints.logic_constraints, [](UltraCircuitBuilder& b, const LogicConstraint& c) {
         create_logic_gate(b, c.a, c.b, c.result, c.num_bits, c.is_xor_gate);
     });
-    profile_and_collect(constraints.range_constraints, [](UltraCircuitBuilder& b, const RangeConstraint& c) {
-        b.create_dyadic_range_constraint(c.witness, c.num_bits, "parallel range constraint");
-    });
+    // Range constraints must be grouped by num_bits since different bit widths produce different gate counts.
+    {
+        // Group range constraints by num_bits
+        std::map<uint32_t, std::vector<size_t>> range_groups; // num_bits -> indices into range_constraints
+        for (size_t i = 0; i < constraints.range_constraints.size(); i++) {
+            range_groups[constraints.range_constraints[i].num_bits].push_back(i);
+        }
+        auto handler = [](UltraCircuitBuilder& b, const RangeConstraint& c) {
+            b.create_dyadic_range_constraint(c.witness, c.num_bits, "parallel range constraint");
+        };
+        for (auto& [num_bits, indices] : range_groups) {
+            auto& representative = constraints.range_constraints[indices[0]];
+            auto profile = profile_constraint_type(representative, handler, num_witnesses);
+            size_t profile_idx = profiles.size();
+            profiles.push_back(profile);
+            auto sizes = profile.block_sizes;
+            sizes.num_rom_arrays = profile.num_rom_arrays_per_instance;
+            sizes.num_ram_arrays = profile.num_ram_arrays_per_instance;
+            for (size_t idx : indices) {
+                tasks.emplace_back([handler, &constraints, idx](UltraCircuitBuilder& b) {
+                    handler(b, constraints.range_constraints[idx]);
+                });
+                task_sizes.push_back(sizes);
+                task_profile_indices.push_back(profile_idx);
+            }
+        }
+    }
     profile_and_collect(constraints.aes128_constraints,
                         [](UltraCircuitBuilder& b, const AES128Constraint& c) { create_aes128_constraints(b, c); });
     profile_and_collect(constraints.sha256_compression, [](UltraCircuitBuilder& b, const Sha256Compression& c) {
