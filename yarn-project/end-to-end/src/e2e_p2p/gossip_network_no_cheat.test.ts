@@ -8,7 +8,6 @@ import { addL1Validator } from '@aztec/cli/l1/validators';
 import { RollupContract } from '@aztec/ethereum/contracts';
 import { EpochNumber } from '@aztec/foundation/branded-types';
 import { Signature } from '@aztec/foundation/eth-signature';
-import { sleep } from '@aztec/foundation/sleep';
 import { MockZKPassportVerifierAbi } from '@aztec/l1-artifacts/MockZKPassportVerifierAbi';
 import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
 import type { SequencerClient } from '@aztec/sequencer-client';
@@ -193,8 +192,11 @@ describe('e2e_p2p_network', () => {
       shouldCollectMetrics(),
     );
 
-    // wait a bit for peers to discover each other
-    await sleep(8000);
+    await t.waitForP2PMeshConnectivity(nodes, NUM_VALIDATORS);
+
+    // Advance to a fresh slot so the proposer gets a clean window for block building.
+    const [freshSlotTimestamp] = await t.ctx.cheatCodes.rollup.advanceToNextSlot();
+    t.ctx.dateProvider.setTime(Number(freshSlotTimestamp) * 1000);
 
     // We need to `createNodes` before we setup account, because
     // those nodes actually form the committee, and so we cannot build

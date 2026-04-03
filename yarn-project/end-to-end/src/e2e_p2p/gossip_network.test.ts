@@ -144,6 +144,12 @@ describe('e2e_p2p_network', () => {
     t.logger.info('Waiting for nodes to connect');
     await t.waitForP2PMeshConnectivity(nodes, NUM_VALIDATORS);
 
+    // Advance to a fresh slot so the proposer hasn't already been trying (and failing) to build
+    // blocks while the mesh was forming. Without this, the proposer may have exhausted its slot
+    // with "got 0 txs but needs 1" before setupAccount submits its tx.
+    const [timestamp] = await t.ctx.cheatCodes.rollup.advanceToNextSlot();
+    t.ctx.dateProvider.setTime(Number(timestamp) * 1000);
+
     // We need to `createNodes` before we setup account, because
     // those nodes actually form the committee, and so we cannot build
     // blocks without them (since targetCommitteeSize is set to the number of nodes)

@@ -99,6 +99,10 @@ export async function runReqrespTxTest(params: {
   t.logger.info('Waiting for nodes to connect');
   await t.waitForP2PMeshConnectivity(nodes, NUM_VALIDATORS);
 
+  // Advance to a fresh slot so the proposer gets a clean window for block building.
+  const [setupTimestamp] = await t.ctx.cheatCodes.rollup.advanceToNextSlot();
+  t.ctx.dateProvider.setTime(Number(setupTimestamp) * 1000);
+
   await t.setupAccount();
 
   const targetBlockNumber = await t.ctx.aztecNodeService.getBlockNumber();

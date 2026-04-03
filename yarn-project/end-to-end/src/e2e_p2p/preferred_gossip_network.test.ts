@@ -353,6 +353,10 @@ describe('e2e_p2p_preferred_network', () => {
       );
     });
 
+    // Advance to a fresh slot so the proposer gets a clean window for block building.
+    const [timestamp] = await t.ctx.cheatCodes.rollup.advanceToNextSlot();
+    t.ctx.dateProvider.setTime(Number(timestamp) * 1000);
+
     // We need to `createNodes` before we setup account, because
     // those nodes actually form the committee, and so we cannot build
     // blocks without them (since targetCommitteeSize is set to the number of nodes)
