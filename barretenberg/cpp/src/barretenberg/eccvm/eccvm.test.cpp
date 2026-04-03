@@ -559,3 +559,44 @@ TEST_F(ECCVMTests, MaskingTailCommitments)
         EXPECT_NE(naive, structured.wire_comms[i]) << "Wire " << i << " commitment should be masked";
     }
 }
+
+/**
+ * @brief Verify that REPEATED_COMMITMENTS indices correctly pair to-be-shifted polynomials with their shifted copies.
+ * @details The unshifted AllEntities block contains both the original polynomials and (via get_to_be_shifted) the
+ * polynomials that are also represented in ShiftedEntities. REPEATED_COMMITMENTS tells Shplemini which entries in
+ * the commitment vector are duplicates so it can merge their scalar muls. This test verifies the pairing is correct
+ * by checking that unshifted[original_start + i] points to the same polynomial data as the i-th to-be-shifted entity.
+ */
+TEST_F(ECCVMTests, RepeatedCommitmentsIndicesCorrect)
+{
+    ECCVMCircuitBuilder builder = generate_circuit(&engine);
+    auto pk = std::make_shared<PK>(builder);
+
+    auto unshifted = pk->polynomials.get_unshifted();
+    auto to_be_shifted = pk->polynomials.get_to_be_shifted();
+    auto shifted = pk->polynomials.get_shifted();
+
+    constexpr auto repeated = ECCVMFlavor::REPEATED_COMMITMENTS;
+
+    // The number of shifted entities must match the count
+    ASSERT_EQ(shifted.size(), repeated.first.count);
+    ASSERT_EQ(to_be_shifted.size(), repeated.first.count);
+
+    // Shplemini prepends extra entries (Q, and masking_poly_comm for ZK) before the unshifted block,
+    // then appends the to-be-shifted commitments. The offset convention is: offset = HasZK ? 2 : 1.
+    // REPEATED_COMMITMENTS indices are designed so that index + offset = position in the Shplemini vector.
+    //
+    // For this test we verify the AllEntities-level invariant: the unshifted polynomial at
+    // (masking_offset + original_start) must be the same polynomial as to_be_shifted[i].
+    constexpr size_t masking_offset = ECCVMFlavor::NUM_MASKING_POLYNOMIALS; // = 1 for ECCVM
+    for (size_t i = 0; i < repeated.first.count; i++) {
+        // The polynomial data pointers must match — these are the same polynomial, not just equal values
+        EXPECT_EQ(unshifted[masking_offset + repeated.first.original_start + i].data(), to_be_shifted[i].data())
+            << "REPEATED_COMMITMENTS original_start mismatch at index " << i;
+    }
+
+    // Also verify the duplicate_start points to where to_be_shifted entries would appear in a
+    // concatenated [unshifted | to_be_shifted] vector
+    EXPECT_EQ(masking_offset + repeated.first.duplicate_start, unshifted.size())
+        << "REPEATED_COMMITMENTS duplicate_start should point to end of unshifted block";
+}
