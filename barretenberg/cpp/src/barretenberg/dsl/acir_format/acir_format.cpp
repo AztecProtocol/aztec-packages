@@ -423,9 +423,33 @@ void build_constraints_parallel(UltraCircuitBuilder& builder,
             }
         }
     }
-    profile_and_collect(constraints.logic_constraints, [](UltraCircuitBuilder& b, const LogicConstraint& c) {
-        create_logic_gate(b, c.a, c.b, c.result, c.num_bits, c.is_xor_gate);
-    });
+    // Logic constraints must be grouped by (num_bits, is_xor_gate) since both affect gate count.
+    {
+        std::map<std::pair<uint32_t, bool>, std::vector<size_t>> logic_groups;
+        for (size_t i = 0; i < constraints.logic_constraints.size(); i++) {
+            const auto& c = constraints.logic_constraints[i];
+            logic_groups[{ c.num_bits, c.is_xor_gate }].push_back(i);
+        }
+        auto handler = [](UltraCircuitBuilder& b, const LogicConstraint& c) {
+            create_logic_gate(b, c.a, c.b, c.result, c.num_bits, c.is_xor_gate);
+        };
+        for (auto& [key, indices] : logic_groups) {
+            auto& representative = constraints.logic_constraints[indices[0]];
+            auto profile = profile_constraint_type(representative, handler, num_witnesses);
+            size_t profile_idx = profiles.size();
+            profiles.push_back(profile);
+            auto sizes = profile.block_sizes;
+            sizes.num_rom_arrays = profile.num_rom_arrays_per_instance;
+            sizes.num_ram_arrays = profile.num_ram_arrays_per_instance;
+            for (size_t idx : indices) {
+                tasks.emplace_back([handler, &constraints, idx](UltraCircuitBuilder& b) {
+                    handler(b, constraints.logic_constraints[idx]);
+                });
+                task_sizes.push_back(sizes);
+                task_profile_indices.push_back(profile_idx);
+            }
+        }
+    }
     // Range constraints must be grouped by num_bits since different bit widths produce different gate counts.
     {
         // Group range constraints by num_bits
@@ -453,8 +477,30 @@ void build_constraints_parallel(UltraCircuitBuilder& builder,
             }
         }
     }
-    profile_and_collect(constraints.aes128_constraints,
-                        [](UltraCircuitBuilder& b, const AES128Constraint& c) { create_aes128_constraints(b, c); });
+    // AES128 constraints must be grouped by inputs.size() since different input lengths produce different gate counts.
+    {
+        std::map<size_t, std::vector<size_t>> aes_groups;
+        for (size_t i = 0; i < constraints.aes128_constraints.size(); i++) {
+            aes_groups[constraints.aes128_constraints[i].inputs.size()].push_back(i);
+        }
+        auto handler = [](UltraCircuitBuilder& b, const AES128Constraint& c) { create_aes128_constraints(b, c); };
+        for (auto& [sz, indices] : aes_groups) {
+            auto& representative = constraints.aes128_constraints[indices[0]];
+            auto profile = profile_constraint_type(representative, handler, num_witnesses);
+            size_t profile_idx = profiles.size();
+            profiles.push_back(profile);
+            auto sizes = profile.block_sizes;
+            sizes.num_rom_arrays = profile.num_rom_arrays_per_instance;
+            sizes.num_ram_arrays = profile.num_ram_arrays_per_instance;
+            for (size_t idx : indices) {
+                tasks.emplace_back([handler, &constraints, idx](UltraCircuitBuilder& b) {
+                    handler(b, constraints.aes128_constraints[idx]);
+                });
+                task_sizes.push_back(sizes);
+                task_profile_indices.push_back(profile_idx);
+            }
+        }
+    }
     profile_and_collect(constraints.sha256_compression, [](UltraCircuitBuilder& b, const Sha256Compression& c) {
         create_sha256_compression_constraints(b, c);
     });
