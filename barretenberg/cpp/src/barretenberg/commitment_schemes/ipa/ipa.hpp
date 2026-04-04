@@ -817,10 +817,11 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
         }
 
         // Compute G_zero
-        // In the native verifier, this uses pippenger. Here we use batch_mul.
+        // In the native verifier, this uses pippenger. Here we use fixed_batch_mul since all SRS points are
+        // circuit constants, which uses plookup tables instead of ROM tables and is significantly cheaper.
         std::vector<Commitment> srs_elements = vk.get_monomial_points();
         srs_elements.resize(poly_length);
-        Commitment computed_G_zero = Commitment::batch_mul(srs_elements, s_vec);
+        Commitment computed_G_zero = Commitment::fixed_batch_mul(srs_elements, s_vec);
         // check the computed G_zero and the claimed G_zero are the same.
         // The circuit constraint enforces correctness; mismatched witnesses will produce an unsatisfiable circuit.
         claimed_G_zero.assert_equal(computed_G_zero, "G_zero doesn't match received G_zero.");
