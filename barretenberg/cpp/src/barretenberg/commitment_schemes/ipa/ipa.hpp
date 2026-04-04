@@ -474,8 +474,9 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
             G_zero =
                 scalar_multiplication::pippenger_unsafe<Curve>(data.s_vec, { &srs_elements[0], /*size*/ poly_length });
         }
-        BB_ASSERT_EQ(
-            G_zero, data.G_zero_from_prover, "G_0 should be equal to G_0 sent in transcript. IPA verification fails.");
+        if (G_zero != data.G_zero_from_prover) {
+            return false;
+        }
 
         // Step 10.
         // Compute C_right = a_0 * G_s + a_0 * b_0 * U
@@ -809,8 +810,8 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
         srs_elements.resize(poly_length);
         Commitment computed_G_zero = Commitment::batch_mul(srs_elements, s_vec);
         // check the computed G_zero and the claimed G_zero are the same.
-        claimed_G_zero.assert_equal(computed_G_zero);
-        BB_ASSERT_EQ(computed_G_zero.get_value(), claimed_G_zero.get_value(), "G_zero doesn't match received G_zero.");
+        // The circuit constraint enforces correctness; mismatched witnesses will produce an unsatisfiable circuit.
+        claimed_G_zero.assert_equal(computed_G_zero, "G_zero doesn't match received G_zero.");
 
         bool running_truth_value = verifier_accumulator.running_truth_value;
         return running_truth_value;
