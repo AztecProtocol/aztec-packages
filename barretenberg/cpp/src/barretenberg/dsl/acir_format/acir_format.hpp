@@ -174,7 +174,8 @@ void build_constraints(Builder& builder, AcirFormat& constraints, const ProgramM
  * @param metadata Program metadata
  * @param num_threads Number of threads for parallel execution
  */
-void build_constraints_parallel(UltraCircuitBuilder& builder,
+template <typename Builder>
+void build_constraints_parallel(Builder& builder,
                                 AcirFormat& constraints,
                                 const ProgramMetadata& metadata,
                                 size_t num_threads);

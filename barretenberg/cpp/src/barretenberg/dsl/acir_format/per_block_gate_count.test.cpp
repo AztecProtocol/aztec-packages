@@ -18,14 +18,14 @@
 #include "barretenberg/common/get_bytecode.hpp"
 #include "barretenberg/crypto/poseidon2/poseidon2.hpp"
 #include "barretenberg/crypto/sha256/sha256.hpp"
-#include "barretenberg/dsl/acir_format/arithmetic_constraints.hpp"
-#include "barretenberg/dsl/acir_format/blake2s_constraint.hpp"
-#include "barretenberg/dsl/acir_format/ec_operations.hpp"
-#include "barretenberg/dsl/acir_format/logic_constraint.hpp"
 #include "barretenberg/dsl/acir_format/poseidon2_constraint.hpp"
 #include "barretenberg/dsl/acir_format/sha256_constraint.hpp"
 #include "barretenberg/dsl/acir_format/test_class.hpp"
+#include "barretenberg/dsl/acir_format/utils.hpp"
+#include "barretenberg/special_public_inputs/special_public_inputs.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
+#include "barretenberg/ultra_honk/prover_instance.hpp"
+#include "barretenberg/ultra_honk/ultra_prover.hpp"
 
 #include <filesystem>
 
@@ -131,6 +131,86 @@ TEST_F(PerBlockGateCountTests, ParallelN1vsN2BitIdentical)
             real_idx_mismatches++;
     }
     EXPECT_EQ(real_idx_mismatches, 0) << "real_variable_index mismatches";
+}
+
+// Helper: create a valid UltraHonk proof and convert it to a RecursionConstraint.
+// Returns the constraint and the witness vector containing proof/VK data.
+std::pair<RecursionConstraint, WitnessVector> create_honk_recursion_test_data()
+{
+    using InnerFlavor = UltraFlavor;
+    using InnerBuilder = UltraCircuitBuilder;
+    using InnerProverInstance = ProverInstance_<InnerFlavor>;
+    using InnerProver = UltraProver;
+    using InnerIO = stdlib::recursion::honk::DefaultIO<InnerBuilder>;
+
+    // Create a simple inner circuit: one mul gate + default public inputs
+    InnerBuilder inner_builder;
+    auto a = inner_builder.add_variable(fr::random_element());
+    auto b = inner_builder.add_variable(fr::random_element());
+    auto c = inner_builder.add_variable(inner_builder.get_variable(a) * inner_builder.get_variable(b));
+    inner_builder.create_big_mul_add_gate({ .a = a,
+                                            .b = b,
+                                            .c = c,
+                                            .d = inner_builder.zero_idx(),
+                                            .mul_scaling = 1,
+                                            .a_scaling = 0,
+                                            .b_scaling = 0,
+                                            .c_scaling = -1,
+                                            .d_scaling = 0,
+                                            .const_scaling = 0 });
+    InnerIO::add_default(inner_builder);
+
+    auto prover_instance = std::make_shared<InnerProverInstance>(inner_builder);
+    auto verification_key = std::make_shared<typename InnerFlavor::VerificationKey>(prover_instance->get_precomputed());
+    InnerProver prover(prover_instance, verification_key);
+    auto proof = prover.construct_proof();
+
+    WitnessVector witness;
+    RecursionConstraint constraint =
+        recursion_data_to_recursion_constraint(witness,
+                                               proof,
+                                               verification_key->to_field_elements(),
+                                               verification_key->hash(),
+                                               bb::fr::one(),
+                                               inner_builder.num_public_inputs() - InnerIO::PUBLIC_INPUTS_SIZE,
+                                               HONK);
+
+    return { constraint, witness };
+}
+
+// Test that a circuit with a HONK recursion constraint passes CircuitChecker
+// when built through the sequential and parallel paths.
+TEST_F(PerBlockGateCountTests, RecursionConstraintBasic)
+{
+    auto [recursion_constraint, witness] = create_honk_recursion_test_data();
+
+    AcirFormat constraints{};
+    constraints.honk_recursion_constraints = { recursion_constraint };
+    constraints.original_opcode_indices.honk_recursion_constraints = { 0 };
+    constraints.num_acir_opcodes = 1;
+    constraints.max_witness_index = static_cast<uint32_t>(witness.size() - 1);
+    ProgramMetadata metadata{};
+
+    // Build sequentially
+    AcirProgram program{ constraints, WitnessVector(witness) };
+    auto seq_builder = create_circuit<UltraCircuitBuilder>(program, metadata);
+    info("Sequential recursion circuit: vars=", seq_builder.get_num_variables());
+    EXPECT_TRUE(CircuitChecker::check(seq_builder));
+
+    // Build via parallel path (recursion in Phase 4, sequential)
+    AcirFormat par_constraints = constraints;
+    UltraCircuitBuilder par_builder{ WitnessVector(witness), par_constraints.public_inputs, false };
+    build_constraints_parallel(par_builder, par_constraints, metadata, /*num_threads=*/1);
+    info("Parallel recursion circuit: vars=", par_builder.get_num_variables());
+    EXPECT_TRUE(CircuitChecker::check(par_builder));
+
+    EXPECT_EQ(seq_builder.get_num_variables(), par_builder.get_num_variables());
+
+    // Also build with MegaCircuitBuilder to show the size difference (much smaller)
+    AcirProgram mega_program{ constraints, WitnessVector(witness) };
+    auto mega_builder = create_circuit<MegaCircuitBuilder>(mega_program, metadata);
+    info("Mega recursion circuit: vars=", mega_builder.get_num_variables());
+    EXPECT_TRUE(CircuitChecker::check(mega_builder));
 }
 
 // Find the acir_tests directory relative to the source tree

@@ -256,8 +256,8 @@ template void build_constraints<MegaCircuitBuilder>(MegaCircuitBuilder&, AcirFor
  * @details Eventually this will be a compile-time table lookup. For now, it's computed
  * by running constraints on a throwaway builder and extracting the resulting state.
  */
-struct ConstraintProfile {
-    UltraCircuitBuilder::TaskBlockSizes block_sizes;
+template <typename Builder> struct ConstraintProfile {
+    typename Builder::TaskBlockSizes block_sizes;
     std::vector<bb::fr> constants;                // constant values to pre-register
     std::vector<uint64_t> range_list_targets;     // range list target ranges to pre-create
     std::vector<plookup::BasicTableId> table_ids; // lookup tables to pre-create
@@ -273,14 +273,25 @@ struct ConstraintProfile {
  * Extracts all constants, range list targets, and lookup table IDs that the constraint type needs.
  * This simulates the eventual table lookup.
  */
-template <typename ConstraintType, typename Handler>
-ConstraintProfile profile_constraint_type(ConstraintType representative, Handler&& handler, size_t num_witnesses)
+template <typename Builder, typename ConstraintType, typename Handler>
+ConstraintProfile<Builder> profile_constraint_type(ConstraintType representative,
+                                                   Handler&& handler,
+                                                   size_t num_witnesses)
 {
-    ConstraintProfile profile;
+    ConstraintProfile<Builder> profile;
 
     // Phase A: Run one instance on a throwaway builder to discover setup needs (constants, range lists, etc.)
     WitnessVector dummy_witness(num_witnesses, bb::fr(0));
-    UltraCircuitBuilder warmup_builder{ dummy_witness, {}, /*is_write_vk_mode=*/true };
+    // Construct throwaway builder — Mega needs a default op_queue, Ultra uses the 3-arg constructor
+    auto make_builder = [&]() -> Builder {
+        if constexpr (std::is_same_v<Builder, UltraCircuitBuilder>) {
+            return Builder(dummy_witness, {}, /*is_write_vk_mode=*/true);
+        } else {
+            return Builder(std::make_shared<ECCOpQueue>(), dummy_witness, {}, /*is_write_vk_mode=*/true);
+        }
+    };
+
+    Builder warmup_builder = make_builder();
     handler(warmup_builder, representative);
 
     // Extract setup data from the warmup builder
@@ -297,7 +308,7 @@ ConstraintProfile profile_constraint_type(ConstraintType representative, Handler
     // Phase B: Measure steady-state cost on a SEPARATE builder pre-populated with setup data.
     // This ensures no cross-instance gate fusion at the boundary, matching cursor-mode behavior
     // where each task starts with no prior gates in its block region.
-    UltraCircuitBuilder measure_builder{ WitnessVector(dummy_witness), {}, /*is_write_vk_mode=*/true };
+    Builder measure_builder = make_builder();
     for (const auto& value : profile.constants) {
         measure_builder.put_constant_variable(value);
     }
@@ -315,7 +326,7 @@ ConstraintProfile profile_constraint_type(ConstraintType representative, Handler
     size_t ram_before = measure_builder.rom_ram_logic.ram_arrays.size();
     handler(measure_builder, representative);
     auto after = measure_builder.snapshot_block_sizes();
-    profile.block_sizes = UltraCircuitBuilder::delta(before, after);
+    profile.block_sizes = Builder::delta(before, after);
 
     // Extract ROM/RAM array counts per instance
     profile.num_rom_arrays_per_instance = measure_builder.rom_ram_logic.rom_arrays.size() - rom_before;
@@ -336,7 +347,8 @@ ConstraintProfile profile_constraint_type(ConstraintType representative, Handler
  * extracted from profiles. After this, all parallel constraint execution will find everything
  * cached — no cache misses, no one-time setup costs.
  */
-void prepare_builder_from_profiles(UltraCircuitBuilder& builder, const std::vector<ConstraintProfile>& profiles)
+template <typename Builder>
+void prepare_builder_from_profiles(Builder& builder, const std::vector<ConstraintProfile<Builder>>& profiles)
 {
     // Register all constants from all profiles
     for (const auto& profile : profiles) {
@@ -358,12 +370,13 @@ void prepare_builder_from_profiles(UltraCircuitBuilder& builder, const std::vect
     // so that table indices match sequential constraint processing order.
 }
 
-void build_constraints_parallel(UltraCircuitBuilder& builder,
+template <typename Builder>
+void build_constraints_parallel(Builder& builder,
                                 AcirFormat& constraints,
                                 const ProgramMetadata& metadata,
                                 size_t num_threads)
 {
-    using TaskBlockSizes = UltraCircuitBuilder::TaskBlockSizes;
+    using TaskBlockSizes = typename Builder::TaskBlockSizes;
     size_t num_witnesses = constraints.max_witness_index + 1;
 
     // Phase 1: Profile each constraint type to build a map from grouping key to profile.
@@ -374,8 +387,12 @@ void build_constraints_parallel(UltraCircuitBuilder& builder,
     // This ensures that lookup tables, ROM arrays, and other ordering-dependent state are created
     // in an order that matches sequential, making the circuits identical up to gate reordering.
 
-    std::vector<ConstraintProfile> profiles;
-    std::vector<std::function<void(UltraCircuitBuilder&)>> tasks;
+    // Use the UltraCircuitBuilder_ base type for task functions since execute_parallel is defined there.
+    // MegaCircuitBuilder inherits from UltraCircuitBuilder_<MegaTrace>, so this works for both.
+    using BaseBuilder = UltraCircuitBuilder_<typename Builder::ExecutionTrace>;
+
+    std::vector<ConstraintProfile<Builder>> profiles;
+    std::vector<std::function<void(BaseBuilder&)>> tasks;
     std::vector<TaskBlockSizes> task_sizes;
     std::vector<size_t> task_profile_indices;
 
@@ -391,7 +408,7 @@ void build_constraints_parallel(UltraCircuitBuilder& builder,
         for (size_t i = 0; i < items.size(); i++) {
             Key k = key_fn(items[i]);
             if (key_to_profile.count(k) == 0) {
-                auto profile = profile_constraint_type(items[i], handler, num_witnesses);
+                auto profile = profile_constraint_type<Builder>(items[i], handler, num_witnesses);
                 key_to_profile[k] = profiles.size();
                 profiles.push_back(profile);
             }
@@ -403,7 +420,7 @@ void build_constraints_parallel(UltraCircuitBuilder& builder,
             auto sizes = profile.block_sizes;
             sizes.num_rom_arrays = profile.num_rom_arrays_per_instance;
             sizes.num_ram_arrays = profile.num_ram_arrays_per_instance;
-            tasks.emplace_back([handler, &items, i](UltraCircuitBuilder& b) { handler(b, items[i]); });
+            tasks.emplace_back([handler, &items, i](BaseBuilder& b) { handler(static_cast<Builder&>(b), items[i]); });
             task_sizes.push_back(sizes);
             task_profile_indices.push_back(profile_idx);
         }
@@ -433,36 +450,30 @@ void build_constraints_parallel(UltraCircuitBuilder& builder,
     };
 
     // Define handlers
-    auto quad_handler = [](UltraCircuitBuilder& b, QuadConstraint& c) { create_quad_constraint(b, c); };
-    auto big_quad_handler = [](UltraCircuitBuilder& b, BigQuadConstraint& c) { create_big_quad_constraint(b, c); };
-    auto logic_handler = [](UltraCircuitBuilder& b, const LogicConstraint& c) {
+    auto quad_handler = [](Builder& b, QuadConstraint& c) { create_quad_constraint(b, c); };
+    auto big_quad_handler = [](Builder& b, BigQuadConstraint& c) { create_big_quad_constraint(b, c); };
+    auto logic_handler = [](Builder& b, const LogicConstraint& c) {
         create_logic_gate(b, c.a, c.b, c.result, c.num_bits, c.is_xor_gate);
     };
-    auto range_handler = [](UltraCircuitBuilder& b, const RangeConstraint& c) {
+    auto range_handler = [](Builder& b, const RangeConstraint& c) {
         b.create_dyadic_range_constraint(c.witness, c.num_bits, "parallel range constraint");
     };
-    auto aes_handler = [](UltraCircuitBuilder& b, const AES128Constraint& c) { create_aes128_constraints(b, c); };
-    auto sha_handler = [](UltraCircuitBuilder& b, const Sha256Compression& c) {
-        create_sha256_compression_constraints(b, c);
+    auto aes_handler = [](Builder& b, const AES128Constraint& c) { create_aes128_constraints(b, c); };
+    auto sha_handler = [](Builder& b, const Sha256Compression& c) { create_sha256_compression_constraints(b, c); };
+    auto ecdsa_k1_handler = [](Builder& b, const EcdsaConstraint& c) {
+        create_ecdsa_verify_constraints<stdlib::secp256k1<Builder>>(b, c);
     };
-    auto ecdsa_k1_handler = [](UltraCircuitBuilder& b, const EcdsaConstraint& c) {
-        create_ecdsa_verify_constraints<stdlib::secp256k1<UltraCircuitBuilder>>(b, c);
+    auto ecdsa_r1_handler = [](Builder& b, const EcdsaConstraint& c) {
+        create_ecdsa_verify_constraints<stdlib::secp256r1<Builder>>(b, c);
     };
-    auto ecdsa_r1_handler = [](UltraCircuitBuilder& b, const EcdsaConstraint& c) {
-        create_ecdsa_verify_constraints<stdlib::secp256r1<UltraCircuitBuilder>>(b, c);
-    };
-    auto blake2s_handler = [](UltraCircuitBuilder& b, const Blake2sConstraint& c) { create_blake2s_constraints(b, c); };
-    auto blake3_handler = [](UltraCircuitBuilder& b, const Blake3Constraint& c) { create_blake3_constraints(b, c); };
-    auto keccak_handler = [](UltraCircuitBuilder& b, const Keccakf1600& c) {
-        create_keccak_permutations_constraints(b, c);
-    };
-    auto pos2_handler = [](UltraCircuitBuilder& b, const Poseidon2Constraint& c) {
+    auto blake2s_handler = [](Builder& b, const Blake2sConstraint& c) { create_blake2s_constraints(b, c); };
+    auto blake3_handler = [](Builder& b, const Blake3Constraint& c) { create_blake3_constraints(b, c); };
+    auto keccak_handler = [](Builder& b, const Keccakf1600& c) { create_keccak_permutations_constraints(b, c); };
+    auto pos2_handler = [](Builder& b, const Poseidon2Constraint& c) {
         create_poseidon2_permutations_constraints(b, c);
     };
-    auto msm_handler = [](UltraCircuitBuilder& b, const MultiScalarMul& c) {
-        create_multi_scalar_mul_constraint(b, c);
-    };
-    auto ec_add_handler = [](UltraCircuitBuilder& b, const EcAdd& c) { create_ec_add_constraint(b, c); };
+    auto msm_handler = [](Builder& b, const MultiScalarMul& c) { create_multi_scalar_mul_constraint(b, c); };
+    auto ec_add_handler = [](Builder& b, const EcAdd& c) { create_ec_add_constraint(b, c); };
 
     // Profile and collect tasks in the same order as sequential build_constraints.
     // Each call profiles unique keys, then adds tasks in constraint vector order.
@@ -515,7 +526,7 @@ void build_constraints_parallel(UltraCircuitBuilder& builder,
     const bool is_hn_recursion_constraints = !constraints.hn_recursion_constraints.empty();
     GateCounter gate_counter{ &builder, false };
     std::vector<size_t> dummy_gates_per_opcode;
-    HonkRecursionConstraintsOutput<UltraCircuitBuilder> output = create_recursion_constraints<UltraCircuitBuilder>(
+    HonkRecursionConstraintsOutput<Builder> output = create_recursion_constraints<Builder>(
         builder,
         gate_counter,
         dummy_gates_per_opcode,
@@ -527,5 +538,14 @@ void build_constraints_parallel(UltraCircuitBuilder& builder,
 
     output.finalize(builder, is_hn_recursion_constraints, metadata.has_ipa_claim);
 }
+
+template void build_constraints_parallel<UltraCircuitBuilder>(UltraCircuitBuilder&,
+                                                              AcirFormat&,
+                                                              const ProgramMetadata&,
+                                                              size_t);
+template void build_constraints_parallel<MegaCircuitBuilder>(MegaCircuitBuilder&,
+                                                             AcirFormat&,
+                                                             const ProgramMetadata&,
+                                                             size_t);
 
 } // namespace acir_format
