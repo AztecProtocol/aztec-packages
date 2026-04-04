@@ -295,6 +295,7 @@ template <typename Codec_, typename HashFunction_> class BaseTranscript {
     template <typename ChallengeType>
     std::vector<ChallengeType> get_dyadic_powers_of_challenge(const std::string& label, size_t num_challenges)
     {
+        BB_ASSERT(num_challenges > 0, "get_dyadic_powers_of_challenge called with num_challenges=0");
         ChallengeType challenge = get_challenge<ChallengeType>(label);
         std::vector<ChallengeType> pows(num_challenges);
         pows[0] = challenge;
