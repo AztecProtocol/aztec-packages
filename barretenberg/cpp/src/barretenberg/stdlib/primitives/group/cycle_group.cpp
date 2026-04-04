@@ -969,6 +969,215 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
 }
 
 /**
+ * @brief Internal algorithm to perform a fixed-base batch mul using plookup tables.
+ *
+ * @details Computes a batch mul of constant base points using the Straus multiscalar multiplication algorithm.
+ * For each constant base point, a plookup table (BasicTable) is created with (1 << ROM_TABLE_BITS) entries.
+ * Unlike ROM tables, plookup tables have zero construction cost and zero finalization overhead.
+ * Each table read costs exactly 1 lookup gate.
+ *
+ * @param scalars Witness scalars to multiply with base points
+ * @param base_points Constant affine points (SRS elements or similar)
+ * @param offset_generators Offset points to prevent infinity edge cases (size = base_points.size() + 1)
+ * @return {accumulator, offset_generator_delta} where result = accumulator - offset_generator_delta
+ */
+template <typename Builder>
+typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_fixed_base_plookup_batch_mul_internal(
+    const std::span<cycle_scalar> scalars,
+    const std::span<AffineElement const> base_points,
+    const std::span<AffineElement const> offset_generators)
+{
+    BB_ASSERT_EQ(!scalars.empty(), true, "Empty scalars provided to fixed base plookup batch mul!");
+    BB_ASSERT_EQ(scalars.size(), base_points.size(), "Points/scalars size mismatch in fixed base plookup batch mul!");
+    BB_ASSERT_EQ(offset_generators.size(), base_points.size() + 1, "Too few offset generators provided!");
+    const size_t num_points = scalars.size();
+
+    Builder* context = nullptr;
+    for (const auto& scalar : scalars) {
+        if (context = scalar.get_context(); context != nullptr) {
+            break;
+        }
+    }
+    BB_ASSERT(context != nullptr);
+
+    constexpr size_t num_rounds = numeric::ceil_div(cycle_scalar::NUM_BITS, ROM_TABLE_BITS);
+
+    // Decompose each scalar into ROM_TABLE_BITS-bit slices (also enforces range constraints)
+    std::vector<straus_scalar_slices> scalar_slices;
+    scalar_slices.reserve(num_points);
+    for (const auto& scalar : scalars) {
+        scalar_slices.emplace_back(context, scalar, ROM_TABLE_BITS);
+    }
+
+    // Create plookup tables for each constant base point (zero gate cost)
+    std::vector<straus_plookup_table> point_tables;
+    point_tables.reserve(num_points);
+    for (size_t i = 0; i < num_points; ++i) {
+        point_tables.emplace_back(context, base_points[i], offset_generators[i + 1], ROM_TABLE_BITS);
+    }
+
+    // Compute all intermediate points natively for use as hints in the in-circuit Straus algorithm.
+    // Using projective coordinates + batch normalize to avoid per-operation modular inversions.
+    std::vector<Element> operation_transcript;
+    Element offset_generator_accumulator = offset_generators[0];
+    {
+        // Build native straus tables
+        std::vector<std::vector<Element>> native_straus_tables;
+        for (size_t i = 0; i < num_points; ++i) {
+            std::vector<Element> table(1UL << ROM_TABLE_BITS);
+            table[0] = Element(offset_generators[i + 1]);
+            Element base_proj(base_points[i]);
+            for (size_t j = 1; j < table.size(); ++j) {
+                table[j] = table[j - 1] + base_proj;
+            }
+            native_straus_tables.emplace_back(std::move(table));
+        }
+
+        // Perform Straus algorithm natively
+        Element accumulator = offset_generators[0];
+        for (size_t i = 0; i < num_rounds; ++i) {
+            if (i != 0) {
+                for (size_t j = 0; j < ROM_TABLE_BITS; ++j) {
+                    accumulator = accumulator.dbl();
+                    operation_transcript.push_back(accumulator);
+                    offset_generator_accumulator = offset_generator_accumulator.dbl();
+                }
+            }
+            for (size_t j = 0; j < num_points; ++j) {
+                auto slice_value = static_cast<size_t>(scalar_slices[j].slices_native[num_rounds - i - 1]);
+                const Element point = native_straus_tables[j][slice_value];
+                accumulator += point;
+                operation_transcript.push_back(accumulator);
+                offset_generator_accumulator += Element(offset_generators[j + 1]);
+            }
+        }
+    }
+
+    // Batch-normalize all hint points
+    Element::batch_normalize(operation_transcript.data(), operation_transcript.size());
+    std::vector<AffineElement> operation_hints;
+    operation_hints.reserve(operation_transcript.size());
+    for (const Element& element : operation_transcript) {
+        operation_hints.emplace_back(element.x, element.y);
+    }
+
+    // Execute Straus algorithm in-circuit using plookup reads and precomputed hints
+    AffineElement* hint_ptr = operation_hints.data();
+    cycle_group accumulator = offset_generators[0];
+
+    for (size_t i = 0; i < num_rounds; ++i) {
+        if (i != 0) {
+            for (size_t j = 0; j < ROM_TABLE_BITS; ++j) {
+                accumulator = accumulator.dbl(*hint_ptr);
+                hint_ptr++;
+            }
+        }
+        for (size_t j = 0; j < num_points; ++j) {
+            const field_t scalar_slice = scalar_slices[j][num_rounds - i - 1];
+            const cycle_group point = point_tables[j].read(scalar_slice);
+            // Safe to use unconditional_add: all base points are constants hence linearly independent of offset
+            // generators
+            accumulator = accumulator.unconditional_add(point, *hint_ptr);
+            hint_ptr++;
+        }
+    }
+
+    accumulator.set_origin_tag(OriginTag::constant());
+    return { accumulator, AffineElement(offset_generator_accumulator) };
+}
+
+/**
+ * @brief Fixed-base multiscalar multiplication using plookup tables.
+ *
+ * @details Optimized MSM for the case where all base points are circuit constants (e.g. SRS elements).
+ * Uses plookup tables instead of ROM tables, eliminating table construction gates and finalization overhead.
+ * All base points MUST be constants; witness base points will trigger an assertion failure.
+ *
+ * @param constant_points Vector of constant cycle_group points
+ * @param scalars Vector of cycle_scalar values (may be witnesses or constants)
+ * @param context Generator context for offset generators
+ * @return cycle_group The result of sum(scalars[i] * constant_points[i])
+ */
+template <typename Builder>
+cycle_group<Builder> cycle_group<Builder>::fixed_batch_mul(const std::vector<cycle_group>& constant_points,
+                                                           const std::vector<cycle_scalar>& scalars,
+                                                           const GeneratorContext& context)
+{
+    BB_ASSERT_EQ(scalars.size(), constant_points.size(), "Points/scalars size mismatch in fixed_batch_mul!");
+
+    if (scalars.empty()) {
+        return cycle_group{ Group::point_at_infinity };
+    }
+
+    // Merge all tags
+    OriginTag result_tag = OriginTag::constant();
+    for (auto [point, scalar] : zip_view(constant_points, scalars)) {
+        result_tag = OriginTag(result_tag, OriginTag(point.get_origin_tag(), scalar.get_origin_tag()));
+    }
+
+    std::vector<cycle_scalar> plookup_scalars;
+    std::vector<AffineElement> plookup_points;
+    bool has_non_constant_component = false;
+    Element constant_acc = Group::point_at_infinity;
+
+    for (const auto [point, scalar] : zip_view(constant_points, scalars)) {
+        BB_ASSERT(point.is_constant());
+        if (scalar.is_constant()) {
+            // Both constant: compute natively
+            constant_acc += point.get_value() * scalar.get_value();
+        } else {
+            if (point.get_value().is_point_at_infinity()) {
+                // Constant infinity contributes nothing, but still need range constraints on scalar
+                auto* ctx = scalar.get_context();
+                ctx->create_limbed_range_constraint(scalar.lo().get_witness_index(),
+                                                    cycle_scalar::LO_BITS,
+                                                    ROM_TABLE_BITS,
+                                                    "fixed_batch_mul: lo range constraint for scalar with constant "
+                                                    "infinity");
+                ctx->create_limbed_range_constraint(scalar.hi().get_witness_index(),
+                                                    cycle_scalar::HI_BITS,
+                                                    ROM_TABLE_BITS,
+                                                    "fixed_batch_mul: hi range constraint for scalar with constant "
+                                                    "infinity");
+                continue;
+            }
+            plookup_scalars.push_back(scalar);
+            plookup_points.push_back(point.get_value());
+            has_non_constant_component = true;
+        }
+    }
+
+    if (!has_non_constant_component) {
+        auto result = cycle_group(constant_acc);
+        result.set_origin_tag(result_tag);
+        return result;
+    }
+
+    // Compute offset generators
+    const size_t num_offset_generators = plookup_points.size() + 1;
+    const std::span<AffineElement const> offset_generators =
+        context.generators->get(num_offset_generators, 0, OFFSET_GENERATOR_DOMAIN_SEPARATOR);
+
+    // Run the plookup-based Straus algorithm
+    Element offset_accumulator = -constant_acc;
+    const auto [accumulator, offset_generator_delta] =
+        _fixed_base_plookup_batch_mul_internal(plookup_scalars, plookup_points, offset_generators);
+    offset_accumulator += offset_generator_delta;
+
+    // Subtract offset. Since all points are constants and linearly independent of offset generators,
+    // we can safely use unconditional_add when constant_acc is non-trivial.
+    cycle_group result;
+    if (!constant_acc.is_point_at_infinity()) {
+        result = accumulator.unconditional_add(AffineElement(-offset_accumulator));
+    } else {
+        result = accumulator - cycle_group(AffineElement(offset_accumulator));
+    }
+
+    result.set_origin_tag(result_tag);
+    return result;
+}
+
+/**
  * @brief Multiscalar multiplication algorithm.
  *
  * @details Uses the Straus MSM algorithm. `batch_mul` splits inputs into three categories:

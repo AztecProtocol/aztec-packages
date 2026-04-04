@@ -2080,4 +2080,147 @@ TYPED_TEST(CycleGroupTest, TestInfinityAutoDetectionInConstructor)
     EXPECT_FALSE(builder.failed());
     EXPECT_TRUE(CircuitChecker::check(builder));
 }
+
+/**
+ * @brief Test fixed_batch_mul correctness with constant points and witness scalars
+ */
+TYPED_TEST(CycleGroupTest, TestFixedBatchMul)
+{
+    STDLIB_TYPE_ALIASES;
+    auto builder = Builder();
+
+    constexpr size_t num_points = 8;
+    std::vector<cycle_group_ct> points;
+    std::vector<typename cycle_group_ct::cycle_scalar> scalars;
+    Element expected = Group::point_at_infinity;
+
+    for (size_t i = 0; i < num_points; ++i) {
+        auto element = TestFixture::generators[i];
+        typename Group::Fr scalar = Group::Fr::random_element(&engine);
+        expected += (element * scalar);
+        // Points are constant, scalars are witnesses
+        points.emplace_back(cycle_group_ct(element));
+        scalars.emplace_back(cycle_group_ct::cycle_scalar::from_witness(&builder, scalar));
+    }
+
+    auto result = cycle_group_ct::fixed_batch_mul(points, scalars);
+    EXPECT_EQ(result.get_value(), AffineElement(expected));
+
+    EXPECT_FALSE(builder.failed());
+    EXPECT_TRUE(CircuitChecker::check(builder));
+}
+
+/**
+ * @brief Test fixed_batch_mul with a single constant point
+ */
+TYPED_TEST(CycleGroupTest, TestFixedBatchMulSinglePoint)
+{
+    STDLIB_TYPE_ALIASES;
+    auto builder = Builder();
+
+    auto element = TestFixture::generators[0];
+    typename Group::Fr scalar = Group::Fr::random_element(&engine);
+    Element expected = element * scalar;
+
+    std::vector<cycle_group_ct> points{ cycle_group_ct(element) };
+    std::vector<typename cycle_group_ct::cycle_scalar> scalars{
+        cycle_group_ct::cycle_scalar::from_witness(&builder, scalar)
+    };
+
+    auto result = cycle_group_ct::fixed_batch_mul(points, scalars);
+    EXPECT_EQ(result.get_value(), AffineElement(expected));
+
+    EXPECT_FALSE(builder.failed());
+    EXPECT_TRUE(CircuitChecker::check(builder));
+}
+
+/**
+ * @brief Test fixed_batch_mul with a zero scalar
+ */
+TYPED_TEST(CycleGroupTest, TestFixedBatchMulZeroScalar)
+{
+    STDLIB_TYPE_ALIASES;
+    auto builder = Builder();
+
+    auto element = TestFixture::generators[0];
+    typename Group::Fr zero_scalar = 0;
+
+    std::vector<cycle_group_ct> points{ cycle_group_ct(element) };
+    std::vector<typename cycle_group_ct::cycle_scalar> scalars{
+        cycle_group_ct::cycle_scalar::from_witness(&builder, zero_scalar)
+    };
+
+    auto result = cycle_group_ct::fixed_batch_mul(points, scalars);
+    EXPECT_TRUE(result.is_point_at_infinity().get_value());
+
+    EXPECT_FALSE(builder.failed());
+    EXPECT_TRUE(CircuitChecker::check(builder));
+}
+
+/**
+ * @brief Profiling comparison: fixed_batch_mul (plookup) vs batch_mul (ROM) for constant points
+ * @details Both approaches compute the same MSM on constant base points with witness scalars.
+ *          fixed_batch_mul should use significantly fewer gates due to zero table construction
+ *          and zero finalization overhead.
+ */
+TYPED_TEST(CycleGroupTest, TestFixedBatchMulGateComparison)
+{
+    STDLIB_TYPE_ALIASES;
+
+    constexpr size_t num_points = 128;
+
+    // Generate random constant points and witness scalars
+    std::vector<AffineElement> native_points;
+    std::vector<typename Group::Fr> native_scalars;
+    for (size_t i = 0; i < num_points; ++i) {
+        native_points.push_back(Group::one * Group::Fr::random_element(&engine));
+        native_scalars.push_back(Group::Fr::random_element(&engine));
+    }
+
+    // Compute expected result natively
+    Element expected = Group::point_at_infinity;
+    for (size_t i = 0; i < num_points; ++i) {
+        expected += native_points[i] * native_scalars[i];
+    }
+
+    // --- ROM-based batch_mul ---
+    size_t rom_gates;
+    {
+        Builder rom_builder;
+        std::vector<cycle_group_ct> points;
+        std::vector<typename cycle_group_ct::cycle_scalar> scalars;
+        for (size_t i = 0; i < num_points; ++i) {
+            points.emplace_back(cycle_group_ct(native_points[i]));
+            scalars.emplace_back(cycle_group_ct::cycle_scalar::from_witness(&rom_builder, native_scalars[i]));
+        }
+        auto result = cycle_group_ct::batch_mul(points, scalars);
+        EXPECT_EQ(result.get_value(), AffineElement(expected));
+        EXPECT_TRUE(CircuitChecker::check(rom_builder));
+        rom_gates = rom_builder.get_num_finalized_gates_inefficient();
+    }
+
+    // --- Plookup-based fixed_batch_mul ---
+    size_t plookup_gates;
+    {
+        Builder plookup_builder;
+        std::vector<cycle_group_ct> points;
+        std::vector<typename cycle_group_ct::cycle_scalar> scalars;
+        for (size_t i = 0; i < num_points; ++i) {
+            points.emplace_back(cycle_group_ct(native_points[i]));
+            scalars.emplace_back(cycle_group_ct::cycle_scalar::from_witness(&plookup_builder, native_scalars[i]));
+        }
+        auto result = cycle_group_ct::fixed_batch_mul(points, scalars);
+        EXPECT_EQ(result.get_value(), AffineElement(expected));
+        EXPECT_TRUE(CircuitChecker::check(plookup_builder));
+        plookup_gates = plookup_builder.get_num_finalized_gates_inefficient();
+    }
+
+    info("batch_mul (ROM) gates:          ", rom_gates);
+    info("fixed_batch_mul (plookup) gates: ", plookup_gates);
+    info("gate savings:                    ", static_cast<int64_t>(rom_gates) - static_cast<int64_t>(plookup_gates));
+
+    // fixed_batch_mul should be strictly cheaper than ROM-based batch_mul
+    EXPECT_LT(plookup_gates, rom_gates);
+}
+
 #pragma GCC diagnostic pop
