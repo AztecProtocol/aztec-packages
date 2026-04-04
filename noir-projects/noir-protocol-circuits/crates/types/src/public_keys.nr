@@ -135,7 +135,7 @@ mod test {
     use std::embedded_curve_ops::EmbeddedCurvePoint as Point;
 
     #[test]
-    unconstrained fn compute_public_keys_hash() {
+    fn compute_public_keys_hash() {
         let keys = PublicKeys {
             npk_m: NpkM { inner: Point { x: 1, y: 2, is_infinite: false } },
             ivpk_m: IvpkM { inner: Point { x: 3, y: 4, is_infinite: false } },
@@ -153,7 +153,7 @@ mod test {
     }
 
     #[test]
-    unconstrained fn compute_default_hash() {
+    fn compute_default_hash() {
         let keys = PublicKeys::default();
 
         let actual = keys.hash();
@@ -166,7 +166,7 @@ mod test {
     }
 
     #[test]
-    unconstrained fn serde() {
+    fn serde() {
         let keys = PublicKeys {
             npk_m: NpkM { inner: Point { x: 1, y: 2, is_infinite: false } },
             ivpk_m: IvpkM { inner: Point { x: 3, y: 4, is_infinite: false } },

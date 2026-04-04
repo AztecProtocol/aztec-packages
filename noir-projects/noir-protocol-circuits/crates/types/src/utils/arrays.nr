@@ -219,25 +219,34 @@ fn test_validate_array_length_hint_out_of_bounds() {
 
 // ==================== trimmed_array_length_hint tests ====================
 
-#[test]
-unconstrained fn test_trimmed_array_length_hint_with_trailing_empties() {
-    assert_eq(trimmed_array_length_hint([10, 20, 30, 0, 0]), 3);
+fn assert_eq_trimmed_array_length_hint<T, let N: u32>(array: [T; N], expected: u32)
+where
+    T: Empty,
+{
+    // Safety: Testing an unconstrained function.
+    let result = unsafe { trimmed_array_length_hint(array) };
+    assert_eq(result, expected);
 }
 
 #[test]
-unconstrained fn test_trimmed_array_length_hint_fully_empty() {
-    assert_eq(trimmed_array_length_hint([0, 0, 0, 0, 0]), 0);
+fn test_trimmed_array_length_hint_with_trailing_empties() {
+    assert_eq_trimmed_array_length_hint([10, 20, 30, 0, 0], 3);
 }
 
 #[test]
-unconstrained fn test_trimmed_array_length_hint_no_empties() {
-    assert_eq(trimmed_array_length_hint([10, 20, 30, 40, 50]), 5);
+fn test_trimmed_array_length_hint_fully_empty() {
+    assert_eq_trimmed_array_length_hint([0, 0, 0, 0, 0], 0);
 }
 
 #[test]
-unconstrained fn test_trimmed_array_length_hint_with_gaps() {
+fn test_trimmed_array_length_hint_no_empties() {
+    assert_eq_trimmed_array_length_hint([10, 20, 30, 40, 50], 5);
+}
+
+#[test]
+fn test_trimmed_array_length_hint_with_gaps() {
     // Unlike array_length, this trims from the right only, so gaps don't matter
-    assert_eq(trimmed_array_length_hint([10, 0, 30, 0, 0]), 3);
+    assert_eq_trimmed_array_length_hint([10, 0, 30, 0, 0], 3);
 }
 
 // ==================== array_length_until tests ====================

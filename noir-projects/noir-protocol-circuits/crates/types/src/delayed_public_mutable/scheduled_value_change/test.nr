@@ -3,7 +3,7 @@ use crate::delayed_public_mutable::scheduled_value_change::ScheduledValueChange;
 global TEST_DELAY: u64 = 200;
 
 #[test]
-unconstrained fn test_get_current_at() {
+fn test_get_current_at() {
     let pre = 1;
     let post = 2;
     let timestamp_of_change = 50;
@@ -18,7 +18,7 @@ unconstrained fn test_get_current_at() {
 }
 
 #[test]
-unconstrained fn test_get_scheduled() {
+fn test_get_scheduled() {
     let pre = 1;
     let post = 2;
     let timestamp_of_change = 50;
@@ -29,7 +29,7 @@ unconstrained fn test_get_scheduled() {
     assert_eq(value_change.get_scheduled(), (post, timestamp_of_change));
 }
 
-unconstrained fn assert_time_horizon_invariants(
+fn assert_time_horizon_invariants(
     value_change: &mut ScheduledValueChange<Field>,
     anchor_block_timestamp: u64,
     time_horizon: u64,
@@ -55,7 +55,7 @@ unconstrained fn assert_time_horizon_invariants(
 }
 
 #[test]
-unconstrained fn test_get_time_horizon_change_in_past() {
+fn test_get_time_horizon_change_in_past() {
     let anchor_block_timestamp = 100;
     let timestamp_of_change = 50;
 
@@ -69,7 +69,7 @@ unconstrained fn test_get_time_horizon_change_in_past() {
 }
 
 #[test]
-unconstrained fn test_get_time_horizon_change_in_immediate_past() {
+fn test_get_time_horizon_change_in_immediate_past() {
     let anchor_block_timestamp = 100;
     let timestamp_of_change = 100;
 
@@ -83,7 +83,7 @@ unconstrained fn test_get_time_horizon_change_in_immediate_past() {
 }
 
 #[test]
-unconstrained fn test_get_time_horizon_change_in_near_future() {
+fn test_get_time_horizon_change_in_near_future() {
     let anchor_block_timestamp = 100;
     let timestamp_of_change = 120;
 
@@ -100,7 +100,7 @@ unconstrained fn test_get_time_horizon_change_in_near_future() {
 }
 
 #[test]
-unconstrained fn test_get_time_horizon_change_in_far_future() {
+fn test_get_time_horizon_change_in_far_future() {
     let anchor_block_timestamp = 100;
     let timestamp_of_change = 500;
 
@@ -114,7 +114,7 @@ unconstrained fn test_get_time_horizon_change_in_far_future() {
 }
 
 #[test]
-unconstrained fn test_get_time_horizon_n0_delay() {
+fn test_get_time_horizon_n0_delay() {
     let anchor_block_timestamp = 100;
     let timestamp_of_change = 50;
 
@@ -128,7 +128,7 @@ unconstrained fn test_get_time_horizon_n0_delay() {
 }
 
 #[test]
-unconstrained fn test_schedule_change_before_change() {
+fn test_schedule_change_before_change() {
     let pre = 1;
     let post = 2;
     let timestamp_of_change = 500;
@@ -147,7 +147,7 @@ unconstrained fn test_schedule_change_before_change() {
 }
 
 #[test]
-unconstrained fn test_schedule_change_after_change() {
+fn test_schedule_change_after_change() {
     let pre = 1;
     let post = 2;
     let timestamp_of_change = 500;
@@ -165,7 +165,7 @@ unconstrained fn test_schedule_change_after_change() {
 }
 
 #[test]
-unconstrained fn test_schedule_change_no_delay() {
+fn test_schedule_change_no_delay() {
     let pre = 1;
     let post = 2;
     let timestamp_of_change = 500;

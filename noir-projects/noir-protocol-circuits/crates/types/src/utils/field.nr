@@ -193,7 +193,7 @@ fn validate_not_sqrt_hint(x: Field, hint: Field) {
 }
 
 #[test]
-unconstrained fn bytes_field_test() {
+fn bytes_field_test() {
     // Tests correctness of field_from_bytes_32_trunc against existing methods
     // Bytes representing 0x543e0a6642ffeb8039296861765a53407bba62bd1c97ca43374de950bbe0a7
     let inputs = [
@@ -216,7 +216,7 @@ unconstrained fn bytes_field_test() {
 }
 
 #[test]
-unconstrained fn max_field_test() {
+fn max_field_test() {
     // Tests the hardcoded value in constants.nr vs underlying modulus
     // NB: We can't use 0-1 in constants.nr as it will be transpiled incorrectly to ts and sol constants files
     let max_value = crate::constants::MAX_FIELD_VALUE;
@@ -231,7 +231,7 @@ unconstrained fn max_field_test() {
 }
 
 #[test]
-unconstrained fn sqrt_valid_test() {
+fn sqrt_valid_test() {
     let x = 16; // examples: 16, 9, 25, 81
     let result = sqrt(x);
     assert(result.is_some());
@@ -239,28 +239,28 @@ unconstrained fn sqrt_valid_test() {
 }
 
 #[test]
-unconstrained fn sqrt_invalid_test() {
+fn sqrt_invalid_test() {
     let x = KNOWN_NON_RESIDUE; // has no square root in the field
     let result = sqrt(x);
     assert(result.is_none());
 }
 
 #[test]
-unconstrained fn sqrt_zero_test() {
+fn sqrt_zero_test() {
     let result = sqrt(0);
     assert(result.is_some());
     assert_eq(result.unwrap(), 0);
 }
 
 #[test]
-unconstrained fn sqrt_one_test() {
+fn sqrt_one_test() {
     let result = sqrt(1);
     assert(result.is_some());
     assert_eq(result.unwrap() * result.unwrap(), 1);
 }
 
 #[test]
-unconstrained fn field_from_bytes_empty_test() {
+fn field_from_bytes_empty_test() {
     let empty: [u8; 0] = [];
     let result = field_from_bytes(empty, true);
     assert_eq(result, 0);
@@ -270,7 +270,7 @@ unconstrained fn field_from_bytes_empty_test() {
 }
 
 #[test]
-unconstrained fn field_from_bytes_little_endian_test() {
+fn field_from_bytes_little_endian_test() {
     // Test little-endian conversion: [0x01, 0x02] should be 0x0201 = 513
     let bytes = [0x01, 0x02];
     let result_le = field_from_bytes(bytes, false);
@@ -282,7 +282,7 @@ unconstrained fn field_from_bytes_little_endian_test() {
 }
 
 #[test]
-unconstrained fn pow_test() {
+fn pow_test() {
     assert_eq(pow(2, 0), 1);
     assert_eq(pow(2, 1), 2);
     assert_eq(pow(2, 10), 1024);
@@ -292,7 +292,7 @@ unconstrained fn pow_test() {
 }
 
 #[test]
-unconstrained fn min_test() {
+fn min_test() {
     assert_eq(min(5, 10), 5);
     assert_eq(min(10, 5), 5);
     assert_eq(min(7, 7), 7);
@@ -300,7 +300,7 @@ unconstrained fn min_test() {
 }
 
 #[test]
-unconstrained fn full_field_comparison_test() {
+fn full_field_comparison_test() {
     assert(full_field_less_than(5, 10));
     assert(!full_field_less_than(10, 5));
     assert(!full_field_less_than(5, 5));
@@ -311,7 +311,7 @@ unconstrained fn full_field_comparison_test() {
 }
 
 #[test]
-unconstrained fn sqrt_has_two_roots_test() {
+fn sqrt_has_two_roots_test() {
     // Every square has two roots: r and -r (i.e., p - r)
     // sqrt(16) can return 4 or -4
     let x = 16;
@@ -333,14 +333,14 @@ unconstrained fn sqrt_has_two_roots_test() {
 }
 
 #[test]
-unconstrained fn sqrt_negative_one_test() {
+fn sqrt_negative_one_test() {
     let x = 0 - 1;
     let result = sqrt(x);
     assert(result.unwrap() == 0x30644e72e131a029048b6e193fd841045cea24f6fd736bec231204708f703636);
 }
 
 #[test]
-unconstrained fn validate_sqrt_hint_valid_test() {
+fn validate_sqrt_hint_valid_test() {
     // 4 is a valid sqrt of 16
     validate_sqrt_hint(16, 4);
     // -4 is also a valid sqrt of 16
@@ -354,27 +354,28 @@ unconstrained fn validate_sqrt_hint_valid_test() {
 }
 
 #[test(should_fail_with = "is not the sqrt of x")]
-unconstrained fn validate_sqrt_hint_invalid_test() {
+fn validate_sqrt_hint_invalid_test() {
     // 5 is not a valid sqrt of 16
     validate_sqrt_hint(16, 5);
 }
 
 #[test]
-unconstrained fn validate_not_sqrt_hint_valid_test() {
+fn validate_not_sqrt_hint_valid_test() {
     // 5 (KNOWN_NON_RESIDUE) is not a square.
     let x = KNOWN_NON_RESIDUE;
-    let hint = tonelli_shanks_sqrt(x * KNOWN_NON_RESIDUE);
+    // Safety: Testing an unconstrained function.
+    let hint = unsafe { tonelli_shanks_sqrt(x * KNOWN_NON_RESIDUE) };
     validate_not_sqrt_hint(x, hint);
 }
 
 #[test(should_fail_with = "0 has a square root")]
-unconstrained fn validate_not_sqrt_hint_zero_test() {
+fn validate_not_sqrt_hint_zero_test() {
     // 0 has a square root, so we cannot claim it is not square
     validate_not_sqrt_hint(0, 0);
 }
 
 #[test(should_fail_with = "does not demonstrate that")]
-unconstrained fn validate_not_sqrt_hint_wrong_hint_test() {
+fn validate_not_sqrt_hint_wrong_hint_test() {
     // Provide a wrong hint for a non-square
     let x = KNOWN_NON_RESIDUE;
     validate_not_sqrt_hint(x, 123);

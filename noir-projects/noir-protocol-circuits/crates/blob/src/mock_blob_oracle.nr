@@ -18,7 +18,7 @@ pub unconstrained fn evaluate_blobs_and_batch<let NumBlobs: u32>(
     kzg_commitments: [BLSPoint; NumBlobs],
     final_blob_challenges: FinalBlobBatchingChallenges,
     start_accumulator: BlobAccumulator,
-    challenge_z: BLS12_381_Fr,
+    _challenge_z: BLS12_381_Fr,
 ) -> BlobAccumulator {
     let fields = evaluate_blobs_oracle(
         NumBlobs,

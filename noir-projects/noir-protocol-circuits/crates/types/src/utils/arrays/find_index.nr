@@ -31,54 +31,78 @@ pub unconstrained fn find_last_index<T, let N: u32, Env>(
     index
 }
 
-#[test]
-unconstrained fn find_first_index_unique_element() {
-    let array = [11, 22, 33];
+mod tests {
+    use super::{find_first_index, find_last_index};
 
-    assert_eq(find_first_index(array, |x| x == 11), 0);
-    assert_eq(find_first_index(array, |x| x == 22), 1);
-    assert_eq(find_first_index(array, |x| x == 33), 2);
-}
+    fn assert_eq_find_first_index<T, let N: u32, Env>(
+        array: [T; N],
+        find: fn[Env](T) -> bool,
+        expected: u32,
+    ) {
+        // Safety: Testing an unconstrained function.
+        let result = unsafe { find_first_index(array, find) };
+        assert_eq(result, expected);
+    }
 
-#[test]
-unconstrained fn find_first_index_duplicate_elements() {
-    let array = [11, 22, 33, 11, 22, 33];
+    fn assert_eq_find_last_index<T, let N: u32, Env>(
+        array: [T; N],
+        find: fn[Env](T) -> bool,
+        expected: u32,
+    ) {
+        // Safety: Testing an unconstrained function.
+        let result = unsafe { find_last_index(array, find) };
+        assert_eq(result, expected);
+    }
 
-    assert_eq(find_first_index(array, |x| x == 11), 0);
-    assert_eq(find_first_index(array, |x| x == 22), 1);
-    assert_eq(find_first_index(array, |x| x == 33), 2);
-}
+    #[test]
+    fn find_first_index_unique_element() {
+        let array = [11, 22, 33];
 
-#[test]
-unconstrained fn find_first_index_not_found() {
-    let array = [11, 22, 33];
+        assert_eq_find_first_index(array, |x| x == 11, 0);
+        assert_eq_find_first_index(array, |x| x == 22, 1);
+        assert_eq_find_first_index(array, |x| x == 33, 2);
+    }
 
-    assert_eq(find_first_index(array, |x| x == 0), 3);
-    assert_eq(find_first_index(array, |x| x == 44), 3);
-}
+    #[test]
+    fn find_first_index_duplicate_elements() {
+        let array = [11, 22, 33, 11, 22, 33];
 
-#[test]
-unconstrained fn find_last_index_unique_element() {
-    let array = [11, 22, 33];
+        assert_eq_find_first_index(array, |x| x == 11, 0);
+        assert_eq_find_first_index(array, |x| x == 22, 1);
+        assert_eq_find_first_index(array, |x| x == 33, 2);
+    }
 
-    assert_eq(find_last_index(array, |x| x == 11), 0);
-    assert_eq(find_last_index(array, |x| x == 22), 1);
-    assert_eq(find_last_index(array, |x| x == 33), 2);
-}
+    #[test]
+    fn find_first_index_not_found() {
+        let array = [11, 22, 33];
 
-#[test]
-unconstrained fn find_last_index_duplicate_elements() {
-    let array = [11, 22, 33, 11, 22, 33];
+        assert_eq_find_first_index(array, |x| x == 0, 3);
+        assert_eq_find_first_index(array, |x| x == 44, 3);
+    }
 
-    assert_eq(find_last_index(array, |x| x == 11), 3);
-    assert_eq(find_last_index(array, |x| x == 22), 4);
-    assert_eq(find_last_index(array, |x| x == 33), 5);
-}
+    #[test]
+    fn find_last_index_unique_element() {
+        let array = [11, 22, 33];
 
-#[test]
-unconstrained fn find_last_index_not_found() {
-    let array = [11, 22, 33];
+        assert_eq_find_last_index(array, |x| x == 11, 0);
+        assert_eq_find_last_index(array, |x| x == 22, 1);
+        assert_eq_find_last_index(array, |x| x == 33, 2);
+    }
 
-    assert_eq(find_last_index(array, |x| x == 0), 3);
-    assert_eq(find_last_index(array, |x| x == 44), 3);
+    #[test]
+    fn find_last_index_duplicate_elements() {
+        let array = [11, 22, 33, 11, 22, 33];
+
+        assert_eq_find_last_index(array, |x| x == 11, 3);
+        assert_eq_find_last_index(array, |x| x == 22, 4);
+        assert_eq_find_last_index(array, |x| x == 33, 5);
+    }
+
+    #[test]
+    fn find_last_index_not_found() {
+        let array = [11, 22, 33];
+
+        assert_eq_find_last_index(array, |x| x == 0, 3);
+        assert_eq_find_last_index(array, |x| x == 44, 3);
+    }
 }

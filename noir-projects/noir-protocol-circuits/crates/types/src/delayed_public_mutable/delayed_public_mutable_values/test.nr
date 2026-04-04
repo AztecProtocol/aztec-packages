@@ -7,14 +7,12 @@ use crate::delayed_public_mutable::{
 global TEST_INITIAL_DELAY: u64 = 13;
 
 #[derive(Eq, Packable)]
-pub struct MockStruct {
+struct MockStruct {
     pub a: Field,
     pub b: Field,
 }
 
-unconstrained fn assert_equal_after_conversion<T>(
-    original: DelayedPublicMutableValues<T, TEST_INITIAL_DELAY>,
-)
+fn assert_equal_after_conversion<T>(original: DelayedPublicMutableValues<T, TEST_INITIAL_DELAY>)
 where
     T: Packable + Eq,
 {
@@ -24,7 +22,7 @@ where
 }
 
 #[test]
-unconstrained fn test_packable() {
+fn test_packable() {
     let pre_delay = 1;
     let post_delay = 2;
     let timestamp_of_change = 50;
@@ -45,7 +43,7 @@ unconstrained fn test_packable() {
 }
 
 #[test]
-unconstrained fn test_packable_large_values() {
+fn test_packable_large_values() {
     // We test max u32 even when the actual timestamp is u64 because the timestamp is packed in 32 bits. This makes
     // the code fail in year 2106. This is a tech debt that is not worth tackling.
     let max_u32 = ((1 as u64 << 32) - 1) as u64;
@@ -70,7 +68,7 @@ unconstrained fn test_packable_large_values() {
 }
 
 #[test]
-unconstrained fn packed_delayed_public_mutable_values_match_typescript() {
+fn packed_delayed_public_mutable_values_match_typescript() {
     let pre_value = MockStruct { a: 1, b: 2 };
     let post_value = MockStruct { a: 3, b: 4 };
 

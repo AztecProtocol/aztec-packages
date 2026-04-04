@@ -20,7 +20,7 @@ pub struct Poseidon2Sponge {
 impl Poseidon2Sponge {
     #[no_predicates]
     pub fn hash<let N: u32>(input: [Field; N], message_size: u32) -> Field {
-        Poseidon2Sponge::hash_internal(input, message_size, message_size != N)
+        Poseidon2Sponge::hash_internal(input, message_size)
     }
 
     pub(crate) fn new(iv: Field) -> Poseidon2Sponge {
@@ -66,11 +66,7 @@ impl Poseidon2Sponge {
         self.state[0]
     }
 
-    fn hash_internal<let N: u32>(
-        input: [Field; N],
-        in_len: u32,
-        is_variable_length: bool,
-    ) -> Field {
+    fn hash_internal<let N: u32>(input: [Field; N], in_len: u32) -> Field {
         let iv: Field = (in_len as Field) * TWO_POW_64;
         let mut sponge = Poseidon2Sponge::new(iv);
         for i in 0..input.len() {
