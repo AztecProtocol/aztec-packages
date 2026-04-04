@@ -12,6 +12,7 @@
 #include <math.h>
 #include <memory.h>
 #include <memory>
+#include <mutex>
 
 namespace bb::polynomial_arithmetic {
 
@@ -19,6 +20,8 @@ namespace {
 
 template <typename Fr> std::shared_ptr<Fr[]> get_scratch_space(const size_t num_elements)
 {
+    static std::mutex scratch_mutex;
+    std::lock_guard lock(scratch_mutex);
     static std::shared_ptr<Fr[]> working_memory = nullptr;
     static size_t current_size = 0;
     if (num_elements > current_size) {
@@ -52,6 +55,8 @@ void scale_by_generator(Fr* coeffs,
                         const Fr& generator_shift,
                         const size_t generator_size)
 {
+    BB_ASSERT(generator_size % domain.num_threads == 0,
+              "generator_size must be divisible by num_threads to avoid silently skipping elements");
     parallel_for(domain.num_threads, [&](size_t j) {
         Fr thread_shift = generator_shift.pow(static_cast<uint64_t>(j * (generator_size / domain.num_threads)));
         Fr work_generator = generator_start * thread_shift;
