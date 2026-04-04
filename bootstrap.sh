@@ -844,7 +844,8 @@ case "$cmd" in
     export USE_TEST_CACHE=1
     export AVM=0
     export AVM_TRANSPILER=0
-    make bb-cpp-native-tests
+    barretenberg/crs/bootstrap.sh
+    barretenberg/cpp/bootstrap.sh ci
     ;;
   "ci-barretenberg-full")
     export CI=1
@@ -854,7 +855,7 @@ case "$cmd" in
     export AVM_TRANSPILER=0
     pull_submodules
     noir/bootstrap.sh build_native  # Build nargo for acir_tests
-    make bb-tests bb-full-tests
+    barretenberg/bootstrap.sh ci
     ;;
 
   #######################
