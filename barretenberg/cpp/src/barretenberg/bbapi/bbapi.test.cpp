@@ -1,6 +1,7 @@
 #include "barretenberg/bbapi/bbapi.hpp"
 #include "barretenberg/api/file_io.hpp"
 #include "barretenberg/bbapi/bbapi_shared.hpp"
+#include "barretenberg/chonk/private_execution_steps.hpp"
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/common/utils.hpp"
 #include "barretenberg/serialize/test_helper.hpp"
@@ -112,4 +113,74 @@ TEST(BBApiInputValidation, VkWithCorrectSizeAccepted)
     const size_t expected_size = VK::calc_num_data_types() * sizeof(bb::fr);
     std::vector<uint8_t> good_vk(expected_size, 0);
     EXPECT_NO_THROW(bbapi::validate_vk_size<VK>(good_vk));
+}
+
+// Helper: pack a vector of PrivateExecutionStepRaw into a byte buffer via msgpack.
+namespace {
+std::vector<uint8_t> pack_steps(const std::vector<PrivateExecutionStepRaw>& steps)
+{
+    std::stringstream ss;
+    msgpack::pack(ss, steps);
+    const std::string s = ss.str();
+    return { s.begin(), s.end() };
+}
+} // namespace
+
+TEST(BBApiInputValidation, MsgpackParseUncompressedAcceptsCleanInput)
+{
+    PrivateExecutionStepRaw step{
+        .bytecode = { 0xCA, 0xFE }, .witness = { 0xBE, 0xEF }, .vk = {}, .function_name = "test_fn"
+    };
+
+    auto buf = pack_steps({ step });
+    auto result = PrivateExecutionStepRaw::parse_uncompressed(buf);
+
+    ASSERT_EQ(result.size(), 1);
+    EXPECT_EQ(result[0].bytecode, step.bytecode);
+    EXPECT_EQ(result[0].witness, step.witness);
+    EXPECT_EQ(result[0].function_name, "test_fn");
+}
+
+TEST(BBApiInputValidation, MsgpackParseUncompressedRejectsTrailingData)
+{
+    PrivateExecutionStepRaw step{ .bytecode = {}, .witness = {}, .vk = {}, .function_name = "x" };
+
+    auto buf = pack_steps({ step });
+    buf.push_back(0x00);
+
+    EXPECT_THROW(PrivateExecutionStepRaw::parse_uncompressed(buf), std::invalid_argument);
+}
+
+TEST(BBApiInputValidation, MsgpackLoadAcceptsCleanFile)
+{
+    PrivateExecutionStepRaw step{ .bytecode = { 1, 2, 3 }, .witness = { 4, 5 }, .vk = {}, .function_name = "file_fn" };
+
+    auto buf = pack_steps({ step });
+
+    auto tmp = std::filesystem::temp_directory_path() / "bb_test_clean.msgpack";
+    std::ofstream out(tmp, std::ios::binary);
+    out.write(reinterpret_cast<const char*>(buf.data()), static_cast<std::streamsize>(buf.size()));
+    out.close();
+
+    auto result = PrivateExecutionStepRaw::load(tmp);
+    std::filesystem::remove(tmp);
+
+    ASSERT_EQ(result.size(), 1);
+    EXPECT_EQ(result[0].function_name, "file_fn");
+}
+
+TEST(BBApiInputValidation, MsgpackLoadRejectsTrailingData)
+{
+    PrivateExecutionStepRaw step{ .bytecode = {}, .witness = {}, .vk = {}, .function_name = "x" };
+
+    auto buf = pack_steps({ step });
+    buf.push_back(0x00);
+
+    auto tmp = std::filesystem::temp_directory_path() / "bb_test_tailed.msgpack";
+    std::ofstream out(tmp, std::ios::binary);
+    out.write(reinterpret_cast<const char*>(buf.data()), static_cast<std::streamsize>(buf.size()));
+    out.close();
+
+    EXPECT_THROW(PrivateExecutionStepRaw::load(tmp), std::invalid_argument);
+    std::filesystem::remove(tmp);
 }

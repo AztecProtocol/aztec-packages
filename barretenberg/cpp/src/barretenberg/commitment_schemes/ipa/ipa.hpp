@@ -832,7 +832,7 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
     {
         // Extract batch_mul arguments from the accumulator
         const auto& commitments = batch_opening_claim.commitments;
-        const auto& scalars = batch_opening_claim.scalars;
+        auto scalars = batch_opening_claim.scalars; // mutable copy: batch_mul temporarily modifies scalars
         const Fr& shplonk_eval_challenge = batch_opening_claim.evaluation_point;
         // Compute \f$ C = \sum \text{commitments}_i \cdot \text{scalars}_i \f$
         GroupElement shplonk_output_commitment = GroupElement::batch_mul(commitments, scalars);

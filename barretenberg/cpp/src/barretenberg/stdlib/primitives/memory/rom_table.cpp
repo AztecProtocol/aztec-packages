@@ -153,6 +153,7 @@ template <typename Builder> field_t<Builder> rom_table<Builder>::operator[](cons
     if (index >= length) {
         BB_ASSERT(context != nullptr);
         context->failure("rom_table: ROM array access out of bounds");
+        return raw_entries[0];
     }
 
     return raw_entries[index];
