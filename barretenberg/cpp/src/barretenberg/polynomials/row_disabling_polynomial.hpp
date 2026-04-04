@@ -170,7 +170,7 @@ template <typename FF> struct RowDisablingPolynomial {
      * @param log_circuit_size
      * @return FF
      */
-    static FF evaluate_at_challenge(std::vector<FF> multivariate_challenge, const size_t log_circuit_size)
+    static FF evaluate_at_challenge(std::span<const FF> multivariate_challenge, const size_t log_circuit_size)
     {
         FF evaluation_at_multivariate_challenge{ 1 };
 
@@ -188,7 +188,7 @@ template <typename FF> struct RowDisablingPolynomial {
      * @param padding_indicator_array An array with first log_n entries equal to 1, and the remaining entries are 0.
      * @return FF
      */
-    static FF evaluate_at_challenge(std::span<FF> multivariate_challenge,
+    static FF evaluate_at_challenge(std::span<const FF> multivariate_challenge,
                                     const std::vector<FF>& padding_indicator_array)
     {
         FF evaluation_at_multivariate_challenge{ 1 };
