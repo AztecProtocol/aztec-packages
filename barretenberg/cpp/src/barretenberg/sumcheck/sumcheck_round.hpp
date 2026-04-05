@@ -190,25 +190,13 @@ template <typename Flavor> class SumcheckProverRound {
     {
         const size_t base = virtual_edge_idx * 2;
         for (auto [extended_edge, poly] : zip_view(extended_edges.get_all(), full_polynomials.get_all())) {
+            // poly[] returns zero for indices beyond end_index(), so no explicit bounds check needed.
+            FF v0 = poly[base] + u0 * (poly[base + 1] - poly[base]);
+            FF v1 = poly[base + 2] + u0 * (poly[base + 3] - poly[base + 2]);
             if constexpr (Flavor::USE_SHORT_MONOMIALS) {
-                auto get = [&](size_t offset) -> FF {
-                    return (base + offset < poly.end_index()) ? poly[base + offset] : FF(0);
-                };
-                FF v0 = get(0) + u0 * (get(1) - get(0));
-                FF v1 = get(2) + u0 * (get(3) - get(2));
                 extended_edge = bb::Univariate<FF, 2>({ v0, v1 });
             } else {
-                if (poly.end_index() < base) {
-                    static const auto zero_univariate = bb::Univariate<FF, MAX_PARTIAL_RELATION_LENGTH>::zero();
-                    extended_edge = zero_univariate;
-                } else {
-                    auto get = [&](size_t offset) -> FF {
-                        return (base + offset < poly.end_index()) ? poly[base + offset] : FF(0);
-                    };
-                    FF v0 = get(0) + u0 * (get(1) - get(0));
-                    FF v1 = get(2) + u0 * (get(3) - get(2));
-                    extended_edge = bb::Univariate<FF, 2>({ v0, v1 }).template extend_to<MAX_PARTIAL_RELATION_LENGTH>();
-                }
+                extended_edge = bb::Univariate<FF, 2>({ v0, v1 }).template extend_to<MAX_PARTIAL_RELATION_LENGTH>();
             }
         }
     }
@@ -225,33 +213,17 @@ template <typename Flavor> class SumcheckProverRound {
     {
         const size_t base = virtual_edge_idx * 4;
         for (auto [extended_edge, poly] : zip_view(extended_edges.get_all(), full_polynomials.get_all())) {
+            // poly[] returns zero for indices beyond end_index(), so no explicit bounds check needed.
+            FF a0 = poly[base] + u0 * (poly[base + 1] - poly[base]);
+            FF a1 = poly[base + 2] + u0 * (poly[base + 3] - poly[base + 2]);
+            FF a2 = poly[base + 4] + u0 * (poly[base + 5] - poly[base + 4]);
+            FF a3 = poly[base + 6] + u0 * (poly[base + 7] - poly[base + 6]);
+            FF v0 = a0 + u1 * (a1 - a0);
+            FF v1 = a2 + u1 * (a3 - a2);
             if constexpr (Flavor::USE_SHORT_MONOMIALS) {
-                auto get = [&](size_t offset) -> FF {
-                    return (base + offset < poly.end_index()) ? poly[base + offset] : FF(0);
-                };
-                FF a0 = get(0) + u0 * (get(1) - get(0));
-                FF a1 = get(2) + u0 * (get(3) - get(2));
-                FF a2 = get(4) + u0 * (get(5) - get(4));
-                FF a3 = get(6) + u0 * (get(7) - get(6));
-                FF v0 = a0 + u1 * (a1 - a0);
-                FF v1 = a2 + u1 * (a3 - a2);
                 extended_edge = bb::Univariate<FF, 2>({ v0, v1 });
             } else {
-                if (poly.end_index() < base) {
-                    static const auto zero_univariate = bb::Univariate<FF, MAX_PARTIAL_RELATION_LENGTH>::zero();
-                    extended_edge = zero_univariate;
-                } else {
-                    auto get = [&](size_t offset) -> FF {
-                        return (base + offset < poly.end_index()) ? poly[base + offset] : FF(0);
-                    };
-                    FF a0 = get(0) + u0 * (get(1) - get(0));
-                    FF a1 = get(2) + u0 * (get(3) - get(2));
-                    FF a2 = get(4) + u0 * (get(5) - get(4));
-                    FF a3 = get(6) + u0 * (get(7) - get(6));
-                    FF v0 = a0 + u1 * (a1 - a0);
-                    FF v1 = a2 + u1 * (a3 - a2);
-                    extended_edge = bb::Univariate<FF, 2>({ v0, v1 }).template extend_to<MAX_PARTIAL_RELATION_LENGTH>();
-                }
+                extended_edge = bb::Univariate<FF, 2>({ v0, v1 }).template extend_to<MAX_PARTIAL_RELATION_LENGTH>();
             }
         }
     }
@@ -265,13 +237,14 @@ template <typename Flavor> class SumcheckProverRound {
                                                         const bb::RelationParameters<FF>& relation_parameters,
                                                         const bb::GateSeparatorPolynomial<FF>& gate_separators,
                                                         const SubrelationSeparators& alphas,
-                                                        const FF& u0)
+                                                        const FF& u0,
+                                                        const size_t effective_num_edges)
     {
         std::vector<SumcheckTupleOfTuplesOfUnivariates> thread_univariate_accumulators(get_num_cpus());
 
         parallel_for([&](ThreadChunk chunk) {
             ExtendedEdges extended_edges;
-            auto iteration_range = chunk.range(round_size / 2);
+            auto iteration_range = chunk.range(effective_num_edges);
             for (size_t i : iteration_range) {
                 const size_t virtual_edge_idx = i * 2;
                 extend_edges_deferred(extended_edges, full_polynomials, virtual_edge_idx, u0);
@@ -302,13 +275,14 @@ template <typename Flavor> class SumcheckProverRound {
                                                         const bb::GateSeparatorPolynomial<FF>& gate_separators,
                                                         const SubrelationSeparators& alphas,
                                                         const FF& u0,
-                                                        const FF& u1)
+                                                        const FF& u1,
+                                                        const size_t effective_num_edges)
     {
         std::vector<SumcheckTupleOfTuplesOfUnivariates> thread_univariate_accumulators(get_num_cpus());
 
         parallel_for([&](ThreadChunk chunk) {
             ExtendedEdges extended_edges;
-            auto iteration_range = chunk.range(round_size / 2);
+            auto iteration_range = chunk.range(effective_num_edges);
             for (size_t i : iteration_range) {
                 const size_t virtual_edge_idx = i * 2;
                 extend_edges_deferred(extended_edges, full_polynomials, virtual_edge_idx, u0, u1);

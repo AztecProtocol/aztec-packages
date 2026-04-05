@@ -421,9 +421,21 @@ template <typename Flavor> class SumcheckProver {
         // For all other flavors: populate the book-keeping table at N/2 immediately (original behavior).
         PartiallyEvaluatedMultivariates partially_evaluated_polynomials = [&]() {
             if constexpr (IsUltraOrMegaHonk<Flavor> && !Flavor::HasZK) {
+                // Compute effective iteration count from actual trace extent (not dyadic size).
+                // Round 0 already used compute_effective_round_size internally; for deferred rounds
+                // we derive the edge count from the max witness end_index, halving each round.
+                size_t max_witness_end = 0;
+                for (const auto& witness_poly : full_polynomials.get_witness()) {
+                    max_witness_end = std::max(max_witness_end, witness_poly.end_index());
+                }
+                // Each deferred round-1 edge covers 4 original values, round-2 covers 8.
+                // Divide by stride and round up to get number of edge pairs.
+                const size_t effective_edges_round1 = (max_witness_end + 3) / 4;
+                const size_t effective_edges_round2 = (max_witness_end + 7) / 8;
+
                 // Round 1 deferred: fold 4 consecutive full_polynomial values per edge on the fly.
                 round_univariate = round.compute_univariate_deferred(
-                    full_polynomials, relation_parameters, gate_separators, alphas, u_0);
+                    full_polynomials, relation_parameters, gate_separators, alphas, u_0, effective_edges_round1);
                 transcript->send_to_verifier("Sumcheck:univariate_1", round_univariate);
                 FF u_1 = transcript->template get_challenge<FF>("Sumcheck:u_1");
                 multivariate_challenge.emplace_back(u_1);
@@ -432,7 +444,7 @@ template <typename Flavor> class SumcheckProver {
 
                 // Round 2 deferred: fold 8 consecutive full_polynomial values per edge on the fly.
                 round_univariate = round.compute_univariate_deferred(
-                    full_polynomials, relation_parameters, gate_separators, alphas, u_0, u_1);
+                    full_polynomials, relation_parameters, gate_separators, alphas, u_0, u_1, effective_edges_round2);
                 transcript->send_to_verifier("Sumcheck:univariate_2", round_univariate);
                 FF u_2 = transcript->template get_challenge<FF>("Sumcheck:u_2");
                 multivariate_challenge.emplace_back(u_2);
