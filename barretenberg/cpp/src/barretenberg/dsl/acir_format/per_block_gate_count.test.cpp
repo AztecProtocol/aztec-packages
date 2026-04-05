@@ -314,6 +314,29 @@ TEST_F(PerBlockGateCountTests, RecursionConstraintBasic)
         info("  N=1 vs N=2 real_variable_index diffs: ", n1_n2_diffs);
         EXPECT_EQ(n1_n2_diffs, 0) << "N=1 vs N=2 not bit-identical";
     }
+
+    // Quick Ultra check: does the same test fail with Ultra?
+    {
+        AcirFormat ultra_par_c = constraints;
+        UltraCircuitBuilder ultra_par{ WitnessVector(witness), ultra_par_c.public_inputs, false };
+        build_constraints_parallel(ultra_par, ultra_par_c, metadata, /*num_threads=*/1);
+
+        AcirFormat ultra_seq_c = constraints;
+        UltraCircuitBuilder ultra_seq{ WitnessVector(witness), ultra_seq_c.public_inputs, false };
+        for (const auto& [val, _] : ultra_par.constant_variable_indices) {
+            ultra_seq.put_constant_variable(val);
+        }
+        for (const auto& [target, rl] : ultra_par.range_lists) {
+            if (ultra_seq.range_lists.count(target) == 0) {
+                ultra_seq.range_lists.insert({ target, ultra_seq.create_range_list(target) });
+            }
+        }
+        build_constraints(ultra_seq, ultra_seq_c, metadata);
+        info("  Ultra: par vars=", ultra_par.get_num_variables(), " seq vars=", ultra_seq.get_num_variables());
+
+        size_t ultra_failures = check_semantic_equivalence("recursion Ultra seq-vs-par", ultra_seq, ultra_par);
+        info("  Ultra seq-vs-par: ", ultra_failures, " failures");
+    }
 }
 
 // Test recursion constraint alongside other constraint types in the parallel pipeline.
