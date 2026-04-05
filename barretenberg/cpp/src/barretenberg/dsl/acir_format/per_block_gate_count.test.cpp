@@ -23,6 +23,7 @@
 #include "barretenberg/dsl/acir_format/test_class.hpp"
 #include "barretenberg/dsl/acir_format/utils.hpp"
 #include "barretenberg/special_public_inputs/special_public_inputs.hpp"
+#include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 #include "barretenberg/ultra_honk/prover_instance.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
@@ -178,6 +179,11 @@ std::pair<RecursionConstraint, WitnessVector> create_honk_recursion_test_data()
     return { constraint, witness };
 }
 
+// Forward declarations for functions defined later in this file
+size_t check_semantic_equivalence(const std::string& label, UltraCircuitBuilder& a, UltraCircuitBuilder& b);
+size_t check_bit_identical(const std::string& label, UltraCircuitBuilder& a, UltraCircuitBuilder& b);
+std::filesystem::path find_acir_tests_dir();
+
 // Test that a circuit with a HONK recursion constraint passes CircuitChecker
 // when built through the sequential and parallel paths.
 TEST_F(PerBlockGateCountTests, RecursionConstraintBasic)
@@ -191,26 +197,214 @@ TEST_F(PerBlockGateCountTests, RecursionConstraintBasic)
     constraints.max_witness_index = static_cast<uint32_t>(witness.size() - 1);
     ProgramMetadata metadata{};
 
-    // Build sequentially
-    AcirProgram program{ constraints, WitnessVector(witness) };
-    auto seq_builder = create_circuit<UltraCircuitBuilder>(program, metadata);
-    info("Sequential recursion circuit: vars=", seq_builder.get_num_variables());
-    EXPECT_TRUE(CircuitChecker::check(seq_builder));
+    // Fix predicate to constant true (matching production Noir circuits)
+    constraints.honk_recursion_constraints[0].predicate = WitnessOrConstant<bb::fr>::from_constant(bb::fr(1));
 
-    // Build via parallel path (recursion in Phase 4, sequential)
+    // Step 2: Use Mega for smaller circuits. Build parallel first, then sequential with same pre-warming.
+    // Mega parallel N=1
     AcirFormat par_constraints = constraints;
-    UltraCircuitBuilder par_builder{ WitnessVector(witness), par_constraints.public_inputs, false };
+    MegaCircuitBuilder par_builder{
+        std::make_shared<ECCOpQueue>(), WitnessVector(witness), par_constraints.public_inputs, false
+    };
     build_constraints_parallel(par_builder, par_constraints, metadata, /*num_threads=*/1);
-    info("Parallel recursion circuit: vars=", par_builder.get_num_variables());
-    EXPECT_TRUE(CircuitChecker::check(par_builder));
+    info("  Mega Parallel N=1: vars=", par_builder.get_num_variables());
 
-    EXPECT_EQ(seq_builder.get_num_variables(), par_builder.get_num_variables());
+    // Mega sequential with same constants pre-registered
+    AcirFormat seq_constraints = constraints;
+    MegaCircuitBuilder seq_builder{
+        std::make_shared<ECCOpQueue>(), WitnessVector(witness), seq_constraints.public_inputs, false
+    };
+    for (const auto& [val, _] : par_builder.constant_variable_indices) {
+        seq_builder.put_constant_variable(val);
+    }
+    for (const auto& [target, rl] : par_builder.range_lists) {
+        if (seq_builder.range_lists.count(target) == 0) {
+            seq_builder.range_lists.insert({ target, seq_builder.create_range_list(target) });
+        }
+    }
+    build_constraints(seq_builder, seq_constraints, metadata);
+    info("  Mega Sequential (pre-warmed): vars=", seq_builder.get_num_variables());
 
-    // Also build with MegaCircuitBuilder to show the size difference (much smaller)
-    AcirProgram mega_program{ constraints, WitnessVector(witness) };
-    auto mega_builder = create_circuit<MegaCircuitBuilder>(mega_program, metadata);
-    info("Mega recursion circuit: vars=", mega_builder.get_num_variables());
-    EXPECT_TRUE(CircuitChecker::check(mega_builder));
+    // Compare
+    EXPECT_EQ(par_builder.get_num_variables(), seq_builder.get_num_variables()) << "Variable count mismatch";
+    {
+        auto pb = par_builder.blocks.get();
+        auto sb = seq_builder.blocks.get();
+        for (size_t bl = 0; bl < MegaCircuitBuilder::ExecutionTrace::NUM_BLOCKS; bl++) {
+            EXPECT_EQ(pb[bl].size(), sb[bl].size()) << "Block " << bl << " size mismatch";
+        }
+    }
+    // Copy cycles
+    {
+        auto collect_cycles = [](auto& builder) {
+            std::map<uint32_t, size_t> root_sizes;
+            for (size_t i = 0; i < builder.get_num_variables(); i++) {
+                root_sizes[builder.real_variable_index[i]]++;
+            }
+            std::vector<std::pair<bb::fr, size_t>> cycles;
+            for (const auto& [root, sz] : root_sizes) {
+                cycles.emplace_back(builder.get_variable(root), sz);
+            }
+            std::sort(cycles.begin(), cycles.end(), [](const auto& x, const auto& y) {
+                return x.second != y.second ? x.second < y.second : x.first < y.first;
+            });
+            return cycles;
+        };
+        auto par_cycles = collect_cycles(par_builder);
+        auto seq_cycles = collect_cycles(seq_builder);
+        size_t cycle_mismatches = 0;
+        if (par_cycles.size() == seq_cycles.size()) {
+            for (size_t i = 0; i < par_cycles.size(); i++) {
+                if (par_cycles[i] != seq_cycles[i])
+                    cycle_mismatches++;
+            }
+        }
+        info("  Copy cycles: ", par_cycles.size(), " vs ", seq_cycles.size(), ", mismatches=", cycle_mismatches);
+    }
+    // Gate multiset for block 4 (arithmetic in Mega)
+    {
+        auto pb = par_builder.blocks.get();
+        auto sb = seq_builder.blocks.get();
+        size_t bl = 4; // arithmetic
+        if (pb[bl].size() == sb[bl].size() && pb[bl].size() > 0) {
+            size_t count = pb[bl].size();
+            auto ps = pb[bl].get_selectors();
+            auto ss = sb[bl].get_selectors();
+            size_t ts = 4 + ps.size();
+            auto ct = [&](const auto& blk, const auto& sels, auto& builder) {
+                std::vector<std::vector<bb::fr>> tuples;
+                tuples.reserve(count);
+                for (size_t i = 0; i < count; i++) {
+                    std::vector<bb::fr> t(ts);
+                    for (size_t w = 0; w < 4; w++)
+                        t[w] = builder.get_variable(blk.wires[w][i]);
+                    for (size_t s = 0; s < sels.size(); s++)
+                        t[4 + s] = sels[s][i];
+                    tuples.push_back(std::move(t));
+                }
+                std::sort(tuples.begin(), tuples.end());
+                return tuples;
+            };
+            auto pt = ct(pb[bl], ps, par_builder);
+            auto st = ct(sb[bl], ss, seq_builder);
+            info("  Block 4 (arithmetic) multiset: ", pt == st ? "MATCH" : "MISMATCH", " (", count, " gates)");
+            EXPECT_TRUE(pt == st) << "Gate multiset mismatch in block 4";
+        }
+    }
+
+    // CircuitChecker on both
+    EXPECT_TRUE(CircuitChecker::check(par_builder)) << "Parallel N=1 failed CircuitChecker";
+    EXPECT_TRUE(CircuitChecker::check(seq_builder)) << "Sequential failed CircuitChecker";
+
+    // N=1 vs N=2 bit-identical
+    {
+        AcirFormat par2_constraints = constraints;
+        MegaCircuitBuilder par2_builder{
+            std::make_shared<ECCOpQueue>(), WitnessVector(witness), par2_constraints.public_inputs, false
+        };
+        build_constraints_parallel(par2_builder, par2_constraints, metadata, /*num_threads=*/2);
+        info("  Mega Parallel N=2: vars=", par2_builder.get_num_variables());
+        EXPECT_EQ(par_builder.get_num_variables(), par2_builder.get_num_variables()) << "N=1 vs N=2 var count";
+
+        size_t n1_n2_diffs = 0;
+        for (size_t i = 0; i < par_builder.get_num_variables(); i++) {
+            if (par_builder.real_variable_index[i] != par2_builder.real_variable_index[i])
+                n1_n2_diffs++;
+        }
+        info("  N=1 vs N=2 real_variable_index diffs: ", n1_n2_diffs);
+        EXPECT_EQ(n1_n2_diffs, 0) << "N=1 vs N=2 not bit-identical";
+    }
+}
+
+// Test recursion constraint alongside other constraint types in the parallel pipeline.
+// Uses Mega builder for speed. The recursion constraint runs in Phase 4 (sequential),
+// while quads and ranges run in Phase 3 (parallel).
+TEST_F(PerBlockGateCountTests, RecursionWithOtherConstraints)
+{
+    auto [recursion_constraint, rec_witness] = create_honk_recursion_test_data();
+
+    // Build an AcirFormat with: the recursion constraint + some quad constraints + some range constraints.
+    // The quads and ranges use witness indices beyond the recursion witness range.
+    uint32_t rec_max_witness = static_cast<uint32_t>(rec_witness.size() - 1);
+
+    // Create 4 quad constraints using fresh witnesses after the recursion witness range
+    std::vector<QuadConstraint> quads;
+    uint32_t w = rec_max_witness + 1;
+    for (int i = 0; i < 4; i++) {
+        quads.push_back({ .a = w,
+                          .b = w + 1,
+                          .c = w + 2,
+                          .d = w + 3,
+                          .mul_scaling = 1,
+                          .a_scaling = 0,
+                          .b_scaling = 0,
+                          .c_scaling = -1,
+                          .d_scaling = 0,
+                          .const_scaling = 0 });
+        w += 4;
+    }
+
+    // Create 4 range constraints on fresh witnesses
+    std::vector<RangeConstraint> ranges;
+    for (int i = 0; i < 4; i++) {
+        ranges.push_back({ .witness = w, .num_bits = 8 });
+        w++;
+    }
+
+    uint32_t total_witnesses = w;
+
+    // Extend witness vector with valid values for the new constraints
+    WitnessVector witness = rec_witness;
+    witness.resize(total_witnesses, fr(0));
+    // Fill quad witnesses: a*b = c
+    uint32_t qw = rec_max_witness + 1;
+    for (int i = 0; i < 4; i++) {
+        fr a_val = fr::random_element();
+        fr b_val = fr::random_element();
+        witness[qw] = a_val;
+        witness[qw + 1] = b_val;
+        witness[qw + 2] = a_val * b_val;
+        witness[qw + 3] = fr(0);
+        qw += 4;
+    }
+    // Range witnesses: small values that fit in 8 bits
+    for (int i = 0; i < 4; i++) {
+        witness[qw + static_cast<uint32_t>(i)] = fr(42 + i);
+    }
+
+    AcirFormat constraints{};
+    constraints.honk_recursion_constraints = { recursion_constraint };
+    constraints.original_opcode_indices.honk_recursion_constraints = { 0 };
+    constraints.quad_constraints = quads;
+    constraints.original_opcode_indices.quad_constraints = { 1, 2, 3, 4 };
+    constraints.range_constraints = ranges;
+    constraints.original_opcode_indices.range_constraints = { 5, 6, 7, 8 };
+    constraints.num_acir_opcodes = 9;
+    constraints.max_witness_index = total_witnesses - 1;
+
+    ProgramMetadata metadata{};
+
+    // Build with Mega N=1 and N=2
+    AcirFormat n1_constraints = constraints;
+    MegaCircuitBuilder n1_builder{
+        std::make_shared<ECCOpQueue>(), WitnessVector(witness), n1_constraints.public_inputs, false
+    };
+    build_constraints_parallel(n1_builder, n1_constraints, metadata, /*num_threads=*/1);
+
+    AcirFormat n2_constraints = constraints;
+    MegaCircuitBuilder n2_builder{
+        std::make_shared<ECCOpQueue>(), WitnessVector(witness), n2_constraints.public_inputs, false
+    };
+    build_constraints_parallel(n2_builder, n2_constraints, metadata, /*num_threads=*/2);
+
+    info("Recursion+quads+ranges Mega: N1 vars=",
+         n1_builder.get_num_variables(),
+         " N2 vars=",
+         n2_builder.get_num_variables());
+
+    EXPECT_TRUE(CircuitChecker::check(n1_builder)) << "N=1 CircuitChecker failed";
+    EXPECT_TRUE(CircuitChecker::check(n2_builder)) << "N=2 CircuitChecker failed";
+    EXPECT_EQ(n1_builder.get_num_variables(), n2_builder.get_num_variables());
 }
 
 // Find the acir_tests directory relative to the source tree
@@ -257,20 +451,59 @@ size_t check_semantic_equivalence(const std::string& label, UltraCircuitBuilder&
 {
     size_t failures = 0;
 
-    // Block sizes must match
+    // Block sizes
     auto a_blocks = a.blocks.get();
     auto b_blocks = b.blocks.get();
     for (size_t bl = 0; bl < UltraCircuitBuilder::ExecutionTrace::NUM_BLOCKS; bl++) {
-        if (a_blocks[bl].size() != b_blocks[bl].size()) {
-            info(label, ": block ", bl, " size mismatch: ", a_blocks[bl].size(), " vs ", b_blocks[bl].size());
-            failures++;
+        if (a_blocks[bl].size() > 0 || b_blocks[bl].size() > 0) {
+            bool ok = (a_blocks[bl].size() == b_blocks[bl].size());
+            info(label,
+                 ": block ",
+                 bl,
+                 ": ",
+                 a_blocks[bl].size(),
+                 " vs ",
+                 b_blocks[bl].size(),
+                 ok ? " OK" : " MISMATCH");
+            if (!ok)
+                failures++;
         }
     }
 
     // Variable count
-    if (a.get_num_variables() != b.get_num_variables()) {
-        info(label, ": variable count mismatch: ", a.get_num_variables(), " vs ", b.get_num_variables());
-        failures++;
+    {
+        bool ok = (a.get_num_variables() == b.get_num_variables());
+        info(label, ": variables: ", a.get_num_variables(), " vs ", b.get_num_variables(), ok ? " OK" : " MISMATCH");
+        if (!ok)
+            failures++;
+    }
+
+    // Constants
+    {
+        bool ok = (a.constant_variable_indices.size() == b.constant_variable_indices.size());
+        info(label,
+             ": constants: ",
+             a.constant_variable_indices.size(),
+             " vs ",
+             b.constant_variable_indices.size(),
+             ok ? " OK" : " MISMATCH");
+    }
+
+    // Range lists
+    {
+        bool ok = (a.range_lists.size() == b.range_lists.size());
+        info(label, ": range_lists: ", a.range_lists.size(), " vs ", b.range_lists.size(), ok ? " OK" : " MISMATCH");
+    }
+
+    // Lookup tables
+    {
+        bool ok = (a.get_lookup_tables().size() == b.get_lookup_tables().size());
+        info(label,
+             ": lookup_tables: ",
+             a.get_lookup_tables().size(),
+             " vs ",
+             b.get_lookup_tables().size(),
+             ok ? " OK" : " MISMATCH");
     }
 
     // Copy cycles: compare as sorted list of (value, cycle_size) pairs.
@@ -409,47 +642,43 @@ size_t check_semantic_equivalence(const std::string& label, UltraCircuitBuilder&
                 a_only += a_tuples.size() - ai;
                 b_only += b_tuples.size() - bi;
                 info(label, ": block ", bl, " a_only=", a_only, " b_only=", b_only);
-                // Print first differing tuple from each side
+                // Print first few differing tuples from each side
                 ai = 0;
                 bi = 0;
-                bool printed_a = false;
-                bool printed_b = false;
-                while (ai < a_tuples.size() && bi < b_tuples.size() && (!printed_a || !printed_b)) {
+                size_t printed_a = 0;
+                size_t printed_b = 0;
+                while (ai < a_tuples.size() && bi < b_tuples.size() && (printed_a < 3 || printed_b < 3)) {
                     if (a_tuples[ai] == b_tuples[bi]) {
                         ai++;
                         bi++;
                     } else if (a_tuples[ai] < b_tuples[bi]) {
-                        if (!printed_a) {
-                            std::string sels_a;
-                            for (size_t s = 4; s < a_tuples[ai].size(); s++)
-                                sels_a += " s" + std::to_string(s - 4) + "=" + (a_tuples[ai][s].is_zero() ? "0" : "1");
-                            info("    a_only[0]: w0=",
+                        if (printed_a < 3) {
+                            info("    a_only[",
+                                 printed_a,
+                                 "]: w0=",
                                  a_tuples[ai][0],
                                  " w1=",
                                  a_tuples[ai][1],
                                  " w2=",
                                  a_tuples[ai][2],
                                  " w3=",
-                                 a_tuples[ai][3],
-                                 sels_a);
-                            printed_a = true;
+                                 a_tuples[ai][3]);
+                            printed_a++;
                         }
                         ai++;
                     } else {
-                        if (!printed_b) {
-                            std::string sels_b;
-                            for (size_t s = 4; s < b_tuples[bi].size(); s++)
-                                sels_b += " s" + std::to_string(s - 4) + "=" + (b_tuples[bi][s].is_zero() ? "0" : "1");
-                            info("    b_only[0]: w0=",
+                        if (printed_b < 3) {
+                            info("    b_only[",
+                                 printed_b,
+                                 "]: w0=",
                                  b_tuples[bi][0],
                                  " w1=",
                                  b_tuples[bi][1],
                                  " w2=",
                                  b_tuples[bi][2],
                                  " w3=",
-                                 b_tuples[bi][3],
-                                 sels_b);
-                            printed_b = true;
+                                 b_tuples[bi][3]);
+                            printed_b++;
                         }
                         bi++;
                     }

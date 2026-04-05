@@ -492,6 +492,84 @@ void build_constraints_parallel(Builder& builder,
     profile_and_collect(constraints.multi_scalar_mul_constraints, msm_handler, msm_key);
     profile_and_collect(constraints.ec_add_constraints, ec_add_handler, const_key);
 
+    // Recursion constraints are parallelized like other constraint types, but each task also
+    // captures a HonkRecursionConstraintOutput for post-join merging (needed for pairing point
+    // propagation and IPA finalization).
+    struct RecursionTaskInfo {
+        HonkRecursionConstraintOutput<Builder> output;
+        bool update_ipa_data = false;
+        bool is_root_rollup = false;
+    };
+    size_t num_rec_tasks = constraints.honk_recursion_constraints.size() +
+                           constraints.chonk_recursion_constraints.size() +
+                           constraints.avm_recursion_constraints.size();
+    std::vector<RecursionTaskInfo> recursion_task_outputs(num_rec_tasks);
+    size_t rec_out_idx = 0;
+
+    // Helper: execute a single honk recursion constraint based on proof_type
+    auto execute_honk_recursion = [](Builder& b,
+                                     const RecursionConstraint& c) -> HonkRecursionConstraintOutput<Builder> {
+        if (c.proof_type == HONK_ZK) {
+            return create_honk_recursion_constraints<UltraZKRecursiveFlavor_<Builder>,
+                                                     stdlib::recursion::honk::DefaultIO<Builder>>(b, c);
+        } else if (c.proof_type == HONK) {
+            return create_honk_recursion_constraints<UltraRecursiveFlavor_<Builder>,
+                                                     stdlib::recursion::honk::DefaultIO<Builder>>(b, c);
+        } else {
+            // Rollup IO is only supported on UltraCircuitBuilder
+            if constexpr (std::is_same_v<Builder, UltraCircuitBuilder>) {
+                return create_honk_recursion_constraints<UltraRecursiveFlavor_<Builder>,
+                                                         stdlib::recursion::honk::RollupIO>(b, c);
+            } else {
+                bb::assert_failure("Rollup Honk proof type not supported on MegaBuilder");
+                return {};
+            }
+        }
+    };
+
+    // Profiling handler (discards output — only used for measuring gate counts)
+    auto honk_rec_handler = [&execute_honk_recursion](Builder& b, const RecursionConstraint& c) {
+        execute_honk_recursion(b, c);
+    };
+    auto honk_rec_key = [](const RecursionConstraint& c) -> uint32_t { return c.proof_type; };
+
+    // Profile honk recursion constraints by proof_type
+    std::map<uint32_t, size_t> honk_rec_profiles;
+    for (size_t i = 0; i < constraints.honk_recursion_constraints.size(); i++) {
+        uint32_t k = honk_rec_key(constraints.honk_recursion_constraints[i]);
+        if (honk_rec_profiles.count(k) == 0) {
+            auto profile = profile_constraint_type<Builder>(
+                constraints.honk_recursion_constraints[i], honk_rec_handler, num_witnesses);
+            honk_rec_profiles[k] = profiles.size();
+            profiles.push_back(profile);
+        }
+    }
+    // Add honk recursion tasks in vector order with output capture
+    for (size_t i = 0; i < constraints.honk_recursion_constraints.size(); i++) {
+        const auto& c = constraints.honk_recursion_constraints[i];
+        size_t profile_idx = honk_rec_profiles.at(c.proof_type);
+        const auto& profile = profiles[profile_idx];
+        auto sizes = profile.block_sizes;
+        sizes.num_rom_arrays = profile.num_rom_arrays_per_instance;
+        sizes.num_ram_arrays = profile.num_ram_arrays_per_instance;
+
+        size_t out_idx = rec_out_idx++;
+        recursion_task_outputs[out_idx].update_ipa_data =
+            (c.proof_type == ROLLUP_HONK || c.proof_type == ROOT_ROLLUP_HONK);
+        recursion_task_outputs[out_idx].is_root_rollup = (c.proof_type == ROOT_ROLLUP_HONK);
+
+        tasks.emplace_back(
+            [&constraints, i, &execute_honk_recursion, &recursion_task_outputs, out_idx](BaseBuilder& b) {
+                recursion_task_outputs[out_idx].output =
+                    execute_honk_recursion(static_cast<Builder&>(b), constraints.honk_recursion_constraints[i]);
+            });
+        task_sizes.push_back(sizes);
+        task_profile_indices.push_back(profile_idx);
+    }
+
+    // TODO: Chonk and AVM recursion constraints — same pattern as honk above.
+    // For now they fall through to Phase 4 sequential processing if present.
+
     // Phase 2: Prepare the builder's caches from profiles (no constraint execution).
     prepare_builder_from_profiles(builder, profiles);
 
@@ -511,32 +589,61 @@ void build_constraints_parallel(Builder& builder,
         }
     }
 
-    // Phase 3: Execute ALL instances in parallel
-    // execute_parallel will set up per-thread ROM/RAM cursors using the num_rom/ram_arrays in task_sizes
+    // Phase 3: Execute ALL instances in parallel (including recursion constraints)
     if (!tasks.empty()) {
         builder.execute_parallel(tasks, task_sizes, num_threads);
     }
 
-    // Phase 4: Block constraints and recursion constraints are processed sequentially.
+    // Phase 4: Block constraints (sequential — these reference variables from earlier constraints).
     for (const auto& [constraint, opcode_indices] :
          zip_view(constraints.block_constraints, constraints.original_opcode_indices.block_constraints)) {
         create_block_constraints(builder, constraint);
     }
 
-    const bool is_hn_recursion_constraints = !constraints.hn_recursion_constraints.empty();
-    GateCounter gate_counter{ &builder, false };
-    std::vector<size_t> dummy_gates_per_opcode;
-    HonkRecursionConstraintsOutput<Builder> output = create_recursion_constraints<Builder>(
-        builder,
-        gate_counter,
-        dummy_gates_per_opcode,
-        metadata.ivc,
-        { constraints.honk_recursion_constraints, constraints.original_opcode_indices.honk_recursion_constraints },
-        { constraints.avm_recursion_constraints, constraints.original_opcode_indices.avm_recursion_constraints },
-        { constraints.hn_recursion_constraints, constraints.original_opcode_indices.hn_recursion_constraints },
-        { constraints.chonk_recursion_constraints, constraints.original_opcode_indices.chonk_recursion_constraints });
+    // Phase 4b: Merge recursion outputs from parallel tasks and process remaining sequential recursion.
+    {
+        HonkRecursionConstraintsOutput<Builder> output;
 
-    output.finalize(builder, is_hn_recursion_constraints, metadata.has_ipa_claim);
+        // Merge outputs from honk recursion tasks that ran in Phase 3
+        for (size_t i = 0; i < rec_out_idx; i++) {
+            const auto& rec = recursion_task_outputs[i];
+            output.update(rec.output, rec.update_ipa_data);
+            if (rec.is_root_rollup) {
+                output.is_root_rollup = true;
+            }
+        }
+
+        // Chonk and AVM recursion constraints — Ultra only, sequential for now (TODO: parallelize)
+        if constexpr (std::is_same_v<Builder, UltraCircuitBuilder>) {
+            for (const auto& constraint : constraints.chonk_recursion_constraints) {
+                auto honk_output = create_chonk_recursion_constraints(builder, constraint);
+                output.update(honk_output, /*update_ipa_data=*/true);
+            }
+            for (const auto& constraint : constraints.avm_recursion_constraints) {
+                auto honk_output = create_avm2_recursion_constraints_goblin(builder, constraint);
+                output.update(honk_output, /*update_ipa_data=*/true);
+            }
+        }
+
+        // HyperNova recursion constraints (Mega only, requires IVC state — always sequential)
+        const bool is_hn_recursion_constraints = !constraints.hn_recursion_constraints.empty();
+        if (is_hn_recursion_constraints) {
+            GateCounter gate_counter{ &builder, false };
+            std::vector<size_t> dummy_gates_per_opcode;
+            auto hn_output = create_recursion_constraints<Builder>(
+                builder,
+                gate_counter,
+                dummy_gates_per_opcode,
+                metadata.ivc,
+                { {}, {} },
+                { {}, {} },
+                { constraints.hn_recursion_constraints, constraints.original_opcode_indices.hn_recursion_constraints },
+                { {}, {} });
+            output.update(hn_output, /*update_ipa_data=*/false);
+        }
+
+        output.finalize(builder, is_hn_recursion_constraints, metadata.has_ipa_claim);
+    }
 }
 
 template void build_constraints_parallel<UltraCircuitBuilder>(UltraCircuitBuilder&,
