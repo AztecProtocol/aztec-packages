@@ -31,9 +31,6 @@ template <typename Flavor, class IO> size_t UltraVerifier_<Flavor, IO>::compute_
     } else {
         // Non-padded: use actual circuit size from VK (native only)
         const size_t log_circuit_size = static_cast<size_t>(verifier_instance->get_vk()->log_circuit_size);
-        // Any valid circuit has at least NUM_DISABLED_ROWS_IN_SUMCHECK + NUM_ZERO_ROWS rows, giving
-        // a minimum dyadic size of 8 (log_circuit_size >= 3). Reject clearly malformed VKs early to
-        // prevent downstream out-of-bounds access (e.g. in get_dyadic_powers_of_challenge).
         BB_ASSERT_GTE(
             log_circuit_size, static_cast<size_t>(1), "VK log_circuit_size is 0, which is invalid for any circuit");
         return log_circuit_size;
