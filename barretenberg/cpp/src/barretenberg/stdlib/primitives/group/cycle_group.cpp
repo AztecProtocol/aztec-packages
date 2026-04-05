@@ -345,7 +345,7 @@ cycle_group<Builder> cycle_group<Builder>::dbl(const std::optional<AffineElement
         };
         // Fuse into the previous ECC gate if this point was produced by one; otherwise create a standalone gate pair.
         if (_ecc_gate_idx.has_value()) {
-            result._ecc_gate_idx = context->fuse_ecc_dbl_gate(_ecc_gate_idx.value(), gate_data);
+            result._ecc_gate_idx = context->create_fused_ecc_dbl_gate(_ecc_gate_idx.value(), gate_data);
         } else {
             result._ecc_gate_idx = context->create_ecc_dbl_gate(gate_data);
         }
@@ -436,7 +436,7 @@ cycle_group<Builder> cycle_group<Builder>::_unconditional_add_or_subtract(const 
         };
         // Fuse into the previous ECC gate if this point was produced by one; otherwise create a standalone gate pair.
         if (_ecc_gate_idx.has_value()) {
-            result._ecc_gate_idx = context->fuse_ecc_add_gate(_ecc_gate_idx.value(), gate_data);
+            result._ecc_gate_idx = context->create_fused_ecc_add_gate(_ecc_gate_idx.value(), gate_data);
         } else {
             result._ecc_gate_idx = context->create_ecc_add_gate(gate_data);
         }

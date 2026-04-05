@@ -360,10 +360,11 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_arithmetic_gate(const arithmet
  *      |    1  |  -  | x1  | y1  |  -  | --> constrained
  *      |    0  | x2  | x3  | y3  | y2  | --> "unconstrained" (utilized by previous gate via shifts)
  *
- * For chained operations (e.g. Straus MSM), use fuse_ecc_add_gate to avoid the extra setup gate.
+ * For chained operations (e.g. Straus MSM), use create_fused_ecc_add_gate to avoid the extra setup gate.
  *
  * @param in Elliptic curve point addition gate parameters
- * @return Index (within the elliptic block) of the output gate, usable as prev_gate_idx for fuse_ecc_add/dbl_gate
+ * @return Index (within the elliptic block) of the output gate, usable as prev_gate_idx for
+ * create_fused_ecc_add/dbl_gate
  */
 template <typename ExecutionTrace>
 size_t UltraCircuitBuilder_<ExecutionTrace>::create_ecc_add_gate(const ecc_add_gate_& in)
@@ -404,7 +405,7 @@ size_t UltraCircuitBuilder_<ExecutionTrace>::create_ecc_add_gate(const ecc_add_g
  * @return Index (within the elliptic block) of the output gate
  */
 template <typename ExecutionTrace>
-size_t UltraCircuitBuilder_<ExecutionTrace>::fuse_ecc_add_gate(size_t prev_gate_idx, const ecc_add_gate_& in)
+size_t UltraCircuitBuilder_<ExecutionTrace>::create_fused_ecc_add_gate(size_t prev_gate_idx, const ecc_add_gate_& in)
 {
     this->assert_valid_variables({ in.x1, in.x2, in.x3, in.y1, in.y2, in.y3 });
 
@@ -439,10 +440,11 @@ size_t UltraCircuitBuilder_<ExecutionTrace>::fuse_ecc_add_gate(size_t prev_gate_
  *      |    1  |  -  | x1  | y1  |  -  | --> constrained
  *      |    0  |  -  | x3  | y3  |  -  | --> "unconstrained" (utilized by previous gate via shifts)
  *
- * For chained operations (e.g. Straus MSM), use fuse_ecc_dbl_gate to avoid the extra setup gate.
+ * For chained operations (e.g. Straus MSM), use create_fused_ecc_dbl_gate to avoid the extra setup gate.
  *
  * @param in Elliptic curve point doubling gate parameters
- * @return Index (within the elliptic block) of the output gate, usable as prev_gate_idx for fuse_ecc_add/dbl_gate
+ * @return Index (within the elliptic block) of the output gate, usable as prev_gate_idx for
+ * create_fused_ecc_add/dbl_gate
  */
 template <typename ExecutionTrace>
 size_t UltraCircuitBuilder_<ExecutionTrace>::create_ecc_dbl_gate(const ecc_dbl_gate_<FF>& in)
@@ -471,20 +473,21 @@ size_t UltraCircuitBuilder_<ExecutionTrace>::create_ecc_dbl_gate(const ecc_dbl_g
  * @brief Attempt to fuse an elliptic curve point doubling into a previously created ECC gate
  * @details If the previous gate (at prev_gate_idx) is still the last in the block and its output wires match this
  * gate's inputs, fuses by setting selectors on that gate and appending only the output row. Otherwise falls back to
- * create_ecc_dbl_gate (a full non-fused gate pair). See fuse_ecc_add_gate for detailed rationale.
+ * create_ecc_dbl_gate (a full non-fused gate pair). See create_fused_ecc_add_gate for detailed rationale.
  *
  * @param prev_gate_idx Block-relative index of the previous ECC output gate to try to fuse into
  * @param in Elliptic curve point doubling gate parameters
  * @return Index (within the elliptic block) of the output gate
  */
 template <typename ExecutionTrace>
-size_t UltraCircuitBuilder_<ExecutionTrace>::fuse_ecc_dbl_gate(size_t prev_gate_idx, const ecc_dbl_gate_<FF>& in)
+size_t UltraCircuitBuilder_<ExecutionTrace>::create_fused_ecc_dbl_gate(size_t prev_gate_idx,
+                                                                       const ecc_dbl_gate_<FF>& in)
 {
     this->assert_valid_variables({ in.x1, in.x3, in.y1, in.y3 });
 
     auto& block = blocks.elliptic;
 
-    // Fusion requires adjacency and wire compatibility (see fuse_ecc_add_gate for detailed rationale).
+    // Fusion requires adjacency and wire compatibility (see create_fused_ecc_add_gate for detailed rationale).
     bool can_fuse =
         prev_gate_idx == block.size() - 1 && block.w_r()[prev_gate_idx] == in.x1 && block.w_o()[prev_gate_idx] == in.y1;
     if (!can_fuse) {

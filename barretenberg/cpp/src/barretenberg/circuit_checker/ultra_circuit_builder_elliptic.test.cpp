@@ -175,7 +175,7 @@ TEST_F(UltraCircuitBuilderElliptic, MultipleOperationsUnchained)
 }
 
 // Verifies that a chain of three operations (add-double-add) can be made to reuse intermediate results via
-// fuse_ecc_*_gate.
+// create_fused_ecc_*_gate.
 TEST_F(UltraCircuitBuilderElliptic, ChainedOperationsWithDouble)
 {
     UltraCircuitBuilder builder;
@@ -206,8 +206,8 @@ TEST_F(UltraCircuitBuilderElliptic, ChainedOperationsWithDouble)
 
     // First op: non-fused. Subsequent ops: explicitly fused via prev_gate_idx.
     size_t prev = builder.create_ecc_add_gate({ x1, y1, x2, y2, x_temp1, y_temp1, /*is_addition=*/true });
-    prev = builder.fuse_ecc_dbl_gate(prev, { x_temp1, y_temp1, x_temp2, y_temp2 });
-    builder.fuse_ecc_add_gate(prev, { x_temp2, y_temp2, x3, y3, x_result, y_result, /*is_addition=*/true });
+    prev = builder.create_fused_ecc_dbl_gate(prev, { x_temp1, y_temp1, x_temp2, y_temp2 });
+    builder.create_fused_ecc_add_gate(prev, { x_temp2, y_temp2, x3, y3, x_result, y_result, /*is_addition=*/true });
 
     EXPECT_EQ(builder.blocks.elliptic.size(), 4UL); // 3 chained operations: 2 + 1 + 1 gates (fusion saves 2)
     EXPECT_TRUE(CircuitChecker::check(builder));
@@ -245,8 +245,8 @@ TEST_F(UltraCircuitBuilderElliptic, ChainedOperationsDoubleFailure)
 
     // Use explicit fusion to chain the operations
     size_t prev = builder.create_ecc_add_gate({ x1, y1, x2, y2, x_temp1, y_temp1, /*is_addition=*/true });
-    prev = builder.fuse_ecc_dbl_gate(prev, { x_temp1, y_temp1, x_temp2, y_temp2 });
-    builder.fuse_ecc_add_gate(prev, { x_temp2, y_temp2, x3, y3, x_result, y_result, /*is_addition=*/true });
+    prev = builder.create_fused_ecc_dbl_gate(prev, { x_temp1, y_temp1, x_temp2, y_temp2 });
+    builder.create_fused_ecc_add_gate(prev, { x_temp2, y_temp2, x3, y3, x_result, y_result, /*is_addition=*/true });
 
     EXPECT_EQ(builder.blocks.elliptic.size(), 4UL); // 3 chained operations: 2 + 1 + 1 gates (fusion saves 2)
     // Should fail because the middle operation (doubling) has an invalid result
@@ -280,8 +280,8 @@ TEST_F(UltraCircuitBuilderElliptic, DoubleOffCurveOriginUnconstrainedOutput)
     EXPECT_TRUE(CircuitChecker::check(builder));
 }
 
-// Verifies that fuse_ecc_add_gate falls back to a non-fused gate pair when prev_gate_idx is not at the block tail.
-// The fusion decision is based on structural adjacency (is the previous gate still the last in the block?). This
+// Verifies that create_fused_ecc_add_gate falls back to a non-fused gate pair when prev_gate_idx is not at the block
+// tail. The fusion decision is based on structural adjacency (is the previous gate still the last in the block?). This
 // ensures that the gate structure of an ACIR opcode involving cycle_group is independent of its witness values.
 TEST_F(UltraCircuitBuilderElliptic, FuseEccAddGateFallsBackWhenNotAtBlockTail)
 {
@@ -300,14 +300,15 @@ TEST_F(UltraCircuitBuilderElliptic, FuseEccAddGateFallsBackWhenNotAtBlockTail)
     EXPECT_EQ(builder.blocks.elliptic.size(), 4UL); // 2 non-fused ops = 4 gates
 
     // Attempt to fuse into first_output_idx, which is no longer at the block tail.
-    // The adjacency check fails, so fuse_ecc_add_gate deterministically falls back to create_ecc_add_gate.
+    // The adjacency check fails, so create_fused_ecc_add_gate deterministically falls back to create_ecc_add_gate.
     affine_element p3 = crypto::pedersen_commitment::commit_native({ bb::fr(3) }, 0);
     affine_element result(element(first_add.result) + element(p3));
     uint32_t x3 = builder.add_variable(p3.x);
     uint32_t y3 = builder.add_variable(p3.y);
     uint32_t x_result = builder.add_variable(result.x);
     uint32_t y_result = builder.add_variable(result.y);
-    builder.fuse_ecc_add_gate(first_output_idx, { x_temp1, y_temp1, x3, y3, x_result, y_result, /*is_addition=*/true });
+    builder.create_fused_ecc_add_gate(first_output_idx,
+                                      { x_temp1, y_temp1, x3, y3, x_result, y_result, /*is_addition=*/true });
 
     EXPECT_EQ(builder.blocks.elliptic.size(), 6UL); // fell back to non-fused: 4 + 2 = 6 (not 4 + 1 = 5)
     EXPECT_TRUE(CircuitChecker::check(builder));
