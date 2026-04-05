@@ -548,7 +548,7 @@ export class PublicProcessor implements Traceable {
     // Fee payment insertion has already been done. Do the rest.
     await this.doTreeInsertionsForPrivateOnlyTx(processedTx);
 
-    await this.contractsDB.addNewContracts(tx);
+    this.contractsDB.addNewContracts(tx);
 
     return [processedTx, undefined, []];
   }

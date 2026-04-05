@@ -852,6 +852,21 @@ describe('sentinel', () => {
 
         expect(result).toBe(false);
       });
+
+      it('should not divide by zero when an epoch has total 0 (treat as not inactive)', async () => {
+        const mockPerformance = [
+          { epoch: EpochNumber(5), missed: 8, total: 10 }, // 80% missed (inactive)
+          { epoch: EpochNumber(4), missed: 8, total: 0 }, // total 0 -> guard: do not divide; treat as not inactive
+          { epoch: EpochNumber(3), missed: 8, total: 10 }, // 80% missed (inactive)
+        ];
+
+        jest.spyOn(store, 'getProvenPerformance').mockResolvedValue(mockPerformance);
+
+        const result = await sentinel.checkPastInactivity(validator1, EpochNumber(6), 3);
+
+        // Epoch 4 has total 0 so it must not count as inactive; we don't have 3 consecutive inactive epochs
+        expect(result).toBe(false);
+      });
     });
 
     describe('handleProvenPerformance with consecutive epochs', () => {

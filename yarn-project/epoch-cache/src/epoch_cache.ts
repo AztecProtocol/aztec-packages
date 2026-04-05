@@ -9,6 +9,7 @@ import {
   type L1RollupConstants,
   getEpochAtSlot,
   getEpochNumberAtTimestamp,
+  getNextL1SlotTimestamp,
   getSlotAtTimestamp,
   getSlotRangeForEpoch,
   getTimestampForSlot,
@@ -191,18 +192,14 @@ export class EpochCache implements EpochCacheInterface {
     return { ...this.getEpochAndSlotAtTimestamp(nowSeconds), nowMs };
   }
 
-  public nowInSeconds(): bigint {
-    return BigInt(Math.floor(this.dateProvider.now() / 1000));
-  }
-
   private getEpochAndSlotAtSlot(slot: SlotNumber): EpochAndSlot {
     return this.getEpochAndSlotAtTimestamp(getTimestampForSlot(slot, this.l1constants));
   }
 
   public getEpochAndSlotInNextL1Slot(): EpochAndSlot & { nowSeconds: bigint } {
-    const nowSeconds = this.nowInSeconds();
-    const nextSlotTs = nowSeconds + BigInt(this.l1constants.ethereumSlotDuration);
-    return { ...this.getEpochAndSlotAtTimestamp(nextSlotTs), nowSeconds };
+    const nowSeconds = this.dateProvider.nowInSeconds();
+    const nextSlotTs = getNextL1SlotTimestamp(nowSeconds, this.l1constants);
+    return { ...this.getEpochAndSlotAtTimestamp(nextSlotTs), nowSeconds: BigInt(nowSeconds) };
   }
 
   public getTargetEpochAndSlotInNextL1Slot(): EpochAndSlot & { nowSeconds: bigint } {
@@ -440,10 +437,11 @@ export class EpochCache implements EpochCacheInterface {
   async getRegisteredValidators(): Promise<EthAddress[]> {
     const validatorRefreshIntervalMs = this.config.validatorRefreshIntervalSeconds * 1000;
     const validatorRefreshTime = this.lastValidatorRefresh + validatorRefreshIntervalMs;
-    if (validatorRefreshTime < this.dateProvider.now()) {
-      const currentSet = await this.rollup.getAttesters();
+    const now = this.dateProvider.now();
+    if (validatorRefreshTime < now) {
+      const currentSet = await this.rollup.getAttesters(BigInt(Math.floor(now / 1000)));
       this.allValidators = new Set(currentSet.map(v => v.toString()));
-      this.lastValidatorRefresh = this.dateProvider.now();
+      this.lastValidatorRefresh = now;
     }
     return Array.from(this.allValidators.keys()).map(v => EthAddress.fromString(v));
   }
