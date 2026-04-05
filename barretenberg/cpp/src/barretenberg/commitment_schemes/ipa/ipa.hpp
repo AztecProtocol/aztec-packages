@@ -819,12 +819,20 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
         // Compute G_zero
         // In the native verifier, this uses pippenger. Here we use fixed_batch_mul since all SRS points are
         // circuit constants, which uses plookup tables instead of ROM tables and is significantly cheaper.
-        // We use 8-bit tables (table_bits=8, 32 rounds) rather than the default 4-bit (64 rounds) because
-        // table rows are preprocessed and don't cost witness rows; halving the rounds halves lookup/add gates.
-        // 8-bit is valid since cycle_scalar::LO_BITS (128) is evenly divisible by 8.
+        // We use 8-bit tables (table_bits=8, 32 rounds) to minimise gate count. However, with N=32768 SRS points
+        // and 8-bit tables, the total table rows = 32768 × 256 = 2^23 exactly. The 5 mandatory overhead rows
+        // (NUM_DISABLED_ROWS_IN_SUMCHECK=4, NUM_ZERO_ROWS=1) push the total to 2^23+5, forcing dyadic_size = 2^24.
+        // To stay within 2^23 we handle the first SRS point separately with a 4-bit table (16 entries instead of
+        // 256): total table rows = 16 + 32767×256 = 8,388,368 < 2^23, giving dyadic_size = 2^23 and ~2× speedup.
         std::vector<Commitment> srs_elements = vk.get_monomial_points();
         srs_elements.resize(poly_length);
-        Commitment computed_G_zero = Commitment::fixed_batch_mul(srs_elements, s_vec, {}, 8);
+        std::vector<Commitment> first_srs_point(1, srs_elements[0]);
+        std::vector<Fr> first_s_scalar(1, s_vec[0]);
+        std::vector<Commitment> remaining_srs(srs_elements.begin() + 1, srs_elements.end());
+        std::vector<Fr> remaining_s(s_vec.begin() + 1, s_vec.end());
+        Commitment first_term = Commitment::fixed_batch_mul(first_srs_point, first_s_scalar, {}, /*table_bits=*/4);
+        Commitment remaining_term = Commitment::fixed_batch_mul(remaining_srs, remaining_s, {}, /*table_bits=*/8);
+        Commitment computed_G_zero = first_term.unconditional_add(remaining_term);
         // check the computed G_zero and the claimed G_zero are the same.
         // The circuit constraint enforces correctness; mismatched witnesses will produce an unsatisfiable circuit.
         claimed_G_zero.assert_equal(computed_G_zero, "G_zero doesn't match received G_zero.");
