@@ -25,7 +25,6 @@ import {
   type TxContext,
 } from '@aztec/stdlib/tx';
 
-import type { AccessScopes } from '../../access_scopes.js';
 import { NoteService } from '../../notes/note_service.js';
 import type { SenderTaggingStore } from '../../storage/tagging_store/sender_tagging_store.js';
 import { syncSenderTaggingIndexes } from '../../tagging/index.js';
@@ -43,7 +42,7 @@ export type PrivateExecutionOracleArgs = Omit<UtilityExecutionOracleArgs, 'contr
   txContext: TxContext;
   callContext: CallContext;
   /** Needed to trigger contract synchronization before nested calls */
-  utilityExecutor: (call: FunctionCall, scopes: AccessScopes) => Promise<void>;
+  utilityExecutor: (call: FunctionCall, scopes: AztecAddress[]) => Promise<void>;
   executionCache: HashedValuesCache;
   noteCache: ExecutionNoteCache;
   taggingIndexCache: ExecutionTaggingIndexCache;
@@ -76,7 +75,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
   private readonly argsHash: Fr;
   private readonly txContext: TxContext;
   private readonly callContext: CallContext;
-  private readonly utilityExecutor: (call: FunctionCall, scopes: AccessScopes) => Promise<void>;
+  private readonly utilityExecutor: (call: FunctionCall, scopes: AztecAddress[]) => Promise<void>;
   private readonly executionCache: HashedValuesCache;
   private readonly noteCache: ExecutionNoteCache;
   private readonly taggingIndexCache: ExecutionTaggingIndexCache;
@@ -210,6 +209,16 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
       recipient,
     );
 
+    if (!extendedSecret) {
+      // We'd only fail to compute an extended secret if the recipient is an invalid address. To prevent
+      // king-of-the-hill attacks, instead of failing we use a random tag. By including a correct-looking tag in the
+      // log, the transaction shape is preserved and no privacy is leaked, even if the tag is bogus.
+      this.logger.warn(`Computing a tag for invalid recipient ${recipient} - returning a random tag instead`, {
+        contractAddress: this.contractAddress,
+      });
+      return new Tag(Fr.random());
+    }
+
     const index = await this.#getIndexToUseForSecret(extendedSecret);
     this.logger.debug(
       `Incrementing tagging index for sender: ${sender}, recipient: ${recipient}, contract: ${this.contractAddress} to ${index}`,
@@ -265,7 +274,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
    * @param values - Values to store.
    * @returns The hash of the values.
    */
-  public storeInExecutionCache(values: Fr[], hash: Fr) {
+  public setHashPreimage(values: Fr[], hash: Fr) {
     return this.executionCache.store(values, hash);
   }
 
@@ -274,7 +283,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
    * @param hash - Hash of the values.
    * @returns The values.
    */
-  public loadFromExecutionCache(hash: Fr): Promise<Fr[]> {
+  public getHashPreimage(hash: Fr): Promise<Fr[]> {
     const preimage = this.executionCache.getPreimage(hash);
     if (!preimage) {
       throw new Error(`Preimage for hash ${hash.toString()} not found in cache`);
@@ -282,7 +291,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
     return Promise.resolve(preimage);
   }
 
-  override async checkNullifierExists(innerNullifier: Fr): Promise<boolean> {
+  override async doesNullifierExist(innerNullifier: Fr): Promise<boolean> {
     // This oracle must be overridden because while utility execution can only meaningfully check if a nullifier exists
     // in the synched block, during private execution there's also the possibility of it being pending, i.e. created
     // in the current transaction.
@@ -295,7 +304,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
 
     return (
       this.noteCache.getNullifiers(this.contractAddress).has(nullifier) ||
-      (await super.checkNullifierExists(innerNullifier))
+      (await super.doesNullifierExist(innerNullifier))
     );
   }
 
@@ -555,7 +564,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
       senderTaggingStore: this.senderTaggingStore,
       recipientTaggingStore: this.recipientTaggingStore,
       senderAddressBookStore: this.senderAddressBookStore,
-      capsuleStore: this.capsuleStore,
+      capsuleService: this.capsuleService,
       privateEventStore: this.privateEventStore,
       messageContextService: this.messageContextService,
       contractSyncService: this.contractSyncService,
@@ -598,7 +607,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
   }
 
   /** Validates the calldata preimage exists in the cache and checks cumulative calldata size is within limits. */
-  public validatePublicCalldata(calldataHash: Fr) {
+  public assertValidPublicCalldata(calldataHash: Fr) {
     const calldata = this.executionCache.getPreimage(calldataHash);
     if (!calldata) {
       throw new Error('Calldata for public call not found in cache');
@@ -615,7 +624,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
     return this.noteCache.setMinRevertibleSideEffectCounter(minRevertibleSideEffectCounter);
   }
 
-  public inRevertiblePhase(sideEffectCounter: number): Promise<boolean> {
+  public isExecutionInRevertiblePhase(sideEffectCounter: number): Promise<boolean> {
     return Promise.resolve(this.noteCache.isSideEffectCounterRevertible(sideEffectCounter));
   }
 

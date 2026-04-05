@@ -6,6 +6,7 @@ import { bufferToHex } from '@aztec/foundation/string';
 import { SiblingPath } from '@aztec/foundation/trees';
 
 import type { AztecAddress } from '../aztec-address/index.js';
+import type { BlockParameter } from '../block/block_parameter.js';
 import { computeL1ToL2MessageNullifier } from '../hash/hash.js';
 import type { AztecNode } from '../interfaces/aztec-node.js';
 import { MerkleTreeId } from '../trees/merkle_tree_id.js';
@@ -79,20 +80,22 @@ export async function getNonNullifiedL1ToL2MessageWitness(
   contractAddress: AztecAddress,
   messageHash: Fr,
   secret: Fr,
+  referenceBlock: BlockParameter = 'latest',
 ): Promise<[bigint, SiblingPath<typeof L1_TO_L2_MSG_TREE_HEIGHT>]> {
-  const response = await node.getL1ToL2MessageMembershipWitness('latest', messageHash);
-  if (!response) {
+  const messageNullifier = await computeL1ToL2MessageNullifier(contractAddress, messageHash, secret);
+
+  const [l1ToL2Response, nullifierResponse] = await Promise.all([
+    node.getL1ToL2MessageMembershipWitness(referenceBlock, messageHash),
+    node.findLeavesIndexes(referenceBlock, MerkleTreeId.NULLIFIER_TREE, [messageNullifier]),
+  ]);
+
+  if (!l1ToL2Response) {
     throw new Error(`No L1 to L2 message found for message hash ${messageHash.toString()}`);
   }
 
-  const [messageIndex, siblingPath] = response;
-
-  const messageNullifier = await computeL1ToL2MessageNullifier(contractAddress, messageHash, secret);
-
-  const [nullifierIndex] = await node.findLeavesIndexes('latest', MerkleTreeId.NULLIFIER_TREE, [messageNullifier]);
-  if (nullifierIndex !== undefined) {
+  if (nullifierResponse[0] !== undefined) {
     throw new Error(`No non-nullified L1 to L2 message found for message hash ${messageHash.toString()}`);
   }
 
-  return [messageIndex, siblingPath];
+  return l1ToL2Response;
 }

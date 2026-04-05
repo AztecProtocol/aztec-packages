@@ -13,7 +13,13 @@ import {
   L2Block,
   type ValidateCheckpointResult,
 } from '@aztec/stdlib/block';
-import type { CheckpointData, PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
+import type {
+  CheckpointData,
+  CommonCheckpointData,
+  ProposedCheckpointData,
+  ProposedCheckpointInput,
+  PublishedCheckpoint,
+} from '@aztec/stdlib/checkpoint';
 import type {
   ContractClassPublic,
   ContractClassPublicWithCommitment,
@@ -254,7 +260,7 @@ export class KVArchiverDataStore implements ContractDataSource {
    * @returns The number of the latest block
    */
   getLatestBlockNumber(): Promise<BlockNumber> {
-    return this.#blockStore.getLatestBlockNumber();
+    return this.#blockStore.getLatestL2BlockNumber();
   }
 
   /**
@@ -553,13 +559,6 @@ export class KVArchiverDataStore implements ContractDataSource {
   }
 
   /**
-   * Stores the l1 block that messages have been synched until
-   */
-  async setMessageSynchedL1Block(l1Block: L1BlockId) {
-    await this.#messageStore.setSynchedL1Block(l1Block);
-  }
-
-  /**
    * Returns the number of the most recent proven block
    * @returns The number of the most recent proven block
    */
@@ -591,9 +590,9 @@ export class KVArchiverDataStore implements ContractDataSource {
     return this.#messageStore.rollbackL1ToL2MessagesToCheckpoint(targetCheckpointNumber);
   }
 
-  /** Persists the inbox tree-in-progress checkpoint number from L1 state. */
-  public setInboxTreeInProgress(value: bigint): Promise<void> {
-    return this.#messageStore.setInboxTreeInProgress(value);
+  /** Atomically updates the message sync state: the L1 sync point and the inbox tree-in-progress marker. */
+  public setMessageSyncState(l1Block: L1BlockId, treeInProgress: bigint | undefined): Promise<void> {
+    return this.#messageStore.setMessageSyncState(l1Block, treeInProgress);
   }
 
   /** Returns an async iterator to all L1 to L2 messages on the range. */
@@ -614,6 +613,38 @@ export class KVArchiverDataStore implements ContractDataSource {
   /** Sets the last synced validation status of the pending chain. */
   public setPendingChainValidationStatus(status: ValidateCheckpointResult | undefined): Promise<void> {
     return this.#blockStore.setPendingChainValidationStatus(status);
+  }
+
+  /**
+   * Gets the L2 block number of the proposed checkpoint.
+   * @returns The block number of the proposed checkpoint, or the checkpointed block number if none.
+   */
+  public getProposedCheckpointL2BlockNumber(): Promise<BlockNumber> {
+    return this.#blockStore.getProposedCheckpointL2BlockNumber();
+  }
+
+  /** Returns the checkpoint data at the proposed tip */
+  public getProposedCheckpoint(): Promise<CommonCheckpointData | undefined> {
+    return this.#blockStore.getProposedCheckpoint();
+  }
+
+  /** Returns the proposed checkpoint data, or undefined if no proposed checkpoint exists. No fallback to confirmed. */
+  public getProposedCheckpointOnly(): Promise<ProposedCheckpointData | undefined> {
+    return this.#blockStore.getProposedCheckpointOnly();
+  }
+
+  /**
+   * Set proposed checkpoint
+   * @param proposedCheckpoint
+   * @returns
+   */
+  public setProposedCheckpoint(proposedCheckpoint: ProposedCheckpointInput): Promise<void> {
+    return this.#blockStore.setProposedCheckpoint(proposedCheckpoint);
+  }
+
+  /** Deletes the proposed checkpoint from storage. */
+  public deleteProposedCheckpoint(): Promise<void> {
+    return this.#blockStore.deleteProposedCheckpoint();
   }
 
   /**

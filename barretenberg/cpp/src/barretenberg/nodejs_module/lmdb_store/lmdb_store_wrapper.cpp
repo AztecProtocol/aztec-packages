@@ -3,10 +3,8 @@
 #include "barretenberg/lmdblib/types.hpp"
 #include "barretenberg/nodejs_module/lmdb_store/lmdb_store_message.hpp"
 #include "napi.h"
-#include <algorithm>
 #include <chrono>
 #include <cstdint>
-#include <iterator>
 #include <memory>
 #include <optional>
 #include <ratio>
@@ -117,52 +115,9 @@ GetResponse LMDBStoreWrapper::get(const GetRequest& req)
 
 HasResponse LMDBStoreWrapper::has(const HasRequest& req)
 {
-    auto string_cmp = [](const std::vector<unsigned char>& a, const std::vector<unsigned char>& b) {
-        return std::lexicographical_compare(a.begin(), a.end(), b.begin(), b.end());
-    };
-
     verify_store();
-    std::set<lmdblib::Key, decltype(string_cmp)> key_set(string_cmp);
-    for (const auto& entry : req.entries) {
-        key_set.insert(entry.first);
-    }
-
-    lmdblib::KeysVector keys(key_set.begin(), key_set.end());
-    lmdblib::OptionalValuesVector vals;
-    _store->get(keys, vals, req.db);
-
     std::vector<bool> exists;
-
-    for (const auto& entry : req.entries) {
-        const auto& key = entry.first;
-        const auto& requested_values = entry.second;
-
-        const auto& key_it = std::find(keys.begin(), keys.end(), key);
-        if (key_it == keys.end()) {
-            // this shouldn't happen. It means we missed a key when we created the key_set
-            exists.push_back(false);
-            continue;
-        }
-
-        // should be fine to convert this to an index in the array?
-        const auto& values = vals[static_cast<size_t>(key_it - keys.begin())];
-
-        if (!values.has_value()) {
-            exists.push_back(false);
-            continue;
-        }
-
-        // client just wanted to know if the key exists
-        if (!requested_values.has_value()) {
-            exists.push_back(true);
-            continue;
-        }
-
-        exists.push_back(std::all_of(requested_values->begin(), requested_values->end(), [&](const auto& val) {
-            return std::find(values->begin(), values->end(), val) != values->begin();
-        }));
-    }
-
+    _store->has(req.entries, exists, req.db);
     return { exists };
 }
 

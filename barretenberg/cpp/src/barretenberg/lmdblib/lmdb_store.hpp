@@ -47,6 +47,7 @@ class LMDBStore : public LMDBStoreBase {
 
     void put(std::vector<PutData>& data);
     void get(KeysVector& keys, OptionalValuesVector& values, const std::string& name);
+    void has(const KeyOptionalValuesVector& entries, std::vector<bool>& results, const std::string& name);
 
     Cursor::Ptr create_cursor(ReadTransaction::SharedPtr tx, const std::string& dbName);
 

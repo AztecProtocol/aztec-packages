@@ -110,7 +110,7 @@ import {
   FullNodeCheckpointsBuilder,
   NodeKeystoreAdapter,
   ValidatorClient,
-  createBlockProposalHandler,
+  createProposalHandler,
   createValidatorClient,
 } from '@aztec/validator-client';
 import type { SlashingProtectionDatabase } from '@aztec/validator-ha-signer/types';
@@ -400,28 +400,35 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       // like attestations or auths will fail.
       if (validatorClient) {
         watchers.push(validatorClient);
+
+        const vc = validatorClient;
+        const getValidatorAddresses = () => vc.getValidatorAddresses().map(a => a.toString());
+        validatorClient.getProposalHandler().register(p2pClient, true, archiver, getValidatorAddresses);
+
         if (!options.dontStartSequencer) {
           await validatorClient.registerHandlers();
         }
       }
     }
 
-    // If there's no validator client, create a BlockProposalHandler to handle block proposals
+    // If there's no validator client, create a ProposalHandler to handle block and checkpoint proposals
     // for monitoring or reexecution. Reexecution (default) allows us to follow the pending chain,
     // while non-reexecution is used for validating the proposals and collecting their txs.
+    // Checkpoint proposals rebuild blobs if the blob client can upload blobs.
     if (!validatorClient) {
       const reexecute = !!config.alwaysReexecuteBlockProposals;
-      log.info(`Setting up block proposal handler` + (reexecute ? ' with reexecution of proposals' : ''));
-      createBlockProposalHandler(config, {
+      log.info(`Setting up proposal handler` + (reexecute ? ' with reexecution of proposals' : ''));
+      createProposalHandler(config, {
         checkpointsBuilder: validatorCheckpointsBuilder,
         worldState: worldStateSynchronizer,
         epochCache,
         blockSource: archiver,
         l1ToL2MessageSource: archiver,
         p2pClient,
+        blobClient,
         dateProvider,
         telemetry,
-      }).register(p2pClient, reexecute);
+      }).register(p2pClient, reexecute, archiver);
     }
 
     // Start world state and wait for it to sync to the archiver.
@@ -1083,6 +1090,10 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     // which is the archive tree root BEFORE the anchor block was added (i.e. the state after block N-1).
     // So we need the world state at block N-1, not block N, to produce a sibling path matching that root.
     const referenceBlockNumber = await this.resolveBlockNumber(referenceBlock);
+    if (referenceBlockNumber === BlockNumber.ZERO) {
+      // Block 0 (the initial block) has an empty archive, so no membership witness can exist.
+      return undefined;
+    }
     const committedDb = await this.getWorldState(BlockNumber(referenceBlockNumber - 1));
     const [pathAndIndex] = await committedDb.findSiblingPaths<MerkleTreeId.ARCHIVE>(MerkleTreeId.ARCHIVE, [blockHash]);
     return pathAndIndex === undefined

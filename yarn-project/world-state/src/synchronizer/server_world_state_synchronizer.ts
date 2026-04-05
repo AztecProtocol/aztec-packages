@@ -293,6 +293,10 @@ export class ServerWorldStateSynchronizer
         block: { number: INITIAL_L2_BLOCK_NUM, hash: GENESIS_BLOCK_HEADER_HASH.toString() },
         checkpoint: { number: INITIAL_CHECKPOINT_NUMBER, hash: genesisCheckpointHeaderHash },
       },
+      proposedCheckpoint: {
+        block: { number: INITIAL_L2_BLOCK_NUM, hash: GENESIS_BLOCK_HEADER_HASH.toString() },
+        checkpoint: { number: INITIAL_CHECKPOINT_NUMBER, hash: genesisCheckpointHeaderHash },
+      },
       finalized: {
         block: { number: status.finalizedBlockNumber, hash: finalizedBlockHash ?? '' },
         checkpoint: { number: INITIAL_CHECKPOINT_NUMBER, hash: genesisCheckpointHeaderHash },
@@ -453,7 +457,9 @@ export class ServerWorldStateSynchronizer
   private async handleChainPruned(blockNumber: BlockNumber) {
     this.log.info(`Chain pruned to block ${blockNumber}`);
     const status = await this.merkleTreeDb.unwindBlocks(blockNumber);
-    this.provenBlockNumber = undefined;
+    if (this.provenBlockNumber !== undefined && this.provenBlockNumber > blockNumber) {
+      this.provenBlockNumber = undefined;
+    }
     this.instrumentation.updateWorldStateMetrics(status);
   }
 

@@ -18,71 +18,69 @@ namespace bb::plookup::ecc_generator_tables {
  **/
 template <typename G1> void ecc_generator_table<G1>::init_generator_tables()
 {
-    if (init) {
-        return;
-    }
-    element base_point = G1::one;
+    std::call_once(init_flag, []() {
+        element base_point = G1::one;
 
-    auto d2 = base_point.dbl();
-    std::array<element, 256> point_table;
-    point_table[128] = base_point;
-    for (size_t i = 1; i < 128; ++i) {
-        point_table[i + 128] = point_table[i + 127] + d2;
-    }
-    for (size_t i = 0; i < 128; ++i) {
-        point_table[127 - i] = -point_table[128 + i];
-    }
-    element::batch_normalize(&point_table[0], 256);
+        auto d2 = base_point.dbl();
+        std::array<element, 256> point_table;
+        point_table[128] = base_point;
+        for (size_t i = 1; i < 128; ++i) {
+            point_table[i + 128] = point_table[i + 127] + d2;
+        }
+        for (size_t i = 0; i < 128; ++i) {
+            point_table[127 - i] = -point_table[128 + i];
+        }
+        element::batch_normalize(&point_table[0], 256);
 
-    auto beta = G1::Fq::cube_root_of_unity();
-    for (size_t i = 0; i < 256; ++i) {
-        uint256_t endo_x = static_cast<uint256_t>(point_table[i].x * beta);
-        uint256_t x = static_cast<uint256_t>(point_table[i].x);
-        uint256_t y = static_cast<uint256_t>(point_table[i].y);
+        auto beta = G1::Fq::cube_root_of_unity();
+        for (size_t i = 0; i < 256; ++i) {
+            uint256_t endo_x = static_cast<uint256_t>(point_table[i].x * beta);
+            uint256_t x = static_cast<uint256_t>(point_table[i].x);
+            uint256_t y = static_cast<uint256_t>(point_table[i].y);
 
-        // Store the values in prime-basis lookup tables
-        ecc_generator_table<G1>::generator_xyprime_table[i] = std::make_pair(bb::fr(x), bb::fr(y));
-        ecc_generator_table<G1>::generator_endo_xyprime_table[i] = std::make_pair(bb::fr(endo_x), bb::fr(y));
+            // Store the values in prime-basis lookup tables
+            ecc_generator_table<G1>::generator_xyprime_table[i] = std::make_pair(bb::fr(x), bb::fr(y));
+            ecc_generator_table<G1>::generator_endo_xyprime_table[i] = std::make_pair(bb::fr(endo_x), bb::fr(y));
 
-        // Compute x limbs
-        constexpr size_t num_limb_bits = stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION;
-        const uint256_t SHIFT = uint256_t(1) << num_limb_bits;
-        const uint256_t MASK = SHIFT - 1;
-        uint256_t x0 = x & MASK;
-        x = x >> num_limb_bits;
-        uint256_t x1 = x & MASK;
-        x = x >> num_limb_bits;
-        uint256_t x2 = x & MASK;
-        x = x >> num_limb_bits;
-        uint256_t x3 = x & MASK;
+            // Compute x limbs
+            constexpr size_t num_limb_bits = stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION;
+            const uint256_t SHIFT = uint256_t(1) << num_limb_bits;
+            const uint256_t MASK = SHIFT - 1;
+            uint256_t x0 = x & MASK;
+            x = x >> num_limb_bits;
+            uint256_t x1 = x & MASK;
+            x = x >> num_limb_bits;
+            uint256_t x2 = x & MASK;
+            x = x >> num_limb_bits;
+            uint256_t x3 = x & MASK;
 
-        // Compute endo x limbs
-        uint256_t endox0 = endo_x & MASK;
-        endo_x = endo_x >> num_limb_bits;
-        uint256_t endox1 = endo_x & MASK;
-        endo_x = endo_x >> num_limb_bits;
-        uint256_t endox2 = endo_x & MASK;
-        endo_x = endo_x >> num_limb_bits;
-        uint256_t endox3 = endo_x & MASK;
+            // Compute endo x limbs
+            uint256_t endox0 = endo_x & MASK;
+            endo_x = endo_x >> num_limb_bits;
+            uint256_t endox1 = endo_x & MASK;
+            endo_x = endo_x >> num_limb_bits;
+            uint256_t endox2 = endo_x & MASK;
+            endo_x = endo_x >> num_limb_bits;
+            uint256_t endox3 = endo_x & MASK;
 
-        // Compute y limbs
-        uint256_t y0 = y & MASK;
-        y = y >> num_limb_bits;
-        uint256_t y1 = y & MASK;
-        y = y >> num_limb_bits;
-        uint256_t y2 = y & MASK;
-        y = y >> num_limb_bits;
-        uint256_t y3 = y & MASK;
+            // Compute y limbs
+            uint256_t y0 = y & MASK;
+            y = y >> num_limb_bits;
+            uint256_t y1 = y & MASK;
+            y = y >> num_limb_bits;
+            uint256_t y2 = y & MASK;
+            y = y >> num_limb_bits;
+            uint256_t y3 = y & MASK;
 
-        // Store the limb values in the respective lookup tables
-        ecc_generator_table<G1>::generator_xlo_table[i] = std::make_pair(x0, x1);
-        ecc_generator_table<G1>::generator_xhi_table[i] = std::make_pair(x2, x3);
-        ecc_generator_table<G1>::generator_endo_xlo_table[i] = std::make_pair(endox0, endox1);
-        ecc_generator_table<G1>::generator_endo_xhi_table[i] = std::make_pair(endox2, endox3);
-        ecc_generator_table<G1>::generator_ylo_table[i] = std::make_pair(y0, y1);
-        ecc_generator_table<G1>::generator_yhi_table[i] = std::make_pair(y2, y3);
-    }
-    init = true;
+            // Store the limb values in the respective lookup tables
+            ecc_generator_table<G1>::generator_xlo_table[i] = std::make_pair(x0, x1);
+            ecc_generator_table<G1>::generator_xhi_table[i] = std::make_pair(x2, x3);
+            ecc_generator_table<G1>::generator_endo_xlo_table[i] = std::make_pair(endox0, endox1);
+            ecc_generator_table<G1>::generator_endo_xhi_table[i] = std::make_pair(endox2, endox3);
+            ecc_generator_table<G1>::generator_ylo_table[i] = std::make_pair(y0, y1);
+            ecc_generator_table<G1>::generator_yhi_table[i] = std::make_pair(y2, y3);
+        }
+    });
 }
 
 /**

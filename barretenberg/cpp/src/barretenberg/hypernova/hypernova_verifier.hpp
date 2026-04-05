@@ -89,6 +89,6 @@ template <typename Flavor_> class HypernovaFoldingVerifier {
     /**
      * @brief Utility to perform batch mul of commitments.
      */
-    template <size_t N> Commitment batch_mul(const RefArray<Commitment, N>& _points, const std::vector<FF>& scalars);
+    template <size_t N> Commitment batch_mul(const RefArray<Commitment, N>& _points, std::vector<FF>& scalars);
 };
 } // namespace bb

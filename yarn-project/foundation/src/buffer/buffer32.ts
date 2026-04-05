@@ -10,6 +10,9 @@ import { bufferToHex } from '../string/index.js';
  * A class representing a 32 byte Buffer.
  */
 export class Buffer32 {
+  /** Branding to prevent structural compatibility with Buffer16. */
+  declare readonly __brand: 'Buffer32';
+
   /**
    * The size of the hash in bytes.
    */

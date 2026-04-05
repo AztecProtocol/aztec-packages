@@ -90,7 +90,7 @@
         "CC": "clang-20",
         "CXX": "clang++-20",
         "CFLAGS": "-gdwarf-4",
-        "CXXFLAGS": "-gdwarf-4",
+        "CXXFLAGS": "-gdwarf-4 -D_GLIBCXX_DEBUG",
         "LDFLAGS": "-gdwarf-4"
       },
       "cacheVariables": {
@@ -162,7 +162,7 @@
       "binaryDir": "build-debug-fast",
       "environment": {
         "CFLAGS": "-O2 -gdwarf",
-        "CXXFLAGS": "-O2 -gdwarf-4",
+        "CXXFLAGS": "-O2 -gdwarf-4 -D_GLIBCXX_DEBUG",
         "LDFLAGS": "-O2 -gdwarf-4"
       },
       "cacheVariables": {

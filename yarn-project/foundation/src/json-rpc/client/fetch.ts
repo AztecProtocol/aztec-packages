@@ -43,13 +43,14 @@ export async function defaultFetch(
   }
 
   let responseJson;
+  const responseText = await resp.text();
   try {
-    responseJson = await resp.json();
+    responseJson = JSON.parse(responseText);
   } catch {
     if (!resp.ok) {
       throw new Error(resp.statusText);
     }
-    throw new Error(`Failed to parse body as JSON: ${await resp.text()}`);
+    throw new Error(`Failed to parse body as JSON: ${responseText}`);
   }
 
   if (!resp.ok) {

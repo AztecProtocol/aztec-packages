@@ -59,6 +59,7 @@ class ProofCompressor {
 
     static uint256_t read_u256(const std::vector<uint8_t>& data, size_t& pos)
     {
+        BB_ASSERT(pos + 32 <= data.size());
         uint256_t val{ 0, 0, 0, 0 };
         for (int i = 31; i >= 0; --i) {
             val.data[i / 8] |= static_cast<uint64_t>(data[pos++]) << (8 * (i % 8));
@@ -502,13 +503,19 @@ class ProofCompressor {
         size_t pos = 0;
 
         // BN254 callbacks
-        auto bn254_scalar = [&]() { flat.emplace_back(read_u256(compressed, pos)); };
+        auto bn254_scalar = [&]() {
+            uint256_t raw = read_u256(compressed, pos);
+            BB_ASSERT(raw < Fr::modulus);
+            flat.emplace_back(raw);
+        };
 
         auto bn254_comm = [&]() {
             uint256_t raw = read_u256(compressed, pos);
             bool sign = (raw & SIGN_BIT_MASK) != 0;
             uint256_t x_val = raw & ~SIGN_BIT_MASK;
 
+            // Point-at-infinity is encoded as all zeros (x=0, sign=false).
+            // Unambiguous because x=0 is not on BN254
             if (x_val == uint256_t(0) && !sign) {
                 for (int j = 0; j < 4; j++) {
                     flat.emplace_back(Fr::zero());
@@ -516,6 +523,7 @@ class ProofCompressor {
                 return;
             }
 
+            BB_ASSERT(x_val < Fq::modulus);
             Fq x(x_val);
             Fq y_squared = x * x * x + Bn254G1Params::b;
             auto [is_square, y] = y_squared.sqrt();
@@ -539,14 +547,16 @@ class ProofCompressor {
             bool sign = (raw & SIGN_BIT_MASK) != 0;
             uint256_t x_val = raw & ~SIGN_BIT_MASK;
 
+            // Point-at-infinity is encoded as all zeros (x=0, sign=false).
+            // Unambiguous because x=0 is not on Grumpkin
             if (x_val == uint256_t(0) && !sign) {
                 flat.emplace_back(Fr::zero());
                 flat.emplace_back(Fr::zero());
                 return;
             }
 
+            BB_ASSERT(x_val < Fr::modulus);
             Fr x(x_val);
-            // Grumpkin curve: y² = x³ + b, where b = -17 (in BN254::ScalarField)
             Fr y_squared = x * x * x + grumpkin::G1Params::b;
             auto [is_square, y] = y_squared.sqrt();
             BB_ASSERT(is_square);
@@ -561,6 +571,7 @@ class ProofCompressor {
 
         auto grumpkin_scalar = [&]() {
             uint256_t raw = read_u256(compressed, pos);
+            BB_ASSERT(raw < Fq::modulus);
             Fq fq_val(raw);
             auto [lo, hi] = split_fq(fq_val);
             flat.emplace_back(lo);

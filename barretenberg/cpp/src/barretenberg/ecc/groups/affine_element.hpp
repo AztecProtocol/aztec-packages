@@ -68,7 +68,6 @@ template <typename Fq_, typename Fr_, typename Params_> class alignas(64) affine
      * @brief Reconstruct a point in affine coordinates from compressed form.
      * @details #LARGE_MODULUS_AFFINE_POINT_COMPRESSION Point compression is implemented for curves of a prime
      * field F_p with p being 256 bits.
-     * TODO(Suyash): Check with kesha if this is correct.
      *
      * @param compressed compressed point
      * @return constexpr affine_element
@@ -101,7 +100,7 @@ template <typename Fq_, typename Fr_, typename Params_> class alignas(64) affine
      * @return A randomly chosen point on the curve
      */
     static affine_element random_element(numeric::RNG* engine = nullptr) noexcept;
-    static constexpr affine_element hash_to_curve(const std::vector<uint8_t>& seed, uint8_t attempt_count = 0) noexcept
+    static affine_element hash_to_curve(const std::vector<uint8_t>& seed, uint8_t attempt_count = 0) noexcept
         requires SupportsHashToCurve<Params>;
 
     constexpr bool operator==(const affine_element& other) const noexcept;
@@ -163,6 +162,11 @@ template <typename Fq_, typename Fr_, typename Params_> class alignas(64) affine
         // same order in our various serialization flows
         read(buffer, write_x_first ? result.x : result.y);
         read(buffer, write_x_first ? result.y : result.x);
+
+        // Validate the deserialized point lies on the curve
+        if (!result.on_curve()) {
+            throw_or_abort("affine_element::serialize_from_buffer: point is not on the curve");
+        }
         return result;
     }
 
@@ -195,7 +199,7 @@ template <typename Fq_, typename Fr_, typename Params_> class alignas(64) affine
      * @param masking_scalar Ignored for native (needed for safe offset generators in stdlib)
      */
     static affine_element batch_mul(std::span<const affine_element> points,
-                                    std::span<const Fr> scalars,
+                                    std::span<Fr> scalars,
                                     size_t max_num_bits = 0,
                                     bool with_edgecases = true,
                                     const Fr& masking_scalar = Fr(1)) noexcept;
