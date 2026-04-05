@@ -396,7 +396,6 @@ template <typename Flavor> class SumcheckProver {
     SumcheckOutput<Flavor> prove()
     {
         vinfo("starting sumcheck rounds...");
-        info("[sumcheck] N=", multivariate_n, " before round 0");
 
         // Given gate challenges β = (β₀, ..., β_{d−1}) and d = `multivariate_d`, compute the evaluations of
         // GateSeparator_β (X₀, ..., X_{d−1}) = ∏ₖ₌₀^{d−1} (1 − Xₖ + Xₖ · βₖ)
@@ -415,7 +414,6 @@ template <typename Flavor> class SumcheckProver {
         multivariate_challenge.emplace_back(u_0);
         gate_separators.partially_evaluate(u_0);
         round.round_size = round.round_size >> 1;
-        info("[sumcheck] after round 0");
 
         // For Ultra/Mega non-ZK: defer PartiallyEvaluatedMultivariates allocation by running rounds 1 and 2
         // directly from full_polynomials (folding 4/8 values per edge on the fly), then batch-apply all 3
@@ -431,7 +429,6 @@ template <typename Flavor> class SumcheckProver {
                 multivariate_challenge.emplace_back(u_1);
                 gate_separators.partially_evaluate(u_1);
                 round.round_size = round.round_size >> 1;
-                info("[sumcheck] after deferred round 1");
 
                 // Round 2 deferred: fold 8 consecutive full_polynomial values per edge on the fly.
                 round_univariate = round.compute_univariate_deferred(
@@ -439,24 +436,18 @@ template <typename Flavor> class SumcheckProver {
                 transcript->send_to_verifier("Sumcheck:univariate_2", round_univariate);
                 FF u_2 = transcript->template get_challenge<FF>("Sumcheck:u_2");
                 multivariate_challenge.emplace_back(u_2);
-                info("[sumcheck] after deferred round 2, before PEM alloc at N/8");
                 // Allocate at N/8 by batch-applying all 3 challenges in one pass.
                 PartiallyEvaluatedMultivariates result =
                     partially_evaluate_first_k_rounds(full_polynomials, u_0, u_1, u_2);
-                info("[sumcheck] PEM allocated at N/8");
                 gate_separators.partially_evaluate(u_2);
                 round.round_size = round.round_size >> 1;
                 return result;
             } else {
                 // Original behavior: populate the book-keeping table at N/2.
-                info("[sumcheck] allocating PEM at N/2 (non-deferred path)");
                 auto r = partially_evaluate_first_round(full_polynomials, u_0);
-                info("[sumcheck] PEM allocated at N/2");
                 return r;
             }
         }();
-        info("[sumcheck] PEM live, entering main loop at round ",
-             (IsUltraOrMegaHonk<Flavor> && !Flavor::HasZK) ? 3 : 1);
 
         // Ultra/Mega deferred: loop starts at round 3 (rounds 1,2 handled above in the lambda).
         // All other flavors: loop starts at round 1 (original behavior).
@@ -475,10 +466,8 @@ template <typename Flavor> class SumcheckProver {
             partially_evaluate_in_place(partially_evaluated_polynomials, round_challenge);
             gate_separators.partially_evaluate(round_challenge);
             round.round_size = round.round_size >> 1;
-            info("[sumcheck] after round ", round_idx);
         }
         vinfo("completed ", multivariate_d, " rounds of sumcheck");
-        info("[sumcheck] all rounds done, PEM still live");
 
         GateSeparatorPolynomial<FF> virtual_gate_separator(gate_challenges, multivariate_challenge);
         // If required, extend prover's multilinear polynomials in `multivariate_d` variables by zero to get multilinear
