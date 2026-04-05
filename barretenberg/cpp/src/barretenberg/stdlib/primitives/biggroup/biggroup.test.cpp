@@ -2822,6 +2822,137 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             EXPECT_CIRCUIT_CORRECTNESS(builder);
         }
     }
+
+    /**
+     * @brief Simulate recursive verifier MSM: compare single batch_mul vs split approach.
+     * @details The recursive verifier MSM typically has ~28 constant (VK) points + ~30 witness points.
+     *          This test compares:
+     *          1. Single batch_mul with all 58 points (current approach)
+     *          2. Split approach: fixed_lookup_batch_mul for constants + batch_mul for witnesses + add
+     */
+    static void test_split_msm_for_recursive_verifier()
+    {
+        if constexpr (HasGoblinBuilder<TestType>) {
+            return;
+        } else {
+            // Typical recursive verifier MSM sizes
+            constexpr size_t NUM_CONSTANT_POINTS = 28;  // Precomputed VK commitments
+            constexpr size_t NUM_WITNESS_POINTS = 30;   // Witness + Gemini folds + quotients
+            constexpr size_t TOTAL_POINTS = NUM_CONSTANT_POINTS + NUM_WITNESS_POINTS;
+
+            info("=== Split MSM Comparison for Recursive Verifier ===");
+            info("Constant points (VK): ", NUM_CONSTANT_POINTS);
+            info("Witness points: ", NUM_WITNESS_POINTS);
+            info("Total points: ", TOTAL_POINTS);
+
+            // Generate random native points and scalars
+            std::vector<affine_element> constant_points_native(NUM_CONSTANT_POINTS);
+            std::vector<affine_element> witness_points_native(NUM_WITNESS_POINTS);
+            std::vector<fr> constant_scalars_native(NUM_CONSTANT_POINTS);
+            std::vector<fr> witness_scalars_native(NUM_WITNESS_POINTS);
+
+            for (size_t i = 0; i < NUM_CONSTANT_POINTS; ++i) {
+                constant_points_native[i] = affine_element(element::random_element());
+                constant_scalars_native[i] = fr::random_element();
+            }
+            for (size_t i = 0; i < NUM_WITNESS_POINTS; ++i) {
+                witness_points_native[i] = affine_element(element::random_element());
+                witness_scalars_native[i] = fr::random_element();
+            }
+
+            // Compute expected result natively
+            element expected_native = element::infinity();
+            for (size_t i = 0; i < NUM_CONSTANT_POINTS; ++i) {
+                expected_native += element(constant_points_native[i]) * constant_scalars_native[i];
+            }
+            for (size_t i = 0; i < NUM_WITNESS_POINTS; ++i) {
+                expected_native += element(witness_points_native[i]) * witness_scalars_native[i];
+            }
+            affine_element expected_aff(expected_native);
+
+            // Approach 1: Single batch_mul with all points
+            size_t single_batch_mul_gates;
+            {
+                Builder builder;
+
+                std::vector<element_ct> all_points(TOTAL_POINTS);
+                std::vector<scalar_ct> all_scalars(TOTAL_POINTS);
+
+                // Constant points (from VK)
+                for (size_t i = 0; i < NUM_CONSTANT_POINTS; ++i) {
+                    using Fq_ct = typename element_ct::BaseField;
+                    Fq_ct x_const(&builder, uint256_t(constant_points_native[i].x));
+                    Fq_ct y_const(&builder, uint256_t(constant_points_native[i].y));
+                    all_points[i] = element_ct(x_const, y_const);
+                    all_scalars[i] = scalar_ct::from_witness(&builder, constant_scalars_native[i]);
+                }
+
+                // Witness points
+                for (size_t i = 0; i < NUM_WITNESS_POINTS; ++i) {
+                    all_points[NUM_CONSTANT_POINTS + i] =
+                        element_ct::from_witness(&builder, witness_points_native[i]);
+                    all_scalars[NUM_CONSTANT_POINTS + i] =
+                        scalar_ct::from_witness(&builder, witness_scalars_native[i]);
+                }
+
+                element_ct result = element_ct::batch_mul(all_points, all_scalars, 0, true);
+                auto result_val = result.get_value();
+
+                EXPECT_EQ(result_val.x, expected_aff.x) << "Single batch_mul: x mismatch";
+                EXPECT_EQ(result_val.y, expected_aff.y) << "Single batch_mul: y mismatch";
+
+                single_batch_mul_gates = builder.num_gates();
+                EXPECT_CIRCUIT_CORRECTNESS(builder);
+            }
+
+            // Approach 2: Split into fixed_lookup_batch_mul (constants) + batch_mul (witnesses)
+            size_t split_msm_gates;
+            {
+                Builder builder;
+
+                // Constant points using fixed_lookup_batch_mul
+                std::vector<element_ct> constant_points_ct(NUM_CONSTANT_POINTS);
+                std::vector<scalar_ct> constant_scalars_ct(NUM_CONSTANT_POINTS);
+                for (size_t i = 0; i < NUM_CONSTANT_POINTS; ++i) {
+                    using Fq_ct = typename element_ct::BaseField;
+                    Fq_ct x_const(&builder, uint256_t(constant_points_native[i].x));
+                    Fq_ct y_const(&builder, uint256_t(constant_points_native[i].y));
+                    constant_points_ct[i] = element_ct(x_const, y_const);
+                    constant_scalars_ct[i] = scalar_ct::from_witness(&builder, constant_scalars_native[i]);
+                }
+
+                // Witness points using batch_mul
+                std::vector<element_ct> witness_points_ct(NUM_WITNESS_POINTS);
+                std::vector<scalar_ct> witness_scalars_ct(NUM_WITNESS_POINTS);
+                for (size_t i = 0; i < NUM_WITNESS_POINTS; ++i) {
+                    witness_points_ct[i] = element_ct::from_witness(&builder, witness_points_native[i]);
+                    witness_scalars_ct[i] = scalar_ct::from_witness(&builder, witness_scalars_native[i]);
+                }
+
+                // Split MSM: constant part + witness part
+                element_ct constant_result =
+                    element_ct::fixed_lookup_batch_mul(constant_points_ct, constant_scalars_ct);
+                element_ct witness_result =
+                    element_ct::batch_mul(witness_points_ct, witness_scalars_ct, 0, true);
+
+                // Combine results
+                element_ct combined_result = constant_result + witness_result;
+                auto result_val = combined_result.get_value();
+
+                EXPECT_EQ(result_val.x, expected_aff.x) << "Split MSM: x mismatch";
+                EXPECT_EQ(result_val.y, expected_aff.y) << "Split MSM: y mismatch";
+
+                split_msm_gates = builder.num_gates();
+                EXPECT_CIRCUIT_CORRECTNESS(builder);
+            }
+
+            double savings =
+                100.0 * (1.0 - static_cast<double>(split_msm_gates) / static_cast<double>(single_batch_mul_gates));
+            info("Single batch_mul gates: ", single_batch_mul_gates);
+            info("Split MSM gates: ", split_msm_gates);
+            info("Gate savings: ", savings, "%");
+        }
+    }
 };
 
 // bn254 with ultra arithmetisation where scalar field is native field, base field is non-native field (bigfield)
@@ -3482,5 +3613,14 @@ TYPED_TEST(stdlib_biggroup, fixed_lookup_batch_mul_all_constant)
         GTEST_SKIP() << "mega builder does not support fixed_lookup_batch_mul (uses plookup)";
     } else {
         TestFixture::test_fixed_lookup_batch_mul_all_constant();
+    }
+}
+
+TYPED_TEST(stdlib_biggroup, split_msm_for_recursive_verifier)
+{
+    if constexpr (HasGoblinBuilder<TypeParam>) {
+        GTEST_SKIP() << "mega builder does not support fixed_lookup_batch_mul (uses plookup)";
+    } else {
+        TestFixture::test_split_msm_for_recursive_verifier();
     }
 }

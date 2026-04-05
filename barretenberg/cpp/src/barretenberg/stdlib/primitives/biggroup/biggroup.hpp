@@ -145,6 +145,14 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
     }
 
     /**
+     * @brief Returns true if this element is either a constant or a fixed witness.
+     * @details A fixed witness has its value constrained by fix_witness() gates, making it
+     * safe to use for precomputed plookup table construction (the prover cannot substitute
+     * a different value without breaking the arithmetic constraint).
+     */
+    [[nodiscard]] bool is_fixed() const { return is_constant() || _is_fixed; }
+
+    /**
      * @brief Creates fixed witnesses from a constant element.
      **/
     void convert_constant_to_fixed_witness(Builder* builder)
@@ -166,6 +174,7 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
         this->_is_infinity.fix_witness();
 
         // This is now effectively a constant
+        _is_fixed = true;
         unset_free_witness_tag();
     }
 
@@ -462,6 +471,7 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
     Fq _x;
     Fq _y;
     bool_ct _is_infinity;
+    bool _is_fixed = false; // Set by fix_witness(); indicates value is constrained to a known constant
 
     // Internal implementations - may produce non-canonical infinity representation (efficient for chaining)
     element add_internal(const element& other) const;

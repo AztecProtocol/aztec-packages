@@ -405,7 +405,7 @@ element<C, Fq, Fr, G>::fixed_group_table::fixed_group_table(Builder* builder, co
 {
     BB_ASSERT(num_points > 0);
     for (const auto& p : points) {
-        BB_ASSERT(p.is_constant(), "biggroup: fixed_group_table only supports constant points as input");
+        BB_ASSERT(p.is_fixed(), "biggroup: fixed_group_table requires constant or fixed-witness points as input");
     }
 
     const size_t table_size = 1ULL << num_points;

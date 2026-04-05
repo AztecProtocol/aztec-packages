@@ -86,6 +86,7 @@ element<C, Fq, Fr, G>::element(const element& other)
     : _x(other._x)
     , _y(other._y)
     , _is_infinity(other.is_point_at_infinity())
+    , _is_fixed(other._is_fixed)
 {}
 
 template <typename C, class Fq, class Fr, class G>
@@ -93,6 +94,7 @@ element<C, Fq, Fr, G>::element(element&& other) noexcept
     : _x(other._x)
     , _y(other._y)
     , _is_infinity(other.is_point_at_infinity())
+    , _is_fixed(other._is_fixed)
 {}
 
 template <typename C, class Fq, class Fr, class G>
@@ -104,6 +106,7 @@ element<C, Fq, Fr, G>& element<C, Fq, Fr, G>::operator=(const element& other)
     _x = other._x;
     _y = other._y;
     _is_infinity = other.is_point_at_infinity();
+    _is_fixed = other._is_fixed;
     return *this;
 }
 
@@ -116,6 +119,7 @@ element<C, Fq, Fr, G>& element<C, Fq, Fr, G>::operator=(element&& other) noexcep
     _x = other._x;
     _y = other._y;
     _is_infinity = other.is_point_at_infinity();
+    _is_fixed = other._is_fixed;
     return *this;
 }
 
@@ -1140,9 +1144,9 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::fixed_lookup_batch_mul(const std::v
     BB_ASSERT_GT(points.size(), 0ULL, "fixed_lookup_batch_mul: points cannot be empty");
     BB_ASSERT_EQ(points.size(), scalars.size(), "fixed_lookup_batch_mul: points and scalars size mismatch");
 
-    // All points must be constant for fixed plookup tables
+    // All points must be constant or fixed witnesses for plookup tables
     for (const auto& p : points) {
-        BB_ASSERT(p.is_constant(), "fixed_lookup_batch_mul: all points must be circuit constants");
+        BB_ASSERT(p.is_fixed(), "fixed_lookup_batch_mul: all points must be constants or fixed witnesses");
     }
 
     // Get builder context from scalars (points are constant so may not have context)
@@ -1164,9 +1168,23 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::fixed_lookup_batch_mul(const std::v
     }
     BB_ASSERT(builder != nullptr, "fixed_lookup_batch_mul: no builder context found");
 
+    // Collect the combined origin tag and then clear tags on inputs to avoid origin tag issues
+    // during intermediate operations (similar to batch_mul's approach)
+    OriginTag combined_tag = OriginTag::constant();
+    auto empty_tag = OriginTag::constant();
+    // Make mutable copies so we can clear tags
+    std::vector<element> mutable_points = points;
+    std::vector<Fr> mutable_scalars = scalars;
+    for (size_t i = 0; i < mutable_points.size(); ++i) {
+        combined_tag =
+            OriginTag(combined_tag, OriginTag(mutable_points[i].get_origin_tag(), mutable_scalars[i].get_origin_tag()));
+        mutable_points[i].set_origin_tag(empty_tag);
+        mutable_scalars[i].set_origin_tag(empty_tag);
+    }
+
     // Handle constant-constant case: compute out of circuit
     bool all_constant = true;
-    for (const auto& scalar : scalars) {
+    for (const auto& scalar : mutable_scalars) {
         if (!scalar.is_constant()) {
             all_constant = false;
             break;
@@ -1174,26 +1192,31 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::fixed_lookup_batch_mul(const std::v
     }
     if (all_constant) {
         typename G::element result = G::element::infinity();
-        for (size_t i = 0; i < points.size(); ++i) {
-            result += typename G::element(points[i].get_value()) * typename G::Fr(scalars[i].get_value());
+        for (size_t i = 0; i < mutable_points.size(); ++i) {
+            result +=
+                typename G::element(mutable_points[i].get_value()) * typename G::Fr(mutable_scalars[i].get_value());
         }
         typename G::affine_element affine_result(result);
         if (affine_result.is_point_at_infinity()) {
             Fq zero_fq = Fq(builder, 0);
-            return element(zero_fq, zero_fq);
+            element res(zero_fq, zero_fq);
+            res.set_origin_tag(combined_tag);
+            return res;
         }
-        return element(affine_result.x, affine_result.y);
+        element res(affine_result.x, affine_result.y);
+        res.set_origin_tag(combined_tag);
+        return res;
     }
 
     // Determine number of rounds (NAF bits)
     const size_t max_num_bits_in_field = Fr::modulus.get_msb() + 1;
     const size_t num_rounds = (max_num_bits == 0) ? max_num_bits_in_field : max_num_bits;
-    const size_t msm_size = scalars.size();
+    const size_t msm_size = mutable_scalars.size();
 
     // Compute NAF representations of scalars
     std::vector<std::vector<bool_ct>> naf_entries;
     for (size_t i = 0; i < msm_size; ++i) {
-        naf_entries.emplace_back(compute_naf(scalars[i], num_rounds));
+        naf_entries.emplace_back(compute_naf(mutable_scalars[i], num_rounds));
     }
 
     // Compute optimal table sizes to minimize the number of tables.
@@ -1220,8 +1243,8 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::fixed_lookup_batch_mul(const std::v
     std::vector<fixed_group_table> tables;
     size_t offset = 0;
     for (size_t t = 0; t < table_sizes.size(); ++t) {
-        std::vector<element> table_points(points.begin() + static_cast<long>(offset),
-                                          points.begin() + static_cast<long>(offset + table_sizes[t]));
+        std::vector<element> table_points(mutable_points.begin() + static_cast<long>(offset),
+                                          mutable_points.begin() + static_cast<long>(offset + table_sizes[t]));
         tables.emplace_back(builder, table_points);
         offset += table_sizes[t];
     }
@@ -1275,14 +1298,17 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::fixed_lookup_batch_mul(const std::v
 
     // Subtract the skew factors
     for (size_t i = 0; i < msm_size; ++i) {
-        element skew = accumulator.subtract_internal(points[i]);
+        element skew = accumulator.subtract_internal(mutable_points[i]);
         accumulator = accumulator.conditional_select(skew, naf_entries[i][num_rounds]);
     }
 
     // Subtract the scaled offset generator
     accumulator = accumulator.subtract_internal(offset_generator_end);
 
-    return accumulator.get_standard_form();
+    // Set the combined origin tag (collected at the start of the function)
+    element result = accumulator.get_standard_form();
+    result.set_origin_tag(combined_tag);
+    return result;
 }
 
 /**
