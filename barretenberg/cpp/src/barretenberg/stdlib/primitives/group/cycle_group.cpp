@@ -985,7 +985,8 @@ template <typename Builder>
 typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_fixed_base_plookup_batch_mul_internal(
     const std::span<cycle_scalar> scalars,
     const std::span<AffineElement const> base_points,
-    const std::span<AffineElement const> offset_generators)
+    const std::span<AffineElement const> offset_generators,
+    const size_t table_bits)
 {
     BB_ASSERT_EQ(!scalars.empty(), true, "Empty scalars provided to fixed base plookup batch mul!");
     BB_ASSERT_EQ(scalars.size(), base_points.size(), "Points/scalars size mismatch in fixed base plookup batch mul!");
@@ -999,21 +1000,27 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
         }
     }
     BB_ASSERT(context != nullptr);
+    BB_ASSERT_EQ(cycle_scalar::LO_BITS % table_bits,
+                 0UL,
+                 "table_bits must evenly divide cycle_scalar::LO_BITS. The Straus algorithm splits the scalar "
+                 "into lo/hi limbs and decomposes each separately; if LO_BITS is not a multiple of table_bits, "
+                 "the hi-limb slices start at the wrong bit-offset and the MSM result is incorrect. "
+                 "Valid values for table_bits (given LO_BITS=128) are: 1, 2, 4, 8, 16, 32, 64, 128.");
 
-    constexpr size_t num_rounds = numeric::ceil_div(cycle_scalar::NUM_BITS, ROM_TABLE_BITS);
+    const size_t num_rounds = numeric::ceil_div(cycle_scalar::NUM_BITS, table_bits);
 
-    // Decompose each scalar into ROM_TABLE_BITS-bit slices (also enforces range constraints)
+    // Decompose each scalar into table_bits-bit slices (also enforces range constraints)
     std::vector<straus_scalar_slices> scalar_slices;
     scalar_slices.reserve(num_points);
     for (const auto& scalar : scalars) {
-        scalar_slices.emplace_back(context, scalar, ROM_TABLE_BITS);
+        scalar_slices.emplace_back(context, scalar, table_bits);
     }
 
     // Create plookup tables for each constant base point (zero gate cost)
     std::vector<straus_plookup_table> point_tables;
     point_tables.reserve(num_points);
     for (size_t i = 0; i < num_points; ++i) {
-        point_tables.emplace_back(context, base_points[i], offset_generators[i + 1], ROM_TABLE_BITS);
+        point_tables.emplace_back(context, base_points[i], offset_generators[i + 1], table_bits);
     }
 
     // Compute all intermediate points natively for use as hints in the in-circuit Straus algorithm.
@@ -1024,7 +1031,7 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
         // Build native straus tables
         std::vector<std::vector<Element>> native_straus_tables;
         for (size_t i = 0; i < num_points; ++i) {
-            std::vector<Element> table(1UL << ROM_TABLE_BITS);
+            std::vector<Element> table(1UL << table_bits);
             table[0] = Element(offset_generators[i + 1]);
             Element base_proj(base_points[i]);
             for (size_t j = 1; j < table.size(); ++j) {
@@ -1037,7 +1044,7 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
         Element accumulator = offset_generators[0];
         for (size_t i = 0; i < num_rounds; ++i) {
             if (i != 0) {
-                for (size_t j = 0; j < ROM_TABLE_BITS; ++j) {
+                for (size_t j = 0; j < table_bits; ++j) {
                     accumulator = accumulator.dbl();
                     operation_transcript.push_back(accumulator);
                     offset_generator_accumulator = offset_generator_accumulator.dbl();
@@ -1067,7 +1074,7 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
 
     for (size_t i = 0; i < num_rounds; ++i) {
         if (i != 0) {
-            for (size_t j = 0; j < ROM_TABLE_BITS; ++j) {
+            for (size_t j = 0; j < table_bits; ++j) {
                 accumulator = accumulator.dbl(*hint_ptr);
                 hint_ptr++;
             }
@@ -1101,7 +1108,8 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
 template <typename Builder>
 cycle_group<Builder> cycle_group<Builder>::fixed_batch_mul(const std::vector<cycle_group>& constant_points,
                                                            const std::vector<cycle_scalar>& scalars,
-                                                           const GeneratorContext& context)
+                                                           const GeneratorContext& context,
+                                                           const size_t table_bits)
 {
     BB_ASSERT_EQ(scalars.size(), constant_points.size(), "Points/scalars size mismatch in fixed_batch_mul!");
 
@@ -1131,12 +1139,12 @@ cycle_group<Builder> cycle_group<Builder>::fixed_batch_mul(const std::vector<cyc
                 auto* ctx = scalar.get_context();
                 ctx->create_limbed_range_constraint(scalar.lo().get_witness_index(),
                                                     cycle_scalar::LO_BITS,
-                                                    ROM_TABLE_BITS,
+                                                    table_bits,
                                                     "fixed_batch_mul: lo range constraint for scalar with constant "
                                                     "infinity");
                 ctx->create_limbed_range_constraint(scalar.hi().get_witness_index(),
                                                     cycle_scalar::HI_BITS,
-                                                    ROM_TABLE_BITS,
+                                                    table_bits,
                                                     "fixed_batch_mul: hi range constraint for scalar with constant "
                                                     "infinity");
                 continue;
@@ -1161,7 +1169,7 @@ cycle_group<Builder> cycle_group<Builder>::fixed_batch_mul(const std::vector<cyc
     // Run the plookup-based Straus algorithm
     Element offset_accumulator = -constant_acc;
     const auto [accumulator, offset_generator_delta] =
-        _fixed_base_plookup_batch_mul_internal(plookup_scalars, plookup_points, offset_generators);
+        _fixed_base_plookup_batch_mul_internal(plookup_scalars, plookup_points, offset_generators, table_bits);
     offset_accumulator += offset_generator_delta;
 
     // Subtract offset. Since all points are constants and linearly independent of offset generators,

@@ -819,9 +819,12 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
         // Compute G_zero
         // In the native verifier, this uses pippenger. Here we use fixed_batch_mul since all SRS points are
         // circuit constants, which uses plookup tables instead of ROM tables and is significantly cheaper.
+        // We use 8-bit tables (table_bits=8, 32 rounds) rather than the default 4-bit (64 rounds) because
+        // table rows are preprocessed and don't cost witness rows; halving the rounds halves lookup/add gates.
+        // 8-bit is valid since cycle_scalar::LO_BITS (128) is evenly divisible by 8.
         std::vector<Commitment> srs_elements = vk.get_monomial_points();
         srs_elements.resize(poly_length);
-        Commitment computed_G_zero = Commitment::fixed_batch_mul(srs_elements, s_vec);
+        Commitment computed_G_zero = Commitment::fixed_batch_mul(srs_elements, s_vec, {}, 8);
         // check the computed G_zero and the claimed G_zero are the same.
         // The circuit constraint enforces correctness; mismatched witnesses will produce an unsatisfiable circuit.
         claimed_G_zero.assert_equal(computed_G_zero, "G_zero doesn't match received G_zero.");
