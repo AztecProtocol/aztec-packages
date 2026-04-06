@@ -509,20 +509,12 @@ TYPED_TEST(UltraHonkTests, MaskingTailCommitments)
 
         CommitmentKey ck(prover_instance->dyadic_size());
 
-        // Masked polys: commit(poly) should differ from stored commitment (tail was added)
-        auto masked_polys = prover_instance->polynomials.get_masked();
-        auto masked_commitments = prover_instance->commitments.get_masked();
-        for (auto [poly, commitment] : zip_view(masked_polys, masked_commitments)) {
-            EXPECT_NE(ck.commit(poly), commitment) << "Masked commitment should differ from naive commit";
-        }
-
-        // All witness polys: unmasked should have commit(poly) == stored commitment
+        // With in-place masking, commit(poly) == stored commitment for all polys
         auto witness_polys = prover_instance->polynomials.get_witness();
         auto witness_commitments = prover_instance->commitments.get_all();
-        auto witness_flags = prover_instance->masking_tail_data.is_masked.get_witness();
-        for (auto [poly, commitment, is_masked] : zip_view(witness_polys, witness_commitments, witness_flags)) {
-            if (!is_masked && !commitment.is_point_at_infinity()) {
-                EXPECT_EQ(ck.commit(poly), commitment) << "Unmasked witness commitment should equal naive commit";
+        for (auto [poly, commitment] : zip_view(witness_polys, witness_commitments)) {
+            if (!commitment.is_point_at_infinity()) {
+                EXPECT_EQ(ck.commit(poly), commitment) << "Commitment should equal naive commit (in-place masking)";
             }
         }
     }

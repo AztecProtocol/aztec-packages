@@ -132,12 +132,7 @@ template <typename Flavor> void UltraProver_<Flavor>::execute_pcs()
     polynomial_batcher.set_unshifted(prover_instance->polynomials.get_unshifted());
     polynomial_batcher.set_to_be_shifted_by_one(prover_instance->polynomials.get_to_be_shifted());
 
-    // For ZK: register masking tail polynomials with the batcher so PCS includes them
-    if constexpr (Flavor::HasZK) {
-        if (prover_instance->masking_tail_data.is_active()) {
-            prover_instance->masking_tail_data.add_tails_to_batcher(prover_instance->polynomials, polynomial_batcher);
-        }
-    }
+    // With in-place masking, polynomial commitments already include masking values — no tail batching needed.
 
     OpeningClaim prover_opening_claim;
     if constexpr (!Flavor::HasZK) {

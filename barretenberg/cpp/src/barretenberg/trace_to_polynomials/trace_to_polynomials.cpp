@@ -98,12 +98,13 @@ void TraceToPolynomials<Flavor>::add_ecc_op_wires_to_prover_instance(Builder& bu
     auto& ecc_op_selector = polynomials.lagrange_ecc_op;
 
     // Copy the ecc op data from the conventional wires into the op wires over the range of ecc op gates. The data is
-    // stored in the ecc op wires starting from index 0, whereas the wires contain the data offset by zero rows.
+    // stored in the ecc op wires starting from the block offset (which accounts for disabled rows in ZK flavors).
+    const size_t block_offset = Flavor::HasZK ? NUM_DISABLED_ROWS_IN_SUMCHECK : 0;
     const size_t num_ecc_ops = builder.blocks.ecc_op.size();
     for (auto [ecc_op_wire, wire] : zip_view(polynomials.get_ecc_op_wires(), polynomials.get_wires())) {
         for (size_t i = 0; i < num_ecc_ops; ++i) {
-            ecc_op_wire.at(i) = wire[i + NUM_ZERO_ROWS];
-            ecc_op_selector.at(i) = 1; // construct selector as the indicator on the ecc op block
+            ecc_op_wire.at(i + block_offset) = wire[i + NUM_ZERO_ROWS + block_offset];
+            ecc_op_selector.at(i + block_offset) = 1; // construct selector as the indicator on the ecc op block
         }
     }
 }

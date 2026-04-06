@@ -60,9 +60,10 @@ template <typename Flavor> class SumcheckProverRound {
     size_t round_size;
 
     // Number of rows excluded from the main sumcheck loop and handled by compute_disabled_contribution.
-    // In round 0, the RowDisablingPolynomial disables 4 rows (2 edge pairs). After partial evaluation
-    // in round 1+, this collapses to 2 rows (1 edge pair). Only non-zero for ZK flavors that use row disabling.
-    size_t excluded_tail_size = (Flavor::HasZK && UseRowDisablingPolynomial<Flavor>) ? 4 : 0;
+    // In round 0, the RowDisablingPolynomial disables 4 rows (2 edge pairs) at the TOP of the trace.
+    // After partial evaluation in round 1+, this collapses to 2 rows (1 edge pair).
+    // Only non-zero for ZK flavors that use row disabling.
+    size_t excluded_head_size = (Flavor::HasZK && UseRowDisablingPolynomial<Flavor>) ? 4 : 0;
 
     /**
      * @brief Number of batched sub-relations in \f$F\f$ specified by Flavor.
@@ -100,8 +101,8 @@ template <typename Flavor> class SumcheckProverRound {
     /**
      * @brief Compute the effective round size by finding the maximum end_index() across witness polynomials.
      * @details Witness polynomials only contain meaningful data up to their end_index(), and we can avoid
-     * iterating over the zero region beyond that point. For ZK flavors, we also cap at
-     * round_size - excluded_tail_size to exclude disabled rows (handled by compute_disabled_contribution).
+     * iterating over the zero region beyond that point. The disabled head rows are handled separately by
+     * compute_disabled_contribution, so we don't include them here.
      */
     template <typename ProverPolynomialsOrPartiallyEvaluatedMultivariates>
     size_t compute_effective_round_size(const ProverPolynomialsOrPartiallyEvaluatedMultivariates& multivariates) const
@@ -112,20 +113,17 @@ template <typename Flavor> class SumcheckProverRound {
                 max_end_index = std::max(max_end_index, witness_poly.end_index());
             }
         } else {
-            return (excluded_tail_size > 0) ? round_size - excluded_tail_size : round_size;
+            return round_size;
         }
 
         size_t effective = max_end_index + (max_end_index % 2); // round up to next even
-        if (excluded_tail_size > 0) {
-            // Exclude disabled rows at the end; their contribution is handled by compute_disabled_contribution.
-            size_t cap = round_size - excluded_tail_size;
-            return std::min(cap, effective);
-        } else if constexpr (Flavor::HasZK) {
-            // ZK flavors without row disabling (e.g. Translator) must iterate over the full round_size.
-            return round_size;
-        } else {
-            return std::min(round_size, effective);
+        if constexpr (Flavor::HasZK) {
+            if constexpr (!UseRowDisablingPolynomial<Flavor>) {
+                // ZK flavors without row disabling (e.g. Translator) must iterate over the full round_size.
+                return round_size;
+            }
         }
+        return std::min(round_size, effective);
     }
 
     /**
@@ -304,12 +302,15 @@ template <typename Flavor> class SumcheckProverRound {
         // When !HasZK, compute the effective round size to avoid iterating over zero regions
         const size_t effective_round_size = compute_effective_round_size(polynomials);
 
+        // The disabled head rows are handled by compute_disabled_contribution, so skip them here
+        const size_t start_edge_idx = excluded_head_size;
+
         std::vector<BlockOfContiguousRows> result;
         constexpr bool can_skip_rows = (isRowSkippable<Flavor, decltype(polynomials), size_t>);
 
         if constexpr (can_skip_rows) {
             // Iterate over edge-pairs (stride-2) so each thread gets an even-aligned range
-            const size_t num_edge_pairs = effective_round_size / 2;
+            const size_t num_edge_pairs = (effective_round_size - start_edge_idx) / 2;
             // Cost per iteration: skip_entire_row reads across polynomial columns.
             // Overestimates by using total entity count (skip_entire_row only checks a subset).
             constexpr size_t heuristic_cost = bb::thread_heuristics::FF_COPY_COST * 2 * Flavor::NUM_ALL_ENTITIES;
@@ -328,7 +329,7 @@ template <typename Flavor> class SumcheckProverRound {
                     size_t current_block_size = 0;
                     std::vector<BlockOfContiguousRows> thread_blocks;
                     for (size_t pair_idx : range) {
-                        size_t edge_idx = pair_idx * 2;
+                        size_t edge_idx = start_edge_idx + pair_idx * 2;
                         if (!Flavor::skip_entire_row(polynomials, edge_idx)) {
                             // Non-skippable row: begin a new block or extend the current one
                             if (current_block_size == 0) {
@@ -359,7 +360,8 @@ template <typename Flavor> class SumcheckProverRound {
                 }
             }
         } else {
-            result.push_back(BlockOfContiguousRows{ .starting_edge_idx = 0, .size = effective_round_size });
+            result.push_back(BlockOfContiguousRows{ .starting_edge_idx = start_edge_idx,
+                                                    .size = effective_round_size - start_edge_idx });
         }
         return result;
     }
@@ -448,10 +450,10 @@ template <typename Flavor> class SumcheckProverRound {
     };
 
     /**
-     * @brief Compute the disabled rows' contribution using masking values from MaskingTailData.
-     * @details The main sumcheck loop excludes disabled edge pairs. This method computes the
-     * relation evaluation at those positions, overriding masked witness poly values with folded
-     * masking values from MaskingTailData.
+     * @brief Compute the disabled rows' contribution to the round univariate.
+     * @details The main sumcheck loop excludes disabled head edge pairs. This method computes the
+     * relation evaluation at those positions directly from the (partially evaluated) polynomials,
+     * multiplied by the (1-L) row-disabling factor. Masking values are already in the polynomials.
      *
      * Result is H_disabled * (1-L), to be ADDED to S_active.
      * In round 0, (1-L) = 0, so this returns zero.
@@ -462,48 +464,15 @@ template <typename Flavor> class SumcheckProverRound {
         const bb::RelationParameters<FF>& relation_parameters,
         const bb::GateSeparatorPolynomial<FF>& gate_separators,
         const SubrelationSeparators& alphas,
-        const RowDisablingPolynomial<FF> row_disabling_polynomial,
-        const MaskingTailData<Flavor>& masking_tail_data)
+        const RowDisablingPolynomial<FF> row_disabling_polynomial)
         requires UseRowDisablingPolynomial<Flavor>
     {
         SumcheckTupleOfTuplesOfUnivariates univariate_accumulator{};
         ExtendedEdges extended_edges;
         SumcheckRoundUnivariate result{};
 
-        // In round 0, 4 disabled rows = 2 edge pairs. In rounds 1+, 1 edge pair.
-        size_t start_edge_idx = round_size - excluded_tail_size;
-        size_t num_folded_values = masking_tail_data.get_num_folded_values();
-
-        // Hoist invariant refs outside the edge loop
-        auto all_masked = masking_tail_data.is_masked.get_all();
-        auto all_folded = masking_tail_data.folded.get_all();
-        auto all_poly_vals = polynomials.get_all();
-
-        for (size_t edge_idx = start_edge_idx; edge_idx < round_size; edge_idx += 2) {
-            // Extend edges from polynomials (gets zeros for short witness polys at disabled positions)
+        for (size_t edge_idx = 0; edge_idx < excluded_head_size; edge_idx += 2) {
             extend_edges(extended_edges, polynomials, edge_idx);
-
-            // Override masked witness poly edges with correct folded masking values.
-            // Round 0 (num_folded_values=0): (1-L)=0 zeroes the tail → skip overrides.
-            // Round 1 (num_folded_values=2): both f[0],f[1] are valid; both edges from folded.
-            // Round 2+ (num_folded_values=1): only f[0] is valid; even edge from PE, odd from folded.
-            if (num_folded_values > 0) {
-                auto all_edges = extended_edges.get_all();
-                for (size_t i = 0; i < all_masked.size(); i++) {
-                    if (!all_masked[i]) {
-                        continue;
-                    }
-                    FF even_val = (num_folded_values == 2) ? all_folded[i][0] : all_poly_vals[i][edge_idx];
-                    FF odd_val = (num_folded_values == 2) ? all_folded[i][1] : all_folded[i][0];
-                    auto base = bb::Univariate<FF, 2>({ even_val, odd_val });
-                    if constexpr (Flavor::USE_SHORT_MONOMIALS) {
-                        all_edges[i] = base;
-                    } else {
-                        all_edges[i] = base.template extend_to<MAX_PARTIAL_RELATION_LENGTH>();
-                    }
-                }
-            }
-
             accumulate_relation_univariates(
                 univariate_accumulator, extended_edges, relation_parameters, gate_separators[edge_idx]);
         }
@@ -511,7 +480,6 @@ template <typename Flavor> class SumcheckProverRound {
         result = batch_over_relations<SumcheckRoundUnivariate>(univariate_accumulator, alphas, gate_separators);
 
         // Multiply by (1-L) factor.
-        // (1-L) has: eval_at_0 = 1 - L.eval_at_0, eval_at_1 = 1 - L.eval_at_1
         bb::Univariate<FF, 2> one_minus_L(
             { FF::one() - row_disabling_polynomial.eval_at_0, FF::one() - row_disabling_polynomial.eval_at_1 });
         SumcheckRoundUnivariate one_minus_L_extended =
