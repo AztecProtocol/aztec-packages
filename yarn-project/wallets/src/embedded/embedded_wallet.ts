@@ -1,6 +1,6 @@
 import { type Account, NO_FROM } from '@aztec/aztec.js/account';
 import { CallAuthorizationRequest } from '@aztec/aztec.js/authorization';
-import { type InteractionWaitOptions, type SendReturn, getGasLimits } from '@aztec/aztec.js/contracts';
+import { type InteractionWaitOptions, type SendReturn, type WaitOpts, getGasLimits } from '@aztec/aztec.js/contracts';
 import type { Aliased, SendOptions } from '@aztec/aztec.js/wallet';
 import { AccountManager } from '@aztec/aztec.js/wallet';
 import type { DefaultAccountEntrypointOptions } from '@aztec/entrypoints/account';
@@ -19,6 +19,7 @@ import {
   SimulationOverrides,
   type TxExecutionRequest,
   type TxSimulationResult,
+  TxStatus,
   collectOffchainEffects,
   mergeExecutionPayloads,
 } from '@aztec/stdlib/tx';
@@ -139,6 +140,14 @@ export class EmbeddedWallet extends BaseWallet {
       gasLimits: opts.fee?.gasSettings?.gasLimits ?? estimated.gasLimits,
       teardownGasLimits: opts.fee?.gasSettings?.teardownGasLimits ?? estimated.teardownGasLimits,
     });
+    const waitOpts: WaitOpts = typeof opts.wait === 'object' ? opts.wait : {};
+
+    if (!waitOpts?.waitForStatus) {
+      // Use PROPOSED as the default status to take advantage of MBPS (Multiple Blocks Per Slot).
+      // This has less guarantees than the default CHECKPOINTED, but should offer better UX. If
+      // the node fails to publish to L1 and they'd get slashed, which should happen rarely.
+      waitOpts!.waitForStatus = TxStatus.PROPOSED;
+    }
     return super.sendTx(executionPayload, {
       ...opts,
       fee: { ...opts.fee, gasSettings },
