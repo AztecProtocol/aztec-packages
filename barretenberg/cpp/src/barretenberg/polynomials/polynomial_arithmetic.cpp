@@ -199,37 +199,6 @@ template <typename Fr> Fr evaluate(const Fr* coeffs, const Fr& z, const size_t n
     return r;
 }
 
-template <typename Fr> Fr evaluate(const std::vector<Fr*> coeffs, const Fr& z, const size_t large_n)
-{
-    const size_t num_polys = coeffs.size();
-    const size_t poly_size = large_n / num_polys;
-    BB_ASSERT(is_power_of_two(poly_size));
-    const size_t log2_poly_size = (size_t)numeric::get_msb(poly_size);
-    const size_t num_threads = get_num_cpus();
-    std::vector<Fr> evaluations(num_threads, Fr::zero());
-    parallel_for([&](const ThreadChunk& chunk) {
-        // parallel_for with ThreadChunk uses get_num_cpus() threads
-        BB_ASSERT_EQ(chunk.total_threads, evaluations.size());
-        auto range = chunk.range(large_n);
-        if (range.empty()) {
-            return;
-        }
-        size_t start = *range.begin();
-        Fr z_acc = z.pow(static_cast<uint64_t>(start));
-        for (size_t i : range) {
-            Fr work_var = z_acc * coeffs[i >> log2_poly_size][i & (poly_size - 1)];
-            evaluations[chunk.thread_index] += work_var;
-            z_acc *= z;
-        }
-    });
-
-    Fr r = Fr::zero();
-    for (const auto& eval : evaluations) {
-        r += eval;
-    }
-    return r;
-}
-
 // This function computes sum of all scalars in a given array.
 template <typename Fr> Fr compute_sum(const Fr* src, const size_t n)
 {
@@ -394,7 +363,6 @@ void compute_efficient_interpolation(const Fr* src, Fr* dest, const Fr* evaluati
 }
 
 template fr evaluate<fr>(const fr*, const fr&, const size_t);
-template fr evaluate<fr>(const std::vector<fr*>, const fr&, const size_t);
 template void fft_inner_parallel<fr>(fr*, fr*, const EvaluationDomain<fr>&, const fr&, const std::vector<fr*>&);
 template void ifft<fr>(fr*, fr*, const EvaluationDomain<fr>&);
 template fr compute_sum<fr>(const fr*, const size_t);
@@ -402,7 +370,6 @@ template void compute_linear_polynomial_product<fr>(const fr*, fr*, const size_t
 template void compute_efficient_interpolation<fr>(const fr*, fr*, const fr*, const size_t);
 
 template grumpkin::fr evaluate<grumpkin::fr>(const grumpkin::fr*, const grumpkin::fr&, const size_t);
-template grumpkin::fr evaluate<grumpkin::fr>(const std::vector<grumpkin::fr*>, const grumpkin::fr&, const size_t);
 template grumpkin::fr compute_sum<grumpkin::fr>(const grumpkin::fr*, const size_t);
 template void compute_linear_polynomial_product<grumpkin::fr>(const grumpkin::fr*, grumpkin::fr*, const size_t);
 template void compute_efficient_interpolation<grumpkin::fr>(const grumpkin::fr*,

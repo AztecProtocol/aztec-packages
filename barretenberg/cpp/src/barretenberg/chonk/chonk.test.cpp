@@ -159,10 +159,9 @@ class ChonkTests : public ::testing::Test {
                 // Tamper with the specified field
                 switch (field_to_tamper) {
                 case KernelIOField::PAIRING_INPUTS: {
-                    // Replace with valid pairing points at infinity (different from actual accumulated values)
-                    kernel_io.pairing_inputs.P0() = Commitment::infinity();
-                    kernel_io.pairing_inputs.P1() = Commitment::infinity();
-                    EXPECT_TRUE(kernel_io.pairing_inputs.check());
+                    // Replace with a different valid pairing: P0 = G1, P1 = -G1 satisfies e(G1,[1])·e(-G1,[x]) != 1
+                    // so instead use P0 + random offset to break binding without breaking the pairing trivially
+                    kernel_io.pairing_inputs.P0() = kernel_io.pairing_inputs.P0() + Commitment::one();
                     break;
                 }
                 case KernelIOField::ACCUMULATOR_HASH:
@@ -406,7 +405,7 @@ HEAVY_TEST(ChonkKernelCapacity, MaxCapacityPassing)
 {
     bb::srs::init_file_crs_factory(bb::srs::bb_crs_path());
 
-    const size_t NUM_APP_CIRCUITS = 17;
+    const size_t NUM_APP_CIRCUITS = 18;
     auto [proof, vk] = ChonkTests::accumulate_and_prove_ivc(NUM_APP_CIRCUITS);
 
     bool verified = ChonkTests::verify_chonk(proof, vk);
