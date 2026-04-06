@@ -59,11 +59,17 @@ void compute_logderivative_inverse(Polynomials& polynomials, auto& relation_para
             });
             inverse_polynomial.at(i) = denominator;
         }
-        FF* ffstart = &inverse_polynomial.coeffs()[start];
-        std::span<FF> to_invert(ffstart, end - start);
-        // Compute inverse polynomial I in place by inverting the product at each row
-        // Note: zeroes are ignored as they are not used anyway
-        FF::batch_invert(to_invert);
+        // Clamp to the polynomial's actual (non-virtual) data range; virtual zero elements need no inversion.
+        const size_t actual_size = inverse_polynomial.size();
+        const size_t clamped_start = std::min(start, actual_size);
+        const size_t clamped_end = std::min(end, actual_size);
+        if (clamped_start < clamped_end) {
+            FF* ffstart = &inverse_polynomial.coeffs()[clamped_start];
+            std::span<FF> to_invert(ffstart, clamped_end - clamped_start);
+            // Compute inverse polynomial I in place by inverting the product at each row
+            // Note: zeroes are ignored as they are not used anyway
+            FF::batch_invert(to_invert);
+        }
     };
     if constexpr (UseMultithreading) {
         parallel_for([&](const ThreadChunk& chunk) {
