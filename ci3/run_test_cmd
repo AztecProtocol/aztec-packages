@@ -36,7 +36,7 @@ slack_notify_fail=0
 
 if [ "$CI" -eq 1 ]; then
   # CI overrides.
-  if [ "$CI_REDIS_AVAILABLE" -eq 1 ]; then
+  if [ "$CI_REDIS_AVAILABLE" -eq 1 ] || [ -n "${CI_LOG_API_KEY:-}" ]; then
     live_logging=1
     publish=1
   fi
@@ -111,17 +111,25 @@ trap sig_handler SIGTERM SIGINT
 
 function publish_log {
   local expire=${1:-$CI_REDIS_EXPIRE}
-  cat $tmp_file 2>/dev/null | redis_setexz $log_key $expire
+  if [ "$CI_REDIS_AVAILABLE" -eq 1 ]; then
+    cat $tmp_file 2>/dev/null | redis_setexz $log_key $expire
+  elif [ -n "${CI_LOG_API_KEY:-}" ]; then
+    cat $tmp_file 2>/dev/null | http_log_update $log_key $expire
+  fi
 }
 
 function publish_log_final {
   local expire=${1:-$CI_REDIS_EXPIRE}
-  cat $tmp_file 2>/dev/null | cache_persistent $log_key $expire
+  if [ "$CI_REDIS_AVAILABLE" -eq 1 ]; then
+    cat $tmp_file 2>/dev/null | cache_persistent $log_key $expire
+  elif [ -n "${CI_LOG_API_KEY:-}" ]; then
+    cat $tmp_file 2>/dev/null | http_log_post $log_key $expire
+  fi
 }
 
 # Finalize the current log and start a fresh one with a new unique key.
 function rotate_log {
-  if [ "$CI_REDIS_AVAILABLE" -eq 1 ]; then
+  if [ "$CI_REDIS_AVAILABLE" -eq 1 ] || [ -n "${CI_LOG_API_KEY:-}" ]; then
     publish_log_final "$@"
   fi
   log_key=$(uuid)
@@ -205,7 +213,7 @@ function run_test {
 }
 
 function finalize_test {
-  if [ "$CI_REDIS_AVAILABLE" -eq 1 ]; then
+  if [ "$CI_REDIS_AVAILABLE" -eq 1 ] || [ -n "${CI_LOG_API_KEY:-}" ]; then
     # If the test succeeded and we're in CI, set success flag for test. This key is unique to the test.
     # If the test succeeded and we're logging passes, save the test log.
     # If the test failed, save the test log.
@@ -395,7 +403,7 @@ else
 
   if [ $code -eq 0 ]; then
     # Publish the retry's log, then point back at the failure for flake reporting.
-    if [ "$CI_REDIS_AVAILABLE" -eq 1 ]; then
+    if [ "$CI_REDIS_AVAILABLE" -eq 1 ] || [ -n "${CI_LOG_API_KEY:-}" ]; then
       publish_log_final
     fi
     log_key=$failure_log_key

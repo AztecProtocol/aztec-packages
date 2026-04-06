@@ -75,5 +75,48 @@ function cache_persistent {
   } >&- 2>&- &
 }
 
+# HTTP-based log posting — used when Redis/S3 aren't directly accessible (e.g. GH runners).
+# Posts to the CI dashboard's /api/log endpoint.
+# Requires CI_LOG_API_KEY to be set. CI_LOG_POST_URL defaults to DASHBOARD_URL.
+export CI_LOG_POST_URL="${CI_LOG_POST_URL:-${DASHBOARD_URL:-http://ci.aztec-labs.com}}"
+function http_log_post {
+  local key="$1"
+  local expire="${2:-$CI_REDIS_EXPIRE}"
+  local tmpfile="/tmp/http_log_$$_${key}.gz"
+
+  cat | gzip > "$tmpfile"
+  curl -sf -X POST \
+    "${CI_LOG_POST_URL}/api/log/${key}?expire=${expire}" \
+    -H "Authorization: Bearer ${CI_LOG_API_KEY}" \
+    -H "Content-Type: application/octet-stream" \
+    --data-binary @"$tmpfile" \
+    -o /dev/null &>/dev/null
+  rm -f "$tmpfile"
+}
+
+# Live update (Redis only, no S3) via HTTP.
+function http_log_update {
+  local key="$1"
+  local expire="${2:-$CI_REDIS_EXPIRE}"
+  local tmpfile="/tmp/http_log_$$_${key}.gz"
+
+  cat | gzip > "$tmpfile"
+  curl -sf -X PUT \
+    "${CI_LOG_POST_URL}/api/log/${key}?expire=${expire}" \
+    -H "Authorization: Bearer ${CI_LOG_API_KEY}" \
+    -H "Content-Type: application/octet-stream" \
+    --data-binary @"$tmpfile" \
+    -o /dev/null &>/dev/null
+  rm -f "$tmpfile"
+}
+
+# Persistent cache that uses HTTP posting when Redis is not directly available.
+function cache_persistent_http {
+  local key="$1"
+  local expire="$2"
+
+  cat | http_log_post "$key" "$expire"
+}
+
 # Export functions
-export -f cache_s3_transfer cache_s3_transfer_to cache_disk_transfer cache_disk_transfer_to cache_persistent
+export -f cache_s3_transfer cache_s3_transfer_to cache_disk_transfer cache_disk_transfer_to cache_persistent http_log_post http_log_update cache_persistent_http

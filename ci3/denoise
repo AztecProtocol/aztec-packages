@@ -72,13 +72,19 @@ function format_log_output {
 }
 
 function publish_log {
-  [ "$CI_REDIS_AVAILABLE" -eq 0 ] && return
-  format_log_output | redis_setexz $key $CI_REDIS_EXPIRE
+  if [ "$CI_REDIS_AVAILABLE" -eq 1 ]; then
+    format_log_output | redis_setexz $key $CI_REDIS_EXPIRE
+  elif [ -n "${CI_LOG_API_KEY:-}" ]; then
+    format_log_output | http_log_update $key $CI_REDIS_EXPIRE
+  fi
 }
 
 function publish_log_final {
-  [ "$CI_REDIS_AVAILABLE" -eq 0 ] && return
-  format_log_output | cache_persistent $key $CI_REDIS_EXPIRE
+  if [ "$CI_REDIS_AVAILABLE" -eq 1 ]; then
+    format_log_output | cache_persistent $key $CI_REDIS_EXPIRE
+  elif [ -n "${CI_LOG_API_KEY:-}" ]; then
+    format_log_output | http_log_post $key $CI_REDIS_EXPIRE
+  fi
 }
 
 function live_publish_log {
@@ -90,7 +96,7 @@ function live_publish_log {
   done
 }
 
-if [ "$CI_REDIS_AVAILABLE" -eq 1 ]; then
+if [ "$CI_REDIS_AVAILABLE" -eq 1 ] || [ -n "${CI_LOG_API_KEY:-}" ]; then
   live_publish_log &
   publish_pid=$!
   log_info="(${yellow}${url}${reset})"

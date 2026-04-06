@@ -26,6 +26,7 @@ S3_LOGS_PREFIX = os.getenv('S3_LOGS_PREFIX', 'logs')
 
 _s3 = boto3.client('s3', region_name='us-east-2')
 DASHBOARD_PASSWORD = os.getenv('DASHBOARD_PASSWORD', '')
+CI_LOG_API_KEY = os.getenv('CI_LOG_API_KEY', '')
 CI_METRICS_PORT = int(os.getenv('CI_METRICS_PORT', '8081'))
 CI_METRICS_URL = os.getenv('CI_METRICS_URL', f'http://localhost:{CI_METRICS_PORT}')
 
@@ -561,6 +562,116 @@ def trigger_grind():
 
     # Redirect to log view.
     return redirect(f'/{run_id}')
+
+
+# ---- Log ingestion API ----
+# Allows CI runners to post logs via HTTP instead of needing direct Redis/S3 credentials.
+
+def _check_log_api_key():
+    """Validate the CI log API key from the Authorization header. Returns error Response or None."""
+    if not CI_LOG_API_KEY:
+        return Response('Log API not configured', status=503)
+    auth_header = request.headers.get('Authorization', '')
+    if auth_header != f'Bearer {CI_LOG_API_KEY}':
+        return Response('Unauthorized', status=401)
+    return None
+
+def _write_log_to_stores(key, data, expire=None):
+    """Write log data (bytes) to Redis and S3."""
+    if expire is None:
+        expire = 60 * 60 * 24 * 14  # 2 weeks
+
+    # Ensure data is gzipped for storage
+    if data[:2] == b'\x1f\x8b':
+        gz_data = data
+    else:
+        gz_data = gzip.compress(data)
+
+    # Write to Redis
+    try:
+        r.setex(key, expire, gz_data)
+    except Exception as e:
+        print(f"Redis write failed for {key}: {e}")
+
+    # Write to S3 in background
+    def s3_write():
+        try:
+            prefix = key[:4]
+            s3_key = f"{S3_LOGS_PREFIX}/{prefix}/{key}.log.gz"
+            _s3.put_object(Bucket=S3_LOGS_BUCKET, Key=s3_key, Body=gz_data)
+        except Exception as e:
+            print(f"S3 write failed for {key}: {e}")
+    threading.Thread(target=s3_write, daemon=True).start()
+
+@app.route('/api/log/<key>', methods=['POST'])
+def post_log(key):
+    """Accept a log upload and write to Redis + S3.
+
+    Body: raw log content (plain text or gzipped).
+    Headers:
+      Authorization: Bearer <CI_LOG_API_KEY>
+      Content-Encoding: gzip (optional, if body is pre-compressed)
+    Query params:
+      expire: TTL in seconds (default: 2 weeks)
+      final: if "1", also write to S3 for permanent storage (default: true)
+    """
+    err = _check_log_api_key()
+    if err:
+        return err
+
+    # Validate key format (alphanumeric + hyphens + underscores, max 128 chars)
+    if not re.match(r'^[a-zA-Z0-9_-]{1,128}$', key):
+        return Response('Invalid key format', status=400)
+
+    data = request.get_data()
+    if not data:
+        return Response('Empty body', status=400)
+
+    # Cap at 50MB
+    if len(data) > 50 * 1024 * 1024:
+        return Response('Payload too large', status=413)
+
+    expire = request.args.get('expire', 60 * 60 * 24 * 14, type=int)
+    _write_log_to_stores(key, data, expire)
+
+    return Response(json.dumps({'ok': True, 'key': key}), mimetype='application/json', status=201)
+
+@app.route('/api/log/<key>', methods=['PUT'])
+def update_log(key):
+    """Update a log in Redis only (for live streaming / in-progress updates).
+
+    Same auth and body format as POST, but only writes to Redis (not S3)
+    since this is for transient live updates.
+    """
+    err = _check_log_api_key()
+    if err:
+        return err
+
+    if not re.match(r'^[a-zA-Z0-9_-]{1,128}$', key):
+        return Response('Invalid key format', status=400)
+
+    data = request.get_data()
+    if not data:
+        return Response('Empty body', status=400)
+
+    if len(data) > 50 * 1024 * 1024:
+        return Response('Payload too large', status=413)
+
+    expire = request.args.get('expire', 60 * 60 * 24 * 14, type=int)
+
+    # Ensure data is gzipped for Redis
+    if data[:2] == b'\x1f\x8b':
+        gz_data = data
+    else:
+        gz_data = gzip.compress(data)
+
+    try:
+        r.setex(key, expire, gz_data)
+    except Exception as e:
+        return Response(json.dumps({'error': f'Redis write failed: {e}'}),
+                        mimetype='application/json', status=500)
+
+    return Response(json.dumps({'ok': True, 'key': key}), mimetype='application/json')
 
 
 # ---- Reverse proxy to ci-metrics server ----
