@@ -20,7 +20,7 @@ describe('Batch Chonk Verifier workloads', () => {
 
   beforeAll(async () => {
     bb = await Barretenberg.new({ backend: BackendType.NativeUnixSocket });
-    await bb.initSRSChonk();
+    await bb.initSrs();
 
     logger.info('Generating simple proof...');
     const [bytecodes1, witnesses1, , vks1] = await generateTestingIVCStack(1, 0);

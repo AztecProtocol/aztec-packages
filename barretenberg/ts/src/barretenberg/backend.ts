@@ -304,6 +304,9 @@ export function flattenChonkProofFields(proof: ChonkProof): Uint8Array[] {
   ].flat();
 }
 
+/** Default BN254 SRS size for IVC proving (must be larger than standard circuit SRS). */
+const IVC_DEFAULT_SRS_SIZE = 2 ** 21;
+
 export class AztecClientBackend {
   // These type assertions are used so that we don't
   // have to initialize `api` in the constructor.
@@ -329,6 +332,10 @@ export class AztecClientBackend {
       // NOTE: we allow 0 as an explicit 'I have no VKs'. This is a deprecated feature.
       throw new AztecClientBackendError('Witness and VKs must have the same stack depth!');
     }
+
+    // IVC circuits require a larger SRS than the default. Ensure it's initialized
+    // before queuing any proving commands. This is a no-op if already large enough.
+    await this.api.initSrs(IVC_DEFAULT_SRS_SIZE);
 
     // Queue IVC start with the number of circuits
     this.api.chonkStart({ numCircuits: this.acirBuf.length });

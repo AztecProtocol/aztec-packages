@@ -50,7 +50,7 @@ export class Barretenberg extends AsyncApi {
       // Explicit backend required - no fallback
       const backend = await createAsyncBackend(options.backend, options, logger);
       if (!options.skipSrsInit && (options.backend === BackendType.Wasm || options.backend === BackendType.WasmWorker)) {
-        await backend.initSRSChonk();
+        await backend.initSrs(options.srsSize);
       }
       return backend;
     }
@@ -62,7 +62,7 @@ export class Barretenberg extends AsyncApi {
         logger(`Unix socket unavailable (${err.message}), falling back to WASM`);
         const backend = await createAsyncBackend(BackendType.Wasm, options, logger);
         if (!options.skipSrsInit) {
-          await backend.initSRSChonk();
+          await backend.initSrs(options.srsSize);
         }
         return backend;
       }
@@ -70,15 +70,26 @@ export class Barretenberg extends AsyncApi {
       logger(`In browser, using WASM over worker backend.`);
       const backend = await createAsyncBackend(BackendType.WasmWorker, options, logger);
       if (!options.skipSrsInit) {
-        await backend.initSRSChonk();
+        await backend.initSrs(options.srsSize);
       }
       return backend;
     }
   }
 
-  async initSRSChonk(srsSize = this.getDefaultSrsSize()): Promise<void> {
-    // crsPath can be undefined
-    const crs = await Crs.new(srsSize, this.options.crsPath, this.options.logger);
+  private initializedBn254SrsSize = 0;
+
+  /**
+   * Initialize BN254 and Grumpkin SRS (Structured Reference String) for proving/verification.
+   * Skips re-initialization if the SRS is already loaded with enough points.
+   *
+   * @param srsSize - Number of BN254 G1 points to load (default: platform-dependent, 2^20 desktop / 2^18 iOS)
+   */
+  async initSrs(srsSize?: number): Promise<void> {
+    const targetSize = srsSize ?? this.getDefaultSrsSize();
+    if (targetSize <= this.initializedBn254SrsSize) {
+      return; // Already initialized with enough points
+    }
+    const crs = await Crs.new(targetSize, this.options.crsPath, this.options.logger);
     const grumpkinCrs = await GrumpkinCrs.new(2 ** 16, this.options.crsPath, this.options.logger);
 
     // Load CRS into wasm global CRS state.
@@ -93,6 +104,12 @@ export class Barretenberg extends AsyncApi {
       await crs.cacheUncompressed(response.pointsBuf);
     }
     await this.srsInitGrumpkinSrs({ pointsBuf: grumpkinCrs.getG1Data(), numPoints: grumpkinCrs.numPoints });
+    this.initializedBn254SrsSize = targetSize;
+  }
+
+  /** @deprecated Use initSrs() instead */
+  async initSRSChonk(srsSize?: number): Promise<void> {
+    return this.initSrs(srsSize);
   }
 
   getDefaultSrsSize(): number {

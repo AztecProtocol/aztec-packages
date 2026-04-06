@@ -110,7 +110,7 @@ export class BatchChonkVerifier implements ClientProtocolCircuitVerifier {
       bbPath: this.config.bbBinaryPath,
       backend: BackendType.NativeUnixSocket,
     });
-    await this.bb.initSRSChonk();
+    await this.bb.initSrs();
 
     await execFileAsync('mkfifo', [this.fifoPath]);
     this.registerExitCleanup();

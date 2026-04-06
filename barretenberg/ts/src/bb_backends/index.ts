@@ -67,4 +67,12 @@ export type BackendOptions = {
    * don't need proving/verification capabilities.
    */
   skipSrsInit?: boolean;
+
+  /**
+   * @description Number of BN254 G1 SRS points to initialize for WASM backends.
+   * Larger values support bigger circuits but require more download/memory.
+   * Default: 2^20 on desktop, 2^18 on iOS.
+   * IVC (AztecClientBackend) automatically initializes 2^21 if needed.
+   */
+  srsSize?: number;
 };
