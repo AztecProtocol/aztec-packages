@@ -34,20 +34,6 @@ template <typename Flavor, class IO> size_t UltraVerifier_<Flavor, IO>::compute_
 }
 
 /**
- * @brief Compute padding indicator array.
- * @details With top-of-trace masking and unified virtual rounds, all rounds are processed
- * uniformly with indicator=1. The row-disabling polynomial 1 - ∏_{i≥2}(1-u_i) is circuit-size
- * independent — the verifier evaluates it over ALL challenges.
- * @param log_n The log circuit size (from compute_log_n)
- * @return std::vector<FF> padding indicator array (all 1s)
- */
-template <typename Flavor, class IO>
-std::vector<typename Flavor::FF> UltraVerifier_<Flavor, IO>::compute_padding_indicator_array(size_t log_n) const
-{
-    return std::vector<FF>(log_n, FF{ 1 });
-}
-
-/**
  * @brief Split a combined rollup proof into honk and IPA components
  * @details Two-level proof structure for rollup circuits:
  *
@@ -134,8 +120,6 @@ typename UltraVerifier_<Flavor, IO>::ReductionResult UltraVerifier_<Flavor, IO>:
     OinkVerifier<Flavor> oink_verifier{ verifier_instance, transcript, num_public_inputs };
     oink_verifier.verify();
 
-    // Compute padding indicator array AFTER OinkVerifier so VK fields are properly tagged
-    auto padding_indicator_array = compute_padding_indicator_array(log_n);
     verifier_instance->gate_challenges =
         transcript->template get_dyadic_powers_of_challenge<FF>("Sumcheck:gate_challenge", log_n);
 
@@ -155,8 +139,8 @@ typename UltraVerifier_<Flavor, IO>::ReductionResult UltraVerifier_<Flavor, IO>:
         libra_commitments[0] = transcript->template receive_from_prover<Commitment>("Libra:concatenation_commitment");
     }
     // Run the sumcheck verifier
-    SumcheckOutput<Flavor> sumcheck_output = sumcheck.verify(
-        verifier_instance->relation_parameters, verifier_instance->gate_challenges, padding_indicator_array);
+    SumcheckOutput<Flavor> sumcheck_output =
+        sumcheck.verify(verifier_instance->relation_parameters, verifier_instance->gate_challenges);
     // Get the claimed evaluation of the Libra polynomials for ZKFlavors
     if constexpr (Flavor::HasZK) {
         libra_commitments[1] = transcript->template receive_from_prover<Commitment>("Libra:grand_sum_commitment");
@@ -176,8 +160,7 @@ typename UltraVerifier_<Flavor, IO>::ReductionResult UltraVerifier_<Flavor, IO>:
         }
     }();
 
-    auto shplemini_output = Shplemini::compute_batch_opening_claim(padding_indicator_array,
-                                                                   claim_batcher,
+    auto shplemini_output = Shplemini::compute_batch_opening_claim(claim_batcher,
                                                                    sumcheck_output.challenge,
                                                                    one_commitment,
                                                                    transcript,

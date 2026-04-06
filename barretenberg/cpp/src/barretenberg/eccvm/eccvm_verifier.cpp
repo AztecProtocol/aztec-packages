@@ -83,9 +83,7 @@ typename ECCVMVerifier_<Flavor>::ReductionResult ECCVMVerifier_<Flavor>::reduce_
     std::array<Commitment, NUM_LIBRA_COMMITMENTS> libra_commitments = {};
 
     libra_commitments[0] = transcript->template receive_from_prover<Commitment>("Libra:concatenation_commitment");
-    std::vector<FF> padding_indicator_array(CONST_ECCVM_LOG_N, FF(1));
-
-    auto sumcheck_output = sumcheck.verify(relation_parameters, gate_challenges, padding_indicator_array);
+    auto sumcheck_output = sumcheck.verify(relation_parameters, gate_challenges);
 
     libra_commitments[1] = transcript->template receive_from_prover<Commitment>("Libra:grand_sum_commitment");
     libra_commitments[2] = transcript->template receive_from_prover<Commitment>("Libra:quotient_commitment");
@@ -99,8 +97,7 @@ typename ECCVMVerifier_<Flavor>::ReductionResult ECCVMVerifier_<Flavor>::reduce_
     };
 
     auto [sumcheck_batch_opening_claims, consistency_checked] =
-        Shplemini::compute_batch_opening_claim(padding_indicator_array,
-                                               claim_batcher,
+        Shplemini::compute_batch_opening_claim(claim_batcher,
                                                sumcheck_output.challenge,
                                                pcs_g1_identity,
                                                transcript,

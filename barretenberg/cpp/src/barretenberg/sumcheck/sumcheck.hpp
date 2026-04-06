@@ -826,12 +826,10 @@ template <typename Flavor> class SumcheckVerifier {
      * @details If verification fails, returns std::nullopt, otherwise returns SumcheckOutput
      * @param relation_parameters
      * @param gate_challenges
-     * @param padding_indicator Optional padding indicator (only used for non-Grumpkin flavors)
      * @return SumcheckOutput
      */
     SumcheckOutput<Flavor> verify(const bb::RelationParameters<FF>& relation_parameters,
-                                  const std::vector<FF>& gate_challenges,
-                                  const std::vector<FF>& padding_indicator_array)
+                                  const std::vector<FF>& gate_challenges)
     {
         bb::GateSeparatorPolynomial<FF> gate_separators(gate_challenges);
         // Construct a ZKHandler to handle all the libra related information in the transcript
@@ -851,8 +849,7 @@ template <typename Flavor> class SumcheckVerifier {
         bool verified = true;
         ClaimedEvaluations purported_evaluations;
         for (size_t round_idx = 0; round_idx < virtual_log_n; round_idx++) {
-            round.process_round(
-                transcript, multivariate_challenge, gate_separators, padding_indicator_array[round_idx], round_idx);
+            round.process_round(transcript, multivariate_challenge, gate_separators, round_idx);
             verified = verified && !round.round_failed;
 
             if constexpr (IsTranslatorFlavor<Flavor>) {

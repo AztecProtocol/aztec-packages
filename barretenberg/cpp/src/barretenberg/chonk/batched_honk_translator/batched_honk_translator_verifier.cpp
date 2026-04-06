@@ -10,7 +10,6 @@
 #include "barretenberg/relations/translator_vm/translator_extra_relations_impl.hpp"
 #include "barretenberg/relations/translator_vm/translator_non_native_field_relation_impl.hpp"
 #include "barretenberg/relations/translator_vm/translator_permutation_relation_impl.hpp"
-#include "barretenberg/stdlib/primitives/padding_indicator_array/padding_indicator_array.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
 #include "barretenberg/sumcheck/sumcheck_round.hpp"
 #include "barretenberg/translator_vm/translator_verifier.hpp"
@@ -137,7 +136,7 @@ template <typename Curve> bool BatchedHonkTranslatorVerifier_<Curve>::verify_joi
 
     // All JOINT_LOG_N rounds are uniform — no distinction between real and virtual rounds needed.
     for (size_t round_idx = 0; round_idx < JOINT_LOG_N; round_idx++) {
-        joint_round.process_round(transcript, joint_challenge, gate_sep, FF(1), round_idx);
+        joint_round.process_round(transcript, joint_challenge, gate_sep, round_idx);
 
         if (round_idx == TranslatorFlavor::LOG_MINI_CIRCUIT_SIZE - 1) {
             TransFlavor::set_minicircuit_evaluations(
@@ -235,8 +234,6 @@ typename BatchedHonkTranslatorVerifier_<Curve>::ReductionResult BatchedHonkTrans
     using ClaimBatcher = ClaimBatcher_<Curve>;
     using ClaimBatch = typename ClaimBatcher::Batch;
 
-    static constexpr size_t JOINT_LOG_N = TranslatorFlavor::CONST_TRANSLATOR_LOG_N;
-
     const Commitment one_commitment = [&]() {
         if constexpr (IsRecursive) {
             return Commitment::one(builder);
@@ -279,12 +276,8 @@ typename BatchedHonkTranslatorVerifier_<Curve>::ReductionResult BatchedHonkTrans
     ClaimBatcher joint_claim_batcher{ .unshifted = ClaimBatch{ joint_unshifted_comms, joint_unshifted_evals },
                                       .shifted = ClaimBatch{ joint_shifted_comms, joint_shifted_evals } };
 
-    // All-ones padding for the joint Shplemini call (row-disabling already applied in FRV).
-    std::vector<FF> joint_padding(JOINT_LOG_N, FF(1));
-
     auto [opening_claim, consistency_checked] =
-        MegaZKShplemini::compute_batch_opening_claim(joint_padding,
-                                                     joint_claim_batcher,
+        MegaZKShplemini::compute_batch_opening_claim(joint_claim_batcher,
                                                      joint_challenge,
                                                      one_commitment,
                                                      transcript,

@@ -54,7 +54,7 @@ Currently: `excluded_tail_size = 4`, computed from the end (`start_edge_idx = ro
 
 ## UltraZK
 
-PR #16557 ("remove padding indicator array") already started this work. The key insight: with masking at the top, the row-disabling polynomial is independent of circuit size, eliminating `padding_indicator_array` from all verifiers.
+The `padding_indicator_array` has been fully removed from all verifiers. With masking at the top, the row-disabling polynomial is independent of circuit size, so all sumcheck rounds are processed uniformly.
 
 **Relations:** UltraZK relations use `lagrange_first`, `lagrange_second` etc. as abstract selectors. They don't hardcode row indices. Moving lagrange positions to rows 4/5 is a polynomial initialization change, not a relation logic change.
 

@@ -159,7 +159,7 @@ std::vector<typename GeminiProver_<Curve>::Polynomial> GeminiProver_<Curve>::com
     // Virtual rounds (indices log_n .. virtual_log_n - 1).
     // After real folding, the fold polynomials are constant. Since each constant polynomial evaluates to its own
     // value at every point, (f(X) - f(x)) / (X - x) = 0, so these contribute nothing to the Shplonk quotient Q(X).
-    // On the verifier side, padding_indicator_array zeros their contributions independently.
+    // On the verifier side, these constant fold polynomials contribute nothing to the Shplonk quotient.
     const auto& last = fold_polynomials.back();
     const Fr u_last = multilinear_challenge[log_n - 1];
     const Fr final_eval = last.at(0) + u_last * (last.at(1) - last.at(0));

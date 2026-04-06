@@ -144,12 +144,6 @@ template <typename Flavor, class IO> class UltraVerifier_ {
      */
     size_t compute_log_n() const;
 
-    /**
-     * @brief Compute padding indicator array based on flavor configuration.
-     * @details Must be called AFTER OinkVerifier::verify() so VK fields are properly tagged.
-     */
-    std::vector<FF> compute_padding_indicator_array(size_t log_n) const;
-
     [[nodiscard("Reduction result should be verified")]] ReductionResult reduce_to_pairing_check(const Proof& proof);
 
     /**
