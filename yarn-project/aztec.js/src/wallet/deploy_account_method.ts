@@ -1,10 +1,11 @@
 import { DefaultMultiCallEntrypoint } from '@aztec/entrypoints/multicall';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import type { ContractArtifact, FunctionArtifact } from '@aztec/stdlib/abi';
+import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import type { PublicKeys } from '@aztec/stdlib/keys';
-import { ExecutionPayload, mergeExecutionPayloads } from '@aztec/stdlib/tx';
+import { type Capsule, ExecutionPayload, type HashedValues, mergeExecutionPayloads } from '@aztec/stdlib/tx';
 
 import type { Account } from '../account/account.js';
 import type { Contract } from '../contract/contract.js';
@@ -86,8 +87,21 @@ export class DeployAccountMethod<TContract extends ContractBase = Contract> exte
     private account: Account,
     args: any[] = [],
     constructorNameOrArtifact?: string | FunctionArtifact,
+    authWitnesses: AuthWitness[] = [],
+    capsules: Capsule[] = [],
+    extraHashedArgs: HashedValues[] = [],
   ) {
-    super(publicKeys, wallet, artifact, postDeployCtor, args, constructorNameOrArtifact);
+    super(
+      publicKeys,
+      wallet,
+      artifact,
+      postDeployCtor,
+      args,
+      constructorNameOrArtifact,
+      authWitnesses,
+      capsules,
+      extraHashedArgs,
+    );
   }
 
   /**
@@ -194,5 +208,37 @@ export class DeployAccountMethod<TContract extends ContractBase = Contract> exte
     }
     const existing = options.additionalScopes ?? [];
     return { ...options, additionalScopes: [...existing, this.address] };
+  }
+
+  /**
+   * Augments this DeployAccountMethod with additional metadata, such as authWitnesses and capsules.
+   * @param options - An object containing the metadata to add to the interaction
+   * @returns A new DeployAccountMethod with the added metadata
+   */
+  public override with({
+    authWitnesses = [],
+    capsules = [],
+    extraHashedArgs = [],
+  }: {
+    /** The authWitnesses to add to the deployment */
+    authWitnesses?: AuthWitness[];
+    /** The capsules to add to the deployment */
+    capsules?: Capsule[];
+    /** The extra hashed args to add to the deployment */
+    extraHashedArgs?: HashedValues[];
+  }): DeployAccountMethod<TContract> {
+    return new DeployAccountMethod(
+      this.publicKeys,
+      this.wallet,
+      this.artifact,
+      this.postDeployCtor,
+      this.salt,
+      this.account,
+      this.args,
+      this.constructorArtifact?.name,
+      this.authWitnesses.concat(authWitnesses),
+      this.capsules.concat(capsules),
+      this.extraHashedArgs.concat(extraHashedArgs),
+    );
   }
 }
