@@ -1245,6 +1245,56 @@ describe('Archiver Sync', () => {
 
       expect(await archiver.getCheckpointNumber()).toEqual(CheckpointNumber(2));
     }, 15_000);
+
+    it('handles L1 reorg that moves a checkpoint to a later L1 block', async () => {
+      expect(await archiver.getCheckpointNumber()).toEqual(CheckpointNumber(0));
+
+      // Sync checkpoints 1 and 2
+      await fake.addCheckpoint(CheckpointNumber(1), {
+        l1BlockNumber: 70n,
+        messagesL1BlockNumber: 50n,
+        numL1ToL2Messages: 3,
+      });
+      const { checkpoint: cp2 } = await fake.addCheckpoint(CheckpointNumber(2), {
+        l1BlockNumber: 80n,
+        messagesL1BlockNumber: 60n,
+        numL1ToL2Messages: 3,
+      });
+
+      fake.setL1BlockNumber(90n);
+      await archiver.syncImmediate();
+      expect(await archiver.getCheckpointNumber()).toEqual(CheckpointNumber(2));
+
+      // Verify checkpoint 2's blocks are stored
+      const lastBlockNumber = cp2.blocks.at(-1)!.number;
+      const tips = await archiver.getL2Tips();
+      expect(tips.checkpointed.checkpoint.number).toEqual(CheckpointNumber(2));
+      expect(tips.checkpointed.block.number).toEqual(lastBlockNumber);
+
+      // Simulate L1 reorg: checkpoint 2 moves from L1 block 80 to L1 block 85.
+      // The checkpoint content (blocks, archive) stays the same — only the L1 block changes.
+      // This causes the archiver to re-discover checkpoint 2 when scanning from block 81 onward.
+      fake.moveCheckpointToL1Block(CheckpointNumber(2), 85n);
+
+      // Advance L1 and sync. The archiver's sync point is at L1 block 80 (from checkpoint 2's
+      // original insertion). The scan starts from 81, finds checkpoint 2 at block 85, and must
+      // accept it as a duplicate with updated L1 info rather than throwing.
+      fake.setL1BlockNumber(95n);
+      await archiver.syncImmediate();
+
+      // The archiver should still be at checkpoint 2 and healthy
+      expect(await archiver.getCheckpointNumber()).toEqual(CheckpointNumber(2));
+
+      // Add checkpoint 3 to verify the archiver can continue syncing after the duplicate
+      await fake.addCheckpoint(CheckpointNumber(3), {
+        l1BlockNumber: 100n,
+        messagesL1BlockNumber: 90n,
+        numL1ToL2Messages: 3,
+      });
+      fake.setL1BlockNumber(110n);
+      await archiver.syncImmediate();
+      expect(await archiver.getCheckpointNumber()).toEqual(CheckpointNumber(3));
+    }, 15_000);
   });
 
   describe('finalized checkpoint', () => {
