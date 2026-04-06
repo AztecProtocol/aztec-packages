@@ -231,7 +231,7 @@ std::shared_ptr<Chonk> PrivateExecutionSteps::accumulate()
         }();
 
         // Start Phase A of the next circuit in the background during this circuit's accumulate
-        if (std::getenv("NO_PIPELINE") == nullptr && i + 1 < num_circuits) {
+        if (i + 1 < num_circuits) {
             next_circuit_future = build_phase_a_async(folding_stack[i + 1]);
         }
 

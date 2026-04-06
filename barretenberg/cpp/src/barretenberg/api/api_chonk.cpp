@@ -59,6 +59,12 @@ void ChonkAPI::prove(const Flags& flags,
     request.vk_policy = bbapi::parse_vk_policy(flags.vk_policy);
     std::vector<PrivateExecutionStepRaw> raw_steps = PrivateExecutionStepRaw::load_and_decompress(input_path);
 
+    // Save hiding kernel bytecode before moving raw_steps (needed for VK generation)
+    std::vector<uint8_t> hiding_kernel_bytecode;
+    if (flags.write_vk && !raw_steps.empty()) {
+        hiding_kernel_bytecode = raw_steps.back().bytecode;
+    }
+
     // Parse all circuits upfront, then run pipelined accumulation
     PrivateExecutionSteps steps;
     steps.parse(std::move(raw_steps));
@@ -67,6 +73,13 @@ void ChonkAPI::prove(const Flags& flags,
 
     auto proof = ivc->prove();
     auto vk_and_hash = ivc->get_hiding_kernel_vk_and_hash();
+
+    // Verify the proof as a sanity check — catch failures early rather than downstream
+    info("Chonk: verifying the generated proof as a sanity check");
+    ChonkNativeVerifier verifier(vk_and_hash);
+    if (!verifier.verify(proof)) {
+        throw_or_abort("Failed to verify the generated proof!");
+    }
 
     const bool output_to_stdout = output_dir == "-";
 
@@ -91,8 +104,7 @@ void ChonkAPI::prove(const Flags& flags,
 
     if (flags.write_vk) {
         vinfo("writing Chonk vk in directory ", output_dir);
-        // write CHONK vk using the bytecode of the Hiding kernel (the last step of the execution)
-        write_chonk_vk(raw_steps[raw_steps.size() - 1].bytecode, output_dir, flags);
+        write_chonk_vk(std::move(hiding_kernel_bytecode), output_dir, flags);
     }
 }
 
