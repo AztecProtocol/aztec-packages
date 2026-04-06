@@ -92,10 +92,26 @@ export function executeBB(
       env,
     });
 
+    let resolved = false;
+    const rlStdout = readline.createInterface({ input: bb.stdout });
+    const rlStderr = readline.createInterface({ input: bb.stderr });
+    rlStdout.on('line', logger);
+    rlStderr.on('line', logger);
+
+    const cleanup = () => {
+      rlStdout.close();
+      rlStderr.close();
+    };
+
     let timeoutId: NodeJS.Timeout | undefined;
     if (timeout !== undefined) {
       timeoutId = setTimeout(() => {
+        if (resolved) {
+          return;
+        }
+        resolved = true;
         logger(`BB execution timed out after ${timeout}ms, killing process`);
+        cleanup();
         if (bb.pid) {
           bb.kill('SIGKILL');
         }
@@ -103,13 +119,15 @@ export function executeBB(
       }, timeout);
     }
 
-    readline.createInterface({ input: bb.stdout }).on('line', logger);
-    readline.createInterface({ input: bb.stderr }).on('line', logger);
-
     bb.on('close', (exitCode: number, signal?: string) => {
       if (timeoutId) {
         clearTimeout(timeoutId);
       }
+      if (resolved) {
+        return;
+      }
+      resolved = true;
+      cleanup();
       if (resultParser(exitCode)) {
         resolve({ status: BB_RESULT.SUCCESS, exitCode, signal });
       } else {
