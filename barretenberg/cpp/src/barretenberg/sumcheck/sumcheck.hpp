@@ -130,10 +130,7 @@ template <typename Flavor, bool HasZK = Flavor::HasZK> struct VerifierZKCorrecti
 
     void initialize_target_sum(SumcheckRound& /*round*/) {}
 
-    void apply_zk_corrections(FF& /*full_honk_purported_value*/,
-                              const std::vector<FF>& /*multivariate_challenge*/,
-                              const std::vector<FF>& /*padding_indicator_array*/)
-    {}
+    void apply_zk_corrections(FF& /*full_honk_purported_value*/, const std::vector<FF>& /*multivariate_challenge*/) {}
 
     FF get_libra_evaluation() const { return libra_evaluation; }
 };
@@ -161,16 +158,13 @@ template <typename Flavor> struct VerifierZKCorrectionHandler<Flavor, true> {
 
     void initialize_target_sum(SumcheckRound& round) { round.target_total_sum = libra_total_sum * libra_challenge; }
 
-    void apply_zk_corrections(FF& full_honk_purported_value,
-                              std::vector<FF>& multivariate_challenge,
-                              const std::vector<FF>& padding_indicator_array)
+    void apply_zk_corrections(FF& full_honk_purported_value, std::vector<FF>& multivariate_challenge)
     {
         if constexpr (UseRowDisablingPolynomial<Flavor>) {
-            // Compute the evaluations of the polynomial (1 - \sum L_i) where the sum is for i corresponding to the
-            // rows where all sumcheck relations are disabled
-            // i.e. compute the term $1 - \prod_{i=2}^{d-1} u_i$
-            full_honk_purported_value *=
-                RowDisablingPolynomial<FF>::evaluate_at_challenge(multivariate_challenge, padding_indicator_array);
+            // With top-of-trace masking, the row-disabling polynomial 1 - ∏_{i≥2}(1-u_i) is circuit-size
+            // independent. The verifier evaluates it over ALL challenges — no log_n or padding indicator needed.
+            full_honk_purported_value *= RowDisablingPolynomial<FF>::evaluate_at_challenge(
+                multivariate_challenge, multivariate_challenge.size());
         }
 
         // Get the claimed evaluation of the Libra multivariate evaluated at the sumcheck challenge
@@ -609,23 +603,51 @@ template <typename Flavor> class SumcheckProver {
 
         info("completed ", multivariate_d, " rounds of sumcheck");
 
-        // Zero univariates are used to pad the proof to the fixed size virtual_log_n.
-        auto zero_univariate = bb::Univariate<FF, Flavor::BATCHED_RELATION_PARTIAL_LENGTH>::zero();
+        // Virtual rounds: unified path for ZK and non-ZK.
+        // With top-of-trace masking, the row-disabling polynomial 1-L is circuit-size independent,
+        // so we continue updating it through virtual rounds. The verifier evaluates
+        // 1 - ∏_{i≥2}(1-u_i) over ALL D challenges — no log_n needed.
+        // Libra univariates are generated for ALL D rounds, so compute_libra_univariate works here too.
+        GateSeparatorPolynomial<FF> virtual_gate_separator(gate_challenges, multivariate_challenge);
         for (size_t idx = multivariate_d; idx < virtual_log_n; idx++) {
-            transcript->send_to_verifier("Sumcheck:univariate_" + std::to_string(idx), zero_univariate);
+            // Compute the virtual contribution: the relation at edge (PE[0], 0),
+            // encoding the zero-extension, batched with gate separator and beta factor.
+            round_univariate = round.compute_virtual_contribution(
+                partially_evaluated_polynomials, relation_parameters, virtual_gate_separator, alphas);
 
-            FF round_challenge = transcript->template get_challenge<FF>("Sumcheck:u_" + std::to_string(idx));
+            // Apply the row-disabling polynomial factor (1-L) to the virtual contribution.
+            if constexpr (UseRowDisablingPolynomial<Flavor>) {
+                bb::Univariate<FF, 2> one_minus_L(
+                    { FF::one() - row_disabling_polynomial.eval_at_0, FF::one() - row_disabling_polynomial.eval_at_1 });
+                round_univariate *= one_minus_L.template extend_to<Flavor::BATCHED_RELATION_PARTIAL_LENGTH>();
+            }
+
+            // Add libra masking univariate for this virtual round (libra covers all D rounds).
+            hiding_univariate = round.compute_libra_univariate(zk_sumcheck_data, idx);
+            round_univariate += hiding_univariate;
+
+            transcript->send_to_verifier("Sumcheck:univariate_" + std::to_string(idx), round_univariate);
+
+            const FF round_challenge = transcript->template get_challenge<FF>("Sumcheck:u_" + std::to_string(idx));
             multivariate_challenge.emplace_back(round_challenge);
+
+            // Fold PE values by zero-extension: PE[0] *= (1-u_k)
+            for (auto& poly : partially_evaluated_polynomials.get_all()) {
+                if (poly.size() > 0) {
+                    poly.at(0) *= (FF(1) - round_challenge);
+                }
+            }
+
+            // Update zk_sumcheck_data (libra running sum, evaluations), RDP, and gate separator
+            zk_sumcheck_data.update_zk_sumcheck_data(round_challenge, idx);
+            row_disabling_polynomial.update_evaluations(round_challenge, idx);
+            virtual_gate_separator.partially_evaluate(round_challenge);
         }
 
-        // Claimed evaluations of Prover polynomials are extracted and added to the transcript. When Flavor has ZK, the
-        // evaluations of all witnesses are masked.
+        // Claimed evaluations of Prover polynomials are extracted and added to the transcript.
         ClaimedEvaluations multivariate_evaluations = extract_claimed_evaluations(partially_evaluated_polynomials);
 
-        // With in-place masking, claimed evaluations already include masking values — no corrections needed.
-
-        // For Translator: send only the full-circuit evaluations (computable precomputed and minicircuit wires
-        // excluded)
+        // For Translator: send only the full-circuit evaluations
         if constexpr (IsTranslatorFlavor<Flavor>) {
             transcript->send_to_verifier("Sumcheck:evaluations",
                                          Flavor::get_full_circuit_evaluations(multivariate_evaluations));
@@ -633,8 +655,7 @@ template <typename Flavor> class SumcheckProver {
             transcript->send_to_verifier("Sumcheck:evaluations", multivariate_evaluations.get_all());
         }
 
-        // The evaluations of Libra uninvariates at \f$ g_0(u_0), \ldots, g_{d-1} (u_{d-1}) \f$ are added to the
-        // transcript.
+        // Libra evaluation covers all D rounds now (real + virtual).
         FF libra_evaluation = zk_sumcheck_data.constant_term;
         for (const auto& libra_eval : zk_sumcheck_data.libra_evaluations) {
             libra_evaluation += libra_eval;
@@ -879,8 +900,7 @@ template <typename Flavor> class SumcheckVerifier {
 
         // For ZK Flavors: compute the evaluation of the Row Disabling Polynomial at the sumcheck challenge and of the
         // libra univariate used to hide the contribution from the actual Honk relation
-        zk_correction_handler.apply_zk_corrections(
-            full_honk_purported_value, multivariate_challenge, padding_indicator_array);
+        zk_correction_handler.apply_zk_corrections(full_honk_purported_value, multivariate_challenge);
 
         //! [Final Verification Step]
         bool final_check = round.perform_final_verification(full_honk_purported_value);

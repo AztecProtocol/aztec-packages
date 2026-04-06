@@ -110,7 +110,9 @@ template <typename Flavor> void UltraProver_<Flavor>::execute_sumcheck_iop()
                       virtual_log_n);
 
     if constexpr (Flavor::HasZK) {
-        zk_sumcheck_data = ZKData(numeric::get_msb(polynomial_size), transcript, commitment_key);
+        // Generate libra univariates for ALL rounds (real + virtual) so that the ZK and non-ZK
+        // virtual round paths are unified. The libra contributes to every round uniformly.
+        zk_sumcheck_data = ZKData(virtual_log_n, transcript, commitment_key);
         sumcheck_output = sumcheck.prove(zk_sumcheck_data);
     } else {
         sumcheck_output = sumcheck.prove();

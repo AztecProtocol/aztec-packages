@@ -13,7 +13,6 @@
 #include "barretenberg/flavor/mega_zk_recursive_flavor.hpp"
 #include "barretenberg/flavor/ultra_zk_recursive_flavor.hpp"
 #include "barretenberg/honk/proof_length.hpp"
-#include "barretenberg/stdlib/primitives/padding_indicator_array/padding_indicator_array.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
 #include "barretenberg/ultra_honk/oink_verifier.hpp"
 
@@ -35,36 +34,17 @@ template <typename Flavor, class IO> size_t UltraVerifier_<Flavor, IO>::compute_
 }
 
 /**
- * @brief Compute padding indicator array based on flavor configuration.
- * @details Must be called AFTER OinkVerifier::verify() so that VK fields are properly
- *          tagged through the transcript (for recursive ZK flavors).
+ * @brief Compute padding indicator array.
+ * @details With top-of-trace masking and unified virtual rounds, all rounds are processed
+ * uniformly with indicator=1. The row-disabling polynomial 1 - ∏_{i≥2}(1-u_i) is circuit-size
+ * independent — the verifier evaluates it over ALL challenges.
  * @param log_n The log circuit size (from compute_log_n)
- * @return std::vector<FF> padding indicator array
+ * @return std::vector<FF> padding indicator array (all 1s)
  */
 template <typename Flavor, class IO>
 std::vector<typename Flavor::FF> UltraVerifier_<Flavor, IO>::compute_padding_indicator_array(size_t log_n) const
 {
-    // - Non-ZK flavors: all 1s (no masking needed)
-    // - ZK without padding: all 1s (log_n == log_circuit_size, no padded region)
-    // - ZK with padding: computed to mask padded rounds (1s for real, 0s for padding)
-    std::vector<FF> padding_indicator_array(log_n, FF{ 1 });
-    if constexpr (Flavor::HasZK && Flavor::USE_PADDING) {
-        auto vk_ptr = verifier_instance->get_vk();
-        if constexpr (IsRecursive) {
-            // Recursive: use in-circuit computation via Lagrange polynomials
-            // Note: Must be called after OinkVerifier so log_circuit_size is properly tagged
-            padding_indicator_array =
-                stdlib::compute_padding_indicator_array<Curve, Flavor::VIRTUAL_LOG_N>(vk_ptr->log_circuit_size);
-        } else {
-            // Native: simple loop comparison
-            const size_t log_circuit_size = static_cast<size_t>(vk_ptr->log_circuit_size);
-            for (size_t idx = 0; idx < log_n; idx++) {
-                padding_indicator_array[idx] = (idx < log_circuit_size) ? FF{ 1 } : FF{ 0 };
-            }
-        }
-    }
-
-    return padding_indicator_array;
+    return std::vector<FF>(log_n, FF{ 1 });
 }
 
 /**
