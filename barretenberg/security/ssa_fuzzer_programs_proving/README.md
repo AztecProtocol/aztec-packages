@@ -25,3 +25,16 @@ The worker image now includes the packages needed for EVM-side verification:
 - `ENABLE_SOLIDITY_VERIFY=1` enables the Solidity verification stage after native verification
 - `SOLIDITY_VERIFIER_TARGET=evm-no-zk` selects the EVM verifier flavor; use `evm` to exercise the ZK verifier path instead
 - `SOLIDITY_VERIFIER_OPTIMIZED=1` enables the optimized Solidity verifier for `evm-no-zk`
+- `CRASH_ARTIFACTS_DIR=/app/proving/crashes` controls where failed popped inputs are persisted
+
+## Crash artifacts
+
+When a popped Redis item fails the prove/verify pipeline, the worker saves a replayable bundle under `crashes/` containing:
+
+- `redis_payload.json` when the raw Redis payload could be preserved
+- `parsed_payload.json` when JSON parsing succeeded
+- `program.json` and `witness.gz`
+- `stdout.log` and `stderr.log`
+- `metadata.json` with the failure timestamp and error summary
+
+The default `compose.yaml` mounts `./crashes` into the container so these artifacts persist across worker restarts.

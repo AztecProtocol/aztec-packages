@@ -18,6 +18,9 @@ services:
       - BB_EXECUTABLE_PATH=/root/.bb/bb
       - ENABLE_SOLIDITY_VERIFY=1
       - SOLIDITY_VERIFIER_TARGET=evm-no-zk
+      - CRASH_ARTIFACTS_DIR=/app/proving/crashes
+    volumes:
+      - ./crashes:/app/proving/crashes
     restart: unless-stopped
     deploy:
       replicas: 4

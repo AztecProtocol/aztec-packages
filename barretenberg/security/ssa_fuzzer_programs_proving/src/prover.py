@@ -1,17 +1,21 @@
 from fuzzer_output_types import NoirProgramData
 from base64 import b64decode
 from tempfile import NamedTemporaryFile
+from datetime import datetime, timezone
 import json
 import os
 import dataclasses
 import subprocess
-from typing import Tuple
+import shutil
+from typing import Optional, Tuple, Union
 import logging
 
 logging.basicConfig(
     level=logging.WARNING, format="%(asctime)s - %(levelname)s - %(message)s"
 )
 bb_executable_path = os.getenv("BB_EXECUTABLE_PATH", "/root/.bb/bb")
+default_crash_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "crashes"))
+crash_artifacts_dir = os.getenv("CRASH_ARTIFACTS_DIR", default_crash_dir)
 
 
 def create_program_and_witness_files(noir_data: NoirProgramData) -> Tuple[str, str]:
@@ -40,6 +44,83 @@ def cleanup_temp_files(*file_paths: str) -> None:
             )
 
 
+def _sanitize_path_component(value: str) -> str:
+    return "".join(ch if ch.isalnum() or ch in ("-", "_") else "_" for ch in value)
+
+
+def _create_failure_dir(test_id: str) -> str:
+    os.makedirs(crash_artifacts_dir, exist_ok=True)
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S_%fZ")
+    base_name = f"{timestamp}_{_sanitize_path_component(test_id or 'unknown')}"
+    failure_dir = os.path.join(crash_artifacts_dir, base_name)
+    suffix = 1
+
+    while os.path.exists(failure_dir):
+        failure_dir = os.path.join(crash_artifacts_dir, f"{base_name}_{suffix}")
+        suffix += 1
+
+    os.makedirs(failure_dir, exist_ok=False)
+    return failure_dir
+
+
+def _write_text_file(path: str, contents: str) -> None:
+    with open(path, "w", encoding="utf-8") as file_handle:
+        file_handle.write(contents)
+
+
+def persist_failure_artifacts(
+    *,
+    test_id: str,
+    error_message: str,
+    raw_payload: Optional[Union[str, bytes, bytearray]] = None,
+    noir_data: Optional[NoirProgramData] = None,
+    program_file: Optional[str] = None,
+    witness_file: Optional[str] = None,
+    stdout: str = "",
+    stderr: str = "",
+) -> str:
+    failure_dir = _create_failure_dir(test_id)
+
+    metadata = {
+        "test_id": test_id,
+        "saved_at_utc": datetime.now(timezone.utc).isoformat(),
+        "bb_executable_path": bb_executable_path,
+        "error_message": error_message,
+    }
+
+    with open(
+        os.path.join(failure_dir, "metadata.json"), "w", encoding="utf-8"
+    ) as file_handle:
+        json.dump(metadata, file_handle, indent=2)
+
+    if raw_payload is not None:
+        if isinstance(raw_payload, (bytes, bytearray)):
+            payload_text = raw_payload.decode("utf-8", errors="replace")
+        else:
+            payload_text = raw_payload
+        _write_text_file(os.path.join(failure_dir, "redis_payload.json"), payload_text)
+
+    if noir_data is not None:
+        with open(
+            os.path.join(failure_dir, "parsed_payload.json"), "w", encoding="utf-8"
+        ) as file_handle:
+            json.dump(dataclasses.asdict(noir_data), file_handle, indent=2)
+
+    if program_file is not None and os.path.exists(program_file):
+        shutil.copyfile(program_file, os.path.join(failure_dir, "program.json"))
+
+    if witness_file is not None and os.path.exists(witness_file):
+        shutil.copyfile(witness_file, os.path.join(failure_dir, "witness.gz"))
+
+    if stdout:
+        _write_text_file(os.path.join(failure_dir, "stdout.log"), stdout)
+
+    if stderr:
+        _write_text_file(os.path.join(failure_dir, "stderr.log"), stderr)
+
+    return failure_dir
+
+
 def prove(noir_data: NoirProgramData) -> None:
     """
     Proves and verifies a Noir program generated from SSA fuzzer output.
@@ -57,9 +138,19 @@ def prove(noir_data: NoirProgramData) -> None:
         stdout = result.stdout.decode("utf-8")
         stderr = result.stderr.decode("utf-8")
         if result.returncode != 0:
+            failure_dir = persist_failure_artifacts(
+                test_id=noir_data.test_id,
+                error_message="prove/verify pipeline failed",
+                noir_data=noir_data,
+                program_file=program_file,
+                witness_file=witness_file,
+                stdout=stdout,
+                stderr=stderr,
+            )
             logging.error(
-                "prove/verify pipeline failed for test %s\nstdout:\n%s\nstderr:\n%s",
+                "prove/verify pipeline failed for test %s\nsaved artifacts to %s\nstdout:\n%s\nstderr:\n%s",
                 noir_data.test_id,
+                failure_dir,
                 stdout,
                 stderr,
             )

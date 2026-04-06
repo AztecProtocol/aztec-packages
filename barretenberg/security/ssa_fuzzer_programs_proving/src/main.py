@@ -4,7 +4,8 @@ import redis
 import time
 import os
 import logging
-from prover import prove
+import traceback
+from prover import persist_failure_artifacts, prove
 from fuzzer_output_types import NoirProgramData
 
 logging.basicConfig(
@@ -17,13 +18,30 @@ redis_client = redis.Redis(
 
 def main():
     while True:
-        program_data = redis_client.rpop("fuzzer_output")
-        if program_data is None:
+        raw_program_data = redis_client.rpop("fuzzer_output")
+        if raw_program_data is None:
             time.sleep(1)
             continue
 
-        program_data = NoirProgramData.from_json(program_data)
-        prove(program_data)
+        program_data = None
+        try:
+            program_data = NoirProgramData.from_json(raw_program_data)
+            prove(program_data)
+        except Exception:
+            failure_dir = persist_failure_artifacts(
+                test_id=(
+                    program_data.test_id
+                    if program_data is not None
+                    else "parse_or_runtime_failure"
+                ),
+                error_message=traceback.format_exc(),
+                raw_payload=raw_program_data,
+                noir_data=program_data,
+            )
+            logging.exception(
+                "failed to process popped redis payload; saved artifacts to %s",
+                failure_dir,
+            )
 
 
 if __name__ == "__main__":
