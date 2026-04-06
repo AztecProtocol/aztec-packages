@@ -11,25 +11,6 @@ This changelog documents all configuration changes, new features, and breaking c
 
 ## Version history
 
-### [v4.x (Upgrade from Ignition)](./v4.md)
-
-Major upgrade from Ignition (v2.x) to Alpha (v4.x) with significant architectural changes.
-
-**Key changes:**
-- Checkpoint-based block architecture (multiple L2 blocks per slot)
-- Blob-only data publication (EIP-4844), calldata fallback removed
-- Double signing slashing infrastructure
-- HA signing with PostgreSQL for redundant sequencer nodes
-- Admin API key authentication
-- Sequencer environment variable renames
-- Withdrawal delay increase (7 to 30 days)
-
-**Migration difficulty**: High
-
-[View full changelog →](./v4.md)
-
----
-
 ### [v2.0.2 (from v1.2.1)](./v2.0.2.md)
 
 Major release with significant configuration simplification, keystore integration, and feature updates.
