@@ -475,6 +475,7 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
                 scalar_multiplication::pippenger_unsafe<Curve>(data.s_vec, { &srs_elements[0], /*size*/ poly_length });
         }
         if (G_zero != data.G_zero_from_prover) {
+            info("IPA verification failed: G_0 mismatch");
             return false;
         }
 
@@ -669,8 +670,14 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
         requires(!Curve::is_stdlib_type)
     {
         const size_t num_claims = opening_claims.size();
-        BB_ASSERT(num_claims == transcripts.size());
-        BB_ASSERT(num_claims > 0);
+        if (num_claims != transcripts.size()) {
+            info("IPA batch verification failed: claims/transcripts size mismatch");
+            return false;
+        }
+        if (num_claims == 0) {
+            info("IPA batch verification failed: no claims provided");
+            return false;
+        }
 
         // Phase 1: Per-proof transcript processing (sequential, each proof is cheap)
         std::vector<GroupElement> C_zeros(num_claims);
@@ -770,6 +777,12 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
     static bool full_verify_recursive(const VK& vk, const OpeningClaim<Curve>& opening_claim, auto& transcript)
         requires Curve::is_stdlib_type
     {
+        // Check SRS size up front before any circuit construction
+        if (vk.get_monomial_points().size() < poly_length) {
+            throw_or_abort("IPA recursive verification: not enough SRS points (need " + std::to_string(poly_length) +
+                           ", have " + std::to_string(vk.get_monomial_points().size()) + ")");
+        }
+
         add_claim_to_hash_buffer(opening_claim, transcript);
         VerifierAccumulator verifier_accumulator = reduce_verify_internal_recursive(opening_claim, transcript);
         auto round_challenges_inv = verifier_accumulator.u_challenges_inv;
@@ -806,7 +819,6 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
         // Compute G_zero
         // In the native verifier, this uses pippenger. Here we use batch_mul.
         std::vector<Commitment> srs_elements = vk.get_monomial_points();
-        BB_ASSERT_GTE(srs_elements.size(), poly_length, "Not enough SRS points for IPA!");
         srs_elements.resize(poly_length);
         Commitment computed_G_zero = Commitment::batch_mul(srs_elements, s_vec);
         // check the computed G_zero and the claimed G_zero are the same.
