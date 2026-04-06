@@ -347,6 +347,9 @@ describe('Kernelless simulation', () => {
       const amount = Fr.random();
       const nonce = Fr.random();
 
+      // This function uses a struct with 3 fields as parameter, and the #[authorize_once] macro should correctly
+      // account for this and emit a CallAuthorizationRequest with the correct serialized length, rather than
+      // just the arguments length
       const interaction = authWitTestContract.methods.auth_with_struct(adminAddress, structData, amount, nonce);
 
       wallet.setSimulationMode('kernelless-override');
@@ -361,6 +364,7 @@ describe('Kernelless simulation', () => {
 
       expect(offchainEffects[0].contractAddress).toEqual(authWitTestContract.address);
 
+      // The macro should emit 6 arguments in total before decoding: from (1) + struct (3) + amount (1) + nonce (1)
       expect(callAuthRequest.args).toHaveLength(6);
 
       expect(callAuthRequest.onBehalfOf).toEqual(adminAddress);
