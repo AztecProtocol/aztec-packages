@@ -139,6 +139,8 @@ export class GasSettings {
    * never hits gas caps, we set both limits above what the protocol allows: teardown gets
    * MAX_PROCESSABLE and gasLimits gets teardown + MAX_PROCESSABLE, so the full processable
    * amount remains available for each phase independently.
+   * To be used in conjunction with skipTxValidation: true during public simulation, or the node
+   * would reject the transaction outright due to gas limits being above protocol max.
    */
   static forEstimation(overrides: {
     gasLimits?: Gas;
