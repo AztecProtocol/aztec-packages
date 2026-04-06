@@ -1,6 +1,7 @@
 import {
   type ABIParameter,
   type ABIVariable,
+  type AbiValue,
   type ContractArtifact,
   EventSelector,
   type FunctionAbi,
@@ -235,6 +236,64 @@ function generateStorageLayoutGetter(input: ContractArtifact) {
     `;
 }
 
+/** Tags used internally by the framework and already exposed via dedicated getters. */
+const INTERNAL_GLOBAL_TAGS = new Set(['storage']);
+
+/**
+ * Converts an AbiValue to a TypeScript literal string for code generation.
+ * @param value - The ABI value to convert.
+ * @returns A string of TypeScript code representing the value.
+ */
+function abiValueToTypescriptLiteral(value: AbiValue): string {
+  switch (value.kind) {
+    case 'boolean':
+      return value.value.toString();
+    case 'string':
+      return JSON.stringify(value.value);
+    case 'integer': {
+      const bigint = BigInt(`0x${value.value}`);
+      return `${value.sign ? '-' : ''}${bigint}n`;
+    }
+    case 'array':
+      return `[${value.value.map(abiValueToTypescriptLiteral).join(', ')}]`;
+    case 'tuple':
+      return `[${value.fields.map(abiValueToTypescriptLiteral).join(', ')}]`;
+    case 'struct':
+      return `{ ${value.fields.map(f => `${f.name}: ${abiValueToTypescriptLiteral(f.value)}`).join(', ')} }`;
+    default: {
+      const _: never = value;
+      throw new Error(`Unknown AbiValue kind: ${(value as AbiValue).kind}`);
+    }
+  }
+}
+
+/**
+ * Generates a getter for the contract's exported globals (constants defined with #[abi(tag)] in Noir).
+ * @param input - The contract artifact.
+ */
+function generateGlobalsGetter(input: ContractArtifact) {
+  const entries = Object.entries(input.outputs.globals).filter(([tag]) => !INTERNAL_GLOBAL_TAGS.has(tag));
+
+  if (entries.length === 0) {
+    return '';
+  }
+
+  const props = entries.map(([tag, values]) => {
+    const val =
+      values.length === 1
+        ? abiValueToTypescriptLiteral(values[0])
+        : `[${values.map(abiValueToTypescriptLiteral).join(', ')}]`;
+    return `${tag}: ${val}`;
+  });
+
+  return `public static get globals() {
+      return {
+        ${props.join(',\n        ')}
+      };
+    }
+    `;
+}
+
 // events is of type AbiType
 async function generateEvents(events: any[] | undefined) {
   if (events === undefined) {
@@ -302,6 +361,7 @@ export async function generateTypescriptContractInterface(input: ContractArtifac
   const artifactStatement = artifactImportPath && generateAbiStatement(input.name, artifactImportPath);
   const artifactGetter = artifactImportPath && generateArtifactGetters(input.name);
   const storageLayoutGetter = artifactImportPath && generateStorageLayoutGetter(input);
+  const globalsGetter = generateGlobalsGetter(input);
   const { eventDefs, events } = await generateEvents(input.outputs.structs?.events);
 
   return `
@@ -332,6 +392,8 @@ export class ${input.name}Contract extends ContractBase {
   ${artifactGetter}
 
   ${storageLayoutGetter}
+
+  ${globalsGetter}
 
   /** Type-safe wrappers for the public methods exposed by the contract. */
   public declare methods: {
