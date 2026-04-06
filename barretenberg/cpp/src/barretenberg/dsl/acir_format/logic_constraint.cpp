@@ -24,10 +24,11 @@ void create_logic_gate(Builder& builder,
 
     field_ct computed_result = bb::stdlib::logic<Builder>::create_logic_constraint(left, right, num_bits, is_xor_gate);
 
-    // In write-VK mode the result witness holds a dummy zero. When both inputs are constant the computed result is a
-    // compile-time constant, so assert_equal would spuriously fail. Patch the witness value so the downstream
-    // assertion sees the correct value.
-    if (builder.is_write_vk_mode() && computed_result.is_constant()) {
+    // In write-VK mode the result witness holds a dummy zero. In certain cases, the computed result is non-zero so the
+    // assert_equal would spuriously fail. Patch the witness value so the downstream assertion sees the correct value.
+    // Eg. for an XOR gate, if the inputs are constants such that the result is a non-zero constant, the assert_equal
+    // will fail in write-VK mode since the result witness is initialized to zero.
+    if (builder.is_write_vk_mode()) {
         builder.set_variable(result, computed_result.get_value());
     }
 
