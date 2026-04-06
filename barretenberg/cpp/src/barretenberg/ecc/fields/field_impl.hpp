@@ -830,8 +830,13 @@ template <class Params> void field<Params>::msgpack_unpack(auto o)
         data[i] = reversed[i];
     }
 
+    // Reject non-canonical field encodings (values >= modulus) to ensure strict parsing.
+    if (uint256_t{ data[0], data[1], data[2], data[3] } >= modulus) {
+        throw_or_abort("msgpack field deserialization: non-canonical encoding (value >= modulus)");
+    }
+
     // Finally, the field is converted back to Montgomery form, just like in the old format.
-    *this = to_montgomery_form_reduced();
+    *this = to_montgomery_form();
 }
 
 } // namespace bb

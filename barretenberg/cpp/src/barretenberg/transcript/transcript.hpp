@@ -171,7 +171,9 @@ template <typename Codec_, typename HashFunction_> class BaseTranscript {
     template <typename T> T deserialize_from_buffer(const Proof& proof_data, size_t& offset) const
     {
         constexpr size_t element_fr_size = Codec::template calc_num_fields<T>();
-        BB_ASSERT_LTE(offset + element_fr_size, proof_data.size());
+        if (offset + element_fr_size > proof_data.size()) {
+            throw_or_abort("Transcript: deserialize_from_buffer out of bounds");
+        }
 
         auto element_frs = std::span{ proof_data }.subspan(offset, element_fr_size);
         offset += element_fr_size;
@@ -369,7 +371,9 @@ template <typename Codec_, typename HashFunction_> class BaseTranscript {
     template <class T> T receive_from_prover(const std::string& label)
     {
         const size_t element_size = Codec::template calc_num_fields<T>();
-        BB_ASSERT_LTE(num_frs_read + element_size, proof_data.size());
+        if (num_frs_read + element_size > proof_data.size()) {
+            throw_or_abort("Transcript: receive_from_prover out of bounds (proof too short)");
+        }
 
         auto element_frs = std::span{ proof_data }.subspan(num_frs_read, element_size);
         // Track Fiat-Shamir round transitions: if we were generating challenges,
