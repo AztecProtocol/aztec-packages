@@ -30,11 +30,11 @@ MultilinearBatchingFlavor::ProvingKey::ProvingKey(ProverClaim&& accumulator_clai
     polynomials.batched_shifted_accumulator = preshifted_accumulator.shifted();
     polynomials.batched_shifted_instance = preshifted_instance.shifted();
 
-    // Construct `eq` polynomials from challenges
-    polynomials.eq_accumulator =
-        ProverEqPolynomial<FF>::construct(accumulator_claim.challenge, bb::numeric::get_msb(circuit_size));
-    polynomials.eq_instance =
-        ProverEqPolynomial<FF>::construct(instance_claim.challenge, bb::numeric::get_msb(circuit_size));
+    // Construct eq polynomials with 2^m coefficients (m = log2(circuit_size)), not 2^VIRTUAL_LOG_N.
+    // Virtual sumcheck rounds handle the remaining challenges without needing the full table.
+    const size_t log_circuit_size = bb::numeric::get_msb(circuit_size);
+    polynomials.eq_accumulator = ProverEqPolynomial<FF>::construct(accumulator_claim.challenge, log_circuit_size);
+    polynomials.eq_instance = ProverEqPolynomial<FF>::construct(instance_claim.challenge, log_circuit_size);
     polynomials.increase_polynomials_virtual_size(virtual_circuit_size);
 
     // Move incoming challenges  and copy commitments with corresponding evaluations

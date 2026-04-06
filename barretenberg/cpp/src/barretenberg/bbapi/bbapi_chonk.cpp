@@ -28,8 +28,14 @@ ChonkStart::Response ChonkStart::execute(BBApiRequest& request) &&
     BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
 
     request.ivc_in_progress = std::make_shared<Chonk>(num_circuits);
-
     request.ivc_stack_depth = 0;
+
+    // Clear any stale loaded-circuit state from a previous session so that
+    // ChonkAccumulate cannot silently reuse a circuit loaded before this ChonkStart.
+    request.loaded_circuit_name.clear();
+    request.loaded_circuit_constraints.reset();
+    request.loaded_circuit_vk.clear();
+
     return Response{};
 }
 
@@ -63,6 +69,15 @@ ChonkAccumulate::Response ChonkAccumulate::execute(BBApiRequest& request) &&
     acir_format::WitnessVector witness_data = acir_format::witness_buf_to_witness_vector(std::move(witness));
     acir_format::AcirProgram program{ std::move(request.loaded_circuit_constraints.value()), std::move(witness_data) };
 
+    // Clear loaded state immediately after moving out of it. This ensures that if any subsequent
+    // step throws, the request won't appear to still have a valid circuit loaded (the optional
+    // would be in a moved-from state, which is technically has_value()==true but poisoned).
+    auto loaded_vk = std::move(request.loaded_circuit_vk);
+    auto circuit_name = std::move(request.loaded_circuit_name);
+    request.loaded_circuit_constraints.reset();
+    request.loaded_circuit_vk.clear();
+    request.loaded_circuit_name.clear();
+
     const acir_format::ProgramMetadata metadata{ .ivc = request.ivc_in_progress };
     auto circuit = acir_format::create_circuit<IVCBase::ClientCircuit>(program, metadata);
 
@@ -71,9 +86,9 @@ ChonkAccumulate::Response ChonkAccumulate::execute(BBApiRequest& request) &&
     if (request.vk_policy == VkPolicy::RECOMPUTE) {
         precomputed_vk = nullptr;
     } else if (request.vk_policy == VkPolicy::DEFAULT || request.vk_policy == VkPolicy::CHECK) {
-        if (!request.loaded_circuit_vk.empty()) {
-            validate_vk_size<Chonk::MegaVerificationKey>(request.loaded_circuit_vk);
-            precomputed_vk = from_buffer<std::shared_ptr<Chonk::MegaVerificationKey>>(request.loaded_circuit_vk);
+        if (!loaded_vk.empty()) {
+            validate_vk_size<Chonk::MegaVerificationKey>(loaded_vk);
+            precomputed_vk = from_buffer<std::shared_ptr<Chonk::MegaVerificationKey>>(loaded_vk);
 
             if (request.vk_policy == VkPolicy::CHECK) {
                 auto prover_instance = std::make_shared<Chonk::ProverInstance>(circuit);
@@ -81,7 +96,7 @@ ChonkAccumulate::Response ChonkAccumulate::execute(BBApiRequest& request) &&
 
                 // Dereference to compare VK contents
                 if (*precomputed_vk != *computed_vk) {
-                    throw_or_abort("VK check failed for circuit '" + request.loaded_circuit_name +
+                    throw_or_abort("VK check failed for circuit '" + circuit_name +
                                    "': provided VK does not match computed VK");
                 }
             }
@@ -90,15 +105,12 @@ ChonkAccumulate::Response ChonkAccumulate::execute(BBApiRequest& request) &&
         throw_or_abort("Invalid VK policy. Valid options: default, check, recompute");
     }
 
-    info("ChonkAccumulate - accumulating circuit '", request.loaded_circuit_name, "'");
+    info("ChonkAccumulate - accumulating circuit '", circuit_name, "'");
     if (detail::use_memory_profile) {
-        detail::GLOBAL_MEMORY_PROFILE.set_circuit_name(request.loaded_circuit_name);
+        detail::GLOBAL_MEMORY_PROFILE.set_circuit_name(circuit_name);
     }
     request.ivc_in_progress->accumulate(circuit, precomputed_vk);
     request.ivc_stack_depth++;
-
-    request.loaded_circuit_constraints.reset();
-    request.loaded_circuit_vk.clear();
 
     return Response{};
 }
