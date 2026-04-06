@@ -151,7 +151,7 @@ export class DeployMethod<TContract extends ContractBase = ContractBase> extends
     constructorNameOrArtifact?: string | FunctionArtifact,
     authWitnesses: AuthWitness[] = [],
     capsules: Capsule[] = [],
-    private extraHashedArgs: HashedValues[] = [],
+    protected extraHashedArgs: HashedValues[] = [],
   ) {
     super(wallet, authWitnesses, capsules);
     this.constructorArtifact = getInitializer(artifact, constructorNameOrArtifact);
