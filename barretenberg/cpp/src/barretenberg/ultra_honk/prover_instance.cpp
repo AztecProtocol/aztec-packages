@@ -133,11 +133,10 @@ template <typename Flavor> void ProverInstance_<Flavor>::allocate_wires()
 {
     BB_BENCH_NAME("allocate_wires");
 
-    // Allocate wires to active trace range only. For ZK, masking values are stored in MaskingTailData.
     const size_t wire_size = trace_active_range_size();
 
     for (auto& wire : polynomials.get_wires()) {
-        wire = Polynomial::shiftable(wire_size, dyadic_size());
+        wire = Polynomial::shiftable(wire_size, dyadic_size(), Flavor::HasZK);
     }
 }
 
@@ -153,8 +152,7 @@ template <typename Flavor> void ProverInstance_<Flavor>::allocate_permutation_ar
         id = Polynomial::shiftable(trace_active_range_size(), dyadic_size());
     }
 
-    // Allocate z_perm to active trace range only. For ZK, masking values are stored in MaskingTailData.
-    polynomials.z_perm = Polynomial::shiftable(trace_active_range_size(), dyadic_size());
+    polynomials.z_perm = Polynomial::shiftable(trace_active_range_size(), dyadic_size(), Flavor::HasZK);
 }
 
 template <typename Flavor> void ProverInstance_<Flavor>::allocate_lagrange_polynomials()
@@ -206,8 +204,13 @@ template <typename Flavor> void ProverInstance_<Flavor>::allocate_table_lookup_p
     const size_t lookup_block_end = circuit.blocks.lookup.trace_offset() + circuit.blocks.lookup.size();
     const size_t lookup_inverses_end = std::max(lookup_block_end, tables_end);
 
-    // Allocate to the minimum needed size. For ZK, masking values are stored in MaskingTailData.
     polynomials.lookup_inverses = Polynomial(lookup_inverses_end, dyadic_size());
+
+    if constexpr (Flavor::HasZK) {
+        polynomials.lookup_read_counts.add_masking();
+        polynomials.lookup_read_tags.add_masking();
+        polynomials.lookup_inverses.add_masking();
+    }
 }
 
 template <typename Flavor>
@@ -217,12 +220,14 @@ void ProverInstance_<Flavor>::allocate_ecc_op_polynomials(const Circuit& circuit
     BB_BENCH_NAME("allocate_ecc_op_polynomials");
 
     // Allocate the ecc op wires and selector
-    // Note: ECC op wires are not blinded directly so we do not need to allocate full dyadic size for ZK
+    // Note: ECC op wires are not masked (they use random ops for ZK)
     const size_t ecc_op_block_size = circuit.blocks.ecc_op.size();
+    const size_t ecc_op_offset = Flavor::HasZK ? NUM_DISABLED_ROWS_IN_SUMCHECK : 0;
+    const size_t ecc_op_alloc = ecc_op_offset + ecc_op_block_size;
     for (auto& wire : polynomials.get_ecc_op_wires()) {
-        wire = Polynomial(ecc_op_block_size, dyadic_size());
+        wire = Polynomial(ecc_op_alloc, dyadic_size());
     }
-    polynomials.lagrange_ecc_op = Polynomial(ecc_op_block_size, dyadic_size());
+    polynomials.lagrange_ecc_op = Polynomial(ecc_op_alloc, dyadic_size());
 }
 
 template <typename Flavor>
@@ -238,6 +243,7 @@ void ProverInstance_<Flavor>::allocate_databus_polynomials(const Circuit& circui
     // For ZK, shift databus data by the disabled head region so masking values fit at positions {1,2,3}
     const size_t databus_offset = Flavor::HasZK ? NUM_DISABLED_ROWS_IN_SUMCHECK : 0;
 
+    // Calldata is public and not masked
     polynomials.calldata = Polynomial(databus_offset + calldata_size, dyadic_size());
     polynomials.calldata_read_counts = Polynomial(databus_offset + calldata_size, dyadic_size());
     polynomials.calldata_read_tags = Polynomial(databus_offset + calldata_size, dyadic_size());
@@ -260,6 +266,21 @@ void ProverInstance_<Flavor>::allocate_databus_polynomials(const Circuit& circui
     polynomials.calldata_inverses = Polynomial(calldata_inverses_size, dyadic_size());
     polynomials.secondary_calldata_inverses = Polynomial(sec_calldata_inverses_size, dyadic_size());
     polynomials.return_data_inverses = Polynomial(return_data_inverses_size, dyadic_size());
+
+    if constexpr (Flavor::HasZK) {
+        // Mask all databus witness entities except calldata (public)
+        polynomials.calldata_read_counts.add_masking();
+        polynomials.calldata_read_tags.add_masking();
+        polynomials.calldata_inverses.add_masking();
+        polynomials.secondary_calldata.add_masking();
+        polynomials.secondary_calldata_read_counts.add_masking();
+        polynomials.secondary_calldata_read_tags.add_masking();
+        polynomials.secondary_calldata_inverses.add_masking();
+        polynomials.return_data.add_masking();
+        polynomials.return_data_read_counts.add_masking();
+        polynomials.return_data_read_tags.add_masking();
+        polynomials.return_data_inverses.add_masking();
+    }
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1555): Allocate minimum size >1 to avoid point at
     // infinity commitment.

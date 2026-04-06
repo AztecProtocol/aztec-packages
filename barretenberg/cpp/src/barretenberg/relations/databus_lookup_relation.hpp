@@ -273,18 +273,21 @@ template <typename FF_> class DatabusLookupRelationImpl {
     template <size_t bus_idx, typename Polynomials>
     static void compute_logderivative_inverse(Polynomials& polynomials,
                                               auto& relation_parameters,
-                                              const size_t circuit_size)
+                                              const size_t circuit_size,
+                                              const size_t start_index = 0)
     {
         BB_BENCH_NAME("Databus::compute_logderivative_inverse");
         auto& inverse_polynomial = BusData<bus_idx, Polynomials>::inverses(polynomials);
 
+        const size_t num_rows = circuit_size - start_index;
         size_t min_iterations_per_thread = 1 << 6; // min number of iterations for which we'll spin up a unique thread
-        size_t num_threads = bb::calculate_num_threads(circuit_size, min_iterations_per_thread);
+        size_t num_threads = bb::calculate_num_threads(num_rows, min_iterations_per_thread);
 
         parallel_for(num_threads, [&](ThreadChunk chunk) {
             bool is_read = false;
             bool nonzero_read_count = false;
-            for (size_t i : chunk.range(circuit_size)) {
+            for (size_t j : chunk.range(num_rows)) {
+                size_t i = j + start_index;
                 // Determine if the present row contains a databus operation
                 auto q_busread = polynomials.q_busread[i];
                 if constexpr (bus_idx == 0) { // calldata

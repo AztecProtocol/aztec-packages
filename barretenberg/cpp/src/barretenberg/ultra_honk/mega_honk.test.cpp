@@ -243,9 +243,9 @@ TYPED_TEST(MegaHonkTests, DyadicSizeJumpsToProtectMaskingArea)
         auto baseline_instance = std::make_shared<ProverInstance>(baseline_builder);
         const size_t baseline_dyadic = baseline_instance->dyadic_size();
 
-        // Add gates one at a time until the dyadic size doubles
+        // With top-of-trace masking, the disabled head region is always present.
+        // Verify active trace starts after it and dyadic size doubles when tightly packed.
         size_t prev_dyadic = 0;
-        size_t prev_final_active_idx = 0;
         bool found_jump = false;
         for (size_t num_extra_gates = 0; num_extra_gates <= baseline_dyadic; num_extra_gates++) {
             Builder builder;
@@ -257,26 +257,18 @@ TYPED_TEST(MegaHonkTests, DyadicSizeJumpsToProtectMaskingArea)
 
             const size_t dyadic_size = prover_instance->dyadic_size();
             const size_t final_active_idx = prover_instance->get_final_active_wire_idx();
-            const size_t first_masked_row = dyadic_size - NUM_MASKED_ROWS;
 
-            // Invariant: lagrange_last must be strictly before the masking area
-            ASSERT_LT(final_active_idx, first_masked_row)
-                << "lagrange_last (at " << final_active_idx << ") overlaps masking area (starting at "
-                << first_masked_row << ") with num_extra_gates=" << num_extra_gates;
-
-            // Sufficient headroom for disabled rows
-            ASSERT_GE(dyadic_size - final_active_idx - 1, static_cast<size_t>(NUM_DISABLED_ROWS_IN_SUMCHECK));
+            // Invariant: active trace doesn't overlap the disabled head region
+            ASSERT_GE(final_active_idx, static_cast<size_t>(NUM_DISABLED_ROWS_IN_SUMCHECK))
+                << "final_active_idx (" << final_active_idx << ") is within the disabled head region";
 
             if (prev_dyadic != 0 && dyadic_size > prev_dyadic) {
                 EXPECT_EQ(dyadic_size, 2 * prev_dyadic);
-                EXPECT_LE(prev_dyadic - prev_final_active_idx - 1,
-                          2 * static_cast<size_t>(NUM_DISABLED_ROWS_IN_SUMCHECK));
 
                 // Prove and verify at the tightest packing (right before the jump)
                 Builder tight_builder;
                 GoblinMockCircuits::construct_simple_circuit(tight_builder);
                 MockCircuits::add_arithmetic_gates(tight_builder, num_extra_gates - 1);
-                auto tight_instance = std::make_shared<ProverInstance>(tight_builder);
                 bool verified = this->construct_and_verify_honk_proof(tight_builder);
                 EXPECT_TRUE(verified);
 
@@ -285,7 +277,6 @@ TYPED_TEST(MegaHonkTests, DyadicSizeJumpsToProtectMaskingArea)
             }
 
             prev_dyadic = dyadic_size;
-            prev_final_active_idx = final_active_idx;
         }
 
         EXPECT_TRUE(found_jump) << "should have found a dyadic size jump within " << baseline_dyadic << " extra gates";
