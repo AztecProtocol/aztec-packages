@@ -59,19 +59,14 @@ void ChonkAPI::prove(const Flags& flags,
     request.vk_policy = bbapi::parse_vk_policy(flags.vk_policy);
     std::vector<PrivateExecutionStepRaw> raw_steps = PrivateExecutionStepRaw::load_and_decompress(input_path);
 
-    bbapi::ChonkStart{ .num_circuits = static_cast<uint32_t>(raw_steps.size()) }.execute(request);
-    info("Chonk: starting with ", raw_steps.size(), " circuits");
-    for (const auto& step : raw_steps) {
-        bbapi::ChonkLoad{
-            .circuit = { .name = step.function_name, .bytecode = step.bytecode, .verification_key = step.vk }
-        }.execute(request);
+    // Parse all circuits upfront, then run pipelined accumulation
+    PrivateExecutionSteps steps;
+    steps.parse(std::move(raw_steps));
 
-        // NOLINTNEXTLINE(bugprone-unchecked-optional-access): we know the optional has been set here.
-        info("Chonk: accumulating " + step.function_name);
-        bbapi::ChonkAccumulate{ .witness = step.witness }.execute(request);
-    }
+    std::shared_ptr<Chonk> ivc = steps.accumulate();
 
-    auto proof = bbapi::ChonkProve{}.execute(request).proof;
+    auto proof = ivc->prove();
+    auto vk_and_hash = ivc->get_hiding_kernel_vk_and_hash();
 
     const bool output_to_stdout = output_dir == "-";
 

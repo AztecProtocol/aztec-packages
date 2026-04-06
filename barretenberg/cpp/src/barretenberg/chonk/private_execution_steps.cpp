@@ -9,6 +9,7 @@
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/common/thread.hpp"
 #include "barretenberg/dsl/acir_format/acir_to_constraint_buf.hpp"
+#include <future>
 #include <libdeflate.h>
 
 namespace bb {
@@ -163,6 +164,52 @@ void PrivateExecutionSteps::parse(std::vector<PrivateExecutionStepRaw>&& steps)
     });
 }
 
+/**
+ * @brief Check whether an ACIR program can be safely pre-constructed without IVC state.
+ * @details App circuits have no HyperNova recursion constraints, so their build_constraints
+ * never accesses the op_queue, verification_queue, or other IVC state.
+ */
+static bool is_pipelineable_circuit(const acir_format::AcirProgram& program)
+{
+    return program.constraints.hn_recursion_constraints.empty();
+}
+
+/**
+ * @brief Pre-construct a circuit on a background thread using a temporary op_queue.
+ * @details The builder is constructed with a dummy op_queue (to satisfy the initialize_new_subtable
+ * assertion in the MegaCircuitBuilder constructor). After the future completes, the caller must swap
+ * in the real op_queue before accumulation. Only safe for circuits where is_pipelineable_circuit is true.
+ */
+static std::future<MegaCircuitBuilder> construct_circuit_async(acir_format::AcirProgram& program)
+{
+    return std::async(std::launch::async, [&program]() {
+        // Prevent accidental parallel_for from creating a second thread pool on this thread
+        set_parallel_for_concurrency(1);
+
+        auto dummy_op_queue = std::make_shared<ECCOpQueue>();
+        MegaCircuitBuilder builder{
+            dummy_op_queue, program.witness, program.constraints.public_inputs, /*is_write_vk_mode=*/false
+        };
+        acir_format::build_constraints(builder, program.constraints, acir_format::ProgramMetadata{});
+
+        BB_ASSERT(dummy_op_queue->get_current_subtable_size() == 0,
+                  "Pipelined circuit unexpectedly wrote to op_queue during background construction");
+
+        return builder;
+    });
+}
+
+/**
+ * @brief Attach the real IVC op_queue to a pre-constructed builder.
+ * @details Must be called after the previous circuit's accumulate (which includes prove_merge)
+ * has completed, ensuring the op_queue's current_subtable is empty.
+ */
+static void attach_op_queue(MegaCircuitBuilder& builder, const std::shared_ptr<Chonk>& ivc)
+{
+    builder.op_queue = ivc->get_goblin().op_queue;
+    builder.op_queue->initialize_new_subtable();
+}
+
 std::shared_ptr<Chonk> PrivateExecutionSteps::accumulate()
 {
     auto ivc = std::make_shared<Chonk>(/*num_circuits=*/folding_stack.size());
@@ -175,15 +222,28 @@ std::shared_ptr<Chonk> PrivateExecutionSteps::accumulate()
             break;
         }
     }
-    // Accumulate the entire program stack into the IVC
-    for (auto [program, precomputed_vk, function_name] : zip_view(folding_stack, precomputed_vks, function_names)) {
-        // Construct a bberg circuit from the acir representation then accumulate it into the IVC
-        auto circuit = acir_format::create_circuit<MegaCircuitBuilder>(program, metadata);
 
-        info("Chonk: accumulating " + function_name);
-        // Do one step of ivc accumulator or, if there is only one circuit in the stack, prove that circuit. In this
-        // case, no work is added to the Goblin opqueue, but VM proofs for trivials inputs are produced.
-        ivc->accumulate(circuit, precomputed_vk);
+    const size_t num_circuits = folding_stack.size();
+    std::future<MegaCircuitBuilder> next_circuit_future;
+
+    for (size_t i = 0; i < num_circuits; i++) {
+        // Obtain the circuit: either from the background thread or by constructing it now
+        MegaCircuitBuilder circuit = [&]() {
+            if (next_circuit_future.valid()) {
+                auto builder = next_circuit_future.get();
+                attach_op_queue(builder, ivc);
+                return builder;
+            }
+            return acir_format::create_circuit<MegaCircuitBuilder>(folding_stack[i], metadata);
+        }();
+
+        // If the next circuit can be pre-constructed, start it in the background during accumulate
+        if (i + 1 < num_circuits && is_pipelineable_circuit(folding_stack[i + 1])) {
+            next_circuit_future = construct_circuit_async(folding_stack[i + 1]);
+        }
+
+        info("Chonk: accumulating ", function_names[i]);
+        ivc->accumulate(circuit, precomputed_vks[i]);
     }
 
     return ivc;
