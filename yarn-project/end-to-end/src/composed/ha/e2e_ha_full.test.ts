@@ -460,69 +460,69 @@ describe('HA Full Setup', () => {
     const round = await governanceProposer.computeRound(blockSlot);
     logger.info(`Block slot ${blockSlot}, governance round ${round}`);
 
-    // Poll L1 until at least one governance vote appears
-    logger.info('Polling L1 for governance votes...');
-    await retryUntil(
-      async () => {
-        const voteCount = Number(
-          await governanceProposer.getPayloadSignals(
-            deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString(),
-            round,
-            mockGovernancePayload.toString(),
-          ),
-        );
-        return voteCount > 0 ? voteCount : undefined;
-      },
-      'governance votes to appear on L1',
-      6, // timeout in seconds (30 attempts * 200ms)
-      0.2, // interval in seconds (200ms)
-    );
-
-    // Read lastSignalSlot and l1VoteCount from the same L1 block to get a consistent snapshot.
+    // Poll until L1 vote count converges with the DB duties.
+    // The DB records a duty as "signed" when the crypto signature is produced, but before the L1 tx mines.
+    // We need to wait for all in-flight L1 txs to land before comparing.
+    logger.info('Polling L1 for governance votes and waiting for DB convergence...');
     const rollupAddr = deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString() as `0x${string}`;
     const govProposerAddr =
       deployL1ContractsValues.l1ContractAddresses.governanceProposerAddress.toString() as `0x${string}`;
-    const snapshotBlock = await deployL1ContractsValues.l1Client.getBlockNumber();
-    const [roundData, l1VoteCountBig] = await Promise.all([
-      deployL1ContractsValues.l1Client.readContract({
-        address: govProposerAddr,
-        abi: GovernanceProposerAbi,
-        functionName: 'getRoundData',
-        args: [rollupAddr, round],
-        blockNumber: snapshotBlock,
-      }),
-      deployL1ContractsValues.l1Client.readContract({
-        address: govProposerAddr,
-        abi: GovernanceProposerAbi,
-        functionName: 'signalCount',
-        args: [rollupAddr, round, mockGovernancePayload.toString() as `0x${string}`],
-        blockNumber: snapshotBlock,
-      }),
-    ]);
-    const lastSignalSlot = Number(roundData.lastSignalSlot);
-    const l1VoteCount = Number(l1VoteCountBig);
-    expect(l1VoteCount).toBeGreaterThan(0);
-    logger.info(
-      `L1 round ${round} info: lastSignalSlot=${lastSignalSlot}, l1VoteCount=${l1VoteCount}, payloadWithMostSignals=${roundData.payloadWithMostSignals} (snapshot at L1 block ${snapshotBlock})`,
+
+    const { l1VoteCount, governanceVoteDuties } = await retryUntil(
+      async () => {
+        const snapshotBlock = await deployL1ContractsValues.l1Client.getBlockNumber();
+        const [roundData, l1VoteCountBig] = await Promise.all([
+          deployL1ContractsValues.l1Client.readContract({
+            address: govProposerAddr,
+            abi: GovernanceProposerAbi,
+            functionName: 'getRoundData',
+            args: [rollupAddr, round],
+            blockNumber: snapshotBlock,
+          }),
+          deployL1ContractsValues.l1Client.readContract({
+            address: govProposerAddr,
+            abi: GovernanceProposerAbi,
+            functionName: 'signalCount',
+            args: [rollupAddr, round, mockGovernancePayload.toString() as `0x${string}`],
+            blockNumber: snapshotBlock,
+          }),
+        ]);
+        const lastSignalSlot = Number(roundData.lastSignalSlot);
+        const l1VoteCount = Number(l1VoteCountBig);
+        if (l1VoteCount === 0) {
+          return undefined;
+        }
+
+        const dbResult = await mainPool.query<DutyRow>(
+          `SELECT * FROM validator_duties WHERE slot::numeric <= $1 AND duty_type = 'GOVERNANCE_VOTE' ORDER BY slot, started_at`,
+          [lastSignalSlot.toString()],
+        );
+        const governanceVoteDuties = dbResult.rows;
+        const uniqueSlots = new Set(governanceVoteDuties.map(row => row.slot));
+
+        logger.info(
+          `L1 round ${round}: lastSignalSlot=${lastSignalSlot}, l1VoteCount=${l1VoteCount}, ` +
+            `DB duties=${governanceVoteDuties.length}, uniqueSlots=${uniqueSlots.size} ` +
+            `(snapshot at L1 block ${snapshotBlock})`,
+        );
+
+        if (l1VoteCount < uniqueSlots.size) {
+          return undefined;
+        }
+        return { l1VoteCount, governanceVoteDuties };
+      },
+      'L1 vote count to match DB duties',
+      10,
+      0.2,
     );
 
-    // Query governance vote duties only for slots that have actually landed on L1 (up to lastSignalSlot)
-    const dbResult = await mainPool.query<DutyRow>(
-      `SELECT * FROM validator_duties WHERE slot::numeric <= $1 AND duty_type = 'GOVERNANCE_VOTE' ORDER BY slot, started_at`,
-      [lastSignalSlot.toString()],
-    );
-    const governanceVoteDuties = dbResult.rows;
-    logger.info(
-      `HA database shows ${governanceVoteDuties.length} governance vote duty(ies) up to slot ${lastSignalSlot}`,
-    );
+    expect(l1VoteCount).toBeGreaterThan(0);
 
     if (governanceVoteDuties.length > 0) {
-      // Verify HA coordination: Only one duty per (slot, validator) should exist
       const dutyKeys = governanceVoteDuties.map(row => `${row.slot}-${row.validator_address}`);
       const uniqueDutyKeys = new Set(dutyKeys);
-      expect(uniqueDutyKeys.size).toBe(governanceVoteDuties.length); // No duplicate (slot, validator) pairs
+      expect(uniqueDutyKeys.size).toBe(governanceVoteDuties.length);
 
-      // All duties should be completed
       for (const duty of governanceVoteDuties) {
         logger.info(
           `  Governance vote duty: slot ${duty.slot}, validator ${duty.validator_address}, node ${duty.node_id}, status ${duty.status}`,
@@ -531,10 +531,9 @@ describe('HA Full Setup', () => {
         expect(duty.completed_at).toBeDefined();
       }
 
-      // L1 votes should match the number of unique slots in the DB that have landed on L1
       const uniqueSlots = new Set(governanceVoteDuties.map(row => row.slot));
       logger.info(
-        `L1 vote count: ${l1VoteCount}, unique slots in DB with governance votes up to L1 lastSignalSlot: ${uniqueSlots.size} (slots: ${[...uniqueSlots].join(', ')})`,
+        `L1 vote count: ${l1VoteCount}, unique slots in DB with governance votes: ${uniqueSlots.size} (slots: ${[...uniqueSlots].join(', ')})`,
       );
       expect(l1VoteCount).toBe(uniqueSlots.size);
       logger.info(`Verified L1 votes (${l1VoteCount}) === unique slots with votes (${uniqueSlots.size})`);
