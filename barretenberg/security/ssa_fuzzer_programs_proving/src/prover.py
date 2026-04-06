@@ -42,23 +42,32 @@ def cleanup_temp_files(*file_paths: str) -> None:
 
 def prove(noir_data: NoirProgramData) -> None:
     """
-    Proves and verifies a Noir generated from SSA fuzzer program with a given witness.
+    Proves and verifies a Noir program generated from SSA fuzzer output.
     """
     program_file, witness_file = create_program_and_witness_files(noir_data)
 
     try:
         os.makedirs("./target", exist_ok=True)
 
-        cmd = f"./prove_and_verify.sh {program_file} {witness_file}".split()
+        cmd = ["./prove_and_verify.sh", program_file, witness_file, noir_data.test_id]
         result = subprocess.run(
             cmd, cwd=".", stdout=subprocess.PIPE, stderr=subprocess.PIPE
         )
 
+        stdout = result.stdout.decode("utf-8")
         stderr = result.stderr.decode("utf-8")
-        if "Proof verified successfully" not in stderr:
-            logging.error(f"bb prove failed: {stderr} for test {noir_data.test_id}")
+        if result.returncode != 0:
+            logging.error(
+                "prove/verify pipeline failed for test %s\nstdout:\n%s\nstderr:\n%s",
+                noir_data.test_id,
+                stdout,
+                stderr,
+            )
         else:
-            logging.info(f"bb prove completed successfully for test {noir_data.test_id}")
+            logging.info(
+                "prove/verify pipeline completed successfully for test %s",
+                noir_data.test_id,
+            )
     finally:
         cleanup_temp_files(program_file, witness_file)
 

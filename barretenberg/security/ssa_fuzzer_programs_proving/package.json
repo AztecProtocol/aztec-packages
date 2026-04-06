@@ -1,0 +1,13 @@
+{
+  "name": "ssa-fuzzer-programs-proving",
+  "version": "1.0.0",
+  "scripts": {
+    "solidity-verify": "node src/solidity_verify.mjs"
+  },
+  "type": "module",
+  "private": true,
+  "dependencies": {
+    "ethers": "^6.16.0",
+    "solc": "^0.8.34"
+  }
+}
