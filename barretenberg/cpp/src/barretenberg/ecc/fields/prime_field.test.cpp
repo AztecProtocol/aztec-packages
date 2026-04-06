@@ -615,6 +615,9 @@ TYPED_TEST(PrimeFieldTest, Msgpack)
     EXPECT_EQ(actual, expected);
 }
 
+// This test requires exception support; in WASM builds (BB_NO_EXCEPTIONS),
+// throw_or_abort calls abort() instead of throwing, so EXPECT_THROW cannot work.
+#ifndef BB_NO_EXCEPTIONS
 TYPED_TEST(PrimeFieldTest, MsgpackRejectsNonCanonical)
 {
     using F = TypeParam;
@@ -654,6 +657,12 @@ TYPED_TEST(PrimeFieldTest, MsgpackRejectsNonCanonical)
         },
         std::runtime_error);
 }
+#else
+TYPED_TEST(PrimeFieldTest, MsgpackRejectsNonCanonical)
+{
+    GTEST_SKIP() << "Skipping: throw_or_abort calls abort() when BB_NO_EXCEPTIONS is defined";
+}
+#endif
 
 // ================================
 // Montgomery Form Conversion Tests (254-bit fields)
