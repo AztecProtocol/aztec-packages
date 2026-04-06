@@ -28,6 +28,7 @@ import { deriveSigningKey } from '@aztec/stdlib/keys';
 import type { NoteDao } from '@aztec/stdlib/note';
 import {
   type BlockHeader,
+  type ContractOverrides,
   SimulationOverrides,
   type TxExecutionRequest,
   type TxHash,
@@ -112,13 +113,11 @@ export class TestWallet extends BaseWallet {
   }
 
   /**
-   * Builds simulation overrides for all provided addresses by replacing their account contracts with stub implementations.
+   * Builds contract overrides for all provided addresses by replacing their account contracts with stub implementations.
    */
-  protected async buildAccountOverrides(
-    addresses: AztecAddress[],
-  ): Promise<Record<string, { instance: ContractInstanceWithAddress; artifact: ContractArtifact }>> {
+  protected async buildAccountOverrides(addresses: AztecAddress[]): Promise<ContractOverrides> {
     const accounts = await this.getAccounts();
-    const contracts: Record<string, { instance: ContractInstanceWithAddress; artifact: ContractArtifact }> = {};
+    const contracts: ContractOverrides = {};
 
     const filtered = accounts.filter(acc => addresses.some(addr => addr.equals(acc.item)));
 
