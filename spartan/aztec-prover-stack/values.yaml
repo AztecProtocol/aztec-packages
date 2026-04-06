@@ -3,6 +3,10 @@ global:
   aztecNetwork: ""
   customAztecNetwork:
     enabled: false
+    l1ChainId:
+    registryContractAddress:
+    slashFactoryContractAddress:
+    feeAssetHandlerContractAddress:
 
   l1ExecutionUrls: []
   l1ConsensusUrls: []
