@@ -449,8 +449,9 @@ TEST_F(ChonkTests, MsgpackProofFromFileOrBuffer)
         std::generate(random_bytes.begin(), random_bytes.end(), []() { return static_cast<uint8_t>(rand() % 256); });
         std::copy(random_bytes.begin(), random_bytes.end(), buffer.data());
 
-        // Expect deserialization to fail with error msgpack::v1::type_error with description "std::bad_cast"
-        EXPECT_THROW(ChonkProof::from_msgpack_buffer(buffer), msgpack::v1::type_error);
+        // Expect deserialization to fail (either msgpack parse error, type mismatch, trailing data,
+        // or non-canonical field encoding)
+        EXPECT_ANY_THROW(ChonkProof::from_msgpack_buffer(buffer));
     }
 };
 
