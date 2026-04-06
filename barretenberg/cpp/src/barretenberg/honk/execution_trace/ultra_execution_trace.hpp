@@ -282,10 +282,11 @@ class UltraExecutionTraceBlocks : public UltraTraceBlockData {
 
     UltraExecutionTraceBlocks() = default;
 
-    void compute_offsets(bool has_zk = false)
+    void compute_offsets()
     {
-        // Start after the zero row (for shifts), plus disabled rows if ZK
-        uint32_t offset = static_cast<uint32_t>(has_zk ? NUM_DISABLED_ROWS_IN_SUMCHECK + NUM_ZERO_ROWS : NUM_ZERO_ROWS);
+        // Always start after the zero row + disabled head rows for uniform layout across ZK and non-ZK.
+        // Non-ZK: rows 0..4 are all zeros, relations trivially satisfied without row-disabling.
+        uint32_t offset = static_cast<uint32_t>(NUM_DISABLED_ROWS_IN_SUMCHECK + NUM_ZERO_ROWS);
         for (auto& block : this->get()) {
             block.trace_offset_ = offset;
             offset += static_cast<uint32_t>(block.size());

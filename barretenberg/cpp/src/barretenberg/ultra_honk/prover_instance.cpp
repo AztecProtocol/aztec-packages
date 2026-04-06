@@ -41,7 +41,7 @@ template <typename Flavor> ProverInstance_<Flavor>::ProverInstance_(Circuit& cir
     metadata.dyadic_size = compute_dyadic_size(circuit);
 
     // Find index of last non-trivial wire value in the trace
-    circuit.blocks.compute_offsets(Flavor::HasZK); // compute offset of each block within the trace
+    circuit.blocks.compute_offsets();
     for (auto& block : circuit.blocks.get()) {
         if (block.size() > 0) {
             final_active_wire_idx = block.trace_offset() + block.size() - 1;
@@ -80,7 +80,7 @@ template <typename Flavor> ProverInstance_<Flavor>::ProverInstance_(Circuit& cir
     }
 
     // Set the lagrange polynomials (lagrange_first at first active row after disabled region)
-    const size_t lagrange_first_idx = Flavor::HasZK ? NUM_DISABLED_ROWS_IN_SUMCHECK : 0;
+    const size_t lagrange_first_idx = NUM_DISABLED_ROWS_IN_SUMCHECK;
     polynomials.lagrange_first.at(lagrange_first_idx) = 1;
     polynomials.lagrange_last.at(final_active_wire_idx) = 1;
 
@@ -158,7 +158,7 @@ template <typename Flavor> void ProverInstance_<Flavor>::allocate_lagrange_polyn
 {
     BB_BENCH_NAME("allocate_lagrange_polynomials");
 
-    const size_t lagrange_first_start = Flavor::HasZK ? NUM_DISABLED_ROWS_IN_SUMCHECK : 0;
+    const size_t lagrange_first_start = NUM_DISABLED_ROWS_IN_SUMCHECK;
     polynomials.lagrange_first = Polynomial(
         /* size=*/1, /*virtual size=*/dyadic_size(), /*start_index=*/lagrange_first_start);
 
@@ -221,7 +221,7 @@ void ProverInstance_<Flavor>::allocate_ecc_op_polynomials(const Circuit& circuit
     // Allocate the ecc op wires and selector
     // Note: ECC op wires are not masked (they use random ops for ZK)
     const size_t ecc_op_block_size = circuit.blocks.ecc_op.size();
-    const size_t ecc_op_offset = Flavor::HasZK ? NUM_DISABLED_ROWS_IN_SUMCHECK : 0;
+    const size_t ecc_op_offset = NUM_DISABLED_ROWS_IN_SUMCHECK;
     const size_t ecc_op_alloc = ecc_op_offset + ecc_op_block_size;
     for (auto& wire : polynomials.get_ecc_op_wires()) {
         wire = Polynomial(ecc_op_alloc, dyadic_size());
@@ -239,8 +239,8 @@ void ProverInstance_<Flavor>::allocate_databus_polynomials(const Circuit& circui
     const size_t sec_calldata_size = circuit.get_secondary_calldata().size();
     const size_t return_data_size = circuit.get_return_data().size();
 
-    // For ZK, shift databus data by the disabled head region so masking values fit at positions {1,2,3}
-    const size_t databus_offset = Flavor::HasZK ? NUM_DISABLED_ROWS_IN_SUMCHECK : 0;
+    // Shift databus data by the disabled head region for uniform layout across ZK and non-ZK
+    const size_t databus_offset = NUM_DISABLED_ROWS_IN_SUMCHECK;
 
     // Calldata is public and not masked
     polynomials.calldata = Polynomial(databus_offset + calldata_size, dyadic_size());
@@ -267,15 +267,16 @@ void ProverInstance_<Flavor>::allocate_databus_polynomials(const Circuit& circui
     polynomials.return_data_inverses = Polynomial(return_data_inverses_size, dyadic_size());
 
     if constexpr (Flavor::HasZK) {
-        // Mask all databus witness entities except calldata (public)
+        // Mask databus read_counts, read_tags, and inverses (internal witness data).
+        // Do NOT mask calldata, secondary_calldata, or return_data themselves — these are public
+        // databus columns whose commitments must match across circuits in the Chonk IVC flow.
         polynomials.calldata_read_counts.add_masking();
         polynomials.calldata_read_tags.add_masking();
         polynomials.calldata_inverses.add_masking();
-        polynomials.secondary_calldata.add_masking();
         polynomials.secondary_calldata_read_counts.add_masking();
         polynomials.secondary_calldata_read_tags.add_masking();
         polynomials.secondary_calldata_inverses.add_masking();
-        polynomials.return_data.add_masking();
+
         polynomials.return_data_read_counts.add_masking();
         polynomials.return_data_read_tags.add_masking();
         polynomials.return_data_inverses.add_masking();
@@ -321,8 +322,8 @@ void ProverInstance_<Flavor>::construct_databus_polynomials(Circuit& circuit)
     const auto& secondary_calldata = circuit.get_secondary_calldata();
     const auto& return_data = circuit.get_return_data();
 
-    // For ZK, databus data is shifted by the disabled head region to leave room for masking values
-    const size_t databus_offset = Flavor::HasZK ? NUM_DISABLED_ROWS_IN_SUMCHECK : 0;
+    // Databus data is shifted by the disabled head region for uniform layout
+    const size_t databus_offset = NUM_DISABLED_ROWS_IN_SUMCHECK;
 
     for (size_t idx = 0; idx < calldata.size(); ++idx) {
         calldata_poly.at(databus_offset + idx) = circuit.get_variable(calldata[idx]);
