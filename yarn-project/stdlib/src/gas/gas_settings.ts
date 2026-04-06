@@ -104,8 +104,15 @@ export class GasSettings {
     return new GasSettings(Gas.empty(), Gas.empty(), GasFees.empty(), GasFees.empty());
   }
 
-  /** Fills in gas limits that still allows transactions to be included. */
-  static withMaxLimits(overrides: {
+  /**
+   * Fills in gas limits high enough for transactions to be included in most cases.
+   * gasLimits is set to the maximum the protocol allows; since teardown gas is reserved
+   * from gasLimits during private execution (see gas_meter.nr), the effective gas available
+   * for app logic will be gasLimits - teardownGasLimits - privateOverhead.
+   * The DA gas limit is set to an approximate max per block assuming 4 blocks per checkpoint,
+   * since using the maximum per checkpoint would cause nodes to reject transactions.
+   */
+  static fallback(overrides: {
     gasLimits?: Gas;
     teardownGasLimits?: Gas;
     maxFeesPerGas: GasFees;
@@ -116,9 +123,6 @@ export class GasSettings {
         l2Gas: MAX_PROCESSABLE_L2_GAS,
         daGas: APPROXIMATE_MAX_DA_GAS_PER_BLOCK,
       },
-      // These are technically not the max, but if we allocate all the gas to teardown, no txs would be processable due
-      // to teardown gas being paid unconditionally and upfront. This is a fundamental limitation of the protocol,
-      // and one of the many reasons why users should use gas estimation instead of setting max limits manually.
       teardownGasLimits: overrides.teardownGasLimits ?? {
         l2Gas: DEFAULT_TEARDOWN_L2_GAS_LIMIT,
         daGas: DEFAULT_TEARDOWN_DA_GAS_LIMIT,
@@ -129,9 +133,12 @@ export class GasSettings {
   }
 
   /**
-   * Gas settings for simulation/estimation only. Uses intentionally high limits above what the
-   * network can process, so the simulation runs without hitting gas caps. The actual gas used
-   * is then read from the simulation result to set real limits for sending.
+   * Gas settings for simulation/estimation only. Since teardown gas is reserved upfront
+   * from gasLimits during private execution (see gas_meter.nr), the effective gas available
+   * for app logic is gasLimits - teardownGasLimits - privateOverhead. To ensure estimation
+   * never hits gas caps, we set both limits above what the protocol allows: teardown gets
+   * MAX_PROCESSABLE and gasLimits gets teardown + MAX_PROCESSABLE, so the full processable
+   * amount remains available for each phase independently.
    */
   static forEstimation(overrides: {
     gasLimits?: Gas;

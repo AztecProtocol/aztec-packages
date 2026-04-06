@@ -1,6 +1,6 @@
 export {
   BaseWallet,
-  type CompleteFeeOptionsOpts,
+  type CompleteFeeOptionsConfig,
   type FeeOptions,
   type SimulateViaEntrypointOptions,
 } from './base_wallet.js';

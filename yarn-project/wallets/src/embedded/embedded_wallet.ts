@@ -9,13 +9,13 @@ import { Fq, Fr } from '@aztec/foundation/curves/bn254';
 import type { Logger } from '@aztec/foundation/log';
 import type { PXEConfig, PXECreationOptions } from '@aztec/pxe/client/lazy';
 import type { PXE } from '@aztec/pxe/server';
-import type { ContractArtifact } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { type ContractInstanceWithAddress, getContractInstanceFromInstantiationParams } from '@aztec/stdlib/contract';
+import { getContractInstanceFromInstantiationParams } from '@aztec/stdlib/contract';
 import { GasSettings } from '@aztec/stdlib/gas';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import { deriveSigningKey } from '@aztec/stdlib/keys';
 import {
+  type ContractOverrides,
   ExecutionPayload,
   SimulationOverrides,
   type TxExecutionRequest,
@@ -148,13 +148,11 @@ export class EmbeddedWallet extends BaseWallet {
   }
 
   /**
-   * Builds simulation overrides for all provided addresses by replacing their account contracts with stub implementations.
+   * Builds contract overrides for all provided addresses by replacing their account contracts with stub implementations.
    */
-  protected async buildAccountOverrides(
-    addresses: AztecAddress[],
-  ): Promise<Record<string, { instance: ContractInstanceWithAddress; artifact: ContractArtifact }>> {
+  protected async buildAccountOverrides(addresses: AztecAddress[]): Promise<ContractOverrides> {
     const accounts = await this.getAccounts();
-    const contracts: Record<string, { instance: ContractInstanceWithAddress; artifact: ContractArtifact }> = {};
+    const contracts: ContractOverrides = {};
 
     const stubArtifact = await this.accountContracts.getStubAccountContractArtifact();
 

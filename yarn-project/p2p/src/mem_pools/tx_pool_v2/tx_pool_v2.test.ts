@@ -38,9 +38,7 @@ type MockTx = Awaited<ReturnType<typeof mockTx>>;
 // Default maxFeesPerGas used by mockTx is GasFees(10, 10).
 // Fee limit per tx = MAX_PROCESSABLE_L2_GAS * 10 + MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT * 10.
 const DEFAULT_MAX_FEES_PER_GAS = new GasFees(10, 10);
-const DEFAULT_TX_FEE_LIMIT = GasSettings.withMaxLimits({ maxFeesPerGas: DEFAULT_MAX_FEES_PER_GAS })
-  .getFeeLimit()
-  .toBigInt();
+const DEFAULT_TX_FEE_LIMIT = GasSettings.fallback({ maxFeesPerGas: DEFAULT_MAX_FEES_PER_GAS }).getFeeLimit().toBigInt();
 
 /** A validator that accepts all transactions. Used in tests that don't need validation. */
 const alwaysValidValidator: TxValidator<TxMetaData> = {
@@ -675,7 +673,7 @@ describe('TxPoolV2', () => {
 
     const makePublicTxWithGas = async (seed: number, gasLimits: Gas) => {
       const tx = await mockTx(seed, { numberOfNonRevertiblePublicCallRequests: 1 });
-      tx.data.constants.txContext.gasSettings = GasSettings.withMaxLimits({
+      tx.data.constants.txContext.gasSettings = GasSettings.fallback({
         gasLimits,
         maxFeesPerGas: DEFAULT_MAX_FEES_PER_GAS,
       });
@@ -688,7 +686,7 @@ describe('TxPoolV2', () => {
         numberOfRevertiblePublicCallRequests: 0,
         hasPublicTeardownCallRequest: false,
       });
-      tx.data.constants.txContext.gasSettings = GasSettings.withMaxLimits({
+      tx.data.constants.txContext.gasSettings = GasSettings.fallback({
         gasLimits,
         maxFeesPerGas: DEFAULT_MAX_FEES_PER_GAS,
       });
@@ -742,7 +740,7 @@ describe('TxPoolV2', () => {
         1,
         new Gas(MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT, MAX_PROCESSABLE_L2_GAS + 1),
       );
-      tx.data.constants.txContext.gasSettings = GasSettings.withMaxLimits({
+      tx.data.constants.txContext.gasSettings = GasSettings.fallback({
         gasLimits: new Gas(MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT, MAX_PROCESSABLE_L2_GAS + 1),
         maxFeesPerGas: DEFAULT_MAX_FEES_PER_GAS,
         teardownGasLimits: new Gas(DEFAULT_TEARDOWN_DA_GAS_LIMIT, 1),
@@ -757,7 +755,7 @@ describe('TxPoolV2', () => {
         1,
         new Gas(MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT, MAX_PROCESSABLE_L2_GAS + 1),
       );
-      tx.data.constants.txContext.gasSettings = GasSettings.withMaxLimits({
+      tx.data.constants.txContext.gasSettings = GasSettings.fallback({
         gasLimits: new Gas(MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT, MAX_PROCESSABLE_L2_GAS + 1),
         maxFeesPerGas: DEFAULT_MAX_FEES_PER_GAS,
         teardownGasLimits: new Gas(DEFAULT_TEARDOWN_DA_GAS_LIMIT, 1),
@@ -4284,7 +4282,7 @@ describe('TxPoolV2', () => {
       // Fee limit = gasLimits.l2 * maxFees.l2 + gasLimits.da * maxFees.da
       // Default gas limits are ~1e7 each, so with maxFees of 1e12 we get ~1e19 fee limit
       const highFeeTx = await mockTx(4, { numberOfNonRevertiblePublicCallRequests: 1 });
-      highFeeTx.data.constants.txContext.gasSettings = GasSettings.withMaxLimits({
+      highFeeTx.data.constants.txContext.gasSettings = GasSettings.fallback({
         maxFeesPerGas: new GasFees(1e12, 1e12),
       });
 

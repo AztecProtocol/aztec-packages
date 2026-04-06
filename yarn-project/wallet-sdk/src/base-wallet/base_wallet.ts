@@ -92,7 +92,7 @@ export type SimulateViaEntrypointOptions = Pick<
 };
 
 /** Options for `completeFeeOptions`. */
-export type CompleteFeeOptionsOpts = {
+export type CompleteFeeOptionsConfig = {
   /** The address where the transaction is being sent from. */
   from: AztecAddress | NoFrom;
   /** The address paying for fees (if any fee payment method is embedded in the execution payload). */
@@ -221,10 +221,10 @@ export abstract class BaseWallet implements Wallet {
 
   /**
    * Completes partial user-provided fee options with wallet defaults.
-   * @param opts - Fee completion options.
+   * @param config - Fee completion config.
    */
-  protected async completeFeeOptions(opts: CompleteFeeOptionsOpts): Promise<FeeOptions> {
-    const { from, feePayer, gasSettings, forEstimation } = opts;
+  protected async completeFeeOptions(config: CompleteFeeOptionsConfig): Promise<FeeOptions> {
+    const { from, feePayer, gasSettings, forEstimation } = config;
     const maxFeesPerGas =
       gasSettings?.maxFeesPerGas ?? (await this.aztecNode.getCurrentMinFees()).mul(1 + this.minFeePadding);
     let accountFeePaymentMethodOptions;
@@ -253,7 +253,7 @@ export abstract class BaseWallet implements Wallet {
     // When sending for real, use protocol max limits that the network will actually accept.
     const fullGasSettings = forEstimation
       ? GasSettings.forEstimation(gasSettingsOverrides)
-      : GasSettings.withMaxLimits(gasSettingsOverrides);
+      : GasSettings.fallback(gasSettingsOverrides);
     this.log.debug(`Using L2 gas settings`, fullGasSettings);
     return {
       gasSettings: fullGasSettings,

@@ -9,7 +9,7 @@ import { createLogger } from '@aztec/aztec.js/log';
 import { DeployAccountOptions } from '@aztec/aztec.js/wallet';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import {
-  type CompleteFeeOptionsOpts,
+  type CompleteFeeOptionsConfig,
   type FeeOptions,
 } from '@aztec/wallet-sdk/base-wallet';
 import { SPONSORED_FPC_SALT } from '@aztec/constants';
@@ -41,11 +41,11 @@ export class EmbeddedWallet extends EmbeddedWalletBase {
    * This wallet will use the sponsoredFPC payment method unless otherwise stated.
    */
   override async completeFeeOptions(
-    opts: CompleteFeeOptionsOpts
+    config: CompleteFeeOptionsConfig
   ): Promise<FeeOptions> {
-    const { from, feePayer } = opts;
+    const { from, feePayer } = config;
     // Delegate to base for gas settings, then override with sponsored FPC if needed
-    const baseFeeOptions = await super.completeFeeOptions(opts);
+    const baseFeeOptions = await super.completeFeeOptions(config);
     let { accountFeePaymentMethodOptions, walletFeePaymentMethod } =
       baseFeeOptions;
     // If from is and address and the transaction does not include a fee payment
