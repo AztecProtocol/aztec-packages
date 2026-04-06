@@ -115,6 +115,7 @@ export function parsePaymentMethod(
   payment: string,
   log: LogFn,
   db?: WalletDB,
+  estimateOnly?: boolean,
 ): (wallet: Wallet, from: AztecAddress, gasSettings: GasSettings) => Promise<FeePaymentMethod | undefined> {
   const parsed = payment.split(',').reduce(
     (acc, item) => {
@@ -149,7 +150,7 @@ export function parsePaymentMethod(
               amount: claimAmount,
               secret: claimSecret,
               leafIndex: messageLeafIndex,
-            } = await db.popBridgedFeeJuice(from, log));
+            } = estimateOnly ? await db.peekBridgedFeeJuice(from, log) : await db.popBridgedFeeJuice(from, log));
           } else {
             ({ claimAmount, claimSecret, messageLeafIndex } = parsed);
           }
@@ -157,10 +158,10 @@ export function parsePaymentMethod(
           const { FeeJuicePaymentMethodWithClaim } = await import('@aztec/aztec.js/fee');
           return new FeeJuicePaymentMethodWithClaim(from, {
             claimAmount: (typeof claimAmount === 'string'
-              ? Fr.fromHexString(claimAmount)
+              ? Fr.fromString(claimAmount)
               : new Fr(claimAmount)
             ).toBigInt(),
-            claimSecret: Fr.fromHexString(claimSecret),
+            claimSecret: typeof claimSecret === 'string' ? Fr.fromString(claimSecret) : claimSecret,
             messageLeafIndex: BigInt(messageLeafIndex),
           });
         } else {
@@ -266,9 +267,10 @@ export class CLIFeeArgs {
   }
 
   static parse(args: RawCliFeeArgs, log: LogFn, db?: WalletDB): CLIFeeArgs {
+    const estimateOnly = !!args.estimateGasOnly;
     return new CLIFeeArgs(
-      !!args.estimateGasOnly,
-      parsePaymentMethod(args.payment ?? 'method=fee_juice', log, db),
+      estimateOnly,
+      parsePaymentMethod(args.payment ?? 'method=fee_juice', log, db, estimateOnly),
       parseGasSettings(args),
     );
   }

@@ -3,7 +3,7 @@
  * Post-build script to append static API documentation to llms.txt files.
  *
  * This script:
- * 1. Finds HTML files in static/aztec-nr-api/devnet
+ * 1. Finds HTML files in static/aztec-nr-api/
  * 2. Converts them to markdown-like text
  * 3. Appends the content to build/llms-full.txt
  * 4. Adds links to build/llms.txt
@@ -26,10 +26,9 @@ try {
 const developerVersions = require("../developer_versions.json");
 
 // Determine the default (highest-priority) API docs version to append.
-// Only include one set to avoid bloating llms.txt. Priority: mainnet > testnet > devnet.
+// Only include one set to avoid bloating llms.txt. Priority: mainnet > testnet.
 const defaultType = developerVersionConfig?.mainnet ? "mainnet"
   : developerVersionConfig?.testnet ? "testnet"
-  : developerVersionConfig?.devnet ? "devnet"
   : null;
 const defaultVersion = defaultType ? developerVersionConfig[defaultType] : (developerVersions[0] || null);
 

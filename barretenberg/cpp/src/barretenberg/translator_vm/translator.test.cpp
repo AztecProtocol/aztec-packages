@@ -98,9 +98,7 @@ class TranslatorTests : public ::testing::Test {
         // Round 1: Z_PERM -> Sumcheck:alpha + all gate challenges (same round, no data between them)
         manifest.add_entry(1, "Z_PERM", frs_per_G);
         manifest.add_challenge(1, "Sumcheck:alpha");
-        for (size_t i = 0; i < NUM_SUMCHECK_ROUNDS; ++i) {
-            manifest.add_challenge(1, "Sumcheck:gate_challenge_" + std::to_string(i));
-        }
+        manifest.add_challenge(1, "Sumcheck:gate_challenge");
 
         // Round 2: Libra concatenation commitment + Sum -> Libra:Challenge
         manifest.add_entry(2, "Libra:concatenation_commitment", frs_per_G);

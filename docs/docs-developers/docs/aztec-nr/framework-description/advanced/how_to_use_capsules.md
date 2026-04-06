@@ -12,22 +12,26 @@ Capsules provide per-contract non-volatile storage in the PXE. Data is stored lo
 ```rust
 use aztec::oracle::capsules;
 
-// Inside a contract function, use self.address for contract_address
-let contract_address: AztecAddress = self.address;
+// Capsule operations are unconstrained, so these values are typically
+// passed in as parameters from the calling context.
+let contract_address: AztecAddress = /* self.address */;
 let slot: Field = 1;
+// scope is an AztecAddress used for capsule isolation, allowing multiple
+// independent namespaces within the same contract.
+let scope: AztecAddress = /* e.g. the account address */;
 
 // Store data at a slot (overwrites existing data)
-capsules::store(contract_address, slot, value);
+capsules::store(contract_address, slot, value, scope);
 
 // Load data (returns Option<T>)
-let result: Option<MyStruct> = capsules::load(contract_address, slot);
+let result: Option<MyStruct> = capsules::load(contract_address, slot, scope);
 
 // Delete data at a slot
-capsules::delete(contract_address, slot);
+capsules::delete(contract_address, slot, scope);
 
 // Copy contiguous slots (supports overlapping regions)
-// copy(contract_address, src_slot, dst_slot, num_entries: u32)
-capsules::copy(contract_address, src_slot, dst_slot, 3);
+// copy(contract_address, src_slot, dst_slot, num_entries: u32, scope)
+capsules::copy(contract_address, src_slot, dst_slot, 3, scope);
 ```
 
 Types must implement `Serialize` and `Deserialize` traits.
@@ -42,12 +46,12 @@ All capsule operations are `unconstrained`. Data loaded from capsules should be 
 
 ```rust
 use aztec::capsules::CapsuleArray;
-use protocol::hash::sha256_to_field;
+use aztec::protocol::hash::sha256_to_field;
 
 // Use a hash for base_slot to avoid collisions with other storage
 global BASE_SLOT: Field = sha256_to_field("MY_CONTRACT::MY_ARRAY".as_bytes());
 
-let array: CapsuleArray<Field> = CapsuleArray::at(contract_address, BASE_SLOT);
+let array: CapsuleArray<Field> = CapsuleArray::at(contract_address, BASE_SLOT, scope);
 
 array.push(value);             // Append to end
 let value = array.get(index);  // Read at index (throws if out of bounds)

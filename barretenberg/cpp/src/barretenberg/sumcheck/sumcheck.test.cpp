@@ -71,9 +71,8 @@ template <typename Flavor> typename Flavor::ProverPolynomials create_satisfiable
     // For ZK flavors: add randomness to the last rows (which will be masked by row-disabling polynomial)
     // These rows don't need to satisfy the relation because they're disabled
     if constexpr (Flavor::HasZK) {
-        constexpr size_t NUM_DISABLED_ROWS = 3; // Matches the number of disabled rows in ZK sumcheck
-        if (circuit_size > NUM_DISABLED_ROWS) {
-            for (size_t i = circuit_size - NUM_DISABLED_ROWS; i < circuit_size; ++i) {
+        if (circuit_size > NUM_DISABLED_ROWS_IN_SUMCHECK) {
+            for (size_t i = circuit_size - NUM_DISABLED_ROWS_IN_SUMCHECK; i < circuit_size; ++i) {
                 full_polynomials.w_l.at(i) = FF::random_element();
                 full_polynomials.w_r.at(i) = FF::random_element();
                 full_polynomials.w_o.at(i) = FF::random_element();
@@ -186,11 +185,8 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
 
         FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
 
-        std::vector<FF> gate_challenges(multivariate_d);
-        for (size_t idx = 0; idx < gate_challenges.size(); idx++) {
-            gate_challenges[idx] =
-                transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
-        }
+        auto gate_challenges =
+            transcript->template get_dyadic_powers_of_challenge<FF>("Sumcheck:gate_challenge", CONST_PROOF_SIZE_LOG_N);
 
         SumcheckProver<Flavor> sumcheck(
             multivariate_n, full_polynomials, transcript, alpha, gate_challenges, {}, CONST_PROOF_SIZE_LOG_N);

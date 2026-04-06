@@ -13,7 +13,7 @@ namespace bb {
 template <typename Flavor_>
 template <size_t N>
 HypernovaFoldingVerifier<Flavor_>::Commitment HypernovaFoldingVerifier<Flavor_>::batch_mul(
-    const RefArray<Commitment, N>& _points, const std::vector<FF>& scalars)
+    const RefArray<Commitment, N>& _points, std::vector<FF>& scalars)
 {
     std::vector<Commitment> points(N);
     for (size_t idx = 0; idx < N; ++idx) {
