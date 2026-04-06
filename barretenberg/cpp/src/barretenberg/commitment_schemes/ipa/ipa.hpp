@@ -777,6 +777,12 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
     static bool full_verify_recursive(const VK& vk, const OpeningClaim<Curve>& opening_claim, auto& transcript)
         requires Curve::is_stdlib_type
     {
+        // Check SRS size up front before any circuit construction
+        if (vk.get_monomial_points().size() < poly_length) {
+            throw_or_abort("IPA recursive verification: not enough SRS points (need " + std::to_string(poly_length) +
+                           ", have " + std::to_string(vk.get_monomial_points().size()) + ")");
+        }
+
         add_claim_to_hash_buffer(opening_claim, transcript);
         VerifierAccumulator verifier_accumulator = reduce_verify_internal_recursive(opening_claim, transcript);
         auto round_challenges_inv = verifier_accumulator.u_challenges_inv;
@@ -813,19 +819,11 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
         // Compute G_zero
         // In the native verifier, this uses pippenger. Here we use batch_mul.
         std::vector<Commitment> srs_elements = vk.get_monomial_points();
-        if (srs_elements.size() < poly_length) {
-            info("IPA recursive verification failed: not enough SRS points");
-            return false;
-        }
         srs_elements.resize(poly_length);
         Commitment computed_G_zero = Commitment::batch_mul(srs_elements, s_vec);
         // check the computed G_zero and the claimed G_zero are the same.
         // The circuit constraint enforces correctness; mismatched witnesses will produce an unsatisfiable circuit.
         claimed_G_zero.assert_equal(computed_G_zero, "G_zero doesn't match received G_zero.");
-        if (computed_G_zero.get_value() != claimed_G_zero.get_value()) {
-            info("IPA recursive verification failed: G_zero mismatch");
-            return false;
-        }
 
         bool running_truth_value = verifier_accumulator.running_truth_value;
         return running_truth_value;

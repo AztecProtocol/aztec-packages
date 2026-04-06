@@ -150,12 +150,12 @@ template <typename Curve_> class KZG {
         batch_opening_claim.scalars.emplace_back(batch_opening_claim.evaluation_point);
 
         // Validate the final MSM size if expected size is provided
-        if (expected_final_msm_size != 0 && batch_opening_claim.commitments.size() != expected_final_msm_size) {
-            info("KZG verification: unexpected final MSM size ",
-                 batch_opening_claim.commitments.size(),
-                 " (expected ",
-                 expected_final_msm_size,
-                 ")");
+        if (expected_final_msm_size != 0) {
+            if (batch_opening_claim.commitments.size() != expected_final_msm_size) {
+                throw_or_abort("KZG verification: unexpected final MSM size " +
+                               std::to_string(batch_opening_claim.commitments.size()) + " (expected " +
+                               std::to_string(expected_final_msm_size) + ")");
+            }
         }
 
         // Compute C + [W]₁ ⋅ z

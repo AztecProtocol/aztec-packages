@@ -372,8 +372,7 @@ template <typename Curve, bool HasZK = false> class ShpleminiVerifier_ {
         // assumes ZK claims (NUM_SMALL_IPA_EVALUATIONS) precede sumcheck round claims in the batching order.
         if (committed_sumcheck) {
             if constexpr (!HasZK) {
-                info("Shplemini: committed sumcheck requires ZK for correct nu power indexing");
-                return {};
+                throw_or_abort("Shplemini: committed sumcheck requires ZK for correct nu power indexing");
             }
             batch_sumcheck_round_claims(commitments,
                                         scalars,
@@ -526,10 +525,9 @@ template <typename Curve, bool HasZK = false> class ShpleminiVerifier_ {
                 // we erase higher-index ranges first.
                 if constexpr (!Curve::is_stdlib_type) {
                     if (commitments[duplicate_start] != commitments[original_start + i]) {
-                        info("remove_repeated_commitments: commitment mismatch at duplicate index ",
-                             duplicate_start,
-                             " vs original index ",
-                             original_start + i);
+                        throw_or_abort("remove_repeated_commitments: commitment mismatch at duplicate index " +
+                                       std::to_string(duplicate_start) + " vs original index " +
+                                       std::to_string(original_start + i));
                     }
                 }
                 scalars.erase(scalars.begin() + static_cast<std::ptrdiff_t>(duplicate_start));
