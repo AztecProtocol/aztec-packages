@@ -1,4 +1,8 @@
+const path = require("path");
 const { processConditionalBlocks } = require("./conditional_content");
+
+// Load version defaults from config file (source of truth for version→type mapping)
+const developerVersionConfig = require(path.join(__dirname, "../../developer_version_config.json"));
 
 // Valid release types for RELEASE_TYPE environment variable
 const VALID_RELEASE_TYPES = [
@@ -6,7 +10,6 @@ const VALID_RELEASE_TYPES = [
   "devnet",
   "testnet",
   "mainnet",
-  "ignition",
 ];
 
 /**
@@ -56,7 +59,6 @@ function getReleaseNetwork(releaseType) {
     case "testnet":
       return "testnet";
     case "mainnet":
-    case "ignition":
       return "mainnet";
     default:
       throw new Error(
@@ -74,13 +76,14 @@ function getReleaseNetwork(releaseType) {
 async function preprocessIncludeVersion(markdownContent, filePath = "unknown") {
   const originalContent = markdownContent;
 
-  // Get environment variables
+  // Get environment variables, falling back to version config file defaults
   // COMMIT_TAG: kept for backwards compatibility with #include_aztec_version
+  const stripV = (v) => (v && v.startsWith("v") ? v.substring(1) : v);
   const nightlyTag =
-    process.env.NIGHTLY_TAG || process.env.COMMIT_TAG || "0.0.0-nightly.0";
-  const testnetTag = process.env.TESTNET_TAG || "4.1.0-rc.2";
-  const devnetTag = process.env.DEVNET_TAG || "0.0.0";
-  const mainnetTag = process.env.MAINNET_TAG || "2.1.11";
+    process.env.NIGHTLY_TAG || process.env.COMMIT_TAG || stripV(developerVersionConfig.nightly) || "0.0.0-nightly.0";
+  const testnetTag = process.env.TESTNET_TAG || stripV(developerVersionConfig.testnet) || "0.0.0";
+  const devnetTag = process.env.DEVNET_TAG || stripV(developerVersionConfig.devnet) || "0.0.0";
+  const mainnetTag = process.env.MAINNET_TAG || stripV(developerVersionConfig.mainnet) || "0.0.0";
   const releaseType = process.env.RELEASE_TYPE || "mainnet";
   // COMMIT_TAG kept for backwards compatibility
   const commitTag = process.env.COMMIT_TAG || "next";

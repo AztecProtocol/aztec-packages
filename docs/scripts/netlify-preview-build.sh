@@ -23,6 +23,17 @@ echo "Using noir version: $NOIR_TAG"
 curl -L https://raw.githubusercontent.com/noir-lang/noirup/main/install | bash || true
 noirup -v "$NOIR_TAG"
 
+# Verify nargo version matches expected tag — stale Netlify cache can leave an old binary
+INSTALLED_VERSION=$(nargo --version 2>/dev/null | head -1 || echo "none")
+if ! echo "$INSTALLED_VERSION" | grep -q "$NOIR_TAG"; then
+    echo "WARNING: nargo version mismatch (expected $NOIR_TAG, got $INSTALLED_VERSION)"
+    echo "Forcing clean reinstall..."
+    rm -rf "$HOME/.nargo"
+    export PATH="$HOME/.nargo/bin:$PATH"
+    curl -L https://raw.githubusercontent.com/noir-lang/noirup/main/install | bash || true
+    noirup -v "$NOIR_TAG"
+fi
+
 echo "=== Verifying nargo installation ==="
 nargo --version
 
