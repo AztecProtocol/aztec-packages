@@ -82,28 +82,27 @@ template <typename Transcript> class TranslationData {
                                      commitment_key.commit(masked_concatenated_polynomial));
     }
     /**
-     * @brief   Let \f$ T = NUM_TRANSLATION_EVALUATIONS \f$ and let \f$ m_0, ..., m_{T-1}\f$ be the vectors of last \f$
-     * \text{NUM_DISABLED_ROWS_IN_SUMCHECK} \f$  coeffs in each transcript poly \f$ \tilde{T}_i \f$,  we compute the
-     * concatenation \f$ (m_0 || ... || m_{T-1})\f$ in Lagrange and monomial basis and mask the latter.
+     * @brief   Let \f$ T = NUM_TRANSLATION_EVALUATIONS \f$ and let \f$ m_0, ..., m_{T-1}\f$ be the vectors of the
+     * \f$ \text{NUM_DISABLED_ROWS_IN_SUMCHECK} \f$ masking coefficients from the head of each transcript poly
+     * \f$ \tilde{T}_i \f$. We compute the concatenation \f$ (m_0 || ... || m_{T-1})\f$ in Lagrange and monomial basis
+     * and mask the latter.
      *
      * @param transcript_polynomials
      */
     void compute_concatenated_polynomials(const RefVector<Polynomial>& transcript_polynomials)
     {
-        const size_t circuit_size = transcript_polynomials[0].size();
-
         std::array<FF, SUBGROUP_SIZE> coeffs_lagrange_subgroup;
 
         for (size_t idx = 0; idx < SUBGROUP_SIZE; idx++) {
             coeffs_lagrange_subgroup[idx] = FF{ 0 };
         }
 
-        // Extract the Lagrange coefficients of the concatenated masking term from the transcript polynomials
+        // Extract the masking terms from the head of the transcript polynomials (top-of-trace masking)
+        // Positions 0..NUM_DISABLED_ROWS_IN_SUMCHECK-1 contain: zero row (pos 0), masking values (pos 1,2,3)
         for (size_t poly_idx = 0; poly_idx < NUM_TRANSLATION_EVALUATIONS; poly_idx++) {
             for (size_t idx = 0; idx < NUM_DISABLED_ROWS_IN_SUMCHECK; idx++) {
                 size_t idx_to_populate = poly_idx * NUM_DISABLED_ROWS_IN_SUMCHECK + idx;
-                coeffs_lagrange_subgroup[idx_to_populate] =
-                    transcript_polynomials[poly_idx].at(circuit_size - NUM_DISABLED_ROWS_IN_SUMCHECK + idx);
+                coeffs_lagrange_subgroup[idx_to_populate] = transcript_polynomials[poly_idx][idx];
             }
         }
         concatenated_polynomial_lagrange = Polynomial(coeffs_lagrange_subgroup);

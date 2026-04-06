@@ -198,9 +198,7 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
 
         if constexpr (Flavor::HasZK) {
             ZKData zk_sumcheck_data = ZKData(multivariate_d, transcript);
-            MaskingTailData<Flavor> masking_tail;
-            masking_tail.dyadic_size = multivariate_n;
-            output = sumcheck.prove(zk_sumcheck_data, masking_tail);
+            output = sumcheck.prove(zk_sumcheck_data);
         } else {
             output = sumcheck.prove();
         }
@@ -252,8 +250,7 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
         SumcheckOutput<Flavor> output;
         if constexpr (Flavor::HasZK) {
             ZKData zk_sumcheck_data = ZKData(multivariate_d, prover_transcript);
-            MaskingTailData<Flavor> masking_tail;
-            output = sumcheck_prover.prove(zk_sumcheck_data, masking_tail);
+            output = sumcheck_prover.prove(zk_sumcheck_data);
         } else {
             output = sumcheck_prover.prove();
         }
@@ -319,8 +316,7 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
         if constexpr (Flavor::HasZK) {
             // construct libra masking polynomials and compute auxiliary data
             ZKData zk_sumcheck_data = ZKData(multivariate_d, prover_transcript);
-            MaskingTailData<Flavor> masking_tail;
-            output = sumcheck_prover.prove(zk_sumcheck_data, masking_tail);
+            output = sumcheck_prover.prove(zk_sumcheck_data);
         } else {
             output = sumcheck_prover.prove();
         }

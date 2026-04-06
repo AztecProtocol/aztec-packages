@@ -13,7 +13,6 @@
 #include "barretenberg/relations/relation_types.hpp"
 #include "barretenberg/relations/utils.hpp"
 #include "barretenberg/stdlib/primitives/bool/bool.hpp"
-#include "barretenberg/sumcheck/masking_tail_data.hpp"
 #include "zk_sumcheck_data.hpp"
 
 namespace bb {

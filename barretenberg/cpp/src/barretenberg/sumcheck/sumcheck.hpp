@@ -511,15 +511,7 @@ template <typename Flavor> class SumcheckProver {
      * @param zk_sumcheck_data
      * @return SumcheckOutput<Flavor>
      */
-    // Overload for ZK flavors without masking tails (e.g. Translator)
     SumcheckOutput<Flavor> prove(ZKData& zk_sumcheck_data)
-        requires(Flavor::HasZK && !UseRowDisablingPolynomial<Flavor>)
-    {
-        MaskingTailData<Flavor> empty_masking_tail;
-        return prove(zk_sumcheck_data, empty_masking_tail);
-    }
-
-    SumcheckOutput<Flavor> prove(ZKData& zk_sumcheck_data, [[maybe_unused]] MaskingTailData<Flavor>& masking_tail)
         requires Flavor::HasZK
     {
         RoundUnivariateHandler<Flavor> handler(transcript);
@@ -550,6 +542,7 @@ template <typename Flavor> class SumcheckProver {
         }
 
         handler.process_round_univariate(round_idx, round_univariate);
+
         const FF round_challenge = transcript->template get_challenge<FF>("Sumcheck:u_0");
         multivariate_challenge.emplace_back(round_challenge);
 
@@ -614,7 +607,7 @@ template <typename Flavor> class SumcheckProver {
 
         handler.finalize_last_round(multivariate_d, round_univariate, multivariate_challenge[multivariate_d - 1]);
 
-        vinfo("completed ", multivariate_d, " rounds of sumcheck");
+        info("completed ", multivariate_d, " rounds of sumcheck");
 
         // Zero univariates are used to pad the proof to the fixed size virtual_log_n.
         auto zero_univariate = bb::Univariate<FF, Flavor::BATCHED_RELATION_PARTIAL_LENGTH>::zero();

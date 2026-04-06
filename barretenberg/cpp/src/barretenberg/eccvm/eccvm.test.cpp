@@ -147,11 +147,11 @@ void complete_proving_key_for_test(bb::RelationParameters<FF>& relation_paramete
                                                       (gamma + beta_sqr + beta_sqr + beta_sqr + first_term_tag);
     relation_parameters.eccvm_set_permutation_delta = relation_parameters.eccvm_set_permutation_delta.invert();
 
-    const size_t unmasked_witness_size = pk->circuit_size - NUM_DISABLED_ROWS_IN_SUMCHECK;
     // Compute z_perm and inverse polynomial for our logarithmic-derivative lookup method
+    // Skip the disabled head region to preserve masking values
     compute_logderivative_inverse<FF, ECCVMFlavor::LookupRelation, ECCVMFlavor::ProverPolynomials, true>(
-        pk->polynomials, relation_parameters, unmasked_witness_size);
-    compute_grand_products<ECCVMFlavor>(pk->polynomials, relation_parameters, unmasked_witness_size);
+        pk->polynomials, relation_parameters, pk->circuit_size, NUM_DISABLED_ROWS_IN_SUMCHECK);
+    compute_grand_products<ECCVMFlavor>(pk->polynomials, relation_parameters);
 
     // Generate gate challenges
     for (size_t idx = 0; idx < CONST_ECCVM_LOG_N; idx++) {
@@ -371,8 +371,7 @@ TEST_F(ECCVMTests, CommittedSumcheck)
                                    CONST_ECCVM_LOG_N);
 
     ZKData zk_sumcheck_data = ZKData(CONST_ECCVM_LOG_N, prover_transcript);
-    MaskingTailData<Flavor> masking_tail;
-    auto prover_output = sumcheck_prover.prove(zk_sumcheck_data, masking_tail);
+    auto prover_output = sumcheck_prover.prove(zk_sumcheck_data);
 
     std::shared_ptr<Transcript> verifier_transcript = std::make_shared<Transcript>(prover_transcript->export_proof());
 
@@ -551,11 +550,11 @@ TEST_F(ECCVMTests, MaskingTailCommitments)
     StructuredProof<ECCVMFlavor> structured;
     structured.deserialize(proof, 0, CONST_ECCVM_LOG_N);
 
-    // Every wire commitment in the proof should differ from naive commit(poly)
+    // With in-place masking, commit(poly) == wire commitment in the proof
     auto wire_polys = prover.key->polynomials.get_wires();
     ASSERT_EQ(wire_polys.size(), structured.wire_comms.size());
     for (size_t i = 0; i < wire_polys.size(); i++) {
         auto naive = prover.key->commitment_key.commit(wire_polys[i]);
-        EXPECT_NE(naive, structured.wire_comms[i]) << "Wire " << i << " commitment should be masked";
+        EXPECT_EQ(naive, structured.wire_comms[i]) << "Wire " << i << " commitment should equal (in-place masking)";
     }
 }

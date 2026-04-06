@@ -111,7 +111,7 @@ template <typename Flavor> void UltraProver_<Flavor>::execute_sumcheck_iop()
 
     if constexpr (Flavor::HasZK) {
         zk_sumcheck_data = ZKData(numeric::get_msb(polynomial_size), transcript, commitment_key);
-        sumcheck_output = sumcheck.prove(zk_sumcheck_data, prover_instance->masking_tail_data);
+        sumcheck_output = sumcheck.prove(zk_sumcheck_data);
     } else {
         sumcheck_output = sumcheck.prove();
     }
