@@ -165,22 +165,11 @@ void PrivateExecutionSteps::parse(std::vector<PrivateExecutionStepRaw>&& steps)
 }
 
 /**
- * @brief Check whether an ACIR program can be safely pre-constructed without IVC state.
- * @details App circuits have no HyperNova recursion constraints, so their build_constraints
- * never accesses the op_queue, verification_queue, or other IVC state.
+ * @brief Build Phase A (non-recursion constraints) of a circuit on a background thread.
+ * @details Uses a dummy op_queue since Phase A never reads/writes it. The builder must have
+ * its op_queue swapped to the real one and Phase B completed before accumulation.
  */
-static bool is_pipelineable_circuit(const acir_format::AcirProgram& program)
-{
-    return program.constraints.hn_recursion_constraints.empty();
-}
-
-/**
- * @brief Pre-construct a circuit on a background thread using a temporary op_queue.
- * @details The builder is constructed with a dummy op_queue (to satisfy the initialize_new_subtable
- * assertion in the MegaCircuitBuilder constructor). After the future completes, the caller must swap
- * in the real op_queue before accumulation. Only safe for circuits where is_pipelineable_circuit is true.
- */
-static std::future<MegaCircuitBuilder> construct_circuit_async(acir_format::AcirProgram& program)
+static std::future<MegaCircuitBuilder> build_phase_a_async(acir_format::AcirProgram& program)
 {
     return std::async(std::launch::async, [&program]() {
         // Prevent accidental parallel_for from creating a second thread pool on this thread
@@ -190,24 +179,27 @@ static std::future<MegaCircuitBuilder> construct_circuit_async(acir_format::Acir
         MegaCircuitBuilder builder{
             dummy_op_queue, program.witness, program.constraints.public_inputs, /*is_write_vk_mode=*/false
         };
-        acir_format::build_constraints(builder, program.constraints, acir_format::ProgramMetadata{});
+        acir_format::build_non_recursion_constraints(builder, program.constraints, acir_format::ProgramMetadata{});
 
         BB_ASSERT(dummy_op_queue->get_current_subtable_size() == 0,
-                  "Pipelined circuit unexpectedly wrote to op_queue during background construction");
+                  "Phase A unexpectedly wrote to op_queue during background construction");
 
         return builder;
     });
 }
 
 /**
- * @brief Attach the real IVC op_queue to a pre-constructed builder.
+ * @brief Complete a pre-constructed builder: attach the real op_queue and build recursion constraints.
  * @details Must be called after the previous circuit's accumulate (which includes prove_merge)
  * has completed, ensuring the op_queue's current_subtable is empty.
  */
-static void attach_op_queue(MegaCircuitBuilder& builder, const std::shared_ptr<Chonk>& ivc)
+static void complete_phase_b(MegaCircuitBuilder& builder,
+                             acir_format::AcirFormat& constraints,
+                             const acir_format::ProgramMetadata& metadata)
 {
-    builder.op_queue = ivc->get_goblin().op_queue;
+    builder.op_queue = metadata.ivc->get_goblin().op_queue;
     builder.op_queue->initialize_new_subtable();
+    acir_format::build_recursion_and_finalize_constraints(builder, constraints, metadata);
 }
 
 std::shared_ptr<Chonk> PrivateExecutionSteps::accumulate()
@@ -227,19 +219,20 @@ std::shared_ptr<Chonk> PrivateExecutionSteps::accumulate()
     std::future<MegaCircuitBuilder> next_circuit_future;
 
     for (size_t i = 0; i < num_circuits; i++) {
-        // Obtain the circuit: either from the background thread or by constructing it now
         MegaCircuitBuilder circuit = [&]() {
             if (next_circuit_future.valid()) {
+                // Phase A was done in background; complete Phase B now that IVC state is available
                 auto builder = next_circuit_future.get();
-                attach_op_queue(builder, ivc);
+                complete_phase_b(builder, folding_stack[i].constraints, metadata);
                 return builder;
             }
+            // First circuit or pipeline disabled: construct fully on the main thread
             return acir_format::create_circuit<MegaCircuitBuilder>(folding_stack[i], metadata);
         }();
 
-        // If the next circuit can be pre-constructed, start it in the background during accumulate
-        if (i + 1 < num_circuits && is_pipelineable_circuit(folding_stack[i + 1])) {
-            next_circuit_future = construct_circuit_async(folding_stack[i + 1]);
+        // Start Phase A of the next circuit in the background during this circuit's accumulate
+        if (std::getenv("NO_PIPELINE") == nullptr && i + 1 < num_circuits) {
+            next_circuit_future = build_phase_a_async(folding_stack[i + 1]);
         }
 
         info("Chonk: accumulating ", function_names[i]);

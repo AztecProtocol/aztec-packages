@@ -182,6 +182,58 @@ bool ChonkAPI::prove_and_verify(const std::filesystem::path& input_path)
     return verified;
 }
 
+bool ChonkAPI::check_pipelined_vks(const std::filesystem::path& input_path)
+{
+    PrivateExecutionSteps steps;
+    steps.parse(PrivateExecutionStepRaw::load_and_decompress(input_path));
+
+    auto ivc = std::make_shared<Chonk>(steps.folding_stack.size());
+    const acir_format::ProgramMetadata metadata{ ivc };
+
+    bool all_match = true;
+    for (size_t i = 0; i < steps.folding_stack.size(); i++) {
+        auto& program = steps.folding_stack[i];
+        const auto& precomputed_vk = steps.precomputed_vks[i];
+        if (!precomputed_vk) {
+            info("FAIL: Missing precomputed VK for circuit ", i, " (", steps.function_names[i], ")");
+            return false;
+        }
+
+        // Pipelined construction: Phase A with dummy op_queue, Phase B with real op_queue
+        auto dummy_op_queue = std::make_shared<ECCOpQueue>();
+        MegaCircuitBuilder builder{
+            dummy_op_queue, program.witness, program.constraints.public_inputs, /*is_write_vk_mode=*/false
+        };
+        acir_format::build_non_recursion_constraints(builder, program.constraints, acir_format::ProgramMetadata{});
+
+        if (dummy_op_queue->get_current_subtable_size() != 0) {
+            info("FAIL: Circuit ", i, " (", steps.function_names[i], ") wrote to op_queue during Phase A construction");
+            return false;
+        }
+
+        // Phase B: attach real op_queue and build recursion constraints
+        builder.op_queue = ivc->get_goblin().op_queue;
+        builder.op_queue->initialize_new_subtable();
+        acir_format::build_recursion_and_finalize_constraints(builder, program.constraints, metadata);
+
+        // Compare VK from pipelined construction against the precomputed VK
+        auto prover_instance = std::make_shared<Chonk::ProverInstance>(builder);
+        auto computed_vk = std::make_shared<Chonk::MegaVerificationKey>(prover_instance->get_precomputed());
+
+        if (*computed_vk != *precomputed_vk) {
+            info("FAIL: VK mismatch for circuit ", i, " (", steps.function_names[i], ")");
+            all_match = false;
+        } else {
+            info("OK: Circuit ", i, " (", steps.function_names[i], ") VK matches");
+        }
+
+        // Accumulate to advance IVC state for the next circuit
+        ivc->accumulate(builder, precomputed_vk);
+    }
+
+    return all_match;
+}
+
 void ChonkAPI::gates(const Flags& flags, const std::filesystem::path& bytecode_path)
 {
     BB_BENCH_NAME("ChonkAPI::gates");

@@ -157,9 +157,27 @@ Builder create_circuit(AcirProgram& program, const ProgramMetadata& metadata = P
 
 /**
  * @brief Add to the builder the constraints contained in an AcirFormat instance
- *
  */
 template <typename Builder>
 void build_constraints(Builder& builder, AcirFormat& constraints, const ProgramMetadata& metadata);
+
+/**
+ * @brief Build only non-recursion constraints (Phase A of pipelined circuit construction).
+ * @details Adds all constraint types except recursion (honk, HN, chonk, AVM). These constraints
+ * have no dependency on IVC state (op_queue, verification_queue) and can be built on a background
+ * thread with a dummy op_queue.
+ */
+template <typename Builder>
+void build_non_recursion_constraints(Builder& builder, AcirFormat& constraints, const ProgramMetadata& metadata);
+
+/**
+ * @brief Build recursion constraints and finalize (Phase B of pipelined circuit construction).
+ * @details Requires real IVC state: the verification_queue (for HN recursion) and the op_queue
+ * (for complete_kernel_circuit_logic). Must run after the previous circuit's accumulate completes.
+ */
+template <typename Builder>
+void build_recursion_and_finalize_constraints(Builder& builder,
+                                              AcirFormat& constraints,
+                                              const ProgramMetadata& metadata);
 
 } // namespace acir_format
