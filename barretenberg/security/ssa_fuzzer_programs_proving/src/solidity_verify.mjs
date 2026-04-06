@@ -160,10 +160,10 @@ async function main() {
 
     const [anvil, port] = await getAnvil();
     const provider = new ethers.JsonRpcProvider(`http://127.0.0.1:${port}`);
-    const signer = new ethers.Wallet(
+    const signer = new ethers.NonceManager(new ethers.Wallet(
         "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
         provider,
-    );
+    ));
 
     try {
         let finalBytecode = testContract.evm.bytecode.object;
