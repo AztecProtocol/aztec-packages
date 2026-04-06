@@ -28,8 +28,14 @@ ChonkStart::Response ChonkStart::execute(BBApiRequest& request) &&
     BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
 
     request.ivc_in_progress = std::make_shared<Chonk>(num_circuits);
-
     request.ivc_stack_depth = 0;
+
+    // Clear any stale loaded-circuit state from a previous session so that
+    // ChonkAccumulate cannot silently reuse a circuit loaded before this ChonkStart.
+    request.loaded_circuit_name.clear();
+    request.loaded_circuit_constraints.reset();
+    request.loaded_circuit_vk.clear();
+
     return Response{};
 }
 
