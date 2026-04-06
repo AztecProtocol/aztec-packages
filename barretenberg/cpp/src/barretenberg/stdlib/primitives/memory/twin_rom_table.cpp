@@ -132,6 +132,7 @@ std::array<field_t<Builder>, 2> twin_rom_table<Builder>::operator[](const size_t
     if (index >= length) {
         BB_ASSERT(context != nullptr);
         context->failure("twin_rom_table: ROM array access out of bounds");
+        return raw_entries[0];
     }
 
     return raw_entries[index];

@@ -2,7 +2,7 @@
 title: Testing Contracts
 tags: [contracts, tests, testing, noir]
 keywords: [tests, testing, noir]
-sidebar_position: 5
+sidebar_position: 6
 description: Write and run tests for your Aztec smart contracts using Noir's TestEnvironment.
 ---
 
@@ -107,7 +107,7 @@ let deployer = env.deploy("../other_contract");
 ```
 
 :::warning
-It is always necessary to deploy a contract in order to test it. **It is important to compile before testing**, as `aztec test` does not recompile them on changes. Think of it as regenerating the bytecode and ABI so it becomes accessible externally.
+It is always necessary to deploy a contract in order to test it. `aztec test` automatically compiles contracts when changes are detected, but you can also manually compile with `aztec compile` to regenerate the bytecode and ABI.
 :::
 
 You can then choose whatever you need to initialize by interfacing with your initializer and calling it:
@@ -169,7 +169,7 @@ let balance = env.view_public(Token::at(token_address).balance_of_public(owner))
 
 ```rust
 // Simulate utility/view functions (unconstrained)
-let total = env.simulate_utility(Token::at(token_address).balance_of_private(owner));
+let total = env.execute_utility(Token::at(token_address).balance_of_private(owner));
 ```
 
 :::tip Helper function pattern
@@ -183,7 +183,7 @@ pub unconstrained fn check_balance(
     expected: u128,
 ) {
     assert_eq(
-        env.simulate_utility(Token::at(token_address).balance_of_private(owner)),
+        env.execute_utility(Token::at(token_address).balance_of_private(owner)),
         expected
     );
 }
@@ -282,7 +282,7 @@ unconstrained fn test_public_authwit() {
     let (env, token_address, owner, spender) = setup(true);
 
     // Create public action that needs authorization
-    let transfer_call = Token::at(token_address).transfer_public(owner, recipient, 100, nonce);
+    let transfer_call = Token::at(token_address).transfer_in_public(owner, recipient, 100, nonce);
 
     // Grant public authorization
     add_public_authwit_from_call(env, owner, spender, transfer_call);
@@ -294,7 +294,7 @@ unconstrained fn test_public_authwit() {
 
 ## Time traveling
 
-Contract calls do not advance the timestamp by default, despite each of them resulting in a block with a single transaction. Block timestamp can instead by manually manipulated by any of the following methods:
+Contract calls do not advance the timestamp by default, despite each of them resulting in a block with a single transaction. Block timestamp can instead be manually manipulated by any of the following methods:
 
 ```rust
 // Sets the timestamp of the next block to be mined, i.e. of the next public execution. Does not affect private execution.
@@ -305,7 +305,7 @@ env.advance_next_block_timestamp_by(duration);
 
 // Mines an empty block at a given timestamp, causing the next public execution to occur at this time (like `set_next_block_timestamp`), but also allowing for private execution to happen using this empty block as the anchor block.
 env.mine_block_at(block_timestamp);
-````
+```
 
 ## Testing failure cases
 

@@ -41,6 +41,13 @@ fn update_to(new_class_id: ContractClassId) {
 }
 ```
 
+:::info
+To use the `ContractInstanceRegistry`, add this dependency to your `Nargo.toml`:
+```toml
+contract_instance_registry = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="noir-projects/noir-contracts/contracts/protocol_interface/contract_instance_registry_interface" }
+```
+:::
+
 The `update` function in the registry is a public function, so you can enqueue it from a private function (as shown above) or call it directly from a public function.
 
 :::warning[Access Control]

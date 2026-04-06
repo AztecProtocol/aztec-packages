@@ -196,7 +196,7 @@ async function deployAccountWithDiagnostics(
 
       if (!sentTxHash) {
         const deployResult = await deployMethod.send({
-          from: AztecAddress.ZERO,
+          from: NO_FROM,
           fee: { paymentMethod, gasSettings },
           wait: NO_WAIT,
         });

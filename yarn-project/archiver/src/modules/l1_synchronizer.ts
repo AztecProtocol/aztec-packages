@@ -1,6 +1,6 @@
 import type { BlobClientInterface } from '@aztec/blob-client/client';
 import { EpochCache } from '@aztec/epoch-cache';
-import { InboxContract, RollupContract } from '@aztec/ethereum/contracts';
+import { InboxContract, type InboxContractState, RollupContract } from '@aztec/ethereum/contracts';
 import type { L1BlockId } from '@aztec/ethereum/l1-types';
 import type { ViemPublicClient, ViemPublicDebugClient } from '@aztec/ethereum/types';
 import { asyncPool } from '@aztec/foundation/async-pool';
@@ -10,9 +10,10 @@ import { Buffer16, Buffer32 } from '@aztec/foundation/buffer';
 import { pick } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { type Logger, createLogger } from '@aztec/foundation/log';
+import { retryTimes } from '@aztec/foundation/retry';
 import { count } from '@aztec/foundation/string';
 import { DateProvider, Timer, elapsed } from '@aztec/foundation/timer';
-import { isDefined } from '@aztec/foundation/types';
+import { isDefined, isErrorClass } from '@aztec/foundation/types';
 import { type ArchiverEmitter, L2BlockSourceEvents, type ValidateCheckpointResult } from '@aztec/stdlib/block';
 import { PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 import { type L1RollupConstants, getEpochAtSlot, getSlotAtNextL1Block } from '@aztec/stdlib/epoch-helpers';
@@ -28,6 +29,7 @@ import {
 } from '../l1/data_retrieval.js';
 import type { KVArchiverDataStore } from '../store/kv_archiver_store.js';
 import type { L2TipsCache } from '../store/l2_tips_cache.js';
+import { MessageStoreError } from '../store/message_store.js';
 import type { InboxMessage } from '../structs/inbox_message.js';
 import { ArchiverDataStoreUpdater } from './data_store_updater.js';
 import type { ArchiverInstrumentation } from './instrumentation.js';
@@ -121,10 +123,15 @@ export class ArchiverL1Synchronizer implements Traceable {
 
   @trackSpan('Archiver.syncFromL1')
   public async syncFromL1(initialSyncComplete: boolean): Promise<void> {
+    // In between the various calls to L1, the block number can move meaning some of the following
+    // calls will return data for blocks that were not present during earlier calls. To combat this
+    // we ensure that all data retrieval methods only retrieve data up to the currentBlockNumber
+    // captured at the top of this function.
     const currentL1Block = await this.publicClient.getBlock({ includeTransactions: false });
     const currentL1BlockNumber = currentL1Block.number;
     const currentL1BlockHash = Buffer32.fromString(currentL1Block.hash);
     const currentL1Timestamp = currentL1Block.timestamp;
+    const currentL1BlockData = { l1BlockNumber: currentL1BlockNumber, l1BlockHash: currentL1BlockHash };
 
     if (this.l1BlockHash && currentL1BlockHash.equals(this.l1BlockHash)) {
       this.log.trace(`No new L1 blocks since last sync at L1 block ${this.l1BlockNumber}`);
@@ -141,45 +148,15 @@ export class ArchiverL1Synchronizer implements Traceable {
       );
     }
 
-    // Load sync point for blocks and messages defaulting to start block
-    const {
-      blocksSynchedTo = this.l1Constants.l1StartBlock,
-      messagesSynchedTo = {
-        l1BlockNumber: this.l1Constants.l1StartBlock,
-        l1BlockHash: this.l1Constants.l1StartBlockHash,
-      },
-    } = await this.store.getSynchPoint();
+    // Load sync point for blocks defaulting to start block
+    const { blocksSynchedTo = this.l1Constants.l1StartBlock } = await this.store.getSynchPoint();
+    this.log.debug(`Starting new archiver sync iteration`, { blocksSynchedTo, currentL1BlockData });
 
-    this.log.debug(`Starting new archiver sync iteration`, {
-      blocksSynchedTo,
-      messagesSynchedTo,
-      currentL1BlockNumber,
-      currentL1BlockHash,
-    });
+    // Sync L1 to L2 messages. We retry this a few times since there are error conditions that reset the sync point, requiring a new iteration.
+    // Note that we cannot just wait for the l1 synchronizer to loop again, since the synchronizer would report as synced up to the current L1
+    // block, when that wouldn't be the case, since L1 to L2 messages would need another iteration.
+    await retryTimes(() => this.handleL1ToL2Messages(currentL1BlockData), 'Handling L1 to L2 messages', 3, 0.1);
 
-    // ********** Ensuring Consistency of data pulled from L1 **********
-
-    /**
-     * There are a number of calls in this sync operation to L1 for retrieving
-     * events and transaction data. There are a couple of things we need to bear in mind
-     * to ensure that data is read exactly once.
-     *
-     * The first is the problem of eventually consistent ETH service providers like Infura.
-     * Each L1 read operation will query data from the last L1 block that it saw emit its kind of data.
-     * (so pending L1 to L2 messages will read from the last L1 block that emitted a message and so  on)
-     * This will mean the archiver will lag behind L1 and will only advance when there's L2-relevant activity on the chain.
-     *
-     * The second is that in between the various calls to L1, the block number can move meaning some
-     * of the following calls will return data for blocks that were not present during earlier calls.
-     * To combat this for the time being we simply ensure that all data retrieval methods only retrieve
-     * data up to the currentBlockNumber captured at the top of this function. We might want to improve on this
-     * in future but for the time being it should give us the guarantees that we need
-     */
-
-    // ********** Events that are processed per L1 block **********
-    await this.handleL1ToL2Messages(messagesSynchedTo, currentL1BlockNumber);
-
-    // ********** Events that are processed per checkpoint **********
     if (currentL1BlockNumber > blocksSynchedTo) {
       // First we retrieve new checkpoints and L2 blocks and store them in the DB. This will also update the
       // pending chain validation status, proven checkpoint number, and synched L1 block number.
@@ -391,64 +368,87 @@ export class ArchiverL1Synchronizer implements Traceable {
   }
 
   @trackSpan('Archiver.handleL1ToL2Messages')
-  private async handleL1ToL2Messages(messagesSyncPoint: L1BlockId, currentL1BlockNumber: bigint): Promise<void> {
-    this.log.trace(`Handling L1 to L2 messages from ${messagesSyncPoint.l1BlockNumber} to ${currentL1BlockNumber}.`);
-    if (currentL1BlockNumber <= messagesSyncPoint.l1BlockNumber) {
-      return;
+  private async handleL1ToL2Messages(currentL1Block: L1BlockId): Promise<boolean> {
+    // Load the syncpoint, which may have been updated in a previous iteration
+    const {
+      messagesSynchedTo = {
+        l1BlockNumber: this.l1Constants.l1StartBlock,
+        l1BlockHash: this.l1Constants.l1StartBlockHash,
+      },
+    } = await this.store.getSynchPoint();
+
+    // Nothing to do if L1 block number has not moved forward
+    const currentL1BlockNumber = currentL1Block.l1BlockNumber;
+    if (currentL1BlockNumber <= messagesSynchedTo.l1BlockNumber) {
+      return true;
     }
 
-    // Load remote and local inbox states.
-    const localMessagesInserted = await this.store.getTotalL1ToL2MessageCount();
-    const localLastMessage = await this.store.getLastL1ToL2Message();
+    // Compare local message store state with the remote. If they match, we just advance the match pointer.
     const remoteMessagesState = await this.inbox.getState({ blockNumber: currentL1BlockNumber });
-    await this.store.setInboxTreeInProgress(remoteMessagesState.treeInProgress);
-
-    this.log.trace(`Retrieved remote inbox state at L1 block ${currentL1BlockNumber}.`, {
-      localMessagesInserted,
-      localLastMessage,
-      remoteMessagesState,
-    });
-
-    // Compare message count and rolling hash. If they match, no need to retrieve anything.
-    if (
-      remoteMessagesState.totalMessagesInserted === localMessagesInserted &&
-      remoteMessagesState.messagesRollingHash.equals(localLastMessage?.rollingHash ?? Buffer16.ZERO)
-    ) {
-      this.log.trace(
-        `No L1 to L2 messages to query between L1 blocks ${messagesSyncPoint.l1BlockNumber} and ${currentL1BlockNumber}.`,
-      );
-      return;
+    const localLastMessage = await this.store.getLastL1ToL2Message();
+    if (await this.localStateMatches(localLastMessage, remoteMessagesState)) {
+      this.log.trace(`Local L1 to L2 messages are already in sync with remote at L1 block ${currentL1BlockNumber}`);
+      await this.store.setMessageSyncState(currentL1Block, remoteMessagesState.treeInProgress);
+      return true;
     }
 
-    // Check if our syncpoint is still valid. If not, there was an L1 reorg and we need to re-retrieve messages.
-    // Note that we need to fetch it from logs and not from inbox state at the syncpoint l1 block number, since it
-    // could be older than 128 blocks and non-archive nodes cannot resolve it.
-    if (localLastMessage) {
-      const remoteLastMessage = await this.retrieveL1ToL2Message(localLastMessage.leaf);
-      this.log.trace(`Retrieved remote message for local last`, { remoteLastMessage, localLastMessage });
-      if (!remoteLastMessage || !remoteLastMessage.rollingHash.equals(localLastMessage.rollingHash)) {
-        this.log.warn(`Rolling back L1 to L2 messages due to hash mismatch or msg not found.`, {
-          remoteLastMessage,
-          messagesSyncPoint,
-          localLastMessage,
-        });
-
-        messagesSyncPoint = await this.rollbackL1ToL2Messages(localLastMessage, messagesSyncPoint);
-        this.log.debug(`Rolled back L1 to L2 messages to L1 block ${messagesSyncPoint.l1BlockNumber}.`, {
-          messagesSyncPoint,
-        });
+    // If not, then we are out of sync. Most likely there are new messages on the inbox, so we try retrieving them.
+    // However, it could also be the case that there was an L1 reorg and our syncpoint is no longer valid.
+    // If that's the case, we'd get an exception out of the message store since the rolling hash of the first message
+    // we try to insert would not match the one in the db, in which case we rollback to the last common message with L1.
+    try {
+      await this.retrieveAndStoreMessages(messagesSynchedTo.l1BlockNumber, currentL1BlockNumber);
+    } catch (error) {
+      if (isErrorClass(error, MessageStoreError)) {
+        this.log.warn(
+          `Failed to store L1 to L2 messages retrieved from L1: ${error.message}. Rolling back syncpoint to retry.`,
+          { inboxMessage: error.inboxMessage },
+        );
+        await this.rollbackL1ToL2Messages(remoteMessagesState.treeInProgress);
+        return false;
       }
+      throw error;
     }
 
-    // Retrieve and save messages in batches. Each batch is estimated to acommodate up to L2 'blockBatchSize' blocks,
+    // Note that, if there are no new messages to insert, but there was an L1 reorg that pruned out last messages,
+    // we'd notice by comparing our local state with the remote one again, and seeing they don't match even after
+    // our sync attempt. In this case, we also rollback our syncpoint, and trigger a retry.
+    const localLastMessageAfterSync = await this.store.getLastL1ToL2Message();
+    if (!(await this.localStateMatches(localLastMessageAfterSync, remoteMessagesState))) {
+      this.log.warn(
+        `Local L1 to L2 messages state does not match remote after sync attempt. Rolling back syncpoint to retry.`,
+        { localLastMessageAfterSync, remoteMessagesState },
+      );
+      await this.rollbackL1ToL2Messages(remoteMessagesState.treeInProgress);
+      return false;
+    }
+
+    // Advance the syncpoint after a successful sync
+    await this.store.setMessageSyncState(currentL1Block, remoteMessagesState.treeInProgress);
+    return true;
+  }
+
+  /** Checks if the local rolling hash and message count matches the remote state */
+  private async localStateMatches(localLastMessage: InboxMessage | undefined, remoteState: InboxContractState) {
+    const localMessageCount = await this.store.getTotalL1ToL2MessageCount();
+    this.log.trace(`Comparing local and remote inbox state`, { localMessageCount, localLastMessage, remoteState });
+
+    return (
+      remoteState.totalMessagesInserted === localMessageCount &&
+      remoteState.messagesRollingHash.equals(localLastMessage?.rollingHash ?? Buffer16.ZERO)
+    );
+  }
+
+  /** Retrieves L1 to L2 messages from L1 in batches and stores them. */
+  private async retrieveAndStoreMessages(fromL1Block: bigint, toL1Block: bigint): Promise<void> {
     let searchStartBlock: bigint = 0n;
-    let searchEndBlock: bigint = messagesSyncPoint.l1BlockNumber;
+    let searchEndBlock: bigint = fromL1Block;
 
     let lastMessage: InboxMessage | undefined;
     let messageCount = 0;
 
     do {
-      [searchStartBlock, searchEndBlock] = this.nextRange(searchEndBlock, currentL1BlockNumber);
+      [searchStartBlock, searchEndBlock] = this.nextRange(searchEndBlock, toL1Block);
       this.log.trace(`Retrieving L1 to L2 messages in L1 blocks ${searchStartBlock}-${searchEndBlock}`);
       const messages = await retrieveL1ToL2Messages(this.inbox, searchStartBlock, searchEndBlock);
       const timer = new Timer();
@@ -460,81 +460,65 @@ export class ArchiverL1Synchronizer implements Traceable {
         lastMessage = msg;
         messageCount++;
       }
-    } while (searchEndBlock < currentL1BlockNumber);
+    } while (searchEndBlock < toL1Block);
 
-    // Log stats for messages retrieved (if any).
     if (messageCount > 0) {
       this.log.info(
         `Retrieved ${messageCount} new L1 to L2 messages up to message with index ${lastMessage?.index} for checkpoint ${lastMessage?.checkpointNumber}`,
         { lastMessage, messageCount },
       );
     }
-
-    // Warn if the resulting rolling hash does not match the remote state we had retrieved.
-    if (lastMessage && !lastMessage.rollingHash.equals(remoteMessagesState.messagesRollingHash)) {
-      this.log.warn(`Last message retrieved rolling hash does not match remote state.`, {
-        lastMessage,
-        remoteMessagesState,
-      });
-    }
   }
 
-  private async retrieveL1ToL2Message(leaf: Fr): Promise<InboxMessage | undefined> {
-    const currentL1BlockNumber = await this.publicClient.getBlockNumber();
-    let searchStartBlock: bigint = 0n;
-    let searchEndBlock: bigint = this.l1Constants.l1StartBlock - 1n;
-
-    do {
-      [searchStartBlock, searchEndBlock] = this.nextRange(searchEndBlock, currentL1BlockNumber);
-
-      const message = await retrieveL1ToL2Message(this.inbox, leaf, searchStartBlock, searchEndBlock);
-
-      if (message) {
-        return message;
-      }
-    } while (searchEndBlock < currentL1BlockNumber);
-
-    return undefined;
-  }
-
-  private async rollbackL1ToL2Messages(
-    localLastMessage: InboxMessage,
-    messagesSyncPoint: L1BlockId,
-  ): Promise<L1BlockId> {
+  /**
+   * Rolls back local L1 to L2 messages to the last common message with L1, and updates the syncpoint to the L1 block of that message.
+   * If no common message is found, rolls back all messages and sets the syncpoint to the start block.
+   */
+  private async rollbackL1ToL2Messages(remoteTreeInProgress: bigint): Promise<L1BlockId> {
     // Slowly go back through our messages until we find the last common message.
     // We could query the logs in batch as an optimization, but the depth of the reorg should not be deep, and this
     // is a very rare case, so it's fine to query one log at a time.
     let commonMsg: undefined | InboxMessage;
-    this.log.verbose(`Searching most recent common L1 to L2 message at or before index ${localLastMessage.index}`);
-    for await (const msg of this.store.iterateL1ToL2Messages({ reverse: true, end: localLastMessage.index })) {
-      const remoteMsg = await this.retrieveL1ToL2Message(msg.leaf);
-      const logCtx = { remoteMsg, localMsg: msg };
-      if (remoteMsg && remoteMsg.rollingHash.equals(msg.rollingHash)) {
+    let messagesToDelete = 0;
+    this.log.verbose(`Searching most recent common L1 to L2 message`);
+    for await (const localMsg of this.store.iterateL1ToL2Messages({ reverse: true })) {
+      const remoteMsg = await retrieveL1ToL2Message(this.inbox, localMsg);
+      const logCtx = { remoteMsg, localMsg: localMsg };
+      if (remoteMsg && remoteMsg.rollingHash.equals(localMsg.rollingHash)) {
         this.log.verbose(
-          `Found most recent common L1 to L2 message at index ${msg.index} on L1 block ${msg.l1BlockNumber}`,
+          `Found most recent common L1 to L2 message at index ${localMsg.index} on L1 block ${localMsg.l1BlockNumber}`,
           logCtx,
         );
         commonMsg = remoteMsg;
         break;
       } else if (remoteMsg) {
-        this.log.debug(`Local L1 to L2 message with index ${msg.index} has different rolling hash`, logCtx);
+        this.log.debug(`Local L1 to L2 message with index ${localMsg.index} has different rolling hash`, logCtx);
+        messagesToDelete++;
       } else {
-        this.log.debug(`Local L1 to L2 message with index ${msg.index} not found on L1`, logCtx);
+        this.log.debug(`Local L1 to L2 message with index ${localMsg.index} not found on L1`, logCtx);
+        messagesToDelete++;
       }
     }
 
-    // Delete everything after the common message we found.
-    const lastGoodIndex = commonMsg?.index;
-    this.log.warn(`Deleting all local L1 to L2 messages after index ${lastGoodIndex ?? 'undefined'}`);
-    await this.store.removeL1ToL2Messages(lastGoodIndex !== undefined ? lastGoodIndex + 1n : 0n);
+    // Delete everything after the common message we found, if anything needs to be deleted.
+    // Do not exit early if there are no messages to delete, we still want to update the syncpoint.
+    if (messagesToDelete > 0) {
+      const lastGoodIndex = commonMsg?.index;
+      this.log.warn(`Rolling back all local L1 to L2 messages after index ${lastGoodIndex ?? 'initial'}`);
+      await this.store.removeL1ToL2Messages(lastGoodIndex !== undefined ? lastGoodIndex + 1n : 0n);
+    }
 
     // Update the syncpoint so the loop below reprocesses the changed messages. We go to the block before
     // the last common one, so we force reprocessing it, in case new messages were added on that same L1 block
     // after the last common message.
     const syncPointL1BlockNumber = commonMsg ? commonMsg.l1BlockNumber - 1n : this.l1Constants.l1StartBlock;
     const syncPointL1BlockHash = await this.getL1BlockHash(syncPointL1BlockNumber);
-    messagesSyncPoint = { l1BlockNumber: syncPointL1BlockNumber, l1BlockHash: syncPointL1BlockHash };
-    await this.store.setMessageSynchedL1Block(messagesSyncPoint);
+    const messagesSyncPoint = { l1BlockNumber: syncPointL1BlockNumber, l1BlockHash: syncPointL1BlockHash };
+    await this.store.setMessageSyncState(messagesSyncPoint, remoteTreeInProgress);
+    this.log.verbose(`Updated messages syncpoint to L1 block ${syncPointL1BlockNumber}`, {
+      ...messagesSyncPoint,
+      remoteTreeInProgress,
+    });
     return messagesSyncPoint;
   }
 

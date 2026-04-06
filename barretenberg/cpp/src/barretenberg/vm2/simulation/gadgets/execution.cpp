@@ -793,6 +793,7 @@ void Execution::ret(ContextInterface& context, MemoryAddress ret_size_offset, Me
                            .gas_used = context.get_gas_used(),
                            .success = true,
                            .halting_pc = context.get_pc(),
+                           .halting_mode = HaltingMode::RETURN,
                            .halting_message = std::nullopt });
 
     context.halt();
@@ -826,6 +827,7 @@ void Execution::revert(ContextInterface& context, MemoryAddress rev_size_offset,
                            .gas_used = context.get_gas_used(),
                            .success = false,
                            .halting_pc = context.get_pc(),
+                           .halting_mode = HaltingMode::REVERT,
                            .halting_message = "Assertion failed: " });
 
     context.halt();
@@ -1849,9 +1851,11 @@ EnqueuedCallResult Execution::execute(std::unique_ptr<ContextInterface> enqueued
     }
 
     const ExecutionResult& result = get_execution_result();
-    return {
+    return EnqueuedCallResult{
         .success = result.success,
         .gas_used = result.gas_used,
+        .halting_mode = result.halting_mode,
+        .halting_message = result.halting_message,
     };
 }
 
@@ -1969,6 +1973,7 @@ void Execution::handle_exceptional_halt(ContextInterface& context, const std::st
         .gas_used = context.get_gas_used(),
         .success = false,
         .halting_pc = context.get_pc(),
+        .halting_mode = HaltingMode::EXCEPTIONAL_HALT,
         .halting_message = halting_message,
     });
 }

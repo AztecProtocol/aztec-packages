@@ -424,16 +424,18 @@ class ECCVMMSMMBuilder {
 
         // inverse_trace is used to compute the value of the `collision_inverse` column in the ECCVM.
         std::vector<FF> inverse_trace(num_point_adds_and_doubles);
-        parallel_for_range(num_point_adds_and_doubles, [&](size_t start, size_t end) {
-            for (size_t operation_idx = start; operation_idx < end; ++operation_idx) {
-                if (is_double_or_add[operation_idx]) {
-                    inverse_trace[operation_idx] = (p1_trace[operation_idx].y + p1_trace[operation_idx].y);
-                } else {
-                    inverse_trace[operation_idx] = (p2_trace[operation_idx].x - p1_trace[operation_idx].x);
+        if (num_point_adds_and_doubles > 0) {
+            parallel_for_range(num_point_adds_and_doubles, [&](size_t start, size_t end) {
+                for (size_t operation_idx = start; operation_idx < end; ++operation_idx) {
+                    if (is_double_or_add[operation_idx]) {
+                        inverse_trace[operation_idx] = (p1_trace[operation_idx].y + p1_trace[operation_idx].y);
+                    } else {
+                        inverse_trace[operation_idx] = (p2_trace[operation_idx].x - p1_trace[operation_idx].x);
+                    }
                 }
-            }
-            FF::batch_invert(&inverse_trace[start], end - start);
-        });
+                FF::batch_invert(&inverse_trace[start], end - start);
+            });
+        }
 
         // complete the computation of the ECCVM execution trace, by adding the affine intermediate point data
         // i.e. row.accumulator_x, row.accumulator_y, row.add_state[0...3].collision_inverse,

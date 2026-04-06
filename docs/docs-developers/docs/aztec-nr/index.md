@@ -29,8 +29,8 @@ It allows safe and easy implementation of well understood design patterns, such 
 A good example of this is writing to private state variables. These functions return a `NoteMessage` struct, which results in a compiler error unless used. This is because writing to private state also requires sending an encrypted message with the new state to the people that need to access it - otherwise, because it is private, they will not even know the state changed.
 
 ```rust
-storage.votes.insert(new_vote); // compiler error - unused NoteMessagePendingDelivery return value
-storage.votes.insert(new_vote).deliver(vote_counter); // the vote counter account will now be notified of the new vote
+storage.votes.insert(new_vote); // compiler error - unused NoteMessage return value
+storage.votes.insert(new_vote).deliver(MessageDelivery.ONCHAIN_CONSTRAINED); // deliver the note message onchain
 ```
 
 ## Contract Development
