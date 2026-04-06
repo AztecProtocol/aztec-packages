@@ -39,7 +39,6 @@ template <typename Flavor> ProverInstance_<Flavor>::ProverInstance_(Circuit& cir
         circuit.finalize_circuit(/* ensure_nonzero = */ true);
     }
     metadata.dyadic_size = compute_dyadic_size(circuit);
-    masking_tail_data.dyadic_size = metadata.dyadic_size;
 
     // Find index of last non-trivial wire value in the trace
     circuit.blocks.compute_offsets(Flavor::HasZK); // compute offset of each block within the trace

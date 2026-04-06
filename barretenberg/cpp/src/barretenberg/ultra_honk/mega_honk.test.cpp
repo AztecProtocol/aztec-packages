@@ -284,9 +284,9 @@ TYPED_TEST(MegaHonkTests, DyadicSizeJumpsToProtectMaskingArea)
 }
 
 /**
- * @brief Verify that masked witness commitments differ from naive poly commits, and unmasked are equal.
- * @details For ZK flavors, MaskingTailData adds random tail values that shift masked commitments away
- * from commit(short_poly). Unmasked witness poly commitments should match exactly.
+ * @brief Verify that witness commitments match naive poly commits (in-place masking).
+ * @details With in-place masking, random values are written directly into the polynomial at the
+ * disabled head rows, so commit(poly) == stored commitment for all witness polynomials.
  */
 TYPED_TEST(MegaHonkTests, MaskingTailCommitments)
 {
