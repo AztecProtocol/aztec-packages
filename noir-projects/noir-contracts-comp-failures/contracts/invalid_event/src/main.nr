@@ -3,9 +3,8 @@ use aztec::macros::aztec;
 #[aztec]
 pub contract InvalidEventContract {
     use aztec::{
-        event::event_interface::EventInterface,
         macros::{events::event, functions::external},
-        messages::logs::event::MAX_EVENT_SERIALIZED_LEN,
+        messages::{logs::event::MAX_EVENT_SERIALIZED_LEN, message_delivery::MessageDelivery},
         protocol::{traits::Serialize, utils::writer::Writer},
     };
 
@@ -22,9 +21,13 @@ pub contract InvalidEventContract {
         fn stream_serialize<let K: u32>(self, _writer: &mut Writer<K>) {}
     }
 
-    // We have here this function in order for the static_assert in `get_event_type_id` to get triggered.
+    // Emitting an oversized event privately should fail at compile time because its serialized length exceeds
+    // MAX_EVENT_SERIALIZED_LEN.
     #[external("private")]
     fn trigger_event_check() {
-        let _ = InvalidEvent::get_event_type_id();
+        self.emit(InvalidEvent {}).deliver_to(
+            self.msg_sender(),
+            MessageDelivery.ONCHAIN_UNCONSTRAINED,
+        );
     }
 }

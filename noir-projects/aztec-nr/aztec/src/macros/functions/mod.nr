@@ -137,11 +137,25 @@ pub comptime fn noinitcheck(f: FunctionDefinition) {
     }
 }
 
-/// An allow_phase_change function will allow transitioning from the non-revertible to the revertible phase during its
-/// execution.
+/// An `allow_phase_change` function will allow transitioning from the non-revertible to the revertible phase during
+/// its execution.
 ///
 /// This is an advanced feature that is typically only required for account contract entrypoints that handle
 /// transaction fee payment.
+///
+/// ## Note Retrieval
+///
+/// When notes are read e.g. via [`crate::note::note_getter::get_notes`], a
+/// [`ConfirmedNote`](crate::note::ConfirmedNote) value is returned which includes note metadata, notably whether the
+/// note was created in a previous transaction (a settled note) or in the current one (a pending note), either in the
+/// current or previous phase. Because `allow_phase_change` functions can change phases, this metadata can be left
+/// stale, e.g. it is possible to read a pending current phase note and then change phases, resulting in the note being
+/// [`PENDING_PREVIOUS_PHASE`](crate::note::note_metadata::NoteStageEnum::PENDING_PREVIOUS_PHASE) instead.
+///
+/// Such a note would be rejected by the kernels if it was tried to be nullified, as the metadata is incorrect. It is
+/// therefore important to not allow [`ConfirmedNote`](crate::note::ConfirmedNote),
+/// [`HintedNote`](crate::note::HintedNote) or [`NoteMetadata`](crate::note::note_metadata::NoteMetadata) values to
+/// cross the phase barrier caused by [`crate::context::PrivateContext::end_setup`].
 pub comptime fn allow_phase_change(f: FunctionDefinition) {
     // Marker attribute - see the comment at the top of this file
     if !is_fn_external(f) {

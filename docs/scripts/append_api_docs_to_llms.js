@@ -3,7 +3,7 @@
  * Post-build script to append static API documentation to llms.txt files.
  *
  * This script:
- * 1. Finds HTML files in static/aztec-nr-api/devnet
+ * 1. Finds HTML files in static/aztec-nr-api/
  * 2. Converts them to markdown-like text
  * 3. Appends the content to build/llms-full.txt
  * 4. Adds links to build/llms.txt
@@ -18,20 +18,11 @@ const STATIC_DIR = path.join(__dirname, "..", "static");
 // Load version from developer_versions.json (same as docusaurus.config.js)
 const developerVersions = require("../developer_versions.json");
 
-// Find devnet and testnet versions dynamically (same logic as docusaurus.config.js)
-const devnetVersion = developerVersions.find((v) => v.includes("devnet"));
-if (!devnetVersion) {
-  console.warn("Warning: No devnet version found in developer_versions.json");
-}
+// Find testnet version dynamically (same logic as docusaurus.config.js)
 const testnetVersion = developerVersions.find((v) => v.includes("rc") || v.includes("testnet"));
 
 // The API docs directories use stable folder names
 const API_DIRS = [
-  {
-    name: "Aztec.nr API Reference",
-    dir: "aztec-nr-api/devnet",
-    description: `Auto-generated API documentation for Aztec.nr (${devnetVersion || "devnet"})`,
-  },
   ...(testnetVersion ? [{
     name: "Aztec.nr API Reference (Testnet)",
     dir: "aztec-nr-api/testnet",
