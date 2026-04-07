@@ -174,14 +174,8 @@ export class PublicTxContext {
     }
     if (phase === TxExecutionPhase.SETUP) {
       this.log.warn(`Setup phase reverted! The transaction will be thrown out.`);
-    } else if (phase === TxExecutionPhase.APP_LOGIC) {
-      this.revertCode = RevertCode.APP_LOGIC_REVERTED;
-    } else if (phase === TxExecutionPhase.TEARDOWN) {
-      if (this.revertCode.equals(RevertCode.APP_LOGIC_REVERTED)) {
-        this.revertCode = RevertCode.BOTH_REVERTED;
-      } else {
-        this.revertCode = RevertCode.TEARDOWN_REVERTED;
-      }
+    } else if (phase === TxExecutionPhase.APP_LOGIC || phase === TxExecutionPhase.TEARDOWN) {
+      this.revertCode = RevertCode.REVERTED;
     }
   }
 

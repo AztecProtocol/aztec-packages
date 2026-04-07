@@ -329,7 +329,7 @@ describe('L1Publisher integration', () => {
       chainId: fr(chainId),
       version: fr(version),
       vkTreeRoot: getVKTreeRoot(),
-      gasSettings: GasSettings.default({ maxFeesPerGas: minFee }),
+      gasSettings: GasSettings.fallback({ maxFeesPerGas: minFee }),
       protocolContracts: ProtocolContractsList,
       seed,
     });

@@ -10,7 +10,7 @@ You are working with the **Aztec Protocol Documentation** - a comprehensive docu
 
 ### Package Manager
 
-This project uses Yarn 4.5.2 as specified in the `packageManager` field of package.json. Make sure to use Yarn for all dependency management.
+This project uses Yarn 4.13.0 as specified in the `packageManager` field of package.json. Make sure to use Yarn for all dependency management.
 
 ### Essential Commands
 

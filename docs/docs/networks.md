@@ -12,16 +12,16 @@ The Aztec Protocol operates across multiple networks, each serving specific purp
 Not sure which network to use? Jump to our [Network Selection Guide](#network-selection-guide).
 
 :::note Developer SDK vs Node Versions
-The developer SDK/aztec-nr version (used for writing and compiling contracts) may differ from the node version listed below. For example, aztec-nr `4.2.0-aztecnr-rc.2` and other versions may be compatible with node version `4.1.2`. Use the version from the developer docs for contract development — use the version below for running nodes.
+The developer SDK/aztec-nr version (used for writing and compiling contracts) may differ from the node version listed below. For example, aztec-nr `4.2.0-aztecnr-rc.2` and other versions may be compatible with node version `4.1.3`. Use the version from the developer docs for contract development — use the version below for running nodes.
 :::
 
 ## Network Technical Information
 
 | Parameter | Alpha (Mainnet) | Testnet |
 |-----------|-------------------|---------|
-| **Version** | `4.1.2` (node operators)<br/>`4.2.0-aztecnr-rc.2` (developer SDK) | `4.1.0-rc.2` |
+| **Version** | `4.1.3` (node operators)<br/>`4.2.0-aztecnr-rc.2` (developer SDK) | `4.1.0-rc.2` |
 | **L1 Chain ID** | `1` (Mainnet) | `11155111` (Sepolia) |
-| **Rollup Version** | `0` | `4127419662` |
+| **Rollup Version** | `2934756905` | `4127419662` |
 | **RPC Endpoint** | `https://aztec-mainnet.drpc.org` | `https://rpc.testnet.aztec-labs.com` |
 | **Bootnodes** | [http://static.aztec.network/mainnet/bootnodes.json](http://static.aztec.network/mainnet/bootnodes.json) | [http://static.aztec.network/testnet/bootnodes.json](http://static.aztec.network/testnet/bootnodes.json) |
 | **Block Explorer** | [Aztecscan](https://aztecscan.xyz), [Aztecexplorer](https://aztecexplorer.xyz/?network=mainnet) | [Aztecscan](https://testnet.aztecscan.xyz), [Aztecexplorer](https://aztecexplorer.xyz/?network=testnet) |
@@ -38,12 +38,12 @@ The developer SDK/aztec-nr version (used for writing and compiling contracts) ma
 | Contract Name | Alpha (Mainnet) | Testnet |
 |---------------|-------------------|---------|
 | **Registry** | [`0x35b22e09ee0390539439e24f06da43d83f90e298`](https://etherscan.io/address/0x35b22e09ee0390539439e24f06da43d83f90e298) | [`0xa0bfb1b494fb49041e5c6e8c2c1be09cd171c6ba`](https://sepolia.etherscan.io/address/0xa0bfb1b494fb49041e5c6e8c2c1be09cd171c6ba) |
-| **Rollup** | [`0x603bb2c05d474794ea97805e8de69bccfb3bca12`](https://etherscan.io/address/0x603bb2c05d474794ea97805e8de69bccfb3bca12) | [`0xf6D0D42aCE06829bECB78C74F49879528fC632c1`](https://sepolia.etherscan.io/address/0xf6D0D42aCE06829bECB78C74F49879528fC632c1) |
-| **L1 → L2 Inbox** | [`0x15c718c05b8c0dbec4d648b6711d6ce8793969ee`](https://etherscan.io/address/0x15c718c05b8c0dbec4d648b6711d6ce8793969ee) | [`0xF1bB424AC888Aa239F1E658B5BdDabc65a1c94E6`](https://sepolia.etherscan.io/address/0xF1bB424AC888Aa239F1E658B5BdDabc65a1c94E6) |
-| **L2 → L1 Outbox** | [`0xf006c41097861afeb18b05e586b921c081411ee9`](https://etherscan.io/address/0xf006c41097861afeb18b05e586b921c081411ee9) | [`0x5fE63c32b7ca20445e813bDb1019f1FFC5f52376`](https://sepolia.etherscan.io/address/0x5fE63c32b7ca20445e813bDb1019f1FFC5f52376) |
+| **Rollup** | [`0xae2001f7e21d5ecabf6234e9fdd1e76f50f74962`](https://etherscan.io/address/0xae2001f7e21d5ecabf6234e9fdd1e76f50f74962) | [`0xf6D0D42aCE06829bECB78C74F49879528fC632c1`](https://sepolia.etherscan.io/address/0xf6D0D42aCE06829bECB78C74F49879528fC632c1) |
+| **L1 → L2 Inbox** | [`0x8dbf0b6ed495baab6062f5d5365af3c1b2ed4578`](https://etherscan.io/address/0x8dbf0b6ed495baab6062f5d5365af3c1b2ed4578) | [`0xF1bB424AC888Aa239F1E658B5BdDabc65a1c94E6`](https://sepolia.etherscan.io/address/0xF1bB424AC888Aa239F1E658B5BdDabc65a1c94E6) |
+| **L2 → L1 Outbox** | [`0xc9698b7adef9ee63f3bf5cff38086e4e836579f0`](https://etherscan.io/address/0xc9698b7adef9ee63f3bf5cff38086e4e836579f0) | [`0x5fE63c32b7ca20445e813bDb1019f1FFC5f52376`](https://sepolia.etherscan.io/address/0x5fE63c32b7ca20445e813bDb1019f1FFC5f52376) |
 | **Fee Juice** | [`0xa27ec0006e59f245217ff08cd52a7e8b169e62d2`](https://etherscan.io/address/0xa27ec0006e59f245217ff08cd52a7e8b169e62d2) | [`0x762c132040fda6183066fa3b14d985ee55aa3c18`](https://sepolia.etherscan.io/address/0x762c132040fda6183066fa3b14d985ee55aa3c18) |
 | **Staking Asset** | [`0xa27ec0006e59f245217ff08cd52a7e8b169e62d2`](https://etherscan.io/address/0xa27ec0006e59f245217ff08cd52a7e8b169e62d2) | [`0x5595cb9ed193cac2c0bc5393313bc6115817954b`](https://sepolia.etherscan.io/address/0x5595cb9ed193cac2c0bc5393313bc6115817954b) |
-| **Fee Juice Portal** | [`0xe05dc9d5969272831757181fff1532b066254bf1`](https://etherscan.io/address/0xe05dc9d5969272831757181fff1532b066254bf1) | [`0xd3361019e40026ce8a9745c19e67fd3acc10d596`](https://sepolia.etherscan.io/address/0xd3361019e40026ce8a9745c19e67fd3acc10d596) |
+| **Fee Juice Portal** | [`0x2891f8b941067f8b5a3f34545a30cf71e3e23617`](https://etherscan.io/address/0x2891f8b941067f8b5a3f34545a30cf71e3e23617) | [`0xd3361019e40026ce8a9745c19e67fd3acc10d596`](https://sepolia.etherscan.io/address/0xd3361019e40026ce8a9745c19e67fd3acc10d596) |
 | **Fee Asset Handler** | N/A | [`0x5602c39a6e9c5ace589f64f754927bcda4f4bfc9`](https://sepolia.etherscan.io/address/0x5602c39a6e9c5ace589f64f754927bcda4f4bfc9) |
 | **Coin Issuer** | [`0x02fadf157d551aa6d761b2a2237d03af68e41ca6`](https://etherscan.io/address/0x02fadf157d551aa6d761b2a2237d03af68e41ca6) | [`0xe05d0a62045b4237556c1ec423e59eea9a24eaee`](https://sepolia.etherscan.io/address/0xe05d0a62045b4237556c1ec423e59eea9a24eaee) |
 | **Reward Distributor** | [`0x3d6a1b00c830c5f278fc5dfb3f6ff0b74db6dfe0`](https://etherscan.io/address/0x3d6a1b00c830c5f278fc5dfb3f6ff0b74db6dfe0) | [`0x030d2780e70f085c31d490268d3900d4cea16606`](https://sepolia.etherscan.io/address/0x030d2780e70f085c31d490268d3900d4cea16606) |
@@ -53,7 +53,7 @@ The developer SDK/aztec-nr version (used for writing and compiling contracts) ma
 | **Governance Staking Escrow** | [`0xa92ecfd0e70c9cd5e5cd76c50af0f7da93567a4f`](https://etherscan.io/address/0xa92ecfd0e70c9cd5e5cd76c50af0f7da93567a4f) | [`0xb6a38a51a6c1de9012f9d8ea9745ef957212eaac`](https://sepolia.etherscan.io/address/0xb6a38a51a6c1de9012f9d8ea9745ef957212eaac) |
 | **Staking Registry** | [`0x042dF8f42790d6943F41C25C2132400fd727f452`](https://etherscan.io/address/0x042dF8f42790d6943F41C25C2132400fd727f452) | [`0xC6EcC1832c8BF6a41c927BEb4E9ec610FBeDd1C2`](https://sepolia.etherscan.io/address/0xC6EcC1832c8BF6a41c927BEb4E9ec610FBeDd1C2) |
 | **Slash Factory** | N/A | [`0x9CF4a0094c8696d5110dd0f0cF3FA5deA174BB17`](https://sepolia.etherscan.io/address/0x9CF4a0094c8696d5110dd0f0cF3FA5deA174BB17) |
-| **Slasher** | [`0x91a3745c685c220595b997e53311ebf660144889`](https://etherscan.io/address/0x91a3745c685c220595b997e53311ebf660144889) | [`0xf6D0D42aCE06829bECB78C74F49879528fC632c1`](https://sepolia.etherscan.io/address/0xf6D0D42aCE06829bECB78C74F49879528fC632c1) |
+| **Slasher** | [`0x64E6e9Bb9f1E33D319578B9f8a9C719Ca6D46eBb`](https://etherscan.io/address/0x64E6e9Bb9f1E33D319578B9f8a9C719Ca6D46eBb) | [`0xf6D0D42aCE06829bECB78C74F49879528fC632c1`](https://sepolia.etherscan.io/address/0xf6D0D42aCE06829bECB78C74F49879528fC632c1) |
 | **Tally Slashing Proposer** | [`0x7a318c3daa9f21f8fc8238c65755eb0394fbf189`](https://etherscan.io/address/0x7a318c3daa9f21f8fc8238c65755eb0394fbf189) | [`0x158eCC4B24675dc399031c7D144786e3da2060A8`](https://sepolia.etherscan.io/address/0x158eCC4B24675dc399031c7D144786e3da2060A8) |
 | **Honk Verifier** | N/A | [`0x800FbC88054ba6c228B7d822F1DCAf4d627E8F97`](https://sepolia.etherscan.io/address/0x800FbC88054ba6c228B7d822F1DCAf4d627E8F97) |
 | **Register New Rollup Version Payload** | N/A | [`0x11f7Ab2324CA94af929A388477a7959E0108C3d6`](https://sepolia.etherscan.io/address/0x11f7Ab2324CA94af929A388477a7959E0108C3d6) |

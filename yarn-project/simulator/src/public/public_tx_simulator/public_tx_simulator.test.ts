@@ -1,11 +1,4 @@
-import {
-  GAS_ESTIMATION_DA_GAS_LIMIT,
-  GAS_ESTIMATION_L2_GAS_LIMIT,
-  GAS_ESTIMATION_TEARDOWN_DA_GAS_LIMIT,
-  GAS_ESTIMATION_TEARDOWN_L2_GAS_LIMIT,
-  MAX_PROCESSABLE_L2_GAS,
-  NULLIFIER_SUBTREE_HEIGHT,
-} from '@aztec/constants';
+import { MAX_PROCESSABLE_L2_GAS, NULLIFIER_SUBTREE_HEIGHT } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
@@ -14,7 +7,15 @@ import { PublicDataWrite, PublicSimulatorConfig, PublicTxResult, RevertCode } fr
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 import { SimulationError } from '@aztec/stdlib/errors';
-import { Gas, GasFees, GasSettings } from '@aztec/stdlib/gas';
+import {
+  GAS_ESTIMATION_DA_GAS_LIMIT,
+  GAS_ESTIMATION_L2_GAS_LIMIT,
+  GAS_ESTIMATION_TEARDOWN_DA_GAS_LIMIT,
+  GAS_ESTIMATION_TEARDOWN_L2_GAS_LIMIT,
+  Gas,
+  GasFees,
+  GasSettings,
+} from '@aztec/stdlib/gas';
 import { computePublicDataTreeLeafSlot } from '@aztec/stdlib/hash';
 import type { MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
 import { countAccumulatedItems } from '@aztec/stdlib/kernel';

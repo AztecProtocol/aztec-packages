@@ -359,7 +359,9 @@ template <typename Curve> class ShplonkVerifier_ {
         , commitments({ quotient })
         , scalars{ Fr{ 1 } }
     {
-        BB_ASSERT_GT(num_claims, 1U, "Using Shplonk with just one claim. Should use batch reduction.");
+        if (num_claims <= 1U) {
+            throw_or_abort("Using Shplonk with just one claim. Should use batch reduction.");
+        }
         const size_t num_commitments = commitments.size();
         commitments.reserve(num_commitments);
         scalars.reserve(num_commitments);
