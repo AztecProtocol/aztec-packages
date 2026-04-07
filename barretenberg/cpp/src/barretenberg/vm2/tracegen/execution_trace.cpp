@@ -454,9 +454,14 @@ void ExecutionTraceBuilder::process(
 
         // This will only have a value if instruction fetching succeeded.
         std::optional<ExecutionOpCode> exec_opcode;
+        // Set whether instruction fetching failed (sel_parsing_err in instr_fetching.pil).
         const bool error_in_instruction_fetching = ex_event.error == ExecutionError::INSTRUCTION_FETCHING;
+        // If bytecode retrieval failed, we cannot fetch any instructions.
         const bool instruction_fetching_success = !bytecode_retrieval_failed && !error_in_instruction_fetching;
-        trace.set(C::execution_sel_instruction_fetching_failure, row, error_in_instruction_fetching ? 1 : 0);
+        // We use !bytecode_retrieval_failed below to match the #[NO_FETCHING_NO_INSTR_FETCH_ERROR] relation.
+        trace.set(C::execution_sel_instruction_fetching_failure,
+                  row,
+                  (!bytecode_retrieval_failed && error_in_instruction_fetching) ? 1 : 0);
 
         if (instruction_fetching_success) {
             exec_opcode = ex_event.wire_instruction.get_exec_opcode();
@@ -772,7 +777,17 @@ void ExecutionTraceBuilder::process(
     invert_columns(trace);
 }
 
-// TODO(MW): document
+/**
+ * @brief Process instruction fetching in execution and populate the relevant columns in the trace.
+ *
+ * This function is only called when instruction fetching has succeeded (i.e. !bytecode_retrieval_failed &&
+ * !error_in_instruction_fetching), so we can set execution_sel_instruction_fetching_success = 1. See fetching
+ * simulation ([pure_]bytecode_manager.cpp) and instr_fetching.pil for error documentation.
+ *
+ * @param instruction The instruction to process.
+ * @param trace The trace container.
+ * @param row The current row index.
+ */
 void ExecutionTraceBuilder::process_instr_fetching(const simulation::Instruction& instruction,
                                                    TraceContainer& trace,
                                                    uint32_t row)
@@ -785,9 +800,9 @@ void ExecutionTraceBuilder::process_instr_fetching(const simulation::Instruction
                   { C::execution_instr_size, instruction.size_in_bytes() },
               } });
 
-    // At this point we can assume instruction fetching succeeded.
     auto operands = instruction.operands;
     BB_ASSERT_LTE(operands.size(), static_cast<size_t>(AVM_MAX_OPERANDS), "Operands size is out of range");
+    // Pad operands with zeros.
     operands.resize(AVM_MAX_OPERANDS, Operand::from<FF>(0));
 
     for (size_t i = 0; i < AVM_MAX_OPERANDS; i++) {

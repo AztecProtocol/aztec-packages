@@ -295,7 +295,8 @@ Instruction deserialize_instruction(std::span<const uint8_t> bytecode, size_t po
         throw InstrDeserializationError(InstrDeserializationEventError::INSTRUCTION_OUT_OF_RANGE, error_msg);
     }
 
-    pos++; // move after opcode byte // TODO(MW): check
+    // Increment by 1 for the opcode byte.
+    pos++;
 
     uint16_t addressing_mode = 0;
     std::vector<Operand> operands;
