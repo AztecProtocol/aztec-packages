@@ -143,3 +143,64 @@ TYPED_TEST(LogicTest, DifferentWitnessSameResult)
     bool result = CircuitChecker::check(builder);
     EXPECT_EQ(result, false);
 }
+
+// Regression test: OriginTag must propagate through all logic constraint paths.
+TYPED_TEST(LogicTest, OriginTagPropagation)
+{
+    STDLIB_TYPE_ALIASES
+    STANDARD_TESTING_TAGS
+
+    auto builder = Builder();
+    uint256_t a_val = 0xAB;
+    uint256_t b_val = 0xCD;
+
+    // Both witnesses
+    {
+        field_ct x = witness_ct(&builder, a_val);
+        field_ct y = witness_ct(&builder, b_val);
+        x.set_origin_tag(submitted_value_origin_tag);
+        y.set_origin_tag(challenge_origin_tag);
+
+        field_ct and_result = stdlib::logic<Builder>::create_logic_constraint(x, y, 8, false);
+        field_ct xor_result = stdlib::logic<Builder>::create_logic_constraint(x, y, 8, true);
+
+        EXPECT_EQ(and_result.get_origin_tag(), first_two_merged_tag);
+        EXPECT_EQ(xor_result.get_origin_tag(), first_two_merged_tag);
+    }
+
+    // Left constant, right witness
+    {
+        field_ct x_const(&builder, a_val);
+        field_ct y = witness_ct(&builder, b_val);
+        x_const.set_origin_tag(submitted_value_origin_tag);
+        y.set_origin_tag(challenge_origin_tag);
+
+        field_ct result = stdlib::logic<Builder>::create_logic_constraint(x_const, y, 8, false);
+        EXPECT_EQ(result.get_origin_tag(), first_two_merged_tag);
+    }
+
+    // Right constant, left witness
+    {
+        field_ct x = witness_ct(&builder, a_val);
+        field_ct y_const(&builder, b_val);
+        x.set_origin_tag(submitted_value_origin_tag);
+        y_const.set_origin_tag(challenge_origin_tag);
+
+        field_ct result = stdlib::logic<Builder>::create_logic_constraint(x, y_const, 8, false);
+        EXPECT_EQ(result.get_origin_tag(), first_two_merged_tag);
+    }
+
+    // Both constants
+    {
+        field_ct x_const(&builder, a_val);
+        field_ct y_const(&builder, b_val);
+        x_const.set_origin_tag(submitted_value_origin_tag);
+        y_const.set_origin_tag(challenge_origin_tag);
+
+        field_ct result = stdlib::logic<Builder>::create_logic_constraint(x_const, y_const, 8, false);
+        EXPECT_EQ(result.get_origin_tag(), first_two_merged_tag);
+    }
+
+    bool result = CircuitChecker::check(builder);
+    EXPECT_EQ(result, true);
+}
