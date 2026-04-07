@@ -1,6 +1,6 @@
 import { type Account, NO_FROM } from '@aztec/aztec.js/account';
 import { CallAuthorizationRequest } from '@aztec/aztec.js/authorization';
-import { type InteractionWaitOptions, type SendReturn, getGasLimits } from '@aztec/aztec.js/contracts';
+import { type InteractionWaitOptions, type SendReturn, type WaitOpts, getGasLimits } from '@aztec/aztec.js/contracts';
 import type { Aliased, SendOptions } from '@aztec/aztec.js/wallet';
 import { AccountManager } from '@aztec/aztec.js/wallet';
 import type { DefaultAccountEntrypointOptions } from '@aztec/entrypoints/account';
@@ -20,6 +20,7 @@ import {
   SimulationOverrides,
   type TxExecutionRequest,
   type TxSimulationResult,
+  TxStatus,
   collectOffchainEffects,
   mergeExecutionPayloads,
 } from '@aztec/stdlib/tx';
@@ -141,6 +142,18 @@ export class EmbeddedWallet extends BaseWallet {
       gasLimits: opts.fee?.gasSettings?.gasLimits ?? estimated.gasLimits,
       teardownGasLimits: opts.fee?.gasSettings?.teardownGasLimits ?? estimated.teardownGasLimits,
     });
+    const waitOpts: WaitOpts = typeof opts.wait === 'object' ? opts.wait : {};
+
+    if (!waitOpts?.waitForStatus) {
+      // Default to PROPOSED so the wait returns as soon as the tx lands in a proposed L2 block,
+      // rather than waiting until the end of the slot for the checkpoint to be published to L1.
+      // This is what makes MBPS (Multiple Blocks Per Slot) actually improve UX: with CHECKPOINTED
+      // we'd block until L1 inclusion regardless of how early in the slot the tx was sequenced.
+      // The tradeoff is a weaker guarantee — a proposed block only becomes canonical once it (or
+      // a later block in the same slot) is checkpointed, so a tx could be re-orged out if the
+      // proposer fails to publish to L1 (which should be rare, since they'd get slashed for it).
+      waitOpts!.waitForStatus = TxStatus.PROPOSED;
+    }
     return super.sendTx(executionPayload, {
       ...opts,
       fee: { ...opts.fee, gasSettings },
