@@ -7,8 +7,6 @@ import {
   GENESIS_BLOCK_HEADER_HASH as GENESIS_BLOCK_HEADER_HASH_BIGINT,
   INITIAL_CHECKPOINT_NUMBER as INITIAL_CHECKPOINT_NUM_RAW,
   INITIAL_L2_BLOCK_NUM as INITIAL_L2_BLOCK_NUM_RAW,
-  MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT,
-  MAX_PROCESSABLE_L2_GAS,
 } from './constants.gen.js';
 
 // Typescript-land-only constants
@@ -29,14 +27,3 @@ export const INITIAL_CHECKPOINT_NUMBER: CheckpointNumber = CheckpointNumber(INIT
 /** The block header hash for the genesis block 0. */
 // eslint-disable-next-line import-x/export
 export const GENESIS_BLOCK_HEADER_HASH = new Fr(GENESIS_BLOCK_HEADER_HASH_BIGINT);
-
-// Override the default gas limits set in noir-protocol-circuit constants with saner ones
-// Note that these values are not used in noir-land and are only for use in TypeScript code, so we can set them to whatever we want.
-// eslint-disable-next-line import-x/export
-export const DEFAULT_L2_GAS_LIMIT = MAX_PROCESSABLE_L2_GAS;
-// eslint-disable-next-line import-x/export
-export const DEFAULT_TEARDOWN_L2_GAS_LIMIT = DEFAULT_L2_GAS_LIMIT / 8;
-// eslint-disable-next-line import-x/export
-export const DEFAULT_DA_GAS_LIMIT = MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT / 4;
-// eslint-disable-next-line import-x/export
-export const DEFAULT_TEARDOWN_DA_GAS_LIMIT = DEFAULT_DA_GAS_LIMIT / 2;
