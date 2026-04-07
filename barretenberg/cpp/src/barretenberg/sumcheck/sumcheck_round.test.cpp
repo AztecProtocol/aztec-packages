@@ -334,7 +334,7 @@ TEST(SumcheckRound, ComputeEffectiveRoundSizeZK)
     }
 
     size_t effective_size = round.compute_effective_round_size(prover_polynomials);
-    // In round 0, excluded_tail_size = 4 (2 edge pairs of disabled rows)
+    // In round 0, excluded_head_size = 4 (2 edge pairs of disabled rows)
     EXPECT_EQ(effective_size, round_size - 4);
 }
 

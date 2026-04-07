@@ -110,8 +110,6 @@ template <class PCS> class ShpleminiRecursionTest : public CommitmentTest<typena
     {
         size_t N = 1 << log_circuit_size;
 
-        // padding_indicator_array removed: all entries were always 1
-
         CommitmentKey commitment_key(16384);
         std::vector<NativeFr> u_challenge = random_challenge_vector(log_circuit_size);
 
