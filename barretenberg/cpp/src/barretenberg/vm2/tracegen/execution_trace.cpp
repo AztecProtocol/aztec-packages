@@ -291,6 +291,24 @@ uint32_t dying_context_for_phase(TransactionPhase phase, const FailingContexts& 
 
 } // namespace
 
+/**
+ * @brief Process the execution events and populate the relevant columns in the trace. ExecutionError enum
+ *        is used to track the error type of the event. Each error type is mutually exclusive and pertains
+ *        to a specific temporality group. Each temporality group is processed sequentially and an error
+ *        prevents the processing of the subsequent temporality groups.
+ *
+ * Events are emitted in the following flavors (ExecutionError enum):
+ * - Normal execution: all fields populated. (ExecutionError::NONE)
+ * - Bytecode retrieval error: only context fields and error populated, no instruction/addressing/....
+ * - Instruction fetching error: context and bytecode fields populated, no addressing/gas/...
+ * - Addressing error: instruction fetched but operand resolution failed, no gas/opcode/... execution.
+ * - Register read error: addressing succeeded but tag validation failed, no gas/opcode execution.
+ * - Out of gas error: registers read but gas check failed, no opcode execution.
+ * - Opcode execution error: gas consumed but opcode logic failed, no register write.
+ *
+ * @param ex_events Container of ExecutionEvent to process.
+ * @param trace The trace container to populate.
+ */
 void ExecutionTraceBuilder::process(
     const simulation::EventEmitterInterface<simulation::ExecutionEvent>::Container& ex_events, TraceContainer& trace)
 {
@@ -813,6 +831,13 @@ void ExecutionTraceBuilder::process_instr_fetching(const simulation::Instruction
     }
 }
 
+/**
+ * @brief Process the execution specification lookup columns (gas costs, register info, subtrace dispatch).
+ *
+ * @param ex_event The execution event.
+ * @param trace The trace container to populate.
+ * @param row The current row index.
+ */
 void ExecutionTraceBuilder::process_execution_spec(const simulation::ExecutionEvent& ex_event,
                                                    TraceContainer& trace,
                                                    uint32_t row)
@@ -859,6 +884,14 @@ void ExecutionTraceBuilder::process_execution_spec(const simulation::ExecutionEv
               } });
 }
 
+/**
+ * @brief Process gas consumption and populate gas-related columns (OOG flags, addressing gas, dynamic gas).
+ *
+ * @param gas_event The gas event from simulation.
+ * @param exec_opcode The execution opcode.
+ * @param trace The trace container to populate.
+ * @param row The current row index.
+ */
 void ExecutionTraceBuilder::process_gas(const simulation::GasEvent& gas_event,
                                         ExecutionOpCode exec_opcode,
                                         TraceContainer& trace,
@@ -887,6 +920,14 @@ void ExecutionTraceBuilder::process_gas(const simulation::GasEvent& gas_event,
     }
 }
 
+/**
+ * @brief Process addressing resolution and populate operand columns (relative, indirect, resolved values, error flags).
+ *
+ * @param addr_event The addressing event from simulation.
+ * @param instruction The fetched instruction (for addressing mode bits).
+ * @param trace The trace container to populate.
+ * @param row The current row index.
+ */
 void ExecutionTraceBuilder::process_addressing(const simulation::AddressingEvent& addr_event,
                                                const simulation::Instruction& instruction,
                                                TraceContainer& trace,
@@ -1035,6 +1076,11 @@ void ExecutionTraceBuilder::process_addressing(const simulation::AddressingEvent
         } });
 }
 
+/**
+ * @brief Batch-invert all columns that were populated with pre-inversion values during trace generation.
+ *
+ * @param trace The trace container whose columns are inverted in place.
+ */
 void ExecutionTraceBuilder::invert_columns(TraceContainer& trace)
 {
     trace.invert_columns({ {
@@ -1060,6 +1106,17 @@ void ExecutionTraceBuilder::invert_columns(TraceContainer& trace)
     } });
 }
 
+/**
+ * @brief Process register reads: populate register value/tag columns and detect tag check failures.
+ *
+ * @param exec_opcode The execution opcode (determines register layout).
+ * @param inputs The input memory values from simulation.
+ * @param output The output memory value from simulation.
+ * @param registers Output span filled with the register values for downstream use.
+ * @param register_processing_failed Whether a tag check failed during register reading.
+ * @param trace The trace container to populate.
+ * @param row The current row index.
+ */
 void ExecutionTraceBuilder::process_registers(ExecutionOpCode exec_opcode,
                                               const std::vector<MemoryValue>& inputs,
                                               const MemoryValue& output,
@@ -1123,6 +1180,13 @@ void ExecutionTraceBuilder::process_registers(ExecutionOpCode exec_opcode,
               } });
 }
 
+/**
+ * @brief Process register writes: activate the write selector and effective write columns for the opcode.
+ *
+ * @param exec_opcode The execution opcode (determines which registers are written).
+ * @param trace The trace container to populate.
+ * @param row The current row index.
+ */
 void ExecutionTraceBuilder::process_registers_write(ExecutionOpCode exec_opcode, TraceContainer& trace, uint32_t row)
 {
     const auto& register_info = get_exec_instruction_spec().at(exec_opcode).register_info;
@@ -1137,6 +1201,14 @@ void ExecutionTraceBuilder::process_registers_write(ExecutionOpCode exec_opcode,
     }
 }
 
+/**
+ * @brief Process the GETENVVAR opcode: populate environment variable lookup and selector columns.
+ *
+ * @param envvar_enum The environment variable enum operand (must have tag U8).
+ * @param output The output memory value produced by simulation.
+ * @param trace The trace container to populate.
+ * @param row The current row index.
+ */
 void ExecutionTraceBuilder::process_get_env_var_opcode(Operand envvar_enum,
                                                        MemoryValue output,
                                                        TraceContainer& trace,
