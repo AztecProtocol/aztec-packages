@@ -266,7 +266,7 @@ locals {
         local.validator_common_settings,
         local.validator_ha_settings,
         {
-          "validator.replicaCount"                        = idx > 0 ? coalesce(var.VALIDATOR_HA_REPLICA_COUNT, var.VALIDATOR_REPLICAS) : var.VALIDATOR_REPLICAS
+          "validator.replicaCount"                        = idx > 0 ? coalesce(var.VALIDATOR_HA_REPLICA_COUNT, var.VALIDATOR_REPLICAS) : coalesce(var.VALIDATOR_PRIMARY_REPLICA_COUNT, var.VALIDATOR_REPLICAS)
           "validator.node.env.VALIDATOR_HA_REPLICA_INDEX" = tostring(idx)
           "validator.node.env.PUBLISHER_KEY_INDEX_START"  = var.VALIDATOR_PUBLISHER_MNEMONIC_START_INDEX + (idx * (var.VALIDATOR_PUBLISHERS_PER_REPLICA * var.VALIDATOR_REPLICAS))
           "validator.service.p2p.announcePort"            = local.p2p_port_validators[idx]

@@ -241,6 +241,12 @@ variable "VALIDATOR_REPLICAS" {
   default     = 4
 }
 
+variable "VALIDATOR_PRIMARY_REPLICA_COUNT" {
+  description = "Number of pod replicas for the primary validator release. Defaults to VALIDATOR_REPLICAS if not set."
+  type        = number
+  default     = null
+}
+
 variable "VALIDATOR_HA_REPLICAS" {
   description = "Number of additional HA validator releases (0 = no HA, 1 = primary + 1 HA, etc.)"
   type        = number
