@@ -565,6 +565,7 @@ template <typename Builder_> class field_t {
 
         bool predicate_witness = uint256_t(a.get_value()) < uint256_t(b.get_value());
         bool_t<Builder> predicate(witness_t<Builder>(ctx, predicate_witness));
+        predicate.set_origin_tag(OriginTag(a.get_origin_tag(), b.get_origin_tag()));
         field_t predicate_valid = b.add_two(-(a) + range_constant - 1, -field_t(predicate) * range_constant);
         predicate_valid.create_range_constraint(num_bits);
         return predicate;

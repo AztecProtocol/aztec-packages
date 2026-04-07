@@ -144,6 +144,43 @@ TYPED_TEST(LogicTest, DifferentWitnessSameResult)
     EXPECT_EQ(result, false);
 }
 
+TYPED_TEST(LogicTest, OriginTagConsistency)
+{
+    STDLIB_TYPE_ALIASES
+    auto builder = Builder();
+
+    const size_t parent_id = 0;
+    const auto tag_a = OriginTag(parent_id, /*round_id=*/0, /*is_submitted=*/true);
+    const auto tag_b = OriginTag(parent_id, /*round_id=*/0, /*is_submitted=*/false);
+    const auto merged_tag = OriginTag(tag_a, tag_b);
+
+    uint256_t a_val = 0x0f;
+    uint256_t b_val = 0xa3;
+
+    // Witness-witness path
+    field_ct x = witness_ct(&builder, a_val);
+    field_ct y = witness_ct(&builder, b_val);
+    x.set_origin_tag(tag_a);
+    y.set_origin_tag(tag_b);
+    field_ct and_result = stdlib::logic<Builder>::create_logic_constraint(x, y, 8, false);
+    EXPECT_EQ(and_result.get_origin_tag(), merged_tag);
+
+    field_ct xor_result = stdlib::logic<Builder>::create_logic_constraint(x, y, 8, true);
+    EXPECT_EQ(xor_result.get_origin_tag(), merged_tag);
+
+    // Constant-witness path (left constant)
+    field_ct x_const(&builder, a_val);
+    x_const.set_origin_tag(tag_a);
+    field_ct and_result_lc = stdlib::logic<Builder>::create_logic_constraint(x_const, y, 8, false);
+    EXPECT_EQ(and_result_lc.get_origin_tag(), merged_tag);
+
+    // Constant-witness path (right constant)
+    field_ct y_const(&builder, b_val);
+    y_const.set_origin_tag(tag_b);
+    field_ct and_result_rc = stdlib::logic<Builder>::create_logic_constraint(x, y_const, 8, false);
+    EXPECT_EQ(and_result_rc.get_origin_tag(), merged_tag);
+}
+
 // Regression test: OriginTag must propagate through all logic constraint paths.
 TYPED_TEST(LogicTest, OriginTagPropagation)
 {
