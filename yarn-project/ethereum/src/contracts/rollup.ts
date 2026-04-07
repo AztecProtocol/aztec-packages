@@ -1323,23 +1323,6 @@ export class RollupContract {
       }));
   }
 
-  /** Compresses a FeeHeader into a uint256 following the FeeHeaderLib bit layout in Solidity. */
-  static compressFeeHeader(fh: FeeHeader): bigint {
-    const MASK_32 = (1n << 32n) - 1n;
-    const MASK_48 = (1n << 48n) - 1n;
-    const MASK_63 = (1n << 63n) - 1n;
-    const MASK_64 = (1n << 64n) - 1n;
-
-    let value = 0n;
-    value |= fh.manaUsed & MASK_32;
-    value |= (fh.excessMana < MASK_48 ? fh.excessMana : MASK_48) << 32n;
-    value |= (fh.ethPerFeeAsset & MASK_48) << 80n;
-    value |= (fh.congestionCost < MASK_64 ? fh.congestionCost : MASK_64) << 128n;
-    value |= (fh.proverCost < MASK_63 ? fh.proverCost : MASK_63) << 192n;
-    value |= 1n << 255n; // preheat bit
-    return value;
-  }
-
   /** Packs pending and proven checkpoint numbers into the chain tips storage format. */
   static packChainTips(pendingCheckpointNumber: bigint, provenCheckpointNumber: bigint): bigint {
     return (pendingCheckpointNumber << 128n) | (provenCheckpointNumber & ((1n << 128n) - 1n));
