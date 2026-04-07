@@ -253,9 +253,9 @@ export abstract class BaseWallet implements Wallet {
   /**
    * Returns the worst-case min fee across predicted future slots.
    * Falls back to getCurrentMinFees if the node doesn't support getPredictedMinFees.
-   * @param estimate - The mana usage estimate to use for fee prediction. Defaults to Target (steady state).
+   * @param estimate - The mana usage estimate to use for fee prediction. Defaults to Limit for conservative estimation.
    */
-  protected async getMinFees(estimate: ManaUsageEstimate = ManaUsageEstimate.Target): Promise<GasFees> {
+  protected async getMinFees(estimate: ManaUsageEstimate = ManaUsageEstimate.Limit): Promise<GasFees> {
     try {
       const predicted = await this.aztecNode.getPredictedMinFees(estimate);
       if (predicted.length === 0) {
