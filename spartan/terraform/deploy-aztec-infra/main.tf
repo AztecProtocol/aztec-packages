@@ -89,6 +89,11 @@ locals {
     tag        = split(":", var.PROVER_AGENT_DOCKER_IMAGE)[1]
   } : local.aztec_image
 
+  validator_ha_image = var.VALIDATOR_HA_DOCKER_IMAGE != "" ? {
+    repository = split(":", var.VALIDATOR_HA_DOCKER_IMAGE)[0]
+    tag        = split(":", var.VALIDATOR_HA_DOCKER_IMAGE)[1]
+  } : local.aztec_image
+
   # Detect local kind context (e.g., "kind-kind") to gate Service types
   is_kind = can(regex("^kind", var.K8S_CLUSTER_CONTEXT))
 
@@ -266,7 +271,12 @@ locals {
           "validator.node.env.PUBLISHER_KEY_INDEX_START"  = var.VALIDATOR_PUBLISHER_MNEMONIC_START_INDEX + (idx * (var.VALIDATOR_PUBLISHERS_PER_REPLICA * var.VALIDATOR_REPLICAS))
           "validator.service.p2p.announcePort"            = local.p2p_port_validators[idx]
           "validator.service.p2p.port"                    = local.p2p_port_validators[idx]
-        }
+        },
+        # Override image for HA releases (idx > 0) when VALIDATOR_HA_DOCKER_IMAGE is set
+        idx > 0 && var.VALIDATOR_HA_DOCKER_IMAGE != "" ? {
+          "global.aztecImage.repository" = local.validator_ha_image.repository
+          "global.aztecImage.tag"        = local.validator_ha_image.tag
+        } : {}
       )
     })
   } : {}

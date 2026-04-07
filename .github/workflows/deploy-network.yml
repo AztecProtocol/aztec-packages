@@ -30,6 +30,10 @@ on:
         required: false
         type: boolean
         default: false
+      ha_docker_image:
+        description: "Full docker image for HA validator nodes (optional, defaults to aztec docker image)"
+        required: false
+        type: string
       source_tag:
         description: "Source tag that triggered this deploy"
         required: false
@@ -62,6 +66,10 @@ on:
         required: false
         type: boolean
         default: false
+      ha_docker_image:
+        description: "Full docker image for HA validator nodes (optional, defaults to aztec docker image)"
+        required: false
+        type: string
       source_tag:
         description: "Source tag that triggered this deploy"
         required: false
@@ -172,6 +180,7 @@ jobs:
           AZTEC_DOCKER_IMAGE: "aztecprotocol/aztec:${{ inputs.docker_image_tag || inputs.semver }}"
           CREATE_ROLLUP_CONTRACTS: ${{ inputs.deploy_contracts == true && 'true' || '' }}
           PROVER_AGENT_DOCKER_IMAGE: "aztecprotocol/aztec-prover-agent:${{ inputs.docker_image_tag || inputs.semver }}"
+          VALIDATOR_HA_DOCKER_IMAGE: ${{ inputs.ha_docker_image || '' }}
         run: |
           echo "Deploying network: ${{ inputs.network }}"
           echo "Using image: $AZTEC_DOCKER_IMAGE"

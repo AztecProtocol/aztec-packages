@@ -123,6 +123,12 @@ variable "PROVER_AGENT_DOCKER_IMAGE" {
   default     = ""
 }
 
+variable "VALIDATOR_HA_DOCKER_IMAGE" {
+  description = "Docker image for HA validator releases. When set, HA releases (idx > 0) use this image instead of AZTEC_DOCKER_IMAGE."
+  type        = string
+  default     = ""
+}
+
 variable "VALIDATOR_VALUES" {
   description = "The values file to apply"
   type        = string
