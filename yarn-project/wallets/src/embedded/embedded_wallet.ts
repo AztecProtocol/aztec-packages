@@ -28,11 +28,7 @@ import type { AccountContractsProvider } from './account-contract-providers/type
 import { type AccountType, WalletDB } from './wallet_db.js';
 
 /** Options for the PXE instance created by the EmbeddedWallet. */
-export type EmbeddedWalletPXEOptions = Partial<PXEConfig> &
-  PXECreationOptions & {
-    /** Whether to generate real proofs. Defaults to false. */
-    proverEnabled?: boolean;
-  };
+export type EmbeddedWalletPXEOptions = Partial<PXEConfig> & PXECreationOptions;
 
 /** Splits a unified EmbeddedWalletPXEOptions into PXEConfig overrides and PXECreationOptions. */
 export function splitPxeOptions(pxe?: EmbeddedWalletPXEOptions): {
