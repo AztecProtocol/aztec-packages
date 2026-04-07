@@ -445,7 +445,7 @@ locals {
             type    = local.is_kind ? "ClusterIP" : "LoadBalancer"
           }
         }
-        })])
+      })])
 
       custom_settings = merge({
         "replicaCount"                = var.RPC_REPLICAS
@@ -474,7 +474,7 @@ locals {
         "node.env.TX_FILE_STORE_ENABLED"              = var.TX_FILE_STORE_ENABLED
         "node.env.TX_FILE_STORE_URL"                  = var.TX_FILE_STORE_URL
         "node.env.TX_COLLECTION_FILE_STORE_URLS"      = var.TX_COLLECTION_FILE_STORE_URLS
-      }
+      })
       boot_node_host_path  = "node.env.BOOT_NODE_HOST"
       bootstrap_nodes_path = "node.env.BOOTSTRAP_NODES"
       wait                 = true
