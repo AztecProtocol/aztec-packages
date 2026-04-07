@@ -5,6 +5,7 @@
 The audit covers:
 - **PIL constraint files** (`.pil`) -- the source of truth for all relation constraints. These define what constitutes a valid trace.
 - **Hand-optimized C++ relations** -- only where they replace auto-generated code (currently `poseidon2_perm`). These must be audited for semantic equivalence to their PIL source.
+- **Hand-written AVM assembly** (scope 13) -- the MSM transpiler procedure (`avm-transpiler/src/procedures/`). This is executable code whose correctness the circuit faithfully proves; a bug here means wrong results, not a constraint bypass.
 
 The audit does **not** cover:
 - **Test files** (`.test.cpp`) -- listed in each scope doc for reference. These are not auditable artifacts but provide useful context for understanding expected behavior and edge cases.
@@ -14,7 +15,7 @@ The audit does **not** cover:
 
 ## Audit Scopes
 
-The AVM circuit audit is organized into 12 layered scopes, each building on prerequisites from earlier scopes. The table below shows the order, scope name, file reference, PIL file count, and approximate PIL line count.
+The AVM circuit audit is organized into 13 layered scopes, each building on prerequisites from earlier scopes. The table below shows the order, scope name, file reference, PIL file count, and approximate PIL line count.
 
 | # | Scope | File | PIL | ~Lines of PIL |
 |---|-------|------|-----|---------------|
@@ -30,8 +31,9 @@ The AVM circuit audit is organized into 12 layered scopes, each building on prer
 | 10 | Hash Gadgets and Memory-Aware Wrappers | [`audit_scope_avm_hash_gadgets_and_mem_wrappers.md`](audit_scope_avm_hash_gadgets_and_mem_wrappers.md) | 7 | 2,460 |
 | 11 | Tree and Side-Effect Opcode Wrappers | [`audit_scope_avm_tree_and_side_effect_opcodes.md`](audit_scope_avm_tree_and_side_effect_opcodes.md) | 8 | 510 |
 | 12 | Remaining Opcodes (Data Copy, GetEnvVar) | [`audit_scope_avm_remaining_opcodes.md`](audit_scope_avm_remaining_opcodes.md) | 2 | 390 |
+| 13 | MSM Transpiler Procedure | [`audit_scope_avm_msm_procedure.md`](audit_scope_avm_msm_procedure.md) | 0 | 57 instructions |
 
-**Total: 64 PIL files, ~11,900 lines of PIL** across all scopes (some PIL files like `public_inputs.pil` appear in limited scope in multiple audits). Line counts exclude comments and blank lines.
+**Total: 64 PIL files, ~11,900 lines of PIL** across all scopes (some PIL files like `public_inputs.pil` appear in limited scope in multiple audits). Scope 13 covers hand-written AVM assembly (Rust, not PIL). Line counts exclude comments and blank lines.
 
 ## Dependency Diagram
 
@@ -166,6 +168,10 @@ graph TB
         s12_gev[get_env_var]
     end
 
+    subgraph S13["13. MSM Procedure"]
+        s13_msm[msm assembly]
+    end
+
     %% Inter-scope dependencies enforce vertical layout
     S1 --> S2
     S1 --> S4
@@ -184,6 +190,10 @@ graph TB
     S8 --> S11
     S7 --> S12
     S8 --> S12
+    S5 --> S13
+    S8 --> S13
+    S9 --> S13
+    S10 --> S13
 ```
 
 **Legend:** Solid arrows (`-->`) indicate a dependency (target depends on source). Undirected links (`---`) indicate virtual gadgets that share rows with the same trace. Bidirectional arrows (`<-->`) indicate mutual lookups between traces. Arrows between scope boxes show inter-scope prerequisites.
@@ -206,6 +216,7 @@ Each scope lists its direct prerequisites. The full prerequisite chains are:
 | **10. Hash Gadgets & Mem Wrappers** | 1, 2, 5, 8, 9 |
 | **11. Tree & Side-Effect Opcodes** | 1, 2, 3, 6, 8 |
 | **12. Remaining Opcodes** | 1, 3, 7, 8 |
+| **13. MSM Transpiler Procedure** | 5, 8, 9, 10 |
 
 ## Recommended Audit Order
 
@@ -216,6 +227,7 @@ The scopes are numbered in a valid topological order. However, there is parallel
 - **Phase 3** (depends on 1+2): Scopes 3, 5
 - **Phase 4** (depends on 1-3+8): Scopes 6, 7, 9
 - **Phase 5** (depends on many): Scopes 10, 11, 12 (can be done in parallel)
+- **Phase 6** (depends on 5+8+9+10): Scope 13
 
 ## PIL File Coverage
 
@@ -235,6 +247,7 @@ Every PIL file under `barretenberg/cpp/pil/vm2` is covered by exactly one audit 
 | 10 | `sha256`, `sha256_mem`, `keccakf1600`, `keccak_memory`, `poseidon2_mem`, `ecc_mem`, `to_radix_mem` |
 | 11 | `opcodes/emit_nullifier`, `opcodes/emit_notehash`, `opcodes/nullifier_exists`, `opcodes/notehash_exists`, `opcodes/l1_to_l2_message_exists`, `opcodes/sload`, `opcodes/sstore`, `opcodes/get_contract_instance` |
 | 12 | `data_copy`, `opcodes/get_env_var`, `public_inputs` (limited) |
+| 13 | _(no PIL files -- covers hand-written AVM assembly in `avm-transpiler/src/procedures/`)_ |
 
 ## Reference Documentation
 
