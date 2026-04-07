@@ -131,7 +131,7 @@ describe('Oracle Version Check test suite', () => {
         txContext: TxContext.from({
           chainId: new Fr(10),
           version: new Fr(20),
-          gasSettings: GasSettings.default({ maxFeesPerGas: new GasFees(10, 10) }),
+          gasSettings: GasSettings.fallback({ maxFeesPerGas: new GasFees(10, 10) }),
         }),
         argsOfCalls: [hashedArguments],
         authWitnesses: [],
