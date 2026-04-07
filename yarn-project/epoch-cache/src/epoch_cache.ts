@@ -51,6 +51,7 @@ export interface EpochCacheInterface {
   /** Returns epoch/slot info for the next L1 slot with pipeline offset applied. */
   getTargetEpochAndSlotInNextL1Slot(): EpochAndSlot & { nowSeconds: bigint };
   isProposerPipeliningEnabled(): boolean;
+  pipeliningOffset(): number;
   isEscapeHatchOpen(epoch: EpochNumber): Promise<boolean>;
   isEscapeHatchOpenAtSlot(slot: SlotTag): Promise<boolean>;
   getProposerIndexEncoding(epoch: EpochNumber, slot: SlotNumber, seed: bigint): `0x${string}`;
@@ -167,6 +168,10 @@ export class EpochCache implements EpochCacheInterface {
 
   public isProposerPipeliningEnabled(): boolean {
     return this.enableProposerPipelining;
+  }
+
+  public pipeliningOffset(): number {
+    return this.enableProposerPipelining ? PROPOSER_PIPELINING_SLOT_OFFSET : 0;
   }
 
   public getSlotNow(): SlotNumber {
