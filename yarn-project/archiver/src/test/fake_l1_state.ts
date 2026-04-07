@@ -1,6 +1,6 @@
-import { INITIAL_CHECKPOINT_NUMBER } from '@aztec/constants';
 import type { BlobClientInterface } from '@aztec/blob-client/client';
 import { type Blob, getBlobsPerL1Block, getPrefixedEthBlobCommitments } from '@aztec/blob-lib';
+import { INITIAL_CHECKPOINT_NUMBER } from '@aztec/constants';
 import type { CheckpointProposedLog, InboxContract, MessageSentLog, RollupContract } from '@aztec/ethereum/contracts';
 import { MULTI_CALL_3_ADDRESS } from '@aztec/ethereum/contracts';
 import type { ViemPublicClient } from '@aztec/ethereum/types';

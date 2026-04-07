@@ -2178,7 +2178,6 @@ describe('KVArchiverDataStore', () => {
       await store.removeL1ToL2Messages(msgs[13].index);
       await checkMessages(msgs.slice(0, 13));
     });
-
   });
 
   describe('contractInstances', () => {

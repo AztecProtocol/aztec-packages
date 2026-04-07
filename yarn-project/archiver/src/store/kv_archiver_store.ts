@@ -592,7 +592,7 @@ export class KVArchiverDataStore implements ContractDataSource {
     return this.#messageStore.rollbackL1ToL2MessagesToCheckpoint(targetCheckpointNumber);
   }
 
-  async setMessageSynchedL1Block(l1Block: L1BlockId) {
+  setMessageSynchedL1Block(l1Block: L1BlockId) {
     return this.#messageStore.setSynchedL1Block(l1Block);
   }
 
