@@ -52,7 +52,10 @@ export class NetCrs {
    */
   async streamG1Data(): Promise<ReadableStream<Uint8Array>> {
     const response = await this.fetchG1Data();
-    return response.body!;
+    if (!response.body) {
+      throw new Error('CRS G1 download response has no body stream');
+    }
+    return response.body;
   }
 
   /**
@@ -60,7 +63,10 @@ export class NetCrs {
    */
   async streamG2Data(): Promise<ReadableStream<Uint8Array>> {
     const response = await this.fetchG2Data();
-    return response.body!;
+    if (!response.body) {
+      throw new Error('CRS G2 download response has no body stream');
+    }
+    return response.body;
   }
 
   /**
@@ -159,7 +165,10 @@ export class NetGrumpkinCrs {
    */
   async streamG1Data(): Promise<ReadableStream<Uint8Array>> {
     const response = await this.fetchG1Data();
-    return response.body!;
+    if (!response.body) {
+      throw new Error('Grumpkin CRS G1 download response has no body stream');
+    }
+    return response.body;
   }
 
   /**
