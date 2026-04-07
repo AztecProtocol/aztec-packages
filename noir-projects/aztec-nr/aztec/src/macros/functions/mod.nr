@@ -150,7 +150,7 @@ pub comptime fn noinitcheck(f: FunctionDefinition) {
 /// note was created in a previous transaction (a settled note) or in the current one (a pending note), either in the
 /// current or previous phase. Because `allow_phase_change` functions can change phases, this metadata can be left
 /// stale, e.g. it is possible to read a pending current phase note and then change phases, resulting in the note being
-/// pending previous phase insted.
+/// pending previous phase instead.
 ///
 /// Such a note would be rejected by the kernels if it was tried to be nullified, as the metadata is incorrect. It is
 /// therefore important to not allow [`ConfirmedNote`](crate::note::ConfirmedNote),
