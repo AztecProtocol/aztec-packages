@@ -16,8 +16,6 @@ export type PXECreationOptions = {
 /** Checks if the given value implements the PrivateKernelProver interface via duck-typing. */
 export function isPrivateKernelProver(value: unknown): value is PrivateKernelProver {
   return (
-    typeof value === 'object' &&
-    value !== null &&
-    typeof (value as PrivateKernelProver).createChonkProof === 'function'
+    typeof value === 'object' && value !== null && typeof (value as PrivateKernelProver).createChonkProof === 'function'
   );
 }
