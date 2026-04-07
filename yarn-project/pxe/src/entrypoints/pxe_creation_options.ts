@@ -18,7 +18,6 @@ export function isPrivateKernelProver(value: unknown): value is PrivateKernelPro
   return (
     typeof value === 'object' &&
     value !== null &&
-    typeof (value as PrivateKernelProver).generateInitOutput === 'function' &&
-    typeof (value as PrivateKernelProver).generateTailOutput === 'function'
+    typeof (value as PrivateKernelProver).createChonkProof === 'function'
   );
 }
