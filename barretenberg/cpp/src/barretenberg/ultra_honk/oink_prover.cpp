@@ -22,9 +22,8 @@ namespace bb {
 template <typename Flavor> void OinkProver<Flavor>::prove(bool emit_alpha)
 {
     BB_BENCH_NAME("OinkProver::prove");
-    // For ZK, we need SRS points up to dyadic_size for tail masking commitments
-    const size_t ck_size =
-        Flavor::HasZK ? prover_instance->dyadic_size() : prover_instance->polynomials.max_end_index();
+    // With top-of-trace masking, all masking values are at low indices — no extra SRS needed for ZK.
+    const size_t ck_size = prover_instance->polynomials.max_end_index();
     commitment_key = CommitmentKey(ck_size);
 
     send_vk_hash_and_public_inputs();
@@ -188,8 +187,8 @@ template <typename Flavor> void OinkProver<Flavor>::commit_to_z_perm()
 template <typename Flavor> void OinkProver<Flavor>::commit_to_masking_poly()
 {
     if constexpr (flavor_has_gemini_masking<Flavor>()) {
-        // Create a random masking polynomial for Gemini
-        const size_t polynomial_size = prover_instance->dyadic_size();
+        // Gemini masking poly only needs to cover the actual polynomial extent, not full dyadic size
+        const size_t polynomial_size = prover_instance->polynomials.max_end_index();
         prover_instance->polynomials.gemini_masking_poly = Polynomial<FF>::random(polynomial_size);
 
         // Commit to the masking polynomial and send to transcript

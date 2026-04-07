@@ -134,8 +134,6 @@ template <typename Flavor> void UltraProver_<Flavor>::execute_pcs()
     polynomial_batcher.set_unshifted(prover_instance->polynomials.get_unshifted());
     polynomial_batcher.set_to_be_shifted_by_one(prover_instance->polynomials.get_to_be_shifted());
 
-    // With in-place masking, polynomial commitments already include masking values — no tail batching needed.
-
     OpeningClaim prover_opening_claim;
     if constexpr (!Flavor::HasZK) {
         prover_opening_claim = ShpleminiProver_<Curve>::prove(

@@ -286,8 +286,6 @@ void BatchedHonkTranslatorProver::execute_joint_pcs()
     auto joint_shifted = concatenate(mega_zk_shifted, trans_shifted);
     polynomial_batcher.set_to_be_shifted_by_one(joint_shifted);
 
-    // With in-place masking, polynomial commitments already include masking values — no tail batching needed.
-
     const OpeningClaim prover_opening_claim =
         ShpleminiProver_<Curve>::prove(joint_circuit_size,
                                        polynomial_batcher,

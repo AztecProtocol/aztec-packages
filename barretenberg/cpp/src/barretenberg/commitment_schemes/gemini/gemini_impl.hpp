@@ -118,24 +118,29 @@ std::vector<typename GeminiProver_<Curve>::Polynomial> GeminiProver_<Curve>::com
     constexpr size_t fold_iteration_cost =
         (2 * thread_heuristics::FF_ADDITION_COST) + thread_heuristics::FF_MULTIPLICATION_COST;
 
+    // Track the actual data extent through fold rounds. Only non-zero coefficients need folding;
+    // beyond this extent, all values are zero and contribute nothing.
+    size_t actual_size = A_0.end_index();
+
     // Reserve and allocate space for m-1 Fold polynomials, the foldings of the full batched polynomial A₀
     std::vector<Polynomial> fold_polynomials;
     fold_polynomials.reserve(virtual_log_n - 1);
     for (size_t l = 0; l < log_n - 1; ++l) {
-        // size of the previous polynomial/2
-        const size_t n_l = 1 << (log_n - l - 1);
+        const size_t fold_size = (actual_size + 1) / 2;
 
         // A_l_fold = Aₗ₊₁(X) = (1-uₗ)⋅even(Aₗ)(X) + uₗ⋅odd(Aₗ)(X)
-        fold_polynomials.emplace_back(Polynomial(n_l));
+        fold_polynomials.emplace_back(Polynomial(fold_size));
+        actual_size = fold_size;
     }
 
     // A_l = Aₗ(X) is the polynomial being folded
     // in the first iteration, we take the batched polynomial
     // in the next iteration, it is the previously folded one
+    actual_size = A_0.end_index();
     auto A_l = A_0.data();
     for (size_t l = 0; l < log_n - 1; ++l) {
-        // size of the previous polynomial/2
-        const size_t n_l = 1 << (log_n - l - 1);
+        const size_t fold_size = (actual_size + 1) / 2;
+        const size_t num_pairs = actual_size / 2; // number of full even/odd pairs
 
         // Opening point is the same for all
         const Fr u_l = multilinear_challenge[l];
@@ -144,7 +149,7 @@ std::vector<typename GeminiProver_<Curve>::Polynomial> GeminiProver_<Curve>::com
         auto A_l_fold = fold_polynomials[l].data();
 
         parallel_for_heuristic(
-            n_l,
+            num_pairs,
             [&](size_t j) {
                 // fold(Aₗ)[j] = (1-uₗ)⋅even(Aₗ)[j] + uₗ⋅odd(Aₗ)[j]
                 //            = (1-uₗ)⋅Aₗ[2j]      + uₗ⋅Aₗ[2j+1]
@@ -152,8 +157,13 @@ std::vector<typename GeminiProver_<Curve>::Polynomial> GeminiProver_<Curve>::com
                 A_l_fold[j] = A_l[j << 1] + u_l * (A_l[(j << 1) + 1] - A_l[j << 1]);
             },
             fold_iteration_cost);
+        // If odd number of coefficients, the last one has no partner (implicitly 0)
+        if (actual_size & 1) {
+            A_l_fold[num_pairs] = A_l[actual_size - 1] * (Fr(1) - u_l);
+        }
         // set Aₗ₊₁ = Aₗ for the next iteration
         A_l = A_l_fold;
+        actual_size = fold_size;
     }
 
     // Virtual rounds (indices log_n .. virtual_log_n - 1).
