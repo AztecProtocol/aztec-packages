@@ -2,8 +2,11 @@
  * @brief Benchmark for root rollup circuit proving and verification.
  *
  * Constructs the root rollup circuit (2 recursive Honk verifications + IPA verification)
- * and benchmarks the full UltraZK proving pipeline. This is the same circuit as the
+ * and benchmarks the full proving pipeline. This is the same circuit as the
  * GateCountRootRollup test in honk_recursion_constraint.test.cpp, but exercises the prover.
+ *
+ * Uses UltraKeccakZKFlavor which matches production: bb prove --scheme ultra_honk --oracle_hash keccak
+ * (RootRollupArtifact maps to 'ultra_keccak_honk' in yarn-project/bb-prover/src/bb/execute.ts)
  *
  * Usage:
  *   HARDWARE_CONCURRENCY=32 ./bin/root_rollup_bench
@@ -24,6 +27,7 @@
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders.hpp"
 #include "barretenberg/stdlib_circuit_builders/mock_circuits.hpp"
 #include "barretenberg/ultra_honk/prover_instance.hpp"
+#include "barretenberg/flavor/ultra_keccak_zk_flavor.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
 
@@ -199,9 +203,12 @@ static void root_rollup_prove(benchmark::State& state)
         info("Root rollup circuit: ", num_gates, " gates");
 
         info("Creating prover instance...");
-        auto prover_instance = std::make_shared<ProverInstance_<UltraZKFlavor>>(builder);
+        // Production root rollup uses UltraKeccakZKFlavor (keccak transcript, ZK blinding).
+        // bb prove --scheme ultra_honk --oracle_hash keccak
+        // See yarn-project/bb-prover/src/bb/execute.ts and dispatch_by_settings() in bbapi_shared.hpp.
+        auto prover_instance = std::make_shared<ProverInstance_<UltraKeccakZKFlavor>>(builder);
         auto verification_key =
-            std::make_shared<UltraZKFlavor::VerificationKey>(prover_instance->get_precomputed());
+            std::make_shared<UltraKeccakZKFlavor::VerificationKey>(prover_instance->get_precomputed());
 
         size_t dyadic_size = prover_instance->dyadic_size();
         info("Dyadic size: ", dyadic_size, " (log2: ", numeric::get_msb(dyadic_size), ")");
@@ -209,7 +216,7 @@ static void root_rollup_prove(benchmark::State& state)
         size_t rss_before = get_peak_rss_mib();
         info("Peak RSS before proving: ", rss_before, " MiB");
 
-        UltraZKProver prover(prover_instance, verification_key);
+        UltraKeccakZKProver prover(prover_instance, verification_key);
 
         info("Starting proof construction...");
         state.ResumeTiming();
@@ -222,8 +229,8 @@ static void root_rollup_prove(benchmark::State& state)
         info("Peak RSS after proving: ", rss_after, " MiB");
 
         info("Verifying proof...");
-        auto vk_and_hash = std::make_shared<UltraZKFlavor::VKAndHash>(verification_key);
-        UltraZKVerifier verifier(vk_and_hash);
+        auto vk_and_hash = std::make_shared<UltraKeccakZKFlavor::VKAndHash>(verification_key);
+        UltraKeccakZKVerifier verifier(vk_and_hash);
         auto output = verifier.verify_proof(proof);
         info(output.result ? "Proof verified successfully" : "ERROR: Proof verification FAILED");
 
