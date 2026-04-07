@@ -22,12 +22,12 @@
 #include "barretenberg/dsl/acir_format/serde/index.hpp"
 #include "barretenberg/dsl/acir_format/utils.hpp"
 #include "barretenberg/dsl/acir_format/witness_constant.hpp"
+#include "barretenberg/flavor/ultra_keccak_zk_flavor.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/special_public_inputs/special_public_inputs.hpp"
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders.hpp"
 #include "barretenberg/stdlib_circuit_builders/mock_circuits.hpp"
 #include "barretenberg/ultra_honk/prover_instance.hpp"
-#include "barretenberg/flavor/ultra_keccak_zk_flavor.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
 
@@ -78,15 +78,15 @@ Acir::Opcode recursion_constraint_to_acir_opcode(const RecursionConstraint& cons
         public_inputs.push_back(witness_to_function_input(pub_input_idx));
     }
     return Acir::Opcode{ .value = Acir::Opcode::BlackBoxFuncCall{
-                              .value = Acir::BlackBoxFuncCall{
-                                  .value = Acir::BlackBoxFuncCall::RecursiveAggregation{
-                                      .verification_key = std::move(verification_key),
-                                      .proof = std::move(proof),
-                                      .public_inputs = std::move(public_inputs),
-                                      .key_hash = witness_to_function_input(constraint.key_hash),
-                                      .proof_type = constraint.proof_type,
-                                      .predicate = witness_or_constant_to_function_input(constraint.predicate),
-                                  } } } };
+                             .value = Acir::BlackBoxFuncCall{
+                                 .value = Acir::BlackBoxFuncCall::RecursiveAggregation{
+                                     .verification_key = std::move(verification_key),
+                                     .proof = std::move(proof),
+                                     .public_inputs = std::move(public_inputs),
+                                     .key_hash = witness_to_function_input(constraint.key_hash),
+                                     .proof_type = constraint.proof_type,
+                                     .predicate = witness_or_constant_to_function_input(constraint.predicate),
+                                 } } } };
 }
 
 AcirFormat constraints_to_acir_format(const std::vector<RecursionConstraint>& constraints)
@@ -129,14 +129,14 @@ std::pair<RecursionConstraint, WitnessVector> circuit_to_recursion_constraint(In
     auto proof = prover.construct_proof();
 
     WitnessVector witness_values;
-    RecursionConstraint constraint = recursion_data_to_recursion_constraint(witness_values,
-                                                                            proof,
-                                                                            verification_key->to_field_elements(),
-                                                                            verification_key->hash(),
-                                                                            bb::fr::one(),
-                                                                            builder.num_public_inputs() -
-                                                                                InnerIO::PUBLIC_INPUTS_SIZE,
-                                                                            INNER_PROOF_TYPE);
+    RecursionConstraint constraint =
+        recursion_data_to_recursion_constraint(witness_values,
+                                               proof,
+                                               verification_key->to_field_elements(),
+                                               verification_key->hash(),
+                                               bb::fr::one(),
+                                               builder.num_public_inputs() - InnerIO::PUBLIC_INPUTS_SIZE,
+                                               INNER_PROOF_TYPE);
     return { constraint, witness_values };
 }
 
@@ -174,7 +174,7 @@ void generate_root_rollup_constraints(std::vector<RecursionConstraint>& honk_rec
 
 size_t get_peak_rss_mib()
 {
-    struct rusage usage {};
+    struct rusage usage{};
     getrusage(RUSAGE_SELF, &usage);
     return static_cast<size_t>(usage.ru_maxrss) / 1024; // Linux: ru_maxrss is in KB
 }
