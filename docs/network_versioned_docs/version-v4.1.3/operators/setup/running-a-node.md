@@ -72,7 +72,7 @@ Create a `docker-compose.yml` file in your `aztec-node` directory:
 ```yaml
 services:
   aztec-node:
-    image: "aztecprotocol/aztec:4.1.2"
+    image: "aztecprotocol/aztec:4.1.3"
     container_name: "aztec-node"
     ports:
       - ${AZTEC_PORT}:${AZTEC_PORT}

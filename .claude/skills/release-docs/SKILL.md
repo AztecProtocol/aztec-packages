@@ -36,12 +36,17 @@ curl -s -X POST -H 'Content-Type: application/json' \
 Parse the response to extract:
 
 - `nodeVersion` (the version string, e.g. `4.0.0-devnet.3` or `4.1.0-rc.2`)
-- L1 contract addresses: registry, rollup, inbox, outbox, fee juice, staking asset,
-  fee juice portal, fee asset handler, coin issuer, reward distributor, reward booster,
-  governance proposer, governance, governance staking escrow, staking registry,
-  slash factory, slasher, tally slashing proposer
+- L1 contract addresses from `l1ContractAddresses`: registry, rollup, inbox, outbox,
+  fee juice, staking asset, fee juice portal, fee asset handler, coin issuer,
+  reward distributor, governance proposer, governance, slash factory
+- L2 protocol contract addresses from `protocolContractAddresses`: instance registry,
+  class registry, multi-call entrypoint, fee juice
 - `rollupVersion`
 - `l1ChainId`
+
+**Note:** The RPC response does not include all contracts listed in `networks.md`.
+Contracts like GSE, Slasher, Reward Booster, Staking Registry, Tally Slashing
+Proposer, Honk Verifier, and others must be resolved separately in Step 9.
 
 **Detect release type** from the version string:
 
@@ -177,22 +182,65 @@ These files are auto-generated — do not hand-edit them.
    ```
 4. Present draft entries for user review before adding them
 
-### Step 9: Update Network Info & Contract Addresses
+### Step 9: Resolve Missing Contract Addresses & Update Network Info
+
+The `networks.md` L1 table includes contracts that are **not** returned by
+`node_getNodeInfo`. Before updating the tables, resolve these in three tiers.
+
+Determine the L1 RPC URL from the `l1ChainId`: `1` → Ethereum mainnet,
+`11155111` → Sepolia. The Rollup and Registry addresses are already known from
+the RPC response.
+
+#### Tier 1: Query on-chain from known contracts
+
+```bash
+# GSE (Governance Staking Escrow) — from Rollup
+cast call <ROLLUP_ADDRESS> "getGSE()(address)" --rpc-url <L1_RPC>
+
+# Slasher — from Rollup
+cast call <ROLLUP_ADDRESS> "getSlasher()(address)" --rpc-url <L1_RPC>
+
+# Governance — from Registry
+cast call <REGISTRY_ADDRESS> "getGovernance()(address)" --rpc-url <L1_RPC>
+```
+
+#### Tier 2: From deployment output (if available)
+
+These addresses are stored internally with no public getter. They can be obtained
+from the Forge deployment script output (`l1-contracts/script/deploy/DeployAztecL1Contracts.s.sol`
+prints JSON with all addresses). Ask the user if they have deployment output.
+
+- **Reward Booster** (stored in Rollup's `RewardLib` storage, no getter)
+- **Tally Slashing Proposer** (deployed alongside Slasher, no getter)
+- **Staking Registry**
+
+#### Tier 3: Manual / confirm unchanged
+
+These periphery contracts have no on-chain getter. Ask the user to provide new
+addresses or confirm that the existing values in `networks.md` are still correct.
+
+- **Honk Verifier**
+- **Register New Rollup Version Payload**
+- **Slash Payload Cloneable**
+
+#### Update the tables
 
 **File:** `docs/docs/networks.md`
 
-Update the column matching the release type (**Devnet**, **Testnet**, or **Alpha (Mainnet)**) in the tables:
+Update the column matching the release type (**Testnet** or **Alpha (Mainnet)**)
+in the tables. (The Devnet column was removed from `networks.md` — devnet
+releases no longer update this file.)
 
 - **Network Technical Information table**: version, RPC endpoint, rollup version
-- **L1 Contract Addresses table**: all addresses from the `node_getNodeInfo` response
-  (registry, rollup, inbox, outbox, fee juice, staking asset, fee juice portal,
-  fee asset handler, coin issuer, reward distributor, reward booster, governance proposer,
-  governance, governance staking escrow, staking registry, slash factory, slasher,
-  tally slashing proposer)
-- **L2 Contract Addresses table**: update the SponsoredFPC address from step 4
-
-Both testnet and devnet use Sepolia. Use the Sepolia etherscan URL format for L1 addresses:
-`[0xADDR](https://sepolia.etherscan.io/address/0xADDR)`
+- **L1 Contract Addresses table**: all addresses from the RPC response, on-chain
+  queries, and any additional addresses provided by the user
+  - Mainnet: use `https://etherscan.io/address/0xADDR` link format
+  - Testnet: use `https://sepolia.etherscan.io/address/0xADDR` link format
+  - For contracts not deployed on this network, use `N/A`
+- **L2 Contract Addresses table**: update the SponsoredFPC address from step 4.
+  Also check `protocolContractAddresses` from the RPC response for any changes
+  to canonical L2 addresses (instance registry, class registry, multi-call
+  entrypoint, fee juice).
 
 Also grep for any other files referencing old addresses for this network and update:
 
@@ -288,7 +336,17 @@ Then update the versions files:
 scripts/update_docs_versions.sh developer
 ```
 
-For **mainnet** and **testnet** releases, also cut and configure the network/operator docs:
+For **mainnet** and **testnet** releases, also cut and configure the network/operator docs.
+
+**Before cutting**, read `docs/network_version_config.json` and record the
+current version for this release type. This is the old network version needed
+for cleanup in Step 15. Save this value — the config will be overwritten next.
+
+```bash
+cat docs/network_version_config.json
+```
+
+Then cut and update the config:
 
 ```bash
 <TAG_VAR>=<new_version> RELEASE_TYPE=<release_type> yarn docusaurus docs:version:network v<new_version>
@@ -297,6 +355,10 @@ scripts/update_docs_versions.sh network <release_type> v<new_version>
 
 Verify the new version appears in both `docs/developer_version_config.json` and
 `docs/network_version_config.json`.
+
+Also verify that macros were resolved in the network versioned snapshot — check
+that `docs/network_versioned_docs/version-v<new_version>/` contains no raw
+`#release_version` or `#release_network` placeholders.
 
 ### Step 14: Review Recent Docs Updates on `next`
 
@@ -331,13 +393,15 @@ After cutting versioned docs, check whether any recent documentation updates on
 
 5. Present a summary of what was found and what was backported to the user.
 
-### Step 15: Clean Up Old Version
+### Step 15: Clean Up Old Versions
 
-Identify the previous version for this release type from `docs/developer_version_config.json`
-(look for the old entry being replaced — e.g. the old devnet, testnet, or mainnet version).
+#### Developer docs
+
+Identify the previous developer docs version for this release type from
+`docs/developer_version_config.json` (look for the old entry being replaced).
 
 **Note:** For testnet, there may not be an old developer docs version to clean up if
-this is the first testnet developer docs cut. In that case, skip this step.
+this is the first testnet developer docs cut. In that case, skip this part.
 
 **Ask the user for confirmation** before deleting. If approved, remove:
 
@@ -346,6 +410,29 @@ this is the first testnet developer docs cut. In that case, skip this step.
 - The old entry from `developer_version_config.json`
 - Any old API docs in `docs/static/aztec-nr-api/<old_version>/`
 - Any old API docs in `docs/static/typescript-api/<old_version>/`
+
+#### Network/operator docs (mainnet and testnet only)
+
+If a network version was cut in Step 13, use the old network version recorded
+at the start of that step.
+
+**If this is the first network release for this release type** (no previous
+version existed in the config), skip this part.
+
+**Ask the user for confirmation** before deleting. If approved, remove:
+
+- `docs/network_versioned_docs/version-<old_network_version>/`
+- `docs/network_versioned_sidebars/version-<old_network_version>-sidebars.json`
+
+Then re-run the reconciliation script so that `network_versions.json` drops the
+old version (its directory no longer exists):
+
+```bash
+scripts/update_docs_versions.sh network
+```
+
+Verify that `network_version_config.json` and `network_versions.json` no longer
+reference the old version.
 
 ### Step 16: Move Changes to `next` Branch
 

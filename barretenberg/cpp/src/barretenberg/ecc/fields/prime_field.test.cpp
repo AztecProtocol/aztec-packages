@@ -615,6 +615,55 @@ TYPED_TEST(PrimeFieldTest, Msgpack)
     EXPECT_EQ(actual, expected);
 }
 
+// This test requires exception support; in WASM builds (BB_NO_EXCEPTIONS),
+// throw_or_abort calls abort() instead of throwing, so EXPECT_THROW cannot work.
+#ifndef BB_NO_EXCEPTIONS
+TYPED_TEST(PrimeFieldTest, MsgpackRejectsNonCanonical)
+{
+    using F = TypeParam;
+
+    // Use a small value so that (value + modulus) is guaranteed to fit in 256 bits,
+    // even for fields with moduli close to 2^256 (e.g., secp256k1, secp256r1).
+    F a = F(1);
+    msgpack::sbuffer buffer;
+    msgpack::pack(buffer, a);
+
+    // Find the 32-byte binary payload inside the msgpack buffer.
+    // pack_bin(32) produces: 0xc4 0x20 <32 bytes>
+    uint8_t* buf = reinterpret_cast<uint8_t*>(buffer.data());
+    size_t buf_size = buffer.size();
+    uint8_t* field_bytes = nullptr;
+    for (size_t i = 0; i + 33 <= buf_size; i++) {
+        if (buf[i] == 0xc4 && buf[i + 1] == 0x20) {
+            field_bytes = &buf[i + 2];
+            break;
+        }
+    }
+    ASSERT_NE(field_bytes, nullptr) << "Could not find 32-byte bin payload in msgpack buffer";
+
+    // Replace the payload with (1 + modulus), a non-canonical encoding of 1.
+    uint256_t non_canonical = uint256_t(1) + F::modulus;
+    for (int i = 31; i >= 0; i--) {
+        field_bytes[i] = static_cast<uint8_t>(non_canonical.data[0] & 0xFF);
+        non_canonical >>= 8;
+    }
+
+    // Deserializing the mutated buffer must throw
+    EXPECT_THROW(
+        {
+            msgpack::object_handle oh = msgpack::unpack(buffer.data(), buffer.size());
+            F result;
+            oh.get().convert(result);
+        },
+        std::runtime_error);
+}
+#else
+TYPED_TEST(PrimeFieldTest, MsgpackRejectsNonCanonical)
+{
+    GTEST_SKIP() << "Skipping: throw_or_abort calls abort() when BB_NO_EXCEPTIONS is defined";
+}
+#endif
+
 // ================================
 // Montgomery Form Conversion Tests (254-bit fields)
 // ================================

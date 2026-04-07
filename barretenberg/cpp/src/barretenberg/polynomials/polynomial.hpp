@@ -106,6 +106,7 @@ template <typename Fr> class Polynomial {
      */
     static Polynomial shiftable(size_t virtual_size)
     {
+        BB_ASSERT_GTE(virtual_size, NUM_ZERO_ROWS, "shiftable virtual_size must be >= NUM_ZERO_ROWS");
         return Polynomial(
             /*actual size*/ virtual_size - NUM_ZERO_ROWS, virtual_size, /*shiftable offset*/ NUM_ZERO_ROWS);
     }
@@ -114,6 +115,7 @@ template <typename Fr> class Polynomial {
      */
     static Polynomial shiftable(size_t size, size_t virtual_size)
     {
+        BB_ASSERT_GTE(size, NUM_ZERO_ROWS, "shiftable size must be >= NUM_ZERO_ROWS");
         return Polynomial(/*actual size*/ size - NUM_ZERO_ROWS, virtual_size, /*shiftable offset*/ NUM_ZERO_ROWS);
     }
     // Allow polynomials to be entirely reset/dormant

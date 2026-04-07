@@ -2,8 +2,10 @@ import { FunctionSelector } from '@aztec/aztec.js/abi';
 import type { AztecAddress } from '@aztec/aztec.js/addresses';
 import { EthAddress } from '@aztec/aztec.js/addresses';
 import { SetPublicAuthwitContractInteraction } from '@aztec/aztec.js/authorization';
+import { waitForProven } from '@aztec/aztec.js/contracts';
 import { PrivateFeePaymentMethod, PublicFeePaymentMethod } from '@aztec/aztec.js/fee';
 import { Fr } from '@aztec/aztec.js/fields';
+import type { AztecNode } from '@aztec/aztec.js/node';
 import { TxExecutionResult } from '@aztec/aztec.js/tx';
 import type { Wallet } from '@aztec/aztec.js/wallet';
 import type { FPCContract } from '@aztec/noir-contracts.js/FPC';
@@ -23,6 +25,7 @@ describe('e2e_fees failures', () => {
   let bananaCoin: BananaCoin;
   let bananaFPC: FPCContract;
   let gasSettings: GasSettings;
+  let aztecNode: AztecNode;
   const coinbase = EthAddress.random();
 
   const t = new FeesTest('failures', 3, { coinbase });
@@ -31,6 +34,7 @@ describe('e2e_fees failures', () => {
     await t.setup();
     await t.applyFPCSetup();
     ({ wallet, aliceAddress, sequencerAddress, bananaCoin, bananaFPC, gasSettings } = t);
+    aztecNode = t.aztecNode;
 
     // Prove up until the current state by just marking it as proven.
     // Then turn off the watcher to prevent it from keep proving
@@ -317,8 +321,97 @@ describe('e2e_fees failures', () => {
       [aliceAddress, bananaFPC.address, sequencerAddress],
       [initialAliceGas, initialFPCGas - receipt.transactionFee!, initialSequencerGas],
     );
+
+    // Prove the block containing the teardown-reverted tx (revert_code = 2).
+    await t.context.watcher.trigger();
+    await t.cheatCodes.rollup.advanceToNextEpoch();
+    const provenTimeout =
+      (t.context.config.aztecProofSubmissionEpochs + 1) *
+      t.context.config.aztecEpochDuration *
+      t.context.config.aztecSlotDuration;
+    await waitForProven(aztecNode, receipt, { provenTimeout });
+  });
+
+  it('proves transaction where both app logic and teardown revert', async () => {
+    const outrageousPublicAmountAliceDoesNotHave = t.ALICE_INITIAL_BANANAS * 5n;
+
+    // Send a tx that will revert in BOTH app logic and teardown.
+    const { receipt } = await bananaCoin.methods
+      .transfer_in_public(aliceAddress, sequencerAddress, outrageousPublicAmountAliceDoesNotHave, 0)
+      .send({
+        from: aliceAddress,
+        fee: {
+          paymentMethod: new BuggedTeardownFeePaymentMethod(bananaFPC.address, aliceAddress, wallet, gasSettings),
+        },
+        wait: { dontThrowOnRevert: true },
+      });
+
+    expect(receipt.executionResult).toBe(TxExecutionResult.BOTH_REVERTED);
+    expect(receipt.transactionFee).toBeGreaterThan(0n);
+
+    await t.context.watcher.trigger();
+    await t.cheatCodes.rollup.advanceToNextEpoch();
+    const provenTimeout =
+      (t.context.config.aztecProofSubmissionEpochs + 1) *
+      t.context.config.aztecEpochDuration *
+      t.context.config.aztecSlotDuration;
+    await waitForProven(aztecNode, receipt, { provenTimeout });
   });
 });
+
+/**
+ * Fee payment method whose teardown always reverts because max_fee is set to 0.
+ * The FPC's _pay_refund will assert `0 >= actual_fee` which always fails since actual_fee > 0.
+ * The setup transfer of 0 tokens succeeds (and the authwit matches the 0 amount).
+ */
+class BuggedTeardownFeePaymentMethod extends PublicFeePaymentMethod {
+  override async getExecutionPayload(): Promise<ExecutionPayload> {
+    const zeroFee = new Fr(0n);
+    const authwitNonce = Fr.random();
+
+    const asset = await this.getAsset();
+
+    // Authorize the FPC to transfer 0 tokens (matches the 0 max_fee we'll pass).
+    const setPublicAuthWitInteraction = await SetPublicAuthwitContractInteraction.create(
+      this.wallet,
+      this.sender,
+      {
+        caller: this.paymentContract,
+        call: FunctionCall.from({
+          name: 'transfer_in_public',
+          to: asset,
+          selector: await FunctionSelector.fromSignature('transfer_in_public((Field),(Field),u128,Field)'),
+          type: FunctionType.PUBLIC,
+          hideMsgSender: false,
+          isStatic: false,
+          args: [this.sender.toField(), this.paymentContract.toField(), zeroFee, authwitNonce],
+          returnTypes: [],
+        }),
+      },
+      true,
+    );
+
+    return new ExecutionPayload(
+      [
+        ...(await setPublicAuthWitInteraction.request()).calls,
+        FunctionCall.from({
+          name: 'fee_entrypoint_public',
+          to: this.paymentContract,
+          selector: await FunctionSelector.fromSignature('fee_entrypoint_public(u128,Field)'),
+          type: FunctionType.PRIVATE,
+          hideMsgSender: false,
+          isStatic: false,
+          args: [zeroFee, authwitNonce],
+          returnTypes: [],
+        }),
+      ],
+      [],
+      [],
+      [],
+      this.paymentContract,
+    );
+  }
+}
 
 class BuggedSetupFeePaymentMethod extends PublicFeePaymentMethod {
   override async getExecutionPayload(): Promise<ExecutionPayload> {

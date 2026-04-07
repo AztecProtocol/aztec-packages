@@ -20,7 +20,7 @@ function test {
 
 function test_cmds {
   for browser in chromium firefox; do
-    echo "$hash playground/scripts/run_test.sh $browser"
+    echo "$hash:TIMEOUT=900s playground/scripts/run_test.sh $browser"
   done
 }
 

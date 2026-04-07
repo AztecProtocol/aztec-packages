@@ -70,7 +70,7 @@ field_t<Builder> logic<Builder>::create_logic_constraint(
         return create_logic_constraint(a, b_witness, num_bits, is_xor_gate, get_chunk);
     }
 
-    Builder* ctx = a.get_context();
+    Builder* ctx = validate_context<Builder>(a.get_context(), b.get_context());
 
     // We slice the input values into 32-bit chunks, and then use a multi-table lookup to compute the AND or XOR
     // of each chunk. Since we perform the lookup from 32-bit multi-tables, the lookup operation implicitly enforces a

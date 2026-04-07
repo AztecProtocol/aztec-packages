@@ -332,11 +332,12 @@ template <typename Builder_> class field_t {
         //      (this.v * this.mul + this.add) * inverse.v == 1;
         // created by applying `assert_is_not_zero` to `*this` coincides with the constraint created by
         // `divide_no_zero_check`, hence we can safely apply the latter instead of `/` operator.
-        auto* ctx = get_context();
         if (is_constant()) {
             BB_ASSERT(!get_value().is_zero(), "field_t::invert denominator is constant 0");
+            return field_t(fr::one()).divide_no_zero_check(*this);
         }
 
+        auto* ctx = get_context();
         if (get_value().is_zero() && !ctx->failed()) {
             ctx->failure("field_t::invert denominator is 0");
         }

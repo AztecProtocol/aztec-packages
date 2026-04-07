@@ -149,7 +149,7 @@ Create `docker-compose.yml`:
 name: aztec-prover-node
 services:
   prover-node:
-    image: aztecprotocol/aztec:4.1.2
+    image: aztecprotocol/aztec:4.1.3
     entrypoint: >-
       node
       --no-warnings
@@ -182,7 +182,7 @@ services:
     restart: unless-stopped
 
   prover-broker:
-    image: aztecprotocol/aztec:4.1.2
+    image: aztecprotocol/aztec:4.1.3
     entrypoint: >-
       node
       --no-warnings
@@ -262,7 +262,7 @@ Create `docker-compose.yml`:
 name: aztec-prover-agent
 services:
   prover-agent:
-    image: aztecprotocol/aztec:4.1.2
+    image: aztecprotocol/aztec:4.1.3
     entrypoint: >-
       node
       --no-warnings
