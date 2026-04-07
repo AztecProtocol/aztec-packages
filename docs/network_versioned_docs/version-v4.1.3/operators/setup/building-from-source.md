@@ -45,10 +45,10 @@ cd aztec-packages
 
 ### Step 2: Check Out a Version Tag
 
-Check out the version tag you want to build. For example, to build version 4.1.2:
+Check out the version tag you want to build. For example, to build version 4.1.3:
 
 ```bash
-git checkout v4.1.2
+git checkout v4.1.3
 ```
 
 :::tip
@@ -150,11 +150,11 @@ The tag `aztecprotocol/release-image-base` must match exactly—the Dockerfile i
 Build the final node image, combining the runtime environment (Step 5) with your compiled code (Step 4):
 
 ```bash
-docker build -f release-image/Dockerfile --build-arg VERSION=4.1.2 -t aztec-local:4.1.2 .
+docker build -f release-image/Dockerfile --build-arg VERSION=4.1.3 -t aztec-local:4.1.3 .
 ```
 
 :::tip
-The tag `aztec-local:4.1.2` avoids conflicts with the official Docker Hub image and clearly indicates this is a locally-built version.
+The tag `aztec-local:4.1.3` avoids conflicts with the official Docker Hub image and clearly indicates this is a locally-built version.
 :::
 
 **Build arguments:**
@@ -180,21 +180,21 @@ You should see your image listed:
 
 ```
 REPOSITORY      TAG       IMAGE ID       CREATED        SIZE
-aztec-local     4.1.2     abc123def456   2 minutes ago  2.5GB
+aztec-local     4.1.3     abc123def456   2 minutes ago  2.5GB
 ```
 
 ### Verify Version
 
 ```bash
-docker run --rm aztec-local:4.1.2 --version
+docker run --rm aztec-local:4.1.3 --version
 ```
 
-Should display version 4.1.2.
+Should display version 4.1.3.
 
 ### Test Basic Functionality
 
 ```bash
-docker run --rm aztec-local:4.1.2 --help
+docker run --rm aztec-local:4.1.3 --help
 ```
 
 Should display CLI help information without errors.
@@ -256,7 +256,7 @@ If all checks pass, your image is ready to use.
 
 **Solutions**:
 - Ensure you used `--build-arg VERSION=X.Y.Z` when building the release image
-- The version should match the git tag without the 'v' prefix (e.g., `4.1.2` not `v4.1.2`)
+- The version should match the git tag without the 'v' prefix (e.g., `4.1.3` not `v4.1.3`)
 
 ## Using Your Custom Build
 
@@ -267,7 +267,7 @@ Use your locally-built image with any node setup method. For Docker Compose, upd
 ```yaml
 services:
   aztec-node:
-    image: "aztec-local:4.1.2"
+    image: "aztec-local:4.1.3"
     # ... rest of configuration
 ```
 
@@ -278,7 +278,7 @@ See [Running a Full Node](./running-a-node.md) for complete setup instructions.
 Run the Aztec CLI directly from your custom image:
 
 ```bash
-docker run --rm aztec-local:4.1.2 --version
+docker run --rm aztec-local:4.1.3 --version
 ```
 
 ## Alternative Approaches

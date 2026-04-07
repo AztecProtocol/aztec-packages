@@ -25,13 +25,14 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { getContractInstanceFromInstantiationParams } from '@aztec/stdlib/contract';
 import { deriveSigningKey } from '@aztec/stdlib/keys';
 import type { NoteDao } from '@aztec/stdlib/note';
-import type {
-  BlockHeader,
+import {
+  type BlockHeader,
+  type ContractOverrides,
   SimulationOverrides,
-  TxExecutionRequest,
-  TxHash,
-  TxReceipt,
-  TxSimulationResult,
+  type TxExecutionRequest,
+  type TxHash,
+  type TxReceipt,
+  type TxSimulationResult,
 } from '@aztec/stdlib/tx';
 import { ExecutionPayload, mergeExecutionPayloads } from '@aztec/stdlib/tx';
 import { BaseWallet, type SimulateViaEntrypointOptions } from '@aztec/wallet-sdk/base-wallet';
@@ -110,23 +111,39 @@ export class TestWallet extends BaseWallet {
     return this.createAccount(accountData);
   }
 
-  async getFakeAccountDataFor(address: AztecAddress) {
-    const originalAccount = await this.getAccountFromAddress(address);
-    const originalAddress = originalAccount.getCompleteAddress();
-    const contractInstance = await this.pxe.getContractInstance(originalAddress.address);
-    if (!contractInstance) {
-      throw new Error(`No contract instance found for address: ${originalAddress.address}`);
+  /**
+   * Builds contract overrides for all provided addresses by replacing their account contracts with stub implementations.
+   */
+  protected async buildAccountOverrides(addresses: AztecAddress[]): Promise<ContractOverrides> {
+    const accounts = await this.getAccounts();
+    const contracts: ContractOverrides = {};
+
+    const filtered = accounts.filter(acc => addresses.some(addr => addr.equals(acc.item)));
+
+    for (const account of filtered) {
+      const address = account.item;
+      const originalAccount = await this.getAccountFromAddress(address);
+      const completeAddress = originalAccount.getCompleteAddress();
+      const contractInstance = await this.pxe.getContractInstance(completeAddress.address);
+      if (!contractInstance) {
+        throw new Error(
+          `No contract instance found for address: ${completeAddress.address} during account override building. This is a bug!`,
+        );
+      }
+
+      const stubInstance = await getContractInstanceFromInstantiationParams(StubAccountContractArtifact, {
+        salt: Fr.random(),
+      });
+
+      contracts[address.toString()] = {
+        instance: stubInstance,
+        artifact: StubAccountContractArtifact,
+      };
     }
-    const stubAccount = createStubAccount(originalAddress);
-    const instance = await getContractInstanceFromInstantiationParams(StubAccountContractArtifact, {
-      salt: Fr.random(),
-    });
-    return {
-      account: stubAccount,
-      instance,
-      artifact: StubAccountContractArtifact,
-    };
+
+    return contracts;
   }
+
   protected accounts: Map<string, Account> = new Map();
 
   /**
@@ -220,6 +237,8 @@ export class TestWallet extends BaseWallet {
   ): Promise<TxSimulationResult> {
     const { from, feeOptions, scopes, skipTxValidation, skipFeeEnforcement } = opts;
     const skipKernels = this.simulationMode !== 'full';
+    const useOverride = this.simulationMode === 'kernelless-override';
+
     const feeExecutionPayload = await feeOptions.walletFeePaymentMethod?.getExecutionPayload();
     const finalExecutionPayload = feeExecutionPayload
       ? mergeExecutionPayloads([feeExecutionPayload, executionPayload])
@@ -228,18 +247,20 @@ export class TestWallet extends BaseWallet {
 
     let overrides: SimulationOverrides | undefined;
     let txRequest: TxExecutionRequest;
+    if (useOverride) {
+      const accountOverrides = await this.buildAccountOverrides(this.scopesFrom(from, opts.additionalScopes));
+      overrides = new SimulationOverrides(accountOverrides);
+    }
+
     if (from === NO_FROM) {
       const entrypoint = new DefaultEntrypoint();
       txRequest = await entrypoint.createTxExecutionRequest(finalExecutionPayload, feeOptions.gasSettings, chainInfo);
     } else {
-      const useOverride = this.simulationMode === 'kernelless-override';
       let fromAccount: Account;
       if (useOverride) {
-        const { account, instance, artifact } = await this.getFakeAccountDataFor(from);
-        fromAccount = account;
-        overrides = {
-          contracts: { [from.toString()]: { instance, artifact } },
-        };
+        const originalAccount = await this.getAccountFromAddress(from);
+        const completeAddress = originalAccount.getCompleteAddress();
+        fromAccount = createStubAccount(completeAddress);
       } else {
         fromAccount = await this.getAccountFromAddress(from);
       }
@@ -268,7 +289,11 @@ export class TestWallet extends BaseWallet {
   }
 
   async proveTx(exec: ExecutionPayload, opts: Omit<SendOptions, 'wait'>): Promise<ProvenTx> {
-    const fee = await this.completeFeeOptions(opts.from, exec.feePayer, opts.fee?.gasSettings);
+    const fee = await this.completeFeeOptions({
+      from: opts.from,
+      feePayer: exec.feePayer,
+      gasSettings: opts.fee?.gasSettings,
+    });
     const txRequest = await this.createTxExecutionRequestFromPayloadAndFee(exec, opts.from, fee);
     const txProvingResult = await this.pxe.proveTx(txRequest, this.scopesFrom(opts.from, opts.additionalScopes));
     return new ProvenTx(
