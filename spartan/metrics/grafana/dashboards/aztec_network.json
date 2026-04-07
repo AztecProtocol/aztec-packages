@@ -90,7 +90,7 @@
         "percentChangeColorMode": "standard",
         "reduceOptions": {
           "calcs": [
-            "lastNotNull"
+            "uniqueValues"
           ],
           "fields": "/^service_version$/",
           "values": false
@@ -2869,5 +2869,5 @@
   "timezone": "browser",
   "title": "Network overview",
   "uid": "aztec-network",
-  "version": 10
+  "version": 11
 }
