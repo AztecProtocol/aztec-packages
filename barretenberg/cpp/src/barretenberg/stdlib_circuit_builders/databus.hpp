@@ -23,10 +23,10 @@ constexpr uint32_t PROPAGATED_DATABUS_COMMITMENTS_SIZE = PROPAGATED_DATABUS_COMM
  */
 struct BusVector {
 
-    // A default value added to every databus column to avoid the point at infinity commitment and to ensure the
-    // validity of the databus commitment consistency checks. Note: in principle we could allow point at infinity
-    // default commitment but there is precedent for avoiding this by default.
-    static constexpr bb::fr DEFAULT_VALUE = 25;
+    // A default value added to every databus column to ensure read gates exist. Set to 0 so that the commitment to a
+    // databus column containing only the default entry is the point at infinity, matching the default commitment used
+    // in DataBusDepot. This makes the default commitment independent of the databus polynomial offset.
+    static constexpr bb::fr DEFAULT_VALUE = 0;
 
     /**
      * @brief Add an element to the data defining this bus column
