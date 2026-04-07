@@ -5,36 +5,7 @@ description: API reference documentation for Aztec TypeScript packages including
 
 import { useState } from "react";
 
-<<<<<<< HEAD
-export const useApiVersion = () => {
-  const version = useActiveVersion("developer");
-  const versionName = version?.name || "current";
-  // Map Docusaurus version to API docs folder
-  if (versionName === "current") return "next";
-  if (versionName.includes("rc") || versionName.includes("testnet")) return "testnet";
-  return versionName;
-};
-
-export const ApiLink = ({ path, children }) => {
-  const apiVersion = useApiVersion();
-  const href = `/typescript-api/${apiVersion}/${path}`;
-  return (
-    <a href={href} target="_blank" rel="noopener noreferrer">
-      {children}
-    </a>
-  );
-};
-
-export const ApiPath = () => {
-  const apiVersion = useApiVersion();
-  return <code>/typescript-api/{apiVersion}/</code>;
-};
-
-export const CopyIcon = ({ path, absolute = false }) => {
-  const apiVersion = useApiVersion();
-=======
 export const CopyIcon = ({ path }) => {
->>>>>>> ac4ff2cdef (fix(docs): simplify TypeScript API reference links and fix validation script)
   const [status, setStatus] = useState("idle");
 
   const handleCopy = async (e) => {
