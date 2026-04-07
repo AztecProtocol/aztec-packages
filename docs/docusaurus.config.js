@@ -24,9 +24,9 @@ const macros = require("./src/katex-macros.js");
 function syncVersionsFromConfig(configFile, versionsFile, versionedDocsDir) {
   const config = require(configFile);
   const docsDir = path.join(__dirname, versionedDocsDir);
-  const configVersions = Object.values(config).filter(
+  const configVersions = [...new Set(Object.values(config).filter(
     (v) => v && fs.existsSync(path.join(docsDir, `version-${v}`))
-  );
+  ))];
   const configVersionSet = new Set(Object.values(config).filter(Boolean));
   const extraVersions = fs.existsSync(docsDir)
     ? fs.readdirSync(docsDir)
