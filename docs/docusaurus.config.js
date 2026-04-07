@@ -154,12 +154,14 @@ const config = {
         versions: {
           ...(mainnetDeveloperVersion && {
             [mainnetDeveloperVersion]: {
-              label: `Alpha (${mainnetDeveloperVersion})`,
+              label: mainnetDeveloperVersion === developerTestnetVersion
+                ? `Alpha / Testnet (${mainnetDeveloperVersion})`
+                : `Alpha (${mainnetDeveloperVersion})`,
               path: "",
               banner: "none",
             },
           }),
-          ...(developerTestnetVersion && {
+          ...(developerTestnetVersion && developerTestnetVersion !== mainnetDeveloperVersion && {
             [developerTestnetVersion]: {
               label: `Testnet (${developerTestnetVersion})`,
               path: mainnetDeveloperVersion ? "testnet" : "",
@@ -201,12 +203,14 @@ const config = {
         versions: {
           ...(mainnetNetworkVersion && {
             [mainnetNetworkVersion]: {
-              label: `Alpha (${mainnetNetworkVersion})`,
+              label: mainnetNetworkVersion === testnetVersion
+                ? `Alpha / Testnet (${mainnetNetworkVersion})`
+                : `Alpha (${mainnetNetworkVersion})`,
               path: process.env.CONTEXT !== "production" ? "alpha" : "",
               banner: "none",
             },
           }),
-          ...(testnetVersion && {
+          ...(testnetVersion && testnetVersion !== mainnetNetworkVersion && {
             [testnetVersion]: {
               label: `Testnet (${testnetVersion})`,
               path: "testnet",
