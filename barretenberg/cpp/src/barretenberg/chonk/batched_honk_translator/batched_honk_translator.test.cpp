@@ -116,8 +116,7 @@ class BatchedHonkTranslatorTests : public ::testing::Test {
      * @param mega_zk_log_n  log₂(circuit_size) of the MegaZK instance
      * @param num_mega_zk_pub_inputs  number of MegaZK public inputs
      */
-    static TranscriptManifest build_expected_batched_manifest(const size_t mega_zk_log_n,
-                                                              const size_t num_mega_zk_pub_inputs)
+    static TranscriptManifest build_expected_batched_manifest(const size_t num_mega_zk_pub_inputs)
     {
         using MZK = MegaZKFlavor;
         using Trans = TranslatorFlavor;
@@ -199,19 +198,7 @@ class BatchedHonkTranslatorTests : public ::testing::Test {
         round++;
 
         // ── Rounds 5..4+JOINT_LOG_N: joint sumcheck ──────────────────────────────
-        // Loop runs one extra iteration (i == JOINT_LOG_N) to place MegaZK evaluations in the
-        // post-sumcheck round when mega_zk_log_n == JOINT_LOG_N (no virtual rounds).
-        for (size_t i = 0; i <= JOINT_LOG_N; ++i) {
-            // MegaZK evaluations are sent immediately after the real rounds, before the first virtual
-            // round's univariate. In the transcript manifest they appear at the start of the round
-            // that contains univariate_{mega_zk_log_n} (or, when mega_zk_log_n == JOINT_LOG_N, in
-            // the post-sumcheck round before evaluations_translator).
-            if (i == mega_zk_log_n) {
-                m.add_entry(round, "Sumcheck:evaluations", MZK::NUM_ALL_ENTITIES);
-            }
-            if (i == JOINT_LOG_N) {
-                break; // No univariate/challenge for the extra iteration
-            }
+        for (size_t i = 0; i < JOINT_LOG_N; ++i) {
             // Translator mini-circuit evaluations are sent after round LOG_MINI_CIRCUIT_SIZE-1
             // and appear before univariate_{LOG_MINI} in the manifest.
             if (i == LOG_MINI) {
@@ -225,6 +212,8 @@ class BatchedHonkTranslatorTests : public ::testing::Test {
         }
 
         // ── Post-sumcheck evaluations ─────────────────────────────────────────────
+        // MegaZK evaluations are sent after all sumcheck rounds (real + virtual).
+        m.add_entry(round, "Sumcheck:evaluations", MZK::NUM_ALL_ENTITIES);
         m.add_entry(round, "Sumcheck:evaluations_translator", Trans::NUM_FULL_CIRCUIT_EVALUATIONS);
         m.add_entry(round, "Libra:claimed_evaluation", Fr);
         m.add_entry(round, "Libra:grand_sum_commitment", G);
@@ -418,7 +407,6 @@ TEST_F(BatchedHonkTranslatorTests, ProverManifestConsistency)
     auto mega_zk_inst = std::make_shared<MegaZKProverInst>(mega_zk_circuit);
     auto mega_zk_vk = std::make_shared<MegaZKVK>(mega_zk_inst->get_precomputed());
 
-    const size_t mega_zk_log_n = mega_zk_inst->log_dyadic_size();
     const size_t num_mega_zk_pub_inputs = mega_zk_inst->num_public_inputs();
 
     // Prove with manifest tracking enabled.
@@ -429,7 +417,7 @@ TEST_F(BatchedHonkTranslatorTests, ProverManifestConsistency)
     [[maybe_unused]] auto __ = prover.prove(translator_key);
 
     auto prover_manifest = prover_transcript->get_manifest();
-    auto expected_manifest = build_expected_batched_manifest(mega_zk_log_n, num_mega_zk_pub_inputs);
+    auto expected_manifest = build_expected_batched_manifest(num_mega_zk_pub_inputs);
 
     ASSERT_EQ(prover_manifest.size(), expected_manifest.size()) << "Manifest round count mismatch";
     for (size_t round = 0; round < expected_manifest.size(); ++round) {
