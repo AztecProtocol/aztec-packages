@@ -35,58 +35,50 @@ The developer SDK/aztec-nr version (used for writing and compiling contracts) ma
 
 ### L1 Contract Addresses
 
-| Contract Name | Alpha (Mainnet) | Testnet |
-|---------------|-------------------|---------|
-| **Registry** | [`0x35b22e09ee0390539439e24f06da43d83f90e298`](https://etherscan.io/address/0x35b22e09ee0390539439e24f06da43d83f90e298) | [`0xa0bfb1b494fb49041e5c6e8c2c1be09cd171c6ba`](https://sepolia.etherscan.io/address/0xa0bfb1b494fb49041e5c6e8c2c1be09cd171c6ba) |
-| **Rollup** | [`0xae2001f7e21d5ecabf6234e9fdd1e76f50f74962`](https://etherscan.io/address/0xae2001f7e21d5ecabf6234e9fdd1e76f50f74962) | [`0xf6D0D42aCE06829bECB78C74F49879528fC632c1`](https://sepolia.etherscan.io/address/0xf6D0D42aCE06829bECB78C74F49879528fC632c1) |
-| **L1 → L2 Inbox** | [`0x8dbf0b6ed495baab6062f5d5365af3c1b2ed4578`](https://etherscan.io/address/0x8dbf0b6ed495baab6062f5d5365af3c1b2ed4578) | [`0xF1bB424AC888Aa239F1E658B5BdDabc65a1c94E6`](https://sepolia.etherscan.io/address/0xF1bB424AC888Aa239F1E658B5BdDabc65a1c94E6) |
-| **L2 → L1 Outbox** | [`0xc9698b7adef9ee63f3bf5cff38086e4e836579f0`](https://etherscan.io/address/0xc9698b7adef9ee63f3bf5cff38086e4e836579f0) | [`0x5fE63c32b7ca20445e813bDb1019f1FFC5f52376`](https://sepolia.etherscan.io/address/0x5fE63c32b7ca20445e813bDb1019f1FFC5f52376) |
-| **Fee Juice** | [`0xa27ec0006e59f245217ff08cd52a7e8b169e62d2`](https://etherscan.io/address/0xa27ec0006e59f245217ff08cd52a7e8b169e62d2) | [`0x762c132040fda6183066fa3b14d985ee55aa3c18`](https://sepolia.etherscan.io/address/0x762c132040fda6183066fa3b14d985ee55aa3c18) |
-| **Staking Asset** | [`0xa27ec0006e59f245217ff08cd52a7e8b169e62d2`](https://etherscan.io/address/0xa27ec0006e59f245217ff08cd52a7e8b169e62d2) | [`0x5595cb9ed193cac2c0bc5393313bc6115817954b`](https://sepolia.etherscan.io/address/0x5595cb9ed193cac2c0bc5393313bc6115817954b) |
-| **Fee Juice Portal** | [`0x2891f8b941067f8b5a3f34545a30cf71e3e23617`](https://etherscan.io/address/0x2891f8b941067f8b5a3f34545a30cf71e3e23617) | [`0xd3361019e40026ce8a9745c19e67fd3acc10d596`](https://sepolia.etherscan.io/address/0xd3361019e40026ce8a9745c19e67fd3acc10d596) |
-| **Fee Asset Handler** | N/A | [`0x5602c39a6e9c5ace589f64f754927bcda4f4bfc9`](https://sepolia.etherscan.io/address/0x5602c39a6e9c5ace589f64f754927bcda4f4bfc9) |
-| **Coin Issuer** | [`0x02fadf157d551aa6d761b2a2237d03af68e41ca6`](https://etherscan.io/address/0x02fadf157d551aa6d761b2a2237d03af68e41ca6) | [`0xe05d0a62045b4237556c1ec423e59eea9a24eaee`](https://sepolia.etherscan.io/address/0xe05d0a62045b4237556c1ec423e59eea9a24eaee) |
-| **Reward Distributor** | [`0x3d6a1b00c830c5f278fc5dfb3f6ff0b74db6dfe0`](https://etherscan.io/address/0x3d6a1b00c830c5f278fc5dfb3f6ff0b74db6dfe0) | [`0x030d2780e70f085c31d490268d3900d4cea16606`](https://sepolia.etherscan.io/address/0x030d2780e70f085c31d490268d3900d4cea16606) |
-| **Reward Booster** | [`0x7101a6703491a4d808aeabe9f62bc1dc6a20bdf4`](https://etherscan.io/address/0x7101a6703491a4d808aeabe9f62bc1dc6a20bdf4) | [`0x49711056D1EaDcDD3F2eF676DC8EA3F924fB916c`](https://sepolia.etherscan.io/address/0x49711056D1EaDcDD3F2eF676DC8EA3F924fB916c) |
-| **Governance Proposer** | [`0x06ef1dcf87e419c48b94a331b252819fadbd63ef`](https://etherscan.io/address/0x06ef1dcf87e419c48b94a331b252819fadbd63ef) | [`0x01c7d4ca153748d2377968fef22894cb162e9480`](https://sepolia.etherscan.io/address/0x01c7d4ca153748d2377968fef22894cb162e9480) |
-| **Governance** | [`0x1102471eb3378fee427121c9efcea452e4b6b75e`](https://etherscan.io/address/0x1102471eb3378fee427121c9efcea452e4b6b75e) | [`0xcaf7447721447b22cd0076ac7c63877c3afd329f`](https://sepolia.etherscan.io/address/0xcaf7447721447b22cd0076ac7c63877c3afd329f) |
-| **Governance Staking Escrow** | [`0xa92ecfd0e70c9cd5e5cd76c50af0f7da93567a4f`](https://etherscan.io/address/0xa92ecfd0e70c9cd5e5cd76c50af0f7da93567a4f) | [`0xb6a38a51a6c1de9012f9d8ea9745ef957212eaac`](https://sepolia.etherscan.io/address/0xb6a38a51a6c1de9012f9d8ea9745ef957212eaac) |
-| **Staking Registry** | [`0x042dF8f42790d6943F41C25C2132400fd727f452`](https://etherscan.io/address/0x042dF8f42790d6943F41C25C2132400fd727f452) | [`0xC6EcC1832c8BF6a41c927BEb4E9ec610FBeDd1C2`](https://sepolia.etherscan.io/address/0xC6EcC1832c8BF6a41c927BEb4E9ec610FBeDd1C2) |
-| **Slash Factory** | N/A | [`0x9CF4a0094c8696d5110dd0f0cF3FA5deA174BB17`](https://sepolia.etherscan.io/address/0x9CF4a0094c8696d5110dd0f0cF3FA5deA174BB17) |
-| **Slasher** | [`0x64E6e9Bb9f1E33D319578B9f8a9C719Ca6D46eBb`](https://etherscan.io/address/0x64E6e9Bb9f1E33D319578B9f8a9C719Ca6D46eBb) | [`0xf6D0D42aCE06829bECB78C74F49879528fC632c1`](https://sepolia.etherscan.io/address/0xf6D0D42aCE06829bECB78C74F49879528fC632c1) |
-| **Tally Slashing Proposer** | [`0x7a318c3daa9f21f8fc8238c65755eb0394fbf189`](https://etherscan.io/address/0x7a318c3daa9f21f8fc8238c65755eb0394fbf189) | [`0x158eCC4B24675dc399031c7D144786e3da2060A8`](https://sepolia.etherscan.io/address/0x158eCC4B24675dc399031c7D144786e3da2060A8) |
-| **Honk Verifier** | N/A | [`0x800FbC88054ba6c228B7d822F1DCAf4d627E8F97`](https://sepolia.etherscan.io/address/0x800FbC88054ba6c228B7d822F1DCAf4d627E8F97) |
-| **Register New Rollup Version Payload** | N/A | [`0x11f7Ab2324CA94af929A388477a7959E0108C3d6`](https://sepolia.etherscan.io/address/0x11f7Ab2324CA94af929A388477a7959E0108C3d6) |
-| **Slash Payload Cloneable** | N/A | [`0xe66d9eeBfF5490E6bfA263cF08028dE7d265321F`](https://sepolia.etherscan.io/address/0xe66d9eeBfF5490E6bfA263cF08028dE7d265321F) | |
+| Contract Name                           | Alpha (Mainnet)                                                                                                         | Testnet                                                                                                                         |
+| --------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- | --- |
+| **Registry**                            | [`0x35b22e09ee0390539439e24f06da43d83f90e298`](https://etherscan.io/address/0x35b22e09ee0390539439e24f06da43d83f90e298) | [`0xa0bfb1b494fb49041e5c6e8c2c1be09cd171c6ba`](https://sepolia.etherscan.io/address/0xa0bfb1b494fb49041e5c6e8c2c1be09cd171c6ba) |
+| **Rollup**                              | [`0xae2001f7e21d5ecabf6234e9fdd1e76f50f74962`](https://etherscan.io/address/0xae2001f7e21d5ecabf6234e9fdd1e76f50f74962) | [`0xf6D0D42aCE06829bECB78C74F49879528fC632c1`](https://sepolia.etherscan.io/address/0xf6D0D42aCE06829bECB78C74F49879528fC632c1) |
+| **L1 → L2 Inbox**                       | [`0x8dbf0b6ed495baab6062f5d5365af3c1b2ed4578`](https://etherscan.io/address/0x8dbf0b6ed495baab6062f5d5365af3c1b2ed4578) | [`0xF1bB424AC888Aa239F1E658B5BdDabc65a1c94E6`](https://sepolia.etherscan.io/address/0xF1bB424AC888Aa239F1E658B5BdDabc65a1c94E6) |
+| **L2 → L1 Outbox**                      | [`0xc9698b7adef9ee63f3bf5cff38086e4e836579f0`](https://etherscan.io/address/0xc9698b7adef9ee63f3bf5cff38086e4e836579f0) | [`0x5fE63c32b7ca20445e813bDb1019f1FFC5f52376`](https://sepolia.etherscan.io/address/0x5fE63c32b7ca20445e813bDb1019f1FFC5f52376) |
+| **Fee Juice**                           | [`0xa27ec0006e59f245217ff08cd52a7e8b169e62d2`](https://etherscan.io/address/0xa27ec0006e59f245217ff08cd52a7e8b169e62d2) | [`0x762c132040fda6183066fa3b14d985ee55aa3c18`](https://sepolia.etherscan.io/address/0x762c132040fda6183066fa3b14d985ee55aa3c18) |
+| **Staking Asset**                       | [`0xa27ec0006e59f245217ff08cd52a7e8b169e62d2`](https://etherscan.io/address/0xa27ec0006e59f245217ff08cd52a7e8b169e62d2) | [`0x5595cb9ed193cac2c0bc5393313bc6115817954b`](https://sepolia.etherscan.io/address/0x5595cb9ed193cac2c0bc5393313bc6115817954b) |
+| **Fee Juice Portal**                    | [`0x2891f8b941067f8b5a3f34545a30cf71e3e23617`](https://etherscan.io/address/0x2891f8b941067f8b5a3f34545a30cf71e3e23617) | [`0xd3361019e40026ce8a9745c19e67fd3acc10d596`](https://sepolia.etherscan.io/address/0xd3361019e40026ce8a9745c19e67fd3acc10d596) |
+| **Fee Asset Handler**                   | N/A                                                                                                                     | [`0x5602c39a6e9c5ace589f64f754927bcda4f4bfc9`](https://sepolia.etherscan.io/address/0x5602c39a6e9c5ace589f64f754927bcda4f4bfc9) |
+| **Coin Issuer**                         | [`0x02fadf157d551aa6d761b2a2237d03af68e41ca6`](https://etherscan.io/address/0x02fadf157d551aa6d761b2a2237d03af68e41ca6) | [`0xe05d0a62045b4237556c1ec423e59eea9a24eaee`](https://sepolia.etherscan.io/address/0xe05d0a62045b4237556c1ec423e59eea9a24eaee) |
+| **Reward Distributor**                  | [`0x3d6a1b00c830c5f278fc5dfb3f6ff0b74db6dfe0`](https://etherscan.io/address/0x3d6a1b00c830c5f278fc5dfb3f6ff0b74db6dfe0) | [`0x030d2780e70f085c31d490268d3900d4cea16606`](https://sepolia.etherscan.io/address/0x030d2780e70f085c31d490268d3900d4cea16606) |
+| **Reward Booster**                      | [`0x7101a6703491a4d808aeabe9f62bc1dc6a20bdf4`](https://etherscan.io/address/0x7101a6703491a4d808aeabe9f62bc1dc6a20bdf4) | [`0x49711056D1EaDcDD3F2eF676DC8EA3F924fB916c`](https://sepolia.etherscan.io/address/0x49711056D1EaDcDD3F2eF676DC8EA3F924fB916c) |
+| **Governance Proposer**                 | [`0x06ef1dcf87e419c48b94a331b252819fadbd63ef`](https://etherscan.io/address/0x06ef1dcf87e419c48b94a331b252819fadbd63ef) | [`0x01c7d4ca153748d2377968fef22894cb162e9480`](https://sepolia.etherscan.io/address/0x01c7d4ca153748d2377968fef22894cb162e9480) |
+| **Governance**                          | [`0x1102471eb3378fee427121c9efcea452e4b6b75e`](https://etherscan.io/address/0x1102471eb3378fee427121c9efcea452e4b6b75e) | [`0xcaf7447721447b22cd0076ac7c63877c3afd329f`](https://sepolia.etherscan.io/address/0xcaf7447721447b22cd0076ac7c63877c3afd329f) |
+| **Governance Staking Escrow**           | [`0xa92ecfd0e70c9cd5e5cd76c50af0f7da93567a4f`](https://etherscan.io/address/0xa92ecfd0e70c9cd5e5cd76c50af0f7da93567a4f) | [`0xb6a38a51a6c1de9012f9d8ea9745ef957212eaac`](https://sepolia.etherscan.io/address/0xb6a38a51a6c1de9012f9d8ea9745ef957212eaac) |
+| **Staking Registry**                    | [`0x042dF8f42790d6943F41C25C2132400fd727f452`](https://etherscan.io/address/0x042dF8f42790d6943F41C25C2132400fd727f452) | [`0xC6EcC1832c8BF6a41c927BEb4E9ec610FBeDd1C2`](https://sepolia.etherscan.io/address/0xC6EcC1832c8BF6a41c927BEb4E9ec610FBeDd1C2) |
+| **Slash Factory**                       | N/A                                                                                                                     | [`0x9CF4a0094c8696d5110dd0f0cF3FA5deA174BB17`](https://sepolia.etherscan.io/address/0x9CF4a0094c8696d5110dd0f0cF3FA5deA174BB17) |
+| **Slasher**                             | [`0x64E6e9Bb9f1E33D319578B9f8a9C719Ca6D46eBb`](https://etherscan.io/address/0x64E6e9Bb9f1E33D319578B9f8a9C719Ca6D46eBb) | [`0xf6D0D42aCE06829bECB78C74F49879528fC632c1`](https://sepolia.etherscan.io/address/0xf6D0D42aCE06829bECB78C74F49879528fC632c1) |
+| **Tally Slashing Proposer**             | [`0x7a318c3daa9f21f8fc8238c65755eb0394fbf189`](https://etherscan.io/address/0x7a318c3daa9f21f8fc8238c65755eb0394fbf189) | [`0x158eCC4B24675dc399031c7D144786e3da2060A8`](https://sepolia.etherscan.io/address/0x158eCC4B24675dc399031c7D144786e3da2060A8) |
+| **Honk Verifier**                       | N/A                                                                                                                     | [`0x800FbC88054ba6c228B7d822F1DCAf4d627E8F97`](https://sepolia.etherscan.io/address/0x800FbC88054ba6c228B7d822F1DCAf4d627E8F97) |
+| **Register New Rollup Version Payload** | N/A                                                                                                                     | [`0x11f7Ab2324CA94af929A388477a7959E0108C3d6`](https://sepolia.etherscan.io/address/0x11f7Ab2324CA94af929A388477a7959E0108C3d6) |
+| **Slash Payload Cloneable**             | N/A                                                                                                                     | [`0xe66d9eeBfF5490E6bfA263cF08028dE7d265321F`](https://sepolia.etherscan.io/address/0xe66d9eeBfF5490E6bfA263cF08028dE7d265321F) |     |
 
 ### L2 Contract Addresses
 
-| Contract Name | Alpha (Mainnet) | Testnet |
-|---------------|-------------------|---------|
-| **Instance Registry** | `0x0000000000000000000000000000000000000000000000000000000000000002` | `0x0000000000000000000000000000000000000000000000000000000000000002` |
-| **Class Registry** | `0x0000000000000000000000000000000000000000000000000000000000000003` | `0x0000000000000000000000000000000000000000000000000000000000000003` |
+| Contract Name            | Alpha (Mainnet)                                                      | Testnet                                                              |
+| ------------------------ | -------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| **Instance Registry**    | `0x0000000000000000000000000000000000000000000000000000000000000002` | `0x0000000000000000000000000000000000000000000000000000000000000002` |
+| **Class Registry**       | `0x0000000000000000000000000000000000000000000000000000000000000003` | `0x0000000000000000000000000000000000000000000000000000000000000003` |
 | **MultiCall Entrypoint** | `0x0000000000000000000000000000000000000000000000000000000000000004` | `0x0000000000000000000000000000000000000000000000000000000000000004` |
-| **Fee Juice** | `0x0000000000000000000000000000000000000000000000000000000000000005` | `0x0000000000000000000000000000000000000000000000000000000000000005` |
-| **SponsoredFPC** | Not deployed | `0x2ae02a54fd254586fd628ff46b71071bd8db32b63dc5d083f844f2c208a3923c` |
+| **Fee Juice**            | `0x0000000000000000000000000000000000000000000000000000000000000005` | `0x0000000000000000000000000000000000000000000000000000000000000005` |
+| **SponsoredFPC**         | Not deployed                                                         | `0x2ae02a54fd254586fd628ff46b71071bd8db32b63dc5d083f844f2c208a3923c` |
 
 ## Governance Parameters
 
-| Parameter | Alpha (Mainnet) | Testnet |
-|-----------|-------------------|---------|
-| **Proposer Quorum** | 600/1000 | 60/100 |
-| **Voting Delay** | 3 days | 12 hours |
-| **Voting Duration** | 7 days | 24 hours |
-| **Execution Delay** | 7 days | 12 hours |
-| **Slashing Quorum** | 65% | 33% |
-| **Slashing Round Size** | 128 epochs | 64 epochs |
-
-## Use Case Suitability
-
-| Use Case | Alpha (Mainnet) | Testnet |
-|----------|-------------------|---------|
-| **App Development** | ❌ | ✅ |
-| **Sequencer Testing** | ✅ | ✅ |
-| **Governance Testing** | ✅ | ✅ |
+| Parameter               | Alpha (Mainnet) | Testnet   |
+| ----------------------- | --------------- | --------- |
+| **Proposer Quorum**     | 600/1000        | 60/100    |
+| **Voting Delay**        | 3 days          | 12 hours  |
+| **Voting Duration**     | 7 days          | 24 hours  |
+| **Execution Delay**     | 7 days          | 12 hours  |
+| **Slashing Quorum**     | 65%             | 33%       |
+| **Slashing Round Size** | 128 epochs      | 64 epochs |
 
 ---
 
@@ -101,12 +93,14 @@ Alpha is the Aztec **mainnet** in its initial operational phase, with governance
 Alpha is connected to Ethereum mainnet and supports user transactions. Governance and staking infrastructure are fully operational. This network requires real stakes for sequencer participation.
 
 **Target Users:**
+
 - Validators who want to contribute to the decentralized Aztec Network
 - Governance participants
 - Developers deploying production applications
 - Infrastructure operators
 
 **Key Features:**
+
 - Governance system fully operational
 - Staking required for sequencer participation
 - Connected to Ethereum Mainnet
@@ -123,12 +117,14 @@ Testnet is the production path for Aztec. It operates as a fully decentralized n
 Testnet is ideal for testing node configurations, governance proposals, and understanding network dynamics without real financial risk.
 
 **Target Users:**
+
 - Future Alpha sequencer operators testing configurations
 - Developers requiring production-like testing conditions
 - Governance participants practicing proposal workflows
 - Infrastructure operators validating monitoring setups
 
 **Key Features:**
+
 - Fully decentralized sequencer set
 - Connected to Ethereum Sepolia
 - Transactions are proven
