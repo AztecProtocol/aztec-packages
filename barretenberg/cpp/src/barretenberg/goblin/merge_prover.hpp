@@ -7,6 +7,7 @@
 #pragma once
 
 #include "barretenberg/commitment_schemes/claim.hpp"
+#include "barretenberg/constants.hpp"
 #include "barretenberg/flavor/mega_flavor.hpp"
 #include "barretenberg/flavor/ultra_flavor.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
@@ -32,6 +33,7 @@ class MergeProver {
 
   public:
     using MergeProof = std::vector<FF>;
+    static constexpr size_t NUM_WIRES = MegaExecutionTraceBlocks::NUM_WIRES;
 
     explicit MergeProver(const std::shared_ptr<ECCOpQueue>& op_queue,
                          std::shared_ptr<Transcript> transcript,
@@ -42,12 +44,30 @@ class MergeProver {
     // Public for test access (computing commitments)
     CommitmentKey pcs_commitment_key;
 
+    /**
+     * @brief Prepend NUM_DISABLED_ROWS_IN_SUMCHECK zeros to each polynomial in a table.
+     * @details With top-of-trace masking, the circuit's ecc_op_wire polynomials have data starting at
+     * row NUM_DISABLED_ROWS_IN_SUMCHECK (X^s · t(X) structure). The merge protocol polynomials must
+     * match this layout so that the prover's Shplonk quotient is consistent with the ecc_op_wire
+     * commitments held by the verifier.
+     */
+    static void shift_table_by_disabled_rows(std::array<Polynomial, NUM_WIRES>& table)
+    {
+        constexpr size_t s = NUM_DISABLED_ROWS_IN_SUMCHECK;
+        for (auto& poly : table) {
+            const size_t new_size = poly.size() + s;
+            Polynomial shifted(new_size, new_size);
+            for (size_t i = 0; i < poly.size(); i++) {
+                shifted.at(i + s) = poly[i];
+            }
+            poly = std::move(shifted);
+        }
+    }
+
   private:
     std::shared_ptr<Transcript> transcript;
     std::shared_ptr<ECCOpQueue> op_queue;
     MergeSettings settings;
-
-    static constexpr size_t NUM_WIRES = MegaExecutionTraceBlocks::NUM_WIRES;
     std::vector<std::string> labels_degree_check = { "LEFT_TABLE_DEGREE_CHECK_0",
                                                      "LEFT_TABLE_DEGREE_CHECK_1",
                                                      "LEFT_TABLE_DEGREE_CHECK_2",

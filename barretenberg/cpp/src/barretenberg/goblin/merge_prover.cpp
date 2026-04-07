@@ -32,7 +32,8 @@ MergeProver::MergeProver(const std::shared_ptr<ECCOpQueue>& op_queue,
         op_queue->merge(settings);
     }
 
-    pcs_commitment_key = CommitmentKey(op_queue->get_ultra_ops_table_num_rows());
+    // Size the commitment key to accommodate the X^s shift applied to merge polynomials
+    pcs_commitment_key = CommitmentKey(op_queue->get_ultra_ops_table_num_rows() + NUM_DISABLED_ROWS_IN_SUMCHECK);
 };
 
 MergeProver::Polynomial MergeProver::compute_degree_check_polynomial(
@@ -57,7 +58,9 @@ MergeProver::Polynomial MergeProver::compute_shplonk_batched_quotient(
 {
     // Q such that Q·(X - κ)·(X - κ⁻¹) =
     //   (X - κ⁻¹)·(Σᵢ βᵢ(Lᵢ - lᵢ) + Σᵢ βᵢ(Rᵢ - rᵢ) + Σᵢ βᵢ(Mᵢ - mᵢ)) + (X - κ)·β(G - g)
-    Polynomial shplonk_batched_quotient(merged_table[0].size());
+    // Quotient must fit the largest polynomial (L/R are shifted, M is not; take the max)
+    const size_t quotient_size = std::max({ left_table[0].size(), right_table[0].size(), merged_table[0].size() });
+    Polynomial shplonk_batched_quotient(quotient_size);
 
     // Handle polynomials opened at κ
     for (size_t idx_table = 0; idx_table < 3; idx_table++) {
@@ -167,8 +170,57 @@ MergeProver::MergeProof MergeProver::construct_proof()
         right_table = op_queue->construct_current_ultra_ops_subtable_columns(); // t
     }
 
-    // Send shift_size to the verifier
+    // Capture shift_size BEFORE the X^s shift (the concatenation identity uses the unshifted size)
     const size_t shift_size = left_table[0].size();
+
+    // Shift L and R by X^s so their commitments match the circuit's ecc_op_wire commitments and
+    // the T_prev chain from prior PREPEND merges (which output [X^s·M]).
+    // For PREPEND: also shift M to maintain the chain ([X^s·M] becomes T_prev for the next merge).
+    // For APPEND (final merge): do NOT shift M — commit to [M] directly for the Translator.
+    // The Shplonk uses X^s·L, X^s·R, and M or X^s·M — each matches its commitment.
+    shift_table_by_disabled_rows(left_table);
+    shift_table_by_disabled_rows(right_table);
+    if (settings == MergeSettings::PREPEND) {
+        shift_table_by_disabled_rows(merged_table);
+    }
+
+    // Debug: print table sizes and first non-zero coefficient positions
+    info("MergeProver debug [", settings == MergeSettings::APPEND ? "APPEND" : "PREPEND", "]:");
+    info("  shift_size=", shift_size);
+    info("  left[0].size()=",
+         left_table[0].size(),
+         " right[0].size()=",
+         right_table[0].size(),
+         " merged[0].size()=",
+         merged_table[0].size());
+    info("  left[0] first 6: ",
+         left_table[0][0],
+         ", ",
+         left_table[0][1],
+         ", ",
+         left_table[0][2],
+         ", ",
+         left_table[0][3],
+         ", ",
+         left_table[0][4],
+         ", ",
+         left_table[0][5]);
+    info("  merged[0] first 6: ",
+         merged_table[0][0],
+         ", ",
+         merged_table[0][1],
+         ", ",
+         merged_table[0][2],
+         ", ",
+         merged_table[0][3],
+         ", ",
+         merged_table[0][4],
+         ", ",
+         merged_table[0][5]);
+    info("  [M_0] = ", pcs_commitment_key.commit(merged_table[0]));
+    info("  [L_0] = ", pcs_commitment_key.commit(left_table[0]));
+    info("  [R_0] = ", pcs_commitment_key.commit(right_table[0]));
+
     transcript->send_to_verifier("shift_size", static_cast<uint32_t>(shift_size));
 
     // Compute commitments [M_j] and send to the verifier

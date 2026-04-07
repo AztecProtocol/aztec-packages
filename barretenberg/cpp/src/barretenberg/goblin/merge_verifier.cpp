@@ -14,12 +14,17 @@
 namespace bb {
 
 template <typename Curve>
-bool MergeVerifier_<Curve>::check_concatenation_identities(std::vector<FF>& evals, const FF& pow_kappa) const
+bool MergeVerifier_<Curve>::check_concatenation_identities(std::vector<FF>& evals,
+                                                           const FF& pow_kappa,
+                                                           const FF& pow_kappa_s) const
 {
     bool concatenation_verified = true;
     FF concatenation_diff(0);
     for (size_t idx = 0; idx < NUM_WIRES; idx++) {
-        concatenation_diff = evals[idx] + (pow_kappa * evals[idx + NUM_WIRES]) - evals[idx + (2 * NUM_WIRES)];
+        // L and R are always shifted. M is shifted for PREPEND (pow_kappa_s=1), unshifted for APPEND (pow_kappa_s=κ^s).
+        // Identity: L'(κ) + κ^k·R'(κ) = pow_kappa_s · M(κ)
+        concatenation_diff =
+            evals[idx] + (pow_kappa * evals[idx + NUM_WIRES]) - pow_kappa_s * evals[idx + (2 * NUM_WIRES)];
         if constexpr (IsRecursive) {
             concatenation_verified &= concatenation_diff.get_value() == 0;
             concatenation_diff.assert_equal(FF(0),
@@ -166,7 +171,8 @@ typename MergeVerifier_<Curve>::ReductionResult MergeVerifier_<Curve>::reduce_to
     const FF kappa = transcript->template get_challenge<FF>("kappa");
     const FF kappa_inv = kappa.invert();
     const FF pow_kappa = kappa.pow(shift_size);
-    const FF pow_kappa_minus_one = pow_kappa * kappa_inv;
+    // L is always shifted by X^s (both PREPEND and APPEND). Degree check needs κ^{k+s-1}.
+    const FF pow_kappa_degree_check = pow_kappa * kappa.pow(NUM_DISABLED_ROWS_IN_SUMCHECK) * kappa_inv;
 
     // Receive evaluations of [Lᵢ], [Rᵢ], [Mᵢ] at κ
     std::vector<FF> evals;
@@ -194,11 +200,27 @@ typename MergeVerifier_<Curve>::ReductionResult MergeVerifier_<Curve>::reduce_to
         evals.back().set_origin_tag(degree_check_challenges.back().get_origin_tag());
     }
 
-    // Check concatenation identities
-    bool concatenation_verified = check_concatenation_identities(evals, pow_kappa);
+    // PREPEND: all shifted (L', R', M') — standard concatenation check: L' + κ^k·R' = M'.
+    // APPEND: L', R' shifted, M unshifted — adjusted: L' + κ^k·R' = κ^s·M.
+    const FF pow_kappa_s = (settings == MergeSettings::APPEND) ? kappa.pow(NUM_DISABLED_ROWS_IN_SUMCHECK) : FF(1);
+    bool concatenation_verified = check_concatenation_identities(evals, pow_kappa, pow_kappa_s);
 
     // Check degree identity
-    bool degree_check_verified = check_degree_identity(evals, pow_kappa_minus_one, degree_check_challenges);
+    bool degree_check_verified = check_degree_identity(evals, pow_kappa_degree_check, degree_check_challenges);
+
+    // Debug: print shift_size and commitment/eval for first L entry
+    if constexpr (!IsRecursive) {
+        info("MergeVerifier debug: shift_size=",
+             shift_size,
+             " settings=",
+             settings == MergeSettings::APPEND ? "APPEND" : "PREPEND");
+        info("  L[0] commitment: ", table_commitments[0]);
+        info("  L[0] eval: ", evals[0]);
+        info("  R[0] commitment: ", table_commitments[NUM_WIRES]);
+        info("  R[0] eval: ", evals[NUM_WIRES]);
+        info("  M[0] commitment: ", table_commitments[2 * NUM_WIRES]);
+        info("  M[0] eval: ", evals[2 * NUM_WIRES]);
+    }
 
     // Receive Shplonk batched quotient
     Commitment shplonk_batched_quotient =

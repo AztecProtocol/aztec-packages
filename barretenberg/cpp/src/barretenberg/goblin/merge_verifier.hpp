@@ -108,7 +108,9 @@ template <typename Curve> class MergeVerifier_ {
         "SHPLONK_MERGE_BATCHING_CHALLENGE_12"
     };
 
-    bool check_concatenation_identities(std::vector<FF>& evals, const FF& pow_kappa) const;
+    bool check_concatenation_identities(std::vector<FF>& evals,
+                                        const FF& pow_kappa,
+                                        const FF& pow_kappa_disabled) const;
 
     bool check_degree_identity(std::vector<FF>& evals,
                                const FF& pow_kappa_minus_one,

@@ -4,6 +4,7 @@
 
 #include "barretenberg/goblin/goblin.hpp"
 #include "barretenberg/goblin/goblin_verifier.hpp"
+#include "barretenberg/goblin/merge_prover.hpp"
 #include "barretenberg/goblin/mock_circuits.hpp"
 #include "barretenberg/srs/global_crs.hpp"
 #include "barretenberg/stdlib/honk_verifier/ultra_verification_keys_comparator.hpp"
@@ -51,7 +52,10 @@ class BoomerangGoblinRecursiveVerifierTests : public testing::Test {
         MergeCommitments merge_commitments;
         auto t_current = goblin.op_queue->construct_current_ultra_ops_subtable_columns();
         auto T_prev = goblin.op_queue->construct_previous_ultra_ops_table_columns();
-        CommitmentKey<curve::BN254> pcs_commitment_key(goblin.op_queue->get_ultra_ops_table_num_rows());
+        MergeProver::shift_table_by_disabled_rows(t_current);
+        MergeProver::shift_table_by_disabled_rows(T_prev);
+        CommitmentKey<curve::BN254> pcs_commitment_key(goblin.op_queue->get_ultra_ops_table_num_rows() +
+                                                       NUM_DISABLED_ROWS_IN_SUMCHECK);
         for (size_t idx = 0; idx < MegaFlavor::NUM_WIRES; idx++) {
             merge_commitments.t_commitments[idx] = pcs_commitment_key.commit(t_current[idx]);
             merge_commitments.T_prev_commitments[idx] = pcs_commitment_key.commit(T_prev[idx]);
