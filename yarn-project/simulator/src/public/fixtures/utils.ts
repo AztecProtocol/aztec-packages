@@ -13,8 +13,8 @@ import { bufferAsFields } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractClassPublic, ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import {
-  DEFAULT_TEARDOWN_DA_GAS_LIMIT,
-  DEFAULT_TEARDOWN_L2_GAS_LIMIT,
+  FALLBACK_TEARDOWN_DA_GAS_LIMIT,
+  FALLBACK_TEARDOWN_L2_GAS_LIMIT,
   Gas,
   GasFees,
   GasSettings,
@@ -133,7 +133,7 @@ export async function createTxForPublicCalls(
 
   const maxFeesPerGas = feePayer.isZero() ? GasFees.empty() : new GasFees(10, 10);
   const teardownGasLimits = teardownCallRequest
-    ? new Gas(DEFAULT_TEARDOWN_DA_GAS_LIMIT, DEFAULT_TEARDOWN_L2_GAS_LIMIT)
+    ? new Gas(FALLBACK_TEARDOWN_DA_GAS_LIMIT, FALLBACK_TEARDOWN_L2_GAS_LIMIT)
     : Gas.empty();
   const gasSettings = new GasSettings(gasLimits, teardownGasLimits, maxFeesPerGas, GasFees.empty());
   const txContext = new TxContext(Fr.zero(), Fr.zero(), gasSettings);

@@ -13,7 +13,7 @@ import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { RevertCode } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { Body, L2Block, type L2BlockId, type L2BlockSource } from '@aztec/stdlib/block';
-import { DEFAULT_TEARDOWN_DA_GAS_LIMIT, Gas, GasFees, GasSettings } from '@aztec/stdlib/gas';
+import { FALLBACK_TEARDOWN_DA_GAS_LIMIT, Gas, GasFees, GasSettings } from '@aztec/stdlib/gas';
 import type { MerkleTreeReadOperations, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import { mockTx } from '@aztec/stdlib/testing';
 import {
@@ -743,7 +743,7 @@ describe('TxPoolV2', () => {
       tx.data.constants.txContext.gasSettings = GasSettings.fallback({
         gasLimits: new Gas(MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT, MAX_PROCESSABLE_L2_GAS + 1),
         maxFeesPerGas: DEFAULT_MAX_FEES_PER_GAS,
-        teardownGasLimits: new Gas(DEFAULT_TEARDOWN_DA_GAS_LIMIT, 1),
+        teardownGasLimits: new Gas(FALLBACK_TEARDOWN_DA_GAS_LIMIT, 1),
       });
       const result = await gasPool.addPendingTxs([tx]);
       expect(result.accepted).toHaveLength(0);
@@ -758,7 +758,7 @@ describe('TxPoolV2', () => {
       tx.data.constants.txContext.gasSettings = GasSettings.fallback({
         gasLimits: new Gas(MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT, MAX_PROCESSABLE_L2_GAS + 1),
         maxFeesPerGas: DEFAULT_MAX_FEES_PER_GAS,
-        teardownGasLimits: new Gas(DEFAULT_TEARDOWN_DA_GAS_LIMIT, 1),
+        teardownGasLimits: new Gas(FALLBACK_TEARDOWN_DA_GAS_LIMIT, 1),
       });
       const result = await gasPool.addPendingTxs([tx]);
       expect(result.accepted).toHaveLength(0);

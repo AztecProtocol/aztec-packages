@@ -99,7 +99,7 @@ export type CompleteFeeOptionsConfig = {
   feePayer?: AztecAddress;
   /** User-provided partial gas settings. */
   gasSettings?: Partial<FieldsOf<GasSettings>>;
-  /** If true, uses high gas limits for estimation/simulation. If false, uses protocol max limits. */
+  /** If true, returns gas settings with high gas limits for estimation. If false, uses fallback limits. */
   forEstimation?: boolean;
 };
 

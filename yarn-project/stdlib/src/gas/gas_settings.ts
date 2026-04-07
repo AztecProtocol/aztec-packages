@@ -10,10 +10,10 @@ import { GasFees } from './gas_fees.js';
 
 /** Approximate max DA gas limit. Arbitrary, assuming 4 blocks per checkpoint — users should use gas estimation. */
 export const APPROXIMATE_MAX_DA_GAS_PER_BLOCK = Math.floor(MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT / 4);
-/** Default teardown L2 gas limit. Arbitrary — users should use gas estimation. */
-export const DEFAULT_TEARDOWN_L2_GAS_LIMIT = Math.floor(MAX_PROCESSABLE_L2_GAS / 8);
-/** Default teardown DA gas limit. Arbitrary — users should use gas estimation. */
-export const DEFAULT_TEARDOWN_DA_GAS_LIMIT = Math.floor(APPROXIMATE_MAX_DA_GAS_PER_BLOCK / 2);
+/** Fallback teardown L2 gas limit. Arbitrary — users should use gas estimation. */
+export const FALLBACK_TEARDOWN_L2_GAS_LIMIT = Math.floor(MAX_PROCESSABLE_L2_GAS / 8);
+/** Fallback teardown DA gas limit. Arbitrary — users should use gas estimation. */
+export const FALLBACK_TEARDOWN_DA_GAS_LIMIT = Math.floor(APPROXIMATE_MAX_DA_GAS_PER_BLOCK / 2);
 
 // For gas estimation, we use intentionally high limits above what the network can process,
 // so the simulation runs without hitting gas caps. Since teardown gas is counted towards total,
@@ -111,6 +111,10 @@ export class GasSettings {
    * for app logic will be gasLimits - teardownGasLimits - privateOverhead.
    * The DA gas limit is set to an approximate max per block assuming 4 blocks per checkpoint,
    * since using the maximum per checkpoint would cause nodes to reject transactions.
+   * These values won't work if:
+   *  - Teardown consumes more than the arbitrarily assigned fallback limits
+   *  - The rest of the transaction consumes more than the remaining gas after teardown
+   *  - The DA gas limit is too low for the transaction, while still within the checkpoint limit
    */
   static fallback(overrides: {
     gasLimits?: Gas;
@@ -124,8 +128,8 @@ export class GasSettings {
         daGas: APPROXIMATE_MAX_DA_GAS_PER_BLOCK,
       },
       teardownGasLimits: overrides.teardownGasLimits ?? {
-        l2Gas: DEFAULT_TEARDOWN_L2_GAS_LIMIT,
-        daGas: DEFAULT_TEARDOWN_DA_GAS_LIMIT,
+        l2Gas: FALLBACK_TEARDOWN_L2_GAS_LIMIT,
+        daGas: FALLBACK_TEARDOWN_DA_GAS_LIMIT,
       },
       maxFeesPerGas: overrides.maxFeesPerGas,
       maxPriorityFeesPerGas: overrides.maxPriorityFeesPerGas ?? GasFees.empty(),
@@ -133,14 +137,14 @@ export class GasSettings {
   }
 
   /**
-   * Gas settings for simulation/estimation only. Since teardown gas is reserved upfront
-   * from gasLimits during private execution (see gas_meter.nr), the effective gas available
-   * for app logic is gasLimits - teardownGasLimits - privateOverhead. To ensure estimation
-   * never hits gas caps, we set both limits above what the protocol allows: teardown gets
-   * MAX_PROCESSABLE and gasLimits gets teardown + MAX_PROCESSABLE, so the full processable
-   * amount remains available for each phase independently.
-   * To be used in conjunction with skipTxValidation: true during public simulation, or the node
-   * would reject the transaction outright due to gas limits being above protocol max.
+   * Gas settings for simulation/estimation only.
+   * Since teardown gas is reserved upfront from gasLimits during private execution (see gas_meter.nr),
+   * the effective gas available for app logic is gasLimits - teardownGasLimits - privateOverhead.
+   * To ensure estimation never hits gas caps, we set both limits above what the protocol allows:
+   * teardown gets MAX_PROCESSABLE and gasLimits gets teardown + MAX_PROCESSABLE, so the full
+   * processable amount remains available for each phase independently. To be used in conjunction
+   * with skipTxValidation: true during public simulation, or the node would reject the transaction
+   * outright due to gas limits being above protocol max.
    */
   static forEstimation(overrides: {
     gasLimits?: Gas;
