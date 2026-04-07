@@ -45,7 +45,9 @@ field_t<Builder> databus<Builder>::bus_vector::operator[](const field_pt& index)
     // Ensure the read is valid
     auto raw_index = static_cast<size_t>(uint256_t(index.get_value()).data[0]);
     if (raw_index >= length) {
+        // Set a failure when the index is out of bounds. Return early to avoid OOB vector access.
         context->failure("bus_vector: access out of bounds");
+        return field_pt::from_witness_index(context, context->zero_idx());
     }
 
     // The read index must be a witness; if constant, add it as a constant variable
