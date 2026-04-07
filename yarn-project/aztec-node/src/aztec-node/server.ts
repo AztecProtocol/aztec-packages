@@ -32,7 +32,12 @@ import {
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { type ProverNode, type ProverNodeDeps, createProverNode } from '@aztec/prover-node';
 import { createKeyStoreForProver } from '@aztec/prover-node/config';
-import { GlobalVariableBuilder, SequencerClient, type SequencerPublisher } from '@aztec/sequencer-client';
+import {
+  FeeProviderImpl,
+  GlobalVariableBuilder,
+  SequencerClient,
+  type SequencerPublisher,
+} from '@aztec/sequencer-client';
 import { PublicProcessorFactory } from '@aztec/simulator/server';
 import {
   AttestationsBlockWatcher,
@@ -86,6 +91,7 @@ import type { NullifierLeafPreimage, PublicDataTreeLeaf, PublicDataTreeLeafPreim
 import { MerkleTreeId, NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
 import {
   type BlockHeader,
+  type FeeProvider,
   type GlobalVariableBuilder as GlobalVariableBuilderInterface,
   type IndexedTxEffect,
   PublicSimulationOutput,
@@ -151,6 +157,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     protected readonly l1ChainId: number,
     protected readonly version: number,
     protected readonly globalVariableBuilder: GlobalVariableBuilderInterface,
+    protected readonly feeProvider: FeeProvider,
     protected readonly epochCache: EpochCacheInterface,
     protected readonly packageVersion: string,
     private peerProofVerifier: ClientProtocolCircuitVerifier,
@@ -478,13 +485,16 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       })
       .catch(err => log.error('Failed to start p2p services after archiver sync', err));
 
-    const globalVariableBuilder = new GlobalVariableBuilder(dateProvider, publicClient, {
+    const globalVariableBuilderConfig = {
       l1Contracts: config.l1Contracts,
       ethereumSlotDuration: config.ethereumSlotDuration,
       rollupVersion: BigInt(config.rollupVersion),
       l1GenesisTime,
       slotDuration: Number(slotDuration),
-    });
+    };
+
+    const globalVariableBuilder = new GlobalVariableBuilder(dateProvider, publicClient, globalVariableBuilderConfig);
+    const feeProvider = new FeeProviderImpl(dateProvider, publicClient, globalVariableBuilderConfig);
 
     // Validator enabled, create/start relevant service
     let sequencer: SequencerClient | undefined;
@@ -612,6 +622,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       ethereumChain.chainInfo.id,
       config.rollupVersion,
       globalVariableBuilder,
+      feeProvider,
       epochCache,
       packageVersion,
       peerProofVerifier,
@@ -765,12 +776,12 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
   }
 
   public async getCurrentMinFees(): Promise<GasFees> {
-    return await this.globalVariableBuilder.getCurrentMinFees();
+    return await this.feeProvider.getCurrentMinFees();
   }
 
   /** Returns predicted min fees for the current slot and next N slots. */
   public async getPredictedMinFees(manaUsage?: ManaUsageEstimate): Promise<GasFees[]> {
-    return await this.globalVariableBuilder.getPredictedMinFees(manaUsage);
+    return await this.feeProvider.getPredictedMinFees(manaUsage);
   }
 
   public async getMaxPriorityFees(): Promise<GasFees> {

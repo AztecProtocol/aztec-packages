@@ -12,6 +12,7 @@ import { GasFees, ManaUsageEstimate } from '@aztec/stdlib/gas';
 import type {
   BuildCheckpointGlobalVariablesOpts,
   CheckpointGlobalVariables,
+  FeeProvider,
   GlobalVariableBuilder as GlobalVariableBuilderInterface,
 } from '@aztec/stdlib/tx';
 import { GlobalVariables } from '@aztec/stdlib/tx';
@@ -25,33 +26,22 @@ export type GlobalVariableBuilderConfig = {
   rollupVersion: bigint;
 } & Pick<L1RollupConstants, 'slotDuration' | 'l1GenesisTime'>;
 
-/**
- * Simple global variables builder.
- */
-export class GlobalVariableBuilder implements GlobalVariableBuilderInterface {
-  private log = createLogger('sequencer:global_variable_builder');
+/** Provides current and predicted fee information based on on-chain state. */
+export class FeeProviderImpl implements FeeProvider {
   private currentMinFees: Promise<GasFees> = Promise.resolve(new GasFees(0, 0));
   private currentL1BlockNumber: bigint | undefined = undefined;
 
   private readonly rollupContract: RollupContract;
   private readonly feePredictor: FeePredictor;
   private readonly ethereumSlotDuration: number;
-  private readonly aztecSlotDuration: number;
   private readonly l1GenesisTime: bigint;
-
-  private chainId: Fr;
-  private version: Fr;
 
   constructor(
     private readonly dateProvider: DateProvider,
     private readonly publicClient: ViemPublicClient,
     config: GlobalVariableBuilderConfig,
   ) {
-    this.version = new Fr(config.rollupVersion);
-    this.chainId = new Fr(this.publicClient.chain!.id);
-
     this.ethereumSlotDuration = config.ethereumSlotDuration;
-    this.aztecSlotDuration = config.slotDuration;
     this.l1GenesisTime = config.l1GenesisTime;
 
     this.rollupContract = new RollupContract(this.publicClient, config.l1Contracts.rollupAddress);
@@ -94,6 +84,36 @@ export class GlobalVariableBuilder implements GlobalVariableBuilderInterface {
 
   public getPredictedMinFees(manaUsage?: ManaUsageEstimate): Promise<GasFees[]> {
     return this.feePredictor.getPredictedMinFees(this.publicClient, manaUsage ?? ManaUsageEstimate.Target);
+  }
+}
+
+/**
+ * Simple global variables builder.
+ */
+export class GlobalVariableBuilder implements GlobalVariableBuilderInterface {
+  private log = createLogger('sequencer:global_variable_builder');
+
+  private readonly rollupContract: RollupContract;
+  private readonly ethereumSlotDuration: number;
+  private readonly aztecSlotDuration: number;
+  private readonly l1GenesisTime: bigint;
+
+  private chainId: Fr;
+  private version: Fr;
+
+  constructor(
+    private readonly dateProvider: DateProvider,
+    private readonly publicClient: ViemPublicClient,
+    config: GlobalVariableBuilderConfig,
+  ) {
+    this.version = new Fr(config.rollupVersion);
+    this.chainId = new Fr(this.publicClient.chain!.id);
+
+    this.ethereumSlotDuration = config.ethereumSlotDuration;
+    this.aztecSlotDuration = config.slotDuration;
+    this.l1GenesisTime = config.l1GenesisTime;
+
+    this.rollupContract = new RollupContract(this.publicClient, config.l1Contracts.rollupAddress);
   }
 
   /**
