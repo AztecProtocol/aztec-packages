@@ -21,9 +21,15 @@ def main():
                 name, source_path = line.split("|", 1)
                 fuzzers.append({"name": name, "source_path": source_path})
 
+    # Derive binary suffix from preset name (e.g. fuzzing-noasm -> _noasm)
+    suffix = ""
+    if preset and preset != "fuzzing":
+        tag = preset.removeprefix("fuzzing-").replace("coverage", "cov")
+        suffix = f"_{tag}"
+
     os.makedirs(os.path.dirname(output_file), exist_ok=True)
     with open(output_file, "w") as f:
-        json.dump({"version": 1, "preset": preset, "fuzzers": fuzzers}, f, indent=2)
+        json.dump({"version": 1, "preset": preset, "suffix": suffix, "fuzzers": fuzzers}, f, indent=2)
 
     print(f"Wrote {len(fuzzers)} fuzzers to {output_file} (preset: {preset})")
 
