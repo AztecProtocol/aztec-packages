@@ -223,4 +223,88 @@ describe('FeePredictor', () => {
     },
     60_000,
   );
+
+  it('predictions match L1 across successive slots over time', async () => {
+    const constantBaseFee = 50_000_000_000n;
+
+    // Pin L1 fees to a constant by updating the oracle twice (sets both pre and post).
+    await rollupCheatCodes.advanceSlots(FEE_ORACLE_LAG + 1);
+    await cheatCodes.setNextBlockBaseFeePerGas(constantBaseFee);
+    await rollupCheatCodes.updateL1GasFeeOracle();
+    await rollupCheatCodes.advanceSlots(FEE_ORACLE_LAG + 1);
+    await cheatCodes.setNextBlockBaseFeePerGas(constantBaseFee);
+    await rollupCheatCodes.updateL1GasFeeOracle();
+    await rollupCheatCodes.advanceSlots(3);
+    await cheatCodes.mine();
+
+    const manaTarget = await rollup.getManaTarget();
+    const rollupAddress = EthAddress.fromString(rollup.address);
+
+    /** Writes a fee header and slot number for the given checkpoint, then bumps the pending tip. */
+    async function advanceCheckpoint(checkpointNumber: CheckpointNumber, feeHeader: FeeHeader, slotNumber: bigint) {
+      const feeHeaderSlot = await rollup.getTempCheckpointLogStorageSlot(
+        checkpointNumber,
+        TempCheckpointLogField.FeeHeader,
+      );
+      await cheatCodes.store(rollupAddress, feeHeaderSlot, RollupContract.compressFeeHeader(feeHeader));
+
+      const slotNumberSlot = await rollup.getTempCheckpointLogStorageSlot(
+        checkpointNumber,
+        TempCheckpointLogField.SlotNumber,
+      );
+      await cheatCodes.store(rollupAddress, slotNumberSlot, slotNumber & ((1n << 32n) - 1n));
+
+      const currentTips = await cheatCodes.load(rollupAddress, RollupContract.chainTipsStorageSlot);
+      const provenCheckpointNumber = currentTips & ((1n << 128n) - 1n);
+      await cheatCodes.store(
+        rollupAddress,
+        RollupContract.chainTipsStorageSlot,
+        RollupContract.packChainTips(BigInt(checkpointNumber), provenCheckpointNumber),
+      );
+    }
+
+    const pendingCheckpointNumber = await rollup.getCheckpointNumber();
+    const currentFeeHeader = (await rollup.getCheckpoint(pendingCheckpointNumber)).feeHeader;
+
+    let prevExcessMana = currentFeeHeader.excessMana;
+    let prevManaUsed = currentFeeHeader.manaUsed;
+    let nextCheckpointOffset = 1;
+
+    // Step through 6 successive slots, creating a fresh predictor each time.
+    for (let step = 0; step < 6; step++) {
+      const predictor = new FeePredictor(rollup, slotDuration, l1GenesisTime);
+      const predicted = await predictor.getPredictedMinFees(publicClient, ManaUsageEstimate.None);
+
+      expect(predicted.length).toBe(FEE_ORACLE_LAG + 1);
+
+      const startSlot = await getPredictionStartSlot();
+      for (let i = 0; i < predicted.length; i++) {
+        const l1Fee = await rollup.getManaMinFeeAt(getTimestamp(startSlot + BigInt(i)), true);
+        expect(predicted[i].feePerL2Gas).toBe(l1Fee);
+      }
+
+      // Advance: simulate proposing a checkpoint at the current slot with zero mana usage.
+      const newExcessMana = computeExcessMana(prevExcessMana, prevManaUsed, manaTarget);
+      const newCheckpointNumber = CheckpointNumber.add(pendingCheckpointNumber, nextCheckpointOffset);
+      const newFeeHeader: FeeHeader = {
+        excessMana: newExcessMana,
+        manaUsed: 0n,
+        ethPerFeeAsset: currentFeeHeader.ethPerFeeAsset,
+        congestionCost: 0n,
+        proverCost: 0n,
+      };
+
+      await advanceCheckpoint(newCheckpointNumber, newFeeHeader, startSlot);
+
+      // Warp to the next slot.
+      const nextTimestamp = getTimestamp(startSlot + 1n);
+      await cheatCodes.warp(Number(nextTimestamp));
+      await cheatCodes.setNextBlockBaseFeePerGas(constantBaseFee);
+      await cheatCodes.mine();
+
+      prevExcessMana = newExcessMana;
+      prevManaUsed = 0n;
+      nextCheckpointOffset++;
+    }
+  }, 60_000);
 });
