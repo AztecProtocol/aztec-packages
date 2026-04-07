@@ -6,20 +6,8 @@ import { type PXEConfig, getPXEConfig } from '@aztec/pxe/config';
 
 import { LazyAccountContractsProvider } from '../account-contract-providers/lazy.js';
 import type { AccountContractsProvider } from '../account-contract-providers/types.js';
-import { EmbeddedWallet, type EmbeddedWalletOptions, type EmbeddedWalletPXEOptions } from '../embedded_wallet.js';
+import { EmbeddedWallet, type EmbeddedWalletOptions, splitPxeOptions } from '../embedded_wallet.js';
 import { WalletDB } from '../wallet_db.js';
-
-/** Splits the unified pxe options into PXEConfig and PXECreationOptions. */
-function splitPxeOptions(pxe?: EmbeddedWalletPXEOptions): {
-  config: Partial<PXEConfig>;
-  creation: PXECreationOptions;
-} {
-  if (!pxe) {
-    return { config: {}, creation: {} };
-  }
-  const { loggers, loggerActorLabel, proverOrOptions, store, simulator, ...config } = pxe;
-  return { config, creation: { loggers, loggerActorLabel, proverOrOptions, store, simulator } };
-}
 
 export class BrowserEmbeddedWallet extends EmbeddedWallet {
   static async create<T extends BrowserEmbeddedWallet = BrowserEmbeddedWallet>(

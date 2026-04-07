@@ -34,6 +34,18 @@ export type EmbeddedWalletPXEOptions = Partial<PXEConfig> &
     proverEnabled?: boolean;
   };
 
+/** Splits a unified EmbeddedWalletPXEOptions into PXEConfig overrides and PXECreationOptions. */
+export function splitPxeOptions(pxe?: EmbeddedWalletPXEOptions): {
+  config: Partial<PXEConfig>;
+  creation: PXECreationOptions;
+} {
+  if (!pxe) {
+    return { config: {}, creation: {} };
+  }
+  const { loggers, loggerActorLabel, proverOrOptions, store, simulator, ...config } = pxe;
+  return { config, creation: { loggers, loggerActorLabel, proverOrOptions, store, simulator } };
+}
+
 export type EmbeddedWalletOptions = {
   /** Parent logger. Child loggers are derived via createChild() for each subsystem. */
   logger?: Logger;
