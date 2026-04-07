@@ -90,7 +90,6 @@ locals {
   devnet_offset = 6 # deprecated. Naming has changed
 
   devnets = [
-    "v4-devnet-2",
     "v4-devnet-3"
   ]
 }
