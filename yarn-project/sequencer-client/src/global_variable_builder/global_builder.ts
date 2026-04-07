@@ -45,7 +45,14 @@ export class FeeProviderImpl implements FeeProvider {
     this.l1GenesisTime = config.l1GenesisTime;
 
     this.rollupContract = new RollupContract(this.publicClient, config.l1Contracts.rollupAddress);
-    this.feePredictor = new FeePredictor(this.rollupContract, config.slotDuration, config.l1GenesisTime);
+    this.feePredictor = new FeePredictor(
+      this.rollupContract,
+      this.publicClient,
+      this.dateProvider,
+      config.slotDuration,
+      config.l1GenesisTime,
+      config.ethereumSlotDuration,
+    );
   }
 
   /**
@@ -83,7 +90,7 @@ export class FeeProviderImpl implements FeeProvider {
   }
 
   public getPredictedMinFees(manaUsage?: ManaUsageEstimate): Promise<GasFees[]> {
-    return this.feePredictor.getPredictedMinFees(this.publicClient, manaUsage ?? ManaUsageEstimate.Target);
+    return this.feePredictor.getPredictedMinFees(manaUsage ?? ManaUsageEstimate.Target);
   }
 }
 

@@ -25,7 +25,9 @@ describe('FeePredictor', () => {
   let rollup: RollupContract;
 
   let slotDuration: number;
+  let ethereumSlotDuration: number;
   let l1GenesisTime: bigint;
+  let dateProvider: DateProvider;
 
   beforeAll(async () => {
     const privateKeyRaw = '0x8b3a350cf5c34c9194ca85829a2df0ec3153be0318b5e2d3348e872092edffba';
@@ -47,7 +49,9 @@ describe('FeePredictor', () => {
     rollupCheatCodes = RollupCheatCodes.create([rpcUrl], deployed.l1ContractAddresses, new DateProvider());
 
     slotDuration = await rollup.getSlotDuration();
+    ethereumSlotDuration = DefaultL1ContractsConfig.ethereumSlotDuration;
     l1GenesisTime = await rollup.getL1GenesisTime();
+    dateProvider = new DateProvider();
   }, 60_000);
 
   afterAll(async () => {
@@ -71,15 +75,29 @@ describe('FeePredictor', () => {
     const l1Fee = await rollup.getManaMinFeeAt(getTimestamp(startSlot), true);
 
     for (const manaUsage of Object.values(ManaUsageEstimate)) {
-      const predictor = new FeePredictor(rollup, slotDuration, l1GenesisTime);
-      const predicted = await predictor.getPredictedMinFees(publicClient, manaUsage);
+      const predictor = new FeePredictor(
+        rollup,
+        publicClient,
+        dateProvider,
+        slotDuration,
+        l1GenesisTime,
+        ethereumSlotDuration,
+      );
+      const predicted = await predictor.getPredictedMinFees(manaUsage);
       expect(predicted[0].feePerL2Gas).toBe(l1Fee);
     }
   });
 
   it('all slots match L1 with ManaUsageEstimate.None and zero congestion', async () => {
-    const predictor = new FeePredictor(rollup, slotDuration, l1GenesisTime);
-    const predicted = await predictor.getPredictedMinFees(publicClient, ManaUsageEstimate.None);
+    const predictor = new FeePredictor(
+      rollup,
+      publicClient,
+      dateProvider,
+      slotDuration,
+      l1GenesisTime,
+      ethereumSlotDuration,
+    );
+    const predicted = await predictor.getPredictedMinFees(ManaUsageEstimate.None);
 
     const startSlot = await getPredictionStartSlot();
     for (let i = 0; i < predicted.length; i++) {
@@ -99,8 +117,15 @@ describe('FeePredictor', () => {
     await cheatCodes.mine();
     await rollupCheatCodes.updateL1GasFeeOracle();
 
-    const predictor = new FeePredictor(rollup, slotDuration, l1GenesisTime);
-    const predicted = await predictor.getPredictedMinFees(publicClient, ManaUsageEstimate.None);
+    const predictor = new FeePredictor(
+      rollup,
+      publicClient,
+      dateProvider,
+      slotDuration,
+      l1GenesisTime,
+      ethereumSlotDuration,
+    );
+    const predicted = await predictor.getPredictedMinFees(ManaUsageEstimate.None);
 
     const startSlot = await getPredictionStartSlot();
     for (let i = 0; i < predicted.length; i++) {
@@ -117,8 +142,15 @@ describe('FeePredictor', () => {
     await cheatCodes.mine();
     await rollupCheatCodes.advanceSlots(3);
 
-    const predictor = new FeePredictor(rollup, slotDuration, l1GenesisTime);
-    const predicted = await predictor.getPredictedMinFees(publicClient, ManaUsageEstimate.None);
+    const predictor = new FeePredictor(
+      rollup,
+      publicClient,
+      dateProvider,
+      slotDuration,
+      l1GenesisTime,
+      ethereumSlotDuration,
+    );
+    const predicted = await predictor.getPredictedMinFees(ManaUsageEstimate.None);
 
     const startSlot = await getPredictionStartSlot();
     const l1Fee = await rollup.getManaMinFeeAt(getTimestamp(startSlot), true);
@@ -126,8 +158,15 @@ describe('FeePredictor', () => {
   });
 
   it('returns exactly FEE_ORACLE_LAG entries', async () => {
-    const predictor = new FeePredictor(rollup, slotDuration, l1GenesisTime);
-    const predicted = await predictor.getPredictedMinFees(publicClient, ManaUsageEstimate.Target);
+    const predictor = new FeePredictor(
+      rollup,
+      publicClient,
+      dateProvider,
+      slotDuration,
+      l1GenesisTime,
+      ethereumSlotDuration,
+    );
+    const predicted = await predictor.getPredictedMinFees(ManaUsageEstimate.Target);
     expect(predicted.length).toBe(FEE_ORACLE_LAG);
   });
 
@@ -155,8 +194,15 @@ describe('FeePredictor', () => {
       const assumedManaUsed =
         estimate === ManaUsageEstimate.None ? 0n : estimate === ManaUsageEstimate.Target ? manaTarget : manaLimit;
 
-      const predictor = new FeePredictor(rollup, slotDuration, l1GenesisTime);
-      const predicted = await predictor.getPredictedMinFees(publicClient, estimate);
+      const predictor = new FeePredictor(
+        rollup,
+        publicClient,
+        dateProvider,
+        slotDuration,
+        l1GenesisTime,
+        ethereumSlotDuration,
+      );
+      const predicted = await predictor.getPredictedMinFees(estimate);
 
       const rollupAddress = EthAddress.fromString(rollup.address);
 
@@ -272,8 +318,15 @@ describe('FeePredictor', () => {
 
     // Step through 6 successive slots, creating a fresh predictor each time.
     for (let step = 0; step < 6; step++) {
-      const predictor = new FeePredictor(rollup, slotDuration, l1GenesisTime);
-      const predicted = await predictor.getPredictedMinFees(publicClient, ManaUsageEstimate.None);
+      const predictor = new FeePredictor(
+        rollup,
+        publicClient,
+        dateProvider,
+        slotDuration,
+        l1GenesisTime,
+        ethereumSlotDuration,
+      );
+      const predicted = await predictor.getPredictedMinFees(ManaUsageEstimate.None);
 
       expect(predicted.length).toBe(FEE_ORACLE_LAG);
 

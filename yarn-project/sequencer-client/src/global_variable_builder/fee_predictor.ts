@@ -1,7 +1,8 @@
 import { type L1FeeData, MAX_FEE_ASSET_PRICE_MODIFIER_BPS, type RollupContract } from '@aztec/ethereum/contracts';
 import { SlotNumber } from '@aztec/foundation/branded-types';
 import { times } from '@aztec/foundation/collection';
-import { getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
+import type { DateProvider } from '@aztec/foundation/timer';
+import { getSlotAtNextL1Block, getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
 import { FEE_ORACLE_LAG, GasFees, ManaUsageEstimate, computeExcessMana, computeManaMinFee } from '@aztec/stdlib/gas';
 
 /** Cached rollup state for fee prediction. Refreshed once per L1 block. */
@@ -29,22 +30,22 @@ export class FeePredictor {
 
   constructor(
     private readonly rollupContract: RollupContract,
+    private readonly publicClient: { getBlockNumber: () => Promise<bigint> },
+    private readonly dateProvider: DateProvider,
     private readonly slotDuration: number,
     private readonly l1GenesisTime: bigint,
+    private readonly ethereumSlotDuration: number,
   ) {}
 
   /** Returns predicted min fees for each slot in the prediction window. */
-  async getPredictedMinFees(
-    publicClient: { getBlockNumber: () => Promise<bigint> },
-    manaUsage: ManaUsageEstimate,
-  ): Promise<GasFees[]> {
-    const state = await this.getState(publicClient);
+  async getPredictedMinFees(manaUsage: ManaUsageEstimate): Promise<GasFees[]> {
+    const state = await this.getState();
     return this.computePredictions(state, manaUsage);
   }
 
   /** Fetches and caches rollup state. Refreshes when L1 block number advances. */
-  private async getState(publicClient: { getBlockNumber: () => Promise<bigint> }): Promise<FeeOracleState> {
-    const blockNumber = await publicClient.getBlockNumber();
+  private async getState(): Promise<FeeOracleState> {
+    const blockNumber = await this.publicClient.getBlockNumber();
     if (this.cachedL1BlockNumber === undefined || blockNumber > this.cachedL1BlockNumber) {
       this.cachedL1BlockNumber = blockNumber;
       this.cachedState = this.fetchState();
@@ -65,8 +66,14 @@ export class FeePredictor {
       ]);
 
     const lastSlot = lastCheckpoint.slotNumber;
-    // Start from the later of: the slot after the last checkpoint, or the current slot.
-    const nextSlot = SlotNumber.add(lastSlot, 1) > currentSlot ? SlotNumber.add(lastSlot, 1) : currentSlot;
+    // The next L1 block may land in the next L2 slot, so we need to account for that
+    const slotAtNextL1Block = getSlotAtNextL1Block(BigInt(this.dateProvider.nowInSeconds()), {
+      l1GenesisTime: this.l1GenesisTime,
+      slotDuration: this.slotDuration,
+      ethereumSlotDuration: this.ethereumSlotDuration,
+    });
+    // Start from the latest of: slot after last checkpoint, current slot, or slot at next L1 block.
+    const nextSlot = SlotNumber(Math.max(SlotNumber.add(lastSlot, 1), currentSlot, slotAtNextL1Block));
     const feeHeader = lastCheckpoint.feeHeader;
 
     const slotConfig = { slotDuration: this.slotDuration, l1GenesisTime: this.l1GenesisTime };
