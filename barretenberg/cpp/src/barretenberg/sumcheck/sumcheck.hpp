@@ -610,35 +610,21 @@ template <typename Flavor> class SumcheckProver {
         // Libra univariates are generated for ALL D rounds, so compute_libra_univariate works here too.
         GateSeparatorPolynomial<FF> virtual_gate_separator(gate_challenges, multivariate_challenge);
         for (size_t idx = multivariate_d; idx < virtual_log_n; idx++) {
-            // Compute the virtual contribution: the relation at edge (PE[0], 0),
-            // encoding the zero-extension, batched with gate separator and beta factor.
-            round_univariate = round.compute_virtual_contribution(
-                partially_evaluated_polynomials, relation_parameters, virtual_gate_separator, alphas);
+            round_univariate = compute_virtual_round_univariate(round,
+                                                                partially_evaluated_polynomials,
+                                                                relation_parameters,
+                                                                virtual_gate_separator,
+                                                                alphas,
+                                                                row_disabling_polynomial);
 
-            // Apply the row-disabling polynomial factor (1-L) to the virtual contribution.
-            if constexpr (UseRowDisablingPolynomial<Flavor>) {
-                bb::Univariate<FF, 2> one_minus_L(
-                    { FF::one() - row_disabling_polynomial.eval_at_0, FF::one() - row_disabling_polynomial.eval_at_1 });
-                round_univariate *= one_minus_L.template extend_to<Flavor::BATCHED_RELATION_PARTIAL_LENGTH>();
-            }
-
-            // Add libra masking univariate for this virtual round (libra covers all D rounds).
             hiding_univariate = round.compute_libra_univariate(zk_sumcheck_data, idx);
             round_univariate += hiding_univariate;
 
-            transcript->send_to_verifier("Sumcheck:univariate_" + std::to_string(idx), round_univariate);
-
+            handler.process_round_univariate(idx, round_univariate);
             const FF round_challenge = transcript->template get_challenge<FF>("Sumcheck:u_" + std::to_string(idx));
             multivariate_challenge.emplace_back(round_challenge);
 
-            // Fold PE values by zero-extension: PE[0] *= (1-u_k)
-            for (auto& poly : partially_evaluated_polynomials.get_all()) {
-                if (poly.size() > 0) {
-                    poly.at(0) *= (FF(1) - round_challenge);
-                }
-            }
-
-            // Update zk_sumcheck_data (libra running sum, evaluations), RDP, and gate separator
+            fold_for_zero_extension(partially_evaluated_polynomials, round_challenge);
             zk_sumcheck_data.update_zk_sumcheck_data(round_challenge, idx);
             row_disabling_polynomial.update_evaluations(round_challenge, idx);
             virtual_gate_separator.partially_evaluate(round_challenge);
@@ -735,6 +721,43 @@ template <typename Flavor> class SumcheckProver {
         };
         return multivariate_evaluations;
     };
+
+    /**
+     * @brief Compute the virtual round univariate with the row-disabling polynomial factor applied.
+     * @details Evaluates the relation at the single non-zero edge (PE[0], 0), then multiplies by the
+     * per-round (1-L) factor from the row-disabling polynomial. Reusable by both the standalone
+     * sumcheck prover and the batched (joint) sumcheck prover.
+     */
+    template <typename PartialEvals, typename Alphas>
+    static bb::Univariate<FF, Flavor::BATCHED_RELATION_PARTIAL_LENGTH> compute_virtual_round_univariate(
+        SumcheckProverRound<Flavor>& round,
+        PartialEvals& partially_evaluated_polynomials,
+        const RelationParameters<FF>& relation_parameters,
+        GateSeparatorPolynomial<FF>& gate_separator,
+        const Alphas& alphas,
+        RowDisablingPolynomial<FF>& row_disabling_polynomial)
+    {
+        auto univariate = round.compute_virtual_contribution(
+            partially_evaluated_polynomials, relation_parameters, gate_separator, alphas);
+        if constexpr (UseRowDisablingPolynomial<Flavor>) {
+            bb::Univariate<FF, 2> one_minus_L(
+                { FF::one() - row_disabling_polynomial.eval_at_0, FF::one() - row_disabling_polynomial.eval_at_1 });
+            univariate *= one_minus_L.template extend_to<Flavor::BATCHED_RELATION_PARTIAL_LENGTH>();
+        }
+        return univariate;
+    }
+
+    /**
+     * @brief Fold partially-evaluated polynomials for zero-extension: PE[0] *= (1 - u_k).
+     */
+    static void fold_for_zero_extension(PartiallyEvaluatedMultivariates& pe, const FF& round_challenge)
+    {
+        for (auto& poly : pe.get_all()) {
+            if (poly.end_index() > 0) {
+                poly.at(0) *= (FF(1) - round_challenge);
+            }
+        }
+    }
 };
 
 /*! \brief Implementation of the sumcheck Verifier for statements of the form \f$\sum_{\vec \ell \in \{0,1\}^d}

@@ -194,21 +194,12 @@ void BatchedHonkTranslatorProver::execute_joint_sumcheck_rounds()
     }
 
     // ==================== Virtual rounds mega_zk_log_n..JOINT_LOG_N-1 ====================
-    // Unified path: the MegaZK virtual contribution includes the per-round (1-L) factor and
-    // libra masking (ZKData has JOINT_LOG_N univariates, so compute_libra_univariate works here).
-    // The verifier evaluates 1 - ∏_{i≥2}(1-u_i) over ALL challenges (circuit-size independent).
+    // MegaZK contributes a virtual (zero-extended) univariate with RDP factor; translator contributes a real round.
     for (size_t round_idx = mega_zk_log_n; round_idx < JOINT_LOG_N; round_idx++) {
         U_joint = SumcheckRoundUnivariate::zero();
 
-        auto U_H = mega_zk_round.compute_virtual_contribution(
-            mega_zk_partial, mega_zk_params, mega_zk_gate_sep, mega_zk_alphas);
-
-        // Apply per-round (1-L) factor from the row-disabling polynomial
-        bb::Univariate<FF, 2> one_minus_L({ FF::one() - rdp.eval_at_0, FF::one() - rdp.eval_at_1 });
-        U_H *= one_minus_L.template extend_to<SumcheckRoundUnivariate::LENGTH>();
-
-        // Note: libra is added by send_round() — don't add it here.
-        U_joint += U_H;
+        U_joint += MegaZKSumcheck::compute_virtual_round_univariate(
+            mega_zk_round, mega_zk_partial, mega_zk_params, mega_zk_gate_sep, mega_zk_alphas, rdp);
 
         auto U_T = translator_round.compute_univariate(
             translator_partial, translator_relation_parameters, translator_gate_sep, translator_alphas);
@@ -217,17 +208,12 @@ void BatchedHonkTranslatorProver::execute_joint_sumcheck_rounds()
         }
         U_joint += U_T;
 
+        // send_round adds libra masking, sends univariate, and returns the challenge
         const FF u = send_round(round_idx);
 
-        // Virtual: poly values *= (1 - u_k) for the next virtual contribution computation.
-        for (auto& poly : mega_zk_partial.get_all()) {
-            if (poly.end_index() > 0) {
-                poly.at(0) *= (FF(1) - u);
-            }
-        }
+        MegaZKSumcheck::fold_for_zero_extension(mega_zk_partial, u);
         TransSumcheck::partially_evaluate_in_place(translator_partial, u);
         rdp.update_evaluations(u, round_idx);
-        // update_round_state handles zk_sumcheck_data, gate_sep (mega+translator), and translator round size
         update_round_state(round_idx, u);
     }
 
