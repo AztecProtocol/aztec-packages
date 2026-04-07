@@ -3,47 +3,16 @@ title: TypeScript API Reference
 description: API reference documentation for Aztec TypeScript packages including aztec.js, accounts, PXE, and core libraries.
 ---
 
-import { useActiveVersion } from "@docusaurus/plugin-content-docs/client";
 import { useState } from "react";
 
-export const useApiVersion = () => {
-  const version = useActiveVersion("developer");
-  if (!version || version.name === "current") return "next";
-  // Map Docusaurus version to API docs folder using version label
-  // Labels are set explicitly in docusaurus.config.js (e.g., "Mainnet (...)")
-  const label = version.label || "";
-  if (label.startsWith("Alpha")) return "mainnet";
-  if (label.startsWith("Testnet")) return "testnet";
-  if (label.startsWith("Devnet")) return "devnet";
-  if (label.includes("nightly")) return "nightly";
-  return version.name;
-};
-
-export const ApiLink = ({ path, children }) => {
-  const apiVersion = useApiVersion();
-  const href = `/typescript-api/${apiVersion}/${path}`;
-  return (
-    <a href={href} target="_blank" rel="noopener noreferrer">
-      {children}
-    </a>
-  );
-};
-
-export const ApiPath = () => {
-  const apiVersion = useApiVersion();
-  return <code>/typescript-api/{apiVersion}/</code>;
-};
-
-export const CopyIcon = ({ path, absolute = false }) => {
-  const apiVersion = useApiVersion();
+export const CopyIcon = ({ path }) => {
   const [status, setStatus] = useState("idle");
 
   const handleCopy = async (e) => {
     e.preventDefault();
-    const url = absolute ? path : `/typescript-api/${apiVersion}/${path}`;
     setStatus("loading");
     try {
-      const response = await fetch(url);
+      const response = await fetch(path);
       if (!response.ok) throw new Error("Failed to fetch");
       const text = await response.text();
       await navigator.clipboard.writeText(text);
@@ -106,19 +75,6 @@ export const CopyIcon = ({ path, absolute = false }) => {
   );
 };
 
-export const ApiFile = ({ path, children }) => {
-  const apiVersion = useApiVersion();
-  const href = `/typescript-api/${apiVersion}/${path}`;
-  return (
-    <span style={{ whiteSpace: "nowrap" }}>
-      <a href={href} target="_blank" rel="noopener noreferrer">
-        <code>{children || path}</code>
-      </a>
-      <CopyIcon path={path} />
-    </span>
-  );
-};
-
 This section provides API reference documentation for the Aztec TypeScript packages. These packages enable developers to build applications on Aztec, from simple contract interactions to complex privacy-preserving protocols.
 
 ## Package Categories
@@ -154,25 +110,25 @@ Common types like `Fr`, `AztecAddress`, and `EthAddress` are re-exported through
 
 For LLM consumption, we provide machine-readable documentation in multiple formats:
 
-- **[llms.txt](pathname:///llms.txt)** <CopyIcon path="/llms.txt" absolute={true} /> - Full documentation optimized for LLM context
-- <ApiLink path="llm-summary.txt">**LLM Summary**</ApiLink> <CopyIcon path="llm-summary.txt" /> - Human-readable API summary
+- **[llms.txt](pathname:///llms.txt)** <CopyIcon path="/llms.txt" /> - Full documentation optimized for LLM context
+- [**LLM Summary**](pathname:///typescript-api/mainnet/llm-summary.txt) <CopyIcon path="/typescript-api/mainnet/llm-summary.txt" /> - Human-readable API summary
 
 ### Markdown API Files
 
-The following markdown files are available for LLM context inclusion at <ApiPath />:
+The following markdown files are available for LLM context inclusion at `/typescript-api/mainnet/`:
 
 | File                                    | Description                                     |
 | --------------------------------------- | ----------------------------------------------- |
-| <ApiFile path="llm-summary.txt" />      | Human-readable summary with package overview    |
-| <ApiFile path="aztec.js.md" />          | Main SDK - contracts, transactions, accounts    |
-| <ApiFile path="accounts.md" />          | Account implementations (ECDSA, Schnorr)        |
-| <ApiFile path="pxe.md" />               | Private execution environment client            |
-| <ApiFile path="wallet-sdk.md" />        | Browser/extension wallet integration            |
-| <ApiFile path="wallets.md" />           | Embedded wallet for browser and Node.js         |
-| <ApiFile path="entrypoints.md" />       | Transaction entrypoints for account abstraction |
-| <ApiFile path="stdlib.md" />            | Protocol types (transactions, blocks, proofs)   |
-| <ApiFile path="foundation.md" />        | Low-level utilities (crypto, serialization)     |
-| <ApiFile path="constants.md" />         | Protocol constants for circuits                 |
+| [`llm-summary.txt`](pathname:///typescript-api/mainnet/llm-summary.txt) <CopyIcon path="/typescript-api/mainnet/llm-summary.txt" /> | Human-readable summary with package overview    |
+| [`aztec.js.md`](pathname:///typescript-api/mainnet/aztec.js.md) <CopyIcon path="/typescript-api/mainnet/aztec.js.md" /> | Main SDK - contracts, transactions, accounts    |
+| [`accounts.md`](pathname:///typescript-api/mainnet/accounts.md) <CopyIcon path="/typescript-api/mainnet/accounts.md" /> | Account implementations (ECDSA, Schnorr)        |
+| [`pxe.md`](pathname:///typescript-api/mainnet/pxe.md) <CopyIcon path="/typescript-api/mainnet/pxe.md" /> | Private execution environment client            |
+| [`wallet-sdk.md`](pathname:///typescript-api/mainnet/wallet-sdk.md) <CopyIcon path="/typescript-api/mainnet/wallet-sdk.md" /> | Browser/extension wallet integration            |
+| [`wallets.md`](pathname:///typescript-api/mainnet/wallets.md) <CopyIcon path="/typescript-api/mainnet/wallets.md" /> | Embedded wallet for browser and Node.js         |
+| [`entrypoints.md`](pathname:///typescript-api/mainnet/entrypoints.md) <CopyIcon path="/typescript-api/mainnet/entrypoints.md" /> | Transaction entrypoints for account abstraction |
+| [`stdlib.md`](pathname:///typescript-api/mainnet/stdlib.md) <CopyIcon path="/typescript-api/mainnet/stdlib.md" /> | Protocol types (transactions, blocks, proofs)   |
+| [`foundation.md`](pathname:///typescript-api/mainnet/foundation.md) <CopyIcon path="/typescript-api/mainnet/foundation.md" /> | Low-level utilities (crypto, serialization)     |
+| [`constants.md`](pathname:///typescript-api/mainnet/constants.md) <CopyIcon path="/typescript-api/mainnet/constants.md" /> | Protocol constants for circuits                 |
 
 ## Related Resources
 
