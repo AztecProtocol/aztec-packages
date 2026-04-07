@@ -143,9 +143,13 @@ export class EmbeddedWallet extends BaseWallet {
     const waitOpts: WaitOpts = typeof opts.wait === 'object' ? opts.wait : {};
 
     if (!waitOpts?.waitForStatus) {
-      // Use PROPOSED as the default status to take advantage of MBPS (Multiple Blocks Per Slot).
-      // This has less guarantees than the default CHECKPOINTED, but should offer better UX. If
-      // the node fails to publish to L1 and they'd get slashed, which should happen rarely.
+      // Default to PROPOSED so the wait returns as soon as the tx lands in a proposed L2 block,
+      // rather than waiting until the end of the slot for the checkpoint to be published to L1.
+      // This is what makes MBPS (Multiple Blocks Per Slot) actually improve UX: with CHECKPOINTED
+      // we'd block until L1 inclusion regardless of how early in the slot the tx was sequenced.
+      // The tradeoff is a weaker guarantee — a proposed block only becomes canonical once it (or
+      // a later block in the same slot) is checkpointed, so a tx could be re-orged out if the
+      // proposer fails to publish to L1 (which should be rare, since they'd get slashed for it).
       waitOpts!.waitForStatus = TxStatus.PROPOSED;
     }
     return super.sendTx(executionPayload, {
