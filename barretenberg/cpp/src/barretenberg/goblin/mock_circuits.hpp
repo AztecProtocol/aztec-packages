@@ -90,13 +90,6 @@ class GoblinMockCircuits {
             generate_sha256_test_circuit<MegaBuilder>(builder, 8);
             stdlib::generate_ecdsa_verification_test_circuit(builder, 2);
         }
-
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/911): We require goblin ops to be added to the
-        // function circuit because we cannot support zero commtiments. While the builder handles this at
-        // ProverInstance creation stage via the add_gates_to_ensure_all_polys_are_non_zero function for other
-        // MegaHonk circuits (where we don't explicitly need to add goblin ops), in IVC merge proving happens prior to
-        // folding where the absense of goblin ecc ops will result in zero commitments.
-        MockCircuits::construct_goblin_ecc_op_circuit(builder);
     }
 
     /**

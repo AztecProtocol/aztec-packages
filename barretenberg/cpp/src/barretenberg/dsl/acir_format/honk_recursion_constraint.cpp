@@ -12,6 +12,7 @@
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/flavor/ultra_recursive_flavor.hpp"
 #include "barretenberg/flavor/ultra_zk_recursive_flavor.hpp"
+#include "barretenberg/honk/proof_length.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders_fwd.hpp"
 #include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
@@ -47,6 +48,10 @@ HonkRecursionConstraintOutput<typename Flavor::CircuitBuilder> create_honk_recur
                  IO::HasIPA,
                  "create_honk_recursion_constraints: ROLLUP_HONK and ROOT_ROLLUP_HONK must be recursively verified "
                  "using an IO type with HasIPA=true.");
+
+    BB_ASSERT_EQ(input.proof.size(),
+                 ProofLength::Honk<NativeFlavor>::template expected_proof_size<IO>(NativeFlavor::VIRTUAL_LOG_N),
+                 "create_honk_recursion_constraints: ACIR proof size mismatch.");
 
     // Step 1.
     // Construct in-circuit representations of the recursion data

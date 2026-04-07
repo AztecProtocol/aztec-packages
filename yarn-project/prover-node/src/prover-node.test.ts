@@ -161,6 +161,10 @@ describe('prover-node', () => {
         block: { number: latestBlockNumber, hash: latestHash },
         checkpoint: { number: checkpoints.at(-1)!.number, hash: latestHash },
       },
+      proposedCheckpoint: {
+        block: { number: latestBlockNumber, hash: latestHash },
+        checkpoint: { number: checkpoints.at(-1)!.number, hash: latestHash },
+      },
       proven: genesisTipId,
       finalized: genesisTipId,
     });

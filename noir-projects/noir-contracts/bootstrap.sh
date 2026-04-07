@@ -233,7 +233,6 @@ function build {
 }
 
 function test_cmds {
-  local -A cache
   local folder_name
   if [ -n "${DOCS_WORKING_DIR:-}" ]; then
     folder_name="examples"
@@ -244,12 +243,22 @@ function test_cmds {
   # Test bb aztec_process command
   echo "$BB_HASH noir-projects/scripts/test_aztec_process.sh"
 
-  i=0
-  $NARGO test --list-tests --silence-warnings | sort | while read -r package test; do
-    port=$((14730 + (i++ % ${NUM_TXES:-1})))
-    [ -z "${cache[$package]:-}" ] && cache[$package]=$(get_contract_hash $package $folder_name)
-    echo "${cache[$package]} noir-projects/scripts/run_test.sh noir-contracts $package $test $port"
-  done
+  # Fairies want to run these tests on every PR
+  if [ "${TARGET_BRANCH:-}" = "merge-train/fairies" ]; then
+    i=0
+    $NARGO test --list-tests --silence-warnings | sort | while read -r package test; do
+      port=$((14730 + (i++ % ${NUM_TXES:-1})))
+      echo "disabled-cache noir-projects/scripts/run_test.sh noir-contracts $package $test $port"
+    done
+  else
+    local -A cache
+    i=0
+    $NARGO test --list-tests --silence-warnings | sort | while read -r package test; do
+      port=$((14730 + (i++ % ${NUM_TXES:-1})))
+      [ -z "${cache[$package]:-}" ] && cache[$package]=$(get_contract_hash $package $folder_name)
+      echo "${cache[$package]} noir-projects/scripts/run_test.sh noir-contracts $package $test $port"
+    done
+  fi
 }
 
 function test {

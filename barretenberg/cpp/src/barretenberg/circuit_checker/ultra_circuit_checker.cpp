@@ -48,6 +48,10 @@ MegaCircuitBuilder_<bb::fr> UltraCircuitChecker::prepare_circuit<MegaCircuitBuil
 
 template <typename Builder> bool UltraCircuitChecker::check(const Builder& builder_in)
 {
+    if (builder_in.failed()) {
+        info("CircuitChecker: circuit contains invalid witnesses: ", builder_in.err());
+    }
+
     Builder builder = UltraCircuitChecker::prepare_circuit(builder_in);
 
     // Construct a hash table for lookup table entries to efficiently determine if a lookup gate is valid

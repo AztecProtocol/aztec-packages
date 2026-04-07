@@ -1,6 +1,8 @@
-use crate::macros::utils::module_has_storage;
+use crate::macros::utils::{fn_has_noinitcheck, module_has_initializer, module_has_storage};
 
 pub(crate) comptime fn generate_utility_external(f: FunctionDefinition) -> Quoted {
+    let module_has_initializer = module_has_initializer(f.module());
+
     // Initialize Storage if module has storage
     let storage_init = if module_has_storage(f.module()) {
         quote {
@@ -26,10 +28,22 @@ pub(crate) comptime fn generate_utility_external(f: FunctionDefinition) -> Quote
         };
     };
 
+    // Initialization checks are not included in contracts that don't have initializers.
+    let init_check = if module_has_initializer & !fn_has_noinitcheck(f) {
+        quote {
+            aztec::macros::functions::initialization_utils::assert_is_initialized_utility(
+                self.context,
+            );
+        }
+    } else {
+        quote {}
+    };
+
     // A quote to be injected at the beginning of the function body.
     let to_prepend = quote {
         aztec::oracle::version::assert_compatible_oracle_version();
         $contract_self_creation
+        $init_check
     };
 
     let original_function_name = f.name();

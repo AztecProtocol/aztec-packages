@@ -13,6 +13,7 @@ import { type MockProxy, mock } from 'jest-mock-extended';
 
 import { LogRetrievalRequest } from '../contract_function_simulator/noir-structs/log_retrieval_request.js';
 import { AddressStore } from '../storage/address_store/address_store.js';
+import { CapsuleService } from '../storage/capsule_store/capsule_service.js';
 import { CapsuleStore } from '../storage/capsule_store/capsule_store.js';
 import { RecipientTaggingStore } from '../storage/tagging_store/recipient_tagging_store.js';
 import { SenderAddressBookStore } from '../storage/tagging_store/sender_address_book_store.js';
@@ -53,7 +54,7 @@ describe('LogService', () => {
         aztecNode,
         anchorBlockHeader,
         keyStore,
-        capsuleStore,
+        new CapsuleService(capsuleStore, []),
         recipientTaggingStore,
         senderAddressBookStore,
         addressStore,
@@ -65,7 +66,7 @@ describe('LogService', () => {
       aztecNode.getPrivateLogsByTags.mockResolvedValue([[]]);
       aztecNode.getPublicLogsByTagsFromContract.mockResolvedValue([[]]);
       const request = new LogRetrievalRequest(contractAddress, tag);
-      const responses = await logService.bulkRetrieveLogs([request]);
+      const responses = await logService.fetchLogsByTag(contractAddress, [request]);
       expect(responses.length).toEqual(1);
       expect(responses[0]).toBeNull();
     });
@@ -78,7 +79,49 @@ describe('LogService', () => {
 
       const request = new LogRetrievalRequest(contractAddress, new Tag(scopedLog.logData[0]));
 
-      const responses = await logService.bulkRetrieveLogs([request]);
+      const responses = await logService.fetchLogsByTag(contractAddress, [request]);
+
+      expect(responses.length).toEqual(1);
+      expect(responses[0]).not.toBeNull();
+    });
+
+    it('returns first log when multiple public logs are found for a single tag', async () => {
+      const scopedLog1 = randomTxScopedPrivateL2Log();
+      const scopedLog2 = randomTxScopedPrivateL2Log();
+
+      aztecNode.getPublicLogsByTagsFromContract.mockResolvedValue([[scopedLog1, scopedLog2]]);
+      aztecNode.getPrivateLogsByTags.mockResolvedValue([[]]);
+
+      const request = new LogRetrievalRequest(contractAddress, tag);
+      const responses = await logService.fetchLogsByTag(contractAddress, [request]);
+
+      expect(responses.length).toEqual(1);
+      expect(responses[0]).not.toBeNull();
+    });
+
+    it('returns first log when multiple private logs are found for a single tag', async () => {
+      const scopedLog1 = randomTxScopedPrivateL2Log();
+      const scopedLog2 = randomTxScopedPrivateL2Log();
+
+      aztecNode.getPublicLogsByTagsFromContract.mockResolvedValue([[]]);
+      aztecNode.getPrivateLogsByTags.mockResolvedValue([[scopedLog1, scopedLog2]]);
+
+      const request = new LogRetrievalRequest(contractAddress, tag);
+      const responses = await logService.fetchLogsByTag(contractAddress, [request]);
+
+      expect(responses.length).toEqual(1);
+      expect(responses[0]).not.toBeNull();
+    });
+
+    it('returns first log when both a public and private log are found for a single tag', async () => {
+      const publicLog = randomTxScopedPrivateL2Log();
+      const privateLog = randomTxScopedPrivateL2Log();
+
+      aztecNode.getPublicLogsByTagsFromContract.mockResolvedValue([[publicLog]]);
+      aztecNode.getPrivateLogsByTags.mockResolvedValue([[privateLog]]);
+
+      const request = new LogRetrievalRequest(contractAddress, tag);
+      const responses = await logService.fetchLogsByTag(contractAddress, [request]);
 
       expect(responses.length).toEqual(1);
       expect(responses[0]).not.toBeNull();
@@ -92,10 +135,20 @@ describe('LogService', () => {
 
       const request = new LogRetrievalRequest(contractAddress, new Tag(scopedLog.logData[0]));
 
-      const responses = await logService.bulkRetrieveLogs([request]);
+      const responses = await logService.fetchLogsByTag(contractAddress, [request]);
 
       expect(responses.length).toEqual(1);
       expect(responses[0]).not.toBeNull();
+    });
+
+    it('rejects a batch where at least one request targets a different contract', async () => {
+      const differentContract = await AztecAddress.random();
+      const validRequest = new LogRetrievalRequest(contractAddress, tag);
+      const invalidRequest = new LogRetrievalRequest(differentContract, new Tag(Fr.random()));
+
+      await expect(logService.fetchLogsByTag(contractAddress, [validRequest, invalidRequest])).rejects.toThrow(
+        /Got a log retrieval request from/,
+      );
     });
   });
 });

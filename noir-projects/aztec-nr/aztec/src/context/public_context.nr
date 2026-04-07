@@ -11,6 +11,7 @@ use crate::protocol::{
     address::{AztecAddress, EthAddress},
     constants::{MAX_U32_VALUE, NULL_MSG_SENDER_CONTRACT_ADDRESS},
     traits::{Empty, FromField, Packable, Serialize, ToField},
+    utils::writer::Writer,
 };
 
 /// # PublicContext
@@ -96,14 +97,27 @@ impl PublicContext {
     /// Emits a _public_ log that will be visible onchain to everyone.
     ///
     /// # Arguments
-    /// * `log` - The data to log, must implement Serialize trait
+    /// * `tag` - A tag placed at `fields[0]` of the emitted log. Nodes index logs by this value, allowing
+    /// clients to efficiently query for matching logs without scanning all of them.
+    /// * `log` - The data to log, must implement Serialize trait.
     ///
-    pub fn emit_public_log<T>(_self: Self, log: T)
+    /// ## Safety
+    ///
+    /// The `tag` should be domain-separated (e.g. via [`crate::protocol::hash::compute_log_tag`]) to prevent
+    /// collisions between logs from different sources. Without domain separation, two unrelated log types that
+    /// happen to share a raw tag value become indistinguishable. Prefer `self.emit(event)` for events, which
+    /// handles tagging automatically.
+    pub fn emit_public_log_unsafe<T>(_self: Self, tag: Field, log: T)
     where
         T: Serialize,
     {
+        // We use a Writer to serialize the log directly after the tag, avoiding an extra O(n) copy that would
+        // result from serializing first and then prepending the tag.
+        let mut writer: Writer<1 + <T as Serialize>::N> = Writer::new();
+        writer.write(tag);
+        Serialize::stream_serialize(log, &mut writer);
         // Safety: AVM opcodes are constrained by the AVM itself
-        unsafe { avm::emit_public_log(Serialize::serialize(log).as_vector()) };
+        unsafe { avm::emit_public_log(writer.finish().as_vector()) };
     }
 
     /// Checks if a given note hash exists in the note hash tree at a particular leaf_index.

@@ -2,6 +2,9 @@
 # Per-version installer script
 # This script is called by aztec-up to install a specific version of the Aztec toolchain.
 # It expects VERSION and INSTALL_URI to be set.
+
+# Guard against truncated curl downloads: bash must parse the entire {} block before executing any of it.
+{
 set -euo pipefail
 
 # Colors
@@ -144,10 +147,8 @@ function install_noir {
     temp_nargo_home=$(mktemp -d) || { echo "Error: Failed to create temp directory" >&2; exit 1; }
     mkdir -p "$temp_nargo_home/bin"
 
-    # Install noirup if not already present
-    if [ ! -f "$HOME/.nargo/bin/noirup" ]; then
-      curl -Ls https://raw.githubusercontent.com/noir-lang/noirup/refs/heads/main/install | bash
-    fi
+    # Always install/update noirup
+    curl -Ls https://raw.githubusercontent.com/noir-lang/noirup/refs/heads/main/install | bash
 
     # Install noir to temp location and move to version directory
     NARGO_HOME="$temp_nargo_home" "$HOME/.nargo/bin/noirup" -v "$noir_version"
@@ -172,10 +173,8 @@ function install_foundry {
   temp_foundry_dir=$(mktemp -d) || { echo "Error: Failed to create temp directory" >&2; exit 1; }
   mkdir -p "$temp_foundry_dir/bin"
 
-  # Install foundryup if not present or wrong version.
-  if ! "$HOME/.foundry/bin/foundryup" --help 2>&1 | grep -q -- '-i, --install'; then
-    curl --max-time 30 -L https://foundry.paradigm.xyz | bash
-  fi
+  # Always install/update foundryup
+  curl --max-time 30 -L https://foundry.paradigm.xyz | bash
 
   # Install foundry to temp location and move to version directory
   FOUNDRY_DIR="$temp_foundry_dir" timeout 30 "$HOME/.foundry/bin/foundryup" -i "$foundry_version"
@@ -232,3 +231,7 @@ function main {
 }
 
 main "$@"
+
+# Explicit exit prevents bash from reading past the closing brace.
+exit
+}

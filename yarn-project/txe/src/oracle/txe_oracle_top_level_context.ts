@@ -12,9 +12,9 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { LogLevels, type Logger, applyStringFormatting, createLogger } from '@aztec/foundation/log';
 import { TestDateProvider } from '@aztec/foundation/timer';
 import type { KeyStore } from '@aztec/key-store';
-import type { AccessScopes } from '@aztec/pxe/client/lazy';
 import {
   AddressStore,
+  CapsuleService,
   CapsuleStore,
   type ContractStore,
   type ContractSyncService,
@@ -120,8 +120,12 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
 
   assertCompatibleOracleVersion(version: number): void {
     if (version !== ORACLE_VERSION) {
+      const hint =
+        version > ORACLE_VERSION
+          ? 'The contract was compiled with a newer version of Aztec.nr than this aztec cli version supports. Upgrade your aztec cli version to a compatible version.'
+          : 'The contract was compiled with an older version of Aztec.nr than this aztec cli version supports. Recompile the contract with a compatible version of Aztec.nr.';
       throw new Error(
-        `Incompatible oracle version. TXE is using version '${ORACLE_VERSION}', but got a request for '${version}'.`,
+        `Incompatible aztec cli version: ${hint} See https://docs.aztec.network/errors/8 (expected oracle version ${ORACLE_VERSION}, got ${version})`,
       );
     }
   }
@@ -324,7 +328,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     const effectiveScopes = from.isZero() ? [] : [from];
 
     // Sync notes before executing private function to discover notes from previous transactions
-    const utilityExecutor = async (call: FunctionCall, execScopes: AccessScopes) => {
+    const utilityExecutor = async (call: FunctionCall, execScopes: AztecAddress[]) => {
       await this.executeUtilityCall(call, execScopes, jobId);
     };
 
@@ -378,7 +382,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
       senderTaggingStore: this.senderTaggingStore,
       recipientTaggingStore: this.recipientTaggingStore,
       senderAddressBookStore: this.senderAddressBookStore,
-      capsuleStore: this.capsuleStore,
+      capsuleService: new CapsuleService(this.capsuleStore, effectiveScopes),
       privateEventStore: this.privateEventStore,
       contractSyncService: this.stateMachine.contractSyncService,
       jobId,
@@ -412,7 +416,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
       );
       const publicFunctionsCalldata = await Promise.all(
         publicCallRequests.map(async r => {
-          const calldata = await privateExecutionOracle.loadFromExecutionCache(r.calldataHash);
+          const calldata = await privateExecutionOracle.getHashPreimage(r.calldataHash);
           return new HashedValues(calldata, r.calldataHash);
         }),
       );
@@ -702,7 +706,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
       },
       blockHeader,
       jobId,
-      'ALL_SCOPES',
+      await this.keyStore.getAccounts(),
     );
 
     const call = FunctionCall.from({
@@ -716,10 +720,10 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
       returnTypes: [],
     });
 
-    return this.executeUtilityCall(call, 'ALL_SCOPES', jobId);
+    return this.executeUtilityCall(call, await this.keyStore.getAccounts(), jobId);
   }
 
-  private async executeUtilityCall(call: FunctionCall, scopes: AccessScopes, jobId: string): Promise<Fr[]> {
+  private async executeUtilityCall(call: FunctionCall, scopes: AztecAddress[], jobId: string): Promise<Fr[]> {
     const entryPointArtifact = await this.contractStore.getFunctionArtifactWithDebugMetadata(call.to, call.selector);
     if (entryPointArtifact.functionType !== FunctionType.UTILITY) {
       throw new Error(`Cannot run ${entryPointArtifact.functionType} function as utility`);
@@ -744,7 +748,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
         aztecNode: this.stateMachine.node,
         recipientTaggingStore: this.recipientTaggingStore,
         senderAddressBookStore: this.senderAddressBookStore,
-        capsuleStore: this.capsuleStore,
+        capsuleService: new CapsuleService(this.capsuleStore, scopes),
         privateEventStore: this.privateEventStore,
         messageContextService: this.stateMachine.messageContextService,
         contractSyncService: this.contractSyncService,

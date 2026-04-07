@@ -75,9 +75,14 @@ namespace bb {
  * \text{read_tag} \cdot \text{read_tag} - \text{read_tag} = 0
  * \f]
  *
- * Further constraining of read_tags and read_counts is not required, since by tampering read_tags a malicious
- * prover can only skip a table_term. This is disadvantageous for the cheating prover as it reduces the size of the
- * lookup table. Hence, a malicious prover cannot abuse this to prove an incorrect lookup.
+ * Further constraining of read_tags and read_counts is not required:
+ * - read_tags: tampering can only skip a table_term, which is disadvantageous for the cheating prover as it
+ *   reduces the size of the lookup table.
+ * - read_counts: soundness follows from the partial fraction decomposition of the lookup identity. After
+ *   substituting random challenges (β, γ), each table_term and lookup_term evaluates to a distinct field element
+ *   (Schwartz-Zippel). A lookup of a value not in the table creates a pole in the LHS (Σ 1/lookup_term) that no
+ *   choice of read_counts can cancel on the RHS (Σ read_count/table_term), since the denominators are distinct.
+ *   See Haböck (https://eprint.iacr.org/2022/1530.pdf), Section 4.
  *
  * @note Subrelation (2) is "linearly dependent" in the sense that it establishes that a sum across all rows of the
  * execution trace is zero, rather than that some expression holds independently at each row. Accordingly, this

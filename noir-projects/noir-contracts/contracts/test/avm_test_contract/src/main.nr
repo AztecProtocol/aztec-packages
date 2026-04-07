@@ -605,15 +605,18 @@ pub contract AvmTest {
 
     #[contract_library_method]
     fn _emit_public_log(context: PublicContext) {
-        context.emit_public_log(/*message=*/ [10, 20, 30]);
-        context.emit_public_log(/*message=*/ "Hello, world!");
+        context.emit_public_log_unsafe(0, /*message=*/ [10, 20, 30]);
+        context.emit_public_log_unsafe(0, /*message=*/ "Hello, world!");
         let s: CompressedString<2, 44> =
             CompressedString::from_string("A long time ago, in a galaxy far far away...");
-        context.emit_public_log(/*message=*/ s);
-        context.emit_public_log(/*message=*/ [
-            1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24,
-            25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42,
-        ]); // Large log
+        context.emit_public_log_unsafe(0, /*message=*/ s);
+        context.emit_public_log_unsafe(
+            0,
+            /*message=*/ [
+                1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23,
+                24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42,
+            ],
+        ); // Large log
     }
 
     #[external("public")]
@@ -684,7 +687,7 @@ pub contract AvmTest {
     #[external("public")]
     fn n_new_public_logs(num: u32) {
         for i in 0..num {
-            self.context.emit_public_log(/*message=*/ [i as Field]);
+            self.context.emit_public_log_unsafe(0, /*message=*/ [i as Field]);
         }
     }
 

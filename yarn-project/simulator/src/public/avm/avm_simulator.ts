@@ -63,7 +63,7 @@ export class AvmSimulator implements AvmSimulatorInterface {
   public static async build(context: AvmContext): Promise<AvmSimulator> {
     const simulator = new AvmSimulator(context);
     const fnName = await context.persistableState.getPublicFunctionDebugName(context.environment);
-    simulator.log = createLogger(`simulator:avm(f:${fnName})`);
+    simulator.log = createLogger(`simulator:avm(f:${fnName.slice(0, 128)})`);
 
     return simulator;
   }

@@ -1,3 +1,5 @@
+import type { FeeHeader } from '@aztec/ethereum/contracts';
+import type { CheckpointNumber } from '@aztec/foundation/branded-types';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { SlotNumber } from '@aztec/foundation/schemas';
 
@@ -6,6 +8,18 @@ import type { ManaUsageEstimate } from '../gas/fee_math.js';
 import type { GasFees } from '../gas/gas_fees.js';
 import type { UInt32 } from '../types/index.js';
 import type { CheckpointGlobalVariables, GlobalVariables } from './global_variables.js';
+
+/** Fee header fields needed for pipelining overrides. */
+export type ForceProposedFeeHeader = {
+  checkpointNumber: CheckpointNumber;
+  feeHeader: FeeHeader;
+};
+
+/** Options for building checkpoint global variables during pipelining. */
+export type BuildCheckpointGlobalVariablesOpts = {
+  forcePendingCheckpointNumber?: CheckpointNumber;
+  forceProposedFeeHeader?: ForceProposedFeeHeader;
+};
 
 /**
  * Interface for building global variables for Aztec blocks.
@@ -36,5 +50,6 @@ export interface GlobalVariableBuilder {
     coinbase: EthAddress,
     feeRecipient: AztecAddress,
     slotNumber: SlotNumber,
+    opts?: BuildCheckpointGlobalVariablesOpts,
   ): Promise<CheckpointGlobalVariables>;
 }
