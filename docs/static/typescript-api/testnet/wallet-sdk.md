@@ -1,6 +1,6 @@
 # @aztec/wallet-sdk
 
-Version: 4.1.0-rc.2
+Version: 4.1.3
 
 ## Quick Import Reference
 

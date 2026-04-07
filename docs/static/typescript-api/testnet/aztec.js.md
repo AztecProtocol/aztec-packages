@@ -1,6 +1,6 @@
 # @aztec/aztec.js
 
-Version: 4.1.0-rc.2
+Version: 4.1.3
 
 ## Quick Import Reference
 
@@ -344,7 +344,7 @@ Extends: `BaseField`
 
 **Constructor**
 ```typescript
-new Fq(value: number | bigint | boolean | Buffer<ArrayBufferLike> | Fq)
+new Fq(value: number | bigint | boolean | Fq | Buffer<ArrayBufferLike>)
 ```
 
 **Properties**
@@ -396,7 +396,7 @@ Extends: `BaseField`
 
 **Constructor**
 ```typescript
-new Fr(value: number | bigint | boolean | Buffer<ArrayBufferLike> | Fr)
+new Fr(value: number | bigint | boolean | Fr | Buffer<ArrayBufferLike>)
 ```
 
 **Properties**
@@ -496,7 +496,7 @@ new FunctionSelector(value: number)
 - `static fromField(fr: Fr) => FunctionSelector` - Converts a field to selector.
 - `static fromFieldOrUndefined(fr: Fr) => FunctionSelector | undefined`
 - `static fromFields(fields: Fr[] | FieldReader) => FunctionSelector`
-- `static fromNameAndParameters(args: { name: string; parameters: { name: string; type: AbiType } & { visibility: "databus" | "private" | "public" }[] }) => Promise<FunctionSelector>` - Creates a function selector for a given function name and parameters.
+- `static fromNameAndParameters(args: { name: string; parameters: { name: string; type: AbiType } & { visibility: "private" | "databus" | "public" }[] }) => Promise<FunctionSelector>` - Creates a function selector for a given function name and parameters.
 - `static fromSignature(signature: string) => Promise<FunctionSelector>` - Creates a selector from a signature.
 - `static fromString(selector: string) => FunctionSelector` - Create a Selector instance from a hex-encoded string.
 - `isEmpty() => boolean` - Checks if the selector is empty (all bytes are 0).
@@ -804,7 +804,7 @@ new SignerlessAccount()
 ```
 
 **Methods**
-- `createAuthWit(_intent: Buffer<ArrayBufferLike> | Fr | IntentInnerHash | CallIntent) => Promise<AuthWitness>` - Creates an authentication witness from an inner hash with consumer, or a call intent
+- `createAuthWit(_intent: Fr | IntentInnerHash | CallIntent | Buffer<ArrayBufferLike>) => Promise<AuthWitness>` - Creates an authentication witness from an inner hash with consumer, or a call intent
 - `createTxExecutionRequest(exec: ExecutionPayload, gasSettings: GasSettings, chainInfo: ChainInfo) => Promise<TxExecutionRequest>` - Generates an execution request out of set of function calls.
 - `getAddress() => AztecAddress` - Returns the address for this account.
 - `getCompleteAddress() => CompleteAddress` - Returns the complete address for this account.
@@ -955,13 +955,14 @@ Represents a transaction receipt in the Aztec network. Contains essential inform
 
 **Constructor**
 ```typescript
-new TxReceipt(txHash: TxHash, status: TxStatus, executionResult: TxExecutionResult | undefined, error: string | undefined, transactionFee?: bigint, blockHash?: BlockHash, blockNumber?: BlockNumber, debugLogs?: DebugLog[])
+new TxReceipt(txHash: TxHash, status: TxStatus, executionResult: TxExecutionResult | undefined, error: string | undefined, transactionFee?: bigint, blockHash?: BlockHash, blockNumber?: BlockNumber, epochNumber?: EpochNumber, debugLogs?: DebugLog[])
 ```
 
 **Properties**
 - `blockHash?: BlockHash` - The hash of the block containing the transaction.
 - `blockNumber?: BlockNumber` - The block number in which the transaction was included.
 - `debugLogs?: DebugLog[]` - Debug logs collected during public function execution. Served only when the node is in test mode and placed on the receipt only because it's a convenient place for it (the logs are printed out by the wallet when a mined tx receipt is obtained).
+- `epochNumber?: EpochNumber` - The epoch number in which the transaction was included.
 - `error: string | undefined` - Description of transaction error, if any.
 - `executionResult: TxExecutionResult | undefined` - The execution result of the transaction, only set when tx is in a block.
 - `static schema: unknown`
@@ -1014,7 +1015,7 @@ Application capability manifest. Sent by dApp to declare all operations it needs
 Creates authorization witnesses.
 
 **Methods**
-- `createAuthWit(messageHash: Buffer<ArrayBufferLike> | Fr) => Promise<AuthWitness>` - Computes an authentication witness from either a message hash
+- `createAuthWit(messageHash: Fr | Buffer<ArrayBufferLike>) => Promise<AuthWitness>` - Computes an authentication witness from either a message hash
 
 ### AuthorizationProvider
 
@@ -1092,7 +1093,7 @@ The abi entry of a function.
 - `isOnlySelf: boolean` - Whether the function is marked as `#[only_self]` and hence callable only from within the contract.
 - `isStatic: boolean` - Whether the function can alter state or not
 - `name: string` - The name of the function.
-- `parameters: { name: string; type: AbiType } & { visibility: "databus" | "private" | "public" }[]` - Function parameters.
+- `parameters: { name: string; type: AbiType } & { visibility: "private" | "databus" | "public" }[]` - Function parameters.
 - `returnTypes: AbiType[]` - The types of the return values.
 
 ### FunctionArtifact
@@ -1111,7 +1112,7 @@ Extends: `FunctionAbi`
 - `isOnlySelf: boolean` - Whether the function is marked as `#[only_self]` and hence callable only from within the contract.
 - `isStatic: boolean` - Whether the function can alter state or not
 - `name: string` - The name of the function.
-- `parameters: { name: string; type: AbiType } & { visibility: "databus" | "private" | "public" }[]` - Function parameters.
+- `parameters: { name: string; type: AbiType } & { visibility: "private" | "databus" | "public" }[]` - Function parameters.
 - `returnTypes: AbiType[]` - The types of the return values.
 - `verificationKey?: string` - The verification key of the function, base64 encoded, if it's a private fn.
 
@@ -1696,6 +1697,12 @@ A message emitted during execution or proving, to be delivered offchain.
 type OffchainOutput = unknown
 ```
 Groups all unproven outputs from private execution that are returned to the client.
+
+### OptionLike
+```typescript
+type OptionLike = T | null | undefined | { _is_some: boolean; _value: T }
+```
+Noir `Option<T>` lowered ABI shape, plus ergonomic direct `T | null | undefined` inputs.
 
 ### PartialAddress
 ```typescript

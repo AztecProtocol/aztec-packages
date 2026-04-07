@@ -1,6 +1,6 @@
 # @aztec/stdlib
 
-Version: 4.1.0-rc.2
+Version: 4.1.3
 
 ## Quick Import Reference
 
@@ -89,7 +89,7 @@ new AztecAddress(buffer: Fr | Buffer<ArrayBufferLike>)
 - `static fromBigInt(value: bigint) => AztecAddress`
 - `static fromBuffer(buffer: Buffer<ArrayBufferLike> | BufferReader) => AztecAddress`
 - `static fromField(fr: Fr) => AztecAddress`
-- `static fromFields(fields: Fr[] | FieldReader) => AztecAddress`
+- `static fromFields(fields: FieldReader | Fr[]) => AztecAddress`
 - `static fromNumber(value: number) => AztecAddress`
 - `static fromPlainObject(obj: any) => AztecAddress` - Creates an AztecAddress from a plain object without Zod validation. This method is optimized for performance and skips validation, making it suitable for deserializing trusted data (e.g., from C++ via MessagePack). Handles buffers, strings, or existing instances.
 - `static fromString(buf: string) => AztecAddress`
@@ -190,7 +190,7 @@ new BlockHeader(lastArchive: AppendOnlyTreeSnapshot, state: StateReference, spon
 - `equals(other: this) => boolean`
 - `static from(fields: FieldsOf<BlockHeader>) => BlockHeader`
 - `static fromBuffer(buffer: Buffer<ArrayBufferLike> | BufferReader) => BlockHeader`
-- `static fromFields(fields: Fr[] | FieldReader) => BlockHeader`
+- `static fromFields(fields: FieldReader | Fr[]) => BlockHeader`
 - `static fromString(str: string) => BlockHeader`
 - `getBlockNumber() => BlockNumber`
 - `static getFields(fields: FieldsOf<BlockHeader>) => readonly []`
@@ -249,7 +249,7 @@ new CallContext(msgSender: AztecAddress, contractAddress: AztecAddress, function
 - `equals(callContext: CallContext) => boolean`
 - `static from(fields: FieldsOf<CallContext>) => CallContext`
 - `static fromBuffer(buffer: Buffer<ArrayBufferLike> | BufferReader) => CallContext` - Deserialize this from a buffer.
-- `static fromFields(fields: Fr[] | FieldReader) => CallContext`
+- `static fromFields(fields: FieldReader | Fr[]) => CallContext`
 - `static getFields(fields: FieldsOf<CallContext>) => readonly []`
 - `isEmpty() => boolean`
 - `static random() => Promise<CallContext>`
@@ -400,7 +400,7 @@ A complete address is a combination of an Aztec address, a public key and a part
 - `static create(address: AztecAddress, publicKeys: PublicKeys, partialAddress: Fr) => Promise<CompleteAddress>`
 - `equals(other: CompleteAddress) => boolean` - Determines if this CompleteAddress instance is equal to the given CompleteAddress instance. Equality is based on the content of their respective buffers.
 - `static fromBuffer(buffer: Buffer<ArrayBufferLike> | BufferReader) => Promise<CompleteAddress>` - Creates an CompleteAddress instance from a given buffer or BufferReader. If the input is a Buffer, it wraps it in a BufferReader before processing. Throws an error if the input length is not equal to the expected size.
-- `static fromSecretKeyAndInstance(secretKey: Fr, instance: Pick<ContractInstance, "originalContractClassId" | "initializationHash" | "salt" | "deployer"> | { originalContractClassId: Fr; saltedInitializationHash: Fr }) => Promise<CompleteAddress>`
+- `static fromSecretKeyAndInstance(secretKey: Fr, instance: Pick<ContractInstance, "salt" | "deployer" | "originalContractClassId" | "initializationHash"> | { originalContractClassId: Fr; saltedInitializationHash: Fr }) => Promise<CompleteAddress>`
 - `static fromSecretKeyAndPartialAddress(secretKey: Fr, partialAddress: Fr) => Promise<CompleteAddress>`
 - `static fromString(address: string) => Promise<CompleteAddress>` - Create a CompleteAddress instance from a hex-encoded string. The input 'address' should be prefixed with '0x' or not, and have exactly 128 hex characters representing the x and y coordinates. Throws an error if the input length is invalid or coordinate values are out of range.
 - `getPreaddress() => Promise<Fr>`
@@ -430,9 +430,9 @@ new ContractClassLog(contractAddress: AztecAddress, fields: ContractClassLogFiel
 - `static empty() => ContractClassLog`
 - `equals(other: ContractClassLog) => boolean`
 - `static from(fields: FieldsOf<ContractClassLog>) => ContractClassLog`
-- `static fromBlobFields(emittedLength: number, fields: Fr[] | FieldReader) => ContractClassLog`
+- `static fromBlobFields(emittedLength: number, fields: FieldReader | Fr[]) => ContractClassLog`
 - `static fromBuffer(buffer: Buffer<ArrayBufferLike> | BufferReader) => ContractClassLog`
-- `static fromFields(fields: Fr[] | FieldReader) => ContractClassLog`
+- `static fromFields(fields: FieldReader | Fr[]) => ContractClassLog`
 - `static fromPlainObject(obj: any) => ContractClassLog` - Creates a ContractClassLog from a plain object without Zod validation. This method is optimized for performance and skips validation, making it suitable for deserializing trusted data (e.g., from C++ via MessagePack).
 - `getEmittedFields() => Fr[]`
 - `hash() => Promise<Fr>`
@@ -459,7 +459,7 @@ new ContractClassLogFields(fields: Fr[])
 - `equals(other: ContractClassLogFields) => boolean`
 - `static fromBuffer(buffer: Buffer<ArrayBufferLike> | BufferReader) => ContractClassLogFields`
 - `static fromEmittedFields(emittedFields: Fr[]) => ContractClassLogFields`
-- `static fromFields(fields: Fr[] | FieldReader) => ContractClassLogFields`
+- `static fromFields(fields: FieldReader | Fr[]) => ContractClassLogFields`
 - `static fromPlainObject(obj: any) => ContractClassLogFields` - Creates a ContractClassLogFields from a plain object without Zod validation. This method is optimized for performance and skips validation, making it suitable for deserializing trusted data (e.g., from C++ via MessagePack).
 - `getEmittedFields(emittedLength: number) => Fr[]`
 - `hash() => Promise<Fr>`
@@ -510,13 +510,13 @@ new CountedContractClassLog(log: ContractClassLog, counter: number)
 
 **Constructor**
 ```typescript
-new DebugLog(contractAddress: AztecAddress, level: "debug" | "silent" | "fatal" | "error" | "warn" | "info" | "verbose" | "trace", message: string, fields: Fr[])
+new DebugLog(contractAddress: AztecAddress, level: "silent" | "fatal" | "error" | "warn" | "info" | "verbose" | "debug" | "trace", message: string, fields: Fr[])
 ```
 
 **Properties**
 - `contractAddress: AztecAddress`
 - `fields: Fr[]`
-- `level: "debug" | "silent" | "fatal" | "error" | "warn" | "info" | "verbose" | "trace"`
+- `level: "silent" | "fatal" | "error" | "warn" | "info" | "verbose" | "debug" | "trace"`
 - `message: string`
 - `static schema: unknown`
 
@@ -555,7 +555,7 @@ new EthAddress(buffer: Buffer)
 - `equals(rhs: EthAddress) => boolean` - Checks whether the given EthAddress instance is equal to the current instance. Equality is determined by comparing the underlying byte buffers of both instances.
 - `static fromBuffer(buffer: Buffer<ArrayBufferLike> | BufferReader) => EthAddress` - Deserializes from a buffer or reader, corresponding to a write in cpp.
 - `static fromField(fr: Fr) => EthAddress` - Converts a field to a eth address.
-- `static fromFields(fields: Fr[] | FieldReader) => EthAddress`
+- `static fromFields(fields: FieldReader | Fr[]) => EthAddress`
 - `static fromNumber(num: number | bigint) => EthAddress` - Converts a number into an address. Useful for testing.
 - `static fromPlainObject(obj: any) => EthAddress` - Creates an EthAddress from a plain object without Zod validation. This method is optimized for performance and skips validation, making it suitable for deserializing trusted data (e.g., from C++ via MessagePack). Handles buffers (20 or 32 bytes), strings, or existing instances.
 - `static fromString(address: string) => EthAddress` - Creates an EthAddress instance from a valid Ethereum address string. The input 'address' can be either in checksum format or lowercase, and it can be prefixed with '0x'. Throws an error if the input is not a valid Ethereum address.
@@ -695,9 +695,9 @@ new FlatPublicLogs(length: number, payload: Fr[])
 
 **Methods**
 - `static empty() => FlatPublicLogs`
-- `static fromBlobFields(length: number, fields: Fr[] | FieldReader) => FlatPublicLogs`
+- `static fromBlobFields(length: number, fields: FieldReader | Fr[]) => FlatPublicLogs`
 - `static fromBuffer(buffer: Buffer<ArrayBufferLike> | BufferReader) => FlatPublicLogs`
-- `static fromFields(fields: Fr[] | FieldReader) => FlatPublicLogs`
+- `static fromFields(fields: FieldReader | Fr[]) => FlatPublicLogs`
 - `static fromLogs(logs: PublicLog[]) => FlatPublicLogs`
 - `static fromPlainObject(obj: any) => FlatPublicLogs` - Creates a FlatPublicLogs instance from a plain object without Zod validation. This method is optimized for performance and skips validation, making it suitable for deserializing trusted data (e.g., from C++ via MessagePack).
 - `isEmpty() => boolean`
@@ -751,7 +751,7 @@ new FunctionData(selector: FunctionSelector, isPrivate: boolean)
 - `equals(other: FunctionData) => boolean` - Returns whether this instance is equal to another.
 - `static fromAbi(abi: FunctionAbi | ContractFunctionDao) => Promise<FunctionData>`
 - `static fromBuffer(buffer: Buffer<ArrayBufferLike> | BufferReader) => FunctionData` - Deserializes from a buffer or reader, corresponding to a write in cpp.
-- `static fromFields(fields: Fr[] | FieldReader) => FunctionData`
+- `static fromFields(fields: FieldReader | Fr[]) => FunctionData`
 - `isEmpty() => boolean` - Returns whether this instance is empty.
 - `toBuffer() => Buffer` - Serialize this as a buffer.
 - `toFields() => Fr[]`
@@ -780,7 +780,7 @@ new FunctionSelector(value: number)
 - `static fromBuffer(buffer: Buffer<ArrayBufferLike> | BufferReader) => FunctionSelector` - Deserializes from a buffer or reader, corresponding to a write in cpp.
 - `static fromField(fr: Fr) => FunctionSelector` - Converts a field to selector.
 - `static fromFieldOrUndefined(fr: Fr) => FunctionSelector | undefined`
-- `static fromFields(fields: Fr[] | FieldReader) => FunctionSelector`
+- `static fromFields(fields: FieldReader | Fr[]) => FunctionSelector`
 - `static fromNameAndParameters(args: { name: string; parameters: { name: string; type: AbiType } & { visibility: "public" | "private" | "databus" }[] }) => Promise<FunctionSelector>` - Creates a function selector for a given function name and parameters.
 - `static fromSignature(signature: string) => Promise<FunctionSelector>` - Creates a selector from a signature.
 - `static fromString(selector: string) => FunctionSelector` - Create a Selector instance from a hex-encoded string.
@@ -826,7 +826,7 @@ new Gas(daGas: number, l2Gas: number)
 - `equals(other: Gas) => boolean`
 - `static from(fields: Partial<FieldsOf<Gas>>) => Gas`
 - `static fromBuffer(buffer: Buffer<ArrayBufferLike> | BufferReader) => Gas`
-- `static fromFields(fields: Fr[] | FieldReader) => Gas`
+- `static fromFields(fields: FieldReader | Fr[]) => Gas`
 - `static fromPlainObject(obj: any) => Gas` - Creates a Gas instance from a plain object without Zod validation. This method is optimized for performance and skips validation, making it suitable for deserializing trusted data (e.g., from C++ via MessagePack).
 - `get(dimension: "da" | "l2") => number`
 - `getSize() => number`
@@ -859,7 +859,7 @@ new GasFees(feePerDaGas: number | bigint, feePerL2Gas: number | bigint)
 - `equals(other: GasFees) => boolean`
 - `static from(fields: FieldsOf<GasFees>) => GasFees`
 - `static fromBuffer(buffer: Buffer<ArrayBufferLike> | BufferReader) => GasFees`
-- `static fromFields(fields: Fr[] | FieldReader) => GasFees`
+- `static fromFields(fields: FieldReader | Fr[]) => GasFees`
 - `static fromPlainObject(obj: any) => GasFees` - Creates a GasFees instance from a plain object without Zod validation. This method is optimized for performance and skips validation, making it suitable for deserializing trusted data (e.g., from C++ via MessagePack).
 - `get(dimension: "da" | "l2") => bigint`
 - `isEmpty() => boolean`
@@ -892,7 +892,7 @@ new GasSettings(gasLimits: Gas, teardownGasLimits: Gas, maxFeesPerGas: GasFees, 
 - `equals(other: GasSettings) => boolean`
 - `static from(args: { gasLimits: FieldsOf<Gas>; maxFeesPerGas: FieldsOf<GasFees>; ... }) => GasSettings`
 - `static fromBuffer(buffer: Buffer<ArrayBufferLike> | BufferReader) => GasSettings`
-- `static fromFields(fields: Fr[] | FieldReader) => GasSettings`
+- `static fromFields(fields: FieldReader | Fr[]) => GasSettings`
 - `static fromPlainObject(obj: any) => GasSettings` - Creates a GasSettings instance from a plain object without Zod validation. This method is optimized for performance and skips validation, making it suitable for deserializing trusted data (e.g., from C++ via MessagePack).
 - `getFeeLimit() => Fr` - Returns the maximum fee to be paid according to gas limits and max fees set.
 - `static getFields(fields: FieldsOf<GasSettings>) => readonly []`
@@ -928,7 +928,7 @@ new GlobalVariables(chainId: Fr, version: Fr, blockNumber: BlockNumber, slotNumb
 - `equals(other: this) => boolean`
 - `static from(fields: FieldsOf<GlobalVariables>) => GlobalVariables`
 - `static fromBuffer(buffer: Buffer<ArrayBufferLike> | BufferReader) => GlobalVariables`
-- `static fromFields(fields: Fr[] | FieldReader) => GlobalVariables`
+- `static fromFields(fields: FieldReader | Fr[]) => GlobalVariables`
 - `static fromPlainObject(obj: any) => GlobalVariables` - Creates a GlobalVariables instance from a plain object without Zod validation. This method is optimized for performance and skips validation, making it suitable for deserializing trusted data (e.g., from C++ via MessagePack).
 - `static getFields(fields: FieldsOf<GlobalVariables>) => readonly []`
 - `getSize() => number`
@@ -1323,7 +1323,7 @@ new PartialStateReference(noteHashTree: AppendOnlyTreeSnapshot, nullifierTree: A
 - `equals(other: this) => boolean`
 - `static from(fields: FieldsOf<PartialStateReference>) => PartialStateReference`
 - `static fromBuffer(buffer: Buffer<ArrayBufferLike> | BufferReader) => PartialStateReference`
-- `static fromFields(fields: Fr[] | FieldReader) => PartialStateReference`
+- `static fromFields(fields: FieldReader | Fr[]) => PartialStateReference`
 - `static getFields(fields: FieldsOf<PartialStateReference>) => readonly []`
 - `getSize() => number`
 - `isEmpty() => boolean`
@@ -1421,9 +1421,9 @@ new PrivateLog(fields: [], emittedLength: number)
 - `static empty() => PrivateLog`
 - `equals(other: PrivateLog) => boolean`
 - `static from(fields: FieldsOf<PrivateLog>) => PrivateLog`
-- `static fromBlobFields(emittedLength: number, fields: Fr[] | FieldReader) => PrivateLog`
+- `static fromBlobFields(emittedLength: number, fields: FieldReader | Fr[]) => PrivateLog`
 - `static fromBuffer(buffer: Buffer<ArrayBufferLike> | BufferReader) => PrivateLog`
-- `static fromFields(fields: Fr[] | FieldReader) => PrivateLog`
+- `static fromFields(fields: FieldReader | Fr[]) => PrivateLog`
 - `static fromPlainObject(obj: any) => PrivateLog` - Creates a PrivateLog from a plain object without Zod validation. This method is optimized for performance and skips validation, making it suitable for deserializing trusted data (e.g., from C++ via MessagePack).
 - `getEmittedFields() => Fr[]`
 - `getEmittedFieldsWithoutTag() => Fr[]`
@@ -1469,7 +1469,7 @@ new PrivateTxConstantData(anchorBlockHeader: BlockHeader, txContext: TxContext, 
 - `static empty() => PrivateTxConstantData`
 - `static from(fields: FieldsOf<PrivateTxConstantData>) => PrivateTxConstantData`
 - `static fromBuffer(buffer: Buffer<ArrayBufferLike> | BufferReader) => PrivateTxConstantData`
-- `static fromFields(fields: Fr[] | FieldReader) => PrivateTxConstantData`
+- `static fromFields(fields: FieldReader | Fr[]) => PrivateTxConstantData`
 - `static getFields(fields: FieldsOf<PrivateTxConstantData>) => readonly []`
 - `getSize() => number`
 - `toBuffer() => Buffer<ArrayBufferLike>`
@@ -1549,7 +1549,7 @@ new ProtocolContracts(derivedAddresses: [])
 - `static empty() => ProtocolContracts`
 - `static from(fields: FieldsOf<ProtocolContracts>) => ProtocolContracts`
 - `static fromBuffer(buffer: Buffer<ArrayBufferLike> | BufferReader) => ProtocolContracts`
-- `static fromFields(fields: Fr[] | FieldReader) => ProtocolContracts`
+- `static fromFields(fields: FieldReader | Fr[]) => ProtocolContracts`
 - `static fromPlainObject(obj: any) => ProtocolContracts` - Creates a ProtocolContracts instance from a plain object without Zod validation. This method is optimized for performance and skips validation, making it suitable for deserializing trusted data (e.g., from C++ via MessagePack).
 - `static getFields(fields: FieldsOf<ProtocolContracts>) => readonly []`
 - `getSize() => number`
@@ -1602,7 +1602,7 @@ new PublicKeys(masterNullifierPublicKey: Point, masterIncomingViewingPublicKey: 
 - `equals(other: PublicKeys) => boolean` - Determines if this PublicKeys instance is equal to the given PublicKeys instance. Equality is based on the content of their respective buffers.
 - `static from(fields: FieldsOf<PublicKeys>) => PublicKeys`
 - `static fromBuffer(buffer: Buffer<ArrayBufferLike> | BufferReader) => PublicKeys` - Creates an PublicKeys instance from a given buffer or BufferReader. If the input is a Buffer, it wraps it in a BufferReader before processing. Throws an error if the input length is not equal to the expected size.
-- `static fromFields(fields: Fr[] | FieldReader) => PublicKeys`
+- `static fromFields(fields: FieldReader | Fr[]) => PublicKeys`
 - `static fromPlainObject(obj: any) => PublicKeys` - Creates a PublicKeys from a plain object without Zod validation. This method is optimized for performance and skips validation, making it suitable for deserializing trusted data (e.g., from C++ via MessagePack).
 - `static fromString(keys: string) => PublicKeys`
 - `hash() => Fr | Promise<Fr>`
@@ -1621,8 +1621,8 @@ new PublicLog(contractAddress: AztecAddress, fields: Fr[])
 ```
 
 **Properties**
-- `contractAddress: AztecAddress`
-- `fields: Fr[]`
+- `readonly contractAddress: AztecAddress`
+- `readonly fields: Fr[]`
 - `static schema: unknown`
 
 **Methods**
@@ -1631,9 +1631,9 @@ new PublicLog(contractAddress: AztecAddress, fields: Fr[])
 - `equals(other: this) => boolean`
 - `static from(fields: FieldsOf<PublicLog>) => PublicLog`
 - `static fromBuffer(buffer: Buffer<ArrayBufferLike> | BufferReader) => PublicLog`
-- `static fromFields(fields: Fr[] | FieldReader) => PublicLog`
+- `static fromFields(fields: FieldReader | Fr[]) => PublicLog`
 - `static fromPlainObject(obj: any) => PublicLog`
-- `getEmittedFields() => Fr[]`
+- `getEmittedFields() => Fr[]` - Returns the serialized log (field as in noir field and not a struct field).
 - `getEmittedFieldsWithoutTag() => Fr[]`
 - `static getFields(fields: FieldsOf<PublicLog>) => readonly []`
 - `isEmpty() => boolean`
@@ -1813,7 +1813,7 @@ new StateReference(l1ToL2MessageTree: AppendOnlyTreeSnapshot, partial: PartialSt
 - `equals(other: this) => boolean`
 - `static from(fields: FieldsOf<StateReference>) => StateReference`
 - `static fromBuffer(buffer: Buffer<ArrayBufferLike> | BufferReader) => StateReference`
-- `static fromFields(fields: Fr[] | FieldReader) => StateReference`
+- `static fromFields(fields: FieldReader | Fr[]) => StateReference`
 - `static getFields(fields: FieldsOf<StateReference>) => readonly []`
 - `getSize() => number`
 - `isEmpty() => boolean`
@@ -1864,7 +1864,7 @@ new TreeSnapshots(l1ToL2MessageTree: AppendOnlyTreeSnapshot, noteHashTree: Appen
 - `[custom]() => string`
 - `static empty() => TreeSnapshots`
 - `static fromBuffer(buffer: Buffer<ArrayBufferLike> | BufferReader) => TreeSnapshots`
-- `static fromFields(fields: Fr[] | FieldReader) => TreeSnapshots`
+- `static fromFields(fields: FieldReader | Fr[]) => TreeSnapshots`
 - `static fromPlainObject(obj: any) => TreeSnapshots` - Creates a TreeSnapshots instance from a plain object without Zod validation. This method is optimized for performance and skips validation, making it suitable for deserializing trusted data (e.g., from C++ via MessagePack).
 - `getSize() => number`
 - `isEmpty() => boolean`
@@ -1956,7 +1956,7 @@ new TxConstantData(anchorBlockHeader: BlockHeader, txContext: TxContext, vkTreeR
 - `static empty() => TxConstantData`
 - `static from(fields: FieldsOf<TxConstantData>) => TxConstantData`
 - `static fromBuffer(buffer: Buffer<ArrayBufferLike> | BufferReader) => TxConstantData`
-- `static fromFields(fields: Fr[] | FieldReader) => TxConstantData`
+- `static fromFields(fields: FieldReader | Fr[]) => TxConstantData`
 - `static getFields(fields: FieldsOf<TxConstantData>) => readonly []`
 - `getSize() => number`
 - `toBuffer() => Buffer<ArrayBufferLike>`
@@ -1982,7 +1982,7 @@ new TxContext(chainId: number | bigint | Fr, version: number | bigint | Fr, gasS
 - `static empty(chainId: number | Fr, version: number | Fr) => TxContext`
 - `static from(fields: FieldsOf<TxContext>) => TxContext` - Create a new instance from a fields dictionary.
 - `static fromBuffer(buffer: Buffer<ArrayBufferLike> | BufferReader) => TxContext` - Deserializes TxContext from a buffer or reader.
-- `static fromFields(fields: Fr[] | FieldReader) => TxContext`
+- `static fromFields(fields: FieldReader | Fr[]) => TxContext`
 - `static getFields(fields: FieldsOf<TxContext>) => readonly []` - Serialize into a field array. Low-level utility.
 - `getSize() => number`
 - `isEmpty() => boolean`
@@ -2140,13 +2140,14 @@ Represents a transaction receipt in the Aztec network. Contains essential inform
 
 **Constructor**
 ```typescript
-new TxReceipt(txHash: TxHash, status: TxStatus, executionResult: TxExecutionResult | undefined, error: string | undefined, transactionFee?: bigint, blockHash?: BlockHash, blockNumber?: BlockNumber, debugLogs?: DebugLog[])
+new TxReceipt(txHash: TxHash, status: TxStatus, executionResult: TxExecutionResult | undefined, error: string | undefined, transactionFee?: bigint, blockHash?: BlockHash, blockNumber?: BlockNumber, epochNumber?: EpochNumber, debugLogs?: DebugLog[])
 ```
 
 **Properties**
 - `blockHash?: BlockHash` - The hash of the block containing the transaction.
 - `blockNumber?: BlockNumber` - The block number in which the transaction was included.
 - `debugLogs?: DebugLog[]` - Debug logs collected during public function execution. Served only when the node is in test mode and placed on the receipt only because it's a convenient place for it (the logs are printed out by the wallet when a mined tx receipt is obtained).
+- `epochNumber?: EpochNumber` - The epoch number in which the transaction was included.
 - `error: string | undefined` - Description of transaction error, if any.
 - `executionResult: TxExecutionResult | undefined` - The execution result of the transaction, only set when tx is in a block.
 - `static schema: unknown`
@@ -2209,6 +2210,8 @@ new TxScopedL2Log(txHash: TxHash, blockNumber: BlockNumber, blockTimestamp: bigi
 **Methods**
 - `equals(other: TxScopedL2Log) => boolean`
 - `static fromBuffer(buffer: Buffer) => TxScopedL2Log`
+- `static getBlockNumberFromBuffer(buffer: Buffer) => BlockNumber`
+- `static random() => TxScopedL2Log`
 - `toBuffer() => Buffer<ArrayBuffer>`
 
 ### TxSimulationResult
@@ -2519,21 +2522,21 @@ Interface of classes allowing for the retrieval of L2 blocks.
 - `getCheckpoints(checkpointNumber: CheckpointNumber, limit: number) => Promise<PublishedCheckpoint[]>` - Retrieves a collection of checkpoints.
 - `getCheckpointsDataForEpoch(epochNumber: EpochNumber) => Promise<CheckpointData[]>` - Gets lightweight checkpoint metadata for a given epoch, without fetching full block data.
 - `getCheckpointsForEpoch(epochNumber: EpochNumber) => Promise<Checkpoint[]>` - Gets the checkpoints for a given epoch
-- `getFinalizedL2BlockNumber() => Promise<BlockNumber>` - Computes the finalized block number based on the proven block number. A block is considered finalized when it's 2 epochs behind the proven block. Compute proper finalized block number based on L1 finalized block.
+- `getFinalizedL2BlockNumber() => Promise<BlockNumber>` - Returns the finalized L2 block number. A block is finalized when it was proven in an L1 block that has itself been finalized on Ethereum.
 - `getGenesisValues() => Promise<{ genesisArchiveRoot: Fr }>` - Returns values for the genesis block
 - `getL1Constants() => Promise<L1RollupConstants>` - Returns the rollup constants for the current chain.
 - `getL1Timestamp() => Promise<bigint | undefined>` - Latest synced L1 timestamp.
 - `getL2Block(number: BlockNumber) => Promise<L2Block | undefined>` - Gets an L2 block by block number.
 - `getL2BlockByArchive(archive: Fr) => Promise<L2Block | undefined>` - Gets an L2 block by its archive root.
 - `getL2BlockByHash(blockHash: BlockHash) => Promise<L2Block | undefined>` - Gets an L2 block by its hash.
-- `getL2EpochNumber() => Promise<EpochNumber | undefined>` - Returns the current L2 epoch number based on the currently synced L1 timestamp.
-- `getL2SlotNumber() => Promise<SlotNumber | undefined>` - Returns the current L2 slot number based on the currently synced L1 timestamp.
 - `getL2Tips() => Promise<L2Tips>` - Returns the tips of the L2 chain.
 - `getPendingChainValidationStatus() => Promise<ValidateCheckpointResult>` - Returns the status of the pending chain validation. If the chain is invalid, reports the earliest consecutive checkpoint that is invalid, along with the reason for being invalid, which can be used to trigger an invalidation.
 - `getProvenBlockNumber() => Promise<BlockNumber>` - Gets the number of the latest L2 block proven seen by the block source implementation.
 - `getRegistryAddress() => Promise<EthAddress>` - Method to fetch the registry contract address at the base-layer.
 - `getRollupAddress() => Promise<EthAddress>` - Method to fetch the rollup contract address at the base-layer.
 - `getSettledTxReceipt(txHash: TxHash) => Promise<TxReceipt | undefined>` - Gets a receipt of a settled tx.
+- `getSyncedL2EpochNumber() => Promise<EpochNumber | undefined>` - Returns the last L2 epoch number that has been fully synchronized from L1. An epoch is fully synced when all its L2 slots have been fully synced.
+- `getSyncedL2SlotNumber() => Promise<SlotNumber | undefined>` - Returns the last L2 slot number that has been fully synchronized from L1. An L2 slot is fully synced when all L1 blocks that fall within its time range have been processed.
 - `getTxEffect(txHash: TxHash) => Promise<IndexedTxEffect | undefined>` - Gets a tx effect.
 - `isEpochComplete(epochNumber: EpochNumber) => Promise<boolean>` - Returns whether the given epoch is completed on L1, based on the current L1 and L2 block numbers.
 - `isPendingChainInvalid() => Promise<boolean>` - Returns whether the latest block in the pending chain on L1 is invalid (ie its attestations are incorrect). Note that invalid blocks do not get synced, so the latest block returned by the block source is always a valid one.
@@ -2569,21 +2572,21 @@ Extends: `L2BlockSource`
 - `getCheckpoints(checkpointNumber: CheckpointNumber, limit: number) => Promise<PublishedCheckpoint[]>` - Retrieves a collection of checkpoints.
 - `getCheckpointsDataForEpoch(epochNumber: EpochNumber) => Promise<CheckpointData[]>` - Gets lightweight checkpoint metadata for a given epoch, without fetching full block data.
 - `getCheckpointsForEpoch(epochNumber: EpochNumber) => Promise<Checkpoint[]>` - Gets the checkpoints for a given epoch
-- `getFinalizedL2BlockNumber() => Promise<BlockNumber>` - Computes the finalized block number based on the proven block number. A block is considered finalized when it's 2 epochs behind the proven block. Compute proper finalized block number based on L1 finalized block.
+- `getFinalizedL2BlockNumber() => Promise<BlockNumber>` - Returns the finalized L2 block number. A block is finalized when it was proven in an L1 block that has itself been finalized on Ethereum.
 - `getGenesisValues() => Promise<{ genesisArchiveRoot: Fr }>` - Returns values for the genesis block
 - `getL1Constants() => Promise<L1RollupConstants>` - Returns the rollup constants for the current chain.
 - `getL1Timestamp() => Promise<bigint | undefined>` - Latest synced L1 timestamp.
 - `getL2Block(number: BlockNumber) => Promise<L2Block | undefined>` - Gets an L2 block by block number.
 - `getL2BlockByArchive(archive: Fr) => Promise<L2Block | undefined>` - Gets an L2 block by its archive root.
 - `getL2BlockByHash(blockHash: BlockHash) => Promise<L2Block | undefined>` - Gets an L2 block by its hash.
-- `getL2EpochNumber() => Promise<EpochNumber | undefined>` - Returns the current L2 epoch number based on the currently synced L1 timestamp.
-- `getL2SlotNumber() => Promise<SlotNumber | undefined>` - Returns the current L2 slot number based on the currently synced L1 timestamp.
 - `getL2Tips() => Promise<L2Tips>` - Returns the tips of the L2 chain.
 - `getPendingChainValidationStatus() => Promise<ValidateCheckpointResult>` - Returns the status of the pending chain validation. If the chain is invalid, reports the earliest consecutive checkpoint that is invalid, along with the reason for being invalid, which can be used to trigger an invalidation.
 - `getProvenBlockNumber() => Promise<BlockNumber>` - Gets the number of the latest L2 block proven seen by the block source implementation.
 - `getRegistryAddress() => Promise<EthAddress>` - Method to fetch the registry contract address at the base-layer.
 - `getRollupAddress() => Promise<EthAddress>` - Method to fetch the rollup contract address at the base-layer.
 - `getSettledTxReceipt(txHash: TxHash) => Promise<TxReceipt | undefined>` - Gets a receipt of a settled tx.
+- `getSyncedL2EpochNumber() => Promise<EpochNumber | undefined>` - Returns the last L2 epoch number that has been fully synchronized from L1. An epoch is fully synced when all its L2 slots have been fully synced.
+- `getSyncedL2SlotNumber() => Promise<SlotNumber | undefined>` - Returns the last L2 slot number that has been fully synchronized from L1. An L2 slot is fully synced when all L1 blocks that fall within its time range have been processed.
 - `getTxEffect(txHash: TxHash) => Promise<IndexedTxEffect | undefined>` - Gets a tx effect.
 - `isEpochComplete(epochNumber: EpochNumber) => Promise<boolean>` - Returns whether the given epoch is completed on L1, based on the current L1 and L2 block numbers.
 - `isPendingChainInvalid() => Promise<boolean>` - Returns whether the latest block in the pending chain on L1 is invalid (ie its attestations are incorrect). Note that invalid blocks do not get synced, so the latest block returned by the block source is always a valid one.
@@ -2730,6 +2733,12 @@ function bufferFromFields(fields: Fr[]) => Buffer
 ```
 Recovers a buffer from an array of fields.
 
+### canBeMappedFromNullOrUndefined
+```typescript
+function canBeMappedFromNullOrUndefined(abiType: AbiType) => boolean
+```
+Returns whether `null` or `undefined` can be mapped to a valid ABI value for this type.
+
 ### collectNested
 ```typescript
 function collectNested<T>(executionStack: PrivateCallExecutionResult[], extractExecutionItems: (execution: PrivateCallExecutionResult) => T[]) => T[]
@@ -2874,7 +2883,7 @@ function computeOvskApp(ovsk: Fq, app: AztecAddress) => Promise<Fq>
 
 ### computePartialAddress
 ```typescript
-function computePartialAddress(instance: Pick<ContractInstance, "originalContractClassId" | "initializationHash" | "salt" | "deployer"> | { originalContractClassId: Fr; saltedInitializationHash: Fr }) => Promise<Fr>
+function computePartialAddress(instance: Pick<ContractInstance, "salt" | "deployer" | "originalContractClassId" | "initializationHash"> | { originalContractClassId: Fr; saltedInitializationHash: Fr }) => Promise<Fr>
 ```
 Computes the partial address defined as the hash of the contract class id and salted initialization hash.
 
@@ -3254,6 +3263,12 @@ function isFunctionSelectorStruct(abiType: AbiType) => boolean
 ```
 Returns whether the ABI type is an Function Selector defined in Aztec.nr.
 
+### isOptionStruct
+```typescript
+function isOptionStruct(abiType: AbiType) => boolean
+```
+Returns whether the ABI type is Noir's std::option::Option lowered to a struct.
+
 ### isPublicKeysStruct
 ```typescript
 function isPublicKeysStruct(abiType: AbiType) => boolean
@@ -3437,7 +3452,7 @@ A named type.
 
 ### AbiDecoded
 ```typescript
-type AbiDecoded = bigint | boolean | string | AztecAddress | AbiDecoded[] | {}
+type AbiDecoded = bigint | boolean | string | AztecAddress | AbiDecoded[] | {} | undefined
 ```
 The type of our decoded ABI.
 
@@ -3597,6 +3612,7 @@ Represents the data generated as part of contract deployment.
 ```typescript
 type EventMetadataDefinition = unknown
 ```
+Metadata for a contract event, used to decode emitted event logs back into structured data.
 
 ### ExecutablePrivateFunctionWithMembershipProof
 ```typescript
@@ -3894,6 +3910,11 @@ type TX_ERROR_GAS_LIMIT_TOO_HIGH = "Gas limit is higher than the amount of gas t
 type TX_ERROR_INCORRECT_CALLDATA = "Incorrect calldata for public call"
 ```
 
+### TX_ERROR_INCORRECT_CONTRACT_ADDRESS
+```typescript
+type TX_ERROR_INCORRECT_CONTRACT_ADDRESS = "Incorrect contract instance deployment address"
+```
+
 ### TX_ERROR_INCORRECT_HASH
 ```typescript
 type TX_ERROR_INCORRECT_HASH = "Incorrect tx hash"
@@ -3942,6 +3963,11 @@ type TX_ERROR_INVALID_EXPIRATION_TIMESTAMP = "Invalid expiration timestamp"
 ### TX_ERROR_INVALID_PROOF
 ```typescript
 type TX_ERROR_INVALID_PROOF = "Invalid proof"
+```
+
+### TX_ERROR_MALFORMED_CONTRACT_INSTANCE_LOG
+```typescript
+type TX_ERROR_MALFORMED_CONTRACT_INSTANCE_LOG = "Failed to parse contract instance deployment log"
 ```
 
 ### TX_ERROR_SETUP_FUNCTION_NOT_ALLOWED
