@@ -194,6 +194,12 @@ describe('e2e_offchain_payment', () => {
     const { result: aliceBalance } = await contract.methods.get_balance(alice).simulate({ from: alice });
     expect(aliceBalance).toBe(mintAmount - paymentAmount);
 
+    // Disable L1 automine before the reorg so that the reverted L1 transaction is not re-mined
+    // while we verify the rollback state. Without this, Anvil re-mines the checkpoint immediately,
+    // causing the archiver to re-sync the block and sync_state to re-deliver offchain capsule messages
+    // before we can verify that balances properly rolled back.
+    await cheatCodes.eth.setAutomine(false);
+
     await forceReorg(txBlockNumber);
 
     // Verify that the payment TX is no longer present after the reorg
@@ -207,6 +213,9 @@ describe('e2e_offchain_payment', () => {
     // Verify Alice's balance also rolled back to full mint amount (transfer was reverted)
     const { result: aliceAfterRollback } = await contract.methods.get_balance(alice).simulate({ from: alice });
     expect(aliceAfterRollback).toBe(mintAmount);
+
+    // Re-enable automine so the transaction gets re-mined for the re-sync test below.
+    await cheatCodes.eth.setAutomine(true);
 
     // The archiver re-syncs the same checkpoints from L1 after the reorg, so the tx gets re-mined automatically.
     // Force an empty block so the PXE re-syncs and reprocesses the offchain-delivered notes.
