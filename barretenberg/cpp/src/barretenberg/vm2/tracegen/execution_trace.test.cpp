@@ -125,7 +125,6 @@ TEST(ExecutionTraceGenTest, RegisterAllocation)
 
     builder.process({ ex_event }, trace);
 
-    // todo: Test doesnt check the other register fields are zeroed out.
     EXPECT_THAT(trace.as_rows(),
                 ElementsAre(
                     // First row is empty
@@ -145,6 +144,22 @@ TEST(ExecutionTraceGenTest, RegisterAllocation)
                           ROW_FIELD_EQ(execution_rw_reg_0_, 0),
                           ROW_FIELD_EQ(execution_rw_reg_1_, 0),
                           ROW_FIELD_EQ(execution_rw_reg_2_, 1))));
+
+    // Verify that unused registers (3-5) and their associated fields are zeroed out.
+    const auto rows = trace.as_rows();
+    EXPECT_THAT(rows[1],
+                AllOf(ROW_FIELD_EQ(execution_register_3_, 0),
+                      ROW_FIELD_EQ(execution_register_4_, 0),
+                      ROW_FIELD_EQ(execution_register_5_, 0),
+                      ROW_FIELD_EQ(execution_mem_tag_reg_3_, 0),
+                      ROW_FIELD_EQ(execution_mem_tag_reg_4_, 0),
+                      ROW_FIELD_EQ(execution_mem_tag_reg_5_, 0),
+                      ROW_FIELD_EQ(execution_sel_mem_op_reg_3_, 0),
+                      ROW_FIELD_EQ(execution_sel_mem_op_reg_4_, 0),
+                      ROW_FIELD_EQ(execution_sel_mem_op_reg_5_, 0),
+                      ROW_FIELD_EQ(execution_rw_reg_3_, 0),
+                      ROW_FIELD_EQ(execution_rw_reg_4_, 0),
+                      ROW_FIELD_EQ(execution_rw_reg_5_, 0)));
 }
 
 TEST(ExecutionTraceGenTest, Call)
