@@ -113,10 +113,10 @@ Fee Payment Contracts (FPC) pay fees on your behalf, typically accepting a diffe
 ### Sponsored Fee Payment Contracts
 
 :::note
-The Sponsored FPC is **not** deployed on mainnet or testnet. It is only available on devnet and local network. To pay fees on mainnet, you must either [bridge Fee Juice from L1](#bridge-fee-juice-from-l1) or deploy your own fee-paying contract.
+The Sponsored FPC is **not** deployed on mainnet. It is available on testnet and local network.
 :::
 
-The Sponsored FPC pays for fees unconditionally without requiring payment in return. It is available on the local network and devnet (deployed by Aztec Labs), but **not on mainnet or testnet**.
+The Sponsored FPC pays for fees unconditionally without requiring payment in return. It is available on testnet and local network.
 
 You can derive the Sponsored FPC address from its deployment parameters, register it with your wallet, and use it to pay for transactions:
 
