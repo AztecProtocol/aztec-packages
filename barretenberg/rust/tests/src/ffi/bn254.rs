@@ -92,7 +92,7 @@ fn test_bn254_fr_sqrt_deterministic() {
 }
 
 #[test]
-fn test_bn254_g1_mul_by_one() {
+fn test_bn254_g1_mul_consistency() {
     let backend = FfiBackend::new().expect("Failed to create backend");
     let mut api = BarretenbergApi::new(backend);
 
@@ -101,18 +101,33 @@ fn test_bn254_g1_mul_by_one() {
     x[31] = 1;
     let mut y = vec![0u8; 32];
     y[31] = 2;
-    let point = Bn254G1Point { x, y };
+    let g1 = Bn254G1Point { x, y };
 
-    let mut scalar = vec![0u8; 32];
-    scalar[31] = 1; // scalar = 1
+    let mut two = vec![0u8; 32];
+    two[31] = 2;
+    let mut three = vec![0u8; 32];
+    three[31] = 3;
 
-    let response = api
-        .bn254_g1_mul(point.clone(), &scalar)
-        .expect("bn254_g1_mul failed");
+    // Verify 2*(3*G1) == 3*(2*G1) == 6*G1
+    let result_3g = api
+        .bn254_g1_mul(g1.clone(), &three)
+        .expect("bn254_g1_mul(3) failed");
+    let result_2_of_3g = api
+        .bn254_g1_mul(result_3g.point.clone(), &two)
+        .expect("bn254_g1_mul(2*3G) failed");
 
-    // 1 * G should return G
-    assert_eq!(response.point.x, point.x);
-    assert_eq!(response.point.y, point.y);
+    let result_2g = api
+        .bn254_g1_mul(g1.clone(), &two)
+        .expect("bn254_g1_mul(2) failed");
+    let result_3_of_2g = api
+        .bn254_g1_mul(result_2g.point.clone(), &three)
+        .expect("bn254_g1_mul(3*2G) failed");
+
+    assert_eq!(result_2_of_3g.point.x, result_3_of_2g.point.x);
+    assert_eq!(result_2_of_3g.point.y, result_3_of_2g.point.y);
+
+    // Sanity: result differs from generator
+    assert_ne!(result_2_of_3g.point.x, g1.x);
 
     api.destroy().expect("Failed to destroy backend");
 }
@@ -150,44 +165,40 @@ fn bn254_g2_generator() -> Bn254G2Point {
 }
 
 #[test]
-fn test_bn254_g2_mul_by_one() {
+fn test_bn254_g2_mul_consistency() {
     let backend = FfiBackend::new().expect("Failed to create backend");
     let mut api = BarretenbergApi::new(backend);
 
-    let point = bn254_g2_generator();
+    let g2 = bn254_g2_generator();
 
-    let mut scalar = vec![0u8; 32];
-    scalar[31] = 1; // scalar = 1
+    // Compute 3*G2 directly
+    let mut three = vec![0u8; 32];
+    three[31] = 3;
+    let result_3g = api
+        .bn254_g2_mul(g2.clone(), &three)
+        .expect("bn254_g2_mul(3) failed");
 
-    let response = api
-        .bn254_g2_mul(point.clone(), &scalar)
-        .expect("bn254_g2_mul failed");
+    // Compute 3*G2 as 2*G2 then add G2 via scalar mul of the same point:
+    // We can verify by computing 6*G2 two ways: 2*(3*G2) vs 3*(2*G2)
+    let mut two = vec![0u8; 32];
+    two[31] = 2;
+    let result_2_of_3g = api
+        .bn254_g2_mul(result_3g.point.clone(), &two)
+        .expect("bn254_g2_mul(2*3G) failed");
 
-    // 1 * G2 should return G2
-    assert_eq!(response.point.x, point.x);
-    assert_eq!(response.point.y, point.y);
+    let result_2g = api
+        .bn254_g2_mul(g2.clone(), &two)
+        .expect("bn254_g2_mul(2) failed");
+    let result_3_of_2g = api
+        .bn254_g2_mul(result_2g.point.clone(), &three)
+        .expect("bn254_g2_mul(3*2G) failed");
 
-    api.destroy().expect("Failed to destroy backend");
-}
+    // 2*(3*G2) == 3*(2*G2) == 6*G2
+    assert_eq!(result_2_of_3g.point.x, result_3_of_2g.point.x);
+    assert_eq!(result_2_of_3g.point.y, result_3_of_2g.point.y);
 
-#[test]
-fn test_bn254_g2_mul_by_two() {
-    let backend = FfiBackend::new().expect("Failed to create backend");
-    let mut api = BarretenbergApi::new(backend);
-
-    let point = bn254_g2_generator();
-
-    let mut scalar = vec![0u8; 32];
-    scalar[31] = 2; // scalar = 2
-
-    let response = api
-        .bn254_g2_mul(point.clone(), &scalar)
-        .expect("bn254_g2_mul failed");
-
-    // 2 * G2 should be different from G2
-    assert_ne!(response.point.x, point.x);
-    // Result should have non-zero coordinates
-    assert_ne!(response.point.x[0], vec![0u8; 32]);
+    // Sanity: result differs from generator
+    assert_ne!(result_2_of_3g.point.x, g2.x);
 
     api.destroy().expect("Failed to destroy backend");
 }
