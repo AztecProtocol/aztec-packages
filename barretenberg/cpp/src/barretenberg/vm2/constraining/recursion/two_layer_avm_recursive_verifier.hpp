@@ -170,7 +170,7 @@ class TwoLayerAvmRecursiveVerifier {
 
         // Instantiate Mega builder for the inner circuit (AVM2 proof recursive verifier)
         MegaCircuitBuilder inner_builder;
-        GoblinAvm goblin(inner_builder);
+        GoblinAvm goblin(inner_builder, /*is_zk=*/false);
 
         // Construct the inner recursive verification circuit
         construct_inner_recursive_verification_circuit(inner_builder, stdlib_proof, public_inputs);
