@@ -689,6 +689,26 @@ export class RollupContract {
     );
   }
 
+  /** Returns the effective pending checkpoint, accounting for potential prunes.
+   * When a prune can happen, the L1 contract uses the proven checkpoint instead of the pending one.
+   * This mirrors the behavior of getEffectivePendingCheckpointNumber in STFLib.sol. */
+  getEffectivePendingCheckpoint() {
+    return retry(
+      async () => {
+        const timestamp = (await this.client.getBlock()).timestamp;
+        const canPrune = await this.canPruneAtTime(timestamp);
+        if (canPrune) {
+          const provenCheckpointNumber = await this.getProvenCheckpointNumber();
+          return await this.getCheckpoint(provenCheckpointNumber);
+        }
+        const pendingCheckpointNumber = await this.getCheckpointNumber();
+        return await this.getCheckpoint(pendingCheckpointNumber);
+      },
+      'getting effective pending checkpoint',
+      makeBackoff([0.5, 0.5, 0.5]),
+    );
+  }
+
   async getTips(): Promise<{ pending: CheckpointNumber; proven: CheckpointNumber }> {
     const { pending, proven } = await this.rollup.read.getTips();
     return {

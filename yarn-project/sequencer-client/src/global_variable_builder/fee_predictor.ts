@@ -56,7 +56,7 @@ export class FeePredictor {
     // Most of the items below are cached by the rollup contract
     const [lastCheckpoint, currentSlot, manaTarget, manaLimit, provingCostPerManaEth, epochDuration] =
       await Promise.all([
-        this.rollupContract.getPendingCheckpoint(),
+        this.rollupContract.getEffectivePendingCheckpoint(),
         this.rollupContract.getSlotNumber(),
         this.rollupContract.getManaTarget(),
         this.rollupContract.getManaLimit(),
