@@ -1,4 +1,4 @@
-import type { L1FeeData, RollupContract } from '@aztec/ethereum/contracts';
+import { type L1FeeData, MAX_FEE_ASSET_PRICE_MODIFIER_BPS, type RollupContract } from '@aztec/ethereum/contracts';
 import { SlotNumber } from '@aztec/foundation/branded-types';
 import { times } from '@aztec/foundation/collection';
 import { getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
@@ -92,14 +92,18 @@ export class FeePredictor {
 
     const result: GasFees[] = [];
     let { excessMana } = state;
+    let { ethPerFeeAsset } = state;
 
     // Slot 0: current state (next available slot after last checkpoint)
-    result.push(this.computeGasFees(state, excessMana, state.l1FeesBySlot[0]));
+    result.push(this.computeGasFees(state, excessMana, ethPerFeeAsset, state.l1FeesBySlot[0]));
 
-    // Slots 1..LAG: advance excessMana with the assumed mana usage per checkpoint
+    // Slots 1..LAG: advance excessMana with the assumed mana usage per checkpoint,
+    // and decay ethPerFeeAsset by MAX_FEE_ASSET_PRICE_MODIFIER_BPS per slot for conservative estimates.
+    // Lower ethPerFeeAsset means higher fees in fee asset terms.
     for (let i = 1; i < state.l1FeesBySlot.length; i++) {
       excessMana = computeExcessMana(excessMana, assumedManaUsed, state.manaTarget);
-      result.push(this.computeGasFees(state, excessMana, state.l1FeesBySlot[i]));
+      ethPerFeeAsset = (ethPerFeeAsset * (10000n - MAX_FEE_ASSET_PRICE_MODIFIER_BPS)) / 10000n;
+      result.push(this.computeGasFees(state, excessMana, ethPerFeeAsset, state.l1FeesBySlot[i]));
     }
 
     return result;
@@ -116,7 +120,12 @@ export class FeePredictor {
     }
   }
 
-  private computeGasFees(state: FeeOracleState, excessMana: bigint, l1Fees: L1FeeData): GasFees {
+  private computeGasFees(
+    state: FeeOracleState,
+    excessMana: bigint,
+    ethPerFeeAsset: bigint,
+    l1Fees: L1FeeData,
+  ): GasFees {
     return new GasFees(
       0,
       computeManaMinFee({
@@ -126,7 +135,7 @@ export class FeePredictor {
         epochDuration: state.epochDuration,
         provingCostPerManaEth: state.provingCostPerManaEth,
         excessMana,
-        ethPerFeeAsset: state.ethPerFeeAsset,
+        ethPerFeeAsset,
       }),
     );
   }
