@@ -435,4 +435,15 @@ interoperate
 reentrancy
 variadic
 Wonderland
+allowlist
+authwits
+depositor
+DKIM
 indistinguishability
+nullifier
+nullifiers
+secretHash
+unblinded
+voucher
+vouchers
+zkEmail
