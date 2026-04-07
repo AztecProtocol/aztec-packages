@@ -32,11 +32,11 @@ If you want to develop and iterate quickly, start with the [local network guide]
 Install the testnet version of the Aztec CLI:
 
 ```bash
-VERSION=#include_testnet_version bash -i <(curl -sL https://install.aztec.network/#include_testnet_version)
+VERSION=4.2.0-aztecnr-rc.2 bash -i <(curl -sL https://install.aztec.network/4.2.0-aztecnr-rc.2)
 ```
 
 :::warning
-Testnet is version-dependent. It is currently running version `#include_testnet_version`. Maintain version consistency when interacting with the testnet to avoid errors.
+Testnet is version-dependent. It is currently running version `4.2.0-aztecnr-rc.2`. Maintain version consistency when interacting with the testnet to avoid errors.
 :::
 
 This installs:
