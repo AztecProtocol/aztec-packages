@@ -2,7 +2,6 @@ use crate::{reader::Reader, serialization::{Deserialize, Serialize}, writer::Wri
 use std::embedded_curve_ops::EmbeddedCurvePoint;
 use std::embedded_curve_ops::EmbeddedCurveScalar;
 
-global U1_SERIALIZED_LEN: u32 = 1;
 global BOOL_SERIALIZED_LEN: u32 = 1;
 global U8_SERIALIZED_LEN: u32 = 1;
 global U16_SERIALIZED_LEN: u32 = 1;
@@ -46,36 +45,6 @@ impl Deserialize for bool {
     }
 }
 
-impl Serialize for u1 {
-    let N: u32 = U1_SERIALIZED_LEN;
-
-    fn serialize(self) -> [Field; Self::N] {
-        let mut writer: Writer<Self::N> = Writer::new();
-        self.stream_serialize(&mut writer);
-        writer.finish()
-    }
-
-    #[inline_always]
-    fn stream_serialize<let K: u32>(self, writer: &mut Writer<K>) {
-        writer.write(self as Field);
-    }
-}
-
-impl Deserialize for u1 {
-    let N: u32 = U1_SERIALIZED_LEN;
-
-    fn deserialize(fields: [Field; Self::N]) -> Self {
-        let mut reader = Reader::new(fields);
-        let result = Self::stream_deserialize(&mut reader);
-        reader.finish();
-        result
-    }
-
-    #[inline_always]
-    fn stream_deserialize<let K: u32>(reader: &mut Reader<K>) -> Self {
-        reader.read() as u1
-    }
-}
 
 impl Serialize for u8 {
     let N: u32 = U8_SERIALIZED_LEN;

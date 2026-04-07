@@ -66,8 +66,8 @@ use crate::meta::derive_packable;
 ///     }
 ///
 ///     fn unpack(packed: [Field; Self::N]) -> Self {
-///         let b = (packed[0] as u1) != 0;
-///         let a = (((packed[0] - b as Field) / 2.pow_32(1)) as u1) != 0;
+///         let b = packed[0] != 0;
+///         let a = ((packed[0] - b as Field) / 2.pow_32(1)) != 0;
 ///
 ///         Self { a, b }
 ///     }
@@ -105,8 +105,8 @@ mod test {
         }
 
         fn unpack(packed: [Field; Self::N]) -> Self {
-            let b = (packed[0] as u1) != 0;
-            let a = (((packed[0] - b as Field) / 2.pow_32(1)) as u1) != 0;
+            let b = packed[0] != 0;
+            let a = ((packed[0] - b as Field) / 2.pow_32(1)) != 0;
 
             Self { a, b }
         }

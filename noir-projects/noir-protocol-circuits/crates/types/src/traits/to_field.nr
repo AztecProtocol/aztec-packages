@@ -17,12 +17,6 @@ impl ToField for bool {
         self as Field
     }
 }
-impl ToField for u1 {
-    #[inline_always]
-    fn to_field(self) -> Field {
-        self as Field
-    }
-}
 impl ToField for u8 {
     #[inline_always]
     fn to_field(self) -> Field {

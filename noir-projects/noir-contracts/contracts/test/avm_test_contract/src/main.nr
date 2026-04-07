@@ -290,12 +290,12 @@ pub contract AvmTest {
     }
 
     #[external("public")]
-    fn to_le_bits(input: Field) -> [u1; 16] {
+    fn to_le_bits(input: Field) -> [bool; 16] {
         _to_le_bits(input)
     }
 
     #[contract_library_method]
-    fn _to_le_bits(input: Field) -> [u1; 16] {
+    fn _to_le_bits(input: Field) -> [bool; 16] {
         input.to_le_bits()
     }
 
