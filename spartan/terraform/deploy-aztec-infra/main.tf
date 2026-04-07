@@ -193,7 +193,6 @@ locals {
     "validator.validatorsPerNode"                                 = var.VALIDATORS_PER_NODE
     "validator.publishersPerReplica"                              = var.VALIDATOR_PUBLISHERS_PER_REPLICA
     "validator.publisherMnemonicStartIndex"                       = var.VALIDATOR_PUBLISHER_MNEMONIC_START_INDEX
-    "validator.replicaCount"                                      = var.VALIDATOR_REPLICAS
     "validator.sentinel.enabled"                                  = var.SENTINEL_ENABLED
     "validator.slash.minPenaltyPercentage"                        = var.SLASH_MIN_PENALTY_PERCENTAGE
     "validator.slash.maxPenaltyPercentage"                        = var.SLASH_MAX_PENALTY_PERCENTAGE
@@ -267,6 +266,7 @@ locals {
         local.validator_common_settings,
         local.validator_ha_settings,
         {
+          "validator.replicaCount"                        = idx > 0 ? coalesce(var.VALIDATOR_HA_REPLICA_COUNT, var.VALIDATOR_REPLICAS) : var.VALIDATOR_REPLICAS
           "validator.node.env.VALIDATOR_HA_REPLICA_INDEX" = tostring(idx)
           "validator.node.env.PUBLISHER_KEY_INDEX_START"  = var.VALIDATOR_PUBLISHER_MNEMONIC_START_INDEX + (idx * (var.VALIDATOR_PUBLISHERS_PER_REPLICA * var.VALIDATOR_REPLICAS))
           "validator.service.p2p.announcePort"            = local.p2p_port_validators[idx]
