@@ -50,7 +50,7 @@ class BoomerangGoblinAvmRecursiveVerifierTests : public testing::Test {
     {
         auto op_queue = std::make_shared<ECCOpQueue>();
         InnerBuilder inner_builder(op_queue);
-        GoblinAvm goblin(inner_builder);
+        GoblinAvm goblin(inner_builder, /*is_zk=*/false);
         MockCircuits::construct_arithmetic_circuit(inner_builder);
 
         // Merge the ecc ops from the newly constructed circuit
