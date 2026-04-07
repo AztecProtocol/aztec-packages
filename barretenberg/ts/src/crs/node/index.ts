@@ -1,4 +1,5 @@
 import { NetCrs, NetGrumpkinCrs } from '../net_crs.js';
+import { spotCheckG1Data, BN254_G2_EXPECTED } from '../crs_integrity.js';
 import { closeSync, mkdirSync, openSync, readFileSync, readSync, writeFileSync, createWriteStream } from 'fs';
 import { stat } from 'fs/promises';
 import { Readable } from 'stream';
@@ -31,15 +32,11 @@ export class Crs {
   async init(): Promise<void> {
     mkdirSync(this.path, { recursive: true });
 
-    const g2FileSize = await stat(this.path + '/bn254_g2.dat')
-      .then(stats => stats.size)
-      .catch(() => 0);
-
     // Prefer cached uncompressed (64 bytes/point, no decompression needed)
     const uncompressedFileSize = await stat(this.path + '/bn254_g1.dat')
       .then(stats => stats.size)
       .catch(() => 0);
-    if (uncompressedFileSize >= this.numPoints * 64 && uncompressedFileSize % 64 == 0 && g2FileSize == 128) {
+    if (uncompressedFileSize >= this.numPoints * 64 && uncompressedFileSize % 64 == 0) {
       this.logger(`Using cached uncompressed CRS of size ${uncompressedFileSize / 64}`);
       this.hasUncompressed = true;
       return;
@@ -49,22 +46,28 @@ export class Crs {
     const compressedFileSize = await stat(this.path + '/bn254_g1_compressed.dat')
       .then(stats => stats.size)
       .catch(() => 0);
-    if (compressedFileSize >= this.numPoints * 32 && compressedFileSize % 32 == 0 && g2FileSize == 128) {
+    if (compressedFileSize >= this.numPoints * 32 && compressedFileSize % 32 == 0) {
       this.logger(`Using cached compressed CRS of size ${compressedFileSize / 32} (will decompress once)`);
       this.hasUncompressed = false;
       return;
     }
 
-    // Download compressed from CDN
+    // Download compressed G1 from CDN (G2 is hardcoded, no download needed)
     this.logger(`Downloading CRS of size ${this.numPoints} into ${this.path}`);
     const crs = new NetCrs(this.numPoints);
     const g1Stream = await crs.streamG1Data();
-    const g2Stream = await crs.streamG2Data();
 
-    await Promise.all([
-      finished(Readable.fromWeb(g1Stream as any).pipe(createWriteStream(this.path + '/bn254_g1_compressed.dat'))),
-      finished(Readable.fromWeb(g2Stream as any).pipe(createWriteStream(this.path + '/bn254_g2.dat'))),
-    ]);
+    await finished(
+      Readable.fromWeb(g1Stream as any).pipe(createWriteStream(this.path + '/bn254_g1_compressed.dat')),
+    );
+
+    // Spot-check integrity of downloaded G1 data
+    const g1Head = new Uint8Array(64);
+    const g1Fd = openSync(this.path + '/bn254_g1_compressed.dat', 'r');
+    readSync(g1Fd, g1Head, 0, Math.min(64, this.numPoints * 32), 0);
+    closeSync(g1Fd);
+    spotCheckG1Data(g1Head.slice(0, Math.min(64, this.numPoints * 32)));
+
     this.hasUncompressed = false;
   }
 
@@ -99,11 +102,10 @@ export class Crs {
   }
 
   /**
-   * G2 points data for verification key.
-   * @returns The points data.
+   * G2 point data for verification key. Hardcoded from the trusted setup (128 bytes).
    */
   getG2Data(): Uint8Array {
-    return readFileSync(this.path + '/bn254_g2.dat');
+    return BN254_G2_EXPECTED;
   }
 }
 
