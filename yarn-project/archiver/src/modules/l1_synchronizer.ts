@@ -216,6 +216,9 @@ export class ArchiverL1Synchronizer implements Traceable {
       this.instrumentation.updateL1BlockHeight(currentL1BlockNumber);
     }
 
+    // Update the finalized L2 checkpoint based on L1 finality.
+    await this.updateFinalizedCheckpoint();
+
     // After syncing has completed, update the current l1 block number and timestamp,
     // otherwise we risk announcing to the world that we've synced to a given point,
     // but the corresponding blocks have not been processed (see #12631).
@@ -229,6 +232,36 @@ export class ArchiverL1Synchronizer implements Traceable {
       l1TimestampAtStart: currentL1Timestamp,
       l1BlockNumberAtEnd,
     });
+  }
+
+  /** Query L1 for its finalized block and update the finalized checkpoint accordingly. */
+  private async updateFinalizedCheckpoint(): Promise<void> {
+    try {
+      const finalizedL1Block = await this.publicClient.getBlock({ blockTag: 'finalized', includeTransactions: false });
+      const finalizedL1BlockNumber = finalizedL1Block.number;
+      const finalizedCheckpointNumber = await this.rollup.getProvenCheckpointNumber({
+        blockNumber: finalizedL1BlockNumber,
+      });
+      const localFinalizedCheckpointNumber = await this.store.getFinalizedCheckpointNumber();
+      if (localFinalizedCheckpointNumber !== finalizedCheckpointNumber) {
+        await this.updater.setFinalizedCheckpointNumber(finalizedCheckpointNumber);
+        const finalizedL2BlockNumber = await this.store.getFinalizedL2BlockNumber();
+        this.log.info(
+          `Updated finalized chain to checkpoint ${finalizedCheckpointNumber} (L2 block ${finalizedL2BlockNumber})`,
+          {
+            finalizedCheckpointNumber,
+            previousFinalizedCheckpointNumber: localFinalizedCheckpointNumber,
+            finalizedL2BlockNumber,
+            finalizedL1BlockNumber,
+          },
+        );
+      }
+    } catch (err: any) {
+      // The rollup contract may not exist at the finalized L1 block right after deployment.
+      if (!err?.message?.includes('returned no data')) {
+        this.log.warn(`Failed to update finalized checkpoint: ${err}`);
+      }
+    }
   }
 
   /** Prune all proposed local blocks that should have been checkpointed by now. */

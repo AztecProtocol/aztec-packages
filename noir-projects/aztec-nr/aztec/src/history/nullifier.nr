@@ -4,12 +4,7 @@ use crate::oracle::get_nullifier_membership_witness::{
     get_low_nullifier_membership_witness, get_nullifier_membership_witness,
 };
 
-use crate::protocol::{
-    abis::block_header::BlockHeader,
-    merkle_tree::root::root_from_sibling_path,
-    traits::Hash,
-    utils::field::{full_field_greater_than, full_field_less_than},
-};
+use crate::protocol::{abis::block_header::BlockHeader, merkle_tree::root::root_from_sibling_path, traits::Hash};
 
 mod test;
 
@@ -105,7 +100,7 @@ pub fn assert_nullifier_did_not_exist_by(block_header: BlockHeader, siloed_nulli
 
     // 4) Prove that the low leaf is indeed smaller than the nullifier
     assert(
-        full_field_less_than(low_nullifier_leaf.nullifier, siloed_nullifier),
+        low_nullifier_leaf.nullifier.lt(siloed_nullifier),
         "Proving nullifier non-inclusion failed: low_nullifier.value < nullifier.value check failed",
     );
 
@@ -113,8 +108,7 @@ pub fn assert_nullifier_did_not_exist_by(block_header: BlockHeader, siloed_nulli
     // the nullifier tree, since if it were it'd need to be between the low leaf and the next leaf. Note the special
     // case in which the low leaf is the largest of all entries, in which case there's no 'next' entry.
     assert(
-        full_field_greater_than(low_nullifier_leaf.next_nullifier, siloed_nullifier)
-            | (low_nullifier_leaf.next_index == 0),
+        siloed_nullifier.lt(low_nullifier_leaf.next_nullifier) | (low_nullifier_leaf.next_index == 0),
         "Proving nullifier non-inclusion failed: low_nullifier.next_value > nullifier.value check failed",
     );
 }

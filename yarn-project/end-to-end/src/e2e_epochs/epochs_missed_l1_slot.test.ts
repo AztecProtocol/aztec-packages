@@ -101,7 +101,7 @@ describe('e2e_epochs/epochs_missed_l1_slot', () => {
     await eth.setAutomine(false);
     await eth.setIntervalMining(0, { silent: true });
 
-    const frozenL1Timestamp = await eth.timestamp();
+    const frozenL1Timestamp = await eth.lastBlockTimestamp();
     logger.info(`L1 mining paused at L1 timestamp ${frozenL1Timestamp}`);
 
     // Step 3: Wait until the sequencer reaches PUBLISHING_CHECKPOINT during the mining pause.

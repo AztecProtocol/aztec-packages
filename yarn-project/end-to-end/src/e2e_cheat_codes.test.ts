@@ -1,10 +1,10 @@
 import { EthAddress } from '@aztec/aztec.js/addresses';
 import { EthCheatCodes } from '@aztec/aztec/testing';
 import { createExtendedL1Client } from '@aztec/ethereum/client';
+import type { Anvil } from '@aztec/ethereum/test';
 import type { ExtendedViemWalletClient } from '@aztec/ethereum/types';
 import { DateProvider } from '@aztec/foundation/timer';
 
-import type { Anvil } from '@viem/anvil';
 import { parseEther } from 'viem';
 import { mnemonicToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
@@ -46,19 +46,19 @@ describe('e2e_cheat_codes', () => {
 
     it.each([100, 42, 99])(`setNextBlockTimestamp by %i`, async increment => {
       const blockNumber = await ethCheatCodes.blockNumber();
-      const timestamp = await ethCheatCodes.timestamp();
+      const timestamp = await ethCheatCodes.lastBlockTimestamp();
       await ethCheatCodes.setNextBlockTimestamp(timestamp + increment);
 
-      expect(await ethCheatCodes.timestamp()).toBe(timestamp);
+      expect(await ethCheatCodes.lastBlockTimestamp()).toBe(timestamp);
 
       await ethCheatCodes.mine();
 
       expect(await ethCheatCodes.blockNumber()).toBe(blockNumber + 1);
-      expect(await ethCheatCodes.timestamp()).toBe(timestamp + increment);
+      expect(await ethCheatCodes.lastBlockTimestamp()).toBe(timestamp + increment);
     });
 
     it('setNextBlockTimestamp to a past timestamp throws', async () => {
-      const timestamp = await ethCheatCodes.timestamp();
+      const timestamp = await ethCheatCodes.lastBlockTimestamp();
       const pastTimestamp = timestamp - 1000;
       await expect(async () => await ethCheatCodes.setNextBlockTimestamp(pastTimestamp)).rejects.toThrow(
         'Timestamp error',

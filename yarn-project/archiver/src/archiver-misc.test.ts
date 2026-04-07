@@ -55,9 +55,7 @@ describe('Archiver misc', () => {
 
     const tracer = getTelemetryClient().getTracer('');
     const instrumentation = mock<ArchiverInstrumentation>({ isEnabled: () => true, tracer });
-    const archiverStore = new KVArchiverDataStore(await openTmpStore('archiver_misc_test'), 1000, {
-      epochDuration: EPOCH_DURATION,
-    });
+    const archiverStore = new KVArchiverDataStore(await openTmpStore('archiver_misc_test'), 1000);
     const events = new EventEmitter() as ArchiverEmitter;
     const l2TipsCache = new L2TipsCache(archiverStore.blockStore);
 

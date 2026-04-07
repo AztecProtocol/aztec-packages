@@ -454,7 +454,10 @@ The proof generation script executes the circuit offchain and produces the proof
 
 Create `scripts/generate_data.ts`:
 
-#include_code generate_data /docs/examples/ts/recursive_verification/scripts/generate_data.ts typescript
+```js
+import circuitJson from "../circuit/target/hello_circuit.json" with { type: "json" };
+#include_code generate_data /docs/examples/ts/recursive_verification/scripts/generate_data.ts raw
+```
 
 ### Understanding the Proof Generation Pipeline
 

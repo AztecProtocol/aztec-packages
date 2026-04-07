@@ -24,8 +24,8 @@ describe('capsule data provider', () => {
       const slot = new Fr(1);
       const values = [new Fr(42)];
 
-      capsuleStore.storeCapsule(contract, slot, values, 'test', scope);
-      const result = await capsuleStore.loadCapsule(contract, slot, 'test', scope);
+      capsuleStore.setCapsule(contract, slot, values, 'test', scope);
+      const result = await capsuleStore.getCapsule(contract, slot, 'test', scope);
       expect(result).toEqual(values);
     });
 
@@ -33,8 +33,8 @@ describe('capsule data provider', () => {
       const slot = new Fr(1);
       const values = [new Fr(42), new Fr(43), new Fr(44)];
 
-      capsuleStore.storeCapsule(contract, slot, values, 'test', scope);
-      const result = await capsuleStore.loadCapsule(contract, slot, 'test', scope);
+      capsuleStore.setCapsule(contract, slot, values, 'test', scope);
+      const result = await capsuleStore.getCapsule(contract, slot, 'test', scope);
       expect(result).toEqual(values);
     });
 
@@ -43,10 +43,10 @@ describe('capsule data provider', () => {
       const initialValues = [new Fr(42)];
       const newValues = [new Fr(100)];
 
-      capsuleStore.storeCapsule(contract, slot, initialValues, 'test', scope);
-      capsuleStore.storeCapsule(contract, slot, newValues, 'test', scope);
+      capsuleStore.setCapsule(contract, slot, initialValues, 'test', scope);
+      capsuleStore.setCapsule(contract, slot, newValues, 'test', scope);
 
-      const result = await capsuleStore.loadCapsule(contract, slot, 'test', scope);
+      const result = await capsuleStore.getCapsule(contract, slot, 'test', scope);
       expect(result).toEqual(newValues);
     });
 
@@ -56,11 +56,11 @@ describe('capsule data provider', () => {
       const values1 = [new Fr(42)];
       const values2 = [new Fr(100)];
 
-      capsuleStore.storeCapsule(contract, slot, values1, 'test', scope);
-      capsuleStore.storeCapsule(anotherContract, slot, values2, 'test', scope);
+      capsuleStore.setCapsule(contract, slot, values1, 'test', scope);
+      capsuleStore.setCapsule(anotherContract, slot, values2, 'test', scope);
 
-      const result1 = await capsuleStore.loadCapsule(contract, slot, 'test', scope);
-      const result2 = await capsuleStore.loadCapsule(anotherContract, slot, 'test', scope);
+      const result1 = await capsuleStore.getCapsule(contract, slot, 'test', scope);
+      const result2 = await capsuleStore.getCapsule(anotherContract, slot, 'test', scope);
 
       expect(result1).toEqual(values1);
       expect(result2).toEqual(values2);
@@ -73,27 +73,27 @@ describe('capsule data provider', () => {
       const valuesA = [new Fr(42)];
       const valuesB = [new Fr(100)];
 
-      capsuleStore.storeCapsule(contract, slot, valuesA, 'test', scopeA);
-      capsuleStore.storeCapsule(contract, slot, valuesB, 'test', scopeB);
+      capsuleStore.setCapsule(contract, slot, valuesA, 'test', scopeA);
+      capsuleStore.setCapsule(contract, slot, valuesB, 'test', scopeB);
 
-      expect(await capsuleStore.loadCapsule(contract, slot, 'test', scopeA)).toEqual(valuesA);
-      expect(await capsuleStore.loadCapsule(contract, slot, 'test', scopeB)).toEqual(valuesB);
-      expect(await capsuleStore.loadCapsule(contract, slot, 'test', scope)).toBeNull();
+      expect(await capsuleStore.getCapsule(contract, slot, 'test', scopeA)).toEqual(valuesA);
+      expect(await capsuleStore.getCapsule(contract, slot, 'test', scopeB)).toEqual(valuesB);
+      expect(await capsuleStore.getCapsule(contract, slot, 'test', scope)).toBeNull();
     });
 
     it('different scopes are isolated', async () => {
       const slot = new Fr(1);
       const values = [new Fr(42)];
 
-      capsuleStore.storeCapsule(contract, slot, values, 'test', scope);
+      capsuleStore.setCapsule(contract, slot, values, 'test', scope);
 
-      expect(await capsuleStore.loadCapsule(contract, slot, 'test', scope)).toEqual(values);
-      expect(await capsuleStore.loadCapsule(contract, slot, 'test', AztecAddress.ZERO)).toBeNull();
+      expect(await capsuleStore.getCapsule(contract, slot, 'test', scope)).toEqual(values);
+      expect(await capsuleStore.getCapsule(contract, slot, 'test', AztecAddress.ZERO)).toBeNull();
     });
 
     it('returns null for non-existent slots', async () => {
       const slot = Fr.random();
-      const result = await capsuleStore.loadCapsule(contract, slot, 'test', scope);
+      const result = await capsuleStore.getCapsule(contract, slot, 'test', scope);
       expect(result).toBeNull();
     });
   });
@@ -103,17 +103,17 @@ describe('capsule data provider', () => {
       const slot = new Fr(1);
       const values = [new Fr(42)];
 
-      capsuleStore.storeCapsule(contract, slot, values, 'test', scope);
+      capsuleStore.setCapsule(contract, slot, values, 'test', scope);
       capsuleStore.deleteCapsule(contract, slot, 'test', scope);
 
-      expect(await capsuleStore.loadCapsule(contract, slot, 'test', scope)).toBeNull();
+      expect(await capsuleStore.getCapsule(contract, slot, 'test', scope)).toBeNull();
     });
 
     it('deletes an empty slot', async () => {
       const slot = new Fr(1);
       capsuleStore.deleteCapsule(contract, slot, 'test', scope);
 
-      expect(await capsuleStore.loadCapsule(contract, slot, 'test', scope)).toBeNull();
+      expect(await capsuleStore.getCapsule(contract, slot, 'test', scope)).toBeNull();
     });
 
     it('deletes a scoped capsule without affecting other scopes', async () => {
@@ -124,15 +124,15 @@ describe('capsule data provider', () => {
       const valuesB = [Fr.random(), Fr.random(), Fr.random()];
       const globalValues = [Fr.random(), Fr.random(), Fr.random()];
 
-      capsuleStore.storeCapsule(contract, slot, valuesA, 'test', scopeA);
-      capsuleStore.storeCapsule(contract, slot, valuesB, 'test', scopeB);
-      capsuleStore.storeCapsule(contract, slot, globalValues, 'test', scope);
+      capsuleStore.setCapsule(contract, slot, valuesA, 'test', scopeA);
+      capsuleStore.setCapsule(contract, slot, valuesB, 'test', scopeB);
+      capsuleStore.setCapsule(contract, slot, globalValues, 'test', scope);
 
       capsuleStore.deleteCapsule(contract, slot, 'test', scopeA);
 
-      expect(await capsuleStore.loadCapsule(contract, slot, 'test', scopeA)).toBeNull();
-      expect(await capsuleStore.loadCapsule(contract, slot, 'test', scopeB)).toEqual(valuesB);
-      expect(await capsuleStore.loadCapsule(contract, slot, 'test', scope)).toEqual(globalValues);
+      expect(await capsuleStore.getCapsule(contract, slot, 'test', scopeA)).toBeNull();
+      expect(await capsuleStore.getCapsule(contract, slot, 'test', scopeB)).toEqual(valuesB);
+      expect(await capsuleStore.getCapsule(contract, slot, 'test', scope)).toEqual(globalValues);
     });
   });
 
@@ -141,79 +141,79 @@ describe('capsule data provider', () => {
       const slot = new Fr(1);
       const values = [new Fr(42)];
 
-      capsuleStore.storeCapsule(contract, slot, values, 'test', scope);
+      capsuleStore.setCapsule(contract, slot, values, 'test', scope);
 
       const dstSlot = new Fr(5);
       await capsuleStore.copyCapsule(contract, slot, dstSlot, 1, 'test', scope);
 
-      expect(await capsuleStore.loadCapsule(contract, dstSlot, 'test', scope)).toEqual(values);
+      expect(await capsuleStore.getCapsule(contract, dstSlot, 'test', scope)).toEqual(values);
     });
 
     it('copies multiple non-overlapping values', async () => {
       const src = new Fr(1);
       const valuesArray = [[new Fr(42)], [new Fr(1337)], [new Fr(13)]];
 
-      capsuleStore.storeCapsule(contract, src, valuesArray[0], 'test', scope);
-      capsuleStore.storeCapsule(contract, src.add(new Fr(1)), valuesArray[1], 'test', scope);
-      capsuleStore.storeCapsule(contract, src.add(new Fr(2)), valuesArray[2], 'test', scope);
+      capsuleStore.setCapsule(contract, src, valuesArray[0], 'test', scope);
+      capsuleStore.setCapsule(contract, src.add(new Fr(1)), valuesArray[1], 'test', scope);
+      capsuleStore.setCapsule(contract, src.add(new Fr(2)), valuesArray[2], 'test', scope);
 
       const dst = new Fr(5);
       await capsuleStore.copyCapsule(contract, src, dst, 3, 'test', scope);
 
-      expect(await capsuleStore.loadCapsule(contract, dst, 'test', scope)).toEqual(valuesArray[0]);
-      expect(await capsuleStore.loadCapsule(contract, dst.add(new Fr(1)), 'test', scope)).toEqual(valuesArray[1]);
-      expect(await capsuleStore.loadCapsule(contract, dst.add(new Fr(2)), 'test', scope)).toEqual(valuesArray[2]);
+      expect(await capsuleStore.getCapsule(contract, dst, 'test', scope)).toEqual(valuesArray[0]);
+      expect(await capsuleStore.getCapsule(contract, dst.add(new Fr(1)), 'test', scope)).toEqual(valuesArray[1]);
+      expect(await capsuleStore.getCapsule(contract, dst.add(new Fr(2)), 'test', scope)).toEqual(valuesArray[2]);
     });
 
     it('copies overlapping values with src ahead', async () => {
       const src = new Fr(1);
       const valuesArray = [[new Fr(42)], [new Fr(1337)], [new Fr(13)]];
 
-      capsuleStore.storeCapsule(contract, src, valuesArray[0], 'test', scope);
-      capsuleStore.storeCapsule(contract, src.add(new Fr(1)), valuesArray[1], 'test', scope);
-      capsuleStore.storeCapsule(contract, src.add(new Fr(2)), valuesArray[2], 'test', scope);
+      capsuleStore.setCapsule(contract, src, valuesArray[0], 'test', scope);
+      capsuleStore.setCapsule(contract, src.add(new Fr(1)), valuesArray[1], 'test', scope);
+      capsuleStore.setCapsule(contract, src.add(new Fr(2)), valuesArray[2], 'test', scope);
 
       const dst = new Fr(2);
       await capsuleStore.copyCapsule(contract, src, dst, 3, 'test', scope);
 
-      expect(await capsuleStore.loadCapsule(contract, dst, 'test', scope)).toEqual(valuesArray[0]);
-      expect(await capsuleStore.loadCapsule(contract, dst.add(new Fr(1)), 'test', scope)).toEqual(valuesArray[1]);
-      expect(await capsuleStore.loadCapsule(contract, dst.add(new Fr(2)), 'test', scope)).toEqual(valuesArray[2]);
+      expect(await capsuleStore.getCapsule(contract, dst, 'test', scope)).toEqual(valuesArray[0]);
+      expect(await capsuleStore.getCapsule(contract, dst.add(new Fr(1)), 'test', scope)).toEqual(valuesArray[1]);
+      expect(await capsuleStore.getCapsule(contract, dst.add(new Fr(2)), 'test', scope)).toEqual(valuesArray[2]);
 
       // Slots 2 and 3 (src[1] and src[2]) should have been overwritten since they are also dst[0] and dst[1]
-      expect(await capsuleStore.loadCapsule(contract, src, 'test', scope)).toEqual(valuesArray[0]); // src[0] (unchanged)
-      expect(await capsuleStore.loadCapsule(contract, src.add(new Fr(1)), 'test', scope)).toEqual(valuesArray[0]); // dst[0]
-      expect(await capsuleStore.loadCapsule(contract, src.add(new Fr(2)), 'test', scope)).toEqual(valuesArray[1]); // dst[1]
+      expect(await capsuleStore.getCapsule(contract, src, 'test', scope)).toEqual(valuesArray[0]); // src[0] (unchanged)
+      expect(await capsuleStore.getCapsule(contract, src.add(new Fr(1)), 'test', scope)).toEqual(valuesArray[0]); // dst[0]
+      expect(await capsuleStore.getCapsule(contract, src.add(new Fr(2)), 'test', scope)).toEqual(valuesArray[1]); // dst[1]
     });
 
     it('copies overlapping values with dst ahead', async () => {
       const src = new Fr(5);
       const valuesArray = [[new Fr(42)], [new Fr(1337)], [new Fr(13)]];
 
-      capsuleStore.storeCapsule(contract, src, valuesArray[0], 'test', scope);
-      capsuleStore.storeCapsule(contract, src.add(new Fr(1)), valuesArray[1], 'test', scope);
-      capsuleStore.storeCapsule(contract, src.add(new Fr(2)), valuesArray[2], 'test', scope);
+      capsuleStore.setCapsule(contract, src, valuesArray[0], 'test', scope);
+      capsuleStore.setCapsule(contract, src.add(new Fr(1)), valuesArray[1], 'test', scope);
+      capsuleStore.setCapsule(contract, src.add(new Fr(2)), valuesArray[2], 'test', scope);
 
       const dst = new Fr(4);
       await capsuleStore.copyCapsule(contract, src, dst, 3, 'test', scope);
 
-      expect(await capsuleStore.loadCapsule(contract, dst, 'test', scope)).toEqual(valuesArray[0]);
-      expect(await capsuleStore.loadCapsule(contract, dst.add(new Fr(1)), 'test', scope)).toEqual(valuesArray[1]);
-      expect(await capsuleStore.loadCapsule(contract, dst.add(new Fr(2)), 'test', scope)).toEqual(valuesArray[2]);
+      expect(await capsuleStore.getCapsule(contract, dst, 'test', scope)).toEqual(valuesArray[0]);
+      expect(await capsuleStore.getCapsule(contract, dst.add(new Fr(1)), 'test', scope)).toEqual(valuesArray[1]);
+      expect(await capsuleStore.getCapsule(contract, dst.add(new Fr(2)), 'test', scope)).toEqual(valuesArray[2]);
 
       // Slots 5 and 6 (src[0] and src[1]) should have been overwritten since they are also dst[1] and dst[2]
-      expect(await capsuleStore.loadCapsule(contract, src, 'test', scope)).toEqual(valuesArray[1]); // dst[1]
-      expect(await capsuleStore.loadCapsule(contract, src.add(new Fr(1)), 'test', scope)).toEqual(valuesArray[2]); // dst[2]
-      expect(await capsuleStore.loadCapsule(contract, src.add(new Fr(2)), 'test', scope)).toEqual(valuesArray[2]); // src[2] (unchanged)
+      expect(await capsuleStore.getCapsule(contract, src, 'test', scope)).toEqual(valuesArray[1]); // dst[1]
+      expect(await capsuleStore.getCapsule(contract, src.add(new Fr(1)), 'test', scope)).toEqual(valuesArray[2]); // dst[2]
+      expect(await capsuleStore.getCapsule(contract, src.add(new Fr(2)), 'test', scope)).toEqual(valuesArray[2]); // src[2] (unchanged)
     });
 
     it('copying fails if any value is empty', async () => {
       const src = new Fr(1);
       const valuesArray = [[new Fr(42)], [new Fr(1337)], [new Fr(13)]];
 
-      capsuleStore.storeCapsule(contract, src, valuesArray[0], 'test', scope);
+      capsuleStore.setCapsule(contract, src, valuesArray[0], 'test', scope);
       // We skip src[1]
-      capsuleStore.storeCapsule(contract, src.add(new Fr(2)), valuesArray[2], 'test', scope);
+      capsuleStore.setCapsule(contract, src.add(new Fr(2)), valuesArray[2], 'test', scope);
 
       const dst = new Fr(5);
       await expect(capsuleStore.copyCapsule(contract, src, dst, 3, 'test', scope)).rejects.toThrow(
@@ -227,11 +227,11 @@ describe('capsule data provider', () => {
       const dst = new Fr(5);
       const values = [new Fr(42)];
 
-      capsuleStore.storeCapsule(contract, src, values, 'test', scope);
+      capsuleStore.setCapsule(contract, src, values, 'test', scope);
       await capsuleStore.copyCapsule(contract, src, dst, 1, 'test', scope);
 
-      expect(await capsuleStore.loadCapsule(contract, dst, 'test', scope)).toEqual(values);
-      expect(await capsuleStore.loadCapsule(contract, dst, 'test', AztecAddress.ZERO)).toBeNull();
+      expect(await capsuleStore.getCapsule(contract, dst, 'test', scope)).toEqual(values);
+      expect(await capsuleStore.getCapsule(contract, dst, 'test', AztecAddress.ZERO)).toBeNull();
     });
   });
 
@@ -243,11 +243,9 @@ describe('capsule data provider', () => {
 
         await capsuleStore.appendToCapsuleArray(contract, baseSlot, array, 'test', scope);
 
-        expect(await capsuleStore.loadCapsule(contract, baseSlot, 'test', scope)).toEqual([new Fr(array.length)]);
+        expect(await capsuleStore.getCapsule(contract, baseSlot, 'test', scope)).toEqual([new Fr(array.length)]);
         for (const i of range(array.length)) {
-          expect(await capsuleStore.loadCapsule(contract, baseSlot.add(new Fr(1 + i)), 'test', scope)).toEqual(
-            array[i],
-          );
+          expect(await capsuleStore.getCapsule(contract, baseSlot.add(new Fr(1 + i)), 'test', scope)).toEqual(array[i]);
         }
       });
 
@@ -262,9 +260,9 @@ describe('capsule data provider', () => {
 
         const expectedLength = originalArray.length + newElements.length;
 
-        expect(await capsuleStore.loadCapsule(contract, baseSlot, 'test', scope)).toEqual([new Fr(expectedLength)]);
+        expect(await capsuleStore.getCapsule(contract, baseSlot, 'test', scope)).toEqual([new Fr(expectedLength)]);
         for (const i of range(expectedLength)) {
-          expect(await capsuleStore.loadCapsule(contract, baseSlot.add(new Fr(1 + i)), 'test', scope)).toEqual(
+          expect(await capsuleStore.getCapsule(contract, baseSlot.add(new Fr(1 + i)), 'test', scope)).toEqual(
             [...originalArray, ...newElements][i],
           );
         }
@@ -292,7 +290,7 @@ describe('capsule data provider', () => {
         const baseSlot = new Fr(3);
 
         // Store in the base slot a non-zero value, indicating a non-zero array length
-        capsuleStore.storeCapsule(contract, baseSlot, [new Fr(1)], 'test', scope);
+        capsuleStore.setCapsule(contract, baseSlot, [new Fr(1)], 'test', scope);
 
         // Reading should now fail as some of the capsules in the array are empty
         await expect(capsuleStore.readCapsuleArray(contract, baseSlot, 'test', scope)).rejects.toThrow(
@@ -340,7 +338,7 @@ describe('capsule data provider', () => {
         // Not only do we read the expected array, but also all capsules past the new array length have been cleared
         for (const i of range(originalArray.length - newArray.length)) {
           expect(
-            await capsuleStore.loadCapsule(contract, baseSlot.add(new Fr(1 + newArray.length + i)), 'test', scope),
+            await capsuleStore.getCapsule(contract, baseSlot.add(new Fr(1 + newArray.length + i)), 'test', scope),
           ).toBeNull();
         }
       });
@@ -358,7 +356,7 @@ describe('capsule data provider', () => {
 
         // All capsules from the original array have been cleared
         for (const i of range(originalArray.length)) {
-          expect(await capsuleStore.loadCapsule(contract, baseSlot.add(new Fr(1 + i)), 'test', scope)).toBeNull();
+          expect(await capsuleStore.getCapsule(contract, baseSlot.add(new Fr(1 + i)), 'test', scope)).toBeNull();
         }
       });
     });
@@ -531,20 +529,20 @@ describe('capsule data provider', () => {
       const committedValues1 = [Fr.random()];
       const committedValues2 = [Fr.random()];
 
-      capsuleStore.storeCapsule(contract, slot, committedValues1, 'job-1', scope);
+      capsuleStore.setCapsule(contract, slot, committedValues1, 'job-1', scope);
 
       // After this commit, 'job-1' should logically be reset
       // Any read of contract-slot after this should see committedValues1
       await capsuleStore.commit('job-1');
 
       // Any read of contract-slot should see job2committedValues
-      capsuleStore.storeCapsule(contract, slot, committedValues2, 'job-2', scope);
+      capsuleStore.setCapsule(contract, slot, committedValues2, 'job-2', scope);
       await capsuleStore.commit('job-2');
 
       // If we failed to properly dispose 'job-1's staged writes on commit,
       // Instead of reading committedValues2 (as we should), we would end
       // up reading committedValues1 (which would be wrong)
-      expect(await capsuleStore.loadCapsule(contract, slot, 'job-1', scope)).toEqual(committedValues2);
+      expect(await capsuleStore.getCapsule(contract, slot, 'job-1', scope)).toEqual(committedValues2);
     });
 
     it('writes to job view are isolated from another job view', async () => {
@@ -556,17 +554,17 @@ describe('capsule data provider', () => {
       const stagedJob2: string = 'staged-job-2';
 
       // First set a committed capsule (using a different job that we commit)
-      capsuleStore.storeCapsule(contract, slot, committedValues, commitJobId, scope);
+      capsuleStore.setCapsule(contract, slot, committedValues, commitJobId, scope);
       await capsuleStore.commit(commitJobId);
 
       // Then set a staged capsule (not committed)
-      capsuleStore.storeCapsule(contract, slot, stagedValues, stagedJob1, scope);
+      capsuleStore.setCapsule(contract, slot, stagedValues, stagedJob1, scope);
 
       // With jobId=1, should get staged capsule
-      expect(await capsuleStore.loadCapsule(contract, slot, stagedJob1, scope)).toEqual(stagedValues);
+      expect(await capsuleStore.getCapsule(contract, slot, stagedJob1, scope)).toEqual(stagedValues);
 
       // With jobId=2, should get committed capsule
-      expect(await capsuleStore.loadCapsule(contract, slot, stagedJob2, scope)).toEqual(committedValues);
+      expect(await capsuleStore.getCapsule(contract, slot, stagedJob2, scope)).toEqual(committedValues);
     });
 
     it('staged deletions hide committed data', async () => {
@@ -577,17 +575,17 @@ describe('capsule data provider', () => {
       const stagedJob2: string = 'staged-job-2';
 
       // First set a committed capsule
-      capsuleStore.storeCapsule(contract, slot, committedValues, commitJobId, scope);
+      capsuleStore.setCapsule(contract, slot, committedValues, commitJobId, scope);
       await capsuleStore.commit(commitJobId);
 
       // Delete in staging (not committed)
       capsuleStore.deleteCapsule(contract, slot, stagedJob1, scope);
 
       // Without jobId=2, should still see committed capsule
-      expect(await capsuleStore.loadCapsule(contract, slot, stagedJob2, scope)).toEqual(committedValues);
+      expect(await capsuleStore.getCapsule(contract, slot, stagedJob2, scope)).toEqual(committedValues);
 
       // With jobId=1, should see null (deleted in staging)
-      expect(await capsuleStore.loadCapsule(contract, slot, stagedJob1, scope)).toBeNull();
+      expect(await capsuleStore.getCapsule(contract, slot, stagedJob1, scope)).toBeNull();
     });
 
     it('commit applies staged deletions', async () => {
@@ -596,14 +594,14 @@ describe('capsule data provider', () => {
       const commitJobId: string = 'commit-job';
       const deleteJobId: string = 'delete-job';
 
-      capsuleStore.storeCapsule(contract, slot, committedValues, commitJobId, scope);
+      capsuleStore.setCapsule(contract, slot, committedValues, commitJobId, scope);
       await capsuleStore.commit(commitJobId);
       capsuleStore.deleteCapsule(contract, slot, deleteJobId, scope);
 
       await capsuleStore.commit(deleteJobId);
 
       // Now any job should see this null (deleted)
-      expect(await capsuleStore.loadCapsule(contract, slot, 'any-job-sees-this', scope)).toBeNull();
+      expect(await capsuleStore.getCapsule(contract, slot, 'any-job-sees-this', scope)).toBeNull();
     });
 
     it('discardStaged removes staged data without affecting main', async () => {
@@ -613,17 +611,17 @@ describe('capsule data provider', () => {
       const commitJobId: string = 'commit-job';
       const stagingJobId: string = 'staging-job';
 
-      capsuleStore.storeCapsule(contract, slot, committedValues, commitJobId, scope);
+      capsuleStore.setCapsule(contract, slot, committedValues, commitJobId, scope);
       await capsuleStore.commit(commitJobId);
-      capsuleStore.storeCapsule(contract, slot, stagedValues, stagingJobId, scope);
+      capsuleStore.setCapsule(contract, slot, stagedValues, stagingJobId, scope);
 
       await capsuleStore.discardStaged(stagingJobId);
 
       // Should still get committed capsule
-      expect(await capsuleStore.loadCapsule(contract, slot, 'any-job', scope)).toEqual(committedValues);
+      expect(await capsuleStore.getCapsule(contract, slot, 'any-job', scope)).toEqual(committedValues);
 
       // With stagingJobId should fall back to committed since staging was discarded
-      expect(await capsuleStore.loadCapsule(contract, slot, stagingJobId, scope)).toEqual(committedValues);
+      expect(await capsuleStore.getCapsule(contract, slot, stagingJobId, scope)).toEqual(committedValues);
     });
   });
 });

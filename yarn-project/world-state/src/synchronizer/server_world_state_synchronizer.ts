@@ -387,7 +387,7 @@ export class ServerWorldStateSynchronizer
   }
 
   private async handleChainFinalized(blockNumber: BlockNumber) {
-    this.log.verbose(`Finalized chain is now at block ${blockNumber}`);
+    this.log.verbose(`Updating world state finalized chain to block ${blockNumber}`);
     // If the finalized block number is older than the oldest available block in world state,
     // skip entirely. The finalized block number can jump backwards (e.g. when the finalization
     // heuristic changes) and try to read block data that has already been pruned. When this
@@ -401,6 +401,11 @@ export class ServerWorldStateSynchronizer
       return;
     }
     const summary = await this.merkleTreeDb.setFinalized(blockNumber);
+    this.log.info(`World state finalized chain updated`, {
+      finalizedBlockNumber: summary.finalizedBlockNumber,
+      unfinalizedBlockNumber: summary.unfinalizedBlockNumber,
+      oldestHistoricalBlock: summary.oldestHistoricalBlock,
+    });
     if (this.historyToKeep === undefined) {
       return;
     }

@@ -15,6 +15,7 @@ import { CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { times, timesAsync } from '@aztec/foundation/collection';
 import { SecretValue } from '@aztec/foundation/config';
 import { retryUntil } from '@aztec/foundation/retry';
+import { sleep } from '@aztec/foundation/sleep';
 import { bufferToHex } from '@aztec/foundation/string';
 import { executeTimeout } from '@aztec/foundation/timer';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
@@ -149,6 +150,20 @@ describe('e2e_epochs/epochs_mbps', () => {
 
   /** Retrieves all checkpoints from the archiver, checks that one has the target block count, and returns its number. */
   async function assertMultipleBlocksPerSlot(targetBlockCount: number, logger: Logger): Promise<CheckpointNumber> {
+    // Wait for the first validator's archiver to index a checkpoint with the target block count.
+    // waitForTx polls the initial setup node, but this archiver belongs to nodes[0] (the first
+    // validator). They sync L1 independently, so there's a race window of ~200-400ms.
+    const waitTimeout = test.L2_SLOT_DURATION_IN_S * 3;
+    await retryUntil(
+      async () => {
+        const checkpoints = await archiver.getCheckpoints(CheckpointNumber(1), 50);
+        return checkpoints.some(pc => pc.checkpoint.blocks.length >= targetBlockCount) || undefined;
+      },
+      `checkpoint with at least ${targetBlockCount} blocks`,
+      waitTimeout,
+      0.5,
+    );
+
     const checkpoints = await archiver.getCheckpoints(CheckpointNumber(1), 50);
     logger.warn(`Retrieved ${checkpoints.length} checkpoints from archiver`, {
       checkpoints: checkpoints.map(pc => pc.checkpoint.getStats()),
@@ -538,11 +553,20 @@ describe('e2e_epochs/epochs_mbps', () => {
     });
     await waitUntilL1Timestamp(test.l1Client, targetTimestamp, undefined, test.L2_SLOT_DURATION_IN_S * 3);
 
-    // Send both pre-proved txs simultaneously, waiting for them to be checkpointed.
+    // Send the deploy tx first and give it time to propagate to all validators,
+    // then send the call tx. Priority fees are a safety net, but arrival ordering
+    // ensures the deploy tx is in the pool before the call tx regardless of gossip timing.
     const timeout = test.L2_SLOT_DURATION_IN_S * 5;
-    logger.warn(`Sending both txs and waiting for checkpointed receipts`);
+    logger.warn(`Sending deploy tx first, then call tx`);
+    const deployTxHash = await deployTx.send({ wait: NO_WAIT });
+    await sleep(1000);
+    const callTxHash = await callTx.send({ wait: NO_WAIT });
     const [deployReceipt, callReceipt] = await executeTimeout(
-      () => Promise.all([deployTx.send({ wait: { timeout } }), callTx.send({ wait: { timeout } })]),
+      () =>
+        Promise.all([
+          waitForTx(context.aztecNode, deployTxHash, { timeout }),
+          waitForTx(context.aztecNode, callTxHash, { timeout }),
+        ]),
       timeout * 1000,
     );
     logger.warn(`Both txs checkpointed`, {
