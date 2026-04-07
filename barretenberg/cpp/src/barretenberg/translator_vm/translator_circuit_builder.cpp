@@ -60,8 +60,10 @@ TranslatorCircuitBuilder::AccumulationInput TranslatorCircuitBuilder::generate_w
     auto uint_previous_accumulator = uint512_t(previous_accumulator);
     auto uint_x = uint512_t(evaluation_input_x);
     auto uint_op = uint512_t(op_code);
-    auto uint_p_x = uint512_t(uint256_t(ultra_op.x_lo) + (uint256_t(ultra_op.x_hi) << (NUM_LIMB_BITS << 1)));
-    auto uint_p_y = uint512_t(uint256_t(ultra_op.y_lo) + (uint256_t(ultra_op.y_hi) << (NUM_LIMB_BITS << 1)));
+    // Use get_base_point_standard_form() so infinity points are consistently mapped to (0,0)
+    const auto [base_p_x, base_p_y] = ultra_op.get_base_point_standard_form();
+    auto uint_p_x = uint512_t(base_p_x);
+    auto uint_p_y = uint512_t(base_p_y);
     auto uint_z1 = uint512_t(ultra_op.z_1);
     auto uint_z2 = uint512_t(ultra_op.z_2);
     auto uint_v = uint512_t(batching_challenge_v);
@@ -69,20 +71,13 @@ TranslatorCircuitBuilder::AccumulationInput TranslatorCircuitBuilder::generate_w
     auto uint_v_cubed = uint512_t(v_cubed);
     auto uint_v_quarted = uint512_t(v_quarted);
 
-    // Construct Fq for op, P.x, P.y, z_1, z_2 for use in witness computation
     Fq base_op = Fq(uint256_t(op_code));
-    Fq base_p_x = Fq(uint256_t(ultra_op.x_lo) + (uint256_t(ultra_op.x_hi) << (NUM_LIMB_BITS << 1)));
-    Fq base_p_y = Fq(uint256_t(ultra_op.y_lo) + (uint256_t(ultra_op.y_hi) << (NUM_LIMB_BITS << 1)));
     Fq base_z_1 = Fq(uint256_t(ultra_op.z_1));
     Fq base_z_2 = Fq(uint256_t(ultra_op.z_2));
 
-    // Construct bigfield representations of P.x and P.y
-    auto [p_x_0, p_x_1] = split_wide_limb_into_2_limbs(ultra_op.x_lo);
-    auto [p_x_2, p_x_3] = split_wide_limb_into_2_limbs(ultra_op.x_hi);
-    std::array<Fr, NUM_BINARY_LIMBS> p_x_limbs = { p_x_0, p_x_1, p_x_2, p_x_3 };
-    auto [p_y_0, p_y_1] = split_wide_limb_into_2_limbs(ultra_op.y_lo);
-    auto [p_y_2, p_y_3] = split_wide_limb_into_2_limbs(ultra_op.y_hi);
-    std::array<Fr, NUM_BINARY_LIMBS> p_y_limbs = { p_y_0, p_y_1, p_y_2, p_y_3 };
+    // Construct bigfield representations of P.x and P.y from the infinity-safe coordinates
+    auto p_x_limbs = split_fq_into_limbs(base_p_x);
+    auto p_y_limbs = split_fq_into_limbs(base_p_y);
 
     // Construct bigfield representations of ultra_op.z_1 and ultra_op.z_2 only using 2 limbs each
     auto z_1_limbs = split_wide_limb_into_2_limbs(ultra_op.z_1);
@@ -456,6 +451,10 @@ void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(const std::shared_
         process_random_op(ultra_ops[i]);
     }
 
+    // Guard against unsigned wraparound when computing ops_end below
+    const size_t min_ops = NUM_NO_OPS_START + NUM_RANDOM_OPS_START + (avm_mode ? 0 : NUM_RANDOM_OPS_END);
+    BB_ASSERT(ultra_ops.size() >= min_ops, "Op queue too small for Translator circuit construction");
+
     const size_t ops_end = avm_mode ? ultra_ops.size() : ultra_ops.size() - NUM_RANDOM_OPS_END;
     // Range of UltraOps for which we should construct accumulation gates
     std::span ultra_ops_span(ultra_ops.begin() + static_cast<std::ptrdiff_t>(NUM_NO_OPS_START + NUM_RANDOM_OPS_START),
@@ -536,6 +535,10 @@ void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(const std::shared_
     for (size_t i = ops_end; i < ultra_ops.size(); ++i) {
         process_random_op(ultra_ops[i]);
     }
+
+    // The Translator uses a strict 2-row trace structure (even=computation, odd=transfer).
+    // An odd gate count would shift the entire witness layout, corrupting all relations.
+    BB_ASSERT(num_gates() % 2 == 0, "Translator circuit gate count must be even for 2-row trace structure");
 }
 std::array<TranslatorCircuitBuilder::Fr, TranslatorCircuitBuilder::NUM_MICRO_LIMBS> TranslatorCircuitBuilder::
     split_limb_into_microlimbs(const Fr& limb, size_t num_bits)

@@ -143,7 +143,7 @@ std::span<typename BatchedAffineAddition<Curve>::Fq> BatchedAffineAddition<
     // Define scratch space for batched inverse computations and eventual storage of denominators
     BB_ASSERT_GTE(add_sequences.scratch_space.size(), 2 * total_num_pairs);
     std::span<Fq> denominators = add_sequences.scratch_space.subspan(0, total_num_pairs);
-    std::span<Fq> differences = add_sequences.scratch_space.subspan(total_num_pairs, 2 * total_num_pairs);
+    std::span<Fq> differences = add_sequences.scratch_space.subspan(total_num_pairs, total_num_pairs);
 
     // Compute and store successive products of differences (x_2 - x_1)
     Fq accumulator = 1;
