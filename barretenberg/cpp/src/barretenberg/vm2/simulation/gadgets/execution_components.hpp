@@ -1,22 +1,12 @@
 #pragma once
 
 #include <memory>
-#include <span>
+#include <vector>
 
-#include "barretenberg/vm2/common/aztec_types.hpp"
-#include "barretenberg/vm2/common/field.hpp"
-#include "barretenberg/vm2/simulation/events/addressing_event.hpp"
-#include "barretenberg/vm2/simulation/events/context_events.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
-#include "barretenberg/vm2/simulation/events/memory_event.hpp"
-#include "barretenberg/vm2/simulation/gadgets/addressing.hpp"
-#include "barretenberg/vm2/simulation/gadgets/bytecode_manager.hpp"
-#include "barretenberg/vm2/simulation/gadgets/context.hpp"
-#include "barretenberg/vm2/simulation/gadgets/gas_tracker.hpp"
-#include "barretenberg/vm2/simulation/gadgets/gt.hpp"
-#include "barretenberg/vm2/simulation/gadgets/memory.hpp"
-#include "barretenberg/vm2/simulation/gadgets/range_check.hpp"
 #include "barretenberg/vm2/simulation/interfaces/execution_components.hpp"
+#include "barretenberg/vm2/simulation/interfaces/gt.hpp"
+#include "barretenberg/vm2/simulation/lib/instruction_info.hpp"
 
 namespace bb::avm2::simulation {
 

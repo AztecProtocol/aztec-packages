@@ -1,13 +1,12 @@
 #include "barretenberg/vm2/simulation/gadgets/execution.hpp"
 
+#include <cstddef>
 #include <stdexcept>
-#include <string>
 #include <type_traits>
 
 #include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/vm2/common/aztec_constants.hpp"
-#include "barretenberg/vm2/common/tagged_value.hpp"
 #include "barretenberg/vm2/common/to_radix.hpp"
 #include "barretenberg/vm2/common/uint1.hpp"
 #include "barretenberg/vm2/simulation/events/addressing_event.hpp"
@@ -19,6 +18,7 @@
 #include "barretenberg/vm2/simulation/events/keccakf1600_event.hpp"
 #include "barretenberg/vm2/simulation/events/poseidon2_event.hpp"
 #include "barretenberg/vm2/simulation/events/sha256_event.hpp"
+// Interface headers not included in execution.hpp because the types are forward-declared there.
 #include "barretenberg/vm2/simulation/interfaces/addressing.hpp"
 #include "barretenberg/vm2/simulation/interfaces/alu.hpp"
 #include "barretenberg/vm2/simulation/interfaces/bitwise.hpp"
@@ -26,6 +26,7 @@
 #include "barretenberg/vm2/simulation/interfaces/call_stack_metadata_collector.hpp"
 #include "barretenberg/vm2/simulation/interfaces/context_provider.hpp"
 #include "barretenberg/vm2/simulation/interfaces/data_copy.hpp"
+#include "barretenberg/vm2/simulation/interfaces/db.hpp"
 #include "barretenberg/vm2/simulation/interfaces/debug_log.hpp"
 #include "barretenberg/vm2/simulation/interfaces/ecc.hpp"
 #include "barretenberg/vm2/simulation/interfaces/emit_public_log.hpp"

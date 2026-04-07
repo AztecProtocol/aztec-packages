@@ -1,9 +1,9 @@
 #include "barretenberg/vm2/simulation/gadgets/execution_components.hpp"
 
-#include "barretenberg/vm2/simulation/events/addressing_event.hpp"
-#include "barretenberg/vm2/simulation/events/event_emitter.hpp"
+#include <utility>
+
 #include "barretenberg/vm2/simulation/gadgets/addressing.hpp"
-#include "barretenberg/vm2/simulation/gadgets/context.hpp"
+#include "barretenberg/vm2/simulation/gadgets/gas_tracker.hpp"
 
 namespace bb::avm2::simulation {
 
