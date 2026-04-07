@@ -1,6 +1,7 @@
 import { createRequire } from 'module';
 import { spawn, ChildProcess } from 'child_process';
 import { openSync, closeSync } from 'fs';
+import { cpus } from 'os';
 import { IMsgpackBackendAsync } from '../interface.js';
 import { findNapiBinary, findPackageRoot } from './platform.js';
 import { threadId } from 'worker_threads';
@@ -93,7 +94,7 @@ export class BarretenbergNativeShmAsyncBackend implements IMsgpackBackendAsync {
     const shmName = `bb-async-${process.pid}-${threadId}-${instanceCounter++}`;
 
     // If threads not set use num cpu cores, max 16 (same as socket backend)
-    const hwc = threads ? threads.toString() : '16';
+    const hwc = threads ? threads.toString() : Math.min(16, cpus().length).toString();
     const env = { ...process.env, HARDWARE_CONCURRENCY: hwc };
 
     // Set up file logging if logger is provided
