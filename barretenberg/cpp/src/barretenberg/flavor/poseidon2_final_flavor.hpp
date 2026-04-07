@@ -8,6 +8,7 @@
 #include "barretenberg/flavor/repeated_commitments_data.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
 #include "barretenberg/relations/poseidon2_single_row.hpp"
+#include "barretenberg/relations/poseidon2_single_row_wire_zero.hpp"
 #include "barretenberg/relations/relation_tuple_helpers.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
@@ -26,8 +27,8 @@ namespace bb {
  * Columns:
  *   Precomputed: q_poseidon2_single_row (1 selector)
  *   Witness:     w_l, w_r, w_o, w_4 (4 wires = permutation inputs)
- *                poseidon2_state[260], poseidon2_sq[88] (348 intermediate columns)
- *   Total:       1 precomputed + 352 witness = 353 columns (no shifts)
+ *                poseidon2_state[88] (88 intermediate columns)
+ *   Total:       1 precomputed + 92 witness = 93 columns (no shifts)
  */
 class Poseidon2FinalFlavor {
   public:
@@ -61,7 +62,9 @@ class Poseidon2FinalFlavor {
     }
 
     // ==================== Relations ====================
-    template <typename FF> using Relations_ = std::tuple<bb::Poseidon2SingleRowRelation<FF>>;
+    template <typename FF>
+    using Relations_ =
+        std::tuple<bb::Poseidon2SingleRowRelation<FF>, bb::Poseidon2SingleRowWireZeroRelation<FF>>;
     using Relations = Relations_<FF>;
 
     static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = compute_max_partial_relation_length<Relations>();
@@ -86,30 +89,20 @@ class Poseidon2FinalFlavor {
     // ==================== Poseidon2 Witness Entities ====================
     template <typename DataType> class Poseidon2WitnessEntities {
       public:
-        std::array<DataType, 260> poseidon2_state;
-        std::array<DataType, 88> poseidon2_sq;
+        std::array<DataType, 88> poseidon2_state;
 
-        static constexpr size_t _members_size = 348;
+        static constexpr size_t _members_size = 88;
 
-        auto get_all()
-        {
-            return concatenate(RefArray<DataType, 260>(poseidon2_state), RefArray<DataType, 88>(poseidon2_sq));
-        }
-        auto get_all() const
-        {
-            return concatenate(make_const_ref_array(poseidon2_state), make_const_ref_array(poseidon2_sq));
-        }
+        auto get_all() { return RefArray<DataType, 88>(poseidon2_state); }
+        auto get_all() const { return make_const_ref_array(poseidon2_state); }
         static constexpr size_t size() { return _members_size; }
         static const std::vector<std::string>& get_labels()
         {
             static std::vector<std::string> labels = [] {
                 std::vector<std::string> l;
                 l.reserve(_members_size);
-                for (size_t i = 0; i < 260; i++) {
-                    l.push_back("poseidon2_state_" + std::to_string(i));
-                }
                 for (size_t i = 0; i < 88; i++) {
-                    l.push_back("poseidon2_sq_" + std::to_string(i));
+                    l.push_back("poseidon2_state_" + std::to_string(i));
                 }
                 return l;
             }();
@@ -172,7 +165,7 @@ class Poseidon2FinalFlavor {
 
     // ==================== Counts ====================
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 1;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 4 + 348;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 4 + 88;
     static constexpr size_t NUM_SHIFTED_ENTITIES = 0;
     static constexpr size_t NUM_UNSHIFTED_ENTITIES = NUM_PRECOMPUTED_ENTITIES + NUM_WITNESS_ENTITIES;
     static constexpr size_t NUM_ALL_ENTITIES = NUM_UNSHIFTED_ENTITIES + NUM_SHIFTED_ENTITIES;

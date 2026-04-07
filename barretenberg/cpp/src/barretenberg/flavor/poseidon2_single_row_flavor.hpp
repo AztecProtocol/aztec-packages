@@ -1,6 +1,7 @@
 #pragma once
 #include "barretenberg/flavor/mega_flavor.hpp"
 #include "barretenberg/relations/poseidon2_single_row.hpp"
+#include "barretenberg/relations/poseidon2_single_row_wire_zero.hpp"
 
 namespace bb {
 
@@ -10,8 +11,8 @@ namespace bb {
  * @details Uses the standard UltraProver_/ProverInstance_/OinkProver pipeline but strips out
  * all Mega-specific baggage (ECC op wires, databus, their relations). Only contains:
  *   - Standard Ultra infrastructure (wires, selectors, permutation arg, lookups, lagrange)
- *   - The Poseidon2SingleRowRelation (348 subrelations)
- *   - 348 extra witness columns (poseidon2_state[260] + poseidon2_sq[88])
+ *   - The Poseidon2SingleRowRelation (88 subrelations)
+ *   - 88 extra witness columns (poseidon2_state[88])
  *   - 1 extra selector (q_poseidon2_single_row)
  *
  * This flavor is NOT IsMegaFlavor — it skips ECC op wire allocation, databus allocation,
@@ -63,7 +64,8 @@ class Poseidon2SingleRowFlavor {
                                   bb::EllipticRelation<FF>,
                                   bb::MemoryRelation<FF>,
                                   bb::NonNativeFieldRelation<FF>,
-                                  bb::Poseidon2SingleRowRelation<FF>>;
+                                  bb::Poseidon2SingleRowRelation<FF>,
+                                  bb::Poseidon2SingleRowWireZeroRelation<FF>>;
     using Relations = Relations_<FF>;
 
     static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = compute_max_partial_relation_length<Relations>();
@@ -121,33 +123,23 @@ class Poseidon2SingleRowFlavor {
         auto get_to_be_shifted() { return RefArray{ z_perm }; }
     };
 
-    // ==================== Poseidon2 Witness Entities (348 columns) ====================
+    // ==================== Poseidon2 Witness Entities (88 columns) ====================
     template <typename DataType> class Poseidon2SingleRowWitnessEntities {
       public:
-        std::array<DataType, 260> poseidon2_state;
-        std::array<DataType, 88> poseidon2_sq;
+        std::array<DataType, 88> poseidon2_state;
 
-        static constexpr size_t _members_size = 348;
+        static constexpr size_t _members_size = 88;
 
-        auto get_all()
-        {
-            return concatenate(RefArray<DataType, 260>(poseidon2_state), RefArray<DataType, 88>(poseidon2_sq));
-        }
-        auto get_all() const
-        {
-            return concatenate(make_const_ref_array(poseidon2_state), make_const_ref_array(poseidon2_sq));
-        }
+        auto get_all() { return RefArray<DataType, 88>(poseidon2_state); }
+        auto get_all() const { return make_const_ref_array(poseidon2_state); }
         static constexpr size_t size() { return _members_size; }
         static const std::vector<std::string>& get_labels()
         {
             static std::vector<std::string> labels = [] {
                 std::vector<std::string> l;
                 l.reserve(_members_size);
-                for (size_t i = 0; i < 260; i++) {
-                    l.push_back("poseidon2_state_" + std::to_string(i));
-                }
                 for (size_t i = 0; i < 88; i++) {
-                    l.push_back("poseidon2_sq_" + std::to_string(i));
+                    l.push_back("poseidon2_state_" + std::to_string(i));
                 }
                 return l;
             }();
@@ -209,10 +201,10 @@ class Poseidon2SingleRowFlavor {
     static constexpr size_t NUM_WITNESS_ENTITIES =
         WireEntities<FF>::_members_size +
         DerivedEntities<FF>::_members_size +
-        Poseidon2SingleRowWitnessEntities<FF>::_members_size; // 4 + 4 + 348 = 356
+        Poseidon2SingleRowWitnessEntities<FF>::_members_size; // 4 + 4 + 88 = 96
     static constexpr size_t NUM_SHIFTED_ENTITIES = ShiftedEntities<FF>::_members_size; // 5
-    static constexpr size_t NUM_UNSHIFTED_ENTITIES = NUM_PRECOMPUTED_ENTITIES + NUM_WITNESS_ENTITIES; // 388
-    static constexpr size_t NUM_ALL_ENTITIES = NUM_UNSHIFTED_ENTITIES + NUM_SHIFTED_ENTITIES; // 393
+    static constexpr size_t NUM_UNSHIFTED_ENTITIES = NUM_PRECOMPUTED_ENTITIES + NUM_WITNESS_ENTITIES; // 128
+    static constexpr size_t NUM_ALL_ENTITIES = NUM_UNSHIFTED_ENTITIES + NUM_SHIFTED_ENTITIES; // 133
 
     static constexpr RepeatedCommitmentsData REPEATED_COMMITMENTS = RepeatedCommitmentsData(
         NUM_PRECOMPUTED_ENTITIES, NUM_PRECOMPUTED_ENTITIES + NUM_WITNESS_ENTITIES, NUM_SHIFTED_ENTITIES);
@@ -291,6 +283,11 @@ class Poseidon2SingleRowFlavor {
             this->table_4 = "TABLE_4";
             this->lagrange_first = "LAGRANGE_FIRST";
             this->lagrange_last = "LAGRANGE_LAST";
+
+            // Poseidon2 witness columns (88 total)
+            for (size_t i = 0; i < 88; i++) {
+                this->poseidon2_state[i] = "POSEIDON2_STATE_" + std::to_string(i);
+            }
         }
     };
 

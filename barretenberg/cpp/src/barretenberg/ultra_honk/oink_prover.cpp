@@ -90,6 +90,22 @@ template <typename Flavor> void OinkProver<Flavor>::commit_to_wires()
         }
     }
 
+    // Poseidon2 op wires (MegaV2Flavor only)
+    if constexpr (HasPoseidon2OpQueue<Flavor>) {
+        for (auto [polynomial, label] : zip_view(prover_instance->polynomials.get_poseidon2_op_wires(),
+                                                  commitment_labels.get_poseidon2_op_wires())) {
+            batch.add_to_batch(polynomial, label, /*mask?*/ false);
+        }
+    }
+
+    // Poseidon2 single-row witness columns (88 state columns)
+    if constexpr (HasPoseidon2SingleRow<Flavor>) {
+        for (size_t i = 0; i < 88; i++) {
+            batch.add_to_batch(prover_instance->polynomials.poseidon2_state[i],
+                               commitment_labels.poseidon2_state[i], /*mask?*/ false);
+        }
+    }
+
     auto computed_commitments = batch.commit_and_send_to_verifier(transcript);
     prover_instance->commitments.w_l = computed_commitments[0];
     prover_instance->commitments.w_r = computed_commitments[1];
@@ -102,6 +118,18 @@ template <typename Flavor> void OinkProver<Flavor>::commit_to_wires()
         }
         for (auto& commitment : prover_instance->commitments.get_databus_entities()) {
             commitment = computed_commitments[commitment_idx++];
+        }
+        if constexpr (HasPoseidon2OpQueue<Flavor>) {
+            for (auto& commitment : prover_instance->commitments.get_poseidon2_op_wires()) {
+                commitment = computed_commitments[commitment_idx++];
+            }
+        }
+    }
+
+    if constexpr (HasPoseidon2SingleRow<Flavor>) {
+        size_t commitment_idx = 3; // after w_l, w_r, w_o
+        for (size_t i = 0; i < 88; i++) {
+            prover_instance->commitments.poseidon2_state[i] = computed_commitments[commitment_idx++];
         }
     }
 }
@@ -162,7 +190,7 @@ template <typename Flavor> void OinkProver<Flavor>::commit_to_logderiv_inverses(
     // If MegaV2, commit to the poseidon2 op wire inverse polynomial
     if constexpr (HasPoseidon2OpQueue<Flavor>) {
         batch.add_to_batch(prover_instance->polynomials.poseidon2_op_wire_inverses,
-                           "POSEIDON2_OP_WIRE_INVERSES",
+                           commitment_labels.poseidon2_op_wire_inverses,
                            /*mask?*/ Flavor::HasZK);
     }
     auto computed_commitments = batch.commit_and_send_to_verifier(transcript);
@@ -174,6 +202,9 @@ template <typename Flavor> void OinkProver<Flavor>::commit_to_logderiv_inverses(
             commitment = computed_commitments[commitment_idx];
             commitment_idx++;
         };
+        if constexpr (HasPoseidon2OpQueue<Flavor>) {
+            prover_instance->commitments.poseidon2_op_wire_inverses = computed_commitments[commitment_idx];
+        }
     }
 }
 

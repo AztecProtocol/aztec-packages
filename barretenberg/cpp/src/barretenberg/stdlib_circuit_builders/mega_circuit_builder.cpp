@@ -65,6 +65,14 @@ template <typename FF> void MegaCircuitBuilder_<FF>::add_mega_gates_to_ensure_al
         this->queue_ecc_mul_accum(bb::g1::affine_element::one(), 2, /*in_finalize=*/true);
         this->queue_ecc_eq(/*in_finalize=*/true);
     }
+
+    // Ensure the poseidon2_op block is non-empty (same pattern as ecc_op above).
+    // If no poseidon2 hashes were deferred, add a dummy permutation so the block and op queue
+    // columns are non-trivial and polynomial commitments are non-zero.
+    if (poseidon2_op_queue && this->blocks.poseidon2_op.size() == 0) {
+        uint32_t zero = this->zero_idx();
+        this->queue_poseidon2_permutation({ zero, zero, zero, zero });
+    }
 }
 
 /**
@@ -327,68 +335,62 @@ template <typename FF> void MegaCircuitBuilder_<FF>::apply_databus_selectors(con
 
 /**
  * @brief Create a single-row Poseidon2 gate.
- * @details Computes the full Poseidon2 permutation natively, records all intermediate witness
+ * @details Computes the full Poseidon2 permutation natively, records the 88 witness column
  * values, and reserves a row in the arithmetic block (with all selectors = 0). The extra
  * columns are populated later by TraceToPolynomials for flavors that support them.
+ *
+ * Column layout (88 total, all columns store x^5 S-box output BEFORE matrix multiply):
+ *   [0..3]:   x^5 outputs for external round 0    [72..75]: x^5 outputs for external round 60
+ *   [4..7]:   x^5 outputs for external round 1    [76..79]: x^5 outputs for external round 61
+ *   [8..11]:  x^5 outputs for external round 2    [80..83]: x^5 outputs for external round 62
+ *   [12..15]: x^5 outputs for external round 3    [84..87]: x^5 outputs for external round 63
+ *   [16..71]: x^5 output (element 0) for internal rounds 4-59
  */
 template <typename FF>
 void MegaCircuitBuilder_<FF>::create_poseidon2_single_row_gate(const std::array<FF, 4>& input)
 {
     using Params = crypto::Poseidon2Bn254ScalarFieldParams;
     using Perm = crypto::Poseidon2Permutation<Params>;
-    using RelImpl = Poseidon2SingleRowRelationImpl<FF>;
 
     Poseidon2SingleRowGateData gate_data{};
 
     std::array<FF, 4> state = input;
 
-    // Initial M_E
+    // Initial M_E (no columns — computed algebraically in the relation)
     Perm::matrix_multiplication_external(state);
-    for (size_t j = 0; j < 4; j++) {
-        gate_data.state[RelImpl::state_idx(0, j)] = state[j];
-    }
 
-    // First 4 external rounds
+    // First 4 external rounds (columns 0..15: x^5 S-box outputs before M_E)
     for (size_t r = 0; r < 4; r++) {
         for (size_t j = 0; j < 4; j++) {
             auto s = state[j] + Params::round_constants[r][j];
-            gate_data.sq[RelImpl::sq_idx(r, j)] = s * s;
             auto x2 = s.sqr();
             x2.self_sqr();
             state[j] = x2 * s;
+            gate_data.state[r * 4 + j] = state[j]; // store x^5 before M_E
         }
         Perm::matrix_multiplication_external(state);
-        for (size_t j = 0; j < 4; j++) {
-            gate_data.state[RelImpl::state_idx(r + 1, j)] = state[j];
-        }
     }
 
-    // 56 internal rounds
+    // 56 internal rounds (columns 16..71: x^5 S-box output for element 0 before M_I)
     for (size_t r = 4; r < 60; r++) {
         auto s0 = state[0] + Params::round_constants[r][0];
-        gate_data.sq[RelImpl::sq_idx(r)] = s0 * s0;
         auto x2 = s0.sqr();
         x2.self_sqr();
         state[0] = x2 * s0;
+        gate_data.state[r - 4 + 16] = state[0]; // store x^5 before M_I
         Perm::matrix_multiplication_internal(state);
-        for (size_t j = 0; j < 4; j++) {
-            gate_data.state[RelImpl::state_idx(r + 1, j)] = state[j];
-        }
     }
 
-    // Last 4 external rounds
+    // Last 4 external rounds (columns 72..87: x^5 S-box outputs before M_E)
     for (size_t r = 60; r < 64; r++) {
         for (size_t j = 0; j < 4; j++) {
             auto s = state[j] + Params::round_constants[r][j];
-            gate_data.sq[RelImpl::sq_idx(r, j)] = s * s;
             auto x2 = s.sqr();
             x2.self_sqr();
             state[j] = x2 * s;
+            gate_data.state[(r - 60) * 4 + 72 + j] = state[j]; // store x^5 before M_E
         }
         Perm::matrix_multiplication_external(state);
-        for (size_t j = 0; j < 4; j++) {
-            gate_data.state[RelImpl::state_idx(r + 1, j)] = state[j];
-        }
     }
 
     // Record which row in the arithmetic block this gate occupies
@@ -419,40 +421,39 @@ void MegaCircuitBuilder_<FF>::create_poseidon2_single_row_gate(const std::array<
  * @brief Queue a deferred Poseidon2 permutation for MegaV2Flavor IVC.
  * @details Records 5 values across 2 rows in the poseidon2_op block:
  *   Row 0: state[0], state[1], state[2], state[3]  (sponge state before permutation)
- *   Row 1: output,   0,        0,        0          (hash output = state[0] after permutation)
+ *   Row 1: output,   1 (read_tag),  0,   0
  * The permutation is computed natively via the Poseidon2OpQueue; the output is returned
  * as circuit variables for use in subsequent circuit logic.
+ *
+ * @param input_witness_indices The 4 witness indices for the sponge state inputs
+ * @return Array of 4 circuit variable indices for the permutation output state
  */
 template <typename FF>
-std::array<uint32_t, 4> MegaCircuitBuilder_<FF>::queue_poseidon2_permutation(const std::array<FF, 4>& sponge_state)
+std::array<uint32_t, 4> MegaCircuitBuilder_<FF>::queue_poseidon2_permutation(
+    const std::array<uint32_t, 4>& input_witness_indices)
 {
     BB_ASSERT(poseidon2_op_queue != nullptr,
               "Poseidon2OpQueue must be initialized to use queue_poseidon2_permutation");
 
     using Perm_ = crypto::Poseidon2Permutation<crypto::Poseidon2Bn254ScalarFieldParams>;
 
+    // Get native values from the existing witnesses
+    std::array<FF, 4> sponge_state;
+    for (size_t i = 0; i < 4; ++i) {
+        sponge_state[i] = this->get_variable(input_witness_indices[i]);
+    }
+
     // Compute permutation natively and record in the op queue
     auto output = poseidon2_op_queue->add_hash_op(sponge_state);
-
-    // Compute the full permutation output for returning to the circuit
     auto output_state = Perm_::permutation(sponge_state);
 
-    // Row 0: sponge state (4 input values)
-    uint32_t in_0 = this->add_variable(sponge_state[0]);
-    uint32_t in_1 = this->add_variable(sponge_state[1]);
-    uint32_t in_2 = this->add_variable(sponge_state[2]);
-    uint32_t in_3 = this->add_variable(sponge_state[3]);
-
+    // Row 0: use the caller's witness indices for inputs
     auto& block = this->blocks.poseidon2_op;
-    block.populate_wires(in_0, in_1, in_2, in_3);
-    // Set all gate selectors to 0 (this is an op block, not a gate block)
-    block.q_m().emplace_back(0);
-    block.q_1().emplace_back(0);
-    block.q_2().emplace_back(0);
-    block.q_3().emplace_back(0);
-    block.q_c().emplace_back(0);
-    block.q_4().emplace_back(0);
-    block.set_gate_selector(0);
+    block.populate_wires(input_witness_indices[0], input_witness_indices[1], input_witness_indices[2],
+                         input_witness_indices[3]);
+    for (auto& selector : block.get_selectors()) {
+        selector.emplace_back(0);
+    }
     this->check_selector_length_consistency();
     this->increment_num_gates();
 
@@ -460,19 +461,15 @@ std::array<uint32_t, 4> MegaCircuitBuilder_<FF>::queue_poseidon2_permutation(con
     uint32_t out_idx = this->add_variable(output);
     uint32_t one_idx = this->add_variable(FF(1));
     block.populate_wires(out_idx, one_idx, this->zero_idx(), this->zero_idx());
-    block.q_m().emplace_back(0);
-    block.q_1().emplace_back(0);
-    block.q_2().emplace_back(0);
-    block.q_3().emplace_back(0);
-    block.q_c().emplace_back(0);
-    block.q_4().emplace_back(0);
-    block.set_gate_selector(0);
+    for (auto& selector : block.get_selectors()) {
+        selector.emplace_back(0);
+    }
     this->check_selector_length_consistency();
     this->increment_num_gates();
 
     // Return output state as circuit variable indices
     std::array<uint32_t, 4> output_indices;
-    output_indices[0] = out_idx; // state[0] already added above
+    output_indices[0] = out_idx;
     output_indices[1] = this->add_variable(output_state[1]);
     output_indices[2] = this->add_variable(output_state[2]);
     output_indices[3] = this->add_variable(output_state[3]);

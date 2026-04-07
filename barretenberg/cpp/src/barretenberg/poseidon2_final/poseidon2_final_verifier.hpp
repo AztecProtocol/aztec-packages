@@ -3,7 +3,6 @@
 #include "barretenberg/commitment_schemes/pairing_points.hpp"
 #include "barretenberg/flavor/poseidon2_single_row_flavor.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
-#include "barretenberg/relations/poseidon2_single_row.hpp"
 
 namespace bb {
 
@@ -20,7 +19,7 @@ namespace bb {
  *   commitments.w_r              = op_wire_commitments[1]  (input[1])
  *   commitments.w_o              = op_wire_commitments[2]  (input[2])
  *   commitments.w_4              = op_wire_commitments[3]  (input[3])
- *   commitments.poseidon2_state[256] = op_wire_commitments[4]  (output = state[0] after perm)
+ *   commitments.poseidon2_state[84]  = op_wire_commitments[4]  (output = state[0] after perm)
  *
  * The Poseidon2SingleRowRelation enforces permutation(w_l, w_r, w_o, w_4) → poseidon2_state[stage_64],
  * so substituting these commitments proves the op wire data is correct.
@@ -39,8 +38,10 @@ template <typename Curve> class Poseidon2FinalVerifier_ {
     using Proof = HonkProof; // Native only for now
     static constexpr size_t NUM_OP_WIRES = 5;
 
-    // Index of the output column in poseidon2_state array: state_idx(64, 0) = 256
-    static constexpr size_t OUTPUT_STATE_IDX = Poseidon2SingleRowRelationImpl<bb::fr>::state_idx(64, 0);
+    // Index of the output column in poseidon2_state array: last external round output element 0
+    // Column layout: [0..15]=ext rounds 0-3, [16..71]=int rounds, [72..87]=ext rounds 60-63
+    // Output of round 63 starts at column 84
+    static constexpr size_t OUTPUT_STATE_IDX = 84;
 
     struct ReductionResult {
         PairingPoints pairing_points;

@@ -54,10 +54,11 @@ static void generate_mega_v2_poseidon2_circuit(MegaCircuitBuilder& builder, size
         builder.poseidon2_op_queue = std::make_shared<Poseidon2OpQueue>();
     }
     for (size_t i = 0; i < num_hashes; i++) {
-        std::array<fr, 4> sponge_state = {
-            fr::random_element(), fr::random_element(), fr::random_element(), fr::random_element()
+        std::array<uint32_t, 4> sponge_indices = {
+            builder.add_variable(fr::random_element()), builder.add_variable(fr::random_element()),
+            builder.add_variable(fr::random_element()), builder.add_variable(fr::random_element())
         };
-        builder.queue_poseidon2_permutation(sponge_state);
+        builder.queue_poseidon2_permutation(sponge_indices);
     }
 }
 
@@ -146,7 +147,10 @@ static void report_circuit_sizes(State& state) noexcept
     stdlib::recursion::honk::DefaultIO<MegaCircuitBuilder>::add_default(builder);
     builder.poseidon2_op_queue = std::make_shared<Poseidon2OpQueue>();
     for (size_t i = 0; i < num_hashes; i++) {
-        std::array<fr, 4> s = { fr::random_element(), fr::random_element(), fr::random_element(), fr::random_element() };
+        std::array<uint32_t, 4> s = { builder.add_variable(fr::random_element()),
+                                       builder.add_variable(fr::random_element()),
+                                       builder.add_variable(fr::random_element()),
+                                       builder.add_variable(fr::random_element()) };
         builder.queue_poseidon2_permutation(s);
     }
     builder.finalize_circuit(true);

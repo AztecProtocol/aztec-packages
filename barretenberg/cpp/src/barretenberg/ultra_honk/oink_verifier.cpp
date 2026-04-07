@@ -10,6 +10,7 @@
 #include "barretenberg/ext/starknet/flavor/ultra_starknet_zk_flavor.hpp"
 #include "barretenberg/flavor/mega_avm_recursive_flavor.hpp"
 #include "barretenberg/flavor/mega_v2_flavor.hpp"
+#include "barretenberg/flavor/poseidon2_single_row_flavor.hpp"
 #include "barretenberg/flavor/mega_v2_recursive_flavor.hpp"
 #include "barretenberg/flavor/mega_zk_recursive_flavor.hpp"
 #include "barretenberg/flavor/ultra_keccak_zk_flavor.hpp"
@@ -99,6 +100,22 @@ template <typename Flavor> void OinkVerifier<Flavor>::receive_wire_commitments()
             commitment = transcript->template receive_from_prover<Commitment>(label);
         }
     }
+
+    // Receive Poseidon2 op wire commitments (MegaV2Flavor only)
+    if constexpr (HasPoseidon2OpQueue<Flavor>) {
+        for (auto [commitment, label] : zip_view(verifier_instance->witness_commitments.get_poseidon2_op_wires(),
+                                                 comm_labels.get_poseidon2_op_wires())) {
+            commitment = transcript->template receive_from_prover<Commitment>(label);
+        }
+    }
+
+    // Receive Poseidon2 single-row witness commitments (88 state columns)
+    if constexpr (HasPoseidon2SingleRow<Flavor>) {
+        for (size_t i = 0; i < 88; i++) {
+            verifier_instance->witness_commitments.poseidon2_state[i] =
+                transcript->template receive_from_prover<Commitment>(comm_labels.poseidon2_state[i]);
+        }
+    }
 }
 
 /**
@@ -135,6 +152,12 @@ template <typename Flavor> void OinkVerifier<Flavor>::receive_logderiv_commitmen
                                                  comm_labels.get_databus_inverses())) {
             commitment = transcript->template receive_from_prover<Commitment>(label);
         }
+    }
+
+    // Receive poseidon2 op wire inverse commitment (MegaV2Flavor only)
+    if constexpr (HasPoseidon2OpQueue<Flavor>) {
+        verifier_instance->witness_commitments.poseidon2_op_wire_inverses =
+            transcript->template receive_from_prover<Commitment>(comm_labels.poseidon2_op_wire_inverses);
     }
 }
 
@@ -178,6 +201,7 @@ template class OinkVerifier<MegaAvmRecursiveFlavor_<UltraCircuitBuilder>>;
 template class OinkVerifier<UltraZKRecursiveFlavor_<UltraCircuitBuilder>>;
 template class OinkVerifier<UltraZKRecursiveFlavor_<MegaCircuitBuilder>>;
 template class OinkVerifier<MegaV2Flavor>;
+template class OinkVerifier<Poseidon2SingleRowFlavor>;
 template class OinkVerifier<MegaV2RecursiveFlavor_<MegaCircuitBuilder>>;
 
 } // namespace bb

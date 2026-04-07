@@ -70,6 +70,13 @@ template <typename Flavor> ProverInstance_<Flavor>::ProverInstance_(Circuit& cir
         }
         if constexpr (HasPoseidon2SingleRow<Flavor>) {
             allocate_poseidon2_single_row_polynomials(circuit);
+            // Poseidon2SingleRowFlavor inherits lagrange_ecc_op and databus_id from
+            // MegaFlavor::PrecomputedEntities but skips their allocation (not IsMegaFlavor/HasDataBus).
+            // Allocate as minimal zero polynomials so Sumcheck edge extension can access them.
+            if constexpr (!IsMegaFlavor<Flavor>) {
+                polynomials.lagrange_ecc_op = Polynomial(1, dyadic_size(), 0);
+                polynomials.databus_id = Polynomial(1, dyadic_size(), 0);
+            }
         }
         if constexpr (HasPoseidon2OpQueue<Flavor>) {
             allocate_poseidon2_op_polynomials(circuit);
@@ -289,9 +296,6 @@ void ProverInstance_<Flavor>::allocate_poseidon2_single_row_polynomials(const Ci
     for (auto& p : polynomials.poseidon2_state) {
         p = Polynomial(trace_active_range_size(), dyadic_size());
     }
-    for (auto& p : polynomials.poseidon2_sq) {
-        p = Polynomial(trace_active_range_size(), dyadic_size());
-    }
     polynomials.q_poseidon2_single_row = Polynomial(trace_active_range_size(), dyadic_size());
 }
 
@@ -299,19 +303,26 @@ template <typename Flavor>
 void ProverInstance_<Flavor>::allocate_poseidon2_op_polynomials(const Circuit& circuit)
     requires HasPoseidon2OpQueue<Flavor>
 {
-    const size_t poseidon2_op_block_size = circuit.blocks.poseidon2_op.size();
-    if (poseidon2_op_block_size == 0) {
-        return;
-    }
     BB_BENCH_NAME("allocate_poseidon2_op_polynomials");
 
+    // The poseidon2_op block is guaranteed non-empty after finalize_circuit (a dummy op
+    // is added if needed, same pattern as ecc_op).
+    const size_t poseidon2_op_block_size = circuit.blocks.poseidon2_op.size();
+    BB_ASSERT(poseidon2_op_block_size > 0, "poseidon2_op block must be non-empty after finalize");
+
+    // Op wires are densely packed from index 0 (like ecc_op wires).
+    // Each op uses 2 circuit rows but 1 op wire row, so num_ops = block_size / 2.
+    const size_t num_poseidon2_ops = poseidon2_op_block_size / 2;
     for (auto& wire : polynomials.get_poseidon2_op_wires()) {
-        wire = Polynomial(poseidon2_op_block_size, dyadic_size());
+        wire = Polynomial(num_poseidon2_ops, dyadic_size());
     }
-    polynomials.lagrange_poseidon2_op = Polynomial(poseidon2_op_block_size, dyadic_size());
-    // Logup inverse polynomial — allocated at full trace size since both read and table
-    // positions contribute, and they may be at different trace locations
-    polynomials.poseidon2_op_wire_inverses = Polynomial(trace_active_range_size(), dyadic_size());
+    // Selector must cover the trace rows where poseidon2 ops live (at the block's trace offset)
+    const size_t poseidon2_op_offset = circuit.blocks.poseidon2_op.trace_offset();
+    polynomials.lagrange_poseidon2_op =
+        Polynomial(poseidon2_op_block_size, dyadic_size(), poseidon2_op_offset);
+    // Logup inverse polynomial — for ZK, allocate full dyadic size for blinding.
+    const size_t inverses_size = Flavor::HasZK ? dyadic_size() : trace_active_range_size();
+    polynomials.poseidon2_op_wire_inverses = Polynomial(inverses_size, dyadic_size());
 }
 
 template <typename Flavor> void ProverInstance_<Flavor>::construct_lookup_polynomials(Circuit& circuit)

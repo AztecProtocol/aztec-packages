@@ -3,22 +3,49 @@
 #include "barretenberg/crypto/poseidon2/poseidon2_permutation.hpp"
 #include "relation_types.hpp"
 
+// s0 s1 s2 s3
+// s0' = s0^5 + s0.c0 + s0 + s1 + s2 + s3
+// s1' = s0^5 + s1.c1 + s0 + s1 + s2 + s3
+// s2' = s0^5 + s2.c2 + s0 + s1 + s2 + s3
+// s3' = s0^5 + s3.c3 + s0 + s1 + s2 + s3
+
+// s0'' = s0'^5 + s0'.c0 + s0' + s1' + s2' + s3' = s0'^5 + c0.s0' + 4*(s0^5 +s0 + s1 + s2 + s3) + s0.c0 + s1.c1 + s2.c2 + s3.c3
+// s1'' = s0'^5 + s1'.c1 + s0' + s1' + s2' + s3' = s0'^5 + c1.(s0^5 + s1.c1 + s0 + s1 + s2 + s3) + 4*(s0^5 +s0 + s1 + s2 + s3) + s0.c0 + s1.c1 + s2.c2 + s3.c3
+// s2'' = s0'^5 + s2'.c2 + s0' + s1' + s2' + s3' = s0'^5 + c2.(s0^5 + s2.c2 + s0 + s1 + s2 + s3) + 4*(s0^5 +s0 + s1 + s2 + s3) + s0.c0 + s1.c1 + s2.c2 + s3.c3
+// s3'' = s0'^5 + s3'.c3 + s0' + s1' + s2' + s3' = s0'^5 + c3.(s0^5 + s3.c3 + s0 + s1 + s2 + s3) + 4*(s0^5 +s0 + s1 + s2 + s3) + s0.c0 + s1.c1 + s2.c2 + s3.c3
+
+// s0''' = s0''^5 + s0''.c0 + s1'' + s2'' + s3''
+// s1''' = s0''^5 + s0''.c0 + s1'' + s2'' + s3''
+// s2''' = s0''^5 + s0''.c0 + s1'' + s2'' + s3''
+// s3''' = s0''^5 + s0''.c0 + s1'' + s2'' + s3''
 namespace bb {
 
 /**
  * @brief Evaluates the ENTIRE Poseidon2 permutation in a single row.
  *
- * @details Uses compile-time indexing (std::get) for all subrelation accumulation,
- * enabling use with both the Sumcheck prover (Univariate containers) and value-based
- * verification (std::array<FF> containers).
+ * @details Uses 88 witness columns:
+ *   - External rounds (8 total): 4 columns each for x^5 S-box outputs = 32
+ *   - Internal rounds (56 total): 1 column each for x^5 S-box output (element 0) = 56
+ *   Total: 88 poseidon2_state columns.
  *
- * Witness columns (352 total):
- *   - poseidon2_input[4]: permutation input state
- *   - poseidon2_state[260]: intermediate states (65 stages x 4 elements)
- *   - poseidon2_sq[88]: S-box x^2 intermediates
+ * Column layout (all columns store x^5 S-box output, BEFORE matrix multiply):
+ *   poseidon2_state[0..3]:   x^5 outputs for external round 0
+ *   poseidon2_state[4..7]:   x^5 outputs for external round 1
+ *   poseidon2_state[8..11]:  x^5 outputs for external round 2
+ *   poseidon2_state[12..15]: x^5 outputs for external round 3
+ *   poseidon2_state[16]:     x^5 output for internal round 4 (element 0 only)
+ *   ...
+ *   poseidon2_state[71]:     x^5 output for internal round 59
+ *   poseidon2_state[72..75]: x^5 outputs for external round 60
+ *   ...
+ *   poseidon2_state[84..87]: x^5 outputs for external round 63
  *
- * All 348 subrelations use uniform partial length 5 (max degree 4) for a single
- * Accumulator type, simplifying compile-time indexing.
+ * CoefficientAccumulator optimization: state variables s0..s3 are kept in monomial basis
+ * (CoefficientAccumulator, length 2) throughout. The matrix multiplies (M_E, M_I) are
+ * computed on degree-1 column values in CoefficientAccumulator. Conversion to evaluation
+ * basis (Accumulator, length 6) only happens for the x^5 S-box constraint.
+ *
+ * All 88 subrelations have uniform partial length 6 (degree 5 constraint * degree 1 selector).
  */
 template <typename FF_> class Poseidon2SingleRowRelationImpl {
   public:
@@ -31,49 +58,20 @@ template <typename FF_> class Poseidon2SingleRowRelationImpl {
     static constexpr size_t ROUNDS_P = 56;
     static constexpr size_t NUM_ROUNDS = 64;
 
-    // Inputs come from w_l, w_r, w_o, w_4 (not separate columns)
-    static constexpr size_t NUM_STATES = 65 * 4; // 260
-    static constexpr size_t NUM_SQ = 8 * 4 + 56; // 88
-    static constexpr size_t NUM_WITNESS = NUM_STATES + NUM_SQ; // 348
+    static constexpr size_t NUM_WITNESS = 88;
 
-    static constexpr size_t NUM_SUBRELATIONS = 4 + 8 * 8 + 56 * 5; // 348
+    // 4 subrelations per external round (8 rounds) + 1 per internal round (56 rounds)
+    static constexpr size_t NUM_SUBRELATIONS = ROUNDS_F_HALF * 2 * T + ROUNDS_P; // 32 + 56 = 88
 
-    // Uniform partial length 5 for all subrelations (max degree 4).
-    // This simplifies the implementation: a single Accumulator type for all subrelations.
     static constexpr auto SUBRELATION_PARTIAL_LENGTHS = [] {
         std::array<size_t, NUM_SUBRELATIONS> result{};
         for (auto& x : result) {
-            x = 5;
+            x = 6;
         }
         return result;
     }();
 
     static constexpr auto D_MINUS_1 = Params::internal_matrix_diagonal_minus_one;
-
-    static constexpr size_t state_idx(size_t stage, size_t elem) { return stage * 4 + elem; }
-
-    static constexpr size_t sq_idx(size_t round, size_t elem = 0)
-    {
-        if (round < ROUNDS_F_HALF) {
-            return round * 4 + elem;
-        }
-        if (round < ROUNDS_F_HALF + ROUNDS_P) {
-            return 16 + (round - ROUNDS_F_HALF);
-        }
-        return 72 + (round - ROUNDS_F_HALF - ROUNDS_P) * 4 + elem;
-    }
-
-    // Subrelation base index for round R
-    static constexpr size_t subrel_base(size_t round)
-    {
-        if (round < ROUNDS_F_HALF) {
-            return 4 + round * 8;
-        }
-        if (round < ROUNDS_F_HALF + ROUNDS_P) {
-            return 4 + ROUNDS_F_HALF * 8 + (round - ROUNDS_F_HALF) * 5;
-        }
-        return 4 + ROUNDS_F_HALF * 8 + ROUNDS_P * 5 + (round - ROUNDS_F_HALF - ROUNDS_P) * 8;
-    }
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -89,77 +87,65 @@ template <typename FF_> class Poseidon2SingleRowRelationImpl {
         using Accumulator = std::tuple_element_t<0, ContainerOverSubrelations>;
         using CoefficientAccumulator = typename Accumulator::CoefficientAccumulator;
 
-        const auto q_m = CoefficientAccumulator(in.q_poseidon2_single_row);
-        const auto q_scaled = Accumulator(q_m * scaling_factor);
+        const auto q_poseidon2_m = CoefficientAccumulator(in.q_poseidon2_single_row);
 
-        // ====== Initial M_E (subrelations 0-3) ======
-        // state[stage=0] = M_E(w_l, w_r, w_o, w_4)
-        {
-            auto inp_0 = CoefficientAccumulator(in.w_l);
-            auto inp_1 = CoefficientAccumulator(in.w_r);
-            auto inp_2 = CoefficientAccumulator(in.w_o);
-            auto inp_3 = CoefficientAccumulator(in.w_4);
-            // M_E multiply (factored form)
-            auto t0 = inp_0 + inp_1;
-            auto t1 = inp_2 + inp_3;
-            auto t2 = inp_1 + inp_1;
-            t2 += t1;
-            auto t3 = inp_3 + inp_3;
-            t3 += t0;
-            auto me4 = t1 + t1;
-            me4 += me4;
-            me4 += t3;
-            auto me2 = t0 + t0;
-            me2 += me2;
-            me2 += t2;
-            auto me1 = t3 + me2;
-            auto me3 = t2 + me4;
+        // ====== Initial M_E (CoefficientAccumulator, all degree-1 ops) ======
+        // State variables kept in CoefficientAccumulator (monomial basis, length 2) throughout.
+        auto inp0 = CoefficientAccumulator(in.w_l);
+        auto inp1 = CoefficientAccumulator(in.w_r);
+        auto inp2 = CoefficientAccumulator(in.w_o);
+        auto inp3 = CoefficientAccumulator(in.w_4);
 
-            auto s0 = CoefficientAccumulator(in.poseidon2_state[state_idx(0, 0)]);
-            auto s1 = CoefficientAccumulator(in.poseidon2_state[state_idx(0, 1)]);
-            auto s2 = CoefficientAccumulator(in.poseidon2_state[state_idx(0, 2)]);
-            auto s3 = CoefficientAccumulator(in.poseidon2_state[state_idx(0, 3)]);
+        auto t0 = inp0 + inp1;
+        auto t1 = inp2 + inp3;
+        auto t2 = inp1 + inp1;
+        t2 += t1;
+        auto t3 = inp3 + inp3;
+        t3 += t0;
+        auto s3 = t1 + t1; // me4
+        s3 += s3;
+        s3 += t3;
+        auto s1 = t0 + t0; // me2
+        s1 += s1;
+        s1 += t2;
+        auto s0 = t3 + s1; // me1
+        auto s2 = t2 + s3; // me3
 
-            std::get<0>(evals) += q_scaled * Accumulator(s0 - me1);
-            std::get<1>(evals) += q_scaled * Accumulator(s1 - me2);
-            std::get<2>(evals) += q_scaled * Accumulator(s2 - me3);
-            std::get<3>(evals) += q_scaled * Accumulator(s3 - me4);
-        }
+        // ====== External round helper ======
+        // Columns store x^5 S-box outputs (BEFORE M_E). M_E is computed algebraically
+        // on degree-1 CoefficientAccumulator column values.
+        auto process_external_round = [&]<size_t R, size_t BASE>() {
+            // S-box inputs (CoefficientAccumulator, degree 1)
+            auto si0 = s0 + q_poseidon2_m * FF(Params::round_constants[R][0]);
+            auto si1 = s1 + q_poseidon2_m * FF(Params::round_constants[R][1]);
+            auto si2 = s2 + q_poseidon2_m * FF(Params::round_constants[R][2]);
+            auto si3 = s3 + q_poseidon2_m * FF(Params::round_constants[R][3]);
 
-        // ====== Process rounds via compile-time unrolling ======
+            // si^2 in CoefficientAccumulator (cheap length-2 → length-3)
+            auto si0_sqr = si0.sqr();
+            auto si1_sqr = si1.sqr();
+            auto si2_sqr = si2.sqr();
+            auto si3_sqr = si3.sqr();
 
-        // External round: 8 subrelations (4 sq + 4 output)
-        auto process_external_round = [&]<size_t R>() {
-            constexpr size_t BASE = subrel_base(R);
+            // Read column values (x^5 outputs, CoefficientAccumulator, degree 1)
+            auto u0 = CoefficientAccumulator(in.poseidon2_state[BASE]);
+            auto u1 = CoefficientAccumulator(in.poseidon2_state[BASE + 1]);
+            auto u2 = CoefficientAccumulator(in.poseidon2_state[BASE + 2]);
+            auto u3 = CoefficientAccumulator(in.poseidon2_state[BASE + 3]);
 
-            // Read state, sq, and compute sbox_input = state + round_constant
-            // Convert to Accumulator for all arithmetic (avoids CoefficientAccumulator type issues)
-            auto st0 = Accumulator(CoefficientAccumulator(in.poseidon2_state[state_idx(R, 0)]));
-            auto st1 = Accumulator(CoefficientAccumulator(in.poseidon2_state[state_idx(R, 1)]));
-            auto st2 = Accumulator(CoefficientAccumulator(in.poseidon2_state[state_idx(R, 2)]));
-            auto st3 = Accumulator(CoefficientAccumulator(in.poseidon2_state[state_idx(R, 3)]));
-            auto sq0 = Accumulator(CoefficientAccumulator(in.poseidon2_sq[sq_idx(R, 0)]));
-            auto sq1 = Accumulator(CoefficientAccumulator(in.poseidon2_sq[sq_idx(R, 1)]));
-            auto sq2 = Accumulator(CoefficientAccumulator(in.poseidon2_sq[sq_idx(R, 2)]));
-            auto sq3 = Accumulator(CoefficientAccumulator(in.poseidon2_sq[sq_idx(R, 3)]));
-            auto si0 = st0 + Params::round_constants[R][0];
-            auto si1 = st1 + Params::round_constants[R][1];
-            auto si2 = st2 + Params::round_constants[R][2];
-            auto si3 = st3 + Params::round_constants[R][3];
+            // Constrain: scaling_factor * (u_i - si_i^5) = 0
+            // Split: u_i * sf (CA degree 1) - si_i^4 * (si_i * sf) (Acc degree 5)
+            // scaling_factor folded into one si factor and u via CA × FF (cheap, no extra Acc muls)
+            std::get<BASE>(evals) +=
+                Accumulator(u0 * scaling_factor) - Accumulator(si0_sqr).sqr() * Accumulator(si0 * scaling_factor);
+            std::get<BASE + 1>(evals) +=
+                Accumulator(u1 * scaling_factor) - Accumulator(si1_sqr).sqr() * Accumulator(si1 * scaling_factor);
+            std::get<BASE + 2>(evals) +=
+                Accumulator(u2 * scaling_factor) - Accumulator(si2_sqr).sqr() * Accumulator(si2 * scaling_factor);
+            std::get<BASE + 3>(evals) +=
+                Accumulator(u3 * scaling_factor) - Accumulator(si3_sqr).sqr() * Accumulator(si3 * scaling_factor);
 
-            // sq constraints: sq[j] = sbox_input[j]^2
-            std::get<BASE + 0>(evals) += q_scaled * (sq0 - si0.sqr());
-            std::get<BASE + 1>(evals) += q_scaled * (sq1 - si1.sqr());
-            std::get<BASE + 2>(evals) += q_scaled * (sq2 - si2.sqr());
-            std::get<BASE + 3>(evals) += q_scaled * (sq3 - si3.sqr());
-
-            // S-box outputs: u[j] = sq[j]^2 * sbox_input[j] = x^5
-            auto u0 = sq0.sqr() * si0;
-            auto u1 = sq1.sqr() * si1;
-            auto u2 = sq2.sqr() * si2;
-            auto u3 = sq3.sqr() * si3;
-
-            // M_E matrix multiply on u0..u3
+            // M_E on degree-1 column values (CoefficientAccumulator, all length-2 ops)
             auto a0 = u0 + u1;
             auto a1 = u2 + u3;
             auto a2 = u1 + u1;
@@ -172,75 +158,54 @@ template <typename FF_> class Poseidon2SingleRowRelationImpl {
             auto v2 = a0 + a0;
             v2 += v2;
             v2 += a2;
-            auto v1 = a3 + v2;
-            auto v3 = a2 + v4;
 
-            // Output constraints: state[R+1] = M_E(sbox_output)
-            auto ns0 = CoefficientAccumulator(in.poseidon2_state[state_idx(R + 1, 0)]);
-            auto ns1 = CoefficientAccumulator(in.poseidon2_state[state_idx(R + 1, 1)]);
-            auto ns2 = CoefficientAccumulator(in.poseidon2_state[state_idx(R + 1, 2)]);
-            auto ns3 = CoefficientAccumulator(in.poseidon2_state[state_idx(R + 1, 3)]);
-
-            std::get<BASE + 4>(evals) += q_scaled * (v1 - Accumulator(ns0));
-            std::get<BASE + 5>(evals) += q_scaled * (v2 - Accumulator(ns1));
-            std::get<BASE + 6>(evals) += q_scaled * (v3 - Accumulator(ns2));
-            std::get<BASE + 7>(evals) += q_scaled * (v4 - Accumulator(ns3));
+            s0 = a3 + v2; // v1
+            s1 = v2;
+            s2 = a2 + v4; // v3
+            s3 = v4;
         };
 
-        // Internal round: 5 subrelations (1 sq + 4 output)
-        auto process_internal_round = [&]<size_t R>() {
-            constexpr size_t BASE = subrel_base(R);
+        // ====== Internal round helper ======
+        // Column stores x^5 S-box output (element 0 only, BEFORE M_I).
+        auto process_internal_round = [&]<size_t R, size_t BASE>() {
+            // S-box input (CoefficientAccumulator, degree 1)
+            auto si = s0 + q_poseidon2_m * FF(Params::round_constants[R][0]);
 
-            auto s0 = Accumulator(CoefficientAccumulator(in.poseidon2_state[state_idx(R, 0)]));
-            auto sq = Accumulator(CoefficientAccumulator(in.poseidon2_sq[sq_idx(R)]));
-            auto si = s0 + Params::round_constants[R][0];
+            // si^2 in CoefficientAccumulator
+            auto si_sqr = si.sqr();
 
-            // sq constraint: sq = sbox_input^2
-            std::get<BASE + 0>(evals) += q_scaled * (sq - si.sqr());
+            // Read column value (CoefficientAccumulator, degree 1)
+            auto u0 = CoefficientAccumulator(in.poseidon2_state[BASE]);
 
-            // S-box output: u0 = sq^2 * sbox_input
-            auto u0 = sq.sqr() * si;
+            // Constrain: scaling_factor * (u0 - si^5) = 0
+            std::get<BASE>(evals) +=
+                Accumulator(u0 * scaling_factor) - Accumulator(si_sqr).sqr() * Accumulator(si * scaling_factor);
 
-            // Other elements unchanged
-            auto u1 = Accumulator(CoefficientAccumulator(in.poseidon2_state[state_idx(R, 1)]));
-            auto u2 = Accumulator(CoefficientAccumulator(in.poseidon2_state[state_idx(R, 2)]));
-            auto u3 = Accumulator(CoefficientAccumulator(in.poseidon2_state[state_idx(R, 3)]));
+            // M_I: v[j] = D_MINUS_1[j] * x[j] + sum(x), all CoefficientAccumulator
+            auto sum_val = u0 + s1 + s2 + s3;
 
-            // Internal matrix: v[j] = (D[j]-1)*u[j] + sum
-            auto sum_val = u0 + u1 + u2 + u3;
-
-            auto v0 = u0 * D_MINUS_1[0] + sum_val;
-            auto v1 = u1 * D_MINUS_1[1] + sum_val;
-            auto v2 = u2 * D_MINUS_1[2] + sum_val;
-            auto v3 = u3 * D_MINUS_1[3] + sum_val;
-
-            auto ns0 = Accumulator(CoefficientAccumulator(in.poseidon2_state[state_idx(R + 1, 0)]));
-            auto ns1 = Accumulator(CoefficientAccumulator(in.poseidon2_state[state_idx(R + 1, 1)]));
-            auto ns2 = Accumulator(CoefficientAccumulator(in.poseidon2_state[state_idx(R + 1, 2)]));
-            auto ns3 = Accumulator(CoefficientAccumulator(in.poseidon2_state[state_idx(R + 1, 3)]));
-
-            std::get<BASE + 1>(evals) += q_scaled * (v0 - ns0);
-            std::get<BASE + 2>(evals) += q_scaled * (v1 - ns1);
-            std::get<BASE + 3>(evals) += q_scaled * (v2 - ns2);
-            std::get<BASE + 4>(evals) += q_scaled * (v3 - ns3);
+            s0 = u0 * FF(D_MINUS_1[0]) + sum_val;
+            s1 = s1 * FF(D_MINUS_1[1]) + sum_val;
+            s2 = s2 * FF(D_MINUS_1[2]) + sum_val;
+            s3 = s3 * FF(D_MINUS_1[3]) + sum_val;
         };
 
-        // Unroll first 4 external rounds
-        process_external_round.template operator()<0>();
-        process_external_round.template operator()<1>();
-        process_external_round.template operator()<2>();
-        process_external_round.template operator()<3>();
+        // ====== Unroll first 4 external rounds (rounds 0-3) ======
+        process_external_round.template operator()<0, 0>();
+        process_external_round.template operator()<1, 4>();
+        process_external_round.template operator()<2, 8>();
+        process_external_round.template operator()<3, 12>();
 
-        // Unroll 56 internal rounds
-        [&]<size_t... Rs>(std::index_sequence<Rs...>) {
-            (process_internal_round.template operator()<Rs + ROUNDS_F_HALF>(), ...);
+        // ====== Unroll 56 internal rounds (rounds 4-59) ======
+        [&]<size_t... Is>(std::index_sequence<Is...>) {
+            (process_internal_round.template operator()<Is + ROUNDS_F_HALF, Is + ROUNDS_F_HALF * T>(), ...);
         }(std::make_index_sequence<ROUNDS_P>{});
 
-        // Unroll last 4 external rounds
-        process_external_round.template operator()<60>();
-        process_external_round.template operator()<61>();
-        process_external_round.template operator()<62>();
-        process_external_round.template operator()<63>();
+        // ====== Unroll last 4 external rounds (rounds 60-63) ======
+        process_external_round.template operator()<60, 72>();
+        process_external_round.template operator()<61, 76>();
+        process_external_round.template operator()<62, 80>();
+        process_external_round.template operator()<63, 84>();
     };
 };
 

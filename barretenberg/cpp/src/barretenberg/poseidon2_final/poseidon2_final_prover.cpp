@@ -1,12 +1,10 @@
 #include "poseidon2_final_prover.hpp"
 #include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
 #include "barretenberg/crypto/poseidon2/poseidon2_permutation.hpp"
-#include "barretenberg/relations/poseidon2_single_row.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
 
 namespace bb {
 
-using RelImpl = Poseidon2SingleRowRelationImpl<fr>;
 using Params = crypto::Poseidon2Bn254ScalarFieldParams;
 using Perm = crypto::Poseidon2Permutation<Params>;
 
@@ -22,7 +20,7 @@ Poseidon2FinalProver::Poseidon2FinalProver(const std::vector<Poseidon2OpQueue::P
 /**
  * @brief Build all witness polynomials from the Poseidon2 op list.
  * @details For each op, populates w_l/w_r/w_o/w_4 with the 4 input values,
- * q_poseidon2_single_row with 1, and the 348 poseidon2_state/sq columns
+ * q_poseidon2_single_row with 1, and the 88 poseidon2_state columns
  * with the intermediate witness data for the Poseidon2SingleRowRelation.
  */
 void Poseidon2FinalProver::build_witness(const std::vector<Poseidon2OpQueue::Poseidon2Op>& ops)
@@ -41,9 +39,6 @@ void Poseidon2FinalProver::build_witness(const std::vector<Poseidon2OpQueue::Pos
     for (auto& p : polys.poseidon2_state) {
         p = Polynomial(active_size, circuit_size);
     }
-    for (auto& p : polys.poseidon2_sq) {
-        p = Polynomial(active_size, circuit_size);
-    }
 
     // Populate witness for each hash (1 row per hash, starting at row 1 to skip zero row)
     for (size_t i = 0; i < num_ops; i++) {
@@ -59,56 +54,44 @@ void Poseidon2FinalProver::build_witness(const std::vector<Poseidon2OpQueue::Pos
         polys.w_o.at(row) = op.input[2];
         polys.w_4.at(row) = op.input[3];
 
-        // Compute and set intermediate state/sq witness
+        // Compute and set intermediate witness (88 columns)
         std::array<FF, 4> state = op.input;
 
-        // Initial M_E
+        // Initial M_E (no columns)
         Perm::matrix_multiplication_external(state);
-        for (size_t j = 0; j < 4; j++) {
-            polys.poseidon2_state[RelImpl::state_idx(0, j)].at(row) = state[j];
-        }
 
-        // First 4 external rounds
+        // First 4 external rounds → columns [0..15] (x^5 before M_E)
         for (size_t r = 0; r < 4; r++) {
             for (size_t j = 0; j < 4; j++) {
                 auto s = state[j] + Params::round_constants[r][j];
-                polys.poseidon2_sq[RelImpl::sq_idx(r, j)].at(row) = s * s;
                 auto x2 = s.sqr();
                 x2.self_sqr();
                 state[j] = x2 * s;
+                polys.poseidon2_state[r * 4 + j].at(row) = state[j];
             }
             Perm::matrix_multiplication_external(state);
-            for (size_t j = 0; j < 4; j++) {
-                polys.poseidon2_state[RelImpl::state_idx(r + 1, j)].at(row) = state[j];
-            }
         }
 
-        // 56 internal rounds
+        // 56 internal rounds → columns [16..71] (x^5 before M_I)
         for (size_t r = 4; r < 60; r++) {
             auto s0 = state[0] + Params::round_constants[r][0];
-            polys.poseidon2_sq[RelImpl::sq_idx(r)].at(row) = s0 * s0;
             auto x2 = s0.sqr();
             x2.self_sqr();
             state[0] = x2 * s0;
+            polys.poseidon2_state[r - 4 + 16].at(row) = state[0];
             Perm::matrix_multiplication_internal(state);
-            for (size_t j = 0; j < 4; j++) {
-                polys.poseidon2_state[RelImpl::state_idx(r + 1, j)].at(row) = state[j];
-            }
         }
 
-        // Last 4 external rounds
+        // Last 4 external rounds → columns [72..87] (x^5 before M_E)
         for (size_t r = 60; r < 64; r++) {
             for (size_t j = 0; j < 4; j++) {
                 auto s = state[j] + Params::round_constants[r][j];
-                polys.poseidon2_sq[RelImpl::sq_idx(r, j)].at(row) = s * s;
                 auto x2 = s.sqr();
                 x2.self_sqr();
                 state[j] = x2 * s;
+                polys.poseidon2_state[(r - 60) * 4 + 72 + j].at(row) = state[j];
             }
             Perm::matrix_multiplication_external(state);
-            for (size_t j = 0; j < 4; j++) {
-                polys.poseidon2_state[RelImpl::state_idx(r + 1, j)].at(row) = state[j];
-            }
         }
     }
 }

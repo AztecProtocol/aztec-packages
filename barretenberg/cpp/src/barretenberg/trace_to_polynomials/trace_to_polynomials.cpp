@@ -129,11 +129,8 @@ void TraceToPolynomials<Flavor>::add_poseidon2_single_row_to_prover_instance(Bui
         const size_t row = arith_offset + gate.block_row_index;
         polynomials.q_poseidon2_single_row.at(row) = 1;
         // Inputs are in w_l, w_r, w_o, w_4 (populated from the arithmetic block wires)
-        for (size_t i = 0; i < 260; i++) {
-            polynomials.poseidon2_state[i].at(row) = gate.state[i];
-        }
         for (size_t i = 0; i < 88; i++) {
-            polynomials.poseidon2_sq[i].at(row) = gate.sq[i];
+            polynomials.poseidon2_state[i].at(row) = gate.state[i];
         }
     }
 }
@@ -153,26 +150,32 @@ void TraceToPolynomials<Flavor>::add_poseidon2_op_wires_to_prover_instance(Build
                                                                            ProverPolynomials& polynomials)
     requires HasPoseidon2OpQueue<Flavor>
 {
-    BB_ASSERT(builder.poseidon2_op_queue != nullptr, "Poseidon2OpQueue must be initialized");
-
     auto& poseidon2_op_selector = polynomials.lagrange_poseidon2_op;
     const size_t poseidon2_op_offset = builder.blocks.poseidon2_op.trace_offset();
-
-    // Set lagrange_poseidon2_op = 1 at input rows (every other row of the poseidon2_op block)
-    const size_t num_ops = builder.poseidon2_op_queue->get_total_num_ops();
-    for (size_t i = 0; i < num_ops; ++i) {
-        // Each op uses 2 circuit rows; the input row is at even indices within the block
-        size_t input_row = poseidon2_op_offset + i * 2;
-        poseidon2_op_selector.at(input_row) = 1;
-    }
-
-    // Populate the 5 op wire columns densely from the op queue
-    auto op_wire_columns = builder.poseidon2_op_queue->construct_table_columns();
+    const size_t num_poseidon2_op_rows = builder.blocks.poseidon2_op.size();
+    auto wires = polynomials.get_wires();
     auto op_wires = polynomials.get_poseidon2_op_wires();
-    for (size_t col = 0; col < 5; ++col) {
-        for (size_t row = 0; row < num_ops; ++row) {
-            op_wires[col].at(row) = op_wire_columns[col][row];
-        }
+
+    // Copy poseidon2 op data from the conventional wires into the op wires.
+    // Each op uses 2 circuit rows: row 0 = inputs in w_l,w_r,w_o,w_4; row 1 = output in w_l.
+    // Op wires store data densely: op_wire_k[i] = k-th value of the i-th op.
+    // The selector is 1 at input rows (even indices within the block).
+    for (size_t i = 0; i < num_poseidon2_op_rows; i += 2) {
+        size_t op_idx = i / 2;
+        size_t input_trace_row = poseidon2_op_offset + i;
+        size_t output_trace_row = poseidon2_op_offset + i + 1;
+
+        // Op wires 1-4: copy inputs from conventional wires at the input row
+        op_wires[0].at(op_idx) = wires[0][input_trace_row]; // w_l = input[0]
+        op_wires[1].at(op_idx) = wires[1][input_trace_row]; // w_r = input[1]
+        op_wires[2].at(op_idx) = wires[2][input_trace_row]; // w_o = input[2]
+        op_wires[3].at(op_idx) = wires[3][input_trace_row]; // w_4 = input[3]
+
+        // Op wire 5: output from w_l at the output row
+        op_wires[4].at(op_idx) = wires[0][output_trace_row]; // w_l = output
+
+        // Set selector at input row
+        poseidon2_op_selector.at(input_trace_row) = 1;
     }
 }
 
