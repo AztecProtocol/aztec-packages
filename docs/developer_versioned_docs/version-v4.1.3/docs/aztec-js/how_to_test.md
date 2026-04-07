@@ -18,19 +18,21 @@ This guide covers how to test Aztec smart contracts by connecting to a local net
 Connect to your local Aztec network and create an embedded wallet:
 
 ```typescript title="setup" showLineNumbers 
-const logger = createLogger('e2e:token');
+import { createAztecNodeClient, waitForNode } from "@aztec/aztec.js/node";
+import { EmbeddedWallet } from "@aztec/wallets/embedded";
 
-// We create PXE client connected to the local network URL
-const node = createAztecNodeClient(AZTEC_NODE_URL);
-// Wait for local network to be ready
-await waitForNode(node, logger);
-const wallet = await TestWallet.create(node);
+const nodeUrl = process.env.AZTEC_NODE_URL ?? "http://localhost:8080";
+const node = createAztecNodeClient(nodeUrl);
+
+// Wait for the network to be ready
+await waitForNode(node);
+
+// Create an embedded wallet connected to the node
+const wallet = await EmbeddedWallet.create(node);
 
 const nodeInfo = await node.getNodeInfo();
-
-logger.info(format('Aztec Local Network Info ', nodeInfo));
+console.log('Aztec Local Network Info', nodeInfo);
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/4.1.3/yarn-project/end-to-end/src/composed/e2e_local_network_example.test.ts#L37-L50" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/composed/e2e_local_network_example.test.ts#L37-L50</a></sub></sup>
 
 
 The `EmbeddedWallet` manages accounts, tracks deployed contracts, and handles transaction proving. It connects to the Aztec node which provides access to both the Private eXecution Environment (PXE) and the network.
@@ -165,8 +167,8 @@ async function testTransferTokens() {
     .mint_to_public(aliceAddress, 1000n)
     .send({ from: aliceAddress });
 
-  // Transfer to bob using the simple transfer method
-  await token.methods.transfer(bobAddress, 100n).send({ from: aliceAddress });
+  // Transfer to bob using the public transfer method
+  await token.methods.transfer_in_public(aliceAddress, bobAddress, 100n, 0).send({ from: aliceAddress });
 
   const { result: aliceBalance } = await token.methods
     .balance_of_public(aliceAddress)
@@ -188,7 +190,7 @@ async function testRevertOnOverTransfer() {
 
   try {
     await token.methods
-      .transfer(bobAddress, balance + 1n)
+      .transfer_in_public(aliceAddress, bobAddress, balance + 1n, 0)
       .simulate({ from: aliceAddress });
     throw new Error("Expected simulation to throw");
   } catch (error) {

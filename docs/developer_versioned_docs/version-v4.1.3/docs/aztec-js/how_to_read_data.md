@@ -45,7 +45,7 @@ For functions returning multiple values, destructure the result:
 
 ```typescript
 // contract and callerAddress are from the example above
-const [value1, value2] = await contract.methods
+const { result: [value1, value2] } = await contract.methods
   .get_multiple_values()
   .simulate({ from: callerAddress });
 ```

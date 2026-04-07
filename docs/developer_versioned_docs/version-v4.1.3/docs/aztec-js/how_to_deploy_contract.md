@@ -38,7 +38,7 @@ The codegen command creates a TypeScript class with typed methods for deployment
 ### Step 1: Import and connect
 
 ```typescript
-import { MyContract } from "./artifacts/MyContract";
+import { TokenContract } from "@aztec/noir-contracts.js/Token";
 ```
 
 :::note[About wallets and accounts]

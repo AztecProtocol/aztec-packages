@@ -22,7 +22,7 @@ Transactions on Aztec execute contract functions that modify state. Unlike simpl
 After connecting to a contract:
 
 ```typescript
-import { Contract } from "@aztec/aztec.js";
+import { Contract } from "@aztec/aztec.js/contracts";
 
 // wallet is from the connection guide; contractAddress and artifact are from your deployed contract
 const contract = await Contract.at(contractAddress, artifact, wallet);
