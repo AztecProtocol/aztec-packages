@@ -30,7 +30,7 @@ void HonkRecursionConstraintsOutput<Builder>::update(const HonkRecursionConstrai
         if (!this->has_goblin_flush) {
             this->merged_table = other.merged_table;
         } else {
-            bb::assert_failure("Multiple GoblinFlush when only when is expected.");
+            bb::assert_failure("Multiple GoblinFlush when only one is expected.");
         }
     }
 }

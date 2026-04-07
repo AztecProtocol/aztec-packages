@@ -30,6 +30,7 @@ class GoblinWithoutMerge : public Goblin {
      * @brief Construct for AVM case: takes a builder, adds required initial ECC ops
      */
     explicit GoblinWithoutMerge(MegaBuilder& builder,
+                                const bool is_zk = true,
                                 const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
 
     /**
@@ -38,6 +39,7 @@ class GoblinWithoutMerge : public Goblin {
      * @param flush_transcript The transcript to use
      */
     explicit GoblinWithoutMerge(std::shared_ptr<OpQueue>& existing_op_queue,
+                                const bool is_zk = true,
                                 const std::shared_ptr<Transcript>& flush_transcript = std::make_shared<Transcript>());
 
     /**

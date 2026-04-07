@@ -36,7 +36,7 @@ std::pair<GoblinWithoutMergeProof, MergeVerifier::TableCommitments> create_mock_
 
     // Use GoblinWithoutMerge with the accumulated op queue
     op_queue->merge();
-    GoblinWithoutMerge flush_goblin(op_queue);
+    GoblinWithoutMerge flush_goblin(op_queue, /*is_zk=*/false);
     auto flush_proof = flush_goblin.prove();
 
     // Extract merge commitments from op_queue
@@ -106,7 +106,7 @@ HonkRecursionConstraintOutput<MegaCircuitBuilder> create_goblin_flush_recursion_
         }
 
         // Prove goblin without merge, with IS_ZK = false (flush proof is never exposed externally)
-        GoblinWithoutMerge flush_goblin(goblin.op_queue);
+        GoblinWithoutMerge flush_goblin(goblin.op_queue, /*is_zk=*/false);
         flush_proof = flush_goblin.prove();
     }
 

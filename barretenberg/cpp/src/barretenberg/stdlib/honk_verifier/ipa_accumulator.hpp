@@ -9,12 +9,11 @@
 namespace bb::stdlib::recursion::honk {
 
 template <typename Curve> struct IpaAccumulator {
-    using Commitment = std::conditional_t<Curve::is_stdlib_type, typename Curve::Group, typename Curve::AffineElement>;
     std::vector<typename Curve::ScalarField>
-        u_challenges_inv;     // inverses of u challenges that represent the polynomial h; could be an array
-    Commitment comm;          // commitment to the polynomial h (a.k.a. the challenge polynomial): ∏_{i ∈ [k]} (1 +
-                              // u-challenges-inv_{len-i}.X^{2^{i-1}})
-    bool running_truth_value; // the running truth value of the accumulator (not in-circuit)
+        u_challenges_inv;       // inverses of u challenges that represent the polynomial h; could be an array
+    typename Curve::Group comm; // commitment to the polynomial h (a.k.a. the challenge polynomial): ∏_{i ∈ [k]} (1 +
+                                // u-challenges-inv_{len-i}.X^{2^{i-1}})
+    bool running_truth_value;   // the running truth value of the accumulator (not in-circuit)
 };
 
 } // namespace bb::stdlib::recursion::honk

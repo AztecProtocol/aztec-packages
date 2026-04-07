@@ -60,7 +60,7 @@ template <bool IsRecursive = false> struct ChonkProof_ {
     // Default constructor
     ChonkProof_() = default;
 
-    // 5-arg constructor
+    // 6-arg constructor
     ChonkProof_(
         HonkProof mega_zk, HonkProof merge, HonkProof eccvm, HonkProof eccvm_ipa, HonkProof joint, HonkProof io_ipa)
         : hiding_oink_proof(std::move(mega_zk))

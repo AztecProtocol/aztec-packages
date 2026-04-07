@@ -41,7 +41,7 @@ class GoblinFlushCircuitTests : public testing::Test {
 
         // Use GoblinWithoutMerge with the accumulated op queue
         op_queue->merge();
-        GoblinWithoutMerge flush_goblin(op_queue);
+        GoblinWithoutMerge flush_goblin(op_queue, /*is_zk=*/false);
         auto flush_proof = flush_goblin.prove();
 
         // Extract merge commitments from op_queue

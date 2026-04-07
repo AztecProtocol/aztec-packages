@@ -21,7 +21,9 @@
 
 namespace bb {
 
-GoblinWithoutMerge::GoblinWithoutMerge(MegaBuilder& builder, const std::shared_ptr<Transcript>& avm_transcript)
+GoblinWithoutMerge::GoblinWithoutMerge(MegaBuilder& builder,
+                                       const bool is_zk,
+                                       const std::shared_ptr<Transcript>& avm_transcript)
     : original_is_zk(builder.op_queue->get_is_zk())
 {
     // Set members of base Goblin class
@@ -29,7 +31,7 @@ GoblinWithoutMerge::GoblinWithoutMerge(MegaBuilder& builder, const std::shared_p
     op_queue = builder.op_queue;
     transcript = avm_transcript;
     // The AVM proof doesn't need to be ZK
-    op_queue->set_is_zk(false);
+    op_queue->set_is_zk(is_zk);
 
     /**
      * Add required initial ops to the op queue:
@@ -48,12 +50,13 @@ GoblinWithoutMerge::GoblinWithoutMerge(MegaBuilder& builder, const std::shared_p
 }
 
 GoblinWithoutMerge::GoblinWithoutMerge(std::shared_ptr<OpQueue>& existing_op_queue,
+                                       const bool is_zk,
                                        const std::shared_ptr<Transcript>& flush_transcript)
     : original_is_zk(existing_op_queue->get_is_zk())
 {
     avm_mode = true;
     op_queue = existing_op_queue;
-    op_queue->set_is_zk(false);
+    op_queue->set_is_zk(is_zk);
     transcript = flush_transcript;
 }
 

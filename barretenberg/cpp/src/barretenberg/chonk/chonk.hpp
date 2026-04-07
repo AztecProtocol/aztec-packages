@@ -191,11 +191,10 @@ class Chonk : public IVCBase {
     HonkProof ipa_proof;
 
     // Goblin flush support
-    HonkProof flush_ipa_proof; // IPA proof from A_G's Circuit C
+    HonkProof flush_ipa_proof; // IPA proof from A_G's internal circuit
     // Temporary storage for flush/kernel data extracted during perform_recursive_verification
     // (used in complete_kernel_circuit_logic for goblin flush assertions)
-    TableCommitments merged_table;              // Merged table used in the Goblin flush circuit
-    TableCommitments prev_kernel_ecc_op_tables; // ecc_op_tables from previous kernel's KernelIO
+    TableCommitments flush_merged_table; // Merged table used in the Goblin flush circuit
 
     size_t get_num_circuits() const { return num_circuits; }
 

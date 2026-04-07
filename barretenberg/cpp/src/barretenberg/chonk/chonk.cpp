@@ -212,11 +212,11 @@ Chonk::PublicInputsResult Chonk::process_public_inputs_and_consistency_checks(
         FlushIO flush_input;
         flush_input.reconstruct_from_public(public_inputs);
 
-        // Extract IPA claim from the flush (from Circuit C's ECCVM verification)
+        // Extract IPA claim from the flush (from inner circuit's ECCVM verification)
         extracted_ipa_claim = flush_input.ipa_claim;
 
-        // Store flush T_prev and t on the Chonk instance for assertions in complete_kernel_circuit_logic
-        merged_table = flush_input.merged_table;
+        // Store merged_table used for Translator's verification - used for assertions in complete_kernel_circuit_logic
+        flush_merged_table = flush_input.merged_table;
 
         // Set the app return data commitment to be propagated via the public inputs
         bus_depot.set_app_return_data_commitment(witness_commitments.return_data);
@@ -286,6 +286,9 @@ Chonk::recursive_verification_and_consistency_checks(
         verifier_inputs, public_inputs, witness_commitments, prev_accum_hash);
 
     // Determine T_prev for merge verification
+    BB_ASSERT_EQ(T_prev_override.has_value(),
+                 verifier_inputs.is_kernel,
+                 "T_prev_override should be set if and only if the current circuit is a kernel");
     MergeCommitments merge_commitments;
     if (verifier_inputs.type == QUEUE_TYPE::OINK || verifier_inputs.type == QUEUE_TYPE::GOBLIN) {
         // T_prev = 0 in the first recursive verification or for Goblin flush apps
@@ -293,7 +296,6 @@ Chonk::recursive_verification_and_consistency_checks(
     } else if (T_prev_override) {
         // T_prev_override is set only when the current circuit being folded is a kernel
         // in which case it is equal to the ECC-op tables reconstructed from the public inputs
-        BB_ASSERT_EQ(verifier_inputs.is_kernel, true, "T_prev_override should only be set for kernels");
         merge_commitments.T_prev_commitments = std::move(*T_prev_override);
     } else {
         merge_commitments.T_prev_commitments = T_prev_commitments;
@@ -433,7 +435,7 @@ void Chonk::complete_kernel_circuit_logic(ClientCircuit& circuit)
 
         // Assert: merged_table == previous kernel's ecc_op_tables
         for (size_t i = 0; i < ClientCircuit::NUM_WIRES; i++) {
-            merged_table[i].incomplete_assert_equal(merged_tables_from_kernel[i]);
+            flush_merged_table[i].incomplete_assert_equal(merged_tables_from_kernel[i]);
         }
 
         // IPA accumulation: fold flush IPA claim into kernel-chain IPA claim
@@ -723,11 +725,11 @@ void Chonk::hide_op_queue_content_in_hiding(ClientCircuit& circuit)
 /**
  * @brief Add structural ops to a kernel's subtable for Goblin flush compatibility.
  *
- * @details Adds 1 no_op + 4 add_accumulate(infinity) to the kernel's subtable. When this kernel is the last
+ * @details Adds 4 no_op + 1 eq and reset to the kernel's subtable. When this kernel is the last
  * before a flush, its subtable lands first in the merged table (due to PREPEND ordering), giving the table
  * the head structure the Translator expects. The no_op (opcode=0) is ultra-only but the Translator relations
- * enforce accumulator pass-through for op=0, so there is no ECCVM/Translator mismatch. The 4 add_accumulate
- * ops are in both tables and are mathematical no-ops (acc + infinity = acc).
+ * enforce accumulator pass-through for op=0, so there is no ECCVM/Translator mismatch. The eq and reset is required by
+ * Translator's relations.
  */
 void Chonk::add_goblin_flush_table_structure_ops(ClientCircuit& circuit)
 {
@@ -747,6 +749,7 @@ void Chonk::add_goblin_flush_table_structure_ops(ClientCircuit& circuit)
  *   3. ECCVM proof (produces translation challenges v, x)
  *   4. IPA proof (separate transcript)
  *   5. Translator Oink + Joint sumcheck + Joint PCS
+ *   6. IPA proof extracted from the hiding kernel's public inputs
  *
  * The joint sumcheck and PCS batch the MegaZK and translator circuits together,
  * eliminating separate sumcheck/PCS phases and reducing proof size.

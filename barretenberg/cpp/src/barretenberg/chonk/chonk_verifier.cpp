@@ -76,11 +76,9 @@ template <> ChonkVerifier<false>::IPAReductionResult ChonkVerifier<false>::reduc
         info("ChonkVerifier: verification failed at ECCVM step");
         return { {}, {}, {}, {}, false };
     }
-    // Step 5: Collect both IPA claims for deferred batch verification
-    // (No accumulation needed — both claims will be batch-verified together via batch_reduce_verify)
-
-    // Step 6: Translator Oink + Joint sumcheck + Joint PCS
     auto translator_input = eccvm_verifier.get_translator_input_data();
+
+    // Step 5: Translator Oink + Joint sumcheck + Joint PCS
     auto batched_result = batched_verifier.verify(proof.joint_proof,
                                                   translator_input.evaluation_challenge_x,
                                                   translator_input.batching_challenge_v,

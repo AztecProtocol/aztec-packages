@@ -314,14 +314,14 @@ TEST_F(GoblinFlushRecursionConstraintTest, VKConsistentAcrossAllKernelTypes)
 }
 
 /**
- * @brief End-to-end test: A0, K0, A1, K1, A_G, K_G, K_reset, K_tail, K_hiding.
+ * @brief End-to-end test: A0, K0, A1, K1, A_G, K_G, A2, K2, K_reset, K_tail, K_hiding.
  * @details Builds the goblin flush app (A_G) using create_goblin_flush_recursion_constraints via the ACIR
  * constraint system, then accumulates it alongside normal kernels. Verifies the full Chonk IVC proof.
  */
-TEST_F(GoblinFlushRecursionConstraintTest, EndToEndSingleFlush)
+TEST_F(GoblinFlushRecursionConstraintTest, EndToEndFlush)
 {
-    // 5 apps (A0, A1, A_G, + 0 padding) + 5 kernels (K0, K1, K_G, K_reset, K_tail) + hiding = 9 circuits
-    // Actually: A0, K0, A1, K1, A_G, K_G, K_reset, K_tail, K_hiding = 9 circuits
+    // 5 apps (A0, A1, A_G, A2, + 0 padding) + 5 kernels (K0, K1, K_G, K2, K_reset, K_tail) + hiding = 13 circuits
+    // Actually: A0, K0, A1, K1, A_G, K_G, A2, K2, K_reset, K_tail, K_hiding = 13 circuits
     auto ivc = std::make_shared<Chonk>(/*num_circuits=*/13);
 
     // A0: normal app
@@ -348,10 +348,10 @@ TEST_F(GoblinFlushRecursionConstraintTest, EndToEndSingleFlush)
     // K_G: goblin flush kernel (normal kernel - complete_kernel_circuit_logic handles the flush)
     construct_and_accumulate_mock_kernel(ivc);
 
-    // A1: normal app
+    // A2: normal app
     construct_and_accumulate_mock_app(ivc);
 
-    // K1: inner kernel
+    // K2: inner kernel
     construct_and_accumulate_mock_kernel(ivc);
 
     // A_G: goblin flush app (built from ULTRA_GOBLIN ACIR constraint)
