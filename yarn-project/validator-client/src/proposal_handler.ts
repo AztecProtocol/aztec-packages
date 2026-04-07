@@ -544,9 +544,15 @@ export class ProposalHandler {
       return true;
     }
 
-    // Make a quick check before triggering an archiver sync
-    const syncedSlot = await this.blockSource.getSyncedL2SlotNumber();
-    if (syncedSlot !== undefined && syncedSlot + 1 >= slot) {
+    // Quick check: if there are no uncheckpointed blocks, there's nothing to prune.
+    // We avoid using getSyncedL2SlotNumber here because it can report the archiver as "synced"
+    // based on L1 timestamps while still holding stale blocks added via addBlock() from a
+    // previous failed checkpoint's re-execution, which would cause a false block_number_already_exists.
+    const [checkpointedBlockNumber, latestBlockNumber] = await Promise.all([
+      this.blockSource.getCheckpointedL2BlockNumber(),
+      this.blockSource.getBlockNumber(),
+    ]);
+    if (checkpointedBlockNumber >= latestBlockNumber) {
       return true;
     }
 

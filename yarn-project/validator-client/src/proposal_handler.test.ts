@@ -1,10 +1,11 @@
 import type { BlobClientInterface } from '@aztec/blob-client/client';
 import type { EpochCache } from '@aztec/epoch-cache';
 import { MAX_FEE_ASSET_PRICE_MODIFIER_BPS } from '@aztec/ethereum/contracts';
-import { CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { TestDateProvider } from '@aztec/foundation/timer';
 import type { FieldsOf } from '@aztec/foundation/types';
+import type { PeerId } from '@aztec/p2p';
 import type { BlockProposalValidator } from '@aztec/p2p/msg_validators';
 import type { L2Block, L2BlockSink, L2BlockSource } from '@aztec/stdlib/block';
 import type { Checkpoint } from '@aztec/stdlib/checkpoint';
@@ -13,11 +14,16 @@ import type { ITxProvider, ValidatorClientFullConfig, WorldStateSynchronizer } f
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import { accumulateCheckpointOutHashes } from '@aztec/stdlib/messaging';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
-import { makeBlockHeader, makeCheckpointHeader, makeCheckpointProposal } from '@aztec/stdlib/testing';
+import {
+  makeBlockHeader,
+  makeBlockProposal,
+  makeCheckpointHeader,
+  makeCheckpointProposal,
+} from '@aztec/stdlib/testing';
 import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
 import { GlobalVariables } from '@aztec/stdlib/tx';
 
-import { describe, expect, it, jest } from '@jest/globals';
+import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
 import type { CheckpointBuilder, FullNodeCheckpointsBuilder } from './checkpoint_builder.js';
@@ -320,5 +326,116 @@ describe('ProposalHandler checkpoint validation', () => {
       await handler.handleCheckpointProposal(proposal, proposalInfo);
       expect(mockDispose).toHaveBeenCalled();
     });
+  });
+});
+
+describe('ProposalHandler block proposal - waitForBlockSourceSync', () => {
+  let handler: ProposalHandler;
+  let blockSource: MockProxy<L2BlockSource & L2BlockSink>;
+  let txProvider: MockProxy<ITxProvider>;
+  let blockProposalValidator: MockProxy<BlockProposalValidator>;
+  let epochCache: MockProxy<EpochCache>;
+  let checkpointsBuilder: MockProxy<FullNodeCheckpointsBuilder>;
+  let dateProvider: TestDateProvider;
+
+  const genesisArchiveRoot = Fr.random();
+  const proposalSlot = SlotNumber(10);
+  const sender = { toString: () => 'test-peer' } as PeerId;
+
+  beforeEach(() => {
+    blockSource = mock<L2BlockSource & L2BlockSink>();
+    blockSource.syncImmediate.mockResolvedValue(undefined);
+    blockSource.getCheckpointsDataForEpoch.mockResolvedValue([]);
+    blockSource.getGenesisValues.mockResolvedValue({ genesisArchiveRoot });
+
+    // Archiver reports being synced to slot 9 (one before proposal slot 10).
+    // This makes the OLD quick check pass: 9 + 1 >= 10 = true.
+    blockSource.getSyncedL2SlotNumber.mockResolvedValue(SlotNumber(proposalSlot - 1));
+
+    txProvider = mock<ITxProvider>();
+    txProvider.getTxsForBlockProposal.mockResolvedValue({ txs: [], missingTxs: [] });
+
+    blockProposalValidator = mock<BlockProposalValidator>();
+    blockProposalValidator.validate.mockResolvedValue({ result: 'accept' } as any);
+
+    checkpointsBuilder = mock<FullNodeCheckpointsBuilder>();
+    checkpointsBuilder.getConfig.mockReturnValue({
+      l1GenesisTime: 1n,
+      slotDuration: 24,
+      l1ChainId: 1,
+      rollupVersion: 1,
+      rollupManaLimit: 200_000_000,
+    });
+
+    epochCache = mock<EpochCache>();
+    epochCache.getL1Constants.mockReturnValue({ epochDuration: 8 } satisfies Parameters<
+      typeof getEpochAtSlot
+    >[1] as any);
+    // Disable pipelining so waitForBlockSourceSync is exercised
+    epochCache.isProposerPipeliningEnabled.mockReturnValue(false);
+
+    dateProvider = new TestDateProvider();
+    // Set time to the start of the proposal's slot so the reexecution deadline doesn't expire
+    dateProvider.setTime(Number(1n + BigInt(proposalSlot) * 24n) * 1000);
+
+    handler = new ProposalHandler(
+      checkpointsBuilder,
+      mock<WorldStateSynchronizer>(),
+      blockSource,
+      mock<L1ToL2MessageSource>(),
+      txProvider,
+      blockProposalValidator,
+      epochCache,
+      {} as ValidatorClientFullConfig,
+      mock<BlobClientInterface>(),
+      undefined,
+      dateProvider,
+    );
+  });
+
+  it('forces sync when uncheckpointed blocks exist and prunes stale block', async () => {
+    // Simulate a stale uncheckpointed block from a previous failed checkpoint:
+    // latest block (1) > checkpointed block (0) means there are uncheckpointed blocks
+    blockSource.getCheckpointedL2BlockNumber.mockResolvedValue(BlockNumber(0));
+    blockSource.getBlockNumber.mockResolvedValue(BlockNumber(1));
+
+    // The stale block 1 exists initially
+    blockSource.getBlockHeader.mockResolvedValue(makeBlockHeader());
+
+    // syncImmediate simulates the archiver pruning the stale block
+    blockSource.syncImmediate.mockImplementation(() => {
+      blockSource.getBlockHeader.mockResolvedValue(undefined);
+      return Promise.resolve();
+    });
+
+    // Create proposal with parent = genesis so we get past the parent block check
+    const blockHeader = makeBlockHeader(1, { slotNumber: proposalSlot });
+    (blockHeader as any).lastArchive = new AppendOnlyTreeSnapshot(genesisArchiveRoot, 0);
+    const proposal = await makeBlockProposal({ blockHeader });
+
+    // shouldReexecute=false so the handler returns isValid:true after passing all early checks
+    const result = await handler.handleBlockProposal(proposal, sender, false);
+
+    expect(blockSource.syncImmediate).toHaveBeenCalled();
+    // The stale block was pruned by syncImmediate, so we get past block_number_already_exists
+    expect(result.isValid).toBe(true);
+  });
+
+  it('skips sync when no uncheckpointed blocks exist', async () => {
+    // No uncheckpointed blocks: checkpointed == latest
+    blockSource.getCheckpointedL2BlockNumber.mockResolvedValue(BlockNumber(5));
+    blockSource.getBlockNumber.mockResolvedValue(BlockNumber(5));
+
+    // No stale block exists
+    blockSource.getBlockHeader.mockResolvedValue(undefined);
+
+    const blockHeader = makeBlockHeader(1, { slotNumber: proposalSlot });
+    (blockHeader as any).lastArchive = new AppendOnlyTreeSnapshot(genesisArchiveRoot, 0);
+    const proposal = await makeBlockProposal({ blockHeader });
+
+    const result = await handler.handleBlockProposal(proposal, sender, false);
+
+    expect(blockSource.syncImmediate).not.toHaveBeenCalled();
+    expect(result.isValid).toBe(true);
   });
 });
