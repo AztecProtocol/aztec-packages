@@ -83,11 +83,11 @@ Fee Payment Contracts (FPCs) pay Fee Juice on your behalf. FPCs must use Fee Jui
 
 #if(mainnet)
 :::note
-The Sponsored FPC is not available on mainnet. It is available on testnet, devnet, and local network.
+The Sponsored FPC is not available on mainnet. It is available on testnet and local network.
 :::
 #endif
 
-The Sponsored FPC pays fees unconditionally. It is available on testnet, devnet, and local network.
+The Sponsored FPC pays fees unconditionally. It is available on testnet and local network.
 
 You can derive the Sponsored FPC address from its deployment parameters, register it with your wallet, and use it to pay for transactions:
 
