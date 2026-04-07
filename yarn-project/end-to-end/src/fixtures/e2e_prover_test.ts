@@ -223,11 +223,8 @@ export class FullProverTest {
 
     this.logger.verbose('Starting prover node');
     const sponsoredFPCAddress = await getSponsoredFPCAddress();
-    const { genesis } = await getGenesisValues(
+    const { prefilledPublicData } = await getGenesisValues(
       this.context.initialFundedAccounts.map(a => a.address).concat(sponsoredFPCAddress),
-      undefined,
-      undefined,
-      this.context.genesis!.genesisTimestamp,
     );
 
     const proverNodeConfig: Parameters<typeof AztecNodeService.createAndSync>[0] = {
@@ -255,7 +252,7 @@ export class FullProverTest {
     this.proverAztecNode = await AztecNodeService.createAndSync(
       proverNodeConfig,
       { dateProvider: this.context.dateProvider, p2pClientDeps: { rpcTxProviders: [this.aztecNode] } },
-      { genesis },
+      { prefilledPublicData },
     );
     this.logger.warn(`Proofs are now enabled`, { realProofs: this.realProofs });
     return this;

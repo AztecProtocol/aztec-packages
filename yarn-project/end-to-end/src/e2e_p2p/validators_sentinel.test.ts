@@ -62,7 +62,7 @@ describe('e2e_p2p_validators_sentinel', () => {
       t.bootstrapNodeEnr,
       NUM_NODES, // Note we do not create the last validator yet, so it shows as offline
       BOOT_NODE_UDP_PORT,
-      t.genesis,
+      t.prefilledPublicData,
 
       DATA_DIR,
     );
@@ -162,7 +162,7 @@ describe('e2e_p2p_validators_sentinel', () => {
         BOOT_NODE_UDP_PORT + nodeIndex + 1,
         t.bootstrapNodeEnr!,
         nodeIndex,
-        t.genesis,
+        t.prefilledPublicData,
         `${DATA_DIR}-i`,
       );
 

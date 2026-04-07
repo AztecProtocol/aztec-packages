@@ -6,6 +6,7 @@
 
 #pragma once
 #include "barretenberg/relations/translator_vm/translator_non_native_field_relation.hpp"
+#include "barretenberg/translator_vm/translator_circuit_builder.hpp"
 
 namespace bb {
 /**
@@ -88,16 +89,8 @@ void TranslatorNonNativeFieldRelationImpl<FF>::accumulate(ContainerOverSubrelati
     static const FF shift = FF(uint256_t(1) << NUM_LIMB_BITS);
     static const FF shiftx2 = FF(uint256_t(1) << (NUM_LIMB_BITS * 2));
     static const FF shiftx3 = FF(uint256_t(1) << (NUM_LIMB_BITS * 3));
-    static constexpr uint512_t MODULUS_U512 = uint512_t(curve::BN254::BaseField::modulus);
-    static constexpr uint512_t BINARY_BASIS_MODULUS = uint512_t(1) << (NUM_LIMB_BITS << 2);
-    static constexpr uint512_t NEGATIVE_PRIME_MODULUS = BINARY_BASIS_MODULUS - MODULUS_U512;
-    static const std::array<FF, 5> NEGATIVE_MODULUS_LIMBS = {
-        FF(NEGATIVE_PRIME_MODULUS.slice(0, NUM_LIMB_BITS).lo),
-        FF(NEGATIVE_PRIME_MODULUS.slice(NUM_LIMB_BITS, NUM_LIMB_BITS * 2).lo),
-        FF(NEGATIVE_PRIME_MODULUS.slice(NUM_LIMB_BITS * 2, NUM_LIMB_BITS * 3).lo),
-        FF(NEGATIVE_PRIME_MODULUS.slice(NUM_LIMB_BITS * 3, NUM_LIMB_BITS * 4).lo),
-        -FF(curve::BN254::BaseField::modulus)
-    };
+    static const std::array<FF, 5> NEGATIVE_MODULUS_LIMBS =
+        TranslatorCircuitBuilder::compute_negative_modulus_limbs<FF>();
 
     // Limbs of evaluation challenge x
     const auto& evaluation_input_x_0 = params.evaluation_input_x[0];

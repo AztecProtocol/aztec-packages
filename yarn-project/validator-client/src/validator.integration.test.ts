@@ -28,8 +28,8 @@ import { tryStop } from '@aztec/stdlib/interfaces/server';
 import { computeInHashFromL1ToL2Messages } from '@aztec/stdlib/messaging';
 import { type BlockProposal, CheckpointProposal } from '@aztec/stdlib/p2p';
 import { mockTx } from '@aztec/stdlib/testing';
+import type { PublicDataTreeLeaf } from '@aztec/stdlib/trees';
 import { BlockHeader, type CheckpointGlobalVariables, Tx } from '@aztec/stdlib/tx';
-import type { GenesisData } from '@aztec/stdlib/world-state';
 import { ServerWorldStateSynchronizer } from '@aztec/world-state';
 import { NativeWorldStateService } from '@aztec/world-state/native';
 import { getGenesisValues } from '@aztec/world-state/testing';
@@ -76,7 +76,7 @@ describe('ValidatorClient Integration', () => {
   let epochCache: TestEpochCache;
   let rollupAddress: EthAddress;
   let genesisArchiveRoot: Fr;
-  let genesis: GenesisData;
+  let prefilledPublicData: PublicDataTreeLeaf[];
   let genesisBlockHeader: BlockHeader;
   let proposerSigner: Secp256k1Signer;
   let proposerPrivateKey: Hex<32>;
@@ -114,7 +114,7 @@ describe('ValidatorClient Integration', () => {
       worldStateDbMapSizeKb: 1024 * 1024,
       worldStateCheckpointHistory: 0,
     };
-    const worldStateDb = await NativeWorldStateService.tmp(rollupAddress, true, genesis);
+    const worldStateDb = await NativeWorldStateService.tmp(rollupAddress, true, prefilledPublicData);
     const synchronizer = new ServerWorldStateSynchronizer(worldStateDb, archiver, wsConfig);
     await synchronizer.start();
 
@@ -357,7 +357,7 @@ describe('ValidatorClient Integration', () => {
     feePayerAddresses = await Promise.all(Array.from({ length: 10 }, () => AztecAddress.random()));
     const genesisValues = await getGenesisValues(feePayerAddresses);
     genesisArchiveRoot = genesisValues.genesisArchiveRoot;
-    genesis = genesisValues.genesis;
+    prefilledPublicData = genesisValues.prefilledPublicData;
 
     // Create validator clients
     logger.warn(`Setting up validator contexts`);

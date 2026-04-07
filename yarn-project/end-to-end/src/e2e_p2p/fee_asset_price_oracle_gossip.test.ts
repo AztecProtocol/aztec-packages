@@ -115,7 +115,7 @@ describe('e2e_p2p_network', () => {
       t.bootstrapNodeEnr,
       NUM_VALIDATORS,
       BOOT_NODE_UDP_PORT,
-      t.genesis,
+      t.prefilledPublicData,
       DATA_DIR,
       // To collect metrics - run in aztec-packages `docker compose --profile metrics up` and set COLLECT_METRICS=true
       shouldCollectMetrics(),
@@ -128,7 +128,7 @@ describe('e2e_p2p_network', () => {
       t.bootstrapNodeEnr,
       ATTESTER_PRIVATE_KEYS_START_INDEX + NUM_VALIDATORS + 1,
       { dateProvider: t.ctx.dateProvider! },
-      t.genesis,
+      t.prefilledPublicData,
       `${DATA_DIR}-prover`,
       shouldCollectMetrics(),
     ));

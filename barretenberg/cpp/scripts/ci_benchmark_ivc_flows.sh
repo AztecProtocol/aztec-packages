@@ -59,13 +59,14 @@ function run_bb_cli_bench {
 
   if [[ "$runtime" == "native" ]]; then
     # Add --bench_out_hierarchical flag for native builds to capture hierarchical op counts and timings
-    memusage "./$native_build_dir/bin/bb" "$@" "--bench_out_hierarchical" "$output/benchmark_breakdown.json" || {
-      echo "bb native failed with args: $@ --bench_out_hierarchical $output/benchmark_breakdown.json"
+    memusage "./$native_build_dir/bin/bb" "$@" "--bench_out_hierarchical" "$output/benchmark_breakdown.json" "--memory_profile_out" "$output/memory_profile.json" || {
+      echo "bb native failed with args: $@ --bench_out_hierarchical $output/benchmark_breakdown.json --memory_profile_out $output/memory_profile.json"
       exit 1
     }
   else # wasm
     export WASMTIME_ALLOWED_DIRS="--dir=$flow_folder --dir=$output"
     # Add --bench_out_hierarchical flag for wasm builds to capture hierarchical op counts and timings
+    # Note: --memory_profile_out is native-only (getrusage not available in wasm)
     memusage scripts/wasmtime.sh $WASMTIME_ALLOWED_DIRS ./build-wasm-threads/bin/bb "$@" "--bench_out_hierarchical" "$output/benchmark_breakdown.json" || {
       echo "bb wasm failed with args: $@ --bench_out_hierarchical $output/benchmark_breakdown.json"
       exit 1
@@ -139,6 +140,12 @@ EOF
     echo "Extracting component timings from hierarchical breakdown..."
     python3 scripts/extract_component_benchmarks.py "$output" "$name_path"
   fi
+
+  # Extract memory profile metrics if available
+  if [[ -f "$output/memory_profile.json" ]]; then
+    echo "Extracting memory profile metrics..."
+    python3 scripts/extract_memory_benchmarks.py "$output" "$name_path"
+  fi
 }
 
 export -f verify_ivc_flow run_bb_cli_bench
@@ -177,5 +184,18 @@ if [[ "${CI:-}" == "1" ]] && [[ "${CI_USE_BUILD_INSTANCE_KEY:-0}" == "1" ]]; the
     echo "Uploaded benchmark breakdown to S3: bench/bb-breakdown/$disk_key"
   else
     echo "Warning: benchmark breakdown file not found at $benchmark_breakdown_file"
+  fi
+
+  # Upload memory profile to S3
+  memory_profile_file="bench-out/app-proving/$flow_name/$runtime/memory_profile.json"
+  if [[ -f "$memory_profile_file" ]]; then
+    tmp_memory_file="/tmp/memory_profile_${runtime}_${flow_name}_$$.json"
+    cp "$memory_profile_file" "$tmp_memory_file"
+    memory_disk_key="memory-${runtime}-${flow_name}-${current_sha}"
+    {
+      cat "$tmp_memory_file" | gzip | cache_s3_transfer_to "bench/bb-breakdown" "$memory_disk_key"
+      rm -f "$tmp_memory_file"
+    } &
+    echo "Uploaded memory profile to S3: bench/bb-breakdown/$memory_disk_key"
   fi
 fi

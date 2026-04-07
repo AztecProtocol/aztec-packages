@@ -75,7 +75,7 @@ resource "null_resource" "generate_genesis" {
 # Determine if this is a kind cluster (local) based on context name
 locals {
   is_kind = strcontains(var.K8S_CLUSTER_CONTEXT, "kind")
-  use_lb = var.USE_LOAD_BALANCERS && !local.is_kind
+  use_lb  = var.USE_LOAD_BALANCERS && !local.is_kind
 }
 
 # Deploy eth-devnet helm chart

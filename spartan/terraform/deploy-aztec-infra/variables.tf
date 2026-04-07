@@ -309,11 +309,6 @@ variable "PROVER_NODE_DISABLE_PROOF_PUBLISH" {
   default     = false
 }
 
-variable "P2P_MAX_TX_POOL_SIZE" {
-  description = "Maximum size of the P2P transaction pool"
-  type        = string
-  default     = "100000000"
-}
 variable "FISHERMAN_MNEMONIC" {
   description = "The fisherman mnemonic for RPC nodes (used when validators are disabled, e.g., fisherman mode)"
   type        = string
@@ -811,10 +806,10 @@ variable "FULL_NODE_INCLUDE_METRICS" {
   default     = null
 }
 
-variable "FISHERMAN_MODE" {
-  description = "Whether to run in fisherman mode"
-  type        = bool
-  default     = false
+variable "FISHERMAN_REPLICAS" {
+  description = "Number of dedicated fisherman node replicas (separate from the rpc-node)"
+  type        = number
+  default     = 0
 }
 
 variable "P2P_GOSSIPSUB_D" {

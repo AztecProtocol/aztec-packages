@@ -15,12 +15,13 @@ function build {
   denoise "helm lint ./aztec-bot/"
   denoise "helm lint ./aztec-chaos-scenarios/"
   denoise "helm lint ./aztec-keystore/"
-  denoise "helm lint ./aztec-node/"
+  denoise "helm lint ./aztec-node/ --set global.aztecImage.tag=lint"
   denoise "helm lint ./aztec-prover-stack/"
-  denoise "helm lint ./aztec-snapshots/"
+  denoise "helm lint ./aztec-snapshots/ --set snapshots.frequency='0 */6 * * *' --set snapshots.nodeUrl=http://lint --set snapshots.bucket=lint"
   denoise "helm lint ./aztec-validator/"
   denoise "helm lint ./eth-devnet/"
-  denoise ./spartan/scripts/check_env_vars.sh
+  denoise "terraform fmt -check -recursive ./terraform/"
+  denoise ./scripts/check_env_vars.sh
 }
 
 function network_shaping {

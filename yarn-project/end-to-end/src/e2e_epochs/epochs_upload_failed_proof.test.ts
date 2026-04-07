@@ -89,21 +89,16 @@ describe('e2e_epochs/epochs_upload_failed_proof', () => {
     });
 
     logger.warn(`Rerunning proving job from ${rerunDownloadPath}`);
-    await rerunEpochProvingJob(
-      rerunDownloadPath,
-      logger,
-      {
-        ...config,
-        realProofs: false,
-        dataStoreMapSizeKb: 1024 * 1024,
-        dataDirectory: rerunDataDir,
-        proverAgentCount: 2,
-        proverId: EthAddress.random(),
-        ...(await getACVMConfig(logger)),
-        ...(await getBBConfig(logger)),
-      },
-      context.genesis,
-    );
+    await rerunEpochProvingJob(rerunDownloadPath, logger, {
+      ...config,
+      realProofs: false,
+      dataStoreMapSizeKb: 1024 * 1024,
+      dataDirectory: rerunDataDir,
+      proverAgentCount: 2,
+      proverId: EthAddress.random(),
+      ...(await getACVMConfig(logger)),
+      ...(await getBBConfig(logger)),
+    });
 
     logger.info(`Test succeeded`);
   });
