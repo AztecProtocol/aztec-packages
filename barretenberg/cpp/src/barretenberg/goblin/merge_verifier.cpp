@@ -208,20 +208,6 @@ typename MergeVerifier_<Curve>::ReductionResult MergeVerifier_<Curve>::reduce_to
     // Check degree identity
     bool degree_check_verified = check_degree_identity(evals, pow_kappa_degree_check, degree_check_challenges);
 
-    // Debug: print shift_size and commitment/eval for first L entry
-    if constexpr (!IsRecursive) {
-        info("MergeVerifier debug: shift_size=",
-             shift_size,
-             " settings=",
-             settings == MergeSettings::APPEND ? "APPEND" : "PREPEND");
-        info("  L[0] commitment: ", table_commitments[0]);
-        info("  L[0] eval: ", evals[0]);
-        info("  R[0] commitment: ", table_commitments[NUM_WIRES]);
-        info("  R[0] eval: ", evals[NUM_WIRES]);
-        info("  M[0] commitment: ", table_commitments[2 * NUM_WIRES]);
-        info("  M[0] eval: ", evals[2 * NUM_WIRES]);
-    }
-
     // Receive Shplonk batched quotient
     Commitment shplonk_batched_quotient =
         transcript->template receive_from_prover<Commitment>("SHPLONK_BATCHED_QUOTIENT");

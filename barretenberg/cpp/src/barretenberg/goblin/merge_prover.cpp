@@ -184,43 +184,6 @@ MergeProver::MergeProof MergeProver::construct_proof()
         shift_table_by_disabled_rows(merged_table);
     }
 
-    // Debug: print table sizes and first non-zero coefficient positions
-    info("MergeProver debug [", settings == MergeSettings::APPEND ? "APPEND" : "PREPEND", "]:");
-    info("  shift_size=", shift_size);
-    info("  left[0].size()=",
-         left_table[0].size(),
-         " right[0].size()=",
-         right_table[0].size(),
-         " merged[0].size()=",
-         merged_table[0].size());
-    info("  left[0] first 6: ",
-         left_table[0][0],
-         ", ",
-         left_table[0][1],
-         ", ",
-         left_table[0][2],
-         ", ",
-         left_table[0][3],
-         ", ",
-         left_table[0][4],
-         ", ",
-         left_table[0][5]);
-    info("  merged[0] first 6: ",
-         merged_table[0][0],
-         ", ",
-         merged_table[0][1],
-         ", ",
-         merged_table[0][2],
-         ", ",
-         merged_table[0][3],
-         ", ",
-         merged_table[0][4],
-         ", ",
-         merged_table[0][5]);
-    info("  [M_0] = ", pcs_commitment_key.commit(merged_table[0]));
-    info("  [L_0] = ", pcs_commitment_key.commit(left_table[0]));
-    info("  [R_0] = ", pcs_commitment_key.commit(right_table[0]));
-
     transcript->send_to_verifier("shift_size", static_cast<uint32_t>(shift_size));
 
     // Compute commitments [M_j] and send to the verifier

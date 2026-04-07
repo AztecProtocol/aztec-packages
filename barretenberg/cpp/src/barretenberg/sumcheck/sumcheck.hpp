@@ -601,7 +601,7 @@ template <typename Flavor> class SumcheckProver {
 
         handler.finalize_last_round(multivariate_d, round_univariate, multivariate_challenge[multivariate_d - 1]);
 
-        info("completed ", multivariate_d, " rounds of sumcheck");
+        vinfo("completed ", multivariate_d, " rounds of sumcheck");
 
         // Virtual rounds: unified path for ZK and non-ZK.
         // With top-of-trace masking, the row-disabling polynomial 1-L is circuit-size independent,
