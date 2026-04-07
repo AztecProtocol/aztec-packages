@@ -223,7 +223,6 @@ locals {
     "validator.node.env.L1_PRIORITY_FEE_BUMP_PERCENTAGE"          = var.VALIDATOR_L1_PRIORITY_FEE_BUMP_PERCENTAGE
     "validator.node.env.L1_PRIORITY_FEE_RETRY_BUMP_PERCENTAGE"    = var.VALIDATOR_L1_PRIORITY_FEE_RETRY_BUMP_PERCENTAGE
     "validator.node.env.BLOB_ALLOW_EMPTY_SOURCES"                 = var.BLOB_ALLOW_EMPTY_SOURCES
-    "validator.node.env.P2P_MAX_TX_POOL_SIZE"                     = var.P2P_MAX_TX_POOL_SIZE
     "validator.node.env.PROVER_TEST_VERIFICATION_DELAY_MS"        = var.PROVER_TEST_VERIFICATION_DELAY_MS
     "validator.node.env.BB_CHONK_VERIFY_MAX_BATCH"                = var.BB_CHONK_VERIFY_MAX_BATCH
     "validator.node.env.BB_CHONK_VERIFY_BATCH_CONCURRENCY"        = var.BB_CHONK_VERIFY_BATCH_CONCURRENCY
@@ -381,7 +380,6 @@ locals {
           "agent.node.otelIncludeMetrics"                       = var.PROVER_AGENT_INCLUDE_METRICS
           "node.node.env.L1_PRIORITY_FEE_BUMP_PERCENTAGE"       = var.PROVER_L1_PRIORITY_FEE_BUMP_PERCENTAGE
           "node.node.env.L1_PRIORITY_FEE_RETRY_BUMP_PERCENTAGE" = var.PROVER_L1_PRIORITY_FEE_RETRY_BUMP_PERCENTAGE
-          "node.node.env.P2P_MAX_TX_POOL_SIZE"                  = var.P2P_MAX_TX_POOL_SIZE
           "node.node.env.PROVER_TEST_VERIFICATION_DELAY_MS"     = var.PROVER_TEST_VERIFICATION_DELAY_MS
           "node.node.env.BB_CHONK_VERIFY_MAX_BATCH"             = var.BB_CHONK_VERIFY_MAX_BATCH
           "node.node.env.BB_CHONK_VERIFY_BATCH_CONCURRENCY"     = var.BB_CHONK_VERIFY_BATCH_CONCURRENCY
@@ -461,7 +459,6 @@ locals {
         "node.env.P2P_TX_POOL_DELETE_TXS_AFTER_REORG" = var.P2P_TX_POOL_DELETE_TXS_AFTER_REORG
         "node.env.DEBUG_FORCE_TX_PROOF_VERIFICATION"  = var.DEBUG_FORCE_TX_PROOF_VERIFICATION
         "node.env.BLOB_ALLOW_EMPTY_SOURCES"           = var.BLOB_ALLOW_EMPTY_SOURCES
-        "node.env.P2P_MAX_TX_POOL_SIZE"               = var.P2P_MAX_TX_POOL_SIZE
         "node.env.PROVER_TEST_VERIFICATION_DELAY_MS"  = var.PROVER_TEST_VERIFICATION_DELAY_MS
         "node.env.BB_CHONK_VERIFY_MAX_BATCH"          = var.BB_CHONK_VERIFY_MAX_BATCH
         "node.env.BB_CHONK_VERIFY_BATCH_CONCURRENCY"  = var.BB_CHONK_VERIFY_BATCH_CONCURRENCY
@@ -544,7 +541,6 @@ locals {
         "node.env.AWS_SECRET_ACCESS_KEY"              = var.R2_SECRET_ACCESS_KEY
         "node.env.P2P_TX_POOL_DELETE_TXS_AFTER_REORG" = var.P2P_TX_POOL_DELETE_TXS_AFTER_REORG
         "node.env.BLOB_ALLOW_EMPTY_SOURCES"           = var.BLOB_ALLOW_EMPTY_SOURCES
-        "node.env.P2P_MAX_TX_POOL_SIZE"               = var.P2P_MAX_TX_POOL_SIZE
         "node.env.PROVER_TEST_VERIFICATION_DELAY_MS"  = var.PROVER_TEST_VERIFICATION_DELAY_MS
         "node.env.BB_CHONK_VERIFY_MAX_BATCH"          = var.BB_CHONK_VERIFY_MAX_BATCH
         "node.env.BB_CHONK_VERIFY_BATCH_CONCURRENCY"  = var.BB_CHONK_VERIFY_BATCH_CONCURRENCY
@@ -590,7 +586,6 @@ locals {
         "node.env.DEBUG_P2P_INSTRUMENT_MESSAGES"      = var.DEBUG_P2P_INSTRUMENT_MESSAGES
         "node.env.P2P_TX_POOL_DELETE_TXS_AFTER_REORG" = var.P2P_TX_POOL_DELETE_TXS_AFTER_REORG
         "node.env.BLOB_ALLOW_EMPTY_SOURCES"           = var.BLOB_ALLOW_EMPTY_SOURCES
-        "node.env.P2P_MAX_TX_POOL_SIZE"               = var.P2P_MAX_TX_POOL_SIZE
         "node.env.P2P_GOSSIPSUB_D"                    = var.P2P_GOSSIPSUB_D
         "node.env.P2P_GOSSIPSUB_DLO"                  = var.P2P_GOSSIPSUB_DLO
         "node.env.P2P_GOSSIPSUB_DHI"                  = var.P2P_GOSSIPSUB_DHI
