@@ -5,10 +5,9 @@ oracle state and an assumed mana usage pattern.
 
 ## Prediction Window
 
-The prediction covers `LAG + 1 = 3` entries (the next available slot plus 2 more).
-The window is LAG slots because a new oracle update can be enqueued at any time (if
-the cooldown has passed), and its new values activate LAG slots later. Beyond LAG
-slots, the L1 fees could change unpredictably.
+The prediction covers `LAG = 2` entries (the next available slot plus 1 more).
+A new oracle update can activate at `startSlot + LAG`, so only the first LAG entries
+are guaranteed stable. Beyond that, L1 fees could change unpredictably.
 
 Each entry uses:
 
@@ -17,12 +16,11 @@ Each entry uses:
 - A **configurable congestion assumption** (`ManaUsageEstimate`): none (0 mana), target
   (steady state), or limit (worst case, 2x target).
 
-The client picks `max(predicted[0..LAG])` as their `maxFeesPerGas`.
+The client picks `max(predicted[0..LAG-1])` as their `maxFeesPerGas`.
 
 ```
 predicted[0]  →  fee at next slot     (current oracle + current congestion)
 predicted[1]  →  fee at next slot + 1 (congestion may change based on usage estimate)
-predicted[2]  →  fee at next slot + 2 (oracle may transition here)
 ```
 
 ## Why LAG and not LIFETIME?
@@ -42,5 +40,5 @@ With a LIFETIME-sized window, we'd give a false sense of coverage: the predictio
 would look like it covers 6 slots, but slots beyond LAG could be wrong if an update
 is enqueued after the prediction is computed.
 
-By limiting to LAG, we guarantee that the predicted L1 fees are the ones that will
-actually be used — no oracle update can change them within this window.
+By limiting to LAG entries, we guarantee that all predicted L1 fees are the ones that
+will actually be used — no oracle update can change them within this window.

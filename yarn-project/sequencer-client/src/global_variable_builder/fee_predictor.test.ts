@@ -125,10 +125,10 @@ describe('FeePredictor', () => {
     expect(predicted[0].feePerL2Gas).toBe(l1Fee);
   });
 
-  it('returns exactly FEE_ORACLE_LAG + 1 entries', async () => {
+  it('returns exactly FEE_ORACLE_LAG entries', async () => {
     const predictor = new FeePredictor(rollup, slotDuration, l1GenesisTime);
     const predicted = await predictor.getPredictedMinFees(publicClient, ManaUsageEstimate.Target);
-    expect(predicted.length).toBe(FEE_ORACLE_LAG + 1);
+    expect(predicted.length).toBe(FEE_ORACLE_LAG);
   });
 
   it.each([
@@ -275,7 +275,7 @@ describe('FeePredictor', () => {
       const predictor = new FeePredictor(rollup, slotDuration, l1GenesisTime);
       const predicted = await predictor.getPredictedMinFees(publicClient, ManaUsageEstimate.None);
 
-      expect(predicted.length).toBe(FEE_ORACLE_LAG + 1);
+      expect(predicted.length).toBe(FEE_ORACLE_LAG);
 
       const startSlot = await getPredictionStartSlot();
       for (let i = 0; i < predicted.length; i++) {

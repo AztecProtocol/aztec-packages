@@ -18,10 +18,10 @@ type FeeOracleState = {
 };
 
 /**
- * Predicts min fees for the current slot and next LAG slots based on the L1 oracle state.
- * The prediction window is LAG slots because a new oracle update can activate after LAG slots,
- * making predictions beyond that unreliable.
- * Caches L1 queries per L1 block and recomputes predictions for each mana usage estimate.
+ * Predicts min fees for LAG upcoming slots based on the L1 oracle state.
+ * A new oracle update can activate at startSlot + LAG, so only the first LAG entries
+ * are guaranteed stable. Caches L1 queries per L1 block and recomputes predictions
+ * for each mana usage estimate.
  */
 export class FeePredictor {
   private cachedState: Promise<FeeOracleState> | undefined;
@@ -70,7 +70,7 @@ export class FeePredictor {
     const feeHeader = lastCheckpoint.feeHeader;
 
     const slotConfig = { slotDuration: this.slotDuration, l1GenesisTime: this.l1GenesisTime };
-    const slotCount = FEE_ORACLE_LAG + 1;
+    const slotCount = FEE_ORACLE_LAG;
     const timestamps = times(slotCount, i => getTimestampForSlot(SlotNumber.add(nextSlot, i), slotConfig));
     const l1FeesBySlot = await Promise.all(timestamps.map(ts => this.rollupContract.getL1FeesAt(ts)));
 
@@ -97,7 +97,7 @@ export class FeePredictor {
     // Slot 0: current state (next available slot after last checkpoint)
     result.push(this.computeGasFees(state, excessMana, ethPerFeeAsset, state.l1FeesBySlot[0]));
 
-    // Slots 1..LAG: advance excessMana with the assumed mana usage per checkpoint,
+    // Slots 1..LAG-1: advance excessMana with the assumed mana usage per checkpoint,
     // and decay ethPerFeeAsset by MAX_FEE_ASSET_PRICE_MODIFIER_BPS per slot for conservative estimates.
     // Lower ethPerFeeAsset means higher fees in fee asset terms.
     for (let i = 1; i < state.l1FeesBySlot.length; i++) {
