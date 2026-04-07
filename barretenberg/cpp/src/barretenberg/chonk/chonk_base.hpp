@@ -8,6 +8,7 @@
 
 #include "barretenberg/flavor/mega_zk_flavor.hpp"
 #include "barretenberg/goblin/goblin.hpp"
+#include "barretenberg/op_queue/poseidon2_op_queue.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
 
 namespace bb {
@@ -30,6 +31,10 @@ class IVCBase {
     virtual const Goblin& get_goblin() const = 0;
 
     virtual void accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVerificationKey>& precomputed_vk) = 0;
+
+    // Returns the Poseidon2 op queue for IVC schemes that defer Poseidon2 hashing (ChonkV2).
+    // Returns nullptr for schemes that don't (Chonk).
+    virtual std::shared_ptr<Poseidon2OpQueue> get_poseidon2_op_queue() { return nullptr; }
 
   protected:
     IVCBase() = default;

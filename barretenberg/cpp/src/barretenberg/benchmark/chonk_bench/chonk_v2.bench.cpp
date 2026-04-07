@@ -18,7 +18,7 @@ using VerificationKey = Flavor::VerificationKey;
 
 std::vector<std::shared_ptr<VerificationKey>> precompute_v2_vks(const size_t num_app_circuits)
 {
-    PrivateFunctionExecutionMockCircuitProducerV2 circuit_producer(num_app_circuits);
+    PrivateFunctionExecutionMockCircuitProducerV2 circuit_producer(num_app_circuits, /*large_first_app=*/false);
     const size_t NUM_CIRCUITS = circuit_producer.total_num_circuits;
     ChonkV2 ivc{ NUM_CIRCUITS };
 
@@ -27,7 +27,7 @@ std::vector<std::shared_ptr<VerificationKey>> precompute_v2_vks(const size_t num
         auto circuit = circuit_producer.create_next_circuit(ivc);
         auto vk = PrivateFunctionExecutionMockCircuitProducerV2::get_verification_key(circuit);
         vkeys.push_back(vk);
-        ivc.accumulate(circuit, vk);
+        ivc.accumulate_v2(circuit, vk);
     }
     return vkeys;
 }
@@ -35,7 +35,7 @@ std::vector<std::shared_ptr<VerificationKey>> precompute_v2_vks(const size_t num
 ChonkV2::ChonkV2Proof accumulate_and_prove_v2(size_t num_app_circuits,
                                                const std::vector<std::shared_ptr<VerificationKey>>& precomputed_vks)
 {
-    PrivateFunctionExecutionMockCircuitProducerV2 circuit_producer(num_app_circuits);
+    PrivateFunctionExecutionMockCircuitProducerV2 circuit_producer(num_app_circuits, /*large_first_app=*/false);
     const size_t NUM_CIRCUITS = circuit_producer.total_num_circuits;
     ChonkV2 ivc{ NUM_CIRCUITS };
 
@@ -45,14 +45,14 @@ ChonkV2::ChonkV2Proof accumulate_and_prove_v2(size_t num_app_circuits,
             BB_BENCH_NAME("construct_circuits");
             circuit = circuit_producer.create_next_circuit(ivc);
         }
-        ivc.accumulate(circuit, precomputed_vks[circuit_idx]);
+        ivc.accumulate_v2(circuit, precomputed_vks[circuit_idx]);
     }
     return ivc.prove();
 }
 
 class ChonkV2Bench : public benchmark::Fixture {
   public:
-    static constexpr size_t NUM_ITERATIONS_MEDIUM_COMPLEXITY = 5;
+    // static constexpr size_t NUM_ITERATIONS_MEDIUM_COMPLEXITY = 5;
 
     void SetUp([[maybe_unused]] const ::benchmark::State& state) override
     {
@@ -73,7 +73,7 @@ BENCHMARK_DEFINE_F(ChonkV2Bench, Full)(benchmark::State& state)
 
 BENCHMARK_REGISTER_F(ChonkV2Bench, Full)
     ->Unit(benchmark::kMillisecond)
-    ->Arg(ChonkV2Bench::NUM_ITERATIONS_MEDIUM_COMPLEXITY)
+    ->Arg(1)
     ->Arg(2);
 
 } // namespace

@@ -56,10 +56,12 @@ void ChonkAPI::prove(const Flags& flags,
     BB_BENCH_NAME("ChonkAPI::prove");
     bbapi::BBApiRequest request;
     request.vk_policy = bbapi::parse_vk_policy(flags.vk_policy);
+    request.use_chonk_v2 = (flags.scheme == "chonk_v2");
     std::vector<PrivateExecutionStepRaw> raw_steps = PrivateExecutionStepRaw::load_and_decompress(input_path);
 
     bbapi::ChonkStart{ .num_circuits = raw_steps.size() }.execute(request);
-    info("Chonk: starting with ", raw_steps.size(), " circuits");
+    info("Chonk: starting with ", raw_steps.size(), " circuits",
+         request.use_chonk_v2 ? " (ChonkV2 - deferred Poseidon2)" : "");
     for (const auto& step : raw_steps) {
         bbapi::ChonkLoad{
             .circuit = { .name = step.function_name, .bytecode = step.bytecode, .verification_key = step.vk }

@@ -202,7 +202,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
                 "particular type of circuit to be constructed and proven for some implicit scheme.")
             ->envname("BB_SCHEME")
             ->default_val("ultra_honk")
-            ->check(CLI::IsMember({ "chonk", "avm", "ultra_honk" }).name("is_member"))
+            ->check(CLI::IsMember({ "chonk", "chonk_v2", "avm", "ultra_honk" }).name("is_member"))
             ->group(advanced_group);
     };
 
@@ -922,7 +922,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
             avm_simulate(avm_inputs_path);
         } else if (avm_write_vk_command->parsed()) {
             avm_write_verification_key(avm_write_vk_output_path);
-        } else if (flags.scheme == "chonk") {
+        } else if (flags.scheme == "chonk" || flags.scheme == "chonk_v2") {
             ChonkAPI api;
             if (prove->parsed()) {
                 if (!std::filesystem::exists(ivc_inputs_path)) {

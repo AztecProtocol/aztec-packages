@@ -14,6 +14,32 @@ template <typename Builder>
 typename Poseidon2Permutation<Builder>::State Poseidon2Permutation<Builder>::permutation(
     Builder* builder, const typename Poseidon2Permutation<Builder>::State& input)
 {
+    // If the builder has a poseidon2_op_queue, defer the permutation instead of computing
+    // it in-circuit. This replaces 64+ custom gates with 2 rows in the poseidon2_op block.
+    if constexpr (std::is_same_v<Builder, MegaCircuitBuilder>) {
+        if (builder->poseidon2_op_queue) {
+            // Use the witness-index overload so the op block wires share the same
+            // variables as the circuit (required for the logup copy constraint).
+            // If any input is a constant (e.g. zero-initialized sponge state), convert
+            // it to a witness first — get_witness_index() returns IS_CONSTANT for constants,
+            // which is UINT32_MAX and would be an invalid wire index.
+            std::array<uint32_t, t> input_indices;
+            for (size_t i = 0; i < t; ++i) {
+                if (input[i].is_constant()) {
+                    input_indices[i] = builder->add_variable(input[i].get_value());
+                } else {
+                    input_indices[i] = input[i].get_witness_index();
+                }
+            }
+            auto output_indices = builder->queue_poseidon2_permutation(input_indices);
+            State output;
+            for (size_t i = 0; i < t; ++i) {
+                output[i] = field_t<Builder>::from_witness_index(builder, output_indices[i]);
+            }
+            return output;
+        }
+    }
+
     State current_state(input);
     NativeState current_native_state;
     for (size_t i = 0; i < t; ++i) {

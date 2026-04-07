@@ -46,6 +46,7 @@ class Poseidon2OpQueue {
     // without reallocating the entire table (matching the ECCOpQueue pattern).
     std::deque<Subtable> merged_subtables;
     Subtable current_subtable;
+    size_t current_subtable_idx = 0; // tracks which merged subtable is "current" after merge()
 
   public:
     Poseidon2OpQueue() = default;
@@ -90,14 +91,17 @@ class Poseidon2OpQueue {
         }
         if (settings == MergeSettings::PREPEND) {
             merged_subtables.push_front(std::move(current_subtable));
+            current_subtable_idx = 0;
         } else {
             merged_subtables.push_back(std::move(current_subtable));
+            current_subtable_idx = merged_subtables.size() - 1;
         }
         current_subtable.clear();
     }
 
     size_t get_current_subtable_size() const { return current_subtable.size(); }
     size_t get_current_subtable_num_rows() const { return current_subtable.size() * NUM_ROWS_PER_OP; }
+    size_t get_num_merged_subtables() const { return merged_subtables.size(); }
 
     /**
      * @brief Get the total number of rows across all merged subtables (excluding current).
@@ -172,17 +176,22 @@ class Poseidon2OpQueue {
 
     /**
      * @brief Construct polynomials for the current subtable only (left table in PREPEND merge).
+     * @details After merge(), the current subtable is at merged_subtables[current_subtable_idx].
+     * Before merge(), the current subtable is in current_subtable (not yet merged).
      */
     std::array<Polynomial<FF>, TABLE_WIDTH> construct_current_subtable_columns() const
     {
-        const size_t num_rows = get_current_subtable_num_rows();
+        // After merge(), current_subtable is empty and the data is in merged_subtables
+        const auto& subtable = current_subtable.empty() ? merged_subtables[current_subtable_idx] : current_subtable;
+        const size_t num_rows = subtable.size() * NUM_ROWS_PER_OP;
+
         std::array<Polynomial<FF>, TABLE_WIDTH> columns;
         for (auto& col : columns) {
             col = Polynomial<FF>(num_rows, num_rows);
         }
 
         size_t row_offset = 0;
-        for (const auto& op : current_subtable) {
+        for (const auto& op : subtable) {
             write_op_to_polynomials(columns, op, row_offset);
             row_offset += NUM_ROWS_PER_OP;
         }
@@ -192,18 +201,30 @@ class Poseidon2OpQueue {
 
     /**
      * @brief Construct polynomials for previous subtables only (right table in PREPEND merge).
+     * @details After merge(), returns all merged subtables EXCEPT the one at current_subtable_idx.
      */
     std::array<Polynomial<FF>, TABLE_WIDTH> construct_previous_table_columns() const
     {
-        const size_t num_rows = get_previous_table_num_rows();
+        // Count rows excluding the current subtable
+        size_t num_rows = 0;
+        for (size_t i = 0; i < merged_subtables.size(); ++i) {
+            if (i != current_subtable_idx || !current_subtable.empty()) {
+                num_rows += merged_subtables[i].size() * NUM_ROWS_PER_OP;
+            }
+        }
+
         std::array<Polynomial<FF>, TABLE_WIDTH> columns;
         for (auto& col : columns) {
             col = Polynomial<FF>(num_rows, num_rows);
         }
 
         size_t row_offset = 0;
-        for (const auto& subtable : merged_subtables) {
-            for (const auto& op : subtable) {
+        for (size_t i = 0; i < merged_subtables.size(); ++i) {
+            // Skip the current subtable (it's the "left" table, not the "previous" table)
+            if (i == current_subtable_idx && current_subtable.empty()) {
+                continue;
+            }
+            for (const auto& op : merged_subtables[i]) {
                 write_op_to_polynomials(columns, op, row_offset);
                 row_offset += NUM_ROWS_PER_OP;
             }

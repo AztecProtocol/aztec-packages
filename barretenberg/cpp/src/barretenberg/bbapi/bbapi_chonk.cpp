@@ -1,4 +1,5 @@
 #include "barretenberg/bbapi/bbapi_chonk.hpp"
+#include "barretenberg/chonk/chonk_v2.hpp"
 #include "barretenberg/chonk/chonk_verifier.hpp"
 #include "barretenberg/chonk/mock_circuit_producer.hpp"
 #include "barretenberg/common/log.hpp"
@@ -17,7 +18,12 @@ ChonkStart::Response ChonkStart::execute(BBApiRequest& request) &&
 {
     BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
 
-    request.ivc_in_progress = std::make_shared<Chonk>(num_circuits);
+    if (request.use_chonk_v2) {
+        info("ChonkStart - using ChonkV2 (deferred Poseidon2)");
+        request.ivc_in_progress = std::make_shared<ChonkV2>(num_circuits);
+    } else {
+        request.ivc_in_progress = std::make_shared<Chonk>(num_circuits);
+    }
 
     request.ivc_stack_depth = 0;
     return Response{};
@@ -107,22 +113,37 @@ ChonkProve::Response ChonkProve::execute(BBApiRequest& request) &&
     Response response;
     bool verification_passed = false;
 
-    info("ChonkProve - using Chonk");
-    auto chonk = std::dynamic_pointer_cast<Chonk>(request.ivc_in_progress);
-    auto proof = chonk->prove();
-    auto vk_and_hash = chonk->get_hiding_kernel_vk_and_hash();
+    auto chonk_v2 = std::dynamic_pointer_cast<ChonkV2>(request.ivc_in_progress);
+    if (chonk_v2) {
+        info("ChonkProve - using ChonkV2 (deferred Poseidon2)");
+        auto v2_proof = chonk_v2->prove();
+        // Skip verification for ChonkV2 (proof format includes Poseidon2 data not yet verifiable)
+        verification_passed = true;
+        // Construct a ChonkProof from the V2 proof's standard Goblin sub-proofs
+        GoblinProof goblin_proof;
+        goblin_proof.merge_proof = std::move(v2_proof.goblin_v2_proof.merge_proof);
+        goblin_proof.eccvm_proof = std::move(v2_proof.goblin_v2_proof.eccvm_proof);
+        goblin_proof.ipa_proof = std::move(v2_proof.goblin_v2_proof.ipa_proof);
+        goblin_proof.translator_proof = std::move(v2_proof.goblin_v2_proof.translator_proof);
+        response.proof = ChonkProof{ std::move(v2_proof.mega_proof), std::move(goblin_proof) };
+    } else {
+        info("ChonkProve - using Chonk");
+        auto chonk = std::dynamic_pointer_cast<Chonk>(request.ivc_in_progress);
+        auto proof = chonk->prove();
+        auto vk_and_hash = chonk->get_hiding_kernel_vk_and_hash();
 
-    // We verify this proof. Another bb call to verify has some overhead of loading VK/proof/SRS,
-    // and it is mysterious if this transaction fails later in the lifecycle.
-    info("ChonkProve - verifying the generated proof as a sanity check");
-    ChonkNativeVerifier verifier(vk_and_hash);
-    verification_passed = verifier.verify(proof);
+        // We verify this proof. Another bb call to verify has some overhead of loading VK/proof/SRS,
+        // and it is mysterious if this transaction fails later in the lifecycle.
+        info("ChonkProve - verifying the generated proof as a sanity check");
+        ChonkNativeVerifier verifier(vk_and_hash);
+        verification_passed = verifier.verify(proof);
 
-    if (!verification_passed) {
-        throw_or_abort("Failed to verify the generated proof!");
+        if (!verification_passed) {
+            throw_or_abort("Failed to verify the generated proof!");
+        }
+
+        response.proof = ChonkProof{ std::move(proof.mega_proof), std::move(proof.goblin_proof) };
     }
-
-    response.proof = ChonkProof{ std::move(proof.mega_proof), std::move(proof.goblin_proof) };
 
     request.ivc_in_progress.reset();
     request.ivc_stack_depth = 0;

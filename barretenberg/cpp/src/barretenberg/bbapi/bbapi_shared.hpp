@@ -182,6 +182,8 @@ struct BBApiRequest {
     std::vector<uint8_t> loaded_circuit_vk;
     // Policy for handling verification keys during accumulation
     VkPolicy vk_policy = VkPolicy::DEFAULT;
+    // Use ChonkV2 (deferred Poseidon2) instead of standard Chonk
+    bool use_chonk_v2 = false;
     // Error message - empty string means no error
     std::string error_message;
 };

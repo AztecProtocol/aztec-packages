@@ -6,6 +6,7 @@
 
 #include "barretenberg/dsl/acir_format/recursion_constraint.hpp"
 #include "barretenberg/dsl/acir_format/avm2_recursion_constraint.hpp"
+#include "barretenberg/chonk/chonk_v2.hpp"
 #include "barretenberg/dsl/acir_format/chonk_recursion_constraints.hpp"
 #include "barretenberg/dsl/acir_format/honk_recursion_constraint.hpp"
 #include "barretenberg/dsl/acir_format/hypernova_recursion_constraint.hpp"
@@ -163,17 +164,17 @@ void process_hn_recursion_constraints(
     const std::pair<std::vector<RecursionConstraint>, std::vector<size_t>>& hn_recursion_data,
     const std::shared_ptr<IVCBase>& ivc_base)
 {
-    using StdlibVerificationKey = Chonk::RecursiveVerificationKey;
-    using StdlibVKAndHash = Chonk::RecursiveVKAndHash;
-    using StdlibFF = Chonk::RecursiveFlavor::FF;
-
     // Validate hn_recursion_data constraints/indices size match
     BB_ASSERT_EQ(hn_recursion_data.first.size(),
                  hn_recursion_data.second.size(),
                  "process_hn_recursion_constraints: hn_recursion_data constraints/indices size mismatch");
 
-    // Lambda template to handle both Chonk and Chonk with the same code
+    // Lambda template to handle both Chonk and ChonkV2 with the same code.
+    // Type aliases are deduced from IVCType so this works for any IVC scheme.
     auto process_with_ivc = [&]<typename IVCType>(const std::shared_ptr<IVCType>& ivc) {
+        using StdlibVerificationKey = typename IVCType::RecursiveVerificationKey;
+        using StdlibVKAndHash = typename IVCType::RecursiveVKAndHash;
+        using StdlibFF = typename IVCType::RecursiveFlavor::FF;
         // We expect the length of the internal verification queue to match the number of ivc recursion constraints
         BB_ASSERT_EQ(hn_recursion_data.first.size(),
                      ivc->verification_queue.size(),
@@ -212,7 +213,8 @@ void process_hn_recursion_constraints(
         // Validate constraints against stdlib verification queue entries
         for (auto [constraint, queue_entry] : zip_view(hn_recursion_data.first, ivc->stdlib_verification_queue)) {
             // Validate ACIR constraint proof_type matches IVC queue type
-            BB_ASSERT(proof_type_to_chonk_queue_type(constraint.proof_type) == queue_entry.type,
+            BB_ASSERT(static_cast<uint8_t>(proof_type_to_chonk_queue_type(constraint.proof_type)) ==
+                          static_cast<uint8_t>(queue_entry.type),
                       "process_hn_recursion_constraints: ACIR constraint proof_type does not match IVC queue type");
 
             // HN recursion constraints from Noir always have empty public_inputs - the public inputs are handled
@@ -253,11 +255,16 @@ void process_hn_recursion_constraints(
         auto mock_ivc = create_mock_chonk_from_constraints(hn_recursion_data.first);
         process_with_ivc(mock_ivc);
     } else {
-        auto chonk = std::dynamic_pointer_cast<Chonk>(ivc_base);
-        if (!chonk) {
-            throw_or_abort("process_hn_recursion_constraints: ivc_base is not a Chonk instance");
+        auto chonk_v2 = std::dynamic_pointer_cast<ChonkV2>(ivc_base);
+        if (chonk_v2) {
+            process_with_ivc(chonk_v2);
+        } else {
+            auto chonk = std::dynamic_pointer_cast<Chonk>(ivc_base);
+            if (!chonk) {
+                throw_or_abort("process_hn_recursion_constraints: ivc_base is not a Chonk or ChonkV2 instance");
+            }
+            process_with_ivc(chonk);
         }
-        process_with_ivc(chonk);
     }
 }
 

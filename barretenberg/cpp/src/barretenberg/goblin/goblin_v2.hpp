@@ -69,12 +69,20 @@ class GoblinV2 : public Goblin {
     void prove_poseidon2_final()
     {
         BB_BENCH_NAME("GoblinV2::prove_poseidon2_final");
-        // Build the Poseidon2SingleRowFlavor circuit from the op queue data
+        // Build the Poseidon2SingleRowFlavor circuit from the op queue data.
+        // The builder needs an op_queue for MegaCircuitBuilder finalization (ECC dummy ops).
         MegaBuilder builder;
+        builder.op_queue = std::make_shared<ECCOpQueue>();
         auto all_ops = poseidon2_op_queue->get_all_ops();
         for (const auto& op : all_ops) {
             builder.create_poseidon2_single_row_gate(op.input);
         }
+
+        // Pre-finalize without adding dummy gates for unused block types (ECC ops, databus,
+        // delta_range, elliptic, etc.). Poseidon2SingleRowFlavor only uses the arithmetic block
+        // and the Poseidon2SingleRowRelation — dummy gates for other blocks just inflate the
+        // dyadic size without benefit.
+        builder.finalize_circuit(/* ensure_nonzero = */ false);
 
         // Prove using standard UltraProver pipeline
         using Poseidon2Prover = UltraProver_<Poseidon2SingleRowFlavor>;
@@ -103,11 +111,12 @@ class GoblinV2 : public Goblin {
         goblin_v2_proof.translator_proof = goblin_proof.translator_proof;
 
         // Poseidon2: merge (APPEND) + final proof
-        prove_poseidon2_merge(transcript, MergeSettings::APPEND);
-        goblin_v2_proof.poseidon2_merge_proof = poseidon2_merge_verification_queue.back();
+        if (poseidon2_op_queue->get_current_subtable_size() > 0) {
+            prove_poseidon2_merge(transcript, MergeSettings::APPEND);
+            goblin_v2_proof.poseidon2_merge_proof = poseidon2_merge_verification_queue.back();
+        }
 
         prove_poseidon2_final();
-
         return goblin_v2_proof;
     }
 

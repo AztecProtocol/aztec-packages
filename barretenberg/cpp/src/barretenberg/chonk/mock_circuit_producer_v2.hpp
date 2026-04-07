@@ -57,7 +57,7 @@ class PrivateFunctionExecutionMockCircuitProducerV2 {
         return std::make_shared<VerificationKey>(prover_instance->get_precomputed());
     }
 
-    ClientCircuit create_next_circuit(ChonkV2& ivc)
+    ClientCircuit create_next_circuit(ChonkV2& ivc, size_t log2_num_gates = 0)
     {
         const bool is_kernel = is_kernel_flags[circuit_counter++];
         const bool use_large_circuit = large_first_app && (circuit_counter == 1);
@@ -67,7 +67,10 @@ class PrivateFunctionExecutionMockCircuitProducerV2 {
         // Share the poseidon2_op_queue
         circuit.poseidon2_op_queue = ivc.goblin.poseidon2_op_queue;
 
-        if (is_kernel) {
+        if (log2_num_gates != 0) {
+            // Tiny circuit: just arithmetic gates + ECC ops for valid Goblin state
+            MockCircuits::construct_arithmetic_circuit(circuit, log2_num_gates, /* include_public_inputs= */ false);
+        } else if (is_kernel) {
             if (!is_trailing_kernel) {
                 GoblinMockCircuits::construct_mock_folding_kernel(circuit);
             }
@@ -78,18 +81,18 @@ class PrivateFunctionExecutionMockCircuitProducerV2 {
 
             // Add some deferred Poseidon2 hashes (this is what ChonkV2 optimizes)
             for (size_t i = 0; i < 10; i++) {
-                std::array<fr, 4> sponge_state = {
-                    fr::random_element(), fr::random_element(), fr::random_element(), fr::random_element()
+                std::array<uint32_t, 4> sponge_indices = {
+                    circuit.add_variable(fr::random_element()), circuit.add_variable(fr::random_element()),
+                    circuit.add_variable(fr::random_element()), circuit.add_variable(fr::random_element())
                 };
-                circuit.queue_poseidon2_permutation(sponge_state);
+                circuit.queue_poseidon2_permutation(sponge_indices);
             }
         }
 
         if (is_kernel) {
             ivc.complete_kernel_circuit_logic(circuit);
         } else {
-            // Use KernelV2IO::add_default for app circuits (propagates poseidon2 op table slots)
-            stdlib::recursion::honk::KernelV2IO::add_default(circuit);
+            stdlib::recursion::honk::AppIO::add_default(circuit);
         }
 
         return circuit;

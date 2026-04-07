@@ -240,6 +240,12 @@ template <> MegaCircuitBuilder create_circuit(AcirProgram& program, const Progra
     // Construct a builder using the witness and public input data from acir and with the goblin-owned op_queue
     MegaCircuitBuilder builder{ op_queue, witness, constraints.public_inputs, is_write_vk_mode };
 
+    // If the IVC defers Poseidon2 hashing (ChonkV2), share the op queue with the builder.
+    // This causes all Poseidon2 constraints to be deferred rather than evaluated in-circuit.
+    if (metadata.ivc != nullptr) {
+        builder.poseidon2_op_queue = metadata.ivc->get_poseidon2_op_queue();
+    }
+
     // Populate constraints in the builder
     build_constraints(builder, constraints, metadata);
 

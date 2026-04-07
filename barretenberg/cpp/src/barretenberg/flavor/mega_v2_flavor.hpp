@@ -309,6 +309,8 @@ class MegaV2Flavor {
             this->poseidon2_op_wire_2 = "POSEIDON2_OP_WIRE_2";
             this->poseidon2_op_wire_3 = "POSEIDON2_OP_WIRE_3";
             this->poseidon2_op_wire_4 = "POSEIDON2_OP_WIRE_4";
+            this->poseidon2_op_wire_5 = "POSEIDON2_OP_WIRE_5";
+            this->poseidon2_op_wire_inverses = "POSEIDON2_OP_WIRE_INVERSES";
             this->calldata = "CALLDATA";
             this->calldata_read_counts = "CALLDATA_READ_COUNTS";
             this->calldata_read_tags = "CALLDATA_READ_TAGS";

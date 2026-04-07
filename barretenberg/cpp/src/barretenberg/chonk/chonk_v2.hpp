@@ -32,7 +32,7 @@ namespace bb {
  *   - Kernel circuits recursively verify BOTH merge protocols
  *   - Uses KernelV2IO/HidingKernelV2IO with poseidon2_op_tables
  */
-class ChonkV2 {
+class ChonkV2 : public IVCBase {
   public:
     using Flavor = MegaV2Flavor;
     using MegaVerificationKey = Flavor::VerificationKey;
@@ -57,6 +57,7 @@ class ChonkV2 {
     using RecursiveTranscript = RecursiveFlavor::Transcript;
     using PairingPoints = stdlib::recursion::PairingPoints<stdlib::bn254<ClientCircuit>>;
     using KernelV2IO = bb::stdlib::recursion::honk::KernelV2IO;
+    using KernelIO = KernelV2IO; // alias for IVCBase compatibility (process_hn_recursion_constraints uses IVCType::KernelIO)
     using HidingKernelV2IO = bb::stdlib::recursion::honk::HidingKernelV2IO<ClientCircuit>;
     using AppIO = bb::stdlib::recursion::honk::AppIO;
     using StdlibProof = stdlib::Proof<ClientCircuit>;
@@ -126,8 +127,9 @@ class ChonkV2 {
     GoblinV2 goblin;
 
     size_t get_num_circuits() const { return num_circuits; }
-    GoblinV2& get_goblin() { return goblin; }
-    const GoblinV2& get_goblin() const { return goblin; }
+    GoblinV2& get_goblin() override { return goblin; }
+    const GoblinV2& get_goblin() const override { return goblin; }
+    std::shared_ptr<Poseidon2OpQueue> get_poseidon2_op_queue() override { return goblin.poseidon2_op_queue; }
 
     ChonkV2(size_t num_circuits)
         : num_circuits(num_circuits)
@@ -322,7 +324,27 @@ class ChonkV2 {
         return QUEUE_TYPE{};
     }
 
-    void accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVerificationKey>& precomputed_vk)
+    // IVCBase override: accepts MegaZK VK (from ACIR pipeline), recomputes as MegaV2 VK.
+    void accumulate(ClientCircuit& circuit,
+                    const std::shared_ptr<IVCBase::MegaVerificationKey>& /*unused_mega_vk*/) override
+    {
+        // Share poseidon2_op_queue between builder and GoblinV2
+        if (!circuit.poseidon2_op_queue) {
+            circuit.poseidon2_op_queue = goblin.poseidon2_op_queue;
+        }
+
+        // Recompute VK for MegaV2Flavor (the ACIR-provided MegaZK VK has the wrong layout)
+        MegaCircuitBuilder copy{ circuit };
+        copy.op_queue = std::make_shared<ECCOpQueue>(*copy.op_queue);
+        if (copy.poseidon2_op_queue) {
+            copy.poseidon2_op_queue = std::make_shared<Poseidon2OpQueue>(*copy.poseidon2_op_queue);
+        }
+        auto pi = std::make_shared<ProverInstance>(copy);
+        auto v2_vk = std::make_shared<MegaVerificationKey>(pi->get_precomputed());
+        accumulate_v2(circuit, v2_vk);
+    }
+
+    void accumulate_v2(ClientCircuit& circuit, const std::shared_ptr<MegaVerificationKey>& precomputed_vk)
     {
         // Share poseidon2_op_queue between builder and GoblinV2
         if (!circuit.poseidon2_op_queue) {

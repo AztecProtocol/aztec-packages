@@ -37,7 +37,8 @@ typename Poseidon2FinalVerifier_<Curve>::ReductionResult Poseidon2FinalVerifier_
 
     // Run OinkVerifier to get witness commitments and relation parameters
     auto vk = std::make_shared<typename Flavor::VerificationKey>();
-    auto verifier_instance = std::make_shared<VerifierInstance_<Flavor>>(vk);
+    auto vk_and_hash = std::make_shared<typename Flavor::VKAndHash>(vk);
+    auto verifier_instance = std::make_shared<VerifierInstance_<Flavor>>(vk_and_hash);
 
     const size_t num_public_inputs = 0; // Poseidon2 final proof has no public inputs
     OinkVerifier<Flavor> oink_verifier{ verifier_instance, transcript, num_public_inputs };
