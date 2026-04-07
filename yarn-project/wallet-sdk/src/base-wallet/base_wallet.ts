@@ -262,9 +262,13 @@ export abstract class BaseWallet implements Wallet {
         return this.aztecNode.getCurrentMinFees();
       }
       return predicted.reduce((worst, fees) => (fees.feePerL2Gas > worst.feePerL2Gas ? fees : worst));
-    } catch {
-      // Fallback for old nodes that don't support getPredictedMinFees
-      return this.aztecNode.getCurrentMinFees();
+    } catch (err: any) {
+      // Fallback for old nodes that don't support getPredictedMinFees.
+      // Only fall back on method-not-found errors (JSON-RPC code -32601); rethrow others.
+      if (err?.cause?.code === -32601 || err?.message?.includes('Method not found')) {
+        return this.aztecNode.getCurrentMinFees();
+      }
+      throw err;
     }
   }
 
