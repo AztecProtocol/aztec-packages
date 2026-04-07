@@ -25,10 +25,10 @@ The developer SDK/aztec-nr version (used for writing and compiling contracts) ma
 | **RPC Endpoint** | `https://aztec-mainnet.drpc.org` | `https://rpc.testnet.aztec-labs.com` |
 | **Bootnodes** | [http://static.aztec.network/mainnet/bootnodes.json](http://static.aztec.network/mainnet/bootnodes.json) | [http://static.aztec.network/testnet/bootnodes.json](http://static.aztec.network/testnet/bootnodes.json) |
 | **Block Explorer** | [Aztecscan](https://aztecscan.xyz), [Aztecexplorer](https://aztecexplorer.xyz/?network=mainnet) | [Aztecscan](https://testnet.aztecscan.xyz), [Aztecexplorer](https://aztecexplorer.xyz/?network=testnet) |
-| **Getting Started** | [Run a sequencer →](/operate/operators/setup/sequencer_management) | [Run a node →](/operate/operators/setup/running_a_node) |
+| **Getting Started** | [Run a sequencer →](/operate/operators/setup/sequencer_management) | [Build on Testnet →](/developers/getting_started_on_testnet) |
 
 :::tip Network Roles (Post-Alpha)
-**Testnet is your production path.** It's decentralized, live, and stable — treat it as your staging environment for Alpha. If you want to deploy on Alpha, validate on Testnet first. Note: Sponsored FPC is not available on Testnet.
+**Testnet is your production path.** It's decentralized, live, and stable — treat it as your staging environment for Alpha. If you want to deploy on Alpha, validate on Testnet first.
 :::
 
 ## Contract Addresses
@@ -132,13 +132,13 @@ Testnet is ideal for testing node configurations, governance proposals, and unde
 - Fully decentralized sequencer set
 - Connected to Ethereum Sepolia
 - Transactions are proven
-- No Sponsored FPC — you must handle fee payment
+- Sponsored FPC available for fee payment
 - Good environment for testing node operations
 
 ## Next Steps
 
 Based on your use case:
 
-- **Building an application?** Start with [Getting Started](/developers/getting_started_on_local_network)
+- **Building an application?** Start with the [local network guide](/developers/getting_started_on_local_network) for development, or [deploy on testnet](/developers/getting_started_on_testnet) for production-like testing
 - **Running infrastructure?** Review [Network Operator Guide](/operate/operators)
 - **Joining as validator?** See [Sequencer Management](/operate/operators/setup/sequencer_management)

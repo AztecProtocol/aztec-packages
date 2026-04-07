@@ -23,11 +23,7 @@ This guide walks you through paying transaction fees on Aztec using various paym
 | Method              | Use Case                      | Privacy | Requirements               |
 | ------------------- | ----------------------------- | ------- | -------------------------- |
 | Fee Juice (default) | Account already has Fee Juice | Public  | Funded account             |
-#if(devnet)
 | Sponsored FPC       | Testing, free transactions    | Public  | None                       |
-#else
-| Sponsored FPC       | Testing, free transactions    | Public  | None (devnet and local only) |
-#endif
 | Bridge + Claim      | Bootstrap from L1             | Public  | L1 ETH for gas             |
 
 ## Mana and Fee Juice
@@ -85,17 +81,13 @@ Fee Payment Contracts (FPCs) pay Fee Juice on your behalf. FPCs must use Fee Jui
 
 ### Sponsored Fee Payment Contracts
 
-#if(testnet)
+#if(mainnet)
 :::note
-The Sponsored FPC is not available on testnet or mainnet. It is only available on devnet and local network.
-:::
-#elif(mainnet)
-:::note
-The Sponsored FPC is not available on mainnet. It is only available on devnet and local network.
+The Sponsored FPC is not available on mainnet. It is available on testnet, devnet, and local network.
 :::
 #endif
 
-The Sponsored FPC pays fees unconditionally. It is only available on devnet and local network.
+The Sponsored FPC pays fees unconditionally. It is available on testnet, devnet, and local network.
 
 You can derive the Sponsored FPC address from its deployment parameters, register it with your wallet, and use it to pay for transactions:
 
