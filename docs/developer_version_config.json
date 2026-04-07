@@ -1,6 +1,4 @@
 {
   "mainnet": "v4.2.0-aztecnr-rc.2",
-  "testnet": "v4.1.0-rc.2",
-  "devnet": "v4.0.0-devnet.2-patch.1",
-  "nightly": "v5.0.0-nightly.20260320"
+  "testnet": "v4.1.0-rc.2"
 }

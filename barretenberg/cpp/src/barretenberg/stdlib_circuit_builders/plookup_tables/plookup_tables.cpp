@@ -158,6 +158,11 @@ ReadData<bb::fr> get_lookup_accumulators(const MultiTableId id,
     const auto& multi_table = get_multitable(id);
     const size_t num_lookups = multi_table.basic_table_ids.size();
 
+    // All MultiTable vectors must be consistently sized
+    BB_ASSERT_EQ(multi_table.column_1_coefficients.size(), num_lookups, "MultiTable coefficient/table count mismatch");
+    BB_ASSERT_EQ(multi_table.get_table_values.size(), num_lookups, "MultiTable get_table_values/table count mismatch");
+    BB_ASSERT_EQ(multi_table.slice_sizes.size(), num_lookups, "MultiTable slice_sizes/table count mismatch");
+
     ReadData<bb::fr> lookup;
     const auto key_a_slices = numeric::slice_input_using_variable_bases(key_a, multi_table.slice_sizes);
     const auto key_b_slices = numeric::slice_input_using_variable_bases(key_b, multi_table.slice_sizes);

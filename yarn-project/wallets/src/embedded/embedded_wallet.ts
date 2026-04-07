@@ -1,6 +1,6 @@
 import { type Account, NO_FROM } from '@aztec/aztec.js/account';
 import { CallAuthorizationRequest } from '@aztec/aztec.js/authorization';
-import { type InteractionWaitOptions, type SendReturn, getGasLimits } from '@aztec/aztec.js/contracts';
+import { type InteractionWaitOptions, type SendReturn, type WaitOpts, getGasLimits } from '@aztec/aztec.js/contracts';
 import type { Aliased, SendOptions } from '@aztec/aztec.js/wallet';
 import { AccountManager } from '@aztec/aztec.js/wallet';
 import type { DefaultAccountEntrypointOptions } from '@aztec/entrypoints/account';
@@ -15,10 +15,12 @@ import { GasSettings } from '@aztec/stdlib/gas';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import { deriveSigningKey } from '@aztec/stdlib/keys';
 import {
+  type ContractOverrides,
   ExecutionPayload,
   SimulationOverrides,
   type TxExecutionRequest,
   type TxSimulationResult,
+  TxStatus,
   collectOffchainEffects,
   mergeExecutionPayloads,
 } from '@aztec/stdlib/tx';
@@ -94,11 +96,12 @@ export class EmbeddedWallet extends BaseWallet {
     executionPayload: ExecutionPayload,
     opts: SendOptions<W>,
   ): Promise<SendReturn<W>> {
-    const feeOptions = await this.completeFeeOptionsForEstimation(
-      opts.from,
-      executionPayload.feePayer,
-      opts.fee?.gasSettings,
-    );
+    const feeOptions = await this.completeFeeOptions({
+      from: opts.from,
+      feePayer: executionPayload.feePayer,
+      gasSettings: opts.fee?.gasSettings,
+      forEstimation: true,
+    });
 
     // Simulate the transaction first to estimate gas and capture required
     // private authwitnesses based on offchain effects.
@@ -139,10 +142,57 @@ export class EmbeddedWallet extends BaseWallet {
       gasLimits: opts.fee?.gasSettings?.gasLimits ?? estimated.gasLimits,
       teardownGasLimits: opts.fee?.gasSettings?.teardownGasLimits ?? estimated.teardownGasLimits,
     });
+    const waitOpts: WaitOpts = typeof opts.wait === 'object' ? opts.wait : {};
+
+    if (!waitOpts?.waitForStatus) {
+      // Default to PROPOSED so the wait returns as soon as the tx lands in a proposed L2 block,
+      // rather than waiting until the end of the slot for the checkpoint to be published to L1.
+      // This is what makes MBPS (Multiple Blocks Per Slot) actually improve UX: with CHECKPOINTED
+      // we'd block until L1 inclusion regardless of how early in the slot the tx was sequenced.
+      // The tradeoff is a weaker guarantee — a proposed block only becomes canonical once it (or
+      // a later block in the same slot) is checkpointed, so a tx could be re-orged out if the
+      // proposer fails to publish to L1 (which should be rare, since they'd get slashed for it).
+      waitOpts!.waitForStatus = TxStatus.PROPOSED;
+    }
     return super.sendTx(executionPayload, {
       ...opts,
       fee: { ...opts.fee, gasSettings },
     });
+  }
+
+  /**
+   * Builds contract overrides for all provided addresses by replacing their account contracts with stub implementations.
+   */
+  protected async buildAccountOverrides(addresses: AztecAddress[]): Promise<ContractOverrides> {
+    const accounts = await this.getAccounts();
+    const contracts: ContractOverrides = {};
+
+    const stubArtifact = await this.accountContracts.getStubAccountContractArtifact();
+
+    const filtered = accounts.filter(acc => addresses.some(addr => addr.equals(acc.item)));
+
+    for (const account of filtered) {
+      const address = account.item;
+      const originalAccount = await this.getAccountFromAddress(address);
+      const completeAddress = originalAccount.getCompleteAddress();
+      const contractInstance = await this.pxe.getContractInstance(completeAddress.address);
+      if (!contractInstance) {
+        throw new Error(
+          `No contract instance found for address: ${completeAddress.address} during account override building. This is a bug!`,
+        );
+      }
+
+      const stubInstance = await getContractInstanceFromInstantiationParams(stubArtifact, {
+        salt: Fr.random(),
+      });
+
+      contracts[address.toString()] = {
+        instance: stubInstance,
+        artifact: stubArtifact,
+      };
+    }
+
+    return contracts;
   }
 
   /**
@@ -162,16 +212,17 @@ export class EmbeddedWallet extends BaseWallet {
       : executionPayload;
     const chainInfo = await this.getChainInfo();
 
-    let overrides: SimulationOverrides | undefined;
+    const accountOverrides = await this.buildAccountOverrides(this.scopesFrom(from, opts.additionalScopes));
+    const overrides = new SimulationOverrides(accountOverrides);
+
     let txRequest: TxExecutionRequest;
     if (from === NO_FROM) {
       const entrypoint = new DefaultEntrypoint();
       txRequest = await entrypoint.createTxExecutionRequest(finalExecutionPayload, feeOptions.gasSettings, chainInfo);
     } else {
-      const { account, instance, artifact } = await this.getFakeAccountDataFor(from);
-      overrides = {
-        contracts: { [from.toString()]: { instance, artifact } },
-      };
+      const originalAccount = await this.getAccountFromAddress(from);
+      const completeAddress = originalAccount.getCompleteAddress();
+      const account = await this.accountContracts.createStubAccount(completeAddress);
       const executionOptions: DefaultAccountEntrypointOptions = {
         txNonce: Fr.random(),
         cancellable: this.cancellableTransactions,
@@ -193,25 +244,6 @@ export class EmbeddedWallet extends BaseWallet {
       overrides,
       scopes,
     });
-  }
-
-  private async getFakeAccountDataFor(address: AztecAddress) {
-    const originalAccount = await this.getAccountFromAddress(address);
-    const originalAddress = originalAccount.getCompleteAddress();
-    const contractInstance = await this.pxe.getContractInstance(originalAddress.address);
-    if (!contractInstance) {
-      throw new Error(`No contract instance found for address: ${originalAddress.address}`);
-    }
-    const stubAccount = await this.accountContracts.createStubAccount(originalAddress);
-    const stubArtifact = await this.accountContracts.getStubAccountContractArtifact();
-    const instance = await getContractInstanceFromInstantiationParams(stubArtifact, {
-      salt: Fr.random(),
-    });
-    return {
-      account: stubAccount,
-      instance,
-      artifact: stubArtifact,
-    };
   }
 
   protected async createAccountInternal(

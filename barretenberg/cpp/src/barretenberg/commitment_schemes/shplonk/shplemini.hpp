@@ -371,7 +371,9 @@ template <typename Curve, bool HasZK = false> class ShpleminiVerifier_ {
         // Used in ECCVM and BatchedHonkTranslator. The nu power offset in batch_sumcheck_round_claims
         // assumes ZK claims (NUM_SMALL_IPA_EVALUATIONS) precede sumcheck round claims in the batching order.
         if (committed_sumcheck) {
-            BB_ASSERT(HasZK, "committed sumcheck requires ZK for correct nu power indexing");
+            if constexpr (!HasZK) {
+                throw_or_abort("Shplemini: committed sumcheck requires ZK for correct nu power indexing");
+            }
             batch_sumcheck_round_claims(commitments,
                                         scalars,
                                         constant_term_accumulator,
@@ -522,10 +524,11 @@ template <typename Curve, bool HasZK = false> class ShpleminiVerifier_ {
                 // next duplicate; the original at original_start + i is unaffected since
                 // we erase higher-index ranges first.
                 if constexpr (!Curve::is_stdlib_type) {
-                    BB_ASSERT(commitments[duplicate_start] == commitments[original_start + i],
-                              "remove_repeated_commitments: commitment mismatch at duplicate index " +
-                                  std::to_string(duplicate_start) + " vs original index " +
-                                  std::to_string(original_start + i));
+                    if (commitments[duplicate_start] != commitments[original_start + i]) {
+                        throw_or_abort("remove_repeated_commitments: commitment mismatch at duplicate index " +
+                                       std::to_string(duplicate_start) + " vs original index " +
+                                       std::to_string(original_start + i));
+                    }
                 }
                 scalars.erase(scalars.begin() + static_cast<std::ptrdiff_t>(duplicate_start));
                 commitments.erase(commitments.begin() + static_cast<std::ptrdiff_t>(duplicate_start));

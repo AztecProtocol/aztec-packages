@@ -75,7 +75,9 @@ MergeProver::Polynomial MergeProver::compute_shplonk_batched_quotient(
                 shplonk_batched_quotient.add_scaled(merged_table[idx], challenge);
             }
             // Q -= eval·βᵢ
-            shplonk_batched_quotient.at(0) -= challenge * eval;
+            if (!shplonk_batched_quotient.is_empty()) {
+                shplonk_batched_quotient.at(0) -= challenge * eval;
+            }
         }
     }
     // Q /= (X - κ)
@@ -83,7 +85,9 @@ MergeProver::Polynomial MergeProver::compute_shplonk_batched_quotient(
 
     // Q += (G - g)/(X - κ⁻¹)·β
     Polynomial reversed_batched_left_tables_copy(reversed_batched_left_tables);
-    reversed_batched_left_tables_copy.at(0) -= evals.back();
+    if (!reversed_batched_left_tables_copy.is_empty()) {
+        reversed_batched_left_tables_copy.at(0) -= evals.back();
+    }
     reversed_batched_left_tables_copy.factor_roots(kappa_inv);
     shplonk_batched_quotient.add_scaled(reversed_batched_left_tables_copy, shplonk_batching_challenges.back());
 
@@ -123,12 +127,16 @@ MergeProver::OpeningClaim MergeProver::compute_shplonk_opening_claim(
                 shplonk_partially_evaluated_batched_quotient.add_scaled(merged_table[idx], challenge);
             }
             // Q' -= eval·βᵢ
-            shplonk_partially_evaluated_batched_quotient.at(0) -= challenge * eval;
+            if (!shplonk_partially_evaluated_batched_quotient.is_empty()) {
+                shplonk_partially_evaluated_batched_quotient.at(0) -= challenge * eval;
+            }
         }
     }
 
     // Q' += (G - g)·(z - κ)/(z - κ⁻¹)·β
-    reversed_batched_left_tables.at(0) -= evals.back();
+    if (!reversed_batched_left_tables.is_empty()) {
+        reversed_batched_left_tables.at(0) -= evals.back();
+    }
     shplonk_partially_evaluated_batched_quotient.add_scaled(reversed_batched_left_tables,
                                                             shplonk_batching_challenges.back() *
                                                                 (shplonk_opening_challenge - kappa) *

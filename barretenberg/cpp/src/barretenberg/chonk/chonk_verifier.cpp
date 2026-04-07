@@ -35,6 +35,12 @@ template <> ChonkVerifier<false>::IPAReductionResult ChonkVerifier<false>::reduc
     HidingKernelIO kernel_io;
     kernel_io.reconstruct_from_public(oink_result.public_inputs);
 
+    // Check accumulated pairing points from the IVC chain (inner recursive verifications)
+    if (!kernel_io.pairing_inputs.check()) {
+        info("ChonkVerifier: verification failed at PI pairing points check");
+        return { {}, {}, false };
+    }
+
     // Step 2: Databus consistency check
     const Commitment calldata_commitment = oink_result.calldata_commitment;
     const Commitment return_data_commitment = kernel_io.kernel_return_data;
