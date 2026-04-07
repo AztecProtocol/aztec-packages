@@ -100,7 +100,7 @@ describe('HttpBlobClient', () => {
             res.end(JSON.stringify({ error: 'Not Found' }));
           } else {
             res.writeHead(200, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ data: blobData.map(b => b.blob) }));
+            res.end(JSON.stringify({ data: blobData }));
           }
         } else {
           res.writeHead(404, { 'Content-Type': 'application/json' });
@@ -944,7 +944,7 @@ describe('HttpBlobClient FileStore Integration', () => {
           res.end(JSON.stringify({ data: { header: { message: { slot: 1 } } } }));
         } else if (req.url?.includes('/eth/v1/beacon/blobs/')) {
           res.writeHead(200, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ data: blobData.map(b => b.blob) }));
+          res.end(JSON.stringify({ data: blobData }));
         } else {
           res.writeHead(404, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ error: 'Not Found' }));

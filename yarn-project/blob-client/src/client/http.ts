@@ -6,6 +6,7 @@ import { makeBackoff, retry } from '@aztec/foundation/retry';
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 
 import { type RpcBlock, createPublicClient } from 'viem';
+import { z } from 'zod';
 
 import { createBlobArchiveClient } from '../archive/factory.js';
 import type { BlobArchiveClient } from '../archive/interface.js';
@@ -494,7 +495,7 @@ export class HttpBlobClient implements BlobClientInterface {
     try {
       let res = await this.fetchBlobSidecars(hostUrl, blockHashOrSlot, l1ConsensusHostIndex, blobHashes);
       if (res.ok) {
-        return await parseBlobJsonsFromResponse(await res.json(), this.log);
+        return parseBlobJsonsFromResponse(await res.json(), this.log);
       }
 
       if (res.status === 404 && typeof blockHashOrSlot === 'number') {
@@ -511,7 +512,7 @@ export class HttpBlobClient implements BlobClientInterface {
           this.log.debug(`Trying slot ${currentSlot}`);
           res = await this.fetchBlobSidecars(hostUrl, currentSlot, l1ConsensusHostIndex, blobHashes);
           if (res.ok) {
-            return await parseBlobJsonsFromResponse(await res.json(), this.log);
+            return parseBlobJsonsFromResponse(await res.json(), this.log);
           }
           currentSlot++;
           maxRetries--;
@@ -764,23 +765,31 @@ export class HttpBlobClient implements BlobClientInterface {
   }
 }
 
-async function parseBlobJsonsFromResponse(response: any, logger: Logger): Promise<BlobJson[]> {
+/**
+ * Schema for the beacon API blob sidecar response.
+ * @see https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/getBlobSidecars
+ */
+const BeaconBlobSidecarResponseSchema = z.object({
+  data: z.array(
+    z.object({
+      blob: z.string(),
+      kzg_commitment: z.string(),
+    }),
+  ),
+});
+
+function parseBlobJsonsFromResponse(response: unknown, logger: Logger): BlobJson[] {
   try {
-    return await Promise.all((response.data as string[]).map(parseBlobJson));
+    const parsed = BeaconBlobSidecarResponseSchema.parse(response);
+    return parsed.data.map(sidecar => ({
+      blob: sidecar.blob,
+      // eslint-disable-next-line camelcase
+      kzg_commitment: sidecar.kzg_commitment,
+    }));
   } catch (err) {
-    logger.error(`Error parsing blob json from response`, err);
+    logger.error(`Error parsing blob sidecar response`, err);
     return [];
   }
-}
-
-// Blobs will be in this form when requested from the blob client, or from the beacon chain via `getBlobSidecars`:
-// https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/getBlobSidecars
-// Here we attempt to parse the response data to Buffer, and check the lengths (via Blob's constructor), to avoid
-// throwing an error down the line when calling Blob.fromJson().
-async function parseBlobJson(rawHex: string): Promise<BlobJson> {
-  const blobBuffer = Buffer.from(rawHex.slice(2), 'hex');
-  const blob = await Blob.fromBlobBuffer(blobBuffer);
-  return blob.toJSON();
 }
 
 // Returns an array that maps each blob hash to the corresponding blob, or undefined if the blob is not found
