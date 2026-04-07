@@ -9,7 +9,7 @@ import Image from "@theme/IdealImage";
 
 In this guide, we will retrieving the local network and deploy a pre-written token contract to it using Aztec.js. [Check out the source code](https://github.com/AztecProtocol/aztec-packages/blob/master/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr). We will then use Aztec.js to interact with this contract and transfer tokens.
 
-Before starting, make sure to be running Aztec local network at version latest. Check out [the guide](../../tutorials/local_network.md) for info about that.
+Before starting, make sure to be running Aztec local network at version 4.1.3. Check out [the quickstart guide](../../../getting_started_on_local_network.md) for info about that.
 
 ## Set up the project
 
@@ -36,7 +36,7 @@ Never heard of `tsx`? Well, it will just run `typescript` with reasonable defaul
 Let's also import the Aztec dependencies for this tutorial:
 
 ```sh
-yarn add @aztec/aztec.js@latest @aztec/accounts@latest @aztec/noir-contracts.js@latest @aztec/wallets@latest
+yarn add @aztec/aztec.js@4.1.3 @aztec/accounts@4.1.3 @aztec/noir-contracts.js@4.1.3 @aztec/wallets@4.1.3
 ```
 
 Aztec.js assumes your project is using ESM, so make sure you add `"type": "module"` to `package.json`. You probably also want at least a `start` script. For example:

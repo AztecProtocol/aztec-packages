@@ -15,7 +15,7 @@ This guide shows you how to create and deploy a new account on Aztec.
 ## Install dependencies
 
 ```bash
-yarn add @aztec/aztec.js@latest @aztec/wallets@latest
+yarn add @aztec/aztec.js@4.1.3 @aztec/wallets@4.1.3
 ```
 
 ## Create a new account
