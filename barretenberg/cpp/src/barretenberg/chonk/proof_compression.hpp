@@ -376,7 +376,7 @@ class ProofCompressor {
         2 * JOINT_LOG_N * BN254_FRS_PER_SCALAR +                                                                   // round univariate evals
         // Minicircuit evaluations (sent once at round LOG_MINI_CIRCUIT_SIZE - 1)
         TranslatorFlavor::NUM_MINICIRCUIT_EVALUATIONS * BN254_FRS_PER_SCALAR +                                     // minicircuit evals
-        // MegaZK evaluations (sent after real rounds)
+        // MegaZK evaluations (sent after all sumcheck rounds)
         MegaZKFlavor::NUM_ALL_ENTITIES * BN254_FRS_PER_SCALAR +                                                    // mega_zk evals
         // Translator evaluations (sent after all rounds)
         TranslatorFlavor::NUM_FULL_CIRCUIT_EVALUATIONS * BN254_FRS_PER_SCALAR +                                    // translator evals

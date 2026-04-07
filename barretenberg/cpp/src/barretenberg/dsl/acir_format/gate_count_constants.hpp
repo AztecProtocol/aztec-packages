@@ -100,7 +100,7 @@ constexpr std::tuple<size_t, size_t> HONK_RECURSION_CONSTANTS(
         if (mode != PredicateTestCase::ConstantTrue) {
             bb::assert_failure("Unhandled mode in MegaZKRecursiveFlavor.");
         }
-        return std::make_tuple(781933, 0);
+        return std::make_tuple(781610, 0);
     } else {
         bb::assert_failure("Unhandled recursive flavor.");
     }
@@ -147,7 +147,7 @@ inline constexpr size_t HIDING_KERNEL_ULTRA_OPS = 127;
 // ========================================
 
 // Gate count for ECCVM recursive verifier (Ultra-arithmetized)
-inline constexpr size_t ECCVM_RECURSIVE_VERIFIER_GATE_COUNT = 225236;
+inline constexpr size_t ECCVM_RECURSIVE_VERIFIER_GATE_COUNT = 221529;
 
 // ========================================
 // Goblin AVM Recursive Verifier Constants

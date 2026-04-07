@@ -334,8 +334,10 @@ TEST(SumcheckRound, ComputeEffectiveRoundSizeZK)
     }
 
     size_t effective_size = round.compute_effective_round_size(prover_polynomials);
-    // In round 0, excluded_head_size = 4 (2 edge pairs of disabled rows)
-    EXPECT_EQ(effective_size, round_size - 4);
+    // compute_effective_round_size returns the extent of non-zero polynomial data (capped at round_size).
+    // The excluded_head_size is applied separately in compute_univariate, not here.
+    // Since all polynomials span the full round_size, effective_size == round_size.
+    EXPECT_EQ(effective_size, round_size);
 }
 
 /**

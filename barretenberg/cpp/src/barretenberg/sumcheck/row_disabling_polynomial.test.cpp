@@ -91,25 +91,22 @@ TEST(RowDisablingPolynomial, MasksRandomPaddingRows)
     const size_t virtual_log_n = multivariate_d; // No padding rounds
     const size_t NUM_POLYNOMIALS = Flavor::NUM_ALL_ENTITIES;
 
-    // Setup: Create polynomials following the pattern from existing ZK tests
-    // Valid relations in first few rows, random values in last 4 rows (indices 4-7)
-
-    // Start with the same non-trivial circuit as existing tests
-    std::array<FF, multivariate_n> w_l = { 0, 1, 2, 0, 0, 0, 0, 0 };
-    std::array<FF, multivariate_n> w_r = { 0, 1, 2, 0, 0, 0, 0, 0 };
-    std::array<FF, multivariate_n> w_o = { 0, 2, 4, 0, 0, 0, 0, 0 };
+    // Setup: Valid relations at rows 4+ (after disabled region), random junk at rows 0-3.
+    // With top-of-trace masking, the first 4 rows are disabled by the row-disabling polynomial.
+    std::array<FF, multivariate_n> w_l = { 0, 0, 0, 0, 1, 2, 0, 0 };
+    std::array<FF, multivariate_n> w_r = { 0, 0, 0, 0, 1, 2, 0, 0 };
+    std::array<FF, multivariate_n> w_o = { 0, 0, 0, 0, 2, 4, 0, 0 };
     std::array<FF, multivariate_n> w_4 = { 0, 0, 0, 0, 0, 0, 0, 0 };
-    std::array<FF, multivariate_n> q_m = { 0, 0, 1, 0, 0, 0, 0, 0 };
-    std::array<FF, multivariate_n> q_l = { 0, 1, 0, 0, 0, 0, 0, 0 };
-    std::array<FF, multivariate_n> q_r = { 0, 1, 0, 0, 0, 0, 0, 0 };
-    std::array<FF, multivariate_n> q_o = { 0, -1, -1, 0, 0, 0, 0, 0 };
+    std::array<FF, multivariate_n> q_m = { 0, 0, 0, 0, 0, 1, 0, 0 };
+    std::array<FF, multivariate_n> q_l = { 0, 0, 0, 0, 1, 0, 0, 0 };
+    std::array<FF, multivariate_n> q_r = { 0, 0, 0, 0, 1, 0, 0, 0 };
+    std::array<FF, multivariate_n> q_o = { 0, 0, 0, 0, -1, -1, 0, 0 };
     std::array<FF, multivariate_n> q_c = { 0, 0, 0, 0, 0, 0, 0, 0 };
-    std::array<FF, multivariate_n> q_arith = { 0, 1, 1, 0, 0, 0, 0, 0 };
+    std::array<FF, multivariate_n> q_arith = { 0, 0, 0, 0, 1, 1, 0, 0 };
 
-    // Critical: Add RANDOM values to the last 4 rows (indices 4-7)
-    // These would normally break sumcheck, but RowDisablingPolynomial disable their contribution
-
-    for (size_t i = 4; i < multivariate_n; i++) {
+    // Critical: Add RANDOM values to the first 4 rows (indices 0-3, the disabled region).
+    // These would normally break sumcheck, but RowDisablingPolynomial disables their contribution.
+    for (size_t i = 0; i < NUM_DISABLED_ROWS_IN_SUMCHECK; i++) {
         w_l[i] = FF::random_element();
         w_r[i] = FF::random_element();
         w_o[i] = FF::random_element();
@@ -222,12 +219,12 @@ TEST(RowDisablingPolynomial, ComputeDisabledContribution)
     const size_t NUM_POLYNOMIALS = Flavor::NUM_ALL_ENTITIES;
     const size_t NUM_DISABLED_ROWS = 4;
 
-    // Create simple test polynomials with known values in the last 4 rows
+    // Create simple test polynomials with known values in the first 4 rows (disabled region)
     std::vector<bb::Polynomial<FF>> test_polynomials(NUM_POLYNOMIALS);
     for (auto& poly : test_polynomials) {
         poly = bb::Polynomial<FF>(multivariate_n);
-        // Set specific values in the disabled rows (12-15) for easier verification
-        for (size_t i = multivariate_n - NUM_DISABLED_ROWS; i < multivariate_n; i++) {
+        // Set specific values in the disabled rows (0-3) for easier verification
+        for (size_t i = 0; i < NUM_DISABLED_ROWS; i++) {
             poly.at(i) = FF(i + 1); // Non-zero, predictable values
         }
     }
@@ -261,16 +258,16 @@ TEST(RowDisablingPolynomial, ComputeDisabledContribution)
 
         // Update row disabling polynomial after round 0 with challenge u_0
         row_disabling_polynomial.update_evaluations(u_0, 0);
-        // At this point (round_idx=0), eval_at_0 and eval_at_1 should still be 1
+        // After round 0: no change to eval_at_0 or eval_at_1 (rounds 0,1 don't accumulate products)
         EXPECT_EQ(row_disabling_polynomial.eval_at_0, FF(1));
         EXPECT_EQ(row_disabling_polynomial.eval_at_1, FF(1));
 
         // Now update for round 1
         FF u_1 = FF::random_element();
         row_disabling_polynomial.update_evaluations(u_1, 1);
-        // After round 1, eval_at_0 should be 0
-        EXPECT_EQ(row_disabling_polynomial.eval_at_0, FF(0));
-        EXPECT_EQ(row_disabling_polynomial.eval_at_1, FF(1));
+        // After round 1: eval_at_1 becomes 0 (L collapses to a single edge pair)
+        EXPECT_EQ(row_disabling_polynomial.eval_at_0, FF(1));
+        EXPECT_EQ(row_disabling_polynomial.eval_at_1, FF(0));
     }
 
     // Test that row disabling factor equals X_2 × X_3 × ... × X_{d-1}
@@ -283,28 +280,22 @@ TEST(RowDisablingPolynomial, ComputeDisabledContribution)
         // Compute using the optimized method
         FF eval = RowDisablingPolynomial<FF>::evaluate_at_challenge(challenges, multivariate_d);
 
-        // Manually compute: should be (1 - X_0*X_1 - (1-X_0)*X_1 - X_0*(1-X_1) - (1-X_0)*(1-X_1)) * X_2 * ... * X_{d-1}
-        // Which simplifies to: (1 - X_1 - (1-X_1)) * X_2 * ... * X_{d-1} = 0 * X_2 * ... = 0?
-        // Wait, let me reconsider...
-
-        // L_{n-1} + L_{n-2} + L_{n-3} + L_{n-4} where:
-        // L_{n-1} = X_0 * X_1 * X_2 * ... * X_{d-1}
-        // L_{n-2} = (1-X_0) * X_1 * X_2 * ... * X_{d-1}
-        // L_{n-3} = X_0 * (1-X_1) * X_2 * ... * X_{d-1}
-        // L_{n-4} = (1-X_0) * (1-X_1) * X_2 * ... * X_{d-1}
-        // Sum = X_2 * ... * X_{d-1} * [X_0*X_1 + (1-X_0)*X_1 + X_0*(1-X_1) + (1-X_0)*(1-X_1)]
-        //     = X_2 * ... * X_{d-1} * [X_1 + (1-X_1)] = X_2 * ... * X_{d-1}
+        // With top-of-trace masking, the disabled rows are 0,1,2,3. Their Lagrange polys are:
+        // L_0 = (1-X_0)(1-X_1)(1-X_2)...(1-X_{d-1})
+        // L_1 = X_0(1-X_1)(1-X_2)...(1-X_{d-1})
+        // L_2 = (1-X_0)X_1(1-X_2)...(1-X_{d-1})
+        // L_3 = X_0 X_1(1-X_2)...(1-X_{d-1})
+        // Sum = (1-X_2)...(1-X_{d-1}) * [(1-X_0)(1-X_1) + X_0(1-X_1) + (1-X_0)X_1 + X_0 X_1]
+        //     = ∏_{i≥2}(1-X_i)
 
         FF expected_sum_lagranges = FF(1);
         for (size_t i = 2; i < multivariate_d; i++) {
-            expected_sum_lagranges *= challenges[i];
+            expected_sum_lagranges *= (FF(1) - challenges[i]);
         }
 
         FF expected_eval = FF(1) - expected_sum_lagranges;
 
-        EXPECT_EQ(eval, expected_eval) << "Row disabling polynomial should equal (1 - X_2 * X_3 * ... * X_{d-1})";
-
-        info("Verified: L_{n-1} + L_{n-2} + L_{n-3} + L_{n-4} = X_2 × X_3 × ... × X_{d-1}");
+        EXPECT_EQ(eval, expected_eval) << "Row disabling polynomial should equal 1 - ∏_{i≥2}(1 - X_i)";
     }
 }
 

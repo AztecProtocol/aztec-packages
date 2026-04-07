@@ -120,7 +120,8 @@ std::vector<typename GeminiProver_<Curve>::Polynomial> GeminiProver_<Curve>::com
 
     // Track the actual data extent through fold rounds. Only non-zero coefficients need folding;
     // beyond this extent, all values are zero and contribute nothing.
-    size_t actual_size = A_0.end_index();
+    // At minimum, the disabled head region must be covered (masking values live at rows 1..3).
+    size_t actual_size = std::max(A_0.end_index(), static_cast<size_t>(NUM_DISABLED_ROWS_IN_SUMCHECK));
 
     // Reserve and allocate space for m-1 Fold polynomials, the foldings of the full batched polynomial A₀
     std::vector<Polynomial> fold_polynomials;

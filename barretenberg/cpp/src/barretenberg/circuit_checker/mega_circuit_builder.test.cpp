@@ -230,8 +230,8 @@ TEST(MegaCircuitBuilder, EccOpBlockIsFirstInTrace)
     builder.finalize_circuit(true);
     builder.blocks.compute_offsets();
 
-    // Verify ecc_op block starts at offset 1 (after zero row)
-    EXPECT_EQ(builder.blocks.ecc_op.trace_offset(), 1);
+    // Verify ecc_op block starts at offset NUM_DISABLED_ROWS_IN_SUMCHECK + 1 (disabled rows + zero row)
+    EXPECT_EQ(builder.blocks.ecc_op.trace_offset(), NUM_DISABLED_ROWS_IN_SUMCHECK + 1);
 
     // Verify no other non-empty block starts before ecc_op ends
     size_t ecc_op_end = builder.blocks.ecc_op.trace_offset() + builder.blocks.ecc_op.size();
