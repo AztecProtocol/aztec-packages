@@ -54,6 +54,7 @@ class BoomerangGoblinAvmRecursiveVerifierTests : public testing::Test {
         MockCircuits::construct_arithmetic_circuit(inner_builder);
 
         // Merge the ecc ops from the newly constructed circuit
+        op_queue->merge();
         auto goblin_proof = goblin.prove();
 
         // Subtable values and commitments - needed for (Recursive)MergeVerifier
