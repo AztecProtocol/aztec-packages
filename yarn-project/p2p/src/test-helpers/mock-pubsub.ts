@@ -100,6 +100,7 @@ class MockReqResp implements ReqRespInterface {
   }
 
   updateConfig(_config: Partial<P2PReqRespConfig>): void {}
+  setPeerAuthChecker(): void {}
 
   start(
     subProtocolHandlers: Partial<ReqRespSubProtocolHandlers>,

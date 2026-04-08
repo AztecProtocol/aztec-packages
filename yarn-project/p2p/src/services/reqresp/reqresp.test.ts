@@ -403,6 +403,63 @@ describe('ReqResp', () => {
     });
   });
 
+  describe('Authentication gating', () => {
+    it('should reject unauthenticated peers on gated protocols', async () => {
+      nodes = await createNodes(peerScoring, 2);
+
+      await startNodes(nodes);
+      await sleep(500);
+      await connectToPeers(nodes);
+      await sleep(500);
+
+      // Set up auth checker that rejects all peers (simulates p2pAllowOnlyValidators=true with no authenticated peers)
+      nodes[1].req.setPeerAuthChecker(() => true);
+
+      // TX is a gated protocol — should be rejected
+      const txResp = await nodes[0].req.sendRequestToPeer(
+        nodes[1].p2p.peerId,
+        ReqRespSubProtocol.TX,
+        Buffer.from('request'),
+      );
+      expect(txResp.status).toEqual(ReqRespStatus.FAILURE);
+
+      // PING is an allowed protocol — should succeed
+      const pingResp = await nodes[0].req.sendRequestToPeer(nodes[1].p2p.peerId, ReqRespSubProtocol.PING, PING_REQUEST);
+      expectSuccess(pingResp);
+      expect(pingResp.data.toString('utf-8')).toEqual('pong');
+    });
+
+    it('should allow authenticated peers on gated protocols', async () => {
+      nodes = await createNodes(peerScoring, 2);
+
+      await startNodes(nodes);
+      await sleep(500);
+      await connectToPeers(nodes);
+      await sleep(500);
+
+      // Set up auth checker that allows all peers (simulates authenticated validator)
+      nodes[1].req.setPeerAuthChecker(() => false);
+
+      const pingResp = await nodes[0].req.sendRequestToPeer(nodes[1].p2p.peerId, ReqRespSubProtocol.PING, PING_REQUEST);
+      expectSuccess(pingResp);
+      expect(pingResp.data.toString('utf-8')).toEqual('pong');
+    });
+
+    it('should allow all protocols when no auth checker is set', async () => {
+      nodes = await createNodes(peerScoring, 2);
+
+      await startNodes(nodes);
+      await sleep(500);
+      await connectToPeers(nodes);
+      await sleep(500);
+
+      // No setPeerAuthChecker called — all protocols should work
+      const pingResp = await nodes[0].req.sendRequestToPeer(nodes[1].p2p.peerId, ReqRespSubProtocol.PING, PING_REQUEST);
+      expectSuccess(pingResp);
+      expect(pingResp.data.toString('utf-8')).toEqual('pong');
+    });
+  });
+
   describe('Batch requests', () => {
     it('should send a batch request between many peers', async () => {
       const batchSize = 9;

@@ -27,6 +27,7 @@ import { BatchConnectionSampler } from './connection-sampler/batch_connection_sa
 import { ConnectionSampler, RandomSampler } from './connection-sampler/connection_sampler.js';
 import {
   DEFAULT_SUB_PROTOCOL_VALIDATORS,
+  type PeerAuthChecker,
   type ReqRespInterface,
   type ReqRespResponse,
   ReqRespSubProtocol,
@@ -35,6 +36,7 @@ import {
   type ReqRespSubProtocolRateLimits,
   type ReqRespSubProtocolValidators,
   type SubProtocolMap,
+  UNAUTHENTICATED_ALLOWED_PROTOCOLS,
   responseFromBuffer,
   subProtocolSizeCalculators,
 } from './interface.js';
@@ -72,6 +74,8 @@ export class ReqResp implements ReqRespInterface {
 
   private snappyTransform: SnappyTransform;
 
+  private peerAuthChecker: PeerAuthChecker | undefined;
+
   private metrics: ReqRespMetrics;
 
   constructor(
@@ -106,6 +110,10 @@ export class ReqResp implements ReqRespInterface {
     if (typeof config.dialTimeoutMs === 'number') {
       this.dialTimeoutMs = config.dialTimeoutMs;
     }
+  }
+
+  public setPeerAuthChecker(checker: PeerAuthChecker): void {
+    this.peerAuthChecker = checker;
   }
 
   get tracer() {
@@ -594,6 +602,15 @@ export class ReqResp implements ReqRespInterface {
         );
 
         throw new ReqRespStatusError(ReqRespStatus.RATE_LIMIT_EXCEEDED);
+      }
+
+      // When p2pAllowOnlyValidators is enabled, reject unauthenticated peers on data protocols
+      if (
+        !UNAUTHENTICATED_ALLOWED_PROTOCOLS.has(protocol) &&
+        this.peerAuthChecker?.(connection.remotePeer.toString())
+      ) {
+        this.logger.debug(`Rejecting unauthenticated peer ${connection.remotePeer} on gated protocol ${protocol}`);
+        throw new ReqRespStatusError(ReqRespStatus.FAILURE);
       }
 
       await this.processStream(protocol, incomingStream);

@@ -100,6 +100,24 @@ export type ReqRespSubProtocolValidators = {
   [S in ReqRespSubProtocol]: ResponseValidator<any, any>;
 };
 
+/**
+ * Protocols that are always allowed without authentication, even when p2pAllowOnlyValidators is enabled.
+ * These are needed for the handshake and connection management flow.
+ * All other protocols require the remote peer to be authenticated.
+ */
+export const UNAUTHENTICATED_ALLOWED_PROTOCOLS: ReadonlySet<ReqRespSubProtocol> = new Set([
+  ReqRespSubProtocol.PING,
+  ReqRespSubProtocol.STATUS,
+  ReqRespSubProtocol.AUTH,
+  ReqRespSubProtocol.GOODBYE,
+]);
+
+/**
+ * Callback that checks whether a peer should be rejected from req/resp data protocols.
+ * Returns true if the peer should be rejected (i.e. p2pAllowOnlyValidators is on and peer is unauthenticated).
+ */
+export type PeerAuthChecker = (peerId: string) => boolean;
+
 export const DEFAULT_SUB_PROTOCOL_VALIDATORS: ReqRespSubProtocolValidators = {
   [ReqRespSubProtocol.PING]: noopValidator,
   [ReqRespSubProtocol.STATUS]: noopValidator,
@@ -263,6 +281,9 @@ export interface ReqRespInterface {
   ): Promise<ReqRespResponse>;
 
   updateConfig(config: Partial<P2PReqRespConfig>): void;
+
+  /** Sets the callback used to reject unauthenticated peers on gated req/resp protocols. */
+  setPeerAuthChecker(checker: PeerAuthChecker): void;
 
   getConnectionSampler(): Pick<ConnectionSampler, 'getPeerListSortedByConnectionCountAsc'>;
 }
