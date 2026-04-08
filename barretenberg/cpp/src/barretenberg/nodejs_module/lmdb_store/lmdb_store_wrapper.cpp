@@ -35,7 +35,12 @@ LMDBStoreWrapper::LMDBStoreWrapper(const Napi::CallbackInfo& info)
     uint64_t map_size = DEFAULT_MAP_SIZE;
     if (info.Length() > map_size_index) {
         if (info[map_size_index].IsNumber()) {
-            map_size = info[map_size_index].As<Napi::Number>().Uint32Value();
+            // Int64Value is the widest integer accessor in N-API (no Uint64Value exists)
+            int64_t val = info[map_size_index].As<Napi::Number>().Int64Value();
+            if (val <= 0) {
+                throw Napi::TypeError::New(env, "Map size must be a positive number");
+            }
+            map_size = static_cast<uint64_t>(val);
         } else {
             throw Napi::TypeError::New(env, "Map size must be a number or an object");
         }
