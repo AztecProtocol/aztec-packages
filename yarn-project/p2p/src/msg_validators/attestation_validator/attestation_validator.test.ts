@@ -18,7 +18,11 @@ describe('CheckpointAttestationValidator', () => {
 
   beforeEach(() => {
     epochCache = mock<EpochCacheInterface>();
-    validator = new CheckpointAttestationValidator(epochCache);
+    epochCache.getL1Constants.mockReturnValue({
+      slotDuration: 72,
+      ethereumSlotDuration: 12,
+    } as any);
+    validator = new CheckpointAttestationValidator(epochCache, { l1PublishingTime: 12 });
     proposer = Secp256k1Signer.random();
     attester = Secp256k1Signer.random();
   });
@@ -74,8 +78,8 @@ describe('CheckpointAttestationValidator', () => {
     expect(result).toEqual({ result: 'ignore' });
   });
 
-  it('accepts attestation for current slot within pipelining grace period', async () => {
-    // Proposal is for slot 98 (current wallclock slot), but targetSlot is 99 (pipelining)
+  it('accepts attestation for current slot until the target-slot publish cutoff', async () => {
+    // Attestation is for slot 98 (current wallclock slot), but targetSlot is 99 (pipelining).
     const header = CheckpointHeader.random({ slotNumber: SlotNumber(98) });
     const mockAttestation = makeCheckpointAttestation({
       header,
@@ -90,15 +94,16 @@ describe('CheckpointAttestationValidator', () => {
     epochCache.getSlotNow.mockReturnValue(SlotNumber(98));
     epochCache.isProposerPipeliningEnabled.mockReturnValue(true);
     epochCache.getL1Constants.mockReturnValue({
+      slotDuration: 72,
       ethereumSlotDuration: 12,
     } as any);
 
-    // Within grace period: 1000ms elapsed < 6000ms
+    // Within attestation window: 59000ms elapsed < (slotDuration - l1PublishingTime) * 1000 = 60000ms
     epochCache.getEpochAndSlotNow.mockReturnValue({
       epoch: EpochNumber(1),
       slot: SlotNumber(98),
       ts: 1000n,
-      nowMs: 1001000n, // 1000ms elapsed
+      nowMs: 1059000n, // 59000ms elapsed
     });
     epochCache.isInCommittee.mockResolvedValue(true);
     epochCache.getProposerAttesterAddressInSlot.mockResolvedValue(proposer.address);
@@ -107,9 +112,9 @@ describe('CheckpointAttestationValidator', () => {
     expect(result).toEqual({ result: 'accept' });
   });
 
-  it('rejects attestation for current slot outside pipelining grace period', async () => {
-    // Proposal is for slot 97 (one behind current wallclock slot 98), targetSlot is 99 (pipelining)
-    const header = CheckpointHeader.random({ slotNumber: SlotNumber(97) });
+  it('rejects attestation for current slot after the target-slot publish cutoff', async () => {
+    // Attestation is for slot 98 (one behind target slot 99), after the publish cutoff.
+    const header = CheckpointHeader.random({ slotNumber: SlotNumber(98) });
     const mockAttestation = makeCheckpointAttestation({
       header,
       attesterSigner: attester,
@@ -124,15 +129,16 @@ describe('CheckpointAttestationValidator', () => {
     epochCache.getSlotNow.mockReturnValue(SlotNumber(98));
     epochCache.isProposerPipeliningEnabled.mockReturnValue(true);
     epochCache.getL1Constants.mockReturnValue({
+      slotDuration: 72,
       ethereumSlotDuration: 12,
     } as any);
 
-    // Outside grace period AND outside clock tolerance: 7000ms elapsed
+    // Outside attestation window AND outside clock tolerance: 61000ms elapsed > 60000ms cutoff
     epochCache.getEpochAndSlotNow.mockReturnValue({
       epoch: EpochNumber(1),
       slot: SlotNumber(99),
       ts: 1000n,
-      nowMs: 1007000n, // 7000ms elapsed
+      nowMs: 1061000n, // 61000ms elapsed
     });
     epochCache.isInCommittee.mockResolvedValue(true);
 

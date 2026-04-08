@@ -1,6 +1,6 @@
 import type { EpochCacheInterface } from '@aztec/epoch-cache';
 import { SlotNumber } from '@aztec/foundation/branded-types';
-import { DEFAULT_P2P_PROPAGATION_TIME } from '@aztec/stdlib/timetable';
+import { CheckpointTimingModel, DEFAULT_P2P_PROPAGATION_TIME } from '@aztec/stdlib/timetable';
 
 /**
  * Maximum clock disparity tolerance for P2P message validation (in milliseconds).
@@ -64,7 +64,11 @@ export function isWithinClockTolerance(
  * @param epochCache - EpochCache to get timing and pipelining state
  * @returns true if pipelining is enabled, the message is for the current slot, and we're within the grace period
  */
-export function isWithinPipeliningGracePeriod(messageSlot: SlotNumber, epochCache: EpochCacheInterface): boolean {
+function isWithinPipeliningWindow(
+  messageSlot: SlotNumber,
+  epochCache: EpochCacheInterface,
+  windowSeconds: number,
+): boolean {
   if (!epochCache.isProposerPipeliningEnabled()) {
     return false;
   }
@@ -77,7 +81,39 @@ export function isWithinPipeliningGracePeriod(messageSlot: SlotNumber, epochCach
   const { ts: slotStartTs, nowMs } = epochCache.getEpochAndSlotNow();
   const slotStartMs = slotStartTs * 1000n;
   const elapsedMs = Number(nowMs - slotStartMs);
-  const gracePeriodMs = DEFAULT_P2P_PROPAGATION_TIME * 1000;
+  const windowMs = windowSeconds * 1000;
 
-  return elapsedMs < gracePeriodMs;
+  return elapsedMs < windowMs;
+}
+
+export class PipeliningWindow {
+  private readonly proposalWindowIntoTargetSlot: number;
+  private readonly attestationWindowIntoTargetSlot: number;
+
+  constructor(
+    private readonly epochCache: EpochCacheInterface,
+    opts: {
+      p2pPropagationTime?: number;
+      l1PublishingTime?: number;
+    } = {},
+  ) {
+    const l1Constants = epochCache.getL1Constants();
+    const checkpointTiming = new CheckpointTimingModel({
+      aztecSlotDuration: l1Constants.slotDuration,
+      l1PublishingTime: opts.l1PublishingTime ?? l1Constants.ethereumSlotDuration,
+      p2pPropagationTime: opts.p2pPropagationTime ?? DEFAULT_P2P_PROPAGATION_TIME,
+      pipelining: true,
+    });
+
+    this.proposalWindowIntoTargetSlot = checkpointTiming.pipelinedProposalWindowIntoTargetSlot;
+    this.attestationWindowIntoTargetSlot = checkpointTiming.pipelinedAttestationWindowIntoTargetSlot;
+  }
+
+  public acceptsProposal(messageSlot: SlotNumber): boolean {
+    return isWithinPipeliningWindow(messageSlot, this.epochCache, this.proposalWindowIntoTargetSlot);
+  }
+
+  public acceptsAttestation(messageSlot: SlotNumber): boolean {
+    return isWithinPipeliningWindow(messageSlot, this.epochCache, this.attestationWindowIntoTargetSlot);
+  }
 }

@@ -8,14 +8,21 @@ import {
   type ValidationResult,
 } from '@aztec/stdlib/p2p';
 
-import { isWithinClockTolerance, isWithinPipeliningGracePeriod } from '../clock_tolerance.js';
+import { PipeliningWindow, isWithinClockTolerance } from '../clock_tolerance.js';
 
 export class CheckpointAttestationValidator implements P2PValidator<CheckpointAttestation> {
   protected epochCache: EpochCacheInterface;
   protected logger: Logger;
+  private readonly pipeliningWindow: PipeliningWindow;
 
-  constructor(epochCache: EpochCacheInterface) {
+  constructor(
+    epochCache: EpochCacheInterface,
+    opts: {
+      l1PublishingTime?: number;
+    },
+  ) {
     this.epochCache = epochCache;
+    this.pipeliningWindow = new PipeliningWindow(epochCache, { l1PublishingTime: opts.l1PublishingTime });
     this.logger = createLogger('p2p:checkpoint-attestation-validator');
   }
 
@@ -28,8 +35,8 @@ export class CheckpointAttestationValidator implements P2PValidator<CheckpointAt
 
       if (slotNumber !== targetSlot && slotNumber !== nextSlot) {
         // When pipelining, accept attestations for the current slot (built in the previous slot)
-        // if we're within the grace period of the next slot.
-        if (isWithinPipeliningGracePeriod(slotNumber, this.epochCache)) {
+        // until the target slot reaches its L1 publish cutoff.
+        if (this.pipeliningWindow.acceptsAttestation(slotNumber)) {
           // Fall through to remaining validation (signature, committee, etc.)
         } else if (!isWithinClockTolerance(slotNumber, targetSlot, this.epochCache)) {
           this.logger.warn(

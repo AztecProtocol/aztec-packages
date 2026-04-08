@@ -2,6 +2,7 @@ import type { Logger } from '@aztec/foundation/log';
 import {
   CHECKPOINT_ASSEMBLE_TIME,
   CHECKPOINT_INITIALIZATION_TIME,
+  CheckpointTimingModel,
   DEFAULT_P2P_PROPAGATION_TIME,
   MIN_EXECUTION_TIME,
 } from '@aztec/stdlib/timetable';
@@ -11,6 +12,8 @@ import type { SequencerMetrics } from './metrics.js';
 import { SequencerState } from './utils.js';
 
 export class SequencerTimetable {
+  private readonly checkpointTiming: CheckpointTimingModel;
+
   /**
    * How late into the slot can we be to start working. Computed as the total time needed for assembling and publishing a block,
    * assuming an execution time equal to `minExecutionTime`, subtracted from the slot duration. This means that, if the proposer
@@ -113,44 +116,24 @@ export class SequencerTimetable {
       this.minExecutionTime = this.blockDuration;
     }
 
+    this.checkpointTiming = new CheckpointTimingModel({
+      aztecSlotDuration: this.aztecSlotDuration,
+      blockDuration: this.blockDuration,
+      checkpointAssembleTime: this.checkpointAssembleTime,
+      checkpointInitializationTime: this.checkpointInitializationTime,
+      l1PublishingTime: this.l1PublishingTime,
+      minExecutionTime: this.minExecutionTime,
+      p2pPropagationTime: this.p2pPropagationTime,
+      pipelining: this.pipelining,
+    });
+
     // Calculate initialization offset - estimate of time needed for sync + proposer check
     // This is the baseline for all sub-slot deadlines
-    this.initializationOffset = this.checkpointInitializationTime;
-
-    // Calculate total checkpoint finalization time (assembly + attestations + L1 publishing)
-    this.checkpointFinalizationTime =
-      this.checkpointAssembleTime +
-      this.p2pPropagationTime * 2 + // Round-trip propagation
-      this.l1PublishingTime; // L1 publishing
-
-    // Grace period for attestation collection into the target slot when pipelining
-    this.pipeliningAttestationGracePeriod = (this.blockDuration ?? 0) + this.p2pPropagationTime;
-
-    // Calculate maximum number of blocks that fit in this slot
-    if (!this.blockDuration) {
-      this.maxNumberOfBlocks = 1; // Single block per slot
-    } else {
-      let timeReservedAtEnd: number;
-      if (this.pipelining) {
-        // Proposal must reach validators within build slot: assembly + one-way broadcast
-        timeReservedAtEnd = this.checkpointAssembleTime + this.p2pPropagationTime;
-      } else {
-        timeReservedAtEnd = this.blockDuration + this.checkpointFinalizationTime;
-      }
-
-      const timeAvailableForBlocks = this.aztecSlotDuration - this.initializationOffset - timeReservedAtEnd;
-      this.maxNumberOfBlocks = Math.floor(timeAvailableForBlocks / this.blockDuration);
-    }
-
-    // Minimum work to do within a slot for building a block with the minimum time for execution and publishing its checkpoint.
-    // When pipelining, finalization is deferred, but we still need time for execution and validator re-execution.
-    let minWorkToDo = this.initializationOffset + this.minExecutionTime * 2;
-    if (!this.pipelining) {
-      minWorkToDo += this.checkpointFinalizationTime;
-    }
-
-    const initializeDeadline = this.aztecSlotDuration - minWorkToDo;
-    this.initializeDeadline = initializeDeadline;
+    this.initializationOffset = this.checkpointTiming.checkpointInitializationTime;
+    this.checkpointFinalizationTime = this.checkpointTiming.checkpointFinalizationTime;
+    this.pipeliningAttestationGracePeriod = this.checkpointTiming.pipeliningAttestationGracePeriod;
+    this.maxNumberOfBlocks = this.checkpointTiming.calculateMaxBlocksPerSlot();
+    this.initializeDeadline = this.checkpointTiming.initializeDeadline;
 
     this.log?.info(
       `Sequencer timetable initialized with ${this.maxNumberOfBlocks} blocks per slot (${this.enforce ? 'enforced' : 'not enforced'})`,
@@ -166,17 +149,33 @@ export class SequencerTimetable {
         enforce: this.enforce,
         pipelining: this.pipelining,
         pipeliningAttestationGracePeriod: this.pipeliningAttestationGracePeriod,
-        minWorkToDo,
+        minWorkToDo: this.checkpointTiming.minimumBuildSlotWork,
         blockDuration: this.blockDuration,
         maxNumberOfBlocks: this.maxNumberOfBlocks,
       },
     );
 
-    if (initializeDeadline <= 0) {
+    if (this.initializeDeadline <= 0) {
       throw new Error(
-        `Block proposal initialize deadline cannot be negative (got ${initializeDeadline} from total time needed ${minWorkToDo} and a slot duration of ${this.aztecSlotDuration}).`,
+        `Block proposal initialize deadline cannot be negative (got ${this.initializeDeadline} from total time needed ${this.checkpointTiming.minimumBuildSlotWork} and a slot duration of ${this.aztecSlotDuration}).`,
       );
     }
+  }
+
+  public getCheckpointAssemblyDeadline(): number {
+    return this.checkpointTiming.checkpointAssemblyDeadline;
+  }
+
+  public getCheckpointAttestationDeadline(): number {
+    return this.checkpointTiming.checkpointAttestationDeadline;
+  }
+
+  public getCheckpointAttestationStartDeadline(): number {
+    return this.checkpointTiming.checkpointAttestationStartDeadline;
+  }
+
+  public getCheckpointPublishingDeadline(): number {
+    return this.checkpointTiming.checkpointPublishingDeadline;
   }
 
   public getMaxAllowedTime(
@@ -201,18 +200,11 @@ export class SequencerTimetable {
       case SequencerState.WAITING_UNTIL_NEXT_BLOCK:
         return this.initializeDeadline + this.checkpointInitializationTime;
       case SequencerState.ASSEMBLING_CHECKPOINT:
+        return this.getCheckpointAssemblyDeadline();
       case SequencerState.COLLECTING_ATTESTATIONS:
-        if (this.pipelining) {
-          // Assembly + attestation collection extend into target slot
-          return this.aztecSlotDuration + this.pipeliningAttestationGracePeriod;
-        }
-        return this.aztecSlotDuration - this.l1PublishingTime - 2 * this.p2pPropagationTime;
+        return this.getCheckpointAttestationStartDeadline();
       case SequencerState.PUBLISHING_CHECKPOINT:
-        if (this.pipelining) {
-          // L1 submission happens in target slot, after attestations
-          return this.aztecSlotDuration + this.pipeliningAttestationGracePeriod;
-        }
-        return this.aztecSlotDuration - this.l1PublishingTime;
+        return this.getCheckpointPublishingDeadline();
       default: {
         const _exhaustiveCheck: never = state;
         throw new Error(`Unexpected state: ${state}`);

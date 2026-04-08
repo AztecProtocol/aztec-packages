@@ -115,12 +115,13 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     const filteredConfig = pickFromSchema(config, SequencerConfigSchema);
     this.log.info(`Updated sequencer config`, omit(filteredConfig, 'txPublicSetupAllowListExtend'));
     this.config = merge(this.config, filteredConfig);
+    const p2pPropagationTime = this.config.attestationPropagationTime;
     this.timetable = new SequencerTimetable(
       {
         ethereumSlotDuration: this.l1Constants.ethereumSlotDuration,
         aztecSlotDuration: this.aztecSlotDuration,
         l1PublishingTime: this.l1PublishingTime,
-        p2pPropagationTime: this.config.attestationPropagationTime,
+        p2pPropagationTime,
         blockDurationMs: this.config.blockDurationMs,
         enforce: this.config.enforceTimeTable,
         pipelining: this.epochCache.isProposerPipeliningEnabled(),
