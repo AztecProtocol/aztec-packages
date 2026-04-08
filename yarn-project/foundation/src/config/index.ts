@@ -12,7 +12,8 @@ export { NetworkConfigMapSchema, NetworkConfigSchema } from './network_config.js
 
 export interface ConfigMapping<T> {
   env?: EnvVar;
-  parseEnv?: (val: string) => T;
+  /** Parse an env-var string into `T`. May return `undefined` to signal "not set." */
+  parseEnv?: (val: string) => T | undefined;
   defaultValue?: T;
   printDefault?: (val: any) => string;
   description: string;
@@ -31,7 +32,7 @@ export function isBooleanConfigValue<T>(obj: T, key: keyof T): boolean {
 }
 
 export type ConfigMappingsType<T> = {
-  [K in keyof T]-?: ConfigMapping<T[K]>;
+  [K in keyof T]-?: ConfigMapping<Required<T>[K]>;
 };
 
 /**
