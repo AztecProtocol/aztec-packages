@@ -1488,7 +1488,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     return Promise.resolve();
   }
 
-  public async rollbackTo(targetBlock: BlockNumber, force?: boolean): Promise<void> {
+  public async rollbackTo(targetBlock: BlockNumber, force?: boolean, resumeSync = true): Promise<void> {
     const archiver = this.blockSource as Archiver;
     if (!('rollbackTo' in archiver)) {
       throw new Error('Archiver implementation does not support rollbacks.');
@@ -1518,9 +1518,13 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       this.log.error(`Error during rollback`, err);
       throw err;
     } finally {
-      this.log.info(`Resuming world state and archiver sync.`);
-      this.worldStateSynchronizer.resumeSync();
-      archiver.resume();
+      if (resumeSync) {
+        this.log.info(`Resuming world state and archiver sync.`);
+        this.worldStateSynchronizer.resumeSync();
+        archiver.resume();
+      } else {
+        this.log.info(`Sync left paused after rollback (resumeSync=false).`);
+      }
     }
   }
 
