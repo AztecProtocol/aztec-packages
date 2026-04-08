@@ -404,7 +404,7 @@ describe('ReqResp', () => {
   });
 
   describe('Authentication gating', () => {
-    it('should reject unauthenticated peers on gated protocols', async () => {
+    it('should reject unauthenticated peers on all data protocols', async () => {
       nodes = await createNodes(peerScoring, 2);
 
       await startNodes(nodes);
@@ -415,13 +415,11 @@ describe('ReqResp', () => {
       // Set up auth checker that rejects all peers (simulates p2pAllowOnlyValidators=true with no authenticated peers)
       nodes[1].req.setPeerAuthChecker(() => true);
 
-      // TX is a gated protocol — should be rejected
-      const txResp = await nodes[0].req.sendRequestToPeer(
-        nodes[1].p2p.peerId,
-        ReqRespSubProtocol.TX,
-        Buffer.from('request'),
-      );
-      expect(txResp.status).toEqual(ReqRespStatus.FAILURE);
+      // All data protocols should be rejected
+      for (const protocol of [ReqRespSubProtocol.TX, ReqRespSubProtocol.BLOCK, ReqRespSubProtocol.BLOCK_TXS]) {
+        const resp = await nodes[0].req.sendRequestToPeer(nodes[1].p2p.peerId, protocol, Buffer.from('request'));
+        expect(resp.status).toEqual(ReqRespStatus.FAILURE);
+      }
 
       // PING is an allowed protocol — should succeed
       const pingResp = await nodes[0].req.sendRequestToPeer(nodes[1].p2p.peerId, ReqRespSubProtocol.PING, PING_REQUEST);
@@ -429,7 +427,37 @@ describe('ReqResp', () => {
       expect(pingResp.data.toString('utf-8')).toEqual('pong');
     });
 
-    it('should allow authenticated peers on gated protocols', async () => {
+    it('should allow handshake protocols for unauthenticated peers', async () => {
+      nodes = await createNodes(peerScoring, 2);
+
+      await startNodes(nodes);
+      await sleep(500);
+      await connectToPeers(nodes);
+      await sleep(500);
+
+      // Reject all peers on gated protocols
+      nodes[1].req.setPeerAuthChecker(() => true);
+
+      // PING, STATUS, AUTH, GOODBYE should still work
+      const pingResp = await nodes[0].req.sendRequestToPeer(nodes[1].p2p.peerId, ReqRespSubProtocol.PING, PING_REQUEST);
+      expectSuccess(pingResp);
+
+      const statusResp = await nodes[0].req.sendRequestToPeer(
+        nodes[1].p2p.peerId,
+        ReqRespSubProtocol.STATUS,
+        Buffer.from('status'),
+      );
+      expectSuccess(statusResp);
+
+      const authResp = await nodes[0].req.sendRequestToPeer(
+        nodes[1].p2p.peerId,
+        ReqRespSubProtocol.AUTH,
+        Buffer.from('auth'),
+      );
+      expectSuccess(authResp);
+    });
+
+    it('should allow authenticated peers on all protocols', async () => {
       nodes = await createNodes(peerScoring, 2);
 
       await startNodes(nodes);
@@ -440,9 +468,17 @@ describe('ReqResp', () => {
       // Set up auth checker that allows all peers (simulates authenticated validator)
       nodes[1].req.setPeerAuthChecker(() => false);
 
+      // Data protocols should succeed for authenticated peers
       const pingResp = await nodes[0].req.sendRequestToPeer(nodes[1].p2p.peerId, ReqRespSubProtocol.PING, PING_REQUEST);
       expectSuccess(pingResp);
       expect(pingResp.data.toString('utf-8')).toEqual('pong');
+
+      const txResp = await nodes[0].req.sendRequestToPeer(
+        nodes[1].p2p.peerId,
+        ReqRespSubProtocol.TX,
+        Buffer.from('request'),
+      );
+      expectSuccess(txResp);
     });
 
     it('should allow all protocols when no auth checker is set', async () => {
@@ -453,10 +489,17 @@ describe('ReqResp', () => {
       await connectToPeers(nodes);
       await sleep(500);
 
-      // No setPeerAuthChecker called — all protocols should work
+      // No setPeerAuthChecker called — all protocols should work (backwards compatible)
       const pingResp = await nodes[0].req.sendRequestToPeer(nodes[1].p2p.peerId, ReqRespSubProtocol.PING, PING_REQUEST);
       expectSuccess(pingResp);
       expect(pingResp.data.toString('utf-8')).toEqual('pong');
+
+      const txResp = await nodes[0].req.sendRequestToPeer(
+        nodes[1].p2p.peerId,
+        ReqRespSubProtocol.TX,
+        Buffer.from('request'),
+      );
+      expectSuccess(txResp);
     });
   });
 
