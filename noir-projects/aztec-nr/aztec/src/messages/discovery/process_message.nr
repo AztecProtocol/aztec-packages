@@ -102,7 +102,6 @@ pub(crate) unconstrained fn process_message_plaintext<CustomMessageHandlerEnv>(
                 msg_metadata,
                 msg_content,
                 message_context.tx_hash,
-                recipient,
             );
         } else if msg_type_id < MIN_CUSTOM_MSG_TYPE_ID {
             // The message type ID falls in the range reserved for aztec.nr built-in types but wasn't matched above.

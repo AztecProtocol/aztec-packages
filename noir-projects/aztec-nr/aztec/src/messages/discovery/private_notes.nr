@@ -37,7 +37,6 @@ pub(crate) unconstrained fn process_private_note_msg(
             randomness,
             note_type_id,
             packed_note,
-            recipient,
         );
     } else {
         aztecnr_warn_log_format!(
