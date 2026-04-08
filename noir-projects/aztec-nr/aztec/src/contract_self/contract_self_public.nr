@@ -144,7 +144,7 @@ impl<Storage, CallSelf, CallSelfStatic, CallInternal> ContractSelfPublic<Storage
     where
         T: Deserialize,
     {
-        call.call(self.context)
+        call.call(&self.context)
     }
 
     /// Makes a public read-only contract call.
@@ -169,6 +169,6 @@ impl<Storage, CallSelf, CallSelfStatic, CallInternal> ContractSelfPublic<Storage
     where
         T: Deserialize,
     {
-        call.view(self.context)
+        call.view(&self.context)
     }
 }

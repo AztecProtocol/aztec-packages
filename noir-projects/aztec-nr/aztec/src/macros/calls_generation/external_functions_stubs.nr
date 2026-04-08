@@ -188,7 +188,7 @@ pub comptime fn create_public_self_call_stub(f: FunctionDefinition) -> Quoted {
                     selector,
                     $fn_name_str,
                     $serialized_args_array_name,
-                ).call(self.context)
+                ).call(&self.context)
             }
         }
     }
@@ -213,7 +213,7 @@ pub comptime fn create_public_self_call_static_stub(f: FunctionDefinition) -> Qu
                     selector,
                     $fn_name_str,
                     $serialized_args_array_name,
-                ).view(self.context)
+                ).view(&self.context)
             }
         }
     }

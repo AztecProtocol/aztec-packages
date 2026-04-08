@@ -106,7 +106,7 @@ impl<let M: u32, let N: u32, T> PublicCall<M, N, T> {
     ///
     /// Please use the new contract API: `self.call(MyContract::at(address).my_public_function(...args))` instead of
     /// manually constructing and calling `PublicCall`.
-    pub unconstrained fn call(self, context: PublicContext) -> T
+    pub unconstrained fn call(&self, context: &PublicContext) -> T
     where
         T: Deserialize,
     {
@@ -120,7 +120,7 @@ impl<let M: u32, let N: u32, T> PublicCall<M, N, T> {
     ///
     /// Please use the new contract API: `self.enqueue(MyContract::at(address).my_public_function(...args))` instead of
     /// manually constructing and calling `PublicCall`.
-    pub fn enqueue(self, context: &mut PrivateContext) {
+    pub fn enqueue(&self, context: &mut PrivateContext) {
         self.enqueue_impl(context, false, false)
     }
 
@@ -128,11 +128,11 @@ impl<let M: u32, let N: u32, T> PublicCall<M, N, T> {
     ///
     /// Please use the new contract API: `self.enqueue_incognito(MyContract::at(address).my_public_function(...args))`
     /// instead of manually constructing and calling `PublicCall`.
-    pub fn enqueue_incognito(self, context: &mut PrivateContext) {
+    pub fn enqueue_incognito(&self, context: &mut PrivateContext) {
         self.enqueue_impl(context, false, true)
     }
 
-    fn enqueue_impl(self, context: &mut PrivateContext, is_static_call: bool, hide_msg_sender: bool) {
+    fn enqueue_impl(&self, context: &mut PrivateContext, is_static_call: bool, hide_msg_sender: bool) {
         let calldata = [self.selector.to_field()].concat(self.args);
         let calldata_hash = hash_calldata_array(calldata);
         execution_cache::store(calldata, calldata_hash);
@@ -148,7 +148,7 @@ impl<let M: u32, let N: u32, T> PublicCall<M, N, T> {
     ///
     /// Please use the new contract API: `self.set_as_teardown(MyContract::at(address).my_public_function(...args))`
     /// instead of manually constructing and setting the teardown function `PublicCall`.
-    pub fn set_as_teardown(self, context: &mut PrivateContext) {
+    pub fn set_as_teardown(&self, context: &mut PrivateContext) {
         self.set_as_teardown_impl(context, false);
     }
 
@@ -157,11 +157,11 @@ impl<let M: u32, let N: u32, T> PublicCall<M, N, T> {
     /// Please use the new contract API:
     /// `self.set_as_teardown_incognito(MyContract::at(address).my_public_function(...args))` instead of manually
     /// constructing and setting the teardown function `PublicCall`.
-    pub fn set_as_teardown_incognito(self, context: &mut PrivateContext) {
+    pub fn set_as_teardown_incognito(&self, context: &mut PrivateContext) {
         self.set_as_teardown_impl(context, true);
     }
 
-    fn set_as_teardown_impl(self, context: &mut PrivateContext, hide_msg_sender: bool) {
+    fn set_as_teardown_impl(&self, context: &mut PrivateContext, hide_msg_sender: bool) {
         let calldata = [self.selector.to_field()].concat(self.args);
         let calldata_hash = hash_calldata_array(calldata);
         execution_cache::store(calldata, calldata_hash);
@@ -200,7 +200,7 @@ impl<let M: u32, let N: u32, T> PublicStaticCall<M, N, T> {
     ///
     /// Please use the new contract API: `self.view(MyContract::at(address).my_public_static_function(...args))`
     /// instead of manually constructing and calling `PublicStaticCall`.
-    pub unconstrained fn view(self, context: PublicContext) -> T
+    pub unconstrained fn view(&self, context: &PublicContext) -> T
     where
         T: Deserialize,
     {
@@ -214,7 +214,7 @@ impl<let M: u32, let N: u32, T> PublicStaticCall<M, N, T> {
     /// Please use the new contract API:
     /// `self.enqueue_view(MyContract::at(address).my_public_static_function(...args))` instead of manually
     /// constructing and calling `PublicStaticCall`.
-    pub fn enqueue_view(self, context: &mut PrivateContext) {
+    pub fn enqueue_view(&self, context: &mut PrivateContext) {
         let calldata = [self.selector.to_field()].concat(self.args);
         let calldata_hash = hash_calldata_array(calldata);
         execution_cache::store(calldata, calldata_hash);
@@ -233,7 +233,7 @@ impl<let M: u32, let N: u32, T> PublicStaticCall<M, N, T> {
     /// Please use the new contract API:
     /// `self.enqueue_view_incognito(MyContract::at(address).my_public_static_function(...args))` instead of manually
     /// constructing and calling `PublicStaticCall`.
-    pub fn enqueue_view_incognito(self, context: &mut PrivateContext) {
+    pub fn enqueue_view_incognito(&self, context: &mut PrivateContext) {
         let calldata = [self.selector.to_field()].concat(self.args);
         let calldata_hash = hash_calldata_array(calldata);
         execution_cache::store(calldata, calldata_hash);
