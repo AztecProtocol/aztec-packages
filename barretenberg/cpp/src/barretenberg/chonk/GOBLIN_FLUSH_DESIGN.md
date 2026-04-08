@@ -157,3 +157,59 @@ Non-flush flows are affected as follows:
 - Proving accumulation client side:
     - Proof size goes up by 16 elements
     - Proof generation for IPA accumulation in each flow
+
+## Propagating ECC op counts
+
+To decide where to insert Goblin flush pairs, the TS `proveWithKernels` loop needs to know how many ECCVM rows each circuit in `executionStackWithKernels` will contribute. Apps **do** emit ECC ops directly (every `to_radix`, big-int op, embedded scalar mul, etc. lowers to op-queue rows), so the count is genuinely a per-circuit quantity, not just a per-kernel-recursive-verifier overhead.
+
+### Where the count comes from
+
+After a circuit is constructed, the op queue holds exactly the ECCVM rows that circuit will contribute. The count is read directly from the queue:
+
+```cpp
+size_t num_rows = op_queue->get_num_rows();
+```
+
+This accessor already exists and is the value the ECCVM circuit builder itself uses to size its own polynomials (`barretenberg/cpp/src/barretenberg/eccvm/eccvm_circuit_builder.hpp:257`; same call site in `barretenberg/cpp/src/barretenberg/commitment_schemes_recursion/shplemini.test.cpp:75`).
+
+VK generation already constructs the circuit, so the op queue is populated at exactly the moment the VK is being produced. We capture `get_num_rows()` there and store it as a small piece of metadata on the VK.
+
+### Single source of truth: the VK
+
+- **VK** carries `num_ecc_op_rows: u32` as metadata, computed once during VK generation from `op_queue->get_num_rows()`.
+- **`PrivateCallExecutionResult`** also carries an `numEccOpRows` field for ergonomic TS-side access during the `proveWithKernels` loop, but it is **not independently set** — it is read directly from the call's VK at the point the execution result is constructed (or accessed via a derived getter, depending on what fits the existing TS plumbing best). VK is the only authoritative source; PCER is a propagation, not a duplicate, so there is no drift surface.
+- **Kernel circuits** (init, inner, reset, tail, hiding, $K_G$) emit a roughly constant number of ECC op rows determined by their recursive-verifier shape. Their counts also come from `op_queue->get_num_rows()` after circuit construction during VK generation, and end up on the kernel VKs by exactly the same mechanism.
+
+So every VK in the system — app and kernel alike — exposes its own `num_ecc_op_rows`, and the TS loop just sums them.
+
+### TS loop
+
+`proveWithKernels` (`yarn-project/pxe/src/private_kernel/private_kernel_execution_prover.ts:81`) already walks `executionStack` and inserts Reset kernels via `PrivateKernelResetPrivateInputsBuilder` (line 112). After this pass we have `executionStackWithKernels`. A second pass walks it, maintains a running sum of `vk.num_ecc_op_rows` (read from the app's VK for app entries, from the kernel VK for inserted kernels), and inserts a Goblin pair $A_G, K_G$ before any circuit whose addition would push the total above
+
+$$\text{ECCVM\_OPS\_CAPACITY} = (1 \ll \text{CONST\_ECCVM\_LOG\_N}) - \text{small safety margin}$$
+
+The safety margin accounts for the `eq_and_reset` and `goblin_flush_table_structure_ops` rows that `chonk.cpp` adds unconditionally per circuit (`barretenberg/cpp/src/barretenberg/chonk/chonk.cpp:376–381`). The Goblin pair's own row cost is just `A_G.vk.num_ecc_op_rows + K_G.vk.num_ecc_op_rows` — same mechanism, no special-casing.
+
+After inserting a flush, the running sum is reset to `A_G.vk.num_ecc_op_rows + K_G.vk.num_ecc_op_rows`.
+
+### Hard safety bound
+
+A "flush every $N_{\text{hard}}$ circuits regardless of running sum" fallback is enforced in the same loop. $N_{\text{hard}}$ is computed from `ECCVM_OPS_CAPACITY` divided by an upper bound on per-circuit row cost (a fixed conservative constant baked into TS). This makes the loop safe by construction even if a VK is somehow loaded with a stale or zero `num_ecc_op_rows`; the precise per-VK counts are then a performance optimisation on top of a correct-by-default policy, not a correctness requirement.
+
+### Rejection rule
+
+An app whose `num_ecc_op_rows` plus one Goblin pair plus one surrounding kernel already exceeds `ECCVM_OPS_CAPACITY` is rejected at this point in `proveWithKernels` — it can never fit regardless of flushing. (Repeated from "How to Drop Them In" for completeness.)
+
+### Scope of changes
+
+| Change | Location | Notes |
+|---|---|---|
+| `num_ecc_op_rows` on VKs | bb-side VK struct + serde, plus the VK generation path that already constructs the circuit | Single `uint32_t` populated from `op_queue->get_num_rows()` immediately after circuit construction. Applies uniformly to app VKs and kernel VKs. |
+| TS VK type | `yarn-project/stdlib/src/vks/...` and the msgpack/serde bridges | Mirror the new field. |
+| `PrivateCallExecutionResult.numEccOpRows` | `yarn-project/stdlib/src/tx/...` | Either a stored field populated from `vk.num_ecc_op_rows` at construction time, or a derived getter — whichever fits the existing plumbing. **No independent value**: VK is authoritative. |
+| `proveWithKernels` second pass | `yarn-project/pxe/src/private_kernel/private_kernel_execution_prover.ts:81` | Adds the running-sum walk and Goblin pair insertion. The reset-kernel insertion at line 112 is unchanged. |
+| Authoritative drift test | New test under `barretenberg/cpp/src/barretenberg/chonk/`, registered via the existing `barretenberg_module(chonk ...)` in `barretenberg/cpp/src/barretenberg/chonk/CMakeLists.txt:1` so it lands in the `chonk_tests` target | Constructs each kernel type, asserts that the `num_ecc_op_rows` recorded on the freshly produced VK equals `op_queue->get_num_rows()` for that circuit. Catches any code path that forgets to populate the field, or any future refactor that decouples the two. |
+| `ECCVM_OPS_CAPACITY` and $N_{\text{hard}}$ constants | `noir-projects/noir-protocol-circuits/crates/types/src/constants.nr`, propagated to TS by `yarn remake-constants` | Same pipeline as `RECURSIVE_PROOF_LENGTH`, `IPA_CLAIM_SIZE`, etc. C++ already has `CONST_ECCVM_LOG_N` in `barretenberg/cpp/src/barretenberg/constants.hpp:31`. |
+| Cached fixtures | `yarn-project/end-to-end/example-app-ivc-inputs-out/<flow>/ivc-inputs.msgpack` | Will need to be regenerated once the VK serde changes land — the existing `update_vks` flow handles this. Pre-existing captures without the field cannot be replayed against the new bb. |
+| CI hookup | None — the new drift test joins `chonk_tests`, which `bootstrap.sh test` already runs. |
+
