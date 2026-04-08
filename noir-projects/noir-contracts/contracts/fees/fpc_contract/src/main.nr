@@ -135,7 +135,7 @@ pub contract FPC {
         let refund_amount = max_fee - tx_fee;
 
         Token::at(accepted_asset).finalize_transfer_to_private(refund_amount, partial_note).call(
-            self.context,
+            &self.context,
         );
     }
     // docs:end:complete_refund
