@@ -298,7 +298,6 @@ pub contract TokenBlacklist {
             TRANSPARENT_NOTE_RANDOMNESS,
             note_type_id,
             packed_note,
-            scope,
         );
 
         // At this point, the note is pending validation and storage in the database. We must call
