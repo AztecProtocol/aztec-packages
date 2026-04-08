@@ -23,10 +23,9 @@ export FORCE_COLOR=1
 
 # Optional: pin contract artifacts to a published legacy version of
 # @aztec/noir-contracts.js / @aztec/noir-test-contracts.js. See README.
+# The legacy-jest-resolver picks up CONTRACT_ARTIFACTS_VERSION and redirects imports.
 if [ -n "${CONTRACT_ARTIFACTS_VERSION:-}" ]; then
   node ./scripts/ensure_legacy_contracts.mjs
-  legacy_register="$(pwd)/src/legacy-loader-register.mjs"
-  export NODE_OPTIONS="${NODE_OPTIONS:-} --import file://${legacy_register}"
 fi
 
 test_file=$1

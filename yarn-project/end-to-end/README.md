@@ -47,7 +47,6 @@ artifacts were actually loaded:
 ```
 
 When `CONTRACT_ARTIFACTS_VERSION` is unset the test run is byte-identical to the
-default behaviour. To use this outside `scripts/test_simple.sh` (e.g. with
-`yarn workspace @aztec/end-to-end test`), export
-`NODE_OPTIONS="--import ./src/legacy-loader-register.mjs"` after running
-`node ./scripts/ensure_legacy_contracts.mjs`.
+default behaviour. If invoking jest directly instead of via
+`scripts/test_simple.sh`, run `node ./scripts/ensure_legacy_contracts.mjs` first
+to populate the cache.
