@@ -52,7 +52,7 @@ pub contract Crowdfunding {
         // 2) Transfer the donation tokens from donor to this contract
         let donor = self.msg_sender();
         Token::at(config.donation_token).transfer_in_private(donor, self.address, amount, 0).call(
-            &self.context,
+            self.context,
         );
 
         // 3) Create a value note for the donor so that he can later on claim a rewards token in the Claim

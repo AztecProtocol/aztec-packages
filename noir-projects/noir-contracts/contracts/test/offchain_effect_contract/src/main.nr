@@ -42,7 +42,7 @@ contract OffchainEffect {
 
             if effects.len() > 0 {
                 OffchainEffect::at(payload.next_contract).emit_offchain_effects(effects).call(
-            &self.context,
+            self.context,
                 );
             }
         }

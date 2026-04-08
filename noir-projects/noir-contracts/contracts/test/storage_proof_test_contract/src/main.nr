@@ -112,7 +112,7 @@ contract StorageProofTest {
             to_nibbles(storage_trie_key),
             storage_proof_capsule_key,
         )
-            .call(&self.context);
+            .call(self.context);
 
         assert_eq(
             slot_leaf_hash,
@@ -175,7 +175,7 @@ contract StorageProofTest {
                 storage_trie_key_nibbles,
                 storage_proof_capsule_key,
             )
-                .call(&self.context)
+                .call(self.context)
         }
     }
 

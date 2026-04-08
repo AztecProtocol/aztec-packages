@@ -164,7 +164,7 @@ pub contract Orderbook {
     ) {
         // Finalize transfer of bid_amount of bid_token to taker
         Token::at(bid_token).finalize_transfer_to_private(bid_amount, taker_partial_note).call(
-            &self.context,
+            self.context,
         );
 
         self.emit(OrderFulfilled { order_id });

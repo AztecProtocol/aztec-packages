@@ -285,7 +285,7 @@ pub contract SimpleToken {
         } else {
             let remaining = amount - subtracted;
             compute_recurse_subtract_balance_call(*self.context, account, remaining).call(
-            &self.context,
+            self.context,
             )
         }
     }
