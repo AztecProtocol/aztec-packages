@@ -1,5 +1,6 @@
-import { FunctionSelector } from '@aztec/stdlib/abi';
+import { type FunctionArtifact, type FunctionArtifactWithContractName, FunctionSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import type { ContractOverrides } from '@aztec/stdlib/tx';
 
 import type { ContractStore } from '../storage/contract_store/contract_store.js';
@@ -19,7 +20,7 @@ export class ProxiedContractStoreFactory {
       get(target, prop: keyof ContractStore) {
         switch (prop) {
           case 'getContractInstance': {
-            return async (address: AztecAddress) => {
+            return async (address: AztecAddress): Promise<ContractInstanceWithAddress | undefined> => {
               if (overrides[address.toString()]) {
                 const { instance } = overrides[address.toString()]!;
                 instance.address = address;
@@ -36,37 +37,35 @@ export class ProxiedContractStoreFactory {
             };
           }
           case 'getFunctionArtifact': {
-            return async (contractAddress: AztecAddress, selector: FunctionSelector) => {
+            return async (
+              contractAddress: AztecAddress,
+              selector: FunctionSelector,
+            ): Promise<FunctionArtifactWithContractName | undefined> => {
               if (overrides[contractAddress.toString()]) {
                 const { artifact } = overrides[contractAddress.toString()]!;
-                const functions = artifact.functions;
-                for (let i = 0; i < functions.length; i++) {
-                  const fn = functions[i];
-                  const fnSelector = await FunctionSelector.fromNameAndParameters(fn.name, fn.parameters);
-                  if (fnSelector.equals(selector)) {
-                    return fn;
-                  }
+                const fn = await findFunctionInOverride(artifact.functions, selector);
+                if (fn) {
+                  return { ...fn, contractName: artifact.name };
                 }
-              } else {
-                return target.getFunctionArtifact(contractAddress, selector);
               }
+              // Fall through to the real store if there's no override or the function wasn't found in the override artifact.
+              return target.getFunctionArtifact(contractAddress, selector);
             };
           }
           case 'getFunctionArtifactWithDebugMetadata': {
-            return async (contractAddress: AztecAddress, selector: FunctionSelector) => {
+            return async (
+              contractAddress: AztecAddress,
+              selector: FunctionSelector,
+            ): Promise<FunctionArtifactWithContractName> => {
               if (overrides[contractAddress.toString()]) {
                 const { artifact } = overrides[contractAddress.toString()]!;
-                const functions = artifact.functions;
-                for (let i = 0; i < functions.length; i++) {
-                  const fn = functions[i];
-                  const fnSelector = await FunctionSelector.fromNameAndParameters(fn.name, fn.parameters);
-                  if (fnSelector.equals(selector)) {
-                    return fn;
-                  }
+                const fn = await findFunctionInOverride(artifact.functions, selector);
+                if (fn) {
+                  return { ...fn, contractName: artifact.name };
                 }
-              } else {
-                return target.getFunctionArtifactWithDebugMetadata(contractAddress, selector);
               }
+              // Fall through to the real store if there's no override or the function wasn't found in the override artifact.
+              return target.getFunctionArtifactWithDebugMetadata(contractAddress, selector);
             };
           }
           default: {
@@ -78,6 +77,23 @@ export class ProxiedContractStoreFactory {
           }
         }
       },
-    });
+    }) satisfies ContractStore;
   }
+}
+
+/**
+ * Searches for a function matching the given selector in a contract artifact's functions array.
+ * @returns The matching function artifact, or undefined if not found.
+ */
+async function findFunctionInOverride(
+  functions: FunctionArtifact[],
+  selector: FunctionSelector,
+): Promise<FunctionArtifact | undefined> {
+  for (const fn of functions) {
+    const fnSelector = await FunctionSelector.fromNameAndParameters(fn.name, fn.parameters);
+    if (fnSelector.equals(selector)) {
+      return fn;
+    }
+  }
+  return undefined;
 }
