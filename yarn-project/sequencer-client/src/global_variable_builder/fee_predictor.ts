@@ -3,7 +3,14 @@ import { SlotNumber } from '@aztec/foundation/branded-types';
 import { times } from '@aztec/foundation/collection';
 import type { DateProvider } from '@aztec/foundation/timer';
 import { getSlotAtNextL1Block, getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
-import { FEE_ORACLE_LAG, GasFees, ManaUsageEstimate, computeExcessMana, computeManaMinFee } from '@aztec/stdlib/gas';
+import {
+  FEE_ORACLE_LAG,
+  GasFees,
+  MIN_ETH_PER_FEE_ASSET,
+  ManaUsageEstimate,
+  computeExcessMana,
+  computeManaMinFee,
+} from '@aztec/stdlib/gas';
 
 /** Cached rollup state for fee prediction. Refreshed once per L1 block. */
 type FeeOracleState = {
@@ -109,7 +116,8 @@ export class FeePredictor {
     // Lower ethPerFeeAsset means higher fees in fee asset terms.
     for (let i = 1; i < state.l1FeesBySlot.length; i++) {
       excessMana = computeExcessMana(excessMana, assumedManaUsed, state.manaTarget);
-      ethPerFeeAsset = (ethPerFeeAsset * (10000n - MAX_FEE_ASSET_PRICE_MODIFIER_BPS)) / 10000n;
+      const decayed = (ethPerFeeAsset * (10000n - MAX_FEE_ASSET_PRICE_MODIFIER_BPS)) / 10000n;
+      ethPerFeeAsset = decayed < MIN_ETH_PER_FEE_ASSET ? MIN_ETH_PER_FEE_ASSET : decayed;
       result.push(this.computeGasFees(state, excessMana, ethPerFeeAsset, state.l1FeesBySlot[i]));
     }
 
