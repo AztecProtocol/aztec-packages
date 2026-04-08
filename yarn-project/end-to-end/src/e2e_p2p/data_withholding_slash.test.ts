@@ -58,6 +58,7 @@ describe('e2e_p2p_data_withholding_slash', () => {
       basePort: BOOT_NODE_UDP_PORT,
       metricsPort: shouldCollectMetrics(),
       initialConfig: {
+        anvilSlotsInAnEpoch: 4,
         listenAddress: '127.0.0.1',
         aztecEpochDuration,
         ethereumSlotDuration: 4,
@@ -114,7 +115,6 @@ describe('e2e_p2p_data_withholding_slash', () => {
 
     t.ctx.aztecNodeConfig.slashDataWithholdingPenalty = slashingAmount;
     t.ctx.aztecNodeConfig.slashPrunePenalty = slashingAmount;
-    t.ctx.aztecNodeConfig.validatorReexecute = false;
     t.ctx.aztecNodeConfig.minTxsPerBlock = 1;
 
     t.logger.warn('Creating nodes');

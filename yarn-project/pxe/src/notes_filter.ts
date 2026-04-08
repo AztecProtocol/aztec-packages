@@ -2,8 +2,6 @@ import type { Fr } from '@aztec/foundation/curves/bn254';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { NoteStatus } from '@aztec/stdlib/note';
 
-import type { AccessScopes } from './access_scopes.js';
-
 /**
  * A filter used to fetch notes.
  * @remarks This filter is applied as an intersection of all its params.
@@ -22,5 +20,5 @@ export type NotesFilter = {
   status?: NoteStatus;
   /** The siloed nullifier for the note. */
   siloedNullifier?: Fr;
-  scopes: AccessScopes;
+  scopes: AztecAddress[];
 };

@@ -674,6 +674,12 @@ pub global DOM_SEP__SILOED_NULLIFIER: u32 = 57496191;
 /// This is not technically a protocol constant as message nullifiers are computed by each contract.
 pub global DOM_SEP__MESSAGE_NULLIFIER: u32 = 3754509616;
 
+/// Domain separator for event log tags. Used by [`crate::hash::compute_log_tag`].
+pub global DOM_SEP__EVENT_LOG_TAG: u32 = 926040838;
+/// Domain separator for partial note completion log tags. Used by [`crate::hash::compute_log_tag`].
+pub global DOM_SEP__NOTE_COMPLETION_LOG_TAG: u32 = 3372669888;
+/// Domain separator for unconstrained message delivery log tags. Used by [`crate::hash::compute_log_tag`].
+pub global DOM_SEP__UNCONSTRAINED_MSG_LOG_TAG: u32 = 1485357192;
 /// Domain separator for private log tags.
 ///
 /// Used by [`crate::hash::compute_siloed_private_log_first_field`].
@@ -736,9 +742,9 @@ pub global DOM_SEP__AUTHWIT_INNER: u32 = 221354163;
 pub global DOM_SEP__AUTHWIT_OUTER: u32 = 3283595782;
 pub global DOM_SEP__AUTHWIT_NULLIFIER: u32 = 1239150694;
 
-pub global DOM_SEP__SYMMETRIC_KEY: u32 = 3882206064;
-pub global DOM_SEP__SYMMETRIC_KEY_2: u32 = 4129434989;
-pub global DOM_SEP__CIPHERTEXT_FIELD_MASK: u32 = 1870492847;
+pub global DOM_SEP__APP_SILOED_ECDH_SHARED_SECRET: u32 = 1707851664;
+pub global DOM_SEP__ECDH_SUBKEY: u32 = 4277646631;
+pub global DOM_SEP__ECDH_FIELD_MASK: u32 = 190532684;
 
 pub global DOM_SEP__PARTIAL_NOTE_VALIDITY_COMMITMENT: u32 = 623934423;
 
@@ -1104,25 +1110,6 @@ pub global MAX_PROCESSABLE_L2_GAS: u32 = PUBLIC_TX_L2_GAS_OVERHEAD + AVM_MAX_PRO
 
 pub global MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT: u32 =
     BLOBS_PER_CHECKPOINT * FIELDS_PER_BLOB * DA_GAS_PER_FIELD;
-
-// For gas estimation, we use the theoretical maximum amounts.
-// Since we split in teardown and total, teardown has the theoretical maximum and total is that times 2.
-// After gas estimation, we tune it down to the actual amount necessary.
-// TODO: this is a wallet concern; it should not be part of the protocol
-pub global GAS_ESTIMATION_TEARDOWN_L2_GAS_LIMIT: u32 = MAX_PROCESSABLE_L2_GAS;
-pub global GAS_ESTIMATION_L2_GAS_LIMIT: u32 =
-    GAS_ESTIMATION_TEARDOWN_L2_GAS_LIMIT + MAX_PROCESSABLE_L2_GAS;
-
-pub global GAS_ESTIMATION_TEARDOWN_DA_GAS_LIMIT: u32 = MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT;
-pub global GAS_ESTIMATION_DA_GAS_LIMIT: u32 =
-    GAS_ESTIMATION_TEARDOWN_DA_GAS_LIMIT + MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT;
-
-// Default gas limits. Users should use gas estimation, or they will overpay gas fees.
-// TODO: These are overridden in typescript-land. Remove them from here.
-pub global DEFAULT_TEARDOWN_L2_GAS_LIMIT: u32 = 1_000_000; // Arbitrary default number.
-pub global DEFAULT_L2_GAS_LIMIT: u32 = MAX_PROCESSABLE_L2_GAS; // Arbitrary default number.
-pub global DEFAULT_TEARDOWN_DA_GAS_LIMIT: u32 = MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT / 2; // Arbitrary default number.
-pub global DEFAULT_DA_GAS_LIMIT: u32 = MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT; // Arbitrary default number.
 
 // Some tree insertions incur an additional cost associated with
 // the new database entry to be stored by all network participants.

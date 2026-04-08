@@ -30,7 +30,7 @@ describe('poseidon2Hash benchmark (Async API): WASM vs Native', () => {
 
     // Setup WASM API
     try {
-      wasmApi = await Barretenberg.new({ backend: BackendType.Wasm, threads: 1 });
+      wasmApi = await Barretenberg.new({ backend: BackendType.Wasm, threads: 1, skipSrsInit: true });
     } catch (error) {
       console.warn('Failed to initialize WASM backend:', error instanceof Error ? error.message : String(error));
     }

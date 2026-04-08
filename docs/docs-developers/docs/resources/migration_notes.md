@@ -42,6 +42,199 @@ The empire slashing model has been removed. Only the tally-based slashing model 
 
 `slashMinPenaltyPercentage` and `slashMaxPenaltyPercentage` removed from `SlasherConfig`.
 
+### [Aztec.js] `GasSettings.default()` renamed to `GasSettings.fallback()`
+
+`GasSettings.default()` has been renamed to `GasSettings.fallback()` to clarify that these gas limits are not protocol defaults — the protocol has no concept of "default" gas settings. `fallback()` is a convenience for cases where gas estimation is not being used, but callers should prefer estimating gas via simulation for accurate limits.
+
+The old `DEFAULT_GAS_LIMIT` and `DEFAULT_TEARDOWN_GAS_LIMIT` constants have been removed. Gas limits are now derived from protocol-level maximums (`MAX_PROCESSABLE_L2_GAS`, `MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT`) rather than arbitrary fixed values.
+
+A new `GasSettings.forEstimation()` method provides intentionally high gas limits for use during simulation. These limits exceed protocol maximums so the simulation doesn't hit gas caps — you must pass `skipTxValidation: true` when simulating with them, then use the results to set accurate gas limits on the actual transaction. `EmbeddedWallet` does this by default.
+
+**Migration:**
+
+```diff
+- import { DEFAULT_GAS_LIMIT, DEFAULT_TEARDOWN_GAS_LIMIT } from '@aztec/constants';
+- const settings = GasSettings.default({ maxFeesPerGas });
++ const settings = GasSettings.fallback({ maxFeesPerGas });
+```
+
+**Impact**: Any code referencing `GasSettings.default()`, `DEFAULT_GAS_LIMIT`, or `DEFAULT_TEARDOWN_GAS_LIMIT` will fail to compile.
+
+### [PXE] `simulateTx`, `executeUtility`, `profileTx`, and `proveTx` no longer accept `scopes: 'ALL_SCOPES'`
+
+The `AccessScopes` type (`'ALL_SCOPES' | AztecAddress[]`) has been removed. The `scopes` field in `SimulateTxOpts`,
+`ExecuteUtilityOpts`, and `ProfileTxOpts` now requires an explicit `AztecAddress[]`. Callers that previously passed
+`'ALL_SCOPES'` must now specify which addresses will be in scope for the call.
+
+**Migration:**
+
+```diff
++ const accounts = await pxe.getRegisteredAccounts();
++ const scopes = accounts.map(a => a.address);
+
+  // simulateTx
+- await pxe.simulateTx(txRequest, { simulatePublic: true, scopes: 'ALL_SCOPES' });
++ await pxe.simulateTx(txRequest, { simulatePublic: true, scopes });
+
+  // executeUtility
+- await pxe.executeUtility(call, { scopes: 'ALL_SCOPES' });
++ await pxe.executeUtility(call, { scopes });
+
+  // profileTx
+- await pxe.profileTx(txRequest, { profileMode: 'full', scopes: 'ALL_SCOPES' });
++ await pxe.profileTx(txRequest, { profileMode: 'full', scopes });
+
+  // proveTx
+- await pxe.proveTx(txRequest, 'ALL_SCOPES');
++ await pxe.proveTx(txRequest, scopes);
+```
+
+**Impact**: Any code passing `'ALL_SCOPES'` to `simulateTx`, `executeUtility`, `profileTx`, or `proveTx` will fail to compile. Replace with an explicit array of account addresses.
+
+### [PXE] Capsule operations are now scope-enforced at the PXE level
+
+The PXE now enforces that capsule operations can only access scopes that were authorized for the current execution. If a contract attempts to access a capsule scope that is not in its allowed scopes list, the PXE will throw an error:
+
+```
+Scope 0x1234... is not in the allowed scopes list: [0xabcd...].
+```
+
+The zero address (`AztecAddress::zero()`) is always allowed regardless of the scopes list, preserving backwards compatibility for contracts using the global scope.
+
+**Impact**: Contracts that access capsules scoped to addresses not included in the transaction's authorized scopes will now fail at runtime. Ensure the correct scopes are passed when executing transactions.
+
+## 4.2.0-aztecnr-rc.2
+
+### Custom token FPCs removed from default public setup allowlist
+
+Token contract functions (like `transfer_in_public` and `_increase_public_balance`) have been removed from the default public setup allowlist. FPCs that accept custom tokens (like the reference `FPC` contract) will not work on public networks, because their setup-phase calls to these functions will be rejected. Token class IDs change with each aztec-nr release, making it impractical to maintain them in the allowlist.
+
+FPCs that use only Fee Juice still work on all networks, since FeeJuice is a protocol contract with a fixed address in the allowlist. Custom FPCs should only call protocol contract functions (AuthRegistry, FeeJuice) during setup.
+
+`PublicFeePaymentMethod` and `PrivateFeePaymentMethod` in aztec.js are affected, since they use the reference `FPC` contract which calls Token functions during setup. Switch to `FeeJuicePaymentMethodWithClaim` (after [bridging Fee Juice from L1](../aztec-js/how_to_pay_fees.md#bridge-fee-juice-from-l1)) or write an FPC that uses Fee Juice natively.
+
+**Migration:**
+
+```diff
+- import { PublicFeePaymentMethod } from '@aztec/aztec.js/fee';
+- const paymentMethod = new PublicFeePaymentMethod(fpcAddress, senderAddress, wallet, gasSettings);
++ import { FeeJuicePaymentMethodWithClaim } from '@aztec/aztec.js/fee';
++ const paymentMethod = new FeeJuicePaymentMethodWithClaim(senderAddress, claim);
+```
+
+Similarly, the `fpc-public` and `fpc-private` CLI wallet payment methods use the reference Token-based FPC and will not work on public networks. Use `fee_juice` for direct Fee Juice payment, or `fpc-sponsored` on devnet and local network.
+
+### [Aztec.nr] Domain-separated tags on log emission
+
+All logs emitted through the Aztec.nr framework now include a domain-separated tag at `fields[0]`. Each log category uses its own domain separator via `compute_log_tag(raw_tag, dom_sep)`:
+
+- **Events** (`DOM_SEP__EVENT_LOG_TAG`): the event type ID is the raw tag.
+- **Message delivery** (`DOM_SEP__UNCONSTRAINED_MSG_LOG_TAG`): the discovery tag is the raw tag.
+- **Partial note completion logs** (`DOM_SEP__NOTE_COMPLETION_LOG_TAG`): the partial note's `commitment` field is the raw tag.
+
+The low-level emit methods now take `tag` as an explicit first parameter and have been renamed with an `_unsafe` suffix. Previously the tag was included as `log[0]` — it has now been extracted into its own parameter, and `log` no longer contains it:
+
+```diff
+- context.emit_private_log(log, length);
++ context.emit_private_log_unsafe(tag, log, length);
+- context.emit_raw_note_log(log, length, note_hash_counter);
++ context.emit_raw_note_log_unsafe(tag, log, length, note_hash_counter);
+- context.emit_public_log(log);
++ context.emit_public_log_unsafe(tag, log);
+```
+
+Prefer the higher-level APIs (`emit` for events, `MessageDelivery` for messages) which handle tagging automatically.
+
+### [Aztec.nr] Public events no longer include the event type selector at the end of the payload
+
+`emit_event_in_public` previously appended the event type selector as the last field. It now prepends a domain-separated tag at `fields[0]` instead. The payload after the tag contains only the serialized event fields.
+
+If you were reading public event directly from node logs (i.e. via `node.getPublicLogs` and not via `wallet.getPublicEvents`), update your parsing:
+
+```diff
+- // Old: fields = [serialized_event..., event_type_selector]
+- const selector = EventSelector.fromField(fields[fields.length - 1]);
+- const event = decodeFromAbi([abiType], fields);
++ // New: fields = [domain_separated_tag, serialized_event...]
++ const eventFields = log.getEmittedFieldsWithoutTag();
++ const event = decodeFromAbi([abiType], eventFields);
+```
+
+### [Aztec.nr] Capsule operations are now addressed by scope
+
+All capsule operations (`store`, `load`, `delete`, `copy`) and `CapsuleArray` now require a `scope: AztecAddress` parameter. This scopes capsule storage by address, providing isolation between different accounts within the same PXE.
+
+Contracts that use `CapsuleArray` directly also need to update.
+
+**Migration:**
+
+```diff
+- let array: CapsuleArray<Field> = CapsuleArray::at(contract_address, slot);
++ let array: CapsuleArray<Field> = CapsuleArray::at(contract_address, slot, scope);
+```
+
+The low-level capsule functions are similarly affected:
+
+```diff
+- capsules::store(contract_address, slot, value);
++ capsules::store(contract_address, slot, value, scope);
+
+- capsules::load(contract_address, slot);
++ capsules::load(contract_address, slot, scope);
+
+- capsules::delete(contract_address, slot);
++ capsules::delete(contract_address, slot, scope);
+
+- capsules::copy(contract_address, src_slot, dst_slot, num_entries);
++ capsules::copy(contract_address, src_slot, dst_slot, num_entries, scope);
+```
+
+If you need to stick the old, scope-less behavior, and you are really sure that that's what you need to use, you can use `scope = AztecAddress::zero()`.
+
+### [Aztec.nr] `process_message` utility function removed
+
+The auto-generated `process_message` utility function has been removed. If you need to deliver offchain messages (messages not broadcast via onchain logs), use the `offchain_receive` utility function instead. This function is automatically injected by the `#[aztec]` macro and accepts messages into a persistent inbox scoped by recipient. These messages are then picked up and processed during `sync_state`.
+
+**Impact**: Contracts that explicitly called `process_message` must switch to delivering messages via `offchain_receive` and letting `sync_state` handle processing.
+
+### [Aztec.nr] `CustomMessageHandler` type signature changed
+
+The `CustomMessageHandler` function type now receives an additional `scope: AztecAddress` parameter:
+
+```diff
+  type CustomMessageHandler = unconstrained fn(
+      AztecAddress,    // contract_address
+      u64,             // msg_type_id
+      u64,             // msg_metadata
+      BoundedVec<Field, MAX_MESSAGE_CONTENT_LEN>,  // msg_content
+      MessageContext,  // message_context
++     AztecAddress,    // scope
+  );
+```
+
+**Impact**: Contracts that implement a custom message handler must update the function signature.
+
+### [aztec.js] `DeployMethod.send()` always returns `{ contract, receipt, instance }`
+
+The `returnReceipt` option in deploy wait options has been removed. `DeployMethod.send()` now always returns an object with `contract`, `receipt`, and `instance` at the top level, provided the user waits for the transaction to be included.
+
+The `DeployTxReceipt` and `DeployWaitOptions` types have been removed.
+
+**Migration:**
+
+```diff
+- const {
+-   receipt: { contract, instance },
+- } = await MyContract.deploy(wallet, ...args).send({
+-   from: address,
+-   wait: { returnReceipt: true },
+- });
+
++ const { contract, instance } = await MyContract.deploy(wallet, ...args).send({
++   from: address,
++ });
+```
+
 ### [aztec.js] `isContractInitialized` is now `initializationStatus` tri-state enum
 
 `ContractMetadata.isContractInitialized` has been renamed to `ContractMetadata.initializationStatus` and changed from `boolean | undefined` to a `ContractInitializationStatus` enum with values `INITIALIZED`, `UNINITIALIZED`, and `UNKNOWN`.
@@ -119,6 +312,7 @@ The `scope` field in `ExecuteUtilityOptions` has been renamed to `scopes` and ch
 ```
 
 **Impact**: Any code that calls `wallet.executeUtility` directly must update the options object. Wallets must update to adapt to the new interface
+
 ### [Aztec.nr] `attempt_note_discovery` now takes two separate functions instead of one
 
 The `attempt_note_discovery` function (and related discovery functions like `do_sync_state`, `process_message_ciphertext`) now takes separate `compute_note_hash` and `compute_note_nullifier` arguments instead of a single combined `compute_note_hash_and_nullifier`. The corresponding type aliases are now `ComputeNoteHash` and `ComputeNoteNullifier` (instead of `ComputeNoteHashAndNullifier`).
@@ -130,7 +324,7 @@ Most contracts are not affected, as the macro-generated `sync_state` and `proces
 **Migration:**
 
 ```diff
-  attempt_note_discovery(
+    attempt_note_discovery(
       contract_address,
       tx_hash,
       unique_note_hashes_in_tx,
@@ -166,28 +360,6 @@ If you use `assert_contract_was_initialized_by` or `assert_contract_was_not_init
   );
 ```
 
-### [Aztec.js] `TxReceipt` now includes `epochNumber`
-
-`TxReceipt` now includes an `epochNumber` field that indicates which epoch the transaction was included in.
-
-### [Aztec.js] `computeL2ToL1MembershipWitness` signature changed
-
-The function signature has changed to resolve the epoch internally from a transaction hash, rather than requiring the caller to pass the epoch number.
-
-**Migration:**
-
-```diff
-- const witness = await computeL2ToL1MembershipWitness(aztecNode, epochNumber, messageHash);
-- // epoch was passed in by the caller
-+ const witness = await computeL2ToL1MembershipWitness(aztecNode, messageHash, txHash);
-+ // epoch is now available on the returned witness
-+ const epoch = witness.epochNumber;
-```
-
-The return type `L2ToL1MembershipWitness` now includes `epochNumber`. An optional `messageIndexInTx` parameter can be passed as the fourth argument to disambiguate when a transaction emits multiple identical L2-to-L1 messages.
-
-**Impact**: All call sites that compute L2-to-L1 membership witnesses must update to the new argument order and extract `epochNumber` from the result instead of passing it in.
-
 ### Two separate init nullifiers for private and public
 
 Contract initialization now emits two separate nullifiers instead of one: a **private init nullifier** and a **public init nullifier**. Each nullifier gates its respective execution domain:
@@ -222,6 +394,30 @@ This function shouldn't have been constrained in the first place, as constrained
 Note hashes used to be computed with the storage slot being the last value of the preimage, it is now the first. This is to make it easier to ensure all note hashes have proper domain separation.
 
 This change requires no input from your side unless you were testing or relying on hardcoded note hashes.
+
+## 4.1.3
+
+### [Aztec.js] `TxReceipt` now includes `epochNumber`
+
+`TxReceipt` now includes an `epochNumber` field that indicates which epoch the transaction was included in.
+
+### [Aztec.js] `computeL2ToL1MembershipWitness` signature changed
+
+The function signature has changed to resolve the epoch internally from a transaction hash, rather than requiring the caller to pass the epoch number.
+
+**Migration:**
+
+```diff
+- const witness = await computeL2ToL1MembershipWitness(aztecNode, epochNumber, messageHash);
+- // epoch was passed in by the caller
++ const witness = await computeL2ToL1MembershipWitness(aztecNode, messageHash, txHash);
++ // epoch is now available on the returned witness
++ const epoch = witness.epochNumber;
+```
+
+The return type `L2ToL1MembershipWitness` now includes `epochNumber`. An optional `messageIndexInTx` parameter can be passed as the fourth argument to disambiguate when a transaction emits multiple identical L2-to-L1 messages.
+
+**Impact**: All call sites that compute L2-to-L1 membership witnesses must update to the new argument order and extract `epochNumber` from the result instead of passing it in.
 
 ### [Aztec.js] `getPublicEvents` now returns an object instead of an array
 

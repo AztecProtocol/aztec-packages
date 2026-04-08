@@ -232,7 +232,7 @@ export function makeTxContext(seed: number = 1): TxContext {
  * Creates a default instance of gas settings. No seed value is used to ensure we allocate a sensible amount of gas for testing.
  */
 export function makeGasSettings() {
-  return GasSettings.default({ maxFeesPerGas: new GasFees(10, 10) });
+  return GasSettings.fallback({ maxFeesPerGas: new GasFees(10, 10) });
 }
 
 /**
@@ -1712,6 +1712,10 @@ export function makeL2Tips(
   return {
     proposed: { number: bn, hash },
     checkpointed: {
+      block: { number: bn, hash },
+      checkpoint: { number: cpn, hash: cph },
+    },
+    proposedCheckpoint: {
       block: { number: bn, hash },
       checkpoint: { number: cpn, hash: cph },
     },

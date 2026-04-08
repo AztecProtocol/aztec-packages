@@ -409,7 +409,7 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
 
         // Step 5.
         // Compute C_zero = C' + ∑_{j ∈ [k]} u_j^{-1}L_j + ∑_{j ∈ [k]} u_jR_j
-        GroupElement LR_sums = scalar_multiplication::pippenger_unsafe<Curve>(
+        GroupElement LR_sums = scalar_multiplication::pippenger<Curve>(
             { 0, { &msm_scalars[0], /*size*/ pippenger_size } }, { &msm_elements[0], /*size*/ pippenger_size });
         GroupElement C_zero = C_prime + LR_sums;
 
@@ -474,8 +474,10 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
             G_zero =
                 scalar_multiplication::pippenger_unsafe<Curve>(data.s_vec, { &srs_elements[0], /*size*/ poly_length });
         }
-        BB_ASSERT_EQ(
-            G_zero, data.G_zero_from_prover, "G_0 should be equal to G_0 sent in transcript. IPA verification fails.");
+        if (G_zero != data.G_zero_from_prover) {
+            info("IPA verification failed: G_0 mismatch");
+            return false;
+        }
 
         // Step 10.
         // Compute C_right = a_0 * G_s + a_0 * b_0 * U
@@ -668,8 +670,14 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
         requires(!Curve::is_stdlib_type)
     {
         const size_t num_claims = opening_claims.size();
-        BB_ASSERT(num_claims == transcripts.size());
-        BB_ASSERT(num_claims > 0);
+        if (num_claims != transcripts.size()) {
+            info("IPA batch verification failed: claims/transcripts size mismatch");
+            return false;
+        }
+        if (num_claims == 0) {
+            info("IPA batch verification failed: no claims provided");
+            return false;
+        }
 
         // Phase 1: Per-proof transcript processing (sequential, each proof is cheap)
         std::vector<GroupElement> C_zeros(num_claims);
@@ -769,6 +777,12 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
     static bool full_verify_recursive(const VK& vk, const OpeningClaim<Curve>& opening_claim, auto& transcript)
         requires Curve::is_stdlib_type
     {
+        // Check SRS size up front before any circuit construction
+        if (vk.get_monomial_points().size() < poly_length) {
+            throw_or_abort("IPA recursive verification: not enough SRS points (need " + std::to_string(poly_length) +
+                           ", have " + std::to_string(vk.get_monomial_points().size()) + ")");
+        }
+
         add_claim_to_hash_buffer(opening_claim, transcript);
         VerifierAccumulator verifier_accumulator = reduce_verify_internal_recursive(opening_claim, transcript);
         auto round_challenges_inv = verifier_accumulator.u_challenges_inv;
@@ -805,12 +819,11 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
         // Compute G_zero
         // In the native verifier, this uses pippenger. Here we use batch_mul.
         std::vector<Commitment> srs_elements = vk.get_monomial_points();
-        BB_ASSERT_GTE(srs_elements.size(), poly_length, "Not enough SRS points for IPA!");
         srs_elements.resize(poly_length);
         Commitment computed_G_zero = Commitment::batch_mul(srs_elements, s_vec);
         // check the computed G_zero and the claimed G_zero are the same.
-        claimed_G_zero.assert_equal(computed_G_zero);
-        BB_ASSERT_EQ(computed_G_zero.get_value(), claimed_G_zero.get_value(), "G_zero doesn't match received G_zero.");
+        // The circuit constraint enforces correctness; mismatched witnesses will produce an unsatisfiable circuit.
+        claimed_G_zero.assert_equal(computed_G_zero, "G_zero doesn't match received G_zero.");
 
         bool running_truth_value = verifier_accumulator.running_truth_value;
         return running_truth_value;
@@ -832,7 +845,7 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
     {
         // Extract batch_mul arguments from the accumulator
         const auto& commitments = batch_opening_claim.commitments;
-        const auto& scalars = batch_opening_claim.scalars;
+        auto scalars = batch_opening_claim.scalars; // mutable copy: batch_mul temporarily modifies scalars
         const Fr& shplonk_eval_challenge = batch_opening_claim.evaluation_point;
         // Compute \f$ C = \sum \text{commitments}_i \cdot \text{scalars}_i \f$
         GroupElement shplonk_output_commitment = GroupElement::batch_mul(commitments, scalars);

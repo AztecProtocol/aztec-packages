@@ -122,6 +122,11 @@ void TranslatorProvingKey::compute_translator_range_constraint_ordered_polynomia
                 }
             }
         }
+
+        // Verify that overflow entries didn't exceed the reserved space (SORTED_STEPS_COUNT per group)
+        BB_ASSERT(extra_denominator_offset <= (i + 1) * Flavor::SORTED_STEPS_COUNT,
+                  "Translator: overflow entries exceed reserved space in ordered polynomial");
+
         // Advance the iterator past the last written element in the range constraint polynomial and complete it with
         // sorted steps
         auto ordered_vector_it = ordered_vectors_uint.begin();

@@ -40,6 +40,29 @@ resource "google_project_iam_member" "helm_sa_roles" {
   member  = "serviceAccount:${google_service_account.helm_sa.email}"
 }
 
+# Service account for External Secrets Operator
+resource "google_service_account" "eso" {
+  account_id   = "external-secrets-operator"
+  display_name = "External Secrets Operator"
+  description  = "Service account for ESO to access GCP Secret Manager"
+}
+
+# Give the SA read only access secrets in the project
+# NOTE: this gives read access to all secrets
+resource "google_project_iam_member" "eso_secret_accessor" {
+  project = var.project
+  role    = "roles/secretmanager.secretAccessor"
+  member  = "serviceAccount:${google_service_account.eso.email}"
+}
+
+# Allow both clusters to use the SA from the external-secrets namespace
+resource "google_service_account_iam_member" "eso_workload_identity" {
+  for_each           = toset(["aztec-gke-private", "aztec-gke-public"])
+  service_account_id = google_service_account.eso.name
+  role               = "roles/iam.workloadIdentityUser"
+  member             = "serviceAccount:${var.project}.svc.id.goog[external-secrets/external-secrets]"
+}
+
 data "google_iam_policy" "all_users_storage_read" {
   binding {
     role = "roles/storage.objectViewer"

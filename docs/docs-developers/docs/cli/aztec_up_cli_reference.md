@@ -10,127 +10,14 @@ sidebar_position: 3
 *This documentation is auto-generated from the `aztec-up` CLI help output.*
 
 
-*Generated: Tue 10 Mar 2026 20:55:53 UTC*
+*Generated: Tue 07 Apr 2026 18:51:37 UTC*
 
 *Command: `aztec-up`*
 
 ## Table of Contents
 
 - [aztec-up](#aztec-up)
-  - [aztec-up env](#aztec-up-env)
-  - [aztec-up install](#aztec-up-install)
-  - [aztec-up list](#aztec-up-list)
-  - [aztec-up self-update](#aztec-up-self-update)
-  - [aztec-up uninstall](#aztec-up-uninstall)
-  - [aztec-up use](#aztec-up-use)
 ## aztec-up
 
-aztec-up - Aztec version manager
+*No help information available for this command.*
 
-**Usage:**
-```bash
-aztec-up [command] [options]
-```
-
-**Available Commands:**
-
-- `env` - Output PATH for .aztecrc version (for eval)
-- `install <VERSION>` - Install a version and switch to it
-- `list` - List installed versions
-- `self-update` - Update aztec-up itself to the latest version
-- `uninstall <version>` - Remove an installed version
-- `use [<version>]` - Switch to an installed version (or read from .aztecrc)
-
-**Options:**
-
-- `-h --help` - Show this help message
-
-**Examples:**
-```bash
-aztec-up install 0.85.0   Install a specific version
-aztec-up install nightly  Install the nightly version
-aztec-up use 0.85.0       Switch to version 0.85.0
-aztec-up use              Read version from .aztecrc and switch to it
-aztec-up list             Show all installed versions
-aztec-up self-update      Update aztec-up to latest
-```
-
-### Subcommands
-
-### aztec-up env
-
-Output PATH export for the version specified in .aztecrc
-
-**Usage:**
-```bash
-aztec-up env
-```
-
-**Options:**
-
-- `-h, --help` - Print help
-
-### aztec-up install
-
-Install a version of Aztec and switch to it
-
-**Usage:**
-```bash
-aztec-up install <VERSION>
-```
-
-**Options:**
-
-- `-h, --help` - Print help
-
-### aztec-up list
-
-List installed Aztec versions and available aliases
-
-**Usage:**
-```bash
-aztec-up list
-```
-
-**Options:**
-
-- `-h, --help` - Print help
-
-### aztec-up self-update
-
-Update aztec-up itself to the latest version
-
-**Usage:**
-```bash
-aztec-up self-update
-```
-
-**Options:**
-
-- `-h, --help` - Print help
-
-### aztec-up uninstall
-
-Remove an installed version of Aztec
-
-**Usage:**
-```bash
-aztec-up uninstall <VERSION>
-```
-
-**Options:**
-
-- `-h, --help` - Print help
-
-### aztec-up use
-
-Switch to an installed version of Aztec
-
-**Usage:**
-```bash
-aztec-up use [VERSION]
-```
-
-**Options:**
-
-- `-h, --help` - Print help

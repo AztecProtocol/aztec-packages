@@ -69,10 +69,8 @@ void BatchedHonkTranslatorProver::execute_joint_sumcheck_rounds()
     const FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
 
     // Draw joint gate challenges (17 total).
-    std::vector<FF> gate_challenges(JOINT_LOG_N);
-    for (size_t i = 0; i < JOINT_LOG_N; i++) {
-        gate_challenges[i] = transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(i));
-    }
+    std::vector<FF> gate_challenges =
+        transcript->template get_dyadic_powers_of_challenge<FF>("Sumcheck:gate_challenge", JOINT_LOG_N);
 
     // Compute α^{K_H}: offset for translator subrelation separators.
     FF alpha_power_KH = FF(1);
@@ -95,12 +93,9 @@ void BatchedHonkTranslatorProver::execute_joint_sumcheck_rounds()
     MegaZKCommitmentKey small_ck(1 << (log_subgroup_size + 1));
     zk_sumcheck_data = ZKData(JOINT_LOG_N, transcript, small_ck);
 
-    // Gate separator polynomials:
-    //   MegaZK circuit uses gate_challenges[0..mega_zk_log_n-1] for beta_products (real rounds only).
-    //   During virtual rounds, only betas[] and partial_evaluation_result are accessed.
-    //   Translator uses all JOINT_LOG_N challenges.
-    GateSeparatorPolynomial<FF> mega_zk_gate_sep(gate_challenges, mega_zk_log_n);
-    GateSeparatorPolynomial<FF> translator_gate_sep(gate_challenges, JOINT_LOG_N);
+    // Single gate separator for both circuits: beta_products has size 2^JOINT_LOG_N which covers
+    // both the MegaZK real rounds (2^mega_zk_log_n) and translator rounds (2^JOINT_LOG_N).
+    GateSeparatorPolynomial<FF> gate_sep(gate_challenges, JOINT_LOG_N);
 
     // Round helper objects.
     MegaZKProverRound mega_zk_round(static_cast<size_t>(1) << mega_zk_log_n);
@@ -146,8 +141,7 @@ void BatchedHonkTranslatorProver::execute_joint_sumcheck_rounds()
                                          TranslatorFlavor::get_minicircuit_evaluations(translator_partial));
         }
         zk_sumcheck_data.update_zk_sumcheck_data(u, round_idx);
-        mega_zk_gate_sep.partially_evaluate(u);
-        translator_gate_sep.partially_evaluate(u);
+        gate_sep.partially_evaluate(u);
         translator_round.round_size >>= 1;
     };
 
@@ -159,13 +153,13 @@ void BatchedHonkTranslatorProver::execute_joint_sumcheck_rounds()
     auto do_round = [&](auto& hpolys, auto& tpolys, size_t round_idx) -> FF {
         U_joint = SumcheckRoundUnivariate::zero();
 
-        auto U_H = mega_zk_round.compute_univariate(hpolys, mega_zk_params, mega_zk_gate_sep, mega_zk_alphas);
+        auto U_H = mega_zk_round.compute_univariate(hpolys, mega_zk_params, gate_sep, mega_zk_alphas);
         U_H += mega_zk_round.compute_disabled_contribution(
-            hpolys, mega_zk_params, mega_zk_gate_sep, mega_zk_alphas, rdp, masking_tail);
+            hpolys, mega_zk_params, gate_sep, mega_zk_alphas, rdp, masking_tail);
         U_joint += U_H;
 
-        auto U_T = translator_round.compute_univariate(
-            tpolys, translator_relation_parameters, translator_gate_sep, translator_alphas);
+        auto U_T =
+            translator_round.compute_univariate(tpolys, translator_relation_parameters, gate_sep, translator_alphas);
         for (auto& eval : U_T.evaluations) {
             eval *= alpha_power_KH;
         }
@@ -235,13 +229,13 @@ void BatchedHonkTranslatorProver::execute_joint_sumcheck_rounds()
     for (size_t round_idx = mega_zk_log_n; round_idx < JOINT_LOG_N; round_idx++) {
         U_joint = SumcheckRoundUnivariate::zero();
 
-        auto U_H = mega_zk_round.compute_virtual_contribution(
-            mega_zk_partial, mega_zk_params, mega_zk_gate_sep, mega_zk_alphas);
+        auto U_H =
+            mega_zk_round.compute_virtual_contribution(mega_zk_partial, mega_zk_params, gate_sep, mega_zk_alphas);
         U_H *= rdp_scalar;
         U_joint += U_H;
 
         auto U_T = translator_round.compute_univariate(
-            translator_partial, translator_relation_parameters, translator_gate_sep, translator_alphas);
+            translator_partial, translator_relation_parameters, gate_sep, translator_alphas);
         for (auto& eval : U_T.evaluations) {
             eval *= alpha_power_KH;
         }

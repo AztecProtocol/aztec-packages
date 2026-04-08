@@ -6,7 +6,7 @@ import { schemaHasMethod } from '@aztec/foundation/schemas';
 import type { FunctionsOf } from '@aztec/foundation/types';
 
 import { type EncryptedPayload, decrypt, encrypt } from '../../crypto.js';
-import { type WalletMessage, WalletMessageType, type WalletResponse } from '../../types.js';
+import { type DisconnectCallback, type WalletMessage, WalletMessageType, type WalletResponse } from '../../types.js';
 
 /**
  * Internal type representing a wallet method call before encryption.
@@ -18,11 +18,6 @@ type WalletMethodCall = {
   /** Arguments to pass to the wallet method */
   args: unknown[];
 };
-
-/**
- * Callback type for wallet disconnect events.
- */
-export type DisconnectCallback = () => void;
 
 /**
  * A wallet implementation that communicates with browser extension wallets

@@ -17,7 +17,7 @@ export expected_min_zig_version=0.15.1
 export expected_abs_rust_version=1.89.0
 export expected_abs_wasi_version=27.0
 export expected_abs_foundry_version=1.4.1
-export expected_abs_yarn_version=4.5.2
+export expected_abs_yarn_version=4.13.0
 
 function ensure {
   command -v $1 &>/dev/null
@@ -844,6 +844,7 @@ case "$cmd" in
     export USE_TEST_CACHE=1
     export AVM=0
     export AVM_TRANSPILER=0
+    barretenberg/crs/bootstrap.sh
     barretenberg/cpp/bootstrap.sh ci
     ;;
   "ci-barretenberg-full")

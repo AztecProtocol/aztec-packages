@@ -137,7 +137,7 @@ export class CrossChainBot extends BaseBot {
     }
 
     const batch = new BatchCall(this.wallet, calls);
-    const opts = await this.getSendMethodOpts(batch);
+    const opts = this.getSendMethodOpts();
 
     this.log.verbose(`Sending cross-chain batch with ${calls.length} calls`, logCtx);
     const { txHash } = await batch.send({ ...opts, wait: NO_WAIT });

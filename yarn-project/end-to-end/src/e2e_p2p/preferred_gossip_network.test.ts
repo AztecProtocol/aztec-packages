@@ -169,8 +169,6 @@ describe('e2e_p2p_preferred_network', () => {
       throw new Error('Bootstrap node ENR is not available');
     }
 
-    t.ctx.aztecNodeConfig.validatorReexecute = true;
-
     const preferredNodeConfig: AztecNodeConfig = {
       ...t.ctx.aztecNodeConfig,
       disableValidator: true,

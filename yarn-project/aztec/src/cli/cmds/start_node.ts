@@ -9,7 +9,11 @@ import { Agent, makeUndiciFetch } from '@aztec/foundation/json-rpc/undici';
 import type { LogFn } from '@aztec/foundation/log';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { protocolContractsHash } from '@aztec/protocol-contracts';
-import { ProvingJobConsumerSchema, createProvingJobBrokerClient } from '@aztec/prover-client/broker';
+import {
+  ProvingJobConsumerSchema,
+  createProvingJobBrokerClient,
+  proverBrokerBackoff,
+} from '@aztec/prover-client/broker';
 import { type CliPXEOptions, type PXEConfig, allPxeConfigMappings } from '@aztec/pxe/config';
 import { AztecNodeAdminApiSchema, AztecNodeApiSchema } from '@aztec/stdlib/interfaces/client';
 import { P2PApiSchema, ProverNodeApiSchema, type ProvingJobBroker } from '@aztec/stdlib/interfaces/server';
@@ -65,12 +69,8 @@ export async function startNode(
     if (nodeConfig.proverBrokerUrl) {
       // at 1TPS we'd enqueue ~1k chonk verifier proofs and ~1k AVM proofs immediately
       // set a lower connection limit such that we don't overload the server
-      // Keep retrying up to 30s
-      const fetch = makeTracedFetch(
-        [1, 2, 3, 3, 3, 3, 3, 3, 3, 3, 3],
-        false,
-        makeUndiciFetch(new Agent({ connections: 100 })),
-      );
+      // Retry indefinitely until the epoch proving times out and the chain reorgs
+      const fetch = makeTracedFetch(proverBrokerBackoff, false, makeUndiciFetch(new Agent({ connections: 100 })));
       broker = createProvingJobBrokerClient(nodeConfig.proverBrokerUrl, getVersions(nodeConfig), fetch);
     } else if (options.proverBroker) {
       ({ broker } = await startProverBroker(options, signalHandlers, services, userLog));

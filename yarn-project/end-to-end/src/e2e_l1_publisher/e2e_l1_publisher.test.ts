@@ -235,7 +235,13 @@ describe('L1Publisher integration', () => {
           checkpoint: { number: CheckpointNumber.fromBlockNumber(blockId.number), hash: blockId.hash },
         };
 
-        return { proposed: blockId, checkpointed: tipId, proven: tipId, finalized: tipId };
+        return {
+          proposed: blockId,
+          checkpointed: tipId,
+          proven: tipId,
+          finalized: tipId,
+          proposedCheckpoint: tipId,
+        };
       },
       getBlockNumber(): Promise<BlockNumber> {
         return Promise.resolve(BlockNumber(blocks.at(-1)?.number ?? BlockNumber.ZERO));
@@ -321,7 +327,7 @@ describe('L1Publisher integration', () => {
       chainId: fr(chainId),
       version: fr(version),
       vkTreeRoot: getVKTreeRoot(),
-      gasSettings: GasSettings.default({ maxFeesPerGas: minFee }),
+      gasSettings: GasSettings.fallback({ maxFeesPerGas: minFee }),
       protocolContracts: ProtocolContractsList,
       seed,
     });
@@ -784,7 +790,6 @@ describe('L1Publisher integration', () => {
       await publisher.enqueueGovernanceCastSignal(
         l1ContractAddresses.rollupAddress,
         block.slot,
-        block.timestamp,
         EthAddress.random(),
         (_payload: any) => Promise.resolve(Signature.random().toString()),
       );

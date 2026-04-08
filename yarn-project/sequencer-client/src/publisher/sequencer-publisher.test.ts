@@ -217,7 +217,6 @@ describe('SequencerPublisher', () => {
       await publisher.enqueueGovernanceCastSignal(
         govPayload,
         SlotNumber(2),
-        1n,
         EthAddress.fromString(testHarnessAttesterAccount.address),
         msg => testHarnessAttesterAccount.signTypedData(msg),
       ),
@@ -498,6 +497,64 @@ describe('SequencerPublisher', () => {
     expect((publisher as any).requests.length).toEqual(0);
   });
 
+  it('discards only the request whose preCheck fails before sending', async () => {
+    const currentL2Slot = publisher.getCurrentL2Slot();
+    const keptRequest = {
+      to: mockGovernanceProposerAddress,
+      data: encodeFunctionData({
+        abi: EmpireBaseAbi,
+        functionName: 'signal',
+        args: [EthAddress.random().toString()],
+      }),
+    };
+    const failedRequest = {
+      to: mockRollupAddress,
+      data: encodeFunctionData({
+        abi: EmpireBaseAbi,
+        functionName: 'signal',
+        args: [EthAddress.random().toString()],
+      }),
+    };
+
+    const keptPreCheck = jest.fn(() => Promise.resolve());
+    const failedPreCheck = jest.fn(() => Promise.reject(new Error('preCheck failed')));
+
+    publisher.addRequest({
+      action: 'vote-offenses',
+      request: keptRequest,
+      lastValidL2Slot: currentL2Slot,
+      preCheck: keptPreCheck,
+      checkSuccess: () => true,
+    });
+    publisher.addRequest({
+      action: 'governance-signal',
+      request: failedRequest,
+      lastValidL2Slot: currentL2Slot,
+      preCheck: failedPreCheck,
+      checkSuccess: () => true,
+    });
+
+    forwardSpy.mockResolvedValue({
+      receipt: proposeTxReceipt,
+      errorMsg: undefined,
+    });
+
+    const result = await publisher.sendRequestsAt(new Date((publisher as any).dateProvider.now()));
+
+    expect(keptPreCheck).toHaveBeenCalledTimes(1);
+    expect(failedPreCheck).toHaveBeenCalledTimes(1);
+    expect(result?.sentActions).toEqual(['vote-offenses']);
+    expect(forwardSpy).toHaveBeenCalledTimes(1);
+    expect(forwardSpy).toHaveBeenCalledWith(
+      [keptRequest],
+      l1TxUtils,
+      { gasLimit: undefined, txTimeoutAt: undefined },
+      undefined,
+      mockRollupAddress,
+      expect.anything(),
+    );
+  });
+
   it('does not send requests if no valid requests are found', async () => {
     publisher.addRequest({
       action: 'propose',
@@ -583,7 +640,6 @@ describe('SequencerPublisher', () => {
       await publisher.enqueueGovernanceCastSignal(
         govPayload,
         SlotNumber(2),
-        1n,
         EthAddress.fromString(testHarnessAttesterAccount.address),
         msg => testHarnessAttesterAccount.signTypedData(msg),
       ),
@@ -598,7 +654,6 @@ describe('SequencerPublisher', () => {
       await publisher.enqueueGovernanceCastSignal(
         govPayload,
         SlotNumber(2),
-        1n,
         EthAddress.fromString(testHarnessAttesterAccount.address),
         msg => testHarnessAttesterAccount.signTypedData(msg),
       ),
@@ -613,7 +668,6 @@ describe('SequencerPublisher', () => {
       await publisher.enqueueGovernanceCastSignal(
         govPayload,
         SlotNumber(2),
-        1n,
         EthAddress.fromString(testHarnessAttesterAccount.address),
         msg => testHarnessAttesterAccount.signTypedData(msg),
       ),
@@ -628,7 +682,6 @@ describe('SequencerPublisher', () => {
       await publisher.enqueueGovernanceCastSignal(
         govPayload,
         SlotNumber(2),
-        1n,
         EthAddress.fromString(testHarnessAttesterAccount.address),
         msg => testHarnessAttesterAccount.signTypedData(msg),
       ),
@@ -642,7 +695,6 @@ describe('SequencerPublisher', () => {
     await publisher.enqueueGovernanceCastSignal(
       govPayload,
       SlotNumber(2),
-      1n,
       EthAddress.fromString(testHarnessAttesterAccount.address),
       msg => testHarnessAttesterAccount.signTypedData(msg),
     );
@@ -650,7 +702,6 @@ describe('SequencerPublisher', () => {
     await publisher.enqueueGovernanceCastSignal(
       govPayload,
       SlotNumber(3),
-      2n,
       EthAddress.fromString(testHarnessAttesterAccount.address),
       msg => testHarnessAttesterAccount.signTypedData(msg),
     );
@@ -669,7 +720,6 @@ describe('SequencerPublisher', () => {
       await publisher.enqueueGovernanceCastSignal(
         govPayload,
         SlotNumber(2),
-        1n,
         EthAddress.fromString(testHarnessAttesterAccount.address),
         msg => testHarnessAttesterAccount.signTypedData(msg),
       ),
@@ -684,7 +734,6 @@ describe('SequencerPublisher', () => {
       await publisher.enqueueGovernanceCastSignal(
         govPayload,
         SlotNumber(2),
-        1n,
         EthAddress.fromString(testHarnessAttesterAccount.address),
         msg => testHarnessAttesterAccount.signTypedData(msg),
       ),
@@ -700,7 +749,6 @@ describe('SequencerPublisher', () => {
       await publisher.enqueueGovernanceCastSignal(
         govPayload,
         SlotNumber(2),
-        1n,
         EthAddress.fromString(testHarnessAttesterAccount.address),
         msg => testHarnessAttesterAccount.signTypedData(msg),
       ),
@@ -711,7 +759,6 @@ describe('SequencerPublisher', () => {
       await publisher.enqueueGovernanceCastSignal(
         govPayload,
         SlotNumber(3),
-        2n,
         EthAddress.fromString(testHarnessAttesterAccount.address),
         msg => testHarnessAttesterAccount.signTypedData(msg),
       ),

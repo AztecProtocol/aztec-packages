@@ -1,4 +1,5 @@
 import { EpochCache } from '@aztec/epoch-cache';
+import { type FeeHeader, RollupContract } from '@aztec/ethereum/contracts';
 import {
   BlockNumber,
   CheckpointNumber,
@@ -18,7 +19,12 @@ import { type P2P, P2PClientState } from '@aztec/p2p';
 import type { SlasherClientInterface } from '@aztec/slasher';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { CommitteeAttestation, L2Block, type L2BlockSink, type L2BlockSource } from '@aztec/stdlib/block';
-import { Checkpoint, type CheckpointData, L1PublishedData } from '@aztec/stdlib/checkpoint';
+import {
+  Checkpoint,
+  type CheckpointData,
+  L1PublishedData,
+  type ProposedCheckpointData,
+} from '@aztec/stdlib/checkpoint';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import { GasFees } from '@aztec/stdlib/gas';
 import {
@@ -29,6 +35,8 @@ import {
 } from '@aztec/stdlib/interfaces/server';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import { BlockProposal, CheckpointProposal } from '@aztec/stdlib/p2p';
+import { CheckpointHeader } from '@aztec/stdlib/rollup';
+import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
 import { type FailedTx, GlobalVariables, type Tx } from '@aztec/stdlib/tx';
 import { AttestationTimeoutError } from '@aztec/stdlib/validators';
 import { getTelemetryClient } from '@aztec/telemetry-client';
@@ -162,7 +170,7 @@ describe('CheckpointProposalJob', () => {
     publisher.enqueueProposeCheckpoint.mockResolvedValue(undefined);
     publisher.enqueueGovernanceCastSignal.mockResolvedValue(true);
     publisher.enqueueSlashingActions.mockResolvedValue(true);
-    publisher.sendRequests.mockResolvedValue({
+    publisher.sendRequestsAt.mockResolvedValue({
       result: { receipt: { status: 'success' } as TransactionReceipt, errorMsg: undefined },
       successfulActions: ['propose'],
       failedActions: [],
@@ -441,8 +449,6 @@ describe('CheckpointProposalJob', () => {
 
     it('uses targetEpoch for previousCheckpointOutHashes when pipelining crosses epoch boundary', async () => {
       // Pipelining scenario: wall-clock is in epoch 0, but target slot is in epoch 1.
-      // The key fix: getCheckpointsDataForEpoch must be called with targetEpoch, not epochNow.
-      const epochNow = EpochNumber(0);
       const targetEpoch = EpochNumber(1);
       // Target slot is first slot of epoch 1 (epochDuration = 16)
       const targetSlot = SlotNumber(l1Constants.epochDuration);
@@ -454,7 +460,7 @@ describe('CheckpointProposalJob', () => {
 
       l2BlockSource.getCheckpointsDataForEpoch.mockResolvedValue([toCheckpointData(previousCheckpoint)]);
 
-      job = createCheckpointProposalJob({ slotNow, targetSlot, epochNow, targetEpoch });
+      job = createCheckpointProposalJob({ slotNow, targetSlot, targetEpoch });
       job.setTimetable(
         new SequencerTimetable({
           ethereumSlotDuration,
@@ -471,7 +477,7 @@ describe('CheckpointProposalJob', () => {
 
       await job.execute();
 
-      // Verify getCheckpointsDataForEpoch was called with targetEpoch (1), not epochNow (0)
+      // Verify getCheckpointsDataForEpoch was called with targetEpoch (1), not the wall-clock epoch (0)
       expect(l2BlockSource.getCheckpointsDataForEpoch).toHaveBeenCalledWith(targetEpoch);
     });
   });
@@ -551,7 +557,6 @@ describe('CheckpointProposalJob', () => {
   function createCheckpointProposalJob(overrides?: {
     slotNow?: SlotNumber;
     targetSlot?: SlotNumber;
-    epochNow?: EpochNumber;
     targetEpoch?: EpochNumber;
   }): TestCheckpointProposalJob {
     const setStateFn = jest.fn();
@@ -560,7 +565,6 @@ describe('CheckpointProposalJob', () => {
     return new TestCheckpointProposalJob(
       overrides?.slotNow ?? SlotNumber(newSlotNumber),
       overrides?.targetSlot ?? SlotNumber(newSlotNumber),
-      overrides?.epochNow ?? epoch,
       overrides?.targetEpoch ?? epoch,
       checkpointNumber,
       lastBlockNumber,
@@ -589,6 +593,123 @@ describe('CheckpointProposalJob', () => {
       { actor: 'test' }, // bindings
     );
   }
+
+  describe('computeForceProposedFeeHeader', () => {
+    // Use checkpoint 3 so the grandparent (checkpoint 1) is valid
+    const pipelinedCheckpointNumber = CheckpointNumber(3);
+
+    function createJobWithProposedCheckpoint(pendingData: ProposedCheckpointData): TestCheckpointProposalJob {
+      const setStateFn = jest.fn();
+      const eventEmitter = new EventEmitter() as TypedEventEmitter<SequencerEvents>;
+
+      return new TestCheckpointProposalJob(
+        SlotNumber(newSlotNumber),
+        SlotNumber(newSlotNumber),
+        epoch,
+        pipelinedCheckpointNumber,
+        lastBlockNumber,
+        proposer,
+        publisher,
+        attestorAddress,
+        undefined,
+        validatorClient,
+        globalVariableBuilder,
+        p2p,
+        worldState,
+        l1ToL2MessageSource,
+        l2BlockSource,
+        checkpointsBuilder as unknown as FullNodeCheckpointsBuilder,
+        blockSink,
+        l1Constants,
+        config,
+        timetable,
+        slasherClient,
+        epochCache,
+        dateProvider,
+        metrics,
+        eventEmitter,
+        setStateFn,
+        getTelemetryClient().getTracer('test'),
+        { actor: 'test' },
+        pendingData,
+      );
+    }
+
+    const pendingData: ProposedCheckpointData = {
+      checkpointNumber: CheckpointNumber(1),
+      header: CheckpointHeader.empty(),
+      archive: AppendOnlyTreeSnapshot.empty(),
+      checkpointOutHash: Fr.ZERO,
+      startBlock: BlockNumber(1),
+      blockCount: 1,
+      totalManaUsed: 5000n,
+      feeAssetPriceModifier: 100n,
+    };
+
+    const grandparentFeeHeader: FeeHeader = {
+      manaUsed: 3000n,
+      excessMana: 1000n,
+      ethPerFeeAsset: 500n,
+      congestionCost: 50n,
+      proverCost: 10n,
+    };
+
+    it('returns undefined when proposedCheckpointData is not set', async () => {
+      const result = await job.computeForceProposedFeeHeader(CheckpointNumber(1));
+      expect(result).toBeUndefined();
+    });
+
+    function mockRollup(overrides: { grandparentCheckpoint?: any; manaTarget?: bigint }) {
+      const rollup = publisher.rollupContract;
+      jest.spyOn(rollup, 'getCheckpoint').mockResolvedValue(overrides.grandparentCheckpoint);
+      jest.spyOn(rollup, 'getManaTarget').mockResolvedValue(overrides.manaTarget ?? 10_000n);
+    }
+
+    it('computes fee header from grandparent checkpoint', async () => {
+      const jobWithPending = createJobWithProposedCheckpoint(pendingData);
+      const manaTarget = 10_000n;
+
+      mockRollup({ grandparentCheckpoint: { feeHeader: grandparentFeeHeader }, manaTarget });
+
+      const parentCheckpointNumber = CheckpointNumber(1);
+      const result = await jobWithPending.computeForceProposedFeeHeader(parentCheckpointNumber);
+
+      expect(result).toBeDefined();
+      expect(result!.checkpointNumber).toBe(parentCheckpointNumber);
+
+      const expected = RollupContract.computeChildFeeHeader(
+        grandparentFeeHeader,
+        pendingData.totalManaUsed,
+        pendingData.feeAssetPriceModifier,
+        manaTarget,
+      );
+      expect(result!.feeHeader).toEqual(expected);
+    });
+
+    it('returns undefined when grandparent checkpoint is not found', async () => {
+      const jobWithPending = createJobWithProposedCheckpoint(pendingData);
+      mockRollup({ grandparentCheckpoint: undefined });
+
+      const result = await jobWithPending.computeForceProposedFeeHeader(CheckpointNumber(1));
+      expect(result).toBeUndefined();
+    });
+
+    it('returns undefined when grandparent checkpoint has no feeHeader', async () => {
+      const jobWithPending = createJobWithProposedCheckpoint(pendingData);
+      mockRollup({ grandparentCheckpoint: { feeHeader: undefined } });
+
+      const result = await jobWithPending.computeForceProposedFeeHeader(CheckpointNumber(1));
+      expect(result).toBeUndefined();
+    });
+
+    it('returns undefined when rollup calls throw', async () => {
+      const jobWithPending = createJobWithProposedCheckpoint(pendingData);
+      jest.spyOn(publisher.rollupContract, 'getCheckpoint').mockRejectedValue(new Error('rpc error'));
+
+      const result = await jobWithPending.computeForceProposedFeeHeader(CheckpointNumber(1));
+      expect(result).toBeUndefined();
+    });
+  });
 
   describe('multiple block mode', () => {
     beforeEach(() => {
@@ -957,6 +1078,21 @@ describe('CheckpointProposalJob', () => {
       expect(validatorClient.collectAttestations).not.toHaveBeenCalled();
     });
 
+    it('does not push proposed block to archiver in fisherman mode', async () => {
+      job.updateConfig({ fishermanMode: true, buildCheckpointIfEmpty: true, minTxsPerBlock: 0 });
+
+      const emptyBlock = await makeBlock([], globalVariables);
+      checkpointBuilder.seedBlocks([emptyBlock], [[]]);
+
+      // In fisherman mode execute() always returns undefined (handled internally via handleCheckpointEndAsFisherman)
+      await job.execute();
+
+      // Fisherman still builds the block
+      expect(checkpointBuilder.buildBlockCalls).toHaveLength(1);
+      // But must NOT push to the archiver — that was the bug causing reorgs on mainnet
+      expect(blockSink.addBlock).not.toHaveBeenCalled();
+    });
+
     it('handles empty committee gracefully', async () => {
       // Mock empty committee
       epochCache.getCommittee.mockResolvedValue({
@@ -1108,6 +1244,11 @@ class TestCheckpointProposalJob extends CheckpointProposalJob {
   /** Get timetable for testing - allows tests to spy on methods */
   public getTimetable(): SequencerTimetable {
     return this.timetable;
+  }
+
+  /** Expose computeForceProposedFeeHeader for testing */
+  public override computeForceProposedFeeHeader(parentCheckpointNumber: CheckpointNumber) {
+    return super.computeForceProposedFeeHeader(parentCheckpointNumber);
   }
 
   /** Expose internal buildSingleBlock method */

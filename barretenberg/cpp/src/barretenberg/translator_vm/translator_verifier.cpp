@@ -206,10 +206,8 @@ typename TranslatorVerifier_<Flavor>::ReductionResult TranslatorVerifier_<Flavor
     // Execute Sumcheck Verifier
     Sumcheck sumcheck(transcript, alpha, TranslatorFlavor::CONST_TRANSLATOR_LOG_N);
 
-    std::vector<FF> gate_challenges(TranslatorFlavor::CONST_TRANSLATOR_LOG_N);
-    for (size_t idx = 0; idx < gate_challenges.size(); idx++) {
-        gate_challenges[idx] = transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
-    }
+    std::vector<FF> gate_challenges = transcript->template get_dyadic_powers_of_challenge<FF>(
+        "Sumcheck:gate_challenge", TranslatorFlavor::CONST_TRANSLATOR_LOG_N);
 
     // Receive commitments to Libra masking polynomials
     std::array<Commitment, NUM_LIBRA_COMMITMENTS> libra_commitments = {};
@@ -241,10 +239,12 @@ typename TranslatorVerifier_<Flavor>::ReductionResult TranslatorVerifier_<Flavor
         combined_shifted_evals.push_back(eval);
     }
 
-    BB_ASSERT_EQ(combined_unshifted_comms.size(), TranslatorFlavor::NUM_PCS_UNSHIFTED);
-    BB_ASSERT_EQ(combined_unshifted_evals.size(), TranslatorFlavor::NUM_PCS_UNSHIFTED);
-    BB_ASSERT_EQ(combined_shifted_comms.size(), TranslatorFlavor::NUM_PCS_TO_BE_SHIFTED);
-    BB_ASSERT_EQ(combined_shifted_evals.size(), TranslatorFlavor::NUM_PCS_TO_BE_SHIFTED);
+    if (combined_unshifted_comms.size() != TranslatorFlavor::NUM_PCS_UNSHIFTED ||
+        combined_unshifted_evals.size() != TranslatorFlavor::NUM_PCS_UNSHIFTED ||
+        combined_shifted_comms.size() != TranslatorFlavor::NUM_PCS_TO_BE_SHIFTED ||
+        combined_shifted_evals.size() != TranslatorFlavor::NUM_PCS_TO_BE_SHIFTED) {
+        throw_or_abort("Translator verifier: PCS commitment/evaluation size mismatch");
+    }
 
     ClaimBatcher claim_batcher{ .unshifted = ClaimBatch{ combined_unshifted_comms, combined_unshifted_evals },
                                 .shifted = ClaimBatch{ combined_shifted_comms, combined_shifted_evals } };

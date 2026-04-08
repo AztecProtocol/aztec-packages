@@ -75,7 +75,6 @@ describe('e2e_simple', () => {
       const { receipt: txReceipt } = await deployer.deploy(ownerAddress, sender, 1).send({
         from: ownerAddress,
         contractAddressSalt: new Fr(BigInt(1)),
-        wait: { returnReceipt: true },
       });
       await waitForProven(aztecNode, txReceipt, {
         provenTimeout: (config.aztecProofSubmissionEpochs + 1) * config.aztecEpochDuration * config.aztecSlotDuration,
