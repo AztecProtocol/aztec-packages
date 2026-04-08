@@ -23,6 +23,61 @@ function set_dump_avm {
   [ -n "${DUMP_AVM_INPUTS_TO_DIR:-}" ] && echo "DUMP_AVM_INPUTS_TO_DIR=${DUMP_AVM_INPUTS_TO_DIR}/$1"
 }
 
+# Returns resource overrides (CPUS=X:MEM=Yg) for tests that need more than the default 2 CPUs / 8g.
+# Based on the number of processes each test spins up (nodes, provers, validators).
+function get_test_resources {
+  local test=$1
+  case "$test" in
+    # P2P: extremely heavy (10+ processes)
+    src/e2e_p2p/preferred_gossip_network.test.ts | \
+    src/e2e_p2p/add_rollup.test.ts)
+      echo "CPUS=8:MEM=32g" ;;
+    # P2P: heavy - 6+ validators or with prover node
+    src/e2e_p2p/gossip_network.test.ts | \
+    src/e2e_p2p/fee_asset_price_oracle_gossip.test.ts | \
+    src/e2e_p2p/validators_sentinel.test.ts | \
+    src/e2e_p2p/inactivity_slash*.test.ts | \
+    src/e2e_p2p/slash_veto_demo.test.ts | \
+    src/e2e_p2p/multiple_validators_sentinel*.test.ts | \
+    src/e2e_p2p/reqresp/*.test.ts)
+      echo "CPUS=6:MEM=24g" ;;
+    # P2P: medium - 4 validators, no prover
+    src/e2e_p2p/*.test.ts)
+      echo "CPUS=4:MEM=16g" ;;
+    # Epochs: heavy multi-validator + prover
+    src/e2e_epochs/epochs_first_slot.test.ts | \
+    src/e2e_epochs/epochs_mbps*.test.ts | \
+    src/e2e_epochs/epochs_invalidate_block*.test.ts)
+      echo "CPUS=6:MEM=24g" ;;
+    # Epochs: medium multi-validator
+    src/e2e_epochs/epochs_simple_block_building.test.ts | \
+    src/e2e_epochs/epochs_high_tps_block_building.test.ts | \
+    src/e2e_epochs/epochs_ha_sync.test.ts | \
+    src/e2e_epochs/epochs_multi_proof.test.ts)
+      echo "CPUS=4:MEM=16g" ;;
+    # Epochs: single node without prover (use defaults)
+    src/e2e_epochs/epochs_missed_l1_slot.test.ts)
+      ;;
+    # Epochs: single node + prover (remaining epoch tests)
+    src/e2e_epochs/*.test.ts)
+      echo "CPUS=3:MEM=12g" ;;
+    # Fees: all use prover node
+    src/e2e_fees/*.test.ts)
+      echo "CPUS=3:MEM=12g" ;;
+    # Cross-chain with prover
+    src/e2e_cross_chain_messaging/l2_to_l1.test.ts | \
+    src/e2e_cross_chain_messaging/token_bridge_public.test.ts | \
+    src/e2e_cross_chain_messaging/token_bridge_private.test.ts)
+      echo "CPUS=3:MEM=12g" ;;
+    # Single node + prover or extra nodes
+    src/e2e_simple.test.ts | \
+    src/e2e_synching.test.ts)
+      echo "CPUS=3:MEM=12g" ;;
+    src/e2e_multi_validator/*.test.ts)
+      echo "CPUS=3:MEM=12g" ;;
+  esac
+}
+
 function test_cmds {
   local run_test_script="yarn-project/end-to-end/scripts/run_test.sh"
   local prefix="$hash:ISOLATE=1"
@@ -30,7 +85,7 @@ function test_cmds {
   if [ "$CI_FULL" -eq 1 ]; then
     echo "$prefix:TIMEOUT=20m:CPUS=16:MEM=96g:NAME=e2e_prover_full_real $run_test_script simple e2e_prover/full"
   else
-    echo "$prefix:NAME=e2e_prover_full_fake FAKE_PROOFS=1 $run_test_script simple e2e_prover/full"
+    echo "$prefix:CPUS=3:MEM=12g:NAME=e2e_prover_full_fake FAKE_PROOFS=1 $run_test_script simple e2e_prover/full"
   fi
   echo "$prefix:TIMEOUT=15m:NAME=e2e_block_building $(set_dump_avm e2e_block_building) $run_test_script simple e2e_block_building"
 
@@ -43,6 +98,8 @@ function test_cmds {
   for test in "${tests[@]}"; do
     local name=${test#*e2e_}
     name=e2e_${name%.test.ts}
+    local resources=$(get_test_resources "$test")
+    local test_prefix="$prefix${resources:+:$resources}"
 
     # Check if this is a .parallel.test.ts file
     if [[ "$test" == *.parallel.test.ts ]]; then
@@ -51,11 +108,11 @@ function test_cmds {
         # Create a safe name for the individual test (replace spaces with underscores)
         local safe_test_name=$(echo "$test_name" | sed 's/ /_/g')
         local full_name="${name}_${safe_test_name}"
-        echo "$prefix:NAME=$full_name $(set_dump_avm $full_name) $run_test_script simple $test \"$test_name\""
+        echo "$test_prefix:NAME=$full_name $(set_dump_avm $full_name) $run_test_script simple $test \"$test_name\""
       done < <(extract_test_names "$test")
     else
       # Regular test file - run the whole file
-      echo "$prefix:NAME=$name $(set_dump_avm $name) $run_test_script simple $test"
+      echo "$test_prefix:NAME=$name $(set_dump_avm $name) $run_test_script simple $test"
     fi
   done
 
@@ -99,7 +156,7 @@ function test_cmds {
 
 function test {
   echo_header "e2e tests"
-  test_cmds | filter_test_cmds | parallelize
+  test_cmds | filter_test_cmds | STRICT_SCHEDULING=1 parallelize
 }
 
 function bench_cmds {
@@ -175,7 +232,7 @@ function test_and_collect_avm_inputs {
   export DUMP_AVM_INPUTS_TO_DIR="$default_avm_inputs_dump_dir"
 
   # Run tests in parallel (like regular test command)
-  test_cmds | filter_test_cmds | parallelize
+  test_cmds | filter_test_cmds | STRICT_SCHEDULING=1 parallelize
 
   # Use AVM_INPUTS_HASH if set (computed before build in CI), otherwise fall back to $hash
   local avm_hash=${AVM_INPUTS_HASH:-$hash}
