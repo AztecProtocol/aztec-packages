@@ -216,7 +216,7 @@ pub contract AMM {
             // As part of initialization, we mint some tokens to the zero address to 'lock' them (i.e. make them
             // impossible to redeem), guaranteeing total supply will never be zero again.
             liquidity_token.mint_to_public(AztecAddress::zero(), MINIMUM_LIQUIDITY).call(
-                self.context,
+            &self.context,
             );
 
             INITIAL_LIQUIDITY
@@ -224,7 +224,7 @@ pub contract AMM {
 
         assert(liquidity_amount > 0 as u128, "INSUFFICIENT_LIQUIDITY_MINTED");
         liquidity_token.finalize_mint_to_private(liquidity_amount, liquidity_partial_note).call(
-            self.context,
+            &self.context,
         );
     }
 
@@ -372,7 +372,7 @@ pub contract AMM {
         assert(amount_out >= amount_out_min, "INSUFFICIENT_OUTPUT_AMOUNT");
 
         Token::at(token_out).finalize_transfer_to_private(amount_out, token_out_partial_note).call(
-            self.context,
+            &self.context,
         );
     }
 
@@ -459,7 +459,7 @@ pub contract AMM {
         // Note again that we already knew the amount out, but for consistency we want to only commit this note once
         // all other steps have been performed.
         Token::at(token_out).finalize_transfer_to_private(amount_out, token_out_partial_note).call(
-            self.context,
+            &self.context,
         );
     }
 
