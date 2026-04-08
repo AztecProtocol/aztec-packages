@@ -20,38 +20,38 @@ impl UtilityContext {
         Self { block_header: default_context.block_header, contract_address }
     }
 
-    pub fn block_header(self) -> BlockHeader {
+    pub fn block_header(&self) -> BlockHeader {
         self.block_header
     }
 
-    pub fn block_number(self) -> u32 {
+    pub fn block_number(&self) -> u32 {
         self.block_header.global_variables.block_number
     }
 
-    pub fn timestamp(self) -> u64 {
+    pub fn timestamp(&self) -> u64 {
         self.block_header.global_variables.timestamp
     }
 
-    pub fn this_address(self) -> AztecAddress {
+    pub fn this_address(&self) -> AztecAddress {
         self.contract_address
     }
 
-    pub fn version(self) -> Field {
+    pub fn version(&self) -> Field {
         self.block_header.global_variables.version
     }
 
-    pub fn chain_id(self) -> Field {
+    pub fn chain_id(&self) -> Field {
         self.block_header.global_variables.chain_id
     }
 
     pub unconstrained fn raw_storage_read<let N: u32>(
-        self: Self,
+        self: &Self,
         storage_slot: Field,
     ) -> [Field; N] {
         storage_read(self.block_header, self.this_address(), storage_slot)
     }
 
-    pub unconstrained fn storage_read<T>(self, storage_slot: Field) -> T
+    pub unconstrained fn storage_read<T>(&self, storage_slot: Field) -> T
     where
         T: Packable,
     {

@@ -32,7 +32,7 @@ impl PublicContext {
     }
 
     /// Emits a _public_ log that will be visible onchain to everyone.
-    pub fn emit_public_log<T>(_self: Self, log: T)
+    pub fn emit_public_log<T>(_self: &Self, log: T)
     where
         T: Serialize,
     {
@@ -41,20 +41,20 @@ impl PublicContext {
     }
 
     /// Checks if a given note hash exists in the note hash tree at a particular leaf_index.
-    pub fn note_hash_exists(_self: Self, note_hash: Field, leaf_index: u64) -> bool {
+    pub fn note_hash_exists(_self: &Self, note_hash: Field, leaf_index: u64) -> bool {
         // Safety: AVM opcodes are constrained by the AVM itself
         unsafe { avm::note_hash_exists(note_hash, leaf_index) } == 1
     }
 
     /// Checks if a specific L1-to-L2 message exists in the L1-to-L2 message tree at a particular leaf index.
-    pub fn l1_to_l2_msg_exists(_self: Self, msg_hash: Field, msg_leaf_index: Field) -> bool {
+    pub fn l1_to_l2_msg_exists(_self: &Self, msg_hash: Field, msg_leaf_index: Field) -> bool {
         // Safety: AVM opcodes are constrained by the AVM itself TODO(alvaro): Make l1l2msg leaf index a u64 upstream
         unsafe { avm::l1_to_l2_msg_exists(msg_hash, msg_leaf_index as u64) } == 1
     }
 
     /// Returns `true` if an `unsiloed_nullifier` has been emitted by `contract_address`.
     pub fn nullifier_exists_unsafe(
-        _self: Self,
+        _self: &Self,
         unsiloed_nullifier: Field,
         contract_address: AztecAddress,
     ) -> bool {
@@ -65,7 +65,7 @@ impl PublicContext {
 
     /// Consumes a message sent from Ethereum (L1) to Aztec (L2).
     pub fn consume_l1_to_l2_message(
-        self: Self,
+        self: &Self,
         content: Field,
         secret: Field,
         sender: EthAddress,
@@ -97,14 +97,14 @@ impl PublicContext {
     }
 
     /// Sends an "L2 -> L1 message".
-    pub fn message_portal(_self: Self, recipient: EthAddress, content: Field) {
+    pub fn message_portal(_self: &Self, recipient: EthAddress, content: Field) {
         // Safety: AVM opcodes are constrained by the AVM itself
         unsafe { avm::send_l2_to_l1_msg(recipient, content) };
     }
 
     /// Calls a public function on another contract.
     pub unconstrained fn call_public_function<let N: u32>(
-        _self: Self,
+        _self: &Self,
         contract_address: AztecAddress,
         function_selector: FunctionSelector,
         args: [Field; N],
@@ -131,7 +131,7 @@ impl PublicContext {
 
     /// Makes a read-only call to a public function on another contract.
     pub unconstrained fn static_call_public_function<let N: u32>(
-        _self: Self,
+        _self: &Self,
         contract_address: AztecAddress,
         function_selector: FunctionSelector,
         args: [Field; N],
@@ -157,19 +157,19 @@ impl PublicContext {
     }
 
     /// Adds a new note hash to the Note Hash Tree.
-    pub fn push_note_hash(_self: Self, note_hash: Field) {
+    pub fn push_note_hash(_self: &Self, note_hash: Field) {
         // Safety: AVM opcodes are constrained by the AVM itself
         unsafe { avm::emit_note_hash(note_hash) };
     }
 
     /// Adds a new nullifier to the Nullifier Tree.
-    pub fn push_nullifier(_self: Self, nullifier: Field) {
+    pub fn push_nullifier(_self: &Self, nullifier: Field) {
         // Safety: AVM opcodes are constrained by the AVM itself
         unsafe { avm::emit_nullifier(nullifier) };
     }
 
     /// Returns the address of the current contract being executed.
-    pub fn this_address(_self: Self) -> AztecAddress {
+    pub fn this_address(_self: &Self) -> AztecAddress {
         // Safety: AVM opcodes are constrained by the AVM itself
         unsafe {
             avm::address()
@@ -177,7 +177,7 @@ impl PublicContext {
     }
 
     /// Returns the contract address that initiated this function call.
-    pub fn maybe_msg_sender(_self: Self) -> Option<AztecAddress> {
+    pub fn maybe_msg_sender(_self: &Self) -> Option<AztecAddress> {
         // Safety: AVM opcodes are constrained by the AVM itself
         let maybe_msg_sender = unsafe { avm::sender() };
         if maybe_msg_sender == NULL_MSG_SENDER_CONTRACT_ADDRESS {
@@ -188,7 +188,7 @@ impl PublicContext {
     }
 
     /// Returns the function selector of the currently-executing function.
-    pub fn selector(_self: Self) -> FunctionSelector {
+    pub fn selector(_self: &Self) -> FunctionSelector {
         // The selector is the first element of the calldata when calling a public function through dispatch.
         // Safety: AVM opcodes are constrained by the AVM itself.
         let raw_selector: [Field; 1] = unsafe { avm::calldata_copy(0, 1) };
@@ -205,7 +205,7 @@ impl PublicContext {
     }
 
     /// Returns the "transaction fee" for the current transaction.
-    pub fn transaction_fee(_self: Self) -> Field {
+    pub fn transaction_fee(_self: &Self) -> Field {
         // Safety: AVM opcodes are constrained by the AVM itself
         unsafe {
             avm::transaction_fee()
@@ -213,7 +213,7 @@ impl PublicContext {
     }
 
     /// Returns the chain ID of the current network.
-    pub fn chain_id(_self: Self) -> Field {
+    pub fn chain_id(_self: &Self) -> Field {
         // Safety: AVM opcodes are constrained by the AVM itself
         unsafe {
             avm::chain_id()
@@ -221,7 +221,7 @@ impl PublicContext {
     }
 
     /// Returns the protocol version.
-    pub fn version(_self: Self) -> Field {
+    pub fn version(_self: &Self) -> Field {
         // Safety: AVM opcodes are constrained by the AVM itself
         unsafe {
             avm::version()
@@ -229,7 +229,7 @@ impl PublicContext {
     }
 
     /// Returns the current block number.
-    pub fn block_number(_self: Self) -> u32 {
+    pub fn block_number(_self: &Self) -> u32 {
         // Safety: AVM opcodes are constrained by the AVM itself
         unsafe {
             avm::block_number()
@@ -237,7 +237,7 @@ impl PublicContext {
     }
 
     /// Returns the timestamp of the current block.
-    pub fn timestamp(_self: Self) -> u64 {
+    pub fn timestamp(_self: &Self) -> u64 {
         // Safety: AVM opcodes are constrained by the AVM itself
         unsafe {
             avm::timestamp()
@@ -245,7 +245,7 @@ impl PublicContext {
     }
 
     /// Returns the fee per unit of L2 gas.
-    pub fn min_fee_per_l2_gas(_self: Self) -> u128 {
+    pub fn min_fee_per_l2_gas(_self: &Self) -> u128 {
         // Safety: AVM opcodes are constrained by the AVM itself
         unsafe {
             avm::min_fee_per_l2_gas()
@@ -253,7 +253,7 @@ impl PublicContext {
     }
 
     /// Returns the fee per unit of DA gas.
-    pub fn min_fee_per_da_gas(_self: Self) -> u128 {
+    pub fn min_fee_per_da_gas(_self: &Self) -> u128 {
         // Safety: AVM opcodes are constrained by the AVM itself
         unsafe {
             avm::min_fee_per_da_gas()
@@ -261,7 +261,7 @@ impl PublicContext {
     }
 
     /// Returns the remaining L2 gas available.
-    pub fn l2_gas_left(_self: Self) -> u32 {
+    pub fn l2_gas_left(_self: &Self) -> u32 {
         // Safety: AVM opcodes are constrained by the AVM itself
         unsafe {
             avm::l2_gas_left()
@@ -269,7 +269,7 @@ impl PublicContext {
     }
 
     /// Returns the remaining DA gas available.
-    pub fn da_gas_left(_self: Self) -> u32 {
+    pub fn da_gas_left(_self: &Self) -> u32 {
         // Safety: AVM opcodes are constrained by the AVM itself
         unsafe {
             avm::da_gas_left()
@@ -277,13 +277,13 @@ impl PublicContext {
     }
 
     /// Checks if the current execution is within a staticcall context.
-    pub fn is_static_call(_self: Self) -> bool {
+    pub fn is_static_call(_self: &Self) -> bool {
         // Safety: AVM opcodes are constrained by the AVM itself
         unsafe { avm::is_static_call() } == 1
     }
 
     /// Reads raw field values from public storage.
-    pub fn raw_storage_read<let N: u32>(self: Self, storage_slot: Field) -> [Field; N] {
+    pub fn raw_storage_read<let N: u32>(self: &Self, storage_slot: Field) -> [Field; N] {
         let mut out = [0; N];
         for i in 0..N {
             // Safety: AVM opcodes are constrained by the AVM itself
@@ -295,7 +295,7 @@ impl PublicContext {
     }
 
     /// Reads a typed value from public storage.
-    pub fn storage_read<T>(self, storage_slot: Field) -> T
+    pub fn storage_read<T>(&self, storage_slot: Field) -> T
     where
         T: Packable,
     {
@@ -303,7 +303,7 @@ impl PublicContext {
     }
 
     /// Writes raw field values to public storage.
-    pub fn raw_storage_write<let N: u32>(_self: Self, storage_slot: Field, values: [Field; N]) {
+    pub fn raw_storage_write<let N: u32>(_self: &Self, storage_slot: Field, values: [Field; N]) {
         for i in 0..N {
             // Safety: AVM opcodes are constrained by the AVM itself
             unsafe { avm::storage_write(storage_slot + i as Field, values[i]) };
@@ -311,7 +311,7 @@ impl PublicContext {
     }
 
     /// Writes a typed value to public storage.
-    pub fn storage_write<T>(self, storage_slot: Field, value: T)
+    pub fn storage_write<T>(&self, storage_slot: Field, value: T)
     where
         T: Packable,
     {
