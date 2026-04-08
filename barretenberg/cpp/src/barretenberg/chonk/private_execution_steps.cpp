@@ -166,8 +166,10 @@ void PrivateExecutionSteps::parse(std::vector<PrivateExecutionStepRaw>&& steps)
 
 /**
  * @brief Build Phase A (non-recursion constraints) of a circuit on a background thread.
- * @details Uses a dummy op_queue since Phase A never reads/writes it. The builder must have
- * its op_queue swapped to the real one and Phase B completed before accumulation.
+ * @details The builder is constructed with a null op_queue — any attempt to emit goblin ECC ops
+ * during Phase A will trip a BB_ASSERT in queue_ecc_* at the access site, making the "non-recursion
+ * constraints don't touch the op_queue" contract load-bearing rather than implicit. The real
+ * op_queue is installed later via builder.attach_op_queue in complete_phase_b.
  */
 static std::future<MegaCircuitBuilder> build_phase_a_async(acir_format::AcirProgram& program)
 {
@@ -175,14 +177,10 @@ static std::future<MegaCircuitBuilder> build_phase_a_async(acir_format::AcirProg
         // Prevent accidental parallel_for from creating a second thread pool on this thread
         set_parallel_for_concurrency(1);
 
-        auto dummy_op_queue = std::make_shared<ECCOpQueue>();
         MegaCircuitBuilder builder{
-            dummy_op_queue, program.witness, program.constraints.public_inputs, /*is_write_vk_mode=*/false
+            /*op_queue_in=*/nullptr, program.witness, program.constraints.public_inputs, /*is_write_vk_mode=*/false
         };
         acir_format::build_non_recursion_constraints(builder, program.constraints, acir_format::ProgramMetadata{});
-
-        BB_ASSERT(dummy_op_queue->get_current_subtable_size() == 0,
-                  "Phase A unexpectedly wrote to op_queue during background construction");
 
         return builder;
     });
@@ -197,8 +195,7 @@ static void complete_phase_b(MegaCircuitBuilder& builder,
                              acir_format::AcirFormat& constraints,
                              const acir_format::ProgramMetadata& metadata)
 {
-    builder.op_queue = metadata.ivc->get_goblin().op_queue;
-    builder.op_queue->initialize_new_subtable();
+    builder.attach_op_queue(metadata.ivc->get_goblin().op_queue);
     acir_format::build_recursion_and_finalize_constraints(builder, constraints, metadata);
 }
 

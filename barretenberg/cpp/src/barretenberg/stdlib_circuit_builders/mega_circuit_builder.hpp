@@ -8,6 +8,7 @@
 #include <sstream>
 #include <utility>
 
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/crypto/sha256/sha256.hpp"
 #include "barretenberg/honk/execution_trace/mega_execution_trace.hpp"
 #include "barretenberg/op_queue/ecc_op_queue.hpp"
@@ -58,7 +59,10 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<M
         BB_BENCH();
         // Instantiate the subtable to be populated with goblin ecc ops from this circuit. The merge settings indicate
         // whether the subtable should be prepended or appended to the existing subtables from prior circuits.
-        op_queue->initialize_new_subtable();
+        // When op_queue is null (Phase A of pipelined construction), defer this to attach_op_queue.
+        if (op_queue != nullptr) {
+            op_queue->initialize_new_subtable();
+        }
 
         // Set indices to constants corresponding to Goblin ECC op codes
         set_goblin_ecc_op_code_constant_variables();
@@ -89,7 +93,10 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<M
     {
         // Instantiate the subtable to be populated with goblin ecc ops from this circuit. The merge settings indicate
         // whether the subtable should be prepended or appended to the existing subtables from prior circuits.
-        op_queue->initialize_new_subtable();
+        // When op_queue is null (Phase A of pipelined construction), defer this to attach_op_queue.
+        if (op_queue != nullptr) {
+            op_queue->initialize_new_subtable();
+        }
 
         // Set indices to constants corresponding to Goblin ECC op codes
         set_goblin_ecc_op_code_constant_variables();
@@ -118,6 +125,22 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<M
 
         throw_or_abort("Invalid op code");
         return 0;
+    }
+
+    /**
+     * @brief Attach a real op_queue after Phase A of pipelined circuit construction.
+     * @details Used in the pipelined path in PrivateExecutionSteps::accumulate: the builder is
+     * constructed with a null op_queue on a background thread (Phase A builds only constraint
+     * kinds that never touch the op_queue), then this method installs the real IVC op_queue once
+     * the previous circuit's accumulate has completed. initialize_new_subtable is deferred here
+     * so that a) Phase A doesn't need a throwaway op_queue and b) any stray queue_ecc_* call
+     * during Phase A crashes at the access site (see BB_ASSERTs in mega_circuit_builder.cpp).
+     */
+    void attach_op_queue(std::shared_ptr<ECCOpQueue> op_queue_in)
+    {
+        BB_ASSERT_EQ(op_queue, nullptr, "attach_op_queue called on a builder that already has an op_queue");
+        op_queue = std::move(op_queue_in);
+        op_queue->initialize_new_subtable();
     }
 
     void finalize_circuit(const bool ensure_nonzero);

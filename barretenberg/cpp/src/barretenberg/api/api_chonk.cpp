@@ -211,21 +211,15 @@ bool ChonkAPI::check_pipelined_vks(const std::filesystem::path& input_path)
             return false;
         }
 
-        // Pipelined construction: Phase A with dummy op_queue, Phase B with real op_queue
-        auto dummy_op_queue = std::make_shared<ECCOpQueue>();
+        // Pipelined construction: Phase A with no op_queue (stray queue_ecc_* calls trip a
+        // BB_ASSERT at the access site), Phase B attaches the real op_queue and runs recursion.
         MegaCircuitBuilder builder{
-            dummy_op_queue, program.witness, program.constraints.public_inputs, /*is_write_vk_mode=*/false
+            /*op_queue_in=*/nullptr, program.witness, program.constraints.public_inputs, /*is_write_vk_mode=*/false
         };
         acir_format::build_non_recursion_constraints(builder, program.constraints, acir_format::ProgramMetadata{});
 
-        if (dummy_op_queue->get_current_subtable_size() != 0) {
-            info("FAIL: Circuit ", i, " (", steps.function_names[i], ") wrote to op_queue during Phase A construction");
-            return false;
-        }
-
         // Phase B: attach real op_queue and build recursion constraints
-        builder.op_queue = ivc->get_goblin().op_queue;
-        builder.op_queue->initialize_new_subtable();
+        builder.attach_op_queue(ivc->get_goblin().op_queue);
         acir_format::build_recursion_and_finalize_constraints(builder, program.constraints, metadata);
 
         // Compare VK from pipelined construction against the precomputed VK
