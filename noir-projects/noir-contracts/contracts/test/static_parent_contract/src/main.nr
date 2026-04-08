@@ -156,7 +156,7 @@ pub contract StaticParent {
     ) -> Field {
         // Call the target public function through the pub entrypoint statically
         StaticParent::at(self.address).public_call(target_contract, target_selector, args[0]).view(
-            self.context,
+            &self.context,
         )
     }
 

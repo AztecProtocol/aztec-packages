@@ -797,7 +797,7 @@ pub contract AvmTest {
         arg_a: Field,
         arg_b: Field,
     ) -> Field {
-        AvmTest::at(address).add_args_return(arg_a, arg_b).call(context)
+        AvmTest::at(address).add_args_return(arg_a, arg_b).call(&context)
     }
 
     #[external("public")]
@@ -891,13 +891,13 @@ pub contract AvmTest {
 
     #[contract_library_method]
     unconstrained fn _call_fee_juice(context: PublicContext, address: AztecAddress) {
-        let _ = FeeJuice::at(FEE_JUICE_ADDRESS).balance_of_public(address).view(context);
+        let _ = FeeJuice::at(FEE_JUICE_ADDRESS).balance_of_public(address).view(&context);
     }
 
     #[external("public")]
     fn call_auth_registry() {
         let _ = AuthRegistry::at(CANONICAL_AUTH_REGISTRY_ADDRESS).is_reject_all(self.address).view(
-            self.context,
+            &self.context,
         );
     }
 
