@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-// Installs pinned legacy versions of @aztec/noir-contracts.js and @aztec/noir-test-contracts.js
-// into a local cache so that the legacy-loader can redirect imports to them.
+// Installs pinned legacy versions of @aztec/noir-contracts.js and @aztec/noir-test-contracts.js into a local cache so
+// that the legacy-loader can redirect imports to them.
 //
 // Activated by setting CONTRACT_ARTIFACTS_VERSION=<x.y.z>. No-op if unset.
 import { execSync } from 'node:child_process';
@@ -42,10 +42,10 @@ if (!alreadyInstalled()) {
   try {
     // --prefix: install into cacheRoot instead of cwd, so the cache is isolated from the monorepo.
     // --no-save: don't write the installed packages back to the seeded package.json.
-    // --ignore-scripts: skip lifecycle scripts (preinstall/postinstall) of the legacy packages and their
-    //   transitive deps; we only want the files on disk, not to run any build steps.
-    // --legacy-peer-deps: tolerate peer-dependency mismatches between the pinned legacy @aztec/* graph
-    //   and whatever current versions npm would otherwise try to reconcile.
+    // --ignore-scripts: skip lifecycle scripts (preinstall/postinstall) of the legacy packages and their transitive
+    //   deps; we only want the files on disk, not to run any build steps.
+    // --legacy-peer-deps: tolerate peer-dependency mismatches between the pinned legacy @aztec/* graph and whatever
+    //   current versions npm would otherwise try to reconcile.
     execSync(`npm install --prefix "${cacheRoot}" --no-save --ignore-scripts --legacy-peer-deps ${specs}`, {
       stdio: 'inherit',
     });
