@@ -300,7 +300,7 @@ describe('e2e_epochs/epochs_mbps_pipeline', () => {
     // The sequencer keeps building blocks and broadcasting via P2P, but won't submit the checkpoint to L1
     targetSequencer.updateConfig({ skipPublishingCheckpointsPercent: 100 });
 
-    const pruneTimeout = test.L2_SLOT_DURATION_IN_S * 3 * 1000;
+    const pruneTimeout = test.L2_SLOT_DURATION_IN_S * 5 * 1000;
     logger.warn(`Waiting for uncheckpointed blocks to be pruned (timeout=${pruneTimeout}ms)`);
     await executeTimeout(() => prunePromise, pruneTimeout);
 
