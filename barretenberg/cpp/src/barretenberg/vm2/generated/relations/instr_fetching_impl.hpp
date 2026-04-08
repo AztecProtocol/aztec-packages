@@ -86,11 +86,10 @@ void instr_fetchingImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     { // INSTR_OUT_OF_RANGE_TOGGLE
         using View = typename std::tuple_element_t<9, ContainerOverSubrelations>::View;
         auto tmp = (static_cast<View>(in.get(C::instr_fetching_instr_abs_diff)) -
-                    static_cast<View>(in.get(C::instr_fetching_sel)) *
-                        ((FF(2) * static_cast<View>(in.get(C::instr_fetching_instr_out_of_range)) - FF(1)) *
-                             (static_cast<View>(in.get(C::instr_fetching_instr_size)) -
-                              static_cast<View>(in.get(C::instr_fetching_bytes_to_read))) -
-                         static_cast<View>(in.get(C::instr_fetching_instr_out_of_range))));
+                    ((FF(2) * static_cast<View>(in.get(C::instr_fetching_instr_out_of_range)) - FF(1)) *
+                         (static_cast<View>(in.get(C::instr_fetching_instr_size)) -
+                          static_cast<View>(in.get(C::instr_fetching_bytes_to_read))) -
+                     static_cast<View>(in.get(C::instr_fetching_instr_out_of_range))));
         std::get<9>(evals) += (tmp * scaling_factor);
     }
     { // TAG_VALUE

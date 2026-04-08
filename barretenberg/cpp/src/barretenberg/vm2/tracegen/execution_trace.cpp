@@ -458,10 +458,9 @@ void ExecutionTraceBuilder::process(
         const bool error_in_instruction_fetching = ex_event.error == ExecutionError::INSTRUCTION_FETCHING;
         // If bytecode retrieval failed, we cannot fetch any instructions.
         const bool instruction_fetching_success = !bytecode_retrieval_failed && !error_in_instruction_fetching;
-        // We use !bytecode_retrieval_failed below to match the #[NO_FETCHING_NO_INSTR_FETCH_ERROR] relation.
-        trace.set(C::execution_sel_instruction_fetching_failure,
-                  row,
-                  (!bytecode_retrieval_failed && error_in_instruction_fetching) ? 1 : 0);
+        // We do not need to check bytecode_retrieval_failed below (unlike #[NO_FETCHING_NO_INSTR_FETCH_ERROR]) because
+        // ExecutionError is an enum, enforcing mutual exclusivity.
+        trace.set(C::execution_sel_instruction_fetching_failure, row, error_in_instruction_fetching ? 1 : 0);
 
         if (instruction_fetching_success) {
             exec_opcode = ex_event.wire_instruction.get_exec_opcode();

@@ -121,8 +121,7 @@ Instruction PureTxBytecodeManager::read_instruction(const BytecodeId& bytecode_i
 }
 
 /**
- * @brief Reads and deserializes the instruction given by the pair [ @p bytecode_id, @p pc ]. Corresponds to the
- * subtrace instr_fetching.pil.
+ * @brief Reads and deserializes the instruction given by the pair [ @p bytecode_id, @p pc ].
  *
  * Attempts to read the instruction at @p pc in the provided bytecode @p bytecode_ptr and check its tag
  * operand (if any). If the instruction exists in the cache, we return it directly. Otherwise, we perform

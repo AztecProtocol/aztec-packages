@@ -240,8 +240,8 @@ bool is_wire_opcode_valid(uint8_t w_opcode)
  *
  * @throws InstrDeserializationError if:
  *           - PC_OUT_OF_RANGE: pos >= bytecode.size(), thrown immediately.
- *           - OPCODE_OUT_OF_RANGE: the byte at bytecode[pos] does not map to a valid wire opcode i.e. the byte >
- *             WireOpCode::LAST_OPCODE_SENTINEL.
+ *           - OPCODE_OUT_OF_RANGE: bytecode[pos] >= WireOpCode::LAST_OPCODE_SENTINEL i.e. the byte does not map
+ *             to a valid wire opcode.
  *           - INSTRUCTION_OUT_OF_RANGE: pos + instruction_size > bytecode.size(), i.e. the instruction body is
  *             truncated, where the size is gathered from the wire specification table (get_wire_instruction_spec(),
  *             corresponds to instr_size looked up in #[WIRE_INSTRUCTION_INFO] in instr_fetching.pil).
@@ -280,9 +280,6 @@ Instruction deserialize_instruction(std::span<const uint8_t> bytecode, size_t po
 
     const uint32_t instruction_size = get_wire_instruction_spec().at(opcode).size_in_bytes;
 
-    // We know we will encounter a parsing error, but continue processing because
-    // we need the partial instruction to be parsed for witness generation.
-    // TODO(MW): ^ looks like this is no longer true?
     if (pos + instruction_size > bytecode_length) {
         std::string error_msg = format("Instruction at PC ",
                                        pos,
@@ -453,6 +450,9 @@ std::vector<uint8_t> Instruction::serialize() const
  * @brief Checks whether the tag operand of an @p instruction is a valid MemoryTag. Called by
  * bytecode managers during instruction fetching to check tag operands.
  *
+ * Note that this function must be called after successful instruction deserialization since it assumes a valid
+ * opcode (!OPCODE_OUT_OF_RANGE) and the correct number of operands (!INSTRUCTION_OUT_OF_RANGE).
+ *
  * Reads the wire format for the instruction's opcode (from get_wire_opcode_wire_format()) and looks for a tag operand.
  * Instructions with no tags return true unconditionally (corresponding to sel_has_tag = 0 in instr_fetching.pil, where
  * tag validation is skipped). Otherwise we check:
@@ -467,18 +467,9 @@ std::vector<uint8_t> Instruction::serialize() const
  */
 bool check_tag(const Instruction& instruction)
 {
-    // TODO(MW): check_tag is only called after deserialize_instruction which checks the below, needed?
-    // May be a footgun since check_tag returning false means the TAG_OUT_OF_RANGE error is set in simulation
-    // but the below actually corresponds to OPCODE_OUT_OF_RANGE.
-    // Claude says:
-    //  *  Note: the LAST_OPCODE_SENTINEL guard at the top is defensive — in practice this function is
-    //  *  only called after deserialize_instruction() which already rejects invalid opcodes. Setting
-    //  *  tag_out_of_range via an invalid opcode path would be inconsistent with the circuit hierarchy
-    //  *  (opcode_out_of_range takes priority). See TODO in the implementation.
-    if (instruction.opcode == WireOpCode::LAST_OPCODE_SENTINEL) {
-        vinfo("Instruction does not contain a valid wire opcode.");
-        return false;
-    }
+    // Guaranteed to hold as we only call this function after deserialize_instruction() where the opcode is checked.
+    BB_ASSERT(instruction.opcode != WireOpCode::LAST_OPCODE_SENTINEL,
+              "Instruction does not contain a valid wire opcode.");
 
     const auto& wire_format = get_wire_opcode_wire_format().at(instruction.opcode);
 
@@ -490,15 +481,9 @@ bool check_tag(const Instruction& instruction)
         }
 
         if (operand_type == OperandType::TAG) {
-            if (pos >= instruction.operands.size()) {
-                vinfo("Instruction operands size is too small. Tag position: ",
-                      pos,
-                      " size: ",
-                      instruction.operands.size(),
-                      " WireOpCode: ",
-                      instruction.opcode);
-                return false;
-            }
+            // Guaranteed to hold as we only call this function after deserialize_instruction() where instruction size
+            // is checked.
+            BB_ASSERT(pos < instruction.operands.size(), "Instruction operands size is too small.");
 
             try {
                 uint8_t tag = instruction.operands.at(pos).as<uint8_t>(); // Cast to uint8_t might throw CastException

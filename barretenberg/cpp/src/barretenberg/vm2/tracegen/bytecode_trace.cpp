@@ -358,14 +358,10 @@ void BytecodeTraceBuilder::process_instruction_fetching(
         };
         auto bytecode_at = [&](size_t i) -> uint8_t { return i < bytecode_size ? (*event.bytecode)[i] : 0; };
 
-        // To match column bd0, the first byte of the instruction which holds the wire opcode:
+        // To match column bd0, the first byte of the instruction which holds the wire opcode.
         const uint8_t wire_opcode = bytecode_at(event.pc);
         // Corresponds to !opcode_out_of_range (PC_OUT_OF_RANGE is checked first since we have error disjointedness).
         const bool wire_opcode_in_range = event.error != PC_OUT_OF_RANGE && event.error != OPCODE_OUT_OF_RANGE;
-
-        // TODO(MW): Could add sanity checks/defenses here checking that
-        //  -   event.error matches event bytecode/instr data
-        //  -   the wire_opcode from bytecode[0] matches event.instruction.opcode
 
         // To match corresponding columns (initialized as 0 to match circuit behaviour in error cases):
         //  -   PC_OUT_OF_RANGE: The below remain 0 (matching sel_pc_in_range == 0 and PARSING_ERROR_EXCEPT_TAG_ERROR
@@ -380,7 +376,6 @@ void BytecodeTraceBuilder::process_instruction_fetching(
         //                                trivially and the circuit still enforces sel_parsing_err == 1.
         //  -   TAG_OUT_OF_RANGE: The below, including operands, are all assigned, matching circuit behaviour for
         //                        PARSING_ERROR_EXCEPT_TAG_ERROR == 0.
-
         uint32_t instr_size = 0;
         ExecutionOpCode exec_opcode = static_cast<ExecutionOpCode>(0);
         std::array<uint8_t, NUM_OP_DC_SELECTORS> op_dc_selectors{};
@@ -405,17 +400,9 @@ void BytecodeTraceBuilder::process_instruction_fetching(
             }
         }
 
-        // TODO(MW): bytes_remaining uses event.error == PC_OUT_OF_RANGE to check for underflow, whereas below
-        // we explicitly do bytecode_size_u32 <= event.pc. Both make sense in their context but maybe should unify?
-
         uint32_t bytecode_size_u32 = static_cast<uint32_t>(bytecode_size);
-
-        uint32_t pc_abs_diff = 0;
-        if (bytecode_size_u32 <= event.pc) {
-            pc_abs_diff = event.pc - bytecode_size_u32;
-        } else {
-            pc_abs_diff = bytecode_size_u32 - event.pc - 1;
-        }
+        uint32_t pc_abs_diff =
+            event.error == PC_OUT_OF_RANGE ? event.pc - bytecode_size_u32 : bytecode_size_u32 - event.pc - 1;
 
         // If OPCODE_OUT_OF_RANGE, we still have valid bytecode to read, but have no
         // instruction and hence instr_size = 0. This matches the expected table entry for
@@ -423,13 +410,8 @@ void BytecodeTraceBuilder::process_instruction_fetching(
         // for instr_abs_diff = bytes_to_read:
         const uint32_t bytes_remaining = event.error == PC_OUT_OF_RANGE ? 0 : bytecode_size_u32 - event.pc;
         const uint32_t bytes_to_read = std::min(bytes_remaining, DECOMPOSE_WINDOW_SIZE);
-
-        uint32_t instr_abs_diff = 0;
-        if (instr_size <= bytes_to_read) {
-            instr_abs_diff = bytes_to_read - instr_size;
-        } else {
-            instr_abs_diff = instr_size - bytes_to_read - 1;
-        }
+        uint32_t instr_abs_diff =
+            event.error == INSTRUCTION_OUT_OF_RANGE ? instr_size - bytes_to_read - 1 : bytes_to_read - instr_size;
 
         trace.set(row,
                   { {
@@ -555,6 +537,8 @@ const InteractionDefinition BytecodeTraceBuilder::interactions =
         .add<lookup_instr_fetching_pc_abs_diff_positive_settings, InteractionType::LookupGeneric>()
         .add<lookup_instr_fetching_instr_abs_diff_positive_settings, InteractionType::LookupIntoIndexedByRow>()
         .add<lookup_instr_fetching_tag_value_validation_settings, InteractionType::LookupIntoIndexedByRow>()
+        // The lookups into bc_decomposition cannnot be sequential because we deduplicate instruction
+        // fetches. Additionally the instruction rows are not necessarily ordered by bytecode position.
         .add<lookup_instr_fetching_bytecode_size_from_bc_dec_settings, InteractionType::LookupGeneric>()
         .add<lookup_instr_fetching_bytes_from_bc_dec_settings, InteractionType::LookupGeneric>()
         .add<lookup_instr_fetching_wire_instruction_info_settings, InteractionType::LookupIntoIndexedByRow>();

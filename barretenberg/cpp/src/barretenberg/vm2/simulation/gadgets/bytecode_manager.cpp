@@ -173,15 +173,15 @@ Instruction TxBytecodeManager::read_instruction(const BytecodeId& bytecode_id, P
  * operand (if any). If any parsing error occurs (see below), the event is still emitted with the error.
  *
  * @throws InstructionFetchingError if any parse error is detected:
- *          - PC_OUT_OF_RANGE (pc_out_of_range column): thrown by deserialize_instruction() if pc >= bytecode.size().
- *          - OPCODE_OUT_OF_RANGE (opcode_out_of_range column): thrown by deserialize_instruction() if the opcode byte
- *            does not correspond to a valid wire opcode.
- *          - INSTRUCTION_OUT_OF_RANGE (instr_out_of_range column): thrown by deserialize_instruction() if
- *            instruction_size > bytes_to_read from the bytecode.
- *          - TAG_OUT_OF_RANGE (tag_out_of_range column): if the instruction has a tag operand which does not correspond
- *            to a valid memory tag i.e. when the operand value > MemoryTag::MAX, as determined by check_tag().
+ *          - PC_OUT_OF_RANGE: thrown by deserialize_instruction() if pc >= bytecode.size().
+ *          - OPCODE_OUT_OF_RANGE: thrown by deserialize_instruction() if the opcode byte does not correspond to
+ *            a valid wire opcode.
+ *          - INSTRUCTION_OUT_OF_RANGE: thrown by deserialize_instruction() if instruction_size > bytes_to_read
+ *            from the bytecode.
+ *          - TAG_OUT_OF_RANGE: if the instruction has a tag operand which does not correspond to a valid memory
+ *            tag i.e. when the operand value > MemoryTag::MAX, as determined by check_tag().
  *
- * Note that only one parsing error can occur for each event with heirarchy in the order above. This disjointedness is
+ * Note that only one parsing error can occur for each event with hierarchy in the order above. This disjointedness is
  * enforced in the circuit. See deserialize_instruction() and instr_fetching.pil for more detailed error information.
  *
  * @param bytecode_id The bytecode identifier (public bytecode commitment).
@@ -222,7 +222,7 @@ Instruction TxBytecodeManager::read_instruction(const BytecodeId& bytecode_id,
     // Emits RangeCheckEvent, see #[INSTR_ABS_DIFF_POSITIVE] in instr_fetching.pil.
     range_check.assert_range(pc_diff, AVM_PC_SIZE_IN_BITS);
 
-    // Emits InstructionFetchingEvent, which  will be deduplicated internally (see DeduplicatingEventEmitter used in
+    // Emits InstructionFetchingEvent, which will be deduplicated internally (see DeduplicatingEventEmitter used in
     // simulate_for_witgen).
     fetching_events.emit({ .bytecode_id = bytecode_id,
                            .pc = pc,
@@ -233,8 +233,11 @@ Instruction TxBytecodeManager::read_instruction(const BytecodeId& bytecode_id,
 
     // Communicate error to the caller.
     if (deserialization_error.has_value()) {
-        throw InstructionFetchingError("Instruction fetching error: " +
-                                       std::to_string(static_cast<int>(deserialization_error.value().type)));
+        std::string error_msg = format("Instruction fetching error");
+        if (deserialization_error.value().message.has_value()) {
+            error_msg = format(error_msg, ": ", deserialization_error.value().message.value());
+        }
+        throw InstructionFetchingError(error_msg);
     }
 
     return instruction;

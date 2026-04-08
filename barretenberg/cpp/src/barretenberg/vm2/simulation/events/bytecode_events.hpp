@@ -48,8 +48,7 @@ struct BytecodeRetrievalEvent {
 struct InstructionFetchingEvent {
     BytecodeId bytecode_id = 0;
     PC pc = 0;
-    Instruction instruction{};
-    // TODO(MW): Could alternatively just store the instruction bytes + bytecode size instead of entire pointer?
+    Instruction instruction;
     std::shared_ptr<std::vector<uint8_t>> bytecode;
     std::optional<InstrDeserializationEventError> error;
 

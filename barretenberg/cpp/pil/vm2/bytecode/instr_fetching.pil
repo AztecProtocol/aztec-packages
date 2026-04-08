@@ -43,7 +43,7 @@ include "../precomputed.pil";
  *
  * USAGE: Note that this subtrace is only designed to be used by execution, where it is accessed by
  *        two separate lookups. This allows for error handling without having to constrain partial
- *        instructions on parse failure.
+ *        instructions on parsing failure.
  * To determine whether parsing succeeded (#[INSTRUCTION_FETCHING_RESULT] in execution.pil):
  *      sel_bytecode_retrieval_success {
  *             pc, bytecode_id, sel_instruction_fetching_failure
@@ -52,8 +52,8 @@ include "../precomputed.pil";
  *      };
  *
  * To retrieve the full decoded instruction, only when parsing succeeded (using
- * sel_instruction_fetching_success == !sel_instruction_fetching_failure to gate #[INSTRUCTION_FETCHING_BODY]
- * in execution.pil):
+ * sel_instruction_fetching_success == !sel_instruction_fetching_failure && sel_bytecode_retrieval_success
+ * to gate #[INSTRUCTION_FETCHING_BODY] in execution.pil):
  *      sel_instruction_fetching_success {
  *          pc, bytecode_id, exec_opcode,
  *          instr_size, addressing_mode,
@@ -169,7 +169,7 @@ pol commit pc_abs_diff;
 #[PC_OUT_OF_RANGE_TOGGLE]
 pc_abs_diff = sel * ((2 * pc_out_of_range - 1) * (pc - bytecode_size) - 1 + pc_out_of_range);
 
-// Needs to be a committed column as it is used in the lookup:
+// Lookup constant support: Can be removed when we support constants in lookups.
 pol commit pc_size_in_bits;
 sel * (pc_size_in_bits - constants.AVM_PC_SIZE_IN_BITS) = 0;
 
@@ -194,7 +194,7 @@ pol commit instr_abs_diff;
 
 // From the following relation, we have: instr_abs_diff >= 0 ==> [instr_size > bytes_to_read <==> instr_out_of_range == 1]
 #[INSTR_OUT_OF_RANGE_TOGGLE]
-instr_abs_diff = sel * ((2 * instr_out_of_range - 1) * (instr_size - bytes_to_read) - instr_out_of_range);
+instr_abs_diff = (2 * instr_out_of_range - 1) * (instr_size - bytes_to_read) - instr_out_of_range;
 
 #[INSTR_ABS_DIFF_POSITIVE]
 sel { instr_abs_diff } in precomputed.sel_range_8 { precomputed.idx };
@@ -215,7 +215,7 @@ pol commit sel_tag_is_op2; // @boolean (by lookup only when sel_pc_in_range == 1
 
 // Value to validate as tag. According to our current instruction specifications, there is a maximum of one
 // tag per instruction and it appears only at op2 (SET_XXX) or op3 (CAST_8, CAST_16).
-// Needs to be a committed column as it is used in the lookup:
+// Lookup constant support: Can be removed when we support constants in lookups.
 pol commit tag_value;
 // Note that (sel_has_tag - sel_tag_is_op2) cannot underflow (= p - 1) since the precomputed table enforces
 // that sel_tag_is_op2 == 1 ==> sel_has_tag == 1 (#[WIRE_INSTRUCTION_INFO]). When this lookup is skipped (sel_pc_in_range == 0)
@@ -224,8 +224,7 @@ pol commit tag_value;
 #[TAG_VALUE]
 tag_value = (sel_has_tag - sel_tag_is_op2) * op3 + sel_tag_is_op2 * op2;
 
-// TODO: Investigate whether enforcing the tag checking in execution trace or in CAST/SET gadgets might be a better option.
-// TODO(MW): Is the above still true?
+// TODO(#AVM-263): Investigate whether enforcing the tag checking in execution trace or in CAST/SET gadgets might be a better option.
 #[TAG_VALUE_VALIDATION]
 sel_has_tag { tag_value, tag_out_of_range } in precomputed.sel_range_8 { precomputed.idx, precomputed.sel_mem_tag_out_of_range };
 
@@ -355,8 +354,6 @@ pol commit op1, op2, op3, op4, op5, op6, op7;
 // a cpp test in op_decomposition.test.cpp.
 // Remark: Upper-casing the alias needs to be edited manually (not code-generated)!
 pol SEL_OP_DC_17 = sel_op_dc_2 + sel_op_dc_6;
-
-// TODO(MW): Is the above boolean i.e. are sel_op_dc_2 and sel_op_dc_6 mutually exclusive?
 
 #[ADDRESSING_MODE_BYTES_DECOMPOSITION]
 addressing_mode = (1 - PARSING_ERROR_EXCEPT_TAG_ERROR) * (sel_op_dc_0 * (bd1 * 2**8 + bd2 * 2**0) + SEL_OP_DC_17 * (bd1 * 2**0));

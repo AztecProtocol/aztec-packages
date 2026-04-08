@@ -361,7 +361,7 @@ TEST_F(BytecodeManagerTest, InstructionFetching)
     EXPECT_CALL(range_check, assert_range(bytecode.size() - pc - 1, AVM_PC_SIZE_IN_BITS));
     EXPECT_THROW_WITH_MESSAGE(tx_bytecode_manager.read_instruction(
                                   bytecode_commitment, std::make_shared<std::vector<uint8_t>>((bytecode)), pc),
-                              "Instruction fetching error: .*");
+                              "Instruction fetching error.*");
 
     fetching_events_dump = instruction_fetching_events.dump_events();
     ASSERT_THAT(fetching_events_dump, SizeIs(4));
