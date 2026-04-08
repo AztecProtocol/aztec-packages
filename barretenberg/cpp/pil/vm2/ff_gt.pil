@@ -1,4 +1,5 @@
 include "./range_check.pil";
+include "./precomputed.pil";
 
 // This module handles field greater than (gt) and canonical decomposition of a field element into two 128-bit limbs.
 // We handle both in the same gadget because GT uses the canonical decomposition of the inputs to constrain the range checks.
@@ -78,34 +79,34 @@ include "./range_check.pil";
 // The values will be shifted "in pairs" to the left, so that after a number of rows, all the values will have been range checked.
 
 // Trace example for FF_GT (sel_gt)
-// +-----+-----+--------+--------------+--------------+------------+------------+------+------+------------+------------+--------+--------+-------------+-----+--------+---------------+
-// |  a  |  b  | result | a_hi (range) | a_lo (range) | p_sub_a_hi | p_sub_a_lo | b_hi | b_lo | p_sub_b_hi | p_sub_b_lo | res_hi | res_lo | cmp_rng_ctr | sel | sel_gt | sel_shift_rng |
-// +-----+-----+--------+--------------+--------------+------------+------------+------+------+------------+------------+--------+--------+-------------+-----+--------+---------------+
-// | 0   | 0   | 0      | 0            | 0            | 0          | 0          | 0    | 0    | 0          | 0          | 0      | 0      |           0 |   0 |      0 |             0 | first row always empty
-// | 27  | 40  | 0      | 0            | 27           | x1         | x2         | 0    | 40   | y1         | y2         | 0      | 13     |           4 |   1 |      1 |             1 | <== lookup here
-// | unc | unc | unc    | x1           | x2           | 0          | 40         | y1   | y2   | 0          | 13         | unc    | unc    |           3 |   1 |      0 |             1 |
-// | unc | unc | unc    | 0            | 40           | y1         | y2         | 0    | 13   | unc        | unc        | unc    | unc    |           2 |   1 |      0 |             1 |
-// | unc | unc | unc    | y1           | y2           | 0          | 13         | unc  | unc  | unc        | unc        | unc    | unc    |           1 |   1 |      0 |             1 |
-// | unc | unc | unc    | 0            | 13           | unc        | unc        | unc  | unc  | unc        | unc        | unc    | unc    |           0 |   1 |      0 |             0 |
-// +-----+-----+--------+--------------+--------------+------------+------------+------+------+------------+------------+--------+--------+-------------+-----+--------+---------------+
+// +-----+-----+--------+--------------+--------------+------------+------------+------+------+------------+------------+--------+--------+-------------+-----+--------+-----+
+// |  a  |  b  | result | a_hi (range) | a_lo (range) | p_sub_a_hi | p_sub_a_lo | b_hi | b_lo | p_sub_b_hi | p_sub_b_lo | res_hi | res_lo | cmp_rng_ctr | sel | sel_gt | end |
+// +-----+-----+--------+--------------+--------------+------------+------------+------+------+------------+------------+--------+--------+-------------+-----+--------+-----+
+// | 0   | 0   | 0      | 0            | 0            | 0          | 0          | 0    | 0    | 0          | 0          | 0      | 0      |           0 |   0 |      0 |   0 | first row always empty
+// | 27  | 40  | 0      | 0            | 27           | x1         | x2         | 0    | 40   | y1         | y2         | 0      | 13     |           4 |   1 |      1 |   0 | <== lookup here (START)
+// | unc | unc | unc    | x1           | x2           | 0          | 40         | y1   | y2   | 0          | 13         | unc    | unc    |           3 |   1 |      0 |   0 |
+// | unc | unc | unc    | 0            | 40           | y1         | y2         | 0    | 13   | unc        | unc        | unc    | unc    |           2 |   1 |      0 |   0 |
+// | unc | unc | unc    | y1           | y2           | 0          | 13         | unc  | unc  | unc        | unc        | unc    | unc    |           1 |   1 |      0 |   0 |
+// | unc | unc | unc    | 0            | 13           | unc        | unc        | unc  | unc  | unc        | unc        | unc    | unc    |           0 |   1 |      0 |   1 |
+// +-----+-----+--------+--------------+--------------+------------+------------+------+------+------------+------------+--------+--------+-------------+-----+--------+-----+
 
 // This gadget provides a second functionality: Canonical decomposition of a field element into two 128-bit limbs.
 // This consists in proving that a = a_lo + 2^128 * a_hi is a 128-bit decomposition of a which does not overflow p.
 //
 // Trace example for Canonical Decomposition (sel_dec):
-// +------------+--------------+--------------+------------+------------+-------------+-----+---------+---------------+
-// |  a         | a_hi (range) | a_lo (range) | p_sub_a_hi | p_sub_a_lo | cmp_rng_ctr | sel | sel_dec | sel_shift_rng |
-// +------------+--------------+--------------+------------+------------+-------------+-----+---------+---------------+
-// | 0          | 0            | 0            | 0          | 0          |           0 |  0  |       0 |             0 | first row always empty
-// | 2^128 + 42 | 1            | 42           | x1         | x2         |           1 |  1  |       1 |             1 | <== lookup here
-// | unc        | x1           | x2           | unc        | unc        |           0 |  1  |       0 |             0 |
-// +------------+--------------+--------------+------------+------------+-------------+-----+---------+---------------+
+// +------------+--------------+--------------+------------+------------+-------------+-----+---------+-----+
+// |  a         | a_hi (range) | a_lo (range) | p_sub_a_hi | p_sub_a_lo | cmp_rng_ctr | sel | sel_dec | end |
+// +------------+--------------+--------------+------------+------------+-------------+-----+---------+-----+
+// | 0          | 0            | 0            | 0          | 0          |           0 |  0  |       0 |   0 | first row always empty
+// | 2^128 + 42 | 1            | 42           | x1         | x2         |           1 |  1  |       1 |   0 | <== lookup here (START)
+// | unc        | x1           | x2           | unc        | unc        |           0 |  1  |       0 |   1 |
+// +------------+--------------+--------------+------------+------------+-------------+-----+---------+-----+
 //
 // In this example:
 // - We decompose a = 2^128 + 42 into a_hi = 1 and a_lo = 42 (a is > 128 bits).
 // - cmp_rng_ctr = 1 means we need 1 additional row for the remaining 2 range checks
 // - sel_dec = 1 only on the "first" row where the lookup happens
-// - The second row range-checks the shifted values (x1, x2)
+// - The second row (end=1) range-checks the shifted values (x1, x2)
 //
 
 // Error handling: This gadget does not have error conditions. All field element inputs are valid.
@@ -130,9 +131,31 @@ namespace ff_gt;
     pol commit sel_dec; // @boolean
     sel_dec * (1 - sel_dec) = 0;
 
-    pol SEL_START = sel_gt + sel_dec; // First row of the computation.
-    // Note that sel_gt and sel_dec are mutually exclusive due to different counters.
-    // Namely, #[SET_RNG_CTR_GT] and #[SET_RNG_CTR_DEC] below are mutually exclusive.
+    // START is the first row of the computation. sel_gt and sel_dec are mutually exclusive because
+    // they set different initial counter values (see #[RNG_CTR_GT_INIT] and #[RNG_CTR_DEC_INIT]) per operation type.
+    // Therefore, START is boolean.
+    pol START = sel_gt + sel_dec; // @boolean (see explanation above)
+
+    // Multi-row computation selectors.
+    // See recipe: https://github.com/AztecProtocol/aztec-packages/blob/next/barretenberg/cpp/pil/vm2/docs/recipes.md#contiguous-multi-rows-computation-trace
+    pol commit end; // @boolean
+    end * (1 - end) = 0;
+
+    pol LATCH_CONDITION = end + precomputed.first_row;
+
+    #[SEL_ON_START_OR_END]
+    (START + end) * (1 - sel) = 0;
+
+    #[TRACE_CONTINUITY]
+    (1 - LATCH_CONDITION) * (sel - sel') = 0;
+
+    // Note: START is an alias (not a committed column), so we cannot use START'.
+    // We expand it to sel_gt' + sel_dec'.
+    #[START_AFTER_LATCH]
+    sel' * ((sel_gt' + sel_dec') - LATCH_CONDITION) = 0;
+
+    // NOT_END is active on all rows except the end row.
+    pol NOT_END = sel - end; // @boolean (since `end == 1` implies `sel == 1` by #[SEL_ON_START_OR_END])
 
     // Lookup constant support: Can be removed when we support constants in lookups.
     pol commit constant_128;
@@ -148,7 +171,7 @@ namespace ff_gt;
     pol commit a_hi; // 128-bit limb
 
     #[A_DECOMPOSITION]
-    SEL_START * (a - (a_lo + POW_128 * a_hi)) = 0;
+    START * (a - (a_lo + POW_128 * a_hi)) = 0;
 
     // We only do 2 range checks per row.
     #[A_LO_RANGE]
@@ -169,10 +192,10 @@ namespace ff_gt;
     // This is achieved by checking (p_lo > a_lo && p_hi >= a_hi) || (p_lo <= a_lo && p_hi > a_hi)
     // First condition is if `p_a_borrow = 0`, second condition is if `p_a_borrow = 1`;
     #[P_SUB_A_LO]
-    SEL_START * (p_sub_a_lo - (P_LO - a_lo - 1 + p_a_borrow * POW_128)) = 0;
+    START * (p_sub_a_lo - (P_LO - a_lo - 1 + p_a_borrow * POW_128)) = 0;
     #[P_SUB_A_HI]
-    SEL_START * (p_sub_a_hi - (P_HI - a_hi - p_a_borrow)) = 0;
-    // Note: the above relations use SEL_START. They are active both for gt and canonical decomposition.
+    START * (p_sub_a_hi - (P_HI - a_hi - p_a_borrow)) = 0;
+    // Note: the above relations use START. They are active both for gt and canonical decomposition.
 
     // ========= B DECOMPOSITION =========
 
@@ -297,41 +320,33 @@ namespace ff_gt;
     #[RNG_CTR_DEC_INIT]
     sel_dec * (cmp_rng_ctr - 1) = 0;
 
-    // The number of range checks must decrement by 1 until it is equal to 0;
+    // The counter decrements by 1 on non-end rows.
     #[RNG_CTR_DECREMENT]
-    cmp_rng_ctr * (cmp_rng_ctr - 1 - cmp_rng_ctr') = 0;
+    NOT_END * (cmp_rng_ctr - 1 - cmp_rng_ctr') = 0;
 
-    pol commit sel_shift_rng; // @boolean
-    sel_shift_rng * (1 - sel_shift_rng) = 0;
-
-    pol commit cmp_rng_ctr_inv;
-
-    // sel_shift_rng = 1 when cmp_rng_ctr != 0 and sel_shift_rng = 0 when cmp_rng_ctr = 0;
-    #[RNG_CTR_NON_ZERO]
-    cmp_rng_ctr * ((1 - sel_shift_rng) * (1 - cmp_rng_ctr_inv) + cmp_rng_ctr_inv) - sel_shift_rng = 0;
+    // The counter must be 0 on end row.
+    // Note that a computation must finish with `end == 1` by the multi-row computation recipe. Therefore,
+    // we must set `end == 1` when `cmp_rng_ctr == 0` because otherwise `cmp_rng_ctr` will underflow the field
+    // and gets to value p-1 which is so large that it will never be 0 again. For this reason, we do not need
+    // to implement a zero-check to constrain `cmp_rng_ctr == 0 ==> end == 1`.
+    #[RNG_CTR_END]
+    end * cmp_rng_ctr = 0;
 
     // We shift the stuff that we have to range check to the left, so a_lo and a_hi (which are doing the range checks)
     // receive the shifted values, two on every row.
     #[SHIFT_P_SUB_A_TO_A_LO]
-    (a_lo' - p_sub_a_lo) * sel_shift_rng = 0;
+    NOT_END * (a_lo' - p_sub_a_lo) = 0;
     #[SHIFT_P_SUB_A_TO_A_HI]
-    (a_hi' - p_sub_a_hi) * sel_shift_rng = 0;
+    NOT_END * (a_hi' - p_sub_a_hi) = 0;
     #[SHIFT_B_TO_P_SUB_A_LO]
-    (p_sub_a_lo' - b_lo) * sel_shift_rng = 0;
+    NOT_END * (p_sub_a_lo' - b_lo) = 0;
     #[SHIFT_B_TO_P_SUB_A_HI]
-    (p_sub_a_hi' - b_hi) * sel_shift_rng = 0;
+    NOT_END * (p_sub_a_hi' - b_hi) = 0;
     #[SHIFT_P_SUB_B_TO_B_LO]
-    (b_lo' - p_sub_b_lo) * sel_shift_rng = 0;
+    NOT_END * (b_lo' - p_sub_b_lo) = 0;
     #[SHIFT_P_SUB_B_TO_B_HI]
-    (b_hi' - p_sub_b_hi) * sel_shift_rng = 0;
+    NOT_END * (b_hi' - p_sub_b_hi) = 0;
     #[SHIFT_RES_TO_P_SUB_B_LO]
-    (p_sub_b_lo' - res_lo) * sel_shift_rng = 0;
+    NOT_END * (p_sub_b_lo' - res_lo) = 0;
     #[SHIFT_RES_TO_P_SUB_B_HI]
-    (p_sub_b_hi' - res_hi) * sel_shift_rng = 0;
-
-    // ========= SELECTOR =========
-    // Selector should be on on the whole 5 (resp. 2) rows that are required for the gt
-    // (resp. canonical decomposition) operations + range checks.
-    // So if sel_gt or sel_dec is on, sel should be on, but also if the previous one had sel_shift_rng on.
-    #[SEL_CONSISTENCY]
-    sel_shift_rng + (sel_gt' + sel_dec') - sel' = 0;
+    NOT_END * (p_sub_b_hi' - res_hi) = 0;
