@@ -140,7 +140,7 @@ impl<Storage, CallSelf, CallSelfStatic, CallInternal> ContractSelfPublic<Storage
     /// self.call(Token::at(address).transfer_in_public(recipient, amount));
     /// ```
     ///
-    pub unconstrained fn call<let M: u32, let N: u32, T>(self, call: PublicCall<M, N, T>) -> T
+    pub unconstrained fn call<let M: u32, let N: u32, T>(self, call: &PublicCall<M, N, T>) -> T
     where
         T: Deserialize,
     {
@@ -165,7 +165,7 @@ impl<Storage, CallSelf, CallSelfStatic, CallInternal> ContractSelfPublic<Storage
     /// self.view(Token::at(address).balance_of_public(recipient));
     /// ```
     ///
-    pub unconstrained fn view<let M: u32, let N: u32, T>(self, call: PublicStaticCall<M, N, T>) -> T
+    pub unconstrained fn view<let M: u32, let N: u32, T>(self, call: &PublicStaticCall<M, N, T>) -> T
     where
         T: Deserialize,
     {
