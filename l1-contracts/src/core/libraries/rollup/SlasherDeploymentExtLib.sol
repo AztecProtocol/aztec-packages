@@ -4,19 +4,19 @@
 pragma solidity >=0.8.27;
 
 import {Slasher, ISlasher} from "@aztec/core/slashing/Slasher.sol";
-import {TallySlashingProposer} from "@aztec/core/slashing/TallySlashingProposer.sol";
+import {SlashingProposer} from "@aztec/core/slashing/SlashingProposer.sol";
 
 /**
- * @title TallySlasherDeploymentExtLib - External Rollup Library (Tally Slasher Deployment)
+ * @title SlasherDeploymentExtLib - External Rollup Library (Slasher Deployment)
  * @author Aztec Labs
- * @notice External library containing tally slasher deployment function for the Rollup contract
+ * @notice External library containing slasher deployment function for the Rollup contract
  * to avoid exceeding max contract size.
  *
- * @dev This library deploys a tally slasher system using two-phase initialization
- *      to resolve the circular dependency between Slasher and TallySlashingProposer.
+ * @dev This library deploys a slasher system using two-phase initialization
+ *      to resolve the circular dependency between Slasher and SlashingProposer.
  */
-library TallySlasherDeploymentExtLib {
-  function deployTallySlasher(
+library SlasherDeploymentExtLib {
+  function deploySlasher(
     address _rollup,
     address _vetoer,
     address _governance,
@@ -34,7 +34,7 @@ library TallySlasherDeploymentExtLib {
     Slasher slasher = new Slasher(_vetoer, _governance, _slashingDisableDuration);
 
     // Deploy proposer with slasher address
-    TallySlashingProposer proposer = new TallySlashingProposer(
+    SlashingProposer proposer = new SlashingProposer(
       _rollup,
       ISlasher(address(slasher)),
       _quorum,

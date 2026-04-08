@@ -158,7 +158,7 @@ describe('HA Full Setup', () => {
       // Enable P2P for transaction gossip
       p2pEnabled: true,
       // Enable slashing for testing governance + slashing vote coordination
-      slasherFlavor: 'tally',
+      slasherEnabled: true,
       slashingRoundSizeInEpochs: 1, // 32 slots (1 epoch)
       slashingQuorum: 17, // >50% of 32 slots for tally quorum,
     }));

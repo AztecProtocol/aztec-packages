@@ -181,7 +181,7 @@ describe('e2e_p2p_add_rollup', () => {
         feeJuicePortalInitialBalance: fundingNeeded,
         realVerifier: false,
         exitDelaySeconds: t.ctx.aztecNodeConfig.exitDelaySeconds,
-        slasherFlavor: t.ctx.aztecNodeConfig.slasherFlavor,
+        slasherEnabled: t.ctx.aztecNodeConfig.slasherEnabled,
         slashingOffsetInRounds: t.ctx.aztecNodeConfig.slashingOffsetInRounds,
         slashAmountSmall: t.ctx.aztecNodeConfig.slashAmountSmall,
         slashAmountMedium: t.ctx.aztecNodeConfig.slashAmountMedium,

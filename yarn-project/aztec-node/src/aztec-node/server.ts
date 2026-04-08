@@ -81,7 +81,7 @@ import {
 import type { DebugLogStore, LogFilter, SiloedTag, Tag, TxScopedL2Log } from '@aztec/stdlib/logs';
 import { InMemoryDebugLogStore, NullDebugLogStore } from '@aztec/stdlib/logs';
 import { InboxLeaf, type L1ToL2MessageSource } from '@aztec/stdlib/messaging';
-import type { Offense, SlashPayloadRound } from '@aztec/stdlib/slashing';
+import type { Offense } from '@aztec/stdlib/slashing';
 import type { NullifierLeafPreimage, PublicDataTreeLeaf, PublicDataTreeLeafPreimage } from '@aztec/stdlib/trees';
 import { MerkleTreeId, NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
 import {
@@ -1541,19 +1541,12 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     return Promise.resolve();
   }
 
-  public getSlashPayloads(): Promise<SlashPayloadRound[]> {
-    if (!this.slasherClient) {
-      throw new Error(`Slasher client not enabled`);
-    }
-    return this.slasherClient.getSlashPayloads();
-  }
-
   public getSlashOffenses(round: bigint | 'all' | 'current'): Promise<Offense[]> {
     if (!this.slasherClient) {
       throw new Error(`Slasher client not enabled`);
     }
     if (round === 'all') {
-      return this.slasherClient.getPendingOffenses();
+      return this.slasherClient.getOffenses();
     } else {
       return this.slasherClient.gatherOffensesForRound(round === 'current' ? undefined : BigInt(round));
     }

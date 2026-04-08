@@ -3,7 +3,6 @@ import { Blob, getBlobsPerL1Block, getPrefixedEthBlobCommitments } from '@aztec/
 import type { EpochCache } from '@aztec/epoch-cache';
 import type { L1ContractsConfig } from '@aztec/ethereum/config';
 import {
-  type EmpireSlashingProposerContract,
   FeeAssetPriceOracle,
   type FeeHeader,
   type GovernanceProposerContract,
@@ -11,7 +10,7 @@ import {
   MULTI_CALL_3_ADDRESS,
   Multicall3,
   RollupContract,
-  type TallySlashingProposerContract,
+  type SlashingProposerContract,
   type ViemCommitteeAttestations,
   type ViemHeader,
 } from '@aztec/ethereum/contracts';
@@ -45,7 +44,6 @@ import { type ProposerSlashAction, encodeSlashConsensusVotes } from '@aztec/slas
 import { CommitteeAttestationsAndSigners, type ValidateCheckpointResult } from '@aztec/stdlib/block';
 import type { Checkpoint } from '@aztec/stdlib/checkpoint';
 import { getLastL1SlotTimestampForL2Slot, getNextL1SlotTimestamp } from '@aztec/stdlib/epoch-helpers';
-import { SlashFactoryContract } from '@aztec/stdlib/l1-contracts';
 import type { CheckpointHeader } from '@aztec/stdlib/rollup';
 import type { L1PublishCheckpointStats } from '@aztec/stdlib/stats';
 import { type TelemetryClient, type Tracer, getTelemetryClient, trackSpan } from '@aztec/telemetry-client';
@@ -100,16 +98,13 @@ export const Actions = [
   'invalidate-by-insufficient-attestations',
   'propose',
   'governance-signal',
-  'empire-slashing-signal',
-  'create-empire-payload',
-  'execute-empire-payload',
   'vote-offenses',
   'execute-slash',
 ] as const;
 
 export type Action = (typeof Actions)[number];
 
-type GovernanceSignalAction = Extract<Action, 'governance-signal' | 'empire-slashing-signal'>;
+type GovernanceSignalAction = Extract<Action, 'governance-signal'>;
 
 // Sorting for actions such that invalidations go before proposals, and proposals go before votes
 export const compareActions = (a: Action, b: Action) => Actions.indexOf(a) - Actions.indexOf(b);
@@ -185,8 +180,7 @@ export class SequencerPublisher {
   public l1TxUtils: L1TxUtils;
   public rollupContract: RollupContract;
   public govProposerContract: GovernanceProposerContract;
-  public slashingProposerContract: EmpireSlashingProposerContract | TallySlashingProposerContract | undefined;
-  public slashFactoryContract: SlashFactoryContract;
+  public slashingProposerContract: SlashingProposerContract | undefined;
 
   public readonly tracer: Tracer;
 
@@ -200,9 +194,8 @@ export class SequencerPublisher {
       blobClient: BlobClientInterface;
       l1TxUtils: L1TxUtils;
       rollupContract: RollupContract;
-      slashingProposerContract: EmpireSlashingProposerContract | TallySlashingProposerContract | undefined;
+      slashingProposerContract: SlashingProposerContract | undefined;
       governanceProposerContract: GovernanceProposerContract;
-      slashFactoryContract: SlashFactoryContract;
       epochCache: EpochCache;
       dateProvider: DateProvider;
       metrics: SequencerPublisherMetrics;
@@ -237,8 +230,6 @@ export class SequencerPublisher {
       const newSlashingProposer = await this.rollupContract.getSlashingProposer();
       this.slashingProposerContract = newSlashingProposer;
     });
-    this.slashFactoryContract = deps.slashFactoryContract;
-
     // Initialize L1 fee analyzer for fisherman mode
     if (config.fishermanMode) {
       this.l1FeeAnalyzer = new L1FeeAnalyzer(
@@ -1102,55 +1093,6 @@ export class SequencerPublisher {
 
     for (const action of actions) {
       switch (action.type) {
-        case 'vote-empire-payload': {
-          if (this.slashingProposerContract?.type !== 'empire') {
-            this.log.error('Cannot vote for empire payload on non-empire slashing contract');
-            break;
-          }
-          this.log.debug(`Enqueuing slashing vote for payload ${action.payload} at slot ${slotNumber}`, {
-            signerAddress,
-          });
-          await this.enqueueCastSignalHelper(
-            slotNumber,
-            'empire-slashing-signal',
-            action.payload,
-            this.slashingProposerContract,
-            signerAddress,
-            signer,
-          );
-          break;
-        }
-
-        case 'create-empire-payload': {
-          this.log.debug(`Enqueuing slashing create payload at slot ${slotNumber}`, { slotNumber, signerAddress });
-          const request = this.slashFactoryContract.buildCreatePayloadRequest(action.data);
-          await this.simulateAndEnqueueRequest(
-            'create-empire-payload',
-            request,
-            (receipt: TransactionReceipt) =>
-              !!this.slashFactoryContract.tryExtractSlashPayloadCreatedEvent(receipt.logs),
-            slotNumber,
-          );
-          break;
-        }
-
-        case 'execute-empire-payload': {
-          this.log.debug(`Enqueuing slashing execute payload at slot ${slotNumber}`, { slotNumber, signerAddress });
-          if (this.slashingProposerContract?.type !== 'empire') {
-            this.log.error('Cannot execute slashing payload on non-empire slashing contract');
-            return false;
-          }
-          const empireSlashingProposer = this.slashingProposerContract as EmpireSlashingProposerContract;
-          const request = empireSlashingProposer.buildExecuteRoundRequest(action.round);
-          await this.simulateAndEnqueueRequest(
-            'execute-empire-payload',
-            request,
-            (receipt: TransactionReceipt) => !!empireSlashingProposer.tryExtractPayloadSubmittedEvent(receipt.logs),
-            slotNumber,
-          );
-          break;
-        }
-
         case 'vote-offenses': {
           this.log.debug(`Enqueuing slashing vote for ${action.votes.length} votes at slot ${slotNumber}`, {
             slotNumber,
@@ -1158,17 +1100,16 @@ export class SequencerPublisher {
             votesCount: action.votes.length,
             signerAddress,
           });
-          if (this.slashingProposerContract?.type !== 'tally') {
-            this.log.error('Cannot vote for slashing offenses on non-tally slashing contract');
+          if (!this.slashingProposerContract) {
+            this.log.error('No slashing proposer contract available');
             return false;
           }
-          const tallySlashingProposer = this.slashingProposerContract as TallySlashingProposerContract;
           const votes = bufferToHex(encodeSlashConsensusVotes(action.votes));
-          const request = await tallySlashingProposer.buildVoteRequestFromSigner(votes, slotNumber, signer);
+          const request = await this.slashingProposerContract.buildVoteRequestFromSigner(votes, slotNumber, signer);
           await this.simulateAndEnqueueRequest(
             'vote-offenses',
             request,
-            (receipt: TransactionReceipt) => !!tallySlashingProposer.tryExtractVoteCastEvent(receipt.logs),
+            (receipt: TransactionReceipt) => !!this.slashingProposerContract!.tryExtractVoteCastEvent(receipt.logs),
             slotNumber,
           );
           break;
@@ -1180,16 +1121,19 @@ export class SequencerPublisher {
             round: action.round,
             signerAddress,
           });
-          if (this.slashingProposerContract?.type !== 'tally') {
-            this.log.error('Cannot execute slashing offenses on non-tally slashing contract');
+          if (!this.slashingProposerContract) {
+            this.log.error('No slashing proposer contract available');
             return false;
           }
-          const tallySlashingProposer = this.slashingProposerContract as TallySlashingProposerContract;
-          const request = tallySlashingProposer.buildExecuteRoundRequest(action.round, action.committees);
+          const executeRequest = this.slashingProposerContract.buildExecuteRoundRequest(
+            action.round,
+            action.committees,
+          );
           await this.simulateAndEnqueueRequest(
             'execute-slash',
-            request,
-            (receipt: TransactionReceipt) => !!tallySlashingProposer.tryExtractRoundExecutedEvent(receipt.logs),
+            executeRequest,
+            (receipt: TransactionReceipt) =>
+              !!this.slashingProposerContract!.tryExtractRoundExecutedEvent(receipt.logs),
             slotNumber,
           );
           break;

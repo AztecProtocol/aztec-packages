@@ -276,7 +276,7 @@ export async function setup(
   let anvil: Anvil | undefined;
   try {
     opts.aztecTargetCommitteeSize ??= 0;
-    opts.slasherFlavor ??= 'none';
+    opts.slasherEnabled ??= false;
 
     const config: AztecNodeConfig & SetupOptions = { ...getConfigEnvVars(), ...opts };
     // use initialValidators for the node config

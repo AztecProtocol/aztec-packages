@@ -1,6 +1,6 @@
 import { EthAddress } from '@aztec/aztec.js/addresses';
 import type { EpochCache } from '@aztec/epoch-cache';
-import { RollupContract, SlasherContract, TallySlashingProposerContract } from '@aztec/ethereum/contracts';
+import { RollupContract, SlasherContract, SlashingProposerContract } from '@aztec/ethereum/contracts';
 import { maxBigint } from '@aztec/foundation/bigint';
 import { SlotNumber } from '@aztec/foundation/branded-types';
 import { compactArray, partition, times } from '@aztec/foundation/collection';
@@ -13,7 +13,6 @@ import {
   OffenseType,
   type ProposerSlashAction,
   type ProposerSlashActionProvider,
-  type SlashPayloadRound,
   getEpochsForRound,
   getSlashConsensusVotesFromOffenses,
 } from '@aztec/stdlib/slashing';
@@ -30,8 +29,8 @@ import type { SlasherClientInterface } from './slasher_client_interface.js';
 import type { SlasherOffensesStore } from './stores/offenses_store.js';
 import type { Watcher } from './watcher.js';
 
-/** Settings used in the tally slasher client, loaded from the L1 contracts during initialization */
-export type TallySlasherSettings = Prettify<
+/** Settings used in the slasher client, loaded from the L1 contracts during initialization */
+export type SlasherSettings = Prettify<
   SlashRoundMonitorSettings &
     SlashOffensesCollectorSettings & {
       slashingLifetimeInRounds: number;
@@ -45,14 +44,14 @@ export type TallySlasherSettings = Prettify<
     }
 >;
 
-export type TallySlasherClientConfig = SlashOffensesCollectorConfig &
+export type SlasherClientConfig = SlashOffensesCollectorConfig &
   Pick<
     SlasherConfig,
     'slashValidatorsAlways' | 'slashValidatorsNever' | 'slashExecuteRoundsLookBack' | 'slashMaxPayloadSize'
   >;
 
 /**
- * The Tally Slasher client is responsible for managing slashable offenses using
+ * The Slasher client is responsible for managing slashable offenses using
  * the consensus-based slashing model where proposers vote on individual validator offenses.
  *
  * The client subscribes to several slash watchers that emit offenses and tracks them. When the slasher is the
@@ -76,22 +75,16 @@ export type TallySlasherClientConfig = SlashOffensesCollectorConfig &
  * - Validators that reach the quorum threshold are slashed. A vote for slashing N units is also considered
  * a vote for slashing N-1, N-2, ..., 1 units. The system slashes for the largest amount that reaches quorum.
  * - The client monitors executable rounds and triggers execution when appropriate.
- *
- * Differences from Empire model
- * - No fixed slash payloads - votes are for individual validator offenses encoded in bytes
- * - The L1 contract determines which offenses reach quorum rather than nodes agreeing on a payload
- * - Proposers vote directly on which validators to slash and by how much
- * - Uses a slash offset to vote on validators from past rounds (e.g., round N votes on round N-2)
  */
-export class TallySlasherClient implements ProposerSlashActionProvider, SlasherClientInterface {
+export class SlasherClient implements ProposerSlashActionProvider, SlasherClientInterface {
   protected unwatchCallbacks: (() => void)[] = [];
   protected roundMonitor: SlashRoundMonitor;
   protected offensesCollector: SlashOffensesCollector;
 
   constructor(
-    private config: TallySlasherClientConfig,
-    private settings: TallySlasherSettings,
-    private tallySlashingProposer: TallySlashingProposerContract,
+    private config: SlasherClientConfig,
+    private settings: SlasherSettings,
+    private slashingProposer: SlashingProposerContract,
     private slasher: SlasherContract,
     private rollup: RollupContract,
     watchers: Watcher[],
@@ -105,14 +98,14 @@ export class TallySlasherClient implements ProposerSlashActionProvider, SlasherC
   }
 
   public async start() {
-    this.log.debug('Starting Tally Slasher client...');
+    this.log.debug('Starting slasher client...');
 
     this.roundMonitor.start();
     await this.offensesCollector.start();
 
     // Listen for RoundExecuted events
     this.unwatchCallbacks.push(
-      this.tallySlashingProposer.listenToRoundExecuted(
+      this.slashingProposer.listenToRoundExecuted(
         ({ round, slashCount, l1BlockHash }) =>
           void this.handleRoundExecuted(round, slashCount, l1BlockHash).catch(err =>
             this.log.error('Error handling round executed', err),
@@ -123,15 +116,13 @@ export class TallySlasherClient implements ProposerSlashActionProvider, SlasherC
     // Check for round changes
     this.unwatchCallbacks.push(this.roundMonitor.listenToNewRound(round => this.handleNewRound(round)));
 
-    this.log.info(`Started tally slasher client`);
+    this.log.info(`Started slasher client`);
     return Promise.resolve();
   }
 
-  /**
-   * Stop the tally slasher client
-   */
+  /** Stop the slasher client */
   public async stop() {
-    this.log.debug('Stopping Tally Slasher client...');
+    this.log.debug('Stopping slasher client...');
 
     for (const unwatchCallback of this.unwatchCallbacks) {
       unwatchCallback();
@@ -140,7 +131,7 @@ export class TallySlasherClient implements ProposerSlashActionProvider, SlasherC
     this.roundMonitor.stop();
     await this.offensesCollector.stop();
 
-    this.log.info('Tally Slasher client stopped');
+    this.log.info('Slasher client stopped');
   }
 
   /** Returns the current config */
@@ -155,11 +146,11 @@ export class TallySlasherClient implements ProposerSlashActionProvider, SlasherC
 
   /** Triggered on a time basis when we enter a new slashing round. Clears expired offenses. */
   protected async handleNewRound(round: bigint) {
-    this.log.info(`Starting new tally slashing round ${round}`);
+    this.log.info(`Starting new slashing round ${round}`);
     await this.offensesCollector.handleNewRound(round);
   }
 
-  /** Called when we see a RoundExecuted event on the TallySlashingProposer (just for logging). */
+  /** Called when we see a RoundExecuted event on the SlashingProposer (just for logging). */
   protected async handleRoundExecuted(round: bigint, slashCount: bigint, l1BlockHash: Hex) {
     const slashes = await this.rollup.getSlashEvents(l1BlockHash);
     this.log.info(`Slashing round ${round} has been executed with ${slashCount} slashes`, { slashes });
@@ -240,7 +231,7 @@ export class TallySlasherClient implements ProposerSlashActionProvider, SlasherC
     this.log.debug(`Testing if slashing round ${executableRound} is executable`, logData);
 
     try {
-      const roundInfo = await this.tallySlashingProposer.getRound(executableRound);
+      const roundInfo = await this.slashingProposer.getRound(executableRound);
       logData = { ...logData, roundInfo };
       if (roundInfo.isExecuted) {
         this.log.verbose(`Round ${executableRound} has already been executed`, logData);
@@ -254,7 +245,7 @@ export class TallySlasherClient implements ProposerSlashActionProvider, SlasherC
       }
 
       // Check if round is ready to execute at the given slot
-      const isReadyToExecute = await this.tallySlashingProposer.isRoundReadyToExecute(executableRound, slotNumber);
+      const isReadyToExecute = await this.slashingProposer.isRoundReadyToExecute(executableRound, slotNumber);
       if (!isReadyToExecute) {
         this.log.warn(
           `Round ${executableRound} is not ready to execute at slot ${slotNumber} according to contract check`,
@@ -264,14 +255,14 @@ export class TallySlasherClient implements ProposerSlashActionProvider, SlasherC
       }
 
       // Check if the round yields any slashing at all
-      const { actions: slashActions, committees } = await this.tallySlashingProposer.getTally(executableRound);
+      const { actions: slashActions, committees } = await this.slashingProposer.getTally(executableRound);
       if (slashActions.length === 0) {
         this.log.verbose(`Round ${executableRound} does not resolve in any slashing`, logData);
         return undefined;
       }
 
       // Check if the slash payload is vetoed
-      const payload = await this.tallySlashingProposer.getPayload(executableRound);
+      const payload = await this.slashingProposer.getPayload(executableRound);
       const isVetoed = await this.slasher.isPayloadVetoed(payload.address);
       if (isVetoed) {
         this.log.warn(`Round ${executableRound} payload is vetoed (skipping execution)`, {
@@ -406,16 +397,8 @@ export class TallySlasherClient implements ProposerSlashActionProvider, SlasherC
   }
 
   /**
-   * Get slash payloads is NOT SUPPORTED in tally model
-   * @throws Error indicating this operation is not supported
-   */
-  public getSlashPayloads(): Promise<SlashPayloadRound[]> {
-    return Promise.reject(new Error('Tally slashing model does not support slash payloads'));
-  }
-
-  /**
    * Gather offenses to be slashed on a given round.
-   * In tally slashing, round N slashes validators from round N - slashOffsetInRounds.
+   * Round N slashes validators from round N - slashOffsetInRounds.
    * @param round - The round to get offenses for, defaults to current round
    * @returns Array of pending offenses for the round with offset applied
    */
@@ -428,9 +411,9 @@ export class TallySlasherClient implements ProposerSlashActionProvider, SlasherC
     return await this.offensesStore.getOffensesForRound(targetRound);
   }
 
-  /** Returns all pending offenses stored */
-  public getPendingOffenses(): Promise<Offense[]> {
-    return this.offensesStore.getPendingOffenses();
+  /** Returns all offenses stored */
+  public getOffenses(): Promise<Offense[]> {
+    return this.offensesStore.getOffenses();
   }
 
   /**

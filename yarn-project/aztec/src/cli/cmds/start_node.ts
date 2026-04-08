@@ -116,12 +116,10 @@ export async function startNode(
     );
   }
 
-  // TODO(#12272): will clean this up.
   nodeConfig = {
     ...nodeConfig,
     l1Contracts: {
       ...addresses,
-      slashFactoryAddress: nodeConfig.l1Contracts.slashFactoryAddress,
     },
     ...config,
   };
