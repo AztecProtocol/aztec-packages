@@ -2263,13 +2263,6 @@ void bigfield<Builder, T>::unsafe_evaluate_multiply_add(const bigfield& input_le
     uint64_t carry_lo_msb = max_lo_bits - (2 * NUM_LIMB_BITS);
     uint64_t carry_hi_msb = max_hi_bits - (2 * NUM_LIMB_BITS);
 
-    if (max_lo_bits < (2 * NUM_LIMB_BITS)) {
-        carry_lo_msb = 0;
-    }
-    if (max_hi_bits < (2 * NUM_LIMB_BITS)) {
-        carry_hi_msb = 0;
-    }
-
     // The custom bigfield multiplication gate requires inputs are witnesses.
     // If we're using constant values, instantiate them as circuit variables
     //
@@ -2716,13 +2709,6 @@ void bigfield<Builder, T>::unsafe_evaluate_multiple_multiply_add(const std::vect
 
     uint64_t carry_lo_msb = max_lo_bits - (2 * NUM_LIMB_BITS);
     uint64_t carry_hi_msb = max_hi_bits - (2 * NUM_LIMB_BITS);
-
-    if (max_lo_bits < (2 * NUM_LIMB_BITS)) {
-        carry_lo_msb = 0;
-    }
-    if (max_hi_bits < (2 * NUM_LIMB_BITS)) {
-        carry_hi_msb = 0;
-    }
 
     // if both the hi and lo output limbs have less than 70 bits, we can use our custom
     // limb accumulation gate (accumulates 2 field elements, each composed of 5 14-bit limbs, in 3 gates)
