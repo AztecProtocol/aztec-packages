@@ -1,6 +1,6 @@
 # Sequencer Timing Model
 
-The Aztec sequencer divides each slot into **fixed-duration sub-slots**. Each sub-slot has a pre-defined start and end time based on an initialization offset (how much time we expect syncing the previous slot will take), the configured block duration, and whether checkpoint finalization is paid for in the current slot or deferred under proposer pipelining.
+The Aztec sequencer divides each slot into **fixed-duration sub-slots**. Each sub-slot has a pre-defined start and end time based on an initialization offset (how much time we expect syncing the previous slot will take), the configured block duration, an optional shorter last-block duration, and whether checkpoint finalization is paid for in the current slot or deferred under proposer pipelining.
 
 **Example: 72-second slot with 8-second sub-slots (non-pipelined)**
 
@@ -48,15 +48,15 @@ In a typical configuration without pipelining, a 72-second slot contains:
 - 1 last validator re-execution sub-slot (8 seconds)
 - 1 attestation and publishing period (17 seconds)
 
-With proposer pipelining enabled, the last validator re-execution sub-slot is still reserved, but the checkpoint finalization and L1 publishing budget is no longer subtracted when deciding how many block-building sub-slots fit in the slot.
+With proposer pipelining enabled, the checkpoint finalization and L1 publishing budget is no longer subtracted when deciding how many block-building sub-slots fit in the slot. Optionally, `SEQ_LAST_BLOCK_DURATION_MS` can shorten only the final block deadline, which causes the checkpoint to be broadcast earlier without changing the earlier sub-slot boundaries.
 
 ### The Fixed Sub-Slot Model
 
 Building multiple blocks per slot uses **fixed sub-slots** with predictable deadlines:
 
-1. **Equal-duration sub-slots**: All sub-slots have the same duration (`BLOCK_DURATION`)
-2. **Fixed deadlines**: Block N deadline = `initializationOffset + N * BLOCK_DURATION`
-3. **Last sub-slot reserved**: The final sub-slot is reserved for validators to re-execute the last block (no block is built during this sub-slot)
+1. **Equal-duration sub-slots by default**: All sub-slots use the same duration (`blockDuration`) unless `lastBlockDurationMs` is configured
+2. **Fixed deadlines**: For normal sub-slots, block `N` deadline = `initializationOffset + N * blockDuration`
+3. **Optional shorter final deadline**: If `lastBlockDurationMs < blockDurationMs`, only the last block deadline is shortened so the checkpoint is broadcast earlier
 4. **Skip if too late**: If we can't start a block with at least `MIN_EXECUTION_TIME` remaining before its deadline, we immediately start building in the next sub-slot
 
 ## Timing Components
@@ -67,6 +67,7 @@ Understanding slot timing requires knowing these time constants:
 |-----------|---------------|---------|
 | **Slot Duration** | 72s | Total time available for the entire checkpoint |
 | **Block Duration** | 8s | Duration of each sub-slot (time budget for building one block) |
+| **Last Block Duration** | 2s or 8s | Optional shorter deadline for the last block; defaults to `blockDuration` |
 | **Initialization Offset** | 2s | Fixed estimate for sync + proposer check |
 | **Propagation Time** | 2s | Time for messages to travel across the P2P network (one-way) |
 | **Finalization Time** | 1s | Time to finalize checkpoint and prepare proposal message |
@@ -80,12 +81,14 @@ These values are configurable but must satisfy certain constraints (explained be
 Given a slot configuration, we calculate how many blocks fit using these formulas:
 
 ```
+effectiveLastBlockDuration = lastBlockDuration ?? blockDuration
+
 checkpointFinalizationTime = propagationTime
                            + propagationTime
                            + finalizationTime
                            + l1PublishingTime
 
-timeReservedAtEnd (normal mode) = blockDuration               (last sub-slot for reexecution)
+timeReservedAtEnd (normal mode) = effectiveLastBlockDuration  (validator reexecution budget for the last block)
                                 + checkpointFinalizationTime
 
 timeReservedAtEnd (pipelining) = assembleTime
@@ -93,7 +96,11 @@ timeReservedAtEnd (pipelining) = assembleTime
 
 timeAvailableForBlocks = slotDuration - initializationOffset - timeReservedAtEnd
 
-numberOfBlocks = floor(timeAvailableForBlocks / blockDuration)
+numberOfBlocks =
+  if effectiveLastBlockDuration < blockDuration:
+    floor((timeAvailableForBlocks - effectiveLastBlockDuration) / blockDuration) + 1
+  else:
+    floor(timeAvailableForBlocks / blockDuration)
 ```
 
 **Example with typical values:**
@@ -105,8 +112,22 @@ numberOfBlocks = floor(45s / 8s) = 5 blocks
 
 This means:
 - Sub-slots 1-5: Build blocks 1-5
-- Sub-slot 6: Reserved for validator re-execution of block 5
-- After sub-slot 6: Attestation collection, finalization, and L1 publishing
+- After the last block deadline: validator re-execution of block 5, attestation collection, finalization, and L1 publishing
+
+**Example with a shorter final block deadline:**
+```
+slotDuration = 72s
+initializationOffset = 2s
+blockDuration = 6s
+lastBlockDuration = 2s
+checkpointFinalizationTime = 17s
+
+timeReservedAtEnd = 2s + 17s = 19s
+timeAvailableForBlocks = 72s - 2s - 19s = 51s
+numberOfBlocks = floor((51s - 2s) / 6s) + 1 = 9 blocks
+```
+
+Without the shorter final block deadline, the same configuration would fit only `floor((72s - 2s - (6s + 17s)) / 6s) = 8` blocks. This is the main purpose of `SEQ_LAST_BLOCK_DURATION_MS`.
 
 **The same slot with proposer pipelining enabled:**
 ```
@@ -149,7 +170,7 @@ Slot 12 (target/submission slot):
 
 For timetable purposes, this changes two things:
 
-- `maxNumberOfBlocks` is computed by reserving only the final validator re-execution sub-slot
+- `maxNumberOfBlocks` is computed by reserving only checkpoint assembly plus one-way proposal broadcast
 - `initializeDeadline` no longer subtracts checkpoint finalization time; it only requires enough time for initialization, execution, and validator re-execution
 
 In code, that means:
@@ -162,7 +183,7 @@ initializeDeadline (pipelining) =
   slotDuration - initializationOffset - 2 * minExecutionTime
 ```
 
-The fixed sub-slot deadlines themselves do not change. Pipelining only changes how much of the slot is considered available for block building.
+The fixed sub-slot structure does not otherwise change. Pipelining only changes how much of the slot is considered available for block building. If `lastBlockDurationMs` is configured, only the final block deadline is shortened; the pipelining grace period for validators still uses the full `blockDuration`.
 
 ## The Sequencer's Work
 
@@ -189,9 +210,12 @@ Each sub-slot has a fixed start time and deadline:
 ```
 subSlotStart[N] = initializationOffset + (N - 1) * blockDuration
 subSlotDeadline[N] = initializationOffset + N * blockDuration
+lastSubSlotDeadline = initializationOffset + (N - 1) * blockDuration + effectiveLastBlockDuration
 ```
 
 Where N is the sub-slot number (1-indexed).
+
+For all non-final sub-slots, `subSlotDeadline[N]` is used directly. For the final block, the sequencer uses `lastSubSlotDeadline` when `lastBlockDurationMs` is configured to a smaller value.
 
 **Example with 2s offset and 8s block duration:**
 ```
@@ -251,9 +275,9 @@ If the deadline (25s) is reached with only 2 transactions, the block is skipped 
 
 ### 3. Last Block and Validator Re-execution
 
-The **last block** is built during the **penultimate sub-slot**. The final sub-slot is reserved for validators to re-execute the last block.
+The **last block** may use either the standard `blockDuration` deadline or a shorter `lastBlockDuration`, depending on configuration. Shortening the last block deadline causes the proposer to broadcast the checkpoint earlier, which is useful when the final block should be smaller than the others.
 
-**Why the last sub-slot is reserved:**
+**Why extra time is reserved after the last block:**
 
 Validators execute blocks **sequentially**. While the proposer builds Block N+1, validators are re-executing Block N (with a ~2s delay due to propagation). However, for the **last block**, there's no "Block N+1" to build while validators re-execute. We must wait for them to finish so they can attest.
 
@@ -261,11 +285,11 @@ Validators execute blocks **sequentially**. While the proposer builds Block N+1,
 
 ```
 T:      Last block finishes building, checkpoint proposal broadcast
-        Last sub-slot begins (duration: blockDuration)
+        Validator re-execution budget begins
 T+2s:   Validators receive proposal (propagation delay)
-T+2s to T+2s+blockDuration: Validators re-execute last block
-T+2s+blockDuration: Validators finish re-execution, send attestations
-T+4s+blockDuration: Proposer receives attestations (propagation delay)
+T+2s to T+2s+effectiveLastBlockDuration: Validators re-execute last block
+T+2s+effectiveLastBlockDuration: Validators finish re-execution, send attestations
+T+4s+effectiveLastBlockDuration: Proposer receives attestations (propagation delay)
 ```
 
 **Example with 8s block duration:**
@@ -279,11 +303,13 @@ T+4s+blockDuration: Proposer receives attestations (propagation delay)
 
 Note that validators finish at `52s`, which is `2s` after the last sub-slot ends at `50s`. This is expected and accounted for in the `timeReservedAtEnd` calculation.
 
+When `lastBlockDurationMs` is shorter than `blockDurationMs`, the same timeline starts earlier because the proposer broadcasts the checkpoint earlier. In the non-pipelined path, the reserved validator re-execution budget is also shortened to `lastBlockDuration`. In the pipelined path, validators are still allowed to finish into the target slot, so the grace window remains `blockDuration + propagationTime`.
+
 ### 4. Attestation Collection and L1 Publishing
 
 After the last block is built and validators have re-executed it:
 
-1. **Collect attestations**: Wait for validators to send their signatures (arrive at T+4s+blockDuration)
+1. **Collect attestations**: Wait for validators to send their signatures (arrive at `T + 4s + effectiveLastBlockDuration` in the non-pipelined path)
 2. **Finalize checkpoint**: Sign over attestations, assemble final checkpoint (1s)
 3. **Publish to L1**: Submit transaction to Ethereum (needs 12s to land)
 
@@ -456,7 +482,7 @@ Time | Proposer                    | Validators
 - Validators lag by ~2s (propagation delay)
 - While proposer builds Block N+1, validators re-execute Block N (parallel work)
 - For the last block, proposer waits while validators re-execute
-- The last sub-slot provides the time budget for this waiting period
+- The reserved time after the last block deadline provides the time budget for this waiting period
 
 ## Configuration Guidelines
 
@@ -467,8 +493,9 @@ When configuring timing parameters, ensure these constraints are satisfied:
 For a valid multi-block configuration without pipelining:
 ```
 slotDuration >= initializationOffset
-              + blockDuration * 2                          (at least 2 blocks)
-              + blockDuration                              (last sub-slot)
+              + blockDuration                              (first full block)
+              + effectiveLastBlockDuration                 (last block)
+              + effectiveLastBlockDuration                 (validator reexecution of the last block)
               + 2 * propagationTime                        (round-trip)
               + finalizationTime                           (checkpoint finalization)
               + l1PublishingTime                           (L1 publishing)
@@ -476,12 +503,17 @@ slotDuration >= initializationOffset
 
 Simplified:
 ```
-slotDuration >= initializationOffset + 3*blockDuration + 2*propagationTime + finalizationTime + l1PublishingTime
+slotDuration >= initializationOffset
+              + blockDuration
+              + 2*effectiveLastBlockDuration
+              + 2*propagationTime
+              + finalizationTime
+              + l1PublishingTime
 ```
 
-With proposer pipelining enabled, the same "at least 2 buildable blocks plus the final validator re-execution sub-slot" requirement becomes:
+With proposer pipelining enabled, the same "at least 2 buildable blocks" requirement becomes:
 ```
-slotDuration >= initializationOffset + 3*blockDuration
+slotDuration >= initializationOffset + blockDuration + effectiveLastBlockDuration + assembleTime + propagationTime
 ```
 
 **Example:**
