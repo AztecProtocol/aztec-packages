@@ -212,6 +212,13 @@ export class MockPubSub implements PubSubLibp2p {
   get services() {
     return {
       pubsub: this.gossipSub,
+      components: {
+        addressManager: {
+          addObservedAddr: () => {},
+          confirmObservedAddr: () => {},
+          removeObservedAddr: () => {},
+        },
+      },
     };
   }
 

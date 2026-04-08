@@ -96,7 +96,8 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
         lookupTimeout: 2000,
         requestTimeout: 2000,
         allowUnverifiedSessions: true,
-        enrUpdate: !p2pIp ? true : false, // If no p2p IP is set, enrUpdate can automatically resolve it
+        enrUpdate: config.queryForIp || !p2pIp,
+        pingInterval: config.queryForIp ? 10_000 : 300_000,
         ...configOverrides.config,
       },
       metricsRegistry,
@@ -127,11 +128,13 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
   }
 
   private onMultiaddrUpdated(m: Multiaddr) {
+    const address = m.nodeAddress().address;
     // We want to update our tcp port to match the udp port
     // p2pBroadcastPort is optional on config, however it is set to default within the p2p client factory
-    const multiAddrTcp = multiaddr(convertToMultiaddr(m.nodeAddress().address, this.config.p2pBroadcastPort!, 'tcp'));
+    const multiAddrTcp = multiaddr(convertToMultiaddr(address, this.config.p2pBroadcastPort!, 'tcp'));
     this.enr.setLocationMultiaddr(multiAddrTcp);
     this.logger.info('Multiaddr updated', { multiaddr: multiAddrTcp.toString() });
+    this.emit('ip:changed', address);
   }
 
   public async start(): Promise<void> {

@@ -76,6 +76,10 @@ export async function createLibp2pNode(
       identify: identify({
         protocolPrefix: 'aztec',
       }),
+      components: (components: { connectionManager: any; addressManager: any }) => ({
+        connectionManager: components.connectionManager,
+        addressManager: components.addressManager,
+      }),
     },
   };
 

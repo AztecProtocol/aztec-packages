@@ -57,7 +57,7 @@ export async function createP2PClient(
   telemetry: TelemetryClient = getTelemetryClient(),
   deps: P2PClientDeps = {},
 ) {
-  const config = await configureP2PClientAddresses({
+  const config = configureP2PClientAddresses({
     ...inputConfig,
     dataStoreMapSizeKb: inputConfig.p2pStoreMapSizeKb ?? inputConfig.dataStoreMapSizeKb,
   });
