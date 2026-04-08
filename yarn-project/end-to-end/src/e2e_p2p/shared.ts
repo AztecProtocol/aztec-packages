@@ -152,6 +152,58 @@ export async function awaitCommitteeExists({
 }
 
 /**
+ * Advance epochs until we find one where the target proposer is selected for at least one slot,
+ * then stop one epoch before it. This leaves time for the caller to start sequencers before
+ * warping to the target epoch, avoiding the race where the target epoch passes before sequencers
+ * are ready.
+ *
+ * Returns the target epoch number so the caller can warp to it after starting sequencers.
+ */
+export async function advanceToEpochBeforeProposer({
+  epochCache,
+  cheatCodes,
+  targetProposer,
+  logger,
+  maxAttempts = 20,
+}: {
+  epochCache: EpochCacheInterface;
+  cheatCodes: RollupCheatCodes;
+  targetProposer: EthAddress;
+  logger: Logger;
+  maxAttempts?: number;
+}): Promise<{ targetEpoch: EpochNumber }> {
+  const { epochDuration } = await cheatCodes.getConfig();
+
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    const currentEpoch = await cheatCodes.getEpoch();
+    // Check the NEXT epoch's slots so we stay one epoch before the target,
+    // giving the caller time to start sequencers before the target epoch arrives.
+    const nextEpoch = Number(currentEpoch) + 1;
+    const startSlot = nextEpoch * Number(epochDuration);
+    const endSlot = startSlot + Number(epochDuration);
+
+    logger.info(
+      `Checking next epoch ${nextEpoch} (slots ${startSlot}-${endSlot - 1}) for proposer ${targetProposer} (current epoch: ${currentEpoch})`,
+    );
+
+    for (let s = startSlot; s < endSlot; s++) {
+      const proposer = await epochCache.getProposerAttesterAddressInSlot(SlotNumber(s));
+      if (proposer && proposer.equals(targetProposer)) {
+        logger.warn(
+          `Found target proposer ${targetProposer} in slot ${s} of epoch ${nextEpoch}. Staying at epoch ${currentEpoch} to allow sequencer startup.`,
+        );
+        return { targetEpoch: EpochNumber(nextEpoch) };
+      }
+    }
+
+    logger.info(`Target proposer not found in epoch ${nextEpoch}, advancing to next epoch`);
+    await cheatCodes.advanceToNextEpoch();
+  }
+
+  throw new Error(`Target proposer ${targetProposer} not found in any slot after ${maxAttempts} epoch attempts`);
+}
+
+/**
  * Advance epochs until we find one where the target proposer is selected for at least one slot.
  * With N validators and M slots per epoch, a specific proposer may not be selected in any given epoch.
  * For example, with 4 validators and 2 slots/epoch, there is about a 44% chance per epoch.

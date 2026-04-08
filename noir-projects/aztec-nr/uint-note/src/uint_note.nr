@@ -1,6 +1,5 @@
 use aztec::{
-    context::{PrivateContext, PublicContext},
-    history::nullifier::assert_nullifier_existed_by,
+    context::{NullifierExistenceRequest, PrivateContext, PublicContext},
     keys::getters::{get_nhk_app, get_public_keys, try_get_public_keys},
     macros::notes::custom_note,
     messages::{
@@ -216,14 +215,11 @@ impl PartialUintNote {
         // We verify that the partial note we're completing is valid (i.e. completer is correct, it uses the correct
         // state variable's storage slot, and it is internally consistent).
         let validity_commitment = self.compute_validity_commitment(completer);
-        // `assert_nullifier_existed_by` function expects the nullifier to be siloed (hashed with the address of the
-        // contract that emitted the nullifier) as it checks the value directly against the nullifier tree and all the
-        // nullifiers in the tree are siloed by the protocol.
+
         let siloed_validity_commitment = compute_siloed_nullifier(context.this_address(), validity_commitment);
-        assert_nullifier_existed_by(
-            context.get_anchor_block_header(),
-            siloed_validity_commitment,
-        );
+        // Note that this means we don't support scenarios in which the validity commitment was created in the same
+        // transaction.
+        context.assert_nullifier_exists(NullifierExistenceRequest::for_settled(siloed_validity_commitment));
 
         // We need to do two things:
         //  - emit an unencrypted log containing the public fields (the storage slot and value) via the private log
