@@ -19,7 +19,7 @@ The developer SDK/aztec-nr version (used for writing and compiling contracts) ma
 
 | Parameter | Alpha (Mainnet) | Testnet |
 |-----------|-------------------|---------|
-| **Version** | `4.1.3` (node operators)<br/>`4.2.0-aztecnr-rc.2` (developer SDK) | `4.1.0-rc.2` |
+| **Version** | `4.1.3` (node operators)<br/>`4.2.0-aztecnr-rc.2` (developer SDK) | `4.1.3` (node operators)<br/>`4.2.0-aztecnr-rc.2` (developer SDK) |
 | **L1 Chain ID** | `1` (Mainnet) | `11155111` (Sepolia) |
 | **Rollup Version** | `2934756905` | `4127419662` |
 | **RPC Endpoint** | `https://aztec-mainnet.drpc.org` | `https://rpc.testnet.aztec-labs.com` |
@@ -67,7 +67,7 @@ The developer SDK/aztec-nr version (used for writing and compiling contracts) ma
 | **Class Registry** | `0x0000000000000000000000000000000000000000000000000000000000000003` | `0x0000000000000000000000000000000000000000000000000000000000000003` |
 | **MultiCall Entrypoint** | `0x0000000000000000000000000000000000000000000000000000000000000004` | `0x0000000000000000000000000000000000000000000000000000000000000004` |
 | **Fee Juice** | `0x0000000000000000000000000000000000000000000000000000000000000005` | `0x0000000000000000000000000000000000000000000000000000000000000005` |
-| **SponsoredFPC** | Not deployed | Not deployed |
+| **SponsoredFPC** | Not deployed | `0x2ae02a54fd254586fd628ff46b71071bd8db32b63dc5d083f844f2c208a3923c` |
 
 ## Governance Parameters
 
