@@ -786,6 +786,31 @@ export class RPCTranslator {
   }
 
   // eslint-disable-next-line camelcase
+  public async aztec_utl_validateAndStoreEnqueuedNotesAndEvents_v2(
+    foreignNoteValidationRequestsArrayBaseSlot: ForeignCallSingle,
+    foreignEventValidationRequestsArrayBaseSlot: ForeignCallSingle,
+    foreignMaxNotePackedLen: ForeignCallSingle,
+    foreignMaxEventSerializedLen: ForeignCallSingle,
+    foreignScope: ForeignCallSingle,
+  ) {
+    const noteValidationRequestsArrayBaseSlot = fromSingle(foreignNoteValidationRequestsArrayBaseSlot);
+    const eventValidationRequestsArrayBaseSlot = fromSingle(foreignEventValidationRequestsArrayBaseSlot);
+    const maxNotePackedLen = fromSingle(foreignMaxNotePackedLen).toNumber();
+    const maxEventSerializedLen = fromSingle(foreignMaxEventSerializedLen).toNumber();
+    const scope = AztecAddress.fromField(fromSingle(foreignScope));
+
+    await this.handlerAsUtility().validateAndStoreEnqueuedNotesAndEventsV2(
+      noteValidationRequestsArrayBaseSlot,
+      eventValidationRequestsArrayBaseSlot,
+      maxNotePackedLen,
+      maxEventSerializedLen,
+      scope,
+    );
+
+    return toForeignCallResult([]);
+  }
+
+  // eslint-disable-next-line camelcase
   public async aztec_utl_getLogsByTag(
     foreignContractAddress: ForeignCallSingle,
     foreignLogRetrievalRequestsArrayBaseSlot: ForeignCallSingle,

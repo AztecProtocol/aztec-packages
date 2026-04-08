@@ -551,6 +551,24 @@ export class Oracle {
   }
 
   // eslint-disable-next-line camelcase
+  async aztec_utl_validateAndStoreEnqueuedNotesAndEvents_v2(
+    [noteValidationRequestsArrayBaseSlot]: ACVMField[],
+    [eventValidationRequestsArrayBaseSlot]: ACVMField[],
+    [maxNotePackedLen]: ACVMField[],
+    [maxEventSerializedLen]: ACVMField[],
+    [scope]: ACVMField[],
+  ): Promise<ACVMField[]> {
+    await this.handlerAsUtility().validateAndStoreEnqueuedNotesAndEventsV2(
+      Fr.fromString(noteValidationRequestsArrayBaseSlot),
+      Fr.fromString(eventValidationRequestsArrayBaseSlot),
+      Fr.fromString(maxNotePackedLen).toNumber(),
+      Fr.fromString(maxEventSerializedLen).toNumber(),
+      AztecAddress.fromString(scope),
+    );
+    return [];
+  }
+
+  // eslint-disable-next-line camelcase
   async aztec_utl_getLogsByTag(
     [contractAddress]: ACVMField[],
     [logRetrievalRequestsArrayBaseSlot]: ACVMField[],

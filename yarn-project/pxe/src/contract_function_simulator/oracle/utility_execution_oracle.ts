@@ -528,14 +528,9 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   }
 
   /**
-   * Validates all note and event validation requests enqueued via `enqueue_note_for_validation` and
-   * `enqueue_event_for_validation`, inserting them into the note database and event store respectively, making them
-   * queryable via `get_notes` and `getPrivateEvents`.
+   * Legacy: validates note/event requests stored in capsule arrays.
    *
-   * This automatically clears both validation request queues, so no further work needs to be done by the caller.
-   * @param contractAddress - The address of the contract that the logs are tagged for.
-   * @param noteValidationRequestsArrayBaseSlot - The base slot of capsule array containing note validation requests.
-   * @param eventValidationRequestsArrayBaseSlot - The base slot of capsule array containing event validation requests.
+   * Deprecated, only kept for backwards compatibility until Alpha v5 rolls out.
    */
   public async validateAndStoreEnqueuedNotesAndEvents(
     contractAddress: AztecAddress,
@@ -550,8 +545,49 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       throw new Error(`Got a note validation request from ${contractAddress}, expected ${this.contractAddress}`);
     }
 
-    // We read all note and event validation requests from ephemeral arrays and process them all concurrently. This
-    // makes the process much faster as we don't need to wait for the network round-trip.
+    const noteValidationRequests = (
+      await this.capsuleService.readCapsuleArray(
+        contractAddress,
+        noteValidationRequestsArrayBaseSlot,
+        this.jobId,
+        scope,
+      )
+    ).map(fields => NoteValidationRequest.fromFields(fields, maxNotePackedLen));
+
+    const eventValidationRequests = (
+      await this.capsuleService.readCapsuleArray(
+        contractAddress,
+        eventValidationRequestsArrayBaseSlot,
+        this.jobId,
+        scope,
+      )
+    ).map(fields => EventValidationRequest.fromFields(fields, maxEventSerializedLen));
+
+    await this.#processValidationRequests(noteValidationRequests, eventValidationRequests, scope);
+
+    await this.capsuleService.setCapsuleArray(
+      contractAddress,
+      noteValidationRequestsArrayBaseSlot,
+      [],
+      this.jobId,
+      scope,
+    );
+    await this.capsuleService.setCapsuleArray(
+      contractAddress,
+      eventValidationRequestsArrayBaseSlot,
+      [],
+      this.jobId,
+      scope,
+    );
+  }
+
+  public async validateAndStoreEnqueuedNotesAndEventsV2(
+    noteValidationRequestsArrayBaseSlot: Fr,
+    eventValidationRequestsArrayBaseSlot: Fr,
+    maxNotePackedLen: number,
+    maxEventSerializedLen: number,
+    scope: AztecAddress,
+  ) {
     const noteValidationRequests = this.ephemeralArrayService
       .readArrayAt(noteValidationRequestsArrayBaseSlot)
       .map(fields => NoteValidationRequest.fromFields(fields, maxNotePackedLen));
@@ -560,6 +596,20 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       .readArrayAt(eventValidationRequestsArrayBaseSlot)
       .map(fields => EventValidationRequest.fromFields(fields, maxEventSerializedLen));
 
+    await this.#processValidationRequests(noteValidationRequests, eventValidationRequests, scope);
+  }
+
+  /**
+   * Dispatches note and event validation requests to the service layer.
+   *
+   * This function is an auxiliary to support legacy (capsule backed) and new (ephemeral array backed) versions of the
+   * `validateAndStoreEnqueuedNotesAndEvents` oracle.
+   */
+  async #processValidationRequests(
+    noteValidationRequests: NoteValidationRequest[],
+    eventValidationRequests: EventValidationRequest[],
+    scope: AztecAddress,
+  ) {
     const noteService = new NoteService(this.noteStore, this.aztecNode, this.anchorBlockHeader, this.jobId);
     const noteStorePromises = noteValidationRequests.map(request =>
       noteService.validateAndStoreNote(

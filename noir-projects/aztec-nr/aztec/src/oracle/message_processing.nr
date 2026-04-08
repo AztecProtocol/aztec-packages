@@ -15,10 +15,8 @@ pub(crate) unconstrained fn get_pending_tagged_logs(scope: AztecAddress) -> Ephe
 #[oracle(aztec_utl_getPendingTaggedLogs_v2)]
 unconstrained fn get_pending_tagged_logs_oracle(scope: AztecAddress) -> Field {}
 
-// This must be a single oracle and not one for notes and one for events because the entire point is to validate all
-// notes and events in one go, minimizing node round-trips.
+/// Validates note/event requests stored in ephemeral arrays.
 pub(crate) unconstrained fn validate_and_store_enqueued_notes_and_events(
-    contract_address: AztecAddress,
     note_validation_requests_array_base_slot: Field,
     event_validation_requests_array_base_slot: Field,
     max_note_packed_len: Field,
@@ -26,7 +24,6 @@ pub(crate) unconstrained fn validate_and_store_enqueued_notes_and_events(
     scope: AztecAddress,
 ) {
     validate_and_store_enqueued_notes_and_events_oracle(
-        contract_address,
         note_validation_requests_array_base_slot,
         event_validation_requests_array_base_slot,
         max_note_packed_len,
@@ -35,9 +32,8 @@ pub(crate) unconstrained fn validate_and_store_enqueued_notes_and_events(
     );
 }
 
-#[oracle(aztec_utl_validateAndStoreEnqueuedNotesAndEvents)]
+#[oracle(aztec_utl_validateAndStoreEnqueuedNotesAndEvents_v2)]
 unconstrained fn validate_and_store_enqueued_notes_and_events_oracle(
-    contract_address: AztecAddress,
     note_validation_requests_array_base_slot: Field,
     event_validation_requests_array_base_slot: Field,
     max_note_packed_len: Field,

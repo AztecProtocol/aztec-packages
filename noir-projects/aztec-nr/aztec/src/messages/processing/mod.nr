@@ -136,9 +136,8 @@ pub unconstrained fn enqueue_event_for_validation(
 /// Processes all requests enqueued via [`enqueue_note_for_validation`] and [`enqueue_event_for_validation`], inserting
 /// them into the note database and event store respectively, making them queryable via `get_notes` oracle and our TS
 /// API (PXE::getPrivateEvents).
-pub unconstrained fn validate_and_store_enqueued_notes_and_events(contract_address: AztecAddress, scope: AztecAddress) {
+pub unconstrained fn validate_and_store_enqueued_notes_and_events(scope: AztecAddress) {
     oracle::message_processing::validate_and_store_enqueued_notes_and_events(
-        contract_address,
         NOTE_VALIDATION_REQUESTS_ARRAY_BASE_SLOT,
         EVENT_VALIDATION_REQUESTS_ARRAY_BASE_SLOT,
         MAX_NOTE_PACKED_LEN as Field,
