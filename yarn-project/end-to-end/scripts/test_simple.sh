@@ -21,13 +21,6 @@ export LOG_LEVEL=${LOG_LEVEL:-verbose}
 export NODE_NO_WARNINGS=1
 export FORCE_COLOR=1
 
-# Optional: pin contract artifacts to a published legacy version of
-# @aztec/noir-contracts.js / @aztec/noir-test-contracts.js. See README.
-# The legacy-jest-resolver picks up CONTRACT_ARTIFACTS_VERSION and redirects imports.
-if [ -n "${CONTRACT_ARTIFACTS_VERSION:-}" ]; then
-  node ./scripts/ensure_legacy_contracts.mjs
-fi
-
 test_file=$1
 test_name=${2:-}
 

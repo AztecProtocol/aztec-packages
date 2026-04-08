@@ -47,6 +47,4 @@ artifacts were actually loaded:
 ```
 
 When `CONTRACT_ARTIFACTS_VERSION` is unset the test run is byte-identical to the
-default behaviour. If invoking jest directly instead of via
-`scripts/test_simple.sh`, run `node ./scripts/ensure_legacy_contracts.mjs` first
-to populate the cache.
+default behaviour. The cache is populated automatically on first use.

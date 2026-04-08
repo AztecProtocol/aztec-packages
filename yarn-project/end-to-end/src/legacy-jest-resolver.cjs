@@ -6,13 +6,25 @@
 
 const path = require('path');
 const fs = require('fs');
+const { execFileSync } = require('child_process');
 
 const version = process.env.CONTRACT_ARTIFACTS_VERSION;
 const REDIRECTED = ['@aztec/noir-contracts.js', '@aztec/noir-test-contracts.js'];
 
-// scripts/test_simple.sh cd's to the end-to-end package root before invoking jest.
-const e2eRoot = process.cwd();
+// Jest sets rootDir to <e2e>/src; this file lives there too.
+const e2eRoot = path.resolve(__dirname, '..');
 const cacheRoot = version ? path.join(e2eRoot, '.legacy-contracts', version) : null;
+
+// Populate the cache on-demand so this works regardless of how jest is launched.
+if (version) {
+  const missing = REDIRECTED.some(p => !fs.existsSync(path.join(cacheRoot, 'node_modules', p, 'package.json')));
+  if (missing) {
+    execFileSync('node', [path.join(e2eRoot, 'scripts', 'ensure_legacy_contracts.mjs')], {
+      stdio: 'inherit',
+      env: process.env,
+    });
+  }
+}
 
 let bannerPrinted = false;
 const seen = new Set();
