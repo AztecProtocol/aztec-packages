@@ -1,16 +1,13 @@
-{{- if not .Values.statefulSet.enabled }}
-apiVersion: apps/v1
-kind: Deployment
+{{- if .Values.podDisruptionBudget.enabled }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
 metadata:
   name: {{ include "chart.fullname" . }}
   labels:
     {{- include "chart.labels" . | nindent 4 }}
 spec:
-  replicas: {{ .Values.replicaCount }}
+  minAvailable: {{ .Values.podDisruptionBudget.minAvailable }}
   selector:
     matchLabels:
       {{- include "chart.selectorLabels" . | nindent 6 }}
-      app: node
-  template:
-    {{- include "chart.podTemplate" . | nindent 4 }}
 {{- end }}

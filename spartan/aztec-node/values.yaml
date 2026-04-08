@@ -242,6 +242,10 @@ rbac:
         - "list"
         - "watch"
 
+podDisruptionBudget:
+  enabled: false
+  minAvailable: 1
+
 serviceAccount:
   # -- Create a service account
   create: true

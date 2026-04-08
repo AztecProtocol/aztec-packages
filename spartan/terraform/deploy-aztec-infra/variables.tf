@@ -123,6 +123,12 @@ variable "PROVER_AGENT_DOCKER_IMAGE" {
   default     = ""
 }
 
+variable "VALIDATOR_HA_DOCKER_IMAGE" {
+  description = "Docker image for HA validator releases. When set, HA releases (idx > 0) use this image instead of AZTEC_DOCKER_IMAGE."
+  type        = string
+  default     = ""
+}
+
 variable "VALIDATOR_VALUES" {
   description = "The values file to apply"
   type        = string
@@ -241,6 +247,12 @@ variable "VALIDATOR_HA_REPLICAS" {
   default     = 0
 }
 
+variable "VALIDATOR_HA_REPLICA_COUNT" {
+  description = "Number of pod replicas per HA validator release. Defaults to VALIDATOR_REPLICAS if not set."
+  type        = number
+  default     = null
+}
+
 variable "VALIDATOR_HA_OLD_DUTIES_MAX_AGE_H" {
   description = "Clean up old signed HA duties after this many hours (prevents unbounded DB growth)"
   type        = number
@@ -309,11 +321,6 @@ variable "PROVER_NODE_DISABLE_PROOF_PUBLISH" {
   default     = false
 }
 
-variable "P2P_MAX_TX_POOL_SIZE" {
-  description = "Maximum size of the P2P transaction pool"
-  type        = string
-  default     = "100000000"
-}
 variable "FISHERMAN_MNEMONIC" {
   description = "The fisherman mnemonic for RPC nodes (used when validators are disabled, e.g., fisherman mode)"
   type        = string

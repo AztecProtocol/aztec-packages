@@ -259,7 +259,7 @@ export class CLIFeeArgs {
   async toUserFeeOptions(node: AztecNode, wallet: Wallet, from: AztecAddress): Promise<ParsedFeeOptions> {
     const minFees = await this.getMinFees(node);
     const maxFeesPerGas = minFees.mul(1 + MIN_FEE_PADDING);
-    const gasSettings = GasSettings.default({ ...this.gasSettings, maxFeesPerGas });
+    const gasSettings = GasSettings.fallback({ ...this.gasSettings, maxFeesPerGas });
     const paymentMethod = await this.paymentMethod(wallet, from, gasSettings);
     return {
       paymentMethod,
@@ -318,7 +318,7 @@ function formatGasEstimate(estimate: Pick<GasSettings, 'gasLimits' | 'teardownGa
 }
 
 function getEstimatedCost(estimate: Pick<GasSettings, 'gasLimits' | 'teardownGasLimits'>, maxFeesPerGas: GasFees) {
-  return GasSettings.default({ ...estimate, maxFeesPerGas })
+  return GasSettings.fallback({ ...estimate, maxFeesPerGas })
     .getFeeLimit()
     .toBigInt();
 }
