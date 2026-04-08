@@ -134,7 +134,7 @@ export const mockTx = async (
   const data = PrivateKernelTailCircuitPublicInputs.empty();
   const firstNullifier = new Nullifier(new Fr(seed + 1), Fr.ZERO, 0);
   data.constants.anchorBlockHeader = anchorBlockHeader;
-  data.constants.txContext.gasSettings = GasSettings.default({ gasLimits, maxFeesPerGas, maxPriorityFeesPerGas });
+  data.constants.txContext.gasSettings = GasSettings.fallback({ gasLimits, maxFeesPerGas, maxPriorityFeesPerGas });
   data.feePayer = feePayer ?? (await AztecAddress.random());
   data.gasUsed = gasUsed;
   data.constants.txContext.chainId = chainId;
@@ -200,7 +200,7 @@ export async function mockProcessedTx({
   db,
   chainId = Fr.ZERO,
   version = Fr.ZERO,
-  gasSettings = GasSettings.default({ maxFeesPerGas: new GasFees(10, 10) }),
+  gasSettings = GasSettings.fallback({ maxFeesPerGas: new GasFees(10, 10) }),
   vkTreeRoot = Fr.ZERO,
   protocolContracts = makeProtocolContracts(seed + 0x100),
   globalVariables = GlobalVariables.empty(),

@@ -39,6 +39,9 @@ template <typename Curve> class MSM {
 
     // Maximum bits per scalar slice (2^20 = 1M buckets, far beyond practical use)
     static constexpr size_t MAX_SLICE_BITS = 20;
+    static_assert(MAX_SLICE_BITS < 64,
+                  "get_scalar_slice uses 1ULL << lo_slice_bits where lo_slice_bits <= MAX_SLICE_BITS - 1; "
+                  "shifting uint64_t by >= 64 is UB.");
 
     // Number of points to look ahead for memory prefetching
     static constexpr size_t PREFETCH_LOOKAHEAD = 32;
@@ -115,12 +118,15 @@ template <typename Curve> class MSM {
                                       std::span<uint64_t> point_schedule_buffer,
                                       const MSMWorkUnit& work_unit) noexcept
         {
+            const auto& indices = all_indices[work_unit.batch_msm_index];
+            // Avoid indexing into an empty vector when all scalars are zero (work_unit.size == 0)
+            std::span<const uint32_t> scalar_indices =
+                work_unit.size > 0 ? std::span<const uint32_t>{ &indices[work_unit.start_index], work_unit.size }
+                                   : std::span<const uint32_t>{};
             return MSMData{
                 .scalars = all_scalars[work_unit.batch_msm_index],
                 .points = all_points[work_unit.batch_msm_index],
-                .scalar_indices =
-                    std::span<const uint32_t>{ &all_indices[work_unit.batch_msm_index][work_unit.start_index],
-                                               work_unit.size },
+                .scalar_indices = scalar_indices,
                 .point_schedule = point_schedule_buffer,
             };
         }

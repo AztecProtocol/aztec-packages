@@ -2,7 +2,7 @@ import { createSafeJsonRpcClient, defaultFetch } from '@aztec/foundation/json-rp
 
 import { z } from 'zod';
 
-import type { ApiSchemaFor } from '../schemas/schemas.js';
+import { type ApiSchemaFor, optional } from '../schemas/schemas.js';
 import { type Offense, OffenseSchema, type SlashPayloadRound, SlashPayloadRoundSchema } from '../slashing/index.js';
 import { type ComponentsVersions, getVersioningResponseHandler } from '../versioning/index.js';
 import { type ArchiverSpecificConfig, ArchiverSpecificConfigSchema } from './archiver.js';
@@ -36,8 +36,9 @@ export interface AztecNodeAdmin {
    * Pauses syncing and rolls back the database to the target L2 block number.
    * @param targetBlockNumber - The block number to roll back to.
    * @param force - If true, clears the world state db and p2p dbs if rolling back to behind the finalized block.
+   * @param resumeSync - If true (default), resumes archiver and world state sync after rollback.
    */
-  rollbackTo(targetBlockNumber: number, force?: boolean): Promise<void>;
+  rollbackTo(targetBlockNumber: number, force?: boolean, resumeSync?: boolean): Promise<void>;
 
   /** Pauses archiver and world state syncing. */
   pauseSync(): Promise<void>;
@@ -100,7 +101,7 @@ export const AztecNodeAdminApiSchema: ApiSchemaFor<AztecNodeAdmin> = {
   getConfig: z.function().returns(AztecNodeAdminConfigSchema),
   setConfig: z.function().args(AztecNodeAdminConfigSchema.partial()).returns(z.void()),
   startSnapshotUpload: z.function().args(z.string()).returns(z.void()),
-  rollbackTo: z.function().args(z.number()).returns(z.void()),
+  rollbackTo: z.function().args(z.number(), optional(z.boolean()), optional(z.boolean())).returns(z.void()),
   pauseSync: z.function().returns(z.void()),
   resumeSync: z.function().returns(z.void()),
   getSlashPayloads: z.function().returns(z.array(SlashPayloadRoundSchema)),

@@ -24,19 +24,13 @@ import {
   type Wallet,
   type WalletCapabilities,
 } from '@aztec/aztec.js/wallet';
-import {
-  GAS_ESTIMATION_DA_GAS_LIMIT,
-  GAS_ESTIMATION_L2_GAS_LIMIT,
-  GAS_ESTIMATION_TEARDOWN_DA_GAS_LIMIT,
-  GAS_ESTIMATION_TEARDOWN_L2_GAS_LIMIT,
-} from '@aztec/constants';
 import { AccountFeePaymentMethodOptions, type DefaultAccountEntrypointOptions } from '@aztec/entrypoints/account';
 import { DefaultEntrypoint } from '@aztec/entrypoints/default';
 import type { ChainInfo } from '@aztec/entrypoints/interfaces';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
 import type { FieldsOf } from '@aztec/foundation/types';
-import { type AccessScopes, displayDebugLogs } from '@aztec/pxe/client/lazy';
+import { displayDebugLogs } from '@aztec/pxe/client/lazy';
 import type { PXE, PackedPrivateEvent } from '@aztec/pxe/server';
 import {
   type ContractArtifact,
@@ -52,7 +46,7 @@ import {
   getContractClassFromArtifact,
 } from '@aztec/stdlib/contract';
 import { SimulationError } from '@aztec/stdlib/errors';
-import { Gas, GasSettings } from '@aztec/stdlib/gas';
+import { Gas, GasFees, GasSettings } from '@aztec/stdlib/gas';
 import {
   computeSiloedPrivateInitializationNullifier,
   computeSiloedPublicInitializationNullifier,
@@ -94,8 +88,21 @@ export type SimulateViaEntrypointOptions = Pick<
   /** Fee options for the entrypoint */
   feeOptions: FeeOptions;
   /** Scopes to use for the simulation */
-  scopes: AccessScopes;
+  scopes: AztecAddress[];
 };
+
+/** Options for `completeFeeOptions`. */
+export type CompleteFeeOptionsConfig = {
+  /** The address where the transaction is being sent from. */
+  from: AztecAddress | NoFrom;
+  /** The address paying for fees (if any fee payment method is embedded in the execution payload). */
+  feePayer?: AztecAddress;
+  /** User-provided partial gas settings. */
+  gasSettings?: Partial<FieldsOf<GasSettings>>;
+  /** If true, returns gas settings with high gas limits for estimation. If false, uses fallback limits. */
+  forEstimation?: boolean;
+};
+
 /**
  * A base class for Wallet implementations
  */
@@ -214,16 +221,10 @@ export abstract class BaseWallet implements Wallet {
 
   /**
    * Completes partial user-provided fee options with wallet defaults.
-   * @param from - The address where the transaction is being sent from
-   * @param feePayer - The address paying for fees (if any fee payment method is embedded in the execution payload)
-   * @param gasSettings - User-provided partial gas settings
-   * @returns - Complete fee options that can be used to create a transaction execution request
+   * @param config - Fee completion config.
    */
-  protected async completeFeeOptions(
-    from: AztecAddress | NoFrom,
-    feePayer?: AztecAddress,
-    gasSettings?: Partial<FieldsOf<GasSettings>>,
-  ): Promise<FeeOptions> {
+  protected async completeFeeOptions(config: CompleteFeeOptionsConfig): Promise<FeeOptions> {
+    const { from, feePayer, gasSettings, forEstimation } = config;
     const maxFeesPerGas =
       gasSettings?.maxFeesPerGas ?? (await this.aztecNode.getCurrentMinFees()).mul(1 + this.minFeePadding);
     let accountFeePaymentMethodOptions;
@@ -242,43 +243,22 @@ export abstract class BaseWallet implements Wallet {
           : AccountFeePaymentMethodOptions.EXTERNAL;
       }
     }
-    const fullGasSettings: GasSettings = GasSettings.default({ ...gasSettings, maxFeesPerGas });
+    const gasSettingsOverrides = {
+      gasLimits: gasSettings?.gasLimits ? Gas.from(gasSettings.gasLimits) : undefined,
+      teardownGasLimits: gasSettings?.teardownGasLimits ? Gas.from(gasSettings.teardownGasLimits) : undefined,
+      maxFeesPerGas,
+      maxPriorityFeesPerGas: gasSettings?.maxPriorityFeesPerGas ?? GasFees.empty(),
+    };
+    // When estimating gas (simulation), use high limits so the simulation doesn't run out of gas.
+    // When sending for real, use protocol max limits that the network will actually accept.
+    const fullGasSettings = forEstimation
+      ? GasSettings.forEstimation(gasSettingsOverrides)
+      : GasSettings.fallback(gasSettingsOverrides);
     this.log.debug(`Using L2 gas settings`, fullGasSettings);
     return {
       gasSettings: fullGasSettings,
       walletFeePaymentMethod: undefined,
       accountFeePaymentMethodOptions,
-    };
-  }
-
-  /**
-   * Completes partial user-provided fee options with unreasonably high gas limits
-   * for gas estimation. Uses the same logic as completeFeeOptions but sets high limits
-   * to avoid running out of gas during estimation.
-   * @param from - The address where the transaction is being sent from
-   * @param feePayer - The address paying for fees (if any fee payment method is embedded in the execution payload)
-   * @param gasSettings - User-provided partial gas settings
-   */
-  protected async completeFeeOptionsForEstimation(
-    from: AztecAddress | NoFrom,
-    feePayer?: AztecAddress,
-    gasSettings?: Partial<FieldsOf<GasSettings>>,
-  ) {
-    const defaultFeeOptions = await this.completeFeeOptions(from, feePayer, gasSettings);
-    const {
-      gasSettings: { maxFeesPerGas, maxPriorityFeesPerGas },
-    } = defaultFeeOptions;
-    // Use unrealistically high gas limits for estimation to avoid running out of gas.
-    // They will be tuned down after the simulation.
-    const gasSettingsForEstimation = new GasSettings(
-      new Gas(GAS_ESTIMATION_DA_GAS_LIMIT, GAS_ESTIMATION_L2_GAS_LIMIT),
-      new Gas(GAS_ESTIMATION_TEARDOWN_DA_GAS_LIMIT, GAS_ESTIMATION_TEARDOWN_L2_GAS_LIMIT),
-      maxFeesPerGas,
-      maxPriorityFeesPerGas,
-    );
-    return {
-      ...defaultFeeOptions,
-      gasSettings: gasSettingsForEstimation,
     };
   }
 
@@ -352,9 +332,12 @@ export abstract class BaseWallet implements Wallet {
    * @returns The merged simulation result.
    */
   async simulateTx(executionPayload: ExecutionPayload, opts: SimulateOptions): Promise<TxSimulationResult> {
-    const feeOptions = opts.fee?.estimateGas
-      ? await this.completeFeeOptionsForEstimation(opts.from, executionPayload.feePayer, opts.fee?.gasSettings)
-      : await this.completeFeeOptions(opts.from, executionPayload.feePayer, opts.fee?.gasSettings);
+    const feeOptions = await this.completeFeeOptions({
+      from: opts.from,
+      feePayer: executionPayload.feePayer,
+      gasSettings: opts.fee?.gasSettings,
+      forEstimation: true,
+    });
     const { optimizableCalls, remainingCalls } = extractOptimizablePublicStaticCalls(executionPayload);
     const remainingPayload = { ...executionPayload, calls: remainingCalls };
 
@@ -397,7 +380,11 @@ export abstract class BaseWallet implements Wallet {
   }
 
   async profileTx(executionPayload: ExecutionPayload, opts: ProfileOptions): Promise<TxProfileResult> {
-    const feeOptions = await this.completeFeeOptions(opts.from, executionPayload.feePayer, opts.fee?.gasSettings);
+    const feeOptions = await this.completeFeeOptions({
+      from: opts.from,
+      feePayer: executionPayload.feePayer,
+      gasSettings: opts.fee?.gasSettings,
+    });
     const txRequest = await this.createTxExecutionRequestFromPayloadAndFee(executionPayload, opts.from, feeOptions);
     return this.pxe.profileTx(txRequest, {
       profileMode: opts.profileMode,
@@ -410,7 +397,11 @@ export abstract class BaseWallet implements Wallet {
     executionPayload: ExecutionPayload,
     opts: SendOptions<W>,
   ): Promise<SendReturn<W>> {
-    const feeOptions = await this.completeFeeOptions(opts.from, executionPayload.feePayer, opts.fee?.gasSettings);
+    const feeOptions = await this.completeFeeOptions({
+      from: opts.from,
+      feePayer: executionPayload.feePayer,
+      gasSettings: opts.fee?.gasSettings,
+    });
     const txRequest = await this.createTxExecutionRequestFromPayloadAndFee(executionPayload, opts.from, feeOptions);
     const provenTx = await this.pxe.proveTx(txRequest, this.scopesFrom(opts.from, opts.additionalScopes));
     const offchainOutput = extractOffchainOutput(

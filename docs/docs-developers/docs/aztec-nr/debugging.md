@@ -1,11 +1,9 @@
 ---
 title: Debugging Aztec Code
-sidebar_position: 4
-tags: [debugging, errors, logging, local_network, aztec.nr]
+sidebar_position: 5
+tags: [debugging, errors, local_network, aztec.nr]
 description: This guide shows you how to debug issues in your Aztec contracts.
 ---
-
-<!-- need to move some into aztec.js  -->
 
 This guide shows you how to debug issues in your Aztec development environment.
 
@@ -17,72 +15,13 @@ This guide shows you how to debug issues in your Aztec development environment.
 
 ## Enable logging
 
-Enable different levels of logging on the local network or node by setting `LOG_LEVEL`:
+For adding log statements to your contracts, controlling log verbosity, and understanding the `LOG_LEVEL` syntax, see the [Logging from Contracts](./logging.md) guide.
+
+To enable verbose system-level logging on a local network:
 
 ```bash
-# Set log level (options: fatal, error, warn, info, verbose, debug, trace)
-LOG_LEVEL=debug aztec start --local-network
-
-# Different levels for different services
-LOG_LEVEL="verbose;info:sequencer" aztec start --local-network
+LOG_LEVEL=verbose aztec start --local-network
 ```
-
-## Logging in Aztec.nr contracts
-
-Log values from your contract using `debug_log`:
-
-```rust
-// Import debug logging
-use dep::aztec::oracle::debug_log::{ debug_log, debug_log_format };
-
-// Log simple messages
-debug_log("checkpoint reached");
-
-// Log field values with context
-debug_log_format("slot:{0}, hash:{1}", [storage_slot, note_hash]);
-
-// Log a single value
-debug_log_format("my_field: {0}", [my_field]);
-
-// Log multiple values
-debug_log_format("values: {0}, {1}, {2}", [val1, val2, val3]);
-```
-
-:::note
-Debug logs appear only during local execution. Private functions always execute locally, but public functions must be simulated to show logs. Use `.simulate()` or `.prove()` in TypeScript, or `env.simulate_public_function()` in TXE tests.
-:::
-
-To see debug logs from your tests, set `LOG_LEVEL` when running:
-
-```bash
-LOG_LEVEL="debug" yarn run test
-```
-
-To filter specific modules, use a semicolon-delimited list:
-
-```bash
-LOG_LEVEL="info;debug:simulator:client_execution_context;debug:simulator:client_view_context" yarn run test
-```
-
-:::info Log filter format
-`LOG_LEVEL` accepts a semicolon-delimited list of filters. Each filter can be:
-
-- `level` - Sets default level for all modules
-- `level:module` - Sets level for a specific module
-- `level:module:submodule` - Sets level for a specific submodule
-
-```bash
-# Default level only
-LOG_LEVEL="debug"
-
-# Default level + specific module overrides
-LOG_LEVEL="info;debug:simulator;debug:execution"
-
-# Default level + specific submodule overrides
-LOG_LEVEL="info;debug:simulator:client_execution_context;debug:simulator:client_view_context"
-```
-
-:::
 
 ## Debugging common errors
 
@@ -160,7 +99,7 @@ link.click();
 
 ## Interpret error messages
 
-### Kernel circuit errors (2xxx)
+### Circuit and protocol errors
 
 - **Private kernel errors (2xxx)**: Issues with private function execution
 - **Public kernel errors (3xxx)**: Issues with public function execution
@@ -204,10 +143,12 @@ When debugging fails:
 LOG_LEVEL=verbose aztec start --local-network
 ```
 
-### Common debug imports
+### Contract logging
+
+See the full [Logging from Contracts](./logging.md) guide for all available log functions and `LOG_LEVEL` configuration.
 
 ```rust
-use dep::aztec::oracle::debug_log::{ debug_log, debug_log_format };
+use aztec::oracle::logging::{debug_log, debug_log_format};
 ```
 
 ### Check contract registration
@@ -218,7 +159,7 @@ await wallet.getContractMetadata(myContractInstance.address);
 
 ### Decode L1 errors
 
-Check hex errors against [Errors.sol](https://github.com/AztecProtocol/aztec-packages/blob/master/l1-contracts/src/core/libraries/Errors.sol)
+Check hex errors against [Errors.sol](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/l1-contracts/src/core/libraries/Errors.sol)
 
 ## Tips
 

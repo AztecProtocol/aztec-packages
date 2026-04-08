@@ -68,6 +68,35 @@ TOTAL_COUNT=0
 BROKEN_DETAILS=()
 VERSION_MISMATCH_DETAILS=()
 
+# Build version-to-type lookup from config files
+# Returns lines like "v4.2.0-aztecnr-rc.2=mainnet"
+DEVELOPER_VERSION_TYPE_MAP=""
+if [[ -f "$DOCS_ROOT/developer_version_config.json" ]]; then
+  DEVELOPER_VERSION_TYPE_MAP=$(node -e "
+    const config = require('$DOCS_ROOT/developer_version_config.json');
+    for (const [type, version] of Object.entries(config)) {
+      if (version) console.log(version + '=' + type);
+    }
+  " 2>/dev/null || echo "")
+fi
+
+# Look up a version string in the type map
+# Args: $1 = version string (e.g., "v4.2.0-aztecnr-rc.2")
+# Outputs: the release type (e.g., "mainnet") or empty string if not found
+lookup_version_type() {
+  local version="$1"
+  local result=""
+  while IFS= read -r line; do
+    local map_version="${line%%=*}"
+    local map_type="${line#*=}"
+    if [[ "$map_version" == "$version" ]]; then
+      result="$map_type"
+      break
+    fi
+  done <<< "$DEVELOPER_VERSION_TYPE_MAP"
+  echo "$result"
+}
+
 # Resolve a link path to a file in static/, case-insensitively.
 # Args: $1 = path relative to static/ (e.g., aztec-nr-api/devnet/noir_aztec/state_vars/struct.publicmutable)
 # Outputs: the matched filesystem path (if found), empty string if not
@@ -270,20 +299,32 @@ send_alert() {
 }
 
 # Determine the expected API version from a docs directory path.
+# Uses the version config file for explicit type resolution.
 # Args: $1 = search directory path
-# Outputs: "devnet", "nightly", or "" (unknown/skip version check)
+# Outputs: release type (e.g., "mainnet", "devnet") or "" (skip version check)
 get_expected_api_version() {
   local search_dir="$1"
   local dirname
   dirname=$(basename "$search_dir")
 
-  # Versioned docs directories encode the release type in their name
+  # Extract version string from directory name (e.g., "version-v4.2.0-aztecnr-rc.2" → "v4.2.0-aztecnr-rc.2")
+  local version_str="${dirname#version-}"
+
+  # Look up in the config-based type map
+  local type_from_config
+  type_from_config=$(lookup_version_type "$version_str")
+  if [[ -n "$type_from_config" ]]; then
+    echo "$type_from_config"
+    return
+  fi
+
+  # Fallback: pattern matching for directories not in the config
   if [[ "$dirname" =~ devnet ]]; then
     echo "devnet"
   elif [[ "$dirname" =~ nightly ]]; then
     echo "nightly"
-  elif [[ "$dirname" =~ testnet ]] || [[ "$dirname" =~ rc ]]; then
-    echo "testnet"
+  elif [[ "$dirname" =~ mainnet ]]; then
+    echo "mainnet"
   else
     # processed-docs or unrecognized — skip version check
     echo ""
@@ -340,26 +381,39 @@ process_link() {
 }
 
 # Get the expected TypeScript API version from a docs directory path.
+# Uses the version config file for explicit type resolution.
 # Args: $1 = search directory path
-# Outputs: "nightly", "devnet", or "next" — the folder name under static/typescript-api/
+# Outputs: release type (e.g., "mainnet", "devnet") or "next"
 get_expected_ts_api_version() {
   local search_dir="$1"
   local dirname
   dirname=$(basename "$search_dir")
 
+  # Extract version string from directory name
+  local version_str="${dirname#version-}"
+
+  # Look up in the config-based type map
+  local type_from_config
+  type_from_config=$(lookup_version_type "$version_str")
+  if [[ -n "$type_from_config" ]]; then
+    echo "$type_from_config"
+    return
+  fi
+
+  # Fallback: pattern matching for directories not in the config
   if [[ "$dirname" =~ devnet ]]; then
     echo "devnet"
   elif [[ "$dirname" =~ nightly ]]; then
     echo "nightly"
-  elif [[ "$dirname" =~ testnet ]] || [[ "$dirname" =~ rc ]]; then
-    echo "testnet"
+  elif [[ "$dirname" =~ mainnet ]]; then
+    echo "mainnet"
   else
     # processed-docs maps to "next"
     echo "next"
   fi
 }
 
-# Process a TypeScript API link found via ApiFile/ApiLink JSX props.
+# Process a TypeScript API link found via pathname:/// or JSX props.
 # These reference files under static/typescript-api/{version}/.
 # Args: $1 = source file, $2 = line number, $3 = file path (e.g., "wallets.md"),
 #        $4 = expected TS API version
@@ -368,6 +422,11 @@ process_ts_api_link() {
   local line_num="$2"
   local file_path="$3"
   local expected_version="${4:-nightly}"
+
+  # Skip unresolved preprocessor macros (e.g., #api_ref_version in source files)
+  if [[ "$expected_version" == *"#"* ]]; then
+    return
+  fi
 
   TOTAL_COUNT=$((TOTAL_COUNT + 1))
 

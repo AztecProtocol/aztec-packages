@@ -81,6 +81,17 @@ class Chonk : public IVCBase {
     using VerifierAccumulator = FoldingVerifier::Accumulator;
     using RecursiveVerifierAccumulator = RecursiveFoldingVerifier::Accumulator;
 
+    // Result types for decomposed verification steps
+    struct FoldingResult {
+        std::optional<RecursiveVerifierAccumulator> output_accumulator;
+        std::vector<PairingPoints> pairing_points;
+    };
+
+    struct PublicInputsResult {
+        PairingPoints pairing_points;
+        std::optional<TableCommitments> T_prev_commitments; // set only for kernels
+    };
+
     /**
      * @brief Proof type determining recursive verification logic in kernel circuits.
      *
@@ -186,7 +197,7 @@ class Chonk : public IVCBase {
 
     [[nodiscard("Pairing points should be accumulated")]] std::
         tuple<std::optional<RecursiveVerifierAccumulator>, std::vector<PairingPoints>, TableCommitments>
-        perform_recursive_verification_and_databus_consistency_checks(
+        recursive_verification_and_consistency_checks(
             ClientCircuit& circuit,
             const StdlibVerifierInputs& verifier_inputs,
             const std::optional<RecursiveVerifierAccumulator>& input_verifier_accumulator,
@@ -233,6 +244,23 @@ class Chonk : public IVCBase {
                                 const std::shared_ptr<ProverInstance>& prover_instance,
                                 const std::shared_ptr<MegaVerificationKey>& precomputed_vk);
 #endif
+
+    FoldingResult verify_folding(ClientCircuit& circuit,
+                                 const StdlibVerifierInputs& verifier_inputs,
+                                 const std::shared_ptr<RecursiveVerifierInstance>& verifier_instance,
+                                 const std::shared_ptr<RecursiveTranscript>& accumulation_recursive_transcript) const;
+
+    PublicInputsResult process_public_inputs_and_consistency_checks(const StdlibVerifierInputs& verifier_inputs,
+                                                                    std::vector<StdlibFF>& public_inputs,
+                                                                    WitnessCommitments& witness_commitments,
+                                                                    const std::optional<StdlibFF>& prev_accum_hash);
+
+    void accumulate_hiding_kernel(ClientCircuit& circuit, const std::shared_ptr<MegaVerificationKey>& precomputed_vk);
+
+    void accumulate_and_fold(ClientCircuit& circuit,
+                             const std::shared_ptr<MegaVerificationKey>& precomputed_vk,
+                             QUEUE_TYPE queue_type,
+                             std::shared_ptr<ProverInstance> prover_instance);
 
     QUEUE_TYPE get_queue_type() const;
 };

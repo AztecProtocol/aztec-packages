@@ -15,7 +15,7 @@ import type { BlockHeader } from '@aztec/stdlib/tx';
 import type { LogRetrievalRequest } from '../contract_function_simulator/noir-structs/log_retrieval_request.js';
 import { LogRetrievalResponse } from '../contract_function_simulator/noir-structs/log_retrieval_response.js';
 import { AddressStore } from '../storage/address_store/address_store.js';
-import { CapsuleStore } from '../storage/capsule_store/capsule_store.js';
+import type { CapsuleService } from '../storage/capsule_store/capsule_service.js';
 import type { RecipientTaggingStore } from '../storage/tagging_store/recipient_tagging_store.js';
 import type { SenderAddressBookStore } from '../storage/tagging_store/sender_address_book_store.js';
 import {
@@ -31,7 +31,7 @@ export class LogService {
     private readonly aztecNode: AztecNode,
     private readonly anchorBlockHeader: BlockHeader,
     private readonly keyStore: KeyStore,
-    private readonly capsuleStore: CapsuleStore,
+    private readonly capsuleService: CapsuleService,
     private readonly recipientTaggingStore: RecipientTaggingStore,
     private readonly senderAddressBookStore: SenderAddressBookStore,
     private readonly addressStore: AddressStore,
@@ -41,7 +41,16 @@ export class LogService {
     this.log = createLogger('pxe:log_service', bindings);
   }
 
-  public async fetchLogsByTag(logRetrievalRequests: LogRetrievalRequest[]): Promise<(LogRetrievalResponse | null)[]> {
+  public async fetchLogsByTag(
+    contractAddress: AztecAddress,
+    logRetrievalRequests: LogRetrievalRequest[],
+  ): Promise<(LogRetrievalResponse | null)[]> {
+    for (const request of logRetrievalRequests) {
+      if (!contractAddress.equals(request.contractAddress)) {
+        throw new Error(`Got a log retrieval request from ${request.contractAddress}, expected ${contractAddress}`);
+      }
+    }
+
     return await Promise.all(
       logRetrievalRequests.map(async request => {
         const [publicLog, privateLog] = await Promise.all([
@@ -167,14 +176,24 @@ export class LogService {
     );
 
     return Promise.all(
-      deduplicatedSenders.map(sender => {
-        return ExtendedDirectionalAppTaggingSecret.compute(
+      deduplicatedSenders.map(async sender => {
+        const secret = await ExtendedDirectionalAppTaggingSecret.compute(
           recipientCompleteAddress,
           recipientIvsk,
           sender,
           contractAddress,
           recipient,
         );
+
+        if (!secret) {
+          // Note that all senders originate from either the SenderAddressBookStore or the KeyStore.
+          // TODO(F-512): make sure we actually prevent registering invalid senders.
+          throw new Error(
+            `Failed to compute a tagging secret for sender ${sender} - this implies this is an invalid address, which should not happen as they have been previously registered in PXE.`,
+          );
+        }
+
+        return secret;
       }),
     );
   }
@@ -198,7 +217,7 @@ export class LogService {
     });
 
     // TODO: This looks like it could belong more at the oracle interface level
-    return this.capsuleStore.appendToCapsuleArray(
+    return this.capsuleService.appendToCapsuleArray(
       contractAddress,
       capsuleArrayBaseSlot,
       pendingTaggedLogs,

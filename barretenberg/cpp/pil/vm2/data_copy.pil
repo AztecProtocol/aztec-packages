@@ -286,7 +286,7 @@ namespace data_copy;
     // Preconditions to `gt` gadget require both inputs to be bounded by 2^128.
     // `read_addr_upper_bound` = src_addr + read_index_upper_bound (former is U32, latter is < 2^33, so < 2^34).
     // `mem_size` = AVM_MEMORY_SIZE = 2^32.
-    // Note that for a top-level call, src_addr == 0 (enforced in context.pil (#[CD_OFFSET_ENQUEUED_CALL_IS_ZERO]))
+    // Note that for a top-level call, src_addr == 0 (enforced in context.pil (#[CD_ADDR_ENQUEUED_CALL_IS_ZERO]))
     // and src_reads_exceed_mem == 0.
     #[CHECK_SRC_ADDR_IN_RANGE]
     sel_start { read_addr_upper_bound, mem_size, src_reads_exceed_mem }

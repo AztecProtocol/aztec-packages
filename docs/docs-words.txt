@@ -127,6 +127,7 @@ FEEPERDAGAS
 feeperl
 FEEPERL
 Fflonk
+FILESTORES
 flamegraph
 Flamegraph
 footgun
@@ -366,6 +367,7 @@ valuenote
 vecs
 versionˮ
 viewability
+vnext
 visualisation
 visualise
 visualised
@@ -400,6 +402,16 @@ zkpassport
 aztecrc
 Dockerless
 tokenomics
+CSPRNG
+Rabby
+COEP
+polyfilling
+Embedder
+Grego
+HKDF
+dedup
+reconnections
+gregoswap
 Codex
 critesjosh
 mcpServers

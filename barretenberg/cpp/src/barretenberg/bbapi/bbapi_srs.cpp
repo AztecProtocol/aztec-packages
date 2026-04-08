@@ -61,6 +61,14 @@ SrsInitSrs::Response SrsInitSrs::execute(BB_UNUSED BBApiRequest& request) &&
 
 SrsInitGrumpkinSrs::Response SrsInitGrumpkinSrs::execute(BB_UNUSED BBApiRequest& request) &&
 {
+    // Validate buffer size before accessing raw pointer
+    const size_t required_size = static_cast<size_t>(num_points) * sizeof(curve::Grumpkin::AffineElement);
+    if (points_buf.size() < required_size) {
+        throw_or_abort("SrsInitGrumpkinSrs: points_buf too small (" + std::to_string(points_buf.size()) +
+                       " bytes) for num_points=" + std::to_string(num_points) + " (need " +
+                       std::to_string(required_size) + ")");
+    }
+
     // Parse Grumpkin affine elements from buffer
     std::vector<curve::Grumpkin::AffineElement> points(num_points);
     for (uint32_t i = 0; i < num_points; ++i) {

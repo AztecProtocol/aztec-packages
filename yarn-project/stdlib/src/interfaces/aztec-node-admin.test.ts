@@ -170,7 +170,6 @@ class MockAztecNodeAdmin implements AztecNodeAdmin {
       disableValidator: false,
       disabledValidators: [],
       attestationPollingIntervalMs: 1000,
-      validatorReexecute: true,
       disableTransactions: false,
       haSigningEnabled: false,
       nodeId: 'test-node-id',
@@ -186,7 +185,7 @@ class MockAztecNodeAdmin implements AztecNodeAdmin {
   startSnapshotUpload(_location: string): Promise<void> {
     return Promise.resolve();
   }
-  rollbackTo(_targetBlockNumber: number): Promise<void> {
+  rollbackTo(_targetBlockNumber: number, _force?: boolean, _resumeSync?: boolean): Promise<void> {
     return Promise.resolve();
   }
   pauseSync(): Promise<void> {

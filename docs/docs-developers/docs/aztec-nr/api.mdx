@@ -10,14 +10,13 @@ import { useActiveVersion } from "@docusaurus/plugin-content-docs/client";
 
 export const useApiVersion = () => {
   const version = useActiveVersion("developer");
-  const versionName = version?.name || "current";
-  // Map Docusaurus version to API docs folder
-  // Use stable paths for nightly/devnet, version-specific for others
-  if (versionName === "current") return "next";
-  if (versionName.includes("nightly")) return "nightly";
-  if (versionName.includes("devnet")) return "devnet";
-  if (versionName.includes("rc") || versionName.includes("testnet")) return "testnet";
-  return versionName;
+  if (!version || version.name === "current") return "next";
+  // Map Docusaurus version to API docs folder using version label
+  // Labels are set explicitly in docusaurus.config.js (e.g., "Mainnet (...)")
+  const label = version.label || "";
+  if (label.startsWith("Alpha")) return "mainnet";
+  if (label.startsWith("Testnet")) return "testnet";
+  return version.name;
 };
 
 export const ModuleLink = ({ path, children }) => {

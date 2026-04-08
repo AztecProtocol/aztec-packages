@@ -81,12 +81,6 @@ await deployMethod.send({
 });
 // docs:end:deploy_account_sponsored_fpc
 
-// docs:start:bridge_account_fee_juice
-import { createExtendedL1Client } from "@aztec/ethereum/client";
-import { L1FeeJuicePortalManager } from "@aztec/aztec.js/ethereum";
-import { FeeJuicePaymentMethodWithClaim } from "@aztec/aztec.js/fee";
-import { createLogger } from "@aztec/aztec.js/log";
-
 // Create a separate account to deploy with Fee Juice bridged from L1
 const feeJuiceSecret = Fr.random();
 const feeJuiceSalt = Fr.random();
@@ -95,19 +89,34 @@ const feeJuiceAccount = await wallet.createSchnorrAccount(
   feeJuiceSalt,
 );
 
-// Bridge Fee Juice from L1 to the new account
+// docs:start:bridge_fee_juice_setup
+import { createExtendedL1Client } from "@aztec/ethereum/client";
+import { L1FeeJuicePortalManager } from "@aztec/aztec.js/ethereum";
+import { createLogger } from "@aztec/aztec.js/log";
+
+// Create an L1 client (accepts a mnemonic or 0x-prefixed private key)
 const l1RpcUrl = process.env.ETHEREUM_HOST ?? "http://localhost:8545";
 const l1Mnemonic =
   "test test test test test test test test test test test junk";
 const l1Client = createExtendedL1Client([l1RpcUrl], l1Mnemonic);
+
+// Create a portal manager to interact with the L1 fee juice portal
 const logger = createLogger("docs:fee-juice-bridge");
 const portalManager = await L1FeeJuicePortalManager.new(node, l1Client, logger);
+// docs:end:bridge_fee_juice_setup
+
+// docs:start:bridge_fee_juice_execute
+// portalManager is from the L1FeeJuicePortalManager setup above
+// feeJuiceAccount.address is an Aztec address from createSchnorrAccount
 const claim = await portalManager.bridgeTokensPublic(
-  feeJuiceAccount.address,
-  1000000000000000000000n, // 1000 Fee Juice
-  true, // mint on L1 (local network only)
+  feeJuiceAccount.address, // the L2 address
+  1000000000000000000000n, // the amount to send to the L1 portal
+  true, // whether to mint or not (set to false if your L1 account already has fee juice!)
 );
-// docs:end:bridge_account_fee_juice
+
+console.log("Claim secret:", claim.claimSecret);
+console.log("Claim amount:", claim.claimAmount);
+// docs:end:bridge_fee_juice_execute
 
 // docs:start:deploy_contract
 import { TokenContract } from "@aztec/noir-contracts.js/Token";
@@ -140,19 +149,20 @@ const { result: balance } = await token.methods
 console.log(`Alice's token balance: ${balance}`);
 // docs:end:simulate_function
 
-// docs:start:deploy_account_fee_juice
-// Deploy the account using the bridged Fee Juice
-const deployMethodFeeJuice = await feeJuiceAccount.getDeployMethod();
-await deployMethodFeeJuice.send({
+// docs:start:bridge_fee_juice_claim
+import { FeeJuicePaymentMethodWithClaim } from "@aztec/aztec.js/fee";
+
+// claim is from the bridgeTokensPublic step above
+// Create a payment method that claims the bridged Fee Juice and uses it to pay
+const bridgePaymentMethod = new FeeJuicePaymentMethodWithClaim(feeJuiceAccount.address, claim);
+
+// Use it to pay for any transaction — here we deploy the account in one step
+const deployMethodBridged = await feeJuiceAccount.getDeployMethod();
+await deployMethodBridged.send({
   from: NO_FROM,
-  fee: {
-    paymentMethod: new FeeJuicePaymentMethodWithClaim(
-      feeJuiceAccount.address,
-      claim,
-    ),
-  },
+  fee: { paymentMethod: bridgePaymentMethod },
 });
-// docs:end:deploy_account_fee_juice
+// docs:end:bridge_fee_juice_claim
 
 // docs:start:verify_account_deployment
 const metadata = await wallet.getContractMetadata(feeJuiceAccount.address);
