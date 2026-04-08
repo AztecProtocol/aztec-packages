@@ -5,15 +5,17 @@ import type { L1ContractsConfig } from '@aztec/ethereum/config';
 import {
   type EmpireSlashingProposerContract,
   FeeAssetPriceOracle,
-  type FeeHeader,
   type GovernanceProposerContract,
   type IEmpireBase,
   MULTI_CALL_3_ADDRESS,
   Multicall3,
   RollupContract,
+  SimulationOverridesBuilder,
+  type SimulationOverridesPlan,
   type TallySlashingProposerContract,
   type ViemCommitteeAttestations,
   type ViemHeader,
+  buildSimulationOverridesStateOverride,
 } from '@aztec/ethereum/contracts';
 import { type L1FeeAnalysisResult, L1FeeAnalyzer } from '@aztec/ethereum/l1-fee-analysis';
 import {
@@ -27,7 +29,6 @@ import {
 } from '@aztec/ethereum/l1-tx-utils';
 import { FormattedViemError, formatViemError, mergeAbis, tryExtractEvent } from '@aztec/ethereum/utils';
 import { sumBigint } from '@aztec/foundation/bigint';
-import { toHex as toPaddedHex } from '@aztec/foundation/bigint-buffer';
 import { CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { trimmedBytesLength } from '@aztec/foundation/buffer';
 import { pick } from '@aztec/foundation/collection';
@@ -52,7 +53,6 @@ import { type TelemetryClient, type Tracer, getTelemetryClient, trackSpan } from
 
 import {
   type Hex,
-  type StateOverride,
   type TransactionReceipt,
   type TypedDataDefinition,
   encodeFunctionData,
@@ -124,11 +124,9 @@ export type InvalidateCheckpointRequest = {
   lastArchive: Fr;
 };
 
-/** Options for overriding L1 state during propose simulation (used when pipelining). */
-type ProposeSimulationOverrides = {
-  forcePendingCheckpointNumber?: CheckpointNumber;
-  forceProposedArchive?: { checkpointNumber: CheckpointNumber; archive: Fr };
-  forceProposedFeeHeader?: { checkpointNumber: CheckpointNumber; feeHeader: FeeHeader };
+type EnqueueProposeCheckpointOpts = {
+  txTimeoutAt?: Date;
+  simulationOverridesPlan?: SimulationOverridesPlan;
 };
 
 interface RequestWithExpiry {
@@ -678,27 +676,21 @@ export class SequencerPublisher {
    * @param tipArchive - The archive to check
    * @returns The slot and block number if it is possible to propose, undefined otherwise
    */
-  public canProposeAt(
-    tipArchive: Fr,
-    msgSender: EthAddress,
-    opts: {
-      forcePendingCheckpointNumber?: CheckpointNumber;
-      forceArchive?: { checkpointNumber: CheckpointNumber; archive: Fr };
-      pipelined?: boolean;
-    } = {},
-  ) {
+  public async canProposeAt(tipArchive: Fr, msgSender: EthAddress, simulationOverridesPlan?: SimulationOverridesPlan) {
     // TODO: #14291 - should loop through multiple keys to check if any of them can propose
     const ignoredErrors = ['SlotAlreadyInChain', 'InvalidProposer', 'InvalidArchive'];
 
-    const pipelined = opts.pipelined ?? this.epochCache.isProposerPipeliningEnabled();
+    const pipelined = this.epochCache.isProposerPipeliningEnabled();
     const slotOffset = pipelined ? this.aztecSlotDuration : 0n;
     const nextL1SlotTs = this.getNextL1SlotTimestamp() + slotOffset;
 
     return this.rollupContract
-      .canProposeAt(tipArchive.toBuffer(), msgSender.toString(), nextL1SlotTs, {
-        forcePendingCheckpointNumber: opts.forcePendingCheckpointNumber,
-        forceArchive: opts.forceArchive,
-      })
+      .canProposeAt(
+        tipArchive.toBuffer(),
+        msgSender.toString(),
+        nextL1SlotTs,
+        await buildSimulationOverridesStateOverride(this.rollupContract, simulationOverridesPlan),
+      )
       .catch(err => {
         if (err instanceof FormattedViemError && ignoredErrors.find(e => err.message.includes(e))) {
           this.log.warn(`Failed canProposeAtTime check with ${ignoredErrors.find(e => err.message.includes(e))}`, {
@@ -720,7 +712,7 @@ export class SequencerPublisher {
   @trackSpan('SequencerPublisher.validateBlockHeader')
   public async validateBlockHeader(
     header: CheckpointHeader,
-    opts?: { forcePendingCheckpointNumber: CheckpointNumber | undefined },
+    simulationOverridesPlan?: SimulationOverridesPlan,
   ): Promise<void> {
     const flags = { ignoreDA: true, ignoreSignatures: true };
 
@@ -735,9 +727,7 @@ export class SequencerPublisher {
     ] as const;
 
     const ts = this.getSimulationTimestamp(header.slotNumber);
-    const stateOverrides = await this.rollupContract.makePendingCheckpointNumberOverride(
-      opts?.forcePendingCheckpointNumber,
-    );
+    const stateOverrides = await buildSimulationOverridesStateOverride(this.rollupContract, simulationOverridesPlan);
     let balance = 0n;
     if (this.config.fishermanMode) {
       // In fisherman mode, we can't know where the proposer is publishing from
@@ -898,7 +888,7 @@ export class SequencerPublisher {
     checkpoint: Checkpoint,
     attestationsAndSigners: CommitteeAttestationsAndSigners,
     attestationsAndSignersSignature: Signature,
-    options: ProposeSimulationOverrides,
+    simulationOverridesPlan?: SimulationOverridesPlan,
   ): Promise<void> {
     const blobFields = checkpoint.toBlobFields();
     const blobs = await getBlobsPerL1Block(blobFields);
@@ -918,7 +908,7 @@ export class SequencerPublisher {
       blobInput,
     ] as const;
 
-    await this.simulateProposeTx(args, options);
+    await this.simulateProposeTx(args, simulationOverridesPlan);
   }
 
   private async enqueueCastSignalHelper(
@@ -1214,7 +1204,7 @@ export class SequencerPublisher {
     checkpoint: Checkpoint,
     attestationsAndSigners: CommitteeAttestationsAndSigners,
     attestationsAndSignersSignature: Signature,
-    opts: ProposeSimulationOverrides & { txTimeoutAt?: Date } = {},
+    opts: EnqueueProposeCheckpointOpts = {},
   ): Promise<void> {
     const checkpointHeader = checkpoint.header;
 
@@ -1230,6 +1220,10 @@ export class SequencerPublisher {
       feeAssetPriceModifier: checkpoint.feeAssetPriceModifier,
     };
 
+    const simulationOverridesPlan = SimulationOverridesBuilder.from(opts.simulationOverridesPlan)
+      .withoutBlobCheck()
+      .build();
+
     try {
       // @note  This will make sure that we are passing the checks for our header ASSUMING that the data is also made available
       //        This means that we can avoid the simulation issues in later checks.
@@ -1240,13 +1234,13 @@ export class SequencerPublisher {
         checkpoint,
         attestationsAndSigners,
         attestationsAndSignersSignature,
-        opts,
+        simulationOverridesPlan,
       );
     } catch (err: any) {
       this.log.error(`Checkpoint validation failed. ${err instanceof Error ? err.message : 'No error message'}`, err, {
         ...checkpoint.getStats(),
         slotNumber: checkpoint.header.slotNumber,
-        forcePendingCheckpointNumber: opts.forcePendingCheckpointNumber,
+        simulationOverridesPlan,
       });
       throw err;
     }
@@ -1261,16 +1255,22 @@ export class SequencerPublisher {
           checkpoint,
           attestationsAndSigners,
           attestationsAndSignersSignature,
-          {
-            // Forcing pending checkpoint number is included its required if an invalidation request is included
-            forcePendingCheckpointNumber: opts.forcePendingCheckpointNumber,
-          },
+          simulationOverridesPlan,
         );
       };
     }
 
-    this.log.verbose(`Enqueuing checkpoint propose transaction`, { ...checkpoint.toCheckpointInfo(), ...opts });
-    await this.addProposeTx(checkpoint, proposeTxArgs, opts, preCheck);
+    this.log.verbose(`Enqueuing checkpoint propose transaction`, {
+      ...checkpoint.toCheckpointInfo(),
+      txTimeoutAt: opts.txTimeoutAt,
+      simulationOverridesPlan,
+    });
+    await this.addProposeTx(
+      checkpoint,
+      proposeTxArgs,
+      { txTimeoutAt: opts.txTimeoutAt, simulationOverridesPlan },
+      preCheck,
+    );
   }
 
   public enqueueInvalidateCheckpoint(
@@ -1400,7 +1400,7 @@ export class SequencerPublisher {
     this.l1TxUtils.restart();
   }
 
-  private async prepareProposeTx(encodedData: L1ProcessArgs, timestamp: bigint, options: ProposeSimulationOverrides) {
+  private async prepareProposeTx(encodedData: L1ProcessArgs, simulationOverridesPlan?: SimulationOverridesPlan) {
     const kzg = Blob.getViemKzgInstance();
     const blobInput = getPrefixedEthBlobCommitments(encodedData.blobs);
     this.log.debug('Validating blob input', { blobInput });
@@ -1471,7 +1471,7 @@ export class SequencerPublisher {
       blobInput,
     ] as const;
 
-    const { rollupData, simulationResult } = await this.simulateProposeTx(args, options);
+    const { rollupData, simulationResult } = await this.simulateProposeTx(args, simulationOverridesPlan);
 
     return { args, blobEvaluationGas, rollupData, simulationResult };
   }
@@ -1495,8 +1495,7 @@ export class SequencerPublisher {
       ViemSignature,
       `0x${string}`,
     ],
-    timestamp: bigint,
-    options: ProposeSimulationOverrides,
+    simulationOverridesPlan?: SimulationOverridesPlan,
   ) {
     const rollupData = encodeFunctionData({
       abi: RollupAbi,
@@ -1504,45 +1503,7 @@ export class SequencerPublisher {
       args,
     });
 
-    // override the proposed checkpoint number if requested
-    const forcePendingCheckpointNumberStateDiff = (
-      options.forcePendingCheckpointNumber !== undefined
-        ? await this.rollupContract.makePendingCheckpointNumberOverride(options.forcePendingCheckpointNumber)
-        : []
-    ).flatMap(override => override.stateDiff ?? []);
-
-    // override the fee header for a specific checkpoint number if requested (used when pipelining)
-    const forceProposedFeeHeaderStateDiff = (
-      options.forceProposedFeeHeader !== undefined
-        ? await this.rollupContract.makeFeeHeaderOverride(
-            options.forceProposedFeeHeader.checkpointNumber,
-            options.forceProposedFeeHeader.feeHeader,
-          )
-        : []
-    ).flatMap(override => override.stateDiff ?? []);
-
-    // override the archive for a specific checkpoint number if requested (used when pipelining)
-    const forcePendingArchiveStateDiff = (
-      options.forceProposedArchive !== undefined
-        ? this.rollupContract.makeArchiveOverride(
-            options.forceProposedArchive.checkpointNumber,
-            options.forceProposedArchive.archive,
-          )
-        : []
-    ).flatMap(override => override.stateDiff ?? []);
-
-    const stateOverrides: StateOverride = [
-      {
-        address: this.rollupContract.address,
-        // @note we override checkBlob to false since blobs are not part simulate()
-        stateDiff: [
-          { slot: toPaddedHex(RollupContract.checkBlobStorageSlot, true), value: toPaddedHex(0n, true) },
-          ...forcePendingArchiveStateDiff,
-          ...forcePendingCheckpointNumberStateDiff,
-          ...forceProposedFeeHeaderStateDiff,
-        ],
-      },
-    ];
+    const stateOverrides = await buildSimulationOverridesStateOverride(this.rollupContract, simulationOverridesPlan);
     // In fisherman mode, simulate as the proposer but with sufficient balance
     if (this.proposerAddressForSimulation) {
       stateOverrides.push({
@@ -1607,14 +1568,16 @@ export class SequencerPublisher {
   private async addProposeTx(
     checkpoint: Checkpoint,
     encodedData: L1ProcessArgs,
-    opts: ProposeSimulationOverrides & { txTimeoutAt?: Date } = {},
-    timestamp: bigint,
+    opts: EnqueueProposeCheckpointOpts = {},
     preCheck?: () => Promise<void>,
   ): Promise<void> {
     const slot = checkpoint.header.slotNumber;
     const timer = new Timer();
     const kzg = Blob.getViemKzgInstance();
-    const { rollupData, simulationResult, blobEvaluationGas } = await this.prepareProposeTx(encodedData, opts);
+    const { rollupData, simulationResult, blobEvaluationGas } = await this.prepareProposeTx(
+      encodedData,
+      opts.simulationOverridesPlan,
+    );
     const startBlock = await this.l1TxUtils.getBlockNumber();
     const gasLimit = this.l1TxUtils.bumpGasLimit(
       BigInt(Math.ceil((Number(simulationResult.gasUsed) * 64) / 63)) +
@@ -1637,7 +1600,7 @@ export class SequencerPublisher {
         data: rollupData,
       },
       lastValidL2Slot: checkpoint.header.slotNumber,
-      gasConfig: { ...opts, gasLimit },
+      gasConfig: { txTimeoutAt: opts.txTimeoutAt, gasLimit },
       preCheck,
       blobConfig: {
         blobs: encodedData.blobs.map(b => b.data),

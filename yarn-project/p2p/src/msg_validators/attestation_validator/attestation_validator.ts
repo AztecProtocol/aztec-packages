@@ -28,7 +28,7 @@ export class CheckpointAttestationValidator implements P2PValidator<CheckpointAt
 
       if (slotNumber !== targetSlot && slotNumber !== nextSlot) {
         // When pipelining, accept attestations for the current slot (built in the previous slot)
-        // if we're within the first ethereumSlotDuration/2 seconds of the slot.
+        // if we're within the grace period of the next slot.
         if (isWithinPipeliningGracePeriod(slotNumber, this.epochCache)) {
           // Fall through to remaining validation (signature, committee, etc.)
         } else if (!isWithinClockTolerance(slotNumber, targetSlot, this.epochCache)) {

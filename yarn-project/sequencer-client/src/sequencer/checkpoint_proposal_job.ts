@@ -1,5 +1,10 @@
 import type { EpochCache } from '@aztec/epoch-cache';
-import { type FeeHeader, RollupContract } from '@aztec/ethereum/contracts';
+import {
+  type FeeHeader,
+  RollupContract,
+  SimulationOverridesBuilder,
+  type SimulationOverridesPlan,
+} from '@aztec/ethereum/contracts';
 import {
   BlockNumber,
   CheckpointNumber,
@@ -94,8 +99,8 @@ export class CheckpointProposalJob implements Traceable {
   /** Tracks the fire-and-forget L1 submission promise so it can be awaited during shutdown. */
   private pendingL1Submission: Promise<void> | undefined;
 
-  /** Fee header override computed during proposeCheckpoint, reused in enqueueCheckpointForSubmission. */
-  private computedForceProposedFeeHeader?: { checkpointNumber: CheckpointNumber; feeHeader: FeeHeader };
+  /** Pipelined parent chain state used while building and later submitting this checkpoint. */
+  private pipelinedParentSimulationOverridesPlan?: SimulationOverridesPlan;
 
   constructor(
     private readonly slotNow: SlotNumber,
@@ -173,7 +178,7 @@ export class CheckpointProposalJob implements Traceable {
       await Promise.all(votesPromises);
       // Still submit votes even without a checkpoint
       if (!this.config.fishermanMode) {
-        this.pendingL1Submission = this.publisher.sendRequestsAt(new Date(this.dateProvider.now())).then(() => {});
+        this.pendingL1Submission = this.publisher.sendRequestsAt(this.dateProvider.nowAsDate()).then(() => {});
       }
       return undefined;
     }
@@ -284,15 +289,20 @@ export class CheckpointProposalJob implements Traceable {
     }
 
     const isPipelining = this.epochCache.isProposerPipeliningEnabled();
-    const parentCheckpointNumber = CheckpointNumber(this.checkpointNumber - 1);
+    const submissionSimulationOverridesPlan = (() => {
+      const builder = SimulationOverridesBuilder.from(this.pipelinedParentSimulationOverridesPlan).forPendingCheckpoint(
+        this.invalidateCheckpoint?.forcePendingCheckpointNumber ??
+          this.pipelinedParentSimulationOverridesPlan?.pendingCheckpointNumber,
+      );
+      if (isPipelining) {
+        builder.withPendingArchive(checkpoint.header.lastArchiveRoot);
+      }
+      return builder.build();
+    })();
 
     await this.publisher.enqueueProposeCheckpoint(checkpoint, attestations, attestationsSignature, {
       txTimeoutAt,
-      forcePendingCheckpointNumber: this.invalidateCheckpoint?.forcePendingCheckpointNumber,
-      forceProposedFeeHeader: this.computedForceProposedFeeHeader,
-      forceProposedArchive: isPipelining
-        ? { checkpointNumber: parentCheckpointNumber, archive: checkpoint.header.lastArchiveRoot }
-        : undefined,
+      ...(submissionSimulationOverridesPlan ? { simulationOverridesPlan: submissionSimulationOverridesPlan } : {}),
     });
   }
 
@@ -331,19 +341,24 @@ export class CheckpointProposalJob implements Traceable {
       const isPipelining = this.epochCache.isProposerPipeliningEnabled();
       const parentCheckpointNumber = isPipelining ? CheckpointNumber(this.checkpointNumber - 1) : undefined;
 
-      // Compute the parent's fee header override when pipelining
-      if (isPipelining && this.proposedCheckpointData) {
-        this.computedForceProposedFeeHeader = await this.computeForceProposedFeeHeader(parentCheckpointNumber!);
+      if (isPipelining) {
+        const builder = new SimulationOverridesBuilder().forPendingCheckpoint(parentCheckpointNumber);
+        if (this.proposedCheckpointData) {
+          const parentFeeHeaderOverride = await this.computeForceProposedFeeHeader(parentCheckpointNumber!);
+          if (parentFeeHeaderOverride) {
+            builder.withPendingFeeHeader(parentFeeHeaderOverride.feeHeader);
+          }
+        }
+        this.pipelinedParentSimulationOverridesPlan = builder.build();
+      } else {
+        this.pipelinedParentSimulationOverridesPlan = undefined;
       }
 
       const checkpointGlobalVariables = await this.globalsBuilder.buildCheckpointGlobalVariables(
         coinbase,
         feeRecipient,
         this.targetSlot,
-        {
-          forcePendingCheckpointNumber: parentCheckpointNumber,
-          forceProposedFeeHeader: this.computedForceProposedFeeHeader,
-        },
+        this.pipelinedParentSimulationOverridesPlan,
       );
 
       // Collect L1 to L2 messages for the checkpoint and compute their hash

@@ -72,7 +72,7 @@ describe('e2e_epochs/epochs_mbps_pipeline', () => {
       initialValidators: validators,
       enableProposerPipelining: true, // <- yehaw
       mockGossipSubNetwork: true,
-      mockGossipSubNetworkLatency: 500, // 200 ms delay in message prop - adverse network conditions
+      mockGossipSubNetworkLatency: 500, // adverse network conditions
       disableAnvilTestWatcher: true,
       startProverNode: true,
       perBlockAllocationMultiplier: 8,
