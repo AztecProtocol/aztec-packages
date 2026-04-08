@@ -495,13 +495,24 @@ impl Deserialize for EmbeddedCurvePoint {
     let N: u32 = POINT_SIZE;
 
     fn deserialize(fields: [Field; Self::N]) -> Self {
-        Self { x: fields[0], y: fields[1] }
+        let point = Self { x: fields[0], y: fields[1] };
+        assert_eq(
+            point.is_infinite() as Field,
+            fields[2],
+            "is_infinite flag inconsistent with point coordinates",
+        );
+        point
     }
 
     #[inline_always]
     fn stream_deserialize<let K: u32>(reader: &mut Reader<K>) -> Self {
         let point = Self { x: reader.read(), y: reader.read() };
-        let _ = reader.read();
+        let is_infinite_field = reader.read();
+        assert_eq(
+            point.is_infinite() as Field,
+            is_infinite_field,
+            "is_infinite flag inconsistent with point coordinates",
+        );
         point
     }
 }
