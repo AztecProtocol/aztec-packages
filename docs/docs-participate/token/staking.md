@@ -58,11 +58,10 @@ Slashing is managed through governance voting based on evidence collected both o
 
 When you want to withdraw your staked tokens, you must go through an unstaking process with a mandatory exit delay.
 
-#if(testnet)
-The exit delay for testnet is **2 days**.
-#else
-The exit delay for mainnet is **4 days**.
-#endif
+| Network | Exit Delay |
+|---------|-----------|
+| **Ignition (Mainnet)** | 4 days |
+| **Testnet** | 2 days |
 
 The exit delay exists to allow time for pending slashing conditions to be detected and to prevent validators from quickly exiting after misbehaving.
 

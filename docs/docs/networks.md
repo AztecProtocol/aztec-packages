@@ -51,11 +51,11 @@ Not sure which network to use? Jump to our [Network Selection Guide](#network-se
 | **Governance Staking Escrow** | [`0xa92ecfd0e70c9cd5e5cd76c50af0f7da93567a4f`](https://etherscan.io/address/0xa92ecfd0e70c9cd5e5cd76c50af0f7da93567a4f) | [`0xb6a38a51a6c1de9012f9d8ea9745ef957212eaac`](https://sepolia.etherscan.io/address/0xb6a38a51a6c1de9012f9d8ea9745ef957212eaac) | [`0x5f966c3cbbc12569690ca4250b37bf17fc1b3013`](https://sepolia.etherscan.io/address/0x5f966c3cbbc12569690ca4250b37bf17fc1b3013) |
 | **Staking Registry** | [`0x042dF8f42790d6943F41C25C2132400fd727f452`](https://etherscan.io/address/0x042dF8f42790d6943F41C25C2132400fd727f452) | [`0xC6EcC1832c8BF6a41c927BEb4E9ec610FBeDd1C2`](https://sepolia.etherscan.io/address/0xC6EcC1832c8BF6a41c927BEb4E9ec610FBeDd1C2) | |
 | **Slash Factory** | N/A | [`0x9CF4a0094c8696d5110dd0f0cF3FA5deA174BB17`](https://sepolia.etherscan.io/address/0x9CF4a0094c8696d5110dd0f0cF3FA5deA174BB17) | [`0xd4248cbb1fa7228f49b9d314237cde7b2d0f3470`](https://sepolia.etherscan.io/address/0xd4248cbb1fa7228f49b9d314237cde7b2d0f3470) |
-| **Slasher** | [`0x91a3745c685c220595b997e53311ebf660144889`](https://etherscan.io/address/0x91a3745c685c220595b997e53311ebf660144889) | [`0xf6D0D42aCE06829bECB78C74F49879528fC632c1`](https://sepolia.etherscan.io/address/0xf6D0D42aCE06829bECB78C74F49879528fC632c1) | |
+| **Slasher** | [`0x91a3745c685c220595b997e53311ebf660144889`](https://etherscan.io/address/0x91a3745c685c220595b997e53311ebf660144889) | [`0xCF750B724558098E5db67B651f03a31AE2b252f4`](https://sepolia.etherscan.io/address/0xCF750B724558098E5db67B651f03a31AE2b252f4) | |
 | **Tally Slashing Proposer** | [`0x7a318c3daa9f21f8fc8238c65755eb0394fbf189`](https://etherscan.io/address/0x7a318c3daa9f21f8fc8238c65755eb0394fbf189) | [`0x158eCC4B24675dc399031c7D144786e3da2060A8`](https://sepolia.etherscan.io/address/0x158eCC4B24675dc399031c7D144786e3da2060A8) | |
 | **Honk Verifier** | N/A | [`0x800FbC88054ba6c228B7d822F1DCAf4d627E8F97`](https://sepolia.etherscan.io/address/0x800FbC88054ba6c228B7d822F1DCAf4d627E8F97) | |
 | **Register New Rollup Version Payload** | N/A | [`0x11f7Ab2324CA94af929A388477a7959E0108C3d6`](https://sepolia.etherscan.io/address/0x11f7Ab2324CA94af929A388477a7959E0108C3d6) | |
-| **Slash Payload Cloneable** | N/A | [`0xe66d9eeBfF5490E6bfA263cF08028dE7d265321F`](https://sepolia.etherscan.io/address/0xe66d9eeBfF5490E6bfA263cF08028dE7d265321F) | |
+| **Slash Payload Cloneable** | [`0x82c592b4Bb7E1f50f68E75d86743c3330beAaba4`](https://etherscan.io/address/0x82c592b4Bb7E1f50f68E75d86743c3330beAaba4) | [`0xe66d9eeBfF5490E6bfA263cF08028dE7d265321F`](https://sepolia.etherscan.io/address/0xe66d9eeBfF5490E6bfA263cF08028dE7d265321F) | |
 
 ### L2 Contract Addresses
 
@@ -90,9 +90,13 @@ Not sure which network to use? Jump to our [Network Selection Guide](#network-se
 
 | Use Case | Ignition (Mainnet) | Testnet | Devnet |
 |----------|-------------------|---------|--------|
-| **App Development** | ❌ | ✅ | ✅ Recommended |
+| **App Development** | ❌ Phase 1 — governance only | ✅ Recommended | ✅ |
 | **Sequencer Testing** | ✅ | ✅ | ❌ |
 | **Governance Testing** | ✅ | ✅ | ❌ |
+
+:::note
+Ignition (Mainnet) is currently in Phase 1 with a gas limit of 0, so no user transactions or app deployments are possible yet. For app development, use **Testnet** (production-like, decentralized) or **Devnet** (bleeding edge, latest features).
+:::
 
 ---
 
