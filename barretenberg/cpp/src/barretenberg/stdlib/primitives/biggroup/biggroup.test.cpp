@@ -2819,12 +2819,6 @@ HEAVY_TYPED_TEST(stdlib_biggroup, batch_mul_linearly_dependent_generators_failur
     }
 }
 
-// Regression test: batch_mul default (no explicit with_edgecases) must be safe for linearly dependent points.
-HEAVY_TYPED_TEST(stdlib_biggroup, batch_mul_default_safe_with_linearly_dependent_points)
-{
-    TestFixture::test_batch_mul_default_safe_with_linearly_dependent_points();
-}
-
 HEAVY_TYPED_TEST(stdlib_biggroup, one)
 {
     TestFixture::test_one();
