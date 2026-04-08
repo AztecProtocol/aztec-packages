@@ -279,6 +279,8 @@ Contract initialization now emits two separate nullifiers instead of one: a **pr
   }).deployed();
 ```
 
+## 4.1.3
+
 ### [Aztec.js] `TxReceipt` now includes `epochNumber`
 
 `TxReceipt` now includes an `epochNumber` field that indicates which epoch the transaction was included in.
