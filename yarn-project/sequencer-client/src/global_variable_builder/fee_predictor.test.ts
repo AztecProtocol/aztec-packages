@@ -1,7 +1,7 @@
 import { getPublicClient } from '@aztec/ethereum/client';
 import { DefaultL1ContractsConfig } from '@aztec/ethereum/config';
 import type { FeeHeader } from '@aztec/ethereum/contracts';
-import { RollupContract, TempCheckpointLogField } from '@aztec/ethereum/contracts';
+import { MAX_FEE_ASSET_PRICE_MODIFIER_BPS, RollupContract, TempCheckpointLogField } from '@aztec/ethereum/contracts';
 import { deployAztecL1Contracts } from '@aztec/ethereum/deploy-aztec-l1-contracts';
 import { type Anvil, EthCheatCodes, RollupCheatCodes, startAnvil } from '@aztec/ethereum/test';
 import type { ViemClient } from '@aztec/ethereum/types';
@@ -10,7 +10,7 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
 import { DateProvider } from '@aztec/foundation/timer';
-import { FEE_ORACLE_LAG, ManaUsageEstimate, computeExcessMana } from '@aztec/stdlib/gas';
+import { FEE_ORACLE_LAG, type GasFees, ManaUsageEstimate, computeExcessMana } from '@aztec/stdlib/gas';
 
 import { foundry } from 'viem/chains';
 
@@ -65,6 +65,50 @@ describe('FeePredictor', () => {
     return l1GenesisTime + slot * BigInt(slotDuration);
   }
 
+  /** Decays ethPerFeeAsset by MAX_FEE_ASSET_PRICE_MODIFIER_BPS per step, matching the predictor's conservative estimate. */
+  function decayEthPerFeeAsset(ethPerFeeAsset: bigint, steps: number): bigint {
+    let value = ethPerFeeAsset;
+    for (let i = 0; i < steps; i++) {
+      value = (value * (10000n - MAX_FEE_ASSET_PRICE_MODIFIER_BPS)) / 10000n;
+    }
+    return value;
+  }
+
+  /** Writes a fee header to the pending checkpoint's storage via cheat codes. */
+  async function writePendingFeeHeader(feeHeader: FeeHeader) {
+    const rollupAddress = EthAddress.fromString(rollup.address);
+    const pendingCheckpointNumber = await rollup.getCheckpointNumber();
+    const feeHeaderSlot = await rollup.getTempCheckpointLogStorageSlot(
+      pendingCheckpointNumber,
+      TempCheckpointLogField.FeeHeader,
+    );
+    await cheatCodes.store(rollupAddress, feeHeaderSlot, RollupContract.compressFeeHeader(feeHeader));
+  }
+
+  /** Writes a fee header and slot number for the given checkpoint, then bumps the pending tip. */
+  async function advanceCheckpoint(checkpointNumber: CheckpointNumber, feeHeader: FeeHeader, slotNumber: bigint) {
+    const rollupAddress = EthAddress.fromString(rollup.address);
+    const feeHeaderSlot = await rollup.getTempCheckpointLogStorageSlot(
+      checkpointNumber,
+      TempCheckpointLogField.FeeHeader,
+    );
+    await cheatCodes.store(rollupAddress, feeHeaderSlot, RollupContract.compressFeeHeader(feeHeader));
+
+    const slotNumberSlot = await rollup.getTempCheckpointLogStorageSlot(
+      checkpointNumber,
+      TempCheckpointLogField.SlotNumber,
+    );
+    await cheatCodes.store(rollupAddress, slotNumberSlot, slotNumber & ((1n << 32n) - 1n));
+
+    const currentTips = await cheatCodes.load(rollupAddress, RollupContract.chainTipsStorageSlot);
+    const provenCheckpointNumber = currentTips & ((1n << 128n) - 1n);
+    await cheatCodes.store(
+      rollupAddress,
+      RollupContract.chainTipsStorageSlot,
+      RollupContract.packChainTips(BigInt(checkpointNumber), provenCheckpointNumber),
+    );
+  }
+
   async function getPredictionStartSlot(): Promise<bigint> {
     const lastCheckpoint = await rollup.getPendingCheckpoint();
     const currentSlot = await rollup.getSlotNumber();
@@ -88,10 +132,23 @@ describe('FeePredictor', () => {
     const predicted = await predictor.getPredictedMinFees(ManaUsageEstimate.None);
 
     const startSlot = await getPredictionStartSlot();
+    const pendingCheckpointNumber = await rollup.getCheckpointNumber();
+    const currentFeeHeader = (await rollup.getCheckpoint(pendingCheckpointNumber)).feeHeader;
+
     for (let i = 0; i < predicted.length; i++) {
+      // Write the decayed ethPerFeeAsset to L1 so getManaMinFeeAt matches the predictor's conservative estimate.
+      if (i > 0) {
+        await writePendingFeeHeader({
+          ...currentFeeHeader,
+          ethPerFeeAsset: decayEthPerFeeAsset(currentFeeHeader.ethPerFeeAsset, i),
+        });
+      }
       const l1Fee = await rollup.getManaMinFeeAt(getTimestamp(startSlot + BigInt(i)), true);
       expect(predicted[i].feePerL2Gas).toBe(l1Fee);
     }
+
+    // Restore original fee header.
+    await writePendingFeeHeader(currentFeeHeader);
   });
 
   it('each slot uses correct L1 fees across oracle transition', async () => {
@@ -109,10 +166,23 @@ describe('FeePredictor', () => {
     const predicted = await predictor.getPredictedMinFees(ManaUsageEstimate.None);
 
     const startSlot = await getPredictionStartSlot();
+    const pendingCheckpointNumber = await rollup.getCheckpointNumber();
+    const currentFeeHeader = (await rollup.getCheckpoint(pendingCheckpointNumber)).feeHeader;
+
     for (let i = 0; i < predicted.length; i++) {
+      // Write the decayed ethPerFeeAsset to L1 so getManaMinFeeAt matches the predictor's conservative estimate.
+      if (i > 0) {
+        await writePendingFeeHeader({
+          ...currentFeeHeader,
+          ethPerFeeAsset: decayEthPerFeeAsset(currentFeeHeader.ethPerFeeAsset, i),
+        });
+      }
       const l1Fee = await rollup.getManaMinFeeAt(getTimestamp(startSlot + BigInt(i)), true);
       expect(predicted[i].feePerL2Gas).toBe(l1Fee);
     }
+
+    // Restore original fee header.
+    await writePendingFeeHeader(currentFeeHeader);
   });
 
   it('L1 base fee change is reflected in slot 0 prediction', async () => {
@@ -164,31 +234,6 @@ describe('FeePredictor', () => {
       const predictor = new FeePredictor(rollup, publicClient, dateProvider, feePredictorConfig);
       const predicted = await predictor.getPredictedMinFees(estimate);
 
-      const rollupAddress = EthAddress.fromString(rollup.address);
-
-      /** Writes a fee header and slot number for the given checkpoint, then bumps the pending tip. */
-      async function advanceCheckpoint(checkpointNumber: CheckpointNumber, feeHeader: FeeHeader, slotNumber: bigint) {
-        const feeHeaderSlot = await rollup.getTempCheckpointLogStorageSlot(
-          checkpointNumber,
-          TempCheckpointLogField.FeeHeader,
-        );
-        await cheatCodes.store(rollupAddress, feeHeaderSlot, RollupContract.compressFeeHeader(feeHeader));
-
-        const slotNumberSlot = await rollup.getTempCheckpointLogStorageSlot(
-          checkpointNumber,
-          TempCheckpointLogField.SlotNumber,
-        );
-        await cheatCodes.store(rollupAddress, slotNumberSlot, slotNumber & ((1n << 32n) - 1n));
-
-        const currentTips = await cheatCodes.load(rollupAddress, RollupContract.chainTipsStorageSlot);
-        const provenCheckpointNumber = currentTips & ((1n << 128n) - 1n);
-        await cheatCodes.store(
-          rollupAddress,
-          RollupContract.chainTipsStorageSlot,
-          RollupContract.packChainTips(BigInt(checkpointNumber), provenCheckpointNumber),
-        );
-      }
-
       const startSlot = await getPredictionStartSlot();
       const pendingCheckpointNumber = await rollup.getCheckpointNumber();
       const currentFeeHeader = (await rollup.getCheckpoint(pendingCheckpointNumber)).feeHeader;
@@ -203,13 +248,14 @@ describe('FeePredictor', () => {
         const l1Fee = await rollup.getManaMinFeeAt(timestampI, true);
         expect(predicted[i].feePerL2Gas).toBe(l1Fee);
 
-        // Advance: simulate proposing a checkpoint at this slot with the assumed mana usage.
+        // Advance: simulate proposing a checkpoint at this slot with the assumed mana usage
+        // and the decayed ethPerFeeAsset matching the predictor's conservative estimate.
         const newExcessMana = computeExcessMana(prevExcessMana, prevManaUsed, manaTarget);
         const newCheckpointNumber = CheckpointNumber.add(pendingCheckpointNumber, i + 1);
         const newFeeHeader: FeeHeader = {
           excessMana: newExcessMana,
           manaUsed: assumedManaUsed,
-          ethPerFeeAsset: currentFeeHeader.ethPerFeeAsset,
+          ethPerFeeAsset: decayEthPerFeeAsset(currentFeeHeader.ethPerFeeAsset, i + 1),
           congestionCost: 0n,
           proverCost: 0n,
         };
@@ -244,37 +290,17 @@ describe('FeePredictor', () => {
     await cheatCodes.mine();
 
     const manaTarget = await rollup.getManaTarget();
-    const rollupAddress = EthAddress.fromString(rollup.address);
-
-    /** Writes a fee header and slot number for the given checkpoint, then bumps the pending tip. */
-    async function advanceCheckpoint(checkpointNumber: CheckpointNumber, feeHeader: FeeHeader, slotNumber: bigint) {
-      const feeHeaderSlot = await rollup.getTempCheckpointLogStorageSlot(
-        checkpointNumber,
-        TempCheckpointLogField.FeeHeader,
-      );
-      await cheatCodes.store(rollupAddress, feeHeaderSlot, RollupContract.compressFeeHeader(feeHeader));
-
-      const slotNumberSlot = await rollup.getTempCheckpointLogStorageSlot(
-        checkpointNumber,
-        TempCheckpointLogField.SlotNumber,
-      );
-      await cheatCodes.store(rollupAddress, slotNumberSlot, slotNumber & ((1n << 32n) - 1n));
-
-      const currentTips = await cheatCodes.load(rollupAddress, RollupContract.chainTipsStorageSlot);
-      const provenCheckpointNumber = currentTips & ((1n << 128n) - 1n);
-      await cheatCodes.store(
-        rollupAddress,
-        RollupContract.chainTipsStorageSlot,
-        RollupContract.packChainTips(BigInt(checkpointNumber), provenCheckpointNumber),
-      );
-    }
 
     const pendingCheckpointNumber = await rollup.getCheckpointNumber();
     const currentFeeHeader = (await rollup.getCheckpoint(pendingCheckpointNumber)).feeHeader;
 
     let prevExcessMana = currentFeeHeader.excessMana;
     let prevManaUsed = currentFeeHeader.manaUsed;
+    let ethPerFeeAsset = currentFeeHeader.ethPerFeeAsset;
     let nextCheckpointOffset = 1;
+
+    // Store previous predictions to verify their future entries against L1 when those slots arrive.
+    const pastPredictions: { predicted: GasFees[]; startSlot: bigint }[] = [];
 
     // Step through 6 successive slots, creating a fresh predictor each time.
     for (let step = 0; step < 6; step++) {
@@ -283,19 +309,30 @@ describe('FeePredictor', () => {
 
       expect(predicted.length).toBe(FEE_ORACLE_LAG);
 
+      // Slot 0 of each fresh predictor must match L1 exactly.
       const startSlot = await getPredictionStartSlot();
-      for (let i = 0; i < predicted.length; i++) {
-        const l1Fee = await rollup.getManaMinFeeAt(getTimestamp(startSlot + BigInt(i)), true);
-        expect(predicted[i].feePerL2Gas).toBe(l1Fee);
+      const l1Fee = await rollup.getManaMinFeeAt(getTimestamp(startSlot), true);
+      expect(predicted[0].feePerL2Gas).toBe(l1Fee);
+
+      // Verify future entries of past predictions that now cover the current slot.
+      for (const past of pastPredictions) {
+        const offset = Number(startSlot - past.startSlot);
+        if (offset > 0 && offset < past.predicted.length) {
+          expect(past.predicted[offset].feePerL2Gas).toBe(l1Fee);
+        }
       }
 
-      // Advance: simulate proposing a checkpoint at the current slot with zero mana usage.
+      pastPredictions.push({ predicted, startSlot });
+
+      // Advance: simulate proposing a checkpoint at the current slot with zero mana usage
+      // and the decayed ethPerFeeAsset matching the predictor's conservative estimate.
       const newExcessMana = computeExcessMana(prevExcessMana, prevManaUsed, manaTarget);
+      const decayedEthPerFeeAsset = decayEthPerFeeAsset(ethPerFeeAsset, 1);
       const newCheckpointNumber = CheckpointNumber.add(pendingCheckpointNumber, nextCheckpointOffset);
       const newFeeHeader: FeeHeader = {
         excessMana: newExcessMana,
         manaUsed: 0n,
-        ethPerFeeAsset: currentFeeHeader.ethPerFeeAsset,
+        ethPerFeeAsset: decayedEthPerFeeAsset,
         congestionCost: 0n,
         proverCost: 0n,
       };
@@ -310,6 +347,7 @@ describe('FeePredictor', () => {
 
       prevExcessMana = newExcessMana;
       prevManaUsed = 0n;
+      ethPerFeeAsset = decayedEthPerFeeAsset;
       nextCheckpointOffset++;
     }
   }, 60_000);

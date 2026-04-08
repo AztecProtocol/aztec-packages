@@ -83,6 +83,7 @@ describe('BaseWallet', () => {
     const optimizedRv1 = new NestedProcessReturnValues([new Fr(200)]);
     const normalRv0 = new NestedProcessReturnValues([new Fr(300)]);
 
+    node.getPredictedMinFees.mockResolvedValue([new GasFees(2, 2)]);
     node.getCurrentMinFees.mockResolvedValue(new GasFees(2, 2));
     node.getNodeInfo.mockResolvedValue({ ...mock<NodeInfo>(), l1ChainId: 1, rollupVersion: 1 });
     pxe.getSyncedBlockHeader.mockResolvedValue(BlockHeader.empty());
@@ -213,12 +214,12 @@ describe('BaseWallet', () => {
       expect(node.getPredictedMinFees).toHaveBeenCalledWith(ManaUsageEstimate.Limit);
     });
 
-    it('defaults to ManaUsageEstimate.Target', async () => {
+    it('defaults to ManaUsageEstimate.Limit', async () => {
       node.getPredictedMinFees.mockResolvedValue([new GasFees(1, 100)]);
 
       await wallet.getMinFees();
 
-      expect(node.getPredictedMinFees).toHaveBeenCalledWith(ManaUsageEstimate.Target);
+      expect(node.getPredictedMinFees).toHaveBeenCalledWith(ManaUsageEstimate.Limit);
     });
 
     it('falls back to getCurrentMinFees on empty array', async () => {
@@ -232,7 +233,7 @@ describe('BaseWallet', () => {
     });
 
     it('falls back to getCurrentMinFees when getPredictedMinFees throws', async () => {
-      node.getPredictedMinFees.mockRejectedValue(new Error('not supported'));
+      node.getPredictedMinFees.mockRejectedValue(new Error('Method not found'));
       node.getCurrentMinFees.mockResolvedValue(new GasFees(1, 500));
 
       const result = await wallet.getMinFees();
@@ -274,6 +275,7 @@ describe('BaseWallet', () => {
     provenTx.toTx.mockResolvedValue(mockTx);
 
     // Mock dependencies for completeFeeOptions and createTxExecutionRequestFromPayloadAndFee
+    node.getPredictedMinFees.mockResolvedValue([new GasFees(2, 2)]);
     node.getCurrentMinFees.mockResolvedValue(new GasFees(2, 2));
     node.getNodeInfo.mockResolvedValue({ ...mock<NodeInfo>(), l1ChainId: 1, rollupVersion: 1 });
     pxe.getSyncedBlockHeader.mockResolvedValue(BlockHeader.empty());

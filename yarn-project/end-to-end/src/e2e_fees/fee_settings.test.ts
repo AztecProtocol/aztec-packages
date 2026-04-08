@@ -4,7 +4,7 @@ import { CheatCodes } from '@aztec/aztec/testing';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { retryUntil } from '@aztec/foundation/retry';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
-import type { GasSettings } from '@aztec/stdlib/gas';
+import { GasFees, type GasSettings } from '@aztec/stdlib/gas';
 import { TX_ERROR_INSUFFICIENT_FEE_PER_GAS } from '@aztec/stdlib/tx';
 
 import { inspect } from 'util';
@@ -54,12 +54,15 @@ describe('e2e_fees fee settings', () => {
       );
     };
 
-    const proveTx = async (minFeePadding: number | undefined) => {
+    const proveTx = async (minFeePadding: number | undefined, overrideMaxFeesPerGas?: GasFees) => {
       t.logger.info(`Preparing tx to be sent with min fee padding ${minFeePadding}`);
       wallet.setMinFeePadding(minFeePadding);
+      const txGasSettings = overrideMaxFeesPerGas
+        ? { ...gasSettings, maxFeesPerGas: overrideMaxFeesPerGas }
+        : gasSettings;
       const tx = await proveInteraction(wallet, testContract.methods.emit_nullifier_public(Fr.random()), {
         from: aliceAddress,
-        fee: { gasSettings },
+        fee: { gasSettings: txGasSettings },
       });
       const { maxFeesPerGas } = tx.data.constants.txContext.gasSettings;
       t.logger.info(`Tx with hash ${tx.txHash.toString()} ready with max fees ${inspect(maxFeesPerGas)}`);
@@ -67,8 +70,10 @@ describe('e2e_fees fee settings', () => {
     };
 
     it('handles min fee spikes with default padding', async () => {
-      // Prepare two txs using the current L2 min fees: one with no padding and one with default padding
-      const txWithNoPadding = await proveTx(0);
+      // Prepare two txs: one with maxFeesPerGas set to the current min fees (no padding, no prediction),
+      // and one with default padding (which uses predicted fees and adds 50% on top)
+      const currentMinFees = await aztecNode.getCurrentMinFees();
+      const txWithNoPadding = await proveTx(0, currentMinFees);
       const txWithDefaultPadding = await proveTx(undefined);
 
       // Now bump the L2 fees before we actually send them
