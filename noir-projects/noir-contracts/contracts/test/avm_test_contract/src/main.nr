@@ -1010,7 +1010,7 @@ pub contract AvmTest {
         assert(first_byte != 0);
         aztec::oracle::logging::debug_log("to_le_bits");
         let first_bit = _to_le_bits(args_field[0])[0];
-        assert(first_bit != 0);
+        assert(first_bit);
         //let _ = nested_call_to_nothing_recovers();
     }
 }
