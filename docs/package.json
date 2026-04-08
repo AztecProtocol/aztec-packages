@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "build": "yarn clean && yarn preprocess && yarn spellcheck && yarn preprocess:move && yarn validate:redirects && yarn validate:api-ref-links && docusaurus build && node scripts/append_api_docs_to_llms.js",
+    "build": "yarn clean && yarn preprocess && yarn spellcheck && yarn preprocess:move && yarn validate:redirects && yarn validate:api-ref-links && docusaurus build && node scripts/augment_sitemap.js && node scripts/append_api_docs_to_llms.js",
     "validate:redirects": "./scripts/validate_redirect_targets.sh",
     "validate:api-ref-links": "./scripts/validate_api_ref_links.sh",
     "clean": "./scripts/clean.sh",

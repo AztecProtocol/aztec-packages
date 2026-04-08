@@ -38,9 +38,18 @@ if (defaultType && fs.existsSync(path.join(STATIC_DIR, `aztec-nr-api/${defaultTy
     name: "Aztec.nr API Reference",
     dir: `aztec-nr-api/${defaultType}`,
     description: `Auto-generated API documentation for Aztec.nr (${defaultVersion})`,
+    format: "html",
   });
 } else if (!defaultType) {
   console.warn("Warning: No default version found for API docs");
+}
+if (defaultType && fs.existsSync(path.join(STATIC_DIR, `typescript-api/${defaultType}`))) {
+  API_DIRS.push({
+    name: "TypeScript API Reference",
+    dir: `typescript-api/${defaultType}`,
+    description: `Auto-generated TypeScript API documentation for Aztec packages (${defaultVersion})`,
+    format: "markdown",
+  });
 }
 
 /**
@@ -94,9 +103,9 @@ function htmlToText(html) {
 }
 
 /**
- * Recursively find all HTML files in a directory.
+ * Recursively find all files with a given extension in a directory.
  */
-function findHtmlFiles(dir, files = []) {
+function findFiles(dir, ext, files = []) {
   if (!fs.existsSync(dir)) {
     return files;
   }
@@ -106,13 +115,27 @@ function findHtmlFiles(dir, files = []) {
   for (const entry of entries) {
     const fullPath = path.join(dir, entry.name);
     if (entry.isDirectory()) {
-      findHtmlFiles(fullPath, files);
-    } else if (entry.name.endsWith(".html")) {
+      findFiles(fullPath, ext, files);
+    } else if (entry.name.endsWith(ext)) {
       files.push(fullPath);
     }
   }
 
   return files;
+}
+
+/**
+ * Recursively find all HTML files in a directory.
+ */
+function findHtmlFiles(dir) {
+  return findFiles(dir, ".html");
+}
+
+/**
+ * Find all markdown files in a directory (non-recursive, excludes llm-summary.txt).
+ */
+function findMarkdownFiles(dir) {
+  return findFiles(dir, ".md");
 }
 
 /**
@@ -182,10 +205,14 @@ function main() {
       continue;
     }
 
-    const htmlFiles = sortByImportance(findHtmlFiles(dirPath));
-    console.log(`Found ${htmlFiles.length} HTML files in ${apiDir.dir}`);
+    const isMarkdown = apiDir.format === "markdown";
+    const files = isMarkdown
+      ? findMarkdownFiles(dirPath)
+      : sortByImportance(findHtmlFiles(dirPath));
+    const ext = isMarkdown ? ".md" : ".html";
+    console.log(`Found ${files.length} ${isMarkdown ? "markdown" : "HTML"} files in ${apiDir.dir}`);
 
-    if (htmlFiles.length === 0) {
+    if (files.length === 0) {
       continue;
     }
 
@@ -195,30 +222,43 @@ function main() {
     fullContentSection += `## ${apiDir.name}\n\n`;
     fullContentSection += `${apiDir.description}\n\n`;
 
-    // Process only index files for links to avoid overwhelming the llms.txt
-    const indexFiles = htmlFiles.filter(
-      (f) => f.endsWith("index.html") || f.includes("/fn.") || f.includes("/struct.") || f.includes("/trait.")
-    );
+    if (isMarkdown) {
+      // For markdown API docs, add a link per file and include llm-summary.txt if present
+      const summaryPath = path.join(dirPath, "llm-summary.txt");
+      if (fs.existsSync(summaryPath)) {
+        linksSection += fs.readFileSync(summaryPath, "utf-8") + "\n\n";
+      }
+      for (const file of files) {
+        const urlPath = getUrlPath(file, STATIC_DIR);
+        const fileName = path.basename(file, ext);
+        linksSection += `- [${fileName}](${urlPath})\n`;
+      }
+    } else {
+      // For HTML API docs, process only index files for links
+      const indexFiles = files.filter(
+        (f) => f.endsWith("index.html") || f.includes("/fn.") || f.includes("/struct.") || f.includes("/trait.")
+      );
 
-    // Add links for key files
-    for (const file of indexFiles.slice(0, 100)) {
-      // Limit to 100 links per section
-      const urlPath = getUrlPath(file, STATIC_DIR);
-      const fileName = path.basename(file, ".html");
-      linksSection += `- [${fileName}](${urlPath})\n`;
-    }
+      // Add links for key files
+      for (const file of indexFiles.slice(0, 100)) {
+        // Limit to 100 links per section
+        const urlPath = getUrlPath(file, STATIC_DIR);
+        const fileName = path.basename(file, ext);
+        linksSection += `- [${fileName}](${urlPath})\n`;
+      }
 
-    if (indexFiles.length > 100) {
-      linksSection += `- ... and ${indexFiles.length - 100} more files\n`;
+      if (indexFiles.length > 100) {
+        linksSection += `- ... and ${indexFiles.length - 100} more files\n`;
+      }
     }
 
     linksSection += "\n";
 
     // Add full content for all files
-    for (const file of htmlFiles) {
+    for (const file of files) {
       try {
-        const html = fs.readFileSync(file, "utf-8");
-        const text = htmlToText(html);
+        const raw = fs.readFileSync(file, "utf-8");
+        const text = isMarkdown ? raw.trim() : htmlToText(raw);
 
         if (text.length > 100) {
           // Only include if there's meaningful content

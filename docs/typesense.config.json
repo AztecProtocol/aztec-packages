@@ -1,26 +1,43 @@
 {
   "index_name": "aztec-docs",
   "start_urls": [
-      "https://docs.aztec.network/"
+      "https://docs.aztec.network/",
+      {
+        "url": "https://docs.aztec.network/aztec-nr-api/mainnet/",
+        "selectors_key": "api-nr"
+      }
     ],
     "sitemap_urls": [
       "https://docs.aztec.network/sitemap.xml"
     ],
   "sitemap_alternate_links": true,
   "selectors": {
-    "lvl0": {
-      "selector": "(//ul[contains(@class,'menu__list')]//a[contains(@class, 'menu__link menu__link--sublist menu__link--active')]/text() | //nav[contains(@class, 'navbar')]//a[contains(@class, 'navbar__link--active')]/text())[last()]",
-      "type": "xpath",
-      "global": true,
-      "default_value": "Documentation"
+    "default": {
+      "lvl0": {
+        "selector": "(//ul[contains(@class,'menu__list')]//a[contains(@class, 'menu__link menu__link--sublist menu__link--active')]/text() | //nav[contains(@class, 'navbar')]//a[contains(@class, 'navbar__link--active')]/text())[last()]",
+        "type": "xpath",
+        "global": true,
+        "default_value": "Documentation"
+      },
+      "lvl1": "header h1",
+      "lvl2": "header h2",
+      "lvl3": "header h3",
+      "lvl4": "header h4",
+      "lvl5": "header h5",
+      "lvl6": "header h6",
+      "text": "article p, article li, article td:last-child"
     },
-    "lvl1": "header h1",
-    "lvl2": "header h2",
-    "lvl3": "header h3",
-    "lvl4": "header h4",
-    "lvl5": "header h5",
-    "lvl6": "header h6",
-    "text": "article p, article li, article td:last-child"
+    "api-nr": {
+      "lvl0": {
+        "selector": "nav.sidebar h1 a",
+        "default_value": "Aztec.nr API Reference"
+      },
+      "lvl1": "main h1",
+      "lvl2": "main h2",
+      "lvl3": "main h3",
+      "lvl4": "main h4",
+      "text": "main .comments p, main .item-description, main li, main pre code"
+    }
   },
   "strip_chars": " .,;:#",
   "custom_settings": {
