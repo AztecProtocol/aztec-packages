@@ -60,9 +60,9 @@ export const pxeConfigMappings: ConfigMappingsType<PXEConfig> = {
     description: 'Which chain tip to sync to (proposed, checkpointed, proven, finalized)',
     defaultValue: 'proposed',
     parseEnv: (val: string) => {
-      const allowedValues = ['proposed', 'checkpointed', 'proven', 'finalized'];
-      if (allowedValues.includes(val)) {
-        return val;
+      const allowedValues = ['proposed', 'checkpointed', 'proven', 'finalized'] as const;
+      if (allowedValues.includes(val as (typeof allowedValues)[number])) {
+        return val as (typeof allowedValues)[number];
       }
       throw new Error(`Invalid value for PXE_SYNC_CHAIN_TIP: ${val}. Allowed values are: ${allowedValues.join(', ')}`);
     },
