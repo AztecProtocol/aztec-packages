@@ -1,6 +1,5 @@
-// Custom Jest resolver. When CONTRACT_ARTIFACTS_VERSION is set, redirects
-// imports of @aztec/noir-contracts.js and @aztec/noir-test-contracts.js (and
-// their subpaths) into the cache populated by scripts/ensure_legacy_contracts.mjs.
+// Custom Jest resolver. When CONTRACT_ARTIFACTS_VERSION is set, redirects imports of @aztec/noir-contracts.js and
+// @aztec/noir-test-contracts.js (and their subpaths) into the cache populated by scripts/ensure_legacy_contracts.mjs.
 //
 // Activated by env var; passthrough otherwise.
 
@@ -15,10 +14,10 @@ const REDIRECTED = ['@aztec/noir-contracts.js', '@aztec/noir-test-contracts.js']
 const e2eRoot = path.resolve(__dirname, '..');
 const cacheRoot = version ? path.join(e2eRoot, '.legacy-contracts', version) : null;
 
-// Populate the cache on-demand so this works regardless of how jest is launched.
 if (version) {
   const missing = REDIRECTED.some(p => !fs.existsSync(path.join(cacheRoot, 'node_modules', p, 'package.json')));
   if (missing) {
+    // Current version is not in cache so we download it.
     execFileSync('node', [path.join(e2eRoot, 'scripts', 'ensure_legacy_contracts.mjs')], {
       stdio: 'inherit',
       env: process.env,
