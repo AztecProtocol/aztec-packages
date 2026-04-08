@@ -756,7 +756,7 @@ pub contract AvmTest {
     #[external("public")]
     fn nested_call_to_nothing() {
         let garbageAddress = AztecAddress::from_field(42);
-        self.call(AvmTest::at(garbageAddress).nested_call_to_nothing())
+        self.call(&AvmTest::at(garbageAddress).nested_call_to_nothing())
     }
 
     #[external("public")]
@@ -778,7 +778,7 @@ pub contract AvmTest {
         da_gas: u32,
     ) -> pub Field {
         // Note: can't use self.call_self here because we need .with_gas() chaining
-        self.call(AvmTest::at(self.address).add_args_return(arg_a, arg_b).with_gas(GasOpts::new(
+        self.call(&AvmTest::at(self.address).add_args_return(arg_a, arg_b).with_gas(GasOpts::new(
             l2_gas,
             da_gas,
         )))
@@ -807,7 +807,7 @@ pub contract AvmTest {
         for i in 0..MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS + 2 {
             let addr = addrs[i];
             if addr != AztecAddress::empty() {
-                let _ = self.call(AvmTest::at(addr).add_args_return(1, 2));
+                let _ = self.call(&AvmTest::at(addr).add_args_return(1, 2));
             }
         }
     }
@@ -847,13 +847,13 @@ pub contract AvmTest {
     #[external("public")]
     fn create_same_nullifier_in_nested_call(nestedAddress: AztecAddress, nullifier: Field) {
         self.context.push_nullifier(nullifier);
-        self.call(AvmTest::at(nestedAddress).new_nullifier(nullifier));
+        self.call(&AvmTest::at(nestedAddress).new_nullifier(nullifier));
     }
 
     #[external("public")]
     fn create_different_nullifier_in_nested_call(nestedAddress: AztecAddress, nullifier: Field) {
         self.context.push_nullifier(nullifier);
-        self.call(AvmTest::at(nestedAddress).new_nullifier(nullifier + 1));
+        self.call(&AvmTest::at(nestedAddress).new_nullifier(nullifier + 1));
     }
 
     #[external("public")]
@@ -903,7 +903,7 @@ pub contract AvmTest {
 
     #[external("public")]
     fn call_instance_registry() {
-        let _ = self.view(ContractInstanceRegistry::at(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS)
+        let _ = self.view(&ContractInstanceRegistry::at(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS)
             .get_update_delay());
     }
 

@@ -160,10 +160,10 @@ pub contract AMM {
         // We read the current AMM balance of both tokens. Note that by the time this function is called the token
         // transfers have already been completed (since those calls were enqueued before this call), and so we need to
         // subtract the transfer amount to get the pre-deposit balance.
-        let balance0_plus_amount0_max = self.view(token0.balance_of_public(self.address));
+        let balance0_plus_amount0_max = self.view(&token0.balance_of_public(self.address));
         let balance0 = balance0_plus_amount0_max - amount0_max;
 
-        let balance1_plus_amount1_max = self.view(token1.balance_of_public(self.address));
+        let balance1_plus_amount1_max = self.view(&token1.balance_of_public(self.address));
         let balance1 = balance1_plus_amount1_max - amount1_max;
 
         // With the current balances known, we can calculate the token amounts to the pool, respecting the user's
@@ -184,13 +184,13 @@ pub contract AMM {
         // We can simply skip the refund if the amount to return is 0 in order to save gas: the partial note will
         // simply stay in public storage and not be completed, but this is not an issue.
         if (refund_amount_token0 > 0 as u128) {
-            self.call(token0.finalize_transfer_to_private(
+            self.call(&token0.finalize_transfer_to_private(
                 refund_amount_token0,
                 refund_token0_partial_note,
             ));
         }
         if (refund_amount_token1 > 0 as u128) {
-            self.call(token1.finalize_transfer_to_private(
+            self.call(&token1.finalize_transfer_to_private(
                 refund_amount_token1,
                 refund_token1_partial_note,
             ));
@@ -198,7 +198,7 @@ pub contract AMM {
 
         // With the deposit amounts known, we can compute the number of liquidity tokens to mint and finalize the
         // depositor's partial note.
-        let total_supply = self.view(liquidity_token.total_supply());
+        let total_supply = self.view(&liquidity_token.total_supply());
         let liquidity_amount = if total_supply != 0 as u128 {
             // The liquidity token supply increases by the same ratio as the balances. In case one of the token balances
             // increased with a ratio different from the other one, we simply take the smallest value.
@@ -290,9 +290,9 @@ pub contract AMM {
 
         // We need the current balance of both tokens as well as the liquidity token total supply in order to compute
         // the amounts to send the user.
-        let balance0 = self.view(token0.balance_of_public(self.address));
-        let balance1 = self.view(token1.balance_of_public(self.address));
-        let total_supply = self.view(liquidity_token.total_supply());
+        let balance0 = self.view(&token0.balance_of_public(self.address));
+        let balance1 = self.view(&token1.balance_of_public(self.address));
+        let total_supply = self.view(&liquidity_token.total_supply());
 
         // We calculate the amounts of token0 and token1 the user is entitled to based on the amount of liquidity they
         // are removing, and check that they are above the minimum amounts they requested.
@@ -302,9 +302,9 @@ pub contract AMM {
 
         // We can now burn the liquidity tokens that had been privately transferred into the AMM, as well as complete
         // both partial notes.
-        self.call(liquidity_token.burn_public(self.address, liquidity, 0));
-        self.call(token0.finalize_transfer_to_private(amount0, token0_partial_note));
-        self.call(token1.finalize_transfer_to_private(amount1, token1_partial_note));
+        self.call(&liquidity_token.burn_public(self.address, liquidity, 0));
+        self.call(&token0.finalize_transfer_to_private(amount0, token0_partial_note));
+        self.call(&token1.finalize_transfer_to_private(amount1, token1_partial_note));
     }
 
     /// Privately swaps `amount_in` `token_in` tokens for at least `amount_out_mint` `token_out` tokens with the pool.
@@ -362,10 +362,10 @@ pub contract AMM {
         // transfer has already been completed as that function call was enqueued before this one. We therefore need to
         // subtract the amount in to get the pre-swap balances.
         let balance_in_plus_amount_in =
-            self.view(Token::at(token_in).balance_of_public(self.address));
+            self.view(&Token::at(token_in).balance_of_public(self.address));
         let balance_in = balance_in_plus_amount_in - amount_in;
 
-        let balance_out = self.view(Token::at(token_out).balance_of_public(self.address));
+        let balance_out = self.view(&Token::at(token_out).balance_of_public(self.address));
 
         // We can now compute the number of tokens to transfer and complete the partial note.
         let amount_out = get_amount_out(amount_in, balance_in, balance_out);
@@ -439,10 +439,10 @@ pub contract AMM {
         // transfer has already been completed as that function call was enqueued before this one. We therefore need to
         // subtract the amount in to get the pre-swap balances.
         let balance_in_plus_amount_in_max =
-            self.view(Token::at(token_in).balance_of_public(self.address));
+            self.view(&Token::at(token_in).balance_of_public(self.address));
         let balance_in = balance_in_plus_amount_in_max - amount_in_max;
 
-        let balance_out = self.view(Token::at(token_out).balance_of_public(self.address));
+        let balance_out = self.view(&Token::at(token_out).balance_of_public(self.address));
 
         // We can now compute the number of tokens we need to receive and complete the partial note with the change.
         let amount_in = get_amount_in(amount_out, balance_in, balance_out);
@@ -450,7 +450,7 @@ pub contract AMM {
 
         let change = amount_in_max - amount_in;
         if (change > 0 as u128) {
-            self.call(Token::at(token_in).finalize_transfer_to_private(
+            self.call(&Token::at(token_in).finalize_transfer_to_private(
                 change,
                 change_token_in_partial_note,
             ));

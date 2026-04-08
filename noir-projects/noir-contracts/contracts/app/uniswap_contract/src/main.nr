@@ -62,13 +62,13 @@ pub contract Uniswap {
         }
 
         let input_asset_bridge_config =
-            self.view(TokenBridge::at(input_asset_bridge).get_config_public());
+            self.view(&TokenBridge::at(input_asset_bridge).get_config_public());
 
         let input_asset = input_asset_bridge_config.token;
         let input_asset_bridge_portal_address = input_asset_bridge_config.portal;
 
         // Transfer funds to this contract
-        self.call(Token::at(input_asset).transfer_in_public(
+        self.call(&Token::at(input_asset).transfer_in_public(
             sender,
             self.address,
             input_amount,
@@ -84,7 +84,7 @@ pub contract Uniswap {
         // Create swap message and send to Outbox for Uniswap Portal
         // this ensures the integrity of what the user originally intends to do on L1.
         let output_asset_bridge_portal_address =
-            self.view(TokenBridge::at(output_asset_bridge).get_config_public()).portal;
+            self.view(&TokenBridge::at(output_asset_bridge).get_config_public()).portal;
         // ensure portal exists - else funds might be lost
         assert(
             !input_asset_bridge_portal_address.is_zero(),
@@ -209,7 +209,7 @@ pub contract Uniswap {
 
         let this_portal_address = self.storage.portal_address.read();
         // Exit to L1 Uniswap Portal !
-        self.call(TokenBridge::at(token_bridge).exit_to_l1_public(
+        self.call(&TokenBridge::at(token_bridge).exit_to_l1_public(
             this_portal_address,
             amount,
             this_portal_address,

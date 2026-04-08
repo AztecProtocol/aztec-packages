@@ -144,7 +144,7 @@ pub contract StaticParent {
     // Same as above but using a specific function from the interface
     #[external("public")]
     fn public_get_value_from_child(target_contract: AztecAddress, value: Field) -> Field {
-        self.view(StaticChild::at(target_contract).pub_get_value(value))
+        self.view(&StaticChild::at(target_contract).pub_get_value(value))
     }
 
     // Public function to set a static context and verify correct propagation for nested public calls

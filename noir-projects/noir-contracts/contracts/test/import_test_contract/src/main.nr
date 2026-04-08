@@ -31,6 +31,6 @@ pub contract ImportTest {
     // See yarn-project/end-to-end/src/e2e_nested_contract.test.ts
     #[external("public")]
     fn pub_call_public_fn(target: AztecAddress) {
-        self.call(Test::at(target).emit_nullifier_public(1));
+        self.call(&Test::at(target).emit_nullifier_public(1));
     }
 }
