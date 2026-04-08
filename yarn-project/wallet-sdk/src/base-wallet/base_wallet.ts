@@ -102,6 +102,11 @@ export type CompleteFeeOptionsConfig = {
   gasSettings?: Partial<FieldsOf<GasSettings>>;
   /** If true, returns gas settings with high gas limits for estimation. If false, uses fallback limits. */
   forEstimation?: boolean;
+  /**
+   * Assumed network congestion level for fee prediction. Controls how aggressively the wallet
+   * estimates future fees. Defaults to Limit (worst case) when not specified.
+   */
+  congestionEstimate?: ManaUsageEstimate;
 };
 
 /**
@@ -225,8 +230,9 @@ export abstract class BaseWallet implements Wallet {
    * @param config - Fee completion config.
    */
   protected async completeFeeOptions(config: CompleteFeeOptionsConfig): Promise<FeeOptions> {
-    const { from, feePayer, gasSettings, forEstimation } = config;
-    const maxFeesPerGas = gasSettings?.maxFeesPerGas ?? (await this.getMinFees()).mul(1 + this.minFeePadding);
+    const { from, feePayer, gasSettings, forEstimation, congestionEstimate } = config;
+    const maxFeesPerGas =
+      gasSettings?.maxFeesPerGas ?? (await this.getMinFees(congestionEstimate)).mul(1 + this.minFeePadding);
     let accountFeePaymentMethodOptions;
     // If from is an address, we need to determine the appropriate fee payment method options for the
     // account contract entrypoint to use
@@ -359,6 +365,7 @@ export abstract class BaseWallet implements Wallet {
       feePayer: executionPayload.feePayer,
       gasSettings: opts.fee?.gasSettings,
       forEstimation: true,
+      congestionEstimate: opts.fee?.congestionEstimate,
     });
     const { optimizableCalls, remainingCalls } = extractOptimizablePublicStaticCalls(executionPayload);
     const remainingPayload = { ...executionPayload, calls: remainingCalls };
@@ -406,6 +413,7 @@ export abstract class BaseWallet implements Wallet {
       from: opts.from,
       feePayer: executionPayload.feePayer,
       gasSettings: opts.fee?.gasSettings,
+      congestionEstimate: opts.fee?.congestionEstimate,
     });
     const txRequest = await this.createTxExecutionRequestFromPayloadAndFee(executionPayload, opts.from, feeOptions);
     return this.pxe.profileTx(txRequest, {
@@ -423,6 +431,7 @@ export abstract class BaseWallet implements Wallet {
       from: opts.from,
       feePayer: executionPayload.feePayer,
       gasSettings: opts.fee?.gasSettings,
+      congestionEstimate: opts.fee?.congestionEstimate,
     });
     const txRequest = await this.createTxExecutionRequestFromPayloadAndFee(executionPayload, opts.from, feeOptions);
     const provenTx = await this.pxe.proveTx(txRequest, this.scopesFrom(opts.from, opts.additionalScopes));
