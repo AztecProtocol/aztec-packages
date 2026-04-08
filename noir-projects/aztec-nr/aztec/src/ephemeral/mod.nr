@@ -323,4 +323,33 @@ mod test {
         assert_eq(popped, b);
         assert_eq(array.len(), 1);
     }
+
+    #[test]
+    unconstrained fn initialize_creates_empty_array() {
+        let _ = TestEnvironment::new();
+
+        let array: EphemeralArray<Field> = EphemeralArray::initialize(SLOT);
+        assert_eq(array.len(), 0);
+
+        array.push(42);
+        assert_eq(array.len(), 1);
+        assert_eq(array.get(0), 42);
+    }
+
+    #[test]
+    unconstrained fn initialize_clears_previous_data() {
+        let _ = TestEnvironment::new();
+
+        let array: EphemeralArray<Field> = EphemeralArray::at(SLOT);
+        array.push(1);
+        array.push(2);
+        array.push(3);
+        assert_eq(array.len(), 3);
+
+        // Re-initialize at the same slot, previous data should be gone.
+        let fresh: EphemeralArray<Field> = EphemeralArray::initialize(SLOT);
+        assert_eq(fresh.len(), 0);
+        fresh.push(4);
+        assert_eq(fresh.get(0), 4);
+    }
 }
