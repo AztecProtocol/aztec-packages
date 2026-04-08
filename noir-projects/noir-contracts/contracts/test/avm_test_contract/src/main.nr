@@ -211,7 +211,7 @@ pub contract AvmTest {
 
     #[external("public")]
     fn elliptic_curve_add_and_double() -> Point {
-        let g = Point { x: GRUMPKIN_ONE_X, y: GRUMPKIN_ONE_Y, is_infinite: false };
+        let g = Point { x: GRUMPKIN_ONE_X, y: GRUMPKIN_ONE_Y };
 
         let doubled = g + g;
         let added = g + doubled;
@@ -225,7 +225,7 @@ pub contract AvmTest {
         scalar2_lo: Field,
         scalar2_hi: Field,
     ) -> Point {
-        let g = Point { x: GRUMPKIN_ONE_X, y: GRUMPKIN_ONE_Y, is_infinite: false };
+        let g = Point { x: GRUMPKIN_ONE_X, y: GRUMPKIN_ONE_Y };
 
         let triple_g = multi_scalar_mul(
             [g, g],
