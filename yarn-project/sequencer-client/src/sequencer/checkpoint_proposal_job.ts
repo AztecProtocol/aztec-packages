@@ -1,10 +1,5 @@
 import type { EpochCache } from '@aztec/epoch-cache';
-import {
-  type FeeHeader,
-  RollupContract,
-  SimulationOverridesBuilder,
-  type SimulationOverridesPlan,
-} from '@aztec/ethereum/contracts';
+import { type SimulationOverridesPlan } from '@aztec/ethereum/contracts';
 import {
   BlockNumber,
   CheckpointNumber,
@@ -62,6 +57,10 @@ import { DutyAlreadySignedError, SlashingProtectionError } from '@aztec/validato
 
 import type { GlobalVariableBuilder } from '../global_variable_builder/global_builder.js';
 import type { InvalidateCheckpointRequest, SequencerPublisher } from '../publisher/sequencer-publisher.js';
+import {
+  buildPipelinedParentSimulationOverridesPlan,
+  buildSubmissionSimulationOverridesPlan,
+} from './chain_state_overrides.js';
 import { CheckpointVoter } from './checkpoint_voter.js';
 import { SequencerInterruptedError } from './errors.js';
 import type { SequencerEvents } from './events.js';
@@ -289,16 +288,12 @@ export class CheckpointProposalJob implements Traceable {
     }
 
     const isPipelining = this.epochCache.isProposerPipeliningEnabled();
-    const submissionSimulationOverridesPlan = (() => {
-      const builder = SimulationOverridesBuilder.from(this.pipelinedParentSimulationOverridesPlan).forPendingCheckpoint(
-        this.invalidateCheckpoint?.forcePendingCheckpointNumber ??
-          this.pipelinedParentSimulationOverridesPlan?.pendingCheckpointNumber,
-      );
-      if (isPipelining) {
-        builder.withPendingArchive(checkpoint.header.lastArchiveRoot);
-      }
-      return builder.build();
-    })();
+    const submissionSimulationOverridesPlan = buildSubmissionSimulationOverridesPlan({
+      pipelinedParentPlan: this.pipelinedParentSimulationOverridesPlan,
+      invalidateToPendingCheckpointNumber: this.invalidateCheckpoint?.forcePendingCheckpointNumber,
+      lastArchiveRoot: checkpoint.header.lastArchiveRoot,
+      pipeliningEnabled: isPipelining,
+    });
 
     await this.publisher.enqueueProposeCheckpoint(checkpoint, attestations, attestationsSignature, {
       txTimeoutAt,
@@ -339,20 +334,14 @@ export class CheckpointProposalJob implements Traceable {
       // When pipelining, force the proposed checkpoint number and fee header to our parent so the
       // fee computation sees the same chain tip that L1 will see once the previous pipelined checkpoint lands.
       const isPipelining = this.epochCache.isProposerPipeliningEnabled();
-      const parentCheckpointNumber = isPipelining ? CheckpointNumber(this.checkpointNumber - 1) : undefined;
-
-      if (isPipelining) {
-        const builder = new SimulationOverridesBuilder().forPendingCheckpoint(parentCheckpointNumber);
-        if (this.proposedCheckpointData) {
-          const parentFeeHeaderOverride = await this.computeForceProposedFeeHeader(parentCheckpointNumber!);
-          if (parentFeeHeaderOverride) {
-            builder.withPendingFeeHeader(parentFeeHeaderOverride.feeHeader);
-          }
-        }
-        this.pipelinedParentSimulationOverridesPlan = builder.build();
-      } else {
-        this.pipelinedParentSimulationOverridesPlan = undefined;
-      }
+      this.pipelinedParentSimulationOverridesPlan = isPipelining
+        ? await buildPipelinedParentSimulationOverridesPlan({
+            checkpointNumber: this.checkpointNumber,
+            proposedCheckpointData: this.proposedCheckpointData,
+            rollup: this.publisher.rollupContract,
+            log: this.log,
+          })
+        : undefined;
 
       const checkpointGlobalVariables = await this.globalsBuilder.buildCheckpointGlobalVariables(
         coinbase,
@@ -1105,56 +1094,6 @@ export class CheckpointProposalJob implements Traceable {
       return true;
     }
     return false;
-  }
-
-  /**
-   * In times of congestion we need to simulate using the correct fee header override for the previous block
-   * We calculate the correct fee header values.
-   *
-   * If we are in block 1, or the checkpoint we are querying does not exist, we return undefined. However
-   * If we are pipelining - where this function is called, the grandparentCheckpointNumber should always exist
-   * @param parentCheckpointNumber
-   * @returns
-   */
-  protected async computeForceProposedFeeHeader(parentCheckpointNumber: CheckpointNumber): Promise<
-    | {
-        checkpointNumber: CheckpointNumber;
-        feeHeader: FeeHeader;
-      }
-    | undefined
-  > {
-    if (!this.proposedCheckpointData) {
-      return undefined;
-    }
-
-    const rollup = this.publisher.rollupContract;
-    const grandparentCheckpointNumber = CheckpointNumber(this.checkpointNumber - 2);
-    try {
-      const [grandparentCheckpoint, manaTarget] = await Promise.all([
-        rollup.getCheckpoint(grandparentCheckpointNumber),
-        rollup.getManaTarget(),
-      ]);
-
-      if (!grandparentCheckpoint || !grandparentCheckpoint.feeHeader) {
-        this.log.error(
-          `Grandparent checkpoint or its feeHeader is undefined for checkpointNumber=${grandparentCheckpointNumber.toString()}`,
-        );
-        return undefined;
-      } else {
-        const parentFeeHeader = RollupContract.computeChildFeeHeader(
-          grandparentCheckpoint.feeHeader,
-          this.proposedCheckpointData.totalManaUsed,
-          this.proposedCheckpointData.feeAssetPriceModifier,
-          manaTarget,
-        );
-        return { checkpointNumber: parentCheckpointNumber, feeHeader: parentFeeHeader };
-      }
-    } catch (err) {
-      this.log.error(
-        `Failed to fetch grandparent checkpoint or mana target for checkpointNumber=${grandparentCheckpointNumber.toString()}: ${err}`,
-      );
-      return undefined;
-    }
   }
 
   /** Waits until a specific time within the current slot */
