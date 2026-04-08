@@ -5722,7 +5722,7 @@ describe('TxPoolV2', () => {
 
     const makeTxWithMaxFees = async (seed: number, maxFeesPerGas: GasFees) => {
       const tx = await mockTx(seed, { numberOfNonRevertiblePublicCallRequests: 1 });
-      tx.data.constants.txContext.gasSettings = GasSettings.default({ maxFeesPerGas });
+      tx.data.constants.txContext.gasSettings = GasSettings.fallback({ maxFeesPerGas });
       return tx;
     };
 
@@ -5805,7 +5805,7 @@ describe('TxPoolV2', () => {
         numberOfNonRevertiblePublicCallRequests: 1,
         maxPriorityFeesPerGas: new GasFees(1, 1),
       });
-      tx.data.constants.txContext.gasSettings = GasSettings.default({
+      tx.data.constants.txContext.gasSettings = GasSettings.fallback({
         maxFeesPerGas,
         maxPriorityFeesPerGas: new GasFees(1, 1),
       });

@@ -187,7 +187,7 @@ describe('e2e_local_network_example', () => {
     // The private fee paying method assembled on the app side requires knowledge of the maximum
     // fee the user is willing to pay
     const maxFeesPerGas = (await node.getCurrentMinFees()).mul(E2E_DEFAULT_MIN_FEE_PADDING);
-    const gasSettings = GasSettings.default({ maxFeesPerGas });
+    const gasSettings = GasSettings.fallback({ maxFeesPerGas });
     const paymentMethod = new PrivateFeePaymentMethod(bananaFPCAddress, alice, wallet, gasSettings);
     const { receipt: receiptForAlice } = await bananaCoin.methods
       .transfer(bob, amountTransferToBob)

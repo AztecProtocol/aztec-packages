@@ -387,7 +387,7 @@ export class ClientFlowsBenchmark {
     // The private fee paying method assembled on the app side requires knowledge of the maximum
     // fee the user is willing to pay
     const maxFeesPerGas = (await this.aztecNode.getCurrentMinFees()).mul(E2E_DEFAULT_MIN_FEE_PADDING);
-    const gasSettings = GasSettings.default({ maxFeesPerGas });
+    const gasSettings = GasSettings.fallback({ maxFeesPerGas });
     return new PrivateFeePaymentMethod(this.bananaFPC.address, sender, wallet, gasSettings);
   }
 

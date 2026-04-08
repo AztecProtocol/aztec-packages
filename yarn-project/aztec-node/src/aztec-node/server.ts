@@ -350,13 +350,16 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
       log.info('Starting in prover-only mode: skipping validator, sequencer, sentinel, and slasher subsystems');
     }
 
-    const globalVariableBuilder = new GlobalVariableBuilder(dateProvider, publicClient, {
+    const globalVariableBuilderConfig = {
       l1Contracts: config.l1Contracts,
       ethereumSlotDuration: config.ethereumSlotDuration,
       rollupVersion: BigInt(config.rollupVersion),
       l1GenesisTime,
       slotDuration: Number(slotDuration),
-    });
+    };
+
+    const globalVariableBuilder = new GlobalVariableBuilder(dateProvider, publicClient, globalVariableBuilderConfig);
+    const feeProvider = new FeeProviderImpl(dateProvider, publicClient, globalVariableBuilderConfig);
 
     // create the tx pool and the p2p client, which will need the l2 block source
     const p2pClient = await createP2PClient(
@@ -365,7 +368,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
       peerProofVerifier,
       worldStateSynchronizer,
       epochCache,
-      globalVariableBuilder,
+      feeProvider,
       packageVersion,
       dateProvider,
       telemetry,

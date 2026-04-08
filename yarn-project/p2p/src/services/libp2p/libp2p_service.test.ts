@@ -25,6 +25,8 @@ import { ServerWorldStateSynchronizer } from '@aztec/world-state';
 import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
 import type { Message, PeerId } from '@libp2p/interface';
 import { TopicValidatorResult } from '@libp2p/interface';
+import type { ConnectionManager } from '@libp2p/interface-internal';
+import { multiaddr } from '@multiformats/multiaddr';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
 import { type P2PConfig, p2pConfigMappings } from '../../config.js';
@@ -36,7 +38,8 @@ import {
 import type { MemPools } from '../../mem_pools/interface.js';
 import type { TxPoolV2 } from '../../mem_pools/tx_pool_v2/interfaces.js';
 import type { TransactionValidator } from '../../msg_validators/tx_validator/factory.js';
-import type { PubSubLibp2p } from '../../util.js';
+import { type PubSubLibp2p, convertToMultiaddr } from '../../util.js';
+import { DummyPeerDiscoveryService } from '../dummy_service.js';
 import type { PeerManagerInterface } from '../peer-manager/interface.js';
 import type { ReqRespInterface } from '../reqresp/interface.js';
 import { BitVector } from '../reqresp/protocols/block_txs/bitvector.js';

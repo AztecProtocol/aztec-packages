@@ -363,7 +363,7 @@ describe('MaxFeePerGasValidator', () => {
     const gasFees = new GasFees(10, 20);
     const validator = new MaxFeePerGasValidator<Tx>(gasFees);
     const tx = await mockTx(1, { numberOfNonRevertiblePublicCallRequests: 2 });
-    tx.data.constants.txContext.gasSettings = GasSettings.default({ maxFeesPerGas: new GasFees(10, 20) });
+    tx.data.constants.txContext.gasSettings = GasSettings.fallback({ maxFeesPerGas: new GasFees(10, 20) });
     await expect(validator.validateTx(tx)).resolves.toEqual({ result: 'valid' });
   });
 
@@ -371,7 +371,7 @@ describe('MaxFeePerGasValidator', () => {
     const gasFees = new GasFees(10, 20);
     const validator = new MaxFeePerGasValidator<Tx>(gasFees);
     const tx = await mockTx(1, { numberOfNonRevertiblePublicCallRequests: 2 });
-    tx.data.constants.txContext.gasSettings = GasSettings.default({ maxFeesPerGas: new GasFees(9, 20) });
+    tx.data.constants.txContext.gasSettings = GasSettings.fallback({ maxFeesPerGas: new GasFees(9, 20) });
     await expect(validator.validateTx(tx)).resolves.toEqual({
       result: 'invalid',
       reason: [TX_ERROR_INSUFFICIENT_FEE_PER_GAS],
@@ -382,7 +382,7 @@ describe('MaxFeePerGasValidator', () => {
     const gasFees = new GasFees(10, 20);
     const validator = new MaxFeePerGasValidator<Tx>(gasFees);
     const tx = await mockTx(1, { numberOfNonRevertiblePublicCallRequests: 2 });
-    tx.data.constants.txContext.gasSettings = GasSettings.default({ maxFeesPerGas: new GasFees(10, 19) });
+    tx.data.constants.txContext.gasSettings = GasSettings.fallback({ maxFeesPerGas: new GasFees(10, 19) });
     await expect(validator.validateTx(tx)).resolves.toEqual({
       result: 'invalid',
       reason: [TX_ERROR_INSUFFICIENT_FEE_PER_GAS],

@@ -3,18 +3,13 @@ import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { SlotNumber } from '@aztec/foundation/schemas';
 
 import type { AztecAddress } from '../aztec-address/index.js';
-import type { ManaUsageEstimate } from '../gas/fee_math.js';
-import type { BlockMinFeesProvider, GasFees } from '../gas/gas_fees.js';
 import type { UInt32 } from '../types/index.js';
 import type { CheckpointGlobalVariables, GlobalVariables } from './global_variables.js';
 
 /**
  * Interface for building global variables for Aztec blocks.
  */
-export interface GlobalVariableBuilder extends BlockMinFeesProvider {
-  /** Returns predicted min fees for the current slot and next N slots. */
-  getPredictedMinFees(manaUsage?: ManaUsageEstimate): Promise<GasFees[]>;
-
+export interface GlobalVariableBuilder {
   /**
    * Builds global variables for a given block.
    * @param blockNumber - The block number to build global variables for.

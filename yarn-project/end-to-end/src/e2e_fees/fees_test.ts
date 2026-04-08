@@ -193,7 +193,7 @@ export class FeesTest {
     this.wallet = this.context.wallet;
     this.aztecNode = this.context.aztecNodeService;
     this.aztecNodeAdmin = this.context.aztecNodeService;
-    this.gasSettings = GasSettings.default({
+    this.gasSettings = GasSettings.fallback({
       maxFeesPerGas: (await this.aztecNode.getCurrentMinFees()).mul(E2E_DEFAULT_MIN_FEE_PADDING),
     });
     this.cheatCodes = this.context.cheatCodes;
