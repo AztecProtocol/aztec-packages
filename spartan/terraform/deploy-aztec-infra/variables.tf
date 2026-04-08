@@ -247,6 +247,12 @@ variable "VALIDATOR_HA_REPLICAS" {
   default     = 0
 }
 
+variable "VALIDATOR_HA_REPLICA_COUNT" {
+  description = "Number of pod replicas per HA validator release. Defaults to VALIDATOR_REPLICAS if not set."
+  type        = number
+  default     = null
+}
+
 variable "VALIDATOR_HA_OLD_DUTIES_MAX_AGE_H" {
   description = "Clean up old signed HA duties after this many hours (prevents unbounded DB growth)"
   type        = number
