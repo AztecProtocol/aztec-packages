@@ -18,7 +18,6 @@ pub(crate) unconstrained fn process_private_note_msg(
     compute_note_nullifier: ComputeNoteNullifier,
     msg_metadata: u64,
     msg_content: BoundedVec<Field, MAX_MESSAGE_CONTENT_LEN>,
-    recipient: AztecAddress,
 ) {
     let decoded = decode_private_note_message(msg_metadata, msg_content);
 

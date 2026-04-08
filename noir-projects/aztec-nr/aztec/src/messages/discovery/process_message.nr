@@ -82,7 +82,6 @@ pub(crate) unconstrained fn process_message_plaintext<CustomMessageHandlerEnv>(
                 compute_note_nullifier,
                 msg_metadata,
                 msg_content,
-                recipient,
             );
         } else if msg_type_id == PARTIAL_NOTE_PRIVATE_MSG_TYPE_ID {
             aztecnr_debug_log!("Processing partial note private msg");
