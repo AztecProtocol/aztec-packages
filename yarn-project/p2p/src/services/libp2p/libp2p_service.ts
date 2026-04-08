@@ -476,7 +476,7 @@ export class LibP2PService extends WithTracer implements P2PService {
     );
 
     // Gate req/resp data protocols for unauthenticated peers when p2pAllowOnlyValidators is enabled
-    reqresp.setPeerAuthChecker(peerId => peerManager.shouldDisableP2PGossip(peerId));
+    reqresp.setShouldRejectPeer(peerId => peerManager.shouldDisableP2PGossip(peerId));
 
     // Configure application-specific scoring for gossipsub.
     // The weight scales app score to align with gossipsub thresholds:

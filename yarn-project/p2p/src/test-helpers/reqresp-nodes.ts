@@ -153,7 +153,7 @@ export async function createTestLibP2PService(
     epochCache,
   );
 
-  reqresp.setPeerAuthChecker(peerId => peerManager.shouldDisableP2PGossip(peerId));
+  reqresp.setShouldRejectPeer(peerId => peerManager.shouldDisableP2PGossip(peerId));
 
   p2pNode.services.pubsub.score.params.appSpecificWeight = APP_SPECIFIC_WEIGHT;
   p2pNode.services.pubsub.score.params.appSpecificScore = (peerId: string) =>

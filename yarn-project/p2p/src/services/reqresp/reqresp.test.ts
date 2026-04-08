@@ -413,7 +413,7 @@ describe('ReqResp', () => {
       await sleep(500);
 
       // Set up auth checker that rejects all peers (simulates p2pAllowOnlyValidators=true with no authenticated peers)
-      nodes[1].req.setPeerAuthChecker(() => true);
+      nodes[1].req.setShouldRejectPeer(() => true);
 
       // All data protocols should be rejected
       for (const protocol of [ReqRespSubProtocol.TX, ReqRespSubProtocol.BLOCK, ReqRespSubProtocol.BLOCK_TXS]) {
@@ -436,7 +436,7 @@ describe('ReqResp', () => {
       await sleep(500);
 
       // Reject all peers on gated protocols
-      nodes[1].req.setPeerAuthChecker(() => true);
+      nodes[1].req.setShouldRejectPeer(() => true);
 
       // PING, STATUS, AUTH, GOODBYE should still work
       const pingResp = await nodes[0].req.sendRequestToPeer(nodes[1].p2p.peerId, ReqRespSubProtocol.PING, PING_REQUEST);
@@ -466,7 +466,7 @@ describe('ReqResp', () => {
       await sleep(500);
 
       // Set up auth checker that allows all peers (simulates authenticated validator)
-      nodes[1].req.setPeerAuthChecker(() => false);
+      nodes[1].req.setShouldRejectPeer(() => false);
 
       // Data protocols should succeed for authenticated peers
       const pingResp = await nodes[0].req.sendRequestToPeer(nodes[1].p2p.peerId, ReqRespSubProtocol.PING, PING_REQUEST);
@@ -489,7 +489,7 @@ describe('ReqResp', () => {
       await connectToPeers(nodes);
       await sleep(500);
 
-      // No setPeerAuthChecker called — all protocols should work (backwards compatible)
+      // No setShouldRejectPeer called — all protocols should work (backwards compatible)
       const pingResp = await nodes[0].req.sendRequestToPeer(nodes[1].p2p.peerId, ReqRespSubProtocol.PING, PING_REQUEST);
       expectSuccess(pingResp);
       expect(pingResp.data.toString('utf-8')).toEqual('pong');
