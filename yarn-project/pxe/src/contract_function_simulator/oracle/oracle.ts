@@ -669,25 +669,25 @@ export class Oracle {
   }
 
   // eslint-disable-next-line camelcase
-  aztec_utl_ephemeral_push([baseSlot]: ACVMField[], elements: ACVMField[]): Promise<ACVMField[]> {
+  aztec_utl_pushEphemeral([baseSlot]: ACVMField[], elements: ACVMField[]): Promise<ACVMField[]> {
     const newLen = this.handlerAsUtility().ephemeralPush(Fr.fromString(baseSlot), elements.map(Fr.fromString));
     return Promise.resolve([toACVMField(newLen)]);
   }
 
   // eslint-disable-next-line camelcase
-  aztec_utl_ephemeral_pop([baseSlot]: ACVMField[]): Promise<ACVMField[][]> {
+  aztec_utl_popEphemeral([baseSlot]: ACVMField[]): Promise<ACVMField[][]> {
     const element = this.handlerAsUtility().ephemeralPop(Fr.fromString(baseSlot));
     return Promise.resolve([element.map(toACVMField)]);
   }
 
   // eslint-disable-next-line camelcase
-  aztec_utl_ephemeral_get([baseSlot]: ACVMField[], [index]: ACVMField[]): Promise<ACVMField[][]> {
+  aztec_utl_getEphemeral([baseSlot]: ACVMField[], [index]: ACVMField[]): Promise<ACVMField[][]> {
     const element = this.handlerAsUtility().ephemeralGet(Fr.fromString(baseSlot), Fr.fromString(index).toNumber());
     return Promise.resolve([element.map(toACVMField)]);
   }
 
   // eslint-disable-next-line camelcase
-  aztec_utl_ephemeral_set([baseSlot]: ACVMField[], [index]: ACVMField[], elements: ACVMField[]): Promise<ACVMField[]> {
+  aztec_utl_setEphemeral([baseSlot]: ACVMField[], [index]: ACVMField[], elements: ACVMField[]): Promise<ACVMField[]> {
     this.handlerAsUtility().ephemeralSet(
       Fr.fromString(baseSlot),
       Fr.fromString(index).toNumber(),
@@ -697,19 +697,19 @@ export class Oracle {
   }
 
   // eslint-disable-next-line camelcase
-  aztec_utl_ephemeral_len([baseSlot]: ACVMField[]): Promise<ACVMField[]> {
+  aztec_utl_getEphemeralLen([baseSlot]: ACVMField[]): Promise<ACVMField[]> {
     const len = this.handlerAsUtility().ephemeralLen(Fr.fromString(baseSlot));
     return Promise.resolve([toACVMField(len)]);
   }
 
   // eslint-disable-next-line camelcase
-  aztec_utl_ephemeral_remove([baseSlot]: ACVMField[], [index]: ACVMField[]): Promise<ACVMField[]> {
+  aztec_utl_removeEphemeral([baseSlot]: ACVMField[], [index]: ACVMField[]): Promise<ACVMField[]> {
     this.handlerAsUtility().ephemeralRemove(Fr.fromString(baseSlot), Fr.fromString(index).toNumber());
     return Promise.resolve([]);
   }
 
   // eslint-disable-next-line camelcase
-  aztec_utl_ephemeral_copy([srcSlot]: ACVMField[], [dstSlot]: ACVMField[], [count]: ACVMField[]): Promise<ACVMField[]> {
+  aztec_utl_copyEphemeral([srcSlot]: ACVMField[], [dstSlot]: ACVMField[], [count]: ACVMField[]): Promise<ACVMField[]> {
     this.handlerAsUtility().ephemeralCopy(
       Fr.fromString(srcSlot),
       Fr.fromString(dstSlot),
@@ -719,7 +719,7 @@ export class Oracle {
   }
 
   // eslint-disable-next-line camelcase
-  aztec_utl_ephemeral_clear([baseSlot]: ACVMField[]): Promise<ACVMField[]> {
+  aztec_utl_clearEphemeral([baseSlot]: ACVMField[]): Promise<ACVMField[]> {
     this.handlerAsUtility().ephemeralClear(Fr.fromString(baseSlot));
     return Promise.resolve([]);
   }
