@@ -140,8 +140,9 @@ pub unconstrained fn sync_inbox(
     scope: AztecAddress,
 ) -> EphemeralArray<OffchainMessageWithContext> {
     let inbox: CapsuleArray<PendingOffchainMsg> = CapsuleArray::at(contract_address, OFFCHAIN_INBOX_SLOT, scope);
-    let context_resolution_requests: EphemeralArray<Field> = EphemeralArray::at(OFFCHAIN_CONTEXT_REQUESTS_SLOT);
-    let ready_to_process: EphemeralArray<OffchainMessageWithContext> = EphemeralArray::at(OFFCHAIN_READY_MESSAGES_SLOT);
+    let context_resolution_requests: EphemeralArray<Field> = EphemeralArray::initialize(OFFCHAIN_CONTEXT_REQUESTS_SLOT);
+    let ready_to_process: EphemeralArray<OffchainMessageWithContext> =
+        EphemeralArray::initialize(OFFCHAIN_READY_MESSAGES_SLOT);
 
     // Build a request list aligned with the inbox indices.
     let mut i = 0;

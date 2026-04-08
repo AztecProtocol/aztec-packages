@@ -22,11 +22,17 @@ pub struct EphemeralArray<T> {
 }
 
 impl<T> EphemeralArray<T> {
-    /// Creates an ephemeral array at the given base slot.
-    ///
-    /// Multiple ephemeral arrays can coexist within the same call frame by using different base slots.
+    /// Returns a handle to an ephemeral array at the given base slot, which may already contain data (e.g. populated
+    /// by an oracle).
     pub unconstrained fn at(base_slot: Field) -> Self {
         Self { base_slot }
+    }
+
+    /// Initializes an empty ephemeral array at the given base slot, clearing any pre-existing data.
+    pub unconstrained fn initialize(base_slot: Field) -> Self {
+        let arr = Self { base_slot };
+        arr.clear();
+        arr
     }
 
     /// Returns the number of elements stored in the array.
