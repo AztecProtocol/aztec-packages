@@ -158,9 +158,9 @@ describe('sequencer', () => {
       expect.any(Checkpoint),
       attestationsAndSigners,
       getSignatures()[0].signature,
-      {
+      expect.objectContaining({
         txTimeoutAt: expect.any(Date),
-      },
+      }),
     );
   };
 
@@ -591,7 +591,9 @@ describe('sequencer', () => {
           expect.any(Checkpoint),
           attestationsAndSigners,
           getSignatures()[0].signature,
-          { txTimeoutAt: expect.any(Date) },
+          expect.objectContaining({
+            txTimeoutAt: expect.any(Date),
+          }),
         );
       }
     });
@@ -1063,14 +1065,9 @@ describe('sequencer', () => {
 
       await sequencer.work();
 
-      // L1 check should be called with archive override for the parent checkpoint
-      expect(publisher.canProposeAt).toHaveBeenCalledWith(
-        expect.anything(), // archive
-        expect.anything(), // proposer
-        expect.objectContaining({
-          forceArchive: expect.objectContaining({ checkpointNumber: CheckpointNumber(1) }),
-        }),
-      );
+      const simulationOverridesPlan = publisher.canProposeAt.mock.calls.at(-1)?.[2];
+      expect(simulationOverridesPlan?.pendingCheckpointNumber).toEqual(CheckpointNumber(1));
+      expect(simulationOverridesPlan?.pendingCheckpointState?.archive).toEqual(expect.anything());
     });
 
     it('skips proposal when checkpoint exceeds pipeline depth', async () => {
@@ -1138,8 +1135,7 @@ describe('sequencer', () => {
 
       await sequencer.work();
 
-      // L1 check should be called without archive override (empty overrides object)
-      expect(publisher.canProposeAt).toHaveBeenCalledWith(expect.anything(), expect.anything(), {});
+      expect(publisher.canProposeAt.mock.calls.at(-1)?.[2]).toBeUndefined();
     });
 
     it('calls L1 check without overrides when not pipelining', async () => {
@@ -1161,8 +1157,7 @@ describe('sequencer', () => {
 
       await sequencer.work();
 
-      // L1 check should be called without any overrides (empty object)
-      expect(publisher.canProposeAt).toHaveBeenCalledWith(expect.anything(), expect.anything(), {});
+      expect(publisher.canProposeAt.mock.calls.at(-1)?.[2]).toBeUndefined();
     });
   });
 

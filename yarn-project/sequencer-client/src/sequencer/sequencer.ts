@@ -1,7 +1,7 @@
 import { getKzg } from '@aztec/blob-lib';
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import type { EpochCache } from '@aztec/epoch-cache';
-import { NoCommitteeError, type RollupContract } from '@aztec/ethereum/contracts';
+import { NoCommitteeError, type RollupContract, SimulationOverridesBuilder } from '@aztec/ethereum/contracts';
 import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { merge, omit, pick } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
@@ -361,17 +361,13 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     // The L1 contract reads archives[proposedCheckpointNumber] and compares it with the provided archive.
     // When invalidating or pipelining, the local archive may differ from L1's, so we adjust accordingly.
     let archiveForCheck = syncedTo.archive;
-    const l1Overrides: {
-      forcePendingCheckpointNumber?: CheckpointNumber;
-      forceArchive?: { checkpointNumber: CheckpointNumber; archive: Fr };
-    } = {};
+    const l1SimulationOverridesBuilder = new SimulationOverridesBuilder();
 
     if (this.epochCache.isProposerPipeliningEnabled() && syncedTo.hasProposedCheckpoint) {
       // Parent checkpoint hasn't landed on L1 yet. Override both the proposed checkpoint number
       // and the archive at that checkpoint so L1 simulation sees the correct chain tip.
       const parentCheckpointNumber = CheckpointNumber(checkpointNumber - 1);
-      l1Overrides.forcePendingCheckpointNumber = parentCheckpointNumber;
-      l1Overrides.forceArchive = { checkpointNumber: parentCheckpointNumber, archive: syncedTo.archive };
+      l1SimulationOverridesBuilder.forPendingCheckpoint(parentCheckpointNumber).withPendingArchive(syncedTo.archive);
       this.metrics.recordPipelineDepth(1);
 
       this.log.verbose(
@@ -383,13 +379,18 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       // After invalidation, L1 will roll back to checkpoint N-1. The archive at N-1 already
       // exists on L1, so we just pass the matching archive (the lastArchive of the invalid checkpoint).
       archiveForCheck = invalidateCheckpoint.lastArchive;
-      l1Overrides.forcePendingCheckpointNumber = invalidateCheckpoint.forcePendingCheckpointNumber;
+      l1SimulationOverridesBuilder.forPendingCheckpoint(invalidateCheckpoint.forcePendingCheckpointNumber);
       this.metrics.recordPipelineDepth(0);
     } else {
       this.metrics.recordPipelineDepth(0);
     }
 
-    const canProposeCheck = await publisher.canProposeAt(archiveForCheck, proposer ?? EthAddress.ZERO, l1Overrides);
+    const simulationOverridesPlan = l1SimulationOverridesBuilder.build();
+    const canProposeCheck = await publisher.canProposeAt(
+      archiveForCheck,
+      proposer ?? EthAddress.ZERO,
+      simulationOverridesPlan,
+    );
 
     if (canProposeCheck === undefined) {
       this.log.warn(
