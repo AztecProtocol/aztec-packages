@@ -6,7 +6,7 @@ import { type PXEConfig, getPXEConfig } from '@aztec/pxe/config';
 
 import { LazyAccountContractsProvider } from '../account-contract-providers/lazy.js';
 import type { AccountContractsProvider } from '../account-contract-providers/types.js';
-import { EmbeddedWallet, type EmbeddedWalletOptions } from '../embedded_wallet.js';
+import { EmbeddedWallet, type EmbeddedWalletOptions, splitPxeOptions } from '../embedded_wallet.js';
 import { WalletDB } from '../wallet_db.js';
 
 export class BrowserEmbeddedWallet extends EmbeddedWallet {
@@ -26,10 +26,15 @@ export class BrowserEmbeddedWallet extends EmbeddedWallet {
     const aztecNode = typeof nodeOrUrl === 'string' ? createAztecNodeClient(nodeOrUrl) : nodeOrUrl;
     const l1Contracts = await aztecNode.getL1ContractAddresses();
 
+    // Support both the new unified `pxe` option and the deprecated `pxeConfig`/`pxeOptions`.
+    const { config: pxeConfigFromPxe, creation: pxeCreationFromPxe } = splitPxeOptions(options.pxe);
+    const mergedConfigOverrides = { ...options.pxeConfig, ...pxeConfigFromPxe };
+    const mergedCreationOverrides: PXECreationOptions = { ...options.pxeOptions, ...pxeCreationFromPxe };
+
     const pxeConfig: PXEConfig = Object.assign(getPXEConfig(), {
-      proverEnabled: options.pxeConfig?.proverEnabled ?? false,
+      proverEnabled: mergedConfigOverrides.proverEnabled ?? false,
       dataDirectory: `pxe_data_${l1Contracts.rollupAddress}`,
-      ...options.pxeConfig,
+      ...mergedConfigOverrides,
     });
 
     if (options.ephemeral) {
@@ -37,12 +42,12 @@ export class BrowserEmbeddedWallet extends EmbeddedWallet {
     }
 
     const pxeOptions: PXECreationOptions = {
-      ...options.pxeOptions,
+      ...mergedCreationOverrides,
       loggers: {
         store: rootLogger.createChild('pxe:data'),
         pxe: rootLogger.createChild('pxe:service'),
         prover: rootLogger.createChild('pxe:prover'),
-        ...options.pxeOptions?.loggers,
+        ...mergedCreationOverrides.loggers,
       },
     };
 
@@ -67,6 +72,6 @@ export class BrowserEmbeddedWallet extends EmbeddedWallet {
 }
 
 export { BrowserEmbeddedWallet as EmbeddedWallet };
-export type { EmbeddedWalletOptions } from '../embedded_wallet.js';
+export type { EmbeddedWalletOptions, EmbeddedWalletPXEOptions } from '../embedded_wallet.js';
 export { WalletDB } from '../wallet_db.js';
 export type { AccountType } from '../wallet_db.js';
