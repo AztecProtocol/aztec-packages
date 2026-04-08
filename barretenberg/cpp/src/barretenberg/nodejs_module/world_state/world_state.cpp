@@ -137,11 +137,21 @@ WorldStateWrapper::WorldStateWrapper(const Napi::CallbackInfo& info)
 
             for (auto tree_id : tree_ids) {
                 if (obj.Has(tree_id)) {
-                    map_size[tree_id] = obj.Get(tree_id).As<Napi::Number>().Uint32Value();
+                    // Int64Value is the widest integer accessor in N-API (no Uint64Value exists)
+                    int64_t val = obj.Get(tree_id).As<Napi::Number>().Int64Value();
+                    if (val <= 0) {
+                        throw Napi::TypeError::New(env, "Map size must be a positive number");
+                    }
+                    map_size[tree_id] = static_cast<uint64_t>(val);
                 }
             }
         } else if (info[map_size_index].IsNumber()) {
-            uint64_t size = info[map_size_index].As<Napi::Number>().Uint32Value();
+            // Int64Value is the widest integer accessor in N-API (no Uint64Value exists)
+            int64_t val = info[map_size_index].As<Napi::Number>().Int64Value();
+            if (val <= 0) {
+                throw Napi::TypeError::New(env, "Map size must be a positive number");
+            }
+            uint64_t size = static_cast<uint64_t>(val);
             for (auto tree_id : tree_ids) {
                 map_size[tree_id] = size;
             }
