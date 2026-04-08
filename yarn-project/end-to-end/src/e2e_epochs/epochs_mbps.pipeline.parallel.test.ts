@@ -262,12 +262,18 @@ describe('e2e_epochs/epochs_mbps_pipeline', () => {
     const blockProposedEvents: { blockNumber: BlockNumber; slot: SlotNumber; buildSlot: SlotNumber }[] = [];
     const sequencers = nodes.map(n => n.getSequencer()!);
 
-    // Pre-prove and send transactions
-    const txs = await timesAsync(TX_COUNT, i =>
+    // Pre-prove all transactions upfront (both initial batch and extra batch for after the prune).
+    // The initial batch feeds the sequencers to reach checkpoint 1. The extra batch is held back
+    // and only sent to the mempool after we disable the target proposer's checkpoint publishing,
+    // ensuring there are always txs available for building uncheckpointed blocks.
+    const allProvenTxs = await timesAsync(TX_COUNT * 2, i =>
       proveInteraction(context.wallet, contract.methods.emit_nullifier(new Fr(i + 1)), { from }),
     );
-    const txHashes = await Promise.all(txs.map(tx => tx.send({ wait: NO_WAIT })));
-    logger.warn(`Sent ${txHashes.length} transactions`, { txs: txHashes });
+    const initialTxs = allProvenTxs.slice(0, TX_COUNT);
+    const extraTxs = allProvenTxs.slice(TX_COUNT);
+
+    const txHashes = await Promise.all(initialTxs.map(tx => tx.send({ wait: NO_WAIT })));
+    logger.warn(`Sent ${txHashes.length} initial transactions`, { txs: txHashes });
 
     await Promise.all(sequencers.map(s => s.start()));
     logger.warn(`Started all sequencers`);
@@ -299,6 +305,12 @@ describe('e2e_epochs/epochs_mbps_pipeline', () => {
 
     // The sequencer keeps building blocks and broadcasting via P2P, but won't submit the checkpoint to L1
     targetSequencer.updateConfig({ skipPublishingCheckpointsPercent: 100 });
+
+    // Now send the extra pre-proven txs so the disabled proposer has blocks to build.
+    // These blocks will be broadcast via P2P but the checkpoint won't be submitted to L1.
+    const extraTxHashes = await Promise.all(extraTxs.map(tx => tx.send({ wait: NO_WAIT })));
+    logger.warn(`Sent ${extraTxHashes.length} extra transactions after disabling proposer`, { txs: extraTxHashes });
+    txHashes.push(...extraTxHashes);
 
     const pruneTimeout = test.L2_SLOT_DURATION_IN_S * 5 * 1000;
     logger.warn(`Waiting for uncheckpointed blocks to be pruned (timeout=${pruneTimeout}ms)`);
