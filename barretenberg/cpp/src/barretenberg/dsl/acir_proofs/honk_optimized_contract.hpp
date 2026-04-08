@@ -15,7 +15,7 @@
 inline std::string generate_memory_offsets(int log_n)
 {
     const int BATCHED_RELATION_PARTIAL_LENGTH = 8;
-    const int NUMBER_OF_SUBRELATIONS = 28;
+    const int NUMBER_OF_SUBRELATIONS = 29;
     const int NUMBER_OF_ALPHAS = NUMBER_OF_SUBRELATIONS - 1;
     const int START_POINTER = 0x1000;
     const int BARYCENTRIC_DOMAIN_SIZE = 8;
