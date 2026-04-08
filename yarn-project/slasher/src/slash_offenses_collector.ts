@@ -3,7 +3,7 @@ import { createLogger } from '@aztec/foundation/log';
 import type { Prettify } from '@aztec/foundation/types';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import type { SlasherConfig } from '@aztec/stdlib/interfaces/server';
-import { type Offense, type OffenseIdentifier, getSlotForOffense } from '@aztec/stdlib/slashing';
+import { type Offense, getSlotForOffense } from '@aztec/stdlib/slashing';
 
 import type { SlasherOffensesStore } from './stores/offenses_store.js';
 import { WANT_TO_SLASH_EVENT, type WantToSlashArgs, type Watcher } from './watcher.js';
@@ -66,20 +66,20 @@ export class SlashOffensesCollector {
    */
   public async handleWantToSlash(args: WantToSlashArgs[]) {
     for (const arg of args) {
-      const pendingOffense: Offense = {
+      const offense: Offense = {
         validator: arg.validator,
         amount: arg.amount,
         offenseType: arg.offenseType,
         epochOrSlot: arg.epochOrSlot,
       };
 
-      if (this.shouldSkipOffense(pendingOffense)) {
-        this.log.verbose('Skipping offense during grace period', pendingOffense);
+      if (this.shouldSkipOffense(offense)) {
+        this.log.verbose('Skipping offense during grace period', offense);
         continue;
       }
 
-      if (await this.offensesStore.hasOffense(pendingOffense)) {
-        this.log.debug('Skipping repeated offense', pendingOffense);
+      if (await this.offensesStore.hasOffense(offense)) {
+        this.log.debug('Skipping repeated offense', offense);
         continue;
       }
 
@@ -90,8 +90,8 @@ export class SlashOffensesCollector {
         }
       }
 
-      this.log.info(`Adding pending offense for validator ${arg.validator}`, pendingOffense);
-      await this.offensesStore.addPendingOffense(pendingOffense);
+      this.log.info(`Adding pending offense for validator ${arg.validator}`, offense);
+      await this.offensesStore.addOffense(offense);
     }
   }
 
@@ -104,15 +104,6 @@ export class SlashOffensesCollector {
     if (cleared && cleared > 0) {
       this.log.debug(`Cleared ${cleared} expired offenses for round ${round}`);
     }
-  }
-
-  /**
-   * Marks offenses as slashed (no longer pending)
-   * @param offenses - The offenses to mark as slashed
-   */
-  public markAsSlashed(offenses: OffenseIdentifier[]) {
-    this.log.verbose(`Marking offenses as slashed`, { offenses });
-    return this.offensesStore.markAsSlashed(offenses);
   }
 
   /** Returns whether to skip an offense if it happened during the grace period after the network upgrade */

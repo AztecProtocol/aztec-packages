@@ -3,7 +3,6 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { TestERC20Abi as FeeAssetAbi } from '@aztec/l1-artifacts/TestERC20Abi';
 
-import omit from 'lodash.omit';
 import { type GetContractReturnType, getContract } from 'viem';
 import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
@@ -46,8 +45,7 @@ describe('FeeAssetHandler', () => {
       genesisArchiveRoot: Fr.random(),
       realVerifier: false,
     });
-    // Since the registry cannot "see" the slash factory, we omit it from the addresses for this test
-    const deployedAddresses = omit(deployed.l1ContractAddresses, 'slashFactoryAddress');
+    const deployedAddresses = deployed.l1ContractAddresses;
     txUtils = createL1TxUtils(l1Client, { logger });
     feeAssetHandler = new FeeAssetHandlerContract(l1Client, deployedAddresses.feeAssetHandlerAddress!);
     feeAsset = getContract({

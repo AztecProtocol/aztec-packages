@@ -70,7 +70,7 @@ export async function deployContractsToL1(
     genesisArchiveRoot: opts.genesisArchiveRoot ?? new Fr(GENESIS_ARCHIVE_ROOT),
     feeJuicePortalInitialBalance: opts.feeJuicePortalInitialBalance,
     aztecTargetCommitteeSize: 0, // no committee in local network
-    slasherFlavor: 'none', // no slashing in local network
+    slasherEnabled: false, // no slashing in local network
     realVerifier: false,
   });
 

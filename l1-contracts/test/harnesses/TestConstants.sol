@@ -17,7 +17,6 @@ import {IRewardDistributor} from "@aztec/governance/interfaces/IRewardDistributo
 import {RewardBoostConfig, IBoosterCore} from "@aztec/core/reward-boost/RewardBooster.sol";
 import {Configuration, ProposeWithLockConfiguration} from "@aztec/governance/interfaces/IGovernance.sol";
 import {Timestamp} from "@aztec/shared/libraries/TimeMath.sol";
-import {SlasherFlavor} from "@aztec/core/interfaces/ISlasher.sol";
 
 library TestConstants {
   uint256 internal constant ETHEREUM_SLOT_DURATION = 12;
@@ -28,8 +27,9 @@ library TestConstants {
   uint256 internal constant AZTEC_LAG_IN_EPOCHS_FOR_RANDAO = 2;
   uint256 internal constant AZTEC_INBOX_LAG = 2;
   uint256 internal constant AZTEC_PROOF_SUBMISSION_EPOCHS = 1;
-  uint256 internal constant AZTEC_SLASHING_QUORUM = 6;
-  uint256 internal constant AZTEC_SLASHING_ROUND_SIZE = 10;
+  uint256 internal constant AZTEC_SLASHING_QUORUM = 17; // Must be > ROUND_SIZE / 2 (ROUND_SIZE derived from
+    // EPOCH_DURATION)
+  uint256 internal constant AZTEC_SLASHING_ROUND_SIZE = 32;
   uint256 internal constant AZTEC_SLASHING_LIFETIME_IN_ROUNDS = 5;
   uint256 internal constant AZTEC_SLASHING_EXECUTION_DELAY_IN_ROUNDS = 0;
   uint256 internal constant AZTEC_SLASHING_OFFSET_IN_ROUNDS = 2;
@@ -125,7 +125,7 @@ library TestConstants {
       rewardBoostConfig: getRewardBoostConfig(),
       stakingQueueConfig: getStakingQueueConfig(),
       slashAmounts: [AZTEC_SLASH_AMOUNT_SMALL, AZTEC_SLASH_AMOUNT_MEDIUM, AZTEC_SLASH_AMOUNT_LARGE],
-      slasherFlavor: SlasherFlavor.EMPIRE,
+      slasherEnabled: false,
       localEjectionThreshold: 0, // The same as it being off, and only using the global.
       earliestRewardsClaimableTimestamp: Timestamp.wrap(0), // Default to 0 (no restriction)
       inboxLag: AZTEC_INBOX_LAG

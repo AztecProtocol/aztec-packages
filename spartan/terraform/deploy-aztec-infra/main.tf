@@ -47,7 +47,7 @@ module "web3signer" {
   MNEMONIC                                 = var.VALIDATOR_MNEMONIC
   ADDRESS_CONFIGMAP_NAME                   = "${var.RELEASE_PREFIX}-attester-addresses"
   ATTESTERS_PER_NODE                       = tonumber(var.VALIDATORS_PER_NODE)
-  NODE_COUNT                               = tonumber(var.VALIDATOR_REPLICAS)
+  NODE_COUNT                               = local.max_validator_nodes
   VALIDATOR_HA_REPLICAS                    = tonumber(var.VALIDATOR_HA_REPLICAS)
   VALIDATOR_MNEMONIC_START_INDEX           = tonumber(var.VALIDATOR_MNEMONIC_START_INDEX)
   VALIDATOR_PUBLISHER_MNEMONIC_START_INDEX = tonumber(var.VALIDATOR_PUBLISHER_MNEMONIC_START_INDEX)
@@ -89,6 +89,16 @@ locals {
     tag        = split(":", var.PROVER_AGENT_DOCKER_IMAGE)[1]
   } : local.aztec_image
 
+  validator_ha_image = var.VALIDATOR_HA_DOCKER_IMAGE != "" ? {
+    repository = split(":", var.VALIDATOR_HA_DOCKER_IMAGE)[0]
+    tag        = split(":", var.VALIDATOR_HA_DOCKER_IMAGE)[1]
+  } : local.aztec_image
+
+  # Max node count: max of primary (VALIDATOR_REPLICAS) and HA pod counts
+  # Determines how many attester keystores and publisher key ranges to generate
+  effective_ha_count  = var.VALIDATOR_HA_REPLICAS > 0 ? coalesce(var.VALIDATOR_HA_REPLICA_COUNT, tonumber(var.VALIDATOR_REPLICAS)) : 0
+  max_validator_nodes = max(tonumber(var.VALIDATOR_REPLICAS), local.effective_ha_count)
+
   # Detect local kind context (e.g., "kind-kind") to gate Service types
   is_kind = can(regex("^kind", var.K8S_CLUSTER_CONTEXT))
 
@@ -105,7 +115,6 @@ locals {
     "global.useGcloudLogging"                                  = true
     "global.aztecNetwork"                                      = var.NETWORK
     "global.customAztecNetwork.registryContractAddress"        = var.REGISTRY_CONTRACT_ADDRESS
-    "global.customAztecNetwork.slashFactoryContractAddress"    = var.SLASH_FACTORY_CONTRACT_ADDRESS
     "global.customAztecNetwork.feeAssetHandlerContractAddress" = var.FEE_ASSET_HANDLER_CONTRACT_ADDRESS
     "global.customAztecNetwork.l1ChainId"                      = var.L1_CHAIN_ID
     "global.otelCollectorEndpoint"                             = var.OTEL_COLLECTOR_ENDPOINT
@@ -188,10 +197,7 @@ locals {
     "validator.validatorsPerNode"                                 = var.VALIDATORS_PER_NODE
     "validator.publishersPerReplica"                              = var.VALIDATOR_PUBLISHERS_PER_REPLICA
     "validator.publisherMnemonicStartIndex"                       = var.VALIDATOR_PUBLISHER_MNEMONIC_START_INDEX
-    "validator.replicaCount"                                      = var.VALIDATOR_REPLICAS
     "validator.sentinel.enabled"                                  = var.SENTINEL_ENABLED
-    "validator.slash.minPenaltyPercentage"                        = var.SLASH_MIN_PENALTY_PERCENTAGE
-    "validator.slash.maxPenaltyPercentage"                        = var.SLASH_MAX_PENALTY_PERCENTAGE
     "validator.slash.inactivityTargetPercentage"                  = var.SLASH_INACTIVITY_TARGET_PERCENTAGE
     "validator.slash.inactivityPenalty"                           = var.SLASH_INACTIVITY_PENALTY
     "validator.slash.prunePenalty"                                = var.SLASH_PRUNE_PENALTY
@@ -262,11 +268,17 @@ locals {
         local.validator_common_settings,
         local.validator_ha_settings,
         {
+          "validator.replicaCount"                        = idx > 0 ? coalesce(var.VALIDATOR_HA_REPLICA_COUNT, var.VALIDATOR_REPLICAS) : var.VALIDATOR_REPLICAS
           "validator.node.env.VALIDATOR_HA_REPLICA_INDEX" = tostring(idx)
-          "validator.node.env.PUBLISHER_KEY_INDEX_START"  = var.VALIDATOR_PUBLISHER_MNEMONIC_START_INDEX + (idx * (var.VALIDATOR_PUBLISHERS_PER_REPLICA * var.VALIDATOR_REPLICAS))
+          "validator.node.env.PUBLISHER_KEY_INDEX_START"  = var.VALIDATOR_PUBLISHER_MNEMONIC_START_INDEX + (idx * (var.VALIDATOR_PUBLISHERS_PER_REPLICA * local.max_validator_nodes))
           "validator.service.p2p.announcePort"            = local.p2p_port_validators[idx]
           "validator.service.p2p.port"                    = local.p2p_port_validators[idx]
-        }
+        },
+        # Override image for HA releases (idx > 0) when VALIDATOR_HA_DOCKER_IMAGE is set
+        idx > 0 && var.VALIDATOR_HA_DOCKER_IMAGE != "" ? {
+          "global.aztecImage.repository" = local.validator_ha_image.repository
+          "global.aztecImage.tag"        = local.validator_ha_image.tag
+        } : {}
       )
     })
   } : {}

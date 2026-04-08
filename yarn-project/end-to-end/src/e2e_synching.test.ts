@@ -44,7 +44,7 @@ import { createBlobClientWithFileStores } from '@aztec/blob-client/client';
 import { Blob } from '@aztec/blob-lib';
 import { EpochCache } from '@aztec/epoch-cache';
 import { getL1ContractsConfigEnvVars } from '@aztec/ethereum/config';
-import { EmpireSlashingProposerContract, GovernanceProposerContract, RollupContract } from '@aztec/ethereum/contracts';
+import { GovernanceProposerContract, RollupContract } from '@aztec/ethereum/contracts';
 import { createL1TxUtils } from '@aztec/ethereum/l1-tx-utils';
 import { CheckpointNumber } from '@aztec/foundation/branded-types';
 import { Signature } from '@aztec/foundation/eth-signature';
@@ -431,16 +431,7 @@ describe('e2e_synching', () => {
       deployL1ContractsValues.l1Client,
       config.l1Contracts.governanceProposerAddress.toString(),
     );
-    const slashingProposerAddress = await rollupContract.getSlashingProposerAddress();
-    const slashingProposerContract = new EmpireSlashingProposerContract(
-      deployL1ContractsValues.l1Client,
-      slashingProposerAddress.toString(),
-    );
-    const { SlashFactoryContract } = await import('@aztec/stdlib/l1-contracts');
-    const slashFactoryContract = new SlashFactoryContract(
-      deployL1ContractsValues.l1Client,
-      deployL1ContractsValues.l1ContractAddresses.slashFactoryAddress!.toString(),
-    );
+    const slashingProposerContract = await rollupContract.getSlashingProposer();
     const epochCache = await EpochCache.create(config.l1Contracts.rollupAddress, config, { dateProvider });
     const sequencerPublisherMetrics: MockProxy<SequencerPublisherMetrics> = mock<SequencerPublisherMetrics>();
     const publisher = new SequencerPublisher(
@@ -455,7 +446,6 @@ describe('e2e_synching', () => {
         rollupContract,
         governanceProposerContract,
         slashingProposerContract,
-        slashFactoryContract,
         epochCache,
         dateProvider,
         metrics: sequencerPublisherMetrics,
