@@ -1,5 +1,5 @@
 import type { EpochCache } from '@aztec/epoch-cache';
-import { type SimulationOverridesPlan } from '@aztec/ethereum/contracts';
+import type { SimulationOverridesPlan } from '@aztec/ethereum/contracts';
 import {
   BlockNumber,
   CheckpointNumber,
