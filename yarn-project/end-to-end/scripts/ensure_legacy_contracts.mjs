@@ -28,9 +28,9 @@ function alreadyInstalled() {
 
 if (!alreadyInstalled()) {
   mkdirSync(cacheRoot, { recursive: true });
-  // Seed a standalone package.json so `npm install --prefix` treats cacheRoot as its own
-  // project. Without this, npm walks up and finds the yarn-project workspace root, which
-  // breaks on `workspace:` protocol deps and risks clobbering the monorepo's node_modules.
+  // Seed a standalone package.json so `npm install --prefix` treats cacheRoot as its own project. Without this, npm
+  // walks up and finds the yarn-project workspace root, which breaks on `workspace:` protocol deps and risks
+  // clobbering the monorepo's node_modules.
   const seed = join(cacheRoot, 'package.json');
   if (!existsSync(seed)) {
     const fs = await import('node:fs');
@@ -40,6 +40,12 @@ if (!alreadyInstalled()) {
   const specs = packages.map(p => `${p}@${version}`).join(' ');
   console.error(`[legacy-contracts] installing ${specs} into ${cacheRoot}`);
   try {
+    // --prefix: install into cacheRoot instead of cwd, so the cache is isolated from the monorepo.
+    // --no-save: don't write the installed packages back to the seeded package.json.
+    // --ignore-scripts: skip lifecycle scripts (preinstall/postinstall) of the legacy packages and their
+    //   transitive deps; we only want the files on disk, not to run any build steps.
+    // --legacy-peer-deps: tolerate peer-dependency mismatches between the pinned legacy @aztec/* graph
+    //   and whatever current versions npm would otherwise try to reconcile.
     execSync(`npm install --prefix "${cacheRoot}" --no-save --ignore-scripts --legacy-peer-deps ${specs}`, {
       stdio: 'inherit',
     });
