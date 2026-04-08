@@ -1,6 +1,14 @@
-// Custom Jest resolver. When CONTRACT_ARTIFACTS_VERSION is set, redirects imports of @aztec/noir-contracts.js and
-// @aztec/noir-test-contracts.js (and their subpaths) into a local cache of the pinned legacy versions. The cache is
-// populated on demand by running `npm install` into .legacy-contracts/<version>/.
+// Custom Jest resolver. When CONTRACT_ARTIFACTS_VERSION is set, redirects *only* JSON artifact files under
+// @aztec/noir-contracts.js/artifacts/ and @aztec/noir-test-contracts.js/artifacts/ to a local cache of the pinned
+// legacy versions. TypeScript wrapper classes (e.g. Token.ts) continue to load from the current workspace and use the
+// current @aztec/aztec.js — only the artifact JSON (the deployed-contract ABI / bytecode / notes surface) is swapped.
+//
+// Why JSON-only: the JSON artifact is the actual interchange surface a "deployed contract" exposes. The TS wrapper is
+// generated client-side ergonomics that's tightly coupled to the current @aztec/aztec.js API. Redirecting the wrapper
+// would couple this test to a moving aztec.js surface and break at import time on unrelated breaking changes; we want
+// to fail only on actual artifact-compat regressions.
+//
+// The cache is populated on demand by running `npm install` into .legacy-contracts/<version>/.
 //
 // Activated by env var; passthrough otherwise.
 
@@ -68,55 +76,59 @@ function printBannerOnce() {
   bannerPrinted = true;
   const lines = ['='.repeat(60), `[legacy-contracts][jest] CONTRACT_ARTIFACTS_VERSION=${version}`];
   for (const p of REDIRECTED) {
-    let v = '<missing>';
-    try {
-      v = JSON.parse(fs.readFileSync(pkgJsonPath(p), 'utf8')).version;
-    } catch {}
+    const v = JSON.parse(fs.readFileSync(pkgJsonPath(p), 'utf8')).version;
     if (v !== version) {
-      lines.push(`[legacy-contracts][jest] ERROR: ${p} on disk is ${v}, expected ${version}`);
-      lines.push('='.repeat(60));
-      process.stderr.write(lines.join('\n') + '\n');
-      throw new Error('[legacy-contracts] cache version mismatch');
+      throw new Error(`[legacy-contracts] ${p} on disk is ${v}, expected ${version}`);
     }
-    lines.push(
-      `[legacy-contracts][jest] redirecting ${p} -> .legacy-contracts/${version}/node_modules/${p} (version: ${v})`,
-    );
+    lines.push(`[legacy-contracts][jest] redirecting ${p}/artifacts/*.json -> .legacy-contracts/${version}/...`);
   }
   lines.push('='.repeat(60));
   process.stderr.write(lines.join('\n') + '\n');
 }
 
-function matchRedirected(request) {
+// Match a resolved absolute path against the workspace artifacts dirs and return the legacy cache equivalent, or null
+// if it's not an artifact path we should redirect.
+function legacyArtifactPath(resolved) {
+  if (!resolved.endsWith('.json')) {
+    return null;
+  }
   for (const pkg of REDIRECTED) {
-    if (request === pkg) {
-      return { pkg, sub: '' };
+    // pkg = '@aztec/noir-contracts.js' -> match '/noir-contracts.js/artifacts/'
+    const dirName = pkg.split('/')[1];
+    const marker = `/${dirName}/artifacts/`;
+    const idx = resolved.indexOf(marker);
+    if (idx === -1) {
+      continue;
     }
-    if (request.startsWith(pkg + '/')) {
-      return { pkg, sub: request.slice(pkg.length) };
-    }
+    const basename = resolved.slice(idx + marker.length);
+    return path.join(cacheRoot, 'node_modules', pkg, 'artifacts', basename);
   }
   return null;
 }
 
 module.exports = function legacyResolver(request, options) {
+  // Always run the default resolver first. We only inspect (and possibly rewrite) the *result*; this catches both
+  // bare-specifier imports of `@aztec/noir-contracts.js/artifacts/foo.json` and the relative `../artifacts/foo.json`
+  // imports inside the workspace TS wrapper classes — both resolve to the same workspace artifact path that we then
+  // redirect.
+  const resolved = options.defaultResolver(request, options);
   if (!version) {
-    return options.defaultResolver(request, options);
+    return resolved;
   }
   printBannerOnce();
-  const m = matchRedirected(request);
-  if (!m) {
-    return options.defaultResolver(request, options);
+  const legacy = legacyArtifactPath(resolved);
+  if (!legacy) {
+    return resolved;
   }
-  // Resolve from inside the cache so node_modules walks find the legacy package first.
-  const newOptions = {
-    ...options,
-    basedir: path.join(cacheRoot, 'node_modules', m.pkg),
-    paths: [path.join(cacheRoot, 'node_modules')],
-  };
-  const resolved = options.defaultResolver(request, newOptions);
-  if (!seen.has(request)) {
-    seen.add(request);
-    process.stderr.write(`[legacy-contracts][jest] resolved ${request} -> ${resolved}\n`);
+  if (!fs.existsSync(legacy)) {
+    throw new Error(
+      `[legacy-contracts] artifact ${path.basename(legacy)} not present in legacy cache @${version}; ` +
+        `the contract may have been added after that release. Pin a newer CONTRACT_ARTIFACTS_VERSION or skip this test.`,
+    );
   }
-  return resolved;
+  if (!seen.has(resolved)) {
+    seen.add(resolved);
+    process.stderr.write(`[legacy-contracts][jest] redirected ${path.basename(legacy)} -> ${legacy}\n`);
+  }
+  return legacy;
 };
