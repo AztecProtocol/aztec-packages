@@ -49,19 +49,11 @@ Not sure which network to use? Jump to our [Network Selection Guide](#network-se
 | **Governance Staking Escrow** | [`0xa92ecfd0e70c9cd5e5cd76c50af0f7da93567a4f`](https://etherscan.io/address/0xa92ecfd0e70c9cd5e5cd76c50af0f7da93567a4f) | [`0xb6a38a51a6c1de9012f9d8ea9745ef957212eaac`](https://sepolia.etherscan.io/address/0xb6a38a51a6c1de9012f9d8ea9745ef957212eaac) |
 | **Staking Registry** | [`0x042dF8f42790d6943F41C25C2132400fd727f452`](https://etherscan.io/address/0x042dF8f42790d6943F41C25C2132400fd727f452) | [`0xC6EcC1832c8BF6a41c927BEb4E9ec610FBeDd1C2`](https://sepolia.etherscan.io/address/0xC6EcC1832c8BF6a41c927BEb4E9ec610FBeDd1C2) |
 | **Slash Factory** | N/A | [`0x9CF4a0094c8696d5110dd0f0cF3FA5deA174BB17`](https://sepolia.etherscan.io/address/0x9CF4a0094c8696d5110dd0f0cF3FA5deA174BB17) |
-<<<<<<< HEAD
-| **Slasher** | [`0x91a3745c685c220595b997e53311ebf660144889`](https://etherscan.io/address/0x91a3745c685c220595b997e53311ebf660144889) | [`0xf6D0D42aCE06829bECB78C74F49879528fC632c1`](https://sepolia.etherscan.io/address/0xf6D0D42aCE06829bECB78C74F49879528fC632c1) |
-| **Tally Slashing Proposer** | [`0x7a318c3daa9f21f8fc8238c65755eb0394fbf189`](https://etherscan.io/address/0x7a318c3daa9f21f8fc8238c65755eb0394fbf189) | [`0x158eCC4B24675dc399031c7D144786e3da2060A8`](https://sepolia.etherscan.io/address/0x158eCC4B24675dc399031c7D144786e3da2060A8) |
-| **Honk Verifier** | N/A | [`0x800FbC88054ba6c228B7d822F1DCAf4d627E8F97`](https://sepolia.etherscan.io/address/0x800FbC88054ba6c228B7d822F1DCAf4d627E8F97) |
-| **Register New Rollup Version Payload** | N/A | [`0x11f7Ab2324CA94af929A388477a7959E0108C3d6`](https://sepolia.etherscan.io/address/0x11f7Ab2324CA94af929A388477a7959E0108C3d6) |
-| **Slash Payload Cloneable** | N/A | [`0xe66d9eeBfF5490E6bfA263cF08028dE7d265321F`](https://sepolia.etherscan.io/address/0xe66d9eeBfF5490E6bfA263cF08028dE7d265321F) |
-=======
 | **Slasher** | [`0x64E6e9Bb9f1E33D319578B9f8a9C719Ca6D46eBb`](https://etherscan.io/address/0x64E6e9Bb9f1E33D319578B9f8a9C719Ca6D46eBb) | [`0xCF750B724558098E5db67B651f03a31AE2b252f4`](https://sepolia.etherscan.io/address/0xCF750B724558098E5db67B651f03a31AE2b252f4) |
 | **Tally Slashing Proposer** | [`0xa4a38fD0108C00983E75616b638Ff3321FD26958`](https://etherscan.io/address/0xa4a38fD0108C00983E75616b638Ff3321FD26958) | [`0x158eCC4B24675dc399031c7D144786e3da2060A8`](https://sepolia.etherscan.io/address/0x158eCC4B24675dc399031c7D144786e3da2060A8) |
 | **Honk Verifier** | [`0x70aedda427f26480d240bc0f4308cedec8d31348`](https://etherscan.io/address/0x70aedda427f26480d240bc0f4308cedec8d31348) | [`0x800FbC88054ba6c228B7d822F1DCAf4d627E8F97`](https://sepolia.etherscan.io/address/0x800FbC88054ba6c228B7d822F1DCAf4d627E8F97) |
 | **Register New Rollup Version Payload** | N/A | [`0x11f7Ab2324CA94af929A388477a7959E0108C3d6`](https://sepolia.etherscan.io/address/0x11f7Ab2324CA94af929A388477a7959E0108C3d6) |
 | **Slash Payload Cloneable** | [`0xAA43220b7eb7c8Ffe75bc9C483f3C07b0a55B445`](https://etherscan.io/address/0xAA43220b7eb7c8Ffe75bc9C483f3C07b0a55B445) | [`0xe66d9eeBfF5490E6bfA263cF08028dE7d265321F`](https://sepolia.etherscan.io/address/0xe66d9eeBfF5490E6bfA263cF08028dE7d265321F) |
->>>>>>> abdb834199 (fix(docs): update networks page for Alpha phase, fix contract addresses and unstaking delay (#22419))
 
 ### L2 Contract Addresses
 
