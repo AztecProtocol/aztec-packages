@@ -342,8 +342,7 @@ void BytecodeTraceBuilder::process_instruction_fetching(
     using simulation::InstrDeserializationEventError::PC_OUT_OF_RANGE;
     using simulation::InstrDeserializationEventError::TAG_OUT_OF_RANGE;
 
-    // We start from row 1 because we need a row of zeroes for the shifts.
-    uint32_t row = 1; // TODO(MW): do we? Are there any shifts here?
+    uint32_t row = 0;
 
     for (const auto& event : events) {
         const auto bytecode_size = event.bytecode->size();
