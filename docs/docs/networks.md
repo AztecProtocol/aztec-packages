@@ -2,7 +2,7 @@
 title: Networks
 keywords: [Aztec, Networks, Alpha, Testnet, Mainnet]
 id: networks
-description: "Connect to Aztec Networks: Alpha and Testnet — choose the right network for your use case."
+description: "Connect to Aztec Networks: Alpha (Mainnet) and Testnet — choose the right network for your use case."
 ---
 
 # Aztec Networks Overview
@@ -11,20 +11,24 @@ The Aztec Protocol operates across multiple networks, each serving specific purp
 
 Not sure which network to use? Jump to our [Network Selection Guide](#network-selection-guide).
 
+:::note Developer SDK vs Node Versions
+The developer SDK/aztec-nr version (used for writing and compiling contracts) may differ from the node version listed below. For example, aztec-nr `4.2.0-aztecnr-rc.2` and other versions may be compatible with node version `4.1.3`. Use the version from the developer docs for contract development — use the version below for running nodes.
+:::
+
 ## Network Technical Information
 
-The developer SDK/aztec-nr version (used for writing and compiling contracts) may differ from the node software version running on the network.
-
 | Parameter | Alpha (Mainnet) | Testnet |
-|-----------|-----------------|---------|
+|-----------|-------------------|---------|
+| **Version** | `4.1.3` (node operators)<br/>`4.2.0-aztecnr-rc.2` (developer SDK) | `4.1.3` (node operators)<br/>`4.2.0-aztecnr-rc.2` (developer SDK) |
 | **L1 Chain ID** | `1` (Mainnet) | `11155111` (Sepolia) |
+| **Rollup Version** | `2934756905` | `4127419662` |
 | **RPC Endpoint** | `https://aztec-mainnet.drpc.org` | `https://rpc.testnet.aztec-labs.com` |
 | **Bootnodes** | [http://static.aztec.network/mainnet/bootnodes.json](http://static.aztec.network/mainnet/bootnodes.json) | [http://static.aztec.network/testnet/bootnodes.json](http://static.aztec.network/testnet/bootnodes.json) |
 | **Block Explorer** | [Aztecscan](https://aztecscan.xyz), [Aztecexplorer](https://aztecexplorer.xyz/?network=mainnet) | [Aztecscan](https://testnet.aztecscan.xyz), [Aztecexplorer](https://aztecexplorer.xyz/?network=testnet) |
-| **Getting Started** | [Run a sequencer →](/operate/operators/setup/sequencer_management) | [Build on Testnet →](/developers/getting_started_on_testnet) |
+| **Getting Started** | [Run a sequencer →](/operate/operators/setup/sequencer_management) | [Run a node →](/operate/operators/setup/running_a_node) |
 
-:::tip Network Roles
-**Testnet is your production path.** It's decentralized, live, and stable — treat it as your staging environment for Alpha. If you want to deploy on Alpha, validate on Testnet first.
+:::tip Network Roles (Post-Alpha)
+**Testnet is your production path.** It's decentralized, live, and stable — treat it as your staging environment for Alpha. If you want to deploy on Alpha, validate on Testnet first. Note: Sponsored FPC is not available on Testnet.
 :::
 
 ## Contract Addresses
@@ -32,7 +36,7 @@ The developer SDK/aztec-nr version (used for writing and compiling contracts) ma
 ### L1 Contract Addresses
 
 | Contract Name | Alpha (Mainnet) | Testnet |
-|---------------|-----------------|---------|
+|---------------|-------------------|---------|
 | **Registry** | [`0x35b22e09ee0390539439e24f06da43d83f90e298`](https://etherscan.io/address/0x35b22e09ee0390539439e24f06da43d83f90e298) | [`0xa0bfb1b494fb49041e5c6e8c2c1be09cd171c6ba`](https://sepolia.etherscan.io/address/0xa0bfb1b494fb49041e5c6e8c2c1be09cd171c6ba) |
 | **Rollup** | [`0xae2001f7e21d5ecabf6234e9fdd1e76f50f74962`](https://etherscan.io/address/0xae2001f7e21d5ecabf6234e9fdd1e76f50f74962) | [`0xf6D0D42aCE06829bECB78C74F49879528fC632c1`](https://sepolia.etherscan.io/address/0xf6D0D42aCE06829bECB78C74F49879528fC632c1) |
 | **L1 → L2 Inbox** | [`0x8dbf0b6ed495baab6062f5d5365af3c1b2ed4578`](https://etherscan.io/address/0x8dbf0b6ed495baab6062f5d5365af3c1b2ed4578) | [`0xF1bB424AC888Aa239F1E658B5BdDabc65a1c94E6`](https://sepolia.etherscan.io/address/0xF1bB424AC888Aa239F1E658B5BdDabc65a1c94E6) |
@@ -58,7 +62,7 @@ The developer SDK/aztec-nr version (used for writing and compiling contracts) ma
 ### L2 Contract Addresses
 
 | Contract Name | Alpha (Mainnet) | Testnet |
-|---------------|-----------------|---------|
+|---------------|-------------------|---------|
 | **Instance Registry** | `0x0000000000000000000000000000000000000000000000000000000000000002` | `0x0000000000000000000000000000000000000000000000000000000000000002` |
 | **Class Registry** | `0x0000000000000000000000000000000000000000000000000000000000000003` | `0x0000000000000000000000000000000000000000000000000000000000000003` |
 | **MultiCall Entrypoint** | `0x0000000000000000000000000000000000000000000000000000000000000004` | `0x0000000000000000000000000000000000000000000000000000000000000004` |
@@ -68,7 +72,7 @@ The developer SDK/aztec-nr version (used for writing and compiling contracts) ma
 ## Governance Parameters
 
 | Parameter | Alpha (Mainnet) | Testnet |
-|-----------|-----------------|---------|
+|-----------|-------------------|---------|
 | **Proposer Quorum** | 600/1000 | 60/100 |
 | **Voting Delay** | 3 days | 12 hours |
 | **Voting Duration** | 7 days | 24 hours |
@@ -76,31 +80,37 @@ The developer SDK/aztec-nr version (used for writing and compiling contracts) ma
 | **Slashing Quorum** | 65% | 33% |
 | **Slashing Round Size** | 128 epochs | 64 epochs |
 
+## Use Case Suitability
+
+| Use Case | Alpha (Mainnet) | Testnet |
+|----------|-------------------|---------|
+| **App Development** | ❌ | ✅ |
+| **Sequencer Testing** | ✅ | ✅ |
+| **Governance Testing** | ✅ | ✅ |
+
 ---
 
 ## Network Selection Guide
 
 ### Alpha (Mainnet)
 
-Alpha is the Aztec **mainnet** in its initial operational phase, with governance and staking fully operational, and user transactions enabled.
+Alpha is the Aztec **mainnet** in its initial operational phase, with governance, networking, and transaction processing fully active.
 
 #### Overview
 
 Alpha is connected to Ethereum mainnet and supports user transactions. Governance and staking infrastructure are fully operational. This network requires real stakes for sequencer participation.
 
 **Target Users:**
-
 - Validators who want to contribute to the decentralized Aztec Network
 - Governance participants
 - Developers deploying production applications
 - Infrastructure operators
 
 **Key Features:**
-
 - Governance system fully operational
 - Staking required for sequencer participation
 - Connected to Ethereum Mainnet
-- User transactions enabled
+- User transactions supported
 
 ---
 
@@ -113,24 +123,22 @@ Testnet is the production path for Aztec. It operates as a fully decentralized n
 Testnet is ideal for testing node configurations, governance proposals, and understanding network dynamics without real financial risk.
 
 **Target Users:**
-
 - Future Alpha sequencer operators testing configurations
 - Developers requiring production-like testing conditions
 - Governance participants practicing proposal workflows
 - Infrastructure operators validating monitoring setups
 
 **Key Features:**
-
 - Fully decentralized sequencer set
 - Connected to Ethereum Sepolia
 - Transactions are proven
-- Sponsored FPC available for fee payment
+- No Sponsored FPC — you must handle fee payment
 - Good environment for testing node operations
 
 ## Next Steps
 
 Based on your use case:
 
-- **Building an application?** Start with the [local network guide](/developers/getting_started_on_local_network) for development, or [deploy on testnet](/developers/getting_started_on_testnet) for production-like testing
+- **Building an application?** Start with [Getting Started](/developers/getting_started_on_local_network)
 - **Running infrastructure?** Review [Network Operator Guide](/operate/operators)
 - **Joining as validator?** See [Sequencer Management](/operate/operators/setup/sequencer_management)
