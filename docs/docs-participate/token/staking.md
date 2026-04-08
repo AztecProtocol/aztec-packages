@@ -56,14 +56,18 @@ Slashing is managed through governance voting based on evidence collected both o
 
 ## Unstaking
 
-When you want to withdraw your staked tokens, you must go through an unstaking process with a mandatory exit delay.
+When you want to withdraw your staked tokens, you must go through an unstaking process with mandatory delays.
 
-| Network | Exit Delay |
-|---------|-----------|
-| **Alpha (Mainnet)** | 4 days |
-| **Testnet** | 2 days |
+### Exit Delays
 
-The exit delay exists to allow time for pending slashing conditions to be detected and to prevent validators from quickly exiting after misbehaving.
+| Delay Type | Alpha (Mainnet) | Testnet |
+|-----------|-----------------|---------|
+| **Staking Exit Delay** | 4 days | 2 days |
+| **Governance Withdrawal Delay** | ~38 days | ~1.6 days |
+
+The **staking exit delay** is the minimum time after initiating withdrawal before you can claim your tokens. It allows time for pending slashing conditions to be detected.
+
+If your tokens are deposited in the Governance Staking Escrow (GSE) for voting, the **governance withdrawal delay** also applies. This delay is calculated as `votingDelay/5 + votingDuration + executionDelay` to ensure voted-on proposals can be executed before voters exit. On mainnet this is approximately 38 days (0.6 + 7 + 30 days).
 
 ### How to Unstake
 
