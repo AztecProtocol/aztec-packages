@@ -81,9 +81,6 @@ describe('e2e_epochs/epochs_mbps_pipeline', () => {
       ethereumSlotDuration: 12,
       aztecSlotDuration: 72,
       blockDurationMs: 8000,
-      // maxDABlockGas: 786432, // Set max DA block gas to be the same as the checkpoint
-      // l1PublishingTime: 2,
-      // attestationPropagationTime: 1,
       aztecTargetCommitteeSize: 3,
       inboxLag: 2,
       ...setupOpts,
