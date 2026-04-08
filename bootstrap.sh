@@ -839,6 +839,13 @@ case "$cmd" in
     export AVM_TRANSPILER=0
     barretenberg/cpp/bootstrap.sh ci
     ;;
+  "ci-barretenberg-tracy-trace")
+    # Nightly job: Build bb with Tracy, capture a trace of a chonk tx with real inputs, upload to S3
+    export CI=1
+    export AVM=0
+    export AVM_TRANSPILER=0
+    barretenberg/cpp/scripts/ci_tracy_chonk_trace.sh "${@}"
+    ;;
   "ci-barretenberg")
     export CI=1
     export USE_TEST_CACHE=1
