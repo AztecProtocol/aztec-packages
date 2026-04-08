@@ -84,18 +84,10 @@ pub struct PublicKeys {
 impl Default for PublicKeys {
     fn default() -> Self {
         PublicKeys {
-            npk_m: NpkM {
-                inner: Point { x: DEFAULT_NPK_M_X, y: DEFAULT_NPK_M_Y, is_infinite: false },
-            },
-            ivpk_m: IvpkM {
-                inner: Point { x: DEFAULT_IVPK_M_X, y: DEFAULT_IVPK_M_Y, is_infinite: false },
-            },
-            ovpk_m: OvpkM {
-                inner: Point { x: DEFAULT_OVPK_M_X, y: DEFAULT_OVPK_M_Y, is_infinite: false },
-            },
-            tpk_m: TpkM {
-                inner: Point { x: DEFAULT_TPK_M_X, y: DEFAULT_TPK_M_Y, is_infinite: false },
-            },
+            npk_m: NpkM { inner: Point { x: DEFAULT_NPK_M_X, y: DEFAULT_NPK_M_Y } },
+            ivpk_m: IvpkM { inner: Point { x: DEFAULT_IVPK_M_X, y: DEFAULT_IVPK_M_Y } },
+            ovpk_m: OvpkM { inner: Point { x: DEFAULT_OVPK_M_X, y: DEFAULT_OVPK_M_Y } },
+            tpk_m: TpkM { inner: Point { x: DEFAULT_TPK_M_X, y: DEFAULT_TPK_M_Y } },
         }
     }
 }
@@ -137,10 +129,10 @@ mod test {
     #[test]
     unconstrained fn compute_public_keys_hash() {
         let keys = PublicKeys {
-            npk_m: NpkM { inner: Point { x: 1, y: 2, is_infinite: false } },
-            ivpk_m: IvpkM { inner: Point { x: 3, y: 4, is_infinite: false } },
-            ovpk_m: OvpkM { inner: Point { x: 5, y: 6, is_infinite: false } },
-            tpk_m: TpkM { inner: Point { x: 7, y: 8, is_infinite: false } },
+            npk_m: NpkM { inner: Point { x: 1, y: 2 } },
+            ivpk_m: IvpkM { inner: Point { x: 3, y: 4 } },
+            ovpk_m: OvpkM { inner: Point { x: 5, y: 6 } },
+            tpk_m: TpkM { inner: Point { x: 7, y: 8 } },
         };
 
         let actual = keys.hash();
@@ -168,10 +160,10 @@ mod test {
     #[test]
     unconstrained fn serde() {
         let keys = PublicKeys {
-            npk_m: NpkM { inner: Point { x: 1, y: 2, is_infinite: false } },
-            ivpk_m: IvpkM { inner: Point { x: 3, y: 4, is_infinite: false } },
-            ovpk_m: OvpkM { inner: Point { x: 5, y: 6, is_infinite: false } },
-            tpk_m: TpkM { inner: Point { x: 7, y: 8, is_infinite: false } },
+            npk_m: NpkM { inner: Point { x: 1, y: 2 } },
+            ivpk_m: IvpkM { inner: Point { x: 3, y: 4 } },
+            ovpk_m: OvpkM { inner: Point { x: 5, y: 6 } },
+            tpk_m: TpkM { inner: Point { x: 7, y: 8 } },
         };
 
         // We use the PUBLIC_KEYS_LENGTH constant to ensure that there is a match between the derived trait

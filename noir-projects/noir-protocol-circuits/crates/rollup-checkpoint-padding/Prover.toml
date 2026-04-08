@@ -1,0 +1,265 @@
+[inputs]
+
+[return]
+checkpoint_header_hashes = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+
+[return.constants]
+chain_id = 0
+protocol_contracts_hash = 0
+prover_id = 0
+version = 0
+vk_tree_root = 0
+
+[return.end_blob_accumulator]
+blob_commitments_hash_acc = 0
+gamma_acc = 0
+z_acc = 0
+
+[return.end_blob_accumulator.c_acc]
+is_infinity = false
+
+[return.end_blob_accumulator.c_acc.x]
+limbs = [0, 0, 0, 0]
+
+[return.end_blob_accumulator.c_acc.y]
+limbs = [0, 0, 0, 0]
+
+[return.end_blob_accumulator.gamma_pow_acc]
+limbs = [0, 0, 0]
+
+[return.end_blob_accumulator.y_acc]
+limbs = [0, 0, 0]
+
+[[return.fees]]
+value = 0
+
+[return.fees.recipient]
+inner = 0
+
+[[return.fees]]
+value = 0
+
+[return.fees.recipient]
+inner = 0
+
+[[return.fees]]
+value = 0
+
+[return.fees.recipient]
+inner = 0
+
+[[return.fees]]
+value = 0
+
+[return.fees.recipient]
+inner = 0
+
+[[return.fees]]
+value = 0
+
+[return.fees.recipient]
+inner = 0
+
+[[return.fees]]
+value = 0
+
+[return.fees.recipient]
+inner = 0
+
+[[return.fees]]
+value = 0
+
+[return.fees.recipient]
+inner = 0
+
+[[return.fees]]
+value = 0
+
+[return.fees.recipient]
+inner = 0
+
+[[return.fees]]
+value = 0
+
+[return.fees.recipient]
+inner = 0
+
+[[return.fees]]
+value = 0
+
+[return.fees.recipient]
+inner = 0
+
+[[return.fees]]
+value = 0
+
+[return.fees.recipient]
+inner = 0
+
+[[return.fees]]
+value = 0
+
+[return.fees.recipient]
+inner = 0
+
+[[return.fees]]
+value = 0
+
+[return.fees.recipient]
+inner = 0
+
+[[return.fees]]
+value = 0
+
+[return.fees.recipient]
+inner = 0
+
+[[return.fees]]
+value = 0
+
+[return.fees.recipient]
+inner = 0
+
+[[return.fees]]
+value = 0
+
+[return.fees.recipient]
+inner = 0
+
+[[return.fees]]
+value = 0
+
+[return.fees.recipient]
+inner = 0
+
+[[return.fees]]
+value = 0
+
+[return.fees.recipient]
+inner = 0
+
+[[return.fees]]
+value = 0
+
+[return.fees.recipient]
+inner = 0
+
+[[return.fees]]
+value = 0
+
+[return.fees.recipient]
+inner = 0
+
+[[return.fees]]
+value = 0
+
+[return.fees.recipient]
+inner = 0
+
+[[return.fees]]
+value = 0
+
+[return.fees.recipient]
+inner = 0
+
+[[return.fees]]
+value = 0
+
+[return.fees.recipient]
+inner = 0
+
+[[return.fees]]
+value = 0
+
+[return.fees.recipient]
+inner = 0
+
+[[return.fees]]
+value = 0
+
+[return.fees.recipient]
+inner = 0
+
+[[return.fees]]
+value = 0
+
+[return.fees.recipient]
+inner = 0
+
+[[return.fees]]
+value = 0
+
+[return.fees.recipient]
+inner = 0
+
+[[return.fees]]
+value = 0
+
+[return.fees.recipient]
+inner = 0
+
+[[return.fees]]
+value = 0
+
+[return.fees.recipient]
+inner = 0
+
+[[return.fees]]
+value = 0
+
+[return.fees.recipient]
+inner = 0
+
+[[return.fees]]
+value = 0
+
+[return.fees.recipient]
+inner = 0
+
+[[return.fees]]
+value = 0
+
+[return.fees.recipient]
+inner = 0
+
+[return.final_blob_challenges]
+z = 0
+
+[return.final_blob_challenges.gamma]
+limbs = [0, 0, 0]
+
+[return.new_archive]
+next_available_leaf_index = 0
+root = 0
+
+[return.new_out_hash]
+next_available_leaf_index = 0
+root = 0
+
+[return.previous_archive]
+next_available_leaf_index = 0
+root = 0
+
+[return.previous_out_hash]
+next_available_leaf_index = 0
+root = 0
+
+[return.start_blob_accumulator]
+blob_commitments_hash_acc = 0
+gamma_acc = 0
+z_acc = 0
+
+[return.start_blob_accumulator.c_acc]
+is_infinity = false
+
+[return.start_blob_accumulator.c_acc.x]
+limbs = [0, 0, 0, 0]
+
+[return.start_blob_accumulator.c_acc.y]
+limbs = [0, 0, 0, 0]
+
+[return.start_blob_accumulator.gamma_pow_acc]
+limbs = [0, 0, 0]
+
+[return.start_blob_accumulator.y_acc]
+limbs = [0, 0, 0]

@@ -13,20 +13,14 @@ impl Empty for Point {
     /// Note: Does not return a valid point on curve - instead represents an empty/"unpopulated" point struct (e.g.
     /// empty/unpopulated value in an array of points).
     fn empty() -> Self {
-        Point { x: 0, y: 0, is_infinite: false }
+        Point { x: 0, y: 0 }
     }
 }
 
 pub fn validate_on_curve(p: Point) {
     // y^2 == x^3 - 17
-    let x = p.x;
-    let y = p.y;
-    if p.is_infinite {
-        // Assert the canonical representation of infinity
-        assert_eq(x, 0, "Point at infinity should have canonical representation (0 0)");
-        assert_eq(y, 0, "Point at infinity should have canonical representation (0 0)");
-    } else {
-        assert_eq(y * y, x * x * x - 17, "Point not on curve");
+    if !p.is_infinite() {
+        assert_eq(p.y * p.y, p.x * p.x * p.x - 17, "Point not on curve");
     }
 }
 
@@ -56,29 +50,15 @@ mod tests {
 
     #[test]
     unconstrained fn test_validate_on_curve_infinity() {
-        // Canonical infinite point (x=0, y=0) should pass
-        let infinity = Point { x: 0, y: 0, is_infinite: true };
+        // Point at infinity (0, 0) should pass
+        let infinity = Point { x: 0, y: 0 };
         validate_on_curve(infinity);
     }
 
     #[test(should_fail_with = "Point not on curve")]
     unconstrained fn test_validate_on_curve_invalid_point() {
         // A point not on the curve should fail
-        let invalid = Point { x: 1, y: 1, is_infinite: false };
+        let invalid = Point { x: 1, y: 1 };
         validate_on_curve(invalid);
-    }
-
-    #[test(should_fail_with = "Point at infinity should have canonical representation (0 0)")]
-    unconstrained fn test_validate_on_curve_infinity_non_canonical_x() {
-        // Infinite point with non-zero x should fail
-        let invalid_infinity = Point { x: 1, y: 0, is_infinite: true };
-        validate_on_curve(invalid_infinity);
-    }
-
-    #[test(should_fail_with = "Point at infinity should have canonical representation (0 0)")]
-    unconstrained fn test_validate_on_curve_infinity_non_canonical_y() {
-        // Infinite point with non-zero y should fail
-        let invalid_infinity = Point { x: 0, y: 1, is_infinite: true };
-        validate_on_curve(invalid_infinity);
     }
 }

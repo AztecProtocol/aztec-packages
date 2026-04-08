@@ -1,0 +1,1395 @@
+[_avm_circuit_public_inputs]
+prover_id = 0
+reverted = false
+transaction_fee = 0
+
+[_avm_circuit_public_inputs.accumulated_data]
+note_hashes = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+nullifiers = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+
+[[_avm_circuit_public_inputs.accumulated_data.l2_to_l1_msgs]]
+
+[_avm_circuit_public_inputs.accumulated_data.l2_to_l1_msgs.contract_address]
+inner = 0
+
+[_avm_circuit_public_inputs.accumulated_data.l2_to_l1_msgs.inner]
+content = 0
+
+[_avm_circuit_public_inputs.accumulated_data.l2_to_l1_msgs.inner.recipient]
+inner = 0
+
+[[_avm_circuit_public_inputs.accumulated_data.l2_to_l1_msgs]]
+
+[_avm_circuit_public_inputs.accumulated_data.l2_to_l1_msgs.contract_address]
+inner = 0
+
+[_avm_circuit_public_inputs.accumulated_data.l2_to_l1_msgs.inner]
+content = 0
+
+[_avm_circuit_public_inputs.accumulated_data.l2_to_l1_msgs.inner.recipient]
+inner = 0
+
+[[_avm_circuit_public_inputs.accumulated_data.l2_to_l1_msgs]]
+
+[_avm_circuit_public_inputs.accumulated_data.l2_to_l1_msgs.contract_address]
+inner = 0
+
+[_avm_circuit_public_inputs.accumulated_data.l2_to_l1_msgs.inner]
+content = 0
+
+[_avm_circuit_public_inputs.accumulated_data.l2_to_l1_msgs.inner.recipient]
+inner = 0
+
+[[_avm_circuit_public_inputs.accumulated_data.l2_to_l1_msgs]]
+
+[_avm_circuit_public_inputs.accumulated_data.l2_to_l1_msgs.contract_address]
+inner = 0
+
+[_avm_circuit_public_inputs.accumulated_data.l2_to_l1_msgs.inner]
+content = 0
+
+[_avm_circuit_public_inputs.accumulated_data.l2_to_l1_msgs.inner.recipient]
+inner = 0
+
+[[_avm_circuit_public_inputs.accumulated_data.l2_to_l1_msgs]]
+
+[_avm_circuit_public_inputs.accumulated_data.l2_to_l1_msgs.contract_address]
+inner = 0
+
+[_avm_circuit_public_inputs.accumulated_data.l2_to_l1_msgs.inner]
+content = 0
+
+[_avm_circuit_public_inputs.accumulated_data.l2_to_l1_msgs.inner.recipient]
+inner = 0
+
+[[_avm_circuit_public_inputs.accumulated_data.l2_to_l1_msgs]]
+
+[_avm_circuit_public_inputs.accumulated_data.l2_to_l1_msgs.contract_address]
+inner = 0
+
+[_avm_circuit_public_inputs.accumulated_data.l2_to_l1_msgs.inner]
+content = 0
+
+[_avm_circuit_public_inputs.accumulated_data.l2_to_l1_msgs.inner.recipient]
+inner = 0
+
+[[_avm_circuit_public_inputs.accumulated_data.l2_to_l1_msgs]]
+
+[_avm_circuit_public_inputs.accumulated_data.l2_to_l1_msgs.contract_address]
+inner = 0
+
+[_avm_circuit_public_inputs.accumulated_data.l2_to_l1_msgs.inner]
+content = 0
+
+[_avm_circuit_public_inputs.accumulated_data.l2_to_l1_msgs.inner.recipient]
+inner = 0
+
+[[_avm_circuit_public_inputs.accumulated_data.l2_to_l1_msgs]]
+
+[_avm_circuit_public_inputs.accumulated_data.l2_to_l1_msgs.contract_address]
+inner = 0
+
+[_avm_circuit_public_inputs.accumulated_data.l2_to_l1_msgs.inner]
+content = 0
+
+[_avm_circuit_public_inputs.accumulated_data.l2_to_l1_msgs.inner.recipient]
+inner = 0
+
+[[_avm_circuit_public_inputs.accumulated_data.public_data_writes]]
+leaf_slot = 0
+value = 0
+
+[[_avm_circuit_public_inputs.accumulated_data.public_data_writes]]
+leaf_slot = 0
+value = 0
+
+[[_avm_circuit_public_inputs.accumulated_data.public_data_writes]]
+leaf_slot = 0
+value = 0
+
+[[_avm_circuit_public_inputs.accumulated_data.public_data_writes]]
+leaf_slot = 0
+value = 0
+
+[[_avm_circuit_public_inputs.accumulated_data.public_data_writes]]
+leaf_slot = 0
+value = 0
+
+[[_avm_circuit_public_inputs.accumulated_data.public_data_writes]]
+leaf_slot = 0
+value = 0
+
+[[_avm_circuit_public_inputs.accumulated_data.public_data_writes]]
+leaf_slot = 0
+value = 0
+
+[[_avm_circuit_public_inputs.accumulated_data.public_data_writes]]
+leaf_slot = 0
+value = 0
+
+[[_avm_circuit_public_inputs.accumulated_data.public_data_writes]]
+leaf_slot = 0
+value = 0
+
+[[_avm_circuit_public_inputs.accumulated_data.public_data_writes]]
+leaf_slot = 0
+value = 0
+
+[[_avm_circuit_public_inputs.accumulated_data.public_data_writes]]
+leaf_slot = 0
+value = 0
+
+[[_avm_circuit_public_inputs.accumulated_data.public_data_writes]]
+leaf_slot = 0
+value = 0
+
+[[_avm_circuit_public_inputs.accumulated_data.public_data_writes]]
+leaf_slot = 0
+value = 0
+
+[[_avm_circuit_public_inputs.accumulated_data.public_data_writes]]
+leaf_slot = 0
+value = 0
+
+[[_avm_circuit_public_inputs.accumulated_data.public_data_writes]]
+leaf_slot = 0
+value = 0
+
+[[_avm_circuit_public_inputs.accumulated_data.public_data_writes]]
+leaf_slot = 0
+value = 0
+
+[[_avm_circuit_public_inputs.accumulated_data.public_data_writes]]
+leaf_slot = 0
+value = 0
+
+[[_avm_circuit_public_inputs.accumulated_data.public_data_writes]]
+leaf_slot = 0
+value = 0
+
+[[_avm_circuit_public_inputs.accumulated_data.public_data_writes]]
+leaf_slot = 0
+value = 0
+
+[[_avm_circuit_public_inputs.accumulated_data.public_data_writes]]
+leaf_slot = 0
+value = 0
+
+[[_avm_circuit_public_inputs.accumulated_data.public_data_writes]]
+leaf_slot = 0
+value = 0
+
+[[_avm_circuit_public_inputs.accumulated_data.public_data_writes]]
+leaf_slot = 0
+value = 0
+
+[[_avm_circuit_public_inputs.accumulated_data.public_data_writes]]
+leaf_slot = 0
+value = 0
+
+[[_avm_circuit_public_inputs.accumulated_data.public_data_writes]]
+leaf_slot = 0
+value = 0
+
+[[_avm_circuit_public_inputs.accumulated_data.public_data_writes]]
+leaf_slot = 0
+value = 0
+
+[[_avm_circuit_public_inputs.accumulated_data.public_data_writes]]
+leaf_slot = 0
+value = 0
+
+[[_avm_circuit_public_inputs.accumulated_data.public_data_writes]]
+leaf_slot = 0
+value = 0
+
+[[_avm_circuit_public_inputs.accumulated_data.public_data_writes]]
+leaf_slot = 0
+value = 0
+
+[[_avm_circuit_public_inputs.accumulated_data.public_data_writes]]
+leaf_slot = 0
+value = 0
+
+[[_avm_circuit_public_inputs.accumulated_data.public_data_writes]]
+leaf_slot = 0
+value = 0
+
+[[_avm_circuit_public_inputs.accumulated_data.public_data_writes]]
+leaf_slot = 0
+value = 0
+
+[[_avm_circuit_public_inputs.accumulated_data.public_data_writes]]
+leaf_slot = 0
+value = 0
+
+[[_avm_circuit_public_inputs.accumulated_data.public_data_writes]]
+leaf_slot = 0
+value = 0
+
+[[_avm_circuit_public_inputs.accumulated_data.public_data_writes]]
+leaf_slot = 0
+value = 0
+
+[[_avm_circuit_public_inputs.accumulated_data.public_data_writes]]
+leaf_slot = 0
+value = 0
+
+[[_avm_circuit_public_inputs.accumulated_data.public_data_writes]]
+leaf_slot = 0
+value = 0
+
+[[_avm_circuit_public_inputs.accumulated_data.public_data_writes]]
+leaf_slot = 0
+value = 0
+
+[[_avm_circuit_public_inputs.accumulated_data.public_data_writes]]
+leaf_slot = 0
+value = 0
+
+[[_avm_circuit_public_inputs.accumulated_data.public_data_writes]]
+leaf_slot = 0
+value = 0
+
+[[_avm_circuit_public_inputs.accumulated_data.public_data_writes]]
+leaf_slot = 0
+value = 0
+
+[[_avm_circuit_public_inputs.accumulated_data.public_data_writes]]
+leaf_slot = 0
+value = 0
+
+[[_avm_circuit_public_inputs.accumulated_data.public_data_writes]]
+leaf_slot = 0
+value = 0
+
+[[_avm_circuit_public_inputs.accumulated_data.public_data_writes]]
+leaf_slot = 0
+value = 0
+
+[[_avm_circuit_public_inputs.accumulated_data.public_data_writes]]
+leaf_slot = 0
+value = 0
+
+[[_avm_circuit_public_inputs.accumulated_data.public_data_writes]]
+leaf_slot = 0
+value = 0
+
+[[_avm_circuit_public_inputs.accumulated_data.public_data_writes]]
+leaf_slot = 0
+value = 0
+
+[[_avm_circuit_public_inputs.accumulated_data.public_data_writes]]
+leaf_slot = 0
+value = 0
+
+[[_avm_circuit_public_inputs.accumulated_data.public_data_writes]]
+leaf_slot = 0
+value = 0
+
+[[_avm_circuit_public_inputs.accumulated_data.public_data_writes]]
+leaf_slot = 0
+value = 0
+
+[[_avm_circuit_public_inputs.accumulated_data.public_data_writes]]
+leaf_slot = 0
+value = 0
+
+[[_avm_circuit_public_inputs.accumulated_data.public_data_writes]]
+leaf_slot = 0
+value = 0
+
+[[_avm_circuit_public_inputs.accumulated_data.public_data_writes]]
+leaf_slot = 0
+value = 0
+
+[[_avm_circuit_public_inputs.accumulated_data.public_data_writes]]
+leaf_slot = 0
+value = 0
+
+[[_avm_circuit_public_inputs.accumulated_data.public_data_writes]]
+leaf_slot = 0
+value = 0
+
+[[_avm_circuit_public_inputs.accumulated_data.public_data_writes]]
+leaf_slot = 0
+value = 0
+
+[[_avm_circuit_public_inputs.accumulated_data.public_data_writes]]
+leaf_slot = 0
+value = 0
+
+[[_avm_circuit_public_inputs.accumulated_data.public_data_writes]]
+leaf_slot = 0
+value = 0
+
+[[_avm_circuit_public_inputs.accumulated_data.public_data_writes]]
+leaf_slot = 0
+value = 0
+
+[[_avm_circuit_public_inputs.accumulated_data.public_data_writes]]
+leaf_slot = 0
+value = 0
+
+[[_avm_circuit_public_inputs.accumulated_data.public_data_writes]]
+leaf_slot = 0
+value = 0
+
+[[_avm_circuit_public_inputs.accumulated_data.public_data_writes]]
+leaf_slot = 0
+value = 0
+
+[[_avm_circuit_public_inputs.accumulated_data.public_data_writes]]
+leaf_slot = 0
+value = 0
+
+[[_avm_circuit_public_inputs.accumulated_data.public_data_writes]]
+leaf_slot = 0
+value = 0
+
+[[_avm_circuit_public_inputs.accumulated_data.public_data_writes]]
+leaf_slot = 0
+value = 0
+
+[_avm_circuit_public_inputs.accumulated_data.public_logs]
+length = 0
+payload = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+
+[_avm_circuit_public_inputs.accumulated_data_array_lengths]
+l2_to_l1_msgs = 0
+note_hashes = 0
+nullifiers = 0
+public_data_writes = 0
+
+[_avm_circuit_public_inputs.effective_gas_fees]
+fee_per_da_gas = 0
+fee_per_l2_gas = 0
+
+[_avm_circuit_public_inputs.end_gas_used]
+da_gas = 0
+l2_gas = 0
+
+[_avm_circuit_public_inputs.end_tree_snapshots.l1_to_l2_message_tree]
+next_available_leaf_index = 0
+root = 0
+
+[_avm_circuit_public_inputs.end_tree_snapshots.note_hash_tree]
+next_available_leaf_index = 0
+root = 0
+
+[_avm_circuit_public_inputs.end_tree_snapshots.nullifier_tree]
+next_available_leaf_index = 0
+root = 0
+
+[_avm_circuit_public_inputs.end_tree_snapshots.public_data_tree]
+next_available_leaf_index = 0
+root = 0
+
+[_avm_circuit_public_inputs.fee_payer]
+inner = 0
+
+[_avm_circuit_public_inputs.gas_settings.gas_limits]
+da_gas = 0
+l2_gas = 0
+
+[_avm_circuit_public_inputs.gas_settings.max_fees_per_gas]
+fee_per_da_gas = 0
+fee_per_l2_gas = 0
+
+[_avm_circuit_public_inputs.gas_settings.max_priority_fees_per_gas]
+fee_per_da_gas = 0
+fee_per_l2_gas = 0
+
+[_avm_circuit_public_inputs.gas_settings.teardown_gas_limits]
+da_gas = 0
+l2_gas = 0
+
+[_avm_circuit_public_inputs.global_variables]
+block_number = 0
+chain_id = 0
+slot_number = 0
+timestamp = 0
+version = 0
+
+[_avm_circuit_public_inputs.global_variables.coinbase]
+inner = 0
+
+[_avm_circuit_public_inputs.global_variables.fee_recipient]
+inner = 0
+
+[_avm_circuit_public_inputs.global_variables.gas_fees]
+fee_per_da_gas = 0
+fee_per_l2_gas = 0
+
+[_avm_circuit_public_inputs.previous_non_revertible_accumulated_data]
+note_hashes = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+nullifiers = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+
+[[_avm_circuit_public_inputs.previous_non_revertible_accumulated_data.l2_to_l1_msgs]]
+
+[_avm_circuit_public_inputs.previous_non_revertible_accumulated_data.l2_to_l1_msgs.contract_address]
+inner = 0
+
+[_avm_circuit_public_inputs.previous_non_revertible_accumulated_data.l2_to_l1_msgs.inner]
+content = 0
+
+[_avm_circuit_public_inputs.previous_non_revertible_accumulated_data.l2_to_l1_msgs.inner.recipient]
+inner = 0
+
+[[_avm_circuit_public_inputs.previous_non_revertible_accumulated_data.l2_to_l1_msgs]]
+
+[_avm_circuit_public_inputs.previous_non_revertible_accumulated_data.l2_to_l1_msgs.contract_address]
+inner = 0
+
+[_avm_circuit_public_inputs.previous_non_revertible_accumulated_data.l2_to_l1_msgs.inner]
+content = 0
+
+[_avm_circuit_public_inputs.previous_non_revertible_accumulated_data.l2_to_l1_msgs.inner.recipient]
+inner = 0
+
+[[_avm_circuit_public_inputs.previous_non_revertible_accumulated_data.l2_to_l1_msgs]]
+
+[_avm_circuit_public_inputs.previous_non_revertible_accumulated_data.l2_to_l1_msgs.contract_address]
+inner = 0
+
+[_avm_circuit_public_inputs.previous_non_revertible_accumulated_data.l2_to_l1_msgs.inner]
+content = 0
+
+[_avm_circuit_public_inputs.previous_non_revertible_accumulated_data.l2_to_l1_msgs.inner.recipient]
+inner = 0
+
+[[_avm_circuit_public_inputs.previous_non_revertible_accumulated_data.l2_to_l1_msgs]]
+
+[_avm_circuit_public_inputs.previous_non_revertible_accumulated_data.l2_to_l1_msgs.contract_address]
+inner = 0
+
+[_avm_circuit_public_inputs.previous_non_revertible_accumulated_data.l2_to_l1_msgs.inner]
+content = 0
+
+[_avm_circuit_public_inputs.previous_non_revertible_accumulated_data.l2_to_l1_msgs.inner.recipient]
+inner = 0
+
+[[_avm_circuit_public_inputs.previous_non_revertible_accumulated_data.l2_to_l1_msgs]]
+
+[_avm_circuit_public_inputs.previous_non_revertible_accumulated_data.l2_to_l1_msgs.contract_address]
+inner = 0
+
+[_avm_circuit_public_inputs.previous_non_revertible_accumulated_data.l2_to_l1_msgs.inner]
+content = 0
+
+[_avm_circuit_public_inputs.previous_non_revertible_accumulated_data.l2_to_l1_msgs.inner.recipient]
+inner = 0
+
+[[_avm_circuit_public_inputs.previous_non_revertible_accumulated_data.l2_to_l1_msgs]]
+
+[_avm_circuit_public_inputs.previous_non_revertible_accumulated_data.l2_to_l1_msgs.contract_address]
+inner = 0
+
+[_avm_circuit_public_inputs.previous_non_revertible_accumulated_data.l2_to_l1_msgs.inner]
+content = 0
+
+[_avm_circuit_public_inputs.previous_non_revertible_accumulated_data.l2_to_l1_msgs.inner.recipient]
+inner = 0
+
+[[_avm_circuit_public_inputs.previous_non_revertible_accumulated_data.l2_to_l1_msgs]]
+
+[_avm_circuit_public_inputs.previous_non_revertible_accumulated_data.l2_to_l1_msgs.contract_address]
+inner = 0
+
+[_avm_circuit_public_inputs.previous_non_revertible_accumulated_data.l2_to_l1_msgs.inner]
+content = 0
+
+[_avm_circuit_public_inputs.previous_non_revertible_accumulated_data.l2_to_l1_msgs.inner.recipient]
+inner = 0
+
+[[_avm_circuit_public_inputs.previous_non_revertible_accumulated_data.l2_to_l1_msgs]]
+
+[_avm_circuit_public_inputs.previous_non_revertible_accumulated_data.l2_to_l1_msgs.contract_address]
+inner = 0
+
+[_avm_circuit_public_inputs.previous_non_revertible_accumulated_data.l2_to_l1_msgs.inner]
+content = 0
+
+[_avm_circuit_public_inputs.previous_non_revertible_accumulated_data.l2_to_l1_msgs.inner.recipient]
+inner = 0
+
+[_avm_circuit_public_inputs.previous_non_revertible_accumulated_data_array_lengths]
+l2_to_l1_msgs = 0
+note_hashes = 0
+nullifiers = 0
+
+[_avm_circuit_public_inputs.previous_revertible_accumulated_data]
+note_hashes = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+nullifiers = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+
+[[_avm_circuit_public_inputs.previous_revertible_accumulated_data.l2_to_l1_msgs]]
+
+[_avm_circuit_public_inputs.previous_revertible_accumulated_data.l2_to_l1_msgs.contract_address]
+inner = 0
+
+[_avm_circuit_public_inputs.previous_revertible_accumulated_data.l2_to_l1_msgs.inner]
+content = 0
+
+[_avm_circuit_public_inputs.previous_revertible_accumulated_data.l2_to_l1_msgs.inner.recipient]
+inner = 0
+
+[[_avm_circuit_public_inputs.previous_revertible_accumulated_data.l2_to_l1_msgs]]
+
+[_avm_circuit_public_inputs.previous_revertible_accumulated_data.l2_to_l1_msgs.contract_address]
+inner = 0
+
+[_avm_circuit_public_inputs.previous_revertible_accumulated_data.l2_to_l1_msgs.inner]
+content = 0
+
+[_avm_circuit_public_inputs.previous_revertible_accumulated_data.l2_to_l1_msgs.inner.recipient]
+inner = 0
+
+[[_avm_circuit_public_inputs.previous_revertible_accumulated_data.l2_to_l1_msgs]]
+
+[_avm_circuit_public_inputs.previous_revertible_accumulated_data.l2_to_l1_msgs.contract_address]
+inner = 0
+
+[_avm_circuit_public_inputs.previous_revertible_accumulated_data.l2_to_l1_msgs.inner]
+content = 0
+
+[_avm_circuit_public_inputs.previous_revertible_accumulated_data.l2_to_l1_msgs.inner.recipient]
+inner = 0
+
+[[_avm_circuit_public_inputs.previous_revertible_accumulated_data.l2_to_l1_msgs]]
+
+[_avm_circuit_public_inputs.previous_revertible_accumulated_data.l2_to_l1_msgs.contract_address]
+inner = 0
+
+[_avm_circuit_public_inputs.previous_revertible_accumulated_data.l2_to_l1_msgs.inner]
+content = 0
+
+[_avm_circuit_public_inputs.previous_revertible_accumulated_data.l2_to_l1_msgs.inner.recipient]
+inner = 0
+
+[[_avm_circuit_public_inputs.previous_revertible_accumulated_data.l2_to_l1_msgs]]
+
+[_avm_circuit_public_inputs.previous_revertible_accumulated_data.l2_to_l1_msgs.contract_address]
+inner = 0
+
+[_avm_circuit_public_inputs.previous_revertible_accumulated_data.l2_to_l1_msgs.inner]
+content = 0
+
+[_avm_circuit_public_inputs.previous_revertible_accumulated_data.l2_to_l1_msgs.inner.recipient]
+inner = 0
+
+[[_avm_circuit_public_inputs.previous_revertible_accumulated_data.l2_to_l1_msgs]]
+
+[_avm_circuit_public_inputs.previous_revertible_accumulated_data.l2_to_l1_msgs.contract_address]
+inner = 0
+
+[_avm_circuit_public_inputs.previous_revertible_accumulated_data.l2_to_l1_msgs.inner]
+content = 0
+
+[_avm_circuit_public_inputs.previous_revertible_accumulated_data.l2_to_l1_msgs.inner.recipient]
+inner = 0
+
+[[_avm_circuit_public_inputs.previous_revertible_accumulated_data.l2_to_l1_msgs]]
+
+[_avm_circuit_public_inputs.previous_revertible_accumulated_data.l2_to_l1_msgs.contract_address]
+inner = 0
+
+[_avm_circuit_public_inputs.previous_revertible_accumulated_data.l2_to_l1_msgs.inner]
+content = 0
+
+[_avm_circuit_public_inputs.previous_revertible_accumulated_data.l2_to_l1_msgs.inner.recipient]
+inner = 0
+
+[[_avm_circuit_public_inputs.previous_revertible_accumulated_data.l2_to_l1_msgs]]
+
+[_avm_circuit_public_inputs.previous_revertible_accumulated_data.l2_to_l1_msgs.contract_address]
+inner = 0
+
+[_avm_circuit_public_inputs.previous_revertible_accumulated_data.l2_to_l1_msgs.inner]
+content = 0
+
+[_avm_circuit_public_inputs.previous_revertible_accumulated_data.l2_to_l1_msgs.inner.recipient]
+inner = 0
+
+[_avm_circuit_public_inputs.previous_revertible_accumulated_data_array_lengths]
+l2_to_l1_msgs = 0
+note_hashes = 0
+nullifiers = 0
+
+[[_avm_circuit_public_inputs.protocol_contracts.derived_addresses]]
+inner = 0
+
+[[_avm_circuit_public_inputs.protocol_contracts.derived_addresses]]
+inner = 0
+
+[[_avm_circuit_public_inputs.protocol_contracts.derived_addresses]]
+inner = 0
+
+[[_avm_circuit_public_inputs.protocol_contracts.derived_addresses]]
+inner = 0
+
+[[_avm_circuit_public_inputs.protocol_contracts.derived_addresses]]
+inner = 0
+
+[[_avm_circuit_public_inputs.protocol_contracts.derived_addresses]]
+inner = 0
+
+[[_avm_circuit_public_inputs.protocol_contracts.derived_addresses]]
+inner = 0
+
+[[_avm_circuit_public_inputs.protocol_contracts.derived_addresses]]
+inner = 0
+
+[[_avm_circuit_public_inputs.protocol_contracts.derived_addresses]]
+inner = 0
+
+[[_avm_circuit_public_inputs.protocol_contracts.derived_addresses]]
+inner = 0
+
+[[_avm_circuit_public_inputs.protocol_contracts.derived_addresses]]
+inner = 0
+
+[[_avm_circuit_public_inputs.public_app_logic_call_requests]]
+calldata_hash = 0
+is_static_call = false
+
+[_avm_circuit_public_inputs.public_app_logic_call_requests.contract_address]
+inner = 0
+
+[_avm_circuit_public_inputs.public_app_logic_call_requests.msg_sender]
+inner = 0
+
+[[_avm_circuit_public_inputs.public_app_logic_call_requests]]
+calldata_hash = 0
+is_static_call = false
+
+[_avm_circuit_public_inputs.public_app_logic_call_requests.contract_address]
+inner = 0
+
+[_avm_circuit_public_inputs.public_app_logic_call_requests.msg_sender]
+inner = 0
+
+[[_avm_circuit_public_inputs.public_app_logic_call_requests]]
+calldata_hash = 0
+is_static_call = false
+
+[_avm_circuit_public_inputs.public_app_logic_call_requests.contract_address]
+inner = 0
+
+[_avm_circuit_public_inputs.public_app_logic_call_requests.msg_sender]
+inner = 0
+
+[[_avm_circuit_public_inputs.public_app_logic_call_requests]]
+calldata_hash = 0
+is_static_call = false
+
+[_avm_circuit_public_inputs.public_app_logic_call_requests.contract_address]
+inner = 0
+
+[_avm_circuit_public_inputs.public_app_logic_call_requests.msg_sender]
+inner = 0
+
+[[_avm_circuit_public_inputs.public_app_logic_call_requests]]
+calldata_hash = 0
+is_static_call = false
+
+[_avm_circuit_public_inputs.public_app_logic_call_requests.contract_address]
+inner = 0
+
+[_avm_circuit_public_inputs.public_app_logic_call_requests.msg_sender]
+inner = 0
+
+[[_avm_circuit_public_inputs.public_app_logic_call_requests]]
+calldata_hash = 0
+is_static_call = false
+
+[_avm_circuit_public_inputs.public_app_logic_call_requests.contract_address]
+inner = 0
+
+[_avm_circuit_public_inputs.public_app_logic_call_requests.msg_sender]
+inner = 0
+
+[[_avm_circuit_public_inputs.public_app_logic_call_requests]]
+calldata_hash = 0
+is_static_call = false
+
+[_avm_circuit_public_inputs.public_app_logic_call_requests.contract_address]
+inner = 0
+
+[_avm_circuit_public_inputs.public_app_logic_call_requests.msg_sender]
+inner = 0
+
+[[_avm_circuit_public_inputs.public_app_logic_call_requests]]
+calldata_hash = 0
+is_static_call = false
+
+[_avm_circuit_public_inputs.public_app_logic_call_requests.contract_address]
+inner = 0
+
+[_avm_circuit_public_inputs.public_app_logic_call_requests.msg_sender]
+inner = 0
+
+[[_avm_circuit_public_inputs.public_app_logic_call_requests]]
+calldata_hash = 0
+is_static_call = false
+
+[_avm_circuit_public_inputs.public_app_logic_call_requests.contract_address]
+inner = 0
+
+[_avm_circuit_public_inputs.public_app_logic_call_requests.msg_sender]
+inner = 0
+
+[[_avm_circuit_public_inputs.public_app_logic_call_requests]]
+calldata_hash = 0
+is_static_call = false
+
+[_avm_circuit_public_inputs.public_app_logic_call_requests.contract_address]
+inner = 0
+
+[_avm_circuit_public_inputs.public_app_logic_call_requests.msg_sender]
+inner = 0
+
+[[_avm_circuit_public_inputs.public_app_logic_call_requests]]
+calldata_hash = 0
+is_static_call = false
+
+[_avm_circuit_public_inputs.public_app_logic_call_requests.contract_address]
+inner = 0
+
+[_avm_circuit_public_inputs.public_app_logic_call_requests.msg_sender]
+inner = 0
+
+[[_avm_circuit_public_inputs.public_app_logic_call_requests]]
+calldata_hash = 0
+is_static_call = false
+
+[_avm_circuit_public_inputs.public_app_logic_call_requests.contract_address]
+inner = 0
+
+[_avm_circuit_public_inputs.public_app_logic_call_requests.msg_sender]
+inner = 0
+
+[[_avm_circuit_public_inputs.public_app_logic_call_requests]]
+calldata_hash = 0
+is_static_call = false
+
+[_avm_circuit_public_inputs.public_app_logic_call_requests.contract_address]
+inner = 0
+
+[_avm_circuit_public_inputs.public_app_logic_call_requests.msg_sender]
+inner = 0
+
+[[_avm_circuit_public_inputs.public_app_logic_call_requests]]
+calldata_hash = 0
+is_static_call = false
+
+[_avm_circuit_public_inputs.public_app_logic_call_requests.contract_address]
+inner = 0
+
+[_avm_circuit_public_inputs.public_app_logic_call_requests.msg_sender]
+inner = 0
+
+[[_avm_circuit_public_inputs.public_app_logic_call_requests]]
+calldata_hash = 0
+is_static_call = false
+
+[_avm_circuit_public_inputs.public_app_logic_call_requests.contract_address]
+inner = 0
+
+[_avm_circuit_public_inputs.public_app_logic_call_requests.msg_sender]
+inner = 0
+
+[[_avm_circuit_public_inputs.public_app_logic_call_requests]]
+calldata_hash = 0
+is_static_call = false
+
+[_avm_circuit_public_inputs.public_app_logic_call_requests.contract_address]
+inner = 0
+
+[_avm_circuit_public_inputs.public_app_logic_call_requests.msg_sender]
+inner = 0
+
+[[_avm_circuit_public_inputs.public_app_logic_call_requests]]
+calldata_hash = 0
+is_static_call = false
+
+[_avm_circuit_public_inputs.public_app_logic_call_requests.contract_address]
+inner = 0
+
+[_avm_circuit_public_inputs.public_app_logic_call_requests.msg_sender]
+inner = 0
+
+[[_avm_circuit_public_inputs.public_app_logic_call_requests]]
+calldata_hash = 0
+is_static_call = false
+
+[_avm_circuit_public_inputs.public_app_logic_call_requests.contract_address]
+inner = 0
+
+[_avm_circuit_public_inputs.public_app_logic_call_requests.msg_sender]
+inner = 0
+
+[[_avm_circuit_public_inputs.public_app_logic_call_requests]]
+calldata_hash = 0
+is_static_call = false
+
+[_avm_circuit_public_inputs.public_app_logic_call_requests.contract_address]
+inner = 0
+
+[_avm_circuit_public_inputs.public_app_logic_call_requests.msg_sender]
+inner = 0
+
+[[_avm_circuit_public_inputs.public_app_logic_call_requests]]
+calldata_hash = 0
+is_static_call = false
+
+[_avm_circuit_public_inputs.public_app_logic_call_requests.contract_address]
+inner = 0
+
+[_avm_circuit_public_inputs.public_app_logic_call_requests.msg_sender]
+inner = 0
+
+[[_avm_circuit_public_inputs.public_app_logic_call_requests]]
+calldata_hash = 0
+is_static_call = false
+
+[_avm_circuit_public_inputs.public_app_logic_call_requests.contract_address]
+inner = 0
+
+[_avm_circuit_public_inputs.public_app_logic_call_requests.msg_sender]
+inner = 0
+
+[[_avm_circuit_public_inputs.public_app_logic_call_requests]]
+calldata_hash = 0
+is_static_call = false
+
+[_avm_circuit_public_inputs.public_app_logic_call_requests.contract_address]
+inner = 0
+
+[_avm_circuit_public_inputs.public_app_logic_call_requests.msg_sender]
+inner = 0
+
+[[_avm_circuit_public_inputs.public_app_logic_call_requests]]
+calldata_hash = 0
+is_static_call = false
+
+[_avm_circuit_public_inputs.public_app_logic_call_requests.contract_address]
+inner = 0
+
+[_avm_circuit_public_inputs.public_app_logic_call_requests.msg_sender]
+inner = 0
+
+[[_avm_circuit_public_inputs.public_app_logic_call_requests]]
+calldata_hash = 0
+is_static_call = false
+
+[_avm_circuit_public_inputs.public_app_logic_call_requests.contract_address]
+inner = 0
+
+[_avm_circuit_public_inputs.public_app_logic_call_requests.msg_sender]
+inner = 0
+
+[[_avm_circuit_public_inputs.public_app_logic_call_requests]]
+calldata_hash = 0
+is_static_call = false
+
+[_avm_circuit_public_inputs.public_app_logic_call_requests.contract_address]
+inner = 0
+
+[_avm_circuit_public_inputs.public_app_logic_call_requests.msg_sender]
+inner = 0
+
+[[_avm_circuit_public_inputs.public_app_logic_call_requests]]
+calldata_hash = 0
+is_static_call = false
+
+[_avm_circuit_public_inputs.public_app_logic_call_requests.contract_address]
+inner = 0
+
+[_avm_circuit_public_inputs.public_app_logic_call_requests.msg_sender]
+inner = 0
+
+[[_avm_circuit_public_inputs.public_app_logic_call_requests]]
+calldata_hash = 0
+is_static_call = false
+
+[_avm_circuit_public_inputs.public_app_logic_call_requests.contract_address]
+inner = 0
+
+[_avm_circuit_public_inputs.public_app_logic_call_requests.msg_sender]
+inner = 0
+
+[[_avm_circuit_public_inputs.public_app_logic_call_requests]]
+calldata_hash = 0
+is_static_call = false
+
+[_avm_circuit_public_inputs.public_app_logic_call_requests.contract_address]
+inner = 0
+
+[_avm_circuit_public_inputs.public_app_logic_call_requests.msg_sender]
+inner = 0
+
+[[_avm_circuit_public_inputs.public_app_logic_call_requests]]
+calldata_hash = 0
+is_static_call = false
+
+[_avm_circuit_public_inputs.public_app_logic_call_requests.contract_address]
+inner = 0
+
+[_avm_circuit_public_inputs.public_app_logic_call_requests.msg_sender]
+inner = 0
+
+[[_avm_circuit_public_inputs.public_app_logic_call_requests]]
+calldata_hash = 0
+is_static_call = false
+
+[_avm_circuit_public_inputs.public_app_logic_call_requests.contract_address]
+inner = 0
+
+[_avm_circuit_public_inputs.public_app_logic_call_requests.msg_sender]
+inner = 0
+
+[[_avm_circuit_public_inputs.public_app_logic_call_requests]]
+calldata_hash = 0
+is_static_call = false
+
+[_avm_circuit_public_inputs.public_app_logic_call_requests.contract_address]
+inner = 0
+
+[_avm_circuit_public_inputs.public_app_logic_call_requests.msg_sender]
+inner = 0
+
+[[_avm_circuit_public_inputs.public_app_logic_call_requests]]
+calldata_hash = 0
+is_static_call = false
+
+[_avm_circuit_public_inputs.public_app_logic_call_requests.contract_address]
+inner = 0
+
+[_avm_circuit_public_inputs.public_app_logic_call_requests.msg_sender]
+inner = 0
+
+[_avm_circuit_public_inputs.public_call_request_array_lengths]
+app_logic_calls = 0
+setup_calls = 0
+teardown_call = false
+
+[[_avm_circuit_public_inputs.public_setup_call_requests]]
+calldata_hash = 0
+is_static_call = false
+
+[_avm_circuit_public_inputs.public_setup_call_requests.contract_address]
+inner = 0
+
+[_avm_circuit_public_inputs.public_setup_call_requests.msg_sender]
+inner = 0
+
+[[_avm_circuit_public_inputs.public_setup_call_requests]]
+calldata_hash = 0
+is_static_call = false
+
+[_avm_circuit_public_inputs.public_setup_call_requests.contract_address]
+inner = 0
+
+[_avm_circuit_public_inputs.public_setup_call_requests.msg_sender]
+inner = 0
+
+[[_avm_circuit_public_inputs.public_setup_call_requests]]
+calldata_hash = 0
+is_static_call = false
+
+[_avm_circuit_public_inputs.public_setup_call_requests.contract_address]
+inner = 0
+
+[_avm_circuit_public_inputs.public_setup_call_requests.msg_sender]
+inner = 0
+
+[[_avm_circuit_public_inputs.public_setup_call_requests]]
+calldata_hash = 0
+is_static_call = false
+
+[_avm_circuit_public_inputs.public_setup_call_requests.contract_address]
+inner = 0
+
+[_avm_circuit_public_inputs.public_setup_call_requests.msg_sender]
+inner = 0
+
+[[_avm_circuit_public_inputs.public_setup_call_requests]]
+calldata_hash = 0
+is_static_call = false
+
+[_avm_circuit_public_inputs.public_setup_call_requests.contract_address]
+inner = 0
+
+[_avm_circuit_public_inputs.public_setup_call_requests.msg_sender]
+inner = 0
+
+[[_avm_circuit_public_inputs.public_setup_call_requests]]
+calldata_hash = 0
+is_static_call = false
+
+[_avm_circuit_public_inputs.public_setup_call_requests.contract_address]
+inner = 0
+
+[_avm_circuit_public_inputs.public_setup_call_requests.msg_sender]
+inner = 0
+
+[[_avm_circuit_public_inputs.public_setup_call_requests]]
+calldata_hash = 0
+is_static_call = false
+
+[_avm_circuit_public_inputs.public_setup_call_requests.contract_address]
+inner = 0
+
+[_avm_circuit_public_inputs.public_setup_call_requests.msg_sender]
+inner = 0
+
+[[_avm_circuit_public_inputs.public_setup_call_requests]]
+calldata_hash = 0
+is_static_call = false
+
+[_avm_circuit_public_inputs.public_setup_call_requests.contract_address]
+inner = 0
+
+[_avm_circuit_public_inputs.public_setup_call_requests.msg_sender]
+inner = 0
+
+[[_avm_circuit_public_inputs.public_setup_call_requests]]
+calldata_hash = 0
+is_static_call = false
+
+[_avm_circuit_public_inputs.public_setup_call_requests.contract_address]
+inner = 0
+
+[_avm_circuit_public_inputs.public_setup_call_requests.msg_sender]
+inner = 0
+
+[[_avm_circuit_public_inputs.public_setup_call_requests]]
+calldata_hash = 0
+is_static_call = false
+
+[_avm_circuit_public_inputs.public_setup_call_requests.contract_address]
+inner = 0
+
+[_avm_circuit_public_inputs.public_setup_call_requests.msg_sender]
+inner = 0
+
+[[_avm_circuit_public_inputs.public_setup_call_requests]]
+calldata_hash = 0
+is_static_call = false
+
+[_avm_circuit_public_inputs.public_setup_call_requests.contract_address]
+inner = 0
+
+[_avm_circuit_public_inputs.public_setup_call_requests.msg_sender]
+inner = 0
+
+[[_avm_circuit_public_inputs.public_setup_call_requests]]
+calldata_hash = 0
+is_static_call = false
+
+[_avm_circuit_public_inputs.public_setup_call_requests.contract_address]
+inner = 0
+
+[_avm_circuit_public_inputs.public_setup_call_requests.msg_sender]
+inner = 0
+
+[[_avm_circuit_public_inputs.public_setup_call_requests]]
+calldata_hash = 0
+is_static_call = false
+
+[_avm_circuit_public_inputs.public_setup_call_requests.contract_address]
+inner = 0
+
+[_avm_circuit_public_inputs.public_setup_call_requests.msg_sender]
+inner = 0
+
+[[_avm_circuit_public_inputs.public_setup_call_requests]]
+calldata_hash = 0
+is_static_call = false
+
+[_avm_circuit_public_inputs.public_setup_call_requests.contract_address]
+inner = 0
+
+[_avm_circuit_public_inputs.public_setup_call_requests.msg_sender]
+inner = 0
+
+[[_avm_circuit_public_inputs.public_setup_call_requests]]
+calldata_hash = 0
+is_static_call = false
+
+[_avm_circuit_public_inputs.public_setup_call_requests.contract_address]
+inner = 0
+
+[_avm_circuit_public_inputs.public_setup_call_requests.msg_sender]
+inner = 0
+
+[[_avm_circuit_public_inputs.public_setup_call_requests]]
+calldata_hash = 0
+is_static_call = false
+
+[_avm_circuit_public_inputs.public_setup_call_requests.contract_address]
+inner = 0
+
+[_avm_circuit_public_inputs.public_setup_call_requests.msg_sender]
+inner = 0
+
+[[_avm_circuit_public_inputs.public_setup_call_requests]]
+calldata_hash = 0
+is_static_call = false
+
+[_avm_circuit_public_inputs.public_setup_call_requests.contract_address]
+inner = 0
+
+[_avm_circuit_public_inputs.public_setup_call_requests.msg_sender]
+inner = 0
+
+[[_avm_circuit_public_inputs.public_setup_call_requests]]
+calldata_hash = 0
+is_static_call = false
+
+[_avm_circuit_public_inputs.public_setup_call_requests.contract_address]
+inner = 0
+
+[_avm_circuit_public_inputs.public_setup_call_requests.msg_sender]
+inner = 0
+
+[[_avm_circuit_public_inputs.public_setup_call_requests]]
+calldata_hash = 0
+is_static_call = false
+
+[_avm_circuit_public_inputs.public_setup_call_requests.contract_address]
+inner = 0
+
+[_avm_circuit_public_inputs.public_setup_call_requests.msg_sender]
+inner = 0
+
+[[_avm_circuit_public_inputs.public_setup_call_requests]]
+calldata_hash = 0
+is_static_call = false
+
+[_avm_circuit_public_inputs.public_setup_call_requests.contract_address]
+inner = 0
+
+[_avm_circuit_public_inputs.public_setup_call_requests.msg_sender]
+inner = 0
+
+[[_avm_circuit_public_inputs.public_setup_call_requests]]
+calldata_hash = 0
+is_static_call = false
+
+[_avm_circuit_public_inputs.public_setup_call_requests.contract_address]
+inner = 0
+
+[_avm_circuit_public_inputs.public_setup_call_requests.msg_sender]
+inner = 0
+
+[[_avm_circuit_public_inputs.public_setup_call_requests]]
+calldata_hash = 0
+is_static_call = false
+
+[_avm_circuit_public_inputs.public_setup_call_requests.contract_address]
+inner = 0
+
+[_avm_circuit_public_inputs.public_setup_call_requests.msg_sender]
+inner = 0
+
+[[_avm_circuit_public_inputs.public_setup_call_requests]]
+calldata_hash = 0
+is_static_call = false
+
+[_avm_circuit_public_inputs.public_setup_call_requests.contract_address]
+inner = 0
+
+[_avm_circuit_public_inputs.public_setup_call_requests.msg_sender]
+inner = 0
+
+[[_avm_circuit_public_inputs.public_setup_call_requests]]
+calldata_hash = 0
+is_static_call = false
+
+[_avm_circuit_public_inputs.public_setup_call_requests.contract_address]
+inner = 0
+
+[_avm_circuit_public_inputs.public_setup_call_requests.msg_sender]
+inner = 0
+
+[[_avm_circuit_public_inputs.public_setup_call_requests]]
+calldata_hash = 0
+is_static_call = false
+
+[_avm_circuit_public_inputs.public_setup_call_requests.contract_address]
+inner = 0
+
+[_avm_circuit_public_inputs.public_setup_call_requests.msg_sender]
+inner = 0
+
+[[_avm_circuit_public_inputs.public_setup_call_requests]]
+calldata_hash = 0
+is_static_call = false
+
+[_avm_circuit_public_inputs.public_setup_call_requests.contract_address]
+inner = 0
+
+[_avm_circuit_public_inputs.public_setup_call_requests.msg_sender]
+inner = 0
+
+[[_avm_circuit_public_inputs.public_setup_call_requests]]
+calldata_hash = 0
+is_static_call = false
+
+[_avm_circuit_public_inputs.public_setup_call_requests.contract_address]
+inner = 0
+
+[_avm_circuit_public_inputs.public_setup_call_requests.msg_sender]
+inner = 0
+
+[[_avm_circuit_public_inputs.public_setup_call_requests]]
+calldata_hash = 0
+is_static_call = false
+
+[_avm_circuit_public_inputs.public_setup_call_requests.contract_address]
+inner = 0
+
+[_avm_circuit_public_inputs.public_setup_call_requests.msg_sender]
+inner = 0
+
+[[_avm_circuit_public_inputs.public_setup_call_requests]]
+calldata_hash = 0
+is_static_call = false
+
+[_avm_circuit_public_inputs.public_setup_call_requests.contract_address]
+inner = 0
+
+[_avm_circuit_public_inputs.public_setup_call_requests.msg_sender]
+inner = 0
+
+[[_avm_circuit_public_inputs.public_setup_call_requests]]
+calldata_hash = 0
+is_static_call = false
+
+[_avm_circuit_public_inputs.public_setup_call_requests.contract_address]
+inner = 0
+
+[_avm_circuit_public_inputs.public_setup_call_requests.msg_sender]
+inner = 0
+
+[[_avm_circuit_public_inputs.public_setup_call_requests]]
+calldata_hash = 0
+is_static_call = false
+
+[_avm_circuit_public_inputs.public_setup_call_requests.contract_address]
+inner = 0
+
+[_avm_circuit_public_inputs.public_setup_call_requests.msg_sender]
+inner = 0
+
+[[_avm_circuit_public_inputs.public_setup_call_requests]]
+calldata_hash = 0
+is_static_call = false
+
+[_avm_circuit_public_inputs.public_setup_call_requests.contract_address]
+inner = 0
+
+[_avm_circuit_public_inputs.public_setup_call_requests.msg_sender]
+inner = 0
+
+[_avm_circuit_public_inputs.public_teardown_call_request]
+calldata_hash = 0
+is_static_call = false
+
+[_avm_circuit_public_inputs.public_teardown_call_request.contract_address]
+inner = 0
+
+[_avm_circuit_public_inputs.public_teardown_call_request.msg_sender]
+inner = 0
+
+[_avm_circuit_public_inputs.start_gas_used]
+da_gas = 0
+l2_gas = 0
+
+[_avm_circuit_public_inputs.start_tree_snapshots.l1_to_l2_message_tree]
+next_available_leaf_index = 0
+root = 0
+
+[_avm_circuit_public_inputs.start_tree_snapshots.note_hash_tree]
+next_available_leaf_index = 0
+root = 0
+
+[_avm_circuit_public_inputs.start_tree_snapshots.nullifier_tree]
+next_available_leaf_index = 0
+root = 0
+
+[_avm_circuit_public_inputs.start_tree_snapshots.public_data_tree]
+next_available_leaf_index = 0
+root = 0
+
+[_counted]
+counter = 0
+inner = 0
+
+[_key_validation_request]
+key_type_domain_separator = 0
+
+[_key_validation_request.request]
+sk_app = 0
+
+[_key_validation_request.request.pk_m]
+x = 0
+y = 0
+
+[_l2_to_l1_message]
+content = 0
+
+[_l2_to_l1_message.recipient]
+inner = 0
+
+[_log_hash]
+length = 0
+value = 0
+
+[_note_hash_leaf_preimage]
+value = 0
+
+[_nullifier]
+note_hash = 0
+value = 0
+
+[_nullifier_leaf_preimage]
+next_index = 0
+next_nullifier = 0
+nullifier = 0
+
+[_private_call_request]
+args_hash = 0
+end_side_effect_counter = 0
+returns_hash = 0
+start_side_effect_counter = 0
+
+[_private_call_request.call_context]
+is_static_call = false
+
+[_private_call_request.call_context.contract_address]
+inner = 0
+
+[_private_call_request.call_context.function_selector]
+inner = 0
+
+[_private_call_request.call_context.msg_sender]
+inner = 0
+
+[_private_log_data]
+note_hash_counter = 0
+
+[_private_log_data.log]
+fields = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+length = 0
+
+[_public_call_request]
+calldata_hash = 0
+is_static_call = false
+
+[_public_call_request.contract_address]
+inner = 0
+
+[_public_call_request.msg_sender]
+inner = 0

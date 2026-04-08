@@ -21,7 +21,7 @@ pub fn get_sign_of_point(p: Point) -> bool {
 pub fn point_from_x_coord(x: Field) -> Option<Point> {
     // y ^ 2 = x ^ 3 - 17
     let rhs = x * x * x - 17;
-    sqrt(rhs).map(|y| Point { x, y, is_infinite: false })
+    sqrt(rhs).map(|y| Point { x, y })
 }
 
 /// Returns a `Point` in the Grumpkin curve given its x coordinate and sign for the y coordinate.
@@ -40,7 +40,7 @@ pub fn point_from_x_coord_and_sign(x: Field, sign: bool) -> Option<Point> {
         // If there is a square root, we need to ensure it has the correct "sign"
         let y_is_positive = !BN254_FR_MODULUS_DIV_2.lt(y);
         let final_y = if y_is_positive == sign { y } else { -y };
-        Point { x, y: final_y, is_infinite: false }
+        Point { x, y: final_y }
     })
 }
 
@@ -59,7 +59,7 @@ mod test {
 
         assert_eq(p.x, x);
         assert_eq(p.y, 0x07fc22c7f2c7057571f137fe46ea9c95114282bc95d37d71ec4bfb88de457d4a);
-        assert_eq(p.is_infinite, false);
+        assert(!p.is_infinite());
 
         // Test negative y coordinate
         let x2 = 0x247371652e55dd74c9af8dbe9fb44931ba29a9229994384bd7077796c14ee2b5;
@@ -68,7 +68,7 @@ mod test {
 
         assert_eq(p2.x, x2);
         assert_eq(p2.y, 0x26441aec112e1ae4cee374f42556932001507ad46e255ffb27369c7e3766e5c0);
-        assert_eq(p2.is_infinite, false);
+        assert(!p2.is_infinite());
     }
 
     #[test]
@@ -123,7 +123,7 @@ mod test {
     unconstrained fn test_get_sign_of_point() {
         // Derive a point from x = 8, then test both possible y values
         let point = point_from_x_coord(8).unwrap();
-        let neg_point = Point { x: point.x, y: 0 - point.y, is_infinite: false };
+        let neg_point = Point { x: point.x, y: 0 - point.y };
 
         // One should be "positive" (y <= MOD_DIV_2) and one "negative"
         let sign1 = get_sign_of_point(point);
@@ -131,15 +131,15 @@ mod test {
         assert(sign1 != sign2);
 
         // y = 0 should return true (0 <= MOD_DIV_2)
-        let zero_y_point = Point { x: 0, y: 0, is_infinite: false };
+        let zero_y_point = Point { x: 0, y: 0 };
         assert(get_sign_of_point(zero_y_point) == true);
 
         // y = MOD_DIV_2 should return true (exactly at boundary)
-        let boundary_point = Point { x: 0, y: BN254_FR_MODULUS_DIV_2, is_infinite: false };
+        let boundary_point = Point { x: 0, y: BN254_FR_MODULUS_DIV_2 };
         assert(get_sign_of_point(boundary_point) == true);
 
         // y = MOD_DIV_2 + 1 should return false (just over boundary)
-        let over_boundary_point = Point { x: 0, y: BN254_FR_MODULUS_DIV_2 + 1, is_infinite: false };
+        let over_boundary_point = Point { x: 0, y: BN254_FR_MODULUS_DIV_2 + 1 };
         assert(get_sign_of_point(over_boundary_point) == false);
     }
 

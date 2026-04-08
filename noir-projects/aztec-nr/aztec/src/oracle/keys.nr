@@ -18,10 +18,10 @@ pub unconstrained fn try_get_public_keys_and_partial_address(
 ) -> Option<(PublicKeys, PartialAddress)> {
     get_public_keys_and_partial_address_oracle(address).map(|result: [Field; 13]| {
         let keys = PublicKeys {
-            npk_m: NpkM { inner: Point { x: result[0], y: result[1], is_infinite: result[2] != 0 } },
-            ivpk_m: IvpkM { inner: Point { x: result[3], y: result[4], is_infinite: result[5] != 0 } },
-            ovpk_m: OvpkM { inner: Point { x: result[6], y: result[7], is_infinite: result[8] != 0 } },
-            tpk_m: TpkM { inner: Point { x: result[9], y: result[10], is_infinite: result[11] != 0 } },
+            npk_m: NpkM { inner: Point { x: result[0], y: result[1] } },
+            ivpk_m: IvpkM { inner: Point { x: result[3], y: result[4] } },
+            ovpk_m: OvpkM { inner: Point { x: result[6], y: result[7] } },
+            tpk_m: TpkM { inner: Point { x: result[9], y: result[10] } },
         };
 
         let partial_address = PartialAddress::from_field(result[12]);
