@@ -74,7 +74,7 @@ If your tokens are deposited in the Governance Staking Escrow (GSE) for voting, 
 To unstake your tokens, use the [Aztec Staking Dashboard](https://stake.aztec.network/). The dashboard guides you through the unstaking process:
 
 1. **Initiate withdrawal**: Select your validator and begin the exit process
-2. **Wait for the exit delay**: Your tokens remain locked during this period
+2. **Wait for the exit delay**: Your tokens remain locked during this period (if your tokens are also in the Governance Staking Escrow, the longer governance withdrawal delay applies)
 3. **Finalize withdrawal**: After the delay, complete the withdrawal to receive your tokens
 
 If you've delegated stake, contact your operator or use the delegation interface to request unstaking.
