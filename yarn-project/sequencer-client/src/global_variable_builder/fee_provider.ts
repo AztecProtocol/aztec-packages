@@ -28,14 +28,11 @@ export class FeeProviderImpl implements FeeProvider {
     this.l1GenesisTime = config.l1GenesisTime;
 
     this.rollupContract = new RollupContract(this.publicClient, config.l1Contracts.rollupAddress);
-    this.feePredictor = new FeePredictor(
-      this.rollupContract,
-      this.publicClient,
-      this.dateProvider,
-      config.slotDuration,
-      config.l1GenesisTime,
-      config.ethereumSlotDuration,
-    );
+    this.feePredictor = new FeePredictor(this.rollupContract, this.publicClient, this.dateProvider, {
+      slotDuration: config.slotDuration,
+      l1GenesisTime: config.l1GenesisTime,
+      ethereumSlotDuration: config.ethereumSlotDuration,
+    });
   }
 
   /**

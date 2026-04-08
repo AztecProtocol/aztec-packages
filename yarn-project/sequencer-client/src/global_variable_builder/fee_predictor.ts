@@ -35,14 +35,20 @@ export class FeePredictor {
   private cachedState: Promise<FeeOracleState> | undefined;
   private cachedL1BlockNumber: bigint | undefined;
 
+  private readonly slotDuration: number;
+  private readonly l1GenesisTime: bigint;
+  private readonly ethereumSlotDuration: number;
+
   constructor(
     private readonly rollupContract: RollupContract,
     private readonly publicClient: { getBlockNumber: () => Promise<bigint> },
     private readonly dateProvider: DateProvider,
-    private readonly slotDuration: number,
-    private readonly l1GenesisTime: bigint,
-    private readonly ethereumSlotDuration: number,
-  ) {}
+    config: { slotDuration: number; l1GenesisTime: bigint; ethereumSlotDuration: number },
+  ) {
+    this.slotDuration = config.slotDuration;
+    this.l1GenesisTime = config.l1GenesisTime;
+    this.ethereumSlotDuration = config.ethereumSlotDuration;
+  }
 
   /** Returns predicted min fees for each slot in the prediction window. */
   async getPredictedMinFees(manaUsage: ManaUsageEstimate): Promise<GasFees[]> {
