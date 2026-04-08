@@ -41,10 +41,10 @@ When using `EmbeddedWallet`, gas is estimated automatically on every `send()` ca
 Before sending a transaction, you can estimate the mana it will consume by simulating with `estimateGas: true`:
 
 ```typescript
-const { estimatedGas } = await contract.methods
-  .myFunction(arg1, arg2)
+const { estimatedGas } = await token.methods
+  .transfer_in_public(aliceAddress, bobAddress, 1n, 0n)
   .simulate({
-    from: sender.address,
+    from: aliceAddress,
     fee: { estimateGas: true, estimatedGasPadding: 0.1 },
   });
 ```
@@ -61,9 +61,7 @@ The `estimatedGas` object contains:
 To calculate the expected fee from estimated gas, use the `computeFee` method with current network fees:
 
 ```typescript
-// import { createAztecNodeClient } from '@aztec/aztec.js/node';
-// const aztecNode = createAztecNodeClient('http://localhost:8080');
-const currentFees = await aztecNode.getCurrentMinFees();
+const currentFees = await node.getCurrentMinFees();
 const estimatedFee = estimatedGas.gasLimits.computeFee(currentFees).toBigInt();
 console.log("Estimated fee:", estimatedFee);
 ```
@@ -77,23 +75,18 @@ The `estimatedGasPadding` parameter adds a safety margin to the estimate. A valu
 After a transaction is mined, you can retrieve the fee paid from the receipt:
 
 ```typescript
-const receipt = await contract.methods
-  .myFunction(arg1, arg2)
-  .send({ from: sender.address })
-  .wait();
-
-console.log("Transaction fee:", receipt.transactionFee);
+const { receipt: feeReceipt } = await token.methods
+  .mint_to_public(aliceAddress, 1n)
+  .send({ from: aliceAddress });
+console.log("Transaction fee:", feeReceipt.transactionFee);
 ```
 
 The `transactionFee` field is a `bigint` representing the total fee paid in the fee token (Fee Juice). You can also check execution status:
 
 ```typescript
-if (receipt.hasExecutionSucceeded()) {
-  console.log("Transaction succeeded in block:", receipt.blockNumber);
-  console.log("Fee paid:", receipt.transactionFee);
-} else {
-  console.log("Transaction failed:", receipt.error);
-}
+console.log("Succeeded:", feeReceipt.hasExecutionSucceeded());
+console.log("Block:", feeReceipt.blockNumber);
+console.log("Fee paid:", feeReceipt.transactionFee);
 ```
 
 ## Pay with Fee Juice
@@ -104,12 +97,13 @@ If your account has Fee Juice (for example, from a faucet), is [deployed](./how_
 
 ```typescript
 // contract is a deployed contract instance; aliceAddress is from the connection guide
-const receipt = await contract.methods.myFunction(param1, param2).send({
-  from: aliceAddress,
-  // no fee payment method needed
-});
-
-console.log("Transaction fee:", receipt.transactionFee);
+const { receipt: feeJuiceReceipt } = await token.methods
+  .mint_to_public(aliceAddress, 1n)
+  .send({
+    from: aliceAddress,
+    // no fee payment method needed — Fee Juice is used automatically
+  });
+console.log("Transaction fee:", feeJuiceReceipt.transactionFee);
 ```
 
 ## Use Fee Payment Contracts
@@ -219,32 +213,31 @@ Fee Juice is non-transferable on L2, but you can bridge it from L1, claim it on 
 
 `aztec.js` provides helpers to simplify the process:
 
-```typescript
-// essentially returns an extended wallet from Viem
-import { createExtendedL1Client } from "@aztec/ethereum";
-const walletClient = createExtendedL1Client(
-  ["https://your-ethereum-host"], // ex. http://localhost:8545 on the local network (yes it runs Anvil under the hood)
-  privateKey, // the private key for some account, needs funds for gas!
-);
-
-// a helper to interact with the L1 fee juice portal
+```typescript title="bridge_fee_juice_setup" showLineNumbers
+import { createExtendedL1Client } from "@aztec/ethereum/client";
 import { L1FeeJuicePortalManager } from "@aztec/aztec.js/ethereum";
-const portalManager = await L1FeeJuicePortalManager.new(
-  node, // your Aztec node, ex. https://aztec-testnet-fullnode.zkv.xyz, or http://localhost:8080 for local network
-  walletClient,
-  logger, // a logger, ex. import { createLogger } from "@aztec/aztec.js"
-);
+import { createLogger } from "@aztec/aztec.js/log";
+
+// Create an L1 client (accepts a mnemonic or 0x-prefixed private key)
+const l1RpcUrl = process.env.ETHEREUM_HOST ?? "http://localhost:8545";
+const l1Mnemonic =
+  "test test test test test test test test test test test junk";
+const l1Client = createExtendedL1Client([l1RpcUrl], l1Mnemonic);
+
+// Create a portal manager to interact with the L1 fee juice portal
+const logger = createLogger("docs:fee-juice-bridge");
+const portalManager = await L1FeeJuicePortalManager.new(node, l1Client, logger);
 ```
 
 Under the hood, `L1FeeJuicePortalManager` gets the L1 addresses from the node `node_getNodeInfo` endpoint. It then exposes an easy method `bridgeTokensPublic` which mints fee juice on L1 and sends it to an L2 address via the L1 portal:
 
-```typescript
+```typescript title="bridge_fee_juice_execute" showLineNumbers
 // portalManager is from the L1FeeJuicePortalManager setup above
-// aliceAddress is an Aztec address from the connection guide
+// feeJuiceAccount.address is an Aztec address from createSchnorrAccount
 const claim = await portalManager.bridgeTokensPublic(
-  aliceAddress, // the L2 address
+  feeJuiceAccount.address, // the L2 address
   1000000000000000000000n, // the amount to send to the L1 portal
-  true, // whether to mint or not (set to false if your walletClient account already has fee juice!)
+  true, // whether to mint or not (set to false if your L1 account already has fee juice!)
 );
 
 console.log("Claim secret:", claim.claimSecret);
@@ -253,16 +246,19 @@ console.log("Claim amount:", claim.claimAmount);
 
 After this transaction is minted on L1 and a few blocks pass, you can claim the message on L2 and use it directly to pay for fees:
 
-```typescript
+```typescript title="bridge_fee_juice_claim" showLineNumbers
 import { FeeJuicePaymentMethodWithClaim } from "@aztec/aztec.js/fee";
 
-// aliceAddress and claim are from the bridgeTokensPublic step above
-// contract is a deployed contract instance; gasSettings is from the gas settings section
-// Use the claim from bridgeTokensPublic to pay for a transaction
-const paymentMethod = new FeeJuicePaymentMethodWithClaim(aliceAddress, claim);
-const receipt = await contract.methods
-  .myFunction()
-  .send({ from: aliceAddress, fee: { gasSettings, paymentMethod } });
+// claim is from the bridgeTokensPublic step above
+// Create a payment method that claims the bridged Fee Juice and uses it to pay
+const bridgePaymentMethod = new FeeJuicePaymentMethodWithClaim(feeJuiceAccount.address, claim);
+
+// Use it to pay for any transaction — here we deploy the account in one step
+const deployMethodBridged = await feeJuiceAccount.getDeployMethod();
+await deployMethodBridged.send({
+  from: NO_FROM,
+  fee: { paymentMethod: bridgePaymentMethod },
+});
 ```
 
 ## Configure gas settings
@@ -282,27 +278,25 @@ The fee limit is calculated as `gasLimits × maxFeesPerGas` for each dimension.
 
 Set custom gas limits by importing from `stdlib`:
 
-```typescript
-import { GasSettings } from "@aztec/stdlib/gas";
-
-// contract is a deployed contract instance
-// alice is from the connection guide
-// paymentMethod is from one of the payment method sections above
+```typescript title="custom_gas_settings" showLineNumbers
+// Query current network fees to set realistic limits
+const networkFees = await node.getCurrentMinFees();
 const gasSettings = GasSettings.from({
-  gasLimits: { daGas: 100000, l2Gas: 100000 },
-  teardownGasLimits: { daGas: 10000, l2Gas: 10000 },
-  maxFeesPerGas: { daGas: 10, l2Gas: 10 },
-  maxPriorityFeesPerGas: { daGas: 1, l2Gas: 1 },
-});
-
-const receipt = await contract.methods.myFunction().send({
-  from: aliceAddress,
-  fee: {
-    paymentMethod,
-    gasSettings,
-  },
+  gasLimits: { daGas: 100_000, l2Gas: 2_000_000 },
+  teardownGasLimits: { daGas: 100_000, l2Gas: 2_000_000 },
+  maxFeesPerGas: { feePerDaGas: networkFees.feePerDaGas * 2n, feePerL2Gas: networkFees.feePerL2Gas * 2n },
+  maxPriorityFeesPerGas: { feePerDaGas: 0n, feePerL2Gas: 0n },
 });
 ```
+
+```typescript
+const { receipt: gsReceipt } = await token.methods.mint_to_public(aliceAddress, 1n).send({
+  from: aliceAddress,
+  fee: { gasSettings },
+});
+```
+
+Note that `gasLimits` and `teardownGasLimits` use `daGas`/`l2Gas` field names, while `maxFeesPerGas` and `maxPriorityFeesPerGas` use `feePerDaGas`/`feePerL2Gas`.
 
 ### Use automatic gas estimation
 
@@ -310,16 +304,18 @@ const receipt = await contract.methods.myFunction().send({
 When using `EmbeddedWallet`, gas estimation happens automatically on every `send()` — you don't need to pass `estimateGas`. This option is useful for custom wallet implementations or when you want to estimate gas during a `simulate()` call.
 :::
 
-```typescript
-// contract, aliceAddress, and paymentMethod are from the examples above
-const receipt = await contract.methods.myFunction().send({
-  from: aliceAddress,
-  fee: {
-    paymentMethod,
-    estimateGas: true,
-    estimatedGasPadding: 0.2, // 20% padding
-  },
-});
+```typescript title="auto_gas_estimation" showLineNumbers
+// Estimate gas for a transaction before sending
+const { estimatedGas: autoEstimate } = await token.methods
+  .mint_to_public(aliceAddress, 1n)
+  .simulate({
+    from: aliceAddress,
+    fee: {
+      estimateGas: true,
+      estimatedGasPadding: 0.2, // 20% padding
+    },
+  });
+console.log("Auto-estimated L2 gas:", autoEstimate.gasLimits.l2Gas);
 ```
 
 :::tip

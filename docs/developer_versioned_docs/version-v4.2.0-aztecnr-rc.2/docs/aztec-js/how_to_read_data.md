@@ -28,19 +28,7 @@ console.log(`Alice's token balance: ${balance}`);
 > <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v4.2.0-aztecnr-rc.2/docs/examples/ts/aztecjs_connection/index.ts#L135-L141" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aztecjs_connection/index.ts#L135-L141</a></sub></sup>
 
 
-The `from` option specifies which address context to use for the simulation. This is required for all simulations, though it only affects private function execution (public functions ignore this value).
-
-### Basic simulation
-
-```typescript title="simulate_function" showLineNumbers 
-const { result: balance } = await token.methods
-  .balance_of_public(aliceAddress)
-  .simulate({ from: aliceAddress });
-
-console.log(`Alice's token balance: ${balance}`);
-```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v4.2.0-aztecnr-rc.2/docs/examples/ts/aztecjs_connection/index.ts#L135-L141" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aztecjs_connection/index.ts#L135-L141</a></sub></sup>
-
+The `from` option specifies which account context to use for the simulation. This is required for all simulations. For private functions, it determines which account's private state is accessed. For public functions, it sets the `msg_sender` context.
 
 ### Handling return values
 
@@ -48,7 +36,7 @@ For functions returning multiple values, destructure the result:
 
 ```typescript
 // contract and callerAddress are from the example above
-const [value1, value2] = await contract.methods
+const { result: [value1, value2] } = await contract.methods
   .get_multiple_values()
   .simulate({ from: callerAddress });
 ```
@@ -57,37 +45,26 @@ const [value1, value2] = await contract.methods
 
 Set `includeMetadata: true` to get additional information about the simulation:
 
-```typescript
-// contract and callerAddress are from the examples above
-const result = await contract.methods
-  .balance_of_public(address)
-  .simulate({ from: callerAddress, includeMetadata: true });
-
-// Result includes:
-// - result: the function return value
-// - stats: execution statistics (timing, circuit sizes)
-// - offchainEffects: any offchain effects emitted
-// - estimatedGas: gas limit estimates (gasLimits and teardownGasLimits)
-console.log("Balance:", result.result);
-console.log("L2 gas limit:", result.estimatedGas.gasLimits.l2Gas);
-console.log("DA gas limit:", result.estimatedGas.gasLimits.daGas);
+```typescript title="simulate_with_metadata" showLineNumbers
+const metaResult = await token.methods
+  .balance_of_public(aliceAddress)
+  .simulate({ from: aliceAddress, includeMetadata: true });
+console.log("Balance:", metaResult.result);
+console.log("L2 gas limit:", metaResult.estimatedGas.gasLimits.l2Gas);
+console.log("DA gas limit:", metaResult.estimatedGas.gasLimits.daGas);
 ```
+
+The result includes `result` (the function return value), `stats` (execution statistics), `offchainEffects`, and `estimatedGas` (with `gasLimits` and `teardownGasLimits`).
 
 ### Private function considerations
 
 When simulating private functions, the caller must have access to any private state being read. The PXE only has visibility into notes belonging to registered accounts.
 
 ```typescript
-// contract and callerAddress are from the examples above
-// This works if callerAddress owns the notes
-const balance = await contract.methods
-  .balance_of_private(callerAddress)
-  .simulate({ from: callerAddress });
-
-// This fails if callerAddress doesn't have access to otherAddress's notes
-const otherBalance = await contract.methods
-  .balance_of_private(otherAddress)
-  .simulate({ from: callerAddress }); // Error: cannot access private state
+// This works if aliceAddress owns the notes
+const { result: privateBalance } = await token.methods
+  .balance_of_private(aliceAddress)
+  .simulate({ from: aliceAddress });
 ```
 
 :::warning
@@ -111,19 +88,22 @@ Contracts emit data in two forms you can read:
 
 Use `aztecNode.getPublicLogs()` to retrieve raw log data:
 
+```typescript title="read_public_logs" showLineNumbers
+const publicLogs = await node.getPublicLogs({ fromBlock: 1, toBlock: await node.getBlockNumber() + 1 });
+if (publicLogs.logs.length > 0) {
+  const rawFields = publicLogs.logs[0].log.getEmittedFields(); // Fr[]
+  console.log("Raw log fields:", rawFields.length);
+}
+```
+
+You can also filter by transaction hash or block range:
+
 ```typescript
-// aztecNode is from createAztecNodeClient() in the connection guide
-// receipt is from a transaction's send() call
 // Get logs for a specific transaction
-const logs = await aztecNode.getPublicLogs({ txHash: receipt.txHash });
-const rawFields = logs.logs[0].log.getEmittedFields(); // Fr[]
+const txLogs = await node.getPublicLogs({ txHash: gsReceipt.txHash });
 
 // Get logs for a block range
-const logFilter = {
-  fromBlock: startBlock,
-  toBlock: endBlock,
-};
-const publicLogs = (await aztecNode.getPublicLogs(logFilter)).logs;
+const rangeLogs = await node.getPublicLogs({ fromBlock: 1, toBlock: await node.getBlockNumber() + 1 });
 ```
 
 ## Reading events
@@ -177,7 +157,7 @@ Private events are stored in the PXE with privacy scoping. Use `wallet.getPrivat
 
 ```typescript
 import type { PrivateEventFilter } from "@aztec/aztec.js/wallet";
-import { BlockNumber } from "@aztec/foundation/branded-types";
+import { BlockNumber } from "@aztec/aztec.js/fields";
 ```
 
 The `BlockNumber` type is a branded type that wraps raw numbers for type safety. Use it when setting `fromBlock` and `toBlock` in filters.

@@ -356,7 +356,7 @@ TYPED_TEST(stdlib_field_conversion, GateCountScalarDeserialization)
 TYPED_TEST(stdlib_field_conversion, GateCountBigfieldDeserialization)
 {
     // Deserializing a single bigfield element is expensive due to creating new ranges for range constraints
-    this->template check_deserialization_gate_count<fq<TypeParam>>([] { return bb::fq::random_element(); }, 3515);
+    this->template check_deserialization_gate_count<fq<TypeParam>>([] { return bb::fq::random_element(); }, 3513);
 }
 
 /**
@@ -365,7 +365,7 @@ TYPED_TEST(stdlib_field_conversion, GateCountBigfieldDeserialization)
  */
 TYPED_TEST(stdlib_field_conversion, GateCountMultipleBigfieldDeserialization)
 {
-    this->template check_deserialization_gate_count<fq<TypeParam>>([] { return bb::fq::random_element(); }, 3914, 10);
+    this->template check_deserialization_gate_count<fq<TypeParam>>([] { return bb::fq::random_element(); }, 3913, 10);
 }
 
 /**
@@ -389,7 +389,7 @@ TYPED_TEST(stdlib_field_conversion, GateCountMultipleBN254PointDeserialization)
 {
     using Builder = TypeParam;
 
-    constexpr uint32_t expected = std::is_same_v<Builder, bb::UltraCircuitBuilder> ? 5751 : 0;
+    constexpr uint32_t expected = std::is_same_v<Builder, bb::UltraCircuitBuilder> ? 5746 : 0;
     this->template check_deserialization_gate_count<bn254_element<Builder>>(
         [] { return curve::BN254::AffineElement::random_element(); }, expected, 10);
 }

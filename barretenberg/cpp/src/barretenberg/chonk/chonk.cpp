@@ -7,6 +7,7 @@
 #include "barretenberg/chonk/chonk.hpp"
 #include "barretenberg/chonk/chonk_verifier.hpp"
 #include "barretenberg/common/bb_bench.hpp"
+#include "barretenberg/common/memory_profile.hpp"
 #include "barretenberg/common/streams.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include "barretenberg/goblin/goblin_verifier.hpp"
@@ -25,7 +26,7 @@ namespace bb {
 Chonk::Chonk(size_t num_circuits)
     : num_circuits(num_circuits)
 {
-    BB_ASSERT_GT(num_circuits, 0UL, "Number of circuits must be specified and greater than 0.");
+    BB_ASSERT_GTE(num_circuits, 4UL, "Number of circuits must be at least 4 (get_queue_type uses num_circuits - 3).");
 }
 
 /**
@@ -538,6 +539,11 @@ void Chonk::accumulate_and_fold(ClientCircuit& circuit,
         break;
     }
 
+    if (detail::use_memory_profile) {
+        detail::GLOBAL_MEMORY_PROFILE.add_checkpoint("after_accumulate");
+        detail::GLOBAL_MEMORY_PROFILE.next_circuit();
+    }
+
     VerifierInputs queue_entry{ std::move(proof), precomputed_vk, queue_type, is_kernel };
     verification_queue.push_back(queue_entry);
 
@@ -726,7 +732,7 @@ void Chonk::update_native_verifier_accumulator(const VerifierInputs& queue_entry
         info("Chonk accumulate: hash of verifier accumulator computed natively set in previous kernel IO: ",
              native_verifier_accum_hash);
     }
-    has_last_app_been_accumulated = num_circuits_accumulated + 1 == num_circuits - 4;
+    has_last_app_been_accumulated = num_circuits_accumulated + 1 == num_circuits - 3;
     is_previous_circuit_a_kernel = queue_entry.is_kernel;
 
     info("======= END OF DEBUGGING INFO FOR NATIVE FOLDING STEP =======");

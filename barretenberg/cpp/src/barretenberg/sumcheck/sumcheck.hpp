@@ -598,7 +598,8 @@ template <typename Flavor> class SumcheckProver {
                 transcript->template get_challenge<FF>("Sumcheck:u_" + std::to_string(round_idx));
             multivariate_challenge.emplace_back(round_challenge);
 
-            // Fold masking values BEFORE partially_evaluate (need to read PE at active positions)
+            // Fold masking values BEFORE partially_evaluate: after PE, disabled-edge positions for
+            // masked witness polys are stale; correct values are in masking_tail.folded.
             if constexpr (UseRowDisablingPolynomial<Flavor>) {
                 masking_tail.fold_masking_values(
                     round_challenge, round_idx, round.round_size, &partially_evaluated_polynomials);
@@ -629,9 +630,10 @@ template <typename Flavor> class SumcheckProver {
         vinfo("completed ", multivariate_d, " rounds of sumcheck");
 
         // Zero univariates are used to pad the proof to the fixed size virtual_log_n.
+        // Route through the handler so committed sumcheck flavors send the correct transcript format.
         auto zero_univariate = bb::Univariate<FF, Flavor::BATCHED_RELATION_PARTIAL_LENGTH>::zero();
         for (size_t idx = multivariate_d; idx < virtual_log_n; idx++) {
-            transcript->send_to_verifier("Sumcheck:univariate_" + std::to_string(idx), zero_univariate);
+            handler.process_round_univariate(idx, zero_univariate);
 
             FF round_challenge = transcript->template get_challenge<FF>("Sumcheck:u_" + std::to_string(idx));
             multivariate_challenge.emplace_back(round_challenge);

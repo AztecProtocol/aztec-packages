@@ -100,9 +100,8 @@ template <typename FF_> class MultilinearBatchingInstanceRelationImpl {
      */
     template <typename AllEntities> static bool skip(const AllEntities& in)
     {
-        return (in.batched_unshifted_accumulator.is_zero() && in.batched_unshifted_instance.is_zero() &&
-                in.batched_shifted_accumulator.is_zero() && in.batched_shifted_instance.is_zero()) ||
-               (in.eq_accumulator.is_zero() && in.eq_instance.is_zero());
+        return (in.batched_unshifted_instance.is_zero() && in.batched_shifted_instance.is_zero()) ||
+               in.eq_instance.is_zero();
     }
 
     /**

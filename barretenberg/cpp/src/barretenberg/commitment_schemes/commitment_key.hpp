@@ -111,7 +111,6 @@ template <class Curve> class CommitmentKey {
             std::vector<std::span<Fr>> scalar_spans;
 
             for (auto& polynomial : polynomials.subspan(i, batch_end - i)) {
-                std::span<const Commitment> point_table = get_monomial_points().subspan(polynomial.start_index());
                 size_t consumed_srs = polynomial.start_index() + polynomial.size();
                 if (consumed_srs > get_monomial_size()) {
                     throw_or_abort(format("Attempting to commit to a polynomial that needs ",
@@ -119,6 +118,7 @@ template <class Curve> class CommitmentKey {
                                           " points with an SRS of size ",
                                           get_monomial_size()));
                 }
+                std::span<const Commitment> point_table = get_monomial_points().subspan(polynomial.start_index());
                 scalar_spans.emplace_back(polynomial.coeffs());
                 points_spans.emplace_back(point_table);
             }

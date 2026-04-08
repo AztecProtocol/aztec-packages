@@ -116,7 +116,7 @@ describe('e2e_fees account_init', () => {
       // The private fee paying method assembled on the app side requires knowledge of the maximum
       // fee the user is willing to pay
       const maxFeesPerGas = (await aztecNode.getCurrentMinFees()).mul(1.5);
-      const gasSettings = GasSettings.default({ maxFeesPerGas });
+      const gasSettings = GasSettings.fallback({ maxFeesPerGas });
       const paymentMethod = new PrivateFeePaymentMethod(bananaFPC.address, bobsAddress, wallet, gasSettings);
       const { receipt: tx } = await bobsDeployMethod.send({
         from: NO_FROM,
@@ -144,7 +144,7 @@ describe('e2e_fees account_init', () => {
       // The public fee paying method assembled on the app side requires knowledge of the maximum
       // fee the user is willing to pay
       const maxFeesPerGas = (await aztecNode.getCurrentMinFees()).mul(1.5);
-      const gasSettings = GasSettings.default({ maxFeesPerGas });
+      const gasSettings = GasSettings.fallback({ maxFeesPerGas });
       const paymentMethod = new PublicFeePaymentMethod(bananaFPC.address, bobsAddress, wallet, gasSettings);
       const { receipt: tx } = await bobsDeployMethod.send({
         from: NO_FROM,
@@ -201,7 +201,7 @@ describe('e2e_fees account_init', () => {
 
       // bob can now use his wallet for sending txs
       const maxFeesPerGas = (await aztecNode.getCurrentMinFees()).mul(1.5);
-      const gasSettings = GasSettings.default({ maxFeesPerGas });
+      const gasSettings = GasSettings.fallback({ maxFeesPerGas });
       const bobPaymentMethod = new PrivateFeePaymentMethod(bananaFPC.address, bobsAddress, wallet, gasSettings);
       await bananaCoin.methods
         .transfer_in_public(bobsAddress, aliceAddress, 0n, 0n)
