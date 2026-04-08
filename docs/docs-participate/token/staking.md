@@ -60,7 +60,7 @@ When you want to withdraw your staked tokens, you must go through an unstaking p
 
 | Network | Exit Delay |
 |---------|-----------|
-| **Ignition (Mainnet)** | 4 days |
+| **Alpha (Mainnet)** | 4 days |
 | **Testnet** | 2 days |
 
 The exit delay exists to allow time for pending slashing conditions to be detected and to prevent validators from quickly exiting after misbehaving.
