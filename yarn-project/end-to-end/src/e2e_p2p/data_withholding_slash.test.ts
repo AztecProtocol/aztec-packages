@@ -96,7 +96,7 @@ describe('e2e_p2p_data_withholding_slash', () => {
       throw new Error('Bootstrap node ENR is not available');
     }
 
-    const { rollup, slashingProposer, slashFactory } = await t.getContracts();
+    const { rollup, slashingProposer } = await t.getContracts();
 
     // Jump forward to an epoch in the future such that the validator set is not empty
     await t.ctx.cheatCodes.rollup.advanceToEpoch(EpochNumber(4));
@@ -193,7 +193,6 @@ describe('e2e_p2p_data_withholding_slash', () => {
       rollup,
       cheatCodes: t.ctx.cheatCodes.rollup,
       committee,
-      slashFactory,
       slashingProposer,
       slashingRoundSize,
       aztecSlotDuration: AZTEC_SLOT_DURATION,

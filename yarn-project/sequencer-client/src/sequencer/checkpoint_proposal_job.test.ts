@@ -939,7 +939,7 @@ describe('CheckpointProposalJob', () => {
       const failedTxs: FailedTx[] = txs.slice(1).map(tx => ({ tx, error: new Error('Invalid tx') }));
       checkpointBuilder.buildBlock.mockRejectedValue(new InsufficientValidTxsError(1, 2, failedTxs));
 
-      const checkpoint = await job.buildSingleBlock(checkpointBuilder, {
+      const result = await job.buildSingleBlock(checkpointBuilder, {
         blockNumber: newBlockNumber,
         indexWithinCheckpoint: IndexWithinCheckpoint(1),
         buildDeadline: undefined,
@@ -947,7 +947,7 @@ describe('CheckpointProposalJob', () => {
         txHashesAlreadyIncluded: new Set<string>(),
       });
 
-      expect(checkpoint).toBeUndefined();
+      expect(result).toEqual({ failure: 'insufficient-valid-txs' });
       expect(p2p.handleFailedExecution).toHaveBeenCalledWith(failedTxs.map(ftx => ftx.tx.txHash));
     });
 
@@ -960,7 +960,7 @@ describe('CheckpointProposalJob', () => {
       const failedTxs: FailedTx[] = txs.slice(1).map(tx => ({ tx, error: new Error('Invalid tx') }));
       checkpointBuilder.buildBlock.mockRejectedValue(new InsufficientValidTxsError(0, 3, failedTxs));
 
-      const checkpoint = await job.buildSingleBlock(checkpointBuilder, {
+      const result = await job.buildSingleBlock(checkpointBuilder, {
         blockNumber: newBlockNumber,
         indexWithinCheckpoint: IndexWithinCheckpoint(1),
         buildDeadline: undefined,
@@ -968,7 +968,7 @@ describe('CheckpointProposalJob', () => {
         txHashesAlreadyIncluded: new Set<string>(),
       });
 
-      expect(checkpoint).toBeUndefined();
+      expect(result).toEqual({ failure: 'insufficient-valid-txs' });
       expect(p2p.handleFailedExecution).toHaveBeenCalledWith(failedTxs.map(ftx => ftx.tx.txHash));
     });
   });
@@ -1262,7 +1262,9 @@ class TestCheckpointProposalJob extends CheckpointProposalJob {
       buildDeadline: Date | undefined;
       txHashesAlreadyIncluded: Set<string>;
     },
-  ): Promise<{ block: L2Block; usedTxs: Tx[] } | { error: Error } | undefined> {
+  ): Promise<
+    { block: L2Block; usedTxs: Tx[] } | { failure: 'insufficient-txs' | 'insufficient-valid-txs' } | { error: Error }
+  > {
     return super.buildSingleBlock(checkpointBuilder, opts);
   }
 }

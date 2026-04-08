@@ -181,11 +181,6 @@ variable "REGISTRY_CONTRACT_ADDRESS" {
   type        = string
 }
 
-variable "SLASH_FACTORY_CONTRACT_ADDRESS" {
-  description = "The slash factory contract address"
-  type        = string
-}
-
 variable "FEE_ASSET_HANDLER_CONTRACT_ADDRESS" {
   description = "The fee asset handler contract address"
   type        = string
@@ -424,18 +419,6 @@ variable "SENTINEL_ENABLED" {
   description = "Whether to enable sentinel"
   type        = string
   default     = true
-}
-
-variable "SLASH_MIN_PENALTY_PERCENTAGE" {
-  description = "The slash min penalty percentage"
-  type        = string
-  nullable    = true
-}
-
-variable "SLASH_MAX_PENALTY_PERCENTAGE" {
-  description = "The slash max penalty percentage"
-  type        = string
-  nullable    = true
 }
 
 variable "SLASH_INACTIVITY_TARGET_PERCENTAGE" {
