@@ -366,39 +366,6 @@ describe('ReqResp', () => {
     });
   });
 
-  describe('Block protocol', () => {
-    it('should handle block requests', async () => {
-      const blockNumber = 1;
-      const blockNumberFr = Fr.ONE;
-      const block = await L2Block.random(BlockNumber(blockNumber));
-
-      const l2BlockSource: MockProxy<L2BlockSource> = mock<L2BlockSource>();
-      l2BlockSource.getBlock.mockImplementation((_blockNumber: number) => {
-        return Promise.resolve(block);
-      });
-
-      const protocolHandlers = MOCK_SUB_PROTOCOL_HANDLERS;
-      protocolHandlers[ReqRespSubProtocol.BLOCK] = reqRespBlockHandler(l2BlockSource);
-
-      nodes = await createNodes(peerScoring, 2);
-
-      await startNodes(nodes, protocolHandlers);
-      await sleep(500);
-      await connectToPeers(nodes);
-      await sleep(500);
-
-      const resp = await nodes[0].req.sendRequestToPeer(
-        nodes[1].p2p.peerId,
-        ReqRespSubProtocol.BLOCK,
-        blockNumberFr.toBuffer(),
-      );
-      expectSuccess(resp);
-
-      const res = L2Block.fromBuffer(resp.data);
-      expect(res).toEqual(block);
-    });
-  });
-
   describe('Authentication gating', () => {
     it('should reject unauthenticated peers on all data protocols', async () => {
       nodes = await createNodes(peerScoring, 2);
@@ -412,7 +379,7 @@ describe('ReqResp', () => {
       nodes[1].req.setShouldRejectPeer(() => true);
 
       // All data protocols should be rejected
-      for (const protocol of [ReqRespSubProtocol.TX, ReqRespSubProtocol.BLOCK, ReqRespSubProtocol.BLOCK_TXS]) {
+      for (const protocol of [ReqRespSubProtocol.TX, ReqRespSubProtocol.BLOCK_TXS]) {
         const resp = await nodes[0].req.sendRequestToPeer(nodes[1].p2p.peerId, protocol, Buffer.from('request'));
         expect(resp.status).toEqual(ReqRespStatus.FAILURE);
       }
