@@ -10,14 +10,14 @@ export type { EnvVar, NetworkNames };
 export type { NetworkConfig, NetworkConfigMap } from './network_config.js';
 export { NetworkConfigMapSchema, NetworkConfigSchema } from './network_config.js';
 
-export interface ConfigMapping {
+export interface ConfigMapping<T> {
   env?: EnvVar;
-  parseEnv?: (val: string) => any;
-  defaultValue?: any;
+  parseEnv?: (val: string) => T;
+  defaultValue?: T;
   printDefault?: (val: any) => string;
   description: string;
   isBoolean?: boolean;
-  nested?: Record<string, ConfigMapping>;
+  nested?: Record<string, ConfigMapping<any>>;
   fallback?: EnvVar[];
   /**
    * List of deprecated env vars that are still supported but will log a warning.
@@ -30,7 +30,7 @@ export function isBooleanConfigValue<T>(obj: T, key: keyof T): boolean {
   return typeof obj[key] === 'boolean';
 }
 
-export type ConfigMappingsType<T> = Record<keyof T, ConfigMapping>;
+export type ConfigMappingsType<T> = Record<keyof T, ConfigMapping<any>>;
 
 /**
  * Shared utility function to get a value from environment variables with fallback support.
@@ -123,7 +123,7 @@ export function omitConfigMappings<T, K extends keyof T>(
  * @param defaultVal - The default numerical value to use if the environment variable is not set or is invalid
  * @returns Object with parseEnv and default values for a numerical config value
  */
-export function numberConfigHelper(defaultVal: number): Pick<ConfigMapping, 'parseEnv' | 'defaultValue'> {
+export function numberConfigHelper(defaultVal: number): Pick<ConfigMapping<number>, 'parseEnv' | 'defaultValue'> {
   return {
     parseEnv: (val: string) => safeParseNumber(val, defaultVal),
     defaultValue: defaultVal,
@@ -138,7 +138,7 @@ export function numberConfigHelper(defaultVal: number): Pick<ConfigMapping, 'par
 export function floatConfigHelper(
   defaultVal: number,
   validationFn?: (val: number) => void,
-): Pick<ConfigMapping, 'parseEnv' | 'defaultValue'> {
+): Pick<ConfigMapping<number>, 'parseEnv' | 'defaultValue'> {
   return {
     parseEnv: (val: string): number => {
       const parsed = safeParseFloat(val, defaultVal);
@@ -152,7 +152,7 @@ export function floatConfigHelper(
 /**
  * Parses an environment variable to a 0-1 percentage value
  */
-export function percentageConfigHelper(defaultVal: number): Pick<ConfigMapping, 'parseEnv' | 'defaultValue'> {
+export function percentageConfigHelper(defaultVal: number): Pick<ConfigMapping<number>, 'parseEnv' | 'defaultValue'> {
   return {
     parseEnv: (val: string): number => {
       const parsed = safeParseFloat(val, defaultVal);
@@ -171,7 +171,9 @@ export function percentageConfigHelper(defaultVal: number): Pick<ConfigMapping, 
  * @param defaultVal - The default numerical value to use if the environment variable is not set or is invalid
  * @returns Object with parseEnv and default values for a numerical config value
  */
-export function bigintConfigHelper(defaultVal?: bigint): Pick<ConfigMapping, 'parseEnv' | 'defaultValue'> {
+export function bigintConfigHelper(
+  defaultVal?: bigint,
+): Pick<ConfigMapping<bigint | undefined>, 'parseEnv' | 'defaultValue'> {
   return {
     parseEnv: (val: string) => {
       if (val === '') {
@@ -201,7 +203,7 @@ export function bigintConfigHelper(defaultVal?: bigint): Pick<ConfigMapping, 'pa
 /**
  * Generates parseEnv for an optional numerical config value.
  */
-export function optionalNumberConfigHelper(): Pick<ConfigMapping, 'parseEnv'> {
+export function optionalNumberConfigHelper(): Pick<ConfigMapping<number | undefined>, 'parseEnv'> {
   return {
     parseEnv: (val: string | undefined) => {
       if (val !== undefined && val.length > 0) {
@@ -217,7 +219,7 @@ export function optionalNumberConfigHelper(): Pick<ConfigMapping, 'parseEnv'> {
 export function enumConfigHelper<T extends string>(
   values: T[],
   defaultValue?: NoInfer<T>,
-): Pick<ConfigMapping, 'parseEnv' | 'defaultValue'> {
+): Pick<ConfigMapping<T | undefined>, 'parseEnv' | 'defaultValue'> {
   return {
     parseEnv: (val: string) => {
       const sanitizedVal = (val ?? '').trim().toLowerCase();
@@ -240,7 +242,9 @@ export function enumConfigHelper<T extends string>(
  */
 export function booleanConfigHelper(
   defaultVal = false,
-): Required<Pick<ConfigMapping, 'parseEnv' | 'defaultValue' | 'isBoolean'> & { parseVal: (val: string) => boolean }> {
+): Required<
+  Pick<ConfigMapping<boolean>, 'parseEnv' | 'defaultValue' | 'isBoolean'> & { parseVal: (val: string) => boolean }
+> {
   const parse = (val: string | boolean) => (typeof val === 'boolean' ? val : parseBooleanEnv(val));
   return {
     parseEnv: parse,
@@ -251,7 +255,7 @@ export function booleanConfigHelper(
 }
 
 export function secretValueConfigHelper<T>(parse: (val: string | undefined) => T): Required<
-  Pick<ConfigMapping, 'parseEnv' | 'defaultValue' | 'isBoolean'> & {
+  Pick<ConfigMapping<SecretValue<T>>, 'parseEnv' | 'defaultValue' | 'isBoolean'> & {
     parseVal: (val: string) => SecretValue<T>;
   }
 > {
@@ -267,17 +271,17 @@ export function secretValueConfigHelper<T>(parse: (val: string | undefined) => T
 export { parseBooleanEnv } from './parse-env.js';
 
 export function secretStringConfigHelper(): Required<
-  Pick<ConfigMapping, 'parseEnv' | 'defaultValue' | 'isBoolean'> & {
+  Pick<ConfigMapping<SecretValue<string | undefined>>, 'parseEnv' | 'defaultValue' | 'isBoolean'> & {
     parseVal: (val: string) => SecretValue<string | undefined>;
   }
 >;
 export function secretStringConfigHelper(defaultValue: string): Required<
-  Pick<ConfigMapping, 'parseEnv' | 'defaultValue' | 'isBoolean'> & {
+  Pick<ConfigMapping<SecretValue<string>>, 'parseEnv' | 'defaultValue' | 'isBoolean'> & {
     parseVal: (val: string) => SecretValue<string>;
   }
 >;
 export function secretStringConfigHelper(defaultValue?: string): Required<
-  Pick<ConfigMapping, 'parseEnv' | 'defaultValue' | 'isBoolean'> & {
+  Pick<ConfigMapping<SecretValue<string | typeof defaultValue>>, 'parseEnv' | 'defaultValue' | 'isBoolean'> & {
     parseVal: (val: string) => SecretValue<string | typeof defaultValue>;
   }
 > {
@@ -285,23 +289,23 @@ export function secretStringConfigHelper(defaultValue?: string): Required<
   return {
     parseEnv: parse,
     parseVal: parse,
-    defaultValue: defaultValue !== undefined ? new SecretValue(defaultValue) : undefined,
+    defaultValue: new SecretValue(defaultValue),
     isBoolean: true,
   };
 }
 
 export function secretFrConfigHelper(): Required<
-  Pick<ConfigMapping, 'parseEnv' | 'defaultValue' | 'isBoolean'> & {
+  Pick<ConfigMapping<SecretValue<Fr | undefined>>, 'parseEnv' | 'defaultValue' | 'isBoolean'> & {
     parseVal: (val: string) => SecretValue<Fr | undefined>;
   }
 >;
 export function secretFrConfigHelper(defaultValue: Fr): Required<
-  Pick<ConfigMapping, 'parseEnv' | 'defaultValue' | 'isBoolean'> & {
+  Pick<ConfigMapping<SecretValue<Fr>>, 'parseEnv' | 'defaultValue' | 'isBoolean'> & {
     parseVal: (val: string) => SecretValue<Fr>;
   }
 >;
 export function secretFrConfigHelper(defaultValue?: Fr): Required<
-  Pick<ConfigMapping, 'parseEnv' | 'defaultValue' | 'isBoolean'> & {
+  Pick<ConfigMapping<SecretValue<Fr | typeof defaultValue>>, 'parseEnv' | 'defaultValue' | 'isBoolean'> & {
     parseVal: (val: string) => SecretValue<Fr | typeof defaultValue>;
   }
 > {
@@ -309,23 +313,23 @@ export function secretFrConfigHelper(defaultValue?: Fr): Required<
   return {
     parseEnv: parse,
     parseVal: parse,
-    defaultValue: defaultValue !== undefined ? new SecretValue(defaultValue) : undefined,
+    defaultValue: new SecretValue(defaultValue),
     isBoolean: true,
   };
 }
 
 export function secretFqConfigHelper(defaultValue: Fq): Required<
-  Pick<ConfigMapping, 'parseEnv' | 'defaultValue' | 'isBoolean'> & {
+  Pick<ConfigMapping<SecretValue<Fq>>, 'parseEnv' | 'defaultValue' | 'isBoolean'> & {
     parseVal: (val: string) => SecretValue<Fq>;
   }
 >;
 export function secretFqConfigHelper(): Required<
-  Pick<ConfigMapping, 'parseEnv' | 'defaultValue' | 'isBoolean'> & {
+  Pick<ConfigMapping<SecretValue<Fq | undefined>>, 'parseEnv' | 'defaultValue' | 'isBoolean'> & {
     parseVal: (val: string) => SecretValue<Fq | undefined>;
   }
 >;
 export function secretFqConfigHelper(defaultValue?: Fq): Required<
-  Pick<ConfigMapping, 'parseEnv' | 'defaultValue' | 'isBoolean'> & {
+  Pick<ConfigMapping<SecretValue<Fq | typeof defaultValue>>, 'parseEnv' | 'defaultValue' | 'isBoolean'> & {
     parseVal: (val: string) => SecretValue<Fq | typeof defaultValue>;
   }
 > {
@@ -333,7 +337,7 @@ export function secretFqConfigHelper(defaultValue?: Fq): Required<
   return {
     parseEnv: parse,
     parseVal: parse,
-    defaultValue: typeof defaultValue !== 'undefined' ? new SecretValue(defaultValue) : undefined,
+    defaultValue: new SecretValue(defaultValue),
     isBoolean: true,
   };
 }
