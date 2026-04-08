@@ -28,7 +28,9 @@ function alreadyInstalled() {
 
 if (!alreadyInstalled()) {
   mkdirSync(cacheRoot, { recursive: true });
-  // Seed an empty package.json so npm doesn't walk up the tree.
+  // Seed a standalone package.json so `npm install --prefix` treats cacheRoot as its own
+  // project. Without this, npm walks up and finds the yarn-project workspace root, which
+  // breaks on `workspace:` protocol deps and risks clobbering the monorepo's node_modules.
   const seed = join(cacheRoot, 'package.json');
   if (!existsSync(seed)) {
     const fs = await import('node:fs');
