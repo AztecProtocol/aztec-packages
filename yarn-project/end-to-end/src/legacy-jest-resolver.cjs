@@ -11,6 +11,7 @@
 // The cache is populated on demand by running `npm install` into .legacy-contracts/<version>/.
 //
 // Activated by env var; passthrough otherwise.
+/* eslint-disable @typescript-eslint/no-require-imports */
 
 const path = require('path');
 const fs = require('fs');
