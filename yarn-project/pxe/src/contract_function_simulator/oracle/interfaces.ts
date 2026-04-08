@@ -159,14 +159,14 @@ export interface IUtilityExecutionOracle {
   emitOffchainEffect(data: Fr[]): Promise<void>;
 
   // Ephemeral array methods — in-memory per-call-frame arrays for transient data.
-  ephemeralPush(baseSlot: Fr, elements: Fr[]): number;
-  ephemeralPop(baseSlot: Fr): Fr[];
-  ephemeralGet(baseSlot: Fr, index: number): Fr[];
-  ephemeralSet(baseSlot: Fr, index: number, elements: Fr[]): void;
-  ephemeralLen(baseSlot: Fr): number;
-  ephemeralRemove(baseSlot: Fr, index: number): void;
-  ephemeralCopy(srcSlot: Fr, dstSlot: Fr, count: number): void;
-  ephemeralClear(baseSlot: Fr): void;
+  pushEphemeral(baseSlot: Fr, elements: Fr[]): number;
+  popEphemeral(baseSlot: Fr): Fr[];
+  getEphemeral(baseSlot: Fr, index: number): Fr[];
+  setEphemeral(baseSlot: Fr, index: number, elements: Fr[]): void;
+  getEphemeralLen(baseSlot: Fr): number;
+  removeEphemeral(baseSlot: Fr, index: number): void;
+  copyEphemeral(srcSlot: Fr, dstSlot: Fr, count: number): void;
+  clearEphemeral(baseSlot: Fr): void;
 }
 
 /**

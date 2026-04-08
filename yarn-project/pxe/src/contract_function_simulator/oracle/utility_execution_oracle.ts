@@ -794,35 +794,35 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     return deriveAppSiloedSharedSecret(addressSecret, ephPk, this.contractAddress);
   }
 
-  public ephemeralPush(baseSlot: Fr, elements: Fr[]): number {
+  public pushEphemeral(baseSlot: Fr, elements: Fr[]): number {
     return this.ephemeralArrayService.push(baseSlot, elements);
   }
 
-  public ephemeralPop(baseSlot: Fr): Fr[] {
+  public popEphemeral(baseSlot: Fr): Fr[] {
     return this.ephemeralArrayService.pop(baseSlot);
   }
 
-  public ephemeralGet(baseSlot: Fr, index: number): Fr[] {
+  public getEphemeral(baseSlot: Fr, index: number): Fr[] {
     return this.ephemeralArrayService.get(baseSlot, index);
   }
 
-  public ephemeralSet(baseSlot: Fr, index: number, elements: Fr[]): void {
+  public setEphemeral(baseSlot: Fr, index: number, elements: Fr[]): void {
     this.ephemeralArrayService.set(baseSlot, index, elements);
   }
 
-  public ephemeralLen(baseSlot: Fr): number {
+  public getEphemeralLen(baseSlot: Fr): number {
     return this.ephemeralArrayService.len(baseSlot);
   }
 
-  public ephemeralRemove(baseSlot: Fr, index: number): void {
+  public removeEphemeral(baseSlot: Fr, index: number): void {
     this.ephemeralArrayService.remove(baseSlot, index);
   }
 
-  public ephemeralCopy(srcSlot: Fr, dstSlot: Fr, count: number): void {
+  public copyEphemeral(srcSlot: Fr, dstSlot: Fr, count: number): void {
     this.ephemeralArrayService.copy(srcSlot, dstSlot, count);
   }
 
-  public ephemeralClear(baseSlot: Fr): void {
+  public clearEphemeral(baseSlot: Fr): void {
     this.ephemeralArrayService.clear(baseSlot);
   }
 
