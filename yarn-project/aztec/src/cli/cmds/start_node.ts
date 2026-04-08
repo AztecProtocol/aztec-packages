@@ -83,7 +83,7 @@ export async function startNode(
   await preloadCrsDataForVerifying(nodeConfig, userLog);
 
   const genesisConfig = getGenesisStateConfigEnvVars();
-  const { genesisArchiveRoot, prefilledPublicData } = await computeExpectedGenesisRoot(genesisConfig, userLog);
+  const { genesisArchiveRoot, genesis } = await computeExpectedGenesisRoot(genesisConfig, userLog);
 
   const followsCanonicalRollup =
     typeof nodeConfig.rollupVersion !== 'number' || (nodeConfig.rollupVersion as unknown as string) === 'canonical';
@@ -156,7 +156,7 @@ export async function startNode(
   const telemetry = await initTelemetryClient(telemetryConfig);
 
   // Create and start Aztec Node
-  const node = await createAztecNode(nodeConfig, { telemetry, proverBroker: broker }, { prefilledPublicData });
+  const node = await createAztecNode(nodeConfig, { telemetry, proverBroker: broker }, { genesis });
 
   // Add node and p2p to services list
   services.node = [node, AztecNodeApiSchema];

@@ -223,7 +223,7 @@ export class EpochsTestContext {
           },
         },
         {
-          prefilledPublicData: this.context.prefilledPublicData ?? [],
+          genesis: this.context.genesis,
           dontStart: opts.dontStart,
         },
       ),
@@ -278,7 +278,7 @@ export class EpochsTestContext {
           slashingProtectionDb: opts.slashingProtectionDb,
         },
         {
-          prefilledPublicData: this.context.prefilledPublicData,
+          genesis: this.context.genesis,
           ...opts,
         },
       ),
