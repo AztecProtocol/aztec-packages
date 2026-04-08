@@ -41,7 +41,15 @@ describe('ProposalValidator', () => {
 
   beforeEach(() => {
     epochCache = mock<EpochCacheInterface>();
-    validator = new ProposalValidator(epochCache, { txsPermitted: true, maxTxsPerBlock: undefined }, 'test');
+    epochCache.getL1Constants.mockReturnValue({
+      slotDuration: 72,
+      ethereumSlotDuration: 12,
+    } as any);
+    validator = new ProposalValidator(
+      epochCache,
+      { txsPermitted: true, maxTxsPerBlock: undefined, p2pPropagationTime: 2 },
+      'test',
+    );
     epochCache.getEpochAndSlotNow.mockReturnValue({
       epoch: EpochNumber(1),
       slot: currentSlot,
@@ -180,11 +188,8 @@ describe('ProposalValidator', () => {
       });
       epochCache.getSlotNow.mockReturnValue(currentSlot); // slot 100
       epochCache.isProposerPipeliningEnabled.mockReturnValue(true);
-      epochCache.getL1Constants.mockReturnValue({
-        ethereumSlotDuration: 12,
-      } as any);
 
-      // Within grace period: 1000ms elapsed < 6000ms (ethereumSlotDuration/2 = 12000/2)
+      // Within grace period: 1000ms elapsed < configured propagation window 2000ms
       epochCache.getEpochAndSlotNow.mockReturnValue({
         epoch: EpochNumber(1),
         slot: currentSlot,
@@ -209,11 +214,8 @@ describe('ProposalValidator', () => {
       epochCache.getTargetSlot.mockReturnValue(SlotNumber(101));
       epochCache.getSlotNow.mockReturnValue(currentSlot); // slot 100
       epochCache.isProposerPipeliningEnabled.mockReturnValue(true);
-      epochCache.getL1Constants.mockReturnValue({
-        ethereumSlotDuration: 12,
-      } as any);
 
-      // Outside grace period: 7000ms elapsed > 6000ms (ethereumSlotDuration/2 = 12000/2)
+      // Outside grace period: 7000ms elapsed > configured propagation window 2000ms
       epochCache.getEpochAndSlotNow.mockReturnValue({
         epoch: EpochNumber(1),
         slot: currentSlot,

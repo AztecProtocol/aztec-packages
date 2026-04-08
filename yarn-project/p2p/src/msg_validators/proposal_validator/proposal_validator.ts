@@ -8,7 +8,7 @@ import {
   type ValidationResult,
 } from '@aztec/stdlib/p2p';
 
-import { isWithinClockTolerance, isWithinPipeliningGracePeriod } from '../clock_tolerance.js';
+import { PipeliningWindow, isWithinClockTolerance } from '../clock_tolerance.js';
 
 /** Validates header-level and tx-level fields of block and checkpoint proposals. */
 export class ProposalValidator {
@@ -16,15 +16,17 @@ export class ProposalValidator {
   private logger: Logger;
   private txsPermitted: boolean;
   private maxTxsPerBlock?: number;
+  private pipeliningWindow: PipeliningWindow;
 
   constructor(
     epochCache: EpochCacheInterface,
-    opts: { txsPermitted: boolean; maxTxsPerBlock?: number },
+    opts: { txsPermitted: boolean; maxTxsPerBlock?: number; p2pPropagationTime?: number },
     loggerName: string,
   ) {
     this.epochCache = epochCache;
     this.txsPermitted = opts.txsPermitted;
     this.maxTxsPerBlock = opts.maxTxsPerBlock;
+    this.pipeliningWindow = new PipeliningWindow(epochCache, { p2pPropagationTime: opts.p2pPropagationTime });
     this.logger = createLogger(loggerName);
   }
 
@@ -37,8 +39,8 @@ export class ProposalValidator {
       const slotNumber = proposal.slotNumber;
       if (slotNumber !== targetSlot && slotNumber !== nextSlot) {
         // When pipelining, accept proposals for the current slot (built in the previous slot)
-        // if we're within the first ethereumSlotDuration/2 seconds of the slot.
-        if (isWithinPipeliningGracePeriod(slotNumber, this.epochCache)) {
+        // if they're still within the shared proposal acceptance window.
+        if (this.pipeliningWindow.acceptsProposal(slotNumber)) {
           // Fall through to remaining validation (signature, proposer, etc.)
         } else if (!isWithinClockTolerance(slotNumber, targetSlot, this.epochCache)) {
           this.logger.warn(`Penalizing peer for invalid slot number ${slotNumber}`, { targetSlot, nextSlot });

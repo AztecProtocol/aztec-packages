@@ -3,11 +3,7 @@ import { SlotNumber } from '@aztec/foundation/branded-types';
 
 import { mock } from 'jest-mock-extended';
 
-import {
-  MAXIMUM_GOSSIP_CLOCK_DISPARITY_MS,
-  isWithinClockTolerance,
-  isWithinPipeliningGracePeriod,
-} from './clock_tolerance.js';
+import { MAXIMUM_GOSSIP_CLOCK_DISPARITY_MS, PipeliningWindow, isWithinClockTolerance } from './clock_tolerance.js';
 
 describe('clock_tolerance', () => {
   describe('MAXIMUM_GOSSIP_CLOCK_DISPARITY_MS', () => {
@@ -209,13 +205,19 @@ describe('clock_tolerance', () => {
     });
   });
 
-  describe('isWithinPipeliningGracePeriod', () => {
+  describe('PipeliningWindow.acceptsProposal', () => {
     let epochCache: ReturnType<typeof mock<EpochCacheInterface>>;
+    let pipeliningWindow: PipeliningWindow;
 
     beforeEach(() => {
       epochCache = mock<EpochCacheInterface>();
       epochCache.getSlotNow.mockReturnValue(SlotNumber(100));
       epochCache.isProposerPipeliningEnabled.mockReturnValue(true);
+      epochCache.getL1Constants.mockReturnValue({
+        slotDuration: 72,
+        ethereumSlotDuration: 12,
+      } as any);
+      pipeliningWindow = new PipeliningWindow(epochCache);
     });
 
     it('returns true when pipelining enabled, message is for current slot, and within grace period', () => {
@@ -227,7 +229,7 @@ describe('clock_tolerance', () => {
         nowMs: 1001000n, // 1000ms elapsed, within 2000ms grace period
       });
 
-      expect(isWithinPipeliningGracePeriod(SlotNumber(100), epochCache)).toBe(true);
+      expect(pipeliningWindow.acceptsProposal(SlotNumber(100))).toBe(true);
     });
 
     it('returns true at exactly 0ms elapsed', () => {
@@ -238,7 +240,7 @@ describe('clock_tolerance', () => {
         nowMs: 1000000n, // 0ms elapsed
       });
 
-      expect(isWithinPipeliningGracePeriod(SlotNumber(100), epochCache)).toBe(true);
+      expect(pipeliningWindow.acceptsProposal(SlotNumber(100))).toBe(true);
     });
 
     it('returns false when elapsed time exceeds grace period', () => {
@@ -250,7 +252,7 @@ describe('clock_tolerance', () => {
         nowMs: 1003000n, // 3000ms elapsed
       });
 
-      expect(isWithinPipeliningGracePeriod(SlotNumber(100), epochCache)).toBe(false);
+      expect(pipeliningWindow.acceptsProposal(SlotNumber(100))).toBe(false);
     });
 
     it('returns false at exactly the grace period boundary', () => {
@@ -262,7 +264,7 @@ describe('clock_tolerance', () => {
         nowMs: 1002000n, // 2000ms elapsed
       });
 
-      expect(isWithinPipeliningGracePeriod(SlotNumber(100), epochCache)).toBe(false);
+      expect(pipeliningWindow.acceptsProposal(SlotNumber(100))).toBe(false);
     });
 
     it('returns false when pipelining is disabled', () => {
@@ -275,7 +277,7 @@ describe('clock_tolerance', () => {
         nowMs: 1001000n, // 1000ms elapsed, within grace period
       });
 
-      expect(isWithinPipeliningGracePeriod(SlotNumber(100), epochCache)).toBe(false);
+      expect(pipeliningWindow.acceptsProposal(SlotNumber(100))).toBe(false);
     });
 
     it('returns false when message is not for current slot', () => {
@@ -287,7 +289,7 @@ describe('clock_tolerance', () => {
       });
 
       // Message for slot 99, current slot is 100
-      expect(isWithinPipeliningGracePeriod(SlotNumber(99), epochCache)).toBe(false);
+      expect(pipeliningWindow.acceptsProposal(SlotNumber(99))).toBe(false);
     });
 
     it('returns false when message is for a future slot', () => {
@@ -299,7 +301,59 @@ describe('clock_tolerance', () => {
       });
 
       // Message for slot 101, current slot is 100
-      expect(isWithinPipeliningGracePeriod(SlotNumber(101), epochCache)).toBe(false);
+      expect(pipeliningWindow.acceptsProposal(SlotNumber(101))).toBe(false);
+    });
+
+    it('uses the provided propagation time instead of the default', () => {
+      epochCache.getEpochAndSlotNow.mockReturnValue({
+        epoch: 1 as any,
+        slot: SlotNumber(100),
+        ts: 1000n,
+        nowMs: 1003000n, // 3000ms elapsed
+      });
+
+      const longerWindow = new PipeliningWindow(epochCache, { p2pPropagationTime: 4 });
+
+      expect(longerWindow.acceptsProposal(SlotNumber(100))).toBe(true);
+      expect(pipeliningWindow.acceptsProposal(SlotNumber(100))).toBe(false);
+    });
+  });
+
+  describe('PipeliningWindow.acceptsAttestation', () => {
+    let epochCache: ReturnType<typeof mock<EpochCacheInterface>>;
+    let pipeliningWindow: PipeliningWindow;
+
+    beforeEach(() => {
+      epochCache = mock<EpochCacheInterface>();
+      epochCache.getSlotNow.mockReturnValue(SlotNumber(100));
+      epochCache.isProposerPipeliningEnabled.mockReturnValue(true);
+      epochCache.getL1Constants.mockReturnValue({
+        slotDuration: 72,
+        ethereumSlotDuration: 12,
+      } as any);
+      pipeliningWindow = new PipeliningWindow(epochCache, { l1PublishingTime: 12 });
+    });
+
+    it('returns true while still before the target-slot publish cutoff', () => {
+      epochCache.getEpochAndSlotNow.mockReturnValue({
+        epoch: 1 as any,
+        slot: SlotNumber(100),
+        ts: 1000n,
+        nowMs: 1059000n, // 59000ms elapsed
+      });
+
+      expect(pipeliningWindow.acceptsAttestation(SlotNumber(100))).toBe(true);
+    });
+
+    it('returns false at the target-slot publish cutoff', () => {
+      epochCache.getEpochAndSlotNow.mockReturnValue({
+        epoch: 1 as any,
+        slot: SlotNumber(100),
+        ts: 1000n,
+        nowMs: 1060000n, // 60000ms elapsed
+      });
+
+      expect(pipeliningWindow.acceptsAttestation(SlotNumber(100))).toBe(false);
     });
   });
 });

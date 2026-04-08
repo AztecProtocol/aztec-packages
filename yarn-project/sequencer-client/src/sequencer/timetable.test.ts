@@ -519,7 +519,7 @@ describe('sequencer-timetable', () => {
       expect(tt.pipeliningAttestationGracePeriod).toBe(tt.blockDuration! + tt.p2pPropagationTime);
     });
 
-    it('returns aztecSlotDuration + gracePeriod for PUBLISHING_CHECKPOINT when pipelining', () => {
+    it('uses separate pipelined deadlines for attestation start vs publish cutoff', () => {
       const tt = new SequencerTimetable({
         ethereumSlotDuration: ETHEREUM_SLOT_DURATION,
         aztecSlotDuration: AZTEC_SLOT_DURATION,
@@ -529,11 +529,15 @@ describe('sequencer-timetable', () => {
         pipelining: true,
       });
 
-      expect(tt.getMaxAllowedTime(SequencerState.PUBLISHING_CHECKPOINT)).toBe(
+      expect(tt.getMaxAllowedTime(SequencerState.ASSEMBLING_CHECKPOINT)).toBe(
         AZTEC_SLOT_DURATION + tt.pipeliningAttestationGracePeriod,
       );
       expect(tt.getMaxAllowedTime(SequencerState.COLLECTING_ATTESTATIONS)).toBe(
         AZTEC_SLOT_DURATION + tt.pipeliningAttestationGracePeriod,
+      );
+      expect(tt.getCheckpointAttestationDeadline()).toBe(2 * AZTEC_SLOT_DURATION - L1_PUBLISHING_TIME);
+      expect(tt.getMaxAllowedTime(SequencerState.PUBLISHING_CHECKPOINT)).toBe(
+        2 * AZTEC_SLOT_DURATION - L1_PUBLISHING_TIME,
       );
     });
 

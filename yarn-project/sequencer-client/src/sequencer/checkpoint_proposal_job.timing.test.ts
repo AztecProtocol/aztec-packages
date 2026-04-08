@@ -1032,7 +1032,7 @@ describe('CheckpointProposalJob Timing Tests', () => {
       epochCache.isProposerPipeliningEnabled.mockReturnValue(true);
     });
 
-    it('sets attestation deadline to buildSlotStart + slotDuration + gracePeriod when pipelining', async () => {
+    it('sets attestation deadline to the target-slot publish cutoff when pipelining', async () => {
       const { blocks, txs } = await createTestBlocksAndTxs(2);
       mockP2pWithTxs(txs);
       checkpointBuilder.seedBlocks(
@@ -1056,11 +1056,10 @@ describe('CheckpointProposalJob Timing Tests', () => {
       expect(validatorClient.collectAttestations).toHaveBeenCalled();
       expect(collectAttestationsDeadline).toBeDefined();
 
-      // Attestation deadline = buildSlotStart + aztecSlotDuration + gracePeriod
-      // gracePeriod = blockDuration + p2pPropagation (re-execution + attestation return)
+      // Attestation deadline = buildSlotStart + (2 * aztecSlotDuration - l1PublishingTime)
+      // so collection can continue until the target slot's publish cutoff.
       const buildSlotStart = getSlotStartTime(slotNumber);
-      const gracePeriod = BLOCK_DURATION + P2P_PROPAGATION_TIME;
-      const expectedDeadlineSeconds = buildSlotStart + AZTEC_SLOT_DURATION + gracePeriod;
+      const expectedDeadlineSeconds = buildSlotStart + 2 * AZTEC_SLOT_DURATION - L1_PUBLISHING_TIME;
       const actualDeadlineSeconds = collectAttestationsDeadline!.getTime() / 1000;
 
       expect(actualDeadlineSeconds).toBeCloseTo(expectedDeadlineSeconds, 0);
