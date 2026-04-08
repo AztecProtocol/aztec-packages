@@ -1,11 +1,8 @@
 import type { SlotNumber } from '@aztec/foundation/branded-types';
 import type { SlasherConfig } from '@aztec/stdlib/interfaces/server';
-import type { Offense, ProposerSlashAction, SlashPayloadRound } from '@aztec/stdlib/slashing';
+import type { Offense, ProposerSlashAction } from '@aztec/stdlib/slashing';
 
-/**
- * Common interface for slasher clients used by the Aztec node.
- * Both Empire and Consensus slasher clients implement this interface.
- */
+/** Common interface for slasher clients used by the Aztec node. */
 export interface SlasherClientInterface {
   /** Start the slasher client */
   start(): Promise<void>;
@@ -13,25 +10,13 @@ export interface SlasherClientInterface {
   /** Stop the slasher client */
   stop(): Promise<void>;
 
-  /**
-   * Get slash payloads for the Empire model.
-   * The Consensus model should throw an error when this is called.
-   */
-  getSlashPayloads(): Promise<SlashPayloadRound[]>;
-
-  /**
-   * Gather offenses for a given round, defaults to current.
-   * Used by both Empire and Consensus models.
-   */
+  /** Gather offenses for a given round, defaults to current. */
   gatherOffensesForRound(round?: bigint): Promise<Offense[]>;
 
-  /** Returns all pending offenses */
-  getPendingOffenses(): Promise<Offense[]>;
+  /** Returns all offenses */
+  getOffenses(): Promise<Offense[]>;
 
-  /**
-   * Update the configuration.
-   * Used by both Empire and Consensus models.
-   */
+  /** Update the configuration. */
   updateConfig(config: Partial<SlasherConfig>): void;
 
   /**

@@ -96,7 +96,7 @@ describe('e2e_p2p_data_withholding_slash', () => {
       throw new Error('Bootstrap node ENR is not available');
     }
 
-    const { rollup, slashingProposer, slashFactory } = await t.getContracts();
+    const { rollup, slashingProposer } = await t.getContracts();
 
     // Jump forward to an epoch in the future such that the validator set is not empty
     await t.ctx.cheatCodes.rollup.advanceToEpoch(EpochNumber(4));
@@ -124,7 +124,7 @@ describe('e2e_p2p_data_withholding_slash', () => {
       t.bootstrapNodeEnr,
       NUM_VALIDATORS,
       BOOT_NODE_UDP_PORT,
-      t.prefilledPublicData,
+      t.genesis,
       DATA_DIR,
       // To collect metrics - run in aztec-packages `docker compose --profile metrics up` and set COLLECT_METRICS=true
       shouldCollectMetrics(),
@@ -169,7 +169,7 @@ describe('e2e_p2p_data_withholding_slash', () => {
       t.bootstrapNodeEnr,
       NUM_VALIDATORS,
       BOOT_NODE_UDP_PORT,
-      t.prefilledPublicData,
+      t.genesis,
       DATA_DIR,
     );
 
@@ -193,7 +193,6 @@ describe('e2e_p2p_data_withholding_slash', () => {
       rollup,
       cheatCodes: t.ctx.cheatCodes.rollup,
       committee,
-      slashFactory,
       slashingProposer,
       slashingRoundSize,
       aztecSlotDuration: AZTEC_SLOT_DURATION,

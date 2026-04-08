@@ -3,27 +3,23 @@
 pragma solidity >=0.8.27;
 
 import {Rollup} from "@aztec/core/Rollup.sol";
-import {IValidatorSelection} from "@aztec/core/interfaces/IValidatorSelection.sol";
 import {Slot, Epoch} from "@aztec/core/libraries/TimeLib.sol";
 import {Slasher, IPayload} from "@aztec/core/slashing/Slasher.sol";
-import {TallySlashingProposer} from "@aztec/core/slashing/TallySlashingProposer.sol";
+import {SlashingProposer} from "@aztec/core/slashing/SlashingProposer.sol";
 import {RewardDistributor} from "@aztec/governance/RewardDistributor.sol";
 import {MultiAdder, CheatDepositArgs} from "@aztec/mock/MultiAdder.sol";
 import {TestERC20} from "@aztec/mock/TestERC20.sol";
-import {SlashFactory} from "@aztec/periphery/SlashFactory.sol";
 import {TestBase} from "@test/base/Base.sol";
 
 import {TestConstants} from "../../../harnesses/TestConstants.sol";
 
 import {RewardDistributor} from "@aztec/governance/RewardDistributor.sol";
 
-import {SlashFactory} from "@aztec/periphery/SlashFactory.sol";
 import {Slasher, IPayload} from "@aztec/core/slashing/Slasher.sol";
-import {IValidatorSelection} from "@aztec/core/interfaces/IValidatorSelection.sol";
 import {Status, AttesterView} from "@aztec/core/interfaces/IStaking.sol";
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
 
-import {TallySlashingProposer} from "@aztec/core/slashing/TallySlashingProposer.sol";
+import {SlashingProposer} from "@aztec/core/slashing/SlashingProposer.sol";
 
 import {Slot, Epoch} from "@aztec/core/libraries/TimeLib.sol";
 import {TimeCheater} from "../../../staking/TimeCheater.sol";
@@ -32,7 +28,6 @@ import {RollupBuilder} from "../../../builder/RollupBuilder.sol";
 import {BN254Lib, G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
 import {SignatureLib, Signature} from "@aztec/shared/libraries/SignatureLib.sol";
 import {SlashRound} from "@aztec/core/libraries/SlashRoundLib.sol";
-import {SlasherFlavor} from "@aztec/core/interfaces/ISlasher.sol";
 
 // solhint-disable comprehensive-interface
 // solhint-disable func-name-mixedcase
@@ -42,8 +37,7 @@ contract SlashingTest is TestBase {
   RewardDistributor internal rewardDistributor;
   Rollup internal rollup;
   Slasher internal slasher;
-  SlashFactory internal slashFactory;
-  TallySlashingProposer internal slashingProposer;
+  SlashingProposer internal slashingProposer;
   TimeCheater internal timeCheater;
 
   // Test validator keys for signing
@@ -175,7 +169,7 @@ contract SlashingTest is TestBase {
     uint256 roundSize = ROUND_SIZE_IN_EPOCHS * EPOCH_DURATION;
     RollupBuilder builder = new RollupBuilder(address(this)).setValidators(initialValidators)
       .setTargetCommitteeSize(COMMITTEE_SIZE).setSlashingLifetimeInRounds(_slashingLifetimeInRounds)
-      .setSlashingExecutionDelayInRounds(_slashingExecutionDelayInRounds).setSlasherFlavor(SlasherFlavor.TALLY)
+      .setSlashingExecutionDelayInRounds(_slashingExecutionDelayInRounds).setSlasherEnabled(true)
       .setSlashingRoundSize(roundSize).setSlashingQuorum(roundSize / 2 + 1).setSlashingOffsetInRounds(2)
       .setEpochDuration(EPOCH_DURATION).setEntryQueueFlushSizeMin(VALIDATOR_COUNT);
     builder.deploy();
@@ -184,8 +178,7 @@ contract SlashingTest is TestBase {
     testERC20 = builder.getConfig().testERC20;
 
     slasher = Slasher(rollup.getSlasher());
-    slashingProposer = TallySlashingProposer(slasher.PROPOSER());
-    slashFactory = new SlashFactory(IValidatorSelection(address(rollup)));
+    slashingProposer = SlashingProposer(slasher.PROPOSER());
 
     timeCheater = new TimeCheater(
       address(rollup),
@@ -291,7 +284,7 @@ contract SlashingTest is TestBase {
     // For tally slashing, we need to predict the payload address and veto it
     // Get the actual slash actions that will be created by calling getTally
     address[][] memory slashCommittees = slashingProposer.getSlashTargetCommittees(firstSlashingRound);
-    TallySlashingProposer.SlashAction[] memory actions = slashingProposer.getTally(firstSlashingRound, slashCommittees);
+    SlashingProposer.SlashAction[] memory actions = slashingProposer.getTally(firstSlashingRound, slashCommittees);
     address payloadAddress = slashingProposer.getPayloadAddress(firstSlashingRound, actions);
 
     // Veto the predicted payload

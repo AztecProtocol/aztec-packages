@@ -1,10 +1,10 @@
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { EthAddress } from '@aztec/foundation/eth-address';
 
-import { encodeSlashConsensusVotes, getSlashConsensusVotesFromOffenses } from './tally.js';
 import { type Offense, OffenseType } from './types.js';
+import { encodeSlashConsensusVotes, getSlashConsensusVotesFromOffenses } from './votes.js';
 
-describe('TallySlashingHelpers', () => {
+describe('SlashingHelpers', () => {
   const mockValidator1 = EthAddress.fromString('0x1234567890123456789012345678901234567890');
   const mockValidator2 = EthAddress.fromString('0x2345678901234567890123456789012345678901');
   const mockValidator3 = EthAddress.fromString('0x3456789012345678901234567890123456789012');
