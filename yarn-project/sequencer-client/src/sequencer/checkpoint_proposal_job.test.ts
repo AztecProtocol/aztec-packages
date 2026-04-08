@@ -13,6 +13,7 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { TimeoutError } from '@aztec/foundation/error';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Signature } from '@aztec/foundation/eth-signature';
+import { createLogger } from '@aztec/foundation/log';
 import { TestDateProvider } from '@aztec/foundation/timer';
 import type { TypedEventEmitter } from '@aztec/foundation/types';
 import { type P2P, P2PClientState } from '@aztec/p2p';
@@ -62,6 +63,7 @@ import {
   mockTxIterator,
   setupTxsAndBlock,
 } from '../test/utils.js';
+import { computePipelinedParentFeeHeader } from './chain_state_overrides.js';
 import { CheckpointProposalJob } from './checkpoint_proposal_job.js';
 import type { SequencerEvents } from './events.js';
 import type { SequencerMetrics } from './metrics.js';
@@ -601,46 +603,9 @@ describe('CheckpointProposalJob', () => {
     );
   }
 
-  describe('computeForceProposedFeeHeader', () => {
+  describe('computePipelinedParentFeeHeader', () => {
     // Use checkpoint 3 so the grandparent (checkpoint 1) is valid
     const pipelinedCheckpointNumber = CheckpointNumber(3);
-
-    function createJobWithProposedCheckpoint(pendingData: ProposedCheckpointData): TestCheckpointProposalJob {
-      const setStateFn = jest.fn();
-      const eventEmitter = new EventEmitter() as TypedEventEmitter<SequencerEvents>;
-
-      return new TestCheckpointProposalJob(
-        SlotNumber(newSlotNumber),
-        SlotNumber(newSlotNumber),
-        epoch,
-        pipelinedCheckpointNumber,
-        lastBlockNumber,
-        proposer,
-        publisher,
-        attestorAddress,
-        undefined,
-        validatorClient,
-        globalVariableBuilder,
-        p2p,
-        worldState,
-        l1ToL2MessageSource,
-        l2BlockSource,
-        checkpointsBuilder as unknown as FullNodeCheckpointsBuilder,
-        blockSink,
-        l1Constants,
-        config,
-        timetable,
-        slasherClient,
-        epochCache,
-        dateProvider,
-        metrics,
-        eventEmitter,
-        setStateFn,
-        getTelemetryClient().getTracer('test'),
-        { actor: 'test' },
-        pendingData,
-      );
-    }
 
     const pendingData: ProposedCheckpointData = {
       checkpointNumber: CheckpointNumber(1),
@@ -662,7 +627,12 @@ describe('CheckpointProposalJob', () => {
     };
 
     it('returns undefined when proposedCheckpointData is not set', async () => {
-      const result = await job.computeForceProposedFeeHeader(CheckpointNumber(1));
+      const result = await computePipelinedParentFeeHeader({
+        checkpointNumber: pipelinedCheckpointNumber,
+        proposedCheckpointData: undefined,
+        rollup: publisher.rollupContract,
+        log: createLogger('test'),
+      });
       expect(result).toBeUndefined();
     });
 
@@ -673,16 +643,18 @@ describe('CheckpointProposalJob', () => {
     }
 
     it('computes fee header from grandparent checkpoint', async () => {
-      const jobWithPending = createJobWithProposedCheckpoint(pendingData);
       const manaTarget = 10_000n;
 
       mockRollup({ grandparentCheckpoint: { feeHeader: grandparentFeeHeader }, manaTarget });
 
-      const parentCheckpointNumber = CheckpointNumber(1);
-      const result = await jobWithPending.computeForceProposedFeeHeader(parentCheckpointNumber);
+      const result = await computePipelinedParentFeeHeader({
+        checkpointNumber: pipelinedCheckpointNumber,
+        proposedCheckpointData: pendingData,
+        rollup: publisher.rollupContract,
+        log: createLogger('test'),
+      });
 
       expect(result).toBeDefined();
-      expect(result!.checkpointNumber).toBe(parentCheckpointNumber);
 
       const expected = RollupContract.computeChildFeeHeader(
         grandparentFeeHeader,
@@ -690,30 +662,42 @@ describe('CheckpointProposalJob', () => {
         pendingData.feeAssetPriceModifier,
         manaTarget,
       );
-      expect(result!.feeHeader).toEqual(expected);
+      expect(result).toEqual(expected);
     });
 
     it('returns undefined when grandparent checkpoint is not found', async () => {
-      const jobWithPending = createJobWithProposedCheckpoint(pendingData);
       mockRollup({ grandparentCheckpoint: undefined });
 
-      const result = await jobWithPending.computeForceProposedFeeHeader(CheckpointNumber(1));
+      const result = await computePipelinedParentFeeHeader({
+        checkpointNumber: pipelinedCheckpointNumber,
+        proposedCheckpointData: pendingData,
+        rollup: publisher.rollupContract,
+        log: createLogger('test'),
+      });
       expect(result).toBeUndefined();
     });
 
     it('returns undefined when grandparent checkpoint has no feeHeader', async () => {
-      const jobWithPending = createJobWithProposedCheckpoint(pendingData);
       mockRollup({ grandparentCheckpoint: { feeHeader: undefined } });
 
-      const result = await jobWithPending.computeForceProposedFeeHeader(CheckpointNumber(1));
+      const result = await computePipelinedParentFeeHeader({
+        checkpointNumber: pipelinedCheckpointNumber,
+        proposedCheckpointData: pendingData,
+        rollup: publisher.rollupContract,
+        log: createLogger('test'),
+      });
       expect(result).toBeUndefined();
     });
 
     it('returns undefined when rollup calls throw', async () => {
-      const jobWithPending = createJobWithProposedCheckpoint(pendingData);
       jest.spyOn(publisher.rollupContract, 'getCheckpoint').mockRejectedValue(new Error('rpc error'));
 
-      const result = await jobWithPending.computeForceProposedFeeHeader(CheckpointNumber(1));
+      const result = await computePipelinedParentFeeHeader({
+        checkpointNumber: pipelinedCheckpointNumber,
+        proposedCheckpointData: pendingData,
+        rollup: publisher.rollupContract,
+        log: createLogger('test'),
+      });
       expect(result).toBeUndefined();
     });
   });
@@ -1259,11 +1243,6 @@ class TestCheckpointProposalJob extends CheckpointProposalJob {
   /** Get timetable for testing - allows tests to spy on methods */
   public getTimetable(): SequencerTimetable {
     return this.timetable;
-  }
-
-  /** Expose computeForceProposedFeeHeader for testing */
-  public override computeForceProposedFeeHeader(parentCheckpointNumber: CheckpointNumber) {
-    return super.computeForceProposedFeeHeader(parentCheckpointNumber);
   }
 
   /** Expose internal buildSingleBlock method */
