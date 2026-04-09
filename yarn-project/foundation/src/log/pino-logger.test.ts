@@ -1,5 +1,6 @@
 import { build as buildPrettyStream } from 'pino-pretty';
 import { Writable } from 'stream';
+import { inspect } from 'util';
 
 import {
   createLogger,
@@ -309,6 +310,63 @@ describe('pino-logger', () => {
     expect(bindings).toEqual({
       actor: 'main',
       instanceId: 'id-123',
+    });
+  });
+
+  describe('formatErr via error logging', () => {
+    it('formats error using inspect by default', () => {
+      const testLogger = createLogger('format-err-default');
+      capturingStream.clear();
+
+      const err = new Error('something broke');
+      testLogger.error('operation failed', err);
+
+      const entries = capturingStream.getJsonLines();
+      expect(entries).toHaveLength(1);
+      const msg = (entries[0] as { msg: string }).msg;
+      // inspect formats errors with full stack trace
+      expect(msg).toMatch(/^operation failed: Error: something broke\n\s+at/);
+    });
+
+    it('falls back to Error name and message when inspect throws', () => {
+      const testLogger = createLogger('format-err-test');
+      capturingStream.clear();
+
+      // An Error with a custom inspect that throws triggers the first catch
+      const err = new Error('original message');
+      (err as unknown as Record<symbol, () => void>)[inspect.custom] = () => {
+        throw new Error('custom inspect broke');
+      };
+
+      testLogger.error('something failed', err);
+
+      const entries = capturingStream.getJsonLines();
+      expect(entries).toHaveLength(1);
+      expect((entries[0] as { msg: string }).msg).toBe('something failed: Error: original message');
+    });
+
+    it('returns unserializable error when both inspect and String throw', () => {
+      const testLogger = createLogger('unserializable-test');
+      capturingStream.clear();
+
+      // An object where inspect(), toString(), and String() all throw
+      const unserializable = {
+        [inspect.custom]() {
+          throw new Error('custom inspect broke');
+        },
+        toString() {
+          throw new Error('toString broke');
+        },
+        [Symbol.toPrimitive]() {
+          throw new Error('toPrimitive broke');
+        },
+      };
+
+      testLogger.error('total failure', unserializable);
+
+      const entries = capturingStream.getJsonLines();
+      expect(entries).toHaveLength(1);
+      expect((entries[0] as { msg: string }).msg).toBe('total failure: [unserializable error]');
     });
   });
 

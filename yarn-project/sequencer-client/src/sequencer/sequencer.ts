@@ -123,6 +123,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
         p2pPropagationTime: this.config.attestationPropagationTime,
         blockDurationMs: this.config.blockDurationMs,
         enforce: this.config.enforceTimeTable,
+        pipelining: this.epochCache.isProposerPipeliningEnabled(),
       },
       this.metrics,
       this.log,
@@ -299,16 +300,6 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     // Next checkpoint follows from the last synced one
     const checkpointNumber = CheckpointNumber(syncedTo.checkpointNumber + 1);
 
-    // Guard: don't exceed 1-deep pipeline. Without a proposed checkpoint, we can only build
-    // confirmed + 1. With a proposed checkpoint, we can build confirmed + 2.
-    const confirmedCkpt = syncedTo.checkpointedCheckpointNumber;
-    if (checkpointNumber > confirmedCkpt + 2) {
-      this.log.warn(
-        `Skipping slot ${targetSlot}: checkpoint ${checkpointNumber} exceeds max pipeline depth (confirmed=${confirmedCkpt})`,
-      );
-      return undefined;
-    }
-
     const logCtx = {
       nowSeconds,
       syncedToL2Slot: syncedTo.syncedL2Slot,
@@ -326,6 +317,16 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     // If we are not a proposer check if we should invalidate an invalid checkpoint, and bail
     if (!canPropose) {
       await this.considerInvalidatingCheckpoint(syncedTo, slot);
+      return undefined;
+    }
+
+    // Guard: don't exceed 1-deep pipeline. Without a proposed checkpoint, we can only build
+    // confirmed + 1. With a proposed checkpoint, we can build confirmed + 2.
+    const confirmedCkpt = syncedTo.checkpointedCheckpointNumber;
+    if (checkpointNumber > confirmedCkpt + 2) {
+      this.log.verbose(
+        `Skipping slot ${targetSlot}: checkpoint ${checkpointNumber} exceeds max pipeline depth (confirmed=${confirmedCkpt})`,
+      );
       return undefined;
     }
 
@@ -567,12 +568,12 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
         .getL2Tips()
         .then(t => ({ proposed: t.proposed, checkpointed: t.checkpointed, proposedCheckpoint: t.proposedCheckpoint })),
       this.p2pClient.getStatus().then(p2p => p2p.syncedToL2Block),
-      this.l1ToL2MessageSource.getL2Tips().then(t => t.proposed),
+      this.l1ToL2MessageSource.getL2Tips().then(t => ({ proposed: t.proposed, checkpointed: t.checkpointed })),
       this.l2BlockSource.getPendingChainValidationStatus(),
       this.l2BlockSource.getProposedCheckpointOnly(),
     ] as const);
 
-    const [worldState, l2Tips, p2p, l1ToL2MessageSource, pendingChainValidationStatus, proposedCheckpointData] =
+    const [worldState, l2Tips, p2p, l1ToL2MessageSourceTips, pendingChainValidationStatus, proposedCheckpointData] =
       syncedBlocks;
 
     // Handle zero as a special case, since the block hash won't match across services if we're changing the prefilled data for the genesis block,
@@ -580,19 +581,25 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     // TODO(palla/mbps): Fix the above. All components should be able to handle dynamic genesis block hashes.
     const result =
       (l2Tips.proposed.number === 0 &&
+        l2Tips.checkpointed.block.number === 0 &&
+        l2Tips.checkpointed.checkpoint.number === 0 &&
         worldState.number === 0 &&
         p2p.number === 0 &&
-        l1ToL2MessageSource.number === 0) ||
+        l1ToL2MessageSourceTips.proposed.number === 0 &&
+        l1ToL2MessageSourceTips.checkpointed.block.number === 0 &&
+        l1ToL2MessageSourceTips.checkpointed.checkpoint.number === 0) ||
       (worldState.hash === l2Tips.proposed.hash &&
         p2p.hash === l2Tips.proposed.hash &&
-        l1ToL2MessageSource.hash === l2Tips.proposed.hash);
+        l1ToL2MessageSourceTips.proposed.hash === l2Tips.proposed.hash &&
+        l1ToL2MessageSourceTips.checkpointed.block.hash === l2Tips.checkpointed.block.hash &&
+        l1ToL2MessageSourceTips.checkpointed.checkpoint.hash === l2Tips.checkpointed.checkpoint.hash);
 
     if (!result) {
       this.log.debug(`Sequencer sync check failed`, {
         worldState,
         l2BlockSource: l2Tips.proposed,
         p2p,
-        l1ToL2MessageSource,
+        l1ToL2MessageSourceTips,
       });
       return undefined;
     }

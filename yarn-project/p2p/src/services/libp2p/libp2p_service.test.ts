@@ -6,7 +6,7 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { openTmpStore } from '@aztec/kv-store/lmdb';
-import { L2Block, type L2BlockSource } from '@aztec/stdlib/block';
+import type { L2BlockSource } from '@aztec/stdlib/block';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 import type { ClientProtocolCircuitVerifier } from '@aztec/stdlib/interfaces/server';
 import { BlockProposal, PeerErrorSeverity } from '@aztec/stdlib/p2p';
@@ -309,66 +309,6 @@ describe('LibP2PService', () => {
         source: 'gossip',
       });
       expect(txReportSpy).toHaveBeenCalledWith('test-msg-id', MOCK_PEER_ID, TopicValidatorResult.Accept);
-    });
-  });
-
-  describe('validateRequestedBlock', () => {
-    it('should return false and penalize on number mismatch', async () => {
-      const requested = new Fr(10);
-      const resp = await L2Block.random(BlockNumber(9));
-
-      const ok = await service.validateRequestedBlock(requested, resp, mockPeerId);
-
-      expect(ok).toBe(false);
-      expect(mockPeerManager.penalizePeer).toHaveBeenCalledWith(mockPeerId, PeerErrorSeverity.LowToleranceError);
-    });
-
-    it('should return false (no penalty) when numbers match and no local block', async () => {
-      mockArchiver.getBlock.mockResolvedValue(undefined);
-      const requested = new Fr(10);
-      const resp = await L2Block.random(BlockNumber(10));
-
-      const ok = await service.validateRequestedBlock(requested, resp, mockPeerId);
-
-      expect(ok).toBe(false);
-      expect(mockPeerManager.penalizePeer).not.toHaveBeenCalled();
-    });
-
-    it('should return true when numbers match and hashes match', async () => {
-      const requested = new Fr(10);
-      const local = await L2Block.random(BlockNumber(10));
-
-      const resp = L2Block.fromBuffer(local.toBuffer());
-      mockArchiver.getBlock.mockResolvedValue(local);
-
-      const ok = await service.validateRequestedBlock(requested, resp, mockPeerId);
-
-      expect(ok).toBe(true);
-      expect(mockPeerManager.penalizePeer).not.toHaveBeenCalled();
-    });
-
-    it('should return false and penalize when hashes mismatch', async () => {
-      const requested = new Fr(10);
-      const local = await L2Block.random(BlockNumber(10));
-
-      const resp = L2Block.fromBuffer(local.toBuffer());
-      resp.header.globalVariables.coinbase = EthAddress.random();
-      mockArchiver.getBlock.mockResolvedValue(local);
-
-      const ok = await service.validateRequestedBlock(requested, resp, mockPeerId);
-
-      expect(ok).toBe(false);
-      expect(mockPeerManager.penalizePeer).toHaveBeenCalledWith(mockPeerId, PeerErrorSeverity.MidToleranceError);
-    });
-
-    it('should return false on archiver error', async () => {
-      mockArchiver.getBlock.mockRejectedValue(new Error('boom'));
-      const requested = new Fr(10);
-      const resp = await L2Block.random(BlockNumber(10));
-
-      const ok = await service.validateRequestedBlock(requested, resp, mockPeerId);
-
-      expect(ok).toBe(false);
     });
   });
 
@@ -1187,11 +1127,6 @@ class TestLibP2PService extends LibP2PService {
         severity: PeerErrorSeverity.LowToleranceError,
       },
     };
-  }
-
-  /** Exposes the protected validateRequestedBlock for testing. */
-  public override validateRequestedBlock(requested: Fr, response: L2Block, peerId: PeerId): Promise<boolean> {
-    return super.validateRequestedBlock(requested, response, peerId);
   }
 
   /** Exposes the protected validateRequestedBlockTxs for testing. */

@@ -1,5 +1,5 @@
 import type { EpochCache } from '@aztec/epoch-cache';
-import { RollupContract, SlasherContract, TallySlashingProposerContract } from '@aztec/ethereum/contracts';
+import { RollupContract, SlasherContract, SlashingProposerContract } from '@aztec/ethereum/contracts';
 import { EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { times } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -15,14 +15,14 @@ import { type MockProxy, mockDeep } from 'jest-mock-extended';
 import assert from 'node:assert';
 
 import { DefaultSlasherConfig } from './config.js';
+import { SlasherClient, type SlasherSettings } from './slasher_client.js';
 import { SlasherOffensesStore } from './stores/offenses_store.js';
-import { TallySlasherClient, type TallySlasherSettings } from './tally_slasher_client.js';
 import { DummyWatcher } from './test/dummy_watcher.js';
 import type { WantToSlashArgs } from './watcher.js';
 
-describe('TallySlasherClient', () => {
-  let tallySlasherClient: TestTallySlasherClient;
-  let tallySlashingProposer: MockProxy<TallySlashingProposerContract>;
+describe('SlasherClient', () => {
+  let slasherClient: TestSlasherClient;
+  let slashingProposer: MockProxy<SlashingProposerContract>;
   let rollup: MockProxy<RollupContract>;
   let slasherContract: MockProxy<SlasherContract>;
   let dummyWatcher: DummyWatcher;
@@ -38,7 +38,7 @@ describe('TallySlasherClient', () => {
   const roundSizeInEpochs = 4;
   const epochDuration = 32;
   const roundSize = roundSizeInEpochs * epochDuration;
-  const settings: TallySlasherSettings = {
+  const settings: SlasherSettings = {
     slashingExecutionDelayInRounds: 2,
     slashingRoundSize: roundSize,
     slashingRoundSizeInEpochs: roundSizeInEpochs,
@@ -93,9 +93,9 @@ describe('TallySlasherClient', () => {
     return { validator, amount, offenseType, epochOrSlot };
   };
 
-  const addPendingOffense = async (opts: Parameters<typeof createOffense>[0] = {}): Promise<Offense> => {
+  const addOffense = async (opts: Parameters<typeof createOffense>[0] = {}): Promise<Offense> => {
     const offense = createOffense(opts);
-    await offensesStore.addPendingOffense(offense);
+    await offensesStore.addOffense(offense);
     return offense;
   };
 
@@ -142,21 +142,21 @@ describe('TallySlasherClient', () => {
     });
 
     // Create mocks for L1 contracts
-    tallySlashingProposer = mockDeep<TallySlashingProposerContract>();
+    slashingProposer = mockDeep<SlashingProposerContract>();
     rollup = mockDeep<RollupContract>();
     slasherContract = mockDeep<SlasherContract>();
 
     // Setup mock responses
-    tallySlashingProposer.getRound.mockResolvedValue({ ...emptyRoundData });
-    tallySlashingProposer.getTally.mockResolvedValue({
+    slashingProposer.getRound.mockResolvedValue({ ...emptyRoundData });
+    slashingProposer.getTally.mockResolvedValue({
       actions: [{ validator: committee[0], slashAmount: slashingUnit }],
       committees: [committee],
     });
-    tallySlashingProposer.getPayload.mockResolvedValue({
+    slashingProposer.getPayload.mockResolvedValue({
       address: EthAddress.random(),
       actions: [{ validator: committee[0], slashAmount: slashingUnit }],
     });
-    tallySlashingProposer.isRoundReadyToExecute.mockResolvedValue(true);
+    slashingProposer.isRoundReadyToExecute.mockResolvedValue(true);
 
     // Setup rollup and slasher contract mocks
     rollup.getSlasherContract.mockResolvedValue(slasherContract);
@@ -164,14 +164,14 @@ describe('TallySlasherClient', () => {
     slasherContract.isSlashingEnabled.mockResolvedValue(true);
 
     // Mock event listeners to return unwatch functions
-    tallySlashingProposer.listenToVoteCast.mockReturnValue(() => {});
-    tallySlashingProposer.listenToRoundExecuted.mockReturnValue(() => {});
+    slashingProposer.listenToVoteCast.mockReturnValue(() => {});
+    slashingProposer.listenToRoundExecuted.mockReturnValue(() => {});
 
     // Create consensus slasher client with proper constructor parameters
-    tallySlasherClient = new TestTallySlasherClient(
+    slasherClient = new TestSlasherClient(
       config,
       settings,
-      tallySlashingProposer,
+      slashingProposer,
       slasherContract,
       rollup,
       [dummyWatcher],
@@ -183,7 +183,7 @@ describe('TallySlasherClient', () => {
   });
 
   afterEach(async () => {
-    await tallySlasherClient.stop();
+    await slasherClient.stop();
     await kvStore.close();
   });
 
@@ -196,14 +196,14 @@ describe('TallySlasherClient', () => {
         const targetRound = 3n;
 
         // Add slot-based offenses for the target round (slots 576-767 are in round 3)
-        await offensesStore.addPendingOffense(
+        await offensesStore.addOffense(
           createOffense({
             validator: committee[0],
             epochOrSlot: targetRound * BigInt(roundSize),
             offenseType: OffenseType.PROPOSED_INSUFFICIENT_ATTESTATIONS, // slot-based
           }),
         );
-        await offensesStore.addPendingOffense(
+        await offensesStore.addOffense(
           createOffense({
             validator: committee[1],
             amount: slashingUnit * 3n,
@@ -212,7 +212,7 @@ describe('TallySlasherClient', () => {
           }),
         );
 
-        const actions = await tallySlasherClient.getProposerActions(SlotNumber.fromBigInt(currentSlot));
+        const actions = await slasherClient.getProposerActions(SlotNumber.fromBigInt(currentSlot));
 
         expect(actions).toHaveLength(1);
         const action = actions[0];
@@ -227,14 +227,14 @@ describe('TallySlasherClient', () => {
         const currentSlot = currentRound * BigInt(roundSize);
         const wrongRound = 4n; // Round 5 should vote on round 3, not 4
 
-        await offensesStore.addPendingOffense(
+        await offensesStore.addOffense(
           createOffense({
             epochOrSlot: wrongRound * BigInt(roundSize),
             offenseType: OffenseType.PROPOSED_INSUFFICIENT_ATTESTATIONS, // slot-based
           }),
         );
 
-        const actions = await tallySlasherClient.getProposerActions(SlotNumber.fromBigInt(currentSlot));
+        const actions = await slasherClient.getProposerActions(SlotNumber.fromBigInt(currentSlot));
 
         expect(actions).toEqual([]);
       });
@@ -243,7 +243,7 @@ describe('TallySlasherClient', () => {
         const currentRound = 0n;
         const currentSlot = currentRound * BigInt(roundSize) + 50n;
 
-        const action = await tallySlasherClient.getVoteOffensesAction(SlotNumber.fromBigInt(currentSlot));
+        const action = await slasherClient.getVoteOffensesAction(SlotNumber.fromBigInt(currentSlot));
 
         expect(action).toBeUndefined();
       });
@@ -253,7 +253,7 @@ describe('TallySlasherClient', () => {
         const currentSlot = currentRound * BigInt(roundSize);
         const targetRound = 3n;
 
-        await addPendingOffense({
+        await addOffense({
           epochOrSlot: targetRound * BigInt(roundSize) + BigInt(epochDuration),
           offenseType: OffenseType.PROPOSED_INSUFFICIENT_ATTESTATIONS, // slot-based
         });
@@ -265,7 +265,7 @@ describe('TallySlasherClient', () => {
           isEscapeHatchOpen: false,
         });
 
-        const action = await tallySlasherClient.getVoteOffensesAction(SlotNumber.fromBigInt(currentSlot));
+        const action = await slasherClient.getVoteOffensesAction(SlotNumber.fromBigInt(currentSlot));
 
         // Should have called getCommitteeForEpoch for each epoch in the target round
         // For round 3 with epochDuration=32 and roundSize=128: epochs [12, 13, 14, 15]
@@ -289,7 +289,7 @@ describe('TallySlasherClient', () => {
         const targetRound = 3n;
 
         // Add slot-based offense for the target round
-        await offensesStore.addPendingOffense(
+        await offensesStore.addOffense(
           createOffense({
             validator: committee[0],
             epochOrSlot: targetRound * BigInt(roundSize),
@@ -298,7 +298,7 @@ describe('TallySlasherClient', () => {
           }),
         );
 
-        const actions = await tallySlasherClient.getProposerActions(SlotNumber.fromBigInt(currentSlot));
+        const actions = await slasherClient.getProposerActions(SlotNumber.fromBigInt(currentSlot));
         expect(actions).toHaveLength(0);
       });
     });
@@ -309,22 +309,22 @@ describe('TallySlasherClient', () => {
         const currentSlot = currentRound * BigInt(roundSize);
         const executableRound = 2n; // After execution delay of 2: currentRound - delay - 1 = 5 - 2 - 1 = 2
 
-        tallySlashingProposer.getRound.mockResolvedValueOnce(executableRoundData);
+        slashingProposer.getRound.mockResolvedValueOnce(executableRoundData);
 
-        const actions = await tallySlasherClient.getProposerActions(SlotNumber.fromBigInt(currentSlot));
+        const actions = await slasherClient.getProposerActions(SlotNumber.fromBigInt(currentSlot));
 
         expect(actions).toHaveLength(1);
         expectActionExecuteSlash(actions[0], executableRound);
-        expect(tallySlashingProposer.getRound).toHaveBeenCalledWith(executableRound);
+        expect(slashingProposer.getRound).toHaveBeenCalledWith(executableRound);
       });
 
       it('should not execute rounds that have already been executed', async () => {
         const currentRound = 5n;
         const currentSlot = currentRound * BigInt(roundSize);
 
-        tallySlashingProposer.getRound.mockResolvedValueOnce(executedRoundData);
+        slashingProposer.getRound.mockResolvedValueOnce(executedRoundData);
 
-        const actions = await tallySlasherClient.getProposerActions(SlotNumber.fromBigInt(currentSlot));
+        const actions = await slasherClient.getProposerActions(SlotNumber.fromBigInt(currentSlot));
 
         expect(actions).toEqual([]);
       });
@@ -333,9 +333,9 @@ describe('TallySlasherClient', () => {
         const currentRound = 5n;
         const currentSlot = currentRound * BigInt(roundSize);
 
-        tallySlashingProposer.getRound.mockResolvedValueOnce({ ...executableRoundData, voteCount: 10n });
+        slashingProposer.getRound.mockResolvedValueOnce({ ...executableRoundData, voteCount: 10n });
 
-        const actions = await tallySlasherClient.getProposerActions(SlotNumber.fromBigInt(currentSlot));
+        const actions = await slasherClient.getProposerActions(SlotNumber.fromBigInt(currentSlot));
 
         expect(actions).toEqual([]);
       });
@@ -344,11 +344,11 @@ describe('TallySlasherClient', () => {
         const currentRound = 5n;
         const currentSlot = currentRound * BigInt(roundSize);
 
-        tallySlashingProposer.getRound.mockResolvedValueOnce(executableRoundData);
+        slashingProposer.getRound.mockResolvedValueOnce(executableRoundData);
 
-        tallySlashingProposer.getTally.mockResolvedValueOnce({ actions: [], committees: [committee] });
+        slashingProposer.getTally.mockResolvedValueOnce({ actions: [], committees: [committee] });
 
-        const actions = await tallySlasherClient.getProposerActions(SlotNumber.fromBigInt(currentSlot));
+        const actions = await slasherClient.getProposerActions(SlotNumber.fromBigInt(currentSlot));
 
         expect(actions).toEqual([]);
       });
@@ -358,19 +358,19 @@ describe('TallySlasherClient', () => {
         const currentSlot = currentRound * BigInt(roundSize);
         const executableRound = 2n; // After execution delay of 2: currentRound - delay - 1 = 5 - 2 - 1 = 2
 
-        tallySlashingProposer.getRound.mockResolvedValueOnce(executableRoundData);
+        slashingProposer.getRound.mockResolvedValueOnce(executableRoundData);
 
         const payloadAddress = EthAddress.random();
-        tallySlashingProposer.getPayload.mockResolvedValue({
+        slashingProposer.getPayload.mockResolvedValue({
           address: payloadAddress,
           actions: [{ validator: committee[0], slashAmount: slashingUnit }],
         });
 
         slasherContract.isPayloadVetoed.mockResolvedValueOnce(true);
-        const actions = await tallySlasherClient.getProposerActions(SlotNumber.fromBigInt(currentSlot));
+        const actions = await slasherClient.getProposerActions(SlotNumber.fromBigInt(currentSlot));
 
         expect(actions).toHaveLength(0);
-        expect(tallySlashingProposer.getRound).toHaveBeenCalledWith(executableRound);
+        expect(slashingProposer.getRound).toHaveBeenCalledWith(executableRound);
         expect(slasherContract.isPayloadVetoed).toHaveBeenCalledWith(payloadAddress);
       });
 
@@ -379,7 +379,7 @@ describe('TallySlasherClient', () => {
         const currentSlot = currentRound * BigInt(roundSize);
 
         slasherContract.isSlashingEnabled.mockResolvedValue(false);
-        const actions = await tallySlasherClient.getProposerActions(SlotNumber.fromBigInt(currentSlot));
+        const actions = await slasherClient.getProposerActions(SlotNumber.fromBigInt(currentSlot));
 
         expect(actions).toHaveLength(0);
       });
@@ -388,24 +388,24 @@ describe('TallySlasherClient', () => {
         const currentRound = 5n;
         const currentSlot = currentRound * BigInt(roundSize);
 
-        tallySlasherClient.updateConfig({ slashExecuteRoundsLookBack: 5 });
+        slasherClient.updateConfig({ slashExecuteRoundsLookBack: 5 });
 
-        tallySlashingProposer.getRound
+        slashingProposer.getRound
           .mockResolvedValueOnce({ ...executedRoundData }) // round 0
           .mockResolvedValueOnce({ ...executableRoundData }); // round 1
 
-        const actions = await tallySlasherClient.getProposerActions(SlotNumber.fromBigInt(currentSlot));
+        const actions = await slasherClient.getProposerActions(SlotNumber.fromBigInt(currentSlot));
 
         expect(actions).toHaveLength(1);
         expectActionExecuteSlash(actions[0], 1n);
-        expect(tallySlashingProposer.getRound).toHaveBeenCalledTimes(2);
-        expect(tallySlashingProposer.getRound).toHaveBeenCalledWith(0n);
-        expect(tallySlashingProposer.getRound).toHaveBeenCalledWith(1n);
+        expect(slashingProposer.getRound).toHaveBeenCalledTimes(2);
+        expect(slashingProposer.getRound).toHaveBeenCalledWith(0n);
+        expect(slashingProposer.getRound).toHaveBeenCalledWith(1n);
       });
 
       it('should respect lifetimeInRounds when computing oldestExecutableRound', async () => {
         // Use a large lookBack to test that lifetimeInRounds constrains it
-        tallySlasherClient.updateConfig({ slashExecuteRoundsLookBack: 20 });
+        slasherClient.updateConfig({ slashExecuteRoundsLookBack: 20 });
 
         const currentRound = 15n;
         const currentSlot = currentRound * BigInt(roundSize);
@@ -416,18 +416,18 @@ describe('TallySlasherClient', () => {
         const expectedOldestRound = currentRound - slashingLifetimeInRounds; // 5
 
         // Mock rounds 5-12 as executable (executableRound = currentRound - executionDelay - 1 = 15 - 2 - 1 = 12)
-        tallySlashingProposer.getRound.mockImplementation((round: bigint) =>
+        slashingProposer.getRound.mockImplementation((round: bigint) =>
           Promise.resolve(round >= expectedOldestRound && round <= 12n ? executableRoundData : emptyRoundData),
         );
 
-        const actions = await tallySlasherClient.getProposerActions(SlotNumber.fromBigInt(currentSlot));
+        const actions = await slasherClient.getProposerActions(SlotNumber.fromBigInt(currentSlot));
 
         // Should execute the oldest round (5), not try to execute rounds before that
         expect(actions).toHaveLength(1);
         expectActionExecuteSlash(actions[0], expectedOldestRound);
 
         // Verify we didn't try to check rounds older than the lifetime allows
-        expect(tallySlashingProposer.getRound).not.toHaveBeenCalledWith(expectedOldestRound - 1n);
+        expect(slashingProposer.getRound).not.toHaveBeenCalledWith(expectedOldestRound - 1n);
       });
     });
 
@@ -435,7 +435,7 @@ describe('TallySlasherClient', () => {
       it('should return empty actions', async () => {
         const currentRound = 5n;
         const slotNumber = currentRound * BigInt(roundSize);
-        const actions = await tallySlasherClient.getProposerActions(SlotNumber.fromBigInt(slotNumber));
+        const actions = await slasherClient.getProposerActions(SlotNumber.fromBigInt(slotNumber));
 
         expect(actions).toEqual([]);
       });
@@ -447,7 +447,7 @@ describe('TallySlasherClient', () => {
         const executableRound = 2n; // currentRound - delay - 1 = 5 - 2 - 1 = 2
 
         // Add offense for voting
-        await offensesStore.addPendingOffense(
+        await offensesStore.addOffense(
           createOffense({
             epochOrSlot: targetRound * BigInt(roundSize),
             offenseType: OffenseType.PROPOSED_INSUFFICIENT_ATTESTATIONS, // slot-based
@@ -455,12 +455,12 @@ describe('TallySlasherClient', () => {
         );
 
         // Mock executable round
-        tallySlashingProposer.getRound.mockResolvedValueOnce({
+        slashingProposer.getRound.mockResolvedValueOnce({
           isExecuted: false,
           voteCount: 120n,
         });
 
-        const actions = await tallySlasherClient.getProposerActions(SlotNumber.fromBigInt(currentSlot));
+        const actions = await slasherClient.getProposerActions(SlotNumber.fromBigInt(currentSlot));
 
         expect(actions).toHaveLength(2);
         expectActionExecuteSlash(actions[0], executableRound);
@@ -475,20 +475,20 @@ describe('TallySlasherClient', () => {
       const targetRound = 3n; // currentRound - offset(2)
 
       // Add slot-based offenses for different rounds
-      const targetOffense = await addPendingOffense({
+      const targetOffense = await addOffense({
         epochOrSlot: targetRound * BigInt(roundSize),
         offenseType: OffenseType.PROPOSED_INSUFFICIENT_ATTESTATIONS, // slot-based
       });
-      await addPendingOffense({
+      await addOffense({
         epochOrSlot: (targetRound + 1n) * BigInt(roundSize),
         offenseType: OffenseType.PROPOSED_INSUFFICIENT_ATTESTATIONS, // slot-based (wrong round)
       });
-      await addPendingOffense({
+      await addOffense({
         epochOrSlot: (targetRound - 1n) * BigInt(roundSize),
         offenseType: OffenseType.PROPOSED_INSUFFICIENT_ATTESTATIONS, // slot-based (wrong round)
       });
 
-      const offenses = await tallySlasherClient.gatherOffensesForRound(currentRound);
+      const offenses = await slasherClient.gatherOffensesForRound(currentRound);
 
       expect(offenses).toHaveLength(1);
       expect(offenses[0]).toMatchObject(targetOffense);
@@ -497,9 +497,9 @@ describe('TallySlasherClient', () => {
     it('should return empty array when round is less than offset', async () => {
       const currentRound = 1n; // Less than offset of 2
 
-      await addPendingOffense({ epochOrSlot: 100n });
+      await addOffense({ epochOrSlot: 100n });
 
-      const offenses = await tallySlasherClient.gatherOffensesForRound(currentRound);
+      const offenses = await slasherClient.gatherOffensesForRound(currentRound);
 
       expect(offenses).toEqual([]);
     });
@@ -509,13 +509,13 @@ describe('TallySlasherClient', () => {
       const currentRound = 5n;
       const currentSlot = currentRound * BigInt(roundSize); // Round 5
       const targetRound = currentRound - 2n; // 5 - 2 = 3
-      await addPendingOffense({
+      await addOffense({
         epochOrSlot: targetRound * BigInt(roundSize),
         offenseType: OffenseType.PROPOSED_INSUFFICIENT_ATTESTATIONS, // slot-based
       });
 
       // Use getProposerActions to indirectly test the no-round-specified case
-      const actions = await tallySlasherClient.getProposerActions(SlotNumber.fromBigInt(currentSlot));
+      const actions = await slasherClient.getProposerActions(SlotNumber.fromBigInt(currentSlot));
 
       // Should have a vote action with the offense we added
       expect(actions).toHaveLength(1);
@@ -529,28 +529,28 @@ describe('TallySlasherClient', () => {
 
       // slashMaxPayloadSize has no effect on gatherOffensesForRound; truncation happens later
       // in getSlashConsensusVotesFromOffenses after always-slash offenses are merged in.
-      tallySlasherClient.updateConfig({ slashMaxPayloadSize: 2 });
+      slasherClient.updateConfig({ slashMaxPayloadSize: 2 });
 
-      await addPendingOffense({
+      await addOffense({
         validator: committee[0],
         epochOrSlot: baseSlot,
         amount: settings.slashingAmounts[0],
         offenseType: OffenseType.PROPOSED_INSUFFICIENT_ATTESTATIONS,
       });
-      await addPendingOffense({
+      await addOffense({
         validator: committee[1],
         epochOrSlot: baseSlot,
         amount: settings.slashingAmounts[2],
         offenseType: OffenseType.PROPOSED_INSUFFICIENT_ATTESTATIONS,
       });
-      await addPendingOffense({
+      await addOffense({
         validator: committee[2],
         epochOrSlot: baseSlot,
         amount: settings.slashingAmounts[1],
         offenseType: OffenseType.PROPOSED_INSUFFICIENT_ATTESTATIONS,
       });
 
-      const offenses = await tallySlasherClient.gatherOffensesForRound(currentRound);
+      const offenses = await slasherClient.gatherOffensesForRound(currentRound);
 
       expect(offenses).toHaveLength(3);
     });
@@ -560,20 +560,20 @@ describe('TallySlasherClient', () => {
       const targetRound = 3n;
       const baseSlot = targetRound * BigInt(roundSize);
 
-      await addPendingOffense({
+      await addOffense({
         validator: committee[0],
         epochOrSlot: baseSlot,
         amount: slashingUnit,
         offenseType: OffenseType.PROPOSED_INSUFFICIENT_ATTESTATIONS,
       });
-      await addPendingOffense({
+      await addOffense({
         validator: committee[1],
         epochOrSlot: baseSlot,
         amount: slashingUnit * 2n,
         offenseType: OffenseType.PROPOSED_INSUFFICIENT_ATTESTATIONS,
       });
 
-      const offenses = await tallySlasherClient.gatherOffensesForRound(currentRound);
+      const offenses = await slasherClient.gatherOffensesForRound(currentRound);
       expect(offenses).toHaveLength(2);
     });
 
@@ -583,21 +583,21 @@ describe('TallySlasherClient', () => {
       const baseSlot = targetRound * BigInt(roundSize);
 
       // Cap at 1 slashed validator-epoch pair; the highest-amount validator should survive
-      tallySlasherClient.updateConfig({ slashMaxPayloadSize: 1 });
+      slasherClient.updateConfig({ slashMaxPayloadSize: 1 });
 
-      await addPendingOffense({
+      await addOffense({
         validator: committee[0],
         epochOrSlot: baseSlot,
         amount: settings.slashingAmounts[0],
         offenseType: OffenseType.PROPOSED_INSUFFICIENT_ATTESTATIONS,
       });
-      await addPendingOffense({
+      await addOffense({
         validator: committee[1],
         epochOrSlot: baseSlot,
         amount: settings.slashingAmounts[2],
         offenseType: OffenseType.PROPOSED_INSUFFICIENT_ATTESTATIONS,
       });
-      await addPendingOffense({
+      await addOffense({
         validator: committee[2],
         epochOrSlot: baseSlot,
         amount: settings.slashingAmounts[1],
@@ -605,7 +605,7 @@ describe('TallySlasherClient', () => {
       });
 
       const currentSlot = currentRound * BigInt(roundSize);
-      const action = await tallySlasherClient.getVoteOffensesAction(SlotNumber.fromBigInt(currentSlot));
+      const action = await slasherClient.getVoteOffensesAction(SlotNumber.fromBigInt(currentSlot));
 
       expect(action).toBeDefined();
       assert(action!.type === 'vote-offenses');
@@ -613,12 +613,6 @@ describe('TallySlasherClient', () => {
       expect(action!.votes[0]).toBe(0); // committee[0]: 1 unit, dropped
       expect(action!.votes[1]).toBe(3); // committee[1]: 3 units, kept
       expect(action!.votes[2]).toBe(0); // committee[2]: 2 units, dropped
-    });
-  });
-
-  describe('getSlashPayloads', () => {
-    it('should throw error as consensus client does not support slash payloads', async () => {
-      await expect(tallySlasherClient.getSlashPayloads()).rejects.toThrow(/not support/);
     });
   });
 
@@ -632,9 +626,9 @@ describe('TallySlasherClient', () => {
         epochOrSlot: 100n,
       };
 
-      await tallySlasherClient.handleWantToSlash([offense]);
+      await slasherClient.handleWantToSlash([offense]);
 
-      const pendingOffenses = await offensesStore.getPendingOffenses();
+      const pendingOffenses = await offensesStore.getOffenses();
       expect(pendingOffenses).toHaveLength(1);
       expect(pendingOffenses[0]).toEqual(offense);
     });
@@ -648,10 +642,10 @@ describe('TallySlasherClient', () => {
         epochOrSlot: 100n,
       };
 
-      await tallySlasherClient.handleWantToSlash([offense]);
-      await tallySlasherClient.handleWantToSlash([offense]);
+      await slasherClient.handleWantToSlash([offense]);
+      await slasherClient.handleWantToSlash([offense]);
 
-      const pendingOffenses = await offensesStore.getPendingOffenses();
+      const pendingOffenses = await offensesStore.getOffenses();
       expect(pendingOffenses).toHaveLength(1);
     });
 
@@ -664,9 +658,9 @@ describe('TallySlasherClient', () => {
         epochOrSlot: 5n, // Within grace period of 10 slots
       };
 
-      await tallySlasherClient.handleWantToSlash([offense]);
+      await slasherClient.handleWantToSlash([offense]);
 
-      const pendingOffenses = await offensesStore.getPendingOffenses();
+      const pendingOffenses = await offensesStore.getOffenses();
       expect(pendingOffenses).toHaveLength(0);
     });
 
@@ -679,9 +673,9 @@ describe('TallySlasherClient', () => {
         epochOrSlot: 20n, // After grace period of 10 slots
       };
 
-      await tallySlasherClient.handleWantToSlash([offense]);
+      await slasherClient.handleWantToSlash([offense]);
 
-      const pendingOffenses = await offensesStore.getPendingOffenses();
+      const pendingOffenses = await offensesStore.getOffenses();
       expect(pendingOffenses).toHaveLength(1);
     });
 
@@ -700,9 +694,9 @@ describe('TallySlasherClient', () => {
         epochOrSlot: 101n,
       };
 
-      await tallySlasherClient.handleWantToSlash([offense1, offense2]);
+      await slasherClient.handleWantToSlash([offense1, offense2]);
 
-      const pendingOffenses = await offensesStore.getPendingOffenses();
+      const pendingOffenses = await offensesStore.getOffenses();
       expect(pendingOffenses).toHaveLength(2);
     });
   });
@@ -712,7 +706,7 @@ describe('TallySlasherClient', () => {
       const currentRound = 15n;
 
       const clearSpy = jest.spyOn(offensesStore, 'clearExpiredOffenses');
-      await tallySlasherClient.handleNewRound(currentRound);
+      await slasherClient.handleNewRound(currentRound);
       expect(clearSpy).toHaveBeenCalledWith(currentRound);
     });
   });
@@ -720,19 +714,19 @@ describe('TallySlasherClient', () => {
   describe('updateConfig and getConfig', () => {
     it('should update configuration', () => {
       const newConfig = { slashGracePeriodL2Slots: 20 };
-      tallySlasherClient.updateConfig(newConfig);
+      slasherClient.updateConfig(newConfig);
 
-      const updatedConfig = tallySlasherClient.getConfig();
+      const updatedConfig = slasherClient.getConfig();
       expect(updatedConfig.slashGracePeriodL2Slots).toBe(20);
     });
 
     it('should preserve other config values when updating', () => {
-      const originalConfig = tallySlasherClient.getConfig();
+      const originalConfig = slasherClient.getConfig();
       const newConfig = { slashGracePeriodL2Slots: 20 };
 
-      tallySlasherClient.updateConfig(newConfig);
+      slasherClient.updateConfig(newConfig);
 
-      const updatedConfig = tallySlasherClient.getConfig();
+      const updatedConfig = slasherClient.getConfig();
       expect(updatedConfig.slashMaxPayloadSize).toBe(originalConfig.slashMaxPayloadSize);
       expect(updatedConfig.slashGracePeriodL2Slots).toBe(20);
     });
@@ -741,7 +735,7 @@ describe('TallySlasherClient', () => {
   describe('integration', () => {
     const waitForOffenses = (count: number) =>
       retryFastUntil(async () => {
-        const pendingOffenses = await offensesStore.getPendingOffenses();
+        const pendingOffenses = await offensesStore.getOffenses();
         return pendingOffenses.length >= count ? true : undefined;
       }, 'offense to be processed');
 
@@ -757,7 +751,7 @@ describe('TallySlasherClient', () => {
       };
 
       // Start client to listen for watcher events
-      await tallySlasherClient.start();
+      await slasherClient.start();
 
       // Simulate watcher detecting offense
       dummyWatcher.triggerSlash([offense]);
@@ -767,7 +761,7 @@ describe('TallySlasherClient', () => {
 
       // Round 5: Proposers vote on round 3 offenses
       const votingSlot = 5n * BigInt(roundSize);
-      const voteActions = await tallySlasherClient.getProposerActions(SlotNumber.fromBigInt(votingSlot));
+      const voteActions = await slasherClient.getProposerActions(SlotNumber.fromBigInt(votingSlot));
 
       expect(voteActions).toHaveLength(1);
       expectActionVoteOffenses(voteActions[0], 5n, []);
@@ -776,23 +770,23 @@ describe('TallySlasherClient', () => {
       const executionRound = 7n;
       const executionSlot = executionRound * BigInt(roundSize);
       const executableRound = executionRound - BigInt(settings.slashingExecutionDelayInRounds) - 1n; // 7 - 2 - 1 = 4
-      tallySlashingProposer.getRound.mockResolvedValueOnce(executableRoundData);
+      slashingProposer.getRound.mockResolvedValueOnce(executableRoundData);
 
-      const executeActions = await tallySlasherClient.getProposerActions(SlotNumber.fromBigInt(executionSlot));
+      const executeActions = await slasherClient.getProposerActions(SlotNumber.fromBigInt(executionSlot));
 
       expect(executeActions).toHaveLength(1);
       expectActionExecuteSlash(executeActions[0], executableRound);
 
       // Verify that if round is marked as executed it won't be executed again
-      tallySlashingProposer.getRound.mockResolvedValueOnce(executedRoundData);
+      slashingProposer.getRound.mockResolvedValueOnce(executedRoundData);
 
-      const postExecuteActions = await tallySlasherClient.getProposerActions(SlotNumber.fromBigInt(executionSlot));
+      const postExecuteActions = await slasherClient.getProposerActions(SlotNumber.fromBigInt(executionSlot));
       expect(postExecuteActions).toEqual([]);
     });
 
     it('should handle missed execution', async () => {
-      tallySlasherClient.updateConfig({ slashExecuteRoundsLookBack: 3 });
-      await tallySlasherClient.start();
+      slasherClient.updateConfig({ slashExecuteRoundsLookBack: 3 });
+      await slasherClient.start();
 
       // Round 3: An offense occurs
       const offenseRound = 3n;
@@ -823,18 +817,18 @@ describe('TallySlasherClient', () => {
 
       // Round 5: Proposers vote on round 3 offenses
       const votingSlot = 5n * BigInt(roundSize);
-      const voteActions = await tallySlasherClient.getProposerActions(SlotNumber.fromBigInt(votingSlot));
+      const voteActions = await slasherClient.getProposerActions(SlotNumber.fromBigInt(votingSlot));
       expect(voteActions).toHaveLength(1);
       expectActionVoteOffenses(voteActions[0], 5n, []);
 
       // Round 6: Proposers vote on round 4 offenses
       const votingSlot6 = 6n * BigInt(roundSize);
-      const voteActions6 = await tallySlasherClient.getProposerActions(SlotNumber.fromBigInt(votingSlot6));
+      const voteActions6 = await slasherClient.getProposerActions(SlotNumber.fromBigInt(votingSlot6));
       expect(voteActions6).toHaveLength(1);
       expectActionVoteOffenses(voteActions6[0], 6n, []);
 
       // Assume everything after round 4 inclusive is executable
-      tallySlashingProposer.getRound.mockImplementation((round: bigint) =>
+      slashingProposer.getRound.mockImplementation((round: bigint) =>
         Promise.resolve(round >= 4n ? executableRoundData : emptyRoundData),
       );
 
@@ -843,32 +837,30 @@ describe('TallySlasherClient', () => {
       const executionSlot = executionRound * BigInt(roundSize);
       const executableRound = executionRound - BigInt(settings.slashingExecutionDelayInRounds) - 1n; // 7 - 2 - 1 = 4
       expect(executableRound).toBe(4n);
-      const executeActions = await tallySlasherClient.getProposerActions(SlotNumber.fromBigInt(executionSlot));
+      const executeActions = await slasherClient.getProposerActions(SlotNumber.fromBigInt(executionSlot));
       expect(executeActions).toHaveLength(1);
       expectActionExecuteSlash(executeActions[0], executableRound);
 
       // Round 8.0: Assuming no execution on round 7, we should get another chance to execute round 4
       const nextExecutionRound = 8n;
       const nextExecutionSlot = nextExecutionRound * BigInt(roundSize);
-      const nextExecuteActions = await tallySlasherClient.getProposerActions(SlotNumber.fromBigInt(nextExecutionSlot));
+      const nextExecuteActions = await slasherClient.getProposerActions(SlotNumber.fromBigInt(nextExecutionSlot));
       expect(nextExecuteActions).toHaveLength(1);
       expectActionExecuteSlash(nextExecuteActions[0], executableRound);
 
       // Round 8.1: But if there was execution, then we move onto executing round 5
-      tallySlashingProposer.getRound.mockImplementation((round: bigint) =>
+      slashingProposer.getRound.mockImplementation((round: bigint) =>
         Promise.resolve(round >= 5n ? executableRoundData : emptyRoundData),
       );
-      const executeActionsRound5 = await tallySlasherClient.getProposerActions(
+      const executeActionsRound5 = await slasherClient.getProposerActions(
         SlotNumber.fromBigInt(nextExecutionSlot + 1n),
       );
       expect(executeActionsRound5).toHaveLength(1);
       expectActionExecuteSlash(executeActionsRound5[0], 5n);
 
       // Round 8.2: And if round 5 is executed as well, then nothing left to do
-      tallySlashingProposer.getRound.mockResolvedValue(executedRoundData);
-      const noExecuteActions = await tallySlasherClient.getProposerActions(
-        SlotNumber.fromBigInt(nextExecutionSlot + 1n),
-      );
+      slashingProposer.getRound.mockResolvedValue(executedRoundData);
+      const noExecuteActions = await slasherClient.getProposerActions(SlotNumber.fromBigInt(nextExecutionSlot + 1n));
       expect(noExecuteActions).toHaveLength(0);
     });
 
@@ -878,32 +870,32 @@ describe('TallySlasherClient', () => {
       const targetRound = 3n;
 
       // Add offenses with different amounts
-      await addPendingOffense({
+      await addOffense({
         validator: committee[0],
         epochOrSlot: targetRound * BigInt(roundSize),
         amount: settings.slashingAmounts[0], // 1 unit
         offenseType: OffenseType.PROPOSED_INSUFFICIENT_ATTESTATIONS, // slot-based
       });
-      await addPendingOffense({
+      await addOffense({
         validator: committee[1],
         epochOrSlot: targetRound * BigInt(roundSize),
         amount: settings.slashingAmounts[0], // 1 units
         offenseType: OffenseType.PROPOSED_INSUFFICIENT_ATTESTATIONS, // slot-based
       });
-      await addPendingOffense({
+      await addOffense({
         validator: committee[1], // same as above!
         epochOrSlot: targetRound * BigInt(roundSize) + 1n,
         amount: 2n * settings.slashingAmounts[0], // 2 units on top of the previous 1
         offenseType: OffenseType.PROPOSED_INSUFFICIENT_ATTESTATIONS, // slot-based
       });
-      await addPendingOffense({
+      await addOffense({
         validator: committee[2],
         epochOrSlot: targetRound * BigInt(roundSize),
         amount: 20n * settings.slashingAmounts[0], // Exceeds max 3 units
         offenseType: OffenseType.PROPOSED_INSUFFICIENT_ATTESTATIONS, // slot-based
       });
 
-      const action = await tallySlasherClient.getVoteOffensesAction(SlotNumber.fromBigInt(currentSlot));
+      const action = await slasherClient.getVoteOffensesAction(SlotNumber.fromBigInt(currentSlot));
       expectActionVoteOffenses(action!, currentRound, [1, 3, 3]);
     });
   });
@@ -915,7 +907,7 @@ describe('TallySlasherClient', () => {
         const normalValidator = committee[1];
 
         // Update the existing client's config
-        tallySlasherClient.updateConfig({
+        slasherClient.updateConfig({
           slashValidatorsAlways: [alwaysSlashValidator],
           slashValidatorsNever: [],
         });
@@ -924,14 +916,14 @@ describe('TallySlasherClient', () => {
         const currentSlot = currentRound * BigInt(roundSize);
 
         // Add offense for normal validator (should be processed normally)
-        await addPendingOffense({
+        await addOffense({
           validator: normalValidator,
           epochOrSlot: (currentRound - 2n) * BigInt(roundSize),
           amount: slashingUnit, // 1 unit
           offenseType: OffenseType.PROPOSED_INSUFFICIENT_ATTESTATIONS,
         });
 
-        const action = await tallySlasherClient.getVoteOffensesAction(SlotNumber.fromBigInt(currentSlot));
+        const action = await slasherClient.getVoteOffensesAction(SlotNumber.fromBigInt(currentSlot));
         expectActionVoteOffenses(action!, currentRound, [3, 1]); // Always validator gets 3 units, normal gets 1
       });
 
@@ -940,7 +932,7 @@ describe('TallySlasherClient', () => {
         const alwaysSlashValidator2 = committee[1];
 
         // Update the existing client's config
-        tallySlasherClient.updateConfig({
+        slasherClient.updateConfig({
           slashValidatorsAlways: [alwaysSlashValidator1, alwaysSlashValidator2],
           slashValidatorsNever: [],
         });
@@ -948,7 +940,7 @@ describe('TallySlasherClient', () => {
         const currentRound = 5n;
         const currentSlot = currentRound * BigInt(roundSize);
 
-        const action = await tallySlasherClient.getVoteOffensesAction(SlotNumber.fromBigInt(currentSlot));
+        const action = await slasherClient.getVoteOffensesAction(SlotNumber.fromBigInt(currentSlot));
         expectActionVoteOffenses(action!, currentRound, [3, 3, 0]); // Both always validators get 3 units, normal gets 0
       });
     });
@@ -959,7 +951,7 @@ describe('TallySlasherClient', () => {
         const normalValidator = committee[1];
 
         // Update the existing client's config
-        tallySlasherClient.updateConfig({
+        slasherClient.updateConfig({
           slashValidatorsAlways: [],
           slashValidatorsNever: [neverSlashValidator],
         });
@@ -968,21 +960,21 @@ describe('TallySlasherClient', () => {
         const currentSlot = currentRound * BigInt(roundSize);
 
         // Add offenses for both validators
-        await addPendingOffense({
+        await addOffense({
           validator: neverSlashValidator,
           epochOrSlot: (currentRound - 2n) * BigInt(roundSize),
           amount: slashingUnit * 10n, // Large amount that would normally result in 3 units
           offenseType: OffenseType.PROPOSED_INSUFFICIENT_ATTESTATIONS,
         });
 
-        await addPendingOffense({
+        await addOffense({
           validator: normalValidator,
           epochOrSlot: (currentRound - 2n) * BigInt(roundSize),
           amount: slashingUnit, // 1 unit
           offenseType: OffenseType.PROPOSED_INSUFFICIENT_ATTESTATIONS,
         });
 
-        const action = await tallySlasherClient.getVoteOffensesAction(SlotNumber.fromBigInt(currentSlot));
+        const action = await slasherClient.getVoteOffensesAction(SlotNumber.fromBigInt(currentSlot));
         expectActionVoteOffenses(action!, currentRound, [0, 1]); // Never validator gets 0 units, normal gets 1
       });
 
@@ -992,7 +984,7 @@ describe('TallySlasherClient', () => {
         const normalValidator = committee[2];
 
         // Update the existing client's config
-        tallySlasherClient.updateConfig({
+        slasherClient.updateConfig({
           slashValidatorsAlways: [],
           slashValidatorsNever: [neverSlashValidator1, neverSlashValidator2],
         });
@@ -1002,7 +994,7 @@ describe('TallySlasherClient', () => {
 
         // Add offenses for all validators
         for (const validator of [neverSlashValidator1, neverSlashValidator2, normalValidator]) {
-          await addPendingOffense({
+          await addOffense({
             validator,
             epochOrSlot: (currentRound - 2n) * BigInt(roundSize),
             amount: slashingUnit * 2n, // 2 units
@@ -1010,7 +1002,7 @@ describe('TallySlasherClient', () => {
           });
         }
 
-        const action = await tallySlasherClient.getVoteOffensesAction(SlotNumber.fromBigInt(currentSlot));
+        const action = await slasherClient.getVoteOffensesAction(SlotNumber.fromBigInt(currentSlot));
         expectActionVoteOffenses(action!, currentRound, [0, 0, 2]); // Never validators get 0, normal gets 2
       });
     });
@@ -1022,7 +1014,7 @@ describe('TallySlasherClient', () => {
         const neverValidator = committee[2];
 
         // Update the existing client's config
-        tallySlasherClient.updateConfig({
+        slasherClient.updateConfig({
           slashValidatorsAlways: [conflictValidator, alwaysValidator],
           slashValidatorsNever: [conflictValidator, neverValidator],
         });
@@ -1030,7 +1022,7 @@ describe('TallySlasherClient', () => {
         const currentRound = 5n;
         const currentSlot = currentRound * BigInt(roundSize);
 
-        const action = await tallySlasherClient.getVoteOffensesAction(SlotNumber.fromBigInt(currentSlot));
+        const action = await slasherClient.getVoteOffensesAction(SlotNumber.fromBigInt(currentSlot));
         expectActionVoteOffenses(action!, currentRound, [0, 3, 0]); // Conflict gets 0 (never wins), always gets 3, never gets 0
       });
     });
@@ -1040,7 +1032,7 @@ describe('TallySlasherClient', () => {
         const alwaysValidator = committee[0];
 
         // Update the existing client's config
-        tallySlasherClient.updateConfig({
+        slasherClient.updateConfig({
           slashValidatorsAlways: [alwaysValidator],
           slashValidatorsNever: [],
         });
@@ -1048,7 +1040,7 @@ describe('TallySlasherClient', () => {
         const currentRound = 5n;
         const currentSlot = currentRound * BigInt(roundSize);
 
-        const action = await tallySlasherClient.getVoteOffensesAction(SlotNumber.fromBigInt(currentSlot));
+        const action = await slasherClient.getVoteOffensesAction(SlotNumber.fromBigInt(currentSlot));
         expectActionVoteOffenses(action!, currentRound, [3]); // Always validator should get max slash units
       });
     });
@@ -1058,7 +1050,7 @@ describe('TallySlasherClient', () => {
         const normalValidator = committee[0];
 
         // Update the existing client's config
-        tallySlasherClient.updateConfig({
+        slasherClient.updateConfig({
           slashValidatorsAlways: [],
           slashValidatorsNever: [], // Empty array
         });
@@ -1067,14 +1059,14 @@ describe('TallySlasherClient', () => {
         const currentSlot = currentRound * BigInt(roundSize);
 
         // Add offense for normal processing
-        await addPendingOffense({
+        await addOffense({
           validator: normalValidator,
           epochOrSlot: (currentRound - 2n) * BigInt(roundSize),
           amount: slashingUnit, // 1 unit
           offenseType: OffenseType.PROPOSED_INSUFFICIENT_ATTESTATIONS,
         });
 
-        const action = await tallySlasherClient.getVoteOffensesAction(SlotNumber.fromBigInt(currentSlot));
+        const action = await slasherClient.getVoteOffensesAction(SlotNumber.fromBigInt(currentSlot));
         expectActionVoteOffenses(action!, currentRound, [1]); // Normal processing should work
       });
     });
@@ -1082,7 +1074,7 @@ describe('TallySlasherClient', () => {
 });
 
 // Test helper class that exposes protected methods for testing
-class TestTallySlasherClient extends TallySlasherClient {
+class TestSlasherClient extends SlasherClient {
   public override handleNewRound(round: bigint): Promise<void> {
     return super.handleNewRound(round);
   }
