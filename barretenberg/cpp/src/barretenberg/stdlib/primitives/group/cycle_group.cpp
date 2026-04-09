@@ -1017,6 +1017,8 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
     }
 
     // Create plookup tables for each constant base point (zero gate cost)
+    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/22451): we should store the precomputed tables in
+    // memory to avoid recomputing them on every call to this function with the same base points.
     std::vector<straus_plookup_table> point_tables;
     point_tables.reserve(num_points);
     for (size_t i = 0; i < num_points; ++i) {
