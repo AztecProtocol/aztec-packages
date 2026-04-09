@@ -1097,30 +1097,6 @@ docker exec -it aztec-node curl -X POST http://localhost:8880 \
   -d '{"jsonrpc":"2.0","method":"nodeAdmin_startSnapshotUpload","params":["gs://bucket/snapshots/"],"id":1}'
 ```
 
-### nodeAdmin_getSlashPayloads
-
-Gets all monitored slash payloads for the current round.
-
-**Parameters**: None
-
-**Returns**: `SlashPayloadRound[]`
-
-**Example (CLI)**:
-
-```bash
-curl -X POST http://localhost:8880 \
-  -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","method":"nodeAdmin_getSlashPayloads","params":[],"id":1}'
-```
-
-**Example (Docker)**:
-
-```bash
-docker exec -it aztec-node curl -X POST http://localhost:8880 \
-  -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","method":"nodeAdmin_getSlashPayloads","params":[],"id":1}'
-```
-
 ### nodeAdmin_getSlashOffenses
 
 Gets all offenses for a specific round.

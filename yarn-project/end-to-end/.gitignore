@@ -7,3 +7,4 @@ ultrahonk-bench-inputs
 web/main.js*
 consensys_web3signer_*
 scripts/ha/postgres_data/
+.legacy-contracts/

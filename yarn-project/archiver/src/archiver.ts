@@ -91,7 +91,7 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
    * @param debugClient - A client for interacting with the Ethereum node for debug/trace methods.
    * @param rollup - Rollup contract instance.
    * @param inbox - Inbox contract instance.
-   * @param l1Addresses - L1 contract addresses (registry, governance proposer, slash factory, slashing proposer).
+   * @param l1Addresses - L1 contract addresses (registry, governance proposer, slashing proposer).
    * @param dataStore - An archiver data store for storage & retrieval of blocks, encrypted logs & contract data.
    * @param config - Archiver configuration options.
    * @param blobClient - Client for retrieving blob data.
@@ -104,10 +104,9 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
     private readonly publicClient: ViemPublicClient,
     private readonly debugClient: ViemPublicDebugClient,
     private readonly rollup: RollupContract,
-    private readonly l1Addresses: Pick<
-      L1ContractAddresses,
-      'registryAddress' | 'governanceProposerAddress' | 'slashFactoryAddress'
-    > & { slashingProposerAddress: EthAddress },
+    private readonly l1Addresses: Pick<L1ContractAddresses, 'registryAddress' | 'governanceProposerAddress'> & {
+      slashingProposerAddress: EthAddress;
+    },
     readonly dataStore: KVArchiverDataStore,
     private config: {
       pollingIntervalMs: number;

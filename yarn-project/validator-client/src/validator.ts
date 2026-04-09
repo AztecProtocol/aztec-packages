@@ -23,7 +23,6 @@ import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { CommitteeAttestationsAndSigners, L2BlockSink, L2BlockSource } from '@aztec/stdlib/block';
 import { getEpochAtSlot } from '@aztec/stdlib/epoch-helpers';
 import type {
-  CreateCheckpointProposalLastBlockData,
   ITxProvider,
   Validator,
   ValidatorClientFullConfig,
@@ -769,7 +768,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     checkpointHeader: CheckpointHeader,
     archive: Fr,
     feeAssetPriceModifier: bigint,
-    lastBlockInfo: CreateCheckpointProposalLastBlockData | undefined,
+    lastBlockProposal: BlockProposal | undefined,
     proposerAddress: EthAddress | undefined,
     options: CheckpointProposalOptions = {},
   ): Promise<CheckpointProposal> {
@@ -791,7 +790,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
       checkpointHeader,
       archive,
       feeAssetPriceModifier,
-      lastBlockInfo,
+      lastBlockProposal,
       proposerAddress,
       options,
     );

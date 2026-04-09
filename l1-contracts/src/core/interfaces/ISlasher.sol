@@ -4,12 +4,6 @@ pragma solidity >=0.8.27;
 
 import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
 
-enum SlasherFlavor {
-  NONE,
-  TALLY,
-  EMPIRE
-}
-
 interface ISlasher {
   event VetoedPayload(address indexed payload);
   event SlashingDisabled(uint256 disabledUntil);

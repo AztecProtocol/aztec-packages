@@ -1,8 +1,5 @@
-import { BlockNumber } from '@aztec/foundation/branded-types';
 import { times } from '@aztec/foundation/collection';
-import { Fr } from '@aztec/foundation/curves/bn254';
 import { sleep } from '@aztec/foundation/sleep';
-import { L2Block, type L2BlockSource } from '@aztec/stdlib/block';
 import { PeerErrorSeverity } from '@aztec/stdlib/p2p';
 import { mockTx } from '@aztec/stdlib/testing';
 import { Tx, TxArray, TxHash, TxHashArray } from '@aztec/stdlib/tx';
@@ -22,7 +19,6 @@ import {
 import type { PeerManager } from '../peer-manager/peer_manager.js';
 import type { PeerScoring } from '../peer-manager/peer_scoring.js';
 import { type ReqRespResponse, ReqRespSubProtocol, RequestableBuffer } from './interface.js';
-import { reqRespBlockHandler } from './protocols/block.js';
 import { GoodByeReason, reqGoodbyeHandler } from './protocols/goodbye.js';
 import { ReqRespStatus } from './status.js';
 
@@ -367,39 +363,6 @@ describe('ReqResp', () => {
 
       // make sure warn was NOT called
       expect(warnSpy).not.toHaveBeenCalled();
-    });
-  });
-
-  describe('Block protocol', () => {
-    it('should handle block requests', async () => {
-      const blockNumber = 1;
-      const blockNumberFr = Fr.ONE;
-      const block = await L2Block.random(BlockNumber(blockNumber));
-
-      const l2BlockSource: MockProxy<L2BlockSource> = mock<L2BlockSource>();
-      l2BlockSource.getBlock.mockImplementation((_blockNumber: number) => {
-        return Promise.resolve(block);
-      });
-
-      const protocolHandlers = MOCK_SUB_PROTOCOL_HANDLERS;
-      protocolHandlers[ReqRespSubProtocol.BLOCK] = reqRespBlockHandler(l2BlockSource);
-
-      nodes = await createNodes(peerScoring, 2);
-
-      await startNodes(nodes, protocolHandlers);
-      await sleep(500);
-      await connectToPeers(nodes);
-      await sleep(500);
-
-      const resp = await nodes[0].req.sendRequestToPeer(
-        nodes[1].p2p.peerId,
-        ReqRespSubProtocol.BLOCK,
-        blockNumberFr.toBuffer(),
-      );
-      expectSuccess(resp);
-
-      const res = L2Block.fromBuffer(resp.data);
-      expect(res).toEqual(block);
     });
   });
 

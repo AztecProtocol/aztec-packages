@@ -21,12 +21,15 @@ namespace bb {
         \left[ (w_1(\vec X) + \sigma_1(\vec X) \cdot \beta + \gamma) \cdot (w_2(\vec X) + \sigma_2(\vec X) \cdot \beta +
  \gamma) \cdot (w_3(\vec X) + \sigma_3 (\vec X) \cdot \beta + \gamma) \cdot (w_4 (\vec X) + \sigma_4(\vec X) \cdot \beta
  + \gamma)\right] &\ = 0 \f} and \f{align}{ L_{\text{last}}(\vec X)\cdot Z_{\text{perm, shifted}}(\vec X)   = 0 \f}
+ and \f{align}{ L_{0}(\vec X)\cdot Z_{\text{perm}}(\vec X)   = 0 \f}
 
     Here, \f$ \vec X = (X_0,\ldots, X_{d-1})\f$, and \f$L_{\text{last}}\f$ is "Lagrange last", i.e., the indicator
  function on the boolean hypercube which is 1 at the point whose corresponding index is the last row of the
  circuit where the wire polynomails (`w_l`, `w_r`, `w_o`, and `w_4`) take non-zero values.
 
-
+    The third sub-relation enforces that \f$Z_{\text{perm}}\f$ is zero at the first row. The grand product
+ construction relies on this: the term \f$(Z_{\text{perm}} + L_0)\f$ evaluates to \f$1\f$ at the first row only
+ when \f$Z_{\text{perm}}(0) = 0\f$.
 
  * @tparam FF_
  * @note `z_perm[1] == 1`. if `idx` is the unique index such that `lagrange_last[idx] == 1`, then `z_perm[y] == 0` for
@@ -37,9 +40,10 @@ template <typename FF_> class UltraPermutationRelationImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 2> SUBRELATION_PARTIAL_LENGTHS{
+    static constexpr std::array<size_t, 3> SUBRELATION_PARTIAL_LENGTHS{
         6, // grand product construction sub-relation
-        3  // left-shiftable polynomial sub-relation
+        3, // left-shiftable polynomial sub-relation
+        3  // z_perm initialization sub-relation
     };
 
     /**
@@ -199,6 +203,12 @@ template <typename FF_> class UltraPermutationRelationImpl {
         using ShortAccumulator = std::tuple_element_t<1, ContainerOverSubrelations>;
 
         std::get<1>(accumulators) += ShortAccumulator((lagrange_last_m * z_perm_shift_m) * scaling_factor);
+
+        // Contribution (3): Enforce z_perm starts at 0. The grand product initialization relies on
+        // z_perm[0] = 0 so that (z_perm + L_first) evaluates to 1 at the first row.
+        // Without this constraint, a cheating prover could set z_perm[0] to a non-zero value.
+        using InitAccumulator = std::tuple_element_t<2, ContainerOverSubrelations>;
+        std::get<2>(accumulators) += InitAccumulator((lagrange_first_m * z_perm_m) * scaling_factor);
     };
 };
 

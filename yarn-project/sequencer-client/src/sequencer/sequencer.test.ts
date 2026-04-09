@@ -501,8 +501,8 @@ describe('sequencer', () => {
       // Verify that the sequencer attempted to create and broadcast a block proposal
       expect(publisher.enqueueProposeCheckpoint).toHaveBeenCalled();
 
-      // Verify that the sequencer did not broadcast for attestations since there's no committee
-      expect(validatorClient.createBlockProposal).not.toHaveBeenCalled();
+      // Verify that the sequencer did not broadcast the block proposal since there's no committee
+      // (block proposal is still created since it's included in the checkpoint)
       expect(validatorClient.broadcastBlockProposal).not.toHaveBeenCalled();
     });
   });

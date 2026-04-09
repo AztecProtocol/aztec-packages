@@ -2,18 +2,18 @@
 // Copyright 2025 Aztec Labs.
 pragma solidity >=0.8.27;
 
-import {TallySlashingProposerEscapeHatchTest} from "./TallySlashingProposerEscapeHatch.t.sol";
-import {TallySlashingProposer} from "@aztec/core/slashing/TallySlashingProposer.sol";
+import {SlashingProposerEscapeHatchTest} from "./SlashingProposerEscapeHatch.t.sol";
+import {SlashingProposer} from "@aztec/core/slashing/SlashingProposer.sol";
 import {SlashRound} from "@aztec/core/libraries/SlashRoundLib.sol";
 import {Epoch} from "@aztec/core/libraries/TimeLib.sol";
 import {stdStorage, StdStorage} from "forge-std/Test.sol";
 
 /**
- * @title TallySlashingProposerRetroactiveTest
+ * @title SlashingProposerRetroactiveTest
  * @notice Tests that retroactively configuring an escape hatch should NOT grant slashing
  *         immunity for epochs that were normal at the time.
  *
- * @dev Inherits from TallySlashingProposerEscapeHatchTest to reuse all setup and helpers.
+ * @dev Inherits from SlashingProposerEscapeHatchTest to reuse all setup and helpers.
  *      setUp deploys the escape hatch and registers it. The test immediately removes it,
  *      then re-registers it later to simulate retroactive configuration.
  *
@@ -23,7 +23,7 @@ import {stdStorage, StdStorage} from "forge-std/Test.sol";
  *      After epoch-stable snapshotting, getEscapeHatchForEpoch returns address(0) for
  *      historical epochs where no escape hatch was configured, so no immunity is granted.
  */
-contract TallySlashingProposerRetroactiveTest is TallySlashingProposerEscapeHatchTest {
+contract SlashingProposerRetroactiveTest is SlashingProposerEscapeHatchTest {
   using stdStorage for StdStorage;
 
   /**
@@ -88,7 +88,7 @@ contract TallySlashingProposerRetroactiveTest is TallySlashingProposerEscapeHatc
 
     // Step 4: Get tally results
     address[][] memory committees = slashingProposer.getSlashTargetCommittees(currentRound);
-    TallySlashingProposer.SlashAction[] memory actions = slashingProposer.getTally(currentRound, committees);
+    SlashingProposer.SlashAction[] memory actions = slashingProposer.getTally(currentRound, committees);
 
     // DESIRED: All validators should be slashable (no escape hatch was active during target epochs)
     // CURRENT: Some validators have retroactive immunity - actions.length < expected
