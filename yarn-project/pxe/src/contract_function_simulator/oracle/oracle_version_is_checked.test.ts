@@ -238,7 +238,7 @@ describe('Oracle Version Check test suite', () => {
 
     it('stores the contract oracle version for later diagnostics', () => {
       oracle.assertCompatibleOracleVersion(ORACLE_VERSION_MAJOR, 3);
-      expect(oracle.non_oracle_function_getContractOracleVersion()).toEqual({ major: ORACLE_VERSION_MAJOR, minor: 3 });
+      expect(oracle.nonOracleFunctionGetContractOracleVersion()).toEqual({ major: ORACLE_VERSION_MAJOR, minor: 3 });
     });
 
     it('provides enhanced error when oracle not found and contract minor > PXE minor', () => {

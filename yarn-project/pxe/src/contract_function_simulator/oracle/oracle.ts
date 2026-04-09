@@ -130,14 +130,14 @@ export class Oracle {
         // Return a function that throws with an enhanced error message if applicable
         return () => {
           type NonOracleFunctionGetContractOracleVersion = {
-            non_oracle_function_getContractOracleVersion(): { major: number; minor: number } | undefined;
+            nonOracleFunctionGetContractOracleVersion(): { major: number; minor: number } | undefined;
           };
 
           let contractVersion = undefined;
-          if ('non_oracle_function_getContractOracleVersion' in handler) {
+          if ('nonOracleFunctionGetContractOracleVersion' in handler) {
             contractVersion = (
               handler as unknown as NonOracleFunctionGetContractOracleVersion
-            ).non_oracle_function_getContractOracleVersion();
+            ).nonOracleFunctionGetContractOracleVersion();
           }
           if (!contractVersion) {
             // contractVersion should always be populated because aztec_utl_assertCompatibleOracleVersion is injected
