@@ -178,7 +178,7 @@ export async function trySnapshotSync(config: SnapshotSyncConfig, log: Logger) {
   snapshotCandidates.sort((a, b) => b.snapshot.l1BlockNumber - a.snapshot.l1BlockNumber);
 
   // Try each candidate in order until one succeeds
-  for (const { snapshot, url } of snapshotCandidates) {
+  for (const { snapshot, url, fileStore } of snapshotCandidates) {
     const { l1BlockNumber, l2BlockNumber } = snapshot;
     log.info(`Attempting to sync from snapshot at L1 block ${l1BlockNumber} L2 block ${l2BlockNumber}`, {
       snapshot,
@@ -189,7 +189,7 @@ export async function trySnapshotSync(config: SnapshotSyncConfig, log: Logger) {
       await snapshotSync(snapshot, log, {
         dataDirectory: config.dataDirectory!,
         rollupAddress: config.l1Contracts.rollupAddress,
-        snapshotsUrl: url,
+        fileStore,
       });
       log.info(`Snapshot synced to L1 block ${l1BlockNumber} L2 block ${l2BlockNumber}`, {
         snapshot,
@@ -215,14 +215,12 @@ export async function trySnapshotSync(config: SnapshotSyncConfig, log: Logger) {
 export async function snapshotSync(
   snapshot: Pick<SnapshotMetadata, 'dataUrls'>,
   log: Logger,
-  config: { dataDirectory: string; rollupAddress: EthAddress; snapshotsUrl: string },
+  config: { dataDirectory: string; rollupAddress: EthAddress; fileStore: ReadOnlyFileStore },
 ) {
-  const { dataDirectory, rollupAddress } = config;
+  const { dataDirectory, rollupAddress, fileStore } = config;
   if (!dataDirectory) {
     throw new Error(`No local data directory defined. Cannot sync snapshot.`);
   }
-
-  const fileStore = await createReadOnlyFileStore(config.snapshotsUrl, log);
 
   let downloadDir: string | undefined;
 
