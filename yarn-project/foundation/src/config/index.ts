@@ -12,8 +12,8 @@ export { NetworkConfigMapSchema, NetworkConfigSchema } from './network_config.js
 
 export interface ConfigMapping<T> {
   env?: EnvVar;
-  /** Parse an env-var string into `T`. May return `undefined` to signal "not set." */
-  parseEnv?: (val: string) => T | undefined;
+  /** Parse an env-var string into `T`. Throws on invalid input. */
+  parseEnv?: (val: string) => T;
   defaultValue?: T;
   printDefault?: (val: any) => string;
   description: string;
@@ -69,8 +69,8 @@ export function getValueFromEnvWithFallback<T>(
     }
   }
 
-  // Parse the value if needed
-  if (value !== undefined) {
+  // Parse the value if needed. Empty strings are treated as "not set".
+  if (value) {
     return parseFunc ? parseFunc(value) : (value as unknown as T);
   }
 

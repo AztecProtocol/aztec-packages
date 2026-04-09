@@ -36,7 +36,7 @@ export interface AztecStartOption {
   parseVal?: (val: string) => any;
 }
 
-export const getOptions = (namespace: string, configMappings: Record<string, ConfigMapping<any>>) => {
+export const getOptions = (namespace: string, configMappings: Record<string, ConfigMapping<unknown>>) => {
   const options: AztecStartOption[] = [];
   for (const [key, { env, defaultValue: def, parseEnv, description, printDefault, fallback }] of Object.entries(
     configMappings,
@@ -60,7 +60,7 @@ export const getOptions = (namespace: string, configMappings: Record<string, Con
 
 const configToFlag = (
   flag: string,
-  configMapping: ConfigMapping<any>,
+  configMapping: ConfigMapping<unknown>,
   overrideDefaultValue?: any,
 ): AztecStartOption => {
   if (!configMapping.isBoolean) {
