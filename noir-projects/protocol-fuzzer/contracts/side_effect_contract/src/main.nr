@@ -171,18 +171,33 @@ pub contract SideEffect {
         [v0, v1]
     }
 
+    // Push a raw nullifier (not linked to any note hash). The kernel siloes it
+    // with the contract address before inserting into the nullifier tree. If the
+    // same value is emitted twice, the second tx fails (duplicate nullifier).
     #[external("private")]
     #[noinitcheck]
     fn emit_nullifier(nullifier: Field) {
         self.context.push_nullifier(nullifier);
     }
 
+    // Send a cross-chain message from L2 to L1. The base rollup circuit hashes
+    // (l2Sender, rollupVersion, l1Recipient, chainId, content) via sha256
+    // (sequencer-side, for EVM compatibility) and appends the hash to the
+    // TxEffect's l2ToL1Msgs array. An L1 contract can later verify the message
+    // against the rollup's outbox.
     #[external("private")]
     #[noinitcheck]
     fn send_l2_to_l1_message(content: Field, recipient: EthAddress) {
         self.context.message_portal(recipient, content);
     }
 
+    // Emit a private log with a plaintext tag. Uses `emit_private_log_unsafe`
+    // which bypasses the ECDH-based sender/recipient tag derivation protocol —
+    // fields[0] is set to `tag` directly (the kernel then siloes it via
+    // poseidon2(contractAddr, tag)). The log body is padded to
+    // PRIVATE_LOG_CIPHERTEXT_LEN with zeros; only the first field (content)
+    // carries data. The fuzzer verifies discoverability by querying the node
+    // with the siloed tag.
     #[external("private")]
     #[noinitcheck]
     fn emit_private_log(tag: Field, content: Field) {
@@ -190,6 +205,11 @@ pub contract SideEffect {
         self.context.emit_private_log_unsafe(tag, log, 1);
     }
 
+    // Request the app-scoped outgoing viewing secret key (ovsk_app). Looks up
+    // the account's master outgoing viewing public key (ovpk_m), hashes it, and
+    // asks the kernel for the corresponding app-siloed secret. This exercises
+    // the key validation request path in the kernel — success proves the kernel
+    // can derive and validate app-scoped keys.
     #[external("private")]
     #[noinitcheck]
     fn request_ovsk_app(account: AztecAddress) {
@@ -197,6 +217,10 @@ pub contract SideEffect {
         let _ = self.context.request_ovsk_app(ovpk_m.hash());
     }
 
+    // Schedule a public teardown function. Teardown is a special public call
+    // that runs after app logic, even if app logic reverts. Useful for cleanup
+    // (e.g. refunding gas). Here we schedule a no-op (`dummy_public_call`) to
+    // exercise the kernel's teardown plumbing.
     #[external("private")]
     #[noinitcheck]
     fn test_setting_teardown() {
@@ -208,9 +232,15 @@ pub contract SideEffect {
         );
     }
 
+    // No-op public function used as the teardown target by test_setting_teardown.
     #[external("public")]
     fn dummy_public_call() {}
 
+    // Verify that a nullifier exists in the nullifier tree at the anchor block.
+    // The nullifier must be siloed (hash of contract address + raw value) because
+    // the tree stores siloed nullifiers. The anchor block header pins the proof
+    // to a specific historical state, so this only works for nullifiers that were
+    // already settled (not pending in the current tx).
     #[external("private")]
     fn test_settled_nullifier_inclusion(nullifier: Field) {
         let header = self.context.get_anchor_block_header();
@@ -218,6 +248,8 @@ pub contract SideEffect {
         assert_nullifier_existed_by(header, siloed);
     }
 
+    // Public counterpart of call_create_and_complete_partial_note — fills in
+    // the value and finalizes the note hash. See comment on that function.
     #[external("public")]
     fn call_complete_partial_note(partial_note: PartialUintNote, storage_slot: Field, value: u128) {
         partial_note.complete(self.context, self.address, storage_slot, value);

@@ -1,5 +1,12 @@
 use aztec::macros::aztec;
 
+/// Forwarding contract for cross-contract call testing.
+///
+/// Each `forward_*` function calls the corresponding function on the
+/// `SideEffect` contract via `call_private_function`. This exercises the
+/// kernel's nested private call handling: the side effects (note hashes,
+/// nullifiers, logs, etc.) originate from the child's call context, not the
+/// parent's, which tests that the protocol correctly attributes them.
 #[aztec]
 pub contract Parent {
     use aztec::{
