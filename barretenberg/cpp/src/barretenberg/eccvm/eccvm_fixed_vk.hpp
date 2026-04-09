@@ -27,7 +27,7 @@ class ECCVMHardcodedVKAndHash {
     // Precomputed VK hash (hash of all commitments below). Update via ECCVMTests::FixedVK if commitments change.
     static BF vk_hash() { return BF(uint256_t("0x103f7a122fe63075eb8b9c6019cbd3cbe55b5775400799b12c63b31643515ff3")); }
 
-    static constexpr std::vector<Commitment> get_all()
+    static std::vector<Commitment> get_all()
     {
         return { // lagrange_first (at row NUM_DISABLED_ROWS_IN_SUMCHECK with top-of-trace masking)
                  Commitment(uint256_t("0x040948748b49a15e319d8ae97062ce125445f612bbf4265776490dafe4a75aa7"),

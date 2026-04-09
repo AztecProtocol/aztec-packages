@@ -56,7 +56,12 @@ export class CLIWallet extends BaseWallet {
 
   override async getAccounts(): Promise<Aliased<AztecAddress>[]> {
     const accounts = (await this.db?.listAliases('accounts')) ?? [];
-    return Promise.resolve(accounts.map(({ key, value }) => ({ alias: value, item: AztecAddress.fromString(key) })));
+    return Promise.resolve(
+      accounts.map(({ key, value }) => {
+        const alias = key.includes(':') ? key.slice(key.indexOf(':') + 1) : key;
+        return { alias, item: AztecAddress.fromString(value) };
+      }),
+    );
   }
 
   private async createCancellationTxExecutionRequest(
@@ -65,7 +70,11 @@ export class CLIWallet extends BaseWallet {
     increasedFee: InteractionFeeOptions,
   ) {
     const executionPayload = ExecutionPayload.empty();
-    const feeOptions = await this.completeFeeOptions(from, executionPayload.feePayer, increasedFee.gasSettings);
+    const feeOptions = await this.completeFeeOptions({
+      from,
+      feePayer: executionPayload.feePayer,
+      gasSettings: increasedFee.gasSettings,
+    });
     const feeExecutionPayload = await feeOptions.walletFeePaymentMethod?.getExecutionPayload();
     const fromAccount = await this.getAccountFromAddress(from);
     const chainInfo = await this.getChainInfo();
@@ -205,7 +214,11 @@ export class CLIWallet extends BaseWallet {
     const simulationResults = await super.simulateTx(executionPayload, opts);
 
     if (opts.fee?.estimateGas) {
-      const feeOptions = await this.completeFeeOptions(opts.from, executionPayload.feePayer, opts.fee?.gasSettings);
+      const feeOptions = await this.completeFeeOptions({
+        from: opts.from,
+        feePayer: executionPayload.feePayer,
+        gasSettings: opts.fee?.gasSettings,
+      });
       const limits = getGasLimits(simulationResults, opts.fee?.estimatedGasPadding);
       printGasEstimates(feeOptions, limits, this.userLog);
     }

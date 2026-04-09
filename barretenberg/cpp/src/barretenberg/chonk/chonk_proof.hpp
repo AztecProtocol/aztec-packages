@@ -124,10 +124,14 @@ template <bool IsRecursive = false> struct ChonkProof_ {
     static ChonkProof_ from_msgpack_buffer(const msgpack::sbuffer& buffer)
         requires(!IsRecursive)
     {
-        msgpack::object_handle oh = msgpack::unpack(buffer.data(), buffer.size());
-        msgpack::object obj = oh.get();
+        std::size_t offset = 0;
+        msgpack::object_handle oh = msgpack::unpack(buffer.data(), buffer.size(), offset);
+        if (offset != buffer.size()) {
+            throw_or_abort("ChonkProof::from_msgpack_buffer: trailing data (" + std::to_string(buffer.size() - offset) +
+                           " extra bytes)");
+        }
         ChonkProof_ proof;
-        obj.convert(proof);
+        oh.get().convert(proof);
         return proof;
     }
 

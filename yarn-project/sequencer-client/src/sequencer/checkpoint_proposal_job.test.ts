@@ -1078,6 +1078,21 @@ describe('CheckpointProposalJob', () => {
       expect(validatorClient.collectAttestations).not.toHaveBeenCalled();
     });
 
+    it('does not push proposed block to archiver in fisherman mode', async () => {
+      job.updateConfig({ fishermanMode: true, buildCheckpointIfEmpty: true, minTxsPerBlock: 0 });
+
+      const emptyBlock = await makeBlock([], globalVariables);
+      checkpointBuilder.seedBlocks([emptyBlock], [[]]);
+
+      // In fisherman mode execute() always returns undefined (handled internally via handleCheckpointEndAsFisherman)
+      await job.execute();
+
+      // Fisherman still builds the block
+      expect(checkpointBuilder.buildBlockCalls).toHaveLength(1);
+      // But must NOT push to the archiver — that was the bug causing reorgs on mainnet
+      expect(blockSink.addBlock).not.toHaveBeenCalled();
+    });
+
     it('handles empty committee gracefully', async () => {
       // Mock empty committee
       epochCache.getCommittee.mockResolvedValue({

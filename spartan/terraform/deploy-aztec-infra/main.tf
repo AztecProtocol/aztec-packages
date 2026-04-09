@@ -136,6 +136,7 @@ locals {
   p2p_port_p2p_bootstrap = 40400 + (parseint(substr(md5("${var.NAMESPACE}-p2p-bootstrap"), 0, 4), 16) % 100)
   p2p_port_prover        = 40400 + (parseint(substr(md5("${var.NAMESPACE}-prover"), 0, 4), 16) % 100)
   p2p_port_rpc           = 40400 + (parseint(substr(md5("${var.NAMESPACE}-rpc"), 0, 4), 16) % 100)
+  p2p_port_fisherman     = 40400 + (parseint(substr(md5("${var.NAMESPACE}-fisherman"), 0, 4), 16) % 100)
   p2p_port_full_node     = 40400 + (parseint(substr(md5("${var.NAMESPACE}-full-node"), 0, 4), 16) % 100)
   p2p_port_archive       = 40400 + (parseint(substr(md5("${var.NAMESPACE}-archive"), 0, 4), 16) % 100)
 
@@ -444,11 +445,7 @@ locals {
             type    = local.is_kind ? "ClusterIP" : "LoadBalancer"
           }
         }
-        })], var.FISHERMAN_MODE ? [yamlencode({
-        node = {
-          logLevel = var.FISHERMAN_LOG_LEVEL
-        }
-      })] : [])
+        })])
 
       custom_settings = merge({
         "replicaCount"                = var.RPC_REPLICAS
@@ -477,23 +474,50 @@ locals {
         "node.env.TX_FILE_STORE_ENABLED"              = var.TX_FILE_STORE_ENABLED
         "node.env.TX_FILE_STORE_URL"                  = var.TX_FILE_STORE_URL
         "node.env.TX_COLLECTION_FILE_STORE_URLS"      = var.TX_COLLECTION_FILE_STORE_URLS
-        },
-        # Only set RPC mnemonic config in fisherman mode)
-        var.FISHERMAN_MODE ? {
-          "node.secret.envEnabled"       = true
-          "node.env.FISHERMAN_MODE"      = "true"
-          "node.secret.mnemonic"         = var.FISHERMAN_MNEMONIC
-          "node.secret.mnemonicIndex"    = var.FISHERMAN_MNEMONIC_START_INDEX
-          "node.env.KEY_INDEX_START"     = var.FISHERMAN_MNEMONIC_START_INDEX
-          "node.env.VALIDATORS_PER_NODE" = "1"
-          "node.preStartScript"          = "source /scripts/get-private-key.sh"
-        } : {}
-      )
+      }
       boot_node_host_path  = "node.env.BOOT_NODE_HOST"
       bootstrap_nodes_path = "node.env.BOOTSTRAP_NODES"
       wait                 = true
     }
 
+    fisherman = tonumber(var.FISHERMAN_REPLICAS) > 0 ? {
+      name  = "${var.RELEASE_PREFIX}-fisherman"
+      chart = "aztec-node"
+      values = [
+        "common.yaml",
+        "rpc.yaml",
+        "rpc-resources-${var.RPC_RESOURCE_PROFILE}.yaml"
+      ]
+      inline_values = [yamlencode({
+        service = {
+          p2p = { publicIP = var.P2P_PUBLIC_IP }
+        }
+        node = {
+          logLevel = var.FISHERMAN_LOG_LEVEL
+        }
+      })]
+      custom_settings = {
+        "replicaCount"                                = var.FISHERMAN_REPLICAS
+        "service.p2p.nodePortEnabled"                 = var.P2P_NODEPORT_ENABLED
+        "service.p2p.announcePort"                    = local.p2p_port_fisherman
+        "service.p2p.port"                            = local.p2p_port_fisherman
+        "node.proverRealProofs"                       = var.PROVER_REAL_PROOFS
+        "node.env.BLOB_ALLOW_EMPTY_SOURCES"           = var.BLOB_ALLOW_EMPTY_SOURCES
+        "node.env.WS_NUM_HISTORIC_CHECKPOINTS"        = var.WS_NUM_HISTORIC_CHECKPOINTS
+        "node.env.P2P_TX_POOL_DELETE_TXS_AFTER_REORG" = var.P2P_TX_POOL_DELETE_TXS_AFTER_REORG
+        "node.secret.envEnabled"                      = true
+        "node.env.FISHERMAN_MODE"                     = "true"
+        "node.env.SEQ_BUILD_CHECKPOINT_IF_EMPTY"      = "true"
+        "node.secret.mnemonic"                        = var.FISHERMAN_MNEMONIC
+        "node.secret.mnemonicIndex"                   = var.FISHERMAN_MNEMONIC_START_INDEX
+        "node.env.KEY_INDEX_START"                    = var.FISHERMAN_MNEMONIC_START_INDEX
+        "node.env.VALIDATORS_PER_NODE"                = "1"
+        "node.preStartScript"                         = "source /scripts/get-private-key.sh"
+      }
+      boot_node_host_path  = "node.env.BOOT_NODE_HOST"
+      bootstrap_nodes_path = "node.env.BOOTSTRAP_NODES"
+      wait                 = true
+    } : null
 
     full_node = tonumber(var.FULL_NODE_REPLICAS) > 0 ? {
       name  = "${var.RELEASE_PREFIX}-full-node"

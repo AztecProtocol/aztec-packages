@@ -258,8 +258,8 @@ TEST(MegaCircuitBuilder, EmptyCircuitFinalization)
 
     builder.finalize_circuit(true);
 
-    // After finalization, should have non-zero content for required polynomials
-    EXPECT_GT(builder.blocks.ecc_op.size(), 0) << "Finalization should add ECC ops for non-zero polynomials";
+    // After finalization, ecc_op block remains empty (no dummy ops needed)
+    EXPECT_EQ(builder.blocks.ecc_op.size(), 0);
     EXPECT_GT(builder.get_calldata().size(), 0) << "Finalization should add databus entries";
     EXPECT_GT(builder.get_secondary_calldata().size(), 0);
     EXPECT_GT(builder.get_return_data().size(), 0);

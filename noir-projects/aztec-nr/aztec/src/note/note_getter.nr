@@ -45,25 +45,29 @@ fn extract_property_value_from_selector<let N: u32>(packed_note: [Field; N], sel
 }
 
 fn check_packed_note<let N: u32>(packed_note: [Field; N], selects: BoundedVec<Option<Select>, N>) {
-    for i in 0..selects.len() {
-        let select = selects.get_unchecked(i).unwrap_unchecked();
-        let value_field = extract_property_value_from_selector(packed_note, select.property_selector);
+    for i in 0..selects.max_len() {
+        if i < selects.len() {
+            let select = selects.get_unchecked(i).unwrap_unchecked();
+            let value_field = extract_property_value_from_selector(packed_note, select.property_selector);
 
-        assert(compare(value_field, select.comparator, select.value.to_field()), "Mismatch return note field.");
+            assert(compare(value_field, select.comparator, select.value.to_field()), "Mismatch return note field.");
+        }
     }
 }
 
 fn check_notes_order<let N: u32>(fields_0: [Field; N], fields_1: [Field; N], sorts: BoundedVec<Option<Sort>, N>) {
-    for i in 0..sorts.len() {
-        let sort = sorts.get_unchecked(i).unwrap_unchecked();
-        let field_0 = extract_property_value_from_selector(fields_0, sort.property_selector);
-        let field_1 = extract_property_value_from_selector(fields_1, sort.property_selector);
-        let eq = field_0 == field_1;
-        let lt = field_0.lt(field_1);
-        if sort.order == SortOrder.ASC {
-            assert(eq | lt, "Return notes not sorted in ascending order.");
-        } else if !eq {
-            assert(!lt, "Return notes not sorted in descending order.");
+    for i in 0..sorts.max_len() {
+        if i < sorts.len() {
+            let sort = sorts.get_unchecked(i).unwrap_unchecked();
+            let field_0 = extract_property_value_from_selector(fields_0, sort.property_selector);
+            let field_1 = extract_property_value_from_selector(fields_1, sort.property_selector);
+            let eq = field_0 == field_1;
+            let lt = field_0.lt(field_1);
+            if sort.order == SortOrder.ASC {
+                assert(eq | lt, "Return notes not sorted in ascending order.");
+            } else if !eq {
+                assert(!lt, "Return notes not sorted in descending order.");
+            }
         }
     }
 }

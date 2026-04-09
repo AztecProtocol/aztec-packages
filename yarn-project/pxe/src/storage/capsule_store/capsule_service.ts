@@ -2,7 +2,6 @@ import type { Fr } from '@aztec/foundation/curves/bn254';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { Capsule } from '@aztec/stdlib/tx';
 
-import type { AccessScopes } from '../../access_scopes.js';
 import type { CapsuleStore } from './capsule_store.js';
 
 /**
@@ -12,7 +11,7 @@ import type { CapsuleStore } from './capsule_store.js';
 export class CapsuleService {
   constructor(
     private readonly capsuleStore: CapsuleStore,
-    private readonly allowedScopes: AccessScopes,
+    private readonly allowedScopes: AztecAddress[],
   ) {}
 
   setCapsule(contractAddress: AztecAddress, slot: Fr, capsule: Fr[], jobId: string, scope: AztecAddress) {
@@ -79,13 +78,13 @@ export class CapsuleService {
   }
 }
 
-function assertAllowedScope(scope: AztecAddress, allowedScopes: AccessScopes) {
-  if (allowedScopes === 'ALL_SCOPES' || scope.equals(AztecAddress.ZERO)) {
+function assertAllowedScope(scope: AztecAddress, allowedScopes: AztecAddress[]) {
+  if (scope.equals(AztecAddress.ZERO)) {
     return;
   }
-  if (!allowedScopes.some(allowed => allowed.equals(scope))) {
+  if (!allowedScopes.some((allowed: AztecAddress) => allowed.equals(scope))) {
     throw new Error(
-      `Scope ${scope.toString()} is not in the allowed scopes list: [${allowedScopes.map(s => s.toString()).join(', ')}]. See https://docs.aztec.network/errors/10`,
+      `Scope ${scope.toString()} is not in the allowed scopes list: [${allowedScopes.map((s: AztecAddress) => s.toString()).join(', ')}]. See https://docs.aztec.network/errors/10`,
     );
   }
 }

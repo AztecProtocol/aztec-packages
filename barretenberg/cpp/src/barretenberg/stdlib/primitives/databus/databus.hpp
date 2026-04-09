@@ -52,6 +52,7 @@ template <typename Builder> class databus {
 
       private:
         mutable std::vector<field_pt> entries; // bus vector entries
+        std::vector<OriginTag> _tags;          // origin tags for each entry (restored on read)
         size_t length = 0;
         BusId bus_idx; // Idx of column in bus
         mutable Builder* context = nullptr;

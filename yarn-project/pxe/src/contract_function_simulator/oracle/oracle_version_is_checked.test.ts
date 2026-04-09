@@ -131,7 +131,7 @@ describe('Oracle Version Check test suite', () => {
         txContext: TxContext.from({
           chainId: new Fr(10),
           version: new Fr(20),
-          gasSettings: GasSettings.default({ maxFeesPerGas: new GasFees(10, 10) }),
+          gasSettings: GasSettings.fallback({ maxFeesPerGas: new GasFees(10, 10) }),
         }),
         argsOfCalls: [hashedArguments],
         authWitnesses: [],
@@ -149,7 +149,7 @@ describe('Oracle Version Check test suite', () => {
         anchorBlockHeader,
         senderForTags,
         jobId: 'test',
-        scopes: 'ALL_SCOPES',
+        scopes: [],
       });
 
       expect(assertCompatibleOracleVersionSpy).toHaveBeenCalledTimes(1);
@@ -206,7 +206,7 @@ describe('Oracle Version Check test suite', () => {
         messageContextService,
         contractSyncService,
         jobId: 'test',
-        scopes: 'ALL_SCOPES',
+        scopes: [],
       });
     });
 

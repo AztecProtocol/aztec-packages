@@ -7,6 +7,7 @@
 #include "ultra_prover.hpp"
 #include "barretenberg/commitment_schemes/gemini/gemini.hpp"
 #include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
+#include "barretenberg/common/memory_profile.hpp"
 #include "barretenberg/flavor/mega_avm_flavor.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
 #include "barretenberg/ultra_honk/oink_prover.hpp"
@@ -78,15 +79,24 @@ template <typename Flavor> typename UltraProver_<Flavor>::Proof UltraProver_<Fla
     OinkProver<Flavor> oink_prover(prover_instance, honk_vk, transcript);
     oink_prover.prove();
     vinfo("created oink proof");
+    if (detail::use_memory_profile) {
+        detail::GLOBAL_MEMORY_PROFILE.add_checkpoint("after_oink");
+    }
 
     generate_gate_challenges();
 
     // Run sumcheck
     execute_sumcheck_iop();
     vinfo("finished relation check rounds");
+    if (detail::use_memory_profile) {
+        detail::GLOBAL_MEMORY_PROFILE.add_checkpoint("after_sumcheck");
+    }
     // Execute Shplemini PCS
     execute_pcs();
     vinfo("finished PCS rounds");
+    if (detail::use_memory_profile) {
+        detail::GLOBAL_MEMORY_PROFILE.add_checkpoint("after_pcs");
+    }
 
     return export_proof();
 }

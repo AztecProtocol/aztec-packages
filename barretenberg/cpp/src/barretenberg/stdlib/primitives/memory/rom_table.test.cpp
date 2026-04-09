@@ -143,3 +143,52 @@ TYPED_TEST(RomTableTests, RomCopy)
     bool verified = CircuitChecker::check(builder);
     EXPECT_EQ(verified, true);
 }
+
+/**
+ * @brief OOB constant-index access soft-fails correctly without crashing.
+ */
+TEST(RomTable, OobConstantIndexDoesNotCrashRegression)
+{
+    using Builder = UltraCircuitBuilder;
+    using field_ct = stdlib::field_t<Builder>;
+    using witness_ct = stdlib::witness_t<Builder>;
+    using rom_table_ct = stdlib::rom_table<Builder>;
+
+    Builder builder;
+
+    std::vector<field_ct> table_values;
+    table_values.emplace_back(witness_ct(&builder, bb::fr(1)));
+    table_values.emplace_back(witness_ct(&builder, bb::fr(2)));
+    table_values.emplace_back(witness_ct(&builder, bb::fr(3)));
+    rom_table_ct table(table_values);
+
+    // OOB constant index — should soft-fail, not crash
+    table[static_cast<size_t>(100000000)];
+
+    EXPECT_TRUE(builder.failed());
+}
+
+/**
+ * @brief Regression: OOB witness-index read must soft-fail without OOB vector access.
+ */
+TEST(RomTable, OobWitnessIndexDoesNotCrashRegression)
+{
+    using Builder = UltraCircuitBuilder;
+    using field_ct = stdlib::field_t<Builder>;
+    using witness_ct = stdlib::witness_t<Builder>;
+    using rom_table_ct = stdlib::rom_table<Builder>;
+
+    Builder builder;
+
+    std::vector<field_ct> table_values;
+    table_values.emplace_back(witness_ct(&builder, bb::fr(1)));
+    table_values.emplace_back(witness_ct(&builder, bb::fr(2)));
+    table_values.emplace_back(witness_ct(&builder, bb::fr(3)));
+    rom_table_ct table(table_values);
+
+    // OOB witness index — should soft-fail, not crash
+    field_ct oob_index = witness_ct(&builder, bb::fr(100000000));
+    table[oob_index];
+
+    EXPECT_TRUE(builder.failed());
+}
