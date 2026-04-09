@@ -556,39 +556,47 @@ struct ColumnSpec {
 } // namespace
 
 /**
- * @brief Verify that "harmless" shiftable columns are truly unconstrained at the lagrange_first row.
+ * @brief Verify that "dead" and "multiset-constrained" shiftable columns do not trigger any per-row
+ * relation at the lagrange_first row.
  *
- * @details For each column documented as "harmless" in eccvm_flavor.hpp, corrupt its value at the
- * lagrange_first row and verify that no relation subrelation goes from zero to non-zero at that row.
- * This confirms the column's value at row k does not enter any active relation.
- *
- * Checks all six ECCVM relation families (Transcript, MSM, Wnaf, PointTable, Bools, Set).
- * LookupRelation is omitted: its per-row subrelation depends on the logderivative inverse which is
+ * @details For each column, corrupt its value at the lagrange_first row and verify that no relation
+ * subrelation goes from zero to non-zero at that row (single-row evaluation across all 6 relation
+ * families). LookupRelation is omitted: its per-row subrelation depends on the logderivative inverse
  * computed from the full trace, so single-row evaluation is not meaningful.
  *
+ * "Dead" columns (precompute_dx/dy/tx/ty, msm_accumulator_x/y) are not referenced by any relation at
+ * row k — the corruption is completely invisible.
+ *
+ * "Multiset-constrained" columns (msm_count/round/pc, transcript_pc) appear in the set relation's
+ * numerator/denominator, but corruption is caught by the GLOBAL multiset balance (z_perm_shift = 0 at
+ * lagrange_last), not per-row. Our single-row test doesn't detect this because z_perm is recomputed
+ * from the corrupted trace. The global constraint nonetheless prevents exploitation.
+ *
  * This test also serves as a regression guard: if a future change adds a relation term that references
- * one of these columns at the lagrange_first row without proper gating, this test will fail — signaling
- * that a new boundary constraint (lagrange_first * column = 0) is needed.
+ * one of these columns at the lagrange_first row without proper gating, this test will fail.
  */
 TEST_F(ECCVMRelationCorruptionTests, HarmlessColumnsUnconstrainedAtLagrangeFirst)
 {
     const size_t first_row = NUM_DISABLED_ROWS_IN_SUMCHECK;
 
-    // These are the columns claimed to be harmless in the eccvm_flavor.hpp doc.
-    std::vector<ColumnSpec> harmless_columns = {
-        { &ProverPolynomials::precompute_dx, "precompute_dx (col 4)" },
-        { &ProverPolynomials::precompute_dy, "precompute_dy (col 5)" },
-        { &ProverPolynomials::precompute_tx, "precompute_tx (col 6)" },
-        { &ProverPolynomials::precompute_ty, "precompute_ty (col 7)" },
-        { &ProverPolynomials::msm_accumulator_x, "msm_accumulator_x (col 12)" },
-        { &ProverPolynomials::msm_accumulator_y, "msm_accumulator_y (col 13)" },
-        { &ProverPolynomials::msm_count, "msm_count (col 14)" },
-        { &ProverPolynomials::msm_round, "msm_round (col 15)" },
-        { &ProverPolynomials::msm_pc, "msm_pc (col 17)" },
-        { &ProverPolynomials::transcript_pc, "transcript_pc (col 19)" },
+    // Dead: not referenced by any relation at row k (including set relation)
+    // Multiset-constrained: appear in set relation num/den but caught by global balance, not per-row
+    std::vector<ColumnSpec> columns = {
+        // Dead
+        { &ProverPolynomials::precompute_dx, "precompute_dx (col 4) [dead]" },
+        { &ProverPolynomials::precompute_dy, "precompute_dy (col 5) [dead]" },
+        { &ProverPolynomials::precompute_tx, "precompute_tx (col 6) [dead]" },
+        { &ProverPolynomials::precompute_ty, "precompute_ty (col 7) [dead]" },
+        { &ProverPolynomials::msm_accumulator_x, "msm_accumulator_x (col 12) [dead]" },
+        { &ProverPolynomials::msm_accumulator_y, "msm_accumulator_y (col 13) [dead]" },
+        // Multiset-constrained (global balance catches, not per-row)
+        { &ProverPolynomials::msm_count, "msm_count (col 14) [multiset]" },
+        { &ProverPolynomials::msm_round, "msm_round (col 15) [multiset]" },
+        { &ProverPolynomials::msm_pc, "msm_pc (col 17) [multiset]" },
+        { &ProverPolynomials::transcript_pc, "transcript_pc (col 19) [multiset]" },
     };
 
-    for (const auto& col : harmless_columns) {
+    for (const auto& col : columns) {
         auto polynomials = build_valid_eccvm_msm_state();
         ASSERT_EQ(polynomials.lagrange_first[first_row], FF(1));
 

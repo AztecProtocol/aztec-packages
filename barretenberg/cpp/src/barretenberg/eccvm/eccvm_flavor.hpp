@@ -387,29 +387,43 @@ class ECCVMFlavor {
      *     eccvm_relation_corruption.test.cpp. Without `lagrange_first * accumulator_not_empty = 0`, a
      *     malicious prover can disable INFINITY_ACC_X/Y and inject arbitrary accumulator coordinates.
      *
-     * ### Harmless: values at lagrange_first row are dead (not read by any active constraint)
+     * ### Dead: P[k] is not read by any relation at any active row
      *
-     * A malicious prover can set these columns to any value at row k and no relation will fire. This is
-     * safe because the value is never read by any checked equation:
+     * These columns are not referenced by any non-trivially-active subrelation at row k. A malicious
+     * prover can set P[k] to anything and no per-row relation fires. This is safe because:
+     *   - P[k] as an unshifted value at row k: every relation term vanishes (gated by
+     *     `is_not_first_row = 0` or by selectors that are zero at the empty first row).
+     *   - P[k] as a shifted value at row k-1: row k-1 is in the masking region where sumcheck does not
+     *     evaluate relations.
+     *   - P[k+1] = P_shift(k) is unconstrained by row k's relations (same gating), but IS constrained
+     *     at row k+1 by that row's own relations (hiding row, etc.).
      *
-     *   - P[k] as an *unshifted* value at row k: every relation term involving it vanishes, either via
-     *     `is_not_first_row = (-lagrange_first + 1) = 0`, or because the non-shiftable columns it
-     *     multiplies are also zero at the builder's empty first row.
-     *   - P[k] as a *shifted* value at row k-1: row k-1 is in the masking region, where sumcheck does
-     *     not evaluate relations. So P[k] = P_shift(k-1) is never checked.
-     *   - P[k+1] = P_shift(k) is also unconstrained by row k's relations (same gating reasons above).
-     *     However, P[k+1] IS constrained at row k+1 by that row's own relations (e.g., the hiding row's
-     *     HIDING_ROW_EQ, HIDING_ROW_RESET, etc.), so it cannot be freely manipulated.
-     *
-     * Verified by `HarmlessColumnsUnconstrainedAtLagrangeFirst` in eccvm_relation_corruption.test.cpp.
+     * These columns also do not appear in the set relation's numerator/denominator at row k.
+     * Verified by `HarmlessColumnsUnconstrainedAtLagrangeFirst` (checks all 6 relation families
+     * including SetRelation at row k).
      *
      *   - precompute_dx/dy (cols 4-5), precompute_tx/ty (cols 6-7): gated by (-lagrange_first + 1).
      *   - msm_accumulator_x/y (cols 12-13): gated by (-lagrange_first + 1) in IDLE_ROW_PRESERVES_ACC
-     *     and by operation selectors elsewhere.
-     *   - msm_count (col 14), msm_round (col 15), msm_pc (col 17):
-     *     gated by is_not_first_row or by operation selectors in all relation terms.
-     *   - transcript_pc (col 19): gated by is_not_first_row in PC_UPDATE; gated by transcript_mul (= 0)
-     *     and transcript_msm_transition (= 0) in the set relation denominator.
+     *     and by operation selectors elsewhere. Set relation reads msm_accumulator_x/y_shift (not
+     *     unshifted), gated by (-lagrange_first + 1) * msm_transition_shift.
+     *
+     * ### Multiset-constrained: not caught per-row, but caught by global multiset balance
+     *
+     * These columns appear in the set relation's numerator or denominator at row k. Corrupting P[k]
+     * changes the multiset entry at row k, which requires a matching entry in the precompute/MSM
+     * subtables that doesn't exist in the honest trace. The set relation catches this via its terminal
+     * condition (z_perm_shift = 0 at lagrange_last), not per-row.
+     *
+     * Note: our single-row test (`HarmlessColumnsUnconstrainedAtLagrangeFirst`) evaluates SetRelation
+     * at row k but does NOT detect this, because the test recomputes z_perm from the corrupted trace.
+     * The global multiset mismatch only manifests at lagrange_last.
+     *
+     *   - msm_count (col 14), msm_round (col 15), msm_pc (col 17): appear in set relation denominator
+     *     (first term: wnaf slice tuples). Not referenced by MSM/transcript/wnaf/point-table relations
+     *     at row k (gated by is_not_first_row or operation selectors).
+     *   - transcript_pc (col 19): appears in set relation denominator (second and third terms). Not
+     *     referenced by transcript relation at row k (gated by is_not_first_row in PC_UPDATE; gated by
+     *     transcript_mul = 0 and transcript_msm_transition = 0 in the set relation terms).
      *
      * ### Self-consistency: corruption is caught by existing relations
      *
