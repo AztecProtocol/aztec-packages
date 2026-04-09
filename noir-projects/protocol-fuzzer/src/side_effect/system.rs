@@ -112,7 +112,9 @@ impl From<&SideEffectCommand> for WalletCommand {
             } => (
                 "send_l2_to_l1_message",
                 format!("accounts:test{from}"),
-                vec![format!("{content}"), format!("{recipient}")],
+                // EthAddress is a struct { inner: Field }; the CLI's encodeArg
+                // expects a 0x-prefixed 32-byte hex string for single-field structs.
+                vec![format!("{content}"), format!("0x{recipient:064x}")],
             ),
             EmitPrivateLog {
                 tag,

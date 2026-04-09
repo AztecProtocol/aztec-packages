@@ -1661,4 +1661,152 @@ mod tests {
         assert!(a.conflicts(&b));
         assert!(b.conflicts(&a));
     }
+
+    // -- changes_model / flushes_batch category tests --
+
+    #[test]
+    fn stateful_sends_change_model_and_dont_flush() {
+        let cmds: Vec<SideEffectCommand> = vec![
+            SideEffectCommand::CreateNote {
+                value: 1, owner: 0, storage_slot: 1, from: 0, via_parent: false,
+            },
+            SideEffectCommand::CreateAndCompletePartialNote {
+                owner: 0, storage_slot: 1, value: 1, from: 0,
+            },
+            SideEffectCommand::DestroyNote {
+                owner: 0, storage_slot: 1, from: 0, via_parent: false,
+            },
+            SideEffectCommand::EmitNullifier {
+                nullifier: 1, from: 0, via_parent: false,
+            },
+            SideEffectCommand::SendL2ToL1Message {
+                content: 1, recipient: 2, from: 0, via_parent: false,
+            },
+            SideEffectCommand::EmitPrivateLog {
+                tag: 1, content: 2, from: 0, via_parent: false,
+            },
+        ];
+        for cmd in &cmds {
+            assert!(cmd.changes_model(), "{} should change model", cmd.name());
+            assert!(!cmd.flushes_batch(), "{} should not flush batch", cmd.name());
+        }
+    }
+
+    #[test]
+    fn queries_flush_batch_and_dont_change_model() {
+        let cmds: Vec<SideEffectCommand> = vec![
+            SideEffectCommand::ViewNotesMany {
+                owner: 0, storage_slot: 1, active_or_nullified: false, offset: 0, from: 0,
+            },
+            SideEffectCommand::GetNotesMany {
+                owner: 0, storage_slot: 1, active_or_nullified: false, offset: 0, from: 0,
+            },
+            SideEffectCommand::TestNoteInclusion {
+                owner: 0, storage_slot: 1, from: 0, via_parent: false,
+            },
+            SideEffectCommand::TestNullifierInclusion {
+                nullifier: 1, from: 0, via_parent: false,
+            },
+        ];
+        for cmd in &cmds {
+            assert!(!cmd.changes_model(), "{} should not change model", cmd.name());
+            assert!(cmd.flushes_batch(), "{} should flush batch", cmd.name());
+        }
+    }
+
+    #[test]
+    fn kernel_exercisers_neither_change_model_nor_flush() {
+        let cmds: Vec<SideEffectCommand> = vec![
+            SideEffectCommand::RequestOvskApp { from: 0, via_parent: false },
+            SideEffectCommand::TestSettingTeardown { from: 0, via_parent: false },
+        ];
+        for cmd in &cmds {
+            assert!(!cmd.changes_model(), "{} should not change model", cmd.name());
+            assert!(!cmd.flushes_batch(), "{} should not flush batch", cmd.name());
+        }
+    }
+
+    // -- L2→L1 / private log accumulation tests --
+
+    #[test]
+    fn multiple_l2_to_l1_messages_accumulate() {
+        let m = machine();
+        let state = make_state();
+        let state = m.next_state(
+            &SideEffectCommand::SendL2ToL1Message {
+                content: 10, recipient: 20, from: 0, via_parent: false,
+            },
+            state,
+        );
+        let state = m.next_state(
+            &SideEffectCommand::SendL2ToL1Message {
+                content: 30, recipient: 40, from: 1, via_parent: false,
+            },
+            state,
+        );
+        assert_eq!(state.l2_to_l1_messages, vec![(10, 20), (30, 40)]);
+    }
+
+    #[test]
+    fn multiple_private_logs_accumulate() {
+        let m = machine();
+        let state = make_state();
+        let state = m.next_state(
+            &SideEffectCommand::EmitPrivateLog {
+                tag: 1, content: 2, from: 0, via_parent: false,
+            },
+            state,
+        );
+        let state = m.next_state(
+            &SideEffectCommand::EmitPrivateLog {
+                tag: 3, content: 4, from: 1, via_parent: false,
+            },
+            state,
+        );
+        assert_eq!(state.private_logs, vec![(1, 2), (3, 4)]);
+    }
+
+    #[test]
+    fn l2_to_l1_and_private_log_are_independent() {
+        let m = machine();
+        let state = make_state();
+        let state = m.next_state(
+            &SideEffectCommand::SendL2ToL1Message {
+                content: 10, recipient: 20, from: 0, via_parent: false,
+            },
+            state,
+        );
+        let state = m.next_state(
+            &SideEffectCommand::EmitPrivateLog {
+                tag: 1, content: 2, from: 0, via_parent: false,
+            },
+            state,
+        );
+        assert_eq!(state.l2_to_l1_messages, vec![(10, 20)]);
+        assert_eq!(state.private_logs, vec![(1, 2)]);
+    }
+
+    #[test]
+    fn kernel_exercisers_dont_change_any_state() {
+        let m = machine();
+        let mut state = make_state();
+        state.active_notes.insert((5, 0), vec![42]);
+        state.emitted_nullifiers.insert(99);
+        state.l2_to_l1_messages.push((1, 2));
+        state.private_logs.push((3, 4));
+
+        let cmds = vec![
+            SideEffectCommand::RequestOvskApp { from: 0, via_parent: false },
+            SideEffectCommand::TestSettingTeardown { from: 0, via_parent: false },
+        ];
+
+        for cmd in &cmds {
+            let new_state = m.next_state(cmd, state.clone());
+            assert_eq!(new_state.active_notes, state.active_notes, "{}", cmd.name());
+            assert_eq!(new_state.destroyed_notes, state.destroyed_notes, "{}", cmd.name());
+            assert_eq!(new_state.emitted_nullifiers, state.emitted_nullifiers, "{}", cmd.name());
+            assert_eq!(new_state.l2_to_l1_messages, state.l2_to_l1_messages, "{}", cmd.name());
+            assert_eq!(new_state.private_logs, state.private_logs, "{}", cmd.name());
+        }
+    }
 }

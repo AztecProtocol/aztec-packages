@@ -139,7 +139,7 @@ const handlers = {
   },
 
   '/query-private-logs': async ({ contract, rawTag }) => {
-    const { Fr } = await import('@aztec/foundation/fields');
+    const { Fr } = await import('@aztec/foundation/curves/bn254');
     const { computeSiloedPrivateLogFirstField } = await import('@aztec/stdlib/hash');
     const { SiloedTag } = await import('@aztec/stdlib/logs');
 
@@ -158,7 +158,7 @@ const handlers = {
 
   '/compute-l2-to-l1-hash': async ({ l2Sender, l1Recipient, content }) => {
     const { EthAddress } = await import('@aztec/foundation/eth-address');
-    const { Fr } = await import('@aztec/foundation/fields');
+    const { Fr } = await import('@aztec/foundation/curves/bn254');
     const { computeL2ToL1MessageHash } = await import('@aztec/stdlib/hash');
 
     const chainId = new Fr(await node.getChainId());

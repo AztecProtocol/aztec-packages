@@ -14,7 +14,7 @@ use aztec::macros::aztec;
 /// - Note read requests: `call_get_notes_many`
 /// - Unconstrained note queries: `call_view_notes_many`
 /// - Archive inclusion proofs: `test_note_inclusion`, `test_settled_nullifier_inclusion`
-/// - L2→L1 messages: `send_l2_to_l1_message`
+/// - L2->L1 messages: `send_l2_to_l1_message`
 /// - Private log emissions: `emit_private_log`
 /// - Key validation requests: `request_ovsk_app`
 /// - Public teardown execution: `test_setting_teardown` / `dummy_public_call`
@@ -48,10 +48,11 @@ pub contract SideEffect {
             abis::function_selector::FunctionSelector,
             address::{AztecAddress, EthAddress},
             constants::PRIVATE_LOG_CIPHERTEXT_LEN,
+            traits::Hash,
         },
     };
 
-    global VALUE_SELECTOR = PropertySelector { index: 0, offset: 0, length: 32 };
+    global VALUE_SELECTOR: PropertySelector = PropertySelector { index: 0, offset: 0, length: 32 };
 
     use uint_note::{PartialUintNote, UintNote};
 
