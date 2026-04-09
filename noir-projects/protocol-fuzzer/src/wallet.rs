@@ -89,8 +89,7 @@ pub struct WalletCommand {
 
 #[derive(Debug, Clone, Default)]
 pub struct TxEffects {
-    pub l2_to_l1_msg_count: usize,
-    pub private_logs: Vec<PrivateLogData>,
+    pub l2_to_l1_msg_hashes: Vec<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -293,6 +292,66 @@ impl Bridge {
             handles.into_iter().map(|h| h.join().unwrap()).collect()
         })
     }
+
+    /// Resolve an alias (e.g. `contracts:test0`) to a hex address.
+    pub fn resolve(&self, alias: &str) -> String {
+        self.address_book.lock().unwrap().resolve(alias)
+    }
+
+    /// Query the node for private logs matching the siloed tag derived from
+    /// `contract` and `raw_tag`.  Verifies that the kernel's tag-siloing and
+    /// the node's log indexing work correctly.  (In production, tags are derived
+    /// from a sender↔recipient shared secret; the fuzzer contract uses
+    /// `emit_private_log_unsafe` with arbitrary plaintext tags instead.)
+    pub fn query_private_logs(
+        &self,
+        contract: &str,
+        raw_tag: &str,
+    ) -> anyhow::Result<Vec<PrivateLogData>> {
+        let body = json!({ "contract": contract, "rawTag": raw_tag });
+        let result = self.post("/query-private-logs", &body)?;
+        let logs = result
+            .get("logs")
+            .and_then(|v| v.as_array())
+            .map(|arr| {
+                arr.iter()
+                    .map(|log| PrivateLogData {
+                        fields: log
+                            .get("logData")
+                            .and_then(|f| f.as_array())
+                            .map(|fs| {
+                                fs.iter()
+                                    .filter_map(|f| f.as_str().map(String::from))
+                                    .collect()
+                            })
+                            .unwrap_or_default(),
+                    })
+                    .collect()
+            })
+            .unwrap_or_default();
+        Ok(logs)
+    }
+
+    /// Compute the L2→L1 message hash that an L1 recipient would check against
+    /// the outbox.  Delegates to the bridge which has access to chain ID and
+    /// rollup version.
+    pub fn compute_l2_to_l1_hash(
+        &self,
+        l2_sender: &str,
+        l1_recipient: &str,
+        content: &str,
+    ) -> anyhow::Result<String> {
+        let body = json!({
+            "l2Sender": l2_sender,
+            "l1Recipient": l1_recipient,
+            "content": content,
+        });
+        let result = self.post("/compute-l2-to-l1-hash", &body)?;
+        result["hash"]
+            .as_str()
+            .map(String::from)
+            .ok_or_else(|| anyhow!("missing 'hash' in response"))
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -302,29 +361,17 @@ impl Bridge {
 /// Parse the optional `txEffects` field from a bridge JSON response.
 fn parse_tx_effects(result: &serde_json::Value) -> Option<TxEffects> {
     let effects = result.get("txEffects")?;
-    let l2_to_l1_msg_count = effects["l2ToL1MsgCount"].as_u64().unwrap_or(0) as usize;
-    let private_logs = effects
-        .get("privateLogs")
+    let l2_to_l1_msg_hashes = effects
+        .get("l2ToL1Msgs")
         .and_then(|v| v.as_array())
         .map(|arr| {
             arr.iter()
-                .map(|log| PrivateLogData {
-                    fields: log
-                        .get("fields")
-                        .and_then(|f| f.as_array())
-                        .map(|fs| {
-                            fs.iter()
-                                .filter_map(|f| f.as_str().map(String::from))
-                                .collect()
-                        })
-                        .unwrap_or_default(),
-                })
+                .filter_map(|v| v.as_str().map(String::from))
                 .collect()
         })
         .unwrap_or_default();
     Some(TxEffects {
-        l2_to_l1_msg_count,
-        private_logs,
+        l2_to_l1_msg_hashes,
     })
 }
 

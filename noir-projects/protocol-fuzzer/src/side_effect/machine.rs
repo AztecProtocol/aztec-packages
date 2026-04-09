@@ -121,9 +121,8 @@ impl SideEffectCommand {
     }
 
     /// How to execute on the sandbox: `Simulate` for read-only view/get,
-    /// `Send` for everything else. Note that `TestNoteInclusion` and
-    /// `TestNullifierInclusion` are sends (on-chain kernel verification)
-    /// even though they don't change model state -- see `is_query()`.
+    /// `Send` for everything else.  See `changes_model()` and `flushes_batch()`
+    /// for the full three-way categorization.
     pub fn verb(&self) -> wallet::Verb {
         match self {
             Self::ViewNotesMany { .. } | Self::GetNotesMany { .. } => wallet::Verb::Simulate,
@@ -140,12 +139,10 @@ impl SideEffectCommand {
         }
     }
 
-    /// Whether this command doesn't change model state (and therefore must
-    /// observe all prior committed state before executing, flushing the batch).
-    /// This is orthogonal to `verb()`: TestNoteInclusion/TestNullifierInclusion
-    /// are queries (`is_query = true`) but sends (`verb = Send`) because they
-    /// exercise on-chain kernel verification without changing the fuzzer's model.
-    pub fn is_query(&self) -> bool {
+    /// Whether this command must observe all prior committed state before
+    /// executing (flushes the batch).  Commands in this category read state
+    /// that prior sends may have changed, so the batch must be flushed first.
+    pub fn flushes_batch(&self) -> bool {
         match self {
             Self::ViewNotesMany { .. }
             | Self::GetNotesMany { .. }
@@ -157,6 +154,31 @@ impl SideEffectCommand {
             | Self::EmitNullifier { .. }
             | Self::SendL2ToL1Message { .. }
             | Self::EmitPrivateLog { .. }
+            | Self::RequestOvskApp { .. }
+            | Self::TestSettingTeardown { .. } => false,
+        }
+    }
+
+    /// Whether this command changes the fuzzer's model state.
+    ///
+    /// Three categories emerge from `(changes_model, flushes_batch)`:
+    /// - `(true,  false)`: stateful sends — create notes, emit nullifiers, etc.
+    /// - `(false, true)`:  queries — read committed state, verify against model.
+    /// - `(false, false)`: kernel exercisers — fire-and-confirm sends that
+    ///   exercise kernel plumbing (key validation, public teardown) without
+    ///   producing observable model state.
+    pub fn changes_model(&self) -> bool {
+        match self {
+            Self::CreateNote { .. }
+            | Self::CreateAndCompletePartialNote { .. }
+            | Self::DestroyNote { .. }
+            | Self::EmitNullifier { .. }
+            | Self::SendL2ToL1Message { .. }
+            | Self::EmitPrivateLog { .. } => true,
+            Self::ViewNotesMany { .. }
+            | Self::GetNotesMany { .. }
+            | Self::TestNoteInclusion { .. }
+            | Self::TestNullifierInclusion { .. }
             | Self::RequestOvskApp { .. }
             | Self::TestSettingTeardown { .. } => false,
         }
@@ -234,10 +256,10 @@ impl SideEffectCommand {
 
 impl Batchable for SideEffectCommand {
     fn conflicts(&self, other: &Self) -> bool {
-        // Queries don't change state so they can batch with each other, but a
-        // query/send mix must flush (query needs to observe prior sends).
-        if self.is_query() || other.is_query() {
-            return !(self.is_query() && other.is_query());
+        // Batch-flushing commands can batch with each other, but a mix of
+        // flushing and non-flushing must flush (query needs to observe prior sends).
+        if self.flushes_batch() || other.flushes_batch() {
+            return !(self.flushes_batch() && other.flushes_batch());
         }
 
         // Same (slot, owner) pair -> conflict.
@@ -602,13 +624,15 @@ impl<'a> smt::StateMachine for SideEffectMachine<'a> {
             EmitPrivateLog { tag, content, .. } => {
                 state.private_logs.push((*tag, *content));
             }
-            // Query commands and stateless sends don't change state
+            // !changes_model(): queries and kernel exercisers don't change state.
             ViewNotesMany { .. }
             | GetNotesMany { .. }
             | TestNoteInclusion { .. }
             | TestNullifierInclusion { .. }
             | RequestOvskApp { .. }
-            | TestSettingTeardown { .. } => {}
+            | TestSettingTeardown { .. } => {
+                debug_assert!(!cmd.changes_model());
+            }
         };
 
         state
@@ -626,6 +650,26 @@ impl<'a> smt::StateMachine for SideEffectMachine<'a> {
         system.execute_command_batch(cmds)
     }
 
+    /// Verify that the sandbox result matches the model's expectations.
+    ///
+    /// See `changes_model()` and `flushes_batch()` for the three command
+    /// categories.  Verification strategy:
+    ///
+    /// - **Stateful sends** (`changes_model() = true`):
+    ///   - Notes: success/failure checked here; values verified transitively
+    ///     by subsequent ViewNotesMany/GetNotesMany queries.
+    ///   - Nullifiers: success + duplicate detection; insertion verified
+    ///     transitively by TestNullifierInclusion.
+    ///   - L2→L1 messages: reconstructs expected hash (via bridge) and verifies
+    ///     it appears in TxEffect (same check an L1 contract would perform).
+    ///   - Private logs: computes siloed tag and queries the node, then verifies
+    ///     content.  (The contract uses `emit_private_log_unsafe` with plaintext
+    ///     tags, so we verify siloing + indexing, not the full ECDH-based
+    ///     encryption/discovery protocol.)
+    /// - **Queries** (`flushes_batch() = true`): directly compares returned
+    ///   values against the model's expected notes.
+    /// - **Kernel exercisers** (`!changes_model() && !flushes_batch()`):
+    ///   success-only — success is the proof that kernel plumbing works.
     fn check_result(&self, cmd: &Self::Command, pre_state: &Self::State, result: Self::Result) {
         use SideEffectCommand::*;
 
@@ -671,33 +715,53 @@ impl<'a> smt::StateMachine for SideEffectMachine<'a> {
             TestNullifierInclusion { .. } => {
                 assert_expected(cmd.name(), true, &result);
             }
-            SendL2ToL1Message { .. } => {
+            SendL2ToL1Message {
+                content, recipient, ..
+            } => {
                 assert_expected(cmd.name(), true, &result);
-                if let Some(ref effects) = result.unwrap().tx_effects {
-                    assert!(
-                        effects.l2_to_l1_msg_count >= 1,
-                        "{}: expected at least 1 L2→L1 message in TxEffect, got {}",
-                        cmd.name(),
-                        effects.l2_to_l1_msg_count,
-                    );
+                if let Some(bridge) = self.bridge {
+                    let output = result.as_ref().unwrap();
+                    if let Some(ref effects) = output.tx_effects {
+                        let contract = bridge.resolve("contracts:test0");
+                        let expected_hash = bridge
+                            .compute_l2_to_l1_hash(
+                                &contract,
+                                &recipient.to_string(),
+                                &content.to_string(),
+                            )
+                            .expect("compute_l2_to_l1_hash failed");
+                        let found = effects
+                            .l2_to_l1_msg_hashes
+                            .iter()
+                            .any(|h| *h == expected_hash);
+                        assert!(
+                            found,
+                            "{}: expected L2→L1 msg hash {} not in TxEffect hashes {:?}",
+                            cmd.name(),
+                            expected_hash,
+                            effects.l2_to_l1_msg_hashes,
+                        );
+                    }
                 }
             }
             EmitPrivateLog { tag, content, .. } => {
                 assert_expected(cmd.name(), true, &result);
-                if let Some(ref effects) = result.unwrap().tx_effects {
-                    let tag_str = tag.to_string();
+                if let Some(bridge) = self.bridge {
+                    let contract = bridge.resolve("contracts:test0");
+                    let logs = bridge
+                        .query_private_logs(&contract, &tag.to_string())
+                        .expect("query_private_logs failed");
                     let content_str = content.to_string();
-                    let found = effects.private_logs.iter().any(|log| {
-                        log.fields.len() >= 2
-                            && log.fields[0] == tag_str
-                            && log.fields[1] == content_str
-                    });
+                    // logData[0] = siloed tag (matched by the query), logData[1] = content
+                    let found = logs
+                        .iter()
+                        .any(|log| log.fields.len() >= 2 && log.fields[1] == content_str);
                     assert!(
                         found,
-                        "{}: no private log with tag={tag} content={content} in TxEffect. \
+                        "{}: log with tag={tag} content={content} not found via siloed tag query. \
                          logs={:?}",
                         cmd.name(),
-                        effects.private_logs,
+                        logs,
                     );
                 }
             }

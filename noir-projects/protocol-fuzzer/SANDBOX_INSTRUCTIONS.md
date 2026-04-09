@@ -245,12 +245,16 @@ RUST_LOG=debug cargo run -- side-effect --max-steps 5
 
 ### SideEffect contract (`contracts/side_effect_contract/`)
 
-Custom contract for testing note lifecycle and nullifier operations:
+Custom contract for testing side-effect processing:
 - `call_create_note` / `call_create_and_complete_partial_note` -- create notes
 - `call_destroy_note` -- get notes sorted by value ASC, destroy the smallest
 - `call_view_notes_many` / `call_get_notes_many` -- query notes (returns `[u128; 2]`)
 - `emit_nullifier` / `test_settled_nullifier_inclusion` -- nullifier operations
 - `test_note_inclusion` -- prove note exists in the tree
+- `send_l2_to_l1_message` -- emit an L2→L1 message
+- `emit_private_log` -- emit a private log with tag and content
+- `request_ovsk_app` -- exercise key validation request
+- `test_setting_teardown` / `dummy_public_call` -- exercise public teardown execution
 
 ### Parent contract (`contracts/parent_contract/`)
 
@@ -260,6 +264,10 @@ Forwards private calls to the SideEffect contract for cross-contract call testin
 - `forward_test_note_inclusion`
 - `forward_emit_nullifier`
 - `forward_test_settled_nullifier_inclusion`
+- `forward_send_l2_to_l1_message`
+- `forward_emit_private_log`
+- `forward_request_ovsk_app`
+- `forward_test_setting_teardown`
 
 The fuzzer randomly chooses between direct calls and via-parent calls to exercise
 both code paths.

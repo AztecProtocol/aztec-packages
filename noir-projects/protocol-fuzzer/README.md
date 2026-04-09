@@ -8,7 +8,10 @@ Two machines are available:
   operations (public and private), tracking balances and total supply.
 - **side-effect** -- deploys custom `SideEffect` and `Parent` contracts, then fuzzes
   note lifecycle (create, destroy, view, get, partial notes), nullifier emission,
-  and cross-contract calls, verifying note inclusion and nullifier uniqueness.
+  L2→L1 messages, private logs, key validation requests, public teardown calls,
+  and cross-contract calls. Verifies note values against the model, nullifier
+  uniqueness, L2→L1 message hashes in TxEffect, and private log discoverability
+  via siloed tag queries.
 
 ## Running
 
@@ -61,16 +64,24 @@ cargo run -- side-effect --max-steps 100000 --seed 0x5a7211231dcd6500
 
 ### Parallel batching
 
-Consecutive non-conflicting state-changing commands are batched and fired concurrently,
-landing in the same block. This reduces N sequential transactions from N*5s to ~5s.
-Non-state-changing commands (queries) always flush the pending batch first since they
-need to observe prior committed state. Note that "query" here means "doesn't change
-model state" — some queries are still on-chain sends (e.g. `TestNoteInclusion` exercises
-kernel verification but doesn't alter the fuzzer's model).
+Consecutive non-conflicting commands are batched and fired concurrently, landing in the
+same block. This reduces N sequential transactions from N*5s to ~5s.
+
+Commands fall into three categories (see `changes_model()` / `flushes_batch()` in `machine.rs`):
+
+- **Stateful sends** — create notes, emit nullifiers, send L2→L1 messages, emit private logs.
+  Batched together when non-conflicting.
+- **Queries** — view/get notes, test note/nullifier inclusion. Flush the pending batch first
+  since they need to observe prior committed state. Some are on-chain sends (e.g.
+  `TestNoteInclusion` exercises kernel verification) but still flush the batch.
+- **Kernel exercisers** — key validation (`RequestOvskApp`), public teardown
+  (`TestSettingTeardown`). On-chain sends that don't change model state and don't need the
+  batch flushed — they batch freely with other sends.
 
 Conflict rules (conservative -- false positives only reduce batch size):
 - **token**: two commands on the same token conflict (shared total supply)
-- **side-effect**: two commands on the same (storage_slot, owner) or same nullifier value conflict
+- **side-effect**: two commands on the same (storage_slot, owner) or same nullifier value conflict;
+  L2→L1 messages, private logs, key validation, and teardown are conflict-free with all sends
 
 ## Smoke Tests
 

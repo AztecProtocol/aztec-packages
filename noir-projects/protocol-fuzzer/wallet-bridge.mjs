@@ -126,7 +126,7 @@ const handlers = {
           if (effect) {
             const d = effect.data;
             result.txEffects = {
-              l2ToL1MsgCount: d.l2ToL1Msgs.filter(m => !m.isZero()).length,
+              l2ToL1Msgs: d.l2ToL1Msgs.filter(m => !m.isZero()).map(m => m.toBigInt().toString()),
               privateLogs: d.privateLogs.filter(l => !l.isEmpty()).map(l => ({
                 fields: l.getEmittedFields().map(f => f.toBigInt().toString()),
               })),
@@ -139,6 +139,42 @@ const handlers = {
     }
 
     return result;
+  },
+
+  '/query-private-logs': async ({ contract, rawTag }) => {
+    const { Fr } = await import('@aztec/foundation/fields');
+    const { computeSiloedPrivateLogFirstField } = await import('@aztec/stdlib/hash');
+    const { SiloedTag } = await import('@aztec/stdlib/logs');
+
+    const contractAddr = AztecAddress.fromString(contract);
+    const tagFr = new Fr(BigInt(rawTag));
+    const siloedFr = await computeSiloedPrivateLogFirstField(contractAddr, tagFr);
+    const siloedTag = new SiloedTag(siloedFr);
+
+    const results = await node.getPrivateLogsByTags([siloedTag]);
+    const logs = (results[0] || []).map(log => ({
+      logData: log.logData.map(f => f.toBigInt().toString()),
+    }));
+
+    return { ok: true, siloedTag: siloedFr.toBigInt().toString(), logs };
+  },
+
+  '/compute-l2-to-l1-hash': async ({ l2Sender, l1Recipient, content }) => {
+    const { EthAddress } = await import('@aztec/foundation/eth-address');
+    const { Fr } = await import('@aztec/foundation/fields');
+    const { computeL2ToL1MessageHash } = await import('@aztec/stdlib/hash');
+
+    const chainId = new Fr(await node.getChainId());
+    const rollupVersion = new Fr(await node.getVersion());
+    const hash = computeL2ToL1MessageHash({
+      l2Sender: AztecAddress.fromString(l2Sender),
+      l1Recipient: EthAddress.fromField(new Fr(BigInt(l1Recipient))),
+      content: new Fr(BigInt(content)),
+      rollupVersion,
+      chainId,
+    });
+
+    return { ok: true, hash: hash.toBigInt().toString() };
   },
 };
 
