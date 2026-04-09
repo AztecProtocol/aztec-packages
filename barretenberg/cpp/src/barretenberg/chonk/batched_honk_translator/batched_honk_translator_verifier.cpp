@@ -135,7 +135,6 @@ template <typename Curve> bool BatchedHonkTranslatorVerifier_<Curve>::verify_joi
     joint_challenge.clear();
     joint_challenge.reserve(JOINT_LOG_N);
 
-    // All JOINT_LOG_N rounds are uniform — no distinction between real and virtual rounds needed.
     for (size_t round_idx = 0; round_idx < JOINT_LOG_N; round_idx++) {
         joint_round.process_round(transcript, joint_challenge, gate_sep, round_idx);
 
