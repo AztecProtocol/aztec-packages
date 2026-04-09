@@ -260,6 +260,11 @@ std::vector<uint8_t> blake3s(std::vector<uint8_t> const& input)
 
 constexpr std::array<uint8_t, BLAKE3_OUT_LEN> blake3s_constexpr(const uint8_t* input, const size_t input_size)
 {
+    if (std::is_constant_evaluated()) {
+        if (input_size > 1024U) {
+            __builtin_trap();
+        }
+    }
     blake3_hasher hasher;
     blake3_hasher_init(&hasher);
     blake3_hasher_update(&hasher, input, input_size);
