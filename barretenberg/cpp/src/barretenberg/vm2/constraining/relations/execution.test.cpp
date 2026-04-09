@@ -52,11 +52,15 @@ TEST(ExecutionConstrainingTest, Continuity)
         {{ C::precomputed_first_row, 1 }},
         {{ C::execution_sel, 1 }},
         {{ C::execution_sel, 1 }},
-        {{ C::execution_sel, 1 }},
+        {{ C::execution_sel, 1 }, { C::execution_enqueued_call_end, 1 }},
     });
     // clang-format on
 
     check_relation<execution>(trace, execution::SR_TRACE_CONTINUITY);
+
+    // Negative test: remove enqueued call end
+    trace.set(C::execution_enqueued_call_end, 3, 0);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<execution>(trace, execution::SR_TRACE_CONTINUITY), "TRACE_CONTINUITY");
 }
 
 TEST(ExecutionConstrainingTest, ContinuityBrokenFirstRow)
@@ -66,7 +70,7 @@ TEST(ExecutionConstrainingTest, ContinuityBrokenFirstRow)
         {{ C::execution_sel, 0 }},  // End of trace!
         {{ C::execution_sel, 1 }},
         {{ C::execution_sel, 1 }},
-        {{ C::execution_sel, 1 }},
+        {{ C::execution_sel, 1 }, { C::execution_enqueued_call_end, 1 }},
     });
     // clang-format on
 
@@ -80,7 +84,7 @@ TEST(ExecutionConstrainingTest, ContinuityBrokenInMiddle)
         {{ C::execution_sel, 1 }},
         {{ C::execution_sel, 0 }},  // End of trace!
         {{ C::execution_sel, 1 }},
-        {{ C::execution_sel, 1 }},
+        {{ C::execution_sel, 1 }, { C::execution_enqueued_call_end, 1 }},
     });
     // clang-format on
 
