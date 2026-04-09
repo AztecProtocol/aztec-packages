@@ -364,109 +364,71 @@ class ECCVMFlavor {
      * @brief Represents polynomials shifted by 1 or their evaluations, defined relative to WitnessEntities.
      *
      * @details
-     * ## First-Row Vanishing Property of Shiftable Columns
+     * ## Shiftable columns and the lagrange_first row
      *
-     * A column P is "shiftable" if relation checks reference P_shift(X) = P(X·g). The PCS enforces P[0] = 0 for
-     * shiftable columns. In ZK mode with masking at the top of the circuit, k rows (0 to k-1) are disabled and
-     * filled with random masking data. The `lagrange_first` selector activates at row k, NOT row 0. This means the
-     * value P[k] is NOT constrained to be zero by the PCS — a malicious prover can freely choose it.
+     * The PCS enforces P[0] = 0 for shiftable columns. With masking at the top of the circuit,
+     * `lagrange_first` activates at row k = NUM_DISABLED_ROWS_IN_SUMCHECK, not row 0. The value P[k] is
+     * NOT constrained by the PCS — a malicious prover can freely choose it.
      *
-     * For soundness, we must verify that no relation produces an exploitable non-zero contribution from unconstrained
-     * shiftable column values at the lagrange_first row. There are 26 shiftable columns. Below we audit each one.
+     * For soundness, every shiftable column must either:
+     *   (a) be explicitly constrained to zero at the lagrange_first row, or
+     *   (b) have its unconstrained value be unable to pollute subsequent computation.
      *
-     * ### Safety mechanisms
+     * The builder sets all shiftable columns to 0 at the lagrange_first row (it is the empty first row of
+     * each subtable). Relations enforce this in three ways:
      *
-     * Relations reference shiftable columns in three contexts at the lagrange_first row:
+     * ### Explicitly constrained at lagrange_first (relations force P[k] or P[k+1] = 0)
      *
-     *   (A) **Gated by `is_not_first_row = (-lagrange_first + 1)`**: vanishes at lagrange_first row. Safe.
-     *   (B) **Gated by operation selectors** (q_add, q_double, q_skew, q_mul, etc.): all operation selectors are 0
-     *       at the lagrange_first row (it is an inactive row). Safe.
-     *   (C) **Activated by lagrange_first**: these are the only relations that could expose unconstrained values.
-     *       We audit each one below.
+     *   - z_perm (col 25): Z_PERM_INIT enforces `lagrange_first * z_perm = 0`.
+     *   - precompute_round (col 20): ROUND_SHIFT_ZERO forces round_shift = 0 at lagrange_first.
+     *   - precompute_scalar_sum (col 2): SCALAR_SUM_SHIFT_ZERO forces scalar_sum_shift = 0.
+     *   - precompute_s1hi (col 3): FIRST_SLICE_POSITIVE constrains s1hi_shift ∈ {2, 3}.
+     *   - transcript_accumulator_not_empty (col 22): **UNCONSTRAINED — needs fix.** See TODO in
+     *     eccvm_relation_corruption.test.cpp. Without `lagrange_first * accumulator_not_empty = 0`, a
+     *     malicious prover can disable INFINITY_ACC_X/Y and inject arbitrary accumulator coordinates.
      *
-     * ### Relations activated by lagrange_first that reference shifted columns
+     * ### Harmless: values at lagrange_first row are dead (not read by any active constraint)
      *
-     * The following relations use lagrange_first as a *positive* factor:
+     * A malicious prover can set these columns to any value at row k and no relation will fire. This is
+     * safe because the value is never read by any checked equation:
      *
-     * 1. **ROUND_SHIFT_ZERO** (ecc_wnaf_relation): `(precompute_select * q_transition + lagrange_first) *
-     *    precompute_round_shift`. At the lagrange_first row this forces precompute_round_shift = 0, which is a
-     *    *desired initialization constraint*, not a vulnerability. It constrains the prover (not the other way
-     *    around).
+     *   - P[k] as an *unshifted* value at row k: every relation term involving it vanishes, either via
+     *     `is_not_first_row = (-lagrange_first + 1) = 0`, or because the non-shiftable columns it
+     *     multiplies are also zero at the builder's empty first row.
+     *   - P[k] as a *shifted* value at row k-1: row k-1 is in the masking region, where sumcheck does
+     *     not evaluate relations. So P[k] = P_shift(k-1) is never checked.
+     *   - P[k+1] = P_shift(k) is also unconstrained by row k's relations (same gating reasons above).
+     *     However, P[k+1] IS constrained at row k+1 by that row's own relations (e.g., the hiding row's
+     *     HIDING_ROW_EQ, HIDING_ROW_RESET, etc.), so it cannot be freely manipulated.
      *
-     * 2. **SCALAR_SUM_SHIFT_ZERO** (ecc_wnaf_relation): `(precompute_select * q_transition + lagrange_first) *
-     *    precompute_scalar_sum_shift`. Same analysis: forces scalar_sum_shift = 0 at the first row. Desired.
+     * Verified by `HarmlessColumnsUnconstrainedAtLagrangeFirst` in eccvm_relation_corruption.test.cpp.
      *
-     * 3. **FIRST_SLICE_POSITIVE** (ecc_wnaf_relation): `(precompute_select * q_transition + lagrange_first) *
-     *    precompute_select_shift * ((s1hi_shift - 2)(s1hi_shift - 3))`. At the lagrange_first row, this constrains
-     *    either precompute_select_shift = 0 or s1hi_shift ∈ {2, 3}. This is satisfied by the honest builder's WNAF
-     *    decomposition (the leading slice always has high bits ≥ 2). Desired constraint.
+     *   - precompute_dx/dy (cols 4-5), precompute_tx/ty (cols 6-7): gated by (-lagrange_first + 1).
+     *   - msm_accumulator_x/y (cols 12-13): gated by (-lagrange_first + 1) in IDLE_ROW_PRESERVES_ACC
+     *     and by operation selectors elsewhere.
+     *   - msm_transition (col 8), msm_count (col 14), msm_round (col 15), msm_pc (col 17):
+     *     gated by is_not_first_row or by operation selectors in all relation terms.
+     *   - transcript_pc (col 19): gated by is_not_first_row in PC_UPDATE; gated by transcript_mul (= 0)
+     *     and transcript_msm_transition (= 0) in the set relation denominator.
      *
-     * 4. **GRAND_PRODUCT** (ecc_set_relation): `(z_perm + lagrange_first) * numerator`. At the lagrange_first row,
-     *    this evaluates to `(z_perm[k] + 1) * num[k]`. If z_perm[k] is unconstrained, a malicious prover can set
-     *    z_perm[k] = V, causing the grand product to telescope to 1/(V+1) instead of 1. This compensates for
-     *    invalid multiset-equality violations, breaking soundness entirely.
-     *    **FIX**: The Z_PERM_INIT subrelation `lagrange_first * z_perm = 0` explicitly constrains z_perm[k] = 0.
+     * ### Self-consistency: corruption is caught by existing relations
      *
-     * ### Audit of all 26 shiftable columns
+     * These columns participate in relations that are NOT gated off at the lagrange_first row.
+     * Corrupting them produces a non-zero relation contribution, so sumcheck catches it. Some of these
+     * are operation selectors — setting them to non-zero activates subrelations that require consistency
+     * with non-shiftable columns (e.g., `op = 0` at the empty first row).
      *
-     * **Category 1: Selector-gated columns (mechanism B above)**
-     *
-     * These columns only appear in relation terms multiplied by operation selectors that are 0 at the lagrange_first
-     * row. Unconstrained values at row k cannot influence any relation.
-     *
-     *   - transcript_mul (col 0): gated by q_mul
-     *   - msm_transition (col 8): gated by is_not_first_row or operation selectors
-     *   - msm_add (col 9): gated by q_add
-     *   - msm_double (col 10): gated by q_double or round_transition (zero when selectors off)
-     *   - msm_skew (col 11): gated by q_skew or round_transition
-     *   - msm_accumulator_x (col 12): gated by q_add, q_double, q_skew, or (-lagrange_first + 1)
-     *   - msm_accumulator_y (col 13): same as msm_accumulator_x
-     *   - msm_count (col 14): gated by round_delta (zero when selectors off) or is_not_first_row
-     *   - msm_round (col 15): gated by operation selectors or is_not_first_row
-     *   - msm_add1 (col 16): appears in ADD1_DECOMPOSITION (add1 - q_add - q_skew = 0), which at row k imposes
-     *     internal consistency among shiftable selectors but does not create an exploit vector
-     *   - msm_pc (col 17): gated by is_not_first_row * msm_transition_shift or by add selectors in grand product
-     *   - precompute_pc (col 18): gated by precompute_select
-     *   - precompute_dx (col 4), precompute_dy (col 5): gated by (-lagrange_first + 1)
-     *   - precompute_tx (col 6), precompute_ty (col 7): gated by (-lagrange_first + 1)
-     *
-     * **Category 2: is_not_first_row-gated columns (mechanism A above)**
-     *
-     *   - transcript_msm_count (col 1): PC_UPDATE and MSM_COUNT_INCREMENT gated by is_not_first_row
-     *   - transcript_pc (col 19): PC_UPDATE gated by is_not_first_row; set relation denominator gated by
-     *     transcript_msm_transition (zero at lagrange_first row)
-     *
-     * **Category 3: Columns constrained by lagrange_first-activated relations (mechanism C above)**
-     *
-     * These columns appear in relations that lagrange_first *activates*. The relations act as initialization
-     * constraints — they force the shifted values to be well-formed. This is beneficial, not exploitable.
-     *
-     *   - precompute_scalar_sum (col 2): SCALAR_SUM_SHIFT_ZERO forces scalar_sum_shift = 0. Safe.
-     *   - precompute_s1hi (col 3): FIRST_SLICE_POSITIVE constrains s1hi_shift. The unshifted value at row k only
-     *     appears in range checks gated by precompute_select (= 0 at row k). Safe.
-     *   - precompute_round (col 20): ROUND_SHIFT_ZERO forces round_shift = 0. Safe.
-     *   - precompute_select (col 21): PRECOMPUTE_SELECT_SHAPE gated by (lagrange_first - 1) = 0 at row k. As
-     *     precompute_select_shift, constrained via FIRST_SLICE_POSITIVE. Safe.
-     *
-     * **Category 4: Accumulator columns — boundary-enforced via hiding row reset**
-     *
-     * These columns' values at row k cannot propagate into real computation. The hiding op row
-     * (lagrange_second = 1) enforces q_reset = 1 (HIDING_ROW_RESET), and the first real op row
-     * (lagrange_third = 1) enforces is_accumulator_empty = 1 (BOUNDARY_ACCUMULATOR_EMPTY). Any stale values are
-     * wiped before real operations begin.
-     *
-     *   - transcript_accumulator_not_empty (col 22): ACCUMULATOR_EMPTY_UPDATE terms are gated by is_not_first_row
-     *     or by operation selectors. Reset by hiding row. Safe.
-     *   - transcript_accumulator_x (col 23): ACCUMULATOR_X_UPDATE gated by any_add_is_active,
-     *     propagate_transcript_accumulator, or opcode_is_zero * is_not_first_row. All zero at row k. Reset by
-     *     hiding row. Safe.
-     *   - transcript_accumulator_y (col 24): same as transcript_accumulator_x. Safe.
-     *
-     * **Category 5: Grand product polynomial — VULNERABLE without explicit constraint**
-     *
-     *   - z_perm (col 25): The GRAND_PRODUCT relation evaluates (z_perm + lagrange_first) at the first row. An
-     *     unconstrained z_perm[k] allows a malicious prover to break multiset equality. **FIXED** by the Z_PERM_INIT
-     *     subrelation: `lagrange_first * z_perm = 0`.
+     *   - transcript_mul (col 0): OPCODE_WELL_FORMED catches mismatch with non-shiftable `op`.
+     *   - transcript_msm_count (col 1): MSM_COUNT_ZERO_WHEN_NOT_MUL forces msm_count = 0 when q_mul = 0.
+     *   - msm_add (col 9): activates ADD_ACC_X/Y, ADD1_DECOMPOSITION — all require consistent data.
+     *   - msm_double (col 10): activates DOUBLE_ACC_X/Y.
+     *   - msm_skew (col 11): activates SKEW_ACC_X/Y, SKEW_IMPLIES_ROUND_32.
+     *   - msm_add1 (col 16): ADD1_DECOMPOSITION (add1 - q_add - q_skew = 0).
+     *   - precompute_pc (col 18): INACTIVE_PC forces pc = 0 when precompute_select = 0.
+     *   - precompute_select (col 21): activates SCALAR_SUM_CHECK, ROUND_CHECK, PC_CHECK.
+     *   - transcript_accumulator_x/y (cols 23-24): INFINITY_ACC_X/Y forces acc = 0 when
+     *     accumulator_not_empty = 0 (the honest value). Only exploitable if accumulator_not_empty is
+     *     also corrupted — see the transcript_accumulator_not_empty entry above.
      */
     template <typename DataType> class ShiftedEntities {
       public:
