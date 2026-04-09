@@ -92,6 +92,10 @@ template <typename Curve>
 typename Curve::BaseField pedersen_hash_base<Curve>::hash_buffer(const std::vector<uint8_t>& input,
                                                                  const GeneratorContext context)
 {
+    if (input.empty()) {
+        throw_or_abort("pedersen hash_buffer: empty input");
+    }
+
     std::vector<Fq> converted = convert_buffer(input);
 
     if (converted.size() < 2) {

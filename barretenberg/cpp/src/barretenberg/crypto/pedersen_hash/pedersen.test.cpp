@@ -75,4 +75,15 @@ TEST(Pedersen, HashRejectsEmptyInput)
         std::runtime_error);
 }
 
+// Verifies that hashing an empty input throws an exception
+TEST(Pedersen, HashBufferRejectsEmptyInput)
+{
+    EXPECT_THROW(
+        {
+            auto result = pedersen_hash::hash_buffer({});
+            static_cast<void>(result);
+        },
+        std::runtime_error);
+}
+
 } // namespace bb::crypto
