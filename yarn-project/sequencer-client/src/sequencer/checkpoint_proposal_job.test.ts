@@ -315,6 +315,13 @@ describe('CheckpointProposalJob', () => {
       expect(checkpointBuilder.buildBlockCalls).toHaveLength(1);
       expect(validatorClient.collectAttestations).toHaveBeenCalledTimes(1);
       expect(publisher.enqueueProposeCheckpoint).toHaveBeenCalledTimes(1);
+      // recordBuiltBlock must receive the target slot so metrics can gate inter-block time
+      // to blocks within the same slot and avoid pollution across the proposer's turn gaps.
+      expect(metrics.recordBuiltBlock).toHaveBeenCalledWith(
+        expect.any(Number),
+        expect.any(Number),
+        SlotNumber(newSlotNumber),
+      );
     });
 
     it('skips building if not enough txs and not forced', async () => {
