@@ -87,7 +87,11 @@ export function getConfigFromMappings<T>(configMappings: ConfigMappingsType<T>):
       (config as any)[key] = getConfigFromMappings(nested);
     } else {
       // Use the shared utility function
-      (config as any)[key] = getValueFromEnvWithFallback(env, parseEnv, defaultValue, fallback);
+      try {
+        (config as any)[key] = getValueFromEnvWithFallback(env, parseEnv, defaultValue, fallback);
+      } catch (e: any) {
+        throw new Error(`Failed to parse config '${key}' (env: ${env ?? 'none'}): ${e.message}`);
+      }
 
       // Check for deprecated env vars and warn if logger is set
       if (deprecatedFallback?.length) {
@@ -207,15 +211,16 @@ export function bigintConfigHelper(
 
 /**
  * Generates parseEnv for an optional numerical config value.
+ * Empty strings are already handled by getValueFromEnvWithFallback.
  */
-export function optionalNumberConfigHelper(): Pick<ConfigMapping<number | undefined>, 'parseEnv'> {
+export function optionalNumberConfigHelper(): Pick<ConfigMapping<number>, 'parseEnv'> {
   return {
-    parseEnv: (val: string | undefined) => {
-      if (val !== undefined && val.length > 0) {
-        const parsedValue = parseInt(val);
-        return Number.isSafeInteger(parsedValue) ? parsedValue : undefined;
+    parseEnv: (val: string) => {
+      const parsedValue = parseInt(val);
+      if (!Number.isSafeInteger(parsedValue)) {
+        throw new Error(`Invalid number: ${val}`);
       }
-      return undefined;
+      return parsedValue;
     },
   };
 }

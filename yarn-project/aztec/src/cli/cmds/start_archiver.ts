@@ -2,7 +2,6 @@ import { type ArchiverConfig, archiverConfigMappings, createArchiver, getArchive
 import { createLogger } from '@aztec/aztec.js/log';
 import { type BlobClientConfig, blobClientConfigMapping, createBlobClient } from '@aztec/blob-client/client';
 import { getL1Config } from '@aztec/cli/config';
-import type { ConfigMappingsType } from '@aztec/foundation/config';
 import type { NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
 import { ArchiverApiSchema } from '@aztec/stdlib/interfaces/server';
 import { type DataStoreConfig, dataConfigMappings } from '@aztec/stdlib/kv-store';
@@ -22,10 +21,12 @@ export async function startArchiver(
   const cliOptions = extractRelevantOptions<ArchiverConfig & DataStoreConfig & BlobClientConfig>(
     options,
     {
-      ...archiverConfigMappings,
+      // dataConfigMappings must come first: its l1Contracts only maps rollupAddress,
+      // while archiverConfigMappings (spread later) maps all L1 contract addresses.
       ...dataConfigMappings,
+      ...archiverConfigMappings,
       ...blobClientConfigMapping,
-    } as ConfigMappingsType<ArchiverConfig & DataStoreConfig & BlobClientConfig>,
+    },
     'archiver',
   );
 

@@ -168,7 +168,7 @@ export const sequencerPublisherConfigMappings: ConfigMappingsType<SequencerPubli
   sequencerPublisherForwarderAddress: {
     env: `SEQ_PUBLISHER_FORWARDER_ADDRESS`,
     description: 'Address of the forwarder contract to wrap all L1 transactions through (for testing purposes only)',
-    parseEnv: (val: string) => (val ? EthAddress.fromString(val) : undefined),
+    parseEnv: (val: string) => EthAddress.fromString(val),
   },
   l1TxFailedStore: {
     env: 'L1_TX_FAILED_STORE',
@@ -194,7 +194,7 @@ export const proverPublisherConfigMappings: ConfigMappingsType<ProverPublisherCo
   proverPublisherForwarderAddress: {
     env: `PROVER_PUBLISHER_FORWARDER_ADDRESS`,
     description: 'Address of the forwarder contract to wrap all L1 transactions through (for testing purposes only)',
-    parseEnv: (val: string) => (val ? EthAddress.fromString(val) : undefined),
+    parseEnv: (val: string) => EthAddress.fromString(val),
   },
   ...publisherFundingConfigMappings,
 };
