@@ -802,7 +802,7 @@
 [[redirects]]
     # PXE: incompatible oracle version between contract and PXE
     from = "/errors/8"
-    to = "/developers/docs/foundational-topics/pxe"
+    to = "/developers/docs/foundational-topics/pxe#oracle-versioning"
 
 [[redirects]]
     # CLI: aztec dep version in Nargo.toml does not match the CLI version
