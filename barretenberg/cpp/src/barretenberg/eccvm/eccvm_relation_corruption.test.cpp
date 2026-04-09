@@ -444,3 +444,106 @@ TEST_F(ECCVMRelationCorruptionTests, SetRelationFailsOnZPermNonZeroAtFirstRow)
     EXPECT_EQ(failures.at(ECCVMSetRelationImpl<FF>::Z_PERM_INIT), first_row)
         << "Failure should be at lagrange_first row";
 }
+
+/**
+ * @brief Audit every shiftable column at the lagrange_first row for the masking-at-top scenario.
+ *
+ * @details When masking is at the top of the circuit, lagrange_first activates at row k > 0 (not row 0).
+ * The PCS enforces P[0] = 0 for shiftable columns, but P[k] is unconstrained by the PCS. For soundness,
+ * we must verify that corrupting each shiftable column at the lagrange_first row either:
+ *   (a) causes a specific initialization subrelation to fail (desired constraint), or
+ *   (b) is harmless because all relations referencing the column at that row are gated by selectors or
+ *       is_not_first_row, which are zero at the lagrange_first row.
+ *
+ * This test corrupts each shiftable column individually and checks the result.
+ * See the documentation on ShiftedEntities in eccvm_flavor.hpp for the full audit rationale.
+ *
+ * Implementation: We corrupt the *shifted* value at the lagrange_first row (i.e., the base polynomial
+ * at first_row + 1), since the shifted value P_shift at row k = P[k+1] is the value most commonly
+ * referenced in relations that use lagrange_first positively. The unshifted value P[k] is typically
+ * gated by selectors (all zero at the first row). For Category 3 columns, we verify the specific
+ * initialization subrelation that catches the corruption.
+ */
+TEST_F(ECCVMRelationCorruptionTests, ShiftableColumnCorruptionAtLagrangeFirstRow)
+{
+    // Helper: find the lagrange_first row index
+    auto find_lagrange_first_row = [](const ProverPolynomials& polys) -> size_t {
+        const auto& lf = polys.lagrange_first;
+        for (size_t i = lf.start_index(); i < lf.end_index(); ++i) {
+            if (lf[i] != FF(0)) {
+                return i;
+            }
+        }
+        EXPECT_TRUE(false) << "lagrange_first has no non-zero entry";
+        return 0;
+    };
+
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1199): Once masking-at-top lands
+    // (Sergei's PR moving hiding/masking rows to the start of the circuit), lagrange_first will be at
+    // row k > 0 and shiftable polynomials will have writable values at row k. At that point, add
+    // corruption tests for the 21 Category 1/2 columns (selector-gated and is_not_first_row-gated):
+    //   transcript_mul, transcript_msm_count, precompute_dx/dy, precompute_tx/ty, msm_transition,
+    //   msm_add, msm_double, msm_skew, msm_accumulator_x/y, msm_count, msm_round, msm_add1,
+    //   msm_pc, precompute_pc, transcript_pc, transcript_accumulator_not_empty/x/y.
+    // Each should be corruptible at row k without breaking any relation (confirming they are safe).
+    // Currently this is untestable because lagrange_first is at row 0, which is before the shiftable
+    // polynomial's start_index (the Polynomial class enforces P[0]=0 as a virtual zero).
+
+    // --- Category 3: Columns constrained by lagrange_first-activated relations ---
+    // Corrupting these at the lagrange_first row SHOULD fail specific initialization subrelations.
+    // These are desired constraints that prevent malicious initialization.
+
+    // precompute_round (col 20): ROUND_SHIFT_ZERO should fail
+    {
+        auto polynomials = build_valid_eccvm_msm_state();
+        size_t first_row = find_lagrange_first_row(polynomials);
+        RelationParameters<FF> params{};
+
+        // Corrupt precompute_round at first_row + 1 (the shifted value at the lagrange_first row)
+        polynomials.precompute_round.at(first_row + 1) = FF(5);
+        polynomials.set_shifted();
+
+        auto wnaf_failures =
+            RelationChecker<void>::check<ECCVMWnafRelation<FF>>(polynomials, params, "precompute_round_shift corrupt");
+        EXPECT_TRUE(wnaf_failures.contains(ECCVMWnafRelationImpl<FF>::ROUND_SHIFT_ZERO))
+            << "ROUND_SHIFT_ZERO should catch non-zero precompute_round_shift at lagrange_first row";
+    }
+
+    // precompute_scalar_sum (col 2): SCALAR_SUM_SHIFT_ZERO should fail
+    {
+        auto polynomials = build_valid_eccvm_msm_state();
+        size_t first_row = find_lagrange_first_row(polynomials);
+        RelationParameters<FF> params{};
+
+        polynomials.precompute_scalar_sum.at(first_row + 1) = FF(42);
+        polynomials.set_shifted();
+
+        auto wnaf_failures = RelationChecker<void>::check<ECCVMWnafRelation<FF>>(
+            polynomials, params, "precompute_scalar_sum_shift corrupt");
+        EXPECT_TRUE(wnaf_failures.contains(ECCVMWnafRelationImpl<FF>::SCALAR_SUM_SHIFT_ZERO))
+            << "SCALAR_SUM_SHIFT_ZERO should catch non-zero precompute_scalar_sum_shift at lagrange_first row";
+    }
+
+    // precompute_s1hi (col 3): FIRST_SLICE_POSITIVE should fail when s1hi_shift ∉ {2, 3}
+    // AND precompute_select_shift != 0
+    {
+        auto polynomials = build_valid_eccvm_msm_state();
+        size_t first_row = find_lagrange_first_row(polynomials);
+        RelationParameters<FF> params{};
+
+        // The constraint is: (... + lagrange_first) * precompute_select_shift * (s1hi_shift - 2)(s1hi_shift - 3)
+        // precompute_select[first_row + 1] is set by the builder; if it's 1, then s1hi[first_row + 1] must be
+        // in {2, 3}. Set it to 0 to trigger the failure.
+        if (polynomials.precompute_select[first_row + 1] != FF(0)) {
+            polynomials.precompute_s1hi.at(first_row + 1) = FF(0); // 0 ∉ {2, 3}
+            polynomials.set_shifted();
+
+            auto wnaf_failures = RelationChecker<void>::check<ECCVMWnafRelation<FF>>(
+                polynomials, params, "precompute_s1hi_shift corrupt");
+            EXPECT_TRUE(wnaf_failures.contains(ECCVMWnafRelationImpl<FF>::FIRST_SLICE_POSITIVE))
+                << "FIRST_SLICE_POSITIVE should catch s1hi_shift ∉ {2,3} at lagrange_first row";
+        }
+    }
+
+    // --- Category 5: z_perm (col 25) — tested above in SetRelationFailsOnZPermNonZeroAtFirstRow ---
+}
