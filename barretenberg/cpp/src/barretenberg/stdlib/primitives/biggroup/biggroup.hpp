@@ -358,7 +358,7 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
     static element batch_mul(const std::vector<element>& points,
                              const std::vector<Fr>& scalars,
                              const size_t max_num_bits = 0,
-                             const bool with_edgecases = false);
+                             const bool with_edgecases = true);
 
     template <typename X = NativeGroup, typename = typename std::enable_if_t<std::is_same<X, secp256k1::g1>::value>>
     static element secp256k1_ecdsa_mul(const element& pubkey, const Fr& u1, const Fr& u2);
