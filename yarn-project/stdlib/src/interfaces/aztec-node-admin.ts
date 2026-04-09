@@ -2,8 +2,9 @@ import { createSafeJsonRpcClient, defaultFetch } from '@aztec/foundation/json-rp
 
 import { z } from 'zod';
 
-import { type ApiSchemaFor, optional } from '../schemas/schemas.js';
-import { type Offense, OffenseSchema, type SlashPayloadRound, SlashPayloadRoundSchema } from '../slashing/index.js';
+import type { ApiSchemaFor } from '../schemas/schemas.js';
+import { optional } from '../schemas/schemas.js';
+import { type Offense, OffenseSchema } from '../slashing/index.js';
 import { type ComponentsVersions, getVersioningResponseHandler } from '../versioning/index.js';
 import { type ArchiverSpecificConfig, ArchiverSpecificConfigSchema } from './archiver.js';
 import { type SequencerConfig, SequencerConfigSchema } from './configs.js';
@@ -45,9 +46,6 @@ export interface AztecNodeAdmin {
 
   /** Resumes archiver and world state syncing. */
   resumeSync(): Promise<void>;
-
-  /** Returns all monitored payloads by the slasher for the current round. */
-  getSlashPayloads(): Promise<SlashPayloadRound[]>;
 
   /** Returns all offenses applicable for the given round. */
   getSlashOffenses(round: bigint | 'all' | 'current'): Promise<Offense[]>;
@@ -104,7 +102,6 @@ export const AztecNodeAdminApiSchema: ApiSchemaFor<AztecNodeAdmin> = {
   rollbackTo: z.function().args(z.number(), optional(z.boolean()), optional(z.boolean())).returns(z.void()),
   pauseSync: z.function().returns(z.void()),
   resumeSync: z.function().returns(z.void()),
-  getSlashPayloads: z.function().returns(z.array(SlashPayloadRoundSchema)),
   getSlashOffenses: z
     .function()
     .args(z.union([z.bigint(), z.literal('all'), z.literal('current')]))

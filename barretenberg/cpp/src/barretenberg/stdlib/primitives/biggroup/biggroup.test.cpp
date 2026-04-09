@@ -1386,12 +1386,11 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             points.emplace_back(point);
         }
 
-        // If with_edgecases = true, should handle linearly dependent points correctly
+        // Since with_edgecases = true by default, should handle linearly dependent points correctly
         // (offset generator is now a free witness sampled inside batch_mul)
         element_ct c = element_ct::batch_mul(points,
                                              scalars,
-                                             /*max_num_bits*/ 128,
-                                             /*with_edgecases*/ true);
+                                             /*max_num_bits*/ 128);
         element input_e = (element(input_P_a) * scalar_a);
         element input_f = (element(input_P_b) * scalar_b);
         element input_g = (element(input_P_c) * scalar_c);

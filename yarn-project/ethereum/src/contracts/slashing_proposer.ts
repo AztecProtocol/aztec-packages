@@ -7,7 +7,7 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { Signature } from '@aztec/foundation/eth-signature';
 import { hexToBuffer } from '@aztec/foundation/string';
 import { SlasherAbi } from '@aztec/l1-artifacts/SlasherAbi';
-import { TallySlashingProposerAbi } from '@aztec/l1-artifacts/TallySlashingProposerAbi';
+import { SlashingProposerAbi } from '@aztec/l1-artifacts/SlashingProposerAbi';
 
 import {
   type GetContractReturnType,
@@ -19,13 +19,11 @@ import {
 } from 'viem';
 
 /**
- * Wrapper around the TallySlashingProposer contract that provides
+ * Wrapper around the SlashingProposer contract that provides
  * a TypeScript interface for interacting with the consensus-based slashing system.
  */
-export class TallySlashingProposerContract {
-  private readonly contract: GetContractReturnType<typeof TallySlashingProposerAbi, ViemClient>;
-
-  public readonly type = 'tally' as const;
+export class SlashingProposerContract {
+  private readonly contract: GetContractReturnType<typeof SlashingProposerAbi, ViemClient>;
 
   constructor(
     public readonly client: ViemClient,
@@ -33,7 +31,7 @@ export class TallySlashingProposerContract {
   ) {
     this.contract = getContract({
       address: typeof address === 'string' ? address : address.toString(),
-      abi: TallySlashingProposerAbi,
+      abi: SlashingProposerAbi,
       client,
     });
   }
@@ -136,12 +134,12 @@ export class TallySlashingProposerContract {
 
   /** Tries to extract a VoteCast event from the given logs. */
   public tryExtractVoteCastEvent(logs: Log[]) {
-    return tryExtractEvent(logs, this.address.toString(), TallySlashingProposerAbi, 'VoteCast');
+    return tryExtractEvent(logs, this.address.toString(), SlashingProposerAbi, 'VoteCast');
   }
 
   /** Tries to extract a RoundExecuted event from the given logs. */
   public tryExtractRoundExecutedEvent(logs: Log[]) {
-    return tryExtractEvent(logs, this.address.toString(), TallySlashingProposerAbi, 'RoundExecuted');
+    return tryExtractEvent(logs, this.address.toString(), SlashingProposerAbi, 'RoundExecuted');
   }
 
   /**
@@ -161,9 +159,9 @@ export class TallySlashingProposerContract {
 
     return {
       to: this.contract.address,
-      abi: TallySlashingProposerAbi,
+      abi: SlashingProposerAbi,
       data: encodeFunctionData({
-        abi: TallySlashingProposerAbi,
+        abi: SlashingProposerAbi,
         functionName: 'vote',
         args: [votes, signature.toViemSignature()],
       }),
@@ -173,7 +171,7 @@ export class TallySlashingProposerContract {
   /** Returns the typed data definition to EIP712-sign for voting */
   public buildVoteTypedData(votes: Hex, slot: SlotNumber): TypedDataDefinition {
     const domain = {
-      name: 'TallySlashingProposer',
+      name: 'SlashingProposer',
       version: '1',
       chainId: this.client.chain.id,
       verifyingContract: this.contract.address,
@@ -209,9 +207,9 @@ export class TallySlashingProposerContract {
   public buildVoteRequestWithSignature(votes: Hex, signature: { v: number; r: Hex; s: Hex }): L1TxRequest {
     return {
       to: this.contract.address,
-      abi: TallySlashingProposerAbi,
+      abi: SlashingProposerAbi,
       data: encodeFunctionData({
-        abi: TallySlashingProposerAbi,
+        abi: SlashingProposerAbi,
         functionName: 'vote',
         args: [votes, signature],
       }),
@@ -227,9 +225,9 @@ export class TallySlashingProposerContract {
   public buildExecuteRoundRequest(round: bigint, committees: EthAddress[][]): L1TxRequest {
     return {
       to: this.contract.address,
-      abi: mergeAbis([TallySlashingProposerAbi, SlasherAbi]),
+      abi: mergeAbis([SlashingProposerAbi, SlasherAbi]),
       data: encodeFunctionData({
-        abi: TallySlashingProposerAbi,
+        abi: SlashingProposerAbi,
         functionName: 'executeRound',
         args: [round, committees.map(c => c.map(addr => addr.toString()))],
       }),

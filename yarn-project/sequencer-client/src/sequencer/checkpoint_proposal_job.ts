@@ -190,8 +190,6 @@ export class CheckpointProposalJob implements Traceable {
       ? new Date(Number(getTimestampForSlot(this.targetSlot, this.l1Constants)) * 1000)
       : new Date(this.dateProvider.now());
 
-    // TODO(https://github.com/AztecProtocol/aztec-packages/pull/21250): should discard the pending submission if a reorg occurs underneath
-
     // Schedule L1 submission in the background so the work loop returns immediately.
     // The publisher will sleep until submitAfter, then send the bundled requests.
     // The promise is stored so it can be awaited during shutdown.
@@ -344,7 +342,7 @@ export class CheckpointProposalJob implements Traceable {
       };
 
       let blocksInCheckpoint: L2Block[] = [];
-      let blockPendingBroadcast: { block: L2Block; txs: Tx[] } | undefined = undefined;
+      let blockPendingBroadcast: BlockProposal | undefined = undefined;
       const checkpointBuildTimer = new Timer();
 
       try {
@@ -431,19 +429,12 @@ export class CheckpointProposalJob implements Traceable {
         };
       }
 
-      // Include the block pending broadcast in the checkpoint proposal if any
-      const lastBlock = blockPendingBroadcast && {
-        blockHeader: blockPendingBroadcast.block.header,
-        indexWithinCheckpoint: blockPendingBroadcast.block.indexWithinCheckpoint,
-        txs: blockPendingBroadcast.txs,
-      };
-
       // Create the checkpoint proposal and broadcast it
       const proposal = await this.validatorClient.createCheckpointProposal(
         checkpoint.header,
         checkpoint.archive.root,
         feeAssetPriceModifier,
-        lastBlock,
+        blockPendingBroadcast,
         this.proposer,
         checkpointProposalOptions,
       );
@@ -500,14 +491,14 @@ export class CheckpointProposalJob implements Traceable {
     blockProposalOptions: BlockProposalOptions,
   ): Promise<{
     blocksInCheckpoint: L2Block[];
-    blockPendingBroadcast: { block: L2Block; txs: Tx[] } | undefined;
+    blockPendingBroadcast: BlockProposal | undefined;
   }> {
     const blocksInCheckpoint: L2Block[] = [];
     const txHashesAlreadyIncluded = new Set<string>();
     const initialBlockNumber = BlockNumber(this.syncedToBlockNumber + 1);
 
     // Last block in the checkpoint will usually be flagged as pending broadcast, so we send it along with the checkpoint proposal
-    let blockPendingBroadcast: { block: L2Block; txs: Tx[] } | undefined = undefined;
+    let blockPendingBroadcast: BlockProposal | undefined = undefined;
 
     while (true) {
       const blocksBuilt = blocksInCheckpoint.length;
@@ -540,19 +531,20 @@ export class CheckpointProposalJob implements Traceable {
         txHashesAlreadyIncluded,
       });
 
-      // TODO(palla/mbps): Review these conditions. We may want to keep trying in some scenarios.
-      if (!buildResult && timingInfo.isLastBlock) {
-        // If no block was produced due to not enough txs and this was the last subslot, exit
-        break;
-      } else if (!buildResult && timingInfo.deadline !== undefined) {
-        // But if there is still time for more blocks, wait until the next subslot and try again
+      // If we failed to build the block due to insufficient txs, we try again if there is still time left in the slot
+      if ('failure' in buildResult) {
+        // If this was the last subslot, or we're running with a single block per slot, we're done
+        if (timingInfo.isLastBlock || timingInfo.deadline === undefined) {
+          break;
+        }
+        // Otherwise, if there is still time for more blocks, we wait until the next subslot and try again
         await this.waitUntilNextSubslot(timingInfo.deadline);
         continue;
-      } else if (!buildResult) {
-        // Exit if there is no possibility of building more blocks
-        break;
-      } else if ('error' in buildResult) {
-        // If there was an error building the block, just exit the loop and give up the rest of the slot
+      }
+
+      // If there was an error building the block, we just exit the loop and give up the rest of the slot.
+      // We don't want to risk building more blocks if something went wrong.
+      if ('error' in buildResult) {
         if (!(buildResult.error instanceof SequencerInterruptedError)) {
           this.log.warn(`Halting block building for slot ${this.targetSlot}`, {
             slot: this.targetSlot,
@@ -567,29 +559,25 @@ export class CheckpointProposalJob implements Traceable {
       blocksInCheckpoint.push(block);
       usedTxs.forEach(tx => txHashesAlreadyIncluded.add(tx.txHash.toString()));
 
-      // If this is the last block, sync it to the archiver and exit the loop
-      // so we can build the checkpoint and start collecting attestations.
+      // Sign the block proposal. This will throw if HA signing fails.
+      const proposal = await this.createBlockProposal(block, inHash, usedTxs, blockProposalOptions);
+
+      // Sync the proposed block to the archiver to make it available, only after we've managed to sign the proposal,
+      // so we avoid polluting our archive with a block that would fail.
+      // We wait for the sync to succeed, as this helps catch consistency errors, even if it means we lose some time for block-building.
+      // If this throws, we abort the entire checkpoint.
+      await this.syncProposedBlockToArchiver(block);
+
+      // If this is the last block, do not broadcast it, since it will be included in the checkpoint proposal.
       if (timingInfo.isLastBlock) {
-        await this.syncProposedBlockToArchiver(block);
         this.log.verbose(`Completed final block ${blockNumber} for slot ${this.targetSlot}`, {
           slot: this.targetSlot,
           blockNumber,
           blocksBuilt,
         });
-        blockPendingBroadcast = { block, txs: usedTxs };
+        blockPendingBroadcast = proposal;
         break;
       }
-
-      // Broadcast the block proposal (unless we're in fisherman mode) unless the block is the last one,
-      // in which case we'll broadcast it along with the checkpoint at the end of the loop.
-      // Note that we only send the block to the archiver if we manage to create the proposal, so if there's
-      // a HA error we don't pollute our archiver with a block that won't make it to the chain.
-      const proposal = await this.createBlockProposal(block, inHash, usedTxs, blockProposalOptions);
-
-      // Sync the proposed block to the archiver to make it available, only after we've managed to sign the proposal.
-      // We wait for the sync to succeed, as this helps catch consistency errors, even if it means we lose some time for block-building.
-      // If this throws, we abort the entire checkpoint.
-      await this.syncProposedBlockToArchiver(block);
 
       // Once we have a signed proposal and the archiver agreed with our proposed block, then we broadcast it.
       proposal && (await this.p2pClient.broadcastProposal(proposal));
@@ -650,7 +638,9 @@ export class CheckpointProposalJob implements Traceable {
       buildDeadline: Date | undefined;
       txHashesAlreadyIncluded: Set<string>;
     },
-  ): Promise<{ block: L2Block; usedTxs: Tx[] } | { error: Error } | undefined> {
+  ): Promise<
+    { block: L2Block; usedTxs: Tx[] } | { failure: 'insufficient-txs' | 'insufficient-valid-txs' } | { error: Error }
+  > {
     const { blockTimestamp, forceCreate, blockNumber, indexWithinCheckpoint, buildDeadline, txHashesAlreadyIncluded } =
       opts;
 
@@ -669,7 +659,7 @@ export class CheckpointProposalJob implements Traceable {
         );
         this.eventEmitter.emit('block-tx-count-check-failed', { minTxs, availableTxs, slot: this.targetSlot });
         this.metrics.recordBlockProposalFailed('insufficient_txs');
-        return undefined;
+        return { failure: 'insufficient-txs' };
       }
 
       // Create iterator to pending txs. We filter out txs already included in previous blocks in the checkpoint
@@ -732,7 +722,7 @@ export class CheckpointProposalJob implements Traceable {
           slot: this.targetSlot,
         });
         this.metrics.recordBlockProposalFailed('insufficient_valid_txs');
-        return undefined;
+        return { failure: 'insufficient-valid-txs' };
       }
 
       // Block creation succeeded, emit stats and metrics

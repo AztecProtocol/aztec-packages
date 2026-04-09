@@ -81,8 +81,8 @@ import {
 import type { DebugLogStore, LogFilter, SiloedTag, Tag, TxScopedL2Log } from '@aztec/stdlib/logs';
 import { InMemoryDebugLogStore, NullDebugLogStore } from '@aztec/stdlib/logs';
 import { InboxLeaf, type L1ToL2MessageSource } from '@aztec/stdlib/messaging';
-import type { Offense, SlashPayloadRound } from '@aztec/stdlib/slashing';
-import type { NullifierLeafPreimage, PublicDataTreeLeaf, PublicDataTreeLeafPreimage } from '@aztec/stdlib/trees';
+import type { Offense } from '@aztec/stdlib/slashing';
+import type { NullifierLeafPreimage, PublicDataTreeLeafPreimage } from '@aztec/stdlib/trees';
 import { MerkleTreeId, NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
 import {
   type BlockHeader,
@@ -97,6 +97,7 @@ import {
 } from '@aztec/stdlib/tx';
 import { getPackageVersion } from '@aztec/stdlib/update-checker';
 import type { SingleValidatorStats, ValidatorsStats } from '@aztec/stdlib/validators';
+import type { GenesisData } from '@aztec/stdlib/world-state';
 import {
   Attributes,
   type TelemetryClient,
@@ -207,7 +208,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       slashingProtectionDb?: SlashingProtectionDatabase;
     } = {},
     options: {
-      prefilledPublicData?: PublicDataTreeLeaf[];
+      genesis?: GenesisData;
       dontStartSequencer?: boolean;
       dontStartProverNode?: boolean;
     } = {},
@@ -310,12 +311,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     );
 
     // now create the merkle trees and the world state synchronizer
-    const worldStateSynchronizer = await createWorldStateSynchronizer(
-      config,
-      archiver,
-      options.prefilledPublicData,
-      telemetry,
-    );
+    const worldStateSynchronizer = await createWorldStateSynchronizer(config, archiver, options.genesis, telemetry);
     const useRealVerifiers = config.realProofs || config.debugForceTxProofVerification;
     let peerProofVerifier: ClientProtocolCircuitVerifier;
     let rpcProofVerifier: ClientProtocolCircuitVerifier;
@@ -1541,19 +1537,12 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     return Promise.resolve();
   }
 
-  public getSlashPayloads(): Promise<SlashPayloadRound[]> {
-    if (!this.slasherClient) {
-      throw new Error(`Slasher client not enabled`);
-    }
-    return this.slasherClient.getSlashPayloads();
-  }
-
   public getSlashOffenses(round: bigint | 'all' | 'current'): Promise<Offense[]> {
     if (!this.slasherClient) {
       throw new Error(`Slasher client not enabled`);
     }
     if (round === 'all') {
-      return this.slasherClient.getPendingOffenses();
+      return this.slasherClient.getOffenses();
     } else {
       return this.slasherClient.gatherOffensesForRound(round === 'current' ? undefined : BigInt(round));
     }

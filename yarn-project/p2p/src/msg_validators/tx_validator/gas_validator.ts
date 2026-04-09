@@ -87,7 +87,12 @@ export class GasLimitsValidator<T extends HasGasLimitData> implements TxValidato
         gasLimits,
         minGasLimits,
       });
-      return { result: 'invalid', reason: [TX_ERROR_INSUFFICIENT_GAS_LIMIT] };
+      return {
+        result: 'invalid',
+        reason: [
+          `${TX_ERROR_INSUFFICIENT_GAS_LIMIT} (required=da:${minGasLimits.daGas},l2:${minGasLimits.l2Gas} got=da:${gasLimits.daGas},l2:${gasLimits.l2Gas})`,
+        ],
+      };
     }
 
     if (gasLimits.l2Gas > this.#effectiveMaxL2Gas) {
@@ -97,7 +102,10 @@ export class GasLimitsValidator<T extends HasGasLimitData> implements TxValidato
         rollupManaLimit: this.#rollupManaLimit,
         maxBlockL2Gas: this.#maxBlockL2Gas,
       });
-      return { result: 'invalid', reason: [TX_ERROR_GAS_LIMIT_TOO_HIGH] };
+      return {
+        result: 'invalid',
+        reason: [`${TX_ERROR_GAS_LIMIT_TOO_HIGH} (l2Gas=${gasLimits.l2Gas}, max=${this.#effectiveMaxL2Gas})`],
+      };
     }
 
     if (gasLimits.daGas > this.#effectiveMaxDAGas) {
@@ -106,7 +114,10 @@ export class GasLimitsValidator<T extends HasGasLimitData> implements TxValidato
         effectiveMaxDAGas: this.#effectiveMaxDAGas,
         maxBlockDAGas: this.#maxBlockDAGas,
       });
-      return { result: 'invalid', reason: [TX_ERROR_GAS_LIMIT_TOO_HIGH] };
+      return {
+        result: 'invalid',
+        reason: [`${TX_ERROR_GAS_LIMIT_TOO_HIGH} (daGas=${gasLimits.daGas}, max=${this.#effectiveMaxDAGas})`],
+      };
     }
 
     return { result: 'valid' };
@@ -157,19 +168,20 @@ export class GasTxValidator implements TxValidator<Tx> {
     if (gasLimitValidation.result === 'invalid') {
       return Promise.resolve(gasLimitValidation);
     }
-    if (this.#shouldSkip(tx)) {
-      return Promise.resolve({ result: 'skipped', reason: [TX_ERROR_INSUFFICIENT_FEE_PER_GAS] });
+    const skipReason = this.#getSkipReason(tx);
+    if (skipReason) {
+      return Promise.resolve({ result: 'skipped', reason: [skipReason] });
     }
     return await this.validateTxFee(tx);
   }
 
   /**
-   * Check whether the tx's max fees are valid for the current block, and skip if not.
+   * Check whether the tx's max fees are valid for the current block, and return a skip reason if not.
    * We skip instead of invalidating since the tx may become eligible later.
    * Note that circuits check max fees even if fee payer is unset, so we
    * keep this validation even if the tx does not pay fees.
    */
-  #shouldSkip(tx: Tx): boolean {
+  #getSkipReason(tx: Tx): string | undefined {
     const gasSettings = tx.data.constants.txContext.gasSettings;
 
     // Skip the tx if its max fees are not enough for the current block's gas fees.
@@ -182,8 +194,9 @@ export class GasTxValidator implements TxValidator<Tx> {
         txMaxFeesPerGas: maxFeesPerGas.toInspect(),
         currentGasFees: this.#gasFees.toInspect(),
       });
+      return `${TX_ERROR_INSUFFICIENT_FEE_PER_GAS} (maxFee=da:${maxFeesPerGas.feePerDaGas},l2:${maxFeesPerGas.feePerL2Gas} required=da:${this.#gasFees.feePerDaGas},l2:${this.#gasFees.feePerL2Gas})`;
     }
-    return notEnoughMaxFees;
+    return undefined;
   }
 
   /**
@@ -212,7 +225,10 @@ export class GasTxValidator implements TxValidator<Tx> {
         balance,
         feeLimit,
       });
-      return { result: 'invalid', reason: [TX_ERROR_INSUFFICIENT_FEE_PAYER_BALANCE] };
+      return {
+        result: 'invalid',
+        reason: [`${TX_ERROR_INSUFFICIENT_FEE_PAYER_BALANCE} (required=${feeLimit}, available=${balance})`],
+      };
     }
     return { result: 'valid' };
   }

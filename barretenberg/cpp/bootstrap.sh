@@ -248,8 +248,12 @@ function test_cmds_native {
         local prefix=$hash
         # A little extra resource for these tests.
         # IPARecursiveTests fails with 2 threads.
-        if [[ "$test" =~ ^(AcirAvmRecursionConstraint|ChonkKernelCapacity|AvmRecursiveTests|IPARecursiveTests|HonkRecursionConstraintTest) ]]; then
+        if [[ "$test" =~ ^(AcirAvmRecursionConstraint|ChonkKernelCapacity|AvmRecursiveTests|IPARecursiveTests|HonkRecursionConstraintTest|ChonkRecursionConstraintTest) ]]; then
           prefix="$prefix:CPUS=4:MEM=8g"
+        fi
+        # These tests routinely take 400-600s in debug builds; bump from the 600s default.
+        if [[ "$test" =~ ^(HonkRecursionConstraintTest|ChonkRecursionConstraintTest) ]]; then
+          prefix="$prefix:TIMEOUT=900s"
         fi
         echo -e "$prefix barretenberg/cpp/scripts/run_test.sh $bin_name $test"
       done || (echo "Failed to list tests in $bin" && exit 1)

@@ -12,9 +12,10 @@ namespace bb {
 /**
  * @brief Compute contribution of the goblin translator permutation relation for a given edge (internal function)
  *
- * @details There are 2 relations associated with enforcing the set permutation relation
- * This file handles the relation that confirms faithful calculation of the grand
- * product polynomial Z_perm.
+ * @details There are 3 sub-relations associated with enforcing the set permutation relation.
+ * Sub-relation 0 confirms faithful calculation of the grand product polynomial Z_perm.
+ * Sub-relation 1 enforces Z_perm_shift = 0 at lagrange_last (grand product closure).
+ * Sub-relation 2 enforces Z_perm = 0 at lagrange_first (grand product initialization).
  *
  *  C(in(X)...) =
  *      ( z_perm(X) + lagrange_first(X) )*P(X)
@@ -69,6 +70,18 @@ void TranslatorPermutationRelationImpl<FF>::accumulate(ContainerOverSubrelations
 
         // Contribution (2)
         std::get<1>(accumulators) += (lagrange_last * z_perm_shift) * scaling_factor;
+    }();
+
+    [&]() {
+        using Accumulator = std::tuple_element_t<2, ContainerOverSubrelations>;
+        using View = typename Accumulator::View;
+
+        const auto z_perm = View(in.z_perm);
+        const auto lagrange_first = View(in.lagrange_first);
+
+        // Contribution (3): Enforce z_perm starts at 0. The grand product initialization relies on
+        // z_perm[0] = 0 so that (z_perm + lagrange_first) evaluates to 1 at the first row.
+        std::get<2>(accumulators) += (lagrange_first * z_perm) * scaling_factor;
     }();
 };
 } // namespace bb

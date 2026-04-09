@@ -7,10 +7,9 @@ import {EscapeHatch} from "@aztec/core/EscapeHatch.sol";
 import {IEscapeHatch, Hatch} from "@aztec/core/interfaces/IEscapeHatch.sol";
 import {IValidatorSelection} from "@aztec/core/interfaces/IValidatorSelection.sol";
 import {Slot, Epoch} from "@aztec/core/libraries/TimeLib.sol";
-import {TallySlashingProposer} from "@aztec/core/slashing/TallySlashingProposer.sol";
+import {SlashingProposer} from "@aztec/core/slashing/SlashingProposer.sol";
 import {SlashRound} from "@aztec/core/libraries/SlashRoundLib.sol";
 import {Slasher} from "@aztec/core/slashing/Slasher.sol";
-import {SlasherFlavor} from "@aztec/core/interfaces/ISlasher.sol";
 import {RollupBuilder} from "@test/builder/RollupBuilder.sol";
 import {MultiAdder, CheatDepositArgs} from "@aztec/mock/MultiAdder.sol";
 import {TestERC20} from "@aztec/mock/TestERC20.sol";
@@ -21,7 +20,7 @@ import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {stdStorage, StdStorage} from "forge-std/Test.sol";
 import {BN254Lib} from "@aztec/shared/libraries/BN254Lib.sol";
 
-contract TallySlashingProposerEscapeHatchTest is TestBase {
+contract SlashingProposerEscapeHatchTest is TestBase {
   using stdStorage for StdStorage;
 
   // Mirror the base slashing test constants for comparability
@@ -46,7 +45,7 @@ contract TallySlashingProposerEscapeHatchTest is TestBase {
 
   Rollup internal rollup;
   Slasher internal slasher;
-  TallySlashingProposer internal slashingProposer;
+  SlashingProposer internal slashingProposer;
   EscapeHatch internal escapeHatch;
   TestERC20 internal bondToken;
   TimeCheater internal timeCheater;
@@ -87,15 +86,15 @@ contract TallySlashingProposerEscapeHatchTest is TestBase {
     builder.setEpochDuration(EPOCH_DURATION).setTargetCommitteeSize(COMMITTEE_SIZE).setSlashingQuorum(QUORUM)
       .setSlashingRoundSize(ROUND_SIZE).setSlashingLifetimeInRounds(LIFETIME_IN_ROUNDS)
       .setSlashingExecutionDelayInRounds(EXECUTION_DELAY_IN_ROUNDS).setSlashAmountSmall(SLASHING_UNIT)
-      .setSlashAmountMedium(SLASHING_UNIT * 2).setSlashAmountLarge(SLASHING_UNIT * 3)
-      .setSlasherFlavor(SlasherFlavor.TALLY).setValidators(initialValidators);
+      .setSlashAmountMedium(SLASHING_UNIT * 2).setSlashAmountLarge(SLASHING_UNIT * 3).setSlasherEnabled(true)
+      .setValidators(initialValidators);
 
     builder.deploy();
 
     rollup = builder.getConfig().rollup;
     bondToken = builder.getConfig().testERC20;
     slasher = Slasher(rollup.getSlasher());
-    slashingProposer = TallySlashingProposer(slasher.PROPOSER());
+    slashingProposer = SlashingProposer(slasher.PROPOSER());
 
     timeCheater = new TimeCheater(
       address(rollup),
@@ -181,7 +180,7 @@ contract TallySlashingProposerEscapeHatchTest is TestBase {
 
     // Tally results
     address[][] memory committees = slashingProposer.getSlashTargetCommittees(currentRound);
-    TallySlashingProposer.SlashAction[] memory actions = slashingProposer.getTally(currentRound, committees);
+    SlashingProposer.SlashAction[] memory actions = slashingProposer.getTally(currentRound, committees);
 
     assertEq(actions.length, open ? 4 : 8);
     for (uint256 i; i < actions.length; ++i) {

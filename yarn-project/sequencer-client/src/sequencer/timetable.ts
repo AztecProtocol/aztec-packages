@@ -70,6 +70,9 @@ export class SequencerTimetable {
   /** Maximum number of blocks that can be built in this slot configuration */
   public readonly maxNumberOfBlocks: number;
 
+  /** Whether pipelining is enabled (checkpoint finalization deferred to next slot). */
+  public readonly pipelining: boolean;
+
   constructor(
     opts: {
       ethereumSlotDuration: number;
@@ -78,6 +81,7 @@ export class SequencerTimetable {
       p2pPropagationTime?: number;
       blockDurationMs?: number;
       enforce: boolean;
+      pipelining?: boolean;
     },
     private readonly metrics?: SequencerMetrics,
     private readonly log?: Logger,
@@ -88,6 +92,7 @@ export class SequencerTimetable {
     this.p2pPropagationTime = opts.p2pPropagationTime ?? DEFAULT_P2P_PROPAGATION_TIME;
     this.blockDuration = opts.blockDurationMs ? opts.blockDurationMs / 1000 : undefined;
     this.enforce = opts.enforce;
+    this.pipelining = opts.pipelining ?? false;
 
     // Assume zero-cost propagation time and faster runs in test environments where L1 slot duration is shortened
     if (this.ethereumSlotDuration < 8) {
@@ -116,18 +121,23 @@ export class SequencerTimetable {
     if (!this.blockDuration) {
       this.maxNumberOfBlocks = 1; // Single block per slot
     } else {
-      const timeReservedAtEnd =
-        this.blockDuration + // Last sub-slot for validator re-execution
-        this.checkpointFinalizationTime; // Checkpoint finalization
+      // When pipelining, finalization is deferred to the next slot, but we still need
+      // a sub-slot for validator re-execution so they can produce attestations.
+      let timeReservedAtEnd = this.blockDuration; // Validatior re-execution only
+      if (!this.pipelining) {
+        timeReservedAtEnd += this.checkpointFinalizationTime;
+      }
+
       const timeAvailableForBlocks = this.aztecSlotDuration - this.initializationOffset - timeReservedAtEnd;
       this.maxNumberOfBlocks = Math.floor(timeAvailableForBlocks / this.blockDuration);
     }
 
-    // Minimum work to do within a slot for building a block with the minimum time for execution and publishing its checkpoint
-    const minWorkToDo =
-      this.initializationOffset +
-      this.minExecutionTime * 2 + // Execution and reexecution
-      this.checkpointFinalizationTime;
+    // Minimum work to do within a slot for building a block with the minimum time for execution and publishing its checkpoint.
+    // When pipelining, finalization is deferred, but we still need time for execution and validator re-execution.
+    let minWorkToDo = this.initializationOffset + this.minExecutionTime * 2;
+    if (!this.pipelining) {
+      minWorkToDo += this.checkpointFinalizationTime;
+    }
 
     const initializeDeadline = this.aztecSlotDuration - minWorkToDo;
     this.initializeDeadline = initializeDeadline;
@@ -144,6 +154,7 @@ export class SequencerTimetable {
         blockAssembleTime: this.checkpointAssembleTime,
         initializeDeadline: this.initializeDeadline,
         enforce: this.enforce,
+        pipelining: this.pipelining,
         minWorkToDo,
         blockDuration: this.blockDuration,
         maxNumberOfBlocks: this.maxNumberOfBlocks,
