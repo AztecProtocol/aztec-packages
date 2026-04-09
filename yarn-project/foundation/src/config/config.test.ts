@@ -170,7 +170,10 @@ describe('Config', () => {
           value: {
             env: 'L1_MINIMUM_PRIORITY_FEE_PER_GAS_GWEI',
             description: 'test',
-            ...bigintConfigHelper(42n),
+            parseEnv: () => {
+              throw new Error('parseEnv should not be called for empty string');
+            },
+            defaultValue: 42n,
           },
         });
         expect(config.value).toBe(42n);
