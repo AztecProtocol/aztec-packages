@@ -1,4 +1,7 @@
-use crate::{oracle::version::ORACLE_VERSION, test::helpers::test_environment::TestEnvironment};
+use crate::{
+    oracle::version::{ORACLE_VERSION_MAJOR, ORACLE_VERSION_MINOR},
+    test::helpers::test_environment::TestEnvironment,
+};
 use std::test::OracleMock;
 
 #[test]
@@ -39,10 +42,10 @@ unconstrained fn private_public_and_utility_context_share_default_chain_id() {
 
 #[test]
 unconstrained fn oracle_version_is_checked_upon_env_creation() {
-    let mock = OracleMock::mock("aztec_utl_assertCompatibleOracleVersion");
+    let mock = OracleMock::mock("aztec_utl_assertCompatibleOracleVersionV2");
 
     let _env = TestEnvironment::new();
 
     assert_eq(mock.times_called(), 1);
-    assert_eq(mock.get_last_params::<Field>(), ORACLE_VERSION);
+    assert_eq(mock.get_last_params::<(Field, Field)>(), (ORACLE_VERSION_MAJOR, ORACLE_VERSION_MINOR));
 }

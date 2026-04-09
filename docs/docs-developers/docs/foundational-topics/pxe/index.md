@@ -87,6 +87,25 @@ The keystore securely stores cryptographic keys for registered accounts, includi
 
 Oracles are pieces of data that are injected into a smart contract function from the client side. Learn more about [how oracles work](../../aztec-nr/framework-description/advanced/protocol_oracles.md).
 
+## Oracle versioning
+
+The set of oracles that the PXE exposes to private and utility functions is versioned, so that contracts can declare which oracles they expect to be available. Every contract compiled with `Aztec.nr` records the oracle version it was built against, and the PXE checks this version before executing any oracle call.
+
+The version uses two components, `major.minor`, with the following compatibility rules:
+
+- **`major`** must match exactly. A major bump is a breaking change — oracles were removed or their signatures changed — and a PXE on a different major cannot safely run the contract.
+- **`minor`** indicates additive changes (new oracles). The PXE uses a best-effort approach here: a contract compiled against a higher `minor` than the PXE supports is still allowed to run, and an error is only thrown if the contract actually invokes an oracle the PXE does not know about. In practice, a contract built with a newer Aztec.nr may not use any of the newly added oracles at all, in which case it runs fine on an older PXE.
+
+The canonical version constants live in the PXE (`ORACLE_VERSION_MAJOR` / `ORACLE_VERSION_MINOR` in `yarn-project/pxe/src/oracle_version.ts`) and in Aztec.nr (`noir-projects/aztec-nr/aztec/src/oracle/version.nr`). The two are kept in lockstep as part of each release.
+
+### Resolving a version mismatch
+
+If you see an error like _"Oracle '…' not found. … The contract was compiled with Aztec.nr oracle version X.Y, but this private execution environment only supports up to A.B"_, the contract uses one or more oracles from a newer Aztec.nr than your PXE supports.
+
+To fix it, upgrade the software that ships the PXE (sandbox, wallet, or whatever embeds `@aztec/pxe`) to a release whose Aztec.nr version is at least as new as the one the contract was compiled with.
+
+If the PXE reports a version that _should_ include every oracle the contract needs but an oracle is still missing, that is a contract bug rather than a version problem and you should likely report it to the app developer.
+
 ## For developers
 
 To learn how to develop on top of the PXE, refer to these guides:
