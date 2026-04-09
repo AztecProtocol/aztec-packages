@@ -7,7 +7,7 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
 import { bufferToHex } from '@aztec/foundation/string';
 import { DateProvider } from '@aztec/foundation/timer';
-import { TallySlashingProposerAbi } from '@aztec/l1-artifacts/TallySlashingProposerAbi';
+import { SlashingProposerAbi } from '@aztec/l1-artifacts/SlashingProposerAbi';
 
 import { type Hex, type TypedDataDefinition, encodeFunctionData, hashTypedData } from 'viem';
 import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts';
@@ -18,9 +18,9 @@ import { DefaultL1ContractsConfig } from '../config.js';
 import { type DeployAztecL1ContractsArgs, deployAztecL1Contracts } from '../deploy_aztec_l1_contracts.js';
 import type { Anvil } from '../test/start_anvil.js';
 import { RollupContract, decodeSlashConsensusVotes } from './index.js';
-import { TallySlashingProposerContract } from './tally_slashing_proposer.js';
+import { SlashingProposerContract } from './slashing_proposer.js';
 
-describe('TallySlashingProposer', () => {
+describe('SlashingProposer', () => {
   let anvil: Anvil;
   let rpcUrl: string;
   let deployerPrivateKeyRaw: Hex;
@@ -33,8 +33,8 @@ describe('TallySlashingProposer', () => {
   let cheatCodes: EthCheatCodes;
   let rollupCheatCodes: RollupCheatCodes;
   let rollup: RollupContract;
-  let tallySlashingProposer: TallySlashingProposerContract;
-  let tallySlashingProposerAddress: EthAddress;
+  let slashingProposer: SlashingProposerContract;
+  let slashingProposerAddress: EthAddress;
   let testConfig: DeployAztecL1ContractsArgs;
 
   const mockSignature = {
@@ -68,7 +68,7 @@ describe('TallySlashingProposer', () => {
       protocolContractsHash: Fr.random(),
       genesisArchiveRoot: Fr.random(),
       realVerifier: false,
-      slasherFlavor: 'tally' as const,
+      slasherEnabled: true,
       slashingQuorum: testSlashingRoundSize / 2 + 1,
       slashingRoundSizeInEpochs: testSlashingRoundSize / DefaultL1ContractsConfig.aztecEpochDuration,
       aztecTargetCommitteeSize: 4,
@@ -85,8 +85,8 @@ describe('TallySlashingProposer', () => {
 
     writeClient = createExtendedL1Client([rpcUrl], deployerPrivateKey);
     rollup = new RollupContract(writeClient, deployed.l1ContractAddresses.rollupAddress!);
-    tallySlashingProposer = (await rollup.getSlashingProposer()) as TallySlashingProposerContract;
-    tallySlashingProposerAddress = tallySlashingProposer.address;
+    slashingProposer = (await rollup.getSlashingProposer()) as SlashingProposerContract;
+    slashingProposerAddress = slashingProposer.address;
   });
 
   beforeEach(async () => {
@@ -100,38 +100,38 @@ describe('TallySlashingProposer', () => {
 
   describe('contract constants getters', () => {
     it('returns correct quorum size from deployed contract', async () => {
-      const quorumSize = await tallySlashingProposer.getQuorumSize();
+      const quorumSize = await slashingProposer.getQuorumSize();
       expect(quorumSize).toBe(BigInt(testConfig.slashingQuorum!));
     });
 
     it('returns correct round size from deployed contract', async () => {
-      const roundSize = await tallySlashingProposer.getRoundSize();
+      const roundSize = await slashingProposer.getRoundSize();
       expect(roundSize).toBe(BigInt(testConfig.slashingRoundSizeInEpochs * testConfig.aztecEpochDuration));
     });
 
     it('returns correct committee size from deployed contract', async () => {
-      const committeeSize = await tallySlashingProposer.getCommitteeSize();
+      const committeeSize = await slashingProposer.getCommitteeSize();
       expect(committeeSize).toBe(BigInt(testConfig.aztecTargetCommitteeSize));
     });
 
     it('returns correct round size in epochs from deployed contract', async () => {
-      const roundSizeInEpochs = await tallySlashingProposer.getRoundSizeInEpochs();
+      const roundSizeInEpochs = await slashingProposer.getRoundSizeInEpochs();
       const expectedValue = BigInt(testConfig.slashingRoundSizeInEpochs);
       expect(roundSizeInEpochs).toBe(expectedValue);
     });
 
     it('returns correct lifetime in rounds from deployed contract', async () => {
-      const lifetimeInRounds = await tallySlashingProposer.getLifetimeInRounds();
+      const lifetimeInRounds = await slashingProposer.getLifetimeInRounds();
       expect(lifetimeInRounds).toBe(BigInt(testConfig.slashingLifetimeInRounds));
     });
 
     it('returns correct execution delay in rounds from deployed contract', async () => {
-      const executionDelayInRounds = await tallySlashingProposer.getExecutionDelayInRounds();
+      const executionDelayInRounds = await slashingProposer.getExecutionDelayInRounds();
       expect(executionDelayInRounds).toBe(BigInt(testConfig.slashingExecutionDelayInRounds));
     });
 
     it('returns correct slashing amounts from deployed contract', async () => {
-      const slashingAmounts = await tallySlashingProposer.getSlashingAmounts();
+      const slashingAmounts = await slashingProposer.getSlashingAmounts();
       expect(slashingAmounts).toEqual([
         testConfig.slashAmountSmall,
         testConfig.slashAmountMedium,
@@ -140,14 +140,14 @@ describe('TallySlashingProposer', () => {
     });
 
     it('returns correct slash offset in rounds from deployed contract', async () => {
-      const slashOffsetInRounds = await tallySlashingProposer.getSlashOffsetInRounds();
+      const slashOffsetInRounds = await slashingProposer.getSlashOffsetInRounds();
       expect(slashOffsetInRounds).toBe(BigInt(testConfig.slashingOffsetInRounds));
     });
   });
 
   describe('getCurrentRound', () => {
     it('returns current round from deployed contract', async () => {
-      const currentRound = await tallySlashingProposer.getCurrentRound();
+      const currentRound = await slashingProposer.getCurrentRound();
       expect(typeof currentRound).toBe('bigint');
       expect(currentRound).toBeGreaterThanOrEqual(0n);
     });
@@ -155,7 +155,7 @@ describe('TallySlashingProposer', () => {
 
   describe('getRound', () => {
     it('returns round information for valid round number', async () => {
-      const roundInfo = await tallySlashingProposer.getRound(0n);
+      const roundInfo = await slashingProposer.getRound(0n);
 
       expect(typeof roundInfo.isExecuted).toBe('boolean');
       expect(typeof roundInfo.voteCount).toBe('bigint');
@@ -166,7 +166,7 @@ describe('TallySlashingProposer', () => {
   describe('buildVoteRequest', () => {
     it('builds vote request with random signature', async () => {
       const votes = '0x1234567890abcdef' as Hex;
-      const request = tallySlashingProposer.buildVoteRequestWithSignature(votes, mockSignature);
+      const request = slashingProposer.buildVoteRequestWithSignature(votes, mockSignature);
 
       // Send transaction and expect it to revert (since vote data is invalid)
       try {
@@ -180,8 +180,8 @@ describe('TallySlashingProposer', () => {
     it('builds correct typed data to sign', async () => {
       const votes = bufferToHex(Buffer.alloc(testSlashingRoundSize / testConfig.aztecEpochDuration, 1));
       const slot = SlotNumber(1);
-      const typedData = tallySlashingProposer.buildVoteTypedData(votes, slot);
-      const expectedDigest = await tallySlashingProposer.getVoteDataDigest(votes, slot);
+      const typedData = slashingProposer.buildVoteTypedData(votes, slot);
+      const expectedDigest = await slashingProposer.getVoteDataDigest(votes, slot);
       expect(hashTypedData(typedData)).toEqual(expectedDigest.toString());
     });
 
@@ -195,7 +195,7 @@ describe('TallySlashingProposer', () => {
       const proposerKey = validatorsPrivateKeys[proposerIndex];
 
       const signer = (typedData: TypedDataDefinition) => proposerKey.signTypedData(typedData);
-      const request = await tallySlashingProposer.buildVoteRequestFromSigner(votes, slot, signer);
+      const request = await slashingProposer.buildVoteRequestFromSigner(votes, slot, signer);
 
       const hash = await writeClient.sendTransaction(request);
       await writeClient.waitForTransactionReceipt({ hash });
@@ -203,10 +203,10 @@ describe('TallySlashingProposer', () => {
 
     it('encodes vote function correctly', () => {
       const votes = '0xabcdef1234567890' as Hex;
-      const request = tallySlashingProposer.buildVoteRequestWithSignature(votes, mockSignature);
+      const request = slashingProposer.buildVoteRequestWithSignature(votes, mockSignature);
 
       const expectedData = encodeFunctionData({
-        abi: TallySlashingProposerAbi,
+        abi: SlashingProposerAbi,
         functionName: 'vote',
         args: [votes, mockSignature],
       });
@@ -223,7 +223,7 @@ describe('TallySlashingProposer', () => {
         [EthAddress.fromString('0x2222222222222222222222222222222222222222')],
       ];
 
-      const request = tallySlashingProposer.buildExecuteRoundRequest(round, committees);
+      const request = slashingProposer.buildExecuteRoundRequest(round, committees);
 
       // Send transaction and expect it to revert (since round is likely not ready to execute)
       try {
@@ -241,10 +241,10 @@ describe('TallySlashingProposer', () => {
         [EthAddress.fromString('0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb')],
       ];
 
-      const request = tallySlashingProposer.buildExecuteRoundRequest(round, committees);
+      const request = slashingProposer.buildExecuteRoundRequest(round, committees);
 
       const expectedData = encodeFunctionData({
-        abi: TallySlashingProposerAbi,
+        abi: SlashingProposerAbi,
         functionName: 'executeRound',
         args: [round, committees.map(c => c.map(addr => addr.toString()))],
       });
@@ -256,9 +256,8 @@ describe('TallySlashingProposer', () => {
   describe('wrapper functionality', () => {
     it('wrapper properly wraps viem contract', () => {
       // Verify the wrapper has access to the underlying contract
-      expect(tallySlashingProposer.address).toBeDefined();
-      expect(tallySlashingProposer.address.toString()).toBe(tallySlashingProposerAddress.toString());
-      expect(tallySlashingProposer.type).toBe('tally');
+      expect(slashingProposer.address).toBeDefined();
+      expect(slashingProposer.address.toString()).toBe(slashingProposerAddress.toString());
     });
   });
 

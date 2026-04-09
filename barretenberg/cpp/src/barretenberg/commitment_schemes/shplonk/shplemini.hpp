@@ -517,19 +517,12 @@ template <typename Curve, bool HasZK = false> class ShpleminiVerifier_ {
         }
 
         // Erase the duplicate entries (higher-index range first to preserve lower indices)
-        auto erase_range = [&](size_t duplicate_start, size_t original_start, size_t count) {
+        // Each erase shifts elements down, so duplicate_start always points to the next duplicate;
+        // the original at original_start + i is unaffected since we erase higher-index ranges first.
+        // Commitment equality (original == duplicate) is verified by per-flavor
+        // RepeatedCommitmentsIndicesCorrect tests rather than at runtime here.
+        auto erase_range = [&](size_t duplicate_start, [[maybe_unused]] size_t original_start, size_t count) {
             for (size_t i = 0; i < count; ++i) {
-                // Verify the commitment being erased matches its original (native only).
-                // Each erase shifts elements down, so duplicate_start always points to the
-                // next duplicate; the original at original_start + i is unaffected since
-                // we erase higher-index ranges first.
-                if constexpr (!Curve::is_stdlib_type) {
-                    if (commitments[duplicate_start] != commitments[original_start + i]) {
-                        throw_or_abort("remove_repeated_commitments: commitment mismatch at duplicate index " +
-                                       std::to_string(duplicate_start) + " vs original index " +
-                                       std::to_string(original_start + i));
-                    }
-                }
                 scalars.erase(scalars.begin() + static_cast<std::ptrdiff_t>(duplicate_start));
                 commitments.erase(commitments.begin() + static_cast<std::ptrdiff_t>(duplicate_start));
             }

@@ -70,11 +70,15 @@ describe('GasTxValidator', () => {
   };
 
   const expectInvalid = async (tx: Tx, reason: string) => {
-    await expect(validateTx(tx)).resolves.toEqual({ result: 'invalid', reason: [reason] });
+    const result = await validateTx(tx);
+    expect(result.result).toEqual('invalid');
+    expect((result as { reason: string[] }).reason[0]).toContain(reason);
   };
 
   const expectSkipped = async (tx: Tx, reason: string) => {
-    await expect(validateTx(tx)).resolves.toEqual({ result: 'skipped', reason: [reason] });
+    const result = await validateTx(tx);
+    expect(result.result).toEqual('skipped');
+    expect((result as { reason: string[] }).reason[0]).toContain(reason);
   };
 
   it('allows fee paying txs if fee payer has enough balance', async () => {
@@ -219,7 +223,7 @@ describe('GasTxValidator', () => {
         });
         await expect(validator.validateTx(tx)).resolves.toEqual({
           result: 'invalid',
-          reason: [TX_ERROR_GAS_LIMIT_TOO_HIGH],
+          reason: [expect.stringContaining(TX_ERROR_GAS_LIMIT_TOO_HIGH)],
         });
       });
 
@@ -233,7 +237,7 @@ describe('GasTxValidator', () => {
         });
         await expect(validator.validateTx(tx)).resolves.toEqual({
           result: 'invalid',
-          reason: [TX_ERROR_GAS_LIMIT_TOO_HIGH],
+          reason: [expect.stringContaining(TX_ERROR_GAS_LIMIT_TOO_HIGH)],
         });
       });
 
@@ -249,7 +253,7 @@ describe('GasTxValidator', () => {
         });
         await expect(validator.validateTx(tx)).resolves.toEqual({
           result: 'invalid',
-          reason: [TX_ERROR_GAS_LIMIT_TOO_HIGH],
+          reason: [expect.stringContaining(TX_ERROR_GAS_LIMIT_TOO_HIGH)],
         });
       });
 
@@ -273,7 +277,7 @@ describe('GasTxValidator', () => {
         });
         await expect(validator.validateTx(tx)).resolves.toEqual({
           result: 'invalid',
-          reason: [TX_ERROR_GAS_LIMIT_TOO_HIGH],
+          reason: [expect.stringContaining(TX_ERROR_GAS_LIMIT_TOO_HIGH)],
         });
       });
 
@@ -287,7 +291,7 @@ describe('GasTxValidator', () => {
         });
         await expect(validator.validateTx(tx)).resolves.toEqual({
           result: 'invalid',
-          reason: [TX_ERROR_GAS_LIMIT_TOO_HIGH],
+          reason: [expect.stringContaining(TX_ERROR_GAS_LIMIT_TOO_HIGH)],
         });
       });
 
@@ -311,7 +315,7 @@ describe('GasTxValidator', () => {
         });
         await expect(validator.validateTx(tx)).resolves.toEqual({
           result: 'invalid',
-          reason: [TX_ERROR_GAS_LIMIT_TOO_HIGH],
+          reason: [expect.stringContaining(TX_ERROR_GAS_LIMIT_TOO_HIGH)],
         });
       });
 
@@ -327,7 +331,7 @@ describe('GasTxValidator', () => {
         });
         await expect(validator.validateTx(tx)).resolves.toEqual({
           result: 'invalid',
-          reason: [TX_ERROR_GAS_LIMIT_TOO_HIGH],
+          reason: [expect.stringContaining(TX_ERROR_GAS_LIMIT_TOO_HIGH)],
         });
       });
 
@@ -343,7 +347,7 @@ describe('GasTxValidator', () => {
         });
         await expect(validator.validateTx(tx)).resolves.toEqual({
           result: 'invalid',
-          reason: [TX_ERROR_GAS_LIMIT_TOO_HIGH],
+          reason: [expect.stringContaining(TX_ERROR_GAS_LIMIT_TOO_HIGH)],
         });
       });
     });

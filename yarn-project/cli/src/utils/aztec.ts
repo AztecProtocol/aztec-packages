@@ -49,7 +49,7 @@ export async function deployNewRollupContracts(
   feeJuicePortalInitialBalance: bigint,
   config: L1ContractsConfig,
   realVerifier: boolean,
-): Promise<{ rollup: RollupContract; slashFactoryAddress: EthAddress }> {
+): Promise<{ rollup: RollupContract }> {
   const { deployRollupForUpgrade } = await import('@aztec/ethereum/deploy-aztec-l1-contracts');
   const { mnemonicToAccount, privateKeyToAccount } = await import('viem/accounts');
   const { getVKTreeRoot } = await import('@aztec/noir-protocol-circuits-types/vk-tree');
@@ -80,23 +80,17 @@ export async function deployNewRollupContracts(
     logger.info('Initializing new rollup with old attesters', { initialValidators });
   }
 
-  const { rollup, slashFactoryAddress } = await deployRollupForUpgrade(
-    privateKey as Hex,
-    rpcUrls[0],
-    chainId,
-    registryAddress,
-    {
-      vkTreeRoot: getVKTreeRoot(),
-      protocolContractsHash,
-      genesisArchiveRoot,
-      initialValidators,
-      feeJuicePortalInitialBalance,
-      realVerifier,
-      ...config,
-    },
-  );
+  const { rollup } = await deployRollupForUpgrade(privateKey as Hex, rpcUrls[0], chainId, registryAddress, {
+    vkTreeRoot: getVKTreeRoot(),
+    protocolContractsHash,
+    genesisArchiveRoot,
+    initialValidators,
+    feeJuicePortalInitialBalance,
+    realVerifier,
+    ...config,
+  });
 
-  return { rollup, slashFactoryAddress: EthAddress.fromString(slashFactoryAddress!) };
+  return { rollup };
 }
 
 /**

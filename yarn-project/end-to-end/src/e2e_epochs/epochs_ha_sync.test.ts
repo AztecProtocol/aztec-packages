@@ -150,9 +150,10 @@ describe('e2e_epochs/epochs_ha_sync', () => {
     const txHashes = await Promise.all(txs.map(tx => tx.send({ wait: NO_WAIT })));
     logger.warn(`Sent ${txHashes.length} transactions.`);
 
-    // Warp to 1 L1 slot before the start of the next L2 slot, so sequencers start cleanly.
+    // Warp to 1 L1 slot before the start of the following L2 slot, so sequencers start cleanly.
+    // We don't warp to the next L2 slot because we may already be less than 1 L1 slot before it.
     const currentSlot = await rollup.getSlotNumber();
-    const nextSlot = SlotNumber(currentSlot + 1);
+    const nextSlot = SlotNumber(currentSlot + 2);
     const nextSlotTimestamp = getTimestampForSlot(nextSlot, test.constants);
     await context.cheatCodes.eth.warp(Number(nextSlotTimestamp) - test.L1_BLOCK_TIME_IN_S, {
       resetBlockInterval: true,

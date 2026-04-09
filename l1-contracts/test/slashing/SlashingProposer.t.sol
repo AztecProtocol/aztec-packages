@@ -3,7 +3,7 @@
 pragma solidity >=0.8.27;
 
 /**
- * @title TallySlashingProposer Test Suite
+ * @title SlashingProposer Test Suite
  */
 import {Rollup} from "@aztec/core/Rollup.sol";
 import {IValidatorSelection} from "@aztec/core/interfaces/IValidatorSelection.sol";
@@ -11,8 +11,8 @@ import {Slot, Epoch} from "@aztec/core/libraries/TimeLib.sol";
 import {TimeLib} from "@aztec/core/libraries/TimeLib.sol";
 import {Slasher} from "@aztec/core/slashing/Slasher.sol";
 import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
-import {ISlasher, SlasherFlavor} from "@aztec/core/interfaces/ISlasher.sol";
-import {TallySlashingProposer} from "@aztec/core/slashing/TallySlashingProposer.sol";
+import {ISlasher} from "@aztec/core/interfaces/ISlasher.sol";
+import {SlashingProposer} from "@aztec/core/slashing/SlashingProposer.sol";
 import {SlashRound} from "@aztec/core/libraries/SlashRoundLib.sol";
 import {MultiAdder, CheatDepositArgs} from "@aztec/mock/MultiAdder.sol";
 import {TestERC20} from "@aztec/mock/TestERC20.sol";
@@ -29,11 +29,11 @@ import {SlashPayload} from "@aztec/periphery/SlashPayload.sol";
 // solhint-disable comprehensive-interface
 // solhint-disable func-name-mixedcase
 
-contract TallySlashingProposerTest is TestBase {
+contract SlashingProposerTest is TestBase {
   TestERC20 internal testERC20;
   Rollup internal rollup;
   Slasher internal slasher;
-  TallySlashingProposer internal slashingProposer;
+  SlashingProposer internal slashingProposer;
   TimeCheater internal timeCheater;
 
   // Test parameters
@@ -87,13 +87,13 @@ contract TallySlashingProposerTest is TestBase {
       .setTargetCommitteeSize(COMMITTEE_SIZE).setSlashingQuorum(QUORUM).setSlashingRoundSize(ROUND_SIZE)
       .setSlashingLifetimeInRounds(LIFETIME_IN_ROUNDS).setSlashingExecutionDelayInRounds(EXECUTION_DELAY_IN_ROUNDS)
       .setEpochDuration(EPOCH_DURATION).setSlashAmountSmall(SLASHING_UNIT).setSlashAmountMedium(SLASHING_UNIT * 2)
-      .setSlashAmountLarge(SLASHING_UNIT * 3).setSlasherFlavor(SlasherFlavor.TALLY);
+      .setSlashAmountLarge(SLASHING_UNIT * 3).setSlasherEnabled(true);
     builder.deploy();
 
     rollup = builder.getConfig().rollup;
     testERC20 = builder.getConfig().testERC20;
     slasher = Slasher(rollup.getSlasher());
-    slashingProposer = TallySlashingProposer(slasher.PROPOSER());
+    slashingProposer = SlashingProposer(slasher.PROPOSER());
 
     timeCheater = new TimeCheater(
       address(rollup),
@@ -278,7 +278,7 @@ contract TallySlashingProposerTest is TestBase {
     Signature memory sig = _createSignature(proposerKey, currentSlot, voteData);
 
     uint256 expectedLength = COMMITTEE_SIZE * ROUND_SIZE_IN_EPOCHS / 4;
-    vm.expectRevert(abi.encodeWithSelector(Errors.TallySlashingProposer__InvalidVoteLength.selector, expectedLength, 1));
+    vm.expectRevert(abi.encodeWithSelector(Errors.SlashingProposer__InvalidVoteLength.selector, expectedLength, 1));
     vm.prank(proposer);
     slashingProposer.vote(voteData, sig);
   }
@@ -290,7 +290,7 @@ contract TallySlashingProposerTest is TestBase {
     _castVote();
 
     // Second vote in same slot should fail
-    _castVote(Errors.TallySlashingProposer__VoteAlreadyCastInCurrentSlot.selector);
+    _castVote(Errors.SlashingProposer__VoteAlreadyCastInCurrentSlot.selector);
   }
 
   function test_voteAccumulatesAcrossSlots() public {
@@ -326,7 +326,7 @@ contract TallySlashingProposerTest is TestBase {
   function test_votesNotOpen() public {
     // Try to vote before votes are open
     _jumpToSlashRound(1);
-    _castVote(Errors.TallySlashingProposer__VotingNotOpen.selector);
+    _castVote(Errors.SlashingProposer__VotingNotOpen.selector);
   }
 
   // ExecuteSlashRound Tests
@@ -478,9 +478,7 @@ contract TallySlashingProposerTest is TestBase {
     }
 
     vm.expectRevert(
-      abi.encodeWithSelector(
-        Errors.TallySlashingProposer__RoundNotComplete.selector, SlashRound.unwrap(targetSlashRound)
-      )
+      abi.encodeWithSelector(Errors.SlashingProposer__RoundNotComplete.selector, SlashRound.unwrap(targetSlashRound))
     );
     slashingProposer.executeRound(targetSlashRound, committees);
   }
@@ -521,9 +519,9 @@ contract TallySlashingProposerTest is TestBase {
   }
 
   function test_getPayloadAddress() public view {
-    TallySlashingProposer.SlashAction[] memory actions = new TallySlashingProposer.SlashAction[](2);
-    actions[0] = TallySlashingProposer.SlashAction({validator: validators[0], slashAmount: 5 * SLASHING_UNIT});
-    actions[1] = TallySlashingProposer.SlashAction({validator: validators[1], slashAmount: 3 * SLASHING_UNIT});
+    SlashingProposer.SlashAction[] memory actions = new SlashingProposer.SlashAction[](2);
+    actions[0] = SlashingProposer.SlashAction({validator: validators[0], slashAmount: 5 * SLASHING_UNIT});
+    actions[1] = SlashingProposer.SlashAction({validator: validators[1], slashAmount: 3 * SLASHING_UNIT});
 
     SlashRound testSlashRound = SlashRound.wrap(1);
     address predictedAddress = slashingProposer.getPayloadAddress(testSlashRound, actions);
@@ -540,7 +538,7 @@ contract TallySlashingProposerTest is TestBase {
     assertTrue(predictedAddress != predictedAddress3);
 
     // Empty actions should return zero address
-    TallySlashingProposer.SlashAction[] memory emptyActions = new TallySlashingProposer.SlashAction[](0);
+    SlashingProposer.SlashAction[] memory emptyActions = new SlashingProposer.SlashAction[](0);
     address zeroAddress = slashingProposer.getPayloadAddress(testSlashRound, emptyActions);
     assertEq(zeroAddress, address(0));
   }
@@ -584,7 +582,7 @@ contract TallySlashingProposerTest is TestBase {
     _assertVoteCount(newSlashRound, 0);
 
     // And when we check the old one, it should revert
-    vm.expectPartialRevert(Errors.TallySlashingProposer__RoundOutOfRange.selector);
+    vm.expectPartialRevert(Errors.SlashingProposer__RoundOutOfRange.selector);
     slashingProposer.getRound(baseSlashRound);
   }
 
@@ -595,7 +593,7 @@ contract TallySlashingProposerTest is TestBase {
     SlashRound futureSlashRound = SlashRound.wrap(SlashRound.unwrap(currentSlashRound) + 1);
     vm.expectRevert(
       abi.encodeWithSelector(
-        Errors.TallySlashingProposer__RoundOutOfRange.selector,
+        Errors.SlashingProposer__RoundOutOfRange.selector,
         SlashRound.unwrap(futureSlashRound),
         SlashRound.unwrap(currentSlashRound)
       )
@@ -626,7 +624,7 @@ contract TallySlashingProposerTest is TestBase {
     _jumpToSlashRound(SlashRound.unwrap(baseRound) + roundaboutSize);
 
     // getVotes on the now-out-of-range round should revert
-    vm.expectPartialRevert(Errors.TallySlashingProposer__RoundOutOfRange.selector);
+    vm.expectPartialRevert(Errors.SlashingProposer__RoundOutOfRange.selector);
     slashingProposer.getVotes(baseRound, 0);
   }
 
@@ -716,7 +714,7 @@ contract TallySlashingProposerTest is TestBase {
     SlashRound currentRound = slashingProposer.getCurrentRound();
     SlashRound futureRound = SlashRound.wrap(SlashRound.unwrap(currentRound) + 1);
 
-    vm.expectPartialRevert(Errors.TallySlashingProposer__RoundOutOfRange.selector);
+    vm.expectPartialRevert(Errors.SlashingProposer__RoundOutOfRange.selector);
     slashingProposer.getVotes(futureRound, 0);
   }
 
@@ -816,7 +814,7 @@ contract TallySlashingProposerTest is TestBase {
     address[][] memory committees = slashingProposer.getSlashTargetCommittees(targetRound);
 
     // Execute and check the tally
-    TallySlashingProposer.SlashAction[] memory actions = slashingProposer.getTally(targetRound, committees);
+    SlashingProposer.SlashAction[] memory actions = slashingProposer.getTally(targetRound, committees);
 
     // Verify correct validators were identified for slashing
     assertEq(actions.length, 3, "Should have 3 validators to slash");
@@ -896,7 +894,7 @@ contract TallySlashingProposerTest is TestBase {
 
     // Get tally - should not overflow
     address[][] memory committees = slashingProposer.getSlashTargetCommittees(currentRound);
-    TallySlashingProposer.SlashAction[] memory actions = slashingProposer.getTally(currentRound, committees);
+    SlashingProposer.SlashAction[] memory actions = slashingProposer.getTally(currentRound, committees);
 
     // Should have slashed the first validator
     assertEq(actions.length, 1, "Should slash exactly one validator");
@@ -925,7 +923,7 @@ contract TallySlashingProposerTest is TestBase {
 
     // Get tally - should be empty
     address[][] memory committees = slashingProposer.getSlashTargetCommittees(currentRound);
-    TallySlashingProposer.SlashAction[] memory actions = slashingProposer.getTally(currentRound, committees);
+    SlashingProposer.SlashAction[] memory actions = slashingProposer.getTally(currentRound, committees);
 
     assertEq(actions.length, 0, "No validators should be slashed with empty votes");
   }
@@ -966,7 +964,7 @@ contract TallySlashingProposerTest is TestBase {
 
     // Get tally
     address[][] memory committees = slashingProposer.getSlashTargetCommittees(currentRound);
-    TallySlashingProposer.SlashAction[] memory actions = slashingProposer.getTally(currentRound, committees);
+    SlashingProposer.SlashAction[] memory actions = slashingProposer.getTally(currentRound, committees);
 
     // All three validators should be slashed
     assertEq(actions.length, 3, "Should slash three validators");
@@ -1022,7 +1020,7 @@ contract TallySlashingProposerTest is TestBase {
 
     // getTally should revert because of out of bounds
     vm.expectRevert();
-    TallySlashingProposer.SlashAction[] memory actions = slashingProposer.getTally(targetRound, committees);
+    SlashingProposer.SlashAction[] memory actions = slashingProposer.getTally(targetRound, committees);
     assertEq(actions.length, 0, "Should have no slash actions since reverted");
 
     // Reverts because of out of bounds
@@ -1043,8 +1041,8 @@ contract TallySlashingProposerTest is TestBase {
     uint256[3] memory slashAmounts = [uint256(0), SLASHING_UNIT * 2, SLASHING_UNIT * 3];
 
     // small = 0
-    vm.expectRevert(abi.encodeWithSelector(Errors.TallySlashingProposer__SlashAmountMustBeGtZero.selector, "small"));
-    new TallySlashingProposer(
+    vm.expectRevert(abi.encodeWithSelector(Errors.SlashingProposer__SlashAmountMustBeGtZero.selector, "small"));
+    new SlashingProposer(
       address(rollup),
       ISlasher(address(slasher)),
       QUORUM,
@@ -1059,8 +1057,8 @@ contract TallySlashingProposerTest is TestBase {
 
     // medium = 0 (ordering forces small = 0, so "small" check fires first)
     slashAmounts[1] = 0;
-    vm.expectRevert(abi.encodeWithSelector(Errors.TallySlashingProposer__SlashAmountMustBeGtZero.selector, "small"));
-    new TallySlashingProposer(
+    vm.expectRevert(abi.encodeWithSelector(Errors.SlashingProposer__SlashAmountMustBeGtZero.selector, "small"));
+    new SlashingProposer(
       address(rollup),
       ISlasher(address(slasher)),
       QUORUM,
@@ -1075,8 +1073,8 @@ contract TallySlashingProposerTest is TestBase {
 
     // large = 0 (ordering forces all to 0, so "small" check fires first)
     slashAmounts[2] = 0;
-    vm.expectRevert(abi.encodeWithSelector(Errors.TallySlashingProposer__SlashAmountMustBeGtZero.selector, "small"));
-    new TallySlashingProposer(
+    vm.expectRevert(abi.encodeWithSelector(Errors.SlashingProposer__SlashAmountMustBeGtZero.selector, "small"));
+    new SlashingProposer(
       address(rollup),
       ISlasher(address(slasher)),
       QUORUM,

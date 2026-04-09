@@ -21,7 +21,7 @@ class TxBytecodeManagerInterface {
     virtual BytecodeId get_bytecode(const AztecAddress& address) = 0;
     virtual std::shared_ptr<std::vector<uint8_t>> get_bytecode_data(const BytecodeId& bytecode_id) = 0;
     // Retrieves an instruction and decomposes it if needed.
-    // This version of read_instruction might retrieve the bytecode (and generate an event) if not already done.
+    // This version of read_instruction reads the bytecode from the cache.
     virtual Instruction read_instruction(const BytecodeId& bytecode_id, PC pc) = 0;
     // This version of read_instruction does not retrieve the bytecode.
     virtual Instruction read_instruction(const BytecodeId& bytecode_id,

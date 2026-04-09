@@ -91,7 +91,10 @@ template <typename Curve_> class KZG {
                                                       quotient_commitment,
                                                       GroupElement::one(builder) };
             std::vector<Fr> scalars = { one, claim.opening_pair.challenge, -claim.opening_pair.evaluation };
-            P_0 = GroupElement::batch_mul(commitments, scalars);
+
+            // Compute C + r*[W]_1 + (-v)*[1]_1 as a batch_mul, no need of edge case handling since we don't expect the
+            // points to be linearly dependent.
+            P_0 = GroupElement::batch_mul(commitments, scalars, /*max_num_bits=*/0, /*with_edgecases=*/false);
 
         } else {
             P_0 = claim.commitment;

@@ -1,7 +1,7 @@
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { type JsonRpcTestContext, createJsonRpcTestSetup } from '@aztec/foundation/json-rpc/test';
 
-import { type Offense, OffenseType, type SlashPayloadRound } from '../slashing/index.js';
+import { type Offense, OffenseType } from '../slashing/index.js';
 import { type AztecNodeAdmin, AztecNodeAdminApiSchema } from './aztec-node-admin.js';
 import type { SequencerConfig } from './configs.js';
 import type { ProverConfig } from './prover-client.js';
@@ -57,24 +57,6 @@ describe('AztecNodeAdminApiSchema', () => {
     await context.client.resumeSync();
   });
 
-  it('getSlashPayloads', async () => {
-    const payloads = await context.client.getSlashPayloads();
-    expect(payloads).toHaveLength(1);
-    expect(payloads[0]).toMatchObject({
-      address: expect.any(EthAddress),
-      slashes: [
-        {
-          validator: expect.any(EthAddress),
-          amount: 1000n,
-          offenses: [{ offenseType: OffenseType.PROPOSED_INSUFFICIENT_ATTESTATIONS, epochOrSlot: 1n }],
-        },
-      ],
-      votes: 1n,
-      round: 1n,
-      timestamp: 1000n,
-    } satisfies SlashPayloadRound);
-  });
-
   it('getSlashOffenses', async () => {
     const offenses = await context.client.getSlashOffenses('all');
     expect(offenses).toHaveLength(1);
@@ -96,28 +78,6 @@ class MockAztecNodeAdmin implements AztecNodeAdmin {
   setConfig(config: Partial<SequencerConfig & ProverConfig & SlasherConfig>): Promise<void> {
     expect(config.coinbase).toBeInstanceOf(EthAddress);
     return Promise.resolve();
-  }
-  getSlashPayloads(): Promise<SlashPayloadRound[]> {
-    return Promise.resolve([
-      {
-        address: EthAddress.random(),
-        slashes: [
-          {
-            validator: EthAddress.random(),
-            amount: 1000n,
-            offenses: [
-              {
-                offenseType: OffenseType.PROPOSED_INSUFFICIENT_ATTESTATIONS,
-                epochOrSlot: 1n,
-              },
-            ],
-          },
-        ],
-        timestamp: 1000n,
-        votes: 1n,
-        round: 1n,
-      },
-    ]);
   }
   getSlashOffenses(): Promise<Offense[]> {
     return Promise.resolve([
@@ -145,8 +105,6 @@ class MockAztecNodeAdmin implements AztecNodeAdmin {
       slashAmountSmall: 500n,
       slashAmountMedium: 1000n,
       slashAmountLarge: 2000n,
-      slashMinPenaltyPercentage: 0.1,
-      slashMaxPenaltyPercentage: 3.0,
       slashValidatorsAlways: [],
       slashValidatorsNever: [],
       slashPrunePenalty: 1000n,
@@ -166,7 +124,7 @@ class MockAztecNodeAdmin implements AztecNodeAdmin {
       slashUnknownPenalty: 1000n,
       slashGracePeriodL2Slots: 0,
       slashExecuteRoundsLookBack: 4,
-      slasherClientType: 'tally' as const,
+
       disableValidator: false,
       disabledValidators: [],
       attestationPollingIntervalMs: 1000,
