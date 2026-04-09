@@ -64,7 +64,7 @@ The `#[note]` macro generates the following for your struct:
 
 Your note struct must derive:
 
-- `Packable` - Required by the `#[note]` macro for serialization
+- `Packable` - Required by the `#[note]` macro for note hash computation. You can manually implement this for tighter packing — see [Data Packing and Serialization](./data_packing.md).
 - `Eq` - Required by storage types like `PrivateSet` for note comparisons
 
 The `#[note]` macro handles the `NoteType`, `NoteHash`, and `NoteProperties` traits automatically.

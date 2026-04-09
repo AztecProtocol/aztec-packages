@@ -10,5 +10,6 @@ members = [
     "examples/webapp-tutorial/contracts",
     "examples/contracts/aave_bridge",
     "examples/contracts/logging_example",
-    "examples/contracts/logging_example_test"
+    "examples/contracts/logging_example_test",
+    "examples/contracts/packing_example"
 ]
