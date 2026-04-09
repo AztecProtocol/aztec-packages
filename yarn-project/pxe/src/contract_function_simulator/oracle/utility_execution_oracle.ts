@@ -27,7 +27,7 @@ import { EventService } from '../../events/event_service.js';
 import { LogService } from '../../logs/log_service.js';
 import { MessageContextService } from '../../messages/message_context_service.js';
 import { NoteService } from '../../notes/note_service.js';
-import { ORACLE_VERSION } from '../../oracle_version.js';
+import { ORACLE_VERSION_MAJOR } from '../../oracle_version.js';
 import type { AddressStore } from '../../storage/address_store/address_store.js';
 import type { CapsuleService } from '../../storage/capsule_store/capsule_service.js';
 import type { ContractStore } from '../../storage/contract_store/contract_store.js';
@@ -78,6 +78,9 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   private aztecnrLogger: Logger | undefined;
   private offchainEffects: OffchainEffect[] = [];
 
+  // We store oracle version to be able to show a nice error message when an oracle handler is missing.
+  private contractOracleVersion: { major: number; minor: number } | undefined;
+
   protected readonly contractAddress: AztecAddress;
   protected readonly authWitnesses: AuthWitness[];
   protected readonly capsules: Capsule[];
@@ -118,7 +121,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     this.scopes = args.scopes;
   }
 
-  public assertCompatibleOracleVersion(version: number): void {
+  public assertCompatibleOracleVersion(major: number, minor: number): void {
     // TODO(F-416): Remove this hack on v5 when protocol contracts are redeployed.
     // Protocol contracts/canonical contracts shipped with committed bytecode that cannot be changed. Assert they use
     // the expected pinned version or the current one. We want to allow for both the pinned and the current versions
@@ -126,27 +129,36 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     // pinned contracts (like e.g. next)
     const LEGACY_ORACLE_VERSION = 12;
     if (isProtocolContract(this.contractAddress)) {
-      if (version !== LEGACY_ORACLE_VERSION && version !== ORACLE_VERSION) {
+      if (major !== LEGACY_ORACLE_VERSION && major !== ORACLE_VERSION_MAJOR) {
         const hint =
-          version > ORACLE_VERSION
+          major > ORACLE_VERSION_MAJOR
             ? 'The contract was compiled with a newer version of Aztec.nr than your private environment supports. Upgrade your private environment to a compatible version.'
             : 'The contract was compiled with an older version of Aztec.nr than your private environment supports. Recompile the contract with a compatible version of Aztec.nr.';
         throw new Error(
-          `Incompatible private environment version: ${hint} See https://docs.aztec.network/errors/8 (expected oracle version ${LEGACY_ORACLE_VERSION} or ${ORACLE_VERSION}, got ${version})`,
+          `Incompatible private environment version: ${hint} See https://docs.aztec.network/errors/8 (expected oracle major version ${LEGACY_ORACLE_VERSION} or ${ORACLE_VERSION_MAJOR}, got ${major})`,
         );
       }
+      this.contractOracleVersion = { major, minor };
       return;
     }
 
-    if (version !== ORACLE_VERSION) {
+    if (major !== ORACLE_VERSION_MAJOR) {
       const hint =
-        version > ORACLE_VERSION
+        major > ORACLE_VERSION_MAJOR
           ? 'The contract was compiled with a newer version of Aztec.nr than your private environment supports. Upgrade your private environment to a compatible version.'
           : 'The contract was compiled with an older version of Aztec.nr than your private environment supports. Recompile the contract with a compatible version of Aztec.nr.';
       throw new Error(
-        `Incompatible private environment version: ${hint} See https://docs.aztec.network/errors/8 (expected oracle version ${ORACLE_VERSION}, got ${version})`,
+        `Incompatible private environment version: ${hint} See https://docs.aztec.network/errors/8 (expected oracle major version ${ORACLE_VERSION_MAJOR}, got ${major})`,
       );
     }
+
+    // Major matches - store both major and minor for later diagnostics (e.g. when an oracle is not found)
+    this.contractOracleVersion = { major, minor };
+  }
+
+  // Prefixed with "nonOracleFunction" as it is not used as an oracle handler.
+  public nonOracleFunctionGetContractOracleVersion(): { major: number; minor: number } | undefined {
+    return this.contractOracleVersion;
   }
 
   public getRandomField(): Fr {
