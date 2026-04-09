@@ -106,7 +106,8 @@ because the two have incompatible APIs (e.g. `RetrievedNote` / `destroy_note_uns
 `ConfirmedNote` / `destroy_note`). Compiling against the repo's aztec-nr produces artifacts
 with oracle calls (like `utilityLog`) that the nightly PXE doesn't support.
 
-- **SideEffect** (`contracts/side_effect_contract/`) -- note lifecycle, nullifier ops
+- **SideEffect** (`contracts/side_effect_contract/`) -- note lifecycle, nullifier ops,
+  L2→L1 messages, private logs, key validation, public teardown
 - **Parent** (`contracts/parent_contract/`) -- forwards calls to SideEffect for
   cross-contract call testing
 

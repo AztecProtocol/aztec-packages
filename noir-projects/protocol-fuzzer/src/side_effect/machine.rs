@@ -256,8 +256,8 @@ impl SideEffectCommand {
 
 impl Batchable for SideEffectCommand {
     fn conflicts(&self, other: &Self) -> bool {
-        // Batch-flushing commands can batch with each other, but a mix of
-        // flushing and non-flushing must flush (query needs to observe prior sends).
+        // Two batch-flushing commands don't conflict (both are reads), but a
+        // flushing + non-flushing pair conflicts (the read must see prior writes).
         if self.flushes_batch() || other.flushes_batch() {
             return !(self.flushes_batch() && other.flushes_batch());
         }
@@ -752,10 +752,10 @@ impl<'a> smt::StateMachine for SideEffectMachine<'a> {
                         .query_private_logs(&contract, &tag.to_string())
                         .expect("query_private_logs failed");
                     let content_str = content.to_string();
-                    // logData[0] = siloed tag (matched by the query), logData[1] = content
+                    // log_data[0] = siloed tag (matched by the query), log_data[1] = content
                     let found = logs
                         .iter()
-                        .any(|log| log.fields.len() >= 2 && log.fields[1] == content_str);
+                        .any(|log| log.log_data.len() >= 2 && log.log_data[1] == content_str);
                     assert!(
                         found,
                         "{}: log with tag={tag} content={content} not found via siloed tag query. \

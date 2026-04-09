@@ -127,9 +127,6 @@ const handlers = {
             const d = effect.data;
             result.txEffects = {
               l2ToL1Msgs: d.l2ToL1Msgs.filter(m => !m.isZero()).map(m => m.toBigInt().toString()),
-              privateLogs: d.privateLogs.filter(l => !l.isEmpty()).map(l => ({
-                fields: l.getEmittedFields().map(f => f.toBigInt().toString()),
-              })),
             };
           }
         } catch (err) {

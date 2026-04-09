@@ -94,7 +94,7 @@ pub struct TxEffects {
 
 #[derive(Debug, Clone)]
 pub struct PrivateLogData {
-    pub fields: Vec<String>,
+    pub log_data: Vec<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -299,10 +299,11 @@ impl Bridge {
     }
 
     /// Query the node for private logs matching the siloed tag derived from
-    /// `contract` and `raw_tag`.  Verifies that the kernel's tag-siloing and
-    /// the node's log indexing work correctly.  (In production, tags are derived
-    /// from a sender↔recipient shared secret; the fuzzer contract uses
-    /// `emit_private_log_unsafe` with arbitrary plaintext tags instead.)
+    /// `contract` and `raw_tag`.  The bridge computes
+    /// `poseidon2([contract, rawTag])` and queries `getPrivateLogsByTags`.
+    /// (In production, tags are derived from a sender↔recipient shared secret;
+    /// the fuzzer contract uses `emit_private_log_unsafe` with arbitrary
+    /// plaintext tags instead.)
     pub fn query_private_logs(
         &self,
         contract: &str,
@@ -316,7 +317,7 @@ impl Bridge {
             .map(|arr| {
                 arr.iter()
                     .map(|log| PrivateLogData {
-                        fields: log
+                        log_data: log
                             .get("logData")
                             .and_then(|f| f.as_array())
                             .map(|fs| {
