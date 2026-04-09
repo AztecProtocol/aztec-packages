@@ -26,10 +26,9 @@ namespace bb {
 // Constructor
 Chonk::Chonk(size_t num_circuits)
     : num_circuits(num_circuits)
-    , random_ipa_claim_future_(
-          std::async(std::launch::async,
-                     [] { return IPA<curve::Grumpkin>::create_random_valid_ipa_claim_and_proof_native(); })
-              .share())
+    , random_ipa_claim_future_(std::async(std::launch::async, [] {
+                                   return IPA<curve::Grumpkin>::create_random_valid_ipa_claim_and_proof_native();
+                               }).share())
 {
     BB_ASSERT_GTE(num_circuits, 4UL, "Number of circuits must be at least 4 (get_queue_type uses num_circuits - 3).");
 }
