@@ -509,12 +509,62 @@ TEST_F(ECCVMRelationCorruptionTests, ShiftableInitializationConstraints)
     }
 }
 
+// Helper: evaluate a relation at a single row, returning per-subrelation values.
+// Used by all single-row corruption tests below.
+namespace {
+template <typename Relation>
+auto eval_relation_at_row(const ProverPolynomials& polys, const RelationParameters<FF>& params, size_t row)
+{
+    typename Relation::SumcheckArrayOfValuesOverSubrelations result{};
+    for (auto& e : result) {
+        e = FF(0);
+    }
+    Relation::accumulate(result, polys.get_row(row), params, FF(1));
+    return result;
+}
+
+// Check that no subrelation went from zero to non-zero between clean and dirty evaluations.
+template <typename ArrayT>
+void expect_no_new_nonzero(const ArrayT& clean, const ArrayT& dirty, const char* rel, const char* col_name = nullptr)
+{
+    for (size_t i = 0; i < clean.size(); i++) {
+        if (clean[i] == FF(0) && dirty[i] != FF(0)) {
+            if (col_name) {
+                ADD_FAILURE() << col_name << " is NOT safe: " << rel << " subrelation " << i
+                              << " became non-zero at lagrange_first row";
+            } else {
+                ADD_FAILURE() << rel << " subrelation " << i << " became non-zero at lagrange_first row";
+            }
+        }
+    }
+}
+
+template <typename ArrayT> bool has_new_nonzero(const ArrayT& clean, const ArrayT& dirty)
+{
+    for (size_t i = 0; i < clean.size(); i++) {
+        if (clean[i] == FF(0) && dirty[i] != FF(0)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+struct ColumnSpec {
+    Flavor::Polynomial ProverPolynomials::* poly;
+    const char* name;
+};
+} // namespace
+
 /**
  * @brief Verify that "harmless" shiftable columns are truly unconstrained at the lagrange_first row.
  *
  * @details For each column documented as "harmless" in eccvm_flavor.hpp, corrupt its value at the
  * lagrange_first row and verify that no relation subrelation goes from zero to non-zero at that row.
  * This confirms the column's value at row k does not enter any active relation.
+ *
+ * Checks all six ECCVM relation families (Transcript, MSM, Wnaf, PointTable, Bools, Set).
+ * LookupRelation is omitted: its per-row subrelation depends on the logderivative inverse which is
+ * computed from the full trace, so single-row evaluation is not meaningful.
  *
  * This test also serves as a regression guard: if a future change adds a relation term that references
  * one of these columns at the lagrange_first row without proper gating, this test will fail — signaling
@@ -523,21 +573,6 @@ TEST_F(ECCVMRelationCorruptionTests, ShiftableInitializationConstraints)
 TEST_F(ECCVMRelationCorruptionTests, HarmlessColumnsUnconstrainedAtLagrangeFirst)
 {
     const size_t first_row = NUM_DISABLED_ROWS_IN_SUMCHECK;
-    RelationParameters<FF> params{};
-
-    auto eval_at_row = []<typename Relation>(const auto& polys, const auto& p, size_t row) {
-        typename Relation::SumcheckArrayOfValuesOverSubrelations result{};
-        for (auto& e : result) {
-            e = FF(0);
-        }
-        Relation::accumulate(result, polys.get_row(row), p, FF(1));
-        return result;
-    };
-
-    struct ColumnSpec {
-        Flavor::Polynomial ProverPolynomials::* poly;
-        const char* name;
-    };
 
     // These are the columns claimed to be harmless in the eccvm_flavor.hpp doc.
     std::vector<ColumnSpec> harmless_columns = {
@@ -545,7 +580,6 @@ TEST_F(ECCVMRelationCorruptionTests, HarmlessColumnsUnconstrainedAtLagrangeFirst
         { &ProverPolynomials::precompute_dy, "precompute_dy (col 5)" },
         { &ProverPolynomials::precompute_tx, "precompute_tx (col 6)" },
         { &ProverPolynomials::precompute_ty, "precompute_ty (col 7)" },
-        { &ProverPolynomials::msm_transition, "msm_transition (col 8)" },
         { &ProverPolynomials::msm_accumulator_x, "msm_accumulator_x (col 12)" },
         { &ProverPolynomials::msm_accumulator_y, "msm_accumulator_y (col 13)" },
         { &ProverPolynomials::msm_count, "msm_count (col 14)" },
@@ -558,31 +592,91 @@ TEST_F(ECCVMRelationCorruptionTests, HarmlessColumnsUnconstrainedAtLagrangeFirst
         auto polynomials = build_valid_eccvm_msm_state();
         ASSERT_EQ(polynomials.lagrange_first[first_row], FF(1));
 
-        auto tx_clean = eval_at_row.template operator()<ECCVMTranscriptRelation<FF>>(polynomials, params, first_row);
-        auto msm_clean = eval_at_row.template operator()<ECCVMMSMRelation<FF>>(polynomials, params, first_row);
-        auto wnaf_clean = eval_at_row.template operator()<ECCVMWnafRelation<FF>>(polynomials, params, first_row);
-        auto pt_clean = eval_at_row.template operator()<ECCVMPointTableRelation<FF>>(polynomials, params, first_row);
+        // SetRelation needs grand product params
+        auto params = compute_full_relation_params(polynomials);
 
+        // Evaluate all six relation families at exactly the lagrange_first row (clean baseline)
+        auto tx_clean = eval_relation_at_row<ECCVMTranscriptRelation<FF>>(polynomials, params, first_row);
+        auto msm_clean = eval_relation_at_row<ECCVMMSMRelation<FF>>(polynomials, params, first_row);
+        auto wnaf_clean = eval_relation_at_row<ECCVMWnafRelation<FF>>(polynomials, params, first_row);
+        auto pt_clean = eval_relation_at_row<ECCVMPointTableRelation<FF>>(polynomials, params, first_row);
+        auto bools_clean = eval_relation_at_row<ECCVMBoolsRelation<FF>>(polynomials, params, first_row);
+        auto set_clean = eval_relation_at_row<ECCVMSetRelation<FF>>(polynomials, params, first_row);
+
+        // Corrupt
         (polynomials.*col.poly).at(first_row) = FF::random_element(&engine);
         polynomials.set_shifted();
 
-        auto tx_dirty = eval_at_row.template operator()<ECCVMTranscriptRelation<FF>>(polynomials, params, first_row);
-        auto msm_dirty = eval_at_row.template operator()<ECCVMMSMRelation<FF>>(polynomials, params, first_row);
-        auto wnaf_dirty = eval_at_row.template operator()<ECCVMWnafRelation<FF>>(polynomials, params, first_row);
-        auto pt_dirty = eval_at_row.template operator()<ECCVMPointTableRelation<FF>>(polynomials, params, first_row);
+        // Re-evaluate after corruption
+        auto tx_dirty = eval_relation_at_row<ECCVMTranscriptRelation<FF>>(polynomials, params, first_row);
+        auto msm_dirty = eval_relation_at_row<ECCVMMSMRelation<FF>>(polynomials, params, first_row);
+        auto wnaf_dirty = eval_relation_at_row<ECCVMWnafRelation<FF>>(polynomials, params, first_row);
+        auto pt_dirty = eval_relation_at_row<ECCVMPointTableRelation<FF>>(polynomials, params, first_row);
+        auto bools_dirty = eval_relation_at_row<ECCVMBoolsRelation<FF>>(polynomials, params, first_row);
+        auto set_dirty = eval_relation_at_row<ECCVMSetRelation<FF>>(polynomials, params, first_row);
 
-        auto check = [&](const auto& clean, const auto& dirty, const char* rel) {
-            for (size_t i = 0; i < clean.size(); i++) {
-                if (clean[i] == FF(0) && dirty[i] != FF(0)) {
-                    ADD_FAILURE() << col.name << " is NOT harmless: " << rel << " subrelation " << i
-                                  << " became non-zero at lagrange_first row";
-                }
-            }
-        };
-        check(tx_clean, tx_dirty, "TranscriptRelation");
-        check(msm_clean, msm_dirty, "MSMRelation");
-        check(wnaf_clean, wnaf_dirty, "WnafRelation");
-        check(pt_clean, pt_dirty, "PointTableRelation");
+        expect_no_new_nonzero(tx_clean, tx_dirty, "TranscriptRelation", col.name);
+        expect_no_new_nonzero(msm_clean, msm_dirty, "MSMRelation", col.name);
+        expect_no_new_nonzero(wnaf_clean, wnaf_dirty, "WnafRelation", col.name);
+        expect_no_new_nonzero(pt_clean, pt_dirty, "PointTableRelation", col.name);
+        expect_no_new_nonzero(bools_clean, bools_dirty, "BoolsRelation", col.name);
+        expect_no_new_nonzero(set_clean, set_dirty, "SetRelation", col.name);
+    }
+}
+
+/**
+ * @brief Verify that "self-consistency" shiftable columns ARE caught by existing relations.
+ *
+ * @details These columns participate in relations that are NOT gated off at the lagrange_first row.
+ * Corrupting them must produce a non-zero relation contribution, proving sumcheck would catch it.
+ * We check all six relation families (excluding LookupRelation for the same reason as above).
+ */
+TEST_F(ECCVMRelationCorruptionTests, SelfConsistencyColumnsCaughtAtLagrangeFirst)
+{
+    const size_t first_row = NUM_DISABLED_ROWS_IN_SUMCHECK;
+
+    std::vector<ColumnSpec> self_consistency_columns = {
+        { &ProverPolynomials::transcript_mul, "transcript_mul (col 0)" },
+        { &ProverPolynomials::transcript_msm_count, "transcript_msm_count (col 1)" },
+        { &ProverPolynomials::msm_transition, "msm_transition (col 8)" },
+        { &ProverPolynomials::msm_add, "msm_add (col 9)" },
+        { &ProverPolynomials::msm_double, "msm_double (col 10)" },
+        { &ProverPolynomials::msm_skew, "msm_skew (col 11)" },
+        { &ProverPolynomials::msm_add1, "msm_add1 (col 16)" },
+        { &ProverPolynomials::precompute_pc, "precompute_pc (col 18)" },
+        { &ProverPolynomials::precompute_select, "precompute_select (col 21)" },
+        { &ProverPolynomials::transcript_accumulator_x, "transcript_accumulator_x (col 23)" },
+        { &ProverPolynomials::transcript_accumulator_y, "transcript_accumulator_y (col 24)" },
+    };
+
+    for (const auto& col : self_consistency_columns) {
+        auto polynomials = build_valid_eccvm_msm_state();
+        ASSERT_EQ(polynomials.lagrange_first[first_row], FF(1));
+        RelationParameters<FF> params{};
+
+        // Evaluate all relation families at the lagrange_first row (clean baseline)
+        auto tx_clean = eval_relation_at_row<ECCVMTranscriptRelation<FF>>(polynomials, params, first_row);
+        auto msm_clean = eval_relation_at_row<ECCVMMSMRelation<FF>>(polynomials, params, first_row);
+        auto wnaf_clean = eval_relation_at_row<ECCVMWnafRelation<FF>>(polynomials, params, first_row);
+        auto pt_clean = eval_relation_at_row<ECCVMPointTableRelation<FF>>(polynomials, params, first_row);
+        auto bools_clean = eval_relation_at_row<ECCVMBoolsRelation<FF>>(polynomials, params, first_row);
+
+        // Corrupt
+        (polynomials.*col.poly).at(first_row) = FF::random_element(&engine);
+        polynomials.set_shifted();
+
+        // Re-evaluate
+        auto tx_dirty = eval_relation_at_row<ECCVMTranscriptRelation<FF>>(polynomials, params, first_row);
+        auto msm_dirty = eval_relation_at_row<ECCVMMSMRelation<FF>>(polynomials, params, first_row);
+        auto wnaf_dirty = eval_relation_at_row<ECCVMWnafRelation<FF>>(polynomials, params, first_row);
+        auto pt_dirty = eval_relation_at_row<ECCVMPointTableRelation<FF>>(polynomials, params, first_row);
+        auto bools_dirty = eval_relation_at_row<ECCVMBoolsRelation<FF>>(polynomials, params, first_row);
+
+        // At least one relation must catch the corruption
+        bool caught = has_new_nonzero(tx_clean, tx_dirty) || has_new_nonzero(msm_clean, msm_dirty) ||
+                      has_new_nonzero(wnaf_clean, wnaf_dirty) || has_new_nonzero(pt_clean, pt_dirty) ||
+                      has_new_nonzero(bools_clean, bools_dirty);
+        EXPECT_TRUE(caught) << col.name << " corruption at lagrange_first row was NOT caught by any relation";
     }
 }
 
@@ -591,6 +685,10 @@ TEST_F(ECCVMRelationCorruptionTests, HarmlessColumnsUnconstrainedAtLagrangeFirst
 // Without it, a malicious prover can set accumulator_not_empty = 1 at the lagrange_first row,
 // disabling INFINITY_ACC_X/Y and injecting arbitrary accumulator coordinates undetected.
 // Once the constraint is added, flip this test: EXPECT_FALSE(no_new_nonzero(...)) for TranscriptRelation.
+//
+// Note: transcript_accumulator_x/y (cols 23-24) are in the self-consistency category above ONLY because
+// INFINITY_ACC_X/Y catches them when accumulator_not_empty = 0. If a malicious prover ALSO corrupts
+// accumulator_not_empty to 1, then acc_x/y become unconstrained — see the test below.
 
 /**
  * @brief Demonstrate that transcript_accumulator_not_empty is UNCONSTRAINED at the lagrange_first row.
@@ -600,7 +698,7 @@ TEST_F(ECCVMRelationCorruptionTests, HarmlessColumnsUnconstrainedAtLagrangeFirst
  * accumulator is "empty"). This allows injecting arbitrary accumulator coordinates at row k
  * without any relation firing.
  *
- * This test proves the gap exists: all four ECCVM relation families evaluate to the same values
+ * This test proves the gap exists: all six ECCVM relation families evaluate to the same values
  * at the lagrange_first row before and after the corruption. No subrelation catches it.
  *
  * Fix: add `lagrange_first * transcript_accumulator_not_empty = 0` to the transcript relation.
@@ -608,26 +706,20 @@ TEST_F(ECCVMRelationCorruptionTests, HarmlessColumnsUnconstrainedAtLagrangeFirst
 TEST_F(ECCVMRelationCorruptionTests, AccumulatorNotEmptyUnconstrainedAtLagrangeFirst)
 {
     const size_t first_row = NUM_DISABLED_ROWS_IN_SUMCHECK;
-    RelationParameters<FF> params{};
-
-    // Helper: evaluate a relation at a single row, returning per-subrelation values
-    auto eval_at_row = []<typename Relation>(const auto& polys, const auto& p, size_t row) {
-        typename Relation::SumcheckArrayOfValuesOverSubrelations result{};
-        for (auto& e : result) {
-            e = FF(0);
-        }
-        Relation::accumulate(result, polys.get_row(row), p, FF(1));
-        return result;
-    };
 
     auto polynomials = build_valid_eccvm_msm_state();
     ASSERT_EQ(polynomials.lagrange_first[first_row], FF(1));
 
-    // Baseline at the lagrange_first row
-    auto tx_clean = eval_at_row.template operator()<ECCVMTranscriptRelation<FF>>(polynomials, params, first_row);
-    auto msm_clean = eval_at_row.template operator()<ECCVMMSMRelation<FF>>(polynomials, params, first_row);
-    auto wnaf_clean = eval_at_row.template operator()<ECCVMWnafRelation<FF>>(polynomials, params, first_row);
-    auto pt_clean = eval_at_row.template operator()<ECCVMPointTableRelation<FF>>(polynomials, params, first_row);
+    // SetRelation needs grand product params
+    auto params = compute_full_relation_params(polynomials);
+
+    // Baseline at the lagrange_first row — all six relation families
+    auto tx_clean = eval_relation_at_row<ECCVMTranscriptRelation<FF>>(polynomials, params, first_row);
+    auto msm_clean = eval_relation_at_row<ECCVMMSMRelation<FF>>(polynomials, params, first_row);
+    auto wnaf_clean = eval_relation_at_row<ECCVMWnafRelation<FF>>(polynomials, params, first_row);
+    auto pt_clean = eval_relation_at_row<ECCVMPointTableRelation<FF>>(polynomials, params, first_row);
+    auto bools_clean = eval_relation_at_row<ECCVMBoolsRelation<FF>>(polynomials, params, first_row);
+    auto set_clean = eval_relation_at_row<ECCVMSetRelation<FF>>(polynomials, params, first_row);
 
     // Corrupt: set accumulator_not_empty = 1 and inject arbitrary accumulator coordinates.
     // With accumulator_not_empty = 1, is_accumulator_empty = 0, so INFINITY_ACC_X/Y no longer
@@ -637,23 +729,19 @@ TEST_F(ECCVMRelationCorruptionTests, AccumulatorNotEmptyUnconstrainedAtLagrangeF
     polynomials.transcript_accumulator_y.at(first_row) = FF::random_element(&engine);
     polynomials.set_shifted();
 
-    // Evaluate after corruption
-    auto tx_dirty = eval_at_row.template operator()<ECCVMTranscriptRelation<FF>>(polynomials, params, first_row);
-    auto msm_dirty = eval_at_row.template operator()<ECCVMMSMRelation<FF>>(polynomials, params, first_row);
-    auto wnaf_dirty = eval_at_row.template operator()<ECCVMWnafRelation<FF>>(polynomials, params, first_row);
-    auto pt_dirty = eval_at_row.template operator()<ECCVMPointTableRelation<FF>>(polynomials, params, first_row);
+    // Evaluate after corruption — all six relation families
+    auto tx_dirty = eval_relation_at_row<ECCVMTranscriptRelation<FF>>(polynomials, params, first_row);
+    auto msm_dirty = eval_relation_at_row<ECCVMMSMRelation<FF>>(polynomials, params, first_row);
+    auto wnaf_dirty = eval_relation_at_row<ECCVMWnafRelation<FF>>(polynomials, params, first_row);
+    auto pt_dirty = eval_relation_at_row<ECCVMPointTableRelation<FF>>(polynomials, params, first_row);
+    auto bools_dirty = eval_relation_at_row<ECCVMBoolsRelation<FF>>(polynomials, params, first_row);
+    auto set_dirty = eval_relation_at_row<ECCVMSetRelation<FF>>(polynomials, params, first_row);
 
     // No relation should catch this — that's the gap.
-    auto no_new_nonzero = [](const auto& clean, const auto& dirty) {
-        for (size_t i = 0; i < clean.size(); i++) {
-            if (clean[i] == FF(0) && dirty[i] != FF(0)) {
-                return false;
-            }
-        }
-        return true;
-    };
-    EXPECT_TRUE(no_new_nonzero(tx_clean, tx_dirty)) << "TranscriptRelation should not catch this";
-    EXPECT_TRUE(no_new_nonzero(msm_clean, msm_dirty)) << "MSMRelation should not catch this";
-    EXPECT_TRUE(no_new_nonzero(wnaf_clean, wnaf_dirty)) << "WnafRelation should not catch this";
-    EXPECT_TRUE(no_new_nonzero(pt_clean, pt_dirty)) << "PointTableRelation should not catch this";
+    EXPECT_FALSE(has_new_nonzero(tx_clean, tx_dirty)) << "TranscriptRelation should not catch this";
+    EXPECT_FALSE(has_new_nonzero(msm_clean, msm_dirty)) << "MSMRelation should not catch this";
+    EXPECT_FALSE(has_new_nonzero(wnaf_clean, wnaf_dirty)) << "WnafRelation should not catch this";
+    EXPECT_FALSE(has_new_nonzero(pt_clean, pt_dirty)) << "PointTableRelation should not catch this";
+    EXPECT_FALSE(has_new_nonzero(bools_clean, bools_dirty)) << "BoolsRelation should not catch this";
+    EXPECT_FALSE(has_new_nonzero(set_clean, set_dirty)) << "SetRelation should not catch this";
 }

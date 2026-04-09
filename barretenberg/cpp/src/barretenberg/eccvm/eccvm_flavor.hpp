@@ -406,7 +406,7 @@ class ECCVMFlavor {
      *   - precompute_dx/dy (cols 4-5), precompute_tx/ty (cols 6-7): gated by (-lagrange_first + 1).
      *   - msm_accumulator_x/y (cols 12-13): gated by (-lagrange_first + 1) in IDLE_ROW_PRESERVES_ACC
      *     and by operation selectors elsewhere.
-     *   - msm_transition (col 8), msm_count (col 14), msm_round (col 15), msm_pc (col 17):
+     *   - msm_count (col 14), msm_round (col 15), msm_pc (col 17):
      *     gated by is_not_first_row or by operation selectors in all relation terms.
      *   - transcript_pc (col 19): gated by is_not_first_row in PC_UPDATE; gated by transcript_mul (= 0)
      *     and transcript_msm_transition (= 0) in the set relation denominator.
@@ -419,6 +419,7 @@ class ECCVMFlavor {
      * with non-shiftable columns (e.g., `op = 0` at the empty first row).
      *
      *   - transcript_mul (col 0): OPCODE_WELL_FORMED catches mismatch with non-shiftable `op`.
+     *   - msm_transition (col 8): BoolsRelation catches non-boolean values.
      *   - transcript_msm_count (col 1): MSM_COUNT_ZERO_WHEN_NOT_MUL forces msm_count = 0 when q_mul = 0.
      *   - msm_add (col 9): activates ADD_ACC_X/Y, ADD1_DECOMPOSITION — all require consistent data.
      *   - msm_double (col 10): activates DOUBLE_ACC_X/Y.
@@ -427,8 +428,10 @@ class ECCVMFlavor {
      *   - precompute_pc (col 18): INACTIVE_PC forces pc = 0 when precompute_select = 0.
      *   - precompute_select (col 21): activates SCALAR_SUM_CHECK, ROUND_CHECK, PC_CHECK.
      *   - transcript_accumulator_x/y (cols 23-24): INFINITY_ACC_X/Y forces acc = 0 when
-     *     accumulator_not_empty = 0 (the honest value). Only exploitable if accumulator_not_empty is
-     *     also corrupted — see the transcript_accumulator_not_empty entry above.
+     *     accumulator_not_empty = 0. **WARNING**: this safety depends on transcript_accumulator_not_empty
+     *     being constrained to 0 at the lagrange_first row. If a malicious prover sets
+     *     accumulator_not_empty = 1, INFINITY_ACC_X/Y is disabled and acc_x/y become unconstrained.
+     *     Fixing the transcript_accumulator_not_empty gap (above) also fixes acc_x/y.
      */
     template <typename DataType> class ShiftedEntities {
       public:
