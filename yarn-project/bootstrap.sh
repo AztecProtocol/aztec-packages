@@ -224,9 +224,17 @@ function test_cmds {
   # Aztec CLI tests
   aztec/bootstrap.sh test_cmds
 
-  if [[ "${TARGET_BRANCH:-}" =~ ^v[0-9]+$ ]]; then
-    echo "$hash yarn-project/scripts/run_test.sh aztec/src/testnet_compatibility.test.ts"
-    echo "$hash yarn-project/scripts/run_test.sh aztec/src/mainnet_compatibility.test.ts"
+  if [[ "${TARGET_BRANCH:-}" =~ ^(v[0-9]+(-next)?|backport-to-v[0-9]+-(staging|next))$ ]]; then
+    # Mix in hashes of pinned artifact archives so the test cache busts when they change.
+    # These archives contain protocol contracts, VKs, and circuit artifacts that determine
+    # the on-chain genesis state the compatibility tests verify against.
+    local compat_hash=$(hash_str $hash \
+      $(cache_content_hash \
+        "^noir-projects/noir-contracts/pinned-protocol-contracts.tar.gz" \
+        "^noir-projects/noir-protocol-circuits/pinned-build.tar.gz" \
+        "^noir-projects/mock-protocol-circuits/pinned-build.tar.gz"))
+    echo "$compat_hash yarn-project/scripts/run_test.sh aztec/src/testnet_compatibility.test.ts"
+    echo "$compat_hash yarn-project/scripts/run_test.sh aztec/src/mainnet_compatibility.test.ts"
   fi
 }
 
