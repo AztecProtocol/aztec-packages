@@ -26,9 +26,12 @@ namespace bb {
 // Constructor
 Chonk::Chonk(size_t num_circuits)
     : num_circuits(num_circuits)
+#ifndef __wasm__
+    // Launch async IPA claim generation to overlap with early accumulation work (not supported in WASM)
     , random_ipa_claim_future_(std::async(std::launch::async, [] {
                                    return IPA<curve::Grumpkin>::create_random_valid_ipa_claim_and_proof_native();
                                }).share())
+#endif
 {
     BB_ASSERT_GTE(num_circuits, 4UL, "Number of circuits must be at least 4 (get_queue_type uses num_circuits - 3).");
 }
@@ -456,9 +459,13 @@ void Chonk::complete_kernel_circuit_logic(ClientCircuit& circuit)
     PairingPoints pairing_points_aggregator = PairingPoints::aggregate_multiple(points_accumulator);
 
     // Output differs based on kernel type: HidingKernelIO (no accum hash) vs KernelIO (with accum hash)
-    // For init kernel, use the pre-computed random IPA claim (generated asynchronously during Chonk construction)
+    // For init kernel, use the pre-computed random IPA claim (async on native, synchronous on WASM)
     if (is_init_kernel) {
+#ifndef __wasm__
         auto native_ipa = random_ipa_claim_future_.get();
+#else
+        auto native_ipa = IPA<curve::Grumpkin>::create_random_valid_ipa_claim_and_proof_native();
+#endif
         auto [stdlib_opening_claim, init_ipa_proof] =
             IPA<KernelIO::GrumpkinCurve>::wrap_native_ipa_claim(circuit, native_ipa);
         propagated_ipa_claim = stdlib_opening_claim;

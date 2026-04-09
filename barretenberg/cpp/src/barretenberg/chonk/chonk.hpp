@@ -192,8 +192,10 @@ class Chonk : public IVCBase {
     // IPA proof for the current IPA claim accumulator, needed for future IPA accumulation in goblin flush kernels
     HonkProof ipa_proof;
 
+#ifndef __wasm__
     // Pre-computed random IPA claim for the init kernel, generated asynchronously during setup
     std::shared_future<NativeIpaClaimAndProof> random_ipa_claim_future_;
+#endif
 
     // Goblin flush support
     HonkProof flush_ipa_proof; // IPA proof from A_G's internal circuit
