@@ -8,7 +8,7 @@ use crate::protocol::traits::{Deserialize, Serialize};
 /// ephemeral arrays, and vice versa.
 ///
 /// Each logical array operation (push, pop, get, etc.) is a single oracle call, making ephemeral arrays significantly
-/// cheaper than capsule arrays and more appropriate for transient data that is never supposed to be persisted anyway.
+/// cheaper than capsule arrays.
 ///
 /// ## Use Cases
 ///
