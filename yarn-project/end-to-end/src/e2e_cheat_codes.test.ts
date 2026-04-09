@@ -4,7 +4,7 @@ import { createExtendedL1Client } from '@aztec/ethereum/client';
 import type { Anvil } from '@aztec/ethereum/test';
 import type { ExtendedViemWalletClient } from '@aztec/ethereum/types';
 import { DateProvider } from '@aztec/foundation/timer';
-import type { AztecNode, AztecNodeDebug } from '@aztec/stdlib/interfaces/client';
+import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 
 import { parseEther } from 'viem';
 import { mnemonicToAccount } from 'viem/accounts';
@@ -140,24 +140,19 @@ describe('e2e_cheat_codes', () => {
   describe('L2 debug time manipulation', () => {
     let context: EndToEndContext;
     let aztecNode: AztecNode;
-    let aztecNodeDebug: AztecNodeDebug;
-    let ethCheatCodes: EthCheatCodes;
 
     beforeAll(async () => {
       context = await setup(0);
       aztecNode = context.aztecNode;
-      aztecNodeDebug = context.aztecNodeService;
-      ethCheatCodes = context.ethCheatCodes;
     });
 
     afterAll(async () => {
       await context.teardown();
     });
 
-    it('warp + mineBlock produces a block with the target timestamp', async () => {
+    it('warpL2TimeAtLeastTo produces a block with the target timestamp', async () => {
       const targetTimestamp = Math.floor(Date.now() / 1000) + 1000;
-      await ethCheatCodes.warp(targetTimestamp);
-      await aztecNodeDebug.mineBlock();
+      await context.cheatCodes.warpL2TimeAtLeastTo(context.aztecNodeService, targetTimestamp);
 
       const blockNumber = await aztecNode.getBlockNumber();
       const block = await aztecNode.getBlock(blockNumber);
@@ -165,14 +160,12 @@ describe('e2e_cheat_codes', () => {
       expect(Number(block!.header.globalVariables.timestamp)).toBeGreaterThanOrEqual(targetTimestamp);
     });
 
-    it('warp + mineBlock advances time by duration', async () => {
+    it('warpL2TimeAtLeastBy advances time by duration', async () => {
       const blockBeforeAdvance = await aztecNode.getBlock(await aztecNode.getBlockNumber());
       const timestampBefore = Number(blockBeforeAdvance!.header.globalVariables.timestamp);
 
       const advancement = 100;
-      const currentL1Timestamp = await ethCheatCodes.lastBlockTimestamp();
-      await ethCheatCodes.warp(currentL1Timestamp + advancement);
-      await aztecNodeDebug.mineBlock();
+      await context.cheatCodes.warpL2TimeAtLeastBy(context.aztecNodeService, advancement);
 
       const blockNumber = await aztecNode.getBlockNumber();
       const block = await aztecNode.getBlock(blockNumber);

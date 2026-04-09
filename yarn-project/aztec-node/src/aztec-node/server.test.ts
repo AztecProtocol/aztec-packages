@@ -200,7 +200,6 @@ describe('aztec node', () => {
       getPackageVersion() ?? '',
       new TestCircuitVerifier(),
       new TestCircuitVerifier(),
-      new DateProvider(),
     );
   });
 
@@ -743,7 +742,6 @@ describe('aztec node', () => {
           getPackageVersion() ?? '',
           new TestCircuitVerifier(),
           new TestCircuitVerifier(),
-          new DateProvider(),
           undefined,
           undefined,
           undefined,
@@ -933,7 +931,6 @@ describe('aztec node', () => {
           getPackageVersion() ?? '',
           new TestCircuitVerifier(),
           new TestCircuitVerifier(),
-          new DateProvider(),
           undefined,
           undefined,
           undefined,
@@ -1004,7 +1001,6 @@ describe('aztec node', () => {
         getPackageVersion() ?? '',
         new TestCircuitVerifier(),
         new TestCircuitVerifier(),
-        new DateProvider(),
       );
     });
 
