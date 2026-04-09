@@ -105,10 +105,35 @@ namespace tx;
     * Trace Shape and Some Selectors
     **************************************************************************/
 
-    // The active trace can only start after the first row and be contiguous.
-    #[TRACE_CONTINUITY]
-    (1 - precomputed.first_row) * (1 - sel) * sel' = 0;
+    // ==== MULTI-ROW COMPUTATION SELECTORS ====
+    // See recipe: https://github.com/AztecProtocol/aztec-packages/blob/next/barretenberg/cpp/pil/vm2/docs/recipes.md#contiguous-multi-rows-computation-trace
+    // The recipe is applied with the selectors: start_phase, end_phase (instead of start and end).
+    // Furthermore, we slightly modify #[SEL_ON_START_OR_END] relation to also include start_tx (#[SEL_ACTIVE_ON_SOME_VARIOUS_SELECTORS]).
 
+    pol commit start_phase; // @boolean
+    start_phase * (1 - start_phase) = 0;
+    pol commit end_phase; // @boolean
+    end_phase * (1 - end_phase) = 0;
+
+    pol LATCH_CONDITION = end_phase + precomputed.first_row;
+
+    // If start_phase or end_phase or start_tx is active, sel must be active.
+    #[SEL_ACTIVE_ON_SOME_VARIOUS_SELECTORS]
+    (start_tx + start_phase + end_phase) * (1 - sel) = 0;
+
+    // sel is continuous within a computation block: it cannot change except at a latch.
+    #[TRACE_CONTINUITY]
+    (1 - LATCH_CONDITION) * (sel - sel') = 0;
+
+    // A new computation block must start immediately after a latch.
+    #[START_AFTER_LATCH]
+    sel' * (start_phase' - LATCH_CONDITION) = 0;
+
+    // `sel * (1 - end_phase) = sel - end_phase * sel` and since `end_phase == 1 ==> sel == 1`
+    // we have `end_phase * sel = end_phase`.
+    pol NOT_PHASE_END = sel - end_phase; // @boolean
+
+    // ==== OTHER SELECTORS ====
     // Most of transaction initial constraints are in tx_context.pil
     pol commit start_tx; // @boolean by definition
     #[START_WITH_SEL]
@@ -138,31 +163,21 @@ namespace tx;
     // A padded row can't revert
     is_padded * reverted = 0;
 
-    pol commit start_phase; // @boolean
-    start_phase * (1 - start_phase) = 0;
-    pol commit end_phase; // @boolean
-    end_phase * (1 - end_phase) = 0;
+    #[IS_PADDED_OR_REVERTED_END_PHASE]
+    (is_padded + reverted) * (1 - end_phase) = 0;
+    // From #[SEL_ACTIVE_ON_SOME_VARIOUS_SELECTORS], we transitively get `(is_padded = 1 || reverted = 1) ==> sel == 1`.
 
     // If the phase is not padded, nor reverted, `remaining_phase_counter == 1 <==> end_phase = 1`
     pol REM_COUNT_MINUS_1 = remaining_phase_counter - 1;
     pol commit remaining_phase_minus_one_inv;
     #[REM_COUNT_IS_ONE]
-    sel * (1 - reverted) * (1 - is_padded) * (REM_COUNT_MINUS_1 * (end_phase * (1 - remaining_phase_minus_one_inv) + remaining_phase_minus_one_inv) - 1 + end_phase) = 0;
-
-    #[IS_PADDED_OR_REVERTED_END_PHASE]
-    (is_padded + reverted) * (1 - end_phase) = 0;
-
-    // sel == 1 when start_tx, is_padded, reverted, start_phase or end_phase is 1.
-    #[SEL_ACTIVE_ON_SOME_VARIOUS_SELECTORS]
-    (start_tx + start_phase + end_phase) * (1 - sel) = 0;
-    // From #[IS_PADDED_OR_REVERTED_END_PHASE], we transitively get `(is_padded = 1 || reverted = 1) ==> sel == 1`.
+    (sel - reverted - is_padded) * (REM_COUNT_MINUS_1 * (end_phase * (1 - remaining_phase_minus_one_inv) + remaining_phase_minus_one_inv) - 1 + end_phase) = 0;
+    // Note that `sel - reverted - is_padded == sel * (1 - reverted) * (1 - is_padded)` because
+    // `reverted == 1 ==> sel == 1`, `is_padded == 1 ==> sel == 1` and both are mutually exclusive.
 
     // Sel can only become off after the last phase (cleanup)
     #[NO_EARLY_END]
     sel * (1 - sel') * (phase_value - constants.AVM_TX_PHASE_VALUE_LAST) = 0;
-
-    #[START_FOLLOWS_END]
-    sel' * (start_phase' - end_phase - precomputed.first_row) = 0;
 
    /***************************************************************************
     * Control Flow
@@ -171,7 +186,6 @@ namespace tx;
     start_tx * (phase_value - constants.AVM_TX_PHASE_VALUE_START) = 0;
 
     // Phase_value stays the same unless we are at end_phase (or reverted)
-    pol NOT_PHASE_END = sel * (1 - end_phase);
     #[PHASE_VALUE_CONTINUITY]
     NOT_PHASE_END * (phase_value' - phase_value) = 0;
     // At the start of a new phase, we need to increment the phase value
@@ -266,7 +280,7 @@ namespace tx;
     pol commit calldata_hash;
 
     pol commit should_process_call_request; // @boolean on active rows (follows from definition)
-    should_process_call_request = sel * is_public_call_request * (1 - is_padded);
+    should_process_call_request = (sel - is_padded) * is_public_call_request;
 
     // Read information relating to the public call request from public inputs
     #[READ_PUBLIC_CALL_REQUEST_PHASE]
@@ -477,7 +491,7 @@ namespace tx;
 
     // ===== NOTE HASHES =====
     pol commit should_try_note_hash_append; // @boolean (follows from definition)
-    should_try_note_hash_append = sel * (1 - is_padded) * (sel_revertible_append_note_hash + sel_non_revertible_append_note_hash);
+    should_try_note_hash_append = (sel - is_padded) * (sel_revertible_append_note_hash + sel_non_revertible_append_note_hash);
 
     // If we are at the maximum emitted note hashes, we must revert
     pol REMAINING_NOTE_HASH_WRITES = constants.MAX_NOTE_HASHES_PER_TX - prev_num_note_hashes_emitted;
@@ -518,7 +532,7 @@ namespace tx;
 
     // ===== NULLIFIERS =====
     pol commit should_try_nullifier_append; // @boolean (follows from definition)
-    should_try_nullifier_append = sel * (1 - is_padded) * (sel_revertible_append_nullifier + sel_non_revertible_append_nullifier);
+    should_try_nullifier_append = (sel - is_padded) * (sel_revertible_append_nullifier + sel_non_revertible_append_nullifier);
 
     pol commit nullifier_limit_error; // @boolean
     nullifier_limit_error * (1 - nullifier_limit_error) = 0;
@@ -573,7 +587,7 @@ namespace tx;
 
     // ===== L2 - L1 Messages =====
     pol commit should_try_l2_l1_msg_append; // @boolean (follows from definition)
-    should_try_l2_l1_msg_append = sel * (1 - is_padded) * (sel_revertible_append_l2_l1_msg + sel_non_revertible_append_l2_l1_msg);
+    should_try_l2_l1_msg_append = (sel - is_padded) * (sel_revertible_append_l2_l1_msg + sel_non_revertible_append_l2_l1_msg);
 
     pol commit l2_l1_msg_contract_address;
     pol commit l2_l1_msg_recipient;

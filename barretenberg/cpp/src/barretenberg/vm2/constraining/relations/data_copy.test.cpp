@@ -131,7 +131,7 @@ TEST_F(NestedCdConstrainingBuilderTest, SimpleNestedCdCopy)
 }
 
 // Copying one element tests the case where the trace populates a single row
-// where both sel_start and sel_end are toggled on but is a different code path
+// where both start and end are toggled on but is a different code path
 // in tracegen than with copy_size == 0.
 TEST_F(NestedCdConstrainingBuilderTest, SimpleNestedCdCopySizeOneNoPadding)
 {

@@ -413,7 +413,7 @@ get_expected_ts_api_version() {
   fi
 }
 
-# Process a TypeScript API link found via ApiFile/ApiLink JSX props.
+# Process a TypeScript API link found via pathname:/// or JSX props.
 # These reference files under static/typescript-api/{version}/.
 # Args: $1 = source file, $2 = line number, $3 = file path (e.g., "wallets.md"),
 #        $4 = expected TS API version
@@ -422,6 +422,11 @@ process_ts_api_link() {
   local line_num="$2"
   local file_path="$3"
   local expected_version="${4:-nightly}"
+
+  # Skip unresolved preprocessor macros (e.g., #api_ref_version in source files)
+  if [[ "$expected_version" == *"#"* ]]; then
+    return
+  fi
 
   TOTAL_COUNT=$((TOTAL_COUNT + 1))
 

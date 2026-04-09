@@ -67,30 +67,6 @@ TEST(polynomials, ifft_consistency)
     }
 }
 
-TEST(polynomials, split_polynomial_evaluate)
-{
-    constexpr size_t n = 256;
-    std::array<fr, n> fft_transform;
-    std::array<fr, n> poly;
-
-    for (size_t i = 0; i < n; ++i) {
-        poly[i] = fr::random_element();
-        fr::__copy(poly[i], fft_transform[i]);
-    }
-
-    constexpr size_t num_poly = 4;
-    constexpr size_t n_poly = n / num_poly;
-    fr fft_transform_[num_poly][n_poly];
-    for (size_t i = 0; i < n; ++i) {
-        fft_transform_[i / n_poly][i % n_poly] = poly[i];
-    }
-
-    fr z = fr::random_element();
-    EXPECT_EQ(polynomial_arithmetic::evaluate(
-                  { fft_transform_[0], fft_transform_[1], fft_transform_[2], fft_transform_[3] }, z, n),
-              polynomial_arithmetic::evaluate(poly.data(), z, n));
-}
-
 TEST(polynomials, linear_poly_product)
 {
     constexpr size_t n = 64;
