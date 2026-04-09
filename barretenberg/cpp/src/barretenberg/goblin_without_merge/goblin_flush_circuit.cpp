@@ -47,8 +47,6 @@ UltraCircuitBuilder build_goblin_flush_circuit(const GoblinWithoutMergeProof& na
     // Store the IPA proof for external verification
     builder.ipa_proof = stdlib_proof.ipa_proof.get_value();
 
-    info("Goblin flush circuit (Circuit C): num gates = ", builder.get_num_finalized_gates_inefficient());
-
     return builder;
 }
 

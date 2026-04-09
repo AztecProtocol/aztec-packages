@@ -2,6 +2,7 @@
 
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/common/test.hpp"
+#include "barretenberg/dsl/acir_format/gate_count_constants.hpp"
 #include "barretenberg/eccvm/eccvm_verifier.hpp"
 #include "barretenberg/goblin/mock_circuits.hpp"
 #include "barretenberg/goblin_without_merge/goblin_without_merge.hpp"
@@ -67,6 +68,7 @@ TEST_F(GoblinFlushCircuitTests, CircuitCorrectness)
 
     EXPECT_FALSE(builder.failed()) << builder.err();
     EXPECT_TRUE(CircuitChecker::check(builder));
+    EXPECT_EQ(builder.get_num_finalized_gates_inefficient(), acir_format::GOBLIN_FLUSH_GATE_COUNT);
 }
 
 /**
