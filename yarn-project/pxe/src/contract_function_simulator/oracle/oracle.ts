@@ -146,22 +146,23 @@ export class Oracle {
             logger.warn(
               `Contract oracle version not set when looking up oracle '${prop}'. This is unexpected - the version check oracle should always be called first.`,
             );
-            throw new Error(`Oracle callback ${prop} not found`);
+            throw new Error(`Oracle callback ${prop} not found. See https://docs.aztec.network/errors/8`);
           } else if (contractVersion.minor > ORACLE_VERSION_MINOR) {
             throw new Error(
               `Oracle '${prop}' not found.` +
                 ` This usually means the contract requires a newer private execution environment than you have.` +
                 ` Upgrade your private execution environment to a compatible version.` +
-                ` The contract was compiled with aztec-nr oracle version ${contractVersion.major}.${contractVersion.minor},` +
+                ` The contract was compiled with Aztec.nr oracle version ${contractVersion.major}.${contractVersion.minor},` +
                 ` but this private execution environment only supports up to ${ORACLE_VERSION_MAJOR}.${ORACLE_VERSION_MINOR}.` +
-                ` See https://docs.aztec.network/errors/X`,
+                ` See https://docs.aztec.network/errors/8`,
             );
           } else {
             throw new Error(
               `Oracle '${prop}' not found. The contract reports oracle version ${contractVersion.major}.${contractVersion.minor}` +
-                ` and this PXE supports version ${ORACLE_VERSION_MAJOR}.${ORACLE_VERSION_MINOR}` +
+                ` and this private execution environment supports version ${ORACLE_VERSION_MAJOR}.${ORACLE_VERSION_MINOR}` +
                 ` which should include all oracles the contract needs.` +
-                ` This is likely a bug in the contract.`,
+                ` This is likely a bug in the contract.` +
+                ` See https://docs.aztec.network/errors/8`,
             );
           }
         };
