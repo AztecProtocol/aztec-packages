@@ -7,9 +7,9 @@
 #pragma once
 
 #include "barretenberg/chonk/batched_honk_translator/batched_honk_translator_prover.hpp"
-#include "barretenberg/commitment_schemes/ipa/ipa.hpp"
 #include "barretenberg/chonk/chonk_base.hpp"
 #include "barretenberg/chonk/chonk_proof.hpp"
+#include "barretenberg/commitment_schemes/ipa/ipa.hpp"
 #include "barretenberg/flavor/mega_zk_recursive_flavor.hpp"
 #include "barretenberg/goblin/goblin.hpp"
 #include "barretenberg/hypernova/hypernova_decider_prover.hpp"
