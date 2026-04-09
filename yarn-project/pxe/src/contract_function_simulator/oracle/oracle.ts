@@ -154,10 +154,12 @@ export class Oracle {
             );
           } else {
             throw new Error(
-              `Oracle '${prop}' not found. The contract reports oracle version` +
-                ` ${contractVersion.major}.${contractVersion.minor} and this private execution environment supports` +
-                ` version ${ORACLE_VERSION_MAJOR}.${ORACLE_VERSION_MINOR} which should include all oracles the` +
-                `contract needs. This is likely a bug in the contract. See https://docs.aztec.network/errors/8`,
+              `Oracle '${prop}' not found.` +
+                ` The contract's oracle version (${contractVersion.major}.${contractVersion.minor}) is compatible` +
+                ` with this private execution environment (${ORACLE_VERSION_MAJOR}.${ORACLE_VERSION_MINOR}), so all` +
+                ` standard oracles should be available. This could mean the contract was compiled against a modified` +
+                ` version of Aztec.nr, or that it references an oracle that does not exist.` +
+                ` See https://docs.aztec.network/errors/8`,
             );
           }
         };
