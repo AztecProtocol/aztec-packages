@@ -15,6 +15,14 @@ import { z } from 'zod';
 import type { UInt128 } from '../types/shared.js';
 import type { GasDimensions } from './gas.js';
 
+/** Ceiling division for non-negative bigints. */
+function ceilDiv(a: bigint, b: bigint): bigint {
+  return (a + b - 1n) / b;
+}
+
+/** Precision scale for converting fractional scalars to integer numerators (18 decimal digits). */
+const FRACTIONAL_PRECISION = 10n ** 18n;
+
 /** Gas prices for each dimension. */
 export class GasFees {
   public readonly feePerDaGas: UInt128;
@@ -60,9 +68,10 @@ export class GasFees {
       const s = BigInt(scalar);
       return new GasFees(this.feePerDaGas * s, this.feePerL2Gas * s);
     } else {
+      const numerator = BigInt(Math.round(scalar * Number(FRACTIONAL_PRECISION)));
       return new GasFees(
-        BigInt(Math.ceil(Number(this.feePerDaGas) * scalar)),
-        BigInt(Math.ceil(Number(this.feePerL2Gas) * scalar)),
+        ceilDiv(this.feePerDaGas * numerator, FRACTIONAL_PRECISION),
+        ceilDiv(this.feePerL2Gas * numerator, FRACTIONAL_PRECISION),
       );
     }
   }
