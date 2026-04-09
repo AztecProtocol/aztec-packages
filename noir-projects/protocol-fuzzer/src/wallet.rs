@@ -302,7 +302,7 @@ impl Bridge {
     /// `contract` and `raw_tag`.  The bridge computes the siloed tag via
     /// `poseidon2_hash_with_separator([contract, rawTag], DOM_SEP)`
     /// and queries `getPrivateLogsByTags`.
-    /// (In production, tags are derived from a sender↔recipient shared secret;
+    /// (In production, tags are derived from a sender<->recipient shared secret;
     /// the fuzzer contract uses `emit_private_log_unsafe` with arbitrary
     /// plaintext tags instead.)
     pub fn query_private_logs(
@@ -334,7 +334,7 @@ impl Bridge {
         Ok(logs)
     }
 
-    /// Compute the L2→L1 message hash that an L1 recipient would check against
+    /// Compute the L2->L1 message hash that an L1 recipient would check against
     /// the outbox.  Delegates to the bridge which has access to chain ID and
     /// rollup version.
     pub fn compute_l2_to_l1_hash(

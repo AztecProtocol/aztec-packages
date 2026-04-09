@@ -189,6 +189,24 @@ impl<'a> SideEffectSystem<'a> {
         )
     }
 
+    /// Run one-shot kernel exercisers once during setup. These operations
+    /// always succeed and have no parameters to vary, so a single execution
+    /// proves the kernel plumbing works. Running them here (instead of
+    /// repeatedly during fuzzing) saves ~5-13s per redundant tx.
+    pub(crate) fn run_one_shot_smoke_tests(&self) -> anyhow::Result<()> {
+        let cmds = [
+            SideEffectCommand::RequestOvskApp { from: 0, via_parent: false },
+            SideEffectCommand::TestSettingTeardown { from: 0, via_parent: false },
+            SideEffectCommand::RequestOvskApp { from: 0, via_parent: true },
+            SideEffectCommand::TestSettingTeardown { from: 0, via_parent: true },
+        ];
+        for cmd in &cmds {
+            self.execute_command(cmd)
+                .map_err(|e| anyhow::anyhow!("one-shot smoke test {:?} failed: {e}", cmd))?;
+        }
+        Ok(())
+    }
+
     pub(crate) fn new(bridge: &'a Bridge, artifacts_dir: &str) -> Self {
         let dir = std::path::Path::new(artifacts_dir)
             .canonicalize()

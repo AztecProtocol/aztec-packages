@@ -28,6 +28,13 @@ pub struct SideEffectMachine<'a> {
     /// Directory containing compiled contract JSON artifacts (resolved to
     /// an absolute path in `SideEffectSystem::new`).
     pub artifacts_dir: String,
+    /// Include RequestOvskApp and TestSettingTeardown in the random command pool.
+    /// These are "one-shot" kernel exercisers: they always succeed, have no
+    /// parameters to vary meaningfully, and produce no model state. A single
+    /// execution (done automatically in `new_system()`) proves the kernel
+    /// plumbing works; repeating them wastes ~5-13s per tx without finding new
+    /// bugs. Enable with `--include-one-shots` for exhaustive runs.
+    pub include_one_shots: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -163,9 +170,9 @@ impl SideEffectCommand {
     /// Whether this command changes the fuzzer's model state.
     ///
     /// Three categories emerge from `(changes_model, flushes_batch)`:
-    /// - `(true,  false)`: stateful sends — create notes, emit nullifiers, etc.
-    /// - `(false, true)`:  queries — read committed state, verify against model.
-    /// - `(false, false)`: kernel exercisers — fire-and-confirm sends that
+    /// - `(true,  false)`: stateful sends -- create notes, emit nullifiers, etc.
+    /// - `(false, true)`:  queries -- read committed state, verify against model.
+    /// - `(false, false)`: kernel exercisers -- fire-and-confirm sends that
     ///   exercise kernel plumbing (key validation, public teardown) without
     ///   producing observable model state.
     pub fn changes_model(&self) -> bool {
@@ -426,17 +433,38 @@ impl<'a> smt::StateMachine for SideEffectMachine<'a> {
     ) -> arbitrary::Result<Self::Command> {
         let pop = populated_slots(state);
 
-        // Build command list based on preconditions. Mutations have extra weight
-        // so queries (which flush the parallel batch) are ~15% of commands.
+        // Weighted command generation. Three tiers of fuzzing value:
+        //
+        // 1. HIGH VALUE -- stateful, with failure paths:
+        //    Notes (create/destroy/query/inclusion) and nullifiers (emit/inclusion).
+        //    These maintain model state and verify it against sandbox queries.
+        //    Failure paths (empty-slot destroy, duplicate nullifier) are exercised
+        //    naturally as the random state evolves.
+        //
+        // 2. MEANINGFUL -- always succeed, per-command verification:
+        //    L2->L1 messages and private logs. Always succeed (no preconditions),
+        //    but each emission is verified individually: message hash in TxEffect,
+        //    log discoverable via siloed tag with correct content. Private logs
+        //    also verify per-tag completeness against the model.
+        //
+        // 3. ONE-SHOT -- success-only, no model state (opt-in via --include-one-shots):
+        //    RequestOvskApp and TestSettingTeardown. Always succeed with no
+        //    parameters to vary meaningfully. A single execution (in new_system)
+        //    proves the kernel plumbing works; repeating wastes tx budget.
         let mut choices = crate::util::weighted_choices(&[
             ("create_note", 8),
             ("create_partial_note", 3),
             ("emit_nullifier", 3),
             ("send_l2_to_l1_message", 3),
             ("emit_private_log", 3),
-            ("request_ovsk_app", 2),
-            ("test_setting_teardown", 2),
         ]);
+
+        if self.include_one_shots {
+            choices.extend(crate::util::weighted_choices(&[
+                ("request_ovsk_app", 2),
+                ("test_setting_teardown", 2),
+            ]));
+        }
 
         if !pop.is_empty() {
             choices.extend(crate::util::weighted_choices(&[
@@ -574,6 +602,9 @@ impl<'a> smt::StateMachine for SideEffectMachine<'a> {
             .deploy_parent_contract(0)
             .expect("parent contract could not be deployed");
         system
+            .run_one_shot_smoke_tests()
+            .expect("one-shot smoke tests failed");
+        system
     }
 
     fn next_state(&self, cmd: &Self::Command, mut state: Self::State) -> Self::State {
@@ -662,16 +693,18 @@ impl<'a> smt::StateMachine for SideEffectMachine<'a> {
     ///     by subsequent ViewNotesMany/GetNotesMany queries.
     ///   - Nullifiers: success + duplicate detection; insertion verified
     ///     transitively by TestNullifierInclusion.
-    ///   - L2→L1 messages: reconstructs expected hash (via bridge) and verifies
+    ///   - L2->L1 messages: reconstructs expected hash (via bridge) and verifies
     ///     it appears in TxEffect (same check an L1 contract would perform).
     ///   - Private logs: computes siloed tag and queries the node, then verifies
-    ///     content.  (The contract uses `emit_private_log_unsafe` with plaintext
-    ///     tags, so we verify siloing + indexing, not the full ECDH-based
-    ///     encryption/discovery protocol.)
+    ///     the just-emitted content is discoverable AND that all previously-emitted
+    ///     logs with the same tag (tracked in `pre_state.private_logs`) are still
+    ///     present (per-tag completeness).  The contract uses `emit_private_log_unsafe`
+    ///     with plaintext tags, so we verify siloing + indexing, not the full
+    ///     ECDH-based encryption/discovery protocol.
     /// - **Queries** (`flushes_batch() = true`): directly compares returned
     ///   values against the model's expected notes.
     /// - **Kernel exercisers** (`!changes_model() && !flushes_batch()`):
-    ///   success-only — success is the proof that kernel plumbing works.
+    ///   success-only -- success is the proof that kernel plumbing works.
     fn check_result(&self, cmd: &Self::Command, pre_state: &Self::State, result: Self::Result) {
         use SideEffectCommand::*;
 
@@ -738,7 +771,7 @@ impl<'a> smt::StateMachine for SideEffectMachine<'a> {
                             .any(|h| *h == expected_hash);
                         assert!(
                             found,
-                            "{}: expected L2→L1 msg hash {} not in TxEffect hashes {:?}",
+                            "{}: expected L2->L1 msg hash {} not in TxEffect hashes {:?}",
                             cmd.name(),
                             expected_hash,
                             effects.l2_to_l1_msg_hashes,
@@ -753,8 +786,10 @@ impl<'a> smt::StateMachine for SideEffectMachine<'a> {
                     let logs = bridge
                         .query_private_logs(&contract, &tag.to_string())
                         .expect("query_private_logs failed");
-                    let content_str = content.to_string();
+
+                    // Verify the just-emitted log is discoverable.
                     // log_data[0] = siloed tag (matched by the query), log_data[1] = content
+                    let content_str = content.to_string();
                     let found = logs
                         .iter()
                         .any(|log| log.log_data.len() >= 2 && log.log_data[1] == content_str);
@@ -765,6 +800,30 @@ impl<'a> smt::StateMachine for SideEffectMachine<'a> {
                         cmd.name(),
                         logs,
                     );
+
+                    // Verify per-tag completeness: every log the model has previously
+                    // emitted with this tag should still be discoverable. This catches
+                    // issues where the node drops or overwrites earlier logs.
+                    // (pre_state does NOT include the current emission -- that's added
+                    // by next_state after check_result returns.)
+                    let prior_contents: Vec<String> = pre_state
+                        .private_logs
+                        .iter()
+                        .filter(|(t, _)| *t == *tag)
+                        .map(|(_, c)| c.to_string())
+                        .collect();
+                    for expected_content in &prior_contents {
+                        let still_present = logs.iter().any(|log| {
+                            log.log_data.len() >= 2 && log.log_data[1] == *expected_content
+                        });
+                        assert!(
+                            still_present,
+                            "{}: prior log with tag={tag} content={expected_content} no longer \
+                             discoverable after emitting content={content}. logs={:?}",
+                            cmd.name(),
+                            logs,
+                        );
+                    }
                 }
             }
             RequestOvskApp { .. } | TestSettingTeardown { .. } => {
@@ -991,6 +1050,7 @@ mod tests {
             storage_slots: 5,
             bridge: None,
             artifacts_dir: "/tmp".into(),
+            include_one_shots: false,
         }
     }
 
@@ -1728,7 +1788,7 @@ mod tests {
         }
     }
 
-    // -- L2→L1 / private log accumulation tests --
+    // -- L2->L1 / private log accumulation tests --
 
     #[test]
     fn multiple_l2_to_l1_messages_accumulate() {
@@ -1766,6 +1826,43 @@ mod tests {
             state,
         );
         assert_eq!(state.private_logs, vec![(1, 2), (3, 4)]);
+    }
+
+    #[test]
+    fn private_logs_same_tag_accumulate() {
+        let m = machine();
+        let state = make_state();
+        let state = m.next_state(
+            &SideEffectCommand::EmitPrivateLog {
+                tag: 42, content: 100, from: 0, via_parent: false,
+            },
+            state,
+        );
+        let state = m.next_state(
+            &SideEffectCommand::EmitPrivateLog {
+                tag: 42, content: 200, from: 0, via_parent: false,
+            },
+            state,
+        );
+        let state = m.next_state(
+            &SideEffectCommand::EmitPrivateLog {
+                tag: 99, content: 300, from: 0, via_parent: false,
+            },
+            state,
+        );
+
+        // Two logs under tag 42, one under tag 99.
+        let tag42: Vec<_> = state.private_logs.iter()
+            .filter(|(t, _)| *t == 42)
+            .map(|(_, c)| *c)
+            .collect();
+        assert_eq!(tag42, vec![100, 200]);
+
+        let tag99: Vec<_> = state.private_logs.iter()
+            .filter(|(t, _)| *t == 99)
+            .map(|(_, c)| *c)
+            .collect();
+        assert_eq!(tag99, vec![300]);
     }
 
     #[test]
