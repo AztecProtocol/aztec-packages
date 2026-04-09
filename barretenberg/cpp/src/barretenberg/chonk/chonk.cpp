@@ -26,12 +26,6 @@ namespace bb {
 // Constructor
 Chonk::Chonk(size_t num_circuits)
     : num_circuits(num_circuits)
-#ifndef __wasm__
-    // Launch async IPA claim generation to overlap with early accumulation work (not supported in WASM)
-    , random_ipa_claim_future_(std::async(std::launch::async, [] {
-                                   return IPA<curve::Grumpkin>::create_random_valid_ipa_claim_and_proof_native();
-                               }).share())
-#endif
 {
     BB_ASSERT_GTE(num_circuits, 4UL, "Number of circuits must be at least 4 (get_queue_type uses num_circuits - 3).");
 }
@@ -459,15 +453,10 @@ void Chonk::complete_kernel_circuit_logic(ClientCircuit& circuit)
     PairingPoints pairing_points_aggregator = PairingPoints::aggregate_multiple(points_accumulator);
 
     // Output differs based on kernel type: HidingKernelIO (no accum hash) vs KernelIO (with accum hash)
-    // For init kernel, use the pre-computed random IPA claim (async on native, synchronous on WASM)
+    // For init kernel, create a default IPA claim; for all others, pass through from previous kernel
     if (is_init_kernel) {
-#ifndef __wasm__
-        auto native_ipa = random_ipa_claim_future_.get();
-#else
-        auto native_ipa = IPA<curve::Grumpkin>::create_random_valid_ipa_claim_and_proof_native();
-#endif
         auto [stdlib_opening_claim, init_ipa_proof] =
-            IPA<KernelIO::GrumpkinCurve>::wrap_native_ipa_claim(circuit, native_ipa);
+            IPA<KernelIO::GrumpkinCurve>::create_random_valid_ipa_claim_and_proof(circuit);
         propagated_ipa_claim = stdlib_opening_claim;
         ipa_proof = init_ipa_proof;
     }
@@ -672,6 +661,8 @@ void Chonk::accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVerific
     BB_ASSERT_LT(
         num_circuits_accumulated, num_circuits, "Chonk: Attempting to accumulate more circuits than expected.");
     BB_ASSERT(precomputed_vk != nullptr, "Chonk::accumulate - VK expected for the provided circuit");
+    BB_ASSERT_EQ(goblin.op_queue->get_is_zk(), true, "The op queue should be in zk mode during accumulation");
+    BB_ASSERT_EQ(goblin.get_avm_mode(), false, "The op queue should not be in avm mode during accumulation");
 
     // Get QUEUE type (only Goblin Flush apps have IPA proof/claim)
     QUEUE_TYPE queue_type = get_queue_type(/*is_next_kernel_goblin=*/!circuit.ipa_proof.empty());

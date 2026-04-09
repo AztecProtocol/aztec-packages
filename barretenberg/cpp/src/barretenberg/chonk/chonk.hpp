@@ -9,7 +9,6 @@
 #include "barretenberg/chonk/batched_honk_translator/batched_honk_translator_prover.hpp"
 #include "barretenberg/chonk/chonk_base.hpp"
 #include "barretenberg/chonk/chonk_proof.hpp"
-#include "barretenberg/commitment_schemes/ipa/ipa.hpp"
 #include "barretenberg/flavor/mega_zk_recursive_flavor.hpp"
 #include "barretenberg/goblin/goblin.hpp"
 #include "barretenberg/hypernova/hypernova_decider_prover.hpp"
@@ -25,7 +24,6 @@
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #endif
 #include <algorithm>
-#include <future>
 
 namespace bb {
 
@@ -191,11 +189,6 @@ class Chonk : public IVCBase {
 
     // IPA proof for the current IPA claim accumulator, needed for future IPA accumulation in goblin flush kernels
     HonkProof ipa_proof;
-
-#ifndef __wasm__
-    // Pre-computed random IPA claim for the init kernel, generated asynchronously during setup
-    std::shared_future<NativeIpaClaimAndProof> random_ipa_claim_future_;
-#endif
 
     // Goblin flush support
     HonkProof flush_ipa_proof; // IPA proof from A_G's internal circuit

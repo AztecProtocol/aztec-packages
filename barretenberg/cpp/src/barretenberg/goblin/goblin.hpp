@@ -32,6 +32,7 @@ class Goblin {
   public:
     void set_avm_mode(bool mode) { avm_mode = mode; }
     void set_op_queue_zk(bool is_zk) { op_queue->set_is_zk(is_zk); }
+    bool get_avm_mode() const { return avm_mode; }
 
     using MegaBuilder = MegaCircuitBuilder;
     using Fr = bb::fr;

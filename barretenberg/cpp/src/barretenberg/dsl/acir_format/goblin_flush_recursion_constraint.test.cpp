@@ -7,6 +7,7 @@
 #include "barretenberg/dsl/acir_format/mock_verifier_inputs.hpp"
 #include "barretenberg/dsl/acir_format/utils.hpp"
 #include "barretenberg/goblin/mock_circuits.hpp"
+#include "barretenberg/stdlib/special_public_inputs/special_public_inputs_test_serde.hpp"
 #include "barretenberg/ultra_honk/prover_instance.hpp"
 
 #include <gtest/gtest.h>
@@ -352,6 +353,199 @@ TEST_F(GoblinFlushRecursionConstraintTest, EndToEndFlush)
     construct_and_accumulate_mock_app(ivc);
 
     // K2: inner kernel
+    construct_and_accumulate_mock_kernel(ivc);
+
+    // A_G: goblin flush app (built from ULTRA_GOBLIN ACIR constraint)
+    {
+        AcirProgram program = construct_goblin_flush_program();
+        ProgramMetadata metadata{ ivc };
+        auto ag_circuit = acir_format::create_circuit<Builder>(program, metadata);
+        auto ag_vk = get_verification_key(ag_circuit);
+        ivc->accumulate(ag_circuit, ag_vk);
+    }
+
+    // K_G: goblin flush kernel (normal kernel - complete_kernel_circuit_logic handles the flush)
+    construct_and_accumulate_mock_kernel(ivc);
+
+    // Trailing kernels: K_reset, K_tail, K_hiding
+    construct_and_accumulate_mock_kernel(ivc); // reset
+    construct_and_accumulate_mock_kernel(ivc); // tail
+    construct_and_accumulate_mock_kernel(ivc); // hiding
+
+    auto proof = ivc->prove();
+    {
+        ChonkNativeVerifier verifier(ivc->get_hiding_kernel_vk_and_hash());
+        EXPECT_TRUE(verifier.verify(proof));
+    }
+}
+
+/**
+ * Test that if the Goblin app proved the validity of an incorrect table of ecc ops the Chonk proof is invalid
+ *
+ */
+TEST_F(GoblinFlushRecursionConstraintTest, FlushRejectsInvalidTable)
+{
+    auto ivc = std::make_shared<Chonk>(/*num_circuits=*/9);
+
+    // A0: normal app
+    construct_and_accumulate_mock_app(ivc);
+
+    // K0: init kernel
+    construct_and_accumulate_mock_kernel(ivc);
+
+    // A1: normal app
+    construct_and_accumulate_mock_app(ivc);
+
+    // K1: inner kernel
+    construct_and_accumulate_mock_kernel(ivc);
+
+    // A_G: goblin flush app (built from ULTRA_GOBLIN ACIR constraint)
+    {
+        auto fake_ivc = std::make_shared<Chonk>(/*num_circuits=*/4);
+        // Create a fake op queue
+        fake_ivc->get_goblin().op_queue->no_op_ultra_only();
+        fake_ivc->get_goblin().op_queue->no_op_ultra_only();
+        fake_ivc->get_goblin().op_queue->no_op_ultra_only();
+        fake_ivc->get_goblin().op_queue->no_op_ultra_only();
+        fake_ivc->get_goblin().op_queue->eq_and_reset();
+        fake_ivc->get_goblin().op_queue->add_accumulate(bb::curve::BN254::AffineElement::one());
+        fake_ivc->get_goblin().op_queue->merge();
+
+        AcirProgram program = construct_goblin_flush_program();
+        ProgramMetadata metadata{ fake_ivc };
+
+        // Construct the builder with the correct op queue but fake ivc data
+        MegaCircuitBuilder ag_circuit{
+            ivc->get_goblin().op_queue, program.witness, program.constraints.public_inputs, false
+        };
+        build_constraints(ag_circuit, program.constraints, metadata);
+
+        // Accumulate the circuit
+        auto ag_vk = get_verification_key(ag_circuit);
+        ivc->accumulate(ag_circuit, ag_vk);
+    }
+
+    // K_G: goblin flush kernel (normal kernel - complete_kernel_circuit_logic handles the flush)
+    construct_and_accumulate_mock_kernel(ivc);
+
+    // Trailing kernels: K_reset, K_tail, K_hiding
+    construct_and_accumulate_mock_kernel(ivc); // reset
+    construct_and_accumulate_mock_kernel(ivc); // tail
+    construct_and_accumulate_mock_kernel(ivc); // hiding
+
+    auto proof = ivc->prove();
+    {
+        ChonkNativeVerifier verifier(ivc->get_hiding_kernel_vk_and_hash());
+        EXPECT_FALSE(verifier.verify(proof));
+    }
+}
+
+/**
+ * @brief Verify that IPA accumulation in the goblin kernel changes the IPA claim.
+ *
+ * @details The init kernel produces a random IPA claim. The goblin flush kernel (K_G) folds the
+ * flush's IPA claim into the running accumulator, producing a different accumulated claim. This
+ * test extracts the IPA claim from the init kernel's public inputs and from the hiding kernel's
+ * proof, and asserts they differ — confirming that IPA accumulation actually occurred.
+ *
+ * Flow: A0, K0 (init), A1, K1 (inner), A_G, K_G, K_reset, K_tail, K_hiding
+ */
+TEST_F(GoblinFlushRecursionConstraintTest, IpaClaimChangesAfterFlush)
+{
+    using KernelIOSerde = bb::stdlib::recursion::honk::KernelIOSerde;
+    using HidingKernelIOSerde = bb::stdlib::recursion::honk::HidingKernelIOSerde;
+
+    auto ivc = std::make_shared<Chonk>(/*num_circuits=*/9);
+
+    // A0: normal app
+    construct_and_accumulate_mock_app(ivc);
+
+    // K0: init kernel — produces the random IPA claim
+    construct_and_accumulate_mock_kernel(ivc);
+
+    // Capture the init kernel's IPA claim from its proof in the verification queue
+    // After K0, the queue has one entry: the init kernel's proof
+    ASSERT_EQ(ivc->verification_queue.size(), 1);
+    auto& init_kernel_entry = ivc->verification_queue[0];
+    ASSERT_TRUE(init_kernel_entry.is_kernel);
+    size_t init_num_pub_inputs = init_kernel_entry.honk_vk->num_public_inputs;
+    KernelIOSerde init_kernel_io = KernelIOSerde::from_proof(init_kernel_entry.proof, init_num_pub_inputs);
+    auto init_ipa_claim = init_kernel_io.ipa_claim;
+
+    // A1: normal app
+    construct_and_accumulate_mock_app(ivc);
+
+    // K1: inner kernel
+    construct_and_accumulate_mock_kernel(ivc);
+
+    // A_G: goblin flush app
+    {
+        AcirProgram program = construct_goblin_flush_program();
+        ProgramMetadata metadata{ ivc };
+        auto ag_circuit = acir_format::create_circuit<Builder>(program, metadata);
+        auto ag_vk = get_verification_key(ag_circuit);
+        ivc->accumulate(ag_circuit, ag_vk);
+    }
+
+    // K_G: goblin flush kernel — accumulates the flush IPA claim into the running accumulator
+    construct_and_accumulate_mock_kernel(ivc);
+
+    // Trailing kernels
+    construct_and_accumulate_mock_kernel(ivc); // reset
+    construct_and_accumulate_mock_kernel(ivc); // tail
+    construct_and_accumulate_mock_kernel(ivc); // hiding
+
+    auto proof = ivc->prove();
+    auto vk_and_hash = ivc->get_hiding_kernel_vk_and_hash();
+
+    // Verify the proof is valid
+    {
+        ChonkNativeVerifier verifier(vk_and_hash);
+        EXPECT_TRUE(verifier.verify(proof));
+    }
+
+    // Extract the IPA claim from the hiding kernel's proof
+    size_t hiding_num_pub_inputs = vk_and_hash->vk->num_public_inputs;
+    HidingKernelIOSerde hiding_io = HidingKernelIOSerde::from_proof(proof.hiding_oink_proof, hiding_num_pub_inputs);
+    auto hiding_ipa_claim = hiding_io.ipa_claim;
+
+    // The IPA claims must differ: K_G folded the flush claim into the init kernel's random claim
+    bool claims_match = (init_ipa_claim.opening_pair.challenge == hiding_ipa_claim.opening_pair.challenge) &&
+                        (init_ipa_claim.opening_pair.evaluation == hiding_ipa_claim.opening_pair.evaluation) &&
+                        (init_ipa_claim.commitment == hiding_ipa_claim.commitment);
+    EXPECT_FALSE(claims_match) << "IPA claim should change after goblin flush accumulation, but init and hiding kernel "
+                                  "claims are identical";
+}
+
+/**
+ * Test two flushes in a row
+ */
+TEST_F(GoblinFlushRecursionConstraintTest, ConsecutiveFlushes)
+{
+    auto ivc = std::make_shared<Chonk>(/*num_circuits=*/11);
+
+    // A0: normal app
+    construct_and_accumulate_mock_app(ivc);
+
+    // K0: init kernel
+    construct_and_accumulate_mock_kernel(ivc);
+
+    // A1: normal app
+    construct_and_accumulate_mock_app(ivc);
+
+    // K1: inner kernel
+    construct_and_accumulate_mock_kernel(ivc);
+
+    // A_G: goblin flush app (built from ULTRA_GOBLIN ACIR constraint)
+    {
+        AcirProgram program = construct_goblin_flush_program();
+        ProgramMetadata metadata{ ivc };
+        auto ag_circuit = acir_format::create_circuit<Builder>(program, metadata);
+        auto ag_vk = get_verification_key(ag_circuit);
+        ivc->accumulate(ag_circuit, ag_vk);
+    }
+
+    // K_G: goblin flush kernel (normal kernel - complete_kernel_circuit_logic handles the flush)
     construct_and_accumulate_mock_kernel(ivc);
 
     // A_G: goblin flush app (built from ULTRA_GOBLIN ACIR constraint)
