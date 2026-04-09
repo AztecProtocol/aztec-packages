@@ -6,17 +6,12 @@
 /// The TypeScript counterparts are in `oracle_version.ts`.
 ///
 /// @dev Whenever a contract function or Noir test is run, the `aztec_utl_assertCompatibleOracleVersion` oracle is
-<<<<<<< HEAD
-/// called and if the oracle version is incompatible an error is thrown.
-pub global ORACLE_VERSION: Field = 21;
-=======
 /// called. If the major version is incompatible, an error is thrown immediately. The minor version is recorded by
 /// the PXE and used to provide helpful error messages if a contract calls an oracle that doesn't exist. We don't throw
 /// immediately if AZTEC_NR_MINOR > PXE_MINOR because if a contract is updated to use a newer Aztec.nr dependency
 /// without actually using any of the new oracles then there is no reason to throw.
 pub global ORACLE_VERSION_MAJOR: Field = 22;
 pub global ORACLE_VERSION_MINOR: Field = 0;
->>>>>>> d8c841deab (feat(pxe): implement minor/major oracle version tracking (#22254))
 
 /// Asserts that the version of the oracle is compatible with the version expected by the contract.
 pub fn assert_compatible_oracle_version() {
