@@ -185,9 +185,6 @@ export function bigintConfigHelper(
 ): Pick<ConfigMapping<bigint | undefined>, 'parseEnv' | 'defaultValue'> {
   return {
     parseEnv: (val: string) => {
-      if (val === '') {
-        return defaultVal;
-      }
       // Handle scientific notation (e.g. "1e+23", "2E23") which BigInt() doesn't accept directly.
       // We parse it losslessly using bigint arithmetic instead of going through float64.
       if (/[eE]/.test(val)) {
@@ -239,12 +236,9 @@ export function enumConfigHelper<T extends string>(
 ): Pick<ConfigMapping<T | undefined>, 'parseEnv' | 'defaultValue'> {
   return {
     parseEnv: (val: string) => {
-      const sanitizedVal = (val ?? '').trim().toLowerCase();
-      if (values.includes(sanitizedVal as T)) {
-        return sanitizedVal as T;
-      }
-      if (!val && defaultValue) {
-        return defaultValue;
+      const sanitizedVal = val.trim().toLowerCase();
+      if (values.some(v => v.toLowerCase() === sanitizedVal)) {
+        return values.find(v => v.toLowerCase() === sanitizedVal)!;
       }
       throw new Error(`Invalid config value '${val}' (must be one of ${values.join(', ')})`);
     },
