@@ -92,8 +92,8 @@ struct lookup_execution_instruction_fetching_body_settings_ {
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
         ColumnAndShifts::execution_pc,
         ColumnAndShifts::execution_bytecode_id,
-        ColumnAndShifts::execution_ex_opcode,
-        ColumnAndShifts::execution_instr_length,
+        ColumnAndShifts::execution_exec_opcode,
+        ColumnAndShifts::execution_instr_size,
         ColumnAndShifts::execution_addressing_mode,
         ColumnAndShifts::execution_op_0_,
         ColumnAndShifts::execution_op_1_,
@@ -136,7 +136,7 @@ struct lookup_execution_exec_spec_read_settings_ {
     static constexpr Column COUNTS = Column::lookup_execution_exec_spec_read_counts;
     static constexpr Column INVERSES = Column::lookup_execution_exec_spec_read_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::execution_ex_opcode,
+        ColumnAndShifts::execution_exec_opcode,
         ColumnAndShifts::execution_opcode_gas,
         ColumnAndShifts::execution_base_da_gas,
         ColumnAndShifts::execution_dynamic_l2_gas,
