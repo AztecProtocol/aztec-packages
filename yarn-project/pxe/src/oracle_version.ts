@@ -13,7 +13,10 @@
 export const ORACLE_VERSION_MAJOR = 22;
 export const ORACLE_VERSION_MINOR = 0;
 
-/// This hash is computed by hashing the Oracle interface and it is used to detect when the Oracle interface changes,
-/// which in turn implies that you need to update the ORACLE_VERSION_MAJOR constant in this file and in
-/// `noir-projects/aztec-nr/aztec/src/oracle/version.nr`.
+/// This hash is computed from the Oracle interface and is used to detect when that interface changes. When it does,
+/// you need to either:
+/// - increment `ORACLE_VERSION_MAJOR` and reset `ORACLE_VERSION_MINOR` to zero if the change is breaking, or
+/// - increment only `ORACLE_VERSION_MINOR` if the change is additive (a new oracle was added).
+///
+/// These constants must be kept in sync between this file and `noir-projects/aztec-nr/aztec/src/oracle/version.nr`.
 export const ORACLE_INTERFACE_HASH = 'b1c0322512c67ea1e90bd6178686095acc74b5593cd543d8ffb51153168a13c6';
