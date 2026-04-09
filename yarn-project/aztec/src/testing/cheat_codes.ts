@@ -1,9 +1,6 @@
 import { EthCheatCodes, RollupCheatCodes } from '@aztec/ethereum/test';
-import { BlockNumber } from '@aztec/foundation/branded-types';
-import { retryUntil } from '@aztec/foundation/retry';
 import type { DateProvider } from '@aztec/foundation/timer';
-import type { SequencerClient } from '@aztec/sequencer-client';
-import type { AztecNode } from '@aztec/stdlib/interfaces/client';
+import type { AztecNode, AztecNodeDebug } from '@aztec/stdlib/interfaces/client';
 
 /**
  * A class that provides utility functions for interacting with the chain.
@@ -33,33 +30,13 @@ export class CheatCodes {
    * the target timestamp. L2 timestamp is not advanced exactly to the target timestamp because it is determined
    * by the slot number, which advances in fixed intervals.
    * This is useful for testing time-dependent contract behavior.
-   * @param sequencerClient - The sequencer client to use to force an empty block to be mined.
-   * @param node - The Aztec node used to query if a new block has been mined.
+   * @param node - The Aztec node used to force an empty block to be mined.
    * @param targetTimestamp - The target timestamp to warp to (in seconds)
    */
-  async warpL2TimeAtLeastTo(sequencerClient: SequencerClient, node: AztecNode, targetTimestamp: bigint | number) {
-    const currentL2BlockNumber: BlockNumber = await node.getBlockNumber();
-
-    // We warp the L1 timestamp
+  async warpL2TimeAtLeastTo(node: AztecNodeDebug, targetTimestamp: bigint | number) {
+    // Warp the L1 timestamp, then let the node mine an L2 block that picks it up.
     await this.eth.warp(targetTimestamp, { resetBlockInterval: true });
-
-    // Wait until an L2 block is mined
-    const sequencer = sequencerClient.getSequencer();
-    const minTxsPerBlock = sequencer.getConfig().minTxsPerBlock;
-    sequencer.updateConfig({ minTxsPerBlock: 0 });
-
-    await retryUntil(
-      async () => {
-        const newL2BlockNumber: BlockNumber = await node.getBlockNumber();
-        return newL2BlockNumber > currentL2BlockNumber;
-      },
-      'new block after warping L2 time',
-      36,
-      1,
-    );
-
-    // Restore original minTxsPerBlock
-    sequencer.updateConfig({ minTxsPerBlock });
+    await node.mineBlock();
   }
 
   /**
@@ -67,13 +44,12 @@ export class CheatCodes {
    * least by the duration. L2 timestamp is not advanced exactly by the duration because it is determined by the slot
    * number, which advances in fixed intervals.
    * This is useful for testing time-dependent contract behavior.
-   * @param sequencerClient - The sequencer client to use to force an empty block to be mined.
-   * @param node - The Aztec node used to query if a new block has been mined.
+   * @param node - The Aztec node used to force an empty block to be mined.
    * @param duration - The duration to advance time by (in seconds)
    */
-  async warpL2TimeAtLeastBy(sequencerClient: SequencerClient, node: AztecNode, duration: bigint | number) {
+  async warpL2TimeAtLeastBy(node: AztecNodeDebug, duration: bigint | number) {
     const currentTimestamp = await this.eth.lastBlockTimestamp();
     const targetTimestamp = BigInt(currentTimestamp) + BigInt(duration);
-    await this.warpL2TimeAtLeastTo(sequencerClient, node, targetTimestamp);
+    await this.warpL2TimeAtLeastTo(node, targetTimestamp);
   }
 }

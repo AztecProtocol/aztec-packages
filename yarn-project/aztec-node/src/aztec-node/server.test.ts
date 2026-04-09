@@ -7,7 +7,7 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { BadRequestError } from '@aztec/foundation/json-rpc';
 import type { Hex } from '@aztec/foundation/string';
-import { DateProvider, TestDateProvider } from '@aztec/foundation/timer';
+import { DateProvider } from '@aztec/foundation/timer';
 import { unfreeze } from '@aztec/foundation/types';
 import { type KeyStore, KeystoreManager, RemoteSigner, type ValidatorKeyStore } from '@aztec/node-keystore';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
@@ -962,52 +962,12 @@ describe('aztec node', () => {
     });
   });
 
-  describe('time manipulation', () => {
+  describe('mineBlock', () => {
     const INITIAL_MIN_TXS_PER_BLOCK = 1;
 
     let mockEthCheatCodes: MockProxy<EthCheatCodes>;
     let sequencerClient: MockProxy<SequencerClient>;
-    let sequencer: MockProxy<Sequencer>;
-    let testDateProvider: TestDateProvider;
     let nodeWithSequencer: AztecNodeService;
-
-    beforeEach(() => {
-      mockEthCheatCodes = mock<EthCheatCodes>();
-      sequencer = mock<Sequencer>();
-      sequencer.getConfig.mockReturnValue({ minTxsPerBlock: INITIAL_MIN_TXS_PER_BLOCK } as any);
-
-      sequencerClient = mock<SequencerClient>();
-      sequencerClient.getSequencer.mockReturnValue(sequencer);
-      sequencerClient.trigger.mockReturnValue(Promise.resolve());
-
-      testDateProvider = new TestDateProvider();
-
-      nodeWithSequencer = new AztecNodeService(
-        nodeConfig,
-        p2p,
-        l2BlockSource,
-        mock(),
-        mock(),
-        mock(),
-        worldState,
-        sequencerClient,
-        undefined,
-        undefined,
-        undefined,
-        undefined,
-        12345,
-        rollupVersion.toNumber(),
-        globalVariablesBuilder,
-        epochCache,
-        getPackageVersion() ?? '',
-        new TestCircuitVerifier(),
-        new TestCircuitVerifier(),
-        testDateProvider,
-      );
-
-      // Pre-inject mock to avoid #getEthCheatCodes() creating a real EthCheatCodes with HTTP clients
-      (nodeWithSequencer as any).ethCheatCodes = mockEthCheatCodes;
-    });
 
     // Slot calculation: slot = (timestamp - l1GenesisTime) / slotDuration
     // With genesis=1000, slotDuration=12: timestamp 1060 → slot 5, timestamp 1120 → slot 10
@@ -1029,40 +989,74 @@ describe('aztec node', () => {
       });
     };
 
-    describe('mineBlock', () => {
-      it('throws when no sequencer is running', async () => {
-        // The default `node` has no sequencer (undefined)
-        (node as any).ethCheatCodes = mockEthCheatCodes;
-        await expect(node.mineBlock()).rejects.toThrow('Cannot mine block: no sequencer is running');
-      });
+    beforeEach(() => {
+      mockEthCheatCodes = mock<EthCheatCodes>();
+      const sequencer = mock<Sequencer>();
+      sequencer.getConfig.mockReturnValue({ minTxsPerBlock: INITIAL_MIN_TXS_PER_BLOCK } as any);
 
-      // mineBlock slot-handling logic (new slot and same slot) is tested in e2e_cheat_codes.test.ts
+      sequencerClient = mock<SequencerClient>();
+      sequencerClient.getSequencer.mockReturnValue(sequencer);
+      sequencerClient.trigger.mockReturnValue(Promise.resolve());
 
-      it('throws when currentSlot is behind lastBlockSlot', async () => {
-        mockEthCheatCodes.evmMine.mockResolvedValue();
-        // Timestamp 1036 → slot (1036-1000)/12 = 3, behind latest block's slot 5
-        mockEthCheatCodes.lastBlockTimestamp.mockResolvedValue(1036);
-        l2BlockSource.getL1Constants.mockResolvedValue(l1Constants);
-        l2BlockSource.getL2Block.mockResolvedValue(makeBlockInSlot(5));
-        l2BlockSource.getBlockNumber.mockResolvedValue(BlockNumber(5));
+      nodeWithSequencer = new AztecNodeService(
+        nodeConfig,
+        p2p,
+        l2BlockSource,
+        mock(),
+        mock(),
+        mock(),
+        worldState,
+        sequencerClient,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        12345,
+        rollupVersion.toNumber(),
+        globalVariablesBuilder,
+        epochCache,
+        getPackageVersion() ?? '',
+        new TestCircuitVerifier(),
+        new TestCircuitVerifier(),
+        new DateProvider(),
+      );
 
-        await expect(nodeWithSequencer.mineBlock()).rejects.toThrow("Current slot 3 is behind the last block's slot 5");
-      });
+      // Pre-inject mock to avoid #getEthCheatCodes() creating a real EthCheatCodes with HTTP clients
+      (nodeWithSequencer as any).ethCheatCodes = mockEthCheatCodes;
+    });
 
-      it('restores minTxsPerBlock after successful block production', async () => {
-        mockEthCheatCodes.evmMine.mockResolvedValue();
-        mockEthCheatCodes.lastBlockTimestamp.mockResolvedValue(1120);
-        l2BlockSource.getL1Constants.mockResolvedValue(l1Constants);
-        l2BlockSource.getL2Block.mockResolvedValue(makeBlockInSlot(5));
-        mockBlockNumberAdvancing(5, 6);
+    it('throws when no sequencer is running', async () => {
+      // The default `node` has no sequencer (undefined)
+      (node as any).ethCheatCodes = mockEthCheatCodes;
+      await expect(node.mineBlock()).rejects.toThrow('Cannot mine block: no sequencer is running');
+    });
 
-        await nodeWithSequencer.mineBlock();
+    // mineBlock slot-handling logic (new slot and same slot) is tested in e2e_cheat_codes.test.ts
 
-        const updateCalls = sequencerClient.updateConfig.mock.calls;
-        expect(updateCalls[0][0]).toEqual({ minTxsPerBlock: 0 });
-        // Last call to update calls should revert the value to the original
-        expect(updateCalls[1][0]).toEqual({ minTxsPerBlock: INITIAL_MIN_TXS_PER_BLOCK });
-      });
+    it('throws when currentSlot is behind lastBlockSlot', async () => {
+      mockEthCheatCodes.evmMine.mockResolvedValue();
+      // Timestamp 1036 → slot (1036-1000)/12 = 3, behind latest block's slot 5
+      mockEthCheatCodes.lastBlockTimestamp.mockResolvedValue(1036);
+      l2BlockSource.getL1Constants.mockResolvedValue(l1Constants);
+      l2BlockSource.getL2Block.mockResolvedValue(makeBlockInSlot(5));
+      l2BlockSource.getBlockNumber.mockResolvedValue(BlockNumber(5));
+
+      await expect(nodeWithSequencer.mineBlock()).rejects.toThrow("Current slot 3 is behind the last block's slot 5");
+    });
+
+    it('restores minTxsPerBlock after successful block production', async () => {
+      mockEthCheatCodes.evmMine.mockResolvedValue();
+      mockEthCheatCodes.lastBlockTimestamp.mockResolvedValue(1120);
+      l2BlockSource.getL1Constants.mockResolvedValue(l1Constants);
+      l2BlockSource.getL2Block.mockResolvedValue(makeBlockInSlot(5));
+      mockBlockNumberAdvancing(5, 6);
+
+      await nodeWithSequencer.mineBlock();
+
+      const updateCalls = sequencerClient.updateConfig.mock.calls;
+      expect(updateCalls[0][0]).toEqual({ minTxsPerBlock: 0 });
+      // Last call to update calls should revert the value to the original
+      expect(updateCalls[1][0]).toEqual({ minTxsPerBlock: INITIAL_MIN_TXS_PER_BLOCK });
     });
   });
 
