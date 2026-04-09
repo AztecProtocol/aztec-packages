@@ -34,6 +34,7 @@ template <typename Curve> class MergeVerifier_ {
     // Number of columns that jointly constitute the op_queue, should be the same as the number of wires in the
     // MegaCircuitBuilder
     static constexpr size_t NUM_WIRES = MegaExecutionTraceBlocks::NUM_WIRES;
+    static constexpr size_t TRACE_OFFSET = MegaExecutionTraceBlocks::TRACE_OFFSET;
     static constexpr bool IsRecursive = Curve::is_stdlib_type;
 
     // Size of batch opening claim: [Q], [L₁..L₄], [R₁..R₄], [M₁..M₄], [G], [1]

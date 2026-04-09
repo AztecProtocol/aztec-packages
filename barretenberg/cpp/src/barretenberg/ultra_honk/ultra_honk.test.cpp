@@ -431,7 +431,7 @@ TYPED_TEST(UltraHonkTests, DyadicSizeJumpsToProtectMaskingArea)
         auto baseline_instance = std::make_shared<ProverInstance>(baseline_builder);
         const size_t baseline_dyadic = baseline_instance->dyadic_size();
 
-        // With top-of-trace masking, the disabled head region (rows 0..NUM_DISABLED_ROWS_IN_SUMCHECK-1)
+        // With top-of-trace masking, the disabled head region (rows 0..TRACE_OFFSET-1)
         // is always present. Verify that the active trace starts after the disabled region and that
         // the dyadic size doubles when the trace gets tightly packed.
         size_t prev_dyadic = 0;
@@ -449,7 +449,7 @@ TYPED_TEST(UltraHonkTests, DyadicSizeJumpsToProtectMaskingArea)
             const size_t final_active_idx = prover_instance->get_final_active_wire_idx();
 
             // Invariant: active trace doesn't overlap the disabled head region
-            ASSERT_GE(final_active_idx, static_cast<size_t>(NUM_DISABLED_ROWS_IN_SUMCHECK))
+            ASSERT_GE(final_active_idx, ProverInstance::TRACE_OFFSET)
                 << "final_active_idx (" << final_active_idx << ") is within the disabled head region";
 
             if (prev_dyadic != 0 && dyadic_size > prev_dyadic) {

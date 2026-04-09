@@ -44,16 +44,18 @@ class MergeProver {
     // Public for test access (computing commitments)
     CommitmentKey pcs_commitment_key;
 
+    static constexpr size_t TRACE_OFFSET = MegaExecutionTraceBlocks::TRACE_OFFSET;
+
     /**
-     * @brief Prepend NUM_DISABLED_ROWS_IN_SUMCHECK zeros to each polynomial in a table.
+     * @brief Prepend TRACE_OFFSET zeros to each polynomial in a table.
      * @details With top-of-trace masking, the circuit's ecc_op_wire polynomials have data starting at
-     * row NUM_DISABLED_ROWS_IN_SUMCHECK (X^s · t(X) structure). The merge protocol polynomials must
-     * match this layout so that the prover's Shplonk quotient is consistent with the ecc_op_wire
-     * commitments held by the verifier.
+     * row TRACE_OFFSET (X^s · t(X) structure). The merge protocol polynomials must match this layout
+     * so that the prover's Shplonk quotient is consistent with the ecc_op_wire commitments held by
+     * the verifier.
      */
     static void shift_table_by_disabled_rows(std::array<Polynomial, NUM_WIRES>& table)
     {
-        constexpr size_t s = NUM_DISABLED_ROWS_IN_SUMCHECK;
+        constexpr size_t s = TRACE_OFFSET;
         for (auto& poly : table) {
             const size_t new_size = poly.size() + s;
             Polynomial shifted(new_size, new_size);

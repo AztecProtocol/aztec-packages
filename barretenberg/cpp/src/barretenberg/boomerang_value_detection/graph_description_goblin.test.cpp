@@ -55,7 +55,7 @@ class BoomerangGoblinRecursiveVerifierTests : public testing::Test {
         MergeProver::shift_table_by_disabled_rows(t_current);
         MergeProver::shift_table_by_disabled_rows(T_prev);
         CommitmentKey<curve::BN254> pcs_commitment_key(goblin.op_queue->get_ultra_ops_table_num_rows() +
-                                                       NUM_DISABLED_ROWS_IN_SUMCHECK);
+                                                       MergeProver::TRACE_OFFSET);
         for (size_t idx = 0; idx < MegaFlavor::NUM_WIRES; idx++) {
             merge_commitments.t_commitments[idx] = pcs_commitment_key.commit(t_current[idx]);
             merge_commitments.T_prev_commitments[idx] = pcs_commitment_key.commit(T_prev[idx]);

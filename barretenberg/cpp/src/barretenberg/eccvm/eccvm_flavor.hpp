@@ -58,6 +58,8 @@ class ECCVMFlavor {
 
     // Indicates that this flavor runs with ZK Sumcheck.
     static constexpr bool HasZK = true;
+    // The number of rows reserved at the top of the execution trace for row-disabling / ZK masking.
+    static constexpr size_t TRACE_OFFSET = NUM_DISABLED_ROWS_IN_SUMCHECK;
     // ECCVM proof size and its recursive verifier circuit are genuinely fixed, hence no padding is needed.
     static constexpr bool USE_PADDING = false;
     // Fixed size of the ECCVM circuits used in Chonk
@@ -628,8 +630,8 @@ class ECCVMFlavor {
             const auto& msm_rows = std::get<0>(result);
             const auto& point_table_read_counts = std::get<1>(result);
 
-            const size_t num_rows = std::max({ point_table_rows.size(), msm_rows.size(), transcript_rows.size() }) +
-                                    NUM_DISABLED_ROWS_IN_SUMCHECK;
+            const size_t num_rows =
+                std::max({ point_table_rows.size(), msm_rows.size(), transcript_rows.size() }) + TRACE_OFFSET;
             vinfo("Num rows in the ECCVM: ", num_rows);
             const auto log_num_rows = static_cast<size_t>(numeric::get_msb64(num_rows));
             size_t dyadic_num_rows = 1UL << (log_num_rows + (1UL << log_num_rows == num_rows ? 0 : 1));
@@ -648,9 +650,9 @@ class ECCVMFlavor {
 #else
             dyadic_num_rows = ECCVM_FIXED_SIZE;
 #endif
-            // With top-of-trace masking, the first NUM_DISABLED_ROWS_IN_SUMCHECK rows are disabled.
-            // Trace data starts at row NUM_DISABLED_ROWS_IN_SUMCHECK. lagrange_last goes to dyadic end.
-            constexpr size_t trace_offset = NUM_DISABLED_ROWS_IN_SUMCHECK;
+            // With top-of-trace masking, the first TRACE_OFFSET rows are disabled.
+            // Trace data starts at row TRACE_OFFSET. lagrange_last goes to dyadic end.
+            constexpr size_t trace_offset = TRACE_OFFSET;
             const size_t alloc_size = trace_offset + num_rows;
 
             // 1. Wire non-shifted polys: allocate with offset, add masking at {1,2,3}
@@ -676,7 +678,8 @@ class ECCVMFlavor {
                     poly = Polynomial(dyadic_num_rows);
                 }
             }
-            // lookup_inverses is a derived witness — masking is added after computation in the prover
+            // lookup_inverses is a derived witness — mask it so the commitment hides its values
+            lookup_inverses.add_masking();
 
             // Lagrange polys shifted by the disabled head region
             lagrange_first.at(trace_offset) = 1;

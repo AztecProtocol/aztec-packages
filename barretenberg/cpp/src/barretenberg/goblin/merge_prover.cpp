@@ -33,7 +33,7 @@ MergeProver::MergeProver(const std::shared_ptr<ECCOpQueue>& op_queue,
     }
 
     // Size the commitment key to accommodate the X^s shift applied to merge polynomials
-    pcs_commitment_key = CommitmentKey(op_queue->get_ultra_ops_table_num_rows() + NUM_DISABLED_ROWS_IN_SUMCHECK);
+    pcs_commitment_key = CommitmentKey(op_queue->get_ultra_ops_table_num_rows() + TRACE_OFFSET);
 };
 
 MergeProver::Polynomial MergeProver::compute_degree_check_polynomial(

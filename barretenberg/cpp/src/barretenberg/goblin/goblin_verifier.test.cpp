@@ -68,14 +68,14 @@ class GoblinRecursiveVerifierTests : public testing::Test {
         // Merge the ecc ops from the newly constructed circuit
         auto goblin_proof = goblin.prove();
         // Subtable values and commitments - needed for (Recursive)MergeVerifier
-        // Shift by NUM_DISABLED_ROWS_IN_SUMCHECK to match circuit ecc_op_wire layout
+        // Shift by TRACE_OFFSET to match circuit ecc_op_wire layout
         MergeCommitments merge_commitments;
         auto t_current = goblin.op_queue->construct_current_ultra_ops_subtable_columns();
         auto T_prev = goblin.op_queue->construct_previous_ultra_ops_table_columns();
         MergeProver::shift_table_by_disabled_rows(t_current);
         MergeProver::shift_table_by_disabled_rows(T_prev);
         CommitmentKey<curve::BN254> pcs_commitment_key(goblin.op_queue->get_ultra_ops_table_num_rows() +
-                                                       NUM_DISABLED_ROWS_IN_SUMCHECK);
+                                                       MergeProver::TRACE_OFFSET);
         for (size_t idx = 0; idx < MegaFlavor::NUM_WIRES; idx++) {
             merge_commitments.t_commitments[idx] = pcs_commitment_key.commit(t_current[idx]);
             merge_commitments.T_prev_commitments[idx] = pcs_commitment_key.commit(T_prev[idx]);

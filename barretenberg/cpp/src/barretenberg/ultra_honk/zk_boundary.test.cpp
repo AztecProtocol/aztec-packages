@@ -63,7 +63,7 @@ class ZKBoundaryTests : public ::testing::Test {
 
 /**
  * @brief Verify ECC op wire alignment: ecc_op_wire[i] == w_shift[i] at the boundary.
- * @details With top-of-trace masking, ecc_op_wire data starts at row NUM_DISABLED_ROWS_IN_SUMCHECK (4),
+ * @details With top-of-trace masking, ecc_op_wire data starts at row TRACE_OFFSET (4),
  * while wire data starts at trace_offset (5). The shift convention (w_shift[r] = w[r+1]) bridges
  * the gap. This test checks the alignment holds and that corrupting it causes relation failure.
  */
@@ -72,7 +72,7 @@ TEST_F(ZKBoundaryTests, EccOpWireAlignmentAtDisabledBoundary)
     auto instance = build_instance();
     auto& polys = instance->polynomials;
 
-    constexpr size_t ecc_op_start = NUM_DISABLED_ROWS_IN_SUMCHECK; // row 4
+    constexpr size_t ecc_op_start = ProverInstance::TRACE_OFFSET;
 
     // Sanity: lagrange_ecc_op should be 1 starting at ecc_op_start
     ASSERT_EQ(polys.lagrange_ecc_op[ecc_op_start], FF{ 1 })
@@ -142,14 +142,14 @@ TEST_F(ZKBoundaryTests, DisabledRegionIsolation)
     OinkProver<Flavor> oink(instance, verification_key, transcript);
     oink.prove();
 
-    // Check all relations pass on clean state (start from row NUM_DISABLED_ROWS_IN_SUMCHECK
+    // Check all relations pass on clean state (start from row TRACE_OFFSET
     // since the RelationChecker doesn't account for row-disabling)
     auto clean_failures = RelationChecker<MegaFlavor>::check_all(polys, instance->relation_parameters);
     // Relations may have non-zero values at rows 0-3 (before row-disabling multiplier),
     // but should be clean in the active region. Check the specific row of each failure.
     for (auto& [name, subrel_failures] : clean_failures) {
         for (auto& [subrel_idx, row] : subrel_failures) {
-            EXPECT_LT(row, static_cast<uint32_t>(NUM_DISABLED_ROWS_IN_SUMCHECK))
+            EXPECT_LT(row, static_cast<uint32_t>(ProverInstance::TRACE_OFFSET))
                 << "Relation " << name << " (subrelation " << subrel_idx << ") fails at active row " << row;
         }
     }
@@ -163,9 +163,9 @@ TEST_F(ZKBoundaryTests, LagrangeFirstPosition)
     auto instance = build_instance();
     auto& polys = instance->polynomials;
 
-    // lagrange_first should be 1 at row NUM_DISABLED_ROWS_IN_SUMCHECK and 0 elsewhere
-    EXPECT_EQ(polys.lagrange_first[NUM_DISABLED_ROWS_IN_SUMCHECK], FF{ 1 });
-    for (size_t r = 0; r < NUM_DISABLED_ROWS_IN_SUMCHECK; r++) {
+    // lagrange_first should be 1 at row TRACE_OFFSET and 0 elsewhere
+    EXPECT_EQ(polys.lagrange_first[ProverInstance::TRACE_OFFSET], FF{ 1 });
+    for (size_t r = 0; r < ProverInstance::TRACE_OFFSET; r++) {
         EXPECT_EQ(polys.lagrange_first[r], FF{ 0 }) << "lagrange_first should be 0 at disabled row " << r;
     }
 }
@@ -181,7 +181,7 @@ TEST_F(ZKBoundaryTests, EccOpWiresZeroInDisabledRegion)
     auto& polys = instance->polynomials;
 
     for (auto ecc_op_wire : polys.get_ecc_op_wires()) {
-        for (size_t r = 0; r < NUM_DISABLED_ROWS_IN_SUMCHECK; r++) {
+        for (size_t r = 0; r < ProverInstance::TRACE_OFFSET; r++) {
             EXPECT_EQ(ecc_op_wire[r], FF{ 0 }) << "ecc_op_wire should be zero at row " << r << " (disabled region)";
         }
     }
@@ -213,7 +213,7 @@ TEST_F(ZKBoundaryTests, CorruptionInActiveRegionFailsProof)
 
     // Find first arithmetic gate in the active region
     const size_t dyadic_size = bad_instance->dyadic_size();
-    for (size_t i = NUM_DISABLED_ROWS_IN_SUMCHECK; i < dyadic_size; i++) {
+    for (size_t i = ProverInstance::TRACE_OFFSET; i < dyadic_size; i++) {
         if (bad_instance->polynomials.q_arith[i] != FF{ 0 }) {
             bad_instance->polynomials.w_l.at(i) += FF{ 1 };
             break;

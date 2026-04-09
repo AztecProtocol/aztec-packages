@@ -28,6 +28,9 @@ template <typename Flavor_> class ProverInstance_ {
     using Flavor = Flavor_;
     using FF = typename Flavor::FF;
 
+    // The number of rows reserved at the top of the trace for row-disabling / ZK masking.
+    static constexpr size_t TRACE_OFFSET = Flavor::CircuitBuilder::ExecutionTrace::TRACE_OFFSET;
+
   private:
     using Circuit = typename Flavor::CircuitBuilder;
     using ProverPolynomials = typename Flavor::ProverPolynomials;

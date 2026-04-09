@@ -260,7 +260,7 @@ TYPED_TEST(PermutationNonZKTests, ZPermZeroedOutFailure)
 }
 
 /**
- * @brief Test that z_perm must be zero at the lagrange_first row (row NUM_DISABLED_ROWS_IN_SUMCHECK).
+ * @brief Test that z_perm must be zero at the lagrange_first row (row TRACE_OFFSET).
  *
  * @details The permutation argument includes an initialization constraint: lagrange_first * z_perm = 0.
  * The grand product relies on z_perm being 0 at the lagrange_first row so that
@@ -313,12 +313,12 @@ TYPED_TEST(PermutationNonZKTests, ZPermNonZeroAtFirstRowFailure)
         prover_instance->polynomials, prover_instance->relation_parameters, "UltraPermutation - Before Tampering");
     EXPECT_TRUE(permutation_relation_failures.empty());
 
-    // With top-of-trace masking layout, lagrange_first is at row NUM_DISABLED_ROWS_IN_SUMCHECK.
-    const size_t first_row = NUM_DISABLED_ROWS_IN_SUMCHECK;
+    // With top-of-trace masking layout, lagrange_first is at row TRACE_OFFSET.
+    const size_t first_row = ProverInstance::TRACE_OFFSET;
 
     // Verify lagrange_first is indeed 1 at the expected position.
     ASSERT_EQ(prover_instance->polynomials.lagrange_first[first_row], fr(1))
-        << "lagrange_first should be 1 at row NUM_DISABLED_ROWS_IN_SUMCHECK";
+        << "lagrange_first should be 1 at row TRACE_OFFSET";
 
     auto& z_perm = prover_instance->polynomials.z_perm;
     auto& z_perm_shift = prover_instance->polynomials.z_perm_shift;

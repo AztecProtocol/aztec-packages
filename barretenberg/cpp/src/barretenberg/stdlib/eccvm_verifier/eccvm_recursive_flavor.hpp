@@ -28,6 +28,7 @@ class ECCVMRecursiveFlavor {
 
     // Indicates that this flavor runs with non-ZK Sumcheck.
     static constexpr bool HasZK = true;
+    static constexpr size_t TRACE_OFFSET = ECCVMFlavor::TRACE_OFFSET;
     // ECCVM proof size and its recursive verifier circuit are genuinely fixed, hence no padding is needed.
     static constexpr bool USE_PADDING = ECCVMFlavor::USE_PADDING;
 

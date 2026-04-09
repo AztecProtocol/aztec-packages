@@ -246,8 +246,8 @@ template <typename Flavor> void OinkProver<Flavor>::compute_logderivative_invers
     auto& relation_parameters = instance.relation_parameters;
     const size_t circuit_size = instance.dyadic_size();
 
-    // For ZK, skip the disabled head region to preserve masking values
-    constexpr size_t start = NUM_DISABLED_ROWS_IN_SUMCHECK;
+    // Skip the disabled head region to preserve masking values
+    constexpr size_t start = ProverInstance::TRACE_OFFSET;
 
     // Compute inverses for conventional lookups
     LogDerivLookupRelation<FF>::compute_logderivative_inverse(polynomials, relation_parameters, circuit_size, start);

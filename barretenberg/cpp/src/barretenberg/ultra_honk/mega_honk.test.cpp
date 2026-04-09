@@ -259,7 +259,7 @@ TYPED_TEST(MegaHonkTests, DyadicSizeJumpsToProtectMaskingArea)
             const size_t final_active_idx = prover_instance->get_final_active_wire_idx();
 
             // Invariant: active trace doesn't overlap the disabled head region
-            ASSERT_GE(final_active_idx, static_cast<size_t>(NUM_DISABLED_ROWS_IN_SUMCHECK))
+            ASSERT_GE(final_active_idx, ProverInstance::TRACE_OFFSET)
                 << "final_active_idx (" << final_active_idx << ") is within the disabled head region";
 
             if (prev_dyadic != 0 && dyadic_size > prev_dyadic) {

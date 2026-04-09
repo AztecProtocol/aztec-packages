@@ -381,6 +381,8 @@ struct MegaTraceBlockData {
 class MegaExecutionTraceBlocks : public MegaTraceBlockData {
   public:
     static constexpr size_t NUM_WIRES = MegaTraceBlock::NUM_WIRES;
+    // The number of rows reserved at the top of the trace for row-disabling / ZK masking.
+    static constexpr size_t TRACE_OFFSET = NUM_DISABLED_ROWS_IN_SUMCHECK;
 
     using FF = fr;
 
@@ -390,7 +392,7 @@ class MegaExecutionTraceBlocks : public MegaTraceBlockData {
     {
         // Always start after the zero row + disabled head rows for uniform layout across ZK and non-ZK.
         // Non-ZK: rows 0..4 are all zeros, relations trivially satisfied without row-disabling.
-        uint32_t offset = static_cast<uint32_t>(NUM_DISABLED_ROWS_IN_SUMCHECK + NUM_ZERO_ROWS);
+        uint32_t offset = static_cast<uint32_t>(TRACE_OFFSET + NUM_ZERO_ROWS);
         for (auto& block : this->get()) {
             block.trace_offset_ = offset;
             offset += static_cast<uint32_t>(block.size());

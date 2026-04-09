@@ -45,7 +45,7 @@ template <typename Flavor> ProverInstance_<Flavor>::ProverInstance_(Circuit& cir
     circuit.blocks.compute_offsets();
     for (auto& block : circuit.blocks.get()) {
         if (block.size() > 0) {
-            final_active_wire_idx = block.trace_offset() + block.size() - 1;
+            final_active_wire_idx = block.trace_end() - 1;
         }
     }
 
@@ -85,8 +85,7 @@ template <typename Flavor> ProverInstance_<Flavor>::ProverInstance_(Circuit& cir
     }
 
     // Set the lagrange polynomials (lagrange_first at first active row after disabled region)
-    const size_t lagrange_first_idx = NUM_DISABLED_ROWS_IN_SUMCHECK;
-    polynomials.lagrange_first.at(lagrange_first_idx) = 1;
+    polynomials.lagrange_first.at(TRACE_OFFSET) = 1;
     polynomials.lagrange_last.at(final_active_wire_idx) = 1;
 
     construct_lookup_polynomials(circuit);
@@ -129,8 +128,7 @@ template <typename Flavor> size_t ProverInstance_<Flavor>::compute_dyadic_size(C
 
     // The number of gates is the maximum required by the lookup argument or everything else, plus a zero row to allow
     // for shifts.
-    size_t total_num_gates =
-        NUM_DISABLED_ROWS_IN_SUMCHECK + NUM_ZERO_ROWS + std::max(tables_size, min_size_of_execution_trace);
+    size_t total_num_gates = TRACE_OFFSET + NUM_ZERO_ROWS + std::max(tables_size, min_size_of_execution_trace);
 
     // Next power of 2 (dyadic circuit size)
     return circuit.get_circuit_subgroup_size(total_num_gates);
@@ -166,9 +164,8 @@ template <typename Flavor> void ProverInstance_<Flavor>::allocate_lagrange_polyn
 {
     BB_BENCH_NAME("allocate_lagrange_polynomials");
 
-    const size_t lagrange_first_start = NUM_DISABLED_ROWS_IN_SUMCHECK;
     polynomials.lagrange_first = Polynomial(
-        /* size=*/1, /*virtual size=*/dyadic_size(), /*start_index=*/lagrange_first_start);
+        /* size=*/1, /*virtual size=*/dyadic_size(), /*start_index=*/TRACE_OFFSET);
 
     polynomials.lagrange_last = Polynomial(
         /* size=*/1, /*virtual size=*/dyadic_size(), /*start_index=*/final_active_wire_idx);
@@ -208,7 +205,7 @@ template <typename Flavor> void ProverInstance_<Flavor>::allocate_table_lookup_p
 
     // Lookup inverses: used in the log-derivative lookup argument
     // Must cover both the lookup gate block (where reads occur) and the table data itself
-    const size_t lookup_block_end = circuit.blocks.lookup.trace_offset() + circuit.blocks.lookup.size();
+    const size_t lookup_block_end = circuit.blocks.lookup.trace_end();
     const size_t lookup_inverses_end = std::max(lookup_block_end, tables_end);
 
     polynomials.lookup_inverses = Polynomial(lookup_inverses_end, dyadic_size());
@@ -228,13 +225,11 @@ void ProverInstance_<Flavor>::allocate_ecc_op_polynomials(const Circuit& circuit
 
     // Allocate the ecc op wires and selector
     // Note: ECC op wires are not masked (they use random ops for ZK)
-    const size_t ecc_op_block_size = circuit.blocks.ecc_op.size();
-    const size_t ecc_op_offset = NUM_DISABLED_ROWS_IN_SUMCHECK;
-    const size_t ecc_op_alloc = ecc_op_offset + ecc_op_block_size;
+    const size_t ecc_op_end = circuit.blocks.ecc_op.trace_end();
     for (auto& wire : polynomials.get_ecc_op_wires()) {
-        wire = Polynomial(ecc_op_alloc, dyadic_size());
+        wire = Polynomial(ecc_op_end, dyadic_size());
     }
-    polynomials.lagrange_ecc_op = Polynomial(ecc_op_alloc, dyadic_size());
+    polynomials.lagrange_ecc_op = Polynomial(ecc_op_end, dyadic_size());
 }
 
 template <typename Flavor>
@@ -243,36 +238,35 @@ void ProverInstance_<Flavor>::allocate_databus_polynomials(const Circuit& circui
 {
     BB_BENCH_NAME("allocate_databus_and_lookup_inverse_polynomials");
 
+    // Databus data is shifted by the disabled head region for uniform layout across ZK and non-ZK.
+    // offset_size gives the allocation size for a databus column of the given content length.
+    const auto offset_size = [](size_t content) -> size_t { return TRACE_OFFSET + content; };
+
     const size_t calldata_size = circuit.get_calldata().size();
     const size_t sec_calldata_size = circuit.get_secondary_calldata().size();
     const size_t return_data_size = circuit.get_return_data().size();
 
-    // Shift databus data by the disabled head region for uniform layout across ZK and non-ZK
-    const size_t databus_offset = NUM_DISABLED_ROWS_IN_SUMCHECK;
-
     // Calldata is public and not masked
-    polynomials.calldata = Polynomial(databus_offset + calldata_size, dyadic_size());
-    polynomials.calldata_read_counts = Polynomial(databus_offset + calldata_size, dyadic_size());
-    polynomials.calldata_read_tags = Polynomial(databus_offset + calldata_size, dyadic_size());
+    polynomials.calldata = Polynomial(offset_size(calldata_size), dyadic_size());
+    polynomials.calldata_read_counts = Polynomial(offset_size(calldata_size), dyadic_size());
+    polynomials.calldata_read_tags = Polynomial(offset_size(calldata_size), dyadic_size());
 
-    polynomials.secondary_calldata = Polynomial(databus_offset + sec_calldata_size, dyadic_size());
-    polynomials.secondary_calldata_read_counts = Polynomial(databus_offset + sec_calldata_size, dyadic_size());
-    polynomials.secondary_calldata_read_tags = Polynomial(databus_offset + sec_calldata_size, dyadic_size());
+    polynomials.secondary_calldata = Polynomial(offset_size(sec_calldata_size), dyadic_size());
+    polynomials.secondary_calldata_read_counts = Polynomial(offset_size(sec_calldata_size), dyadic_size());
+    polynomials.secondary_calldata_read_tags = Polynomial(offset_size(sec_calldata_size), dyadic_size());
 
-    polynomials.return_data = Polynomial(databus_offset + return_data_size, dyadic_size());
-    polynomials.return_data_read_counts = Polynomial(databus_offset + return_data_size, dyadic_size());
-    polynomials.return_data_read_tags = Polynomial(databus_offset + return_data_size, dyadic_size());
+    polynomials.return_data = Polynomial(offset_size(return_data_size), dyadic_size());
+    polynomials.return_data_read_counts = Polynomial(offset_size(return_data_size), dyadic_size());
+    polynomials.return_data_read_tags = Polynomial(offset_size(return_data_size), dyadic_size());
 
     // Databus lookup inverses: used in the log-derivative lookup argument
     // Must cover both the databus gate block (where reads occur) and the databus data itself
-    const size_t q_busread_end = circuit.blocks.busread.trace_offset() + circuit.blocks.busread.size();
-    size_t calldata_inverses_size = std::max(databus_offset + calldata_size, q_busread_end);
-    size_t sec_calldata_inverses_size = std::max(databus_offset + sec_calldata_size, q_busread_end);
-    size_t return_data_inverses_size = std::max(databus_offset + return_data_size, q_busread_end);
-
-    polynomials.calldata_inverses = Polynomial(calldata_inverses_size, dyadic_size());
-    polynomials.secondary_calldata_inverses = Polynomial(sec_calldata_inverses_size, dyadic_size());
-    polynomials.return_data_inverses = Polynomial(return_data_inverses_size, dyadic_size());
+    const size_t q_busread_end = circuit.blocks.busread.trace_end();
+    polynomials.calldata_inverses = Polynomial(std::max(offset_size(calldata_size), q_busread_end), dyadic_size());
+    polynomials.secondary_calldata_inverses =
+        Polynomial(std::max(offset_size(sec_calldata_size), q_busread_end), dyadic_size());
+    polynomials.return_data_inverses =
+        Polynomial(std::max(offset_size(return_data_size), q_busread_end), dyadic_size());
 
     if constexpr (Flavor::HasZK) {
         // Mask databus read_counts, read_tags, and inverses (internal witness data).
@@ -294,7 +288,7 @@ void ProverInstance_<Flavor>::allocate_databus_polynomials(const Circuit& circui
     // infinity commitment.
     const size_t max_databus_column_size =
         std::max({ calldata_size, sec_calldata_size, return_data_size, size_t{ 2 } });
-    polynomials.databus_id = Polynomial(databus_offset + max_databus_column_size, dyadic_size());
+    polynomials.databus_id = Polynomial(offset_size(max_databus_column_size), dyadic_size());
 }
 
 template <typename Flavor> void ProverInstance_<Flavor>::construct_lookup_polynomials(Circuit& circuit)
@@ -331,7 +325,7 @@ void ProverInstance_<Flavor>::construct_databus_polynomials(Circuit& circuit)
     const auto& return_data = circuit.get_return_data();
 
     // Databus data is shifted by the disabled head region for uniform layout
-    const size_t databus_offset = NUM_DISABLED_ROWS_IN_SUMCHECK;
+    constexpr size_t databus_offset = TRACE_OFFSET;
 
     for (size_t idx = 0; idx < calldata.size(); ++idx) {
         calldata_poly.at(databus_offset + idx) = circuit.get_variable(calldata[idx]);

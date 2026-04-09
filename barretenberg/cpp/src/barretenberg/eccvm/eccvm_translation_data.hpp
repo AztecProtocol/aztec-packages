@@ -98,10 +98,11 @@ template <typename Transcript> class TranslationData {
         }
 
         // Extract the masking terms from the head of the transcript polynomials (top-of-trace masking)
-        // Positions 0..NUM_DISABLED_ROWS_IN_SUMCHECK-1 contain: zero row (pos 0), masking values (pos 1,2,3)
+        // Positions 0..TRACE_OFFSET-1 contain: zero row (pos 0), masking values (pos 1,2,3)
+        constexpr size_t coeffs_per_poly = Flavor::TRACE_OFFSET;
         for (size_t poly_idx = 0; poly_idx < NUM_TRANSLATION_EVALUATIONS; poly_idx++) {
-            for (size_t idx = 0; idx < NUM_DISABLED_ROWS_IN_SUMCHECK; idx++) {
-                size_t idx_to_populate = poly_idx * NUM_DISABLED_ROWS_IN_SUMCHECK + idx;
+            for (size_t idx = 0; idx < coeffs_per_poly; idx++) {
+                size_t idx_to_populate = poly_idx * coeffs_per_poly + idx;
                 coeffs_lagrange_subgroup[idx_to_populate] = transcript_polynomials[poly_idx][idx];
             }
         }

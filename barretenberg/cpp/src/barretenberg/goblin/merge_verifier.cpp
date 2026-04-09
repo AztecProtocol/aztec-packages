@@ -165,7 +165,7 @@ typename MergeVerifier_<Curve>::ReductionResult MergeVerifier_<Curve>::reduce_to
     const FF kappa_inv = kappa.invert();
     const FF pow_kappa = kappa.pow(shift_size);
     // L is always shifted by X^s (both PREPEND and APPEND). Degree check needs κ^{k+s-1}.
-    const FF pow_kappa_degree_check = pow_kappa * kappa.pow(NUM_DISABLED_ROWS_IN_SUMCHECK) * kappa_inv;
+    const FF pow_kappa_degree_check = pow_kappa * kappa.pow(TRACE_OFFSET) * kappa_inv;
 
     // Receive evaluations of [Lᵢ], [Rᵢ], [Mᵢ] at κ
     std::vector<FF> evals;
@@ -195,7 +195,7 @@ typename MergeVerifier_<Curve>::ReductionResult MergeVerifier_<Curve>::reduce_to
 
     // PREPEND: all shifted (L', R', M') — standard concatenation check: L' + κ^k·R' = M'.
     // APPEND: L', R' shifted, M unshifted — adjusted: L' + κ^k·R' = κ^s·M.
-    const FF pow_kappa_s = (settings == MergeSettings::APPEND) ? kappa.pow(NUM_DISABLED_ROWS_IN_SUMCHECK) : FF(1);
+    const FF pow_kappa_s = (settings == MergeSettings::APPEND) ? kappa.pow(TRACE_OFFSET) : FF(1);
     bool concatenation_verified = check_concatenation_identities(evals, pow_kappa, pow_kappa_s);
 
     // Check degree identity

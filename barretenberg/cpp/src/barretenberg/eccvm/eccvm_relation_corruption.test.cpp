@@ -120,8 +120,7 @@ RelationParameters<FF> compute_full_relation_params(ProverPolynomials& polynomia
     };
 
     const size_t num_rows = polynomials.get_polynomial_size();
-    compute_logderivative_inverse<FF, ECCVMLookupRelation<FF>>(
-        polynomials, params, num_rows, NUM_DISABLED_ROWS_IN_SUMCHECK);
+    compute_logderivative_inverse<FF, ECCVMLookupRelation<FF>>(polynomials, params, num_rows, Flavor::TRACE_OFFSET);
     compute_grand_product<Flavor, ECCVMSetRelation<FF>>(polynomials, params);
     polynomials.z_perm_shift = Polynomial(polynomials.z_perm.shifted());
 
@@ -134,7 +133,7 @@ RelationParameters<FF> compute_full_relation_params(ProverPolynomials& polynomia
 size_t find_transcript_noop_row(const ProverPolynomials& polynomials)
 {
     const size_t num_rows = polynomials.get_polynomial_size();
-    for (size_t i = NUM_DISABLED_ROWS_IN_SUMCHECK; i < num_rows - 1; i++) {
+    for (size_t i = Flavor::TRACE_OFFSET; i < num_rows - 1; i++) {
         if (polynomials.transcript_add[i] == FF(0) && polynomials.transcript_mul[i] == FF(0) &&
             polynomials.transcript_eq[i] == FF(0) && polynomials.transcript_reset_accumulator[i] == FF(0) &&
             polynomials.lagrange_first[i] == FF(0) && polynomials.lagrange_last[i] == FF(0)) {
@@ -166,11 +165,11 @@ TEST_F(ECCVMRelationCorruptionTests, MSMAccumulatorCorruptionAtTransitionRowIsHa
     RelationParameters<FF> params{};
 
     auto baseline = RelationChecker<void>::check<ECCVMMSMRelation<FF>>(
-        polynomials, params, "ECCVMMSMRelation", NUM_DISABLED_ROWS_IN_SUMCHECK);
+        polynomials, params, "ECCVMMSMRelation", Flavor::TRACE_OFFSET);
     EXPECT_TRUE(baseline.empty()) << "Baseline MSM relation should pass";
 
     // Confirm the first active MSM row is the transition row (offset by disabled head region)
-    constexpr size_t first_msm_row = NUM_DISABLED_ROWS_IN_SUMCHECK + 1;
+    constexpr size_t first_msm_row = Flavor::TRACE_OFFSET + 1;
     ASSERT_EQ(polynomials.msm_add[first_msm_row], FF(1)) << "First MSM row should be an active MSM add row";
     ASSERT_EQ(polynomials.msm_transition[first_msm_row], FF(1)) << "First MSM row should have msm_transition=1";
 
@@ -180,7 +179,7 @@ TEST_F(ECCVMRelationCorruptionTests, MSMAccumulatorCorruptionAtTransitionRowIsHa
     polynomials.set_shifted();
 
     auto failures = RelationChecker<void>::check<ECCVMMSMRelation<FF>>(
-        polynomials, params, "ECCVMMSMRelation", NUM_DISABLED_ROWS_IN_SUMCHECK);
+        polynomials, params, "ECCVMMSMRelation", Flavor::TRACE_OFFSET);
     EXPECT_TRUE(failures.empty()) << "MSM relation should STILL PASS — acc is unused when msm_transition=1";
 }
 
@@ -203,13 +202,13 @@ TEST_F(ECCVMRelationCorruptionTests, MSMAccumulatorCorruptionAtInteriorAndNoOpRo
         auto polynomials = build_valid_eccvm_msm_state();
 
         auto baseline = RelationChecker<void>::check<ECCVMMSMRelation<FF>>(
-            polynomials, params, "ECCVMMSMRelation", NUM_DISABLED_ROWS_IN_SUMCHECK);
+            polynomials, params, "ECCVMMSMRelation", Flavor::TRACE_OFFSET);
         EXPECT_TRUE(baseline.empty()) << "Baseline MSM relation should pass";
 
         // Find an interior addition row: q_add=1, msm_transition=0
         const size_t num_rows = polynomials.get_polynomial_size();
         size_t active_row = 0;
-        for (size_t i = NUM_DISABLED_ROWS_IN_SUMCHECK; i < num_rows - 1; i++) {
+        for (size_t i = Flavor::TRACE_OFFSET; i < num_rows - 1; i++) {
             if (polynomials.msm_add[i] == FF(1) && polynomials.msm_transition[i] == FF(0)) {
                 active_row = i;
                 break;
@@ -222,7 +221,7 @@ TEST_F(ECCVMRelationCorruptionTests, MSMAccumulatorCorruptionAtInteriorAndNoOpRo
         polynomials.set_shifted();
 
         auto failures = RelationChecker<void>::check<ECCVMMSMRelation<FF>>(
-            polynomials, params, "ECCVMMSMRelation", NUM_DISABLED_ROWS_IN_SUMCHECK);
+            polynomials, params, "ECCVMMSMRelation", Flavor::TRACE_OFFSET);
         EXPECT_FALSE(failures.empty()) << "MSM relation should fail after active-row accumulator corruption";
     }
 
@@ -233,7 +232,7 @@ TEST_F(ECCVMRelationCorruptionTests, MSMAccumulatorCorruptionAtInteriorAndNoOpRo
         // Find the first no-op row (all MSM selectors zero, not lagrange_first)
         const size_t num_rows = polynomials.get_polynomial_size();
         size_t no_op_row = 0;
-        for (size_t i = NUM_DISABLED_ROWS_IN_SUMCHECK; i < num_rows - 1; i++) {
+        for (size_t i = Flavor::TRACE_OFFSET; i < num_rows - 1; i++) {
             if (polynomials.msm_add[i] == FF(0) && polynomials.msm_double[i] == FF(0) &&
                 polynomials.msm_skew[i] == FF(0) && polynomials.msm_transition[i] == FF(0) &&
                 polynomials.lagrange_first[i] == FF(0)) {
@@ -248,7 +247,7 @@ TEST_F(ECCVMRelationCorruptionTests, MSMAccumulatorCorruptionAtInteriorAndNoOpRo
         polynomials.set_shifted();
 
         auto failures = RelationChecker<void>::check<ECCVMMSMRelation<FF>>(
-            polynomials, params, "ECCVMMSMRelation", NUM_DISABLED_ROWS_IN_SUMCHECK);
+            polynomials, params, "ECCVMMSMRelation", Flavor::TRACE_OFFSET);
         EXPECT_FALSE(failures.empty()) << "MSM relation should fail after no-op accumulator corruption";
 
         // The failure should be in subrelations 45 or 46 (the no-op accumulator preservation constraints)
@@ -280,13 +279,13 @@ TEST_F(ECCVMRelationCorruptionTests, MSMRelationFailsOnShiftedMSMTable)
 
     // Baseline: MSM relation passes on clean data
     auto baseline = RelationChecker<void>::check<ECCVMMSMRelation<FF>>(
-        polynomials, params, "ECCVMMSMRelation", NUM_DISABLED_ROWS_IN_SUMCHECK);
+        polynomials, params, "ECCVMMSMRelation", Flavor::TRACE_OFFSET);
     EXPECT_TRUE(baseline.empty()) << "Baseline MSM relation should pass";
 
     auto msm_polys = get_msm_polynomials(polynomials);
 
     // Shift every MSM column down by 1 within the active region
-    constexpr size_t ofs = NUM_DISABLED_ROWS_IN_SUMCHECK;
+    constexpr size_t ofs = Flavor::TRACE_OFFSET;
     for (auto* poly : msm_polys) {
         for (size_t k = poly->end_index() - 1; k >= ofs + 2; k--) {
             poly->at(k) = (*poly)[k - 1];
@@ -301,7 +300,7 @@ TEST_F(ECCVMRelationCorruptionTests, MSMRelationFailsOnShiftedMSMTable)
     polynomials.set_shifted();
 
     auto failures = RelationChecker<void>::check<ECCVMMSMRelation<FF>>(
-        polynomials, params, "ECCVMMSMRelation", NUM_DISABLED_ROWS_IN_SUMCHECK);
+        polynomials, params, "ECCVMMSMRelation", Flavor::TRACE_OFFSET);
     EXPECT_FALSE(failures.empty()) << "MSM relation should fail after shifting MSM table by one row";
 
     // Log all failing subrelations for visibility
@@ -321,19 +320,19 @@ TEST_F(ECCVMRelationCorruptionTests, MSMRelationFailsOnShiftedMSMTable)
 
     // Relations that don't touch MSM columns should be completely unaffected.
     auto transcript_failures = RelationChecker<void>::check<ECCVMTranscriptRelation<FF>>(
-        polynomials, full_params, "ECCVMTranscriptRelation", NUM_DISABLED_ROWS_IN_SUMCHECK);
+        polynomials, full_params, "ECCVMTranscriptRelation", Flavor::TRACE_OFFSET);
     EXPECT_TRUE(transcript_failures.empty()) << "ECCVMTranscriptRelation should still pass";
 
     auto point_table_failures = RelationChecker<void>::check<ECCVMPointTableRelation<FF>>(
-        polynomials, full_params, "ECCVMPointTableRelation", NUM_DISABLED_ROWS_IN_SUMCHECK);
+        polynomials, full_params, "ECCVMPointTableRelation", Flavor::TRACE_OFFSET);
     EXPECT_TRUE(point_table_failures.empty()) << "ECCVMPointTableRelation should still pass";
 
     auto wnaf_failures = RelationChecker<void>::check<ECCVMWnafRelation<FF>>(
-        polynomials, full_params, "ECCVMWnafRelation", NUM_DISABLED_ROWS_IN_SUMCHECK);
+        polynomials, full_params, "ECCVMWnafRelation", Flavor::TRACE_OFFSET);
     EXPECT_TRUE(wnaf_failures.empty()) << "ECCVMWnafRelation should still pass";
 
     auto bools_failures = RelationChecker<void>::check<ECCVMBoolsRelation<FF>>(
-        polynomials, full_params, "ECCVMBoolsRelation", NUM_DISABLED_ROWS_IN_SUMCHECK);
+        polynomials, full_params, "ECCVMBoolsRelation", Flavor::TRACE_OFFSET);
     EXPECT_TRUE(bools_failures.empty()) << "ECCVMBoolsRelation should still pass";
 
     // The Set relation enforces a multiset equality between MSM output tuples (pc, acc_x, acc_y, msm_size)
@@ -341,14 +340,14 @@ TEST_F(ECCVMRelationCorruptionTests, MSMRelationFailsOnShiftedMSMTable)
     // post-shift) reflects mismatched reads/writes and the relation correctly fails. It is possible that with more
     // care, we could make this also pass.
     auto set_failures = RelationChecker<void>::check<ECCVMSetRelation<FF>>(
-        polynomials, full_params, "ECCVMSetRelation", NUM_DISABLED_ROWS_IN_SUMCHECK);
+        polynomials, full_params, "ECCVMSetRelation", Flavor::TRACE_OFFSET);
     EXPECT_FALSE(set_failures.empty()) << "ECCVMSetRelation should also fail (MSM output tuples are shifted)";
 
     // The Lookup relation's logderivative inverse is computed post-shift, so it adapts to the
     // shifted column values. The per-row subrelation passes, and the sum-over-trace (linearly
     // dependent) subrelation also vanishes since the inverse was derived from the current data.
     auto lookup_failures = RelationChecker<void>::check<ECCVMLookupRelation<FF>, /*has_linearly_dependent=*/true>(
-        polynomials, full_params, "ECCVMLookupRelation", NUM_DISABLED_ROWS_IN_SUMCHECK);
+        polynomials, full_params, "ECCVMLookupRelation", Flavor::TRACE_OFFSET);
     EXPECT_TRUE(lookup_failures.empty()) << "ECCVMLookupRelation should still pass (inverse computed post-shift)";
 }
 
@@ -365,7 +364,7 @@ TEST_F(ECCVMRelationCorruptionTests, TranscriptNoOpRowRejectsAccumulatorNotEmpty
     RelationParameters<FF> params{};
 
     auto baseline = RelationChecker<void>::check<ECCVMTranscriptRelation<FF>>(
-        polynomials, params, "ECCVMTranscriptRelation", NUM_DISABLED_ROWS_IN_SUMCHECK);
+        polynomials, params, "ECCVMTranscriptRelation", Flavor::TRACE_OFFSET);
     EXPECT_TRUE(baseline.empty()) << "Baseline transcript relation should pass";
 
     size_t noop_row = find_transcript_noop_row(polynomials);
@@ -377,7 +376,7 @@ TEST_F(ECCVMRelationCorruptionTests, TranscriptNoOpRowRejectsAccumulatorNotEmpty
     polynomials.set_shifted();
 
     auto failures = RelationChecker<void>::check<ECCVMTranscriptRelation<FF>>(
-        polynomials, params, "ECCVMTranscriptRelation", NUM_DISABLED_ROWS_IN_SUMCHECK);
+        polynomials, params, "ECCVMTranscriptRelation", Flavor::TRACE_OFFSET);
     EXPECT_FALSE(failures.empty()) << "Transcript relation should fail after corrupting accumulator_not_empty on "
                                       "the row following a no-op";
     EXPECT_TRUE(failures.contains(22)) << "Subrelation 22 (accumulator_infinity) should catch the corruption";
@@ -400,12 +399,12 @@ TEST_F(ECCVMRelationCorruptionTests, SetRelationFailsOnZPermNonZeroAtFirstRow)
 
     // Baseline: set relation passes (skip disabled head rows where masking values break relations)
     auto baseline = RelationChecker<void>::check<ECCVMSetRelation<FF>>(
-        polynomials, params, "ECCVMSetRelation", NUM_DISABLED_ROWS_IN_SUMCHECK);
+        polynomials, params, "ECCVMSetRelation", Flavor::TRACE_OFFSET);
     EXPECT_TRUE(baseline.empty()) << "Baseline set relation should pass";
 
     // Derive expected lagrange_first position from z_perm shiftable structure
     ASSERT_TRUE(polynomials.z_perm.is_shiftable());
-    size_t structural_first_row = NUM_DISABLED_ROWS_IN_SUMCHECK;
+    size_t structural_first_row = Flavor::TRACE_OFFSET;
 
     // Independently scan lagrange_first for its non-zero entry
     const auto& lagrange_first = polynomials.lagrange_first;
@@ -434,10 +433,7 @@ TEST_F(ECCVMRelationCorruptionTests, SetRelationFailsOnZPermNonZeroAtFirstRow)
     polynomials.z_perm.at(first_row) = FF(1);
 
     auto failures = RelationChecker<void>::check<ECCVMSetRelation<FF>>(
-        polynomials,
-        params,
-        "ECCVMSetRelation - After setting z_perm != 0 at lagrange_first",
-        NUM_DISABLED_ROWS_IN_SUMCHECK);
+        polynomials, params, "ECCVMSetRelation - After setting z_perm != 0 at lagrange_first", Flavor::TRACE_OFFSET);
     EXPECT_FALSE(failures.empty()) << "Set relation should fail after z_perm init corruption";
     EXPECT_TRUE(failures.contains(ECCVMSetRelationImpl<FF>::Z_PERM_INIT))
         << "Sub-relation Z_PERM_INIT should catch the corruption";
