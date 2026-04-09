@@ -312,6 +312,26 @@ void BytecodeTraceBuilder::process_retrieval(
     trace.invert_columns({ { C::bc_retrieval_remaining_bytecodes_inv } });
 }
 
+/**
+ * @brief Process instruction fetching events and populate the relevant columns in the trace.
+ *  Corresponds to instr_fetching.pil.
+ *
+ * Uses a single row per event. Note that events are already deduplicated by simulation (see See
+ * InstructionFetchingEvent and DeduplicatingEventEmitter used in simulate_for_witgen), so no further
+ * deduplication is performed here.
+ *
+ * This function does not perform any error detection itself; all error classification has
+ * already been done in simulation so we simply read directly from the event's error field.
+ * The four possible errors are:
+ *          - PC_OUT_OF_RANGE
+ *          - OPCODE_OUT_OF_RANGE
+ *          - INSTRUCTION_OUT_OF_RANGE
+ *          - TAG_OUT_OF_RANGE
+ * See simulation ([pure_]bytecode_manager.cpp) and instr_fetching.pil for error documentation.
+ *
+ * @param events The container of instruction fetching events to process.
+ * @param trace The trace container.
+ */
 void BytecodeTraceBuilder::process_instruction_fetching(
     const simulation::EventEmitterInterface<simulation::InstructionFetchingEvent>::Container& events,
     TraceContainer& trace)
@@ -322,16 +342,15 @@ void BytecodeTraceBuilder::process_instruction_fetching(
     using simulation::InstrDeserializationEventError::PC_OUT_OF_RANGE;
     using simulation::InstrDeserializationEventError::TAG_OUT_OF_RANGE;
 
-    // We start from row 1 because we need a row of zeroes for the shifts.
-    uint32_t row = 1;
+    uint32_t row = 0;
 
     for (const auto& event : events) {
-        const auto bytecode_id = event.bytecode_id;
         const auto bytecode_size = event.bytecode->size();
         // To match column PARSING_ERROR_EXCEPT_TAG_ERROR:
         const bool parsing_error_non_tag = event.error == PC_OUT_OF_RANGE || event.error == OPCODE_OUT_OF_RANGE ||
                                            event.error == INSTRUCTION_OUT_OF_RANGE;
 
+        // Operands are constrained to be 0 in the circuit when PARSING_ERROR_EXCEPT_TAG_ERROR:
         auto get_operand = [&](size_t i) -> FF {
             return i < event.instruction.operands.size() && !parsing_error_non_tag
                        ? static_cast<FF>(event.instruction.operands[i])
@@ -339,20 +358,34 @@ void BytecodeTraceBuilder::process_instruction_fetching(
         };
         auto bytecode_at = [&](size_t i) -> uint8_t { return i < bytecode_size ? (*event.bytecode)[i] : 0; };
 
+        // To match column bd0, the first byte of the instruction which holds the wire opcode.
         const uint8_t wire_opcode = bytecode_at(event.pc);
-        const bool wire_opcode_in_range =
-            event.error != PC_OUT_OF_RANGE && wire_opcode < static_cast<uint8_t>(WireOpCode::LAST_OPCODE_SENTINEL);
+        // Corresponds to !opcode_out_of_range (PC_OUT_OF_RANGE is checked first since we have error disjointedness).
+        const bool wire_opcode_in_range = event.error != PC_OUT_OF_RANGE && event.error != OPCODE_OUT_OF_RANGE;
 
-        uint32_t size_in_bytes = 0;
+        // To match corresponding columns (initialized as 0 to match circuit behaviour in error cases):
+        //  -   PC_OUT_OF_RANGE: The below remain 0 (matching sel_pc_in_range == 0 and PARSING_ERROR_EXCEPT_TAG_ERROR
+        //                       circuit logic) as there is nothing to read from the bytecode.
+        //  -   OPCODE_OUT_OF_RANGE: The below remain 0 since we do not have a valid opcode. This matches the
+        //                           #[WIRE_INSTRUCTION_INFO] lookup where opcode_out_of_range == 1 implies all other
+        //                           tuple fields are 0.
+        //  -   INSTRUCTION_OUT_OF_RANGE: The below are assigned according to the wire opcode and instr_size is used to
+        //                                constrain the instr_out_of_range flag. Note that operands are forced to be 0
+        //                                (correctly matching PARSING_ERROR_EXCEPT_TAG_ERROR circuit logic) meaning
+        //                                tag_value can only be 0. This is fine as #[TAG_VALUE_VALIDATION] passes for 0
+        //                                trivially and the circuit still enforces sel_parsing_err == 1.
+        //  -   TAG_OUT_OF_RANGE: The below, including operands, are all assigned, matching circuit behaviour for
+        //                        PARSING_ERROR_EXCEPT_TAG_ERROR == 0.
+        uint32_t instr_size = 0;
         ExecutionOpCode exec_opcode = static_cast<ExecutionOpCode>(0);
         std::array<uint8_t, NUM_OP_DC_SELECTORS> op_dc_selectors{};
-        uint8_t has_tag = 0;
-        uint8_t tag_is_op2 = 0;
+        bool has_tag = false;
+        bool tag_is_op2 = false;
         uint8_t tag_value = 0;
 
         if (wire_opcode_in_range) {
             const auto& wire_instr_spec = get_wire_instruction_spec().at(static_cast<WireOpCode>(wire_opcode));
-            size_in_bytes = wire_instr_spec.size_in_bytes;
+            instr_size = wire_instr_spec.size_in_bytes;
             exec_opcode = wire_instr_spec.exec_opcode;
             op_dc_selectors = wire_instr_spec.op_dc_selectors;
 
@@ -360,38 +393,59 @@ void BytecodeTraceBuilder::process_instruction_fetching(
                 const auto tag_value_idx = wire_instr_spec.tag_operand_idx.value();
                 BB_ASSERT((tag_value_idx == 2 || tag_value_idx == 3),
                           "Current constraints support only tag for operand index equal to 2 or 3");
-                has_tag = 1;
-
-                if (tag_value_idx == 2) {
-                    tag_is_op2 = 1;
-                    tag_value = static_cast<uint8_t>(get_operand(1)); // in instruction.operands, op2 has index 1
-                } else {
-                    tag_value = static_cast<uint8_t>(get_operand(2));
-                }
+                has_tag = true;
+                tag_value =
+                    static_cast<uint8_t>(get_operand(tag_value_idx - 1)); // op2/op3 live at instruction.operands[1/2]
+                tag_is_op2 = tag_value_idx == 2;
             }
-        }
-
-        const uint32_t bytes_remaining =
-            event.error == PC_OUT_OF_RANGE ? 0 : static_cast<uint32_t>(bytecode_size - event.pc);
-        const uint32_t bytes_to_read = std::min(bytes_remaining, DECOMPOSE_WINDOW_SIZE);
-
-        uint32_t instr_abs_diff = 0;
-        if (size_in_bytes <= bytes_to_read) {
-            instr_abs_diff = bytes_to_read - size_in_bytes;
-        } else {
-            instr_abs_diff = size_in_bytes - bytes_to_read - 1;
         }
 
         uint32_t bytecode_size_u32 = static_cast<uint32_t>(bytecode_size);
         uint32_t pc_abs_diff =
-            bytecode_size_u32 > event.pc ? bytecode_size_u32 - event.pc - 1 : event.pc - bytecode_size_u32;
+            event.error == PC_OUT_OF_RANGE ? event.pc - bytecode_size_u32 : bytecode_size_u32 - event.pc - 1;
+
+        // If OPCODE_OUT_OF_RANGE, we still have valid bytecode to read, but have no
+        // instruction and hence instr_size = 0. This matches the expected table entry for
+        // opcode_out_of_range == 1 (#[WIRE_INSTRUCTION_INFO]) and the diff check passes
+        // for instr_abs_diff = bytes_to_read:
+        const uint32_t bytes_remaining = event.error == PC_OUT_OF_RANGE ? 0 : bytecode_size_u32 - event.pc;
+        const uint32_t bytes_to_read = std::min(bytes_remaining, DECOMPOSE_WINDOW_SIZE);
+        uint32_t instr_abs_diff =
+            event.error == INSTRUCTION_OUT_OF_RANGE ? instr_size - bytes_to_read - 1 : bytes_to_read - instr_size;
 
         trace.set(row,
                   { {
                       { C::instr_fetching_sel, 1 },
-                      { C::instr_fetching_bytecode_id, bytecode_id },
+                      // Unique pair defining the instruction.
                       { C::instr_fetching_pc, event.pc },
-                      // indirect + operands.
+                      { C::instr_fetching_bytecode_id, event.bytecode_id },
+
+                      // Parsing error flags.
+                      { C::instr_fetching_pc_out_of_range, event.error == PC_OUT_OF_RANGE ? 1 : 0 },
+                      { C::instr_fetching_opcode_out_of_range, event.error == OPCODE_OUT_OF_RANGE ? 1 : 0 },
+                      { C::instr_fetching_instr_out_of_range, event.error == INSTRUCTION_OUT_OF_RANGE ? 1 : 0 },
+                      { C::instr_fetching_tag_out_of_range, event.error == TAG_OUT_OF_RANGE ? 1 : 0 },
+                      { C::instr_fetching_sel_parsing_err, event.error.has_value() ? 1 : 0 },
+                      { C::instr_fetching_sel_pc_in_range, event.error != PC_OUT_OF_RANGE ? 1 : 0 },
+
+                      // Error handling.
+                      { C::instr_fetching_bytecode_size, bytecode_size },
+                      { C::instr_fetching_bytes_to_read, bytes_to_read },
+                      { C::instr_fetching_instr_size, instr_size },
+                      { C::instr_fetching_instr_abs_diff, instr_abs_diff },
+                      { C::instr_fetching_pc_abs_diff, pc_abs_diff },
+                      // Constant column (this is temp because aliasing is not allowed in lookups).
+                      { C::instr_fetching_pc_size_in_bits, AVM_PC_SIZE_IN_BITS },
+
+                      // Tag metadata.
+                      { C::instr_fetching_tag_value, tag_value },
+                      { C::instr_fetching_sel_has_tag, has_tag ? 1 : 0 },
+                      { C::instr_fetching_sel_tag_is_op2, tag_is_op2 ? 1 : 0 },
+
+                      // Execution opcode.
+                      { C::instr_fetching_exec_opcode, static_cast<uint32_t>(exec_opcode) },
+
+                      // Addressing mode and operands.
                       { C::instr_fetching_addressing_mode, event.instruction.addressing_mode },
                       { C::instr_fetching_op1, get_operand(0) },
                       { C::instr_fetching_op2, get_operand(1) },
@@ -400,7 +454,8 @@ void BytecodeTraceBuilder::process_instruction_fetching(
                       { C::instr_fetching_op5, get_operand(4) },
                       { C::instr_fetching_op6, get_operand(5) },
                       { C::instr_fetching_op7, get_operand(6) },
-                      // Single bytes.
+
+                      // Single instruction bytes.
                       { C::instr_fetching_bd0, wire_opcode },
                       { C::instr_fetching_bd1, bytecode_at(event.pc + 1) },
                       { C::instr_fetching_bd2, bytecode_at(event.pc + 2) },
@@ -439,13 +494,7 @@ void BytecodeTraceBuilder::process_instruction_fetching(
                       { C::instr_fetching_bd35, bytecode_at(event.pc + 35) },
                       { C::instr_fetching_bd36, bytecode_at(event.pc + 36) },
 
-                      // From instruction table.
-                      { C::instr_fetching_exec_opcode, static_cast<uint32_t>(exec_opcode) },
-                      { C::instr_fetching_instr_size, size_in_bytes },
-                      { C::instr_fetching_sel_has_tag, has_tag },
-                      { C::instr_fetching_sel_tag_is_op2, tag_is_op2 },
-
-                      // Fill operand decomposition selectors
+                      // Operand decomposition selectors.
                       { C::instr_fetching_sel_op_dc_0, op_dc_selectors.at(0) },
                       { C::instr_fetching_sel_op_dc_1, op_dc_selectors.at(1) },
                       { C::instr_fetching_sel_op_dc_2, op_dc_selectors.at(2) },
@@ -463,24 +512,6 @@ void BytecodeTraceBuilder::process_instruction_fetching(
                       { C::instr_fetching_sel_op_dc_14, op_dc_selectors.at(14) },
                       { C::instr_fetching_sel_op_dc_15, op_dc_selectors.at(15) },
                       { C::instr_fetching_sel_op_dc_16, op_dc_selectors.at(16) },
-
-                      // Parsing errors
-                      { C::instr_fetching_pc_out_of_range, event.error == PC_OUT_OF_RANGE ? 1 : 0 },
-                      { C::instr_fetching_opcode_out_of_range, event.error == OPCODE_OUT_OF_RANGE ? 1 : 0 },
-                      { C::instr_fetching_instr_out_of_range, event.error == INSTRUCTION_OUT_OF_RANGE ? 1 : 0 },
-                      { C::instr_fetching_tag_out_of_range, event.error == TAG_OUT_OF_RANGE ? 1 : 0 },
-                      { C::instr_fetching_sel_parsing_err, event.error.has_value() ? 1 : 0 },
-
-                      // selector for lookups
-                      { C::instr_fetching_sel_pc_in_range, event.error != PC_OUT_OF_RANGE ? 1 : 0 },
-
-                      { C::instr_fetching_bytecode_size, bytecode_size },
-                      { C::instr_fetching_bytes_to_read, bytes_to_read },
-                      { C::instr_fetching_instr_abs_diff, instr_abs_diff },
-                      { C::instr_fetching_pc_abs_diff, pc_abs_diff },
-                      { C::instr_fetching_pc_size_in_bits,
-                        AVM_PC_SIZE_IN_BITS }, // Remove when we support constants in lookups
-                      { C::instr_fetching_tag_value, tag_value },
                   } });
         row++;
     }
@@ -503,11 +534,13 @@ const InteractionDefinition BytecodeTraceBuilder::interactions =
         // Bytecode Decomposition
         .add<lookup_bc_decomposition_bytes_are_bytes_settings, InteractionType::LookupIntoIndexedByRow>()
         // Instruction Fetching
-        .add<lookup_instr_fetching_bytes_from_bc_dec_settings, InteractionType::LookupGeneric>()
-        .add<lookup_instr_fetching_bytecode_size_from_bc_dec_settings, InteractionType::LookupGeneric>()
-        .add<lookup_instr_fetching_wire_instruction_info_settings, InteractionType::LookupIntoIndexedByRow>()
+        .add<lookup_instr_fetching_pc_abs_diff_positive_settings, InteractionType::LookupGeneric>()
         .add<lookup_instr_fetching_instr_abs_diff_positive_settings, InteractionType::LookupIntoIndexedByRow>()
         .add<lookup_instr_fetching_tag_value_validation_settings, InteractionType::LookupIntoIndexedByRow>()
-        .add<lookup_instr_fetching_pc_abs_diff_positive_settings, InteractionType::LookupGeneric>();
+        // The lookups into bc_decomposition cannnot be sequential because we deduplicate instruction
+        // fetches. Additionally the instruction rows are not necessarily ordered by bytecode position.
+        .add<lookup_instr_fetching_bytecode_size_from_bc_dec_settings, InteractionType::LookupGeneric>()
+        .add<lookup_instr_fetching_bytes_from_bc_dec_settings, InteractionType::LookupGeneric>()
+        .add<lookup_instr_fetching_wire_instruction_info_settings, InteractionType::LookupIntoIndexedByRow>();
 
 } // namespace bb::avm2::tracegen
