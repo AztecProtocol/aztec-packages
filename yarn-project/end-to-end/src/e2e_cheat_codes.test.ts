@@ -150,7 +150,7 @@ describe('e2e_cheat_codes', () => {
       await context.teardown();
     });
 
-    it('warpL2TimeAtLeastTo produces a block with the target timestamp', async () => {
+    it('warpL2TimeAtLeastTo produces a block with at least the target timestamp', async () => {
       const targetTimestamp = Math.floor(Date.now() / 1000) + 1000;
       await context.cheatCodes.warpL2TimeAtLeastTo(context.aztecNodeService, targetTimestamp);
 
@@ -160,7 +160,7 @@ describe('e2e_cheat_codes', () => {
       expect(Number(block!.header.globalVariables.timestamp)).toBeGreaterThanOrEqual(targetTimestamp);
     });
 
-    it('warpL2TimeAtLeastBy advances time by duration', async () => {
+    it('warpL2TimeAtLeastBy advances time by at least the duration', async () => {
       const blockBeforeAdvance = await aztecNode.getBlock(await aztecNode.getBlockNumber());
       const timestampBefore = Number(blockBeforeAdvance!.header.globalVariables.timestamp);
 
