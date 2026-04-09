@@ -446,104 +446,137 @@ TEST_F(ECCVMRelationCorruptionTests, SetRelationFailsOnZPermNonZeroAtFirstRow)
 }
 
 /**
- * @brief Audit every shiftable column at the lagrange_first row for the masking-at-top scenario.
+ * @brief Shiftable columns constrained by lagrange_first-activated initialization relations.
  *
- * @details When masking is at the top of the circuit, lagrange_first activates at row k > 0 (not row 0).
- * The PCS enforces P[0] = 0 for shiftable columns, but P[k] is unconstrained by the PCS. For soundness,
- * we must verify that corrupting each shiftable column at the lagrange_first row either:
- *   (a) causes a specific initialization subrelation to fail (desired constraint), or
- *   (b) is harmless because all relations referencing the column at that row are gated by selectors or
- *       is_not_first_row, which are zero at the lagrange_first row.
- *
- * This test corrupts each shiftable column individually and checks the result.
- * See the documentation on ShiftedEntities in eccvm_flavor.hpp for the full audit rationale.
- *
- * Implementation: We corrupt the *shifted* value at the lagrange_first row (i.e., the base polynomial
- * at first_row + 1), since the shifted value P_shift at row k = P[k+1] is the value most commonly
- * referenced in relations that use lagrange_first positively. The unshifted value P[k] is typically
- * gated by selectors (all zero at the first row). For Category 3 columns, we verify the specific
- * initialization subrelation that catches the corruption.
+ * @details Corrupting the *shifted* value (P[k+1]) of these columns at the lagrange_first row
+ * must be caught by specific initialization subrelations in the WNAF relation.
  */
-TEST_F(ECCVMRelationCorruptionTests, ShiftableColumnCorruptionAtLagrangeFirstRow)
+TEST_F(ECCVMRelationCorruptionTests, ShiftableInitializationConstraints)
 {
-    // Helper: find the lagrange_first row index
-    auto find_lagrange_first_row = [](const ProverPolynomials& polys) -> size_t {
-        const auto& lf = polys.lagrange_first;
-        for (size_t i = lf.start_index(); i < lf.end_index(); ++i) {
-            if (lf[i] != FF(0)) {
-                return i;
-            }
+    const size_t first_row = NUM_DISABLED_ROWS_IN_SUMCHECK;
+    RelationParameters<FF> params{};
+
+    // Evaluate the WNAF relation at exactly the lagrange_first row, returning per-subrelation values.
+    auto eval_wnaf_at_first_row = [&](const auto& polys) {
+        typename ECCVMWnafRelation<FF>::SumcheckArrayOfValuesOverSubrelations result{};
+        for (auto& e : result) {
+            e = FF(0);
         }
-        EXPECT_TRUE(false) << "lagrange_first has no non-zero entry";
-        return 0;
+        ECCVMWnafRelation<FF>::accumulate(result, polys.get_row(first_row), params, FF(1));
+        return result;
     };
 
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1199): Once masking-at-top lands
-    // (Sergei's PR moving hiding/masking rows to the start of the circuit), lagrange_first will be at
-    // row k > 0 and shiftable polynomials will have writable values at row k. At that point, add
-    // corruption tests for the 21 Category 1/2 columns (selector-gated and is_not_first_row-gated):
-    //   transcript_mul, transcript_msm_count, precompute_dx/dy, precompute_tx/ty, msm_transition,
-    //   msm_add, msm_double, msm_skew, msm_accumulator_x/y, msm_count, msm_round, msm_add1,
-    //   msm_pc, precompute_pc, transcript_pc, transcript_accumulator_not_empty/x/y.
-    // Each should be corruptible at row k without breaking any relation (confirming they are safe).
-    // Currently this is untestable because lagrange_first is at row 0, which is before the shiftable
-    // polynomial's start_index (the Polynomial class enforces P[0]=0 as a virtual zero).
-
-    // --- Category 3: Columns constrained by lagrange_first-activated relations ---
-    // Corrupting these at the lagrange_first row SHOULD fail specific initialization subrelations.
-    // These are desired constraints that prevent malicious initialization.
-
-    // precompute_round (col 20): ROUND_SHIFT_ZERO should fail
+    // precompute_round_shift must be 0 at lagrange_first (ROUND_SHIFT_ZERO)
     {
-        auto polynomials = build_valid_eccvm_msm_state();
-        size_t first_row = find_lagrange_first_row(polynomials);
-        RelationParameters<FF> params{};
+        auto polys = build_valid_eccvm_msm_state();
+        ASSERT_EQ(polys.lagrange_first[first_row], FF(1));
+        auto clean = eval_wnaf_at_first_row(polys);
+        ASSERT_EQ(clean[ECCVMWnafRelationImpl<FF>::ROUND_SHIFT_ZERO], FF(0)) << "Baseline should be zero";
 
-        // Corrupt precompute_round at first_row + 1 (the shifted value at the lagrange_first row)
-        polynomials.precompute_round.at(first_row + 1) = FF(5);
-        polynomials.set_shifted();
-
-        auto wnaf_failures =
-            RelationChecker<void>::check<ECCVMWnafRelation<FF>>(polynomials, params, "precompute_round_shift corrupt");
-        EXPECT_TRUE(wnaf_failures.contains(ECCVMWnafRelationImpl<FF>::ROUND_SHIFT_ZERO))
-            << "ROUND_SHIFT_ZERO should catch non-zero precompute_round_shift at lagrange_first row";
+        polys.precompute_round.at(first_row + 1) = FF(5);
+        polys.set_shifted();
+        auto dirty = eval_wnaf_at_first_row(polys);
+        EXPECT_NE(dirty[ECCVMWnafRelationImpl<FF>::ROUND_SHIFT_ZERO], FF(0))
+            << "ROUND_SHIFT_ZERO must catch non-zero precompute_round_shift at lagrange_first row";
     }
 
-    // precompute_scalar_sum (col 2): SCALAR_SUM_SHIFT_ZERO should fail
+    // precompute_scalar_sum_shift must be 0 at lagrange_first (SCALAR_SUM_SHIFT_ZERO)
     {
-        auto polynomials = build_valid_eccvm_msm_state();
-        size_t first_row = find_lagrange_first_row(polynomials);
-        RelationParameters<FF> params{};
+        auto polys = build_valid_eccvm_msm_state();
+        auto clean = eval_wnaf_at_first_row(polys);
+        ASSERT_EQ(clean[ECCVMWnafRelationImpl<FF>::SCALAR_SUM_SHIFT_ZERO], FF(0)) << "Baseline should be zero";
 
-        polynomials.precompute_scalar_sum.at(first_row + 1) = FF(42);
-        polynomials.set_shifted();
-
-        auto wnaf_failures = RelationChecker<void>::check<ECCVMWnafRelation<FF>>(
-            polynomials, params, "precompute_scalar_sum_shift corrupt");
-        EXPECT_TRUE(wnaf_failures.contains(ECCVMWnafRelationImpl<FF>::SCALAR_SUM_SHIFT_ZERO))
-            << "SCALAR_SUM_SHIFT_ZERO should catch non-zero precompute_scalar_sum_shift at lagrange_first row";
+        polys.precompute_scalar_sum.at(first_row + 1) = FF(42);
+        polys.set_shifted();
+        auto dirty = eval_wnaf_at_first_row(polys);
+        EXPECT_NE(dirty[ECCVMWnafRelationImpl<FF>::SCALAR_SUM_SHIFT_ZERO], FF(0))
+            << "SCALAR_SUM_SHIFT_ZERO must catch non-zero precompute_scalar_sum_shift at lagrange_first row";
     }
 
-    // precompute_s1hi (col 3): FIRST_SLICE_POSITIVE should fail when s1hi_shift ∉ {2, 3}
-    // AND precompute_select_shift != 0
+    // precompute_s1hi_shift must be in {2, 3} when precompute_select_shift != 0 (FIRST_SLICE_POSITIVE)
     {
-        auto polynomials = build_valid_eccvm_msm_state();
-        size_t first_row = find_lagrange_first_row(polynomials);
-        RelationParameters<FF> params{};
+        auto polys = build_valid_eccvm_msm_state();
+        ASSERT_NE(polys.precompute_select[first_row + 1], FF(0))
+            << "Test assumes precompute_select is active at first_row + 1";
+        auto clean = eval_wnaf_at_first_row(polys);
+        ASSERT_EQ(clean[ECCVMWnafRelationImpl<FF>::FIRST_SLICE_POSITIVE], FF(0)) << "Baseline should be zero";
 
-        // The constraint is: (... + lagrange_first) * precompute_select_shift * (s1hi_shift - 2)(s1hi_shift - 3)
-        // precompute_select[first_row + 1] is set by the builder; if it's 1, then s1hi[first_row + 1] must be
-        // in {2, 3}. Set it to 0 to trigger the failure.
-        if (polynomials.precompute_select[first_row + 1] != FF(0)) {
-            polynomials.precompute_s1hi.at(first_row + 1) = FF(0); // 0 ∉ {2, 3}
-            polynomials.set_shifted();
+        polys.precompute_s1hi.at(first_row + 1) = FF(0); // 0 ∉ {2, 3}
+        polys.set_shifted();
+        auto dirty = eval_wnaf_at_first_row(polys);
+        EXPECT_NE(dirty[ECCVMWnafRelationImpl<FF>::FIRST_SLICE_POSITIVE], FF(0))
+            << "FIRST_SLICE_POSITIVE must catch s1hi_shift not in {2,3} at lagrange_first row";
+    }
+}
 
-            auto wnaf_failures = RelationChecker<void>::check<ECCVMWnafRelation<FF>>(
-                polynomials, params, "precompute_s1hi_shift corrupt");
-            EXPECT_TRUE(wnaf_failures.contains(ECCVMWnafRelationImpl<FF>::FIRST_SLICE_POSITIVE))
-                << "FIRST_SLICE_POSITIVE should catch s1hi_shift ∉ {2,3} at lagrange_first row";
+// TODO(@notnotraju):
+// Add constraint `lagrange_first * transcript_accumulator_not_empty = 0` to ECCVMTranscriptRelation.
+// Without it, a malicious prover can set accumulator_not_empty = 1 at the lagrange_first row,
+// disabling INFINITY_ACC_X/Y and injecting arbitrary accumulator coordinates undetected.
+// Once the constraint is added, flip this test: EXPECT_FALSE(no_new_nonzero(...)) for TranscriptRelation.
+
+/**
+ * @brief Demonstrate that transcript_accumulator_not_empty is UNCONSTRAINED at the lagrange_first row.
+ *
+ * @details A malicious prover can set accumulator_not_empty = 1 at the lagrange_first row, which
+ * disables INFINITY_ACC_X/Y (the constraints that force accumulator coordinates to zero when the
+ * accumulator is "empty"). This allows injecting arbitrary accumulator coordinates at row k
+ * without any relation firing.
+ *
+ * This test proves the gap exists: all four ECCVM relation families evaluate to the same values
+ * at the lagrange_first row before and after the corruption. No subrelation catches it.
+ *
+ * Fix: add `lagrange_first * transcript_accumulator_not_empty = 0` to the transcript relation.
+ */
+TEST_F(ECCVMRelationCorruptionTests, AccumulatorNotEmptyUnconstrainedAtLagrangeFirst)
+{
+    const size_t first_row = NUM_DISABLED_ROWS_IN_SUMCHECK;
+    RelationParameters<FF> params{};
+
+    // Helper: evaluate a relation at a single row, returning per-subrelation values
+    auto eval_at_row = []<typename Relation>(const auto& polys, const auto& p, size_t row) {
+        typename Relation::SumcheckArrayOfValuesOverSubrelations result{};
+        for (auto& e : result) {
+            e = FF(0);
         }
-    }
+        Relation::accumulate(result, polys.get_row(row), p, FF(1));
+        return result;
+    };
 
-    // --- Category 5: z_perm (col 25) — tested above in SetRelationFailsOnZPermNonZeroAtFirstRow ---
+    auto polynomials = build_valid_eccvm_msm_state();
+    ASSERT_EQ(polynomials.lagrange_first[first_row], FF(1));
+
+    // Baseline at the lagrange_first row
+    auto tx_clean = eval_at_row.template operator()<ECCVMTranscriptRelation<FF>>(polynomials, params, first_row);
+    auto msm_clean = eval_at_row.template operator()<ECCVMMSMRelation<FF>>(polynomials, params, first_row);
+    auto wnaf_clean = eval_at_row.template operator()<ECCVMWnafRelation<FF>>(polynomials, params, first_row);
+    auto pt_clean = eval_at_row.template operator()<ECCVMPointTableRelation<FF>>(polynomials, params, first_row);
+
+    // Corrupt: set accumulator_not_empty = 1 and inject arbitrary accumulator coordinates.
+    // With accumulator_not_empty = 1, is_accumulator_empty = 0, so INFINITY_ACC_X/Y no longer
+    // forces accumulator_x/y to zero.
+    polynomials.transcript_accumulator_not_empty.at(first_row) = FF(1);
+    polynomials.transcript_accumulator_x.at(first_row) = FF::random_element(&engine);
+    polynomials.transcript_accumulator_y.at(first_row) = FF::random_element(&engine);
+    polynomials.set_shifted();
+
+    // Evaluate after corruption
+    auto tx_dirty = eval_at_row.template operator()<ECCVMTranscriptRelation<FF>>(polynomials, params, first_row);
+    auto msm_dirty = eval_at_row.template operator()<ECCVMMSMRelation<FF>>(polynomials, params, first_row);
+    auto wnaf_dirty = eval_at_row.template operator()<ECCVMWnafRelation<FF>>(polynomials, params, first_row);
+    auto pt_dirty = eval_at_row.template operator()<ECCVMPointTableRelation<FF>>(polynomials, params, first_row);
+
+    // No relation should catch this — that's the gap.
+    auto no_new_nonzero = [](const auto& clean, const auto& dirty) {
+        for (size_t i = 0; i < clean.size(); i++) {
+            if (clean[i] == FF(0) && dirty[i] != FF(0)) {
+                return false;
+            }
+        }
+        return true;
+    };
+    EXPECT_TRUE(no_new_nonzero(tx_clean, tx_dirty)) << "TranscriptRelation should not catch this";
+    EXPECT_TRUE(no_new_nonzero(msm_clean, msm_dirty)) << "MSMRelation should not catch this";
+    EXPECT_TRUE(no_new_nonzero(wnaf_clean, wnaf_dirty)) << "WnafRelation should not catch this";
+    EXPECT_TRUE(no_new_nonzero(pt_clean, pt_dirty)) << "PointTableRelation should not catch this";
 }
