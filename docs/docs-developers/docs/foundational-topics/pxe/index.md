@@ -100,7 +100,7 @@ The canonical version constants live in the PXE (`ORACLE_VERSION_MAJOR` / `ORACL
 
 ### Resolving a version mismatch
 
-If you see an error like _"Oracle '…' not found. … The contract was compiled with Aztec.nr oracle version X.Y, but this private execution environment only supports up to A.B"_, the contract uses oracle from a newer Aztec.nr than your PXE supports.
+If you see an error like _"Oracle '…' not found. … The contract was compiled with Aztec.nr oracle version X.Y, but this private execution environment only supports up to A.B"_, the contract uses one or more oracles from a newer Aztec.nr than your PXE supports.
 
 To fix it, upgrade the software that ships the PXE (sandbox, wallet, or whatever embeds `@aztec/pxe`) to a release whose Aztec.nr version is at least as new as the one the contract was compiled with.
 
