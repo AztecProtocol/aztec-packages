@@ -405,7 +405,7 @@ HEAVY_TEST(ChonkKernelCapacity, MaxCapacityPassing)
 {
     bb::srs::init_file_crs_factory(bb::srs::bb_crs_path());
 
-    const size_t NUM_APP_CIRCUITS = 18;
+    const size_t NUM_APP_CIRCUITS = 21;
     auto [proof, vk] = ChonkTests::accumulate_and_prove_ivc(NUM_APP_CIRCUITS);
 
     bool verified = ChonkTests::verify_chonk(proof, vk);

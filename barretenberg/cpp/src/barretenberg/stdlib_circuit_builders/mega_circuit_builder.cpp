@@ -16,15 +16,15 @@ using namespace bb::crypto;
 
 namespace bb {
 
-template <typename FF> void MegaCircuitBuilder_<FF>::finalize_circuit(const bool ensure_nonzero)
+template <typename FF> void MegaCircuitBuilder_<FF>::finalize_circuit([[maybe_unused]] const bool ensure_nonzero)
 {
-    if (ensure_nonzero && !this->circuit_finalized) {
-        // do the mega part of ensuring all polynomials are nonzero; ultra part will be done inside of
-        // Ultra::finalize_circuit
-        add_mega_gates_to_ensure_all_polys_are_non_zero();
-    }
+    // if (ensure_nonzero && !this->circuit_finalized) {
+    //     // do the mega part of ensuring all polynomials are nonzero; ultra part will be done inside of
+    //     // Ultra::finalize_circuit
+    //     add_mega_gates_to_ensure_all_polys_are_non_zero();
+    // }
     // All of the gates involved in finalization are part of the Ultra arithmetization
-    UltraCircuitBuilder_<MegaExecutionTraceBlocks>::finalize_circuit(ensure_nonzero);
+    UltraCircuitBuilder_<MegaExecutionTraceBlocks>::finalize_circuit(false);
 }
 
 /**
