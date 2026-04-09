@@ -171,29 +171,24 @@ template <typename Curve> class ShplonkProver_ {
         // s.t. G(r) = 0
         Polynomial G(std::move(batched_quotient_Q)); // G(X) = Q(X)
 
-        // G₀ = ∑ⱼ νʲ ⋅ vⱼ / ( z − xⱼ )
         Fr current_nu = Fr::one();
-        Polynomial tmp(G.size());
         size_t idx = 0;
 
         size_t fold_idx = 0;
-        for (auto& claim : opening_claims) {
+        for (const auto& claim : opening_claims) {
 
             if (claim.gemini_fold) {
-                tmp = claim.polynomial;
-                tmp.at(0) = tmp[0] - gemini_fold_pos_evaluations[fold_idx++];
-                Fr scaling_factor = current_nu * inverse_vanishing_evals[idx++]; // = νʲ / (z − xⱼ )
-                // G -= νʲ ⋅ ( fⱼ(X) − vⱼ) / ( z − xⱼ )
-                G.add_scaled(tmp, -scaling_factor);
+                // G -= νʲ ⋅ ( fⱼ(X) − vⱼ₊) / ( z + xⱼ ), where vⱼ₊ is the positive fold evaluation
+                Fr scaling_factor = current_nu * inverse_vanishing_evals[idx++]; // = νʲ / (z + xⱼ )
+                G.add_scaled(claim.polynomial, -scaling_factor);
+                G.at(0) = G[0] + scaling_factor * gemini_fold_pos_evaluations[fold_idx++];
 
                 current_nu *= nu_challenge;
             }
-            // tmp = νʲ ⋅ ( fⱼ(X) − vⱼ) / ( z − xⱼ )
-            claim.polynomial.at(0) = claim.polynomial[0] - claim.opening_pair.evaluation;
-            Fr scaling_factor = current_nu * inverse_vanishing_evals[idx++]; // = νʲ / (z − xⱼ )
-
             // G -= νʲ ⋅ ( fⱼ(X) − vⱼ) / ( z − xⱼ )
+            Fr scaling_factor = current_nu * inverse_vanishing_evals[idx++]; // = νʲ / (z − xⱼ )
             G.add_scaled(claim.polynomial, -scaling_factor);
+            G.at(0) = G[0] + scaling_factor * claim.opening_pair.evaluation;
 
             current_nu *= nu_challenge;
         }
@@ -203,22 +198,18 @@ template <typename Curve> class ShplonkProver_ {
             current_nu = nu_challenge.pow(2 * virtual_log_n);
         }
 
-        for (auto& claim : libra_opening_claims) {
-            // Compute individual claim quotient tmp = ( fⱼ(X) − vⱼ) / ( X − xⱼ )
-            claim.polynomial.at(0) = claim.polynomial[0] - claim.opening_pair.evaluation;
+        for (const auto& claim : libra_opening_claims) {
+            // G -= νʲ ⋅ ( fⱼ(X) − vⱼ) / ( z − xⱼ )
             Fr scaling_factor = current_nu * inverse_vanishing_evals[idx++]; // = νʲ / (z − xⱼ )
-
-            // Add the claim quotient to the batched quotient polynomial
             G.add_scaled(claim.polynomial, -scaling_factor);
+            G.at(0) = G[0] + scaling_factor * claim.opening_pair.evaluation;
             current_nu *= nu_challenge;
         }
 
-        for (auto& claim : sumcheck_opening_claims) {
-            claim.polynomial.at(0) = claim.polynomial[0] - claim.opening_pair.evaluation;
+        for (const auto& claim : sumcheck_opening_claims) {
             Fr scaling_factor = current_nu * inverse_vanishing_evals[idx++]; // = νʲ / (z − xⱼ )
-
-            // Add the claim quotient to the batched quotient polynomial
             G.add_scaled(claim.polynomial, -scaling_factor);
+            G.at(0) = G[0] + scaling_factor * claim.opening_pair.evaluation;
             current_nu *= nu_challenge;
         }
         // Return opening pair (z, 0) and polynomial G(X) = Q(X) - Q_z(X)
@@ -368,7 +359,9 @@ template <typename Curve> class ShplonkVerifier_ {
         , commitments({ quotient })
         , scalars{ Fr{ 1 } }
     {
-        BB_ASSERT_GT(num_claims, 1U, "Using Shplonk with just one claim. Should use batch reduction.");
+        if (num_claims <= 1U) {
+            throw_or_abort("Using Shplonk with just one claim. Should use batch reduction.");
+        }
         const size_t num_commitments = commitments.size();
         commitments.reserve(num_commitments);
         scalars.reserve(num_commitments);

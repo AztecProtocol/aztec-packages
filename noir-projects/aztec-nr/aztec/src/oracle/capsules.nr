@@ -88,203 +88,208 @@ mod test {
     use crate::protocol::{address::AztecAddress, traits::{FromField, ToField}};
 
     global SLOT: Field = 1;
-    global SCOPE: AztecAddress = AztecAddress { inner: 0xcafe };
+
+    unconstrained fn setup() -> (TestEnvironment, AztecAddress) {
+        let mut env = TestEnvironment::new();
+        let scope = env.create_light_account();
+        (env, scope)
+    }
 
     #[test]
     unconstrained fn stores_and_loads() {
-        let env = TestEnvironment::new();
+        let (env, scope) = setup();
         env.private_context(|context| {
             let contract_address = context.this_address();
 
             let value = MockStruct::new(5, 6);
-            store(contract_address, SLOT, value, SCOPE);
+            store(contract_address, SLOT, value, scope);
 
-            assert_eq(load(contract_address, SLOT, SCOPE).unwrap(), value);
+            assert_eq(load(contract_address, SLOT, scope).unwrap(), value);
         });
     }
 
     #[test]
     unconstrained fn store_overwrites() {
-        let env = TestEnvironment::new();
+        let (env, scope) = setup();
         env.private_context(|context| {
             let contract_address = context.this_address();
 
             let value = MockStruct::new(5, 6);
-            store(contract_address, SLOT, value, SCOPE);
+            store(contract_address, SLOT, value, scope);
 
             let new_value = MockStruct::new(7, 8);
-            store(contract_address, SLOT, new_value, SCOPE);
+            store(contract_address, SLOT, new_value, scope);
 
-            assert_eq(load(contract_address, SLOT, SCOPE).unwrap(), new_value);
+            assert_eq(load(contract_address, SLOT, scope).unwrap(), new_value);
         });
     }
 
     #[test]
     unconstrained fn loads_empty_slot() {
-        let env = TestEnvironment::new();
+        let (env, scope) = setup();
         env.private_context(|context| {
             let contract_address = context.this_address();
 
-            let loaded_value: Option<MockStruct> = load(contract_address, SLOT, SCOPE);
+            let loaded_value: Option<MockStruct> = load(contract_address, SLOT, scope);
             assert_eq(loaded_value, Option::none());
         });
     }
 
     #[test]
     unconstrained fn deletes_stored_value() {
-        let env = TestEnvironment::new();
+        let (env, scope) = setup();
         env.private_context(|context| {
             let contract_address = context.this_address();
 
             let value = MockStruct::new(5, 6);
-            store(contract_address, SLOT, value, SCOPE);
-            delete(contract_address, SLOT, SCOPE);
+            store(contract_address, SLOT, value, scope);
+            delete(contract_address, SLOT, scope);
 
-            let loaded_value: Option<MockStruct> = load(contract_address, SLOT, SCOPE);
+            let loaded_value: Option<MockStruct> = load(contract_address, SLOT, scope);
             assert_eq(loaded_value, Option::none());
         });
     }
 
     #[test]
     unconstrained fn deletes_empty_slot() {
-        let env = TestEnvironment::new();
+        let (env, scope) = setup();
         env.private_context(|context| {
             let contract_address = context.this_address();
 
-            delete(contract_address, SLOT, SCOPE);
-            let loaded_value: Option<MockStruct> = load(contract_address, SLOT, SCOPE);
+            delete(contract_address, SLOT, scope);
+            let loaded_value: Option<MockStruct> = load(contract_address, SLOT, scope);
             assert_eq(loaded_value, Option::none());
         });
     }
 
     #[test]
     unconstrained fn copies_non_overlapping_values() {
-        let env = TestEnvironment::new();
+        let (env, scope) = setup();
         env.private_context(|context| {
             let contract_address = context.this_address();
 
             let src = 5;
 
             let values = [MockStruct::new(5, 6), MockStruct::new(7, 8), MockStruct::new(9, 10)];
-            store(contract_address, src, values[0], SCOPE);
-            store(contract_address, src + 1, values[1], SCOPE);
-            store(contract_address, src + 2, values[2], SCOPE);
+            store(contract_address, src, values[0], scope);
+            store(contract_address, src + 1, values[1], scope);
+            store(contract_address, src + 2, values[2], scope);
 
             let dst = 10;
-            copy(contract_address, src, dst, 3, SCOPE);
+            copy(contract_address, src, dst, 3, scope);
 
-            assert_eq(load(contract_address, dst, SCOPE).unwrap(), values[0]);
-            assert_eq(load(contract_address, dst + 1, SCOPE).unwrap(), values[1]);
-            assert_eq(load(contract_address, dst + 2, SCOPE).unwrap(), values[2]);
+            assert_eq(load(contract_address, dst, scope).unwrap(), values[0]);
+            assert_eq(load(contract_address, dst + 1, scope).unwrap(), values[1]);
+            assert_eq(load(contract_address, dst + 2, scope).unwrap(), values[2]);
         });
     }
 
     #[test]
     unconstrained fn copies_overlapping_values_with_src_ahead() {
-        let env = TestEnvironment::new();
+        let (env, scope) = setup();
         env.private_context(|context| {
             let contract_address = context.this_address();
 
             let src = 1;
 
             let values = [MockStruct::new(5, 6), MockStruct::new(7, 8), MockStruct::new(9, 10)];
-            store(contract_address, src, values[0], SCOPE);
-            store(contract_address, src + 1, values[1], SCOPE);
-            store(contract_address, src + 2, values[2], SCOPE);
+            store(contract_address, src, values[0], scope);
+            store(contract_address, src + 1, values[1], scope);
+            store(contract_address, src + 2, values[2], scope);
 
             let dst = 2;
-            copy(contract_address, src, dst, 3, SCOPE);
+            copy(contract_address, src, dst, 3, scope);
 
-            assert_eq(load(contract_address, dst, SCOPE).unwrap(), values[0]);
-            assert_eq(load(contract_address, dst + 1, SCOPE).unwrap(), values[1]);
-            assert_eq(load(contract_address, dst + 2, SCOPE).unwrap(), values[2]);
+            assert_eq(load(contract_address, dst, scope).unwrap(), values[0]);
+            assert_eq(load(contract_address, dst + 1, scope).unwrap(), values[1]);
+            assert_eq(load(contract_address, dst + 2, scope).unwrap(), values[2]);
 
             // src[1] and src[2] should have been overwritten since they are also dst[0] and dst[1]
-            assert_eq(load(contract_address, src, SCOPE).unwrap(), values[0]); // src[0] (unchanged)
-            assert_eq(load(contract_address, src + 1, SCOPE).unwrap(), values[0]); // dst[0]
-            assert_eq(load(contract_address, src + 2, SCOPE).unwrap(), values[1]); // dst[1]
+            assert_eq(load(contract_address, src, scope).unwrap(), values[0]); // src[0] (unchanged)
+            assert_eq(load(contract_address, src + 1, scope).unwrap(), values[0]); // dst[0]
+            assert_eq(load(contract_address, src + 2, scope).unwrap(), values[1]); // dst[1]
         });
     }
 
     #[test]
     unconstrained fn copies_overlapping_values_with_dst_ahead() {
-        let env = TestEnvironment::new();
+        let (env, scope) = setup();
         env.private_context(|context| {
             let contract_address = context.this_address();
 
             let src = 2;
 
             let values = [MockStruct::new(5, 6), MockStruct::new(7, 8), MockStruct::new(9, 10)];
-            store(contract_address, src, values[0], SCOPE);
-            store(contract_address, src + 1, values[1], SCOPE);
-            store(contract_address, src + 2, values[2], SCOPE);
+            store(contract_address, src, values[0], scope);
+            store(contract_address, src + 1, values[1], scope);
+            store(contract_address, src + 2, values[2], scope);
 
             let dst = 1;
-            copy(contract_address, src, dst, 3, SCOPE);
+            copy(contract_address, src, dst, 3, scope);
 
-            assert_eq(load(contract_address, dst, SCOPE).unwrap(), values[0]);
-            assert_eq(load(contract_address, dst + 1, SCOPE).unwrap(), values[1]);
-            assert_eq(load(contract_address, dst + 2, SCOPE).unwrap(), values[2]);
+            assert_eq(load(contract_address, dst, scope).unwrap(), values[0]);
+            assert_eq(load(contract_address, dst + 1, scope).unwrap(), values[1]);
+            assert_eq(load(contract_address, dst + 2, scope).unwrap(), values[2]);
 
             // src[0] and src[1] should have been overwritten since they are also dst[1] and dst[2]
-            assert_eq(load(contract_address, src, SCOPE).unwrap(), values[1]); // dst[1]
-            assert_eq(load(contract_address, src + 1, SCOPE).unwrap(), values[2]); // dst[2]
-            assert_eq(load(contract_address, src + 2, SCOPE).unwrap(), values[2]); // src[2] (unchanged)
+            assert_eq(load(contract_address, src, scope).unwrap(), values[1]); // dst[1]
+            assert_eq(load(contract_address, src + 1, scope).unwrap(), values[2]); // dst[2]
+            assert_eq(load(contract_address, src + 2, scope).unwrap(), values[2]); // src[2] (unchanged)
         });
     }
 
     #[test(should_fail_with = "copy empty slot")]
     unconstrained fn cannot_copy_empty_values() {
-        let env = TestEnvironment::new();
+        let (env, scope) = setup();
         env.private_context(|context| {
             let contract_address = context.this_address();
 
-            copy(contract_address, SLOT, SLOT, 1, SCOPE);
+            copy(contract_address, SLOT, SLOT, 1, scope);
         });
     }
 
     #[test(should_fail_with = "not allowed to access")]
     unconstrained fn cannot_store_other_contract() {
-        let env = TestEnvironment::new();
+        let (env, scope) = setup();
         env.private_context(|context| {
             let contract_address = context.this_address();
             let other_contract_address = AztecAddress::from_field(contract_address.to_field() + 1);
 
             let value = MockStruct::new(5, 6);
-            store(other_contract_address, SLOT, value, SCOPE);
+            store(other_contract_address, SLOT, value, scope);
         });
     }
 
     #[test(should_fail_with = "not allowed to access")]
     unconstrained fn cannot_load_other_contract() {
-        let env = TestEnvironment::new();
+        let (env, scope) = setup();
         env.private_context(|context| {
             let contract_address = context.this_address();
             let other_contract_address = AztecAddress::from_field(contract_address.to_field() + 1);
 
-            let _: Option<MockStruct> = load(other_contract_address, SLOT, SCOPE);
+            let _: Option<MockStruct> = load(other_contract_address, SLOT, scope);
         });
     }
 
     #[test(should_fail_with = "not allowed to access")]
     unconstrained fn cannot_delete_other_contract() {
-        let env = TestEnvironment::new();
+        let (env, scope) = setup();
         env.private_context(|context| {
             let contract_address = context.this_address();
             let other_contract_address = AztecAddress::from_field(contract_address.to_field() + 1);
 
-            delete(other_contract_address, SLOT, SCOPE);
+            delete(other_contract_address, SLOT, scope);
         });
     }
 
     #[test(should_fail_with = "not allowed to access")]
     unconstrained fn cannot_copy_other_contract() {
-        let env = TestEnvironment::new();
+        let (env, scope) = setup();
         env.private_context(|context| {
             let contract_address = context.this_address();
             let other_contract_address = AztecAddress::from_field(contract_address.to_field() + 1);
 
-            copy(other_contract_address, SLOT, SLOT, 0, SCOPE);
+            copy(other_contract_address, SLOT, SLOT, 0, scope);
         });
     }
 }

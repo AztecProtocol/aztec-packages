@@ -11,7 +11,7 @@ import {
 import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
 import { NativeWorldState as BaseNativeWorldState, MsgpackChannel } from '@aztec/native';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
-import type { PublicDataTreeLeaf } from '@aztec/stdlib/trees';
+import { EMPTY_GENESIS_DATA, type GenesisData } from '@aztec/stdlib/world-state';
 
 import assert from 'assert';
 import { cpus } from 'os';
@@ -55,7 +55,7 @@ export class NativeWorldState implements NativeWorldStateInstance {
   constructor(
     private readonly dataDir: string,
     private readonly wsTreeMapSizes: WorldStateTreeMapSizes,
-    private readonly prefilledPublicData: PublicDataTreeLeaf[] = [],
+    private readonly genesis: GenesisData = EMPTY_GENESIS_DATA,
     private readonly instrumentation: WorldStateInstrumentation,
     bindings?: LoggerBindings,
     private readonly log: Logger = createLogger('world-state:database', bindings),
@@ -66,7 +66,10 @@ export class NativeWorldState implements NativeWorldStateInstance {
         wsTreeMapSizes,
       )} and ${threads} threads.`,
     );
-    const prefilledPublicDataBufferArray = prefilledPublicData.map(d => [d.slot.toBuffer(), d.value.toBuffer()]);
+    const prefilledPublicDataBufferArray = genesis.prefilledPublicData.map(d => [
+      d.slot.toBuffer(),
+      d.value.toBuffer(),
+    ]);
     const ws = new BaseNativeWorldState(
       dataDir,
       {
@@ -82,6 +85,7 @@ export class NativeWorldState implements NativeWorldStateInstance {
       },
       prefilledPublicDataBufferArray,
       DomainSeparator.BLOCK_HEADER_HASH,
+      Number(genesis.genesisTimestamp),
       {
         [MerkleTreeId.NULLIFIER_TREE]: wsTreeMapSizes.nullifierTreeMapSizeKb,
         [MerkleTreeId.NOTE_HASH_TREE]: wsTreeMapSizes.noteHashTreeMapSizeKb,
@@ -104,7 +108,7 @@ export class NativeWorldState implements NativeWorldStateInstance {
     return new NativeWorldState(
       this.dataDir,
       this.wsTreeMapSizes,
-      this.prefilledPublicData,
+      this.genesis,
       this.instrumentation,
       this.log.getBindings(),
       this.log,

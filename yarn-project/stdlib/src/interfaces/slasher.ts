@@ -3,12 +3,8 @@ import { schemas, zodFor } from '@aztec/foundation/schemas';
 
 import { z } from 'zod';
 
-export type SlasherClientType = 'empire' | 'tally';
-
 export interface SlasherConfig {
   slashOverridePayload?: EthAddress;
-  slashMinPenaltyPercentage: number;
-  slashMaxPenaltyPercentage: number;
   slashSelfAllowed?: boolean; // Whether to allow slashes to own validators
   slashValidatorsAlways: EthAddress[]; // Array of validator addresses
   slashValidatorsNever: EthAddress[]; // Array of validator addresses
@@ -32,8 +28,6 @@ export interface SlasherConfig {
 export const SlasherConfigSchema = zodFor<SlasherConfig>()(
   z.object({
     slashOverridePayload: schemas.EthAddress.optional(),
-    slashMinPenaltyPercentage: z.number(),
-    slashMaxPenaltyPercentage: z.number(),
     slashValidatorsAlways: z.array(schemas.EthAddress),
     slashValidatorsNever: z.array(schemas.EthAddress),
     slashPrunePenalty: schemas.BigInt,

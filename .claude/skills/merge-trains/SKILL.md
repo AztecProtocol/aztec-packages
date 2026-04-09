@@ -18,7 +18,7 @@ A merge train is an automated batching system (inspired by [Rust rollups](https:
 | `merge-train/ci` | CI infrastructure / ci3 | `#help-ci` |
 | `merge-train/docs` | Documentation | `#dev-rels` |
 | `merge-train/fairies` | aztec-nr | `#team-fairies` |
-| `merge-train/spartan` | Spartan / infra / yarn-project sequencer and prover orchestration | `#team-alpha` |
+| `merge-train/spartan` | Spartan / infra / yarn-project sequencer and prover orchestration | `#e-team-alpha` |
 
 ## How to Use a Merge Train
 

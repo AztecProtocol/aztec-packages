@@ -1,13 +1,12 @@
 import type { EpochCacheInterface } from '@aztec/epoch-cache';
 import { BlockNumber, type SlotNumber } from '@aztec/foundation/branded-types';
 import { maxBy } from '@aztec/foundation/collection';
-import { Fr } from '@aztec/foundation/curves/bn254';
 import { type Logger, createLibp2pComponentLogger, createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import { Timer } from '@aztec/foundation/timer';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import { protocolContractsHash } from '@aztec/protocol-contracts';
-import type { EthAddress, L2Block, L2BlockSource } from '@aztec/stdlib/block';
+import type { EthAddress, L2BlockSource } from '@aztec/stdlib/block';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 import { GasFees } from '@aztec/stdlib/gas';
 import type { ClientProtocolCircuitVerifier, PeerInfo, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
@@ -51,10 +50,9 @@ import { yamux } from '@chainsafe/libp2p-yamux';
 import { bootstrap } from '@libp2p/bootstrap';
 import { identify } from '@libp2p/identify';
 import { type Message, type MultiaddrConnection, type PeerId, TopicValidatorResult } from '@libp2p/interface';
-import type { AddressManager, ConnectionManager } from '@libp2p/interface-internal';
+import type { ConnectionManager } from '@libp2p/interface-internal';
 import { mplex } from '@libp2p/mplex';
 import { tcp } from '@libp2p/tcp';
-import { multiaddr } from '@multiformats/multiaddr';
 import { ENR } from '@nethermindeth/enr';
 import { createLibp2p } from 'libp2p';
 
@@ -106,7 +104,6 @@ import {
   ValidationError,
   pingHandler,
   reqGoodbyeHandler,
-  reqRespBlockHandler,
   reqRespBlockTxsHandler,
   reqRespStatusHandler,
   reqRespTxHandler,
@@ -182,10 +179,6 @@ export class LibP2PService extends WithTracer implements P2PService {
   private validatorCheckpointReceivedCallback: P2PCheckpointReceivedCallback;
 
   private gossipSubEventHandler: (e: CustomEvent<GossipsubMessage>) => void;
-  private ipChangedHandler?: (ip: string) => void;
-
-  /** Discovered public IP address (set when queryForIp is enabled and no static IP was configured). */
-  private discoveredP2pIp?: string;
 
   private instrumentation: P2PInstrumentation;
 
@@ -235,15 +228,19 @@ export class LibP2PService extends WithTracer implements P2PService {
       this.protocolVersion,
     );
 
+    const p2pPropagationTime = config.attestationPropagationTime;
     const proposalValidatorOpts = {
       txsPermitted: !config.disableTransactions,
       maxTxsPerBlock: config.validateMaxTxsPerBlock ?? config.validateMaxTxsPerCheckpoint,
+      p2pPropagationTime,
     };
     this.blockProposalValidator = new BlockProposalValidator(epochCache, proposalValidatorOpts);
     this.checkpointProposalValidator = new CheckpointProposalValidator(epochCache, proposalValidatorOpts);
     this.checkpointAttestationValidator = config.fishermanMode
-      ? new FishermanAttestationValidator(epochCache, mempools.attestationPool, telemetry)
-      : new CheckpointAttestationValidator(epochCache);
+      ? new FishermanAttestationValidator(epochCache, mempools.attestationPool, telemetry, {
+          l1PublishingTime: config.l1PublishingTime,
+        })
+      : new CheckpointAttestationValidator(epochCache, { l1PublishingTime: config.l1PublishingTime });
 
     this.gossipSubEventHandler = this.handleGossipSubEvent.bind(this);
 
@@ -353,9 +350,12 @@ export class LibP2PService extends WithTracer implements P2PService {
     const l1Constants = epochCache.getL1Constants();
     const topicScoreParams = createAllTopicScoreParams(protocolVersion, {
       slotDurationMs: l1Constants.slotDuration * 1000,
+      ethereumSlotDuration: l1Constants.ethereumSlotDuration,
       heartbeatIntervalMs: config.gossipsubInterval,
       targetCommitteeSize: l1Constants.targetCommitteeSize,
       blockDurationMs: config.blockDurationMs,
+      l1PublishingTime: config.l1PublishingTime,
+      p2pPropagationTime: config.attestationPropagationTime,
       expectedBlockProposalsPerSlot: config.expectedBlockProposalsPerSlot,
     });
 
@@ -457,9 +457,8 @@ export class LibP2PService extends WithTracer implements P2PService {
             topics: topicScoreParams,
           }),
         }) as (components: GossipSubComponents) => GossipSub,
-        components: (components: { connectionManager: ConnectionManager; addressManager: AddressManager }) => ({
+        components: (components: { connectionManager: ConnectionManager }) => ({
           connectionManager: components.connectionManager,
-          addressManager: components.addressManager,
         }),
       },
       logger: createLibp2pComponentLogger(logger.module, logger.getBindings()),
@@ -480,6 +479,9 @@ export class LibP2PService extends WithTracer implements P2PService {
       protocolVersion,
       epochCache,
     );
+
+    // Gate req/resp data protocols for unauthenticated peers when p2pAllowOnlyValidators is enabled
+    reqresp.setShouldRejectPeer(peerId => peerManager.shouldDisableP2PGossip(peerId));
 
     // Configure application-specific scoring for gossipsub.
     // The weight scales app score to align with gossipsub thresholds:
@@ -518,22 +520,20 @@ export class LibP2PService extends WithTracer implements P2PService {
 
     // Get listen & announce addresses for logging
     const { p2pIp, p2pPort } = this.config;
-    if (!p2pIp && !this.config.queryForIp) {
+    if (!p2pIp) {
       throw new Error('Announce address not provided.');
     }
-    const announceTcpMultiaddr = p2pIp ? convertToMultiaddr(p2pIp, p2pPort, 'tcp') : undefined;
+    const announceTcpMultiaddr = convertToMultiaddr(p2pIp, p2pPort, 'tcp');
 
     // Create request response protocol handlers
     const txHandler = reqRespTxHandler(this.mempools);
     const goodbyeHandler = reqGoodbyeHandler(this.peerManager);
-    const blockHandler = reqRespBlockHandler(this.archiver);
     const statusHandler = reqRespStatusHandler(this.protocolVersion, this.worldStateSynchronizer, this.logger);
 
     const requestResponseHandlers: Partial<ReqRespSubProtocolHandlers> = {
       [ReqRespSubProtocol.PING]: pingHandler,
       [ReqRespSubProtocol.STATUS]: statusHandler.bind(this),
       [ReqRespSubProtocol.GOODBYE]: goodbyeHandler.bind(this),
-      [ReqRespSubProtocol.BLOCK]: blockHandler.bind(this),
     };
 
     if (!this.config.disableTransactions) {
@@ -554,7 +554,6 @@ export class LibP2PService extends WithTracer implements P2PService {
       ...DEFAULT_SUB_PROTOCOL_VALIDATORS,
       [ReqRespSubProtocol.TX]: this.validateRequestedTxs.bind(this),
       [ReqRespSubProtocol.BLOCK_TXS]: this.validateRequestedBlockTxs.bind(this),
-      [ReqRespSubProtocol.BLOCK]: this.validateRequestedBlock.bind(this),
     };
 
     await this.peerManager.initializePeers();
@@ -575,31 +574,6 @@ export class LibP2PService extends WithTracer implements P2PService {
     if (!this.config.p2pDiscoveryDisabled) {
       await this.peerDiscoveryService.start();
     }
-
-    // When queryForIp is enabled and no static IP was configured, bridge discv5 IP discovery to libp2p.
-    // Discv5 discovers our public IP via peer WHOAREYOU exchanges (enrUpdate=true) and emits 'ip:changed'.
-    // We confirm the discovered address in the libp2p AddressManager so it appears in getMultiaddrs()
-    // and is pushed to all connected peers via the identify protocol.
-    if (this.config.queryForIp && !p2pIp) {
-      this.ipChangedHandler = (ip: string) => {
-        const addressManager = this.node.services.components.addressManager;
-        const newAddr = multiaddr(convertToMultiaddr(ip, this.config.p2pPort, 'tcp'));
-
-        // Remove old discovered IP if one exists
-        if (this.discoveredP2pIp) {
-          const oldAddr = multiaddr(convertToMultiaddr(this.discoveredP2pIp, this.config.p2pPort, 'tcp'));
-          addressManager.removeObservedAddr(oldAddr);
-        }
-
-        addressManager.addObservedAddr(newAddr);
-        addressManager.confirmObservedAddr(newAddr);
-        // Store discovered IP
-        this.discoveredP2pIp = ip;
-        this.logger.info('Public IP discovered via discv5', { ip });
-      };
-      this.peerDiscoveryService.on('ip:changed', this.ipChangedHandler);
-    }
-
     this.discoveryRunningPromise = new RunningPromise(
       async () => {
         await this.peerManager.heartbeat();
@@ -612,7 +586,7 @@ export class LibP2PService extends WithTracer implements P2PService {
     this.logger.info(`Started P2P service`, {
       listen: this.config.listenAddress,
       port: this.config.p2pPort,
-      announce: announceTcpMultiaddr ?? 'pending (queryForIp=true)',
+      announce: announceTcpMultiaddr,
       peerId: this.node.peerId.toString(),
     });
   }
@@ -624,12 +598,6 @@ export class LibP2PService extends WithTracer implements P2PService {
   public async stop() {
     // Remove gossip sub listener
     this.node.services.pubsub.removeEventListener(GossipSubEvent.MESSAGE, this.gossipSubEventHandler);
-
-    // Remove ip:changed listener if registered
-    if (this.ipChangedHandler) {
-      this.peerDiscoveryService.off('ip:changed', this.ipChangedHandler);
-      this.ipChangedHandler = undefined;
-    }
 
     // Stop peer manager
     this.logger.debug('Stopping peer manager...');
@@ -1607,53 +1575,6 @@ export class LibP2PService extends WithTracer implements P2PService {
         this.logger.error(`Error during validation of requested txs`, e);
       }
 
-      return false;
-    }
-  }
-
-  /**
-   * Validates a BLOCK response.
-   *
-   * If a local copy exists, enforces hash equality. If missing, rejects (no penalty) since the hash cannot be verified.
-   * Penalizes on block number mismatch or hash mismatch.
-   *
-   * @param requestedBlockNumber - The requested block number.
-   * @param responseBlock - The block returned by the peer.
-   * @param peerId - The peer that returned the block.
-   * @returns True if the response is valid, false otherwise.
-   */
-  @trackSpan('Libp2pService.validateRequestedBlock', (requestedBlockNumber, _responseBlock) => ({
-    [Attributes.BLOCK_NUMBER]: requestedBlockNumber.toString(),
-  }))
-  protected async validateRequestedBlock(
-    requestedBlockNumber: Fr,
-    responseBlock: L2Block,
-    peerId: PeerId,
-  ): Promise<boolean> {
-    try {
-      const reqNum = Number(requestedBlockNumber.toString());
-      if (responseBlock.number !== reqNum) {
-        this.peerManager.penalizePeer(peerId, PeerErrorSeverity.LowToleranceError);
-        return false;
-      }
-
-      const local = await this.archiver.getBlock(BlockNumber(reqNum));
-      if (!local) {
-        // We are missing the local block; we cannot verify the hash yet. Reject without penalizing.
-        // TODO: Consider extending this validator to accept an expected hash or
-        // performing quorum-based checks when using P2P syncing prior to L1 sync.
-        this.logger.warn(`Local block ${reqNum} not found; rejecting BLOCK response without hash verification`);
-        return false;
-      }
-      const [localHash, respHash] = await Promise.all([local.hash(), responseBlock.hash()]);
-      if (!localHash.equals(respHash)) {
-        this.peerManager.penalizePeer(peerId, PeerErrorSeverity.MidToleranceError);
-        return false;
-      }
-
-      return true;
-    } catch (e) {
-      this.logger.warn(`Error validating requested block`, e);
       return false;
     }
   }

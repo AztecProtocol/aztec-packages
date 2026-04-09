@@ -21,14 +21,13 @@ import type { NoteStatus } from '@aztec/stdlib/note';
 import { MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
 import type { BlockHeader, Capsule, OffchainEffect } from '@aztec/stdlib/tx';
 
-import type { AccessScopes } from '../../access_scopes.js';
 import { createContractLogger, logContractMessage, stripAztecnrLogPrefix } from '../../contract_logging.js';
 import type { ContractSyncService } from '../../contract_sync/contract_sync_service.js';
 import { EventService } from '../../events/event_service.js';
 import { LogService } from '../../logs/log_service.js';
 import { MessageContextService } from '../../messages/message_context_service.js';
 import { NoteService } from '../../notes/note_service.js';
-import { ORACLE_VERSION } from '../../oracle_version.js';
+import { ORACLE_VERSION_MAJOR } from '../../oracle_version.js';
 import type { AddressStore } from '../../storage/address_store/address_store.js';
 import type { CapsuleService } from '../../storage/capsule_store/capsule_service.js';
 import type { ContractStore } from '../../storage/contract_store/contract_store.js';
@@ -65,7 +64,7 @@ export type UtilityExecutionOracleArgs = {
   contractSyncService: ContractSyncService;
   jobId: string;
   log?: ReturnType<typeof createLogger>;
-  scopes: AccessScopes;
+  scopes: AztecAddress[];
 };
 
 /**
@@ -78,6 +77,9 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   private contractLogger: Logger | undefined;
   private aztecnrLogger: Logger | undefined;
   private offchainEffects: OffchainEffect[] = [];
+
+  // We store oracle version to be able to show a nice error message when an oracle handler is missing.
+  private contractOracleVersion: { major: number; minor: number } | undefined;
 
   protected readonly contractAddress: AztecAddress;
   protected readonly authWitnesses: AuthWitness[];
@@ -96,7 +98,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   protected readonly contractSyncService: ContractSyncService;
   protected readonly jobId: string;
   protected logger: ReturnType<typeof createLogger>;
-  protected readonly scopes: AccessScopes;
+  protected readonly scopes: AztecAddress[];
 
   constructor(args: UtilityExecutionOracleArgs) {
     this.contractAddress = args.contractAddress;
@@ -119,7 +121,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     this.scopes = args.scopes;
   }
 
-  public assertCompatibleOracleVersion(version: number): void {
+  public assertCompatibleOracleVersion(major: number, minor: number): void {
     // TODO(F-416): Remove this hack on v5 when protocol contracts are redeployed.
     // Protocol contracts/canonical contracts shipped with committed bytecode that cannot be changed. Assert they use
     // the expected pinned version or the current one. We want to allow for both the pinned and the current versions
@@ -127,27 +129,36 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     // pinned contracts (like e.g. next)
     const LEGACY_ORACLE_VERSION = 12;
     if (isProtocolContract(this.contractAddress)) {
-      if (version !== LEGACY_ORACLE_VERSION && version !== ORACLE_VERSION) {
+      if (major !== LEGACY_ORACLE_VERSION && major !== ORACLE_VERSION_MAJOR) {
         const hint =
-          version > ORACLE_VERSION
+          major > ORACLE_VERSION_MAJOR
             ? 'The contract was compiled with a newer version of Aztec.nr than your private environment supports. Upgrade your private environment to a compatible version.'
             : 'The contract was compiled with an older version of Aztec.nr than your private environment supports. Recompile the contract with a compatible version of Aztec.nr.';
         throw new Error(
-          `Incompatible private environment version: ${hint} See https://docs.aztec.network/errors/8 (expected oracle version ${LEGACY_ORACLE_VERSION} or ${ORACLE_VERSION}, got ${version})`,
+          `Incompatible private environment version: ${hint} See https://docs.aztec.network/errors/8 (expected oracle major version ${LEGACY_ORACLE_VERSION} or ${ORACLE_VERSION_MAJOR}, got ${major})`,
         );
       }
+      this.contractOracleVersion = { major, minor };
       return;
     }
 
-    if (version !== ORACLE_VERSION) {
+    if (major !== ORACLE_VERSION_MAJOR) {
       const hint =
-        version > ORACLE_VERSION
+        major > ORACLE_VERSION_MAJOR
           ? 'The contract was compiled with a newer version of Aztec.nr than your private environment supports. Upgrade your private environment to a compatible version.'
           : 'The contract was compiled with an older version of Aztec.nr than your private environment supports. Recompile the contract with a compatible version of Aztec.nr.';
       throw new Error(
-        `Incompatible private environment version: ${hint} See https://docs.aztec.network/errors/8 (expected oracle version ${ORACLE_VERSION}, got ${version})`,
+        `Incompatible private environment version: ${hint} See https://docs.aztec.network/errors/8 (expected oracle major version ${ORACLE_VERSION_MAJOR}, got ${major})`,
       );
     }
+
+    // Major matches - store both major and minor for later diagnostics (e.g. when an oracle is not found)
+    this.contractOracleVersion = { major, minor };
+  }
+
+  // Prefixed with "nonOracleFunction" as it is not used as an oracle handler.
+  public nonOracleFunctionGetContractOracleVersion(): { major: number; minor: number } | undefined {
+    return this.contractOracleVersion;
   }
 
   public getRandomField(): Fr {
@@ -166,17 +177,14 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
    * @throws If scopes are defined and the account is not in the scopes.
    */
   public async getKeyValidationRequest(pkMHash: Fr): Promise<KeyValidationRequest> {
-    // If scopes are defined, check that the key belongs to an account in the scopes.
-    if (this.scopes !== 'ALL_SCOPES' && this.scopes.length > 0) {
-      let hasAccess = false;
-      for (let i = 0; i < this.scopes.length && !hasAccess; i++) {
-        if (await this.keyStore.accountHasKey(this.scopes[i], pkMHash)) {
-          hasAccess = true;
-        }
+    let hasAccess = false;
+    for (let i = 0; i < this.scopes.length && !hasAccess; i++) {
+      if (await this.keyStore.accountHasKey(this.scopes[i], pkMHash)) {
+        hasAccess = true;
       }
-      if (!hasAccess) {
-        throw new Error(`Key validation request denied: no scoped account has a key with hash ${pkMHash.toString()}.`);
-      }
+    }
+    if (!hasAccess) {
+      throw new Error(`Key validation request denied: no scoped account has a key with hash ${pkMHash.toString()}.`);
     }
     return this.keyStore.getKeyValidationRequest(pkMHash, this.contractAddress);
   }

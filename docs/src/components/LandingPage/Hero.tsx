@@ -13,7 +13,7 @@ export default function Hero() {
         <div className={styles.heroButtons}>
           <Link
             className={`button button--primary button--lg ${styles.primaryButton}`}
-            to="/developers/getting_started_on_devnet"
+            to="/developers/getting_started_on_local_network"
           >
             Start Building
           </Link>

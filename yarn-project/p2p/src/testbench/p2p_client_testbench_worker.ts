@@ -204,6 +204,25 @@ function installUnlimitedRateLimits(client: P2PClient): void {
   rateLimiter.allow = () => RateLimitStatus.Allowed;
 }
 
+/** Resets peer scores to prevent cross-case contamination in benchmarks. */
+function resetPeerScores(client: P2PClient): void {
+  const peerManager = (client as any).p2pService.peerManager;
+  const peerScoring = peerManager?.peerScoring;
+  if (peerScoring?.resetAllScores) {
+    peerScoring.resetAllScores();
+  }
+}
+
+/** Returns the number of connected peers for connectivity checks. */
+function getConnectedPeerCount(client: P2PClient): number {
+  const p2pService = (client as any).p2pService;
+  const connectionSampler = p2pService?.reqresp?.getConnectionSampler?.();
+  if (connectionSampler?.getPeerListSortedByConnectionCountAsc) {
+    return connectionSampler.getPeerListSortedByConnectionCountAsc().length;
+  }
+  return 0;
+}
+
 async function runAggregatorBenchmark(
   client: P2PClient,
   blockProposal: BlockProposal,
@@ -452,6 +471,13 @@ process.on('message', async msg => {
         }
         break;
 
+      case 'GET_PEER_COUNT':
+        process.send!({
+          type: 'PEER_COUNT',
+          count: workerClient ? getConnectedPeerCount(workerClient) : 0,
+        });
+        break;
+
       case 'BENCH_REQRESP': {
         const benchCmd = cmd as BenchReqRespCommand;
         if (!workerClient || !workerTxPool || !workerAttestationPool || !workerConfig || !workerLogger) {
@@ -468,6 +494,7 @@ process.on('message', async msg => {
         // Reset state before each benchmark run to avoid cross-run contamination
         workerTxPool.resetState();
         workerAttestationPool.resetState();
+        resetPeerScores(workerClient);
 
         installUnlimitedRateLimits(workerClient);
 

@@ -159,10 +159,9 @@ class ChonkTests : public ::testing::Test {
                 // Tamper with the specified field
                 switch (field_to_tamper) {
                 case KernelIOField::PAIRING_INPUTS: {
-                    // Replace with valid pairing points at infinity (different from actual accumulated values)
-                    kernel_io.pairing_inputs.P0() = Commitment::infinity();
-                    kernel_io.pairing_inputs.P1() = Commitment::infinity();
-                    EXPECT_TRUE(kernel_io.pairing_inputs.check());
+                    // Replace with a different valid pairing: P0 = G1, P1 = -G1 satisfies e(G1,[1])·e(-G1,[x]) != 1
+                    // so instead use P0 + random offset to break binding without breaking the pairing trivially
+                    kernel_io.pairing_inputs.P0() = kernel_io.pairing_inputs.P0() + Commitment::one();
                     break;
                 }
                 case KernelIOField::ACCUMULATOR_HASH:
@@ -401,16 +400,18 @@ TEST_F(ChonkTests, VKIndependenceFromCircuitSize)
  * @brief Test to establish the "max" number of apps that can be accumulated due to limitations on the ECCVM size
  *
  */
+#ifdef NDEBUG
 HEAVY_TEST(ChonkKernelCapacity, MaxCapacityPassing)
 {
     bb::srs::init_file_crs_factory(bb::srs::bb_crs_path());
 
-    const size_t NUM_APP_CIRCUITS = 17;
+    const size_t NUM_APP_CIRCUITS = 18;
     auto [proof, vk] = ChonkTests::accumulate_and_prove_ivc(NUM_APP_CIRCUITS);
 
     bool verified = ChonkTests::verify_chonk(proof, vk);
     EXPECT_TRUE(verified);
 };
+#endif
 
 /**
  * @brief Test methods for serializing and deserializing a proof to/from a file/buffer in msgpack format
@@ -448,8 +449,9 @@ TEST_F(ChonkTests, MsgpackProofFromFileOrBuffer)
         std::generate(random_bytes.begin(), random_bytes.end(), []() { return static_cast<uint8_t>(rand() % 256); });
         std::copy(random_bytes.begin(), random_bytes.end(), buffer.data());
 
-        // Expect deserialization to fail with error msgpack::v1::type_error with description "std::bad_cast"
-        EXPECT_THROW(ChonkProof::from_msgpack_buffer(buffer), msgpack::v1::type_error);
+        // Expect deserialization to fail (either msgpack parse error, type mismatch, trailing data,
+        // or non-canonical field encoding)
+        EXPECT_ANY_THROW(ChonkProof::from_msgpack_buffer(buffer));
     }
 };
 
@@ -588,4 +590,85 @@ TEST_F(ChonkTests, ProofCompressionRoundtrip)
 
     // Verify the decompressed proof
     EXPECT_TRUE(verify_chonk(decompressed, vk_and_hash));
+}
+
+/**
+ * @brief Build a valid compressed proof, then corrupt a specific 32-byte element.
+ */
+static std::vector<uint8_t> compress_and_corrupt(const ChonkProof& proof, size_t element_idx, const uint256_t& value)
+{
+    auto compressed = ProofCompressor::compress_chonk_proof(proof);
+    size_t byte_offset = element_idx * 32;
+    EXPECT_LT(byte_offset + 32, compressed.size());
+    // Overwrite the element with the given value (big-endian)
+    std::vector<uint8_t> buf;
+    write(buf, value);
+    std::copy(buf.begin(), buf.end(), compressed.begin() + static_cast<ptrdiff_t>(byte_offset));
+    return compressed;
+}
+
+// Rejects a BN scalar value >= Fr::modulus
+TEST_F(ChonkTests, DecompressionRejectsNonCanonicalBN254Scalar)
+{
+    TestSettings settings{ .log2_num_gates = SMALL_LOG_2_NUM_GATES };
+    auto [proof, vk_and_hash] = accumulate_and_prove_ivc(/*num_app_circuits=*/1, settings);
+    size_t mega_num_pub_inputs =
+        proof.hiding_oink_proof.size() - ProofLength::Oink<MegaZKFlavor>::LENGTH_WITHOUT_PUB_INPUTS;
+    ASSERT_GT(mega_num_pub_inputs, 0); // Need at least one public input (BN254 scalar)
+
+    // Element 0 is the first public input (a BN254 scalar). Set it to Fr::modulus (non-canonical).
+    using Fr = curve::BN254::ScalarField;
+
+    auto corrupted = compress_and_corrupt(proof, 0, Fr::modulus);
+    EXPECT_THROW_OR_ABORT(ProofCompressor::decompress_chonk_proof(corrupted, mega_num_pub_inputs), "");
+}
+
+// Rejects a BN commitment x-coordinate >= Fq::modulus
+TEST_F(ChonkTests, DecompressionRejectsNonCanonicalBN254CommitmentX)
+{
+    using Fq = curve::BN254::BaseField;
+
+    TestSettings settings{ .log2_num_gates = SMALL_LOG_2_NUM_GATES };
+    auto [proof, vk_and_hash] = accumulate_and_prove_ivc(/*num_app_circuits=*/1, settings);
+    size_t mega_num_pub_inputs =
+        proof.hiding_oink_proof.size() - ProofLength::Oink<MegaZKFlavor>::LENGTH_WITHOUT_PUB_INPUTS;
+
+    // First BN254 commitment is at element index mega_num_pub_inputs.
+    // Set x-coordinate to Fq::modulus + 1 (non-canonical, with no sign bit).
+    auto corrupted = compress_and_corrupt(proof, mega_num_pub_inputs, Fq::modulus + 1);
+    EXPECT_THROW_OR_ABORT(ProofCompressor::decompress_chonk_proof(corrupted, mega_num_pub_inputs), "");
+}
+
+// Rejects a canonical x-coordinate that is not on the BN254 curve
+TEST_F(ChonkTests, DecompressionRejectsInvalidBN254CurvePoint)
+{
+    using Fq = curve::BN254::BaseField;
+
+    TestSettings settings{ .log2_num_gates = SMALL_LOG_2_NUM_GATES };
+    auto [proof, vk_and_hash] = accumulate_and_prove_ivc(/*num_app_circuits=*/1, settings);
+    size_t mega_num_pub_inputs =
+        proof.hiding_oink_proof.size() - ProofLength::Oink<MegaZKFlavor>::LENGTH_WITHOUT_PUB_INPUTS;
+
+    // x=4 is not on BN254
+    Fq x_not_on_curve(4);
+    Fq rhs = x_not_on_curve * x_not_on_curve * x_not_on_curve + Fq(3);
+    auto [is_sq, _] = rhs.sqrt();
+    ASSERT_FALSE(is_sq);
+
+    auto corrupted = compress_and_corrupt(proof, mega_num_pub_inputs, uint256_t(x_not_on_curve));
+    EXPECT_THROW_OR_ABORT(ProofCompressor::decompress_chonk_proof(corrupted, mega_num_pub_inputs), "");
+}
+
+// Rejects a compressed proof that is too short (read_u256 bounds check)
+TEST_F(ChonkTests, DecompressionRejectsTruncatedProof)
+{
+    TestSettings settings{ .log2_num_gates = SMALL_LOG_2_NUM_GATES };
+    auto [proof, vk_and_hash] = accumulate_and_prove_ivc(/*num_app_circuits=*/1, settings);
+    size_t mega_num_pub_inputs =
+        proof.hiding_oink_proof.size() - ProofLength::Oink<MegaZKFlavor>::LENGTH_WITHOUT_PUB_INPUTS;
+
+    auto compressed = ProofCompressor::compress_chonk_proof(proof);
+    // Truncate by removing the last 32-byte element
+    compressed.resize(compressed.size() - 32);
+    EXPECT_THROW_OR_ABORT(ProofCompressor::decompress_chonk_proof(compressed, mega_num_pub_inputs), "");
 }

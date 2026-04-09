@@ -109,9 +109,11 @@ template <typename Flavor> struct Honk {
      * @param proof_size Total proof size in field elements
      * @param log_n Log of circuit size (VIRTUAL_LOG_N for padded, vk->log_circuit_size for non-padded)
      */
-    static constexpr size_t derive_num_public_inputs(size_t proof_size, size_t log_n)
+    static size_t derive_num_public_inputs(size_t proof_size, size_t log_n)
     {
-        return proof_size - LENGTH_WITHOUT_PUB_INPUTS(log_n);
+        const size_t overhead = LENGTH_WITHOUT_PUB_INPUTS(log_n);
+        BB_ASSERT_GTE(proof_size, overhead, "Honk proof too short to derive num_public_inputs");
+        return proof_size - overhead;
     }
 
     /**
@@ -141,9 +143,11 @@ template <typename Flavor> struct HypernovaInstanceToAccum {
         return Oink<Flavor>::LENGTH_WITHOUT_PUB_INPUTS + Sumcheck<Flavor>::LENGTH(log_n);
     }
 
-    static constexpr size_t derive_num_public_inputs(size_t proof_size, size_t log_n)
+    static size_t derive_num_public_inputs(size_t proof_size, size_t log_n)
     {
-        return proof_size - LENGTH_WITHOUT_PUB_INPUTS(log_n);
+        const size_t overhead = LENGTH_WITHOUT_PUB_INPUTS(log_n);
+        BB_ASSERT_GTE(proof_size, overhead, "HypernovaInstanceToAccum proof too short to derive num_public_inputs");
+        return proof_size - overhead;
     }
 };
 
@@ -179,9 +183,11 @@ template <typename Flavor, typename BatchingFlavor> struct HypernovaFolding {
                MultilinearBatching<BatchingFlavor>::LENGTH;
     }
 
-    static constexpr size_t derive_num_public_inputs(size_t proof_size, size_t log_n)
+    static size_t derive_num_public_inputs(size_t proof_size, size_t log_n)
     {
-        return proof_size - LENGTH_WITHOUT_PUB_INPUTS(log_n);
+        const size_t overhead = LENGTH_WITHOUT_PUB_INPUTS(log_n);
+        BB_ASSERT_GTE(proof_size, overhead, "HypernovaFolding proof too short to derive num_public_inputs");
+        return proof_size - overhead;
     }
 };
 

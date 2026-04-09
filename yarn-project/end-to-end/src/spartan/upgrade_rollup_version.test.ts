@@ -126,7 +126,6 @@ describe('spartan_upgrade_rollup_version', () => {
     ETHEREUM_HOSTS = [ethEndpoint.url];
 
     originalL1ContractAddresses = omit(nodeInfo.l1ContractAddresses, [
-      'slashFactoryAddress',
       'stakingAssetHandlerAddress',
       'feeAssetHandlerAddress',
     ]);

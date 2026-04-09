@@ -24,9 +24,9 @@ const macros = require("./src/katex-macros.js");
 function syncVersionsFromConfig(configFile, versionsFile, versionedDocsDir) {
   const config = require(configFile);
   const docsDir = path.join(__dirname, versionedDocsDir);
-  const configVersions = Object.values(config).filter(
+  const configVersions = [...new Set(Object.values(config).filter(
     (v) => v && fs.existsSync(path.join(docsDir, `version-${v}`))
-  );
+  ))];
   const configVersionSet = new Set(Object.values(config).filter(Boolean));
   const extraVersions = fs.existsSync(docsDir)
     ? fs.readdirSync(docsDir)
@@ -48,8 +48,6 @@ const developerVersionConfig = syncVersionsFromConfig(
 );
 const mainnetDeveloperVersion = developerVersionConfig.mainnet || null;
 const developerTestnetVersion = developerVersionConfig.testnet || null;
-const devnetVersion = developerVersionConfig.devnet || null;
-const nightlyVersion = developerVersionConfig.nightly || null;
 
 const networkVersionConfig = syncVersionsFromConfig(
   "./network_version_config.json",
@@ -136,7 +134,7 @@ const config = {
     },
   ],
   plugins: [
-    // Developer docs instance - mainnet/testnet/devnet/nightly versions
+    // Developer docs instance - mainnet/testnet versions
     [
       "@docusaurus/plugin-content-docs",
       {
@@ -152,33 +150,22 @@ const config = {
         },
         // Version configuration for Build docs
         includeCurrentVersion: process.env.CONTEXT !== "production",
-        lastVersion: mainnetDeveloperVersion || developerTestnetVersion || devnetVersion,
+        lastVersion: mainnetDeveloperVersion || developerTestnetVersion,
         versions: {
           ...(mainnetDeveloperVersion && {
             [mainnetDeveloperVersion]: {
-              label: `Alpha (${mainnetDeveloperVersion})`,
+              label: mainnetDeveloperVersion === developerTestnetVersion
+                ? `Alpha / Testnet (${mainnetDeveloperVersion})`
+                : `Alpha (${mainnetDeveloperVersion})`,
               path: "",
               banner: "none",
             },
           }),
-          ...(developerTestnetVersion && {
+          ...(developerTestnetVersion && developerTestnetVersion !== mainnetDeveloperVersion && {
             [developerTestnetVersion]: {
               label: `Testnet (${developerTestnetVersion})`,
               path: mainnetDeveloperVersion ? "testnet" : "",
               banner: "none",
-            },
-          }),
-          ...(devnetVersion && {
-            [devnetVersion]: {
-              label: `Devnet (${devnetVersion})`,
-              path: (mainnetDeveloperVersion || developerTestnetVersion) ? "devnet" : "",
-              banner: "none",
-            },
-          }),
-          ...(nightlyVersion && {
-            [nightlyVersion]: {
-              path: "nightly",
-              banner: "unreleased",
             },
           }),
           ...(process.env.CONTEXT !== "production" && {
@@ -216,12 +203,14 @@ const config = {
         versions: {
           ...(mainnetNetworkVersion && {
             [mainnetNetworkVersion]: {
-              label: `Alpha (${mainnetNetworkVersion})`,
+              label: mainnetNetworkVersion === testnetVersion
+                ? `Alpha / Testnet (${mainnetNetworkVersion})`
+                : `Alpha (${mainnetNetworkVersion})`,
               path: process.env.CONTEXT !== "production" ? "alpha" : "",
               banner: "none",
             },
           }),
-          ...(testnetVersion && {
+          ...(testnetVersion && testnetVersion !== mainnetNetworkVersion && {
             [testnetVersion]: {
               label: `Testnet (${testnetVersion})`,
               path: "testnet",
@@ -275,10 +264,10 @@ const config = {
       {
         generateLLMsTxt: true,
         generateLLMsFullTxt: true,
-        docsDir: `developer_versioned_docs/version-${mainnetDeveloperVersion || developerTestnetVersion || devnetVersion || nightlyVersion}/`,
+        docsDir: `developer_versioned_docs/version-${mainnetDeveloperVersion || developerTestnetVersion}/`,
         title: "Aztec Protocol Documentation",
         excludeImports: true,
-        version: mainnetDeveloperVersion || developerTestnetVersion || devnetVersion || nightlyVersion,
+        version: mainnetDeveloperVersion || developerTestnetVersion,
         pathTransformation: {
           ignorePaths: ["docs"],
         },

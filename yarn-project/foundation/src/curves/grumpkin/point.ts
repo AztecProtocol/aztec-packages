@@ -65,7 +65,7 @@ export class Point {
   }
 
   /**
-   * Generate a random Point instance.
+   * Generate a random Point instance that is on the curve.
    *
    * @returns A randomly generated Point instance.
    */

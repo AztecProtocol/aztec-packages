@@ -18,6 +18,7 @@ Lagrange selectors for activation:
 
 - $L_{\text{even}}$: Equals 1 on even rows, 0 elsewhere
 - $L_{\text{odd}}$: Equals 1 on odd rows, 0 elsewhere
+- $L_{\text{last\_in\_minicircuit}}$: Equals 1 at the last row before masking in the mini-circuit, 0 elsewhere
 
 ## Table of Contents
 
@@ -438,10 +439,11 @@ The Permutation Relation is the foundation of all range constraints in the Trans
 
 If the two multisets are equal (i.e., one is a permutation of the other), then all values are valid.
 
-The relation consists of 2 subrelations:
+The relation consists of 3 subrelations:
 
 1. Grand product identity (degree 7)
 2. Finalization check (degree 3)
+3. Initialization check (degree 3)
 
 #### Interaction with the Delta Range Constraints
 
@@ -481,11 +483,9 @@ $$\boxed{\left( z_{\text{perm}} + L_{\text{first}} \right) \cdot \prod_{j=0}^{3}
 
 where:
 
-- $L_{\text{first}}$: Lagrange polynomial for first row ($z_{\text{perm}}[0] = 0$ is enforced implicitly)
+- $L_{\text{first}}$: Lagrange polynomial for first row ($z_{\text{perm}}[0] = 0$ is enforced by subrelation 3)
 - $L_{\text{last}}$: Lagrange polynomial for last row (we enforce $z_{\text{perm}}[\text{last}] = 0$ in subrelation 2)
 - $z_{\text{perm}}^{\text{shift}}$: Shifted grand product polynomial ($z_{\text{perm}}[i+1]$)
-
-Note that $z_{\text{perm}}[0] = 0$ follows implicitly from the fact that we are opening $z_{\text{perm}}$ and $z_{\text{perm}}^{\text{shift}}$ both at the same challenge.
 If the two multisets are equal:
 
 1. At each step, the products telescope: contributions cancel out
@@ -513,6 +513,24 @@ Interpretation:
 Active when: Last row only ($L_{\text{last}} = 1$)
 
 Degree: 2 (Lagrange × shifted polynomial)
+
+---
+
+### Subrelation 3: Initialization Check
+
+Purpose: Ensure the grand product polynomial starts at zero.
+
+$$\boxed{L_{\text{first}} \cdot z_{\text{perm}} = 0}$$
+
+Interpretation:
+
+- At the first row, $L_{\text{first}} = 1$
+- $z_{\text{perm}}$ must be 0 at this row
+- This is necessary for the $(z_{\text{perm}} + L_{\text{first}})$ term in subrelation 1 to evaluate to 1
+
+Active when: First row only ($L_{\text{first}} = 1$)
+
+Degree: 2 (Lagrange × polynomial)
 
 ## Delta Range Constraint Relation
 
@@ -647,7 +665,7 @@ Refer to the [Witness Trace Structure](../translator_vm/README.md#witness-trace-
 
 Thus, for each limb $i \in \{0, 1, 2, 3\}$:
 
-$$\boxed{L_{\text{odd}} \cdot (L_{\text{real\_last}} - 1) \cdot \left( a_i^{\text{current}} - a_i^{\text{shifted}} \right) = 0}$$
+$$\boxed{L_{\text{odd}} \cdot (L_{\text{last\_in\_minicircuit}} - 1) \cdot \left( a_i^{\text{current}} - a_i^{\text{shifted}} \right) = 0}$$
 
 This correctly "propagates" the accumulator value in computing the final accumulator.
 
@@ -659,9 +677,9 @@ Degree: 3
 
 Ensure the accumulator starts at zero at the beginning of the computation. Recall that we process the opcodes in reverse order, so the first "previous" accumulator corresponds to the last opcode processed. Thus, for each limb $i \in \{0, 1, 2, 3\}$:
 
-$$\boxed{L_{\text{real\_last}} \cdot a_i^{\text{current}} = 0}$$
+$$\boxed{L_{\text{last\_in\_minicircuit}} \cdot a_i^{\text{current}} = 0}$$
 
-This implies that at the last real row (before masking), all limbs of the accumulator are zero, ensuring the accumulator starts at 0.
+This implies that at the last row in the mini-circuit (before masking), all limbs of the accumulator are zero, ensuring the accumulator starts at 0.
 
 Degree: 2 (Lagrange × limb)
 

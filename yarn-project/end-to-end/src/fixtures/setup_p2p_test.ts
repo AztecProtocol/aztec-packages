@@ -7,7 +7,7 @@ import { SecretValue } from '@aztec/foundation/config';
 import { withLoggerBindings } from '@aztec/foundation/log/server';
 import { bufferToHex } from '@aztec/foundation/string';
 import type { DateProvider } from '@aztec/foundation/timer';
-import type { PublicDataTreeLeaf } from '@aztec/stdlib/trees';
+import type { GenesisData } from '@aztec/stdlib/world-state';
 
 import getPort from 'get-port';
 
@@ -40,7 +40,7 @@ export async function createNodes(
   bootstrapNodeEnr: string,
   numNodes: number,
   bootNodePort: number,
-  prefilledPublicData?: PublicDataTreeLeaf[],
+  genesis?: GenesisData,
   dataDirectory?: string,
   metricsPort?: number,
   indexOffset = 0,
@@ -65,7 +65,7 @@ export async function createNodes(
       port,
       bootstrapNodeEnr,
       validatorIndices,
-      prefilledPublicData,
+      genesis,
       dataDir,
       metricsPort,
     );
@@ -97,7 +97,7 @@ export async function createNode(
   tcpPort: number,
   bootstrapNode: string | undefined,
   addressIndex: number | number[],
-  prefilledPublicData?: PublicDataTreeLeaf[],
+  genesis?: GenesisData,
   dataDirectory?: string,
   metricsPort?: number,
 ) {
@@ -108,7 +108,7 @@ export async function createNode(
     return await AztecNodeService.createAndSync(
       validatorConfig,
       { telemetry, dateProvider },
-      { prefilledPublicData, dontStartSequencer: config.dontStartSequencer },
+      { genesis, dontStartSequencer: config.dontStartSequencer },
     );
   });
 }
@@ -119,7 +119,7 @@ export async function createNonValidatorNode(
   dateProvider: DateProvider,
   tcpPort: number,
   bootstrapNode: string | undefined,
-  prefilledPublicData?: PublicDataTreeLeaf[],
+  genesis?: GenesisData,
   dataDirectory?: string,
   metricsPort?: number,
 ) {
@@ -133,7 +133,7 @@ export async function createNonValidatorNode(
       sequencerPublisherPrivateKeys: [],
     };
     const telemetry = await getEndToEndTestTelemetryClient(metricsPort);
-    return await AztecNodeService.createAndSync(config, { telemetry, dateProvider }, { prefilledPublicData });
+    return await AztecNodeService.createAndSync(config, { telemetry, dateProvider }, { genesis });
   });
 }
 
@@ -143,7 +143,7 @@ export async function createProverNode(
   bootstrapNode: string | undefined,
   addressIndex: number,
   deps: { dateProvider: DateProvider },
-  prefilledPublicData?: PublicDataTreeLeaf[],
+  genesis?: GenesisData,
   dataDirectory?: string,
   metricsPort?: number,
 ): Promise<{ proverNode: AztecNodeService }> {
@@ -159,7 +159,7 @@ export async function createProverNode(
       { ...config, ...p2pConfig },
       { dataDirectory },
       { ...deps, telemetry },
-      { prefilledPublicData: prefilledPublicData ?? [] },
+      { genesis },
     );
   });
 }

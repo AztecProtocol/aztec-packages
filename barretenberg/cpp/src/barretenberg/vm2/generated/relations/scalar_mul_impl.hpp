@@ -44,22 +44,22 @@ void scalar_mulImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
             static_cast<View>(in.get(C::scalar_mul_end)) * (FF(1) - static_cast<View>(in.get(C::scalar_mul_end)));
         std::get<3>(evals) += (tmp * scaling_factor);
     }
-    { // START_AFTER_LATCH
+    { // SEL_ON_START_OR_END
         using View = typename std::tuple_element_t<4, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::scalar_mul_sel_shift)) *
-                   (static_cast<View>(in.get(C::scalar_mul_start_shift)) - CView(scalar_mul_LATCH_CONDITION));
-        std::get<4>(evals) += (tmp * scaling_factor);
-    }
-    { // SELECTOR_ON_START_OR_END
-        using View = typename std::tuple_element_t<5, ContainerOverSubrelations>::View;
         auto tmp = (static_cast<View>(in.get(C::scalar_mul_start)) + static_cast<View>(in.get(C::scalar_mul_end))) *
                    (FF(1) - static_cast<View>(in.get(C::scalar_mul_sel)));
+        std::get<4>(evals) += (tmp * scaling_factor);
+    }
+    { // TRACE_CONTINUITY
+        using View = typename std::tuple_element_t<5, ContainerOverSubrelations>::View;
+        auto tmp = (FF(1) - CView(scalar_mul_LATCH_CONDITION)) *
+                   (static_cast<View>(in.get(C::scalar_mul_sel)) - static_cast<View>(in.get(C::scalar_mul_sel_shift)));
         std::get<5>(evals) += (tmp * scaling_factor);
     }
-    { // SELECTOR_CONSISTENCY
+    { // START_AFTER_LATCH
         using View = typename std::tuple_element_t<6, ContainerOverSubrelations>::View;
-        auto tmp = (static_cast<View>(in.get(C::scalar_mul_sel_shift)) - static_cast<View>(in.get(C::scalar_mul_sel))) *
-                   (FF(1) - CView(scalar_mul_LATCH_CONDITION));
+        auto tmp = static_cast<View>(in.get(C::scalar_mul_sel_shift)) *
+                   (static_cast<View>(in.get(C::scalar_mul_start_shift)) - CView(scalar_mul_LATCH_CONDITION));
         std::get<6>(evals) += (tmp * scaling_factor);
     }
     {

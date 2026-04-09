@@ -6,7 +6,7 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { openTmpStore } from '@aztec/kv-store/lmdb';
-import { L2Block, type L2BlockSource } from '@aztec/stdlib/block';
+import type { L2BlockSource } from '@aztec/stdlib/block';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 import type { ClientProtocolCircuitVerifier } from '@aztec/stdlib/interfaces/server';
 import { BlockProposal, PeerErrorSeverity } from '@aztec/stdlib/p2p';
@@ -24,8 +24,6 @@ import { ServerWorldStateSynchronizer } from '@aztec/world-state';
 import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
 import type { Message, PeerId } from '@libp2p/interface';
 import { TopicValidatorResult } from '@libp2p/interface';
-import type { ConnectionManager } from '@libp2p/interface-internal';
-import { multiaddr } from '@multiformats/multiaddr';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
 import { type P2PConfig, p2pConfigMappings } from '../../config.js';
@@ -38,8 +36,6 @@ import type { MemPools } from '../../mem_pools/interface.js';
 import type { TxPoolV2 } from '../../mem_pools/tx_pool_v2/interfaces.js';
 import type { TransactionValidator } from '../../msg_validators/tx_validator/factory.js';
 import type { PubSubLibp2p } from '../../util.js';
-import { convertToMultiaddr } from '../../util.js';
-import { DummyPeerDiscoveryService } from '../dummy_service.js';
 import type { PeerManagerInterface } from '../peer-manager/interface.js';
 import type { ReqRespInterface } from '../reqresp/interface.js';
 import { BitVector } from '../reqresp/protocols/block_txs/bitvector.js';
@@ -313,66 +309,6 @@ describe('LibP2PService', () => {
         source: 'gossip',
       });
       expect(txReportSpy).toHaveBeenCalledWith('test-msg-id', MOCK_PEER_ID, TopicValidatorResult.Accept);
-    });
-  });
-
-  describe('validateRequestedBlock', () => {
-    it('should return false and penalize on number mismatch', async () => {
-      const requested = new Fr(10);
-      const resp = await L2Block.random(BlockNumber(9));
-
-      const ok = await service.validateRequestedBlock(requested, resp, mockPeerId);
-
-      expect(ok).toBe(false);
-      expect(mockPeerManager.penalizePeer).toHaveBeenCalledWith(mockPeerId, PeerErrorSeverity.LowToleranceError);
-    });
-
-    it('should return false (no penalty) when numbers match and no local block', async () => {
-      mockArchiver.getBlock.mockResolvedValue(undefined);
-      const requested = new Fr(10);
-      const resp = await L2Block.random(BlockNumber(10));
-
-      const ok = await service.validateRequestedBlock(requested, resp, mockPeerId);
-
-      expect(ok).toBe(false);
-      expect(mockPeerManager.penalizePeer).not.toHaveBeenCalled();
-    });
-
-    it('should return true when numbers match and hashes match', async () => {
-      const requested = new Fr(10);
-      const local = await L2Block.random(BlockNumber(10));
-
-      const resp = L2Block.fromBuffer(local.toBuffer());
-      mockArchiver.getBlock.mockResolvedValue(local);
-
-      const ok = await service.validateRequestedBlock(requested, resp, mockPeerId);
-
-      expect(ok).toBe(true);
-      expect(mockPeerManager.penalizePeer).not.toHaveBeenCalled();
-    });
-
-    it('should return false and penalize when hashes mismatch', async () => {
-      const requested = new Fr(10);
-      const local = await L2Block.random(BlockNumber(10));
-
-      const resp = L2Block.fromBuffer(local.toBuffer());
-      resp.header.globalVariables.coinbase = EthAddress.random();
-      mockArchiver.getBlock.mockResolvedValue(local);
-
-      const ok = await service.validateRequestedBlock(requested, resp, mockPeerId);
-
-      expect(ok).toBe(false);
-      expect(mockPeerManager.penalizePeer).toHaveBeenCalledWith(mockPeerId, PeerErrorSeverity.MidToleranceError);
-    });
-
-    it('should return false on archiver error', async () => {
-      mockArchiver.getBlock.mockRejectedValue(new Error('boom'));
-      const requested = new Fr(10);
-      const resp = await L2Block.random(BlockNumber(10));
-
-      const ok = await service.validateRequestedBlock(requested, resp, mockPeerId);
-
-      expect(ok).toBe(false);
     });
   });
 
@@ -1055,148 +991,6 @@ describe('LibP2PService', () => {
       expect(allNodesCheckpointReceivedCallback).toHaveBeenCalledWith(expect.any(Object), expect.anything());
     });
   });
-
-  describe('discv5 ip:changed bridge (queryForIp)', () => {
-    const p2pPort = 40400;
-    const firstIp = '203.0.113.5';
-    const secondIp = '198.51.100.2';
-
-    function createQueryForIpService() {
-      const peerDiscovery = new DummyPeerDiscoveryService();
-      const addressManager = {
-        removeObservedAddr: jest.fn(),
-        addObservedAddr: jest.fn(),
-        confirmObservedAddr: jest.fn(),
-      };
-      const mockPeerId = mock<PeerId>({ toString: () => MOCK_PEER_ID });
-      const nodeState = { status: 'stopped' as string };
-      const mockNode = {
-        get status() {
-          return nodeState.status;
-        },
-        set status(v: string) {
-          nodeState.status = v;
-        },
-        peerId: mockPeerId,
-        start: jest.fn(() => {
-          nodeState.status = 'started';
-        }),
-        stop: jest.fn(() => {
-          nodeState.status = 'stopped';
-        }),
-        services: {
-          pubsub: {
-            subscribe: jest.fn(),
-            addEventListener: jest.fn(),
-            removeEventListener: jest.fn(),
-            getMeshPeers: jest.fn(() => []),
-          },
-          components: {
-            addressManager,
-            connectionManager: {} as unknown as ConnectionManager,
-          },
-        },
-      } as unknown as PubSubLibp2p;
-
-      const config: P2PConfig = {
-        ...getDefaultConfig(p2pConfigMappings),
-        seenMessageCacheSize: 1000,
-        debugP2PInstrumentMessages: false,
-        disableTransactions: true,
-        l1ChainId: 1,
-        rollupVersion: 1,
-        l1Contracts: { rollupAddress: EthAddress.random() },
-        queryForIp: true,
-        p2pIp: undefined,
-        p2pPort,
-        p2pDiscoveryDisabled: true,
-        peerCheckIntervalMS: 60_000, // Long enough that heartbeat won't run during this unit test
-      };
-
-      const mockPeerManager = mock<PeerManagerInterface>();
-      mockPeerManager.initializePeers.mockResolvedValue(undefined);
-      mockPeerManager.stop.mockResolvedValue(undefined);
-      mockPeerManager.heartbeat.mockResolvedValue(undefined);
-
-      const mockReqResp = mock<ReqRespInterface>();
-      mockReqResp.start.mockResolvedValue(undefined);
-      mockReqResp.stop.mockResolvedValue(undefined);
-
-      const mempools = mock<MemPools>();
-      const archiver = mock<L2BlockSource & ContractDataSource>();
-      const epochCache = mock<EpochCacheInterface>();
-      const mockProofVerifier = mock<ClientProtocolCircuitVerifier>({
-        verifyProof: () => Promise.resolve({ valid: true, durationMs: 1, totalDurationMs: 1 }),
-      });
-      const mockWorldStateSynchronizer = mock<ServerWorldStateSynchronizer>();
-
-      const service = new LibP2PService(
-        config,
-        mockNode,
-        peerDiscovery,
-        mockReqResp,
-        mockPeerManager,
-        mempools,
-        archiver,
-        epochCache,
-        mockProofVerifier,
-        mockWorldStateSynchronizer,
-        getTelemetryClient(),
-        createLogger('p2p:test:queryForIp'),
-      );
-
-      return { service, peerDiscovery, addressManager, config };
-    }
-
-    it('registers observed announce address when discv5 emits ip:changed', async () => {
-      const { service, peerDiscovery, addressManager } = createQueryForIpService();
-      const expectedAddr = multiaddr(convertToMultiaddr(firstIp, p2pPort, 'tcp'));
-
-      await service.start();
-      peerDiscovery.emit('ip:changed', firstIp);
-
-      expect(addressManager.addObservedAddr).toHaveBeenCalledWith(expectedAddr);
-      expect(addressManager.confirmObservedAddr).toHaveBeenCalledWith(expectedAddr);
-      expect(addressManager.removeObservedAddr).not.toHaveBeenCalled();
-
-      await service.stop();
-    });
-
-    it('removes previous observed address when ip:changed fires again with a new IP', async () => {
-      const { service, peerDiscovery, addressManager } = createQueryForIpService();
-      const firstAddr = multiaddr(convertToMultiaddr(firstIp, p2pPort, 'tcp'));
-      const secondAddr = multiaddr(convertToMultiaddr(secondIp, p2pPort, 'tcp'));
-
-      await service.start();
-      peerDiscovery.emit('ip:changed', firstIp);
-      addressManager.removeObservedAddr.mockClear();
-      addressManager.addObservedAddr.mockClear();
-      addressManager.confirmObservedAddr.mockClear();
-
-      peerDiscovery.emit('ip:changed', secondIp);
-
-      expect(addressManager.removeObservedAddr).toHaveBeenCalledWith(firstAddr);
-      expect(addressManager.addObservedAddr).toHaveBeenCalledWith(secondAddr);
-      expect(addressManager.confirmObservedAddr).toHaveBeenCalledWith(secondAddr);
-
-      await service.stop();
-    });
-
-    it('unsubscribes from ip:changed on stop so later emits are ignored', async () => {
-      const { service, peerDiscovery, addressManager } = createQueryForIpService();
-
-      await service.start();
-      peerDiscovery.emit('ip:changed', firstIp);
-      addressManager.addObservedAddr.mockClear();
-      addressManager.confirmObservedAddr.mockClear();
-
-      await service.stop();
-      peerDiscovery.emit('ip:changed', secondIp);
-
-      expect(addressManager.addObservedAddr).not.toHaveBeenCalled();
-      expect(addressManager.confirmObservedAddr).not.toHaveBeenCalled();
-    });
-  });
 });
 
 /** Mock type for tx objects used in block txs validation tests. */
@@ -1335,11 +1129,6 @@ class TestLibP2PService extends LibP2PService {
     };
   }
 
-  /** Exposes the protected validateRequestedBlock for testing. */
-  public override validateRequestedBlock(requested: Fr, response: L2Block, peerId: PeerId): Promise<boolean> {
-    return super.validateRequestedBlock(requested, response, peerId);
-  }
-
   /** Exposes the protected validateRequestedBlockTxs for testing. */
   public override validateRequestedBlockTxs(
     request: BlockTxsRequest,
@@ -1390,6 +1179,10 @@ function createTestLibP2PService(options: CreateTestLibP2PServiceOptions): TestL
     txPool = mock<TxPoolV2>(),
     epochCache = mock<EpochCacheInterface>(),
   } = options;
+
+  epochCache.getL1Constants.mockReturnValue({
+    slotDuration: 36,
+  } as any);
 
   const mempools = mock<MemPools>();
   mempools.attestationPool = attestationPool;

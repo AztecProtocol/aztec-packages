@@ -14,8 +14,8 @@ import type {
 } from '@aztec/stdlib/interfaces/server';
 import type { SnapshotDataKeys } from '@aztec/stdlib/snapshots';
 import { MerkleTreeId, NullifierLeaf, type NullifierLeafPreimage, PublicDataTreeLeaf } from '@aztec/stdlib/trees';
-import { BlockHeader, PartialStateReference, StateReference } from '@aztec/stdlib/tx';
-import { WorldStateRevision } from '@aztec/stdlib/world-state';
+import { BlockHeader, GlobalVariables, PartialStateReference, StateReference } from '@aztec/stdlib/tx';
+import { EMPTY_GENESIS_DATA, type GenesisData, WorldStateRevision } from '@aztec/stdlib/world-state';
 import { getTelemetryClient } from '@aztec/telemetry-client';
 
 import assert from 'assert/strict';
@@ -55,6 +55,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
     protected instance: NativeWorldState,
     protected readonly worldStateInstrumentation: WorldStateInstrumentation,
     protected readonly log: Logger,
+    private readonly genesis: GenesisData = EMPTY_GENESIS_DATA,
     private readonly cleanup = () => Promise.resolve(),
   ) {}
 
@@ -62,7 +63,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
     rollupAddress: EthAddress,
     dataDir: string,
     wsTreeMapSizes: WorldStateTreeMapSizes,
-    prefilledPublicData: PublicDataTreeLeaf[] = [],
+    genesis: GenesisData = EMPTY_GENESIS_DATA,
     instrumentation = new WorldStateInstrumentation(getTelemetryClient()),
     bindings?: LoggerBindings,
     cleanup = () => Promise.resolve(),
@@ -75,14 +76,12 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
       rollupAddress,
       dataDirectory: worldStateDirectory,
       onOpen: (dir: string) => {
-        return Promise.resolve(
-          new NativeWorldState(dir, wsTreeMapSizes, prefilledPublicData, instrumentation, bindings),
-        );
+        return Promise.resolve(new NativeWorldState(dir, wsTreeMapSizes, genesis, instrumentation, bindings));
       },
     });
 
     const [instance] = await versionManager.open();
-    const worldState = new this(instance, instrumentation, log, cleanup);
+    const worldState = new this(instance, instrumentation, log, genesis, cleanup);
     try {
       await worldState.init();
     } catch (e) {
@@ -96,7 +95,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
   static async tmp(
     rollupAddress = EthAddress.ZERO,
     cleanupTmpDir = true,
-    prefilledPublicData: PublicDataTreeLeaf[] = [],
+    genesis: GenesisData = EMPTY_GENESIS_DATA,
     instrumentation = new WorldStateInstrumentation(getTelemetryClient()),
     bindings?: LoggerBindings,
   ): Promise<NativeWorldStateService> {
@@ -122,15 +121,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
       }
     };
 
-    return this.new(
-      rollupAddress,
-      dataDir,
-      worldStateTreeMapSizes,
-      prefilledPublicData,
-      instrumentation,
-      bindings,
-      cleanup,
-    );
+    return this.new(rollupAddress, dataDir, worldStateTreeMapSizes, genesis, instrumentation, bindings, cleanup);
   }
 
   protected async init() {
@@ -284,7 +275,10 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
 
   private async buildInitialHeader(): Promise<BlockHeader> {
     const state = await this.getInitialStateReference();
-    return BlockHeader.empty({ state });
+    return BlockHeader.empty({
+      state,
+      globalVariables: GlobalVariables.empty({ timestamp: this.genesis.genesisTimestamp }),
+    });
   }
 
   private sanitizeAndCacheSummaryFromFull(response: WorldStateStatusFull) {
