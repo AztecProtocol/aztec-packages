@@ -1,6 +1,6 @@
 use aztec::protocol::{
     address::AztecAddress,
-    traits::{FromField, Packable, Serialize, ToField},
+    traits::{Deserialize, FromField, Packable, Serialize, ToField},
 };
 use std::meta::derive;
 
@@ -19,7 +19,7 @@ pub struct ServerConfig {
 // docs:start:card_custom_packable
 // Two u32 values packed into a single Field.
 // Derived Packable would give N = 2; manual packing gives N = 1.
-#[derive(Eq, Serialize)]
+#[derive(Deserialize, Eq, Serialize)]
 pub struct Card {
     pub strength: u32,
     pub points: u32,
