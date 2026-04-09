@@ -97,14 +97,17 @@ void TraceToPolynomials<Flavor>::add_ecc_op_wires_to_prover_instance(Builder& bu
 {
     auto& ecc_op_selector = polynomials.lagrange_ecc_op;
 
-    // Copy the ecc op data from the conventional wires into the op wires over the range of ecc op gates. The data is
-    // stored in the ecc op wires starting from the block offset (disabled head region, uniform across ZK/non-ZK).
-    constexpr size_t block_offset = Builder::ExecutionTrace::TRACE_OFFSET;
-    const size_t num_ecc_ops = builder.blocks.ecc_op.size();
+    // The EccOpQueueRelation constrains ecc_op_wire[row] == w_shift[row] (i.e. w[row+1]) where
+    // lagrange_ecc_op == 1. The ecc_op wires are not shiftable, so their data sits one row before the
+    // corresponding wire data (block trace_offset).
+    const auto& ecc_op_block = builder.blocks.ecc_op;
+    const size_t wire_start = ecc_op_block.trace_offset();
+    BB_ASSERT(wire_start > 0); // ecc_op_wire data lives at wire_start - 1; must not underflow
     for (auto [ecc_op_wire, wire] : zip_view(polynomials.get_ecc_op_wires(), polynomials.get_wires())) {
-        for (size_t i = 0; i < num_ecc_ops; ++i) {
-            ecc_op_wire.at(i + block_offset) = wire[i + NUM_ZERO_ROWS + block_offset];
-            ecc_op_selector.at(i + block_offset) = 1; // construct selector as the indicator on the ecc op block
+        for (size_t i = 0; i < ecc_op_block.size(); ++i) {
+            // ecc_op_wire[wire_start - 1 + i] = w[wire_start + i] satisfies the shift relation
+            ecc_op_wire.at(wire_start - 1 + i) = wire[wire_start + i];
+            ecc_op_selector.at(wire_start - 1 + i) = 1;
         }
     }
 }

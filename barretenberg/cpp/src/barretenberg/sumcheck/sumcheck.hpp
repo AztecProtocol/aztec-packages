@@ -162,7 +162,7 @@ template <typename Flavor> struct VerifierZKCorrectionHandler<Flavor, true> {
     {
         if constexpr (UseRowDisablingPolynomial<Flavor>) {
             // With top-of-trace masking, the row-disabling polynomial 1 - ∏_{i≥2}(1-u_i) is circuit-size
-            // independent. The verifier evaluates it over ALL challenges — no log_n or padding indicator needed.
+            // independent. The verifier evaluates it over ALL challenges.
             full_honk_purported_value *= RowDisablingPolynomial<FF>::evaluate_at_challenge(
                 multivariate_challenge, multivariate_challenge.size());
         }

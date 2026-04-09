@@ -222,12 +222,12 @@ The list of `[(round_uni_commitment, round_uni_expected_eval)]` gets batched and
 
 # Virtual Rounds and Padding in Sumcheck
 
-Finally we describe the virtual rounds mechanism and padding indicator array used to support circuits of varying sizes while maintaining constant proof size and constant recursive verifier circuits.
+Finally we describe the virtual rounds mechanism used to support circuits of varying sizes while maintaining constant proof size and constant recursive verifier circuits.
 
 This is specifically important for recursive proving, since the inner verifier circuit must have a fixed size. However, circuits being verified may have different sizes (different values of `log_n`). To handle this:
 
 1. **Fixed proof size**: All proofs are padded to a maximum size `virtual_log_n` (defined by `CONST_PROOF_SIZE_LOG_N`).
-2. **Constant verifier circuit**: The recursive verifier always processes `virtual_log_n` rounds, using padding indicators to conditionally skip verification logic for padded rounds.
+2. **Constant verifier circuit**: The recursive verifier always processes `virtual_log_n` rounds uniformly.
 
 ## Virtual Rounds
 
@@ -264,12 +264,4 @@ The prover still generates challenges for these rounds to maintain transcript co
 
 ### Verifier Behavior
 
-The verifier processes all `virtual_log_n` rounds uniformly but uses the **padding indicator array** to conditionally apply verification logic.
-
-## Padding Indicator Array
-With top-of-trace masking, the row-disabling polynomial is circuit-size independent, so all sumcheck rounds are processed uniformly. The `padding_indicator_array` has been removed from the verifier -- all rounds apply `check_sum`, `compute_next_target_sum`, and `gate_separators.partially_evaluate` unconditionally.
-
-
-## ECCVM/Grumpkin Note
-
-For Grumpkin-based flavors (ECCVM), the padding indicator is **not used** in round processing. Instead, all consistency checks are deferred to the polynomial commitment scheme (Shplemini), which batches and verifies all round univariate commitments together.
+The verifier processes all `virtual_log_n` rounds uniformly — all rounds apply `check_sum`, `compute_next_target_sum`, and `gate_separators.partially_evaluate` unconditionally.

@@ -151,7 +151,7 @@ Several Fiat-Shamir challenges appear throughout the protocol:
 
 Circuits have variable size, but it is convenient if recursive verifier verification keys are independent of the inner proof's circuit size. To achieve this, flavors with `USE_PADDING = true` run Sumcheck and Gemini with a fixed log-size `VIRTUAL_LOG_N`, regardless of the actual `log_circuit_size`. This produces a fixed-length proof (fixed number of Sumcheck round univariates and Gemini fold commitments/evaluations), so the recursive verifier circuit and its VK are the same for all inner circuit sizes.
 
-A **padding indicator array** (1 for real rounds, 0 for padded) is used by the verifier to neutralize padded rounds: when the indicator is 0, the Sumcheck round check reduces to a tautology (the running target sum is preserved unchanged) and the Gemini fold claim is similarly disabled, so all rounds are processed uniformly without branching.
+With top-of-trace masking, the row-disabling polynomial is circuit-size independent, so all sumcheck rounds are processed uniformly by the verifier — no special handling is needed for padded rounds.
 
 On the prover side, `virtual_log_n` is used instead of `log_circuit_size` when generating gate challenges and running Sumcheck, so the prover produces the expected number of rounds. The actual polynomial data only spans `2^log_circuit_size` entries.
 
