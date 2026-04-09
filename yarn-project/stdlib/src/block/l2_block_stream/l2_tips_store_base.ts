@@ -210,8 +210,20 @@ export abstract class L2TipsStoreBase implements L2BlockStreamEventHandler, L2Bl
       await this.saveTag('finalized', event.block);
       const finalizedCheckpointNumber = await this.getCheckpointNumberForBlock(event.block.number);
 
-      await this.deleteBlockHashesBefore(event.block.number);
-      await this.deleteBlockToCheckpointBefore(event.block.number);
+      // Compute the safe lower bound for deletion: the minimum block number across all tips.
+      // We must not delete hashes for blocks that are still referenced by any tip, otherwise
+      // getBlockId will throw when trying to look up the hash for that tip.
+      const allTips = await Promise.all([
+        this.getTip('proposed'),
+        this.getTip('proven'),
+        this.getTip('checkpointed'),
+        this.getTip('proposedCheckpoint'),
+        this.getTip('finalized'),
+      ]);
+      const safeBound = BlockNumber(Math.min(...allTips.map(t => t ?? 0).filter(t => t > 0), event.block.number));
+
+      await this.deleteBlockHashesBefore(safeBound);
+      await this.deleteBlockToCheckpointBefore(safeBound);
 
       if (finalizedCheckpointNumber !== undefined) {
         await this.deleteCheckpointsBefore(finalizedCheckpointNumber);
