@@ -443,7 +443,7 @@ TYPED_TEST(PermutationNonZKTests, SigmaCorruptionFailure)
     using VerificationKey = typename Flavor::VerificationKey;
     using Prover = typename TestFixture::Prover;
 
-    auto builder = UltraCircuitBuilder();
+    auto builder = typename Flavor::CircuitBuilder();
 
     // Create variables with a copy constraint
     auto a = fr::random_element();
@@ -550,7 +550,7 @@ TYPED_TEST(PermutationNonZKTests, PublicInputDeltaMismatch)
     using VerificationKey = typename Flavor::VerificationKey;
     using Prover = typename TestFixture::Prover;
 
-    auto builder = UltraCircuitBuilder();
+    auto builder = typename Flavor::CircuitBuilder();
 
     // Add a public input
     fr public_value = fr(314159);
