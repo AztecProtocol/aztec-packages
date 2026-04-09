@@ -356,7 +356,7 @@ mod test {
             array.push(3);
             assert_eq(array.len(), 3);
 
-            // Clear the same slot — previous data should be gone.
+            // Clear the same slot, previous data should be gone.
             let fresh: EphemeralArray<Field> = EphemeralArray::at(SLOT).clear();
             assert_eq(fresh.len(), 0);
             fresh.push(4);

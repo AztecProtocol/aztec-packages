@@ -22,7 +22,7 @@ use crate::{
             note_validation_request::NoteValidationRequest,
         },
     },
-    oracle,
+    oracle::message_processing,
 };
 use crate::protocol::{
     address::AztecAddress,
@@ -137,7 +137,7 @@ pub unconstrained fn enqueue_event_for_validation(
 /// them into the note database and event store respectively, making them queryable via `get_notes` oracle and our TS
 /// API (PXE::getPrivateEvents).
 pub unconstrained fn validate_and_store_enqueued_notes_and_events(scope: AztecAddress) {
-    oracle::message_processing::validate_and_store_enqueued_notes_and_events(
+    message_processing::validate_and_store_enqueued_notes_and_events(
         NOTE_VALIDATION_REQUESTS_ARRAY_BASE_SLOT,
         EVENT_VALIDATION_REQUESTS_ARRAY_BASE_SLOT,
         MAX_NOTE_PACKED_LEN as Field,
@@ -147,8 +147,8 @@ pub unconstrained fn validate_and_store_enqueued_notes_and_events(scope: AztecAd
 
     // Defensive clearing: purge the queues after processing to prevent double-processing if this function is called
     // more than once in the same call frame. It is currently defensive because we only call this once per sync run.
-    EphemeralArray::<NoteValidationRequest>::at(NOTE_VALIDATION_REQUESTS_ARRAY_BASE_SLOT).clear();
-    EphemeralArray::<EventValidationRequest>::at(EVENT_VALIDATION_REQUESTS_ARRAY_BASE_SLOT).clear();
+    let _ = EphemeralArray::<NoteValidationRequest>::at(NOTE_VALIDATION_REQUESTS_ARRAY_BASE_SLOT).clear();
+    let _ = EphemeralArray::<EventValidationRequest>::at(EVENT_VALIDATION_REQUESTS_ARRAY_BASE_SLOT).clear();
 }
 
 /// Efficiently queries the node for logs that result in the completion of all `DeliveredPendingPartialNote`s stored in
@@ -182,7 +182,7 @@ pub(crate) unconstrained fn get_pending_partial_notes_completion_logs(
         i += 1;
     }
 
-    let responses = oracle::message_processing::get_logs_by_tag(log_retrieval_requests);
+    let responses = message_processing::get_logs_by_tag(log_retrieval_requests);
 
     // Defensive clearing: prevent stale requests if this function is called more than once in the same call frame.
     let _ = log_retrieval_requests.clear();

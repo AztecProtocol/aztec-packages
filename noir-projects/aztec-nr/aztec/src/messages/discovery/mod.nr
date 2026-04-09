@@ -17,7 +17,7 @@ use crate::{
             pending_tagged_log::PendingTaggedLog, validate_and_store_enqueued_notes_and_events,
         },
     },
-    oracle,
+    oracle::message_processing,
     utils::array,
 };
 
@@ -126,7 +126,7 @@ pub unconstrained fn do_sync_state<CustomMessageHandlerEnv>(
 
     // First we process all private logs, which can contain different kinds of messages e.g. private notes, partial
     // notes, private events, etc.
-    let logs = oracle::message_processing::get_pending_tagged_logs(scope);
+    let logs = message_processing::get_pending_tagged_logs(scope);
     logs.for_each(|_i, pending_tagged_log: PendingTaggedLog| {
         if pending_tagged_log.log.len() == 0 {
             aztecnr_warn_log_format!("Skipping empty log from tx {0}")([pending_tagged_log.context.tx_hash]);
