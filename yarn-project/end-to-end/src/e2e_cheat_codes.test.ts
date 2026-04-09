@@ -173,5 +173,32 @@ describe('e2e_cheat_codes', () => {
       const timestampAfter = Number(block!.header.globalVariables.timestamp);
       expect(timestampAfter).toBeGreaterThanOrEqual(timestampBefore + advancement);
     });
+
+    it('warpL2TimeAtLeastBy with sub-slot duration auto-adjusts to next slot', async () => {
+      const blockBefore = await aztecNode.getBlock(await aztecNode.getBlockNumber());
+      const timestampBefore = Number(blockBefore!.header.globalVariables.timestamp);
+
+      // Duration of 1 second is less than a slot, but should still succeed via auto-adjust.
+      await context.cheatCodes.warpL2TimeAtLeastBy(context.aztecNodeService, 1);
+
+      const blockNumber = await aztecNode.getBlockNumber();
+      const block = await aztecNode.getBlock(blockNumber);
+      expect(block).toBeDefined();
+      const timestampAfter = Number(block!.header.globalVariables.timestamp);
+      expect(timestampAfter).toBeGreaterThan(timestampBefore);
+    });
+
+    it('warpL2TimeAtLeastBy with zero duration throws', async () => {
+      await expect(context.cheatCodes.warpL2TimeAtLeastBy(context.aztecNodeService, 0)).rejects.toThrow(
+        'duration must be positive',
+      );
+    });
+
+    it('warpL2TimeAtLeastTo with past timestamp throws', async () => {
+      const pastTimestamp = Math.floor(Date.now() / 1000) - 1000;
+      await expect(context.cheatCodes.warpL2TimeAtLeastTo(context.aztecNodeService, pastTimestamp)).rejects.toThrow(
+        'is not in the future',
+      );
+    });
   });
 });
