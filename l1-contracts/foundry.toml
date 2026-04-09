@@ -30,8 +30,7 @@ gas_reports = [
   "RollupCore",
   "Slasher",
   "RollupWithPreheating",
-  "EmpireSlashingProposer",
-  "TallySlashingProposer",
+  "SlashingProposer",
   "MultiAdder",
 ]
 

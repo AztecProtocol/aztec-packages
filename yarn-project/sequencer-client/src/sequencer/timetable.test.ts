@@ -438,4 +438,88 @@ describe('sequencer-timetable', () => {
       });
     });
   });
+
+  describe('pipelining mode', () => {
+    const BLOCK_DURATION_MS = 8000;
+
+    it('allows more blocks per slot than non-pipelining with same config', () => {
+      const baseOpts = {
+        ethereumSlotDuration: ETHEREUM_SLOT_DURATION,
+        aztecSlotDuration: AZTEC_SLOT_DURATION,
+        l1PublishingTime: L1_PUBLISHING_TIME,
+        blockDurationMs: BLOCK_DURATION_MS,
+        enforce: ENFORCE_TIMETABLE,
+      };
+
+      const withoutPipelining = new SequencerTimetable({ ...baseOpts, pipelining: false });
+      const withPipelining = new SequencerTimetable({ ...baseOpts, pipelining: true });
+
+      expect(withPipelining.maxNumberOfBlocks).toBeGreaterThan(withoutPipelining.maxNumberOfBlocks);
+    });
+
+    it('uses entire slot minus init and re-execution for block building', () => {
+      const tt = new SequencerTimetable({
+        ethereumSlotDuration: ETHEREUM_SLOT_DURATION,
+        aztecSlotDuration: AZTEC_SLOT_DURATION,
+        l1PublishingTime: L1_PUBLISHING_TIME,
+        blockDurationMs: BLOCK_DURATION_MS,
+        enforce: ENFORCE_TIMETABLE,
+        pipelining: true,
+      });
+
+      const blockDuration = BLOCK_DURATION_MS / 1000;
+      // Reserves one blockDuration for validator re-execution, but no finalization time
+      const availableTime = AZTEC_SLOT_DURATION - tt.initializationOffset - blockDuration;
+      expect(tt.maxNumberOfBlocks).toBe(Math.floor(availableTime / blockDuration));
+    });
+
+    it('has later initialize deadline than non-pipelining', () => {
+      const baseOpts = {
+        ethereumSlotDuration: ETHEREUM_SLOT_DURATION,
+        aztecSlotDuration: AZTEC_SLOT_DURATION,
+        l1PublishingTime: L1_PUBLISHING_TIME,
+        blockDurationMs: BLOCK_DURATION_MS,
+        enforce: ENFORCE_TIMETABLE,
+      };
+
+      const withoutPipelining = new SequencerTimetable({ ...baseOpts, pipelining: false });
+      const withPipelining = new SequencerTimetable({ ...baseOpts, pipelining: true });
+
+      expect(withPipelining.initializeDeadline).toBeGreaterThan(withoutPipelining.initializeDeadline);
+    });
+
+    it('produces expected block count with test config', () => {
+      // Mimics e2e test config: ethereumSlotDuration=4, aztecSlotDuration=36, blockDuration=8s
+      const tt = new SequencerTimetable({
+        ethereumSlotDuration: 4,
+        aztecSlotDuration: 36,
+        l1PublishingTime: 2,
+        p2pPropagationTime: 0.5,
+        blockDurationMs: 8000,
+        enforce: true,
+        pipelining: true,
+      });
+
+      // With pipelining and test config (ethereumSlotDuration < 8):
+      // init=0.5, reExec=8, available = 36 - 0.5 - 8 = 27.5, floor(27.5/8) = 3
+      expect(tt.maxNumberOfBlocks).toBe(3);
+    });
+
+    it('produces more blocks with production config where finalization time is large', () => {
+      // With production-like config, the large finalization time means pipelining saves enough to gain blocks
+      const baseOpts = {
+        ethereumSlotDuration: ETHEREUM_SLOT_DURATION,
+        aztecSlotDuration: 120,
+        l1PublishingTime: L1_PUBLISHING_TIME,
+        blockDurationMs: BLOCK_DURATION_MS,
+        enforce: ENFORCE_TIMETABLE,
+      };
+
+      const withoutPipelining = new SequencerTimetable({ ...baseOpts, pipelining: false });
+      const withPipelining = new SequencerTimetable({ ...baseOpts, pipelining: true });
+
+      // Finalization time (1 + 2*2 + 12 = 17s) > blockDuration, so pipelining gains at least one more block
+      expect(withPipelining.maxNumberOfBlocks).toBeGreaterThan(withoutPipelining.maxNumberOfBlocks);
+    });
+  });
 });

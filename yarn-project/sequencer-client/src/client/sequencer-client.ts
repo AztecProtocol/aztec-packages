@@ -14,7 +14,6 @@ import type { P2P } from '@aztec/p2p';
 import type { SlasherClientInterface } from '@aztec/slasher';
 import type { L2BlockSink, L2BlockSource } from '@aztec/stdlib/block';
 import type { ValidatorClientFullConfig, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
-import { SlashFactoryContract } from '@aztec/stdlib/l1-contracts';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import { L1Metrics, type TelemetryClient } from '@aztec/telemetry-client';
 import { FullNodeCheckpointsBuilder, NodeKeystoreAdapter, type ValidatorClient } from '@aztec/validator-client';
@@ -118,11 +117,6 @@ export class SequencerClient {
         { dateProvider: deps.dateProvider },
       ));
 
-    const slashFactoryContract = new SlashFactoryContract(
-      publicClient,
-      config.l1Contracts.slashFactoryAddress?.toString() ?? EthAddress.ZERO.toString(),
-    );
-
     const publisherFactory =
       deps.publisherFactory ??
       new SequencerPublisherFactory(config, {
@@ -130,7 +124,6 @@ export class SequencerClient {
         blobClient: deps.blobClient,
         epochCache,
         governanceProposerContract,
-        slashFactoryContract,
         rollupContract,
         dateProvider: deps.dateProvider,
         publisherManager,

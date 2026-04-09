@@ -75,7 +75,7 @@ namespace execution;
     // BASE_L2_GAS < 2^17
     // dynamic_l2_gas_factor < 2^32 (for public logs and to_radix, 32-bit register)
     // dynamic_l2_gas < 2^16
-    // Then total_gas_l2 = prev_l2_gas_used + BASE_L2_GAS + dynamic_l2_gas_factor * dynamic_da_gas < 2^49
+    // Then total_gas_l2 = prev_l2_gas_used + BASE_L2_GAS + dynamic_l2_gas * dynamic_l2_gas_factor < 2^49
     // l2_gas_limit is 32 bits (see at the top of this file).
     #[IS_OUT_OF_GAS_L2]
     sel_should_check_gas { total_gas_l2, l2_gas_limit, out_of_gas_l2 } in gt.sel_gas { gt.input_a, gt.input_b, gt.res };

@@ -7,7 +7,7 @@ description: Learn how the slashing mechanism works, what offenses are detected,
 
 ## Overview
 
-This guide explains how the Aztec network's slashing mechanism works and how your sequencer automatically participates in detecting and voting on validator offenses. You'll learn about the Tally Model of slashing, the types of offenses that are automatically detected, and how to configure your sequencer's slashing behavior.
+This guide explains how the Aztec network's slashing mechanism works and how your sequencer automatically participates in detecting and voting on validator offenses. You'll learn about the types of offenses that are automatically detected and how to configure your sequencer's slashing behavior.
 
 ## Prerequisites
 
@@ -17,7 +17,7 @@ Before proceeding, you should:
 - Understand that slashing actions are executed automatically when you propose blocks
 - Have the Sentinel enabled if you want to detect inactivity offenses
 
-## Understanding the Tally Model of Slashing
+## Understanding the Slashing Model
 
 The Aztec network uses a consensus-based slashing mechanism where validators vote on individual validator offenses during block proposal.
 
@@ -333,16 +333,16 @@ grep "Slashing round.*has been executed" /path/to/node/logs
 
 ### Query L1 Contract State
 
-You can query the TallySlashingProposer contract to see voting activity:
+You can query the SlashingProposer contract to see voting activity:
 
 ```bash
 # Get current round information
-cast call [TALLY_SLASHING_PROPOSER_ADDRESS] \
+cast call [SLASHING_PROPOSER_ADDRESS] \
   "getCurrentRound()" \
   --rpc-url [YOUR_RPC_URL]
 
 # Check a specific round's vote count
-cast call [TALLY_SLASHING_PROPOSER_ADDRESS] \
+cast call [SLASHING_PROPOSER_ADDRESS] \
   "getRound(uint256)" [ROUND_NUMBER] \
   --rpc-url [YOUR_RPC_URL]
 ```

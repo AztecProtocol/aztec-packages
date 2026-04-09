@@ -36,6 +36,12 @@ void databus<Builder>::bus_vector::set_values(const std::vector<field_pt>& entri
         context->append_to_bus_vector(bus_idx, entries.back().get_witness_index());
     }
     length = entries.size();
+
+    // Preserve tags to restore them in future reads (following the ROM/RAM pattern)
+    _tags.resize(entries_in.size());
+    for (size_t i = 0; i < length; ++i) {
+        _tags[i] = entries_in[i].get_origin_tag();
+    }
 }
 
 template <typename Builder>
@@ -45,7 +51,9 @@ field_t<Builder> databus<Builder>::bus_vector::operator[](const field_pt& index)
     // Ensure the read is valid
     auto raw_index = static_cast<size_t>(uint256_t(index.get_value()).data[0]);
     if (raw_index >= length) {
+        // Set a failure when the index is out of bounds. Return early to avoid OOB vector access.
         context->failure("bus_vector: access out of bounds");
+        return field_pt::from_witness_index(context, context->zero_idx());
     }
 
     // The read index must be a witness; if constant, add it as a constant variable
@@ -58,7 +66,13 @@ field_t<Builder> databus<Builder>::bus_vector::operator[](const field_pt& index)
 
     // Read from the bus vector at the specified index. Creates a single read gate
     uint32_t output_idx = context->read_bus_vector(bus_idx, index_witness_idx);
-    return field_pt::from_witness_index(context, output_idx);
+    auto result = field_pt::from_witness_index(context, output_idx);
+
+    // If the index is legitimate, restore the tag (following the ROM/RAM pattern)
+    if (raw_index < length) {
+        result.set_origin_tag(_tags[raw_index]);
+    }
+    return result;
 }
 
 template class databus<bb::MegaCircuitBuilder>;

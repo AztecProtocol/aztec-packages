@@ -28,7 +28,7 @@ export function getSlashConsensusVotesFromOffenses(
     targetCommitteeSize: number;
     maxSlashedValidators?: number;
   },
-  logger: Logger = createLogger('slasher:tally'),
+  logger: Logger = createLogger('slasher:votes'),
 ): ValidatorSlashVote[] {
   const { slashingAmounts, targetCommitteeSize, maxSlashedValidators } = settings;
 

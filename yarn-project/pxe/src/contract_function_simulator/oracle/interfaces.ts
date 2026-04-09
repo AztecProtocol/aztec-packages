@@ -54,7 +54,7 @@ export interface IMiscOracle {
   isMisc: true;
 
   getRandomField(): Fr;
-  assertCompatibleOracleVersion(version: number): void;
+  assertCompatibleOracleVersion(major: number, minor: number): void;
   log(level: number, message: string, fields: Fr[]): Promise<void>;
 }
 
