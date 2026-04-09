@@ -1,6 +1,7 @@
 *.tgz
 !terraform/modules/web3signer/web3signer-1.0.6.tgz
 !terraform/deploy-external-secrets/external-secrets-*.tgz
+scripts/kubectl
 scripts/logs
 scripts/LICENSE
 tfplan
