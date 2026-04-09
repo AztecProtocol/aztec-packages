@@ -229,10 +229,10 @@ function test_cmds {
     # These archives contain protocol contracts, VKs, and circuit artifacts that determine
     # the on-chain genesis state the compatibility tests verify against.
     local compat_hash=$(hash_str $hash \
-      $(git hash-object \
-        ../noir-projects/noir-contracts/pinned-protocol-contracts.tar.gz \
-        ../noir-projects/noir-protocol-circuits/pinned-build.tar.gz \
-        ../noir-projects/mock-protocol-circuits/pinned-build.tar.gz))
+      $(cache_content_hash \
+        "^noir-projects/noir-contracts/pinned-protocol-contracts.tar.gz" \
+        "^noir-projects/noir-protocol-circuits/pinned-build.tar.gz" \
+        "^noir-projects/mock-protocol-circuits/pinned-build.tar.gz"))
     echo "$compat_hash yarn-project/scripts/run_test.sh aztec/src/testnet_compatibility.test.ts"
     echo "$compat_hash yarn-project/scripts/run_test.sh aztec/src/mainnet_compatibility.test.ts"
   fi
