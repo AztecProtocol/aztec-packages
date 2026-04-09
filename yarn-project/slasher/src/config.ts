@@ -14,8 +14,6 @@ export type { SlasherConfig };
 
 export const DefaultSlasherConfig: SlasherConfig = {
   slashOverridePayload: undefined,
-  slashMinPenaltyPercentage: slasherDefaultEnv.SLASH_MIN_PENALTY_PERCENTAGE,
-  slashMaxPenaltyPercentage: slasherDefaultEnv.SLASH_MAX_PENALTY_PERCENTAGE,
   slashValidatorsAlways: [], // Empty by default
   slashValidatorsNever: [], // Empty by default
   slashPrunePenalty: BigInt(slasherDefaultEnv.SLASH_PRUNE_PENALTY),
@@ -42,16 +40,6 @@ export const slasherConfigMappings: ConfigMappingsType<SlasherConfig> = {
     description: 'An Ethereum address for a slash payload to vote for unconditionally.',
     parseEnv: (val: string) => (val ? EthAddress.fromString(val) : undefined),
     defaultValue: DefaultSlasherConfig.slashOverridePayload,
-  },
-  slashMinPenaltyPercentage: {
-    env: 'SLASH_MIN_PENALTY_PERCENTAGE',
-    description: 'Minimum penalty percentage for slashing offenses (0.1 is 10%).',
-    ...floatConfigHelper(DefaultSlasherConfig.slashMinPenaltyPercentage),
-  },
-  slashMaxPenaltyPercentage: {
-    env: 'SLASH_MAX_PENALTY_PERCENTAGE',
-    description: 'Maximum penalty percentage for slashing offenses (2.0 is 200%).',
-    ...floatConfigHelper(DefaultSlasherConfig.slashMaxPenaltyPercentage),
   },
   slashValidatorsAlways: {
     env: 'SLASH_VALIDATORS_ALWAYS',

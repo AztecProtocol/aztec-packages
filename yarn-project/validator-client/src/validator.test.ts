@@ -30,7 +30,7 @@ import {
 import { OffenseType, WANT_TO_SLASH_EVENT } from '@aztec/slasher';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { type BlockData, L2Block, type L2BlockSink, type L2BlockSource } from '@aztec/stdlib/block';
-import type { getEpochAtSlot } from '@aztec/stdlib/epoch-helpers';
+import { type getEpochAtSlot, getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
 import type { SlasherConfig, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import { type L1ToL2MessageSource, computeInHashFromL1ToL2Messages } from '@aztec/stdlib/messaging';
 import type { BlockProposal } from '@aztec/stdlib/p2p';
@@ -126,6 +126,9 @@ describe('ValidatorClient', () => {
     epochCache.getL1Constants.mockReturnValue({ epochDuration: 8 } satisfies Parameters<
       typeof getEpochAtSlot
     >[1] as any);
+    epochCache.getSlotNow.mockReturnValue(SlotNumber(1));
+    epochCache.pipeliningOffset.mockReturnValue(0);
+    epochCache.isProposerPipeliningEnabled.mockReturnValue(false);
     epochCache.getEpochAndSlotNow.mockReturnValue({
       epoch: EpochNumber(1),
       slot: SlotNumber(1),
@@ -333,6 +336,8 @@ describe('ValidatorClient', () => {
     let mockCheckpointBuilder: MockProxy<CheckpointBuilder>;
 
     const makeTxFromHash = (txHash: TxHash) => ({ getTxHash: () => txHash, txHash }) as Tx;
+    const getExpectedWallClockDeadline = (currentSlot: SlotNumber) =>
+      new Date(Number(getTimestampForSlot(SlotNumber(currentSlot + 1), checkpointsBuilder.getConfig())) * 1000);
 
     beforeEach(async () => {
       const emptyInHash = computeInHashFromL1ToL2Messages([]);
@@ -356,6 +361,7 @@ describe('ValidatorClient', () => {
       );
 
       epochCache.isInCommittee.mockResolvedValue(true);
+      epochCache.getSlotNow.mockReturnValue(proposal.slotNumber);
       epochCache.getTargetAndNextSlot.mockReturnValue({
         targetSlot: proposal.slotNumber,
         nextSlot: SlotNumber(proposal.slotNumber + 1),
@@ -430,6 +436,43 @@ describe('ValidatorClient', () => {
       epochCache.filterInCommittee.mockResolvedValue([EthAddress.fromString(validatorAccounts[0].address)]);
       const isValid = await validatorClient.validateBlockProposal(proposal, sender);
       expect(isValid).toBe(true);
+    });
+
+    it('uses the next wall-clock slot as the tx collection deadline for pipelined proposals', async () => {
+      const pipelineOffsetInSlots = 1;
+      epochCache.isProposerPipeliningEnabled.mockReturnValue(true);
+      epochCache.pipeliningOffset.mockReturnValue(pipelineOffsetInSlots);
+      epochCache.filterInCommittee.mockResolvedValue([EthAddress.fromString(validatorAccounts[0].address)]);
+
+      const futureSlot = SlotNumber(proposal.slotNumber + 20);
+      const futureProposal = await makeBlockProposal({
+        blockHeader: makeBlockHeader(1, {
+          blockNumber,
+          slotNumber: futureSlot,
+        }),
+        inHash: computeInHashFromL1ToL2Messages([]),
+      });
+
+      // Under pipelining, the target slot is the future slot the proposer is building for,
+      // and the expected proposer for that slot is whoever signed the future proposal.
+      epochCache.getProposerAttesterAddressInSlot.mockResolvedValue(futureProposal.getSender());
+      epochCache.getTargetAndNextSlot.mockReturnValue({
+        targetSlot: futureSlot,
+        nextSlot: SlotNumber(futureSlot + 1),
+      });
+
+      const result = await validatorClient.getProposalHandler().handleBlockProposal(futureProposal, sender, false);
+
+      expect(result.isValid).toBe(true);
+      expect(txProvider.getTxsForBlockProposal).toHaveBeenCalledWith(
+        futureProposal,
+        blockNumber,
+        expect.objectContaining({
+          pinnedPeer: sender,
+          // Expect wall clock time
+          deadline: getExpectedWallClockDeadline(SlotNumber(Number(futureProposal.slotNumber) - pipelineOffsetInSlots)),
+        }),
+      );
     });
 
     it('should process block proposal from own validator key (HA peer)', async () => {

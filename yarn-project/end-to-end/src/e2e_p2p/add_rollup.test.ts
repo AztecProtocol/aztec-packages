@@ -149,8 +149,11 @@ describe('e2e_p2p_add_rollup', () => {
 
     // Now that we have passed on the registry, we can deploy the new rollup.
     const initialTestAccounts = await getInitialTestAccountsData();
-    const { genesisArchiveRoot, fundingNeeded, prefilledPublicData } = await getGenesisValues(
+    const { genesisArchiveRoot, fundingNeeded, genesis } = await getGenesisValues(
       initialTestAccounts.map(a => a.address),
+      undefined,
+      undefined,
+      t.ctx.genesis!.genesisTimestamp,
     );
     const { rollup: newRollup } = await deployRollupForUpgrade(
       t.baseAccountPrivateKey,
@@ -181,7 +184,7 @@ describe('e2e_p2p_add_rollup', () => {
         feeJuicePortalInitialBalance: fundingNeeded,
         realVerifier: false,
         exitDelaySeconds: t.ctx.aztecNodeConfig.exitDelaySeconds,
-        slasherFlavor: t.ctx.aztecNodeConfig.slasherFlavor,
+        slasherEnabled: t.ctx.aztecNodeConfig.slasherEnabled,
         slashingOffsetInRounds: t.ctx.aztecNodeConfig.slashingOffsetInRounds,
         slashAmountSmall: t.ctx.aztecNodeConfig.slashAmountSmall,
         slashAmountMedium: t.ctx.aztecNodeConfig.slashAmountMedium,
@@ -239,7 +242,7 @@ describe('e2e_p2p_add_rollup', () => {
       t.bootstrapNodeEnr,
       NUM_VALIDATORS,
       BOOT_NODE_UDP_PORT,
-      t.prefilledPublicData,
+      t.genesis,
       DATA_DIR,
       shouldCollectMetrics(),
     );
@@ -252,7 +255,7 @@ describe('e2e_p2p_add_rollup', () => {
       t.bootstrapNodeEnr,
       ATTESTER_PRIVATE_KEYS_START_INDEX + NUM_VALIDATORS + 1,
       { dateProvider: t.ctx.dateProvider },
-      t.prefilledPublicData,
+      t.genesis,
       `${DATA_DIR}-prover`,
       shouldCollectMetrics(),
     ));
@@ -551,7 +554,7 @@ describe('e2e_p2p_add_rollup', () => {
       t.bootstrapNodeEnr,
       NUM_VALIDATORS,
       BOOT_NODE_UDP_PORT,
-      prefilledPublicData,
+      genesis,
       DATA_DIR_NEW,
       shouldCollectMetrics(),
     );
@@ -563,7 +566,7 @@ describe('e2e_p2p_add_rollup', () => {
       t.bootstrapNodeEnr,
       ATTESTER_PRIVATE_KEYS_START_INDEX + NUM_VALIDATORS + 1,
       { dateProvider: t.ctx.dateProvider },
-      prefilledPublicData,
+      genesis,
       `${DATA_DIR_NEW}-prover`,
       shouldCollectMetrics(),
     ));

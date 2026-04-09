@@ -15,6 +15,7 @@ import { mockProcessedTx } from '@aztec/stdlib/testing';
 import { PublicDataTreeLeaf } from '@aztec/stdlib/trees';
 import type { CheckpointGlobalVariables, ProcessedTx } from '@aztec/stdlib/tx';
 import { GlobalVariables } from '@aztec/stdlib/tx';
+import type { GenesisData } from '@aztec/stdlib/world-state';
 import { NativeWorldStateService } from '@aztec/world-state/native';
 
 import { afterAll, afterEach, beforeEach, describe, it, jest } from '@jest/globals';
@@ -43,8 +44,11 @@ describe('LightweightCheckpointBuilder benchmarks', () => {
     feePayer = AztecAddress.fromNumber(42222);
     feePayerBalance = new Fr(10n ** 20n);
     const feePayerSlot = await computeFeePayerBalanceLeafSlot(feePayer);
-    const prefilledPublicData = [new PublicDataTreeLeaf(feePayerSlot, feePayerBalance)];
-    worldState = await NativeWorldStateService.tmp(undefined, true, prefilledPublicData);
+    const genesis: GenesisData = {
+      prefilledPublicData: [new PublicDataTreeLeaf(feePayerSlot, feePayerBalance)],
+      genesisTimestamp: 0n,
+    };
+    worldState = await NativeWorldStateService.tmp(undefined, true, genesis);
   });
 
   afterEach(async () => {
