@@ -248,26 +248,19 @@ describe('Oracle Version Check test suite', () => {
       // Build the ACIR callback and try to call a non-existent oracle
       const callback = new Oracle(oracle).toACIRCallback();
       expect(() => callback['aztec_utl_someNewOracle']()).toThrow(
-        /Oracle 'aztec_utl_someNewOracle' not found.*contract reports oracle version.*added in a newer minor version.*Upgrade your PXE\/wallet/,
+        /Oracle 'aztec_utl_someNewOracle' not found\. This usually means the contract requires a newer private execution environment than you have\. Upgrade your private execution environment to a compatible version\. The contract was compiled with Aztec\.nr oracle version 22\.1, but this private execution environment only supports up to 22\.0\./,
       );
     });
 
-    it('suggests contract bug when oracle not found and contract minor == PXE minor', () => {
-      oracle.assertCompatibleOracleVersion(ORACLE_VERSION_MAJOR, ORACLE_VERSION_MINOR);
+    it('suggests contract bug when oracle not found and contract minor <= PXE minor', () => {
+      const contractMinor = 0;
+      oracle.assertCompatibleOracleVersion(ORACLE_VERSION_MAJOR, contractMinor);
 
       const callback = new Oracle(oracle).toACIRCallback();
       expect(() => callback['aztec_utl_someNewOracle']()).toThrow(
-        /Oracle 'aztec_utl_someNewOracle' not found.*should include all oracles.*likely a bug in the contract/,
-      );
-    });
-
-    it('suggests contract bug when oracle not found and contract minor < PXE minor', () => {
-      // PXE supports a higher minor than the contract reports — should still be compatible
-      oracle.assertCompatibleOracleVersion(ORACLE_VERSION_MAJOR, ORACLE_VERSION_MINOR - 1);
-
-      const callback = new Oracle(oracle).toACIRCallback();
-      expect(() => callback['aztec_utl_someNewOracle']()).toThrow(
-        /Oracle 'aztec_utl_someNewOracle' not found.*should include all oracles.*likely a bug in the contract/,
+        new RegExp(
+          `Oracle 'aztec_utl_someNewOracle' not found\\. The contract's oracle version \\(${ORACLE_VERSION_MAJOR}\\.${contractMinor}\\) is compatible with this private execution environment \\(${ORACLE_VERSION_MAJOR}\\.${ORACLE_VERSION_MINOR}\\), so all standard oracles should be available\\. This could mean the contract was compiled against a modified version of Aztec\\.nr, or that it references an oracle that does not exist\\.`,
+        ),
       );
     });
   });

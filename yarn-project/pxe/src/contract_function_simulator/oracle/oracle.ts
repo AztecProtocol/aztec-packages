@@ -148,7 +148,7 @@ export class Oracle {
               `Oracle '${prop}' not found.` +
                 ` This usually means the contract requires a newer private execution environment than you have.` +
                 ` Upgrade your private execution environment to a compatible version. The contract was compiled with` +
-                ` Aztec.nr oracle version ${contractVersion.major}.${contractVersion.minor}, but this private ` +
+                ` Aztec.nr oracle version ${contractVersion.major}.${contractVersion.minor}, but this private` +
                 ` execution environment only supports up to ${ORACLE_VERSION_MAJOR}.${ORACLE_VERSION_MINOR}.` +
                 ` See https://docs.aztec.network/errors/8`,
             );
