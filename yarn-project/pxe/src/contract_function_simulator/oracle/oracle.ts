@@ -580,6 +580,12 @@ export class Oracle {
   }
 
   // eslint-disable-next-line camelcase
+  async aztec_utl_getPendingTaggedLogs_v2([scope]: ACVMField[]): Promise<ACVMField[]> {
+    const slot = await this.handlerAsUtility().getPendingTaggedLogsV2(AztecAddress.fromString(scope));
+    return [toACVMField(slot)];
+  }
+
+  // eslint-disable-next-line camelcase
   async aztec_utl_validateAndStoreEnqueuedNotesAndEvents(
     [contractAddress]: ACVMField[],
     [noteValidationRequestsArrayBaseSlot]: ACVMField[],
@@ -597,6 +603,24 @@ export class Oracle {
       AztecAddress.fromString(scope),
     );
 
+    return [];
+  }
+
+  // eslint-disable-next-line camelcase
+  async aztec_utl_validateAndStoreEnqueuedNotesAndEvents_v2(
+    [noteValidationRequestsArrayBaseSlot]: ACVMField[],
+    [eventValidationRequestsArrayBaseSlot]: ACVMField[],
+    [maxNotePackedLen]: ACVMField[],
+    [maxEventSerializedLen]: ACVMField[],
+    [scope]: ACVMField[],
+  ): Promise<ACVMField[]> {
+    await this.handlerAsUtility().validateAndStoreEnqueuedNotesAndEventsV2(
+      Fr.fromString(noteValidationRequestsArrayBaseSlot),
+      Fr.fromString(eventValidationRequestsArrayBaseSlot),
+      Fr.fromString(maxNotePackedLen).toNumber(),
+      Fr.fromString(maxEventSerializedLen).toNumber(),
+      AztecAddress.fromString(scope),
+    );
     return [];
   }
 
@@ -630,6 +654,20 @@ export class Oracle {
       AztecAddress.fromString(scope),
     );
     return [];
+  }
+
+  // eslint-disable-next-line camelcase
+  async aztec_utl_getLogsByTag_v2([requestArrayBaseSlot]: ACVMField[]): Promise<ACVMField[]> {
+    const responseSlot = await this.handlerAsUtility().getLogsByTagV2(Fr.fromString(requestArrayBaseSlot));
+    return [toACVMField(responseSlot)];
+  }
+
+  // eslint-disable-next-line camelcase
+  async aztec_utl_getMessageContextsByTxHash_v2([requestArrayBaseSlot]: ACVMField[]): Promise<ACVMField[]> {
+    const responseSlot = await this.handlerAsUtility().getMessageContextsByTxHashV2(
+      Fr.fromString(requestArrayBaseSlot),
+    );
+    return [toACVMField(responseSlot)];
   }
 
   // eslint-disable-next-line camelcase
@@ -702,6 +740,52 @@ export class Oracle {
       AztecAddress.fromField(Fr.fromString(scope)),
     );
     return [];
+  }
+
+  // eslint-disable-next-line camelcase
+  aztec_utl_pushEphemeral([slot]: ACVMField[], elements: ACVMField[]): Promise<ACVMField[]> {
+    const newLen = this.handlerAsUtility().pushEphemeral(Fr.fromString(slot), elements.map(Fr.fromString));
+    return Promise.resolve([toACVMField(newLen)]);
+  }
+
+  // eslint-disable-next-line camelcase
+  aztec_utl_popEphemeral([slot]: ACVMField[]): Promise<ACVMField[][]> {
+    const element = this.handlerAsUtility().popEphemeral(Fr.fromString(slot));
+    return Promise.resolve([element.map(toACVMField)]);
+  }
+
+  // eslint-disable-next-line camelcase
+  aztec_utl_getEphemeral([slot]: ACVMField[], [index]: ACVMField[]): Promise<ACVMField[][]> {
+    const element = this.handlerAsUtility().getEphemeral(Fr.fromString(slot), Fr.fromString(index).toNumber());
+    return Promise.resolve([element.map(toACVMField)]);
+  }
+
+  // eslint-disable-next-line camelcase
+  aztec_utl_setEphemeral([slot]: ACVMField[], [index]: ACVMField[], elements: ACVMField[]): Promise<ACVMField[]> {
+    this.handlerAsUtility().setEphemeral(
+      Fr.fromString(slot),
+      Fr.fromString(index).toNumber(),
+      elements.map(Fr.fromString),
+    );
+    return Promise.resolve([]);
+  }
+
+  // eslint-disable-next-line camelcase
+  aztec_utl_getEphemeralLen([slot]: ACVMField[]): Promise<ACVMField[]> {
+    const len = this.handlerAsUtility().getEphemeralLen(Fr.fromString(slot));
+    return Promise.resolve([toACVMField(len)]);
+  }
+
+  // eslint-disable-next-line camelcase
+  aztec_utl_removeEphemeral([slot]: ACVMField[], [index]: ACVMField[]): Promise<ACVMField[]> {
+    this.handlerAsUtility().removeEphemeral(Fr.fromString(slot), Fr.fromString(index).toNumber());
+    return Promise.resolve([]);
+  }
+
+  // eslint-disable-next-line camelcase
+  aztec_utl_clearEphemeral([slot]: ACVMField[]): Promise<ACVMField[]> {
+    this.handlerAsUtility().clearEphemeral(Fr.fromString(slot));
+    return Promise.resolve([]);
   }
 
   // eslint-disable-next-line camelcase
