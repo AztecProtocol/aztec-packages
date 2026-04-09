@@ -141,11 +141,13 @@ describe('e2e_cheat_codes', () => {
     let context: EndToEndContext;
     let aztecNode: AztecNode;
     let aztecNodeDebug: AztecNodeDebug;
+    let ethCheatCodes: EthCheatCodes;
 
     beforeAll(async () => {
       context = await setup(0);
       aztecNode = context.aztecNode;
       aztecNodeDebug = context.aztecNodeService;
+      ethCheatCodes = context.ethCheatCodes;
     });
 
     afterAll(async () => {
@@ -154,7 +156,7 @@ describe('e2e_cheat_codes', () => {
 
     it('setNextBlockTimestamp + mineBlock produces a block with the target timestamp', async () => {
       const targetTimestamp = Math.floor(Date.now() / 1000) + 1000;
-      await aztecNodeDebug.setNextBlockTimestamp(targetTimestamp);
+      await ethCheatCodes.setNextBlockTimestamp(targetTimestamp);
       await aztecNodeDebug.mineBlock();
 
       const blockNumber = await aztecNode.getBlockNumber();
@@ -168,7 +170,8 @@ describe('e2e_cheat_codes', () => {
       const timestampBefore = Number(blockBeforeAdvance!.header.globalVariables.timestamp);
 
       const advancement = 100;
-      await aztecNodeDebug.advanceNextBlockTimestampBy(advancement);
+      const currentL1Timestamp = await ethCheatCodes.lastBlockTimestamp();
+      await ethCheatCodes.setNextBlockTimestamp(currentL1Timestamp + advancement);
       await aztecNodeDebug.mineBlock();
 
       const blockNumber = await aztecNode.getBlockNumber();

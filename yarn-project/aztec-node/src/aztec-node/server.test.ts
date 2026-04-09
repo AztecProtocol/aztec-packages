@@ -1064,64 +1064,6 @@ describe('aztec node', () => {
         expect(updateCalls[1][0]).toEqual({ minTxsPerBlock: INITIAL_MIN_TXS_PER_BLOCK });
       });
     });
-
-    describe('setNextBlockTimestamp', () => {
-      it('sets timestamp on ethCheatCodes and updates dateProvider', async () => {
-        mockEthCheatCodes.setNextBlockTimestamp.mockResolvedValue();
-
-        const targetTimestamp = 1_000_000;
-        await nodeWithSequencer.setNextBlockTimestamp(targetTimestamp);
-
-        expect(mockEthCheatCodes.setNextBlockTimestamp).toHaveBeenCalledWith(targetTimestamp);
-        const targetMs = targetTimestamp * 1000;
-        expect(testDateProvider.now()).toBeGreaterThanOrEqual(targetMs);
-      });
-    });
-
-    describe('advanceNextBlockTimestampBy', () => {
-      it('advances timestamp by duration from current L1 timestamp', async () => {
-        mockEthCheatCodes.lastBlockTimestamp.mockResolvedValue(500);
-        mockEthCheatCodes.setNextBlockTimestamp.mockResolvedValue();
-
-        await nodeWithSequencer.advanceNextBlockTimestampBy(100);
-
-        expect(mockEthCheatCodes.setNextBlockTimestamp).toHaveBeenCalledWith(600);
-        expect(testDateProvider.now()).toBeGreaterThanOrEqual(600_000);
-      });
-    });
-
-    describe('updateDateProviderTimestampTo', () => {
-      it('throws when dateProvider does not support setTime', async () => {
-        const nodeWithPlainDateProvider = new AztecNodeService(
-          nodeConfig,
-          p2p,
-          l2BlockSource,
-          mock(),
-          mock(),
-          mock(),
-          worldState,
-          sequencerClient,
-          undefined,
-          undefined,
-          undefined,
-          undefined,
-          12345,
-          rollupVersion.toNumber(),
-          globalVariablesBuilder,
-          epochCache,
-          getPackageVersion() ?? '',
-          new TestCircuitVerifier(),
-          new TestCircuitVerifier(),
-          new DateProvider(),
-        );
-        (nodeWithPlainDateProvider as any).ethCheatCodes = mockEthCheatCodes;
-        mockEthCheatCodes.setNextBlockTimestamp.mockResolvedValue();
-
-        await expect(nodeWithPlainDateProvider.setNextBlockTimestamp(1000)).rejects.toThrow(
-          'Date provider does not support direct time manipulation',
-        );
-      });
-    });
   });
 
   describe('getL2ToL1Messages', () => {

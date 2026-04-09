@@ -1650,28 +1650,6 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     return this.ethCheatCodes;
   }
 
-  /** Updates the date provider to match the given timestamp, if it supports time manipulation. */
-  #updateDateProviderTimestampTo(timestampInSeconds: number): void {
-    if (!('setTime' in this.dateProvider)) {
-      throw new Error('Date provider does not support direct time manipulation.');
-    }
-
-    (this.dateProvider as { setTime(ms: number): void }).setTime(timestampInSeconds * 1000);
-  }
-
-  public async setNextBlockTimestamp(timestamp: number): Promise<void> {
-    const ethCheatCodes = this.#getEthCheatCodes();
-    await ethCheatCodes.setNextBlockTimestamp(timestamp);
-    this.#updateDateProviderTimestampTo(timestamp);
-  }
-
-  public async advanceNextBlockTimestampBy(duration: number): Promise<void> {
-    const ethCheatCodes = this.#getEthCheatCodes();
-    const currentL1Timestamp = await ethCheatCodes.lastBlockTimestamp();
-    await ethCheatCodes.setNextBlockTimestamp(currentL1Timestamp + duration);
-    this.#updateDateProviderTimestampTo(currentL1Timestamp + duration);
-  }
-
   public async mineBlock(): Promise<void> {
     if (!this.sequencer) {
       throw new BadRequestError('Cannot mine block: no sequencer is running');
@@ -1709,9 +1687,8 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
       await ethCheatCodes.warp(Number(nextSlotTimestamp));
     }
 
-    // Update dateProvider to match L1 time
-    const newTimestamp = await ethCheatCodes.lastBlockTimestamp();
-    this.#updateDateProviderTimestampTo(newTimestamp);
+    // Note: the node's DateProvider is kept in sync with L1 time by `AnvilTestWatcher`
+    // (via its `syncDateProviderToL1IfBehind` polling loop) and by `EthCheatCodes.warp`.
 
     // Temporarily set minTxsPerBlock to 0 so the sequencer produces a block even with no txs
     const originalMinTxsPerBlock = this.sequencer.getSequencer().getConfig().minTxsPerBlock;

@@ -23,26 +23,12 @@ describe('AztecNodeDebugApiSchema', () => {
     expect([...tested].sort()).toEqual(all.sort());
   });
 
-  it('setNextBlockTimestamp', async () => {
-    await context.client.setNextBlockTimestamp(1000000);
-  });
-
-  it('advanceNextBlockTimestampBy', async () => {
-    await context.client.advanceNextBlockTimestampBy(60);
-  });
-
   it('mineBlock', async () => {
     await context.client.mineBlock();
   });
 });
 
 class MockAztecNodeDebug implements AztecNodeDebug {
-  setNextBlockTimestamp(_timestamp: number): Promise<void> {
-    return Promise.resolve();
-  }
-  advanceNextBlockTimestampBy(_duration: number): Promise<void> {
-    return Promise.resolve();
-  }
   mineBlock(): Promise<void> {
     return Promise.resolve();
   }
