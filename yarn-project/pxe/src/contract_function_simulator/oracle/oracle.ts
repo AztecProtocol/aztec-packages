@@ -1,7 +1,6 @@
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { Point } from '@aztec/foundation/curves/grumpkin';
-import { createLogger } from '@aztec/foundation/log';
 import {
   type ACIRCallback,
   type ACVMField,
@@ -50,8 +49,6 @@ export class UnavailableOracleError extends Error {
  *   - Standalone verbs (`delete`, `copy`, `decrypt`, `log`, etc) are used when no generic verb fits.
  */
 export class Oracle {
-  private logger = createLogger('simulator:oracle');
-
   constructor(private handler: IMiscOracle | IUtilityExecutionOracle | IPrivateExecutionOracle) {}
 
   private handlerAsMisc(): IMiscOracle {
@@ -121,7 +118,6 @@ export class Oracle {
     // contract's minor version is higher than the PXE's (i.e. the contract expects oracles that were added in a newer
     // minor version).
     const handler = this.handler;
-    const logger = this.logger;
     return new Proxy(allCallbacks, {
       get(target, prop: string) {
         if (prop in target) {
@@ -140,29 +136,28 @@ export class Oracle {
             ).nonOracleFunctionGetContractOracleVersion();
           }
           if (!contractVersion) {
-            // contractVersion should always be populated because aztec_utl_assertCompatibleOracleVersion is injected
-            // by the #[aztec] macro as the very first oracle call in every private/utility function. Hence we show
-            // this warning.
-            logger.warn(
-              `Contract oracle version not set when looking up oracle '${prop}'. This is unexpected - the version check oracle should always be called first.`,
+            throw new Error(
+              `Oracle '${prop}' not found and the contract's oracle version is unknown (the version check oracle ` +
+                `was not called before '${prop}'). This usually means the contract was not compiled with the ` +
+                `#[aztec] macro, which injects the version check as the first oracle call in every private/utility ` +
+                `external function. If you're using a custom entry point, ensure assert_compatible_oracle_version() ` +
+                `is called before any other oracle calls. See https://docs.aztec.network/errors/8`,
             );
-            throw new Error(`Oracle callback ${prop} not found. See https://docs.aztec.network/errors/8`);
           } else if (contractVersion.minor > ORACLE_VERSION_MINOR) {
             throw new Error(
               `Oracle '${prop}' not found.` +
                 ` This usually means the contract requires a newer private execution environment than you have.` +
-                ` Upgrade your private execution environment to a compatible version.` +
-                ` The contract was compiled with Aztec.nr oracle version ${contractVersion.major}.${contractVersion.minor},` +
-                ` but this private execution environment only supports up to ${ORACLE_VERSION_MAJOR}.${ORACLE_VERSION_MINOR}.` +
+                ` Upgrade your private execution environment to a compatible version. The contract was compiled with` +
+                ` Aztec.nr oracle version ${contractVersion.major}.${contractVersion.minor}, but this private ` +
+                ` execution environment only supports up to ${ORACLE_VERSION_MAJOR}.${ORACLE_VERSION_MINOR}.` +
                 ` See https://docs.aztec.network/errors/8`,
             );
           } else {
             throw new Error(
-              `Oracle '${prop}' not found. The contract reports oracle version ${contractVersion.major}.${contractVersion.minor}` +
-                ` and this private execution environment supports version ${ORACLE_VERSION_MAJOR}.${ORACLE_VERSION_MINOR}` +
-                ` which should include all oracles the contract needs.` +
-                ` This is likely a bug in the contract.` +
-                ` See https://docs.aztec.network/errors/8`,
+              `Oracle '${prop}' not found. The contract reports oracle version` +
+                ` ${contractVersion.major}.${contractVersion.minor} and this private execution environment supports` +
+                ` version ${ORACLE_VERSION_MAJOR}.${ORACLE_VERSION_MINOR} which should include all oracles the` +
+                `contract needs. This is likely a bug in the contract. See https://docs.aztec.network/errors/8`,
             );
           }
         };
