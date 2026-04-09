@@ -154,9 +154,9 @@ describe('e2e_cheat_codes', () => {
       await context.teardown();
     });
 
-    it('setNextBlockTimestamp + mineBlock produces a block with the target timestamp', async () => {
+    it('warp + mineBlock produces a block with the target timestamp', async () => {
       const targetTimestamp = Math.floor(Date.now() / 1000) + 1000;
-      await ethCheatCodes.setNextBlockTimestamp(targetTimestamp);
+      await ethCheatCodes.warp(targetTimestamp);
       await aztecNodeDebug.mineBlock();
 
       const blockNumber = await aztecNode.getBlockNumber();
@@ -165,13 +165,13 @@ describe('e2e_cheat_codes', () => {
       expect(Number(block!.header.globalVariables.timestamp)).toBeGreaterThanOrEqual(targetTimestamp);
     });
 
-    it('advanceNextBlockTimestampBy + mineBlock advances time', async () => {
+    it('warp + mineBlock advances time by duration', async () => {
       const blockBeforeAdvance = await aztecNode.getBlock(await aztecNode.getBlockNumber());
       const timestampBefore = Number(blockBeforeAdvance!.header.globalVariables.timestamp);
 
       const advancement = 100;
       const currentL1Timestamp = await ethCheatCodes.lastBlockTimestamp();
-      await ethCheatCodes.setNextBlockTimestamp(currentL1Timestamp + advancement);
+      await ethCheatCodes.warp(currentL1Timestamp + advancement);
       await aztecNodeDebug.mineBlock();
 
       const blockNumber = await aztecNode.getBlockNumber();
@@ -179,27 +179,6 @@ describe('e2e_cheat_codes', () => {
       expect(block).toBeDefined();
       const timestampAfter = Number(block!.header.globalVariables.timestamp);
       expect(timestampAfter).toBeGreaterThanOrEqual(timestampBefore + advancement);
-    });
-
-    it('mineBlock without setting timestamp still produces a new block', async () => {
-      const firstBlockNumber = await aztecNode.getBlockNumber();
-      const firstBlock = await aztecNode.getBlock(firstBlockNumber);
-      const firstSlot = firstBlock!.header.globalVariables.slotNumber;
-
-      await aztecNodeDebug.mineBlock();
-      const secondBlockNumber = await aztecNode.getBlockNumber();
-      const secondBlock = await aztecNode.getBlock(secondBlockNumber);
-      const secondSlot = secondBlock!.header.globalVariables.slotNumber;
-
-      expect(secondSlot).toBeGreaterThan(firstSlot);
-
-      // Second call is still in the same slot, so mineBlock must warp to the next slot
-      await aztecNodeDebug.mineBlock();
-      const thirdBlockNumber = await aztecNode.getBlockNumber();
-      const thirdBlock = await aztecNode.getBlock(thirdBlockNumber);
-      const thirdSlot = thirdBlock!.header.globalVariables.slotNumber;
-
-      expect(thirdSlot).toBeGreaterThan(secondSlot);
     });
   });
 });

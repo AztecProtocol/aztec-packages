@@ -10,7 +10,6 @@ import { getPublicClient, makeL1HttpTransport } from '@aztec/ethereum/client';
 import { RegistryContract, RollupContract } from '@aztec/ethereum/contracts';
 import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
 import type { L1TxUtils } from '@aztec/ethereum/l1-tx-utils';
-import { EthCheatCodes } from '@aztec/ethereum/test';
 import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { chunkBy, compactArray, pick, unique } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
@@ -61,7 +60,6 @@ import type {
   NodeInfo,
   ProtocolContractAddresses,
 } from '@aztec/stdlib/contract';
-import { getSlotAtTimestamp, getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
 import { GasFees } from '@aztec/stdlib/gas';
 import { computePublicDataTreeLeafSlot } from '@aztec/stdlib/hash';
 import {
@@ -134,7 +132,6 @@ import { NodeMetrics } from './node_metrics.js';
 export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDebug, Traceable {
   private metrics: NodeMetrics;
   private initialHeaderHashPromise: Promise<BlockHash> | undefined = undefined;
-  private ethCheatCodes: EthCheatCodes | undefined;
 
   // Prevent two snapshot operations to happen simultaneously
   private isUploadingSnapshot = false;
@@ -1643,52 +1640,12 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     this.log.info('Keystore reloaded: coinbase, feeRecipient, and attester keys updated');
   }
 
-  #getEthCheatCodes(): EthCheatCodes {
-    if (!this.ethCheatCodes) {
-      this.ethCheatCodes = new EthCheatCodes(this.config.l1RpcUrls, this.dateProvider);
-    }
-    return this.ethCheatCodes;
-  }
-
   public async mineBlock(): Promise<void> {
     if (!this.sequencer) {
       throw new BadRequestError('Cannot mine block: no sequencer is running');
     }
 
     const currentBlockNumber = await this.getBlockNumber();
-
-    // Mine one L1 block — this uses any pending evm_setNextBlockTimestamp
-    const ethCheatCodes = this.#getEthCheatCodes();
-    await ethCheatCodes.evmMine();
-
-    // Check if we're in a new L2 slot. If not, warp to the next slot's timestamp.
-    const l1Constants = await this.blockSource.getL1Constants();
-    const currentL1Timestamp = BigInt(await ethCheatCodes.lastBlockTimestamp());
-    const currentSlot = getSlotAtTimestamp(currentL1Timestamp, l1Constants);
-
-    const latestBlock = await this.getBlock('latest');
-    const lastBlockSlot = latestBlock ? latestBlock.header.globalVariables.slotNumber : SlotNumber(0);
-
-    if (currentSlot < lastBlockSlot) {
-      // Both Anvil and Hardhat enforce that evm_setNextBlockTimestamp only accepts timestamps strictly greater than
-      // the current block's timestamp, so L1 time cannot go backwards. If the current slot is behind the last block's
-      // slot, something has gone wrong.
-      throw new Error(
-        `Current slot ${currentSlot} is behind the last block's slot ${lastBlockSlot}. ` +
-          `L1 time cannot be warped backwards.`,
-      );
-    }
-
-    if (currentSlot === lastBlockSlot) {
-      // A block was already produced in this slot. Warp L1 time forward to the next slot so we can mine another block.
-      const nextSlotTimestamp = getTimestampForSlot(SlotNumber(Number(lastBlockSlot) + 1), l1Constants);
-      this.log.info(`Current slot ${currentSlot} already has a block, warping L1 time to slot ${lastBlockSlot + 1}`);
-      // warp mines a block - hence we don't need to do it manually here
-      await ethCheatCodes.warp(Number(nextSlotTimestamp));
-    }
-
-    // Note: the node's DateProvider is kept in sync with L1 time by `AnvilTestWatcher`
-    // (via its `syncDateProviderToL1IfBehind` polling loop) and by `EthCheatCodes.warp`.
 
     // Temporarily set minTxsPerBlock to 0 so the sequencer produces a block even with no txs
     const originalMinTxsPerBlock = this.sequencer.getSequencer().getConfig().minTxsPerBlock;

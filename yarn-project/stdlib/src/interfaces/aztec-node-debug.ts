@@ -10,7 +10,13 @@ import { type ComponentsVersions, getVersioningResponseHandler } from '../versio
  */
 export interface AztecNodeDebug {
   /**
-   * Mines an L1 block, ensures we're in a new L2 slot, and forces the sequencer to produce an L2 block.
+   * Triggers the sequencer to produce an L2 block and waits for it to appear.
+   *
+   * **Precondition**: The current L2 slot must not already contain a block. Callers must ensure L1 time has been
+   * advanced to a slot with no existing block before calling this method (e.g. via `EthCheatCodes.warp()`).
+   * If the slot is already taken, the sequencer will fail to propose and this call will time out.
+   *
+   * @throws If no sequencer is running.
    */
   mineBlock(): Promise<void>;
 }
