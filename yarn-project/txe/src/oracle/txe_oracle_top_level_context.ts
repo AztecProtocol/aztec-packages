@@ -133,6 +133,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     this.contractOracleVersion = { major, minor };
   }
 
+  // Prefixed with "non_oracle_" as it is not used as an oracle handler.
   // eslint-disable-next-line camelcase
   non_oracle_function_getContractOracleVersion(): { major: number; minor: number } | undefined {
     return this.contractOracleVersion;
