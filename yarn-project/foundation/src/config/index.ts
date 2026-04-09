@@ -271,17 +271,17 @@ export function booleanConfigHelper(
   };
 }
 
-export function secretValueConfigHelper<T>(parse: (val: string | undefined) => T): Required<
-  Pick<ConfigMapping<SecretValue<T>>, 'parseEnv' | 'defaultValue' | 'isBoolean'> & {
-    parseVal: (val: string) => SecretValue<T>;
-  }
-> {
+export function secretValueConfigHelper<T>(parse: (val: string | undefined) => T): Pick<
+  ConfigMapping<SecretValue<T>>,
+  'parseEnv' | 'defaultValue'
+> & {
+  parseVal: (val: string) => SecretValue<T>;
+} {
   const wrap = (val: string) => new SecretValue(parse(val));
   return {
     parseEnv: wrap,
     parseVal: wrap,
     defaultValue: new SecretValue(parse(undefined)),
-    isBoolean: true,
   };
 }
 
@@ -291,26 +291,22 @@ export function secretStringConfigHelper(): {
   parseEnv: (val: string) => SecretValue<string>;
   parseVal: (val: string) => SecretValue<string>;
   defaultValue: undefined;
-  isBoolean: true;
 };
 export function secretStringConfigHelper(defaultValue: string): {
   parseEnv: (val: string) => SecretValue<string>;
   parseVal: (val: string) => SecretValue<string>;
   defaultValue: SecretValue<string>;
-  isBoolean: true;
 };
 export function secretStringConfigHelper(defaultValue?: string): {
   parseEnv: (val: string) => SecretValue<string>;
   parseVal: (val: string) => SecretValue<string>;
   defaultValue: SecretValue<string> | undefined;
-  isBoolean: true;
 } {
   const parse = (val: string) => new SecretValue(val);
   return {
     parseEnv: parse,
     parseVal: parse,
     defaultValue: defaultValue !== undefined ? new SecretValue(defaultValue) : undefined,
-    isBoolean: true,
   };
 }
 
@@ -318,26 +314,22 @@ export function secretFrConfigHelper(): {
   parseEnv: (val: string) => SecretValue<Fr>;
   parseVal: (val: string) => SecretValue<Fr>;
   defaultValue: undefined;
-  isBoolean: true;
 };
 export function secretFrConfigHelper(defaultValue: Fr): {
   parseEnv: (val: string) => SecretValue<Fr>;
   parseVal: (val: string) => SecretValue<Fr>;
   defaultValue: SecretValue<Fr>;
-  isBoolean: true;
 };
 export function secretFrConfigHelper(defaultValue?: Fr): {
   parseEnv: (val: string) => SecretValue<Fr>;
   parseVal: (val: string) => SecretValue<Fr>;
   defaultValue: SecretValue<Fr> | undefined;
-  isBoolean: true;
 } {
   const parse = (val: string) => new SecretValue(Fr.fromHexString(val));
   return {
     parseEnv: parse,
     parseVal: parse,
     defaultValue: defaultValue !== undefined ? new SecretValue(defaultValue) : undefined,
-    isBoolean: true,
   };
 }
 
@@ -345,26 +337,22 @@ export function secretFqConfigHelper(): {
   parseEnv: (val: string) => SecretValue<Fq>;
   parseVal: (val: string) => SecretValue<Fq>;
   defaultValue: undefined;
-  isBoolean: true;
 };
 export function secretFqConfigHelper(defaultValue: Fq): {
   parseEnv: (val: string) => SecretValue<Fq>;
   parseVal: (val: string) => SecretValue<Fq>;
   defaultValue: SecretValue<Fq>;
-  isBoolean: true;
 };
 export function secretFqConfigHelper(defaultValue?: Fq): {
   parseEnv: (val: string) => SecretValue<Fq>;
   parseVal: (val: string) => SecretValue<Fq>;
   defaultValue: SecretValue<Fq> | undefined;
-  isBoolean: true;
 } {
   const parse = (val: string) => new SecretValue(Fq.fromHexString(val));
   return {
     parseEnv: parse,
     parseVal: parse,
     defaultValue: defaultValue !== undefined ? new SecretValue(defaultValue) : undefined,
-    isBoolean: true,
   };
 }
 
