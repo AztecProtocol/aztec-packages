@@ -64,5 +64,15 @@ TEST(Pedersen, Hash32Bytes)
 
     EXPECT_EQ(got, expected);
 }
+// Verifies that hashing an empty input throws an exception
+TEST(Pedersen, HashRejectsEmptyInput)
+{
+    EXPECT_THROW(
+        {
+            auto result = pedersen_hash::hash({});
+            static_cast<void>(result);
+        },
+        std::runtime_error);
+}
 
 } // namespace bb::crypto
