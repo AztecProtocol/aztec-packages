@@ -970,7 +970,7 @@ impl TestEnvironment {
                 scope,
             );
 
-            validate_and_store_enqueued_notes_and_events(context.this_address(), scope);
+            validate_and_store_enqueued_notes_and_events(scope);
         });
     }
 }

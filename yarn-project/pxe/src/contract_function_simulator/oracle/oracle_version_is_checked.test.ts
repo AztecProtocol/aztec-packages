@@ -247,8 +247,12 @@ describe('Oracle Version Check test suite', () => {
 
       // Build the ACIR callback and try to call a non-existent oracle
       const callback = new Oracle(oracle).toACIRCallback();
+      const contractVersion = `${ORACLE_VERSION_MAJOR}\\.${ORACLE_VERSION_MINOR + 1}`;
+      const pxeVersion = `${ORACLE_VERSION_MAJOR}\\.${ORACLE_VERSION_MINOR}`;
       expect(() => callback['aztec_utl_someNewOracle']()).toThrow(
-        /Oracle 'aztec_utl_someNewOracle' not found\. This usually means the contract requires a newer private execution environment than you have\. Upgrade your private execution environment to a compatible version\. The contract was compiled with Aztec\.nr oracle version 22\.1, but this private execution environment only supports up to 22\.0\./,
+        new RegExp(
+          `Oracle 'aztec_utl_someNewOracle' not found\\. This usually means the contract requires a newer private execution environment than you have\\. Upgrade your private execution environment to a compatible version\\. The contract was compiled with Aztec\\.nr oracle version ${contractVersion}, but this private execution environment only supports up to ${pxeVersion}\\.`,
+        ),
       );
     });
 
