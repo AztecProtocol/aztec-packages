@@ -82,7 +82,6 @@ pub(crate) unconstrained fn process_message_plaintext<CustomMessageHandlerEnv>(
                 compute_note_nullifier,
                 msg_metadata,
                 msg_content,
-                recipient,
             );
         } else if msg_type_id == PARTIAL_NOTE_PRIVATE_MSG_TYPE_ID {
             aztecnr_debug_log!("Processing partial note private msg");
@@ -102,7 +101,6 @@ pub(crate) unconstrained fn process_message_plaintext<CustomMessageHandlerEnv>(
                 msg_metadata,
                 msg_content,
                 message_context.tx_hash,
-                recipient,
             );
         } else if msg_type_id < MIN_CUSTOM_MSG_TYPE_ID {
             // The message type ID falls in the range reserved for aztec.nr built-in types but wasn't matched above.
