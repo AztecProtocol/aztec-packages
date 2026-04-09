@@ -1027,21 +1027,11 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
 
     // Compute all intermediate points natively for use as hints in the in-circuit Straus algorithm.
     // Using projective coordinates + batch normalize to avoid per-operation modular inversions.
+    // The per-point lookup tables (point_tables) already hold the precomputed affine entries; we reuse
+    // them directly rather than rebuilding projective copies.
     std::vector<Element> operation_transcript;
     Element offset_generator_accumulator = offset_generators[0];
     {
-        // Build native straus tables
-        std::vector<std::vector<Element>> native_straus_tables;
-        for (size_t i = 0; i < num_points; ++i) {
-            std::vector<Element> table(1UL << table_bits);
-            table[0] = Element(offset_generators[i + 1]);
-            Element base_proj(base_points[i]);
-            for (size_t j = 1; j < table.size(); ++j) {
-                table[j] = table[j - 1] + base_proj;
-            }
-            native_straus_tables.emplace_back(std::move(table));
-        }
-
         // Perform Straus algorithm natively
         Element accumulator = offset_generators[0];
         for (size_t i = 0; i < num_rounds; ++i) {
@@ -1054,7 +1044,7 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
             }
             for (size_t j = 0; j < num_points; ++j) {
                 auto slice_value = static_cast<size_t>(scalar_slices[j].slices_native[num_rounds - i - 1]);
-                const Element point = native_straus_tables[j][slice_value];
+                const Element point(point_tables[j].get_native_table()[slice_value]);
                 accumulator += point;
                 operation_transcript.push_back(accumulator);
                 offset_generator_accumulator += Element(offset_generators[j + 1]);

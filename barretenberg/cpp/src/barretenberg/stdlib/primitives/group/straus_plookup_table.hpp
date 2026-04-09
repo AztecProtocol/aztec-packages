@@ -44,6 +44,8 @@ template <typename Builder> class straus_plookup_table {
                          size_t table_bits);
     cycle_group<Builder> read(const field_t& index);
 
+    const std::vector<AffineElement>& get_native_table() const { return native_table; }
+
   private:
     Builder* _context = nullptr;
     plookup::BasicTable* _table = nullptr;   // pointer into builder's lookup_tables deque
