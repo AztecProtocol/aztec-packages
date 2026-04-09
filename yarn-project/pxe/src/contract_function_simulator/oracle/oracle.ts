@@ -129,14 +129,16 @@ export class Oracle {
         }
         // Return a function that throws with an enhanced error message if applicable
         return () => {
-          const contractVersion =
-            'non_oracle_function_getContractOracleVersion' in handler
-              ? (
-                  handler as unknown as {
-                    non_oracle_function_getContractOracleVersion(): { major: number; minor: number } | undefined;
-                  }
-                ).non_oracle_function_getContractOracleVersion()
-              : undefined;
+          type NonOracleFunctionGetContractOracleVersion = {
+            non_oracle_function_getContractOracleVersion(): { major: number; minor: number } | undefined;
+          };
+
+          let contractVersion = undefined;
+          if ('non_oracle_function_getContractOracleVersion' in handler) {
+            contractVersion = (
+              handler as unknown as NonOracleFunctionGetContractOracleVersion
+            ).non_oracle_function_getContractOracleVersion();
+          }
           if (!contractVersion) {
             // contractVersion should always be populated because aztec_utl_assertCompatibleOracleVersion is injected
             // by the #[aztec] macro as the very first oracle call in every private/utility function. Hence we show
@@ -148,11 +150,12 @@ export class Oracle {
           } else if (contractVersion.minor > ORACLE_VERSION_MINOR) {
             throw new Error(
               `Oracle '${prop}' not found.` +
-              ` This usually means the contract requires a newer private execution environment than you have.` +
-              ` Upgrade your private execution environment to a compatible version.` +
-              ` The contract was compiled with aztec-nr oracle version ${contractVersion.major}.${contractVersion.minor},` + ` but this private execution environment only supports up to ${ORACLE_VERSION_MAJOR}.${ORACLE_VERSION_MINOR}.` +
-    ` See https://docs.aztec.network/errors/X`,
-);
+                ` This usually means the contract requires a newer private execution environment than you have.` +
+                ` Upgrade your private execution environment to a compatible version.` +
+                ` The contract was compiled with aztec-nr oracle version ${contractVersion.major}.${contractVersion.minor},` +
+                ` but this private execution environment only supports up to ${ORACLE_VERSION_MAJOR}.${ORACLE_VERSION_MINOR}.` +
+                ` See https://docs.aztec.network/errors/X`,
+            );
           } else {
             throw new Error(
               `Oracle '${prop}' not found. The contract reports oracle version ${contractVersion.major}.${contractVersion.minor}` +
