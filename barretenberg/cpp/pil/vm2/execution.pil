@@ -185,12 +185,16 @@ sel_first_row_in_context {
 #[BYTECODE_RETRIEVAL_NO_FAILURE]
 (1 - sel_first_row_in_context) * sel_bytecode_retrieval_failure = 0;
 
-// Since `sel == 0` ==> `sel_first_row_in_context == 0`, we have:
-// `sel == 0` ==> `sel_bytecode_retrieval_failure == 0`
+// Since `sel == 0 ==> sel_first_row_in_context == 0`, we have:
+// `sel == 0 ==> sel_bytecode_retrieval_failure == 0`
 
 pol commit sel_bytecode_retrieval_success; // @boolean (by definition)
 // If sel = 0, we enforce sel_bytecode_retrieval_success = 0.
 sel_bytecode_retrieval_success = sel * (1 - sel_bytecode_retrieval_failure);
+// Important: We cannot simplify the above relation to
+// `sel_bytecode_retrieval_success = sel - sel_bytecode_retrieval_failure`
+// because the "sel" multiplicative factor is necessary for the "de-activation cascade" of selectors
+// which enforce that `sel == 0 ==> sel_first_row_in_context == 0`.
 
 /**************************************************************************************************
  *  Temporality group 2: Instruction fetching
@@ -223,12 +227,13 @@ sel_bytecode_retrieval_success {
     instr_fetching.pc, instr_fetching.bytecode_id, instr_fetching.sel_parsing_err
 };
 
-pol commit sel_instruction_fetching_success; // @boolean (by definition)
-// If sel = 0, note that sel_instruction_fetching_success = 0 by transitive reasoning.
-sel_instruction_fetching_success = sel_bytecode_retrieval_success * (1 - sel_instruction_fetching_failure);
-
 #[NO_FETCHING_NO_INSTR_FETCH_ERROR]
 (1 - sel_bytecode_retrieval_success) * sel_instruction_fetching_failure = 0;
+
+pol commit sel_instruction_fetching_success; // @boolean (by definition)
+// Subtraction is valid because #[NO_FETCHING_NO_INSTR_FETCH_ERROR] guarantees
+// sel_instruction_fetching_failure == 0 whenever sel_bytecode_retrieval_success == 0.
+sel_instruction_fetching_success = sel_bytecode_retrieval_success - sel_instruction_fetching_failure;
 
 #[INSTRUCTION_FETCHING_BODY]
 sel_instruction_fetching_success {
@@ -381,8 +386,9 @@ pol commit rop[7];
  **************************************************************************************************/
 
 pol commit sel_should_read_registers; // @boolean (by definition)
-// Note that sel == 0 ==> sel_should_read_registers = 0 by transitive reasoning.
-sel_should_read_registers = SEL_SHOULD_RESOLVE_ADDRESS * (1 - sel_addressing_error);
+// Subtraction is valid because #[NO_ADDRESSING_ERROR_IF_NOT_RESOLVING] guarantees
+// sel_addressing_error == 0 whenever SEL_SHOULD_RESOLVE_ADDRESS == 0.
+sel_should_read_registers = SEL_SHOULD_RESOLVE_ADDRESS - sel_addressing_error;
 
 // Registers
 pol commit register[6];
@@ -405,8 +411,9 @@ pol commit expected_tag_reg[6];
  **************************************************************************************************/
 
 pol commit sel_should_check_gas; // @boolean (by definition)
-// Note that sel == 0 ==> sel_should_check_gas = 0 by transitive reasoning.
-sel_should_check_gas = sel_should_read_registers * (1 - sel_register_read_error);
+// Subtraction is valid because #[REGISTER_READ_TAG_CHECK] guarantees
+// sel_register_read_error == 0 whenever sel_should_read_registers == 0.
+sel_should_check_gas = sel_should_read_registers - sel_register_read_error;
 
 // NOTE: Gas is constrained in gas.pil but we set here the following dynamic gas factors:
 pol commit dynamic_l2_gas_factor;
@@ -587,8 +594,9 @@ sel_gas_emit_public_log * (/*log_size=*/ register[0] - dynamic_da_gas_factor) = 
  **************************************************************************************************/
 
 pol commit sel_should_execute_opcode; // @boolean (by definition)
-// Note that sel == 0 ==> sel_should_check_gas = 0 by transitive reasoning.
-sel_should_execute_opcode = sel_should_check_gas * (1 - sel_out_of_gas);
+// Subtraction is valid because #[NO_OOG_IF_NO_GAS_CHECK] guarantees
+// sel_out_of_gas == 0 whenever sel_should_check_gas == 0.
+sel_should_execute_opcode = sel_should_check_gas - sel_out_of_gas;
 
 // Unique identifiers mapping exactly one of selectors below through
 // a bit decomposition (from precomputed.pil see #[EXEC_SPEC_READ]).
@@ -849,6 +857,7 @@ sel_opcode_error * (1 - sel_opcode_error) = 0;
  // - TO_RADIX: #[DISPATCH_TO_TO_RADIX]
 
  // Enforce sel_opcode_error = 0 if we are not executing an opcode.
+ #[NO_OPCODE_ERROR_IF_NOT_EXECUTING]
  (1 - sel_should_execute_opcode) * sel_opcode_error = 0;
 
 /**************************************************************************************************
@@ -856,7 +865,9 @@ sel_opcode_error * (1 - sel_opcode_error) = 0;
  **************************************************************************************************/
 
 pol commit sel_should_write_registers; // @boolean (by definition)
-sel_should_write_registers = sel_should_execute_opcode * (1 - sel_opcode_error);
+// Subtraction is valid because #[NO_OPCODE_ERROR_IF_NOT_EXECUTING] guarantees
+// sel_opcode_error == 0 whenever sel_should_execute_opcode == 0.
+sel_should_write_registers = sel_should_execute_opcode - sel_opcode_error;
 
 // NOTE: Constraints on the registers are in execution/registers.pil.
 // There is no output because this group cannot fail.

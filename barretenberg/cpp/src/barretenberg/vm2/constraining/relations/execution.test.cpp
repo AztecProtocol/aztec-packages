@@ -5,8 +5,11 @@
 
 #include "barretenberg/vm2/constraining/flavor_settings.hpp"
 #include "barretenberg/vm2/constraining/testing/check_relation.hpp"
+#include "barretenberg/vm2/generated/relations/addressing.hpp"
 #include "barretenberg/vm2/generated/relations/execution.hpp"
+#include "barretenberg/vm2/generated/relations/gas.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_context.hpp"
+#include "barretenberg/vm2/generated/relations/registers.hpp"
 #include "barretenberg/vm2/testing/fixtures.hpp"
 #include "barretenberg/vm2/testing/macros.hpp"
 #include "barretenberg/vm2/tracegen/execution_trace.hpp"
@@ -20,6 +23,9 @@ using tracegen::TestTraceContainer;
 using FF = AvmFlavorSettings::FF;
 using C = Column;
 using execution = bb::avm2::execution<FF>;
+using addressing = bb::avm2::addressing<FF>;
+using gas = bb::avm2::gas<FF>;
+using registers = bb::avm2::registers<FF>;
 
 TEST(ExecutionConstrainingTest, EmptyRow)
 {
@@ -220,6 +226,109 @@ TEST(ExecutionConstrainingTest, SideEffectStateNotChanged)
     trace.set(C::execution_num_l2_to_l1_messages, 1, 100);
     EXPECT_THROW_WITH_MESSAGE(check_relation<execution>(trace, execution::SR_NUM_L2_TO_L1_MESSAGES_NOT_CHANGED),
                               "NUM_L2_TO_L1_MESSAGES_NOT_CHANGED");
+}
+
+TEST(ExecutionConstrainingTest, NoFetchingNoInstrFetchError)
+{
+    // sel_bytecode_retrieval_success == 0 => sel_instruction_fetching_failure == 0
+    // clang-format off
+    TestTraceContainer trace({
+        {{ C::execution_sel_bytecode_retrieval_success, 0 }, { C::execution_sel_instruction_fetching_failure, 0 }},
+    });
+    // clang-format on
+
+    check_relation<execution>(trace, execution::SR_NO_FETCHING_NO_INSTR_FETCH_ERROR);
+
+    // Negative test: sel_bytecode_retrieval_success == 0 but sel_instruction_fetching_failure == 1
+    trace.set(C::execution_sel_instruction_fetching_failure, 0, 1);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<execution>(trace, execution::SR_NO_FETCHING_NO_INSTR_FETCH_ERROR),
+                              "NO_FETCHING_NO_INSTR_FETCH_ERROR");
+
+    // Positive test: sel_bytecode_retrieval_success == 1 allows sel_instruction_fetching_failure == 1
+    trace.set(C::execution_sel_bytecode_retrieval_success, 0, 1);
+    check_relation<execution>(trace, execution::SR_NO_FETCHING_NO_INSTR_FETCH_ERROR);
+}
+
+TEST(ExecutionConstrainingTest, NoAddressingErrorIfNotResolving)
+{
+    // sel_instruction_fetching_success == 0 => sel_addressing_error == 0
+    // (SEL_SHOULD_RESOLVE_ADDRESS is an alias for sel_instruction_fetching_success)
+    // clang-format off
+    TestTraceContainer trace({
+        {{ C::execution_sel_instruction_fetching_success, 0 }, { C::execution_sel_addressing_error, 0 }},
+    });
+    // clang-format on
+
+    check_relation<addressing>(trace, addressing::SR_NO_ADDRESSING_ERROR_IF_NOT_RESOLVING);
+
+    // Negative test: sel_instruction_fetching_success == 0 but sel_addressing_error == 1
+    trace.set(C::execution_sel_addressing_error, 0, 1);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<addressing>(trace, addressing::SR_NO_ADDRESSING_ERROR_IF_NOT_RESOLVING),
+                              "NO_ADDRESSING_ERROR_IF_NOT_RESOLVING");
+
+    // Positive test: sel_instruction_fetching_success == 1 allows sel_addressing_error == 1
+    trace.set(C::execution_sel_instruction_fetching_success, 0, 1);
+    check_relation<addressing>(trace, addressing::SR_NO_ADDRESSING_ERROR_IF_NOT_RESOLVING);
+}
+
+TEST(ExecutionConstrainingTest, NoRegisterReadErrorIfNotReading)
+{
+    // sel_should_read_registers == 0 => sel_register_read_error == 0
+    // Via #[REGISTER_READ_TAG_CHECK]: when sel_should_read_registers == 0, BATCHED_TAGS_DIFF_X_REG == 0,
+    // which forces sel_register_read_error == 0.
+    // clang-format off
+    TestTraceContainer trace({
+        {{ C::execution_sel_should_read_registers, 0 }, { C::execution_sel_register_read_error, 0 }},
+    });
+    // clang-format on
+
+    check_relation<registers>(trace, registers::SR_REGISTER_READ_TAG_CHECK);
+
+    // Negative test: sel_should_read_registers == 0 but sel_register_read_error == 1
+    trace.set(C::execution_sel_register_read_error, 0, 1);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<registers>(trace, registers::SR_REGISTER_READ_TAG_CHECK),
+                              "REGISTER_READ_TAG_CHECK");
+}
+
+TEST(ExecutionConstrainingTest, NoOogIfNoGasCheck)
+{
+    // sel_should_check_gas == 0 => sel_out_of_gas == 0
+    // clang-format off
+    TestTraceContainer trace({
+        {{ C::execution_sel_should_check_gas, 0 }, { C::execution_sel_out_of_gas, 0 }},
+    });
+    // clang-format on
+
+    check_relation<gas>(trace, gas::SR_NO_OOG_IF_NO_GAS_CHECK);
+
+    // Negative test: sel_should_check_gas == 0 but sel_out_of_gas == 1
+    trace.set(C::execution_sel_out_of_gas, 0, 1);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<gas>(trace, gas::SR_NO_OOG_IF_NO_GAS_CHECK), "NO_OOG_IF_NO_GAS_CHECK");
+
+    // Positive test: sel_should_check_gas == 1 allows sel_out_of_gas == 1
+    trace.set(C::execution_sel_should_check_gas, 0, 1);
+    check_relation<gas>(trace, gas::SR_NO_OOG_IF_NO_GAS_CHECK);
+}
+
+TEST(ExecutionConstrainingTest, NoOpcodeErrorIfNotExecuting)
+{
+    // sel_should_execute_opcode == 0 => sel_opcode_error == 0
+    // clang-format off
+    TestTraceContainer trace({
+        {{ C::execution_sel_should_execute_opcode, 0 }, { C::execution_sel_opcode_error, 0 }},
+    });
+    // clang-format on
+
+    check_relation<execution>(trace, execution::SR_NO_OPCODE_ERROR_IF_NOT_EXECUTING);
+
+    // Negative test: sel_should_execute_opcode == 0 but sel_opcode_error == 1
+    trace.set(C::execution_sel_opcode_error, 0, 1);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<execution>(trace, execution::SR_NO_OPCODE_ERROR_IF_NOT_EXECUTING),
+                              "NO_OPCODE_ERROR_IF_NOT_EXECUTING");
+
+    // Positive test: sel_should_execute_opcode == 1 allows sel_opcode_error == 1
+    trace.set(C::execution_sel_should_execute_opcode, 0, 1);
+    check_relation<execution>(trace, execution::SR_NO_OPCODE_ERROR_IF_NOT_EXECUTING);
 }
 
 TEST(ExecutionConstrainingTest, SubtraceIdDecomposition)
