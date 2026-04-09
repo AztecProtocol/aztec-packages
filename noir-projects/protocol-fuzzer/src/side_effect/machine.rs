@@ -12,6 +12,7 @@ pub(crate) type NoteValue = u128;
 pub(crate) type NullifierValue = u128;
 pub(crate) type StorageSlotId = u8;
 pub(crate) type L2ToL1Content = u128;
+pub(crate) type L2ToL1Recipient = u128;
 pub(crate) type LogTag = u128;
 pub(crate) type LogContent = u128;
 
@@ -82,7 +83,7 @@ pub enum SideEffectCommand {
     },
     SendL2ToL1Message {
         content: L2ToL1Content,
-        recipient: u128,
+        recipient: L2ToL1Recipient,
         from: AccountId,
         via_parent: bool,
     },
@@ -256,8 +257,9 @@ impl SideEffectCommand {
 
 impl Batchable for SideEffectCommand {
     fn conflicts(&self, other: &Self) -> bool {
-        // Two batch-flushing commands don't conflict (both are reads), but a
-        // flushing + non-flushing pair conflicts (the read must see prior writes).
+        // Two batch-flushing commands don't conflict (both observe committed state
+        // without interfering), but a flushing + non-flushing pair conflicts (the
+        // flushing command must see prior writes).
         if self.flushes_batch() || other.flushes_batch() {
             return !(self.flushes_batch() && other.flushes_batch());
         }
@@ -288,7 +290,7 @@ pub struct SideEffectState {
     pub active_notes: HashMap<(StorageSlotId, AccountId), Vec<NoteValue>>,
     pub destroyed_notes: HashMap<(StorageSlotId, AccountId), Vec<NoteValue>>,
     pub emitted_nullifiers: HashSet<NullifierValue>,
-    pub l2_to_l1_messages: Vec<(L2ToL1Content, u128)>,
+    pub l2_to_l1_messages: Vec<(L2ToL1Content, L2ToL1Recipient)>,
     pub private_logs: Vec<(LogTag, LogContent)>,
 }
 

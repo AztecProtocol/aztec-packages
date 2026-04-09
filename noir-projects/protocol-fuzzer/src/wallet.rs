@@ -299,8 +299,9 @@ impl Bridge {
     }
 
     /// Query the node for private logs matching the siloed tag derived from
-    /// `contract` and `raw_tag`.  The bridge computes
-    /// `poseidon2([contract, rawTag])` and queries `getPrivateLogsByTags`.
+    /// `contract` and `raw_tag`.  The bridge computes the siloed tag via
+    /// `poseidon2_hash_with_separator([contract, rawTag], DOM_SEP)`
+    /// and queries `getPrivateLogsByTags`.
     /// (In production, tags are derived from a sender↔recipient shared secret;
     /// the fuzzer contract uses `emit_private_log_unsafe` with arbitrary
     /// plaintext tags instead.)
