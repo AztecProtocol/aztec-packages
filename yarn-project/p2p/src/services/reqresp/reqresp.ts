@@ -462,7 +462,7 @@ export class ReqResp implements ReqRespInterface {
       );
       return resp;
     } catch (e: any) {
-      this.logger.warn(`SUBPROTOCOL: ${subProtocol}\n`, e);
+      this.logger.debug(`SUBPROTOCOL: ${subProtocol}\n`, e);
       // On error we immediately abort the stream, this is preferred way,
       // because it signals to the sender that error happened, whereas
       // closing the stream only closes our side and is much slower
