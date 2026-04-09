@@ -1,54 +1,54 @@
 include "alu.pil";
-include "range_check.pil";
 include "bitwise.pil";
-include "memory.pil";
-include "keccakf1600.pil";
-include "precomputed.pil";
-include "sha256_mem.pil";
+include "data_copy.pil";
 include "ecc_mem.pil";
-include "poseidon2_mem.pil";
-include "scalar_mul.pil";
-include "to_radix_mem.pil";
 include "ff_gt.pil";
 include "gt.pil";
-include "context.pil";
-include "context_stack.pil";
+include "keccakf1600.pil";
+include "memory.pil";
+include "poseidon2_mem.pil";
+include "precomputed.pil";
 include "public_inputs.pil";
+include "range_check.pil";
+include "scalar_mul.pil";
+include "sha256_mem.pil";
+include "to_radix_mem.pil";
 
-include "data_copy.pil";
-include "internal_call_stack.pil";
+include "bytecode/address_derivation.pil";
+include "bytecode/bc_decomposition.pil";
+include "bytecode/bc_hashing.pil";
+include "bytecode/bc_retrieval.pil";
+include "bytecode/class_id_derivation.pil";
+include "bytecode/instr_fetching.pil";
+include "bytecode/update_check.pil";
+
+include "opcodes/emit_public_log.pil";
+include "opcodes/get_contract_instance.pil";
+
+include "trees/indexed_tree_check.pil";
+include "trees/l1_to_l2_message_tree_check.pil";
+include "trees/merkle_check.pil";
+include "trees/public_data_check.pil";
+
+// Components that extend namespace execution (share columns with the execution trace).
+include "context.pil";
 
 include "execution/addressing.pil";
 include "execution/discard.pil";
 include "execution/gas.pil";
 include "execution/registers.pil";
 
-include "trees/merkle_check.pil";
-include "trees/indexed_tree_check.pil";
-include "trees/public_data_check.pil";
-include "trees/l1_to_l2_message_tree_check.pil";
-
-include "bytecode/address_derivation.pil";
-include "bytecode/bc_decomposition.pil";
-include "bytecode/bc_hashing.pil";
-include "bytecode/bc_retrieval.pil";
-include "bytecode/instr_fetching.pil";
-include "bytecode/class_id_derivation.pil";
-include "bytecode/update_check.pil";
-
-include "opcodes/get_env_var.pil";
-include "opcodes/get_contract_instance.pil";
-include "opcodes/internal_call.pil";
+include "opcodes/emit_notehash.pil";
+include "opcodes/emit_nullifier.pil";
 include "opcodes/external_call.pil";
+include "opcodes/get_env_var.pil";
+include "opcodes/internal_call.pil";
+include "opcodes/l1_to_l2_message_exists.pil";
+include "opcodes/notehash_exists.pil";
+include "opcodes/nullifier_exists.pil";
+include "opcodes/send_l2_to_l1_msg.pil";
 include "opcodes/sload.pil";
 include "opcodes/sstore.pil";
-include "opcodes/notehash_exists.pil";
-include "opcodes/emit_notehash.pil";
-include "opcodes/l1_to_l2_message_exists.pil";
-include "opcodes/nullifier_exists.pil";
-include "opcodes/emit_nullifier.pil";
-include "opcodes/emit_public_log.pil";
-include "opcodes/send_l2_to_l1_msg.pil";
 
 /**
 *   Usage: Exactly two permutations from the tx trace to dispatch execution of an enqueued call.
