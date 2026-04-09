@@ -86,6 +86,7 @@ describe('ValidatorClient HA Integration', () => {
     p2pClient.getCheckpointAttestationsForSlot.mockImplementation(() => Promise.resolve([]));
     p2pClient.addOwnCheckpointAttestations.mockResolvedValue();
     p2pClient.broadcastCheckpointAttestations.mockResolvedValue();
+    const slotDuration = 24;
     checkpointsBuilder = mock<FullNodeCheckpointsBuilder>();
     checkpointsBuilder.getConfig.mockReturnValue({
       l1GenesisTime: 1n,
@@ -96,6 +97,9 @@ describe('ValidatorClient HA Integration', () => {
     });
     worldState = mock<WorldStateSynchronizer>();
     epochCache = mock<EpochCache>();
+    epochCache.getL1Constants.mockReturnValue({
+      slotDuration,
+    } as any);
     // Default mock: return all addresses passed (all are in committee)
     epochCache.filterInCommittee.mockImplementation((_slot, addresses) => Promise.resolve(addresses));
     blockSource = mock<L2BlockSource & L2BlockSink>();
