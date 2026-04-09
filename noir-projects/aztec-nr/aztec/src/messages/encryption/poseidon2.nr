@@ -53,7 +53,7 @@ pub fn poseidon2_encrypt<let L: u32>(
     }
 
     for i in 0..CEIL {
-        s = poseidon2_permutation(s, 4);
+        s = poseidon2_permutation(s);
 
         // Absorb 3 elements of the message:
         let j = 3 * i;
@@ -68,7 +68,7 @@ pub fn poseidon2_encrypt<let L: u32>(
     }
 
     // Iterate Poseidon2 on the state, one last time:
-    s = poseidon2_permutation(s, 4);
+    s = poseidon2_permutation(s);
 
     // Release the last ciphertext element:
     c[L_UPPER_BOUND] = s[1];
@@ -91,7 +91,7 @@ pub fn poseidon2_decrypt<let L: u32>(
     let c = ciphertext;
 
     for i in 0..CEIL {
-        s = poseidon2_permutation(s, 4);
+        s = poseidon2_permutation(s);
 
         // Release 3 elements of message:
         let j = 3 * i;
@@ -108,7 +108,7 @@ pub fn poseidon2_decrypt<let L: u32>(
     }
 
     // Iterate Poseidon2 on the state, one last time:
-    s = poseidon2_permutation(s, 4);
+    s = poseidon2_permutation(s);
 
     let mut msg: [Field; L] = [0; L];
     for i in 0..L {

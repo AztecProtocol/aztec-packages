@@ -75,7 +75,7 @@ void AddressDerivationTraceBuilder::process(
                 { C::address_derivation_const_two, 2 },
                 { C::address_derivation_const_three, 3 },
                 { C::address_derivation_const_four, 4 },
-                { C::address_derivation_const_thirteen, 13 } } });
+                { C::address_derivation_const_nine, 9 } } });
         row++;
     }
 }
@@ -90,8 +90,6 @@ const InteractionDefinition AddressDerivationTraceBuilder::interactions =
         .add<lookup_address_derivation_public_keys_hash_poseidon2_0_settings, InteractionType::LookupSequential>()
         .add<lookup_address_derivation_public_keys_hash_poseidon2_1_settings, InteractionType::LookupSequential>()
         .add<lookup_address_derivation_public_keys_hash_poseidon2_2_settings, InteractionType::LookupSequential>()
-        .add<lookup_address_derivation_public_keys_hash_poseidon2_3_settings, InteractionType::LookupSequential>()
-        .add<lookup_address_derivation_public_keys_hash_poseidon2_4_settings, InteractionType::LookupSequential>()
         .add<lookup_address_derivation_preaddress_poseidon2_settings, InteractionType::LookupSequential>()
         .add<lookup_address_derivation_preaddress_scalar_mul_settings, InteractionType::LookupSequential>()
         .add<lookup_address_derivation_address_ecadd_settings, InteractionType::LookupSequential>();

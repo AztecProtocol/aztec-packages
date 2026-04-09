@@ -211,7 +211,7 @@ pub contract AvmTest {
 
     #[external("public")]
     fn elliptic_curve_add_and_double() -> Point {
-        let g = Point { x: GRUMPKIN_ONE_X, y: GRUMPKIN_ONE_Y, is_infinite: false };
+        let g = Point { x: GRUMPKIN_ONE_X, y: GRUMPKIN_ONE_Y };
 
         let doubled = g + g;
         let added = g + doubled;
@@ -225,7 +225,7 @@ pub contract AvmTest {
         scalar2_lo: Field,
         scalar2_hi: Field,
     ) -> Point {
-        let g = Point { x: GRUMPKIN_ONE_X, y: GRUMPKIN_ONE_Y, is_infinite: false };
+        let g = Point { x: GRUMPKIN_ONE_X, y: GRUMPKIN_ONE_Y };
 
         let triple_g = multi_scalar_mul(
             [g, g],
@@ -290,12 +290,12 @@ pub contract AvmTest {
     }
 
     #[external("public")]
-    fn to_le_bits(input: Field) -> [u1; 16] {
+    fn to_le_bits(input: Field) -> [bool; 16] {
         _to_le_bits(input)
     }
 
     #[contract_library_method]
-    fn _to_le_bits(input: Field) -> [u1; 16] {
+    fn _to_le_bits(input: Field) -> [bool; 16] {
         input.to_le_bits()
     }
 
@@ -1010,7 +1010,7 @@ pub contract AvmTest {
         assert(first_byte != 0);
         aztec::oracle::logging::debug_log("to_le_bits");
         let first_bit = _to_le_bits(args_field[0])[0];
-        assert(first_bit != 0);
+        assert(first_bit);
         //let _ = nested_call_to_nothing_recovers();
     }
 }

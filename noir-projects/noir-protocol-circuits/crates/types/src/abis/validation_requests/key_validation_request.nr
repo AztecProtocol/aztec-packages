@@ -23,7 +23,7 @@ mod test {
 
     #[test]
     fn serialization_of_key_validation_request() {
-        let item = KeyValidationRequest { pk_m: Point::deserialize([123, 456, 0]), sk_app: 789 };
+        let item = KeyValidationRequest { pk_m: Point::deserialize([123, 456]), sk_app: 789 };
         // We use the KEY_VALIDATION_REQUEST_LENGTH constant to ensure that there is a match between the derived trait
         // implementation and the constant.
         let serialized: [Field; KEY_VALIDATION_REQUEST_LENGTH] = item.serialize();

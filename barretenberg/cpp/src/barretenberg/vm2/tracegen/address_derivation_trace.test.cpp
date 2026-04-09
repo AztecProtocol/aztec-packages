@@ -74,7 +74,7 @@ TEST(AddressDerivationTraceGenTest, TraceGeneration)
                   ROW_FIELD_EQ(address_derivation_const_two, 2),
                   ROW_FIELD_EQ(address_derivation_const_three, 3),
                   ROW_FIELD_EQ(address_derivation_const_four, 4),
-                  ROW_FIELD_EQ(address_derivation_const_thirteen, 13))));
+                  ROW_FIELD_EQ(address_derivation_const_nine, 9))));
 }
 
 } // namespace

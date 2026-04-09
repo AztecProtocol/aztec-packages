@@ -175,7 +175,6 @@ export function mapPointToNoir(point: Point): NoirPoint {
   return {
     x: mapFieldToNoir(point.x),
     y: mapFieldToNoir(point.y),
-    is_infinite: point.isInfinite,
   };
 }
 
@@ -185,7 +184,9 @@ export function mapPointToNoir(point: Point): NoirPoint {
  * @returns The point.
  */
 export function mapPointFromNoir(point: NoirPoint): Point {
-  return new Point(mapFieldFromNoir(point.x), mapFieldFromNoir(point.y), point.is_infinite);
+  const x = mapFieldFromNoir(point.x);
+  const y = mapFieldFromNoir(point.y);
+  return new Point(x, y, x.isZero() && y.isZero());
 }
 
 /**

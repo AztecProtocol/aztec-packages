@@ -32,7 +32,7 @@ fn non_empty_nullifier_read_requests() {
 fn non_empty_key_validations() {
     let mut builder = TestBuilder::new();
     builder.previous_kernel.add_request_for_key_validation(
-        Point { x: 1, y: 2, is_infinite: false },
+        Point { x: 1, y: 2 },
         27,
         DOM_SEP__IVSK_M as Field,
     );

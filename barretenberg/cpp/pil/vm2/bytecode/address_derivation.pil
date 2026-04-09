@@ -12,10 +12,10 @@ include "../scalar_mul.pil";
  *   1. salted_init_hash  = H(DOM_SEP__PARTIAL_ADDRESS, salt, init_hash, deployer_addr)
  *   2. partial_address   = H(DOM_SEP__PARTIAL_ADDRESS, class_id, salted_init_hash)
  *   3. public_keys_hash  = H(DOM_SEP__PUBLIC_KEYS_HASH,
- *                             nullifier_key_x, nullifier_key_y, nullifier_key_is_infinity,
- *                             incoming_viewing_key_x, incoming_viewing_key_y, incoming_viewing_key_is_infinity,
- *                             outgoing_viewing_key_x, outgoing_viewing_key_y, outgoing_viewing_key_is_infinity,
- *                             tagging_key_x, tagging_key_y, tagging_key_is_infinity)
+ *                             nullifier_key_x, nullifier_key_y,
+ *                             incoming_viewing_key_x, incoming_viewing_key_y,
+ *                             outgoing_viewing_key_x, outgoing_viewing_key_y,
+ *                             tagging_key_x, tagging_key_y)
  *   4. preaddress        = H(DOM_SEP__CONTRACT_ADDRESS_V1, public_keys_hash, partial_address)
  *   5. preaddress_public_key = preaddress * G1
  *   6. address           = (preaddress_public_key + incoming_viewing_key).x
@@ -33,8 +33,7 @@ include "../scalar_mul.pil";
  *               enforced by the calling circuits. Like class_id_derivation, this trace can be seen
  *               as an independent 'destination' trace which is purely responsible for address
  *               computation.
- *               This means we assume all public keys are not the point at infinity, and so use
- *               precomputed.zero to represent each key's is_infinity flag (see TODO(#7529)).
+ *               This means we assume all public keys are not the point at infinity.
  *
  * USAGE: To enforce that an address is correctly derived from all preimage members
  *        (adapted from #[ADDRESS_DERIVATION] in contract_instance_retrieval.pil):
@@ -69,10 +68,10 @@ include "../scalar_mul.pil";
  *                                    the retrieved contract instance and public keys (#[ADDRESS_DERIVATION]).
  *
  * This subtrace looks up:
- * - poseidon2_hash.pil: To constrain four Poseidon2 hashes across a total of 9 lookups/rounds:
+ * - poseidon2_hash.pil: To constrain four Poseidon2 hashes across a total of 7 lookups/rounds:
  *                       - salted_init_hash: #[SALTED_INITIALIZATION_HASH_POSEIDON2_0..1]
  *                       - partial_address:  #[PARTIAL_ADDRESS_POSEIDON2]
- *                       - public_keys_hash: #[PUBLIC_KEYS_HASH_POSEIDON2_0..4]
+ *                       - public_keys_hash: #[PUBLIC_KEYS_HASH_POSEIDON2_0..2]
  *                       - preaddress:       #[PREADDRESS_POSEIDON2]
  *                       Each round is a row in the poseidon trace. Each column above is constrained to be its
  *                       corresponding poseidon2_hash.output value, which is propagated across each row
@@ -124,10 +123,10 @@ namespace address_derivation;
     //   1. salted_init_hash  = H(DOM_SEP__PARTIAL_ADDRESS, salt, init_hash, deployer_addr)
     //   2. partial_address   = H(DOM_SEP__PARTIAL_ADDRESS, class_id, salted_init_hash)
     //   3. public_keys_hash  = H(DOM_SEP__PUBLIC_KEYS_HASH,
-    //                             nullifier_key_x, nullifier_key_y, 0,
-    //                             incoming_viewing_key_x, incoming_viewing_key_y, 0,
-    //                             outgoing_viewing_key_x, outgoing_viewing_key_y, 0,
-    //                             tagging_key_x, tagging_key_y, 0)
+    //                             nullifier_key_x, nullifier_key_y,
+    //                             incoming_viewing_key_x, incoming_viewing_key_y,
+    //                             outgoing_viewing_key_x, outgoing_viewing_key_y,
+    //                             tagging_key_x, tagging_key_y)
     //   4. preaddress        = H(DOM_SEP__CONTRACT_ADDRESS_V1, public_keys_hash, partial_address)
     //
 
@@ -138,8 +137,8 @@ namespace address_derivation;
     sel * (const_three - 3) = 0;
     pol commit const_four;
     sel * (const_four - 4) = 0;
-    pol commit const_thirteen;
-    sel * (const_thirteen - 13) = 0;
+    pol commit const_nine;
+    sel * (const_nine - 9) = 0;
     pol commit partial_address_domain_separator;
     sel * (partial_address_domain_separator - constants.DOM_SEP__PARTIAL_ADDRESS) = 0;
     pol commit public_keys_hash_domain_separator;
@@ -183,53 +182,33 @@ namespace address_derivation;
     // 3. Computation of public keys hash
     pol commit public_keys_hash;
 
-    // TODO(#7529): Remove all the 0s for is_infinity when removed from public_keys.nr
-    // https://github.com/AztecProtocol/aztec-packages/issues/7529
     // TODO(#14031): Compress keys in public_keys_hash
     // https://github.com/AztecProtocol/aztec-packages/issues/14031
 
-    // We have 13 inputs, hence 5 permutation rounds:
+    // We have 9 inputs, hence 3 permutation rounds:
     //  public_keys_hash = H(DOM_SEP__PUBLIC_KEYS_HASH,
-    //                       nullifier_key_x, nullifier_key_y, 0,
-    //                       incoming_viewing_key_x, incoming_viewing_key_y, 0,
-    //                       outgoing_viewing_key_x, outgoing_viewing_key_y, 0,
-    //                       tagging_key_x, tagging_key_y, 0)
-    //   Round 1 (start, input_len=13): (DOM_SEP__PUBLIC_KEYS_HASH, nullifier_key_x, nullifier_key_y)
-    //   Round 2 (sel, rem=4):          (0, incoming_viewing_key_x, incoming_viewing_key_y)
-    //   Round 3 (sel, rem=3):          (0, outgoing_viewing_key_x, outgoing_viewing_key_y)
-    //   Round 4 (sel, rem=2):          (0, tagging_key_x, tagging_key_y)
-    //   Round 5 (end):                 (0, padding (= 0), padding (= 0))
-    //  Where each leading 0 is the is_infinity flag for the preceding curve point, and rem =
-    //  poseidon2_hash.num_perm_rounds_rem (the number of hashing rounds remaining), required in each
-    //  lookup to constrain correct ordering of rounds. See each round below for individual input details.
+    //                       nullifier_key_x, nullifier_key_y,
+    //                       incoming_viewing_key_x, incoming_viewing_key_y,
+    //                       outgoing_viewing_key_x, outgoing_viewing_key_y,
+    //                       tagging_key_x, tagging_key_y)
+    //   Round 1 (start, input_len=9): (DOM_SEP__PUBLIC_KEYS_HASH, nullifier_key_x, nullifier_key_y)
+    //   Round 2 (sel, rem=2):         (incoming_viewing_key_x, incoming_viewing_key_y, outgoing_viewing_key_x)
+    //   Round 3 (end):                (outgoing_viewing_key_y, tagging_key_x, tagging_key_y)
 
-    // Enforces the first poseidon round of public_keys_hash. Note that we must lookup poseidon2_hash.input_len == 13
+    // Enforces the first poseidon round of public_keys_hash. Note that we must lookup poseidon2_hash.input_len == 9
     // here since it is constrained in the poseidon trace on the start row.
     #[PUBLIC_KEYS_HASH_POSEIDON2_0]
-    sel { public_keys_hash_domain_separator, nullifier_key_x, nullifier_key_y, public_keys_hash, const_thirteen }
+    sel { public_keys_hash_domain_separator, nullifier_key_x, nullifier_key_y, public_keys_hash, const_nine }
     in poseidon2_hash.start { poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2, poseidon2_hash.output, poseidon2_hash.input_len };
 
-    // Enforces round 2 (poseidon2_hash.input_0 = 0 = nullifier_key_is_infinity).
+    // Enforces round 2.
     #[PUBLIC_KEYS_HASH_POSEIDON2_1]
-    sel { precomputed.zero, incoming_viewing_key_x, incoming_viewing_key_y, public_keys_hash, const_four }
+    sel { incoming_viewing_key_x, incoming_viewing_key_y, outgoing_viewing_key_x, public_keys_hash, const_two }
     in poseidon2_hash.sel { poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2, poseidon2_hash.output, poseidon2_hash.num_perm_rounds_rem };
 
-    // Enforces round 3 (poseidon2_hash.input_0 = 0 = incoming_viewing_key_is_infinity).
+    // Enforces round 3, the final round.
     #[PUBLIC_KEYS_HASH_POSEIDON2_2]
-    sel { precomputed.zero, outgoing_viewing_key_x, outgoing_viewing_key_y, public_keys_hash, const_three }
-    in poseidon2_hash.sel { poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2, poseidon2_hash.output, poseidon2_hash.num_perm_rounds_rem };
-
-    // Enforces round 4 (poseidon2_hash.input_0 = 0 = outgoing_viewing_key_is_infinity).
-    #[PUBLIC_KEYS_HASH_POSEIDON2_3]
-    sel { precomputed.zero, tagging_key_x, tagging_key_y, public_keys_hash, const_two }
-    in poseidon2_hash.sel { poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2, poseidon2_hash.output, poseidon2_hash.num_perm_rounds_rem };
-
-    // Enforces round 5, the final round. This is a round entirely made of zeros:
-    //  poseidon2_hash.input_0 = 0 = tagging_key_is_infinity
-    //  poseidon2_hash.input_1 = 0 = padding
-    //  poseidon2_hash.input_2 = 0 = padding
-    #[PUBLIC_KEYS_HASH_POSEIDON2_4]
-    sel { precomputed.zero, precomputed.zero, precomputed.zero, public_keys_hash }
+    sel { outgoing_viewing_key_y, tagging_key_x, tagging_key_y, public_keys_hash }
     in poseidon2_hash.end { poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2, poseidon2_hash.output };
 
     // 4. Computation of preaddress

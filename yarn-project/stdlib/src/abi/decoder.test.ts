@@ -236,12 +236,6 @@ describe('decoder', () => {
                     kind: 'field',
                   },
                 },
-                {
-                  name: 'is_infinite',
-                  type: {
-                    kind: 'boolean',
-                  },
-                },
               ],
             },
           ],
@@ -257,19 +251,10 @@ describe('decoder', () => {
         Fr.fromBuffer(Buffer.from('0000000000000000000000000000000000000000000000000000000000000001', 'hex')), // address
         Fr.fromBuffer(Buffer.from('0000000000000000000000000000000000000000000000000000000000000001', 'hex')), // point.x
         Fr.fromBuffer(Buffer.from('0000000000000000000000000000000000000000000000000000000000000002', 'hex')), // point.y
-        Fr.fromBuffer(Buffer.from('0000000000000000000000000000000000000000000000000000000000000000', 'hex')), // point.is_infinite
       ],
     );
 
-    expect(decoded).toEqual([
-      1n,
-      2n,
-      false,
-      'xyz',
-      AztecAddress.fromBigInt(1n),
-      // eslint-disable-next-line camelcase
-      { x: 1n, y: 2n, is_infinite: false },
-    ]);
+    expect(decoded).toEqual([1n, 2n, false, 'xyz', AztecAddress.fromBigInt(1n), { x: 1n, y: 2n }]);
   });
 
   it('decodes Option::Some as the wrapped value', () => {

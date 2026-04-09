@@ -335,7 +335,7 @@ export class Oracle {
     // with two fields: `some` (a boolean) and `value` (a field array in this case).
     if (result === undefined) {
       // No data was found so we set `some` to 0 and pad `value` with zeros get the correct return size.
-      return [toACVMField(0), Array(13).fill(toACVMField(0))];
+      return [toACVMField(0), Array(9).fill(toACVMField(0))];
     } else {
       // Data was found so we set `some` to 1 and return it along with `value`.
       return [toACVMField(1), [...result.publicKeys.toFields(), result.partialAddress].map(toACVMField)];
@@ -815,12 +815,11 @@ export class Oracle {
     [address]: ACVMField[],
     [ephPKField0]: ACVMField[],
     [ephPKField1]: ACVMField[],
-    [ephPKField2]: ACVMField[],
     [contractAddress]: ACVMField[],
   ): Promise<ACVMField[]> {
     const secret = await this.handlerAsUtility().getSharedSecret(
       AztecAddress.fromField(Fr.fromString(address)),
-      Point.fromFields([ephPKField0, ephPKField1, ephPKField2].map(Fr.fromString)),
+      Point.fromFields([ephPKField0, ephPKField1].map(Fr.fromString)),
       AztecAddress.fromField(Fr.fromString(contractAddress)),
     );
     return [toACVMField(secret)];

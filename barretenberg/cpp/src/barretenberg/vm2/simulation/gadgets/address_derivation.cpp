@@ -58,8 +58,6 @@ void AddressDerivation::assert_derivation(const AztecAddress& address, const Con
         public_key_hash_vec.push_back(public_keys_hash_fields[i]);
         // Public key y coordinate.
         public_key_hash_vec.push_back(public_keys_hash_fields[i + 1]);
-        // TODO(#7529): Public key is_infinity will be removed from address preimage, assuming false.
-        public_key_hash_vec.push_back(FF::zero());
     }
     // Emits Poseidon2HashEvents and Poseidon2PermutationEvents, see #[PUBLIC_KEYS_HASH_POSEIDON2_i] in
     // address_derivation.pil.

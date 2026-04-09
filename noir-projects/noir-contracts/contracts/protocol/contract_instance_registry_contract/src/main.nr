@@ -103,7 +103,7 @@ pub contract ContractInstanceRegistry {
         // body, I have removed that check.
         assert_compatible_oracle_version();
 
-        let serialized_params: [Field; 16] = [
+        let serialized_params: [Field; 12] = [
             salt,
             contract_class_id.to_field(),
             initialization_hash,
