@@ -29,14 +29,37 @@ import { BaseWallet, type SimulateViaEntrypointOptions } from '@aztec/wallet-sdk
 import type { AccountContractsProvider } from './account-contract-providers/types.js';
 import { type AccountType, WalletDB } from './wallet_db.js';
 
+/** Options for the PXE instance created by the EmbeddedWallet. */
+export type EmbeddedWalletPXEOptions = Partial<PXEConfig> & PXECreationOptions;
+
+/** Splits a unified EmbeddedWalletPXEOptions into PXEConfig overrides and PXECreationOptions. */
+export function splitPxeOptions(pxe?: EmbeddedWalletPXEOptions): {
+  config: Partial<PXEConfig>;
+  creation: PXECreationOptions;
+} {
+  if (!pxe) {
+    return { config: {}, creation: {} };
+  }
+  const { loggers, loggerActorLabel, proverOrOptions, store, simulator, ...config } = pxe;
+  return { config, creation: { loggers, loggerActorLabel, proverOrOptions, store, simulator } };
+}
+
 export type EmbeddedWalletOptions = {
   /** Parent logger. Child loggers are derived via createChild() for each subsystem. */
   logger?: Logger;
   /** Use ephemeral (in-memory) stores. Data will not persist across sessions. */
   ephemeral?: boolean;
-  /** Override PXE configuration. */
+  /** PXE configuration and dependency overrides (custom store, prover, simulator). */
+  pxe?: EmbeddedWalletPXEOptions;
+  /**
+   * Override PXE configuration.
+   * @deprecated Use `pxe` instead.
+   */
   pxeConfig?: Partial<PXEConfig>;
-  /** Advanced PXE creation options (custom store, prover, simulator). */
+  /**
+   * Advanced PXE creation options (custom store, prover, simulator).
+   * @deprecated Use `pxe` instead.
+   */
   pxeOptions?: PXECreationOptions;
 };
 

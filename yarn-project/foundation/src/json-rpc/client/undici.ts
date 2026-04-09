@@ -44,18 +44,20 @@ export function makeUndiciFetch(client = new Agent()): JsonRpcFetch {
     let responseJson: any;
     const responseOk = resp.statusCode >= 200 && resp.statusCode <= 299;
     const contentEncoding = resp.headers['content-encoding'];
+    let responseText: string;
     try {
       if (contentEncoding === 'gzip') {
         const jsonBuffer = await gunzip(await resp.body.arrayBuffer());
-        responseJson = JSON.parse(jsonBuffer.toString('utf-8'));
+        responseText = jsonBuffer.toString('utf-8');
       } else {
-        responseJson = await resp.body.json();
+        responseText = await resp.body.text();
       }
+      responseJson = JSON.parse(responseText);
     } catch {
       if (!responseOk) {
         throw new Error('HTTP ' + resp.statusCode);
       }
-      throw new Error(`Failed to parse body as JSON. encoding: ${contentEncoding}, body: ${await resp.body.text()}`);
+      throw new Error(`Failed to parse body as JSON. encoding: ${contentEncoding}, body: ${responseText!}`);
     }
 
     if (!responseOk) {

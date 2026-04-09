@@ -5,6 +5,7 @@ import { type ProverClientConfig, createProverClient } from '@aztec/prover-clien
 import { ProverBrokerConfig, createAndStartProvingBroker } from '@aztec/prover-client/broker';
 import { PublicProcessorFactory } from '@aztec/simulator/server';
 import type { DataStoreConfig } from '@aztec/stdlib/kv-store';
+import type { GenesisData } from '@aztec/stdlib/world-state';
 import { getTelemetryClient } from '@aztec/telemetry-client';
 import { createWorldState } from '@aztec/world-state';
 
@@ -23,13 +24,14 @@ export async function rerunEpochProvingJob(
   localPath: string,
   log: Logger,
   config: DataStoreConfig & ProverBrokerConfig & ProverClientConfig & Pick<L1ContractsConfig, 'aztecEpochDuration'>,
+  genesis?: GenesisData,
 ) {
   const jobData = deserializeEpochProvingJobData(readFileSync(localPath));
   log.info(`Loaded proving job data for epoch ${jobData.epochNumber}`);
 
   const telemetry = getTelemetryClient();
   const metrics = new ProverNodeJobMetrics(telemetry.getMeter('prover-job'), telemetry.getTracer('prover-job'));
-  const worldState = await createWorldState(config);
+  const worldState = await createWorldState(config, genesis);
   const archiver = await createArchiverStore(config);
   const publicProcessorFactory = new PublicProcessorFactory(archiver, undefined, undefined, log.getBindings());
 

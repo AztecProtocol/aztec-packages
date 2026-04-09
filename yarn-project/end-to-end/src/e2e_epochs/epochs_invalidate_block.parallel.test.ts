@@ -73,7 +73,7 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
       anvilPort: BASE_ANVIL_PORT + ++anvilPortOffset,
       slashingRoundSizeInEpochs: 4,
       slashingOffsetInRounds: 256,
-      slasherFlavor: 'tally',
+      slasherEnabled: true,
       minTxsPerBlock: 1,
       maxTxsPerBlock: 1,
     });

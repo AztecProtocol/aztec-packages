@@ -377,5 +377,20 @@ export type Logger = { [K in LogLevel]: LogFn } & { /** Error log function */ er
  * @returns A string with both the log message and the error message.
  */
 function formatErr(msg: string, err?: unknown): string {
-  return err ? `${msg}: ${inspect(err)}` : msg;
+  if (!err) {
+    return msg;
+  }
+
+  try {
+    return `${msg}: ${inspect(err)}`;
+  } catch {
+    // inspect can crash on error objects with broken property descriptors
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-base-to-string
+      return `${msg}: ${err instanceof Error ? `${err.name}: ${err.message}` : String(err)}`;
+    } catch {
+      // if even String(err) fails, return the original message with a note about the error
+      return `${msg}: [unserializable error]`;
+    }
+  }
 }

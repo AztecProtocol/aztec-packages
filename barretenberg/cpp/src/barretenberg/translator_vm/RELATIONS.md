@@ -439,10 +439,11 @@ The Permutation Relation is the foundation of all range constraints in the Trans
 
 If the two multisets are equal (i.e., one is a permutation of the other), then all values are valid.
 
-The relation consists of 2 subrelations:
+The relation consists of 3 subrelations:
 
 1. Grand product identity (degree 7)
 2. Finalization check (degree 3)
+3. Initialization check (degree 3)
 
 #### Interaction with the Delta Range Constraints
 
@@ -482,11 +483,9 @@ $$\boxed{\left( z_{\text{perm}} + L_{\text{first}} \right) \cdot \prod_{j=0}^{3}
 
 where:
 
-- $L_{\text{first}}$: Lagrange polynomial for first row ($z_{\text{perm}}[0] = 0$ is enforced implicitly)
+- $L_{\text{first}}$: Lagrange polynomial for first row ($z_{\text{perm}}[0] = 0$ is enforced by subrelation 3)
 - $L_{\text{last}}$: Lagrange polynomial for last row (we enforce $z_{\text{perm}}[\text{last}] = 0$ in subrelation 2)
 - $z_{\text{perm}}^{\text{shift}}$: Shifted grand product polynomial ($z_{\text{perm}}[i+1]$)
-
-Note that $z_{\text{perm}}[0] = 0$ follows implicitly from the fact that we are opening $z_{\text{perm}}$ and $z_{\text{perm}}^{\text{shift}}$ both at the same challenge.
 If the two multisets are equal:
 
 1. At each step, the products telescope: contributions cancel out
@@ -514,6 +513,24 @@ Interpretation:
 Active when: Last row only ($L_{\text{last}} = 1$)
 
 Degree: 2 (Lagrange × shifted polynomial)
+
+---
+
+### Subrelation 3: Initialization Check
+
+Purpose: Ensure the grand product polynomial starts at zero.
+
+$$\boxed{L_{\text{first}} \cdot z_{\text{perm}} = 0}$$
+
+Interpretation:
+
+- At the first row, $L_{\text{first}} = 1$
+- $z_{\text{perm}}$ must be 0 at this row
+- This is necessary for the $(z_{\text{perm}} + L_{\text{first}})$ term in subrelation 1 to evaluate to 1
+
+Active when: First row only ($L_{\text{first}} = 1$)
+
+Degree: 2 (Lagrange × polynomial)
 
 ## Delta Range Constraint Relation
 

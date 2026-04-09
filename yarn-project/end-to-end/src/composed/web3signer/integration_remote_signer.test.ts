@@ -47,7 +47,7 @@ describe('RemoteSigner integration: Web3Signer (compose)', () => {
   it('signs EIP-712 typed data and matches r/s with local', async () => {
     const typedData: TypedDataDefinition = {
       domain: {
-        name: 'TallySlashingProposer',
+        name: 'SlashingProposer',
         version: '1',
         chainId,
         verifyingContract: EthAddress.random().toString(),

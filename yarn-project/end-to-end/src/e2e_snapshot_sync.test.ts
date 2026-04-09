@@ -57,12 +57,16 @@ describe('e2e_snapshot_sync', () => {
   const createNonValidatorNode = async (name: string, config: Partial<AztecNodeConfig> = {}) => {
     log.warn('Creating and syncing a node without a validator...');
     return await withLoggerBindings({ actor: `node-${name}` }, () =>
-      AztecNodeService.createAndSync({
-        ...context.config,
-        disableValidator: true,
-        dataDirectory: join(context.config.dataDirectory!, randomBytes(8).toString('hex')),
-        ...config,
-      }),
+      AztecNodeService.createAndSync(
+        {
+          ...context.config,
+          disableValidator: true,
+          dataDirectory: join(context.config.dataDirectory!, randomBytes(8).toString('hex')),
+          ...config,
+        },
+        {},
+        { genesis: context.genesis },
+      ),
     );
   };
 

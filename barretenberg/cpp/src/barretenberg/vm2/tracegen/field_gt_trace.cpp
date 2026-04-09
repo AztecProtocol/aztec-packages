@@ -47,10 +47,6 @@ void FieldGreaterThanTraceBuilder::process(
 {
     using C = Column;
 
-    // We precompute the inverses up to 4.
-    std::array<FF, 5> precomputed_ctr_inverses = { 0, 1, 2, 3, 4 };
-    FF::batch_invert(precomputed_ctr_inverses);
-
     uint32_t row = 1;
     for (const auto& event : events) {
         // Copy the things that will need range checks since we'll mutate them in the shifts
@@ -63,11 +59,11 @@ void FieldGreaterThanTraceBuilder::process(
         bool sel_gt = event.operation == simulation::FieldGreaterOperation::GREATER_THAN;
         bool sel_dec = event.operation == simulation::FieldGreaterOperation::CANONICAL_DECOMPOSITION;
 
-        for (int cmp_rng_ctr = event.operation == simulation::FieldGreaterOperation::GREATER_THAN ? 4 : 1;
-             cmp_rng_ctr >= 0;
-             cmp_rng_ctr--) {
+        int init_ctr = sel_gt ? 4 : 1;
 
-            const FF& cmp_rng_ctr_inv = precomputed_ctr_inverses.at(static_cast<size_t>(cmp_rng_ctr));
+        for (int cmp_rng_ctr = init_ctr; cmp_rng_ctr >= 0; cmp_rng_ctr--) {
+
+            bool is_end = (cmp_rng_ctr == 0);
             trace.set(row,
                       { { { C::ff_gt_sel, 1 },
                           { C::ff_gt_a, event.a },
@@ -75,6 +71,7 @@ void FieldGreaterThanTraceBuilder::process(
                           { C::ff_gt_result, event.gt_result },
                           { C::ff_gt_sel_dec, sel_dec ? 1 : 0 },
                           { C::ff_gt_sel_gt, sel_gt ? 1 : 0 },
+                          { C::ff_gt_end, is_end ? 1 : 0 },
                           { C::ff_gt_constant_128, 128 },
                           { C::ff_gt_a_lo, a_limbs.lo },
                           { C::ff_gt_a_hi, a_limbs.hi },
@@ -89,9 +86,7 @@ void FieldGreaterThanTraceBuilder::process(
                           { C::ff_gt_borrow, res_witness.borrow ? 1 : 0 },
                           { C::ff_gt_res_lo, res_witness.lo },
                           { C::ff_gt_res_hi, res_witness.hi },
-                          { C::ff_gt_cmp_rng_ctr, cmp_rng_ctr },
-                          { C::ff_gt_sel_shift_rng, cmp_rng_ctr > 0 ? 1 : 0 },
-                          { C::ff_gt_cmp_rng_ctr_inv, cmp_rng_ctr_inv } } });
+                          { C::ff_gt_cmp_rng_ctr, cmp_rng_ctr } } });
 
             row++;
 

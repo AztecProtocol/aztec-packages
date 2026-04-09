@@ -27,7 +27,6 @@ export const L1ContractsNames = [
 export type L1ContractAddresses = {
   [K in (typeof L1ContractsNames)[number]]: EthAddress;
 } & {
-  slashFactoryAddress?: EthAddress | undefined;
   feeAssetHandlerAddress?: EthAddress | undefined;
   stakingAssetHandlerAddress?: EthAddress | undefined;
   zkPassportVerifierAddress?: EthAddress | undefined;
@@ -48,7 +47,6 @@ export const L1ContractAddressesSchema = zodFor<L1ContractAddresses>()(
     rewardDistributorAddress: schemas.EthAddress,
     governanceProposerAddress: schemas.EthAddress,
     governanceAddress: schemas.EthAddress,
-    slashFactoryAddress: schemas.EthAddress.optional(),
     feeAssetHandlerAddress: schemas.EthAddress.optional(),
     stakingAssetHandlerAddress: schemas.EthAddress.optional(),
     zkPassportVerifierAddress: schemas.EthAddress.optional(),
@@ -65,11 +63,6 @@ export const l1ContractAddressesMapping: ConfigMappingsType<
   registryAddress: {
     env: 'REGISTRY_CONTRACT_ADDRESS',
     description: 'The deployed L1 registry contract address.',
-    parseEnv,
-  },
-  slashFactoryAddress: {
-    env: 'SLASH_FACTORY_CONTRACT_ADDRESS',
-    description: 'The deployed L1 slashFactory contract address',
     parseEnv,
   },
   feeAssetHandlerAddress: {
