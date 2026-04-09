@@ -473,6 +473,9 @@ export class LibP2PService extends WithTracer implements P2PService {
       epochCache,
     );
 
+    // Gate req/resp data protocols for unauthenticated peers when p2pAllowOnlyValidators is enabled
+    reqresp.setShouldRejectPeer(peerId => peerManager.shouldDisableP2PGossip(peerId));
+
     // Configure application-specific scoring for gossipsub.
     // The weight scales app score to align with gossipsub thresholds:
     // - Disconnect (-50) × 10 = -500 = gossipThreshold (stops receiving gossip)
