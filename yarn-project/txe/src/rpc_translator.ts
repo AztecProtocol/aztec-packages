@@ -753,8 +753,8 @@ export class RPCTranslator {
   // eslint-disable-next-line camelcase
   async aztec_utl_getPendingTaggedLogs_v2(foreignScope: ForeignCallSingle) {
     const scope = AztecAddress.fromField(fromSingle(foreignScope));
-    const baseSlot = await this.handlerAsUtility().getPendingTaggedLogsV2(scope);
-    return toForeignCallResult([toSingle(baseSlot)]);
+    const slot = await this.handlerAsUtility().getPendingTaggedLogsV2(scope);
+    return toForeignCallResult([toSingle(slot)]);
   }
 
   // eslint-disable-next-line camelcase
@@ -945,73 +945,60 @@ export class RPCTranslator {
   }
 
   // eslint-disable-next-line camelcase
-  aztec_utl_pushEphemeral(foreignBaseSlot: ForeignCallSingle, foreignElements: ForeignCallArray) {
-    const baseSlot = fromSingle(foreignBaseSlot);
+  aztec_utl_pushEphemeral(foreignSlot: ForeignCallSingle, foreignElements: ForeignCallArray) {
+    const slot = fromSingle(foreignSlot);
     const elements = fromArray(foreignElements);
-    const newLen = this.handlerAsUtility().pushEphemeral(baseSlot, elements);
+    const newLen = this.handlerAsUtility().pushEphemeral(slot, elements);
     return toForeignCallResult([toSingle(new Fr(newLen))]);
   }
 
   // eslint-disable-next-line camelcase
-  aztec_utl_popEphemeral(foreignBaseSlot: ForeignCallSingle) {
-    const baseSlot = fromSingle(foreignBaseSlot);
-    const element = this.handlerAsUtility().popEphemeral(baseSlot);
+  aztec_utl_popEphemeral(foreignSlot: ForeignCallSingle) {
+    const slot = fromSingle(foreignSlot);
+    const element = this.handlerAsUtility().popEphemeral(slot);
     return toForeignCallResult([toArray(element)]);
   }
 
   // eslint-disable-next-line camelcase
-  aztec_utl_getEphemeral(foreignBaseSlot: ForeignCallSingle, foreignIndex: ForeignCallSingle) {
-    const baseSlot = fromSingle(foreignBaseSlot);
+  aztec_utl_getEphemeral(foreignSlot: ForeignCallSingle, foreignIndex: ForeignCallSingle) {
+    const slot = fromSingle(foreignSlot);
     const index = fromSingle(foreignIndex).toNumber();
-    const element = this.handlerAsUtility().getEphemeral(baseSlot, index);
+    const element = this.handlerAsUtility().getEphemeral(slot, index);
     return toForeignCallResult([toArray(element)]);
   }
 
   // eslint-disable-next-line camelcase
   aztec_utl_setEphemeral(
-    foreignBaseSlot: ForeignCallSingle,
+    foreignSlot: ForeignCallSingle,
     foreignIndex: ForeignCallSingle,
     foreignElements: ForeignCallArray,
   ) {
-    const baseSlot = fromSingle(foreignBaseSlot);
+    const slot = fromSingle(foreignSlot);
     const index = fromSingle(foreignIndex).toNumber();
     const elements = fromArray(foreignElements);
-    this.handlerAsUtility().setEphemeral(baseSlot, index, elements);
+    this.handlerAsUtility().setEphemeral(slot, index, elements);
     return toForeignCallResult([]);
   }
 
   // eslint-disable-next-line camelcase
-  aztec_utl_getEphemeralLen(foreignBaseSlot: ForeignCallSingle) {
-    const baseSlot = fromSingle(foreignBaseSlot);
-    const len = this.handlerAsUtility().getEphemeralLen(baseSlot);
+  aztec_utl_getEphemeralLen(foreignSlot: ForeignCallSingle) {
+    const slot = fromSingle(foreignSlot);
+    const len = this.handlerAsUtility().getEphemeralLen(slot);
     return toForeignCallResult([toSingle(new Fr(len))]);
   }
 
   // eslint-disable-next-line camelcase
-  aztec_utl_removeEphemeral(foreignBaseSlot: ForeignCallSingle, foreignIndex: ForeignCallSingle) {
-    const baseSlot = fromSingle(foreignBaseSlot);
+  aztec_utl_removeEphemeral(foreignSlot: ForeignCallSingle, foreignIndex: ForeignCallSingle) {
+    const slot = fromSingle(foreignSlot);
     const index = fromSingle(foreignIndex).toNumber();
-    this.handlerAsUtility().removeEphemeral(baseSlot, index);
+    this.handlerAsUtility().removeEphemeral(slot, index);
     return toForeignCallResult([]);
   }
 
   // eslint-disable-next-line camelcase
-  aztec_utl_copyEphemeral(
-    foreignSrcSlot: ForeignCallSingle,
-    foreignDstSlot: ForeignCallSingle,
-    foreignCount: ForeignCallSingle,
-  ) {
-    const srcSlot = fromSingle(foreignSrcSlot);
-    const dstSlot = fromSingle(foreignDstSlot);
-    const count = fromSingle(foreignCount).toNumber();
-    this.handlerAsUtility().copyEphemeral(srcSlot, dstSlot, count);
-    return toForeignCallResult([]);
-  }
-
-  // eslint-disable-next-line camelcase
-  aztec_utl_clearEphemeral(foreignBaseSlot: ForeignCallSingle) {
-    const baseSlot = fromSingle(foreignBaseSlot);
-    this.handlerAsUtility().clearEphemeral(baseSlot);
+  aztec_utl_clearEphemeral(foreignSlot: ForeignCallSingle) {
+    const slot = fromSingle(foreignSlot);
+    this.handlerAsUtility().clearEphemeral(slot);
     return toForeignCallResult([]);
   }
 

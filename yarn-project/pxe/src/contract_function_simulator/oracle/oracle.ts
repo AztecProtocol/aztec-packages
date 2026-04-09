@@ -525,8 +525,8 @@ export class Oracle {
 
   // eslint-disable-next-line camelcase
   async aztec_utl_getPendingTaggedLogs_v2([scope]: ACVMField[]): Promise<ACVMField[]> {
-    const baseSlot = await this.handlerAsUtility().getPendingTaggedLogsV2(AztecAddress.fromString(scope));
-    return [toACVMField(baseSlot)];
+    const slot = await this.handlerAsUtility().getPendingTaggedLogsV2(AztecAddress.fromString(scope));
+    return [toACVMField(slot)];
   }
 
   // eslint-disable-next-line camelcase
@@ -687,27 +687,27 @@ export class Oracle {
   }
 
   // eslint-disable-next-line camelcase
-  aztec_utl_pushEphemeral([baseSlot]: ACVMField[], elements: ACVMField[]): Promise<ACVMField[]> {
-    const newLen = this.handlerAsUtility().pushEphemeral(Fr.fromString(baseSlot), elements.map(Fr.fromString));
+  aztec_utl_pushEphemeral([slot]: ACVMField[], elements: ACVMField[]): Promise<ACVMField[]> {
+    const newLen = this.handlerAsUtility().pushEphemeral(Fr.fromString(slot), elements.map(Fr.fromString));
     return Promise.resolve([toACVMField(newLen)]);
   }
 
   // eslint-disable-next-line camelcase
-  aztec_utl_popEphemeral([baseSlot]: ACVMField[]): Promise<ACVMField[][]> {
-    const element = this.handlerAsUtility().popEphemeral(Fr.fromString(baseSlot));
+  aztec_utl_popEphemeral([slot]: ACVMField[]): Promise<ACVMField[][]> {
+    const element = this.handlerAsUtility().popEphemeral(Fr.fromString(slot));
     return Promise.resolve([element.map(toACVMField)]);
   }
 
   // eslint-disable-next-line camelcase
-  aztec_utl_getEphemeral([baseSlot]: ACVMField[], [index]: ACVMField[]): Promise<ACVMField[][]> {
-    const element = this.handlerAsUtility().getEphemeral(Fr.fromString(baseSlot), Fr.fromString(index).toNumber());
+  aztec_utl_getEphemeral([slot]: ACVMField[], [index]: ACVMField[]): Promise<ACVMField[][]> {
+    const element = this.handlerAsUtility().getEphemeral(Fr.fromString(slot), Fr.fromString(index).toNumber());
     return Promise.resolve([element.map(toACVMField)]);
   }
 
   // eslint-disable-next-line camelcase
-  aztec_utl_setEphemeral([baseSlot]: ACVMField[], [index]: ACVMField[], elements: ACVMField[]): Promise<ACVMField[]> {
+  aztec_utl_setEphemeral([slot]: ACVMField[], [index]: ACVMField[], elements: ACVMField[]): Promise<ACVMField[]> {
     this.handlerAsUtility().setEphemeral(
-      Fr.fromString(baseSlot),
+      Fr.fromString(slot),
       Fr.fromString(index).toNumber(),
       elements.map(Fr.fromString),
     );
@@ -715,30 +715,20 @@ export class Oracle {
   }
 
   // eslint-disable-next-line camelcase
-  aztec_utl_getEphemeralLen([baseSlot]: ACVMField[]): Promise<ACVMField[]> {
-    const len = this.handlerAsUtility().getEphemeralLen(Fr.fromString(baseSlot));
+  aztec_utl_getEphemeralLen([slot]: ACVMField[]): Promise<ACVMField[]> {
+    const len = this.handlerAsUtility().getEphemeralLen(Fr.fromString(slot));
     return Promise.resolve([toACVMField(len)]);
   }
 
   // eslint-disable-next-line camelcase
-  aztec_utl_removeEphemeral([baseSlot]: ACVMField[], [index]: ACVMField[]): Promise<ACVMField[]> {
-    this.handlerAsUtility().removeEphemeral(Fr.fromString(baseSlot), Fr.fromString(index).toNumber());
+  aztec_utl_removeEphemeral([slot]: ACVMField[], [index]: ACVMField[]): Promise<ACVMField[]> {
+    this.handlerAsUtility().removeEphemeral(Fr.fromString(slot), Fr.fromString(index).toNumber());
     return Promise.resolve([]);
   }
 
   // eslint-disable-next-line camelcase
-  aztec_utl_copyEphemeral([srcSlot]: ACVMField[], [dstSlot]: ACVMField[], [count]: ACVMField[]): Promise<ACVMField[]> {
-    this.handlerAsUtility().copyEphemeral(
-      Fr.fromString(srcSlot),
-      Fr.fromString(dstSlot),
-      Fr.fromString(count).toNumber(),
-    );
-    return Promise.resolve([]);
-  }
-
-  // eslint-disable-next-line camelcase
-  aztec_utl_clearEphemeral([baseSlot]: ACVMField[]): Promise<ACVMField[]> {
-    this.handlerAsUtility().clearEphemeral(Fr.fromString(baseSlot));
+  aztec_utl_clearEphemeral([slot]: ACVMField[]): Promise<ACVMField[]> {
+    this.handlerAsUtility().clearEphemeral(Fr.fromString(slot));
     return Promise.resolve([]);
   }
 

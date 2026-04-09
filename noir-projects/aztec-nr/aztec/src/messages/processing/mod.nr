@@ -145,7 +145,8 @@ pub unconstrained fn validate_and_store_enqueued_notes_and_events(scope: AztecAd
         scope,
     );
 
-    // Purge the queues after processing.
+    // Defensive clearing: purge the queues after processing to prevent double-processing if this function is called
+    // more than once in the same call frame. It is currently defensive because we only call this once per sync run.
     EphemeralArray::<NoteValidationRequest>::at(NOTE_VALIDATION_REQUESTS_ARRAY_BASE_SLOT).clear();
     EphemeralArray::<EventValidationRequest>::at(EVENT_VALIDATION_REQUESTS_ARRAY_BASE_SLOT).clear();
 }
@@ -183,7 +184,8 @@ pub(crate) unconstrained fn get_pending_partial_notes_completion_logs(
 
     let responses = oracle::message_processing::get_logs_by_tag(log_retrieval_requests);
 
-    log_retrieval_requests.clear();
+    // Defensive clearing: prevent stale requests if this function is called more than once in the same call frame.
+    let _ = log_retrieval_requests.clear();
 
     responses
 }

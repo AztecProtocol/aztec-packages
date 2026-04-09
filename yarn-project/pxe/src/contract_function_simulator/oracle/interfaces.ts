@@ -165,15 +165,14 @@ export interface IUtilityExecutionOracle {
   setContractSyncCacheInvalid(contractAddress: AztecAddress, scopes: AztecAddress[]): void;
   emitOffchainEffect(data: Fr[]): Promise<void>;
 
-  // Ephemeral array methods — in-memory per-call-frame arrays for transient data.
-  pushEphemeral(baseSlot: Fr, elements: Fr[]): number;
-  popEphemeral(baseSlot: Fr): Fr[];
-  getEphemeral(baseSlot: Fr, index: number): Fr[];
-  setEphemeral(baseSlot: Fr, index: number, elements: Fr[]): void;
-  getEphemeralLen(baseSlot: Fr): number;
-  removeEphemeral(baseSlot: Fr, index: number): void;
-  copyEphemeral(srcSlot: Fr, dstSlot: Fr, count: number): void;
-  clearEphemeral(baseSlot: Fr): void;
+  // Ephemeral array methods
+  pushEphemeral(slot: Fr, elements: Fr[]): number;
+  popEphemeral(slot: Fr): Fr[];
+  getEphemeral(slot: Fr, index: number): Fr[];
+  setEphemeral(slot: Fr, index: number, elements: Fr[]): void;
+  getEphemeralLen(slot: Fr): number;
+  removeEphemeral(slot: Fr, index: number): void;
+  clearEphemeral(slot: Fr): void;
 }
 
 /**

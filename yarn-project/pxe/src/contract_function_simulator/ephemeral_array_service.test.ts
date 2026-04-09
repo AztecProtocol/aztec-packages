@@ -24,7 +24,7 @@ describe('EphemeralArrayService', () => {
       expect(service.len(slot)).toBe(1);
     });
 
-    it('appends multiple elements sequentially', () => {
+    it('appends multiple elements', () => {
       service.push(slot, [new Fr(5)]);
       service.push(slot, [new Fr(6)]);
       expect(service.len(slot)).toBe(2);

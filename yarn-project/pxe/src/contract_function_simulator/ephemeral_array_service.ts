@@ -1,82 +1,85 @@
 import { Fr } from '@aztec/foundation/curves/bn254';
 
-/** In-memory array service for transient data during a single contract call frame. */
+/** In-memory store for ephemeral arrays scoped to a single contract call frame. */
 export class EphemeralArrayService {
-  /** Maps base slot to array of elements, where each element is a serialized Fr[]. */
+  /**
+   * Maps a slot to the elements of the array stored at that slot. Each element is a serialized representation of
+   * the original type.
+   */
   #arrays: Map<string, Fr[][]> = new Map();
 
   /** Returns all elements in the array, or an empty array if uninitialized. */
-  readArrayAt(baseSlot: Fr): Fr[][] {
-    return this.#arrays.get(baseSlot.toString()) ?? [];
+  readArrayAt(slot: Fr): Fr[][] {
+    return this.#arrays.get(slot.toString()) ?? [];
   }
 
-  #setArray(baseSlot: Fr, array: Fr[][]): void {
-    this.#arrays.set(baseSlot.toString(), array);
+  #setArray(slot: Fr, array: Fr[][]): void {
+    this.#arrays.set(slot.toString(), array);
   }
 
   /** Returns the number of elements in the array at the given slot. */
-  len(baseSlot: Fr): number {
-    return this.readArrayAt(baseSlot).length;
+  len(slot: Fr): number {
+    return this.readArrayAt(slot).length;
   }
 
   /** Appends an element to the array and returns the new length. */
-  push(baseSlot: Fr, elements: Fr[]): number {
-    const array = this.readArrayAt(baseSlot);
+  push(slot: Fr, elements: Fr[]): number {
+    const array = this.readArrayAt(slot);
     array.push(elements);
-    this.#setArray(baseSlot, array);
+    this.#setArray(slot, array);
     return array.length;
   }
 
   /** Removes and returns the last element. Throws if empty. */
-  pop(baseSlot: Fr): Fr[] {
-    const array = this.readArrayAt(baseSlot);
+  pop(slot: Fr): Fr[] {
+    const array = this.readArrayAt(slot);
     if (array.length === 0) {
-      throw new Error(`Ephemeral array at slot ${baseSlot} is empty`);
+      throw new Error(`Ephemeral array at slot ${slot} is empty`);
     }
     const element = array.pop()!;
-    this.#setArray(baseSlot, array);
+    this.#setArray(slot, array);
     return element;
   }
 
   /** Returns the element at the given index. Throws if out of bounds. */
-  get(baseSlot: Fr, index: number): Fr[] {
-    const array = this.readArrayAt(baseSlot);
+  get(slot: Fr, index: number): Fr[] {
+    const array = this.readArrayAt(slot);
     if (index < 0 || index >= array.length) {
       throw new Error(
-        `Ephemeral array index ${index} out of bounds for array of length ${array.length} at slot ${baseSlot}`,
+        `Ephemeral array index ${index} out of bounds for array of length ${array.length} at slot ${slot}`,
       );
     }
     return array[index];
   }
 
   /** Overwrites the element at the given index. Throws if out of bounds. */
-  set(baseSlot: Fr, index: number, value: Fr[]): void {
-    const array = this.readArrayAt(baseSlot);
+  set(slot: Fr, index: number, value: Fr[]): void {
+    const array = this.readArrayAt(slot);
     if (index < 0 || index >= array.length) {
       throw new Error(
-        `Ephemeral array index ${index} out of bounds for array of length ${array.length} at slot ${baseSlot}`,
+        `Ephemeral array index ${index} out of bounds for array of length ${array.length} at slot ${slot}`,
       );
     }
     array[index] = value;
   }
 
   /** Removes the element at the given index, shifting subsequent elements backward. Throws if out of bounds. */
-  remove(baseSlot: Fr, index: number): void {
-    const array = this.readArrayAt(baseSlot);
+  remove(slot: Fr, index: number): void {
+    const array = this.readArrayAt(slot);
     if (index < 0 || index >= array.length) {
       throw new Error(
-        `Ephemeral array index ${index} out of bounds for array of length ${array.length} at slot ${baseSlot}`,
+        `Ephemeral array index ${index} out of bounds for array of length ${array.length} at slot ${slot}`,
       );
     }
     array.splice(index, 1);
   }
 
   /** Removes all elements from the array. */
-  clear(baseSlot: Fr): void {
-    this.#arrays.delete(baseSlot.toString());
+  clear(slot: Fr): void {
+    this.#arrays.delete(slot.toString());
   }
 
-  /** Allocates a fresh, unused base slot for a new ephemeral array. */
+  /** Allocates a fresh, unused slot for a new ephemeral array. */
   allocateSlot(): Fr {
     let slot: Fr;
     do {
@@ -85,7 +88,7 @@ export class EphemeralArrayService {
     return slot;
   }
 
-  /** Creates a new ephemeral array pre-populated with the given elements and returns its base slot. */
+  /** Creates a new ephemeral array pre-populated with the given elements and returns its slot. */
   newArray(elements: Fr[][]): Fr {
     const slot = this.allocateSlot();
     this.#setArray(slot, elements);

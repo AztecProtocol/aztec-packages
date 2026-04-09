@@ -12,32 +12,26 @@ use crate::protocol::traits::{Deserialize, Serialize};
 ///
 /// ## Use Cases
 ///
-/// Ephemeral arrays are designed for transient communication between PXE (TypeScript) and contracts (Noir) during
-/// simulation, for example, note validation requests or event validation responses.
+/// Ephemeral arrays are designed for passing data between PXE (TypeScript) and contracts (Noir) during simulation,
+/// for example, note validation requests or event validation responses. This data type is appropriate for data that
+/// is not supposed to be persisted.
 ///
 /// For data that needs to persist across simulations, contract calls, etc, use
 /// [`CapsuleArray`](crate::capsules::CapsuleArray) instead.
 pub struct EphemeralArray<T> {
-    pub base_slot: Field,
+    pub slot: Field,
 }
 
 impl<T> EphemeralArray<T> {
-    /// Returns a handle to an ephemeral array at the given base slot, which may already contain data (e.g. populated
+    /// Returns a handle to an ephemeral array at the given slot, which may already contain data (e.g. populated
     /// by an oracle).
-    pub unconstrained fn at(base_slot: Field) -> Self {
-        Self { base_slot }
-    }
-
-    /// Initializes an empty ephemeral array at the given base slot, clearing any pre-existing data.
-    pub unconstrained fn initialize(base_slot: Field) -> Self {
-        let arr = Self { base_slot };
-        arr.clear();
-        arr
+    pub unconstrained fn at(slot: Field) -> Self {
+        Self { slot }
     }
 
     /// Returns the number of elements stored in the array.
     pub unconstrained fn len(self) -> u32 {
-        ephemeral::len_oracle(self.base_slot)
+        ephemeral::len_oracle(self.slot)
     }
 
     /// Stores a value at the end of the array.
@@ -46,7 +40,7 @@ impl<T> EphemeralArray<T> {
         T: Serialize,
     {
         let serialized = value.serialize();
-        let _ = ephemeral::push_oracle(self.base_slot, serialized);
+        let _ = ephemeral::push_oracle(self.slot, serialized);
     }
 
     /// Removes and returns the last element. Panics if the array is empty.
@@ -54,7 +48,7 @@ impl<T> EphemeralArray<T> {
     where
         T: Deserialize,
     {
-        let serialized = ephemeral::pop_oracle(self.base_slot);
+        let serialized = ephemeral::pop_oracle(self.slot);
         Deserialize::deserialize(serialized)
     }
 
@@ -63,7 +57,7 @@ impl<T> EphemeralArray<T> {
     where
         T: Deserialize,
     {
-        let serialized = ephemeral::get_oracle(self.base_slot, index);
+        let serialized = ephemeral::get_oracle(self.slot, index);
         Deserialize::deserialize(serialized)
     }
 
@@ -73,17 +67,19 @@ impl<T> EphemeralArray<T> {
         T: Serialize,
     {
         let serialized = value.serialize();
-        ephemeral::set_oracle(self.base_slot, index, serialized);
+        ephemeral::set_oracle(self.slot, index, serialized);
     }
 
     /// Removes the element at `index`, shifting subsequent elements backward. Panics if out of bounds.
     pub unconstrained fn remove(self, index: u32) {
-        ephemeral::remove_oracle(self.base_slot, index);
+        ephemeral::remove_oracle(self.slot, index);
     }
 
-    /// Removes all elements from the array.
-    pub unconstrained fn clear(self) {
-        ephemeral::clear_oracle(self.base_slot);
+    /// Removes all elements from the array and returns self for chaining (e.g. `EphemeralArray::at(slot).clear()`
+    /// to get a guaranteed-empty array at a given slot).
+    pub unconstrained fn clear(self) -> Self {
+        ephemeral::clear_oracle(self.slot);
+        self
     }
 
     /// Calls a function on each element of the array.
@@ -122,7 +118,7 @@ mod test {
         });
     }
 
-    #[test(should_fail)]
+    #[test(should_fail_with = "out of bounds")]
     unconstrained fn empty_array_read() {
         let env = TestEnvironment::new();
         env.utility_context(|_| {
@@ -131,7 +127,7 @@ mod test {
         });
     }
 
-    #[test(should_fail)]
+    #[test(should_fail_with = "is empty")]
     unconstrained fn empty_array_pop() {
         let env = TestEnvironment::new();
         env.utility_context(|_| {
@@ -152,7 +148,7 @@ mod test {
         });
     }
 
-    #[test(should_fail)]
+    #[test(should_fail_with = "out of bounds")]
     unconstrained fn read_past_len() {
         let env = TestEnvironment::new();
         env.utility_context(|_| {
@@ -338,10 +334,10 @@ mod test {
     }
 
     #[test]
-    unconstrained fn initialize_creates_empty_array() {
+    unconstrained fn clear_returns_self() {
         let env = TestEnvironment::new();
         env.utility_context(|_| {
-            let array: EphemeralArray<Field> = EphemeralArray::initialize(SLOT);
+            let array: EphemeralArray<Field> = EphemeralArray::at(SLOT).clear();
             assert_eq(array.len(), 0);
 
             array.push(42);
@@ -351,7 +347,7 @@ mod test {
     }
 
     #[test]
-    unconstrained fn initialize_clears_previous_data() {
+    unconstrained fn clear_wipes_previous_data() {
         let env = TestEnvironment::new();
         env.utility_context(|_| {
             let array: EphemeralArray<Field> = EphemeralArray::at(SLOT);
@@ -360,8 +356,8 @@ mod test {
             array.push(3);
             assert_eq(array.len(), 3);
 
-            // Re-initialize at the same slot, previous data should be gone.
-            let fresh: EphemeralArray<Field> = EphemeralArray::initialize(SLOT);
+            // Clear the same slot — previous data should be gone.
+            let fresh: EphemeralArray<Field> = EphemeralArray::at(SLOT).clear();
             assert_eq(fresh.len(), 0);
             fresh.push(4);
             assert_eq(fresh.get(0), 4);

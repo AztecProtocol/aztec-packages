@@ -495,6 +495,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     logContractMessage(logger, LogLevels[level], strippedMessage, fields);
   }
 
+  // Deprecated, only kept for backwards compatibility until Alpha v5 rolls out.
   public async getPendingTaggedLogs(pendingTaggedLogArrayBaseSlot: Fr, scope: AztecAddress) {
     const logService = this.#createLogService();
     const logs = await logService.fetchTaggedLogs(this.contractAddress, scope);
@@ -692,6 +693,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     return this.ephemeralArrayService.newArray(maybeLogRetrievalResponses.map(LogRetrievalResponse.toSerializedOption));
   }
 
+  // Deprecated, only kept for backwards compatibility until Alpha v5 rolls out.
   public async getMessageContextsByTxHash(
     contractAddress: AztecAddress,
     messageContextRequestsArrayBaseSlot: Fr,
@@ -844,36 +846,32 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     return deriveAppSiloedSharedSecret(addressSecret, ephPk, this.contractAddress);
   }
 
-  public pushEphemeral(baseSlot: Fr, elements: Fr[]): number {
-    return this.ephemeralArrayService.push(baseSlot, elements);
+  public pushEphemeral(slot: Fr, elements: Fr[]): number {
+    return this.ephemeralArrayService.push(slot, elements);
   }
 
-  public popEphemeral(baseSlot: Fr): Fr[] {
-    return this.ephemeralArrayService.pop(baseSlot);
+  public popEphemeral(slot: Fr): Fr[] {
+    return this.ephemeralArrayService.pop(slot);
   }
 
-  public getEphemeral(baseSlot: Fr, index: number): Fr[] {
-    return this.ephemeralArrayService.get(baseSlot, index);
+  public getEphemeral(slot: Fr, index: number): Fr[] {
+    return this.ephemeralArrayService.get(slot, index);
   }
 
-  public setEphemeral(baseSlot: Fr, index: number, elements: Fr[]): void {
-    this.ephemeralArrayService.set(baseSlot, index, elements);
+  public setEphemeral(slot: Fr, index: number, elements: Fr[]): void {
+    this.ephemeralArrayService.set(slot, index, elements);
   }
 
-  public getEphemeralLen(baseSlot: Fr): number {
-    return this.ephemeralArrayService.len(baseSlot);
+  public getEphemeralLen(slot: Fr): number {
+    return this.ephemeralArrayService.len(slot);
   }
 
-  public removeEphemeral(baseSlot: Fr, index: number): void {
-    this.ephemeralArrayService.remove(baseSlot, index);
+  public removeEphemeral(slot: Fr, index: number): void {
+    this.ephemeralArrayService.remove(slot, index);
   }
 
-  public copyEphemeral(srcSlot: Fr, dstSlot: Fr, count: number): void {
-    this.ephemeralArrayService.copy(srcSlot, dstSlot, count);
-  }
-
-  public clearEphemeral(baseSlot: Fr): void {
-    this.ephemeralArrayService.clear(baseSlot);
+  public clearEphemeral(slot: Fr): void {
+    this.ephemeralArrayService.clear(slot);
   }
 
   public emitOffchainEffect(data: Fr[]): Promise<void> {
