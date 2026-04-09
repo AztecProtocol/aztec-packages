@@ -38,14 +38,4 @@ template <typename FF> struct TranslatorInputData_ {
     FF accumulated_result;
 };
 
-/**
- * @brief With top-of-trace masking, masking terms occupy the low-order coefficients (positions 0..3).
- * @details The translation identity is: x*A = Σ T̃_i(x)*v^i - masking_term_eval, where masking_term_eval
- * is the SmallSubgroupIPA inner product. No x^N shift is needed since masking terms are at the bottom.
- */
-template <typename FF>
-static void shift_translation_masking_term_eval([[maybe_unused]] const FF& evaluation_challenge_x,
-                                                [[maybe_unused]] FF& translation_masking_term_eval) {
-    // With top-of-trace masking, the masking terms are at low-order coefficients — no shift needed.
-};
 } // namespace bb

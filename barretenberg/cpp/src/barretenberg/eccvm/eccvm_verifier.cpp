@@ -227,9 +227,6 @@ void ECCVMVerifier_<Flavor>::compute_translation_opening_claims(const std::vecto
     // Place the claim to the array containing the SmallSubgroupIPA opening claims
     opening_claims[NUM_SMALL_IPA_EVALUATIONS] = { { evaluation_challenge_x, batched_translation_evaluation },
                                                   batched_commitment };
-
-    // Compute `translation_masking_term_eval` * `evaluation_challenge_x`^{circuit_size - TRACE_OFFSET}
-    shift_translation_masking_term_eval(evaluation_challenge_x, translation_masking_term_eval);
 }
 
 // Compute the accumulated result from translation evaluations
