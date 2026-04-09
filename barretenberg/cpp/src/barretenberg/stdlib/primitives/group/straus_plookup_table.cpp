@@ -43,7 +43,7 @@ straus_plookup_table<Builder>::straus_plookup_table(Builder* context,
 
     // Create a BasicTable and populate its columns
     plookup::BasicTable table;
-    table.id = plookup::BasicTableId::KECCAK_RHO_9; // unused sentinel; table_index is what matters
+    table.id = plookup::BasicTableId::STRAUS_EC_POINT;
     table.use_twin_keys = false;
     table.column_1_step_size = bb::fr(0);
     table.column_2_step_size = bb::fr(0);
