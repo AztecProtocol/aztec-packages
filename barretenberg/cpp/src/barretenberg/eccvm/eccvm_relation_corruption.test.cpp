@@ -398,13 +398,14 @@ TEST_F(ECCVMRelationCorruptionTests, SetRelationFailsOnZPermNonZeroAtFirstRow)
     auto polynomials = build_valid_eccvm_msm_state();
     auto params = compute_full_relation_params(polynomials);
 
-    // Baseline: set relation passes
-    auto baseline = RelationChecker<void>::check<ECCVMSetRelation<FF>>(polynomials, params, "ECCVMSetRelation");
+    // Baseline: set relation passes (skip disabled head rows where masking values break relations)
+    auto baseline = RelationChecker<void>::check<ECCVMSetRelation<FF>>(
+        polynomials, params, "ECCVMSetRelation", NUM_DISABLED_ROWS_IN_SUMCHECK);
     EXPECT_TRUE(baseline.empty()) << "Baseline set relation should pass";
 
     // Derive expected lagrange_first position from z_perm shiftable structure
     ASSERT_TRUE(polynomials.z_perm.is_shiftable());
-    size_t structural_first_row = polynomials.z_perm.start_index() - 1;
+    size_t structural_first_row = NUM_DISABLED_ROWS_IN_SUMCHECK;
 
     // Independently scan lagrange_first for its non-zero entry
     const auto& lagrange_first = polynomials.lagrange_first;
@@ -433,7 +434,10 @@ TEST_F(ECCVMRelationCorruptionTests, SetRelationFailsOnZPermNonZeroAtFirstRow)
     polynomials.z_perm.at(first_row) = FF(1);
 
     auto failures = RelationChecker<void>::check<ECCVMSetRelation<FF>>(
-        polynomials, params, "ECCVMSetRelation - After setting z_perm != 0 at lagrange_first");
+        polynomials,
+        params,
+        "ECCVMSetRelation - After setting z_perm != 0 at lagrange_first",
+        NUM_DISABLED_ROWS_IN_SUMCHECK);
     EXPECT_FALSE(failures.empty()) << "Set relation should fail after z_perm init corruption";
     EXPECT_TRUE(failures.contains(ECCVMSetRelationImpl<FF>::Z_PERM_INIT))
         << "Sub-relation Z_PERM_INIT should catch the corruption";
