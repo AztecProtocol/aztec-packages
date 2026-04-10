@@ -130,7 +130,7 @@ export class EmbeddedWallet extends BaseWallet {
     const simulationResult = await this.simulateViaEntrypoint(executionPayload, {
       from: opts.from,
       feeOptions,
-      scopes: this.scopesFrom(opts.from, opts.additionalScopes),
+      additionalScopes: opts.additionalScopes,
       skipTxValidation: true,
     });
 
@@ -226,7 +226,8 @@ export class EmbeddedWallet extends BaseWallet {
     executionPayload: ExecutionPayload,
     opts: SimulateViaEntrypointOptions,
   ): Promise<TxSimulationResultWithAppOffset> {
-    const { from, feeOptions, scopes, skipTxValidation, skipFeeEnforcement } = opts;
+    const { from, feeOptions, additionalScopes, skipTxValidation, skipFeeEnforcement } = opts;
+    const scopes = this.scopesFrom(from, additionalScopes);
 
     const feeExecutionPayload = await feeOptions.walletFeePaymentMethod?.getExecutionPayload();
     const finalExecutionPayload = feeExecutionPayload
@@ -234,7 +235,7 @@ export class EmbeddedWallet extends BaseWallet {
       : executionPayload;
     const chainInfo = await this.getChainInfo();
 
-    const accountOverrides = await this.buildAccountOverrides(scopes ?? []);
+    const accountOverrides = await this.buildAccountOverrides(scopes);
     const overrides = new SimulationOverrides(accountOverrides);
 
     let txRequest: TxExecutionRequest;

@@ -235,7 +235,8 @@ export class TestWallet extends BaseWallet {
     executionPayload: ExecutionPayload,
     opts: SimulateViaEntrypointOptions,
   ): Promise<TxSimulationResultWithAppOffset> {
-    const { from, feeOptions, scopes, skipTxValidation, skipFeeEnforcement } = opts;
+    const { from, feeOptions, additionalScopes, skipTxValidation, skipFeeEnforcement } = opts;
+    const scopes = this.scopesFrom(from, additionalScopes);
     const skipKernels = this.simulationMode !== 'full';
     const useOverride = this.simulationMode === 'kernelless-override';
 
@@ -248,7 +249,7 @@ export class TestWallet extends BaseWallet {
     let overrides: SimulationOverrides | undefined;
     let txRequest: TxExecutionRequest;
     if (useOverride) {
-      const accountOverrides = await this.buildAccountOverrides(this.scopesFrom(from, opts.additionalScopes));
+      const accountOverrides = await this.buildAccountOverrides(scopes);
       overrides = new SimulationOverrides(accountOverrides);
     }
 

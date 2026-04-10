@@ -237,7 +237,8 @@ export class CLIWallet extends BaseWallet {
     executionPayload: ExecutionPayload,
     opts: SimulateViaEntrypointOptions,
   ): Promise<TxSimulationResultWithAppOffset> {
-    const { from, feeOptions, scopes } = opts;
+    const { from, feeOptions, additionalScopes } = opts;
+    const scopes = this.scopesFrom(from, additionalScopes);
     const feeExecutionPayload = await feeOptions.walletFeePaymentMethod?.getExecutionPayload();
     const finalExecutionPayload = feeExecutionPayload
       ? mergeExecutionPayloads([feeExecutionPayload, executionPayload])
