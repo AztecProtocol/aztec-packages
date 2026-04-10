@@ -13,6 +13,7 @@ import {
 } from '@aztec/aztec.js/authorization';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import { AccountManager, type SendOptions } from '@aztec/aztec.js/wallet';
+import { TxSimulationResultWithAppOffset } from '@aztec/aztec.js/wallet';
 import type { DefaultAccountEntrypointOptions } from '@aztec/entrypoints/account';
 import { DefaultEntrypoint } from '@aztec/entrypoints/default';
 import { Fq, Fr } from '@aztec/foundation/curves/bn254';
@@ -32,7 +33,6 @@ import {
   type TxExecutionRequest,
   type TxHash,
   type TxReceipt,
-  type TxSimulationResult,
 } from '@aztec/stdlib/tx';
 import { ExecutionPayload, mergeExecutionPayloads } from '@aztec/stdlib/tx';
 import { BaseWallet, type SimulateViaEntrypointOptions } from '@aztec/wallet-sdk/base-wallet';
@@ -234,7 +234,7 @@ export class TestWallet extends BaseWallet {
   protected override async simulateViaEntrypoint(
     executionPayload: ExecutionPayload,
     opts: SimulateViaEntrypointOptions,
-  ): Promise<TxSimulationResult> {
+  ): Promise<TxSimulationResultWithAppOffset> {
     const { from, feeOptions, scopes, skipTxValidation, skipFeeEnforcement } = opts;
     const skipKernels = this.simulationMode !== 'full';
     const useOverride = this.simulationMode === 'kernelless-override';
@@ -278,7 +278,7 @@ export class TestWallet extends BaseWallet {
       );
     }
 
-    return this.pxe.simulateTx(txRequest, {
+    const result = await this.pxe.simulateTx(txRequest, {
       simulatePublic: true,
       skipKernels,
       skipFeeEnforcement,
@@ -286,6 +286,8 @@ export class TestWallet extends BaseWallet {
       overrides,
       scopes,
     });
+    const appCallOffset = await this.computeAppCallOffset(from, feeOptions);
+    return TxSimulationResultWithAppOffset.fromResultAndOffset(result, appCallOffset);
   }
 
   async proveTx(exec: ExecutionPayload, opts: Omit<SendOptions, 'wait'>): Promise<ProvenTx> {
