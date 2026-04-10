@@ -260,6 +260,13 @@ tests:
     owners:
       - *sean
 
+  # Flaky — tx propagation timing can cause checkpoint 1 to get fewer blocks than expected,
+  # shifting block distribution so no checkpoint reaches the 12-block threshold
+  - regex: "epochs_mbps.pipeline.parallel.test.ts.*pipelining builds blocks"
+    error_regex: "expect.*toBeDefined"
+    owners:
+      - *sean
+
   # Blanket flake patterns for unstable p2p, epoch, and l1 tx utils tests
   # This is a temporary measure while team bandwidth is constrained
   # Replaced many specific patterns - see https://github.com/AztecProtocol/aztec-packages/pull/17962 for historical context
