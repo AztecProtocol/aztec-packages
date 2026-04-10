@@ -42,6 +42,8 @@ void compute_logderivative_inverse(Polynomials& polynomials,
     auto& inverse_polynomial = Relation::get_inverse_polynomial(polynomials);
     const size_t offset = std::max(inverse_polynomial.start_index(), start_index);
     const size_t num_rows = circuit_size - offset;
+    // Clamp to the polynomial's actual (non-virtual) data extent; beyond end_index() everything is virtual zero.
+    const size_t actual_size = inverse_polynomial.end_index() > offset ? inverse_polynomial.end_index() - offset : 0;
     const auto compute_inverses = [&](size_t start, size_t end) {
         for (size_t i = start; i < end; ++i) {
             const size_t row_idx = i + offset;
@@ -64,11 +66,15 @@ void compute_logderivative_inverse(Polynomials& polynomials,
             });
             inverse_polynomial.at(row_idx) = denominator;
         }
-        // Batch invert only the range we wrote to (in backing memory coordinates)
-        FF* ffstart = &inverse_polynomial.data()[start + offset - inverse_polynomial.start_index()];
-        std::span<FF> to_invert(ffstart, end - start);
-        // Note: zeroes are ignored as they are not used anyway
-        FF::batch_invert(to_invert);
+        // Batch invert only the range we wrote to, clamped to actual (non-virtual) data
+        const size_t clamped_start = std::min(start, actual_size);
+        const size_t clamped_end = std::min(end, actual_size);
+        if (clamped_start < clamped_end) {
+            FF* ffstart = &inverse_polynomial.data()[clamped_start + offset - inverse_polynomial.start_index()];
+            std::span<FF> to_invert(ffstart, clamped_end - clamped_start);
+            // Note: zeroes are ignored as they are not used anyway
+            FF::batch_invert(to_invert);
+        }
     };
     if constexpr (UseMultithreading) {
         parallel_for([&](const ThreadChunk& chunk) {
