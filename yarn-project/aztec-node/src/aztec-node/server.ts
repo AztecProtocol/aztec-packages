@@ -1645,6 +1645,10 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
 
     const currentBlockNumber = await this.getBlockNumber();
 
+    // Use slot duration + 50% buffer as the timeout so this works on running networks too
+    const { slotDuration } = await this.blockSource.getL1Constants();
+    const timeoutSeconds = Math.ceil(slotDuration * 1.5);
+
     // Temporarily set minTxsPerBlock to 0 so the sequencer produces a block even with no txs
     const originalMinTxsPerBlock = this.sequencer.getSequencer().getConfig().minTxsPerBlock;
     this.sequencer.updateConfig({ minTxsPerBlock: 0 });
@@ -1660,7 +1664,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
           return newBlockNumber > currentBlockNumber ? true : undefined;
         },
         'mineBlock',
-        30,
+        timeoutSeconds,
         0.1,
       );
     } finally {
