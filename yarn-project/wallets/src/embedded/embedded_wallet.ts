@@ -130,7 +130,7 @@ export class EmbeddedWallet extends BaseWallet {
     const simulationResult = await this.simulateViaEntrypoint(executionPayload, {
       from: opts.from,
       feeOptions,
-      scopes: this.scopesFrom(opts.from, opts.additionalScopes),
+      additionalScopes: opts.additionalScopes,
       skipTxValidation: true,
     });
 
@@ -184,17 +184,19 @@ export class EmbeddedWallet extends BaseWallet {
 
   /**
    * Builds contract overrides for all provided addresses by replacing their account contracts with stub implementations.
+   * Uses a type-specific stub artifact so that the stub's constructor selector matches the real account's constructor.
    */
   protected async buildAccountOverrides(addresses: AztecAddress[]): Promise<ContractOverrides> {
     const accounts = await this.getAccounts();
     const contracts: ContractOverrides = {};
 
-    const stubArtifact = await this.accountContracts.getStubAccountContractArtifact();
-
     const filtered = accounts.filter(acc => addresses.some(addr => addr.equals(acc.item)));
 
     for (const account of filtered) {
       const address = account.item;
+      const { type } = await this.walletDB.retrieveAccount(address);
+      const stubArtifact = await this.accountContracts.getStubAccountContractArtifact(type);
+
       const originalAccount = await this.getAccountFromAddress(address);
       const completeAddress = originalAccount.getCompleteAddress();
       const contractInstance = await this.pxe.getContractInstance(completeAddress.address);
@@ -204,8 +206,10 @@ export class EmbeddedWallet extends BaseWallet {
         );
       }
 
+      const stubConstructorArgs = type === 'schnorr' ? [Fr.ZERO, Fr.ZERO] : [Buffer.alloc(32), Buffer.alloc(32)];
       const stubInstance = await getContractInstanceFromInstantiationParams(stubArtifact, {
         salt: Fr.random(),
+        constructorArgs: stubConstructorArgs,
       });
 
       contracts[address.toString()] = {
@@ -226,7 +230,8 @@ export class EmbeddedWallet extends BaseWallet {
     executionPayload: ExecutionPayload,
     opts: SimulateViaEntrypointOptions,
   ): Promise<TxSimulationResultWithAppOffset> {
-    const { from, feeOptions, scopes, skipTxValidation, skipFeeEnforcement } = opts;
+    const { from, feeOptions, additionalScopes, skipTxValidation, skipFeeEnforcement } = opts;
+    const scopes = this.scopesFrom(from, additionalScopes);
 
     const feeExecutionPayload = await feeOptions.walletFeePaymentMethod?.getExecutionPayload();
     const finalExecutionPayload = feeExecutionPayload
@@ -234,7 +239,7 @@ export class EmbeddedWallet extends BaseWallet {
       : executionPayload;
     const chainInfo = await this.getChainInfo();
 
-    const accountOverrides = await this.buildAccountOverrides(this.scopesFrom(from, opts.additionalScopes));
+    const accountOverrides = await this.buildAccountOverrides(scopes);
     const overrides = new SimulationOverrides(accountOverrides);
 
     let txRequest: TxExecutionRequest;
@@ -242,9 +247,10 @@ export class EmbeddedWallet extends BaseWallet {
       const entrypoint = new DefaultEntrypoint();
       txRequest = await entrypoint.createTxExecutionRequest(finalExecutionPayload, feeOptions.gasSettings, chainInfo);
     } else {
+      const { type } = await this.walletDB.retrieveAccount(from);
       const originalAccount = await this.getAccountFromAddress(from);
       const completeAddress = originalAccount.getCompleteAddress();
-      const account = await this.accountContracts.createStubAccount(completeAddress);
+      const account = await this.accountContracts.createStubAccount(completeAddress, type);
       const executionOptions: DefaultAccountEntrypointOptions = {
         txNonce: Fr.random(),
         cancellable: this.cancellableTransactions,
