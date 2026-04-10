@@ -88,8 +88,6 @@ export type SimulateViaEntrypointOptions = Pick<
 > & {
   /** Fee options for the entrypoint */
   feeOptions: FeeOptions;
-  /** Scopes to use for the simulation */
-  scopes: AztecAddress[];
 };
 
 /** Options for `completeFeeOptions`. */
@@ -347,7 +345,7 @@ export abstract class BaseWallet implements Wallet {
       simulatePublic: true,
       skipTxValidation: opts.skipTxValidation,
       skipFeeEnforcement: opts.skipFeeEnforcement,
-      scopes: opts.scopes,
+      scopes: this.scopesFrom(opts.from, opts.additionalScopes),
     });
     const appCallOffset = await this.computeAppCallOffset(opts.from, opts.feeOptions);
     return TxSimulationResultWithAppOffset.fromResultAndOffset(result, appCallOffset);
@@ -417,7 +415,7 @@ export abstract class BaseWallet implements Wallet {
         ? this.simulateViaEntrypoint(remainingPayload, {
             from: opts.from,
             feeOptions,
-            scopes: this.scopesFrom(opts.from, opts.additionalScopes),
+            additionalScopes: opts.additionalScopes,
             skipTxValidation: opts.skipTxValidation,
             skipFeeEnforcement: opts.skipFeeEnforcement ?? true,
           })
