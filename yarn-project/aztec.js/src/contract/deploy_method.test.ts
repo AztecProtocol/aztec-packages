@@ -4,10 +4,11 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import { Gas } from '@aztec/stdlib/gas';
 import { PublicKeys } from '@aztec/stdlib/keys';
-import { OFFCHAIN_MESSAGE_IDENTIFIER, type OffchainEffect, type TxSimulationResult } from '@aztec/stdlib/tx';
+import { OFFCHAIN_MESSAGE_IDENTIFIER, type OffchainEffect } from '@aztec/stdlib/tx';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
+import type { TxSimulationResultWithAppOffset } from '../wallet/tx_simulation_result_with_app_offset.js';
 import type { Wallet } from '../wallet/wallet.js';
 import type { ContractBase } from './contract_base.js';
 import { DeployMethod } from './deploy_method.js';
@@ -70,7 +71,7 @@ describe('DeployMethod', () => {
       },
     ];
 
-    const txSimResult = mock<TxSimulationResult>();
+    const txSimResult = mock<TxSimulationResultWithAppOffset>();
     Object.defineProperty(txSimResult, 'offchainEffects', { value: offchainEffects });
     Object.defineProperty(txSimResult, 'publicInputs', {
       value: {
