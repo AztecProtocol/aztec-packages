@@ -151,7 +151,7 @@ template <typename Flavor> struct ZKSumcheckData {
         }
         total_sum *= scaling_factor;
 
-        return { total_sum + constant_term * (static_cast<uint64_t>(1) << libra_univariates.size()), scaling_factor };
+        return { total_sum + constant_term * (1UL << libra_univariates.size()), scaling_factor };
     }
 
     /**

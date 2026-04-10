@@ -1,3 +1,4 @@
+import type { SimulationOverridesPlan } from '@aztec/ethereum/contracts';
 import { BlockNumber, type SlotNumber } from '@aztec/foundation/branded-types';
 import { times } from '@aztec/foundation/collection';
 import type { EthAddress } from '@aztec/foundation/eth-address';
@@ -5,7 +6,6 @@ import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { FEE_ORACLE_LAG, GasFees } from '@aztec/stdlib/gas';
 import { makeGlobalVariables } from '@aztec/stdlib/testing';
 import {
-  type BuildCheckpointGlobalVariablesOpts,
   type CheckpointGlobalVariables,
   type FeeProvider,
   type GlobalVariableBuilder,
@@ -37,7 +37,7 @@ export class TXEGlobalVariablesBuilder implements GlobalVariableBuilder {
     _coinbase: EthAddress,
     _feeRecipient: AztecAddress,
     _slotNumber: SlotNumber,
-    _opts?: BuildCheckpointGlobalVariablesOpts,
+    _simulationOverridesPlan?: SimulationOverridesPlan,
   ): Promise<CheckpointGlobalVariables> {
     const vars = makeGlobalVariables();
     return Promise.resolve({

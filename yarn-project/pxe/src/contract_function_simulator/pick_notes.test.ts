@@ -259,6 +259,50 @@ describe('getNotes', () => {
     ]);
   });
 
+  it('should select using sub-field byte range with LSB offset convention', () => {
+    // Each note has a single field. We'll use values where the low bytes differ:
+    // 0x0102 = 258: low byte (offset=0, len=1) = 0x02, second byte (offset=1, len=1) = 0x01
+    // 0x0302 = 770: low byte = 0x02, second byte = 0x03
+    // 0x0105 = 261: low byte = 0x05, second byte = 0x01
+    const notes = [createNote([258n]), createNote([770n]), createNote([261n])];
+
+    // Select by low byte (offset=0, length=1) == 0x02
+    {
+      const options = {
+        selects: [{ selector: { index: 0, offset: 0, length: 1 }, value: new Fr(0x02n), comparator: Comparator.EQ }],
+      };
+      const result = pickNotes(notes, options);
+      expectNotes(result, [[258n], [770n]]);
+    }
+
+    // Select by second byte (offset=1, length=1) == 0x01
+    {
+      const options = {
+        selects: [{ selector: { index: 0, offset: 1, length: 1 }, value: new Fr(0x01n), comparator: Comparator.EQ }],
+      };
+      const result = pickNotes(notes, options);
+      expectNotes(result, [[258n], [261n]]);
+    }
+
+    // Select by two low bytes (offset=0, length=2) == 0x0102 = 258
+    {
+      const options = {
+        selects: [{ selector: { index: 0, offset: 0, length: 2 }, value: new Fr(0x0102n), comparator: Comparator.EQ }],
+      };
+      const result = pickNotes(notes, options);
+      expectNotes(result, [[258n]]);
+    }
+
+    // GT on low byte: low byte > 0x02 matches only 261 (low byte = 0x05)
+    {
+      const options = {
+        selects: [{ selector: { index: 0, offset: 0, length: 1 }, value: new Fr(0x02n), comparator: Comparator.GT }],
+      };
+      const result = pickNotes(notes, options);
+      expectNotes(result, [[261n]]);
+    }
+  });
+
   it('should get sorted matching notes with GTE and LTE', () => {
     const notes = [
       createNote([2n, 1n, 1n]),

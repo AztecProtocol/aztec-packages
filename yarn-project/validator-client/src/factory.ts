@@ -46,6 +46,7 @@ export function createProposalHandler(
     metrics,
     deps.dateProvider,
     deps.telemetry,
+    undefined,
   );
 }
 

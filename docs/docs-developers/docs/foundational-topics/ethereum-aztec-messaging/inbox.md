@@ -28,7 +28,6 @@ Sends a message from L1 to L2.
 - Will revert with `Inbox__VersionMismatch(uint256 expected, uint256 actual)` if the recipient version doesn't match the inbox version.
 - Will revert with `Inbox__ContentTooLarge(bytes32 content)` if the content is larger than the field size (~254 bits).
 - Will revert with `Inbox__SecretHashTooLarge(bytes32 secretHash)` if the secret hash is larger than the field size (~254 bits).
-- Will revert with `Inbox__Ignition()` during the ignition phase (when the rollup's mana target is 0).
 
 ## View functions
 

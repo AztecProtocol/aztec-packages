@@ -115,7 +115,6 @@ locals {
     "global.useGcloudLogging"                                  = true
     "global.aztecNetwork"                                      = var.NETWORK
     "global.customAztecNetwork.registryContractAddress"        = var.REGISTRY_CONTRACT_ADDRESS
-    "global.customAztecNetwork.slashFactoryContractAddress"    = var.SLASH_FACTORY_CONTRACT_ADDRESS
     "global.customAztecNetwork.feeAssetHandlerContractAddress" = var.FEE_ASSET_HANDLER_CONTRACT_ADDRESS
     "global.customAztecNetwork.l1ChainId"                      = var.L1_CHAIN_ID
     "global.otelCollectorEndpoint"                             = var.OTEL_COLLECTOR_ENDPOINT
@@ -199,8 +198,6 @@ locals {
     "validator.publishersPerReplica"                              = var.VALIDATOR_PUBLISHERS_PER_REPLICA
     "validator.publisherMnemonicStartIndex"                       = var.VALIDATOR_PUBLISHER_MNEMONIC_START_INDEX
     "validator.sentinel.enabled"                                  = var.SENTINEL_ENABLED
-    "validator.slash.minPenaltyPercentage"                        = var.SLASH_MIN_PENALTY_PERCENTAGE
-    "validator.slash.maxPenaltyPercentage"                        = var.SLASH_MAX_PENALTY_PERCENTAGE
     "validator.slash.inactivityTargetPercentage"                  = var.SLASH_INACTIVITY_TARGET_PERCENTAGE
     "validator.slash.inactivityPenalty"                           = var.SLASH_INACTIVITY_PENALTY
     "validator.slash.prunePenalty"                                = var.SLASH_PRUNE_PENALTY
@@ -227,6 +224,8 @@ locals {
     "validator.node.env.SEQ_BLOCK_DURATION_MS"                    = var.SEQ_BLOCK_DURATION_MS
     "validator.node.env.SEQ_L1_PUBLISHING_TIME_ALLOWANCE_IN_SLOT" = var.SEQ_L1_PUBLISHING_TIME_ALLOWANCE_IN_SLOT
     "validator.node.env.SEQ_BUILD_CHECKPOINT_IF_EMPTY"            = var.SEQ_BUILD_CHECKPOINT_IF_EMPTY
+    "validator.node.env.SEQ_ENABLE_PROPOSER_PIPELINING"           = var.SEQ_ENABLE_PROPOSER_PIPELINING
+    "validator.node.env.AZTEC_EPOCHS_LAG"                         = var.AZTEC_EPOCHS_LAG
     "validator.node.env.SEQ_ENFORCE_TIME_TABLE"                   = var.SEQ_ENFORCE_TIME_TABLE
     "validator.node.env.P2P_TX_POOL_DELETE_TXS_AFTER_REORG"       = var.P2P_TX_POOL_DELETE_TXS_AFTER_REORG
     "validator.node.env.L1_PRIORITY_FEE_BUMP_PERCENTAGE"          = var.VALIDATOR_L1_PRIORITY_FEE_BUMP_PERCENTAGE

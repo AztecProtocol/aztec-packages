@@ -31,11 +31,10 @@ import type { L1ReaderConfig } from '../l1_reader.js';
 import type { L1TxRequest, L1TxUtils } from '../l1_tx_utils/index.js';
 import type { ViemClient } from '../types.js';
 import { formatViemError } from '../utils.js';
-import { EmpireSlashingProposerContract } from './empire_slashing_proposer.js';
 import { GSEContract } from './gse.js';
 import type { L1EventLog } from './log.js';
 import { SlasherContract } from './slasher_contract.js';
-import { TallySlashingProposerContract } from './tally_slashing_proposer.js';
+import { SlashingProposerContract } from './slashing_proposer.js';
 import { checkBlockTag } from './utils.js';
 
 export type ViemCommitteeAttestation = {
@@ -57,7 +56,6 @@ export type L1RollupContractAddresses = Pick<
   | 'feeJuiceAddress'
   | 'stakingAssetAddress'
   | 'rewardDistributorAddress'
-  | 'slashFactoryAddress'
   | 'gseAddress'
 >;
 
@@ -86,12 +84,6 @@ export type ViemGasFees = {
   feePerDaGas: bigint;
   feePerL2Gas: bigint;
 };
-
-export enum SlashingProposerType {
-  None = 0,
-  Tally = 1,
-  Empire = 2,
-}
 
 /**
  * Status of a validator/attester in the staking system.
@@ -281,34 +273,18 @@ export class RollupContract {
     return this.rollup;
   }
 
-  public async getSlashingProposer(): Promise<
-    EmpireSlashingProposerContract | TallySlashingProposerContract | undefined
-  > {
+  public async getSlashingProposer(): Promise<SlashingProposerContract | undefined> {
     const slasher = await this.getSlasherContract();
     if (!slasher) {
       return undefined;
     }
 
     const proposerAddress = await slasher.getProposer();
-    const proposerAbi = [
-      {
-        type: 'function',
-        name: 'SLASHING_PROPOSER_TYPE',
-        inputs: [],
-        outputs: [{ name: '', type: 'uint8', internalType: 'enum SlasherFlavor' }],
-        stateMutability: 'view',
-      },
-    ] as const;
-
-    const proposer = getContract({ address: proposerAddress.toString(), abi: proposerAbi, client: this.client });
-    const proposerType = await proposer.read.SLASHING_PROPOSER_TYPE();
-    if (proposerType === SlashingProposerType.Tally.valueOf()) {
-      return new TallySlashingProposerContract(this.client, proposerAddress);
-    } else if (proposerType === SlashingProposerType.Empire.valueOf()) {
-      return new EmpireSlashingProposerContract(this.client, proposerAddress);
-    } else {
-      throw new Error(`Unknown slashing proposer type: ${proposerType}`);
+    if (proposerAddress.isZero()) {
+      return undefined;
     }
+
+    return new SlashingProposerContract(this.client, proposerAddress);
   }
 
   @memoize
@@ -831,18 +807,10 @@ export class RollupContract {
     archive: Buffer,
     account: `0x${string}` | Account,
     timestamp: bigint,
-    opts: {
-      forcePendingCheckpointNumber?: CheckpointNumber;
-      forceArchive?: { checkpointNumber: CheckpointNumber; archive: Fr };
-    } = {},
+    stateOverride: StateOverride = [],
   ): Promise<{ slot: SlotNumber; checkpointNumber: CheckpointNumber; timeOfNextL1Slot: bigint }> {
     const timeOfNextL1Slot = timestamp;
     const who = typeof account === 'string' ? account : account.address;
-
-    const stateOverride = RollupContract.mergeStateOverrides(
-      await this.makePendingCheckpointNumberOverride(opts.forcePendingCheckpointNumber),
-      opts.forceArchive ? this.makeArchiveOverride(opts.forceArchive.checkpointNumber, opts.forceArchive.archive) : [],
-    );
 
     try {
       const {

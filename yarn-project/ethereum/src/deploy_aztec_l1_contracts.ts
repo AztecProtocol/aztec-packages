@@ -230,7 +230,6 @@ export function computeValidatorData(operator: Operator): ValidatorJson {
 export interface RollupUpgradeAddresses {
   rollupAddress: string;
   verifierAddress: string;
-  slashFactoryAddress: string;
   inboxAddress: string;
   outboxAddress: string;
   feeJuicePortalAddress: string;
@@ -243,7 +242,6 @@ export interface RollupUpgradeAddresses {
 export interface ForgeRollupUpgradeResult {
   rollupAddress: Hex;
   verifierAddress: Hex;
-  slashFactoryAddress: Hex;
   inboxAddress: Hex;
   outboxAddress: Hex;
   feeJuicePortalAddress: Hex;
@@ -403,7 +401,6 @@ export async function deployAztecL1Contracts(
       governanceProposerAddress: EthAddress.fromString(result.governanceProposerAddress),
       governanceAddress: EthAddress.fromString(result.governanceAddress),
       stakingAssetAddress: EthAddress.fromString(result.stakingAssetAddress),
-      slashFactoryAddress: result.slashFactoryAddress ? EthAddress.fromString(result.slashFactoryAddress) : undefined,
       feeAssetHandlerAddress: result.feeAssetHandlerAddress
         ? EthAddress.fromString(result.feeAssetHandlerAddress)
         : undefined,
@@ -585,7 +582,7 @@ export function getDeployRollupForUpgradeEnvVars(
     AZTEC_EXIT_DELAY_SECONDS: args.exitDelaySeconds.toString(),
     AZTEC_PROVING_COST_PER_MANA: args.provingCostPerMana.toString(),
     AZTEC_INITIAL_ETH_PER_FEE_ASSET: args.initialEthPerFeeAsset.toString(),
-    AZTEC_SLASHER_FLAVOR: args.slasherFlavor,
+    AZTEC_SLASHER_ENABLED: args.slasherEnabled ? 'true' : 'false',
     AZTEC_SLASHING_ROUND_SIZE_IN_EPOCHS: args.slashingRoundSizeInEpochs.toString(),
     AZTEC_SLASHING_QUORUM: args.slashingQuorum?.toString(),
     AZTEC_SLASHING_OFFSET_IN_ROUNDS: args.slashingOffsetInRounds.toString(),
@@ -645,6 +642,5 @@ export const deployRollupForUpgrade = async (
 
   return {
     rollup,
-    slashFactoryAddress: result.slashFactoryAddress,
   };
 };

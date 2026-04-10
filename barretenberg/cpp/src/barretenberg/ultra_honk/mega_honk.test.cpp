@@ -336,3 +336,46 @@ TYPED_TEST(MegaHonkTests, MaskingTailCommitments)
         }
     }
 }
+
+/**
+ * @brief Verify that REPEATED_COMMITMENTS indices correctly pair to-be-shifted and shifted commitments.
+ * @details Mirrors the Shplemini vector construction: [Q, unshifted..., to_be_shifted...] with
+ * offset = HasZK ? 2 : 1, then checks the same index pairs that remove_repeated_commitments asserts.
+ */
+TYPED_TEST(MegaHonkTests, RepeatedCommitmentsIndicesCorrect)
+{
+    using Flavor = TypeParam;
+    using Builder = typename Flavor::CircuitBuilder;
+    using DefaultIO = stdlib::recursion::honk::DefaultIO<Builder>;
+    using CommitmentKey = typename Flavor::CommitmentKey;
+    using Commitment = typename Flavor::Commitment;
+
+    auto builder = Builder{};
+    DefaultIO::add_default(builder);
+    auto prover_instance = std::make_shared<ProverInstance_<Flavor>>(builder);
+    CommitmentKey ck(prover_instance->dyadic_size());
+
+    auto unshifted = prover_instance->polynomials.get_unshifted();
+    auto to_be_shifted = prover_instance->polynomials.get_to_be_shifted();
+
+    constexpr auto repeated = Flavor::REPEATED_COMMITMENTS;
+    ASSERT_EQ(to_be_shifted.size(), repeated.first.count);
+
+    // Build the commitment vector exactly as Shplemini does: [Q, unshifted..., to_be_shifted...]
+    std::vector<Commitment> commitments;
+    commitments.push_back(Commitment::one()); // dummy Q
+    for (auto& poly : unshifted) {
+        commitments.push_back(ck.commit(poly));
+    }
+    for (auto& poly : to_be_shifted) {
+        commitments.push_back(ck.commit(poly));
+    }
+
+    // Same offset logic as remove_repeated_commitments
+    constexpr size_t offset = Flavor::HasZK ? 2 : 1;
+    for (size_t i = 0; i < repeated.first.count; i++) {
+        EXPECT_EQ(commitments[repeated.first.original_start + offset + i],
+                  commitments[repeated.first.duplicate_start + offset + i])
+            << "REPEATED_COMMITMENTS commitment mismatch at index " << i;
+    }
+}

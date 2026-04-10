@@ -34,7 +34,6 @@ describe('Archiver Store', () => {
   const rollupAddress = EthAddress.random();
   const registryAddress = EthAddress.random();
   const governanceProposerAddress = EthAddress.random();
-  const slashFactoryAddress = EthAddress.random();
   const slashingProposerAddress = EthAddress.random();
 
   let publicClient: MockProxy<ViemPublicClient>;
@@ -79,7 +78,6 @@ describe('Archiver Store', () => {
     const contractAddresses = {
       registryAddress,
       governanceProposerAddress,
-      slashFactoryAddress,
       slashingProposerAddress,
     };
 
