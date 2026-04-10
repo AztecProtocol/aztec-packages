@@ -3,19 +3,24 @@ import { FunctionCall, FunctionSelector, FunctionType } from '@aztec/stdlib/abi'
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
   ExecutionPayload,
+<<<<<<< HEAD
+=======
+  HashedValues,
+  NestedProcessReturnValues,
+>>>>>>> a186a55268 (fix: passing in user call info from wallet (#21937))
   OFFCHAIN_MESSAGE_IDENTIFIER,
   type OffchainEffect,
-  TxSimulationResult,
   UtilityExecutionResult,
 } from '@aztec/stdlib/tx';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
+import { TxSimulationResultWithAppOffset } from '../wallet/tx_simulation_result_with_app_offset.js';
 import type { Wallet } from '../wallet/wallet.js';
 import { BatchCall } from './batch_call.js';
 
 function mockTxSimResult(overrides: { anchorBlockTimestamp?: bigint; offchainEffects?: OffchainEffect[] } = {}) {
-  const txSimResult = mock<TxSimulationResult>();
+  const txSimResult = mock<TxSimulationResultWithAppOffset>();
   Object.defineProperty(txSimResult, 'offchainEffects', { value: overrides.offchainEffects ?? [] });
   Object.defineProperty(txSimResult, 'publicInputs', {
     value: {
@@ -134,9 +139,7 @@ describe('BatchCall', () => {
       const publicReturnValues = [Fr.random()];
 
       const txSimResult = mockTxSimResult();
-      txSimResult.getPrivateReturnValues.mockReturnValue({
-        nested: [{ values: privateReturnValues }],
-      } as any);
+      txSimResult.getPrivateReturnValuesOfAppCall.mockReturnValue({ values: privateReturnValues } as any);
       txSimResult.getPublicReturnValues.mockReturnValue([{ values: publicReturnValues }] as any);
 
       // Mock wallet.batch to return both utility results and simulateTx result
@@ -298,9 +301,9 @@ describe('BatchCall', () => {
           { data: txRawEffectData, contractAddress: emitterContract },
         ],
       });
-      txSimResult.getPrivateReturnValues.mockReturnValue({
-        nested: [{ values: [Fr.random()] }, { values: [Fr.random()] }],
-      } as any);
+      txSimResult.getPrivateReturnValuesOfAppCall.mockImplementation(
+        () => new NestedProcessReturnValues([Fr.random()]),
+      );
 
       wallet.batch.mockResolvedValue([
         { name: 'executeUtility', result: utilityResult },
@@ -342,9 +345,7 @@ describe('BatchCall', () => {
       const publicReturnValues = [Fr.random()];
 
       const txSimResult = mockTxSimResult();
-      txSimResult.getPrivateReturnValues.mockReturnValue({
-        nested: [{ values: privateReturnValues }],
-      } as any);
+      txSimResult.getPrivateReturnValuesOfAppCall.mockReturnValue({ values: privateReturnValues } as any);
       txSimResult.getPublicReturnValues.mockReturnValue([{ values: publicReturnValues }] as any);
 
       wallet.batch.mockResolvedValue([{ name: 'simulateTx', result: txSimResult }] as any);
