@@ -234,7 +234,7 @@ export class EmbeddedWallet extends BaseWallet {
       : executionPayload;
     const chainInfo = await this.getChainInfo();
 
-    const accountOverrides = await this.buildAccountOverrides(this.scopesFrom(from, opts.additionalScopes));
+    const accountOverrides = await this.buildAccountOverrides(scopes ?? []);
     const overrides = new SimulationOverrides(accountOverrides);
 
     let txRequest: TxExecutionRequest;
