@@ -1,0 +1,264 @@
+[inputs]
+new_archive_sibling_path = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+
+[[inputs.previous_rollups]]
+proof = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+
+[inputs.previous_rollups.public_inputs]
+accumulated_fees = 0
+accumulated_mana_used = 0
+num_txs = 0
+out_hash = 0
+
+[inputs.previous_rollups.public_inputs.constants]
+protocol_contracts_hash = 0
+prover_id = 0
+vk_tree_root = 0
+
+[inputs.previous_rollups.public_inputs.constants.global_variables]
+block_number = 0
+chain_id = 0
+slot_number = 0
+timestamp = 0
+version = 0
+
+[inputs.previous_rollups.public_inputs.constants.global_variables.coinbase]
+inner = 0
+
+[inputs.previous_rollups.public_inputs.constants.global_variables.fee_recipient]
+inner = 0
+
+[inputs.previous_rollups.public_inputs.constants.global_variables.gas_fees]
+fee_per_da_gas = 0
+fee_per_l2_gas = 0
+
+[inputs.previous_rollups.public_inputs.constants.l1_to_l2_tree_snapshot]
+next_available_leaf_index = 0
+root = 0
+
+[inputs.previous_rollups.public_inputs.constants.last_archive]
+next_available_leaf_index = 0
+root = 0
+
+[inputs.previous_rollups.public_inputs.end_sponge_blob]
+num_absorbed_fields = 0
+
+[inputs.previous_rollups.public_inputs.end_sponge_blob.sponge]
+cache = [0, 0, 0]
+cache_size = 0
+squeeze_mode = false
+state = [0, 0, 0, 0]
+
+[inputs.previous_rollups.public_inputs.end_tree_snapshots.note_hash_tree]
+next_available_leaf_index = 0
+root = 0
+
+[inputs.previous_rollups.public_inputs.end_tree_snapshots.nullifier_tree]
+next_available_leaf_index = 0
+root = 0
+
+[inputs.previous_rollups.public_inputs.end_tree_snapshots.public_data_tree]
+next_available_leaf_index = 0
+root = 0
+
+[inputs.previous_rollups.public_inputs.start_sponge_blob]
+num_absorbed_fields = 0
+
+[inputs.previous_rollups.public_inputs.start_sponge_blob.sponge]
+cache = [0, 0, 0]
+cache_size = 0
+squeeze_mode = false
+state = [0, 0, 0, 0]
+
+[inputs.previous_rollups.public_inputs.start_tree_snapshots.note_hash_tree]
+next_available_leaf_index = 0
+root = 0
+
+[inputs.previous_rollups.public_inputs.start_tree_snapshots.nullifier_tree]
+next_available_leaf_index = 0
+root = 0
+
+[inputs.previous_rollups.public_inputs.start_tree_snapshots.public_data_tree]
+next_available_leaf_index = 0
+root = 0
+
+[inputs.previous_rollups.vk_data]
+leaf_index = 0
+sibling_path = [0, 0, 0, 0, 0, 0, 0]
+
+[inputs.previous_rollups.vk_data.vk]
+hash = 0
+key = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+
+[[inputs.previous_rollups]]
+proof = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+
+[inputs.previous_rollups.public_inputs]
+accumulated_fees = 0
+accumulated_mana_used = 0
+num_txs = 0
+out_hash = 0
+
+[inputs.previous_rollups.public_inputs.constants]
+protocol_contracts_hash = 0
+prover_id = 0
+vk_tree_root = 0
+
+[inputs.previous_rollups.public_inputs.constants.global_variables]
+block_number = 0
+chain_id = 0
+slot_number = 0
+timestamp = 0
+version = 0
+
+[inputs.previous_rollups.public_inputs.constants.global_variables.coinbase]
+inner = 0
+
+[inputs.previous_rollups.public_inputs.constants.global_variables.fee_recipient]
+inner = 0
+
+[inputs.previous_rollups.public_inputs.constants.global_variables.gas_fees]
+fee_per_da_gas = 0
+fee_per_l2_gas = 0
+
+[inputs.previous_rollups.public_inputs.constants.l1_to_l2_tree_snapshot]
+next_available_leaf_index = 0
+root = 0
+
+[inputs.previous_rollups.public_inputs.constants.last_archive]
+next_available_leaf_index = 0
+root = 0
+
+[inputs.previous_rollups.public_inputs.end_sponge_blob]
+num_absorbed_fields = 0
+
+[inputs.previous_rollups.public_inputs.end_sponge_blob.sponge]
+cache = [0, 0, 0]
+cache_size = 0
+squeeze_mode = false
+state = [0, 0, 0, 0]
+
+[inputs.previous_rollups.public_inputs.end_tree_snapshots.note_hash_tree]
+next_available_leaf_index = 0
+root = 0
+
+[inputs.previous_rollups.public_inputs.end_tree_snapshots.nullifier_tree]
+next_available_leaf_index = 0
+root = 0
+
+[inputs.previous_rollups.public_inputs.end_tree_snapshots.public_data_tree]
+next_available_leaf_index = 0
+root = 0
+
+[inputs.previous_rollups.public_inputs.start_sponge_blob]
+num_absorbed_fields = 0
+
+[inputs.previous_rollups.public_inputs.start_sponge_blob.sponge]
+cache = [0, 0, 0]
+cache_size = 0
+squeeze_mode = false
+state = [0, 0, 0, 0]
+
+[inputs.previous_rollups.public_inputs.start_tree_snapshots.note_hash_tree]
+next_available_leaf_index = 0
+root = 0
+
+[inputs.previous_rollups.public_inputs.start_tree_snapshots.nullifier_tree]
+next_available_leaf_index = 0
+root = 0
+
+[inputs.previous_rollups.public_inputs.start_tree_snapshots.public_data_tree]
+next_available_leaf_index = 0
+root = 0
+
+[inputs.previous_rollups.vk_data]
+leaf_index = 0
+sibling_path = [0, 0, 0, 0, 0, 0, 0]
+
+[inputs.previous_rollups.vk_data.vk]
+hash = 0
+key = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+
+[return]
+accumulated_fees = 0
+accumulated_mana_used = 0
+block_headers_hash = 0
+in_hash = 0
+out_hash = 0
+timestamp = 0
+
+[return.constants]
+chain_id = 0
+protocol_contracts_hash = 0
+prover_id = 0
+slot_number = 0
+version = 0
+vk_tree_root = 0
+
+[return.constants.coinbase]
+inner = 0
+
+[return.constants.fee_recipient]
+inner = 0
+
+[return.constants.gas_fees]
+fee_per_da_gas = 0
+fee_per_l2_gas = 0
+
+[return.end_sponge_blob]
+num_absorbed_fields = 0
+
+[return.end_sponge_blob.sponge]
+cache = [0, 0, 0]
+cache_size = 0
+squeeze_mode = false
+state = [0, 0, 0, 0]
+
+[return.end_state.l1_to_l2_message_tree]
+next_available_leaf_index = 0
+root = 0
+
+[return.end_state.partial.note_hash_tree]
+next_available_leaf_index = 0
+root = 0
+
+[return.end_state.partial.nullifier_tree]
+next_available_leaf_index = 0
+root = 0
+
+[return.end_state.partial.public_data_tree]
+next_available_leaf_index = 0
+root = 0
+
+[return.new_archive]
+next_available_leaf_index = 0
+root = 0
+
+[return.previous_archive]
+next_available_leaf_index = 0
+root = 0
+
+[return.start_sponge_blob]
+num_absorbed_fields = 0
+
+[return.start_sponge_blob.sponge]
+cache = [0, 0, 0]
+cache_size = 0
+squeeze_mode = false
+state = [0, 0, 0, 0]
+
+[return.start_state.l1_to_l2_message_tree]
+next_available_leaf_index = 0
+root = 0
+
+[return.start_state.partial.note_hash_tree]
+next_available_leaf_index = 0
+root = 0
+
+[return.start_state.partial.nullifier_tree]
+next_available_leaf_index = 0
+root = 0
+
+[return.start_state.partial.public_data_tree]
+next_available_leaf_index = 0
+root = 0

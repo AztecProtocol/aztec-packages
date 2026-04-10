@@ -129,12 +129,12 @@ export class Point {
    * @returns The point as an array of 2 fields
    */
   toFields() {
-    return [this.x, this.y];
+    return [this.x, this.y, new Fr(this.isInfinite)];
   }
 
   static fromFields(fields: Fr[] | FieldReader) {
     const reader = FieldReader.asReader(fields);
-    return new this(reader.readField(), reader.readField(), false);
+    return new this(reader.readField(), reader.readField(), reader.readBoolean());
   }
 
   /**
@@ -198,10 +198,17 @@ export class Point {
   /**
    * Converts the Point instance to a Buffer representation of the coordinates.
    * @returns A Buffer representation of the Point instance.
-   * @dev Note that toBuffer does not include the isInfinite flag. The point at infinity is serialized as (0, 0).
-   * With the removal of is_infinite from EmbeddedCurvePoint in Noir, the point at infinity is simply (0, 0).
+   * @dev Note that toBuffer does not include the isInfinite flag and other serialization methods do (e.g. toFields).
+   * This is because currently when we work with point as bytes we don't want to populate the extra bytes for
+   * isInfinite flag because:
+   * 1. Our Grumpkin BB API currently does not handle point at infinity,
+   * 2. we use toBuffer when serializing notes and events and there we only work with public keys and point at infinity
+   *   is not considered a valid public key and the extra byte would raise DA cost.
    */
   toBuffer() {
+    if (this.isInfinite) {
+      throw new Error('Cannot serialize infinite point with isInfinite flag');
+    }
     const buf = serializeToBuffer([this.x, this.y]);
     if (buf.length !== Point.SIZE_IN_BYTES) {
       throw new Error(`Invalid buffer length for Point: ${buf.length}`);
@@ -251,7 +258,9 @@ export class Point {
   }
 
   toNoirStruct() {
-    return { x: this.x, y: this.y };
+    /* eslint-disable camelcase */
+    return { x: this.x, y: this.y, is_infinite: this.isInfinite };
+    /* eslint-enable camelcase */
   }
 
   // Used for IvpkM, OvpkM, NpkM and TpkM. TODO(#8124): Consider removing this method.

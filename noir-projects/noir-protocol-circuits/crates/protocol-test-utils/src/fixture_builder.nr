@@ -1259,7 +1259,7 @@ impl FixtureBuilder {
     fn mock_key_validation_request(self, index: u32) -> KeyValidationRequestAndSeparator {
         let value_offset = 3030 + self.value_offset + index as Field;
         let request = KeyValidationRequest {
-            pk_m: Point { x: value_offset, y: 1 + value_offset },
+            pk_m: Point { x: value_offset, y: 1 + value_offset, is_infinite: false },
             sk_app: 2 + value_offset,
         };
         KeyValidationRequestAndSeparator { request, key_type_domain_separator: 3 + value_offset }

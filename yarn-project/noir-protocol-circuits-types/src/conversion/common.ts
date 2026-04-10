@@ -74,7 +74,7 @@ import type {
   AztecAddress as NoirAztecAddress,
   EthAddress as NoirEthAddress,
   Field as NoirField,
-  EmbeddedCurvePoint as NoirPoint,
+  Point as NoirPoint,
   NullifierLeafPreimage as NullifierLeafPreimageNoir,
   PartialStateReference as PartialStateReferenceNoir,
   Log as PrivateLogNoir,
@@ -175,6 +175,7 @@ export function mapPointToNoir(point: Point): NoirPoint {
   return {
     x: mapFieldToNoir(point.x),
     y: mapFieldToNoir(point.y),
+    is_infinite: point.isInfinite,
   };
 }
 
@@ -184,9 +185,7 @@ export function mapPointToNoir(point: Point): NoirPoint {
  * @returns The point.
  */
 export function mapPointFromNoir(point: NoirPoint): Point {
-  const x = mapFieldFromNoir(point.x);
-  const y = mapFieldFromNoir(point.y);
-  return new Point(x, y, x.isZero() && y.isZero());
+  return new Point(mapFieldFromNoir(point.x), mapFieldFromNoir(point.y), point.is_infinite);
 }
 
 /**
