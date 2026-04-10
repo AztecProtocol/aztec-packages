@@ -137,8 +137,8 @@ export class BatchCall extends BaseContractInteraction {
           results[callIndex] = {
             result: rawReturnValues ? decodeFromAbi(call.returnTypes, rawReturnValues) : [],
             ...extractOffchainOutput(
-              simulatedTx.offchainEffects,
-              simulatedTx.publicInputs.constants.anchorBlockHeader.globalVariables.timestamp,
+              simulatedTx!.offchainEffects,
+              simulatedTx!.publicInputs.constants.anchorBlockHeader.globalVariables.timestamp,
             ),
           };
         });
