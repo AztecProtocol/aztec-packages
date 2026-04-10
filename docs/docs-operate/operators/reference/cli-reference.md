@@ -49,10 +49,7 @@ tags:
   LOCAL NETWORK
 
     --local-network
-          Starts Aztec local network
-
-    --local-network.noPXE                                                                                                                        ($NO_PXE)
-          Do not expose PXE service on local network start
+          Starts Aztec local network (also exposes the AztecNodeDebug endpoints on the node - just like if --node-debug was set)
 
     --local-network.l1Mnemonic <value>                                             (default: test test test test test test test test test test test junk)($MNEMONIC)
           Mnemonic for L1 accounts. Will be used
@@ -64,6 +61,9 @@ tags:
 
     --admin-port <value>                                                     (default: 8880)                                               ($AZTEC_ADMIN_PORT)
           Port to run admin APIs of Aztec Services on
+
+    --node-debug                                                             (default: false)                                              ($AZTEC_NODE_DEBUG)
+          Expose debug endpoints (e.g. mineBlock) on the main RPC port
 
     --api-prefix <value>                                                                                                                   ($API_PREFIX)
           Prefix for API routes on any service that is started
