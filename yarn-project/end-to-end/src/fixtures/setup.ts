@@ -49,7 +49,7 @@ import type { ProverNodeConfig } from '@aztec/prover-node';
 import { type PXEConfig, getPXEConfig } from '@aztec/pxe/server';
 import type { SequencerClient } from '@aztec/sequencer-client';
 import { type ContractInstanceWithAddress, getContractInstanceFromInstantiationParams } from '@aztec/stdlib/contract';
-import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
+import type { AztecNodeAdmin, AztecNodeDebug } from '@aztec/stdlib/interfaces/client';
 import { tryStop } from '@aztec/stdlib/interfaces/server';
 import type { PublicDataTreeLeaf } from '@aztec/stdlib/trees';
 import type { GenesisData } from '@aztec/stdlib/world-state';
@@ -211,7 +211,7 @@ export type EndToEndContext = {
   /** The Anvil instance (only set if anvil was started locally). */
   anvil: Anvil | undefined;
   /** The Aztec Node service or client a connected to it. */
-  aztecNode: AztecNode;
+  aztecNode: AztecNode & AztecNodeDebug;
   /** The Aztec Node as a service. */
   aztecNodeService: AztecNodeService;
   /** Client to the Aztec Node admin interface. */

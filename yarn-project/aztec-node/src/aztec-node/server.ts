@@ -16,6 +16,7 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { BadRequestError } from '@aztec/foundation/json-rpc';
 import { type Logger, createLogger } from '@aztec/foundation/log';
+import { retryUntil } from '@aztec/foundation/retry';
 import { count } from '@aztec/foundation/string';
 import { DateProvider, Timer } from '@aztec/foundation/timer';
 import { MembershipWitness, SiblingPath } from '@aztec/foundation/trees';
@@ -66,6 +67,7 @@ import {
   type AztecNodeAdmin,
   type AztecNodeAdminConfig,
   AztecNodeAdminConfigSchema,
+  type AztecNodeDebug,
   type GetContractClassLogsResponse,
   type GetPublicLogsResponse,
 } from '@aztec/stdlib/interfaces/client';
@@ -127,7 +129,7 @@ import { NodeMetrics } from './node_metrics.js';
 /**
  * The aztec node.
  */
-export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
+export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDebug, Traceable {
   private metrics: NodeMetrics;
   private initialHeaderHashPromise: Promise<BlockHash> | undefined = undefined;
 
@@ -1634,6 +1636,40 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
 
     this.keyStoreManager = newManager;
     this.log.info('Keystore reloaded: coinbase, feeRecipient, and attester keys updated');
+  }
+
+  public async mineBlock(): Promise<void> {
+    if (!this.sequencer) {
+      throw new BadRequestError('Cannot mine block: no sequencer is running');
+    }
+
+    const currentBlockNumber = await this.getBlockNumber();
+
+    // Use slot duration + 50% buffer as the timeout so this works on running networks too
+    const { slotDuration } = await this.blockSource.getL1Constants();
+    const timeoutSeconds = Math.ceil(slotDuration * 1.5);
+
+    // Temporarily set minTxsPerBlock to 0 so the sequencer produces a block even with no txs
+    const originalMinTxsPerBlock = this.sequencer.getSequencer().getConfig().minTxsPerBlock;
+    this.sequencer.updateConfig({ minTxsPerBlock: 0 });
+
+    try {
+      // Trigger the sequencer to produce a block immediately
+      void this.sequencer.trigger();
+
+      // Wait for the new L2 block to appear
+      await retryUntil(
+        async () => {
+          const newBlockNumber = await this.getBlockNumber();
+          return newBlockNumber > currentBlockNumber ? true : undefined;
+        },
+        'mineBlock',
+        timeoutSeconds,
+        0.1,
+      );
+    } finally {
+      this.sequencer.updateConfig({ minTxsPerBlock: originalMinTxsPerBlock });
+    }
   }
 
   #getInitialHeaderHash(): Promise<BlockHash> {
