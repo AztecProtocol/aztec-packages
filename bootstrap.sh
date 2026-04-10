@@ -670,24 +670,24 @@ case "$cmd" in
     echo_header "build yarn-project for p2p grind"
     make yarn-project
 
-    integration_timeout="${1:-15m}"
-    e2e_timeout="${2:-20m}"
+    integration_timeout="${1:-30m}"
+    e2e_timeout="${2:-30m}"
     hash="grind"
     failed=0
 
-    # # P2P integration tests
-    # integration_tests=(
-    #   "p2p/src/client/test/p2p_client.integration_status_handshake.test.ts"
-    #   "p2p/src/client/test/p2p_client.integration_block_txs.test.ts"
-    #   "p2p/src/client/test/p2p_client.integration_message_propagation.test.ts"
-    #   "p2p/src/client/test/p2p_client.integration_batch_txs.test.ts"
-    #   "p2p/src/client/test/p2p_client.integration_reqresp.test.ts"
-    # )
-    # for test in "${integration_tests[@]}"; do
-    #   echo_header "Grinding: $test"
-    #   full_cmd="${hash}:ISOLATE=1:MAKEFILE_TARGET=yarn-project:NAME=${test} LOG_LEVEL=debug yarn-project/scripts/run_test.sh ${test}"
-    #   grind_test "$full_cmd" "$integration_timeout" || { echo "FAILED: $test"; failed=1; }
-    # done
+    # P2P integration tests
+    integration_tests=(
+      "p2p/src/client/test/p2p_client.integration_status_handshake.test.ts"
+      "p2p/src/client/test/p2p_client.integration_block_txs.test.ts"
+      "p2p/src/client/test/p2p_client.integration_message_propagation.test.ts"
+      "p2p/src/client/test/p2p_client.integration_batch_txs.test.ts"
+      "p2p/src/client/test/p2p_client.integration_reqresp.test.ts"
+    )
+    for test in "${integration_tests[@]}"; do
+      echo_header "Grinding: $test"
+      full_cmd="${hash}:ISOLATE=1:MAKEFILE_TARGET=yarn-project:NAME=${test} LOG_LEVEL=debug yarn-project/scripts/run_test.sh ${test}"
+      grind_test "$full_cmd" "$integration_timeout" || { echo "FAILED: $test"; failed=1; }
+    done
 
     # P2P e2e tests
     e2e_tests=(

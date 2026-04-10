@@ -8,8 +8,13 @@ NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
 
 full_cmd="$1"
 timeout="${2:-10m}"
+# Jobs as percentage of CPUs (default 200% = nproc * 2). Only used without STRICT_SCHEDULING.
+jobs_pct="${3:-200}"
+# Memsuspend threshold as percentage of total memory (default 50%). Only used without STRICT_SCHEDULING.
+memsuspend_pct="${4:-50}"
 commit_tip=$(git rev-parse HEAD)
 commit="${5:-$commit_tip}"
+jobs=$(($(nproc) * jobs_pct / 100))
 
 # Ensure we return to the original commit on exit.
 trap 'git checkout $commit_tip' EXIT
@@ -33,7 +38,29 @@ function build {
     fi
 }
 
-function grind {
+function grind_parallel {
+    echo_header "grinding for $timeout ($jobs jobs)"
+    # NAME_POSTFIX allows for grinding compose tests in parallel.
+    local par_cmd="NAME_POSTFIX={} CI=0 TRACK_TEST_FAIL=1 run_test_cmd '${hash_prefix}:NAME=test-{} ${test_cmd}'"
+    local joblog=$(mktemp)
+
+    # Run for full timeout, logging all results (no --halt, collect all failure data)
+    # memsuspend_pct is the % of memory usage at which to start suspending jobs
+    # parallel suspends at 2*SIZE and runs 1 job at SIZE, so SIZE = mem * (100 - pct) / 200
+    local mem=$(total_mem_gb)
+    local memsuspend_gb=$((mem * (100 - memsuspend_pct) / 200))
+    awk 'BEGIN {i=1; while (1) print i++}' | timeout $timeout parallel --memsuspend ${memsuspend_gb}G --halt now,fail=10 --joblog "$joblog" -j $jobs --line-buffer "$par_cmd" || true
+
+    # Check if any jobs failed (column 7 is exitval in joblog)
+    if awk 'NR>1 && $7!=0 {found=1} END {exit !found}' "$joblog"; then
+        rm -f "$joblog"
+        return 1  # Had failures
+    fi
+    rm -f "$joblog"
+    return 0  # No failures
+}
+
+function grind_strict {
     local num_cpus=$(nproc)
     echo_header "grinding for $timeout (strict scheduling: $num_cpus CPUs, $CPUS per test)"
 
@@ -86,13 +113,26 @@ function grind {
     return 0
 }
 
+function grind {
+    if [ "${STRICT_SCHEDULING:-0}" -eq 1 ]; then
+        grind_strict
+    else
+        grind_parallel
+    fi
+}
+
 echo_header "grind test"
 echo "Full cmd: $full_cmd"
 echo "Make target: ${MAKEFILE_TARGET:-<none, full bootstrap>}"
 echo "Grind for: $timeout"
 echo "Commit: $commit"
 echo "Ref name: $REF_NAME"
+if [ "${STRICT_SCHEDULING:-0}" -eq 1 ]; then
 echo "Scheduling: strict ($(nproc) CPUs, $CPUS per test)"
+else
+echo "Jobs: $jobs (${jobs_pct}% of $(nproc) CPUs)"
+echo "Memsuspend: ${memsuspend_pct}% of memory"
+fi
 echo
 
 ulimit -n $(ulimit -Hn)
