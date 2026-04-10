@@ -29,6 +29,7 @@ export class ProxiedContractStoreFactory {
                 }
                 instance.currentContractClassId = realInstance.currentContractClassId;
                 instance.originalContractClassId = realInstance.originalContractClassId;
+                instance.initializationHash = realInstance.initializationHash;
                 return instance;
               } else {
                 return target.getContractInstance(address);
@@ -47,6 +48,9 @@ export class ProxiedContractStoreFactory {
                     return fn;
                   }
                 }
+                throw new Error(
+                  `Function with selector ${selector} not found in stub artifact for overridden contract at ${contractAddress}. The stub does not implement this function.`,
+                );
               } else {
                 return target.getFunctionArtifact(contractAddress, selector);
               }
@@ -64,6 +68,9 @@ export class ProxiedContractStoreFactory {
                     return fn;
                   }
                 }
+                throw new Error(
+                  `Function with selector ${selector} not found in stub artifact for overridden contract at ${contractAddress}. The stub does not implement this function.`,
+                );
               } else {
                 return target.getFunctionArtifactWithDebugMetadata(contractAddress, selector);
               }
@@ -78,6 +85,6 @@ export class ProxiedContractStoreFactory {
           }
         }
       },
-    });
+    }) satisfies ContractStore;
   }
 }
