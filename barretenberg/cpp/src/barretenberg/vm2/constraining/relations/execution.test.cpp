@@ -256,7 +256,7 @@ TEST(ExecutionConstrainingTest, NoFetchingNoInstrFetchError)
 TEST(ExecutionConstrainingTest, NoAddressingErrorIfNotResolving)
 {
     // sel_instruction_fetching_success == 0 => sel_addressing_error == 0
-    // (SEL_SHOULD_RESOLVE_ADDRESS is an alias for sel_instruction_fetching_success)
+    // (SEL_RESOLVE_ADDRESS is an alias for sel_instruction_fetching_success)
     // clang-format off
     TestTraceContainer trace({
         {{ C::execution_sel_instruction_fetching_success, 0 }, { C::execution_sel_addressing_error, 0 }},
@@ -277,18 +277,18 @@ TEST(ExecutionConstrainingTest, NoAddressingErrorIfNotResolving)
 
 TEST(ExecutionConstrainingTest, NoRegisterReadErrorIfNotReading)
 {
-    // sel_should_read_registers == 0 => sel_register_read_error == 0
-    // Via #[REGISTER_READ_TAG_CHECK]: when sel_should_read_registers == 0, BATCHED_TAGS_DIFF_X_REG == 0,
+    // sel_read_registers == 0 => sel_register_read_error == 0
+    // Via #[REGISTER_READ_TAG_CHECK]: when sel_read_registers == 0, BATCHED_TAGS_DIFF_X_REG == 0,
     // which forces sel_register_read_error == 0.
     // clang-format off
     TestTraceContainer trace({
-        {{ C::execution_sel_should_read_registers, 0 }, { C::execution_sel_register_read_error, 0 }},
+        {{ C::execution_sel_read_registers, 0 }, { C::execution_sel_register_read_error, 0 }},
     });
     // clang-format on
 
     check_relation<registers>(trace, registers::SR_REGISTER_READ_TAG_CHECK);
 
-    // Negative test: sel_should_read_registers == 0 but sel_register_read_error == 1
+    // Negative test: sel_read_registers == 0 but sel_register_read_error == 1
     trace.set(C::execution_sel_register_read_error, 0, 1);
     EXPECT_THROW_WITH_MESSAGE(check_relation<registers>(trace, registers::SR_REGISTER_READ_TAG_CHECK),
                               "REGISTER_READ_TAG_CHECK");
@@ -296,42 +296,42 @@ TEST(ExecutionConstrainingTest, NoRegisterReadErrorIfNotReading)
 
 TEST(ExecutionConstrainingTest, NoOogIfNoGasCheck)
 {
-    // sel_should_check_gas == 0 => sel_out_of_gas == 0
+    // sel_check_gas == 0 => sel_out_of_gas == 0
     // clang-format off
     TestTraceContainer trace({
-        {{ C::execution_sel_should_check_gas, 0 }, { C::execution_sel_out_of_gas, 0 }},
+        {{ C::execution_sel_check_gas, 0 }, { C::execution_sel_out_of_gas, 0 }},
     });
     // clang-format on
 
     check_relation<gas>(trace, gas::SR_NO_OOG_IF_NO_GAS_CHECK);
 
-    // Negative test: sel_should_check_gas == 0 but sel_out_of_gas == 1
+    // Negative test: sel_check_gas == 0 but sel_out_of_gas == 1
     trace.set(C::execution_sel_out_of_gas, 0, 1);
     EXPECT_THROW_WITH_MESSAGE(check_relation<gas>(trace, gas::SR_NO_OOG_IF_NO_GAS_CHECK), "NO_OOG_IF_NO_GAS_CHECK");
 
-    // Positive test: sel_should_check_gas == 1 allows sel_out_of_gas == 1
-    trace.set(C::execution_sel_should_check_gas, 0, 1);
+    // Positive test: sel_check_gas == 1 allows sel_out_of_gas == 1
+    trace.set(C::execution_sel_check_gas, 0, 1);
     check_relation<gas>(trace, gas::SR_NO_OOG_IF_NO_GAS_CHECK);
 }
 
 TEST(ExecutionConstrainingTest, NoOpcodeErrorIfNotExecuting)
 {
-    // sel_should_execute_opcode == 0 => sel_opcode_error == 0
+    // sel_execute_opcode == 0 => sel_opcode_error == 0
     // clang-format off
     TestTraceContainer trace({
-        {{ C::execution_sel_should_execute_opcode, 0 }, { C::execution_sel_opcode_error, 0 }},
+        {{ C::execution_sel_execute_opcode, 0 }, { C::execution_sel_opcode_error, 0 }},
     });
     // clang-format on
 
     check_relation<execution>(trace, execution::SR_NO_OPCODE_ERROR_IF_NOT_EXECUTING);
 
-    // Negative test: sel_should_execute_opcode == 0 but sel_opcode_error == 1
+    // Negative test: sel_execute_opcode == 0 but sel_opcode_error == 1
     trace.set(C::execution_sel_opcode_error, 0, 1);
     EXPECT_THROW_WITH_MESSAGE(check_relation<execution>(trace, execution::SR_NO_OPCODE_ERROR_IF_NOT_EXECUTING),
                               "NO_OPCODE_ERROR_IF_NOT_EXECUTING");
 
-    // Positive test: sel_should_execute_opcode == 1 allows sel_opcode_error == 1
-    trace.set(C::execution_sel_should_execute_opcode, 0, 1);
+    // Positive test: sel_execute_opcode == 1 allows sel_opcode_error == 1
+    trace.set(C::execution_sel_execute_opcode, 0, 1);
     check_relation<execution>(trace, execution::SR_NO_OPCODE_ERROR_IF_NOT_EXECUTING);
 }
 
@@ -353,7 +353,7 @@ TEST(ExecutionConstrainingTest, SubtraceIdDecomposition)
                   { {
                       { subtrace_selector, 1 },
                       { C::execution_subtrace_id, subtrace_id },
-                      { C::execution_sel_should_execute_opcode, 1 },
+                      { C::execution_sel_execute_opcode, 1 },
                   } });
     }
 

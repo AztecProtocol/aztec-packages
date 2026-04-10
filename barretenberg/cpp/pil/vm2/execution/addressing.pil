@@ -15,7 +15,7 @@ include "../gt.pil";
 // We guarantee that the resolved operands are either immediates or valid addresses.
 
 // Inputs (from execution.pil):
-//  - SEL_SHOULD_RESOLVE_ADDRESS (alias for sel_instruction_fetching_success)
+//  - SEL_RESOLVE_ADDRESS (alias for sel_instruction_fetching_success)
 //  - sel_op_is_address[7] (via exec spec; derived from ExecInstructionSpec.num_addresses)
 //  - addressing_mode (via instruction fetching)
 //  - op[7] (via instruction fetching)
@@ -54,7 +54,7 @@ include "../gt.pil";
 namespace execution;
 
 #[skippable_if]
-SEL_SHOULD_RESOLVE_ADDRESS = 0;
+SEL_RESOLVE_ADDRESS = 0;
 
 /**************************************************************************************************
  *  Setup
@@ -83,7 +83,7 @@ sel_op_is_indirect_wire[7] * (1 - sel_op_is_indirect_wire[7]) = 0;
 
 // addressing_mode comes from instruction fetching via execution.pil.
 #[ADDRESSING_MODE_RECONSTRUCTION]
-SEL_SHOULD_RESOLVE_ADDRESS * addressing_mode =
+SEL_RESOLVE_ADDRESS * addressing_mode =
     ( 2**0  * sel_op_is_indirect_wire[0] + 2**1  * sel_op_is_relative_wire[0]
     + 2**2  * sel_op_is_indirect_wire[1] + 2**3  * sel_op_is_relative_wire[1]
     + 2**4  * sel_op_is_indirect_wire[2] + 2**5  * sel_op_is_relative_wire[2]
@@ -103,7 +103,7 @@ SEL_SHOULD_RESOLVE_ADDRESS * addressing_mode =
 // Whether each operand is an address for the given opcode.
 // Retrieved from the instruction spec in execution.pil. Therefore, there is no need to constrain it to be a boolean.
 // If an operand is not an address, then the resolved operand is expected to be the same as the original operand.
-pol commit sel_op_is_address[7]; // @boolean when SEL_SHOULD_RESOLVE_ADDRESS == 1 (see #[EXEC_SPEC_READ])
+pol commit sel_op_is_address[7]; // @boolean when SEL_RESOLVE_ADDRESS == 1 (see #[EXEC_SPEC_READ])
 
 // We need an extra step in the computation of is_indirect and is_relative:
 // We only really want to apply the indirection and relative resolution if we are resolving an address.
@@ -127,8 +127,8 @@ pol SEL_OP_IS_INDIRECT_EFFECTIVE_4_ = sel_op_is_indirect_wire[4] * sel_op_is_add
 pol SEL_OP_IS_INDIRECT_EFFECTIVE_5_ = sel_op_is_indirect_wire[5] * sel_op_is_address[5];
 pol SEL_OP_IS_INDIRECT_EFFECTIVE_6_ = sel_op_is_indirect_wire[6] * sel_op_is_address[6];
 
-// We recall that sel_op_is_address[i] is constrained only when `SEL_SHOULD_RESOLVE_ADDRESS == 1`.
-// If `SEL_SHOULD_RESOLVE_ADDRESS == 0`, we have `sel_op_is_relative_wire[i] == 0` and
+// We recall that sel_op_is_address[i] is constrained only when `SEL_RESOLVE_ADDRESS == 1`.
+// If `SEL_RESOLVE_ADDRESS == 0`, we have `sel_op_is_relative_wire[i] == 0` and
 // `sel_op_is_indirect_wire[i] == 0` according to #[ADDRESSING_MODE_RECONSTRUCTION]. This implies that
 // `SEL_OP_IS_INDIRECT_EFFECTIVE_i_ == 0` and `SEL_OP_IS_RELATIVE_EFFECTIVE_i_ == 0`.
 // This also shows that SEL_OP_IS_INDIRECT_EFFECTIVE_i_ and SEL_OP_IS_RELATIVE_EFFECTIVE_i_ are
@@ -228,9 +228,9 @@ op_after_relative[5] = op[5] + SEL_OP_IS_RELATIVE_EFFECTIVE_5_ * RELATIVE_RESOLU
 #[RELATIVE_RESOLUTION_6]
 op_after_relative[6] = op[6] + SEL_OP_IS_RELATIVE_EFFECTIVE_6_ * RELATIVE_RESOLUTION_FILTER;
 
-// In tracegen, each op[i] is 0 when SHOULD_RESOLVE_ADDRESS == 0 because #[INSTRUCTION_FETCHING_BODY]
-// is not active. Therefore, we do not have to gate the above relations by SEL_SHOULD_RESOLVE_ADDRESS.
-// In addition, the above relations can be skipped when SEL_SHOULD_RESOLVE_ADDRESS == 0 (skippable condition).
+// In tracegen, each op[i] is 0 when SEL_RESOLVE_ADDRESS == 0 because #[INSTRUCTION_FETCHING_BODY]
+// is not active. Therefore, we do not have to gate the above relations by SEL_RESOLVE_ADDRESS.
+// In addition, the above relations can be skipped when SEL_RESOLVE_ADDRESS == 0 (skippable condition).
 
 pol commit sel_op_do_overflow_check[7]; // @boolean (by definition)
 sel_op_do_overflow_check[0] = SEL_OP_IS_RELATIVE_EFFECTIVE_0_ * (1 - sel_base_address_failure);
@@ -244,7 +244,7 @@ sel_op_do_overflow_check[6] = SEL_OP_IS_RELATIVE_EFFECTIVE_6_ * (1 - sel_base_ad
 // Helper columns for overflow range check.
 pol commit highest_address;
 // Lookup constant support: remove when we support constants in a lookup tuple.
-SEL_SHOULD_RESOLVE_ADDRESS * (highest_address - constants.AVM_HIGHEST_MEM_ADDRESS) = 0;
+SEL_RESOLVE_ADDRESS * (highest_address - constants.AVM_HIGHEST_MEM_ADDRESS) = 0;
 // sel_relative_overflow[i] == 1 iff op_after_relative[i] > highest_address.
 // Preconditions to `gt` gadget require both inputs to be bounded by 2^128.
 // `op_after_relative[i]` is bounded by 2^128 because it is the sum of a base address (U32 tag checked in #[BASE_ADDRESS_CHECK])
@@ -272,64 +272,64 @@ sel_op_do_overflow_check[6] { op_after_relative[6], highest_address, sel_relativ
 // We only do this if the indirect bit is set AND nothing else failed so far (for this operand).
 // Recall that from #[NOT_RELATIVE_OR_BASE_FAILURE_NO_OVERFLOW_i] (i = 0, ..., 6), we have:
 // `sel_base_address_failure == 1` ==> `sel_relative_overflow[i] == 0` and therefore they are mutually exclusive.
-pol commit sel_should_apply_indirection[7]; // @boolean (from definition and above remark)
+pol commit sel_apply_indirection[7]; // @boolean (from definition and above remark)
 #[INDIRECT_GATING_0]
-sel_should_apply_indirection[0] = SEL_OP_IS_INDIRECT_EFFECTIVE_0_ * (1 - sel_relative_overflow[0] - sel_base_address_failure);
+sel_apply_indirection[0] = SEL_OP_IS_INDIRECT_EFFECTIVE_0_ * (1 - sel_relative_overflow[0] - sel_base_address_failure);
 #[INDIRECT_GATING_1]
-sel_should_apply_indirection[1] = SEL_OP_IS_INDIRECT_EFFECTIVE_1_ * (1 - sel_relative_overflow[1] - sel_base_address_failure);
+sel_apply_indirection[1] = SEL_OP_IS_INDIRECT_EFFECTIVE_1_ * (1 - sel_relative_overflow[1] - sel_base_address_failure);
 #[INDIRECT_GATING_2]
-sel_should_apply_indirection[2] = SEL_OP_IS_INDIRECT_EFFECTIVE_2_ * (1 - sel_relative_overflow[2] - sel_base_address_failure);
+sel_apply_indirection[2] = SEL_OP_IS_INDIRECT_EFFECTIVE_2_ * (1 - sel_relative_overflow[2] - sel_base_address_failure);
 #[INDIRECT_GATING_3]
-sel_should_apply_indirection[3] = SEL_OP_IS_INDIRECT_EFFECTIVE_3_ * (1 - sel_relative_overflow[3] - sel_base_address_failure);
+sel_apply_indirection[3] = SEL_OP_IS_INDIRECT_EFFECTIVE_3_ * (1 - sel_relative_overflow[3] - sel_base_address_failure);
 #[INDIRECT_GATING_4]
-sel_should_apply_indirection[4] = SEL_OP_IS_INDIRECT_EFFECTIVE_4_ * (1 - sel_relative_overflow[4] - sel_base_address_failure);
+sel_apply_indirection[4] = SEL_OP_IS_INDIRECT_EFFECTIVE_4_ * (1 - sel_relative_overflow[4] - sel_base_address_failure);
 #[INDIRECT_GATING_5]
-sel_should_apply_indirection[5] = SEL_OP_IS_INDIRECT_EFFECTIVE_5_ * (1 - sel_relative_overflow[5] - sel_base_address_failure);
+sel_apply_indirection[5] = SEL_OP_IS_INDIRECT_EFFECTIVE_5_ * (1 - sel_relative_overflow[5] - sel_base_address_failure);
 #[INDIRECT_GATING_6]
-sel_should_apply_indirection[6] = SEL_OP_IS_INDIRECT_EFFECTIVE_6_ * (1 - sel_relative_overflow[6] - sel_base_address_failure);
+sel_apply_indirection[6] = SEL_OP_IS_INDIRECT_EFFECTIVE_6_ * (1 - sel_relative_overflow[6] - sel_base_address_failure);
 
 // This is the tag of the operand if it came from an indirection. Otherwise it's unconstrained.
 pol commit rop_tag[7];
 
 // If indirection is applied, we need to lookup the value from memory.
-// If sel_should_apply_indirection is 1, then we know the address is valid therefore we can make the permutations.
+// If sel_apply_indirection is 1, then we know the address is valid therefore we can make the permutations.
 #[INDIRECT_FROM_MEMORY_0]
-sel_should_apply_indirection[0] { clk, context_id, /*address=*/op_after_relative[0], /*value=*/rop[0], /*tag=*/rop_tag[0], /*rw=*/precomputed.zero/*(read)*/ }
+sel_apply_indirection[0] { clk, context_id, /*address=*/op_after_relative[0], /*value=*/rop[0], /*tag=*/rop_tag[0], /*rw=*/precomputed.zero/*(read)*/ }
 is memory.sel_addressing_indirect[0] { memory.clk, memory.space_id, memory.address, memory.value, memory.tag, memory.rw };
 #[INDIRECT_FROM_MEMORY_1]
-sel_should_apply_indirection[1] { clk, context_id, /*address=*/op_after_relative[1], /*value=*/rop[1], /*tag=*/rop_tag[1], /*rw=*/precomputed.zero/*(read)*/ }
+sel_apply_indirection[1] { clk, context_id, /*address=*/op_after_relative[1], /*value=*/rop[1], /*tag=*/rop_tag[1], /*rw=*/precomputed.zero/*(read)*/ }
 is memory.sel_addressing_indirect[1] { memory.clk, memory.space_id, memory.address, memory.value, memory.tag, memory.rw };
 #[INDIRECT_FROM_MEMORY_2]
-sel_should_apply_indirection[2] { clk, context_id, /*address=*/op_after_relative[2], /*value=*/rop[2], /*tag=*/rop_tag[2], /*rw=*/precomputed.zero/*(read)*/ }
+sel_apply_indirection[2] { clk, context_id, /*address=*/op_after_relative[2], /*value=*/rop[2], /*tag=*/rop_tag[2], /*rw=*/precomputed.zero/*(read)*/ }
 is memory.sel_addressing_indirect[2] { memory.clk, memory.space_id, memory.address, memory.value, memory.tag, memory.rw };
 #[INDIRECT_FROM_MEMORY_3]
-sel_should_apply_indirection[3] { clk, context_id, /*address=*/op_after_relative[3], /*value=*/rop[3], /*tag=*/rop_tag[3], /*rw=*/precomputed.zero/*(read)*/ }
+sel_apply_indirection[3] { clk, context_id, /*address=*/op_after_relative[3], /*value=*/rop[3], /*tag=*/rop_tag[3], /*rw=*/precomputed.zero/*(read)*/ }
 is memory.sel_addressing_indirect[3] { memory.clk, memory.space_id, memory.address, memory.value, memory.tag, memory.rw };
 #[INDIRECT_FROM_MEMORY_4]
-sel_should_apply_indirection[4] { clk, context_id, /*address=*/op_after_relative[4], /*value=*/rop[4], /*tag=*/rop_tag[4], /*rw=*/precomputed.zero/*(read)*/ }
+sel_apply_indirection[4] { clk, context_id, /*address=*/op_after_relative[4], /*value=*/rop[4], /*tag=*/rop_tag[4], /*rw=*/precomputed.zero/*(read)*/ }
 is memory.sel_addressing_indirect[4] { memory.clk, memory.space_id, memory.address, memory.value, memory.tag, memory.rw };
 #[INDIRECT_FROM_MEMORY_5]
-sel_should_apply_indirection[5] { clk, context_id, /*address=*/op_after_relative[5], /*value=*/rop[5], /*tag=*/rop_tag[5], /*rw=*/precomputed.zero/*(read)*/ }
+sel_apply_indirection[5] { clk, context_id, /*address=*/op_after_relative[5], /*value=*/rop[5], /*tag=*/rop_tag[5], /*rw=*/precomputed.zero/*(read)*/ }
 is memory.sel_addressing_indirect[5] { memory.clk, memory.space_id, memory.address, memory.value, memory.tag, memory.rw };
 #[INDIRECT_FROM_MEMORY_6]
-sel_should_apply_indirection[6] { clk, context_id, /*address=*/op_after_relative[6], /*value=*/rop[6], /*tag=*/rop_tag[6], /*rw=*/precomputed.zero/*(read)*/ }
+sel_apply_indirection[6] { clk, context_id, /*address=*/op_after_relative[6], /*value=*/rop[6], /*tag=*/rop_tag[6], /*rw=*/precomputed.zero/*(read)*/ }
 is memory.sel_addressing_indirect[6] { memory.clk, memory.space_id, memory.address, memory.value, memory.tag, memory.rw };
 
 // Otherwise, if indirection is not applied, we propagate the operands from the previous step.
 #[INDIRECT_PROPAGATION_0]
-(1 - sel_should_apply_indirection[0]) * (rop[0] - op_after_relative[0]) = 0;
+(1 - sel_apply_indirection[0]) * (rop[0] - op_after_relative[0]) = 0;
 #[INDIRECT_PROPAGATION_1]
-(1 - sel_should_apply_indirection[1]) * (rop[1] - op_after_relative[1]) = 0;
+(1 - sel_apply_indirection[1]) * (rop[1] - op_after_relative[1]) = 0;
 #[INDIRECT_PROPAGATION_2]
-(1 - sel_should_apply_indirection[2]) * (rop[2] - op_after_relative[2]) = 0;
+(1 - sel_apply_indirection[2]) * (rop[2] - op_after_relative[2]) = 0;
 #[INDIRECT_PROPAGATION_3]
-(1 - sel_should_apply_indirection[3]) * (rop[3] - op_after_relative[3]) = 0;
+(1 - sel_apply_indirection[3]) * (rop[3] - op_after_relative[3]) = 0;
 #[INDIRECT_PROPAGATION_4]
-(1 - sel_should_apply_indirection[4]) * (rop[4] - op_after_relative[4]) = 0;
+(1 - sel_apply_indirection[4]) * (rop[4] - op_after_relative[4]) = 0;
 #[INDIRECT_PROPAGATION_5]
-(1 - sel_should_apply_indirection[5]) * (rop[5] - op_after_relative[5]) = 0;
+(1 - sel_apply_indirection[5]) * (rop[5] - op_after_relative[5]) = 0;
 #[INDIRECT_PROPAGATION_6]
-(1 - sel_should_apply_indirection[6]) * (rop[6] - op_after_relative[6]) = 0;
+(1 - sel_apply_indirection[6]) * (rop[6] - op_after_relative[6]) = 0;
 
 // Operands after indirect resolution are the resolved_operands rop[i], ... (these are defined in execution.pil).
 
@@ -346,13 +346,13 @@ sel_some_final_check_failed * (1 - sel_some_final_check_failed) = 0;
 // Each tag takes at most 3 bits (guaranteed by mem lookup!), we can encode all of them in a field.
 // See https://github.com/AztecProtocol/aztec-packages/blob/next/barretenberg/cpp/pil/vm2/docs/recipes.md#batching-comparison-of-n-bit-numbers.
 // This diff will be 0 iff all tags are U32.
-pol BATCHED_TAGS_DIFF = sel_should_apply_indirection[0] * 2**0  * (rop_tag[0] - constants.MEM_TAG_U32)
-                      + sel_should_apply_indirection[1] * 2**3  * (rop_tag[1] - constants.MEM_TAG_U32)
-                      + sel_should_apply_indirection[2] * 2**6  * (rop_tag[2] - constants.MEM_TAG_U32)
-                      + sel_should_apply_indirection[3] * 2**9  * (rop_tag[3] - constants.MEM_TAG_U32)
-                      + sel_should_apply_indirection[4] * 2**12 * (rop_tag[4] - constants.MEM_TAG_U32)
-                      + sel_should_apply_indirection[5] * 2**15 * (rop_tag[5] - constants.MEM_TAG_U32)
-                      + sel_should_apply_indirection[6] * 2**18 * (rop_tag[6] - constants.MEM_TAG_U32);
+pol BATCHED_TAGS_DIFF = sel_apply_indirection[0] * 2**0  * (rop_tag[0] - constants.MEM_TAG_U32)
+                      + sel_apply_indirection[1] * 2**3  * (rop_tag[1] - constants.MEM_TAG_U32)
+                      + sel_apply_indirection[2] * 2**6  * (rop_tag[2] - constants.MEM_TAG_U32)
+                      + sel_apply_indirection[3] * 2**9  * (rop_tag[3] - constants.MEM_TAG_U32)
+                      + sel_apply_indirection[4] * 2**12 * (rop_tag[4] - constants.MEM_TAG_U32)
+                      + sel_apply_indirection[5] * 2**15 * (rop_tag[5] - constants.MEM_TAG_U32)
+                      + sel_apply_indirection[6] * 2**18 * (rop_tag[6] - constants.MEM_TAG_U32);
 pol commit batched_tags_diff_inv;
 pol BATCHED_TAGS_DIFF_X = BATCHED_TAGS_DIFF;
 pol BATCHED_TAGS_DIFF_Y = batched_tags_diff_inv;
@@ -385,4 +385,4 @@ ADDRESSING_COLLECTION_EQ = 0;
 
 // If addressing should not be resolved, then sel_addressing_error should be 0.
 #[NO_ADDRESSING_ERROR_IF_NOT_RESOLVING]
-(1 - SEL_SHOULD_RESOLVE_ADDRESS) * sel_addressing_error = 0;
+(1 - SEL_RESOLVE_ADDRESS) * sel_addressing_error = 0;

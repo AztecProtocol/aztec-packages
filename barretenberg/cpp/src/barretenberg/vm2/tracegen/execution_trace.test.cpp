@@ -651,7 +651,7 @@ TEST(ExecutionTraceGenTest, JumpI)
                           ROW_FIELD_EQ(execution_mem_tag_reg_0_, static_cast<uint8_t>(ValueTag::U1)),
                           ROW_FIELD_EQ(execution_expected_tag_reg_0_, static_cast<uint8_t>(ValueTag::U1)),
                           ROW_FIELD_EQ(execution_sel_tag_check_reg_0_, 1),
-                          ROW_FIELD_EQ(execution_sel_should_read_registers, 1),
+                          ROW_FIELD_EQ(execution_sel_read_registers, 1),
                           ROW_FIELD_EQ(execution_sel_register_read_error, 0),
                           ROW_FIELD_EQ(execution_subtrace_operation_id, AVM_EXEC_OP_ID_JUMPI))));
 }
@@ -693,7 +693,7 @@ TEST(ExecutionTraceGenTest, JumpiWrongTag)
                           ROW_FIELD_EQ(execution_mem_tag_reg_0_, static_cast<uint8_t>(MemoryTag::U8)),
                           ROW_FIELD_EQ(execution_expected_tag_reg_0_, static_cast<uint8_t>(MemoryTag::U1)),
                           ROW_FIELD_EQ(execution_sel_tag_check_reg_0_, 1),
-                          ROW_FIELD_EQ(execution_sel_should_read_registers, 1),
+                          ROW_FIELD_EQ(execution_sel_read_registers, 1),
                           ROW_FIELD_EQ(execution_batched_tags_diff_inv_reg,
                                        1), // (2**0  * (mem_tag_reg[0] - expected_tag_reg[0]))^-1 = 1
                           ROW_FIELD_EQ(execution_sel_register_read_error, 1),
