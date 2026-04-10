@@ -1,5 +1,11 @@
 #include "./straus_plookup_table.hpp"
 #include "./cycle_group.hpp"
+#include "barretenberg/api/file_io.hpp"
+#include "barretenberg/common/log.hpp"
+#include "barretenberg/common/serialize.hpp"
+#include "barretenberg/common/thread.hpp"
+#include "barretenberg/constants.hpp"
+#include "barretenberg/srs/global_crs.hpp"
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders.hpp"
 
 namespace bb::stdlib {
@@ -27,13 +33,28 @@ straus_plookup_table<Builder>::straus_plookup_table(Builder* context,
 {
     const size_t table_size = 1UL << table_bits;
 
-    // Compute native table entries using projective coordinates, then batch-normalize
+    // Compute native table entries as { offset_generator + i * base_point } via chained addition.
     std::vector<Element> projective_points(table_size);
     projective_points[0] = Element(offset_generator);
     Element base_proj(base_point);
     for (size_t i = 1; i < table_size; ++i) {
         projective_points[i] = projective_points[i - 1] + base_proj;
     }
+    finalize(projective_points, table_size);
+}
+
+/**
+ * @brief Shared finalization logic for both constructors.
+ *
+ * Takes a filled vector of projective table entries and:
+ *   1. batch-normalizes them to affine,
+ *   2. builds the native_table for witness generation,
+ *   3. creates a BasicTable, populates its columns, and pushes it into the builder's lookup_tables deque,
+ *   4. sets the tag to constant
+ */
+template <typename Builder>
+void straus_plookup_table<Builder>::finalize(std::vector<Element>& projective_points, size_t table_size)
+{
     Element::batch_normalize(projective_points.data(), table_size);
 
     native_table.resize(table_size);
@@ -41,7 +62,6 @@ straus_plookup_table<Builder>::straus_plookup_table(Builder* context,
         native_table[i] = AffineElement(projective_points[i].x, projective_points[i].y);
     }
 
-    // Create a BasicTable and populate its columns
     plookup::BasicTable table;
     table.id = plookup::BasicTableId::STRAUS_EC_POINT;
     table.use_twin_keys = false;
@@ -59,15 +79,11 @@ straus_plookup_table<Builder>::straus_plookup_table(Builder* context,
         table.column_3[i] = native_table[i].y;
     }
 
-    // Assign table_index and push into the builder's lookup_tables deque
-    table.table_index = context->get_num_lookup_tables();
-    auto& tables = context->get_lookup_tables();
+    table.table_index = _context->get_num_lookup_tables();
+    auto& tables = _context->get_lookup_tables();
     tables.emplace_back(std::move(table));
     _table = &tables.back();
 
-    // This table is built entirely from native constants (base_point and offset_generator are AffineElements),
-    // so the tag is pure constant. If left as the default FREE_WITNESS, merging with a transcript-tagged
-    // scalar index in read() would trigger "free witness interacting with origin" errors.
     tag = OriginTag::constant();
 }
 
@@ -132,6 +148,122 @@ template <typename Builder> cycle_group<Builder> straus_plookup_table<Builder>::
 
     // Result is never at infinity due to offset generator in every table entry
     return cycle_group<Builder>(x, y, /*is_infinity=*/bool_t(_context, false), /*assert_on_curve=*/false);
+}
+
+/**
+ * @brief Construct from a precomputed base-point-multiples table, adding the offset_generator.
+ *
+ * @details Accepts precomputed { j * base_point } for j in [0, 2^table_bits) from load_cached_base_multiples and
+ * combines them with the offset_generator to produce the final native table:
+ *   native_table[j] = offset_generator + j * base_point
+ * The projective-to-affine conversion and EC additions are done here in batch, just as in the primary
+ * constructor, but the per-point scalar multiples are sourced from the cache instead of recomputed.
+ */
+template <typename Builder>
+straus_plookup_table<Builder>::straus_plookup_table(Builder* context,
+                                                    const std::vector<AffineElement>& base_multiples,
+                                                    const AffineElement& offset_generator,
+                                                    size_t table_bits)
+    : _context(context)
+{
+    const size_t table_size = static_cast<size_t>(1) << table_bits;
+    BB_ASSERT(base_multiples.size() == table_size);
+
+    // Fill projective_points[j] = offset_generator + base_multiples[j] (where base_multiples[j] = j * base_point).
+    std::vector<Element> projective_points(table_size);
+    projective_points[0] = Element(offset_generator); // j=0: offset_generator + 0*P = offset_generator
+    for (size_t j = 1; j < table_size; ++j) {
+        projective_points[j] = Element(offset_generator) + Element(base_multiples[j]);
+    }
+    finalize(projective_points, table_size);
+}
+
+template <typename Builder> std::filesystem::path straus_plookup_table<Builder>::default_cache_dir()
+{
+    return bb::srs::bb_crs_path();
+}
+
+template <typename Builder>
+std::filesystem::path straus_plookup_table<Builder>::default_cache_path(size_t num_points, size_t table_bits)
+{
+    return default_cache_dir() / "straus_tables" /
+           ("num_points_" + std::to_string(num_points) + "_bitsize_" + std::to_string(table_bits) + ".dat");
+}
+
+/**
+ * @brief Load { j * base_points[i] } for all i, j from a disk cache if available.
+ *
+ * On a cache miss (file missing, wrong size, or header mismatch) falls back to computing the multiples
+ * on-the-fly. The write path lives in the grumpkin_straus_table_gen tool, not here.
+ */
+template <typename Builder>
+std::vector<std::vector<typename straus_plookup_table<Builder>::AffineElement>> straus_plookup_table<
+    Builder>::load_cached_base_multiples(std::span<AffineElement const> base_points,
+                                         size_t table_bits,
+                                         size_t cache_offset,
+                                         std::optional<std::filesystem::path> cache_path)
+{
+    const size_t num_points = base_points.size();
+    const size_t total_points = cache_offset + num_points;
+    const size_t table_size = static_cast<size_t>(1) << table_bits;
+
+    // Sanity check: grumpkin_straus_table_gen only generates up to 2^CONST_ECCVM_LOG_N points
+    BB_ASSERT(total_points <= (1ULL << CONST_ECCVM_LOG_N));
+
+    // Cache file layout: 32-byte header (4 × uint64_t: num_points, table_bits, table_size, reserved)
+    // followed by num_points × table_size AffineElement entries.
+    constexpr size_t header_size = 4 * sizeof(uint64_t);
+
+    std::filesystem::path path = cache_path.has_value() ? *cache_path : default_cache_path(total_points, table_bits);
+
+    // Try to read the cache file.
+    const size_t expected_file_size = header_size + (total_points * table_size * sizeof(AffineElement));
+    if (get_file_size(path.string()) == expected_file_size) {
+        const size_t slice_byte_offset = header_size + (cache_offset * table_size * sizeof(AffineElement));
+        const size_t read_size = slice_byte_offset + (num_points * table_size * sizeof(AffineElement));
+        auto raw = read_file(path.string(), read_size);
+
+        size_t hdr_offset = 0;
+        auto read_u64 = [&]() {
+            uint64_t v = from_buffer<uint64_t>(raw, hdr_offset);
+            hdr_offset += sizeof(uint64_t);
+            return v;
+        };
+        if (read_u64() == static_cast<uint64_t>(total_points) && read_u64() == static_cast<uint64_t>(table_bits) &&
+            read_u64() == static_cast<uint64_t>(table_size)) {
+            std::vector<std::vector<AffineElement>> tables(num_points, std::vector<AffineElement>(table_size));
+            parallel_for_range(num_points, [&](size_t start, size_t end) {
+                for (size_t i = start; i < end; ++i) {
+                    for (size_t j = 0; j < table_size; ++j) {
+                        size_t byte_off = slice_byte_offset + ((i * table_size + j) * sizeof(AffineElement));
+                        tables[i][j] = from_buffer<AffineElement>(raw, byte_off);
+                    }
+                }
+            });
+            vinfo("straus plookup table cache hit: ", path.string(), " [offset=", cache_offset, "]");
+            return tables;
+        }
+        vinfo("straus table cache header mismatch, ignoring");
+    }
+
+    // Cache miss: compute { j * base_points[i] } on-the-fly.
+    vinfo("straus plookup table cache miss at ", path.string(), ", computing ", num_points, " tables on-the-fly");
+    std::vector<std::vector<AffineElement>> tables(num_points, std::vector<AffineElement>(table_size));
+    parallel_for_range(num_points, [&](size_t start, size_t end) {
+        for (size_t i = start; i < end; ++i) {
+            std::vector<Element> proj(table_size);
+            proj[0] = Curve::Group::point_at_infinity;
+            Element base_proj(base_points[i]);
+            for (size_t j = 1; j < table_size; ++j) {
+                proj[j] = proj[j - 1] + base_proj;
+            }
+            Element::batch_normalize(proj.data(), table_size);
+            for (size_t j = 0; j < table_size; ++j) {
+                tables[i][j] = AffineElement(proj[j].x, proj[j].y);
+            }
+        }
+    });
+    return tables;
 }
 
 template class straus_plookup_table<bb::UltraCircuitBuilder>;

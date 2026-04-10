@@ -134,18 +134,20 @@ template <typename Builder> class cycle_group {
     static cycle_group fixed_batch_mul(const std::vector<cycle_group>& constant_points,
                                        const std::vector<BigScalarField>& scalars,
                                        GeneratorContext context = {},
-                                       size_t table_bits = ROM_TABLE_BITS)
+                                       size_t table_bits = ROM_TABLE_BITS,
+                                       size_t cache_offset = 0)
     {
         std::vector<cycle_scalar> cycle_scalars;
         for (auto scalar : scalars) {
             cycle_scalars.emplace_back(scalar);
         }
-        return fixed_batch_mul(constant_points, cycle_scalars, context, table_bits);
+        return fixed_batch_mul(constant_points, cycle_scalars, context, table_bits, cache_offset);
     }
     static cycle_group fixed_batch_mul(const std::vector<cycle_group>& constant_points,
                                        const std::vector<cycle_scalar>& scalars,
                                        const GeneratorContext& context = {},
-                                       size_t table_bits = ROM_TABLE_BITS);
+                                       size_t table_bits = ROM_TABLE_BITS,
+                                       size_t cache_offset = 0);
     cycle_group operator*(const cycle_scalar& scalar) const;
     cycle_group& operator*=(const cycle_scalar& scalar);
     cycle_group operator*(const BigScalarField& scalar) const;
@@ -248,7 +250,8 @@ template <typename Builder> class cycle_group {
         std::span<cycle_scalar> scalars,
         std::span<AffineElement const> base_points,
         std::span<AffineElement const> offset_generators,
-        size_t table_bits = ROM_TABLE_BITS);
+        size_t table_bits = ROM_TABLE_BITS,
+        size_t cache_offset = 0);
 
     // Internal implementation for unconditional_add and unconditional_subtract
     cycle_group _unconditional_add_or_subtract(const cycle_group& other,
