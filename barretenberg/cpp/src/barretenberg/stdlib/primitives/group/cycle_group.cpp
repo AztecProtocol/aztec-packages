@@ -7,6 +7,7 @@
 #include "../field/field.hpp"
 #include "../field/field_utils.hpp"
 #include "barretenberg/common/assert.hpp"
+#include "barretenberg/common/thread.hpp"
 #include "barretenberg/common/zip_view.hpp"
 #include "barretenberg/crypto/pedersen_commitment/pedersen.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
@@ -1016,11 +1017,18 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
         scalar_slices.emplace_back(context, scalar, table_bits);
     }
 
-    // Create plookup tables for each constant base point (zero gate cost)
+    // Create plookup tables for each constant base point (zero gate cost).
+    // Phase 1 (parallel): compute native table entries and BasicTable column data — no builder access.
+    // Phase 2 (serial):   register each BasicTable with the builder (builder is not thread-safe).
+    std::vector<typename straus_plookup_table::PrecomputedData> precomputed_tables(num_points);
+    parallel_for(num_points, [&](size_t i) {
+        precomputed_tables[i] =
+            straus_plookup_table::build_precomputed_data(base_points[i], offset_generators[i + 1], table_bits);
+    });
     std::vector<straus_plookup_table> point_tables;
     point_tables.reserve(num_points);
     for (size_t i = 0; i < num_points; ++i) {
-        point_tables.emplace_back(context, base_points[i], offset_generators[i + 1], table_bits);
+        point_tables.emplace_back(context, std::move(precomputed_tables[i]));
     }
 
     // Compute all intermediate points natively for use as hints in the in-circuit Straus algorithm.

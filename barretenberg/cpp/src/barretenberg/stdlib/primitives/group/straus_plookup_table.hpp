@@ -37,11 +37,27 @@ template <typename Builder> class straus_plookup_table {
     using Element = typename Curve::Element;
     using AffineElement = typename Curve::AffineElement;
 
+    /**
+     * @brief Precomputed data for two-phase construction. Contains all data computed without builder access.
+     */
+    struct PrecomputedData {
+        std::vector<AffineElement> native_table;
+        plookup::BasicTable basic_table; // columns populated; table_index is NOT yet assigned
+    };
+
     straus_plookup_table() = default;
     straus_plookup_table(Builder* context,
                          const AffineElement& base_point,
                          const AffineElement& offset_generator,
                          size_t table_bits);
+    // Construct from precomputed data — only performs builder registration (serial phase)
+    straus_plookup_table(Builder* context, PrecomputedData data);
+
+    // Compute native table + BasicTable columns without touching the builder (parallelizable)
+    static PrecomputedData build_precomputed_data(const AffineElement& base_point,
+                                                  const AffineElement& offset_generator,
+                                                  size_t table_bits);
+
     cycle_group<Builder> read(const field_t& index);
 
     const std::vector<AffineElement>& get_native_table() const { return native_table; }

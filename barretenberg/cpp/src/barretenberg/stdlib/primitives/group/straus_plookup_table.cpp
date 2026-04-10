@@ -5,6 +5,83 @@
 namespace bb::stdlib {
 
 /**
+ * @brief Compute native table entries and BasicTable column data without touching the circuit builder.
+ *
+ * @details This is the parallelizable part of table construction. It builds:
+ *   - native_table: affine points { offset_generator + i * base_point } for i in [0, table_size)
+ *   - basic_table:  a BasicTable with columns populated but table_index NOT yet assigned
+ *
+ * @param base_point Constant base point
+ * @param offset_generator Offset to prevent point-at-infinity edge cases
+ * @param table_bits Number of bits per table (table has 1 << table_bits entries)
+ * @return PrecomputedData Contains native_table and basic_table (without table_index)
+ */
+template <typename Builder>
+typename straus_plookup_table<Builder>::PrecomputedData straus_plookup_table<Builder>::build_precomputed_data(
+    const AffineElement& base_point, const AffineElement& offset_generator, size_t table_bits)
+{
+    const size_t table_size = 1UL << table_bits;
+
+    // Compute native table entries using projective coordinates, then batch-normalize
+    std::vector<Element> projective_points(table_size);
+    projective_points[0] = Element(offset_generator);
+    Element base_proj(base_point);
+    for (size_t i = 1; i < table_size; ++i) {
+        projective_points[i] = projective_points[i - 1] + base_proj;
+    }
+    Element::batch_normalize(projective_points.data(), table_size);
+
+    PrecomputedData result;
+    result.native_table.resize(table_size);
+    for (size_t i = 0; i < table_size; ++i) {
+        result.native_table[i] = AffineElement(projective_points[i].x, projective_points[i].y);
+    }
+
+    // Populate BasicTable columns (table_index is NOT set here — that requires the builder)
+    result.basic_table.id = plookup::BasicTableId::STRAUS_EC_POINT;
+    result.basic_table.use_twin_keys = false;
+    result.basic_table.column_1_step_size = bb::fr(0);
+    result.basic_table.column_2_step_size = bb::fr(0);
+    result.basic_table.column_3_step_size = bb::fr(0);
+    result.basic_table.get_values_from_key = nullptr;
+
+    result.basic_table.column_1.resize(table_size);
+    result.basic_table.column_2.resize(table_size);
+    result.basic_table.column_3.resize(table_size);
+    for (size_t i = 0; i < table_size; ++i) {
+        result.basic_table.column_1[i] = bb::fr(i);
+        result.basic_table.column_2[i] = result.native_table[i].x;
+        result.basic_table.column_3[i] = result.native_table[i].y;
+    }
+
+    return result;
+}
+
+/**
+ * @brief Construct from precomputed data — serial Phase 2, only touches the circuit builder.
+ *
+ * @details Assigns table_index and pushes the BasicTable into the builder's lookup_tables deque.
+ * Must be called serially (builder is not thread-safe).
+ *
+ * @param context The circuit builder
+ * @param data Precomputed native table + BasicTable columns
+ */
+template <typename Builder>
+straus_plookup_table<Builder>::straus_plookup_table(Builder* context, PrecomputedData data)
+    : _context(context)
+    , native_table(std::move(data.native_table))
+{
+    // Assign table_index and push into the builder's lookup_tables deque (serial, builder is not thread-safe)
+    data.basic_table.table_index = context->get_num_lookup_tables();
+    auto& tables = context->get_lookup_tables();
+    tables.emplace_back(std::move(data.basic_table));
+    _table = &tables.back();
+
+    // This table is built entirely from native constants, so the tag is pure constant.
+    tag = OriginTag::constant();
+}
+
+/**
  * @brief Construct a plookup-based Straus lookup table for a constant base point.
  *
  * @details Creates a BasicTable with (1 << table_bits) entries of the form:
@@ -23,53 +100,8 @@ straus_plookup_table<Builder>::straus_plookup_table(Builder* context,
                                                     const AffineElement& base_point,
                                                     const AffineElement& offset_generator,
                                                     size_t table_bits)
-    : _context(context)
-{
-    const size_t table_size = 1UL << table_bits;
-
-    // Compute native table entries using projective coordinates, then batch-normalize
-    std::vector<Element> projective_points(table_size);
-    projective_points[0] = Element(offset_generator);
-    Element base_proj(base_point);
-    for (size_t i = 1; i < table_size; ++i) {
-        projective_points[i] = projective_points[i - 1] + base_proj;
-    }
-    Element::batch_normalize(projective_points.data(), table_size);
-
-    native_table.resize(table_size);
-    for (size_t i = 0; i < table_size; ++i) {
-        native_table[i] = AffineElement(projective_points[i].x, projective_points[i].y);
-    }
-
-    // Create a BasicTable and populate its columns
-    plookup::BasicTable table;
-    table.id = plookup::BasicTableId::STRAUS_EC_POINT;
-    table.use_twin_keys = false;
-    table.column_1_step_size = bb::fr(0);
-    table.column_2_step_size = bb::fr(0);
-    table.column_3_step_size = bb::fr(0);
-    table.get_values_from_key = nullptr;
-
-    table.column_1.resize(table_size);
-    table.column_2.resize(table_size);
-    table.column_3.resize(table_size);
-    for (size_t i = 0; i < table_size; ++i) {
-        table.column_1[i] = bb::fr(i);
-        table.column_2[i] = native_table[i].x;
-        table.column_3[i] = native_table[i].y;
-    }
-
-    // Assign table_index and push into the builder's lookup_tables deque
-    table.table_index = context->get_num_lookup_tables();
-    auto& tables = context->get_lookup_tables();
-    tables.emplace_back(std::move(table));
-    _table = &tables.back();
-
-    // This table is built entirely from native constants (base_point and offset_generator are AffineElements),
-    // so the tag is pure constant. If left as the default FREE_WITNESS, merging with a transcript-tagged
-    // scalar index in read() would trigger "free witness interacting with origin" errors.
-    tag = OriginTag::constant();
-}
+    : straus_plookup_table(context, build_precomputed_data(base_point, offset_generator, table_bits))
+{}
 
 /**
  * @brief Read from the plookup table at the given index.
