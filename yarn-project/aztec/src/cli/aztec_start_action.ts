@@ -7,7 +7,7 @@ import {
 } from '@aztec/foundation/json-rpc/server';
 import type { LogFn, Logger } from '@aztec/foundation/log';
 import type { ChainConfig } from '@aztec/stdlib/config';
-import { AztecNodeApiSchema } from '@aztec/stdlib/interfaces/client';
+import { AztecNodeAdminApiSchema, AztecNodeApiSchema, AztecNodeDebugApiSchema } from '@aztec/stdlib/interfaces/client';
 import { getPackageVersion } from '@aztec/stdlib/update-checker';
 import { getVersioningMiddleware } from '@aztec/stdlib/versioning';
 import { getOtelJsonRpcPropagationMiddleware } from '@aztec/telemetry-client';
@@ -50,6 +50,8 @@ export async function aztecStart(options: any, userLog: LogFn, debugLogger: Logg
     // Start Node and PXE JSON-RPC server
     signalHandlers.push(stop);
     services.node = [node, AztecNodeApiSchema];
+    adminServices.node = [node, AztecNodeAdminApiSchema];
+    services.nodeDebug = [node, AztecNodeDebugApiSchema];
   } else {
     // Route --prover-node through startNode
     if (options.proverNode && !options.node) {
@@ -60,6 +62,9 @@ export async function aztecStart(options: any, userLog: LogFn, debugLogger: Logg
       const { startNode } = await import('./cmds/start_node.js');
       const networkName = getActiveNetworkName(options.network);
       ({ config } = await startNode(options, signalHandlers, services, adminServices, userLog, networkName));
+      if (options.nodeDebug && services.node) {
+        services.nodeDebug = [services.node[0], AztecNodeDebugApiSchema];
+      }
     } else if (options.bot) {
       const { startBot } = await import('./cmds/start_bot.js');
       await startBot(options, signalHandlers, services, userLog);
