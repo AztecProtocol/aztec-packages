@@ -1023,7 +1023,7 @@ aztec setup-protocol-contracts [options]
 **ARCHIVER**
 
 - `--archiver`
-  Starts Aztec Archiver with options
+  Configures the archiver component within a node (use with --node)
 
 - `--archiver.blobSinkMapSizeKb <value>`
   The maximum possible size of the blob sink DB in KB. Overwrites the general dataStoreMapSizeKb.

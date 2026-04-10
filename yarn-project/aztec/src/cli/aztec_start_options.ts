@@ -207,7 +207,7 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
   ARCHIVER: [
     {
       flag: '--archiver',
-      description: 'Starts Aztec Archiver with options',
+      description: 'Configures the archiver component within a node (use with --node)',
       defaultValue: undefined,
       env: undefined,
     },
@@ -312,7 +312,7 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
   PXE: [
     {
       flag: '--pxe',
-      description: 'Starts Aztec PXE with options',
+      description: 'Configures the PXE component within a node (use with --node)',
       defaultValue: undefined,
       env: undefined,
     },

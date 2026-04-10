@@ -120,7 +120,7 @@ tags:
   ARCHIVER
 
     --archiver
-          Starts Aztec Archiver with options
+          Configures the archiver component within a node (use with --node)
 
     --archiver.blobSinkUrl <value>                                                                                                         ($BLOB_SINK_URL)
           The URL of the blob sink
@@ -704,7 +704,7 @@ tags:
   PXE
 
     --pxe
-          Starts Aztec PXE with options
+          Configures the PXE component within a node (use with --node)
 
     --pxe.l2BlockBatchSize <value>                                           (default: 50)                                                 ($PXE_L2_BLOCK_BATCH_SIZE)
           Maximum amount of blocks to pull from the stream in one request when synchronizing

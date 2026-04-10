@@ -65,8 +65,11 @@ export async function aztecStart(options: any, userLog: LogFn, debugLogger: Logg
       const { startBot } = await import('./cmds/start_bot.js');
       await startBot(options, signalHandlers, services, userLog);
     } else if (options.archiver) {
-      const { startArchiver } = await import('./cmds/start_archiver.js');
-      ({ config } = await startArchiver(options, signalHandlers, services));
+      userLog(`Cannot run a standalone archiver without a node. Use --node instead.`);
+      process.exit(1);
+    } else if (options.pxe) {
+      userLog(`Cannot run a standalone PXE without a node. Use --node instead.`);
+      process.exit(1);
     } else if (options.p2pBootstrap) {
       const { startP2PBootstrap } = await import('./cmds/start_p2p_bootstrap.js');
       ({ config } = await startP2PBootstrap(options, signalHandlers, services, userLog));
