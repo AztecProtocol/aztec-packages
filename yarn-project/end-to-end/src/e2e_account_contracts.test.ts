@@ -32,7 +32,7 @@ export class TestWalletInternals extends TestWallet {
 
   replaceAccountAt(account: Account, address: AztecAddress) {
     const existing = this.accounts.get(address.toString());
-    this.accounts.set(address.toString(), { account, contract: existing!.contract });
+    this.accounts.set(address.toString(), { account, type: existing!.type });
   }
 }
 

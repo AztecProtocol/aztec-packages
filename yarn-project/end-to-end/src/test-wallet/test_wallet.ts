@@ -38,6 +38,7 @@ import {
 } from '@aztec/stdlib/tx';
 import { ExecutionPayload, mergeExecutionPayloads } from '@aztec/stdlib/tx';
 import { BaseWallet, type SimulateViaEntrypointOptions } from '@aztec/wallet-sdk/base-wallet';
+import type { AccountType } from '@aztec/wallets/embedded';
 
 import { AztecNodeProxy, ProvenTx } from './utils.js';
 
@@ -47,6 +48,7 @@ import { AztecNodeProxy, ProvenTx } from './utils.js';
 export interface AccountData {
   secret: Fr;
   salt: Fr;
+  type: AccountType;
   contract: AccountContract;
 }
 
@@ -87,30 +89,25 @@ export class TestWallet extends BaseWallet {
 
   createSchnorrAccount(secret: Fr, salt: Fr, signingKey?: Fq): Promise<AccountManager> {
     signingKey = signingKey ?? deriveSigningKey(secret);
-    const accountData = {
-      secret,
-      salt,
-      contract: new SchnorrAccountContract(signingKey),
-    };
-    return this.createAccount(accountData);
+    return this.createAccount({ secret, salt, type: 'schnorr', contract: new SchnorrAccountContract(signingKey) });
   }
 
   createECDSARAccount(secret: Fr, salt: Fr, signingKey: Buffer): Promise<AccountManager> {
-    const accountData = {
+    return this.createAccount({
       secret,
       salt,
+      type: 'ecdsasecp256r1',
       contract: new EcdsaRAccountContract(signingKey),
-    };
-    return this.createAccount(accountData);
+    });
   }
 
   createECDSAKAccount(secret: Fr, salt: Fr, signingKey: Buffer): Promise<AccountManager> {
-    const accountData = {
+    return this.createAccount({
       secret,
       salt,
+      type: 'ecdsasecp256k1',
       contract: new EcdsaKAccountContract(signingKey),
-    };
-    return this.createAccount(accountData);
+    });
   }
 
   /**
@@ -134,9 +131,8 @@ export class TestWallet extends BaseWallet {
       }
 
       const stubArtifact = this.getStubArtifactFor(address);
-      const stubConstructorArgs = this.isEcdsaAccount(address)
-        ? [Buffer.alloc(32), Buffer.alloc(32)]
-        : [Fr.ZERO, Fr.ZERO];
+      const stubConstructorArgs =
+        this.getTypeFor(address) === 'schnorr' ? [Fr.ZERO, Fr.ZERO] : [Buffer.alloc(32), Buffer.alloc(32)];
       const stubInstance = await getContractInstanceFromInstantiationParams(stubArtifact, {
         salt: Fr.random(),
         constructorArgs: stubConstructorArgs,
@@ -151,21 +147,22 @@ export class TestWallet extends BaseWallet {
     return contracts;
   }
 
-  protected accounts: Map<string, { account: Account; contract: AccountContract }> = new Map();
+  protected accounts: Map<string, { account: Account; type: AccountType }> = new Map();
 
-  private isEcdsaAccount(address: AztecAddress) {
-    const entry = this.accounts.get(address.toString());
-    return entry?.contract instanceof EcdsaKAccountContract || entry?.contract instanceof EcdsaRAccountContract;
+  private getTypeFor(address: AztecAddress): AccountType {
+    return this.accounts.get(address.toString())?.type ?? 'schnorr';
   }
 
   private getStubArtifactFor(address: AztecAddress) {
-    return this.isEcdsaAccount(address) ? StubEcdsaAccountContractArtifact : StubSchnorrAccountContractArtifact;
+    return this.getTypeFor(address) === 'schnorr'
+      ? StubSchnorrAccountContractArtifact
+      : StubEcdsaAccountContractArtifact;
   }
 
   private getStubAccountFor(address: AztecAddress, completeAddress: CompleteAddress) {
-    return this.isEcdsaAccount(address)
-      ? createStubEcdsaAccount(completeAddress)
-      : createStubSchnorrAccount(completeAddress);
+    return this.getTypeFor(address) === 'schnorr'
+      ? createStubSchnorrAccount(completeAddress)
+      : createStubEcdsaAccount(completeAddress);
   }
 
   /**
@@ -203,6 +200,7 @@ export class TestWallet extends BaseWallet {
   async createAccount(accountData?: AccountData): Promise<AccountManager> {
     const secret = accountData?.secret ?? Fr.random();
     const salt = accountData?.salt ?? Fr.random();
+    const type = accountData?.type ?? 'schnorr';
     const contract = accountData?.contract ?? new SchnorrAccountContract(GrumpkinScalar.random());
 
     const accountManager = await AccountManager.create(this, secret, contract, salt);
@@ -213,7 +211,7 @@ export class TestWallet extends BaseWallet {
     await this.registerContract(instance, artifact, secret);
 
     const address = accountManager.address.toString();
-    this.accounts.set(address, { account: await accountManager.getAccount(), contract });
+    this.accounts.set(address, { account: await accountManager.getAccount(), type });
 
     return accountManager;
   }
