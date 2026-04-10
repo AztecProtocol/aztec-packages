@@ -1,1 +1,1 @@
-barretenberg_module(stdlib_primitives stdlib_circuit_builders circuit_checker srs)
+barretenberg_module(stdlib_primitives stdlib_circuit_builders circuit_checker)

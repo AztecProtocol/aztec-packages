@@ -986,8 +986,7 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
     const std::span<cycle_scalar> scalars,
     const std::span<AffineElement const> base_points,
     const std::span<AffineElement const> offset_generators,
-    const size_t table_bits,
-    const size_t cache_offset)
+    const size_t table_bits)
 {
     BB_ASSERT_EQ(!scalars.empty(), true, "Empty scalars provided to fixed base plookup batch mul!");
     BB_ASSERT_EQ(scalars.size(), base_points.size(), "Points/scalars size mismatch in fixed base plookup batch mul!");
@@ -1017,14 +1016,13 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
         scalar_slices.emplace_back(context, scalar, table_bits);
     }
 
-    // Create plookup tables for each constant base point (zero gate cost).
-    // Loads { j * base_points[i] } from disk cache, using cache_offset to index into a cache file that
-    // may cover a larger set of points (e.g. all 32768 SRS points when only [1..32767] are needed).
+    // Create plookup tables for each constant base point (zero gate cost)
+    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/22451): we should store the precomputed tables in
+    // memory to avoid recomputing them on every call to this function with the same base points.
     std::vector<straus_plookup_table> point_tables;
     point_tables.reserve(num_points);
-    auto cached = straus_plookup_table::load_cached_base_multiples(base_points, table_bits, cache_offset);
     for (size_t i = 0; i < num_points; ++i) {
-        point_tables.emplace_back(context, cached[i], offset_generators[i + 1], table_bits);
+        point_tables.emplace_back(context, base_points[i], offset_generators[i + 1], table_bits);
     }
 
     // Compute all intermediate points natively for use as hints in the in-circuit Straus algorithm.
@@ -1103,8 +1101,7 @@ template <typename Builder>
 cycle_group<Builder> cycle_group<Builder>::fixed_batch_mul(const std::vector<cycle_group>& constant_points,
                                                            const std::vector<cycle_scalar>& scalars,
                                                            const GeneratorContext& context,
-                                                           const size_t table_bits,
-                                                           const size_t cache_offset)
+                                                           const size_t table_bits)
 {
     BB_ASSERT_EQ(scalars.size(), constant_points.size(), "Points/scalars size mismatch in fixed_batch_mul!");
 
@@ -1163,8 +1160,8 @@ cycle_group<Builder> cycle_group<Builder>::fixed_batch_mul(const std::vector<cyc
 
     // Run the plookup-based Straus algorithm
     Element offset_accumulator = -constant_acc;
-    const auto [accumulator, offset_generator_delta] = _fixed_base_plookup_batch_mul_internal(
-        plookup_scalars, plookup_points, offset_generators, table_bits, cache_offset);
+    const auto [accumulator, offset_generator_delta] =
+        _fixed_base_plookup_batch_mul_internal(plookup_scalars, plookup_points, offset_generators, table_bits);
     offset_accumulator += offset_generator_delta;
 
     // Subtract offset. Since all points are constants and linearly independent of offset generators,
