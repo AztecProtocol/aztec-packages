@@ -247,8 +247,12 @@ function test_cmds_native {
       while read -r test; do
         # Skip heavy recursion tests in debug builds — they take 400-600s and the same
         # code paths are already exercised (with assertions) by faster tests in the suite.
-        if [[ "$native_preset" == *debug* ]] && [[ "$test" =~ ^(HonkRecursionConstraintTest|ChonkRecursionConstraintTest) ]]; then
-          continue
+        # Keep WithoutPredicate/1.GenerateVKFromConstraints (241s) so that the debug-only
+        # native_verification_debug path in honk_recursion_constraint.cpp is still exercised.
+        if [[ "$native_preset" == *debug* ]] && [[ "$test" =~ ^(HonkRecursionConstraintTest|ChonkRecursionConstraintTest|AvmRecursionInnerCircuitTests) ]]; then
+          if [[ "$test" != "HonkRecursionConstraintTestWithoutPredicate/1.GenerateVKFromConstraints" ]]; then
+            continue
+          fi
         fi
         local prefix=$hash
         # A little extra resource for these tests.
