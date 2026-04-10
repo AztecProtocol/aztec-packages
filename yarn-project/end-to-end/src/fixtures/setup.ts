@@ -7,6 +7,8 @@ import {
   BatchCall,
   type ContractFunctionInteraction,
   type ContractMethod,
+  type DeployInteractionWaitOptions,
+  type DeployOptions,
   getContractClassFromArtifact,
   waitForProven,
 } from '@aztec/aztec.js/contracts';
@@ -49,9 +51,10 @@ import type { ProverNodeConfig } from '@aztec/prover-node';
 import { type PXEConfig, getPXEConfig } from '@aztec/pxe/server';
 import type { SequencerClient } from '@aztec/sequencer-client';
 import { type ContractInstanceWithAddress, getContractInstanceFromInstantiationParams } from '@aztec/stdlib/contract';
-import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
+import type { AztecNodeAdmin, AztecNodeDebug } from '@aztec/stdlib/interfaces/client';
 import { tryStop } from '@aztec/stdlib/interfaces/server';
 import type { PublicDataTreeLeaf } from '@aztec/stdlib/trees';
+import type { GenesisData } from '@aztec/stdlib/world-state';
 import {
   type TelemetryClient,
   type TelemetryClientConfig,
@@ -178,6 +181,8 @@ export type SetupOptions = {
   proverNodeConfig?: Partial<ProverNodeConfig>;
   /** Whether to use a mock gossip sub network for p2p clients. */
   mockGossipSubNetwork?: boolean;
+  /** Whether to add simulated latency to the mock gossipsub network (in ms) */
+  mockGossipSubNetworkLatency?: number;
   /** Whether to disable the anvil test watcher (can still be manually started) */
   disableAnvilTestWatcher?: boolean;
   /** Whether to enable anvil automine during deployment of L1 contracts (consider defaulting this to true). */
@@ -210,7 +215,7 @@ export type EndToEndContext = {
   /** The Anvil instance (only set if anvil was started locally). */
   anvil: Anvil | undefined;
   /** The Aztec Node service or client a connected to it. */
-  aztecNode: AztecNode;
+  aztecNode: AztecNode & AztecNodeDebug;
   /** The Aztec Node as a service. */
   aztecNodeService: AztecNodeService;
   /** Client to the Aztec Node admin interface. */
@@ -249,8 +254,8 @@ export type EndToEndContext = {
   sequencerDelayer: Delayer | undefined;
   /** Delayer for prover node L1 txs (only when enableDelayer and startProverNode are true). */
   proverDelayer: Delayer | undefined;
-  /** Prefilled public data used for setting up nodes. */
-  prefilledPublicData: PublicDataTreeLeaf[] | undefined;
+  /** Genesis data used for setting up nodes. */
+  genesis: GenesisData | undefined;
   /** ACVM config (only set if running locally). */
   acvmConfig: Awaited<ReturnType<typeof getACVMConfig>>;
   /** BB config (only set if running locally). */
@@ -276,7 +281,7 @@ export async function setup(
   let anvil: Anvil | undefined;
   try {
     opts.aztecTargetCommitteeSize ??= 0;
-    opts.slasherFlavor ??= 'none';
+    opts.slasherEnabled ??= false;
 
     const config: AztecNodeConfig & SetupOptions = { ...getConfigEnvVars(), ...opts };
     // use initialValidators for the node config
@@ -375,10 +380,12 @@ export async function setup(
       addressesToFund.push(sponsoredFPCAddress);
     }
 
-    const { genesisArchiveRoot, prefilledPublicData, fundingNeeded } = await getGenesisValues(
+    const genesisTimestamp = BigInt(Math.floor(Date.now() / 1000));
+    const { genesisArchiveRoot, genesis, fundingNeeded } = await getGenesisValues(
       addressesToFund,
       opts.initialAccountFeeJuice,
       opts.genesisPublicData,
+      genesisTimestamp,
     );
 
     const wasAutomining = await ethCheatCodes.isAutoMining();
@@ -467,7 +474,7 @@ export async function setup(
     let p2pClientDeps: P2PClientDeps | undefined = undefined;
 
     if (opts.mockGossipSubNetwork) {
-      mockGossipSubNetwork = new MockGossipSubNetwork();
+      mockGossipSubNetwork = new MockGossipSubNetwork(opts.mockGossipSubNetworkLatency);
       p2pClientDeps = { p2pServiceFactory: getMockPubSubP2PServiceFactory(mockGossipSubNetwork) };
     }
 
@@ -496,11 +503,7 @@ export async function setup(
     }
 
     const aztecNodeService = await withLoggerBindings({ actor: 'node-0' }, () =>
-      AztecNodeService.createAndSync(
-        config,
-        { dateProvider, telemetry: telemetryClient, p2pClientDeps },
-        { prefilledPublicData },
-      ),
+      AztecNodeService.createAndSync(config, { dateProvider, telemetry: telemetryClient, p2pClientDeps }, { genesis }),
     );
     const sequencerClient = aztecNodeService.getSequencer();
 
@@ -524,7 +527,7 @@ export async function setup(
           dataDirectory: proverNodeDataDirectory,
         },
         { dateProvider, p2pClientDeps, telemetry: telemetryClient },
-        { prefilledPublicData },
+        { genesis },
       ));
     }
 
@@ -629,7 +632,7 @@ export async function setup(
       initialFundedAccounts,
       logger,
       mockGossipSubNetwork,
-      prefilledPublicData,
+      genesis,
       proverNode,
       sequencerDelayer,
       proverDelayer,
@@ -729,7 +732,7 @@ export function createAndSyncProverNode(
     dateProvider: DateProvider;
     p2pClientDeps?: P2PClientDeps;
   },
-  options: { prefilledPublicData: PublicDataTreeLeaf[]; dontStart?: boolean },
+  options: { genesis?: GenesisData; dontStart?: boolean },
 ): Promise<{ proverNode: AztecNodeService }> {
   return withLoggerBindings({ actor: 'prover-0' }, async () => {
     const proverNode = await AztecNodeService.createAndSync(
@@ -742,7 +745,7 @@ export function createAndSyncProverNode(
         proverPublisherPrivateKeys: [new SecretValue(proverNodePrivateKey)],
       },
       deps,
-      { ...options, dontStartProverNode: options.dontStart },
+      { genesis: options.genesis, dontStartProverNode: options.dontStart },
     );
 
     if (!proverNode.getProverNode()) {
@@ -833,7 +836,7 @@ export async function ensureAccountContractsPublished(wallet: Wallet, accountsTo
  * Returns deployed account data that can be used by tests.
  */
 export const deployAccounts =
-  (numberOfAccounts: number, logger: Logger) =>
+  (numberOfAccounts: number, logger: Logger, deployOptions?: Partial<DeployOptions<DeployInteractionWaitOptions>>) =>
   async ({ wallet, initialFundedAccounts }: { wallet: TestWallet; initialFundedAccounts: InitialAccountData[] }) => {
     if (initialFundedAccounts.length < numberOfAccounts) {
       throw new Error(`Cannot deploy more than ${initialFundedAccounts.length} initial accounts.`);
@@ -852,6 +855,7 @@ export const deployAccounts =
       await deployMethod.send({
         from: NO_FROM,
         skipClassPublication: i !== 0, // Publish the contract class at most once.
+        ...deployOptions,
       });
     }
 

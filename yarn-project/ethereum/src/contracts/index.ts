@@ -1,3 +1,4 @@
+export * from './chain_state_override.js';
 export * from './empire_base.js';
 export * from './errors.js';
 export * from './fee_asset_handler.js';
@@ -12,6 +13,5 @@ export * from './multicall.js';
 export * from './outbox.js';
 export * from './registry.js';
 export * from './rollup.js';
-export * from './empire_slashing_proposer.js';
-export * from './tally_slashing_proposer.js';
+export * from './slashing_proposer.js';
 export * from './slasher_contract.js';

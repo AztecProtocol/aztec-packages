@@ -16,6 +16,7 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { BadRequestError } from '@aztec/foundation/json-rpc';
 import { type Logger, createLogger } from '@aztec/foundation/log';
+import { retryUntil } from '@aztec/foundation/retry';
 import { count } from '@aztec/foundation/string';
 import { DateProvider, Timer } from '@aztec/foundation/timer';
 import { MembershipWitness, SiblingPath } from '@aztec/foundation/trees';
@@ -66,6 +67,7 @@ import {
   type AztecNodeAdmin,
   type AztecNodeAdminConfig,
   AztecNodeAdminConfigSchema,
+  type AztecNodeDebug,
   type GetContractClassLogsResponse,
   type GetPublicLogsResponse,
 } from '@aztec/stdlib/interfaces/client';
@@ -81,8 +83,8 @@ import {
 import type { DebugLogStore, LogFilter, SiloedTag, Tag, TxScopedL2Log } from '@aztec/stdlib/logs';
 import { InMemoryDebugLogStore, NullDebugLogStore } from '@aztec/stdlib/logs';
 import { InboxLeaf, type L1ToL2MessageSource } from '@aztec/stdlib/messaging';
-import type { Offense, SlashPayloadRound } from '@aztec/stdlib/slashing';
-import type { NullifierLeafPreimage, PublicDataTreeLeaf, PublicDataTreeLeafPreimage } from '@aztec/stdlib/trees';
+import type { Offense } from '@aztec/stdlib/slashing';
+import type { NullifierLeafPreimage, PublicDataTreeLeafPreimage } from '@aztec/stdlib/trees';
 import { MerkleTreeId, NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
 import {
   type BlockHeader,
@@ -97,6 +99,7 @@ import {
 } from '@aztec/stdlib/tx';
 import { getPackageVersion } from '@aztec/stdlib/update-checker';
 import type { SingleValidatorStats, ValidatorsStats } from '@aztec/stdlib/validators';
+import type { GenesisData } from '@aztec/stdlib/world-state';
 import {
   Attributes,
   type TelemetryClient,
@@ -126,7 +129,7 @@ import { NodeMetrics } from './node_metrics.js';
 /**
  * The aztec node.
  */
-export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
+export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDebug, Traceable {
   private metrics: NodeMetrics;
   private initialHeaderHashPromise: Promise<BlockHash> | undefined = undefined;
 
@@ -207,7 +210,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       slashingProtectionDb?: SlashingProtectionDatabase;
     } = {},
     options: {
-      prefilledPublicData?: PublicDataTreeLeaf[];
+      genesis?: GenesisData;
       dontStartSequencer?: boolean;
       dontStartProverNode?: boolean;
     } = {},
@@ -310,12 +313,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     );
 
     // now create the merkle trees and the world state synchronizer
-    const worldStateSynchronizer = await createWorldStateSynchronizer(
-      config,
-      archiver,
-      options.prefilledPublicData,
-      telemetry,
-    );
+    const worldStateSynchronizer = await createWorldStateSynchronizer(config, archiver, options.genesis, telemetry);
     const useRealVerifiers = config.realProofs || config.debugForceTxProofVerification;
     let peerProofVerifier: ClientProtocolCircuitVerifier;
     let rpcProofVerifier: ClientProtocolCircuitVerifier;
@@ -470,7 +468,6 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     void archiver
       .waitForInitialSync()
       .then(async () => {
-        await p2pClient.start();
         await validatorsSentinel?.start();
         await epochPruneWatcher?.start();
         await attestationsBlockWatcher?.start();
@@ -1488,7 +1485,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     return Promise.resolve();
   }
 
-  public async rollbackTo(targetBlock: BlockNumber, force?: boolean): Promise<void> {
+  public async rollbackTo(targetBlock: BlockNumber, force?: boolean, resumeSync = true): Promise<void> {
     const archiver = this.blockSource as Archiver;
     if (!('rollbackTo' in archiver)) {
       throw new Error('Archiver implementation does not support rollbacks.');
@@ -1518,9 +1515,13 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       this.log.error(`Error during rollback`, err);
       throw err;
     } finally {
-      this.log.info(`Resuming world state and archiver sync.`);
-      this.worldStateSynchronizer.resumeSync();
-      archiver.resume();
+      if (resumeSync) {
+        this.log.info(`Resuming world state and archiver sync.`);
+        this.worldStateSynchronizer.resumeSync();
+        archiver.resume();
+      } else {
+        this.log.info(`Sync left paused after rollback (resumeSync=false).`);
+      }
     }
   }
 
@@ -1537,19 +1538,12 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     return Promise.resolve();
   }
 
-  public getSlashPayloads(): Promise<SlashPayloadRound[]> {
-    if (!this.slasherClient) {
-      throw new Error(`Slasher client not enabled`);
-    }
-    return this.slasherClient.getSlashPayloads();
-  }
-
   public getSlashOffenses(round: bigint | 'all' | 'current'): Promise<Offense[]> {
     if (!this.slasherClient) {
       throw new Error(`Slasher client not enabled`);
     }
     if (round === 'all') {
-      return this.slasherClient.getPendingOffenses();
+      return this.slasherClient.getOffenses();
     } else {
       return this.slasherClient.gatherOffensesForRound(round === 'current' ? undefined : BigInt(round));
     }
@@ -1641,6 +1635,40 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
 
     this.keyStoreManager = newManager;
     this.log.info('Keystore reloaded: coinbase, feeRecipient, and attester keys updated');
+  }
+
+  public async mineBlock(): Promise<void> {
+    if (!this.sequencer) {
+      throw new BadRequestError('Cannot mine block: no sequencer is running');
+    }
+
+    const currentBlockNumber = await this.getBlockNumber();
+
+    // Use slot duration + 50% buffer as the timeout so this works on running networks too
+    const { slotDuration } = await this.blockSource.getL1Constants();
+    const timeoutSeconds = Math.ceil(slotDuration * 1.5);
+
+    // Temporarily set minTxsPerBlock to 0 so the sequencer produces a block even with no txs
+    const originalMinTxsPerBlock = this.sequencer.getSequencer().getConfig().minTxsPerBlock;
+    this.sequencer.updateConfig({ minTxsPerBlock: 0 });
+
+    try {
+      // Trigger the sequencer to produce a block immediately
+      void this.sequencer.trigger();
+
+      // Wait for the new L2 block to appear
+      await retryUntil(
+        async () => {
+          const newBlockNumber = await this.getBlockNumber();
+          return newBlockNumber > currentBlockNumber ? true : undefined;
+        },
+        'mineBlock',
+        timeoutSeconds,
+        0.1,
+      );
+    } finally {
+      this.sequencer.updateConfig({ minTxsPerBlock: originalMinTxsPerBlock });
+    }
   }
 
   #getInitialHeaderHash(): Promise<BlockHash> {

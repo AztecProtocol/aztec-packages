@@ -32,6 +32,7 @@ export class ArchiverInstrumentation {
   private pruneCount: UpDownCounter;
 
   private syncDurationPerBlock: Histogram;
+  private syncDurationPerCheckpoint: Histogram;
   private syncBlockCount: UpDownCounter;
   private manaPerBlock: Histogram;
   private txsPerBlock: Histogram;
@@ -67,6 +68,8 @@ export class ArchiverInstrumentation {
     this.proofsSubmittedDelay = meter.createHistogram(Metrics.ARCHIVER_ROLLUP_PROOF_DELAY);
 
     this.syncDurationPerBlock = meter.createHistogram(Metrics.ARCHIVER_SYNC_PER_BLOCK);
+
+    this.syncDurationPerCheckpoint = meter.createHistogram(Metrics.ARCHIVER_SYNC_PER_CHECKPOINT);
 
     this.syncBlockCount = createUpDownCounterWithDefault(meter, Metrics.ARCHIVER_SYNC_BLOCK_COUNT);
 
@@ -113,17 +116,26 @@ export class ArchiverInstrumentation {
     return this.telemetry.isEnabled();
   }
 
-  public processNewBlocks(syncTimePerBlock: number, blocks: L2Block[]) {
+  public processNewProposedBlock(syncTimePerBlock: number, block: L2Block) {
+    const attrs = { [Attributes.STATUS]: 'proposed' };
+    this.blockHeight.record(block.number, attrs);
     this.syncDurationPerBlock.record(Math.ceil(syncTimePerBlock));
+
+    // Per block metrics
+    this.txCount.add(block.body.txEffects.length);
+    this.txsPerBlock.record(block.body.txEffects.length);
+    this.manaPerBlock.record(block.header.totalManaUsed.toNumber() / 1e6);
+  }
+
+  public processNewCheckpointedBlocks(syncTimePerCheckpoint: number, blocks: L2Block[]) {
+    if (blocks.length === 0) {
+      return;
+    }
+
+    this.syncDurationPerCheckpoint.record(Math.ceil(syncTimePerCheckpoint));
     this.blockHeight.record(Math.max(...blocks.map(b => b.number)));
     this.checkpointHeight.record(Math.max(...blocks.map(b => b.checkpointNumber)));
     this.syncBlockCount.add(blocks.length);
-
-    for (const block of blocks) {
-      this.txCount.add(block.body.txEffects.length);
-      this.txsPerBlock.record(block.body.txEffects.length);
-      this.manaPerBlock.record(block.header.totalManaUsed.toNumber() / 1e6);
-    }
   }
 
   public processNewMessages(count: number, syncPerMessageMs: number) {

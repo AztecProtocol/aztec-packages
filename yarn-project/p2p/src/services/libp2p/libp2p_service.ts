@@ -1,13 +1,12 @@
 import type { EpochCacheInterface } from '@aztec/epoch-cache';
 import { BlockNumber, type SlotNumber } from '@aztec/foundation/branded-types';
 import { maxBy } from '@aztec/foundation/collection';
-import { Fr } from '@aztec/foundation/curves/bn254';
 import { type Logger, createLibp2pComponentLogger, createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import { Timer } from '@aztec/foundation/timer';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import { protocolContractsHash } from '@aztec/protocol-contracts';
-import type { EthAddress, L2Block, L2BlockSource } from '@aztec/stdlib/block';
+import type { EthAddress, L2BlockSource } from '@aztec/stdlib/block';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 import { GasFees } from '@aztec/stdlib/gas';
 import type { ClientProtocolCircuitVerifier, PeerInfo, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
@@ -105,7 +104,6 @@ import {
   ValidationError,
   pingHandler,
   reqGoodbyeHandler,
-  reqRespBlockHandler,
   reqRespBlockTxsHandler,
   reqRespStatusHandler,
   reqRespTxHandler,
@@ -230,15 +228,19 @@ export class LibP2PService extends WithTracer implements P2PService {
       this.protocolVersion,
     );
 
+    const p2pPropagationTime = config.attestationPropagationTime;
     const proposalValidatorOpts = {
       txsPermitted: !config.disableTransactions,
       maxTxsPerBlock: config.validateMaxTxsPerBlock ?? config.validateMaxTxsPerCheckpoint,
+      p2pPropagationTime,
     };
     this.blockProposalValidator = new BlockProposalValidator(epochCache, proposalValidatorOpts);
     this.checkpointProposalValidator = new CheckpointProposalValidator(epochCache, proposalValidatorOpts);
     this.checkpointAttestationValidator = config.fishermanMode
-      ? new FishermanAttestationValidator(epochCache, mempools.attestationPool, telemetry)
-      : new CheckpointAttestationValidator(epochCache);
+      ? new FishermanAttestationValidator(epochCache, mempools.attestationPool, telemetry, {
+          l1PublishingTime: config.l1PublishingTime,
+        })
+      : new CheckpointAttestationValidator(epochCache, { l1PublishingTime: config.l1PublishingTime });
 
     this.gossipSubEventHandler = this.handleGossipSubEvent.bind(this);
 
@@ -348,9 +350,12 @@ export class LibP2PService extends WithTracer implements P2PService {
     const l1Constants = epochCache.getL1Constants();
     const topicScoreParams = createAllTopicScoreParams(protocolVersion, {
       slotDurationMs: l1Constants.slotDuration * 1000,
+      ethereumSlotDuration: l1Constants.ethereumSlotDuration,
       heartbeatIntervalMs: config.gossipsubInterval,
       targetCommitteeSize: l1Constants.targetCommitteeSize,
       blockDurationMs: config.blockDurationMs,
+      l1PublishingTime: config.l1PublishingTime,
+      p2pPropagationTime: config.attestationPropagationTime,
       expectedBlockProposalsPerSlot: config.expectedBlockProposalsPerSlot,
     });
 
@@ -475,6 +480,9 @@ export class LibP2PService extends WithTracer implements P2PService {
       epochCache,
     );
 
+    // Gate req/resp data protocols for unauthenticated peers when p2pAllowOnlyValidators is enabled
+    reqresp.setShouldRejectPeer(peerId => peerManager.shouldDisableP2PGossip(peerId));
+
     // Configure application-specific scoring for gossipsub.
     // The weight scales app score to align with gossipsub thresholds:
     // - Disconnect (-50) × 10 = -500 = gossipThreshold (stops receiving gossip)
@@ -520,14 +528,12 @@ export class LibP2PService extends WithTracer implements P2PService {
     // Create request response protocol handlers
     const txHandler = reqRespTxHandler(this.mempools);
     const goodbyeHandler = reqGoodbyeHandler(this.peerManager);
-    const blockHandler = reqRespBlockHandler(this.archiver);
     const statusHandler = reqRespStatusHandler(this.protocolVersion, this.worldStateSynchronizer, this.logger);
 
     const requestResponseHandlers: Partial<ReqRespSubProtocolHandlers> = {
       [ReqRespSubProtocol.PING]: pingHandler,
       [ReqRespSubProtocol.STATUS]: statusHandler.bind(this),
       [ReqRespSubProtocol.GOODBYE]: goodbyeHandler.bind(this),
-      [ReqRespSubProtocol.BLOCK]: blockHandler.bind(this),
     };
 
     if (!this.config.disableTransactions) {
@@ -548,7 +554,6 @@ export class LibP2PService extends WithTracer implements P2PService {
       ...DEFAULT_SUB_PROTOCOL_VALIDATORS,
       [ReqRespSubProtocol.TX]: this.validateRequestedTxs.bind(this),
       [ReqRespSubProtocol.BLOCK_TXS]: this.validateRequestedBlockTxs.bind(this),
-      [ReqRespSubProtocol.BLOCK]: this.validateRequestedBlock.bind(this),
     };
 
     await this.peerManager.initializePeers();
@@ -1570,53 +1575,6 @@ export class LibP2PService extends WithTracer implements P2PService {
         this.logger.error(`Error during validation of requested txs`, e);
       }
 
-      return false;
-    }
-  }
-
-  /**
-   * Validates a BLOCK response.
-   *
-   * If a local copy exists, enforces hash equality. If missing, rejects (no penalty) since the hash cannot be verified.
-   * Penalizes on block number mismatch or hash mismatch.
-   *
-   * @param requestedBlockNumber - The requested block number.
-   * @param responseBlock - The block returned by the peer.
-   * @param peerId - The peer that returned the block.
-   * @returns True if the response is valid, false otherwise.
-   */
-  @trackSpan('Libp2pService.validateRequestedBlock', (requestedBlockNumber, _responseBlock) => ({
-    [Attributes.BLOCK_NUMBER]: requestedBlockNumber.toString(),
-  }))
-  protected async validateRequestedBlock(
-    requestedBlockNumber: Fr,
-    responseBlock: L2Block,
-    peerId: PeerId,
-  ): Promise<boolean> {
-    try {
-      const reqNum = Number(requestedBlockNumber.toString());
-      if (responseBlock.number !== reqNum) {
-        this.peerManager.penalizePeer(peerId, PeerErrorSeverity.LowToleranceError);
-        return false;
-      }
-
-      const local = await this.archiver.getBlock(BlockNumber(reqNum));
-      if (!local) {
-        // We are missing the local block; we cannot verify the hash yet. Reject without penalizing.
-        // TODO: Consider extending this validator to accept an expected hash or
-        // performing quorum-based checks when using P2P syncing prior to L1 sync.
-        this.logger.warn(`Local block ${reqNum} not found; rejecting BLOCK response without hash verification`);
-        return false;
-      }
-      const [localHash, respHash] = await Promise.all([local.hash(), responseBlock.hash()]);
-      if (!localHash.equals(respHash)) {
-        this.peerManager.penalizePeer(peerId, PeerErrorSeverity.MidToleranceError);
-        return false;
-      }
-
-      return true;
-    } catch (e) {
-      this.logger.warn(`Error validating requested block`, e);
       return false;
     }
   }

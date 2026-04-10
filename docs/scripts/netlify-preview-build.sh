@@ -15,8 +15,18 @@ if [ ! -f "$REPO_ROOT/noir/noir-repo/.git" ] && [ ! -d "$REPO_ROOT/noir/noir-rep
     git -C "$REPO_ROOT" submodule update --init --depth 1 noir/noir-repo
 fi
 
-# Use the pinned noir version from the submodule (falls back to nightly)
-NOIR_TAG=$(git -C "$REPO_ROOT/noir/noir-repo" describe --tags --exact-match 2>/dev/null || echo "nightly")
+# Fetch tags so git describe can identify the exact noir version pinned by the submodule.
+# The shallow clone (--depth 1) does not fetch tags, causing describe to fail and the
+# build to fall back to "nightly", which may pull a newer nargo with breaking stdlib changes.
+git -C "$REPO_ROOT/noir/noir-repo" fetch --tags --depth 1 2>/dev/null || true
+
+# Use the pinned noir version from the submodule
+NOIR_TAG=$(git -C "$REPO_ROOT/noir/noir-repo" describe --tags --exact-match 2>/dev/null || echo "")
+if [ -z "$NOIR_TAG" ]; then
+    echo "WARNING: Could not determine noir version from submodule tags. Falling back to 'nightly'."
+    echo "This may install a newer nargo with breaking stdlib changes."
+    NOIR_TAG="nightly"
+fi
 echo "Using noir version: $NOIR_TAG"
 
 # Install noirup (ignore shell detection failure - binary still gets installed)

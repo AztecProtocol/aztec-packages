@@ -161,7 +161,7 @@ export class TxSimulationResult {
 }
 
 /**
- * Recursively accummulate the return values of a call result and its nested executions,
+ * Recursively accumulate the return values of a call result and its nested executions,
  * so they can be retrieved in order.
  * @param executionResult
  * @returns

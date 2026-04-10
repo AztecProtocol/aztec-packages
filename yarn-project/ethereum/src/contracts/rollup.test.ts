@@ -328,6 +328,27 @@ describe('Rollup', () => {
     });
   });
 
+  describe('makeArchiveOverride', () => {
+    it('creates state override that correctly sets archive for a checkpoint number', async () => {
+      const checkpointNumber = CheckpointNumber(5);
+      const expectedArchive = Fr.random();
+
+      // Create the override
+      const stateOverride = rollup.makeArchiveOverride(checkpointNumber, expectedArchive);
+
+      // Test the override using simulateContract to read archiveAt(checkpointNumber)
+      const { result: overriddenArchive } = await publicClient.simulateContract({
+        address: rollupAddress,
+        abi: RollupAbi as Abi,
+        functionName: 'archiveAt',
+        args: [BigInt(checkpointNumber)],
+        stateOverride,
+      });
+
+      expect(Fr.fromString(overriddenArchive as string).equals(expectedArchive)).toBe(true);
+    });
+  });
+
   describe('getSlashingProposer', () => {
     it('returns a slashing proposer', async () => {
       const slashingProposer = await rollup.getSlashingProposer();

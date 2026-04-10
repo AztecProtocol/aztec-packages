@@ -22,7 +22,6 @@ import {
   TxHash,
   TxProfileResult,
   TxReceipt,
-  TxSimulationResult,
   UtilityExecutionResult,
   inTxSchema,
 } from '@aztec/stdlib/tx';
@@ -42,6 +41,7 @@ import {
 } from '../contract/interaction_options.js';
 import type { CallIntent, IntentInnerHash } from '../utils/authwit.js';
 import type { AppCapabilities, WalletCapabilities } from './capabilities.js';
+import { TxSimulationResultWithAppOffset } from './tx_simulation_result_with_app_offset.js';
 
 /**
  * A wrapper type that allows any item to be associated with an alias.
@@ -271,7 +271,7 @@ export type Wallet = {
     artifact?: ContractArtifact,
     secretKey?: Fr,
   ): Promise<ContractInstanceWithAddress>;
-  simulateTx(exec: ExecutionPayload, opts: SimulateOptions): Promise<TxSimulationResult>;
+  simulateTx(exec: ExecutionPayload, opts: SimulateOptions): Promise<TxSimulationResultWithAppOffset>;
   executeUtility(call: FunctionCall, opts: ExecuteUtilityOptions): Promise<UtilityExecutionResult>;
   profileTx(exec: ExecutionPayload, opts: ProfileOptions): Promise<TxProfileResult>;
   sendTx<W extends InteractionWaitOptions = undefined>(
@@ -556,7 +556,10 @@ const WalletMethodSchemas = {
     .function()
     .args(ContractInstanceWithAddressSchema, optional(ContractArtifactSchema), optional(schemas.Fr))
     .returns(ContractInstanceWithAddressSchema),
-  simulateTx: z.function().args(ExecutionPayloadSchema, SimulateOptionsSchema).returns(TxSimulationResult.schema),
+  simulateTx: z
+    .function()
+    .args(ExecutionPayloadSchema, SimulateOptionsSchema)
+    .returns(TxSimulationResultWithAppOffset.schema),
   executeUtility: z
     .function()
     .args(
