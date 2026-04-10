@@ -48,7 +48,7 @@ import { AztecNodeProxy, ProvenTx } from './utils.js';
 export interface AccountData {
   secret: Fr;
   salt: Fr;
-  type: AccountType;
+  type?: AccountType;
   contract: AccountContract;
 }
 
