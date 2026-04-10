@@ -63,7 +63,6 @@ void ECCVMProver::execute_wire_commitments_round()
     auto masking_commitment = key->commitment_key.commit(key->polynomials.gemini_masking_poly);
     transcript->send_to_verifier("Gemini:masking_poly_comm", masking_commitment);
 
-    // With in-place masking, masking values are already in the polynomials from allocation
     auto batch = key->commitment_key.start_batch();
     for (const auto& [wire, label] : zip_view(key->polynomials.get_wires(), commitment_labels.get_wires())) {
         batch.add_to_batch(wire, label);
