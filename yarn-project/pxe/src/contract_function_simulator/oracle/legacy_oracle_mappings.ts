@@ -90,6 +90,74 @@ export function buildLegacyOracleCallbacks(oracle: Oracle): ACIRCallback {
       secret: ACVMField[],
     ): Promise<(ACVMField | ACVMField[])[]> =>
       oracle.aztec_utl_getL1ToL2MembershipWitness(contractAddress, messageHash, secret),
+
+    // Point serialization changes: old format includes is_infinite field, new format omits it.
+    // Old getPublicKeysAndPartialAddress returns Option<[Field; 13]> with 4 keys as (x, y, is_infinite) + partial.
+    // New _v2 returns Option<[Field; 9]> with 4 keys as (x, y) + partial.
+    // eslint-disable-next-line camelcase
+    aztec_utl_getPublicKeysAndPartialAddress: async (address: ACVMField[]): Promise<(ACVMField | ACVMField[])[]> => {
+      const result = await oracle.aztec_utl_getPublicKeysAndPartialAddress_v2(address);
+      // result is [some, [k0.x, k0.y, k1.x, k1.y, k2.x, k2.y, k3.x, k3.y, partial_address]]
+      const some = result[0] as ACVMField;
+      const fields = result[1] as ACVMField[];
+      if (some === toACVMField(0)) {
+        // The None case
+        return [toACVMField(0), Array(13).fill(toACVMField(0))];
+      }
+
+      // Expand each key (x, y) → (x, y, is_infinite) where is_infinite = 1 if x == 0 && y == 0
+      const expanded: ACVMField[] = [];
+      for (let i = 0; i < 4; i++) {
+        // With new Noir infinite point is represented simply as [0, 0] so if x and y are 0 we set the is_infinite flag
+        // as 1, 0 otherwise.
+        const x = fields[i * 2];
+        const y = fields[i * 2 + 1];
+        const isInfinite = toACVMField(x === toACVMField(0) && y === toACVMField(0) ? 1 : 0);
+        expanded.push(x, y, isInfinite);
+      }
+      expanded.push(fields[8]); // partial_address
+      return [some, expanded];
+    },
+
+    // Old getSharedSecret takes 5 args (address, ephPK.x, ephPK.y, ephPK.is_infinite, contractAddress).
+    // New _v2 takes 4 args (without is_infinite).
+    // eslint-disable-next-line camelcase
+    aztec_utl_getSharedSecret: (
+      address: ACVMField[],
+      ephPKField0: ACVMField[],
+      ephPKField1: ACVMField[],
+      ephPKIsInfinite: ACVMField[],
+      contractAddress: ACVMField[],
+    ): Promise<ACVMField[]> => {
+      if (
+        ephPKIsInfinite[0] !== toACVMField(0) &&
+        (ephPKField0[0] !== toACVMField(0) || ephPKField1[0] !== toACVMField(0))
+      ) {
+        // We throw an error in case isInfinite flag is 1 and x, y are non-zero as at that would be a bug and it would
+        // not be possible to map the serialization from old Noir format (infinite point represented as [0, 0, 1]) to
+        // new Noir format (infinite point represented simply as [0, 0]).
+        throw new Error('Inconsistent ephemeral public key: is_infinite is set but x or y coordinates are non-zero');
+      }
+      return oracle.aztec_utl_getSharedSecret_v2(address, ephPKField0, ephPKField1, contractAddress);
+    },
+
+    // Old getContractInstance returns 16 fields: [salt, deployer, classId, initHash, 4×(x, y, is_infinite)].
+    // New _v2 returns 12 fields: [salt, deployer, classId, initHash, 4×(x, y)].
+    // eslint-disable-next-line camelcase
+    aztec_utl_getContractInstance: async (address: ACVMField[]): Promise<ACVMField[]> => {
+      const result = await oracle.aztec_utl_getContractInstance_v2(address);
+      // result is [salt, deployer, classId, initHash, k0.x, k0.y, k1.x, k1.y, k2.x, k2.y, k3.x, k3.y]
+      // Expand the public keys portion by inserting is_infinite after each (x, y) pair.
+      const expanded: ACVMField[] = result.slice(0, 4); // salt, deployer, classId, initHash
+      for (let i = 0; i < 4; i++) {
+        const x = result[4 + i * 2];
+        const y = result[4 + i * 2 + 1];
+        const isInfinite = toACVMField(x === toACVMField(0) && y === toACVMField(0) ? 1 : 0);
+        expanded.push(x, y, isInfinite);
+      }
+      return expanded;
+    },
+
     // Renames (same signature, different oracle name)
     privateNotifySetMinRevertibleSideEffectCounter: (counter: ACVMField[]): Promise<ACVMField[]> =>
       oracle.aztec_prv_notifyRevertiblePhaseStart(counter),

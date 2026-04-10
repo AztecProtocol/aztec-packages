@@ -520,7 +520,7 @@ mod test {
             );
             let s_app = compute_app_siloed_shared_secret(raw_shared_secret, contract_address);
 
-            let _ = OracleMock::mock("aztec_utl_getSharedSecret").returns(s_app);
+            let _ = OracleMock::mock("aztec_utl_getSharedSecret_v2").returns(s_app);
 
             // Decrypt the message
             let decrypted = AES128::decrypt(encrypted_message, recipient, contract_address).unwrap();

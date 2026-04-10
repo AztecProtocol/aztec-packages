@@ -3,7 +3,7 @@ use crate::protocol::{
 };
 
 // NOTE: this is for use in private only
-#[oracle(aztec_utl_getContractInstance)]
+#[oracle(aztec_utl_getContractInstance_v2)]
 unconstrained fn get_contract_instance_oracle(_address: AztecAddress) -> ContractInstance {}
 
 // NOTE: this is for use in private only

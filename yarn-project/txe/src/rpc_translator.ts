@@ -566,7 +566,7 @@ export class RPCTranslator {
   }
 
   // eslint-disable-next-line camelcase
-  async aztec_utl_getContractInstance(foreignAddress: ForeignCallSingle) {
+  async aztec_utl_getContractInstance_v2(foreignAddress: ForeignCallSingle) {
     const address = addressFromSingle(foreignAddress);
 
     const instance = await this.handlerAsUtility().getContractInstance(address);
@@ -583,7 +583,7 @@ export class RPCTranslator {
   }
 
   // eslint-disable-next-line camelcase
-  async aztec_utl_getPublicKeysAndPartialAddress(foreignAddress: ForeignCallSingle) {
+  async aztec_utl_getPublicKeysAndPartialAddress_v2(foreignAddress: ForeignCallSingle) {
     const address = addressFromSingle(foreignAddress);
 
     const result = await this.handlerAsUtility().getPublicKeysAndPartialAddress(address);
@@ -1033,7 +1033,7 @@ export class RPCTranslator {
   }
 
   // eslint-disable-next-line camelcase
-  async aztec_utl_getSharedSecret(
+  async aztec_utl_getSharedSecret_v2(
     foreignAddress: ForeignCallSingle,
     foreignEphPKField0: ForeignCallSingle,
     foreignEphPKField1: ForeignCallSingle,

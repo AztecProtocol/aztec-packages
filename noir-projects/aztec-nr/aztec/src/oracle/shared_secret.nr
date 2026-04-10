@@ -1,7 +1,7 @@
 use crate::protocol::address::aztec_address::AztecAddress;
 use crate::protocol::point::Point;
 
-#[oracle(aztec_utl_getSharedSecret)]
+#[oracle(aztec_utl_getSharedSecret_v2)]
 unconstrained fn get_shared_secret_oracle(
     address: AztecAddress,
     ephPk: Point,

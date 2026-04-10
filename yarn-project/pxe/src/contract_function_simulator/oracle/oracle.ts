@@ -208,7 +208,7 @@ export class Oracle {
   }
 
   // eslint-disable-next-line camelcase
-  async aztec_utl_getContractInstance([address]: ACVMField[]): Promise<ACVMField[]> {
+  async aztec_utl_getContractInstance_v2([address]: ACVMField[]): Promise<ACVMField[]> {
     const instance = await this.handlerAsUtility().getContractInstance(AztecAddress.fromField(Fr.fromString(address)));
 
     return [
@@ -327,7 +327,7 @@ export class Oracle {
   }
 
   // eslint-disable-next-line camelcase
-  async aztec_utl_getPublicKeysAndPartialAddress([address]: ACVMField[]): Promise<(ACVMField | ACVMField[])[]> {
+  async aztec_utl_getPublicKeysAndPartialAddress_v2([address]: ACVMField[]): Promise<(ACVMField | ACVMField[])[]> {
     const parsedAddress = AztecAddress.fromField(Fr.fromString(address));
     const result = await this.handlerAsUtility().getPublicKeysAndPartialAddress(parsedAddress);
 
@@ -811,7 +811,7 @@ export class Oracle {
   }
 
   // eslint-disable-next-line camelcase
-  async aztec_utl_getSharedSecret(
+  async aztec_utl_getSharedSecret_v2(
     [address]: ACVMField[],
     [ephPKField0]: ACVMField[],
     [ephPKField1]: ACVMField[],
