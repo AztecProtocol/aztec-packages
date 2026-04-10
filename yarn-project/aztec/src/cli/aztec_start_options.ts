@@ -166,6 +166,13 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
       parseVal: val => val === 'true' || val === '1',
     },
     {
+      flag: '--node-debug',
+      description: 'Expose debug endpoints (e.g. mineBlock) on the main RPC port',
+      defaultValue: false,
+      env: 'AZTEC_NODE_DEBUG',
+      parseVal: val => val === undefined || val === 'true' || val === '1',
+    },
+    {
       flag: '--api-prefix <value>',
       description: 'Prefix for API routes on any service that is started',
       defaultValue: '',

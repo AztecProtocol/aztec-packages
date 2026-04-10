@@ -51,7 +51,7 @@ export async function aztecStart(options: any, userLog: LogFn, debugLogger: Logg
     signalHandlers.push(stop);
     services.node = [node, AztecNodeApiSchema];
     adminServices.node = [node, AztecNodeAdminApiSchema];
-    adminServices.nodeDebug = [node, AztecNodeDebugApiSchema];
+    services.nodeDebug = [node, AztecNodeDebugApiSchema];
   } else {
     // Route --prover-node through startNode
     if (options.proverNode && !options.node) {
@@ -62,6 +62,9 @@ export async function aztecStart(options: any, userLog: LogFn, debugLogger: Logg
       const { startNode } = await import('./cmds/start_node.js');
       const networkName = getActiveNetworkName(options.network);
       ({ config } = await startNode(options, signalHandlers, services, adminServices, userLog, networkName));
+      if (options.nodeDebug && services.node) {
+        services.nodeDebug = [services.node[0], AztecNodeDebugApiSchema];
+      }
     } else if (options.bot) {
       const { startBot } = await import('./cmds/start_bot.js');
       await startBot(options, signalHandlers, services, userLog);
