@@ -18,7 +18,7 @@ describe('🔑', () => {
       masterTaggingPublicKey,
     ).hash();
     expect(publicKeysHash.toString()).toMatchInlineSnapshot(
-      `"0x14347f1d74d892ce45384ca5b69c2070d264e64458ef327ab7b42c850a3d437f"`,
+      `"0x056998309f6c119e4d753e404f94fef859dddfa530a9379634ceb0854b29bf7a"`,
     );
     // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data
     updateInlineTestData(
@@ -57,7 +57,7 @@ describe('🔑', () => {
     const publicKeys = new PublicKeys(npkM, ivpkM, ovpkM, tpkM);
     const partialAddress = Fr.fromHexString('0x0a7c585381b10f4666044266a02405bf6e01fa564c8517d4ad5823493abd31de');
     const address = (await computeAddress(publicKeys, partialAddress)).toString();
-    expect(address).toMatchInlineSnapshot(`"0x04099cc9c76ec56f8d9d5d80af8a8a78ed1f180a123063034b14722a748394bb"`);
+    expect(address).toMatchInlineSnapshot(`"0x2f66081d4bb077fbe8e8abe96a3516a713a3d7e34360b4e985da0da95092b37d"`);
     // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data
     updateInlineTestData(
       'noir-projects/noir-protocol-circuits/crates/types/src/address/aztec_address.nr',

@@ -73,17 +73,21 @@ export class PublicKeys {
   }
 
   hash() {
-    return this.isEmpty()
-      ? Fr.ZERO
-      : poseidon2HashWithSeparator(
-          [
-            this.masterNullifierPublicKey,
-            this.masterIncomingViewingPublicKey,
-            this.masterOutgoingViewingPublicKey,
-            this.masterTaggingPublicKey,
-          ],
-          DomainSeparator.PUBLIC_KEYS_HASH,
-        );
+    if (this.isEmpty()) {
+      return Fr.ZERO;
+    }
+    // We explicitly serialize with is_infinite for backwards compatibility with contract addresses that were computed
+    // when Point had the is_infinite field (x, y, is_infinite).
+    const pointToFieldsWithIsInfinite = (p: Point) => [p.x, p.y, new Fr(p.isInfinite)];
+    return poseidon2HashWithSeparator(
+      [
+        ...pointToFieldsWithIsInfinite(this.masterNullifierPublicKey),
+        ...pointToFieldsWithIsInfinite(this.masterIncomingViewingPublicKey),
+        ...pointToFieldsWithIsInfinite(this.masterOutgoingViewingPublicKey),
+        ...pointToFieldsWithIsInfinite(this.masterTaggingPublicKey),
+      ],
+      DomainSeparator.PUBLIC_KEYS_HASH,
+    );
   }
 
   isEmpty() {
