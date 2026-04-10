@@ -16,13 +16,12 @@ import {Governance} from "@aztec/governance/Governance.sol";
 import {GSE} from "@aztec/governance/GSE.sol";
 import {IRewardDistributor} from "@aztec/governance/interfaces/IRewardDistributor.sol";
 import {Registry} from "@aztec/governance/Registry.sol";
-import {IRewardDistributor} from "@aztec/governance/interfaces/IRewardDistributor.sol";
 
 import {MockVerifier} from "@aztec/mock/MockVerifier.sol";
 import {MultiAdder, CheatDepositArgs} from "@aztec/mock/MultiAdder.sol";
 import {TestERC20} from "@aztec/mock/TestERC20.sol";
 
-import {HonkVerifier} from "../../generated/HonkVerifier.sol";
+import {HonkVerifier} from "@generated/HonkVerifier.sol";
 
 import {IRollupConfiguration} from "./RollupConfiguration.sol";
 
