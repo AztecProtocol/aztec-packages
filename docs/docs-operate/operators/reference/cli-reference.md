@@ -51,9 +51,6 @@ tags:
     --local-network
           Starts Aztec local network (also exposes the AztecNodeDebug endpoints on the node - just like if --node-debug was set)
 
-    --local-network.noPXE                                                                                                                        ($NO_PXE)
-          Do not expose PXE service on local network start
-
     --local-network.l1Mnemonic <value>                                             (default: test test test test test test test test test test test junk)($MNEMONIC)
           Mnemonic for L1 accounts. Will be used
 
