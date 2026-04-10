@@ -230,7 +230,7 @@ describe('CheckpointProposalJob', () => {
     validatorClient = mock<ValidatorClient>();
     validatorClient.collectAttestations.mockImplementation(() => Promise.resolve([]));
     validatorClient.createBlockProposal.mockImplementation(
-      async (blockHeader, indexWithinCheckpoint, inHash, archiveRoot, txs) => {
+      async (blockHeader, _checkpointNumber, indexWithinCheckpoint, inHash, archiveRoot, txs) => {
         const txHashes = await Promise.all((txs ?? []).map((tx: Tx) => tx.getTxHash()));
         return new BlockProposal(
           blockHeader,
@@ -243,7 +243,7 @@ describe('CheckpointProposalJob', () => {
       },
     );
     validatorClient.createCheckpointProposal.mockImplementation(
-      async (checkpointHeader, archiveRoot, feeAssetPriceModifier, lastBlockInfo) => {
+      async (checkpointHeader, archiveRoot, _checkpointNumber, feeAssetPriceModifier, lastBlockInfo) => {
         if (!lastBlockInfo) {
           return new CheckpointProposal(checkpointHeader, archiveRoot, feeAssetPriceModifier, mockedSig);
         }
@@ -377,6 +377,7 @@ describe('CheckpointProposalJob', () => {
         expect.anything(),
         expect.any(Number),
         expect.any(Date),
+        checkpointNumber,
       );
     });
 
