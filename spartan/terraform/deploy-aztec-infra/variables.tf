@@ -335,6 +335,20 @@ variable "OTEL_COLLECTOR_ENDPOINT" {
   nullable    = true
 }
 
+variable "OTEL_COLLECT_INTERVAL_MS" {
+  description = "Interval in ms at which OTEL metrics are exported from nodes"
+  type        = string
+  nullable    = true
+  default     = null
+}
+
+variable "OTEL_EXPORT_TIMEOUT_MS" {
+  description = "Timeout in ms for OTEL metric exports (must be <= OTEL_COLLECT_INTERVAL_MS)"
+  type        = string
+  nullable    = true
+  default     = null
+}
+
 variable "LOG_LEVEL" {
   description = "Log level for all nodes"
   type        = string
@@ -413,6 +427,12 @@ variable "SEQ_PER_BLOCK_ALLOCATION_MULTIPLIER" {
   description = "Per-block gas budget multiplier for both L2 and DA gas."
   type        = string
   default     = null
+}
+
+variable "SEQ_ENABLE_PROPOSER_PIPELINING" {
+  description = "Whether to enable build-ahead proposer pipelining"
+  type        = string
+  default     = "false"
 }
 
 variable "SENTINEL_ENABLED" {

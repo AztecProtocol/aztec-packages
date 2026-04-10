@@ -308,6 +308,12 @@ export const ARCHIVER_SYNC_PER_BLOCK: MetricDefinition = {
   unit: 'ms',
   valueType: ValueType.INT,
 };
+export const ARCHIVER_SYNC_PER_CHECKPOINT: MetricDefinition = {
+  name: 'aztec.archiver.checkpoint.sync_per_item_duration',
+  description: 'Duration to sync a checkpoint',
+  unit: 'ms',
+  valueType: ValueType.INT,
+};
 export const ARCHIVER_SYNC_BLOCK_COUNT: MetricDefinition = {
   name: 'aztec.archiver.block.sync_count',
   description: 'Number of blocks synced from L1',
@@ -403,6 +409,12 @@ export const SEQUENCER_BLOCK_BUILD_MANA_PER_SECOND: MetricDefinition = {
 export const SEQUENCER_BLOCK_COUNT: MetricDefinition = {
   name: 'aztec.sequencer.block.count',
   description: 'Number of blocks built by this sequencer',
+  valueType: ValueType.INT,
+};
+export const SEQUENCER_BLOCK_INTER_BLOCK_TIME: MetricDefinition = {
+  name: 'aztec.sequencer.block.inter_block_time',
+  description: 'Wall-clock time elapsed between consecutive blocks being built by this sequencer',
+  unit: 'ms',
   valueType: ValueType.INT,
 };
 export const SEQUENCER_CURRENT_SLOT_REWARDS: MetricDefinition = {
