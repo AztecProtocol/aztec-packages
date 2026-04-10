@@ -6,6 +6,7 @@
 
 #include "barretenberg/chonk/chonk.hpp"
 #include "barretenberg/chonk/chonk_verifier.hpp"
+#include "barretenberg/commitment_schemes/ipa/ipa.hpp"
 #include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/common/memory_profile.hpp"
 #include "barretenberg/common/streams.hpp"
@@ -102,6 +103,7 @@ Chonk::FoldingResult Chonk::verify_folding(
         break;
     }
     case QUEUE_TYPE::HN:
+    case QUEUE_TYPE::GOBLIN:
     case QUEUE_TYPE::HN_TAIL: {
         vinfo("Recursively verifying inner accumulation.");
         auto [_first_verified, _second_verified, new_verifier_accumulator] =
@@ -149,6 +151,7 @@ Chonk::PublicInputsResult Chonk::process_public_inputs_and_consistency_checks(
     WitnessCommitments& witness_commitments,
     const std::optional<StdlibFF>& prev_accum_hash)
 {
+    std::optional<KernelIO::IpaClaim> extracted_ipa_claim;
     if (verifier_inputs.is_kernel) {
         BB_ASSERT_EQ(verifier_inputs.type == QUEUE_TYPE::HN || verifier_inputs.type == QUEUE_TYPE::HN_TAIL ||
                          verifier_inputs.type == QUEUE_TYPE::HN_FINAL,
@@ -157,8 +160,11 @@ Chonk::PublicInputsResult Chonk::process_public_inputs_and_consistency_checks(
 
         // ============= Reconstruct the public inputs of the previous kernel =============
 
-        KernelIO kernel_input; // pairing points, ecc op tables, databus commitments
+        KernelIO kernel_input; // pairing points, ecc op tables, databus commitments, ipa claim
         kernel_input.reconstruct_from_public(public_inputs);
+
+        // Extract the IPA claim for pass-through to the next kernel
+        extracted_ipa_claim = kernel_input.ipa_claim;
 
         // ============= Perform databus consistency checks ===============================
 
@@ -195,7 +201,27 @@ Chonk::PublicInputsResult Chonk::process_public_inputs_and_consistency_checks(
 
         bus_depot.set_kernel_return_data_commitment(witness_commitments.return_data);
 
-        return { std::move(kernel_input.pairing_inputs), std::move(kernel_input.ecc_op_tables) };
+        return { std::move(kernel_input.pairing_inputs),
+                 std::move(kernel_input.ecc_op_tables),
+                 std::move(extracted_ipa_claim) };
+    }
+
+    if (verifier_inputs.type == QUEUE_TYPE::GOBLIN) {
+        // Reconstruct GoblinFlushIO from the goblin flush app's public inputs
+        using FlushIO = stdlib::recursion::honk::GoblinFlushIO<ClientCircuit>;
+        FlushIO flush_input;
+        flush_input.reconstruct_from_public(public_inputs);
+
+        // Extract IPA claim from the flush (from inner circuit's ECCVM verification)
+        extracted_ipa_claim = flush_input.ipa_claim;
+
+        // Store merged_table used for Translator's verification - used for assertions in complete_kernel_circuit_logic
+        flush_merged_table = flush_input.merged_table;
+
+        // Set the app return data commitment to be propagated via the public inputs
+        bus_depot.set_app_return_data_commitment(witness_commitments.return_data);
+
+        return { std::move(flush_input.pairing_inputs), std::nullopt, std::move(extracted_ipa_claim) };
     }
 
     // App circuit path
@@ -205,7 +231,7 @@ Chonk::PublicInputsResult Chonk::process_public_inputs_and_consistency_checks(
     // Set the app return data commitment to be propagated via the public inputs
     bus_depot.set_app_return_data_commitment(witness_commitments.return_data);
 
-    return { std::move(app_input.pairing_inputs), std::nullopt };
+    return { std::move(app_input.pairing_inputs), std::nullopt, std::nullopt };
 }
 
 /**
@@ -224,7 +250,8 @@ Chonk::PublicInputsResult Chonk::process_public_inputs_and_consistency_checks(
  */
 std::tuple<std::optional<Chonk::RecursiveVerifierAccumulator>,
            std::vector<Chonk::PairingPoints>,
-           Chonk::TableCommitments>
+           Chonk::TableCommitments,
+           std::optional<Chonk::KernelIO::IpaClaim>>
 Chonk::recursive_verification_and_consistency_checks(
     ClientCircuit& circuit,
     const StdlibVerifierInputs& verifier_inputs,
@@ -255,18 +282,20 @@ Chonk::recursive_verification_and_consistency_checks(
     std::vector<StdlibFF> public_inputs = std::move(verifier_instance->public_inputs);
 
     // Step 2: Process public inputs and perform databus consistency checks
-    auto [io_pairing_points, T_prev_override] = process_public_inputs_and_consistency_checks(
+    auto [io_pairing_points, T_prev_override, extracted_ipa_claim] = process_public_inputs_and_consistency_checks(
         verifier_inputs, public_inputs, witness_commitments, prev_accum_hash);
 
     // Determine T_prev for merge verification
+    BB_ASSERT_EQ(T_prev_override.has_value(),
+                 verifier_inputs.is_kernel,
+                 "T_prev_override should be set if and only if the current circuit is a kernel");
     MergeCommitments merge_commitments;
-    if (verifier_inputs.type == QUEUE_TYPE::OINK) {
-        // T_prev = 0 in the first recursive verification
+    if (verifier_inputs.type == QUEUE_TYPE::OINK || verifier_inputs.type == QUEUE_TYPE::GOBLIN) {
+        // T_prev = 0 in the first recursive verification or for Goblin flush apps
         merge_commitments.T_prev_commitments = stdlib::recursion::honk::empty_ecc_op_tables(circuit);
     } else if (T_prev_override) {
         // T_prev_override is set only when the current circuit being folded is a kernel
         // in which case it is equal to the ECC-op tables reconstructed from the public inputs
-        BB_ASSERT_EQ(verifier_inputs.is_kernel, true, "T_prev_override should only be set for kernels");
         merge_commitments.T_prev_commitments = std::move(*T_prev_override);
     } else {
         merge_commitments.T_prev_commitments = T_prev_commitments;
@@ -283,7 +312,7 @@ Chonk::recursive_verification_and_consistency_checks(
     all_points.emplace_back(std::move(io_pairing_points));
     all_points.emplace_back(merge_pairing_points);
 
-    return { std::move(output_accumulator), std::move(all_points), merged_table_commitments };
+    return { std::move(output_accumulator), std::move(all_points), merged_table_commitments, extracted_ipa_claim };
 }
 
 /**
@@ -324,6 +353,10 @@ void Chonk::complete_kernel_circuit_logic(ClientCircuit& circuit)
     bool is_hiding_kernel =
         stdlib_verification_queue.size() == 1 && (stdlib_verification_queue.front().type == QUEUE_TYPE::HN_FINAL);
 
+    bool is_goblin_flush_kernel = stdlib_verification_queue.size() == 2 &&
+                                  (stdlib_verification_queue.front().type == QUEUE_TYPE::HN) &&  // Previous Kernel
+                                  (stdlib_verification_queue.back().type == QUEUE_TYPE::GOBLIN); // Goblin Flush app
+
     // For ZK: Tail kernel adds masking at op queue start
     // The ECC-op subtable for a kernel begins with an eq-and-reset to ensure that the preceeding circuit's subtable
     // cannot affect the ECC-op accumulator for the kernel. For the tail kernel, we additionally add a preceeding no-op
@@ -340,6 +373,10 @@ void Chonk::complete_kernel_circuit_logic(ClientCircuit& circuit)
 
         // Add the hiding op with random (non-curve) Px, Py values for statistical hiding of accumulated_result.
         hide_op_queue_accumulation_result(circuit);
+    } else if (!is_hiding_kernel) {
+        // For all kernels except tha tail and hiding kernel, add 4 no ops + eq and reset to match the structure
+        // expected by the translator when performing a Goblin flush
+        add_goblin_flush_table_structure_ops(circuit);
     }
     circuit.queue_ecc_eq();
 
@@ -347,6 +384,10 @@ void Chonk::complete_kernel_circuit_logic(ClientCircuit& circuit)
 
     std::vector<PairingPoints> points_accumulator;
     std::optional<RecursiveVerifierAccumulator> current_stdlib_verifier_accumulator;
+    std::optional<KernelIO::IpaClaim> propagated_ipa_claim;
+    TableCommitments
+        merged_tables_from_kernel; // Merged table obtained after recursive verification of kernel's merge proof
+    std::optional<KernelIO::IpaClaim> flush_ipa_claim; // IPA claim from the flush app (for IPA accumulation)
     if (!is_init_kernel) {
         current_stdlib_verifier_accumulator = RecursiveVerifierAccumulator::stdlib_from_native<RecursiveFlavor::Curve>(
             &circuit, recursive_verifier_native_accum);
@@ -354,7 +395,7 @@ void Chonk::complete_kernel_circuit_logic(ClientCircuit& circuit)
     while (!stdlib_verification_queue.empty()) {
         const StdlibVerifierInputs& verifier_input = stdlib_verification_queue.front();
 
-        auto [output_stdlib_verifier_accumulator, pairing_points, merged_table_commitments] =
+        auto [output_stdlib_verifier_accumulator, pairing_points, merged_table_commitments, extracted_ipa_claim] =
             recursive_verification_and_consistency_checks(circuit,
                                                           verifier_input,
                                                           current_stdlib_verifier_accumulator,
@@ -366,7 +407,45 @@ void Chonk::complete_kernel_circuit_logic(ClientCircuit& circuit)
         // Update the output verifier accumulator
         current_stdlib_verifier_accumulator = output_stdlib_verifier_accumulator;
 
+        // Track data needed for goblin flush assertions
+        if (verifier_input.is_kernel) {
+            merged_tables_from_kernel = merged_table_commitments;
+        }
+
+        if (extracted_ipa_claim.has_value()) {
+            if (verifier_input.type == QUEUE_TYPE::GOBLIN) {
+                BB_ASSERT(is_goblin_flush_kernel,
+                          "Processed a Goblin Flush App but the kernel is not marked as Goblin");
+                flush_ipa_claim = extracted_ipa_claim;
+            } else {
+                // IPA claim extracted from a kernel
+                BB_ASSERT(!propagated_ipa_claim.has_value(),
+                          "Multiple IPA claims extracted in the same kernel, which is not expected.");
+                propagated_ipa_claim = extracted_ipa_claim;
+            }
+        }
+
         stdlib_verification_queue.pop_front();
+    }
+
+    // Step 3: GOBLIN FLUSH ASSERTIONS + IPA ACCUMULATION
+    if (is_goblin_flush_kernel) {
+        BB_ASSERT(propagated_ipa_claim.has_value(), "Goblin flush kernel must have a kernel IPA claim to accumulate");
+        BB_ASSERT(flush_ipa_claim.has_value(), "Goblin flush kernel must have a flush IPA claim");
+
+        // Assert: merged_table == previous kernel's ecc_op_tables
+        for (size_t i = 0; i < ClientCircuit::NUM_WIRES; i++) {
+            flush_merged_table[i].incomplete_assert_equal(merged_tables_from_kernel[i]);
+        }
+
+        // IPA accumulation: fold flush IPA claim into kernel-chain IPA claim
+        CommitmentKey<curve::Grumpkin> ck{ ECCVMFlavor::ECCVM_FIXED_SIZE };
+        auto kernel_ipa_transcript = std::make_shared<RecursiveTranscript>(StdlibProof(circuit, ipa_proof));
+        auto flush_ipa_transcript = std::make_shared<RecursiveTranscript>(StdlibProof(circuit, flush_ipa_proof));
+        auto [accumulated_claim, accumulated_proof] = IPA<KernelIO::GrumpkinCurve>::accumulate(
+            ck, kernel_ipa_transcript, *propagated_ipa_claim, flush_ipa_transcript, *flush_ipa_claim);
+        propagated_ipa_claim = accumulated_claim;
+        ipa_proof = accumulated_proof;
     }
 
     // Step 3: OUTPUT - Set public inputs for propagation to next kernel
@@ -374,6 +453,15 @@ void Chonk::complete_kernel_circuit_logic(ClientCircuit& circuit)
     PairingPoints pairing_points_aggregator = PairingPoints::aggregate_multiple(points_accumulator);
 
     // Output differs based on kernel type: HidingKernelIO (no accum hash) vs KernelIO (with accum hash)
+    // For init kernel, create a default IPA claim; for all others, pass through from previous kernel
+    if (is_init_kernel) {
+        auto [stdlib_opening_claim, init_ipa_proof] =
+            IPA<KernelIO::GrumpkinCurve>::create_random_valid_ipa_claim_and_proof(circuit);
+        propagated_ipa_claim = stdlib_opening_claim;
+        ipa_proof = init_ipa_proof;
+    }
+    BB_ASSERT(propagated_ipa_claim.has_value());
+
     if (is_hiding_kernel) {
         BB_ASSERT_EQ(current_stdlib_verifier_accumulator.has_value(), false);
 
@@ -384,7 +472,8 @@ void Chonk::complete_kernel_circuit_logic(ClientCircuit& circuit)
         // Propagate public inputs
         HidingKernelIO hiding_output{ pairing_points_aggregator,
                                       bus_depot.get_kernel_return_data_commitment(circuit),
-                                      T_prev_commitments };
+                                      T_prev_commitments,
+                                      *propagated_ipa_claim };
         hiding_output.set_public();
     } else {
         BB_ASSERT_NEQ(current_stdlib_verifier_accumulator.has_value(), false);
@@ -408,11 +497,8 @@ void Chonk::complete_kernel_circuit_logic(ClientCircuit& circuit)
 #endif
 
         // Propagate public inputs
-        KernelIO kernel_output{ pairing_points_aggregator,
-                                kernel_return_data_commitment,
-                                app_return_data_commitment,
-                                T_prev_commitments,
-                                current_verifier_accum_hash };
+        KernelIO kernel_output{ pairing_points_aggregator, kernel_return_data_commitment, app_return_data_commitment,
+                                T_prev_commitments,        current_verifier_accum_hash,   *propagated_ipa_claim };
         kernel_output.set_public();
     }
 }
@@ -420,15 +506,15 @@ void Chonk::complete_kernel_circuit_logic(ClientCircuit& circuit)
 /**
  * @brief Get queue type for the proof of a circuit about to be accumulated based on num circuits accumulated so far.
  */
-Chonk::QUEUE_TYPE Chonk::get_queue_type() const
+Chonk::QUEUE_TYPE Chonk::get_queue_type(bool is_goblin_app_circuit) const
 {
     // first app
     if (num_circuits_accumulated == 0) {
         return QUEUE_TYPE::OINK;
     }
-    // app (excluding first) or kernel (inner or reset)
+    // app (excluding first) or kernel (inner or reset) or goblin flush app
     if (num_circuits_accumulated < num_circuits - 3) {
-        return QUEUE_TYPE::HN;
+        return is_goblin_app_circuit ? QUEUE_TYPE::GOBLIN : QUEUE_TYPE::HN;
     }
     // last kernel prior to tail kernel
     if (num_circuits_accumulated == num_circuits - 3) {
@@ -518,6 +604,7 @@ void Chonk::accumulate_and_fold(ClientCircuit& circuit,
         proof = prover.export_proof();
         break;
     case QUEUE_TYPE::HN:
+    case QUEUE_TYPE::GOBLIN:
     case QUEUE_TYPE::HN_TAIL:
         vinfo("Accumulating circuit number ", num_circuits_accumulated + 1);
         // Move old accumulator into fold, receive new accumulator back
@@ -545,11 +632,16 @@ void Chonk::accumulate_and_fold(ClientCircuit& circuit,
     }
 
     VerifierInputs queue_entry{ std::move(proof), precomputed_vk, queue_type, is_kernel };
+
     verification_queue.push_back(queue_entry);
 
 #ifndef NDEBUG
     update_native_verifier_accumulator(queue_entry, verifier_transcript);
 #endif
+    if (queue_type == QUEUE_TYPE::GOBLIN) {
+        // If accumulating Goblin Flush app, we need to reset the op queue
+        goblin.op_queue->reset_to_current_subtable();
+    }
     goblin.prove_merge(prover_accumulation_transcript);
 
     num_circuits_accumulated++;
@@ -569,8 +661,16 @@ void Chonk::accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVerific
     BB_ASSERT_LT(
         num_circuits_accumulated, num_circuits, "Chonk: Attempting to accumulate more circuits than expected.");
     BB_ASSERT(precomputed_vk != nullptr, "Chonk::accumulate - VK expected for the provided circuit");
+    BB_ASSERT_EQ(goblin.op_queue->get_is_zk(), true, "The op queue should be in zk mode during accumulation");
+    BB_ASSERT_EQ(goblin.get_avm_mode(), false, "The op queue should not be in avm mode during accumulation");
 
-    QUEUE_TYPE queue_type = get_queue_type();
+    // Get QUEUE type (only Goblin Flush apps have IPA proof/claim)
+    QUEUE_TYPE queue_type = get_queue_type(/*is_goblin_app_circuit=*/!circuit.ipa_proof.empty());
+
+    // Store IPA proof if present (for goblin flush apps)
+    if (queue_type == QUEUE_TYPE::GOBLIN) {
+        flush_ipa_proof = circuit.ipa_proof;
+    }
 
     std::shared_ptr<ProverInstance> prover_instance;
 #ifndef NDEBUG
@@ -625,6 +725,24 @@ void Chonk::hide_op_queue_content_in_hiding(ClientCircuit& circuit)
 }
 
 /**
+ * @brief Add structural ops to a kernel's subtable for Goblin flush compatibility.
+ *
+ * @details Adds 4 no_op + 1 eq and reset to the kernel's subtable. When this kernel is the last
+ * before a flush, its subtable lands first in the merged table (due to PREPEND ordering), giving the table
+ * the head structure the Translator expects. The no_op (opcode=0) is ultra-only but the Translator relations
+ * enforce accumulator pass-through for op=0, so there is no ECCVM/Translator mismatch. The eq and reset is required by
+ * Translator's relations.
+ */
+void Chonk::add_goblin_flush_table_structure_ops(ClientCircuit& circuit)
+{
+    circuit.queue_ecc_no_op();
+    circuit.queue_ecc_no_op();
+    circuit.queue_ecc_no_op();
+    circuit.queue_ecc_no_op();
+    circuit.queue_ecc_eq();
+}
+
+/**
  * @brief Construct Chonk proof using the batched MegaZK + Translator protocol.
  *
  * @details Orchestrates the batched proving flow on a shared transcript:
@@ -633,6 +751,7 @@ void Chonk::hide_op_queue_content_in_hiding(ClientCircuit& circuit)
  *   3. ECCVM proof (produces translation challenges v, x)
  *   4. IPA proof (separate transcript)
  *   5. Translator Oink + Joint sumcheck + Joint PCS
+ *   6. IPA proof extracted from the hiding kernel's public inputs
  *
  * The joint sumcheck and PCS batch the MegaZK and translator circuits together,
  * eliminating separate sumcheck/PCS phases and reducing proof size.
@@ -678,7 +797,8 @@ ChonkProof Chonk::prove()
                        std::move(merge_proof),
                        std::move(goblin.goblin_proof.eccvm_proof),
                        std::move(goblin.goblin_proof.ipa_proof),
-                       std::move(joint_proof) };
+                       std::move(joint_proof),
+                       std::move(ipa_proof) };
 }
 
 std::shared_ptr<MegaZKFlavor::VKAndHash> Chonk::get_hiding_kernel_vk_and_hash() const

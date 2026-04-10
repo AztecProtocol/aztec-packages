@@ -49,7 +49,7 @@ if(WASM)
     set(CMAKE_C_FLAGS_DEBUG "-O1 -g")
     set(CMAKE_CXX_FLAGS_RELEASE "-Oz -DNDEBUG")
     set(CMAKE_C_FLAGS_RELEASE "-Oz -DNDEBUG")
-    add_link_options(-Wl,--export-memory,--import-memory,--stack-first,-z,stack-size=1048576,--max-memory=4294967296)
+    add_link_options(-Wl,--export-memory,--import-memory,--stack-first,-z,stack-size=2097152,--max-memory=4294967296)
 endif()
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR} ${MSGPACK_INCLUDE} ${TRACY_INCLUDE} ${LMDB_INCLUDE} ${LIBDEFLATE_INCLUDE} ${HTTPLIB_INCLUDE} ${BACKWARD_INCLUDE} ${NLOHMANN_JSON_INCLUDE})
@@ -96,7 +96,7 @@ add_subdirectory(barretenberg/ext/starknet/crypto)
 add_subdirectory(barretenberg/ext/starknet/transcript)
 add_subdirectory(barretenberg/flavor)
 add_subdirectory(barretenberg/goblin)
-add_subdirectory(barretenberg/goblin_avm)
+add_subdirectory(barretenberg/goblin_without_merge)
 add_subdirectory(barretenberg/grumpkin_srs_gen)
 add_subdirectory(barretenberg/multilinear_batching)
 add_subdirectory(barretenberg/numeric)
@@ -172,7 +172,7 @@ set(BARRETENBERG_TARGET_OBJECTS
     $<TARGET_OBJECTS:trace_to_polynomials_objects>
     $<TARGET_OBJECTS:flavor_objects>
     $<TARGET_OBJECTS:goblin_objects>
-    $<TARGET_OBJECTS:goblin_avm_objects>
+    $<TARGET_OBJECTS:goblin_without_merge_objects>
     $<TARGET_OBJECTS:hypernova_objects>
     $<TARGET_OBJECTS:honk>
     $<TARGET_OBJECTS:multilinear_batching_objects>

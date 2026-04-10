@@ -83,6 +83,16 @@ can reduce initial commitment to the result \f$\langle \vec{a},\vec{b}\rangle U\
 * The old version of documentation is available at <a href="https://hackmd.io/q-A8y6aITWyWJrvsGGMWNA?view">Old IPA
 documentation </a>
 */
+/**
+ * @brief Native IPA claim data that can be computed without a Builder (and thus asynchronously).
+ */
+struct NativeIpaClaimAndProof {
+    curve::Grumpkin::AffineElement commitment;
+    bb::fq x;
+    bb::fq eval;
+    HonkProof proof;
+};
+
 template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA {
   public:
     using Curve = Curve_;
@@ -1018,14 +1028,14 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
         requires Curve::is_stdlib_type
     {
         using NativeCurve = curve::Grumpkin;
-        // Sanity check that we are not using Grumpkin with MegaCircuitBuilder designed to delegate BN254 ops.
-        static_assert(IsAnyOf<typename Curve::Builder, UltraCircuitBuilder>);
+        using Transcript =
+            std::conditional_t<IsUltraBuilder<typename Curve::Builder>, UltraStdlibTranscript, MegaStdlibTranscript>;
         // Step 1: Run the partial verifier for each IPA instance
         VerifierAccumulator verifier_accumulator_1 = reduce_verify(claim_1, transcript_1);
         VerifierAccumulator verifier_accumulator_2 = reduce_verify(claim_2, transcript_2);
 
         // Step 2: Generate the challenges by hashing the pairs
-        UltraStdlibTranscript transcript;
+        Transcript transcript;
         transcript.add_to_hash_buffer("u_challenges_inv_1", verifier_accumulator_1.u_challenges_inv);
         transcript.add_to_hash_buffer("U_1", verifier_accumulator_1.comm);
         transcript.add_to_hash_buffer("u_challenges_inv_2", verifier_accumulator_2.u_challenges_inv);
@@ -1069,32 +1079,55 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
         return { output_claim, prover_transcript->export_proof() };
     }
 
-    static std::pair<OpeningClaim<Curve>, HonkProof> create_random_valid_ipa_claim_and_proof(
-        UltraCircuitBuilder& builder)
-        requires Curve::is_stdlib_type
+    /**
+     * @brief Compute a random valid IPA claim and proof (native, builder-free).
+     * @details This is the expensive part: random polynomial generation, commitment, and IPA opening proof.
+     *          It can be run asynchronously before a Builder is available.
+     */
+    static NativeIpaClaimAndProof create_random_valid_ipa_claim_and_proof_native()
     {
         using NativeCurve = curve::Grumpkin;
-        using Builder = typename Curve::Builder;
-        using Curve = stdlib::grumpkin<Builder>;
         auto ipa_transcript = std::make_shared<NativeTranscript>();
         CommitmentKey<NativeCurve> ipa_commitment_key(poly_length);
         size_t n = poly_length;
         auto poly = Polynomial<bb::fq>(n);
-        for (size_t i = 0; i < n; i++) {
-            poly.at(i) = bb::fq::random_element();
-        }
+        parallel_for_heuristic(
+            n,
+            [&](size_t i) { poly.at(i) = bb::fq::random_element(); },
+            thread_heuristics::FF_MULTIPLICATION_COST + thread_heuristics::FF_ADDITION_COST);
         bb::fq x = bb::fq::random_element();
         bb::fq eval = poly.evaluate(x);
         auto commitment = ipa_commitment_key.commit(poly);
         const OpeningPair<NativeCurve> opening_pair = { x, eval };
         IPA<NativeCurve>::compute_opening_proof(ipa_commitment_key, { poly, opening_pair }, ipa_transcript);
+        return { commitment, x, eval, ipa_transcript->export_proof() };
+    }
 
-        auto stdlib_comm = Curve::Group::from_witness(&builder, commitment);
-        auto stdlib_x = Curve::ScalarField::from_witness(&builder, x);
-        auto stdlib_eval = Curve::ScalarField::from_witness(&builder, eval);
+    /**
+     * @brief Wrap pre-computed native IPA claim data into stdlib types for a given Builder.
+     */
+    template <typename Builder>
+    static std::pair<OpeningClaim<Curve>, HonkProof> wrap_native_ipa_claim(Builder& builder,
+                                                                           const NativeIpaClaimAndProof& native)
+        requires Curve::is_stdlib_type
+    {
+        using StdlibCurve = stdlib::grumpkin<Builder>;
+        auto stdlib_comm = StdlibCurve::Group::from_witness(&builder, native.commitment);
+        auto stdlib_x = StdlibCurve::ScalarField::from_witness(&builder, native.x);
+        auto stdlib_eval = StdlibCurve::ScalarField::from_witness(&builder, native.eval);
         OpeningClaim<Curve> stdlib_opening_claim{ { stdlib_x, stdlib_eval }, stdlib_comm };
+        return { stdlib_opening_claim, native.proof };
+    }
 
-        return { stdlib_opening_claim, ipa_transcript->export_proof() };
+    /**
+     * @brief Generate a random valid IPA claim and proof, returning stdlib types.
+     * @details Convenience wrapper that calls the native method then wraps the result.
+     */
+    template <typename Builder>
+    static std::pair<OpeningClaim<Curve>, HonkProof> create_random_valid_ipa_claim_and_proof(Builder& builder)
+        requires Curve::is_stdlib_type
+    {
+        return wrap_native_ipa_claim(builder, create_random_valid_ipa_claim_and_proof_native());
     }
 };
 

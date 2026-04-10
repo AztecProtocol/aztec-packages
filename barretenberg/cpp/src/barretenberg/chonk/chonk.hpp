@@ -67,6 +67,7 @@ class Chonk : public IVCBase {
     using KernelIO = bb::stdlib::recursion::honk::KernelIO;
     using HidingKernelIO = bb::stdlib::recursion::honk::HidingKernelIO<ClientCircuit>;
     using AppIO = bb::stdlib::recursion::honk::AppIO;
+    using FlushIO = bb::stdlib::recursion::honk::GoblinFlushIO<ClientCircuit>;
     using StdlibProof = stdlib::Proof<ClientCircuit>;
     using WitnessCommitments = RecursiveFlavor::WitnessCommitments;
     using DataBusDepot = stdlib::DataBusDepot<ClientCircuit>;
@@ -90,6 +91,7 @@ class Chonk : public IVCBase {
     struct PublicInputsResult {
         PairingPoints pairing_points;
         std::optional<TableCommitments> T_prev_commitments; // set only for kernels
+        std::optional<KernelIO::IpaClaim> ipa_claim;        // set only for kernels
     };
 
     /**
@@ -104,17 +106,18 @@ class Chonk : public IVCBase {
      *   - HN_TAIL:  Circuit n-3 (last kernel before tail) - adds ZK masking at op queue start
      *   - HN_FINAL: Circuit n-2 (tail kernel) - final folding + decider verification
      *   - MEGA:     Circuit n-1 (hiding kernel) - MegaZK proof, no folding
+     *   - GOBLIN:   App circuit preceding a Goblin flush kernel
      *
      * VERIFIER PERSPECTIVE (in `complete_kernel_circuit_logic`): Type of the proof being verified.
      *   - If verifying OINK proof → this kernel is the init kernel (circuit 1)
      *   - If verifying HN proof → this kernel is an inner/reset kernel
      *   - If verifying HN_TAIL proof → this kernel IS the tail kernel (circuit n-2)
      *   - If verifying HN_FINAL proof → this kernel IS the hiding kernel (circuit n-1)
-     *
+     *   - If verifying GOBLIN proof → this kernel is a Goblin flush kernel
      *
      * See `get_queue_type()` for assignment logic and README.md#circuit-structure for overview.
      */
-    enum class QUEUE_TYPE : uint8_t { OINK, HN, HN_TAIL, HN_FINAL, MEGA };
+    enum class QUEUE_TYPE : uint8_t { OINK, HN, HN_TAIL, HN_FINAL, MEGA, GOBLIN };
 
     // An entry in the native verification queue
     struct VerifierInputs {
@@ -184,6 +187,15 @@ class Chonk : public IVCBase {
     std::shared_ptr<DeciderZKProvingKey> hiding_prover_inst;
     std::shared_ptr<MegaZKVerificationKey> hiding_vk;
 
+    // IPA proof for the current IPA claim accumulator, needed for future IPA accumulation in goblin flush kernels
+    HonkProof ipa_proof;
+
+    // Goblin flush support
+    HonkProof flush_ipa_proof; // IPA proof from A_G's internal circuit
+    // Temporary storage for flush/kernel data extracted during perform_recursive_verification
+    // (used in complete_kernel_circuit_logic for goblin flush assertions)
+    TableCommitments flush_merged_table; // Merged table used in the Goblin flush circuit
+
     size_t get_num_circuits() const { return num_circuits; }
 
     // IVCBase interface
@@ -195,14 +207,16 @@ class Chonk : public IVCBase {
     void instantiate_stdlib_verification_queue(ClientCircuit& circuit,
                                                const std::vector<std::shared_ptr<RecursiveVKAndHash>>& input_keys = {});
 
-    [[nodiscard("Pairing points should be accumulated")]] std::
-        tuple<std::optional<RecursiveVerifierAccumulator>, std::vector<PairingPoints>, TableCommitments>
-        recursive_verification_and_consistency_checks(
-            ClientCircuit& circuit,
-            const StdlibVerifierInputs& verifier_inputs,
-            const std::optional<RecursiveVerifierAccumulator>& input_verifier_accumulator,
-            const TableCommitments& T_prev_commitments,
-            const std::shared_ptr<RecursiveTranscript>& accumulation_recursive_transcript);
+    [[nodiscard("Pairing points should be accumulated")]] std::tuple<std::optional<RecursiveVerifierAccumulator>,
+                                                                     std::vector<PairingPoints>,
+                                                                     TableCommitments,
+                                                                     std::optional<KernelIO::IpaClaim>>
+    recursive_verification_and_consistency_checks(
+        ClientCircuit& circuit,
+        const StdlibVerifierInputs& verifier_inputs,
+        const std::optional<RecursiveVerifierAccumulator>& input_verifier_accumulator,
+        const TableCommitments& T_prev_commitments,
+        const std::shared_ptr<RecursiveTranscript>& accumulation_recursive_transcript);
 
     // Complete the logic of a kernel circuit (e.g. HN/merge recursive verification, databus consistency checks)
     void complete_kernel_circuit_logic(ClientCircuit& circuit);
@@ -222,6 +236,7 @@ class Chonk : public IVCBase {
     static void hide_op_queue_accumulation_result(ClientCircuit& circuit);
     static void hide_op_queue_content_in_tail(ClientCircuit& circuit);
     static void hide_op_queue_content_in_hiding(ClientCircuit& circuit);
+    static void add_goblin_flush_table_structure_ops(ClientCircuit& circuit);
 
     /**
      * @brief Get the hiding kernel verification key and hash for Chonk verification
@@ -262,7 +277,7 @@ class Chonk : public IVCBase {
                              QUEUE_TYPE queue_type,
                              std::shared_ptr<ProverInstance> prover_instance);
 
-    QUEUE_TYPE get_queue_type() const;
+    QUEUE_TYPE get_queue_type(bool is_goblin_app_circuit = false) const;
 };
 
 } // namespace bb

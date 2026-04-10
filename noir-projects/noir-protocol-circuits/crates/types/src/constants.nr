@@ -437,7 +437,7 @@ pub global FEE_RECIPIENT_LENGTH: u32 = 2;
 // TODO: Leila's considering moving this into a noir file within bb
 // The hiding kernel IO public inputs consist of pairing_inputs and table_commitments.
 // They are independent of the circuit's custom public inputs.
-pub global HIDING_KERNEL_IO_PUBLIC_INPUTS_SIZE: u32 = 28;
+pub global HIDING_KERNEL_IO_PUBLIC_INPUTS_SIZE: u32 = 34;
 pub global PAIRING_POINTS_SIZE: u32 = 8;
 pub global IPA_CLAIM_SIZE: u32 = 6;
 
@@ -610,7 +610,7 @@ pub global ULTRA_KECCAK_PROOF_LENGTH: u32 = 331; // See UltraKeccakFlavor for fo
 pub global RECURSIVE_ROLLUP_HONK_PROOF_LENGTH: u32 =
     RECURSIVE_PROOF_LENGTH + IPA_CLAIM_SIZE + IPA_PROOF_LENGTH;
 pub global NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH: u32 = RECURSIVE_ROLLUP_HONK_PROOF_LENGTH;
-pub global CHONK_PROOF_LENGTH: u32 = 1330;
+pub global CHONK_PROOF_LENGTH: u32 = 1400;
 
 pub global ULTRA_VK_LENGTH_IN_FIELDS: u32 = 115; // size of an Ultra verification key
 pub global MEGA_VK_LENGTH_IN_FIELDS: u32 = 127; // size of a Mega verification key
@@ -1228,6 +1228,8 @@ pub global PROOF_TYPE_ROOT_ROLLUP_HONK: u32 = 5;
 pub global PROOF_TYPE_HN_FINAL: u32 = 7;
 pub global PROOF_TYPE_HN_TAIL: u32 = 8;
 pub global PROOF_TYPE_CHONK: u32 = 9;
+pub global PROOF_TYPE_ULTRA_GOBLIN: u32 = 10;
+pub global PROOF_TYPE_GOBLIN: u32 = 11;
 
 // TODO: Make it 1_u128 << 64 as Field without breaking TS constants generator
 pub global TWO_POW_64: Field = 18446744073709551616;

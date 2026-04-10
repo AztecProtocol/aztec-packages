@@ -4,7 +4,7 @@
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
-#include "goblin_avm.hpp"
+#include "goblin_without_merge.hpp"
 
 #include "barretenberg/commitment_schemes/ipa/ipa.hpp"
 #include "barretenberg/common/assert.hpp"
@@ -21,37 +21,48 @@
 
 namespace bb {
 
-GoblinAvm::GoblinAvm(MegaBuilder& builder, const std::shared_ptr<Transcript>& avm_transcript)
+GoblinWithoutMerge::GoblinWithoutMerge(MegaBuilder& builder,
+                                       const bool is_zk,
+                                       const std::shared_ptr<Transcript>& avm_transcript)
+    : original_is_zk(builder.op_queue->get_is_zk())
 {
     // Set members of base Goblin class
     avm_mode = true;
     op_queue = builder.op_queue;
     transcript = avm_transcript;
+    // The AVM proof doesn't need to be ZK
+    op_queue->set_is_zk(is_zk);
 
     /**
      * Add required initial ops to the op queue:
      * - Add 1 no-op (for shiftability)
-     * - Add 3 random ops (for ZK hiding of accumulation result).
+     * - Add 3 no-op (in place of the 3 random ops for ZK hiding).
+     * - Add 1 EQ op (op code 3 is required by Translator's relations)
      * This matches the structure expected by Translator. In Chonk, these ops are added automatically during
      * circuit accumulation, but AVM uses Goblin directly without the full Chonk IVC flow.
      *
      */
     builder.queue_ecc_no_op();
-    builder.queue_ecc_random_op();
-    builder.queue_ecc_random_op();
-    builder.queue_ecc_random_op();
-    // In the AVM Recursive Verifier case, we don't need ZK; so we place a deterministic non-op as a "hiding_op", it
-    // does not contribute to the actual MSM circuit.
-    using Fq = curve::Grumpkin::ScalarField;
-    builder.queue_ecc_hiding_op(Fq(0), Fq(0));
+    builder.queue_ecc_no_op();
+    builder.queue_ecc_no_op();
+    builder.queue_ecc_no_op();
+    builder.queue_ecc_eq();
 }
 
-GoblinAvmProof GoblinAvm::prove()
+GoblinWithoutMerge::GoblinWithoutMerge(std::shared_ptr<OpQueue>& existing_op_queue,
+                                       const bool is_zk,
+                                       const std::shared_ptr<Transcript>& flush_transcript)
+    : original_is_zk(existing_op_queue->get_is_zk())
 {
-    BB_BENCH_NAME("GoblinAvm::prove");
+    avm_mode = true;
+    op_queue = existing_op_queue;
+    op_queue->set_is_zk(is_zk);
+    transcript = flush_transcript;
+}
 
-    op_queue->merge();
-    info("GoblinAvm: num ultra ops = ", op_queue->get_ultra_ops_count());
+GoblinWithoutMergeProof GoblinWithoutMerge::prove()
+{
+    BB_BENCH_NAME("GoblinWithoutMerge::prove");
 
     vinfo("prove eccvm...");
     prove_eccvm();
@@ -60,7 +71,10 @@ GoblinAvmProof GoblinAvm::prove()
     prove_translator();
     vinfo("finished translator proving.");
 
-    return GoblinAvmProof{
+    // Restore original ZK setting of the op queue
+    op_queue->set_is_zk(original_is_zk);
+
+    return GoblinWithoutMergeProof{
         .eccvm_proof = std::move(goblin_proof.eccvm_proof),
         .ipa_proof = std::move(goblin_proof.ipa_proof),
         .translator_proof = std::move(goblin_proof.translator_proof),

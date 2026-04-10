@@ -58,15 +58,24 @@ template <typename Curve> class OpeningClaim {
     using Fr = typename Curve::ScalarField;
 
   public:
-    using Builder =
-        std::conditional_t<std::is_same_v<Curve, stdlib::grumpkin<UltraCircuitBuilder>>, UltraCircuitBuilder, void>;
+    // Extract Builder from stdlib Grumpkin curves; void for native curve::Grumpkin
+    template <typename C, bool = C::is_stdlib_type> struct BuilderExtractor {
+        using type = typename C::Builder;
+    };
+    template <typename C> struct BuilderExtractor<C, false> {
+        using type = void;
+    };
+    using Builder = typename BuilderExtractor<Curve>::type;
+
     // (challenge r, evaluation v = p(r))
     OpeningPair<Curve> opening_pair;
     // commitment to univariate polynomial p(X)
     Commitment commitment;
 
-    static constexpr bool IS_GRUMPKIN =
-        std::is_same_v<Curve, curve::Grumpkin> || std::is_same_v<Curve, stdlib::grumpkin<UltraCircuitBuilder>>;
+    template <typename C, bool = C::is_stdlib_type>
+    struct IsGrumpkinHelper : std::is_same<typename C::NativeCurve, curve::Grumpkin> {};
+    template <typename C> struct IsGrumpkinHelper<C, false> : std::is_same<C, curve::Grumpkin> {};
+    static constexpr bool IS_GRUMPKIN = IsGrumpkinHelper<Curve>::value;
     // Size of public inputs representation of an opening claim over Grumpkin: 2 * 4 + 2 = 10
     static constexpr size_t PUBLIC_INPUTS_SIZE = IS_GRUMPKIN ? GRUMPKIN_OPENING_CLAIM_SIZE : INVALID_PUBLIC_INPUTS_SIZE;
 
@@ -76,7 +85,7 @@ template <typename Curve> class OpeningClaim {
      *
      */
     uint32_t set_public()
-        requires(std::is_same_v<Curve, stdlib::grumpkin<UltraCircuitBuilder>>)
+        requires(IS_GRUMPKIN && Curve::is_stdlib_type)
     {
         uint32_t start_idx = opening_pair.challenge.set_public();
         opening_pair.evaluation.set_public();
@@ -92,7 +101,7 @@ template <typename Curve> class OpeningClaim {
      */
     static OpeningClaim<Curve> reconstruct_from_public(
         const std::span<const stdlib::field_t<Builder>, PUBLIC_INPUTS_SIZE>& limbs)
-        requires(std::is_same_v<Curve, stdlib::grumpkin<UltraCircuitBuilder>>)
+        requires(IS_GRUMPKIN && Curve::is_stdlib_type)
     {
         using field_ct = stdlib::field_t<Builder>;
         using Codec = stdlib::StdlibCodec<field_ct>;

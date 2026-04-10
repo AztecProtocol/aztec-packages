@@ -183,10 +183,14 @@ class PrivateFunctionExecutionMockCircuitProducer {
                 if (!is_trailing_kernel) {
                     GoblinMockCircuits::construct_mock_folding_kernel(circuit); // construct mock base logic
                 }
-                mock_databus.populate_kernel_databus(circuit); // populate databus inputs/outputs
             } else {
                 GoblinMockCircuits::construct_mock_app_circuit(circuit, use_large_circuit); // construct mock app
-                mock_databus.populate_app_databus(circuit);                                 // populate databus outputs
+            }
+
+            if (is_kernel) {
+                mock_databus.populate_kernel_databus(circuit);
+            } else {
+                mock_databus.populate_app_databus(circuit);
             }
         }
 

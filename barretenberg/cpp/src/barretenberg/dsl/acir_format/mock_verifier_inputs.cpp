@@ -542,15 +542,14 @@ template <typename Builder> HonkProof create_mock_chonk_proof(const size_t acir_
         create_mock_oink_proof<MegaZKFlavor, stdlib::recursion::honk::HidingKernelIO<Builder>>(acir_public_inputs_size);
     Goblin::MergeProof merge_proof = create_mock_merge_proof();
     HonkProof eccvm_proof{ create_mock_eccvm_proof() };
-    HonkProof ipa_proof = create_mock_ipa_proof();
+    HonkProof eccvm_ipa_proof = create_mock_ipa_proof();
     // Batched joint proof: Translator Oink + joint sumcheck + joint PCS
     HonkProof joint_proof = create_mock_batched_joint_proof();
+    // IPA proof fold the IPA claim in the IO
+    HonkProof io_ipa_proof = create_mock_ipa_proof();
 
-    ChonkProof chonk_proof{ std::move(hiding_oink),
-                            std::move(merge_proof),
-                            std::move(eccvm_proof),
-                            std::move(ipa_proof),
-                            std::move(joint_proof) };
+    ChonkProof chonk_proof{ std::move(hiding_oink),     std::move(merge_proof), std::move(eccvm_proof),
+                            std::move(eccvm_ipa_proof), std::move(joint_proof), std::move(io_ipa_proof) };
     return chonk_proof.to_field_elements();
 }
 
@@ -628,6 +627,8 @@ construct_arbitrary_valid_honk_proof_and_vk<UltraFlavor, stdlib::recursion::honk
 
 template HonkProof create_mock_hyper_nova_proof<MegaFlavor, stdlib::recursion::honk::AppIO>(bool);
 template HonkProof create_mock_hyper_nova_proof<MegaFlavor, stdlib::recursion::honk::KernelIO>(bool);
+template HonkProof create_mock_hyper_nova_proof<MegaFlavor, stdlib::recursion::honk::GoblinFlushIO<MegaCircuitBuilder>>(
+    bool);
 
 template HonkProof create_mock_chonk_proof<UltraCircuitBuilder>(const size_t);
 template HonkProof create_mock_chonk_proof<MegaCircuitBuilder>(const size_t);
@@ -640,6 +641,9 @@ template std::shared_ptr<MegaFlavor::VerificationKey> create_mock_honk_vk<MegaFl
 template std::shared_ptr<MegaFlavor::VerificationKey> create_mock_honk_vk<
     MegaFlavor,
     stdlib::recursion::honk::HidingKernelIO<MegaCircuitBuilder>>(const size_t, const size_t);
+template std::shared_ptr<MegaFlavor::VerificationKey> create_mock_honk_vk<
+    MegaFlavor,
+    stdlib::recursion::honk::GoblinFlushIO<MegaCircuitBuilder>>(const size_t, const size_t);
 template std::shared_ptr<MegaZKFlavor::VerificationKey> create_mock_honk_vk<
     MegaZKFlavor,
     stdlib::recursion::honk::HidingKernelIO<UltraCircuitBuilder>>(const size_t, const size_t);

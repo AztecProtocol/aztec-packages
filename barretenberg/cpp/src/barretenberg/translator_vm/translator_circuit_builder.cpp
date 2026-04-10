@@ -426,6 +426,8 @@ void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(const std::shared_
 {
     using Fq = bb::fq;
     const auto& ultra_ops = ecc_op_queue->get_ultra_ops();
+    const bool is_zk = ecc_op_queue->get_is_zk();
+
     std::vector<Fq> accumulator_trace;
     Fq current_accumulator(0);
     if (ultra_ops.empty()) {
@@ -442,22 +444,36 @@ void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(const std::shared_
     }
     increment_num_gates(2);
 
-    // When encountering the random operations in the op queue, populate the op wire without creating accumulation gates
-    // These are present in the op queue at the beginning and end to ensure commitments and evaluations to op queue
-    // polynomials do not reveal information about data in the op queue
-    // The position and number of these random ops are explained in Chonk::hide_op_queue_content_tail_kernel
-    // and Chonk::hide_op_queue_content_hiding_kernel
-    for (size_t i = NUM_NO_OPS_START; i <= NUM_RANDOM_OPS_START; ++i) {
-        process_random_op(ultra_ops[i]);
+    if (is_zk) {
+        // When encountering the random operations in the op queue, populate the op wire without creating accumulation
+        // gates These are present in the op queue at the beginning and end to ensure commitments and evaluations to op
+        // queue polynomials do not reveal information about data in the op queue The position and number of these
+        // random ops are explained in Chonk::hide_op_queue_content_tail_kernel and
+        // Chonk::hide_op_queue_content_hiding_kernel
+        for (size_t i = NUM_NO_OPS_START; i <= NUM_RANDOM_OPS_START; ++i) {
+            process_random_op(ultra_ops[i]);
+        }
+    } else {
+        // When running Translator in non-ZK mode, we expect the random ops at the start to be replaced with no-ops
+        for (size_t i = NUM_NO_OPS_START; i <= NUM_ADDITIONAL_NO_OPS_START; ++i) {
+            BB_ASSERT(ultra_ops[i].op_code.value() == 0);
+            for (auto& wire : wires) {
+                wire.push_back(zero_idx());
+                wire.push_back(zero_idx());
+            }
+            increment_num_gates(2);
+        }
     }
 
     // Guard against unsigned wraparound when computing ops_end below
     const size_t min_ops = NUM_NO_OPS_START + NUM_RANDOM_OPS_START + (avm_mode ? 0 : NUM_RANDOM_OPS_END);
     BB_ASSERT(ultra_ops.size() >= min_ops, "Op queue too small for Translator circuit construction");
 
+    const size_t ops_start =
+        is_zk ? NUM_NO_OPS_START + NUM_RANDOM_OPS_START : NUM_NO_OPS_START + NUM_ADDITIONAL_NO_OPS_START;
     const size_t ops_end = avm_mode ? ultra_ops.size() : ultra_ops.size() - NUM_RANDOM_OPS_END;
     // Range of UltraOps for which we should construct accumulation gates
-    std::span ultra_ops_span(ultra_ops.begin() + static_cast<std::ptrdiff_t>(NUM_NO_OPS_START + NUM_RANDOM_OPS_START),
+    std::span ultra_ops_span(ultra_ops.begin() + static_cast<std::ptrdiff_t>(ops_start),
                              ultra_ops.begin() + static_cast<std::ptrdiff_t>(ops_end));
 
     // Pre-compute accumulator values for each step since the circuit processes values in reverse order

@@ -14,12 +14,17 @@ TEST_F(SpecialPublicInputsTests, Basic)
 {
     using Builder = KernelIO::Builder;
     using Curve = KernelIO::Curve;
+    using ScalarFieldBN254 = KernelIO::FF;
+    using ScalarFieldGrumpkin = bb::stdlib::grumpkin<Builder>::ScalarField;
     using G1 = KernelIO::G1;
-    using FF = KernelIO::FF;
+    using G1Grumpkin = bb::stdlib::grumpkin<Builder>::Group;
     using PairingInputs = KernelIO::PairingInputs;
 
     using G1Native = Curve::GroupNative::affine_element;
-    using FFNative = Curve::ScalarFieldNative;
+    using ScalarFieldBN254Native = Curve::ScalarFieldNative;
+    using GrumpkinNative = bb::curve::Grumpkin;
+    using G1GrumpkinNative = GrumpkinNative::AffineElement;
+    using ScalarFieldGrumpkinNative = GrumpkinNative::ScalarField;
 
     static constexpr size_t NUM_WIRES = Builder::NUM_WIRES;
 
@@ -31,10 +36,13 @@ TEST_F(SpecialPublicInputsTests, Basic)
     for (auto& commitment : ecc_op_tables_val) {
         commitment = G1Native::random_element();
     }
-    FFNative output_hn_accum_hash_val = FFNative::random_element();
+    ScalarFieldBN254Native output_hn_accum_hash_val = ScalarFieldBN254Native::random_element();
+    ScalarFieldGrumpkinNative challenge_val = ScalarFieldGrumpkinNative::random_element();
+    ScalarFieldGrumpkinNative evaluation_val = ScalarFieldGrumpkinNative::random_element();
+    G1GrumpkinNative commitment_val = G1GrumpkinNative::random_element();
 
     // Store the public inputs of the first circuit to be used by the second
-    std::vector<FFNative> public_inputs;
+    std::vector<ScalarFieldBN254Native> public_inputs;
 
     { // The first circuit propagates the kernel output via its public inputs
         Builder builder;
@@ -49,7 +57,10 @@ TEST_F(SpecialPublicInputsTests, Basic)
         for (auto [table_commitment, table_val] : zip_view(kernel_output.ecc_op_tables, ecc_op_tables_val)) {
             table_commitment = G1::from_witness(&builder, table_val);
         }
-        kernel_output.output_hn_accum_hash = FF::from_witness(&builder, output_hn_accum_hash_val);
+        kernel_output.output_hn_accum_hash = ScalarFieldBN254::from_witness(&builder, output_hn_accum_hash_val);
+        kernel_output.ipa_claim.opening_pair.challenge = ScalarFieldGrumpkin::from_witness(&builder, challenge_val);
+        kernel_output.ipa_claim.opening_pair.evaluation = ScalarFieldGrumpkin::from_witness(&builder, evaluation_val);
+        kernel_output.ipa_claim.commitment = G1Grumpkin::from_witness(&builder, commitment_val);
 
         // Propagate the kernel output via the public inputs
         kernel_output.set_public();
@@ -64,10 +75,10 @@ TEST_F(SpecialPublicInputsTests, Basic)
         Builder builder;
 
         // Construct the stdlib public inputs (e.g. as a recursive verifier would do upon receiving them in the proof)
-        std::vector<FF> stdlib_public_inputs;
+        std::vector<ScalarFieldBN254> stdlib_public_inputs;
         stdlib_public_inputs.reserve(public_inputs.size());
         for (const auto& val : public_inputs) {
-            stdlib_public_inputs.push_back(FF::from_witness(&builder, val));
+            stdlib_public_inputs.push_back(ScalarFieldBN254::from_witness(&builder, val));
         }
 
         KernelIO kernel_input;
@@ -82,6 +93,9 @@ TEST_F(SpecialPublicInputsTests, Basic)
             EXPECT_EQ(reconstructed_commitment.get_value(), commitment);
         }
         EXPECT_EQ(kernel_input.output_hn_accum_hash.get_value(), output_hn_accum_hash_val);
+        EXPECT_EQ(kernel_input.ipa_claim.opening_pair.challenge.get_value(), static_cast<uint512_t>(challenge_val));
+        EXPECT_EQ(kernel_input.ipa_claim.opening_pair.evaluation.get_value(), static_cast<uint512_t>(evaluation_val));
+        EXPECT_EQ(kernel_input.ipa_claim.commitment.get_value(), commitment_val);
     }
 }
 
@@ -253,13 +267,18 @@ TEST_F(SpecialPublicInputsTests, HidingKernel)
 
     // Recursive types
     using Curve = HidingIO::Curve;
+    using ScalarFieldBN254 = HidingIO::FF;
+    using ScalarFieldGrumpkin = bb::stdlib::grumpkin<Builder>::ScalarField;
     using G1 = HidingIO::G1;
-    using FF = HidingIO::FF;
+    using G1Grumpkin = bb::stdlib::grumpkin<Builder>::Group;
     using PairingInputs = HidingIO::PairingInputs;
 
     // Native types
     using G1Native = Curve::GroupNative::affine_element;
-    using FFNative = Curve::ScalarFieldNative;
+    using ScalarFieldBN254Native = Curve::ScalarFieldNative;
+    using GrumpkinNative = bb::curve::Grumpkin;
+    using G1GrumpkinNative = GrumpkinNative::AffineElement;
+    using ScalarFieldGrumpkinNative = GrumpkinNative::ScalarField;
 
     static constexpr size_t NUM_WIRES = Builder::NUM_WIRES;
 
@@ -270,9 +289,12 @@ TEST_F(SpecialPublicInputsTests, HidingKernel)
     for (auto& commitment : ecc_op_tables_val) {
         commitment = G1Native::random_element();
     }
+    ScalarFieldGrumpkinNative challenge_val = ScalarFieldGrumpkinNative::random_element();
+    ScalarFieldGrumpkinNative evaluation_val = ScalarFieldGrumpkinNative::random_element();
+    G1GrumpkinNative commitment_val = G1GrumpkinNative::random_element();
 
     // Store the public inputs of the first circuit to be used by the second
-    std::vector<FFNative> public_inputs;
+    std::vector<ScalarFieldBN254Native> public_inputs;
 
     { // The first circuit propagates the kernel output via its public inputs
         Builder builder;
@@ -287,6 +309,10 @@ TEST_F(SpecialPublicInputsTests, HidingKernel)
         for (auto [table_commitment, table_val] : zip_view(hiding_output.ecc_op_tables, ecc_op_tables_val)) {
             table_commitment = G1::from_witness(&builder, table_val);
         }
+
+        hiding_output.ipa_claim.opening_pair.challenge = ScalarFieldGrumpkin::from_witness(&builder, challenge_val);
+        hiding_output.ipa_claim.opening_pair.evaluation = ScalarFieldGrumpkin::from_witness(&builder, evaluation_val);
+        hiding_output.ipa_claim.commitment = G1Grumpkin::from_witness(&builder, commitment_val);
 
         // Propagate the kernel output via the public inputs
         hiding_output.set_public();
@@ -303,10 +329,10 @@ TEST_F(SpecialPublicInputsTests, HidingKernel)
 
         // Construct the stdlib public inputs (e.g. as a recursive verifier would do upon receiving them in the
         // proof)
-        std::vector<FF> stdlib_public_inputs;
+        std::vector<ScalarFieldBN254> stdlib_public_inputs;
         stdlib_public_inputs.reserve(public_inputs.size());
         for (const auto& val : public_inputs) {
-            stdlib_public_inputs.push_back(FF::from_witness(&builder, val));
+            stdlib_public_inputs.push_back(ScalarFieldBN254::from_witness(&builder, val));
         }
 
         HidingIO hiding_input;
@@ -319,6 +345,9 @@ TEST_F(SpecialPublicInputsTests, HidingKernel)
         for (auto [reconstructed_commitment, commitment] : zip_view(hiding_input.ecc_op_tables, ecc_op_tables_val)) {
             EXPECT_EQ(reconstructed_commitment.get_value(), commitment);
         }
+        EXPECT_EQ(hiding_input.ipa_claim.opening_pair.challenge.get_value(), static_cast<uint512_t>(challenge_val));
+        EXPECT_EQ(hiding_input.ipa_claim.opening_pair.evaluation.get_value(), static_cast<uint512_t>(evaluation_val));
+        EXPECT_EQ(hiding_input.ipa_claim.commitment.get_value(), commitment_val);
     }
 
     {
@@ -334,6 +363,9 @@ TEST_F(SpecialPublicInputsTests, HidingKernel)
              zip_view(hiding_input_native.ecc_op_tables, ecc_op_tables_val)) {
             EXPECT_EQ(reconstructed_commitment, commitment);
         }
+        EXPECT_EQ(hiding_input_native.ipa_claim.opening_pair.challenge, challenge_val);
+        EXPECT_EQ(hiding_input_native.ipa_claim.opening_pair.evaluation, evaluation_val);
+        EXPECT_EQ(hiding_input_native.ipa_claim.commitment, commitment_val);
     }
 }
 

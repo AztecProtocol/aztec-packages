@@ -302,7 +302,8 @@ template class UltraVerifier_<UltraFlavor, DefaultIO>;
 template class UltraVerifier_<UltraZKFlavor, DefaultIO>;
 template class UltraVerifier_<UltraKeccakFlavor, DefaultIO>;
 template class UltraVerifier_<UltraKeccakZKFlavor, DefaultIO>;
-template class UltraVerifier_<UltraFlavor, RollupIO>; // Rollup uses UltraFlavor + RollupIO
+template class UltraVerifier_<UltraFlavor, RollupIO>;      // Rollup uses UltraFlavor + RollupIO
+template class UltraVerifier_<UltraFlavor, GoblinFlushIO>; // Goblin flush circuit
 template class UltraVerifier_<MegaFlavor, DefaultIO>;
 template class UltraVerifier_<MegaZKFlavor, DefaultIO>;
 template class UltraVerifier_<MegaZKFlavor, HidingKernelIO>; // Chonk
@@ -328,6 +329,10 @@ template class UltraVerifier_<UltraZKRecursiveFlavor_<MegaCircuitBuilder>,
 
 // UltraRecursiveFlavor with RollupIO (replaces UltraRollupRecursiveFlavor)
 template class UltraVerifier_<UltraRecursiveFlavor_<UltraCircuitBuilder>, stdlib::recursion::honk::RollupIO>;
+
+// UltraRecursiveFlavor with GoblinFlushIO (Goblin flush Circuit is verified inside Mega)
+template class UltraVerifier_<UltraRecursiveFlavor_<MegaCircuitBuilder>,
+                              stdlib::recursion::honk::GoblinFlushIO<MegaCircuitBuilder>>;
 
 // MegaRecursiveFlavor with DefaultIO
 template class UltraVerifier_<MegaRecursiveFlavor_<UltraCircuitBuilder>,

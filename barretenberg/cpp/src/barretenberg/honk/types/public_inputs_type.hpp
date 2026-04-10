@@ -58,7 +58,8 @@ static constexpr std::size_t KERNEL_PUBLIC_INPUTS_SIZE =
     /*kernel_return_data*/ GOBLIN_GROUP_PUBLIC_INPUTS_SIZE +
     /*app_return_data*/ GOBLIN_GROUP_PUBLIC_INPUTS_SIZE +
     /*table_commitments*/ (MEGA_EXECUTION_TRACE_NUM_WIRES * GOBLIN_GROUP_PUBLIC_INPUTS_SIZE) +
-    /*output_hn_accum_hash*/ FR_PUBLIC_INPUTS_SIZE;
+    /*output_hn_accum_hash*/ FR_PUBLIC_INPUTS_SIZE +
+    /*ipa_claim*/ GRUMPKIN_OPENING_CLAIM_SIZE;
 
 // Number of bb::fr elements used to represent the default public inputs, i.e., the pairing points
 static constexpr std::size_t DEFAULT_PUBLIC_INPUTS_SIZE = PAIRING_POINTS_SIZE;
@@ -67,7 +68,8 @@ static constexpr std::size_t DEFAULT_PUBLIC_INPUTS_SIZE = PAIRING_POINTS_SIZE;
 static constexpr std::size_t HIDING_KERNEL_PUBLIC_INPUTS_SIZE =
     /*pairing_inputs*/ PAIRING_POINTS_SIZE +
     /*kernel_return_data*/ GOBLIN_GROUP_PUBLIC_INPUTS_SIZE +
-    /*table_commitments*/ (MEGA_EXECUTION_TRACE_NUM_WIRES * GOBLIN_GROUP_PUBLIC_INPUTS_SIZE);
+    /*table_commitments*/ (MEGA_EXECUTION_TRACE_NUM_WIRES * GOBLIN_GROUP_PUBLIC_INPUTS_SIZE) +
+    /*ipa_claim*/ GRUMPKIN_OPENING_CLAIM_SIZE;
 
 // Number of bb::fr elements used to represent the public inputs of a ROLLUP circuit
 static constexpr std::size_t ROLLUP_PUBLIC_INPUTS_SIZE =
@@ -75,5 +77,11 @@ static constexpr std::size_t ROLLUP_PUBLIC_INPUTS_SIZE =
 
 // Number of bb::fr elements used to represent the public inputs of the inner circuit in the GoblinAvmRecursiveVerifier
 static constexpr std::size_t GOBLIN_AVM_PUBLIC_INPUTS_SIZE = FR_PUBLIC_INPUTS_SIZE + PAIRING_POINTS_SIZE;
+
+// Number of bb::fr elements used to represent the public inputs of the Goblin flush circuit
+static constexpr std::size_t GOBLIN_FLUSH_PUBLIC_INPUTS_SIZE =
+    /*pairing_inputs*/ PAIRING_POINTS_SIZE +
+    /*ipa_claim*/ GRUMPKIN_OPENING_CLAIM_SIZE +
+    /*merged_table*/ (MEGA_EXECUTION_TRACE_NUM_WIRES * GOBLIN_GROUP_PUBLIC_INPUTS_SIZE);
 
 } // namespace bb

@@ -60,7 +60,12 @@ class ECCOpQueue {
     // Tracks number of muls and size of eccvm in real time as the op queue is updated
     EccvmRowTracker eccvm_row_tracker;
 
+    bool is_zk = true;
+
   public:
+    void set_is_zk(bool _is_zk) { is_zk = _is_zk; }
+    bool get_is_zk() const { return is_zk; }
+
     static const size_t OP_QUEUE_SIZE = 1 << CONST_OP_QUEUE_LOG_SIZE;
     /**
      * @brief Instantiate an initial ECC op subtable.
@@ -78,6 +83,29 @@ class ECCOpQueue {
     }
 
     size_t get_current_subtable_size() const { return ultra_ops_table.get_current_subtable_size(); }
+
+    /**
+     * @brief Discard all merged subtables and reset tracking state, keeping only the current (unmerged) subtable.
+     * @details Used during Goblin flush: after the pre-flush ops have been proven by the intermediate
+     * ECCVM/Translator, this method purges them from the queue so subsequent circuits start fresh.
+     * The current subtable (flush app's ops, not yet merged) is preserved.
+     * The ECCVM row tracker is rebuilt from the current subtable's ops so it accurately reflects
+     * only the post-flush operations.
+     */
+    void reset_to_current_subtable()
+    {
+        eccvm_ops_table.reset_to_current_subtable();
+        ultra_ops_table.reset_to_current_subtable();
+
+        // Rebuild the ECCVM row tracker from only the current subtable's ops
+        eccvm_row_tracker = EccvmRowTracker{};
+        for (const auto& op : eccvm_ops_table.get_current_subtable()) {
+            eccvm_row_tracker.update_cached_msms(op);
+        }
+
+        eccvm_ops_reconstructed.clear();
+        ultra_ops_reconstructed.clear();
+    }
 
     void merge(MergeSettings settings = MergeSettings::PREPEND, std::optional<size_t> ultra_fixed_offset = std::nullopt)
     {
@@ -124,11 +152,13 @@ class ECCOpQueue {
     {
         if (eccvm_ops_reconstructed.empty()) {
             construct_full_eccvm_ops_table();
-            // Prepend the hiding op at index 0 (required for ZK)
-            if (!has_hiding_op) {
-                throw_or_abort("Hiding op must be set before calling get_eccvm_ops()");
+            if (is_zk) {
+                // Prepend the hiding op at index 0 (required for ZK)
+                if (!has_hiding_op) {
+                    throw_or_abort("Hiding op must be set before calling get_eccvm_ops()");
+                }
+                eccvm_ops_reconstructed.insert(eccvm_ops_reconstructed.begin(), hiding_op_for_eccvm);
             }
-            eccvm_ops_reconstructed.insert(eccvm_ops_reconstructed.begin(), hiding_op_for_eccvm);
         }
         return eccvm_ops_reconstructed;
     }

@@ -739,6 +739,7 @@ void add_blackbox_func_call_to_acir_format(Acir::Opcode::BlackBoxFuncCall const&
                         case HONK:
                         case ROLLUP_HONK:
                         case ROOT_ROLLUP_HONK:
+                        case ULTRA_GOBLIN:
                             af.honk_recursion_constraints.push_back(c);
                             af.original_opcode_indices.honk_recursion_constraints.push_back(opcode_index);
                             break;
@@ -746,6 +747,7 @@ void add_blackbox_func_call_to_acir_format(Acir::Opcode::BlackBoxFuncCall const&
                         case HN:
                         case HN_TAIL:
                         case HN_FINAL:
+                        case GOBLIN:
                             af.hn_recursion_constraints.push_back(c);
                             af.original_opcode_indices.hn_recursion_constraints.push_back(opcode_index);
                             break;

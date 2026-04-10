@@ -59,17 +59,21 @@ class HidingKernelIO {
     using FF = curve::BN254::ScalarField;
     using G1 = curve::BN254::AffineElement;
     using TableCommitments = std::array<G1, MegaCircuitBuilder::NUM_WIRES>;
+    using IpaClaim = OpeningClaim<curve::Grumpkin>;
 
     using PublicPairingPoints = PublicInputComponent<PairingPoints<curve::BN254>>;
     using PublicPoint = PublicInputComponent<G1>;
+    using PublicIpaClaim = PublicInputComponent<IpaClaim>;
 
-    static constexpr size_t PUBLIC_INPUTS_SIZE =
-        PairingPoints<curve::BN254>::PUBLIC_INPUTS_SIZE + G1::PUBLIC_INPUTS_SIZE * (1 + MegaCircuitBuilder::NUM_WIRES);
-    static constexpr bool HasIPA = false;
+    static constexpr size_t PUBLIC_INPUTS_SIZE = PairingPoints<curve::BN254>::PUBLIC_INPUTS_SIZE +
+                                                 G1::PUBLIC_INPUTS_SIZE * (1 + MegaCircuitBuilder::NUM_WIRES) +
+                                                 GRUMPKIN_OPENING_CLAIM_SIZE;
+    static constexpr bool HasIPA = true;
 
     PairingPoints<curve::BN254> pairing_inputs;
     G1 kernel_return_data;
     TableCommitments ecc_op_tables;
+    IpaClaim ipa_claim;
 
     /**
      * @brief Reconstructs the IO components from a public inputs array.
@@ -92,6 +96,8 @@ class HidingKernelIO {
             commitment = PublicPoint::reconstruct(public_inputs, { index });
             index += G1::PUBLIC_INPUTS_SIZE;
         }
+        ipa_claim = PublicIpaClaim::reconstruct(public_inputs, { index });
+        index += IpaClaim::PUBLIC_INPUTS_SIZE;
     }
 
     /**
@@ -144,6 +150,60 @@ class RollupIO {
     template <typename Builder> static void add_default(Builder& builder)
     {
         stdlib::recursion::honk::RollupIO::add_default(builder);
+    }
+};
+
+/**
+ * @brief Native version of GoblinFlushIO for the Goblin flush circuit
+ */
+class GoblinFlushIO {
+  public:
+    using FF = curve::BN254::ScalarField;
+    using G1 = curve::BN254::AffineElement;
+    using TableCommitments = std::array<G1, MEGA_EXECUTION_TRACE_NUM_WIRES>;
+    using IpaClaim = OpeningClaim<curve::Grumpkin>;
+
+    using PublicPairingPoints = PublicInputComponent<PairingPoints<curve::BN254>>;
+    using PublicPoint = PublicInputComponent<G1>;
+    using PublicIpaClaim = PublicInputComponent<IpaClaim>;
+
+    static constexpr size_t PUBLIC_INPUTS_SIZE = GOBLIN_FLUSH_PUBLIC_INPUTS_SIZE;
+    static constexpr bool HasIPA = true;
+
+    PairingPoints<curve::BN254> pairing_inputs;
+    IpaClaim ipa_claim;
+    TableCommitments merged_table;
+
+    /**
+     * @brief Reconstructs the IO components from a public inputs array.
+     */
+    void reconstruct_from_public(const std::vector<FF>& public_inputs)
+    {
+        BB_ASSERT_GTE(public_inputs.size(),
+                      PUBLIC_INPUTS_SIZE,
+                      "Public inputs too small for GoblinFlushIO reconstruction. Got " +
+                          std::to_string(public_inputs.size()) + " but need at least " +
+                          std::to_string(PUBLIC_INPUTS_SIZE));
+        uint32_t index = static_cast<uint32_t>(public_inputs.size() - PUBLIC_INPUTS_SIZE);
+
+        pairing_inputs = PublicPairingPoints::reconstruct(public_inputs, PublicComponentKey{ index });
+        index += PairingPoints<curve::BN254>::PUBLIC_INPUTS_SIZE;
+        ipa_claim = PublicIpaClaim::reconstruct(public_inputs, PublicComponentKey{ index });
+        index += IpaClaim::PUBLIC_INPUTS_SIZE;
+        for (auto& commitment : merged_table) {
+            commitment = PublicPoint::reconstruct(public_inputs, { index });
+            index += G1::PUBLIC_INPUTS_SIZE;
+        }
+    }
+
+    /**
+     * @brief Add default IO values to a circuit builder (for native tests)
+     */
+    template <typename Builder> static void add_default(Builder& builder)
+    {
+        // We never need to add default inputs for GoblinFlushIO
+        bb::assert_failure("GoblinFlushIO does not support adding default inputs.");
+        (void)builder;
     }
 };
 
