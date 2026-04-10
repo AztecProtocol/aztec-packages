@@ -26,20 +26,21 @@ struct GoblinWithoutMergeProof {
 };
 using GoblinAvmProof = GoblinWithoutMergeProof;
 
-struct GoblinWithoutMergeStdlibProof {
-    using Proof = stdlib::Proof<UltraCircuitBuilder>;
+template <typename BuilderType = UltraCircuitBuilder> struct GoblinWithoutMergeStdlibProof_ {
+    using Proof = stdlib::Proof<BuilderType>;
     Proof eccvm_proof;
     Proof ipa_proof;
     Proof translator_proof;
 
     size_t size() const { return eccvm_proof.size() + ipa_proof.size() + translator_proof.size(); };
-    GoblinWithoutMergeStdlibProof() = default;
-    GoblinWithoutMergeStdlibProof(UltraCircuitBuilder& builder, const GoblinWithoutMergeProof& goblin_proof)
+    GoblinWithoutMergeStdlibProof_() = default;
+    GoblinWithoutMergeStdlibProof_(BuilderType& builder, const GoblinWithoutMergeProof& goblin_proof)
         : eccvm_proof(builder, goblin_proof.eccvm_proof)
         , ipa_proof(builder, goblin_proof.ipa_proof)
         , translator_proof(builder, goblin_proof.translator_proof)
     {}
-    bool operator==(const GoblinWithoutMergeStdlibProof& other) const = default;
+    bool operator==(const GoblinWithoutMergeStdlibProof_& other) const = default;
 };
+using GoblinWithoutMergeStdlibProof = GoblinWithoutMergeStdlibProof_<UltraCircuitBuilder>;
 using GoblinAvmStdlibProof = GoblinWithoutMergeStdlibProof;
 } // namespace bb

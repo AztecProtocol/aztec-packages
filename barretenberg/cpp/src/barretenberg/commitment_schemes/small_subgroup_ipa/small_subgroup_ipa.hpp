@@ -266,7 +266,8 @@ template <typename Curve> class SmallSubgroupIPAVerifier {
         diff += lagrange_last * (grand_sum_eval - inner_product_eval_claim) - vanishing_poly_eval * quotient_eval;
 
         if constexpr (Curve::is_stdlib_type) {
-            if constexpr (std::is_same_v<Curve, stdlib::grumpkin<UltraCircuitBuilder>>) {
+            if constexpr (std::is_same_v<Curve, stdlib::grumpkin<UltraCircuitBuilder>> ||
+                          std::is_same_v<Curve, stdlib::grumpkin<MegaCircuitBuilder>>) {
                 diff.self_reduce();
             }
             bool out = (diff.get_value() == FF(0).get_value());

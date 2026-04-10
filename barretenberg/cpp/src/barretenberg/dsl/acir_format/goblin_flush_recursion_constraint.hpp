@@ -8,16 +8,12 @@ namespace acir_format {
 /**
  * @brief Process an ULTRA_GOBLIN recursion constraint.
  *
- * @details This function implements the Goblin flush app (A_G) logic:
- *   1. Extracts the Goblin proof and merge commitments from the IVC state (or creates mocks for VK generation)
- *   2. Builds Circuit C (an UltraCircuitBuilder that recursively verifies the Goblin proof)
- *   3. Proves Circuit C with Ultra Honk
- *   4. Recursively verifies C's proof inside the Mega circuit, using GoblinFlushIO to extract:
- *      - Aggregated pairing points (from Translator verification)
- *      - IPA opening claim (from ECCVM verification)
- *      - T_prev and t table commitments
+ * @details This function directly verifies ECCVM and Translator proofs inside the Mega circuit
+ * using GoblinWithoutMergeRecursiveVerifier_<MegaCircuitBuilder>. The Translator's KZG batch_mul
+ * operations (BN254 EC ops) are deferred to the Mega circuit's op queue via goblin biggroup dispatch,
+ * to be verified in a subsequent ECCVM+Translator round.
  *
- * @param builder The Mega circuit builder (A_G's circuit)
+ * @param builder The Mega circuit builder
  * @param input The recursion constraint from ACIR (proof/public_inputs are empty for ULTRA_GOBLIN)
  * @param ivc_base The IVC instance containing the Goblin state
  * @return HonkRecursionConstraintOutput with accumulated pairing points and IPA claim

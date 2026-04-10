@@ -2,14 +2,11 @@
 
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/dsl/acir_format/mock_verifier_inputs.hpp"
-#include "barretenberg/flavor/ultra_recursive_flavor.hpp"
 #include "barretenberg/goblin/goblin.hpp"
 #include "barretenberg/goblin/mock_circuits.hpp"
-#include "barretenberg/goblin_without_merge/goblin_flush_circuit.hpp"
 #include "barretenberg/goblin_without_merge/goblin_without_merge.hpp"
+#include "barretenberg/goblin_without_merge/goblin_without_merge_verifier.hpp"
 #include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
-#include "barretenberg/ultra_honk/ultra_prover.hpp"
-#include "barretenberg/ultra_honk/ultra_verifier.hpp"
 
 namespace acir_format {
 
@@ -50,26 +47,6 @@ std::pair<GoblinWithoutMergeProof, MergeVerifier::TableCommitments> create_mock_
     return { flush_proof, table_commitments };
 }
 
-/**
- * @brief Build Circuit containing the Goblin Recursive Verifier, prove it with Ultra Honk, and return the proof + VK
- */
-std::pair<HonkProof, std::shared_ptr<UltraFlavor::VerificationKey>> prove_inner_circuit(
-    const GoblinWithoutMergeProof& goblin_proof, const MergeVerifier::TableCommitments& merged_table)
-{
-    auto builder = build_goblin_flush_circuit(goblin_proof, merged_table);
-
-    using Flavor = UltraFlavor;
-    using ProverInstance = ProverInstance_<Flavor>;
-    using Prover = UltraProver_<Flavor>;
-
-    auto prover_instance = std::make_shared<ProverInstance>(builder);
-    auto verification_key = std::make_shared<Flavor::VerificationKey>(prover_instance->get_precomputed());
-    Prover prover(prover_instance, verification_key);
-    auto proof = prover.construct_proof();
-
-    return { std::move(proof), verification_key };
-}
-
 } // anonymous namespace
 
 HonkRecursionConstraintOutput<MegaCircuitBuilder> create_goblin_flush_recursion_constraints(
@@ -78,12 +55,11 @@ HonkRecursionConstraintOutput<MegaCircuitBuilder> create_goblin_flush_recursion_
     [[maybe_unused]] const std::shared_ptr<IVCBase>& ivc_base)
 {
     using Builder = MegaCircuitBuilder;
-    using field_ct = stdlib::field_t<Builder>;
-    using RecursiveFlavor = UltraRecursiveFlavor_<Builder>;
-    using RecursiveVerificationKey = RecursiveFlavor::VerificationKey;
-    using RecursiveVKAndHash = RecursiveFlavor::VKAndHash;
-    using IO = bb::stdlib::recursion::honk::GoblinFlushIO<Builder>;
-    using RecursiveVerifier = UltraVerifier_<RecursiveFlavor, IO>;
+    using Curve = stdlib::bn254<Builder>;
+    using RecursiveCommitment = Curve::AffineElement;
+    using MegaGoblinVerifier = GoblinWithoutMergeRecursiveVerifier_<Builder>;
+    using RecursiveTableCommitments = MegaGoblinVerifier::TableCommitments;
+    using Transcript = StdlibTranscript<Builder>;
 
     BB_ASSERT(input.proof_type == ULTRA_GOBLIN,
               "create_goblin_flush_recursion_constraints: expected ULTRA_GOBLIN proof type");
@@ -91,7 +67,7 @@ HonkRecursionConstraintOutput<MegaCircuitBuilder> create_goblin_flush_recursion_
     GoblinWithoutMergeProof flush_proof;
     MergeVerifier::TableCommitments merged_table;
 
-    // Step 1: Generate a Goblin proof and build+prove Inner Circuit on-the-fly
+    // Step 1: Generate or extract the Goblin proof and table commitments
     if (builder.is_write_vk_mode()) {
         std::tie(flush_proof, merged_table) = create_mock_goblin_proof_and_commitments();
     } else {
@@ -112,36 +88,30 @@ HonkRecursionConstraintOutput<MegaCircuitBuilder> create_goblin_flush_recursion_
         flush_proof = flush_goblin.prove();
     }
 
-    auto [inner_circuit_proof, inner_circuit_vk] = prove_inner_circuit(flush_proof, merged_table);
+    // Step 2: Directly verify ECCVM + Translator inside the Mega circuit (no inner Ultra circuit needed)
+    GoblinWithoutMergeStdlibProof_<Builder> stdlib_proof(builder, flush_proof);
 
-    // Step 2: Create witnesses for Inner Circuit's VK and proof directly in the Mega builder
-    // (ULTRA_GOBLIN constraints from Noir have empty proof/key - BB constructs everything on-the-fly)
-    std::vector<field_ct> vk_fields;
-    for (const auto& vk_element : inner_circuit_vk->to_field_elements()) {
-        vk_fields.emplace_back(field_ct::from_witness(&builder, vk_element));
-    }
-    field_ct vk_hash = field_ct::from_witness(&builder, inner_circuit_vk->hash());
-
-    std::vector<field_ct> proof_fields;
-    for (const auto& proof_element : inner_circuit_proof) {
-        proof_fields.emplace_back(field_ct::from_witness(&builder, proof_element));
+    // Convert native table commitments to recursive (stdlib) commitments
+    RecursiveTableCommitments recursive_merged_table;
+    for (size_t idx = 0; idx < MegaFlavor::NUM_WIRES; idx++) {
+        recursive_merged_table[idx] = RecursiveCommitment::from_witness(&builder, merged_table[idx]);
+        recursive_merged_table[idx].unset_free_witness_tag();
     }
 
-    // Step 3: Recursively verify Inner Circuit's proof inside the Mega circuit
-    auto vkey = std::make_shared<RecursiveVerificationKey>(vk_fields);
-    auto vk_and_hash = std::make_shared<RecursiveVKAndHash>(vkey, vk_hash);
+    auto transcript = std::make_shared<Transcript>();
+    MegaGoblinVerifier verifier{ transcript, stdlib_proof, recursive_merged_table };
+    auto result = verifier.reduce_to_pairing_check_and_ipa_opening();
 
-    // Fix vk and its hash as a constant of the circuit
-    vkey->fix_witness();
-    vk_hash.fix_witness();
+    // Step 3: Package the result into the expected output format
+    HonkRecursionConstraintOutput<Builder> output;
+    output.points_accumulator = std::move(result.translator_pairing_points);
+    output.ipa_claim = std::move(result.ipa_claim);
+    output.ipa_proof = std::move(result.ipa_proof);
+    output.merged_table = std::move(recursive_merged_table);
 
-    // Recursive verification
-    RecursiveVerifier verifier(vk_and_hash);
-    auto verifier_output = verifier.verify_proof(proof_fields);
+    vinfo("Goblin flush recursion constraint: direct ECCVM+Translator verification in Mega circuit");
 
-    vinfo("Goblin flush recursion constraint: Inner circuit VK hash = ", inner_circuit_vk->hash());
-
-    return verifier_output;
+    return output;
 }
 
 } // namespace acir_format

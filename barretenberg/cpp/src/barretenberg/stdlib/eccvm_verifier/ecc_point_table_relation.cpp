@@ -12,4 +12,6 @@
 namespace bb {
 template class ECCVMPointTableRelationImpl<stdlib::bigfield<UltraCircuitBuilder, bb::Bn254FqParams>>;
 DEFINE_SUMCHECK_VERIFIER_RELATION_CLASS(ECCVMPointTableRelationImpl, ECCVMRecursiveFlavor);
+template class ECCVMPointTableRelationImpl<stdlib::bigfield<MegaCircuitBuilder, bb::Bn254FqParams>>;
+DEFINE_SUMCHECK_VERIFIER_RELATION_CLASS(ECCVMPointTableRelationImpl, ECCVMRecursiveFlavor_<MegaCircuitBuilder>);
 } // namespace bb

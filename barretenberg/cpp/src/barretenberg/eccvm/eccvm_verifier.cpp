@@ -262,5 +262,6 @@ template <typename Flavor> void ECCVMVerifier_<Flavor>::compute_accumulated_resu
 // Explicit template instantiations
 template class ECCVMVerifier_<ECCVMFlavor>;
 template class ECCVMVerifier_<ECCVMRecursiveFlavor>;
+template class ECCVMVerifier_<ECCVMRecursiveFlavor_<MegaCircuitBuilder>>;
 
 } // namespace bb

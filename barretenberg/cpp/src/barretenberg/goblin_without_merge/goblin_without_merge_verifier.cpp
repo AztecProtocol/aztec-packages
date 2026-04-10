@@ -13,8 +13,9 @@ namespace bb {
  * @brief Reduce GoblinWithoutMerge proof to pairing check and IPA opening claim
  * @details Processes ECCVM and Translator sub-proofs sequentially.
  */
-GoblinWithoutMergeRecursiveVerifier::ReductionResult GoblinWithoutMergeRecursiveVerifier::
-    reduce_to_pairing_check_and_ipa_opening()
+template <typename BuilderType>
+typename GoblinWithoutMergeRecursiveVerifier_<BuilderType>::ReductionResult GoblinWithoutMergeRecursiveVerifier_<
+    BuilderType>::reduce_to_pairing_check_and_ipa_opening()
 {
     // Step 1: Verify the ECCVM proof
     ECCVMVerifier eccvm_verifier{ transcript, proof.eccvm_proof };
@@ -46,5 +47,9 @@ GoblinWithoutMergeRecursiveVerifier::ReductionResult GoblinWithoutMergeRecursive
 
     return result;
 }
+
+// Explicit template instantiations
+template class GoblinWithoutMergeRecursiveVerifier_<UltraCircuitBuilder>;
+template class GoblinWithoutMergeRecursiveVerifier_<MegaCircuitBuilder>;
 
 } // namespace bb

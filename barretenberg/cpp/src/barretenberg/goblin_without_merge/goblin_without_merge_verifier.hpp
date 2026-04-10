@@ -26,18 +26,19 @@ namespace bb {
  *
  * This verifier does NOT perform final verification - it returns reduction results for deferred verification.
  *
+ * @tparam BuilderType The circuit builder type (UltraCircuitBuilder or MegaCircuitBuilder)
  */
-class GoblinWithoutMergeRecursiveVerifier {
+template <typename BuilderType = UltraCircuitBuilder> class GoblinWithoutMergeRecursiveVerifier_ {
   public:
-    using Curve = stdlib::bn254<UltraCircuitBuilder>;
-    using Transcript = UltraStdlibTranscript;
+    using Curve = stdlib::bn254<BuilderType>;
+    using Transcript = StdlibTranscript<BuilderType>;
     // Verifiers
-    using ECCVMVerifier = ECCVMVerifier_<ECCVMRecursiveFlavor>;
-    using TranslatorVerifier = TranslatorVerifier_<TranslatorRecursiveFlavor>;
+    using ECCVMVerifier = ECCVMVerifier_<ECCVMRecursiveFlavor_<BuilderType>>;
+    using TranslatorVerifier = TranslatorVerifier_<TranslatorRecursiveFlavor_<BuilderType>>;
     // Proof and commitment types
-    using GoblinProof = GoblinWithoutMergeStdlibProof;
+    using GoblinProof = GoblinWithoutMergeStdlibProof_<BuilderType>;
     using Commitment = Curve::AffineElement;
-    using TableCommitments = std::array<Commitment, UltraCircuitBuilder::NUM_WIRES>;
+    using TableCommitments = std::array<Commitment, BuilderType::NUM_WIRES>;
 
     /**
      * @brief Result of Goblin-without-merge verification
@@ -46,7 +47,7 @@ class GoblinWithoutMergeRecursiveVerifier {
     struct ReductionResult {
         using PairingPoints = stdlib::recursion::PairingPoints<Curve>;
         using IPAClaim = OpeningClaim<typename ECCVMVerifier::Curve>;
-        using IPAProof = stdlib::Proof<UltraCircuitBuilder>;
+        using IPAProof = stdlib::Proof<BuilderType>;
 
         PairingPoints translator_pairing_points; // KZG pairing points from Translator
         IPAClaim ipa_claim;                      // IPA opening claim from ECCVM (Grumpkin curve)
@@ -59,9 +60,9 @@ class GoblinWithoutMergeRecursiveVerifier {
      * @param proof The complete proof containing ECCVM, IPA, and Translator proofs
      * @param table_commitments The commitments to the full table of ECC ops
      */
-    GoblinWithoutMergeRecursiveVerifier(std::shared_ptr<Transcript> transcript,
-                                        const GoblinProof& proof,
-                                        const TableCommitments& table_commitments)
+    GoblinWithoutMergeRecursiveVerifier_(std::shared_ptr<Transcript> transcript,
+                                         const GoblinProof& proof,
+                                         const TableCommitments& table_commitments)
 
         : transcript(std::move(transcript))
         , proof(proof)
@@ -82,6 +83,8 @@ class GoblinWithoutMergeRecursiveVerifier {
     GoblinProof proof;
     TableCommitments table_commitments;
 };
+
+using GoblinWithoutMergeRecursiveVerifier = GoblinWithoutMergeRecursiveVerifier_<UltraCircuitBuilder>;
 using GoblinAvmRecursiveVerifier = GoblinWithoutMergeRecursiveVerifier;
 
 } // namespace bb
