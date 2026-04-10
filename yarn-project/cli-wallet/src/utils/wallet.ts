@@ -1,6 +1,10 @@
 import { EcdsaRAccountContract, EcdsaRSSHAccountContract } from '@aztec/accounts/ecdsa';
 import { SchnorrAccountContract } from '@aztec/accounts/schnorr';
-import { StubAccountContractArtifact, createStubAccount } from '@aztec/accounts/stub';
+import {
+  StubEcdsaAccountContractArtifact,
+  StubSchnorrAccountContractArtifact,
+  createStubAccount,
+} from '@aztec/accounts/stub';
 import { getIdentities } from '@aztec/accounts/utils';
 import { type Account, type AccountContract, NO_FROM } from '@aztec/aztec.js/account';
 import {
@@ -200,15 +204,13 @@ export class CLIWallet extends BaseWallet {
     if (!contractInstance) {
       throw new Error(`No contract instance found for address: ${originalAddress.address}`);
     }
-    const stubAccount = createStubAccount(originalAddress);
-    const instance = await getContractInstanceFromInstantiationParams(StubAccountContractArtifact, {
+    const { type } = await this.db!.retrieveAccount(address);
+    const artifact = type === 'schnorr' ? StubSchnorrAccountContractArtifact : StubEcdsaAccountContractArtifact;
+    const stubAccount = createStubAccount(originalAddress, artifact);
+    const instance = await getContractInstanceFromInstantiationParams(artifact, {
       salt: Fr.random(),
     });
-    return {
-      account: stubAccount,
-      instance,
-      artifact: StubAccountContractArtifact,
-    };
+    return { account: stubAccount, instance, artifact };
   }
 
   override async simulateTx(

@@ -1,6 +1,10 @@
 import { EcdsaKAccountContract, EcdsaRAccountContract } from '@aztec/accounts/ecdsa';
 import { SchnorrAccountContract } from '@aztec/accounts/schnorr';
-import { StubAccountContractArtifact, createStubAccount } from '@aztec/accounts/stub';
+import {
+  StubEcdsaAccountContractArtifact,
+  StubSchnorrAccountContractArtifact,
+  createStubAccount,
+} from '@aztec/accounts/stub';
 import { type Account, type AccountContract, NO_FROM } from '@aztec/aztec.js/account';
 import {
   type CallIntent,
@@ -131,13 +135,14 @@ export class TestWallet extends BaseWallet {
         );
       }
 
-      const stubInstance = await getContractInstanceFromInstantiationParams(StubAccountContractArtifact, {
+      const stubArtifact = this.accountStubArtifacts.get(address.toString()) ?? StubSchnorrAccountContractArtifact;
+      const stubInstance = await getContractInstanceFromInstantiationParams(stubArtifact, {
         salt: Fr.random(),
       });
 
       contracts[address.toString()] = {
         instance: stubInstance,
-        artifact: StubAccountContractArtifact,
+        artifact: stubArtifact,
       };
     }
 
@@ -145,6 +150,7 @@ export class TestWallet extends BaseWallet {
   }
 
   protected accounts: Map<string, Account> = new Map();
+  private accountStubArtifacts: Map<string, typeof StubSchnorrAccountContractArtifact> = new Map();
 
   /**
    * Controls how the test wallet simulates transactions:
@@ -188,7 +194,13 @@ export class TestWallet extends BaseWallet {
 
     await this.registerContract(instance, artifact, secret);
 
-    this.accounts.set(accountManager.address.toString(), await accountManager.getAccount());
+    const address = accountManager.address.toString();
+    this.accounts.set(address, await accountManager.getAccount());
+    const isEcdsa = contract instanceof EcdsaKAccountContract || contract instanceof EcdsaRAccountContract;
+    this.accountStubArtifacts.set(
+      address,
+      isEcdsa ? StubEcdsaAccountContractArtifact : StubSchnorrAccountContractArtifact,
+    );
 
     return accountManager;
   }
@@ -261,7 +273,8 @@ export class TestWallet extends BaseWallet {
       if (useOverride) {
         const originalAccount = await this.getAccountFromAddress(from);
         const completeAddress = originalAccount.getCompleteAddress();
-        fromAccount = createStubAccount(completeAddress);
+        const stubArtifact = this.accountStubArtifacts.get(from.toString()) ?? StubSchnorrAccountContractArtifact;
+        fromAccount = createStubAccount(completeAddress, stubArtifact);
       } else {
         fromAccount = await this.getAccountFromAddress(from);
       }
