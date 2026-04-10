@@ -65,6 +65,16 @@ Install the correct version for the current network:
 aztec-up 2.1.11
 ```
 
+:::note macOS users
+macOS ships with an outdated version of Bash (v3.2) that is known to cause issues with the installer. Install a modern version with [Homebrew](https://brew.sh/):
+
+```bash
+brew install bash
+```
+
+Even if you use zsh as your default shell, the installer explicitly invokes `bash`. If the installer still picks up the old version, add the Homebrew `bash` to your `$PATH` or [set it as your default shell](https://support.apple.com/en-gb/guide/terminal/trml113/mac).
+:::
+
 ### L1 Ethereum Node Access
 
 All Aztec nodes require access to Ethereum L1 node endpoints:
