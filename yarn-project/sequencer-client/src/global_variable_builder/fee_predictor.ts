@@ -41,7 +41,7 @@ export class FeePredictor {
 
   constructor(
     private readonly rollupContract: RollupContract,
-    private readonly publicClient: { getBlockNumber: () => Promise<bigint> },
+    private readonly publicClient: { getBlockNumber: (opts?: { cacheTime?: number }) => Promise<bigint> },
     private readonly dateProvider: DateProvider,
     config: { slotDuration: number; l1GenesisTime: bigint; ethereumSlotDuration: number },
   ) {
@@ -58,41 +58,50 @@ export class FeePredictor {
 
   /** Fetches and caches rollup state. Refreshes when L1 block number advances. */
   private async getState(): Promise<FeeOracleState> {
-    const blockNumber = await this.publicClient.getBlockNumber();
+    const blockNumber = await this.publicClient.getBlockNumber({ cacheTime: 0 });
     if (this.cachedL1BlockNumber === undefined || blockNumber > this.cachedL1BlockNumber) {
       this.cachedL1BlockNumber = blockNumber;
-      this.cachedState = this.fetchState();
+      this.cachedState = this.fetchState(blockNumber);
     }
     return this.cachedState!;
   }
 
-  private async fetchState(): Promise<FeeOracleState> {
-    // Most of the items below are cached by the rollup contract
-    const [lastCheckpoint, currentSlot, manaTarget, manaLimit, provingCostPerManaEth, epochDuration] =
-      await Promise.all([
-        this.rollupContract.getEffectivePendingCheckpoint(),
-        this.rollupContract.getSlotNumber(),
-        this.rollupContract.getManaTarget(),
-        this.rollupContract.getManaLimit(),
-        this.rollupContract.getProvingCostPerMana(),
-        this.rollupContract.getEpochDuration(),
-      ]);
+  private async fetchState(blockNumber: bigint): Promise<FeeOracleState> {
+    // Pin all non-constant queries to this L1 block number for a consistent snapshot.
+    const opts = { blockNumber };
 
-    const lastSlot = lastCheckpoint.slotNumber;
-    // The next L1 block may land in the next L2 slot, so we need to account for that
+    // Cached constants don't need pinning
+    const [manaTarget, manaLimit, provingCostPerManaEth, epochDuration] = await Promise.all([
+      this.rollupContract.getManaTarget(),
+      this.rollupContract.getManaLimit(),
+      this.rollupContract.getProvingCostPerMana(),
+      this.rollupContract.getEpochDuration(),
+    ]);
+
+    // First, compute the earliest possible nextSlot independently of the checkpoint, so we can
+    // evaluate pruneability at the prediction start timestamp instead of the current L1 block time.
+    // This avoids an epoch-boundary edge case where the effective parent differs between now and nextSlot.
+    const slotConfig = { slotDuration: this.slotDuration, l1GenesisTime: this.l1GenesisTime };
+    const currentSlot = await this.rollupContract.getSlotNumber(opts);
+
     const slotAtNextL1Block = getSlotAtNextL1Block(BigInt(this.dateProvider.nowInSeconds()), {
       l1GenesisTime: this.l1GenesisTime,
       slotDuration: this.slotDuration,
       ethereumSlotDuration: this.ethereumSlotDuration,
     });
-    // Start from the latest of: slot after last checkpoint, current slot, or slot at next L1 block.
-    const nextSlot = SlotNumber(Math.max(SlotNumber.add(lastSlot, 1), currentSlot, slotAtNextL1Block));
+    const preliminaryNextSlot = SlotNumber(Math.max(currentSlot, slotAtNextL1Block));
+    const nextSlotTimestamp = getTimestampForSlot(preliminaryNextSlot, slotConfig);
+
+    // Resolve the effective checkpoint at the prediction start timestamp
+    const lastCheckpoint = await this.rollupContract.getEffectivePendingCheckpoint(nextSlotTimestamp, opts);
+    const lastSlot = lastCheckpoint.slotNumber;
+    // Refine nextSlot: also account for the slot after the last checkpoint
+    const nextSlot = SlotNumber(Math.max(SlotNumber.add(lastSlot, 1), preliminaryNextSlot));
     const feeHeader = lastCheckpoint.feeHeader;
 
-    const slotConfig = { slotDuration: this.slotDuration, l1GenesisTime: this.l1GenesisTime };
     const slotCount = FEE_ORACLE_LAG;
     const timestamps = times(slotCount, i => getTimestampForSlot(SlotNumber.add(nextSlot, i), slotConfig));
-    const l1FeesBySlot = await Promise.all(timestamps.map(ts => this.rollupContract.getL1FeesAt(ts)));
+    const l1FeesBySlot = await Promise.all(timestamps.map(ts => this.rollupContract.getL1FeesAt(ts, opts)));
 
     return {
       lastSlot,

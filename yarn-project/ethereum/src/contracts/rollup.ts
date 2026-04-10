@@ -525,8 +525,9 @@ export class RollupContract {
     return this.rollup.read.getCheckpointReward();
   }
 
-  async getCheckpointNumber(): Promise<CheckpointNumber> {
-    return CheckpointNumber.fromBigInt(await this.rollup.read.getPendingCheckpointNumber());
+  async getCheckpointNumber(options?: { blockNumber?: bigint }): Promise<CheckpointNumber> {
+    await checkBlockTag(options?.blockNumber, this.client);
+    return CheckpointNumber.fromBigInt(await this.rollup.read.getPendingCheckpointNumber(options));
   }
 
   async getProvenCheckpointNumber(options?: { blockNumber?: bigint }): Promise<CheckpointNumber> {
@@ -534,12 +535,14 @@ export class RollupContract {
     return CheckpointNumber.fromBigInt(await this.rollup.read.getProvenCheckpointNumber(options));
   }
 
-  async getSlotNumber(): Promise<SlotNumber> {
-    return SlotNumber.fromBigInt(await this.rollup.read.getCurrentSlot());
+  async getSlotNumber(options?: { blockNumber?: bigint }): Promise<SlotNumber> {
+    await checkBlockTag(options?.blockNumber, this.client);
+    return SlotNumber.fromBigInt(await this.rollup.read.getCurrentSlot(options));
   }
 
-  async getL1FeesAt(timestamp: bigint): Promise<L1FeeData> {
-    const result = await this.rollup.read.getL1FeesAt([timestamp]);
+  async getL1FeesAt(timestamp: bigint, options?: { blockNumber?: bigint }): Promise<L1FeeData> {
+    await checkBlockTag(options?.blockNumber, this.client);
+    const result = await this.rollup.read.getL1FeesAt([timestamp], options);
     return {
       baseFee: result.baseFee,
       blobFee: result.blobFee,
@@ -631,8 +634,9 @@ export class RollupContract {
     return EthAddress.fromString(result);
   }
 
-  async getCheckpoint(checkpointNumber: CheckpointNumber): Promise<CheckpointLog> {
-    const result = await this.rollup.read.getCheckpoint([BigInt(checkpointNumber)]);
+  async getCheckpoint(checkpointNumber: CheckpointNumber, options?: { blockNumber?: bigint }): Promise<CheckpointLog> {
+    await checkBlockTag(options?.blockNumber, this.client);
+    const result = await this.rollup.read.getCheckpoint([BigInt(checkpointNumber)], options);
     return {
       archive: Fr.fromString(result.archive),
       headerHash: Buffer32.fromString(result.headerHash),
@@ -665,20 +669,24 @@ export class RollupContract {
     );
   }
 
-  /** Returns the effective pending checkpoint, accounting for potential prunes.
+  /**
+   * Returns the effective pending checkpoint, accounting for potential prunes.
    * When a prune can happen, the L1 contract uses the proven checkpoint instead of the pending one.
-   * This mirrors the behavior of getEffectivePendingCheckpointNumber in STFLib.sol. */
-  getEffectivePendingCheckpoint() {
+   * This mirrors the behavior of getEffectivePendingCheckpointNumber in STFLib.sol.
+   * @param atTimestamp - The timestamp to evaluate pruneability at. Defaults to the current L1 block timestamp.
+   * @param options - Optional L1 block number to pin the queries to.
+   */
+  getEffectivePendingCheckpoint(atTimestamp?: bigint, options?: { blockNumber?: bigint }) {
     return retry(
       async () => {
-        const timestamp = (await this.client.getBlock()).timestamp;
-        const canPrune = await this.canPruneAtTime(timestamp);
+        const timestamp = atTimestamp ?? (await this.client.getBlock()).timestamp;
+        const canPrune = await this.canPruneAtTime(timestamp, options);
         if (canPrune) {
-          const provenCheckpointNumber = await this.getProvenCheckpointNumber();
-          return await this.getCheckpoint(provenCheckpointNumber);
+          const provenCheckpointNumber = await this.getProvenCheckpointNumber(options);
+          return await this.getCheckpoint(provenCheckpointNumber, options);
         }
-        const pendingCheckpointNumber = await this.getCheckpointNumber();
-        return await this.getCheckpoint(pendingCheckpointNumber);
+        const pendingCheckpointNumber = await this.getCheckpointNumber(options);
+        return await this.getCheckpoint(pendingCheckpointNumber, options);
       },
       'getting effective pending checkpoint',
       makeBackoff([0.5, 0.5, 0.5]),
