@@ -21,6 +21,7 @@ import {
   type ProfileOptions,
   type SendOptions,
   type SimulateOptions,
+  TxSimulationResultWithAppOffset,
   type Wallet,
   type WalletCapabilities,
 } from '@aztec/aztec.js/wallet';
@@ -56,7 +57,6 @@ import {
   BlockHeader,
   type TxExecutionRequest,
   type TxProfileResult,
-  TxSimulationResult,
   type UtilityExecutionResult,
 } from '@aztec/stdlib/tx';
 import { ExecutionPayload, mergeExecutionPayloads } from '@aztec/stdlib/tx';
@@ -315,12 +315,28 @@ export abstract class BaseWallet implements Wallet {
       opts.from,
       opts.feeOptions,
     );
-    return this.pxe.simulateTx(txRequest, {
+    const result = await this.pxe.simulateTx(txRequest, {
       simulatePublic: true,
       skipTxValidation: opts.skipTxValidation,
       skipFeeEnforcement: opts.skipFeeEnforcement,
       scopes: opts.scopes,
     });
+    const appCallOffset = await this.computeAppCallOffset(opts.from, opts.feeOptions);
+    return TxSimulationResultWithAppOffset.fromResultAndOffset(result, appCallOffset);
+  }
+
+  /**
+   * Computes the index where the app's calls begin in the flattened array of calls (0 = entrypoint/root, 1..N = fee
+   * calls, N+1 = app).
+   * @param from - The sender address, or NO_FROM for the default entrypoint.
+   * @param feeOptions - Fee options containing the wallet fee payment method.
+   */
+  protected async computeAppCallOffset(from: AztecAddress | NoFrom, feeOptions: FeeOptions): Promise<number> {
+    if (from === NO_FROM) {
+      return 0;
+    }
+    const feeExecutionPayload = await feeOptions.walletFeePaymentMethod?.getExecutionPayload();
+    return (feeExecutionPayload?.calls.length ?? 0) + 1; // +1 for entrypoint
   }
 
   /**
@@ -331,7 +347,10 @@ export abstract class BaseWallet implements Wallet {
    * @param opts - Simulation options (from address, fee settings, etc.).
    * @returns The merged simulation result.
    */
-  async simulateTx(executionPayload: ExecutionPayload, opts: SimulateOptions): Promise<TxSimulationResult> {
+  async simulateTx(
+    executionPayload: ExecutionPayload,
+    opts: SimulateOptions,
+  ): Promise<TxSimulationResultWithAppOffset> {
     const feeOptions = await this.completeFeeOptions({
       from: opts.from,
       feePayer: executionPayload.feePayer,

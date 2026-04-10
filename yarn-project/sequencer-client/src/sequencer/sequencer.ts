@@ -151,6 +151,11 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     this.log.info('Started sequencer');
   }
 
+  /** Triggers an immediate run of the sequencer, bypassing the polling interval. */
+  public trigger() {
+    return this.runningPromise?.trigger();
+  }
+
   /** Stops the sequencer from building blocks and moves to STOPPED state. */
   public async stop(): Promise<void> {
     this.log.info(`Stopping sequencer`);
