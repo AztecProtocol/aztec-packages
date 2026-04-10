@@ -990,7 +990,6 @@ describe('aztec node', () => {
         epochCache,
         getPackageVersion() ?? '',
         new TestCircuitVerifier(),
-        new TestCircuitVerifier(),
       );
     });
 
