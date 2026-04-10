@@ -576,10 +576,10 @@ void assert_zero_to_quad_constraints(Acir::Opcode::AssertZero const& arg, AcirFo
     // `constant == 0` which can never be satisfied.
     if (arg.value.mul_terms.empty() && linear_terms.empty()) {
         fr constant = from_buffer_with_bound_checks(arg.value.q_c);
-        if (constant != fr::zero()) {
-            bb::assert_failure("assert_zero_to_quad_constraints: circuit is unsatisfiable. An AssertZero opcode "
-                               "contains no variables but has a non-zero constant, which can never equal zero.");
-        }
+        BB_ASSERT_EQ(constant,
+                     fr::zero(),
+                     "circuit is unsatisfiable. An AssertZero opcode contains no variables but has a non-zero "
+                     "constant, which can never equal zero.");
     }
 
     bool is_single_gate = is_single_arithmetic_gate(arg.value, linear_terms);
