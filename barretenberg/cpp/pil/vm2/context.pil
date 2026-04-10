@@ -30,6 +30,11 @@ namespace execution;
     pol commit sel_exit_call; // @boolean (by definition)
     sel_exit_call = sel_failure + sel_execute_return; // sel_failure = sel_error + sel_execute_revert (discard.pil)
 
+    // Simlarly, we can show that sel_enter_call and sel_exit_call are mutually exclusive. This follows
+    // from `sel_error == 1` deactivates (cascade) sel_execute_call and sel_execute_static_call.
+    // Moreover, sel_execute_call, sel_execute_static_call, sel_execute_return, and sel_execute_revert
+    // are mutually exclusive by #[EXEC_OP_ID_DECOMPOSITION] in execution.pil.
+
     // Context columns
     pol commit context_id;
     pol commit parent_id;

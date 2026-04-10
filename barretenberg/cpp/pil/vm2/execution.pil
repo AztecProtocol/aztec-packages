@@ -92,8 +92,16 @@ sel * (1 - sel) = 0;
 // Used by TX trace for lookups to dispatch and retrieve results/reverted.
 pol commit enqueued_call_start; // @boolean
 pol commit enqueued_call_end; // @boolean
-// Both `enqueued_call_XXX` selectors are boolean on active rows by definition.
-// On non-active rows, they are 0 (explanations below).
+
+// enqueued_call_end is boolean:
+//   enqueued_call_end = sel_exit_call * (1 - has_parent_ctx) where has_parent_ctx is explicitly boolean.
+//   sel_exit_call is shown to be boolean in context.pil.
+//
+// enqueued_call_start is boolean:
+//   enqueued_call_start' = (precomputed.first_row + enqueued_call_end) * sel'. Since sel' is explicitly
+//   boolean, we show that enqueued_call_end is mutually exclusive with precomputed.first_row.
+//   This follows from `sel == 0 ==> enqueued_call_end == 0` (proven below) and the fact that
+//   sel cannot be 1 on the first row.
 
 // (enqueued_call_start == 1) <==> (is first active execution row)
 //                               or (is first active row after an enqueued call ends)
@@ -108,31 +116,52 @@ enqueued_call_end = sel_exit_call * (1 - has_parent_ctx);
 
 // First row after *CALL, or first row of enqueued call
 // This is the only row where bytecode retrieval is active.
-pol commit sel_first_row_in_context; // @boolean
+pol commit sel_first_row_in_context; // @boolean (see below)
 sel_first_row_in_context' = sel_enter_call + enqueued_call_start';
-// This selector is boolean because when sel_enter_call == 1, this row cannot
-// error per #[INFALLIBLE_OPCODES_SUCCESS] and therefore next row cannot
-// have `enqueued_call_start == 1`.
 
+// sel_first_row_in_context is boolean:
+//   sel_enter_call and enqueued_call_start' being boolean, we need to show mutual exclusion.
+//   When sel_enter_call == 1:
+//     - As shown in context.pil, sel_exit_call and sel_enter_call are mutually exclusive.
+//       Therefore sel_exit_call = 0, giving enqueued_call_end = 0.
+//     - sel_enter_call == 1 requires sel == 1 and therefore it cannot be the first row.
+//     - By definition (#[ENQUEUED_CALL_START]), enqueued_call_start' = 0.
 
-/**
-* DEACTIVATION FOR ENQUEUED_CALL_START/END/SEL_FIRST_ROW_IN_CONTEXT
-* If `sel == 0`, we have `enqueued_call_start == 0` by definition (#[ENQUEUED_CALL_START]);
-* From the "above cascade of de-activation":
-* `sel == 0` ==> `sel_execute_call == 0` and `sel_execute_static_call == 0`.
-* Thus, `sel_enter_call == 0` by definition in context.pil.
-* As a consequence, `sel_first_row_in_context == 0` by definition.
-* As explained below at the definition of `sel_error`, we also have `sel_error == 0` if `sel == 0`.
-* Combining this with `sel_exec_return == 0`, `sel_exec_revert == 0`, and the definition of `sel_exit_call`
-* in context.pil, we have `sel_exit_call == 0` if `sel == 0`.
-* Finally, it follows that enqueued_call_end == 0 if `sel == 0`.
-*/
 
 // `sel` can change only at the first row or at the end of an enqueued call.
 // Since `sel == 0 ==> enqueued_call_end == 0`, this implies that `sel` can only be toggled
 // over a contiguous block of rows starting after the first row until the end of an enqueued call.
 #[TRACE_CONTINUITY]
 (1 - precomputed.first_row - enqueued_call_end) * (sel - sel') = 0;
+
+// Remark: The relations above are a variant of the recipe for contiguous multi-row computation.
+//         See https://github.com/AztecProtocol/aztec-packages/blob/next/barretenberg/cpp/pil/vm2/docs/recipes.md#contiguous-multi-rows-computation-trace
+//         The difference is that explicit boolean relations are not required and we apply a stricter version
+//         of #[START_AFTER_LATCH] with #[ENQUEUED_CALL_START] which gives us the guarantee that
+//         `sel == 0 ==> enqueued_call_start == 0`.
+//         The property `sel == 0 ==> enqueued_call_end == 0` is also not explicit but if given
+//         below (paragraph on DEACTIVATION FOR ...).
+//         As a consequence, we guarantee that the active part of the trace is contiguous and composed
+//         of successive enqueued call blocks starting with `enqueued_call_start == 1` and ending with
+//         `enqueued_call_end == 1`.
+
+
+// DEACTIVATION FOR ENQUEUED_CALL_START/END/SEL_FIRST_ROW_IN_CONTEXT
+// If `sel == 0`, we have `enqueued_call_start == 0` by definition (#[ENQUEUED_CALL_START]).
+//
+// For `sel_first_row_in_context`: recall that `sel_first_row_in_context' = sel_enter_call + enqueued_call_start'`,
+// so `sel_first_row_in_context` on row r depends on `sel_enter_call` on row r-1 and `enqueued_call_start` on row r.
+// We already showed `enqueued_call_start == 0` on row r. For `sel_enter_call` on row r-1:
+// By #[TRACE_CONTINUITY], either `sel[r-1] == 0` (cascade gives `sel_enter_call == 0`) or
+// `enqueued_call_end[r-1] == 1` (which requires `sel_exit_call == 1`, and since `sel_enter_call`
+// and `sel_exit_call` are mutually exclusive — see context.pil — we get `sel_enter_call == 0`).
+// In both cases, `sel_first_row_in_context[r] = 0 + 0 = 0`.
+//
+// As explained below at the definition of `sel_error`, we also have `sel_error == 0` if `sel == 0`.
+// Combining this with `sel_execute_return == 0`, `sel_execute_revert == 0`, and the definition of `sel_exit_call`
+// in context.pil, we have `sel_exit_call == 0` if `sel == 0`.
+// Finally, it follows that `enqueued_call_end == 0` if `sel == 0`.
+
 
 pol commit clk;
 
@@ -148,9 +177,17 @@ sel' * (clk + 1 - clk') = 0;
  *  Temporality group 1: Bytecode retrieval (unconditional)
  **************************************************************************************************/
 
-pol commit sel_bytecode_retrieval_failure; // @Boolean
-// When `sel_first_row_in_context == 1`, sel_bytecode_retrieval_failure is boolean
-// thanks to #[BYTECODE_RETRIEVAL_RESULT]. Otherwise, it is 0 from #[BYTECODE_RETRIEVAL_NO_FAILURE].
+pol commit sel_bytecode_retrieval_failure; // @boolean
+// sel_bytecode_retrieval_failure is boolean by case analysis on sel_first_row_in_context:
+// - If sel_first_row_in_context == 1: constrained by #[BYTECODE_RETRIEVAL_RESULT] to match
+//   bc_retrieval.error (boolean). The lookup selector is 1 (boolean), so the lookup is sound.
+// - If sel_first_row_in_context != 1 (any other field value, not just 0): #[BYTECODE_RETRIEVAL_NO_FAILURE]
+//   gives (1 - sel_first_row_in_context) * sel_bytecode_retrieval_failure = 0, and since
+//   (1 - sel_first_row_in_context) != 0, we get sel_bytecode_retrieval_failure = 0.
+// Crucially, this argument does NOT require sel_first_row_in_context to be boolean. This matters
+// because proving sel_first_row_in_context boolean depends on the cascade of temporality group selectors
+// (including sel_bytecode_retrieval_failure). Relying on sel_first_row_in_context being boolean
+// here would create a circular dependency.
 
 // We perform this lookup "only" on the first row of the context and therefore,
 // we need to propagate `bytecode_id`, etc. down to the subsequent rows in the context.
@@ -196,7 +233,8 @@ sel_bytecode_retrieval_success = sel * (1 - sel_bytecode_retrieval_failure);
 // Important: We cannot simplify the above relation to
 // `sel_bytecode_retrieval_success = sel - sel_bytecode_retrieval_failure`
 // because the "sel" multiplicative factor is necessary for the "de-activation cascade" of selectors
-// which enforce that `sel == 0 ==> sel_first_row_in_context == 0`.
+// which is necessary to show that `sel == 0 ==> sel_first_row_in_context == 0` and implies
+// `sel == 0 ==> sel_bytecode_retrieval_failure == 0`.
 
 /**************************************************************************************************
  *  Temporality group 2: Instruction fetching
