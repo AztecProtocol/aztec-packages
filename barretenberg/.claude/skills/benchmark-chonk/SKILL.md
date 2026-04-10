@@ -189,20 +189,35 @@ void GlobalBenchStatsContainer::clear()
 
 **Usage pattern for per-circuit profiling:**
 
-To get a breakdown of each `accumulate()` call separately, instrument code like:
+The `--print_bench` output aggregates across all 19 circuits. To get per-circuit timing, temporarily instrument `barretenberg/cpp/src/barretenberg/bbapi/bbapi_chonk.cpp`:
+
+1. Add `#include <chrono>` at the top
+2. In `ChonkAccumulate::execute()`, wrap the `accumulate()` call:
 
 ```cpp
-for (size_t i = 0; i < num_circuits; i++) {
-    bb::detail::GLOBAL_BENCH_STATS.clear();  // reset before each circuit
-
-    accumulate_single_circuit(i);
-
-    // Print this circuit's breakdown
+    info("ChonkAccumulate - accumulating circuit '", request.loaded_circuit_name, "'");
+    bb::detail::GLOBAL_BENCH_STATS.clear();
+    auto circuit_start = std::chrono::steady_clock::now();
+    request.ivc_in_progress->accumulate(circuit, precomputed_vk);
+    auto circuit_end = std::chrono::steady_clock::now();
+    auto circuit_ms = std::chrono::duration_cast<std::chrono::milliseconds>(circuit_end - circuit_start).count();
+    info("PER_CIRCUIT_TIME: circuit='",
+         request.loaded_circuit_name,
+         "' index=",
+         request.ivc_stack_depth,
+         " time_ms=",
+         circuit_ms);
     bb::detail::GLOBAL_BENCH_STATS.print_aggregate_counts_hierarchical(std::cerr);
-}
+    request.ivc_stack_depth++;
 ```
 
-This is how `GOOGLE_BB_BENCH_REPORTER` works internally — it clears on entry and collects on exit. You can apply the same pattern at any granularity: per-circuit, per-phase, per-queue-type.
+3. Rebuild with `cd build && ninja bb` (only recompiles the changed file + relinks)
+4. Run the benchmark, then grep for `PER_CIRCUIT_TIME` in the output
+5. **Revert the instrumentation** after collecting data: `git checkout -- barretenberg/cpp/src/barretenberg/bbapi/bbapi_chonk.cpp`
+
+This gives wall-clock time per circuit plus a per-circuit BB_BENCH breakdown. The `GLOBAL_BENCH_STATS.clear()` resets stats before each circuit so the hierarchical print shows only that circuit's work.
+
+The same pattern works at any granularity — clear before, print after. This is how `GOOGLE_BB_BENCH_REPORTER` works internally.
 
 ### Output formats
 
@@ -286,9 +301,24 @@ These use Google Benchmark's `compare.py` for statistical analysis. Note: these 
 
 - **`HARDWARE_CONCURRENCY=8` for local, `16` for remote.** Always set this explicitly. Local/shared machines use 8; the remote benchmarking machine uses 16.
 - **Local iteration is fine** — you can build, instrument, and run locally. Just average 3 runs for reliable numbers, or use the remote machine via `/remote-bench` for single-run accuracy.
-- **Native preset:** `clang20` or `clang20-no-avm` (AVM not needed for Chonk).
-- **WASM preset:** `wasm-threads`. The preset enables `ENABLE_WASM_BENCH=ON` automatically.
+- **Use `./bootstrap.sh` for initial builds** — it downloads cached artifacts and avoids build issues. Use `cmake --preset clang20 && cd build && ninja bb` for incremental rebuilds after code changes.
+- **Build dir is `build/`** — the `clang20` preset outputs to `build/`, not `build-no-avm`. The `clang20-no-avm` preset also uses `build/` (it disables AVM at cmake level, not via directory name).
+- **If the zig cache breaks** (missing `libubsan_rt.a` errors), delete `build/` and reconfigure: `rm -rf build && cmake --preset clang20`.
+- **WASM preset:** `wasm-threads`. Build dir is `build-wasm-threads/`. The preset enables `ENABLE_WASM_BENCH=ON` automatically.
+- **WASM is ~2.8x slower than native** — this ratio is consistent across all circuit types.
 - **CRS:** Ensure `~/.bb-crs` exists. For WASM, wasmtime needs `--dir=$HOME/.bb-crs`.
 - **`BB_BENCH=1` vs `--print_bench`:** Either activates profiling. `--print_bench` also triggers the hierarchical tree output to stderr. In `chonk_bench`, the `GOOGLE_BB_BENCH_REPORTER` macro enables it automatically when `BB_BENCH=1` is set.
 - **Dashboard:** CI uploads breakdown data to `bench/bb-breakdown/` on S3. The dashboard at `ci3/dashboard/chonk-breakdowns/` visualizes it.
 - **Rebuilding after instrumentation changes:** Only `ninja bb` is needed — no need to reconfigure.
+
+## Presenting results
+
+When sharing benchmark results, create an **HTML gist** with an interactive visualization. Include:
+
+- **Native vs WASM tabs** with per-circuit comparison table
+- **Stacked bar charts** showing time distribution across circuits
+- **Aggregation by circuit type** (kernel vs app vs infra)
+- **Summary cards** with total time, slowdown ratio, and heaviest circuit
+- **Color-coded circuit types**: kernel (blue), app (red), infra (gray)
+
+Use `create_gist` / `update_gist` with a `.html` file. GitHub renders HTML gists — viewers can open the raw HTML to interact with tabs and tooltips. This is much more useful than plain markdown tables for benchmark data.
