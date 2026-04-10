@@ -9,18 +9,19 @@ pub contract SimulatedSchnorrAccount {
     use aztec::{
         authwit::{account::AccountActions, auth::IS_VALID_SELECTOR, entrypoint::app::AppPayload},
         context::PrivateContext,
-        macros::functions::{allow_phase_change, external, initializer, view},
+        macros::functions::{allow_phase_change, external, view},
         messages::encoding::MESSAGE_CIPHERTEXT_LEN,
         oracle::{notes::set_sender_for_tags, random::random},
     };
 
     // Stub constructor matching the SchnorrAccount constructor signature.
+    // Does NOT use #[initializer] so that the macro does not inject
+    // assert_initialization_matches_address_preimage_private, which would fail during kernelless
+    // simulation because the stub instance has a different initialization hash than the real account.
     // Emits the same shape of side effects as the real constructor (one nullifier for
     // SinglePrivateImmutable initialization, one note hash for the key note, and one private
-    // log tied to that note hash) so that gas estimation during kernelless deployment simulation
-    // produces accurate results.
+    // log tied to that note hash) so that gas estimation produces accurate results.
     #[external("private")]
-    #[initializer]
     fn constructor(_signing_pub_key_x: Field, _signing_pub_key_y: Field) {
         // Safety: Random seeds are only used to produce dummy side effects that match the shape of
         // the real SchnorrAccount constructor. The values are never constrained or used for any
@@ -30,10 +31,7 @@ pub contract SimulatedSchnorrAccount {
         // Emit the initialization nullifier for the signing_public_key SinglePrivateImmutable.
         self.context.push_nullifier(seed);
 
-        // Emit the note hash for the signing key note. We capture the counter before the push
-        // because push_note_hash() internally calls next_counter(), which returns the current
-        // value and then increments it.
-        let note_hash_counter = self.context.side_effect_counter;
+        // Emit the note hash for the signing key note.
         self.context.push_note_hash(seed + 1);
 
         // Emit a private log tied to the note hash, matching the length of a real note delivery
@@ -45,7 +43,7 @@ pub contract SimulatedSchnorrAccount {
             seed + 3,
             dummy_log,
             MESSAGE_CIPHERTEXT_LEN,
-            note_hash_counter,
+            self.context.side_effect_counter,
         );
     }
 

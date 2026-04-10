@@ -134,8 +134,12 @@ export class TestWallet extends BaseWallet {
       }
 
       const stubArtifact = this.getStubArtifactFor(address);
+      const stubConstructorArgs = this.isEcdsaAccount(address)
+        ? [Buffer.alloc(32), Buffer.alloc(32)]
+        : [Fr.ZERO, Fr.ZERO];
       const stubInstance = await getContractInstanceFromInstantiationParams(stubArtifact, {
         salt: Fr.random(),
+        constructorArgs: stubConstructorArgs,
       });
 
       contracts[address.toString()] = {

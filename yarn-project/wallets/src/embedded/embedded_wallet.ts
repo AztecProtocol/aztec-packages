@@ -206,8 +206,10 @@ export class EmbeddedWallet extends BaseWallet {
         );
       }
 
+      const stubConstructorArgs = type === 'schnorr' ? [Fr.ZERO, Fr.ZERO] : [Buffer.alloc(32), Buffer.alloc(32)];
       const stubInstance = await getContractInstanceFromInstantiationParams(stubArtifact, {
         salt: Fr.random(),
+        constructorArgs: stubConstructorArgs,
       });
 
       contracts[address.toString()] = {

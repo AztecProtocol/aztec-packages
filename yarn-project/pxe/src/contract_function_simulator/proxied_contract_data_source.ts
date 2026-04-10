@@ -29,6 +29,7 @@ export class ProxiedContractStoreFactory {
                 }
                 instance.currentContractClassId = realInstance.currentContractClassId;
                 instance.originalContractClassId = realInstance.originalContractClassId;
+                instance.initializationHash = realInstance.initializationHash;
                 return instance;
               } else {
                 return target.getContractInstance(address);
