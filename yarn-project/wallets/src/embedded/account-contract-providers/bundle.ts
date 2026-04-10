@@ -1,10 +1,7 @@
 import { EcdsaKAccountContract, EcdsaRAccountContract } from '@aztec/accounts/ecdsa';
 import { SchnorrAccountContract } from '@aztec/accounts/schnorr';
-import {
-  StubEcdsaAccountContractArtifact,
-  StubSchnorrAccountContractArtifact,
-  createStubAccount,
-} from '@aztec/accounts/stub';
+import { StubEcdsaAccountContractArtifact, createStubEcdsaAccount } from '@aztec/accounts/stub/ecdsa';
+import { StubSchnorrAccountContractArtifact, createStubSchnorrAccount } from '@aztec/accounts/stub/schnorr';
 import type { Account, AccountContract } from '@aztec/aztec.js/account';
 import type { Fq } from '@aztec/foundation/curves/bn254';
 import { getCanonicalMultiCallEntrypoint } from '@aztec/protocol-contracts/multi-call-entrypoint';
@@ -36,8 +33,7 @@ export class BundleAccountContractsProvider implements AccountContractsProvider 
   }
 
   createStubAccount(address: CompleteAddress, type: AccountType): Promise<Account> {
-    const artifact = type === 'schnorr' ? StubSchnorrAccountContractArtifact : StubEcdsaAccountContractArtifact;
-    return Promise.resolve(createStubAccount(address, artifact));
+    return Promise.resolve(type === 'schnorr' ? createStubSchnorrAccount(address) : createStubEcdsaAccount(address));
   }
 
   getMulticallContract(): Promise<{ instance: ContractInstanceWithAddress; artifact: ContractArtifact }> {

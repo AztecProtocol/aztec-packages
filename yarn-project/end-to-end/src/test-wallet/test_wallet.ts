@@ -1,11 +1,9 @@
 import { EcdsaKAccountContract, EcdsaRAccountContract } from '@aztec/accounts/ecdsa';
 import { SchnorrAccountContract } from '@aztec/accounts/schnorr';
-import {
-  StubEcdsaAccountContractArtifact,
-  StubSchnorrAccountContractArtifact,
-  createStubAccount,
-} from '@aztec/accounts/stub';
+import { StubEcdsaAccountContractArtifact, createStubEcdsaAccount } from '@aztec/accounts/stub/ecdsa';
+import { StubSchnorrAccountContractArtifact, createStubSchnorrAccount } from '@aztec/accounts/stub/schnorr';
 import { type Account, type AccountContract, NO_FROM } from '@aztec/aztec.js/account';
+import type { CompleteAddress } from '@aztec/aztec.js/addresses';
 import {
   type CallIntent,
   type ContractFunctionInteractionCallIntent,
@@ -135,7 +133,7 @@ export class TestWallet extends BaseWallet {
         );
       }
 
-      const stubArtifact = this.accountStubArtifacts.get(address.toString()) ?? StubSchnorrAccountContractArtifact;
+      const stubArtifact = this.getStubArtifactFor(address);
       const stubInstance = await getContractInstanceFromInstantiationParams(stubArtifact, {
         salt: Fr.random(),
       });
@@ -149,8 +147,22 @@ export class TestWallet extends BaseWallet {
     return contracts;
   }
 
-  protected accounts: Map<string, Account> = new Map();
-  private accountStubArtifacts: Map<string, typeof StubSchnorrAccountContractArtifact> = new Map();
+  protected accounts: Map<string, { account: Account; contract: AccountContract }> = new Map();
+
+  private isEcdsaAccount(address: AztecAddress) {
+    const entry = this.accounts.get(address.toString());
+    return entry?.contract instanceof EcdsaKAccountContract || entry?.contract instanceof EcdsaRAccountContract;
+  }
+
+  private getStubArtifactFor(address: AztecAddress) {
+    return this.isEcdsaAccount(address) ? StubEcdsaAccountContractArtifact : StubSchnorrAccountContractArtifact;
+  }
+
+  private getStubAccountFor(address: AztecAddress, completeAddress: CompleteAddress) {
+    return this.isEcdsaAccount(address)
+      ? createStubEcdsaAccount(completeAddress)
+      : createStubSchnorrAccount(completeAddress);
+  }
 
   /**
    * Controls how the test wallet simulates transactions:
@@ -169,17 +181,19 @@ export class TestWallet extends BaseWallet {
   }
 
   protected getAccountFromAddress(address: AztecAddress): Promise<Account> {
-    const account = this.accounts.get(address?.toString() ?? '');
+    const entry = this.accounts.get(address?.toString() ?? '');
 
-    if (!account) {
+    if (!entry) {
       throw new Error(`Account not found in wallet for address: ${address}`);
     }
 
-    return Promise.resolve(account);
+    return Promise.resolve(entry.account);
   }
 
   getAccounts() {
-    return Promise.resolve(Array.from(this.accounts.values()).map(acc => ({ alias: '', item: acc.getAddress() })));
+    return Promise.resolve(
+      Array.from(this.accounts.values()).map(entry => ({ alias: '', item: entry.account.getAddress() })),
+    );
   }
 
   async createAccount(accountData?: AccountData): Promise<AccountManager> {
@@ -195,12 +209,7 @@ export class TestWallet extends BaseWallet {
     await this.registerContract(instance, artifact, secret);
 
     const address = accountManager.address.toString();
-    this.accounts.set(address, await accountManager.getAccount());
-    const isEcdsa = contract instanceof EcdsaKAccountContract || contract instanceof EcdsaRAccountContract;
-    this.accountStubArtifacts.set(
-      address,
-      isEcdsa ? StubEcdsaAccountContractArtifact : StubSchnorrAccountContractArtifact,
-    );
+    this.accounts.set(address, { account: await accountManager.getAccount(), contract });
 
     return accountManager;
   }
@@ -272,9 +281,7 @@ export class TestWallet extends BaseWallet {
       let fromAccount: Account;
       if (useOverride) {
         const originalAccount = await this.getAccountFromAddress(from);
-        const completeAddress = originalAccount.getCompleteAddress();
-        const stubArtifact = this.accountStubArtifacts.get(from.toString()) ?? StubSchnorrAccountContractArtifact;
-        fromAccount = createStubAccount(completeAddress, stubArtifact);
+        fromAccount = this.getStubAccountFor(from, originalAccount.getCompleteAddress());
       } else {
         fromAccount = await this.getAccountFromAddress(from);
       }

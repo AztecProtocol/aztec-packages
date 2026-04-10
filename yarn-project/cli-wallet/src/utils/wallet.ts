@@ -1,10 +1,7 @@
 import { EcdsaRAccountContract, EcdsaRSSHAccountContract } from '@aztec/accounts/ecdsa';
 import { SchnorrAccountContract } from '@aztec/accounts/schnorr';
-import {
-  StubEcdsaAccountContractArtifact,
-  StubSchnorrAccountContractArtifact,
-  createStubAccount,
-} from '@aztec/accounts/stub';
+import { StubEcdsaAccountContractArtifact, createStubEcdsaAccount } from '@aztec/accounts/stub/ecdsa';
+import { StubSchnorrAccountContractArtifact, createStubSchnorrAccount } from '@aztec/accounts/stub/schnorr';
 import { getIdentities } from '@aztec/accounts/utils';
 import { type Account, type AccountContract, NO_FROM } from '@aztec/aztec.js/account';
 import {
@@ -205,11 +202,10 @@ export class CLIWallet extends BaseWallet {
       throw new Error(`No contract instance found for address: ${originalAddress.address}`);
     }
     const { type } = await this.db!.retrieveAccount(address);
-    const artifact = type === 'schnorr' ? StubSchnorrAccountContractArtifact : StubEcdsaAccountContractArtifact;
-    const stubAccount = createStubAccount(originalAddress, artifact);
-    const instance = await getContractInstanceFromInstantiationParams(artifact, {
-      salt: Fr.random(),
-    });
+    const isSchnorr = type === 'schnorr';
+    const artifact = isSchnorr ? StubSchnorrAccountContractArtifact : StubEcdsaAccountContractArtifact;
+    const stubAccount = isSchnorr ? createStubSchnorrAccount(originalAddress) : createStubEcdsaAccount(originalAddress);
+    const instance = await getContractInstanceFromInstantiationParams(artifact, { salt: Fr.random() });
     return { account: stubAccount, instance, artifact };
   }
 
