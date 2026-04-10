@@ -10,8 +10,8 @@
 #include "barretenberg/flavor/mega_avm_recursive_flavor.hpp"
 #include "barretenberg/flavor/mega_flavor.hpp"
 #include "barretenberg/flavor/mega_recursive_flavor.hpp"
-#include "barretenberg/goblin_avm/goblin_avm.hpp"
-#include "barretenberg/goblin_avm/goblin_avm_verifier.hpp"
+#include "barretenberg/goblin_without_merge/goblin_without_merge.hpp"
+#include "barretenberg/goblin_without_merge/goblin_without_merge_verifier.hpp"
 #include "barretenberg/stdlib/hash/poseidon2/poseidon2.hpp"
 #include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
@@ -170,7 +170,7 @@ class TwoLayerAvmRecursiveVerifier {
 
         // Instantiate Mega builder for the inner circuit (AVM2 proof recursive verifier)
         MegaCircuitBuilder inner_builder;
-        GoblinAvm goblin(inner_builder);
+        GoblinAvm goblin(inner_builder, /*is_zk=*/false);
 
         // Construct the inner recursive verification circuit
         construct_inner_recursive_verification_circuit(inner_builder, stdlib_proof, public_inputs);
@@ -189,6 +189,7 @@ class TwoLayerAvmRecursiveVerifier {
 
         // Construct the GoblinAvm proof \pi_G (includes ECCVM, IPA, and Translator proofs)
         goblin.transcript = transcript;
+        inner_builder.op_queue->merge();
         GoblinAvmProof goblin_proof = goblin.prove();
 
         return {

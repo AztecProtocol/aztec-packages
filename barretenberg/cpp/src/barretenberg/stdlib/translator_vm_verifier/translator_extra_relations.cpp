@@ -15,5 +15,13 @@ template class TranslatorZeroConstraintsRelationImpl<stdlib::field_t<UltraCircui
 DEFINE_SUMCHECK_VERIFIER_RELATION_CLASS(TranslatorOpcodeConstraintRelationImpl, TranslatorRecursiveFlavor);
 DEFINE_SUMCHECK_VERIFIER_RELATION_CLASS(TranslatorAccumulatorTransferRelationImpl, TranslatorRecursiveFlavor);
 DEFINE_SUMCHECK_VERIFIER_RELATION_CLASS(TranslatorZeroConstraintsRelationImpl, TranslatorRecursiveFlavor);
-
+template class TranslatorOpcodeConstraintRelationImpl<stdlib::field_t<MegaCircuitBuilder>>;
+template class TranslatorAccumulatorTransferRelationImpl<stdlib::field_t<MegaCircuitBuilder>>;
+template class TranslatorZeroConstraintsRelationImpl<stdlib::field_t<MegaCircuitBuilder>>;
+DEFINE_SUMCHECK_VERIFIER_RELATION_CLASS(TranslatorOpcodeConstraintRelationImpl,
+                                        TranslatorRecursiveFlavor_<MegaCircuitBuilder>);
+DEFINE_SUMCHECK_VERIFIER_RELATION_CLASS(TranslatorAccumulatorTransferRelationImpl,
+                                        TranslatorRecursiveFlavor_<MegaCircuitBuilder>);
+DEFINE_SUMCHECK_VERIFIER_RELATION_CLASS(TranslatorZeroConstraintsRelationImpl,
+                                        TranslatorRecursiveFlavor_<MegaCircuitBuilder>);
 } // namespace bb

@@ -134,6 +134,7 @@ template <typename OpFormat> class EccOpsTable {
 
     size_t num_subtables() const { return table.size(); }
     size_t get_current_subtable_size() const { return current_subtable.size(); }
+    const Subtable& get_current_subtable() const { return current_subtable; }
 
     auto& get() const { return table; }
 
@@ -198,6 +199,14 @@ template <typename OpFormat> class EccOpsTable {
         current_subtable.clear(); // clear the current subtable after merging
         BB_ASSERT(current_subtable.empty(), "current subtable should be empty after merging. Check the merge logic.");
     }
+
+    /**
+     * @brief Discard all merged subtables, keeping only the current (unmerged) subtable.
+     * @details Used during Goblin flush to reset the op queue after the pre-flush ops have been proven
+     * by the intermediate ECCVM/Translator. After this call, the deque of merged subtables is empty
+     * and only current_subtable (containing the flush app's ops) remains.
+     */
+    void reset_to_current_subtable() { table.clear(); }
 };
 
 /**
@@ -289,6 +298,18 @@ class UltraEccOpsTable {
     }
 
     size_t get_current_subtable_size() const { return table.get_current_subtable_size(); }
+
+    /**
+     * @brief Discard all merged subtables, keeping only the current (unmerged) subtable.
+     * @details Resets the table state as if no prior merges occurred. Also clears any fixed-append state.
+     */
+    void reset_to_current_subtable()
+    {
+        table.reset_to_current_subtable();
+        current_subtable_idx = 0;
+        fixed_append_offset = std::nullopt;
+        has_fixed_append = false;
+    }
 
     std::vector<UltraOp> get_reconstructed() const
     {

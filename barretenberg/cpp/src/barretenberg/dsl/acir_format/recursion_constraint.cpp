@@ -7,6 +7,7 @@
 #include "barretenberg/dsl/acir_format/recursion_constraint.hpp"
 #include "barretenberg/dsl/acir_format/avm2_recursion_constraint.hpp"
 #include "barretenberg/dsl/acir_format/chonk_recursion_constraints.hpp"
+#include "barretenberg/dsl/acir_format/goblin_flush_recursion_constraint.hpp"
 #include "barretenberg/dsl/acir_format/honk_recursion_constraint.hpp"
 #include "barretenberg/dsl/acir_format/hypernova_recursion_constraint.hpp"
 #include "barretenberg/dsl/acir_format/utils.hpp"
@@ -56,12 +57,16 @@ HonkRecursionConstraintsOutput<MegaCircuitBuilder> create_recursion_constraints(
                                                                                                           constraint);
         } else if (constraint.proof_type == ROLLUP_HONK || constraint.proof_type == ROOT_ROLLUP_HONK) {
             bb::assert_failure("Rollup Honk proof type not supported on MegaBuilder");
+        } else if (constraint.proof_type == ULTRA_GOBLIN) {
+            honk_recursion_constraint = create_goblin_flush_recursion_constraints(builder, constraint, ivc_base);
         } else {
             bb::assert_failure("Invalid Honk proof type");
         }
 
-        output.update(honk_recursion_constraint, /*update_ipa_data=*/false); // Update output
-        gate_counter.track_diff(gates_per_opcode, opcode_idx);               // Track gate count
+        bool is_goblin_flush = constraint.proof_type == ULTRA_GOBLIN;
+        output.update(honk_recursion_constraint, /*update_ipa_data=*/is_goblin_flush);
+        output.has_goblin_flush = output.has_goblin_flush || is_goblin_flush;
+        gate_counter.track_diff(gates_per_opcode, opcode_idx); // Track gate count
     }
 
     if (has_hn_recursion_constraints) {
@@ -223,8 +228,14 @@ void process_hn_recursion_constraints(
                       "Noir HN constraints should have empty public_inputs (public inputs are handled by IVC IO)");
 
             // Validate public input layout: IO region size must match VK's num_public_inputs
-            size_t expected_io_size =
-                queue_entry.is_kernel ? IVCType::KernelIO::PUBLIC_INPUTS_SIZE : IVCType::AppIO::PUBLIC_INPUTS_SIZE;
+            size_t expected_io_size = 0;
+            if (queue_entry.is_kernel) {
+                expected_io_size = IVCType::KernelIO::PUBLIC_INPUTS_SIZE;
+            } else if (queue_entry.type == Chonk::QUEUE_TYPE::GOBLIN) {
+                expected_io_size = IVCType::FlushIO::PUBLIC_INPUTS_SIZE;
+            } else {
+                expected_io_size = IVCType::AppIO::PUBLIC_INPUTS_SIZE;
+            }
             size_t vk_num_public_inputs =
                 static_cast<size_t>(uint64_t(queue_entry.honk_vk_and_hash->vk->num_public_inputs.get_value()));
             BB_ASSERT_EQ(expected_io_size,

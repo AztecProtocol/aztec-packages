@@ -4,16 +4,18 @@
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
-#include "goblin_avm_verifier.hpp"
+#include "goblin_without_merge_verifier.hpp"
 #include "barretenberg/common/log.hpp"
 
 namespace bb {
 
 /**
- * @brief Reduce GoblinAvm proof to pairing check and IPA opening claim
+ * @brief Reduce GoblinWithoutMerge proof to pairing check and IPA opening claim
  * @details Processes ECCVM and Translator sub-proofs sequentially.
  */
-GoblinAvmRecursiveVerifier::ReductionResult GoblinAvmRecursiveVerifier::reduce_to_pairing_check_and_ipa_opening()
+template <typename BuilderType>
+typename GoblinWithoutMergeRecursiveVerifier_<BuilderType>::ReductionResult GoblinWithoutMergeRecursiveVerifier_<
+    BuilderType>::reduce_to_pairing_check_and_ipa_opening()
 {
     // Step 1: Verify the ECCVM proof
     ECCVMVerifier eccvm_verifier{ transcript, proof.eccvm_proof };
@@ -24,8 +26,8 @@ GoblinAvmRecursiveVerifier::ReductionResult GoblinAvmRecursiveVerifier::reduce_t
     auto translator_input = eccvm_verifier.get_translator_input_data();
 
     // Step 2: Verify the Translator proof
-    // - Pass `table_commitments` as the one with which GoblinAvm was initialized (which commits all the ECC ops of the
-    //   circuit containing the AVM recursive verifier).
+    // - Pass `table_commitments` as the one with which GoblinWithoutMerge was initialized (which commits all the ECC
+    // ops that have to be verified).
     // - `accumulated_result` and corresponding challenges ensure non-native computation matches ECCVM's native result
     TranslatorVerifier translator_verifier{ transcript,
                                             proof.translator_proof,
@@ -45,5 +47,9 @@ GoblinAvmRecursiveVerifier::ReductionResult GoblinAvmRecursiveVerifier::reduce_t
 
     return result;
 }
+
+// Explicit template instantiations
+template class GoblinWithoutMergeRecursiveVerifier_<UltraCircuitBuilder>;
+template class GoblinWithoutMergeRecursiveVerifier_<MegaCircuitBuilder>;
 
 } // namespace bb

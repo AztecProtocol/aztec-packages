@@ -2,8 +2,8 @@
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/test.hpp"
 #include "barretenberg/goblin/mock_circuits.hpp"
-#include "barretenberg/goblin_avm/goblin_avm.hpp"
-#include "barretenberg/goblin_avm/goblin_avm_verifier.hpp"
+#include "barretenberg/goblin_without_merge/goblin_without_merge.hpp"
+#include "barretenberg/goblin_without_merge/goblin_without_merge_verifier.hpp"
 #include "barretenberg/srs/global_crs.hpp"
 #include "barretenberg/stdlib/honk_verifier/ultra_verification_keys_comparator.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
@@ -88,9 +88,10 @@ class GoblinAvmRecursiveVerifierTests : public testing::Test {
     {
         auto op_queue = std::make_shared<ECCOpQueue>();
         InnerBuilder inner_builder(op_queue);
-        GoblinAvm goblin(inner_builder);
+        GoblinAvm goblin(inner_builder, /*is_zk=*/false);
         MockCircuits::construct_arithmetic_circuit(inner_builder);
 
+        op_queue->merge();
         auto goblin_proof = goblin.prove();
 
         // Subtable values and commitments

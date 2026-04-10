@@ -50,8 +50,8 @@ class MegaFlavor;
 class MegaZKFlavor;
 class MegaAvmFlavor;
 class TranslatorFlavor;
-class ECCVMRecursiveFlavor;
-class TranslatorRecursiveFlavor;
+template <typename BuilderType> class ECCVMRecursiveFlavor_;
+template <typename BuilderType> class TranslatorRecursiveFlavor_;
 class MultilinearBatchingRecursiveFlavor;
 
 template <typename BuilderType> class UltraRecursiveFlavor_;

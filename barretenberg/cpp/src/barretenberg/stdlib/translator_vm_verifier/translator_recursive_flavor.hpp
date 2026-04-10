@@ -27,16 +27,19 @@ namespace bb {
  * sense to instantiate a Verifier with this flavor. We reuse the native flavor to initialize identical  constructions.
  * @tparam BuilderType Determines the arithmetization of the verifier circuit defined based on this flavor.
  */
-class TranslatorRecursiveFlavor {
+template <typename BuilderType = UltraCircuitBuilder> class TranslatorRecursiveFlavor_ {
 
   public:
-    using CircuitBuilder = UltraCircuitBuilder;
+    using CircuitBuilder = BuilderType;
     using Curve = stdlib::bn254<CircuitBuilder>;
     using PCS = KZG<Curve>;
     using GroupElement = Curve::Element;
     using Commitment = Curve::AffineElement;
     using FF = Curve::ScalarField;
-    using BF = Curve::BaseField;
+    // Always use bigfield for BF, even with MegaCircuitBuilder. The Translator verifier needs
+    // 4-limb decomposition (binary_basis_limbs) for its relation parameters, which goblin_field
+    // (auto-selected by Mega's biggroup dispatch) does not provide.
+    using BF = stdlib::bigfield<CircuitBuilder, bb::Bn254FqParams>;
     static constexpr size_t NUM_SUBRELATIONS = TranslatorFlavor::NUM_SUBRELATIONS;
     using SubrelationSeparators = std::array<FF, NUM_SUBRELATIONS - 1>;
 
@@ -109,8 +112,11 @@ class TranslatorRecursiveFlavor {
     using CommitmentLabels = TranslatorFlavor::CommitmentLabels;
     // Reuse the VerifierCommitments from Translator
     using VerifierCommitments = TranslatorFlavor::VerifierCommitments_<Commitment, VerificationKey>;
-    using Transcript = UltraStdlibTranscript;
+    using Transcript = StdlibTranscript<CircuitBuilder>;
 
     using VKAndHash = VKAndHash_<VerificationKey, FF>;
 };
+
+using TranslatorRecursiveFlavor = TranslatorRecursiveFlavor_<UltraCircuitBuilder>;
+
 } // namespace bb

@@ -14,9 +14,9 @@
 
 namespace bb {
 
-class ECCVMRecursiveFlavor {
+template <typename BuilderType = UltraCircuitBuilder> class ECCVMRecursiveFlavor_ {
   public:
-    using CircuitBuilder = UltraCircuitBuilder; // determines the arithmetisation of recursive verifier
+    using CircuitBuilder = BuilderType; // determines the arithmetisation of recursive verifier
     using Curve = stdlib::grumpkin<CircuitBuilder>;
     using Commitment = Curve::AffineElement;
     using GroupElement = Curve::Element;
@@ -94,5 +94,7 @@ class ECCVMRecursiveFlavor {
     using VKAndHash = VKAndHash_<VerificationKey, FF>;
 
 }; // NOLINTEND(cppcoreguidelines-avoid-const-or-ref-data-members)
+
+using ECCVMRecursiveFlavor = ECCVMRecursiveFlavor_<UltraCircuitBuilder>;
 
 } // namespace bb

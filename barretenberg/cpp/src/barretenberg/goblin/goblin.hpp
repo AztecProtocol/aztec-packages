@@ -24,12 +24,16 @@ class Goblin {
     using FF = MegaFlavor::FF;
 
   protected:
-    // In AVM we only use Goblin for a single circuit whose proof is not required to be zero-knowledge. While Translator
-    // will still expect to find random ops at the beginning to ensure the accumulation result remains at a fixed row we
-    // opt for not adding random ops at the end of the op queue.
+    // In the AVM and Goblin flush mechanisms, we don't need Goblin to be zk. While Translator will still expect to find
+    // random ops at the beginning to ensure the accumulation result remains at a fixed row we opt for not adding random
+    // ops at the end of the op queue.
     bool avm_mode = false;
 
   public:
+    void set_avm_mode(bool mode) { avm_mode = mode; }
+    void set_op_queue_zk(bool is_zk) { op_queue->set_is_zk(is_zk); }
+    bool get_avm_mode() const { return avm_mode; }
+
     using MegaBuilder = MegaCircuitBuilder;
     using Fr = bb::fr;
     using Transcript = NativeTranscript;

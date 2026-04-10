@@ -29,8 +29,8 @@ class UltraKeccakFlavor;
 class UltraKeccakZKFlavor;
 class ECCVMFlavor;
 class TranslatorFlavor;
-class TranslatorRecursiveFlavor;
-class ECCVMRecursiveFlavor;
+template <typename BuilderType> class TranslatorRecursiveFlavor_;
+template <typename BuilderType> class ECCVMRecursiveFlavor_;
 class MultilinearBatchingFlavor;
 class MultilinearBatchingRecursiveFlavor;
 

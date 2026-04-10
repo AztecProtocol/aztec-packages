@@ -277,5 +277,6 @@ typename TranslatorVerifier_<Flavor>::ReductionResult TranslatorVerifier_<Flavor
 // Explicit instantiations
 template class TranslatorVerifier_<TranslatorFlavor>;
 template class TranslatorVerifier_<TranslatorRecursiveFlavor>;
+template class TranslatorVerifier_<TranslatorRecursiveFlavor_<MegaCircuitBuilder>>;
 
 } // namespace bb

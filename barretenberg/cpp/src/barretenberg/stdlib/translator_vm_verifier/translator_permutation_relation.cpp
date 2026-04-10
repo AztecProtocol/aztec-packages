@@ -11,4 +11,7 @@
 namespace bb {
 template class TranslatorPermutationRelationImpl<stdlib::field_t<UltraCircuitBuilder>>;
 DEFINE_SUMCHECK_VERIFIER_RELATION_CLASS(TranslatorPermutationRelationImpl, TranslatorRecursiveFlavor);
+template class TranslatorPermutationRelationImpl<stdlib::field_t<MegaCircuitBuilder>>;
+DEFINE_SUMCHECK_VERIFIER_RELATION_CLASS(TranslatorPermutationRelationImpl,
+                                        TranslatorRecursiveFlavor_<MegaCircuitBuilder>);
 } // namespace bb
