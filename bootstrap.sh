@@ -689,7 +689,7 @@ case "$cmd" in
     #   grind_test "$full_cmd" "$integration_timeout" || { echo "FAILED: $test"; failed=1; }
     # done
 
-    # P2P e2e tests (lower parallelism — each test spins up multiple full Aztec nodes)
+    # P2P e2e tests
     e2e_tests=(
       "e2e_p2p/gossip_network.test.ts"
       "e2e_p2p/rediscovery.test.ts"
@@ -703,7 +703,7 @@ case "$cmd" in
     for test in "${e2e_tests[@]}"; do
       echo_header "Grinding: $test"
       full_cmd="${hash}:ISOLATE=1:MAKEFILE_TARGET=yarn-project:NAME=${test} LOG_LEVEL=\"verbose; debug:p2p\" yarn-project/end-to-end/scripts/run_test.sh simple src/${test}"
-      grind_test "$full_cmd" "$e2e_timeout" 35 || { echo "FAILED: $test"; failed=1; }
+      grind_test "$full_cmd" "$e2e_timeout" || { echo "FAILED: $test"; failed=1; }
     done
 
     exit $failed

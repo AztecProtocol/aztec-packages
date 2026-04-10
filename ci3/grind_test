@@ -8,13 +8,8 @@ NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
 
 full_cmd="$1"
 timeout="${2:-10m}"
-# Jobs as percentage of CPUs (default 200% = nproc * 2)
-jobs_pct="${3:-200}"
-# Memsuspend threshold as percentage of total memory (default 50%)
-memsuspend_pct="${4:-50}"
 commit_tip=$(git rev-parse HEAD)
 commit="${5:-$commit_tip}"
-jobs=$(($(nproc) * jobs_pct / 100))
 
 # Ensure we return to the original commit on exit.
 trap 'git checkout $commit_tip' EXIT
@@ -39,25 +34,56 @@ function build {
 }
 
 function grind {
-    echo_header "grinding for $timeout"
-    # NAME_POSTFIX allows for grinding compose tests in parallel.
-    local par_cmd="NAME_POSTFIX={} CI=0 TRACK_TEST_FAIL=1 run_test_cmd '${hash_prefix}:NAME=test-{} ${test_cmd}'"
-    local joblog=$(mktemp)
+    local num_cpus=$(nproc)
+    echo_header "grinding for $timeout (strict scheduling: $num_cpus CPUs, $CPUS per test)"
 
-    # Run for full timeout, logging all results (no --halt, collect all failure data)
-    # memsuspend_pct is the % of memory usage at which to start suspending jobs
-    # parallel suspends at 2*SIZE and runs 1 job at SIZE, so SIZE = mem * (100 - pct) / 200
-    local mem=$(total_mem_gb)
-    local memsuspend_gb=$((mem * (100 - memsuspend_pct) / 200))
-    awk 'BEGIN {i=1; while (1) print i++}' | timeout $timeout parallel --memsuspend ${memsuspend_gb}G --halt now,fail=10 --joblog "$joblog" -j $jobs --line-buffer "$par_cmd" || true
+    sem_sched init $num_cpus
 
-    # Check if any jobs failed (column 7 is exitval in joblog)
-    if awk 'NR>1 && $7!=0 {found=1} END {exit !found}' "$joblog"; then
-        rm -f "$joblog"
-        return 1  # Had failures
-    fi
-    rm -f "$joblog"
-    return 0  # No failures
+    export CI=0 TRACK_TEST_FAIL=1
+
+    local fail_count=0
+    local i=0
+
+    function run_and_release {
+        local cpu_list=$1 idx=$2
+        trap "sem_sched release $cpu_list" EXIT
+        NAME_POSTFIX=$idx CPU_LIST=$cpu_list run_test_cmd "${hash_prefix}:NAME=test-${idx} ${test_cmd}"
+    }
+
+    function reap_job {
+        wait -n 2>/dev/null
+        local ret=$?
+        [ $ret -eq 127 ] && return 127  # No children
+        [ $ret -ne 0 ] && fail_count=$((fail_count + 1))
+        return 0
+    }
+
+    # Convert timeout (e.g. "15m") to seconds.
+    local n=${timeout%[smhd]}
+    local timeout_secs
+    case "${timeout#$n}" in
+        m) timeout_secs=$((n * 60)) ;;
+        h) timeout_secs=$((n * 3600)) ;;
+        *) timeout_secs=$n ;;
+    esac
+    local end_time=$((SECONDS + timeout_secs))
+
+    # Schedule tests until timeout or 10 failures.
+    while [ $SECONDS -lt $end_time ] && [ $fail_count -lt 10 ]; do
+        i=$((i + 1))
+        local cpu_list
+        until cpu_list=$(sem_sched acquire $CPUS); do
+            reap_job || sleep 0.5
+        done
+        run_and_release "$cpu_list" $i &
+    done
+
+    # Wait for all remaining background jobs.
+    while reap_job; do :; done
+
+    echo "Grind complete: $i tests launched, $fail_count failures."
+    [ $fail_count -gt 0 ] && return 1
+    return 0
 }
 
 echo_header "grind test"
@@ -66,8 +92,7 @@ echo "Make target: ${MAKEFILE_TARGET:-<none, full bootstrap>}"
 echo "Grind for: $timeout"
 echo "Commit: $commit"
 echo "Ref name: $REF_NAME"
-echo "Jobs: $jobs (${jobs_pct}% of $(nproc) CPUs)"
-echo "Memsuspend: ${memsuspend_pct}% of memory"
+echo "Scheduling: strict ($(nproc) CPUs, $CPUS per test)"
 echo
 
 ulimit -n $(ulimit -Hn)
