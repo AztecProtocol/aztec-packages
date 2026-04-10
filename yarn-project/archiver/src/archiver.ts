@@ -11,7 +11,7 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { type PromiseWithResolvers, promiseWithResolvers } from '@aztec/foundation/promise';
 import { RunningPromise, makeLoggingErrorHandler } from '@aztec/foundation/running-promise';
-import { DateProvider } from '@aztec/foundation/timer';
+import { DateProvider, elapsed } from '@aztec/foundation/timer';
 import {
   type ArchiverEmitter,
   L2Block,
@@ -85,6 +85,8 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
 
   public readonly tracer: Tracer;
 
+  private readonly instrumentation: ArchiverInstrumentation;
+
   /**
    * Creates a new instance of the Archiver.
    * @param publicClient - A client for interacting with the Ethereum node.
@@ -129,6 +131,7 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
     super(dataStore, l1Constants);
 
     this.tracer = instrumentation.tracer;
+    this.instrumentation = instrumentation;
     this.initialSyncPromise = promiseWithResolvers();
     this.synchronizer = synchronizer;
     this.events = events;
@@ -244,7 +247,8 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
       }
 
       try {
-        await this.updater.addProposedBlock(block);
+        const [durationMs] = await elapsed(() => this.updater.addProposedBlock(block));
+        this.instrumentation.processNewProposedBlock(durationMs, block);
         this.log.debug(`Added block ${block.number} to store`);
         resolve();
       } catch (err: any) {

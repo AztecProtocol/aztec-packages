@@ -1,7 +1,7 @@
 import { getKzg } from '@aztec/blob-lib';
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import type { EpochCache } from '@aztec/epoch-cache';
-import { NoCommitteeError, type RollupContract } from '@aztec/ethereum/contracts';
+import { NoCommitteeError, type RollupContract, SimulationOverridesBuilder } from '@aztec/ethereum/contracts';
 import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { merge, omit, pick } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
@@ -73,7 +73,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
   private lastEpochForStrategyComparison: EpochNumber | undefined;
 
   /** The last checkpoint proposal job, tracked so we can await its pending L1 submission during shutdown. */
-  private lastCheckpointProposalJob: CheckpointProposalJob | undefined;
+  protected lastCheckpointProposalJob: CheckpointProposalJob | undefined;
 
   /** The maximum number of seconds that the sequencer can be into a slot to transition to a particular state. */
   protected timetable!: SequencerTimetable;
@@ -115,12 +115,13 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     const filteredConfig = pickFromSchema(config, SequencerConfigSchema);
     this.log.info(`Updated sequencer config`, omit(filteredConfig, 'txPublicSetupAllowListExtend'));
     this.config = merge(this.config, filteredConfig);
+    const p2pPropagationTime = this.config.attestationPropagationTime;
     this.timetable = new SequencerTimetable(
       {
         ethereumSlotDuration: this.l1Constants.ethereumSlotDuration,
         aztecSlotDuration: this.aztecSlotDuration,
         l1PublishingTime: this.l1PublishingTime,
-        p2pPropagationTime: this.config.attestationPropagationTime,
+        p2pPropagationTime,
         blockDurationMs: this.config.blockDurationMs,
         enforce: this.config.enforceTimeTable,
         pipelining: this.epochCache.isProposerPipeliningEnabled(),
@@ -366,17 +367,13 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     // The L1 contract reads archives[proposedCheckpointNumber] and compares it with the provided archive.
     // When invalidating or pipelining, the local archive may differ from L1's, so we adjust accordingly.
     let archiveForCheck = syncedTo.archive;
-    const l1Overrides: {
-      forcePendingCheckpointNumber?: CheckpointNumber;
-      forceArchive?: { checkpointNumber: CheckpointNumber; archive: Fr };
-    } = {};
+    const l1SimulationOverridesBuilder = new SimulationOverridesBuilder();
 
     if (this.epochCache.isProposerPipeliningEnabled() && syncedTo.hasProposedCheckpoint) {
       // Parent checkpoint hasn't landed on L1 yet. Override both the proposed checkpoint number
       // and the archive at that checkpoint so L1 simulation sees the correct chain tip.
       const parentCheckpointNumber = CheckpointNumber(checkpointNumber - 1);
-      l1Overrides.forcePendingCheckpointNumber = parentCheckpointNumber;
-      l1Overrides.forceArchive = { checkpointNumber: parentCheckpointNumber, archive: syncedTo.archive };
+      l1SimulationOverridesBuilder.forPendingCheckpoint(parentCheckpointNumber).withPendingArchive(syncedTo.archive);
       this.metrics.recordPipelineDepth(1);
 
       this.log.verbose(
@@ -388,13 +385,18 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       // After invalidation, L1 will roll back to checkpoint N-1. The archive at N-1 already
       // exists on L1, so we just pass the matching archive (the lastArchive of the invalid checkpoint).
       archiveForCheck = invalidateCheckpoint.lastArchive;
-      l1Overrides.forcePendingCheckpointNumber = invalidateCheckpoint.forcePendingCheckpointNumber;
+      l1SimulationOverridesBuilder.forPendingCheckpoint(invalidateCheckpoint.forcePendingCheckpointNumber);
       this.metrics.recordPipelineDepth(0);
     } else {
       this.metrics.recordPipelineDepth(0);
     }
 
-    const canProposeCheck = await publisher.canProposeAt(archiveForCheck, proposer ?? EthAddress.ZERO, l1Overrides);
+    const simulationOverridesPlan = l1SimulationOverridesBuilder.build();
+    const canProposeCheck = await publisher.canProposeAt(
+      archiveForCheck,
+      proposer ?? EthAddress.ZERO,
+      simulationOverridesPlan,
+    );
 
     if (canProposeCheck === undefined) {
       this.log.warn(

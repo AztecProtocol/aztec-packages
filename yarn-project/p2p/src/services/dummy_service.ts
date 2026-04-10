@@ -287,6 +287,7 @@ export class DummyPeerManager implements PeerManagerInterface {
 
 export class DummyReqResp implements ReqRespInterface {
   updateConfig(_config: Partial<P2PReqRespConfig>): void {}
+  setShouldRejectPeer(): void {}
   start(
     _subProtocolHandlers: ReqRespSubProtocolHandlers,
     _subProtocolValidators: ReqRespSubProtocolValidators,

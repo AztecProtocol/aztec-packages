@@ -468,7 +468,6 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     void archiver
       .waitForInitialSync()
       .then(async () => {
-        await p2pClient.start();
         await validatorsSentinel?.start();
         await epochPruneWatcher?.start();
         await attestationsBlockWatcher?.start();
