@@ -141,118 +141,29 @@ typename ECCVMVerifier_<Flavor>::FieldVerificationResult ECCVMVerifier_<Flavor>:
     result.gemini_fold_neg_evaluations = shplemini_output.gemini_fold_neg_evaluations;
     result.gemini_fold_pos_evaluations = shplemini_output.gemini_fold_pos_evaluations;
 
+    // Export relation evaluation data for ECCVMFieldCircuit
+    {
+        auto all_evals = sumcheck_output.claimed_evaluations.get_all();
+        for (size_t i = 0; i < all_evals.size(); i++) {
+            result.claimed_evaluations[i] = all_evals[i];
+        }
+    }
+    result.alpha = alpha;
+    result.gate_challenges = gate_challenges;
+    result.relation_parameters = relation_parameters;
+    result.libra_evaluation = sumcheck_output.claimed_libra_evaluation;
+    result.libra_challenge = sumcheck_output.libra_challenge;
+
+    // Export translation data for ECCVMFieldCircuit
+    {
+        auto all_trans = translation_evaluations.get_all();
+        for (size_t i = 0; i < all_trans.size() && i < 5; i++) {
+            result.translation_evaluations[i] = all_trans[i];
+        }
+    }
+    result.translation_masking_term_eval = translation_masking_term_eval;
+
     return result;
-}
-
-/**
- * @brief Advance the transcript through all ECCVM proof elements WITHOUT doing verification.
- * @details Performs all the same transcript interactions (receive_from_prover, get_challenge)
- * as compute_field_verification + compute_ec_verification, advancing the Fiat-Shamir hash state.
- * Does NOT do: sumcheck verification, Shplemini computation, translation claim verification, MSMs.
- * Returns TranslatorInputData for the downstream Translator verifier.
- */
-template <typename Flavor>
-typename ECCVMVerifier_<Flavor>::TranslatorInputData ECCVMVerifier_<Flavor>::advance_transcript_only()
-{
-    using Curve = typename Flavor::Curve;
-    using GeminiVerifier = GeminiVerifier_<Curve>;
-
-    // Load proof into transcript
-    transcript->load_proof(proof);
-
-    // Fiat-Shamir the vk hash
-    transcript->add_to_hash_buffer("vk_hash", vk_hash);
-
-    VerifierCommitments commitments{ key };
-    CommitmentLabels commitment_labels;
-
-    // --- Oink phase transcript interactions ---
-    transcript->template receive_from_prover<Commitment>("Gemini:masking_poly_comm");
-    for (auto [comm, label] : zip_view(commitments.get_wires(), commitment_labels.get_wires())) {
-        comm = transcript->template receive_from_prover<Commitment>(label);
-    }
-    transcript->template get_challenges<FF>(std::array<std::string, 2>{ "beta", "gamma" });
-    transcript->template receive_from_prover<Commitment>(commitment_labels.lookup_inverses);
-    transcript->template receive_from_prover<Commitment>(commitment_labels.z_perm);
-
-    // --- Sumcheck transcript interactions ---
-    transcript->template get_challenge<FF>("Sumcheck:alpha");
-    for (size_t idx = 0; idx < CONST_ECCVM_LOG_N; idx++) {
-        transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
-    }
-    transcript->template receive_from_prover<Commitment>("Libra:concatenation_commitment");
-
-    // Sumcheck round interactions (committed sumcheck: commitments + evaluations at 0,1 + challenges)
-    for (size_t round_idx = 0; round_idx < CONST_ECCVM_LOG_N; round_idx++) {
-        transcript->template receive_from_prover<Commitment>("Sumcheck:round_univariate_comm_" +
-                                                              std::to_string(round_idx));
-        transcript->template receive_from_prover<FF>("Sumcheck:round_univariate_eval_0_" +
-                                                      std::to_string(round_idx));
-        transcript->template receive_from_prover<FF>("Sumcheck:round_univariate_eval_1_" +
-                                                      std::to_string(round_idx));
-        transcript->template get_challenge<FF>("Sumcheck:u_" + std::to_string(round_idx));
-    }
-
-    // Claimed evaluations
-    transcript->template receive_from_prover<std::array<FF, Flavor::NUM_ALL_ENTITIES>>("Sumcheck:evaluations");
-
-    // Libra claimed evaluation
-    transcript->template receive_from_prover<FF>("Libra:claimed_evaluation");
-    transcript->template receive_from_prover<Commitment>("Libra:grand_sum_commitment");
-    transcript->template receive_from_prover<Commitment>("Libra:quotient_commitment");
-
-    // --- Shplemini/Gemini transcript interactions ---
-    transcript->template get_challenge<FF>("rho");
-    GeminiVerifier::get_fold_commitments(CONST_ECCVM_LOG_N, transcript);
-    transcript->template get_challenge<FF>("Gemini:r");
-    GeminiVerifier::get_gemini_evaluations(CONST_ECCVM_LOG_N, transcript);
-
-    // Libra evaluations (ZK)
-    transcript->template receive_from_prover<FF>("Libra:concatenation_eval");
-    transcript->template receive_from_prover<FF>("Libra:shifted_grand_sum_eval");
-    transcript->template receive_from_prover<FF>("Libra:grand_sum_eval");
-    transcript->template receive_from_prover<FF>("Libra:quotient_eval");
-
-    // Shplonk
-    transcript->template get_challenge<FF>("Shplonk:nu");
-    transcript->template receive_from_prover<Commitment>("Shplonk:Q");
-    transcript->template get_challenge<FF>("Shplonk:z");
-
-    // --- Committed sumcheck opening claims ---
-    for (size_t i = 0; i < CONST_ECCVM_LOG_N; i++) {
-        transcript->template receive_from_prover<FF>("Gemini:a_" + std::to_string(i + 1));
-    }
-
-    // --- Translation transcript interactions ---
-    transcript->template receive_from_prover<Commitment>("Translation:concatenated_masking_term_commitment");
-    evaluation_challenge_x = transcript->template get_challenge<FF>("Translation:evaluation_challenge_x");
-
-    TranslationEvaluations_<FF> trans_evals;
-    for (auto [eval, label] : zip_view(trans_evals.get_all(), trans_evals.labels)) {
-        eval = transcript->template receive_from_prover<FF>(label);
-    }
-    batching_challenge_v = transcript->template get_challenge<FF>("Translation:batching_challenge_v");
-    translation_masking_term_eval = transcript->template receive_from_prover<FF>("Translation:masking_term_eval");
-
-    transcript->template receive_from_prover<Commitment>("Translation:grand_sum_commitment");
-    transcript->template receive_from_prover<Commitment>("Translation:quotient_commitment");
-    transcript->template get_challenge<FF>("Translation:small_ipa_evaluation_challenge");
-
-    auto labels = SmallSubgroupIPAVerifier<Curve>::evaluation_labels("Translation:");
-    for (size_t idx = 0; idx < NUM_SMALL_IPA_EVALUATIONS; idx++) {
-        transcript->template receive_from_prover<FF>(labels[idx]);
-    }
-
-    // --- Shplonk reduce_verification transcript interactions ---
-    transcript->template get_challenge<FF>("Shplonk:nu");
-    transcript->template receive_from_prover<Commitment>("Shplonk:Q");
-    transcript->template get_challenge<FF>("Shplonk:z");
-
-    // Compute accumulated_result for Translator
-    translation_evaluations = trans_evals;
-    compute_accumulated_result();
-
-    return get_translator_input_data();
 }
 
 /**

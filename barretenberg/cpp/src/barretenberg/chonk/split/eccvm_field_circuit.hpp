@@ -2,10 +2,32 @@
 
 #include "barretenberg/constants.hpp"
 #include "barretenberg/eccvm/eccvm_flavor.hpp"
+#include "barretenberg/relations/relation_parameters.hpp"
+#include "barretenberg/relations/utils.hpp"
+// Include relation implementations so they can be instantiated with field_ct
+#include "barretenberg/relations/ecc_vm/ecc_bools_relation_impl.hpp"
+#include "barretenberg/relations/ecc_vm/ecc_lookup_relation_impl.hpp"
+#include "barretenberg/relations/ecc_vm/ecc_msm_relation_impl.hpp"
+#include "barretenberg/relations/ecc_vm/ecc_point_table_relation_impl.hpp"
+#include "barretenberg/relations/ecc_vm/ecc_set_relation_impl.hpp"
+#include "barretenberg/relations/ecc_vm/ecc_transcript_relation_impl.hpp"
+#include "barretenberg/relations/ecc_vm/ecc_wnaf_relation_impl.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 
 namespace bb {
+
+/**
+ * @brief Lightweight adapter flavor for evaluating ECCVM relations with field_ct (stdlib::field_t<GrumpkinBuilder>).
+ * @details Used by ECCVMFieldCircuit to instantiate RelationUtils with circuit field types.
+ */
+template <typename Builder> struct ECCVMFieldCtFlavor {
+    using FF = stdlib::field_t<Builder>;
+    using Relations = ECCVMFlavor::Relations_<FF>;
+    using AllValues = ECCVMFlavor::AllEntities<FF>;
+    static constexpr size_t NUM_RELATIONS = std::tuple_size_v<Relations>;
+    static constexpr size_t NUM_SUBRELATIONS = ECCVMFlavor::NUM_SUBRELATIONS;
+};
 
 /**
  * @brief Grumpkin circuit that verifies ECCVM field work (Sumcheck + Shplemini scalars).
@@ -42,11 +64,32 @@ class ECCVMFieldCircuit {
         // Round challenges u_0, ..., u_{log_n-1}
         std::array<NativeFF, LOG_N> round_challenges;
 
-        // Initial target sum (Libra challenge * Libra total sum)
+        // Initial target sum (eval_0[0] + eval_1[0])
         NativeFF initial_target_sum;
 
         // Claimed evaluations of all ECCVM polynomials at the multivariate challenge point
         std::array<NativeFF, NUM_ECCVM_ENTITIES> claimed_evaluations;
+
+        // Relation evaluation data
+        NativeFF alpha = NativeFF(0);                         // sumcheck batching challenge
+        std::array<NativeFF, LOG_N> gate_challenges{};        // gate separator challenges
+        NativeFF beta = NativeFF(0);                          // relation parameter
+        NativeFF gamma = NativeFF(0);                         // relation parameter
+        NativeFF beta_sqr = NativeFF(0);
+        NativeFF beta_cube = NativeFF(0);
+        NativeFF beta_quartic = NativeFF(0);
+        NativeFF eccvm_set_permutation_delta = NativeFF(0);
+
+        // Libra ZK correction data (for relation evaluation final check)
+        NativeFF libra_evaluation = NativeFF(0);  // Claimed Libra evaluation at sumcheck challenge
+        NativeFF libra_challenge = NativeFF(0);   // Libra challenge
+
+        // SmallSubgroupIPA data
+        NativeFF small_ipa_evaluation_challenge;
+        std::array<NativeFF, NUM_SMALL_IPA_EVALUATIONS> small_ipa_evaluations;
+
+        // Batched evaluation for Gemini fold computation
+        NativeFF batched_evaluation;
 
         // Shplemini data (for scalar computation)
         NativeFF gemini_batching_challenge;     // ρ (multivariate batching challenge)
@@ -77,12 +120,14 @@ class ECCVMFieldCircuit {
     void build_circuit()
     {
         build_sumcheck_verification();
+        build_relation_evaluation();
         build_shplemini_scalars();
         build_translation_accumulated_result();
     }
 
     NativeFF get_accumulated_result() const { return accumulated_result_; }
     bool get_sumcheck_verified() const { return sumcheck_verified_; }
+    bool get_relation_verified() const { return relation_verified_; }
     const std::vector<NativeFF>& get_shplemini_scalars() const { return shplemini_scalars_; }
     const std::vector<NativeFF>& get_claim_batcher_scalars() const { return claim_batcher_scalars_; }
 
@@ -112,6 +157,91 @@ class ECCVMFieldCircuit {
         }
 
         final_target_sum_ = target.get_value();
+    }
+
+    /**
+     * @brief Evaluate all 7 ECCVM relations at the claimed evaluation point and check against target sum.
+     * @details This is the critical sumcheck final check. Uses the existing ECCVM relation code
+     * instantiated with field_ct (= stdlib::field_t<GrumpkinUltraCircuitBuilder>) for native grumpkin::fr arithmetic.
+     */
+    void build_relation_evaluation()
+    {
+        using AdapterFlavor = ECCVMFieldCtFlavor<Builder>;
+        using Utils = bb::RelationUtils<AdapterFlavor>;
+        using AllValues = typename AdapterFlavor::AllValues;
+
+        // Skip if claimed_evaluations not populated
+        if (input_.alpha == NativeFF(0)) {
+            return;
+        }
+
+        // Populate AllValues with claimed evaluations as circuit witnesses
+        AllValues purported_evaluations;
+        {
+            auto all_evals = purported_evaluations.get_all();
+            BB_ASSERT(all_evals.size() == NUM_ECCVM_ENTITIES);
+            for (size_t i = 0; i < NUM_ECCVM_ENTITIES; i++) {
+                all_evals[i] = field_ct::from_witness(&builder_, input_.claimed_evaluations[i]);
+            }
+        }
+
+        // Populate relation parameters as circuit witnesses
+        RelationParameters<field_ct> relation_params;
+        relation_params.beta = field_ct::from_witness(&builder_, input_.beta);
+        relation_params.gamma = field_ct::from_witness(&builder_, input_.gamma);
+        relation_params.beta_sqr = field_ct::from_witness(&builder_, input_.beta_sqr);
+        relation_params.beta_cube = field_ct::from_witness(&builder_, input_.beta_cube);
+        relation_params.beta_quartic = field_ct::from_witness(&builder_, input_.beta_quartic);
+        relation_params.eccvm_set_permutation_delta =
+            field_ct::from_witness(&builder_, input_.eccvm_set_permutation_delta);
+
+        // Compute gate separator partial evaluation result
+        // This is the product: Π_i ((1 - u_i) + u_i * gate_challenge_i)
+        auto partial_eval = field_ct(1);
+        for (size_t i = 0; i < LOG_N; i++) {
+            auto u_i = field_ct::from_witness(&builder_, input_.round_challenges[i]);
+            auto gc_i = field_ct::from_witness(&builder_, input_.gate_challenges[i]);
+            partial_eval = partial_eval * ((field_ct(1) - u_i) + u_i * gc_i);
+        }
+
+        // Compute alpha powers for subrelation separators
+        auto alpha = field_ct::from_witness(&builder_, input_.alpha);
+        constexpr size_t NUM_SUBRELATIONS = ECCVMFlavor::NUM_SUBRELATIONS;
+        std::array<field_ct, NUM_SUBRELATIONS - 1> alphas;
+        alphas[0] = alpha;
+        for (size_t i = 1; i < NUM_SUBRELATIONS - 1; i++) {
+            alphas[i] = alphas[i - 1] * alpha;
+        }
+
+        // Accumulate relation evaluations
+        typename Utils::RelationEvaluations relation_evaluations;
+        Utils::zero_elements(relation_evaluations);
+
+        Utils::template accumulate_relation_evaluations_without_skipping<>(
+            purported_evaluations, relation_evaluations, relation_params, partial_eval);
+
+        // Scale and batch to get full_honk_purported_value
+        auto full_honk_purported_value = Utils::scale_and_batch_elements(relation_evaluations, alphas);
+
+        // Apply ZK corrections (matches sumcheck verifier's apply_zk_corrections):
+        // 1. Multiply by row disabling polynomial evaluation: 1 - Π_{i=2}^{LOG_N-1} u_i
+        auto row_disabling_product = field_ct(1);
+        for (size_t i = 2; i < LOG_N; i++) {
+            auto u_i = field_ct::from_witness(&builder_, input_.round_challenges[i]);
+            row_disabling_product = row_disabling_product * u_i;
+        }
+        auto row_disabling_eval = field_ct(1) - row_disabling_product;
+        full_honk_purported_value = full_honk_purported_value * row_disabling_eval;
+
+        // 2. Add Libra correction: + libra_evaluation * libra_challenge
+        auto libra_eval = field_ct::from_witness(&builder_, input_.libra_evaluation);
+        auto libra_chal = field_ct::from_witness(&builder_, input_.libra_challenge);
+        full_honk_purported_value = full_honk_purported_value + libra_eval * libra_chal;
+
+        // Check: corrected full_honk_purported_value == final_target_sum (from sumcheck rounds)
+        auto target = field_ct::from_witness(&builder_, final_target_sum_);
+        full_honk_purported_value.assert_equal(target, "ECCVM relation evaluation != sumcheck target sum");
+        relation_verified_ = (full_honk_purported_value.get_value() == target.get_value());
     }
 
     /**
@@ -299,6 +429,7 @@ class ECCVMFieldCircuit {
     InputData input_;
 
     bool sumcheck_verified_ = true;
+    bool relation_verified_ = false;
     NativeFF final_target_sum_ = NativeFF(0);
     NativeFF accumulated_result_ = NativeFF(0);
     std::vector<NativeFF> shplemini_scalars_;

@@ -2,6 +2,7 @@
 #include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
 #include "barretenberg/flavor/chonk_g_flavor.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
+#include "barretenberg/srs/factories/grumpkin_srs_gen.hpp"
 #include "barretenberg/srs/global_crs.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
 #include "barretenberg/ultra_honk/oink_verifier.hpp"
@@ -26,15 +27,12 @@ class ChonkGTests : public ::testing::Test {
 
     static void SetUpTestSuite()
     {
-        // Initialize both BN254 and Grumpkin CRS (IPA needs Grumpkin CRS)
-        srs::init_file_crs_factory(bb::srs::bb_crs_path());
+        srs::init_bn254_file_crs_factory(bb::srs::bb_crs_path());
+        auto grumpkin_srs = srs::generate_grumpkin_srs(1ULL << CONST_CHONK_G_LOG_N);
+        srs::init_grumpkin_mem_crs_factory(grumpkin_srs);
     }
 
-    /**
-     * @brief Build a simple arithmetic circuit over Grumpkin.Fr (= BN254.Fq)
-     * @details Creates gates enforcing: a + b + c - d = 0 for random values
-     */
-    static Builder create_simple_circuit(size_t num_gates = 16)
+    static Builder create_simple_circuit(size_t num_gates = 128)
     {
         Builder builder;
         for (size_t i = 0; i < num_gates; i++) {
@@ -51,57 +49,52 @@ class ChonkGTests : public ::testing::Test {
         return builder;
     }
 
-    /**
-     * @brief Native ChonkG verifier: verify a proof produced by UltraProver_<ChonkGFlavor>
-     * @details Since ChonkGFlavor uses IPA (not KZG), UltraVerifier_ can't be used directly.
-     * This implements the verification flow: Oink → Sumcheck → Shplemini → IPA.
-     */
     static bool verify_chonk_g_proof(const std::shared_ptr<VerificationKey>& vk,
                                      const typename Transcript::Proof& proof)
     {
         using Shplemini = ShpleminiVerifier_<Curve, Flavor::HasZK>;
         using VerifierCommitments = typename Flavor::VerifierCommitments;
         using ClaimBatcher = ClaimBatcher_<Curve>;
-        using ClaimBatch = ClaimBatcher::Batch;
+        using ClaimBatch = typename ClaimBatcher::Batch;
 
         auto transcript = std::make_shared<Transcript>();
         transcript->load_proof(proof);
 
-        // Create verifier instance and run Oink
         auto vk_and_hash = std::make_shared<typename Flavor::VKAndHash>(vk);
         auto verifier_instance = std::make_shared<VerifierInstance_<Flavor>>(vk_and_hash);
-        OinkVerifier<Flavor> oink_verifier{ verifier_instance, transcript, 0 };
+
+        const size_t log_circuit_size = static_cast<size_t>(vk->log_circuit_size);
+        const size_t log_n = Flavor::USE_PADDING ? Flavor::VIRTUAL_LOG_N : log_circuit_size;
+        const size_t num_public_inputs = static_cast<size_t>(vk->num_public_inputs);
+
+        OinkVerifier<Flavor> oink_verifier{ verifier_instance, transcript, num_public_inputs };
         oink_verifier.verify();
 
-        // Compute log_n and padding indicator array
-        const size_t log_circuit_size = static_cast<size_t>(vk->log_circuit_size);
-        const size_t log_n = static_cast<size_t>(Flavor::VIRTUAL_LOG_N);
         std::vector<FF> padding_indicator_array(log_n, FF{ 1 });
-        for (size_t idx = 0; idx < log_n; idx++) {
-            padding_indicator_array[idx] = (idx < log_circuit_size) ? FF{ 1 } : FF{ 0 };
+        for (size_t idx = log_circuit_size; idx < log_n; idx++) {
+            padding_indicator_array[idx] = FF{ 0 };
         }
 
-        // Get gate challenges
         verifier_instance->gate_challenges =
             transcript->template get_dyadic_powers_of_challenge<FF>("Sumcheck:gate_challenge", log_n);
 
-        // Set up commitments
         VerifierCommitments commitments{ vk, verifier_instance->witness_commitments };
         commitments.gemini_masking_poly = verifier_instance->gemini_masking_commitment;
 
-        // Run Sumcheck
         SumcheckVerifier<Flavor> sumcheck(transcript, verifier_instance->alpha, log_n);
-
         std::array<Commitment, NUM_LIBRA_COMMITMENTS> libra_commitments = {};
-        libra_commitments[0] = transcript->template receive_from_prover<Commitment>("Libra:concatenation_commitment");
+        libra_commitments[0] =
+            transcript->template receive_from_prover<Commitment>("Libra:concatenation_commitment");
 
-        SumcheckOutput<Flavor> sumcheck_output = sumcheck.verify(
+        auto sumcheck_output = sumcheck.verify(
             verifier_instance->relation_parameters, verifier_instance->gate_challenges, padding_indicator_array);
 
-        libra_commitments[1] = transcript->template receive_from_prover<Commitment>("Libra:grand_sum_commitment");
-        libra_commitments[2] = transcript->template receive_from_prover<Commitment>("Libra:quotient_commitment");
+        libra_commitments[1] =
+            transcript->template receive_from_prover<Commitment>("Libra:grand_sum_commitment");
+        libra_commitments[2] =
+            transcript->template receive_from_prover<Commitment>("Libra:quotient_commitment");
 
-        // Compute IPA polynomial length and create verifier commitment key
+        // Create IPA VK early (needed for g1_identity in Shplemini)
         constexpr size_t SMALL_SUBGROUP_IPA_MAX_POLY_LENGTH = Curve::SUBGROUP_SIZE + 3;
         const size_t ipa_poly_length =
             std::max(static_cast<size_t>(1UL << log_circuit_size),
@@ -109,42 +102,37 @@ class ChonkGTests : public ::testing::Test {
         const size_t ipa_num_rounds = numeric::get_msb(ipa_poly_length);
         VerifierCommitmentKey<Curve> ipa_vk(ipa_poly_length);
 
-        // Shplemini (with committed sumcheck data for Grumpkin)
-        // NOTE: For IPA-based PCS, g1_identity must be SRS[0] (not Commitment::one()),
-        // since the commitment to the constant polynomial 1 is the inner product with SRS points.
         ClaimBatcher claim_batcher{
             .unshifted =
                 ClaimBatch{ commitments.get_unshifted(), sumcheck_output.claimed_evaluations.get_unshifted() },
-            .shifted = ClaimBatch{ commitments.get_to_be_shifted(), sumcheck_output.claimed_evaluations.get_shifted() }
+            .shifted =
+                ClaimBatch{ commitments.get_to_be_shifted(), sumcheck_output.claimed_evaluations.get_shifted() }
         };
 
-        auto shplemini_output = Shplemini::compute_batch_opening_claim(padding_indicator_array,
-                                                                       claim_batcher,
-                                                                       sumcheck_output.challenge,
-                                                                       ipa_vk.get_g1_identity(),
-                                                                       transcript,
-                                                                       Flavor::REPEATED_COMMITMENTS,
-                                                                       libra_commitments,
-                                                                       sumcheck_output.claimed_libra_evaluation,
-                                                                       sumcheck_output.round_univariate_commitments,
-                                                                       sumcheck_output.round_univariate_evaluations);
+        auto shplemini_output = Shplemini::compute_batch_opening_claim(
+            padding_indicator_array,
+            claim_batcher,
+            sumcheck_output.challenge,
+            Commitment::one(),
+            transcript,
+            Flavor::REPEATED_COMMITMENTS,
+            libra_commitments,
+            sumcheck_output.claimed_libra_evaluation,
+            sumcheck_output.round_univariate_commitments,
+            sumcheck_output.round_univariate_evaluations);
 
-        if (!shplemini_output.consistency_checked) {
+        if (!shplemini_output.consistency_checked || !sumcheck_output.verified) {
+            info("ChonkG: field verification failed (consistency=", shplemini_output.consistency_checked,
+                 " sumcheck=", sumcheck_output.verified, ")");
             return false;
         }
 
-        if (!sumcheck_output.verified) {
-            return false;
-        }
-
+        // IPA verification
         return PCS::reduce_verify_batch_opening_claim(
             shplemini_output.batch_opening_claim, ipa_vk, transcript, ipa_num_rounds);
     }
 };
 
-/**
- * @brief Test that we can construct a ProverInstance from a GrumpkinUltraCircuitBuilder
- */
 TEST_F(ChonkGTests, ProverInstanceConstruction)
 {
     auto builder = create_simple_circuit();
@@ -152,9 +140,6 @@ TEST_F(ChonkGTests, ProverInstanceConstruction)
     EXPECT_GT(prover_instance->get_precomputed().metadata.dyadic_size, 0);
 }
 
-/**
- * @brief Test that we can construct a proof using UltraProver_<ChonkGFlavor>
- */
 TEST_F(ChonkGTests, ProveSimpleCircuit)
 {
     auto builder = create_simple_circuit();
@@ -162,12 +147,10 @@ TEST_F(ChonkGTests, ProveSimpleCircuit)
     auto verification_key = std::make_shared<VerificationKey>(prover_instance->get_precomputed());
     Prover prover(prover_instance, verification_key);
     auto proof = prover.construct_proof();
+    info("Proof size: ", proof.size(), " FE");
     EXPECT_FALSE(proof.empty());
 }
 
-/**
- * @brief Full round-trip: prove and verify a ChonkG circuit
- */
 TEST_F(ChonkGTests, ProveAndVerify)
 {
     auto builder = create_simple_circuit();

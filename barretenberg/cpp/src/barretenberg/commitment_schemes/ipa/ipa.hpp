@@ -174,8 +174,9 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
         // Derive the actual polynomial length from the opening claim. This allows the IPA to work
         // with polynomials smaller than the static poly_length (e.g. ChonkG circuits of varying size).
         // For ECCVM, the polynomial is always poly_length, so this is backward-compatible.
-        const size_t actual_poly_length = polynomial.size();
-        const size_t actual_log_n = numeric::get_msb(actual_poly_length);
+        size_t actual_poly_length = polynomial.size();
+        size_t actual_log_n = numeric::get_msb(actual_poly_length);
+        info("IPA PROVER: poly_size=", actual_poly_length, " log_n=", actual_log_n);
 
         // Checks poly_degree is greater than zero and a power of two
         // In the future, we might want to consider if non-powers of two are needed
@@ -469,6 +470,7 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
     {
         BB_BENCH_NAME("IPA::reduce_verify");
         const size_t actual_poly_length = 1UL << num_rounds;
+        info("IPA VERIFIER: num_rounds=", num_rounds, " poly_length=", actual_poly_length);
 
         // Steps 2–7, 9: Process transcript and extract per-proof data (step 1 done by add_claim_to_hash_buffer)
         auto data = read_transcript_data(opening_claim, transcript, num_rounds);

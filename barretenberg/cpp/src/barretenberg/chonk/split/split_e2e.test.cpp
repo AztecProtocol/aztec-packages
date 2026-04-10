@@ -11,6 +11,7 @@
  *   7. Assert pairing points match reference
  */
 #include "barretenberg/chonk/split/chonk_b_circuit.hpp"
+#include "barretenberg/chonk/split/split_chonk_prover.hpp"
 #include "barretenberg/chonk/split/split_chonk_verifier.hpp"
 #include "barretenberg/chonk/split/chonk_g_circuit.hpp"
 #include "barretenberg/chonk/split/eccvm_field_circuit.hpp"
@@ -25,6 +26,8 @@
 #include "barretenberg/chonk/split/translator_field_circuit.hpp"
 #include "barretenberg/crypto/poseidon2/poseidon2.hpp"
 #include "barretenberg/flavor/chonk_g_flavor.hpp"
+#include "barretenberg/chonk/chonk.hpp"
+#include "barretenberg/chonk/mock_circuit_producer.hpp"
 #include "barretenberg/goblin/goblin.hpp"
 #include "barretenberg/goblin/goblin_verifier.hpp"
 #include "barretenberg/goblin/merge_prover.hpp"
@@ -1292,6 +1295,84 @@ TEST_F(SplitE2ETests, ECCVMFieldCircuitSumcheckAndTranslation)
 }
 
 /**
+ * @brief Test ECCVMFieldCircuit relation evaluation: checks that the 7 ECCVM relations evaluate correctly.
+ */
+TEST_F(SplitE2ETests, ECCVMFieldCircuitRelationEvaluation)
+{
+    using ECCVMTranscript = ECCVMFlavor::Transcript;
+
+    // Create ECCVM proof
+    auto op_queue = std::make_shared<ECCOpQueue>();
+    op_queue->mul_accumulate(curve::BN254::Element::one(), curve::BN254::ScalarField::random_element());
+    op_queue->eq_and_reset();
+    op_queue->merge();
+    eccvm_test_utils::add_hiding_op_for_test(op_queue);
+
+    ECCVMCircuitBuilder eccvm_builder{ op_queue };
+    auto prover_transcript = std::make_shared<ECCVMTranscript>();
+    ECCVMProver prover(eccvm_builder, prover_transcript);
+    auto [proof, ipa_opening_claim] = prover.construct_proof();
+
+    // Run native ECCVM field verification to extract all data
+    auto vt = std::make_shared<ECCVMTranscript>();
+    ECCVMVerifier verifier(vt, proof);
+    auto field_result = verifier.compute_field_verification();
+    ASSERT_TRUE(field_result.verified) << "Native ECCVM field verification failed";
+
+    auto translator_input = verifier.get_translator_input_data();
+
+    // Build ECCVMFieldCircuit input data with ALL relation evaluation data
+    ECCVMFieldCircuit::InputData input_data;
+
+    // Sumcheck round data
+    for (size_t i = 0; i < CONST_ECCVM_LOG_N; i++) {
+        input_data.round_eval_at_0[i] = field_result.round_univariate_evaluations[i][0];
+        input_data.round_eval_at_1[i] = field_result.round_univariate_evaluations[i][1];
+        input_data.round_eval_at_challenge[i] = field_result.round_univariate_evaluations[i][2];
+        input_data.round_challenges[i] = field_result.round_challenges[i];
+    }
+    input_data.initial_target_sum = field_result.initial_target_sum;
+
+    // Relation evaluation data
+    for (size_t i = 0; i < ECCVMFlavor::NUM_ALL_ENTITIES; i++) {
+        input_data.claimed_evaluations[i] = field_result.claimed_evaluations[i];
+    }
+    input_data.alpha = field_result.alpha;
+    for (size_t i = 0; i < CONST_ECCVM_LOG_N; i++) {
+        input_data.gate_challenges[i] = field_result.gate_challenges[i];
+    }
+    input_data.beta = field_result.relation_parameters.beta;
+    input_data.gamma = field_result.relation_parameters.gamma;
+    input_data.beta_sqr = field_result.relation_parameters.beta_sqr;
+    input_data.beta_cube = field_result.relation_parameters.beta_cube;
+    input_data.beta_quartic = field_result.relation_parameters.beta_quartic;
+    input_data.eccvm_set_permutation_delta = field_result.relation_parameters.eccvm_set_permutation_delta;
+
+    // Libra ZK correction data
+    input_data.libra_evaluation = field_result.libra_evaluation;
+    input_data.libra_challenge = field_result.libra_challenge;
+
+    // Translation data
+    input_data.evaluation_challenge_x = translator_input.evaluation_challenge_x;
+    input_data.batching_challenge_v = translator_input.batching_challenge_v;
+    for (size_t i = 0; i < 5; i++) {
+        input_data.translation_evaluations[i] = field_result.translation_evaluations[i];
+    }
+    input_data.translation_masking_term_eval = field_result.translation_masking_term_eval;
+
+    // Build the ECCVMFieldCircuit
+    GrumpkinUltraCircuitBuilder grumpkin_builder;
+    ECCVMFieldCircuit field_circuit(grumpkin_builder, input_data);
+    field_circuit.build_circuit();
+
+    EXPECT_FALSE(grumpkin_builder.failed()) << "ECCVMFieldCircuit failed: " << grumpkin_builder.err();
+    EXPECT_TRUE(field_circuit.get_sumcheck_verified()) << "Sumcheck round consistency failed";
+    EXPECT_TRUE(field_circuit.get_relation_verified()) << "Relation evaluation failed";
+
+    info("ECCVMFieldCircuit relation evaluation: gates = ", grumpkin_builder.num_gates());
+}
+
+/**
  * @brief Test ECCVMFieldCircuit Shplemini scalar computation against native Shplemini output.
  */
 TEST_F(SplitE2ETests, ECCVMFieldCircuitShpleminiScalars)
@@ -1372,6 +1453,110 @@ TEST_F(SplitE2ETests, ECCVMFieldCircuitShpleminiScalars)
         EXPECT_EQ(batcher_scalars[i], native_scalars[i + native_offset])
             << "Claim batcher scalar " << i << " mismatch";
     }
+}
+
+/**
+ * @brief Comprehensive test: ALL ECCVMFieldCircuit components exercised with real ECCVM proof data.
+ * @details Verifies sumcheck, relation evaluation, Shplemini scalars, and translation accumulated_result.
+ */
+TEST_F(SplitE2ETests, ECCVMFieldCircuitComplete)
+{
+    using ECCVMTranscript = ECCVMFlavor::Transcript;
+
+    // Create ECCVM proof
+    auto op_queue = std::make_shared<ECCOpQueue>();
+    op_queue->mul_accumulate(curve::BN254::Element::one(), curve::BN254::ScalarField::random_element());
+    op_queue->eq_and_reset();
+    op_queue->merge();
+    eccvm_test_utils::add_hiding_op_for_test(op_queue);
+
+    ECCVMCircuitBuilder eccvm_builder{ op_queue };
+    auto prover_transcript = std::make_shared<ECCVMTranscript>();
+    ECCVMProver prover(eccvm_builder, prover_transcript);
+    auto [proof, ipa_opening_claim] = prover.construct_proof();
+
+    // Run native ECCVM field verification
+    auto vt = std::make_shared<ECCVMTranscript>();
+    ECCVMVerifier verifier(vt, proof);
+    auto field_result = verifier.compute_field_verification();
+    ASSERT_TRUE(field_result.verified) << "Native ECCVM field verification failed";
+    auto translator_input = verifier.get_translator_input_data();
+
+    // Populate ALL InputData fields
+    ECCVMFieldCircuit::InputData input_data;
+
+    // Sumcheck round data
+    for (size_t i = 0; i < CONST_ECCVM_LOG_N; i++) {
+        input_data.round_eval_at_0[i] = field_result.round_univariate_evaluations[i][0];
+        input_data.round_eval_at_1[i] = field_result.round_univariate_evaluations[i][1];
+        input_data.round_eval_at_challenge[i] = field_result.round_univariate_evaluations[i][2];
+        input_data.round_challenges[i] = field_result.round_challenges[i];
+    }
+    input_data.initial_target_sum = field_result.initial_target_sum;
+
+    // Relation evaluation data
+    for (size_t i = 0; i < ECCVMFlavor::NUM_ALL_ENTITIES; i++) {
+        input_data.claimed_evaluations[i] = field_result.claimed_evaluations[i];
+    }
+    input_data.alpha = field_result.alpha;
+    for (size_t i = 0; i < CONST_ECCVM_LOG_N; i++) {
+        input_data.gate_challenges[i] = field_result.gate_challenges[i];
+    }
+    input_data.beta = field_result.relation_parameters.beta;
+    input_data.gamma = field_result.relation_parameters.gamma;
+    input_data.beta_sqr = field_result.relation_parameters.beta_sqr;
+    input_data.beta_cube = field_result.relation_parameters.beta_cube;
+    input_data.beta_quartic = field_result.relation_parameters.beta_quartic;
+    input_data.eccvm_set_permutation_delta = field_result.relation_parameters.eccvm_set_permutation_delta;
+    input_data.libra_evaluation = field_result.libra_evaluation;
+    input_data.libra_challenge = field_result.libra_challenge;
+
+    // Shplemini data
+    input_data.gemini_batching_challenge = field_result.gemini_batching_challenge;
+    input_data.shplonk_evaluation_challenge = field_result.shplonk_evaluation_challenge;
+    input_data.gemini_eval_challenge = field_result.gemini_evaluation_challenge;
+    input_data.shplonk_batching_challenge = field_result.shplonk_batching_challenge;
+    input_data.num_unshifted = ECCVMFlavor::NUM_PRECOMPUTED_ENTITIES + ECCVMFlavor::NUM_WITNESS_ENTITIES;
+    input_data.num_shifted = ECCVMFlavor::NUM_ALL_ENTITIES - input_data.num_unshifted;
+    input_data.gemini_fold_pos_evaluations = field_result.gemini_fold_pos_evaluations;
+    input_data.gemini_fold_neg_evaluations = field_result.gemini_fold_neg_evaluations;
+
+    // Translation data
+    input_data.evaluation_challenge_x = translator_input.evaluation_challenge_x;
+    input_data.batching_challenge_v = translator_input.batching_challenge_v;
+    for (size_t i = 0; i < 5; i++) {
+        input_data.translation_evaluations[i] = field_result.translation_evaluations[i];
+    }
+    input_data.translation_masking_term_eval = field_result.translation_masking_term_eval;
+
+    // Build the full circuit
+    GrumpkinUltraCircuitBuilder grumpkin_builder;
+    ECCVMFieldCircuit field_circuit(grumpkin_builder, input_data);
+    field_circuit.build_circuit();
+
+    // Verify all components
+    EXPECT_FALSE(grumpkin_builder.failed()) << "ECCVMFieldCircuit failed: " << grumpkin_builder.err();
+    EXPECT_TRUE(field_circuit.get_sumcheck_verified()) << "Sumcheck round consistency failed";
+    EXPECT_TRUE(field_circuit.get_relation_verified()) << "Relation evaluation failed";
+    EXPECT_GT(field_circuit.get_shplemini_scalars().size(), 0u) << "No Shplemini scalars";
+    EXPECT_GT(field_circuit.get_claim_batcher_scalars().size(), 0u) << "No claim_batcher scalars";
+
+    // Verify accumulated_result matches native
+    EXPECT_EQ(field_circuit.get_accumulated_result(), translator_input.accumulated_result)
+        << "Accumulated result mismatch";
+
+    // Verify claim_batcher scalars match native
+    const auto& batcher_scalars = field_circuit.get_claim_batcher_scalars();
+    const auto& native_scalars = field_result.sumcheck_batch_opening_claim.scalars;
+    constexpr size_t native_offset = 1; // Skip Q commitment
+    for (size_t i = 0; i < batcher_scalars.size() && i + native_offset < native_scalars.size(); i++) {
+        EXPECT_EQ(batcher_scalars[i], native_scalars[i + native_offset])
+            << "Claim batcher scalar " << i << " mismatch";
+    }
+
+    info("ECCVMFieldCircuit complete: gates = ", grumpkin_builder.num_gates(),
+         ", scalars = ", field_circuit.get_shplemini_scalars().size(), " + ",
+         batcher_scalars.size());
 }
 
 /**
@@ -1544,4 +1729,41 @@ TEST_F(SplitE2ETests, SplitChonkVerifierEndToEnd)
     info("  Translator pairing: verified");
     info("  IPA: verified");
     info("  Chonk_G gates: ", grumpkin_builder.num_gates());
+}
+
+/**
+ * @brief Full split Chonk prove-and-verify: generate standalone sub-proofs, build both circuits, prove, verify.
+ * @details Uses Goblin + standalone MegaZK proof to feed ChonkBCircuit and ChonkGCircuit,
+ * then proves both and verifies the SplitChonkProof.
+ */
+TEST_F(SplitE2ETests, SplitChonkProveAndVerify)
+{
+    // Generate a Chonk IVC (1 app circuit)
+    using CircuitProducer = PrivateFunctionExecutionMockCircuitProducer;
+    size_t NUM_APP_CIRCUITS = 1;
+
+    CircuitProducer circuit_producer(NUM_APP_CIRCUITS);
+    const size_t NUM_CIRCUITS = circuit_producer.total_num_circuits;
+    Chonk ivc{ NUM_CIRCUITS };
+
+    // Precompute VKs and accumulate
+    for (size_t circuit_idx = 0; circuit_idx < NUM_CIRCUITS; ++circuit_idx) {
+        auto circuit = circuit_producer.create_next_circuit(ivc);
+        auto vk = CircuitProducer::get_verification_key(circuit);
+        ivc.accumulate(circuit, vk);
+    }
+
+    // Run split proving instead of ivc.prove()
+    info("Starting split proving...");
+    auto split_proof = SplitChonkProver::prove(ivc);
+
+    info("SplitChonkProof sizes:");
+    info("  Chonk_B proof: ", split_proof.chonk_b_proof.size(), " FE");
+    info("  Chonk_G proof: ", split_proof.chonk_g_proof.size(), " FE");
+    info("  IPA proof:     ", split_proof.ipa_proof.size(), " FE");
+    info("  Total:         ", split_proof.total_proof_size(), " FE");
+
+    // Verify the split proof
+    auto result = SplitChonkVerifier::verify_split_proof(split_proof);
+    EXPECT_TRUE(result.all_checks_passed) << "SplitChonkVerifier verification FAILED";
 }

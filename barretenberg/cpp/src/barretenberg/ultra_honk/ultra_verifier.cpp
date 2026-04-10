@@ -9,6 +9,7 @@
 #include "barretenberg/commitment_schemes/pairing_points.hpp"
 #include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
 #include "barretenberg/common/bb_bench.hpp"
+#include "barretenberg/flavor/chonk_g_flavor.hpp"
 #include "barretenberg/flavor/mega_avm_recursive_flavor.hpp"
 #include "barretenberg/flavor/mega_zk_recursive_flavor.hpp"
 #include "barretenberg/flavor/ultra_zk_recursive_flavor.hpp"
@@ -339,7 +340,8 @@ template class UltraVerifier_<UltraFlavor, RollupIO>; // Rollup uses UltraFlavor
 template class UltraVerifier_<MegaFlavor, DefaultIO>;
 template class UltraVerifier_<MegaZKFlavor, DefaultIO>;
 template class UltraVerifier_<MegaZKFlavor, HidingKernelIO>; // Chonk
-// Note: ChonkGFlavor uses IPA PCS (not KZG) and needs its own verifier, not UltraVerifier_
+// Note: ChonkGFlavor (IPA PCS) not instantiated here — KZG-specific methods would fail to compile.
+// Use the header directly in code that needs compute_field_verification() for ChonkGFlavor.
 
 #ifdef STARKNET_GARAGA_FLAVORS
 template class UltraVerifier_<UltraStarknetFlavor, DefaultIO>;

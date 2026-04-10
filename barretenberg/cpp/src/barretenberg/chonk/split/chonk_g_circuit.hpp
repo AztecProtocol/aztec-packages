@@ -3,8 +3,7 @@
 #include "barretenberg/chonk/split/eccvm_field_circuit.hpp"
 #include "barretenberg/chonk/split/shared_translator_witness.hpp"
 #include "barretenberg/chonk/split/translator_ec_circuit.hpp"
-#include "barretenberg/crypto/poseidon2/poseidon2.hpp"
-#include "barretenberg/crypto/poseidon2/poseidon2_grumpkin_params.hpp"
+#include "barretenberg/stdlib/hash/poseidon2/poseidon2.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 
 namespace bb {
@@ -107,132 +106,35 @@ class ChonkGCircuit {
   private:
     void build_poly_equiv()
     {
-        // Poseidon2 params for the hash
+        using field_ct = stdlib::field_t<Builder>;
 
         // Add chunks as circuit witnesses
-        std::vector<uint32_t> chunk_indices;
-        chunk_indices.reserve(all_chunks_.size());
+        std::vector<field_ct> chunk_witnesses;
+        chunk_witnesses.reserve(all_chunks_.size());
         for (const auto& chunk : all_chunks_) {
-            chunk_indices.push_back(builder_.add_variable(FF(chunk)));
+            chunk_witnesses.push_back(field_ct::from_witness(&builder_, FF(chunk)));
         }
 
-        // Compute h_g = Poseidon2(chunks) over fq using sponge construction
-        // Reuse the in-circuit Poseidon2 pattern from TranslatorECCircuit
-        FF h_g = compute_poseidon2_hash(chunk_indices);
-        uint32_t h_g_idx = builder_.add_variable(h_g);
-        builder_.set_public_input(h_g_idx);
+        // Compute h_g = Poseidon2(chunks) using stdlib (auto-selects GrumpkinScalarFieldParams)
+        auto h_g = stdlib::poseidon2<Builder>::hash(chunk_witnesses);
+        h_g.set_public();
 
         // Alpha as public input
-        uint32_t alpha_idx = builder_.add_variable(alpha_);
-        builder_.set_public_input(alpha_idx);
+        auto alpha_ct = field_ct::from_witness(&builder_, alpha_);
+        alpha_ct.set_public();
 
         // Evaluate P(alpha) = chunk_0 + chunk_1*alpha + ... via Horner
-        uint32_t r_idx = chunk_indices.back();
-        for (size_t ii = chunk_indices.size() - 1; ii > 0; ii--) {
-            size_t ci = ii - 1;
-            FF r_old = builder_.get_variable(r_idx);
-            FF alpha_val = builder_.get_variable(alpha_idx);
-            FF chunk_val = builder_.get_variable(chunk_indices[ci]);
-            FF r_new = r_old * alpha_val + chunk_val;
-            uint32_t r_new_idx = builder_.add_variable(r_new);
-
-            builder_.create_big_mul_add_gate({ .a = r_idx,
-                                               .b = alpha_idx,
-                                               .c = r_new_idx,
-                                               .d = chunk_indices[ci],
-                                               .mul_scaling = FF(1),
-                                               .a_scaling = FF(0),
-                                               .b_scaling = FF(0),
-                                               .c_scaling = FF(-1),
-                                               .d_scaling = FF(1),
-                                               .const_scaling = FF(0) });
-            r_idx = r_new_idx;
+        auto r = chunk_witnesses.back();
+        for (size_t ii = chunk_witnesses.size() - 1; ii > 0; ii--) {
+            r = r * alpha_ct + chunk_witnesses[ii - 1];
         }
-        builder_.set_public_input(r_idx);
+        r.set_public();
 
         poly_equiv_data_ = PolyEquivData{
-            .h_g = h_g,
+            .h_g = h_g.get_value(),
             .alpha = alpha_,
-            .r_g = builder_.get_variable(r_idx),
+            .r_g = r.get_value(),
         };
-    }
-
-    /**
-     * @brief Compute Poseidon2 hash over fq using in-circuit gates (sponge construction).
-     * @details Same pattern as TranslatorECCircuit::compute_poseidon2_hash_in_circuit
-     */
-    template <typename Params = crypto::Poseidon2GrumpkinScalarFieldParams,
-              typename NativePermutation = crypto::Poseidon2Permutation<Params>>
-    FF compute_poseidon2_hash(const std::vector<uint32_t>& input_indices)
-    {
-        static constexpr size_t t = Params::t;
-        static constexpr size_t rate = t - 1;
-
-        std::array<FF, t> state{};
-        state[rate] = FF(uint256_t(input_indices.size()) << 64);
-
-        size_t input_idx = 0;
-        while (input_idx < input_indices.size()) {
-            size_t block_size = std::min(rate, input_indices.size() - input_idx);
-            for (size_t i = 0; i < block_size; i++) {
-                state[i] += builder_.get_variable(input_indices[input_idx + i]);
-            }
-            input_idx += block_size;
-
-            // Apply Poseidon2 permutation with gates
-            // (Delegating to the same gate creation pattern used by TranslatorECCircuit)
-            std::array<uint32_t, t> state_indices;
-            for (size_t i = 0; i < t; i++) {
-                state_indices[i] = builder_.add_variable(state[i]);
-            }
-            NativePermutation::matrix_multiplication_external(state);
-            for (size_t i = 0; i < t; i++) {
-                state_indices[i] = builder_.add_variable(state[i]);
-            }
-
-            size_t rounds_f_beginning = Params::rounds_f / 2;
-            for (size_t i = 0; i < rounds_f_beginning; i++) {
-                builder_.create_poseidon2_external_gate(poseidon2_external_gate_<FF>{
-                    state_indices[0], state_indices[1], state_indices[2], state_indices[3], i });
-                NativePermutation::add_round_constants(state, Params::round_constants[i]);
-                NativePermutation::apply_sbox(state);
-                NativePermutation::matrix_multiplication_external(state);
-                for (size_t j = 0; j < t; j++) {
-                    state_indices[j] = builder_.add_variable(state[j]);
-                }
-            }
-            builder_.create_unconstrained_gate(
-                builder_.blocks.poseidon2_external, state_indices[0], state_indices[1], state_indices[2], state_indices[3]);
-
-            size_t p_end = rounds_f_beginning + Params::rounds_p;
-            for (size_t i = rounds_f_beginning; i < p_end; i++) {
-                builder_.create_poseidon2_internal_gate(poseidon2_internal_gate_<FF>{
-                    state_indices[0], state_indices[1], state_indices[2], state_indices[3], i });
-                state[0] += Params::round_constants[i][0];
-                NativePermutation::apply_single_sbox(state[0]);
-                NativePermutation::matrix_multiplication_internal(state);
-                for (size_t j = 0; j < t; j++) {
-                    state_indices[j] = builder_.add_variable(state[j]);
-                }
-            }
-            builder_.create_unconstrained_gate(
-                builder_.blocks.poseidon2_internal, state_indices[0], state_indices[1], state_indices[2], state_indices[3]);
-
-            for (size_t i = p_end; i < Params::rounds_f + Params::rounds_p; i++) {
-                builder_.create_poseidon2_external_gate(poseidon2_external_gate_<FF>{
-                    state_indices[0], state_indices[1], state_indices[2], state_indices[3], i });
-                NativePermutation::add_round_constants(state, Params::round_constants[i]);
-                NativePermutation::apply_sbox(state);
-                NativePermutation::matrix_multiplication_external(state);
-                for (size_t j = 0; j < t; j++) {
-                    state_indices[j] = builder_.add_variable(state[j]);
-                }
-            }
-            builder_.create_unconstrained_gate(
-                builder_.blocks.poseidon2_external, state_indices[0], state_indices[1], state_indices[2], state_indices[3]);
-        }
-
-        return state[0];
     }
 
     Builder& builder_;

@@ -169,7 +169,12 @@ class TranslatorFieldCircuit {
                                               batch_v_bf,
                                               accumulated_result_bf,
                                               stdlib_op_queue_commitments };
+        bool ok_before = !builder_.failed();
         auto field_result = verifier.compute_field_verification();
+        if (ok_before && builder_.failed()) {
+            info("TranslatorFieldCircuit: builder failed DURING compute_field_verification: ", builder_.err());
+        }
+        info("TranslatorFieldCircuit: field_result.verified = ", field_result.verified ? "true" : "false");
 
         // Read W from transcript (constrained by Fiat-Shamir)
         auto W_stdlib = transcript->template receive_from_prover<Commitment>("KZG:W");

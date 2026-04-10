@@ -98,6 +98,7 @@ class ChonkBCircuit {
         merge_circuit.build_circuit();
 
         // Sub-circuit 3: Translator recursive field verification
+        // Note: sub-proofs must be standalone (own transcript) for this to work.
         TranslatorFieldCircuit translator_circuit(builder_,
                                                    input_.translator_proof,
                                                    input_.evaluation_challenge_x,

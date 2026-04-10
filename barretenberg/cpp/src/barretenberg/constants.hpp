@@ -30,6 +30,10 @@ static constexpr uint32_t MEGA_AVM_LOG_N = 21;
 
 static constexpr uint32_t CONST_ECCVM_LOG_N = 15;
 
+// Fixed log circuit size for ChonkG (Grumpkin split verification circuit).
+// ChonkG circuits are ~300-500k gates, fitting within 2^20 = 1,048,576 rows.
+static constexpr uint32_t CONST_CHONK_G_LOG_N = 20;
+
 // IPA proof length: 4 * CONST_ECCVM_LOG_N (L and R commitments) + 2 (G_0) + 2 (a_0)
 // Note: Updating this requires updating noir protocol circuits (rollup-base-private,
 // rollup-base-public, rollup-block-merge, rollup-block-root, rollup-merge, rollup-root)

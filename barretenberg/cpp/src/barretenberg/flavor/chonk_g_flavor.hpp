@@ -43,7 +43,7 @@ class ChonkGFlavor {
     using FF = Curve::ScalarField;  // grumpkin::fr = bb::fq
     using GroupElement = Curve::Element;
     using Commitment = Curve::AffineElement;
-    using PCS = IPA<Curve>;
+    using PCS = IPA<Curve, CONST_CHONK_G_LOG_N>;
     using Polynomial = bb::Polynomial<FF>;
     using CommitmentKey = bb::CommitmentKey<Curve>;
     using VerifierCommitmentKey = bb::VerifierCommitmentKey<Curve>;
@@ -53,7 +53,7 @@ class ChonkGFlavor {
     using HashFunction = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>;
     using Transcript = BaseTranscript<Codec, HashFunction>;
 
-    static constexpr size_t VIRTUAL_LOG_N = CONST_PROOF_SIZE_LOG_N;
+    static constexpr size_t VIRTUAL_LOG_N = CONST_CHONK_G_LOG_N;
     static constexpr bool USE_SHORT_MONOMIALS = true;
     static constexpr bool HasZK = true;
     static constexpr bool USE_PADDING = true;

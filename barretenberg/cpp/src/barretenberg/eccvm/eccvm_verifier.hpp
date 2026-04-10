@@ -75,6 +75,20 @@ template <typename Flavor> class ECCVMVerifier_ {
         FF shplonk_evaluation_challenge;   // z
         std::vector<FF> gemini_fold_neg_evaluations;   // A_j(-r^{2^j})
         std::vector<FF> gemini_fold_pos_evaluations;   // A_j(r^{2^j})
+
+        // Relation evaluation data (for ECCVMFieldCircuit in Chonk_G)
+        std::array<FF, ECCVMFlavor::NUM_ALL_ENTITIES> claimed_evaluations{}; // All polynomial evaluations
+        FF alpha;                                                            // Sumcheck batching challenge
+        std::vector<FF> gate_challenges;                                     // Gate separator challenges
+        RelationParameters<FF> relation_parameters;                          // beta, gamma, etc.
+
+        // Libra ZK correction data (for ECCVMFieldCircuit relation evaluation)
+        FF libra_evaluation;                              // Claimed Libra evaluation
+        FF libra_challenge;                               // Libra challenge
+
+        // Translation data (for ECCVMFieldCircuit accumulated_result computation)
+        std::array<FF, 5> translation_evaluations{};     // op, Px, Py, z1, z2
+        FF translation_masking_term_eval;                 // masking term evaluation
     };
 
     // Unified constructor for both native and recursive verification
@@ -153,18 +167,6 @@ template <typename Flavor> class ECCVMVerifier_ {
     {
         return { evaluation_challenge_x, batching_challenge_v, accumulated_result };
     }
-
-    /**
-     * @brief Advance the transcript through all ECCVM proof elements WITHOUT doing verification.
-     * @details Reads all proof elements (commitments, evaluations) and derives all challenges
-     * from the transcript, advancing its Fiat-Shamir hash state. Does NOT perform sumcheck,
-     * Shplemini, or any MSMs. Returns TranslatorInputData computed from the derived challenges.
-     *
-     * Used in the split Chonk_B circuit: the transcript must advance through the ECCVM proof
-     * for Fiat-Shamir continuity before the Translator, but the actual ECCVM verification
-     * happens via ECCVMFieldCircuit (Chonk_G) + ECCVMECCircuit (Chonk_B) separately.
-     */
-    TranslatorInputData advance_transcript_only();
 
     std::shared_ptr<VerificationKey> get_verification_key() const { return key; }
     std::shared_ptr<Transcript> get_transcript() const { return transcript; }

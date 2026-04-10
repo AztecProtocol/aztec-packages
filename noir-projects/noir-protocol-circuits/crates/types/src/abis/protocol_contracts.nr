@@ -24,6 +24,7 @@ impl ProtocolContracts {
         for i in 1..MAX_PROTOCOL_CONTRACTS + 1 {
             // If any `i` matches, then `acc` will collapse to `0`.
             acc *= (contract_address.to_field() - i as Field);
+            std::as_witness(acc);
         }
         // If you think of acc as representing a polynomial (x - 1)*(x - 2)*(x - 3)*...*(x - 10)*(x - 11),
         // then this polynomial only has roots 1,2,3,...,10,11.

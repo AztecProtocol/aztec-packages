@@ -1,0 +1,1 @@
+barretenberg_module(split_chonk_bench vm2_stub chonk stdlib_honk_verifier stdlib_sha256 stdlib_primitives)

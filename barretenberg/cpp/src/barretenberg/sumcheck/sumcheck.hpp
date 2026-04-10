@@ -167,6 +167,7 @@ template <typename Flavor, bool HasZK = Flavor::HasZK> struct VerifierZKCorrecti
     {}
 
     FF get_libra_evaluation() const { return libra_evaluation; }
+    FF get_libra_challenge() const { return libra_challenge; }
 };
 
 /**
@@ -218,6 +219,7 @@ template <typename Flavor> struct VerifierZKCorrectionHandler<Flavor, true> {
     }
 
     FF get_libra_evaluation() const { return libra_evaluation; }
+    FF get_libra_challenge() const { return libra_challenge; }
 };
 
 /*! \brief The implementation of the sumcheck Prover for statements of the form \f$\sum_{\vec \ell \in \{0,1\}^d}
@@ -984,6 +986,7 @@ template <typename Flavor> class SumcheckVerifier {
                                        .claimed_evaluations = purported_evaluations,
                                        .verified = verified,
                                        .claimed_libra_evaluation = zk_correction_handler.get_libra_evaluation(),
+                                       .libra_challenge = zk_correction_handler.get_libra_challenge(),
                                        .round_univariate_commitments = round.get_round_univariate_commitments(),
                                        .round_univariate_evaluations = round.get_round_univariate_evaluations() };
     };

@@ -35,16 +35,15 @@ class MegaFieldCircuit {
   public:
     using Builder = UltraCircuitBuilder;
     using RecursiveFlavor = MegaZKRecursiveFlavor_<Builder>;
-    using RecursiveBaseFlavor = MegaRecursiveFlavor_<Builder>;
     using NativeFlavor = MegaZKFlavor;
     using FF = typename RecursiveFlavor::FF;
     using BF = stdlib::bigfield<Builder, bb::Bn254FqParams>;
     using Commitment = typename RecursiveFlavor::Commitment;
-    using RecTranscript = typename RecursiveBaseFlavor::Transcript;
+    using RecTranscript = typename RecursiveFlavor::Transcript;
     using NativeVK = typename NativeFlavor::VerificationKey;
-    using RecursiveVKAndHash = typename RecursiveBaseFlavor::VKAndHash;
-    // Use DefaultIO for the recursive verifier — compute_field_verification() doesn't use IO.
-    // HidingKernelIO extraction happens in the combined Chonk_B circuit (Phase 5).
+    using RecursiveVKAndHash = typename RecursiveFlavor::VKAndHash;
+    // IO type for the recursive verifier. DefaultIO for tests, HidingKernelIO for IVC proofs.
+    // The IO handler affects how public inputs are extracted but doesn't affect field verification.
     using RecursiveVerifier =
         UltraVerifier_<RecursiveFlavor, stdlib::recursion::honk::DefaultIO<Builder>>;
 
@@ -144,7 +143,13 @@ class MegaFieldCircuit {
         RecursiveVerifier verifier(vk_and_hash, transcript);
 
         // Run field verification (Oink → Sumcheck → Shplemini → BatchOpeningClaim)
+        bool builder_ok_before = !builder_.failed();
         auto field_result = verifier.compute_field_verification(stdlib_proof);
+        bool builder_ok_after = !builder_.failed();
+        info("MegaFieldCircuit: recursive field verif result: ", field_result.verified ? "verified" : "FAILED");
+        if (builder_ok_before && !builder_ok_after) {
+            info("MegaFieldCircuit: builder failed DURING compute_field_verification: ", builder_.err());
+        }
 
         // Read W from transcript (constrained by Fiat-Shamir)
         auto W_stdlib = transcript->template receive_from_prover<Commitment>("KZG:W");
