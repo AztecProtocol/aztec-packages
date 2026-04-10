@@ -650,18 +650,21 @@ export class KVArchiverDataStore implements ContractDataSource {
   }
 
   /**
-   * Promotes the proposed checkpoint to a confirmed checkpoint entry.
-   * This is a fast path that skips block re-validation since blocks were already
-   * validated when added via `addProposedBlock`.
-   *
-   * @param l1 - The L1 published data for the checkpoint.
-   * @param attestations - The committee attestations for the checkpoint.
-   * @returns The promoted published checkpoint.
+   * Reads the proposed checkpoint and its blocks from the store and returns a PublishedCheckpoint
+   * without persisting any changes. Used to build the checkpoint for validation before committing.
    */
-  public promoteProposedToCheckpointed(
+  public buildPublishedCheckpointFromProposed(
     l1: L1PublishedData,
     attestations: CommitteeAttestation[],
   ): Promise<PublishedCheckpoint> {
+    return this.#blockStore.buildPublishedCheckpointFromProposed(l1, attestations);
+  }
+
+  /**
+   * Promotes the proposed checkpoint to a confirmed checkpoint entry.
+   * Should only be called after the checkpoint has been validated.
+   */
+  public promoteProposedToCheckpointed(l1: L1PublishedData, attestations: CommitteeAttestation[]): Promise<void> {
     return this.#blockStore.promoteProposedToCheckpointed(l1, attestations);
   }
 

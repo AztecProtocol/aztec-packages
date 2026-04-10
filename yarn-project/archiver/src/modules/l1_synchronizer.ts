@@ -785,7 +785,8 @@ export class ArchiverL1Synchronizer implements Traceable {
           !toPromote &&
           proposed &&
           proposed.checkpointNumber === calldataCheckpoint.checkpointNumber &&
-          proposed.header.equals(calldataCheckpoint.header)
+          proposed.header.equals(calldataCheckpoint.header) &&
+          proposed.archive.root.equals(calldataCheckpoint.archiveRoot)
         ) {
           toPromote = calldataCheckpoint;
           promotedCheckpointNumbers.add(calldataCheckpoint.checkpointNumber);
@@ -799,11 +800,16 @@ export class ArchiverL1Synchronizer implements Traceable {
         fetchBlobsAndBuildPublishedCheckpoint(this.blobClient, checkpoint, this.log, !initialSyncComplete),
       );
 
-      // Phase 4: Promote the matched proposed checkpoint (if any)
+      // Phase 4: Build (but don't persist) the PublishedCheckpoint from proposed data for validation
       let promotedCheckpoint: PublishedCheckpoint | undefined;
       if (toPromote) {
-        this.log.debug(`Promoting proposed checkpoint ${toPromote.checkpointNumber} (skipping blob fetch)`);
-        promotedCheckpoint = await this.updater.promoteProposedCheckpoint(toPromote.l1, toPromote.attestations);
+        this.log.debug(
+          `Building published checkpoint from proposed ${toPromote.checkpointNumber} (skipping blob fetch)`,
+        );
+        promotedCheckpoint = await this.updater.buildPublishedCheckpointFromProposed(
+          toPromote.l1,
+          toPromote.attestations,
+        );
       }
 
       // Phase 5: Merge and sort by L1 block number
@@ -892,7 +898,20 @@ export class ArchiverL1Synchronizer implements Traceable {
       try {
         const updatedValidationResult =
           rollupStatus.validationResult === initialValidationResult ? undefined : rollupStatus.validationResult;
-        // Promoted checkpoints are already stored, so only pass non-promoted ones to addCheckpoints
+
+        // Persist promoted checkpoints that passed validation
+        for (const valid of validCheckpoints) {
+          if (promotedCheckpointNumbers.has(valid.checkpoint.number) && toPromote) {
+            await this.updater.promoteProposedCheckpoint(
+              toPromote.l1,
+              toPromote.attestations,
+              valid,
+              updatedValidationResult,
+            );
+          }
+        }
+
+        // Persist blob-fetched checkpoints via addCheckpoints
         const checkpointsToAdd = validCheckpoints.filter(c => !promotedCheckpointNumbers.has(c.checkpoint.number));
         const [processDuration, result] = await elapsed(() =>
           execInSpan(this.tracer, 'Archiver.addCheckpoints', () =>

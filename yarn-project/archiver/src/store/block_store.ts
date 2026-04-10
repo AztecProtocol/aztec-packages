@@ -695,28 +695,50 @@ export class BlockStore {
   }
 
   /**
-   * Promotes the proposed checkpoint singleton to a confirmed checkpoint entry.
-   * This is a fast path that skips block re-validation since blocks were already
-   * validated when added via `addProposedBlock`.
+   * Reads the proposed checkpoint and its blocks from the store and returns a PublishedCheckpoint
+   * without persisting any changes. Used to build the checkpoint for validation before committing.
    */
-  async promoteProposedToCheckpointed(
+  async buildPublishedCheckpointFromProposed(
     l1: L1PublishedData,
     attestations: CommitteeAttestation[],
   ): Promise<PublishedCheckpoint> {
+    const proposed = await this.getProposedCheckpointOnly();
+    if (!proposed) {
+      throw new Error('Cannot build published checkpoint from proposed: no proposed checkpoint exists');
+    }
+
+    // Read the blocks that were already stored via addProposedBlock
+    const blocks: L2Block[] = [];
+    for (let i = 0; i < proposed.blockCount; i++) {
+      const block = await this.getBlock(BlockNumber(proposed.startBlock + i));
+      if (!block) {
+        throw new BlockNotFoundError(proposed.startBlock + i);
+      }
+      blocks.push(block);
+    }
+
+    // Construct and return the PublishedCheckpoint without writing anything
+    const checkpoint = Checkpoint.from({
+      archive: proposed.archive,
+      header: proposed.header,
+      blocks,
+      number: proposed.checkpointNumber,
+      feeAssetPriceModifier: proposed.feeAssetPriceModifier,
+    });
+
+    return PublishedCheckpoint.from({ checkpoint, l1, attestations });
+  }
+
+  /**
+   * Promotes the proposed checkpoint singleton to a confirmed checkpoint entry.
+   * This persists the checkpoint to the store, clears the proposed singleton, and updates the L1 sync point.
+   * Should only be called after the checkpoint has been validated.
+   */
+  async promoteProposedToCheckpointed(l1: L1PublishedData, attestations: CommitteeAttestation[]): Promise<void> {
     return await this.db.transactionAsync(async () => {
       const proposed = await this.getProposedCheckpointOnly();
       if (!proposed) {
         throw new Error('Cannot promote proposed checkpoint: no proposed checkpoint exists');
-      }
-
-      // Read the blocks that were already stored via addProposedBlock
-      const blocks: L2Block[] = [];
-      for (let i = 0; i < proposed.blockCount; i++) {
-        const block = await this.getBlock(BlockNumber(proposed.startBlock + i));
-        if (!block) {
-          throw new BlockNotFoundError(proposed.startBlock + i);
-        }
-        blocks.push(block);
       }
 
       // Write the checkpoint entry
@@ -739,17 +761,6 @@ export class BlockStore {
 
       // Update the last synced L1 block
       await this.#lastSynchedL1Block.set(l1.blockNumber);
-
-      // Construct and return the PublishedCheckpoint
-      const checkpoint = Checkpoint.from({
-        archive: proposed.archive,
-        header: proposed.header,
-        blocks,
-        number: proposed.checkpointNumber,
-        feeAssetPriceModifier: proposed.feeAssetPriceModifier,
-      });
-
-      return PublishedCheckpoint.from({ checkpoint, l1, attestations });
     });
   }
 
