@@ -13,7 +13,7 @@ import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import type { P2P } from '@aztec/p2p';
 import { protocolContractsHash } from '@aztec/protocol-contracts';
 import { computeFeePayerBalanceLeafSlot } from '@aztec/protocol-contracts/fee-juice';
-import type { GlobalVariableBuilder, SequencerClient } from '@aztec/sequencer-client';
+import type { GlobalVariableBuilder, Sequencer, SequencerClient } from '@aztec/sequencer-client';
 import type { SlasherClientInterface } from '@aztec/slasher';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { BlockHash, type BlockParameter, CheckpointedL2Block, L2Block, type L2BlockSource } from '@aztec/stdlib/block';
@@ -955,6 +955,68 @@ describe('aztec node', () => {
         // reload rejected before mutation
         expect(validatorClient.reloadKeystore).not.toHaveBeenCalled();
       });
+    });
+  });
+
+  describe('mineBlock', () => {
+    const INITIAL_MIN_TXS_PER_BLOCK = 1;
+
+    let sequencerClient: MockProxy<SequencerClient>;
+    let nodeWithSequencer: AztecNodeService;
+
+    /** Simulates block number advancing from `from` to `to` after the first call. */
+    const mockBlockNumberAdvancing = (from: number, to: number) => {
+      let callCount = 0;
+      l2BlockSource.getBlockNumber.mockImplementation(() => {
+        callCount++;
+        return Promise.resolve(callCount > 1 ? BlockNumber(to) : BlockNumber(from));
+      });
+    };
+
+    beforeEach(() => {
+      const sequencer = mock<Sequencer>();
+      sequencer.getConfig.mockReturnValue({ minTxsPerBlock: INITIAL_MIN_TXS_PER_BLOCK } as any);
+
+      sequencerClient = mock<SequencerClient>();
+      sequencerClient.getSequencer.mockReturnValue(sequencer);
+      sequencerClient.trigger.mockReturnValue(Promise.resolve());
+
+      nodeWithSequencer = new AztecNodeService(
+        nodeConfig,
+        p2p,
+        l2BlockSource,
+        mock(),
+        mock(),
+        mock(),
+        worldState,
+        sequencerClient,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        12345,
+        rollupVersion.toNumber(),
+        globalVariablesBuilder,
+        epochCache,
+        getPackageVersion() ?? '',
+        new TestCircuitVerifier(),
+        new TestCircuitVerifier(),
+      );
+    });
+
+    it('throws when no sequencer is running', async () => {
+      await expect(node.mineBlock()).rejects.toThrow('Cannot mine block: no sequencer is running');
+    });
+
+    it('restores minTxsPerBlock after successful block production', async () => {
+      mockBlockNumberAdvancing(5, 6);
+
+      await nodeWithSequencer.mineBlock();
+
+      const updateCalls = sequencerClient.updateConfig.mock.calls;
+      expect(updateCalls[0][0]).toEqual({ minTxsPerBlock: 0 });
+      // Last call to update calls should revert the value to the original
+      expect(updateCalls[1][0]).toEqual({ minTxsPerBlock: INITIAL_MIN_TXS_PER_BLOCK });
     });
   });
 
