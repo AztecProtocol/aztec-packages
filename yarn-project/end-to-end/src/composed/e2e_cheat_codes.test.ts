@@ -7,7 +7,9 @@ import { createAztecNodeDebugClient } from '@aztec/stdlib/interfaces/client';
 
 const { AZTEC_NODE_URL = 'http://localhost:8080', ETHEREUM_HOSTS = 'http://localhost:8545' } = process.env;
 
-describe('e2e_cheat_codes (composed)', () => {
+// Unlike the non-composed e2e_cheat_codes.test.ts these tests are testing that the AztecNodeDebug endpoints get
+// correctly exposed on the node.
+describe('e2e_cheat_codes', () => {
   const logger = createLogger('e2e:cheat_codes');
   let aztecNode: AztecNode;
   let nodeDebug: AztecNodeDebug;
