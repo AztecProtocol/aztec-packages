@@ -22,7 +22,11 @@ describe('e2e_cheat_codes (composed)', () => {
   });
 
   it('warpL2TimeAtLeastTo produces a block with at least the target timestamp', async () => {
-    const targetTimestamp = Math.floor(Date.now() / 1000) + 1000;
+    // We use L1 timestamp instead of wall clock time because previous test suites may have warped L1 time far ahead of
+    // Date.now(), causing the target to appear "in the past" relative to L1. And fundamentally this is the current
+    // approach because L1 is the ultimate source of true time in the system.
+    const currentL1Timestamp = Number(await cheatCodes.eth.lastBlockTimestamp());
+    const targetTimestamp = currentL1Timestamp + 1000;
     await cheatCodes.warpL2TimeAtLeastTo(nodeDebug, targetTimestamp);
 
     const blockNumber = await aztecNode.getBlockNumber();
