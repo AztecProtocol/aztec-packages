@@ -898,12 +898,6 @@ aztec setup-protocol-contracts [options]
 
 ### aztec start
 
-Start the Aztec node or subsystems.
-
-*Generated: Fri 10 Apr 2026 20:38:57 UTC*
-
-> **Note:** If two subsystems share a configuration option, you only need to provide it once. For example, `--archiver.blobSinkUrl` and `--sequencer.blobSinkUrl` point to the same value when both `--archiver` and `--sequencer` options are used with `--node`.
-
 **MISC**
 
 - `--network <value>`
@@ -926,16 +920,12 @@ Start the Aztec node or subsystems.
   Whether to run in fisherman mode.
   *Environment: `$FISHERMAN_MODE`*
 
-
-**LOCAL_NETWORK**
-
 - `--local-network`
   Starts Aztec Local Network
 
 - `--local-network.l1Mnemonic <value>` (default: `test test test test test test test test test test test junk`)
   Mnemonic for L1 accounts. Will be used
   *Environment: `$MNEMONIC`*
-
 
 **API**
 
@@ -971,7 +961,6 @@ Start the Aztec node or subsystems.
   Maximum allowed batch size for JSON RPC batch requests.
   *Environment: `$RPC_MAX_BODY_SIZE`*
 
-
 **ETHEREUM**
 
 - `--l1-chain-id <value>`
@@ -987,15 +976,12 @@ Start the Aztec node or subsystems.
   *Environment: `$L1_CONSENSUS_HOST_URLS`*
 
 - `--l1-consensus-host-api-keys <value>`
-  List of API keys for the corresponding L1 consensus clients, if needed. Added to the end of the corresponding URL as "?key=<api-key>" unless a header is defined
+  List of API keys for the corresponding L1 consensus clients, if needed. Added to the end of the corresponding URL as "?key=&lt;api-key&gt;" unless a header is defined
   *Environment: `$L1_CONSENSUS_HOST_API_KEYS`*
 
 - `--l1-consensus-host-api-key-headers <value>`
-  List of header names for the corresponding L1 consensus client API keys, if needed. Added to the corresponding request as "<api-key-header>: <api-key>"
+  List of header names for the corresponding L1 consensus client API keys, if needed. Added to the corresponding request as "&lt;api-key-header&gt;: &lt;api-key&gt;"
   *Environment: `$L1_CONSENSUS_HOST_API_KEY_HEADERS`*
-
-
-**L1 CONTRACTS**
 
 - `--registry-address <value>`
   The deployed L1 registry contract address.
@@ -1004,7 +990,6 @@ Start the Aztec node or subsystems.
 - `--rollup-version <value>`
   The version of the rollup.
   *Environment: `$ROLLUP_VERSION`*
-
 
 **STORAGE**
 
@@ -1015,7 +1000,6 @@ Start the Aztec node or subsystems.
 - `--data-store-map-size-kb <value>` (default: `134217728`)
   The maximum possible size of a data store DB in KB. Can be overridden by component-specific options.
   *Environment: `$DATA_STORE_MAP_SIZE_KB`*
-
 
 **WORLD STATE**
 
@@ -1031,12 +1015,10 @@ Start the Aztec node or subsystems.
   The number of historic checkpoints worth of blocks to maintain. Values less than 1 mean all history is maintained
   *Environment: `$WS_NUM_HISTORIC_CHECKPOINTS`*
 
-
 **AZTEC NODE**
 
 - `--node`
   Starts Aztec Node with options
-
 
 **ARCHIVER**
 
@@ -1067,10 +1049,6 @@ Start the Aztec node or subsystems.
   The URL of the archive API
   *Environment: `$BLOB_ARCHIVE_API_URL`*
 
-- `--archiver.enableProposerPipelining <value>`
-  Whether to enable build-ahead proposer pipelining.
-  *Environment: `$SEQ_ENABLE_PROPOSER_PIPELINING`*
-
 - `--archiver.archiverPollingIntervalMS <value>` (default: `500`)
   The polling interval in ms for retrieving new L2 blocks and encrypted logs.
   *Environment: `$ARCHIVER_POLLING_INTERVAL_MS`*
@@ -1097,7 +1075,6 @@ Start the Aztec node or subsystems.
 - `--archiver.ethereumAllowNoDebugHosts <value>` (default: `true`)
   Whether to allow starting the archiver without debug/trace method support on Ethereum hosts
   *Environment: `$ETHEREUM_ALLOW_NO_DEBUG_HOSTS`*
-
 
 **SEQUENCER**
 
@@ -1155,6 +1132,10 @@ Start the Aztec node or subsystems.
   Maximum transactions per checkpoint for validation. Proposals exceeding this limit are rejected.
   *Environment: `$VALIDATOR_MAX_TX_PER_CHECKPOINT`*
 
+- `--sequencer.haSigningEnabled <value>`
+  Whether HA signing / slashing protection is enabled
+  *Environment: `$VALIDATOR_HA_SIGNING_ENABLED`*
+
 - `--sequencer.nodeId <value>`
   The unique identifier for this node
   *Environment: `$VALIDATOR_HA_NODE_ID`*
@@ -1174,14 +1155,6 @@ Start the Aztec node or subsystems.
 - `--sequencer.cleanupOldDutiesAfterHours <value>`
   Optional: clean up old duties after this many hours (disabled if not set)
   *Environment: `$VALIDATOR_HA_OLD_DUTIES_MAX_AGE_H`*
-
-- `--sequencer.signingProtectionMapSizeKb <value>`
-  Maximum size of the local signing-protection LMDB store in KB. Overwrites the general dataStoreMapSizeKb.
-  *Environment: `$SIGNING_PROTECTION_MAP_SIZE_KB`*
-
-- `--sequencer.haSigningEnabled <value>`
-  Whether HA signing / slashing protection is enabled
-  *Environment: `$VALIDATOR_HA_SIGNING_ENABLED`*
 
 - `--sequencer.databaseUrl <value>`
   PostgreSQL connection string for validator HA signer (format: postgresql://user:password@host:port/database)
@@ -1230,13 +1203,9 @@ Start the Aztec node or subsystems.
   The maximum DA block gas.
   *Environment: `$SEQ_MAX_DA_BLOCK_GAS`*
 
-- `--sequencer.perBlockAllocationMultiplier <value>` (default: `1.2`)
+- `--sequencer.perBlockAllocationMultiplier <value>` (default: `2`)
   Per-block gas budget multiplier for both L2 and DA gas. Budget per block is (checkpointLimit / maxBlocks) * multiplier. Values greater than one allow early blocks to use more than their even share, relying on checkpoint-level capping for later blocks.
   *Environment: `$SEQ_PER_BLOCK_ALLOCATION_MULTIPLIER`*
-
-- `--sequencer.redistributeCheckpointBudget <value>` (default: `true`)
-  Redistribute remaining checkpoint budget evenly across remaining blocks instead of allowing a single block to consume the entire remaining budget.
-  *Environment: `$SEQ_REDISTRIBUTE_CHECKPOINT_BUDGET`*
 
 - `--sequencer.coinbase <value>`
   Recipient of block reward.
@@ -1360,23 +1329,6 @@ Start the Aztec node or subsystems.
   Address of the forwarder contract to wrap all L1 transactions through (for testing purposes only)
   *Environment: `$SEQ_PUBLISHER_FORWARDER_ADDRESS`*
 
-- `--sequencer.l1TxFailedStore <value>`
-  Store for failed L1 transaction inputs (test networks only). Format: gs://bucket/path
-  *Environment: `$L1_TX_FAILED_STORE`*
-
-- `--sequencer.publisherFundingThreshold <value>`
-  Min ETH balance below which a publisher gets funded. Specified in ether (e.g. 0.1). Unset = funding disabled.
-  *Environment: `$PUBLISHER_FUNDING_THRESHOLD`*
-
-- `--sequencer.publisherFundingAmount <value>`
-  Amount of ETH to send when funding a publisher. Specified in ether (e.g. 0.5). Unset = funding disabled.
-  *Environment: `$PUBLISHER_FUNDING_AMOUNT`*
-
-- `--sequencer.enableProposerPipelining <value>`
-  Whether to enable build-ahead proposer pipelining.
-  *Environment: `$SEQ_ENABLE_PROPOSER_PIPELINING`*
-
-
 **PROVER NODE**
 
 - `--prover-node`
@@ -1407,20 +1359,12 @@ Start the Aztec node or subsystems.
   *Environment: `$BB_SKIP_CLEANUP`*
 
 - `--proverNode.numConcurrentIVCVerifiers <value>` (default: `8`)
-  Max concurrent verifications for the RPC verifier (QueuedIVCVerifier).
+  Max number of chonk verifiers to run concurrently
   *Environment: `$BB_NUM_IVC_VERIFIERS`*
 
 - `--proverNode.bbIVCConcurrency <value>` (default: `1`)
-  Thread count for the RPC IVC verifier.
+  Number of threads to use for IVC verification
   *Environment: `$BB_IVC_CONCURRENCY`*
-
-- `--proverNode.bbChonkVerifyMaxBatch <value>` (default: `16`)
-  Upper bound on proofs per batch for the peer chonk batch verifier. Proofs are verified immediately as they arrive; this only caps how many can accumulate while a batch is already being processed.
-  *Environment: `$BB_CHONK_VERIFY_MAX_BATCH`*
-
-- `--proverNode.bbChonkVerifyConcurrency <value>` (default: `6`)
-  Thread count for the peer batch verifier parallel reduce. 0 = auto.
-  *Environment: `$BB_CHONK_VERIFY_BATCH_CONCURRENCY`*
 
 - `--proverNode.nodeUrl <value>`
   The URL to the Aztec node to take proving jobs from
@@ -1433,10 +1377,6 @@ Start the Aztec node or subsystems.
 - `--proverNode.failedProofStore <value>`
   Store for failed proof inputs. Google cloud storage is only supported at the moment. Set this value as gs://bucket-name/path/to/store.
   *Environment: `$PROVER_FAILED_PROOF_STORE`*
-
-- `--proverNode.enqueueConcurrency <value>` (default: `50`)
-  Max concurrent jobs the orchestrator serializes and enqueues to the broker.
-  *Environment: `$PROVER_ENQUEUE_CONCURRENCY`*
 
 - `--proverNode.blobSinkMapSizeKb <value>`
   The maximum possible size of the blob sink DB in KB. Overwrites the general dataStoreMapSizeKb.
@@ -1470,14 +1410,6 @@ Start the Aztec node or subsystems.
   Address of the forwarder contract to wrap all L1 transactions through (for testing purposes only)
   *Environment: `$PROVER_PUBLISHER_FORWARDER_ADDRESS`*
 
-- `--proverNode.publisherFundingThreshold <value>`
-  Min ETH balance below which a publisher gets funded. Specified in ether (e.g. 0.1). Unset = funding disabled.
-  *Environment: `$PUBLISHER_FUNDING_THRESHOLD`*
-
-- `--proverNode.publisherFundingAmount <value>`
-  Amount of ETH to send when funding a publisher. Specified in ether (e.g. 0.5). Unset = funding disabled.
-  *Environment: `$PUBLISHER_FUNDING_AMOUNT`*
-
 - `--proverNode.proverPublisherPrivateKeys <value>`
   The private keys to be used by the prover publisher.
   *Environment: `$PROVER_PUBLISHER_PRIVATE_KEYS`*
@@ -1494,7 +1426,7 @@ Start the Aztec node or subsystems.
   The interval in milliseconds to poll for new jobs
   *Environment: `$PROVER_NODE_POLLING_INTERVAL_MS`*
 
-- `--proverNode.proverNodeMaxParallelBlocksPerEpoch <value>`
+- `--proverNode.proverNodeMaxParallelBlocksPerEpoch <value>` (default: `32`)
   The Maximum number of blocks to process in parallel while proving an epoch
   *Environment: `$PROVER_NODE_MAX_PARALLEL_BLOCKS_PER_EPOCH`*
 
@@ -1528,7 +1460,6 @@ Start the Aztec node or subsystems.
 - `--proverNode.web3SignerUrl <value>`
   URL of the Web3Signer instance
   *Environment: `$WEB3_SIGNER_URL`*
-
 
 **PROVER BROKER**
 
@@ -1566,7 +1497,6 @@ Start the Aztec node or subsystems.
 - `--proverBroker.proverBrokerDebugReplayEnabled <value>`
   Enable debug replay mode for replaying proving jobs from stored inputs
   *Environment: `$PROVER_BROKER_DEBUG_REPLAY_ENABLED`*
-
 
 **PROVER AGENT**
 
@@ -1617,9 +1547,6 @@ Start the Aztec node or subsystems.
   Optional proof input store for the prover
   *Environment: `$PROVER_PROOF_STORE`*
 
-
-**P2P SUBSYSTEM**
-
 - `--p2p-enabled [value]`
   Enable P2P subsystem
   *Environment: `$P2P_ENABLED`*
@@ -1627,18 +1554,6 @@ Start the Aztec node or subsystems.
 - `--p2p.validateMaxTxsPerBlock <value>`
   Maximum transactions per block for validation. Overrides maxTxsPerBlock for gossip validation when set.
   *Environment: `$VALIDATOR_MAX_TX_PER_BLOCK`*
-
-- `--p2p.validateMaxTxsPerCheckpoint <value>`
-  Maximum transactions per checkpoint for validation. Used as fallback for maxTxsPerBlock when that is not set.
-  *Environment: `$VALIDATOR_MAX_TX_PER_CHECKPOINT`*
-
-- `--p2p.validateMaxL2BlockGas <value>`
-  Maximum L2 gas per block for validation. When set, txs exceeding this limit are rejected.
-  *Environment: `$VALIDATOR_MAX_L2_BLOCK_GAS`*
-
-- `--p2p.validateMaxDABlockGas <value>`
-  Maximum DA gas per block for validation. When set, txs exceeding this limit are rejected.
-  *Environment: `$VALIDATOR_MAX_DA_BLOCK_GAS`*
 
 - `--p2p.p2pDiscoveryDisabled <value>`
   A flag dictating whether the P2P discovery system should be disabled.
@@ -1659,10 +1574,6 @@ Start the Aztec node or subsystems.
 - `--p2p.peerCheckIntervalMS <value>` (default: `30000`)
   The frequency in which to check for new peers.
   *Environment: `$P2P_PEER_CHECK_INTERVAL_MS`*
-
-- `--p2p.peerFailedBanTimeMs <value>` (default: `300000`)
-  How long to ban a peer after it fails maximum dial attempts.
-  *Environment: `$P2P_PEER_FAILED_BAN_TIME_MS`*
 
 - `--p2p.l2QueueSize <value>` (default: `1000`)
   Size of queue of L2 blocks to store.
@@ -1816,6 +1727,10 @@ Start the Aztec node or subsystems.
   Number of auth attempts to allow before peer is banned. Number is inclusive
   *Environment: `$P2P_MAX_AUTH_FAILED_ATTEMPTS_ALLOWED`*
 
+- `--p2p.dropTransactions <value>`
+  True to simulate discarding transactions. - For testing purposes only
+  *Environment: `$P2P_DROP_TX`*
+
 - `--p2p.dropTransactionsProbability <value>`
   The probability that a transaction is discarded (0 - 1). - For testing purposes only
   *Environment: `$P2P_DROP_TX_CHANCE`*
@@ -1884,7 +1799,7 @@ Start the Aztec node or subsystems.
   *Environment: `$P2P_BATCH_TX_REQUESTER_TX_BATCH_SIZE`*
 
 - `--p2p.batchTxRequesterBadPeerThreshold <value>` (default: `2`)
-  Failures before a peer is considered bad (see > threshold logic).
+  Failures before a peer is considered bad (see &gt; threshold logic).
   *Environment: `$P2P_BATCH_TX_REQUESTER_BAD_PEER_THRESHOLD`*
 
 - `--p2p.txCollectionFastNodesTimeoutBeforeReqRespMs <value>` (default: `200`)
@@ -1983,9 +1898,6 @@ Start the Aztec node or subsystems.
   Enable uploading transactions to file storage
   *Environment: `$TX_FILE_STORE_ENABLED`*
 
-
-**P2P BOOTSTRAP**
-
 - `--p2p-bootstrap`
   Starts Aztec P2P Bootstrap with options
 
@@ -2000,7 +1912,6 @@ Start the Aztec node or subsystems.
 - `--p2pBootstrap.queryForIp <value>`
   If announceUdpAddress or announceTcpAddress are not provided, query for the IP address of the machine. Default is false.
   *Environment: `$P2P_QUERY_FOR_IP`*
-
 
 **TELEMETRY**
 
@@ -2033,159 +1944,8 @@ Start the Aztec node or subsystems.
   *Environment: `$OTEL_INCLUDE_METRICS`*
 
 - `--tel.publicMetricsCollectorUrl <value>`
-  A URL to publish a subset of metrics for public consumption
+  A URL to publish a subset of met
   *Environment: `$PUBLIC_OTEL_EXPORTER_OTLP_METRICS_ENDPOINT`*
-
-- `--tel.publicMetricsCollectFrom <value>`
-  The role types to collect metrics from
-  *Environment: `$PUBLIC_OTEL_COLLECT_FROM`*
-
-- `--tel.publicIncludeMetrics <value>`
-  A list of metric prefixes to publicly export
-  *Environment: `$PUBLIC_OTEL_INCLUDE_METRICS`*
-
-- `--tel.publicMetricsOptOut <value>` (default: `true`)
-  Whether to opt out of sharing optional telemetry
-  *Environment: `$PUBLIC_OTEL_OPT_OUT`*
-
-
-**BOT**
-
-- `--bot`
-  Starts Aztec Bot with options
-
-- `--bot.nodeUrl <value>`
-  The URL to the Aztec node to check for tx pool status.
-  *Environment: `$AZTEC_NODE_URL`*
-
-- `--bot.nodeAdminUrl <value>`
-  The URL to the Aztec node admin API to force-flush txs if configured.
-  *Environment: `$AZTEC_NODE_ADMIN_URL`*
-
-- `--bot.l1Mnemonic <value>`
-  The mnemonic for the account to bridge fee juice from L1.
-  *Environment: `$BOT_L1_MNEMONIC`*
-
-- `--bot.l1PrivateKey <value>`
-  The private key for the account to bridge fee juice from L1.
-  *Environment: `$BOT_L1_PRIVATE_KEY`*
-
-- `--bot.l1ToL2MessageTimeoutSeconds <value>` (default: `3600`)
-  How long to wait for L1 to L2 messages to become available on L2
-  *Environment: `$BOT_L1_TO_L2_TIMEOUT_SECONDS`*
-
-- `--bot.senderPrivateKey <value>`
-  Signing private key for the sender account.
-  *Environment: `$BOT_PRIVATE_KEY`*
-
-- `--bot.senderSalt <value>`
-  The salt to use to deploy the sender account.
-  *Environment: `$BOT_ACCOUNT_SALT`*
-
-- `--bot.tokenSalt <value>` (default: `0x0000000000000000000000000000000000000000000000000000000000000001`)
-  The salt to use to deploy the token contract.
-  *Environment: `$BOT_TOKEN_SALT`*
-
-- `--bot.txIntervalSeconds <value>` (default: `60`)
-  Every how many seconds should a new tx be sent.
-  *Environment: `$BOT_TX_INTERVAL_SECONDS`*
-
-- `--bot.privateTransfersPerTx <value>` (default: `1`)
-  How many private token transfers are executed per tx.
-  *Environment: `$BOT_PRIVATE_TRANSFERS_PER_TX`*
-
-- `--bot.publicTransfersPerTx <value>` (default: `1`)
-  How many public token transfers are executed per tx.
-  *Environment: `$BOT_PUBLIC_TRANSFERS_PER_TX`*
-
-- `--bot.feePaymentMethod <value>` (default: `fee_juice`)
-  How to handle fee payments. (Options: fee_juice)
-  *Environment: `$BOT_FEE_PAYMENT_METHOD`*
-
-- `--bot.minFeePadding <value>` (default: `3`)
-  How much is the bot willing to overpay vs. the current base fee
-  *Environment: `$BOT_MIN_FEE_PADDING`*
-
-- `--bot.noStart <value>`
-  True to not automatically setup or start the bot on initialization.
-  *Environment: `$BOT_NO_START`*
-
-- `--bot.txMinedWaitSeconds <value>` (default: `180`)
-  How long to wait for a tx to be mined before reporting an error.
-  *Environment: `$BOT_TX_MINED_WAIT_SECONDS`*
-
-- `--bot.followChain <value>` (default: `NONE`)
-  Which chain the bot follows
-  *Environment: `$BOT_FOLLOW_CHAIN`*
-
-- `--bot.maxPendingTxs <value>` (default: `128`)
-  Do not send a tx if the node's tx pool already has this many pending txs.
-  *Environment: `$BOT_MAX_PENDING_TXS`*
-
-- `--bot.flushSetupTransactions <value>`
-  Make a request for the sequencer to build a block after each setup transaction.
-  *Environment: `$BOT_FLUSH_SETUP_TRANSACTIONS`*
-
-- `--bot.l2GasLimit <value>`
-  L2 gas limit for the tx (empty to let the bot's wallet estimate).
-  *Environment: `$BOT_L2_GAS_LIMIT`*
-
-- `--bot.daGasLimit <value>`
-  DA gas limit for the tx (empty to let the bot's wallet estimate).
-  *Environment: `$BOT_DA_GAS_LIMIT`*
-
-- `--bot.contract <value>` (default: `TokenContract`)
-  Token contract to use
-  *Environment: `$BOT_TOKEN_CONTRACT`*
-
-- `--bot.maxConsecutiveErrors <value>`
-  The maximum number of consecutive errors before the bot shuts down
-  *Environment: `$BOT_MAX_CONSECUTIVE_ERRORS`*
-
-- `--bot.stopWhenUnhealthy <value>`
-  Stops the bot if service becomes unhealthy
-  *Environment: `$BOT_STOP_WHEN_UNHEALTHY`*
-
-- `--bot.botMode <value>` (default: `transfer`)
-  Bot mode: transfer, amm, or crosschain
-  *Environment: `$BOT_MODE`*
-
-- `--bot.l2ToL1MessagesPerTx <value>` (default: `1`)
-  Number of L2→L1 messages per tx (crosschain mode)
-  *Environment: `$BOT_L2_TO_L1_MESSAGES_PER_TX`*
-
-- `--bot.l1ToL2SeedCount <value>` (default: `1`)
-  Max L1→L2 messages to keep in-flight (crosschain mode)
-  *Environment: `$BOT_L1_TO_L2_SEED_COUNT`*
-
-
-**PXE**
-
-- `--pxe`
-  Configures the PXE component within a node (use with --node)
-
-- `--pxe.l2BlockBatchSize <value>` (default: `50`)
-  Maximum amount of blocks to pull from the stream in one request when synchronizing
-  *Environment: `$PXE_L2_BLOCK_BATCH_SIZE`*
-
-- `--pxe.proverEnabled <value>` (default: `true`)
-  Enable real proofs
-  *Environment: `$PXE_PROVER_ENABLED`*
-
-- `--pxe.syncChainTip <value>` (default: `proposed`)
-  Which chain tip to sync to (proposed, checkpointed, proven, finalized)
-  *Environment: `$PXE_SYNC_CHAIN_TIP`*
-
-- `--pxe.nodeUrl <value>`
-  Custom Aztec Node URL to connect to
-  *Environment: `$AZTEC_NODE_URL`*
-
-
-**TXE**
-
-- `--txe`
-  Starts Aztec TXE with options
-
 
 ### aztec test
 
