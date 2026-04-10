@@ -18,3 +18,8 @@ if(NOT benchmark_FOUND)
     set_property(DIRECTORY ${benchmark_SOURCE_DIR} PROPERTY EXCLUDE_FROM_ALL)
     set_property(DIRECTORY ${benchmark_BINARY_DIR} PROPERTY EXCLUDE_FROM_ALL)
 endif()
+
+# Suppress C2y extension warning in Google Benchmark (benchmark.h uses __COUNTER__)
+if(TARGET benchmark)
+    target_compile_options(benchmark PRIVATE -Wno-c2y-extensions)
+endif()
