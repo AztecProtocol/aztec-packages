@@ -67,8 +67,21 @@ describe('e2e_cheat_codes (composed)', () => {
     await expect(cheatCodes.warpL2TimeAtLeastBy(nodeDebug, 0)).rejects.toThrow('duration must be positive');
   });
 
+  it('warpL2TimeAtLeastTo with target in current slot auto-adjusts to next slot', async () => {
+    // Target is 1 second ahead of L1 time — still in the current slot, so auto-adjust should kick in.
+    const currentL1Timestamp = Number(await cheatCodes.eth.lastBlockTimestamp());
+    const targetTimestamp = currentL1Timestamp + 1;
+    await cheatCodes.warpL2TimeAtLeastTo(nodeDebug, targetTimestamp);
+
+    const blockNumber = await aztecNode.getBlockNumber();
+    const block = await aztecNode.getBlock(blockNumber);
+    expect(block).toBeDefined();
+    expect(Number(block!.header.globalVariables.timestamp)).toBeGreaterThanOrEqual(targetTimestamp);
+  });
+
   it('warpL2TimeAtLeastTo with past timestamp throws', async () => {
-    const pastTimestamp = Math.floor(Date.now() / 1000) - 1000;
+    const currentL1Timestamp = Number(await cheatCodes.eth.lastBlockTimestamp());
+    const pastTimestamp = currentL1Timestamp - 1000;
     await expect(cheatCodes.warpL2TimeAtLeastTo(nodeDebug, pastTimestamp)).rejects.toThrow('is not in the future');
   });
 });
