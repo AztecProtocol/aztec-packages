@@ -20,6 +20,7 @@ import type { BootstrapNode } from '@aztec/p2p/bootstrap';
 import { createBootstrapNodeFromPrivateKey, getBootstrapNodeEnr } from '@aztec/p2p/test-helpers';
 import { tryStop } from '@aztec/stdlib/interfaces/server';
 import { TopicType } from '@aztec/stdlib/p2p';
+import { TxStatus } from '@aztec/stdlib/tx';
 import type { GenesisData } from '@aztec/stdlib/world-state';
 import { ZkPassportProofParams } from '@aztec/stdlib/zkpassport';
 import { getGenesisValues } from '@aztec/world-state/testing';
@@ -299,10 +300,11 @@ export class P2PNetworkTest {
 
   async setupAccount() {
     this.logger.info('Setting up account');
-    const { deployedAccounts } = await deployAccounts(
-      1,
-      this.logger,
-    )({
+    const { deployedAccounts } = await deployAccounts(1, this.logger, {
+      wait: {
+        waitForStatus: TxStatus.CHECKPOINTED,
+      },
+    })({
       wallet: this.context.wallet,
       initialFundedAccounts: this.context.initialFundedAccounts,
     });
