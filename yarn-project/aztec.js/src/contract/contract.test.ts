@@ -6,12 +6,13 @@ import {
   type ContractInstanceWithAddress,
   getContractClassFromArtifact,
 } from '@aztec/stdlib/contract';
-import type { TxExecutionRequest, TxReceipt, TxSimulationResult, UtilityExecutionResult } from '@aztec/stdlib/tx';
+import type { TxExecutionRequest, TxReceipt, UtilityExecutionResult } from '@aztec/stdlib/tx';
 import { OFFCHAIN_MESSAGE_IDENTIFIER } from '@aztec/stdlib/tx';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
 import type { Account } from '../account/account.js';
+import type { TxSimulationResultWithAppOffset } from '../wallet/tx_simulation_result_with_app_offset.js';
 import type { Wallet } from '../wallet/wallet.js';
 import { Contract } from './contract.js';
 
@@ -24,7 +25,10 @@ describe('Contract Class', () => {
 
   const mockTxRequest = { type: 'TxRequest' } as any as TxExecutionRequest;
   const mockTxReceipt = { type: 'TxReceipt' } as any as TxReceipt;
-  const mockTxSimulationResult = { type: 'TxSimulationResult', result: 1n } as any as TxSimulationResult;
+  const mockTxSimulationResultWithAppOffset = {
+    type: 'TxSimulationResultWithAppOffset',
+    result: 1n,
+  } as any as TxSimulationResultWithAppOffset;
   const mockUtilityResultValue = {
     result: [new Fr(42)],
     offchainEffects: [],
@@ -198,7 +202,7 @@ describe('Contract Class', () => {
     } as ContractInstanceWithAddress;
 
     wallet = mock<Wallet>();
-    wallet.simulateTx.mockResolvedValue(mockTxSimulationResult);
+    wallet.simulateTx.mockResolvedValue(mockTxSimulationResultWithAppOffset);
     account.createTxExecutionRequest.mockResolvedValue(mockTxRequest);
     wallet.registerContract.mockResolvedValue(contractInstance);
     wallet.sendTx.mockResolvedValue({ receipt: mockTxReceipt, offchainEffects: [], offchainMessages: [] });
@@ -231,8 +235,8 @@ describe('Contract Class', () => {
     const msgPayload = [Fr.random(), Fr.random()];
     const anchorBlockTimestamp = 9999n;
 
-    const txSimResult = mock<TxSimulationResult>();
-    txSimResult.getPrivateReturnValues.mockReturnValue({ nested: [{ values: [] }] } as any);
+    const txSimResult = mock<TxSimulationResultWithAppOffset>();
+    txSimResult.getPrivateReturnValuesOfAppCall.mockReturnValue({ values: [] } as any);
     Object.defineProperty(txSimResult, 'offchainEffects', {
       value: [
         {
