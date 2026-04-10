@@ -101,18 +101,7 @@ describe('e2e_contract_updates', () => {
       initialFundedAccounts,
     }));
 
-<<<<<<< HEAD
-    if (!maybeSequencer) {
-      throw new Error('Sequencer client not found');
-    }
-    sequencer = maybeSequencer;
-
-    ({
-      receipt: { contract, instance },
-    } = await UpdatableContract.deploy(wallet, constructorArgs[0]).send({
-=======
     ({ contract, instance } = await UpdatableContract.deploy(wallet, constructorArgs[0]).send({
->>>>>>> 53b278e87a (feat: add RPC endpoints to manipulate time (#22084))
       from: defaultAccountAddress,
       contractAddressSalt: salt,
       wait: { returnReceipt: true },

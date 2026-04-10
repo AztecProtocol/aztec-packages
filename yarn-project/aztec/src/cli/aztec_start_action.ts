@@ -7,11 +7,7 @@ import {
 } from '@aztec/foundation/json-rpc/server';
 import type { LogFn, Logger } from '@aztec/foundation/log';
 import type { ChainConfig } from '@aztec/stdlib/config';
-<<<<<<< HEAD
-import { AztecNodeApiSchema } from '@aztec/stdlib/interfaces/client';
-=======
 import { AztecNodeAdminApiSchema, AztecNodeApiSchema, AztecNodeDebugApiSchema } from '@aztec/stdlib/interfaces/client';
->>>>>>> 53b278e87a (feat: add RPC endpoints to manipulate time (#22084))
 import { getPackageVersion } from '@aztec/stdlib/update-checker';
 import { getVersioningMiddleware } from '@aztec/stdlib/versioning';
 import { getOtelJsonRpcPropagationMiddleware } from '@aztec/telemetry-client';
@@ -54,11 +50,8 @@ export async function aztecStart(options: any, userLog: LogFn, debugLogger: Logg
     // Start Node and PXE JSON-RPC server
     signalHandlers.push(stop);
     services.node = [node, AztecNodeApiSchema];
-<<<<<<< HEAD
-=======
     adminServices.node = [node, AztecNodeAdminApiSchema];
     services.nodeDebug = [node, AztecNodeDebugApiSchema];
->>>>>>> 53b278e87a (feat: add RPC endpoints to manipulate time (#22084))
   } else {
     // Route --prover-node through startNode
     if (options.proverNode && !options.node) {
