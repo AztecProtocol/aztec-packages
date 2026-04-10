@@ -3,11 +3,7 @@ import { FunctionCall, FunctionSelector, FunctionType } from '@aztec/stdlib/abi'
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
   ExecutionPayload,
-<<<<<<< HEAD
-=======
-  HashedValues,
   NestedProcessReturnValues,
->>>>>>> a186a55268 (fix: passing in user call info from wallet (#21937))
   OFFCHAIN_MESSAGE_IDENTIFIER,
   type OffchainEffect,
   UtilityExecutionResult,
