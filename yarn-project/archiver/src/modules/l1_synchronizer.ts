@@ -23,10 +23,11 @@ import { type Traceable, type Tracer, execInSpan, trackSpan } from '@aztec/telem
 
 import { InitialCheckpointNumberNotSequentialError } from '../errors.js';
 import {
-  retrieveCheckpointsFromRollup,
+  type CalldataOnlyCheckpoint,
+  fetchBlobsAndBuildPublishedCheckpoint,
+  retrieveCheckpointCalldataFromRollup,
   retrieveL1ToL2Message,
   retrieveL1ToL2Messages,
-  retrievedToPublishedCheckpoint,
 } from '../l1/data_retrieval.js';
 import type { KVArchiverDataStore } from '../store/kv_archiver_store.js';
 import type { L2TipsCache } from '../store/l2_tips_cache.js';
@@ -744,22 +745,20 @@ export class ArchiverL1Synchronizer implements Traceable {
 
       this.log.trace(`Retrieving checkpoints from L1 block ${searchStartBlock} to ${searchEndBlock}`);
 
-      // TODO(md): Retrieve from blob client then from consensus client, then from peers
-      const retrievedCheckpoints = await execInSpan(this.tracer, 'Archiver.retrieveCheckpointsFromRollup', () =>
-        retrieveCheckpointsFromRollup(
+      // Phase 1: Fetch calldata only (no blobs yet)
+      const calldataCheckpoints = await execInSpan(this.tracer, 'Archiver.retrieveCheckpointCalldataFromRollup', () =>
+        retrieveCheckpointCalldataFromRollup(
           this.rollup,
           this.publicClient,
           this.debugClient,
-          this.blobClient,
           searchStartBlock, // TODO(palla/reorg): If the L2 reorg was due to an L1 reorg, we need to start search earlier
           searchEndBlock,
           this.instrumentation,
           this.log,
-          !initialSyncComplete, // isHistoricalSync
         ),
       );
 
-      if (retrievedCheckpoints.length === 0) {
+      if (calldataCheckpoints.length === 0) {
         // We are not calling `setBlockSynchedL1BlockNumber` because it may cause sync issues if based off infura.
         // See further details in earlier comments.
         this.log.trace(`Retrieved no new checkpoints from L1 block ${searchStartBlock} to ${searchEndBlock}`);
@@ -767,15 +766,50 @@ export class ArchiverL1Synchronizer implements Traceable {
       }
 
       this.log.debug(
-        `Retrieved ${retrievedCheckpoints.length} new checkpoints between L1 blocks ${searchStartBlock} and ${searchEndBlock}`,
+        `Retrieved ${calldataCheckpoints.length} new checkpoint calldata between L1 blocks ${searchStartBlock} and ${searchEndBlock}`,
         {
-          lastProcessedCheckpoint: retrievedCheckpoints[retrievedCheckpoints.length - 1].l1,
+          lastProcessedCheckpoint: calldataCheckpoints[calldataCheckpoints.length - 1].l1,
           searchStartBlock,
           searchEndBlock,
         },
       );
 
-      const publishedCheckpoints = await Promise.all(retrievedCheckpoints.map(b => retrievedToPublishedCheckpoint(b)));
+      // Phase 2: Partition into checkpoints that match the proposed checkpoint (can skip blobs) vs those that need blobs
+      const proposed = await this.store.getProposedCheckpointOnly();
+      let toPromote: CalldataOnlyCheckpoint | undefined;
+      const toFetchBlobs: CalldataOnlyCheckpoint[] = [];
+      const promotedCheckpointNumbers = new Set<number>();
+
+      for (const calldataCheckpoint of calldataCheckpoints) {
+        if (
+          !toPromote &&
+          proposed &&
+          proposed.checkpointNumber === calldataCheckpoint.checkpointNumber &&
+          proposed.header.equals(calldataCheckpoint.header)
+        ) {
+          toPromote = calldataCheckpoint;
+          promotedCheckpointNumbers.add(calldataCheckpoint.checkpointNumber);
+        } else {
+          toFetchBlobs.push(calldataCheckpoint);
+        }
+      }
+
+      // Phase 3: Fetch blobs in parallel for non-matching checkpoints
+      const blobFetched = await asyncPool(10, toFetchBlobs, checkpoint =>
+        fetchBlobsAndBuildPublishedCheckpoint(this.blobClient, checkpoint, this.log, !initialSyncComplete),
+      );
+
+      // Phase 4: Promote the matched proposed checkpoint (if any)
+      let promotedCheckpoint: PublishedCheckpoint | undefined;
+      if (toPromote) {
+        this.log.debug(`Promoting proposed checkpoint ${toPromote.checkpointNumber} (skipping blob fetch)`);
+        promotedCheckpoint = await this.updater.promoteProposedCheckpoint(toPromote.l1, toPromote.attestations);
+      }
+
+      // Phase 5: Merge and sort by L1 block number
+      const publishedCheckpoints = [...blobFetched, ...(promotedCheckpoint ? [promotedCheckpoint] : [])].sort((a, b) =>
+        Number(a.l1.blockNumber - b.l1.blockNumber),
+      );
       const validCheckpoints: PublishedCheckpoint[] = [];
 
       for (const published of publishedCheckpoints) {
@@ -858,9 +892,11 @@ export class ArchiverL1Synchronizer implements Traceable {
       try {
         const updatedValidationResult =
           rollupStatus.validationResult === initialValidationResult ? undefined : rollupStatus.validationResult;
+        // Promoted checkpoints are already stored, so only pass non-promoted ones to addCheckpoints
+        const checkpointsToAdd = validCheckpoints.filter(c => !promotedCheckpointNumbers.has(c.checkpoint.number));
         const [processDuration, result] = await elapsed(() =>
           execInSpan(this.tracer, 'Archiver.addCheckpoints', () =>
-            this.updater.addCheckpoints(validCheckpoints, updatedValidationResult),
+            this.updater.addCheckpoints(checkpointsToAdd, updatedValidationResult),
           ),
         );
 
@@ -922,7 +958,7 @@ export class ArchiverL1Synchronizer implements Traceable {
         });
       }
       lastRetrievedCheckpoint = validCheckpoints.at(-1) ?? lastRetrievedCheckpoint;
-      lastL1BlockWithCheckpoint = retrievedCheckpoints.at(-1)?.l1.blockNumber ?? lastL1BlockWithCheckpoint;
+      lastL1BlockWithCheckpoint = calldataCheckpoints.at(-1)?.l1.blockNumber ?? lastL1BlockWithCheckpoint;
     } while (searchEndBlock < currentL1BlockNumber);
 
     // Important that we update AFTER inserting the blocks.

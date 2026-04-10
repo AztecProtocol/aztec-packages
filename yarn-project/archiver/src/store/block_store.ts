@@ -694,6 +694,65 @@ export class BlockStore {
     await this.#proposedCheckpoint.delete();
   }
 
+  /**
+   * Promotes the proposed checkpoint singleton to a confirmed checkpoint entry.
+   * This is a fast path that skips block re-validation since blocks were already
+   * validated when added via `addProposedBlock`.
+   */
+  async promoteProposedToCheckpointed(
+    l1: L1PublishedData,
+    attestations: CommitteeAttestation[],
+  ): Promise<PublishedCheckpoint> {
+    return await this.db.transactionAsync(async () => {
+      const proposed = await this.getProposedCheckpointOnly();
+      if (!proposed) {
+        throw new Error('Cannot promote proposed checkpoint: no proposed checkpoint exists');
+      }
+
+      // Read the blocks that were already stored via addProposedBlock
+      const blocks: L2Block[] = [];
+      for (let i = 0; i < proposed.blockCount; i++) {
+        const block = await this.getBlock(BlockNumber(proposed.startBlock + i));
+        if (!block) {
+          throw new BlockNotFoundError(proposed.startBlock + i);
+        }
+        blocks.push(block);
+      }
+
+      // Write the checkpoint entry
+      await this.#checkpoints.set(proposed.checkpointNumber, {
+        header: proposed.header.toBuffer(),
+        archive: proposed.archive.toBuffer(),
+        checkpointOutHash: proposed.checkpointOutHash.toBuffer(),
+        l1: l1.toBuffer(),
+        attestations: attestations.map(attestation => attestation.toBuffer()),
+        checkpointNumber: proposed.checkpointNumber,
+        startBlock: proposed.startBlock,
+        blockCount: proposed.blockCount,
+      });
+
+      // Update the slot-to-checkpoint index
+      await this.#slotToCheckpoint.set(proposed.header.slotNumber, proposed.checkpointNumber);
+
+      // Clear the proposed checkpoint singleton
+      await this.#proposedCheckpoint.delete();
+
+      // Update the last synced L1 block
+      await this.#lastSynchedL1Block.set(l1.blockNumber);
+
+      // Construct and return the PublishedCheckpoint
+      const checkpoint = Checkpoint.from({
+        archive: proposed.archive,
+        header: proposed.header,
+        blocks,
+        number: proposed.checkpointNumber,
+        feeAssetPriceModifier: proposed.feeAssetPriceModifier,
+      });
+
+      return PublishedCheckpoint.from({ checkpoint, l1, attestations });
+    });
+  }
+
   /** Clears the proposed checkpoint if the given confirmed checkpoint number supersedes it. */
   async clearProposedCheckpointIfSuperseded(confirmedCheckpointNumber: CheckpointNumber): Promise<void> {
     const proposedCheckpointNumber = await this.getProposedCheckpointNumber();

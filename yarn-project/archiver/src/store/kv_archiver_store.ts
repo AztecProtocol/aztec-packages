@@ -10,12 +10,14 @@ import {
   type BlockData,
   BlockHash,
   CheckpointedL2Block,
+  type CommitteeAttestation,
   L2Block,
   type ValidateCheckpointResult,
 } from '@aztec/stdlib/block';
 import type {
   CheckpointData,
   CommonCheckpointData,
+  L1PublishedData,
   ProposedCheckpointData,
   ProposedCheckpointInput,
   PublishedCheckpoint,
@@ -645,6 +647,22 @@ export class KVArchiverDataStore implements ContractDataSource {
   /** Deletes the proposed checkpoint from storage. */
   public deleteProposedCheckpoint(): Promise<void> {
     return this.#blockStore.deleteProposedCheckpoint();
+  }
+
+  /**
+   * Promotes the proposed checkpoint to a confirmed checkpoint entry.
+   * This is a fast path that skips block re-validation since blocks were already
+   * validated when added via `addProposedBlock`.
+   *
+   * @param l1 - The L1 published data for the checkpoint.
+   * @param attestations - The committee attestations for the checkpoint.
+   * @returns The promoted published checkpoint.
+   */
+  public promoteProposedToCheckpointed(
+    l1: L1PublishedData,
+    attestations: CommitteeAttestation[],
+  ): Promise<PublishedCheckpoint> {
+    return this.#blockStore.promoteProposedToCheckpointed(l1, attestations);
   }
 
   /**
