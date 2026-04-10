@@ -71,7 +71,7 @@ abstract contract BaseHonkVerifier is IVerifier {
             p.pairingPointObject,
             t.relationParameters.beta,
             t.relationParameters.gamma, /*pubInputsOffset=*/
-            1
+            5
         );
 
         // Sumcheck

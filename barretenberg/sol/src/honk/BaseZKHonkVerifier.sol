@@ -103,7 +103,7 @@ abstract contract BaseZKHonkVerifier is IVerifier {
             p.pairingPointObject,
             t.relationParameters.beta,
             t.relationParameters.gamma, /*pubInputsOffset=*/
-            1
+            5
         );
 
         // Sumcheck
