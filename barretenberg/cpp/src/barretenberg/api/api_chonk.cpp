@@ -17,10 +17,31 @@
 #include "barretenberg/serialize/msgpack.hpp"
 #include "barretenberg/serialize/msgpack_check_eq.hpp"
 #include <algorithm>
+#include <fstream>
+#include <limits>
+#include <malloc.h>
 #include <stdexcept>
+#include <string>
 
 namespace bb {
 namespace { // anonymous namespace
+
+// Read this process's resident set size in KB from /proc/self/status. Linux-specific.
+size_t read_self_rss_kb()
+{
+    std::ifstream f("/proc/self/status");
+    std::string key;
+    size_t value = 0;
+    std::string unit;
+    while (f >> key) {
+        if (key == "VmRSS:") {
+            f >> value >> unit;
+            return value;
+        }
+        f.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+    }
+    return 0;
+}
 
 /**
  * @brief Compute and write to file a MegaHonk VK for a circuit to be accumulated by Chonk.
@@ -202,7 +223,14 @@ bool ChonkAPI::check_pipelined_vks(const std::filesystem::path& input_path)
     auto ivc = std::make_shared<Chonk>(steps.folding_stack.size());
     const acir_format::ProgramMetadata metadata{ ivc };
 
+    // Trim once up front so the baseline RSS reflects only what's actually live (parsed inputs +
+    // empty IVC), not allocator slack from earlier in the binary's run.
+    malloc_trim(0);
+    const size_t baseline_rss = read_self_rss_kb();
+    info("MEM baseline (after parse + trim): ", baseline_rss, " KB (", baseline_rss / 1024, " MB)");
+
     bool all_match = true;
+    size_t max_per_builder_kb = 0;
     for (size_t i = 0; i < steps.folding_stack.size(); i++) {
         auto& program = steps.folding_stack[i];
         const auto& precomputed_vk = steps.precomputed_vks[i];
@@ -210,6 +238,11 @@ bool ChonkAPI::check_pipelined_vks(const std::filesystem::path& input_path)
             info("FAIL: Missing precomputed VK for circuit ", i, " (", steps.function_names[i], ")");
             return false;
         }
+
+        // Trim before measuring so retained-but-free pages from previous iterations don't inflate
+        // the per-builder delta.
+        malloc_trim(0);
+        const size_t rss_before = read_self_rss_kb();
 
         // Pipelined construction: Phase A with no op_queue (stray queue_ecc_* calls trip a
         // BB_ASSERT at the access site), Phase B attaches the real op_queue and runs recursion.
@@ -221,6 +254,23 @@ bool ChonkAPI::check_pipelined_vks(const std::filesystem::path& input_path)
         // Phase B: attach real op_queue and build recursion constraints
         builder.attach_op_queue(ivc->get_goblin().op_queue);
         acir_format::build_recursion_and_finalize_constraints(builder, program.constraints, metadata);
+
+        // Trim before measuring "after" so the delta is the working set of the builder, not slack.
+        malloc_trim(0);
+        const size_t rss_after = read_self_rss_kb();
+        const size_t delta_kb = rss_after > rss_before ? rss_after - rss_before : 0;
+        max_per_builder_kb = std::max(max_per_builder_kb, delta_kb);
+        info("MEM circuit ",
+             i,
+             " (",
+             steps.function_names[i],
+             "): before=",
+             rss_before / 1024,
+             " MB, after_build=",
+             rss_after / 1024,
+             " MB, builder_delta=",
+             delta_kb / 1024,
+             " MB");
 
         // Compare VK from pipelined construction against the precomputed VK
         auto prover_instance = std::make_shared<Chonk::ProverInstance>(builder);
@@ -237,6 +287,9 @@ bool ChonkAPI::check_pipelined_vks(const std::filesystem::path& input_path)
         ivc->accumulate(builder, precomputed_vk);
     }
 
+    info("MEM SUMMARY: max single-builder working set = ",
+         max_per_builder_kb / 1024,
+         " MB (this is the structural floor for pipelining one extra builder)");
     return all_match;
 }
 

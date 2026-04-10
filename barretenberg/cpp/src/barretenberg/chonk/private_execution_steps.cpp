@@ -6,11 +6,16 @@
 
 #include "private_execution_steps.hpp"
 #include "barretenberg/chonk/chonk.hpp"
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/common/thread.hpp"
 #include "barretenberg/dsl/acir_format/acir_to_constraint_buf.hpp"
+#include <condition_variable>
 #include <future>
 #include <libdeflate.h>
+#include <malloc.h>
+#include <mutex>
+#include <thread>
 
 namespace bb {
 
@@ -165,26 +170,99 @@ void PrivateExecutionSteps::parse(std::vector<PrivateExecutionStepRaw>&& steps)
 }
 
 /**
- * @brief Build Phase A (non-recursion constraints) of a circuit on a background thread.
- * @details The builder is constructed with a null op_queue — any attempt to emit goblin ECC ops
- * during Phase A will trip a BB_ASSERT in queue_ecc_* at the access site, making the "non-recursion
- * constraints don't touch the op_queue" contract load-bearing rather than implicit. The real
- * op_queue is installed later via builder.attach_op_queue in complete_phase_b.
+ * @brief Persistent background worker for Phase A circuit construction.
+ * @details Owns a single std::thread that lives for the duration of accumulate(). The thread sits
+ * blocked on a condition_variable when no job is in flight, costing zero CPU. submit() hands a
+ * single program to the worker and returns a future for its completed builder.
+ *
+ * Why a persistent thread instead of std::async: each std::async invocation spawns a fresh OS
+ * thread, and glibc gives every new thread its own malloc arena. Allocations made on a background
+ * thread that are later freed return to that thread's arena rather than the OS, so over an N-circuit
+ * flow we accumulate up to N orphaned arenas of resident pages. A single persistent worker reuses
+ * one arena across all Phase A invocations, making the memory cost deterministic at "one in-flight
+ * builder" instead of growing with circuit count.
+ *
+ * Builds Phase A with a null op_queue — any stray queue_ecc_* call from a non-recursion constraint
+ * trips a BB_ASSERT at the access site (see mega_circuit_builder.cpp). The real op_queue is
+ * attached later via builder.attach_op_queue in complete_phase_b.
  */
-static std::future<MegaCircuitBuilder> build_phase_a_async(acir_format::AcirProgram& program)
-{
-    return std::async(std::launch::async, [&program]() {
-        // Prevent accidental parallel_for from creating a second thread pool on this thread
+class PhaseAWorker {
+  public:
+    PhaseAWorker()
+        : worker_thread([this] { run(); })
+    {}
+
+    ~PhaseAWorker()
+    {
+        {
+            std::lock_guard<std::mutex> lock(mtx);
+            shutdown = true;
+        }
+        cv.notify_one();
+        worker_thread.join();
+    }
+
+    PhaseAWorker(const PhaseAWorker&) = delete;
+    PhaseAWorker& operator=(const PhaseAWorker&) = delete;
+    PhaseAWorker(PhaseAWorker&&) = delete;
+    PhaseAWorker& operator=(PhaseAWorker&&) = delete;
+
+    std::future<MegaCircuitBuilder> submit(acir_format::AcirProgram& program)
+    {
+        std::promise<MegaCircuitBuilder> promise;
+        auto future = promise.get_future();
+        {
+            std::lock_guard<std::mutex> lock(mtx);
+            BB_ASSERT(!has_job, "PhaseAWorker::submit called while a job is already in flight");
+            pending_program = &program;
+            pending_promise = std::move(promise);
+            has_job = true;
+        }
+        cv.notify_one();
+        return future;
+    }
+
+  private:
+    void run()
+    {
+        // Prevent accidental nested parallel_for on this thread from spawning its own pool.
         set_parallel_for_concurrency(1);
+        for (;;) {
+            std::unique_lock<std::mutex> lock(mtx);
+            cv.wait(lock, [this] { return has_job || shutdown; });
+            if (!has_job) {
+                // shutdown requested with no pending job
+                return;
+            }
+            acir_format::AcirProgram* program = pending_program;
+            std::promise<MegaCircuitBuilder> promise = std::move(pending_promise);
+            has_job = false;
+            lock.unlock();
 
-        MegaCircuitBuilder builder{
-            /*op_queue_in=*/nullptr, program.witness, program.constraints.public_inputs, /*is_write_vk_mode=*/false
-        };
-        acir_format::build_non_recursion_constraints(builder, program.constraints, acir_format::ProgramMetadata{});
+            try {
+                MegaCircuitBuilder builder{ /*op_queue_in=*/nullptr,
+                                            program->witness,
+                                            program->constraints.public_inputs,
+                                            /*is_write_vk_mode=*/false };
+                acir_format::build_non_recursion_constraints(
+                    builder, program->constraints, acir_format::ProgramMetadata{});
+                promise.set_value(std::move(builder));
+            } catch (...) {
+                promise.set_exception(std::current_exception());
+            }
+        }
+    }
 
-        return builder;
-    });
-}
+    std::mutex mtx;
+    std::condition_variable cv;
+    acir_format::AcirProgram* pending_program = nullptr;
+    std::promise<MegaCircuitBuilder> pending_promise;
+    bool has_job = false;
+    bool shutdown = false;
+    // worker_thread must be the last data member so the rest of the state is initialized
+    // before the thread function starts running.
+    std::thread worker_thread;
+};
 
 /**
  * @brief Complete a pre-constructed builder: attach the real op_queue and build recursion constraints.
@@ -213,6 +291,12 @@ std::shared_ptr<Chonk> PrivateExecutionSteps::accumulate()
     }
 
     const size_t num_circuits = folding_stack.size();
+    // Toggle: set NO_PIPELINE=1 to fall back to the unified main-thread construction path.
+    // Used for A/B benchmarking the pipelined Phase A / Phase B split against the baseline.
+    const bool pipeline_enabled = std::getenv("NO_PIPELINE") == nullptr;
+    // One persistent worker for the duration of accumulate(); blocks on a condvar when idle.
+    // See PhaseAWorker docstring for the rationale (deterministic memory vs std::async).
+    PhaseAWorker phase_a_worker;
     std::future<MegaCircuitBuilder> next_circuit_future;
 
     for (size_t i = 0; i < num_circuits; i++) {
@@ -228,12 +312,22 @@ std::shared_ptr<Chonk> PrivateExecutionSteps::accumulate()
         }();
 
         // Start Phase A of the next circuit in the background during this circuit's accumulate
-        if (i + 1 < num_circuits) {
-            next_circuit_future = build_phase_a_async(folding_stack[i + 1]);
+        if (pipeline_enabled && i + 1 < num_circuits) {
+            next_circuit_future = phase_a_worker.submit(folding_stack[i + 1]);
         }
 
         info("Chonk: accumulating ", function_names[i]);
         ivc->accumulate(circuit, precomputed_vks[i]);
+
+        // Return free pages to the OS so that allocator slack from this circuit doesn't
+        // accumulate across iterations. Without this, glibc retains freed pages in its arenas,
+        // and the pipelined path's cross-thread alloc/free pattern causes the slack to grow
+        // by ~10s of MB per circuit. Trimming once per iteration keeps RSS close to the
+        // structural floor (largest in-flight builder + IVC state).
+        if (std::getenv("NO_TRIM") == nullptr) {
+            // Return value indicates whether any memory was actually trimmed; we don't care.
+            (void)malloc_trim(0);
+        }
     }
 
     return ivc;
