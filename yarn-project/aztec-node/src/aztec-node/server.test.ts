@@ -1003,6 +1003,7 @@ describe('aztec node', () => {
         12345,
         rollupVersion.toNumber(),
         globalVariablesBuilder,
+        mock<FeeProvider>(),
         epochCache,
         getPackageVersion() ?? '',
         new TestCircuitVerifier(),
