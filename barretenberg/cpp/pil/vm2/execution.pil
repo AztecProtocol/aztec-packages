@@ -80,7 +80,7 @@ sel * (1 - sel) = 0;
 * We observe the following deactivation cascade of selectors:
 * `sel == 0` ==> `sel_bytecode_retrieval_success == 0` ==> `sel_instruction_fetching_success == 0`
 * ==> `sel_should_read_registers == 0` ==> `sel_should_check_gas == 0` ==> `sel_should_execute_opcode == 0`
-* ==> `sel_should_write_registers = 0`
+* ==> `sel_should_write_registers == 0`
 * By #[SUBTRACE_ID_DECOMPOSITION], this implies that dispatching selectors are off on an inactive row,
 * i.e., `sel_exec_dispatch_execution == 0`, `sel_exec_dispatch_alu == 0`, `sel_exec_dispatch_bitwise == 0`, ...
 * From #[EXEC_OP_ID_DECOMPOSITION], we have the selectors for execution opcodes:
@@ -139,7 +139,7 @@ sel_first_row_in_context' = sel_enter_call + enqueued_call_start';
 //         The difference is that explicit boolean relations are not required and we apply a stricter version
 //         of #[START_AFTER_LATCH] with #[ENQUEUED_CALL_START] which gives us the guarantee that
 //         `sel == 0 ==> enqueued_call_start == 0`.
-//         The property `sel == 0 ==> enqueued_call_end == 0` is also not explicit but if given
+//         The property `sel == 0 ==> enqueued_call_end == 0` is also not explicit but is given
 //         below (paragraph on DEACTIVATION FOR ...).
 //         As a consequence, we guarantee that the active part of the trace is contiguous and composed
 //         of successive enqueued call blocks starting with `enqueued_call_start == 1` and ending with
@@ -165,7 +165,7 @@ sel_first_row_in_context' = sel_enter_call + enqueued_call_start';
 
 pol commit clk;
 
-// Initialize clk to 0 on the first row and at the same time enforces that clk is 0 if sel = 0.
+// Initialize clk to 0 on the first row and at the same time it enforces that clk is 0 if sel = 0.
 #[EXEC_CLK_INIT]
 (1 - sel) * clk = 0;
 
@@ -419,7 +419,7 @@ pol SEL_SHOULD_RESOLVE_ADDRESS = sel_instruction_fetching_success;
 pol commit rop[7];
 
 // NOTE: Constraints on the resolved operands are in addressing.pil.
-// The "output we want is" sel_addressing_error from addressing.pil.
+// The "output we want" is sel_addressing_error from addressing.pil.
 
 /**************************************************************************************************
  *  Temporality group 3: Register read.
@@ -432,7 +432,7 @@ sel_should_read_registers = SEL_SHOULD_RESOLVE_ADDRESS - sel_addressing_error;
 
 // Registers
 pol commit register[6];
-// Memory Acccesses
+// Memory Accesses
 pol commit sel_mem_op_reg[6]; // @boolean (when `sel_instruction_fetching_success == 1`)
 // Read / Write selectors
 pol commit rw_reg[6]; // @boolean (when `sel_instruction_fetching_success == 1`)
@@ -480,7 +480,7 @@ pol commit sel_gas_bitwise; // @boolean
 pol commit sel_gas_emit_public_log; // @boolean
 pol commit sel_gas_sstore; // @boolean
 
-// Bolean constraints
+// Boolean constraints
 sel_gas_calldata_copy * (1 - sel_gas_calldata_copy) = 0;
 sel_gas_returndata_copy * (1 - sel_gas_returndata_copy) = 0;
 sel_gas_to_radix * (1 - sel_gas_to_radix) = 0;
@@ -818,7 +818,7 @@ sel_execute_returndata_size * (register[0] - last_child_returndata_size) = 0; //
 #[RETURNDATA_SIZE_U32_TAG]
 sel_execute_returndata_size * (mem_tag_reg[0] - constants.MEM_TAG_U32) = 0; // Write Tag must be U32
 
-// Tree and sideffect state can only change in specific opcodes.
+// Tree and side effect state can only change in specific opcodes.
 #[PUBLIC_DATA_TREE_ROOT_NOT_CHANGED]
 (1 - sel_execute_sstore) * (prev_public_data_tree_root - public_data_tree_root) = 0;
 #[PUBLIC_DATA_TREE_SIZE_NOT_CHANGED]
@@ -941,7 +941,7 @@ sel_error = sel_bytecode_retrieval_failure + sel_instruction_fetching_failure + 
  *  Dispatching to other subtraces
  **************************************************************************************************/
 
-// This contains all the lookups/permutations dispatching opcode computation to their pertaining sub-trace.
+// This contains all the lookups/permutations dispatching opcode computation to their pertaining sub-traces.
 // For every entry in the enum SubtraceSel, there is a lookup table except for SubtraceSel::EXECUTION
 // which are handled by the execution subtrace.
 
