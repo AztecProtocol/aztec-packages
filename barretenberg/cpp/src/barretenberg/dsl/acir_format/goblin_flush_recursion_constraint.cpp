@@ -106,6 +106,8 @@ HonkRecursionConstraintOutput<MegaCircuitBuilder> create_goblin_flush_recursion_
         }
 
         // Prove goblin without merge, with IS_ZK = false (flush proof is never exposed externally)
+        // NOTE: The following code cannot be executed in parallel with other code that requires access to the is_zk
+        // flag of the op queue. This is because we modify the is_zk flag for proving and then we restore it afterwards.
         GoblinWithoutMerge flush_goblin(goblin.op_queue, /*is_zk=*/false);
         flush_proof = flush_goblin.prove();
     }
@@ -137,7 +139,7 @@ HonkRecursionConstraintOutput<MegaCircuitBuilder> create_goblin_flush_recursion_
     RecursiveVerifier verifier(vk_and_hash);
     auto verifier_output = verifier.verify_proof(proof_fields);
 
-    info("Goblin flush recursion constraint: Inner circuit VK hash = ", inner_circuit_vk->hash());
+    vinfo("Goblin flush recursion constraint: Inner circuit VK hash = ", inner_circuit_vk->hash());
 
     return verifier_output;
 }

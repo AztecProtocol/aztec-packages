@@ -506,7 +506,7 @@ void Chonk::complete_kernel_circuit_logic(ClientCircuit& circuit)
 /**
  * @brief Get queue type for the proof of a circuit about to be accumulated based on num circuits accumulated so far.
  */
-Chonk::QUEUE_TYPE Chonk::get_queue_type(bool is_next_kernel_goblin) const
+Chonk::QUEUE_TYPE Chonk::get_queue_type(bool is_goblin_app_circuit) const
 {
     // first app
     if (num_circuits_accumulated == 0) {
@@ -514,7 +514,7 @@ Chonk::QUEUE_TYPE Chonk::get_queue_type(bool is_next_kernel_goblin) const
     }
     // app (excluding first) or kernel (inner or reset) or goblin flush app
     if (num_circuits_accumulated < num_circuits - 3) {
-        return is_next_kernel_goblin ? QUEUE_TYPE::GOBLIN : QUEUE_TYPE::HN;
+        return is_goblin_app_circuit ? QUEUE_TYPE::GOBLIN : QUEUE_TYPE::HN;
     }
     // last kernel prior to tail kernel
     if (num_circuits_accumulated == num_circuits - 3) {
@@ -665,7 +665,7 @@ void Chonk::accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVerific
     BB_ASSERT_EQ(goblin.get_avm_mode(), false, "The op queue should not be in avm mode during accumulation");
 
     // Get QUEUE type (only Goblin Flush apps have IPA proof/claim)
-    QUEUE_TYPE queue_type = get_queue_type(/*is_next_kernel_goblin=*/!circuit.ipa_proof.empty());
+    QUEUE_TYPE queue_type = get_queue_type(/*is_goblin_app_circuit=*/!circuit.ipa_proof.empty());
 
     // Store IPA proof if present (for goblin flush apps)
     if (queue_type == QUEUE_TYPE::GOBLIN) {

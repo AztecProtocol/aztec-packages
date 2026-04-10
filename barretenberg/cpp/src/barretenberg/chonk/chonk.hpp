@@ -277,7 +277,7 @@ class Chonk : public IVCBase {
                              QUEUE_TYPE queue_type,
                              std::shared_ptr<ProverInstance> prover_instance);
 
-    QUEUE_TYPE get_queue_type(bool is_next_kernel_goblin = false) const;
+    QUEUE_TYPE get_queue_type(bool is_goblin_app_circuit = false) const;
 };
 
 } // namespace bb
