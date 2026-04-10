@@ -287,7 +287,7 @@ export class TestWallet extends BaseWallet {
       scopes,
     });
     const appCallOffset = await this.computeAppCallOffset(from, feeOptions);
-    return new TxSimulationResultWithAppOffset(result, appCallOffset);
+    return TxSimulationResultWithAppOffset.fromResultAndOffset(result, appCallOffset);
   }
 
   async proveTx(exec: ExecutionPayload, opts: Omit<SendOptions, 'wait'>): Promise<ProvenTx> {

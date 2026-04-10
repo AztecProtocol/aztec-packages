@@ -218,10 +218,10 @@ export function buildMergedSimulationResult(
   normalResult: TxSimulationResultWithAppOffset | null,
 ): TxSimulationResultWithAppOffset {
   const optimizedReturnValues = optimizedResults.flatMap(r => r.publicOutput?.publicReturnValues ?? []);
-  const normalReturnValues = normalResult?.result.publicOutput?.publicReturnValues ?? [];
+  const normalReturnValues = normalResult?.publicOutput?.publicReturnValues ?? [];
   const allReturnValues = [...optimizedReturnValues, ...normalReturnValues];
 
-  const baseResult = normalResult?.result ?? optimizedResults[0];
+  const baseResult: TxSimulationResult = normalResult ?? optimizedResults[0];
 
   const mergedPublicOutput: PublicSimulationOutput | undefined = baseResult.publicOutput
     ? {
@@ -234,7 +234,7 @@ export function buildMergedSimulationResult(
     baseResult.privateExecutionResult,
     baseResult.publicInputs,
     mergedPublicOutput,
-    normalResult?.result.stats,
+    normalResult?.stats,
   );
-  return new TxSimulationResultWithAppOffset(merged, normalResult?.appCallOffset ?? 0);
+  return TxSimulationResultWithAppOffset.fromResultAndOffset(merged, normalResult?.appCallOffset ?? 0);
 }

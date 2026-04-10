@@ -267,7 +267,7 @@ export class EmbeddedWallet extends BaseWallet {
       scopes,
     });
     const appCallOffset = await this.computeAppCallOffset(from, feeOptions);
-    return new TxSimulationResultWithAppOffset(result, appCallOffset);
+    return TxSimulationResultWithAppOffset.fromResultAndOffset(result, appCallOffset);
   }
 
   protected async createAccountInternal(

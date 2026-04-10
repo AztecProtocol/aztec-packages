@@ -322,7 +322,7 @@ export abstract class BaseWallet implements Wallet {
       scopes: opts.scopes,
     });
     const appCallOffset = await this.computeAppCallOffset(opts.from, opts.feeOptions);
-    return new TxSimulationResultWithAppOffset(result, appCallOffset);
+    return TxSimulationResultWithAppOffset.fromResultAndOffset(result, appCallOffset);
   }
 
   /**

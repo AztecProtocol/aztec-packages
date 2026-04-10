@@ -1,101 +1,107 @@
 import type { ZodFor } from '@aztec/foundation/schemas';
-import type { GasUsed } from '@aztec/stdlib/gas';
-import type { PrivateKernelTailCircuitPublicInputs } from '@aztec/stdlib/kernel';
+import { optional } from '@aztec/foundation/schemas';
+import { PrivateKernelTailCircuitPublicInputs } from '@aztec/stdlib/kernel';
 import {
   type NestedProcessReturnValues,
-  type OffchainEffect,
-  type PrivateExecutionResult,
-  type PublicSimulationOutput,
+  PrivateExecutionResult,
+  PublicSimulationOutput,
   type SimulationStats,
-  type Tx,
+  SimulationStatsSchema,
   TxSimulationResult,
 } from '@aztec/stdlib/tx';
 
 import { z } from 'zod';
 
 /**
- * Wraps a TxSimulationResult with the app call offset, which tracks where the app's calls begin in the flattened array
- * of calls. Tracking of app call offset is a wallet-level concern: the wallet may wrap the app payload in an
+ * Extends TxSimulationResult with the app call offset, which tracks where the app's calls begin in the flattened
+ * array of calls. Tracking of app call offset is a wallet-level concern: the wallet may wrap the app payload in an
  * entrypoint or may prepend calls (this is typically done for fee payments).
  */
-export class TxSimulationResultWithAppOffset {
+export class TxSimulationResultWithAppOffset extends TxSimulationResult {
   constructor(
-    /** The underlying simulation result obtained from PXE. */
-    public readonly result: TxSimulationResult,
+    privateExecutionResult: PrivateExecutionResult,
+    publicInputs: PrivateKernelTailCircuitPublicInputs,
+    publicOutput?: PublicSimulationOutput,
+    stats?: SimulationStats,
     /**
      * Index of the app's first call in a flattened array of calls.
-     *   0 = entrypoint, 1..N = wallet prepended calls, N+1 = first app call.
-     * When 0, the app call is the root execution itself (DefaultEntrypoint / NO_FROM).
+     *   0 = app call is the root execution itself (DefaultEntrypoint / NO_FROM).
+     *   1..N = wallet prepended calls before the app call.
+     *   undefined = wallet did not send the field; use heuristic fallback.
      */
-    public readonly appCallOffset: number,
-  ) {}
+    public readonly appCallOffset: number | undefined = undefined,
+  ) {
+    super(privateExecutionResult, publicInputs, publicOutput, stats);
+  }
 
   /**
-   * Returns the private return values that correspond to the first app call.
+   * Returns the private return values that correspond to the provided app call.
    * @param appCallIndex - Index of the app call within the app calls.
    */
   getPrivateReturnValuesOfAppCall(appCallIndex: number = 0): NestedProcessReturnValues | undefined {
-    const all = this.result.getPrivateReturnValues();
-    if (!this.appCallOffset) {
-      // appCallOffset is 0 implies that the app call is the root execution
+    const all = this.getPrivateReturnValues();
 
-      if (appCallIndex != 0) {
+    if (this.appCallOffset === undefined) {
+      // appCallOffset was not sent. Apply the pre-offset heuristic for backwards compatibility.
+      // If there are nested calls, the app was wrapped in an account contract entrypoint and its return values
+      // live in nested[appCallIndex]. Otherwise the app call is the root execution.
+      if ((all?.nested?.length ?? 0) > 0) {
+        return all?.nested?.[appCallIndex];
+      }
+      if (appCallIndex !== 0) {
         throw new Error('App call index cannot be defined when there is single root app call');
       }
-
       return all;
     }
-    // The app call offset is defined on the flattened array of calls where entrypoint occupies index 0. Here we are
-    // indexing into nested calls array and for this reason we need to subtract 1.
+
+    // appCallOffset is defined on the flattened array of calls where entrypoint occupies index 0 and the app's
+    // first call occupies index appCallOffset. appCallIndex 0 with appCallOffset 0 means the root itself.
+    if (this.appCallOffset === 0 && appCallIndex === 0) {
+      return all;
+    }
+    // For all other cases, index into nested: subtract 1 because nested[0] corresponds to flat index 1 (first nested).
     return all?.nested?.[appCallIndex + this.appCallOffset - 1];
   }
 
-  getPublicReturnValues() {
-    return this.result.getPublicReturnValues();
+  /**
+   * Creates a TxSimulationResultWithAppOffset from an existing TxSimulationResult, attaching the app call offset
+   * computed by the wallet (i.e. how many calls precede the first app call in the flattened execution tree).
+   * @param result - The simulation result to wrap.
+   * @param appCallOffset - The index of the app's first call in the flattened execution tree.
+   */
+  static fromResultAndOffset(result: TxSimulationResult, appCallOffset: number): TxSimulationResultWithAppOffset {
+    return new TxSimulationResultWithAppOffset(
+      result.privateExecutionResult,
+      result.publicInputs,
+      result.publicOutput,
+      result.stats,
+      appCallOffset,
+    );
   }
 
-  get offchainEffects(): OffchainEffect[] {
-    return this.result.offchainEffects;
+  static override async random() {
+    const base = await TxSimulationResult.random();
+    return TxSimulationResultWithAppOffset.fromResultAndOffset(base, 0);
   }
 
-  get publicInputs(): PrivateKernelTailCircuitPublicInputs {
-    return this.result.publicInputs;
-  }
-
-  get publicOutput(): PublicSimulationOutput | undefined {
-    return this.result.publicOutput;
-  }
-
-  get gasUsed(): GasUsed {
-    return this.result.gasUsed;
-  }
-
-  get stats(): SimulationStats | undefined {
-    return this.result.stats;
-  }
-
-  get privateExecutionResult(): PrivateExecutionResult {
-    return this.result.privateExecutionResult;
-  }
-
-  getPrivateReturnValues() {
-    return this.result.getPrivateReturnValues();
-  }
-
-  toSimulatedTx(): Promise<Tx> {
-    return this.result.toSimulatedTx();
-  }
-
-  static async random() {
-    return new TxSimulationResultWithAppOffset(await TxSimulationResult.random(), 0);
-  }
-
-  static get schema(): ZodFor<TxSimulationResultWithAppOffset> {
+  static override get schema(): ZodFor<TxSimulationResultWithAppOffset> {
     return z
       .object({
-        result: TxSimulationResult.schema,
-        appCallOffset: z.number(),
+        privateExecutionResult: PrivateExecutionResult.schema,
+        publicInputs: PrivateKernelTailCircuitPublicInputs.schema,
+        publicOutput: PublicSimulationOutput.schema.optional(),
+        stats: optional(SimulationStatsSchema),
+        appCallOffset: optional(z.number()),
       })
-      .transform(({ result, appCallOffset }) => new TxSimulationResultWithAppOffset(result, appCallOffset));
+      .transform(
+        ({ privateExecutionResult, publicInputs, publicOutput, stats, appCallOffset }) =>
+          new TxSimulationResultWithAppOffset(
+            privateExecutionResult,
+            publicInputs,
+            publicOutput,
+            stats,
+            appCallOffset, // undefined when absent — triggers heuristic fallback
+          ),
+      );
   }
 }

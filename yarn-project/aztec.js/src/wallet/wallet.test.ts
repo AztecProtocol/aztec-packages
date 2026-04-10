@@ -449,7 +449,7 @@ class MockWallet implements Wallet {
   }
 
   async simulateTx(_exec: ExecutionPayload, _opts: SimulateOptions): Promise<TxSimulationResultWithAppOffset> {
-    return new TxSimulationResultWithAppOffset(await TxSimulationResult.random(), 0);
+    return TxSimulationResultWithAppOffset.fromResultAndOffset(await TxSimulationResult.random(), 0);
   }
 
   executeUtility(

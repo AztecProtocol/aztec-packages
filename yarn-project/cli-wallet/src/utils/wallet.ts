@@ -276,7 +276,7 @@ export class CLIWallet extends BaseWallet {
       scopes,
     });
     const appCallOffset = await this.computeAppCallOffset(from, feeOptions);
-    return new TxSimulationResultWithAppOffset(result, appCallOffset);
+    return TxSimulationResultWithAppOffset.fromResultAndOffset(result, appCallOffset);
   }
 
   // Exposed because of the `aztec-wallet get-tx` command. It has been decided that it's fine to keep around because
