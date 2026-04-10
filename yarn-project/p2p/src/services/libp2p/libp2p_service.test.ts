@@ -1180,6 +1180,10 @@ function createTestLibP2PService(options: CreateTestLibP2PServiceOptions): TestL
     epochCache = mock<EpochCacheInterface>(),
   } = options;
 
+  epochCache.getL1Constants.mockReturnValue({
+    slotDuration: 36,
+  } as any);
+
   const mempools = mock<MemPools>();
   mempools.attestationPool = attestationPool;
   mempools.txPool = txPool;
