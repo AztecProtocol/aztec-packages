@@ -21,7 +21,6 @@ where `P_i` are multilinear witness/selector polynomials, `F` is the batched rel
 - `sumcheck_round.hpp` — Per-round logic for both prover and verifier
 - `sumcheck_output.hpp` — Output struct (challenge vector, claimed evaluations, ZK data)
 - `zk_sumcheck_data.hpp` — Libra masking polynomials and running sums
-- `masking_tail_data.hpp` — ZK masking values stored separately from short witness polys
 - `Sumcheck.md` — Detailed mathematical documentation
 
 ### Supporting:
@@ -31,7 +30,6 @@ where `P_i` are multilinear witness/selector polynomials, `F` is the batched rel
 - `flavor/partially_evaluated_multivariates.hpp` — Book-keeping table for partial evaluation
 - `flavor/flavor_concepts.hpp` — Flavor dispatch concepts
 - `relations/` — Relation types, utilities, parameters, nested containers
-- `stdlib/primitives/padding_indicator_array/` — Recursive padding indicator computation
 
 ### Tests:
 
@@ -142,62 +140,34 @@ Three mechanisms provide zero-knowledge:
 ### 1. Libra Masking
 Adds a structured random multivariate `G(X) = a_0 + g_0(X_0) + ... + g_{d-1}(X_{d-1})` scaled by a Fiat-Shamir challenge. Each round's univariate gets a Libra correction. The concatenated Libra univariates are committed and their evaluation is proved via SmallSubgroupIPA.
 
-### 2. Row Disabling + Masking Tail
-Last `NUM_MASKED_ROWS=3` positions (n-3, n-2, n-1) contain random masking values. The row disabling
-polynomial `(1-L)` vanishes at the last 4 rows, so the relation sum is unaffected. This adds +1 to
-the round univariate degree for ZK flavors.
+### 2. Row Disabling + In-Place Masking (Top-of-Trace)
+The first `NUM_DISABLED_ROWS_IN_SUMCHECK=4` rows of the trace are reserved. For ZK flavors,
+`NUM_MASKED_ROWS=3` random values are written directly into witness polynomials at rows 1, 2, 3
+(row 0 is the zero row for shifts). The row disabling polynomial `(1-L)` vanishes at rows 0-3,
+so the relation sum is unaffected. This adds +1 to the round univariate degree for ZK flavors.
 
-**Masking Tail Optimization**: Witness polynomials are allocated to `trace_active_range_size()` (shorter
-than `dyadic_size`) to save memory. Masking values are NOT written into the polynomials — they are
-stored separately in `MaskingTailData` (see `sumcheck/masking_tail_data.hpp`), which uses the
-**AllEntities pattern**: `AllEntities<bool> is_masked`, `AllEntities<Polynomial> tails` (small 3-element
-tail polys with full virtual_size), and `AllEntities<std::array<FF, 2>> folded` (folded values for
-sumcheck rounds). This enables zip-iteration with `extended_edges` in `compute_disabled_contribution`
-instead of index-based lookups. The main sumcheck loop **excludes** disabled edge pairs via
-`excluded_tail_size`; `compute_disabled_contribution` handles them separately using folded masking
-values, multiplied by `(1-L)`, and **added** to the active contribution.
+The layout is **uniform across ZK and non-ZK** — non-ZK flavors have zeros in these rows, so
+relations are trivially satisfied there without row disabling.
 
-**Critical `excluded_tail_size` invariant**: Must be non-zero ONLY when `Flavor::HasZK && UseRowDisablingPolynomial<Flavor>`:
+**`excluded_head_size` invariant**: Must be non-zero ONLY when `Flavor::HasZK && UseRowDisablingPolynomial<Flavor>`:
 ```cpp
-size_t excluded_tail_size = (Flavor::HasZK && UseRowDisablingPolynomial<Flavor>) ? 4 : 0;
+size_t excluded_head_size = (Flavor::HasZK && UseRowDisablingPolynomial<Flavor>) ? NUM_DISABLED_ROWS_IN_SUMCHECK : 0;
 ```
-If set incorrectly for flavors that don't call `compute_disabled_contribution` (e.g., Translator,
-MultilinearBatching), edge pairs are silently dropped, causing sumcheck round failures. The post-round-0
-update `excluded_tail_size = 2` must also be guarded by `UseRowDisablingPolynomial<Flavor>`.
-
-`compute_effective_round_size` behavior:
-- ZK + row disabling: `min(round_size - excluded_tail_size, witness_end_index)`
-- ZK without row disabling (Translator): `round_size` (no exclusion, full iteration)
-- Non-ZK: `min(round_size, witness_end_index)`
-
-Masking tail fold timing:
-- Round 0: fold after `partially_evaluate` (no PE access needed)
-- Rounds 1+: fold **before** `partially_evaluate_in_place` (rounds 2+ read PE neighbors)
+The main sumcheck loop skips the first `excluded_head_size` edge pairs; `compute_disabled_contribution`
+handles them separately, multiplied by `(1-L)`, and added to the active contribution. For non-ZK
+flavors, the head rows are all zeros and are processed by the main loop (no exclusion needed).
 
 ### 3. Witness Masking in PCS
-`MaskingTailData::tails` stores small `Polynomial` objects (3 coefficients at positions {n-3, n-2, n-1},
-full virtual_size). Commitments are adjusted as `C' = C_short + commit(tail_poly)` at `add_to_batch`
-time — callers pass `&tails.field_name` directly or use `zip_view` over parallel getters (e.g.,
-`zip_view(polys.get_wires(), tails.get_wires(), labels.get_wires())`). Non-masked tails are empty
-and skipped automatically. In the PCS, tail polynomials are batched alongside base polynomials via
-`add_tails_to_batcher` (Ultra Honk, Batched Translator). For ECCVM translation polys (which need
-univariate evaluation at full size), tails are merged via `extended += tail` using named fields.
-A Gemini masking polynomial ensures PCS opening proofs remain zero-knowledge.
+Masking values are written directly into the polynomials (in-place), so `commit(poly)` produces the
+correct masked commitment directly. A Gemini masking polynomial ensures PCS opening proofs remain
+zero-knowledge.
 
 ### Batched Honk Translator Integration
 
-The batched translator combines MegaZK and Translator into a joint sumcheck/PCS. Key masking tail
-integration points in `batched_honk_translator_prover.cpp`:
-
-1. **Sumcheck `do_round`**: MegaZK uses `+= compute_disabled_contribution(... rdp, masking_tail)`.
-   Translator has no disabled contribution.
-2. **`fold_masking_values`**: Called per MegaZK round using MegaZK's `round_size` and PE.
-3. **`excluded_tail_size = 2`**: Set after round 0 for `mega_zk_round` only.
-4. **Claimed eval corrections**: Applied to `mega_zk_claimed_evals` using first `mega_zk_log_n`
-   challenges. Must also write corrected values back into `mega_zk_partial[0]` so that
-   `compute_virtual_contribution` in virtual rounds uses them.
-5. **PCS**: `add_tails_to_batcher` on the joint batcher. Tails at MegaZK positions within
-   the larger joint batcher.
+The batched translator combines MegaZK and Translator into a joint sumcheck/PCS.
+MegaZK uses `+= compute_disabled_contribution(... rdp)` for the disabled head rows.
+Translator has no disabled contribution (it uses tail masking independently).
+After round 0, `excluded_head_size = 2` for the MegaZK round (disabled head collapses to 1 edge pair).
 
 ## Virtual Rounds and Padding
 
@@ -205,7 +175,8 @@ For constant proof size (recursive verification):
 - **Real rounds** (0 to `multivariate_d - 1`): standard sumcheck
 - **Virtual/padding rounds** (`multivariate_d` to `virtual_log_n - 1`): polynomials treated as zero-extended
 
-A **padding indicator array** `[1,1,...,1,0,0,...,0]` tells the verifier which rounds are real vs padding. In recursive verification, this is computed in-circuit from a constrained `log_circuit_size` for constant gate count.
+With top-of-trace masking, the row-disabling polynomial is circuit-size independent, so all sumcheck
+rounds are processed uniformly by the verifier — no padding indicator needed.
 
 ## Transcript / Fiat-Shamir Protocol
 
@@ -254,24 +225,14 @@ The Fiat-Shamir transcript is the backbone of non-interactive soundness. Any inc
 
 - **When replacing a PCS scheme, audit all implicit guarantees the old scheme provided.** Zeromorph provided degree checks that enforced polynomials are zero outside their domain. When it was replaced, that enforcement disappeared silently. Explicit relation constraints must replace any lost implicit guarantees (degree bounds, zero-outside-domain, etc.).
 
-### excluded_tail_size and Flavor Guards
+### excluded_head_size and Flavor Guards
 
-- **`excluded_tail_size` must match whether `compute_disabled_contribution` is called.** If edges are
+- **`excluded_head_size` must match whether `compute_disabled_contribution` is called.** If edges are
   excluded from the main loop but no disabled contribution adds them back, they're silently lost.
-  This breaks sumcheck at round 1+ (round 0 is masked by `(1-L)=0`).
-- **Guard `excluded_tail_size` on BOTH `HasZK` AND `UseRowDisablingPolynomial`.** Non-ZK flavors
-  (MultilinearBatching, MegaFlavor) and ZK flavors without row disabling (Translator) must have
-  `excluded_tail_size = 0`. Getting this wrong hangs or corrupts the sumcheck for those flavors.
-- **When writing back corrected evaluations for virtual rounds** (batched translator), ensure the
-  corrections are applied to the PE multivariates (not just the claimed evals struct), so
-  `compute_virtual_contribution` reads the right values.
-- **MaskingTailData uses AllEntities pattern** — `is_masked`, `tails`, `folded` are all
-  `AllEntities<T>` structs, enabling direct iteration via `get_masked()`/`get_shifted()` without
-  pointer matching or index lookups. Registration, folding, eval corrections, and PCS batching
-  all use these parallel getters. Shifted tails are derived at registration time
-  (shift[k] = unshifted[k+1]). Callers access tails by named field (e.g., `tails.w_l`) or
-  `zip_view` over parallel getters. Only `compute_disabled_contribution` in `sumcheck_round.hpp`
-  uses `is_masked.get_all()` with index-based access (to correlate with `extended_edges`).
+- **Guard `excluded_head_size` on BOTH `HasZK` AND `UseRowDisablingPolynomial`.** Non-ZK flavors
+  have zeros in the head rows (harmless in the main loop), and ZK flavors without row disabling
+  (Translator) must have `excluded_head_size = 0`. Getting this wrong causes a segfault (non-ZK)
+  or corrupts the sumcheck (Translator).
 
 ### Merge and Refactoring Safety
 
