@@ -37,7 +37,7 @@ contract Tmnt333Test is StakingBase {
     );
   }
 
-  function test_GivenBigBootstrap() external {
+  function test_GivenBigBootstrap() external skipWhenCoverage {
     StakingQueueConfig memory stakingQueueConfig = StakingQueueConfig({
       bootstrapValidatorSetSize: 1250,
       bootstrapFlushSize: 125,
