@@ -6,8 +6,13 @@ import {
   ContractInstancePublishedEvent,
   ContractInstanceUpdatedEvent,
 } from '@aztec/protocol-contracts/instance-registry';
-import type { L2Block, ValidateCheckpointResult } from '@aztec/stdlib/block';
-import { type ProposedCheckpointInput, type PublishedCheckpoint, validateCheckpoint } from '@aztec/stdlib/checkpoint';
+import type { CommitteeAttestation, L2Block, ValidateCheckpointResult } from '@aztec/stdlib/block';
+import {
+  type L1PublishedData,
+  type ProposedCheckpointInput,
+  type PublishedCheckpoint,
+  validateCheckpoint,
+} from '@aztec/stdlib/checkpoint';
 import {
   type ContractClassPublicWithCommitment,
   computeContractAddressFromInstance,
@@ -125,6 +130,33 @@ export class ArchiverDataStoreUpdater {
     });
 
     return result;
+  }
+
+  /**
+   * Promotes the current proposed checkpoint to a confirmed checkpoint.
+   * This is a fast path used when the proposed checkpoint matches the one published on L1,
+   * skipping blob fetching since blocks were already added via addProposedBlock.
+   *
+   * @param l1 - The L1 published data for the checkpoint.
+   * @param attestations - The committee attestations for the checkpoint.
+   * @param pendingChainValidationStatus - Optional validation status to set.
+   * @returns The promoted published checkpoint.
+   */
+  public async promoteProposedCheckpoint(
+    l1: L1PublishedData,
+    attestations: CommitteeAttestation[],
+    pendingChainValidationStatus?: ValidateCheckpointResult,
+  ): Promise<PublishedCheckpoint> {
+    return await this.store.transactionAsync(async () => {
+      const publishedCheckpoint = await this.store.promoteProposedToCheckpointed(l1, attestations);
+
+      if (pendingChainValidationStatus) {
+        await this.store.setPendingChainValidationStatus(pendingChainValidationStatus);
+      }
+
+      await this.l2TipsCache?.refresh();
+      return publishedCheckpoint;
+    });
   }
 
   /**
