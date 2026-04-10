@@ -815,11 +815,12 @@ export class Oracle {
     [address]: ACVMField[],
     [ephPKField0]: ACVMField[],
     [ephPKField1]: ACVMField[],
+    [ephPKIsInfinite]: ACVMField[],
     [contractAddress]: ACVMField[],
   ): Promise<ACVMField[]> {
     const secret = await this.handlerAsUtility().getSharedSecret(
       AztecAddress.fromField(Fr.fromString(address)),
-      Point.fromFields([ephPKField0, ephPKField1].map(Fr.fromString)),
+      Point.fromFields([ephPKField0, ephPKField1, ephPKIsInfinite].map(Fr.fromString)),
       AztecAddress.fromField(Fr.fromString(contractAddress)),
     );
     return [toACVMField(secret)];

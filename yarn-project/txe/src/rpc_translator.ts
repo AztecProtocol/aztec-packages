@@ -1037,10 +1037,15 @@ export class RPCTranslator {
     foreignAddress: ForeignCallSingle,
     foreignEphPKField0: ForeignCallSingle,
     foreignEphPKField1: ForeignCallSingle,
+    foreignEphPKIsInfinite: ForeignCallSingle,
     foreignContractAddress: ForeignCallSingle,
   ) {
     const address = AztecAddress.fromField(fromSingle(foreignAddress));
-    const ephPK = Point.fromFields([fromSingle(foreignEphPKField0), fromSingle(foreignEphPKField1)]);
+    const ephPK = Point.fromFields([
+      fromSingle(foreignEphPKField0),
+      fromSingle(foreignEphPKField1),
+      fromSingle(foreignEphPKIsInfinite),
+    ]);
     const contractAddress = AztecAddress.fromField(fromSingle(foreignContractAddress));
 
     const secret = await this.handlerAsUtility().getSharedSecret(address, ephPK, contractAddress);
