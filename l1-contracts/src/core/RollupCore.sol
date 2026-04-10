@@ -20,9 +20,7 @@ import {CommitteeAttestations} from "@aztec/core/libraries/rollup/AttestationLib
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {RollupOperationsExtLib} from "@aztec/core/libraries/rollup/RollupOperationsExtLib.sol";
 import {ValidatorOperationsExtLib} from "@aztec/core/libraries/rollup/ValidatorOperationsExtLib.sol";
-import {TallySlasherDeploymentExtLib} from "@aztec/core/libraries/rollup/TallySlasherDeploymentExtLib.sol";
-import {EmpireSlasherDeploymentExtLib} from "@aztec/core/libraries/rollup/EmpireSlasherDeploymentExtLib.sol";
-import {SlasherFlavor} from "@aztec/core/interfaces/ISlasher.sol";
+import {SlasherDeploymentExtLib} from "@aztec/core/libraries/rollup/SlasherDeploymentExtLib.sol";
 import {EthValue} from "@aztec/core/libraries/compressed-data/fees/FeeConfig.sol";
 import {FeeLib} from "@aztec/core/libraries/rollup/FeeLib.sol";
 import {ProposeArgs} from "@aztec/core/libraries/rollup/ProposeLib.sol";
@@ -234,16 +232,14 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
       block.timestamp, _config.aztecSlotDuration, _config.aztecEpochDuration, _config.aztecProofSubmissionEpochs
     );
 
-    // Deploy slasher based on flavor
+    // Deploy slasher if enabled and committees are configured
     ISlasher slasher;
 
-    // We call one external library or another based on the slasher flavor
-    // This allows us to keep the slash flavors in separate external libraries so we do not exceed max contract size
     // Note that we do not deploy a slasher if we run with no committees (i.e. targetCommitteeSize == 0)
-    if (_config.targetCommitteeSize == 0 || _config.slasherFlavor == SlasherFlavor.NONE) {
+    if (_config.targetCommitteeSize == 0 || !_config.slasherEnabled) {
       slasher = ISlasher(address(0));
-    } else if (_config.slasherFlavor == SlasherFlavor.TALLY) {
-      slasher = TallySlasherDeploymentExtLib.deployTallySlasher(
+    } else {
+      slasher = SlasherDeploymentExtLib.deploySlasher(
         address(this),
         _config.slashingVetoer,
         _governance,
@@ -255,17 +251,6 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
         _config.targetCommitteeSize,
         _config.aztecEpochDuration,
         _config.slashingOffsetInRounds,
-        _config.slashingDisableDuration
-      );
-    } else {
-      slasher = EmpireSlasherDeploymentExtLib.deployEmpireSlasher(
-        address(this),
-        _config.slashingVetoer,
-        _governance,
-        _config.slashingQuorum,
-        _config.slashingRoundSize,
-        _config.slashingLifetimeInRounds,
-        _config.slashingExecutionDelayInRounds,
         _config.slashingDisableDuration
       );
     }

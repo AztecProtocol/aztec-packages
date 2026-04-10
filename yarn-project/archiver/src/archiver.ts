@@ -19,7 +19,7 @@ import {
   type L2Tips,
   type ValidateCheckpointResult,
 } from '@aztec/stdlib/block';
-import { PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
+import { type ProposedCheckpointInput, PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 import {
   type L1RollupConstants,
   getEpochAtSlot,
@@ -91,7 +91,7 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
    * @param debugClient - A client for interacting with the Ethereum node for debug/trace methods.
    * @param rollup - Rollup contract instance.
    * @param inbox - Inbox contract instance.
-   * @param l1Addresses - L1 contract addresses (registry, governance proposer, slash factory, slashing proposer).
+   * @param l1Addresses - L1 contract addresses (registry, governance proposer, slashing proposer).
    * @param dataStore - An archiver data store for storage & retrieval of blocks, encrypted logs & contract data.
    * @param config - Archiver configuration options.
    * @param blobClient - Client for retrieving blob data.
@@ -104,10 +104,9 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
     private readonly publicClient: ViemPublicClient,
     private readonly debugClient: ViemPublicDebugClient,
     private readonly rollup: RollupContract,
-    private readonly l1Addresses: Pick<
-      L1ContractAddresses,
-      'registryAddress' | 'governanceProposerAddress' | 'slashFactoryAddress'
-    > & { slashingProposerAddress: EthAddress },
+    private readonly l1Addresses: Pick<L1ContractAddresses, 'registryAddress' | 'governanceProposerAddress'> & {
+      slashingProposerAddress: EthAddress;
+    },
     readonly dataStore: KVArchiverDataStore,
     private config: {
       pollingIntervalMs: number;
@@ -207,6 +206,10 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
         this.log.error(`Sync immediate call failed: ${err}`);
       });
     });
+  }
+
+  public async setProposedCheckpoint(pending: ProposedCheckpointInput): Promise<void> {
+    await this.updater.setProposedCheckpoint(pending);
   }
 
   /**
@@ -486,7 +489,10 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
     await this.store.rollbackL1ToL2MessagesToCheckpoint(targetCheckpointNumber);
     this.log.info(`Setting L1 syncpoints to ${targetL1BlockNumber}`);
     await this.store.setCheckpointSynchedL1BlockNumber(targetL1BlockNumber);
-    await this.store.setMessageSynchedL1Block({ l1BlockNumber: targetL1BlockNumber, l1BlockHash: targetL1BlockHash });
+    await this.store.setMessageSyncState(
+      { l1BlockNumber: targetL1BlockNumber, l1BlockHash: targetL1BlockHash },
+      undefined,
+    );
     if (targetL2BlockNumber < currentProvenBlock) {
       this.log.info(`Rolling back proven L2 checkpoint to ${targetCheckpointNumber}`);
       await this.updater.setProvenCheckpointNumber(targetCheckpointNumber);

@@ -130,8 +130,9 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
     // docs:end:simulate
     if (this.functionDao.functionType == FunctionType.UTILITY) {
       const call = await this.getFunctionCall();
+      const scopes = [...(options.additionalScopes ?? [])];
       const utilityResult = await this.wallet.executeUtility(call, {
-        scopes: options.from === NO_FROM ? [] : [options.from],
+        scopes: options.from === NO_FROM ? scopes : [options.from, ...scopes],
         authWitnesses: options.authWitnesses,
       });
 

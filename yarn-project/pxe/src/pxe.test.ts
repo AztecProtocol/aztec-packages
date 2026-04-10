@@ -61,7 +61,6 @@ describe('PXE', () => {
       coinIssuerAddress: EthAddress.random(),
       rewardDistributorAddress: EthAddress.random(),
       governanceProposerAddress: EthAddress.random(),
-      slashFactoryAddress: EthAddress.random(),
     };
     node.getNodeInfo.mockResolvedValue({
       nodeVersion: '1.0.0',
@@ -193,6 +192,7 @@ describe('PXE', () => {
         checkpointed: tipId,
         proven: tipId,
         finalized: tipId,
+        proposedCheckpoint: tipId,
       });
 
       // This is read when PXE tries to resolve the

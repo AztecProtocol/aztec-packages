@@ -30,7 +30,10 @@ template <typename Flavor, class IO> size_t UltraVerifier_<Flavor, IO>::compute_
         return static_cast<size_t>(Flavor::VIRTUAL_LOG_N);
     } else {
         // Non-padded: use actual circuit size from VK (native only)
-        return static_cast<size_t>(verifier_instance->get_vk()->log_circuit_size);
+        const size_t log_circuit_size = static_cast<size_t>(verifier_instance->get_vk()->log_circuit_size);
+        BB_ASSERT_GTE(
+            log_circuit_size, static_cast<size_t>(1), "VK log_circuit_size is 0, which is invalid for any circuit");
+        return log_circuit_size;
     }
 }
 

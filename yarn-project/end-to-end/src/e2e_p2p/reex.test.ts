@@ -66,7 +66,6 @@ describe('e2e_p2p_reex', () => {
     nodes = await createNodes(
       {
         ...t.ctx.aztecNodeConfig,
-        validatorReexecute: true,
         minTxsPerBlock: 1,
         maxTxsPerBlock: NUM_TXS_PER_NODE,
       },
@@ -74,7 +73,7 @@ describe('e2e_p2p_reex', () => {
       t.bootstrapNodeEnr,
       NUM_VALIDATORS,
       BASE_BOOT_NODE_UDP_PORT,
-      t.prefilledPublicData,
+      t.genesis,
       DATA_DIR,
       // To collect metrics - run in aztec-packages `docker compose --profile metrics up` and set COLLECT_METRICS=true
       shouldCollectMetrics(),

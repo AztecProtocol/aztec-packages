@@ -43,10 +43,11 @@ struct BytecodeRetrievalEvent {
     std::optional<BytecodeRetrievalEventError> error;
 };
 
+// Emitted when the simulator fetches an instruction from bytecode.
+// Contains data required to prove either success or failure of extraction.
 struct InstructionFetchingEvent {
     BytecodeId bytecode_id = 0;
     PC pc = 0;
-    // TODO: Do we want to have a dep on Instruction here or do we redefine what we need?
     Instruction instruction;
     std::shared_ptr<std::vector<uint8_t>> bytecode;
     std::optional<InstrDeserializationEventError> error;

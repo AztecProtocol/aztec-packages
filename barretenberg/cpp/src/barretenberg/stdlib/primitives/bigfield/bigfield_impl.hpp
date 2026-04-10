@@ -70,7 +70,6 @@ bigfield<Builder, T>::bigfield(const field_t<Builder>& low_bits_in,
             decompose_non_native_field_double_width_limb(context, low_bits_in.get_witness_index());
         limb_0.witness_index = limb_witnesses[0];
         limb_1.witness_index = limb_witnesses[1];
-        field_t<Builder>::evaluate_linear_identity(low_bits_in, -limb_0, -limb_1 * shift_1, field_t<Builder>(0));
     } else {
         uint256_t slice_0 = uint256_t(low_bits_in.additive_constant).slice(0, NUM_LIMB_BITS);
         uint256_t slice_1 = uint256_t(low_bits_in.additive_constant).slice(NUM_LIMB_BITS, 2 * NUM_LIMB_BITS);
@@ -97,7 +96,6 @@ bigfield<Builder, T>::bigfield(const field_t<Builder>& low_bits_in,
             context, high_bits_in.get_witness_index(), static_cast<size_t>(num_high_limb_bits));
         limb_2.witness_index = limb_witnesses[0];
         limb_3.witness_index = limb_witnesses[1];
-        field_t<Builder>::evaluate_linear_identity(high_bits_in, -limb_2, -limb_3 * shift_1, field_t<Builder>(0));
     } else {
         uint256_t slice_2 = uint256_t(high_bits_in.additive_constant).slice(0, NUM_LIMB_BITS);
         uint256_t slice_3 = uint256_t(high_bits_in.additive_constant).slice(NUM_LIMB_BITS, num_high_limb_bits);
@@ -273,7 +271,7 @@ template <typename Builder, typename T> bigfield<Builder, T>::bigfield(const byt
     const auto res = bigfield::unsafe_construct_from_limbs(limb0, limb1, limb2, limb3, true);
 
     const auto num_last_limb_bits = 256 - (NUM_LIMB_BITS * 3);
-    res.binary_basis_limbs[3].maximum_value = (uint64_t(1) << num_last_limb_bits);
+    res.binary_basis_limbs[3].maximum_value = (uint64_t(1) << num_last_limb_bits) - 1;
     *this = res;
     set_origin_tag(bytes.get_origin_tag());
 }
@@ -1992,14 +1990,14 @@ void bigfield<Builder, T>::unsafe_assert_less_than(const uint256_t& upper_limit,
         r2.get_witness_index(),
         r3.get_witness_index(),
         static_cast<size_t>(NUM_LIMB_BITS),
-        static_cast<size_t>(NUM_LIMB_BITS),
+        static_cast<size_t>(NUM_LAST_LIMB_BITS),
         msg == "bigfield::unsafe_assert_less_than" ? "bigfield::unsafe_assert_less_than: r2 or r3 too large" : msg);
 }
 
 // check elements are equal mod p by proving their integer difference is a multiple of p.
 // This relies on the minus operator for a-b increasing a by a multiple of p large enough so diff is non-negative
 // When one of the elements is a constant and another is a witness we check equality of limbs, so if the witness
-// bigfield element is in an unreduced form, it needs to be reduced first. We don't have automatice reduced form
+// bigfield element is in an unreduced form, it needs to be reduced first. We don't have automatic reduced form
 // detection for now, so it is up to the circuit writer to detect this
 template <typename Builder, typename T>
 void bigfield<Builder, T>::assert_equal(const bigfield& other, std::string const& msg) const
@@ -2010,13 +2008,16 @@ void bigfield<Builder, T>::assert_equal(const bigfield& other, std::string const
         BB_ASSERT_EQ(get_value(), other.get_value(), "We expect constants to be less than the target modulus");
         return;
     } else if (other.is_constant()) {
-        // NOTE(https://github.com/AztecProtocol/barretenberg/issues/998): This can lead to a situation where
-        // an honest prover cannot satisfy the constraints, because `this` is not reduced, but `other` is, i.e.,
-        // `this` = kp + r  and  `other` = r
-        // where k is a positive integer. In such a case, the prover cannot satisfy the constraints
-        // because the limb-differences would not be 0 mod r. Therefore, an honest prover needs to make sure that
-        // `this` is reduced before calling this method. Also `other` should never be greater than the modulus by
-        // design. As a precaution, we assert that the circuit-constant `other` is less than the modulus.
+        // NOTE(https://github.com/AztecProtocol/barretenberg/issues/998): This does a limb-wise integer
+        // comparison, so `this` must already be in reduced form (value in [0, p)) before calling this method.
+        // If `this = kp + r` and `other = r`, the limbs differ and an honest prover cannot satisfy the
+        // constraints. Callers are responsible for calling self_reduce() first when necessary; we omit it
+        // here to avoid adding spurious gates in the common case where `this` is already reduced.
+        // `other` should never exceed the modulus by design; we assert this as a precaution.
+        BB_ASSERT_LT(get_value(),
+                     modulus_u512,
+                     "bigfield::assert_equal: 'this' is not reduced (value >= p). Call self_reduce() before comparing "
+                     "against a constant.");
         BB_ASSERT_LT(other.get_value(), modulus_u512);
         field_t<Builder> t0 = (binary_basis_limbs[0].element - other.binary_basis_limbs[0].element);
         field_t<Builder> t1 = (binary_basis_limbs[1].element - other.binary_basis_limbs[1].element);
@@ -2072,8 +2073,10 @@ void bigfield<Builder, T>::assert_equal(const bigfield& other, std::string const
 
 // construct a proof that points are different mod p, when they are different mod r
 // WARNING: This method doesn't have perfect completeness - for points equal mod r (or with certain difference kp
-// mod r) but different mod p, you can't construct a proof. The chances of an honest prover running afoul of this
-// condition are extremely small (TODO: compute probability) Note also that the number of constraints depends on how
+// mod r) but different mod p, you can't construct a proof. The failure probability is at most
+// (L + R + 1) / r where L = floor(a.max / p), R = floor(b.max / p), r = native field size (~2^254).
+// With max bounded by 2^256 - 1 and p >= 2^249, we get L,R <= 127, so probability < 2^{-246}.
+// Note also that the number of constraints depends on how
 // much the values have overflown beyond p e.g. due to an addition chain The function is based on the following.
 // Suppose a-b = 0 mod p. Then a-b = k*p for k in a range [-R,L] for largest L and R such that L*p>= a, R*p>=b.
 // And also a-b = k*p mod r for such k. Thus we can verify a-b is non-zero mod p by taking the product of such values
@@ -2147,7 +2150,7 @@ template <typename Builder, typename T> void bigfield<Builder, T>::self_reduce()
 
     BB_ASSERT_LT((uint1024_t(1) << maximum_quotient_bits) * uint1024_t(modulus_u512) + DEFAULT_MAXIMUM_REMAINDER,
                  get_maximum_crt_product());
-    quotient.binary_basis_limbs[0] = Limb(quotient_limb, uint256_t(1) << maximum_quotient_bits);
+    quotient.binary_basis_limbs[0] = Limb(quotient_limb, (uint256_t(1) << maximum_quotient_bits) - 1);
     quotient.binary_basis_limbs[1] = Limb(field_t<Builder>::from_witness_index(context, context->zero_idx()), 0);
     quotient.binary_basis_limbs[2] = Limb(field_t<Builder>::from_witness_index(context, context->zero_idx()), 0);
     quotient.binary_basis_limbs[3] = Limb(field_t<Builder>::from_witness_index(context, context->zero_idx()), 0);
@@ -2257,13 +2260,6 @@ void bigfield<Builder, T>::unsafe_evaluate_multiply_add(const bigfield& input_le
 
     uint64_t carry_lo_msb = max_lo_bits - (2 * NUM_LIMB_BITS);
     uint64_t carry_hi_msb = max_hi_bits - (2 * NUM_LIMB_BITS);
-
-    if (max_lo_bits < (2 * NUM_LIMB_BITS)) {
-        carry_lo_msb = 0;
-    }
-    if (max_hi_bits < (2 * NUM_LIMB_BITS)) {
-        carry_hi_msb = 0;
-    }
 
     // The custom bigfield multiplication gate requires inputs are witnesses.
     // If we're using constant values, instantiate them as circuit variables
@@ -2712,13 +2708,6 @@ void bigfield<Builder, T>::unsafe_evaluate_multiple_multiply_add(const std::vect
     uint64_t carry_lo_msb = max_lo_bits - (2 * NUM_LIMB_BITS);
     uint64_t carry_hi_msb = max_hi_bits - (2 * NUM_LIMB_BITS);
 
-    if (max_lo_bits < (2 * NUM_LIMB_BITS)) {
-        carry_lo_msb = 0;
-    }
-    if (max_hi_bits < (2 * NUM_LIMB_BITS)) {
-        carry_hi_msb = 0;
-    }
-
     // if both the hi and lo output limbs have less than 70 bits, we can use our custom
     // limb accumulation gate (accumulates 2 field elements, each composed of 5 14-bit limbs, in 3 gates)
     if (carry_lo_msb <= 70 && carry_hi_msb <= 70) {
@@ -2858,9 +2847,7 @@ std::pair<uint512_t, uint512_t> bigfield<Builder, T>::compute_partial_schoolbook
 
 /**
  * @brief Decompose a single witness into two limbs, range constrained to NUM_LIMB_BITS (68) and
- * num_limb_bits - NUM_LIMB_BITS, respectively.
- *
- * @details Doesn't create gates constraining the limbs to each other.
+ * num_limb_bits - NUM_LIMB_BITS, respectively, and constrain low + hi * 2^NUM_LIMB_BITS == original.
  *
  * @param ctx The circuit context
  * @param limb_idx The index of the limb that will be decomposed
@@ -2887,6 +2874,12 @@ std::array<uint32_t, 2> bigfield<Builder, T>::decompose_non_native_field_double_
     const size_t hi_bits = num_limb_bits - NUM_LIMB_BITS;
     ctx->range_constrain_two_limbs(
         low_idx, hi_idx, lo_bits, hi_bits, "decompose_non_native_field_double_width_limb: limbs too large");
+
+    // Constrain: original == low + hi * 2^NUM_LIMB_BITS
+    field_t<Builder> original = field_t<Builder>::from_witness_index(ctx, limb_idx);
+    field_t<Builder> lo_field = field_t<Builder>::from_witness_index(ctx, low_idx);
+    field_t<Builder> hi_field = field_t<Builder>::from_witness_index(ctx, hi_idx);
+    field_t<Builder>::evaluate_linear_identity(original, -lo_field, -hi_field * shift_1, field_t<Builder>(0));
 
     return std::array<uint32_t, 2>{ low_idx, hi_idx };
 }

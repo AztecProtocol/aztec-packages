@@ -15,9 +15,10 @@ template <typename FF_> class TranslatorPermutationRelationImpl {
     // 1 + polynomial degree of this relation
     static constexpr size_t RELATION_LENGTH = 7;
 
-    static constexpr std::array<size_t, 2> SUBRELATION_PARTIAL_LENGTHS{
+    static constexpr std::array<size_t, 3> SUBRELATION_PARTIAL_LENGTHS{
         7, // grand product construction sub-relation
-        3  // left-shiftable polynomial sub-relation
+        3, // left-shiftable polynomial sub-relation
+        3  // z_perm initialization sub-relation
     };
 
     /**
@@ -86,9 +87,10 @@ template <typename FF_> class TranslatorPermutationRelationImpl {
     /**
      * @brief Compute contribution of the goblin translator permutation relation for a given edge (internal function)
      *
-     * @details There are 2 relations associated with enforcing the set permutation relation
-     * This file handles the relation that confirms faithful calculation of the grand
-     * product polynomial Z_perm.
+     * @details There are 3 sub-relations associated with enforcing the set permutation relation.
+     * Sub-relation 0 confirms faithful calculation of the grand product polynomial Z_perm.
+     * Sub-relation 1 enforces Z_perm_shift = 0 at lagrange_last (grand product closure).
+     * Sub-relation 2 enforces Z_perm = 0 at lagrange_first (grand product initialization).
      *
      *  C(in(X)...) =
      *      ( z_perm(X) + lagrange_first(X) )*P(X)

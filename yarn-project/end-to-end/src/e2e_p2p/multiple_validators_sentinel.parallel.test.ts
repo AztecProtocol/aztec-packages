@@ -44,6 +44,7 @@ describe('e2e_p2p_multiple_validators_sentinel', () => {
       basePort: BOOT_NODE_UDP_PORT,
       startProverNode: true,
       initialConfig: {
+        anvilSlotsInAnEpoch: 4,
         aztecTargetCommitteeSize: NUM_VALIDATORS,
         aztecSlotDuration: AZTEC_SLOT_DURATION,
         ethereumSlotDuration: ETHEREUM_SLOT_DURATION,
@@ -55,7 +56,6 @@ describe('e2e_p2p_multiple_validators_sentinel', () => {
         minTxsPerBlock: 0,
         aztecEpochDuration: EPOCH_DURATION,
         slashingRoundSizeInEpochs: 2,
-        validatorReexecute: false,
         sentinelEnabled: true,
         slashInactivityPenalty: 0n, // Set to 0 to disable
       },
@@ -72,7 +72,7 @@ describe('e2e_p2p_multiple_validators_sentinel', () => {
       t.bootstrapNodeEnr,
       NUM_NODES,
       BOOT_NODE_UDP_PORT,
-      t.prefilledPublicData,
+      t.genesis,
       DATA_DIR,
       undefined, // no metrics port
       0, // index offset
@@ -84,7 +84,7 @@ describe('e2e_p2p_multiple_validators_sentinel', () => {
       t.ctx.dateProvider,
       BOOT_NODE_UDP_PORT + 1 + NUM_NODES,
       t.bootstrapNodeEnr,
-      t.prefilledPublicData,
+      t.genesis,
       `${DATA_DIR}-sentinel`,
       undefined,
     );

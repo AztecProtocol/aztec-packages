@@ -83,12 +83,9 @@ Fee Juice uses an enshrined `FeeJuicePortal` contract on Ethereum for bridging, 
 
 An account with Fee Juice can pay for its transactions directly. A new account can even pay for its own deployment transaction, provided Fee Juice was bridged to its address before deployment.
 
-Alternatively, accounts can use [fee-paying contracts (FPCs)](../aztec-js/how_to_pay_fees.md#use-fee-payment-contracts) to pay for transactions. FPCs accept tokens and pay fees in Fee Juice on behalf of users. Common patterns include:
+Alternatively, accounts can use [fee-paying contracts (FPCs)](../aztec-js/how_to_pay_fees.md#use-fee-payment-contracts) to pay for transactions. FPCs must use Fee Juice exclusively on L2 during the setup phase, but can accept other tokens on L1 and bridge Fee Juice.
 
-- **Sponsored FPCs**: Pay fees unconditionally, enabling free transactions for users
-- **Token-accepting FPCs**: Accept a specific token in exchange for paying fees
-
-FPCs can contain arbitrary logic to authorize fee payments and can operate privately or publicly.
+The **Sponsored FPC** pays fees unconditionally, enabling free transactions. It is only available on devnet and local network.
 
 ### Teardown phase
 

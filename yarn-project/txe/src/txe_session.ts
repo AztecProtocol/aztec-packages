@@ -3,10 +3,10 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { KeyStore } from '@aztec/key-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
-import type { AccessScopes } from '@aztec/pxe/client/lazy';
 import {
   AddressStore,
   AnchorBlockStore,
+  CapsuleService,
   CapsuleStore,
   ContractStore,
   ContractSyncService,
@@ -179,7 +179,7 @@ export class TXESession implements TXESessionStateHandler {
 
     const archiver = new TXEArchiver(store);
     const anchorBlockStore = new AnchorBlockStore(store);
-    const stateMachine = await TXEStateMachine.create(archiver, anchorBlockStore, contractStore, noteStore, keyStore);
+    const stateMachine = await TXEStateMachine.create(archiver, anchorBlockStore, contractStore, noteStore);
 
     const nextBlockTimestamp = BigInt(Math.floor(new Date().getTime() / 1000));
     const version = new Fr(await stateMachine.node.getVersion());
@@ -188,13 +188,7 @@ export class TXESession implements TXESessionStateHandler {
     const initialJobId = jobCoordinator.beginJob();
 
     const logger = createLogger('txe:session');
-    const contractSyncService = new ContractSyncService(
-      stateMachine.node,
-      contractStore,
-      noteStore,
-      () => keyStore.getAccounts(),
-      logger,
-    );
+    const contractSyncService = new ContractSyncService(stateMachine.node, contractStore, noteStore, logger);
 
     const topLevelOracleHandler = new TXEOracleTopLevelContext(
       stateMachine,
@@ -342,7 +336,7 @@ export class TXESession implements TXESessionStateHandler {
 
     await new NoteService(this.noteStore, this.stateMachine.node, anchorBlock!, this.currentJobId).syncNoteNullifiers(
       contractAddress,
-      'ALL_SCOPES',
+      await this.keyStore.getAccounts(),
     );
     const latestBlock = await this.stateMachine.node.getBlockHeader('latest');
 
@@ -378,11 +372,11 @@ export class TXESession implements TXESessionStateHandler {
       senderTaggingStore: this.senderTaggingStore,
       recipientTaggingStore: this.recipientTaggingStore,
       senderAddressBookStore: this.senderAddressBookStore,
-      capsuleStore: this.capsuleStore,
+      capsuleService: new CapsuleService(this.capsuleStore, await this.keyStore.getAccounts()),
       privateEventStore: this.privateEventStore,
       contractSyncService: this.stateMachine.contractSyncService,
       jobId: this.currentJobId,
-      scopes: 'ALL_SCOPES',
+      scopes: await this.keyStore.getAccounts(),
       messageContextService: this.stateMachine.messageContextService,
     });
 
@@ -436,7 +430,7 @@ export class TXESession implements TXESessionStateHandler {
       this.stateMachine.node,
       anchorBlockHeader,
       this.currentJobId,
-    ).syncNoteNullifiers(contractAddress, 'ALL_SCOPES');
+    ).syncNoteNullifiers(contractAddress, await this.keyStore.getAccounts());
 
     this.oracleHandler = new UtilityExecutionOracle({
       contractAddress,
@@ -450,12 +444,12 @@ export class TXESession implements TXESessionStateHandler {
       aztecNode: this.stateMachine.node,
       recipientTaggingStore: this.recipientTaggingStore,
       senderAddressBookStore: this.senderAddressBookStore,
-      capsuleStore: this.capsuleStore,
+      capsuleService: new CapsuleService(this.capsuleStore, await this.keyStore.getAccounts()),
       privateEventStore: this.privateEventStore,
       messageContextService: this.stateMachine.messageContextService,
       contractSyncService: this.contractSyncService,
       jobId: this.currentJobId,
-      scopes: 'ALL_SCOPES',
+      scopes: await this.keyStore.getAccounts(),
     });
 
     this.state = { name: 'UTILITY' };
@@ -524,7 +518,7 @@ export class TXESession implements TXESessionStateHandler {
   }
 
   private utilityExecutorForContractSync(anchorBlock: any) {
-    return async (call: FunctionCall, scopes: AccessScopes) => {
+    return async (call: FunctionCall, scopes: AztecAddress[]) => {
       const entryPointArtifact = await this.contractStore.getFunctionArtifactWithDebugMetadata(call.to, call.selector);
       if (entryPointArtifact.functionType !== FunctionType.UTILITY) {
         throw new Error(`Cannot run ${entryPointArtifact.functionType} function as utility`);
@@ -543,7 +537,7 @@ export class TXESession implements TXESessionStateHandler {
           aztecNode: this.stateMachine.node,
           recipientTaggingStore: this.recipientTaggingStore,
           senderAddressBookStore: this.senderAddressBookStore,
-          capsuleStore: this.capsuleStore,
+          capsuleService: new CapsuleService(this.capsuleStore, scopes),
           privateEventStore: this.privateEventStore,
           messageContextService: this.stateMachine.messageContextService,
           contractSyncService: this.contractSyncService,

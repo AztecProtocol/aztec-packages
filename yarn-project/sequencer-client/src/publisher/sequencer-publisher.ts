@@ -3,14 +3,14 @@ import { Blob, getBlobsPerL1Block, getPrefixedEthBlobCommitments } from '@aztec/
 import type { EpochCache } from '@aztec/epoch-cache';
 import type { L1ContractsConfig } from '@aztec/ethereum/config';
 import {
-  type EmpireSlashingProposerContract,
   FeeAssetPriceOracle,
+  type FeeHeader,
   type GovernanceProposerContract,
   type IEmpireBase,
   MULTI_CALL_3_ADDRESS,
   Multicall3,
   RollupContract,
-  type TallySlashingProposerContract,
+  type SlashingProposerContract,
   type ViemCommitteeAttestations,
   type ViemHeader,
 } from '@aztec/ethereum/contracts';
@@ -36,14 +36,14 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { Signature, type ViemSignature } from '@aztec/foundation/eth-signature';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { makeBackoff, retry } from '@aztec/foundation/retry';
+import { InterruptibleSleep } from '@aztec/foundation/sleep';
 import { bufferToHex } from '@aztec/foundation/string';
-import { DateProvider, Timer } from '@aztec/foundation/timer';
+import { type DateProvider, Timer } from '@aztec/foundation/timer';
 import { EmpireBaseAbi, ErrorsAbi, RollupAbi } from '@aztec/l1-artifacts';
 import { type ProposerSlashAction, encodeSlashConsensusVotes } from '@aztec/slasher';
 import { CommitteeAttestationsAndSigners, type ValidateCheckpointResult } from '@aztec/stdlib/block';
 import type { Checkpoint } from '@aztec/stdlib/checkpoint';
-import { getNextL1SlotTimestamp } from '@aztec/stdlib/epoch-helpers';
-import { SlashFactoryContract } from '@aztec/stdlib/l1-contracts';
+import { getLastL1SlotTimestampForL2Slot, getNextL1SlotTimestamp } from '@aztec/stdlib/epoch-helpers';
 import type { CheckpointHeader } from '@aztec/stdlib/rollup';
 import type { L1PublishCheckpointStats } from '@aztec/stdlib/stats';
 import { type TelemetryClient, type Tracer, getTelemetryClient, trackSpan } from '@aztec/telemetry-client';
@@ -62,6 +62,20 @@ import {
 import type { SequencerPublisherConfig } from './config.js';
 import { type FailedL1Tx, type L1TxFailedStore, createL1TxFailedStore } from './l1_tx_failed_store/index.js';
 import { SequencerPublisherMetrics } from './sequencer-publisher-metrics.js';
+
+/** Result of a sendRequests call, returned by both sendRequests() and sendRequestsAt(). */
+export type SendRequestsResult = {
+  /** The L1 transaction receipt or error from the bundled multicall. */
+  result: { receipt: TransactionReceipt; errorMsg?: string } | FormattedViemError;
+  /** Actions that expired (past their deadline) before the request was sent. */
+  expiredActions: Action[];
+  /** Actions that were included in the sent L1 transaction. */
+  sentActions: Action[];
+  /** Actions whose L1 simulation succeeded (subset of sentActions). */
+  successfulActions: Action[];
+  /** Actions whose L1 simulation failed (subset of sentActions). */
+  failedActions: Action[];
+};
 
 /** Arguments to the process method of the rollup contract */
 type L1ProcessArgs = {
@@ -84,16 +98,13 @@ export const Actions = [
   'invalidate-by-insufficient-attestations',
   'propose',
   'governance-signal',
-  'empire-slashing-signal',
-  'create-empire-payload',
-  'execute-empire-payload',
   'vote-offenses',
   'execute-slash',
 ] as const;
 
 export type Action = (typeof Actions)[number];
 
-type GovernanceSignalAction = Extract<Action, 'governance-signal' | 'empire-slashing-signal'>;
+type GovernanceSignalAction = Extract<Action, 'governance-signal'>;
 
 // Sorting for actions such that invalidations go before proposals, and proposals go before votes
 export const compareActions = (a: Action, b: Action) => Actions.indexOf(a) - Actions.indexOf(b);
@@ -104,6 +115,8 @@ export type InvalidateCheckpointRequest = {
   gasUsed: bigint;
   checkpointNumber: CheckpointNumber;
   forcePendingCheckpointNumber: CheckpointNumber;
+  /** Archive at the rollback target checkpoint (checkpoint N-1). */
+  lastArchive: Fr;
 };
 
 interface RequestWithExpiry {
@@ -112,6 +125,8 @@ interface RequestWithExpiry {
   lastValidL2Slot: SlotNumber;
   gasConfig?: Pick<L1TxConfig, 'txTimeoutAt' | 'gasLimit'>;
   blobConfig?: L1BlobInputs;
+  /** Optional pre-send validation. If it rejects, the request is discarded. */
+  preCheck?: () => Promise<void>;
   checkSuccess: (
     request: L1TxRequest,
     result?: { receipt: TransactionReceipt; stats?: TransactionStats; errorMsg?: string },
@@ -135,7 +150,9 @@ export class SequencerPublisher {
   protected log: Logger;
   protected ethereumSlotDuration: bigint;
   protected aztecSlotDuration: bigint;
-  private dateProvider: DateProvider;
+
+  /** Date provider for wall-clock time. */
+  private readonly dateProvider: DateProvider;
 
   private blobClient: BlobClientInterface;
 
@@ -151,6 +168,9 @@ export class SequencerPublisher {
   /** Fee asset price oracle for computing price modifiers from Uniswap V4 */
   private feeAssetPriceOracle: FeeAssetPriceOracle;
 
+  /** Interruptible sleep used by sendRequestsAt to wait until a target timestamp. */
+  private readonly interruptibleSleep = new InterruptibleSleep();
+
   // A CALL to a cold address is 2700 gas
   public static MULTICALL_OVERHEAD_GAS_GUESS = 5000n;
 
@@ -160,8 +180,7 @@ export class SequencerPublisher {
   public l1TxUtils: L1TxUtils;
   public rollupContract: RollupContract;
   public govProposerContract: GovernanceProposerContract;
-  public slashingProposerContract: EmpireSlashingProposerContract | TallySlashingProposerContract | undefined;
-  public slashFactoryContract: SlashFactoryContract;
+  public slashingProposerContract: SlashingProposerContract | undefined;
 
   public readonly tracer: Tracer;
 
@@ -175,9 +194,8 @@ export class SequencerPublisher {
       blobClient: BlobClientInterface;
       l1TxUtils: L1TxUtils;
       rollupContract: RollupContract;
-      slashingProposerContract: EmpireSlashingProposerContract | TallySlashingProposerContract | undefined;
+      slashingProposerContract: SlashingProposerContract | undefined;
       governanceProposerContract: GovernanceProposerContract;
-      slashFactoryContract: SlashFactoryContract;
       epochCache: EpochCache;
       dateProvider: DateProvider;
       metrics: SequencerPublisherMetrics;
@@ -194,6 +212,7 @@ export class SequencerPublisher {
     this.lastActions = deps.lastActions;
 
     this.blobClient = deps.blobClient;
+    this.dateProvider = deps.dateProvider;
 
     const telemetry = deps.telemetry ?? getTelemetryClient();
     this.metrics = deps.metrics ?? new SequencerPublisherMetrics(telemetry, 'SequencerPublisher');
@@ -211,8 +230,6 @@ export class SequencerPublisher {
       const newSlashingProposer = await this.rollupContract.getSlashingProposer();
       this.slashingProposerContract = newSlashingProposer;
     });
-    this.slashFactoryContract = deps.slashFactoryContract;
-
     // Initialize L1 fee analyzer for fisherman mode
     if (config.fishermanMode) {
       this.l1FeeAnalyzer = new L1FeeAnalyzer(
@@ -369,9 +386,10 @@ export class SequencerPublisher {
    * - undefined if no valid requests are found OR the tx failed to send.
    */
   @trackSpan('SequencerPublisher.sendRequests')
-  public async sendRequests() {
+  public async sendRequests(): Promise<SendRequestsResult | undefined> {
     const requestsToProcess = [...this.requests];
     this.requests = [];
+
     if (this.interrupted || requestsToProcess.length === 0) {
       return undefined;
     }
@@ -530,6 +548,45 @@ export class SequencerPublisher {
     }
   }
 
+  /*
+   * Schedules sending all enqueued requests at (or after) the given timestamp.
+   * Uses InterruptibleSleep so it can be cancelled via interrupt().
+   * Returns the promise for the L1 response (caller should NOT await this in the work loop).
+   */
+  public async sendRequestsAt(submitAfter: Date): Promise<SendRequestsResult | undefined> {
+    const ms = submitAfter.getTime() - this.dateProvider.now();
+    if (ms > 0) {
+      this.log.debug(`Sleeping ${ms}ms before sending requests`, { submitAfter });
+      await this.interruptibleSleep.sleep(ms);
+    }
+    if (this.interrupted) {
+      return undefined;
+    }
+
+    // Re-validate enqueued requests after the sleep (state may have changed, e.g. prune or L1 reorg)
+    const validRequests: RequestWithExpiry[] = [];
+    for (const request of this.requests) {
+      if (!request.preCheck) {
+        validRequests.push(request);
+        continue;
+      }
+
+      try {
+        await request.preCheck();
+        validRequests.push(request);
+      } catch (err) {
+        this.log.warn(`Pre-send validation failed for ${request.action}, discarding request`, err);
+      }
+    }
+
+    this.requests = validRequests;
+    if (this.requests.length === 0) {
+      return undefined;
+    }
+
+    return this.sendRequests();
+  }
+
   private callbackBundledTransactions(
     requests: RequestWithExpiry[],
     result: { receipt: TransactionReceipt; errorMsg?: string } | FormattedViemError | undefined,
@@ -608,7 +665,11 @@ export class SequencerPublisher {
   public canProposeAt(
     tipArchive: Fr,
     msgSender: EthAddress,
-    opts: { forcePendingCheckpointNumber?: CheckpointNumber; pipelined?: boolean } = {},
+    opts: {
+      forcePendingCheckpointNumber?: CheckpointNumber;
+      forceArchive?: { checkpointNumber: CheckpointNumber; archive: Fr };
+      pipelined?: boolean;
+    } = {},
   ) {
     // TODO: #14291 - should loop through multiple keys to check if any of them can propose
     const ignoredErrors = ['SlotAlreadyInChain', 'InvalidProposer', 'InvalidArchive'];
@@ -620,6 +681,7 @@ export class SequencerPublisher {
     return this.rollupContract
       .canProposeAt(tipArchive.toBuffer(), msgSender.toString(), nextL1SlotTs, {
         forcePendingCheckpointNumber: opts.forcePendingCheckpointNumber,
+        forceArchive: opts.forceArchive,
       })
       .catch(err => {
         if (err instanceof FormattedViemError && ignoredErrors.find(e => err.message.includes(e))) {
@@ -656,7 +718,7 @@ export class SequencerPublisher {
       flags,
     ] as const;
 
-    const ts = this.getNextL1SlotTimestamp();
+    const ts = this.getSimulationTimestamp(header.slotNumber);
     const stateOverrides = await this.rollupContract.makePendingCheckpointNumberOverride(
       opts?.forcePendingCheckpointNumber,
     );
@@ -679,7 +741,7 @@ export class SequencerPublisher {
         data: encodeFunctionData({ abi: RollupAbi, functionName: 'validateHeaderWithAttestations', args }),
         from: MULTI_CALL_3_ADDRESS,
       },
-      { time: ts + 1n },
+      { time: ts },
       stateOverrides,
     );
     this.log.debug(`Simulated validateHeader`);
@@ -732,6 +794,7 @@ export class SequencerPublisher {
         gasUsed,
         checkpointNumber,
         forcePendingCheckpointNumber: CheckpointNumber(checkpointNumber - 1),
+        lastArchive: validationResult.checkpoint.lastArchive,
         reason,
       };
     } catch (err) {
@@ -744,8 +807,8 @@ export class SequencerPublisher {
           `Simulation for invalidate checkpoint ${checkpointNumber} failed due to checkpoint not being in pending chain`,
           { ...logData, request, error: viemError.message },
         );
-        const latestPendingCheckpointNumber = await this.rollupContract.getCheckpointNumber();
-        if (latestPendingCheckpointNumber < checkpointNumber) {
+        const latestProposedCheckpointNumber = await this.rollupContract.getCheckpointNumber();
+        if (latestProposedCheckpointNumber < checkpointNumber) {
           this.log.verbose(`Checkpoint ${checkpointNumber} has already been invalidated`, { ...logData });
           return undefined;
         } else {
@@ -819,16 +882,11 @@ export class SequencerPublisher {
     checkpoint: Checkpoint,
     attestationsAndSigners: CommitteeAttestationsAndSigners,
     attestationsAndSignersSignature: Signature,
-    options: { forcePendingCheckpointNumber?: CheckpointNumber },
-  ): Promise<bigint> {
-    // When pipelining, the checkpoint targets the next slot so its timestamp is in the future.
-    // Without pipelining, the checkpoint targets the current slot so its timestamp is in the past
-    // by the time we simulate (~24s of build time), causing eth_simulateV1 to reject it.
-    // In that case, use the latest L1 block timestamp + one ethereum slot, which is just ahead
-    // of L1 and still within the same L2 slot.
-    const ts = this.epochCache.isProposerPipeliningEnabled()
-      ? checkpoint.header.timestamp
-      : (await this.l1TxUtils.getBlock()).timestamp + this.ethereumSlotDuration;
+    options: {
+      forcePendingCheckpointNumber?: CheckpointNumber;
+      forceProposedFeeHeader?: { checkpointNumber: CheckpointNumber; feeHeader: FeeHeader };
+    },
+  ): Promise<void> {
     const blobFields = checkpoint.toBlobFields();
     const blobs = await getBlobsPerL1Block(blobFields);
     const blobInput = getPrefixedEthBlobCommitments(blobs);
@@ -847,13 +905,11 @@ export class SequencerPublisher {
       blobInput,
     ] as const;
 
-    await this.simulateProposeTx(args, ts, options);
-    return ts;
+    await this.simulateProposeTx(args, options);
   }
 
   private async enqueueCastSignalHelper(
     slotNumber: SlotNumber,
-    timestamp: bigint,
     signalType: GovernanceSignalAction,
     payload: EthAddress,
     base: IEmpireBase,
@@ -932,13 +988,17 @@ export class SequencerPublisher {
     });
 
     const l1BlockNumber = await this.l1TxUtils.getBlockNumber();
+    const timestamp = this.getSimulationTimestamp(slotNumber);
 
     try {
       await this.l1TxUtils.simulate(request, { time: timestamp }, [], mergeAbis([request.abi ?? [], ErrorsAbi]));
       this.log.debug(`Simulation for ${action} at slot ${slotNumber} succeeded`, { request });
     } catch (err) {
       const viemError = formatViemError(err);
-      this.log.error(`Failed simulation for ${action} at slot ${slotNumber} (enqueuing the action anyway)`, viemError);
+      this.log.error(`Failed simulation for ${action} at slot ${slotNumber} (enqueuing the action anyway)`, viemError, {
+        simulationTimestamp: timestamp,
+        l1BlockNumber,
+      });
       this.backupFailedTx({
         id: keccak256(request.data!),
         failureType: 'simulation',
@@ -1001,19 +1061,16 @@ export class SequencerPublisher {
   /**
    * Enqueues a governance castSignal transaction to cast a signal for a given slot number.
    * @param slotNumber - The slot number to cast a signal for.
-   * @param timestamp - The timestamp of the slot to cast a signal for.
    * @returns True if the signal was successfully enqueued, false otherwise.
    */
   public enqueueGovernanceCastSignal(
     governancePayload: EthAddress,
     slotNumber: SlotNumber,
-    timestamp: bigint,
     signerAddress: EthAddress,
     signer: (msg: TypedDataDefinition) => Promise<`0x${string}`>,
   ): Promise<boolean> {
     return this.enqueueCastSignalHelper(
       slotNumber,
-      timestamp,
       'governance-signal',
       governancePayload,
       this.govProposerContract,
@@ -1026,7 +1083,6 @@ export class SequencerPublisher {
   public async enqueueSlashingActions(
     actions: ProposerSlashAction[],
     slotNumber: SlotNumber,
-    timestamp: bigint,
     signerAddress: EthAddress,
     signer: (msg: TypedDataDefinition) => Promise<`0x${string}`>,
   ): Promise<boolean> {
@@ -1037,58 +1093,6 @@ export class SequencerPublisher {
 
     for (const action of actions) {
       switch (action.type) {
-        case 'vote-empire-payload': {
-          if (this.slashingProposerContract?.type !== 'empire') {
-            this.log.error('Cannot vote for empire payload on non-empire slashing contract');
-            break;
-          }
-          this.log.debug(`Enqueuing slashing vote for payload ${action.payload} at slot ${slotNumber}`, {
-            signerAddress,
-          });
-          await this.enqueueCastSignalHelper(
-            slotNumber,
-            timestamp,
-            'empire-slashing-signal',
-            action.payload,
-            this.slashingProposerContract,
-            signerAddress,
-            signer,
-          );
-          break;
-        }
-
-        case 'create-empire-payload': {
-          this.log.debug(`Enqueuing slashing create payload at slot ${slotNumber}`, { slotNumber, signerAddress });
-          const request = this.slashFactoryContract.buildCreatePayloadRequest(action.data);
-          await this.simulateAndEnqueueRequest(
-            'create-empire-payload',
-            request,
-            (receipt: TransactionReceipt) =>
-              !!this.slashFactoryContract.tryExtractSlashPayloadCreatedEvent(receipt.logs),
-            slotNumber,
-            timestamp,
-          );
-          break;
-        }
-
-        case 'execute-empire-payload': {
-          this.log.debug(`Enqueuing slashing execute payload at slot ${slotNumber}`, { slotNumber, signerAddress });
-          if (this.slashingProposerContract?.type !== 'empire') {
-            this.log.error('Cannot execute slashing payload on non-empire slashing contract');
-            return false;
-          }
-          const empireSlashingProposer = this.slashingProposerContract as EmpireSlashingProposerContract;
-          const request = empireSlashingProposer.buildExecuteRoundRequest(action.round);
-          await this.simulateAndEnqueueRequest(
-            'execute-empire-payload',
-            request,
-            (receipt: TransactionReceipt) => !!empireSlashingProposer.tryExtractPayloadSubmittedEvent(receipt.logs),
-            slotNumber,
-            timestamp,
-          );
-          break;
-        }
-
         case 'vote-offenses': {
           this.log.debug(`Enqueuing slashing vote for ${action.votes.length} votes at slot ${slotNumber}`, {
             slotNumber,
@@ -1096,19 +1100,17 @@ export class SequencerPublisher {
             votesCount: action.votes.length,
             signerAddress,
           });
-          if (this.slashingProposerContract?.type !== 'tally') {
-            this.log.error('Cannot vote for slashing offenses on non-tally slashing contract');
+          if (!this.slashingProposerContract) {
+            this.log.error('No slashing proposer contract available');
             return false;
           }
-          const tallySlashingProposer = this.slashingProposerContract as TallySlashingProposerContract;
           const votes = bufferToHex(encodeSlashConsensusVotes(action.votes));
-          const request = await tallySlashingProposer.buildVoteRequestFromSigner(votes, slotNumber, signer);
+          const request = await this.slashingProposerContract.buildVoteRequestFromSigner(votes, slotNumber, signer);
           await this.simulateAndEnqueueRequest(
             'vote-offenses',
             request,
-            (receipt: TransactionReceipt) => !!tallySlashingProposer.tryExtractVoteCastEvent(receipt.logs),
+            (receipt: TransactionReceipt) => !!this.slashingProposerContract!.tryExtractVoteCastEvent(receipt.logs),
             slotNumber,
-            timestamp,
           );
           break;
         }
@@ -1119,18 +1121,20 @@ export class SequencerPublisher {
             round: action.round,
             signerAddress,
           });
-          if (this.slashingProposerContract?.type !== 'tally') {
-            this.log.error('Cannot execute slashing offenses on non-tally slashing contract');
+          if (!this.slashingProposerContract) {
+            this.log.error('No slashing proposer contract available');
             return false;
           }
-          const tallySlashingProposer = this.slashingProposerContract as TallySlashingProposerContract;
-          const request = tallySlashingProposer.buildExecuteRoundRequest(action.round, action.committees);
+          const executeRequest = this.slashingProposerContract.buildExecuteRoundRequest(
+            action.round,
+            action.committees,
+          );
           await this.simulateAndEnqueueRequest(
             'execute-slash',
-            request,
-            (receipt: TransactionReceipt) => !!tallySlashingProposer.tryExtractRoundExecutedEvent(receipt.logs),
+            executeRequest,
+            (receipt: TransactionReceipt) =>
+              !!this.slashingProposerContract!.tryExtractRoundExecutedEvent(receipt.logs),
             slotNumber,
-            timestamp,
           );
           break;
         }
@@ -1150,7 +1154,11 @@ export class SequencerPublisher {
     checkpoint: Checkpoint,
     attestationsAndSigners: CommitteeAttestationsAndSigners,
     attestationsAndSignersSignature: Signature,
-    opts: { txTimeoutAt?: Date; forcePendingCheckpointNumber?: CheckpointNumber } = {},
+    opts: {
+      txTimeoutAt?: Date;
+      forcePendingCheckpointNumber?: CheckpointNumber;
+      forceProposedFeeHeader?: { checkpointNumber: CheckpointNumber; feeHeader: FeeHeader };
+    } = {},
   ): Promise<void> {
     const checkpointHeader = checkpoint.header;
 
@@ -1166,15 +1174,13 @@ export class SequencerPublisher {
       feeAssetPriceModifier: checkpoint.feeAssetPriceModifier,
     };
 
-    let ts: bigint;
-
     try {
       // @note  This will make sure that we are passing the checks for our header ASSUMING that the data is also made available
       //        This means that we can avoid the simulation issues in later checks.
       //        By simulation issue, I mean the fact that the block.timestamp is equal to the last block, not the next, which
       //        make time consistency checks break.
       // TODO(palla): Check whether we're validating twice, once here and once within addProposeTx, since we call simulateProposeTx in both places.
-      ts = await this.validateCheckpointForSubmission(
+      await this.validateCheckpointForSubmission(
         checkpoint,
         attestationsAndSigners,
         attestationsAndSignersSignature,
@@ -1189,8 +1195,26 @@ export class SequencerPublisher {
       throw err;
     }
 
+    // Build a pre-check callback that re-validates the checkpoint before L1 submission.
+    // During pipelining this catches stale proposals due to prunes or L1 reorgs that occur during the pipeline sleep.
+    let preCheck = undefined;
+    if (this.epochCache.isProposerPipeliningEnabled()) {
+      preCheck = async () => {
+        this.log.debug(`Re-validating checkpoint ${checkpoint.number} before L1 submission`);
+        await this.validateCheckpointForSubmission(
+          checkpoint,
+          attestationsAndSigners,
+          attestationsAndSignersSignature,
+          {
+            // Forcing pending checkpoint number is included its required if an invalidation request is included
+            forcePendingCheckpointNumber: opts.forcePendingCheckpointNumber,
+          },
+        );
+      };
+    }
+
     this.log.verbose(`Enqueuing checkpoint propose transaction`, { ...checkpoint.toCheckpointInfo(), ...opts });
-    await this.addProposeTx(checkpoint, proposeTxArgs, opts, ts);
+    await this.addProposeTx(checkpoint, proposeTxArgs, opts, preCheck);
   }
 
   public enqueueInvalidateCheckpoint(
@@ -1233,8 +1257,8 @@ export class SequencerPublisher {
     request: L1TxRequest,
     checkSuccess: (receipt: TransactionReceipt) => boolean | undefined,
     slotNumber: SlotNumber,
-    timestamp: bigint,
   ) {
+    const timestamp = this.getSimulationTimestamp(slotNumber);
     const logData = { slotNumber, timestamp, gasLimit: undefined as bigint | undefined };
     if (this.lastActions[action] && this.lastActions[action] === slotNumber) {
       this.log.debug(`Skipping duplicate action ${action} for slot ${slotNumber}`);
@@ -1250,8 +1274,9 @@ export class SequencerPublisher {
 
     let gasUsed: bigint;
     const simulateAbi = mergeAbis([request.abi ?? [], ErrorsAbi]);
+
     try {
-      ({ gasUsed } = await this.l1TxUtils.simulate(request, { time: timestamp }, [], simulateAbi)); // TODO(palla/slash): Check the timestamp logic
+      ({ gasUsed } = await this.l1TxUtils.simulate(request, { time: timestamp }, [], simulateAbi));
       this.log.verbose(`Simulation for ${action} succeeded`, { ...logData, request, gasUsed });
     } catch (err) {
       const viemError = formatViemError(err, simulateAbi);
@@ -1309,6 +1334,7 @@ export class SequencerPublisher {
    */
   public interrupt() {
     this.interrupted = true;
+    this.interruptibleSleep.interrupt();
     this.l1TxUtils.interrupt();
   }
 
@@ -1320,7 +1346,6 @@ export class SequencerPublisher {
 
   private async prepareProposeTx(
     encodedData: L1ProcessArgs,
-    timestamp: bigint,
     options: { forcePendingCheckpointNumber?: CheckpointNumber },
   ) {
     const kzg = Blob.getViemKzgInstance();
@@ -1393,7 +1418,7 @@ export class SequencerPublisher {
       blobInput,
     ] as const;
 
-    const { rollupData, simulationResult } = await this.simulateProposeTx(args, timestamp, options);
+    const { rollupData, simulationResult } = await this.simulateProposeTx(args, options);
 
     return { args, blobEvaluationGas, rollupData, simulationResult };
   }
@@ -1401,7 +1426,6 @@ export class SequencerPublisher {
   /**
    * Simulates the propose tx with eth_simulateV1
    * @param args - The propose tx args
-   * @param timestamp - The timestamp to simulate proposal at
    * @returns The simulation result
    */
   private async simulateProposeTx(
@@ -1418,8 +1442,10 @@ export class SequencerPublisher {
       ViemSignature,
       `0x${string}`,
     ],
-    timestamp: bigint,
-    options: { forcePendingCheckpointNumber?: CheckpointNumber },
+    options: {
+      forcePendingCheckpointNumber?: CheckpointNumber;
+      forceProposedFeeHeader?: { checkpointNumber: CheckpointNumber; feeHeader: FeeHeader };
+    },
   ) {
     const rollupData = encodeFunctionData({
       abi: RollupAbi,
@@ -1427,10 +1453,20 @@ export class SequencerPublisher {
       args,
     });
 
-    // override the pending checkpoint number if requested
+    // override the proposed checkpoint number if requested
     const forcePendingCheckpointNumberStateDiff = (
       options.forcePendingCheckpointNumber !== undefined
         ? await this.rollupContract.makePendingCheckpointNumberOverride(options.forcePendingCheckpointNumber)
+        : []
+    ).flatMap(override => override.stateDiff ?? []);
+
+    // override the fee header for a specific checkpoint number if requested (used when pipelining)
+    const forceProposedFeeHeaderStateDiff = (
+      options.forceProposedFeeHeader !== undefined
+        ? await this.rollupContract.makeFeeHeaderOverride(
+            options.forceProposedFeeHeader.checkpointNumber,
+            options.forceProposedFeeHeader.feeHeader,
+          )
         : []
     ).flatMap(override => override.stateDiff ?? []);
 
@@ -1441,6 +1477,7 @@ export class SequencerPublisher {
         stateDiff: [
           { slot: toPaddedHex(RollupContract.checkBlobStorageSlot, true), value: toPaddedHex(0n, true) },
           ...forcePendingCheckpointNumberStateDiff,
+          ...forceProposedFeeHeaderStateDiff,
         ],
       },
     ];
@@ -1453,6 +1490,7 @@ export class SequencerPublisher {
     }
 
     const l1BlockNumber = await this.l1TxUtils.getBlockNumber();
+    const simTs = this.getSimulationTimestamp(SlotNumber.fromBigInt(args[0].header.slotNumber));
 
     const simulationResult = await this.l1TxUtils
       .simulate(
@@ -1463,8 +1501,7 @@ export class SequencerPublisher {
           ...(this.proposerAddressForSimulation && { from: this.proposerAddressForSimulation.toString() }),
         },
         {
-          // @note we add 1n to the timestamp because geth implementation doesn't like simulation timestamp to be equal to the current block timestamp
-          time: timestamp + 1n,
+          time: simTs,
           // @note reth should have a 30m gas limit per block but throws errors that this tx is beyond limit so we increase here
           gasLimit: MAX_L1_TX_LIMIT * 2n,
         },
@@ -1486,7 +1523,7 @@ export class SequencerPublisher {
             logs: [],
           };
         }
-        this.log.error(`Failed to simulate propose tx`, viemError);
+        this.log.error(`Failed to simulate propose tx`, viemError, { simulationTimestamp: simTs });
         this.backupFailedTx({
           id: keccak256(rollupData),
           failureType: 'simulation',
@@ -1508,17 +1545,17 @@ export class SequencerPublisher {
   private async addProposeTx(
     checkpoint: Checkpoint,
     encodedData: L1ProcessArgs,
-    opts: { txTimeoutAt?: Date; forcePendingCheckpointNumber?: CheckpointNumber } = {},
-    timestamp: bigint,
+    opts: {
+      txTimeoutAt?: Date;
+      forcePendingCheckpointNumber?: CheckpointNumber;
+      forceProposedFeeHeader?: { checkpointNumber: CheckpointNumber; feeHeader: FeeHeader };
+    } = {},
+    preCheck?: () => Promise<void>,
   ): Promise<void> {
     const slot = checkpoint.header.slotNumber;
     const timer = new Timer();
     const kzg = Blob.getViemKzgInstance();
-    const { rollupData, simulationResult, blobEvaluationGas } = await this.prepareProposeTx(
-      encodedData,
-      timestamp,
-      opts,
-    );
+    const { rollupData, simulationResult, blobEvaluationGas } = await this.prepareProposeTx(encodedData, opts);
     const startBlock = await this.l1TxUtils.getBlockNumber();
     const gasLimit = this.l1TxUtils.bumpGasLimit(
       BigInt(Math.ceil((Number(simulationResult.gasUsed) * 64) / 63)) +
@@ -1542,6 +1579,7 @@ export class SequencerPublisher {
       },
       lastValidL2Slot: checkpoint.header.slotNumber,
       gasConfig: { ...opts, gasLimit },
+      preCheck,
       blobConfig: {
         blobs: encodedData.blobs.map(b => b.data),
         kzg,
@@ -1595,7 +1633,14 @@ export class SequencerPublisher {
     });
   }
 
-  /** Returns the timestamp to use when simulating L1 proposal calls */
+  /** Returns the timestamp of the last L1 slot within a given L2 slot. Used as the simulation timestamp
+   * for eth_simulateV1 calls, since it's guaranteed to be greater than any L1 block produced during the slot. */
+  private getSimulationTimestamp(slot: SlotNumber): bigint {
+    const l1Constants = this.epochCache.getL1Constants();
+    return getLastL1SlotTimestampForL2Slot(slot, l1Constants);
+  }
+
+  /** Returns the timestamp of the next L1 slot boundary after now. */
   private getNextL1SlotTimestamp(): bigint {
     const l1Constants = this.epochCache.getL1Constants();
     return getNextL1SlotTimestamp(this.dateProvider.nowInSeconds(), l1Constants);

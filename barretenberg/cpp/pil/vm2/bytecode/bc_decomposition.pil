@@ -98,7 +98,7 @@ include "../precomputed.pil";
  *                --> bc_retrieval.pil                            --> precomputed.pil
  * This trace is looked up by:
  * - instr_fetching.pil: To constrain the bytecode size (#[BYTECODE_SIZE_FROM_BC_DEC]) and values (#[BYTES_FROM_BC_DEC]).
- * - bc_hashing.pil: To constrain the bytecode size (#[CHECK_FINAL_BYTES_REMAINING] and #[BYTECODE_LENGTH_BYTES]) and packed field values
+ * - bc_hashing.pil: To constrain the bytecode size (#[BYTECODE_LENGTH_BYTES]) and packed field values
  *                   (#[GET_PACKED_FIELD_i] for i = 0, 1, 2) via a multipermutation. It enforces that the id is the public bytecode commitment.
  *
  * This trace looks up:

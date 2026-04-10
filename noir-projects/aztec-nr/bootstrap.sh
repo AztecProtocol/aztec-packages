@@ -4,7 +4,13 @@ source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 export RAYON_NUM_THREADS=${RAYON_NUM_THREADS:-16}
 export HARDWARE_CONCURRENCY=${HARDWARE_CONCURRENCY:-16}
 export NARGO=${NARGO:-../../noir/noir-repo/target/release/nargo}
-hash=$(hash_str $(../../noir/bootstrap.sh hash) $(cache_content_hash "^noir-projects/aztec-nr"))
+
+# Fairies want to run these tests on every PR
+if [ "${TARGET_BRANCH:-}" = "merge-train/fairies" ]; then
+  hash=disabled-cache
+else
+  hash=$(hash_str $(../../noir/bootstrap.sh hash) $(cache_content_hash "^noir-projects/aztec-nr"))
+fi
 
 function build {
   # Being a library, aztec-nr does not technically need to be built. But we can still run nargo check to find any type

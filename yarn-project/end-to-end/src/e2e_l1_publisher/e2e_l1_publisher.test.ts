@@ -58,7 +58,6 @@ import { Checkpoint, L1PublishedData, PublishedCheckpoint } from '@aztec/stdlib/
 import { type L1RollupConstants, getSlotStartBuildTimestamp } from '@aztec/stdlib/epoch-helpers';
 import { GasFees, GasSettings } from '@aztec/stdlib/gas';
 import { tryStop } from '@aztec/stdlib/interfaces/server';
-import { SlashFactoryContract } from '@aztec/stdlib/l1-contracts';
 import { orderAttestations } from '@aztec/stdlib/p2p';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
 import {
@@ -164,7 +163,7 @@ describe('L1Publisher integration', () => {
       protocolContractsHash,
       genesisArchiveRoot: deployL1ContractsArgs.genesisArchiveRoot ?? new Fr(GENESIS_ARCHIVE_ROOT),
       aztecTargetCommitteeSize: 0,
-      slasherFlavor: 'none',
+      slasherEnabled: false,
       ...deployL1ContractsArgs,
     }));
 
@@ -236,7 +235,13 @@ describe('L1Publisher integration', () => {
           checkpoint: { number: CheckpointNumber.fromBlockNumber(blockId.number), hash: blockId.hash },
         };
 
-        return { proposed: blockId, checkpointed: tipId, proven: tipId, finalized: tipId };
+        return {
+          proposed: blockId,
+          checkpointed: tipId,
+          proven: tipId,
+          finalized: tipId,
+          proposedCheckpoint: tipId,
+        };
       },
       getBlockNumber(): Promise<BlockNumber> {
         return Promise.resolve(BlockNumber(blocks.at(-1)?.number ?? BlockNumber.ZERO));
@@ -283,7 +288,6 @@ describe('L1Publisher integration', () => {
         epochCache,
         governanceProposerContract,
         slashingProposerContract,
-        slashFactoryContract: undefined as unknown as SlashFactoryContract,
         dateProvider,
         metrics: sequencerPublisherMetrics,
         lastActions: {},
@@ -323,7 +327,7 @@ describe('L1Publisher integration', () => {
       chainId: fr(chainId),
       version: fr(version),
       vkTreeRoot: getVKTreeRoot(),
-      gasSettings: GasSettings.default({ maxFeesPerGas: minFee }),
+      gasSettings: GasSettings.fallback({ maxFeesPerGas: minFee }),
       protocolContracts: ProtocolContractsList,
       seed,
     });
@@ -786,7 +790,6 @@ describe('L1Publisher integration', () => {
       await publisher.enqueueGovernanceCastSignal(
         l1ContractAddresses.rollupAddress,
         block.slot,
-        block.timestamp,
         EthAddress.random(),
         (_payload: any) => Promise.resolve(Signature.random().toString()),
       );

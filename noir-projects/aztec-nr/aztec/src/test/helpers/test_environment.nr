@@ -432,8 +432,10 @@ impl TestEnvironment {
         let test_account = txe_oracles::add_account(self.contract_account_secret.next());
         let address = test_account.address;
 
+        // We set the deployed account contract's address as "from" such that the scopes are correctly set and the
+        // constructor can access its own keys.
         let _ = self.call_private(
-            AztecAddress::zero(),
+            address,
             PrivateCall::<_, _, ()>::new(
                 address,
                 comptime { FunctionSelector::from_signature("constructor(Field,Field)") },
@@ -968,7 +970,7 @@ impl TestEnvironment {
                 scope,
             );
 
-            validate_and_store_enqueued_notes_and_events(context.this_address(), scope);
+            validate_and_store_enqueued_notes_and_events(scope);
         });
     }
 }

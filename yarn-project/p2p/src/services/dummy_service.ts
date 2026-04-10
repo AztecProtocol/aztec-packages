@@ -1,6 +1,6 @@
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { PeerInfo } from '@aztec/stdlib/interfaces/server';
-import type { Gossipable, PeerErrorSeverity, TopicType } from '@aztec/stdlib/p2p';
+import type { CheckpointProposalCore, Gossipable, PeerErrorSeverity, TopicType } from '@aztec/stdlib/p2p';
 import { Tx, TxHash } from '@aztec/stdlib/tx';
 
 import type { PeerId } from '@libp2p/interface';
@@ -86,7 +86,12 @@ export class DummyP2PService implements P2PService {
   /**
    * Register a callback into the validator client for when a checkpoint proposal is received
    */
-  public registerCheckpointReceivedCallback(_callback: P2PCheckpointReceivedCallback) {}
+  public registerValidatorCheckpointReceivedCallback(_callback: P2PCheckpointReceivedCallback) {}
+  public registerAllNodesCheckpointReceivedCallback(_callback: P2PCheckpointReceivedCallback) {}
+
+  public notifyOwnCheckpointProposal(_checkpoint: CheckpointProposalCore): Promise<void> {
+    return Promise.resolve();
+  }
 
   /**
    * Register a callback for when a duplicate proposal is detected
