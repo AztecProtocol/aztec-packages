@@ -34,6 +34,7 @@ import type { GlobalVariableBuilder } from '../global_variable_builder/global_bu
 import type { SequencerPublisherFactory } from '../publisher/sequencer-publisher-factory.js';
 import type { InvalidateCheckpointRequest, SequencerPublisher } from '../publisher/sequencer-publisher.js';
 import { CheckpointProposalJob } from './checkpoint_proposal_job.js';
+import { CheckpointProposalJobMetrics } from './checkpoint_proposal_job_metrics.js';
 import { CheckpointVoter } from './checkpoint_voter.js';
 import { SequencerInterruptedError, SequencerTooSlowError } from './errors.js';
 import type { SequencerEvents } from './events.js';
@@ -56,6 +57,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
   private runningPromise?: RunningPromise;
   private state = SequencerState.STOPPED;
   private metrics: SequencerMetrics;
+  private checkpointProposalJobMetrics: CheckpointProposalJobMetrics;
 
   /** The last slot for which we attempted to perform our voting duties with degraded block production */
   private lastSlotForFallbackVote: SlotNumber | undefined;
@@ -107,6 +109,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     }
 
     this.metrics = new SequencerMetrics(telemetry, this.rollupContract, 'Sequencer');
+    this.checkpointProposalJobMetrics = new CheckpointProposalJobMetrics(telemetry);
     this.updateConfig(config);
   }
 
@@ -487,6 +490,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       this.epochCache,
       this.dateProvider,
       this.metrics,
+      this.checkpointProposalJobMetrics.createRecorder(),
       this,
       this.setState.bind(this),
       this.tracer,

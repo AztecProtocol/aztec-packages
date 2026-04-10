@@ -435,6 +435,13 @@ variable "SEQ_ENABLE_PROPOSER_PIPELINING" {
   default     = "false"
 }
 
+variable "AZTEC_EPOCHS_LAG" {
+  description = "Epoch lag override for validator nodes"
+  type        = string
+  nullable    = true
+  default     = null
+}
+
 variable "SENTINEL_ENABLED" {
   description = "Whether to enable sentinel"
   type        = string
