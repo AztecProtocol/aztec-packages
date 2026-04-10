@@ -95,13 +95,7 @@ export class TxSimulationResultWithAppOffset extends TxSimulationResult {
       })
       .transform(
         ({ privateExecutionResult, publicInputs, publicOutput, stats, appCallOffset }) =>
-          new TxSimulationResultWithAppOffset(
-            privateExecutionResult,
-            publicInputs,
-            publicOutput,
-            stats,
-            appCallOffset, // undefined when absent — triggers heuristic fallback
-          ),
+          new TxSimulationResultWithAppOffset(privateExecutionResult, publicInputs, publicOutput, stats, appCallOffset),
       );
   }
 }
