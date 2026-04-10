@@ -41,7 +41,6 @@ struct InterimProposeValues {
   bytes32 payloadDigest;
   Epoch currentEpoch;
   bool isFirstCheckpointOfEpoch;
-  bool isTxsEnabled;
   bool isEscapeHatch;
   address escapeHatchProposer;
   IEscapeHatch escapeHatch;
@@ -118,18 +117,13 @@ library ProposeLib {
    *          Orchestrates blob validation, header validation, proposer verification, fee calculations, and state
    *          transitions. Automatically prunes unproven checkpoints if the proof submission window has passed.
    *
-   *          Note that some validations and processes are disabled if the chain is configured to run without
-   *          transactions, such as during ignition phase:
-   *          - No fee header computation or L1 gas fee oracle update
-   *          - No inbox message consumption
-   *
    *          Validations performed:
    *          - Blob commitments against provided blob data: Errors.Rollup__InvalidBlobHash,
    *            Errors.Rollup__InvalidBlobProof
    *          - Checkpoint header validations (see validateHeader function for details)
    *          - Proposer signature is valid for designated slot proposer:
    *            Errors.ValidatorSelection__MissingProposerSignature
-   *          - Inbox hash matches expected value (when txs enabled): Errors.Rollup__InvalidInHash
+   *          - Inbox hash matches expected value: Errors.Rollup__InvalidInHash
    *
    *          Validations NOT performed:
    *          - Committee attestations (only proposer signature verified)
@@ -139,8 +133,8 @@ library ProposeLib {
    *          - Increment pending checkpoint number
    *          - Store archive root for the new checkpoint number
    *          - Store checkpoint metadata in circular storage (TempCheckpointLog)
-   *          - Update L1 gas fee oracle (when txs enabled)
-   *          - Consume inbox messages (when txs enabled)
+   *          - Update L1 gas fee oracle
+   *          - Consume inbox messages
    *          - Setup epoch for validator selection (first block of the epoch)
    *
    * @param _args - The arguments to propose the checkpoint
@@ -180,13 +174,7 @@ library ProposeLib {
     // Keep intermediate values in memory to avoid stack too deep errors
     InterimProposeValues memory v;
 
-    // Transactions are disabled during ignition phase
-    v.isTxsEnabled = FeeLib.isTxsEnabled();
-
-    // Since ignition have no transactions, we need not waste gas updating pricing oracle.
-    if (v.isTxsEnabled) {
-      FeeLib.updateL1GasFeeOracle();
-    }
+    FeeLib.updateL1GasFeeOracle();
 
     // Validate blob commitments against actual blob data and extract hashes
     // TODO(#13430): The below blobsHashesCommitment known as blobsHash elsewhere in the code. The name is confusingly
@@ -214,11 +202,7 @@ library ProposeLib {
     }
 
     // Calculate mana min fee components for header validation
-    ManaMinFeeComponents memory components;
-    if (v.isTxsEnabled) {
-      // Since ignition have no transactions, we need not waste gas computing the fee components
-      components = getManaMinFeeComponentsAt(Timestamp.wrap(block.timestamp), true);
-    }
+    ManaMinFeeComponents memory components = getManaMinFeeComponentsAt(Timestamp.wrap(block.timestamp), true);
 
     // Create payload digest signed by the committee members
     v.payloadDigest =
@@ -271,17 +255,13 @@ library ProposeLib {
     );
 
     // Compute fee header for checkpoint metadata
-    FeeHeader memory feeHeader;
-    if (v.isTxsEnabled) {
-      // Since ignition have no transactions, we need not waste gas deriving the fee header
-      feeHeader = FeeLib.computeFeeHeader(
-        checkpointNumber,
-        _args.oracleInput.feeAssetPriceModifier,
-        v.header.totalManaUsed,
-        components.congestionCost,
-        components.proverCost
-      );
-    }
+    FeeHeader memory feeHeader = FeeLib.computeFeeHeader(
+      checkpointNumber,
+      _args.oracleInput.feeAssetPriceModifier,
+      v.header.totalManaUsed,
+      components.congestionCost,
+      components.proverCost
+    );
 
     // Hash attestations for storage in checkpoint log
     // Compute attestationsHash from the attestations
@@ -302,17 +282,10 @@ library ProposeLib {
       })
     );
 
-    // Handle L1->L2 message processing (only when transactions are enabled)
-    if (v.isTxsEnabled) {
-      // Since ignition will have no transactions there will be no method to consume messages.
-      // Therefore we can ignore it as long as mana target is zero.
-      // Since the inbox is async, it must enforce its own check to not try to insert if ignition.
-
-      // Consume pending L1->L2 messages and validate against header commitment
-      // @note  The checkpoint number here will always be >=1 as the genesis checkpoint is at 0
-      v.inHash = rollupStore.config.inbox.consume(checkpointNumber);
-      require(v.header.inHash == v.inHash, Errors.Rollup__InvalidInHash(v.inHash, v.header.inHash));
-    }
+    // Consume pending L1->L2 messages and validate against header commitment
+    // @note  The checkpoint number here will always be >=1 as the genesis checkpoint is at 0
+    v.inHash = rollupStore.config.inbox.consume(checkpointNumber);
+    require(v.header.inHash == v.inHash, Errors.Rollup__InvalidInHash(v.inHash, v.header.inHash));
 
     {
       bytes32 archive = _args.archive;

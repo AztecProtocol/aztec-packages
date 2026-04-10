@@ -277,12 +277,6 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
     require(_manaTarget >= currentManaTarget, Errors.Rollup__InvalidManaTarget(currentManaTarget, _manaTarget));
     FeeLib.updateManaTarget(_manaTarget);
 
-    // If we are going from 0 to non-zero mana limits, we need to catch up the inbox
-    if (currentManaTarget == 0 && _manaTarget > 0) {
-      RollupStore storage rollupStore = STFLib.getStorage();
-      rollupStore.config.inbox.catchUp(rollupStore.tips.getPending());
-    }
-
     emit IRollupCore.ManaTargetUpdated(_manaTarget);
   }
 
