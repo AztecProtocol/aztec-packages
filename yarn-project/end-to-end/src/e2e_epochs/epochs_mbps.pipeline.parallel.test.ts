@@ -30,7 +30,7 @@ import { EpochsTestContext } from './epochs_test.js';
 jest.setTimeout(1000 * 60 * 20);
 
 const NODE_COUNT = 4;
-const EXPECTED_BLOCKS_PER_CHECKPOINT = 12;
+const EXPECTED_BLOCKS_PER_CHECKPOINT = 8;
 
 // Send enough transactions to trigger multiple blocks within a checkpoint assuming 2 txs per block.
 const TX_COUNT = 34;
