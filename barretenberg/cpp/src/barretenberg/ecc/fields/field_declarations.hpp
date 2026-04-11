@@ -289,10 +289,10 @@ template <class Params_> struct alignas(32) field {
         };
 #else
         const field result{
-            Params::coset_generator_0,
-            Params::coset_generator_1,
-            Params::coset_generator_2,
-            Params::coset_generator_3,
+            Params::coset_generator_wasm_0,
+            Params::coset_generator_wasm_1,
+            Params::coset_generator_wasm_2,
+            Params::coset_generator_wasm_3,
         };
 #endif
 

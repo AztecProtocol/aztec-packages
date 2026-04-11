@@ -328,6 +328,46 @@ TYPED_TEST_P(FieldConstantsTest, CosetGeneratorConsistency)
     EXPECT_EQ(expected, static_cast<uint512_t>(coset_generator_wasm));
 }
 
+// Verify coset_generator() returns the correct field element by independently computing
+// Montgomery form from the raw integer value using platform-specific field arithmetic.
+// Before the fix, the WASM branch of coset_generator() used native Montgomery constants
+// (R=2^256) instead of WASM constants (R=2^261). On WASM, Fr(5) computes the WASM-Montgomery
+// encoding via self_to_montgomery_form(), while the buggy coset_generator() returned the
+// native encoding — a completely different field element.
+TYPED_TEST_P(FieldConstantsTest, CosetGeneratorUsesCorrectConstants)
+{
+    using Params = typename TypeParam::Params;
+    using Field = typename TypeParam::Field;
+    Field coset_gen = Field::coset_generator();
+
+    // Recover the raw (non-Montgomery) integer value from the known-correct native constants.
+    // native_encoding = g * R_native mod p, so g = native_encoding * R_native^{-1} mod p.
+    // We compute this via uint512 arithmetic (independent of platform Montgomery machinery).
+    uint256_t mod{ Params::modulus_0, Params::modulus_1, Params::modulus_2, Params::modulus_3 };
+    uint256_t native_encoding{
+        Params::coset_generator_0, Params::coset_generator_1, Params::coset_generator_2, Params::coset_generator_3
+    };
+
+    // R_native = 2^256. Compute R_native^{-1} mod p via Fermat's little theorem: R^{-1} = R^{p-2} mod p.
+    // But for a simpler approach: native_encoding IS g*R mod p, and Field(uint256_t) does self_to_montgomery_form()
+    // which computes input * R mod p. So if we can extract g first, Field(g) gives us the correct platform encoding.
+    //
+    // Approach: use the known relationship wasm = native * 32 mod p (since R_wasm/R_native = 2^5).
+    // On WASM: coset_generator() should return native * 32 mod p as its internal representation.
+    // On native: coset_generator() should return native directly.
+    uint512_t expected_wasm_encoding = (uint512_t(native_encoding) * 32) % mod;
+#if defined(__SIZEOF_INT128__) && !defined(__wasm__)
+    Field expected(
+        Params::coset_generator_0, Params::coset_generator_1, Params::coset_generator_2, Params::coset_generator_3);
+#else
+    Field expected(static_cast<uint64_t>(expected_wasm_encoding.lo.data[0]),
+                   static_cast<uint64_t>(expected_wasm_encoding.lo.data[1]),
+                   static_cast<uint64_t>(expected_wasm_encoding.lo.data[2]),
+                   static_cast<uint64_t>(expected_wasm_encoding.lo.data[3]));
+#endif
+    EXPECT_EQ(coset_gen, expected);
+}
+
 REGISTER_TYPED_TEST_SUITE_P(FieldConstantsTest,
                             Modulus,
                             RSquared,
@@ -341,7 +381,8 @@ REGISTER_TYPED_TEST_SUITE_P(FieldConstantsTest,
                             WasmPowMinus29,
                             WasmCubeRootConsistency,
                             WasmPrimitiveRootConsistency,
-                            CosetGeneratorConsistency);
+                            CosetGeneratorConsistency,
+                            CosetGeneratorUsesCorrectConstants);
 
 using FieldTestTypes = ::testing::Types<Bn254FqTestConfig,
                                         Bn254FrTestConfig,
@@ -351,3 +392,16 @@ using FieldTestTypes = ::testing::Types<Bn254FqTestConfig,
                                         Secp256r1FrTestConfig>;
 
 INSTANTIATE_TYPED_TEST_SUITE_P(AllFields, FieldConstantsTest, FieldTestTypes);
+
+// BN254 Fr-specific test: the coset generator is the field element 5.
+// Fr(5) independently computes 5 → Montgomery form using the platform's arithmetic.
+// coset_generator() returns a precomputed Montgomery encoding.
+// If the precomputed encoding is for the wrong platform, these will differ.
+// Before the fix on WASM: Fr(5) = 5*R_wasm mod p, but coset_generator() = 5*R_native mod p → mismatch.
+TEST(CosetGeneratorBn254, CosetGeneratorMatchesFieldElement)
+{
+    bb::fr coset_gen = bb::fr::coset_generator();
+    bb::fr expected(5);
+    EXPECT_EQ(coset_gen, expected) << "coset_generator() does not equal Fr(5) — "
+                                      "likely using wrong Montgomery basis constants";
+}
