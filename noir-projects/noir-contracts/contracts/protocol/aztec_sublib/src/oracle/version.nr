@@ -30,7 +30,9 @@ unconstrained fn assert_compatible_oracle_version_wrapper() {
 unconstrained fn assert_compatible_oracle_version_oracle(major: Field, minor: Field) {}
 
 mod test {
-    use super::{assert_compatible_oracle_version_oracle, ORACLE_VERSION_MAJOR, ORACLE_VERSION_MINOR};
+    use super::{
+        assert_compatible_oracle_version_oracle, ORACLE_VERSION_MAJOR, ORACLE_VERSION_MINOR,
+    };
 
     #[test]
     unconstrained fn compatible_oracle_version() {

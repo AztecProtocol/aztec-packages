@@ -104,11 +104,8 @@ pub contract SchnorrAccount {
             signature[i] = witness[i] as u8;
         }
 
-        let pub_key = std::embedded_curve_ops::EmbeddedCurvePoint {
-            x: public_key.x,
-            y: public_key.y,
-            is_infinite: false,
-        };
+        let pub_key =
+            std::embedded_curve_ops::EmbeddedCurvePoint { x: public_key.x, y: public_key.y };
         // Verify signature of the payload bytes
         schnorr::verify_signature(pub_key, signature, outer_hash.to_be_bytes::<32>())
         // docs:end:is_valid_impl
@@ -136,11 +133,8 @@ pub contract SchnorrAccount {
         for i in 0..64 {
             signature[i] = witness[i] as u8;
         }
-        let pub_key = std::embedded_curve_ops::EmbeddedCurvePoint {
-            x: public_key.x,
-            y: public_key.y,
-            is_infinite: false,
-        };
+        let pub_key =
+            std::embedded_curve_ops::EmbeddedCurvePoint { x: public_key.x, y: public_key.y };
         let valid_in_private =
             schnorr::verify_signature(pub_key, signature, message_hash.to_be_bytes::<32>());
 

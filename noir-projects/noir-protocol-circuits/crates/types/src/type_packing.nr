@@ -22,7 +22,7 @@ impl Packable for bool {
 
     #[inline_always]
     fn unpack(fields: [Field; Self::N]) -> bool {
-        (fields[0] as u1) != 0
+        (fields[0] as u8) % 2 != 0
     }
 }
 
