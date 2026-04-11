@@ -84,6 +84,37 @@ else                    →  use post (new fees)
 **Net effect**: L1 fee changes reach L2 with a 2-slot delay and can update at most once
 every 5 slots.
 
+### Worked Example
+
+Suppose the oracle is updated at slot 10 with new L1 fees. Here is the timeline:
+
+```
+Slot  Oracle state          Active fees   Notes
+────  ────────────────────  ────────────  ──────────────────────────────────
+ 10   pre=A, post=B, soc=12   A           Update queued. slotOfChange = 10 + LAG = 12.
+ 11   (same)                  A           Still before slotOfChange → pre (A).
+ 12   (same)                  B           slot >= slotOfChange → post (B) activates.
+ 13   (same)                  B           B remains active.
+ 14   (same)                  B           B remains active.
+ 15   Update allowed again    B           Earliest next update: soc + (LIFETIME - LAG)
+                                          = 12 + 3 = 15.
+```
+ 
+Key observations:
+
+1. **Slots 10-11**: The old fees (A) are still in effect. Transactions submitted during
+   these slots see the old L1 cost. This is the **LAG** window — it gives pending
+   transactions 2 slots to land before fees change.
+
+2. **Slot 12**: The new fees (B) activate. Any checkpoint proposed at slot >= 12 uses B
+   for its sequencer/prover cost calculation.
+
+3. **Slots 12-14**: No new oracle update is accepted. The system is in a **cooldown**
+   period of `LIFETIME - LAG = 3` slots after the transition.
+
+4. **Slot 15**: A new oracle update can be queued (earliest `acceptableSlot`). If
+   triggered, the new values would activate at slot 15 + LAG = 17.
+
 ## Fee Asset Price
 
 Fees are computed in ETH internally but converted to the fee asset (Fee Juice) via

@@ -61,6 +61,7 @@ import {
   buildPipelinedParentSimulationOverridesPlan,
   buildSubmissionSimulationOverridesPlan,
 } from './chain_state_overrides.js';
+import type { CheckpointProposalJobMetricsRecorder } from './checkpoint_proposal_job_metrics.js';
 import { CheckpointVoter } from './checkpoint_voter.js';
 import { SequencerInterruptedError } from './errors.js';
 import type { SequencerEvents } from './events.js';
@@ -127,6 +128,7 @@ export class CheckpointProposalJob implements Traceable {
     private readonly epochCache: EpochCache,
     private readonly dateProvider: DateProvider,
     private readonly metrics: SequencerMetrics,
+    private readonly checkpointMetrics: CheckpointProposalJobMetricsRecorder,
     private readonly eventEmitter: TypedEventEmitter<SequencerEvents>,
     private readonly setStateFn: (state: SequencerState, slot?: SlotNumber) => void,
     public readonly tracer: Tracer,
@@ -213,7 +215,7 @@ export class CheckpointProposalJob implements Traceable {
       this.setStateFn(SequencerState.COLLECTING_ATTESTATIONS, this.targetSlot);
       const attestations = await this.waitForAttestations(proposal);
 
-      this.metrics.recordCheckpointAttestationDelay(this.dateProvider.now() - blockProposedAt);
+      this.checkpointMetrics.recordCheckpointAttestationDelay(this.dateProvider.now() - blockProposedAt);
 
       // Proposer must sign over the attestations before pushing them to L1
       const signer = this.proposer ?? this.publisher.getSenderAddress();
@@ -310,6 +312,16 @@ export class CheckpointProposalJob implements Traceable {
   })
   private async proposeCheckpoint(): Promise<CheckpointProposalBroadcast | undefined> {
     try {
+      const now = this.dateProvider.now();
+      if (this.epochCache.isProposerPipeliningEnabled() && this.proposedCheckpointData) {
+        // Measure against the wall-clock slot whose build window we are currently using.
+        // In pipelining mode `targetSlot` is intentionally one slot ahead, which makes the
+        // target-slot boundary a full slot away from the actual build start time.
+        const slotBoundaryMs = Number(getTimestampForSlot(this.slotNow, this.l1Constants)) * 1000;
+        this.checkpointMetrics.recordPipelinedCheckpointBuildStartOffsetFromSlotBoundary(now - slotBoundaryMs);
+      }
+      this.checkpointMetrics.startCheckpointTiming(now);
+
       // Get operator configured coinbase and fee recipient for this attestor
       const coinbase = this.validatorClient.getCoinbaseForAttestor(this.attestorAddress);
       const feeRecipient = this.validatorClient.getFeeRecipientForAttestor(this.attestorAddress);
@@ -449,7 +461,7 @@ export class CheckpointProposalJob implements Traceable {
       }
 
       // Record checkpoint-level build metrics
-      this.metrics.recordCheckpointBuild(
+      this.checkpointMetrics.recordCheckpointBuild(
         checkpointBuildTimer.ms(),
         blocksInCheckpoint.length,
         checkpoint.getStats().txCount,
@@ -484,6 +496,7 @@ export class CheckpointProposalJob implements Traceable {
 
       const blockProposedAt = this.dateProvider.now();
       await this.p2pClient.broadcastCheckpointProposal(proposal);
+      this.checkpointMetrics.noteCheckpointBroadcast(this.dateProvider.now());
 
       // Return immediately after broadcast — attestation collection happens in the background
       return { checkpoint, proposal, blockProposedAt };
@@ -574,6 +587,11 @@ export class CheckpointProposalJob implements Traceable {
       }
 
       const { block, usedTxs } = buildResult;
+      this.checkpointMetrics.noteCheckpointBlockBuilt(this.dateProvider.now(), {
+        isFirstBlock: blocksBuilt === 0,
+        isLastBlock: timingInfo.isLastBlock,
+      });
+
       blocksInCheckpoint.push(block);
       usedTxs.forEach(tx => txHashesAlreadyIncluded.add(tx.txHash.toString()));
 
