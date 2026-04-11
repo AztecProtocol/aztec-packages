@@ -224,6 +224,10 @@ export const FunctionDebugMetadataSchema = z.object({
     acir_locations: z.record(z.number()),
     brillig_locations: z.record(z.record(z.number())),
   }),
+  // `function_locations` is required in the static `DebugFileMap` type (noir-types compat), but legacy v4-next
+  // artifacts were compiled before this field existed — see {@link fillMissingFunctionLocations} for the full
+  // rationale. The preprocessor injects `[]` for missing entries so parsing succeeds; the cast restores the
+  // output type since `z.preprocess` widens the schema's input type to `unknown`.
   files: z.preprocess(
     fillMissingFunctionLocations,
     z.record(
@@ -336,8 +340,28 @@ export type DebugFileMap = Record<
 >;
 
 /**
- * Fills missing `function_locations` on each entry of a file map with an empty array.
- * Kept for backwards compatibility with artifacts compiled before `function_locations` was introduced.
+ * Preprocessor for {@link FunctionDebugMetadataSchema} / {@link ContractArtifactSchema} that injects an empty
+ * `function_locations` array on any file map entry missing it. Invoked via `z.preprocess(...)` before the strict
+ * object schema runs, so legacy inputs do not fail validation.
+ *
+ * Why this exists on v4-next (and not on `next` / v5):
+ *
+ *   - The Noir submodule on `next` was bumped past nightly-2026-03-19, which added `function_locations` to the
+ *     debug file map in the Noir `@aztec/noir-types` package and to every freshly-compiled artifact's `file_map`
+ *     entries. The matching stdlib change (making `DebugFileMap.function_locations` required) was done in one
+ *     go on `next`, so there `function_locations` is always present both at compile time and at runtime.
+ *
+ *   - On v4-next we had to cherry-pick the Noir bump (chore: Update Noir to nightly-2026-04-10 (#22393)) without
+ *     re-running the full noir-projects compilation pipeline, so the on-disk contract and protocol-circuit
+ *     artifacts (e.g. `yarn-project/protocol-contracts/artifacts/AuthRegistry.json`) still carry the pre-update
+ *     `file_map` shape with only `source` + `path`. Separately, `ivc-integration` compares our `DebugFileMap`
+ *     against the Noir-types `DebugFileMap`, which *does* require `function_locations`, so we cannot simply make
+ *     our own field optional — that would break the structural compatibility check.
+ *
+ *   - To satisfy both constraints at once we keep `function_locations` required in the static TypeScript type
+ *     (so `ivc-integration` keeps compiling) but relax the runtime input shape via this preprocessor (so legacy
+ *     artifacts keep parsing). Once all v4-next artifacts get regenerated with the new Noir compiler, this
+ *     helper — and both `z.preprocess(...)` wrappers — can be removed.
  */
 function fillMissingFunctionLocations(val: unknown): unknown {
   if (val && typeof val === 'object') {
@@ -405,6 +429,10 @@ export const ContractArtifactSchema = zodFor<ContractArtifact>()(
       globals: z.record(z.array(AbiValueSchema)),
     }),
     storageLayout: z.record(z.object({ slot: schemas.Fr })),
+    // Legacy v4-next contract artifacts (e.g. `protocol-contracts/artifacts/AuthRegistry.json`) were emitted
+    // before Noir started including `function_locations` in their `file_map` entries — see
+    // {@link fillMissingFunctionLocations} for the full rationale. The preprocessor injects `[]` for missing
+    // entries so parsing succeeds without weakening the static `DebugFileMap` type.
     fileMap: z.preprocess(
       fillMissingFunctionLocations,
       z.record(
