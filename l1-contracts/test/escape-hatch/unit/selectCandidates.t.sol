@@ -206,7 +206,10 @@ contract EscapeHatchSelectCandidatesTest is EscapeHatchBase {
     // 3. remove active (5 sstore :skull:)
     // 4. status update (1 sstore)
     // 5. exitable at update (1 sstore, same slot as above)
-    assertEq(writes.length, 1 + 1 + 5 + 1 + 1, "invalid number of writes");
+    // Coverage disables optimizer-driven slot packing, so the candidate metadata updates
+    // expand into three additional writes and we observe 12 stores instead of 9.
+    uint256 expectedWrites = isCoverage() ? 12 : 9;
+    assertEq(writes.length, expectedWrites, "invalid number of writes");
 
     // Verify hatch is prepared
     assertTrue(escapeHatch.isHatchPrepared(preparedHatch), "Hatch should be prepared");

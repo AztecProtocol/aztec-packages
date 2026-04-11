@@ -141,6 +141,10 @@ contract RollupShouldBeGetters is ValidatorSelectionTestBase {
     (, bytes32[] memory writes) = vm.accesses(address(rollup.getGSE()));
     assertEq(writes.length, 0, "No writes should be done");
 
+    if (isCoverage()) {
+      return;
+    }
+
     // 16 insertions in total, so binary search should hit 4 values (3 extra).
     // Since using recent, we should only hit 2 additional at most though, so
     // we will compute the overhead as 2 extra (each 3K) for each of the members
@@ -202,6 +206,10 @@ contract RollupShouldBeGetters is ValidatorSelectionTestBase {
 
     emit log_named_uint("gasSmall", gasSmall);
     emit log_named_uint("gasBig", gasBig);
+
+    if (isCoverage()) {
+      return;
+    }
 
     // Should not have grown by more than 10K
     assertGt(gasSmall + 1e4, gasBig, "growing too quickly");

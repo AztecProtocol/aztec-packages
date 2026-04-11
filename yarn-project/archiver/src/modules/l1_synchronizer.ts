@@ -837,10 +837,13 @@ export class ArchiverL1Synchronizer implements Traceable {
             this.updater.addCheckpoints(validCheckpoints, updatedValidationResult),
           ),
         );
-        this.instrumentation.processNewBlocks(
-          processDuration / validCheckpoints.length,
-          validCheckpoints.flatMap(c => c.checkpoint.blocks),
-        );
+
+        if (validCheckpoints.length > 0) {
+          this.instrumentation.processNewCheckpointedBlocks(
+            processDuration / validCheckpoints.length,
+            validCheckpoints.flatMap(c => c.checkpoint.blocks),
+          );
+        }
 
         // If blocks were pruned due to conflict with L1 checkpoints, emit event
         if (result.prunedBlocks && result.prunedBlocks.length > 0) {

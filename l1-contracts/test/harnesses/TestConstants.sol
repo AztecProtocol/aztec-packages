@@ -102,34 +102,38 @@ library TestConstants {
   }
 
   function getRollupConfigInput() internal view returns (RollupConfigInput memory) {
-    RollupConfigInput memory config = RollupConfigInput({
-      aztecSlotDuration: AZTEC_SLOT_DURATION,
-      aztecEpochDuration: AZTEC_EPOCH_DURATION,
-      aztecProofSubmissionEpochs: AZTEC_PROOF_SUBMISSION_EPOCHS,
-      targetCommitteeSize: AZTEC_TARGET_COMMITTEE_SIZE,
-      lagInEpochsForValidatorSet: AZTEC_LAG_IN_EPOCHS_FOR_VALIDATOR_SET,
-      lagInEpochsForRandao: AZTEC_LAG_IN_EPOCHS_FOR_RANDAO,
-      slashingQuorum: AZTEC_SLASHING_QUORUM,
-      slashingRoundSize: AZTEC_SLASHING_ROUND_SIZE,
-      slashingLifetimeInRounds: AZTEC_SLASHING_LIFETIME_IN_ROUNDS,
-      slashingExecutionDelayInRounds: AZTEC_SLASHING_EXECUTION_DELAY_IN_ROUNDS,
-      slashingOffsetInRounds: AZTEC_SLASHING_OFFSET_IN_ROUNDS,
-      slashingVetoer: AZTEC_SLASHING_VETOER,
-      slashingDisableDuration: AZTEC_SLASHING_DISABLE_DURATION,
-      manaTarget: AZTEC_MANA_TARGET,
-      exitDelaySeconds: AZTEC_EXIT_DELAY_SECONDS,
-      provingCostPerMana: AZTEC_PROVING_COST_PER_MANA,
-      initialEthPerFeeAsset: AZTEC_INITIAL_ETH_PER_FEE_ASSET,
-      version: 0,
-      rewardConfig: getRewardConfig(),
-      rewardBoostConfig: getRewardBoostConfig(),
-      stakingQueueConfig: getStakingQueueConfig(),
-      slashAmounts: [AZTEC_SLASH_AMOUNT_SMALL, AZTEC_SLASH_AMOUNT_MEDIUM, AZTEC_SLASH_AMOUNT_LARGE],
-      slasherEnabled: false,
-      localEjectionThreshold: 0, // The same as it being off, and only using the global.
-      earliestRewardsClaimableTimestamp: Timestamp.wrap(0), // Default to 0 (no restriction)
-      inboxLag: AZTEC_INBOX_LAG
-    });
+    RewardConfig memory rewardConfig = getRewardConfig();
+    RewardBoostConfig memory rewardBoostConfig = getRewardBoostConfig();
+    StakingQueueConfig memory stakingQueueConfig = getStakingQueueConfig();
+    uint256[3] memory slashAmounts = [AZTEC_SLASH_AMOUNT_SMALL, AZTEC_SLASH_AMOUNT_MEDIUM, AZTEC_SLASH_AMOUNT_LARGE];
+
+    RollupConfigInput memory config;
+    config.aztecSlotDuration = AZTEC_SLOT_DURATION;
+    config.aztecEpochDuration = AZTEC_EPOCH_DURATION;
+    config.aztecProofSubmissionEpochs = AZTEC_PROOF_SUBMISSION_EPOCHS;
+    config.targetCommitteeSize = AZTEC_TARGET_COMMITTEE_SIZE;
+    config.lagInEpochsForValidatorSet = AZTEC_LAG_IN_EPOCHS_FOR_VALIDATOR_SET;
+    config.lagInEpochsForRandao = AZTEC_LAG_IN_EPOCHS_FOR_RANDAO;
+    config.slashingQuorum = AZTEC_SLASHING_QUORUM;
+    config.slashingRoundSize = AZTEC_SLASHING_ROUND_SIZE;
+    config.slashingLifetimeInRounds = AZTEC_SLASHING_LIFETIME_IN_ROUNDS;
+    config.slashingExecutionDelayInRounds = AZTEC_SLASHING_EXECUTION_DELAY_IN_ROUNDS;
+    config.slashingOffsetInRounds = AZTEC_SLASHING_OFFSET_IN_ROUNDS;
+    config.slashingVetoer = AZTEC_SLASHING_VETOER;
+    config.slashingDisableDuration = AZTEC_SLASHING_DISABLE_DURATION;
+    config.manaTarget = AZTEC_MANA_TARGET;
+    config.exitDelaySeconds = AZTEC_EXIT_DELAY_SECONDS;
+    config.provingCostPerMana = AZTEC_PROVING_COST_PER_MANA;
+    config.initialEthPerFeeAsset = AZTEC_INITIAL_ETH_PER_FEE_ASSET;
+    config.version = 0;
+    config.rewardConfig = rewardConfig;
+    config.rewardBoostConfig = rewardBoostConfig;
+    config.stakingQueueConfig = stakingQueueConfig;
+    config.slashAmounts = slashAmounts;
+    config.slasherEnabled = false;
+    config.localEjectionThreshold = 0;
+    config.earliestRewardsClaimableTimestamp = Timestamp.wrap(0);
+    config.inboxLag = AZTEC_INBOX_LAG;
 
     // For the version we derive it based on the config (with a 0 version)
     // TODO(https://linear.app/aztec-labs/issue/TMNT-139/version-at-deployment)
