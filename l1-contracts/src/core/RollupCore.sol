@@ -281,17 +281,6 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
   }
 
   /**
-   * @notice Enables or disables reward claiming
-   * @dev Only callable by owner. This is a safety mechanism to control when rewards can be withdrawn.
-   *      Cannot set rewards as claimable before the earliest reward claimable timestamp.
-   * @param _isRewardsClaimable True to enable reward claims, false to disable
-   */
-  function setRewardsClaimable(bool _isRewardsClaimable) external override(IRollupCore) onlyOwner {
-    RewardExtLib.setIsRewardsClaimable(_isRewardsClaimable);
-    emit RewardsClaimableUpdated(_isRewardsClaimable);
-  }
-
-  /**
    * @notice Updates the slasher contract address
    * @dev Only callable by owner. The slasher handles punishment for validator misbehavior.
    * @param _slasher The address of the new slasher contract
@@ -341,7 +330,7 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
 
   /**
    * @notice Claims accumulated rewards for a sequencer (checkpoint proposer)
-   * @dev Rewards must be enabled via isRewardsClaimable. Transfers all accumulated rewards to the recipient.
+   * @dev Transfers all accumulated rewards to the recipient.
    * @param _coinbase The address that has accumulated the rewards - rewards are sent to this address
    * @return The amount of rewards claimed
    */
@@ -351,8 +340,8 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
 
   /**
    * @notice Claims prover rewards for specified epochs
-   * @dev Rewards must be enabled. Provers earn rewards for successfully proving epoch transitions.
-   *      Each epoch can only be claimed once per prover.
+   * @dev Provers earn rewards for successfully proving epoch transitions. Each epoch can only be claimed once per
+   *      prover.
    * @param _coinbase The address that has accumulated the rewards - rewards are sent to this address
    * @param _epochs Array of epochs to claim rewards for
    * @return The total amount of rewards claimed
@@ -598,7 +587,6 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
       rewardConfig.booster = RewardExtLib.deployRewardBooster(_config.rewardBoostConfig);
     }
 
-    RewardExtLib.initialize(_config.earliestRewardsClaimableTimestamp);
     RewardExtLib.setConfig(rewardConfig);
   }
 
