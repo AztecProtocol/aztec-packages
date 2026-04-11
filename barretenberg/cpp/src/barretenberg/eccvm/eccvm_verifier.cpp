@@ -65,7 +65,13 @@ typename ECCVMVerifier_<Flavor>::ReductionResult ECCVMVerifier_<Flavor>::reduce_
     // Get commitment to permutation and lookup grand products
     commitments.lookup_inverses =
         transcript->template receive_from_prover<Commitment>(commitment_labels.lookup_inverses);
+    commitments.den_wnaf_partial =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.den_wnaf_partial);
     commitments.z_perm = transcript->template receive_from_prover<Commitment>(commitment_labels.z_perm);
+    commitments.z_perm_scalar =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.z_perm_scalar);
+    commitments.z_perm_msm =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.z_perm_msm);
 
     // Each linearly independent subrelation contribution is multiplied by `alpha^i`, where
     //  i = 0, ..., NUM_SUBRELATIONS- 1.

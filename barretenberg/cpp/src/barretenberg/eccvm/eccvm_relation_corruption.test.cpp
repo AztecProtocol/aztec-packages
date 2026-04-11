@@ -97,7 +97,7 @@ ProverPolynomials build_valid_eccvm_msm_state()
 
 /**
  * @brief Compute random Fiat-Shamir challenges and derived polynomials (logderivative inverse, grand product)
- * needed to check ECCVMSetRelation and ECCVMLookupRelation.
+ * needed to check ECCVMSetWnaf/Scalar/MsmRelation and ECCVMLookupRelation.
  */
 RelationParameters<FF> compute_full_relation_params(ProverPolynomials& polynomials)
 {
@@ -105,8 +105,11 @@ RelationParameters<FF> compute_full_relation_params(ProverPolynomials& polynomia
     const FF gamma = FF::random_element(&engine);
     const FF beta_sqr = beta.sqr();
     const FF beta_cube = beta_sqr * beta;
-    auto eccvm_set_permutation_delta =
-        gamma * (gamma + beta_sqr) * (gamma + beta_sqr + beta_sqr) * (gamma + beta_sqr + beta_sqr + beta_sqr);
+    const FF beta_quartic = beta_sqr * beta_sqr;
+    auto first_term_tag = beta_quartic; // FIRST_TERM_TAG (= 1) * beta_quartic
+    auto eccvm_set_permutation_delta = (gamma + first_term_tag) * (gamma + beta_sqr + first_term_tag) *
+                                       (gamma + beta_sqr + beta_sqr + first_term_tag) *
+                                       (gamma + beta_sqr + beta_sqr + beta_sqr + first_term_tag);
     eccvm_set_permutation_delta = eccvm_set_permutation_delta.invert();
 
     RelationParameters<FF> params{
@@ -116,14 +119,44 @@ RelationParameters<FF> compute_full_relation_params(ProverPolynomials& polynomia
         .public_input_delta = 0,
         .beta_sqr = beta_sqr,
         .beta_cube = beta_cube,
+        .beta_quartic = beta_quartic,
         .eccvm_set_permutation_delta = eccvm_set_permutation_delta,
     };
 
     const size_t num_rows = polynomials.get_polynomial_size();
     const size_t unmasked_witness_size = num_rows - NUM_DISABLED_ROWS_IN_SUMCHECK;
     compute_logderivative_inverse<FF, ECCVMLookupRelation<FF>>(polynomials, params, unmasked_witness_size);
-    compute_grand_product<Flavor, ECCVMSetRelation<FF>>(polynomials, params, unmasked_witness_size);
+
+    // Compute den_wnaf_partial before wnaf grand product
+    {
+        const auto first_term_tag_val = beta_quartic * ECCVMSetRelationConstants::FIRST_TERM_TAG;
+        for (size_t i = 0; i < unmasked_witness_size; ++i) {
+            const auto msm_pc_val = polynomials.msm_pc[i];
+            const auto msm_count_val = polynomials.msm_count[i];
+            const auto msm_round_val = polynomials.msm_round[i];
+
+            const auto add1_val = polynomials.msm_add1[i];
+            const auto slice1_val = polynomials.msm_slice1[i];
+            auto wnaf_out1 = add1_val * (slice1_val + gamma + (msm_pc_val - msm_count_val) * beta +
+                                          msm_round_val * beta_sqr + first_term_tag_val) +
+                              (-add1_val + 1);
+
+            const auto add2_val = polynomials.msm_add2[i];
+            const auto slice2_val = polynomials.msm_slice2[i];
+            auto wnaf_out2 = add2_val * (slice2_val + gamma + (msm_pc_val - msm_count_val - 1) * beta +
+                                          msm_round_val * beta_sqr + first_term_tag_val) +
+                              (-add2_val + 1);
+
+            polynomials.den_wnaf_partial.at(i) = wnaf_out1 * wnaf_out2;
+        }
+    }
+
+    compute_grand_product<Flavor, ECCVMSetWnafRelation<FF>>(polynomials, params, unmasked_witness_size);
+    compute_grand_product<Flavor, ECCVMSetScalarRelation<FF>>(polynomials, params, unmasked_witness_size);
+    compute_grand_product<Flavor, ECCVMSetMsmRelation<FF>>(polynomials, params, unmasked_witness_size);
     polynomials.z_perm_shift = Polynomial(polynomials.z_perm.shifted());
+    polynomials.z_perm_scalar_shift = Polynomial(polynomials.z_perm_scalar.shifted());
+    polynomials.z_perm_msm_shift = Polynomial(polynomials.z_perm_msm.shifted());
 
     return params;
 }
@@ -310,7 +343,7 @@ TEST_F(ECCVMRelationCorruptionTests, MSMRelationFailsOnShiftedMSMTable)
 
     // Verify that all other ECCVM relations still pass after the shift.
     // We compute random Fiat-Shamir challenges and derived polynomials (logderivative inverse, grand product)
-    // so we can also check ECCVMSetRelation and ECCVMLookupRelation.
+    // so we can also check ECCVMSetWnaf/Scalar/MsmRelation and ECCVMLookupRelation.
     auto full_params = compute_full_relation_params(polynomials);
 
     // Relations that don't touch MSM columns should be completely unaffected.
@@ -330,13 +363,12 @@ TEST_F(ECCVMRelationCorruptionTests, MSMRelationFailsOnShiftedMSMTable)
         RelationChecker<void>::check<ECCVMBoolsRelation<FF>>(polynomials, full_params, "ECCVMBoolsRelation");
     EXPECT_TRUE(bools_failures.empty()) << "ECCVMBoolsRelation should still pass";
 
-    // The Set relation enforces a multiset equality between MSM output tuples (pc, acc_x, acc_y, msm_size)
+    // The MSM set relation enforces a multiset equality between MSM output tuples (pc, acc_x, acc_y, msm_size)
     // and the transcript. Shifting the MSM columns corrupts these tuples, so the grand product (computed
-    // post-shift) reflects mismatched reads/writes and the relation correctly fails. It is possible that with more
-    // care, we could make this also pass.
-    auto set_failures =
-        RelationChecker<void>::check<ECCVMSetRelation<FF>>(polynomials, full_params, "ECCVMSetRelation");
-    EXPECT_FALSE(set_failures.empty()) << "ECCVMSetRelation should also fail (MSM output tuples are shifted)";
+    // post-shift) reflects mismatched reads/writes and the relation correctly fails.
+    auto set_msm_failures =
+        RelationChecker<void>::check<ECCVMSetMsmRelation<FF>>(polynomials, full_params, "ECCVMSetMsmRelation");
+    EXPECT_FALSE(set_msm_failures.empty()) << "ECCVMSetMsmRelation should also fail (MSM output tuples are shifted)";
 
     // The Lookup relation's logderivative inverse is computed post-shift, so it adapts to the
     // shifted column values. The per-row subrelation passes, and the sum-over-trace (linearly
@@ -392,9 +424,9 @@ TEST_F(ECCVMRelationCorruptionTests, SetRelationFailsOnZPermNonZeroAtFirstRow)
     auto polynomials = build_valid_eccvm_msm_state();
     auto params = compute_full_relation_params(polynomials);
 
-    // Baseline: set relation passes
-    auto baseline = RelationChecker<void>::check<ECCVMSetRelation<FF>>(polynomials, params, "ECCVMSetRelation");
-    EXPECT_TRUE(baseline.empty()) << "Baseline set relation should pass";
+    // Baseline: wnaf set relation passes
+    auto baseline = RelationChecker<void>::check<ECCVMSetWnafRelation<FF>>(polynomials, params, "ECCVMSetWnafRelation");
+    EXPECT_TRUE(baseline.empty()) << "Baseline wnaf set relation should pass";
 
     // Derive expected lagrange_first position from z_perm shiftable structure
     ASSERT_TRUE(polynomials.z_perm.is_shiftable());
@@ -426,11 +458,11 @@ TEST_F(ECCVMRelationCorruptionTests, SetRelationFailsOnZPermNonZeroAtFirstRow)
     // Tamper: set z_perm to non-zero where lagrange_first is active
     polynomials.z_perm.at(first_row) = FF(1);
 
-    auto failures = RelationChecker<void>::check<ECCVMSetRelation<FF>>(
-        polynomials, params, "ECCVMSetRelation - After setting z_perm != 0 at lagrange_first");
+    auto failures = RelationChecker<void>::check<ECCVMSetWnafRelation<FF>>(
+        polynomials, params, "ECCVMSetWnafRelation - After setting z_perm != 0 at lagrange_first");
     EXPECT_FALSE(failures.empty()) << "Set relation should fail after z_perm init corruption";
-    EXPECT_TRUE(failures.contains(ECCVMSetRelationImpl<FF>::Z_PERM_INIT))
+    EXPECT_TRUE(failures.contains(ECCVMSetWnafRelationImpl<FF>::Z_PERM_INIT))
         << "Sub-relation Z_PERM_INIT should catch the corruption";
-    EXPECT_EQ(failures.at(ECCVMSetRelationImpl<FF>::Z_PERM_INIT), first_row)
+    EXPECT_EQ(failures.at(ECCVMSetWnafRelationImpl<FF>::Z_PERM_INIT), first_row)
         << "Failure should be at lagrange_first row";
 }

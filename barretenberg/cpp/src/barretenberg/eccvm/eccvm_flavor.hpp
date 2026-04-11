@@ -24,7 +24,7 @@
 #include "barretenberg/relations/ecc_vm/ecc_lookup_relation.hpp"
 #include "barretenberg/relations/ecc_vm/ecc_msm_relation.hpp"
 #include "barretenberg/relations/ecc_vm/ecc_point_table_relation.hpp"
-#include "barretenberg/relations/ecc_vm/ecc_set_relation.hpp"
+#include "barretenberg/relations/ecc_vm/ecc_set_relation.hpp" // ECCVMSetWnaf/Scalar/MsmRelation
 #include "barretenberg/relations/ecc_vm/ecc_transcript_relation.hpp"
 #include "barretenberg/relations/ecc_vm/ecc_wnaf_relation.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
@@ -74,18 +74,16 @@ class ECCVMFlavor {
     // The number of multivariate polynomials on which a sumcheck prover sumcheck operates (including shifts). We often
     // need containers of this size to hold related data, so we choose a name more agnostic than `NUM_POLYNOMIALS`.
     // Note: this number does not include the individual sorted list polynomials.
-    // Includes gemini_masking_poly for ZK (NUM_ALL_ENTITIES = 117 + NUM_MASKING_POLYNOMIALS)
-    static constexpr size_t NUM_ALL_ENTITIES = 118;
+    static constexpr size_t NUM_ALL_ENTITIES = 123;
     // The number of polynomials precomputed to describe a circuit and to aid a prover in constructing a satisfying
     // assignment of witnesses. We again choose a neutral name.
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 4;
     // The total number of witness entities not including shifts.
-    // Includes gemini_masking_poly for ZK (NUM_WITNESS_ENTITIES = 86 + NUM_MASKING_POLYNOMIALS)
-    static constexpr size_t NUM_WITNESS_ENTITIES = 87;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 90;
     // The number of entities in ShiftedEntities.
-    static constexpr size_t NUM_SHIFTED_ENTITIES = 26;
+    static constexpr size_t NUM_SHIFTED_ENTITIES = 28;
     // The number of entities in DerivedWitnessEntities that are not going to be shifted.
-    static constexpr size_t NUM_DERIVED_WITNESS_ENTITIES_NON_SHIFTED = 1;
+    static constexpr size_t NUM_DERIVED_WITNESS_ENTITIES_NON_SHIFTED = 2;
     // Indices into the Shplemini commitments vector that identify which "to-be-shifted" witness commitments in the
     // unshifted block are duplicated in the shifted block, so their scalar muls can be merged.
     //
@@ -110,18 +108,21 @@ class ECCVMFlavor {
     static_assert(NUM_MASKING_POLYNOMIALS == 1, "MaskingEntities size changed — review REPEATED_COMMITMENTS offset");
     static_assert(REPEATED_COMMITMENTS.first.original_start == 64,
                   "REPEATED_COMMITMENTS original_start changed — verify Shplemini offset convention");
-    static_assert(REPEATED_COMMITMENTS.first.duplicate_start == 91,
+    static_assert(REPEATED_COMMITMENTS.first.duplicate_start == 94,
                   "REPEATED_COMMITMENTS duplicate_start changed — verify Shplemini offset convention");
-    static_assert(REPEATED_COMMITMENTS.first.count == 26, "REPEATED_COMMITMENTS count changed");
+    static_assert(REPEATED_COMMITMENTS.first.count == 28, "REPEATED_COMMITMENTS count changed");
 
-    using GrandProductRelations = std::tuple<ECCVMSetRelation<FF>>;
+    using GrandProductRelations =
+        std::tuple<ECCVMSetWnafRelation<FF>, ECCVMSetScalarRelation<FF>, ECCVMSetMsmRelation<FF>>;
     // define the tuple of Relations that comprise the Sumcheck relation
     template <typename FF>
     using Relations_ = std::tuple<ECCVMTranscriptRelation<FF>,
                                   ECCVMPointTableRelation<FF>,
                                   ECCVMWnafRelation<FF>,
                                   ECCVMMSMRelation<FF>,
-                                  ECCVMSetRelation<FF>,
+                                  ECCVMSetWnafRelation<FF>,
+                                  ECCVMSetScalarRelation<FF>,
+                                  ECCVMSetMsmRelation<FF>,
                                   ECCVMLookupRelation<FF>,
                                   ECCVMBoolsRelation<FF>>;
     using Relations = Relations_<FF>;
@@ -207,8 +208,11 @@ class ECCVMFlavor {
      */
     template <typename DataType> struct DerivedWitnessEntities {
         DEFINE_FLAVOR_MEMBERS(DataType,
-                              z_perm,           // column 0
-                              lookup_inverses); // column 1
+                              z_perm,            // column 0 (shifted)
+                              z_perm_scalar,     // column 1 (shifted)
+                              z_perm_msm,        // column 2 (shifted)
+                              den_wnaf_partial,  // column 3 (non-shifted)
+                              lookup_inverses);  // column 4 (non-shifted)
     };
     template <typename DataType> class WireNonShiftedEntities {
       public:
@@ -392,7 +396,9 @@ class ECCVMFlavor {
                               transcript_accumulator_not_empty_shift, // column 22
                               transcript_accumulator_x_shift,         // column 23
                               transcript_accumulator_y_shift,         // column 24
-                              z_perm_shift);                          // column 25
+                              z_perm_shift,                           // column 25
+                              z_perm_scalar_shift,                    // column 26
+                              z_perm_msm_shift);                      // column 27
     };
 
     template <typename DataType, typename PrecomputedAndWitnessEntitiesSuperset>
@@ -424,7 +430,9 @@ class ECCVMFlavor {
                          entities.transcript_accumulator_not_empty, // column 22
                          entities.transcript_accumulator_x,         // column 23
                          entities.transcript_accumulator_y,         // column 24
-                         entities.z_perm };                         // column 25
+                         entities.z_perm,                           // column 25
+                         entities.z_perm_scalar,                    // column 26
+                         entities.z_perm_msm };                     // column 27
     }
 
     /**
@@ -664,8 +672,10 @@ class ECCVMFlavor {
                 poly = Polynomial(num_rows - 1, dyadic_num_rows, 1);
             }
 
-            // 3. z_perm: must stay full-size (grand product computed over unmasked_witness_size)
+            // 3. Grand product polynomials: must stay full-size (computed over unmasked_witness_size), shiftable
             z_perm = Polynomial(dyadic_num_rows - 1, dyadic_num_rows, 1);
+            z_perm_scalar = Polynomial(dyadic_num_rows - 1, dyadic_num_rows, 1);
+            z_perm_msm = Polynomial(dyadic_num_rows - 1, dyadic_num_rows, 1);
 
             // 4. Catch-all: precomputed, lookup_inverses, gemini_masking_poly → full size
             for (auto& poly : get_all()) {
@@ -940,8 +950,13 @@ class ECCVMFlavor {
             Base::transcript_msm_count_zero_at_transition = "TRANSCRIPT_MSM_COUNT_ZERO_AT_TRANSITION";
             Base::transcript_msm_count_at_transition_inverse = "TRANSCRIPT_MSM_COUNT_AT_TRANSITION_INVERSE";
             Base::z_perm = "Z_PERM";
-            Base::z_perm_shift = "Z_PERM_SHIFT";
+            Base::z_perm_scalar = "Z_PERM_SCALAR";
+            Base::z_perm_msm = "Z_PERM_MSM";
+            Base::den_wnaf_partial = "DEN_WNAF_PARTIAL";
             Base::lookup_inverses = "LOOKUP_INVERSES";
+            Base::z_perm_shift = "Z_PERM_SHIFT";
+            Base::z_perm_scalar_shift = "Z_PERM_SCALAR_SHIFT";
+            Base::z_perm_msm_shift = "Z_PERM_MSM_SHIFT";
             // The ones beginning with "__" are only used for debugging
             Base::lagrange_first = "__LAGRANGE_FIRST";
             Base::lagrange_second = "__LAGRANGE_SECOND";
@@ -1049,6 +1064,10 @@ class ECCVMFlavor {
         // 4: We also force that `transcript_op==0`.
         return (polynomials.z_perm[edge_idx] == polynomials.z_perm_shift[edge_idx]) &&
                (polynomials.z_perm[edge_idx + 1] == polynomials.z_perm_shift[edge_idx + 1]) &&
+               (polynomials.z_perm_scalar[edge_idx] == polynomials.z_perm_scalar_shift[edge_idx]) &&
+               (polynomials.z_perm_scalar[edge_idx + 1] == polynomials.z_perm_scalar_shift[edge_idx + 1]) &&
+               (polynomials.z_perm_msm[edge_idx] == polynomials.z_perm_msm_shift[edge_idx]) &&
+               (polynomials.z_perm_msm[edge_idx + 1] == polynomials.z_perm_msm_shift[edge_idx + 1]) &&
                (polynomials.lagrange_last[edge_idx] == 0 && polynomials.lagrange_last[edge_idx + 1] == 0) &&
                (polynomials.msm_transition[edge_idx] == 0 && polynomials.msm_transition[edge_idx + 1] == 0) &&
                (polynomials.transcript_mul[edge_idx] == 0 && polynomials.transcript_mul[edge_idx + 1] == 0) &&
