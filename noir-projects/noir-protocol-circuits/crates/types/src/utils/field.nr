@@ -55,7 +55,7 @@ global C5: Field = 1910321906792171394429139282769207003614565195732928631530564
 // Only if your exponent is larger than 32 bits, resort to using this function.
 pub fn pow(x: Field, y: Field) -> Field {
     let mut r = 1 as Field;
-    let b: [u1; 254] = y.to_le_bits();
+    let b: [bool; 254] = y.to_le_bits();
 
     for i in 0..254 {
         r *= r;
