@@ -42,12 +42,8 @@ dependencies = [
  "acir",
  "acvm_blackbox_solver",
  "brillig_vm",
-<<<<<<< HEAD
- "indexmap 2.13.0",
-=======
  "indexmap 2.13.1",
  "itertools 0.14.0",
->>>>>>> 0daa54d3d5 (chore: Update Noir to nightly-2026-04-10 (#22393))
  "rustc-hash",
  "serde",
  "thiserror",
@@ -2480,13 +2476,8 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b7c566e0f4b284dd6561c786d9cb0142da491f46a9fbed79ea69cdad5db17f21"
 dependencies = [
  "anyhow",
-<<<<<<< HEAD
- "heck 0.5.0",
- "indexmap 2.13.0",
-=======
  "heck",
  "indexmap 2.13.1",
->>>>>>> 0daa54d3d5 (chore: Update Noir to nightly-2026-04-10 (#22393))
  "prettyplease",
  "syn 2.0.117",
  "wasm-metadata",

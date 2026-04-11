@@ -65,14 +65,8 @@ comptime fn generate_contract_library_method_compute_note_hash() -> Quoted {
     } else {
         // Contracts that do define notes produce an if-else chain where `note_type_id` is matched against the
         // `get_note_type_id()` function of each note type that we know of, in order to identify the note type. Once we
-<<<<<<< HEAD
-        // know it we call the correct `unpack` method from the `Packable` trait to obtain the underlying note type,
-        // and
-        // compute the note hash (non-siloed).
-=======
         // know it we call the correct `unpack` method from the `Packable` trait to obtain the underlying
         // note type, and compute the note hash (non-siloed).
->>>>>>> 0daa54d3d5 (chore: Update Noir to nightly-2026-04-10 (#22393))
 
         // We resolve the log format calls here so that the resulting Quoted values can be spliced into the quote
         // block below.
@@ -180,14 +174,8 @@ comptime fn generate_contract_library_method_compute_note_nullifier() -> Quoted 
     } else {
         // Contracts that do define notes produce an if-else chain where `note_type_id` is matched against the
         // `get_note_type_id()` function of each note type that we know of, in order to identify the note type. Once we
-<<<<<<< HEAD
-        // know it we call the correct `unpack` method from the `Packable` trait to obtain the underlying note type,
-        // and
-        // compute the inner nullifier (non-siloed).
-=======
         // know it we call the correct `unpack` method from the `Packable` trait to obtain the underlying
         // note type, and compute the inner nullifier (non-siloed).
->>>>>>> 0daa54d3d5 (chore: Update Noir to nightly-2026-04-10 (#22393))
 
         // We resolve the log format calls here so that the resulting Quoted values can be spliced into the quote
         // block below.
