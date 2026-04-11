@@ -53,7 +53,7 @@ pub fn poseidon2_encrypt<let L: u32>(
     }
 
     for i in 0..CEIL {
-        s = poseidon2_permutation(s, 4);
+        s = poseidon2_permutation(s);
 
         // Absorb 3 elements of the message:
         let j = 3 * i;
@@ -68,7 +68,7 @@ pub fn poseidon2_encrypt<let L: u32>(
     }
 
     // Iterate Poseidon2 on the state, one last time:
-    s = poseidon2_permutation(s, 4);
+    s = poseidon2_permutation(s);
 
     // Release the last ciphertext element:
     c[L_UPPER_BOUND] = s[1];
@@ -91,7 +91,7 @@ pub fn poseidon2_decrypt<let L: u32>(
     let c = ciphertext;
 
     for i in 0..CEIL {
-        s = poseidon2_permutation(s, 4);
+        s = poseidon2_permutation(s);
 
         // Release 3 elements of message:
         let j = 3 * i;
@@ -108,7 +108,7 @@ pub fn poseidon2_decrypt<let L: u32>(
     }
 
     // Iterate Poseidon2 on the state, one last time:
-    s = poseidon2_permutation(s, 4);
+    s = poseidon2_permutation(s);
 
     let mut msg: [Field; L] = [0; L];
     for i in 0..L {
@@ -139,6 +139,7 @@ pub fn poseidon2_decrypt<let L: u32>(
 }
 
 mod test {
+    use crate::protocol::point::Point;
     use super::{poseidon2_decrypt, poseidon2_encrypt, TWO_POW_128};
     use std::embedded_curve_ops::{EmbeddedCurveScalar, fixed_base_scalar_mul, multi_scalar_mul};
 
@@ -151,7 +152,7 @@ mod test {
 
         let eph_sk = 0x5678;
         let eph_pk = fixed_base_scalar_mul(EmbeddedCurveScalar::from_field(eph_sk));
-        let shared_secret = multi_scalar_mul([bob_pk], [EmbeddedCurveScalar::from_field(eph_sk)]);
+        let shared_secret: Point = multi_scalar_mul([bob_pk], [EmbeddedCurveScalar::from_field(eph_sk)]).into();
 
         let encryption_nonce = 3; // TODO. Can even be a timestamp. Why is this even needed?
 
@@ -161,7 +162,7 @@ mod test {
 
         // Bob sees: [Epk, ciphertext, encryption_nonce]:
 
-        let shared_secret = multi_scalar_mul([eph_pk], [EmbeddedCurveScalar::from_field(bob_sk)]);
+        let shared_secret: Point = multi_scalar_mul([eph_pk], [EmbeddedCurveScalar::from_field(bob_sk)]).into();
 
         let result = poseidon2_decrypt(ciphertext, shared_secret, encryption_nonce);
 
@@ -192,7 +193,7 @@ mod test {
 
         let eph_sk = 0x5678;
         let eph_pk = fixed_base_scalar_mul(EmbeddedCurveScalar::from_field(eph_sk));
-        let shared_secret = multi_scalar_mul([bob_pk], [EmbeddedCurveScalar::from_field(eph_sk)]);
+        let shared_secret: Point = multi_scalar_mul([bob_pk], [EmbeddedCurveScalar::from_field(eph_sk)]).into();
 
         let msg = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 
@@ -204,7 +205,7 @@ mod test {
 
         // Bob sees: [Epk, ciphertext, encryption_nonce]:
 
-        let mut shared_secret = multi_scalar_mul([eph_pk], [EmbeddedCurveScalar::from_field(bob_sk)]);
+        let mut shared_secret: Point = multi_scalar_mul([eph_pk], [EmbeddedCurveScalar::from_field(bob_sk)]).into();
         // Let's intentionally corrupt the shared secret, so that decryption should fail
         shared_secret.x += 1;
 
@@ -221,7 +222,7 @@ mod test {
         let bob_pk = fixed_base_scalar_mul(EmbeddedCurveScalar::from_field(bob_sk));
 
         let eph_sk = 0x5678;
-        let shared_secret = multi_scalar_mul([bob_pk], [EmbeddedCurveScalar::from_field(eph_sk)]);
+        let shared_secret: Point = multi_scalar_mul([bob_pk], [EmbeddedCurveScalar::from_field(eph_sk)]).into();
 
         let encryption_nonce = 3; // TODO. Can even be a timestamp. Why is this even needed?
 

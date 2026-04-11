@@ -38,7 +38,7 @@ pub contract AvmTest {
     use aztec::state_vars::PublicMutable;
     use aztec::state_vars::StateVariable;
     use compressed_string::CompressedString;
-    use std::embedded_curve_ops::{EmbeddedCurvePoint, multi_scalar_mul};
+    use std::embedded_curve_ops::multi_scalar_mul;
 
     use auth_contract::AuthRegistry;
     use aztec::context::PublicContext;
@@ -228,16 +228,16 @@ pub contract AvmTest {
         let g = Point { x: GRUMPKIN_ONE_X, y: GRUMPKIN_ONE_Y, is_infinite: false };
 
         let triple_g = multi_scalar_mul(
-            [g, g],
+            [g.to_embedded(), g.to_embedded()],
             [Scalar { lo: scalar_lo, hi: scalar_hi }, Scalar { lo: scalar2_lo, hi: scalar2_hi }],
         );
-        triple_g
+        triple_g.into()
     }
 
     #[external("public")]
-    fn pedersen_commit(x: Field, y: Field) -> EmbeddedCurvePoint {
+    fn pedersen_commit(x: Field, y: Field) -> Point {
         let commitment = ::std::hash::pedersen_commitment_with_separator([x, y], 20);
-        commitment
+        commitment.into()
     }
 
     #[external("public")]
@@ -290,12 +290,12 @@ pub contract AvmTest {
     }
 
     #[external("public")]
-    fn to_le_bits(input: Field) -> [u1; 16] {
+    fn to_le_bits(input: Field) -> [bool; 16] {
         _to_le_bits(input)
     }
 
     #[contract_library_method]
-    fn _to_le_bits(input: Field) -> [u1; 16] {
+    fn _to_le_bits(input: Field) -> [bool; 16] {
         input.to_le_bits()
     }
 
@@ -1010,7 +1010,7 @@ pub contract AvmTest {
         assert(first_byte != 0);
         aztec::oracle::logging::debug_log("to_le_bits");
         let first_bit = _to_le_bits(args_field[0])[0];
-        assert(first_bit != 0);
+        assert(first_bit);
         //let _ = nested_call_to_nothing_recovers();
     }
 }
