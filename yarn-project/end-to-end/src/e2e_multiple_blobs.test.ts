@@ -65,7 +65,7 @@ describe('e2e_multiple_blobs', () => {
           defaultAccountAddress,
           true,
         ),
-        contract.methods.emit_public(Fr.random()),
+        contract.methods.emit_full_size_public_log(Fr.random()),
       ]),
     ];
 
