@@ -74,7 +74,7 @@ import type {
   AztecAddress as NoirAztecAddress,
   EthAddress as NoirEthAddress,
   Field as NoirField,
-  Point as NoirPoint,
+  EmbeddedCurvePoint as NoirPoint,
   NullifierLeafPreimage as NullifierLeafPreimageNoir,
   PartialStateReference as PartialStateReferenceNoir,
   Log as PrivateLogNoir,
