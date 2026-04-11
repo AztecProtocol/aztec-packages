@@ -25,6 +25,7 @@ import type { L2LogsSource, MerkleTreeReadOperations, WorldStateSynchronizer } f
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import { mockTx } from '@aztec/stdlib/testing';
 import { MerkleTreeId, PublicDataTreeLeaf, PublicDataTreeLeafPreimage } from '@aztec/stdlib/trees';
+import type { FeeProvider } from '@aztec/stdlib/tx';
 import {
   BlockHeader,
   GlobalVariables,
@@ -73,6 +74,7 @@ class TestAztecNodeService extends AztecNodeService {
 describe('aztec node', () => {
   let p2p: MockProxy<P2P>;
   let globalVariablesBuilder: MockProxy<GlobalVariableBuilder>;
+  let feeProvider: MockProxy<FeeProvider>;
   let merkleTreeOps: MockProxy<MerkleTreeReadOperations>;
   let worldState: MockProxy<WorldStateSynchronizer>;
   let l2BlockSource: MockProxy<L2BlockSource>;
@@ -108,7 +110,8 @@ describe('aztec node', () => {
     p2p = mock<P2P>();
 
     globalVariablesBuilder = mock<GlobalVariableBuilder>();
-    globalVariablesBuilder.getCurrentMinFees.mockResolvedValue(new GasFees(0, BlockNumber.ZERO));
+    feeProvider = mock<FeeProvider>();
+    feeProvider.getCurrentMinFees.mockResolvedValue(new GasFees(0, BlockNumber.ZERO));
 
     merkleTreeOps = mock<MerkleTreeReadOperations>();
     merkleTreeOps.findLeafIndices.mockImplementation((treeId: MerkleTreeId, _value: any[]) => {
@@ -196,6 +199,7 @@ describe('aztec node', () => {
       12345,
       rollupVersion.toNumber(),
       globalVariablesBuilder,
+      feeProvider,
       epochCache,
       getPackageVersion() ?? '',
       new TestCircuitVerifier(),
@@ -738,6 +742,7 @@ describe('aztec node', () => {
           12345,
           rollupVersion.toNumber(),
           globalVariablesBuilder,
+          feeProvider,
           epochCache,
           getPackageVersion() ?? '',
           new TestCircuitVerifier(),
@@ -927,6 +932,7 @@ describe('aztec node', () => {
           12345,
           rollupVersion.toNumber(),
           globalVariablesBuilder,
+          feeProvider,
           epochCache,
           getPackageVersion() ?? '',
           new TestCircuitVerifier(),
@@ -997,6 +1003,7 @@ describe('aztec node', () => {
         12345,
         rollupVersion.toNumber(),
         globalVariablesBuilder,
+        mock<FeeProvider>(),
         epochCache,
         getPackageVersion() ?? '',
         new TestCircuitVerifier(),

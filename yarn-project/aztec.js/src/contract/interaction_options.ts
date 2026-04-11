@@ -2,7 +2,7 @@ import type { Fr } from '@aztec/foundation/curves/bn254';
 import type { FieldsOf } from '@aztec/foundation/types';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { GasSettings } from '@aztec/stdlib/gas';
+import type { GasSettings, ManaUsageEstimate } from '@aztec/stdlib/gas';
 import {
   type Capsule,
   OFFCHAIN_MESSAGE_IDENTIFIER,
@@ -42,6 +42,14 @@ export type FeePaymentMethodOption = {
 export type GasSettingsOption = {
   /** The gas settings */
   gasSettings?: Partial<FieldsOf<GasSettings>>;
+  /**
+   * Assumed network congestion level for fee prediction. Controls how aggressively the wallet
+   * estimates future fees: None assumes empty blocks, Target assumes steady-state usage,
+   * and Limit assumes blocks at maximum capacity. Higher estimates produce higher fee predictions,
+   * reducing the risk of underpriced transactions during congestion spikes.
+   * Defaults to Limit (worst case) when not specified.
+   */
+  congestionEstimate?: ManaUsageEstimate;
 };
 
 /** Fee options as set by a user. */
@@ -253,6 +261,7 @@ export function toSendOptions<W extends InteractionWaitOptions = undefined>(
         ...options.fee?.paymentMethod?.getGasSettings(),
         ...options.fee?.gasSettings,
       },
+      congestionEstimate: options.fee?.congestionEstimate,
     },
     wait: options.wait, // Pass through wait option
   };
@@ -273,6 +282,7 @@ export function toSimulateOptions(options: SimulateInteractionOptions): Simulate
         ...options.fee?.paymentMethod?.getGasSettings(),
         ...options.fee?.gasSettings,
       },
+      congestionEstimate: options.fee?.congestionEstimate,
       estimateGas: options.fee?.estimateGas,
       estimatedGasPadding: options.fee?.estimatedGasPadding,
     },
