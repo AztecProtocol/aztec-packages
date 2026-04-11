@@ -356,3 +356,11 @@ tests:
     error_regex: "timeout: sending signal"
     owners:
       - *charlie
+
+  # Timing-sensitive: after time warp, PXE may use stale anchor block under heavy CI load,
+  # causing "Invalid expiration timestamp" when 64+ tests run in parallel.
+  # Passes reliably when run in isolation. Introduced by #22084 (new CheatCodes warp API).
+  - regex: "src/e2e_blacklist_token_contract/shielding.test.ts"
+    error_regex: "Invalid expiration timestamp"
+    owners:
+      - *jan

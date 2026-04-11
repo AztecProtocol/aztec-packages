@@ -70,6 +70,9 @@ export class BlacklistTokenContractTest {
 
   async crossTimestampOfChange() {
     await this.cheatCodes.warpL2TimeAtLeastBy(this.aztecNode, BlacklistTokenContractTest.CHANGE_ROLES_DELAY);
+    // Force PXE to sync the warped block before returning. Under heavy CI load, the PXE may not
+    // have the latest block yet when the next send() call runs, causing "Invalid expiration timestamp".
+    await this.asset.methods.get_roles(this.adminAddress).simulate({ from: this.adminAddress });
   }
 
   /**
