@@ -224,7 +224,16 @@ export const FunctionDebugMetadataSchema = z.object({
     acir_locations: z.record(z.number()),
     brillig_locations: z.record(z.record(z.number())),
   }),
-  files: z.record(z.object({ source: z.string(), path: z.string() })),
+  files: z.preprocess(
+    fillMissingFunctionLocations,
+    z.record(
+      z.object({
+        source: z.string(),
+        path: z.string(),
+        function_locations: z.array(z.object({ start: z.number(), name: z.string() })),
+      }),
+    ),
+  ) as z.ZodType<DebugFileMap>,
 }) satisfies z.ZodType<FunctionDebugMetadata>;
 
 /** The artifact entry of a function. */
@@ -305,6 +314,14 @@ export interface ProgramDebugInfo {
   debug_infos: Array<DebugInfo>;
 }
 
+/** The range a function occupies in a file. */
+export type FunctionLocation = {
+  /** The byte where the function starts. */
+  start: number;
+  /** The name of the function. */
+  name: string;
+};
+
 /** Maps a file ID to its metadata for debugging purposes. */
 export type DebugFileMap = Record<
   FileId,
@@ -313,8 +330,29 @@ export type DebugFileMap = Record<
     source: string;
     /** The path of the file. */
     path: string;
+    /** The range each function occupies in the file. */
+    function_locations: FunctionLocation[];
   }
 >;
+
+/**
+ * Fills missing `function_locations` on each entry of a file map with an empty array.
+ * Kept for backwards compatibility with artifacts compiled before `function_locations` was introduced.
+ */
+function fillMissingFunctionLocations(val: unknown): unknown {
+  if (val && typeof val === 'object') {
+    for (const entry of Object.values(val as Record<string, unknown>)) {
+      if (
+        entry &&
+        typeof entry === 'object' &&
+        (entry as { function_locations?: unknown }).function_locations === undefined
+      ) {
+        (entry as { function_locations: FunctionLocation[] }).function_locations = [];
+      }
+    }
+  }
+  return val;
+}
 
 /** Type representing a field layout in the storage of a contract. */
 export type FieldLayout = {
@@ -367,7 +405,17 @@ export const ContractArtifactSchema = zodFor<ContractArtifact>()(
       globals: z.record(z.array(AbiValueSchema)),
     }),
     storageLayout: z.record(z.object({ slot: schemas.Fr })),
-    fileMap: z.record(z.coerce.number(), z.object({ source: z.string(), path: z.string() })),
+    fileMap: z.preprocess(
+      fillMissingFunctionLocations,
+      z.record(
+        z.coerce.number(),
+        z.object({
+          source: z.string(),
+          path: z.string(),
+          function_locations: z.array(z.object({ start: z.number(), name: z.string() })),
+        }),
+      ),
+    ),
   }),
 );
 
