@@ -10,8 +10,7 @@ use crate::{
     utils::field::sqrt,
 };
 
-// We do below because `use crate::point::Point;` does not work
-use std::embedded_curve_ops::EmbeddedCurvePoint as Point;
+use crate::point::Point;
 
 use crate::public_keys::AddressPoint;
 use std::{
@@ -139,9 +138,11 @@ impl AztecAddress {
         );
 
         // Note: `.add()` will fail within the blackbox fn if either of the points are not on the curve. (See tests below).
-        let address_point = derive_public_key(EmbeddedCurveScalar::from_field(pre_address)).add(
-            public_keys.ivpk_m.to_point(),
-        );
+        // TODO(F-553): Drop the `.to_embedded()` / `.into()` round-trip once the custom `Point` wrapper is removed and
+        // we use `EmbeddedCurvePoint` directly.
+        let address_point: Point = derive_public_key(EmbeddedCurveScalar::from_field(pre_address))
+            .add(public_keys.ivpk_m.to_point().to_embedded())
+            .into();
 
         // Note that our address is only the x-coordinate of the full address_point. This is okay because when people want to encrypt something and send it to us
         // they can recover our full point using the x-coordinate (our address itself). To do this, they recompute the y-coordinate according to the equation y^2 = x^3 - 17.
