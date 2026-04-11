@@ -65,6 +65,7 @@ import {
 } from '../test/utils.js';
 import { computePipelinedParentFeeHeader } from './chain_state_overrides.js';
 import { CheckpointProposalJob } from './checkpoint_proposal_job.js';
+import type { CheckpointProposalJobMetricsRecorder } from './checkpoint_proposal_job_metrics.js';
 import type { SequencerEvents } from './events.js';
 import type { SequencerMetrics } from './metrics.js';
 import { SequencerTimetable } from './timetable.js';
@@ -84,6 +85,7 @@ describe('CheckpointProposalJob', () => {
   let slasherClient: MockProxy<SlasherClientInterface>;
   let dateProvider: TestDateProvider;
   let metrics: MockProxy<SequencerMetrics>;
+  let checkpointMetrics: MockProxy<CheckpointProposalJobMetricsRecorder>;
   let job: TestCheckpointProposalJob;
 
   let timetable: SequencerTimetable;
@@ -266,6 +268,7 @@ describe('CheckpointProposalJob', () => {
     slasherClient.getProposerActions.mockResolvedValue([]);
 
     metrics = mockDeep<SequencerMetrics>();
+    checkpointMetrics = mockDeep<CheckpointProposalJobMetricsRecorder>();
 
     config = {
       ...DefaultSequencerConfig,
@@ -324,6 +327,40 @@ describe('CheckpointProposalJob', () => {
         expect.any(Number),
         SlotNumber(newSlotNumber),
       );
+      expect(checkpointMetrics.startCheckpointTiming).toHaveBeenCalledWith(expect.any(Number));
+      expect(checkpointMetrics.noteCheckpointBlockBuilt).toHaveBeenCalledWith(expect.any(Number), {
+        isFirstBlock: true,
+        isLastBlock: true,
+      });
+      expect(checkpointMetrics.noteCheckpointBroadcast).toHaveBeenCalledWith(expect.any(Number));
+      expect(checkpointMetrics.recordPipelinedCheckpointBuildStartOffsetFromSlotBoundary).not.toHaveBeenCalled();
+    });
+
+    it('records pipelined checkpoint build start offset from the wall-clock slot boundary', async () => {
+      const { txs, block } = await setupTxsAndBlock(p2p, globalVariables, 2, chainId);
+      checkpointBuilder.seedBlocks([block], [txs]);
+      validatorClient.collectAttestations.mockResolvedValue(getAttestations(block));
+      epochCache.isProposerPipeliningEnabled.mockReturnValue(true);
+
+      const checkpoint = await createCheckpointProposalJob({
+        targetSlot: SlotNumber(newSlotNumber + 1),
+        proposedCheckpointData: {
+          checkpointNumber: CheckpointNumber(1),
+          header: CheckpointHeader.empty(),
+          archive: new AppendOnlyTreeSnapshot(Fr.ZERO, 1),
+          checkpointOutHash: Fr.ZERO,
+          startBlock: BlockNumber(1),
+          blockCount: 1,
+          totalManaUsed: 5000n,
+          feeAssetPriceModifier: 100n,
+        },
+      }).executeAndAwait();
+
+      expect(checkpoint).toBeDefined();
+      expect(checkpointMetrics.startCheckpointTiming).toHaveBeenCalledWith(expect.any(Number));
+      expect(checkpointMetrics.recordPipelinedCheckpointBuildStartOffsetFromSlotBoundary).toHaveBeenCalledTimes(1);
+      const [offsetMs] = checkpointMetrics.recordPipelinedCheckpointBuildStartOffsetFromSlotBoundary.mock.calls[0];
+      expect(Math.abs(offsetMs + ethereumSlotDuration * 1000)).toBeLessThan(100);
     });
 
     it('skips building if not enough txs and not forced', async () => {
@@ -567,6 +604,7 @@ describe('CheckpointProposalJob', () => {
     slotNow?: SlotNumber;
     targetSlot?: SlotNumber;
     targetEpoch?: EpochNumber;
+    proposedCheckpointData?: ProposedCheckpointData;
   }): TestCheckpointProposalJob {
     const setStateFn = jest.fn();
     const eventEmitter = new EventEmitter() as TypedEventEmitter<SequencerEvents>;
@@ -596,10 +634,12 @@ describe('CheckpointProposalJob', () => {
       epochCache,
       dateProvider,
       metrics,
+      checkpointMetrics,
       eventEmitter,
       setStateFn,
       getTelemetryClient().getTracer('test'),
       { actor: 'test' }, // bindings
+      overrides?.proposedCheckpointData,
     );
   }
 

@@ -44,6 +44,7 @@ import {
   mockTxIterator,
 } from '../test/utils.js';
 import { CheckpointProposalJob } from './checkpoint_proposal_job.js';
+import type { CheckpointProposalJobMetricsRecorder } from './checkpoint_proposal_job_metrics.js';
 import type { SequencerEvents } from './events.js';
 import type { SequencerMetrics } from './metrics.js';
 import { SequencerTimetable } from './timetable.js';
@@ -207,6 +208,7 @@ describe('CheckpointProposalJob Timing Tests', () => {
   let blockSink: MockProxy<L2BlockSink>;
   let slasherClient: MockProxy<SlasherClientInterface>;
   let metrics: MockProxy<SequencerMetrics>;
+  let checkpointMetrics: MockProxy<CheckpointProposalJobMetricsRecorder>;
 
   let l1Constants: L1RollupConstants;
   let config: ResolvedSequencerConfig;
@@ -313,6 +315,7 @@ describe('CheckpointProposalJob Timing Tests', () => {
       epochCache,
       dateProvider,
       metrics,
+      checkpointMetrics,
       eventEmitter,
       setStateFn,
       getTelemetryClient().getTracer('timing-test'),
@@ -444,6 +447,7 @@ describe('CheckpointProposalJob Timing Tests', () => {
     slasherClient.getProposerActions.mockResolvedValue([]);
 
     metrics = mockDeep<SequencerMetrics>();
+    checkpointMetrics = mockDeep<CheckpointProposalJobMetricsRecorder>();
 
     config = {
       ...DefaultSequencerConfig,
@@ -476,7 +480,8 @@ describe('CheckpointProposalJob Timing Tests', () => {
       validatorClient.collectAttestations.mockResolvedValue(getAttestations(blocks[2]));
 
       // Start at 0.5s into slot (within the init offset)
-      setTimeInSlot(0.5);
+      // Start late enough that the single built block is also the last block in the checkpoint.
+      setTimeInSlot(33);
 
       const job = createJob();
       job.setTimetable(timetable);
@@ -485,6 +490,42 @@ describe('CheckpointProposalJob Timing Tests', () => {
 
       expect(checkpoint).toBeDefined();
       expect(checkpointBuilder.buildBlockCalls.length).toBeGreaterThan(0);
+    });
+
+    it('records handoff timing components for the first and last block path', async () => {
+      const { blocks, txs } = await createTestBlocksAndTxs(1);
+      mockP2pWithTxs(txs);
+      checkpointBuilder.seedBlocks(blocks, [[txs[0]]]);
+      checkpointBuilder.setExecutionDurations([5]);
+
+      validatorClient.collectAttestations.mockResolvedValue(getAttestations(blocks[0]));
+
+      setTimeInSlot(0.5);
+
+      const job = createJob();
+      job.setTimetable(
+        new SequencerTimetable(
+          {
+            ethereumSlotDuration: ETHEREUM_SLOT_DURATION,
+            aztecSlotDuration: AZTEC_SLOT_DURATION,
+            l1PublishingTime: L1_PUBLISHING_TIME,
+            p2pPropagationTime: P2P_PROPAGATION_TIME,
+            enforce: true,
+          },
+          undefined,
+          createLogger('test:timetable:single-block'),
+        ),
+      );
+
+      const checkpoint = await job.execute();
+
+      expect(checkpoint).toBeDefined();
+      expect(checkpointMetrics.startCheckpointTiming).toHaveBeenCalledWith(expect.any(Number));
+      expect(checkpointMetrics.noteCheckpointBlockBuilt).toHaveBeenCalledWith(expect.any(Number), {
+        isFirstBlock: true,
+        isLastBlock: true,
+      });
+      expect(checkpointMetrics.noteCheckpointBroadcast).toHaveBeenCalledWith(expect.any(Number));
     });
 
     it('builds maximum blocks when given enough time', async () => {
@@ -1019,6 +1060,7 @@ describe('CheckpointProposalJob Timing Tests', () => {
         epochCache,
         dateProvider,
         metrics,
+        checkpointMetrics,
         eventEmitter,
         setStateFn,
         getTelemetryClient().getTracer('timing-test-pipelining'),

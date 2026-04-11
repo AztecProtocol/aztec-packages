@@ -47,7 +47,7 @@ import {
   getContractClassFromArtifact,
 } from '@aztec/stdlib/contract';
 import { SimulationError } from '@aztec/stdlib/errors';
-import { Gas, GasFees, GasSettings } from '@aztec/stdlib/gas';
+import { Gas, GasFees, GasSettings, ManaUsageEstimate } from '@aztec/stdlib/gas';
 import {
   computeSiloedPrivateInitializationNullifier,
   computeSiloedPublicInitializationNullifier,
@@ -55,11 +55,12 @@ import {
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import {
   BlockHeader,
+  ExecutionPayload,
   type TxExecutionRequest,
   type TxProfileResult,
   type UtilityExecutionResult,
+  mergeExecutionPayloads,
 } from '@aztec/stdlib/tx';
-import { ExecutionPayload, mergeExecutionPayloads } from '@aztec/stdlib/tx';
 
 import { inspect } from 'util';
 
@@ -99,6 +100,11 @@ export type CompleteFeeOptionsConfig = {
   gasSettings?: Partial<FieldsOf<GasSettings>>;
   /** If true, returns gas settings with high gas limits for estimation. If false, uses fallback limits. */
   forEstimation?: boolean;
+  /**
+   * Assumed network congestion level for fee prediction. Controls how aggressively the wallet
+   * estimates future fees. Defaults to Limit (worst case) when not specified.
+   */
+  congestionEstimate?: ManaUsageEstimate;
 };
 
 /**
@@ -222,9 +228,9 @@ export abstract class BaseWallet implements Wallet {
    * @param config - Fee completion config.
    */
   protected async completeFeeOptions(config: CompleteFeeOptionsConfig): Promise<FeeOptions> {
-    const { from, feePayer, gasSettings, forEstimation } = config;
+    const { from, feePayer, gasSettings, forEstimation, congestionEstimate } = config;
     const maxFeesPerGas =
-      gasSettings?.maxFeesPerGas ?? (await this.aztecNode.getCurrentMinFees()).mul(1 + this.minFeePadding);
+      gasSettings?.maxFeesPerGas ?? (await this.getMinFees(congestionEstimate)).mul(1 + this.minFeePadding);
     let accountFeePaymentMethodOptions;
     // If from is an address, we need to determine the appropriate fee payment method options for the
     // account contract entrypoint to use
@@ -258,6 +264,28 @@ export abstract class BaseWallet implements Wallet {
       walletFeePaymentMethod: undefined,
       accountFeePaymentMethodOptions,
     };
+  }
+
+  /**
+   * Returns the worst-case min fee across predicted future slots.
+   * Falls back to getCurrentMinFees if the node doesn't support getPredictedMinFees.
+   * @param estimate - The mana usage estimate to use for fee prediction. Defaults to Limit for conservative estimation.
+   */
+  protected async getMinFees(estimate: ManaUsageEstimate = ManaUsageEstimate.Limit): Promise<GasFees> {
+    try {
+      const predicted = await this.aztecNode.getPredictedMinFees(estimate);
+      if (predicted.length === 0) {
+        return this.aztecNode.getCurrentMinFees();
+      }
+      return predicted.reduce((worst, fees) => (fees.feePerL2Gas > worst.feePerL2Gas ? fees : worst));
+    } catch (err: any) {
+      // Fallback for old nodes that don't support getPredictedMinFees.
+      // Only fall back on method-not-found errors (JSON-RPC code -32601); rethrow others.
+      if (err?.cause?.code === -32601 || err?.message?.includes('Method not found')) {
+        return this.aztecNode.getCurrentMinFees();
+      }
+      throw err;
+    }
   }
 
   registerSender(address: AztecAddress, _alias: string = ''): Promise<AztecAddress> {
@@ -354,6 +382,7 @@ export abstract class BaseWallet implements Wallet {
       feePayer: executionPayload.feePayer,
       gasSettings: opts.fee?.gasSettings,
       forEstimation: true,
+      congestionEstimate: opts.fee?.congestionEstimate,
     });
     const { optimizableCalls, remainingCalls } = extractOptimizablePublicStaticCalls(executionPayload);
     const remainingPayload = { ...executionPayload, calls: remainingCalls };
@@ -401,6 +430,7 @@ export abstract class BaseWallet implements Wallet {
       from: opts.from,
       feePayer: executionPayload.feePayer,
       gasSettings: opts.fee?.gasSettings,
+      congestionEstimate: opts.fee?.congestionEstimate,
     });
     const txRequest = await this.createTxExecutionRequestFromPayloadAndFee(executionPayload, opts.from, feeOptions);
     return this.pxe.profileTx(txRequest, {
@@ -418,6 +448,7 @@ export abstract class BaseWallet implements Wallet {
       from: opts.from,
       feePayer: executionPayload.feePayer,
       gasSettings: opts.fee?.gasSettings,
+      congestionEstimate: opts.fee?.congestionEstimate,
     });
     const txRequest = await this.createTxExecutionRequestFromPayloadAndFee(executionPayload, opts.from, feeOptions);
     const provenTx = await this.pxe.proveTx(txRequest, this.scopesFrom(opts.from, opts.additionalScopes));

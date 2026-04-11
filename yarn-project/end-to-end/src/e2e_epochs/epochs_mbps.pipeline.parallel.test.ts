@@ -33,7 +33,7 @@ const NODE_COUNT = 4;
 const EXPECTED_BLOCKS_PER_CHECKPOINT = 8;
 
 // Send enough transactions to trigger multiple blocks within a checkpoint assuming 2 txs per block.
-const TX_COUNT = 24;
+const TX_COUNT = 34;
 
 /**
  * E2E tests for proposer pipelining with Multiple Blocks Per Slot (MBPS).
@@ -80,7 +80,8 @@ describe('e2e_epochs/epochs_mbps_pipeline', () => {
       enforceTimeTable: true,
       ethereumSlotDuration: 12,
       aztecSlotDuration: 72,
-      blockDurationMs: 8000,
+      blockDurationMs: 5500,
+      maxTxsPerCheckpoint: 24,
       aztecTargetCommitteeSize: 3,
       inboxLag: 2,
       ...setupOpts,
