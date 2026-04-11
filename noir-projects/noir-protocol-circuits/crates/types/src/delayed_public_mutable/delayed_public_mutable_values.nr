@@ -64,13 +64,13 @@ pub fn unpack_delay_change<let INITIAL_DELAY: u64>(
     let sdc_timestamp_of_change = tmp as u32;
 
     tmp = (tmp - sdc_timestamp_of_change as Field) / TWO_POW_32;
-    let sdc_post_is_some = (tmp as u1) != 0;
+    let sdc_post_is_some = (tmp as u8) % 2 != 0;
 
     tmp = (tmp - sdc_post_is_some as Field) / TWO_POW_8;
     let sdc_post_inner = tmp as u32;
 
     tmp = (tmp - sdc_post_inner as Field) / TWO_POW_32;
-    let sdc_pre_is_some = (tmp as u1) != 0;
+    let sdc_pre_is_some = (tmp as u8) % 2 != 0;
 
     tmp = (tmp - sdc_pre_is_some as Field) / TWO_POW_8;
     let sdc_pre_inner = tmp as u32;
