@@ -67,12 +67,26 @@ The protocol supports two merge modes:
 
 ## Protocol Description
 
+### Trace Offset and Commitment Layout
+
+With top-of-trace masking, circuit ecc_op_wire polynomials have their data starting at row
+$s = \texttt{TRACE\_OFFSET}$. The prover shifts $L$, $R$ (and $M$ in PREPEND mode) by $X^s$
+so that their commitments match the circuit's ecc_op_wire commitments and the $T_{\text{prev}}$
+chain from prior merges.
+
+- **L and R**: always shifted to $X^s \cdot L$, $X^s \cdot R$
+- **M (PREPEND)**: shifted to $X^s \cdot M$ (becomes $T_{\text{prev}}$ for the next merge)
+- **M (APPEND)**: committed unshifted as $[M]$ (goes to the Translator)
+- **G**: committed directly (no shift)
+
+The `shift_size` $\ell$ sent to the verifier is the **unshifted** size of $L$ (captured before shifting).
+
 ### Commitment Propagation
 
 The Merge Protocol does NOT independently commit to $L_j$ and $R_j$. Instead, these commitments are **obtained from previous steps via the transcript or public inputs**:
 
 **At a given step, prover commits only to:**
-- $[M_j]$: Merged table commitments
+- $[X^s \cdot M_j]$ (PREPEND) or $[M_j]$ (APPEND): Merged table commitments
 - $[G]$: Degree check polynomial commitment
 
 
@@ -82,45 +96,38 @@ The `MergeProver::construct_proof()` method executes the following steps:
 
 #### Step 0: Prerequisite - Input Commitments
 **Before** the merge proof begins, the following commitments must already exist in the shared transcript:
-- If PREPEND mode: $[t_j]$ from HyperNova, $[T_{\text{prev},j}]$ from previous merge
-- If APPEND mode: $[T_{\text{prev},j}]$ from previous merge, $[t_j]$ from HyperNova
+- If PREPEND mode: $[X^s \cdot t_j]$ from the circuit, $[X^s \cdot T_{\text{prev},j}]$ from previous merge
+- If APPEND mode: $[X^s \cdot T_{\text{prev},j}]$ from previous merge, $[X^s \cdot t_j]$ from the circuit
 
-These are **not** sent again during the merge proof.
+These are **not** sent again during the merge proof. They are always shifted by $X^s$.
 
-#### Step 1: Merged Table Construction
+#### Step 1: Table Construction and Shifting
+Construct unshifted tables from the op queue, then shift L, R (and M for PREPEND) by $X^s$:
 ```cpp
 std::array<Polynomial, NUM_WIRES> merged_table = op_queue->construct_ultra_ops_table_columns();
+// ... assign left_table and right_table based on PREPEND/APPEND ...
+shift_table_by_disabled_rows(left_table);   // X^s · L
+shift_table_by_disabled_rows(right_table);  // X^s · R
+if (settings == MergeSettings::PREPEND) {
+    shift_table_by_disabled_rows(merged_table); // X^s · M
+}
 ```
 
 #### Step 2: Send Shift Size
+The unshifted size $\ell$ (captured before shifting):
 ```cpp
-const size_t shift_size = left_table[0].size();
-transcript->send_to_verifier("shift_size", shift_size);
+transcript->send_to_verifier("shift_size", static_cast<uint32_t>(shift_size));
 ```
 
 #### Step 3: Commit to Merged Tables
-```cpp
-for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
-    // Commit to M_j and send [M_j] to verifier
-    transcript->send_to_verifier("MERGED_TABLE_" + std::to_string(idx),
-                                 pcs_commitment_key.commit(merged_table[idx]));
-}
-```
+Commit to $X^s \cdot M_j$ (PREPEND) or $M_j$ (APPEND) and send to the verifier.
 
-#### Step 4: Get Challenges for Batched Degree Check
-Receive challenges $\alpha_1, \ldots, \alpha_4$ and compute the batched polynomial:
-$$G(X) = X^{\ell-1} \cdot \left(\sum_{i=1}^{4} \alpha_i \cdot L_i(X^{-1})\right)$$
+#### Step 4: Degree Check Polynomial
+Receive challenges $\alpha_1, \ldots, \alpha_4$ and compute the batched polynomial from the **shifted** left table:
+$$G(X) = X^{\ell+s-1} \cdot \left(\sum_{i=1}^{4} \alpha_i \cdot L'_i(X^{-1})\right)$$
+where $L'_i = X^s \cdot L_i$ is the shifted polynomial.
 
-This is computed via `compute_degree_check_polynomial()`:
-```cpp
-Polynomial reversed_batched_left_tables(left_table[0].size());
-for (size_t idx = 0; idx < NUM_WIRES; idx++) {
-    reversed_batched_left_tables.add_scaled(left_table[idx], degree_check_challenges[idx]);
-}
-return reversed_batched_left_tables.reverse(); // Multiply by X^(k-1)
-```
-
-#### Step 5: Commit to Batched Degree Check Polynomial
+#### Step 5: Commit to Degree Check Polynomial
 ```cpp
 transcript->send_to_verifier("REVERSED_BATCHED_LEFT_TABLES",
                              pcs_commitment_key.commit(reversed_batched_left_tables));
@@ -130,40 +137,37 @@ transcript->send_to_verifier("REVERSED_BATCHED_LEFT_TABLES",
 Receive evaluation challenge $\kappa$ from the verifier.
 
 #### Step 7: Send Evaluations
-Evaluate and send:
-- $l_j = L_j(\kappa)$ for all $j$
-- $r_j = R_j(\kappa)$ for all $j$
-- $m_j = M_j(\kappa)$ for all $j$
+Evaluate **shifted** polynomials and send:
+- $l'_j = (X^s \cdot L_j)(\kappa)$ for all $j$
+- $r'_j = (X^s \cdot R_j)(\kappa)$ for all $j$
+- $m_j = M_j(\kappa)$ (shifted or unshifted depending on mode)
 - $g = G(\kappa^{-1})$
 
 #### Step 8: Shplonk Batched Opening
-Use the Shplonk protocol to batch all openings into a single KZG opening proof.
+Use the Shplonk protocol to batch all openings into a single KZG opening proof. All evaluations match their committed polynomials directly.
 
 ### Verifier Algorithm
 
-Mirrors the Prover's steps. Critical checks are performed as follows.
+Mirrors the Prover's steps. The verifier receives evaluations of the shifted polynomials.
 
 #### Check Concatenation Identity
-```cpp
-bool concatenation_verified = check_concatenation_identities(evals, pow_kappa);
-```
+For PREPEND (all shifted): $l'_j + \kappa^\ell \cdot r'_j = m'_j$
 
-Verifies for each $j$:
-$$l_j + \kappa^\ell \cdot r_j = m_j$$
+For APPEND (L, R shifted; M unshifted): $l'_j + \kappa^\ell \cdot r'_j = \kappa^s \cdot m_j$
+
+The $\kappa^s$ factor compensates for M being unshifted in APPEND mode.
 
 #### Check Degree Identity
-```cpp
-bool degree_check_verified = check_degree_identity(evals, pow_kappa_minus_one, degree_check_challenges);
-```
+Verifies using shifted evaluations:
+$$\sum_{i=1}^{4} \alpha_i \cdot l'_i = g \cdot \kappa^{\ell+s-1}$$
 
-Verifies:
-$$\sum_{i=1}^{4} \alpha_i \cdot l_i = g \cdot \kappa^{\ell-1}$$
+This proves $\deg(L_j) < \ell$ (the X^s shift adds $s$ to both sides).
 
 #### Verify Shplonk Opening
 Use KZG to verify the batched opening claim for ALL commitments:
-- $[L_1], \ldots, [L_4]$ (from input commitments)
-- $[R_1], \ldots, [R_4]$ (from input commitments)
-- $[M_1], \ldots, [M_4]$ (from proof)
+- $[X^s \cdot L_1], \ldots, [X^s \cdot L_4]$ (from input commitments)
+- $[X^s \cdot R_1], \ldots, [X^s \cdot R_4]$ (from input commitments)
+- $[X^s \cdot M_1], \ldots, [X^s \cdot M_4]$ (PREPEND) or $[M_1], \ldots, [M_4]$ (APPEND)
 - $[G]$ (from proof)
 
 
@@ -177,7 +181,7 @@ $$L_j^{\ast}(X) = X^{\ell-1} \cdot L_j(X^{-1}) \implies L_j^{\ast}(\kappa^{-1}) 
 **Batching:** Check all 4 columns simultaneously:
 $$G(X) = X^{\ell-1} \cdot \sum_{i=1}^{4} \alpha_i \cdot L_i(X^{-1})$$
 
-**Verification:** Check $g = \sum_{i=1}^{4} \alpha_i \cdot l_i \cdot \kappa^{-(\ell-1)}$. If any $\deg(L_i) \geq \ell$, this fails with overwhelming probability.
+**Verification:** Check $g = \sum_{i=1}^{4} \alpha_i \cdot l'_i \cdot \kappa^{-(\ell+s-1)}$, where $l'_i$ are the shifted evaluations. If any $\deg(L_i) \geq \ell$, this fails with overwhelming probability.
 
 **Implementation** (`merge_prover.cpp`):
 ```cpp
@@ -195,27 +199,13 @@ static Polynomial compute_degree_check_polynomial(
 
 ## Concatenation Check
 
-Verifies $M_j(X) = L_j(X) + X^\ell \cdot R_j(X)$ by checking at evaluation point $\kappa$: $m_j = l_j + \kappa^\ell \cdot r_j$
+Verifies $M_j(X) = L_j(X) + X^\ell \cdot R_j(X)$ by checking at evaluation point $\kappa$ using shifted evaluations.
 
-**Implementation** (`merge_verifier.cpp`):
-```cpp
-bool check_concatenation_identities(std::vector<FF>& evals, const FF& pow_kappa) const
-{
-    bool concatenation_verified = true;
-    FF concatenation_diff(0);
-    for (size_t idx = 0; idx < NUM_WIRES; idx++) {
-        // Check: l_j + pow_kappa * r_j = m_j
-        concatenation_diff = evals[idx] + (pow_kappa * evals[idx + NUM_WIRES]) - evals[idx + (2 * NUM_WIRES)];
-        if constexpr (IsRecursive) {
-            concatenation_verified &= concatenation_diff.get_value() == 0;
-            concatenation_diff.assert_equal(FF(0), "concatenation identity failed");
-        } else {
-            concatenation_verified &= concatenation_diff == 0;
-        }
-    }
-    return concatenation_verified;
-}
-```
+**PREPEND** (all polynomials shifted by $X^s$): $l'_j + \kappa^\ell \cdot r'_j = m'_j$
+
+**APPEND** (L, R shifted; M unshifted): $l'_j + \kappa^\ell \cdot r'_j = \kappa^s \cdot m_j$
+
+The $\kappa^s$ factor in APPEND compensates for M being committed without the shift.
 
 The polynomial identity holds for all $X$ if and only if it holds at random $\kappa$ (Schwartz-Zippel lemma).
 
