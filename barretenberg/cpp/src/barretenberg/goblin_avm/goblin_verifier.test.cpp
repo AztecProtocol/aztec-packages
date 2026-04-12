@@ -92,18 +92,14 @@ class GoblinAvmRecursiveVerifierTests : public testing::Test {
         GoblinAvm goblin(inner_builder);
         MockCircuits::construct_arithmetic_circuit(inner_builder);
 
-        // Build a MegaAvm prover instance to get ecc_op_wire commitments matching the real flow.
-        // MegaAvmFlavor has TRACE_OFFSET=0, so ecc_op_wires have no leading zeros — matching the translator.
-        auto mega_avm_instance = std::make_shared<ProverInstance_<MegaAvmFlavor>>(inner_builder);
-        CommitmentKey<curve::BN254> pcs_commitment_key(mega_avm_instance->dyadic_size());
-
         auto goblin_proof = goblin.prove();
 
-        // Commit to ecc_op_wire polynomials from the MegaAvm prover instance
+        // Commit to raw op_queue columns — these match what the Translator proof was built against
         TableCommitments table_commitments;
-        size_t idx = 0;
-        for (auto& wire : mega_avm_instance->polynomials.get_ecc_op_wires()) {
-            table_commitments[idx++] = pcs_commitment_key.commit(wire);
+        auto ultra_ops_table_columns = goblin.op_queue->construct_ultra_ops_table_columns();
+        CommitmentKey<curve::BN254> pcs_commitment_key(goblin.op_queue->get_ultra_ops_table_num_rows());
+        for (size_t idx = 0; idx < MegaFlavor::NUM_WIRES; idx++) {
+            table_commitments[idx] = pcs_commitment_key.commit(ultra_ops_table_columns[idx]);
         }
 
         RecursiveTableCommitments recursive_table_commitments;
