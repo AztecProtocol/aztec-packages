@@ -81,6 +81,15 @@ EOF
     version=0.0.1
     # TODO(AD): we have kludged a retry here. a local NPM install ought to be robust enough not to.
     echo "Deploying packages to local npm registry (version: $version)..."
+
+    # Publish bb.js arch-specific packages first (must exist before the wrapper's optionalDependencies resolve).
+    $root/barretenberg/ts/scripts/prepare_arch_packages.sh
+    for pkg in $root/barretenberg/ts/packages/bb.js-*/; do
+      [ -d "$pkg" ] || continue
+      (cd "$pkg" && retry "deploy_npm latest $version" >/dev/null)
+    done
+
+    # Then publish everything else (including the bb.js wrapper).
     {
       echo $root/barretenberg/ts
       $root/noir/bootstrap.sh get_projects
