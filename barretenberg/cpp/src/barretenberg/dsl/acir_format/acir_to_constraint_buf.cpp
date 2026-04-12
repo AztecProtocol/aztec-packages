@@ -571,6 +571,17 @@ void assert_zero_to_quad_constraints(Acir::Opcode::AssertZero const& arg, AcirFo
     };
 
     auto linear_terms = process_linear_terms(arg.value);
+
+    // Check for unsatisfiable constraint: no variables but a non-zero constant means the circuit requires
+    // `constant == 0` which can never be satisfied.
+    if (arg.value.mul_terms.empty() && linear_terms.empty()) {
+        fr constant = from_buffer_with_bound_checks(arg.value.q_c);
+        BB_ASSERT_EQ(constant,
+                     fr::zero(),
+                     "circuit is unsatisfiable. An AssertZero opcode contains no variables but has a non-zero "
+                     "constant, which can never equal zero.");
+    }
+
     bool is_single_gate = is_single_arithmetic_gate(arg.value, linear_terms);
     std::vector<mul_quad_<fr>> mul_quads = split_into_mul_quad_gates(arg.value, linear_terms);
 

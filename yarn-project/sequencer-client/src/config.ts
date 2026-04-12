@@ -155,11 +155,6 @@ export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
     description: 'How much time (in seconds) we allow in the slot for publishing the L1 tx (defaults to 1 L1 slot).',
     parseEnv: (val: string) => (val ? parseInt(val, 10) : undefined),
   },
-  attestationPropagationTime: {
-    env: 'SEQ_ATTESTATION_PROPAGATION_TIME',
-    description: 'How many seconds it takes for proposals and attestations to travel across the p2p layer (one-way)',
-    ...numberConfigHelper(DefaultSequencerConfig.attestationPropagationTime),
-  },
   fakeProcessingDelayPerTxMs: {
     description: 'Used for testing to introduce a fake delay after processing each tx',
   },

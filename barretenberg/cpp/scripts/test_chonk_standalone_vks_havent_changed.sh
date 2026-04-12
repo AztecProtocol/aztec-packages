@@ -66,7 +66,7 @@ function check_circuit_vks {
     bb_check_args+=(--disable_asserts)
   fi
 
-  output=$($bb "${bb_check_args[@]}") || exit_code=$?
+  output=$($bb "${bb_check_args[@]}" 2>&1) || exit_code=$?
 
   if [[ $exit_code -ne 0 ]]; then
     # Check if this is actually a VK change

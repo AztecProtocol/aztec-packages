@@ -6,7 +6,10 @@ import { ProposalValidator } from '../proposal_validator/proposal_validator.js';
 export class CheckpointProposalValidator implements P2PValidator<CheckpointProposal> {
   private proposalValidator: ProposalValidator;
 
-  constructor(epochCache: EpochCacheInterface, opts: { txsPermitted: boolean; maxTxsPerBlock?: number }) {
+  constructor(
+    epochCache: EpochCacheInterface,
+    opts: { txsPermitted: boolean; maxTxsPerBlock?: number; p2pPropagationTime?: number },
+  ) {
     this.proposalValidator = new ProposalValidator(epochCache, opts, 'p2p:checkpoint_proposal_validator');
   }
 

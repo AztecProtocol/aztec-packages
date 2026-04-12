@@ -7,7 +7,7 @@ const MAX_LOG_CONTENT_LEN = PRIVATE_LOG_CIPHERTEXT_LEN;
 
 /**
  * Intermediate struct used to perform batch log retrieval by PXE. The `utilityBulkRetrieveLogs` oracle stores values of this
- * type in a `CapsuleArray`.
+ * type in a `EphemeralArray`.
  */
 export class LogRetrievalResponse {
   constructor(

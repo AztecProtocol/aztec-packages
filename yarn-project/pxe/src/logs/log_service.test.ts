@@ -13,8 +13,6 @@ import { type MockProxy, mock } from 'jest-mock-extended';
 
 import { LogRetrievalRequest } from '../contract_function_simulator/noir-structs/log_retrieval_request.js';
 import { AddressStore } from '../storage/address_store/address_store.js';
-import { CapsuleService } from '../storage/capsule_store/capsule_service.js';
-import { CapsuleStore } from '../storage/capsule_store/capsule_store.js';
 import { RecipientTaggingStore } from '../storage/tagging_store/recipient_tagging_store.js';
 import { SenderAddressBookStore } from '../storage/tagging_store/sender_address_book_store.js';
 import { LogService } from './log_service.js';
@@ -23,7 +21,6 @@ describe('LogService', () => {
   let contractAddress: AztecAddress;
   let aztecNode: MockProxy<AztecNode>;
   let keyStore: KeyStore;
-  let capsuleStore: CapsuleStore;
   let recipientTaggingStore: RecipientTaggingStore;
   let addressStore: AddressStore;
   let senderAddressBookStore: SenderAddressBookStore;
@@ -36,7 +33,6 @@ describe('LogService', () => {
       // Set up contract address
       contractAddress = await AztecAddress.random();
       keyStore = new KeyStore(await openTmpStore('test'));
-      capsuleStore = new CapsuleStore(await openTmpStore('test'));
       recipientTaggingStore = new RecipientTaggingStore(await openTmpStore('test'));
       senderAddressBookStore = new SenderAddressBookStore(await openTmpStore('test'));
       addressStore = new AddressStore(await openTmpStore('test'));
@@ -54,7 +50,6 @@ describe('LogService', () => {
         aztecNode,
         anchorBlockHeader,
         keyStore,
-        new CapsuleService(capsuleStore, []),
         recipientTaggingStore,
         senderAddressBookStore,
         addressStore,

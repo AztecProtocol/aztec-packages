@@ -1,7 +1,7 @@
 use std::embedded_curve_ops::fixed_base_scalar_mul as derive_public_key;
 use types::{
     abis::validation_requests::KeyValidationRequestAndSeparator,
-    hash::compute_app_siloed_secret_key, scalar::Scalar, side_effect::Scoped,
+    hash::compute_app_siloed_secret_key, point::Point, scalar::Scalar, side_effect::Scoped,
 };
 
 /// Validates a Key Validation Request that an app circuit has submitted to the kernel.
@@ -55,7 +55,7 @@ pub fn validate_key_validation_request(
     let key_type_domain_separator = request_and_separator.key_type_domain_separator;
 
     // First we check that the derived public key matches the master public key from the request.
-    let pk_m = derive_public_key(sk_m);
+    let pk_m: Point = derive_public_key(sk_m).into();
     assert_eq(
         pk_m,
         request.pk_m,

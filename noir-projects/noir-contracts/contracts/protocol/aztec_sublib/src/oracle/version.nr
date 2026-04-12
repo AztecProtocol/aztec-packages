@@ -11,7 +11,7 @@
 /// immediately if AZTEC_NR_MINOR > PXE_MINOR because if a contract is updated to use a newer Aztec.nr dependency
 /// without actually using any of the new oracles then there is no reason to throw.
 pub global ORACLE_VERSION_MAJOR: Field = 22;
-pub global ORACLE_VERSION_MINOR: Field = 0;
+pub global ORACLE_VERSION_MINOR: Field = 1;
 
 /// Asserts that the version of the oracle is compatible with the version expected by the contract.
 pub fn assert_compatible_oracle_version() {
@@ -30,7 +30,9 @@ unconstrained fn assert_compatible_oracle_version_wrapper() {
 unconstrained fn assert_compatible_oracle_version_oracle(major: Field, minor: Field) {}
 
 mod test {
-    use super::{assert_compatible_oracle_version_oracle, ORACLE_VERSION_MAJOR, ORACLE_VERSION_MINOR};
+    use super::{
+        assert_compatible_oracle_version_oracle, ORACLE_VERSION_MAJOR, ORACLE_VERSION_MINOR,
+    };
 
     #[test]
     unconstrained fn compatible_oracle_version() {
