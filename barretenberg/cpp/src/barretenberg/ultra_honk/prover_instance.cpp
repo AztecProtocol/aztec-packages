@@ -42,7 +42,7 @@ template <typename Flavor> ProverInstance_<Flavor>::ProverInstance_(Circuit& cir
     metadata.dyadic_size = compute_dyadic_size(circuit);
 
     // Find index of last non-trivial wire value in the trace
-    circuit.blocks.compute_offsets();
+    circuit.blocks.compute_offsets(TRACE_OFFSET);
     for (auto& block : circuit.blocks.get()) {
         if (block.size() > 0) {
             final_active_wire_idx = block.trace_end() - 1;

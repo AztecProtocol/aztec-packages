@@ -88,7 +88,7 @@ template <class FF> class GrandProductTests : public testing::Test {
          */
 
         // Grand product starts after disabled rows (for flavors with row-disabling polynomial)
-        constexpr size_t gp_start = UseRowDisablingPolynomial<Flavor> ? NUM_DISABLED_ROWS_IN_SUMCHECK : 0;
+        constexpr size_t gp_start = Flavor::TRACE_OFFSET;
         constexpr size_t active_size = circuit_size - gp_start;
 
         // Make scratch space for the numerator and denominator accumulators.
