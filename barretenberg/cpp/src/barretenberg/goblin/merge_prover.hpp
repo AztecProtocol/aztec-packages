@@ -48,7 +48,7 @@ class MergeProver {
 
     /**
      * @brief Prepend TRACE_OFFSET zeros to each polynomial in a table.
-     * @details With top-of-trace masking, the circuit's ecc_op_wire polynomials have data starting at
+     * @details The circuit's ecc_op_wire polynomials have data starting at
      * row TRACE_OFFSET (X^s · t(X) structure). The merge protocol polynomials must match this layout
      * so that the prover's Shplonk quotient is consistent with the ecc_op_wire commitments held by
      * the verifier.

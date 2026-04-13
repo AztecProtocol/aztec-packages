@@ -220,14 +220,14 @@ void ECCVMWnafRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulato
     // => q_transition * (round - 7 - round_shift + round + 1) + (round_shift - round - 1)
     // => q_transition * (2 * round - round_shift - 6) + (round_shift - round - 1)
     const auto round_check = round_shift - round - 1;
-    // This selector is 1 at row 0 (via lagrange_first) and at transition rows where precompute_select == 1.
+    // This selector is 1 at the lagrange_first row and at transition rows where precompute_select == 1.
     // It's used to constrain shifted values (like round_shift, scalar_sum_shift) that need to be checked
     // both at the first active row AND at subsequent transitions between scalars.
     const auto precompute_select_transition_plus_lagrange_first =
         precompute_select * scaled_transition + scaled_lagrange_first;
     std::get<ROUND_CHECK>(accumulator) +=
         precompute_select * (scaled_transition * (round - round_check - 7) + scaling_factor * round_check);
-    // At a transition (or at row 0 via lagrange_first), the next round must be 0.
+    // At a transition (or at the lagrange_first row), the next round must be 0.
     std::get<ROUND_SHIFT_ZERO>(accumulator) += precompute_select_transition_plus_lagrange_first * round_shift;
 
     /**

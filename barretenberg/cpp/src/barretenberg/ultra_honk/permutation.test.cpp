@@ -313,7 +313,7 @@ TYPED_TEST(PermutationNonZKTests, ZPermNonZeroAtFirstRowFailure)
         prover_instance->polynomials, prover_instance->relation_parameters, "UltraPermutation - Before Tampering");
     EXPECT_TRUE(permutation_relation_failures.empty());
 
-    // With top-of-trace masking layout, lagrange_first is at row TRACE_OFFSET.
+    // lagrange_first is at row TRACE_OFFSET.
     const size_t first_row = ProverInstance::TRACE_OFFSET;
 
     // Verify lagrange_first is indeed 1 at the expected position.

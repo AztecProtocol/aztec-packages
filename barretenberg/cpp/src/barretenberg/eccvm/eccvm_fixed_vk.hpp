@@ -29,7 +29,7 @@ class ECCVMHardcodedVKAndHash {
 
     static std::vector<Commitment> get_all()
     {
-        return { // lagrange_first (at row NUM_DISABLED_ROWS_IN_SUMCHECK with top-of-trace masking)
+        return { // lagrange_first (at row NUM_DISABLED_ROWS_IN_SUMCHECK)
                  Commitment(uint256_t("0x040948748b49a15e319d8ae97062ce125445f612bbf4265776490dafe4a75aa7"),
                             uint256_t("0x0674e7fcc6e6685f250a218ab444bef48b9772e3fb32425d579c4430f919828b")),
 

@@ -409,7 +409,7 @@ TYPED_TEST(UltraHonkTests, TooLongProofRejected)
 /**
  * @brief Test that the dyadic size correctly jumps to the next power of 2 when the trace would otherwise
  * place lagrange_last in the ZK masking region.
- * @details For ZK flavors, the last NUM_MASKED_ROWS rows are overwritten with random values for zero-knowledge.
+ * @details For ZK flavors, the first NUM_MASKED_ROWS rows are overwritten with random values for zero-knowledge.
  * We incrementally add gates until the dyadic size doubles, verifying at each step that:
  *   (1) lagrange_last (at final_active_wire_idx) does not overlap the masking area
  *   (2) sufficient headroom exists for disabled rows
@@ -431,7 +431,7 @@ TYPED_TEST(UltraHonkTests, DyadicSizeJumpsToProtectMaskingArea)
         auto baseline_instance = std::make_shared<ProverInstance>(baseline_builder);
         const size_t baseline_dyadic = baseline_instance->dyadic_size();
 
-        // With top-of-trace masking, the disabled head region (rows 0..TRACE_OFFSET-1)
+        // The disabled head region (rows 0..TRACE_OFFSET-1)
         // is always present. Verify that the active trace starts after the disabled region and that
         // the dyadic size doubles when the trace gets tightly packed.
         size_t prev_dyadic = 0;

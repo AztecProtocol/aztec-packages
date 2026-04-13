@@ -224,7 +224,7 @@ TYPED_TEST(MegaHonkTests, PolySwap)
 /**
  * @brief Test that the dyadic size correctly jumps to the next power of 2 when the trace would otherwise
  * place lagrange_last in the ZK masking region.
- * @details For MegaZK, the last NUM_MASKED_ROWS rows are overwritten with random values for zero-knowledge.
+ * @details For MegaZK, the first NUM_MASKED_ROWS rows are overwritten with random values for zero-knowledge.
  * We incrementally add gates until the dyadic size doubles, verifying at each step that lagrange_last does not
  * overlap the masking area. At the tightest packing (right before the jump), we prove-and-verify.
  */
@@ -243,7 +243,7 @@ TYPED_TEST(MegaHonkTests, DyadicSizeJumpsToProtectMaskingArea)
         auto baseline_instance = std::make_shared<ProverInstance>(baseline_builder);
         const size_t baseline_dyadic = baseline_instance->dyadic_size();
 
-        // With top-of-trace masking, the disabled head region is always present.
+        // The disabled head region is always present.
         // Verify active trace starts after it and dyadic size doubles when tightly packed.
         size_t prev_dyadic = 0;
         bool found_jump = false;

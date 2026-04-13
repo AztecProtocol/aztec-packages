@@ -161,7 +161,7 @@ template <typename Flavor> struct VerifierZKCorrectionHandler<Flavor, true> {
     void apply_zk_corrections(FF& full_honk_purported_value, std::vector<FF>& multivariate_challenge)
     {
         if constexpr (UseRowDisablingPolynomial<Flavor>) {
-            // With top-of-trace masking, the row-disabling polynomial 1 - ∏_{i≥2}(1-u_i) is circuit-size
+            // The row-disabling polynomial 1 - ∏_{i≥2}(1-u_i) is circuit-size
             // independent. The verifier evaluates it over ALL challenges.
             full_honk_purported_value *= RowDisablingPolynomial<FF>::evaluate_at_challenge(
                 multivariate_challenge, multivariate_challenge.size());
@@ -604,7 +604,7 @@ template <typename Flavor> class SumcheckProver {
         vinfo("completed ", multivariate_d, " rounds of sumcheck");
 
         // Virtual rounds: unified path for ZK and non-ZK.
-        // With top-of-trace masking, the row-disabling polynomial 1-L is circuit-size independent,
+        // The row-disabling polynomial 1-L is circuit-size independent,
         // so we continue updating it through virtual rounds. The verifier evaluates
         // 1 - ∏_{i≥2}(1-u_i) over ALL D challenges — no log_n needed.
         // Libra univariates are generated for ALL D rounds, so compute_libra_univariate works here too.

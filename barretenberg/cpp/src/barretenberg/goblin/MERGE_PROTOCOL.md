@@ -69,7 +69,7 @@ The protocol supports two merge modes:
 
 ### Trace Offset and Commitment Layout
 
-With top-of-trace masking, circuit ecc_op_wire polynomials have their data starting at row
+Circuit ecc_op_wire polynomials have their data starting at row
 $s = \texttt{TRACE\_OFFSET}$. The prover shifts $L$, $R$ (and $M$ in PREPEND mode) by $X^s$
 so that their commitments match the circuit's ecc_op_wire commitments and the $T_{\text{prev}}$
 chain from prior merges.

@@ -180,8 +180,6 @@ void ECCVMProver::execute_pcs_rounds()
     polynomial_batcher.set_unshifted(key->polynomials.get_unshifted());
     polynomial_batcher.set_to_be_shifted_by_one(key->polynomials.get_to_be_shifted());
 
-    // With in-place masking, polynomial commitments already include masking values — no tail batching needed.
-
     OpeningClaim multivariate_to_univariate_opening_claim =
         Shplemini::prove(key->circuit_size,
                          polynomial_batcher,
@@ -273,7 +271,6 @@ void ECCVMProver::compute_translation_opening_claims()
     std::array<std::string, NUM_SMALL_IPA_EVALUATIONS> evaluation_labels;
     std::array<FF, NUM_SMALL_IPA_EVALUATIONS> evaluation_points;
 
-    // With in-place masking, translation polys already have masking values at positions {1,2,3}
     RefArray translation_polynomials{ key->polynomials.transcript_op,
                                       key->polynomials.transcript_Px,
                                       key->polynomials.transcript_Py,

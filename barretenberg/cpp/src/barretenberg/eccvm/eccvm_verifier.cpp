@@ -232,7 +232,7 @@ void ECCVMVerifier_<Flavor>::compute_translation_opening_claims(const std::vecto
 // Compute the accumulated result from translation evaluations
 // This is the value that Translator will use in its relations
 // Formula: accumulated_result = (op + v*Px + v²*Py + v³*z1 + v⁴*z2 - masking_term) / x^5
-// With top-of-trace masking, translation poly data starts at coefficient TRACE_OFFSET,
+// Translation poly data starts at coefficient TRACE_OFFSET,
 // introducing an x^TRACE_OFFSET factor. The division by x^(1+TRACE_OFFSET) accounts for both the
 // shiftable offset (x) and the trace offset.
 template <typename Flavor> void ECCVMVerifier_<Flavor>::compute_accumulated_result()

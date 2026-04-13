@@ -22,7 +22,6 @@ namespace bb {
 template <typename Flavor> void OinkProver<Flavor>::prove(bool emit_alpha)
 {
     BB_BENCH_NAME("OinkProver::prove");
-    // With top-of-trace masking, all masking values are at low indices — no extra SRS needed for ZK.
     const size_t ck_size = prover_instance->polynomials.max_end_index();
     commitment_key = CommitmentKey(ck_size);
 
@@ -74,7 +73,7 @@ template <typename Flavor> void OinkProver<Flavor>::commit_to_wires()
     auto batch = commitment_key.start_batch();
 
     // Commit to the first three wire polynomials; w_4 is deferred until after memory records are added
-    // With in-place masking, masking values are already in the polynomials — no separate tails needed
+    // Masking values are already in the polynomials
     batch.add_to_batch(prover_instance->polynomials.w_l, commitment_labels.w_l);
     batch.add_to_batch(prover_instance->polynomials.w_r, commitment_labels.w_r);
     batch.add_to_batch(prover_instance->polynomials.w_o, commitment_labels.w_o);

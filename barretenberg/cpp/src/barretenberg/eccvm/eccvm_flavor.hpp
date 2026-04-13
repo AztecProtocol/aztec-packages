@@ -521,10 +521,10 @@ class ECCVMFlavor {
          * @details RawPolynomial member polynomials that this fn must populate described below
          *          For full details see `eccvm/eccvm_flavor.hpp`
          *
-         *          lagrange_first: lagrange_first[0] = 1, 0 elsewhere
-         *          lagrange_second: lagrange_second[1] = 1, 0 elsewhere (hiding op row)
-         *          lagrange_third: lagrange_third[2] = 1, 0 elsewhere (first real op row)
-         *          lagrange_last: lagrange_last[lagrange_last.size() - 1] = 1, 0 elsewhere
+         *          lagrange_first: lagrange_first[TRACE_OFFSET] = 1, 0 elsewhere
+         *          lagrange_second: lagrange_second[TRACE_OFFSET+1] = 1, 0 elsewhere (hiding op row)
+         *          lagrange_third: lagrange_third[TRACE_OFFSET+2] = 1, 0 elsewhere (first real op row)
+         *          lagrange_last: lagrange_last[dyadic_size - 1] = 1, 0 elsewhere
          *          transcript_add/mul/eq/reset_accumulator: boolean selectors that toggle add/mul/eq/reset opcodes
          trigger
          * incomplete addition rules
@@ -647,7 +647,7 @@ class ECCVMFlavor {
 #else
             dyadic_num_rows = ECCVM_FIXED_SIZE;
 #endif
-            // With top-of-trace masking, the first TRACE_OFFSET rows are disabled.
+            // The first TRACE_OFFSET rows are disabled.
             // Trace data starts at row TRACE_OFFSET. lagrange_last goes to dyadic end.
             constexpr size_t trace_offset = TRACE_OFFSET;
             const size_t alloc_size = trace_offset + num_rows;
