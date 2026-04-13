@@ -71,11 +71,7 @@ straus_plookup_table<Builder>::straus_plookup_table(Builder* context, Precompute
     : _context(context)
     , native_table(std::move(data.native_table))
 {
-    // Assign table_index and push into the builder's lookup_tables deque (serial, builder is not thread-safe)
-    data.basic_table.table_index = context->get_num_lookup_tables();
-    auto& tables = context->get_lookup_tables();
-    tables.emplace_back(std::move(data.basic_table));
-    _table = &tables.back();
+    _table = context->register_basic_lookup_table(std::move(data.basic_table));
 
     // This table is built entirely from native constants, so the tag is pure constant.
     tag = OriginTag::constant();
@@ -106,12 +102,10 @@ straus_plookup_table<Builder>::straus_plookup_table(Builder* context,
 /**
  * @brief Read from the plookup table at the given index.
  *
- * @details Creates a single lookup gate that constrains: (index, x, y) is a valid row in this table.
- * The index's own witness is reused as wire_1 of the gate (not a new variable), so the gate directly
- * constrains the scalar slice to a valid (x, y) point — matching the pattern of
- * create_gates_from_plookup_accumulators where key_a_index is reused in the first lookup gate.
+ * @details Creates a single lookup gate constraining (index, x, y) to a valid row in this table.
+ * The index witness is reused as the lookup key so the scalar slice is directly constrained.
  *
- * @param _index The lookup index (witness or constant field element, typically a 4-bit scalar slice)
+ * @param _index The lookup index (witness or constant, typically a scalar slice)
  * @return cycle_group<Builder> The point at native_table[index]
  */
 template <typename Builder> cycle_group<Builder> straus_plookup_table<Builder>::read(const field_t& _index)
@@ -133,27 +127,11 @@ template <typename Builder> cycle_group<Builder> straus_plookup_table<Builder>::
     auto x_idx = _context->add_variable(point.x);
     auto y_idx = _context->add_variable(point.y);
 
-    // Record lookup entry in the table's lookup_gates (needed for read_counts construction)
+    // Create a standalone lookup gate constraining (index, x, y) to a valid table row.
     plookup::BasicTable::LookupEntry entry;
     entry.key = { uint256_t(native_index), 0 };
     entry.value = { point.x, point.y };
-    _table->lookup_gates.emplace_back(entry);
-
-    // Write lookup gate reusing the index's own witness index as the key (wire_1).
-    // This matches the pattern in create_gates_from_plookup_accumulators where key_a_index is reused
-    // in the first (and here only) lookup gate, ensuring the key is the actual scalar slice witness.
-    auto& block = _context->blocks.lookup;
-    block.populate_wires(index.get_witness_index(), x_idx, y_idx, _context->zero_idx());
-    block.set_gate_selector(1);
-    block.q_3().emplace_back(bb::fr(_table->table_index)); // table identifier
-    block.q_2().emplace_back(0);                           // column_1 step size (0 = standalone lookup)
-    block.q_m().emplace_back(0);                           // column_2 step size
-    block.q_c().emplace_back(0);                           // column_3 step size
-    block.q_1().emplace_back(0);
-    block.q_4().emplace_back(0);
-
-    _context->check_selector_length_consistency();
-    _context->increment_num_gates();
+    _context->create_lookup_gate(index.get_witness_index(), x_idx, y_idx, *_table, entry);
 
     // Wrap output witnesses in field_t and propagate origin tag from the index
     field_t x = field_t::from_witness_index(_context, x_idx);
