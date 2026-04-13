@@ -29,7 +29,7 @@ class OinkTests : public ::testing::Test {
 TEST_F(OinkTests, OinkProverIsDeterministic)
 {
     Builder circuit;
-    circuit.add_ultra_and_mega_gates_to_ensure_all_polys_are_non_zero(); // Ensure all polys are non-zero
+    GoblinMockCircuits::construct_simple_circuit(circuit);
     auto prover_instance = std::make_shared<ProverInstance>(circuit);
     auto verification_key = std::make_shared<VerificationKey>(prover_instance->get_precomputed());
 
@@ -75,7 +75,7 @@ TEST_F(OinkTests, OinkProverIsDeterministic)
 TEST_F(OinkTests, OinkProverCommitments)
 {
     Builder circuit;
-    circuit.add_ultra_and_mega_gates_to_ensure_all_polys_are_non_zero(); // Ensure all polys are non-zero
+    GoblinMockCircuits::construct_simple_circuit(circuit);
     auto prover_instance = std::make_shared<ProverInstance>(circuit);
     auto verification_key = std::make_shared<VerificationKey>(prover_instance->get_precomputed());
     auto vk_and_hash = std::make_shared<typename Flavor::VKAndHash>(verification_key);
