@@ -34,7 +34,7 @@ inline size_t get_num_cpus_pow2()
  * Observe that num_iterations is NOT the thread pool size.
  * The size will be chosen based on the hardware concurrency (i.e., env or cpus).
  */
-void parallel_for(size_t num_iterations, const std::function<void(size_t)>& func);
+void parallel_for(size_t num_iterations, const std::function<void(size_t)>& func, const char* name = nullptr);
 void parallel_for_range(size_t num_points,
                         const std::function<void(size_t, size_t)>& func,
                         size_t no_multhreading_if_less_or_equal = 0);
@@ -51,11 +51,12 @@ void parallel_for_range(size_t num_points,
  */
 void parallel_for_heuristic(size_t num_points,
                             const std::function<void(size_t, size_t, size_t)>& func,
-                            size_t heuristic_cost);
+                            size_t heuristic_cost,
+                            const char* name = nullptr);
 
 template <typename Func>
     requires std::invocable<Func, std::size_t>
-void parallel_for_heuristic(size_t num_points, const Func& func, size_t heuristic_cost)
+void parallel_for_heuristic(size_t num_points, const Func& func, size_t heuristic_cost, const char* name = nullptr)
 {
     parallel_for_heuristic(
         num_points,
@@ -64,7 +65,8 @@ void parallel_for_heuristic(size_t num_points, const Func& func, size_t heuristi
                 func(i);
             }
         },
-        heuristic_cost);
+        heuristic_cost,
+        name);
 }
 
 /**
@@ -75,10 +77,8 @@ void parallel_for_heuristic(size_t num_points, const Func& func, size_t heuristi
  */
 template <typename Func, typename Accum>
     requires std::invocable<Func, std::size_t, Accum&>
-std::vector<Accum> parallel_for_heuristic(size_t num_points,
-                                          const Accum& initial_accum,
-                                          const Func& func,
-                                          size_t heuristic_cost)
+std::vector<Accum> parallel_for_heuristic(
+    size_t num_points, const Accum& initial_accum, const Func& func, size_t heuristic_cost, const char* name = nullptr)
 {
     // thread-safe accumulators
     std::vector<Accum> accumulators(get_num_cpus(), initial_accum);
@@ -89,7 +89,8 @@ std::vector<Accum> parallel_for_heuristic(size_t num_points,
                 func(i, accumulators[chunk_index]);
             }
         },
-        heuristic_cost);
+        heuristic_cost,
+        name);
     return accumulators;
 }
 
@@ -173,22 +174,24 @@ struct ThreadChunk {
 
 template <typename Func>
     requires std::invocable<Func, ThreadChunk>
-void parallel_for(const Func& func)
+void parallel_for(const Func& func, const char* name = nullptr)
 {
     size_t total_threads = get_num_cpus();
-    parallel_for(total_threads, [&](size_t thread_index) {
-        func(ThreadChunk{ .thread_index = thread_index, .total_threads = total_threads });
-    });
+    parallel_for(
+        total_threads,
+        [&](size_t thread_index) { func(ThreadChunk{ .thread_index = thread_index, .total_threads = total_threads }); },
+        name);
 }
 
 // Overload that allows specifying the number of threads explicitly while still using ThreadChunk
 template <typename Func>
     requires std::invocable<Func, ThreadChunk>
-void parallel_for(size_t num_threads, const Func& func)
+void parallel_for(size_t num_threads, const Func& func, const char* name = nullptr)
 {
-    parallel_for(num_threads, [&](size_t thread_index) {
-        func(ThreadChunk{ .thread_index = thread_index, .total_threads = num_threads });
-    });
+    parallel_for(
+        num_threads,
+        [&](size_t thread_index) { func(ThreadChunk{ .thread_index = thread_index, .total_threads = num_threads }); },
+        name);
 }
 
 // parallel_for_heuristic variant that uses ThreadChunk for work distribution.

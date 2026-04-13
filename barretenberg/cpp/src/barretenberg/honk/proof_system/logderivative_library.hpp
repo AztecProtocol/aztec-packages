@@ -9,6 +9,7 @@
 
 #pragma once
 
+#include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/common/constexpr_utils.hpp"
 #include "barretenberg/common/thread.hpp"
 #include "barretenberg/common/tuple.hpp"
@@ -35,6 +36,7 @@ void compute_logderivative_inverse(Polynomials& polynomials,
                                    const size_t circuit_size,
                                    const size_t start_index = 0)
 {
+    BB_BENCH_NAME("compute_logderivative_inverse");
     using Accumulator = typename Relation::ValueAccumulator0;
     constexpr size_t NUM_LOOKUP_TERMS = Relation::NUM_LOOKUP_TERMS;
     constexpr size_t NUM_TABLE_TERMS = Relation::NUM_TABLE_TERMS;
@@ -77,14 +79,17 @@ void compute_logderivative_inverse(Polynomials& polynomials,
         }
     };
     if constexpr (UseMultithreading) {
-        parallel_for([&](const ThreadChunk& chunk) {
-            auto range = chunk.range(num_rows);
-            if (!range.empty()) {
-                size_t start = *range.begin();
-                size_t end = start + range.size();
-                compute_inverses(start, end);
-            }
-        });
+        parallel_for(
+            [&](const ThreadChunk& chunk) {
+                BB_BENCH_TRACY_NAME("LogDerivative::compute_inverses");
+                auto range = chunk.range(num_rows);
+                if (!range.empty()) {
+                    size_t start = *range.begin();
+                    size_t end = start + range.size();
+                    compute_inverses(start, end);
+                }
+            },
+            "LogDerivative::compute_inverses");
     } else {
         compute_inverses(0, num_rows);
     }

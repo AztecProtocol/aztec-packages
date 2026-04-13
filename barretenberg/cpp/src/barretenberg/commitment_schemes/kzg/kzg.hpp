@@ -10,6 +10,7 @@
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
 #include "barretenberg/commitment_schemes/pairing_points.hpp"
 #include "barretenberg/commitment_schemes/verification_key.hpp"
+#include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/stdlib/primitives/pairing_points.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
@@ -43,6 +44,7 @@ template <typename Curve_> class KZG {
                                       const ProverOpeningClaim<Curve>& opening_claim,
                                       const std::shared_ptr<Transcript>& prover_trancript)
     {
+        BB_BENCH_NAME("KZG::compute_opening_proof");
         Polynomial quotient = opening_claim.polynomial;
         OpeningPair<Curve> pair = opening_claim.opening_pair;
         Commitment quotient_commitment;
