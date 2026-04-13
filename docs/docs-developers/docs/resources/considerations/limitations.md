@@ -72,13 +72,9 @@ Ethereum has a notion of a "full node" which keeps up with the blockchain and st
 
 This pattern is likely to develop in Aztec as well, except there is a problem: privacy. If a privacy-seeking user makes a query to a third-party full node, that user might leak data about who they are, about their historical network activity, or about their future intentions. One solution to this problem is "always run a full node", but pragmatically, not everyone will. To protect less-advanced users' privacy, research is underway to explore how a privacy-seeking user may request and receive data from a third-party node without revealing what that data is, nor who is making the request.
 
-### No private data authentication
+### Limited private data authentication
 
-Private data should not be returned to an app unless the user authorizes such access to the app. An authorization layer is not yet in place.
-
-#### What are the consequences?
-
-Any app can request and receive any private user data relating to any other private app. An authorization layer will be added in due course.
+The PXE supports a `scopes` parameter that restricts which accounts' notes a function call can access. However, this is caller-specified — the app chooses its own scopes. There is no mandatory, protocol-enforced authorization layer where the PXE denies an app access to another app's private data. A wallet can restrict scope on behalf of the user, but this is not yet standardized or enforced by default.
 
 ### No client-side bytecode validation
 
