@@ -52,7 +52,7 @@ export interface AccountData {
   contract: AccountContract;
 }
 
-const TEST_DEFAULT_MIN_FEE_PADDING = 10;
+export const TEST_DEFAULT_MIN_FEE_PADDING = 10;
 
 /**
  * Wallet implementation that stores accounts in memory and provides extra debugging
