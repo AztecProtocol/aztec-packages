@@ -236,21 +236,26 @@ template <class base_uint> bool uintx<base_uint>::operator<=(const uintx& other)
 template <class base_uint> std::pair<uintx<base_uint>, uintx<base_uint>> uintx<base_uint>::divmod(const uintx& b) const
 
 {
-    constexpr uint256_t BN254FQMODULUS256 =
-        uint256_t(0x3C208C16D87CFD47UL, 0x97816a916871ca8dUL, 0xb85045b68181585dUL, 0x30644e72e131a029UL);
-    constexpr uint256_t SECP256K1FQMODULUS256 =
-        uint256_t(0xFFFFFFFEFFFFFC2FULL, 0xFFFFFFFFFFFFFFFFULL, 0xFFFFFFFFFFFFFFFFULL, 0xFFFFFFFFFFFFFFFFULL);
-    constexpr uint256_t SECP256R1FQMODULUS256 =
-        uint256_t(0xFFFFFFFFFFFFFFFFULL, 0x00000000FFFFFFFFULL, 0x0000000000000000ULL, 0xFFFFFFFF00000001ULL);
+    // Barrett-reduction fast paths apply only when base_uint == uint256_t; for larger uintx
+    // instantiations a 256-bit `b` can never equal a 1024-bit-or-wider dividend's modulus.
+    if constexpr (std::is_same_v<base_uint, uint256_t>) {
+        // `static` is required so that `&X` below is a valid pointer NTTP for barrett_reduction.
+        static constexpr uint256_t BN254FQMODULUS256 =
+            uint256_t(0x3C208C16D87CFD47UL, 0x97816a916871ca8dUL, 0xb85045b68181585dUL, 0x30644e72e131a029UL);
+        static constexpr uint256_t SECP256K1FQMODULUS256 =
+            uint256_t(0xFFFFFFFEFFFFFC2FULL, 0xFFFFFFFFFFFFFFFFULL, 0xFFFFFFFFFFFFFFFFULL, 0xFFFFFFFFFFFFFFFFULL);
+        static constexpr uint256_t SECP256R1FQMODULUS256 =
+            uint256_t(0xFFFFFFFFFFFFFFFFULL, 0x00000000FFFFFFFFULL, 0x0000000000000000ULL, 0xFFFFFFFF00000001ULL);
 
-    if (b == uintx(BN254FQMODULUS256)) {
-        return (*this).template barrett_reduction<BN254FQMODULUS256>();
-    }
-    if (b == uintx(SECP256K1FQMODULUS256)) {
-        return (*this).template barrett_reduction<SECP256K1FQMODULUS256>();
-    }
-    if (b == uintx(SECP256R1FQMODULUS256)) {
-        return (*this).template barrett_reduction<SECP256R1FQMODULUS256>();
+        if (b == uintx(BN254FQMODULUS256)) {
+            return (*this).template barrett_reduction<&BN254FQMODULUS256>();
+        }
+        if (b == uintx(SECP256K1FQMODULUS256)) {
+            return (*this).template barrett_reduction<&SECP256K1FQMODULUS256>();
+        }
+        if (b == uintx(SECP256R1FQMODULUS256)) {
+            return (*this).template barrett_reduction<&SECP256R1FQMODULUS256>();
+        }
     }
 
     return divmod_base(b);
@@ -268,9 +273,11 @@ template <class base_uint> std::pair<uintx<base_uint>, uintx<base_uint>> uintx<b
  * @return std::pair<uintx<base_uint>, uintx<base_uint>>
  */
 template <class base_uint>
-template <base_uint modulus>
+template <const base_uint* modulus_ptr>
 std::pair<uintx<base_uint>, uintx<base_uint>> uintx<base_uint>::barrett_reduction() const
 {
+    const base_uint& modulus = *modulus_ptr;
+
     // N.B. k could be modulus.get_msb() + 1 if we have strong bounds on the max value of (*self)
     //      (a smaller k would allow us to fit `redc_parameter` into `base_uint` and not `uintx`)
     constexpr size_t k = base_uint::length() - 1;

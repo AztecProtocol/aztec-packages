@@ -68,15 +68,15 @@ template <typename Flavor> class RowDisablingPolynomialTest : public ::testing::
 };
 
 /**
- * @brief Test that RowDisablingPolynomial correctly remove the contribution of random padding rows in ZK sumcheck
- * @details This test verifies that when random elements are added to the last rows of witness polynomials,
+ * @brief Test that RowDisablingPolynomial correctly removes the contribution of random masking rows in ZK sumcheck
+ * @details This test verifies that when random elements are added to the first rows of witness polynomials,
  * the sumcheck protocol still succeeds because RowDisablingPolynomial disables those rows.
  *
  * The test:
- * 1. Creates a valid circuit with relations satisfied up to row (n - NUM_DISABLED_ROWS)
- * 2. Adds random values to the last NUM_DISABLED_ROWS rows (would break relations)
- * 3. Runs ZK sumcheck which multiplies relations by (1 - L_{n-1} - L_{n-2} - L_{n-3} - L_{n-4})
- * 4. Verifies that sumcheck succeeds despite the random padding
+ * 1. Creates a valid circuit with relations satisfied from row NUM_DISABLED_ROWS onward
+ * 2. Adds random values to the first NUM_DISABLED_ROWS rows (would break relations)
+ * 3. Runs ZK sumcheck which multiplies relations by the row-disabling polynomial (zero on first 4 rows)
+ * 4. Verifies that sumcheck succeeds despite the random masking
  */
 TEST(RowDisablingPolynomial, MasksRandomPaddingRows)
 {
@@ -92,7 +92,7 @@ TEST(RowDisablingPolynomial, MasksRandomPaddingRows)
     const size_t NUM_POLYNOMIALS = Flavor::NUM_ALL_ENTITIES;
 
     // Setup: Valid relations at rows 4+ (after disabled region), random junk at rows 0-3.
-    // With top-of-trace masking, the first 4 rows are disabled by the row-disabling polynomial.
+    // The first 4 rows are disabled by the row-disabling polynomial.
     std::array<FF, multivariate_n> w_l = { 0, 0, 0, 0, 1, 2, 0, 0 };
     std::array<FF, multivariate_n> w_r = { 0, 0, 0, 0, 1, 2, 0, 0 };
     std::array<FF, multivariate_n> w_o = { 0, 0, 0, 0, 2, 4, 0, 0 };
@@ -280,7 +280,7 @@ TEST(RowDisablingPolynomial, ComputeDisabledContribution)
         // Compute using the optimized method
         FF eval = RowDisablingPolynomial<FF>::evaluate_at_challenge(challenges, multivariate_d);
 
-        // With top-of-trace masking, the disabled rows are 0,1,2,3. Their Lagrange polys are:
+        // The disabled rows are 0,1,2,3. Their Lagrange polys are:
         // L_0 = (1-X_0)(1-X_1)(1-X_2)...(1-X_{d-1})
         // L_1 = X_0(1-X_1)(1-X_2)...(1-X_{d-1})
         // L_2 = (1-X_0)X_1(1-X_2)...(1-X_{d-1})

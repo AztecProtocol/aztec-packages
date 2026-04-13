@@ -30,7 +30,7 @@ import { PrivateTokenContract } from '@aztec/noir-contracts.js/PrivateToken';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
-import { GasFees, GasSettings } from '@aztec/stdlib/gas';
+import { GasFees, GasSettings, ManaUsageEstimate } from '@aztec/stdlib/gas';
 import type { AztecNode, AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 import { deriveSigningKey } from '@aztec/stdlib/keys';
 import { EmbeddedWallet } from '@aztec/wallets/embedded';
@@ -531,7 +531,7 @@ export class BotFactory {
         const claim = await this.getOrCreateBridgeClaim(sender!);
         const paymentMethod = new FeeJuicePaymentMethodWithClaim(sender!, claim);
         const { estimatedGas } = await deploy.simulate({ ...deployOpts, fee: { estimateGas: true, paymentMethod } });
-        const maxFeesPerGas = (await this.aztecNode.getCurrentMinFees()).mul(1 + this.config.minFeePadding);
+        const maxFeesPerGas = (await this.getMinFees()).mul(1 + this.config.minFeePadding);
         const gasSettings = GasSettings.from({
           ...estimatedGas!,
           maxFeesPerGas,
@@ -589,7 +589,7 @@ export class BotFactory {
     this.log.info(
       `Fee juice balance ${balance} below threshold ${FEE_JUICE_TOP_UP_THRESHOLD}, bridging from L1 until ${FEE_JUICE_TOP_UP_TARGET}`,
     );
-    const maxFeesPerGas = (await this.aztecNode.getCurrentMinFees()).mul(1 + this.config.minFeePadding);
+    const maxFeesPerGas = (await this.getMinFees()).mul(1 + this.config.minFeePadding);
     const minimalInteraction = isStandardTokenContract(token)
       ? token.methods.transfer_in_public(account, account, 0n, 0)
       : token.methods.transfer(0n, account, account);
@@ -727,6 +727,19 @@ export class BotFactory {
     this.log.info(`Created a claim for ${mintAmount} L1 fee juice to ${recipient}.`, claim);
 
     return claim as L2AmountClaim;
+  }
+
+  /** Returns worst-case min fees across predicted slots, with fallback to current min fees. */
+  private async getMinFees(): Promise<GasFees> {
+    try {
+      const predicted = await this.aztecNode.getPredictedMinFees(ManaUsageEstimate.Limit);
+      if (predicted.length === 0) {
+        return this.aztecNode.getCurrentMinFees();
+      }
+      return predicted.reduce((worst, fees) => (fees.feePerL2Gas > worst.feePerL2Gas ? fees : worst));
+    } catch {
+      return this.aztecNode.getCurrentMinFees();
+    }
   }
 
   private async withNoMinTxsPerBlock<T>(fn: () => Promise<T>): Promise<T> {

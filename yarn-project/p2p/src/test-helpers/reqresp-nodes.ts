@@ -153,6 +153,8 @@ export async function createTestLibP2PService(
     epochCache,
   );
 
+  reqresp.setShouldRejectPeer(peerId => peerManager.shouldDisableP2PGossip(peerId));
+
   p2pNode.services.pubsub.score.params.appSpecificWeight = APP_SPECIFIC_WEIGHT;
   p2pNode.services.pubsub.score.params.appSpecificScore = (peerId: string) =>
     peerManager.shouldDisableP2PGossip(peerId) ? -Infinity : peerManager.getPeerScore(peerId);

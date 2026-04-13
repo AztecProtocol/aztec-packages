@@ -59,11 +59,10 @@ template <typename Flavor> class SumcheckProverRound {
     size_t round_size;
 
     // Number of rows excluded from the main sumcheck loop and handled by compute_disabled_contribution.
-    // In round 0, the RowDisablingPolynomial disables NUM_DISABLED_ROWS_IN_SUMCHECK rows (2 edge pairs)
+    // In round 0, the RowDisablingPolynomial disables TRACE_OFFSET rows (2 edge pairs for TRACE_OFFSET=4)
     // at the TOP of the trace. After partial evaluation in round 1+, this collapses to 2 rows (1 edge pair).
     // Only non-zero for ZK flavors: non-ZK disabled rows are all zeros and handled by the main loop.
-    size_t excluded_head_size =
-        (Flavor::HasZK && UseRowDisablingPolynomial<Flavor>) ? NUM_DISABLED_ROWS_IN_SUMCHECK : 0;
+    size_t excluded_head_size = Flavor::HasZK ? Flavor::TRACE_OFFSET : 0;
 
     /**
      * @brief Number of batched sub-relations in \f$F\f$ specified by Flavor.

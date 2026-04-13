@@ -63,7 +63,6 @@ void ECCVMProver::execute_wire_commitments_round()
     auto masking_commitment = key->commitment_key.commit(key->polynomials.gemini_masking_poly);
     transcript->send_to_verifier("Gemini:masking_poly_comm", masking_commitment);
 
-    // With in-place masking, masking values are already in the polynomials from allocation
     auto batch = key->commitment_key.start_batch();
     for (const auto& [wire, label] : zip_view(key->polynomials.get_wires(), commitment_labels.get_wires())) {
         batch.add_to_batch(wire, label);
@@ -181,8 +180,6 @@ void ECCVMProver::execute_pcs_rounds()
     polynomial_batcher.set_unshifted(key->polynomials.get_unshifted());
     polynomial_batcher.set_to_be_shifted_by_one(key->polynomials.get_to_be_shifted());
 
-    // With in-place masking, polynomial commitments already include masking values — no tail batching needed.
-
     OpeningClaim multivariate_to_univariate_opening_claim =
         Shplemini::prove(key->circuit_size,
                          polynomial_batcher,
@@ -274,7 +271,6 @@ void ECCVMProver::compute_translation_opening_claims()
     std::array<std::string, NUM_SMALL_IPA_EVALUATIONS> evaluation_labels;
     std::array<FF, NUM_SMALL_IPA_EVALUATIONS> evaluation_points;
 
-    // With in-place masking, translation polys already have masking values at positions {1,2,3}
     RefArray translation_polynomials{ key->polynomials.transcript_op,
                                       key->polynomials.transcript_Px,
                                       key->polynomials.transcript_Py,

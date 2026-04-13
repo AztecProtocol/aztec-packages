@@ -42,7 +42,7 @@ template <typename Flavor> ProverInstance_<Flavor>::ProverInstance_(Circuit& cir
     metadata.dyadic_size = compute_dyadic_size(circuit);
 
     // Find index of last non-trivial wire value in the trace
-    circuit.blocks.compute_offsets();
+    circuit.blocks.compute_offsets(TRACE_OFFSET);
     for (auto& block : circuit.blocks.get()) {
         if (block.size() > 0) {
             final_active_wire_idx = block.trace_end() - 1;
@@ -269,16 +269,16 @@ void ProverInstance_<Flavor>::allocate_databus_polynomials(const Circuit& circui
         Polynomial(std::max(offset_size(return_data_size), q_busread_end), dyadic_size());
 
     if constexpr (Flavor::HasZK) {
-        // Mask databus read_counts, read_tags, and inverses (internal witness data).
-        // Do NOT mask calldata, secondary_calldata, or return_data themselves — these are public
-        // databus columns whose commitments must match across circuits in the Chonk IVC flow.
+        // Mask all databus witness polynomials. Note: calldata is NOT masked — its commitment must
+        // match across circuits in the Chonk IVC flow (it is constrained by the kernel).
         polynomials.calldata_read_counts.add_masking();
         polynomials.calldata_read_tags.add_masking();
         polynomials.calldata_inverses.add_masking();
+        polynomials.secondary_calldata.add_masking();
         polynomials.secondary_calldata_read_counts.add_masking();
         polynomials.secondary_calldata_read_tags.add_masking();
         polynomials.secondary_calldata_inverses.add_masking();
-
+        polynomials.return_data.add_masking();
         polynomials.return_data_read_counts.add_masking();
         polynomials.return_data_read_tags.add_masking();
         polynomials.return_data_inverses.add_masking();

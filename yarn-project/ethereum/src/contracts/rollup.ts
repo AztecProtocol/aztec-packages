@@ -128,6 +128,17 @@ export type L1FeeData = {
   blobFee: bigint;
 };
 
+/** Field offsets within the CompressedTempCheckpointLog struct in Solidity storage. */
+export enum TempCheckpointLogField {
+  HeaderHash = 0,
+  BlobCommitmentsHash = 1,
+  OutHash = 2,
+  AttestationsHash = 3,
+  PayloadDigest = 4,
+  SlotNumber = 5,
+  FeeHeader = 6,
+}
+
 /** Components of the minimum fee per mana, as returned by the L1 rollup contract. */
 export type ManaMinFeeComponents = {
   sequencerCost: bigint;
@@ -514,8 +525,9 @@ export class RollupContract {
     return this.rollup.read.getCheckpointReward();
   }
 
-  async getCheckpointNumber(): Promise<CheckpointNumber> {
-    return CheckpointNumber.fromBigInt(await this.rollup.read.getPendingCheckpointNumber());
+  async getCheckpointNumber(options?: { blockNumber?: bigint }): Promise<CheckpointNumber> {
+    await checkBlockTag(options?.blockNumber, this.client);
+    return CheckpointNumber.fromBigInt(await this.rollup.read.getPendingCheckpointNumber(options));
   }
 
   async getProvenCheckpointNumber(options?: { blockNumber?: bigint }): Promise<CheckpointNumber> {
@@ -523,15 +535,28 @@ export class RollupContract {
     return CheckpointNumber.fromBigInt(await this.rollup.read.getProvenCheckpointNumber(options));
   }
 
-  async getSlotNumber(): Promise<SlotNumber> {
-    return SlotNumber.fromBigInt(await this.rollup.read.getCurrentSlot());
+  async getSlotNumber(options?: { blockNumber?: bigint }): Promise<SlotNumber> {
+    await checkBlockTag(options?.blockNumber, this.client);
+    return SlotNumber.fromBigInt(await this.rollup.read.getCurrentSlot(options));
   }
 
-  async getL1FeesAt(timestamp: bigint): Promise<L1FeeData> {
-    const result = await this.rollup.read.getL1FeesAt([timestamp]);
+  async getL1FeesAt(timestamp: bigint, options?: { blockNumber?: bigint }): Promise<L1FeeData> {
+    await checkBlockTag(options?.blockNumber, this.client);
+    const result = await this.rollup.read.getL1FeesAt([timestamp], options);
     return {
       baseFee: result.baseFee,
       blobFee: result.blobFee,
+    };
+  }
+
+  async getFeeHeader(checkpointNumber: bigint): Promise<FeeHeader> {
+    const result = await this.rollup.read.getFeeHeader([checkpointNumber]);
+    return {
+      excessMana: result.excessMana,
+      manaUsed: result.manaUsed,
+      ethPerFeeAsset: result.ethPerFeeAsset,
+      congestionCost: result.congestionCost,
+      proverCost: result.proverCost,
     };
   }
 
@@ -609,8 +634,9 @@ export class RollupContract {
     return EthAddress.fromString(result);
   }
 
-  async getCheckpoint(checkpointNumber: CheckpointNumber): Promise<CheckpointLog> {
-    const result = await this.rollup.read.getCheckpoint([BigInt(checkpointNumber)]);
+  async getCheckpoint(checkpointNumber: CheckpointNumber, options?: { blockNumber?: bigint }): Promise<CheckpointLog> {
+    await checkBlockTag(options?.blockNumber, this.client);
+    const result = await this.rollup.read.getCheckpoint([BigInt(checkpointNumber)], options);
     return {
       archive: Fr.fromString(result.archive),
       headerHash: Buffer32.fromString(result.headerHash),
@@ -639,6 +665,30 @@ export class RollupContract {
         return pendingCheckpoint;
       },
       'getting pending checkpoint',
+      makeBackoff([0.5, 0.5, 0.5]),
+    );
+  }
+
+  /**
+   * Returns the effective pending checkpoint, accounting for potential prunes.
+   * When a prune can happen, the L1 contract uses the proven checkpoint instead of the pending one.
+   * This mirrors the behavior of getEffectivePendingCheckpointNumber in STFLib.sol.
+   * @param atTimestamp - The timestamp to evaluate pruneability at. Defaults to the current L1 block timestamp.
+   * @param options - Optional L1 block number to pin the queries to.
+   */
+  getEffectivePendingCheckpoint(atTimestamp?: bigint, options?: { blockNumber?: bigint }) {
+    return retry(
+      async () => {
+        const timestamp = atTimestamp ?? (await this.client.getBlock()).timestamp;
+        const canPrune = await this.canPruneAtTime(timestamp, options);
+        if (canPrune) {
+          const provenCheckpointNumber = await this.getProvenCheckpointNumber(options);
+          return await this.getCheckpoint(provenCheckpointNumber, options);
+        }
+        const pendingCheckpointNumber = await this.getCheckpointNumber(options);
+        return await this.getCheckpoint(pendingCheckpointNumber, options);
+      },
+      'getting effective pending checkpoint',
       makeBackoff([0.5, 0.5, 0.5]),
     );
   }
@@ -765,18 +815,10 @@ export class RollupContract {
     archive: Buffer,
     account: `0x${string}` | Account,
     timestamp: bigint,
-    opts: {
-      forcePendingCheckpointNumber?: CheckpointNumber;
-      forceArchive?: { checkpointNumber: CheckpointNumber; archive: Fr };
-    } = {},
+    stateOverride: StateOverride = [],
   ): Promise<{ slot: SlotNumber; checkpointNumber: CheckpointNumber; timeOfNextL1Slot: bigint }> {
     const timeOfNextL1Slot = timestamp;
     const who = typeof account === 'string' ? account : account.address;
-
-    const stateOverride = RollupContract.mergeStateOverrides(
-      await this.makePendingCheckpointNumberOverride(opts.forcePendingCheckpointNumber),
-      opts.forceArchive ? this.makeArchiveOverride(opts.forceArchive.checkpointNumber, opts.forceArchive.archive) : [],
-    );
 
     try {
       const {
@@ -1255,5 +1297,40 @@ export class RollupContract {
           })(),
         },
       }));
+  }
+
+  /** Packs pending and proven checkpoint numbers into the chain tips storage format. */
+  static packChainTips(pendingCheckpointNumber: bigint, provenCheckpointNumber: bigint): bigint {
+    return (pendingCheckpointNumber << 128n) | (provenCheckpointNumber & ((1n << 128n) - 1n));
+  }
+
+  /** Storage slot for the chain tips (offset 0 within the STF storage struct). */
+  static get chainTipsStorageSlot(): bigint {
+    return BigInt(RollupContract.stfStorageSlot);
+  }
+
+  /**
+   * Computes the storage slot for a field within a tempCheckpointLog entry.
+   * @param checkpointNumber - The checkpoint number
+   * @param field - The field within the CompressedTempCheckpointLog struct
+   */
+  async getTempCheckpointLogStorageSlot(
+    checkpointNumber: CheckpointNumber,
+    field: TempCheckpointLogField,
+  ): Promise<bigint> {
+    const fieldOffset = BigInt(field);
+    const [epochDuration, proofSubmissionEpochs] = await Promise.all([
+      this.getEpochDuration(),
+      this.getProofSubmissionEpochs(),
+    ]);
+    const roundaboutSize = BigInt(epochDuration) * (BigInt(proofSubmissionEpochs) + 1n) + 1n;
+    const tempCheckpointLogsBase = BigInt(RollupContract.stfStorageSlot) + 2n;
+    const circularIndex = BigInt(checkpointNumber) % roundaboutSize;
+    const entryBase = BigInt(
+      keccak256(
+        encodeAbiParameters([{ type: 'uint256' }, { type: 'uint256' }], [circularIndex, tempCheckpointLogsBase]),
+      ),
+    );
+    return entryBase + fieldOffset;
   }
 }

@@ -224,7 +224,7 @@ TYPED_TEST(MegaHonkTests, PolySwap)
 /**
  * @brief Test that the dyadic size correctly jumps to the next power of 2 when the trace would otherwise
  * place lagrange_last in the ZK masking region.
- * @details For MegaZK, the last NUM_MASKED_ROWS rows are overwritten with random values for zero-knowledge.
+ * @details For MegaZK, the first NUM_MASKED_ROWS rows are overwritten with random values for zero-knowledge.
  * We incrementally add gates until the dyadic size doubles, verifying at each step that lagrange_last does not
  * overlap the masking area. At the tightest packing (right before the jump), we prove-and-verify.
  */
@@ -243,7 +243,7 @@ TYPED_TEST(MegaHonkTests, DyadicSizeJumpsToProtectMaskingArea)
         auto baseline_instance = std::make_shared<ProverInstance>(baseline_builder);
         const size_t baseline_dyadic = baseline_instance->dyadic_size();
 
-        // With top-of-trace masking, the disabled head region is always present.
+        // The disabled head region is always present.
         // Verify active trace starts after it and dyadic size doubles when tightly packed.
         size_t prev_dyadic = 0;
         bool found_jump = false;
@@ -284,39 +284,50 @@ TYPED_TEST(MegaHonkTests, DyadicSizeJumpsToProtectMaskingArea)
 }
 
 /**
- * @brief Verify that witness commitments match naive poly commits (in-place masking).
- * @details With in-place masking, random values are written directly into the polynomial at the
- * disabled head rows, so commit(poly) == stored commitment for all witness polynomials.
+ * @brief Verify that witness polynomials have masking values in the reserved head region.
+ * @details Wires, z_perm, lookup, and databus inverse polynomials should have non-zero random values
+ * at rows 1..NUM_MASKED_ROWS. ECC op wires and public databus columns are intentionally NOT masked.
  */
-TYPED_TEST(MegaHonkTests, MaskingTailCommitments)
+TYPED_TEST(MegaHonkTests, WitnessPolynomialsMasked)
 {
     using Flavor = TypeParam;
     if constexpr (!Flavor::HasZK) {
         GTEST_SKIP() << "Masking only applies to ZK flavors";
     } else {
         using Builder = typename Flavor::CircuitBuilder;
-        using CommitmentKey = typename Flavor::CommitmentKey;
 
         Builder builder;
         GoblinMockCircuits::construct_simple_circuit(builder);
         auto prover_instance = std::make_shared<ProverInstance_<Flavor>>(builder);
-        auto verification_key = std::make_shared<typename Flavor::VerificationKey>(prover_instance->get_precomputed());
 
-        // Run oink to populate commitments
-        auto transcript = std::make_shared<typename Flavor::Transcript>();
-        OinkProver<Flavor> oink(prover_instance, verification_key, transcript);
-        oink.prove();
-
-        CommitmentKey ck(prover_instance->dyadic_size());
-
-        // With in-place masking, commit(poly) == stored commitment for all polys
-        auto witness_polys = prover_instance->polynomials.get_witness();
-        auto witness_commitments = prover_instance->commitments.get_all();
-        for (auto [poly, commitment] : zip_view(witness_polys, witness_commitments)) {
-            if (!commitment.is_point_at_infinity()) {
-                EXPECT_EQ(ck.commit(poly), commitment) << "Commitment should equal naive commit (in-place masking)";
+        auto check_masked = [](const auto& poly, const std::string& label) {
+            bool has_masking = false;
+            for (size_t j = 0; j < NUM_MASKED_ROWS; j++) {
+                has_masking |= !poly[NUM_ZERO_ROWS + j].is_zero();
             }
-        }
+            EXPECT_TRUE(has_masking) << label << " should be masked";
+        };
+
+        auto& polys = prover_instance->polynomials;
+        check_masked(polys.w_l, "w_l");
+        check_masked(polys.w_r, "w_r");
+        check_masked(polys.w_o, "w_o");
+        check_masked(polys.w_4, "w_4");
+        check_masked(polys.z_perm, "z_perm");
+        check_masked(polys.lookup_read_counts, "lookup_read_counts");
+        check_masked(polys.lookup_read_tags, "lookup_read_tags");
+        check_masked(polys.lookup_inverses, "lookup_inverses");
+        check_masked(polys.calldata_read_counts, "calldata_read_counts");
+        check_masked(polys.calldata_read_tags, "calldata_read_tags");
+        check_masked(polys.calldata_inverses, "calldata_inverses");
+        check_masked(polys.secondary_calldata, "secondary_calldata");
+        check_masked(polys.secondary_calldata_read_counts, "secondary_calldata_read_counts");
+        check_masked(polys.secondary_calldata_read_tags, "secondary_calldata_read_tags");
+        check_masked(polys.secondary_calldata_inverses, "secondary_calldata_inverses");
+        check_masked(polys.return_data, "return_data");
+        check_masked(polys.return_data_read_counts, "return_data_read_counts");
+        check_masked(polys.return_data_read_tags, "return_data_read_tags");
+        check_masked(polys.return_data_inverses, "return_data_inverses");
     }
 }
 

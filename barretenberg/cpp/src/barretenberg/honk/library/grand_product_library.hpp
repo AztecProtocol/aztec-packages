@@ -92,8 +92,8 @@ void compute_grand_product(typename Flavor::ProverPolynomials& full_polynomials,
     // the permutation grand product does not need to be computed beyond the index of the last active wire
     size_t domain_size = size_override == 0 ? full_polynomials.get_polynomial_size() : size_override;
 
-    // Grand product starts after the disabled head rows (uniform layout across ZK and non-ZK).
-    constexpr size_t gp_start = UseRowDisablingPolynomial<Flavor> ? NUM_DISABLED_ROWS_IN_SUMCHECK : 0;
+    // Grand product starts after the disabled/reserved head rows (where lagrange_first lives).
+    constexpr size_t gp_start = Flavor::TRACE_OFFSET;
 
     const size_t active_size = domain_size - gp_start;
 

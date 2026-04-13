@@ -216,6 +216,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
       metrics,
       dateProvider,
       telemetry,
+      undefined,
     );
 
     const nodeKeystoreAdapter = NodeKeystoreAdapter.fromKeyStoreManager(keyStoreManager);

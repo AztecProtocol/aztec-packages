@@ -530,31 +530,30 @@ TEST_F(ECCVMTests, FixedVK)
 }
 
 /**
- * @brief Verify that ECCVM wire commitments in the proof differ from naive commits to the short polys.
- * @details All ECCVM witness wires are masked. We run the full prover, deserialize the proof to extract
- * the wire commitments that the verifier would receive, and check they differ from commit(short_poly).
+ * @brief Verify that every ECCVM witness polynomial has masking values in the reserved head region.
+ * @details All witness polynomials (wires, z_perm, lookup_inverses) should have non-zero random values
+ * at rows 1..NUM_MASKED_ROWS (the masking region). Precomputed polynomials should NOT be masked.
  */
-TEST_F(ECCVMTests, MaskingTailCommitments)
+TEST_F(ECCVMTests, WitnessPolynomialsMasked)
 {
-    std::shared_ptr<Transcript> prover_transcript = std::make_shared<Transcript>();
-    ECCVMProver prover = [&]() {
-        ECCVMCircuitBuilder builder = generate_circuit(&engine);
-        return ECCVMProver(builder, prover_transcript);
-    }();
+    ECCVMCircuitBuilder builder = generate_circuit(&engine);
+    ECCVMFlavor::ProverPolynomials polynomials(builder);
 
-    auto [proof, opening_claim] = prover.construct_proof();
+    // Every witness polynomial should have at least one non-zero masking value
+    auto check_masked = [](const auto& poly, const std::string& label) {
+        bool has_masking = false;
+        for (size_t j = 0; j < NUM_MASKED_ROWS; j++) {
+            has_masking |= !poly[NUM_ZERO_ROWS + j].is_zero();
+        }
+        EXPECT_TRUE(has_masking) << label << " should be masked but has all zeros in masking region";
+    };
 
-    // Deserialize proof to extract wire commitments as seen by the verifier
-    StructuredProof<ECCVMFlavor> structured;
-    structured.deserialize(proof, 0, CONST_ECCVM_LOG_N);
-
-    // With in-place masking, commit(poly) == wire commitment in the proof
-    auto wire_polys = prover.key->polynomials.get_wires();
-    ASSERT_EQ(wire_polys.size(), structured.wire_comms.size());
-    for (size_t i = 0; i < wire_polys.size(); i++) {
-        auto naive = prover.key->commitment_key.commit(wire_polys[i]);
-        EXPECT_EQ(naive, structured.wire_comms[i]) << "Wire " << i << " commitment should equal (in-place masking)";
+    ECCVMFlavor::CommitmentLabels labels;
+    for (auto [poly, label] : zip_view(polynomials.get_wires(), labels.get_wires())) {
+        check_masked(poly, label);
     }
+    check_masked(polynomials.z_perm, "z_perm");
+    check_masked(polynomials.lookup_inverses, "lookup_inverses");
 }
 
 /**

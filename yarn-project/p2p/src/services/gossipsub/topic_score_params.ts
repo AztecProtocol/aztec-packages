@@ -1,5 +1,5 @@
 import { TopicType, createTopicString } from '@aztec/stdlib/p2p';
-import { calculateMaxBlocksPerSlot } from '@aztec/stdlib/timetable';
+import { createCheckpointTimingModel } from '@aztec/stdlib/timetable';
 
 import { createTopicScoreParams } from '@chainsafe/libp2p-gossipsub/score';
 
@@ -9,12 +9,18 @@ import { createTopicScoreParams } from '@chainsafe/libp2p-gossipsub/score';
 export type TopicScoringNetworkParams = {
   /** L2 slot duration in milliseconds */
   slotDurationMs: number;
+  /** L1 slot duration in seconds */
+  ethereumSlotDuration: number;
   /** Gossipsub heartbeat interval in milliseconds */
   heartbeatIntervalMs: number;
   /** Target committee size (number of validators expected to attest per slot) */
   targetCommitteeSize: number;
   /** Duration per block in milliseconds when building multiple blocks per slot. If undefined, single block mode. */
   blockDurationMs?: number;
+  /** Time budget in seconds reserved for L1 publishing. Defaults to ethereumSlotDuration. */
+  l1PublishingTime?: number;
+  /** One-way proposal/attestation propagation budget in seconds. */
+  p2pPropagationTime?: number;
   /** Expected number of block proposals per slot for scoring override. 0 disables scoring, undefined falls back to blocksPerSlot - 1. */
   expectedBlockProposalsPerSlot?: number;
 };
@@ -25,10 +31,32 @@ export type TopicScoringNetworkParams = {
  *
  * @param slotDurationMs - L2 slot duration in milliseconds
  * @param blockDurationMs - Duration per block in milliseconds (undefined = single block mode)
+ * @param opts - Shared checkpoint timing inputs used by the sequencer and validators
  * @returns Number of blocks per slot
  */
-export function calculateBlocksPerSlot(slotDurationMs: number, blockDurationMs: number | undefined): number {
-  return calculateMaxBlocksPerSlot(slotDurationMs / 1000, blockDurationMs ? blockDurationMs / 1000 : undefined);
+export function calculateBlocksPerSlot(
+  slotDurationMs: number,
+  blockDurationMs: number | undefined,
+  opts?: {
+    ethereumSlotDuration: number;
+    l1PublishingTime?: number;
+    p2pPropagationTime?: number;
+  },
+): number {
+  if (!opts) {
+    return createCheckpointTimingModel({
+      aztecSlotDuration: slotDurationMs / 1000,
+      blockDuration: blockDurationMs ? blockDurationMs / 1000 : undefined,
+    }).calculateMaxBlocksPerSlot();
+  }
+
+  return createCheckpointTimingModel({
+    aztecSlotDuration: slotDurationMs / 1000,
+    ethereumSlotDuration: opts.ethereumSlotDuration,
+    blockDuration: blockDurationMs ? blockDurationMs / 1000 : undefined,
+    l1PublishingTime: opts.l1PublishingTime ?? opts.ethereumSlotDuration,
+    p2pPropagationTime: opts.p2pPropagationTime,
+  }).calculateMaxBlocksPerSlot();
 }
 
 /**
@@ -279,7 +307,11 @@ export class TopicScoreParamsFactory {
     const { slotDurationMs, heartbeatIntervalMs, blockDurationMs } = params;
 
     // Compute values that are the same for all topics
-    this.blocksPerSlot = calculateBlocksPerSlot(slotDurationMs, blockDurationMs);
+    this.blocksPerSlot = calculateBlocksPerSlot(slotDurationMs, blockDurationMs, {
+      ethereumSlotDuration: params.ethereumSlotDuration,
+      l1PublishingTime: params.l1PublishingTime,
+      p2pPropagationTime: params.p2pPropagationTime,
+    });
     this.heartbeatsPerSlot = slotDurationMs / heartbeatIntervalMs;
     this.invalidDecay = computeDecay(heartbeatIntervalMs, slotDurationMs, INVALID_DECAY_WINDOW_SLOTS);
 

@@ -63,7 +63,7 @@ class ZKBoundaryTests : public ::testing::Test {
 
 /**
  * @brief Verify ECC op wire alignment: ecc_op_wire[i] == w_shift[i] at the boundary.
- * @details With top-of-trace masking, ecc_op_wire data starts at row TRACE_OFFSET (4),
+ * @details ecc_op_wire data starts at row TRACE_OFFSET (4),
  * while wire data starts at trace_offset (5). The shift convention (w_shift[r] = w[r+1]) bridges
  * the gap. This test checks the alignment holds and that corrupting it causes relation failure.
  */
@@ -189,7 +189,7 @@ TEST_F(ZKBoundaryTests, EccOpWiresZeroInDisabledRegion)
 
 /**
  * @brief End-to-end: prove and verify a MegaZK circuit, confirming the full pipeline
- * works with top-of-trace masking and ECC ops.
+ * works with ECC ops.
  */
 TEST_F(ZKBoundaryTests, ProveAndVerifyMegaZK)
 {

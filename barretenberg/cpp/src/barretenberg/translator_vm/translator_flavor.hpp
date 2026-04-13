@@ -52,6 +52,8 @@ class TranslatorFlavor {
 
     // Indicates that this flavor runs with ZK Sumcheck.
     static constexpr bool HasZK = true;
+    // Translator has no disabled rows at the top of the trace.
+    static constexpr size_t TRACE_OFFSET = 0;
     // Translator proof size and its recursive verifier circuit are genuinely fixed, hence no padding is needed.
     static constexpr bool USE_PADDING = false;
     // Important: these constants cannot be arbitrarily changed - please consult with a member of the Crypto team if
