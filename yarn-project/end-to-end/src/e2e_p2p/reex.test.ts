@@ -2,6 +2,7 @@ import type { AztecNodeService } from '@aztec/aztec-node';
 import { Fr } from '@aztec/aztec.js/fields';
 import { waitForTx } from '@aztec/aztec.js/node';
 import { Tx, TxHash } from '@aztec/aztec.js/tx';
+import { CheckpointNumber } from '@aztec/foundation/branded-types';
 import { times } from '@aztec/foundation/collection';
 import { sleep } from '@aztec/foundation/sleep';
 import { unfreeze } from '@aztec/foundation/types';
@@ -141,6 +142,7 @@ describe('e2e_p2p_reex', () => {
           .keyStore as ValidatorKeyStore;
         const newProposal = await BlockProposal.createProposalFromSigner(
           proposal.blockHeader,
+          CheckpointNumber(1),
           proposal.indexWithinCheckpoint,
           proposal.inHash,
           proposal.archiveRoot,
