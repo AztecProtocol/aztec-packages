@@ -30,13 +30,11 @@ namespace {
  * @details The tighter constraint is the Translator's op queue table (2^CONST_OP_QUEUE_LOG_SIZE = 4096 entries),
  *          not the ECCVM (2^CONST_ECCVM_LOG_N = 32768 rows). Fills until near the Translator limit.
  */
-std::shared_ptr<ECCOpQueue> create_populated_op_queue()
+void create_populated_op_queue(std::shared_ptr<ECCOpQueue>& op_queue)
 {
     static constexpr size_t OP_QUEUE_TABLE_CAPACITY = 1UL << CONST_OP_QUEUE_LOG_SIZE;
     // Leave headroom for structural ops (eq_and_reset, no-ops) that chonk adds per circuit
     static constexpr size_t TARGET_OPS = OP_QUEUE_TABLE_CAPACITY - 128;
-
-    auto op_queue = std::make_shared<ECCOpQueue>();
 
     // Structural ops required by the chonk flush table structure
     op_queue->no_op_ultra_only();
@@ -47,26 +45,12 @@ std::shared_ptr<ECCOpQueue> create_populated_op_queue()
 
     // Fill the op queue to near capacity with add_accumulate operations
     auto point = bb::g1::affine_element::one();
-    while (op_queue->get_current_subtable_size() < TARGET_OPS) {
+    while (op_queue->get_current_subtable_size() < TARGET_OPS - 1) {
         op_queue->add_accumulate(point);
     }
+    op_queue->eq_and_reset();
 
     op_queue->merge();
-    return op_queue;
-}
-
-/**
- * @brief Extract merged table commitments from an op queue.
- */
-MergeVerifier::TableCommitments commit_merged_table(const std::shared_ptr<ECCOpQueue>& op_queue)
-{
-    MergeVerifier::TableCommitments table_commitments;
-    auto merged_table = op_queue->construct_ultra_ops_table_columns();
-    CommitmentKey<curve::BN254> pcs_commitment_key(op_queue->get_ultra_ops_table_num_rows());
-    for (size_t idx = 0; idx < MegaFlavor::NUM_WIRES; idx++) {
-        table_commitments[idx] = pcs_commitment_key.commit(merged_table[idx]);
-    }
-    return table_commitments;
 }
 
 class GoblinFlushBench : public benchmark::Fixture {
@@ -78,49 +62,25 @@ class GoblinFlushBench : public benchmark::Fixture {
 };
 
 /**
- * @brief Benchmark Phase 1: Prove Goblin (ECCVM + Translator, non-ZK)
- */
-BENCHMARK_DEFINE_F(GoblinFlushBench, ProveGoblin)(benchmark::State& state)
-{
-    // Pre-populate an op queue outside the timed region
-    auto op_queue = create_populated_op_queue();
-
-    for (auto _ : state) {
-        // Copy the op queue so each iteration starts from the same state
-        auto op_queue_copy = std::make_shared<ECCOpQueue>(*op_queue);
-        GoblinWithoutMerge flush_goblin(op_queue_copy, /*is_zk=*/false);
-        benchmark::DoNotOptimize(flush_goblin.prove());
-    }
-}
-
-/**
  * @brief Benchmark Phase 2: Build and prove the flush verification circuit (Circuit C) with Ultra Honk
  */
 BENCHMARK_DEFINE_F(GoblinFlushBench, ProveFlushCircuit)(benchmark::State& state)
 {
     // Pre-compute the Goblin proof and table commitments outside the timed region
-    auto op_queue = create_populated_op_queue();
-    auto table_commitments = commit_merged_table(op_queue);
-    GoblinWithoutMerge flush_goblin(op_queue, /*is_zk=*/false);
-    auto flush_proof = flush_goblin.prove();
+    auto ivc = std::make_shared<Chonk>(/*num_circuits=*/4);
+    create_populated_op_queue(ivc->get_goblin().op_queue);
+    acir_format::RecursionConstraint recursion_constraint = {
+        {}, {}, {}, 0, acir_format::ULTRA_GOBLIN, acir_format::WitnessOrConstant<bb::fr>::from_constant(0)
+    };
 
     for (auto _ : state) {
-        // Build Circuit C (ECCVM + Translator recursive verifier)
-        auto builder = build_goblin_flush_circuit(flush_proof, table_commitments);
-
-        // Prove Circuit C with Ultra Honk
-        using Flavor = UltraFlavor;
-        using ProverInstance = ProverInstance_<Flavor>;
-        using Prover = UltraProver_<Flavor>;
-
-        auto prover_instance = std::make_shared<ProverInstance>(builder);
-        auto vk = std::make_shared<Flavor::VerificationKey>(prover_instance->get_precomputed());
-        Prover prover(prover_instance, vk);
-        benchmark::DoNotOptimize(prover.construct_proof());
+        auto op_queue_copy = std::make_shared<ECCOpQueue>(*ivc->get_goblin().op_queue);
+        MegaCircuitBuilder builder(op_queue_copy);
+        benchmark::DoNotOptimize(
+            acir_format::create_goblin_flush_recursion_constraints(builder, recursion_constraint, ivc));
     }
 }
 
-BENCHMARK_REGISTER_F(GoblinFlushBench, ProveGoblin)->Unit(benchmark::kMillisecond)->Iterations(1);
 BENCHMARK_REGISTER_F(GoblinFlushBench, ProveFlushCircuit)->Unit(benchmark::kMillisecond)->Iterations(1);
 
 } // namespace
