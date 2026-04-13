@@ -108,7 +108,7 @@ pub fn assert_nullifier_did_not_exist_by(block_header: BlockHeader, siloed_nulli
     // the nullifier tree, since if it were it'd need to be between the low leaf and the next leaf. Note the special
     // case in which the low leaf is the largest of all entries, in which case there's no 'next' entry.
     assert(
-        siloed_nullifier.lt(low_nullifier_leaf.next_nullifier) | (low_nullifier_leaf.next_index == 0),
+        siloed_nullifier.lt(low_nullifier_leaf.next_nullifier) | low_nullifier_leaf.points_to_infinity(),
         "Proving nullifier non-inclusion failed: low_nullifier.next_value > nullifier.value check failed",
     );
 }
