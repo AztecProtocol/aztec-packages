@@ -97,6 +97,12 @@ describe('PXE', () => {
     expect(accounts).toContainEqual(completeAddress);
   });
 
+  it('refuses to register an invalid address as a sender', async () => {
+    // x = 3 is not a valid x-coordinate on the Grumpkin curve (y^2 = x^3 - 17 = 10 has no square root in Fr)
+    const invalidAddress = new AztecAddress(new Fr(3));
+    await expect(pxe.registerSender(invalidAddress)).rejects.toThrow(/not valid/);
+  });
+
   it('does not throw when registering the same account twice (just ignores the second attempt)', async () => {
     const randomSecretKey = Fr.random();
     const randomPartialAddress = Fr.random();
