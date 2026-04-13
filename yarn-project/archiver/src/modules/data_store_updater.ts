@@ -133,21 +133,6 @@ export class ArchiverDataStoreUpdater {
   }
 
   /**
-   * Builds a PublishedCheckpoint from the proposed checkpoint data without persisting anything.
-   * Used to validate the checkpoint before committing the promotion.
-   *
-   * @param l1 - The L1 published data for the checkpoint.
-   * @param attestations - The committee attestations for the checkpoint.
-   * @returns The built published checkpoint (not yet persisted).
-   */
-  public async buildPublishedCheckpointFromProposed(
-    l1: L1PublishedData,
-    attestations: CommitteeAttestation[],
-  ): Promise<PublishedCheckpoint> {
-    return await this.store.buildPublishedCheckpointFromProposed(l1, attestations);
-  }
-
-  /**
    * Promotes the current proposed checkpoint to a confirmed checkpoint.
    * This is a fast path used when the proposed checkpoint matches the one published on L1,
    * skipping blob fetching since blocks were already added via addProposedBlock.
@@ -167,7 +152,7 @@ export class ArchiverDataStoreUpdater {
     validateCheckpoint(publishedCheckpoint.checkpoint, { rollupManaLimit: this.opts?.rollupManaLimit });
 
     await this.store.transactionAsync(async () => {
-      await this.store.promoteProposedToCheckpointed(l1, attestations);
+      await this.store.promoteProposedToCheckpointed(l1, attestations, publishedCheckpoint.checkpoint.archive.root);
 
       if (pendingChainValidationStatus) {
         await this.store.setPendingChainValidationStatus(pendingChainValidationStatus);

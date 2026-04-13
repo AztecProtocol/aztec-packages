@@ -35,36 +35,26 @@ import type { DataRetrieval } from '../structs/data_retrieval.js';
 import type { InboxMessage } from '../structs/inbox_message.js';
 import { CalldataRetriever } from './calldata_retriever.js';
 
-export type RetrievedCheckpoint = {
+type RetrievedCheckpointBase = {
   checkpointNumber: CheckpointNumber;
   archiveRoot: Fr;
   feeAssetPriceModifier: bigint;
   header: CheckpointHeader;
-  checkpointBlobData: CheckpointBlobData;
   l1: L1PublishedData;
   chainId: Fr;
   version: Fr;
   attestations: CommitteeAttestation[];
 };
 
-/** Checkpoint data retrieved from L1 calldata only, without blob data. Preserves fields needed for deferred blob fetching. */
-export type CalldataOnlyCheckpoint = {
-  checkpointNumber: CheckpointNumber;
-  archiveRoot: Fr;
-  feeAssetPriceModifier: bigint;
-  header: CheckpointHeader;
-  l1: L1PublishedData;
-  chainId: Fr;
-  version: Fr;
-  attestations: CommitteeAttestation[];
-  /** Block hash from the L1 transaction, used for fetching blobs. */
-  blockHash: string;
+/** Checkpoint data as retrieved from L1 calldata and blob data. */
+export type RetrievedCheckpoint = RetrievedCheckpointBase & { checkpointBlobData: CheckpointBlobData };
+
+/** Checkpoint data retrieved from L1 calldata only, without blob data. */
+export type RetrievedCheckpointFromCalldata = RetrievedCheckpointBase & {
   /** Versioned blob hashes from the checkpoint proposed event. */
   blobHashes: Buffer[];
   /** Parent beacon block root from the L1 block, used for blob fetching. */
   parentBeaconBlockRoot: string | undefined;
-  /** Timestamp of the L1 block, used for blob fetching. */
-  l1BlockTimestamp: bigint;
 };
 
 export async function retrievedToPublishedCheckpoint({
@@ -158,7 +148,7 @@ export async function retrievedToPublishedCheckpoint({
 
 /**
  * Fetches checkpoint calldata from the rollup contract without fetching blob data.
- * Returns CalldataOnlyCheckpoint objects that preserve the information needed for deferred blob fetching.
+ * Returns RetrievedCheckpointFromCalldata objects that preserve the information needed for deferred blob fetching.
  * @param rollup - The rollup contract wrapper.
  * @param publicClient - The viem public client to use for transaction retrieval.
  * @param debugClient - The viem debug client to use for trace/debug RPC methods (optional).
@@ -176,8 +166,8 @@ export async function retrieveCheckpointCalldataFromRollup(
   searchEndBlock: bigint,
   instrumentation: ArchiverInstrumentation,
   logger: Logger = createLogger('archiver'),
-): Promise<CalldataOnlyCheckpoint[]> {
-  const retrievedCheckpoints: CalldataOnlyCheckpoint[] = [];
+): Promise<RetrievedCheckpointFromCalldata[]> {
+  const retrievedCheckpoints: RetrievedCheckpointFromCalldata[] = [];
 
   let rollupConstants: { chainId: Fr; version: Fr; targetCommitteeSize: number } | undefined;
 
@@ -209,7 +199,7 @@ export async function retrieveCheckpointCalldataFromRollup(
       };
     }
 
-    const newCheckpoints = await processCheckpointProposedLogsCalldataOnly(
+    const newCheckpoints = await processCheckpointProposedLogs(
       rollup,
       publicClient,
       debugClient,
@@ -236,7 +226,7 @@ export async function retrieveCheckpointCalldataFromRollup(
  * @param logger - The logger instance.
  * @returns An array of calldata-only checkpoints.
  */
-async function processCheckpointProposedLogsCalldataOnly(
+async function processCheckpointProposedLogs(
   rollup: RollupContract,
   publicClient: ViemPublicClient,
   debugClient: ViemPublicDebugClient,
@@ -244,8 +234,8 @@ async function processCheckpointProposedLogsCalldataOnly(
   { chainId, version, targetCommitteeSize }: { chainId: Fr; version: Fr; targetCommitteeSize: number },
   instrumentation: ArchiverInstrumentation,
   logger: Logger,
-): Promise<CalldataOnlyCheckpoint[]> {
-  const retrievedCheckpoints: CalldataOnlyCheckpoint[] = [];
+): Promise<RetrievedCheckpointFromCalldata[]> {
+  const retrievedCheckpoints: RetrievedCheckpointFromCalldata[] = [];
   const calldataRetriever = new CalldataRetriever(
     publicClient,
     debugClient,
@@ -283,8 +273,8 @@ async function processCheckpointProposedLogsCalldataOnly(
         version,
         blobHashes,
         parentBeaconBlockRoot,
-        l1BlockTimestamp: timestamp,
       });
+
       logger.trace(`Retrieved checkpoint calldata ${checkpointNumber} from L1 tx ${log.l1TransactionHash}`, {
         l1BlockNumber: log.l1BlockNumber,
         checkpointNumber,
@@ -300,44 +290,6 @@ async function processCheckpointProposedLogsCalldataOnly(
   });
 
   return retrievedCheckpoints;
-}
-
-/**
- * Fetches blobs for a calldata-only checkpoint and builds a full PublishedCheckpoint.
- * @param blobClient - The blob client for fetching blob data.
- * @param calldataCheckpoint - The calldata-only checkpoint to fetch blobs for.
- * @param logger - The logger instance.
- * @param isHistoricalSync - Whether this is a historical sync.
- * @returns A fully assembled PublishedCheckpoint.
- */
-export async function fetchBlobsAndBuildPublishedCheckpoint(
-  blobClient: BlobClientInterface,
-  calldataCheckpoint: CalldataOnlyCheckpoint,
-  logger: Logger,
-  isHistoricalSync: boolean,
-): Promise<PublishedCheckpoint> {
-  const checkpointBlobData = await getCheckpointBlobDataFromBlobs(
-    blobClient,
-    calldataCheckpoint.blockHash,
-    calldataCheckpoint.blobHashes,
-    calldataCheckpoint.checkpointNumber,
-    logger,
-    isHistoricalSync,
-    calldataCheckpoint.parentBeaconBlockRoot,
-    calldataCheckpoint.l1BlockTimestamp,
-  );
-
-  return retrievedToPublishedCheckpoint({
-    checkpointNumber: calldataCheckpoint.checkpointNumber,
-    archiveRoot: calldataCheckpoint.archiveRoot,
-    feeAssetPriceModifier: calldataCheckpoint.feeAssetPriceModifier,
-    header: calldataCheckpoint.header,
-    checkpointBlobData,
-    l1: calldataCheckpoint.l1,
-    chainId: calldataCheckpoint.chainId,
-    version: calldataCheckpoint.version,
-    attestations: calldataCheckpoint.attestations,
-  });
 }
 
 export async function getL1Block(

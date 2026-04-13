@@ -363,6 +363,12 @@ export const ARCHIVER_CHECKPOINT_L1_INCLUSION_DELAY: MetricDefinition = {
   valueType: ValueType.INT,
 };
 
+export const ARCHIVER_CHECKPOINT_PROMOTED_COUNT: MetricDefinition = {
+  name: 'aztec.archiver.checkpoint_promoted_count',
+  description: 'Number of checkpoints promoted from proposed (blob fetch skipped)',
+  valueType: ValueType.INT,
+};
+
 export const NODE_RECEIVE_TX_DURATION: MetricDefinition = {
   name: 'aztec.node.receive_tx.duration',
   description: 'The duration of the receiveTx method',

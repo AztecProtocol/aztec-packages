@@ -16,18 +16,18 @@ import { count } from '@aztec/foundation/string';
 import { DateProvider, Timer, elapsed } from '@aztec/foundation/timer';
 import { isDefined, isErrorClass } from '@aztec/foundation/types';
 import { type ArchiverEmitter, L2BlockSourceEvents, type ValidateCheckpointResult } from '@aztec/stdlib/block';
-import { PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
+import { Checkpoint, PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 import { type L1RollupConstants, getEpochAtSlot, getSlotAtNextL1Block } from '@aztec/stdlib/epoch-helpers';
 import { computeInHashFromL1ToL2Messages } from '@aztec/stdlib/messaging';
 import { type Traceable, type Tracer, execInSpan, trackSpan } from '@aztec/telemetry-client';
 
 import { InitialCheckpointNumberNotSequentialError } from '../errors.js';
 import {
-  type CalldataOnlyCheckpoint,
-  fetchBlobsAndBuildPublishedCheckpoint,
+  getCheckpointBlobDataFromBlobs,
   retrieveCheckpointCalldataFromRollup,
   retrieveL1ToL2Message,
   retrieveL1ToL2Messages,
+  retrievedToPublishedCheckpoint,
 } from '../l1/data_retrieval.js';
 import type { KVArchiverDataStore } from '../store/kv_archiver_store.js';
 import type { L2TipsCache } from '../store/l2_tips_cache.js';
@@ -68,6 +68,7 @@ export class ArchiverL1Synchronizer implements Traceable {
     private config: {
       batchSize: number;
       skipValidateCheckpointAttestations?: boolean;
+      skipPromoteProposedCheckpointDuringL1Sync?: boolean;
       maxAllowedEthClientDriftSeconds: number;
     },
     private readonly blobClient: BlobClientInterface,
@@ -93,6 +94,7 @@ export class ArchiverL1Synchronizer implements Traceable {
   public setConfig(newConfig: {
     batchSize: number;
     skipValidateCheckpointAttestations?: boolean;
+    skipPromoteProposedCheckpointDuringL1Sync?: boolean;
     maxAllowedEthClientDriftSeconds: number;
   }) {
     this.config = newConfig;
@@ -745,7 +747,7 @@ export class ArchiverL1Synchronizer implements Traceable {
 
       this.log.trace(`Retrieving checkpoints from L1 block ${searchStartBlock} to ${searchEndBlock}`);
 
-      // Phase 1: Fetch calldata only (no blobs yet)
+      // First fetch calldata only, no blobs yet, since we may be able to just get that data our of the proposed chain
       const calldataCheckpoints = await execInSpan(this.tracer, 'Archiver.retrieveCheckpointCalldataFromRollup', () =>
         retrieveCheckpointCalldataFromRollup(
           this.rollup,
@@ -774,50 +776,64 @@ export class ArchiverL1Synchronizer implements Traceable {
         },
       );
 
-      // Phase 2: Partition into checkpoints that match the proposed checkpoint (can skip blobs) vs those that need blobs
-      const proposed = await this.store.getProposedCheckpointOnly();
-      let toPromote: CalldataOnlyCheckpoint | undefined;
-      const toFetchBlobs: CalldataOnlyCheckpoint[] = [];
-      const promotedCheckpointNumbers = new Set<number>();
+      // Check if the last checkpoint matches the proposed one (so we can skip blob fetch)
+      const proposed = this.config.skipPromoteProposedCheckpointDuringL1Sync
+        ? undefined
+        : await this.store.getProposedCheckpointOnly();
+      const last = calldataCheckpoints[calldataCheckpoints.length - 1];
+      const toPromote =
+        proposed &&
+        proposed.checkpointNumber === last.checkpointNumber &&
+        proposed.header.equals(last.header) &&
+        proposed.archive.root.equals(last.archiveRoot)
+          ? last
+          : undefined;
+      const toFetchBlobs = toPromote ? calldataCheckpoints.slice(0, -1) : calldataCheckpoints;
 
-      for (const calldataCheckpoint of calldataCheckpoints) {
-        if (
-          !toPromote &&
-          proposed &&
-          proposed.checkpointNumber === calldataCheckpoint.checkpointNumber &&
-          proposed.header.equals(calldataCheckpoint.header) &&
-          proposed.archive.root.equals(calldataCheckpoint.archiveRoot)
-        ) {
-          toPromote = calldataCheckpoint;
-          promotedCheckpointNumbers.add(calldataCheckpoint.checkpointNumber);
-        } else {
-          toFetchBlobs.push(calldataCheckpoint);
-        }
-      }
-
-      // Phase 3: Fetch blobs in parallel for non-matching checkpoints
-      const blobFetched = await asyncPool(10, toFetchBlobs, checkpoint =>
-        fetchBlobsAndBuildPublishedCheckpoint(this.blobClient, checkpoint, this.log, !initialSyncComplete),
+      // Then fetch blobs in parallel for non-matching checkpoints and build the full published checkpoints
+      const blobFetched = await asyncPool(10, toFetchBlobs, async checkpoint =>
+        retrievedToPublishedCheckpoint({
+          ...checkpoint,
+          checkpointBlobData: await getCheckpointBlobDataFromBlobs(
+            this.blobClient,
+            checkpoint.l1.blockHash,
+            checkpoint.blobHashes,
+            checkpoint.checkpointNumber,
+            this.log,
+            !initialSyncComplete,
+            checkpoint.parentBeaconBlockRoot,
+            checkpoint.l1.timestamp,
+          ),
+        }),
       );
 
-      // Phase 4: Build (but don't persist) the PublishedCheckpoint from proposed data for validation
+      // Build (but don't yet persist) the promoted PublishedCheckpoint from proposed data for validation
       let promotedCheckpoint: PublishedCheckpoint | undefined;
-      if (toPromote) {
+      if (toPromote && proposed) {
         this.log.debug(
           `Building published checkpoint from proposed ${toPromote.checkpointNumber} (skipping blob fetch)`,
         );
-        promotedCheckpoint = await this.updater.buildPublishedCheckpointFromProposed(
-          toPromote.l1,
-          toPromote.attestations,
-        );
+        const blocks = await this.store.getBlocks(BlockNumber(proposed.startBlock), proposed.blockCount);
+        const checkpoint = Checkpoint.from({
+          archive: proposed.archive,
+          header: proposed.header,
+          blocks,
+          number: proposed.checkpointNumber,
+          feeAssetPriceModifier: proposed.feeAssetPriceModifier,
+        });
+        promotedCheckpoint = PublishedCheckpoint.from({
+          checkpoint,
+          l1: toPromote.l1,
+          attestations: toPromote.attestations,
+        });
+        this.instrumentation.processCheckpointPromoted();
       }
 
-      // Phase 5: Merge and sort by L1 block number
-      const publishedCheckpoints = [...blobFetched, ...(promotedCheckpoint ? [promotedCheckpoint] : [])].sort((a, b) =>
-        Number(a.l1.blockNumber - b.l1.blockNumber),
-      );
+      // And add the promoted checkpoint to the list of all checkpoints
+      const publishedCheckpoints = promotedCheckpoint ? [...blobFetched, promotedCheckpoint] : blobFetched;
       const validCheckpoints: PublishedCheckpoint[] = [];
 
+      // Now loop through all checkpoints and validate their attestations
       for (const published of publishedCheckpoints) {
         const validationResult = this.config.skipValidateCheckpointAttestations
           ? { valid: true as const }
@@ -899,30 +915,30 @@ export class ArchiverL1Synchronizer implements Traceable {
         const updatedValidationResult =
           rollupStatus.validationResult === initialValidationResult ? undefined : rollupStatus.validationResult;
 
-        // Persist promoted checkpoints that passed validation
-        for (const valid of validCheckpoints) {
-          if (promotedCheckpointNumbers.has(valid.checkpoint.number) && toPromote) {
-            await this.updater.promoteProposedCheckpoint(
-              toPromote.l1,
-              toPromote.attestations,
-              valid,
-              updatedValidationResult,
-            );
-          }
-        }
-
         // Persist blob-fetched checkpoints via addCheckpoints
-        const checkpointsToAdd = validCheckpoints.filter(c => !promotedCheckpointNumbers.has(c.checkpoint.number));
+        const checkpointsToAdd = toPromote
+          ? validCheckpoints.filter(c => c.checkpoint.number !== toPromote.checkpointNumber)
+          : validCheckpoints;
         const [processDuration, result] = await elapsed(() =>
           execInSpan(this.tracer, 'Archiver.addCheckpoints', () =>
             this.updater.addCheckpoints(checkpointsToAdd, updatedValidationResult),
           ),
         );
 
-        if (validCheckpoints.length > 0) {
+        if (checkpointsToAdd.length > 0) {
           this.instrumentation.processNewCheckpointedBlocks(
-            processDuration / validCheckpoints.length,
-            validCheckpoints.flatMap(c => c.checkpoint.blocks),
+            processDuration / checkpointsToAdd.length,
+            checkpointsToAdd.flatMap(c => c.checkpoint.blocks),
+          );
+        }
+
+        // And persist the promoted checkpoint if it passed validation
+        if (toPromote && validCheckpoints.some(c => c.checkpoint.number === toPromote.checkpointNumber)) {
+          await this.updater.promoteProposedCheckpoint(
+            toPromote.l1,
+            toPromote.attestations,
+            validCheckpoints.find(c => c.checkpoint.number === toPromote.checkpointNumber)!,
+            updatedValidationResult,
           );
         }
 
