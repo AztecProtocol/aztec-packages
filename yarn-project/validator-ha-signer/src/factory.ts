@@ -57,7 +57,8 @@ export async function createHASigner(
   const { databaseUrl, poolMaxCount, poolMinCount, poolIdleTimeoutMs, poolConnectionTimeoutMs, ...signerConfig } =
     config;
 
-  if (!databaseUrl) {
+  const databaseUrlValue = databaseUrl?.getValue();
+  if (!databaseUrlValue) {
     throw new Error('databaseUrl is required for createHASigner');
   }
 
@@ -68,7 +69,7 @@ export async function createHASigner(
   let pool: Pool;
   if (!deps?.pool) {
     pool = new Pool({
-      connectionString: databaseUrl,
+      connectionString: databaseUrlValue,
       max: poolMaxCount ?? 10,
       min: poolMinCount ?? 0,
       idleTimeoutMillis: poolIdleTimeoutMs ?? 10_000,
