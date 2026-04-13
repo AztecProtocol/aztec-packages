@@ -233,6 +233,17 @@ For queries/calls, report the returned value directly.
 - **npm install fails**: Report error, suggest checking version on npm
 - **Artifact not found**: Report error, suggest checking `@aztec/noir-contracts.js`
 
+## Cross-Agent Contract Registration
+
+When another agent needs to interact with a contract deployed by this agent, they must register it first. Always include this info in your output after deploying:
+
+```bash
+# In the other agent's run.sh, before any interaction with the contract:
+$CLI register-contract -ca <contract-address> <Artifact> -a <alias> 2>&1
+```
+
+This is necessary because each agent has its own isolated `DATA_DIR` — aliases and contract registrations are not shared between agents even though they share the same `WORKING_DIR`.
+
 ## Important Notes
 
 - **Shared WORKING_DIR**: Multiple agents with different private keys share the same `WORKING_DIR` (one per network). Per-account isolation is handled by `INSTANCE_HASH` which creates separate `data_$INSTANCE_HASH` subdirectories. Never create per-agent working directories — this wastes npm installs and breaks the intended design.

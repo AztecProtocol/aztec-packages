@@ -1,6 +1,6 @@
 ---
 name: aztec-wallet
-description: Run cli-wallet commands against a live Aztec network. Deploy contracts, send transactions, query state, bridge funds, and manage accounts.
+description: Run cli-wallet commands against a live Aztec network. Deploy contracts, send public/private transactions, query state, bridge funds, manage accounts, and coordinate multi-agent workflows.
 argument-hint: <network-or-rpc-url> <command...>
 ---
 
@@ -74,6 +74,8 @@ The cli-wallet has a persistent alias system. Use it consistently:
 - `/aztec-wallet testnet call balance_of_public on token --args <addr>` → read balance
 - `/aztec-wallet testnet send mint_to_private on token --args <addr> 1000` → mint tokens to private balance
 - `/aztec-wallet testnet send transfer on token --args <recipient> 150` → private transfer (register recipient first)
+- `/aztec-wallet testnet simulate balance_of_public on token --args <addr>` → check public token balance
+- `/aztec-wallet testnet simulate balance_of_private on token --args <addr>` → check private token balance
 - `/aztec-wallet testnet bridge 1000 to <address>` → bridge Fee Juice (requires Sepolia ETH on L1)
 - `/aztec-wallet next-net setup-account` → create account, show L2 address for bridging
 - `/aztec-wallet https://my-rpc.com deploy ./path/to/artifact.json` → custom RPC + custom contract
@@ -83,4 +85,25 @@ The cli-wallet has a persistent alias system. Use it consistently:
 - The recipient does **not** need their account deployed on-chain to receive private tokens
 - The sender must `register-sender <recipient-address>` before sending private tokens
 - The recipient will need a deployed account to later *spend* those tokens
-- `bridge-fee-juice` requires Sepolia ETH on the L1 address — it won't work with an unfunded key
+
+## Notes on Fee Juice Bridging
+
+- `bridge-fee-juice` executes an L1 transaction on Sepolia — it requires **Sepolia ETH** on the L1 address derived from the private key
+- If the L1 account has no Sepolia ETH, the command will fail with `insufficient funds for transfer`
+- The `--recipient` flag can target any L2 address, not just the sender's own account
+- Before spawning an agent to bridge, warn the user if the key is unlikely to have L1 funds (e.g. test keys like `0xdeadbeef`)
+
+## Multi-Agent Patterns
+
+When coordinating multiple agents (e.g. deployer + receiver), sequence them carefully:
+
+1. **Spawn the receiver agent first** to set up its account and get its L2 address
+2. **Then spawn the deployer** with the receiver's address, so it can deploy, mint, and transfer in one go
+3. If the deployer deploys a contract and the receiver needs to interact with it, include `register-contract` info in the deployer's output so the receiver can register it:
+   ```
+   register-contract -ca <contract-address> <Artifact> -a <alias>
+   ```
+
+**Simulate for verification**: After transfers, use `simulate` to check balances:
+- `/aztec-wallet testnet simulate balance_of_public on token --args <addr>` → check public balance
+- `/aztec-wallet testnet simulate balance_of_private on token --args <addr>` → check private balance
