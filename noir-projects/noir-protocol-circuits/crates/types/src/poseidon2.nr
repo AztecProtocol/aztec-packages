@@ -5,8 +5,9 @@ use std::meta::derive;
 // It exists as we sometimes need to perform custom absorption, but the stdlib version
 // has a private absorb() method (it's also designed to just be a hasher)
 // Can be removed when standalone noir poseidon lib exists: See noir#6679
+// TODO: Poseidon is stand-alone now
 
-comptime global RATE: u32 = 3;
+global RATE: u32 = 3;
 
 #[derive(Deserialize, Eq, Serialize)]
 pub struct Poseidon2Sponge {
@@ -38,7 +39,7 @@ impl Poseidon2Sponge {
                 self.state[i] += self.cache[i];
             }
         }
-        self.state = std::hash::poseidon2_permutation(self.state, 4);
+        self.state = std::hash::poseidon2_permutation(self.state);
     }
 
     pub fn absorb(&mut self, input: Field) {

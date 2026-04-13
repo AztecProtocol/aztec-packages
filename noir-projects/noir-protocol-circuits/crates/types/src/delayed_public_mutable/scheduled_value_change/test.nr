@@ -118,7 +118,7 @@ unconstrained fn test_get_time_horizon_n0_delay() {
     let anchor_block_timestamp = 100;
     let timestamp_of_change = 50;
 
-    let mut value_change: ScheduledValueChange<Field> =
+    let value_change: ScheduledValueChange<Field> =
         ScheduledValueChange::new(1, 2, timestamp_of_change);
 
     let time_horizon = value_change.get_time_horizon(anchor_block_timestamp, 0);
