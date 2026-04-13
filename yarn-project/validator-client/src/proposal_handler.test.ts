@@ -345,7 +345,7 @@ describe('ProposalHandler checkpoint validation', () => {
 
       const proposal = await makeProposal({ archiveRoot, checkpointHeader: header });
       const result = await handler.handleCheckpointProposal(proposal, proposalInfo);
-      expect(result).toEqual({ isValid: true });
+      expect(result).toEqual({ isValid: true, checkpointNumber: CheckpointNumber(1) });
       expect(mockDispose).toHaveBeenCalled();
     });
 

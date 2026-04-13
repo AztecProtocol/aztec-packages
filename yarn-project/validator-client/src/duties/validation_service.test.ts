@@ -1,5 +1,5 @@
 import { getAddressFromPrivateKey } from '@aztec/ethereum/account';
-import { IndexWithinCheckpoint } from '@aztec/foundation/branded-types';
+import { CheckpointNumber, IndexWithinCheckpoint } from '@aztec/foundation/branded-types';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -34,6 +34,7 @@ describe('ValidationService', () => {
 
     const proposal = await service.createBlockProposal(
       blockHeader,
+      CheckpointNumber(1),
       indexWithinCheckpoint,
       inHash,
       archive,
@@ -55,6 +56,7 @@ describe('ValidationService', () => {
 
     const proposal = await service.createBlockProposal(
       blockHeader,
+      CheckpointNumber(1),
       indexWithinCheckpoint,
       inHash,
       archive,
@@ -69,7 +71,7 @@ describe('ValidationService', () => {
   it('attests to checkpoint proposal', async () => {
     const txs = await Promise.all([Tx.random(), Tx.random()]);
     const proposal = await makeCheckpointProposal({ lastBlock: { txs } });
-    const attestations = await service.attestToCheckpointProposal(proposal, addresses);
+    const attestations = await service.attestToCheckpointProposal(proposal, addresses, CheckpointNumber(1));
     expect(attestations.length).toBe(2);
     expect(attestations[0].getSender()).toEqual(addresses[0]);
     expect(attestations[1].getSender()).toEqual(addresses[1]);
@@ -86,6 +88,7 @@ describe('ValidationService', () => {
     // so that getSender() can verify the block proposal sender matches
     const blockProposal = await service.createBlockProposal(
       blockHeader,
+      CheckpointNumber(1),
       indexWithinCheckpoint,
       checkpointHeader.inHash,
       archive,
@@ -114,6 +117,7 @@ describe('ValidationService', () => {
     const proposal = await spyService.createCheckpointProposal(
       checkpointHeader,
       archive,
+      CheckpointNumber(1),
       0n,
       blockProposal,
       addresses[0],
