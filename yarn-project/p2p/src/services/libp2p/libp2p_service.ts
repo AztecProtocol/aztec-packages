@@ -920,7 +920,7 @@ export class LibP2PService extends WithTracer implements P2PService {
     const validationTimeMs = timer.ms();
     const mcacheWindowMs = this.config.gossipsubMcacheLength * this.config.gossipsubInterval;
     if (validationTimeMs > mcacheWindowMs * 0.75) {
-      this.logger.warn(
+      this.logger.debug(
         `Gossip validation for ${topicType} took ${validationTimeMs}ms, approaching mcache eviction window of ${mcacheWindowMs}ms. ` +
           `Message forwarding may be skipped if validation exceeds the window.`,
         { msgId, source: source.toString(), topicType, validationTimeMs, mcacheWindowMs },
