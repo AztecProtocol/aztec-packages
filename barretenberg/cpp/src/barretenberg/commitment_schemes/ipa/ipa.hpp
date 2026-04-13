@@ -152,6 +152,7 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
                                                const ProverOpeningClaim<Curve>& opening_claim,
                                                const std::shared_ptr<Transcript>& transcript)
     {
+        BB_BENCH_NAME("IPA::compute_opening_proof");
         const bb::Polynomial<Fr>& polynomial = opening_claim.polynomial;
 
         // Step 1.
@@ -189,7 +190,13 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
 
         // Copy the SRS into a local data structure as we need to mutate this vector for every round
         parallel_for_heuristic(
-            poly_length, [&](size_t i) { G_vec_local[i] = srs_elements[i]; }, thread_heuristics::FF_COPY_COST);
+            poly_length,
+            [&](size_t i) {
+                BB_BENCH_TRACY_NAME("IPA::copy_srs");
+                G_vec_local[i] = srs_elements[i];
+            },
+            thread_heuristics::FF_COPY_COST,
+            "IPA::copy_srs");
 
         // Step 5.
         // Compute vector b (vector of the powers of the challenge)
@@ -198,13 +205,15 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
         parallel_for_heuristic(
             poly_length,
             [&](size_t start, size_t end, BB_UNUSED size_t chunk_index) {
+                BB_BENCH_TRACY_NAME("IPA::compute_b_vec");
                 Fr b_power = opening_pair.challenge.pow(start);
                 for (size_t i = start; i < end; i++) {
                     b_vec[i] = b_power;
                     b_power *= opening_pair.challenge;
                 }
             },
-            thread_heuristics::FF_COPY_COST + thread_heuristics::FF_MULTIPLICATION_COST);
+            thread_heuristics::FF_COPY_COST + thread_heuristics::FF_MULTIPLICATION_COST,
+            "IPA::compute_b_vec");
 
         // Iterate for log(poly_degree) rounds to compute the round commitments.
 
@@ -222,12 +231,14 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
                 round_size,
                 std::pair{ Fr::zero(), Fr::zero() },
                 [&](size_t j, std::pair<Fr, Fr>& inner_prod_left_right) {
+                    BB_BENCH_TRACY_NAME("IPA::inner_product");
                     // Compute inner_prod_L := < a_vec_lo, b_vec_hi >
                     inner_prod_left_right.first += a_vec[j] * b_vec[round_size + j];
                     // Compute inner_prod_R := < a_vec_hi, b_vec_lo >
                     inner_prod_left_right.second += a_vec[round_size + j] * b_vec[j];
                 },
-                thread_heuristics::FF_ADDITION_COST * 2 + thread_heuristics::FF_MULTIPLICATION_COST * 2);
+                thread_heuristics::FF_ADDITION_COST * 2 + thread_heuristics::FF_MULTIPLICATION_COST * 2,
+                "IPA::inner_product");
             // Sum inner product contributions computed in parallel and unpack the std::pair
             auto [inner_prod_L, inner_prod_R] = sum_pairs(inner_prods);
             // Step 6.a (using letters, because doxygen automatically converts the sublist counters to letters :( )
@@ -277,10 +288,12 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
             parallel_for_heuristic(
                 round_size,
                 [&](size_t j) {
+                    BB_BENCH_TRACY_NAME("IPA::fold_vecs");
                     a_vec.at(j) += round_challenge * a_vec[round_size + j];
                     b_vec[j] += round_challenge_inv * b_vec[round_size + j];
                 },
-                thread_heuristics::FF_ADDITION_COST * 2 + thread_heuristics::FF_MULTIPLICATION_COST * 2);
+                thread_heuristics::FF_ADDITION_COST * 2 + thread_heuristics::FF_MULTIPLICATION_COST * 2,
+                "IPA::fold_vecs");
         }
 
         // Step 7

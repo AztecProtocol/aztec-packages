@@ -3,6 +3,7 @@
 #include "barretenberg/commitment_schemes/gemini/gemini.hpp"
 #include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
 #include "barretenberg/commitment_schemes/small_subgroup_ipa/small_subgroup_ipa.hpp"
+#include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/polynomials/gate_separator.hpp"
 #include "barretenberg/polynomials/row_disabling_polynomial.hpp"
 #include "barretenberg/sumcheck/masking_tail_data.hpp"
@@ -26,6 +27,7 @@ BatchedHonkTranslatorProver::BatchedHonkTranslatorProver(std::shared_ptr<MegaZKP
  */
 void BatchedHonkTranslatorProver::execute_mega_zk_oink()
 {
+    BB_BENCH_NAME("BatchedHonkTranslatorProver::execute_mega_zk_oink");
     OinkProver<MegaZKFlavor> oink_prover(mega_zk_inst, mega_zk_vk, transcript);
     oink_prover.prove(/*emit_alpha=*/false);
 }
@@ -39,6 +41,7 @@ void BatchedHonkTranslatorProver::execute_mega_zk_oink()
  */
 void BatchedHonkTranslatorProver::execute_translator_oink()
 {
+    BB_BENCH_NAME("BatchedHonkTranslatorProver::execute_translator_oink");
     TranslatorProver trans_prover(translator_key, transcript);
     trans_prover.execute_preamble_round();
     trans_prover.execute_wire_and_sorted_constraints_commitments_round();
@@ -65,6 +68,7 @@ void BatchedHonkTranslatorProver::execute_translator_oink()
  */
 void BatchedHonkTranslatorProver::execute_joint_sumcheck_rounds()
 {
+    BB_BENCH_NAME("BatchedHonkTranslatorProver::execute_joint_sumcheck_rounds");
     // Draw joint alpha after all pre-sumcheck commitments from both circuits.
     const FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
 
@@ -283,6 +287,7 @@ void BatchedHonkTranslatorProver::execute_joint_sumcheck_rounds()
  */
 void BatchedHonkTranslatorProver::execute_joint_pcs()
 {
+    BB_BENCH_NAME("BatchedHonkTranslatorProver::execute_joint_pcs");
     using OpeningClaim = ProverOpeningClaim<Curve>;
     using PolynomialBatcher = GeminiProver_<Curve>::PolynomialBatcher;
     using SmallSubgroupIPA = SmallSubgroupIPAProver<MegaZKFlavor>;
@@ -337,12 +342,14 @@ void BatchedHonkTranslatorProver::execute_joint_pcs()
 
 HonkProof BatchedHonkTranslatorProver::prove_mega_zk_oink()
 {
+    BB_BENCH_NAME("BatchedHonkTranslatorProver::prove_mega_zk_oink");
     execute_mega_zk_oink();
     return transcript->export_proof();
 }
 
 HonkProof BatchedHonkTranslatorProver::prove(std::shared_ptr<TranslatorProvingKey> translator_proving_key)
 {
+    BB_BENCH_NAME("BatchedHonkTranslatorProver::prove");
     translator_key = std::move(translator_proving_key);
     execute_translator_oink();
     execute_joint_sumcheck_rounds();

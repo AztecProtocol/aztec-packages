@@ -37,12 +37,13 @@ class ThreadPool {
     ThreadPool& operator=(const ThreadPool& other) = delete;
     ThreadPool& operator=(ThreadPool&& other) = delete;
 
-    void start_tasks(size_t num_iterations, const std::function<void(size_t)>& func)
+    void start_tasks(size_t num_iterations, const std::function<void(size_t)>& func, const char* task_name = nullptr)
     {
         parent.store(bb::detail::GlobalBenchStatsContainer::parent);
         {
             std::unique_lock<std::mutex> lock(tasks_mutex);
             task_ = func;
+            task_name_ = task_name;
             num_iterations_ = num_iterations;
             iteration_ = 0;
             complete_ = 0;
@@ -63,6 +64,7 @@ class ThreadPool {
     std::vector<std::thread> workers;
     std::mutex tasks_mutex;
     std::function<void(size_t)> task_;
+    const char* task_name_ = nullptr;
     size_t num_iterations_ = 0;
     size_t iteration_ = 0;
     size_t complete_ = 0;
@@ -76,14 +78,22 @@ class ThreadPool {
     {
         while (true) {
             size_t iteration = 0;
+            [[maybe_unused]] const char* name = nullptr;
             {
                 std::unique_lock<std::mutex> lock(tasks_mutex);
                 if (iteration_ == num_iterations_) {
                     return;
                 }
                 iteration = iteration_++;
+#ifdef TRACY_INSTRUMENTED
+                name = task_name_;
+#endif
             }
-            // BB_BENCH_NAME("do_iterations()");
+#ifdef TRACY_INSTRUMENTED
+            ZoneNamed(tracy_zone, true);
+            const char* display_name = (name != nullptr) ? name : "parallel_task";
+            ZoneNameV(tracy_zone, display_name, strlen(display_name));
+#endif
             task_(iteration);
             {
                 std::unique_lock<std::mutex> lock(tasks_mutex);
@@ -116,9 +126,14 @@ ThreadPool::~ThreadPool()
     }
 }
 
-void ThreadPool::worker_loop(size_t /*unused*/)
+void ThreadPool::worker_loop([[maybe_unused]] size_t thread_index)
 {
-    // info("created worker ", worker_num);
+#ifdef TRACY_INSTRUMENTED
+    char thread_name[32];
+    snprintf(thread_name, sizeof(thread_name), "worker-%zu", thread_index);
+    tracy::SetThreadName(thread_name);
+#endif
+    // info("created worker ", thread_index);
     while (true) {
         {
             std::unique_lock<std::mutex> lock(tasks_mutex);
@@ -142,7 +157,7 @@ namespace bb {
  * A thread pooled strategy that uses std::mutex for protection. Each worker increments the "iteration" and processes.
  * The main thread acts as a worker also, and when it completes, it spins until thread workers are done.
  */
-void parallel_for_mutex_pool(size_t num_iterations, const std::function<void(size_t)>& func)
+void parallel_for_mutex_pool(size_t num_iterations, const std::function<void(size_t)>& func, const char* name)
 {
 #ifdef __wasm__
 #define THREAD_LOCAL_MAYBE
@@ -162,7 +177,7 @@ void parallel_for_mutex_pool(size_t num_iterations, const std::function<void(siz
     }
 
     nested = true;
-    pool.start_tasks(num_iterations, func);
+    pool.start_tasks(num_iterations, func, name);
     nested = false;
 }
 } // namespace bb

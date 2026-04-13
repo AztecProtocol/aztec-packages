@@ -36,17 +36,20 @@ template <typename Flavor> ProverInstance_<Flavor>::ProverInstance_(Circuit& cir
               "Pairing points must be set to public in the circuit before constructing the ProverInstance.");
 
     // ProverInstances can be constructed multiple times, hence, we check whether the circuit has been finalized
-    if (!circuit.circuit_finalized) {
-        circuit.finalize_circuit(/* ensure_nonzero = */ true);
-    }
-    metadata.dyadic_size = compute_dyadic_size(circuit);
-    masking_tail_data.dyadic_size = metadata.dyadic_size;
+    {
+        BB_BENCH_NAME("finalize_circuit");
+        if (!circuit.circuit_finalized) {
+            circuit.finalize_circuit(/* ensure_nonzero = */ true);
+        }
+        metadata.dyadic_size = compute_dyadic_size(circuit);
+        masking_tail_data.dyadic_size = metadata.dyadic_size;
 
-    // Find index of last non-trivial wire value in the trace
-    circuit.blocks.compute_offsets(); // compute offset of each block within the trace
-    for (auto& block : circuit.blocks.get()) {
-        if (block.size() > 0) {
-            final_active_wire_idx = block.trace_offset() + block.size() - 1;
+        // Find index of last non-trivial wire value in the trace
+        circuit.blocks.compute_offsets(); // compute offset of each block within the trace
+        for (auto& block : circuit.blocks.get()) {
+            if (block.size() > 0) {
+                final_active_wire_idx = block.trace_offset() + block.size() - 1;
+            }
         }
     }
 

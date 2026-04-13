@@ -22,14 +22,17 @@ namespace bb {
 template <typename Flavor> void OinkProver<Flavor>::prove(bool emit_alpha)
 {
     BB_BENCH_NAME("OinkProver::prove");
-    // For ZK, we need SRS points up to dyadic_size for tail masking commitments
-    const size_t ck_size =
-        Flavor::HasZK ? prover_instance->dyadic_size() : prover_instance->polynomials.max_end_index();
-    commitment_key = CommitmentKey(ck_size);
+    {
+        BB_BENCH_NAME("OinkProver::init_commitment_key");
+        // For ZK, we need SRS points up to dyadic_size for tail masking commitments
+        const size_t ck_size =
+            Flavor::HasZK ? prover_instance->dyadic_size() : prover_instance->polynomials.max_end_index();
+        commitment_key = CommitmentKey(ck_size);
 
-    // Register all masked polys upfront (generates random tail values)
-    if constexpr (Flavor::HasZK) {
-        prover_instance->masking_tail_data.register_all_masked_polys();
+        // Register all masked polys upfront (generates random tail values)
+        if constexpr (Flavor::HasZK) {
+            prover_instance->masking_tail_data.register_all_masked_polys();
+        }
     }
 
     send_vk_hash_and_public_inputs();
@@ -219,6 +222,7 @@ template <typename Flavor> void OinkProver<Flavor>::commit_to_masking_poly()
  */
 template <typename Flavor> void OinkProver<Flavor>::add_ram_rom_memory_records_to_wire_4(ProverInstance& instance)
 {
+    BB_BENCH_NAME("OinkProver::add_ram_rom_memory_records_to_wire_4");
     // The memory record values are computed at the indicated indices as
     // w4 = w3 * eta^3 + w2 * eta^2 + w1 * eta + read_write_flag;
     // (See the Memory relation for details)
@@ -282,6 +286,7 @@ template <typename Flavor> void OinkProver<Flavor>::compute_logderivative_invers
  */
 template <typename Flavor> void OinkProver<Flavor>::compute_grand_product_polynomial(ProverInstance& instance)
 {
+    BB_BENCH_NAME("OinkProver::compute_grand_product_polynomial");
     auto& relation_parameters = instance.relation_parameters;
     relation_parameters.public_input_delta = compute_public_input_delta<Flavor>(
         instance.public_inputs, relation_parameters.beta, relation_parameters.gamma, instance.pub_inputs_offset());
