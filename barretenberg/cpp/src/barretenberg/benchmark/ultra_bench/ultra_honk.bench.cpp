@@ -106,6 +106,37 @@ BENCHMARK(construct_proof_ultrahonk_zk_power_of_2)
     ->DenseRange(15, 20)
     ->Unit(kMillisecond);
 
+/**
+ * @brief Benchmark: Non-ZK proof where the gate count is 2^n + 10%, causing dyadic size to round up to 2^(n+1).
+ * This gives ~55% trace utilization — measures the cost of padding waste.
+ */
+static void construct_proof_ultrahonk_sparse(State& state) noexcept
+{
+    auto log2_of_gates = static_cast<size_t>(state.range(0));
+    size_t target_gates = (1UL << log2_of_gates) + (1UL << log2_of_gates) / 10;
+    bb::mock_circuits::construct_proof_with_specified_num_iterations<UltraProver>(
+        state,
+        &bb::mock_circuits::generate_basic_arithmetic_circuit_with_target_gates<UltraCircuitBuilder>,
+        target_gates);
+}
+
+/**
+ * @brief Benchmark: ZK proof where the gate count is 2^n + 10%, causing dyadic size to round up to 2^(n+1).
+ */
+static void construct_proof_ultrahonk_zk_sparse(State& state) noexcept
+{
+    auto log2_of_gates = static_cast<size_t>(state.range(0));
+    size_t target_gates = (1UL << log2_of_gates) + (1UL << log2_of_gates) / 10;
+    bb::mock_circuits::construct_proof_with_specified_num_iterations<UltraZKProver>(
+        state,
+        &bb::mock_circuits::generate_basic_arithmetic_circuit_with_target_gates<UltraCircuitBuilder>,
+        target_gates);
+}
+
+BENCHMARK(construct_proof_ultrahonk_sparse)->DenseRange(15, 20)->Unit(kMillisecond);
+
+BENCHMARK(construct_proof_ultrahonk_zk_sparse)->DenseRange(15, 20)->Unit(kMillisecond);
+
 BENCHMARK(construct_proof_ultrahonk_1M_gates_dyadic_2_20)->Unit(kMillisecond);
 BENCHMARK(construct_proof_ultrahonk_1M_gates_dyadic_2_21)->Unit(kMillisecond);
 
