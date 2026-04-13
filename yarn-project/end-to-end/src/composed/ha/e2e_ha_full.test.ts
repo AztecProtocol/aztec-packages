@@ -16,7 +16,7 @@ import type { Logger } from '@aztec/aztec.js/log';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import { GovernanceProposerContract } from '@aztec/ethereum/contracts';
 import type { DeployAztecL1ContractsReturnType } from '@aztec/ethereum/deploy-aztec-l1-contracts';
-import { BlockNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { SecretValue } from '@aztec/foundation/config';
 import { withLoggerBindings } from '@aztec/foundation/log/server';
@@ -815,7 +815,8 @@ describe('HA Full Setup', () => {
           rollupAddress,
           validatorAddress,
           slot: SlotNumber(100),
-          blockNumber: BlockNumber(100),
+          blockNumber: BlockNumber(0),
+          checkpointNumber: CheckpointNumber(0),
           dutyType: DutyType.ATTESTATION,
           messageHash: Buffer32.random().toString(),
           nodeId: 'node-utc',
@@ -840,7 +841,8 @@ describe('HA Full Setup', () => {
           rollupAddress,
           validatorAddress,
           slot: SlotNumber(101),
-          blockNumber: BlockNumber(101),
+          blockNumber: BlockNumber(0),
+          checkpointNumber: CheckpointNumber(0),
           dutyType: DutyType.ATTESTATION,
           messageHash: Buffer32.random().toString(),
           nodeId: 'node-tokyo',
@@ -886,7 +888,8 @@ describe('HA Full Setup', () => {
         rollupAddress,
         validatorAddress,
         slot: SlotNumber(200),
-        blockNumber: BlockNumber(200),
+        blockNumber: BlockNumber(0),
+        checkpointNumber: CheckpointNumber(0),
         dutyType: DutyType.ATTESTATION,
         messageHash: Buffer32.random().toString(),
         nodeId: 'test-node',
@@ -947,7 +950,8 @@ describe('HA Full Setup', () => {
         rollupAddress,
         validatorAddress,
         slot: SlotNumber(300),
-        blockNumber: BlockNumber(300),
+        blockNumber: BlockNumber(0),
+        checkpointNumber: CheckpointNumber(0),
         dutyType: DutyType.ATTESTATION,
         messageHash: Buffer32.random().toString(),
         nodeId: 'test-node',
@@ -1012,7 +1016,8 @@ describe('HA Full Setup', () => {
         rollupAddress,
         validatorAddress,
         slot: SlotNumber(400),
-        blockNumber: BlockNumber(400),
+        blockNumber: BlockNumber(0),
+        checkpointNumber: CheckpointNumber(0),
         dutyType: DutyType.ATTESTATION,
         messageHash: Buffer32.random().toString(),
         nodeId: 'stuck-node',

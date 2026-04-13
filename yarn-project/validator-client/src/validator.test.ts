@@ -217,6 +217,7 @@ describe('ValidatorClient', () => {
 
       const blockProposal = await validatorClient.createBlockProposal(
         blockHeader,
+        CheckpointNumber(1),
         indexWithinCheckpoint,
         inHash,
         archive,
@@ -238,7 +239,7 @@ describe('ValidatorClient', () => {
       const proposal = await makeCheckpointProposal({ lastBlock: {} });
 
       await expect(
-        validatorClient.collectAttestations(proposal, 2, new Date(dateProvider.now() + 100)),
+        validatorClient.collectAttestations(proposal, 2, new Date(dateProvider.now() + 100), CheckpointNumber(1)),
       ).rejects.toThrow(AttestationTimeoutError);
     });
 
@@ -271,6 +272,7 @@ describe('ValidatorClient', () => {
         proposal,
         numberOfRequiredAttestations,
         new Date(dateProvider.now() + 5000),
+        CheckpointNumber(1),
       );
 
       expect(attestations).toHaveLength(numberOfRequiredAttestations);
@@ -284,7 +286,7 @@ describe('ValidatorClient', () => {
       const proposal = await makeCheckpointProposal({ lastBlock: {} });
       // collectAttestations still throws as we don't have a real p2pClient
       await expect(
-        validatorClient.collectAttestations(proposal, 3, new Date(dateProvider.now() + 100)),
+        validatorClient.collectAttestations(proposal, 3, new Date(dateProvider.now() + 100), CheckpointNumber(1)),
       ).rejects.toThrow(AttestationTimeoutError);
       expect(addCheckpointAttestationsSpy).toHaveBeenCalled();
       expect(addCheckpointAttestationsSpy.mock.calls[0][0]).toHaveLength(2);
@@ -320,7 +322,7 @@ describe('ValidatorClient', () => {
 
       // Perform the query - should timeout but we're testing the filtering behavior
       await expect(
-        validatorClient.collectAttestations(proposal, 2, new Date(dateProvider.now() + 1000)),
+        validatorClient.collectAttestations(proposal, 2, new Date(dateProvider.now() + 1000), CheckpointNumber(1)),
       ).rejects.toThrow(AttestationTimeoutError);
 
       // Verify that getCheckpointAttestationsForSlot was called (meaning the loop ran)
@@ -588,7 +590,7 @@ describe('ValidatorClient', () => {
       // own checks (signature, fee modifier) and then proceeds to blob upload.
       const validateCheckpointSpy = jest
         .spyOn(validatorClient.getProposalHandler(), 'validateCheckpointProposal')
-        .mockResolvedValue({ isValid: true });
+        .mockResolvedValue({ isValid: true, checkpointNumber: CheckpointNumber(1) });
 
       // Enable blob upload for this attestation
       blobClient.canUpload.mockReturnValue(true);

@@ -1,6 +1,6 @@
 import {
   BlockNumber,
-  type CheckpointNumber,
+  CheckpointNumber,
   type IndexWithinCheckpoint,
   type SlotNumber,
 } from '@aztec/foundation/branded-types';
@@ -20,40 +20,40 @@ export enum DutyType {
 }
 
 /**
- * Base context for signing operations
- */
-interface BaseSigningContext {
-  /** Slot number for this duty */
-  slot: SlotNumber;
-  /**
-   * Block or checkpoint number for this duty.
-   * For block proposals, this is the block number.
-   * For checkpoint proposals, this is the checkpoint number.
-   */
-  blockNumber: BlockNumber | CheckpointNumber;
-}
-
-/**
  * Signing context for block proposals.
- * blockIndexWithinCheckpoint is REQUIRED and must be >= 0.
+ * Includes both the block number and the checkpoint number the block belongs to.
  */
-export interface BlockProposalSigningContext extends BaseSigningContext {
+export interface BlockProposalSigningContext {
+  slot: SlotNumber;
+  blockNumber: BlockNumber;
+  checkpointNumber: CheckpointNumber;
   /** Block index within checkpoint (0, 1, 2...). Required for block proposals. */
   blockIndexWithinCheckpoint: IndexWithinCheckpoint;
   dutyType: DutyType.BLOCK_PROPOSAL;
 }
 
 /**
- * Signing context for non-block-proposal duties that require HA protection.
- * blockIndexWithinCheckpoint is not applicable (internally always -1).
+ * Signing context for checkpoint proposals.
+ * Includes the checkpoint number being proposed, but not a block number.
  */
-export interface OtherSigningContext extends BaseSigningContext {
-  dutyType: DutyType.CHECKPOINT_PROPOSAL | DutyType.ATTESTATION | DutyType.ATTESTATIONS_AND_SIGNERS;
+export interface CheckpointProposalSigningContext {
+  slot: SlotNumber;
+  checkpointNumber: CheckpointNumber;
+  dutyType: DutyType.CHECKPOINT_PROPOSAL;
+}
+
+/**
+ * Signing context for attestation duties (checkpoint attestations).
+ * Includes the checkpoint number when available (from proposal validation).
+ */
+export interface AttestationSigningContext {
+  slot: SlotNumber;
+  checkpointNumber: CheckpointNumber;
+  dutyType: DutyType.ATTESTATION | DutyType.ATTESTATIONS_AND_SIGNERS;
 }
 
 /**
  * Signing context for governance/slashing votes which only need slot for HA protection.
- * blockNumber is not applicable (internally always 0).
  */
 export interface VoteSigningContext {
   slot: SlotNumber;
@@ -69,18 +69,23 @@ export interface NoHAProtectionSigningContext {
 }
 
 /**
- * Signing contexts that require HA protection (excludes AUTH_REQUEST).
+ * Signing contexts that require HA protection (excludes AUTH_REQUEST and TXS).
  * Used by the HA signer's signWithProtection method.
  */
-export type HAProtectedSigningContext = BlockProposalSigningContext | OtherSigningContext | VoteSigningContext;
+export type HAProtectedSigningContext =
+  | BlockProposalSigningContext
+  | CheckpointProposalSigningContext
+  | AttestationSigningContext
+  | VoteSigningContext;
 
 /**
  * Context required for slashing protection during signing operations.
  * Uses discriminated union to enforce type safety:
- * - BLOCK_PROPOSAL duties MUST have blockIndexWithinCheckpoint >= 0
- * - Other duty types do NOT have blockIndexWithinCheckpoint (internally -1)
- * - Vote duties only need slot (blockNumber is internally 0)
- * - AUTH_REQUEST and TXS duties don't need slot/blockNumber (no HA protection needed)
+ * - BLOCK_PROPOSAL duties have blockNumber, checkpointNumber, and blockIndexWithinCheckpoint
+ * - CHECKPOINT_PROPOSAL duties have checkpointNumber
+ * - ATTESTATION/ATTESTATIONS_AND_SIGNERS duties have only slot
+ * - Vote duties have only slot
+ * - AUTH_REQUEST and TXS duties don't need HA protection
  */
 export type SigningContext = HAProtectedSigningContext | NoHAProtectionSigningContext;
 
@@ -94,19 +99,28 @@ export function isHAProtectedContext(context: SigningContext): context is HAProt
 
 /**
  * Gets the block number from a signing context.
- * - Vote duties (GOVERNANCE_VOTE, SLASHING_VOTE): returns BlockNumber(0)
- * - Other duties: returns the blockNumber from the context
+ * Only BLOCK_PROPOSAL duties carry a block number; all others return BlockNumber(0).
  */
-export function getBlockNumberFromSigningContext(context: HAProtectedSigningContext): BlockNumber | CheckpointNumber {
-  // Check for duty types that have blockNumber
+export function getBlockNumberFromSigningContext(context: HAProtectedSigningContext): BlockNumber {
+  if (context.dutyType === DutyType.BLOCK_PROPOSAL) {
+    return context.blockNumber;
+  }
+  return BlockNumber(0);
+}
+
+/**
+ * Gets the checkpoint number from a signing context.
+ * BLOCK_PROPOSAL, CHECKPOINT_PROPOSAL, ATTESTATION, and ATTESTATIONS_AND_SIGNERS duties carry a checkpoint number;
+ * vote duties return CheckpointNumber(0).
+ */
+export function getCheckpointNumberFromSigningContext(context: HAProtectedSigningContext): CheckpointNumber {
   if (
     context.dutyType === DutyType.BLOCK_PROPOSAL ||
     context.dutyType === DutyType.CHECKPOINT_PROPOSAL ||
     context.dutyType === DutyType.ATTESTATION ||
     context.dutyType === DutyType.ATTESTATIONS_AND_SIGNERS
   ) {
-    return context.blockNumber;
+    return context.checkpointNumber;
   }
-  // Vote duties (GOVERNANCE_VOTE, SLASHING_VOTE) don't have blockNumber
-  return BlockNumber(0);
+  return CheckpointNumber(0);
 }

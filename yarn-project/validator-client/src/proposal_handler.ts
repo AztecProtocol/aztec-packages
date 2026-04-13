@@ -76,7 +76,9 @@ export type BlockProposalValidationFailureResult = {
 
 export type BlockProposalValidationResult = BlockProposalValidationSuccessResult | BlockProposalValidationFailureResult;
 
-export type CheckpointProposalValidationResult = { isValid: true } | { isValid: false; reason: string };
+export type CheckpointProposalValidationResult =
+  | { isValid: true; checkpointNumber: CheckpointNumber }
+  | { isValid: false; reason: string };
 
 type CheckpointComputationResult =
   | { checkpointNumber: CheckpointNumber; reason?: undefined }
@@ -914,7 +916,7 @@ export class ProposalHandler {
     }
 
     this.log.verbose(`Checkpoint proposal validation successful for slot ${slot}`, proposalInfo);
-    return { isValid: true };
+    return { isValid: true, checkpointNumber };
   }
 
   /** Extracts checkpoint global variables from a block. */
