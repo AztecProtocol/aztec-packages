@@ -118,6 +118,15 @@ export class LogService {
     const anchorBlockNumber = this.anchorBlockHeader.getBlockNumber();
     const anchorBlockHash = await this.anchorBlockHeader.hash();
 
+    // Fetch chain state once — all sender-recipient pairs need the same values and fetching
+    // per-pair would cause N redundant node_getL2Tips + node_getBlockHeader calls in parallel.
+    const [l2Tips, latestBlockHeader] = await Promise.all([
+      this.aztecNode.getL2Tips(),
+      this.aztecNode.getBlockHeader('latest'),
+    ]);
+    if (!latestBlockHeader) {
+      throw new Error('Node failed to return latest block header when syncing logs');
+    }
     // Get all secrets for this recipient (one per sender)
     const secrets = await this.#getSecretsForSenders(contractAddress, recipient);
 
@@ -130,6 +139,8 @@ export class LogService {
           this.recipientTaggingStore,
           anchorBlockNumber,
           anchorBlockHash,
+          latestBlockHeader.globalVariables.timestamp,
+          l2Tips.finalized.block.number,
           this.jobId,
         ),
       ),
