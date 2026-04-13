@@ -152,13 +152,14 @@ describe('e2e_epochs/epochs_ha_sync', () => {
 
     // Warp to 1 L1 slot before the start of the following L2 slot, so sequencers start cleanly.
     // We don't warp to the next L2 slot because we may already be less than 1 L1 slot before it.
-    const currentSlot = await rollup.getSlotNumber();
-    const nextSlot = SlotNumber(currentSlot + 2);
-    const nextSlotTimestamp = getTimestampForSlot(nextSlot, test.constants);
-    await context.cheatCodes.eth.warp(Number(nextSlotTimestamp) - test.L1_BLOCK_TIME_IN_S, {
-      resetBlockInterval: true,
+    // Pause L1 mining so the chain doesn't advance past the warp target between the slot query and the warp call.
+    await context.cheatCodes.eth.execWithPausedAnvil(async () => {
+      const currentSlot = await rollup.getSlotNumber();
+      const nextSlot = SlotNumber(currentSlot + 2);
+      const nextSlotTimestamp = getTimestampForSlot(nextSlot, test.constants);
+      await context.cheatCodes.eth.warp(Number(nextSlotTimestamp) - test.L1_BLOCK_TIME_IN_S);
+      logger.warn(`Warped to 1 L1 slot before L2 slot ${nextSlot}.`);
     });
-    logger.warn(`Warped to 1 L1 slot before L2 slot ${nextSlot}.`);
 
     // Start the sequencers on all nodes.
     await Promise.all(nodes.map(n => n.getSequencer()!.start()));
