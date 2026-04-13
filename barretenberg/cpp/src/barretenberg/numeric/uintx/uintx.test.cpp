@@ -8,9 +8,10 @@ using namespace bb;
 
 // Explicit instantiation of barrett_reduction for the test-only 1024-bit modulus.
 namespace bb::numeric {
-constexpr uint512_t TEST_MODULUS(uint256_t{ "0x04689e957a1242c84a50189c6d96cadca602072d09eac1013b5458a2275d69b1" },
-                                 uint256_t{ "0x0925c4b8763cbf9c599a6f7c0348d21cb00b85511637560626edfa5c34c6b38d" });
-template std::pair<uint1024_t, uint1024_t> uintx<uint512_t>::barrett_reduction<TEST_MODULUS>() const;
+static constexpr uint512_t TEST_MODULUS(
+    uint256_t{ "0x04689e957a1242c84a50189c6d96cadca602072d09eac1013b5458a2275d69b1" },
+    uint256_t{ "0x0925c4b8763cbf9c599a6f7c0348d21cb00b85511637560626edfa5c34c6b38d" });
+template std::pair<uint1024_t, uint1024_t> uintx<uint512_t>::barrett_reduction<&TEST_MODULUS>() const;
 } // namespace bb::numeric
 
 namespace {
@@ -25,9 +26,9 @@ TEST(uintx, BarrettReduction512)
     static constexpr uint64_t modulus_1 = 0x97816a916871ca8dUL;
     static constexpr uint64_t modulus_2 = 0xb85045b68181585dUL;
     static constexpr uint64_t modulus_3 = 0x30644e72e131a029UL;
-    constexpr uint256_t modulus(modulus_0, modulus_1, modulus_2, modulus_3);
+    static constexpr uint256_t modulus(modulus_0, modulus_1, modulus_2, modulus_3);
 
-    const auto [quotient_result, remainder_result] = x.barrett_reduction<modulus>();
+    const auto [quotient_result, remainder_result] = x.barrett_reduction<&modulus>();
     const auto [quotient_expected, remainder_expected] = x.divmod_base(uint512_t(modulus));
     EXPECT_EQ(quotient_result, quotient_expected);
     EXPECT_EQ(remainder_result, remainder_expected);
@@ -37,11 +38,11 @@ TEST(uintx, BarrettReduction1024)
 {
     uint1024_t x = engine.get_random_uint1024();
 
-    constexpr uint256_t modulus_lo{ "0x04689e957a1242c84a50189c6d96cadca602072d09eac1013b5458a2275d69b1" };
-    constexpr uint256_t modulus_hi{ "0x0925c4b8763cbf9c599a6f7c0348d21cb00b85511637560626edfa5c34c6b38d" };
-    constexpr uint512_t modulus{ modulus_lo, modulus_hi };
+    static constexpr uint256_t modulus_lo{ "0x04689e957a1242c84a50189c6d96cadca602072d09eac1013b5458a2275d69b1" };
+    static constexpr uint256_t modulus_hi{ "0x0925c4b8763cbf9c599a6f7c0348d21cb00b85511637560626edfa5c34c6b38d" };
+    static constexpr uint512_t modulus{ modulus_lo, modulus_hi };
 
-    const auto [quotient_result, remainder_result] = x.barrett_reduction<modulus>();
+    const auto [quotient_result, remainder_result] = x.barrett_reduction<&modulus>();
     const auto [quotient_expected, remainder_expected] = x.divmod_base(uint1024_t(modulus));
     EXPECT_EQ(quotient_result, quotient_expected);
     EXPECT_EQ(remainder_result, remainder_expected);
@@ -336,14 +337,14 @@ TEST(uintx, Slice)
 TEST(uintx, BarrettReductionRegression)
 {
     // Test specific modulus and self values that may cause issues
-    constexpr uint256_t modulus{ "0xffffffff00000001000000000000000000000000ffffffffffffffffffffffff" };
+    static constexpr uint256_t modulus{ "0xffffffff00000001000000000000000000000000ffffffffffffffffffffffff" };
 
     // Test case 1: self = 0xffffffff0000000000000000000000000000000000000000003a000000000000
     // This is a 256-bit value, so we need to construct it as a single uint256_t
     constexpr uint256_t self_value{ "0xffffffff0000000000000000000000000000000000000000003a000000000000" };
     uint512_t self(self_value);
     self = self << 256;
-    const auto [quotient_result, remainder_result] = self.barrett_reduction<modulus>();
+    const auto [quotient_result, remainder_result] = self.barrett_reduction<&modulus>();
     const auto [quotient_expected, remainder_expected] = self.divmod_base(uint512_t(modulus));
     EXPECT_EQ(quotient_result, quotient_expected);
     EXPECT_EQ(remainder_result, remainder_expected);
