@@ -66,7 +66,7 @@ fn check_packed_note<let N: u32>(packed_note: [Field; N], selects: BoundedVec<Op
 //   - `[1, 5],  [1, 10]` -> fails:  field_0 ties, so field_1 (5 < 10) violates DESC.
 //   - `[1, 10], [1, 10]` -> passes: all fields tie, any order criteria is valid.
 //
-// With criteria `[field_0 DESC]` only (partial):
+// With a single criterion, `[field_0 DESC]`:
 //   - `[10, 1], [5, 20]` -> passes: field_0 (10 > 5) satisfies DESC, field_1 is never compared.
 //   - `[5, 1],  [5, 20]` -> passes: field_0 ties and there are no more criteria, so any order is accepted.
 //
@@ -75,29 +75,25 @@ fn check_packed_note<let N: u32>(packed_note: [Field; N], selects: BoundedVec<Op
 //
 // This is called by [`confirm_hinted_notes`] to validate that the oracle returned notes in the requested order.
 fn assert_notes_order<let N: u32>(note_1: [Field; N], note_2: [Field; N], sort_criteria: BoundedVec<Option<Sort>, N>) {
-    let mut order_valid = false;
+    // Tracks whether a prior criterion already determined the ordering. Once true, all subsequent
+    // asserts become trivially satisfied. We fold this into the assert condition instead of
+    // predicating the loop body to avoid gating field extraction behind a branch, which would be
+    // more expensive in a circuit.
+    let mut order_decided = false;
     for i in 0..sort_criteria.len() {
-        if !order_valid {
-            let sort = sort_criteria.get_unchecked(i).unwrap_unchecked();
-            let field_1 = extract_property_value_from_selector(note_1, sort.property_selector);
-            let field_2 = extract_property_value_from_selector(note_2, sort.property_selector);
-            if field_1 != field_2 {
-                let lt = field_1.lt(field_2);
-                if sort.order == SortOrder.ASC {
-                    assert(lt, "Return notes not sorted in ascending order.");
-                } else {
-                    assert(!lt, "Return notes not sorted in descending order.");
-                }
-                order_valid = true;
+        let sort = sort_criteria.get_unchecked(i).unwrap_unchecked();
+        let field_1 = extract_property_value_from_selector(note_1, sort.property_selector);
+        let field_2 = extract_property_value_from_selector(note_2, sort.property_selector);
+        if field_1 != field_2 {
+            let lt = field_1.lt(field_2);
+            if sort.order == SortOrder.ASC {
+                assert(lt | order_decided, "Return notes not sorted in ascending order.");
+            } else {
+                assert(!lt | order_decided, "Return notes not sorted in descending order.");
             }
+            order_decided = true;
         }
     }
-}
-
-pub(crate) fn sort_criterion(index: u8, order: u8) -> Option<Sort> {
-    Option::some(
-        Sort::new(PropertySelector { index, offset: 0, length: 32 }, order),
-    )
 }
 
 pub fn get_note<Note>(
