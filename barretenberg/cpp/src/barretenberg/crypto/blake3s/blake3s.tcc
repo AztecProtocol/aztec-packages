@@ -180,7 +180,7 @@ struct output_t {
 constexpr output_t make_output(const key_array& input_cv, const uint8_t* block, uint8_t block_len, uint8_t flags)
 {
     output_t ret;
-    for (size_t i = 0; i < (BLAKE3_OUT_LEN >> 2); ++i) {
+    for (size_t i = 0; i < ret.input_cv.size(); ++i) {
         ret.input_cv[i] = input_cv[i];
     }
     for (size_t i = 0; i < BLAKE3_BLOCK_LEN; i++) {
@@ -193,7 +193,7 @@ constexpr output_t make_output(const key_array& input_cv, const uint8_t* block, 
 
 constexpr void blake3_hasher_init(blake3_hasher* self)
 {
-    for (size_t i = 0; i < (BLAKE3_KEY_LEN >> 2); ++i) {
+    for (size_t i = 0; i < IV.size(); ++i) {
         self->key[i] = IV[i];
         self->cv[i] = IV[i];
     }
@@ -260,6 +260,11 @@ std::vector<uint8_t> blake3s(std::vector<uint8_t> const& input)
 
 constexpr std::array<uint8_t, BLAKE3_OUT_LEN> blake3s_constexpr(const uint8_t* input, const size_t input_size)
 {
+    if (std::is_constant_evaluated()) {
+        if (input_size > 1024U) {
+            __builtin_trap();
+        }
+    }
     blake3_hasher hasher;
     blake3_hasher_init(&hasher);
     blake3_hasher_update(&hasher, input, input_size);
