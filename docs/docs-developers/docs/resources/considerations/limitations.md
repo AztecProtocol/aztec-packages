@@ -30,11 +30,11 @@ Help shape and define:
 ## Limitations developers need to know about
 
 - It is a testing environment, insecure and unaudited. It is only for testing purposes.
-- `msg_sender` is currently leaked when making private -> public calls.
-  - The `msg_sender` is always set. If you call a public function from the private world, the `msg_sender` is set to the private caller's address.
-  - There are patterns that can mitigate this.
+- `msg_sender` is leaked by default when making private -> public calls.
+  - `self.enqueue(...)` sets `msg_sender` to the private caller's address, which is publicly visible.
+  - Use `self.enqueue_incognito(...)` to hide the sender. The called public function must use `maybe_msg_sender()` instead of `msg_sender()` to handle the null sender.
 - The initial `msg_sender` is `-1`, which can be problematic for some contracts.
-- The number of side-effects attached to a transaction (when sending the transaction to the mempool) is leaky. At this stage of development, this is _intentional_, so that we can gauge appropriate choices for privacy sets. We have clear plans to implement privacy sets so that side effects are much less leaky, and these will be in place for mainnet.
+- Some side-effect counts are still visible in a transaction. Note hashes, nullifiers, and private logs are padded to hide their true counts, but the number of public function calls and L2->L1 messages remains visible. Privacy sets to further reduce leakage are still under development.
 - A transaction can only emit a limited number of side-effects (notes, nullifiers, logs, L2->L1 messages). See [circuit limitations](#circuit-limitations).
   - We have not settled on the final constants, since we are still in a testing phase. You could find that certain compositions of nested private function calls (for example, call stacks that are dynamic in size, based on runtime data) could accumulate so many side-effects as to exceed transaction limits. Such transactions would then be unprovable. Please open an issue if you encounter this, as it will help us decide on adequate sizes for our constants.
 - Not all Noir cryptographic primitives work in public (AVM) functions. Signature verification (ECDSA secp256k1/r1), AES-128, Blake2s, and Blake3 are not supported. See [AVM Cryptographic Compatibility](../../foundational-topics/advanced/circuits/avm_compatibility.md) for details and workarounds.
@@ -103,10 +103,6 @@ We are planning a full assessment of the protocol's hashes, including rigorous d
 #### What are the consequences?
 
 Collisions and other hash-related attacks might be possible in the local network. This would be problematic in production, but it is unlikely to cause problems at this early stage of testing.
-
-### `msg_sender` is leaked when making a private -> public call
-
-There are ongoing discussions [here](https://forum.aztec.network/t/what-is-msg-sender-when-calling-private-public-plus-a-big-foray-into-stealth-addresses/7527) (and some more recent discussions that need to be documented) around how to address this.
 
 ### New privacy standards are required
 
