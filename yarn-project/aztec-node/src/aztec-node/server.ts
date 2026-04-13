@@ -1104,7 +1104,9 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
       return undefined;
     }
     const committedDb = await this.getWorldState(BlockNumber(referenceBlockNumber - 1));
-    const [pathAndIndex] = await committedDb.findSiblingPaths<MerkleTreeId.ARCHIVE>(MerkleTreeId.ARCHIVE, [blockHash]);
+    const [pathAndIndex] = await committedDb.findSiblingPaths<MerkleTreeId.ARCHIVE>(MerkleTreeId.ARCHIVE, [
+      blockHash.toFr(),
+    ]);
     return pathAndIndex === undefined
       ? undefined
       : MembershipWitness.fromSiblingPath(pathAndIndex.index, pathAndIndex.path);

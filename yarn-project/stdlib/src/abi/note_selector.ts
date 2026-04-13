@@ -6,19 +6,13 @@ import { BufferReader, TypeRegistry } from '@aztec/foundation/serialize';
 
 import { Selector } from './selector.js';
 
-/* eslint-disable @typescript-eslint/no-unsafe-declaration-merging */
-
-/** Note selector branding */
-export interface NoteSelector {
-  /** Brand. */
-  _branding: 'NoteSelector';
-}
-
 /**
  * A note selector is a 7 bit long value that identifies a note type within a contract.
  * TODO(#10952): Encoding of note type id can be reduced to 7 bits.
  */
 export class NoteSelector extends Selector {
+  /** Branding for nominal typing. */
+  declare private readonly _branding: 'NoteSelector';
   /**
    * Deserializes from a buffer or reader, corresponding to a write in cpp.
    * @param buffer - Buffer  or BufferReader to read from.

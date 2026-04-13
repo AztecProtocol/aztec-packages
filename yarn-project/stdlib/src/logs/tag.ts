@@ -5,18 +5,14 @@ import type { ZodFor } from '@aztec/foundation/schemas';
 import { schemas } from '../schemas/schemas.js';
 import type { PreTag } from './pre_tag.js';
 
-/* eslint-disable @typescript-eslint/no-unsafe-declaration-merging */
-
-export interface Tag {
-  /** Brand. */
-  _branding: 'Tag';
-}
-
 /**
  * Represents a tag of a private log. This is not the tag that "appears" on the chain as this tag is first siloed
  * with a contract address by kernels before being included in the final log.
  */
 export class Tag {
+  /** Branding for nominal typing. */
+  declare private readonly _branding: 'Tag';
+
   constructor(public readonly value: Fr) {}
 
   static async compute(preTag: PreTag): Promise<Tag> {

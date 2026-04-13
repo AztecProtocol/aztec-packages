@@ -435,7 +435,10 @@ export async function createTxValidatorForTransactionsEnteringPendingTxPool(
   };
   const archiveSource: ArchiveSource = {
     getArchiveIndices: (archives: BlockHash[]) => {
-      return merkleTree.findLeafIndices(MerkleTreeId.ARCHIVE, archives);
+      return merkleTree.findLeafIndices(
+        MerkleTreeId.ARCHIVE,
+        archives.map(h => h.toFr()),
+      );
     },
   };
   return new AggregateTxValidator<TxMetaData>(

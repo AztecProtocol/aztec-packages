@@ -610,7 +610,7 @@ describe('aztec node', () => {
           globalVariables: GlobalVariables.empty({ blockNumber: BlockNumber(3) }),
         });
         l2BlockSource.getBlockHeaderByHash.mockResolvedValue(header);
-        snapshotMerkleTreeOps.getLeafValue.mockResolvedValue(blockHash);
+        snapshotMerkleTreeOps.getLeafValue.mockResolvedValue(blockHash.toFr());
 
         const result = await node.getWorldState(blockHash);
         expect(result).toBe(snapshotMerkleTreeOps);
@@ -632,14 +632,13 @@ describe('aztec node', () => {
         });
         l2BlockSource.getBlockHeaderByHash.mockResolvedValue(header);
         // World state returns a different hash for the same block number
-        snapshotMerkleTreeOps.getLeafValue.mockResolvedValue(differentHash);
+        snapshotMerkleTreeOps.getLeafValue.mockResolvedValue(differentHash.toFr());
 
         await expect(node.getWorldState(blockHash)).rejects.toThrow(/not found in world state at block number/);
       });
 
       it('returns snapshot at block 0 for initial header hash', async () => {
-        const initialHash = await initialHeader.hash();
-        const initialBlockHash = new BlockHash(initialHash);
+        const initialBlockHash = await initialHeader.hash();
 
         const result = await node.getWorldState(initialBlockHash);
         expect(worldState.getSnapshot).toHaveBeenCalledWith(BlockNumber.ZERO);
@@ -662,8 +661,7 @@ describe('aztec node', () => {
         // The initial block (block 0) has an empty archive — no block hashes exist in it.
         // getBlockHashMembershipWitness computes referenceBlockNumber - 1, which would be 0 - 1 = -1.
         // This should return undefined (empty archive has no witnesses) rather than crashing.
-        const initialHash = await initialHeader.hash();
-        const initialBlockHash = new BlockHash(initialHash);
+        const initialBlockHash = await initialHeader.hash();
         const someBlockHash = BlockHash.random();
 
         const result = await node.getBlockHashMembershipWitness(initialBlockHash, someBlockHash);

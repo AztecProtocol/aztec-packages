@@ -8,19 +8,14 @@ import { schemas } from '../schemas/schemas.js';
 import type { PreTag } from './pre_tag.js';
 import { Tag } from './tag.js';
 
-/* eslint-disable @typescript-eslint/no-unsafe-declaration-merging */
-
-/** Branding to ensure fields are not interchangeable types. */
-export interface SiloedTag {
-  /** Brand. */
-  _branding: 'SiloedTag';
-}
-
 /**
  * Represents a tag used in private log as it "appears on the chain" - that is the tag is siloed with a contract
  * address that emitted the log.
  */
 export class SiloedTag {
+  /** Branding for nominal typing. */
+  declare private readonly _branding: 'SiloedTag';
+
   constructor(public readonly value: Fr) {}
 
   static async compute(preTag: PreTag): Promise<SiloedTag> {
