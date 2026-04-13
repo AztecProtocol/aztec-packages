@@ -106,7 +106,7 @@ pub contract Counter {
         #[test]
         unconstrained fn test_increment() {
             let initial_value = 5;
-            let (mut env, contract_address, owner) = setup(initial_value);
+            let (env, contract_address, owner) = setup(initial_value);
 
             // Read the stored value in the note
             let initial_counter =

@@ -137,8 +137,8 @@ pub comptime fn noinitcheck(f: FunctionDefinition) {
     }
 }
 
-/// An `allow_phase_change` function will allow transitioning from the non-revertible to the revertible phase during
-/// its execution.
+/// An `allow_phase_change` function will allow transitioning from the non-revertible to the revertible phase
+/// during its execution.
 ///
 /// This is an advanced feature that is typically only required for account contract entrypoints that handle
 /// transaction fee payment.
@@ -245,8 +245,6 @@ pub comptime fn only_self(f: FunctionDefinition) {
             f"The #[only_self] attribute can only be applied to #[external(\"private\")] or #[external(\"public\")] functions - {name} is neither",
         );
     }
-
-    f.add_attribute("noinitcheck");
 }
 
 /// View functions cannot modify state in any way, including performing contract calls that would in turn modify state.

@@ -9,6 +9,9 @@ pub unconstrained fn get_public_keys_and_partial_address(address: AztecAddress) 
     try_get_public_keys_and_partial_address(address).expect(f"Public keys not registered for account {address}")
 }
 
+// TODO(F-553): The oracle returns 13 fields because each public key is serialized as 3 fields (x, y, is_infinite) by
+// the custom `Point` wrapper. Once we drop the wrapper and use `EmbeddedCurvePoint` directly each point will
+// serialize to 2 fields and this should become `[Field; 9]` again, with the indices below shifted accordingly.
 #[oracle(aztec_utl_getPublicKeysAndPartialAddress)]
 unconstrained fn get_public_keys_and_partial_address_oracle(_address: AztecAddress) -> Option<[Field; 13]> {}
 

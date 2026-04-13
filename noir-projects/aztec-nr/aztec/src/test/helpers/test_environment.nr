@@ -240,7 +240,7 @@ impl TestEnvironment {
     ) -> T {
         txe_oracles::set_public_txe_context(opts.contract_address);
 
-        let mut context = PublicContext::new(|| 0);
+        let context = PublicContext::new(|| 0);
         let ret_value = f(context);
 
         txe_oracles::set_top_level_txe_context();
