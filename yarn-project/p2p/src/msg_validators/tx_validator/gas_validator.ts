@@ -171,7 +171,12 @@ export class MaxFeePerGasValidator<T extends HasMaxFeePerGasData> implements TxV
         txMaxFeesPerGas: maxFeesPerGas.toInspect(),
         currentGasFees: this.#gasFees.toInspect(),
       });
-      return { result: 'invalid', reason: [TX_ERROR_INSUFFICIENT_FEE_PER_GAS] };
+      return {
+        result: 'invalid',
+        reason: [
+          `${TX_ERROR_INSUFFICIENT_FEE_PER_GAS} (maxFee=da:${maxFeesPerGas.feePerDaGas},l2:${maxFeesPerGas.feePerL2Gas} required=da:${this.#gasFees.feePerDaGas},l2:${this.#gasFees.feePerL2Gas})`,
+        ],
+      };
     }
     return { result: 'valid' };
   }

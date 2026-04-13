@@ -374,7 +374,7 @@ describe('MaxFeePerGasValidator', () => {
     tx.data.constants.txContext.gasSettings = GasSettings.fallback({ maxFeesPerGas: new GasFees(9, 20) });
     await expect(validator.validateTx(tx)).resolves.toEqual({
       result: 'invalid',
-      reason: [TX_ERROR_INSUFFICIENT_FEE_PER_GAS],
+      reason: [expect.stringContaining(TX_ERROR_INSUFFICIENT_FEE_PER_GAS)],
     });
   });
 
@@ -385,7 +385,7 @@ describe('MaxFeePerGasValidator', () => {
     tx.data.constants.txContext.gasSettings = GasSettings.fallback({ maxFeesPerGas: new GasFees(10, 19) });
     await expect(validator.validateTx(tx)).resolves.toEqual({
       result: 'invalid',
-      reason: [TX_ERROR_INSUFFICIENT_FEE_PER_GAS],
+      reason: [expect.stringContaining(TX_ERROR_INSUFFICIENT_FEE_PER_GAS)],
     });
   });
 });
