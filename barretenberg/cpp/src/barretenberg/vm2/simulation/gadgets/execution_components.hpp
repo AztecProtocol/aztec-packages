@@ -27,9 +27,8 @@ class ExecutionComponentsProvider : public ExecutionComponentsProviderInterface 
     GreaterThanInterface& greater_than;
     const InstructionInfoDBInterface& instruction_info_db;
 
-    // Sadly someone has to own these.
-    // TODO(fcarreiro): We are creating one of these per execution row and only releasing them at
-    // the end of the TX. Ideally we'd improve this.
+    // Improvement candidate AVM-265: We are creating one of these per execution row and only
+    // releasing them at the end of the TX.
     std::vector<std::unique_ptr<EventEmitterInterface<AddressingEvent>>> addressing_event_emitters;
 };
 

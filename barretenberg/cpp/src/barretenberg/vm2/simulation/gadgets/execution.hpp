@@ -205,7 +205,6 @@ class Execution : public ExecutionInterface {
         std::optional<std::string> halting_message; // If reverted.
     };
 
-    // Only here for testing. TODO(fcarreiro): try to improve.
     virtual GasTrackerInterface& get_gas_tracker() { return *gas_tracker; }
 
     void set_execution_result(const ExecutionResult& exec_result) { this->exec_result = exec_result; }
@@ -223,8 +222,8 @@ class Execution : public ExecutionInterface {
     void handle_exit_call();
     void handle_exceptional_halt(ContextInterface& context, const std::string& halting_message);
 
-    // TODO(#13683): This is leaking circuit implementation details. We should have a better way to do this.
-    // Setters for inputs and output for gadgets/subtraces. These are used for register allocation.
+    // Improvement candidate #13683: This is leaking circuit implementation details. We should have a better way to do
+    // this. Setters for inputs and output for gadgets/subtraces. These are used for register allocation.
     void set_and_validate_inputs(ExecutionOpCode opcode, const std::vector<MemoryValue>& inputs);
     void set_output(ExecutionOpCode opcode, const MemoryValue& output);
     const std::vector<MemoryValue>& get_inputs() const { return inputs; }
