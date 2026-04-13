@@ -47,7 +47,7 @@ Some privacy features are still in development. Known leakage includes:
 
 ### Circuit and Transaction Limits
 
-ZK-SNARK circuits impose hard upper bounds on what a single transaction can do — the number of state reads/writes, notes, nullifiers, logs, and messages. Deeply nested function calls can exceed per-transaction limits. See [Limitations](/developers/resources/considerations/limitations#circuit-limitations) for current constants.
+ZK-SNARK circuits impose hard upper bounds on what a single transaction can do — the number of state reads/writes, notes, nullifiers, logs, and messages. Deeply nested function calls can exceed per-transaction limits. See [Limitations](/developers/docs/resources/considerations/limitations#circuit-limitations) for current constants.
 
 ## State Migration and Rollup Upgrades
 
@@ -116,8 +116,8 @@ These thresholds reflect the minimum bar for a network that application develope
 ## Next Steps
 
 - [Networks Overview](/networks) — Technical details, RPC endpoints, and contract addresses
-- [Limitations](/developers/resources/considerations/limitations) — Full list of current developer-facing limitations
-- [Privacy Considerations](/developers/resources/considerations/privacy_considerations) — What leaks and what doesn't
+- [Limitations](/developers/docs/resources/considerations/limitations) — Full list of current developer-facing limitations
+- [Privacy Considerations](/developers/docs/resources/considerations/privacy_considerations) — What leaks and what doesn't
 - [Network Upgrades](/participate/governance/upgrades) — How rollup upgrades work through governance
 - [Security Policy](https://github.com/AztecProtocol/aztec-packages/blob/master/SECURITY.md) — How to report vulnerabilities
 - [Operator Guides](/operate/operators) — Running network infrastructure
