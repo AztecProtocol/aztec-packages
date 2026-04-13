@@ -285,6 +285,9 @@ const config = {
     ],
     // ["./src/plugins/plugin-embed-code", {}],
   ],
+  clientModules: [
+    './src/clientModules/docsgpt.js',
+  ],
   customFields: {},
   themeConfig:
     /** @type {import('@docusaurus/preset-classic').ThemeConfig} */
