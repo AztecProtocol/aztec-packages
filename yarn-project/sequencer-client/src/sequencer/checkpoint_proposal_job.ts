@@ -488,6 +488,7 @@ export class CheckpointProposalJob implements Traceable {
       const proposal = await this.validatorClient.createCheckpointProposal(
         checkpoint.header,
         checkpoint.archive.root,
+        this.checkpointNumber,
         feeAssetPriceModifier,
         blockPendingBroadcast,
         this.proposer,
@@ -644,6 +645,7 @@ export class CheckpointProposalJob implements Traceable {
     }
     return this.validatorClient.createBlockProposal(
       block.header,
+      this.checkpointNumber,
       block.indexWithinCheckpoint,
       inHash,
       block.archive.root,
@@ -895,7 +897,7 @@ export class CheckpointProposalJob implements Traceable {
 
     if (this.config.skipCollectingAttestations) {
       this.log.warn('Skipping attestation collection as per config (attesting with own keys only)');
-      const attestations = await this.validatorClient?.collectOwnAttestations(proposal);
+      const attestations = await this.validatorClient?.collectOwnAttestations(proposal, this.checkpointNumber);
       return new CommitteeAttestationsAndSigners(orderAttestations(attestations ?? [], committee));
     }
 
@@ -913,6 +915,7 @@ export class CheckpointProposalJob implements Traceable {
         proposal,
         numberOfRequiredAttestations,
         attestationDeadline,
+        this.checkpointNumber,
       );
 
       collectedAttestationsCount = attestations.length;
