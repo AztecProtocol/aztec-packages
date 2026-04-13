@@ -80,7 +80,7 @@ BENCHMARK_DEFINE_F(GoblinFlushBench, ProveFlushCircuit)(benchmark::State& state)
     }
 }
 
-BENCHMARK_REGISTER_F(GoblinFlushBench, ProveFlushCircuit)->Unit(benchmark::kMillisecond)->Iterations(2);
+BENCHMARK_REGISTER_F(GoblinFlushBench, ProveFlushCircuit)->Unit(benchmark::kMillisecond)->Iterations(1);
 
 } // namespace
 
