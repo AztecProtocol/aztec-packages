@@ -82,18 +82,20 @@ fn assert_notes_order<let N: u32>(note_1: [Field; N], note_2: [Field; N], sort_c
     // predicating the loop body to avoid gating field extraction behind a branch, which would be
     // more expensive in a circuit.
     let mut order_decided = false;
-    for i in 0..sort_criteria.len() {
-        let sort = sort_criteria.get_unchecked(i).unwrap_unchecked();
-        let field_1 = extract_property_value_from_selector(note_1, sort.property_selector);
-        let field_2 = extract_property_value_from_selector(note_2, sort.property_selector);
-        if field_1 != field_2 {
-            let lt = field_1.lt(field_2);
-            if sort.order == SortOrder.ASC {
-                assert(lt | order_decided, "Return notes not sorted in ascending order.");
-            } else {
-                assert(!lt | order_decided, "Return notes not sorted in descending order.");
+    for i in 0..sort_criteria.max_len() {
+        if i < sort_criteria.len() {
+            let sort = sort_criteria.get_unchecked(i).unwrap_unchecked();
+            let field_1 = extract_property_value_from_selector(note_1, sort.property_selector);
+            let field_2 = extract_property_value_from_selector(note_2, sort.property_selector);
+            if field_1 != field_2 {
+                let lt = field_1.lt(field_2);
+                if sort.order == SortOrder.ASC {
+                    assert(lt | order_decided, "Return notes not sorted in ascending order.");
+                } else {
+                    assert(!lt | order_decided, "Return notes not sorted in descending order.");
+                }
+                order_decided = true;
             }
-            order_decided = true;
         }
     }
 }
