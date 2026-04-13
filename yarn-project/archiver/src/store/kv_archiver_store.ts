@@ -650,22 +650,16 @@ export class KVArchiverDataStore implements ContractDataSource {
   }
 
   /**
-   * Reads the proposed checkpoint and its blocks from the store and returns a PublishedCheckpoint
-   * without persisting any changes. Used to build the checkpoint for validation before committing.
-   */
-  public buildPublishedCheckpointFromProposed(
-    l1: L1PublishedData,
-    attestations: CommitteeAttestation[],
-  ): Promise<PublishedCheckpoint> {
-    return this.#blockStore.buildPublishedCheckpointFromProposed(l1, attestations);
-  }
-
-  /**
    * Promotes the proposed checkpoint to a confirmed checkpoint entry.
    * Should only be called after the checkpoint has been validated.
+   * @param expectedArchiveRoot - The archive root to match against the proposed checkpoint, to guard against races.
    */
-  public promoteProposedToCheckpointed(l1: L1PublishedData, attestations: CommitteeAttestation[]): Promise<void> {
-    return this.#blockStore.promoteProposedToCheckpointed(l1, attestations);
+  public promoteProposedToCheckpointed(
+    l1: L1PublishedData,
+    attestations: CommitteeAttestation[],
+    expectedArchiveRoot: Fr,
+  ): Promise<void> {
+    return this.#blockStore.promoteProposedToCheckpointed(l1, attestations, expectedArchiveRoot);
   }
 
   /**

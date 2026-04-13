@@ -695,50 +695,25 @@ export class BlockStore {
   }
 
   /**
-   * Reads the proposed checkpoint and its blocks from the store and returns a PublishedCheckpoint
-   * without persisting any changes. Used to build the checkpoint for validation before committing.
-   */
-  async buildPublishedCheckpointFromProposed(
-    l1: L1PublishedData,
-    attestations: CommitteeAttestation[],
-  ): Promise<PublishedCheckpoint> {
-    const proposed = await this.getProposedCheckpointOnly();
-    if (!proposed) {
-      throw new Error('Cannot build published checkpoint from proposed: no proposed checkpoint exists');
-    }
-
-    // Read the blocks that were already stored via addProposedBlock
-    const blocks: L2Block[] = [];
-    for (let i = 0; i < proposed.blockCount; i++) {
-      const block = await this.getBlock(BlockNumber(proposed.startBlock + i));
-      if (!block) {
-        throw new BlockNotFoundError(proposed.startBlock + i);
-      }
-      blocks.push(block);
-    }
-
-    // Construct and return the PublishedCheckpoint without writing anything
-    const checkpoint = Checkpoint.from({
-      archive: proposed.archive,
-      header: proposed.header,
-      blocks,
-      number: proposed.checkpointNumber,
-      feeAssetPriceModifier: proposed.feeAssetPriceModifier,
-    });
-
-    return PublishedCheckpoint.from({ checkpoint, l1, attestations });
-  }
-
-  /**
    * Promotes the proposed checkpoint singleton to a confirmed checkpoint entry.
    * This persists the checkpoint to the store, clears the proposed singleton, and updates the L1 sync point.
    * Should only be called after the checkpoint has been validated.
+   * @param expectedArchiveRoot - The archive root to match against the proposed checkpoint, to guard against races.
    */
-  async promoteProposedToCheckpointed(l1: L1PublishedData, attestations: CommitteeAttestation[]): Promise<void> {
+  async promoteProposedToCheckpointed(
+    l1: L1PublishedData,
+    attestations: CommitteeAttestation[],
+    expectedArchiveRoot: Fr,
+  ): Promise<void> {
     return await this.db.transactionAsync(async () => {
       const proposed = await this.getProposedCheckpointOnly();
       if (!proposed) {
         throw new Error('Cannot promote proposed checkpoint: no proposed checkpoint exists');
+      }
+      if (!proposed.archive.root.equals(expectedArchiveRoot)) {
+        throw new Error(
+          `Cannot promote proposed checkpoint: archive root mismatch (expected ${expectedArchiveRoot}, got ${proposed.archive.root})`,
+        );
       }
 
       // Write the checkpoint entry
