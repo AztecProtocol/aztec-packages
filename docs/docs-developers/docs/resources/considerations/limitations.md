@@ -29,7 +29,7 @@ Help shape and define:
 
 ## Limitations developers need to know about
 
-- It is a testing environment, insecure and unaudited. It is only for testing purposes.
+- The Aztec stack is unaudited and under active development. See the [Alpha Network](/participate/alpha) page for details on what this means.
 - `msg_sender` is leaked by default when making private -> public calls.
   - `self.enqueue(...)` sets `msg_sender` to the private caller's address, which is publicly visible.
   - Use `self.enqueue_incognito(...)` to hide the sender. The called public function must use `maybe_msg_sender()` instead of `msg_sender()` to handle the null sender.
@@ -42,7 +42,7 @@ Help shape and define:
 
 ## WARNING
 
-Do not use real, meaningful secrets in Aztec testnets. Some privacy features are still in development, including ensuring a secure "zk" property. Since the Aztec stack is still being developed, there are no guarantees that real secrets will remain secret.
+Do not use real, meaningful secrets on Aztec networks. Some privacy features are still in development, including ensuring a secure "zk" property. Since the Aztec stack is still being developed, there are no guarantees that real secrets will remain secret.
 
 ## Limitations
 
@@ -60,15 +60,11 @@ Some of our more complex circuits are still in development, so they are still un
 
 Sound proofs are really only needed as a protection against malicious behavior, which we are not testing for at this stage.
 
-### Keys and addresses are subject to change
+### Keys and addresses may change in future rollup versions
 
-The way in which keypairs and addresses are derived is still being iterated on as we receive feedback.
+The key derivation scheme is documented and stable within the current rollup version, but it may change in future rollup upgrades. Applications should not hardcode assumptions about the specific derivation algorithm.
 
-#### What are the consequences?
-
-This will impact the kinds of apps that you can build with the local network as it is today.
-
-Please open new discussions on [Discourse](https://discourse.aztec.network) or open issues on [GitHub](https://github.com/AztecProtocol/aztec-packages) if you have requirements that are not yet being met by the local network's current key derivation scheme.
+Please open new discussions on [Discourse](https://discourse.aztec.network) or open issues on [GitHub](https://github.com/AztecProtocol/aztec-packages) if you have requirements that are not being met by the current key derivation scheme.
 
 ### No privacy-preserving queries to nodes
 
@@ -82,19 +78,15 @@ Private data should not be returned to an app unless the user authorizes such ac
 
 #### What are the consequences?
 
-Any app can request and receive any private user data relating to any other private app. This sounds problematic, but the local network is a sandbox, and no meaningful value or credentials should be stored there - only test values and test credentials.
+Any app can request and receive any private user data relating to any other private app. An authorization layer will be added in due course.
 
-An authorization layer will be added in due course.
+### No client-side bytecode validation
 
-### No bytecode validation
-
-For safety reasons, bytecode should not be executed unless the PXE (Private eXecution Environment) or wallet has validated that the user's intentions (the function signature and contract address) match the bytecode.
+Public bytecode is validated at the protocol level when contract classes are registered (the Contract Class Registry verifies encoding and commitments). However, the PXE and wallets do not yet validate that the bytecode a user is about to execute matches their stated intentions (function signature and contract address).
 
 #### What are the consequences?
 
-Without bytecode validation, if incorrect bytecode is executed and that bytecode is malicious, it could read private data from some other contract and emit that private data to the world. This would be problematic in production, but the local network is a sandbox, and no meaningful value or credentials should be stored there - only test values and test credentials.
-
-There are plans to add bytecode validation soon.
+If incorrect or malicious bytecode is executed, it could read private data from another contract and emit it publicly. Client-side bytecode validation is planned to close this gap.
 
 ### Insecure hashes
 
@@ -102,7 +94,7 @@ We are planning a full assessment of the protocol's hashes, including rigorous d
 
 #### What are the consequences?
 
-Collisions and other hash-related attacks might be possible in the local network. This would be problematic in production, but it is unlikely to cause problems at this early stage of testing.
+Collisions and other hash-related attacks might be possible. This is unlikely to cause problems at this early stage, but is a known area of ongoing work.
 
 ### New privacy standards are required
 
