@@ -747,7 +747,7 @@ export class ArchiverL1Synchronizer implements Traceable {
 
       this.log.trace(`Retrieving checkpoints from L1 block ${searchStartBlock} to ${searchEndBlock}`);
 
-      // First fetch calldata only, no blobs yet, since we may be able to just get that data our of the proposed chain
+      // First fetch calldata only, no blobs yet, since we may be able to just get that data out of the proposed chain
       const calldataCheckpoints = await execInSpan(this.tracer, 'Archiver.retrieveCheckpointCalldataFromRollup', () =>
         retrieveCheckpointCalldataFromRollup(
           this.rollup,
@@ -776,7 +776,9 @@ export class ArchiverL1Synchronizer implements Traceable {
         },
       );
 
-      // Check if the last checkpoint matches the proposed one (so we can skip blob fetch)
+      // Check if the last checkpoint matches the proposed one (so we can skip blob fetch).
+      // We only check the last one because the proposed checkpoint is always the most recent one,
+      // and if it's in a multi-checkpoint batch it will always be last (sorted by L1 block number).
       const proposed = this.config.skipPromoteProposedCheckpointDuringL1Sync
         ? undefined
         : await this.store.getProposedCheckpointOnly();

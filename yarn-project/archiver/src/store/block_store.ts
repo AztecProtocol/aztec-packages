@@ -716,6 +716,14 @@ export class BlockStore {
         );
       }
 
+      // Verify sequentiality: promoted checkpoint must follow the latest confirmed one
+      const latestCheckpointNumber = await this.getLatestCheckpointNumber();
+      if (latestCheckpointNumber !== proposed.checkpointNumber - 1) {
+        throw new Error(
+          `Cannot promote proposed checkpoint: not sequential (latest ${latestCheckpointNumber}, proposed ${proposed.checkpointNumber})`,
+        );
+      }
+
       // Write the checkpoint entry
       await this.#checkpoints.set(proposed.checkpointNumber, {
         header: proposed.header.toBuffer(),
