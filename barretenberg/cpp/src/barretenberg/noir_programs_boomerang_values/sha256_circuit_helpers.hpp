@@ -112,6 +112,22 @@ template <typename Builder> RangeListFillerInfo validate_range_list_fillers(Buil
 }
 
 /**
+ * @brief Compute selector hash over ALL selectors for a contiguous range of gates.
+ */
+template <typename Block>
+size_t compute_selector_hash(size_t combined_hash, Block& block, size_t start_idx, size_t end_idx)
+{
+    auto selectors = block.get_selectors();
+    for (size_t gate = start_idx; gate <= end_idx; ++gate) {
+        for (size_t s = 0; s < selectors.size(); ++s) {
+            auto reduced = selectors[s][gate].reduce_once();
+            combined_hash = hash_combine(combined_hash, reduced.data[0]);
+        }
+    }
+    return combined_hash;
+}
+
+/**
  * @brief Compute selector hash excluding q_3 (table_index) for a contiguous range of gates.
  *
  * table_index varies per circuit context, so excluding it makes the hash stable
