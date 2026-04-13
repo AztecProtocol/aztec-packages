@@ -816,9 +816,8 @@ void run_libra_tampering_test(ShpleminiTest<TypeParam>* test,
 
     // PCS verification should always fail when tampering occurred
     if constexpr (std::is_same_v<TypeParam, GrumpkinSettings>) {
-        EXPECT_THROW(ShpleminiTest<TypeParam>::IPA::reduce_verify_batch_opening_claim(
-                         batch_opening_claim, test->vk(), verifier_transcript),
-                     std::runtime_error);
+        EXPECT_FALSE(ShpleminiTest<TypeParam>::IPA::reduce_verify_batch_opening_claim(
+            batch_opening_claim, test->vk(), verifier_transcript));
     } else {
         const auto pairing_points =
             KZG<Curve>::reduce_verify_batch_opening_claim(std::move(batch_opening_claim), verifier_transcript);

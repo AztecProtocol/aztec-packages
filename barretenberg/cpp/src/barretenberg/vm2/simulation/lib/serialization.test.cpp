@@ -1,5 +1,6 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include <stdexcept>
 
 #include "barretenberg/vm2/simulation/events/bytecode_events.hpp"
 #include "barretenberg/vm2/simulation/lib/serialization.hpp"
@@ -190,7 +191,9 @@ TEST(SerializationTest, CheckTagInvalidNotEnoughOperands)
     Instruction instr = { .opcode = WireOpCode::SET_128,
                           .addressing_mode = 2,
                           .operands = { Operand::from<uint16_t>(1002) } };
-    EXPECT_FALSE(check_tag(instr));
+    // check_tag() throws as 'not enough operands' should have been caught by previous INSTRUCTION_OUT_OF_RANGE checks,
+    // where the correct wire format was used.
+    EXPECT_THROW(check_tag(instr), std::runtime_error);
 }
 
 // Testing check_tag with an invalid instruction for wire opcode SET_128, tag is not a byte

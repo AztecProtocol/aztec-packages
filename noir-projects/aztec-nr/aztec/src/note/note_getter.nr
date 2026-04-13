@@ -45,11 +45,13 @@ fn extract_property_value_from_selector<let N: u32>(packed_note: [Field; N], sel
 }
 
 fn check_packed_note<let N: u32>(packed_note: [Field; N], selects: BoundedVec<Option<Select>, N>) {
-    for i in 0..selects.len() {
-        let select = selects.get_unchecked(i).unwrap_unchecked();
-        let value_field = extract_property_value_from_selector(packed_note, select.property_selector);
+    for i in 0..selects.max_len() {
+        if i < selects.len() {
+            let select = selects.get_unchecked(i).unwrap_unchecked();
+            let value_field = extract_property_value_from_selector(packed_note, select.property_selector);
 
-        assert(compare(value_field, select.comparator, select.value.to_field()), "Mismatch return note field.");
+            assert(compare(value_field, select.comparator, select.value.to_field()), "Mismatch return note field.");
+        }
     }
 }
 

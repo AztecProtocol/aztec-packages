@@ -61,15 +61,14 @@ TEST(MerkleCheckConstrainingTest, ComputationCannotBeStoppedPrematurely)
         { { C::merkle_check_sel, 0 } },
     });
 
-    check_relation<merkle_check>(
-        trace, merkle_check::SR_COMPUTATION_FINISH_AT_END, merkle_check::SR_SELECTOR_ON_START_OR_END);
+    check_relation<merkle_check>(trace, merkle_check::SR_TRACE_CONTINUITY, merkle_check::SR_SEL_ON_START_OR_END);
 
     const uint32_t last_row_idx = 3;
     // Negative test - now modify to an incorrect value
     trace.set(C::merkle_check_end, last_row_idx, 0); // This should fail - end went from 1 back to 0
 
-    EXPECT_THROW_WITH_MESSAGE(check_relation<merkle_check>(trace, merkle_check::SR_COMPUTATION_FINISH_AT_END),
-                              "COMPUTATION_FINISH_AT_END");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<merkle_check>(trace, merkle_check::SR_TRACE_CONTINUITY),
+                              "TRACE_CONTINUITY");
 }
 
 TEST(MerkleCheckConstrainingTest, EndCannotBeOneOnFirstRow)
@@ -98,13 +97,13 @@ TEST(MerkleCheckConstrainingTest, SelectorOnEnd)
         { { C::merkle_check_end, 1 }, { C::merkle_check_sel, 1 } }, // sel=1 when end=1 is correct
     });
 
-    check_relation<merkle_check>(trace, merkle_check::SR_SELECTOR_ON_START_OR_END);
+    check_relation<merkle_check>(trace, merkle_check::SR_SEL_ON_START_OR_END);
 
     // Negative test - now modify to an incorrect value
     trace.set(C::merkle_check_sel, 0, 0); // This should fail - sel cannot be 0 when end=1
 
-    EXPECT_THROW_WITH_MESSAGE(check_relation<merkle_check>(trace, merkle_check::SR_SELECTOR_ON_START_OR_END),
-                              "SELECTOR_ON_START_OR_END");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<merkle_check>(trace, merkle_check::SR_SEL_ON_START_OR_END),
+                              "SEL_ON_START_OR_END");
 }
 
 TEST(MerkleCheckConstrainingTest, SelectorOnStart)
@@ -115,13 +114,13 @@ TEST(MerkleCheckConstrainingTest, SelectorOnStart)
         { { C::merkle_check_start, 1 }, { C::merkle_check_sel, 1 } }, // sel=1 when start=1 is correct
     });
 
-    check_relation<merkle_check>(trace, merkle_check::SR_SELECTOR_ON_START_OR_END);
+    check_relation<merkle_check>(trace, merkle_check::SR_SEL_ON_START_OR_END);
 
     // Negative test - now modify to an incorrect value
     trace.set(C::merkle_check_sel, 0, 0); // This should fail - sel cannot be 0 when start=1
 
-    EXPECT_THROW_WITH_MESSAGE(check_relation<merkle_check>(trace, merkle_check::SR_SELECTOR_ON_START_OR_END),
-                              "SELECTOR_ON_START_OR_END");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<merkle_check>(trace, merkle_check::SR_SEL_ON_START_OR_END),
+                              "SEL_ON_START_OR_END");
 }
 
 TEST(MerkleCheckConstrainingTest, PropagateReadRoot)

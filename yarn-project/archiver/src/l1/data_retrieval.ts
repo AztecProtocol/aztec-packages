@@ -144,7 +144,7 @@ export async function retrievedToPublishedCheckpoint({
  * @param blobClient - The blob client client for fetching blob data.
  * @param searchStartBlock - The block number to use for starting the search.
  * @param searchEndBlock - The highest block number that we should search up to.
- * @param contractAddresses - The contract addresses (governanceProposerAddress, slashFactoryAddress, slashingProposerAddress).
+ * @param contractAddresses - The contract addresses (governanceProposerAddress, slashingProposerAddress).
  * @param instrumentation - The archiver instrumentation instance.
  * @param logger - The logger instance.
  * @param isHistoricalSync - Whether this is a historical sync.
@@ -344,14 +344,10 @@ export async function getCheckpointBlobDataFromBlobs(
 /** Given an L1 to L2 message, retrieves its corresponding event from the Inbox within a specific block range. */
 export async function retrieveL1ToL2Message(
   inbox: InboxContract,
-  leaf: Fr,
-  fromBlock: bigint,
-  toBlock: bigint,
+  message: InboxMessage,
 ): Promise<InboxMessage | undefined> {
-  const logs = await inbox.getMessageSentEventByHash(leaf.toString(), fromBlock, toBlock);
-
-  const messages = mapLogsInboxMessage(logs);
-  return messages.length > 0 ? messages[0] : undefined;
+  const log = await inbox.getMessageSentEventByHash(message.leaf.toString(), message.l1BlockHash.toString());
+  return log && mapLogInboxMessage(log);
 }
 
 /**
@@ -374,22 +370,22 @@ export async function retrieveL1ToL2Messages(
       break;
     }
 
-    retrievedL1ToL2Messages.push(...mapLogsInboxMessage(messageSentLogs));
+    retrievedL1ToL2Messages.push(...messageSentLogs.map(mapLogInboxMessage));
     searchStartBlock = messageSentLogs.at(-1)!.l1BlockNumber + 1n;
   }
 
   return retrievedL1ToL2Messages;
 }
 
-function mapLogsInboxMessage(logs: MessageSentLog[]): InboxMessage[] {
-  return logs.map(log => ({
+function mapLogInboxMessage(log: MessageSentLog): InboxMessage {
+  return {
     index: log.args.index,
     leaf: log.args.leaf,
     l1BlockNumber: log.l1BlockNumber,
     l1BlockHash: log.l1BlockHash,
     checkpointNumber: log.args.checkpointNumber,
     rollingHash: log.args.rollingHash,
-  }));
+  };
 }
 
 /** Retrieves L2ProofVerified events from the rollup contract. */

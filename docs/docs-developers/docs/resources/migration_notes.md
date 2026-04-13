@@ -9,6 +9,57 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
+### [L1 Contracts] Empire slasher removed, slasher config simplified
+
+The empire slashing model has been removed. Only the tally-based slashing model remains, and it has been renamed from `TallySlashingProposer` to `SlashingProposer`.
+
+**L1 contract changes:**
+- `SlasherFlavor` enum removed from `ISlasher.sol`
+- `RollupConfigInput.slasherFlavor` (enum) replaced with `slasherEnabled` (bool)
+- `TallySlashingProposer` contract renamed to `SlashingProposer`
+- `TallySlasherDeploymentExtLib` library renamed to `SlasherDeploymentExtLib`
+- `SlashFactory` periphery contract removed
+- `SLASHING_PROPOSER_TYPE` constant removed from `SlashingProposer`
+- All `TallySlashingProposer__` error prefixes renamed to `SlashingProposer__`
+
+**Environment variable changes:**
+```diff
+- AZTEC_SLASHER_FLAVOR=tally    # was: "tally" | "empire" | "none"
++ AZTEC_SLASHER_ENABLED=true    # now a boolean
+```
+
+**Removed environment variables:** `SLASH_MIN_PENALTY_PERCENTAGE`, `SLASH_MAX_PENALTY_PERCENTAGE`
+
+**Removed from deploy outputs:** `slashFactoryAddress`
+
+**Node admin API:** `getSlashPayloads()` method removed.
+
+**TypeScript config changes:**
+```diff
+- slasherFlavor: 'tally' | 'none'
++ slasherEnabled: boolean
+```
+
+`slashMinPenaltyPercentage` and `slashMaxPenaltyPercentage` removed from `SlasherConfig`.
+
+### [Aztec.js] `GasSettings.default()` renamed to `GasSettings.fallback()`
+
+`GasSettings.default()` has been renamed to `GasSettings.fallback()` to clarify that these gas limits are not protocol defaults — the protocol has no concept of "default" gas settings. `fallback()` is a convenience for cases where gas estimation is not being used, but callers should prefer estimating gas via simulation for accurate limits.
+
+The old `DEFAULT_GAS_LIMIT` and `DEFAULT_TEARDOWN_GAS_LIMIT` constants have been removed. Gas limits are now derived from protocol-level maximums (`MAX_PROCESSABLE_L2_GAS`, `MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT`) rather than arbitrary fixed values.
+
+A new `GasSettings.forEstimation()` method provides intentionally high gas limits for use during simulation. These limits exceed protocol maximums so the simulation doesn't hit gas caps — you must pass `skipTxValidation: true` when simulating with them, then use the results to set accurate gas limits on the actual transaction. `EmbeddedWallet` does this by default.
+
+**Migration:**
+
+```diff
+- import { DEFAULT_GAS_LIMIT, DEFAULT_TEARDOWN_GAS_LIMIT } from '@aztec/constants';
+- const settings = GasSettings.default({ maxFeesPerGas });
++ const settings = GasSettings.fallback({ maxFeesPerGas });
+```
+
+**Impact**: Any code referencing `GasSettings.default()`, `DEFAULT_GAS_LIMIT`, or `DEFAULT_TEARDOWN_GAS_LIMIT` will fail to compile.
+
 ### [PXE] `simulateTx`, `executeUtility`, `profileTx`, and `proveTx` no longer accept `scopes: 'ALL_SCOPES'`
 
 The `AccessScopes` type (`'ALL_SCOPES' | AztecAddress[]`) has been removed. The `scopes` field in `SimulateTxOpts`,
@@ -72,6 +123,23 @@ FPCs that use only Fee Juice still work on all networks, since FeeJuice is a pro
 ```
 
 Similarly, the `fpc-public` and `fpc-private` CLI wallet payment methods use the reference Token-based FPC and will not work on public networks. Use `fee_juice` for direct Fee Juice payment, or `fpc-sponsored` on devnet and local network.
+
+### [aztec.js] `EmbeddedWalletOptions` now uses a unified `pxe` field
+
+The `pxeConfig` and `pxeOptions` fields on `EmbeddedWalletOptions` have been deprecated in favor of a single `pxe` field that accepts both PXE configuration and dependency overrides (custom prover, store, simulator):
+
+```diff
+const wallet = await EmbeddedWallet.create(nodeUrl, {
+-  pxeConfig: { proverEnabled: true },
+-  pxeOptions: { proverOrOptions: myCustomProver },
++  pxe: {
++    proverEnabled: true,
++    proverOrOptions: myCustomProver,
++  },
+});
+```
+
+The old fields still work but will be removed in a future release.
 
 ### [Aztec.nr] Domain-separated tags on log emission
 
@@ -162,6 +230,7 @@ The `CustomMessageHandler` function type now receives an additional `scope: Azte
 ```
 
 **Impact**: Contracts that implement a custom message handler must update the function signature.
+
 ### [aztec.js] `DeployMethod.send()` always returns `{ contract, receipt, instance }`
 
 The `returnReceipt` option in deploy wait options has been removed. `DeployMethod.send()` now always returns an object with `contract`, `receipt`, and `instance` at the top level, provided the user waits for the transaction to be included.
@@ -308,28 +377,6 @@ If you use `assert_contract_was_initialized_by` or `assert_contract_was_not_init
   );
 ```
 
-### [Aztec.js] `TxReceipt` now includes `epochNumber`
-
-`TxReceipt` now includes an `epochNumber` field that indicates which epoch the transaction was included in.
-
-### [Aztec.js] `computeL2ToL1MembershipWitness` signature changed
-
-The function signature has changed to resolve the epoch internally from a transaction hash, rather than requiring the caller to pass the epoch number.
-
-**Migration:**
-
-```diff
-- const witness = await computeL2ToL1MembershipWitness(aztecNode, epochNumber, messageHash);
-- // epoch was passed in by the caller
-+ const witness = await computeL2ToL1MembershipWitness(aztecNode, messageHash, txHash);
-+ // epoch is now available on the returned witness
-+ const epoch = witness.epochNumber;
-```
-
-The return type `L2ToL1MembershipWitness` now includes `epochNumber`. An optional `messageIndexInTx` parameter can be passed as the fourth argument to disambiguate when a transaction emits multiple identical L2-to-L1 messages.
-
-**Impact**: All call sites that compute L2-to-L1 membership witnesses must update to the new argument order and extract `epochNumber` from the result instead of passing it in.
-
 ### Two separate init nullifiers for private and public
 
 Contract initialization now emits two separate nullifiers instead of one: a **private init nullifier** and a **public init nullifier**. Each nullifier gates its respective execution domain:
@@ -364,6 +411,30 @@ This function shouldn't have been constrained in the first place, as constrained
 Note hashes used to be computed with the storage slot being the last value of the preimage, it is now the first. This is to make it easier to ensure all note hashes have proper domain separation.
 
 This change requires no input from your side unless you were testing or relying on hardcoded note hashes.
+
+## 4.1.3
+
+### [Aztec.js] `TxReceipt` now includes `epochNumber`
+
+`TxReceipt` now includes an `epochNumber` field that indicates which epoch the transaction was included in.
+
+### [Aztec.js] `computeL2ToL1MembershipWitness` signature changed
+
+The function signature has changed to resolve the epoch internally from a transaction hash, rather than requiring the caller to pass the epoch number.
+
+**Migration:**
+
+```diff
+- const witness = await computeL2ToL1MembershipWitness(aztecNode, epochNumber, messageHash);
+- // epoch was passed in by the caller
++ const witness = await computeL2ToL1MembershipWitness(aztecNode, messageHash, txHash);
++ // epoch is now available on the returned witness
++ const epoch = witness.epochNumber;
+```
+
+The return type `L2ToL1MembershipWitness` now includes `epochNumber`. An optional `messageIndexInTx` parameter can be passed as the fourth argument to disambiguate when a transaction emits multiple identical L2-to-L1 messages.
+
+**Impact**: All call sites that compute L2-to-L1 membership witnesses must update to the new argument order and extract `epochNumber` from the result instead of passing it in.
 
 ### [Aztec.js] `getPublicEvents` now returns an object instead of an array
 

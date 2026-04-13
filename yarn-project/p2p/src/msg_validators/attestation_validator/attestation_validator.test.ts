@@ -18,7 +18,11 @@ describe('CheckpointAttestationValidator', () => {
 
   beforeEach(() => {
     epochCache = mock<EpochCacheInterface>();
-    validator = new CheckpointAttestationValidator(epochCache);
+    epochCache.getL1Constants.mockReturnValue({
+      slotDuration: 72,
+      ethereumSlotDuration: 12,
+    } as any);
+    validator = new CheckpointAttestationValidator(epochCache, { l1PublishingTime: 12 });
     proposer = Secp256k1Signer.random();
     attester = Secp256k1Signer.random();
   });
@@ -72,6 +76,74 @@ describe('CheckpointAttestationValidator', () => {
 
     const result = await validator.validate(mockAttestation);
     expect(result).toEqual({ result: 'ignore' });
+  });
+
+  it('accepts attestation for current slot until the target-slot publish cutoff', async () => {
+    // Attestation is for slot 98 (current wallclock slot), but targetSlot is 99 (pipelining).
+    const header = CheckpointHeader.random({ slotNumber: SlotNumber(98) });
+    const mockAttestation = makeCheckpointAttestation({
+      header,
+      attesterSigner: attester,
+      proposerSigner: proposer,
+    });
+
+    epochCache.getTargetAndNextSlot.mockReturnValue({
+      targetSlot: SlotNumber(99),
+      nextSlot: SlotNumber(100),
+    });
+    epochCache.getSlotNow.mockReturnValue(SlotNumber(98));
+    epochCache.isProposerPipeliningEnabled.mockReturnValue(true);
+    epochCache.getL1Constants.mockReturnValue({
+      slotDuration: 72,
+      ethereumSlotDuration: 12,
+    } as any);
+
+    // Within attestation window: 59000ms elapsed < (slotDuration - l1PublishingTime) * 1000 = 60000ms
+    epochCache.getEpochAndSlotNow.mockReturnValue({
+      epoch: EpochNumber(1),
+      slot: SlotNumber(98),
+      ts: 1000n,
+      nowMs: 1059000n, // 59000ms elapsed
+    });
+    epochCache.isInCommittee.mockResolvedValue(true);
+    epochCache.getProposerAttesterAddressInSlot.mockResolvedValue(proposer.address);
+
+    const result = await validator.validate(mockAttestation);
+    expect(result).toEqual({ result: 'accept' });
+  });
+
+  it('rejects attestation for current slot after the target-slot publish cutoff', async () => {
+    // Attestation is for slot 98 (one behind target slot 99), after the publish cutoff.
+    const header = CheckpointHeader.random({ slotNumber: SlotNumber(98) });
+    const mockAttestation = makeCheckpointAttestation({
+      header,
+      attesterSigner: attester,
+      proposerSigner: proposer,
+    });
+
+    epochCache.getTargetAndNextSlot.mockReturnValue({
+      targetSlot: SlotNumber(99),
+      nextSlot: SlotNumber(100),
+    });
+    epochCache.getTargetSlot.mockReturnValue(SlotNumber(99));
+    epochCache.getSlotNow.mockReturnValue(SlotNumber(98));
+    epochCache.isProposerPipeliningEnabled.mockReturnValue(true);
+    epochCache.getL1Constants.mockReturnValue({
+      slotDuration: 72,
+      ethereumSlotDuration: 12,
+    } as any);
+
+    // Outside attestation window AND outside clock tolerance: 61000ms elapsed > 60000ms cutoff
+    epochCache.getEpochAndSlotNow.mockReturnValue({
+      epoch: EpochNumber(1),
+      slot: SlotNumber(99),
+      ts: 1000n,
+      nowMs: 1061000n, // 61000ms elapsed
+    });
+    epochCache.isInCommittee.mockResolvedValue(true);
+
+    const result = await validator.validate(mockAttestation);
+    expect(result).toEqual({ result: 'reject', severity: PeerErrorSeverity.HighToleranceError });
   });
 
   it('returns high tolerance error if attester is not in committee', async () => {

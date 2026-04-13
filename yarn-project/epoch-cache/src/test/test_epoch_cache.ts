@@ -147,6 +147,10 @@ export class TestEpochCache implements EpochCacheInterface {
     return this.proposerPipeliningEnabled;
   }
 
+  pipeliningOffset(): number {
+    return this.proposerPipeliningEnabled ? PROPOSER_PIPELINING_SLOT_OFFSET : 0;
+  }
+
   getEpochAndSlotNow(): EpochAndSlot & { nowMs: bigint } {
     const epochNow = getEpochAtSlot(this.currentSlot, this.l1Constants);
     const ts = getTimestampRangeForEpoch(epochNow, this.l1Constants)[0];

@@ -1099,7 +1099,7 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::batch_mul_internal(const std::vecto
  * @param _points
  * @param _scalars
  * @param max_num_bits The max of the bit lengths of the scalars.
- * @param with_edgecases Use when points are linearly dependent. Randomises them.
+ * @param with_edgecases Use when points are linearly dependent. Randomises them. Set to true by default.
  * @return element<C, Fq, Fr, G> (canonical form)
  */
 template <typename C, class Fq, class Fr, class G>

@@ -187,9 +187,7 @@ class BatchedHonkTranslatorTests : public ::testing::Test {
         // ── Round 3: translator Z_PERM, then joint alpha + gate challenges ────────
         m.add_entry(round, "Z_PERM", G);
         m.add_challenge(round, "Sumcheck:alpha");
-        for (size_t i = 0; i < JOINT_LOG_N; ++i) {
-            m.add_challenge(round, "Sumcheck:gate_challenge_" + std::to_string(i));
-        }
+        m.add_challenge(round, "Sumcheck:gate_challenge");
         round++;
 
         // ── Round 4: Libra masking commitment + Sum ───────────────────────────────
