@@ -251,4 +251,408 @@ template <> MegaCircuitBuilder create_circuit(AcirProgram& program, const Progra
 template void build_constraints<UltraCircuitBuilder>(UltraCircuitBuilder&, AcirFormat&, const ProgramMetadata&);
 template void build_constraints<MegaCircuitBuilder>(MegaCircuitBuilder&, AcirFormat&, const ProgramMetadata&);
 
+/**
+ * @brief Profile data for a constraint type, extracted from a throwaway builder.
+ * @details Eventually this will be a compile-time table lookup. For now, it's computed
+ * by running constraints on a throwaway builder and extracting the resulting state.
+ */
+template <typename Builder> struct ConstraintProfile {
+    typename Builder::TaskBlockSizes block_sizes;
+    std::vector<bb::fr> constants;                // constant values to pre-register
+    std::vector<uint64_t> range_list_targets;     // range list target ranges to pre-create
+    std::vector<plookup::BasicTableId> table_ids; // lookup tables to pre-create
+    size_t num_rom_arrays_per_instance = 0;       // ROM arrays created per constraint instance
+    size_t num_ram_arrays_per_instance = 0;       // RAM arrays created per constraint instance
+    std::vector<size_t> rom_array_sizes;          // sizes of ROM arrays created per instance
+    std::vector<size_t> ram_array_sizes;          // sizes of RAM arrays created per instance
+};
+
+/**
+ * @brief Profile a constraint type by running it on a throwaway builder and extracting cache state.
+ * @details Runs two instances: the first triggers one-time setup, the second measures steady-state cost.
+ * Extracts all constants, range list targets, and lookup table IDs that the constraint type needs.
+ * This simulates the eventual table lookup.
+ */
+template <typename Builder, typename ConstraintType, typename Handler>
+ConstraintProfile<Builder> profile_constraint_type(ConstraintType representative,
+                                                   Handler&& handler,
+                                                   size_t num_witnesses)
+{
+    ConstraintProfile<Builder> profile;
+
+    // Phase A: Run one instance on a throwaway builder to discover setup needs (constants, range lists, etc.)
+    WitnessVector dummy_witness(num_witnesses, bb::fr(0));
+    // Construct throwaway builder — Mega needs a default op_queue, Ultra uses the 3-arg constructor
+    auto make_builder = [&]() -> Builder {
+        if constexpr (std::is_same_v<Builder, UltraCircuitBuilder>) {
+            return Builder(dummy_witness, {}, /*is_write_vk_mode=*/true);
+        } else {
+            return Builder(std::make_shared<ECCOpQueue>(), dummy_witness, {}, /*is_write_vk_mode=*/true);
+        }
+    };
+
+    Builder warmup_builder = make_builder();
+    handler(warmup_builder, representative);
+
+    // Extract setup data from the warmup builder
+    for (const auto& [value, _] : warmup_builder.constant_variable_indices) {
+        profile.constants.push_back(value);
+    }
+    for (const auto& [target_range, _] : warmup_builder.range_lists) {
+        profile.range_list_targets.push_back(target_range);
+    }
+    for (const auto& table : warmup_builder.get_lookup_tables()) {
+        profile.table_ids.push_back(table.id);
+    }
+
+    // Phase B: Measure steady-state cost on a SEPARATE builder pre-populated with setup data.
+    // This ensures no cross-instance gate fusion at the boundary, matching cursor-mode behavior
+    // where each task starts with no prior gates in its block region.
+    Builder measure_builder = make_builder();
+    for (const auto& value : profile.constants) {
+        measure_builder.put_constant_variable(value);
+    }
+    for (const auto target_range : profile.range_list_targets) {
+        if (measure_builder.range_lists.count(target_range) == 0) {
+            measure_builder.range_lists.insert({ target_range, measure_builder.create_range_list(target_range) });
+        }
+    }
+    for (const auto table_id : profile.table_ids) {
+        measure_builder.get_table(table_id);
+    }
+
+    auto before = measure_builder.snapshot_block_sizes();
+    size_t rom_before = measure_builder.rom_ram_logic.rom_arrays.size();
+    size_t ram_before = measure_builder.rom_ram_logic.ram_arrays.size();
+    handler(measure_builder, representative);
+    auto after = measure_builder.snapshot_block_sizes();
+    profile.block_sizes = Builder::delta(before, after);
+
+    // Extract ROM/RAM array counts per instance
+    profile.num_rom_arrays_per_instance = measure_builder.rom_ram_logic.rom_arrays.size() - rom_before;
+    profile.num_ram_arrays_per_instance = measure_builder.rom_ram_logic.ram_arrays.size() - ram_before;
+    for (size_t i = rom_before; i < measure_builder.rom_ram_logic.rom_arrays.size(); i++) {
+        profile.rom_array_sizes.push_back(measure_builder.rom_ram_logic.rom_arrays[i].state.size());
+    }
+    for (size_t i = ram_before; i < measure_builder.rom_ram_logic.ram_arrays.size(); i++) {
+        profile.ram_array_sizes.push_back(measure_builder.rom_ram_logic.ram_arrays[i].state.size());
+    }
+
+    return profile;
+}
+
+/**
+ * @brief Prepare a builder's caches from constraint profiles WITHOUT running any constraints.
+ * @details Populates the builder's constant cache, range lists, and lookup tables using data
+ * extracted from profiles. After this, all parallel constraint execution will find everything
+ * cached — no cache misses, no one-time setup costs.
+ */
+template <typename Builder>
+void prepare_builder_from_profiles(Builder& builder, const std::vector<ConstraintProfile<Builder>>& profiles)
+{
+    // Register all constants from all profiles
+    for (const auto& profile : profiles) {
+        for (const auto& value : profile.constants) {
+            builder.put_constant_variable(value);
+        }
+    }
+
+    // Create all needed range lists
+    for (const auto& profile : profiles) {
+        for (const auto target_range : profile.range_list_targets) {
+            if (builder.range_lists.count(target_range) == 0) {
+                builder.range_lists.insert({ target_range, builder.create_range_list(target_range) });
+            }
+        }
+    }
+
+    // Note: lookup tables are NOT created here. They are created in task order in Phase 2b
+    // so that table indices match sequential constraint processing order.
+}
+
+template <typename Builder>
+void build_constraints_parallel(Builder& builder,
+                                AcirFormat& constraints,
+                                const ProgramMetadata& metadata,
+                                size_t num_threads)
+{
+    using TaskBlockSizes = typename Builder::TaskBlockSizes;
+    size_t num_witnesses = constraints.max_witness_index + 1;
+
+    // Phase 1: Profile each constraint type to build a map from grouping key to profile.
+    // Each constraint type has a key function that determines which instances share the same
+    // gate count profile. We profile one representative per unique key.
+    //
+    // Phase 1b: Collect tasks in the SAME ORDER as sequential build_constraints processes them.
+    // This ensures that lookup tables, ROM arrays, and other ordering-dependent state are created
+    // in an order that matches sequential, making the circuits identical up to gate reordering.
+
+    // Use the UltraCircuitBuilder_ base type for task functions since execute_parallel is defined there.
+    // MegaCircuitBuilder inherits from UltraCircuitBuilder_<MegaTrace>, so this works for both.
+    using BaseBuilder = UltraCircuitBuilder_<typename Builder::ExecutionTrace>;
+
+    std::vector<ConstraintProfile<Builder>> profiles;
+    std::vector<std::function<void(BaseBuilder&)>> tasks;
+    std::vector<TaskBlockSizes> task_sizes;
+    std::vector<size_t> task_profile_indices;
+
+    // Helper: profile unique keys in a constraint vector, then add tasks in vector order.
+    // Combines profiling and task collection in a single call per constraint type.
+    auto profile_and_collect = [&](auto& items, auto handler, auto key_fn) {
+        if (items.empty()) {
+            return;
+        }
+        using Key = decltype(key_fn(items[0]));
+        std::map<Key, size_t> key_to_profile;
+        // Phase 1: profile unique keys
+        for (size_t i = 0; i < items.size(); i++) {
+            Key k = key_fn(items[i]);
+            if (key_to_profile.count(k) == 0) {
+                auto profile = profile_constraint_type<Builder>(items[i], handler, num_witnesses);
+                key_to_profile[k] = profiles.size();
+                profiles.push_back(profile);
+            }
+        }
+        // Phase 1b: add tasks in vector order
+        for (size_t i = 0; i < items.size(); i++) {
+            size_t profile_idx = key_to_profile.at(key_fn(items[i]));
+            const auto& profile = profiles[profile_idx];
+            auto sizes = profile.block_sizes;
+            sizes.num_rom_arrays = profile.num_rom_arrays_per_instance;
+            sizes.num_ram_arrays = profile.num_ram_arrays_per_instance;
+            tasks.emplace_back([handler, &items, i](BaseBuilder& b) { handler(static_cast<Builder&>(b), items[i]); });
+            task_sizes.push_back(sizes);
+            task_profile_indices.push_back(profile_idx);
+        }
+    };
+
+    // For constraint types with no grouping (fixed gate count), the key is a constant.
+    auto const_key = [](const auto&) -> int { return 0; };
+
+    // Define key functions for each grouped type
+    auto big_quad_key = [](const BigQuadConstraint& c) -> size_t { return c.size(); };
+    auto logic_key = [](const LogicConstraint& c) -> std::pair<uint32_t, bool> {
+        return { c.num_bits, c.is_xor_gate };
+    };
+    auto range_key = [](const RangeConstraint& c) -> uint32_t { return c.num_bits; };
+    auto aes_key = [](const AES128Constraint& c) -> size_t { return c.inputs.size(); };
+    auto blake2s_key = [](const Blake2sConstraint& c) -> size_t { return c.inputs.size(); };
+    auto blake3_key = [](const Blake3Constraint& c) -> size_t { return c.inputs.size(); };
+    auto pos2_key = [](const Poseidon2Constraint& c) -> size_t { return c.state.size(); };
+    auto msm_key = [](const MultiScalarMul& c) -> std::vector<bool> {
+        std::vector<bool> key;
+        key.reserve(c.points.size() + c.scalars.size());
+        for (const auto& p : c.points)
+            key.push_back(p.is_constant);
+        for (const auto& s : c.scalars)
+            key.push_back(s.is_constant);
+        return key;
+    };
+
+    // Define handlers
+    auto quad_handler = [](Builder& b, QuadConstraint& c) { create_quad_constraint(b, c); };
+    auto big_quad_handler = [](Builder& b, BigQuadConstraint& c) { create_big_quad_constraint(b, c); };
+    auto logic_handler = [](Builder& b, const LogicConstraint& c) {
+        create_logic_gate(b, c.a, c.b, c.result, c.num_bits, c.is_xor_gate);
+    };
+    auto range_handler = [](Builder& b, const RangeConstraint& c) {
+        b.create_dyadic_range_constraint(c.witness, c.num_bits, "parallel range constraint");
+    };
+    auto aes_handler = [](Builder& b, const AES128Constraint& c) { create_aes128_constraints(b, c); };
+    auto sha_handler = [](Builder& b, const Sha256Compression& c) { create_sha256_compression_constraints(b, c); };
+    auto ecdsa_k1_handler = [](Builder& b, const EcdsaConstraint& c) {
+        create_ecdsa_verify_constraints<stdlib::secp256k1<Builder>>(b, c);
+    };
+    auto ecdsa_r1_handler = [](Builder& b, const EcdsaConstraint& c) {
+        create_ecdsa_verify_constraints<stdlib::secp256r1<Builder>>(b, c);
+    };
+    auto blake2s_handler = [](Builder& b, const Blake2sConstraint& c) { create_blake2s_constraints(b, c); };
+    auto blake3_handler = [](Builder& b, const Blake3Constraint& c) { create_blake3_constraints(b, c); };
+    auto keccak_handler = [](Builder& b, const Keccakf1600& c) { create_keccak_permutations_constraints(b, c); };
+    auto pos2_handler = [](Builder& b, const Poseidon2Constraint& c) {
+        create_poseidon2_permutations_constraints(b, c);
+    };
+    auto msm_handler = [](Builder& b, const MultiScalarMul& c) { create_multi_scalar_mul_constraint(b, c); };
+    auto ec_add_handler = [](Builder& b, const EcAdd& c) { create_ec_add_constraint(b, c); };
+
+    // Profile and collect tasks in the same order as sequential build_constraints.
+    // Each call profiles unique keys, then adds tasks in constraint vector order.
+    profile_and_collect(constraints.quad_constraints, quad_handler, const_key);
+    profile_and_collect(constraints.big_quad_constraints, big_quad_handler, big_quad_key);
+    profile_and_collect(constraints.logic_constraints, logic_handler, logic_key);
+    profile_and_collect(constraints.range_constraints, range_handler, range_key);
+    profile_and_collect(constraints.aes128_constraints, aes_handler, aes_key);
+    profile_and_collect(constraints.sha256_compression, sha_handler, const_key);
+    profile_and_collect(constraints.ecdsa_k1_constraints, ecdsa_k1_handler, const_key);
+    profile_and_collect(constraints.ecdsa_r1_constraints, ecdsa_r1_handler, const_key);
+    profile_and_collect(constraints.blake2s_constraints, blake2s_handler, blake2s_key);
+    profile_and_collect(constraints.blake3_constraints, blake3_handler, blake3_key);
+    profile_and_collect(constraints.keccak_permutations, keccak_handler, const_key);
+    profile_and_collect(constraints.poseidon2_constraints, pos2_handler, pos2_key);
+    profile_and_collect(constraints.multi_scalar_mul_constraints, msm_handler, msm_key);
+    profile_and_collect(constraints.ec_add_constraints, ec_add_handler, const_key);
+
+    // Recursion constraints are parallelized like other constraint types, but each task also
+    // captures a HonkRecursionConstraintOutput for post-join merging (needed for pairing point
+    // propagation and IPA finalization).
+    struct RecursionTaskInfo {
+        HonkRecursionConstraintOutput<Builder> output;
+        bool update_ipa_data = false;
+        bool is_root_rollup = false;
+    };
+    size_t num_rec_tasks = constraints.honk_recursion_constraints.size() +
+                           constraints.chonk_recursion_constraints.size() +
+                           constraints.avm_recursion_constraints.size();
+    std::vector<RecursionTaskInfo> recursion_task_outputs(num_rec_tasks);
+    size_t rec_out_idx = 0;
+
+    // Helper: execute a single honk recursion constraint based on proof_type
+    auto execute_honk_recursion = [](Builder& b,
+                                     const RecursionConstraint& c) -> HonkRecursionConstraintOutput<Builder> {
+        if (c.proof_type == HONK_ZK) {
+            return create_honk_recursion_constraints<UltraZKRecursiveFlavor_<Builder>,
+                                                     stdlib::recursion::honk::DefaultIO<Builder>>(b, c);
+        } else if (c.proof_type == HONK) {
+            return create_honk_recursion_constraints<UltraRecursiveFlavor_<Builder>,
+                                                     stdlib::recursion::honk::DefaultIO<Builder>>(b, c);
+        } else {
+            // Rollup IO is only supported on UltraCircuitBuilder
+            if constexpr (std::is_same_v<Builder, UltraCircuitBuilder>) {
+                return create_honk_recursion_constraints<UltraRecursiveFlavor_<Builder>,
+                                                         stdlib::recursion::honk::RollupIO>(b, c);
+            } else {
+                bb::assert_failure("Rollup Honk proof type not supported on MegaBuilder");
+                return {};
+            }
+        }
+    };
+
+    // Profiling handler (discards output — only used for measuring gate counts)
+    auto honk_rec_handler = [&execute_honk_recursion](Builder& b, const RecursionConstraint& c) {
+        execute_honk_recursion(b, c);
+    };
+    auto honk_rec_key = [](const RecursionConstraint& c) -> uint32_t { return c.proof_type; };
+
+    // Profile honk recursion constraints by proof_type
+    std::map<uint32_t, size_t> honk_rec_profiles;
+    for (size_t i = 0; i < constraints.honk_recursion_constraints.size(); i++) {
+        uint32_t k = honk_rec_key(constraints.honk_recursion_constraints[i]);
+        if (honk_rec_profiles.count(k) == 0) {
+            auto profile = profile_constraint_type<Builder>(
+                constraints.honk_recursion_constraints[i], honk_rec_handler, num_witnesses);
+            honk_rec_profiles[k] = profiles.size();
+            profiles.push_back(profile);
+        }
+    }
+    // Add honk recursion tasks in vector order with output capture
+    for (size_t i = 0; i < constraints.honk_recursion_constraints.size(); i++) {
+        const auto& c = constraints.honk_recursion_constraints[i];
+        size_t profile_idx = honk_rec_profiles.at(c.proof_type);
+        const auto& profile = profiles[profile_idx];
+        auto sizes = profile.block_sizes;
+        sizes.num_rom_arrays = profile.num_rom_arrays_per_instance;
+        sizes.num_ram_arrays = profile.num_ram_arrays_per_instance;
+
+        size_t out_idx = rec_out_idx++;
+        recursion_task_outputs[out_idx].update_ipa_data =
+            (c.proof_type == ROLLUP_HONK || c.proof_type == ROOT_ROLLUP_HONK);
+        recursion_task_outputs[out_idx].is_root_rollup = (c.proof_type == ROOT_ROLLUP_HONK);
+
+        tasks.emplace_back(
+            [&constraints, i, &execute_honk_recursion, &recursion_task_outputs, out_idx](BaseBuilder& b) {
+                recursion_task_outputs[out_idx].output =
+                    execute_honk_recursion(static_cast<Builder&>(b), constraints.honk_recursion_constraints[i]);
+            });
+        task_sizes.push_back(sizes);
+        task_profile_indices.push_back(profile_idx);
+    }
+
+    // TODO: Chonk and AVM recursion constraints — same pattern as honk above.
+    // For now they fall through to Phase 4 sequential processing if present.
+
+    // Phase 2: Prepare the builder's caches from profiles (no constraint execution).
+    prepare_builder_from_profiles(builder, profiles);
+
+    // Phase 2b: Pre-create lookup tables and ROM/RAM arrays in task order (matching sequential
+    // constraint processing order). This ensures table indices and ROM IDs are deterministic
+    // and match what sequential build_constraints would produce.
+    for (size_t t = 0; t < tasks.size(); t++) {
+        const auto& profile = profiles[task_profile_indices[t]];
+        for (const auto table_id : profile.table_ids) {
+            builder.get_table(table_id); // no-op if already created
+        }
+        for (size_t r = 0; r < profile.num_rom_arrays_per_instance; r++) {
+            builder.rom_ram_logic.create_ROM_array(profile.rom_array_sizes[r]);
+        }
+        for (size_t r = 0; r < profile.num_ram_arrays_per_instance; r++) {
+            builder.rom_ram_logic.create_RAM_array(profile.ram_array_sizes[r]);
+        }
+    }
+
+    // Phase 3: Execute ALL instances in parallel (including recursion constraints)
+    if (!tasks.empty()) {
+        builder.execute_parallel(tasks, task_sizes, num_threads);
+    }
+
+    // Phase 4: Block constraints (sequential — these reference variables from earlier constraints).
+    for (const auto& [constraint, opcode_indices] :
+         zip_view(constraints.block_constraints, constraints.original_opcode_indices.block_constraints)) {
+        create_block_constraints(builder, constraint);
+    }
+
+    // Phase 4b: Merge recursion outputs from parallel tasks and process remaining sequential recursion.
+    {
+        HonkRecursionConstraintsOutput<Builder> output;
+
+        // Merge outputs from honk recursion tasks that ran in Phase 3
+        for (size_t i = 0; i < rec_out_idx; i++) {
+            const auto& rec = recursion_task_outputs[i];
+            output.update(rec.output, rec.update_ipa_data);
+            if (rec.is_root_rollup) {
+                output.is_root_rollup = true;
+            }
+        }
+
+        // Chonk and AVM recursion constraints — Ultra only, sequential for now (TODO: parallelize)
+        if constexpr (std::is_same_v<Builder, UltraCircuitBuilder>) {
+            for (const auto& constraint : constraints.chonk_recursion_constraints) {
+                auto honk_output = create_chonk_recursion_constraints(builder, constraint);
+                output.update(honk_output, /*update_ipa_data=*/true);
+            }
+            for (const auto& constraint : constraints.avm_recursion_constraints) {
+                auto honk_output = create_avm2_recursion_constraints_goblin(builder, constraint);
+                output.update(honk_output, /*update_ipa_data=*/true);
+            }
+        }
+
+        // HyperNova recursion constraints (Mega only, requires IVC state — always sequential)
+        const bool is_hn_recursion_constraints = !constraints.hn_recursion_constraints.empty();
+        if (is_hn_recursion_constraints) {
+            GateCounter gate_counter{ &builder, false };
+            std::vector<size_t> dummy_gates_per_opcode;
+            auto hn_output = create_recursion_constraints<Builder>(
+                builder,
+                gate_counter,
+                dummy_gates_per_opcode,
+                metadata.ivc,
+                { {}, {} },
+                { {}, {} },
+                { constraints.hn_recursion_constraints, constraints.original_opcode_indices.hn_recursion_constraints },
+                { {}, {} });
+            output.update(hn_output, /*update_ipa_data=*/false);
+        }
+
+        output.finalize(builder, is_hn_recursion_constraints, metadata.has_ipa_claim);
+    }
+}
+
+template void build_constraints_parallel<UltraCircuitBuilder>(UltraCircuitBuilder&,
+                                                              AcirFormat&,
+                                                              const ProgramMetadata&,
+                                                              size_t);
+template void build_constraints_parallel<MegaCircuitBuilder>(MegaCircuitBuilder&,
+                                                             AcirFormat&,
+                                                             const ProgramMetadata&,
+                                                             size_t);
+
 } // namespace acir_format

@@ -149,6 +149,29 @@ template <typename ExecutionTrace> class RomRamLogic_ {
      */
     std::vector<RomTranscript> rom_arrays;
 
+    // Per-thread ROM/RAM ID cursors for parallel construction. When enabled, create_ROM_array/
+    // create_RAM_array return the cursor value and increment it instead of pushing to the vectors.
+    // Arrays must be pre-created during the setup phase before enabling cursors.
+    std::vector<size_t> rom_id_cursors_; // per-thread
+    std::vector<size_t> ram_id_cursors_; // per-thread
+
+    void enable_rom_cursor(size_t thread_idx, size_t start)
+    {
+        if (thread_idx >= rom_id_cursors_.size()) {
+            rom_id_cursors_.resize(thread_idx + 1, 0);
+        }
+        rom_id_cursors_[thread_idx] = start;
+    }
+    void enable_ram_cursor(size_t thread_idx, size_t start)
+    {
+        if (thread_idx >= ram_id_cursors_.size()) {
+            ram_id_cursors_.resize(thread_idx + 1, 0);
+        }
+        ram_id_cursors_[thread_idx] = start;
+    }
+    bool rom_cursor_active() const { return !rom_id_cursors_.empty(); }
+    bool ram_cursor_active() const { return !ram_id_cursors_.empty(); }
+
     RomRamLogic_() = default;
 
     // ROM operations

@@ -14,7 +14,9 @@
 #include "circuit_builder_base.hpp"
 #include "rom_ram_logic.hpp"
 #include <deque>
+#include <functional>
 #include <optional>
+#include <thread>
 #include <unordered_set>
 
 #include "barretenberg/serialize/msgpack.hpp"
@@ -200,11 +202,224 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
     // The set of variables which have been constrained to a particular value via an arithmetic gate
     std::unordered_map<FF, uint32_t> constant_variable_indices;
 
+    /**
+     * @brief Per-thread buffer for deferring operations during parallel construction.
+     * @details Operations that modify shared builder state are buffered per-thread during
+     * execute_parallel and replayed sequentially after all threads join. The replay callback
+     * receives each entry and applies it to the builder.
+     */
+    template <typename Entry> struct DeferredBuffer {
+        std::vector<std::vector<Entry>> thread_buffers;
+
+        void init(size_t num_threads) { thread_buffers.resize(num_threads); }
+
+        void defer(size_t thread_idx, Entry&& entry) { thread_buffers[thread_idx].emplace_back(std::move(entry)); }
+
+        void defer(size_t thread_idx, const Entry& entry) { thread_buffers[thread_idx].push_back(entry); }
+
+        template <typename Callback> void apply(Callback&& callback)
+        {
+            for (auto& buf : thread_buffers) {
+                for (auto& entry : buf) {
+                    callback(entry);
+                }
+                buf.clear();
+            }
+        }
+    };
+
+    struct DeferredLookupEntry {
+        plookup::BasicTableId table_id;
+        plookup::BasicTable::LookupEntry entry;
+    };
+    struct DeferredRangeConstraint {
+        uint32_t variable_index;
+        uint64_t target_range;
+    };
+
+    DeferredBuffer<DeferredLookupEntry> deferred_lookup_gates_;
+    DeferredBuffer<DeferredRangeConstraint> deferred_range_constraints_;
+    DeferredBuffer<cached_partial_non_native_field_multiplication> deferred_non_native_field_muls_;
+
+    void init_deferred_buffers(size_t num_threads)
+    {
+        deferred_lookup_gates_.init(num_threads);
+        deferred_range_constraints_.init(num_threads);
+        deferred_non_native_field_muls_.init(num_threads);
+    }
+
+    /**
+     * @brief Per-block gate counts and variable count for a task (one or more opcodes).
+     */
+    struct TaskBlockSizes {
+        std::array<size_t, ExecutionTrace::NUM_BLOCKS> block_sizes{};
+        size_t num_variables = 0;
+        size_t num_rom_arrays = 0;
+        size_t num_ram_arrays = 0;
+    };
+
+    /**
+     * @brief Snapshot the current block sizes and variable count.
+     */
+    TaskBlockSizes snapshot_block_sizes() const
+    {
+        TaskBlockSizes s;
+        auto block_refs = blocks.get();
+        for (size_t i = 0; i < ExecutionTrace::NUM_BLOCKS; i++) {
+            s.block_sizes[i] = block_refs[i].size();
+        }
+        s.num_variables = this->get_num_variables();
+        return s;
+    }
+
+    /**
+     * @brief Compute the delta between two snapshots (after - before).
+     */
+    static TaskBlockSizes delta(const TaskBlockSizes& before, const TaskBlockSizes& after)
+    {
+        TaskBlockSizes d;
+        for (size_t i = 0; i < ExecutionTrace::NUM_BLOCKS; i++) {
+            d.block_sizes[i] = after.block_sizes[i] - before.block_sizes[i];
+        }
+        d.num_variables = after.num_variables - before.num_variables;
+        return d;
+    }
+
+    /**
+     * @brief Execute tasks in parallel on this builder. Each task is a lambda that adds gates to the builder.
+     * @details Pre-allocates blocks and variables based on per-task sizes, then dispatches tasks across threads
+     * with per-thread cursors. After joining, replays deferred lookup and range constraint operations.
+     *
+     * @param tasks Vector of lambdas, each taking (UltraCircuitBuilder_&) and adding gates
+     * @param task_sizes Per-task block sizes and variable counts (must match tasks.size())
+     * @param num_threads Number of threads to use (tasks are distributed round-robin)
+     */
+    void execute_parallel(const std::vector<std::function<void(UltraCircuitBuilder_&)>>& tasks,
+                          const std::vector<TaskBlockSizes>& task_sizes,
+                          size_t num_threads)
+    {
+        BB_ASSERT(tasks.size() == task_sizes.size());
+        if (tasks.empty()) {
+            return;
+        }
+        num_threads = std::min(num_threads, tasks.size());
+
+        // Compute total sizes and per-task offsets
+        auto base = snapshot_block_sizes();
+        std::vector<TaskBlockSizes> offsets(tasks.size());
+        TaskBlockSizes running = base;
+        for (size_t t = 0; t < tasks.size(); t++) {
+            offsets[t] = running;
+            for (size_t b = 0; b < ExecutionTrace::NUM_BLOCKS; b++) {
+                running.block_sizes[b] += task_sizes[t].block_sizes[b];
+            }
+            running.num_variables += task_sizes[t].num_variables;
+            running.num_rom_arrays += task_sizes[t].num_rom_arrays;
+            running.num_ram_arrays += task_sizes[t].num_ram_arrays;
+        }
+
+        // Pre-allocate all blocks and variables to total size
+        auto block_refs = blocks.get();
+        for (size_t b = 0; b < ExecutionTrace::NUM_BLOCKS; b++) {
+            auto& block = block_refs[b];
+            for (auto& wire : block.wires) {
+                wire.resize(running.block_sizes[b], 0);
+            }
+            for (auto& sel : block.get_selectors()) {
+                sel.resize(running.block_sizes[b]);
+            }
+        }
+        this->resize_variables(running.num_variables);
+        init_deferred_buffers(num_threads);
+        this->init_deferred_assert_equal_buffers(tasks.size());
+
+        // Assign tasks to threads (round-robin)
+        std::vector<std::vector<size_t>> thread_tasks(num_threads);
+        for (size_t t = 0; t < tasks.size(); t++) {
+            thread_tasks[t % num_threads].push_back(t);
+        }
+
+        // Pre-initialize all cursors on the main thread to avoid races on cursor vector resizing.
+        // For threads with multiple tasks, we set the cursor to the first task's offset;
+        // within the thread, cursors are updated sequentially between tasks.
+        auto block_refs_setup = blocks.get();
+        for (size_t tid = 0; tid < num_threads; tid++) {
+            if (!thread_tasks[tid].empty()) {
+                size_t first_task = thread_tasks[tid][0];
+                // Enable cursors for ALL blocks, not just ones the first task uses.
+                // Later tasks on this thread may use blocks the first task doesn't.
+                for (size_t b = 0; b < ExecutionTrace::NUM_BLOCKS; b++) {
+                    block_refs_setup[b].enable_cursor_mode(tid, offsets[first_task].block_sizes[b]);
+                }
+                this->enable_variable_cursor(tid, static_cast<uint32_t>(offsets[first_task].num_variables));
+                rom_ram_logic.enable_rom_cursor(tid, offsets[first_task].num_rom_arrays);
+                rom_ram_logic.enable_ram_cursor(tid, offsets[first_task].num_ram_arrays);
+            }
+        }
+
+        // Dispatch threads
+        std::vector<std::thread> threads;
+        threads.reserve(num_threads);
+
+        for (size_t tid = 0; tid < num_threads; tid++) {
+            threads.emplace_back([this, tid, &tasks, &offsets, &thread_tasks]() {
+                set_parallel_thread_index(tid);
+
+                for (size_t i = 0; i < thread_tasks[tid].size(); i++) {
+                    size_t task_idx = thread_tasks[tid][i];
+
+                    // For subsequent tasks (not the first), update cursors to this task's offsets
+                    if (i > 0) {
+                        auto block_refs_local = blocks.get();
+                        for (size_t b = 0; b < ExecutionTrace::NUM_BLOCKS; b++) {
+                            block_refs_local[b].enable_cursor_mode(tid, offsets[task_idx].block_sizes[b]);
+                        }
+                        this->enable_variable_cursor(tid, static_cast<uint32_t>(offsets[task_idx].num_variables));
+                        rom_ram_logic.enable_rom_cursor(tid, offsets[task_idx].num_rom_arrays);
+                        rom_ram_logic.enable_ram_cursor(tid, offsets[task_idx].num_ram_arrays);
+                    }
+
+                    // Execute the task
+                    this->set_current_task_index(task_idx);
+                    tasks[task_idx](*this);
+                }
+
+                // Disable all cursors for this thread
+                auto block_refs_local = blocks.get();
+                for (size_t b = 0; b < ExecutionTrace::NUM_BLOCKS; b++) {
+                    block_refs_local[b].disable_cursor_mode(tid);
+                }
+                this->disable_variable_cursor(tid);
+            });
+        }
+
+        // Join all threads
+        for (auto& t : threads) {
+            t.join();
+        }
+
+        // Clear ROM/RAM cursors so subsequent sequential operations use normal path
+        rom_ram_logic.rom_id_cursors_.clear();
+        rom_ram_logic.ram_id_cursors_.clear();
+
+        // Replay deferred operations
+        deferred_lookup_gates_.apply([this](auto& e) {
+            auto& table = get_table(e.table_id);
+            table.lookup_gates.emplace_back(e.entry);
+        });
+        deferred_range_constraints_.apply(
+            [this](auto& e) { create_small_range_constraint(e.variable_index, e.target_range); });
+        deferred_non_native_field_muls_.apply(
+            [this](auto& e) { cached_partial_non_native_field_multiplications.emplace_back(e); });
+        this->apply_deferred_assert_equals();
+    }
+
     // Rom/Ram logic
     RomRamLogic rom_ram_logic;
 
     // Stores gate index of ROM/RAM reads (required by proving key)
     std::vector<uint32_t> memory_read_records;
+
     // Stores gate index of RAM writes (required by proving key)
     std::vector<uint32_t> memory_write_records;
     // Range constraints to be batched, keyed by target_range. See create_small_range_constraint() for details.
@@ -635,7 +850,14 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
      * gate However, there are some cases where we want to exclude certain variables from this detection (for example,
      * when we show that x!=0 -> x*(x^-1) = 1).
      */
-    void update_used_witnesses(uint32_t var_idx) { used_witnesses.emplace_back(var_idx); }
+    void update_used_witnesses(uint32_t var_idx)
+    {
+        // Skip in cursor mode to avoid races on shared used_witnesses vector
+        if (this->get_variable_cursor() != this->VARIABLE_CURSOR_DISABLED) {
+            return;
+        }
+        used_witnesses.emplace_back(var_idx);
+    }
 
     /**
      * @brief Add a list of witness indices to the boomerang exclusion list
@@ -646,6 +868,10 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
      */
     void update_used_witnesses(const std::vector<uint32_t>& used_indices)
     {
+        // Skip in cursor mode to avoid races on shared used_witnesses vector
+        if (this->get_variable_cursor() != this->VARIABLE_CURSOR_DISABLED) {
+            return;
+        }
         used_witnesses.reserve(used_witnesses.size() + used_indices.size());
         for (const auto& it : used_indices) {
             used_witnesses.emplace_back(it);
@@ -659,7 +885,13 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
      * circuit are all connected. However, during finalization we intentionally create some subcircuits that are only
      * connected through the set permutation. We want to exclude these variables from this detection.
      */
-    void update_finalize_witnesses(uint32_t var_idx) { finalize_witnesses.insert(var_idx); }
+    void update_finalize_witnesses(uint32_t var_idx)
+    {
+        if (this->get_variable_cursor() != this->VARIABLE_CURSOR_DISABLED) {
+            return;
+        }
+        finalize_witnesses.insert(var_idx);
+    }
 
     /**
      * @brief Add a list of witness indices to the finalize exclusion list
@@ -670,6 +902,9 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
      */
     void update_finalize_witnesses(const std::vector<uint32_t>& finalize_indices)
     {
+        if (this->get_variable_cursor() != this->VARIABLE_CURSOR_DISABLED) {
+            return;
+        }
         for (const auto& it : finalize_indices) {
             finalize_witnesses.insert(it);
         }

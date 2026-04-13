@@ -13,6 +13,14 @@ namespace bb {
 
 template <typename ExecutionTrace> size_t RomRamLogic_<ExecutionTrace>::create_ROM_array(const size_t array_size)
 {
+    // In cursor mode (parallel construction), arrays are pre-created during setup.
+    // Return the next pre-assigned ID for this thread and advance the cursor.
+    if (rom_cursor_active()) {
+        size_t id = rom_id_cursors_[get_parallel_thread_index()]++;
+        BB_ASSERT(id < rom_arrays.size());
+        BB_ASSERT(rom_arrays[id].state.size() == array_size);
+        return id;
+    }
     RomTranscript new_transcript;
     for (size_t i = 0; i < array_size; ++i) {
         new_transcript.state.emplace_back(
@@ -158,7 +166,7 @@ void RomRamLogic_<ExecutionTrace>::create_ROM_gate(CircuitBuilder* builder, RomR
     builder->blocks.memory.populate_wires(
         record.index_witness, record.value_column1_witness, record.value_column2_witness, record.record_witness);
     // Note: record the index into the memory block that contains the RAM/ROM gates
-    record.gate_index = builder->blocks.memory.size() - 1;
+    record.gate_index = builder->blocks.memory.last_gate_index();
     builder->check_selector_length_consistency();
     builder->increment_num_gates();
 }
@@ -173,7 +181,7 @@ void RomRamLogic_<ExecutionTrace>::create_sorted_ROM_gate(CircuitBuilder* builde
     builder->blocks.memory.populate_wires(
         record.index_witness, record.value_column1_witness, record.value_column2_witness, record.record_witness);
     // Note: record the index into the memory block that contains the RAM/ROM gates
-    record.gate_index = builder->blocks.memory.size() - 1;
+    record.gate_index = builder->blocks.memory.last_gate_index();
     builder->check_selector_length_consistency();
     builder->increment_num_gates();
 }
@@ -276,6 +284,13 @@ template <typename ExecutionTrace> void RomRamLogic_<ExecutionTrace>::process_RO
 
 template <typename ExecutionTrace> size_t RomRamLogic_<ExecutionTrace>::create_RAM_array(const size_t array_size)
 {
+    // In cursor mode (parallel construction), arrays are pre-created during setup.
+    if (ram_cursor_active()) {
+        size_t id = ram_id_cursors_[get_parallel_thread_index()]++;
+        BB_ASSERT(id < ram_arrays.size());
+        BB_ASSERT(ram_arrays[id].state.size() == array_size);
+        return id;
+    }
     RamTranscript new_transcript;
     for (size_t i = 0; i < array_size; ++i) {
         new_transcript.state.emplace_back(UNINITIALIZED_MEMORY_RECORD);
@@ -418,7 +433,7 @@ void RomRamLogic_<ExecutionTrace>::create_RAM_gate(CircuitBuilder* builder, RamR
         record.index_witness, record.timestamp_witness, record.value_witness, record.record_witness);
 
     // Note: record the index into the block that contains the RAM/ROM gates
-    record.gate_index = builder->blocks.memory.size() - 1;
+    record.gate_index = builder->blocks.memory.last_gate_index();
     builder->increment_num_gates();
 }
 
@@ -430,7 +445,7 @@ void RomRamLogic_<ExecutionTrace>::create_sorted_RAM_gate(CircuitBuilder* builde
     builder->blocks.memory.populate_wires(
         record.index_witness, record.timestamp_witness, record.value_witness, record.record_witness);
     // Note: record the index into the memory block that contains the RAM/ROM gates
-    record.gate_index = builder->blocks.memory.size() - 1;
+    record.gate_index = builder->blocks.memory.last_gate_index();
     builder->check_selector_length_consistency();
     builder->increment_num_gates();
 }
@@ -442,7 +457,7 @@ void RomRamLogic_<ExecutionTrace>::create_final_sorted_RAM_gate(CircuitBuilder* 
 {
     record.record_witness = builder->add_variable(FF(0));
     // Note: record the index into the block that contains the RAM/ROM gates
-    record.gate_index = builder->blocks.memory.size(); // no -1 since we _haven't_ added the gate yet
+    record.gate_index = builder->blocks.memory.next_gate_index(); // index where the gate _will_ be written
 
     // Create a final gate with all selectors zero (hence unconstrained). In particular, the `MEMORY_SELECTORS` are not
     // on. Wire values are accessed by the previous RAM gate via shifted wires.

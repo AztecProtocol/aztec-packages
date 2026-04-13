@@ -162,4 +162,22 @@ Builder create_circuit(AcirProgram& program, const ProgramMetadata& metadata = P
 template <typename Builder>
 void build_constraints(Builder& builder, AcirFormat& constraints, const ProgramMetadata& metadata);
 
+/**
+ * @brief Parallel variant of build_constraints for UltraCircuitBuilder.
+ * @details Processes each constraint type's instances in parallel using execute_parallel.
+ * For each type with N instances: runs 1 warmup instance sequentially, measures per-instance
+ * block sizes, then processes remaining N-1 instances across num_threads threads.
+ * Produces a bit-identical circuit to build_constraints.
+ *
+ * @param builder Must be constructed with the witness and public inputs already set
+ * @param constraints The ACIR constraints to process
+ * @param metadata Program metadata
+ * @param num_threads Number of threads for parallel execution
+ */
+template <typename Builder>
+void build_constraints_parallel(Builder& builder,
+                                AcirFormat& constraints,
+                                const ProgramMetadata& metadata,
+                                size_t num_threads);
+
 } // namespace acir_format

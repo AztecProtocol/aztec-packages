@@ -378,15 +378,25 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_ecc_add_gate(const ecc_add_gat
     // The elliptic curve relation assumes q_sign² = 1 (see elliptic_relation.hpp)
     const FF q_sign = in.is_addition ? FF(1) : FF(-1);
 
-    // Determine whether we can fuse this addition operation into the previous gate in the block
-    bool can_fuse_into_previous_gate =
-        block.size() > 0 &&                       /* a previous gate exists in the block */
-        block.w_r()[block.size() - 1] == in.x1 && /* output x coord of previous gate is input of this one */
-        block.w_o()[block.size() - 1] == in.y1;   /* output y coord of previous gate is input of this one */
+    // Determine whether we can fuse this addition into the previous gate in the block.
+    // In cursor mode, use cursor position (not block.size() which returns pre-allocated total).
+    // NOTE: For future work-stealing parallelism where task execution order may differ, fusion
+    // across task boundaries must be handled carefully to maintain determinism.
+    size_t cursor = block.wire_active_cursor();
+    bool can_fuse_into_previous_gate;
+    size_t prev_idx;
+    if (cursor != Selector<FF>::CURSOR_DISABLED) {
+        prev_idx = cursor - 1;
+        can_fuse_into_previous_gate = cursor > 0 && block.w_r()[prev_idx] == in.x1 && block.w_o()[prev_idx] == in.y1;
+    } else {
+        prev_idx = block.size() - 1;
+        can_fuse_into_previous_gate =
+            block.size() > 0 && block.w_r()[prev_idx] == in.x1 && block.w_o()[prev_idx] == in.y1;
+    }
 
     if (can_fuse_into_previous_gate) {
-        block.q_1().set(block.size() - 1, q_sign);   // set q_sign of previous gate
-        block.q_elliptic().set(block.size() - 1, 1); // set q_ecc of previous gate to 1
+        block.q_1().set(prev_idx, q_sign);   // set q_sign of previous gate
+        block.q_elliptic().set(prev_idx, 1); // set q_ecc of previous gate to 1
     } else {
         block.populate_wires(this->zero_idx(), in.x1, in.y1, this->zero_idx());
         block.q_3().emplace_back(0);
@@ -427,16 +437,22 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_ecc_dbl_gate(const ecc_dbl_gat
 
     auto& block = blocks.elliptic;
 
-    // Determine whether we can fuse this doubling operation into the previous gate in the block
-    bool can_fuse_into_previous_gate =
-        block.size() > 0 &&                       /* a previous gate exists in the block */
-        block.w_r()[block.size() - 1] == in.x1 && /* output x coord of previous gate is input of this one */
-        block.w_o()[block.size() - 1] == in.y1;   /* output y coord of previous gate is input of this one */
-
+    size_t dbl_cursor = block.wire_active_cursor();
+    bool can_fuse_into_previous_gate;
+    size_t dbl_prev_idx;
+    if (dbl_cursor != Selector<FF>::CURSOR_DISABLED) {
+        dbl_prev_idx = dbl_cursor - 1;
+        can_fuse_into_previous_gate =
+            dbl_cursor > 0 && block.w_r()[dbl_prev_idx] == in.x1 && block.w_o()[dbl_prev_idx] == in.y1;
+    } else {
+        dbl_prev_idx = block.size() - 1;
+        can_fuse_into_previous_gate =
+            block.size() > 0 && block.w_r()[dbl_prev_idx] == in.x1 && block.w_o()[dbl_prev_idx] == in.y1;
+    }
     // If possible, update the previous gate to be the first gate in the pair, otherwise create a new gate
     if (can_fuse_into_previous_gate) {
-        block.q_elliptic().set(block.size() - 1, 1); // set q_ecc of previous gate to 1
-        block.q_m().set(block.size() - 1, 1);        // set q_m (q_is_double) of previous gate to 1
+        block.q_elliptic().set(dbl_prev_idx, 1); // set q_ecc of previous gate to 1
+        block.q_m().set(dbl_prev_idx, 1);        // set q_m (q_is_double) of previous gate to 1
     } else {
         block.populate_wires(this->zero_idx(), in.x1, in.y1, this->zero_idx());
         block.q_m().emplace_back(1);
@@ -484,12 +500,18 @@ uint32_t UltraCircuitBuilder_<ExecutionTrace>::put_constant_variable(const FF& v
 {
     if (constant_variable_indices.contains(variable)) {
         return constant_variable_indices.at(variable);
-    } else {
+    }
+    // In cursor mode (parallel construction), don't insert into the shared cache.
+    // New constants that weren't pre-registered get fresh variables without deduplication.
+    if (this->get_variable_cursor() != this->VARIABLE_CURSOR_DISABLED) {
         uint32_t variable_index = this->add_variable(variable);
         fix_witness(variable_index, variable);
-        constant_variable_indices.insert({ variable, variable_index });
         return variable_index;
     }
+    uint32_t variable_index = this->add_variable(variable);
+    fix_witness(variable_index, variable);
+    constant_variable_indices.insert({ variable, variable_index });
+    return variable_index;
 }
 
 /**
@@ -559,7 +581,13 @@ plookup::ReadData<uint32_t> UltraCircuitBuilder_<ExecutionTrace>::create_gates_f
 
         // Get basic lookup table; construct and add to builder.lookup_tables if not already present
         plookup::BasicTable& table = get_table(multi_table.basic_table_ids[i]);
-        table.lookup_gates.emplace_back(read_values.lookup_entries[i]);
+        // In cursor mode, defer the lookup gate entry to avoid races on table.lookup_gates
+        if (this->get_variable_cursor() != this->VARIABLE_CURSOR_DISABLED) {
+            auto tidx = get_parallel_thread_index();
+            deferred_lookup_gates_.defer(tidx, { multi_table.basic_table_ids[i], read_values.lookup_entries[i] });
+        } else {
+            table.lookup_gates.emplace_back(read_values.lookup_entries[i]);
+        }
 
         // Create witness variables: first lookup reuses user's input indices, subsequent create new variables
         const auto first_idx = is_first_lookup ? key_a_index : this->add_variable(read_values[ColumnIdx::C1][i]);
@@ -756,6 +784,13 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_small_range_constraint(const u
                                                                          const uint64_t target_range,
                                                                          std::string const msg)
 {
+    // In cursor mode, defer range constraint to avoid races on range_lists and real_variable_tags
+    if (this->get_variable_cursor() != this->VARIABLE_CURSOR_DISABLED) {
+        auto tidx = get_parallel_thread_index();
+        deferred_range_constraints_.defer(tidx, { variable_index, target_range });
+        return;
+    }
+
     // make sure `target_range` is not too big.
     BB_ASSERT_GTE(MAX_SMALL_RANGE_CONSTRAINT_VAL, target_range);
     const bool is_out_of_range = (uint256_t(this->get_variable(variable_index)).data[0] > target_range);
@@ -1522,7 +1557,8 @@ std::array<uint32_t, 2> UltraCircuitBuilder_<ExecutionTrace>::queue_partial_non_
     const uint32_t hi_0_idx = this->add_variable(hi_0);
     const uint32_t hi_1_idx = this->add_variable(hi_1);
 
-    // Add witnesses into the multiplication cache (duplicates removed during circuit finalization)
+    // Add witnesses into the multiplication cache (duplicates removed during circuit finalization).
+    // In cursor mode, defer to per-thread buffer to avoid races on the shared vector.
     cached_partial_non_native_field_multiplication cache_entry{
         .a = input.a,
         .b = input.b,
@@ -1530,7 +1566,11 @@ std::array<uint32_t, 2> UltraCircuitBuilder_<ExecutionTrace>::queue_partial_non_
         .hi_0 = hi_0_idx,
         .hi_1 = hi_1_idx,
     };
-    cached_partial_non_native_field_multiplications.emplace_back(cache_entry);
+    if (this->get_variable_cursor() != this->VARIABLE_CURSOR_DISABLED) {
+        deferred_non_native_field_muls_.defer(get_parallel_thread_index(), cache_entry);
+    } else {
+        cached_partial_non_native_field_multiplications.emplace_back(cache_entry);
+    }
     return std::array<uint32_t, 2>{ lo_0_idx, hi_1_idx };
 }
 
