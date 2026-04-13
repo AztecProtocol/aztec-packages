@@ -23,7 +23,7 @@ import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 
 import { getContract } from 'viem';
 
-import { E2E_DEFAULT_MIN_FEE_PADDING, MNEMONIC } from '../fixtures/fixtures.js';
+import { MNEMONIC, getPaddedMaxFeesPerGas } from '../fixtures/fixtures.js';
 import {
   type EndToEndContext,
   type SetupOptions,
@@ -194,7 +194,7 @@ export class FeesTest {
     this.aztecNode = this.context.aztecNodeService;
     this.aztecNodeAdmin = this.context.aztecNodeService;
     this.gasSettings = GasSettings.fallback({
-      maxFeesPerGas: (await this.aztecNode.getCurrentMinFees()).mul(E2E_DEFAULT_MIN_FEE_PADDING),
+      maxFeesPerGas: await getPaddedMaxFeesPerGas(this.aztecNode),
     });
     this.cheatCodes = this.context.cheatCodes;
     this.accounts = deployedAccounts.map(a => a.address);
