@@ -3,10 +3,11 @@ import { BlockNumber, CheckpointNumber, IndexWithinCheckpoint, SlotNumber } from
 import { describe, expect, it } from '@jest/globals';
 
 import {
+  type AttestationSigningContext,
   type BlockProposalSigningContext,
+  type CheckpointProposalSigningContext,
   DutyType,
   type HAProtectedSigningContext,
-  type OtherSigningContext,
   type VoteSigningContext,
   getBlockNumberFromSigningContext,
 } from './types.js';
@@ -17,37 +18,38 @@ describe('getBlockNumberFromSigningContext', () => {
       const context: BlockProposalSigningContext = {
         slot: SlotNumber(100),
         blockNumber: BlockNumber(50),
+        checkpointNumber: CheckpointNumber(1),
         dutyType: DutyType.BLOCK_PROPOSAL,
         blockIndexWithinCheckpoint: IndexWithinCheckpoint(0),
       };
       expect(getBlockNumberFromSigningContext(context)).toBe(BlockNumber(50));
     });
 
-    it('should return blockNumber for CHECKPOINT_PROPOSAL', () => {
-      const context: OtherSigningContext = {
+    it('should return BlockNumber(0) for CHECKPOINT_PROPOSAL', () => {
+      const context: CheckpointProposalSigningContext = {
         slot: SlotNumber(100),
-        blockNumber: CheckpointNumber(25),
+        checkpointNumber: CheckpointNumber(25),
         dutyType: DutyType.CHECKPOINT_PROPOSAL,
       };
-      expect(getBlockNumberFromSigningContext(context)).toBe(CheckpointNumber(25));
+      expect(getBlockNumberFromSigningContext(context)).toBe(BlockNumber(0));
     });
 
-    it('should return blockNumber for ATTESTATION', () => {
-      const context: OtherSigningContext = {
+    it('should return BlockNumber(0) for ATTESTATION', () => {
+      const context: AttestationSigningContext = {
         slot: SlotNumber(100),
-        blockNumber: BlockNumber(50),
+        checkpointNumber: CheckpointNumber(0),
         dutyType: DutyType.ATTESTATION,
       };
-      expect(getBlockNumberFromSigningContext(context)).toBe(BlockNumber(50));
+      expect(getBlockNumberFromSigningContext(context)).toBe(BlockNumber(0));
     });
 
-    it('should return blockNumber for ATTESTATIONS_AND_SIGNERS', () => {
-      const context: OtherSigningContext = {
+    it('should return BlockNumber(0) for ATTESTATIONS_AND_SIGNERS', () => {
+      const context: AttestationSigningContext = {
         slot: SlotNumber(100),
-        blockNumber: BlockNumber(50),
+        checkpointNumber: CheckpointNumber(0),
         dutyType: DutyType.ATTESTATIONS_AND_SIGNERS,
       };
-      expect(getBlockNumberFromSigningContext(context)).toBe(BlockNumber(50));
+      expect(getBlockNumberFromSigningContext(context)).toBe(BlockNumber(0));
     });
 
     it('should handle large block numbers', () => {
@@ -55,6 +57,7 @@ describe('getBlockNumberFromSigningContext', () => {
       const context: BlockProposalSigningContext = {
         slot: SlotNumber(100),
         blockNumber: largeBlockNumber,
+        checkpointNumber: CheckpointNumber(1),
         dutyType: DutyType.BLOCK_PROPOSAL,
         blockIndexWithinCheckpoint: IndexWithinCheckpoint(0),
       };
@@ -94,22 +97,23 @@ describe('getBlockNumberFromSigningContext', () => {
         {
           slot: SlotNumber(100),
           blockNumber: BlockNumber(50),
+          checkpointNumber: CheckpointNumber(1),
           dutyType: DutyType.BLOCK_PROPOSAL,
           blockIndexWithinCheckpoint: IndexWithinCheckpoint(0),
         },
         {
           slot: SlotNumber(100),
-          blockNumber: BlockNumber(50),
+          checkpointNumber: CheckpointNumber(0),
           dutyType: DutyType.ATTESTATION,
         },
         {
           slot: SlotNumber(100),
-          blockNumber: BlockNumber(50),
+          checkpointNumber: CheckpointNumber(0),
           dutyType: DutyType.ATTESTATIONS_AND_SIGNERS,
         },
         {
           slot: SlotNumber(100),
-          blockNumber: CheckpointNumber(25),
+          checkpointNumber: CheckpointNumber(25),
           dutyType: DutyType.CHECKPOINT_PROPOSAL,
         },
         {
