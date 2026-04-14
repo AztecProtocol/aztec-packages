@@ -216,7 +216,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
       this.logger.warn(`Computing a tag for invalid recipient ${recipient} - returning a random tag instead`, {
         contractAddress: this.contractAddress,
       });
-      return new Tag(Fr.random());
+      return Tag.random();
     }
 
     const index = await this.#getIndexToUseForSecret(extendedSecret);
