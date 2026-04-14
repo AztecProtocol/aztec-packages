@@ -112,6 +112,22 @@ Noir kernel (`mock-private-kernel-goblin`) similar to `private-kernel-inner`. Di
 - **Noir**: verifies the previous kernel with `PROOF_TYPE_HN` and the Goblin app with `PROOF_TYPE_GOBLIN`. The VK of $A_G$ will be hard-coded. IPA accumulation is handled under the hood.
 - **BB** (`complete_kernel_circuit_logic`): new `is_goblin_kernel` path that performs the `T_pre_flush` consistency check and resets `T_prev` to the empty table before processing $A_G$'s merge subtable (steps 3–5 of the Merge Chain Reset section above).
 
+## Proof Structure
+
+The final proof is **constant size** (6 sub-proofs), identical whether zero or $N$ flushes occurred. The verifier cannot distinguish a zero-flush proof from an $N$-flush proof.
+
+1. **`hiding_oink_proof`** — hiding kernel Oink (pre-sumcheck commitments, BN254)
+2. **`merge_proof`** — final op queue subtable merge (post-last-flush ops only, BN254)
+3. **`eccvm_proof`** — final EC operations on Grumpkin (post-last-flush)
+4. **`eccvm_ipa_proof`** — IPA opening proof for the final ECCVM's polynomial commitment (Grumpkin)
+5. **`joint_proof`** — Translator Oink + batched sumcheck + batched PCS for MegaZK + Translator (BN254)
+6. **`io_ipa_proof`** — IPA proof carried in `KernelIO`, accumulated across flushes and finalized at `prove()` time (Grumpkin)
+
+Note: another option is to perform IPA accumulation client side. The trade off is:
+    - +16 elements in proof (vs +72 when adding another IPA proof/claim)
+    - no need to generate a new random IPA claim per flow
+    - overhead in proving the IPA accumulation
+
 ### Scope Summary
 
 | Component | Kind | Complexity | Notes |
@@ -130,23 +146,6 @@ Noir kernel (`mock-private-kernel-goblin`) similar to `private-kernel-inner`. Di
 | Constants propagation | Modified (multi) | Low-medium | Mechanical; `yarn remake-constants` handles TS side |
 
 The **critical path** items are the two new proof types and the GoblinRecursiveVerifier circuit $C$, as these contain the only genuinely novel cryptographic work. Everything else is either mechanical propagation of a new field or a thin Noir wrapper.
-
-
-## Proof Structure
-
-The final proof is **constant size** (6 sub-proofs), identical whether zero or $N$ flushes occurred. The verifier cannot distinguish a zero-flush proof from an $N$-flush proof.
-
-1. **`hiding_oink_proof`** — hiding kernel Oink (pre-sumcheck commitments, BN254)
-2. **`merge_proof`** — final op queue subtable merge (post-last-flush ops only, BN254)
-3. **`eccvm_proof`** — final EC operations on Grumpkin (post-last-flush)
-4. **`eccvm_ipa_proof`** — IPA opening proof for the final ECCVM's polynomial commitment (Grumpkin)
-5. **`joint_proof`** — Translator Oink + batched sumcheck + batched PCS for MegaZK + Translator (BN254)
-6. **`io_ipa_proof`** — IPA proof carried in `KernelIO`, accumulated across flushes and finalized at `prove()` time (Grumpkin)
-
-Note: another option is to perform IPA accumulation client side. The trade off is:
-    - +16 elements in proof (vs +72 when adding another IPA proof/claim)
-    - no need to generate a new random IPA claim per flow
-    - overhead in proving the IPA accumulation
 
 ## Impact on Non-Flush Flows
 

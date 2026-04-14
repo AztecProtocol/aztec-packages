@@ -1,1 +1,1 @@
-barretenberg_module(goblin_flush_bench vm2_stub chonk goblin_without_merge stdlib_honk_verifier stdlib_sha256 stdlib_primitives)
+barretenberg_module(goblin_flush_bench vm2_stub dsl chonk goblin_without_merge stdlib_honk_verifier stdlib_sha256 stdlib_primitives)
