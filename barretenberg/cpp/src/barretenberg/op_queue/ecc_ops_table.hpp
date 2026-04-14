@@ -363,7 +363,14 @@ class UltraEccOpsTable {
     ColumnPolynomials construct_current_ultra_ops_subtable_columns(size_t start_offset = 0) const
     {
         if (!current_subtable_idx.has_value()) {
-            return ColumnPolynomials{}; // empty merge
+            // Empty merge: return zero polynomials sized to accommodate the start_offset
+            ColumnPolynomials column_polynomials;
+            if (start_offset > 0) {
+                for (auto& poly : column_polynomials) {
+                    poly = Polynomial<Fr>(start_offset);
+                }
+            }
+            return column_polynomials;
         }
         const size_t poly_size = current_ultra_subtable_size() + start_offset;
         const size_t subtable_start_idx = current_subtable_idx.value();
