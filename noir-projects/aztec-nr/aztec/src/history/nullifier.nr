@@ -6,7 +6,7 @@ use crate::oracle::get_nullifier_membership_witness::{
 
 use crate::protocol::{
     abis::block_header::BlockHeader,
-    merkle_tree::{leaf_preimage::IndexedTreeLeafPreimage, root::root_from_sibling_path},
+    merkle_tree::{indexed_tree::low_leaf::is_valid_low_leaf, root::root_from_sibling_path},
     traits::Hash,
 };
 
@@ -102,17 +102,17 @@ pub fn assert_nullifier_did_not_exist_by(block_header: BlockHeader, siloed_nulli
         "Proving nullifier non-inclusion failed: Could not prove low nullifier inclusion",
     );
 
-    // 4) Prove that the low leaf is indeed smaller than the nullifier
+    // 4) Prove that the nullifier is in range of the low leaf, i.e. that the low leaf's nullifier is smaller than the
+    // target and that the low leaf's next nullifier is larger (or the low leaf points to infinity, meaning it is the
+    // largest entry in the tree). This guarantees non-inclusion because, if the nullifier were in the tree, it would
+    // need to be between the low leaf and the next leaf.
+    let (_, is_greater_than_low, is_less_than_next) = is_valid_low_leaf(siloed_nullifier, low_nullifier_leaf);
     assert(
-        low_nullifier_leaf.nullifier.lt(siloed_nullifier),
+        is_greater_than_low,
         "Proving nullifier non-inclusion failed: low_nullifier.value < nullifier.value check failed",
     );
-
-    // 5) Prove that the low leaf is pointing "over" the nullifier, which means that the nullifier is not included in
-    // the nullifier tree, since if it were it'd need to be between the low leaf and the next leaf. Note the special
-    // case in which the low leaf is the largest of all entries, in which case there's no 'next' entry.
     assert(
-        siloed_nullifier.lt(low_nullifier_leaf.next_nullifier) | low_nullifier_leaf.points_to_infinity(),
+        is_less_than_next,
         "Proving nullifier non-inclusion failed: low_nullifier.next_value > nullifier.value check failed",
     );
 }
