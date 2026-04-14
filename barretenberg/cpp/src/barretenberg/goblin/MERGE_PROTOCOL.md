@@ -76,7 +76,7 @@ chain from prior merges.
 
 - **L and R**: always shifted to $X^s \cdot L$, $X^s \cdot R$
 - **M (PREPEND)**: shifted to $X^s \cdot M$ (becomes $T_{\text{prev}}$ for the next merge)
-- **M (APPEND)**: committed unshifted as $[M]$ (goes to the Translator)
+- **M (APPEND)**: shifted by `APPEND_OUTPUT_SHIFT` (= 2) to provide leading zeros for the Translator
 - **G**: committed directly (no shift)
 
 The `shift_size` $\ell$ sent to the verifier is the **unshifted** size of $L$ (captured before shifting).
@@ -86,7 +86,7 @@ The `shift_size` $\ell$ sent to the verifier is the **unshifted** size of $L$ (c
 The Merge Protocol does NOT independently commit to $L_j$ and $R_j$. Instead, these commitments are **obtained from previous steps via the transcript or public inputs**:
 
 **At a given step, prover commits only to:**
-- $[X^s \cdot M_j]$ (PREPEND) or $[M_j]$ (APPEND): Merged table commitments
+- $[X^s \cdot M_j]$ (PREPEND) or $[X^t \cdot M_j]$ (APPEND, $t$ = `APPEND_OUTPUT_SHIFT`): Merged table commitments
 - $[G]$: Degree check polynomial commitment
 
 
@@ -106,11 +106,9 @@ Construct unshifted tables from the op queue, then shift L, R (and M for PREPEND
 ```cpp
 std::array<Polynomial, NUM_WIRES> merged_table = op_queue->construct_ultra_ops_table_columns();
 // ... assign left_table and right_table based on PREPEND/APPEND ...
-shift_table_by_disabled_rows(left_table);   // X^s · L
-shift_table_by_disabled_rows(right_table);  // X^s · R
-if (settings == MergeSettings::PREPEND) {
-    shift_table_by_disabled_rows(merged_table); // X^s · M
-}
+shift_table(left_table, FULL_SHIFT);   // X^s · L
+shift_table(right_table, FULL_SHIFT);  // X^s · R
+shift_table(merged_table, (settings == MergeSettings::PREPEND) ? FULL_SHIFT : APPEND_OUTPUT_SHIFT);
 ```
 
 #### Step 2: Send Shift Size
@@ -120,7 +118,7 @@ transcript->send_to_verifier("shift_size", static_cast<uint32_t>(shift_size));
 ```
 
 #### Step 3: Commit to Merged Tables
-Commit to $X^s \cdot M_j$ (PREPEND) or $M_j$ (APPEND) and send to the verifier.
+Commit to $X^s \cdot M_j$ (PREPEND) or $X^t \cdot M_j$ (APPEND) and send to the verifier.
 
 #### Step 4: Degree Check Polynomial
 Receive challenges $\alpha_1, \ldots, \alpha_4$ and compute the batched polynomial from the **shifted** left table:
@@ -153,9 +151,9 @@ Mirrors the Prover's steps. The verifier receives evaluations of the shifted pol
 #### Check Concatenation Identity
 For PREPEND (all shifted): $l'_j + \kappa^\ell \cdot r'_j = m'_j$
 
-For APPEND (L, R shifted; M unshifted): $l'_j + \kappa^\ell \cdot r'_j = \kappa^s \cdot m_j$
+For APPEND (L, R shifted by $s$; M shifted by $t$): $l'_j + \kappa^\ell \cdot r'_j = \kappa^{s-t} \cdot m'_j$
 
-The $\kappa^s$ factor compensates for M being unshifted in APPEND mode.
+The $\kappa^{s-t}$ factor compensates for M having a smaller shift than L, R.
 
 #### Check Degree Identity
 Verifies using shifted evaluations:
@@ -167,7 +165,7 @@ This proves $\deg(L_j) < \ell$ (the X^s shift adds $s$ to both sides).
 Use KZG to verify the batched opening claim for ALL commitments:
 - $[X^s \cdot L_1], \ldots, [X^s \cdot L_4]$ (from input commitments)
 - $[X^s \cdot R_1], \ldots, [X^s \cdot R_4]$ (from input commitments)
-- $[X^s \cdot M_1], \ldots, [X^s \cdot M_4]$ (PREPEND) or $[M_1], \ldots, [M_4]$ (APPEND)
+- $[X^s \cdot M_1], \ldots, [X^s \cdot M_4]$ (PREPEND) or $[X^t \cdot M_1], \ldots, [X^t \cdot M_4]$ (APPEND)
 - $[G]$ (from proof)
 
 
@@ -203,9 +201,9 @@ Verifies $M_j(X) = L_j(X) + X^\ell \cdot R_j(X)$ by checking at evaluation point
 
 **PREPEND** (all polynomials shifted by $X^s$): $l'_j + \kappa^\ell \cdot r'_j = m'_j$
 
-**APPEND** (L, R shifted; M unshifted): $l'_j + \kappa^\ell \cdot r'_j = \kappa^s \cdot m_j$
+**APPEND** (L, R shifted by $s$; M shifted by $t$): $l'_j + \kappa^\ell \cdot r'_j = \kappa^{s-t} \cdot m'_j$
 
-The $\kappa^s$ factor in APPEND compensates for M being committed without the shift.
+The $\kappa^{s-t}$ factor in APPEND compensates for M having a smaller shift than L, R.
 
 The polynomial identity holds for all $X$ if and only if it holds at random $\kappa$ (Schwartz-Zippel lemma).
 
@@ -513,7 +511,7 @@ $$M_j = t_{A_i,j} + X^{\ell_2} \cdot t_{K_{i-1},j} + X^{\ell_1 + \ell_2} \cdot T
 This shows the hierarchical structure: the current app's ops, followed by the previous kernel's ops, followed by all earlier accumulated ops. Each merge in PREPEND mode adds new operations at the beginning (low-degree terms).
 
 **Tail Kernel (HN_FINAL, PREPEND mode):**
-- Prepends 3 random non-ops + 1 no-op for ZK masking of left table
+- Prepends 3 random non-ops for ZK masking of left table
 - **Merge Verifier receives:**
   - $[t_{\text{tail},j}]$ (including random ops) from witness commitments
   - $[T_{\text{prev},j}]$ from previous kernel's public inputs
@@ -536,7 +534,7 @@ This shows the hierarchical structure: the current app's ops, followed by the pr
 
 The complete merged table has the following structure:
 
-$$M_{\text{final},j} = [\text{no-op} \mid 3 \text{ random} \mid \text{tail-ops} \mid \text{apps} \mid \text{hiding} \mid 2 \text{ random}]$$
+$$M_{\text{final},j} = [3 \text{ random} \mid \text{tail-ops} \mid \text{apps} \mid \text{hiding} \mid 2 \text{ random}]$$
 
 **ZK:**
 - 3 random non-ops at **START** (from tail kernel, prepended)
@@ -565,7 +563,7 @@ $$M^{(i)}_j = t_{A_i,j} + X^{\ell_{A_i}} \cdot M^{(i,1)}_j$$
 
 $$M^{\text{tail}}_j = t_{\text{tail},j} + X^{\ell_{\text{tail}}} \cdot M^{(n)}_j$$
 
-where $t_{\text{tail},j} = [\text{no-op} \mid 3 \text{ random} \mid \text{tail-ops}]$
+where $t_{\text{tail},j} = [3 \text{ random} \mid \text{tail-ops}]$
 
 **Final result after hiding kernel (APPEND mode):**
 
@@ -600,7 +598,7 @@ The complete Goblin proof consists of **three protocols**:
 
 2. **TRANSLATOR PROTOCOL**
    - Proves BN254 ↔ Grumpkin translation correctness
-   - Uses **same commitments** $[M_j]$ as Merge (copy-constrained)
+   - Uses **same commitments** $[X^t \cdot M_j]$ as Merge (copy-constrained, $t$ = `APPEND_OUTPUT_SHIFT`)
    - All 6 random ops contribute to ZK
    - **Enforces degree bound**: $\deg(M_j) <$ `MINI_CIRCUIT_SIZE`
 
