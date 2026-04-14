@@ -57,6 +57,25 @@ export function getSlotAtTimestamp(
     : SlotNumber.fromBigInt((ts - constants.l1GenesisTime) / BigInt(constants.slotDuration));
 }
 
+/** Returns the timestamp of the next L1 slot boundary after the given wall-clock time. */
+export function getNextL1SlotTimestamp(
+  nowInSeconds: number,
+  constants: Pick<L1RollupConstants, 'l1GenesisTime' | 'ethereumSlotDuration'>,
+): bigint {
+  const now = BigInt(nowInSeconds);
+  const elapsed = now - constants.l1GenesisTime;
+  const currentL1Slot = elapsed / BigInt(constants.ethereumSlotDuration);
+  return constants.l1GenesisTime + (currentL1Slot + 1n) * BigInt(constants.ethereumSlotDuration);
+}
+
+/** Returns the timestamp of the last L1 slot within a given L2 slot. */
+export function getLastL1SlotTimestampForL2Slot(
+  slot: SlotNumber,
+  constants: Pick<L1RollupConstants, 'l1GenesisTime' | 'slotDuration' | 'ethereumSlotDuration'>,
+): bigint {
+  return getTimestampForSlot(slot, constants) + BigInt(constants.slotDuration - constants.ethereumSlotDuration);
+}
+
 /** Returns the L2 slot number at the next L1 block based on the current timestamp. */
 export function getSlotAtNextL1Block(
   currentL1Timestamp: bigint,

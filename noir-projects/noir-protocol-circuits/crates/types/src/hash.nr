@@ -133,6 +133,10 @@ pub fn create_protocol_nullifier(tx_request: TxRequest) -> Scoped<Counted<Nullif
     )
 }
 
+pub fn compute_log_tag(raw_tag: Field, dom_sep: u32) -> Field {
+    poseidon2_hash_with_separator([raw_tag], dom_sep)
+}
+
 pub fn compute_siloed_private_log_first_field(
     contract_address: AztecAddress,
     field: Field,
@@ -269,8 +273,8 @@ pub fn poseidon2_hash_bytes<let N: u32>(inputs: [u8; N]) -> Field {
 
 #[test]
 fn subarray_hash_matches_fixed() {
-    let mut values_to_hash = [3; 17];
-    let mut padded = values_to_hash.concat([0; 11]);
+    let values_to_hash = [3; 17];
+    let padded = values_to_hash.concat([0; 11]);
     let subarray_hash = poseidon2_hash_subarray(padded, values_to_hash.len());
 
     // Hash the entire values_to_hash.
@@ -281,8 +285,8 @@ fn subarray_hash_matches_fixed() {
 
 #[test]
 fn subarray_hash_matches_variable() {
-    let mut values_to_hash = [3; 17];
-    let mut padded = values_to_hash.concat([0; 11]);
+    let values_to_hash = [3; 17];
+    let padded = values_to_hash.concat([0; 11]);
     let subarray_hash = poseidon2_hash_subarray(padded, values_to_hash.len());
 
     // Hash up to values_to_hash.len() fields of the padded array.

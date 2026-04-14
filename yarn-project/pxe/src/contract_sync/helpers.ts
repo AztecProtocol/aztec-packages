@@ -6,7 +6,6 @@ import { DelayedPublicMutableValues, DelayedPublicMutableValuesWithHash } from '
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import type { BlockHeader } from '@aztec/stdlib/tx';
 
-import type { AccessScopes } from '../access_scopes.js';
 import { NoteService } from '../notes/note_service.js';
 import type { ContractStore } from '../storage/contract_store/contract_store.js';
 import type { NoteStore } from '../storage/note_store/note_store.js';
@@ -43,16 +42,16 @@ export async function syncState(
   contractAddress: AztecAddress,
   contractStore: ContractStore,
   functionToInvokeAfterSync: FunctionSelector | null,
-  utilityExecutor: (privateSyncCall: FunctionCall, scopes: AccessScopes) => Promise<any>,
+  utilityExecutor: (privateSyncCall: FunctionCall, scopes: AztecAddress[]) => Promise<any>,
   noteStore: NoteStore,
   aztecNode: AztecNode,
   anchorBlockHeader: BlockHeader,
   jobId: string,
-  scopes: AccessScopes,
+  scope: AztecAddress,
 ) {
   // Protocol contracts don't have private state to sync
   if (!isProtocolContract(contractAddress)) {
-    const syncStateFunctionCall = await contractStore.getFunctionCall('sync_state', [], contractAddress);
+    const syncStateFunctionCall = await contractStore.getFunctionCall('sync_state', [scope], contractAddress);
     if (functionToInvokeAfterSync && functionToInvokeAfterSync.equals(syncStateFunctionCall.selector)) {
       throw new Error(
         'Forbidden `sync_state` invocation. `sync_state` can only be invoked by PXE, manual execution can lead to inconsistencies.',
@@ -60,6 +59,7 @@ export async function syncState(
     }
 
     const noteService = new NoteService(noteStore, aztecNode, anchorBlockHeader, jobId);
+    const scopes: AztecAddress[] = [scope];
 
     // Both sync_state and syncNoteNullifiers interact with the note store, but running them in parallel is safe
     // because note store is designed to handle concurrent operations.

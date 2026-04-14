@@ -18,11 +18,21 @@ AZTEC_NR_DIR="$(cd "$DOCS_ROOT/../noir-projects/aztec-nr" && pwd)"
 # Version defaults to "next" if not provided
 VERSION="${1:-next}"
 
-# Determine output folder name - use stable paths for nightly/devnet
-if [[ "$VERSION" == *"nightly"* ]]; then
+# Determine output folder name - use stable paths for nightly/devnet/testnet/mainnet
+# RELEASE_TYPE env var takes precedence for explicit mapping (e.g., when version string
+# doesn't self-identify its release type, like v4.2.0-aztecnr-rc.2 for mainnet)
+if [[ -n "${RELEASE_TYPE:-}" ]]; then
+    OUTPUT_FOLDER="$RELEASE_TYPE"
+elif [[ "$VERSION" == *"nightly"* ]]; then
     OUTPUT_FOLDER="nightly"
 elif [[ "$VERSION" == *"devnet"* ]]; then
     OUTPUT_FOLDER="devnet"
+elif [[ "$VERSION" == *"mainnet"* ]]; then
+    OUTPUT_FOLDER="mainnet"
+elif [[ "$VERSION" == *"testnet"* ]]; then
+    OUTPUT_FOLDER="testnet"
+elif [[ "$VERSION" == *"rc"* ]]; then
+    OUTPUT_FOLDER="testnet"
 else
     OUTPUT_FOLDER="$VERSION"
 fi

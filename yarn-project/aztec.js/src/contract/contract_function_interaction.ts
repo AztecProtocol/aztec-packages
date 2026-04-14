@@ -19,11 +19,11 @@ import type { Wallet } from '../wallet/wallet.js';
 import { BaseContractInteraction } from './base_contract_interaction.js';
 import { getGasLimits } from './get_gas_limits.js';
 import {
+  NO_FROM,
   type ProfileInteractionOptions,
   type RequestInteractionOptions,
   type SimulateInteractionOptions,
   type SimulationResult,
-  emptyOffchainOutput,
   extractOffchainOutput,
   toProfileOptions,
   toSimulateOptions,
@@ -130,22 +130,24 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
     // docs:end:simulate
     if (this.functionDao.functionType == FunctionType.UTILITY) {
       const call = await this.getFunctionCall();
+      const scopes = [...(options.additionalScopes ?? [])];
       const utilityResult = await this.wallet.executeUtility(call, {
-        scope: options.from,
+        scopes: options.from === NO_FROM ? scopes : [options.from, ...scopes],
         authWitnesses: options.authWitnesses,
       });
 
       // Decode the raw field elements to the actual return type
       const returnValue = utilityResult.result ? decodeFromAbi(this.functionDao.returnTypes, utilityResult.result) : [];
+      const offchainOutput = extractOffchainOutput(utilityResult.offchainEffects, utilityResult.anchorBlockTimestamp);
 
       if (options.includeMetadata) {
         return {
           stats: utilityResult.stats,
-          ...emptyOffchainOutput(),
+          ...offchainOutput,
           result: returnValue,
         };
       }
-      return { result: returnValue, ...emptyOffchainOutput() };
+      return { result: returnValue, ...offchainOutput };
     }
 
     const executionPayload = await this.request(options);
@@ -153,21 +155,17 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
 
     let rawReturnValues;
     if (this.functionDao.functionType == FunctionType.PRIVATE) {
-      if (simulatedTx.getPrivateReturnValues().nested.length > 0) {
-        // The function invoked is private and it was called via an account contract
-        // TODO(#10631): There is a bug here: this branch might be triggered when there is no-account contract as well
-        rawReturnValues = simulatedTx.getPrivateReturnValues().nested[0].values;
-      } else {
-        // The function invoked is private and it was called directly (without account contract)
-        rawReturnValues = simulatedTx.getPrivateReturnValues().values;
-      }
+      rawReturnValues = simulatedTx.getPrivateReturnValuesOfAppCall(0)?.values;
     } else {
       // For public functions we retrieve the first values directly from the public output.
       rawReturnValues = simulatedTx.getPublicReturnValues()?.[0]?.values;
     }
 
     const returnValue = rawReturnValues ? decodeFromAbi(this.functionDao.returnTypes, rawReturnValues) : [];
-    const offchainOutput = extractOffchainOutput(simulatedTx.offchainEffects);
+    const offchainOutput = extractOffchainOutput(
+      simulatedTx.offchainEffects,
+      simulatedTx.publicInputs.constants.anchorBlockHeader.globalVariables.timestamp,
+    );
 
     if (options.includeMetadata || options.fee?.estimateGas) {
       const { gasLimits, teardownGasLimits } = getGasLimits(simulatedTx, options.fee?.estimatedGasPadding);

@@ -75,6 +75,21 @@ export const NO_WAIT = 'NO_WAIT' as const;
 export type NoWait = typeof NO_WAIT;
 
 /**
+ * Constant for explicitly opting out of account contract mediation.
+ * When used as the `from` parameter, the wallet executes the payload directly
+ * via the DefaultEntrypoint without wrapping it in an account contract entrypoint.
+ * The app is responsible for assembling the complete execution payload, including
+ * any entrypoint wrapping (e.g. multicall) if needed. This will result in the
+ * first call of the chain receiving msg_sender as Option::none
+ */
+export const NO_FROM = 'NO_FROM' as const;
+
+/**
+ * Type for the NO_FROM constant.
+ */
+export type NoFrom = typeof NO_FROM;
+
+/**
  * Type for wait options in interactions.
  * - NO_WAIT symbol: Don't wait for confirmation, return TxHash immediately
  * - WaitOpts object: Wait with custom options and return receipt/result
@@ -86,8 +101,8 @@ export type InteractionWaitOptions = NoWait | WaitOpts | undefined;
  * Base options for calling a (constrained) function in a contract, without wait parameter.
  */
 export type SendInteractionOptionsWithoutWait = RequestInteractionOptions & {
-  /** The sender's Aztec address. */
-  from: AztecAddress;
+  /** The sender's Aztec address, or NO_FROM to execute without account contract mediation. */
+  from: AztecAddress | NoFrom;
   /** The fee options for the transaction. */
   fee?: InteractionFeeOptions;
   /**
@@ -147,6 +162,8 @@ export type OffchainMessage = {
   payload: Fr[];
   /** The contract that emitted the message. */
   contractAddress: AztecAddress;
+  /** Anchor block timestamp at message emission. */
+  anchorBlockTimestamp: bigint;
 };
 
 /** Groups all unproven outputs from private execution that are returned to the client. */
@@ -162,7 +179,7 @@ export type OffchainOutput = {
  * Effects whose data starts with `OFFCHAIN_MESSAGE_IDENTIFIER` are parsed as messages and removed
  * from the effects array.
  */
-export function extractOffchainOutput(effects: OffchainEffect[]): OffchainOutput {
+export function extractOffchainOutput(effects: OffchainEffect[], anchorBlockTimestamp: bigint): OffchainOutput {
   const offchainEffects: OffchainEffect[] = [];
   const offchainMessages: OffchainMessage[] = [];
 
@@ -172,6 +189,7 @@ export function extractOffchainOutput(effects: OffchainEffect[]): OffchainOutput
         recipient: AztecAddress.fromField(effect.data[1]),
         payload: effect.data.slice(2),
         contractAddress: effect.contractAddress,
+        anchorBlockTimestamp,
       });
     } else {
       offchainEffects.push(effect);
@@ -179,13 +197,6 @@ export function extractOffchainOutput(effects: OffchainEffect[]): OffchainOutput
   }
 
   return { offchainEffects, offchainMessages };
-}
-
-/**
- * Returns an empty `OffchainOutput` (no effects, no messages).
- */
-export function emptyOffchainOutput(): OffchainOutput {
-  return { offchainEffects: [], offchainMessages: [] };
 }
 
 /**

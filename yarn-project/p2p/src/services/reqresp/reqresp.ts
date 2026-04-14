@@ -16,7 +16,7 @@ import {
   IndividualReqRespTimeoutError,
   InvalidResponseError,
 } from '../../errors/reqresp.error.js';
-import { SnappyTransform } from '../encoding.js';
+import { OversizedSnappyResponseError, SnappyTransform } from '../encoding.js';
 import type { PeerScoring } from '../peer-manager/peer_scoring.js';
 import {
   DEFAULT_INDIVIDUAL_REQUEST_TIMEOUT_MS,
@@ -462,7 +462,7 @@ export class ReqResp implements ReqRespInterface {
       );
       return resp;
     } catch (e: any) {
-      this.logger.warn(`SUBPROTOCOL: ${subProtocol}\n`, e);
+      this.logger.debug(`SUBPROTOCOL: ${subProtocol}\n`, e);
       // On error we immediately abort the stream, this is preferred way,
       // because it signals to the sender that error happened, whereas
       // closing the stream only closes our side and is much slower
@@ -553,16 +553,10 @@ export class ReqResp implements ReqRespInterface {
         data: message,
       };
     } catch (e: any) {
+      // All errors (invalid status bytes, oversized snappy responses, corrupt data, etc.)
+      // are re-thrown so the caller can penalize the peer via handleResponseError.
       this.logger.debug(`Reading message failed: ${e.message}`);
-
-      let status = ReqRespStatus.UNKNOWN;
-      if (e instanceof ReqRespStatusError) {
-        status = e.status;
-      }
-
-      return {
-        status,
-      };
+      throw e;
     }
   }
 
@@ -776,6 +770,20 @@ export class ReqResp implements ReqRespInterface {
     if (e instanceof CollectiveReqRespTimeoutError || e instanceof InvalidResponseError) {
       this.logger.debug(`Non-punishable error in ${subProtocol}: ${e.message}`, logTags);
       return undefined;
+    }
+
+    // Invalid status byte: the peer sent a status byte that doesn't match any known status code.
+    // This is a protocol violation, penalize harshly.
+    if (e instanceof ReqRespStatusError) {
+      this.logger.warn(`Invalid status byte from peer ${peerId.toString()} in ${subProtocol}: ${e.message}`, logTags);
+      return PeerErrorSeverity.LowToleranceError;
+    }
+
+    // Oversized snappy response: the peer is sending data that exceeds the allowed size.
+    // This is a protocol violation that wastes bandwidth, so penalize harshly.
+    if (e instanceof OversizedSnappyResponseError) {
+      this.logger.warn(`Oversized response from peer ${peerId.toString()} in ${subProtocol}: ${e.message}`, logTags);
+      return PeerErrorSeverity.LowToleranceError;
     }
 
     return this.categorizeConnectionErrors(e, peerId, subProtocol);

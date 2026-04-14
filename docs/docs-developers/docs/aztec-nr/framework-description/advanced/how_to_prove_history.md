@@ -93,9 +93,11 @@ You can also prove a contract was initialized (constructor was called):
 
 ```rust
 use dep::aztec::history::deployment::assert_contract_was_initialized_by;
+use dep::aztec::oracle::get_contract_instance::get_contract_instance;
 
 let header = self.context.get_anchor_block_header();
-assert_contract_was_initialized_by(header, contract_address);
+let instance = get_contract_instance(contract_address);
+assert_contract_was_initialized_by(header, contract_address, instance.initialization_hash);
 ```
 
 ## Available proof functions

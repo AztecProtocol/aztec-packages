@@ -1,6 +1,5 @@
 import {
-  DEFAULT_DA_GAS_LIMIT,
-  DEFAULT_TEARDOWN_DA_GAS_LIMIT,
+  MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT,
   MAX_PROCESSABLE_L2_GAS,
   PRIVATE_TX_L2_GAS_OVERHEAD,
   PUBLIC_TX_L2_GAS_OVERHEAD,
@@ -14,7 +13,7 @@ import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { RevertCode } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { Body, L2Block, type L2BlockId, type L2BlockSource } from '@aztec/stdlib/block';
-import { Gas, GasFees, GasSettings } from '@aztec/stdlib/gas';
+import { FALLBACK_TEARDOWN_DA_GAS_LIMIT, Gas, GasFees, GasSettings } from '@aztec/stdlib/gas';
 import type { MerkleTreeReadOperations, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import { mockTx } from '@aztec/stdlib/testing';
 import {
@@ -27,7 +26,9 @@ import { BlockHeader, GlobalVariables, type Tx, TxEffect, TxHash, type TxValidat
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
+import { AggregateTxValidator } from '../../msg_validators/tx_validator/aggregate_tx_validator.js';
 import { GasLimitsValidator } from '../../msg_validators/tx_validator/gas_validator.js';
+import { AllowedSetupCallsMetaValidator } from '../../msg_validators/tx_validator/phases_validator.js';
 import type { TxMetaData } from './tx_metadata.js';
 import { AztecKVTxPoolV2 } from './tx_pool_v2.js';
 
@@ -35,9 +36,9 @@ import { AztecKVTxPoolV2 } from './tx_pool_v2.js';
 type MockTx = Awaited<ReturnType<typeof mockTx>>;
 
 // Default maxFeesPerGas used by mockTx is GasFees(10, 10).
-// Fee limit per tx = DEFAULT_L2_GAS_LIMIT * 10 + DEFAULT_DA_GAS_LIMIT * 10.
+// Fee limit per tx = MAX_PROCESSABLE_L2_GAS * 10 + MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT * 10.
 const DEFAULT_MAX_FEES_PER_GAS = new GasFees(10, 10);
-const DEFAULT_TX_FEE_LIMIT = GasSettings.default({ maxFeesPerGas: DEFAULT_MAX_FEES_PER_GAS }).getFeeLimit().toBigInt();
+const DEFAULT_TX_FEE_LIMIT = GasSettings.fallback({ maxFeesPerGas: DEFAULT_MAX_FEES_PER_GAS }).getFeeLimit().toBigInt();
 
 /** A validator that accepts all transactions. Used in tests that don't need validation. */
 const alwaysValidValidator: TxValidator<TxMetaData> = {
@@ -133,6 +134,7 @@ describe('TxPoolV2', () => {
       l2BlockSource: mockL2BlockSource,
       worldStateSynchronizer: mockWorldState,
       createTxValidator: () => Promise.resolve(alwaysValidValidator),
+      checkAllowedSetupCalls: () => Promise.resolve(true),
     });
     await pool.start();
 
@@ -542,6 +544,7 @@ describe('TxPoolV2', () => {
         l2BlockSource: mockL2BlockSource,
         worldStateSynchronizer: mockWorldState,
         createTxValidator: () => Promise.resolve(rejectingValidator),
+        checkAllowedSetupCalls: () => Promise.resolve(true),
       });
       await rejectingPool.start();
     });
@@ -657,6 +660,7 @@ describe('TxPoolV2', () => {
         l2BlockSource: mockL2BlockSource,
         worldStateSynchronizer: mockWorldState,
         createTxValidator: () => Promise.resolve(new GasLimitsValidator<TxMetaData>()),
+        checkAllowedSetupCalls: () => Promise.resolve(true),
       });
       await gasPool.start();
     });
@@ -669,7 +673,7 @@ describe('TxPoolV2', () => {
 
     const makePublicTxWithGas = async (seed: number, gasLimits: Gas) => {
       const tx = await mockTx(seed, { numberOfNonRevertiblePublicCallRequests: 1 });
-      tx.data.constants.txContext.gasSettings = GasSettings.default({
+      tx.data.constants.txContext.gasSettings = GasSettings.fallback({
         gasLimits,
         maxFeesPerGas: DEFAULT_MAX_FEES_PER_GAS,
       });
@@ -682,7 +686,7 @@ describe('TxPoolV2', () => {
         numberOfRevertiblePublicCallRequests: 0,
         hasPublicTeardownCallRequest: false,
       });
-      tx.data.constants.txContext.gasSettings = GasSettings.default({
+      tx.data.constants.txContext.gasSettings = GasSettings.fallback({
         gasLimits,
         maxFeesPerGas: DEFAULT_MAX_FEES_PER_GAS,
       });
@@ -732,11 +736,14 @@ describe('TxPoolV2', () => {
     });
 
     it('rejects public tx if L2 gas limit is too high', async () => {
-      const tx = await makePublicTxWithGas(1, new Gas(DEFAULT_DA_GAS_LIMIT, MAX_PROCESSABLE_L2_GAS + 1));
-      tx.data.constants.txContext.gasSettings = GasSettings.default({
-        gasLimits: new Gas(DEFAULT_DA_GAS_LIMIT, MAX_PROCESSABLE_L2_GAS + 1),
+      const tx = await makePublicTxWithGas(
+        1,
+        new Gas(MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT, MAX_PROCESSABLE_L2_GAS + 1),
+      );
+      tx.data.constants.txContext.gasSettings = GasSettings.fallback({
+        gasLimits: new Gas(MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT, MAX_PROCESSABLE_L2_GAS + 1),
         maxFeesPerGas: DEFAULT_MAX_FEES_PER_GAS,
-        teardownGasLimits: new Gas(DEFAULT_TEARDOWN_DA_GAS_LIMIT, 1),
+        teardownGasLimits: new Gas(FALLBACK_TEARDOWN_DA_GAS_LIMIT, 1),
       });
       const result = await gasPool.addPendingTxs([tx]);
       expect(result.accepted).toHaveLength(0);
@@ -744,11 +751,14 @@ describe('TxPoolV2', () => {
     });
 
     it('rejects private tx if L2 gas limit is too high', async () => {
-      const tx = await makePrivateTxWithGas(1, new Gas(DEFAULT_DA_GAS_LIMIT, MAX_PROCESSABLE_L2_GAS + 1));
-      tx.data.constants.txContext.gasSettings = GasSettings.default({
-        gasLimits: new Gas(DEFAULT_DA_GAS_LIMIT, MAX_PROCESSABLE_L2_GAS + 1),
+      const tx = await makePrivateTxWithGas(
+        1,
+        new Gas(MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT, MAX_PROCESSABLE_L2_GAS + 1),
+      );
+      tx.data.constants.txContext.gasSettings = GasSettings.fallback({
+        gasLimits: new Gas(MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT, MAX_PROCESSABLE_L2_GAS + 1),
         maxFeesPerGas: DEFAULT_MAX_FEES_PER_GAS,
-        teardownGasLimits: new Gas(DEFAULT_TEARDOWN_DA_GAS_LIMIT, 1),
+        teardownGasLimits: new Gas(FALLBACK_TEARDOWN_DA_GAS_LIMIT, 1),
       });
       const result = await gasPool.addPendingTxs([tx]);
       expect(result.accepted).toHaveLength(0);
@@ -1292,6 +1302,7 @@ describe('TxPoolV2', () => {
           l2BlockSource: mockL2BlockSource,
           worldStateSynchronizer: mockWorldState,
           createTxValidator: () => Promise.resolve(mockValidator),
+          checkAllowedSetupCalls: () => Promise.resolve(true),
         });
         await poolWithValidator.start();
       });
@@ -2000,6 +2011,7 @@ describe('TxPoolV2', () => {
         l2BlockSource: mockL2BlockSource,
         worldStateSynchronizer: mockWorldState,
         createTxValidator: () => Promise.resolve(mockValidator),
+        checkAllowedSetupCalls: () => Promise.resolve(true),
       });
       await poolWithValidator.start();
     });
@@ -2133,6 +2145,164 @@ describe('TxPoolV2', () => {
       expect(await poolWithValidator.getPendingTxCount()).toBe(2);
     });
 
+    it('prepareForSlot deletes tx with disallowed setup calls when unprotecting', async () => {
+      // Create a pool where checkAllowedSetupCalls returns false
+      const disallowStore = await openTmpStore('p2p-disallow');
+      const disallowArchiveStore = await openTmpStore('archive-disallow');
+      const setupValidator = new AggregateTxValidator(mockValidator, new AllowedSetupCallsMetaValidator<TxMetaData>());
+      const disallowPool = new AztecKVTxPoolV2(disallowStore, disallowArchiveStore, {
+        l2BlockSource: mockL2BlockSource,
+        worldStateSynchronizer: mockWorldState,
+        createTxValidator: () => Promise.resolve(setupValidator),
+        checkAllowedSetupCalls: () => Promise.resolve(false),
+      });
+      await disallowPool.start();
+
+      const tx = await mockTx(1);
+
+      // Add as protected - checkAllowedSetupCalls returns false, so metadata.allowedSetupCalls = false
+      await disallowPool.addProtectedTxs([tx], slot1Header);
+      expect(await disallowPool.getTxStatus(tx.getTxHash())).toBe('protected');
+
+      // Unprotect - AllowedSetupCallsMetaValidator should reject since allowedSetupCalls is false
+      await disallowPool.prepareForSlot(SlotNumber(2));
+
+      expect(await disallowPool.getTxStatus(tx.getTxHash())).toBe('deleted');
+      expect(await disallowPool.getPendingTxCount()).toBe(0);
+
+      await disallowPool.stop();
+      await disallowStore.delete();
+      await disallowArchiveStore.delete();
+    });
+
+    it('prepareForSlot keeps tx with allowed setup calls when unprotecting', async () => {
+      const tx = await mockTx(1);
+
+      // poolWithValidator has checkAllowedSetupCalls returning true (default)
+      await poolWithValidator.addProtectedTxs([tx], slot1Header);
+
+      await poolWithValidator.prepareForSlot(SlotNumber(2));
+
+      expect(await poolWithValidator.getTxStatus(tx.getTxHash())).toBe('pending');
+      expect(await poolWithValidator.getPendingTxCount()).toBe(1);
+    });
+
+    it('prepareForSlot handles mixed allowed/disallowed setup calls on unprotect', async () => {
+      // Create a pool where checkAllowedSetupCalls returns false for specific txs
+      const mixedStore = await openTmpStore('p2p-mixed');
+      const mixedArchiveStore = await openTmpStore('archive-mixed');
+
+      const txAllowed = await mockTx(1);
+      const txDisallowed = await mockTx(2);
+      const txAlsoAllowed = await mockTx(3);
+      const disallowedHash = txDisallowed.getTxHash().toString();
+
+      const setupValidator = new AggregateTxValidator(mockValidator, new AllowedSetupCallsMetaValidator<TxMetaData>());
+      const mixedPool = new AztecKVTxPoolV2(mixedStore, mixedArchiveStore, {
+        l2BlockSource: mockL2BlockSource,
+        worldStateSynchronizer: mockWorldState,
+        createTxValidator: () => Promise.resolve(setupValidator),
+        // Only disallow setup calls for the second tx
+        checkAllowedSetupCalls: tx => Promise.resolve(tx.getTxHash().toString() !== disallowedHash),
+      });
+      await mixedPool.start();
+
+      // Add all as protected
+      await mixedPool.addProtectedTxs([txAllowed, txDisallowed, txAlsoAllowed], slot1Header);
+      expect(await mixedPool.getTxStatus(txAllowed.getTxHash())).toBe('protected');
+      expect(await mixedPool.getTxStatus(txDisallowed.getTxHash())).toBe('protected');
+      expect(await mixedPool.getTxStatus(txAlsoAllowed.getTxHash())).toBe('protected');
+
+      // Unprotect all - only txDisallowed should be deleted
+      await mixedPool.prepareForSlot(SlotNumber(2));
+
+      expect(await mixedPool.getTxStatus(txAllowed.getTxHash())).toBe('pending');
+      expect(await mixedPool.getTxStatus(txDisallowed.getTxHash())).toBe('deleted');
+      expect(await mixedPool.getTxStatus(txAlsoAllowed.getTxHash())).toBe('pending');
+      expect(await mixedPool.getPendingTxCount()).toBe(2);
+
+      await mixedPool.stop();
+      await mixedStore.delete();
+      await mixedArchiveStore.delete();
+    });
+
+    it('handlePrunedBlocks deletes tx with disallowed setup calls after reload and un-mining', async () => {
+      db.findLeafIndices.mockResolvedValue([1n]); // Anchor block valid
+
+      // Step 1: Start a pool that allows setup calls, add and mine a tx
+      const sharedStore = await openTmpStore('p2p-disallow-prune');
+      const sharedArchiveStore = await openTmpStore('archive-disallow-prune');
+      const pool1 = new AztecKVTxPoolV2(sharedStore, sharedArchiveStore, {
+        l2BlockSource: mockL2BlockSource,
+        worldStateSynchronizer: mockWorldState,
+        createTxValidator: () => Promise.resolve(mockValidator),
+        checkAllowedSetupCalls: () => Promise.resolve(true),
+      });
+      await pool1.start();
+
+      const tx = await mockTx(1);
+      await pool1.addPendingTxs([tx]);
+      await pool1.handleMinedBlock(makeBlock([tx], slot1Header));
+      expect(await pool1.getTxStatus(tx.getTxHash())).toBe('mined');
+      await pool1.stop();
+
+      // Step 2: Restart pool with checkAllowedSetupCalls returning false.
+      // On reload, tx gets allowedSetupCalls=false in metadata.
+      const setupValidator = new AggregateTxValidator(mockValidator, new AllowedSetupCallsMetaValidator<TxMetaData>());
+      const pool2 = new AztecKVTxPoolV2(sharedStore, sharedArchiveStore, {
+        l2BlockSource: mockL2BlockSource,
+        worldStateSynchronizer: mockWorldState,
+        createTxValidator: () => Promise.resolve(setupValidator),
+        checkAllowedSetupCalls: () => Promise.resolve(false),
+      });
+      // Mock getTxEffect to return the mined tx so it stays mined on reload
+      mockL2BlockSource.getTxEffect.mockResolvedValue({
+        txEffect: TxEffect.empty(),
+        l2BlockNumber: 1,
+        l2BlockHash: '0x1',
+      } as any);
+      await pool2.start();
+      expect(await pool2.getTxStatus(tx.getTxHash())).toBe('mined');
+
+      // Restore original mock
+      mockL2BlockSource.getTxEffect.mockResolvedValue(undefined);
+
+      // Step 3: Prune - tx gets un-mined and revalidated.
+      // AllowedSetupCallsMetaValidator rejects it since allowedSetupCalls=false.
+      await pool2.handlePrunedBlocks(block0Id);
+
+      expect(await pool2.getTxStatus(tx.getTxHash())).toBe('deleted');
+      expect(await pool2.getPendingTxCount()).toBe(0);
+
+      await pool2.stop();
+      await sharedStore.delete();
+      await sharedArchiveStore.delete();
+    });
+
+    it('pending tx via addPendingTxs has allowedSetupCalls=true regardless of checkAllowedSetupCalls', async () => {
+      // Create a pool where checkAllowedSetupCalls always returns false
+      const disallowStore = await openTmpStore('p2p-disallow-pending');
+      const disallowArchiveStore = await openTmpStore('archive-disallow-pending');
+      const disallowPool = new AztecKVTxPoolV2(disallowStore, disallowArchiveStore, {
+        l2BlockSource: mockL2BlockSource,
+        worldStateSynchronizer: mockWorldState,
+        createTxValidator: () => Promise.resolve(mockValidator),
+        checkAllowedSetupCalls: () => Promise.resolve(false),
+      });
+      await disallowPool.start();
+
+      const tx = await mockTx(1);
+
+      // Add via addPendingTxs - this does NOT call checkAllowedSetupCalls,
+      // so allowedSetupCalls defaults to true
+      await disallowPool.addPendingTxs([tx]);
+      expect(disallowPool.getPoolReadAccess().getMetadata(tx.getTxHash().toString())?.allowedSetupCalls).toBe(true);
+
+      await disallowPool.stop();
+      await disallowStore.delete();
+      await disallowArchiveStore.delete();
+    });
+
     it('validation runs before nullifier conflict check in prepareForSlot', async () => {
       const txPending = await mockPublicTx(1, 5);
       const txProtected = await mockPublicTx(2, 10);
@@ -2181,6 +2351,7 @@ describe('TxPoolV2', () => {
         l2BlockSource: mockL2BlockSource,
         worldStateSynchronizer: mockWorldState,
         createTxValidator: () => Promise.resolve(mockValidator),
+        checkAllowedSetupCalls: () => Promise.resolve(true),
       });
       await poolWithValidator.start();
     });
@@ -4111,7 +4282,7 @@ describe('TxPoolV2', () => {
       // Fee limit = gasLimits.l2 * maxFees.l2 + gasLimits.da * maxFees.da
       // Default gas limits are ~1e7 each, so with maxFees of 1e12 we get ~1e19 fee limit
       const highFeeTx = await mockTx(4, { numberOfNonRevertiblePublicCallRequests: 1 });
-      highFeeTx.data.constants.txContext.gasSettings = GasSettings.default({
+      highFeeTx.data.constants.txContext.gasSettings = GasSettings.fallback({
         maxFeesPerGas: new GasFees(1e12, 1e12),
       });
 
@@ -4437,6 +4608,7 @@ describe('TxPoolV2', () => {
           l2BlockSource: mockL2BlockSource,
           worldStateSynchronizer: mockWorldState,
           createTxValidator: () => Promise.resolve(alwaysValidValidator),
+          checkAllowedSetupCalls: () => Promise.resolve(true),
         });
         await pool1.start();
 
@@ -4462,6 +4634,7 @@ describe('TxPoolV2', () => {
           l2BlockSource: mockL2BlockSource,
           worldStateSynchronizer: mockWorldState,
           createTxValidator: () => Promise.resolve(alwaysValidValidator),
+          checkAllowedSetupCalls: () => Promise.resolve(true),
         });
         await pool2.start();
 
@@ -4490,6 +4663,7 @@ describe('TxPoolV2', () => {
             l2BlockSource: mockL2BlockSource,
             worldStateSynchronizer: mockWorldState,
             createTxValidator: () => Promise.resolve(alwaysValidValidator),
+            checkAllowedSetupCalls: () => Promise.resolve(true),
           },
           undefined, // telemetry
           { maxPendingTxCount: 100 },
@@ -4516,6 +4690,7 @@ describe('TxPoolV2', () => {
             l2BlockSource: mockL2BlockSource,
             worldStateSynchronizer: mockWorldState,
             createTxValidator: () => Promise.resolve(alwaysValidValidator),
+            checkAllowedSetupCalls: () => Promise.resolve(true),
           },
           undefined, // telemetry
           { maxPendingTxCount: 3 },
@@ -4548,6 +4723,7 @@ describe('TxPoolV2', () => {
           l2BlockSource: mockL2BlockSource,
           worldStateSynchronizer: mockWorldState,
           createTxValidator: () => Promise.resolve(alwaysValidValidator),
+          checkAllowedSetupCalls: () => Promise.resolve(true),
         });
         await pool1.start();
 
@@ -4565,6 +4741,7 @@ describe('TxPoolV2', () => {
           l2BlockSource: mockL2BlockSource,
           worldStateSynchronizer: mockWorldState,
           createTxValidator: () => Promise.resolve(alwaysValidValidator),
+          checkAllowedSetupCalls: () => Promise.resolve(true),
         });
         await pool2.start();
 
@@ -4594,6 +4771,7 @@ describe('TxPoolV2', () => {
           l2BlockSource: mockL2BlockSource,
           worldStateSynchronizer: mockWorldState,
           createTxValidator: () => Promise.resolve(alwaysValidValidator),
+          checkAllowedSetupCalls: () => Promise.resolve(true),
         });
         await pool1.start();
 
@@ -4628,6 +4806,7 @@ describe('TxPoolV2', () => {
             l2BlockSource: mockL2BlockSource,
             worldStateSynchronizer: mockWorldState,
             createTxValidator: () => Promise.resolve(alwaysValidValidator),
+            checkAllowedSetupCalls: () => Promise.resolve(true),
           },
           undefined, // telemetry
           { maxPendingTxCount: 0 }, // No pending txs allowed
@@ -4656,6 +4835,7 @@ describe('TxPoolV2', () => {
           l2BlockSource: mockL2BlockSource,
           worldStateSynchronizer: mockWorldState,
           createTxValidator: () => Promise.resolve(alwaysValidValidator),
+          checkAllowedSetupCalls: () => Promise.resolve(true),
         });
         await pool1.start();
 
@@ -4682,6 +4862,7 @@ describe('TxPoolV2', () => {
           l2BlockSource: mockL2BlockSource,
           worldStateSynchronizer: mockWorldState,
           createTxValidator: () => Promise.resolve(selectiveValidator),
+          checkAllowedSetupCalls: () => Promise.resolve(true),
         });
         await pool2.start();
 
@@ -4707,6 +4888,7 @@ describe('TxPoolV2', () => {
           l2BlockSource: mockL2BlockSource,
           worldStateSynchronizer: mockWorldState,
           createTxValidator: () => Promise.resolve(alwaysValidValidator),
+          checkAllowedSetupCalls: () => Promise.resolve(true),
         });
         await pool1.start();
 
@@ -4732,6 +4914,7 @@ describe('TxPoolV2', () => {
           l2BlockSource: mockL2BlockSource,
           worldStateSynchronizer: mockWorldState,
           createTxValidator: () => Promise.resolve(alwaysValidValidator),
+          checkAllowedSetupCalls: () => Promise.resolve(true),
         });
         await pool2.start();
 
@@ -4740,6 +4923,44 @@ describe('TxPoolV2', () => {
         const pending = toStrings(await pool2.getPendingTxHashes());
         expect(pending).toContain(hashOf(txProtectedHighPriority));
         expect(pending).not.toContain(hashOf(txPendingLowPriority));
+
+        await pool2.stop();
+      } finally {
+        await testStore.delete();
+        await testArchiveStore.delete();
+      }
+    });
+
+    it('hydration recomputes allowedSetupCalls from checkAllowedSetupCalls', async () => {
+      const testStore = await openTmpStore('p2p-hydration-setup-test');
+      const testArchiveStore = await openTmpStore('archive-hydration-setup-test');
+
+      try {
+        // Add a tx with allowedSetupCalls=true (default for addPendingTxs)
+        const pool1 = new AztecKVTxPoolV2(testStore, testArchiveStore, {
+          l2BlockSource: mockL2BlockSource,
+          worldStateSynchronizer: mockWorldState,
+          createTxValidator: () => Promise.resolve(alwaysValidValidator),
+          checkAllowedSetupCalls: () => Promise.resolve(true),
+        });
+        await pool1.start();
+
+        const tx = await mockTx(1);
+        await pool1.addPendingTxs([tx]);
+        const txHashStr = tx.getTxHash().toString();
+        expect(pool1.getPoolReadAccess().getMetadata(txHashStr)?.allowedSetupCalls).toBe(true);
+        await pool1.stop();
+
+        // Restart with checkAllowedSetupCalls returning false — metadata should reflect it
+        const pool2 = new AztecKVTxPoolV2(testStore, testArchiveStore, {
+          l2BlockSource: mockL2BlockSource,
+          worldStateSynchronizer: mockWorldState,
+          createTxValidator: () => Promise.resolve(alwaysValidValidator),
+          checkAllowedSetupCalls: () => Promise.resolve(false),
+        });
+        await pool2.start();
+
+        expect(pool2.getPoolReadAccess().getMetadata(txHashStr)?.allowedSetupCalls).toBe(false);
 
         await pool2.stop();
       } finally {
@@ -4926,6 +5147,7 @@ describe('TxPoolV2', () => {
           l2BlockSource: mockL2BlockSource,
           worldStateSynchronizer: mockWorldState,
           createTxValidator: () => Promise.resolve(alwaysValidValidator),
+          checkAllowedSetupCalls: () => Promise.resolve(true),
         },
         undefined, // telemetry
         { minTxPoolAgeMs: 2_000 },
@@ -5024,6 +5246,7 @@ describe('TxPoolV2', () => {
           l2BlockSource: mockL2BlockSource,
           worldStateSynchronizer: mockWorldState,
           createTxValidator: () => Promise.resolve(alwaysValidValidator),
+          checkAllowedSetupCalls: () => Promise.resolve(true),
         },
         undefined,
         { minTxPoolAgeMs: 2_000 },
@@ -5260,6 +5483,7 @@ describe('TxPoolV2', () => {
         l2BlockSource: mockL2BlockSource,
         worldStateSynchronizer: mockWorldState,
         createTxValidator: () => Promise.resolve(mockValidator),
+        checkAllowedSetupCalls: () => Promise.resolve(true),
       });
       await poolWithValidator.start();
 
@@ -5326,6 +5550,7 @@ describe('TxPoolV2', () => {
           l2BlockSource: mockL2BlockSource,
           worldStateSynchronizer: mockWorldState,
           createTxValidator: () => Promise.resolve(alwaysValidValidator),
+          checkAllowedSetupCalls: () => Promise.resolve(true),
         });
         await pool1.start();
 
@@ -5360,6 +5585,7 @@ describe('TxPoolV2', () => {
           l2BlockSource: mockL2BlockSource,
           worldStateSynchronizer: mockWorldState,
           createTxValidator: () => Promise.resolve(alwaysValidValidator),
+          checkAllowedSetupCalls: () => Promise.resolve(true),
         });
         await pool2.start();
 
@@ -5394,6 +5620,7 @@ describe('TxPoolV2', () => {
           l2BlockSource: mockL2BlockSource,
           worldStateSynchronizer: mockWorldState,
           createTxValidator: () => Promise.resolve(throwingValidator),
+          checkAllowedSetupCalls: () => Promise.resolve(true),
         });
         await pool1.start();
 
@@ -5419,6 +5646,7 @@ describe('TxPoolV2', () => {
           l2BlockSource: mockL2BlockSource,
           worldStateSynchronizer: mockWorldState,
           createTxValidator: () => Promise.resolve(alwaysValidValidator),
+          checkAllowedSetupCalls: () => Promise.resolve(true),
         });
         await pool2.start();
 

@@ -1,23 +1,33 @@
+import { DefaultMultiCallEntrypoint } from '@aztec/entrypoints/multicall';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import type { ContractArtifact, FunctionArtifact } from '@aztec/stdlib/abi';
+import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import type { PublicKeys } from '@aztec/stdlib/keys';
-import { ExecutionPayload, mergeExecutionPayloads } from '@aztec/stdlib/tx';
+import { type Capsule, ExecutionPayload, type HashedValues, mergeExecutionPayloads } from '@aztec/stdlib/tx';
 
 import type { Account } from '../account/account.js';
 import type { Contract } from '../contract/contract.js';
 import type { ContractBase } from '../contract/contract_base.js';
 import {
+  type DeployInteractionWaitOptions,
   DeployMethod,
+  type DeployOptions,
   type DeployOptionsWithoutWait,
   type RequestDeployOptions,
   type SimulateDeployOptions,
 } from '../contract/deploy_method.js';
-import type { FeePaymentMethodOption, InteractionWaitOptions } from '../contract/interaction_options.js';
+import {
+  type FeePaymentMethodOption,
+  type InteractionWaitOptions,
+  NO_FROM,
+  type ProfileInteractionOptions,
+} from '../contract/interaction_options.js';
+import type { WaitOpts } from '../contract/wait_opts.js';
 import type { FeePaymentMethod } from '../fee/fee_payment_method.js';
 import { AccountEntrypointMetaPaymentMethod } from './account_entrypoint_meta_payment_method.js';
-import type { Wallet } from './index.js';
+import type { ProfileOptions, SendOptions, SimulateOptions, Wallet } from './index.js';
 
 /**
  * Extended fee payment method option for account deployments that includes entrypoint wrapping options
@@ -78,8 +88,21 @@ export class DeployAccountMethod<TContract extends ContractBase = Contract> exte
     private account: Account,
     args: any[] = [],
     constructorNameOrArtifact?: string | FunctionArtifact,
+    authWitnesses: AuthWitness[] = [],
+    capsules: Capsule[] = [],
+    extraHashedArgs: HashedValues[] = [],
   ) {
-    super(publicKeys, wallet, artifact, postDeployCtor, args, constructorNameOrArtifact);
+    super(
+      publicKeys,
+      wallet,
+      artifact,
+      postDeployCtor,
+      args,
+      constructorNameOrArtifact,
+      authWitnesses,
+      capsules,
+      extraHashedArgs,
+    );
   }
 
   /**
@@ -93,15 +116,18 @@ export class DeployAccountMethod<TContract extends ContractBase = Contract> exte
    * @param feeEntrypointOptions - Optional entrypoint-specific options for wrapping. If not provided, will be auto-computed based on the payment method.
    * @returns A FeePaymentMethod that routes the original one through the account's entrypoint (AccountEntrypointMetaPaymentMethod)
    */
-  private getSelfFeePaymentMethod(originalPaymentMethod?: FeePaymentMethod, feeEntrypointOptions?: any) {
+  private async getSelfFeePaymentMethod(originalPaymentMethod?: FeePaymentMethod, feeEntrypointOptions?: any) {
     if (!this.address) {
       throw new Error('Instance is not yet constructed. This is a bug!');
     }
-    return new AccountEntrypointMetaPaymentMethod(this.account, originalPaymentMethod, feeEntrypointOptions);
+    const chainInfo = await this.wallet.getChainInfo();
+    return new AccountEntrypointMetaPaymentMethod(this.account, chainInfo, originalPaymentMethod, feeEntrypointOptions);
   }
 
   /**
    * Returns the execution payload that allows this operation to happen on chain.
+   * For self-deployments (from === NO_FROM), the payload is wrapped through the
+   * multicall entrypoint on the app side so the wallet can execute it directly.
    * @param opts - Configuration options.
    * @returns The execution payload for this operation
    */
@@ -121,11 +147,19 @@ export class DeployAccountMethod<TContract extends ContractBase = Contract> exte
     const executionPayloads = [deploymentExecutionPayload];
     // If this is a self-deployment, manage the fee accordingly
     if (opts?.deployer?.equals(AztecAddress.ZERO)) {
-      const feePaymentMethod = this.getSelfFeePaymentMethod(opts?.fee?.paymentMethod, opts?.fee?.feeEntrypointOptions);
+      const feePaymentMethod = await this.getSelfFeePaymentMethod(
+        opts?.fee?.paymentMethod,
+        opts?.fee?.feeEntrypointOptions,
+      );
       const feeExecutionPayload = await feePaymentMethod.getExecutionPayload();
       // Notice they are reversed (fee payment usually goes first):
       // this is because we need to construct the contract BEFORE it can pay for its own fee
       executionPayloads.push(feeExecutionPayload);
+      // Wrap the merged payload through the multicall entrypoint,
+      // producing a single-call payload that DefaultEntrypoint can execute directly.
+      const multicall = new DefaultMultiCallEntrypoint();
+      const chainInfo = await this.wallet.getChainInfo();
+      return multicall.wrapExecutionPayload(mergeExecutionPayloads(executionPayloads), chainInfo);
     } else {
       const feeExecutionPayload = opts?.fee?.paymentMethod
         ? await opts.fee.paymentMethod.getExecutionPayload()
@@ -133,18 +167,80 @@ export class DeployAccountMethod<TContract extends ContractBase = Contract> exte
       if (feeExecutionPayload) {
         executionPayloads.unshift(feeExecutionPayload);
       }
+      return mergeExecutionPayloads(executionPayloads);
     }
-    return mergeExecutionPayloads(executionPayloads);
   }
 
-  override convertDeployOptionsToRequestOptions(options: DeployAccountOptionsWithoutWait): RequestDeployOptions {
+  override convertDeployOptionsToRequestOptions(options: DeployAccountOptionsWithoutWait): RequestDeployAccountOptions {
     return {
       ...options,
       // Deployer is handled in the request method and forcibly set to undefined,
       // since our account contracts are created with universalDeployment: true
       // We need to forward it though, because depending on the deployer we have to assemble
       // The fee payment method one way or another
-      deployer: options.from,
+      deployer: options.from === NO_FROM ? AztecAddress.ZERO : options.from,
     };
+  }
+
+  protected override convertDeployOptionsToSendOptions<W extends DeployInteractionWaitOptions>(
+    options: DeployOptions<W>,
+    // eslint-disable-next-line jsdoc/require-jsdoc
+  ): SendOptions<W extends { returnReceipt: true } ? WaitOpts : W> {
+    return super.convertDeployOptionsToSendOptions(this.injectContractAddressIntoScopes(options));
+  }
+
+  protected override convertDeployOptionsToSimulateOptions(options: SimulateDeployOptions): SimulateOptions {
+    return super.convertDeployOptionsToSimulateOptions(this.injectContractAddressIntoScopes(options));
+  }
+
+  protected override convertDeployOptionsToProfileOptions(
+    options: DeployOptionsWithoutWait & ProfileInteractionOptions,
+  ): ProfileOptions {
+    return super.convertDeployOptionsToProfileOptions(this.injectContractAddressIntoScopes(options));
+  }
+
+  /**
+   * Injects the contract's own address into scopes so the constructor can access its own keys.
+   * @param options - The deploy options to augment with the contract address.
+   */
+  // eslint-disable-next-line jsdoc/require-jsdoc
+  private injectContractAddressIntoScopes<T extends { additionalScopes?: AztecAddress[] }>(options: T): T {
+    if (!this.address) {
+      throw new Error('Instance not yet constructed. This is a bug!');
+    }
+    const existing = options.additionalScopes ?? [];
+    return { ...options, additionalScopes: [...existing, this.address] };
+  }
+
+  /**
+   * Augments this DeployAccountMethod with additional metadata, such as authWitnesses and capsules.
+   * @param options - An object containing the metadata to add to the interaction
+   * @returns A new DeployAccountMethod with the added metadata
+   */
+  public override with({
+    authWitnesses = [],
+    capsules = [],
+    extraHashedArgs = [],
+  }: {
+    /** The authWitnesses to add to the deployment */
+    authWitnesses?: AuthWitness[];
+    /** The capsules to add to the deployment */
+    capsules?: Capsule[];
+    /** The extra hashed args to add to the deployment */
+    extraHashedArgs?: HashedValues[];
+  }): DeployAccountMethod<TContract> {
+    return new DeployAccountMethod(
+      this.publicKeys,
+      this.wallet,
+      this.artifact,
+      this.postDeployCtor,
+      this.salt,
+      this.account,
+      this.args,
+      this.constructorArtifact?.name,
+      this.authWitnesses.concat(authWitnesses),
+      this.capsules.concat(capsules),
+      this.extraHashedArgs.concat(extraHashedArgs),
+    );
   }
 }

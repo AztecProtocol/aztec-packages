@@ -5,10 +5,15 @@ import type { Logger } from '@aztec/aztec.js/log';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import { AMMContract } from '@aztec/noir-contracts.js/AMM';
 import { type TokenContract, TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
+import { AuthWitTestContract, AuthWitTestContractArtifact } from '@aztec/noir-test-contracts.js/AuthWitTest';
+import { GenericProxyContract } from '@aztec/noir-test-contracts.js/GenericProxy';
 import { PendingNoteHashesContract } from '@aztec/noir-test-contracts.js/PendingNoteHashes';
 import { type AbiDecoded, decodeFromAbi, getFunctionArtifact } from '@aztec/stdlib/abi';
 import { computeOuterAuthWitHash } from '@aztec/stdlib/auth-witness';
 
+import { jest } from '@jest/globals';
+
+import { simulateThroughAuthwitProxy } from './fixtures/authwit_proxy.js';
 import { deployToken, mintTokensToPrivate } from './fixtures/token_utils.js';
 import { setup } from './fixtures/utils.js';
 import type { TestWallet } from './test-wallet/test_wallet.js';
@@ -108,7 +113,7 @@ describe('Kernelless simulation', () => {
         nonceForAuthwits,
       );
 
-      wallet.enableSimulatedSimulations();
+      wallet.setSimulationMode('kernelless-override');
 
       const { offchainEffects } = await addLiquidityInteraction.simulate({
         from: liquidityProviderAddress,
@@ -123,14 +128,18 @@ describe('Kernelless simulation', () => {
       expect(token0AuthwitRequest.contractAddress).toEqual(token0.address);
       expect(token1AuthwitRequest.contractAddress).toEqual(token1.address);
 
-      // Authwit selector + inner_hash + msg_sender + function_selector + args_hash + args (4)
-      expect(token0AuthwitRequest.data).toHaveLength(9);
-      expect(token1AuthwitRequest.data).toHaveLength(9);
+      // Authwit selector + inner_hash + on_behalf_of + msg_sender + function_selector + args_hash + args (4)
+      expect(token0AuthwitRequest.data).toHaveLength(10);
+      expect(token1AuthwitRequest.data).toHaveLength(10);
 
       const token0CallAuthorizationRequest = await CallAuthorizationRequest.fromFields(token0AuthwitRequest.data);
       const token1CallAuthorizationRequest = await CallAuthorizationRequest.fromFields(token1AuthwitRequest.data);
 
       expect(token0CallAuthorizationRequest.selector).toEqual(token1CallAuthorizationRequest.selector);
+      expect(token0CallAuthorizationRequest.onBehalfOf).toEqual(liquidityProviderAddress);
+      expect(token1CallAuthorizationRequest.onBehalfOf).toEqual(liquidityProviderAddress);
+      expect(token0CallAuthorizationRequest.msgSender).toEqual(amm.address);
+      expect(token1CallAuthorizationRequest.msgSender).toEqual(amm.address);
 
       const functionAbi = await getFunctionArtifact(
         TokenContractArtifact,
@@ -216,7 +225,7 @@ describe('Kernelless simulation', () => {
       ).resolves.toBeDefined();
     });
 
-    it('produces matching gas estimates between kernelless and with-kernels simulation', async () => {
+    it('produces matching gas estimates and fee payer between kernelless and with-kernels simulation', async () => {
       const swapperBalancesBefore = await getWalletBalances(swapperAddress);
       const ammBalancesBefore = await getAmmBalances();
 
@@ -236,27 +245,27 @@ describe('Kernelless simulation', () => {
         nonceForAuthwits,
       );
 
-      wallet.enableSimulatedSimulations();
-      const swapKernellessGas = (
-        await swapExactTokensInteraction.simulate({
-          from: swapperAddress,
-          includeMetadata: true,
-        })
-      ).estimatedGas!;
+      const simulateTxSpy = jest.spyOn(wallet, 'simulateTx');
+
+      wallet.setSimulationMode('kernelless-override');
+      const kernellessResult = await swapExactTokensInteraction.simulate({
+        from: swapperAddress,
+        includeMetadata: true,
+      });
+      const swapKernellessGas = kernellessResult.estimatedGas!;
 
       const swapAuthwit = await wallet.createAuthWit(swapperAddress, {
         caller: amm.address,
         action: token0.methods.transfer_to_public(swapperAddress, amm.address, amountIn, nonceForAuthwits),
       });
 
-      wallet.disableSimulatedSimulations();
-      const swapWithKernelsGas = (
-        await swapExactTokensInteraction.simulate({
-          from: swapperAddress,
-          includeMetadata: true,
-          authWitnesses: [swapAuthwit],
-        })
-      ).estimatedGas!;
+      wallet.setSimulationMode('full');
+      const withKernelsResult = await swapExactTokensInteraction.simulate({
+        from: swapperAddress,
+        includeMetadata: true,
+        authWitnesses: [swapAuthwit],
+      });
+      const swapWithKernelsGas = withKernelsResult.estimatedGas!;
 
       logger.info(`Kernelless gas: L2=${swapKernellessGas.gasLimits.l2Gas} DA=${swapKernellessGas.gasLimits.daGas}`);
       logger.info(
@@ -265,6 +274,16 @@ describe('Kernelless simulation', () => {
 
       expect(swapKernellessGas.gasLimits.daGas).toEqual(swapWithKernelsGas.gasLimits.daGas);
       expect(swapKernellessGas.gasLimits.l2Gas).toEqual(swapWithKernelsGas.gasLimits.l2Gas);
+
+      expect(simulateTxSpy).toHaveBeenCalledTimes(2);
+      const kernellessTxResult = await (simulateTxSpy.mock.results[0].value as ReturnType<typeof wallet.simulateTx>);
+      const withKernelsTxResult = await (simulateTxSpy.mock.results[1].value as ReturnType<typeof wallet.simulateTx>);
+      const kernellessFeePayer = kernellessTxResult.publicInputs.feePayer;
+      const withKernelsFeePayer = withKernelsTxResult.publicInputs.feePayer;
+      expect(kernellessFeePayer).toEqual(withKernelsFeePayer);
+      expect(kernellessFeePayer).toEqual(swapperAddress);
+
+      simulateTxSpy.mockRestore();
     });
   });
 
@@ -288,7 +307,7 @@ describe('Kernelless simulation', () => {
         await pendingNoteHashesContract.methods.get_then_nullify_note.selector(),
       );
 
-      wallet.enableSimulatedSimulations();
+      wallet.setSimulationMode('kernelless-override');
       const kernellessGas = (
         await interaction.simulate({
           from: adminAddress,
@@ -296,7 +315,7 @@ describe('Kernelless simulation', () => {
         })
       ).estimatedGas!;
 
-      wallet.disableSimulatedSimulations();
+      wallet.setSimulationMode('full');
       const withKernelsGas = (
         await interaction.simulate({
           from: adminAddress,
@@ -309,6 +328,63 @@ describe('Kernelless simulation', () => {
 
       expect(kernellessGas.gasLimits.daGas).toEqual(withKernelsGas.gasLimits.daGas);
       expect(kernellessGas.gasLimits.l2Gas).toEqual(withKernelsGas.gasLimits.l2Gas);
+    });
+  });
+
+  describe('authorize_once with multi-field struct parameters', () => {
+    let authWitTestContract: AuthWitTestContract;
+    let proxy: GenericProxyContract;
+
+    beforeAll(async () => {
+      [{ contract: authWitTestContract }, { contract: proxy }] = await Promise.all([
+        AuthWitTestContract.deploy(wallet).send({ from: adminAddress }),
+        GenericProxyContract.deploy(wallet).send({ from: adminAddress }),
+      ]);
+    });
+
+    it('emits offchain effect with correct serialized args length for struct parameters', async () => {
+      const structData = { a: Fr.random(), b: Fr.random(), c: Fr.random() };
+      const amount = Fr.random();
+      const nonce = Fr.random();
+
+      // This function uses a struct with 3 fields as parameter, and the #[authorize_once] macro should correctly
+      // account for this and emit a CallAuthorizationRequest with the correct serialized length, rather than
+      // just the arguments length
+      const interaction = authWitTestContract.methods.auth_with_struct(adminAddress, structData, amount, nonce);
+
+      wallet.setSimulationMode('kernelless-override');
+      const { offchainEffects } = await simulateThroughAuthwitProxy(proxy, interaction, {
+        from: adminAddress,
+        includeMetadata: true,
+      });
+
+      expect(offchainEffects.length).toBe(1);
+
+      const callAuthRequest = await CallAuthorizationRequest.fromFields(offchainEffects[0].data);
+
+      expect(offchainEffects[0].contractAddress).toEqual(authWitTestContract.address);
+
+      // The macro should emit 6 arguments in total before decoding: from (1) + struct (3) + amount (1) + nonce (1)
+      expect(callAuthRequest.args).toHaveLength(6);
+
+      expect(callAuthRequest.onBehalfOf).toEqual(adminAddress);
+      expect(callAuthRequest.msgSender).toEqual(proxy.address);
+
+      const functionAbi = await getFunctionArtifact(AuthWitTestContractArtifact, callAuthRequest.functionSelector);
+      const decodedArgs = decodeFromAbi(
+        functionAbi.parameters.map(param => param.type),
+        callAuthRequest.args,
+      ) as AbiDecoded[];
+
+      expect(decodedArgs).toHaveLength(4);
+      expect(decodedArgs[0]).toEqual(adminAddress);
+      expect(decodedArgs[1]).toEqual({
+        a: structData.a.toBigInt(),
+        b: structData.b.toBigInt(),
+        c: structData.c.toBigInt(),
+      });
+      expect(decodedArgs[2]).toEqual(amount.toBigInt());
+      expect(decodedArgs[3]).toEqual(nonce.toBigInt());
     });
   });
 
@@ -325,19 +401,23 @@ describe('Kernelless simulation', () => {
       const mintAmount = 100n;
 
       // Insert a note with real kernels so it lands on-chain
-      wallet.disableSimulatedSimulations();
+      wallet.setSimulationMode('full');
       await pendingNoteHashesContract.methods.insert_note(mintAmount, adminAddress, adminAddress).send({
         from: adminAddress,
       });
 
-      // Kernelless simulation of reading + nullifying that settled note produces a settled
-      // read request that gets verified against the note hash tree at the anchor block
-      wallet.enableSimulatedSimulations();
+      // Spy on the node API that generateSimulatedProvingResult uses to verify settled read requests
+      const noteHashMembershipWitnessSpy = jest.spyOn(aztecNode, 'getNoteHashMembershipWitness');
+
+      wallet.setSimulationMode('kernelless-override');
       await expect(
         pendingNoteHashesContract.methods.get_then_nullify_note(mintAmount, adminAddress).simulate({
           from: adminAddress,
         }),
       ).resolves.toBeDefined();
+
+      expect(noteHashMembershipWitnessSpy).toHaveBeenCalled();
+      noteHashMembershipWitnessSpy.mockRestore();
     });
   });
 });

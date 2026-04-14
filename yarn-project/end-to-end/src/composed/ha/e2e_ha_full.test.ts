@@ -6,6 +6,7 @@
  * attestations are signed, and no double-signing occurs.
  */
 import { type AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
+import { NO_FROM } from '@aztec/aztec.js/account';
 import { AztecAddress, EthAddress } from '@aztec/aztec.js/addresses';
 import { waitForProven } from '@aztec/aztec.js/contracts';
 import { ContractDeployer } from '@aztec/aztec.js/deployment';
@@ -223,7 +224,7 @@ describe('HA Full Setup', () => {
       accountData.signingKey,
     );
     const deployMethod = await accountManager.getDeployMethod();
-    await deployMethod.send({ from: AztecAddress.ZERO });
+    await deployMethod.send({ from: NO_FROM });
     ownerAddress = accountManager.address;
     logger.info(`Test account deployed at ${ownerAddress}`);
   });
@@ -282,8 +283,6 @@ describe('HA Full Setup', () => {
     const { receipt } = await deployer.deploy(ownerAddress, sender, 1).send({
       from: ownerAddress,
       contractAddressSalt: new Fr(BigInt(1)),
-      skipClassPublication: true,
-      skipInstancePublication: true,
       wait: { returnReceipt: true },
     });
 
@@ -519,8 +518,6 @@ describe('HA Full Setup', () => {
       const { receipt } = await deployer.deploy(ownerAddress, ownerAddress, i + 100).send({
         from: ownerAddress,
         contractAddressSalt: new Fr(BigInt(i + 100)),
-        skipClassPublication: true,
-        skipInstancePublication: true,
         wait: { returnReceipt: true },
       });
 

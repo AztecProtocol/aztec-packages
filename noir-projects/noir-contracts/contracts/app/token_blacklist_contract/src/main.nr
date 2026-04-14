@@ -277,7 +277,7 @@ pub contract TokenBlacklist {
         tx_hash: Field,
         unique_note_hashes_in_tx: BoundedVec<Field, MAX_NOTE_HASHES_PER_TX>,
         first_nullifier_in_tx: Field,
-        recipient: AztecAddress,
+        scope: AztecAddress,
     ) {
         let note = TransparentNote { amount, secret_hash };
         let storage_slot = TokenBlacklist::storage_layout().pending_shields.slot;
@@ -291,8 +291,8 @@ pub contract TokenBlacklist {
             tx_hash,
             unique_note_hashes_in_tx,
             first_nullifier_in_tx,
-            recipient,
-            _compute_note_hash_and_nullifier,
+            _compute_note_hash,
+            _compute_note_nullifier,
             AztecAddress::zero(),
             storage_slot,
             TRANSPARENT_NOTE_RANDOMNESS,
@@ -302,6 +302,6 @@ pub contract TokenBlacklist {
 
         // At this point, the note is pending validation and storage in the database. We must call
         // validate_and_store_enqueued_notes_and_events to complete that process.
-        validate_and_store_enqueued_notes_and_events(contract_address);
+        validate_and_store_enqueued_notes_and_events(scope);
     }
 }

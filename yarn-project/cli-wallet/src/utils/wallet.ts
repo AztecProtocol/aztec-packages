@@ -1,8 +1,9 @@
 import { EcdsaRAccountContract, EcdsaRSSHAccountContract } from '@aztec/accounts/ecdsa';
 import { SchnorrAccountContract } from '@aztec/accounts/schnorr';
-import { StubAccountContractArtifact, createStubAccount } from '@aztec/accounts/stub';
+import { StubEcdsaAccountContractArtifact, createStubEcdsaAccount } from '@aztec/accounts/stub/ecdsa';
+import { StubSchnorrAccountContractArtifact, createStubSchnorrAccount } from '@aztec/accounts/stub/schnorr';
 import { getIdentities } from '@aztec/accounts/utils';
-import { type Account, type AccountContract, SignerlessAccount } from '@aztec/aztec.js/account';
+import { type Account, type AccountContract, NO_FROM } from '@aztec/aztec.js/account';
 import {
   type InteractionFeeOptions,
   getContractInstanceFromInstantiationParams,
@@ -10,19 +11,21 @@ import {
 } from '@aztec/aztec.js/contracts';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import { AccountManager, type Aliased, type SimulateOptions } from '@aztec/aztec.js/wallet';
+import { TxSimulationResultWithAppOffset } from '@aztec/aztec.js/wallet';
 import type { DefaultAccountEntrypointOptions } from '@aztec/entrypoints/account';
+import { DefaultEntrypoint } from '@aztec/entrypoints/default';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import type { LogFn } from '@aztec/foundation/log';
-import type { AccessScopes, NotesFilter } from '@aztec/pxe/client/lazy';
+import type { NotesFilter } from '@aztec/pxe/client/lazy';
 import type { PXEConfig } from '@aztec/pxe/config';
 import type { PXE } from '@aztec/pxe/server';
 import { createPXE, getPXEConfig } from '@aztec/pxe/server';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { deriveSigningKey } from '@aztec/stdlib/keys';
 import { NoteDao } from '@aztec/stdlib/note';
-import type { TxProvingResult, TxSimulationResult } from '@aztec/stdlib/tx';
+import type { SimulationOverrides, TxExecutionRequest, TxProvingResult } from '@aztec/stdlib/tx';
 import { ExecutionPayload, mergeExecutionPayloads } from '@aztec/stdlib/tx';
-import { BaseWallet, type FeeOptions } from '@aztec/wallet-sdk/base-wallet';
+import { BaseWallet, type SimulateViaEntrypointOptions } from '@aztec/wallet-sdk/base-wallet';
 
 import type { WalletDB } from '../storage/wallet_db.js';
 import type { AccountType } from './constants.js';
@@ -55,7 +58,12 @@ export class CLIWallet extends BaseWallet {
 
   override async getAccounts(): Promise<Aliased<AztecAddress>[]> {
     const accounts = (await this.db?.listAliases('accounts')) ?? [];
-    return Promise.resolve(accounts.map(({ key, value }) => ({ alias: value, item: AztecAddress.fromString(key) })));
+    return Promise.resolve(
+      accounts.map(({ key, value }) => {
+        const alias = key.includes(':') ? key.slice(key.indexOf(':') + 1) : key;
+        return { alias, item: AztecAddress.fromString(value) };
+      }),
+    );
   }
 
   private async createCancellationTxExecutionRequest(
@@ -64,14 +72,19 @@ export class CLIWallet extends BaseWallet {
     increasedFee: InteractionFeeOptions,
   ) {
     const executionPayload = ExecutionPayload.empty();
-    const feeOptions = await this.completeFeeOptions(from, executionPayload.feePayer, increasedFee.gasSettings);
+    const feeOptions = await this.completeFeeOptions({
+      from,
+      feePayer: executionPayload.feePayer,
+      gasSettings: increasedFee.gasSettings,
+    });
     const feeExecutionPayload = await feeOptions.walletFeePaymentMethod?.getExecutionPayload();
     const fromAccount = await this.getAccountFromAddress(from);
     const chainInfo = await this.getChainInfo();
     const executionOptions: DefaultAccountEntrypointOptions = {
       txNonce,
       cancellable: this.cancellableTransactions,
-      feePaymentMethodOptions: feeOptions.accountFeePaymentMethodOptions,
+      // If from is an address, feeOptions include the way the account contract should handle the fee payment
+      feePaymentMethodOptions: feeOptions.accountFeePaymentMethodOptions!,
     };
     return await fromAccount.createTxExecutionRequest(
       feeExecutionPayload ?? executionPayload,
@@ -87,14 +100,12 @@ export class CLIWallet extends BaseWallet {
     increasedFee: InteractionFeeOptions,
   ): Promise<TxProvingResult> {
     const cancellationTxRequest = await this.createCancellationTxExecutionRequest(from, txNonce, increasedFee);
-    return await this.pxe.proveTx(cancellationTxRequest, this.scopesFor(from));
+    return await this.pxe.proveTx(cancellationTxRequest, this.scopesFrom(from));
   }
 
   override async getAccountFromAddress(address: AztecAddress) {
     let account: Account | undefined;
-    if (address.equals(AztecAddress.ZERO)) {
-      account = new SignerlessAccount();
-    } else if (this.accountCache.has(address.toString())) {
+    if (this.accountCache.has(address.toString())) {
       return this.accountCache.get(address.toString())!;
     } else {
       const accountManager = await this.createOrRetrieveAccount(address);
@@ -185,33 +196,31 @@ export class CLIWallet extends BaseWallet {
    */
   private async getFakeAccountDataFor(address: AztecAddress) {
     const originalAccount = await this.getAccountFromAddress(address);
-    // Account contracts can only be overridden if they have an associated address
-    // Overwriting SignerlessAccount is not supported, and does not really make sense
-    // since it has no authorization mechanism.
-    if (originalAccount instanceof SignerlessAccount) {
-      throw new Error(`Cannot create fake account data for SignerlessAccount at address: ${address}`);
-    }
-    const originalAddress = (originalAccount as Account).getCompleteAddress();
+    const originalAddress = originalAccount.getCompleteAddress();
     const contractInstance = await this.pxe.getContractInstance(originalAddress.address);
     if (!contractInstance) {
       throw new Error(`No contract instance found for address: ${originalAddress.address}`);
     }
-    const stubAccount = createStubAccount(originalAddress);
-    const instance = await getContractInstanceFromInstantiationParams(StubAccountContractArtifact, {
-      salt: Fr.random(),
-    });
-    return {
-      account: stubAccount,
-      instance,
-      artifact: StubAccountContractArtifact,
-    };
+    const { type } = await this.db!.retrieveAccount(address);
+    const isSchnorr = type === 'schnorr';
+    const artifact = isSchnorr ? StubSchnorrAccountContractArtifact : StubEcdsaAccountContractArtifact;
+    const stubAccount = isSchnorr ? createStubSchnorrAccount(originalAddress) : createStubEcdsaAccount(originalAddress);
+    const instance = await getContractInstanceFromInstantiationParams(artifact, { salt: Fr.random() });
+    return { account: stubAccount, instance, artifact };
   }
 
-  override async simulateTx(executionPayload: ExecutionPayload, opts: SimulateOptions): Promise<TxSimulationResult> {
+  override async simulateTx(
+    executionPayload: ExecutionPayload,
+    opts: SimulateOptions,
+  ): Promise<TxSimulationResultWithAppOffset> {
     const simulationResults = await super.simulateTx(executionPayload, opts);
 
     if (opts.fee?.estimateGas) {
-      const feeOptions = await this.completeFeeOptions(opts.from, executionPayload.feePayer, opts.fee?.gasSettings);
+      const feeOptions = await this.completeFeeOptions({
+        from: opts.from,
+        feePayer: executionPayload.feePayer,
+        gasSettings: opts.fee?.gasSettings,
+      });
       const limits = getGasLimits(simulationResults, opts.fee?.estimatedGasPadding);
       printGasEstimates(feeOptions, limits, this.userLog);
     }
@@ -220,54 +229,53 @@ export class CLIWallet extends BaseWallet {
 
   /**
    * Uses a stub account for kernelless simulation, bypassing real account authorization.
-   * Falls through to the standard entrypoint path for SignerlessAccount (ZERO address).
+   * Uses DefaultEntrypoint directly for NO_FROM transactions.
    */
   protected override async simulateViaEntrypoint(
     executionPayload: ExecutionPayload,
-    from: AztecAddress,
-    feeOptions: FeeOptions,
-    scopes: AccessScopes,
-    skipTxValidation?: boolean,
-    skipFeeEnforcement?: boolean,
-  ): Promise<TxSimulationResult> {
-    if (from.equals(AztecAddress.ZERO)) {
-      return super.simulateViaEntrypoint(
-        executionPayload,
-        from,
-        feeOptions,
-        scopes,
-        skipTxValidation,
-        skipFeeEnforcement,
-      );
-    }
-
+    opts: SimulateViaEntrypointOptions,
+  ): Promise<TxSimulationResultWithAppOffset> {
+    const { from, feeOptions, additionalScopes } = opts;
+    const scopes = this.scopesFrom(from, additionalScopes);
     const feeExecutionPayload = await feeOptions.walletFeePaymentMethod?.getExecutionPayload();
-    const executionOptions: DefaultAccountEntrypointOptions = {
-      txNonce: Fr.random(),
-      cancellable: this.cancellableTransactions,
-      feePaymentMethodOptions: feeOptions.accountFeePaymentMethodOptions,
-    };
     const finalExecutionPayload = feeExecutionPayload
       ? mergeExecutionPayloads([feeExecutionPayload, executionPayload])
       : executionPayload;
-
-    const { account: fromAccount, instance, artifact } = await this.getFakeAccountDataFor(from);
     const chainInfo = await this.getChainInfo();
-    const txRequest = await fromAccount.createTxExecutionRequest(
-      finalExecutionPayload,
-      feeOptions.gasSettings,
-      chainInfo,
-      executionOptions,
-    );
-    return this.pxe.simulateTx(txRequest, {
+
+    let overrides: SimulationOverrides | undefined;
+    let txRequest: TxExecutionRequest;
+    if (from === NO_FROM) {
+      const entrypoint = new DefaultEntrypoint();
+      txRequest = await entrypoint.createTxExecutionRequest(finalExecutionPayload, feeOptions.gasSettings, chainInfo);
+    } else {
+      const { account, instance, artifact } = await this.getFakeAccountDataFor(from);
+      overrides = {
+        contracts: { [from.toString()]: { instance, artifact } },
+      };
+      const executionOptions: DefaultAccountEntrypointOptions = {
+        txNonce: Fr.random(),
+        cancellable: this.cancellableTransactions,
+        // If from is an address, feeOptions include the way the account contract should handle the fee payment
+        feePaymentMethodOptions: feeOptions.accountFeePaymentMethodOptions!,
+      };
+      txRequest = await account.createTxExecutionRequest(
+        finalExecutionPayload,
+        feeOptions.gasSettings,
+        chainInfo,
+        executionOptions,
+      );
+    }
+
+    const result = await this.pxe.simulateTx(txRequest, {
       simulatePublic: true,
       skipFeeEnforcement: true,
       skipTxValidation: true,
-      overrides: {
-        contracts: { [from.toString()]: { instance, artifact } },
-      },
+      overrides,
       scopes,
     });
+    const appCallOffset = await this.computeAppCallOffset(from, feeOptions);
+    return TxSimulationResultWithAppOffset.fromResultAndOffset(result, appCallOffset);
   }
 
   // Exposed because of the `aztec-wallet get-tx` command. It has been decided that it's fine to keep around because

@@ -53,11 +53,14 @@ ciphertexts
 citizensˮ
 claimability
 clawback
+Cloneable
 cmov
 CMOV
 codealong
 colour
 Colour
+CapsuleStore
+initializerless
 colums
 Commiting
 comsumer
@@ -325,6 +328,7 @@ timelocked
 tonelli
 townhall
 townhalls
+TORADIXBE
 TORADIXLE
 Tpkm
 transactionfee
@@ -394,3 +398,14 @@ zkpassport
 aztecrc
 Dockerless
 tokenomics
+Codex
+critesjosh
+mcpServers
+NethermindEth
+Windsurf
+callee
+completer
+interoperate
+reentrancy
+variadic
+Wonderland

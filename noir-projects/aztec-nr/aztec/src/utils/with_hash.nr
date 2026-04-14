@@ -173,7 +173,7 @@ mod test {
 
             // Mock the oracle to return a non-zero hint/packed value
             let value_packed = MockStruct { a: 1, b: 1 }.pack();
-            let _ = OracleMock::mock("utilityStorageRead")
+            let _ = OracleMock::mock("aztec_utl_getFromPublicStorage")
                 .with_params((block_header.hash(), address.to_field(), STORAGE_SLOT, value_packed.len()))
                 .returns(value_packed)
                 .times(1);

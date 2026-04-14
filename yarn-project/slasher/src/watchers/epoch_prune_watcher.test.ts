@@ -186,7 +186,7 @@ describe('EpochPruneWatcher', () => {
       [tx],
       block.header.globalVariables.blockNumber,
       block.header.globalVariables.timestamp,
-      {},
+      { isBuildingProposal: false, minValidTxs: 0 },
     );
   });
 
@@ -246,7 +246,7 @@ describe('EpochPruneWatcher', () => {
       [tx],
       blockFromL1.header.globalVariables.blockNumber,
       blockFromL1.header.globalVariables.timestamp,
-      {},
+      { isBuildingProposal: false, minValidTxs: 0 },
     );
   });
 });

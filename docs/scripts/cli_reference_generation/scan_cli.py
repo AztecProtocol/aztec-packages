@@ -213,24 +213,38 @@ class CLIScanner:
                             "description": description
                         })
 
-            # Parse additional commands (custom format with colon separator)
+            # Parse additional commands
+            # These can use either colon-separated format ("init [folder]: description")
+            # or space-padded format like regular Commands ("init [folder]  description")
             elif current_section == 'additional' and line.strip():
                 stripped = line.strip()
-                # Match patterns like: "compile [options]: description" or "init [folder] [options]: description"
-                # Command lines start with a word (possibly hyphenated) followed by optional args and a colon
-                additional_match = re.match(r'^([\w-]+)(\s+[^:]+)?:\s*(.+)$', stripped)
-                if additional_match:
-                    cmd_name = additional_match.group(1)
-                    cmd_args = additional_match.group(2) or ""
-                    description = additional_match.group(3).strip()
+                if stripped and not stripped.startswith('-'):
+                    cmd_name = None
+                    cmd_full = None
+                    description = None
 
-                    cmd_full = f"{cmd_name}{cmd_args}".strip()
+                    # Try colon-separated format first
+                    colon_match = re.match(r'^([\w-]+)(\s+[^:]+)?:\s*(.+)$', stripped)
+                    if colon_match:
+                        cmd_name = colon_match.group(1)
+                        cmd_args = colon_match.group(2) or ""
+                        description = colon_match.group(3).strip()
+                        cmd_full = f"{cmd_name}{cmd_args}".strip()
 
-                    result["additional_commands"].append({
-                        "name": cmd_name,
-                        "signature": cmd_full,
-                        "description": description
-                    })
+                    # Fall back to space-padded format (same as Commands section)
+                    if not cmd_name:
+                        parts = re.split(r'\s{2,}', stripped, maxsplit=1)
+                        if len(parts) == 2:
+                            cmd_full = parts[0].strip()
+                            description = parts[1].strip()
+                            cmd_name = cmd_full.split()[0]
+
+                    if cmd_name and description:
+                        result["additional_commands"].append({
+                            "name": cmd_name,
+                            "signature": cmd_full,
+                            "description": description
+                        })
 
         # Merge additional_commands into commands list, avoiding duplicates
         existing_cmd_names = {cmd["name"] for cmd in result["commands"]}

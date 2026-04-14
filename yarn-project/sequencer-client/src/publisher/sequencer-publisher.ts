@@ -28,6 +28,7 @@ import { FormattedViemError, formatViemError, mergeAbis, tryExtractEvent } from 
 import { sumBigint } from '@aztec/foundation/bigint';
 import { toHex as toPaddedHex } from '@aztec/foundation/bigint-buffer';
 import { CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { trimmedBytesLength } from '@aztec/foundation/buffer';
 import { pick } from '@aztec/foundation/collection';
 import type { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -40,6 +41,7 @@ import { EmpireBaseAbi, ErrorsAbi, RollupAbi } from '@aztec/l1-artifacts';
 import { type ProposerSlashAction, encodeSlashConsensusVotes } from '@aztec/slasher';
 import { CommitteeAttestationsAndSigners, type ValidateCheckpointResult } from '@aztec/stdlib/block';
 import type { Checkpoint } from '@aztec/stdlib/checkpoint';
+import { getLastL1SlotTimestampForL2Slot, getNextL1SlotTimestamp } from '@aztec/stdlib/epoch-helpers';
 import { SlashFactoryContract } from '@aztec/stdlib/l1-contracts';
 import type { CheckpointHeader } from '@aztec/stdlib/rollup';
 import type { L1PublishCheckpointStats } from '@aztec/stdlib/stats';
@@ -120,6 +122,8 @@ export class SequencerPublisher {
 
   protected log: Logger;
   protected ethereumSlotDuration: bigint;
+  protected aztecSlotDuration: bigint;
+  private dateProvider: DateProvider;
 
   private blobClient: BlobClientInterface;
 
@@ -150,7 +154,7 @@ export class SequencerPublisher {
 
   constructor(
     private config: Pick<SequencerPublisherConfig, 'fishermanMode'> &
-      Pick<L1ContractsConfig, 'ethereumSlotDuration'> & { l1ChainId: number },
+      Pick<L1ContractsConfig, 'ethereumSlotDuration' | 'aztecSlotDuration'> & { l1ChainId: number },
     deps: {
       telemetry?: TelemetryClient;
       blobClient: BlobClientInterface;
@@ -168,6 +172,8 @@ export class SequencerPublisher {
   ) {
     this.log = deps.log ?? createLogger('sequencer:publisher');
     this.ethereumSlotDuration = BigInt(config.ethereumSlotDuration);
+    this.aztecSlotDuration = BigInt(config.aztecSlotDuration);
+    this.dateProvider = deps.dateProvider;
     this.epochCache = deps.epochCache;
     this.lastActions = deps.lastActions;
 
@@ -356,8 +362,8 @@ export class SequencerPublisher {
     // @note - we can only have one blob config per bundle
     // find requests with gas and blob configs
     // See https://github.com/AztecProtocol/aztec-packages/issues/11513
-    const gasConfigs = requestsToProcess.filter(request => request.gasConfig).map(request => request.gasConfig);
-    const blobConfigs = requestsToProcess.filter(request => request.blobConfig).map(request => request.blobConfig);
+    const gasConfigs = validRequests.filter(request => request.gasConfig).map(request => request.gasConfig);
+    const blobConfigs = validRequests.filter(request => request.blobConfig).map(request => request.blobConfig);
 
     if (blobConfigs.length > 1) {
       throw new Error('Multiple blob configs found');
@@ -425,7 +431,16 @@ export class SequencerPublisher {
       this.log.error(`Failed to publish bundled transactions (${actionsListStr})`, result);
       return { failedActions: requests.map(r => r.action) };
     } else {
-      this.log.verbose(`Published bundled transactions (${actionsListStr})`, { result, requests });
+      this.log.verbose(`Published bundled transactions (${actionsListStr})`, {
+        result,
+        requests: requests.map(r => ({
+          ...r,
+          // Avoid logging large blob data
+          blobConfig: r.blobConfig
+            ? { ...r.blobConfig, blobs: r.blobConfig.blobs.map(b => ({ size: trimmedBytesLength(b) })) }
+            : undefined,
+        })),
+      });
       const successfulActions: Action[] = [];
       const failedActions: Action[] = [];
       for (const request of requests) {
@@ -440,20 +455,24 @@ export class SequencerPublisher {
   }
 
   /**
-   * @notice  Will call `canProposeAtNextEthBlock` to make sure that it is possible to propose
+   * @notice  Will call `canProposeAt` to make sure that it is possible to propose
    * @param tipArchive - The archive to check
    * @returns The slot and block number if it is possible to propose, undefined otherwise
    */
-  public canProposeAtNextEthBlock(
+  public canProposeAt(
     tipArchive: Fr,
     msgSender: EthAddress,
-    opts: { forcePendingCheckpointNumber?: CheckpointNumber } = {},
+    opts: { forcePendingCheckpointNumber?: CheckpointNumber; pipelined?: boolean } = {},
   ) {
     // TODO: #14291 - should loop through multiple keys to check if any of them can propose
     const ignoredErrors = ['SlotAlreadyInChain', 'InvalidProposer', 'InvalidArchive'];
 
+    const pipelined = opts.pipelined ?? false;
+    const slotOffset = pipelined ? this.aztecSlotDuration : 0n;
+    const nextL1SlotTs = this.getNextL1SlotTimestamp() + slotOffset;
+
     return this.rollupContract
-      .canProposeAtNextEthBlock(tipArchive.toBuffer(), msgSender.toString(), Number(this.ethereumSlotDuration), {
+      .canProposeAt(tipArchive.toBuffer(), msgSender.toString(), nextL1SlotTs, {
         forcePendingCheckpointNumber: opts.forcePendingCheckpointNumber,
       })
       .catch(err => {
@@ -490,7 +509,7 @@ export class SequencerPublisher {
       flags,
     ] as const;
 
-    const ts = BigInt((await this.l1TxUtils.getBlock()).timestamp + this.ethereumSlotDuration);
+    const ts = this.getSimulationTimestamp(header.slotNumber);
     const stateOverrides = await this.rollupContract.makePendingCheckpointNumberOverride(
       opts?.forcePendingCheckpointNumber,
     );
@@ -513,7 +532,7 @@ export class SequencerPublisher {
         data: encodeFunctionData({ abi: RollupAbi, functionName: 'validateHeaderWithAttestations', args }),
         from: MULTI_CALL_3_ADDRESS,
       },
-      { time: ts + 1n },
+      { time: ts },
       stateOverrides,
     );
     this.log.debug(`Simulated validateHeader`);
@@ -640,8 +659,7 @@ export class SequencerPublisher {
     attestationsAndSigners: CommitteeAttestationsAndSigners,
     attestationsAndSignersSignature: Signature,
     options: { forcePendingCheckpointNumber?: CheckpointNumber },
-  ): Promise<bigint> {
-    const ts = BigInt((await this.l1TxUtils.getBlock()).timestamp + this.ethereumSlotDuration);
+  ): Promise<void> {
     const blobFields = checkpoint.toBlobFields();
     const blobs = await getBlobsPerL1Block(blobFields);
     const blobInput = getPrefixedEthBlobCommitments(blobs);
@@ -660,13 +678,11 @@ export class SequencerPublisher {
       blobInput,
     ] as const;
 
-    await this.simulateProposeTx(args, ts, options);
-    return ts;
+    await this.simulateProposeTx(args, options);
   }
 
   private async enqueueCastSignalHelper(
     slotNumber: SlotNumber,
-    timestamp: bigint,
     signalType: GovernanceSignalAction,
     payload: EthAddress,
     base: IEmpireBase,
@@ -744,11 +760,16 @@ export class SequencerPublisher {
       lastValidL2Slot: slotNumber,
     });
 
+    const timestamp = this.getSimulationTimestamp(slotNumber);
+
     try {
       await this.l1TxUtils.simulate(request, { time: timestamp }, [], mergeAbis([request.abi ?? [], ErrorsAbi]));
       this.log.debug(`Simulation for ${action} at slot ${slotNumber} succeeded`, { request });
     } catch (err) {
-      this.log.error(`Failed simulation for ${action} at slot ${slotNumber} (enqueuing the action anyway)`, err);
+      const viemError = formatViemError(err);
+      this.log.error(`Failed simulation for ${action} at slot ${slotNumber} (enqueuing the action anyway)`, viemError, {
+        simulationTimestamp: timestamp,
+      });
       // Yes, we enqueue the request anyway, in case there was a bug with the simulation itself
     }
 
@@ -799,19 +820,16 @@ export class SequencerPublisher {
   /**
    * Enqueues a governance castSignal transaction to cast a signal for a given slot number.
    * @param slotNumber - The slot number to cast a signal for.
-   * @param timestamp - The timestamp of the slot to cast a signal for.
    * @returns True if the signal was successfully enqueued, false otherwise.
    */
   public enqueueGovernanceCastSignal(
     governancePayload: EthAddress,
     slotNumber: SlotNumber,
-    timestamp: bigint,
     signerAddress: EthAddress,
     signer: (msg: TypedDataDefinition) => Promise<`0x${string}`>,
   ): Promise<boolean> {
     return this.enqueueCastSignalHelper(
       slotNumber,
-      timestamp,
       'governance-signal',
       governancePayload,
       this.govProposerContract,
@@ -824,7 +842,6 @@ export class SequencerPublisher {
   public async enqueueSlashingActions(
     actions: ProposerSlashAction[],
     slotNumber: SlotNumber,
-    timestamp: bigint,
     signerAddress: EthAddress,
     signer: (msg: TypedDataDefinition) => Promise<`0x${string}`>,
   ): Promise<boolean> {
@@ -845,7 +862,6 @@ export class SequencerPublisher {
           });
           await this.enqueueCastSignalHelper(
             slotNumber,
-            timestamp,
             'empire-slashing-signal',
             action.payload,
             this.slashingProposerContract,
@@ -864,7 +880,6 @@ export class SequencerPublisher {
             (receipt: TransactionReceipt) =>
               !!this.slashFactoryContract.tryExtractSlashPayloadCreatedEvent(receipt.logs),
             slotNumber,
-            timestamp,
           );
           break;
         }
@@ -882,7 +897,6 @@ export class SequencerPublisher {
             request,
             (receipt: TransactionReceipt) => !!empireSlashingProposer.tryExtractPayloadSubmittedEvent(receipt.logs),
             slotNumber,
-            timestamp,
           );
           break;
         }
@@ -906,7 +920,6 @@ export class SequencerPublisher {
             request,
             (receipt: TransactionReceipt) => !!tallySlashingProposer.tryExtractVoteCastEvent(receipt.logs),
             slotNumber,
-            timestamp,
           );
           break;
         }
@@ -928,7 +941,6 @@ export class SequencerPublisher {
             request,
             (receipt: TransactionReceipt) => !!tallySlashingProposer.tryExtractRoundExecutedEvent(receipt.logs),
             slotNumber,
-            timestamp,
           );
           break;
         }
@@ -964,15 +976,13 @@ export class SequencerPublisher {
       feeAssetPriceModifier: checkpoint.feeAssetPriceModifier,
     };
 
-    let ts: bigint;
-
     try {
       // @note  This will make sure that we are passing the checks for our header ASSUMING that the data is also made available
       //        This means that we can avoid the simulation issues in later checks.
       //        By simulation issue, I mean the fact that the block.timestamp is equal to the last block, not the next, which
       //        make time consistency checks break.
       // TODO(palla): Check whether we're validating twice, once here and once within addProposeTx, since we call simulateProposeTx in both places.
-      ts = await this.validateCheckpointForSubmission(
+      await this.validateCheckpointForSubmission(
         checkpoint,
         attestationsAndSigners,
         attestationsAndSignersSignature,
@@ -988,7 +998,7 @@ export class SequencerPublisher {
     }
 
     this.log.verbose(`Enqueuing checkpoint propose transaction`, { ...checkpoint.toCheckpointInfo(), ...opts });
-    await this.addProposeTx(checkpoint, proposeTxArgs, opts, ts);
+    await this.addProposeTx(checkpoint, proposeTxArgs, opts);
   }
 
   public enqueueInvalidateCheckpoint(
@@ -1031,8 +1041,8 @@ export class SequencerPublisher {
     request: L1TxRequest,
     checkSuccess: (receipt: TransactionReceipt) => boolean | undefined,
     slotNumber: SlotNumber,
-    timestamp: bigint,
   ) {
+    const timestamp = this.getSimulationTimestamp(slotNumber);
     const logData = { slotNumber, timestamp, gasLimit: undefined as bigint | undefined };
     if (this.lastActions[action] && this.lastActions[action] === slotNumber) {
       this.log.debug(`Skipping duplicate action ${action} for slot ${slotNumber}`);
@@ -1046,8 +1056,9 @@ export class SequencerPublisher {
 
     let gasUsed: bigint;
     const simulateAbi = mergeAbis([request.abi ?? [], ErrorsAbi]);
+
     try {
-      ({ gasUsed } = await this.l1TxUtils.simulate(request, { time: timestamp }, [], simulateAbi)); // TODO(palla/slash): Check the timestamp logic
+      ({ gasUsed } = await this.l1TxUtils.simulate(request, { time: timestamp }, [], simulateAbi));
       this.log.verbose(`Simulation for ${action} succeeded`, { ...logData, request, gasUsed });
     } catch (err) {
       const viemError = formatViemError(err, simulateAbi);
@@ -1103,7 +1114,6 @@ export class SequencerPublisher {
 
   private async prepareProposeTx(
     encodedData: L1ProcessArgs,
-    timestamp: bigint,
     options: { forcePendingCheckpointNumber?: CheckpointNumber },
   ) {
     const kzg = Blob.getViemKzgInstance();
@@ -1158,7 +1168,7 @@ export class SequencerPublisher {
       blobInput,
     ] as const;
 
-    const { rollupData, simulationResult } = await this.simulateProposeTx(args, timestamp, options);
+    const { rollupData, simulationResult } = await this.simulateProposeTx(args, options);
 
     return { args, blobEvaluationGas, rollupData, simulationResult };
   }
@@ -1166,7 +1176,6 @@ export class SequencerPublisher {
   /**
    * Simulates the propose tx with eth_simulateV1
    * @param args - The propose tx args
-   * @param timestamp - The timestamp to simulate proposal at
    * @returns The simulation result
    */
   private async simulateProposeTx(
@@ -1183,7 +1192,6 @@ export class SequencerPublisher {
       ViemSignature,
       `0x${string}`,
     ],
-    timestamp: bigint,
     options: { forcePendingCheckpointNumber?: CheckpointNumber },
   ) {
     const rollupData = encodeFunctionData({
@@ -1217,6 +1225,8 @@ export class SequencerPublisher {
       });
     }
 
+    const simTs = this.getSimulationTimestamp(SlotNumber.fromBigInt(args[0].header.slotNumber));
+
     const simulationResult = await this.l1TxUtils
       .simulate(
         {
@@ -1226,8 +1236,7 @@ export class SequencerPublisher {
           ...(this.proposerAddressForSimulation && { from: this.proposerAddressForSimulation.toString() }),
         },
         {
-          // @note we add 1n to the timestamp because geth implementation doesn't like simulation timestamp to be equal to the current block timestamp
-          time: timestamp + 1n,
+          time: simTs,
           // @note reth should have a 30m gas limit per block but throws errors that this tx is beyond limit so we increase here
           gasLimit: MAX_L1_TX_LIMIT * 2n,
         },
@@ -1249,7 +1258,7 @@ export class SequencerPublisher {
             logs: [],
           };
         }
-        this.log.error(`Failed to simulate propose tx`, viemError);
+        this.log.error(`Failed to simulate propose tx`, viemError, { simulationTimestamp: simTs });
         throw err;
       });
 
@@ -1260,16 +1269,11 @@ export class SequencerPublisher {
     checkpoint: Checkpoint,
     encodedData: L1ProcessArgs,
     opts: { txTimeoutAt?: Date; forcePendingCheckpointNumber?: CheckpointNumber } = {},
-    timestamp: bigint,
   ): Promise<void> {
     const slot = checkpoint.header.slotNumber;
     const timer = new Timer();
     const kzg = Blob.getViemKzgInstance();
-    const { rollupData, simulationResult, blobEvaluationGas } = await this.prepareProposeTx(
-      encodedData,
-      timestamp,
-      opts,
-    );
+    const { rollupData, simulationResult, blobEvaluationGas } = await this.prepareProposeTx(encodedData, opts);
     const startBlock = await this.l1TxUtils.getBlockNumber();
     const gasLimit = this.l1TxUtils.bumpGasLimit(
       BigInt(Math.ceil((Number(simulationResult.gasUsed) * 64) / 63)) +
@@ -1344,5 +1348,18 @@ export class SequencerPublisher {
         }
       },
     });
+  }
+
+  /** Returns the timestamp of the last L1 slot within a given L2 slot. Used as the simulation timestamp
+   * for eth_simulateV1 calls, since it's guaranteed to be greater than any L1 block produced during the slot. */
+  private getSimulationTimestamp(slot: SlotNumber): bigint {
+    const l1Constants = this.epochCache.getL1Constants();
+    return getLastL1SlotTimestampForL2Slot(slot, l1Constants);
+  }
+
+  /** Returns the timestamp of the next L1 slot boundary after now. */
+  private getNextL1SlotTimestamp(): bigint {
+    const l1Constants = this.epochCache.getL1Constants();
+    return getNextL1SlotTimestamp(this.dateProvider.nowInSeconds(), l1Constants);
   }
 }

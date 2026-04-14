@@ -2,8 +2,8 @@ use crate::{event::EventSelector, messages::logs::event::MAX_EVENT_SERIALIZED_LE
 use crate::protocol::{address::AztecAddress, traits::Serialize};
 
 /// Intermediate struct used to perform batch event validation by PXE. The
-/// `utilityValidateAndStoreEnqueuedNotesAndEvents` oracle expects for values of this type to be stored in a
-/// `CapsuleArray` at the given `base_slot`.
+/// `aztec_utl_validateAndStoreEnqueuedNotesAndEvents` oracle expects for values of this type to be stored in an
+/// `EphemeralArray` at the given `base_slot`.
 #[derive(Serialize)]
 pub(crate) struct EventValidationRequest {
     pub contract_address: AztecAddress,
@@ -12,7 +12,6 @@ pub(crate) struct EventValidationRequest {
     pub serialized_event: BoundedVec<Field, MAX_EVENT_SERIALIZED_LEN>,
     pub event_commitment: Field,
     pub tx_hash: Field,
-    pub recipient: AztecAddress,
 }
 
 mod test {
@@ -29,7 +28,6 @@ mod test {
             serialized_event: BoundedVec::from_array([4, 5]),
             event_commitment: 6,
             tx_hash: 7,
-            recipient: AztecAddress::from_field(8),
         };
 
         // We define the serialization in Noir and the deserialization in TS. If the deserialization changes from the
@@ -46,7 +44,6 @@ mod test {
             2, // bounded_vec_len
             6, // event_commitment
             7, // tx_hash
-            8, // recipient
         ];
 
         assert_eq(request.serialize(), expected_serialization);

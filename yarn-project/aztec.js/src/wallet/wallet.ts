@@ -22,7 +22,6 @@ import {
   TxHash,
   TxProfileResult,
   TxReceipt,
-  TxSimulationResult,
   UtilityExecutionResult,
   inTxSchema,
 } from '@aztec/stdlib/tx';
@@ -33,6 +32,7 @@ import {
   type FeeEstimationOptions,
   type GasSettingsOption,
   type InteractionWaitOptions,
+  NO_FROM,
   NO_WAIT,
   type ProfileInteractionOptions,
   type SendInteractionOptionsWithoutWait,
@@ -41,6 +41,7 @@ import {
 } from '../contract/interaction_options.js';
 import type { CallIntent, IntentInnerHash } from '../utils/authwit.js';
 import type { AppCapabilities, WalletCapabilities } from './capabilities.js';
+import { TxSimulationResultWithAppOffset } from './tx_simulation_result_with_app_offset.js';
 
 /**
  * A wrapper type that allows any item to be associated with an alias.
@@ -202,14 +203,27 @@ export type PublicEvent<T> = Event<
   }
 >;
 
+/** Whether the contract has been initialized. */
+export enum ContractInitializationStatus {
+  /** The contract has been initialized (initialization nullifier found). */
+  INITIALIZED = 'INITIALIZED',
+  /** The contract has not been initialized (instance is known, but no initialization nullifier found). */
+  UNINITIALIZED = 'UNINITIALIZED',
+  /**
+   * Initialization status cannot be determined. The contract instance is not registered in this wallet, so we have
+   * limited ability to check for initialization. The contract may or may not have been initialized.
+   */
+  UNKNOWN = 'UNKNOWN',
+}
+
 /**
  * Contract metadata including deployment and registration status.
  */
 export type ContractMetadata = {
   /** The contract instance */
   instance?: ContractInstanceWithAddress;
-  /** Whether the contract has been initialized (init nullifier exists) */
-  isContractInitialized: boolean;
+  /** Whether the contract has been initialized. */
+  initializationStatus: ContractInitializationStatus;
   /** Whether the contract instance is publicly deployed on-chain */
   isContractPublished: boolean;
   /** Whether the contract has been updated to a different class */
@@ -232,8 +246,8 @@ export type ContractClassMetadata = {
  * Options for executing a utility function call.
  */
 export type ExecuteUtilityOptions = {
-  /** The scope for the utility execution (determines which notes and keys are visible). */
-  scope: AztecAddress;
+  /** The scopes for the utility execution (determines which notes and keys are visible). */
+  scopes: AztecAddress[];
   /** Optional auth witnesses to use during execution. */
   authWitnesses?: AuthWitness[];
 };
@@ -257,7 +271,7 @@ export type Wallet = {
     artifact?: ContractArtifact,
     secretKey?: Fr,
   ): Promise<ContractInstanceWithAddress>;
-  simulateTx(exec: ExecutionPayload, opts: SimulateOptions): Promise<TxSimulationResult>;
+  simulateTx(exec: ExecutionPayload, opts: SimulateOptions): Promise<TxSimulationResultWithAppOffset>;
   executeUtility(call: FunctionCall, opts: ExecuteUtilityOptions): Promise<UtilityExecutionResult>;
   profileTx(exec: ExecutionPayload, opts: ProfileOptions): Promise<TxProfileResult>;
   sendTx<W extends InteractionWaitOptions = undefined>(
@@ -300,8 +314,10 @@ export const WaitOptsSchema = z.object({
   dontThrowOnRevert: optional(z.boolean()),
 });
 
+const FromSchema = z.union([schemas.AztecAddress, z.literal(NO_FROM)]);
+
 export const SendOptionsSchema = z.object({
-  from: schemas.AztecAddress,
+  from: FromSchema,
   authWitnesses: optional(z.array(AuthWitness.schema)),
   capsules: optional(z.array(Capsule.schema)),
   fee: optional(GasSettingsOptionSchema),
@@ -310,7 +326,7 @@ export const SendOptionsSchema = z.object({
 });
 
 export const SimulateOptionsSchema = z.object({
-  from: schemas.AztecAddress,
+  from: FromSchema,
   authWitnesses: optional(z.array(AuthWitness.schema)),
   capsules: optional(z.array(Capsule.schema)),
   fee: optional(WalletSimulationFeeOptionSchema),
@@ -371,7 +387,7 @@ export const PublicEventSchema = zodFor<PublicEvent<AbiDecoded>>()(
 
 export const ContractMetadataSchema = z.object({
   instance: optional(ContractInstanceWithAddressSchema),
-  isContractInitialized: z.boolean(),
+  initializationStatus: z.nativeEnum(ContractInitializationStatus),
   isContractPublished: z.boolean(),
   isContractUpdated: z.boolean(),
   updatedContractClassId: optional(schemas.Fr),
@@ -540,13 +556,16 @@ const WalletMethodSchemas = {
     .function()
     .args(ContractInstanceWithAddressSchema, optional(ContractArtifactSchema), optional(schemas.Fr))
     .returns(ContractInstanceWithAddressSchema),
-  simulateTx: z.function().args(ExecutionPayloadSchema, SimulateOptionsSchema).returns(TxSimulationResult.schema),
+  simulateTx: z
+    .function()
+    .args(ExecutionPayloadSchema, SimulateOptionsSchema)
+    .returns(TxSimulationResultWithAppOffset.schema),
   executeUtility: z
     .function()
     .args(
       FunctionCall.schema,
       z.object({
-        scope: schemas.AztecAddress,
+        scopes: z.array(schemas.AztecAddress),
         authWitnesses: optional(z.array(AuthWitness.schema)),
       }),
     )

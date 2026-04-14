@@ -1,5 +1,6 @@
 import { EpochCache } from '@aztec/epoch-cache';
 import { createEthereumChain } from '@aztec/ethereum/chain';
+import { makeL1HttpTransport } from '@aztec/ethereum/client';
 import { InboxContract, RollupContract } from '@aztec/ethereum/contracts';
 import type { ViemPublicDebugClient } from '@aztec/ethereum/types';
 import { BlockNumber } from '@aztec/foundation/branded-types';
@@ -13,11 +14,11 @@ import { protocolContractNames } from '@aztec/protocol-contracts';
 import { BundledProtocolContractsProvider } from '@aztec/protocol-contracts/providers/bundle';
 import { FunctionType, decodeFunctionSignature } from '@aztec/stdlib/abi';
 import type { ArchiverEmitter } from '@aztec/stdlib/block';
-import { type ContractClassPublic, computePublicBytecodeCommitment } from '@aztec/stdlib/contract';
+import { type ContractClassPublicWithCommitment, computePublicBytecodeCommitment } from '@aztec/stdlib/contract';
 import { getTelemetryClient } from '@aztec/telemetry-client';
 
 import { EventEmitter } from 'events';
-import { createPublicClient, fallback, http } from 'viem';
+import { createPublicClient } from 'viem';
 
 import { Archiver, type ArchiverDeps } from './archiver.js';
 import { type ArchiverConfig, mapArchiverConfig } from './config.js';
@@ -57,9 +58,10 @@ export async function createArchiver(
 
   // Create Ethereum clients
   const chain = createEthereumChain(config.l1RpcUrls, config.l1ChainId);
+  const httpTimeout = config.l1HttpTimeoutMS;
   const publicClient = createPublicClient({
     chain: chain.chainInfo,
-    transport: fallback(config.l1RpcUrls.map(url => http(url, { batch: false }))),
+    transport: makeL1HttpTransport(config.l1RpcUrls, { timeout: httpTimeout }),
     pollingInterval: config.viemPollingIntervalMS,
   });
 
@@ -67,7 +69,7 @@ export async function createArchiver(
   const debugRpcUrls = config.l1DebugRpcUrls.length > 0 ? config.l1DebugRpcUrls : config.l1RpcUrls;
   const debugClient = createPublicClient({
     chain: chain.chainInfo,
-    transport: fallback(debugRpcUrls.map(url => http(url, { batch: false }))),
+    transport: makeL1HttpTransport(debugRpcUrls, { timeout: httpTimeout }),
     pollingInterval: config.viemPollingIntervalMS,
   }) as ViemPublicDebugClient;
 
@@ -171,14 +173,22 @@ export async function createArchiver(
   return archiver;
 }
 
-/** Registers protocol contracts in the archiver store. */
+/** Registers protocol contracts in the archiver store. Idempotent — skips contracts that already exist (e.g. on node restart). */
 export async function registerProtocolContracts(store: KVArchiverDataStore) {
   const blockNumber = 0;
   for (const name of protocolContractNames) {
     const provider = new BundledProtocolContractsProvider();
     const contract = await provider.getProtocolContractArtifact(name);
-    const contractClassPublic: ContractClassPublic = {
+
+    // Skip if already registered (happens on node restart with a persisted store).
+    if (await store.getContractClass(contract.contractClass.id)) {
+      continue;
+    }
+
+    const publicBytecodeCommitment = await computePublicBytecodeCommitment(contract.contractClass.packedBytecode);
+    const contractClassPublic: ContractClassPublicWithCommitment = {
       ...contract.contractClass,
+      publicBytecodeCommitment,
       privateFunctions: [],
       utilityFunctions: [],
     };
@@ -188,8 +198,7 @@ export async function registerProtocolContracts(store: KVArchiverDataStore) {
       .map(fn => decodeFunctionSignature(fn.name, fn.parameters));
 
     await store.registerContractFunctionSignatures(publicFunctionSignatures);
-    const bytecodeCommitment = await computePublicBytecodeCommitment(contractClassPublic.packedBytecode);
-    await store.addContractClasses([contractClassPublic], [bytecodeCommitment], BlockNumber(blockNumber));
+    await store.addContractClasses([contractClassPublic], BlockNumber(blockNumber));
     await store.addContractInstances([contract.instance], BlockNumber(blockNumber));
   }
 }

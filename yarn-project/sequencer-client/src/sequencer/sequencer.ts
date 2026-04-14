@@ -143,6 +143,11 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     this.log.info('Started sequencer');
   }
 
+  /** Triggers an immediate run of the sequencer, bypassing the polling interval. */
+  public trigger() {
+    return this.runningPromise?.trigger();
+  }
+
   /** Stops the sequencer from building blocks and moves to STOPPED state. */
   public async stop(): Promise<void> {
     this.log.info(`Stopping sequencer`);
@@ -327,7 +332,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
 
     // Check with the rollup contract if we can indeed propose at the next L2 slot. This check should not fail
     // if all the previous checks are good, but we do it just in case.
-    const canProposeCheck = await publisher.canProposeAtNextEthBlock(
+    const canProposeCheck = await publisher.canProposeAt(
       syncedTo.archive,
       proposer ?? EthAddress.ZERO,
       invalidateCheckpoint,
@@ -475,8 +480,8 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
    */
   protected async checkSync(args: { ts: bigint; slot: SlotNumber }): Promise<SequencerSyncCheckResult | undefined> {
     // Check that the archiver has fully synced the L2 slot before the one we want to propose in.
-    // TODO(#14766): Archiver reports L1 timestamp based on L1 blocks seen, which means that a missed L1 block will
-    // cause the archiver L1 timestamp to fall behind, and cause this sequencer to start processing one L1 slot later.
+    // The archiver reports sync progress via L1 block timestamps and synced checkpoint slots.
+    // See getSyncedL2SlotNumber for how missed L1 blocks are handled.
     const syncedL2Slot = await this.l2BlockSource.getSyncedL2SlotNumber();
     const { slot } = args;
     if (syncedL2Slot === undefined || syncedL2Slot + 1 < slot) {

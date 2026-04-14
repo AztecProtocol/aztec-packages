@@ -24,7 +24,7 @@ import { EventEmitter } from 'events';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
 import { Archiver, type ArchiverEmitter } from './archiver.js';
-import { InitialBlockNumberNotSequentialError } from './errors.js';
+import { BlockNumberNotSequentialError } from './errors.js';
 import type { ArchiverInstrumentation } from './modules/instrumentation.js';
 import { ArchiverL1Synchronizer } from './modules/l1_synchronizer.js';
 import { KVArchiverDataStore } from './store/kv_archiver_store.js';
@@ -265,7 +265,7 @@ describe('Archiver Store', () => {
       await archiver.addBlock(block1);
 
       // Block 3 should be rejected because block 2 is missing
-      await expect(archiver.addBlock(block3)).rejects.toThrow(InitialBlockNumberNotSequentialError);
+      await expect(archiver.addBlock(block3)).rejects.toThrow(BlockNumberNotSequentialError);
     });
 
     it('rejects blocks with duplicate block numbers', async () => {
@@ -276,7 +276,7 @@ describe('Archiver Store', () => {
       await archiver.addBlock(block2);
 
       // Adding block 2 again shoud be rejected
-      await expect(archiver.addBlock(block2)).rejects.toThrow(InitialBlockNumberNotSequentialError);
+      await expect(archiver.addBlock(block2)).rejects.toThrow(BlockNumberNotSequentialError);
     });
 
     it('rejects first block if not starting from block 1', async () => {

@@ -59,7 +59,7 @@ impl TailToPublicOutputComposer {
             max_timestamp,
         );
 
-        let mut output = PrivateToPublicKernelCircuitPublicInputs {
+        let output = PrivateToPublicKernelCircuitPublicInputs {
             constants: source.constants.to_tx_constant_data(),
             non_revertible_accumulated_data,
             revertible_accumulated_data,

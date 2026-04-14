@@ -15,9 +15,9 @@ use bignum::{BigNum, BLS12_381_Fq};
 pub fn compress_to_blob_commitment(point: BLSPoint) -> (BatchingBlobCommitment) {
     let (flags, x) = get_flags(point);
     let mut compressed = x.to_be_bytes();
-    let most_sig_bits: [u1; 8] = (compressed[0] as Field).to_be_bits();
+    let most_sig_bits: [bool; 8] = (compressed[0] as Field).to_be_bits();
     for i in 0..3 {
-        assert_eq(most_sig_bits[i], 0, "Invalid BLS12-381 x coordinate given to compress().");
+        assert_eq(most_sig_bits[i], false, "Invalid BLS12-381 x coordinate given to compress().");
     }
     compressed[0] = set_flags(flags, compressed[0]);
     BatchingBlobCommitment { point, compressed }
@@ -80,7 +80,7 @@ mod tests {
         // y^2 = x^3 + ax + b
         let reconstructed_y_squared =
             reconstructed_x.__pow(BLS12_381_Fq::from(3)).add(a.mul(reconstructed_x)).add(b);
-        let mut reconstructed_y = -(reconstructed_y_squared.__sqrt().unwrap());
+        let reconstructed_y = -(reconstructed_y_squared.__sqrt().unwrap());
 
         assert_eq(reconstructed_y, point.y);
     }

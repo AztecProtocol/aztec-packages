@@ -2,63 +2,63 @@ use crate::oracle::notes::{get_next_app_tag_as_sender, get_sender_for_tags};
 use crate::protocol::address::AztecAddress;
 
 // TODO(#14565): Add constrained tagging
-pub(crate) fn prefix_with_tag<let L: u32>(log_without_tag: [Field; L], recipient: AztecAddress) -> [Field; L + 1] {
+/// Returns the next discovery tag for a private log sent to `recipient`.
+///
+/// Private logs are encrypted, so the recipient cannot tell which logs are meant for it just by looking at them.
+/// To solve this, sender and recipient derive a shared secret from their keys, and from that secret they produce a
+/// sequence of one-time tags (tag_0, tag_1, ...). The recipient scans for these tags because it can compute the same
+/// sequence. This function returns the next raw (not domain-separated) tag in the sequence.
+pub(crate) fn compute_discovery_tag(recipient: AztecAddress) -> Field {
     // Safety: we assume that the sender wants for the recipient to find the tagged note, and therefore that they will
     // cooperate and use the correct tag. Usage of a bad tag will result in the recipient not being able to find the
     // note automatically.
-    let tag = unsafe {
+    unsafe {
         let sender = get_sender_for_tags().expect(
             f"Sender for tags is not set when emitting a private log. Set it by calling `set_sender_for_tags(...)`.",
         );
         get_next_app_tag_as_sender(sender, recipient)
-    };
-
-    let mut log_with_tag = [0; L + 1];
-
-    log_with_tag[0] = tag;
-    for i in 0..log_without_tag.len() {
-        log_with_tag[i + 1] = log_without_tag[i];
     }
-
-    log_with_tag
 }
 
 mod test {
+    use crate::oracle::notes::set_sender_for_tags;
     use crate::protocol::{address::AztecAddress, traits::FromField};
-    use super::prefix_with_tag;
+    use crate::test::helpers::test_environment::TestEnvironment;
+    use super::compute_discovery_tag;
     use std::test::OracleMock;
 
-    #[test(should_fail)]
+    #[test(should_fail_with = "Sender for tags is not set")]
     unconstrained fn no_tag_sender() {
         let recipient = AztecAddress::from_field(2);
-
-        let expected_tag = 42;
-
-        // Mock the tagging oracles - note privateGetSenderForTags returns none
-        let _ = OracleMock::mock("privateGetSenderForTags").returns(Option::<AztecAddress>::none());
-        let _ = OracleMock::mock("privateGetNextAppTagAsSender").returns(expected_tag);
-
-        let log_without_tag = [1, 2, 3];
-        let _ = prefix_with_tag(log_without_tag, recipient);
+        let _ = OracleMock::mock("aztec_prv_getSenderForTags").returns(Option::<AztecAddress>::none());
+        let _ = OracleMock::mock("aztec_prv_getNextAppTagAsSender").returns(42);
+        let _ = compute_discovery_tag(recipient);
     }
 
     #[test]
-    unconstrained fn prefixing_with_tag() {
+    unconstrained fn returns_oracle_tag() {
         let sender = AztecAddress::from_field(1);
         let recipient = AztecAddress::from_field(2);
-
         let expected_tag = 42;
+        let _ = OracleMock::mock("aztec_prv_getSenderForTags").returns(Option::some(sender));
+        let _ = OracleMock::mock("aztec_prv_getNextAppTagAsSender").returns(expected_tag);
+        assert_eq(compute_discovery_tag(recipient), expected_tag);
+    }
 
-        // Mock the tagging oracles
-        let _ = OracleMock::mock("privateGetSenderForTags").returns(Option::some(sender));
-        let _ = OracleMock::mock("privateGetNextAppTagAsSender").returns(expected_tag);
+    #[test]
+    unconstrained fn does_not_fail_on_an_invalid_recipient() {
+        let mut env = TestEnvironment::new();
 
-        let log_without_tag = [1, 2, 3];
-        let log_with_tag = prefix_with_tag(log_without_tag, recipient);
+        let sender = env.create_light_account();
 
-        let expected_result = [expected_tag, 1, 2, 3];
+        env.private_context(|_context| {
+            set_sender_for_tags(sender);
 
-        // Check tag was prefixed correctly
-        assert_eq(log_with_tag, expected_result, "Tag was not prefixed correctly");
+            // The recipient is an invalid address
+            let recipient = AztecAddress { inner: 3 };
+            assert(!recipient.is_valid());
+
+            let _ = compute_discovery_tag(recipient);
+        });
     }
 }

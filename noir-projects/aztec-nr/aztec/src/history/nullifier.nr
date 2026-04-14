@@ -4,12 +4,7 @@ use crate::oracle::get_nullifier_membership_witness::{
     get_low_nullifier_membership_witness, get_nullifier_membership_witness,
 };
 
-use crate::protocol::{
-    abis::block_header::BlockHeader,
-    merkle_tree::root::root_from_sibling_path,
-    traits::Hash,
-    utils::field::{full_field_greater_than, full_field_less_than},
-};
+use crate::protocol::{abis::block_header::BlockHeader, merkle_tree::root::root_from_sibling_path, traits::Hash};
 
 mod test;
 
@@ -26,7 +21,7 @@ mod test;
 ///
 /// ## Cost
 ///
-/// This function performs a full merkle tree inclusion proof, which is in the order of 4k gates.
+/// This function performs a single merkle tree inclusion proof, which is ~4k gates.
 ///
 /// If you don't need to assert existence at a _specific_ past block, consider using
 /// [`PrivateContext::assert_nullifier_exists`](crate::context::PrivateContext::assert_nullifier_exists) instead, which
@@ -82,7 +77,7 @@ pub fn assert_nullifier_existed_by(block_header: BlockHeader, siloed_nullifier: 
 ///
 /// ## Cost
 ///
-/// This function performs a full merkle tree inclusion proof, which is in the order of 4k gates.
+/// This function performs a single merkle tree inclusion proof, which is ~4k gates.
 pub fn assert_nullifier_did_not_exist_by(block_header: BlockHeader, siloed_nullifier: Field) {
     // 1) Get the membership witness of a low nullifier of the nullifier.
     // Safety: The witness is only used as a "magical value" that makes the proof below pass. Hence it's safe.
@@ -105,7 +100,7 @@ pub fn assert_nullifier_did_not_exist_by(block_header: BlockHeader, siloed_nulli
 
     // 4) Prove that the low leaf is indeed smaller than the nullifier
     assert(
-        full_field_less_than(low_nullifier_leaf.nullifier, siloed_nullifier),
+        low_nullifier_leaf.nullifier.lt(siloed_nullifier),
         "Proving nullifier non-inclusion failed: low_nullifier.value < nullifier.value check failed",
     );
 
@@ -113,8 +108,7 @@ pub fn assert_nullifier_did_not_exist_by(block_header: BlockHeader, siloed_nulli
     // the nullifier tree, since if it were it'd need to be between the low leaf and the next leaf. Note the special
     // case in which the low leaf is the largest of all entries, in which case there's no 'next' entry.
     assert(
-        full_field_greater_than(low_nullifier_leaf.next_nullifier, siloed_nullifier)
-            | (low_nullifier_leaf.next_index == 0),
+        siloed_nullifier.lt(low_nullifier_leaf.next_nullifier) | (low_nullifier_leaf.next_index == 0),
         "Proving nullifier non-inclusion failed: low_nullifier.next_value > nullifier.value check failed",
     );
 }

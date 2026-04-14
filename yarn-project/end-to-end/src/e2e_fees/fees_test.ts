@@ -193,7 +193,7 @@ export class FeesTest {
     this.wallet = this.context.wallet;
     this.aztecNode = this.context.aztecNodeService;
     this.aztecNodeAdmin = this.context.aztecNodeService;
-    this.gasSettings = GasSettings.default({ maxFeesPerGas: (await this.aztecNode.getCurrentMinFees()).mul(2) });
+    this.gasSettings = GasSettings.fallback({ maxFeesPerGas: (await this.aztecNode.getCurrentMinFees()).mul(2) });
     this.cheatCodes = this.context.cheatCodes;
     this.accounts = deployedAccounts.map(a => a.address);
     this.accounts.forEach((a, i) => this.logger.verbose(`Account ${i} address: ${a}`));

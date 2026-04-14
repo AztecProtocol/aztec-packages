@@ -1,12 +1,13 @@
 import { type FunctionCall, FunctionType, decodeFromAbi } from '@aztec/stdlib/abi';
-import { ExecutionPayload, TxSimulationResult, UtilityExecutionResult, mergeExecutionPayloads } from '@aztec/stdlib/tx';
+import { ExecutionPayload, UtilityExecutionResult, mergeExecutionPayloads } from '@aztec/stdlib/tx';
 
+import type { TxSimulationResultWithAppOffset } from '../wallet/tx_simulation_result_with_app_offset.js';
 import type { BatchedMethod, Wallet } from '../wallet/wallet.js';
 import { BaseContractInteraction } from './base_contract_interaction.js';
 import {
+  NO_FROM,
   type RequestInteractionOptions,
   type SimulateInteractionOptions,
-  emptyOffchainOutput,
   extractOffchainOutput,
   toSimulateOptions,
 } from './interaction_options.js';
@@ -79,7 +80,7 @@ export class BatchCall extends BaseContractInteraction {
     for (const [call] of utility) {
       batchRequests.push({
         name: 'executeUtility' as const,
-        args: [call, { scope: options.from, authWitnesses: options.authWitnesses }],
+        args: [call, { scopes: options.from === NO_FROM ? [] : [options.from], authWitnesses: options.authWitnesses }],
       });
     }
 
@@ -109,32 +110,36 @@ export class BatchCall extends BaseContractInteraction {
       const [call, resultIndex] = utility[i];
       const wrappedResult = batchResults[i];
       if (wrappedResult.name === 'executeUtility') {
-        const rawReturnValues = (wrappedResult.result as UtilityExecutionResult).result;
+        const utilityResult = wrappedResult.result as UtilityExecutionResult;
+        const rawReturnValues = utilityResult.result;
+        const offchainOutput = extractOffchainOutput(utilityResult.offchainEffects, utilityResult.anchorBlockTimestamp);
         results[resultIndex] = {
           result: rawReturnValues ? decodeFromAbi(call.returnTypes, rawReturnValues) : [],
-          ...emptyOffchainOutput(),
+          ...offchainOutput,
         };
       }
     }
 
     // Process tx simulation result (it comes last if present)
+    let simulatedTx: TxSimulationResultWithAppOffset | undefined;
     if (indexedExecutionPayloads.length > 0) {
       const txResultWrapper = batchResults[utility.length];
       if (txResultWrapper.name === 'simulateTx') {
-        const simulatedTx = txResultWrapper.result as TxSimulationResult;
+        simulatedTx = txResultWrapper.result as TxSimulationResultWithAppOffset;
         indexedExecutionPayloads.forEach(([request, callIndex, resultIndex]) => {
           const call = request.calls[0];
-          // As account entrypoints are private, for private functions we retrieve the return values from the first nested call
-          // since we're interested in the first set of values AFTER the account entrypoint
-          // For public functions we retrieve the first values directly from the public output.
+          // For public functions we retrieve the values directly from the public output.
           const rawReturnValues =
             call.type == FunctionType.PRIVATE
-              ? simulatedTx.getPrivateReturnValues()?.nested?.[resultIndex].values
-              : simulatedTx.getPublicReturnValues()?.[resultIndex].values;
+              ? simulatedTx!.getPrivateReturnValuesOfAppCall(resultIndex)?.values
+              : simulatedTx!.getPublicReturnValues()?.[resultIndex].values;
 
           results[callIndex] = {
             result: rawReturnValues ? decodeFromAbi(call.returnTypes, rawReturnValues) : [],
-            ...extractOffchainOutput(simulatedTx.offchainEffects),
+            ...extractOffchainOutput(
+              simulatedTx!.offchainEffects,
+              simulatedTx!.publicInputs.constants.anchorBlockHeader.globalVariables.timestamp,
+            ),
           };
         });
       }

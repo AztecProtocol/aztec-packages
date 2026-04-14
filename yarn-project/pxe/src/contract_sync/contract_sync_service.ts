@@ -4,7 +4,6 @@ import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import type { BlockHeader } from '@aztec/stdlib/tx';
 
-import type { AccessScopes } from '../access_scopes.js';
 import type { StagedStore } from '../job_coordinator/job_coordinator.js';
 import type { ContractStore } from '../storage/contract_store/contract_store.js';
 import type { NoteStore } from '../storage/note_store/note_store.js';
@@ -20,12 +19,12 @@ export class ContractSyncService implements StagedStore {
   readonly storeName = 'contract_sync';
 
   // Tracks contracts synced since last wipe. The cache is keyed per individual scope address
-  // (`contractAddress:scopeAddress`), or `contractAddress:*` for undefined scopes (all accounts).
+  // (`contractAddress:scopeAddress`), or `contractAddress:*` for all scopes (all accounts).
   // The value is a promise that resolves when the contract is synced.
   private syncedContracts: Map<string, Promise<void>> = new Map();
 
-  // Per-job overridden contract addresses - these contracts should not be synced.
-  private overriddenContracts: Map<string, Set<string>> = new Map();
+  // Per-job excluded contract addresses - these contracts should not be synced.
+  private excludedFromSync: Map<string, Set<string>> = new Map();
 
   constructor(
     private aztecNode: AztecNode,
@@ -35,8 +34,8 @@ export class ContractSyncService implements StagedStore {
   ) {}
 
   /** Sets contracts that should be skipped during sync for a specific job. */
-  setOverriddenContracts(jobId: string, addresses: Set<string>): void {
-    this.overriddenContracts.set(jobId, addresses);
+  setExcludedFromSync(jobId: string, addresses: Set<string>): void {
+    this.excludedFromSync.set(jobId, addresses);
   }
 
   /**
@@ -51,72 +50,65 @@ export class ContractSyncService implements StagedStore {
   async ensureContractSynced(
     contractAddress: AztecAddress,
     functionToInvokeAfterSync: FunctionSelector | null,
-    utilityExecutor: (call: FunctionCall, scopes: AccessScopes) => Promise<any>,
+    utilityExecutor: (call: FunctionCall, scopes: AztecAddress[]) => Promise<any>,
     anchorBlockHeader: BlockHeader,
     jobId: string,
-    scopes: AccessScopes,
+    scopes: AztecAddress[],
   ): Promise<void> {
-    // Skip sync if this contract has an override for this job (overrides are keyed by contract address only)
-    const overrides = this.overriddenContracts.get(jobId);
-    if (overrides?.has(contractAddress.toString())) {
+    if (this.#shouldSkipSync(jobId, contractAddress)) {
       return;
     }
 
-    // Skip sync if we already synced for "all scopes", or if we have an empty list of scopes
-    const allScopesKey = toKey(contractAddress, 'ALL_SCOPES');
-    const allScopesExisting = this.syncedContracts.get(allScopesKey);
-    if (allScopesExisting || (scopes !== 'ALL_SCOPES' && scopes.length == 0)) {
-      return;
-    }
-
-    const unsyncedScopes =
-      scopes === 'ALL_SCOPES'
-        ? scopes
-        : scopes.filter(scope => !this.syncedContracts.has(toKey(contractAddress, scope)));
-    const unsyncedScopesKeys = toKeys(contractAddress, unsyncedScopes);
-
-    if (unsyncedScopesKeys.length > 0) {
-      // Start sync and store the promise for all unsynced scopes
-      const promise = this.#doSync(
+    this.#startSyncIfNeeded(contractAddress, scopes, scopesToSync =>
+      this.#syncContract(
         contractAddress,
         functionToInvokeAfterSync,
         utilityExecutor,
         anchorBlockHeader,
         jobId,
-        unsyncedScopes,
-      ).catch(err => {
-        // There was an error syncing the contract, so we remove it from the cache so that it can be retried.
-        unsyncedScopesKeys.forEach(key => this.syncedContracts.delete(key));
-        throw err;
-      });
-      unsyncedScopesKeys.forEach(key => this.syncedContracts.set(key, promise));
-    }
+        scopesToSync,
+      ),
+    );
 
-    const promises = toKeys(contractAddress, scopes).map(key => this.syncedContracts.get(key)!);
-    await Promise.all(promises);
+    await this.#awaitSync(contractAddress, scopes);
   }
 
-  async #doSync(
+  /** Clears sync cache entries for the given scopes of a contract. */
+  invalidateContractForScopes(contractAddress: AztecAddress, scopes: AztecAddress[]): void {
+    if (scopes.length === 0) {
+      return;
+    }
+    scopes.forEach(scope => this.syncedContracts.delete(toKey(contractAddress, scope)));
+  }
+
+  async #syncContract(
     contractAddress: AztecAddress,
     functionToInvokeAfterSync: FunctionSelector | null,
-    utilityExecutor: (call: FunctionCall, scopes: AccessScopes) => Promise<any>,
+    utilityExecutor: (call: FunctionCall, scopes: AztecAddress[]) => Promise<any>,
     anchorBlockHeader: BlockHeader,
     jobId: string,
-    scopes: AccessScopes,
+    scopes: AztecAddress[],
   ): Promise<void> {
     this.log.debug(`Syncing contract ${contractAddress}`);
+
     await Promise.all([
-      syncState(
-        contractAddress,
-        this.contractStore,
-        functionToInvokeAfterSync,
-        utilityExecutor,
-        this.noteStore,
-        this.aztecNode,
-        anchorBlockHeader,
-        jobId,
-        scopes,
-      ),
+      // Call sync_state sequentially for each scope address — each invocation synchronizes one account's private
+      // state using scoped capsule arrays.
+      (async () => {
+        for (const scope of scopes) {
+          await syncState(
+            contractAddress,
+            this.contractStore,
+            functionToInvokeAfterSync,
+            utilityExecutor,
+            this.noteStore,
+            this.aztecNode,
+            anchorBlockHeader,
+            jobId,
+            scope,
+          );
+        }
+      })(),
       verifyCurrentClassId(contractAddress, this.aztecNode, this.contractStore, anchorBlockHeader),
     ]);
     this.log.debug(`Contract ${contractAddress} synced`);
@@ -129,8 +121,8 @@ export class ContractSyncService implements StagedStore {
   }
 
   commit(jobId: string): Promise<void> {
-    // Clear overridden contracts for this job
-    this.overriddenContracts.delete(jobId);
+    // Clear excluded contracts for this job
+    this.excludedFromSync.delete(jobId);
     return Promise.resolve();
   }
 
@@ -138,15 +130,41 @@ export class ContractSyncService implements StagedStore {
     // We clear the synced contracts cache here because, when the job is discarded, any associated database writes from
     // the sync are also undone.
     this.syncedContracts.clear();
-    this.overriddenContracts.delete(jobId);
+    this.excludedFromSync.delete(jobId);
     return Promise.resolve();
+  }
+  /** Returns true if sync should be skipped for this contract */
+  #shouldSkipSync(jobId: string, contractAddress: AztecAddress): boolean {
+    return !!this.excludedFromSync.get(jobId)?.has(contractAddress.toString());
+  }
+
+  /** If there are unsynced scopes, starts sync and stores the promise in cache with error cleanup. */
+  #startSyncIfNeeded(
+    contractAddress: AztecAddress,
+    scopes: AztecAddress[],
+    syncFn: (scopesToSync: AztecAddress[]) => Promise<void>,
+  ): void {
+    const scopesToSync = scopes.filter(scope => !this.syncedContracts.has(toKey(contractAddress, scope)));
+    const keys = scopesToSync.map(scope => toKey(contractAddress, scope));
+    if (keys.length === 0) {
+      return;
+    }
+    const promise = syncFn(scopesToSync).catch(err => {
+      keys.forEach(key => this.syncedContracts.delete(key));
+      throw err;
+    });
+    keys.forEach(key => this.syncedContracts.set(key, promise));
+  }
+
+  /** Collects all relevant scope promises (including in-flight ones from concurrent calls) and awaits them. */
+  async #awaitSync(contractAddress: AztecAddress, scopes: AztecAddress[]): Promise<void> {
+    const promises = scopes
+      .map(scope => this.syncedContracts.get(toKey(contractAddress, scope)))
+      .filter(p => p !== undefined);
+    await Promise.all(promises);
   }
 }
 
-function toKeys(contract: AztecAddress, scopes: AccessScopes) {
-  return scopes === 'ALL_SCOPES' ? [toKey(contract, scopes)] : scopes.map(scope => toKey(contract, scope));
-}
-
-function toKey(contract: AztecAddress, scope: AztecAddress | 'ALL_SCOPES') {
-  return scope === 'ALL_SCOPES' ? `${contract.toString()}:*` : `${contract.toString()}:${scope.toString()}`;
+function toKey(contract: AztecAddress, scope: AztecAddress) {
+  return `${contract.toString()}:${scope.toString()}`;
 }

@@ -1,4 +1,5 @@
 import { createEthereumChain } from '@aztec/ethereum/chain';
+import { makeL1HttpTransport } from '@aztec/ethereum/client';
 import { NoCommitteeError, RollupContract } from '@aztec/ethereum/contracts';
 import { EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -8,13 +9,14 @@ import {
   type L1RollupConstants,
   getEpochAtSlot,
   getEpochNumberAtTimestamp,
+  getNextL1SlotTimestamp,
   getSlotAtTimestamp,
   getSlotRangeForEpoch,
   getTimestampForSlot,
   getTimestampRangeForEpoch,
 } from '@aztec/stdlib/epoch-helpers';
 
-import { createPublicClient, encodeAbiParameters, fallback, http, keccak256 } from 'viem';
+import { createPublicClient, encodeAbiParameters, keccak256 } from 'viem';
 
 import { type EpochCacheConfig, getEpochCacheConfigEnvVars } from './config.js';
 
@@ -93,7 +95,7 @@ export class EpochCache implements EpochCacheInterface {
       const chain = createEthereumChain(config.l1RpcUrls, config.l1ChainId);
       const publicClient = createPublicClient({
         chain: chain.chainInfo,
-        transport: fallback(config.l1RpcUrls.map(url => http(url, { batch: false }))),
+        transport: makeL1HttpTransport(config.l1RpcUrls, { timeout: config.l1HttpTimeoutMS }),
         pollingInterval: config.viemPollingIntervalMS,
       });
       rollup = new RollupContract(publicClient, rollupOrAddress.toString());
@@ -147,10 +149,6 @@ export class EpochCache implements EpochCacheInterface {
     return { ...this.getEpochAndSlotAtTimestamp(nowSeconds), nowMs };
   }
 
-  public nowInSeconds(): bigint {
-    return BigInt(Math.floor(this.dateProvider.now() / 1000));
-  }
-
   private getEpochAndSlotAtSlot(slot: SlotNumber): EpochAndSlot {
     const epoch = getEpochAtSlot(slot, this.l1constants);
     const ts = getTimestampRangeForEpoch(epoch, this.l1constants)[0];
@@ -158,8 +156,8 @@ export class EpochCache implements EpochCacheInterface {
   }
 
   public getEpochAndSlotInNextL1Slot(): EpochAndSlot & { now: bigint } {
-    const now = this.nowInSeconds();
-    const nextSlotTs = now + BigInt(this.l1constants.ethereumSlotDuration);
+    const now = BigInt(this.dateProvider.nowInSeconds());
+    const nextSlotTs = getNextL1SlotTimestamp(Number(now), this.l1constants);
     return { ...this.getEpochAndSlotAtTimestamp(nextSlotTs), now };
   }
 
@@ -375,10 +373,11 @@ export class EpochCache implements EpochCacheInterface {
   async getRegisteredValidators(): Promise<EthAddress[]> {
     const validatorRefreshIntervalMs = this.config.validatorRefreshIntervalSeconds * 1000;
     const validatorRefreshTime = this.lastValidatorRefresh + validatorRefreshIntervalMs;
-    if (validatorRefreshTime < this.dateProvider.now()) {
-      const currentSet = await this.rollup.getAttesters();
+    const now = this.dateProvider.now();
+    if (validatorRefreshTime < now) {
+      const currentSet = await this.rollup.getAttesters(BigInt(Math.floor(now / 1000)));
       this.allValidators = new Set(currentSet.map(v => v.toString()));
-      this.lastValidatorRefresh = this.dateProvider.now();
+      this.lastValidatorRefresh = now;
     }
     return Array.from(this.allValidators.keys()).map(v => EthAddress.fromString(v));
   }

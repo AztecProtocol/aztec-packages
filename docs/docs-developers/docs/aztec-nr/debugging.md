@@ -5,8 +5,6 @@ tags: [debugging, errors, logging, local_network, aztec.nr]
 description: This guide shows you how to debug issues in your Aztec contracts.
 ---
 
-<!-- need to move some into aztec.js  -->
-
 This guide shows you how to debug issues in your Aztec development environment.
 
 ## Prerequisites
@@ -94,6 +92,7 @@ LOG_LEVEL="info;debug:simulator:client_execution_context;debug:simulator:client_
 | `Public state writes only supported in public functions` | Move state writes to public functions                                                                                                                           |
 | `Unknown contract 0x0`                                   | Call `wallet.registerContract(...)` to register contract                                                                                                        |
 | `No public key registered for address`                   | Call `wallet.registerSender(...)`                                                                                                                               |
+| `Direct invocation of ... functions is not supported`    | Use `self.call()`, `self.view()`, or `self.enqueue()` to [call contract functions](framework-description/calling_contracts.md) |
 | `Failed to solve brillig function`                       | Check function parameters and note validity                                                                                                                     |
 
 ### Circuit Errors
@@ -159,7 +158,7 @@ link.click();
 
 ## Interpret error messages
 
-### Kernel circuit errors (2xxx)
+### Circuit and protocol errors
 
 - **Private kernel errors (2xxx)**: Issues with private function execution
 - **Public kernel errors (3xxx)**: Issues with public function execution
@@ -217,7 +216,7 @@ await wallet.getContractMetadata(myContractInstance.address);
 
 ### Decode L1 errors
 
-Check hex errors against [Errors.sol](https://github.com/AztecProtocol/aztec-packages/blob/master/l1-contracts/src/core/libraries/Errors.sol)
+Check hex errors against [Errors.sol](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/l1-contracts/src/core/libraries/Errors.sol)
 
 ## Tips
 

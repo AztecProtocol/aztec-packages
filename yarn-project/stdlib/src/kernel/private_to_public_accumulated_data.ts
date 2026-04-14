@@ -62,10 +62,10 @@ export class PrivateToPublicAccumulatedData {
     return new this(
       reader.readFieldArray(MAX_NOTE_HASHES_PER_TX),
       reader.readFieldArray(MAX_NULLIFIERS_PER_TX),
-      reader.readArray(MAX_L2_TO_L1_MSGS_PER_TX, ScopedL2ToL1Message),
-      reader.readArray(MAX_PRIVATE_LOGS_PER_TX, PrivateLog),
-      reader.readArray(MAX_CONTRACT_CLASS_LOGS_PER_TX, ScopedLogHash),
-      reader.readArray(MAX_ENQUEUED_CALLS_PER_TX, PublicCallRequest),
+      reader.readTuple(MAX_L2_TO_L1_MSGS_PER_TX, ScopedL2ToL1Message),
+      reader.readTuple(MAX_PRIVATE_LOGS_PER_TX, PrivateLog),
+      reader.readTuple(MAX_CONTRACT_CLASS_LOGS_PER_TX, ScopedLogHash),
+      reader.readTuple(MAX_ENQUEUED_CALLS_PER_TX, PublicCallRequest),
     );
   }
 
@@ -76,12 +76,12 @@ export class PrivateToPublicAccumulatedData {
   static fromBuffer(buffer: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buffer);
     return new PrivateToPublicAccumulatedData(
-      reader.readArray(MAX_NOTE_HASHES_PER_TX, Fr),
-      reader.readArray(MAX_NULLIFIERS_PER_TX, Fr),
-      reader.readArray(MAX_L2_TO_L1_MSGS_PER_TX, ScopedL2ToL1Message),
-      reader.readArray(MAX_PRIVATE_LOGS_PER_TX, PrivateLog),
-      reader.readArray(MAX_CONTRACT_CLASS_LOGS_PER_TX, ScopedLogHash),
-      reader.readArray(MAX_ENQUEUED_CALLS_PER_TX, PublicCallRequest),
+      reader.readTuple(MAX_NOTE_HASHES_PER_TX, Fr),
+      reader.readTuple(MAX_NULLIFIERS_PER_TX, Fr),
+      reader.readTuple(MAX_L2_TO_L1_MSGS_PER_TX, ScopedL2ToL1Message),
+      reader.readTuple(MAX_PRIVATE_LOGS_PER_TX, PrivateLog),
+      reader.readTuple(MAX_CONTRACT_CLASS_LOGS_PER_TX, ScopedLogHash),
+      reader.readTuple(MAX_ENQUEUED_CALLS_PER_TX, PublicCallRequest),
     );
   }
 

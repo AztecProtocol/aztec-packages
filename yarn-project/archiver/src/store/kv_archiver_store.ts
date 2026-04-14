@@ -16,6 +16,7 @@ import {
 import type { CheckpointData, PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 import type {
   ContractClassPublic,
+  ContractClassPublicWithCommitment,
   ContractDataSource,
   ContractInstanceUpdateWithAddress,
   ContractInstanceWithAddress,
@@ -167,19 +168,14 @@ export class KVArchiverDataStore implements ContractDataSource {
 
   /**
    * Add new contract classes from an L2 block to the store's list.
-   * @param data - List of contract classes to be added.
-   * @param bytecodeCommitments - Bytecode commitments for the contract classes.
+   * @param data - List of contract classes (with bytecode commitments) to be added.
    * @param blockNumber - Number of the L2 block the contracts were registered in.
    * @returns True if the operation is successful.
    */
-  async addContractClasses(
-    data: ContractClassPublic[],
-    bytecodeCommitments: Fr[],
-    blockNumber: BlockNumber,
-  ): Promise<boolean> {
+  async addContractClasses(data: ContractClassPublicWithCommitment[], blockNumber: BlockNumber): Promise<boolean> {
     return (
       await Promise.all(
-        data.map((c, i) => this.#contractClassStore.addContractClass(c, bytecodeCommitments[i], blockNumber)),
+        data.map(c => this.#contractClassStore.addContractClass(c, c.publicBytecodeCommitment, blockNumber)),
       )
     ).every(Boolean);
   }
@@ -245,14 +241,14 @@ export class KVArchiverDataStore implements ContractDataSource {
   }
 
   /**
-   * Append new proposed blocks to the store's list.
-   * These are uncheckpointed blocks that have been proposed by the sequencer but not yet included in a checkpoint on L1.
+   * Append a new proposed block to the store.
+   * This is an uncheckpointed block that has been proposed by the sequencer but not yet included in a checkpoint on L1.
    * For checkpointed blocks (already published to L1), use addCheckpoints() instead.
-   * @param blocks - The proposed L2 blocks to be added to the store.
+   * @param block - The proposed L2 block to be added to the store.
    * @returns True if the operation is successful.
    */
-  addProposedBlocks(blocks: L2Block[], opts: { force?: boolean; checkpointNumber?: number } = {}): Promise<boolean> {
-    return this.#blockStore.addProposedBlocks(blocks, opts);
+  addProposedBlock(block: L2Block, opts: { force?: boolean } = {}): Promise<boolean> {
+    return this.#blockStore.addProposedBlock(block, opts);
   }
 
   /**

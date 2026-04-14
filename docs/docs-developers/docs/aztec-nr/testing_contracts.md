@@ -44,10 +44,26 @@ aztec test
 Always use `aztec test` instead of `nargo test`. The `TestEnvironment` requires the TXE (Test eXecution Environment) oracle resolver.
 :::
 
+## Keep tests in the test crate
+
+When you create a project with `aztec new` or `aztec init`, the generated workspace has two crates: `<name>_contract` and `<name>_test`. It is important that all tests live in the `<name>_test` crate, **not** in the `<name>_contract` crate.
+
+If you place `#[test]` functions inside the contract crate, `aztec compile` will emit a warning:
+
+```
+WARNING: Found tests in contract crate(s):
+  my_contract::test_something
+Tests should be in a dedicated test crate, not in the contract crate.
+```
+
+The reason is **unnecessary recompilation**: the contract artifact depends on everything inside the contract crate. If tests live there too, editing a test changes the crate and forces the contract to be recompiled and reprocessed, even though the contract logic itself has not changed. By keeping tests in a separate crate, you can iterate on tests without triggering a full contract rebuild.
+
 ## Basic test structure
 
+Tests live in `<name>_test/src/lib.nr` and import the contract crate by name (not `crate::`):
+
 ```rust
-use crate::MyContract;
+use my_contract::MyContract;
 use aztec::{
     protocol::address::AztecAddress,
     test::helpers::test_environment::TestEnvironment,
@@ -72,12 +88,11 @@ unconstrained fn test_basic_flow() {
 :::
 
 :::tip Organizing test files
-You can organize tests in separate files:
+Tests live in the separate `<name>_test` crate that `aztec new` creates. You can organize them into modules:
 
-- Create `src/test.nr` with `mod utils;` to import helper functions
-- Split tests into modules like `src/test/transfer_tests.nr`, `src/test/auth_tests.nr`
-- Import the test module in `src/main.nr` with `mod test;`
-- Share setup functions in `src/test/utils.nr`
+- Split tests into modules like `<name>_test/src/transfer_tests.nr`, `<name>_test/src/auth_tests.nr`
+- Import them in `<name>_test/src/lib.nr` with `mod transfer_tests;`, `mod auth_tests;`
+- Share setup functions in `<name>_test/src/utils.nr`
   :::
 
 ## Deploying contracts
@@ -154,7 +169,7 @@ let balance = env.view_public(Token::at(token_address).balance_of_public(owner))
 
 ```rust
 // Simulate utility/view functions (unconstrained)
-let total = env.simulate_utility(Token::at(token_address).balance_of_private(owner));
+let total = env.execute_utility(Token::at(token_address).balance_of_private(owner));
 ```
 
 :::tip Helper function pattern
@@ -168,7 +183,7 @@ pub unconstrained fn check_balance(
     expected: u128,
 ) {
     assert_eq(
-        env.simulate_utility(Token::at(token_address).balance_of_private(owner)),
+        env.execute_utility(Token::at(token_address).balance_of_private(owner)),
         expected
     );
 }
@@ -267,7 +282,7 @@ unconstrained fn test_public_authwit() {
     let (env, token_address, owner, spender) = setup(true);
 
     // Create public action that needs authorization
-    let transfer_call = Token::at(token_address).transfer_public(owner, recipient, 100, nonce);
+    let transfer_call = Token::at(token_address).transfer_in_public(owner, recipient, 100, nonce);
 
     // Grant public authorization
     add_public_authwit_from_call(env, owner, spender, transfer_call);
@@ -279,7 +294,7 @@ unconstrained fn test_public_authwit() {
 
 ## Time traveling
 
-Contract calls do not advance the timestamp by default, despite each of them resulting in a block with a single transaction. Block timestamp can instead by manually manipulated by any of the following methods:
+Contract calls do not advance the timestamp by default, despite each of them resulting in a block with a single transaction. Block timestamp can instead be manually manipulated by any of the following methods:
 
 ```rust
 // Sets the timestamp of the next block to be mined, i.e. of the next public execution. Does not affect private execution.
@@ -290,7 +305,7 @@ env.advance_next_block_timestamp_by(duration);
 
 // Mines an empty block at a given timestamp, causing the next public execution to occur at this time (like `set_next_block_timestamp`), but also allowing for private execution to happen using this empty block as the anchor block.
 env.mine_block_at(block_timestamp);
-````
+```
 
 ## Testing failure cases
 

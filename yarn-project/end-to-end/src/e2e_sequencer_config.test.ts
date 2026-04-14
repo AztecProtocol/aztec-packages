@@ -1,11 +1,12 @@
 import { getInitialTestAccountsData } from '@aztec/accounts/testing';
+import { NO_FROM } from '@aztec/aztec.js/account';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import { TxReceipt } from '@aztec/aztec.js/tx';
 import { Bot, type BotConfig, BotStore, getBotDefaultConfig } from '@aztec/bot';
+import { MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT } from '@aztec/constants';
 import type { Logger } from '@aztec/foundation/log';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import type { SequencerClient } from '@aztec/sequencer-client';
-import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { EmbeddedWallet } from '@aztec/wallets/embedded';
 
 import { jest } from '@jest/globals';
@@ -51,7 +52,7 @@ describe('e2e_sequencer_config', () => {
         botAccount.signingKey,
       );
       const deployMethod = await accountManager.getDeployMethod();
-      await deployMethod.send({ from: AztecAddress.ZERO });
+      await deployMethod.send({ from: NO_FROM });
       bot = await Bot.create(config, wallet, aztecNode, undefined, new BotStore(await openTmpStore('bot')));
     });
 
@@ -82,7 +83,7 @@ describe('e2e_sequencer_config', () => {
       expect(totalManaUsed).toBeGreaterThan(0n);
       bot.updateConfig({
         l2GasLimit: Number(totalManaUsed),
-        daGasLimit: Number(totalManaUsed),
+        daGasLimit: MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT,
       });
 
       // Set the maxL2BlockGas to the total mana used

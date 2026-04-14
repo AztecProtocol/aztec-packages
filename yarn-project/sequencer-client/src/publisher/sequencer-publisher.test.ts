@@ -22,6 +22,7 @@ import { TestDateProvider } from '@aztec/foundation/timer';
 import { EmpireBaseAbi, RollupAbi } from '@aztec/l1-artifacts';
 import { CommitteeAttestationsAndSigners, L2Block, Signature } from '@aztec/stdlib/block';
 import { Checkpoint } from '@aztec/stdlib/checkpoint';
+import { EmptyL1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import type { SlashFactoryContract } from '@aztec/stdlib/l1-contracts';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
 
@@ -117,11 +118,12 @@ describe('SequencerPublisher', () => {
         rollupAddress: EthAddress.ZERO.toString(),
         governanceProposerAddress: mockGovernanceProposerAddress,
       },
-
       ...defaultL1TxUtilsConfig,
+      ethereumSlotDuration: 12,
+      aztecSlotDuration: 24,
     } as unknown as TxSenderConfig &
       PublisherConfig &
-      Pick<L1ContractsConfig, 'ethereumSlotDuration'> &
+      Pick<L1ContractsConfig, 'ethereumSlotDuration' | 'aztecSlotDuration'> &
       L1TxUtilsConfig;
 
     rollup = mock<RollupContract>();
@@ -138,6 +140,7 @@ describe('SequencerPublisher', () => {
 
     const epochCache = mock<EpochCache>();
     epochCache.getEpochAndSlotNow.mockReturnValue({ epoch: EpochNumber(1), slot: SlotNumber(2), ts: 3n, nowMs: 3000n });
+    epochCache.getL1Constants.mockReturnValue(EmptyL1RollupConstants);
     epochCache.getCommittee.mockResolvedValue({
       committee: [],
       seed: 1n,
@@ -218,7 +221,6 @@ describe('SequencerPublisher', () => {
       await publisher.enqueueGovernanceCastSignal(
         govPayload,
         SlotNumber(2),
-        1n,
         EthAddress.fromString(testHarnessAttesterAccount.address),
         msg => testHarnessAttesterAccount.signTypedData(msg),
       ),
@@ -384,6 +386,54 @@ describe('SequencerPublisher', () => {
     expect((publisher as any).requests.length).toEqual(0);
   });
 
+  it('does not include gas config from expired requests', async () => {
+    const currentL2Slot = publisher.getCurrentL2Slot();
+
+    // Add an expired request with a gas config
+    publisher.addRequest({
+      action: 'vote-offenses',
+      request: {
+        to: mockRollupAddress,
+        data: encodeFunctionData({
+          abi: EmpireBaseAbi,
+          functionName: 'signal',
+          args: [EthAddress.random().toString()],
+        }),
+      },
+      lastValidL2Slot: SlotNumber(1), // expired
+      gasConfig: { gasLimit: 500_000n },
+      checkSuccess: () => true,
+    });
+
+    // Add a valid request with a gas config
+    publisher.addRequest({
+      action: 'propose',
+      request: {
+        to: mockRollupAddress,
+        data: encodeFunctionData({
+          abi: EmpireBaseAbi,
+          functionName: 'signal',
+          args: [EthAddress.random().toString()],
+        }),
+      },
+      lastValidL2Slot: SlotNumber(Number(currentL2Slot) + 10), // valid
+      gasConfig: { gasLimit: 100_000n },
+      checkSuccess: () => true,
+    });
+
+    forwardSpy.mockResolvedValue({
+      receipt: proposeTxReceipt,
+      errorMsg: undefined,
+    });
+
+    await publisher.sendRequests();
+
+    expect(forwardSpy).toHaveBeenCalledTimes(1);
+    // The gas config should only include the valid request's gas (100_000), not the expired one (500_000)
+    const txConfig = forwardSpy.mock.calls[0][2];
+    expect(txConfig?.gasLimit).toEqual(100_000n);
+  });
+
   it('does not signal for payload when quorum is reached', async () => {
     const { govPayload } = mockGovernancePayload();
 
@@ -398,7 +448,6 @@ describe('SequencerPublisher', () => {
       await publisher.enqueueGovernanceCastSignal(
         govPayload,
         SlotNumber(2),
-        1n,
         EthAddress.fromString(testHarnessAttesterAccount.address),
         msg => testHarnessAttesterAccount.signTypedData(msg),
       ),
@@ -413,7 +462,6 @@ describe('SequencerPublisher', () => {
       await publisher.enqueueGovernanceCastSignal(
         govPayload,
         SlotNumber(2),
-        1n,
         EthAddress.fromString(testHarnessAttesterAccount.address),
         msg => testHarnessAttesterAccount.signTypedData(msg),
       ),
@@ -428,7 +476,6 @@ describe('SequencerPublisher', () => {
       await publisher.enqueueGovernanceCastSignal(
         govPayload,
         SlotNumber(2),
-        1n,
         EthAddress.fromString(testHarnessAttesterAccount.address),
         msg => testHarnessAttesterAccount.signTypedData(msg),
       ),
@@ -443,7 +490,6 @@ describe('SequencerPublisher', () => {
       await publisher.enqueueGovernanceCastSignal(
         govPayload,
         SlotNumber(2),
-        1n,
         EthAddress.fromString(testHarnessAttesterAccount.address),
         msg => testHarnessAttesterAccount.signTypedData(msg),
       ),
@@ -457,7 +503,6 @@ describe('SequencerPublisher', () => {
     await publisher.enqueueGovernanceCastSignal(
       govPayload,
       SlotNumber(2),
-      1n,
       EthAddress.fromString(testHarnessAttesterAccount.address),
       msg => testHarnessAttesterAccount.signTypedData(msg),
     );
@@ -465,7 +510,6 @@ describe('SequencerPublisher', () => {
     await publisher.enqueueGovernanceCastSignal(
       govPayload,
       SlotNumber(3),
-      2n,
       EthAddress.fromString(testHarnessAttesterAccount.address),
       msg => testHarnessAttesterAccount.signTypedData(msg),
     );
@@ -484,7 +528,6 @@ describe('SequencerPublisher', () => {
       await publisher.enqueueGovernanceCastSignal(
         govPayload,
         SlotNumber(2),
-        1n,
         EthAddress.fromString(testHarnessAttesterAccount.address),
         msg => testHarnessAttesterAccount.signTypedData(msg),
       ),
@@ -499,7 +542,6 @@ describe('SequencerPublisher', () => {
       await publisher.enqueueGovernanceCastSignal(
         govPayload,
         SlotNumber(2),
-        1n,
         EthAddress.fromString(testHarnessAttesterAccount.address),
         msg => testHarnessAttesterAccount.signTypedData(msg),
       ),
@@ -515,7 +557,6 @@ describe('SequencerPublisher', () => {
       await publisher.enqueueGovernanceCastSignal(
         govPayload,
         SlotNumber(2),
-        1n,
         EthAddress.fromString(testHarnessAttesterAccount.address),
         msg => testHarnessAttesterAccount.signTypedData(msg),
       ),
@@ -526,7 +567,6 @@ describe('SequencerPublisher', () => {
       await publisher.enqueueGovernanceCastSignal(
         govPayload,
         SlotNumber(3),
-        2n,
         EthAddress.fromString(testHarnessAttesterAccount.address),
         msg => testHarnessAttesterAccount.signTypedData(msg),
       ),

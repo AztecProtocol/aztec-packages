@@ -1,4 +1,5 @@
 import { getInitialTestAccountsData } from '@aztec/accounts/testing';
+import { NO_FROM } from '@aztec/aztec.js/account';
 import { AztecAddress } from '@aztec/aztec.js/addresses';
 import {
   BatchCall,
@@ -15,6 +16,7 @@ import { deriveKeys } from '@aztec/aztec.js/keys';
 import { createLogger } from '@aztec/aztec.js/log';
 import { waitForL1ToL2MessageReady } from '@aztec/aztec.js/messaging';
 import { waitForTx } from '@aztec/aztec.js/node';
+import { ContractInitializationStatus } from '@aztec/aztec.js/wallet';
 import { createEthereumChain } from '@aztec/ethereum/chain';
 import { createExtendedL1Client } from '@aztec/ethereum/client';
 import { RollupContract } from '@aztec/ethereum/contracts';
@@ -27,7 +29,6 @@ import { PrivateTokenContract } from '@aztec/noir-contracts.js/PrivateToken';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
-import { GasSettings } from '@aztec/stdlib/gas';
 import type { AztecNode, AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 import { deriveSigningKey } from '@aztec/stdlib/keys';
 import { EmbeddedWallet } from '@aztec/wallets/embedded';
@@ -49,7 +50,11 @@ export class BotFactory {
     private readonly store: BotStore,
     private readonly aztecNode: AztecNode,
     private readonly aztecNodeAdmin?: AztecNodeAdmin,
-  ) {}
+  ) {
+    // Set fee padding on the wallet so that all transactions during setup
+    // (token deploy, minting, etc.) use the configured padding, not the default.
+    this.wallet.setMinFeePadding(config.minFeePadding);
+  }
 
   /**
    * Initializes a new bot by setting up the sender account, registering the recipient,
@@ -203,7 +208,7 @@ export class BotFactory {
     const signingKey = deriveSigningKey(secret);
     const accountManager = await this.wallet.createSchnorrAccount(secret, salt, signingKey);
     const metadata = await this.wallet.getContractMetadata(accountManager.address);
-    if (metadata.isContractInitialized) {
+    if (metadata.initializationStatus === ContractInitializationStatus.INITIALIZED) {
       this.log.info(`Account at ${accountManager.address.toString()} already initialized`);
       const timer = new Timer();
       const address = accountManager.address;
@@ -218,13 +223,11 @@ export class BotFactory {
 
       const paymentMethod = new FeeJuicePaymentMethodWithClaim(accountManager.address, claim);
       const deployMethod = await accountManager.getDeployMethod();
-      const maxFeesPerGas = (await this.aztecNode.getCurrentMinFees()).mul(1 + this.config.minFeePadding);
-      const gasSettings = GasSettings.default({ maxFeesPerGas });
 
       await this.withNoMinTxsPerBlock(async () => {
         const { txHash } = await deployMethod.send({
-          from: AztecAddress.ZERO,
-          fee: { gasSettings, paymentMethod },
+          from: NO_FROM,
+          fee: { paymentMethod },
           wait: NO_WAIT,
         });
         this.log.info(`Sent tx for account deployment with hash ${txHash.toString()}`);

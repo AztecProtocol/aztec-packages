@@ -1,21 +1,20 @@
-use crate::protocol::{address::AztecAddress, constants::MAX_NOTE_HASHES_PER_TX, traits::Deserialize};
+use crate::protocol::{constants::MAX_NOTE_HASHES_PER_TX, traits::{Deserialize, Serialize}};
 
 /// Additional information needed to process a message.
 ///
 /// All messages exist in the context of a transaction, and information about that transaction is typically required in
 /// order to perform validation, store results, etc. For example, messages containing notes require knowledge of note
 /// hashes and the first nullifier in order to find the note's nonce.
-#[derive(Deserialize, Eq)]
+#[derive(Serialize, Deserialize, Eq)]
 pub struct MessageContext {
     pub tx_hash: Field,
     pub unique_note_hashes_in_tx: BoundedVec<Field, MAX_NOTE_HASHES_PER_TX>,
     pub first_nullifier_in_tx: Field,
-    pub recipient: AztecAddress,
 }
 
 mod test {
     use crate::messages::processing::MessageContext;
-    use crate::protocol::{address::AztecAddress, traits::{Deserialize, FromField}};
+    use crate::protocol::traits::Deserialize;
 
     #[test]
     unconstrained fn message_context_serialization_matches_typescript() {
@@ -23,14 +22,12 @@ mod test {
         let tx_hash = 123;
         let unique_note_hashes = BoundedVec::from_array([4, 5]);
         let first_nullifier = 6;
-        let recipient = AztecAddress::from_field(789);
 
         // Create a MessageContext instance
         let message_context = MessageContext {
             tx_hash,
             unique_note_hashes_in_tx: unique_note_hashes,
             first_nullifier_in_tx: first_nullifier,
-            recipient,
         };
 
         // Expected output generated from TypeScript's `MessageContext.toFields()`
@@ -102,7 +99,6 @@ mod test {
             0x0000000000000000000000000000000000000000000000000000000000000000,
             0x0000000000000000000000000000000000000000000000000000000000000002,
             0x0000000000000000000000000000000000000000000000000000000000000006,
-            0x0000000000000000000000000000000000000000000000000000000000000315,
         ];
 
         let deserialized = MessageContext::deserialize(serialized_message_context_from_typescript);

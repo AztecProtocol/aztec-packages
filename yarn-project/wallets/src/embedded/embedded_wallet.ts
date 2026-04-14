@@ -1,33 +1,72 @@
-import { type Account, SignerlessAccount } from '@aztec/aztec.js/account';
-import type { Aliased } from '@aztec/aztec.js/wallet';
-import { AccountManager } from '@aztec/aztec.js/wallet';
+import { type Account, NO_FROM } from '@aztec/aztec.js/account';
+import { CallAuthorizationRequest } from '@aztec/aztec.js/authorization';
+import { type InteractionWaitOptions, type SendReturn, type WaitOpts, getGasLimits } from '@aztec/aztec.js/contracts';
+import type { Aliased, SendOptions } from '@aztec/aztec.js/wallet';
+import { AccountManager, TxSimulationResultWithAppOffset } from '@aztec/aztec.js/wallet';
 import type { DefaultAccountEntrypointOptions } from '@aztec/entrypoints/account';
+import { DefaultEntrypoint } from '@aztec/entrypoints/default';
 import { Fq, Fr } from '@aztec/foundation/curves/bn254';
 import type { Logger } from '@aztec/foundation/log';
-import type { AccessScopes, PXEConfig, PXECreationOptions } from '@aztec/pxe/client/lazy';
+import type { PXEConfig, PXECreationOptions } from '@aztec/pxe/client/lazy';
 import type { PXE } from '@aztec/pxe/server';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { getContractInstanceFromInstantiationParams } from '@aztec/stdlib/contract';
+import { GasSettings } from '@aztec/stdlib/gas';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import { deriveSigningKey } from '@aztec/stdlib/keys';
-import { ExecutionPayload, type TxSimulationResult, mergeExecutionPayloads } from '@aztec/stdlib/tx';
-import { BaseWallet, type FeeOptions } from '@aztec/wallet-sdk/base-wallet';
+import {
+  type ContractOverrides,
+  ExecutionPayload,
+  SimulationOverrides,
+  type TxExecutionRequest,
+  TxStatus,
+  collectOffchainEffects,
+  mergeExecutionPayloads,
+} from '@aztec/stdlib/tx';
+import { BaseWallet, type SimulateViaEntrypointOptions } from '@aztec/wallet-sdk/base-wallet';
 
 import type { AccountContractsProvider } from './account-contract-providers/types.js';
 import { type AccountType, WalletDB } from './wallet_db.js';
+
+/** Options for the PXE instance created by the EmbeddedWallet. */
+export type EmbeddedWalletPXEOptions = Partial<PXEConfig> & PXECreationOptions;
+
+/** Splits a unified EmbeddedWalletPXEOptions into PXEConfig overrides and PXECreationOptions. */
+export function splitPxeOptions(pxe?: EmbeddedWalletPXEOptions): {
+  config: Partial<PXEConfig>;
+  creation: PXECreationOptions;
+} {
+  if (!pxe) {
+    return { config: {}, creation: {} };
+  }
+  const { loggers, loggerActorLabel, proverOrOptions, store, simulator, ...config } = pxe;
+  return { config, creation: { loggers, loggerActorLabel, proverOrOptions, store, simulator } };
+}
 
 export type EmbeddedWalletOptions = {
   /** Parent logger. Child loggers are derived via createChild() for each subsystem. */
   logger?: Logger;
   /** Use ephemeral (in-memory) stores. Data will not persist across sessions. */
   ephemeral?: boolean;
-  /** Override PXE configuration. */
+  /** PXE configuration and dependency overrides (custom store, prover, simulator). */
+  pxe?: EmbeddedWalletPXEOptions;
+  /**
+   * Override PXE configuration.
+   * @deprecated Use `pxe` instead.
+   */
   pxeConfig?: Partial<PXEConfig>;
-  /** Advanced PXE creation options (custom store, prover, simulator). */
+  /**
+   * Advanced PXE creation options (custom store, prover, simulator).
+   * @deprecated Use `pxe` instead.
+   */
   pxeOptions?: PXECreationOptions;
 };
 
+const DEFAULT_ESTIMATED_GAS_PADDING = 0.1;
+
 export class EmbeddedWallet extends BaseWallet {
+  protected estimatedGasPadding = DEFAULT_ESTIMATED_GAS_PADDING;
+
   constructor(
     pxe: PXE,
     aztecNode: AztecNode,
@@ -39,10 +78,6 @@ export class EmbeddedWallet extends BaseWallet {
   }
 
   protected async getAccountFromAddress(address: AztecAddress): Promise<Account> {
-    if (address.equals(AztecAddress.ZERO)) {
-      return new SignerlessAccount();
-    }
-
     const { secretKey, salt, signingKey, type } = await this.walletDB.retrieveAccount(address);
     const accountManager = await this.createAccountInternal(type, secretKey, salt, signingKey);
     const account = await accountManager.getAccount();
@@ -75,81 +110,170 @@ export class EmbeddedWallet extends BaseWallet {
   }
 
   /**
+   * Overrides the base sendTx to add a pre-simulation step before the actual send. The simulation
+   * estimates actual gas usage and captures call authorization requests to generate
+   * the necessary authwitnesses.
+   */
+  public override async sendTx<W extends InteractionWaitOptions = undefined>(
+    executionPayload: ExecutionPayload,
+    opts: SendOptions<W>,
+  ): Promise<SendReturn<W>> {
+    const feeOptions = await this.completeFeeOptions({
+      from: opts.from,
+      feePayer: executionPayload.feePayer,
+      gasSettings: opts.fee?.gasSettings,
+      forEstimation: true,
+    });
+
+    // Simulate the transaction first to estimate gas and capture required
+    // private authwitnesses based on offchain effects.
+    const simulationResult = await this.simulateViaEntrypoint(executionPayload, {
+      from: opts.from,
+      feeOptions,
+      additionalScopes: opts.additionalScopes,
+      skipTxValidation: true,
+    });
+
+    const offchainEffects = collectOffchainEffects(simulationResult.privateExecutionResult);
+    const authWitnesses = await Promise.all(
+      offchainEffects.map(async effect => {
+        try {
+          const authRequest = await CallAuthorizationRequest.fromFields(effect.data);
+          return this.createAuthWit(authRequest.onBehalfOf, {
+            consumer: effect.contractAddress,
+            innerHash: authRequest.innerHash,
+          });
+        } catch {
+          return undefined;
+        }
+      }),
+    );
+    for (const authwit of authWitnesses) {
+      if (authwit) {
+        executionPayload.authWitnesses.push(authwit);
+      }
+    }
+    const estimated = getGasLimits(simulationResult, this.estimatedGasPadding);
+    this.log.verbose(
+      `Estimated gas limits for tx: DA=${estimated.gasLimits.daGas} L2=${estimated.gasLimits.l2Gas} teardownDA=${estimated.teardownGasLimits.daGas} teardownL2=${estimated.teardownGasLimits.l2Gas}`,
+    );
+    const gasSettings = GasSettings.from({
+      ...opts.fee?.gasSettings,
+      maxFeesPerGas: feeOptions.gasSettings.maxFeesPerGas,
+      maxPriorityFeesPerGas: feeOptions.gasSettings.maxPriorityFeesPerGas,
+      gasLimits: opts.fee?.gasSettings?.gasLimits ?? estimated.gasLimits,
+      teardownGasLimits: opts.fee?.gasSettings?.teardownGasLimits ?? estimated.teardownGasLimits,
+    });
+    const waitOpts: WaitOpts = typeof opts.wait === 'object' ? opts.wait : {};
+
+    if (!waitOpts?.waitForStatus) {
+      // Default to PROPOSED so the wait returns as soon as the tx lands in a proposed L2 block,
+      // rather than waiting until the end of the slot for the checkpoint to be published to L1.
+      // This is what makes MBPS (Multiple Blocks Per Slot) actually improve UX: with CHECKPOINTED
+      // we'd block until L1 inclusion regardless of how early in the slot the tx was sequenced.
+      // The tradeoff is a weaker guarantee — a proposed block only becomes canonical once it (or
+      // a later block in the same slot) is checkpointed, so a tx could be re-orged out if the
+      // proposer fails to publish to L1 (which should be rare, since they'd get slashed for it).
+      waitOpts!.waitForStatus = TxStatus.PROPOSED;
+    }
+    return super.sendTx(executionPayload, {
+      ...opts,
+      fee: { ...opts.fee, gasSettings },
+    });
+  }
+
+  /**
+   * Builds contract overrides for all provided addresses by replacing their account contracts with stub implementations.
+   * Uses a type-specific stub artifact so that the stub's constructor selector matches the real account's constructor.
+   */
+  protected async buildAccountOverrides(addresses: AztecAddress[]): Promise<ContractOverrides> {
+    const accounts = await this.getAccounts();
+    const contracts: ContractOverrides = {};
+
+    const filtered = accounts.filter(acc => addresses.some(addr => addr.equals(acc.item)));
+
+    for (const account of filtered) {
+      const address = account.item;
+      const { type } = await this.walletDB.retrieveAccount(address);
+      const stubArtifact = await this.accountContracts.getStubAccountContractArtifact(type);
+
+      const originalAccount = await this.getAccountFromAddress(address);
+      const completeAddress = originalAccount.getCompleteAddress();
+      const contractInstance = await this.pxe.getContractInstance(completeAddress.address);
+      if (!contractInstance) {
+        throw new Error(
+          `No contract instance found for address: ${completeAddress.address} during account override building. This is a bug!`,
+        );
+      }
+
+      const stubConstructorArgs = type === 'schnorr' ? [Fr.ZERO, Fr.ZERO] : [Buffer.alloc(32), Buffer.alloc(32)];
+      const stubInstance = await getContractInstanceFromInstantiationParams(stubArtifact, {
+        salt: Fr.random(),
+        constructorArgs: stubConstructorArgs,
+      });
+
+      contracts[address.toString()] = {
+        instance: stubInstance,
+        artifact: stubArtifact,
+      };
+    }
+
+    return contracts;
+  }
+
+  /**
    * Simulates calls via a stub account entrypoint, bypassing real account authorization.
    * This allows kernelless simulation with contract overrides, skipping expensive
    * private kernel circuit execution.
    */
   protected override async simulateViaEntrypoint(
     executionPayload: ExecutionPayload,
-    from: AztecAddress,
-    feeOptions: FeeOptions,
-    scopes: AccessScopes,
-    _skipTxValidation?: boolean,
-    _skipFeeEnforcement?: boolean,
-  ): Promise<TxSimulationResult> {
-    const { account: fromAccount, instance, artifact } = await this.getFakeAccountDataFor(from);
+    opts: SimulateViaEntrypointOptions,
+  ): Promise<TxSimulationResultWithAppOffset> {
+    const { from, feeOptions, additionalScopes, skipTxValidation, skipFeeEnforcement } = opts;
+    const scopes = this.scopesFrom(from, additionalScopes);
 
     const feeExecutionPayload = await feeOptions.walletFeePaymentMethod?.getExecutionPayload();
-    const executionOptions: DefaultAccountEntrypointOptions = {
-      txNonce: Fr.random(),
-      cancellable: this.cancellableTransactions,
-      feePaymentMethodOptions: feeOptions.accountFeePaymentMethodOptions,
-    };
     const finalExecutionPayload = feeExecutionPayload
       ? mergeExecutionPayloads([feeExecutionPayload, executionPayload])
       : executionPayload;
     const chainInfo = await this.getChainInfo();
-    const txRequest = await fromAccount.createTxExecutionRequest(
-      finalExecutionPayload,
-      feeOptions.gasSettings,
-      chainInfo,
-      executionOptions,
-    );
-    return this.pxe.simulateTx(txRequest, {
+
+    const accountOverrides = await this.buildAccountOverrides(scopes);
+    const overrides = new SimulationOverrides(accountOverrides);
+
+    let txRequest: TxExecutionRequest;
+    if (from === NO_FROM) {
+      const entrypoint = new DefaultEntrypoint();
+      txRequest = await entrypoint.createTxExecutionRequest(finalExecutionPayload, feeOptions.gasSettings, chainInfo);
+    } else {
+      const { type } = await this.walletDB.retrieveAccount(from);
+      const originalAccount = await this.getAccountFromAddress(from);
+      const completeAddress = originalAccount.getCompleteAddress();
+      const account = await this.accountContracts.createStubAccount(completeAddress, type);
+      const executionOptions: DefaultAccountEntrypointOptions = {
+        txNonce: Fr.random(),
+        cancellable: this.cancellableTransactions,
+        // If from is an address, feeOptions include the way the account contract should handle the fee payment
+        feePaymentMethodOptions: feeOptions.accountFeePaymentMethodOptions!,
+      };
+      txRequest = await account.createTxExecutionRequest(
+        finalExecutionPayload,
+        feeOptions.gasSettings,
+        chainInfo,
+        executionOptions,
+      );
+    }
+
+    const result = await this.pxe.simulateTx(txRequest, {
       simulatePublic: true,
-      skipFeeEnforcement: true,
-      skipTxValidation: true,
-      overrides: {
-        contracts: { [from.toString()]: { instance, artifact } },
-      },
+      skipFeeEnforcement,
+      skipTxValidation,
+      overrides,
       scopes,
     });
-  }
-
-  private async getFakeAccountDataFor(address: AztecAddress) {
-    // While we have the convention of "Zero address means no auth", and also
-    // we don't have a way to trigger kernelless simulations without overrides,
-    // we need to explicitly handle the zero address case here by
-    // returning the actual multicall contract instead of trying to create a stub account for it.
-    if (!address.equals(AztecAddress.ZERO)) {
-      const originalAccount = await this.getAccountFromAddress(address);
-      if (originalAccount instanceof SignerlessAccount) {
-        throw new Error(`Cannot create fake account data for SignerlessAccount at address: ${address}`);
-      }
-      const originalAddress = (originalAccount as Account).getCompleteAddress();
-      const contractInstance = await this.pxe.getContractInstance(originalAddress.address);
-      if (!contractInstance) {
-        throw new Error(`No contract instance found for address: ${originalAddress.address}`);
-      }
-      const stubAccount = await this.accountContracts.createStubAccount(originalAddress);
-      const stubArtifact = await this.accountContracts.getStubAccountContractArtifact();
-      const instance = await getContractInstanceFromInstantiationParams(stubArtifact, {
-        salt: Fr.random(),
-      });
-      return {
-        account: stubAccount,
-        instance,
-        artifact: stubArtifact,
-      };
-    } else {
-      const { instance, artifact } = await this.accountContracts.getMulticallContract();
-      const account = new SignerlessAccount();
-      return {
-        instance,
-        account,
-        artifact,
-      };
-    }
+    const appCallOffset = await this.computeAppCallOffset(from, feeOptions);
+    return TxSimulationResultWithAppOffset.fromResultAndOffset(result, appCallOffset);
   }
 
   protected async createAccountInternal(
@@ -219,6 +343,10 @@ export class EmbeddedWallet extends BaseWallet {
 
   setMinFeePadding(value?: number) {
     this.minFeePadding = value ?? 0.5;
+  }
+
+  setEstimatedGasPadding(value?: number) {
+    this.estimatedGasPadding = value ?? DEFAULT_ESTIMATED_GAS_PADDING;
   }
 
   stop() {

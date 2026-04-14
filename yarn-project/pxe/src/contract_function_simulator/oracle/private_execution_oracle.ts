@@ -14,7 +14,7 @@ import {
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { siloNullifier } from '@aztec/stdlib/hash';
 import { PrivateContextInputs } from '@aztec/stdlib/kernel';
-import { type ContractClassLog, ExtendedDirectionalAppTaggingSecret, type PreTag } from '@aztec/stdlib/logs';
+import { type ContractClassLog, ExtendedDirectionalAppTaggingSecret, type TaggingIndexRange } from '@aztec/stdlib/logs';
 import { Tag } from '@aztec/stdlib/logs';
 import { Note, type NoteStatus } from '@aztec/stdlib/note';
 import {
@@ -25,8 +25,6 @@ import {
   type TxContext,
 } from '@aztec/stdlib/tx';
 
-import type { AccessScopes } from '../../access_scopes.js';
-import type { ContractSyncService } from '../../contract_sync/contract_sync_service.js';
 import { NoteService } from '../../notes/note_service.js';
 import type { SenderTaggingStore } from '../../storage/tagging_store/sender_tagging_store.js';
 import { syncSenderTaggingIndexes } from '../../tagging/index.js';
@@ -44,12 +42,11 @@ export type PrivateExecutionOracleArgs = Omit<UtilityExecutionOracleArgs, 'contr
   txContext: TxContext;
   callContext: CallContext;
   /** Needed to trigger contract synchronization before nested calls */
-  utilityExecutor: (call: FunctionCall, scopes: AccessScopes) => Promise<void>;
+  utilityExecutor: (call: FunctionCall, scopes: AztecAddress[]) => Promise<void>;
   executionCache: HashedValuesCache;
   noteCache: ExecutionNoteCache;
   taggingIndexCache: ExecutionTaggingIndexCache;
   senderTaggingStore: SenderTaggingStore;
-  contractSyncService: ContractSyncService;
   totalPublicCalldataCount?: number;
   sideEffectCounter?: number;
   senderForTags?: AztecAddress;
@@ -73,18 +70,16 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
   private newNotes: NoteAndSlot[] = [];
   private noteHashNullifierCounterMap: Map<number, number> = new Map();
   private contractClassLogs: CountedContractClassLog[] = [];
-  private offchainEffects: { data: Fr[] }[] = [];
   private nestedExecutionResults: PrivateCallExecutionResult[] = [];
 
   private readonly argsHash: Fr;
   private readonly txContext: TxContext;
   private readonly callContext: CallContext;
-  private readonly utilityExecutor: (call: FunctionCall, scopes: AccessScopes) => Promise<void>;
+  private readonly utilityExecutor: (call: FunctionCall, scopes: AztecAddress[]) => Promise<void>;
   private readonly executionCache: HashedValuesCache;
   private readonly noteCache: ExecutionNoteCache;
   private readonly taggingIndexCache: ExecutionTaggingIndexCache;
   private readonly senderTaggingStore: SenderTaggingStore;
-  private readonly contractSyncService: ContractSyncService;
   private totalPublicCalldataCount: number;
   protected sideEffectCounter: number;
   private senderForTags?: AztecAddress;
@@ -104,7 +99,6 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
     this.noteCache = args.noteCache;
     this.taggingIndexCache = args.taggingIndexCache;
     this.senderTaggingStore = args.senderTaggingStore;
-    this.contractSyncService = args.contractSyncService;
     this.totalPublicCalldataCount = args.totalPublicCalldataCount ?? 0;
     this.sideEffectCounter = args.sideEffectCounter ?? 0;
     this.senderForTags = args.senderForTags;
@@ -159,17 +153,10 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
   }
 
   /**
-   * Return the offchain effects emitted during this execution.
+   * Returns the tagging index ranges that were used in this execution (and that need to be stored in the db).
    */
-  public getOffchainEffects() {
-    return this.offchainEffects;
-  }
-
-  /**
-   * Returns the pre-tags that were used in this execution (and that need to be stored in the db).
-   */
-  public getUsedPreTags(): PreTag[] {
-    return this.taggingIndexCache.getUsedPreTags();
+  public getUsedTaggingIndexRanges(): TaggingIndexRange[] {
+    return this.taggingIndexCache.getUsedTaggingIndexRanges();
   }
 
   /**
@@ -189,7 +176,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
    * The value persists through nested calls, meaning all calls down the stack will use the same
    * 'senderForTags' value (unless it is replaced).
    */
-  public privateGetSenderForTags(): Promise<AztecAddress | undefined> {
+  public getSenderForTags(): Promise<AztecAddress | undefined> {
     return Promise.resolve(this.senderForTags);
   }
 
@@ -204,7 +191,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
    * through nested calls, meaning all calls down the stack will use the same 'senderForTags'
    * value (unless it is replaced by another call to this setter).
    */
-  public privateSetSenderForTags(senderForTags: AztecAddress): Promise<void> {
+  public setSenderForTags(senderForTags: AztecAddress): Promise<void> {
     this.senderForTags = senderForTags;
     return Promise.resolve();
   }
@@ -215,15 +202,25 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
    * @param recipient - The address receiving the log
    * @returns An app tag to be used in a log.
    */
-  public async privateGetNextAppTagAsSender(sender: AztecAddress, recipient: AztecAddress): Promise<Tag> {
+  public async getNextAppTagAsSender(sender: AztecAddress, recipient: AztecAddress): Promise<Tag> {
     const extendedSecret = await this.#calculateExtendedDirectionalAppTaggingSecret(
       this.contractAddress,
       sender,
       recipient,
     );
 
+    if (!extendedSecret) {
+      // We'd only fail to compute an extended secret if the recipient is an invalid address. To prevent
+      // king-of-the-hill attacks, instead of failing we use a random tag. By including a correct-looking tag in the
+      // log, the transaction shape is preserved and no privacy is leaked, even if the tag is bogus.
+      this.logger.warn(`Computing a tag for invalid recipient ${recipient} - returning a random tag instead`, {
+        contractAddress: this.contractAddress,
+      });
+      return new Tag(Fr.random());
+    }
+
     const index = await this.#getIndexToUseForSecret(extendedSecret);
-    this.log.debug(
+    this.logger.debug(
       `Incrementing tagging index for sender: ${sender}, recipient: ${recipient}, contract: ${this.contractAddress} to ${index}`,
     );
     this.taggingIndexCache.setLastUsedIndex(extendedSecret, index);
@@ -277,7 +274,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
    * @param values - Values to store.
    * @returns The hash of the values.
    */
-  public privateStoreInExecutionCache(values: Fr[], hash: Fr) {
+  public setHashPreimage(values: Fr[], hash: Fr) {
     return this.executionCache.store(values, hash);
   }
 
@@ -286,7 +283,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
    * @param hash - Hash of the values.
    * @returns The values.
    */
-  public privateLoadFromExecutionCache(hash: Fr): Promise<Fr[]> {
+  public getHashPreimage(hash: Fr): Promise<Fr[]> {
     const preimage = this.executionCache.getPreimage(hash);
     if (!preimage) {
       throw new Error(`Preimage for hash ${hash.toString()} not found in cache`);
@@ -294,12 +291,12 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
     return Promise.resolve(preimage);
   }
 
-  override async utilityCheckNullifierExists(innerNullifier: Fr): Promise<boolean> {
+  override async doesNullifierExist(innerNullifier: Fr): Promise<boolean> {
     // This oracle must be overridden because while utility execution can only meaningfully check if a nullifier exists
     // in the synched block, during private execution there's also the possibility of it being pending, i.e. created
     // in the current transaction.
 
-    this.log.debug(`Checking existence of inner nullifier ${innerNullifier}`, {
+    this.logger.debug(`Checking existence of inner nullifier ${innerNullifier}`, {
       contractAddress: this.contractAddress,
     });
 
@@ -307,7 +304,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
 
     return (
       this.noteCache.getNullifiers(this.contractAddress).has(nullifier) ||
-      (await super.utilityCheckNullifierExists(innerNullifier))
+      (await super.doesNullifierExist(innerNullifier))
     );
   }
 
@@ -332,7 +329,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
    * @param status - The status of notes to fetch.
    * @returns Array of note data.
    */
-  public override async utilityGetNotes(
+  public override async getNotes(
     owner: AztecAddress | undefined,
     storageSlot: Fr,
     numSelects: number,
@@ -378,7 +375,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
       offset,
     });
 
-    this.log.debug(
+    this.logger.debug(
       `Returning ${notes.length} notes for ${this.callContext.contractAddress} at ${storageSlot}: ${notes
         .map(n => `${n.noteNonce.toString()}:[${n.note.items.map(i => i.toString()).join(',')}]`)
         .join(', ')}`,
@@ -398,7 +395,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
    * @param noteHash - A hash of the new note.
    * @returns
    */
-  public privateNotifyCreatedNote(
+  public notifyCreatedNote(
     owner: AztecAddress,
     storageSlot: Fr,
     randomness: Fr,
@@ -407,7 +404,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
     noteHash: Fr,
     counter: number,
   ) {
-    this.log.debug(`Notified of new note with inner hash ${noteHash}`, {
+    this.logger.debug(`Notified of new note with inner hash ${noteHash}`, {
       contractAddress: this.callContext.contractAddress,
       storageSlot,
       randomness,
@@ -439,7 +436,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
    * @param innerNullifier - The pending nullifier to add in the list (not yet siloed by contract address).
    * @param noteHash - A hash of the new note.
    */
-  public async privateNotifyNullifiedNote(innerNullifier: Fr, noteHash: Fr, counter: number) {
+  public async notifyNullifiedNote(innerNullifier: Fr, noteHash: Fr, counter: number) {
     const nullifiedNoteHashCounter = await this.noteCache.nullifyNote(
       this.callContext.contractAddress,
       innerNullifier,
@@ -456,19 +453,19 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
    * @param innerNullifier - The pending nullifier to add in the list (not yet siloed by contract address).
    * @param noteHash - A hash of the new note.
    */
-  public privateNotifyCreatedNullifier(innerNullifier: Fr) {
-    this.log.debug(`Notified of new inner nullifier ${innerNullifier}`, { contractAddress: this.contractAddress });
+  public notifyCreatedNullifier(innerNullifier: Fr) {
+    this.logger.debug(`Notified of new inner nullifier ${innerNullifier}`, { contractAddress: this.contractAddress });
     return this.noteCache.nullifierCreated(this.callContext.contractAddress, innerNullifier);
   }
 
   /**
-   * Check if a nullifier has been emitted in the same transaction, i.e. if privateNotifyCreatedNullifier has been
+   * Check if a nullifier has been emitted in the same transaction, i.e. if notifyCreatedNullifier has been
    * called for this inner nullifier from the contract with the specified address.
    * @param innerNullifier - The inner nullifier to check.
    * @param contractAddress - Address of the contract that emitted the nullifier.
    * @returns A boolean indicating whether the nullifier is pending or not.
    */
-  public async privateIsNullifierPending(innerNullifier: Fr, contractAddress: AztecAddress): Promise<boolean> {
+  public async isNullifierPending(innerNullifier: Fr, contractAddress: AztecAddress): Promise<boolean> {
     const siloedNullifier = await siloNullifier(contractAddress, innerNullifier);
     const isNullifierPending = this.noteCache.getNullifiers(contractAddress).has(siloedNullifier.toBigInt());
     return Promise.resolve(isNullifierPending);
@@ -481,10 +478,10 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
    * @param log - The contract class log to be emitted.
    * @param counter - The contract class log's counter.
    */
-  public privateNotifyCreatedContractClassLog(log: ContractClassLog, counter: number) {
+  public notifyCreatedContractClassLog(log: ContractClassLog, counter: number) {
     this.contractClassLogs.push(new CountedContractClassLog(log, counter));
     const text = log.toBuffer().toString('hex');
-    this.log.verbose(
+    this.logger.verbose(
       `Emitted log from ContractClassRegistry: "${text.length > 100 ? text.slice(0, 100) + '...' : text}"`,
     );
   }
@@ -510,7 +507,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
    * @param isStaticCall - Whether the call is a static call.
    * @returns The execution result.
    */
-  async privateCallPrivateFunction(
+  async callPrivateFunction(
     targetContractAddress: AztecAddress,
     functionSelector: FunctionSelector,
     argsHash: Fr,
@@ -524,20 +521,11 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
     }
 
     const simulatorSetupTimer = new Timer();
-    this.log.debug(
+    this.logger.debug(
       `Calling private function ${targetContractAddress}:${functionSelector} from ${this.callContext.contractAddress}`,
     );
 
     isStaticCall = isStaticCall || this.callContext.isStaticCall;
-
-    // When scopes are set and the target contract is a registered account (has keys in the keyStore),
-    // expand scopes to include it so nested private calls can sync and read the contract's own notes.
-    // We only expand for registered accounts because the log service needs the recipient's keys to derive
-    // tagging secrets, which are only available for registered accounts.
-    const expandedScopes =
-      this.scopes !== 'ALL_SCOPES' && (await this.keyStore.hasAccount(targetContractAddress))
-        ? [...this.scopes, targetContractAddress]
-        : this.scopes;
 
     await this.contractSyncService.ensureContractSynced(
       targetContractAddress,
@@ -545,7 +533,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
       this.utilityExecutor,
       this.anchorBlockHeader,
       this.jobId,
-      expandedScopes,
+      this.scopes,
     );
 
     const targetArtifact = await this.contractStore.getFunctionArtifactWithDebugMetadata(
@@ -576,14 +564,15 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
       senderTaggingStore: this.senderTaggingStore,
       recipientTaggingStore: this.recipientTaggingStore,
       senderAddressBookStore: this.senderAddressBookStore,
-      capsuleStore: this.capsuleStore,
+      capsuleService: this.capsuleService,
       privateEventStore: this.privateEventStore,
+      messageContextService: this.messageContextService,
       contractSyncService: this.contractSyncService,
       jobId: this.jobId,
       totalPublicCalldataCount: this.totalPublicCalldataCount,
       sideEffectCounter,
-      log: this.log,
-      scopes: expandedScopes,
+      scopes: this.scopes,
+      log: this.logger,
       senderForTags: this.senderForTags,
       simulator: this.simulator!,
     });
@@ -617,7 +606,8 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
     };
   }
 
-  #onNewPublicFunctionCall(calldataHash: Fr) {
+  /** Validates the calldata preimage exists in the cache and checks cumulative calldata size is within limits. */
+  public assertValidPublicCalldata(calldataHash: Fr) {
     const calldata = this.executionCache.getPreimage(calldataHash);
     if (!calldata) {
       throw new Error('Calldata for public call not found in cache');
@@ -627,47 +617,14 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
     if (this.totalPublicCalldataCount > MAX_FR_CALLDATA_TO_ALL_ENQUEUED_CALLS) {
       throw new Error(`Too many total args to all enqueued public calls! (> ${MAX_FR_CALLDATA_TO_ALL_ENQUEUED_CALLS})`);
     }
-  }
-
-  /**
-   * Verify relevant information when a public function is enqueued.
-   * @param targetContractAddress - The address of the contract to call.
-   * @param calldataHash - The hash of the function selector and arguments.
-   * @param sideEffectCounter - The side effect counter at the start of the call.
-   * @param isStaticCall - Whether the call is a static call.
-   */
-  public privateNotifyEnqueuedPublicFunctionCall(
-    _targetContractAddress: AztecAddress,
-    calldataHash: Fr,
-    _sideEffectCounter: number,
-    _isStaticCall: boolean,
-  ) {
-    this.#onNewPublicFunctionCall(calldataHash);
     return Promise.resolve();
   }
 
-  /**
-   * Verify relevant information when a public teardown function is set.
-   * @param targetContractAddress - The address of the contract to call.
-   * @param argsHash - The arguments hash to pass to the function.
-   * @param sideEffectCounter - The side effect counter at the start of the call.
-   * @param isStaticCall - Whether the call is a static call.
-   */
-  public privateNotifySetPublicTeardownFunctionCall(
-    _targetContractAddress: AztecAddress,
-    calldataHash: Fr,
-    _sideEffectCounter: number,
-    _isStaticCall: boolean,
-  ) {
-    this.#onNewPublicFunctionCall(calldataHash);
-    return Promise.resolve();
-  }
-
-  public privateNotifySetMinRevertibleSideEffectCounter(minRevertibleSideEffectCounter: number): Promise<void> {
+  public notifyRevertiblePhaseStart(minRevertibleSideEffectCounter: number): Promise<void> {
     return this.noteCache.setMinRevertibleSideEffectCounter(minRevertibleSideEffectCounter);
   }
 
-  public privateIsSideEffectCounterRevertible(sideEffectCounter: number): Promise<boolean> {
+  public isExecutionInRevertiblePhase(sideEffectCounter: number): Promise<boolean> {
     return Promise.resolve(this.noteCache.isSideEffectCounterRevertible(sideEffectCounter));
   }
 
@@ -693,10 +650,5 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
 
   public getDebugFunctionName() {
     return this.contractStore.getDebugFunctionName(this.contractAddress, this.callContext.functionSelector);
-  }
-
-  public utilityEmitOffchainEffect(data: Fr[]): Promise<void> {
-    this.offchainEffects.push({ data });
-    return Promise.resolve();
   }
 }

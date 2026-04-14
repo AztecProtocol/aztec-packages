@@ -103,30 +103,30 @@ pub global MAX_KEY_VALIDATION_REQUESTS_PER_CALL: u32 = MAX_PRIVATE_LOGS_PER_CALL
 pub global NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP: u32 = 1 << L1_TO_L2_MSG_SUBTREE_HEIGHT;
 
 // VK TREE CONSTANTS
-pub comptime global PRIVATE_KERNEL_INIT_VK_INDEX: u32 = 0;
-pub comptime global PRIVATE_KERNEL_INNER_VK_INDEX: u32 = 1;
-pub comptime global PRIVATE_KERNEL_TAIL_VK_INDEX: u32 = 2;
-pub comptime global PRIVATE_KERNEL_TAIL_TO_PUBLIC_VK_INDEX: u32 = 3;
-pub comptime global HIDING_KERNEL_TO_ROLLUP_VK_INDEX: u32 = 4;
-pub comptime global HIDING_KERNEL_TO_PUBLIC_VK_INDEX: u32 = 5;
-pub comptime global PUBLIC_CHONK_VERIFIER_VK_INDEX: u32 = 6;
-pub comptime global PRIVATE_TX_BASE_ROLLUP_VK_INDEX: u32 = 7;
-pub comptime global PUBLIC_TX_BASE_ROLLUP_VK_INDEX: u32 = 8;
-pub comptime global TX_MERGE_ROLLUP_VK_INDEX: u32 = 9;
-pub comptime global BLOCK_ROOT_FIRST_ROLLUP_VK_INDEX: u32 = 10;
-pub comptime global BLOCK_ROOT_SINGLE_TX_FIRST_ROLLUP_VK_INDEX: u32 = 11;
-pub comptime global BLOCK_ROOT_EMPTY_TX_FIRST_ROLLUP_VK_INDEX: u32 = 12;
-pub comptime global BLOCK_ROOT_ROLLUP_VK_INDEX: u32 = 13;
-pub comptime global BLOCK_ROOT_SINGLE_TX_ROLLUP_VK_INDEX: u32 = 14;
-pub comptime global BLOCK_MERGE_ROLLUP_VK_INDEX: u32 = 15;
-pub comptime global CHECKPOINT_ROOT_ROLLUP_VK_INDEX: u32 = 16;
-pub comptime global CHECKPOINT_ROOT_SINGLE_BLOCK_ROLLUP_VK_INDEX: u32 = 17;
-pub comptime global CHECKPOINT_PADDING_ROLLUP_VK_INDEX: u32 = 18;
-pub comptime global CHECKPOINT_MERGE_ROLLUP_VK_INDEX: u32 = 19;
-pub comptime global ROOT_ROLLUP_VK_INDEX: u32 = 20;
-pub comptime global PARITY_BASE_VK_INDEX: u32 = 21;
-pub comptime global PARITY_ROOT_VK_INDEX: u32 = 22;
-pub comptime global PRIVATE_KERNEL_RESET_VK_INDEX: u32 = 23;
+pub global PRIVATE_KERNEL_INIT_VK_INDEX: u32 = 0;
+pub global PRIVATE_KERNEL_INNER_VK_INDEX: u32 = 1;
+pub global PRIVATE_KERNEL_TAIL_VK_INDEX: u32 = 2;
+pub global PRIVATE_KERNEL_TAIL_TO_PUBLIC_VK_INDEX: u32 = 3;
+pub global HIDING_KERNEL_TO_ROLLUP_VK_INDEX: u32 = 4;
+pub global HIDING_KERNEL_TO_PUBLIC_VK_INDEX: u32 = 5;
+pub global PUBLIC_CHONK_VERIFIER_VK_INDEX: u32 = 6;
+pub global PRIVATE_TX_BASE_ROLLUP_VK_INDEX: u32 = 7;
+pub global PUBLIC_TX_BASE_ROLLUP_VK_INDEX: u32 = 8;
+pub global TX_MERGE_ROLLUP_VK_INDEX: u32 = 9;
+pub global BLOCK_ROOT_FIRST_ROLLUP_VK_INDEX: u32 = 10;
+pub global BLOCK_ROOT_SINGLE_TX_FIRST_ROLLUP_VK_INDEX: u32 = 11;
+pub global BLOCK_ROOT_EMPTY_TX_FIRST_ROLLUP_VK_INDEX: u32 = 12;
+pub global BLOCK_ROOT_ROLLUP_VK_INDEX: u32 = 13;
+pub global BLOCK_ROOT_SINGLE_TX_ROLLUP_VK_INDEX: u32 = 14;
+pub global BLOCK_MERGE_ROLLUP_VK_INDEX: u32 = 15;
+pub global CHECKPOINT_ROOT_ROLLUP_VK_INDEX: u32 = 16;
+pub global CHECKPOINT_ROOT_SINGLE_BLOCK_ROLLUP_VK_INDEX: u32 = 17;
+pub global CHECKPOINT_PADDING_ROLLUP_VK_INDEX: u32 = 18;
+pub global CHECKPOINT_MERGE_ROLLUP_VK_INDEX: u32 = 19;
+pub global ROOT_ROLLUP_VK_INDEX: u32 = 20;
+pub global PARITY_BASE_VK_INDEX: u32 = 21;
+pub global PARITY_ROOT_VK_INDEX: u32 = 22;
+pub global PRIVATE_KERNEL_RESET_VK_INDEX: u32 = 23;
 // Important: Do not define indexes after the PRIVATE_KERNEL_RESET_VK_INDEX. They are allocated for the variants of private kernel reset.
 
 // SIDE EFFECT RELATED CONSTANTS
@@ -634,16 +634,55 @@ pub global MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS: u32 = 21;
 // See ./constants_tests.nr for how the values are generated.
 // ---------------------------------------------------------------
 
-// Note hash generator index which can be used by custom implementations of NoteHash::compute_note_hash
+/// Domain separator for note hashes.
+///
+/// This is not technically a protocol constant as note hashes are computed by each contract.
 pub global DOM_SEP__NOTE_HASH: u32 = 116501019;
-pub global DOM_SEP__NOTE_HASH_NONCE: u32 = 1721808740;
-pub global DOM_SEP__UNIQUE_NOTE_HASH: u32 = 226850429;
+
+/// Domain separator for siloed note hashes.
+///
+/// Used by [`crate::hash::compute_siloed_note_hash`].
 pub global DOM_SEP__SILOED_NOTE_HASH: u32 = 3361878420;
 
+/// Domain separator for unique note hashes.
+///
+/// Used by [`crate::hash::compute_unique_note_hash`].
+pub global DOM_SEP__UNIQUE_NOTE_HASH: u32 = 226850429;
+
+/// Domain separator for nonces.
+///
+/// Used by [`crate::hash::compute_note_hash_nonce`].
+pub global DOM_SEP__NOTE_HASH_NONCE: u32 = 1721808740;
+
+/// Domain separator for `SingleUseClaim` nullifiers.
+///
+/// This is not technically a protocol constant as these nullifiers are computed by each contract.
+pub global DOM_SEP__SINGLE_USE_CLAIM_NULLIFIER: u32 = 1465998995;
+
+/// Domain separator for note nullifiers.
+///
+/// This is not technically a protocol constant as note nullifiers are computed by each contract.
 pub global DOM_SEP__NOTE_NULLIFIER: u32 = 50789342;
-pub global DOM_SEP__MESSAGE_NULLIFIER: u32 = 3754509616;
+
+/// Domain separator for siloed nullifiers.
+///
+/// Used by [`crate::hash::compute_siloed_nullifier`].
 pub global DOM_SEP__SILOED_NULLIFIER: u32 = 57496191;
 
+/// Domain separator for L1 to L2 message nullifiers.
+///
+/// This is not technically a protocol constant as message nullifiers are computed by each contract.
+pub global DOM_SEP__MESSAGE_NULLIFIER: u32 = 3754509616;
+
+/// Domain separator for event log tags. Used by [`crate::hash::compute_log_tag`].
+pub global DOM_SEP__EVENT_LOG_TAG: u32 = 926040838;
+/// Domain separator for partial note completion log tags. Used by [`crate::hash::compute_log_tag`].
+pub global DOM_SEP__NOTE_COMPLETION_LOG_TAG: u32 = 3372669888;
+/// Domain separator for unconstrained message delivery log tags. Used by [`crate::hash::compute_log_tag`].
+pub global DOM_SEP__UNCONSTRAINED_MSG_LOG_TAG: u32 = 1485357192;
+/// Domain separator for private log tags.
+///
+/// Used by [`crate::hash::compute_siloed_private_log_first_field`].
 pub global DOM_SEP__PRIVATE_LOG_FIRST_FIELD: u32 = 2769976252;
 
 pub global DOM_SEP__PUBLIC_LEAF_SLOT: u32 = 1247650290;
@@ -703,18 +742,38 @@ pub global DOM_SEP__AUTHWIT_INNER: u32 = 221354163;
 pub global DOM_SEP__AUTHWIT_OUTER: u32 = 3283595782;
 pub global DOM_SEP__AUTHWIT_NULLIFIER: u32 = 1239150694;
 
-pub global DOM_SEP__SYMMETRIC_KEY: u32 = 3882206064;
-pub global DOM_SEP__SYMMETRIC_KEY_2: u32 = 4129434989;
-pub global DOM_SEP__CIPHERTEXT_FIELD_MASK: u32 = 1870492847;
+pub global DOM_SEP__APP_SILOED_ECDH_SHARED_SECRET: u32 = 1707851664;
+pub global DOM_SEP__ECDH_SUBKEY: u32 = 4277646631;
+pub global DOM_SEP__ECDH_FIELD_MASK: u32 = 190532684;
 
 pub global DOM_SEP__PARTIAL_NOTE_VALIDITY_COMMITMENT: u32 = 623934423;
 
 // ---------------------------------------------------------------
-// TODO: consider moving these to aztec-nr
+// TODO(F-397): move these to aztec-nr, along with note hash, note nullifier, message nullifier and single use claim
+// nullifier.
 
+/// Domain separator for state variable initialization.
+///
+/// Should not be reused for a given storage slot.
 pub global DOM_SEP__INITIALIZATION_NULLIFIER: u32 = 1653084894;
+pub global DOM_SEP__PUBLIC_INITIALIZATION_NULLIFIER: u32 = 3342006647;
+pub global DOM_SEP__PRIVATE_INITIALIZATION_NULLIFIER: u32 = 3990889078;
+
+/// Domain separator for L1 to L2 message secret hashes.
 pub global DOM_SEP__SECRET_HASH: u32 = 4199652938;
+
+/// Domain separator for transaction nullifiers.
+///
+/// Used to produce cancellable (replaceable) transactions.
+///
+/// This is not technically a protocol constant as cancellable transactions are an account contract feature.
 pub global DOM_SEP__TX_NULLIFIER: u32 = 1025801951;
+
+/// Domain separator for account contract payloads.
+///
+/// Used to check for authorization to execute a payload.
+///
+/// This is not technically a protocol constant as payload authorization is an account contract feature.
 pub global DOM_SEP__SIGNATURE_PAYLOAD: u32 = 463525807;
 
 // ---------------------------------------------------------------
@@ -1051,25 +1110,6 @@ pub global MAX_PROCESSABLE_L2_GAS: u32 = PUBLIC_TX_L2_GAS_OVERHEAD + AVM_MAX_PRO
 
 pub global MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT: u32 =
     BLOBS_PER_CHECKPOINT * FIELDS_PER_BLOB * DA_GAS_PER_FIELD;
-
-// For gas estimation, we use the theoretical maximum amounts.
-// Since we split in teardown and total, teardown has the theoretical maximum and total is that times 2.
-// After gas estimation, we tune it down to the actual amount necessary.
-// TODO: this is a wallet concern; it should not be part of the protocol
-pub global GAS_ESTIMATION_TEARDOWN_L2_GAS_LIMIT: u32 = MAX_PROCESSABLE_L2_GAS;
-pub global GAS_ESTIMATION_L2_GAS_LIMIT: u32 =
-    GAS_ESTIMATION_TEARDOWN_L2_GAS_LIMIT + MAX_PROCESSABLE_L2_GAS;
-
-pub global GAS_ESTIMATION_TEARDOWN_DA_GAS_LIMIT: u32 = MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT;
-pub global GAS_ESTIMATION_DA_GAS_LIMIT: u32 =
-    GAS_ESTIMATION_TEARDOWN_DA_GAS_LIMIT + MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT;
-
-// Default gas limits. Users should use gas estimation, or they will overpay gas fees.
-// TODO: These are overridden in typescript-land. Remove them from here.
-pub global DEFAULT_TEARDOWN_L2_GAS_LIMIT: u32 = 1_000_000; // Arbitrary default number.
-pub global DEFAULT_L2_GAS_LIMIT: u32 = MAX_PROCESSABLE_L2_GAS; // Arbitrary default number.
-pub global DEFAULT_TEARDOWN_DA_GAS_LIMIT: u32 = MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT / 2; // Arbitrary default number.
-pub global DEFAULT_DA_GAS_LIMIT: u32 = MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT; // Arbitrary default number.
 
 // Some tree insertions incur an additional cost associated with
 // the new database entry to be stored by all network participants.

@@ -26,6 +26,7 @@ import {
   type SendReturn,
 } from '../contract/interaction_options.js';
 import type { AppCapabilities, WalletCapabilities } from './capabilities.js';
+import { TxSimulationResultWithAppOffset } from './tx_simulation_result_with_app_offset.js';
 import type {
   Aliased,
   BatchResults,
@@ -39,7 +40,7 @@ import type {
   SimulateOptions,
   Wallet,
 } from './wallet.js';
-import { WalletSchema } from './wallet.js';
+import { ContractInitializationStatus, WalletSchema } from './wallet.js';
 
 describe('WalletSchema', () => {
   let handler: MockWallet;
@@ -107,7 +108,7 @@ describe('WalletSchema', () => {
     const result = await context.client.getContractMetadata(await AztecAddress.random());
     expect(result).toEqual({
       instance: undefined,
-      isContractInitialized: expect.any(Boolean),
+      initializationStatus: ContractInitializationStatus.UNKNOWN,
       isContractPublished: expect.any(Boolean),
       isContractUpdated: expect.any(Boolean),
       updatedContractClassId: undefined,
@@ -166,7 +167,7 @@ describe('WalletSchema', () => {
       from: await AztecAddress.random(),
     };
     const result = await context.client.simulateTx(exec, opts);
-    expect(result).toBeInstanceOf(TxSimulationResult);
+    expect(result).toBeInstanceOf(TxSimulationResultWithAppOffset);
   });
 
   it('executeUtility', async () => {
@@ -181,7 +182,7 @@ describe('WalletSchema', () => {
       returnTypes: [],
     });
     const result = await context.client.executeUtility(call, {
-      scope: await AztecAddress.random(),
+      scopes: [await AztecAddress.random()],
       authWitnesses: [AuthWitness.random()],
     });
     expect(result).toBeInstanceOf(UtilityExecutionResult);
@@ -234,6 +235,8 @@ describe('WalletSchema', () => {
   });
 
   it('requestCapabilities', async () => {
+    const someAddress = await AztecAddress.random();
+    const anotherAddress = await AztecAddress.random();
     const manifest: AppCapabilities = {
       version: '1.0',
       metadata: {
@@ -246,6 +249,14 @@ describe('WalletSchema', () => {
           type: 'accounts',
           canGet: true,
           canCreateAuthWit: true,
+        },
+        {
+          type: 'transaction',
+          scope: [
+            { contract: someAddress, function: 'withdraw', additionalScopes: [anotherAddress] },
+            { contract: someAddress, function: 'transfer' },
+            { contract: someAddress, function: 'deposit', additionalScopes: '*' },
+          ],
         },
       ],
     };
@@ -333,7 +344,7 @@ describe('WalletSchema', () => {
       { name: 'getAccounts', args: [] },
       { name: 'registerContract', args: [mockInstance, mockArtifact, undefined] },
       { name: 'simulateTx', args: [exec, simulateOpts] },
-      { name: 'executeUtility', args: [call, { scope: address3, authWitnesses: [AuthWitness.random()] }] },
+      { name: 'executeUtility', args: [call, { scopes: [address3], authWitnesses: [AuthWitness.random()] }] },
       { name: 'profileTx', args: [exec, profileOpts] },
       { name: 'sendTx', args: [exec, opts] },
       { name: 'createAuthWit', args: [address1, { consumer: await AztecAddress.random(), innerHash: Fr.random() }] },
@@ -344,7 +355,7 @@ describe('WalletSchema', () => {
     expect(results[0]).toEqual({ name: 'getChainInfo', result: { chainId: expect.any(Fr), version: expect.any(Fr) } });
     expect(results[1]).toEqual({
       name: 'getContractMetadata',
-      result: expect.objectContaining({ isContractInitialized: expect.any(Boolean) }),
+      result: expect.objectContaining({ isContractPublished: expect.any(Boolean) }),
     });
     expect(results[2]).toEqual({
       name: 'getContractClassMetadata',
@@ -358,7 +369,7 @@ describe('WalletSchema', () => {
       name: 'registerContract',
       result: expect.objectContaining({ address: expect.any(AztecAddress) }),
     });
-    expect(results[8]).toEqual({ name: 'simulateTx', result: expect.any(TxSimulationResult) });
+    expect(results[8]).toEqual({ name: 'simulateTx', result: expect.any(TxSimulationResultWithAppOffset) });
     expect(results[9]).toEqual({ name: 'executeUtility', result: expect.any(UtilityExecutionResult) });
     expect(results[10]).toEqual({ name: 'profileTx', result: expect.any(TxProfileResult) });
     expect(results[11]).toEqual({
@@ -398,7 +409,7 @@ class MockWallet implements Wallet {
   getContractMetadata(_address: AztecAddress): Promise<ContractMetadata> {
     return Promise.resolve({
       instance: undefined,
-      isContractInitialized: false,
+      initializationStatus: ContractInitializationStatus.UNKNOWN,
       isContractPublished: false,
       isContractUpdated: false,
       updatedContractClassId: undefined,
@@ -437,13 +448,13 @@ class MockWallet implements Wallet {
     };
   }
 
-  simulateTx(_exec: ExecutionPayload, _opts: SimulateOptions): Promise<TxSimulationResult> {
-    return Promise.resolve(TxSimulationResult.random());
+  async simulateTx(_exec: ExecutionPayload, _opts: SimulateOptions): Promise<TxSimulationResultWithAppOffset> {
+    return TxSimulationResultWithAppOffset.fromResultAndOffset(await TxSimulationResult.random(), 0);
   }
 
   executeUtility(
     _call: any,
-    _opts: { scope: AztecAddress; authWitnesses?: AuthWitness[] },
+    _opts: { scopes: AztecAddress[]; authWitnesses?: AuthWitness[] },
   ): Promise<UtilityExecutionResult> {
     return Promise.resolve(UtilityExecutionResult.random());
   }

@@ -898,6 +898,37 @@ describe('CheckpointProposalJob', () => {
       expect(validatorClient.collectAttestations).toHaveBeenCalled();
     });
 
+    it('aborts checkpoint when syncing proposed block to archiver fails', async () => {
+      const { txs, block } = await setupTxsAndBlock(p2p, globalVariables, 1, chainId);
+      checkpointBuilder.seedBlocks([block], [txs]);
+
+      // Mock blockSink.addBlock to reject, simulating a consistency error
+      blockSink.addBlock.mockRejectedValue(new Error('Consistency error: block does not match world state'));
+
+      const checkpoint = await job.execute();
+
+      // The checkpoint should be aborted since the archiver sync failure now propagates
+      expect(checkpoint).toBeUndefined();
+      expect(blockSink.addBlock).toHaveBeenCalledWith(block);
+      // Should not attempt to collect attestations since the error aborts the loop
+      expect(validatorClient.collectAttestations).not.toHaveBeenCalled();
+    });
+
+    it('does not push proposed block to archiver in fisherman mode', async () => {
+      job.updateConfig({ fishermanMode: true, buildCheckpointIfEmpty: true, minTxsPerBlock: 0 });
+
+      const emptyBlock = await makeBlock([], globalVariables);
+      checkpointBuilder.seedBlocks([emptyBlock], [[]]);
+
+      // In fisherman mode execute() always returns undefined (handled internally via handleCheckpointEndAsFisherman)
+      await job.execute();
+
+      // Fisherman still builds the block
+      expect(checkpointBuilder.buildBlockCalls).toHaveLength(1);
+      // But must NOT push to the archiver — that was the bug causing reorgs on mainnet
+      expect(blockSink.addBlock).not.toHaveBeenCalled();
+    });
+
     it('handles empty committee gracefully', async () => {
       // Mock empty committee
       epochCache.getCommittee.mockResolvedValue({

@@ -51,11 +51,41 @@ describe('getStatusChangeOfPending', () => {
           ),
         );
       } else if (hash.equals(appLogicRevertedTxHash)) {
-        return Promise.resolve(new TxReceipt(hash, TxStatus.PROPOSED, TxExecutionResult.APP_LOGIC_REVERTED, undefined));
+        return Promise.resolve(
+          new TxReceipt(
+            hash,
+            TxStatus.FINALIZED,
+            TxExecutionResult.APP_LOGIC_REVERTED,
+            undefined,
+            undefined,
+            undefined,
+            BlockNumber(10),
+          ),
+        );
       } else if (hash.equals(teardownRevertedTxHash)) {
-        return Promise.resolve(new TxReceipt(hash, TxStatus.PROPOSED, TxExecutionResult.TEARDOWN_REVERTED, undefined));
+        return Promise.resolve(
+          new TxReceipt(
+            hash,
+            TxStatus.FINALIZED,
+            TxExecutionResult.TEARDOWN_REVERTED,
+            undefined,
+            undefined,
+            undefined,
+            BlockNumber(10),
+          ),
+        );
       } else if (hash.equals(bothRevertedTxHash)) {
-        return Promise.resolve(new TxReceipt(hash, TxStatus.PROPOSED, TxExecutionResult.BOTH_REVERTED, undefined));
+        return Promise.resolve(
+          new TxReceipt(
+            hash,
+            TxStatus.FINALIZED,
+            TxExecutionResult.BOTH_REVERTED,
+            undefined,
+            undefined,
+            undefined,
+            BlockNumber(10),
+          ),
+        );
       } else {
         throw new Error(`Unexpected tx hash: ${hash.toString()}`);
       }
@@ -74,8 +104,8 @@ describe('getStatusChangeOfPending', () => {
     );
 
     expect(result.txHashesToFinalize).toEqual([finalizedTxHash]);
-    expect(result.txHashesToDrop).toEqual([
-      droppedTxHash,
+    expect(result.txHashesToDrop).toEqual([droppedTxHash]);
+    expect(result.txHashesWithExecutionReverted).toEqual([
       appLogicRevertedTxHash,
       teardownRevertedTxHash,
       bothRevertedTxHash,
@@ -101,6 +131,7 @@ describe('getStatusChangeOfPending', () => {
 
     expect(result.txHashesToFinalize).toEqual([txHash]);
     expect(result.txHashesToDrop).toEqual([]);
+    expect(result.txHashesWithExecutionReverted).toEqual([]);
   });
 
   it('does not finalize tx that is only proven', async () => {
@@ -123,5 +154,6 @@ describe('getStatusChangeOfPending', () => {
     // Not finalized yet, so stays pending
     expect(result.txHashesToFinalize).toEqual([]);
     expect(result.txHashesToDrop).toEqual([]);
+    expect(result.txHashesWithExecutionReverted).toEqual([]);
   });
 });

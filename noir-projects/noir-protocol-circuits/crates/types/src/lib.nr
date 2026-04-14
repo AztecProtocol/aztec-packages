@@ -1,3 +1,5 @@
+//! Types and constants related to the Aztec protocol.
+
 // Traits need to be first for the #[derive(...)] macro to work.
 pub mod traits;
 
@@ -31,8 +33,6 @@ pub mod validate;
 pub mod meta;
 
 pub mod delayed_public_mutable;
-
-pub mod tests;
 
 pub use abis::kernel_circuit_public_inputs::{
     PrivateKernelCircuitPublicInputs, PrivateToRollupKernelCircuitPublicInputs,

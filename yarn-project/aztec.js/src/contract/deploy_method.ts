@@ -14,12 +14,13 @@ import { ExecutionPayload, mergeExecutionPayloads } from '@aztec/stdlib/tx';
 
 import { publishContractClass } from '../deployment/publish_class.js';
 import { publishInstance } from '../deployment/publish_instance.js';
-import type { SendOptions, Wallet } from '../wallet/wallet.js';
+import type { ProfileOptions, SendOptions, SimulateOptions, Wallet } from '../wallet/wallet.js';
 import { BaseContractInteraction } from './base_contract_interaction.js';
 import type { ContractBase } from './contract_base.js';
 import { ContractFunctionInteraction } from './contract_function_interaction.js';
 import { getGasLimits } from './get_gas_limits.js';
 import {
+  NO_FROM,
   NO_WAIT,
   type NoWait,
   type OffchainOutput,
@@ -169,18 +170,18 @@ export class DeployMethod<TContract extends ContractBase = ContractBase> extends
   private instance?: ContractInstanceWithAddress = undefined;
 
   /** Constructor function to call. */
-  private constructorArtifact: FunctionAbi | undefined;
+  protected constructorArtifact: FunctionAbi | undefined;
 
   constructor(
-    private publicKeys: PublicKeys,
+    protected publicKeys: PublicKeys,
     wallet: Wallet,
     protected artifact: ContractArtifact,
     protected postDeployCtor: (instance: ContractInstanceWithAddress, wallet: Wallet) => TContract,
-    private args: any[] = [],
+    protected args: any[] = [],
     constructorNameOrArtifact?: string | FunctionArtifact,
     authWitnesses: AuthWitness[] = [],
     capsules: Capsule[] = [],
-    private extraHashedArgs: HashedValues[] = [],
+    protected extraHashedArgs: HashedValues[] = [],
   ) {
     super(wallet, authWitnesses, capsules);
     this.constructorArtifact = getInitializer(artifact, constructorNameOrArtifact);
@@ -222,10 +223,14 @@ export class DeployMethod<TContract extends ContractBase = ContractBase> extends
   }
 
   convertDeployOptionsToRequestOptions(options: DeployOptionsWithoutWait): RequestDeployOptions {
-    return {
-      ...options,
-      deployer: !options?.universalDeploy ? options.from : undefined,
-    };
+    const { from } = options;
+    let deployer: AztecAddress | undefined;
+    if (options?.universalDeploy) {
+      deployer = undefined;
+    } else {
+      deployer = from === NO_FROM ? AztecAddress.ZERO : from;
+    }
+    return { ...options, deployer };
   }
 
   /**
@@ -233,7 +238,7 @@ export class DeployMethod<TContract extends ContractBase = ContractBase> extends
    * @param options - Deploy options with wait parameter
    * @returns Send options with wait parameter
    */
-  private convertDeployOptionsToSendOptions<W extends DeployInteractionWaitOptions>(
+  protected convertDeployOptionsToSendOptions<W extends DeployInteractionWaitOptions>(
     options: DeployOptions<W>,
     // eslint-disable-next-line jsdoc/require-jsdoc
   ): SendOptions<W extends { returnReceipt: true } ? WaitOpts : W> {
@@ -243,6 +248,24 @@ export class DeployMethod<TContract extends ContractBase = ContractBase> extends
         wait: options.wait as any,
       }),
     } as any;
+  }
+
+  /**
+   * Converts deploy simulation options into wallet-level simulate options.
+   * @param options - The deploy simulation options to convert.
+   */
+  protected convertDeployOptionsToSimulateOptions(options: SimulateDeployOptions): SimulateOptions {
+    return toSimulateOptions(options);
+  }
+
+  /**
+   * Converts deploy profile options into wallet-level profile options.
+   * @param options - The deploy profile options to convert.
+   */
+  protected convertDeployOptionsToProfileOptions(
+    options: DeployOptionsWithoutWait & ProfileInteractionOptions,
+  ): ProfileOptions {
+    return toProfileOptions(options);
   }
 
   /**
@@ -396,7 +419,10 @@ export class DeployMethod<TContract extends ContractBase = ContractBase> extends
    */
   public async simulate(options: SimulateDeployOptions): Promise<SimulationResult> {
     const executionPayload = await this.request(this.convertDeployOptionsToRequestOptions(options));
-    const simulatedTx = await this.wallet.simulateTx(executionPayload, toSimulateOptions(options));
+    const simulatedTx = await this.wallet.simulateTx(
+      executionPayload,
+      this.convertDeployOptionsToSimulateOptions(options),
+    );
 
     const { gasLimits, teardownGasLimits } = getGasLimits(simulatedTx, options.fee?.estimatedGasPadding);
     this.log.verbose(
@@ -404,7 +430,10 @@ export class DeployMethod<TContract extends ContractBase = ContractBase> extends
     );
     return {
       stats: simulatedTx.stats!,
-      ...extractOffchainOutput(simulatedTx.offchainEffects),
+      ...extractOffchainOutput(
+        simulatedTx.offchainEffects,
+        simulatedTx.publicInputs.constants.anchorBlockHeader.globalVariables.timestamp,
+      ),
       result: undefined,
       estimatedGas: { gasLimits, teardownGasLimits },
     };
@@ -418,11 +447,7 @@ export class DeployMethod<TContract extends ContractBase = ContractBase> extends
    */
   public async profile(options: DeployOptionsWithoutWait & ProfileInteractionOptions): Promise<TxProfileResult> {
     const executionPayload = await this.request(this.convertDeployOptionsToRequestOptions(options));
-    return await this.wallet.profileTx(executionPayload, {
-      ...toProfileOptions(options),
-      profileMode: options.profileMode,
-      skipProofGeneration: options.skipProofGeneration,
-    });
+    return await this.wallet.profileTx(executionPayload, this.convertDeployOptionsToProfileOptions(options));
   }
 
   /** Return this deployment address. */

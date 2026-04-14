@@ -130,7 +130,7 @@ export class AnvilTestWatcher {
       return;
     }
 
-    const l1Time = (await this.cheatcodes.timestamp()) * 1000;
+    const l1Time = (await this.cheatcodes.lastBlockTimestamp()) * 1000;
     const wallTime = this.dateProvider.now();
     if (l1Time > wallTime) {
       this.logger.warn(`L1 is ahead of wall time. Syncing wall time to L1 time`);

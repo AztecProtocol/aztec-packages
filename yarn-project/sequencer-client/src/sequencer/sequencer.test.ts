@@ -187,7 +187,7 @@ describe('sequencer', () => {
     publisher.enqueueProposeCheckpoint.mockResolvedValue(undefined);
     publisher.enqueueGovernanceCastSignal.mockResolvedValue(true);
     publisher.enqueueSlashingActions.mockResolvedValue(true);
-    publisher.canProposeAtNextEthBlock.mockResolvedValue({
+    publisher.canProposeAt.mockResolvedValue({
       slot: SlotNumber(newSlotNumber),
       checkpointNumber: CheckpointNumber.fromBlockNumber(newBlockNumber),
       timeOfNextL1Slot: 1000n,
@@ -352,21 +352,21 @@ describe('sequencer', () => {
 
       expect(checkpointBuilder.buildBlockCalls).toHaveLength(0);
       expect(publisher.enqueueProposeCheckpoint).not.toHaveBeenCalled();
-      expect(publisher.canProposeAtNextEthBlock).not.toHaveBeenCalled();
+      expect(publisher.canProposeAt).not.toHaveBeenCalled();
     });
 
     it('builds a checkpoint when it is their turn', async () => {
       await setupSingleTxBlock();
 
-      // Not your turn! canProposeAtNextEthBlock returns undefined
-      publisher.canProposeAtNextEthBlock.mockResolvedValue(undefined);
+      // Not your turn! canProposeAt returns undefined
+      publisher.canProposeAt.mockResolvedValue(undefined);
 
       await sequencer.work();
       // When it's not our turn, we should not build the checkpoint
       expect(checkpointBuilder.buildBlockCalls).toHaveLength(0);
 
       // Now it's our turn!
-      publisher.canProposeAtNextEthBlock.mockResolvedValue({
+      publisher.canProposeAt.mockResolvedValue({
         slot: block.header.globalVariables.slotNumber,
         checkpointNumber: CheckpointNumber.fromBlockNumber(block.header.globalVariables.blockNumber),
         timeOfNextL1Slot: 1000n,
@@ -474,7 +474,7 @@ describe('sequencer', () => {
         pub.enqueueProposeCheckpoint.mockResolvedValue(undefined);
         pub.enqueueGovernanceCastSignal.mockResolvedValue(true);
         pub.enqueueSlashingActions.mockResolvedValue(true);
-        pub.canProposeAtNextEthBlock.mockResolvedValue({
+        pub.canProposeAt.mockResolvedValue({
           slot: SlotNumber(newSlotNumber + i),
           checkpointNumber: CheckpointNumber.fromBlockNumber(BlockNumber(newBlockNumber)),
           timeOfNextL1Slot: 1000n,
@@ -630,7 +630,6 @@ describe('sequencer', () => {
       expect(publisher.enqueueGovernanceCastSignal).toHaveBeenCalledWith(
         governancePayload,
         SlotNumber(1),
-        expect.any(BigInt),
         expect.any(EthAddress),
         expect.any(Function),
       );

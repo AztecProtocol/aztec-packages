@@ -6,12 +6,10 @@ pub contract Spam {
     use aztec::{
         macros::{functions::{external, only_self}, storage::storage},
         messages::message_delivery::MessageDelivery,
-        protocol::{
-            constants::{
-                DOM_SEP__NOTE_NULLIFIER, MAX_NOTE_HASHES_PER_CALL, MAX_NULLIFIERS_PER_CALL,
-                MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-            },
-            hash::poseidon2_hash_with_separator,
+        note::utils::compute_note_nullifier,
+        protocol::constants::{
+            MAX_NOTE_HASHES_PER_CALL, MAX_NULLIFIERS_PER_CALL,
+            MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
         },
         state_vars::{Map, Owned, PublicMutable},
     };
@@ -34,10 +32,7 @@ pub contract Spam {
 
         for i in 0..MAX_NULLIFIERS_PER_CALL {
             if (i < nullifier_count) {
-                self.context.push_nullifier(poseidon2_hash_with_separator(
-                    [nullifier_seed, i as Field],
-                    DOM_SEP__NOTE_NULLIFIER as Field,
-                ));
+                self.context.push_nullifier(compute_note_nullifier(nullifier_seed, [i as Field]));
             }
         }
 

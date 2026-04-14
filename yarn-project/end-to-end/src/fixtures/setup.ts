@@ -1,6 +1,7 @@
 import { SchnorrAccountContractArtifact } from '@aztec/accounts/schnorr';
 import { type InitialAccountData, generateSchnorrAccounts } from '@aztec/accounts/testing';
 import { type AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
+import { NO_FROM } from '@aztec/aztec.js/account';
 import { AztecAddress, EthAddress } from '@aztec/aztec.js/addresses';
 import {
   BatchCall,
@@ -47,7 +48,7 @@ import type { ProverNodeConfig } from '@aztec/prover-node';
 import { type PXEConfig, getPXEConfig } from '@aztec/pxe/server';
 import type { SequencerClient } from '@aztec/sequencer-client';
 import { type ContractInstanceWithAddress, getContractInstanceFromInstantiationParams } from '@aztec/stdlib/contract';
-import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
+import type { AztecNodeAdmin, AztecNodeDebug } from '@aztec/stdlib/interfaces/client';
 import { tryStop } from '@aztec/stdlib/interfaces/server';
 import type { PublicDataTreeLeaf } from '@aztec/stdlib/trees';
 import {
@@ -208,7 +209,7 @@ export type EndToEndContext = {
   /** The Anvil instance (only set if anvil was started locally). */
   anvil: Anvil | undefined;
   /** The Aztec Node service or client a connected to it. */
-  aztecNode: AztecNode;
+  aztecNode: AztecNode & AztecNodeDebug;
   /** The Aztec Node as a service. */
   aztecNodeService: AztecNodeService;
   /** Client to the Aztec Node admin interface. */
@@ -301,6 +302,8 @@ export async function setup(
       config.dataDirectory = directoryToCleanup;
     }
 
+    const dateProvider = new TestDateProvider();
+
     if (!config.l1RpcUrls?.length) {
       if (!isAnvilTestChain(chain.id)) {
         throw new Error(`No ETHEREUM_HOSTS set but non anvil chain requested`);
@@ -310,6 +313,7 @@ export async function setup(
         accounts: opts.anvilAccounts,
         port: opts.anvilPort ?? (process.env.ANVIL_PORT ? parseInt(process.env.ANVIL_PORT) : undefined),
         slotsInAnEpoch: opts.anvilSlotsInAnEpoch,
+        dateProvider,
       });
       anvil = res.anvil;
       config.l1RpcUrls = [res.rpcUrl];
@@ -321,8 +325,6 @@ export async function setup(
       logger.info(`Logging metrics to ${filename}`);
       setupMetricsLogger(filename);
     }
-
-    const dateProvider = new TestDateProvider();
     const ethCheatCodes = new EthCheatCodesWithState(config.l1RpcUrls, dateProvider);
 
     if (opts.stateLoad) {
@@ -418,11 +420,12 @@ export async function setup(
       await ethCheatCodes.setIntervalMining(config.ethereumSlotDuration);
     }
 
-    // Always sync dateProvider to L1 time after deploying L1 contracts, regardless of mining mode.
-    // In compose mode, L1 time may have drifted ahead of system time due to the local-network watcher
-    // warping time forward on each filled slot. Without this sync, the sequencer computes the wrong
-    // slot from its dateProvider and cannot propose blocks.
-    dateProvider.setTime((await ethCheatCodes.timestamp()) * 1000);
+    // In compose mode (no local anvil), sync dateProvider to L1 time since it may have drifted
+    // ahead of system time due to the local-network watcher warping time forward on each filled slot.
+    // When running with a local anvil, the dateProvider is kept in sync via the stdout listener.
+    if (!anvil) {
+      dateProvider.setTime((await ethCheatCodes.lastBlockTimestamp()) * 1000);
+    }
 
     if (opts.l2StartTime) {
       await ethCheatCodes.warp(opts.l2StartTime, { resetBlockInterval: true });
@@ -846,7 +849,7 @@ export const deployAccounts =
       );
       const deployMethod = await accountManager.getDeployMethod();
       await deployMethod.send({
-        from: AztecAddress.ZERO,
+        from: NO_FROM,
         skipClassPublication: i !== 0, // Publish the contract class at most once.
       });
     }

@@ -3,9 +3,10 @@ import { BatchCall } from '@aztec/aztec.js/contracts';
 import { Fr } from '@aztec/aztec.js/fields';
 import type { Logger } from '@aztec/aztec.js/log';
 import { type AztecNode, createAztecNodeClient } from '@aztec/aztec.js/node';
-import type { Wallet } from '@aztec/aztec.js/wallet';
+import { ContractInitializationStatus, type Wallet } from '@aztec/aztec.js/wallet';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { CounterContract } from '@aztec/noir-test-contracts.js/Counter';
+import { InitTestContract } from '@aztec/noir-test-contracts.js/InitTest';
 import { NoConstructorContract } from '@aztec/noir-test-contracts.js/NoConstructor';
 import { StatefulTestContract } from '@aztec/noir-test-contracts.js/StatefulTest';
 import { GasFees } from '@aztec/stdlib/gas';
@@ -99,6 +100,31 @@ describe('e2e_deploy_contract deploy method', () => {
     expect((await contract.methods.summed_values(owner).simulate({ from: defaultAccountAddress })).result).toEqual(30n);
   });
 
+  // The public init nullifier is emitted at the end of the initializer. If it were emitted at the beginning,
+  // the contract would appear initialized while the initializer body is still running, allowing external callers
+  // to interact with a half-initialized contract. As a consequence, any public calls the initializer enqueues
+  // run before the nullifier exists and cannot pass init checks.
+  it('refuses to self-call an init-checked function during public initialization', async () => {
+    const owner = defaultAccountAddress;
+    await expect(
+      InitTestContract.deployWithOpts(
+        { wallet, method: 'public_initializer_self_calling_init_checked' },
+        owner,
+        42,
+      ).simulate({ from: defaultAccountAddress }),
+    ).rejects.toThrow(/Not initialized/);
+  });
+
+  // Private functions execute before public functions, so the init check in create_note fails
+  // because the public initializer hasn't emitted the private initialization nullifier yet.
+  it('refuses to call a private init-checked function in same tx as public initialization', async () => {
+    const owner = defaultAccountAddress;
+    const deployMethod = StatefulTestContract.deployWithOpts({ wallet, method: 'public_constructor' }, owner, 42);
+    const contract = await deployMethod.register();
+    const batch = new BatchCall(wallet, [deployMethod, contract.methods.create_note(owner, 10)]);
+    await expect(batch.send({ from: defaultAccountAddress })).rejects.toThrow(/Cannot find the leaf for nullifier/);
+  });
+
   it('deploys a contract with a default initializer not named constructor', async () => {
     logger.debug(`Deploying contract with a default initializer named initialize`);
     const opts = { skipClassPublication: true, skipInstancePublication: true, from: defaultAccountAddress };
@@ -113,11 +139,14 @@ describe('e2e_deploy_contract deploy method', () => {
   it('publicly deploys a contract with no constructor', async () => {
     logger.debug(`Deploying contract with no constructor`);
     const { contract } = await NoConstructorContract.deploy(wallet).send({ from: defaultAccountAddress });
+    const arbitraryTag = 99;
     const arbitraryValue = 42;
     logger.debug(`Call a public function to check that it was publicly deployed`);
-    const { receipt } = await contract.methods.emit_public(arbitraryValue).send({ from: defaultAccountAddress });
+    const { receipt } = await contract.methods
+      .emit_public(arbitraryTag, arbitraryValue)
+      .send({ from: defaultAccountAddress });
     const logs = await aztecNode.getPublicLogs({ txHash: receipt.txHash });
-    expect(logs.logs[0].log.getEmittedFields()).toEqual([new Fr(arbitraryValue)]);
+    expect(logs.logs[0].log.getEmittedFields()).toEqual([new Fr(arbitraryTag), new Fr(arbitraryValue)]);
   });
 
   it('refuses to deploy a contract with no constructor and no public deployment', async () => {
@@ -157,6 +186,8 @@ describe('e2e_deploy_contract deploy method', () => {
 
     // First send the deploy transaction
     // Pay priority fee to ensure the deployment transaction gets processed first.
+    // Use L2 gas priority (not DA) because DA gas fees can be zero, and priority fees
+    // are capped by maxFeesPerGas, so a DA priority of 1 gets capped to min(0, 1) = 0.
     const maxPriorityFeesPerGas = new GasFees(0n, 1n);
     const deployTxPromise = deployTx.send({
       from: defaultAccountAddress,
@@ -173,7 +204,22 @@ describe('e2e_deploy_contract deploy method', () => {
       publicCallTxPromise,
     ]);
     expect(deployTxReceipt.blockNumber).toEqual(publicCallTxReceipt.blockNumber);
+
+    await t.aztecNodeAdmin.setConfig({ minTxsPerBlock: 1 });
   }, 300_000);
+
+  it('reports YES for initialization status via public nullifier when instance is not registered', async () => {
+    const owner = defaultAccountAddress;
+    const { contract } = await StatefulTestContract.deploy(wallet, owner, 42).send({ from: defaultAccountAddress });
+
+    // StatefulTestContract has public functions with initialization checks, so during deployment and initialization
+    // it emits a public initialization nullifier. A wallet without the instance registered falls back to checking
+    // this nullifier.
+    const secondWallet = await TestWallet.create(aztecNode);
+    const metadata = await secondWallet.getContractMetadata(contract.address);
+    expect(metadata.instance).toBeUndefined();
+    expect(metadata.initializationStatus).toEqual(ContractInitializationStatus.INITIALIZED);
+  });
 
   describe('regressions', () => {
     it('fails properly when trying to deploy a contract with a failing constructor with a pxe client with retries', async () => {

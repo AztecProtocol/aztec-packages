@@ -1,13 +1,14 @@
-use crate::protocol::{
-    address::AztecAddress,
-    constants::{DOM_SEP__CIPHERTEXT_FIELD_MASK, DOM_SEP__SYMMETRIC_KEY, DOM_SEP__SYMMETRIC_KEY_2},
-    hash::poseidon2_hash_with_separator,
-    point::Point,
-    public_keys::AddressPoint,
-};
+use crate::protocol::{address::AztecAddress, public_keys::AddressPoint, traits::ToField};
 
 use crate::{
-    keys::{ecdh_shared_secret::derive_ecdh_shared_secret, ephemeral::generate_positive_ephemeral_key_pair},
+    keys::{
+        ecdh_shared_secret::{
+            compute_app_siloed_shared_secret, derive_ecdh_shared_secret, derive_shared_secret_field_mask,
+            derive_shared_secret_subkey,
+        },
+        ephemeral::generate_positive_ephemeral_key_pair,
+    },
+    logging::aztecnr_warn_log_format,
     messages::{
         encoding::{
             EPH_PK_X_SIZE_IN_FIELDS, HEADER_CIPHERTEXT_SIZE_IN_BYTES, MESSAGE_CIPHERTEXT_LEN, MESSAGE_PLAINTEXT_LEN,
@@ -18,12 +19,12 @@ use crate::{
             get_arr_of_size__message_bytes__from_PT, get_arr_of_size__message_bytes_padding__from_PT,
         },
     },
-    oracle::{aes128_decrypt::aes128_decrypt_oracle, random::random, shared_secret::get_shared_secret},
+    oracle::{aes128_decrypt::try_aes128_decrypt, random::random, shared_secret::get_shared_secret},
     utils::{
         array,
         conversion::{
             bytes_to_fields::{bytes_from_fields, bytes_to_fields},
-            fields_to_bytes::{fields_from_bytes, fields_to_bytes},
+            fields_to_bytes::{fields_to_bytes, try_fields_from_bytes},
         },
         point::point_from_x_coord_and_sign,
     },
@@ -31,75 +32,58 @@ use crate::{
 
 use std::aes128::aes128_encrypt;
 
-/// Computes N close-to-uniformly-random 256 bits from a given ECDH shared_secret.
+/// Computes N close-to-uniformly-random 256 bits from a given app-siloed shared secret.
 ///
-/// NEVER re-use the same iv and sym_key. DO NOT call this function more than once with the same shared_secret.
+/// NEVER re-use the same iv and sym_key. DO NOT call this function more than once with the same s_app.
 ///
-/// This function is only known to be safe if shared_secret is computed by combining a random ephemeral key with an
-/// address point. See big comment within the body of the function. See big comment within the body of the function.
-fn extract_many_close_to_uniformly_random_256_bits_from_ecdh_shared_secret_using_poseidon2_unsafe<let N: u32>(
-    shared_secret: Point,
-) -> [[u8; 32]; N] {
+/// This function is only known to be safe if s_app is derived from combining a random ephemeral key with an
+/// address point and a contract address. See big comment within the body of the function.
+fn extract_many_close_to_uniformly_random_256_bits_using_poseidon2<let N: u32>(s_app: Field) -> [[u8; 32]; N] {
     /*
-     * Unsafe because of https://eprint.iacr.org/2010/264.pdf Page 13, Lemma 2 (and the * two
-    paragraphs below it).
+     * Unsafe because of https://eprint.iacr.org/2010/264.pdf Page 13, Lemma 2 (and the two paragraphs below it).
     *
-    * If you call this function, you need to be careful and aware of how the arg
-    * `shared_secret` has been derived.
+    * If you call this function, you need to be careful and aware of how the arg `s_app` has been derived.
     *
-    * The paper says that the way you derive aes keys and IVs should be fine with poseidon2
-    * (modelled as a RO), as long as you _don't_ use Poseidon2 as a PRG to generate the * two
-    exponents x & y which multiply to the shared secret S:
+    * The paper says that the way you derive aes keys and IVs should be fine with poseidon2 (modelled as a RO),
+    * as long as you _don't_ use Poseidon2 as a PRG to generate the two exponents x & y which multiply to the
+    * shared secret S:
     *
     * S = [x*y]*G.
     *
-    * (Otherwise, you would have to "key" poseidon2, i.e. generate a uniformly string K
-    * which can be public and compute Hash(x) as poseidon(K,x)).
-    * In that lemma, k would be 2*254=508, and m would be the number of points on the * grumpkin
-    curve (which is close to r according to the Hasse bound).
+    * (Otherwise, you would have to "key" poseidon2, i.e. generate a uniformly string K which can be public and
+    * compute Hash(x) as poseidon(K,x)).
+    * In that lemma, k would be 2*254=508, and m would be the number of points on the grumpkin curve (which is
+    * close to r according to the Hasse bound).
     *
-    * Our shared secret S is [esk * address_sk] * G, and the question is: * Can we compute hash(S)
-    using poseidon2 instead of sha256?
+    * Our shared secret S is [esk * address_sk] * G, and the question is: Can we compute hash(S) using poseidon2
+    * instead of sha256?
     *
     * Well, esk is random and not generated with poseidon2, so that's good.
     * What about address_sk?
-    * Well, address_sk = poseidon2(stuff) + ivsk, so there was some
-    * discussion about whether address_sk is independent of poseidon2.
-    * Given that ivsk is random and independent of poseidon2, the address_sk is also
+    * Well, address_sk = poseidon2(stuff) + ivsk, so there was some discussion about whether address_sk is
+    * independent of poseidon2. Given that ivsk is random and independent of poseidon2, the address_sk is also
     * independent of poseidon2.
     *
-    * Tl;dr: we believe it's safe to hash S = [esk * address_sk] * G using poseidon2,
-    * in order to derive a symmetric key.
+    * Tl;dr: we believe it's safe to hash S = [esk * address_sk] * G using poseidon2, in order to derive a
+    * symmetric key.
     *
-    * If you're calling this function for a differently-derived `shared_secret`, be
-    * careful.
-    *
+    * If you're calling this function for a differently-derived `s_app`, be careful.
     */
     
 
     /* The output of this function needs to be 32 random bytes.
-     * A single field won't give us 32 bytes of entropy.
-    * So we compute two "random" fields, by poseidon-hashing with two different
-    * generators.
-    * We then extract the last 16 (big endian) bytes of each "random" field.
-    * Note: we use to_be_bytes because it's slightly more efficient. But we have to
-    * be careful not to take bytes from the "big end", because the "big" byte is
-    * not uniformly random over the byte: it only has < 6 bits of randomness, because
-    * it's the big end of a 254-bit field element.
+     * A single field won't give us 32 bytes of entropy. So we compute two "random" fields, by poseidon-hashing
+    * with two different indices. We then extract the last 16 (big endian) bytes of each "random" field.
+    * Note: we use to_be_bytes because it's slightly more efficient. But we have to be careful not to take bytes
+    * from the "big end", because the "big" byte is not uniformly random over the byte: it only has < 6 bits of
+    * randomness, because it's the big end of a 254-bit field element.
     */
 
     let mut all_bytes: [[u8; 32]; N] = std::mem::zeroed();
-    // We restrict N to be < 2^8, because of how we compute the domain separator from k below (where k <= N must be 8
-    // bits). In practice, it's extremely unlikely that an app will want to compute >= 256 ciphertexts.
     std::static_assert(N < 256, "N too large");
     for k in 0..N {
-        // We augment the domain separator with the loop index, so that we can generate N lots of randomness.
-        let k_shift = (k << 8);
-        let separator_1 = k_shift + DOM_SEP__SYMMETRIC_KEY;
-        let separator_2 = k_shift + DOM_SEP__SYMMETRIC_KEY_2;
-
-        let rand1: Field = poseidon2_hash_with_separator([shared_secret.x, shared_secret.y], separator_1);
-        let rand2: Field = poseidon2_hash_with_separator([shared_secret.x, shared_secret.y], separator_2);
+        let rand1: Field = derive_shared_secret_subkey(s_app, 2 * k);
+        let rand2: Field = derive_shared_secret_subkey(s_app, 2 * k + 1);
 
         let rand1_bytes: [u8; 32] = rand1.to_be_bytes();
         let rand2_bytes: [u8; 32] = rand2.to_be_bytes();
@@ -137,11 +121,8 @@ fn derive_aes_symmetric_key_and_iv_from_uniformly_random_256_bits<let N: u32>(
     many_pairs
 }
 
-pub fn derive_aes_symmetric_key_and_iv_from_ecdh_shared_secret_using_poseidon2_unsafe<let N: u32>(
-    shared_secret: Point,
-) -> [([u8; 16], [u8; 16]); N] {
-    let many_random_256_bits: [[u8; 32]; N] =
-        extract_many_close_to_uniformly_random_256_bits_from_ecdh_shared_secret_using_poseidon2_unsafe(shared_secret);
+pub fn derive_aes_symmetric_key_and_iv_from_shared_secret<let N: u32>(s_app: Field) -> [([u8; 16], [u8; 16]); N] {
+    let many_random_256_bits: [[u8; 32]; N] = extract_many_close_to_uniformly_random_256_bits_using_poseidon2(s_app);
 
     derive_aes_symmetric_key_and_iv_from_uniformly_random_256_bits(many_random_256_bits)
 }
@@ -216,9 +197,9 @@ impl MessageEncryption for AES128 {
     /// ```
     ///
     /// **Step 2 -- Pack and mask.** The byte array is split into 31-byte chunks, each stored in one field. A
-    /// Poseidon2-derived mask (see `derive_field_mask`) is added to each so that the resulting fields appear as
-    /// uniformly random `Field` values to any observer without knowledge of the shared secret, hiding the fact
-    /// that the underlying ciphertext consists of 128-bit AES blocks.
+    /// Poseidon2-derived mask (see `derive_shared_secret_field_mask`) is added to each so that the resulting
+    /// fields appear as uniformly random `Field` values to any observer without knowledge of the shared secret,
+    /// hiding the fact that the underlying ciphertext consists of 128-bit AES blocks.
     ///
     /// **Step 3 -- Assemble ciphertext.** The ephemeral public key x-coordinate is prepended and random field padding
     /// is appended to fill to 15 fields:
@@ -233,11 +214,15 @@ impl MessageEncryption for AES128 {
     ///
     /// ## Key Derivation
     ///
-    /// Two (key, IV) pairs are derived from the ECDH shared secret via Poseidon2 hashing with different domain
-    /// separators: one pair for the body ciphertext and one for the header ciphertext.
+    /// The raw ECDH shared secret point is first app-siloed into a scalar `s_app` by hashing with the contract
+    /// address (see
+    /// [`compute_app_siloed_shared_secret`](crate::keys::ecdh_shared_secret::compute_app_siloed_shared_secret)).
+    /// Two (key, IV) pairs are then derived from `s_app` via indexed Poseidon2 hashing: one pair for the body
+    /// ciphertext and one for the header ciphertext.
     fn encrypt<let PlaintextLen: u32>(
         plaintext: [Field; PlaintextLen],
         recipient: AztecAddress,
+        contract_address: AztecAddress,
     ) -> [Field; MESSAGE_CIPHERTEXT_LEN] {
         std::static_assert(
             PlaintextLen <= MESSAGE_PLAINTEXT_LEN,
@@ -251,11 +236,17 @@ impl MessageEncryption for AES128 {
         // Derive ECDH shared secret with recipient using a fresh ephemeral keypair.
         let (eph_sk, eph_pk) = generate_positive_ephemeral_key_pair();
 
-        let ciphertext_shared_secret = derive_ecdh_shared_secret(
+        let raw_shared_secret = derive_ecdh_shared_secret(
             eph_sk,
             recipient
                 .to_address_point()
-                .unwrap_or(
+                .unwrap_or_else(|| {
+                    aztecnr_warn_log_format!(
+                        "Attempted to encrypt message for an invalid recipient ({0})",
+                    )(
+                        [recipient.to_field()],
+                    );
+
                     // Safety: if the recipient is an invalid address, then it is not possible to encrypt a message for
                     // them because we cannot establish a shared secret. This is never expected to occur during normal
                     // operation. However, it is technically possible for us to receive an invalid address, and we must
@@ -266,18 +257,19 @@ impl MessageEncryption for AES128 {
                     // random valid address. The sender is free to choose this address and hence shared secret, but
                     // this has no security implications as they already know not only the full plaintext but also the
                     // ephemeral private key anyway.
-                    unsafe { random_address_point() },
-                )
+                    unsafe {
+                        random_address_point()
+                    }
+                })
                 .inner,
         );
 
-        // AES128-CBC encrypt the plaintext bytes.
-        // It is safe to call the `unsafe` function here, because we know the `shared_secret` was derived using an
-        // AztecAddress (the recipient). See the block comment at the start of this unsafe target function for more
-        // info.
-        let pairs = derive_aes_symmetric_key_and_iv_from_ecdh_shared_secret_using_poseidon2_unsafe::<2>(
-            ciphertext_shared_secret,
-        );
+        let s_app = compute_app_siloed_shared_secret(raw_shared_secret, contract_address);
+
+        // It is safe to derive AES keys from `s_app` using Poseidon2 because `s_app` was derived from an ECDH shared
+        // secret using an AztecAddress (the recipient). See the block comment in
+        // `extract_many_close_to_uniformly_random_256_bits_using_poseidon2` for more info.
+        let pairs = derive_aes_symmetric_key_and_iv_from_shared_secret::<2>(s_app);
         let (body_sym_key, body_iv) = pairs[0];
         let (header_sym_key, header_iv) = pairs[1];
 
@@ -292,10 +284,7 @@ impl MessageEncryption for AES128 {
         );
 
         // Encrypt a 2-byte header containing the body ciphertext length.
-        let mut header_plaintext: [u8; 2] = [0 as u8; 2];
-        let ciphertext_bytes_length = ciphertext_bytes.len();
-        header_plaintext[0] = (ciphertext_bytes_length >> 8) as u8;
-        header_plaintext[1] = ciphertext_bytes_length as u8;
+        let header_plaintext = encode_header(ciphertext_bytes.len());
 
         // Note: the aes128_encrypt builtin fn automatically appends bytes to the input, according to pkcs#7; hence why
         // the output `header_ciphertext_bytes` is 16 bytes larger than the input in this case.
@@ -356,7 +345,7 @@ impl MessageEncryption for AES128 {
         // values
         let mut offset = 1;
         for i in 0..message_bytes_as_fields.len() {
-            let mask = derive_field_mask(ciphertext_shared_secret, i as u32);
+            let mask = derive_shared_secret_field_mask(s_app, i as u32);
             ciphertext[offset + i] = message_bytes_as_fields[i] + mask;
         }
         offset += message_bytes_as_fields.len();
@@ -374,66 +363,81 @@ impl MessageEncryption for AES128 {
     unconstrained fn decrypt(
         ciphertext: BoundedVec<Field, MESSAGE_CIPHERTEXT_LEN>,
         recipient: AztecAddress,
+        contract_address: AztecAddress,
     ) -> Option<BoundedVec<Field, MESSAGE_PLAINTEXT_LEN>> {
-        let eph_pk_x = ciphertext.get(0);
+        // Extract the ephemeral public key x-coordinate and masked fields, returning None for empty ciphertext.
+        if ciphertext.len() > 0 {
+            let masked_fields: BoundedVec<Field, MESSAGE_CIPHERTEXT_LEN - EPH_PK_X_SIZE_IN_FIELDS> =
+                array::subbvec(ciphertext, EPH_PK_X_SIZE_IN_FIELDS);
+            Option::some((ciphertext.get(0), masked_fields))
+        } else {
+            Option::none()
+        }
+            .and_then(|(eph_pk_x, masked_fields)| {
+                // With the x-coordinate of the ephemeral public key we can reconstruct the point as we know that the
+                // y-coordinate must be positive. This may fail however, as not all x-coordinates are on the curve. In
+                // that case, we simply return `Option::none`.
+                point_from_x_coord_and_sign(eph_pk_x, true).and_then(|eph_pk| {
+                    let s_app = get_shared_secret(recipient, eph_pk, contract_address);
 
-        let masked_fields = array::subbvec::<Field, MESSAGE_CIPHERTEXT_LEN, MESSAGE_CIPHERTEXT_LEN - EPH_PK_X_SIZE_IN_FIELDS>(
-            ciphertext,
-            EPH_PK_X_SIZE_IN_FIELDS,
-        );
+                    let unmasked_fields = masked_fields.mapi(|i, field| {
+                        let unmasked = unmask_field(s_app, i, field);
+                        // If we failed to unmask the field, we are dealing with the random padding. We'll ignore it
+                        // later, so we can simply set it to 0
+                        unmasked.unwrap_or(0)
+                    });
+                    let ciphertext_without_eph_pk_x = bytes_from_fields(unmasked_fields);
 
-        // With the x-coordinate of the ephemeral public key we can reconstruct the point as we know that the
-        // y-coordinate must be positive. This may fail however, as not all x-coordinates are on the curve. In that
-        // case, we simply return `Option::none`.
-        point_from_x_coord_and_sign(eph_pk_x, true).map(|eph_pk| {
-            // Derive shared secret
-            let ciphertext_shared_secret = get_shared_secret(recipient, eph_pk);
+                    // Derive symmetric keys:
+                    let pairs = derive_aes_symmetric_key_and_iv_from_shared_secret::<2>(s_app);
+                    let (body_sym_key, body_iv) = pairs[0];
+                    let (header_sym_key, header_iv) = pairs[1];
 
-            let unmasked_fields = masked_fields.mapi(|i, field| {
-                let unmasked = unmask_field(ciphertext_shared_secret, i, field);
-                // If we failed to unmask the field, we are dealing with the random padding. We'll ignore it later,
-                // so we can simply set it to 0
-                unmasked.unwrap_or(0)
-            });
-            let ciphertext_without_eph_pk_x = bytes_from_fields(unmasked_fields);
+                    // Extract the header ciphertext
+                    let header_start = 0;
+                    let header_ciphertext: [u8; HEADER_CIPHERTEXT_SIZE_IN_BYTES] =
+                        array::subarray(ciphertext_without_eph_pk_x.storage(), header_start);
+                    // We need to convert the array to a BoundedVec because the oracle expects a BoundedVec as it's
+                    // designed to work with messages with unknown length at compile time. This would not be necessary
+                    // here as the header ciphertext length is fixed. But we do it anyway to not have to have duplicate
+                    // oracles.
+                    let header_ciphertext_bvec =
+                        BoundedVec::<u8, HEADER_CIPHERTEXT_SIZE_IN_BYTES>::from_array(header_ciphertext);
 
-            // Derive symmetric keys:
-            let pairs = derive_aes_symmetric_key_and_iv_from_ecdh_shared_secret_using_poseidon2_unsafe::<2>(
-                ciphertext_shared_secret,
-            );
-            let (body_sym_key, body_iv) = pairs[0];
-            let (header_sym_key, header_iv) = pairs[1];
+                    try_aes128_decrypt(header_ciphertext_bvec, header_iv, header_sym_key)
+                    // Extract ciphertext length from header (2 bytes, big-endian)
+                    .and_then(|header_plaintext| extract_ciphertext_length(header_plaintext))
+                        .filter(|ciphertext_length| ciphertext_length <= MESSAGE_PLAINTEXT_SIZE_IN_BYTES)
+                        .map(|ciphertext_length| {
+                            // Extract and decrypt main ciphertext
+                            let ciphertext_start = header_start + HEADER_CIPHERTEXT_SIZE_IN_BYTES;
+                            let ciphertext_with_padding: [u8; MESSAGE_PLAINTEXT_SIZE_IN_BYTES] =
+                                array::subarray(ciphertext_without_eph_pk_x.storage(), ciphertext_start);
+                            BoundedVec::from_parts(ciphertext_with_padding, ciphertext_length)
+                        })
+                        // Decrypt main ciphertext and return it
+                        .and_then(|ciphertext| try_aes128_decrypt(ciphertext, body_iv, body_sym_key))
+                        // Convert bytes back to fields (32 bytes per field). Returns None if the actual bytes are
+                        // not valid.
+                        .and_then(|plaintext_bytes| try_fields_from_bytes(plaintext_bytes))
+                })
+            })
+    }
+}
 
-            // Extract the header ciphertext
-            let header_start = 0;
-            let header_ciphertext: [u8; HEADER_CIPHERTEXT_SIZE_IN_BYTES] =
-                array::subarray(ciphertext_without_eph_pk_x.storage(), header_start);
-            // We need to convert the array to a BoundedVec because the oracle expects a BoundedVec as it's designed to
-            // work with messages with unknown length at compile time. This would not be necessary here as the header
-            // ciphertext length is fixed. But we do it anyway to not have to have duplicate oracles.
-            let header_ciphertext_bvec =
-                BoundedVec::<u8, HEADER_CIPHERTEXT_SIZE_IN_BYTES>::from_array(header_ciphertext);
+/// Encodes the body ciphertext length into a 2-byte big-endian header.
+fn encode_header(ciphertext_length: u32) -> [u8; 2] {
+    [(ciphertext_length >> 8) as u8, ciphertext_length as u8]
+}
 
-            // Decrypt header
-            let header_plaintext = aes128_decrypt_oracle(header_ciphertext_bvec, header_iv, header_sym_key);
-
-            // Extract ciphertext length from header (2 bytes, big-endian)
-            let ciphertext_length = ((header_plaintext.get(0) as u32) << 8) | (header_plaintext.get(1) as u32);
-
-            // Extract and decrypt main ciphertext
-            let ciphertext_start = header_start + HEADER_CIPHERTEXT_SIZE_IN_BYTES;
-            let ciphertext_with_padding: [u8; MESSAGE_PLAINTEXT_SIZE_IN_BYTES] =
-                array::subarray(ciphertext_without_eph_pk_x.storage(), ciphertext_start);
-            let ciphertext: BoundedVec<u8, MESSAGE_PLAINTEXT_SIZE_IN_BYTES> =
-                BoundedVec::from_parts(ciphertext_with_padding, ciphertext_length);
-
-            // Decrypt main ciphertext and return it
-            let plaintext_bytes = aes128_decrypt_oracle(ciphertext, body_iv, body_sym_key);
-
-            // Each field of the original message was serialized to 32 bytes so we convert
-            // the bytes back to fields.
-            fields_from_bytes(plaintext_bytes)
-        })
+/// Extracts the body ciphertext length from a decrypted header as a 2-byte big-endian integer.
+///
+/// Returns `Option::none()` if the header has fewer than 2 bytes.
+unconstrained fn extract_ciphertext_length<let N: u32>(header: BoundedVec<u8, N>) -> Option<u32> {
+    if header.len() >= 2 {
+        Option::some(((header.get(0) as u32) << 8) | (header.get(1) as u32))
+    } else {
+        Option::none()
     }
 }
 
@@ -443,22 +447,13 @@ global TWO_POW_248: Field = 2.pow_32(248);
 /// Removes the Poseidon2-derived mask from a ciphertext field. Returns the unmasked value if it fits in 31 bytes
 /// (a content field), or `None` if it doesn't (random padding). Unconstrained to prevent accidental use in
 /// constrained context.
-unconstrained fn unmask_field(shared_secret: Point, index: u32, masked: Field) -> Option<Field> {
-    let unmasked = masked - derive_field_mask(shared_secret, index);
+unconstrained fn unmask_field(s_app: Field, index: u32, masked: Field) -> Option<Field> {
+    let unmasked = masked - derive_shared_secret_field_mask(s_app, index);
     if unmasked.lt(TWO_POW_248) {
         Option::some(unmasked)
     } else {
         Option::none()
     }
-}
-
-/// Derives a field mask from an ECDH shared secret and field index. Applied only to data fields (those carrying
-/// packed message bytes). Padding fields use `random()` instead.
-fn derive_field_mask(shared_secret: Point, index: u32) -> Field {
-    poseidon2_hash_with_separator(
-        [shared_secret.x, shared_secret.y],
-        DOM_SEP__CIPHERTEXT_FIELD_MASK + index,
-    )
 }
 
 /// Produces a random valid address point, i.e. one that is on the curve. This is equivalent to calling
@@ -482,12 +477,15 @@ unconstrained fn random_address_point() -> AddressPoint {
 
 mod test {
     use crate::{
-        keys::ecdh_shared_secret::derive_ecdh_shared_secret,
-        messages::{encoding::MESSAGE_PLAINTEXT_LEN, encryption::message_encryption::MessageEncryption},
+        keys::ecdh_shared_secret::{compute_app_siloed_shared_secret, derive_ecdh_shared_secret},
+        messages::{
+            encoding::{HEADER_CIPHERTEXT_SIZE_IN_BYTES, MESSAGE_PLAINTEXT_LEN, MESSAGE_PLAINTEXT_SIZE_IN_BYTES},
+            encryption::message_encryption::MessageEncryption,
+        },
         test::helpers::test_environment::TestEnvironment,
     };
     use crate::protocol::{address::AztecAddress, traits::FromField};
-    use super::{AES128, random_address_point};
+    use super::{AES128, encode_header, random_address_point};
     use std::{embedded_curve_ops::EmbeddedCurveScalar, test::OracleMock};
 
     #[test]
@@ -495,7 +493,8 @@ mod test {
         let env = TestEnvironment::new();
 
         // Message decryption requires oracles that are only available during private execution
-        env.private_context(|_| {
+        env.private_context(|context| {
+            let contract_address = context.this_address();
             let plaintext = [1, 2, 3];
 
             let recipient = AztecAddress::from_field(
@@ -504,26 +503,27 @@ mod test {
 
             // Mock random values for deterministic test
             let eph_sk = 0x1358d15019d4639393d62b97e1588c095957ce74a1c32d6ec7d62fe6705d9538;
-            let _ = OracleMock::mock("utilityGetRandomField").returns(eph_sk).times(1);
+            let _ = OracleMock::mock("aztec_utl_getRandomField").returns(eph_sk).times(1);
 
             let randomness = 0x0101010101010101010101010101010101010101010101010101010101010101;
-            let _ = OracleMock::mock("utilityGetRandomField").returns(randomness).times(1000000);
+            let _ = OracleMock::mock("aztec_utl_getRandomField").returns(randomness).times(1000000);
 
-            let _ = OracleMock::mock("privateGetNextAppTagAsSender").returns(42);
+            let _ = OracleMock::mock("aztec_prv_getNextAppTagAsSender").returns(42);
 
             // Encrypt the message
-            let encrypted_message = BoundedVec::from_array(AES128::encrypt(plaintext, recipient));
+            let encrypted_message = BoundedVec::from_array(AES128::encrypt(plaintext, recipient, contract_address));
 
-            // Mock shared secret for deterministic test
-            let shared_secret = derive_ecdh_shared_secret(
+            // Compute the same app-siloed shared secret that the oracle would return
+            let raw_shared_secret = derive_ecdh_shared_secret(
                 EmbeddedCurveScalar::from_field(eph_sk),
                 recipient.to_address_point().unwrap().inner,
             );
+            let s_app = compute_app_siloed_shared_secret(raw_shared_secret, contract_address);
 
-            let _ = OracleMock::mock("utilityGetSharedSecret").returns(shared_secret);
+            let _ = OracleMock::mock("aztec_utl_getSharedSecret").returns(s_app);
 
             // Decrypt the message
-            let decrypted = AES128::decrypt(encrypted_message, recipient).unwrap();
+            let decrypted = AES128::decrypt(encrypted_message, recipient, contract_address).unwrap();
 
             // The decryption function spits out a BoundedVec because it's designed to work with messages with unknown
             // length at compile time. For this reason we need to convert the original input to a BoundedVec.
@@ -546,12 +546,18 @@ mod test {
 
         let recipient = env.create_light_account();
 
-        env.private_context(|_| {
+        env.private_context(|context| {
+            let contract_address = context.this_address();
             let plaintext = [1, 2, 3];
-            let ciphertext = AES128::encrypt(plaintext, recipient);
+            let ciphertext = AES128::encrypt(plaintext, recipient, contract_address);
 
             assert_eq(
-                AES128::decrypt(BoundedVec::from_array(ciphertext), recipient).unwrap(),
+                AES128::decrypt(
+                    BoundedVec::from_array(ciphertext),
+                    recipient,
+                    contract_address,
+                )
+                    .unwrap(),
                 BoundedVec::from_array(plaintext),
             );
         });
@@ -561,10 +567,9 @@ mod test {
     unconstrained fn encrypt_to_invalid_address() {
         // x = 3 is a non-residue for this curve, resulting in an invalid address
         let invalid_address = AztecAddress { inner: 3 };
+        let contract_address = AztecAddress { inner: 42 };
 
-        // We just test that we produced some output and did not crash - the result is gibberish as it is encrypted
-        // using a public key for which we do not know the private key.
-        let _ = AES128::encrypt([1, 2, 3, 4], invalid_address);
+        let _ = AES128::encrypt([1, 2, 3, 4], invalid_address, contract_address);
     }
 
     // Documents the PKCS#7 padding behavior that `encrypt` relies on (see its static_assert).
@@ -588,15 +593,21 @@ mod test {
         let mut env = TestEnvironment::new();
         let recipient = env.create_light_account();
 
-        env.private_context(|_| {
+        env.private_context(|context| {
+            let contract_address = context.this_address();
             let mut plaintext = [0; MESSAGE_PLAINTEXT_LEN];
             for i in 0..MESSAGE_PLAINTEXT_LEN {
                 plaintext[i] = i as Field;
             }
-            let ciphertext = AES128::encrypt(plaintext, recipient);
+            let ciphertext = AES128::encrypt(plaintext, recipient, contract_address);
 
             assert_eq(
-                AES128::decrypt(BoundedVec::from_array(ciphertext), recipient).unwrap(),
+                AES128::decrypt(
+                    BoundedVec::from_array(ciphertext),
+                    recipient,
+                    contract_address,
+                )
+                    .unwrap(),
                 BoundedVec::from_array(plaintext),
             );
         });
@@ -605,8 +616,9 @@ mod test {
     #[test(should_fail_with = "Plaintext length exceeds MESSAGE_PLAINTEXT_LEN")]
     unconstrained fn encrypt_oversized_plaintext() {
         let address = AztecAddress { inner: 3 };
+        let contract_address = AztecAddress { inner: 42 };
         let plaintext: [Field; MESSAGE_PLAINTEXT_LEN + 1] = [0; MESSAGE_PLAINTEXT_LEN + 1];
-        let _ = AES128::encrypt(plaintext, address);
+        let _ = AES128::encrypt(plaintext, address, contract_address);
     }
 
     #[test]
@@ -625,16 +637,69 @@ mod test {
 
         let recipient = env.create_light_account();
 
-        env.private_context(|_| {
+        env.private_context(|context| {
+            let contract_address = context.this_address();
             let plaintext = [1, 2, 3, 4];
-            let ciphertext = AES128::encrypt(plaintext, recipient);
+            let ciphertext = AES128::encrypt(plaintext, recipient, contract_address);
 
             // The first field of the ciphertext is the x-coordinate of the ephemeral public key. We set it to a known
             // non-residue (3), causing `decrypt` to fail to produce a decryption shared secret.
             let mut bad_ciphertext = BoundedVec::from_array(ciphertext);
             bad_ciphertext.set(0, 3);
 
-            assert(AES128::decrypt(bad_ciphertext, recipient).is_none());
+            assert(AES128::decrypt(bad_ciphertext, recipient, contract_address).is_none());
         });
     }
+
+    #[test]
+    unconstrained fn decrypt_returns_none_on_empty_ciphertext() {
+        let mut env = TestEnvironment::new();
+        let recipient = env.create_light_account();
+
+        env.private_context(|context| {
+            let contract_address = context.this_address();
+            assert(AES128::decrypt(BoundedVec::new(), recipient, contract_address).is_none());
+        });
+    }
+
+    // Mocks the header AES decrypt oracle to return an empty result. The TS oracle never throws on invalid
+    // input: it decrypts to garbage bytes or returns empty
+    #[test]
+    unconstrained fn decrypt_returns_none_on_empty_header() {
+        let mut env = TestEnvironment::new();
+        let recipient = env.create_light_account();
+
+        env.private_context(|context| {
+            let contract_address = context.this_address();
+            let plaintext = [1, 2, 3];
+            let ciphertext = BoundedVec::from_array(AES128::encrypt(plaintext, recipient, contract_address));
+
+            let empty_header = BoundedVec::<u8, HEADER_CIPHERTEXT_SIZE_IN_BYTES>::new();
+            let _ = OracleMock::mock("aztec_utl_decryptAes128").returns(Option::some(empty_header)).times(1);
+
+            assert(AES128::decrypt(ciphertext, recipient, contract_address).is_none());
+        });
+    }
+
+    // Mocks the header oracle to return a 2-byte header that decodes to a ciphertext_length one past the maximum
+    // allowed value, verifying the edge case is handled correctly.
+    #[test]
+    unconstrained fn decrypt_returns_none_on_oversized_ciphertext_length() {
+        let mut env = TestEnvironment::new();
+        let recipient = env.create_light_account();
+
+        env.private_context(|context| {
+            let contract_address = context.this_address();
+            let plaintext = [1, 2, 3];
+            let ciphertext = BoundedVec::from_array(AES128::encrypt(plaintext, recipient, contract_address));
+
+            let bad_header = BoundedVec::<u8, HEADER_CIPHERTEXT_SIZE_IN_BYTES>::from_array(encode_header(
+                MESSAGE_PLAINTEXT_SIZE_IN_BYTES + 1,
+            ));
+            let _ = OracleMock::mock("aztec_utl_decryptAes128").returns(Option::some(bad_header)).times(1);
+
+            assert(AES128::decrypt(ciphertext, recipient, contract_address).is_none());
+        });
+    }
+
 }

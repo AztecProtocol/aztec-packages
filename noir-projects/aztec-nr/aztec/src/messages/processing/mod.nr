@@ -1,4 +1,5 @@
 pub(crate) mod event_validation_request;
+pub mod offchain;
 
 mod message_context;
 pub use message_context::MessageContext;
@@ -10,23 +11,26 @@ pub(crate) mod pending_tagged_log;
 
 use crate::{
     capsules::CapsuleArray,
+    ephemeral::EphemeralArray,
     event::EventSelector,
     messages::{
         discovery::partial_notes::DeliveredPendingPartialNote,
+        encoding::MESSAGE_CIPHERTEXT_LEN,
         logs::{event::MAX_EVENT_SERIALIZED_LEN, note::MAX_NOTE_PACKED_LEN},
         processing::{
             log_retrieval_request::LogRetrievalRequest, log_retrieval_response::LogRetrievalResponse,
-            note_validation_request::NoteValidationRequest, pending_tagged_log::PendingTaggedLog,
+            note_validation_request::NoteValidationRequest,
         },
     },
-    oracle,
+    oracle::message_processing,
 };
-use crate::protocol::{address::AztecAddress, hash::sha256_to_field};
+use crate::protocol::{
+    address::AztecAddress,
+    constants::DOM_SEP__NOTE_COMPLETION_LOG_TAG,
+    hash::{compute_log_tag, sha256_to_field},
+    traits::{Deserialize, Serialize},
+};
 use event_validation_request::EventValidationRequest;
-
-// Base slot for the pending tagged log array to which the fetch_tagged_logs oracle inserts found private logs.
-global PENDING_TAGGED_LOG_ARRAY_BASE_SLOT: Field =
-    sha256_to_field("AZTEC_NR::PENDING_TAGGED_LOG_ARRAY_BASE_SLOT".as_bytes());
 
 global NOTE_VALIDATION_REQUESTS_ARRAY_BASE_SLOT: Field = sha256_to_field(
     "AZTEC_NR::NOTE_VALIDATION_REQUESTS_ARRAY_BASE_SLOT".as_bytes(),
@@ -40,23 +44,17 @@ global LOG_RETRIEVAL_REQUESTS_ARRAY_BASE_SLOT: Field = sha256_to_field(
     "AZTEC_NR::LOG_RETRIEVAL_REQUESTS_ARRAY_BASE_SLOT".as_bytes(),
 );
 
-global LOG_RETRIEVAL_RESPONSES_ARRAY_BASE_SLOT: Field = sha256_to_field(
-    "AZTEC_NR::LOG_RETRIEVAL_RESPONSES_ARRAY_BASE_SLOT".as_bytes(),
-);
-
-/// Searches for private logs emitted by `contract_address` that might contain messages for one of the local accounts,
-/// and stores them in a `CapsuleArray` which is then returned.
-pub(crate) unconstrained fn get_private_logs(contract_address: AztecAddress) -> CapsuleArray<PendingTaggedLog> {
-    // We will eventually perform log discovery via tagging here, but for now we simply call the `fetchTaggedLogs`
-    // oracle. This makes PXE synchronize tags, download logs and store the pending tagged logs in a capsule array.
-    oracle::message_processing::fetch_tagged_logs(PENDING_TAGGED_LOG_ARRAY_BASE_SLOT);
-
-    CapsuleArray::at(contract_address, PENDING_TAGGED_LOG_ARRAY_BASE_SLOT)
+/// An offchain-delivered message with resolved context, ready for processing during sync.
+#[derive(Serialize, Deserialize)]
+pub struct OffchainMessageWithContext {
+    pub message_ciphertext: BoundedVec<Field, MESSAGE_CIPHERTEXT_LEN>,
+    pub message_context: MessageContext,
 }
 
-/// Enqueues a note for validation by PXE, so that it becomes aware of a note's existence allowing for later retrieval
-/// via `get_notes` oracle. The note will be scoped to `contract_address`, meaning other contracts will not be able to
-/// access it unless authorized.
+/// Enqueues a note for validation and storage by PXE.
+///
+/// Once validated, the note becomes retrievable via the `get_notes` oracle. The note will be scoped to
+/// `contract_address`, meaning other contracts will not be able to access it unless authorized.
 ///
 /// In order for the note validation and insertion to occur, `validate_and_store_enqueued_notes_and_events` must be
 /// later called. For optimal performance, accumulate as many note validation requests as possible and then validate
@@ -71,11 +69,11 @@ pub(crate) unconstrained fn get_private_logs(contract_address: AztecAddress) -> 
 /// `owner` is the address used in note hash and nullifier computation, often requiring knowledge of their nullifier
 /// secret key.
 ///
-/// `recipient` is the account to which the note message was delivered (i.e. the address the message was encrypted to).
+/// `scope` is the account to which the note message was delivered (i.e. the address the message was encrypted to).
 /// This determines which PXE account can see the note - other accounts will not be able to access it (e.g. other
 /// accounts will not be able to see one another's token balance notes, even in the same PXE) unless authorized. In
 /// most cases `recipient` equals `owner`, but they can differ in scenarios like delegated discovery.
-pub(crate) unconstrained fn enqueue_note_for_validation(
+pub unconstrained fn enqueue_note_for_validation(
     contract_address: AztecAddress,
     owner: AztecAddress,
     storage_slot: Field,
@@ -85,11 +83,8 @@ pub(crate) unconstrained fn enqueue_note_for_validation(
     note_hash: Field,
     nullifier: Field,
     tx_hash: Field,
-    recipient: AztecAddress,
 ) {
-    // We store requests in a `CapsuleArray`, which PXE will later read from and deserialize into its version of the
-    // Noir `NoteValidationRequest`
-    CapsuleArray::at(contract_address, NOTE_VALIDATION_REQUESTS_ARRAY_BASE_SLOT).push(
+    EphemeralArray::at(NOTE_VALIDATION_REQUESTS_ARRAY_BASE_SLOT).push(
         NoteValidationRequest {
             contract_address,
             owner,
@@ -100,29 +95,31 @@ pub(crate) unconstrained fn enqueue_note_for_validation(
             note_hash,
             nullifier,
             tx_hash,
-            recipient,
         },
     )
 }
 
-/// Enqueues an event for validation by PXE, so that it can be efficiently validated and then inserted into the event
-/// store.
+/// Enqueues an event for validation and storage by PXE.
+///
+/// This is the primary way for custom message handlers (registered via
+/// [`crate::macros::AztecConfig::custom_message_handler`]) to deliver reassembled events back to PXE after processing
+/// application-specific message formats.
 ///
 /// In order for the event validation and insertion to occur, `validate_and_store_enqueued_notes_and_events` must be
 /// later called. For optimal performance, accumulate as many event validation requests as possible and then validate
 /// them all at the end (which results in PXE minimizing the number of network round-trips).
-pub(crate) unconstrained fn enqueue_event_for_validation(
+///
+/// Note that `validate_and_store_enqueued_notes_and_events` is called by Aztec.nr after processing messages, so custom
+/// message processors do not need to be concerned with this.
+pub unconstrained fn enqueue_event_for_validation(
     contract_address: AztecAddress,
     event_type_id: EventSelector,
     randomness: Field,
     serialized_event: BoundedVec<Field, MAX_EVENT_SERIALIZED_LEN>,
     event_commitment: Field,
     tx_hash: Field,
-    recipient: AztecAddress,
 ) {
-    // We store requests in a `CapsuleArray`, which PXE will later read from and deserialize into its version of the
-    // Noir `EventValidationRequest`
-    CapsuleArray::at(contract_address, EVENT_VALIDATION_REQUESTS_ARRAY_BASE_SLOT).push(
+    EphemeralArray::at(EVENT_VALIDATION_REQUESTS_ARRAY_BASE_SLOT).push(
         EventValidationRequest {
             contract_address,
             event_type_id,
@@ -130,56 +127,66 @@ pub(crate) unconstrained fn enqueue_event_for_validation(
             serialized_event,
             event_commitment,
             tx_hash,
-            recipient,
         },
     )
 }
 
-/// Validates all note and event validation requests enqueued via `enqueue_note_for_validation` and
-/// `enqueue_event_for_validation`, inserting them into the note database and event store respectively, making them
-/// queryable via `get_notes` oracle and our TS API (PXE::getPrivateEvents).
+/// Validates and stores all enqueued notes and events.
 ///
-/// This automatically clears both validation request queues, so no further work needs to be done by the caller.
-pub unconstrained fn validate_and_store_enqueued_notes_and_events(contract_address: AztecAddress) {
-    oracle::message_processing::validate_and_store_enqueued_notes_and_events(
-        contract_address,
+/// Processes all requests enqueued via [`enqueue_note_for_validation`] and [`enqueue_event_for_validation`], inserting
+/// them into the note database and event store respectively, making them queryable via `get_notes` oracle and our TS
+/// API (PXE::getPrivateEvents).
+pub unconstrained fn validate_and_store_enqueued_notes_and_events(scope: AztecAddress) {
+    message_processing::validate_and_store_enqueued_notes_and_events(
         NOTE_VALIDATION_REQUESTS_ARRAY_BASE_SLOT,
         EVENT_VALIDATION_REQUESTS_ARRAY_BASE_SLOT,
+        MAX_NOTE_PACKED_LEN as Field,
+        MAX_EVENT_SERIALIZED_LEN as Field,
+        scope,
     );
+
+    // Defensive clearing: purge the queues after processing to prevent double-processing if this function is called
+    // more than once in the same call frame. It is currently defensive because we only call this once per sync run.
+    let _ = EphemeralArray::<NoteValidationRequest>::at(NOTE_VALIDATION_REQUESTS_ARRAY_BASE_SLOT).clear();
+    let _ = EphemeralArray::<EventValidationRequest>::at(EVENT_VALIDATION_REQUESTS_ARRAY_BASE_SLOT).clear();
 }
 
 /// Efficiently queries the node for logs that result in the completion of all `DeliveredPendingPartialNote`s stored in
-/// a `CapsuleArray` by performing all node communication concurrently. Returns a second `CapsuleArray` with Options
+/// a `CapsuleArray` by performing all node communication concurrently. Returns an `EphemeralArray` with Options
 /// for the responses that correspond to the pending partial notes at the same index.
 ///
 /// For example, given an array with pending partial notes `[ p1, p2, p3 ]`, where `p1` and `p3` have corresponding
-/// completion logs but `p2` does not, the returned `CapsuleArray` will have contents `[some(p1_log), none(),
+/// completion logs but `p2` does not, the returned `EphemeralArray` will have contents `[some(p1_log), none(),
 /// some(p3_log)]`.
 pub(crate) unconstrained fn get_pending_partial_notes_completion_logs(
     contract_address: AztecAddress,
     pending_partial_notes: CapsuleArray<DeliveredPendingPartialNote>,
-) -> CapsuleArray<Option<LogRetrievalResponse>> {
-    let log_retrieval_requests = CapsuleArray::at(contract_address, LOG_RETRIEVAL_REQUESTS_ARRAY_BASE_SLOT);
+) -> EphemeralArray<Option<LogRetrievalResponse>> {
+    let log_retrieval_requests = EphemeralArray::at(LOG_RETRIEVAL_REQUESTS_ARRAY_BASE_SLOT);
 
-    // We create a LogRetrievalRequest for each PendingPartialNote in the CapsuleArray. Because we need the indices in
-    // the request array to match the indices in the partial note array, we can't use CapsuleArray::for_each, as that
+    // We create a LogRetrievalRequest for each PendingPartialNote in the EphemeralArray. Because we need the indices
+    // in the request array to match the indices in the partial note array, we can't use EphemeralArray::for_each, as
+    // that
     // function has arbitrary iteration order. Instead, we manually iterate the array from the beginning and push into
     // the requests array, which we expect to be empty.
     let mut i = 0;
     let pending_partial_notes_count = pending_partial_notes.len();
     while i < pending_partial_notes_count {
         let pending_partial_note = pending_partial_notes.get(i);
-        log_retrieval_requests.push(
-            LogRetrievalRequest { contract_address, unsiloed_tag: pending_partial_note.note_completion_log_tag },
+        // Partial note completion logs are emitted with a domain-separated tag. To find matching logs, we apply the
+        // same domain separation to the stored raw tag.
+        let log_tag = compute_log_tag(
+            pending_partial_note.note_completion_log_tag,
+            DOM_SEP__NOTE_COMPLETION_LOG_TAG,
         );
+        log_retrieval_requests.push(LogRetrievalRequest { contract_address, unsiloed_tag: log_tag });
         i += 1;
     }
 
-    oracle::message_processing::bulk_retrieve_logs(
-        contract_address,
-        LOG_RETRIEVAL_REQUESTS_ARRAY_BASE_SLOT,
-        LOG_RETRIEVAL_RESPONSES_ARRAY_BASE_SLOT,
-    );
+    let responses = message_processing::get_logs_by_tag(log_retrieval_requests);
 
-    CapsuleArray::at(contract_address, LOG_RETRIEVAL_RESPONSES_ARRAY_BASE_SLOT)
+    // Defensive clearing: prevent stale requests if this function is called more than once in the same call frame.
+    let _ = log_retrieval_requests.clear();
+
+    responses
 }

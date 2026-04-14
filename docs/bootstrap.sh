@@ -44,6 +44,9 @@ function test_cmds {
 
   local test_hash=$hash
   echo "$test_hash cd docs && yarn spellcheck"
+
+  # Delegate to examples for their test commands
+  (cd examples && ./bootstrap.sh test_cmds)
 }
 
 function test {
@@ -52,19 +55,12 @@ function test {
 }
 
 function check_references {
-  echo_header "Check doc references"
-  ./scripts/check_doc_references.sh docs
-}
-
-function update_doc_references {
-  echo_header "Auto-update doc references"
-  # Only run if Claude Code CLI is available
-  if command -v claude &> /dev/null; then
-    ./scripts/update_doc_references.sh docs
-  else
-    echo "Claude Code CLI not available. Skipping automatic doc updates."
-    echo "To enable automatic doc updates, install Claude Code: npm install -g @anthropic-ai/claude-code"
+  if [[ "${GITHUB_EVENT_NAME:-}" != "merge_group" ]]; then
+    echo "Skipping doc reference check (only runs in merge queue)."
+    return
   fi
+  echo_header "Check doc references"
+  ./scripts/check_doc_references.sh docs || true
 }
 
 function build_examples {
@@ -78,7 +74,6 @@ case "$cmd" in
     build_docs
     test
     check_references
-    update_doc_references
     ;;
   "")
     build_examples

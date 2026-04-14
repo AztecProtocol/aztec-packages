@@ -7,9 +7,8 @@ use crate::{
 };
 use crate::protocol::{address::AztecAddress, logging::debug_log_format, traits::ToField};
 
-pub unconstrained fn process_private_event_msg(
+pub(crate) unconstrained fn process_private_event_msg(
     contract_address: AztecAddress,
-    recipient: AztecAddress,
     msg_metadata: u64,
     msg_content: BoundedVec<Field, MAX_MESSAGE_CONTENT_LEN>,
     tx_hash: Field,
@@ -29,7 +28,6 @@ pub unconstrained fn process_private_event_msg(
             serialized_event,
             event_commitment,
             tx_hash,
-            recipient,
         );
     } else {
         debug_log_format(

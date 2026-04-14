@@ -1,6 +1,4 @@
-import type { InitialAccountData } from '@aztec/accounts/testing';
 import { Fr } from '@aztec/aztec.js/fields';
-import { getSponsoredFPCAddress } from '@aztec/cli/cli-utils';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { protocolContractsHash } from '@aztec/protocol-contracts';
 import { getGenesisValues } from '@aztec/world-state/testing';
@@ -20,13 +18,11 @@ describe('Testnet compatibility', () => {
     );
   });
   it('has expected Genesis tree roots', async () => {
-    const initialAccounts: InitialAccountData[] = [];
-    const sponsoredFPCAddress = await getSponsoredFPCAddress();
-    const initialFundedAccounts = initialAccounts.map(a => a.address).concat(sponsoredFPCAddress);
-    const { genesisArchiveRoot } = await getGenesisValues(initialFundedAccounts);
+    // Testnet was deployed without SponsoredFPC or any initial funded accounts
+    const { genesisArchiveRoot } = await getGenesisValues([]);
 
     expect(genesisArchiveRoot).toEqual(
-      Fr.fromHexString('0x2727683df35594b1f073a681532520056ca8a775398c8b5a94574c67ef1ce6de'),
+      Fr.fromHexString('0x15684c8c3d2106918d3860f777e50555b7166adff47df13cc652e2e5a50bf5c7'),
     );
   });
 });

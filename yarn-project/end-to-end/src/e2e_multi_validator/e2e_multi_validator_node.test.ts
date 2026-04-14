@@ -117,8 +117,6 @@ describe('e2e_multi_validator_node', () => {
     const { receipt: tx } = await deployer.deploy(ownerAddress, sender, 1).send({
       from: ownerAddress,
       contractAddressSalt: new Fr(BigInt(1)),
-      skipClassPublication: true,
-      skipInstancePublication: true,
       wait: { returnReceipt: true },
     });
     await waitForProven(aztecNode, tx, {
@@ -180,8 +178,6 @@ describe('e2e_multi_validator_node', () => {
     const { receipt: tx } = await deployer.deploy(ownerAddress, sender, 1).send({
       from: ownerAddress,
       contractAddressSalt: new Fr(BigInt(1)),
-      skipClassPublication: true,
-      skipInstancePublication: true,
       wait: { returnReceipt: true },
     });
     await waitForProven(aztecNode, tx, {

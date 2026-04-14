@@ -15,6 +15,7 @@ export {
   type PublicEvent,
   type PublicEventFilter,
   type ContractMetadata,
+  ContractInitializationStatus,
   type ContractClassMetadata,
   AppCapabilitiesSchema,
   WalletCapabilitiesSchema,
@@ -74,5 +75,7 @@ export {
 } from '../wallet/capabilities.js';
 
 export { AccountManager } from '../wallet/account_manager.js';
+
+export { TxSimulationResultWithAppOffset } from '../wallet/tx_simulation_result_with_app_offset.js';
 
 export { type DeployAccountOptions, DeployAccountMethod } from '../wallet/deploy_account_method.js';

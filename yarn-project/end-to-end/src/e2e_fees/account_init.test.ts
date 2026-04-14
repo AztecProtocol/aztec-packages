@@ -1,4 +1,5 @@
 import { SchnorrAccountContract } from '@aztec/accounts/schnorr';
+import { NO_FROM } from '@aztec/aztec.js/account';
 import { CompleteAddress } from '@aztec/aztec.js/addresses';
 import { FeeJuicePaymentMethodWithClaim, PrivateFeePaymentMethod, PublicFeePaymentMethod } from '@aztec/aztec.js/fee';
 import { Fr } from '@aztec/aztec.js/fields';
@@ -89,7 +90,7 @@ describe('e2e_fees account_init', () => {
       const [bobsInitialGas] = await t.getGasBalanceFn(bobsAddress);
       expect(bobsInitialGas).toEqual(mintAmount);
 
-      const { receipt: tx } = await bobsDeployMethod.send({ from: AztecAddress.ZERO, wait: { returnReceipt: true } });
+      const { receipt: tx } = await bobsDeployMethod.send({ from: NO_FROM, wait: { returnReceipt: true } });
 
       expect(tx.transactionFee!).toBeGreaterThan(0n);
       await expect(t.getGasBalanceFn(bobsAddress)).resolves.toEqual([bobsInitialGas - tx.transactionFee!]);
@@ -99,7 +100,7 @@ describe('e2e_fees account_init', () => {
       const claim = await t.feeJuiceBridgeTestHarness.prepareTokensOnL1(bobsAddress);
       const paymentMethod = new FeeJuicePaymentMethodWithClaim(bobsAddress, claim);
       const { receipt: tx } = await bobsDeployMethod.send({
-        from: AztecAddress.ZERO,
+        from: NO_FROM,
         fee: { paymentMethod },
         wait: { returnReceipt: true },
       });
@@ -116,10 +117,10 @@ describe('e2e_fees account_init', () => {
       // The private fee paying method assembled on the app side requires knowledge of the maximum
       // fee the user is willing to pay
       const maxFeesPerGas = (await aztecNode.getCurrentMinFees()).mul(1.5);
-      const gasSettings = GasSettings.default({ maxFeesPerGas });
+      const gasSettings = GasSettings.fallback({ maxFeesPerGas });
       const paymentMethod = new PrivateFeePaymentMethod(bananaFPC.address, bobsAddress, wallet, gasSettings);
       const { receipt: tx } = await bobsDeployMethod.send({
-        from: AztecAddress.ZERO,
+        from: NO_FROM,
         fee: { paymentMethod },
         wait: { returnReceipt: true },
       });
@@ -145,10 +146,10 @@ describe('e2e_fees account_init', () => {
       // The public fee paying method assembled on the app side requires knowledge of the maximum
       // fee the user is willing to pay
       const maxFeesPerGas = (await aztecNode.getCurrentMinFees()).mul(1.5);
-      const gasSettings = GasSettings.default({ maxFeesPerGas });
+      const gasSettings = GasSettings.fallback({ maxFeesPerGas });
       const paymentMethod = new PublicFeePaymentMethod(bananaFPC.address, bobsAddress, wallet, gasSettings);
       const { receipt: tx } = await bobsDeployMethod.send({
-        from: AztecAddress.ZERO,
+        from: NO_FROM,
         skipInstancePublication: false,
         fee: { paymentMethod },
         wait: { returnReceipt: true },
@@ -187,6 +188,8 @@ describe('e2e_fees account_init', () => {
         bobsSigningPubKey.y,
       ).send({
         from: aliceAddress,
+        // The account constructor initializes storage vars that need the contract's own nullifier key, so we need to add it to scopes.
+        additionalScopes: [bobsAddress],
         contractAddressSalt: bobsInstance.salt,
         skipClassPublication: true,
         skipInstancePublication: true,
@@ -202,7 +205,7 @@ describe('e2e_fees account_init', () => {
 
       // bob can now use his wallet for sending txs
       const maxFeesPerGas = (await aztecNode.getCurrentMinFees()).mul(1.5);
-      const gasSettings = GasSettings.default({ maxFeesPerGas });
+      const gasSettings = GasSettings.fallback({ maxFeesPerGas });
       const bobPaymentMethod = new PrivateFeePaymentMethod(bananaFPC.address, bobsAddress, wallet, gasSettings);
       await bananaCoin.methods
         .transfer_in_public(bobsAddress, aliceAddress, 0n, 0n)

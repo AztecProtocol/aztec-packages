@@ -56,7 +56,10 @@ export class ChonkProof {
   static fromBuffer(buffer: Buffer | BufferReader): ChonkProof {
     const reader = BufferReader.asReader(buffer);
     const proofLength = reader.readNumber();
-    const proof = reader.readArray(proofLength, Fr);
+    if (proofLength !== CHONK_PROOF_LENGTH) {
+      throw new Error(`Invalid ChonkProof length from buffer: ${proofLength}, expected ${CHONK_PROOF_LENGTH}`);
+    }
+    const proof = reader.readArray(CHONK_PROOF_LENGTH, Fr);
     return new ChonkProof(proof);
   }
 
@@ -106,6 +109,11 @@ export class ChonkProofWithPublicInputs {
   static fromBuffer(buffer: Buffer | BufferReader): ChonkProofWithPublicInputs {
     const reader = BufferReader.asReader(buffer);
     const proofLength = reader.readNumber();
+    if (proofLength < CHONK_PROOF_LENGTH) {
+      throw new Error(
+        `Invalid ChonkProofWithPublicInputs length from buffer: ${proofLength}, expected at least ${CHONK_PROOF_LENGTH}`,
+      );
+    }
     const proof = reader.readArray(proofLength, Fr);
     return new ChonkProofWithPublicInputs(proof);
   }

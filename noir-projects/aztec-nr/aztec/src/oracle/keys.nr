@@ -4,17 +4,22 @@ use crate::protocol::{
     public_keys::{IvpkM, NpkM, OvpkM, PublicKeys, TpkM},
 };
 
+// TODO(F-498): review naming consistency
 pub unconstrained fn get_public_keys_and_partial_address(address: AztecAddress) -> (PublicKeys, PartialAddress) {
     try_get_public_keys_and_partial_address(address).expect(f"Public keys not registered for account {address}")
 }
 
-#[oracle(utilityTryGetPublicKeysAndPartialAddress)]
-unconstrained fn try_get_public_keys_and_partial_address_oracle(_address: AztecAddress) -> Option<[Field; 13]> {}
+// TODO(F-553): The oracle returns 13 fields because each public key is serialized as 3 fields (x, y, is_infinite) by
+// the custom `Point` wrapper. Once we drop the wrapper and use `EmbeddedCurvePoint` directly each point will
+// serialize to 2 fields and this should become `[Field; 9]` again, with the indices below shifted accordingly.
+#[oracle(aztec_utl_getPublicKeysAndPartialAddress)]
+unconstrained fn get_public_keys_and_partial_address_oracle(_address: AztecAddress) -> Option<[Field; 13]> {}
 
+// TODO(F-498): review naming consistency
 pub unconstrained fn try_get_public_keys_and_partial_address(
     address: AztecAddress,
 ) -> Option<(PublicKeys, PartialAddress)> {
-    try_get_public_keys_and_partial_address_oracle(address).map(|result: [Field; 13]| {
+    get_public_keys_and_partial_address_oracle(address).map(|result: [Field; 13]| {
         let keys = PublicKeys {
             npk_m: NpkM { inner: Point { x: result[0], y: result[1], is_infinite: result[2] != 0 } },
             ivpk_m: IvpkM { inner: Point { x: result[3], y: result[4], is_infinite: result[5] != 0 } },

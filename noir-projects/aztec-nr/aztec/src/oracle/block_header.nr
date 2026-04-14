@@ -2,7 +2,7 @@ use crate::protocol::{abis::block_header::BlockHeader, merkle_tree::root::root_f
 
 use crate::{context::PrivateContext, oracle::get_membership_witness::get_block_hash_membership_witness};
 
-#[oracle(utilityGetBlockHeader)]
+#[oracle(aztec_utl_getBlockHeader)]
 unconstrained fn get_block_header_at_oracle(_block_number: u32) -> BlockHeader {}
 
 unconstrained fn get_block_header_at_internal(block_number: u32) -> BlockHeader {
@@ -61,7 +61,7 @@ fn constrain_get_block_header_at_internal(
     // 3) Check that the block is in the archive (i.e. the witness is valid)
     assert_eq(
         anchor_block_header.last_archive.root,
-        root_from_sibling_path(block_hash, witness.index, witness.path),
+        root_from_sibling_path(block_hash, witness.leaf_index, witness.sibling_path),
         "Proving membership of a block in archive failed",
     );
 

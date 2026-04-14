@@ -134,6 +134,14 @@ export type L1FeeData = {
   blobFee: bigint;
 };
 
+/** Components of the minimum fee per mana, as returned by the L1 rollup contract. */
+export type ManaMinFeeComponents = {
+  sequencerCost: bigint;
+  proverCost: bigint;
+  congestionCost: bigint;
+  congestionMultiplier: bigint;
+};
+
 /**
  * Reward configuration for the rollup
  */
@@ -770,14 +778,13 @@ export class RollupContract {
    * timestamp of the next L1 block
    * @throws otherwise
    */
-  public async canProposeAtNextEthBlock(
+  public async canProposeAt(
     archive: Buffer,
     account: `0x${string}` | Account,
-    slotDuration: number,
+    timestamp: bigint,
     opts: { forcePendingCheckpointNumber?: CheckpointNumber } = {},
   ): Promise<{ slot: SlotNumber; checkpointNumber: CheckpointNumber; timeOfNextL1Slot: bigint }> {
-    const latestBlock = await this.client.getBlock();
-    const timeOfNextL1Slot = latestBlock.timestamp + BigInt(slotDuration);
+    const timeOfNextL1Slot = timestamp;
     const who = typeof account === 'string' ? account : account.address;
 
     try {
@@ -877,6 +884,16 @@ export class RollupContract {
     return this.rollup.read.getManaMinFeeAt([timestamp, inFeeAsset]);
   }
 
+  async getManaMinFeeComponentsAt(timestamp: bigint, inFeeAsset: boolean): Promise<ManaMinFeeComponents> {
+    const result = await this.rollup.read.getManaMinFeeComponentsAt([timestamp, inFeeAsset]);
+    return {
+      sequencerCost: result.sequencerCost,
+      proverCost: result.proverCost,
+      congestionCost: result.congestionCost,
+      congestionMultiplier: result.congestionMultiplier,
+    };
+  }
+
   async getSlotAt(timestamp: bigint): Promise<SlotNumber> {
     return SlotNumber.fromBigInt(await this.rollup.read.getSlotAt([timestamp]));
   }
@@ -920,11 +937,10 @@ export class RollupContract {
     return this.rollup.read.getSpecificProverRewardsForEpoch([epoch, prover]);
   }
 
-  async getAttesters(): Promise<EthAddress[]> {
+  async getAttesters(timestamp?: bigint): Promise<EthAddress[]> {
     const attesterSize = await this.getActiveAttesterCount();
     const gse = new GSEContract(this.client, await this.getGSE());
-    const ts = (await this.client.getBlock()).timestamp;
-
+    const ts = timestamp ?? (await this.client.getBlock()).timestamp;
     const indices = Array.from({ length: attesterSize }, (_, i) => BigInt(i));
     const chunks = chunk(indices, 1000);
 
