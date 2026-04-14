@@ -45,7 +45,10 @@ export const mockCheckpointAttestation = (
   );
   const attestationSignature = signer.sign(attestationHash);
 
-  const proposalHash = getHashedSignaturePayloadEthSignedMessage(payload, SignatureDomainSeparator.checkpointProposal);
+  const proposalHash = getHashedSignaturePayloadEthSignedMessage(
+    payload,
+    SignatureDomainSeparator.checkpointAttestation,
+  );
   const proposerSignature = signer.sign(proposalHash);
 
   return new CheckpointAttestation(payload, attestationSignature, proposerSignature);

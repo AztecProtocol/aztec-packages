@@ -6,8 +6,7 @@ export enum SignatureDomainSeparator {
   blockProposal = 0,
   checkpointAttestation = 1,
   attestationsAndSigners = 2,
-  checkpointProposal = 3,
-  signedTxs = 4,
+  signedTxs = 3,
 }
 
 export interface Signable {

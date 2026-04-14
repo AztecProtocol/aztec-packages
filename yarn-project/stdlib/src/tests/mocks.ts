@@ -14,7 +14,6 @@ import { padArrayEnd, times } from '@aztec/foundation/collection';
 import { randomBytes } from '@aztec/foundation/crypto/random';
 import { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { Signature } from '@aztec/foundation/eth-signature';
 
 import type { ContractArtifact } from '../abi/abi.js';
 import { PublicTxEffect } from '../avm/avm.js';
@@ -545,26 +544,6 @@ export interface MakeCheckpointProposalOptions {
   };
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const makeAndSignConsensusPayload = (
-  domainSeparator: SignatureDomainSeparator,
-  options?: MakeConsensusPayloadOptions,
-) => {
-  const header = options?.header ?? makeCheckpointHeader(1);
-  const { signer = Secp256k1Signer.random(), archive = Fr.random(), feeAssetPriceModifier = 0n } = options ?? {};
-
-  const payload = ConsensusPayload.fromFields({
-    header,
-    archive,
-    feeAssetPriceModifier,
-  });
-
-  const hash = getHashedSignaturePayloadEthSignedMessage(payload, domainSeparator);
-  const signature = signer.sign(hash);
-
-  return { blockNumber: header.slotNumber, payload, signature };
-};
-
 export const makeAndSignCommitteeAttestationsAndSigners = (
   attestationsAndSigners: CommitteeAttestationsAndSigners,
   signer: Secp256k1Signer = Secp256k1Signer.random(),
@@ -657,13 +636,11 @@ export const makeCheckpointAttestation = (options: MakeCheckpointAttestationOpti
   const attestationSigner = attesterSigner ?? Secp256k1Signer.random();
   const attestationSignature = attestationSigner.sign(attestationHash);
 
-  // Sign as proposer - use CheckpointProposal's payload format (serializeToBuffer)
-  // This is different from ConsensusPayload's format (ABI encoding)
+  // Sign as proposer - uses the same ConsensusPayload format as attestors
   const proposalSignerToUse = proposerSigner ?? Secp256k1Signer.random();
-  const tempProposal = new CheckpointProposal(header, archive, feeAssetPriceModifier, Signature.empty());
   const proposalHash = getHashedSignaturePayloadEthSignedMessage(
-    tempProposal,
-    SignatureDomainSeparator.checkpointProposal,
+    payload,
+    SignatureDomainSeparator.checkpointAttestation,
   );
   const proposerSignature = proposalSignerToUse.sign(proposalHash);
 

@@ -17,7 +17,10 @@ function makeAttestation(signer: Secp256k1Signer): CheckpointAttestation {
     payload,
     SignatureDomainSeparator.checkpointAttestation,
   );
-  const proposalHash = getHashedSignaturePayloadEthSignedMessage(payload, SignatureDomainSeparator.checkpointProposal);
+  const proposalHash = getHashedSignaturePayloadEthSignedMessage(
+    payload,
+    SignatureDomainSeparator.checkpointAttestation,
+  );
   return new CheckpointAttestation(payload, signer.sign(attestationHash), signer.sign(proposalHash));
 }
 

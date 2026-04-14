@@ -15,12 +15,9 @@ import { BlockHeader } from '../tx/block_header.js';
 import { TxHash } from '../tx/index.js';
 import type { Tx } from '../tx/tx.js';
 import { BlockProposal } from './block_proposal.js';
+import { ConsensusPayload } from './consensus_payload.js';
 import { Gossipable } from './gossipable.js';
-import {
-  SignatureDomainSeparator,
-  getHashedSignaturePayload,
-  getHashedSignaturePayloadEthSignedMessage,
-} from './signature_utils.js';
+import { SignatureDomainSeparator, getHashedSignaturePayloadEthSignedMessage } from './signature_utils.js';
 import { SignedTxs } from './signed_txs.js';
 import { TopicType } from './topic_type.js';
 
@@ -146,15 +143,16 @@ export class CheckpointProposal extends Gossipable {
 
   /**
    * Get the payload to sign for this checkpoint proposal.
-   * The signature is over the checkpoint header + archive root + feeAssetPriceModifier (for consensus).
+   * Uses the same ABI-encoded ConsensusPayload format that validators sign for attestations,
+   * so the proposer's signature is directly verifiable on L1 as an attestation.
    */
   getPayloadToSign(domainSeparator: SignatureDomainSeparator): Buffer {
-    return serializeToBuffer([
-      domainSeparator,
-      this.checkpointHeader,
-      this.archive,
-      serializeSignedBigInt(this.feeAssetPriceModifier),
-    ]);
+    return this.toConsensusPayload().getPayloadToSign(domainSeparator);
+  }
+
+  /** Returns the ConsensusPayload for this proposal. */
+  toConsensusPayload(): ConsensusPayload {
+    return new ConsensusPayload(this.checkpointHeader, this.archive, this.feeAssetPriceModifier);
   }
 
   static async createProposalFromSigner(
@@ -165,14 +163,12 @@ export class CheckpointProposal extends Gossipable {
     lastBlockProposal: BlockProposal | undefined,
     payloadSigner: (payload: Buffer32, context: SigningContext) => Promise<Signature>,
   ): Promise<CheckpointProposal> {
-    // Sign the checkpoint payload with CHECKPOINT_PROPOSAL duty type
-    const tempProposal = new CheckpointProposal(
-      checkpointHeader,
-      archiveRoot,
-      feeAssetPriceModifier,
-      Signature.empty(),
+    // Sign the consensus payload with the checkpointAttestation domain separator,
+    // so the proposer's signature is L1-verifiable and usable as an attestation.
+    const payload = new ConsensusPayload(checkpointHeader, archiveRoot, feeAssetPriceModifier);
+    const checkpointHash = Buffer32.fromBuffer(
+      keccak256(payload.getPayloadToSign(SignatureDomainSeparator.checkpointAttestation)),
     );
-    const checkpointHash = getHashedSignaturePayload(tempProposal, SignatureDomainSeparator.checkpointProposal);
 
     const checkpointContext: SigningContext = {
       slot: checkpointHeader.slotNumber,
@@ -198,7 +194,7 @@ export class CheckpointProposal extends Gossipable {
    */
   getSender(): EthAddress | undefined {
     if (!this.sender) {
-      const hashed = getHashedSignaturePayloadEthSignedMessage(this, SignatureDomainSeparator.checkpointProposal);
+      const hashed = getHashedSignaturePayloadEthSignedMessage(this, SignatureDomainSeparator.checkpointAttestation);
       const checkpointSender = tryRecoverAddress(hashed, this.signature);
 
       // If there's a lastBlock, verify the block proposal sender matches
@@ -218,7 +214,7 @@ export class CheckpointProposal extends Gossipable {
   }
 
   getPayload() {
-    return this.getPayloadToSign(SignatureDomainSeparator.checkpointProposal);
+    return this.getPayloadToSign(SignatureDomainSeparator.checkpointAttestation);
   }
 
   toBuffer(): Buffer {

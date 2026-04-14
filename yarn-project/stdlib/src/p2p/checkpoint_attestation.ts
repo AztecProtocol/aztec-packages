@@ -10,7 +10,6 @@ import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { z } from 'zod';
 
 import type { ZodFor } from '../schemas/index.js';
-import { CheckpointProposal } from './checkpoint_proposal.js';
 import { ConsensusPayload } from './consensus_payload.js';
 import { Gossipable } from './gossipable.js';
 import { SignatureDomainSeparator, getHashedSignaturePayloadEthSignedMessage } from './signature_utils.js';
@@ -88,22 +87,17 @@ export class CheckpointAttestation extends Gossipable {
   }
 
   /**
-   * Lazily evaluate and cache the proposer of the checkpoint
+   * Lazily evaluate and cache the proposer of the checkpoint.
+   * The proposer signs the same ConsensusPayload as attestors, so we can recover directly.
    * @returns The proposer of the checkpoint
    */
   getProposer(): EthAddress | undefined {
     if (!this.proposer) {
-      // Create a temporary CheckpointProposal to recover the proposer address.
-      // We need to use CheckpointProposal because it has a different getPayloadToSign()
-      // implementation than ConsensusPayload (uses serializeToBuffer vs ABI encoding).
-      const proposal = new CheckpointProposal(
-        this.payload.header,
-        this.payload.archive,
-        this.payload.feeAssetPriceModifier,
-        this.proposerSignature,
+      const hashed = getHashedSignaturePayloadEthSignedMessage(
+        this.payload,
+        SignatureDomainSeparator.checkpointAttestation,
       );
-      // Cache the proposer for later use
-      this.proposer = proposal.getSender();
+      this.proposer = tryRecoverAddress(hashed, this.proposerSignature);
     }
 
     return this.proposer;
