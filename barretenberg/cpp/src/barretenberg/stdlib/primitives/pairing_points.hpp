@@ -54,8 +54,12 @@ template <typename Curve> struct PairingPoints {
         }
 
 #ifndef NDEBUG
-        bb::PairingPoints<typename Curve::NativeCurve> native_pp(P0().get_value(), P1().get_value());
-        info("Are Pairing Points with tag ", tag_index, " valid? ", native_pp.check() ? "true" : "false");
+        try {
+            bb::PairingPoints<typename Curve::NativeCurve> native_pp(P0().get_value(), P1().get_value());
+            info("Are Pairing Points with tag ", tag_index, " valid? ", native_pp.check() ? "true" : "false");
+        } catch (const std::exception& e) {
+            info("Pairing Points with tag ", tag_index, " native check skipped: ", e.what());
+        }
 #endif
     }
 
@@ -210,8 +214,13 @@ template <typename Curve> struct PairingPoints {
         }
 
 #ifndef NDEBUG
-        bb::PairingPoints<typename Curve::NativeCurve> native_pp(P0().get_value(), P1().get_value());
-        info("Are aggregated Pairing Points with tag ", tag_index, " valid? ", native_pp.check() ? "true" : "false");
+        try {
+            bb::PairingPoints<typename Curve::NativeCurve> native_pp(P0().get_value(), P1().get_value());
+            info(
+                "Are aggregated Pairing Points with tag ", tag_index, " valid? ", native_pp.check() ? "true" : "false");
+        } catch (const std::exception& e) {
+            info("Aggregated Pairing Points with tag ", tag_index, " native check skipped: ", e.what());
+        }
 #endif
     }
 
