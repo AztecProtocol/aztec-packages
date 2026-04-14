@@ -288,7 +288,7 @@ describe('sequencer', () => {
       getBlockData: mockFn().mockResolvedValue({
         header: BlockHeader.empty(),
         archive: AppendOnlyTreeSnapshot.empty(),
-        blockHash: new BlockHash(Fr.ZERO),
+        blockHash: BlockHash.ZERO,
         checkpointNumber: CheckpointNumber(0),
         indexWithinCheckpoint: IndexWithinCheckpoint(0),
       } satisfies BlockData),
@@ -1056,7 +1056,7 @@ describe('sequencer', () => {
       l2BlockSource.getBlockData.mockResolvedValue({
         header: BlockHeader.empty({ globalVariables: GlobalVariables.empty({ blockNumber: BlockNumber(1) }) }),
         archive: AppendOnlyTreeSnapshot.empty(),
-        blockHash: new BlockHash(Fr.ZERO),
+        blockHash: BlockHash.ZERO,
         checkpointNumber: CheckpointNumber(1),
         indexWithinCheckpoint: IndexWithinCheckpoint(0),
       } satisfies BlockData);
@@ -1117,7 +1117,7 @@ describe('sequencer', () => {
       l2BlockSource.getBlockData.mockResolvedValue({
         header: BlockHeader.empty({ globalVariables: GlobalVariables.empty({ blockNumber: BlockNumber(3) }) }),
         archive: AppendOnlyTreeSnapshot.empty(),
-        blockHash: new BlockHash(Fr.ZERO),
+        blockHash: BlockHash.ZERO,
         checkpointNumber: CheckpointNumber(3),
         indexWithinCheckpoint: IndexWithinCheckpoint(0),
       } satisfies BlockData);

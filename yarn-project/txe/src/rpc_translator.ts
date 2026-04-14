@@ -10,7 +10,6 @@ import {
 } from '@aztec/pxe/simulator';
 import { type ContractArtifact, EventSelector, FunctionSelector, NoteSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { BlockHash } from '@aztec/stdlib/block';
 
 import type { IAvmExecutionOracle, ITxeExecutionOracle } from './oracle/interfaces.js';
 import type { TXESessionStateHandler } from './txe_session.js';
@@ -20,6 +19,7 @@ import {
   addressFromSingle,
   arrayOfArraysToBoundedVecOfArrays,
   arrayToBoundedVec,
+  blockHashFromSingle,
   bufferToU8Array,
   fromArray,
   fromSingle,
@@ -385,7 +385,7 @@ export class RPCTranslator {
     foreignStartStorageSlot: ForeignCallSingle,
     foreignNumberOfElements: ForeignCallSingle,
   ) {
-    const blockHash = new BlockHash(fromSingle(foreignBlockHash));
+    const blockHash = blockHashFromSingle(foreignBlockHash);
     const contractAddress = addressFromSingle(foreignContractAddress);
     const startStorageSlot = fromSingle(foreignStartStorageSlot);
     const numberOfElements = fromSingle(foreignNumberOfElements).toNumber();
@@ -402,7 +402,7 @@ export class RPCTranslator {
 
   // eslint-disable-next-line camelcase
   async aztec_utl_getPublicDataWitness(foreignBlockHash: ForeignCallSingle, foreignLeafSlot: ForeignCallSingle) {
-    const blockHash = new BlockHash(fromSingle(foreignBlockHash));
+    const blockHash = blockHashFromSingle(foreignBlockHash);
     const leafSlot = fromSingle(foreignLeafSlot);
 
     const witness = await this.handlerAsUtility().getPublicDataWitness(blockHash, leafSlot);
@@ -629,7 +629,7 @@ export class RPCTranslator {
     foreignBlockHash: ForeignCallSingle,
     foreignNullifier: ForeignCallSingle,
   ) {
-    const blockHash = new BlockHash(fromSingle(foreignBlockHash));
+    const blockHash = blockHashFromSingle(foreignBlockHash);
     const nullifier = fromSingle(foreignNullifier);
 
     const witness = await this.handlerAsUtility().getNullifierMembershipWitness(blockHash, nullifier);
@@ -693,7 +693,7 @@ export class RPCTranslator {
     foreignAnchorBlockHash: ForeignCallSingle,
     foreignNoteHash: ForeignCallSingle,
   ) {
-    const blockHash = new BlockHash(fromSingle(foreignAnchorBlockHash));
+    const blockHash = blockHashFromSingle(foreignAnchorBlockHash);
     const noteHash = fromSingle(foreignNoteHash);
 
     const witness = await this.handlerAsUtility().getNoteHashMembershipWitness(blockHash, noteHash);
@@ -709,8 +709,8 @@ export class RPCTranslator {
     foreignAnchorBlockHash: ForeignCallSingle,
     foreignBlockHash: ForeignCallSingle,
   ) {
-    const anchorBlockHash = new BlockHash(fromSingle(foreignAnchorBlockHash));
-    const blockHash = new BlockHash(fromSingle(foreignBlockHash));
+    const anchorBlockHash = blockHashFromSingle(foreignAnchorBlockHash);
+    const blockHash = blockHashFromSingle(foreignBlockHash);
 
     const witness = await this.handlerAsUtility().getBlockHashMembershipWitness(anchorBlockHash, blockHash);
 
@@ -727,7 +727,7 @@ export class RPCTranslator {
     foreignBlockHash: ForeignCallSingle,
     foreignNullifier: ForeignCallSingle,
   ) {
-    const blockHash = new BlockHash(fromSingle(foreignBlockHash));
+    const blockHash = blockHashFromSingle(foreignBlockHash);
     const nullifier = fromSingle(foreignNullifier);
 
     const witness = await this.handlerAsUtility().getLowNullifierMembershipWitness(blockHash, nullifier);

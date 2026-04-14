@@ -976,7 +976,7 @@ export class BlockStore {
     return {
       header: BlockHeader.fromBuffer(blockStorage.header),
       archive: AppendOnlyTreeSnapshot.fromBuffer(blockStorage.archive),
-      blockHash: new BlockHash(Fr.fromBuffer(blockStorage.blockHash)),
+      blockHash: BlockHash.fromBuffer(blockStorage.blockHash),
       checkpointNumber: CheckpointNumber(blockStorage.checkpointNumber),
       indexWithinCheckpoint: IndexWithinCheckpoint(blockStorage.indexWithinCheckpoint),
     };
@@ -988,7 +988,7 @@ export class BlockStore {
   ): Promise<L2Block | undefined> {
     const { header, archive, blockHash, checkpointNumber, indexWithinCheckpoint } =
       this.getBlockDataFromBlockStorage(blockStorage);
-    header.setHash(blockHash.toFr());
+    header.setHash(blockHash);
     const blockHashString = bufferToHex(blockStorage.blockHash);
     const blockTxsBuffer = await this.#blockTxs.getAsync(blockHashString);
     if (blockTxsBuffer === undefined) {

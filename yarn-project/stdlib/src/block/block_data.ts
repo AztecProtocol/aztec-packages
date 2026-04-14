@@ -1,6 +1,5 @@
 import { CheckpointNumberSchema, IndexWithinCheckpointSchema } from '@aztec/foundation/branded-types';
 import type { CheckpointNumber, IndexWithinCheckpoint } from '@aztec/foundation/branded-types';
-import { schemas } from '@aztec/foundation/schemas';
 
 import { z } from 'zod';
 
@@ -20,7 +19,7 @@ export type BlockData = {
 export const BlockDataSchema = z.object({
   header: BlockHeader.schema,
   archive: AppendOnlyTreeSnapshot.schema,
-  blockHash: schemas.Fr.transform(fr => new BlockHash(fr)),
+  blockHash: BlockHash.schema,
   checkpointNumber: CheckpointNumberSchema,
   indexWithinCheckpoint: IndexWithinCheckpointSchema,
 });

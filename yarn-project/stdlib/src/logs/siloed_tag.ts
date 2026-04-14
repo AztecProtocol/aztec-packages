@@ -1,5 +1,5 @@
 import { DomainSeparator } from '@aztec/constants';
-import type { Fr } from '@aztec/foundation/curves/bn254';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import type { ZodFor } from '@aztec/foundation/schemas';
 
 import type { AztecAddress } from '../aztec-address/index.js';
@@ -42,6 +42,10 @@ export class SiloedTag {
 
   equals(other: SiloedTag): boolean {
     return this.value.equals(other.value);
+  }
+
+  static random(): SiloedTag {
+    return new SiloedTag(Fr.random());
   }
 
   static get schema(): ZodFor<SiloedTag> {

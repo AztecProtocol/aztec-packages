@@ -176,7 +176,7 @@ describe('AztecNodeApiSchema', () => {
   });
 
   it('getBlockHeader', async () => {
-    const response = await context.client.getBlockHeader(new BlockHash(Fr.random()));
+    const response = await context.client.getBlockHeader(BlockHash.random());
     expect(response).toBeInstanceOf(BlockHeader);
   });
 
@@ -305,13 +305,13 @@ describe('AztecNodeApiSchema', () => {
   });
 
   it('getPrivateLogsByTags', async () => {
-    const response = await context.client.getPrivateLogsByTags([new SiloedTag(Fr.random())]);
+    const response = await context.client.getPrivateLogsByTags([SiloedTag.random()]);
     expect(response).toEqual([[expect.any(TxScopedL2Log)]]);
   });
 
   it('getPublicLogsByTagsFromContract', async () => {
     const contractAddress = await AztecAddress.random();
-    const response = await context.client.getPublicLogsByTagsFromContract(contractAddress, [new Tag(Fr.random())]);
+    const response = await context.client.getPublicLogsByTagsFromContract(contractAddress, [Tag.random()]);
     expect(response).toEqual([[expect.any(TxScopedL2Log)]]);
   });
 
