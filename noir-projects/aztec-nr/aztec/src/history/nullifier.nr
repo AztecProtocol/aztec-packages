@@ -6,7 +6,7 @@ use crate::oracle::get_nullifier_membership_witness::{
 
 use crate::protocol::{
     abis::block_header::BlockHeader,
-    merkle_tree::{indexed_tree::low_leaf::is_valid_low_leaf, root::root_from_sibling_path},
+    merkle_tree::{indexed_tree::is_valid_low_leaf, root::root_from_sibling_path},
     traits::Hash,
 };
 
