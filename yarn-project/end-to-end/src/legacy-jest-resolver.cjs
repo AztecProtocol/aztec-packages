@@ -87,6 +87,15 @@ function printBannerOnce() {
   process.stderr.write(lines.join('\n') + '\n');
 }
 
+// Artifact renames across versions. When the current code imports a name that didn't exist in an older release, map it
+// to the legacy equivalent so the old artifact is still used (keeping the test strict). Each entry documents which
+// version introduced the rename.
+const ARTIFACT_RENAMES = {
+  // SimulatedAccount was split into SimulatedEcdsaAccount + SimulatedSchnorrAccount after 4.2.0-aztecnr-rc.2.
+  'SimulatedEcdsaAccount.json': 'SimulatedAccount.json',
+  'SimulatedSchnorrAccount.json': 'SimulatedAccount.json',
+};
+
 // Match a resolved absolute path against the workspace artifacts dirs and return the legacy cache equivalent, or null
 // if it's not an artifact path we should redirect.
 function legacyArtifactPath(resolved) {
@@ -102,7 +111,24 @@ function legacyArtifactPath(resolved) {
       continue;
     }
     const basename = resolved.slice(idx + marker.length);
-    return path.join(cacheRoot, 'node_modules', pkg, 'artifacts', basename);
+    const artifactsDir = path.join(cacheRoot, 'node_modules', pkg, 'artifacts');
+    const candidate = path.join(artifactsDir, basename);
+    if (fs.existsSync(candidate)) {
+      return candidate;
+    }
+    // Try a known rename fallback before giving up.
+    const mapped = ARTIFACT_RENAMES[basename];
+    if (mapped) {
+      const fallback = path.join(artifactsDir, mapped);
+      if (fs.existsSync(fallback)) {
+        if (!seen.has(resolved)) {
+          seen.add(resolved);
+          process.stderr.write(`[legacy-contracts][jest] mapped ${basename} -> ${mapped} (rename in @${version})\n`);
+        }
+        return fallback;
+      }
+    }
+    return candidate; // return original path; caller will throw if it doesn't exist
   }
   return null;
 }
