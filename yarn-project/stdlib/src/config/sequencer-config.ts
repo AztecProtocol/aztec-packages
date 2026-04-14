@@ -41,7 +41,7 @@ export const sharedSequencerConfigMappings: ConfigMappingsType<
   attestationPropagationTime: {
     env: 'SEQ_ATTESTATION_PROPAGATION_TIME',
     description: 'How many seconds it takes for proposals and attestations to travel across the p2p layer (one-way).',
-    parseEnv: (val: string) => (val ? parseFloat(val) : undefined),
+    parseEnv: (val: string) => parseFloat(val),
     defaultValue: DEFAULT_P2P_PROPAGATION_TIME,
   },
 };
