@@ -508,7 +508,7 @@ void ExecutionTraceBuilder::process(
          *  Temporality group 3: Registers read.
          **************************************************************************************************/
 
-        // Note that if addressing did not fail, register reading will not fail.
+        // Note that if addressing did not fail, register reading will be performed.
         std::array<MemoryValue, AVM_MAX_REGISTERS> registers;
         std::ranges::fill(registers, MemoryValue::from_tag(static_cast<MemoryTag>(0), 0));
         const bool do_process_registers = instruction_fetching_success && !addressing_failed;
@@ -862,7 +862,7 @@ void ExecutionTraceBuilder::process_execution_spec(const simulation::ExecutionEv
                       { REGISTER_IS_WRITE_COLUMNS[i], register_info.is_write(i) ? 1 : 0 },
                       { REGISTER_MEM_OP_COLUMNS[i], register_info.is_active(i) ? 1 : 0 },
                       { REGISTER_EXPECTED_TAG_COLUMNS[i],
-                        register_info.need_tag_check(i) ? static_cast<uint32_t>(*(register_info.expected_tag(i))) : 0 },
+                        register_info.need_tag_check(i) ? static_cast<uint8_t>(*(register_info.expected_tag(i))) : 0 },
                       { REGISTER_TAG_CHECK_COLUMNS[i], register_info.need_tag_check(i) ? 1 : 0 },
                   } });
     }
