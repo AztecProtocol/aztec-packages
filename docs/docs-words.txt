@@ -409,7 +409,4 @@ interoperate
 reentrancy
 variadic
 Wonderland
-<<<<<<< HEAD
-=======
 indistinguishability
->>>>>>> f85b49d9e5 (feat(docs): private fpc guide)
