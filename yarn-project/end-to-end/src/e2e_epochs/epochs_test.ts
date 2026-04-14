@@ -1,5 +1,7 @@
+import type { InitialAccountData } from '@aztec/accounts/testing';
 import type { Archiver } from '@aztec/archiver';
 import { type AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
+import { getAccountContractAddress } from '@aztec/aztec.js/account';
 import { getTimestampRangeForEpoch } from '@aztec/aztec.js/block';
 import { getContractInstanceFromInstantiationParams } from '@aztec/aztec.js/contracts';
 import { Fr } from '@aztec/aztec.js/fields';
@@ -42,6 +44,11 @@ import {
   getPrivateKeyFromIndex,
   setup,
 } from '../fixtures/utils.js';
+import type { TestWallet } from '../test-wallet/test_wallet.js';
+import {
+  SCHNORR_HARDCODED_PRIVATE_KEY,
+  SchnorrHardcodedKeyAccountContract,
+} from './schnorr_hardcoded_account_contract.js';
 
 export const WORLD_STATE_CHECKPOINT_HISTORY = 2;
 export const WORLD_STATE_BLOCK_CHECK_INTERVAL = 50;
@@ -156,8 +163,6 @@ export class EpochsTestContext {
     );
 
     this.context = context;
-    // Clear dontStartSequencer from the config so validator nodes created by tests don't inherit it.
-    delete (context.config as Record<string, any>).dontStartSequencer;
     this.proverNodes = context.proverNode ? [context.proverNode] : [];
     this.nodes = context.aztecNode ? [context.aztecNode as AztecNodeService] : [];
     this.logger = context.logger;
@@ -212,6 +217,47 @@ export class EpochsTestContext {
     const addresses = deployedAccounts.map(a => a.address);
     this.context.accounts = addresses;
     return addresses;
+  }
+
+  /** Registers funded accounts locally in PXE without deploying them on-chain. No sequencer or block mining needed. */
+  public async registerTestAccounts(numberOfAccounts = 1) {
+    const accountsData = this.context.initialFundedAccounts.slice(0, numberOfAccounts);
+    const addresses = [];
+    for (const { secret, salt, signingKey } of accountsData) {
+      const accountManager = await this.context.wallet.createSchnorrAccount(secret, salt, signingKey);
+      addresses.push(accountManager.address);
+    }
+    this.context.accounts = addresses;
+    return addresses;
+  }
+
+  /**
+   * Computes InitialAccountData for a SchnorrHardcodedKeyAccountContract.
+   * This contract has a hardcoded signing key and no initializer, so it can be used without
+   * on-chain deployment. Pass the returned data in `initialFundedAccounts` so the address
+   * gets funded with fee juice in genesis.
+   */
+  public static async getHardcodedAccountData(secret: Fr, salt: Fr): Promise<InitialAccountData> {
+    const contract = new SchnorrHardcodedKeyAccountContract();
+    const address = await getAccountContractAddress(contract, secret, salt);
+    const signingKey = SCHNORR_HARDCODED_PRIVATE_KEY;
+    return { secret, salt, signingKey, address };
+  }
+
+  /**
+   * Registers a SchnorrHardcodedKeyAccountContract in PXE. The account must have been funded
+   * at genesis (via getHardcodedAccountData). No on-chain deployment or block mining needed.
+   */
+  public async registerHardcodedAccount(accountData: InitialAccountData) {
+    const contract = new SchnorrHardcodedKeyAccountContract();
+    const wallet = this.context.wallet;
+    const accountManager = await (wallet as TestWallet).createAccount({
+      secret: accountData.secret,
+      salt: accountData.salt,
+      contract,
+    });
+    this.context.accounts = [accountManager.address];
+    return accountManager.address;
   }
 
   public async createProverNode(opts: { dontStart?: boolean } & Partial<ProverNodeConfig> = {}) {

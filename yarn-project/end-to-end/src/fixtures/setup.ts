@@ -208,8 +208,9 @@ export type SetupOptions = {
   l1ContractsArgs?: Partial<DeployAztecL1ContractsArgs>;
   /** Wallet minimum fee padding multiplier (defaults to 0.5, which is 50% padding). */
   walletMinFeePadding?: number;
-  /** Whether to start the initial node without a sequencer (for tests that create their own nodes). */
-  dontStartSequencer?: boolean;
+  /** Whether the initial node should be a lightweight RPC-only node (no sequencer, no validator).
+   *  Use for tests that create their own validator nodes and don't need the initial sequencer. */
+  skipInitialSequencer?: boolean;
 } & Partial<AztecNodeConfig>;
 
 /** Context for an end-to-end test as returned by the `setup` function */
@@ -504,11 +505,22 @@ export async function setup(
       }
     }
 
+    // When skipInitialSequencer is set, the initial node is a lightweight RPC-only node.
+    // We apply these overrides to a copy so they don't leak into the returned config.
+    // Keep P2P enabled if mockGossipSubNetwork is used (needed for tx propagation to validators).
+    const initialNodeConfig = opts.skipInitialSequencer
+      ? {
+          ...config,
+          disableValidator: true,
+          ...(opts.mockGossipSubNetwork ? {} : { p2pEnabled: false, bootstrapNodes: [] as string[] }),
+        }
+      : config;
+
     const aztecNodeService = await withLoggerBindings({ actor: 'node-0' }, () =>
       AztecNodeService.createAndSync(
-        config,
+        initialNodeConfig,
         { dateProvider, telemetry: telemetryClient, p2pClientDeps },
-        { genesis, dontStartSequencer: opts.dontStartSequencer },
+        { genesis, dontStartSequencer: opts.skipInitialSequencer },
       ),
     );
     const sequencerClient = aztecNodeService.getSequencer();
@@ -569,7 +581,7 @@ export async function setup(
 
     let accounts: AztecAddress[] = [];
 
-    if (opts.dontStartSequencer) {
+    if (opts.skipInitialSequencer) {
       logger.info('Sequencer not started on initial node, skipping block progression');
     } else if (shouldDeployAccounts) {
       logger.info(

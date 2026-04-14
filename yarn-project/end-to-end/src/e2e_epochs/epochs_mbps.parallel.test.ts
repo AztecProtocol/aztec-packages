@@ -1,3 +1,4 @@
+import type { InitialAccountData } from '@aztec/accounts/testing';
 import type { Archiver } from '@aztec/archiver';
 import type { AztecNodeService } from '@aztec/aztec-node';
 import { AztecAddress, EthAddress } from '@aztec/aztec.js/addresses';
@@ -81,6 +82,9 @@ describe('e2e_epochs/epochs_mbps', () => {
       return { attester, withdrawer: attester, privateKey, bn254SecretKey: new SecretValue(Fr.random().toBigInt()) };
     });
 
+    // Pre-compute hardcoded account data so it gets funded in genesis.
+    const accountData: InitialAccountData = await EpochsTestContext.getHardcodedAccountData(Fr.random(), Fr.random());
+
     // Setup context with the given set of validators and MBPS configuration.
     // Timing calculation for 3 blocks per checkpoint with 8s sub-slots:
     // - initializationOffset ≈ 0.5s (test mode with ethereumSlotDuration < 8)
@@ -89,8 +93,8 @@ describe('e2e_epochs/epochs_mbps', () => {
     // - finalBlockDuration = 8s
     // - Total: 0.5 + 24 + 8 + 2.5 = 35s → use 36s for margin
     test = await EpochsTestContext.setup({
-      numberOfAccounts: 1,
-      skipAccountDeployment: true,
+      numberOfAccounts: 0,
+      initialFundedAccounts: [accountData],
       initialValidators: validators,
       mockGossipSubNetwork: true,
       disableAnvilTestWatcher: true,
@@ -113,11 +117,14 @@ describe('e2e_epochs/epochs_mbps', () => {
       ...setupOpts,
       // PXE options for chain tip syncing
       pxeOpts: { syncChainTip },
-      dontStartSequencer: true,
+      skipInitialSequencer: true,
     });
 
     ({ context, logger, rollup } = test);
     wallet = context.wallet;
+
+    // Register the hardcoded account in PXE (local only, no on-chain deployment).
+    from = await test.registerHardcodedAccount(accountData);
 
     // Start the validator nodes
     logger.warn(`Initial setup complete. Starting ${NODE_COUNT} validator nodes.`);
@@ -130,11 +137,7 @@ describe('e2e_epochs/epochs_mbps', () => {
     wallet.updateNode(nodes[0]);
     archiver = nodes[0].getBlockSource() as Archiver;
 
-    // Deploy accounts now that validators are running to mine blocks.
-    const accounts = await test.deployTestAccounts(1);
-    from = accounts[0];
-
-    // Deploy cross-chain contract if needed (before stopping sequencers).
+    // Deploy cross-chain contract if needed (validators are running so blocks can be mined).
     if (deployCrossChainContract) {
       logger.warn(`Deploying cross-chain test contract`);
       ({ contract: crossChainContract } = await TestContract.deploy(wallet).send({ from }));

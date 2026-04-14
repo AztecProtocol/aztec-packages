@@ -1,3 +1,4 @@
+import type { InitialAccountData } from '@aztec/accounts/testing';
 import type { Archiver } from '@aztec/archiver';
 import type { AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
 import { AztecAddress, EthAddress } from '@aztec/aztec.js/addresses';
@@ -85,6 +86,9 @@ describe('e2e_epochs/epochs_mbps_redistribution', () => {
       return { attester, withdrawer: attester, privateKey, bn254SecretKey: new SecretValue(Fr.random().toBigInt()) };
     });
 
+    // Pre-compute hardcoded account data so it gets funded in genesis.
+    const accountData: InitialAccountData = await EpochsTestContext.getHardcodedAccountData(Fr.random(), Fr.random());
+
     // Timing calculation for 3 blocks per checkpoint with 8s sub-slots:
     // - initializationOffset = 0.5s (test mode, ethereumSlotDuration < 8)
     // - 3 blocks x 8s = 24s
@@ -92,8 +96,8 @@ describe('e2e_epochs/epochs_mbps_redistribution', () => {
     // - finalBlockDuration = 8s (re-execution)
     // - Total: 0.5 + 24 + 8 + 2.5 = 35s => use 36s
     test = await EpochsTestContext.setup({
-      numberOfAccounts: 1,
-      skipAccountDeployment: true,
+      numberOfAccounts: 0,
+      initialFundedAccounts: [accountData],
       initialValidators: validators,
       mockGossipSubNetwork: true,
       disableAnvilTestWatcher: true,
@@ -115,29 +119,25 @@ describe('e2e_epochs/epochs_mbps_redistribution', () => {
       // PXE syncs on checkpointed chain tip.
       pxeOpts: { syncChainTip: 'checkpointed' },
       ...contextConfigOverride,
-      dontStartSequencer: true,
+      skipInitialSequencer: true,
     });
 
     ({ context, logger, rollup } = test);
     wallet = context.wallet;
 
+    // Register the hardcoded account in PXE (local only, no on-chain deployment).
+    from = await test.registerHardcodedAccount(accountData);
+
     // Start validator nodes.
     logger.warn(`Starting ${NODE_COUNT} validator nodes.`);
     nodes = await asyncMap(validators, ({ privateKey }, i) =>
-      test.createValidatorNode([privateKey], { ...nodeConfigOverride?.(i) }),
+      test.createValidatorNode([privateKey], { dontStartSequencer: true, ...nodeConfigOverride?.(i) }),
     );
     logger.warn(`Started ${NODE_COUNT} validator nodes.`, { validators: validators.map(v => v.attester.toString()) });
 
     // Point the wallet at a validator node.
     wallet.updateNode(nodes[0]);
     archiver = nodes[0].getBlockSource() as Archiver;
-
-    // Deploy accounts now that validators are running to mine blocks.
-    const accounts = await test.deployTestAccounts(1);
-    from = accounts[0];
-
-    // Stop sequencers so the test body can configure and restart them.
-    await Promise.all(nodes.map(n => n.getSequencer()!.stop()));
 
     // Register the test contract.
     contract = await test.registerTestContract(wallet);

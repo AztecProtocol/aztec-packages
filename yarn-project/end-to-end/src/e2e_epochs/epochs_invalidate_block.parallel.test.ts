@@ -1,4 +1,6 @@
+import type { InitialAccountData } from '@aztec/accounts/testing';
 import type { AztecNodeService } from '@aztec/aztec-node';
+import type { AztecAddress } from '@aztec/aztec.js/addresses';
 import { NO_WAIT } from '@aztec/aztec.js/contracts';
 import { Fr } from '@aztec/aztec.js/fields';
 import type { Logger } from '@aztec/aztec.js/log';
@@ -45,6 +47,8 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
   let validators: (Operator & { privateKey: `0x${string}` })[];
   let nodes: AztecNodeService[];
   let testContract: TestContract;
+  let accountData: InitialAccountData;
+  let from: AztecAddress;
 
   beforeEach(async () => {
     validators = times(VALIDATOR_COUNT, i => {
@@ -52,6 +56,9 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
       const attester = EthAddress.fromString(privateKeyToAccount(privateKey).address);
       return { attester, withdrawer: attester, privateKey, bn254SecretKey: new SecretValue(Fr.random().toBigInt()) };
     });
+
+    // Pre-compute hardcoded account data so it gets funded in genesis.
+    accountData = await EpochsTestContext.getHardcodedAccountData(Fr.random(), Fr.random());
 
     // Setup context with the given set of validators, mocked gossip sub network, and no anvil test watcher.
     // Uses multiple-blocks-per-slot timing configuration.
@@ -61,8 +68,8 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
       blockDurationMs: 6000,
       l1PublishingTime: 8,
       enforceTimeTable: true,
-      numberOfAccounts: 1,
-      skipAccountDeployment: true,
+      numberOfAccounts: 0,
+      initialFundedAccounts: [accountData],
       initialValidators: validators,
       mockGossipSubNetwork: true,
       disableAnvilTestWatcher: true,
@@ -77,28 +84,26 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
       slasherEnabled: true,
       minTxsPerBlock: 1,
       maxTxsPerBlock: 1,
-      dontStartSequencer: true,
+      skipInitialSequencer: true,
     });
 
     ({ context, logger, l1Client } = test);
     rollupContract = new RollupContract(l1Client, test.rollup.address);
+
+    // Register the hardcoded account in PXE (local only, no on-chain deployment).
+    from = await test.registerHardcodedAccount(accountData);
 
     // Start the validator nodes
     logger.warn(`Initial setup complete. Starting ${NODE_COUNT} validator nodes.`);
     const validatorNodes = validators.slice(0, NODE_COUNT);
     nodes = await asyncMap(validatorNodes, ({ privateKey }) =>
       test.createValidatorNode([privateKey], {
+        dontStartSequencer: true,
         minTxsPerBlock: 1,
         maxTxsPerBlock: 1,
       }),
     );
     logger.warn(`Started ${NODE_COUNT} validator nodes.`, { validators: validatorNodes.map(v => v.attester) });
-
-    // Deploy accounts now that validators are running to mine blocks.
-    await test.deployTestAccounts(1);
-
-    // Stop sequencers so the test body can configure and restart them.
-    await Promise.all(nodes.map(n => n.getSequencer()!.stop()));
 
     // Register test contract for lightweight txs
     testContract = await test.registerTestContract(context.wallet);
@@ -242,7 +247,7 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
     // We'll later check that the first tx at least was picked up and mined
     logger.warn('Sending multiple transactions to trigger block building');
     const [{ txHash: sentTx }] = await timesAsync(8, i =>
-      testContract.methods.emit_nullifier(BigInt(i + 1)).send({ from: context.accounts[0], wait: NO_WAIT }),
+      testContract.methods.emit_nullifier(BigInt(i + 1)).send({ from, wait: NO_WAIT }),
     );
 
     // Disable skipCollectingAttestations after the first checkpoint and capture its number
@@ -313,9 +318,7 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
     const currentCheckpoint = await test.rollup.getCheckpointNumber();
 
     logger.warn('Sending further transactions to trigger more block building');
-    await timesAsync(8, i =>
-      testContract.methods.emit_nullifier(BigInt(i + 100)).send({ from: context.accounts[0], wait: NO_WAIT }),
-    );
+    await timesAsync(8, i => testContract.methods.emit_nullifier(BigInt(i + 100)).send({ from, wait: NO_WAIT }));
 
     logger.warn(`Waiting for checkpoint ${currentCheckpoint + 2} to be mined to ensure chain can progress`);
     await test.waitUntilCheckpointNumber(CheckpointNumber(currentCheckpoint + 2), test.L2_SLOT_DURATION_IN_S * 8);

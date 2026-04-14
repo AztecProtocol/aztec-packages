@@ -1,3 +1,4 @@
+import type { InitialAccountData } from '@aztec/accounts/testing';
 import type { Archiver } from '@aztec/archiver';
 import type { AztecNodeService } from '@aztec/aztec-node';
 import { AztecAddress, EthAddress } from '@aztec/aztec.js/addresses';
@@ -67,9 +68,12 @@ describe('e2e_epochs/epochs_mbps_pipeline', () => {
       return { attester, withdrawer: attester, privateKey, bn254SecretKey: new SecretValue(Fr.random().toBigInt()) };
     });
 
+    // Pre-compute hardcoded account data so it gets funded in genesis.
+    const accountData: InitialAccountData = await EpochsTestContext.getHardcodedAccountData(Fr.random(), Fr.random());
+
     test = await EpochsTestContext.setup({
-      numberOfAccounts: 1,
-      skipAccountDeployment: true,
+      numberOfAccounts: 0,
+      initialFundedAccounts: [accountData],
       initialValidators: validators,
       enableProposerPipelining: true, // <- yehaw
       mockGossipSubNetwork: true,
@@ -87,28 +91,24 @@ describe('e2e_epochs/epochs_mbps_pipeline', () => {
       inboxLag: 2,
       ...setupOpts,
       pxeOpts: { syncChainTip },
-      dontStartSequencer: true,
+      skipInitialSequencer: true,
     });
 
     ({ context, logger, rollup } = test);
     wallet = context.wallet;
 
+    // Register the hardcoded account in PXE (local only, no on-chain deployment).
+    from = await test.registerHardcodedAccount(accountData);
+
     logger.warn(`Initial setup complete. Starting ${NODE_COUNT} validator nodes.`);
     // Clear inherited coinbase so each validator derives coinbase from its own attester key
     nodes = await asyncMap(validators, ({ privateKey }) =>
-      test.createValidatorNode([privateKey], { coinbase: undefined }),
+      test.createValidatorNode([privateKey], { coinbase: undefined, dontStartSequencer: true }),
     );
     logger.warn(`Started ${NODE_COUNT} validator nodes.`, { validators: validators.map(v => v.attester.toString()) });
 
     wallet.updateNode(nodes[0]);
     archiver = nodes[0].getBlockSource() as Archiver;
-
-    // Deploy accounts now that validators are running to mine blocks.
-    const accounts = await test.deployTestAccounts(1);
-    from = accounts[0];
-
-    // Stop sequencers so the test body can configure and restart them.
-    await Promise.all(nodes.map(n => n.getSequencer()!.stop()));
 
     contract = await test.registerTestContract(wallet);
     logger.warn(`Test setup completed.`, { validators: validators.map(v => v.attester.toString()) });
