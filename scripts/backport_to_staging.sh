@@ -204,8 +204,9 @@ else
   echo "PR already exists (#$EXISTING_PR)"
 fi
 
-# Update PR body with commit override markers (same mechanism as merge-trains)
+# Update PR body with commit override markers (same mechanism as merge-trains).
+# Non-fatal: the backport itself already succeeded at this point.
 echo "Updating PR body with commit list..."
-do_or_dryrun "$root/scripts/merge-train/update-pr-body.sh" "$STAGING_BRANCH"
+do_or_dryrun "$root/scripts/merge-train/update-pr-body.sh" "$STAGING_BRANCH" || echo "Warning: Failed to update PR body (non-fatal)"
 
 do_or_dryrun echo "Successfully backported PR #$PR_NUMBER to $STAGING_BRANCH"

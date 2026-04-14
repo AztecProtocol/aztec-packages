@@ -25,7 +25,11 @@ jobs:
   backport:
     needs: [label_checker]
     name: Backport PR
-    if: github.event.pull_request.merged == true && needs.label_checker.outputs.state == 'success'
+    if: >-
+      github.event.pull_request.merged == true
+      && needs.label_checker.outputs.state == 'success'
+      && !startsWith(github.event.pull_request.head.ref, 'merge-train/')
+      && !startsWith(github.event.pull_request.head.ref, 'backport-to-')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
