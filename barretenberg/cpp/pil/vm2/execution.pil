@@ -51,13 +51,146 @@ include "opcodes/sload.pil";
 include "opcodes/sstore.pil";
 
 /**
-*   Usage: Exactly two permutations from the tx trace to dispatch execution of an enqueued call.
-*          First one is to dispatch the start of an enqueued call to the execution trace and the
-*          second one is to retrieve the results from the end of an enqueued call to the execution trace.
-*          - #[DISPATCH_EXEC_START]: destination selector `enqueued_call_start`
-*          - #[DISPATCH_EXEC_END]: destination selector `enqueued_call_end`
-*   See details in tx.pil.
-*/
+ * EXECUTION TRACE
+ *
+ * This is the main trace for AVM execution. Each active row corresponds to the execution of
+ * exactly one opcode. The active rows are organized in contiguous blocks, where each block
+ * corresponds to the execution of a public call request (enqueued call) dispatched by tx.pil.
+ * A block starts with `enqueued_call_start == 1` and ends with `enqueued_call_end == 1`.
+ * Within a block, nested calls (CALL/STATICCALL) switch context without breaking the contiguous
+ * row sequence — the context stack (context_stack.pil) tracks saved/restored state.
+ *
+ * TRACE SHAPE
+ *
+ *   Row 0 is always inactive (sel == 0). Active rows follow contiguously until the last
+ *   enqueued call ends, after which all remaining rows are inactive. Each active row
+ *   processes one opcode. Each block of active rows between `enqueued_call_start == 1`
+ *   and `enqueued_call_end == 1` represents the full execution of one public call request
+ *   (enqueued call) sent by tx.pil (via #[DISPATCH_EXEC_START] and #[DISPATCH_EXEC_END]).
+ *
+ *   | row | sel | enqueued_call_start | enqueued_call_end | context_id | opcode     |
+ *   |-----|-----|---------------------|-------------------|------------|------------|
+ *   |  0  |  0  |  0                  |  0                |  0         |            |
+ *   |  1  |  1  |  1                  |  0                |  1         | SET        |  <- enqueued call 1 start
+ *   |  2  |  1  |  0                  |  0                |  1         | CALL       |
+ *   |  3  |  1  |  0                  |  0                |  2         | ADD        |  <- nested context
+ *   |  4  |  1  |  0                  |  0                |  2         | RETURN     |
+ *   |  5  |  1  |  0                  |  0                |  1         | MOV        |  <- back to parent
+ *   |  6  |  1  |  0                  |  1                |  1         | RETURN     |  <- enqueued call 1 end
+ *   |  7  |  1  |  1                  |  0                |  3         | SET        |  <- enqueued call 2 start
+ *   |  8  |  1  |  0                  |  1                |  3         | RETURN     |  <- enqueued call 2 end
+ *   |  9  |  0  |  0                  |  0                |  0         |            |  <- inactive padding
+ *
+ * TEMPORALITY GROUPS
+ *
+ *   Each row processes one instruction through 6 sequential temporality groups. An error in any
+ *   group stops processing for subsequent groups on that row:
+ *
+ *   TG1: Bytecode retrieval   — retrieve bytecode (first row in context only).
+ *                                Error: BYTECODE_RETRIEVAL.
+ *   TG2: Instruction fetching — fetch and decode instruction, resolve operand addresses.
+ *                                Errors: INSTRUCTION_FETCHING, ADDRESSING.
+ *   TG3: Register read        — read input registers from memory, validate tags.
+ *                                Error: REGISTER_READ.
+ *   TG4: Gas                  — consume base + dynamic gas.
+ *                                Error: GAS (out of gas).
+ *   TG5: Opcode execution     — execute opcode logic, dispatch to subtraces.
+ *                                Error: OPCODE_EXECUTION.
+ *   TG6: Register write       — write output registers to memory. Cannot error.
+ *
+ *   The temporality group selectors form a deactivation cascade (see SELECTOR DEACTIVATION CASCADE
+ *   below): sel == 0 deactivates all of them, and an error in group N deactivates subsequent groups.
+ *
+ * ERRORS
+ *
+ *   Errors are mutually exclusive (at most one per row) and collected in `sel_error`. When any
+ *   error occurs, the context halts exceptionally: all remaining gas is consumed, and the context
+ *   is marked as failed. The mutual exclusion is enforced by the temporality group cascade: an
+ *   error in group N deactivates all subsequent groups, preventing later errors. See the comment
+ *   at `sel_error` for the full proof.
+ *
+ *   The 6 error types, in temporality group order:
+ *     1. sel_bytecode_retrieval_failure (TG1): Bytecode for the contract could not be retrieved
+ *        (e.g., contract not deployed, too many unique bytecodes).
+ *     2. sel_instruction_fetching_failure (TG2): Instruction at the current PC could not be
+ *        decoded (e.g., invalid opcode, PC out of bounds).
+ *     3. sel_addressing_error (TG2): Operand address resolution failed (e.g., invalid base
+ *        address tag, relative overflow, invalid tag after indirection).
+ *     4. sel_register_read_error (TG3): Input register tag does not match the expected tag
+ *        for the opcode.
+ *     5. sel_out_of_gas (TG4): Cumulative gas usage exceeds the gas limit (L2 or DA).
+ *     6. sel_opcode_error (TG5): Opcode-specific execution error (e.g., division by zero,
+ *        static context violation, nullifier collision, maximum side effects reached).
+ *
+ * INTERACTIONS (outgoing — this trace as source)
+ *
+ *   Bytecode:
+ *     - #[BYTECODE_RETRIEVAL_RESULT] -> bc_retrieval: retrieve bytecode for a context.
+ *     - #[INSTRUCTION_FETCHING_RESULT] -> instr_fetching: check if instruction fetch succeeds.
+ *     - #[INSTRUCTION_FETCHING_BODY] -> instr_fetching: fetch instruction opcode and operands.
+ *     - #[EXEC_SPEC_READ] -> precomputed: read execution spec (gas costs, register info, subtrace dispatch).
+ *
+ *   Gas (dynamic):
+ *     - #[DYN_L2_FACTOR_BITWISE] -> precomputed: tag-based byte length for bitwise gas.
+ *     - #[CHECK_RADIX_GT_256] -> gt: compare radix > 256.
+ *     - #[GET_P_LIMBS] -> precomputed: lookup num_p_limbs for to_radix gas.
+ *     - #[GET_MAX_LIMBS] -> gt: compare num_limbs > num_p_limbs.
+ *     - #[CHECK_WRITTEN_STORAGE_SLOT] -> indexed_tree_check: check if slot was previously
+ *       written (sstore gas).
+ *
+ *   Opcode dispatch (lookups for pure/deduplicated computations):
+ *     - #[DISPATCH_TO_ALU] -> alu: arithmetic operations
+ *       (ADD, SUB, MUL, DIV, FDIV, EQ, LT, LTE, NOT, SHL, SHR).
+ *     - #[DISPATCH_TO_BITWISE] -> bitwise: AND, OR, XOR.
+ *     - #[DISPATCH_TO_CAST] -> alu (truncate): CAST.
+ *     - #[DISPATCH_TO_SET] -> alu (truncate): SET.
+ *
+ *   Opcode dispatch (permutations for side-effecting/memory-writing computations):
+ *     - #[DISPATCH_TO_CD_COPY] -> data_copy: CALLDATACOPY.
+ *     - #[DISPATCH_TO_RD_COPY] -> data_copy: RETURNDATACOPY.
+ *     - #[DISPATCH_TO_GET_CONTRACT_INSTANCE] -> get_contract_instance: GETCONTRACTINSTANCE.
+ *     - #[DISPATCH_TO_EMIT_PUBLIC_LOG] -> emit_public_log: EMITPUBLICLOG.
+ *     - #[DISPATCH_TO_POSEIDON2_PERM] -> poseidon2_perm_mem: POSEIDON2PERM.
+ *     - #[DISPATCH_TO_SHA256_COMPRESSION] -> sha256: SHA256COMPRESSION.
+ *     - #[DISPATCH_TO_KECCAKF1600] -> keccakf1600: KECCAKF1600.
+ *     - #[DISPATCH_TO_ECC_ADD] -> ecc_add_mem: ECADD.
+ *     - #[DISPATCH_TO_TO_RADIX] -> to_radix_mem: TORADIXBE.
+ *
+ * VIRTUAL SUBTRACES (files sharing namespace execution)
+ *
+ *   The following PIL files define constraints under `namespace execution` and share columns
+ *   with this trace. They are "virtual" subtraces — not separate traces but additional
+ *   constraint sets over the same rows:
+ *
+ *   Core:
+ *     - context.pil: Context propagation (context_id, parent_id, pc, gas, tree state, etc.).
+ *     - execution/addressing.pil: Operand resolution (relative addressing, indirection).
+ *     - execution/discard.pil: Side-effect discarding on error (discard flag, dying context).
+ *     - execution/gas.pil: Gas computation and out-of-gas detection.
+ *     - execution/registers.pil: Register read/write memory operations and tag checks.
+ *
+ *   Opcodes (each constrains opcode-specific columns on execution rows):
+ *     - opcodes/emit_notehash.pil: EMITNOTEHASH opcode.
+ *     - opcodes/emit_nullifier.pil: EMITNULLIFIER opcode.
+ *     - opcodes/external_call.pil: CALL and STATICCALL opcodes.
+ *     - opcodes/get_env_var.pil: GETENVVAR opcode.
+ *     - opcodes/internal_call.pil: INTERNALCALL and INTERNALRETURN opcodes.
+ *     - opcodes/l1_to_l2_message_exists.pil: L1TOL2MSGEXISTS opcode.
+ *     - opcodes/notehash_exists.pil: NOTEHASHEXISTS opcode.
+ *     - opcodes/nullifier_exists.pil: NULLIFIEREXISTS opcode.
+ *     - opcodes/send_l2_to_l1_msg.pil: SENDL2TOL1MSG opcode.
+ *     - opcodes/sload.pil: SLOAD opcode.
+ *     - opcodes/sstore.pil: SSTORE opcode.
+ *
+ * INTERACTIONS (incoming — this trace as destination)
+ *
+ *   From tx.pil:
+ *     - #[DISPATCH_EXEC_START]: permutation into `enqueued_call_start`. Initializes context_id,
+ *       msg_sender, contract_address, gas limits, tree state, side effect counters, etc.
+ *     - #[DISPATCH_EXEC_END]: permutation into `enqueued_call_end`. Retrieves next_context_id,
+ *       sel_failure, discard, final tree state, side effect counters, gas used.
+ *   See tx.pil for the full tuple definitions.
+ */
 
 namespace execution;
 
