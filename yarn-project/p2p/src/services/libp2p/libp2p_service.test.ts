@@ -6,7 +6,7 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { openTmpStore } from '@aztec/kv-store/lmdb';
-import { L2Block, type L2BlockSource } from '@aztec/stdlib/block';
+import type { L2BlockSource } from '@aztec/stdlib/block';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 import type { ClientProtocolCircuitVerifier } from '@aztec/stdlib/interfaces/server';
 import { BlockProposal, PeerErrorSeverity } from '@aztec/stdlib/p2p';
@@ -309,66 +309,6 @@ describe('LibP2PService', () => {
         source: 'gossip',
       });
       expect(txReportSpy).toHaveBeenCalledWith('test-msg-id', MOCK_PEER_ID, TopicValidatorResult.Accept);
-    });
-  });
-
-  describe('validateRequestedBlock', () => {
-    it('should return false and penalize on number mismatch', async () => {
-      const requested = new Fr(10);
-      const resp = await L2Block.random(BlockNumber(9));
-
-      const ok = await service.validateRequestedBlock(requested, resp, mockPeerId);
-
-      expect(ok).toBe(false);
-      expect(mockPeerManager.penalizePeer).toHaveBeenCalledWith(mockPeerId, PeerErrorSeverity.LowToleranceError);
-    });
-
-    it('should return false (no penalty) when numbers match and no local block', async () => {
-      mockArchiver.getBlock.mockResolvedValue(undefined);
-      const requested = new Fr(10);
-      const resp = await L2Block.random(BlockNumber(10));
-
-      const ok = await service.validateRequestedBlock(requested, resp, mockPeerId);
-
-      expect(ok).toBe(false);
-      expect(mockPeerManager.penalizePeer).not.toHaveBeenCalled();
-    });
-
-    it('should return true when numbers match and hashes match', async () => {
-      const requested = new Fr(10);
-      const local = await L2Block.random(BlockNumber(10));
-
-      const resp = L2Block.fromBuffer(local.toBuffer());
-      mockArchiver.getBlock.mockResolvedValue(local);
-
-      const ok = await service.validateRequestedBlock(requested, resp, mockPeerId);
-
-      expect(ok).toBe(true);
-      expect(mockPeerManager.penalizePeer).not.toHaveBeenCalled();
-    });
-
-    it('should return false and penalize when hashes mismatch', async () => {
-      const requested = new Fr(10);
-      const local = await L2Block.random(BlockNumber(10));
-
-      const resp = L2Block.fromBuffer(local.toBuffer());
-      resp.header.globalVariables.coinbase = EthAddress.random();
-      mockArchiver.getBlock.mockResolvedValue(local);
-
-      const ok = await service.validateRequestedBlock(requested, resp, mockPeerId);
-
-      expect(ok).toBe(false);
-      expect(mockPeerManager.penalizePeer).toHaveBeenCalledWith(mockPeerId, PeerErrorSeverity.MidToleranceError);
-    });
-
-    it('should return false on archiver error', async () => {
-      mockArchiver.getBlock.mockRejectedValue(new Error('boom'));
-      const requested = new Fr(10);
-      const resp = await L2Block.random(BlockNumber(10));
-
-      const ok = await service.validateRequestedBlock(requested, resp, mockPeerId);
-
-      expect(ok).toBe(false);
     });
   });
 
@@ -799,7 +739,8 @@ describe('LibP2PService', () => {
     let mockEpochCache: MockProxy<EpochCacheInterface>;
     let signer: Secp256k1Signer;
     let blockReceivedCallback: jest.Mock;
-    let checkpointReceivedCallback: jest.Mock;
+    let validatorCheckpointReceivedCallback: jest.Mock;
+    let allNodesCheckpointReceivedCallback: jest.Mock;
     let duplicateProposalCallback: jest.Mock;
 
     const targetSlot = SlotNumber(100);
@@ -828,10 +769,12 @@ describe('LibP2PService', () => {
       );
 
       blockReceivedCallback = jest.fn().mockImplementation(() => Promise.resolve(true));
-      checkpointReceivedCallback = jest.fn().mockImplementation(() => Promise.resolve([]));
+      allNodesCheckpointReceivedCallback = jest.fn().mockImplementation(() => Promise.resolve([]));
+      validatorCheckpointReceivedCallback = jest.fn().mockImplementation(() => Promise.resolve([]));
       duplicateProposalCallback = jest.fn();
       service.registerBlockReceivedCallback(blockReceivedCallback as any);
-      service.registerCheckpointReceivedCallback(checkpointReceivedCallback as any);
+      service.registerValidatorCheckpointReceivedCallback(validatorCheckpointReceivedCallback as any);
+      service.registerAllNodesCheckpointReceivedCallback(allNodesCheckpointReceivedCallback as any);
       service.registerDuplicateProposalCallback(duplicateProposalCallback);
     });
 
@@ -842,8 +785,11 @@ describe('LibP2PService', () => {
       await service.handleGossipedCheckpointProposal(proposal.toBuffer(), 'msg-1', mockPeerId);
 
       // Verify callback was invoked with checkpoint core
-      expect(checkpointReceivedCallback).toHaveBeenCalledTimes(1);
-      expect(checkpointReceivedCallback).toHaveBeenCalledWith(expect.any(Object), mockPeerId);
+      expect(allNodesCheckpointReceivedCallback).toHaveBeenCalledTimes(1);
+      expect(allNodesCheckpointReceivedCallback).toHaveBeenCalledWith(expect.any(Object), mockPeerId);
+
+      expect(validatorCheckpointReceivedCallback).toHaveBeenCalledTimes(1);
+      expect(validatorCheckpointReceivedCallback).toHaveBeenCalledWith(expect.any(Object), mockPeerId);
 
       // Verify message was accepted
       expect(reportMessageValidationResultSpy).toHaveBeenCalledWith('msg-1', MOCK_PEER_ID, TopicValidatorResult.Accept);
@@ -863,10 +809,12 @@ describe('LibP2PService', () => {
         archiveRoot: Fr.random(),
       });
       await service.handleGossipedCheckpointProposal(checkpoint1.toBuffer(), 'msg-1', mockPeerId);
-      expect(checkpointReceivedCallback).toHaveBeenCalledTimes(1);
+      expect(allNodesCheckpointReceivedCallback).toHaveBeenCalledTimes(1);
+      expect(validatorCheckpointReceivedCallback).toHaveBeenCalledTimes(1);
 
       // Reset mocks
-      checkpointReceivedCallback.mockClear();
+      allNodesCheckpointReceivedCallback.mockClear();
+      validatorCheckpointReceivedCallback.mockClear();
       reportMessageValidationResultSpy.mockClear();
 
       // Second checkpoint at same slot (equivocation)
@@ -881,7 +829,8 @@ describe('LibP2PService', () => {
       expect(reportMessageValidationResultSpy).toHaveBeenCalledWith('msg-2', MOCK_PEER_ID, TopicValidatorResult.Accept);
 
       // Verify callback was NOT invoked
-      expect(checkpointReceivedCallback).not.toHaveBeenCalled();
+      expect(allNodesCheckpointReceivedCallback).not.toHaveBeenCalled();
+      expect(validatorCheckpointReceivedCallback).not.toHaveBeenCalled();
 
       // Verify duplicate callback was invoked
       expect(duplicateProposalCallback).toHaveBeenCalledWith({
@@ -904,7 +853,8 @@ describe('LibP2PService', () => {
 
       // Verify both callbacks were invoked
       expect(blockReceivedCallback).toHaveBeenCalledTimes(1);
-      expect(checkpointReceivedCallback).toHaveBeenCalledTimes(1);
+      expect(allNodesCheckpointReceivedCallback).toHaveBeenCalledTimes(1);
+      expect(validatorCheckpointReceivedCallback).toHaveBeenCalledTimes(1);
 
       // Verify txs were marked as non-evictable (for the lastBlock)
       expect(mockTxPool.protectTxs).toHaveBeenCalledTimes(1);
@@ -935,7 +885,8 @@ describe('LibP2PService', () => {
 
       // Reset mocks
       blockReceivedCallback.mockClear();
-      checkpointReceivedCallback.mockClear();
+      allNodesCheckpointReceivedCallback.mockClear();
+      validatorCheckpointReceivedCallback.mockClear();
       reportMessageValidationResultSpy.mockClear();
       mockTxPool.protectTxs.mockClear();
       mockPeerManager.penalizePeer.mockClear();
@@ -960,7 +911,8 @@ describe('LibP2PService', () => {
       );
 
       // Verify checkpoint callback was NOT invoked
-      expect(checkpointReceivedCallback).not.toHaveBeenCalled();
+      expect(allNodesCheckpointReceivedCallback).not.toHaveBeenCalled();
+      expect(validatorCheckpointReceivedCallback).not.toHaveBeenCalled();
 
       // But the lastBlock IS processed since it was valid
       expect(blockReceivedCallback).toHaveBeenCalled();
@@ -991,7 +943,8 @@ describe('LibP2PService', () => {
 
       // Reset mocks
       blockReceivedCallback.mockClear();
-      checkpointReceivedCallback.mockClear();
+      allNodesCheckpointReceivedCallback.mockClear();
+      validatorCheckpointReceivedCallback.mockClear();
       reportMessageValidationResultSpy.mockClear();
 
       // Create checkpoint with different lastBlock at same position
@@ -1008,7 +961,8 @@ describe('LibP2PService', () => {
       expect(reportMessageValidationResultSpy).toHaveBeenCalledWith('msg-1', MOCK_PEER_ID, TopicValidatorResult.Reject);
 
       // Verify neither callback was invoked
-      expect(checkpointReceivedCallback).not.toHaveBeenCalled();
+      expect(allNodesCheckpointReceivedCallback).not.toHaveBeenCalled();
+      expect(validatorCheckpointReceivedCallback).not.toHaveBeenCalled();
       expect(blockReceivedCallback).not.toHaveBeenCalled();
     });
 
@@ -1025,6 +979,16 @@ describe('LibP2PService', () => {
 
       // Verify message was rejected
       expect(reportMessageValidationResultSpy).toHaveBeenCalledWith('msg-1', MOCK_PEER_ID, TopicValidatorResult.Reject);
+    });
+
+    it('notifyOwnCheckpointProposal fires allNodesCheckpointReceivedCallback', async () => {
+      const checkpointHeader = makeCheckpointHeader(1, { slotNumber: targetSlot });
+      const proposal = await makeCheckpointProposal({ signer, checkpointHeader });
+
+      await service.notifyOwnCheckpointProposal(proposal.toCore());
+
+      expect(allNodesCheckpointReceivedCallback).toHaveBeenCalledTimes(1);
+      expect(allNodesCheckpointReceivedCallback).toHaveBeenCalledWith(expect.any(Object), expect.anything());
     });
   });
 });
@@ -1165,11 +1129,6 @@ class TestLibP2PService extends LibP2PService {
     };
   }
 
-  /** Exposes the protected validateRequestedBlock for testing. */
-  public override validateRequestedBlock(requested: Fr, response: L2Block, peerId: PeerId): Promise<boolean> {
-    return super.validateRequestedBlock(requested, response, peerId);
-  }
-
   /** Exposes the protected validateRequestedBlockTxs for testing. */
   public override validateRequestedBlockTxs(
     request: BlockTxsRequest,
@@ -1220,6 +1179,10 @@ function createTestLibP2PService(options: CreateTestLibP2PServiceOptions): TestL
     txPool = mock<TxPoolV2>(),
     epochCache = mock<EpochCacheInterface>(),
   } = options;
+
+  epochCache.getL1Constants.mockReturnValue({
+    slotDuration: 36,
+  } as any);
 
   const mempools = mock<MemPools>();
   mempools.attestationPool = attestationPool;

@@ -87,8 +87,6 @@ namespace bitwise;
 ////////////////////////////////////////////////
 // Multi-row Computation Selectors (standard recipe)
 ////////////////////////////////////////////////
-// Follows the recipe documented in:
-// https://github.com/AztecProtocol/aztec-packages/blob/next/barretenberg/cpp/pil/vm2/docs/recipes.md#contiguous-multi-rows-computation-trace
 
 // Selector for active Bitwise block rows.
 // In the standard recipe, sel=1 for ALL rows in a block, including error rows.
@@ -99,12 +97,14 @@ sel * (1 - sel) = 0;
 #[skippable_if]
 sel = 0;
 
+// Follows the recipe documented in:
+// https://github.com/AztecProtocol/aztec-packages/blob/next/barretenberg/cpp/pil/vm2/docs/recipes.md#contiguous-multi-rows-computation-trace
+
 // NOTE on start selector:
 // start=1 on non-first rows within a block. This is safe because:
 // (1) The execution dispatch is a lookup INTO bitwise using bitwise.start as the destination
 //     selector. Extra start=1 rows are just unclaimed destinations -- harmless.
-// (2) Keccak/sha256 use separate selectors (start_keccak/start_sha256) protected by
-//     #[BITW_START_ONLY_WHEN_SEL].
+// (2) Keccak/sha256 use separate selectors (start_keccak/start_sha256) which enforce that start=1.
 // (3) Setting start=1 on a middle row triggers #[INTEGRAL_TAG_LENGTH] lookup, which would fail
 //     because ctr at that row would not match the tag's byte length.
 // The start of the computation, used as a selector by a caller.

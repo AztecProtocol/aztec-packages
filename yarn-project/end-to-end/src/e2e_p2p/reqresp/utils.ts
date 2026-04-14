@@ -91,7 +91,7 @@ export async function runReqrespTxTest(params: {
     t.bootstrapNodeEnr,
     NUM_VALIDATORS,
     BOOT_NODE_UDP_PORT,
-    t.prefilledPublicData,
+    t.genesis,
     dataDir,
     shouldCollectMetrics(),
   );

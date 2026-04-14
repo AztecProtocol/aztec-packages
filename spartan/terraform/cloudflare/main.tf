@@ -37,13 +37,47 @@ resource "cloudflare_r2_custom_domain" "aztec_labs_snapshots_com" {
   enabled     = true
 }
 
+# Do not cache 404s
+resource "cloudflare_ruleset" "cache_settings" {
+  zone_id = var.R2_ZONE_ID
+  kind    = "zone"
+  name    = "R2 cache settings"
+  phase   = "http_request_cache_settings"
+
+  rules = [
+    {
+      ref         = "no_cache_404"
+      description = "Do not cache 404 responses for R2 custom domain"
+      expression  = "(http.host eq \"${var.DOMAIN}\")"
+      action      = "set_cache_settings"
+      action_parameters = {
+        cache = true
+        edge_ttl = {
+          mode = "respect_origin"
+          status_code_ttl = [
+            {
+              status_code = 404
+              value       = 0
+            }
+          ]
+        }
+      }
+    }
+  ]
+}
+
 locals {
-  top_level_folders = toset([
+  full_lifecycle_folders = toset([
     "devnet",
     "ignition-sepolia",
     "next-net",
     "staging-ignition",
     "staging-public",
+  ])
+
+  snapshots_only_folders = toset([
+    "testnet",
+    "mainnet",
   ])
 }
 
@@ -53,7 +87,7 @@ resource "cloudflare_r2_bucket_lifecycle" "cleanup" {
   bucket_name = cloudflare_r2_bucket.bucket.name
 
   rules = flatten([
-    for folder in local.top_level_folders : [
+    [for folder in local.full_lifecycle_folders : [
       {
         id         = "delete-snapshots-${folder}"
         enabled    = true
@@ -87,7 +121,20 @@ resource "cloudflare_r2_bucket_lifecycle" "cleanup" {
           }
         }
       },
-    ]
+    ]],
+    [for folder in local.snapshots_only_folders : [
+      {
+        id         = "delete-snapshots-${folder}"
+        enabled    = true
+        conditions = { prefix = "${folder}/aztec" }
+        delete_objects_transition = {
+          condition = {
+            max_age = var.SNAPSHOT_RETENTION_DAYS * 24 * 60 * 60 # Convert days to seconds
+            type    = "Age"
+          }
+        }
+      },
+    ]],
   ])
 }
 

@@ -33,13 +33,14 @@ export class LazyReaderMemory implements LazyReader {
   }
 
   public slice(start: number, end: number): Fr[] {
-    const clampedEnd = Math.min(end, this.size);
+    const clampedEnd = Math.min(end, this.size, TaggedMemory.MAX_MEMORY_SIZE - this.offset);
     const length = Math.max(0, clampedEnd - start);
     return this.memory.getSlice(this.offset + start, length).map(word => word.toFr());
   }
 
   public readAll(): Fr[] {
-    return this.memory.getSlice(this.offset, this.size).map(word => word.toFr());
+    const size = Math.min(this.size, TaggedMemory.MAX_MEMORY_SIZE - this.offset);
+    return this.memory.getSlice(this.offset, size).map(word => word.toFr());
   }
 
   public length(): number {

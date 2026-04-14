@@ -894,6 +894,30 @@ describe.each([
       await assertJobStatus(id, 'not-found');
     });
 
+    it('rejects jobs that time out more than maxRetries times', async () => {
+      const id = makeRandomProvingJobId();
+      await broker.enqueueProvingJob({
+        id,
+        type: ProvingRequestType.PARITY_BASE,
+        epochNumber: EpochNumber(1),
+        inputsUri: makeInputsUri(),
+      });
+
+      for (let i = 0; i < maxRetries; i++) {
+        await assertJobStatus(id, 'in-queue');
+        await getAndAssertNextJobId(id);
+        await assertJobStatus(id, 'in-progress');
+
+        await sleep(jobTimeoutMs);
+        await assertJobTransition(id, 'in-progress', i + 1 < maxRetries ? 'in-queue' : 'rejected');
+      }
+
+      await expect(broker.getProvingJobStatus(id)).resolves.toEqual({
+        status: 'rejected',
+        reason: 'Timed out',
+      });
+    });
+
     it('keeps the jobs in progress while it is alive', async () => {
       const id = makeRandomProvingJobId();
       await broker.enqueueProvingJob({

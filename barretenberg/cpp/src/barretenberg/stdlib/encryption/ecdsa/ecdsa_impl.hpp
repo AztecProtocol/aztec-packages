@@ -134,7 +134,8 @@ bool_t<Builder> ecdsa_verify_signature(const stdlib::byte_array<Builder>& hashed
         if ((corrected_public_key.get_value().x == Curve::GroupNative::affine_one.x) && (!builder->failed())) {
             builder->failure("ECDSA input validation: the public key is equal to plus or minus the generator point.");
         }
-        result = G1::batch_mul({ G1::one(builder), corrected_public_key }, { u1, u2 });
+        result = G1::batch_mul(
+            { G1::one(builder), corrected_public_key }, { u1, u2 }, /*max_num_bits=*/0, /*with_edgecases=*/false);
     }
 
     // Step 7.

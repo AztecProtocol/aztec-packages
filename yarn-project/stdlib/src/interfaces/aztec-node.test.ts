@@ -93,6 +93,7 @@ describe('AztecNodeApiSchema', () => {
     expect(result).toEqual({
       proposed: { number: 1, hash: `0x01` },
       checkpointed: expectedTipId,
+      proposedCheckpoint: expectedTipId,
       proven: expectedTipId,
       finalized: expectedTipId,
     });
@@ -187,6 +188,11 @@ describe('AztecNodeApiSchema', () => {
   it('getCurrentMinFees', async () => {
     const response = await context.client.getCurrentMinFees();
     expect(response).toEqual(GasFees.empty());
+  });
+
+  it('getPredictedMinFees', async () => {
+    const response = await context.client.getPredictedMinFees();
+    expect(response).toEqual([GasFees.empty()]);
   });
 
   it('getMaxPriorityFees', async () => {
@@ -529,6 +535,7 @@ class MockAztecNode implements AztecNode {
     return Promise.resolve({
       proposed: { number: BlockNumber(1), hash: `0x01` },
       checkpointed: tipId,
+      proposedCheckpoint: tipId,
       proven: tipId,
       finalized: tipId,
     });
@@ -655,6 +662,9 @@ class MockAztecNode implements AztecNode {
   }
   getCurrentMinFees(): Promise<GasFees> {
     return Promise.resolve(GasFees.empty());
+  }
+  getPredictedMinFees(): Promise<GasFees[]> {
+    return Promise.resolve([GasFees.empty()]);
   }
   getMaxPriorityFees(): Promise<GasFees> {
     return Promise.resolve(GasFees.empty());

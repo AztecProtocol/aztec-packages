@@ -60,6 +60,7 @@ describe('e2e_p2p_duplicate_proposal_slash', () => {
       basePort: BOOT_NODE_UDP_PORT,
       metricsPort: shouldCollectMetrics(),
       initialConfig: {
+        anvilSlotsInAnEpoch: 4,
         listenAddress: '127.0.0.1',
         aztecEpochDuration,
         ethereumSlotDuration: ETHEREUM_SLOT_DURATION,
@@ -140,7 +141,7 @@ describe('e2e_p2p_duplicate_proposal_slash', () => {
       BOOT_NODE_UDP_PORT + 1,
       t.bootstrapNodeEnr,
       maliciousValidatorIndex,
-      t.prefilledPublicData,
+      t.genesis,
       `${DATA_DIR}-0`,
       shouldCollectMetrics(),
     );
@@ -161,7 +162,7 @@ describe('e2e_p2p_duplicate_proposal_slash', () => {
       BOOT_NODE_UDP_PORT + 2,
       t.bootstrapNodeEnr,
       maliciousValidatorIndex,
-      t.prefilledPublicData,
+      t.genesis,
       `${DATA_DIR}-1`,
       shouldCollectMetrics(),
     );
@@ -177,7 +178,7 @@ describe('e2e_p2p_duplicate_proposal_slash', () => {
       BOOT_NODE_UDP_PORT + 3,
       t.bootstrapNodeEnr,
       1,
-      t.prefilledPublicData,
+      t.genesis,
       `${DATA_DIR}-2`,
       shouldCollectMetrics(),
     );
@@ -190,7 +191,7 @@ describe('e2e_p2p_duplicate_proposal_slash', () => {
       BOOT_NODE_UDP_PORT + 4,
       t.bootstrapNodeEnr,
       2,
-      t.prefilledPublicData,
+      t.genesis,
       `${DATA_DIR}-3`,
       shouldCollectMetrics(),
     );

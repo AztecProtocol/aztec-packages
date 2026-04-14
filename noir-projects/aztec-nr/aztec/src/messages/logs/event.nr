@@ -27,6 +27,11 @@ pub fn encode_private_event_message<Event>(
 where
     Event: EventInterface + Serialize,
 {
+    std::static_assert(
+        <Event as Serialize>::N <= MAX_EVENT_SERIALIZED_LEN,
+        "event's serialized length exceeds the maximum allowed for private events",
+    );
+
     // We use `Serialize` because we want for events to be processable by off-chain actors, e.g. block explorers,
     // wallets and apps, without having to rely on contract invocation. If we used `Packable` we'd need to call utility
     // functions in order to unpack events, which would introduce a level of complexity we don't currently think is

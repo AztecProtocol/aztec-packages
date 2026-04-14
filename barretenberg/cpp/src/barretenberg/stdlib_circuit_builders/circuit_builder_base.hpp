@@ -16,6 +16,7 @@
 #include <utility>
 
 #include <algorithm>
+#include <span>
 #include <unordered_map>
 
 namespace bb {
@@ -76,7 +77,8 @@ template <typename FF_> class CircuitBuilderBase {
      * variables
      * @param variable_indices The indices to validate
      */
-    void assert_valid_variables(const std::vector<uint32_t>& variable_indices);
+    void assert_valid_variables(std::initializer_list<uint32_t> variable_indices);
+    void assert_valid_variables(std::span<const uint32_t> variable_indices);
 
     /**
      * @brief The permutation on variable tags, as a constituent of the generalized permutation argument.
@@ -127,9 +129,9 @@ template <typename FF_> class CircuitBuilderBase {
     CircuitBuilderBase(bool is_write_vk_mode = false);
 
     CircuitBuilderBase(const CircuitBuilderBase& other) = default;
-    CircuitBuilderBase(CircuitBuilderBase&& other) noexcept = default;
+    CircuitBuilderBase(CircuitBuilderBase&& other) = delete;
     CircuitBuilderBase& operator=(const CircuitBuilderBase& other) = default;
-    CircuitBuilderBase& operator=(CircuitBuilderBase&& other) noexcept = default;
+    CircuitBuilderBase& operator=(CircuitBuilderBase&& other) = delete;
     virtual ~CircuitBuilderBase() = default;
 
     bool operator==(const CircuitBuilderBase& other) const = default;
@@ -143,7 +145,7 @@ template <typename FF_> class CircuitBuilderBase {
     // Increment the gate count by the specified amount
     void increment_num_gates(size_t count = 1)
     {
-        BB_ASSERT_DEBUG(!circuit_finalized, "Cannot add gates after circuit is finalized");
+        BB_ASSERT(!circuit_finalized, "Cannot add gates after circuit is finalized");
         _num_gates += count;
     }
 

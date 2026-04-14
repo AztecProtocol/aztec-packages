@@ -15,12 +15,13 @@ function build {
   denoise "helm lint ./aztec-bot/"
   denoise "helm lint ./aztec-chaos-scenarios/"
   denoise "helm lint ./aztec-keystore/"
-  denoise "helm lint ./aztec-node/"
+  denoise "helm lint ./aztec-node/ --set global.aztecImage.tag=lint"
   denoise "helm lint ./aztec-prover-stack/"
-  denoise "helm lint ./aztec-snapshots/"
+  denoise "helm lint ./aztec-snapshots/ --set snapshots.frequency='0 */6 * * *' --set snapshots.nodeUrl=http://lint --set snapshots.bucket=lint"
   denoise "helm lint ./aztec-validator/"
   denoise "helm lint ./eth-devnet/"
-  denoise ./spartan/scripts/check_env_vars.sh
+  denoise "terraform fmt -check -recursive ./terraform/"
+  denoise ./scripts/check_env_vars.sh
 }
 
 function network_shaping {
@@ -146,7 +147,7 @@ function network_tests {
 
 function network_bench_cmds {
   local high_value_tps=0.1
-  local low_value_tps_list=(0.1 0.2 0.5 1)
+  local low_value_tps_list=(0.1 0.2 0.5 1 2)
 
   for low_value_tps in "${low_value_tps_list[@]}"; do
     local low_label=${low_value_tps/./_}

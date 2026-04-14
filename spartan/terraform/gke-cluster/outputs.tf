@@ -2,6 +2,10 @@ output "service_account_email" {
   value = google_service_account.gke_sa.email
 }
 
+output "eso_service_account_email" {
+  value = google_service_account.eso.email
+}
+
 output "region" {
   description = "Google cloud region"
   value       = var.region

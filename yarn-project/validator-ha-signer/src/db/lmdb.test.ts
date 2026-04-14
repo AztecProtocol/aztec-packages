@@ -1,4 +1,4 @@
-import { BlockNumber, IndexWithinCheckpoint, SlotNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, CheckpointNumber, IndexWithinCheckpoint, SlotNumber } from '@aztec/foundation/branded-types';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { TestDateProvider } from '@aztec/foundation/timer';
 import { type AztecLMDBStoreV2, openStoreAt, openTmpStore } from '@aztec/kv-store/lmdb-v2';
@@ -31,6 +31,7 @@ describe('LmdbSlashingProtectionDatabase', () => {
     validatorAddress: VALIDATOR_ADDRESS,
     slot: SLOT,
     blockNumber: BLOCK_NUMBER,
+    checkpointNumber: CheckpointNumber(1),
     blockIndexWithinCheckpoint: BLOCK_INDEX,
     dutyType: DUTY_TYPE,
     messageHash: MESSAGE_HASH,
@@ -95,7 +96,8 @@ describe('LmdbSlashingProtectionDatabase', () => {
           rollupAddress: ROLLUP_ADDRESS,
           validatorAddress: VALIDATOR_ADDRESS,
           slot: SLOT,
-          blockNumber: BLOCK_NUMBER,
+          blockNumber: BlockNumber(0),
+          checkpointNumber: CheckpointNumber(0),
           dutyType: DutyType.ATTESTATION,
           messageHash: MESSAGE_HASH,
           nodeId: NODE_ID,
@@ -335,6 +337,7 @@ describe('LmdbSlashingProtectionDatabase - persistence across restarts', () => {
     validatorAddress: VALIDATOR_ADDRESS,
     slot: SLOT,
     blockNumber: BLOCK_NUMBER,
+    checkpointNumber: CheckpointNumber(1),
     blockIndexWithinCheckpoint: BLOCK_INDEX,
     dutyType: DUTY_TYPE,
     messageHash: MESSAGE_HASH,

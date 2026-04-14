@@ -112,7 +112,7 @@ if (!document.getElementById('status')) {
       });
 
       const backend = new AztecClientBackend(bytecodes, barretenberg);
-      const [, proof, vk] = await backend.prove(witnessStack, precomputedVks);
+      const { proof, vk } = await backend.prove(witnessStack, precomputedVks);
       const verified = await backend.verify(proof, vk);
 
       logger.info(`verified? ${verified}`);

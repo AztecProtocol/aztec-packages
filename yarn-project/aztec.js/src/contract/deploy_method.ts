@@ -140,18 +140,18 @@ export class DeployMethod<TContract extends ContractBase = ContractBase> extends
   private instance?: ContractInstanceWithAddress = undefined;
 
   /** Constructor function to call. */
-  private constructorArtifact: FunctionAbi | undefined;
+  protected constructorArtifact: FunctionAbi | undefined;
 
   constructor(
-    private publicKeys: PublicKeys,
+    protected publicKeys: PublicKeys,
     wallet: Wallet,
     protected artifact: ContractArtifact,
     protected postDeployCtor: (instance: ContractInstanceWithAddress, wallet: Wallet) => TContract,
-    private args: any[] = [],
+    protected args: any[] = [],
     constructorNameOrArtifact?: string | FunctionArtifact,
     authWitnesses: AuthWitness[] = [],
     capsules: Capsule[] = [],
-    private extraHashedArgs: HashedValues[] = [],
+    protected extraHashedArgs: HashedValues[] = [],
   ) {
     super(wallet, authWitnesses, capsules);
     this.constructorArtifact = getInitializer(artifact, constructorNameOrArtifact);
@@ -426,11 +426,14 @@ export class DeployMethod<TContract extends ContractBase = ContractBase> extends
   public with({
     authWitnesses = [],
     capsules = [],
+    extraHashedArgs = [],
   }: {
     /** The authWitnesses to add to the deployment */
     authWitnesses?: AuthWitness[];
     /** The capsules to add to the deployment */
     capsules?: Capsule[];
+    /** The extra hashed args to add to the deployment */
+    extraHashedArgs?: HashedValues[];
   }): DeployMethod {
     return new DeployMethod(
       this.publicKeys,
@@ -441,6 +444,7 @@ export class DeployMethod<TContract extends ContractBase = ContractBase> extends
       this.constructorArtifact?.name,
       this.authWitnesses.concat(authWitnesses),
       this.capsules.concat(capsules),
+      this.extraHashedArgs.concat(extraHashedArgs),
     );
   }
 }

@@ -41,7 +41,15 @@ describe('ProposalValidator', () => {
 
   beforeEach(() => {
     epochCache = mock<EpochCacheInterface>();
-    validator = new ProposalValidator(epochCache, { txsPermitted: true, maxTxsPerBlock: undefined }, 'test');
+    epochCache.getL1Constants.mockReturnValue({
+      slotDuration: 72,
+      ethereumSlotDuration: 12,
+    } as any);
+    validator = new ProposalValidator(
+      epochCache,
+      { txsPermitted: true, maxTxsPerBlock: undefined, p2pPropagationTime: 2 },
+      'test',
+    );
     epochCache.getEpochAndSlotNow.mockReturnValue({
       epoch: EpochNumber(1),
       slot: currentSlot,
@@ -53,6 +61,8 @@ describe('ProposalValidator', () => {
       nextSlot,
     });
     epochCache.getTargetSlot.mockReturnValue(currentSlot);
+    epochCache.getSlotNow.mockReturnValue(currentSlot);
+    epochCache.isProposerPipeliningEnabled.mockReturnValue(false);
   });
 
   describe.each([
@@ -168,6 +178,57 @@ describe('ProposalValidator', () => {
       mockGetProposer(EthAddress.random(), signer.address);
       const result = await validator.validate(proposal);
       expect(result).toEqual({ result: 'accept' });
+    });
+
+    it('accepts proposal for current slot within pipelining grace period', async () => {
+      // Simulate pipelining: targetSlot = 101, but proposal is for slot 100 (current wallclock slot)
+      epochCache.getTargetAndNextSlot.mockReturnValue({
+        targetSlot: SlotNumber(101),
+        nextSlot: SlotNumber(102),
+      });
+      epochCache.getSlotNow.mockReturnValue(currentSlot); // slot 100
+      epochCache.isProposerPipeliningEnabled.mockReturnValue(true);
+
+      // Within grace period: 1000ms elapsed < configured propagation window 2000ms
+      epochCache.getEpochAndSlotNow.mockReturnValue({
+        epoch: EpochNumber(1),
+        slot: currentSlot,
+        ts: 1000n,
+        nowMs: 1001000n, // 1000ms elapsed
+      });
+
+      const signer = Secp256k1Signer.random();
+      const proposal = await factory(currentSlot, signer);
+
+      epochCache.getProposerAttesterAddressInSlot.mockResolvedValue(signer.address);
+      const result = await validator.validate(proposal);
+      expect(result).toEqual({ result: 'accept' });
+    });
+
+    it('rejects proposal for current slot outside pipelining grace period', async () => {
+      // Simulate pipelining: targetSlot = 101, but proposal is for slot 100 (current wallclock slot)
+      epochCache.getTargetAndNextSlot.mockReturnValue({
+        targetSlot: SlotNumber(101),
+        nextSlot: SlotNumber(102),
+      });
+      epochCache.getTargetSlot.mockReturnValue(SlotNumber(101));
+      epochCache.getSlotNow.mockReturnValue(currentSlot); // slot 100
+      epochCache.isProposerPipeliningEnabled.mockReturnValue(true);
+
+      // Outside grace period: 7000ms elapsed > configured propagation window 2000ms
+      epochCache.getEpochAndSlotNow.mockReturnValue({
+        epoch: EpochNumber(1),
+        slot: currentSlot,
+        ts: 1000n,
+        nowMs: 1007000n, // 7000ms elapsed
+      });
+
+      const signer = Secp256k1Signer.random();
+      const proposal = await factory(currentSlot, signer);
+
+      epochCache.getProposerAttesterAddressInSlot.mockResolvedValue(signer.address);
+      const result = await validator.validate(proposal);
+      expect(result).toEqual({ result: 'reject', severity: PeerErrorSeverity.HighToleranceError });
     });
   });
 

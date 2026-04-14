@@ -1,4 +1,4 @@
-import type { BlockNumber, CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import type { CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import type { SecretValue } from '@aztec/foundation/config';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import type { EthAddress } from '@aztec/foundation/eth-address';
@@ -9,7 +9,6 @@ import type {
   BlockProposal,
   BlockProposalOptions,
   CheckpointAttestation,
-  CheckpointLastBlockData,
   CheckpointProposal,
   CheckpointProposalOptions,
 } from '@aztec/stdlib/p2p';
@@ -48,10 +47,7 @@ export type ValidatorClientConfig = ValidatorHASignerConfig &
     /** Interval between polling for new attestations from peers */
     attestationPollingIntervalMs: number;
 
-    /** Whether to re-execute transactions in a block proposal before attesting */
-    validatorReexecute: boolean;
-
-    /** Whether to always reexecute block proposals, even for non-validator nodes or when out of the currnet committee */
+    /** Whether to always reexecute block proposals, even for non-validator nodes or when out of the current committee */
     alwaysReexecuteBlockProposals?: boolean;
 
     /** Whether to run in fisherman mode: validates all proposals and attestations but does not broadcast attestations or participate in consensus */
@@ -98,7 +94,6 @@ export const ValidatorClientConfigSchema = zodFor<Omit<ValidatorClientConfig, 'v
     disableValidator: z.boolean(),
     disabledValidators: z.array(schemas.EthAddress),
     attestationPollingIntervalMs: z.number().min(0),
-    validatorReexecute: z.boolean(),
     alwaysReexecuteBlockProposals: z.boolean().optional(),
     fishermanMode: z.boolean().optional(),
     skipCheckpointProposalValidation: z.boolean().optional(),
@@ -122,8 +117,6 @@ export const ValidatorClientFullConfigSchema = zodFor<Omit<ValidatorClientFullCo
   }),
 );
 
-export type CreateCheckpointProposalLastBlockData = Omit<CheckpointLastBlockData, 'txHashes'> & { txs: Tx[] };
-
 export interface Validator {
   start(): Promise<void>;
   updateConfig(config: Partial<ValidatorClientFullConfig>): void;
@@ -131,6 +124,7 @@ export interface Validator {
   // Block validation responsibilities
   createBlockProposal(
     blockHeader: BlockHeader,
+    checkpointNumber: CheckpointNumber,
     indexWithinCheckpoint: number,
     inHash: Fr,
     archive: Fr,
@@ -143,8 +137,9 @@ export interface Validator {
   createCheckpointProposal(
     checkpointHeader: CheckpointHeader,
     archive: Fr,
+    checkpointNumber: CheckpointNumber,
     feeAssetPriceModifier: bigint,
-    lastBlockInfo: CreateCheckpointProposalLastBlockData | undefined,
+    lastBlockProposal: BlockProposal | undefined,
     proposerAddress: EthAddress | undefined,
     options: CheckpointProposalOptions,
   ): Promise<CheckpointProposal>;
@@ -168,15 +163,23 @@ export interface Validator {
   broadcastBlockProposal(proposal: BlockProposal): Promise<void>;
 
   /** Collect own attestations for a checkpoint proposal (used when skipping p2p attestation collection) */
-  collectOwnAttestations(proposal: CheckpointProposal): Promise<CheckpointAttestation[]>;
+  collectOwnAttestations(
+    proposal: CheckpointProposal,
+    checkpointNumber: CheckpointNumber,
+  ): Promise<CheckpointAttestation[]>;
 
   /** Collect attestations from the p2p network for a checkpoint proposal */
-  collectAttestations(proposal: CheckpointProposal, required: number, deadline: Date): Promise<CheckpointAttestation[]>;
+  collectAttestations(
+    proposal: CheckpointProposal,
+    required: number,
+    deadline: Date,
+    checkpointNumber: CheckpointNumber,
+  ): Promise<CheckpointAttestation[]>;
 
   signAttestationsAndSigners(
     attestationsAndSigners: CommitteeAttestationsAndSigners,
     proposer: EthAddress,
     slot: SlotNumber,
-    blockNumber: BlockNumber | CheckpointNumber,
+    checkpointNumber: CheckpointNumber,
   ): Promise<Signature>;
 }

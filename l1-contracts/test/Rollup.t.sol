@@ -128,7 +128,7 @@ contract RollupTest is RollupBase {
     setUpFor("mixed_checkpoint_1")
   {
     // we can increase the mana target
-    uint256 initialManaTarget = bound(_initialManaTarget, 0, type(uint32).max / 2);
+    uint256 initialManaTarget = bound(_initialManaTarget, 1, type(uint32).max / 2);
     uint256 newManaTarget = bound(_newManaTarget, initialManaTarget, type(uint32).max / 2);
 
     RollupBuilder builder = new RollupBuilder(address(this)).setManaTarget(initialManaTarget).deploy();

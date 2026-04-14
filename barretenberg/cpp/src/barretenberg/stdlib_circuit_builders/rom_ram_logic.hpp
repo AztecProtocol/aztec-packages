@@ -117,7 +117,7 @@ struct RamTranscript {
     // The number of times this RAM array has been touched (i.e., has had a READ or WRITE operation performed on it).
     // used for RAM records, to compute the timestamp when performing a read/write. Note that the timestamp is _not_ a
     // global timestamp; rather, it is a timestamp for the RAM array in question.
-    size_t access_count = 0;
+    uint32_t access_count = 0;
     // Used to check that the state hasn't changed in tests
     bool operator==(const RamTranscript& other) const noexcept
     {

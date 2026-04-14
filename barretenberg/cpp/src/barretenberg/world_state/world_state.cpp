@@ -39,12 +39,14 @@ WorldState::WorldState(uint64_t thread_pool_size,
                        const std::unordered_map<MerkleTreeId, uint32_t>& tree_heights,
                        const std::unordered_map<MerkleTreeId, index_t>& tree_prefill,
                        const std::vector<PublicDataLeafValue>& prefilled_public_data,
-                       uint32_t initial_header_generator_point)
+                       uint32_t initial_header_generator_point,
+                       uint64_t genesis_timestamp)
     : _workers(std::make_shared<ThreadPool>(thread_pool_size))
     , _tree_heights(tree_heights)
     , _initial_tree_size(tree_prefill)
     , _forkId(CANONICAL_FORK_ID)
     , _initial_header_generator_point(initial_header_generator_point)
+    , _genesis_timestamp(genesis_timestamp)
 {
     // We set the max readers to be high, at least the number of given threads or the default if higher
     uint64_t maxReaders = std::max(thread_pool_size, DEFAULT_MIN_NUMBER_OF_READERS);
@@ -61,14 +63,16 @@ WorldState::WorldState(uint64_t thread_pool_size,
                        const std::unordered_map<MerkleTreeId, uint64_t>& map_size,
                        const std::unordered_map<MerkleTreeId, uint32_t>& tree_heights,
                        const std::unordered_map<MerkleTreeId, index_t>& tree_prefill,
-                       uint32_t initial_header_generator_point)
+                       uint32_t initial_header_generator_point,
+                       uint64_t genesis_timestamp)
     : WorldState::WorldState(thread_pool_size,
                              data_dir,
                              map_size,
                              tree_heights,
                              tree_prefill,
                              std::vector<PublicDataLeafValue>(),
-                             initial_header_generator_point)
+                             initial_header_generator_point,
+                             genesis_timestamp)
 {}
 
 WorldState::WorldState(uint64_t thread_pool_size,
@@ -77,7 +81,8 @@ WorldState::WorldState(uint64_t thread_pool_size,
                        const std::unordered_map<MerkleTreeId, uint32_t>& tree_heights,
                        const std::unordered_map<MerkleTreeId, index_t>& tree_prefill,
                        const std::vector<PublicDataLeafValue>& prefilled_public_data,
-                       uint32_t initial_header_generator_point)
+                       uint32_t initial_header_generator_point,
+                       uint64_t genesis_timestamp)
     : WorldState(thread_pool_size,
                  data_dir,
                  {
@@ -90,7 +95,8 @@ WorldState::WorldState(uint64_t thread_pool_size,
                  tree_heights,
                  tree_prefill,
                  prefilled_public_data,
-                 initial_header_generator_point)
+                 initial_header_generator_point,
+                 genesis_timestamp)
 {}
 
 WorldState::WorldState(uint64_t thread_pool_size,
@@ -98,14 +104,16 @@ WorldState::WorldState(uint64_t thread_pool_size,
                        uint64_t map_size,
                        const std::unordered_map<MerkleTreeId, uint32_t>& tree_heights,
                        const std::unordered_map<MerkleTreeId, index_t>& tree_prefill,
-                       uint32_t initial_header_generator_point)
+                       uint32_t initial_header_generator_point,
+                       uint64_t genesis_timestamp)
     : WorldState(thread_pool_size,
                  data_dir,
                  map_size,
                  tree_heights,
                  tree_prefill,
                  std::vector<PublicDataLeafValue>(),
-                 initial_header_generator_point)
+                 initial_header_generator_point,
+                 genesis_timestamp)
 {}
 
 void WorldState::create_canonical_fork(const std::string& dataDir,
@@ -162,7 +170,9 @@ void WorldState::create_canonical_fork(const std::string& dataDir,
     {
         uint32_t levels = _tree_heights.at(MerkleTreeId::ARCHIVE);
         std::vector<bb::fr> initial_values{ compute_initial_block_header_hash(
-            get_state_reference(WorldStateRevision::committed(), fork, true), _initial_header_generator_point) };
+            get_state_reference(WorldStateRevision::committed(), fork, true),
+            _initial_header_generator_point,
+            _genesis_timestamp) };
         auto store = std::make_unique<FrStore>(
             getMerkleTreeName(MerkleTreeId::ARCHIVE), levels, _persistentStores->archiveStore);
         auto tree = std::make_unique<FrTree>(std::move(store), _workers, initial_values);
@@ -950,7 +960,9 @@ bool WorldState::remove_historical_block(const block_number_t& blockNumber, Worl
     return true;
 }
 
-bb::fr WorldState::compute_initial_block_header_hash(const StateReference& initial_state_ref, uint32_t generator_point)
+bb::fr WorldState::compute_initial_block_header_hash(const StateReference& initial_state_ref,
+                                                     uint32_t generator_point,
+                                                     uint64_t genesis_timestamp)
 {
     // NOTE: this hash operations needs to match the one in
     // noir-project/noir-protocol-circuits/crates/types/src/abis/block_header.nr
@@ -969,15 +981,15 @@ bb::fr WorldState::compute_initial_block_header_hash(const StateReference& initi
                               initial_state_ref.at(MerkleTreeId::PUBLIC_DATA_TREE).second,
                               0, // sponge_blob_hash
                               // global variables
-                              0, // chain_id
-                              0, // version
-                              0, // block_number
-                              0, // slot_number
-                              0, // timestamp
-                              0, // coinbase
-                              0, // fee_recipient
-                              0, // gas_fee.fee_per_da_gas
-                              0, // gas_fee.fee_per_l2_gas
+                              0,                         // chain_id
+                              0,                         // version
+                              0,                         // block_number
+                              0,                         // slot_number
+                              bb::fr(genesis_timestamp), // timestamp
+                              0,                         // coinbase
+                              0,                         // fee_recipient
+                              0,                         // gas_fee.fee_per_da_gas
+                              0,                         // gas_fee.fee_per_l2_gas
                               // total fees
                               0,
                               // total mana used

@@ -1,4 +1,4 @@
-import { DEFAULT_L2_GAS_LIMIT, MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT } from '@aztec/constants';
+import { MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT, MAX_PROCESSABLE_L2_GAS } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { AvmTestContractArtifact } from '@aztec/noir-test-contracts.js/AvmTest';
@@ -190,8 +190,9 @@ describe('AVM check-circuit – unhappy paths 3', () => {
     'a nested exceptional halt is recovered from in caller',
     async () => {
       // The contract requires >200k DA gas (it allocates da_gas_left - 200_000 to the nested call).
-      // Use a higher DA gas limit than the default since DEFAULT_DA_GAS_LIMIT is ~196k.
-      const gasLimits = new Gas(MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT, DEFAULT_L2_GAS_LIMIT);
+      // Use a higher DA gas limit than the default since APPROXIMATE_MAX_DA_GAS_PER_BLOCK is ~196k.
+      // For more information, refer to yarn-project/stdlib/src/gas/gas_settings.ts
+      const gasLimits = new Gas(MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT, MAX_PROCESSABLE_L2_GAS);
       await tester.simProveVerifyAppLogic(
         { address: avmTestContractInstance.address, fnName: 'external_call_to_divide_by_zero_recovers', args: [] },
         /*expectRevert=*/ false,

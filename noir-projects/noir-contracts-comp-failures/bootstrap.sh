@@ -51,7 +51,12 @@ test() {
 }
 
 function test_cmds {
-    hash=$(hash_str $(../../noir/bootstrap.sh hash) $(cache_content_hash ^noir-projects/noir-contracts-comp-failures))
+    # Fairies want to run these tests on every PR
+    if [ "${TARGET_BRANCH:-}" = "merge-train/fairies" ]; then
+      hash=disabled-cache
+    else
+      hash=$(hash_str $(../../noir/bootstrap.sh hash) $(cache_content_hash ^noir-projects/noir-contracts-comp-failures))
+    fi
     echo "$hash ./noir-projects/noir-contracts-comp-failures/bootstrap.sh test"
 }
 

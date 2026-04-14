@@ -2,6 +2,7 @@ import type { AztecNodeService } from '@aztec/aztec-node';
 import { Fr } from '@aztec/aztec.js/fields';
 import { waitForTx } from '@aztec/aztec.js/node';
 import { Tx, TxHash } from '@aztec/aztec.js/tx';
+import { CheckpointNumber } from '@aztec/foundation/branded-types';
 import { times } from '@aztec/foundation/collection';
 import { sleep } from '@aztec/foundation/sleep';
 import { unfreeze } from '@aztec/foundation/types';
@@ -66,7 +67,6 @@ describe('e2e_p2p_reex', () => {
     nodes = await createNodes(
       {
         ...t.ctx.aztecNodeConfig,
-        validatorReexecute: true,
         minTxsPerBlock: 1,
         maxTxsPerBlock: NUM_TXS_PER_NODE,
       },
@@ -74,7 +74,7 @@ describe('e2e_p2p_reex', () => {
       t.bootstrapNodeEnr,
       NUM_VALIDATORS,
       BASE_BOOT_NODE_UDP_PORT,
-      t.prefilledPublicData,
+      t.genesis,
       DATA_DIR,
       // To collect metrics - run in aztec-packages `docker compose --profile metrics up` and set COLLECT_METRICS=true
       shouldCollectMetrics(),
@@ -142,6 +142,7 @@ describe('e2e_p2p_reex', () => {
           .keyStore as ValidatorKeyStore;
         const newProposal = await BlockProposal.createProposalFromSigner(
           proposal.blockHeader,
+          CheckpointNumber(1),
           proposal.indexWithinCheckpoint,
           proposal.inHash,
           proposal.archiveRoot,
