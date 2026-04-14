@@ -28,7 +28,7 @@ contract EmailClaimPortal {
     IInbox public inbox;
     uint256 public rollupVersion;
 
-    /// zkEmail's on-chain proof verifier.
+    /// zkEmail's onchain proof verifier.
     IEmailProofVerifier public emailVerifier;
 
     /// Tracks email nullifiers to prevent the same email from being claimed twice.
