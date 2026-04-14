@@ -4,6 +4,7 @@ import { CheckpointNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
 import { type AnchorBlockStore, type ContractStore, ContractSyncService, type NoteStore } from '@aztec/pxe/server';
+import { MessageContextService } from '@aztec/pxe/simulator';
 import { L2Block } from '@aztec/stdlib/block';
 import { Checkpoint, L1PublishedData, PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
@@ -12,7 +13,7 @@ import { getPackageVersion } from '@aztec/stdlib/update-checker';
 
 import { TXEArchiver } from './archiver.js';
 import { DummyP2P } from './dummy_p2p_client.js';
-import { TXEGlobalVariablesBuilder } from './global_variable_builder.js';
+import { TXEFeeProvider, TXEGlobalVariablesBuilder } from './global_variable_builder.js';
 import { MockEpochCache } from './mock_epoch_cache.js';
 import { TXESynchronizer } from './synchronizer.js';
 
@@ -26,6 +27,7 @@ export class TXEStateMachine {
     public archiver: TXEArchiver,
     public anchorBlockStore: AnchorBlockStore,
     public contractSyncService: ContractSyncService,
+    public messageContextService: MessageContextService,
   ) {}
 
   public static async create(
@@ -54,8 +56,10 @@ export class TXEStateMachine {
       VERSION,
       CHAIN_ID,
       new TXEGlobalVariablesBuilder(),
+      new TXEFeeProvider(),
       new MockEpochCache(),
       getPackageVersion() ?? '',
+      new TestCircuitVerifier(),
       new TestCircuitVerifier(),
       undefined,
       log,
@@ -68,7 +72,9 @@ export class TXEStateMachine {
       createLogger('txe:contract_sync'),
     );
 
-    return new this(node, synchronizer, archiver, anchorBlockStore, contractSyncService);
+    const messageContextService = new MessageContextService(node);
+
+    return new this(node, synchronizer, archiver, anchorBlockStore, contractSyncService, messageContextService);
   }
 
   public async handleL2Block(block: L2Block) {

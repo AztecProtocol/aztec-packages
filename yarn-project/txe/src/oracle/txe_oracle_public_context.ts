@@ -39,46 +39,46 @@ export class TXEOraclePublicContext implements IAvmExecutionOracle {
     });
   }
 
-  avmOpcodeAddress(): Promise<AztecAddress> {
+  address(): Promise<AztecAddress> {
     return Promise.resolve(this.contractAddress);
   }
 
-  avmOpcodeSender(): Promise<AztecAddress> {
+  sender(): Promise<AztecAddress> {
     return Promise.resolve(AztecAddress.ZERO); // todo: change?
   }
 
-  avmOpcodeBlockNumber(): Promise<BlockNumber> {
+  blockNumber(): Promise<BlockNumber> {
     return Promise.resolve(this.globalVariables.blockNumber);
   }
 
-  avmOpcodeTimestamp(): Promise<bigint> {
+  timestamp(): Promise<bigint> {
     return Promise.resolve(this.globalVariables.timestamp);
   }
 
-  avmOpcodeIsStaticCall(): Promise<boolean> {
+  isStaticCall(): Promise<boolean> {
     return Promise.resolve(false);
   }
 
-  avmOpcodeChainId(): Promise<Fr> {
+  chainId(): Promise<Fr> {
     return Promise.resolve(this.globalVariables.chainId);
   }
 
-  avmOpcodeVersion(): Promise<Fr> {
+  version(): Promise<Fr> {
     return Promise.resolve(this.globalVariables.version);
   }
 
-  async avmOpcodeEmitNullifier(nullifier: Fr) {
+  async emitNullifier(nullifier: Fr) {
     const siloedNullifier = await siloNullifier(this.contractAddress, nullifier);
     this.transientSiloedNullifiers.push(siloedNullifier);
   }
 
-  async avmOpcodeEmitNoteHash(noteHash: Fr) {
+  async emitNoteHash(noteHash: Fr) {
     const siloedNoteHash = await siloNoteHash(this.contractAddress, noteHash);
     // TODO: make the note hash unique - they are only siloed right now
     this.transientUniqueNoteHashes.push(siloedNoteHash);
   }
 
-  async avmOpcodeNullifierExists(siloedNullifier: Fr): Promise<boolean> {
+  async nullifierExists(siloedNullifier: Fr): Promise<boolean> {
     const treeIndex = (
       await this.forkedWorldTrees.findLeafIndices(MerkleTreeId.NULLIFIER_TREE, [siloedNullifier.toBuffer()])
     )[0];
@@ -87,7 +87,7 @@ export class TXEOraclePublicContext implements IAvmExecutionOracle {
     return treeIndex !== undefined || transientIndex !== undefined;
   }
 
-  async avmOpcodeStorageWrite(slot: Fr, value: Fr) {
+  async storageWrite(slot: Fr, value: Fr) {
     this.logger.debug('AVM storage write', { slot, value });
 
     const dataWrite = new PublicDataWrite(await computePublicDataTreeLeafSlot(this.contractAddress, slot), value);
@@ -99,7 +99,7 @@ export class TXEOraclePublicContext implements IAvmExecutionOracle {
     ]);
   }
 
-  async avmOpcodeStorageRead(slot: Fr, contractAddress: AztecAddress): Promise<Fr> {
+  async storageRead(slot: Fr, contractAddress: AztecAddress): Promise<Fr> {
     const leafSlot = await computePublicDataTreeLeafSlot(contractAddress, slot);
 
     const lowLeafResult = await this.forkedWorldTrees.getPreviousValueIndex(

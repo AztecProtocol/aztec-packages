@@ -1,28 +1,20 @@
 import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
-import { Fr } from '@aztec/foundation/curves/bn254';
+import { filterAsync } from '@aztec/foundation/collection';
 import { createLogger } from '@aztec/foundation/log';
-import {
-  ContractClassPublishedEvent,
-  PrivateFunctionBroadcastedEvent,
-  UtilityFunctionBroadcastedEvent,
-} from '@aztec/protocol-contracts/class-registry';
+import { ContractClassPublishedEvent } from '@aztec/protocol-contracts/class-registry';
 import {
   ContractInstancePublishedEvent,
   ContractInstanceUpdatedEvent,
 } from '@aztec/protocol-contracts/instance-registry';
 import type { L2Block, ValidateCheckpointResult } from '@aztec/stdlib/block';
-import type { PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
+import { type ProposedCheckpointInput, type PublishedCheckpoint, validateCheckpoint } from '@aztec/stdlib/checkpoint';
 import {
-  type ExecutablePrivateFunctionWithMembershipProof,
-  type UtilityFunctionWithMembershipProof,
-  computePublicBytecodeCommitment,
-  isValidPrivateFunctionMembershipProof,
-  isValidUtilityFunctionMembershipProof,
+  type ContractClassPublicWithCommitment,
+  computeContractAddressFromInstance,
+  computeContractClassId,
 } from '@aztec/stdlib/contract';
 import type { ContractClassLog, PrivateLog, PublicLog } from '@aztec/stdlib/logs';
 import type { UInt64 } from '@aztec/stdlib/types';
-
-import groupBy from 'lodash.groupby';
 
 import type { KVArchiverDataStore } from '../store/kv_archiver_store.js';
 import type { L2TipsCache } from '../store/l2_tips_cache.js';
@@ -48,32 +40,32 @@ export class ArchiverDataStoreUpdater {
   constructor(
     private store: KVArchiverDataStore,
     private l2TipsCache?: L2TipsCache,
+    private opts: { rollupManaLimit?: number } = {},
   ) {}
 
   /**
-   * Adds proposed blocks to the store with contract class/instance extraction from logs.
-   * These are uncheckpointed blocks that have been proposed by the sequencer but not yet included in a checkpoint on L1.
-   * Extracts ContractClassPublished, ContractInstancePublished, ContractInstanceUpdated events,
-   * and individually broadcasted functions from the block logs.
+   * Adds a proposed block to the store with contract class/instance extraction from logs.
+   * This is an uncheckpointed block that has been proposed by the sequencer but not yet included in a checkpoint on L1.
+   * Extracts ContractClassPublished, ContractInstancePublished, ContractInstanceUpdated events from the block logs.
    *
-   * @param blocks - The proposed L2 blocks to add.
+   * @param block - The proposed L2 block to add.
    * @param pendingChainValidationStatus - Optional validation status to set.
    * @returns True if the operation is successful.
    */
-  public async addProposedBlocks(
-    blocks: L2Block[],
+  public async addProposedBlock(
+    block: L2Block,
     pendingChainValidationStatus?: ValidateCheckpointResult,
   ): Promise<boolean> {
     const result = await this.store.transactionAsync(async () => {
-      await this.store.addProposedBlocks(blocks);
+      await this.store.addProposedBlock(block);
 
       const opResults = await Promise.all([
         // Update the pending chain validation status if provided
         pendingChainValidationStatus && this.store.setPendingChainValidationStatus(pendingChainValidationStatus),
-        // Add any logs emitted during the retrieved blocks
-        this.store.addLogs(blocks),
-        // Unroll all logs emitted during the retrieved blocks and extract any contract classes and instances from them
-        ...blocks.map(block => this.addContractDataToDb(block)),
+        // Add any logs emitted during the retrieved block
+        this.store.addLogs([block]),
+        // Unroll all logs emitted during the retrieved block and extract any contract classes and instances from it
+        this.addContractDataToDb(block),
       ]);
 
       await this.l2TipsCache?.refresh();
@@ -86,8 +78,7 @@ export class ArchiverDataStoreUpdater {
    * Reconciles local blocks with incoming checkpoints from L1.
    * Adds new checkpoints to the store with contract class/instance extraction from logs.
    * Prunes any local blocks that conflict with checkpoint data (by comparing archive roots).
-   * Extracts ContractClassPublished, ContractInstancePublished, ContractInstanceUpdated events,
-   * and individually broadcasted functions from the checkpoint block logs.
+   * Extracts ContractClassPublished, ContractInstancePublished, ContractInstanceUpdated events from the checkpoint block logs.
    *
    * @param checkpoints - The published checkpoints to add.
    * @param pendingChainValidationStatus - Optional validation status to set.
@@ -97,13 +88,17 @@ export class ArchiverDataStoreUpdater {
     checkpoints: PublishedCheckpoint[],
     pendingChainValidationStatus?: ValidateCheckpointResult,
   ): Promise<ReconcileCheckpointsResult> {
+    for (const checkpoint of checkpoints) {
+      validateCheckpoint(checkpoint.checkpoint, { rollupManaLimit: this.opts?.rollupManaLimit });
+    }
+
     const result = await this.store.transactionAsync(async () => {
       // Before adding checkpoints, check for conflicts with local blocks if any
       const { prunedBlocks, lastAlreadyInsertedBlockNumber } = await this.pruneMismatchingLocalBlocks(checkpoints);
 
       await this.store.addCheckpoints(checkpoints);
 
-      // Filter out blocks that were already inserted via addProposedBlocks() to avoid duplicating logs/contract data
+      // Filter out blocks that were already inserted via addProposedBlock() to avoid duplicating logs/contract data
       const newBlocks = checkpoints
         .flatMap((ch: PublishedCheckpoint) => ch.checkpoint.blocks)
         .filter(b => lastAlreadyInsertedBlockNumber === undefined || b.number > lastAlreadyInsertedBlockNumber);
@@ -120,6 +115,15 @@ export class ArchiverDataStoreUpdater {
       await this.l2TipsCache?.refresh();
       return { prunedBlocks, lastAlreadyInsertedBlockNumber };
     });
+    return result;
+  }
+
+  public async setProposedCheckpoint(proposedCheckpoint: ProposedCheckpointInput) {
+    const result = await this.store.transactionAsync(async () => {
+      await this.store.setProposedCheckpoint(proposedCheckpoint);
+      await this.l2TipsCache?.refresh();
+    });
+
     return result;
   }
 
@@ -173,7 +177,7 @@ export class ArchiverDataStoreUpdater {
           this.log.verbose(`Block number ${blockNumber} already inserted and matches checkpoint`, blockInfos);
           lastAlreadyInsertedBlockNumber = blockNumber;
         } else {
-          this.log.warn(`Conflict detected at block ${blockNumber} between checkpointed and local block`, blockInfos);
+          this.log.info(`Conflict detected at block ${blockNumber} between checkpointed and local block`, blockInfos);
           const prunedBlocks = await this.removeBlocksAfter(BlockNumber(blockNumber - 1));
           return { prunedBlocks, lastAlreadyInsertedBlockNumber };
         }
@@ -216,6 +220,10 @@ export class ArchiverDataStoreUpdater {
       }
 
       const result = await this.removeBlocksAfter(blockNumber);
+
+      // Clear the proposed checkpoint if it exists, since its blocks have been pruned
+      await this.store.deleteProposedCheckpoint();
+
       await this.l2TipsCache?.refresh();
       return result;
     });
@@ -276,6 +284,17 @@ export class ArchiverDataStoreUpdater {
     });
   }
 
+  /**
+   * Updates the finalized checkpoint number and refreshes the L2 tips cache.
+   * @param checkpointNumber - The checkpoint number to set as finalized.
+   */
+  public async setFinalizedCheckpointNumber(checkpointNumber: CheckpointNumber): Promise<void> {
+    await this.store.transactionAsync(async () => {
+      await this.store.setFinalizedCheckpointNumber(checkpointNumber);
+      await this.l2TipsCache?.refresh();
+    });
+  }
+
   /** Extracts and stores contract data from a single block. */
   private addContractDataToDb(block: L2Block): Promise<boolean> {
     return this.updateContractDataOnDb(block, Operation.Store);
@@ -297,9 +316,6 @@ export class ArchiverDataStoreUpdater {
         this.updatePublishedContractClasses(contractClassLogs, block.number, operation),
         this.updateDeployedContractInstances(privateLogs, block.number, operation),
         this.updateUpdatedContractInstances(publicLogs, block.header.globalVariables.timestamp, operation),
-        operation === Operation.Store
-          ? this.storeBroadcastedIndividualFunctions(contractClassLogs, block.number)
-          : Promise.resolve(true),
       ])
     ).every(Boolean);
   }
@@ -316,18 +332,37 @@ export class ArchiverDataStoreUpdater {
       .filter(log => ContractClassPublishedEvent.isContractClassPublishedEvent(log))
       .map(log => ContractClassPublishedEvent.fromLog(log));
 
-    const contractClasses = await Promise.all(contractClassPublishedEvents.map(e => e.toContractClassPublic()));
-    if (contractClasses.length > 0) {
-      contractClasses.forEach(c => this.log.verbose(`${Operation[operation]} contract class ${c.id.toString()}`));
-      if (operation == Operation.Store) {
-        // TODO: Will probably want to create some worker threads to compute these bytecode commitments as they are expensive
-        const commitments = await Promise.all(
-          contractClasses.map(c => computePublicBytecodeCommitment(c.packedBytecode)),
-        );
-        return await this.store.addContractClasses(contractClasses, commitments, blockNum);
-      } else if (operation == Operation.Delete) {
+    if (operation == Operation.Delete) {
+      const contractClasses = contractClassPublishedEvents.map(e => e.toContractClassPublic());
+      if (contractClasses.length > 0) {
+        contractClasses.forEach(c => this.log.verbose(`${Operation[operation]} contract class ${c.id.toString()}`));
         return await this.store.deleteContractClasses(contractClasses, blockNum);
       }
+      return true;
+    }
+
+    // Compute bytecode commitments and validate class IDs in a single pass.
+    const contractClasses: ContractClassPublicWithCommitment[] = [];
+    for (const event of contractClassPublishedEvents) {
+      const contractClass = await event.toContractClassPublicWithBytecodeCommitment();
+      const computedClassId = await computeContractClassId({
+        artifactHash: contractClass.artifactHash,
+        privateFunctionsRoot: contractClass.privateFunctionsRoot,
+        publicBytecodeCommitment: contractClass.publicBytecodeCommitment,
+      });
+      if (!computedClassId.equals(contractClass.id)) {
+        this.log.warn(
+          `Skipping contract class with mismatched id at block ${blockNum}. Claimed ${contractClass.id}, computed ${computedClassId}`,
+          { blockNum, contractClassId: event.contractClassId.toString() },
+        );
+        continue;
+      }
+      contractClasses.push(contractClass);
+    }
+
+    if (contractClasses.length > 0) {
+      contractClasses.forEach(c => this.log.verbose(`${Operation[operation]} contract class ${c.id.toString()}`));
+      return await this.store.addContractClasses(contractClasses, blockNum);
     }
     return true;
   }
@@ -340,10 +375,27 @@ export class ArchiverDataStoreUpdater {
     blockNum: BlockNumber,
     operation: Operation,
   ): Promise<boolean> {
-    const contractInstances = allLogs
+    const allInstances = allLogs
       .filter(log => ContractInstancePublishedEvent.isContractInstancePublishedEvent(log))
       .map(log => ContractInstancePublishedEvent.fromLog(log))
       .map(e => e.toContractInstance());
+
+    // Verify that each instance's address matches the one derived from its fields if we're adding
+    const contractInstances =
+      operation === Operation.Delete
+        ? allInstances
+        : await filterAsync(allInstances, async instance => {
+            const computedAddress = await computeContractAddressFromInstance(instance);
+            if (!computedAddress.equals(instance.address)) {
+              this.log.warn(
+                `Found contract instance with mismatched address at block ${blockNum}. Claimed ${instance.address} but computed ${computedAddress}.`,
+                { instanceAddress: instance.address.toString(), computedAddress: computedAddress.toString(), blockNum },
+              );
+              return false;
+            }
+            return true;
+          });
+
     if (contractInstances.length > 0) {
       contractInstances.forEach(c =>
         this.log.verbose(`${Operation[operation]} contract instance at ${c.address.toString()}`),
@@ -379,69 +431,6 @@ export class ArchiverDataStoreUpdater {
       } else if (operation == Operation.Delete) {
         return await this.store.deleteContractInstanceUpdates(contractUpdates, timestamp);
       }
-    }
-    return true;
-  }
-
-  /**
-   * Stores the functions that were broadcasted individually.
-   *
-   * @dev Beware that there is not a delete variant of this, since they are added to contract classes
-   *      and will be deleted as part of the class if needed.
-   */
-  private async storeBroadcastedIndividualFunctions(
-    allLogs: ContractClassLog[],
-    _blockNum: BlockNumber,
-  ): Promise<boolean> {
-    // Filter out private and utility function broadcast events
-    const privateFnEvents = allLogs
-      .filter(log => PrivateFunctionBroadcastedEvent.isPrivateFunctionBroadcastedEvent(log))
-      .map(log => PrivateFunctionBroadcastedEvent.fromLog(log));
-    const utilityFnEvents = allLogs
-      .filter(log => UtilityFunctionBroadcastedEvent.isUtilityFunctionBroadcastedEvent(log))
-      .map(log => UtilityFunctionBroadcastedEvent.fromLog(log));
-
-    // Group all events by contract class id
-    for (const [classIdString, classEvents] of Object.entries(
-      groupBy([...privateFnEvents, ...utilityFnEvents], e => e.contractClassId.toString()),
-    )) {
-      const contractClassId = Fr.fromHexString(classIdString);
-      const contractClass = await this.store.getContractClass(contractClassId);
-      if (!contractClass) {
-        this.log.warn(`Skipping broadcasted functions as contract class ${contractClassId.toString()} was not found`);
-        continue;
-      }
-
-      // Split private and utility functions, and filter out invalid ones
-      const allFns = classEvents.map(e => e.toFunctionWithMembershipProof());
-      const privateFns = allFns.filter(
-        (fn): fn is ExecutablePrivateFunctionWithMembershipProof => 'utilityFunctionsTreeRoot' in fn,
-      );
-      const utilityFns = allFns.filter(
-        (fn): fn is UtilityFunctionWithMembershipProof => 'privateFunctionsArtifactTreeRoot' in fn,
-      );
-
-      const privateFunctionsWithValidity = await Promise.all(
-        privateFns.map(async fn => ({ fn, valid: await isValidPrivateFunctionMembershipProof(fn, contractClass) })),
-      );
-      const validPrivateFns = privateFunctionsWithValidity.filter(({ valid }) => valid).map(({ fn }) => fn);
-      const utilityFunctionsWithValidity = await Promise.all(
-        utilityFns.map(async fn => ({
-          fn,
-          valid: await isValidUtilityFunctionMembershipProof(fn, contractClass),
-        })),
-      );
-      const validUtilityFns = utilityFunctionsWithValidity.filter(({ valid }) => valid).map(({ fn }) => fn);
-      const validFnCount = validPrivateFns.length + validUtilityFns.length;
-      if (validFnCount !== allFns.length) {
-        this.log.warn(`Skipping ${allFns.length - validFnCount} invalid functions`);
-      }
-
-      // Store the functions in the contract class in a single operation
-      if (validFnCount > 0) {
-        this.log.verbose(`Storing ${validFnCount} functions for contract class ${contractClassId.toString()}`);
-      }
-      return await this.store.addFunctions(contractClassId, validPrivateFns, validUtilityFns);
     }
     return true;
   }

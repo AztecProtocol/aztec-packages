@@ -32,6 +32,12 @@ export class TestDateProvider extends DateProvider {
     this.logger.warn(`Time set to ${new Date(timeMs).toISOString()}`, { offset: this.offset, timeMs });
   }
 
+  /** Resets the time back to real time (offset = 0). */
+  public reset() {
+    this.offset = 0;
+    this.logger.warn('Time reset to real time');
+  }
+
   /** Advances the time by the given number of seconds. */
   public advanceTime(seconds: number) {
     this.offset += seconds * 1000;

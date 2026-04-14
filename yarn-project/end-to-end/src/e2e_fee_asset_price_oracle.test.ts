@@ -2,11 +2,11 @@ import type { Logger } from '@aztec/aztec.js/log';
 import { EthCheatCodes } from '@aztec/aztec/testing';
 import { createExtendedL1Client } from '@aztec/ethereum/client';
 import { RollupContract, STATE_VIEW_ADDRESS } from '@aztec/ethereum/contracts';
+import type { Anvil } from '@aztec/ethereum/test';
 import { retryUntil } from '@aztec/foundation/retry';
 import { DateProvider } from '@aztec/foundation/timer';
 
 import { jest } from '@jest/globals';
-import type { Anvil } from '@viem/anvil';
 import { mnemonicToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 

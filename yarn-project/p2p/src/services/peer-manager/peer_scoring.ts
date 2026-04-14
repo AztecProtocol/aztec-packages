@@ -1,5 +1,6 @@
 import { median } from '@aztec/foundation/collection';
 import { createLogger } from '@aztec/foundation/log';
+import { DateProvider } from '@aztec/foundation/timer';
 import { PeerErrorSeverity } from '@aztec/stdlib/p2p';
 import {
   Attributes,
@@ -54,6 +55,7 @@ export enum PeerScoreState {
 // TODO: move into config / constants
 const MIN_SCORE_BEFORE_BAN = -100;
 const MIN_SCORE_BEFORE_DISCONNECT = -50;
+const SCORE_CLEANUP_THRESHOLD = 0.1;
 
 export class PeerScoring {
   private logger = createLogger('p2p:peer-scoring');
@@ -65,7 +67,11 @@ export class PeerScoring {
 
   private peerStateCounter: UpDownCounter;
 
-  constructor(config: P2PConfig, telemetry: TelemetryClient = getTelemetryClient()) {
+  constructor(
+    config: P2PConfig,
+    telemetry: TelemetryClient = getTelemetryClient(),
+    private readonly dateProvider: DateProvider = new DateProvider(),
+  ) {
     const orderedValues = config.peerPenaltyValues?.sort((a, b) => a - b);
     this.peerPenalties = {
       [PeerErrorSeverity.HighToleranceError]:
@@ -92,7 +98,7 @@ export class PeerScoring {
   }
 
   updateScore(peerId: string, scoreDelta: number): number {
-    const currentTime = Date.now();
+    const currentTime = this.dateProvider.now();
     const lastUpdate = this.lastUpdateTime.get(peerId) || currentTime;
     const timePassed = currentTime - lastUpdate;
     const decayPeriods = Math.floor(timePassed / this.decayInterval);
@@ -111,17 +117,33 @@ export class PeerScoring {
   }
 
   decayAllScores(): void {
-    const currentTime = Date.now();
+    const currentTime = this.dateProvider.now();
     for (const [peerId, lastUpdate] of this.lastUpdateTime.entries()) {
       const timePassed = currentTime - lastUpdate;
       const decayPeriods = Math.floor(timePassed / this.decayInterval);
       if (decayPeriods > 0) {
         let score = this.scores.get(peerId) || 0;
         score *= Math.pow(this.decayFactor, decayPeriods);
-        this.scores.set(peerId, score);
-        this.lastUpdateTime.set(peerId, currentTime);
+        if (Math.abs(score) < SCORE_CLEANUP_THRESHOLD) {
+          this.scores.delete(peerId);
+          this.lastUpdateTime.delete(peerId);
+        } else {
+          this.scores.set(peerId, score);
+          this.lastUpdateTime.set(peerId, currentTime);
+        }
       }
     }
+  }
+
+  /** Resets all peer scores. Useful for benchmarks to prevent cross-case contamination. */
+  resetAllScores(): void {
+    this.scores.clear();
+    this.lastUpdateTime.clear();
+  }
+
+  removePeer(peerId: string): void {
+    this.scores.delete(peerId);
+    this.lastUpdateTime.delete(peerId);
   }
 
   getScore(peerId: string): number {

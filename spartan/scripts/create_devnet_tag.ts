@@ -50,9 +50,31 @@ console.log(`Major: ${major}, Iteration: ${iteration}`);
 // 2. Configure git identity in CI
 configureGitIdentityInCI();
 
-// 3. Find the latest patch number for this devnet
-const tagPattern = `v${major}.0.0-devnet.${iteration}-patch.`;
-const existingTags = execSync(`git tag -l "${tagPattern}*"`, {
+// 3. Check if HEAD already has a devnet tag for this branch
+const devnetTagPrefix = `v${major}.0.0-devnet.${iteration}-patch.`;
+const headTags = execSync("git tag --points-at HEAD", { encoding: "utf-8" });
+const existingDevnetTag = headTags
+  .split("\n")
+  .map((t) => t.trim())
+  .find((t) => t.startsWith(devnetTagPrefix));
+
+if (existingDevnetTag) {
+  const existingPatch = existingDevnetTag.split("-patch.").pop()!;
+  const existingSemver = existingDevnetTag.slice(1);
+  const existingNamespace = `v${major}-devnet-${iteration}`;
+  console.log(`HEAD already tagged as ${existingDevnetTag}, nothing to do.`);
+  writeGithubOutputs({
+    tag: existingDevnetTag,
+    semver: existingSemver,
+    namespace: existingNamespace,
+    ref: branch,
+    patch: existingPatch,
+  });
+  process.exit(0);
+}
+
+// 4. Find the latest patch number for this devnet
+const existingTags = execSync(`git tag -l "${devnetTagPrefix}*"`, {
   encoding: "utf-8",
 });
 
@@ -77,12 +99,12 @@ if (dryRun) {
   console.log(`[dry-run] Would create tag: ${tag}`);
   console.log(`[dry-run] Would push tag to origin`);
 } else {
-  // 4. Create and push the tag
+  // 5. Create and push the tag
   execSync(`git tag -a "${tag}" -m "Devnet patch release ${tag}"`);
   execSync(`git push origin "${tag}"`);
 
   console.log(`Tag ${tag} created and pushed.`);
 
-  // 5. Write outputs for CI
+  // 6. Write outputs for CI
   writeGithubOutputs({ tag, semver, namespace, ref: branch, patch: String(nextPatch) });
 }

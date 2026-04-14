@@ -7,6 +7,7 @@
 #include "barretenberg/chonk/chonk_verifier.hpp"
 #include "barretenberg/chonk/mock_circuit_producer.hpp"
 #include "barretenberg/chonk/private_execution_steps.hpp"
+#include "barretenberg/chonk/proof_compression.hpp"
 #include "barretenberg/common/get_bytecode.hpp"
 #include "barretenberg/common/map.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
@@ -58,7 +59,7 @@ void ChonkAPI::prove(const Flags& flags,
     request.vk_policy = bbapi::parse_vk_policy(flags.vk_policy);
     std::vector<PrivateExecutionStepRaw> raw_steps = PrivateExecutionStepRaw::load_and_decompress(input_path);
 
-    bbapi::ChonkStart{ .num_circuits = raw_steps.size() }.execute(request);
+    bbapi::ChonkStart{ .num_circuits = static_cast<uint32_t>(raw_steps.size()) }.execute(request);
     info("Chonk: starting with ", raw_steps.size(), " circuits");
     for (const auto& step : raw_steps) {
         bbapi::ChonkLoad{
@@ -115,6 +116,61 @@ bool ChonkAPI::verify([[maybe_unused]] const Flags& flags,
     return response.valid;
 }
 
+bool ChonkAPI::batch_verify([[maybe_unused]] const Flags& flags, const std::filesystem::path& proofs_dir)
+{
+    BB_BENCH_NAME("ChonkAPI::batch_verify");
+
+    std::vector<ChonkProof> proofs;
+    std::vector<std::vector<uint8_t>> vks;
+
+    for (size_t i = 0;; ++i) {
+        auto proof_file = proofs_dir / ("proof_" + std::to_string(i));
+        auto vk_file = proofs_dir / ("vk_" + std::to_string(i));
+
+        if (!std::filesystem::exists(proof_file) || !std::filesystem::exists(vk_file)) {
+            break;
+        }
+
+        auto proof_fields = many_from_buffer<fr>(read_file(proof_file));
+        proofs.push_back(ChonkProof::from_field_elements(proof_fields));
+        vks.push_back(read_vk_file(vk_file));
+    }
+
+    if (proofs.empty()) {
+        throw_or_abort("batch_verify: no proof_0/vk_0 pairs found in " + proofs_dir.string());
+    }
+
+    info("ChonkAPI::batch_verify - found ", proofs.size(), " proof/vk pairs in ", proofs_dir.string());
+
+    auto response = bbapi::ChonkBatchVerify{ .proofs = std::move(proofs), .vks = std::move(vks) }.execute();
+    return response.valid;
+}
+
+void ChonkAPI::proof_stats(const std::filesystem::path& proof_path, const std::filesystem::path& output_path)
+{
+    auto proof_fields = many_from_buffer<fr>(read_file(proof_path));
+    auto proof = ChonkProof::from_field_elements(proof_fields);
+
+    auto compressed = ProofCompressor::compress_chonk_proof(proof);
+
+    std::string json = "{\n"
+                       "  \"compressed_proof_size_bytes\": " +
+                       std::to_string(compressed.size()) +
+                       "\n"
+                       "}";
+
+    if (output_path == "-") {
+        std::cout << json << std::endl;
+    } else {
+        write_file(output_path, std::vector<uint8_t>(json.begin(), json.end()));
+        // Write the compressed proof alongside the JSON for further processing (e.g. gzip)
+        auto compressed_proof_path = output_path;
+        compressed_proof_path.replace_extension(".bin");
+        write_file(compressed_proof_path, compressed);
+        info("Proof stats written to ", output_path);
+    }
+}
+
 // WORKTODO(bbapi) remove this
 bool ChonkAPI::prove_and_verify(const std::filesystem::path& input_path)
 {
@@ -134,7 +190,7 @@ bool ChonkAPI::prove_and_verify(const std::filesystem::path& input_path)
 void ChonkAPI::gates(const Flags& flags, const std::filesystem::path& bytecode_path)
 {
     BB_BENCH_NAME("ChonkAPI::gates");
-    chonk_gate_count(bytecode_path, flags.include_gates_per_opcode);
+    chonk_gate_count(bytecode_path.string(), flags.include_gates_per_opcode);
 }
 
 void ChonkAPI::write_solidity_verifier([[maybe_unused]] const Flags& flags,

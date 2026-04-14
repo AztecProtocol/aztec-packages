@@ -8,6 +8,7 @@
 #include "barretenberg/commitment_schemes/ipa/ipa.hpp"
 #include "barretenberg/commitment_schemes/pairing_points.hpp"
 #include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
+#include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/flavor/mega_avm_recursive_flavor.hpp"
 #include "barretenberg/flavor/mega_zk_recursive_flavor.hpp"
 #include "barretenberg/flavor/ultra_zk_recursive_flavor.hpp"
@@ -29,7 +30,10 @@ template <typename Flavor, class IO> size_t UltraVerifier_<Flavor, IO>::compute_
         return static_cast<size_t>(Flavor::VIRTUAL_LOG_N);
     } else {
         // Non-padded: use actual circuit size from VK (native only)
-        return static_cast<size_t>(verifier_instance->get_vk()->log_circuit_size);
+        const size_t log_circuit_size = static_cast<size_t>(verifier_instance->get_vk()->log_circuit_size);
+        BB_ASSERT_GTE(
+            log_circuit_size, static_cast<size_t>(1), "VK log_circuit_size is 0, which is invalid for any circuit");
+        return log_circuit_size;
     }
 }
 
@@ -160,8 +164,8 @@ typename UltraVerifier_<Flavor, IO>::ReductionResult UltraVerifier_<Flavor, IO>:
 
     // Get the witness commitments that the verifier needs to verify
     VerifierCommitments commitments{ verifier_instance->get_vk(), verifier_instance->witness_commitments };
-    // For ZK flavors: set gemini_masking_poly commitment from accumulator
-    if constexpr (Flavor::HasZK) {
+    // For ZK flavors with Gemini masking: set gemini_masking_poly commitment from accumulator
+    if constexpr (flavor_has_gemini_masking<Flavor>()) {
         commitments.gemini_masking_poly = verifier_instance->gemini_masking_commitment;
     }
 
@@ -231,6 +235,7 @@ template <typename Flavor, class IO>
 typename UltraVerifier_<Flavor, IO>::Output UltraVerifier_<Flavor, IO>::verify_proof(
     const typename UltraVerifier_<Flavor, IO>::Proof& proof)
 {
+    BB_BENCH_NAME("UltraVerifier::verify_proof");
     // Step 1: Split proof if needed
     Proof honk_proof;
     Proof ipa_proof;

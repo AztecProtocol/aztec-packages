@@ -17,7 +17,7 @@ describe('TxProvider', () => {
   // Dependencies
   let txCollection: MockProxy<TxCollection>;
   let txPool: MockProxy<TxPoolV2>;
-  let txValidator: MockProxy<Pick<P2PClient, 'validate'>>;
+  let txValidator: MockProxy<Pick<P2PClient, 'validateTxsReceivedInBlockProposal'>>;
 
   // Subject under test
   let txProvider: TestTxProvider;
@@ -81,7 +81,7 @@ describe('TxProvider', () => {
 
     txCollection = mock<TxCollection>();
     txPool = mock<TxPoolV2>();
-    txValidator = mock<Pick<P2PClient, 'validate'>>();
+    txValidator = mock<Pick<P2PClient, 'validateTxsReceivedInBlockProposal'>>();
 
     txPool.getTxsByHash.mockImplementation(txHashes =>
       Promise.resolve(txHashes.map(txHash => txPools.get(txHash.toString()))),

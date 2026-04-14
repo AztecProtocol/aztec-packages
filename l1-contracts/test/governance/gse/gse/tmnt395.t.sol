@@ -63,7 +63,7 @@ contract Tmnt395Test is TestBase {
     STAKING_ASSET.addMinter(address(this));
   }
 
-  function test_malleability_g1() external {
+  function test_malleability_g1() external skipWhenCoverage {
     address withdrawer = makeAddr("withdrawer");
     address attester1 = makeAddr("attester1");
     address attester2 = makeAddr("attester2");

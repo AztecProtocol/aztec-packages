@@ -10,8 +10,7 @@ use crate::{
     utils::field::sqrt,
 };
 
-// We do below because `use crate::point::Point;` does not work
-use std::embedded_curve_ops::EmbeddedCurvePoint as Point;
+use crate::point::Point;
 
 use crate::public_keys::AddressPoint;
 use std::{
@@ -49,19 +48,20 @@ impl AztecAddress {
         Self { inner: 0 }
     }
 
-    /// Returns an address's `AddressPoint`, which can be used to create shared secrets with the owner
-    /// of the address. If the address is invalid (i.e. it is not a properly derived Aztec address), then this
-    /// returns `Option::none()`, and no shared secrets can be created.
-    pub fn to_address_point(self) -> Option<AddressPoint> {
-        // We compute the address point by taking our address as x, and then solving for y in the
-        // equation which defines the grumpkin curve:
-        // y^2 = x^3 - 17; x = address
-        let x = self.inner;
-        let y_squared = x * x * x - 17;
+    /// Returns `true` if the address is valid.
+    ///
+    /// An invalid address is one that can be proven to not be correctly derived, meaning it contains no contract code,
+    /// public keys, etc., and can therefore not receive messages nor execute calls.
+    pub fn is_valid(self) -> bool {
+        self.get_y().is_some()
+    }
 
-        // An invalid AztecAddress is one for which no y coordinate satisfies the curve equation, which we'll
-        // identify by proving that the square root of y_squared does not exist.
-        sqrt(y_squared).map(|y| {
+    /// Returns an address's [`AddressPoint`].
+    ///
+    /// This can be used to create shared secrets with the owner of the address. If the address is invalid (see
+    /// [`AztecAddress::is_valid`]) then this returns `Option::none()`, and no shared secrets can be created.
+    pub fn to_address_point(self) -> Option<AddressPoint> {
+        self.get_y().map(|y| {
             // If we get a negative y coordinate (y > (r - 1) / 2), we swap it to the
             // positive one (where y <= (r - 1) / 2) by negating it.
             let final_y = if Self::is_positive(y) { y } else { -y };
@@ -81,6 +81,24 @@ impl AztecAddress {
         let MID_PLUS_1 = MID + 1; // (r - 1)/2 + 1
         // Note: y <= m implies y < m + 1.
         y.lt(MID_PLUS_1)
+    }
+
+    /// Returns one of the two possible y-coordinates.
+    ///
+    /// Not all `AztecAddresses` are valid, in which case there is no corresponding y-coordinate. This returns
+    /// `Option::none()` for invalid addresses.
+    ///
+    /// An `AztecAddress` is defined by an x-coordinate, for which two y-coordinates exist as solutions to the curve
+    /// equation. This function returns either of them. Note that an [`AddressPoint`] must **always** have a positive
+    /// y-coordinate - if trying to obtain the underlying point use [`AztecAddress::to_address_point`] instead.
+    fn get_y(self) -> Option<Field> {
+        // We compute the address point by taking our address as x, and then solving for y in the
+        // equation which defines the grumpkin curve:
+        // y^2 = x^3 - 17; x = address
+        let x = self.inner;
+        let y_squared = x * x * x - 17;
+
+        sqrt(y_squared)
     }
 
     pub fn compute(public_keys: PublicKeys, partial_address: PartialAddress) -> AztecAddress {
@@ -120,9 +138,11 @@ impl AztecAddress {
         );
 
         // Note: `.add()` will fail within the blackbox fn if either of the points are not on the curve. (See tests below).
-        let address_point = derive_public_key(EmbeddedCurveScalar::from_field(pre_address)).add(
-            public_keys.ivpk_m.to_point(),
-        );
+        // TODO(F-553): Drop the `.to_embedded()` / `.into()` round-trip once the custom `Point` wrapper is removed and
+        // we use `EmbeddedCurvePoint` directly.
+        let address_point: Point = derive_public_key(EmbeddedCurveScalar::from_field(pre_address))
+            .add(public_keys.ivpk_m.to_point().to_embedded())
+            .into();
 
         // Note that our address is only the x-coordinate of the full address_point. This is okay because when people want to encrypt something and send it to us
         // they can recover our full point using the x-coordinate (our address itself). To do this, they recompute the y-coordinate according to the equation y^2 = x^3 - 17.
@@ -265,6 +285,10 @@ fn serde() {
 fn to_address_point_valid() {
     // x = 8 where x^3 - 17 = 512 - 17 = 495, which is a residue in this field
     let address = AztecAddress { inner: 8 };
+
+    assert(address.get_y().is_some()); // We don't bother checking the result of get_y as it is only used internally
+    assert(address.is_valid());
+
     let maybe_point = address.to_address_point();
     assert(maybe_point.is_some());
 
@@ -279,7 +303,10 @@ fn to_address_point_valid() {
 #[test]
 unconstrained fn to_address_point_invalid() {
     // x = 3 where x^3 - 17 = 27 - 17 = 10, which is a non-residue in this field
-    let address = AztecAddress { inner: 3 }; //
-    let maybe_point = address.to_address_point();
-    assert(maybe_point.is_none());
+    let address = AztecAddress { inner: 3 };
+
+    assert(address.get_y().is_none());
+    assert(!address.is_valid());
+
+    assert(address.to_address_point().is_none());
 }

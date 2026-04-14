@@ -45,8 +45,8 @@ export class InvalidTxsAfterReorgRule implements EvictionRule {
         txsByBlockHash.get(blockHashStr)!.push(meta.txHash);
       }
 
-      // Ensure world state is synced to this block before accessing the snapshot
-      await this.worldState.syncImmediate(context.blockNumber);
+      // Sync without a block number to ensure the world state processes the prune event.
+      await this.worldState.syncImmediate();
       const db = this.worldState.getSnapshot(context.blockNumber);
 
       // Check which blocks exist in the archive

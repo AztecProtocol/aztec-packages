@@ -24,7 +24,10 @@ describe('e2e_blacklist_token_contract transfer public', () => {
   });
 
   it('transfer less than balance', async () => {
-    const balance0 = await asset.methods.balance_of_public(adminAddress).simulate({ from: adminAddress });
+    const balance0 = await asset.methods
+      .balance_of_public(adminAddress)
+      .simulate({ from: adminAddress })
+      .then(r => r.result);
     const amount = balance0 / 2n;
     expect(amount).toBeGreaterThan(0n);
     await asset.methods.transfer_public(adminAddress, otherAddress, amount, 0).send({ from: adminAddress });
@@ -33,7 +36,10 @@ describe('e2e_blacklist_token_contract transfer public', () => {
   });
 
   it('transfer to self', async () => {
-    const balance = await asset.methods.balance_of_public(adminAddress).simulate({ from: adminAddress });
+    const balance = await asset.methods
+      .balance_of_public(adminAddress)
+      .simulate({ from: adminAddress })
+      .then(r => r.result);
     const amount = balance / 2n;
     expect(amount).toBeGreaterThan(0n);
     await asset.methods.transfer_public(adminAddress, adminAddress, amount, 0).send({ from: adminAddress });
@@ -42,7 +48,10 @@ describe('e2e_blacklist_token_contract transfer public', () => {
   });
 
   it('transfer on behalf of other', async () => {
-    const balance0 = await asset.methods.balance_of_public(adminAddress).simulate({ from: adminAddress });
+    const balance0 = await asset.methods
+      .balance_of_public(adminAddress)
+      .simulate({ from: adminAddress })
+      .then(r => r.result);
     const amount = balance0 / 2n;
     expect(amount).toBeGreaterThan(0n);
     const authwitNonce = Fr.random();
@@ -68,7 +77,10 @@ describe('e2e_blacklist_token_contract transfer public', () => {
 
   describe('failure cases', () => {
     it('transfer more than balance', async () => {
-      const balance0 = await asset.methods.balance_of_public(adminAddress).simulate({ from: adminAddress });
+      const balance0 = await asset.methods
+        .balance_of_public(adminAddress)
+        .simulate({ from: adminAddress })
+        .then(r => r.result);
       const amount = balance0 + 1n;
       const authwitNonce = 0;
       await expect(
@@ -79,7 +91,10 @@ describe('e2e_blacklist_token_contract transfer public', () => {
     });
 
     it('transfer on behalf of self with non-zero nonce', async () => {
-      const balance0 = await asset.methods.balance_of_public(adminAddress).simulate({ from: adminAddress });
+      const balance0 = await asset.methods
+        .balance_of_public(adminAddress)
+        .simulate({ from: adminAddress })
+        .then(r => r.result);
       const amount = balance0 - 1n;
       const authwitNonce = 1;
       await expect(
@@ -92,7 +107,10 @@ describe('e2e_blacklist_token_contract transfer public', () => {
     });
 
     it('transfer on behalf of other without "approval"', async () => {
-      const balance0 = await asset.methods.balance_of_public(adminAddress).simulate({ from: adminAddress });
+      const balance0 = await asset.methods
+        .balance_of_public(adminAddress)
+        .simulate({ from: adminAddress })
+        .then(r => r.result);
       const amount = balance0 + 1n;
       const authwitNonce = Fr.random();
       await expect(
@@ -103,8 +121,14 @@ describe('e2e_blacklist_token_contract transfer public', () => {
     });
 
     it('transfer more than balance on behalf of other', async () => {
-      const balance0 = await asset.methods.balance_of_public(adminAddress).simulate({ from: adminAddress });
-      const balance1 = await asset.methods.balance_of_public(otherAddress).simulate({ from: otherAddress });
+      const balance0 = await asset.methods
+        .balance_of_public(adminAddress)
+        .simulate({ from: adminAddress })
+        .then(r => r.result);
+      const balance1 = await asset.methods
+        .balance_of_public(otherAddress)
+        .simulate({ from: otherAddress })
+        .then(r => r.result);
       const amount = balance0 + 1n;
       const authwitNonce = Fr.random();
       expect(amount).toBeGreaterThan(0n);
@@ -121,13 +145,29 @@ describe('e2e_blacklist_token_contract transfer public', () => {
       // Perform the transfer
       await expect(action.simulate({ from: otherAddress })).rejects.toThrow(U128_UNDERFLOW_ERROR);
 
-      expect(await asset.methods.balance_of_public(adminAddress).simulate({ from: adminAddress })).toEqual(balance0);
-      expect(await asset.methods.balance_of_public(otherAddress).simulate({ from: otherAddress })).toEqual(balance1);
+      expect(
+        await asset.methods
+          .balance_of_public(adminAddress)
+          .simulate({ from: adminAddress })
+          .then(r => r.result),
+      ).toEqual(balance0);
+      expect(
+        await asset.methods
+          .balance_of_public(otherAddress)
+          .simulate({ from: otherAddress })
+          .then(r => r.result),
+      ).toEqual(balance1);
     });
 
     it('transfer on behalf of other, wrong designated caller', async () => {
-      const balance0 = await asset.methods.balance_of_public(adminAddress).simulate({ from: adminAddress });
-      const balance1 = await asset.methods.balance_of_public(otherAddress).simulate({ from: otherAddress });
+      const balance0 = await asset.methods
+        .balance_of_public(adminAddress)
+        .simulate({ from: adminAddress })
+        .then(r => r.result);
+      const balance1 = await asset.methods
+        .balance_of_public(otherAddress)
+        .simulate({ from: otherAddress })
+        .then(r => r.result);
       const amount = balance0 + 2n;
       const authwitNonce = Fr.random();
       expect(amount).toBeGreaterThan(0n);
@@ -145,8 +185,18 @@ describe('e2e_blacklist_token_contract transfer public', () => {
       // Perform the transfer
       await expect(action.simulate({ from: otherAddress })).rejects.toThrow(/unauthorized/);
 
-      expect(await asset.methods.balance_of_public(adminAddress).simulate({ from: adminAddress })).toEqual(balance0);
-      expect(await asset.methods.balance_of_public(otherAddress).simulate({ from: otherAddress })).toEqual(balance1);
+      expect(
+        await asset.methods
+          .balance_of_public(adminAddress)
+          .simulate({ from: adminAddress })
+          .then(r => r.result),
+      ).toEqual(balance0);
+      expect(
+        await asset.methods
+          .balance_of_public(otherAddress)
+          .simulate({ from: otherAddress })
+          .then(r => r.result),
+      ).toEqual(balance1);
     });
 
     it.skip('transfer into account to overflow', () => {

@@ -1,0 +1,79 @@
+name: Build Private Fuzzing Container
+
+on:
+  push:
+    branches:
+      - next
+  workflow_dispatch:
+    inputs:
+      commit:
+        description: "Git commit SHA to build (leave empty for latest)"
+        required: false
+        default: ""
+jobs:
+  build:
+    if: github.repository == 'AztecProtocol/aztec-packages-private'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+
+      - name: Free up disk space on runner
+        uses: jlumbroso/free-disk-space@54081f138730dfa15788a46383842cd2f914a1be
+        with:
+          large-packages: false
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        id: build
+        uses: docker/build-push-action@ca052bb54ab0790a636c9b5f226502c73d547a25
+        with:
+          context: container-builds/fuzzing-container/src/
+          file: container-builds/fuzzing-container/src/Dockerfile.private
+          push: true
+          tags: |
+            ghcr.io/aztecprotocol/fuzzing-container-private:latest
+            ghcr.io/aztecprotocol/fuzzing-container-private:${{ github.sha }}
+          build-args: |
+            COMMIT=${{ github.event_name == 'workflow_dispatch' && github.event.inputs.commit || github.sha }}
+            BRANCH=${{ github.ref_name }}
+            REPO=${{ github.repository }}
+          secrets: |
+            github_token=${{ secrets.GITHUB_TOKEN }}
+          labels: |
+            com.aztec.source-repo=${{ github.repository }}
+            com.aztec.source-branch=${{ github.ref_name }}
+            com.aztec.commit=${{ github.sha }}
+            com.aztec.visibility=private
+
+      - name: Install oras
+        uses: oras-project/setup-oras@22ce207df3b08e061f537244349aac6ae1d214f6 # v1.2.4
+
+      - name: Extract and attach fuzzer manifest
+        run: |
+          docker create --name manifest-extract ghcr.io/aztecprotocol/fuzzing-container-private:${{ github.sha }}
+          docker cp manifest-extract:/home/fuzzer/aztec-packages/barretenberg/cpp/fuzzer_manifest.json ./fuzzer_manifest.json
+          docker rm manifest-extract
+          oras attach ghcr.io/aztecprotocol/fuzzing-container-private@${{ steps.build.outputs.digest }} \
+            --artifact-type application/vnd.aztec.fuzzer-manifest+json \
+            fuzzer_manifest.json
+
+      - name: Install cosign
+        uses: sigstore/cosign-installer@ba7bc0a3fef59531c69a25acd34668d6d3fe6f22 # v4.1.0
+        with:
+          cosign-release: 'v3.0.5'
+
+      - name: Sign image
+        run: |
+          cosign sign --yes --tlog-upload=false \
+            ghcr.io/aztecprotocol/fuzzing-container-private@${{ steps.build.outputs.digest }}

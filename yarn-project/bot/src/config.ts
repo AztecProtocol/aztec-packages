@@ -11,9 +11,9 @@ import {
   secretStringConfigHelper,
 } from '@aztec/foundation/config';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { type DataStoreConfig, dataConfigMappings } from '@aztec/kv-store/config';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { protocolContractsHash } from '@aztec/protocol-contracts';
+import { type DataStoreConfig, dataConfigMappings } from '@aztec/stdlib/kv-store';
 import { schemas, zodFor } from '@aztec/stdlib/schemas';
 import type { ComponentsVersions } from '@aztec/stdlib/versioning';
 
@@ -69,9 +69,9 @@ export type BotConfig = {
   maxPendingTxs: number;
   /** Whether to flush after sending each 'setup' transaction */
   flushSetupTransactions: boolean;
-  /** L2 gas limit for the tx (empty to have the bot trigger an estimate gas). */
+  /** L2 gas limit for the tx (empty to let the bot's wallet estimate). */
   l2GasLimit: number | undefined;
-  /** DA gas limit for the tx (empty to have the bot trigger an estimate gas). */
+  /** DA gas limit for the tx (empty to let the bot's wallet estimate). */
   daGasLimit: number | undefined;
   /** Token contract to use */
   contract: SupportedTokenContracts;
@@ -130,7 +130,6 @@ export const BotConfigSchema = zodFor<BotConfig>()(
       l1Mnemonic: undefined,
       l1PrivateKey: undefined,
       senderPrivateKey: undefined,
-      dataDirectory: undefined,
       dataStoreMapSizeKb: 1_024 * 1_024,
       ...config,
     })),
@@ -244,12 +243,12 @@ export const botConfigMappings: ConfigMappingsType<BotConfig> = {
   },
   l2GasLimit: {
     env: 'BOT_L2_GAS_LIMIT',
-    description: 'L2 gas limit for the tx (empty to have the bot trigger an estimate gas).',
+    description: "L2 gas limit for the tx (empty to let the bot's wallet estimate).",
     ...optionalNumberConfigHelper(),
   },
   daGasLimit: {
     env: 'BOT_DA_GAS_LIMIT',
-    description: 'DA gas limit for the tx (empty to have the bot trigger an estimate gas).',
+    description: "DA gas limit for the tx (empty to let the bot's wallet estimate).",
     ...optionalNumberConfigHelper(),
   },
   contract: {

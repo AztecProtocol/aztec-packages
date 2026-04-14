@@ -18,9 +18,9 @@ using namespace acir_format;
 template <class Curve> class EcdsaTestingFunctions {
   public:
     using Builder = Curve::Builder;
-    using FrNative = Curve::fr;
-    using FqNative = Curve::fq;
-    using G1Native = Curve::g1;
+    using FrNative = Curve::ScalarFieldNative;
+    using FqNative = Curve::BaseFieldNative;
+    using G1Native = Curve::GroupNative;
     using AcirConstraint = EcdsaConstraint;
 
     struct InvalidWitness {
@@ -58,11 +58,13 @@ template <class Curve> class EcdsaTestingFunctions {
         WitnessVector witness_values,
         const InvalidWitness::Target& invalid_witness_target)
     {
-        // For most ECDSA invalidation cases, we set result=0 to ensure that the failure mode caught by the test is
-        // specific to the particular case being tested, not just simple verification failure.
-        // For the "Result" case we test the mismatch between actual and claimed result.
-        if (invalid_witness_target != InvalidWitness::Target::None &&
-            invalid_witness_target != InvalidWitness::Target::Result) {
+
+        // The ECDSA verification algorithm never makes the circuit fail, it just returns a boolean bearing witness to
+        // whether the verification succeeded or not. The only exception is HashIsNotAByteArray, in which case the
+        // byte_array constructors raises an error. To ensure that the failure mode caught by the test is specific to
+        // the particular case being tested, not just simple verification failure, we set the verification result to
+        // false for HashIsNotAByteArray and to true for every other case.
+        if (invalid_witness_target == InvalidWitness::Target::HashIsNotAByteArray) {
             witness_values[ecdsa_constraints.result] = bb::fr(0);
         }
 
@@ -98,7 +100,6 @@ template <class Curve> class EcdsaTestingFunctions {
         case InvalidWitness::Target::Result:
             // Test enforcement of verification result: tamper signature but claim it's valid
             witness_values[ecdsa_constraints.signature[31]] = bb::fr(0);
-            witness_values[ecdsa_constraints.result] = bb::fr(1);
             break;
         case InvalidWitness::Target::None:
             break;

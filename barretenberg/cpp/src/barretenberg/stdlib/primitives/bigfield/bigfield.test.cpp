@@ -1472,6 +1472,57 @@ template <typename BigField> class stdlib_bigfield : public testing::Test {
         EXPECT_EQ(result, true);
     }
 
+    // Test byte_array constructor with boundary values: 0, 1, p-1, and values >= p.
+    static void test_byte_array_constructor_boundary_values()
+    {
+        // Helper: convert a uint256_t to a 32-byte big-endian vector (same layout as fq_native::serialize_to_buffer)
+        const auto to_bytes = [](uint256_t v) {
+            std::vector<uint8_t> buf(32, 0);
+            for (int i = 31; i >= 0; --i) {
+                buf[static_cast<size_t>(i)] = static_cast<uint8_t>(v.data[0] & 0xff);
+                v >>= 8;
+            }
+            return buf;
+        };
+
+        const uint256_t p = fq_ct::modulus;
+
+        struct TestCase {
+            uint256_t value;
+            bool expect_less_than_p; // whether value < p
+        };
+
+        // Boundary values: 0, 1, p-1 (all valid); p (invalid — equals modulus)
+        // Nibble-boundary values: 0x0f...f (all low nibbles set), 0x10...0 (carry into high nibble)
+        const std::vector<TestCase> cases = {
+            { uint256_t(0), true },
+            { uint256_t(1), true },
+            { p - 1, true },
+            // Nibble boundary: value whose split byte is 0x0f (lo nibble=0xf, hi nibble=0)
+            { uint256_t(0x0f) << (7 * 8), true }, // byte 7 from the right = overlap byte for limb0/limb1
+            // Nibble boundary: value whose split byte is 0xf0 (lo nibble=0, hi nibble=0xf)
+            { uint256_t(0xf0) << (7 * 8), true },
+            // p itself — a bigfield constructed from p bytes will have value == p, which is >= p
+            { p, false },
+        };
+
+        for (const auto& tc : cases) {
+            auto builder = Builder();
+            byte_array_ct arr(&builder, to_bytes(tc.value));
+            fq_ct el(arr);
+
+            // Check that the reconstructed value matches
+            EXPECT_EQ(el.get_value().lo, tc.value);
+
+            // Verify is_less_than agrees with our expectation
+            auto cmp = el.is_less_than(p);
+            cmp.assert_equal(stdlib::bool_t<Builder>(tc.expect_less_than_p));
+
+            EXPECT_TRUE(CircuitChecker::check(builder));
+            EXPECT_FALSE(builder.failed());
+        }
+    }
+
     // This check tests if elements are reduced to fit quotient into range proof
     static void test_quotient_completeness()
     {
@@ -2136,10 +2187,10 @@ template <typename BigField> class stdlib_bigfield : public testing::Test {
 
 // Define types for which the above tests will be constructed.
 using CircuitTypes = testing::Types<typename bb::stdlib::bn254<UltraCircuitBuilder>::BaseField,
-                                    typename bb::stdlib::secp256k1<UltraCircuitBuilder>::fq_ct,
-                                    typename bb::stdlib::secp256k1<UltraCircuitBuilder>::bigfr_ct,
-                                    typename bb::stdlib::secp256r1<UltraCircuitBuilder>::fq_ct,
-                                    typename bb::stdlib::secp256r1<UltraCircuitBuilder>::bigfr_ct>;
+                                    typename bb::stdlib::secp256k1<UltraCircuitBuilder>::BaseField,
+                                    typename bb::stdlib::secp256k1<UltraCircuitBuilder>::ScalarField,
+                                    typename bb::stdlib::secp256r1<UltraCircuitBuilder>::BaseField,
+                                    typename bb::stdlib::secp256r1<UltraCircuitBuilder>::ScalarField>;
 // Define the suite of tests.
 TYPED_TEST_SUITE(stdlib_bigfield, CircuitTypes);
 
@@ -2508,6 +2559,10 @@ TYPED_TEST(stdlib_bigfield, byte_array_constructors)
 {
     TestFixture::test_byte_array_constructors();
 }
+TYPED_TEST(stdlib_bigfield, byte_array_constructor_boundary_values)
+{
+    TestFixture::test_byte_array_constructor_boundary_values();
+}
 TYPED_TEST(stdlib_bigfield, quotient_completeness_regression)
 {
     TestFixture::test_quotient_completeness();
@@ -2590,4 +2645,43 @@ TYPED_TEST(stdlib_bigfield, assert_zero_if_nonzero_value_true_predicate_fails)
 TYPED_TEST(stdlib_bigfield, assert_zero_if_computed_zero)
 {
     TestFixture::test_assert_zero_if_computed_zero();
+}
+
+TYPED_TEST(stdlib_bigfield, less_than_works)
+{
+    using Builder = TypeParam::field_ct::Builder;
+    using fq_ct = TypeParam;
+    using byte_array_ct = stdlib::byte_array<Builder>;
+
+    Builder builder;
+
+    auto [c_native, c_ct] = TestFixture::get_random_witness(&builder);
+    BB_ASSERT_LT(static_cast<uint256_t>(c_native), fq_ct::modulus);
+
+    // c_ct < modulus
+    auto is_ok = c_ct.is_less_than(fq_ct::modulus);
+    is_ok.assert_equal(stdlib::bool_t<Builder>(true));
+
+    // c_ct not smaller than itself
+    auto is_not_ok = c_ct.is_less_than(c_native);
+    is_not_ok.assert_equal(stdlib::bool_t<Builder>(false));
+
+    // c_ct < c_native + 1 (edge case)
+    auto is_ok_edge_case = c_ct.is_less_than(c_native + 1);
+    is_ok_edge_case.assert_equal(stdlib::bool_t<Builder>(true));
+
+    // c_ct > modulus fails comparison but doesn't make the circuit fail
+    std::vector<uint8_t> c_bytes(32, 0xff);
+    if constexpr (std::is_same_v<TypeParam, typename bb::stdlib::bn254<UltraCircuitBuilder>::BaseField>) {
+        // For bn254, NUM_LAST_LIMB_BITS = 50, so we need to set the first byte to something bigger than 0x30 (the first
+        // byte of the modulus) that still fits in 50 bits
+        c_bytes[0] = 0x31;
+    }
+    byte_array_ct c_byte_array = byte_array_ct(&builder, c_bytes);
+    fq_ct reconstructed_from_bytes(c_byte_array);
+    auto is_not_ok_larger_than_modulus = reconstructed_from_bytes.is_less_than(fq_ct::modulus);
+    is_not_ok_larger_than_modulus.assert_equal(stdlib::bool_t<Builder>(false));
+
+    EXPECT_TRUE(CircuitChecker::check(builder));
+    EXPECT_FALSE(builder.failed());
 }

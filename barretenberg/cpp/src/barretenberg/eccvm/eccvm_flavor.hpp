@@ -29,6 +29,7 @@
 #include "barretenberg/relations/ecc_vm/ecc_wnaf_relation.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/relation_tuple_helpers.hpp"
+#include "barretenberg/sumcheck/masking_tail_data.hpp"
 
 // NOLINTBEGIN(cppcoreguidelines-avoid-const-or-ref-data-members)
 
@@ -85,13 +86,33 @@ class ECCVMFlavor {
     static constexpr size_t NUM_SHIFTED_ENTITIES = 26;
     // The number of entities in DerivedWitnessEntities that are not going to be shifted.
     static constexpr size_t NUM_DERIVED_WITNESS_ENTITIES_NON_SHIFTED = 1;
-    // A container to be fed to ShpleminiVerifier to avoid redundant scalar muls, the first number is the index of the
-    // first witness to be shifted.
+    // Indices into the Shplemini commitments vector that identify which "to-be-shifted" witness commitments in the
+    // unshifted block are duplicated in the shifted block, so their scalar muls can be merged.
+    //
+    // Shplemini's remove_repeated_commitments uses offset = HasZK ? 2 : 1. For ECCVM (HasZK=true), offset=2
+    // accounts for the Shplonk:Q commitment and the gemini_masking_poly that precede the Precomputed+Witness
+    // block in the commitments vector. The indices below are therefore relative to the start of
+    // {PrecomputedEntities + WitnessEntities} (i.e. they exclude MaskingEntities, which is covered by the offset).
+    //
+    // original_start: index of the first to-be-shifted entity within {Precomputed + Witness}
+    //               = NUM_PRECOMPUTED + NUM_WIRE_NON_SHIFTED (= NUM_WITNESS - NUM_DERIVED_NON_SHIFTED - NUM_SHIFTED)
+    // duplicate_start: index where the shifted copies begin = NUM_PRECOMPUTED + NUM_WITNESS
+    static constexpr size_t NUM_WIRE_NON_SHIFTED =
+        NUM_WITNESS_ENTITIES - NUM_DERIVED_WITNESS_ENTITIES_NON_SHIFTED - NUM_SHIFTED_ENTITIES;
     static constexpr RepeatedCommitmentsData REPEATED_COMMITMENTS =
-        RepeatedCommitmentsData(NUM_PRECOMPUTED_ENTITIES + NUM_WITNESS_ENTITIES -
-                                    NUM_DERIVED_WITNESS_ENTITIES_NON_SHIFTED - NUM_SHIFTED_ENTITIES,
+        RepeatedCommitmentsData(NUM_PRECOMPUTED_ENTITIES + NUM_WIRE_NON_SHIFTED,
                                 NUM_PRECOMPUTED_ENTITIES + NUM_WITNESS_ENTITIES,
                                 NUM_SHIFTED_ENTITIES);
+
+    // Pin entity counts and REPEATED_COMMITMENTS indices so that any layout change triggers a compile error.
+    // The to-be-shifted witnesses must form a contiguous block starting at NUM_WIRE_NON_SHIFTED within WitnessEntities.
+    static_assert(NUM_WIRE_NON_SHIFTED == 60, "WireNonShiftedEntities size changed — update REPEATED_COMMITMENTS");
+    static_assert(NUM_MASKING_POLYNOMIALS == 1, "MaskingEntities size changed — review REPEATED_COMMITMENTS offset");
+    static_assert(REPEATED_COMMITMENTS.first.original_start == 64,
+                  "REPEATED_COMMITMENTS original_start changed — verify Shplemini offset convention");
+    static_assert(REPEATED_COMMITMENTS.first.duplicate_start == 91,
+                  "REPEATED_COMMITMENTS duplicate_start changed — verify Shplemini offset convention");
+    static_assert(REPEATED_COMMITMENTS.first.count == 26, "REPEATED_COMMITMENTS count changed");
 
     using GrandProductRelations = std::tuple<ECCVMSetRelation<FF>>;
     // define the tuple of Relations that comprise the Sumcheck relation
@@ -335,6 +356,9 @@ class ECCVMFlavor {
             return concatenate(WireNonShiftedEntities<DataType>::get_all(),
                                WireToBeShiftedWithoutAccumulatorsEntities<DataType>::get_all());
         }
+        // All witness entities are masked in ZK mode
+        auto get_masked() { return get_all(); }
+        auto get_masked() const { return get_all(); }
     };
 
     /**
@@ -430,7 +454,9 @@ class ECCVMFlavor {
                                WitnessEntities<DataType>::get_all());
         };
         auto get_to_be_shifted() { return ECCVMFlavor::get_to_be_shifted<DataType>(*this); }
+        auto get_to_be_shifted() const { return ECCVMFlavor::get_to_be_shifted<DataType>(*this); }
         auto get_shifted() { return ShiftedEntities<DataType>::get_all(); };
+        auto get_shifted() const { return ShiftedEntities<DataType>::get_all(); };
         auto get_precomputed() { return PrecomputedEntities<DataType>::get_all(); };
     };
 
@@ -513,7 +539,7 @@ class ECCVMFlavor {
          *          transcript_op: input transcript opcode value
          *          transcript_z1: input transcript scalar multiplier (low component, 128 bits max)
          *          transcript_z2: input transcript scalar multipplier (high component, 128 bits max)
-         * N.B. scalar multiplier = transcript_z1 + \lambda * transcript_z2. \lambda = cube root of unity in scalar
+         * N.B. scalar multiplier = transcript_z1 - \lambda * transcript_z2. \lambda = cube root of unity in scalar
          field
          *          transcript_z1zero: if 1, transcript_z1 must equal 0
          *          transcript_z2zero: if 1, transcript_z2 must equal 0
@@ -521,12 +547,12 @@ class ECCVMFlavor {
          *          transcript_accumulator_y: y-coordinate of eccvm accumulator register
          *          transcript_msm_x: x-coordinate of MSM output
          *          transcript_msm_y: y-coordinate of MSM output
-         *          transcript_accumulator_not_empty: if 1, transcript_accumulator = point at infinity
+         *          transcript_accumulator_not_empty: if 1, transcript_accumulator is NOT the point at infinity
          *          transcript_base_infinity: if 1, transcript_Px, transcript_Py is a point at infinity
          *          transcript_add_x_equal: if adding a point into the accumulator, is 1 if x-coordinates are equal
          *          transcript_add_y_equal: if adding a point into the accumulator, is 1 if y-coordinates are equal
          *          transcript_base_x_inverse: to check transcript_add_x_equal (if x-vals not equal inverse exists)
-         *          transcript_base_y_inverse: to check transcript_add_x_equal (if y-vals not equal inverse exists)
+         *          transcript_base_y_inverse: to check transcript_add_y_equal (if y-vals not equal inverse exists)
          *          transcript_add_lambda: if adding a point into the accumulator, contains the lambda gradient
          *          transcript_msm_intermediate_x: if add MSM result into accumulator, is msm_output - offset_generator
          *          transcript_msm_intermediate_y: if add MSM result into accumulator, is msm_output - offset_generator
@@ -545,7 +571,7 @@ class ECCVMFlavor {
          *          precompute_skew: Straus WNAF skew parameter for a single scalar multiplier
          *          precompute_tx: x-coordinate of point accumulator used to generate Straus lookup table for an input
          point (from transcript)
-         *          precompute_tx: x-coordinate of point accumulator used to generate Straus lookup table for an input
+         *          precompute_ty: y-coordinate of point accumulator used to generate Straus lookup table for an input
          point (from transcript)
          *          precompute_dx: x-coordinate of D = 2 * input point we are evaluating Straus over
          *          precompute_dy: y-coordinate of D
@@ -625,12 +651,23 @@ class ECCVMFlavor {
 #endif
             size_t unmasked_witness_size = dyadic_num_rows - NUM_DISABLED_ROWS_IN_SUMCHECK;
 
-            for (auto& poly : get_to_be_shifted()) {
-                poly = Polynomial{ /*memory size*/ dyadic_num_rows - 1,
-                                   /*largest possible index*/ dyadic_num_rows,
-                                   /* offset */ 1 };
+            // 1. Wire non-shifted polys: allocate to actual trace size
+            for (auto& poly : WireNonShiftedEntities<Polynomial>::get_all()) {
+                poly = Polynomial(num_rows, dyadic_num_rows);
             }
-            // allocate polynomials; define lagrange and lookup read count polynomials
+
+            // 2. Wire to-be-shifted polys: allocate to actual trace size, shiftable
+            for (auto& poly : WireToBeShiftedWithoutAccumulatorsEntities<Polynomial>::get_all()) {
+                poly = Polynomial(num_rows - 1, dyadic_num_rows, 1);
+            }
+            for (auto& poly : WireToBeShiftedAccumulatorEntities<Polynomial>::get_all()) {
+                poly = Polynomial(num_rows - 1, dyadic_num_rows, 1);
+            }
+
+            // 3. z_perm: must stay full-size (grand product computed over unmasked_witness_size)
+            z_perm = Polynomial(dyadic_num_rows - 1, dyadic_num_rows, 1);
+
+            // 4. Catch-all: precomputed, lookup_inverses, gemini_masking_poly → full size
             for (auto& poly : get_all()) {
                 if (poly.is_empty()) {
                     poly = Polynomial(dyadic_num_rows);
@@ -786,11 +823,15 @@ class ECCVMFlavor {
         ProverPolynomials polynomials; // storage for all polynomials evaluated by the prover
         CommitmentKey commitment_key;
 
+        MaskingTailData<ECCVMFlavor> masking_tail_data; // ZK: stores masking values for witness polys
+
         // Constructor for fixed size ProvingKey
         ProvingKey(const CircuitBuilder& builder)
             : real_size(builder.get_circuit_subgroup_size(builder.get_estimated_num_finalized_gates()))
             , polynomials(builder)
-        {}
+        {
+            masking_tail_data.dyadic_size = circuit_size;
+        }
     };
 
     /**
@@ -1008,7 +1049,7 @@ class ECCVMFlavor {
         // 4: We also force that `transcript_op==0`.
         return (polynomials.z_perm[edge_idx] == polynomials.z_perm_shift[edge_idx]) &&
                (polynomials.z_perm[edge_idx + 1] == polynomials.z_perm_shift[edge_idx + 1]) &&
-               (polynomials.lagrange_last[edge_idx] == 0 && polynomials.lagrange_last[edge_idx + 1]) == 0 &&
+               (polynomials.lagrange_last[edge_idx] == 0 && polynomials.lagrange_last[edge_idx + 1] == 0) &&
                (polynomials.msm_transition[edge_idx] == 0 && polynomials.msm_transition[edge_idx + 1] == 0) &&
                (polynomials.transcript_mul[edge_idx] == 0 && polynomials.transcript_mul[edge_idx + 1] == 0) &&
                (polynomials.transcript_op[edge_idx] == 0 && polynomials.transcript_op[edge_idx + 1] == 0);

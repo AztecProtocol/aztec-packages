@@ -69,7 +69,7 @@ git diff origin/<base-branch>...HEAD --name-only | grep -v '^yarn-project/'
 
 If yes, run bootstrap from repo root:
 ```bash
-(cd $(git rev-parse --show-toplevel) && BOOTSTRAP_TO=yarn-project ./bootstrap.sh)
+(cd $(git rev-parse --show-toplevel) && ./bootstrap.sh build yarn-project)
 ```
 
 ### Step 5: Verify Build

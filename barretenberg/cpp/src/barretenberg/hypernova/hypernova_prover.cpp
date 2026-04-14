@@ -6,6 +6,7 @@
 
 #include "barretenberg/hypernova/hypernova_prover.hpp"
 #include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
+#include "barretenberg/common/memory_profile.hpp"
 #include "barretenberg/hypernova/hypernova_batching_challenges.hpp"
 #include "barretenberg/multilinear_batching/multilinear_batching_prover.hpp"
 
@@ -13,7 +14,7 @@ namespace bb {
 
 template <size_t N>
 HypernovaFoldingProver::Commitment HypernovaFoldingProver::batch_mul(const RefArray<Commitment, N>& _points,
-                                                                     const std::vector<FF>& scalars)
+                                                                     std::vector<FF>& scalars)
 {
     std::vector<Commitment> points(N);
     for (size_t idx = 0; idx < N; ++idx) {
@@ -81,6 +82,24 @@ Polynomial<HypernovaFoldingProver::FF> HypernovaFoldingProver::batch_polynomials
     BB_ASSERT_EQ(
         challenges.size(), N, "The number of challenges provided does not match the number of polynomials to batch.");
 
+    // Ensure the first polynomial has enough backing to accumulate all others (they may have different backing sizes
+    // and/or start indices). add_scaled requires destination start_index <= source start_index.
+    size_t min_start = polynomials_to_batch[0].start_index();
+    size_t max_end = polynomials_to_batch[0].end_index();
+    for (size_t idx = 1; idx < N; idx++) {
+        min_start = std::min(min_start, polynomials_to_batch[idx].start_index());
+        max_end = std::max(max_end, polynomials_to_batch[idx].end_index());
+    }
+
+    if (min_start < polynomials_to_batch[0].start_index() || max_end > polynomials_to_batch[0].end_index()) {
+        Polynomial<FF> result(max_end - min_start, full_batched_size, min_start);
+        result += polynomials_to_batch[0];
+        for (size_t idx = 1; idx < N; idx++) {
+            result.add_scaled(polynomials_to_batch[idx], challenges[idx]);
+        }
+        return result;
+    }
+
     for (size_t idx = 1; idx < N; idx++) {
         polynomials_to_batch[0].add_scaled(polynomials_to_batch[idx], challenges[idx]);
     }
@@ -100,6 +119,9 @@ HypernovaFoldingProver::Accumulator HypernovaFoldingProver::instance_to_accumula
     auto precomputed_vk = honk_vk ? honk_vk : std::make_shared<VerificationKey>(instance->get_precomputed());
     MegaOinkProver oink_prover{ instance, precomputed_vk, transcript };
     oink_prover.prove();
+    if (detail::use_memory_profile) {
+        detail::GLOBAL_MEMORY_PROFILE.add_checkpoint("after_oink");
+    }
 
     instance->gate_challenges = transcript->template get_dyadic_powers_of_challenge<FF>(
         "HypernovaFoldingProver:gate_challenge", Flavor::VIRTUAL_LOG_N);
@@ -113,6 +135,9 @@ HypernovaFoldingProver::Accumulator HypernovaFoldingProver::instance_to_accumula
                                 instance->relation_parameters,
                                 Flavor::VIRTUAL_LOG_N);
     auto sumcheck_output = sumcheck.prove();
+    if (detail::use_memory_profile) {
+        detail::GLOBAL_MEMORY_PROFILE.add_checkpoint("after_sumcheck");
+    }
 
     Accumulator accumulator = sumcheck_output_to_accumulator(sumcheck_output, instance, precomputed_vk);
 

@@ -1,5 +1,5 @@
 // === AUDIT STATUS ===
-// internal:    { status: Planned, auditors: [], commit: }
+// internal:    { status: Completed, auditors: [Federico], commit: 158dd845c99f8f702979c20f1625730d126c4b20}
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
@@ -11,6 +11,29 @@
 #include "./fq2.hpp"
 
 namespace bb {
+
+/**
+ * @brief Sextic extension of the base field of BN254
+ *
+ * @details Fq6 is defined as Fq2[v] / (v^3 - \xi), where \xi = 9 + u is not a cubic residue in Fq2. We store in the
+ * struct the coefficients to compute the frobenius morphism (we need powers up to q^3 to compute the final
+ * exponentiation in the pairing calculation)
+ * 1. Power q
+ * \f[
+ *  (a + bv + cv^2)^q = a^q + b^q * v^q + c^q * v^{2q} = a^q + b^q * \xi^{(q-1)/3} * v + c^q * \xi^{2(q-1)/3} * v^2
+ * \f]
+ * 2. Power q^2
+ * \f[
+ *  (a + bv + cv^2)^{q^2} = a^{q^2} + b^{q^2} * v^{q^2} + c^{q^2} * v^{2q^2} =
+ *                                  a + b * \xi^{(q^2-1)/3} * v + c * \xi^{2(q^2-1)/3} * v^2
+ * \f]
+ * 3. Power q^3
+ * \f[
+ *  (a + bv + cv^2)^{q^3} = a^{q^3} + b^{q^3} * v^{q^3} + c^{q^3} * v^{2q^3} =
+ *                                  a^q + b^q * \xi^{(q^3-1)/3} * v + c^q * \xi^{2(q^3-1)/3} * v^2
+ * \f]
+ *
+ */
 struct Bn254Fq6Params {
 
 #if defined(__SIZEOF_INT128__) && !defined(__wasm__)
@@ -74,24 +97,24 @@ struct Bn254Fq6Params {
     };
 #endif
 
-    // non residue = 9 + i \in Fq2
     static inline constexpr fq2 mul_by_non_residue(const fq2& a)
     {
-        // non residue = 9 + i \in Fq2
-        // r.c0 = 9a0 - a1
-        // r.c1 = 9a1 + a0
+        // non_residue = 9 + u
+        // (a + bu) * (9 + u) = (9a - b) + (9b + a)u
+
+        // 9a
         fq T0 = a.c0 + a.c0;
         T0 += T0;
         T0 += T0;
         T0 += a.c0;
+
+        // 9b
         fq T1 = a.c1 + a.c1;
         T1 += T1;
         T1 += T1;
         T1 += a.c1;
-        fq T2 = T0 - a.c1;
 
-        return { T2, T1 + a.c0 };
-        T0 = a.c0 + a.c0;
+        return { T0 - a.c1, T1 + a.c0 };
     }
 };
 

@@ -51,7 +51,7 @@ void UltraCircuitBuilder_<ExecutionTrace>::finalize_circuit(const bool ensure_no
      * Therefore, we introduce a boolean flag `circuit_finalized` here. Once we add the rom and range gates,
      * our circuit is finalized, and we must not to execute these functions again.
      */
-    if (!circuit_finalized) {
+    if (!this->circuit_finalized) {
         if (ensure_nonzero) {
             add_gates_to_ensure_all_polys_are_non_zero();
         }
@@ -62,7 +62,7 @@ void UltraCircuitBuilder_<ExecutionTrace>::finalize_circuit(const bool ensure_no
         process_range_lists();
 #endif
         populate_public_inputs_block();
-        circuit_finalized = true;
+        this->circuit_finalized = true;
     } else {
         // Gates added after first call to finalize will not be processed since finalization is only performed once
         info("WARNING: Redundant call to finalize_circuit(). Is this intentional?");

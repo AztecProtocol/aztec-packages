@@ -9,6 +9,7 @@ libs = ['lib']
 solc = "./solc-0.8.30"
 evm_version = 'prague'
 optimizer = true
+optimizer_runs = 100
 match_path = "test/**/*.t.sol"
 # Helper to get all the contract names in the src/governance and src/core directories
 # find ./src/governance ./src/core -type f -name "*.sol" -exec grep -h "^contract [A-Za-z]" {} \; | sed -E 's/contract ([A-Za-z0-9_]+).*/"\1"/' | tr "\n" ", "
@@ -29,8 +30,7 @@ gas_reports = [
   "RollupCore",
   "Slasher",
   "RollupWithPreheating",
-  "EmpireSlashingProposer",
-  "TallySlashingProposer",
+  "SlashingProposer",
   "MultiAdder",
 ]
 
@@ -38,6 +38,7 @@ remappings = [
   "@oz/=lib/openzeppelin-contracts/contracts/",
   "@aztec/=src",
   "@test/=test",
+  "@generated/=generated/",
   "@zkpassport/=lib/circuits/src/solidity/src/",
   "@zkpassport-test/=lib/circuits/src/solidity/test",
   "@aztec-blob-lib/=src/mock/libraries",
@@ -95,7 +96,30 @@ remappings = [
   "@oz/=lib/openzeppelin-contracts/contracts/",
   "@aztec/=src",
   "@test/=test",
+  "@generated/=generated/",
   "@zkpassport/=lib/circuits/src/solidity/src/",
   "@zkpassport-test/=lib/circuits/src/solidity/test",
   "@aztec-blob-lib/=src/core/libraries/rollup/",
+]
+
+[profile.coverage]
+script = "coverage-script"
+sparse_mode = true
+skip = [
+  "shouting.t.sol",
+  "test/benchmark/happy.t.sol",
+  "test/script",
+  "script/deploy/DeployAztecL1Contracts.s.sol",
+  "test/staking/move.t.sol",
+  "test/validator-selection/setupEpoch.t.sol",
+  "test/validator-selection/setupSampleSeed.t.sol",
+]
+remappings = [
+  "@oz/=lib/openzeppelin-contracts/contracts/",
+  "@aztec/=src",
+  "@test/=test",
+  "@generated/=src/mock/coverage/generated/",
+  "@zkpassport/=src/mock/coverage/zkpassport/",
+  "@zkpassport-test/=lib/circuits/src/solidity/test",
+  "@aztec-blob-lib/=src/mock/libraries",
 ]

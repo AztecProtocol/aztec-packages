@@ -52,4 +52,19 @@ export type BackendOptions = {
    * BarretenbergSync supports: Wasm, NativeSharedMem only
    */
   backend?: BackendType;
+
+  /**
+   * @description Mark backend handles (worker threads, sockets, pipes) as unref'd so they
+   * don't prevent the Node.js process from exiting. Used for the singleton instance where
+   * callers don't manage the lifecycle. Non-singleton instances should leave this false
+   * and call destroy() to clean up.
+   */
+  unref?: boolean;
+
+  /**
+   * @description Skip SRS/CRS initialization for WASM backends.
+   * Use this when you only need hashing functions (blake2s, poseidon, pedersen) and
+   * don't need proving/verification capabilities.
+   */
+  skipSrsInit?: boolean;
 };

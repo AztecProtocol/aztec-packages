@@ -3,12 +3,12 @@ import { SecretValue } from '@aztec/foundation/config';
 import { createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import { DateProvider, Timer, executeTimeout } from '@aztec/foundation/timer';
-import type { DataStoreConfig } from '@aztec/kv-store/config';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import type { L2BlockSource } from '@aztec/stdlib/block';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 import type { ClientProtocolCircuitVerifier } from '@aztec/stdlib/interfaces/server';
-import { P2PClientType, PeerErrorSeverity } from '@aztec/stdlib/p2p';
+import type { DataStoreConfig } from '@aztec/stdlib/kv-store';
+import { PeerErrorSeverity } from '@aztec/stdlib/p2p';
 import type { Tx, TxValidationResult } from '@aztec/stdlib/tx';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
@@ -19,7 +19,7 @@ import type { P2PConfig } from '../../../config.js';
 import { BatchTxRequesterCollector, SendBatchRequestCollector } from '../../../services/index.js';
 import type { IBatchRequestTxValidator } from '../../../services/reqresp/batch-tx-requester/tx_validator.js';
 import { RateLimitStatus } from '../../../services/reqresp/rate-limiter/rate_limiter.js';
-import { MissingTxsTracker } from '../../../services/tx_collection/missing_txs_tracker.js';
+import { RequestTracker } from '../../../services/tx_collection/request_tracker.js';
 import {
   AlwaysTrueCircuitVerifier,
   BENCHMARK_CONSTANTS,
@@ -114,7 +114,6 @@ async function startClient(config: P2PConfig, clientIndex: number) {
   };
 
   client = await createP2PClient(
-    P2PClientType.Full,
     config as P2PConfig & DataStoreConfig,
     l2BlockSource as L2BlockSource & ContractDataSource,
     proofVerifier as ClientProtocolCircuitVerifier,
@@ -214,10 +213,9 @@ async function runCollector(cmd: Extract<WorkerCommand, { type: 'RUN_COLLECTOR' 
       const fetched = await executeTimeout(
         (_signal: AbortSignal) =>
           collector.collectTxs(
-            MissingTxsTracker.fromArray(parsedTxHashes),
+            RequestTracker.create(parsedTxHashes, new Date(Date.now() + internalTimeoutMs)),
             parsedProposal,
             pinnedPeer,
-            internalTimeoutMs,
           ),
         timeoutMs,
         () => new Error(`Collector timed out after ${timeoutMs}ms`),
@@ -232,10 +230,9 @@ async function runCollector(cmd: Extract<WorkerCommand, { type: 'RUN_COLLECTOR' 
       const fetched = await executeTimeout(
         (_signal: AbortSignal) =>
           collector.collectTxs(
-            MissingTxsTracker.fromArray(parsedTxHashes),
+            RequestTracker.create(parsedTxHashes, new Date(Date.now() + internalTimeoutMs)),
             parsedProposal,
             pinnedPeer,
-            internalTimeoutMs,
           ),
         timeoutMs,
         () => new Error(`Collector timed out after ${timeoutMs}ms`),
@@ -262,9 +259,20 @@ async function stopClient() {
   attestationPool = undefined;
 }
 
+function gracefulExit(code: number = 0) {
+  try {
+    if (process.connected) {
+      process.disconnect();
+    }
+  } catch {
+    // IPC channel already closed
+  }
+  setTimeout(() => process.exit(code), 5000).unref();
+}
+
 process.on('disconnect', () => {
   ipcDisconnected = true;
-  void stopClient().finally(() => process.exit(0));
+  void stopClient();
 });
 
 process.on('error', err => {
@@ -328,7 +336,7 @@ process.on('message', (msg: WorkerCommand) => {
         case 'STOP': {
           await stopClient();
           await sendMessage({ type: 'STOPPED', requestId });
-          process.exit(0);
+          gracefulExit(0);
           break;
         }
         default: {
@@ -339,7 +347,8 @@ process.on('message', (msg: WorkerCommand) => {
     } catch (err: any) {
       await sendMessage({ type: 'ERROR', requestId, error: err?.message ?? String(err) });
       if (msg.type === 'START') {
-        process.exit(1);
+        await stopClient();
+        gracefulExit(1);
       }
     }
   })();

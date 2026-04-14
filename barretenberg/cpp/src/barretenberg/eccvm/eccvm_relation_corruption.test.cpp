@@ -128,6 +128,22 @@ RelationParameters<FF> compute_full_relation_params(ProverPolynomials& polynomia
     return params;
 }
 
+/**
+ * @brief Find the first transcript no-op row: all selectors zero, not first/last row.
+ */
+size_t find_transcript_noop_row(const ProverPolynomials& polynomials)
+{
+    const size_t num_rows = polynomials.get_polynomial_size();
+    for (size_t i = 2; i < num_rows - 1; i++) {
+        if (polynomials.transcript_add[i] == FF(0) && polynomials.transcript_mul[i] == FF(0) &&
+            polynomials.transcript_eq[i] == FF(0) && polynomials.transcript_reset_accumulator[i] == FF(0) &&
+            polynomials.lagrange_first[i] == FF(0) && polynomials.lagrange_last[i] == FF(0)) {
+            return i;
+        }
+    }
+    return 0;
+}
+
 } // anonymous namespace
 
 class ECCVMRelationCorruptionTests : public ::testing::Test {
@@ -260,12 +276,11 @@ TEST_F(ECCVMRelationCorruptionTests, MSMRelationFailsOnShiftedMSMTable)
     auto baseline = RelationChecker<void>::check<ECCVMMSMRelation<FF>>(polynomials, params, "ECCVMMSMRelation");
     EXPECT_TRUE(baseline.empty()) << "Baseline MSM relation should pass";
 
-    const size_t num_rows = polynomials.get_polynomial_size();
     auto msm_polys = get_msm_polynomials(polynomials);
 
-    // Shift every MSM column down by 1: p[k] = p[k-1] for k = num_rows-1 down to 2, then p[1] = 0
+    // Shift every MSM column down by 1: p[k] = p[k-1] for k = end-1 down to 2, then p[1] = 0
     for (auto* poly : msm_polys) {
-        for (size_t k = num_rows - 1; k >= 2; k--) {
+        for (size_t k = poly->end_index() - 1; k >= 2; k--) {
             poly->at(k) = (*poly)[k - 1];
         }
         poly->at(1) = FF(0);
@@ -329,4 +344,93 @@ TEST_F(ECCVMRelationCorruptionTests, MSMRelationFailsOnShiftedMSMTable)
     auto lookup_failures = RelationChecker<void>::check<ECCVMLookupRelation<FF>, /*has_linearly_dependent=*/true>(
         polynomials, full_params, "ECCVMLookupRelation");
     EXPECT_TRUE(lookup_failures.empty()) << "ECCVMLookupRelation should still pass (inverse computed post-shift)";
+}
+
+/**
+ * @brief On a transcript no-op row, setting accumulator_not_empty=1 must be caught by subrelation 22.
+ *
+ * @details The `accumulator_infinity_from_noop` term in subrelation 22 forces
+ * is_accumulator_empty_shift = 1 whenever all selectors are zero. This test corrupts
+ * the shifted value (i.e. accumulator_not_empty at row+1) to 1 and verifies detection.
+ */
+TEST_F(ECCVMRelationCorruptionTests, TranscriptNoOpRowRejectsAccumulatorNotEmpty)
+{
+    auto polynomials = build_valid_eccvm_msm_state();
+    RelationParameters<FF> params{};
+
+    auto baseline =
+        RelationChecker<void>::check<ECCVMTranscriptRelation<FF>>(polynomials, params, "ECCVMTranscriptRelation");
+    EXPECT_TRUE(baseline.empty()) << "Baseline transcript relation should pass";
+
+    size_t noop_row = find_transcript_noop_row(polynomials);
+    ASSERT_NE(noop_row, 0) << "Should find a transcript no-op row";
+
+    // The no-op constraint at row `noop_row` constrains is_accumulator_empty_shift,
+    // which reads from accumulator_not_empty at row `noop_row + 1`.
+    polynomials.transcript_accumulator_not_empty.at(noop_row + 1) = FF(1);
+    polynomials.set_shifted();
+
+    auto failures =
+        RelationChecker<void>::check<ECCVMTranscriptRelation<FF>>(polynomials, params, "ECCVMTranscriptRelation");
+    EXPECT_FALSE(failures.empty()) << "Transcript relation should fail after corrupting accumulator_not_empty on "
+                                      "the row following a no-op";
+    EXPECT_TRUE(failures.contains(22)) << "Subrelation 22 (accumulator_infinity) should catch the corruption";
+}
+
+/**
+ * @brief Test that z_perm must be zero at the lagrange_first row.
+ *
+ * @details The set relation grand product relies on z_perm[0] = 0 so that (z_perm + lagrange_first)
+ * evaluates to 1 at the first row. Sub-relation Z_PERM_INIT (lagrange_first * z_perm = 0) enforces this.
+ *
+ * We cross-check the lagrange_first position two ways:
+ *   1. Structurally: z_perm.start_index() - 1 (the zero row before the shiftable region)
+ *   2. By scanning the lagrange_first polynomial for its non-zero entry
+ */
+TEST_F(ECCVMRelationCorruptionTests, SetRelationFailsOnZPermNonZeroAtFirstRow)
+{
+    auto polynomials = build_valid_eccvm_msm_state();
+    auto params = compute_full_relation_params(polynomials);
+
+    // Baseline: set relation passes
+    auto baseline = RelationChecker<void>::check<ECCVMSetRelation<FF>>(polynomials, params, "ECCVMSetRelation");
+    EXPECT_TRUE(baseline.empty()) << "Baseline set relation should pass";
+
+    // Derive expected lagrange_first position from z_perm shiftable structure
+    ASSERT_TRUE(polynomials.z_perm.is_shiftable());
+    size_t structural_first_row = polynomials.z_perm.start_index() - 1;
+
+    // Independently scan lagrange_first for its non-zero entry
+    const auto& lagrange_first = polynomials.lagrange_first;
+    size_t scanned_first_row = 0;
+    bool found = false;
+    for (size_t i = lagrange_first.start_index(); i < lagrange_first.end_index(); ++i) {
+        if (lagrange_first[i] != FF(0)) {
+            scanned_first_row = i;
+            found = true;
+            break;
+        }
+    }
+    ASSERT_TRUE(found) << "lagrange_first has no non-zero entry";
+    ASSERT_EQ(structural_first_row, scanned_first_row)
+        << "lagrange_first position doesn't match z_perm shiftable structure";
+
+    const size_t first_row = scanned_first_row;
+
+    // Expand to full polynomials so we can write at index 0
+    polynomials.z_perm = polynomials.z_perm.full();
+    polynomials.z_perm_shift = polynomials.z_perm_shift.full();
+
+    ASSERT_EQ(polynomials.z_perm[first_row], FF(0));
+
+    // Tamper: set z_perm to non-zero where lagrange_first is active
+    polynomials.z_perm.at(first_row) = FF(1);
+
+    auto failures = RelationChecker<void>::check<ECCVMSetRelation<FF>>(
+        polynomials, params, "ECCVMSetRelation - After setting z_perm != 0 at lagrange_first");
+    EXPECT_FALSE(failures.empty()) << "Set relation should fail after z_perm init corruption";
+    EXPECT_TRUE(failures.contains(ECCVMSetRelationImpl<FF>::Z_PERM_INIT))
+        << "Sub-relation Z_PERM_INIT should catch the corruption";
+    EXPECT_EQ(failures.at(ECCVMSetRelationImpl<FF>::Z_PERM_INIT), first_row)
+        << "Failure should be at lagrange_first row";
 }

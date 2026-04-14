@@ -1,7 +1,7 @@
 # External Audit Scope: AVM Utils
 
 Repository: https://github.com/AztecProtocol/aztec-packages
-Commit hash: TBD
+Commit hash: Most recent commit on branch 'next'
 
 ## Files to Audit
 

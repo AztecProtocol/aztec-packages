@@ -17,7 +17,7 @@ fn get_minimum_public_tx_gas_used() -> Gas {
     let nullifier_gas_used =
         Gas { da_gas: DA_GAS_PER_FIELD, l2_gas: AVM_EMITNULLIFIER_BASE_L2_GAS };
     let public_call_gas_used = Gas { da_gas: 0, l2_gas: FIXED_AVM_STARTUP_L2_GAS };
-    Gas::tx_overhead() + nullifier_gas_used + public_call_gas_used
+    Gas::public_tx_overhead() + nullifier_gas_used + public_call_gas_used
 }
 
 #[test]
@@ -236,7 +236,8 @@ fn full_side_effects() {
         + MAX_PRIVATE_LOGS_PER_TX * L2_GAS_PER_PRIVATE_LOG
         + MAX_CONTRACT_CLASS_LOGS_PER_TX * L2_GAS_PER_CONTRACT_CLASS_LOG
         + MAX_ENQUEUED_CALLS_PER_TX * FIXED_AVM_STARTUP_L2_GAS;
-    let expected_gas_used = Gas::tx_overhead() + Gas::new(da_gas, l2_gas) + teardown_gas_limits;
+    let expected_gas_used =
+        Gas::public_tx_overhead() + Gas::new(da_gas, l2_gas) + teardown_gas_limits;
 
     let public_inputs = builder.execute();
     assert_eq(public_inputs.gas_used, expected_gas_used);

@@ -6,7 +6,7 @@ on:
   workflow_call:
     inputs:
       network:
-        description: "Network to deploy (e.g., staging-public, staging-ignition, testnet, next-net)"
+        description: "Network to deploy (e.g., staging-public, testnet, next-net)"
         required: true
         type: string
       semver:
@@ -30,6 +30,14 @@ on:
         required: false
         type: boolean
         default: false
+      ha_docker_image:
+        description: "Full docker image for HA validator nodes (optional, defaults to aztec docker image)"
+        required: false
+        type: string
+      source_tag:
+        description: "Source tag that triggered this deploy"
+        required: false
+        type: string
   workflow_dispatch:
     inputs:
       network:
@@ -37,11 +45,10 @@ on:
         required: true
         type: choice
         options:
-          - staging-public
-          - staging-ignition
-          - testnet
           - next-net
-          - devnet
+          - staging-public
+          - testnet
+          - mainnet
       semver:
         description: "Semver version (e.g., 2.3.4)"
         required: true
@@ -59,6 +66,14 @@ on:
         required: false
         type: boolean
         default: false
+      ha_docker_image:
+        description: "Full docker image for HA validator nodes (optional, defaults to aztec docker image)"
+        required: false
+        type: string
+      source_tag:
+        description: "Source tag that triggered this deploy"
+        required: false
+        type: string
 
 concurrency:
   group: deploy-network-${{ inputs.network }}-${{ inputs.namespace || inputs.network }}-${{ inputs.semver }}-${{ github.ref || github.ref_name }}
@@ -89,6 +104,11 @@ jobs:
           fetch-depth: 1
           persist-credentials: false
           submodules: recursive # Initialize git submodules for l1-contracts dependencies
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
 
       - name: Validate inputs
         run: |
@@ -135,6 +155,16 @@ jobs:
           terraform_version: "1.7.5"
           terraform_wrapper: false # Disable the wrapper that adds debug output, this messes with reading terraform output
 
+      - name: Setup SSH key for CI Redis
+        env:
+          BUILD_INSTANCE_SSH_KEY: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
+        run: |
+          if [ -n "${BUILD_INSTANCE_SSH_KEY:-}" ]; then
+            mkdir -p ~/.ssh
+            echo "${BUILD_INSTANCE_SSH_KEY}" | base64 --decode > ~/.ssh/build_instance_key
+            chmod 600 ~/.ssh/build_instance_key
+          fi
+
       - name: Deploy network
         id: deploy-network
         env:
@@ -149,8 +179,8 @@ jobs:
           NAMESPACE: ${{ inputs.namespace }}
           AZTEC_DOCKER_IMAGE: "aztecprotocol/aztec:${{ inputs.docker_image_tag || inputs.semver }}"
           CREATE_ROLLUP_CONTRACTS: ${{ inputs.deploy_contracts == true && 'true' || '' }}
-          USE_NETWORK_CONFIG: ${{ inputs.deploy_contracts == true && 'false' || '' }}
           PROVER_AGENT_DOCKER_IMAGE: "aztecprotocol/aztec-prover-agent:${{ inputs.docker_image_tag || inputs.semver }}"
+          VALIDATOR_HA_DOCKER_IMAGE: ${{ inputs.ha_docker_image || '' }}
         run: |
           echo "Deploying network: ${{ inputs.network }}"
           echo "Using image: $AZTEC_DOCKER_IMAGE"
@@ -170,30 +200,73 @@ jobs:
             echo "cluster=" >> $GITHUB_OUTPUT
           fi
 
-      - name: Notify Slack on failure
+      - name: Step summary
+        if: always()
+        run: |
+          {
+            echo "## Deploy Network"
+            echo ""
+            echo "| Item | Value |"
+            echo "|------|-------|"
+            echo "| Network | \`${{ inputs.network }}\` |"
+            echo "| Semver | \`${{ inputs.semver }}\` |"
+            echo "| Ref | \`${{ steps.checkout-ref.outputs.ref }}\` |"
+            if [[ -n "${{ inputs.source_tag }}" ]]; then
+              echo "| Source Tag | [\`${{ inputs.source_tag }}\`](https://github.com/${{ github.repository }}/releases/tag/${{ inputs.source_tag }}) |"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Notify Slack and dispatch ClaudeBox on failure
         if: failure()
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
         run: |
-          if [ -n "${SLACK_BOT_TOKEN}" ]; then
-            read -r -d '' data <<EOF || true
-            {
-              "channel": "#alerts-${{ inputs.network }}",
-              "text": "Deploy Network workflow FAILED for *${{ inputs.network }}* (version ${{ inputs.semver }}): <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Run>"
-            }
-          EOF
-            curl -X POST https://slack.com/api/chat.postMessage \
-              -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
-              -H "Content-type: application/json" \
-              --data "$data"
+          if [ -z "${SLACK_BOT_TOKEN:-}" ]; then
+            echo "No SLACK_BOT_TOKEN, skipping notification"
+            exit 0
           fi
+
+          CHANNEL="#alerts-${{ inputs.network }}"
+          RUN_URL="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          TEXT="Deploy Network workflow FAILED for *${{ inputs.network }}* (version ${{ inputs.semver }}): <${RUN_URL}|View Run> (🤖)"
+
+          # Post to Slack and capture timestamp for permalink
+          RESP=$(curl -sS -X POST https://slack.com/api/chat.postMessage \
+            -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
+            -H "Content-type: application/json" \
+            -d "$(jq -n --arg c "$CHANNEL" --arg t "$TEXT" '{channel:$c, text:$t}')")
+          echo "Slack response: $RESP"
+
+          TS=$(echo "$RESP" | jq -r '.ts // empty')
+          CHANNEL_ID=$(echo "$RESP" | jq -r '.channel // empty')
+
+          LINK=""
+          if [[ -n "$TS" && -n "$CHANNEL_ID" ]]; then
+            LINK="https://aztecprotocol.slack.com/archives/$CHANNEL_ID/p${TS//./}"
+          fi
+
+          # Dispatch ClaudeBox to investigate the failure
+          PROMPT="Deployment of ${{ inputs.network }} (version ${{ inputs.semver }}) failed. \
+          Follow .claude/claudebox/deploy-investigation.md to investigate. \
+          GitHub Actions run: ${RUN_URL}. \
+          Network: ${{ inputs.network }}. Version: ${{ inputs.semver }}. \
+          Docker image: ${{ inputs.docker_image_tag || inputs.semver }}. \
+          Git ref: ${{ steps.checkout-ref.outputs.ref }}. \
+          Namespace: ${{ inputs.namespace || inputs.network }}. \
+          Deploy contracts: ${{ inputs.deploy_contracts }}."
+
+          gh workflow run claudebox.yml \
+            -f prompt="$PROMPT" \
+            -f link="${LINK:-$RUN_URL}" \
+            -f target_ref="${{ steps.checkout-ref.outputs.ref }}" || true
 
   update-irm:
     needs: deploy-network
-    if: contains(inputs.network, 'testnet') && !contains(inputs.semver, '-')
+    if: inputs.network == 'testnet' || inputs.network == 'mainnet'
     uses: ./.github/workflows/deploy-irm.yml
     secrets: inherit
     with:
-      network: testnet
-      l1_network: sepolia
+      network: ${{ inputs.network }}
+      l1_network: ${{ inputs.network == 'mainnet' && 'mainnet' || 'sepolia' }}
       cluster: ${{ needs.deploy-network.outputs.cluster }}

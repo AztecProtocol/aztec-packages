@@ -21,7 +21,7 @@ describe('e2e scope isolation', () => {
     ({ teardown, wallet, accounts } = await setup(3));
     [alice, bob, charlie] = accounts;
 
-    contract = await ScopeTestContract.deploy(wallet).send({ from: alice });
+    ({ contract } = await ScopeTestContract.deploy(wallet).send({ from: alice }));
 
     // Alice and bob create a note for themselves (used by multiple tests below)
     await contract.methods.create_note(alice, Number(ALICE_NOTE_VALUE)).send({ from: alice });
@@ -32,7 +32,7 @@ describe('e2e scope isolation', () => {
 
   describe('external private', () => {
     it('owner can read own notes', async () => {
-      const value = await contract.methods.read_note(alice).simulate({ from: alice });
+      const { result: value } = await contract.methods.read_note(alice).simulate({ from: alice });
       expect(value).toEqual(ALICE_NOTE_VALUE);
     });
 
@@ -47,8 +47,8 @@ describe('e2e scope isolation', () => {
     });
 
     it('each account can access their isolated state on a shared wallet', async () => {
-      const aliceValue = await contract.methods.read_note(alice).simulate({ from: alice });
-      const bobValue = await contract.methods.read_note(bob).simulate({ from: bob });
+      const { result: aliceValue } = await contract.methods.read_note(alice).simulate({ from: alice });
+      const { result: bobValue } = await contract.methods.read_note(bob).simulate({ from: bob });
 
       expect(aliceValue).toEqual(ALICE_NOTE_VALUE);
       expect(bobValue).toEqual(BOB_NOTE_VALUE);
@@ -57,7 +57,7 @@ describe('e2e scope isolation', () => {
 
   describe('external utility', () => {
     it('owner can read own notes', async () => {
-      const value = await contract.methods.read_note_utility(alice).simulate({ from: alice });
+      const { result: value } = await contract.methods.read_note_utility(alice).simulate({ from: alice });
       expect(value).toEqual(ALICE_NOTE_VALUE);
     });
 
@@ -74,8 +74,8 @@ describe('e2e scope isolation', () => {
     });
 
     it('each account can access their isolated state on a shared wallet', async () => {
-      const aliceValue = await contract.methods.read_note_utility(alice).simulate({ from: alice });
-      const bobValue = await contract.methods.read_note_utility(bob).simulate({ from: bob });
+      const { result: aliceValue } = await contract.methods.read_note_utility(alice).simulate({ from: alice });
+      const { result: bobValue } = await contract.methods.read_note_utility(bob).simulate({ from: bob });
 
       expect(aliceValue).toEqual(ALICE_NOTE_VALUE);
       expect(bobValue).toEqual(BOB_NOTE_VALUE);

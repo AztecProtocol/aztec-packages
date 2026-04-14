@@ -16,9 +16,20 @@ import {
   type L2Tips,
   type ValidateCheckpointResult,
 } from '@aztec/stdlib/block';
-import { Checkpoint, type CheckpointData, L1PublishedData, PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
+import {
+  Checkpoint,
+  type CheckpointData,
+  L1PublishedData,
+  type ProposedCheckpointData,
+  PublishedCheckpoint,
+} from '@aztec/stdlib/checkpoint';
 import type { ContractClassPublic, ContractDataSource, ContractInstanceWithAddress } from '@aztec/stdlib/contract';
-import { EmptyL1RollupConstants, type L1RollupConstants, getSlotRangeForEpoch } from '@aztec/stdlib/epoch-helpers';
+import {
+  EmptyL1RollupConstants,
+  type L1RollupConstants,
+  getEpochAtSlot,
+  getSlotRangeForEpoch,
+} from '@aztec/stdlib/epoch-helpers';
 import { computeCheckpointOutHash } from '@aztec/stdlib/messaging';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
 import { type BlockHeader, TxExecutionResult, TxHash, TxReceipt, TxStatus } from '@aztec/stdlib/tx';
@@ -34,12 +45,19 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
   private provenBlockNumber: number = 0;
   private finalizedBlockNumber: number = 0;
   private checkpointedBlockNumber: number = 0;
+  private proposedCheckpointBlockNumber: number = 0;
 
   private log = createLogger('archiver:mock_l2_block_source');
 
   /** Creates blocks grouped into single-block checkpoints. */
   public async createBlocks(numBlocks: number) {
     await this.createCheckpoints(numBlocks, 1);
+  }
+
+  public getCheckpointNumber(): Promise<CheckpointNumber> {
+    return Promise.resolve(
+      this.checkpointList.length === 0 ? CheckpointNumber.ZERO : CheckpointNumber(this.checkpointList.length),
+    );
   }
 
   /** Creates checkpoints, each containing `blocksPerCheckpoint` blocks. */
@@ -78,6 +96,7 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
     });
     // Keep tip numbers consistent with remaining blocks.
     this.checkpointedBlockNumber = Math.min(this.checkpointedBlockNumber, maxBlockNum);
+    this.proposedCheckpointBlockNumber = Math.min(this.proposedCheckpointBlockNumber, maxBlockNum);
     this.provenBlockNumber = Math.min(this.provenBlockNumber, maxBlockNum);
     this.finalizedBlockNumber = Math.min(this.finalizedBlockNumber, maxBlockNum);
     this.log.verbose(`Removed ${numBlocks} blocks from the mock L2 block source`);
@@ -94,9 +113,17 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
     this.finalizedBlockNumber = finalizedBlockNumber;
   }
 
+  public setProposedCheckpointBlockNumber(blockNumber: number) {
+    this.proposedCheckpointBlockNumber = blockNumber;
+  }
+
   public setCheckpointedBlockNumber(checkpointedBlockNumber: number) {
     const prevCheckpointed = this.checkpointedBlockNumber;
     this.checkpointedBlockNumber = checkpointedBlockNumber;
+    // Proposed checkpoint is always at least as advanced as checkpointed
+    if (this.proposedCheckpointBlockNumber < checkpointedBlockNumber) {
+      this.proposedCheckpointBlockNumber = checkpointedBlockNumber;
+    }
     // Auto-create single-block checkpoints for newly checkpointed blocks that don't have one yet.
     // This handles blocks added via addProposedBlocks that are now being marked as checkpointed.
     const newCheckpoints: Checkpoint[] = [];
@@ -158,6 +185,10 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
 
   public getFinalizedL2BlockNumber() {
     return Promise.resolve(BlockNumber(this.finalizedBlockNumber));
+  }
+
+  public getProposedCheckpointL2BlockNumber() {
+    return Promise.resolve(BlockNumber(this.proposedCheckpointBlockNumber));
   }
 
   public getCheckpointedBlock(number: BlockNumber): Promise<CheckpointedL2Block | undefined> {
@@ -388,6 +419,7 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
             txEffect.transactionFee.toBigInt(),
             await block.hash(),
             block.number,
+            getEpochAtSlot(block.slot, EmptyL1RollupConstants),
           );
         }
       }
@@ -396,17 +428,19 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
   }
 
   async getL2Tips(): Promise<L2Tips> {
-    const [latest, proven, finalized, checkpointed] = [
+    const [latest, proven, finalized, checkpointed, proposedCheckpoint] = [
       await this.getBlockNumber(),
       await this.getProvenBlockNumber(),
       this.finalizedBlockNumber,
       this.checkpointedBlockNumber,
+      await this.getProposedCheckpointL2BlockNumber(),
     ] as const;
 
     const latestBlock = this.l2Blocks[latest - 1];
     const provenBlock = this.l2Blocks[proven - 1];
     const finalizedBlock = this.l2Blocks[finalized - 1];
     const checkpointedBlock = this.l2Blocks[checkpointed - 1];
+    const proposedCheckpointBlock = this.l2Blocks[proposedCheckpoint - 1];
 
     const latestBlockId = {
       number: BlockNumber(latest),
@@ -424,6 +458,10 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
       number: BlockNumber(checkpointed),
       hash: (await checkpointedBlock?.hash())?.toString(),
     };
+    const proposedCheckpointBlockId = {
+      number: BlockNumber(proposedCheckpoint),
+      hash: (await proposedCheckpointBlock?.hash())?.toString(),
+    };
 
     const makeTipId = (blockId: typeof latestBlockId) => ({
       block: blockId,
@@ -438,14 +476,15 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
       checkpointed: makeTipId(checkpointedBlockId),
       proven: makeTipId(provenBlockId),
       finalized: makeTipId(finalizedBlockId),
+      proposedCheckpoint: makeTipId(proposedCheckpointBlockId),
     };
   }
 
-  getL2EpochNumber(): Promise<EpochNumber> {
+  getSyncedL2EpochNumber(): Promise<EpochNumber> {
     throw new Error('Method not implemented.');
   }
 
-  getL2SlotNumber(): Promise<SlotNumber> {
+  getSyncedL2SlotNumber(): Promise<SlotNumber> {
     throw new Error('Method not implemented.');
   }
 
@@ -517,6 +556,14 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
 
   getPendingChainValidationStatus(): Promise<ValidateCheckpointResult> {
     return Promise.resolve({ valid: true });
+  }
+
+  getProposedCheckpoint(): Promise<ProposedCheckpointData | undefined> {
+    return Promise.resolve(undefined);
+  }
+
+  getProposedCheckpointOnly(): Promise<ProposedCheckpointData | undefined> {
+    return Promise.resolve(undefined);
   }
 
   /** Returns checkpoints whose slot falls within the given epoch. */

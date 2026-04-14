@@ -1,18 +1,33 @@
 #include "barretenberg/vm2/simulation/gadgets/gt.hpp"
 
 #include "barretenberg/common/assert.hpp"
-#include "barretenberg/numeric/uint128/uint128.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
-#include "barretenberg/vm2/common/field.hpp"
-#include "barretenberg/vm2/common/memory_types.hpp"
 
 namespace bb::avm2::simulation {
 
+/**
+ * @brief Computes whether a > b for field elements, delegating to the ff_gt gadget.
+ *
+ * @param a The first field element.
+ * @param b The second field element.
+ * @return true if a > b (as canonical field integers), false otherwise.
+ */
 bool GreaterThan::gt(const FF& a, const FF& b)
 {
     return field_gt.ff_gt(a, b);
 }
 
+/**
+ * @brief Computes whether a > b for uint128 values.
+ *
+ * Computes the absolute difference: (a - b - 1) if a > b, or (b - a) if a <= b.
+ * Range-checks this difference to prove the subtraction did not underflow, which
+ * in turn proves the comparison result is correct. See gt.pil for the full argument.
+ *
+ * @param a The first uint128 value.
+ * @param b The second uint128 value.
+ * @return true if a > b, false otherwise.
+ */
 bool GreaterThan::gt(const uint128_t& a, const uint128_t& b)
 {
     bool res = a > b;
@@ -29,6 +44,17 @@ bool GreaterThan::gt(const uint128_t& a, const uint128_t& b)
     return res;
 }
 
+/**
+ * @brief Computes whether a > b for memory values, dispatching by tag.
+ *
+ * Field-tagged values are compared via the ff_gt gadget. All other types (u8, u16, u32,
+ * u64, u128) are compared as uint128 integers.
+ *
+ * @param a The first memory value.
+ * @param b The second memory value.
+ * @return true if a > b, false otherwise.
+ * @note Asserts that neither input has FF tag when taking the integer comparison path.
+ */
 bool GreaterThan::gt(const MemoryValue& a, const MemoryValue& b)
 {
     FF a_ff = a.as_ff();

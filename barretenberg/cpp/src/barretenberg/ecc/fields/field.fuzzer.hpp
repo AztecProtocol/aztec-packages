@@ -962,13 +962,13 @@ template <typename Field> struct FieldVM {
                         assert(uint_internal_state[idx] == individual_uint_inverses[i]);
 
                         // Verify the inverse property: a * a^(-1) = 1
-                        Field product = original_elements[i] * field_internal_state[idx];
+                        [[maybe_unused]] Field product = original_elements[i] * field_internal_state[idx];
                         assert(product == Field::one());
 
                         // Verify uint arithmetic consistency
-                        auto uint_product = (static_cast<uint512_t>(original_uint_elements[i]) *
-                                             static_cast<uint512_t>(uint_internal_state[idx])) %
-                                            static_cast<uint512_t>(Field::modulus);
+                        [[maybe_unused]] auto uint_product = (static_cast<uint512_t>(original_uint_elements[i]) *
+                                                              static_cast<uint512_t>(uint_internal_state[idx])) %
+                                                             static_cast<uint512_t>(Field::modulus);
                         assert(uint_product == static_cast<uint512_t>(1));
                     } else {
                         // Zero elements should remain zero

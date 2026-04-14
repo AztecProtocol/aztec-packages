@@ -163,7 +163,7 @@ void read(std::vector<uint8_t> const& buf, std::integral auto& value)
 void write(std::vector<uint8_t>& buf, const std::integral auto& value)
 {
     buf.resize(buf.size() + sizeof(value));
-    uint8_t* ptr = &*buf.end() - sizeof(value);
+    uint8_t* ptr = buf.data() + buf.size() - sizeof(value);
     write(ptr, value);
 }
 
@@ -248,7 +248,7 @@ inline void write(std::ostream& os, std::vector<uint8_t> const& value)
 template <size_t N> inline void write(std::vector<uint8_t>& buf, std::array<uint8_t, N> const& value)
 {
     buf.resize(buf.size() + N);
-    auto* ptr = &*buf.end() - N;
+    auto* ptr = buf.data() + buf.size() - N;
     write(ptr, value);
 }
 
@@ -498,7 +498,8 @@ inline void _read_msgpack_field(auto& it, auto& field)
 }
 
 /**
- * @brief Automatically derived read for any object that defines .msgpack() (implicitly defined by MSGPACK_FIELDS).
+ * @brief Automatically derived read for any object that defines .msgpack() (implicitly defined by
+ * SERIALIZATION_FIELDS).
  * @param it The iterator to read from.
  * @param func The function to call with each field as an argument.
  */
@@ -520,7 +521,8 @@ inline void _write_msgpack_field(auto& it, const auto& field)
     write(it, field);
 }
 /**
- * @brief Automatically derived write for any object that defines .msgpack() (implicitly defined by MSGPACK_FIELDS).
+ * @brief Automatically derived write for any object that defines .msgpack() (implicitly defined by
+ * SERIALIZATION_FIELDS).
  * @param buf The buffer to write to.
  * @param obj The object to write.
  */

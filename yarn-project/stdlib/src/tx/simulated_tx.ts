@@ -12,9 +12,11 @@ import { Gas } from '../gas/gas.js';
 import type { GasUsed } from '../gas/gas_used.js';
 import { PrivateKernelTailCircuitPublicInputs } from '../kernel/private_kernel_tail_circuit_public_inputs.js';
 import { ChonkProof } from '../proofs/chonk_proof.js';
+import type { OffchainEffect } from './offchain_effect.js';
 import {
   PrivateCallExecutionResult,
   PrivateExecutionResult,
+  collectOffchainEffects,
   collectSortedContractClassLogs,
 } from './private_execution_result.js';
 import { type SimulationStats, SimulationStatsSchema } from './profiling.js';
@@ -36,7 +38,11 @@ export type ContractOverrides = Record<
  * set, it *must* be run without the kernel circuits, or validations will fail
  */
 export class SimulationOverrides {
-  constructor(public contracts?: ContractOverrides) {}
+  public contracts?: ContractOverrides;
+
+  constructor(contracts: ContractOverrides = {}) {
+    this.contracts = Object.keys(contracts).length > 0 ? contracts : undefined;
+  }
 
   static get schema() {
     return z
@@ -84,6 +90,11 @@ export class TxSimulationResult {
     public stats?: SimulationStats,
   ) {}
 
+  /** Returns offchain effects collected from private execution. */
+  get offchainEffects(): OffchainEffect[] {
+    return collectOffchainEffects(this.privateExecutionResult);
+  }
+
   get gasUsed(): GasUsed {
     return (
       this.publicOutput?.gasUsed ?? {
@@ -106,7 +117,7 @@ export class TxSimulationResult {
       .transform(TxSimulationResult.from);
   }
 
-  static from(fields: Omit<FieldsOf<TxSimulationResult>, 'gasUsed'>) {
+  static from(fields: Omit<FieldsOf<TxSimulationResult>, 'gasUsed' | 'offchainEffects'>) {
     return new TxSimulationResult(
       fields.privateExecutionResult,
       fields.publicInputs,
@@ -150,7 +161,7 @@ export class TxSimulationResult {
 }
 
 /**
- * Recursively accummulate the return values of a call result and its nested executions,
+ * Recursively accumulate the return values of a call result and its nested executions,
  * so they can be retrieved in order.
  * @param executionResult
  * @returns

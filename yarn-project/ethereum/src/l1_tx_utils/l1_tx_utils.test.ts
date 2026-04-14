@@ -9,7 +9,6 @@ import { sleep } from '@aztec/foundation/sleep';
 import { DateProvider, TestDateProvider } from '@aztec/foundation/timer';
 
 import { jest } from '@jest/globals';
-import type { Anvil } from '@viem/anvil';
 import { type MockProxy, mock } from 'jest-mock-extended';
 import assert from 'node:assert';
 import {
@@ -28,6 +27,7 @@ import { foundry } from 'viem/chains';
 
 import { createExtendedL1Client, getPublicClient } from '../client.js';
 import { EthCheatCodes } from '../test/eth_cheat_codes.js';
+import type { Anvil } from '../test/start_anvil.js';
 import { startAnvil } from '../test/start_anvil.js';
 import type { ExtendedViemWalletClient, ViemClient } from '../types.js';
 import { formatViemError } from '../utils.js';
@@ -137,6 +137,68 @@ describe('L1TxUtils', () => {
       gasUtils.interrupt();
       await gasUtils.waitMonitoringStopped(1);
     });
+
+    it('recovery send reuses nonce after sendRawTransaction fails', async () => {
+      // Send a successful tx first to advance the chain nonce
+      await gasUtils.sendAndMonitorTransaction(request);
+
+      const expectedNonce = await l1Client.getTransactionCount({
+        blockTag: 'pending',
+        address: l1Client.account.address,
+      });
+
+      // Next send fails at sendRawTransaction (e.g. network error / 429)
+      const originalSendRawTransaction = l1Client.sendRawTransaction.bind(l1Client);
+      using _sendSpy = jest
+        .spyOn(l1Client, 'sendRawTransaction')
+        .mockImplementationOnce(() => Promise.reject(new Error('network error')))
+        .mockImplementation(originalSendRawTransaction);
+
+      await expect(gasUtils.sendTransaction(request)).rejects.toThrow('network error');
+
+      // Recovery send should reuse the same nonce (not skip ahead)
+      const { txHash, state: recoveryState } = await gasUtils.sendTransaction(request);
+
+      expect(recoveryState.nonce).toBe(expectedNonce);
+      expect((await l1Client.getTransaction({ hash: txHash })).nonce).toBe(expectedNonce);
+    }, 30_000);
+
+    it('bumps nonce when getTransactionCount returns a stale value after a successful send', async () => {
+      // Send a successful tx first to advance the chain nonce
+      await gasUtils.sendAndMonitorTransaction(request);
+
+      const expectedNonce = await l1Client.getTransactionCount({
+        blockTag: 'pending',
+        address: l1Client.account.address,
+      });
+
+      // Simulate a stale fallback RPC node that returns the pre-send nonce
+      const originalGetTransactionCount = l1Client.getTransactionCount.bind(l1Client);
+      using _spy = jest
+        .spyOn(l1Client, 'getTransactionCount')
+        .mockImplementationOnce(() => Promise.resolve(expectedNonce - 1)) // stale: one behind
+        .mockImplementation(originalGetTransactionCount);
+
+      // Despite the stale count, the send should use lastSentNonce+1 = expectedNonce
+      const { txHash, state } = await gasUtils.sendTransaction(request);
+
+      expect(state.nonce).toBe(expectedNonce);
+      expect((await l1Client.getTransaction({ hash: txHash })).nonce).toBe(expectedNonce);
+    }, 30_000);
+
+    it('concurrent sendTransaction calls use sequential nonces (A-810 nonce race fix)', async () => {
+      // Fire two sends concurrently on the same L1TxUtils. Without the mutex, both could read
+      // the same nonce before either updates lastSentNonce, causing a duplicate-nonce failure.
+      const req1 = { ...request, value: 1n };
+      const req2 = { ...request, value: 2n };
+
+      const [result1, result2] = await Promise.all([gasUtils.sendTransaction(req1), gasUtils.sendTransaction(req2)]);
+
+      expect(result1.state.nonce).not.toBe(result2.state.nonce);
+      expect(Math.abs(result1.state.nonce - result2.state.nonce)).toBe(1);
+      expect((await l1Client.getTransaction({ hash: result1.txHash })).nonce).toBe(result1.state.nonce);
+      expect((await l1Client.getTransaction({ hash: result2.txHash })).nonce).toBe(result2.state.nonce);
+    }, 30_000);
 
     // Regression for TMNT-312
     it('speed-up of blob tx sets non-zero maxFeePerBlobGas', async () => {
@@ -402,6 +464,50 @@ describe('L1TxUtils', () => {
         expect(gasPrice.maxFeePerGas).toBe(expectedMaxFee);
       } finally {
         // Restore original method
+        l1Client.estimateMaxPriorityFeePerGas = originalEstimate;
+      }
+    });
+
+    it('bumps gas fees correctly at very low wei values (ceiling division)', async () => {
+      await cheatCodes.setNextBlockBaseFeePerGas(1n);
+      await cheatCodes.evmMine();
+
+      const originalGetBlobBaseFee = l1Client.getBlobBaseFee;
+      l1Client.getBlobBaseFee = () => Promise.resolve(1n);
+
+      const originalEstimate = l1Client.estimateMaxPriorityFeePerGas;
+      l1Client.estimateMaxPriorityFeePerGas = () => Promise.resolve(0n);
+
+      try {
+        gasUtils.updateConfig({
+          ...defaultL1TxUtilsConfig,
+          stallTimeMs: 12_000,
+          priorityFeeBumpPercentage: 0,
+          minimumPriorityFeePerGas: 0,
+        });
+
+        const gasPrice = await gasUtils['getGasPrice'](undefined, true);
+
+        // With ceiling division: (1n * 1125n + 999n) / 1000n = 2n
+        expect(gasPrice.maxFeePerGas).toBe(2n);
+        expect(gasPrice.maxFeePerBlobGas).toBe(2n);
+
+        // Verify compounding works across multiple iterations
+        gasUtils.updateConfig({
+          ...defaultL1TxUtilsConfig,
+          stallTimeMs: 24_000,
+          priorityFeeBumpPercentage: 0,
+          minimumPriorityFeePerGas: 0,
+        });
+
+        const gasPrice2 = await gasUtils['getGasPrice'](undefined, true);
+
+        // Iteration 1: ceil(1 * 1125 / 1000) = 2
+        // Iteration 2: ceil(2 * 1125 / 1000) = ceil(2.25) = 3
+        expect(gasPrice2.maxFeePerGas).toBe(3n);
+        expect(gasPrice2.maxFeePerBlobGas).toBe(3n);
+      } finally {
+        l1Client.getBlobBaseFee = originalGetBlobBaseFee;
         l1Client.estimateMaxPriorityFeePerGas = originalEstimate;
       }
     });
@@ -919,6 +1025,8 @@ describe('L1TxUtils', () => {
     });
 
     it('does not consume nonce when transaction times out before sending', async () => {
+      // first send a transaction to advance the nonce
+      await gasUtils.sendAndMonitorTransaction(request);
       // Get the expected nonce before any transaction
       const expectedNonce = await l1Client.getTransactionCount({ address: l1Client.account.address });
 
@@ -1545,6 +1653,9 @@ describe('L1TxUtils', () => {
       state.txConfigOverrides.checkIntervalMs = 100;
       state.txConfigOverrides.txTimeoutMs = 60_000;
       state.txConfigOverrides.cancelTxOnTimeout = false;
+      // Limit to 1 speed-up to prevent a second speed-up from firing between the test dropping
+      // txs and the timeout, which would re-add a pending tx to the mempool and corrupt the nonce.
+      state.txConfigOverrides.maxSpeedUpAttempts = 1;
 
       expect(gasUtils.state).toBe(TxUtilsState.SENT);
 

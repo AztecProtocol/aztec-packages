@@ -15,12 +15,13 @@ function build {
   denoise "helm lint ./aztec-bot/"
   denoise "helm lint ./aztec-chaos-scenarios/"
   denoise "helm lint ./aztec-keystore/"
-  denoise "helm lint ./aztec-node/"
+  denoise "helm lint ./aztec-node/ --set global.aztecImage.tag=lint"
   denoise "helm lint ./aztec-prover-stack/"
-  denoise "helm lint ./aztec-snapshots/"
+  denoise "helm lint ./aztec-snapshots/ --set snapshots.frequency='0 */6 * * *' --set snapshots.nodeUrl=http://lint --set snapshots.bucket=lint"
   denoise "helm lint ./aztec-validator/"
   denoise "helm lint ./eth-devnet/"
-  denoise ./spartan/scripts/check_env_vars.sh
+  denoise "terraform fmt -check -recursive ./terraform/"
+  denoise ./scripts/check_env_vars.sh
 }
 
 function network_shaping {
@@ -92,6 +93,15 @@ NETWORK_TESTS_2=(
   mbps.test.ts
 )
 
+# Retrieve the admin API key stored as a K8s Secret during deployment.
+# Exported so the test runner can authenticate against the admin RPC endpoint.
+function export_admin_api_key {
+  export AZTEC_ADMIN_API_KEY
+  AZTEC_ADMIN_API_KEY=$(kubectl get secret aztec-admin-api-key \
+    --namespace "$NAMESPACE" \
+    -o jsonpath='{.data.key}' 2>/dev/null | base64 -d 2>/dev/null || true)
+}
+
 # Run spartan tests sequentially with k8s log enrichment, collecting failures.
 function run_network_tests {
   local env_file="$1"
@@ -99,6 +109,7 @@ function run_network_tests {
   source_network_env "$env_file"
   gcp_auth
   export SCENARIO_TESTS=1
+  export_admin_api_key
   local failed=()
   for test_file in "$@"; do
     echo_header "Running $test_file"
@@ -114,19 +125,29 @@ function run_network_tests {
   fi
 }
 
+function slack_notify_scenario_pass {
+  local label="$1"
+  if [[ "${REF_NAME:-}" == v* ]]; then
+    slack_notify "Scenario ${label} tests PASSED on *${REF_NAME}*" "#alerts-next-scenario"
+  fi
+}
+
 function network_tests_1 {
   run_network_tests "$1" "smoke.test.ts" "${NETWORK_TESTS_1[@]}"
+  slack_notify_scenario_pass "set-1"
 }
 function network_tests_2 {
   run_network_tests "$1" "smoke.test.ts" "${NETWORK_TESTS_2[@]}"
+  slack_notify_scenario_pass "set-2"
 }
 function network_tests {
   run_network_tests "$1" "smoke.test.ts" "${NETWORK_TESTS_1[@]}" "${NETWORK_TESTS_2[@]}"
+  slack_notify_scenario_pass "all"
 }
 
 function network_bench_cmds {
   local high_value_tps=0.1
-  local low_value_tps_list=(0.1 0.2 0.5 1)
+  local low_value_tps_list=(0.1 0.2 0.5 1 2)
 
   for low_value_tps in "${low_value_tps_list[@]}"; do
     local low_label=${low_value_tps/./_}
@@ -144,6 +165,11 @@ function proving_bench_cmds {
   echo "$(hash):TIMEOUT=${timeout} TPS=${tps} BENCH_OUTPUT=bench-out/n_tps_prove.${tps}tps.bench.json $root/yarn-project/end-to-end/scripts/run_test.sh simple n_tps_prove.test.ts"
 }
 
+function block_capacity_bench_cmds {
+  local timeout=7200  # 2h
+  echo "$(hash):TIMEOUT=${timeout} BENCH_OUTPUT=bench-out/block_capacity.bench.json $root/yarn-project/end-to-end/scripts/run_test.sh simple block_capacity.test.ts"
+}
+
 function network_bench {
   rm -rf bench-out
   mkdir -p bench-out
@@ -153,6 +179,7 @@ function network_bench {
 
   echo_header "spartan bench"
   gcp_auth
+  export_admin_api_key
   export K8S_ENRICHER=${K8S_ENRICHER:-1}
   network_bench_cmds | parallelize 1
 }
@@ -166,8 +193,23 @@ function proving_bench {
 
   echo_header "spartan proving bench"
   gcp_auth
+  export_admin_api_key
   export K8S_ENRICHER=${K8S_ENRICHER:-1}
   proving_bench_cmds | parallelize 1
+}
+
+function block_capacity_bench {
+  rm -rf bench-out
+  mkdir -p bench-out
+
+  local env_file="$1"
+  source_network_env $env_file
+
+  echo_header "spartan block capacity bench"
+  gcp_auth
+  export_admin_api_key
+  export K8S_ENRICHER=${K8S_ENRICHER:-1}
+  block_capacity_bench_cmds | parallelize 1
 }
 
 function ensure_eth_balances {
@@ -234,7 +276,7 @@ case "$cmd" in
     run_network_tests "$1" "$2"
     ;;
 
-  network_tests|network_tests_1|network_tests_2|network_bench|proving_bench)
+  network_tests|network_tests_1|network_tests_2|network_bench|proving_bench|block_capacity_bench)
     env_file="$1"
     $cmd "$env_file"
     ;;

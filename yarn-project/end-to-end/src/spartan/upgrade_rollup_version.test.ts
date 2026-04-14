@@ -126,7 +126,6 @@ describe('spartan_upgrade_rollup_version', () => {
     ETHEREUM_HOSTS = [ethEndpoint.url];
 
     originalL1ContractAddresses = omit(nodeInfo.l1ContractAddresses, [
-      'slashFactoryAddress',
       'stakingAssetHandlerAddress',
       'feeAssetHandlerAddress',
     ]);
@@ -591,7 +590,7 @@ describe('spartan_upgrade_rollup_version', () => {
       await waitForResourceByLabel({
         resource: 'pods',
         namespace: config.NAMESPACE,
-        label: 'app.kubernetes.io/component=rpc',
+        label: 'app.kubernetes.io/component=rpc-node',
         timeout: '5m',
       });
     }

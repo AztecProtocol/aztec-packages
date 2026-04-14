@@ -5,7 +5,7 @@ import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { computeBlobCommitment, computeChallengeZ, computeEthVersionedBlobHash } from './hash.js';
 import type { BlobJson } from './interface.js';
-import { BYTES_PER_BLOB, BYTES_PER_COMMITMENT, getKzg } from './kzg_context.js';
+import { getBytesPerBlob, getBytesPerCommitment, getKzg } from './kzg_context.js';
 
 export { FIELDS_PER_BLOB };
 
@@ -27,11 +27,11 @@ export class Blob {
      */
     public readonly commitment: Buffer,
   ) {
-    if (data.length !== BYTES_PER_BLOB) {
-      throw new Error(`Blob data must be ${BYTES_PER_BLOB} bytes. Got ${data.length}.`);
+    if (data.length !== getBytesPerBlob()) {
+      throw new Error(`Blob data must be ${getBytesPerBlob()} bytes. Got ${data.length}.`);
     }
-    if (commitment.length !== BYTES_PER_COMMITMENT) {
-      throw new Error(`Blob commitment must be ${BYTES_PER_COMMITMENT} bytes. Got ${commitment.length}.`);
+    if (commitment.length !== getBytesPerCommitment()) {
+      throw new Error(`Blob commitment must be ${getBytesPerCommitment()} bytes. Got ${commitment.length}.`);
     }
   }
 
@@ -40,7 +40,7 @@ export class Blob {
    * @param data - The buffer of the Blob.
    * @returns A Blob created from the buffer.
    *
-   * @throws If data does not match the expected length (BYTES_PER_BLOB).
+   * @throws If data does not match the expected length (getBytesPerBlob()).
    */
   static async fromBlobBuffer(data: Uint8Array): Promise<Blob> {
     const commitment = await computeBlobCommitment(data);
@@ -60,7 +60,7 @@ export class Blob {
       throw new Error(`Attempted to overfill blob with ${fields.length} fields. The maximum is ${FIELDS_PER_BLOB}.`);
     }
 
-    const data = Buffer.concat([serializeToBuffer(fields)], BYTES_PER_BLOB);
+    const data = Buffer.concat([serializeToBuffer(fields)], getBytesPerBlob());
     const commitment = await computeBlobCommitment(data);
     return new Blob(data, commitment);
   }

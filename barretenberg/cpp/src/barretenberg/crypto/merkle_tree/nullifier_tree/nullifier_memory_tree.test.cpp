@@ -4,7 +4,7 @@
 using namespace bb;
 using namespace bb::crypto::merkle_tree;
 
-using HashPolicy = PedersenHashPolicy;
+using HashPolicy = Poseidon2HashPolicy;
 using WrappedLeaf = WrappedNullifierLeaf<HashPolicy>;
 
 void print_tree(const size_t depth, std::vector<fr> hashes, std::string const& msg)
@@ -393,4 +393,19 @@ TEST(crypto_nullifier_tree, test_nullifier_tree)
     // Merkle proof at `index` proves non-membership of `new_member`
     auto hash_path = tree.get_hash_path(index);
     EXPECT_TRUE(check_hash_path(tree.root(), hash_path, leaves[index].unwrap(), index));
+}
+
+TEST(crypto_nullifier_tree, nullifier_memory_tree_rejects_overfill)
+{
+    // depth = 1 => capacity = 2 leaves
+    // default initial_size = 2, so the tree starts full
+    NullifierMemoryTree<HashPolicy> tree(/*depth=*/1);
+
+    ASSERT_EQ(tree.get_leaves().size(), 2);
+
+    // Any further insertion should be rejected deterministically
+    EXPECT_THROW(tree.update_element(fr(42)), std::runtime_error);
+
+    // State should remain unchanged
+    EXPECT_EQ(tree.get_leaves().size(), 2);
 }

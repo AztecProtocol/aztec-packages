@@ -1,7 +1,7 @@
 import type { AztecNodeConfig } from '@aztec/aztec-node';
 import { AztecAddress, EthAddress } from '@aztec/aztec.js/addresses';
 import { NO_WAIT, waitForProven } from '@aztec/aztec.js/contracts';
-import { ContractDeployer } from '@aztec/aztec.js/deployment';
+import { ContractDeployer, publishContractClass } from '@aztec/aztec.js/deployment';
 import { Fr } from '@aztec/aztec.js/fields';
 import { type AztecNode, waitForTx } from '@aztec/aztec.js/node';
 import type { Wallet } from '@aztec/aztec.js/wallet';
@@ -9,7 +9,7 @@ import { getAddressFromPrivateKey } from '@aztec/ethereum/account';
 import { getL1ContractsConfigEnvVars } from '@aztec/ethereum/config';
 import { RollupContract } from '@aztec/ethereum/contracts';
 import type { DeployAztecL1ContractsReturnType } from '@aztec/ethereum/deploy-aztec-l1-contracts';
-import { IndexWithinCheckpoint } from '@aztec/foundation/branded-types';
+import { type CheckpointNumber, IndexWithinCheckpoint } from '@aztec/foundation/branded-types';
 import { SecretValue } from '@aztec/foundation/config';
 import { retryUntil } from '@aztec/foundation/retry';
 import { type EthPrivateKey, KeystoreManager, loadKeystores, mergeKeystores } from '@aztec/node-keystore';
@@ -314,6 +314,9 @@ describe('e2e_multi_validator_node', () => {
       config.ethereumSlotDuration * 3,
       1,
     );
+
+    const publishClass = await publishContractClass(wallet, StatefulTestContractArtifact);
+    await publishClass.send({ from: ownerAddress });
   });
 
   afterEach(async () => {
@@ -327,7 +330,6 @@ describe('e2e_multi_validator_node', () => {
       from: ownerAddress,
       contractAddressSalt,
       skipClassPublication: true,
-      skipInstancePublication: true,
       wait: NO_WAIT,
     });
   };
@@ -362,6 +364,7 @@ describe('e2e_multi_validator_node', () => {
     const originalCreateProposal = validatorClient.createBlockProposal.bind(validatorClient);
     const createBlockProposal = (
       blockHeader: BlockHeader,
+      checkpointNumber: CheckpointNumber,
       indexWithinCheckpoint: number,
       inHash: Fr,
       archive: Fr,
@@ -382,6 +385,7 @@ describe('e2e_multi_validator_node', () => {
 
       return originalCreateProposal(
         blockHeader,
+        checkpointNumber,
         IndexWithinCheckpoint(indexWithinCheckpoint),
         inHash,
         archive,
@@ -400,7 +404,10 @@ describe('e2e_multi_validator_node', () => {
     });
 
     const settledTransactions = await Promise.all(
-      sentTransactionPromises.map(async sentTransactionPromise => waitForTx(aztecNode, await sentTransactionPromise)),
+      sentTransactionPromises.map(async sentTransactionPromise => {
+        const { txHash } = await sentTransactionPromise;
+        return waitForTx(aztecNode, txHash);
+      }),
     );
 
     await Promise.all(

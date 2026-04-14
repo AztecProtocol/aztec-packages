@@ -314,7 +314,7 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Pr
     // notify listeners of the cancellation
     if (!this.resultsCache.has(id)) {
       this.logger.info(`Cancelling job id=${id}`, { provingJobId: id });
-      await this.#reportProvingJobError(id, 'Aborted', false);
+      await this.#reportProvingJobError(id, 'Aborted', false, undefined, true);
     }
   }
 
@@ -395,6 +395,7 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Pr
     err: string,
     retry = false,
     filter?: ProvingJobFilter,
+    aborted = false,
   ): Promise<GetProvingJobResponse | undefined> {
     const info = this.inProgress.get(id);
     const item = this.jobsCache.get(id);
@@ -455,7 +456,11 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Pr
     this.promises.get(id)!.resolve(result);
     this.completedJobNotifications.push(id);
 
-    this.instrumentation.incRejectedJobs(item.type);
+    if (aborted) {
+      this.instrumentation.incAbortedJobs(item.type);
+    } else {
+      this.instrumentation.incRejectedJobs(item.type);
+    }
     if (info) {
       const duration = this.msTimeSource() - info.startedAt;
       this.instrumentation.recordJobDuration(item.type, duration);
@@ -627,10 +632,26 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Pr
       const now = this.msTimeSource();
       const msSinceLastUpdate = now - metadata.lastUpdatedAt;
       if (msSinceLastUpdate >= this.jobTimeoutMs) {
-        this.logger.warn(`Proving job id=${id} timed out. Adding it back to the queue.`, { provingJobId: id });
         this.inProgress.delete(id);
-        this.enqueueJobInternal(item);
         this.instrumentation.incTimedOutJobs(item.type);
+
+        const retries = this.retries.get(id) ?? 0;
+        if (retries + 1 < this.maxRetries && !this.isJobStale(item)) {
+          this.logger.warn(`Proving job id=${id} timed out. Re-enqueueing (retry ${retries + 1}/${this.maxRetries}).`, {
+            provingJobId: id,
+          });
+          this.retries.set(id, retries + 1);
+          this.enqueueJobInternal(item);
+        } else {
+          this.logger.error(`Proving job id=${id} timed out after ${retries + 1} attempts. Marking as failed.`, {
+            provingJobId: id,
+          });
+          const result: ProvingJobSettledResult = { status: 'rejected', reason: 'Timed out' };
+          this.resultsCache.set(id, result);
+          this.promises.get(id)?.resolve(result);
+          this.completedJobNotifications.push(id);
+          this.instrumentation.incRejectedJobs(item.type);
+        }
       }
     }
   }

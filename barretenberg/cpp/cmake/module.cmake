@@ -105,7 +105,7 @@ function(barretenberg_module_with_sources MODULE_NAME)
         add_dependencies(${MODULE_NAME}_objects msgpack-c)
 
         # enable lmdb downloading via dependency (solves race condition)
-        if(NOT CMAKE_SYSTEM_PROCESSOR MATCHES "wasm32" AND NOT MOBILE)
+        if(NOT CMAKE_SYSTEM_PROCESSOR MATCHES "wasm32" AND NOT BB_LITE)
             add_dependencies(${MODULE_NAME} lmdb_repo)
             add_dependencies(${MODULE_NAME}_objects lmdb_repo)
         endif()
@@ -198,13 +198,13 @@ function(barretenberg_module_with_sources MODULE_NAME)
         add_dependencies(${MODULE_NAME}_tests msgpack-c)
 
         # enable lmdb downloading via dependency (solves race condition)
-        if(NOT CMAKE_SYSTEM_PROCESSOR MATCHES "wasm32" AND NOT MOBILE)
+        if(NOT CMAKE_SYSTEM_PROCESSOR MATCHES "wasm32" AND NOT BB_LITE)
             add_dependencies(${MODULE_NAME}_test_objects lmdb_repo)
             add_dependencies(${MODULE_NAME}_tests lmdb_repo)
         endif()
         if(NOT WASM)
             # Currently haven't found a way to easily wrap the calls in wasmtime when run from ctest.
-            gtest_discover_tests(${MODULE_NAME}_tests WORKING_DIRECTORY ${CMAKE_BINARY_DIR} TEST_FILTER -*_SKIP_CI*)
+            gtest_discover_tests(${MODULE_NAME}_tests WORKING_DIRECTORY ${CMAKE_BINARY_DIR} TEST_FILTER -*_SKIP_CI* DISCOVERY_TIMEOUT 30)
         endif()
     endif()
 
@@ -236,6 +236,14 @@ function(barretenberg_module_with_sources MODULE_NAME)
                 ${MODULE_LINK_NAME}
                 ${MODULE_DEPENDENCIES}
             )
+
+            # Record fuzzer metadata for manifest generation
+            get_filename_component(_fuzzer_dir "${FUZZER_SOURCE_FILE}" DIRECTORY)
+            file(RELATIVE_PATH _source_path
+                "${CMAKE_SOURCE_DIR}/src/barretenberg"
+                "${_fuzzer_dir}")
+            set_property(GLOBAL APPEND PROPERTY BB_FUZZER_MANIFEST_ENTRIES
+                "${MODULE_NAME}_${FUZZER_NAME_STEM}_fuzzer|${_source_path}")
 
             if(ENABLE_STACKTRACES)
                 target_link_libraries(
@@ -304,7 +312,7 @@ function(barretenberg_module_with_sources MODULE_NAME)
             add_dependencies(${BENCHMARK_NAME}_bench msgpack-c)
 
             # enable lmdb downloading via dependency (solves race condition)
-            if(NOT CMAKE_SYSTEM_PROCESSOR MATCHES "wasm32" AND NOT MOBILE)
+            if(NOT CMAKE_SYSTEM_PROCESSOR MATCHES "wasm32" AND NOT BB_LITE)
                 add_dependencies(${BENCHMARK_NAME}_bench_objects lmdb_repo)
                 add_dependencies(${BENCHMARK_NAME}_bench lmdb_repo)
             endif()
@@ -317,11 +325,11 @@ endfunction()
 
 function(barretenberg_module MODULE_NAME)
     # Auto-discover all source files
-    file(GLOB_RECURSE SOURCE_FILES *.cpp)
-    file(GLOB_RECURSE HEADER_FILES *.hpp *.tcc)
-    file(GLOB_RECURSE TEST_SOURCE_FILES *.test.cpp)
-    file(GLOB_RECURSE BENCH_SOURCE_FILES *.bench.cpp)
-    file(GLOB_RECURSE FUZZERS_SOURCE_FILES *.fuzzer.cpp)
+    file(GLOB_RECURSE SOURCE_FILES CONFIGURE_DEPENDS *.cpp)
+    file(GLOB_RECURSE HEADER_FILES CONFIGURE_DEPENDS *.hpp *.tcc)
+    file(GLOB_RECURSE TEST_SOURCE_FILES CONFIGURE_DEPENDS *.test.cpp)
+    file(GLOB_RECURSE BENCH_SOURCE_FILES CONFIGURE_DEPENDS *.bench.cpp)
+    file(GLOB_RECURSE FUZZERS_SOURCE_FILES CONFIGURE_DEPENDS *.fuzzer.cpp)
     list(FILTER SOURCE_FILES EXCLUDE REGEX ".*\\.(fuzzer|test|bench)\\.cpp$")
 
     barretenberg_module_with_sources(

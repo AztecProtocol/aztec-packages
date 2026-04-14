@@ -269,7 +269,10 @@ template <size_t TABLE_BITS = 0, size_t LANE_INDEX = 0> class Rho {
             }
 
             table.slice_sizes.push_back(scaled_base);
-            table.get_table_values.emplace_back(&get_rho_renormalization_values);
+            // N.B. must use Rho<bit_slice> (not the unqualified get_rho_renormalization_values) so that
+            // the function pointer's MSB divisor (11^(bit_slice-1)) matches this sub-table's actual size.
+            // The enclosing class's version uses 11^(TABLE_BITS-1) which is wrong when bit_slice != TABLE_BITS.
+            table.get_table_values.emplace_back(&Rho<bit_slice>::get_rho_renormalization_values);
             table.basic_table_ids.push_back((BasicTableId)((size_t)KECCAK_RHO_1 + (bit_slice - 1)));
         });
 
@@ -289,7 +292,8 @@ template <size_t TABLE_BITS = 0, size_t LANE_INDEX = 0> class Rho {
             }
 
             table.slice_sizes.push_back(scaled_base);
-            table.get_table_values.emplace_back(&get_rho_renormalization_values);
+            // See right-slice comment above re: Rho<bit_slice>.
+            table.get_table_values.emplace_back(&Rho<bit_slice>::get_rho_renormalization_values);
             table.basic_table_ids.push_back((BasicTableId)((size_t)KECCAK_RHO_1 + (bit_slice - 1)));
         });
 

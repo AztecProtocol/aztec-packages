@@ -109,6 +109,27 @@ export class L2BlockStream {
 
       let nextBlockNumber = latestBlockNumber + 1;
       let nextCheckpointToEmit = CheckpointNumber(localTips.checkpointed.checkpoint.number + 1);
+
+      // When startingBlock is set, also skip ahead for checkpoints.
+      if (
+        this.opts.startingBlock !== undefined &&
+        this.opts.startingBlock >= 1 &&
+        nextCheckpointToEmit <= sourceTips.checkpointed.checkpoint.number
+      ) {
+        const startingBlockCheckpoints = await this.l2BlockSource.getCheckpointedBlocks(
+          BlockNumber(this.opts.startingBlock),
+          1,
+        );
+        if (startingBlockCheckpoints.length > 0) {
+          nextCheckpointToEmit = CheckpointNumber(
+            Math.max(nextCheckpointToEmit, startingBlockCheckpoints[0].checkpointNumber),
+          );
+        } else {
+          // startingBlock is past all checkpointed blocks; skip Loop 1 entirely.
+          nextCheckpointToEmit = CheckpointNumber(sourceTips.checkpointed.checkpoint.number + 1);
+        }
+      }
+
       if (this.opts.skipFinalized) {
         // When skipping finalized blocks we need to provide reliable reorg detection while fetching as few blocks as
         // possible. Finalized blocks cannot be reorged by definition, so we can skip most of them. We do need the very

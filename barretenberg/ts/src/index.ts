@@ -7,8 +7,10 @@ export {
   UltraHonkVerifierBackend,
   UltraHonkBackend,
   AztecClientBackend,
+  flattenChonkProofFields,
   fieldToString,
   fieldsToStrings,
+  type AztecClientProveResult,
   type UltraHonkBackendOptions,
   type VerifierTarget,
 } from './barretenberg/index.js';
@@ -21,11 +23,14 @@ export { BBApiException } from './bbapi_exception.js';
 export type {
   Bn254G1Point,
   Bn254G2Point,
+  ChonkProof,
   GrumpkinPoint,
   Secp256k1Point,
   Secp256r1Point,
   Field2,
 } from './cbind/generated/api_types.js';
+
+export { toChonkProof } from './cbind/generated/api_types.js';
 
 // Export curve constants for use in foundation
 export {
@@ -44,4 +49,4 @@ export {
   SECP256R1_G1_GENERATOR,
 } from './cbind/generated/curve_constants.js';
 
-export { findNapiBinary } from './bb_backends/node/platform.js';
+export { findBbBinary, findNapiBinary } from './bb_backends/node/platform.js';

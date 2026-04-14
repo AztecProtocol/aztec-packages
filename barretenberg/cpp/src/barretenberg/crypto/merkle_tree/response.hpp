@@ -1,5 +1,5 @@
 // === AUDIT STATUS ===
-// internal:    { status: Planned, auditors: [Raju], commit: }
+// internal:    { status: Complete, auditors: [Nishat], commit: 22d6fc368da0fbe5412f4f7b2890a052aa48d803 }
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
@@ -30,6 +30,17 @@ struct TreeMetaResponse {
     TreeMetaResponse(TreeMetaResponse&& other) noexcept = default;
     TreeMetaResponse& operator=(const TreeMetaResponse& other) = default;
     TreeMetaResponse& operator=(TreeMetaResponse&& other) noexcept = default;
+};
+
+struct CheckpointResponse {
+    uint32_t depth;
+
+    CheckpointResponse() = default;
+    ~CheckpointResponse() = default;
+    CheckpointResponse(const CheckpointResponse& other) = default;
+    CheckpointResponse(CheckpointResponse&& other) noexcept = default;
+    CheckpointResponse& operator=(const CheckpointResponse& other) = default;
+    CheckpointResponse& operator=(CheckpointResponse&& other) noexcept = default;
 };
 
 struct AddDataResponse {
@@ -73,7 +84,7 @@ template <typename LeafType> struct LeafUpdateWitnessData {
     LeafUpdateWitnessData& operator=(LeafUpdateWitnessData&& other) noexcept = default;
     bool operator==(const LeafUpdateWitnessData& other) const = default;
 
-    MSGPACK_FIELDS(leaf, index, path);
+    SERIALIZATION_FIELDS(leaf, index, path);
 };
 
 template <typename LeafValueType> struct AddIndexedDataResponse {
@@ -129,7 +140,7 @@ struct SiblingPathAndIndex {
     index_t index;
     fr_sibling_path path;
 
-    MSGPACK_FIELDS(index, path);
+    SERIALIZATION_FIELDS(index, path);
 
     SiblingPathAndIndex() = default;
     ~SiblingPathAndIndex() = default;
@@ -173,7 +184,7 @@ struct GetLowIndexedLeafResponse {
     bool is_already_present;
     index_t index;
 
-    MSGPACK_FIELDS(is_already_present, index);
+    SERIALIZATION_FIELDS(is_already_present, index);
 
     GetLowIndexedLeafResponse(bool p, const index_t& i)
         : is_already_present(p)
@@ -271,7 +282,9 @@ void execute_and_report(const std::function<void(TypedResponse<ResponseType>&)>&
     }
     try {
         on_completion(response);
-    } catch (std::exception&) {
+    } catch (std::exception& e) {
+        std::cerr << "Completion callback threw: " << e.what() << std::endl;
+        std::abort();
     }
 }
 
@@ -287,7 +300,9 @@ inline void execute_and_report(const std::function<void()>& f, const std::functi
     }
     try {
         on_completion(response);
-    } catch (std::exception&) {
+    } catch (std::exception& e) {
+        std::cerr << "Completion callback threw: " << e.what() << std::endl;
+        std::abort();
     }
 }
 } // namespace bb::crypto::merkle_tree

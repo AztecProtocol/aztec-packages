@@ -1,5 +1,6 @@
 import type { BlobClientInterface } from '@aztec/blob-client/client';
 import { type Blob, getBlobsPerL1Block, getPrefixedEthBlobCommitments } from '@aztec/blob-lib';
+import { INITIAL_CHECKPOINT_NUMBER } from '@aztec/constants';
 import type { CheckpointProposedLog, InboxContract, MessageSentLog, RollupContract } from '@aztec/ethereum/contracts';
 import { MULTI_CALL_3_ADDRESS } from '@aztec/ethereum/contracts';
 import type { ViemPublicClient } from '@aztec/ethereum/types';
@@ -14,6 +15,7 @@ import { CommitteeAttestation, CommitteeAttestationsAndSigners, L2Block } from '
 import { Checkpoint } from '@aztec/stdlib/checkpoint';
 import { getSlotAtTimestamp } from '@aztec/stdlib/epoch-helpers';
 import { InboxLeaf } from '@aztec/stdlib/messaging';
+import { ConsensusPayload, SignatureDomainSeparator } from '@aztec/stdlib/p2p';
 import {
   makeAndSignCommitteeAttestationsAndSigners,
   makeCheckpointAttestationFromCheckpoint,
@@ -22,7 +24,16 @@ import {
 import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
-import { type FormattedBlock, type Transaction, encodeFunctionData, multicall3Abi, toHex } from 'viem';
+import {
+  type AbiParameter,
+  type FormattedBlock,
+  type Transaction,
+  encodeAbiParameters,
+  encodeFunctionData,
+  keccak256,
+  multicall3Abi,
+  toHex,
+} from 'viem';
 
 import { updateRollingHash } from '../structs/inbox_message.js';
 
@@ -87,6 +98,10 @@ type CheckpointData = {
   blobHashes: `0x${string}`[];
   blobs: Blob[];
   signers: Secp256k1Signer[];
+  /** Hash of the packed attestations, matching what the L1 event emits. */
+  attestationsHash: Buffer32;
+  /** Payload digest, matching what the L1 event emits. */
+  payloadDigest: Buffer32;
   /** If true, archiveAt will ignore it */
   pruned?: boolean;
 };
@@ -136,8 +151,12 @@ export class FakeL1State {
   // Computed from checkpoints based on L1 block visibility
   private pendingCheckpointNumber: CheckpointNumber = CheckpointNumber(0);
 
+  // The L1 block number reported as "finalized" (defaults to the start block)
+  private finalizedL1BlockNumber: bigint;
+
   constructor(private readonly config: FakeL1StateConfig) {
     this.l1BlockNumber = config.l1StartBlock;
+    this.finalizedL1BlockNumber = config.l1StartBlock;
     this.lastArchive = new AppendOnlyTreeSnapshot(config.genesisArchiveRoot, 1);
   }
 
@@ -194,8 +213,8 @@ export class FakeL1State {
     // Store the messages internally so they match the checkpoint's inHash
     this.addMessages(checkpointNumber, messagesL1BlockNumber, messages);
 
-    // Create the transaction and blobs
-    const tx = await this.makeRollupTx(checkpoint, signers);
+    // Create the transaction, blobs, and event hashes
+    const { tx, attestationsHash, payloadDigest } = await this.makeRollupTx(checkpoint, signers);
     const blobHashes = await this.makeVersionedBlobHashes(checkpoint);
     const blobs = await this.makeBlobsFromCheckpoint(checkpoint);
 
@@ -208,6 +227,8 @@ export class FakeL1State {
       blobHashes,
       blobs,
       signers,
+      attestationsHash,
+      payloadDigest,
     });
 
     // Update last archive for auto-chaining
@@ -267,9 +288,28 @@ export class FakeL1State {
     this.updatePendingCheckpointNumber();
   }
 
+  /** Sets the L1 block number that will be reported as "finalized". */
+  setFinalizedL1BlockNumber(blockNumber: bigint): void {
+    this.finalizedL1BlockNumber = blockNumber;
+  }
+
   /** Marks a checkpoint as proven. Updates provenCheckpointNumber. */
   markCheckpointAsProven(checkpointNumber: CheckpointNumber): void {
     this.provenCheckpointNumber = checkpointNumber;
+  }
+
+  /**
+   * Simulates what `rollup.getProvenCheckpointNumber({ blockNumber: atL1Block })` would return.
+   */
+  getProvenCheckpointNumberAtL1Block(atL1Block: bigint): CheckpointNumber {
+    if (this.provenCheckpointNumber === 0) {
+      return CheckpointNumber(0);
+    }
+    const checkpoint = this.checkpoints.find(cp => cp.checkpointNumber === this.provenCheckpointNumber);
+    if (checkpoint && checkpoint.l1BlockNumber <= atL1Block) {
+      return this.provenCheckpointNumber;
+    }
+    return CheckpointNumber(0);
   }
 
   /** Sets the target committee size for attestation validation. */
@@ -289,6 +329,21 @@ export class FakeL1State {
    */
   removeCheckpoint(checkpointNumber: CheckpointNumber): void {
     this.checkpoints = this.checkpoints.filter(cpData => cpData.checkpointNumber !== checkpointNumber);
+    this.updatePendingCheckpointNumber();
+  }
+
+  /**
+   * Moves a checkpoint to a different L1 block number (simulates L1 reorg that
+   * re-includes the same checkpoint transaction in a different block).
+   * The checkpoint content stays the same — only the L1 metadata changes.
+   * Auto-updates pending status.
+   */
+  moveCheckpointToL1Block(checkpointNumber: CheckpointNumber, newL1BlockNumber: bigint): void {
+    for (const cpData of this.checkpoints) {
+      if (cpData.checkpointNumber === checkpointNumber) {
+        cpData.l1BlockNumber = newL1BlockNumber;
+      }
+    }
     this.updatePendingCheckpointNumber();
   }
 
@@ -390,6 +445,11 @@ export class FakeL1State {
       });
     });
 
+    mockRollup.getProvenCheckpointNumber.mockImplementation((options?: { blockNumber?: bigint }) => {
+      const atBlock = options?.blockNumber ?? this.l1BlockNumber;
+      return Promise.resolve(this.getProvenCheckpointNumberAtL1Block(atBlock));
+    });
+
     mockRollup.canPruneAtTime.mockImplementation(() => Promise.resolve(this.canPruneResult));
 
     // Mock the wrapper method for fetching checkpoint events
@@ -406,21 +466,44 @@ export class FakeL1State {
   createMockInboxContract(_publicClient: MockProxy<ViemPublicClient>): MockProxy<InboxContract> {
     const mockInbox = mock<InboxContract>();
 
-    mockInbox.getState.mockImplementation(() =>
-      Promise.resolve({
-        messagesRollingHash: this.messagesRollingHash,
-        totalMessagesInserted: BigInt(this.messages.length),
-        treeInProgress: 0n,
-      }),
-    );
+    mockInbox.getState.mockImplementation((opts: { blockTag?: string; blockNumber?: bigint } = {}) => {
+      // Filter messages visible at the given block number (or all if not specified)
+      const blockNumber = opts.blockNumber ?? this.l1BlockNumber;
+      const visibleMessages = this.messages.filter(m => m.l1BlockNumber <= blockNumber);
+
+      // treeInProgress must be > any sealed checkpoint. On L1, a checkpoint can only be proposed
+      // after its messages are sealed, so treeInProgress > checkpointNumber for all published checkpoints.
+      const maxFromMessages =
+        visibleMessages.length > 0 ? Math.max(...visibleMessages.map(m => Number(m.checkpointNumber))) + 1 : 0;
+      const maxFromCheckpoints =
+        this.checkpoints.length > 0
+          ? Math.max(
+              ...this.checkpoints
+                .filter(cp => !cp.pruned && cp.l1BlockNumber <= blockNumber)
+                .map(cp => Number(cp.checkpointNumber)),
+              0,
+            ) + 1
+          : 0;
+      const treeInProgress = Math.max(maxFromMessages, maxFromCheckpoints, INITIAL_CHECKPOINT_NUMBER);
+
+      // Compute rolling hash only for visible messages
+      const rollingHash =
+        visibleMessages.length > 0 ? visibleMessages[visibleMessages.length - 1].rollingHash : Buffer16.ZERO;
+
+      return Promise.resolve({
+        messagesRollingHash: rollingHash,
+        totalMessagesInserted: BigInt(visibleMessages.length),
+        treeInProgress: BigInt(treeInProgress),
+      });
+    });
 
     // Mock the wrapper methods for fetching message events
     mockInbox.getMessageSentEvents.mockImplementation((fromBlock: bigint, toBlock: bigint) =>
       Promise.resolve(this.getMessageSentLogs(fromBlock, toBlock)),
     );
 
-    mockInbox.getMessageSentEventByHash.mockImplementation((hash: string, fromBlock: bigint, toBlock: bigint) =>
-      Promise.resolve(this.getMessageSentLogs(fromBlock, toBlock, hash)),
+    mockInbox.getMessageSentEventByHash.mockImplementation((msgHash: string, l1BlockHash: string) =>
+      Promise.resolve(this.getMessageSentLogByHash(msgHash, l1BlockHash) as MessageSentLog),
     );
 
     return mockInbox;
@@ -433,10 +516,13 @@ export class FakeL1State {
     publicClient.getChainId.mockResolvedValue(1);
     publicClient.getBlockNumber.mockImplementation(() => Promise.resolve(this.l1BlockNumber));
 
-    // Use async function pattern that existing test uses for getBlock
-
-    publicClient.getBlock.mockImplementation((async (args: { blockNumber?: bigint } = {}) => {
-      const blockNum = args.blockNumber ?? (await publicClient.getBlockNumber());
+    publicClient.getBlock.mockImplementation((async (args: { blockNumber?: bigint; blockTag?: string } = {}) => {
+      let blockNum: bigint;
+      if (args.blockTag === 'finalized') {
+        blockNum = this.finalizedL1BlockNumber;
+      } else {
+        blockNum = args.blockNumber ?? (await publicClient.getBlockNumber());
+      }
       return {
         number: blockNum,
         timestamp: BigInt(blockNum) * BigInt(this.config.ethereumSlotDuration) + this.config.l1GenesisTime,
@@ -510,10 +596,8 @@ export class FakeL1State {
           checkpointNumber: cpData.checkpointNumber,
           archive: cpData.checkpoint.archive.root,
           versionedBlobHashes: cpData.blobHashes.map(h => Buffer.from(h.slice(2), 'hex')),
-          // These are intentionally undefined to skip hash validation in the archiver
-          // (validation is skipped when these fields are falsy)
-          payloadDigest: undefined,
-          attestationsHash: undefined,
+          attestationsHash: cpData.attestationsHash,
+          payloadDigest: cpData.payloadDigest,
         },
       }));
   }
@@ -539,7 +623,30 @@ export class FakeL1State {
       }));
   }
 
-  private async makeRollupTx(checkpoint: Checkpoint, signers: Secp256k1Signer[]): Promise<Transaction> {
+  private getMessageSentLogByHash(msgHash: string, l1BlockHash: string): MessageSentLog | undefined {
+    const msg = this.messages.find(
+      msg => msg.leaf.toString() === msgHash && Buffer32.fromBigInt(msg.l1BlockNumber).toString() === l1BlockHash,
+    );
+    if (!msg) {
+      return undefined;
+    }
+    return {
+      l1BlockNumber: msg.l1BlockNumber,
+      l1BlockHash: Buffer32.fromBigInt(msg.l1BlockNumber),
+      l1TransactionHash: `0x${msg.l1BlockNumber.toString(16)}` as `0x${string}`,
+      args: {
+        checkpointNumber: msg.checkpointNumber,
+        index: msg.index,
+        leaf: msg.leaf,
+        rollingHash: msg.rollingHash,
+      },
+    };
+  }
+
+  private async makeRollupTx(
+    checkpoint: Checkpoint,
+    signers: Secp256k1Signer[],
+  ): Promise<{ tx: Transaction; attestationsHash: Buffer32; payloadDigest: Buffer32 }> {
     const attestations = signers
       .map(signer => makeCheckpointAttestationFromCheckpoint(checkpoint, signer))
       .map(attestation => CommitteeAttestation.fromSignature(attestation.signature))
@@ -557,6 +664,8 @@ export class FakeL1State {
       signers[0],
     );
 
+    const packedAttestations = attestationsAndSigners.getPackedAttestations();
+
     const rollupInput = encodeFunctionData({
       abi: RollupAbi,
       functionName: 'propose',
@@ -566,7 +675,7 @@ export class FakeL1State {
           archive,
           oracleInput: { feeAssetPriceModifier: 0n },
         },
-        attestationsAndSigners.getPackedAttestations(),
+        packedAttestations,
         attestationsAndSigners.getSigners().map(signer => signer.toString()),
         attestationsAndSignersSignature.toViemSignature(),
         blobInput,
@@ -587,12 +696,43 @@ export class FakeL1State {
       ],
     });
 
-    return {
+    // Compute attestationsHash (same logic as CalldataRetriever)
+    const attestationsHash = Buffer32.fromString(
+      keccak256(encodeAbiParameters([this.getCommitteeAttestationsStructDef()], [packedAttestations])),
+    );
+
+    // Compute payloadDigest (same logic as CalldataRetriever)
+    const consensusPayload = ConsensusPayload.fromCheckpoint(checkpoint);
+    const payloadToSign = consensusPayload.getPayloadToSign(SignatureDomainSeparator.checkpointAttestation);
+    const payloadDigest = Buffer32.fromString(keccak256(payloadToSign));
+
+    const tx = {
       input: multiCallInput,
       hash: archive,
       blockHash: archive,
       to: MULTI_CALL_3_ADDRESS as `0x${string}`,
     } as Transaction<bigint, number>;
+
+    return { tx, attestationsHash, payloadDigest };
+  }
+
+  /** Extracts the CommitteeAttestations struct definition from RollupAbi for hash computation. */
+  private getCommitteeAttestationsStructDef(): AbiParameter {
+    const proposeFunction = RollupAbi.find(item => item.type === 'function' && item.name === 'propose') as
+      | { type: 'function'; name: string; inputs: readonly AbiParameter[] }
+      | undefined;
+
+    if (!proposeFunction) {
+      throw new Error('propose function not found in RollupAbi');
+    }
+
+    const attestationsParam = proposeFunction.inputs.find(param => param.name === '_attestations');
+    if (!attestationsParam) {
+      throw new Error('_attestations parameter not found in propose function');
+    }
+
+    const tupleParam = attestationsParam as unknown as { type: 'tuple'; components?: readonly AbiParameter[] };
+    return { type: 'tuple', components: tupleParam.components || [] } as AbiParameter;
   }
 
   private async makeVersionedBlobHashes(checkpoint: Checkpoint): Promise<`0x${string}`[]> {

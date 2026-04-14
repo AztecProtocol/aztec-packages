@@ -1,6 +1,6 @@
 import { jest } from '@jest/globals';
 
-import { type ConfigMappingsType, getConfigFromMappings, numberConfigHelper } from './index.js';
+import { type ConfigMappingsType, bigintConfigHelper, getConfigFromMappings, numberConfigHelper } from './index.js';
 
 describe('Config', () => {
   describe('getConfigFromMappings', () => {
@@ -129,6 +129,39 @@ describe('Config', () => {
 
         consoleSpy.mockRestore();
       });
+    });
+  });
+
+  describe('bigintConfigHelper', () => {
+    it('parses plain integer strings', () => {
+      const { parseEnv } = bigintConfigHelper();
+      expect(parseEnv!('123')).toBe(123n);
+      expect(parseEnv!('0')).toBe(0n);
+      expect(parseEnv!('200000000000000000000000')).toBe(200000000000000000000000n);
+    });
+
+    it('parses scientific notation', () => {
+      const { parseEnv } = bigintConfigHelper();
+      expect(parseEnv!('1e+23')).toBe(100000000000000000000000n);
+      expect(parseEnv!('2E+23')).toBe(200000000000000000000000n);
+      expect(parseEnv!('1e23')).toBe(100000000000000000000000n);
+      expect(parseEnv!('5e18')).toBe(5000000000000000000n);
+    });
+
+    it('parses scientific notation with decimal mantissa', () => {
+      const { parseEnv } = bigintConfigHelper();
+      expect(parseEnv!('1.5e10')).toBe(15000000000n);
+      expect(parseEnv!('2.5e5')).toBe(250000n);
+    });
+
+    it('returns default value for empty string', () => {
+      const { parseEnv } = bigintConfigHelper(42n);
+      expect(parseEnv!('')).toBe(42n);
+    });
+
+    it('throws for non-integer scientific notation results', () => {
+      const { parseEnv } = bigintConfigHelper();
+      expect(() => parseEnv!('1e-3')).toThrow();
     });
   });
 });

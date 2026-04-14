@@ -4,9 +4,9 @@
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/simulation/gadgets/address_derivation.hpp"
 #include "barretenberg/vm2/simulation/gadgets/class_id_derivation.hpp"
+#include "barretenberg/vm2/simulation/gadgets/indexed_tree_check.hpp"
 #include "barretenberg/vm2/simulation/gadgets/l1_to_l2_message_tree_check.hpp"
 #include "barretenberg/vm2/simulation/gadgets/note_hash_tree_check.hpp"
-#include "barretenberg/vm2/simulation/gadgets/nullifier_tree_check.hpp"
 #include "barretenberg/vm2/simulation/gadgets/public_data_tree_check.hpp"
 #include "barretenberg/vm2/simulation/gadgets/written_public_data_slots_tree_check.hpp"
 #include "barretenberg/vm2/simulation/interfaces/db.hpp"
@@ -59,13 +59,13 @@ class MerkleDB final : public HighLevelMerkleDBInterface {
   public:
     MerkleDB(LowLevelMerkleDBInterface& raw_merkle_db,
              PublicDataTreeCheckInterface& public_data_tree_check,
-             NullifierTreeCheckInterface& nullifier_tree_check,
+             IndexedTreeCheckInterface& indexed_tree_check,
              NoteHashTreeCheckInterface& note_hash_tree_check,
              WrittenPublicDataSlotsInterface& written_public_data_slots,
              L1ToL2MessageTreeCheckInterface& l1_to_l2_msg_tree_check)
         : raw_merkle_db(raw_merkle_db)
         , public_data_tree_check(public_data_tree_check)
-        , nullifier_tree_check(nullifier_tree_check)
+        , indexed_tree_check(indexed_tree_check)
         , note_hash_tree_check(note_hash_tree_check)
         , written_public_data_slots(written_public_data_slots)
         , l1_to_l2_msg_tree_check(l1_to_l2_msg_tree_check)
@@ -113,7 +113,7 @@ class MerkleDB final : public HighLevelMerkleDBInterface {
     // TODO: when you have a merkle gadget, consider marking it "mutable" so that read can be const.
     // It's usually ok for mutexes but a gadget is big...
     PublicDataTreeCheckInterface& public_data_tree_check;
-    NullifierTreeCheckInterface& nullifier_tree_check;
+    IndexedTreeCheckInterface& indexed_tree_check;
     NoteHashTreeCheckInterface& note_hash_tree_check;
     WrittenPublicDataSlotsInterface& written_public_data_slots;
     L1ToL2MessageTreeCheckInterface& l1_to_l2_msg_tree_check;

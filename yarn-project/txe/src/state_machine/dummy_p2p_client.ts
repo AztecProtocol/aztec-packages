@@ -21,7 +21,7 @@ import type { BlockProposal, CheckpointAttestation, CheckpointProposal, TopicTyp
 import type { BlockHeader, Tx, TxHash } from '@aztec/stdlib/tx';
 
 export class DummyP2P implements P2P {
-  public validate(_txs: Tx[]): Promise<void> {
+  public validateTxsReceivedInBlockProposal(_txs: Tx[]): Promise<void> {
     return Promise.resolve();
   }
 
@@ -61,8 +61,12 @@ export class DummyP2P implements P2P {
     throw new Error('DummyP2P does not implement "registerBlockProposalHandler"');
   }
 
-  public registerCheckpointProposalHandler(_handler: P2PCheckpointReceivedCallback): void {
-    throw new Error('DummyP2P does not implement "registerCheckpointProposalHandler"');
+  public registerValidatorCheckpointProposalHandler(_handler: P2PCheckpointReceivedCallback): void {
+    throw new Error('DummyP2P does not implement "registerValidatorCheckpointProposalHandler"');
+  }
+
+  public registerAllNodesCheckpointProposalHandler(_handler: P2PCheckpointReceivedCallback): void {
+    throw new Error('DummyP2P does not implement "registerAllNodesCheckpointProposalHandler"');
   }
 
   public requestTxs(_txHashes: TxHash[]): Promise<(Tx | undefined)[]> {

@@ -78,7 +78,7 @@ void TranslatorProver::execute_wire_and_sorted_constraints_commitments_round()
     for (const auto& [wire, label] :
          zip_view(key->proving_key->polynomials.get_non_opqueue_wires_and_ordered_range_constraints(),
                   commitment_labels.get_non_opqueue_wires_and_ordered_range_constraints())) {
-        batch.add_to_batch(wire, label, /*mask for zk?*/ false);
+        batch.add_to_batch(wire, label);
     }
     batch.commit_and_send_to_verifier(transcript);
 }
@@ -139,10 +139,8 @@ void TranslatorProver::execute_relation_check_rounds()
     //  i = 0, ..., NUM_SUBRELATIONS- 1.
     const FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
 
-    std::vector<FF> gate_challenges(Flavor::CONST_TRANSLATOR_LOG_N);
-    for (size_t idx = 0; idx < gate_challenges.size(); idx++) {
-        gate_challenges[idx] = transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
-    }
+    std::vector<FF> gate_challenges = transcript->template get_dyadic_powers_of_challenge<FF>(
+        "Sumcheck:gate_challenge", Flavor::CONST_TRANSLATOR_LOG_N);
 
     const size_t circuit_size = key->proving_key->circuit_size;
 
@@ -185,10 +183,11 @@ void TranslatorProver::execute_pcs_rounds()
     small_subgroup_ipa_prover.prove();
 
     PolynomialBatcher polynomial_batcher(key->proving_key->circuit_size);
-    polynomial_batcher.set_unshifted(key->proving_key->polynomials.get_unshifted_without_interleaved());
-    polynomial_batcher.set_to_be_shifted_by_one(key->proving_key->polynomials.get_to_be_shifted());
-    polynomial_batcher.set_interleaved(key->proving_key->polynomials.get_interleaved(),
-                                       key->proving_key->polynomials.get_groups_to_be_interleaved());
+
+    // Unshifted for PCS (excludes computable precomputed — verifier computes them locally)
+    polynomial_batcher.set_unshifted(key->proving_key->polynomials.get_pcs_unshifted());
+    // Shifted for PCS (base to-be-shifted + concatenated)
+    polynomial_batcher.set_to_be_shifted_by_one(key->proving_key->polynomials.get_pcs_to_be_shifted());
 
     const OpeningClaim prover_opening_claim =
         ShpleminiProver_<Curve>::prove(key->proving_key->circuit_size,

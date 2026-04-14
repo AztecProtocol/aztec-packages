@@ -16,8 +16,10 @@ import { retryFastUntil } from '@aztec/foundation/retry';
 import { TestDateProvider } from '@aztec/foundation/timer';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { L2BlockSourceEvents } from '@aztec/stdlib/block';
+import type { ProposedCheckpointInput } from '@aztec/stdlib/checkpoint';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import { computeInHashFromL1ToL2Messages } from '@aztec/stdlib/messaging';
+import { CheckpointHeader } from '@aztec/stdlib/rollup';
 import { getTelemetryClient } from '@aztec/telemetry-client';
 
 import { jest } from '@jest/globals';
@@ -27,6 +29,7 @@ import { type MockProxy, mock } from 'jest-mock-extended';
 import type { GetBlockReturnType } from 'viem';
 
 import { Archiver, type ArchiverEmitter } from './archiver.js';
+import { L1ToL2MessagesNotReadyError } from './errors.js';
 import type { ArchiverInstrumentation } from './modules/instrumentation.js';
 import { ArchiverL1Synchronizer } from './modules/l1_synchronizer.js';
 import { KVArchiverDataStore } from './store/kv_archiver_store.js';
@@ -38,7 +41,6 @@ describe('Archiver Sync', () => {
   const inboxAddress = EthAddress.random();
   const registryAddress = EthAddress.random();
   const governanceProposerAddress = EthAddress.random();
-  const slashFactoryAddress = EthAddress.random();
   const slashingProposerAddress = EthAddress.random();
 
   let fake: FakeL1State;
@@ -75,6 +77,7 @@ describe('Archiver Sync', () => {
       ethereumSlotDuration: DefaultL1ContractsConfig.ethereumSlotDuration,
       proofSubmissionEpochs: 1,
       targetCommitteeSize: 48,
+      rollupManaLimit: Number.MAX_SAFE_INTEGER,
       genesisArchiveRoot: GENESIS_ROOT,
     };
 
@@ -94,12 +97,11 @@ describe('Archiver Sync', () => {
     instrumentation = mock<ArchiverInstrumentation>({ isEnabled: () => true, tracer });
 
     // Create archiver store
-    archiverStore = new KVArchiverDataStore(await openTmpStore('archiver_sync_test'), 1000, { epochDuration: 32 });
+    archiverStore = new KVArchiverDataStore(await openTmpStore('archiver_sync_test'), 1000);
 
     const contractAddresses = {
       registryAddress,
       governanceProposerAddress,
-      slashFactoryAddress,
       slashingProposerAddress,
     };
 
@@ -126,7 +128,6 @@ describe('Archiver Sync', () => {
       publicClient,
       rollupContract,
       inboxContract,
-      contractAddresses,
       archiverStore,
       config,
       blobClient,
@@ -211,6 +212,7 @@ describe('Archiver Sync', () => {
       expect(await archiver.getL1ToL2Messages(CheckpointNumber(1))).toEqual(msgs1);
       expect(await archiver.getL1ToL2Messages(CheckpointNumber(2))).toEqual(msgs2);
       expect(await archiver.getL1ToL2Messages(CheckpointNumber(3))).toEqual(msgs3);
+      await expect(archiver.getL1ToL2Messages(CheckpointNumber(4))).rejects.toThrow(L1ToL2MessagesNotReadyError);
 
       // Verify logs for each block in the checkpoints
       for (const checkpoint of [cp1, cp2, cp3]) {
@@ -456,6 +458,26 @@ describe('Archiver Sync', () => {
       await archiver.syncImmediate();
       expect(inboxContract.getState).toHaveBeenCalledTimes(1);
       expect(rollupContract.status).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not fetch messages when local and remote state both have zero messages', async () => {
+      // When there are no messages on L1, the remote inbox state has messagesRollingHash = Buffer16.ZERO
+      // and totalMessagesInserted = 0. The local store also returns 0 messages and undefined lastMessage.
+      // The fallback for the local rolling hash must use Buffer16.ZERO (not Buffer32.ZERO) to match.
+      fake.setL1BlockNumber(100n);
+
+      // Add a checkpoint with zero messages so the sync has something to process
+      await fake.addCheckpoint(CheckpointNumber(1), {
+        l1BlockNumber: 50n,
+        messagesL1BlockNumber: 30n,
+        numL1ToL2Messages: 0,
+      });
+
+      await archiver.syncImmediate();
+
+      // Should have processed the checkpoint without attempting to fetch any messages
+      expect(await archiver.getSynchedCheckpointNumber()).toEqual(CheckpointNumber(1));
+      expect(inboxContract.getMessageSentEvents).not.toHaveBeenCalled();
     });
   });
 
@@ -889,7 +911,7 @@ describe('Archiver Sync', () => {
       expect(await archiver.getL1ToL2Messages(CheckpointNumber(1))).toHaveLength(2);
       expect(await archiver.getL1ToL2Messages(CheckpointNumber(2))).toHaveLength(0);
       expect(await archiver.getL1ToL2Messages(CheckpointNumber(3))).toHaveLength(4);
-      expect(await archiver.getL1ToL2Messages(CheckpointNumber(4))).toHaveLength(0);
+      await expect(archiver.getL1ToL2Messages(CheckpointNumber(4))).rejects.toThrow(L1ToL2MessagesNotReadyError);
 
       // Simulate L1 reorg: remove last 2 messages from checkpoint 3, add new messages for checkpoints 4 and 5
       logger.warn('Reorging L1 to L2 messages');
@@ -1223,6 +1245,121 @@ describe('Archiver Sync', () => {
 
       expect(await archiver.getCheckpointNumber()).toEqual(CheckpointNumber(2));
     }, 15_000);
+
+    it('handles L1 reorg that moves a checkpoint to a later L1 block', async () => {
+      expect(await archiver.getCheckpointNumber()).toEqual(CheckpointNumber(0));
+
+      // Sync checkpoints 1 and 2
+      await fake.addCheckpoint(CheckpointNumber(1), {
+        l1BlockNumber: 70n,
+        messagesL1BlockNumber: 50n,
+        numL1ToL2Messages: 3,
+      });
+      const { checkpoint: cp2 } = await fake.addCheckpoint(CheckpointNumber(2), {
+        l1BlockNumber: 80n,
+        messagesL1BlockNumber: 60n,
+        numL1ToL2Messages: 3,
+      });
+
+      fake.setL1BlockNumber(90n);
+      await archiver.syncImmediate();
+      expect(await archiver.getCheckpointNumber()).toEqual(CheckpointNumber(2));
+
+      // Verify checkpoint 2's blocks are stored
+      const lastBlockNumber = cp2.blocks.at(-1)!.number;
+      const tips = await archiver.getL2Tips();
+      expect(tips.checkpointed.checkpoint.number).toEqual(CheckpointNumber(2));
+      expect(tips.checkpointed.block.number).toEqual(lastBlockNumber);
+
+      // Simulate L1 reorg: checkpoint 2 moves from L1 block 80 to L1 block 85.
+      // The checkpoint content (blocks, archive) stays the same — only the L1 block changes.
+      // This causes the archiver to re-discover checkpoint 2 when scanning from block 81 onward.
+      fake.moveCheckpointToL1Block(CheckpointNumber(2), 85n);
+
+      // Advance L1 and sync. The archiver's sync point is at L1 block 80 (from checkpoint 2's
+      // original insertion). The scan starts from 81, finds checkpoint 2 at block 85, and must
+      // accept it as a duplicate with updated L1 info rather than throwing.
+      fake.setL1BlockNumber(95n);
+      await archiver.syncImmediate();
+
+      // The archiver should still be at checkpoint 2 and healthy
+      expect(await archiver.getCheckpointNumber()).toEqual(CheckpointNumber(2));
+
+      // Add checkpoint 3 to verify the archiver can continue syncing after the duplicate
+      await fake.addCheckpoint(CheckpointNumber(3), {
+        l1BlockNumber: 100n,
+        messagesL1BlockNumber: 90n,
+        numL1ToL2Messages: 3,
+      });
+      fake.setL1BlockNumber(110n);
+      await archiver.syncImmediate();
+      expect(await archiver.getCheckpointNumber()).toEqual(CheckpointNumber(3));
+    }, 15_000);
+  });
+
+  describe('finalized checkpoint', () => {
+    it('reports no finalized blocks before any checkpoint is proven', async () => {
+      fake.setL1BlockNumber(100n);
+      fake.setFinalizedL1BlockNumber(100n);
+      await archiver.syncImmediate();
+
+      const tips = await archiver.getL2Tips();
+      expect(tips.finalized.checkpoint.number).toEqual(CheckpointNumber(0));
+      expect(tips.finalized.block.number).toEqual(BlockNumber(0));
+    });
+
+    it('updates finalized checkpoint when the L1 finalized block is at or past the proven checkpoint L1 block', async () => {
+      const { checkpoint: cp1 } = await fake.addCheckpoint(CheckpointNumber(1), {
+        l1BlockNumber: 70n,
+        messagesL1BlockNumber: 50n,
+        numL1ToL2Messages: 3,
+      });
+
+      // Sync all checkpoints
+      fake.setL1BlockNumber(100n);
+      await archiver.syncImmediate();
+
+      // Mark checkpoint 1 as proven and advance L1 so proven is registered
+      fake.markCheckpointAsProven(CheckpointNumber(1));
+      fake.setL1BlockNumber(101n);
+      await archiver.syncImmediate();
+      expect(await archiver.getProvenCheckpointNumber()).toEqual(CheckpointNumber(1));
+
+      // Finalized L1 block is at or past where checkpoint 1 was published (70)
+      fake.setFinalizedL1BlockNumber(70n);
+      fake.setL1BlockNumber(102n);
+      await archiver.syncImmediate();
+
+      const tips = await archiver.getL2Tips();
+      const lastBlockInCp1 = cp1.blocks.at(-1)!.number;
+      expect(tips.finalized.checkpoint.number).toEqual(CheckpointNumber(1));
+      expect(tips.finalized.block.number).toEqual(lastBlockInCp1);
+    });
+
+    it('does not advance finalized checkpoint when finalized L1 block is before the proven checkpoint', async () => {
+      await fake.addCheckpoint(CheckpointNumber(1), {
+        l1BlockNumber: 70n,
+        messagesL1BlockNumber: 50n,
+        numL1ToL2Messages: 3,
+      });
+
+      fake.setL1BlockNumber(100n);
+      await archiver.syncImmediate();
+
+      fake.markCheckpointAsProven(CheckpointNumber(1));
+      fake.setL1BlockNumber(101n);
+      await archiver.syncImmediate();
+      expect(await archiver.getProvenCheckpointNumber()).toEqual(CheckpointNumber(1));
+
+      // Finalized L1 block is before where checkpoint 1 was published (70)
+      fake.setFinalizedL1BlockNumber(50n);
+      fake.setL1BlockNumber(102n);
+      await archiver.syncImmediate();
+
+      const tips = await archiver.getL2Tips();
+      expect(tips.finalized.checkpoint.number).toEqual(CheckpointNumber(0));
+      expect(tips.finalized.block.number).toEqual(BlockNumber(0));
+    });
   });
 
   describe('checkpointing local proposed blocks', () => {
@@ -1327,7 +1464,7 @@ describe('Archiver Sync', () => {
       expect(await archiver.getSynchedCheckpointNumber()).toEqual(CheckpointNumber(1));
       const blockAlreadySyncedFromCheckpoint = cp1.blocks[cp1.blocks.length - 1];
 
-      // Now try and add one of the blocks via the addProposedBlocks method. It should throw
+      // Now try and add one of the blocks via the addProposedBlock method. It should throw
       await expect(archiver.addBlock(blockAlreadySyncedFromCheckpoint)).rejects.toThrow();
     }, 10_000);
 
@@ -1428,8 +1565,12 @@ describe('Archiver Sync', () => {
       const { checkpoint: cp3 } = await fake.addCheckpoint(CheckpointNumber(3), { l1BlockNumber: 5010n });
 
       // Add blocks from BOTH checkpoints locally (matching the L1 checkpoints)
-      await archiverStore.addProposedBlocks(cp2.blocks, { force: true });
-      await archiverStore.addProposedBlocks(cp3.blocks, { force: true });
+      for (const block of cp2.blocks) {
+        await archiverStore.addProposedBlock(block, { force: true });
+      }
+      for (const block of cp3.blocks) {
+        await archiverStore.addProposedBlock(block, { force: true });
+      }
 
       // Verify all blocks are visible locally
       const lastBlockInCheckpoint3 = cp3.blocks[cp3.blocks.length - 1].number;
@@ -1662,6 +1803,134 @@ describe('Archiver Sync', () => {
       // Block number should remain at last checkpointed block
       expect(await archiver.getBlockNumber()).toEqual(lastBlockInCheckpoint1);
       expect(await archiver.getSynchedCheckpointNumber()).toEqual(CheckpointNumber(1));
+    }, 15_000);
+
+    it('does not prune blocks covered by a pending checkpoint in current slot', async () => {
+      // Slot calculation: L2_slot = L1_block / 2 (since slotDuration=24, ethereumSlotDuration=12)
+      // So: L1 blocks 0-1 → slot 0, L1 blocks 2-3 → slot 1, L1 blocks 4-5 → slot 2
+
+      // Sync checkpoint 1 in slot 0
+      const { checkpoint: cp1 } = await fake.addCheckpoint(CheckpointNumber(1), {
+        l1BlockNumber: 1n,
+        messagesL1BlockNumber: 1n,
+        numL1ToL2Messages: 3,
+        slotNumber: SlotNumber(0),
+      });
+      const cp1Archive = cp1.blocks[cp1.blocks.length - 1].archive;
+      fake.setL1BlockNumber(1n);
+      await archiver.syncImmediate();
+
+      expect(await archiver.getSynchedCheckpointNumber()).toEqual(CheckpointNumber(1));
+      const lastBlockInCheckpoint1 = cp1.blocks[cp1.blocks.length - 1].number;
+
+      // Create provisional blocks for slot 1
+      const provisionalBlocks = await fake.makeBlocks(CheckpointNumber(2), {
+        l1BlockNumber: 2n,
+        previousArchive: cp1Archive,
+        slotNumber: SlotNumber(1),
+      });
+
+      for (const block of provisionalBlocks) {
+        await archiver.addBlock(block);
+      }
+
+      const lastProvisionalBlockNumber = provisionalBlocks[provisionalBlocks.length - 1].number;
+      expect(await archiver.getBlockNumber()).toEqual(lastProvisionalBlockNumber);
+
+      // Set a proposed checkpoint covering these blocks (simulating pipelining)
+      const proposedCheckpoint: ProposedCheckpointInput = {
+        checkpointNumber: CheckpointNumber(2),
+        header: CheckpointHeader.empty({ slotNumber: SlotNumber(1) }),
+        startBlock: BlockNumber(lastBlockInCheckpoint1 + 1),
+        blockCount: provisionalBlocks.length,
+        totalManaUsed: 0n,
+        feeAssetPriceModifier: 0n,
+      };
+      await archiver.setProposedCheckpoint(proposedCheckpoint);
+
+      // Advance L1 to block 2 (still in slot 1) — proposed checkpoint is still current
+      fake.setL1BlockNumber(2n);
+      await archiver.syncImmediate();
+
+      // Blocks should NOT be pruned
+      expect(pruneSpy).not.toHaveBeenCalled();
+      expect(await archiver.getBlockNumber()).toEqual(lastProvisionalBlockNumber);
+
+      // Proposed checkpoint should still be set
+      expect(await archiverStore.blockStore.getProposedCheckpointOnly()).toBeDefined();
+
+      // Proposed tip should be ahead of the checkpointed tip
+      const tips = await archiver.getL2Tips();
+      expect(tips.proposedCheckpoint.checkpoint.number).toEqual(CheckpointNumber(2));
+      expect(tips.checkpointed.checkpoint.number).toEqual(CheckpointNumber(1));
+      expect(tips.proposedCheckpoint.block.number).toBeGreaterThan(tips.checkpointed.block.number);
+    }, 15_000);
+
+    it('prunes blocks and clears stale pending checkpoint when slot ends', async () => {
+      // Slot calculation: L2_slot = L1_block / 2 (since slotDuration=24, ethereumSlotDuration=12)
+      // So: L1 blocks 0-1 → slot 0, L1 blocks 2-3 → slot 1, L1 blocks 4-5 → slot 2
+
+      // Sync checkpoint 1 in slot 0
+      const { checkpoint: cp1 } = await fake.addCheckpoint(CheckpointNumber(1), {
+        l1BlockNumber: 1n,
+        messagesL1BlockNumber: 1n,
+        numL1ToL2Messages: 3,
+        slotNumber: SlotNumber(0),
+      });
+      const cp1Archive = cp1.blocks[cp1.blocks.length - 1].archive;
+      fake.setL1BlockNumber(1n);
+      await archiver.syncImmediate();
+
+      expect(await archiver.getSynchedCheckpointNumber()).toEqual(CheckpointNumber(1));
+      const lastBlockInCheckpoint1 = cp1.blocks[cp1.blocks.length - 1].number;
+
+      // Create provisional blocks for slot 1
+      const provisionalBlocks = await fake.makeBlocks(CheckpointNumber(2), {
+        l1BlockNumber: 2n,
+        previousArchive: cp1Archive,
+        slotNumber: SlotNumber(1),
+      });
+
+      for (const block of provisionalBlocks) {
+        await archiver.addBlock(block);
+      }
+
+      const lastProvisionalBlockNumber = provisionalBlocks[provisionalBlocks.length - 1].number;
+      expect(await archiver.getBlockNumber()).toEqual(lastProvisionalBlockNumber);
+
+      // Set a proposed checkpoint (simulating pipelining)
+      const proposedCheckpoint: ProposedCheckpointInput = {
+        checkpointNumber: CheckpointNumber(2),
+        header: CheckpointHeader.empty({ slotNumber: SlotNumber(1) }),
+        startBlock: BlockNumber(lastBlockInCheckpoint1 + 1),
+        blockCount: provisionalBlocks.length,
+        totalManaUsed: 0n,
+        feeAssetPriceModifier: 0n,
+      };
+      await archiver.setProposedCheckpoint(proposedCheckpoint);
+
+      // Advance L1 to block 4 (slot 2), ending slot 1 without checkpoint on L1
+      fake.setL1BlockNumber(4n);
+      await archiver.syncImmediate();
+
+      // Prune event should have been emitted
+      expect(pruneSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: L2BlockSourceEvents.L2PruneUncheckpointed,
+          slotNumber: SlotNumber(1),
+          blocks: expect.arrayContaining(provisionalBlocks.map(b => expect.objectContaining({ number: b.number }))),
+        }),
+      );
+
+      // Block number should revert to last checkpointed block
+      expect(await archiver.getBlockNumber()).toEqual(lastBlockInCheckpoint1);
+      expect(await archiver.getSynchedCheckpointNumber()).toEqual(CheckpointNumber(1));
+
+      // Proposed checkpoint should be cleared, so proposed tip falls back to checkpointed tip
+      expect(await archiverStore.blockStore.getProposedCheckpointOnly()).toBeUndefined();
+      const tips = await archiver.getL2Tips();
+      expect(tips.proposedCheckpoint.checkpoint.number).toEqual(tips.checkpointed.checkpoint.number);
+      expect(tips.proposedCheckpoint.block.number).toEqual(tips.checkpointed.block.number);
     }, 15_000);
   });
 });

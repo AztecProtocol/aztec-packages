@@ -2,11 +2,11 @@ import { mockTx } from '@aztec/stdlib/testing';
 
 import { TxPoolRejectionCode } from './eviction/interfaces.js';
 import {
-  type TxMetaData,
   buildTxMetaData,
   checkNullifierConflict,
   comparePriority,
-  stubTxMetaValidationData,
+  getMinimumPriceBumpFee,
+  stubTxMetaData,
 } from './tx_metadata.js';
 
 describe('TxMetaData', () => {
@@ -16,6 +16,7 @@ describe('TxMetaData', () => {
       const meta = await buildTxMetaData(tx);
 
       expect(meta.txHash).toBe(tx.getTxHash().toString());
+      expect(meta.txHashBigInt).toBe(tx.getTxHash().toBigInt());
       expect(meta.anchorBlockHeaderHash).toBe((await tx.data.constants.anchorBlockHeader.hash()).toString());
       expect(meta.feePayer).toBe(tx.data.feePayer.toString());
       expect(meta.expirationTimestamp).toBe(tx.data.expirationTimestamp);
@@ -36,22 +37,39 @@ describe('TxMetaData', () => {
         expect(nullifier).toMatch(/^0x[0-9a-f]+$/i);
       }
     });
+
+    it('sets forPublic to truthy for public transactions', async () => {
+      const tx = await mockTx(1, { numberOfNonRevertiblePublicCallRequests: 1 });
+      expect(tx.data.forPublic).toBeDefined();
+      const meta = await buildTxMetaData(tx);
+
+      expect(meta.data.forPublic).toBeTruthy();
+    });
+
+    it('sets forPublic to falsy for private transactions', async () => {
+      const tx = await mockTx(1, {
+        numberOfNonRevertiblePublicCallRequests: 0,
+        numberOfRevertiblePublicCallRequests: 0,
+        hasPublicTeardownCallRequest: false,
+      });
+      expect(tx.data.forPublic).not.toBeDefined();
+      const meta = await buildTxMetaData(tx);
+
+      expect(meta.data.forPublic).toBeFalsy();
+    });
+
+    it('preserves gas limits in validation data', async () => {
+      const tx = await mockTx(1);
+      const meta = await buildTxMetaData(tx);
+
+      expect(meta.data.constants.txContext.gasSettings.gasLimits).toEqual(
+        tx.data.constants.txContext.gasSettings.gasLimits,
+      );
+    });
   });
 
   describe('comparePriority', () => {
-    const makeMeta = (fee: bigint, txHash = '0x1234'): TxMetaData => ({
-      txHash,
-      anchorBlockHeaderHash: '0x5678',
-      priorityFee: fee,
-      feePayer: '0xabcd',
-      claimAmount: 0n,
-      feeLimit: 1000n,
-      nullifiers: [],
-      expirationTimestamp: 0n,
-      receivedAt: 0,
-      estimatedSizeBytes: 0,
-      data: stubTxMetaValidationData(),
-    });
+    const makeMeta = (fee: bigint, txHash = '0x1234') => stubTxMetaData(txHash, { priorityFee: fee, nullifiers: [] });
 
     it('returns negative when first has lower priority fee', () => {
       expect(comparePriority(makeMeta(100n), makeMeta(200n))).toBe(-1);
@@ -73,19 +91,8 @@ describe('TxMetaData', () => {
   });
 
   describe('checkNullifierConflict', () => {
-    const makeMeta = (txHash: string, priorityFee: bigint, nullifiers: string[]): TxMetaData => ({
-      txHash,
-      anchorBlockHeaderHash: '0x5678',
-      priorityFee,
-      feePayer: '0xabcd',
-      claimAmount: 0n,
-      feeLimit: 1000n,
-      nullifiers,
-      expirationTimestamp: 0n,
-      receivedAt: 0,
-      estimatedSizeBytes: 0,
-      data: stubTxMetaValidationData(),
-    });
+    const makeMeta = (txHash: string, priorityFee: bigint, nullifiers: string[]) =>
+      stubTxMetaData(txHash, { priorityFee, nullifiers });
 
     it('returns no conflict when nullifiers do not overlap', () => {
       const incoming = makeMeta('0x1111', 100n, ['0xnull1', '0xnull2']);
@@ -258,6 +265,128 @@ describe('TxMetaData', () => {
 
       expect(result.shouldIgnore).toBe(false);
       expect(result.txHashesToEvict).toEqual([]);
+    });
+
+    describe('with priceBumpPercentage', () => {
+      it('accepts incoming tx when fee exceeds the bump threshold', () => {
+        const existing = makeMeta('0x2222', 100n, ['0xnull1']);
+        const incoming = makeMeta('0x1111', 111n, ['0xnull1']); // Above 10% bump
+
+        const result = checkNullifierConflict(
+          incoming,
+          () => existing.txHash,
+          () => existing,
+          10n, // 10% bump
+        );
+
+        expect(result.shouldIgnore).toBe(false);
+        expect(result.txHashesToEvict).toEqual([existing.txHash]);
+      });
+
+      it('accepts incoming tx when fee is exactly at the bump threshold', () => {
+        const existing = makeMeta('0x2222', 100n, ['0xnull1']);
+        const incoming = makeMeta('0x1111', 110n, ['0xnull1']); // Exactly 10% bump — accepted
+
+        const result = checkNullifierConflict(
+          incoming,
+          () => existing.txHash,
+          () => existing,
+          10n,
+        );
+
+        expect(result.shouldIgnore).toBe(false);
+        expect(result.txHashesToEvict).toEqual([existing.txHash]);
+      });
+
+      it('rejects incoming tx when fee is below the bump threshold', () => {
+        const existing = makeMeta('0x2222', 100n, ['0xnull1']);
+        const incoming = makeMeta('0x1111', 109n, ['0xnull1']); // Below 10% bump
+
+        const result = checkNullifierConflict(
+          incoming,
+          () => existing.txHash,
+          () => existing,
+          10n,
+        );
+
+        expect(result.shouldIgnore).toBe(true);
+        expect(result.txHashesToEvict).toEqual([]);
+        expect(result.reason?.code).toBe(TxPoolRejectionCode.NULLIFIER_CONFLICT);
+        if (result.reason?.code === TxPoolRejectionCode.NULLIFIER_CONFLICT) {
+          expect(result.reason.minimumPriceBumpFee).toBe(110n);
+          expect(result.reason.txPriorityFee).toBe(109n);
+        }
+      });
+
+      it('accepts incoming tx well above the bump threshold', () => {
+        const existing = makeMeta('0x2222', 100n, ['0xnull1']);
+        const incoming = makeMeta('0x1111', 200n, ['0xnull1']);
+
+        const result = checkNullifierConflict(
+          incoming,
+          () => existing.txHash,
+          () => existing,
+          10n,
+        );
+
+        expect(result.shouldIgnore).toBe(false);
+        expect(result.txHashesToEvict).toEqual([existing.txHash]);
+      });
+
+      it('with 0% bump, rejects equal fee (minimum bump of 1)', () => {
+        const existing = makeMeta('0x2222', 100n, ['0xnull1']);
+        const incoming = makeMeta('0x1111', 100n, ['0xnull1']);
+
+        const result = checkNullifierConflict(
+          incoming,
+          () => existing.txHash,
+          () => existing,
+          0n, // 0% bump
+        );
+
+        expect(result.shouldIgnore).toBe(true);
+        expect(result.txHashesToEvict).toEqual([]);
+      });
+
+      it('without price bump, uses comparePriority (P2P path unchanged)', () => {
+        const existing = makeMeta('0x2222', 100n, ['0xnull1']);
+        const incoming = makeMeta('0x1111', 100n, ['0xnull1']);
+
+        // No priceBumpPercentage — uses comparePriority, which for equal fees uses hash tiebreaker
+        const result = checkNullifierConflict(
+          incoming,
+          () => existing.txHash,
+          () => existing,
+        );
+
+        // With equal fees, the result depends on hash tiebreaker
+        // 0x1111 < 0x2222 so incoming has lower priority → should be ignored
+        expect(result.shouldIgnore).toBe(true);
+      });
+    });
+  });
+
+  describe('getMinimumPriceBumpFee', () => {
+    it('calculates 10% bump correctly', () => {
+      expect(getMinimumPriceBumpFee(100n, 10n)).toBe(110n);
+    });
+
+    it('calculates 0% bump (returns fee + 1 minimum bump)', () => {
+      expect(getMinimumPriceBumpFee(100n, 0n)).toBe(101n);
+    });
+
+    it('handles 0 existing fee (minimum bump of 1)', () => {
+      expect(getMinimumPriceBumpFee(0n, 10n)).toBe(1n);
+    });
+
+    it('handles large percentages', () => {
+      expect(getMinimumPriceBumpFee(100n, 100n)).toBe(200n);
+      expect(getMinimumPriceBumpFee(100n, 200n)).toBe(300n);
+    });
+
+    it('truncates fractional result (integer division)', () => {
+      // 33 * 10 / 100 = 3.3 → truncated to 3, so 33 + 3 = 36
+      expect(getMinimumPriceBumpFee(33n, 10n)).toBe(36n);
     });
   });
 });

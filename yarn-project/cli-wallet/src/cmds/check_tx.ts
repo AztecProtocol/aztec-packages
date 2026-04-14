@@ -1,11 +1,15 @@
 import type { ContractArtifact } from '@aztec/aztec.js/abi';
-import type { AztecAddress } from '@aztec/aztec.js/addresses';
+import { AztecAddress } from '@aztec/aztec.js/addresses';
 import { Fr } from '@aztec/aztec.js/fields';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import { ProtocolContractAddress } from '@aztec/aztec.js/protocol';
 import type { TxHash } from '@aztec/aztec.js/tx';
 import type { LogFn } from '@aztec/foundation/log';
-import { siloNullifier } from '@aztec/stdlib/hash';
+import {
+  computeSiloedPrivateInitializationNullifier,
+  computeSiloedPublicInitializationNullifier,
+  siloNullifier,
+} from '@aztec/stdlib/hash';
 import { NoteDao } from '@aztec/stdlib/note';
 
 import type { CLIWallet } from '../utils/wallet.js';
@@ -83,12 +87,13 @@ async function inspectTx(wallet: CLIWallet, aztecNode: AztecNode, txHash: TxHash
   // Nullifiers
   const nullifierCount = effects.nullifiers.length;
   const { deployNullifiers, initNullifiers, classNullifiers } = await getKnownNullifiers(wallet, artifactMap);
+  const accounts = (await wallet.getAccounts()).map(a => a.item);
   if (nullifierCount > 0) {
     log(' Nullifiers:');
     for (const nullifier of effects.nullifiers) {
       const deployed = deployNullifiers[nullifier.toString()];
       const note = deployed
-        ? (await wallet.getNotes({ siloedNullifier: nullifier, contractAddress: deployed, scopes: 'ALL_SCOPES' }))[0]
+        ? (await wallet.getNotes({ siloedNullifier: nullifier, contractAddress: deployed, scopes: accounts }))[0]
         : undefined;
       const initialized = initNullifiers[nullifier.toString()];
       const registered = classNullifiers[nullifier.toString()];
@@ -144,20 +149,47 @@ function toFriendlyAddress(address: AztecAddress, artifactMap: ArtifactMap) {
 
 async function getKnownNullifiers(wallet: CLIWallet, artifactMap: ArtifactMap) {
   const knownContracts = await wallet.getContracts();
-  const deployerAddress = ProtocolContractAddress.ContractInstanceRegistry;
-  const classRegistryAddress = ProtocolContractAddress.ContractClassRegistry;
+
+  const [contractResults, classResults] = await Promise.all([
+    Promise.all(knownContracts.map(contract => getContractNullifiers(wallet, contract))),
+    Promise.all(Object.values(artifactMap).map(artifact => getClassNullifier(artifact))),
+  ]);
+
   const initNullifiers: Record<string, AztecAddress> = {};
   const deployNullifiers: Record<string, AztecAddress> = {};
   const classNullifiers: Record<string, string> = {};
-  for (const contract of knownContracts) {
-    initNullifiers[(await siloNullifier(contract, contract.toField())).toString()] = contract;
-    deployNullifiers[(await siloNullifier(deployerAddress, contract.toField())).toString()] = contract;
+
+  for (const { contract, deployNullifier, privateInitNullifier, publicInitNullifier } of contractResults) {
+    deployNullifiers[deployNullifier.toString()] = contract;
+    if (privateInitNullifier) {
+      initNullifiers[privateInitNullifier.toString()] = contract;
+    }
+    initNullifiers[publicInitNullifier.toString()] = contract;
   }
-  for (const artifact of Object.values(artifactMap)) {
-    classNullifiers[(await siloNullifier(classRegistryAddress, artifact.classId)).toString()] =
-      `${artifact.name}Class<${artifact.classId}>`;
+  for (const { nullifier, label } of classResults) {
+    classNullifiers[nullifier.toString()] = label;
   }
+
   return { initNullifiers, deployNullifiers, classNullifiers };
+}
+
+async function getContractNullifiers(wallet: CLIWallet, contract: AztecAddress) {
+  const deployerAddress = ProtocolContractAddress.ContractInstanceRegistry;
+  const deployNullifier = await siloNullifier(deployerAddress, contract.toField());
+
+  const metadata = await wallet.getContractMetadata(contract);
+  const privateInitNullifier = metadata.instance
+    ? await computeSiloedPrivateInitializationNullifier(contract, metadata.instance.initializationHash)
+    : undefined;
+  const publicInitNullifier = await computeSiloedPublicInitializationNullifier(contract);
+
+  return { contract, deployNullifier, privateInitNullifier, publicInitNullifier };
+}
+
+async function getClassNullifier(artifact: ContractArtifactWithClassId) {
+  const classRegistryAddress = ProtocolContractAddress.ContractClassRegistry;
+  const nullifier = await siloNullifier(classRegistryAddress, artifact.classId);
+  return { nullifier, label: `${artifact.name}Class<${artifact.classId}>` };
 }
 
 type ArtifactMap = Record<string, ContractArtifactWithClassId>;

@@ -11,6 +11,17 @@
 
 namespace bb::avm2::tracegen {
 
+/**
+ * @brief Process class id derivation events and populate the relevant columns in the trace.
+ *  Corresponds to the subtrace class_id_derivation.pil.
+ *
+ *  This trace is non memory-aware and does not handle any errors. It relies on the poseidon trace
+ *  to constrain correctness of the class id, given as:
+ *      Poseidon2(DOM_SEP__CONTRACT_CLASS_ID, artifact_hash, private_functions_root, public_bytecode_commitment)
+ *
+ * @param events The container of class id derivation events to process.
+ * @param trace The trace container.
+ */
 void ClassIdDerivationTraceBuilder::process(
     const simulation::EventEmitterInterface<simulation::ClassIdDerivationEvent>::Container& events,
     TraceContainer& trace)
@@ -22,12 +33,13 @@ void ClassIdDerivationTraceBuilder::process(
         trace.set(row,
                   { {
                       { C::class_id_derivation_sel, 1 },
-                      { C::class_id_derivation_class_id, event.klass.id },
-                      { C::class_id_derivation_artifact_hash, event.klass.artifact_hash },
-                      { C::class_id_derivation_private_functions_root, event.klass.private_functions_root },
-                      { C::class_id_derivation_public_bytecode_commitment, event.klass.public_bytecode_commitment },
-
-                      // This is temp because aliasing is not allowed in lookups
+                      // Class ID.
+                      { C::class_id_derivation_class_id, event.class_id },
+                      // Class members.
+                      { C::class_id_derivation_artifact_hash, event.artifact_hash },
+                      { C::class_id_derivation_private_functions_root, event.private_functions_root },
+                      { C::class_id_derivation_public_bytecode_commitment, event.public_bytecode_commitment },
+                      // Constant columns (this is temp because aliasing is not allowed in lookups).
                       { C::class_id_derivation_gen_index_contract_class_id, DOM_SEP__CONTRACT_CLASS_ID },
                       { C::class_id_derivation_const_four, 4 },
                   } });

@@ -7,7 +7,7 @@
 # Note that "test" targets don't *run* tests, they just output test commands to /tmp/test_cmds.
 #
 # Expectation is to run with one of the following targets:
-# - make [all]
+# - make fast
 # - make full
 # - make release
 
@@ -47,23 +47,21 @@ endef
 # PHONY TARGETS - List every target that has a file/dir of the same name.
 #==============================================================================
 
-.PHONY: all noir barretenberg noir-projects l1-contracts release-image boxes playground docs aztec-up
+.PHONY: noir barretenberg noir-projects l1-contracts release-image boxes playground docs aztec-up spartan
 
 #==============================================================================
 # BOOTSTRAP TARGETS
 #==============================================================================
 
-# Fast bootstrap
-all: release-image barretenberg boxes playground docs aztec-up \
-		 bb-tests l1-contracts-tests yarn-project-tests boxes-tests playground-tests aztec-up-tests docs-tests noir-protocol-circuits-tests release-image-tests
+# Fast bootstrap.
+fast: release-image barretenberg boxes playground docs aztec-up \
+		  bb-tests l1-contracts-tests yarn-project-tests boxes-tests playground-tests aztec-up-tests docs-tests noir-protocol-circuits-tests release-image-tests spartan
 
-# Full bootstrap
-full: release-image barretenberg boxes playground docs aztec-up \
-			bb-cpp-full yarn-project-benches \
-		  bb-full-tests l1-contracts-tests yarn-project-tests boxes-tests playground-tests aztec-up-tests docs-tests noir-protocol-circuits-tests release-image-tests
+# Full bootstrap.
+full: fast bb-full-tests bb-cpp-full yarn-project-benches
 
 # Release. Everything plus copy bb cross compiles to ts projects.
-release: all bb-cpp-release-dir bb-ts-cross-copy
+release: fast bb-cpp-release-dir bb-ts-cross-copy
 
 #==============================================================================
 # Noir
@@ -85,14 +83,20 @@ avm-transpiler-cross-amd64-macos:
 avm-transpiler-cross-arm64-macos:
 	$(call build,$@,avm-transpiler,build_cross arm64-macos)
 
-avm-transpiler-cross: avm-transpiler-cross-amd64-macos avm-transpiler-cross-arm64-macos
+avm-transpiler-cross-arm64-linux:
+	$(call build,$@,avm-transpiler,build_cross arm64-linux)
+
+avm-transpiler-cross-amd64-windows:
+	$(call build,$@,avm-transpiler,build_cross amd64-windows)
+
+avm-transpiler-cross: avm-transpiler-cross-amd64-macos avm-transpiler-cross-arm64-macos avm-transpiler-cross-arm64-linux avm-transpiler-cross-amd64-windows
 
 #==============================================================================
 # Barretenberg
 #==============================================================================
 
 # Barretenberg - Aggregate target for all barretenberg sub-projects.
-barretenberg: bb-cpp bb-ts bb-acir bb-docs bb-sol bb-bbup bb-crs
+barretenberg: bb-cpp bb-ts bb-rs bb-acir bb-docs bb-sol bb-bbup bb-crs
 
 # BB C++ - Main aggregate target.
 bb-cpp: bb-cpp-native bb-cpp-wasm bb-cpp-wasm-threads
@@ -105,49 +109,82 @@ bb-crs:
 bb-bbup:
 	$(call build,$@,barretenberg/bbup)
 
+# Yarn install for nodejs_module (needed by presets that build nodejs_module)
+bb-cpp-yarn:
+	$(call run_command,$@,$(ROOT)/barretenberg/cpp,$(ROOT)/ci3/denoise 'cd src/barretenberg/nodejs_module && yarn --immutable')
+
+# Format check (skipped if cache hit)
+bb-cpp-format-check:
+	$(call build,$@,barretenberg/cpp,build_format_check)
+
 # BB C++ Native - Split into compilation and linking phases
 # Compilation phase: Build barretenberg + vm2_sim objects (can run in parallel with avm-transpiler)
-bb-cpp-native-objects:
+bb-cpp-native-objects: bb-cpp-yarn
 	$(call build,$@,barretenberg/cpp,build_native_objects)
 
 # Linking phase: Link all native binaries (needs avm-transpiler)
-bb-cpp-native: bb-cpp-native-objects avm-transpiler-native
+bb-cpp-native: bb-cpp-native-objects avm-transpiler-native bb-cpp-yarn bb-cpp-format-check
 	$(call build,$@,barretenberg/cpp,build_native)
 
 # BB C++ WASM - Single-threaded WebAssembly build
 bb-cpp-wasm:
-	$(call build,$@,barretenberg/cpp,build_wasm)
+	$(call build,$@,barretenberg/cpp,build_preset wasm)
 
 # BB C++ WASM Threads - Multi-threaded WebAssembly build
 bb-cpp-wasm-threads:
-	$(call build,$@,barretenberg/cpp,build_wasm_threads)
-
-bb-cpp-wasm-threads-benches: bb-cpp-wasm-threads
-	$(call build,$@,barretenberg/cpp,build_wasm_threads_benches)
+	$(call build,$@,barretenberg/cpp,build_preset wasm-threads)
 
 # Cross-compile object phases (parallel with avm-transpiler cross-compile)
-bb-cpp-cross-arm64-linux-objects:
+bb-cpp-cross-arm64-linux-objects: bb-cpp-yarn
 	$(call build,$@,barretenberg/cpp,build_cross_objects arm64-linux)
 
-bb-cpp-cross-amd64-macos-objects:
+bb-cpp-cross-amd64-macos-objects: bb-cpp-yarn
 	$(call build,$@,barretenberg/cpp,build_cross_objects amd64-macos)
 
-bb-cpp-cross-arm64-macos-objects:
+bb-cpp-cross-arm64-macos-objects: bb-cpp-yarn
 	$(call build,$@,barretenberg/cpp,build_cross_objects arm64-macos)
 
 # Cross-compile for ARM64 Linux (release only)
-bb-cpp-cross-arm64-linux: bb-cpp-cross-arm64-linux-objects avm-transpiler-native
-	$(call build,$@,barretenberg/cpp,build_cross arm64-linux)
+bb-cpp-cross-arm64-linux: bb-cpp-cross-arm64-linux-objects avm-transpiler-cross-arm64-linux bb-cpp-yarn
+	$(call build,$@,barretenberg/cpp,build_preset arm64-linux)
 
 # Cross-compile for AMD64 macOS (release only)
-bb-cpp-cross-amd64-macos: bb-cpp-cross-amd64-macos-objects avm-transpiler-cross-amd64-macos
-	$(call build,$@,barretenberg/cpp,build_cross amd64-macos)
+bb-cpp-cross-amd64-macos: bb-cpp-cross-amd64-macos-objects avm-transpiler-cross-amd64-macos bb-cpp-yarn
+	$(call build,$@,barretenberg/cpp,build_preset amd64-macos)
 
 # Cross-compile for ARM64 macOS (release or CI_FULL)
-bb-cpp-cross-arm64-macos: bb-cpp-cross-arm64-macos-objects avm-transpiler-cross-arm64-macos
-	$(call build,$@,barretenberg/cpp,build_cross arm64-macos)
+bb-cpp-cross-arm64-macos: bb-cpp-cross-arm64-macos-objects avm-transpiler-cross-arm64-macos bb-cpp-yarn
+	$(call build,$@,barretenberg/cpp,build_preset arm64-macos)
 
-bb-cpp-cross: bb-cpp-cross-arm64-linux bb-cpp-cross-amd64-macos bb-cpp-cross-arm64-macos
+# Cross-compile for AMD64 Windows (release only)
+bb-cpp-cross-amd64-windows: avm-transpiler-cross-amd64-windows
+	$(call build,$@,barretenberg/cpp,build_preset amd64-windows)
+
+# iOS SDK download (shared by all iOS cross-compile targets)
+bb-cpp-ios-sdk:
+	$(call run_command,$@,$(ROOT)/barretenberg/cpp,bash scripts/download-ios-sdk.sh)
+
+# Android sysroot download (shared by all Android cross-compile targets)
+bb-cpp-android-sysroot:
+	$(call run_command,$@,$(ROOT)/barretenberg/cpp,bash scripts/download-android-sysroot.sh)
+
+# Cross-compile for ARM64 iOS (release only, static lib only)
+bb-cpp-cross-arm64-ios: bb-cpp-ios-sdk
+	$(call build,$@,barretenberg/cpp,build_preset arm64-ios)
+
+# Cross-compile for ARM64 iOS Simulator (release only, static lib only)
+bb-cpp-cross-arm64-ios-sim: bb-cpp-ios-sdk
+	$(call build,$@,barretenberg/cpp,build_preset arm64-ios-sim)
+
+# Cross-compile for ARM64 Android (release only, static lib only)
+bb-cpp-cross-arm64-android: bb-cpp-android-sysroot
+	$(call build,$@,barretenberg/cpp,build_preset arm64-android)
+
+# Cross-compile for x86_64 Android (release only, static lib only)
+bb-cpp-cross-x86_64-android: bb-cpp-android-sysroot
+	$(call build,$@,barretenberg/cpp,build_preset x86_64-android)
+
+bb-cpp-cross: bb-cpp-cross-arm64-linux bb-cpp-cross-amd64-macos bb-cpp-cross-arm64-macos bb-cpp-cross-amd64-windows bb-cpp-cross-arm64-ios bb-cpp-cross-arm64-ios-sim bb-cpp-cross-arm64-android bb-cpp-cross-x86_64-android
 
 # GCC syntax check (CI only, non-release)
 bb-cpp-gcc:
@@ -159,7 +196,7 @@ bb-cpp-fuzzing:
 
 # Address sanitizer build (CI only, non-release)
 bb-cpp-asan:
-	$(call build,$@,barretenberg/cpp,build_asan_fast)
+	$(call build,$@,barretenberg/cpp,build_preset asan-fast)
 
 # SMT verification (CI_FULL only)
 bb-cpp-smt:
@@ -168,7 +205,7 @@ bb-cpp-smt:
 bb-cpp-release-dir: bb-cpp-native bb-cpp-cross
 	$(call build,$@,barretenberg/cpp,build_release_dir)
 
-bb-cpp-full: bb-cpp-gcc bb-cpp-fuzzing bb-cpp-asan bb-cpp-smt bb-cpp-cross-arm64-macos bb-cpp-wasm-threads-benches
+bb-cpp-full: bb-cpp bb-cpp-gcc bb-cpp-fuzzing bb-cpp-asan bb-cpp-smt bb-cpp-cross-arm64-macos bb-cpp-cross-arm64-ios bb-cpp-cross-arm64-android
 
 # BB TypeScript - TypeScript bindings
 bb-ts: bb-cpp-wasm bb-cpp-wasm-threads bb-cpp-native
@@ -177,6 +214,10 @@ bb-ts: bb-cpp-wasm bb-cpp-wasm-threads bb-cpp-native
 # Copies the cross-compiles into bb.js.
 bb-ts-cross-copy: bb-ts bb-cpp-cross
 	$(call build,$@,barretenberg/ts,cross_copy)
+
+# BB Rust - barretenberg-rs FFI crate
+bb-rs: bb-ts bb-cpp-native
+	$(call build,$@,barretenberg/rust)
 
 # BB ACIR Tests - ACIR compatibility tests
 bb-acir: noir bb-cpp-native bb-ts
@@ -187,7 +228,7 @@ bb-docs:
 	$(call build,$@,barretenberg/docs)
 
 # BB Solidity - Solidity verifier contracts
-bb-sol: bb-cpp-native
+bb-sol: bb-cpp-native bb-crs
 	$(call build,$@,barretenberg/sol)
 
 #==============================================================================
@@ -221,9 +262,12 @@ bb-docs-tests: bb-docs
 bb-bbup-tests: bb-bbup
 	$(call test,$@,barretenberg/bbup)
 
-bb-tests: bb-cpp-native-tests bb-acir-tests bb-ts-tests bb-sol-tests bb-bbup-tests bb-docs-tests
+bb-rs-tests: bb-rs
+	$(call test,$@,barretenberg/rust)
 
-bb-full-tests: bb-cpp-native-tests bb-cpp-wasm-threads-tests bb-cpp-asan-tests bb-cpp-smt-tests  bb-acir-tests bb-ts-tests bb-sol-tests bb-bbup-tests bb-docs-tests
+bb-tests: bb-cpp-native-tests bb-acir-tests bb-ts-tests bb-sol-tests bb-bbup-tests bb-docs-tests bb-rs-tests
+
+bb-full-tests: bb-cpp-wasm-threads-tests bb-cpp-asan-tests bb-cpp-smt-tests
 
 #==============================================================================
 # Noir Projects
@@ -320,3 +364,6 @@ aztec-up: yarn-project
 
 aztec-up-tests: aztec-up
 	$(call test,$@,aztec-up)
+
+spartan:
+	$(call build,$@,spartan)

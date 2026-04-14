@@ -28,6 +28,10 @@ describe('prover/orchestrator', () => {
     let orchestrator: ProvingOrchestrator;
     let context: TestContext;
 
+    afterEach(async () => {
+      await context.cleanup();
+    });
+
     describe('with mock prover', () => {
       let mockProver: MockProxy<ServerCircuitProver>;
 

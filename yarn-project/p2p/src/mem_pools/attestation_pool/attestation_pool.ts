@@ -26,10 +26,10 @@ export type TryAddResult = {
   count: number;
 };
 
-export const MAX_CHECKPOINT_PROPOSALS_PER_SLOT = 5;
-export const MAX_BLOCK_PROPOSALS_PER_POSITION = 3;
+export const MAX_CHECKPOINT_PROPOSALS_PER_SLOT = 2;
+export const MAX_BLOCK_PROPOSALS_PER_POSITION = 2;
 /** Maximum attestations a single signer can make per slot before being rejected. */
-export const MAX_ATTESTATIONS_PER_SLOT_AND_SIGNER = 3;
+export const MAX_ATTESTATIONS_PER_SLOT_AND_SIGNER = 2;
 
 /** Public API interface for attestation pools. Used for typing mocks and test implementations. */
 export type AttestationPoolApi = Pick<
@@ -154,14 +154,16 @@ export class AttestationPool {
   /** Maximum indexWithinCheckpoint value (2^10 - 1 = 1023). */
   private static readonly MAX_INDEX = (1 << AttestationPool.INDEX_BITS) - 1;
 
-  /** Creates a position key for block proposals: (slot << 10) | indexWithinCheckpoint. */
+  /** Creates a position key for block proposals: slot * 1024 + indexWithinCheckpoint.
+   * Uses multiplication instead of bit-shift to avoid 32-bit signed integer overflow
+   * (bit-shift overflows after slot ~2^21, roughly 278 days of uptime). */
   private getBlockPositionKey(slot: number, indexWithinCheckpoint: number): number {
     if (indexWithinCheckpoint > AttestationPool.MAX_INDEX) {
       throw new Error(
         `Value for indexWithinCheckpoint ${indexWithinCheckpoint} exceeds maximum ${AttestationPool.MAX_INDEX}`,
       );
     }
-    return (slot << AttestationPool.INDEX_BITS) | indexWithinCheckpoint;
+    return slot * (1 << AttestationPool.INDEX_BITS) + indexWithinCheckpoint;
   }
 
   /**
@@ -278,7 +280,7 @@ export class AttestationPool {
    * @returns Result indicating whether the proposal was added and duplicate detection info
    */
   public async tryAddCheckpointProposal(proposal: CheckpointProposalCore): Promise<TryAddResult> {
-    return await this.store.transactionAsync(async () => {
+    const result = await this.store.transactionAsync(async () => {
       const proposalId = proposal.archive.toString();
 
       // Check if already exists
@@ -304,6 +306,8 @@ export class AttestationPool {
 
       return { added: true, alreadyExists: false, count: count + 1 };
     });
+
+    return result;
   }
 
   /** Internal method - must be called within a transaction. */
@@ -345,7 +349,7 @@ export class AttestationPool {
     await this.store.transactionAsync(async () => {
       for (const attestation of attestations) {
         const slotNumber = attestation.payload.header.slotNumber;
-        const proposalId = attestation.archive;
+        const proposalId = attestation.archive.toString();
         const sender = attestation.getSender();
 
         // Skip attestations with invalid signatures
@@ -359,11 +363,10 @@ export class AttestationPool {
         }
 
         const address = sender.toString();
+        const ownKey = this.getAttestationKey(slotNumber, proposalId, address);
 
-        await this.checkpointAttestations.set(
-          this.getAttestationKey(slotNumber, proposalId, address),
-          attestation.toBuffer(),
-        );
+        await this.checkpointAttestations.set(ownKey, attestation.toBuffer());
+        this.metrics.trackMempoolItemAdded(ownKey);
 
         this.log.debug(`Added own checkpoint attestation for slot ${slotNumber} from ${address}`, {
           signature: attestation.signature.toString(),
@@ -429,6 +432,7 @@ export class AttestationPool {
       const attestationEndKey = new Fr(oldestSlot).toString();
       for await (const key of this.checkpointAttestations.keysAsync({ end: attestationEndKey })) {
         await this.checkpointAttestations.delete(key);
+        this.metrics.trackMempoolItemRemoved(key);
         numberOfAttestations++;
       }
 
@@ -452,7 +456,7 @@ export class AttestationPool {
 
       // Delete block proposals for slots < oldestSlot, using blockProposalsForSlotAndIndex as index
       // Key format: (slot << INDEX_BITS) | indexWithinCheckpoint
-      const blockPositionEndKey = oldestSlot << AttestationPool.INDEX_BITS;
+      const blockPositionEndKey = oldestSlot * (1 << AttestationPool.INDEX_BITS);
       for await (const positionKey of this.blockProposalsForSlotAndIndex.keysAsync({ end: blockPositionEndKey })) {
         const proposalIds = await toArray(this.blockProposalsForSlotAndIndex.getValuesAsync(positionKey));
         for (const proposalId of proposalIds) {
@@ -526,6 +530,7 @@ export class AttestationPool {
 
       // Add the attestation
       await this.checkpointAttestations.set(key, attestation.toBuffer());
+      this.metrics.trackMempoolItemAdded(key);
 
       // Track this attestation in the per-signer-per-slot index for duplicate detection
       const slotSignerKey = this.getSlotSignerKey(slotNumber, signerAddress);

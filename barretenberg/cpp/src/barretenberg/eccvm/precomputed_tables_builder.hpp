@@ -54,6 +54,8 @@ class ECCVMPointTablePrecomputationBuilder {
         const std::vector<bb::eccvm::ScalarMul<CycleGroup>>& ecc_muls)
     {
         static constexpr size_t num_rows_per_scalar = NUM_WNAF_DIGITS_PER_SCALAR / WNAF_DIGITS_PER_ROW;
+        static_assert(num_rows_per_scalar == bb::eccvm::POINT_TABLE_SIZE / 2,
+                      "precompute_accumulator fill loop assumes num_rows_per_scalar == POINT_TABLE_SIZE / 2");
         const size_t num_precompute_rows = num_rows_per_scalar * ecc_muls.size() + 1;
         std::vector<PointTablePrecomputationRow> precompute_state(num_precompute_rows);
 
@@ -114,7 +116,7 @@ class ECCVMPointTablePrecomputationBuilder {
                     row.pc = entry.pc;
 
                     if (last_row) {
-                        BB_ASSERT(scalar_sum - entry.wnaf_skew, entry.scalar);
+                        BB_ASSERT_EQ(scalar_sum - entry.wnaf_skew, entry.scalar);
                     }
                     // the last element of the `precomputed_table` field of a `ScalarMul` is the double of the point.
                     row.precompute_double = entry.precomputed_table[bb::eccvm::POINT_TABLE_SIZE];

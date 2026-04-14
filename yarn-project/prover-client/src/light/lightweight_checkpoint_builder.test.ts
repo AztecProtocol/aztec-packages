@@ -14,6 +14,7 @@ import { mockProcessedTx } from '@aztec/stdlib/testing';
 import { PublicDataTreeLeaf } from '@aztec/stdlib/trees';
 import type { CheckpointGlobalVariables, ProcessedTx } from '@aztec/stdlib/tx';
 import { GlobalVariables } from '@aztec/stdlib/tx';
+import type { GenesisData } from '@aztec/stdlib/world-state';
 import { NativeWorldStateService } from '@aztec/world-state/native';
 
 import { afterEach, beforeEach, describe, expect, it } from '@jest/globals';
@@ -30,10 +31,13 @@ describe('LightweightCheckpointBuilder', () => {
     feePayer = AztecAddress.fromNumber(42222);
     feePayerBalance = new Fr(10n ** 20n);
     const feePayerSlot = await computeFeePayerBalanceLeafSlot(feePayer);
-    const prefilledPublicData = [new PublicDataTreeLeaf(feePayerSlot, feePayerBalance)];
+    const genesis: GenesisData = {
+      prefilledPublicData: [new PublicDataTreeLeaf(feePayerSlot, feePayerBalance)],
+      genesisTimestamp: 0n,
+    };
 
     // Create world state with fee payer balance
-    worldState = await NativeWorldStateService.tmp(undefined, true, prefilledPublicData);
+    worldState = await NativeWorldStateService.tmp(undefined, true, genesis);
   });
 
   afterEach(async () => {
@@ -109,7 +113,7 @@ describe('LightweightCheckpointBuilder', () => {
 
       // Build empty block
       const globalVariables = makeGlobalVariables(blockNumber, slotNumber);
-      const block = await checkpointBuilder.addBlock(globalVariables, [], { insertTxsEffects: true });
+      const { block } = await checkpointBuilder.addBlock(globalVariables, [], { insertTxsEffects: true });
 
       expect(block.header.globalVariables.blockNumber).toEqual(blockNumber);
 
@@ -155,7 +159,7 @@ describe('LightweightCheckpointBuilder', () => {
       tx.txEffect.l2ToL1Msgs.push(...msgs);
 
       // Build block with tx - insertTxsEffects will handle inserting side effects
-      const block = await checkpointBuilder.addBlock(globalVariables, [tx], {
+      const { block } = await checkpointBuilder.addBlock(globalVariables, [tx], {
         insertTxsEffects: true,
       });
 
@@ -202,7 +206,7 @@ describe('LightweightCheckpointBuilder', () => {
       const txs = await timesAsync(3, i => makeProcessedTx(globalVariables, 1000 + i));
 
       // Build block with txs - insertTxsEffects will handle inserting side effects
-      const block = await checkpointBuilder.addBlock(globalVariables, txs, {
+      const { block } = await checkpointBuilder.addBlock(globalVariables, txs, {
         insertTxsEffects: true,
       });
 
@@ -248,7 +252,7 @@ describe('LightweightCheckpointBuilder', () => {
         const txs = await timesAsync(txsPerBlock, j => makeProcessedTx(globalVariables, 2000 + i * 10 + j));
 
         // Build block - insertTxsEffects will handle inserting side effects
-        const block = await checkpointBuilder.addBlock(globalVariables, txs, {
+        const { block } = await checkpointBuilder.addBlock(globalVariables, txs, {
           insertTxsEffects: true,
         });
 
@@ -324,6 +328,36 @@ describe('LightweightCheckpointBuilder', () => {
       const globalVariables2 = makeGlobalVariables(BlockNumber(2), slotNumber);
       await expect(checkpointBuilder.addBlock(globalVariables2, [], { insertTxsEffects: true })).rejects.toThrow(
         /first block/,
+      );
+
+      await fork.close();
+    });
+
+    it('adding a block with a mismatched block number fails with archive tree leaf index mismatch', async () => {
+      const checkpointNumber = CheckpointNumber(1);
+      const slotNumber = SlotNumber(15);
+
+      const constants = makeCheckpointConstants(slotNumber);
+      const l1ToL2Messages: Fr[] = [];
+      const previousCheckpointOutHashes: Fr[] = [];
+
+      const fork = await worldState.fork();
+
+      const checkpointBuilder = await LightweightCheckpointBuilder.startNewCheckpoint(
+        checkpointNumber,
+        constants,
+        l1ToL2Messages,
+        previousCheckpointOutHashes,
+        fork,
+      );
+
+      // Pass block number 5 when the archive tree expects block 1.
+      // After updateArchive, nextAvailableLeafIndex will be 2 but expectedNextLeafIndex will be 6.
+      const wrongBlockNumber = BlockNumber(5);
+      const globalVariables = makeGlobalVariables(wrongBlockNumber, slotNumber);
+
+      await expect(checkpointBuilder.addBlock(globalVariables, [], { insertTxsEffects: true })).rejects.toThrow(
+        /Archive tree next leaf index mismatch/,
       );
 
       await fork.close();

@@ -2,8 +2,8 @@ use crate::messages::logs::note::MAX_NOTE_PACKED_LEN;
 use crate::protocol::{address::AztecAddress, traits::Serialize};
 
 /// Intermediate struct used to perform batch note validation by PXE. The
-/// `utilityValidateAndStoreEnqueuedNotesAndEvents` oracle expects for values of this type to be stored in a
-/// `CapsuleArray`.
+/// `aztec_utl_validateAndStoreEnqueuedNotesAndEvents` oracle expects for values of this type to be stored in a
+/// `EphemeralArray`.
 #[derive(Serialize)]
 pub(crate) struct NoteValidationRequest {
     pub contract_address: AztecAddress,
@@ -15,7 +15,6 @@ pub(crate) struct NoteValidationRequest {
     pub note_hash: Field,
     pub nullifier: Field,
     pub tx_hash: Field,
-    pub recipient: AztecAddress,
 }
 
 mod test {
@@ -34,7 +33,6 @@ mod test {
             note_hash: 6,
             nullifier: 7,
             tx_hash: 8,
-            recipient: AztecAddress::from_field(9),
         };
 
         // We define the serialization in Noir and the deserialization in TS. If the deserialization changes from the
@@ -55,12 +53,10 @@ mod test {
             0x0000000000000000000000000000000000000000000000000000000000000000,
             0x0000000000000000000000000000000000000000000000000000000000000000,
             0x0000000000000000000000000000000000000000000000000000000000000000,
-            0x0000000000000000000000000000000000000000000000000000000000000000,
             0x0000000000000000000000000000000000000000000000000000000000000002,
             0x0000000000000000000000000000000000000000000000000000000000000006,
             0x0000000000000000000000000000000000000000000000000000000000000007,
             0x0000000000000000000000000000000000000000000000000000000000000008,
-            0x0000000000000000000000000000000000000000000000000000000000000009,
         ];
 
         assert_eq(request.serialize(), expected_serialization);

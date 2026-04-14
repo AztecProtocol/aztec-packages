@@ -23,7 +23,7 @@ export async function getFeeJuiceArtifact(): Promise<ContractArtifact> {
 export async function getCanonicalFeeJuice(): Promise<ProtocolContract> {
   if (!protocolContract) {
     const feeJuiceArtifact = await getFeeJuiceArtifact();
-    protocolContract = await makeProtocolContract('FeeJuice', feeJuiceArtifact);
+    protocolContract = makeProtocolContract('FeeJuice', feeJuiceArtifact);
   }
   return protocolContract;
 }

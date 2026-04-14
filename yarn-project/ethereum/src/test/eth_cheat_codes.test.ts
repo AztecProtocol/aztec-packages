@@ -5,7 +5,6 @@ import { sleep } from '@aztec/foundation/sleep';
 import { DateProvider } from '@aztec/foundation/timer';
 import { TestERC20Abi, TestERC20Bytecode } from '@aztec/l1-artifacts';
 
-import type { Anvil } from '@viem/anvil';
 import { type Hex, encodeFunctionData, getContract } from 'viem';
 import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
@@ -14,6 +13,7 @@ import { createExtendedL1Client } from '../client.js';
 import { deployL1Contract } from '../deploy_l1_contract.js';
 import type { ExtendedViemWalletClient } from '../types.js';
 import { EthCheatCodes } from './eth_cheat_codes.js';
+import type { Anvil } from './start_anvil.js';
 import { startAnvil } from './start_anvil.js';
 
 const MNEMONIC = 'test test test test test test test test test test test junk';

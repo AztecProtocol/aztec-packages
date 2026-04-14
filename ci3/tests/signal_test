@@ -1,0 +1,123 @@
+#!/usr/bin/env bash
+# Test that SIGTERM propagates through the full CI pipeline and kills Docker containers.
+#
+# When tests run with ISOLATE=1, they execute inside a Docker container via docker_isolate.
+# If the pipeline receives SIGTERM (e.g., Ctrl-C during `parallelize`), the container must
+# be killed.
+#
+# The full signal flow on Ctrl-C:
+#   Terminal sends SIGINT to foreground process group
+#   → parallel, run_test_cmd receive signal (same process group)
+#   → run_test_cmd sig_handler fires
+#   → must send SIGTERM to exec_test's process GROUP (not just exec_test)
+#   → docker_isolate receives SIGTERM → cleanup trap → docker rm -f
+#
+# The critical detail: run_test_cmd uses set -m, so exec_test runs in its
+# OWN process group. The sig_handler must use kill -TERM -$pid (negative = group),
+# otherwise docker_isolate is orphaned and the container keeps running.
+set -euo pipefail
+
+source "$(git rev-parse --show-toplevel)/ci3/source"
+
+RED=$'\033[0;31m'
+GREEN=$'\033[0;32m'
+NC=$'\033[0m'
+
+TESTS_PASSED=0
+TESTS_FAILED=0
+
+# Unique prefix to avoid container name collisions.
+PREFIX="ci3sigtest$$"
+
+function pass { echo "${GREEN}✓${NC} $1"; ((TESTS_PASSED++)) || true; }
+function fail {
+  echo "${RED}✗${NC} $1: $2"
+  ((TESTS_FAILED++)) || true
+}
+
+# Wait for a container to appear (up to N seconds).
+function wait_for_container {
+  local name=$1 max=${2:-15}
+  for ((i=0; i<max; i++)); do
+    if docker ps --filter "name=^${name}$" --format '{{.Names}}' | grep -q "^${name}$"; then
+      return 0
+    fi
+    sleep 1
+  done
+  return 1
+}
+
+# Check that a container has stopped (within N seconds).
+function wait_for_no_container {
+  local name=$1 max=${2:-10}
+  for ((i=0; i<max; i++)); do
+    if ! docker ps --filter "name=^${name}$" --format '{{.Names}}' | grep -q "^${name}$"; then
+      return 0
+    fi
+    sleep 1
+  done
+  return 1
+}
+
+# Cleanup any leftover containers on exit.
+function cleanup_all {
+  docker ps -a --filter "name=$PREFIX" --format '{{.Names}}' | while read -r name; do
+    docker rm -f "$name" &>/dev/null || true
+  done
+}
+trap cleanup_all EXIT
+
+# Verify docker is available and the build image exists.
+if ! docker info &>/dev/null; then
+  echo "SKIP: Docker not available"
+  exit 0
+fi
+
+if ! docker image inspect aztecprotocol/build:3.0 &>/dev/null; then
+  echo "SKIP: aztecprotocol/build:3.0 image not available"
+  exit 0
+fi
+
+echo "=== Signal Propagation Tests ==="
+
+# ─── Test: full pipeline (parallelize) SIGTERM kills container ──────
+#
+# Mirrors the real Ctrl-C scenario:
+#   echo "hash:ISOLATE=1 sleep 60" | parallelize
+# User presses Ctrl-C → SIGINT to foreground process group.
+#
+# We use set -m so the backgrounded pipeline gets its own process group,
+# then kill the group (simulating Ctrl-C to the foreground group).
+# This reaches parallel and run_test_cmd, but NOT exec_test/docker_isolate
+# (they're in a separate group due to run_test_cmd's set -m).
+# The test passes only if run_test_cmd's sig_handler propagates to docker_isolate.
+echo "--- Test: echo '...' | parallelize receives SIGTERM ---"
+name="${PREFIX}t1"
+
+# Job control: backgrounded pipeline gets its own process group.
+set -m
+echo "fakehash:ISOLATE=1:CPUS=1:NAME=${name}:TIMEOUT=120s sleep 60" | parallelize 1 &>/dev/null &
+pid=$!
+set +m
+
+if wait_for_container "$name"; then
+  # Kill the pipeline's process group (simulates Ctrl-C).
+  kill -TERM -- -$pid 2>/dev/null || true
+  wait $pid 2>/dev/null || true
+  if wait_for_no_container "$name"; then
+    pass "parallelize SIGTERM propagation"
+  else
+    fail "parallelize SIGTERM propagation" "Container still running after SIGTERM"
+  fi
+else
+  fail "parallelize SIGTERM propagation" "Container never started"
+fi
+
+echo
+if [[ $TESTS_FAILED -eq 0 ]]; then
+  echo "${GREEN}All $TESTS_PASSED tests passed.${NC}"
+  exit 0
+else
+  echo "${RED}$TESTS_FAILED of $((TESTS_PASSED + TESTS_FAILED)) tests failed.${NC}"
+  exit 1
+fi

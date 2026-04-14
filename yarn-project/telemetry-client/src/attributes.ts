@@ -45,6 +45,8 @@ export const BLOCK_NUMBER = 'aztec.block.number';
 export const BLOCK_HASH = 'aztec.block.hash';
 /** The slot number */
 export const SLOT_NUMBER = 'aztec.slot.number';
+/** Whether an event happened before or after a slot boundary. */
+export const SLOT_BOUNDARY_SIDE = 'aztec.slot_boundary_side';
 /** The checkpoint number */
 export const CHECKPOINT_NUMBER = 'aztec.checkpoint.number';
 /** The parent's block number */
@@ -150,3 +152,12 @@ export const L1_BLOCK_PROPOSAL_TX_TARGET = 'aztec.l1.block_proposal_tx_target';
 
 /** Whether tracing methods were used to extract block proposal data */
 export const L1_BLOCK_PROPOSAL_USED_TRACE = 'aztec.l1.block_proposal_used_trace';
+
+/** HA signer duty type (e.g., BLOCK_PROPOSAL, CHECKPOINT_ATTESTATION) */
+export const HA_DUTY_TYPE = 'aztec.ha_signer.duty_type';
+
+/** HA signer node identifier */
+export const HA_NODE_ID = 'aztec.ha_signer.node_id';
+
+/** The address of an attester (validator) participating in consensus */
+export const ATTESTER_ADDRESS = 'aztec.attester.address';

@@ -7,8 +7,8 @@ include "precomputed.pil";
  *      output, input_len and use destination selector start (= 1). The caller will pass 1,2, or 3 for input_len. This follows
  *      from the below constraints that `num_perm_rounds_rem == 1` and `end ==1`.
  *
- *      Example (nullifier_check.pil):
- *             should_silo   { siloing_separator, address, nullifier, siloed_nullifier, const_three }
+ *      Example (indexed_tree_check.pil):
+ *             sel_silo   { siloing_separator, address, value, siloed_value, const_three }
  *   in poseidon2_hash.start { poseidon2_hash.input_0, poseidon2_hash.input_1,
  *                           poseidon2_hash.input_2, poseidon2_hash.output, poseidon2_hash.input_len };
  *
@@ -23,7 +23,7 @@ include "precomputed.pil";
  *      Example (address_derivation.pil):
  *             // First row (removed prefix poseidon2_hash.** in destination tuple for presentation purposes)
  *             sel { public_keys_hash_domain_separator, nullifier_key_x, nullifier_key_y, public_keys_hash, const_thirteen }
- *             in poseidon2_hash.start { input_0, input_1, input_2, output, ipnut_len };
+ *             in poseidon2_hash.start { input_0, input_1, input_2, output, input_len };
  *
  *             sel { precomputed.zero, incoming_viewing_key_x, incoming_viewing_key_y, public_keys_hash, const_four }
  *             in poseidon2_hash.sel { input_0, input_1, input_2, output, num_perm_rounds_rem };
@@ -56,12 +56,10 @@ include "precomputed.pil";
  * - class_id_derivation.pil
  * - merkle_check.pil
  * - note_hash_tree_check.pil
- * - nullifier_check.pil
+ * - indexed_tree_check.pil
  * - public_data_check.pil
- * - retrieved_bytecodes_tree_check.pil
  * - tx.pil
  * - update_check.pil
- * - written_public_data_slots_tree_check.pil
  */
 namespace poseidon2_hash;
 
@@ -73,7 +71,7 @@ namespace poseidon2_hash;
 
     // == Multi-row Computation Selectors ==
     // We follow the recipe documented in:
-    // https://hackmd.io/moq6viBpRJeLpWrHAogCZw?view#Contiguous-Multi-Rows-Computation-Trace
+    // https://github.com/AztecProtocol/aztec-packages/blob/next/barretenberg/cpp/pil/vm2/docs/recipes.md#contiguous-multi-rows-computation-trace
 
     // Start of a poseidon2 computation
     pol commit start; // @boolean
@@ -120,7 +118,7 @@ namespace poseidon2_hash;
     padding * (padding - 1) * (padding - 2) = 0;
 
     pol PADDED_LEN = input_len + padding;
-    // Check that the PADDED_LEN = num_rounds * 3 at the start of the computation
+    // Check that the PADDED_LEN = num_perm_rounds_rem * 3 at the start of the computation
     start * (num_perm_rounds_rem * 3 - PADDED_LEN) = 0;
 
     // If we still have rounds to perform, `num_perm_rounds_rem` is decremented.

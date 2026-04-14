@@ -22,7 +22,7 @@ impl Packable for bool {
 
     #[inline_always]
     fn unpack(fields: [Field; Self::N]) -> bool {
-        (fields[0] as u1) != 0
+        (fields[0] as u8) % 2 != 0
     }
 }
 
@@ -187,7 +187,7 @@ where
     #[inline_always]
     fn unpack(fields: [Field; Self::N]) -> Self {
         let mut reader = crate::utils::reader::Reader::new(fields);
-        let mut result: [T; M] = std::mem::zeroed();
+        let result: [T; M] = std::mem::zeroed();
         reader.read_struct_array::<T, <T as Packable>::N, M>(Packable::unpack, result)
     }
 }

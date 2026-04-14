@@ -358,6 +358,19 @@
           "legendFormat": "Failed jobs",
           "range": true,
           "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${data_source}"
+          },
+          "editorMode": "code",
+          "expr": "sum(aztec_proving_queue_aborted_jobs_count{k8s_namespace_name=\"$namespace\"}) or vector(0)",
+          "hide": false,
+          "instant": false,
+          "legendFormat": "Aborted jobs",
+          "range": true,
+          "refId": "C"
         }
       ],
       "title": "Job status",

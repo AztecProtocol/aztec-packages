@@ -1,5 +1,5 @@
 // === AUDIT STATUS ===
-// internal:    { status: Planned, auditors: [Raju], commit: }
+// internal:    { status: Complete, auditors: [Nishat], commit: 22d6fc368da0fbe5412f4f7b2890a052aa48d803 }
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
@@ -21,7 +21,7 @@ struct NullifierLeafValue {
 
     fr nullifier;
 
-    MSGPACK_FIELDS(nullifier)
+    SERIALIZATION_FIELDS(nullifier)
 
     NullifierLeafValue() = default;
     NullifierLeafValue(const fr& n)
@@ -71,9 +71,9 @@ struct NullifierLeafValue {
 
     static NullifierLeafValue padding(index_t i) { return { i }; }
 
-    static std::string name() { return "NullifierLeafValue"; };
-
     size_t hash() const noexcept { return std::hash<fr>{}(nullifier); }
+
+    static std::string name() { return "NullifierLeafValue"; };
 };
 
 struct PublicDataLeafValue {
@@ -84,7 +84,7 @@ struct PublicDataLeafValue {
     fr slot;
     fr value;
 
-    MSGPACK_FIELDS(slot, value)
+    SERIALIZATION_FIELDS(slot, value)
 
     PublicDataLeafValue() = default;
     PublicDataLeafValue(const fr& s, const fr& v)
@@ -137,9 +137,9 @@ struct PublicDataLeafValue {
 
     static PublicDataLeafValue padding(index_t i) { return { i, fr::zero() }; }
 
-    static std::string name() { return "PublicDataLeafValue"; };
-
     size_t hash() const noexcept { return utils::hash_as_tuple(value, slot); }
+
+    static std::string name() { return "PublicDataLeafValue"; };
 };
 
 template <typename LeafType> struct IndexedLeaf {
@@ -147,7 +147,7 @@ template <typename LeafType> struct IndexedLeaf {
     index_t nextIndex;
     fr nextKey;
 
-    MSGPACK_FIELDS(leaf, nextIndex, nextKey)
+    SERIALIZATION_FIELDS(leaf, nextIndex, nextKey)
 
     IndexedLeaf() = default;
 

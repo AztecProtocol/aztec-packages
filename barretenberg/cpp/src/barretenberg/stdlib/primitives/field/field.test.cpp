@@ -36,7 +36,7 @@ template <typename Builder> class stdlib_field : public testing::Test {
         field_ct c = a + b;
         EXPECT_TRUE(field_ct::witness_indices_match(c, a));
         EXPECT_TRUE(builder.get_num_finalized_gates_inefficient() == num_gates);
-        field_ct d(&builder, fr::coset_generator<0>()); // like b, d is just a constant and not a wire value
+        field_ct d(&builder, fr::coset_generator()); // like b, d is just a constant and not a wire value
 
         // by this point, we shouldn't have added any constraints in our circuit
         for (size_t i = 0; i < 17; ++i) {
@@ -1435,6 +1435,14 @@ template <typename Builder> class stdlib_field : public testing::Test {
 #ifndef NDEBUG
         EXPECT_THROW(q + q, std::runtime_error);
 #endif
+
+        // ranged_less_than: check tag behavior
+        auto rlt_a = field_ct(witness_ct(&builder, uint256_t(50)));
+        auto rlt_b = field_ct(witness_ct(&builder, uint256_t(100)));
+        rlt_a.set_origin_tag(submitted_value_origin_tag);
+        rlt_b.set_origin_tag(challenge_origin_tag);
+        auto rlt_result = rlt_a.template ranged_less_than<8>(rlt_b);
+        EXPECT_EQ(rlt_result.get_origin_tag(), first_two_merged_tag);
     }
 
     void test_validate_context()

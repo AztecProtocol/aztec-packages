@@ -11,7 +11,6 @@ import type { ScopedNoteHash } from '../note_hash.js';
 import { NoteHashReadRequestHintsBuilder } from './note_hash_read_request_hints.js';
 import type { ScopedReadRequest } from './read_request.js';
 import { PendingReadHint, ReadRequestActionEnum, ReadRequestResetActions } from './read_request_hints.js';
-import { ScopedValueCache } from './scoped_value_cache.js';
 
 export function isValidNoteHashReadRequest(readRequest: ScopedReadRequest, noteHash: ScopedNoteHash) {
   return (
@@ -24,7 +23,6 @@ export function isValidNoteHashReadRequest(readRequest: ScopedReadRequest, noteH
 export function getNoteHashReadRequestResetActions(
   noteHashReadRequests: ClaimedLengthArray<ScopedReadRequest, typeof MAX_NOTE_HASH_READ_REQUESTS_PER_TX>,
   noteHashes: ClaimedLengthArray<ScopedNoteHash, typeof MAX_NOTE_HASHES_PER_TX>,
-  futureNoteHashes: ScopedNoteHash[],
 ): ReadRequestResetActions<typeof MAX_NOTE_HASH_READ_REQUESTS_PER_TX> {
   const resetActions = ReadRequestResetActions.empty(MAX_NOTE_HASH_READ_REQUESTS_PER_TX);
 
@@ -36,24 +34,23 @@ export function getNoteHashReadRequestResetActions(
     noteHashMap.set(value, arr);
   });
 
-  const futureNoteHashMap = new ScopedValueCache(futureNoteHashes);
-
   for (let i = 0; i < noteHashReadRequests.claimedLength; ++i) {
     const readRequest = noteHashReadRequests.array[i];
 
-    const pendingNoteHash = noteHashMap
-      .get(readRequest.value.toBigInt())
-      ?.find(n => isValidNoteHashReadRequest(readRequest, n.noteHash));
-
-    if (pendingNoteHash !== undefined) {
-      resetActions.actions[i] = ReadRequestActionEnum.READ_AS_PENDING;
-      resetActions.pendingReadHints.push(new PendingReadHint(i, pendingNoteHash.index));
-    } else if (
-      !futureNoteHashMap
-        .get(readRequest)
-        .find(futureNoteHash => isValidNoteHashReadRequest(readRequest, futureNoteHash))
-    ) {
+    if (readRequest.contractAddress.isZero()) {
+      // Settled read: empty contract address means resolve against the note hash tree.
       resetActions.actions[i] = ReadRequestActionEnum.READ_AS_SETTLED;
+    } else {
+      // Pending read: non-empty contract address means match against a pending note hash.
+      const pendingNoteHash = noteHashMap
+        .get(readRequest.value.toBigInt())
+        ?.find(n => isValidNoteHashReadRequest(readRequest, n.noteHash));
+
+      if (pendingNoteHash) {
+        resetActions.actions[i] = ReadRequestActionEnum.READ_AS_PENDING;
+        resetActions.pendingReadHints.push(new PendingReadHint(i, pendingNoteHash.index));
+      }
+      // Otherwise, the read request may be resolved by a future note hash. Leave as NOOP.
     }
   }
 
@@ -115,11 +112,10 @@ export async function buildNoteHashReadRequestHints<PENDING extends number, SETT
   },
   noteHashReadRequests: ClaimedLengthArray<ScopedReadRequest, typeof MAX_NOTE_HASH_READ_REQUESTS_PER_TX>,
   noteHashes: ClaimedLengthArray<ScopedNoteHash, typeof MAX_NOTE_HASHES_PER_TX>,
-  futureNoteHashes: ScopedNoteHash[],
   maxPending: PENDING = MAX_NOTE_HASH_READ_REQUESTS_PER_TX as PENDING,
   maxSettled: SETTLED = MAX_NOTE_HASH_READ_REQUESTS_PER_TX as SETTLED,
 ) {
-  const resetActions = getNoteHashReadRequestResetActions(noteHashReadRequests, noteHashes, futureNoteHashes);
+  const resetActions = getNoteHashReadRequestResetActions(noteHashReadRequests, noteHashes);
   return await buildNoteHashReadRequestHintsFromResetActions(
     oracle,
     noteHashReadRequests,

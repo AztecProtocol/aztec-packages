@@ -1,5 +1,5 @@
 // === AUDIT STATUS ===
-// internal:    { status: Planned, auditors: [Raju], commit: }
+// internal:    { status: Completed, auditors: [Raju], commit: }
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
@@ -41,7 +41,9 @@ template <class T> constexpr field<T> field<T>::operator*(const field& other) co
         if (std::is_constant_evaluated()) {
             return montgomery_mul(other);
         }
-        return asm_mul_with_coarse_reduction(*this, other);
+        field result = asm_mul_with_coarse_reduction(*this, other);
+        result.assert_coarse_form();
+        return result;
     }
 }
 
@@ -56,6 +58,7 @@ template <class T> constexpr field<T>& field<T>::operator*=(const field& other) 
             *this = operator*(other);
         } else {
             asm_self_mul_with_coarse_reduction(*this, other);
+            assert_coarse_form();
         }
     }
     return *this;
@@ -75,7 +78,9 @@ template <class T> constexpr field<T> field<T>::sqr() const noexcept
         if (std::is_constant_evaluated()) {
             return montgomery_square();
         }
-        return asm_sqr_with_coarse_reduction(*this);
+        field result = asm_sqr_with_coarse_reduction(*this);
+        result.assert_coarse_form();
+        return result;
     }
 }
 
@@ -89,6 +94,7 @@ template <class T> constexpr void field<T>::self_sqr() & noexcept
             *this = montgomery_square();
         } else {
             asm_self_sqr_with_coarse_reduction(*this);
+            assert_coarse_form();
         }
     }
 }
@@ -107,7 +113,9 @@ template <class T> constexpr field<T> field<T>::operator+(const field& other) co
         if (std::is_constant_evaluated()) {
             return add(other);
         }
-        return asm_add_with_coarse_reduction(*this, other);
+        field result = asm_add_with_coarse_reduction(*this, other);
+        result.assert_coarse_form();
+        return result;
     }
 }
 
@@ -121,6 +129,7 @@ template <class T> constexpr field<T>& field<T>::operator+=(const field& other) 
             (*this) = operator+(other);
         } else {
             asm_self_add_with_coarse_reduction(*this, other);
+            assert_coarse_form();
         }
     }
     return *this;
@@ -153,36 +162,20 @@ template <class T> constexpr field<T> field<T>::operator-(const field& other) co
         if (std::is_constant_evaluated()) {
             return subtract(other);
         }
-        return asm_sub_with_coarse_reduction(*this, other);
+        field result = asm_sub_with_coarse_reduction(*this, other);
+        result.assert_coarse_form();
+        return result;
     }
 }
 
 template <class T> constexpr field<T> field<T>::operator-() const noexcept
 {
-    if constexpr ((T::modulus_3 >= MODULUS_TOP_LIMB_LARGE_THRESHOLD) ||
-                  (T::modulus_1 == 0 && T::modulus_2 == 0 && T::modulus_3 == 0)) {
-        constexpr field p{ modulus.data[0], modulus.data[1], modulus.data[2], modulus.data[3] };
-        return p - *this;
-    }
-
-    // TODO(@zac-williamson): there are 3 ways we can make this more efficient
-    // 1: we subtract `p` from `*this` instead of `2p`
-    // 2: instead of `p - *this`, we use an asm block that does `p - *this` without the assembly reduction step
-    // 3: we replace `(p - *this).reduce_once()` with an assembly block that is equivalent to `p - *this`,
-    //    but we call `REDUCE_FIELD_ELEMENT` with `not_twice_modulus` instead of `twice_modulus`
-    // not sure which is faster and whether any of the above might break something!
-    //
-    // More context below:
-    // the operator-(a, b) method's asm implementation has a sneaky was to check underflow.
-    // if `a - b` underflows we need to add in `2p`. Instead of conditional branching which would cause pipeline
-    // flushes, we add `2p` into the result of `a - b`. If the result triggers the overflow flag, then we know we are
-    // correcting an *underflow* produced from computing `a - b`. Finally...we use the overflow flag to conditionally
-    // move data into registers such that we end up with either `a - b` or `2p + (a - b)` (this is branchless). OK! So
-    // what's the problem? Well we assume that every field element lies between 0 and 2p - 1. But we are computing `2p -
-    // *this`! If *this = 0 then we exceed this bound hence the need for the extra reduction step. HOWEVER, we also know
-    // that 2p - *this won't underflow so we could skip the underflow check present in the assembly code
-    constexpr field p{ twice_modulus.data[0], twice_modulus.data[1], twice_modulus.data[2], twice_modulus.data[3] };
-    return (p - *this).reduce_once();
+    // Negate via (p - x). For small moduli, subtract() handles the coarse-form correction:
+    // if x > p, it adds 2p, yielding 3p - x ∈ (p, 2p). Result is always in [0, 2p) strict.
+    // Using modulus (not twice_modulus) avoids producing exactly 2p when x = 0, which would
+    // violate the strict [0, 2p) coarse-form invariant inside subtract/asm_sub.
+    constexpr field p{ modulus.data[0], modulus.data[1], modulus.data[2], modulus.data[3] };
+    return p - *this;
 }
 
 template <class T> constexpr field<T>& field<T>::operator-=(const field& other) & noexcept
@@ -195,6 +188,7 @@ template <class T> constexpr field<T>& field<T>::operator-=(const field& other) 
             *this = subtract(other);
         } else {
             asm_self_sub_with_coarse_reduction(*this, other);
+            assert_coarse_form();
         }
     }
     return *this;
@@ -202,14 +196,9 @@ template <class T> constexpr field<T>& field<T>::operator-=(const field& other) 
 
 template <class T> constexpr void field<T>::self_neg() & noexcept
 {
-    if constexpr ((T::modulus_3 >= MODULUS_TOP_LIMB_LARGE_THRESHOLD) ||
-                  (T::modulus_1 == 0 && T::modulus_2 == 0 && T::modulus_3 == 0)) {
-        constexpr field p{ modulus.data[0], modulus.data[1], modulus.data[2], modulus.data[3] };
-        *this = p - *this;
-    } else {
-        constexpr field p{ twice_modulus.data[0], twice_modulus.data[1], twice_modulus.data[2], twice_modulus.data[3] };
-        *this = (p - *this).reduce_once();
-    }
+    // See operator-() for explanation: use modulus (not twice_modulus) to avoid 2p intermediate.
+    constexpr field p{ modulus.data[0], modulus.data[1], modulus.data[2], modulus.data[3] };
+    *this = p - *this;
 }
 
 template <class T> constexpr void field<T>::self_conditional_negate(const uint64_t predicate) & noexcept
@@ -432,8 +421,8 @@ void field<T>::batch_invert(C& coeffs) noexcept
 
     std::vector<field> temporaries;
     std::vector<bool> skipped;
-    temporaries.reserve(n);
-    skipped.reserve(n);
+    temporaries.resize(n);
+    skipped.resize(n);
 
     field accumulator = one();
     for (size_t i = 0; i < n; ++i) {
@@ -520,12 +509,12 @@ template <class T> constexpr field<T> field<T>::tonelli_shanks_sqrt() const noex
     // -----------------------------------------------------------------------------------------
     // STEP 3: Set up precomputed lookup tables for the discrete log computation
     // -----------------------------------------------------------------------------------------
-    // g = r^Q where r is a quadratic non-residue (coset_generator<0>).
+    // g = r^Q where r is a quadratic non-residue (coset_generator).
     // Since r has order (p-1) and Q is the odd part, g has order exactly 2^S.
-    constexpr field g = coset_generator<0>().pow(Q);
+    constexpr field g = coset_generator().pow(Q);
 
     // g_inv = g^{-1} = r^{-Q} = r^{p-1-Q}
-    constexpr field g_inv = coset_generator<0>().pow(modulus - 1 - Q);
+    constexpr field g_inv = coset_generator().pow(modulus - 1 - Q);
 
     // S = primitive_root_log_size() is the 2-adic valuation of (p-1), i.e., the largest power of 2 dividing (p-1).
     constexpr size_t root_bits = primitive_root_log_size();
@@ -841,8 +830,13 @@ template <class Params> void field<Params>::msgpack_unpack(auto o)
         data[i] = reversed[i];
     }
 
+    // Reject non-canonical field encodings (values >= modulus) to ensure strict parsing.
+    if (uint256_t{ data[0], data[1], data[2], data[3] } >= modulus) {
+        throw_or_abort("msgpack field deserialization: non-canonical encoding (value >= modulus)");
+    }
+
     // Finally, the field is converted back to Montgomery form, just like in the old format.
-    *this = to_montgomery_form_reduced();
+    *this = to_montgomery_form();
 }
 
 } // namespace bb

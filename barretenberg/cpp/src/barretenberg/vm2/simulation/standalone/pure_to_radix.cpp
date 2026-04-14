@@ -2,11 +2,10 @@
 
 #include <algorithm>
 #include <cstdint>
-#include <vector>
 
 #include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
-#include "barretenberg/vm2/common/to_radix.hpp"
+#include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/simulation/interfaces/memory.hpp"
 
 namespace bb::avm2::simulation {

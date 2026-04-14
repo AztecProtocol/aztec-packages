@@ -1,4 +1,4 @@
-import { BlockNumber, IndexWithinCheckpoint, SlotNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, type CheckpointNumber, IndexWithinCheckpoint, SlotNumber } from '@aztec/foundation/branded-types';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { keccak256 } from '@aztec/foundation/crypto/keccak';
 import { tryRecoverAddress } from '@aztec/foundation/crypto/secp256k1-signer';
@@ -6,11 +6,11 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import { Signature } from '@aztec/foundation/eth-signature';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
-import { DutyType, type SigningContext } from '@aztec/validator-ha-signer/types';
 
 import type { L2Block } from '../block/l2_block.js';
 import type { L2BlockInfo } from '../block/l2_block_info.js';
 import { MAX_TXS_PER_BLOCK } from '../deserialization/index.js';
+import { DutyType, type SigningContext } from '../ha-signing/index.js';
 import { BlockHeader } from '../tx/block_header.js';
 import { TxHash } from '../tx/index.js';
 import type { Tx } from '../tx/tx.js';
@@ -126,6 +126,7 @@ export class BlockProposal extends Gossipable {
 
   static async createProposalFromSigner(
     blockHeader: BlockHeader,
+    checkpointNumber: CheckpointNumber,
     indexWithinCheckpoint: IndexWithinCheckpoint,
     inHash: Fr,
     archiveRoot: Fr,
@@ -147,6 +148,7 @@ export class BlockProposal extends Gossipable {
     const blockContext: SigningContext = {
       slot: blockHeader.globalVariables.slotNumber,
       blockNumber: blockHeader.globalVariables.blockNumber,
+      checkpointNumber,
       blockIndexWithinCheckpoint: indexWithinCheckpoint,
       dutyType: DutyType.BLOCK_PROPOSAL,
     };

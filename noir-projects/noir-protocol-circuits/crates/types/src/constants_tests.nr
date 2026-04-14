@@ -6,21 +6,25 @@ use crate::{
         CONTRACT_CLASS_REGISTRY_PRIVATE_FUNCTION_BROADCASTED_MAGIC_VALUE,
         CONTRACT_CLASS_REGISTRY_UTILITY_FUNCTION_BROADCASTED_MAGIC_VALUE,
         CONTRACT_INSTANCE_PUBLISHED_MAGIC_VALUE, CONTRACT_INSTANCE_UPDATED_MAGIC_VALUE,
-        DOM_SEP__AUTHWIT_INNER, DOM_SEP__AUTHWIT_NULLIFIER, DOM_SEP__AUTHWIT_OUTER,
-        DOM_SEP__BLOB_CHALLENGE_Z, DOM_SEP__BLOB_GAMMA_ACC, DOM_SEP__BLOB_GAMMA_FINAL,
-        DOM_SEP__BLOB_HASHED_Y_LIMBS, DOM_SEP__BLOB_Z_ACC, DOM_SEP__BLOCK_HEADER_HASH,
-        DOM_SEP__BLOCK_HEADERS_HASH, DOM_SEP__CONTRACT_ADDRESS_V1, DOM_SEP__CONTRACT_CLASS_ID,
-        DOM_SEP__EVENT_COMMITMENT, DOM_SEP__FUNCTION_ARGS, DOM_SEP__INITIALIZATION_NULLIFIER,
-        DOM_SEP__INITIALIZER, DOM_SEP__IVSK_M, DOM_SEP__MERKLE_HASH, DOM_SEP__MESSAGE_NULLIFIER,
-        DOM_SEP__NHK_M, DOM_SEP__NOTE_HASH, DOM_SEP__NOTE_HASH_NONCE, DOM_SEP__NOTE_NULLIFIER,
-        DOM_SEP__NULLIFIER_LEAF, DOM_SEP__OVSK_M, DOM_SEP__PARTIAL_ADDRESS,
-        DOM_SEP__PARTIAL_NOTE_VALIDITY_COMMITMENT, DOM_SEP__PRIVATE_FUNCTION_LEAF,
+        DOM_SEP__APP_SILOED_ECDH_SHARED_SECRET, DOM_SEP__AUTHWIT_INNER, DOM_SEP__AUTHWIT_NULLIFIER,
+        DOM_SEP__AUTHWIT_OUTER, DOM_SEP__BLOB_CHALLENGE_Z, DOM_SEP__BLOB_GAMMA_ACC,
+        DOM_SEP__BLOB_GAMMA_FINAL, DOM_SEP__BLOB_HASHED_Y_LIMBS, DOM_SEP__BLOB_Z_ACC,
+        DOM_SEP__BLOCK_HEADER_HASH, DOM_SEP__BLOCK_HEADERS_HASH, DOM_SEP__CONTRACT_ADDRESS_V1,
+        DOM_SEP__CONTRACT_CLASS_ID, DOM_SEP__ECDH_FIELD_MASK, DOM_SEP__ECDH_SUBKEY,
+        DOM_SEP__EVENT_COMMITMENT, DOM_SEP__EVENT_LOG_TAG, DOM_SEP__FUNCTION_ARGS,
+        DOM_SEP__INITIALIZATION_NULLIFIER, DOM_SEP__INITIALIZER, DOM_SEP__IVSK_M,
+        DOM_SEP__MERKLE_HASH, DOM_SEP__MESSAGE_NULLIFIER, DOM_SEP__NHK_M,
+        DOM_SEP__NOTE_COMPLETION_LOG_TAG, DOM_SEP__NOTE_HASH, DOM_SEP__NOTE_HASH_NONCE,
+        DOM_SEP__NOTE_NULLIFIER, DOM_SEP__NULLIFIER_LEAF, DOM_SEP__OVSK_M,
+        DOM_SEP__PARTIAL_ADDRESS, DOM_SEP__PARTIAL_NOTE_VALIDITY_COMMITMENT,
+        DOM_SEP__PRIVATE_FUNCTION_LEAF, DOM_SEP__PRIVATE_INITIALIZATION_NULLIFIER,
         DOM_SEP__PRIVATE_LOG_FIRST_FIELD, DOM_SEP__PRIVATE_TX_HASH, DOM_SEP__PROTOCOL_CONTRACTS,
         DOM_SEP__PUBLIC_BYTECODE, DOM_SEP__PUBLIC_CALLDATA, DOM_SEP__PUBLIC_DATA_LEAF,
-        DOM_SEP__PUBLIC_KEYS_HASH, DOM_SEP__PUBLIC_LEAF_SLOT, DOM_SEP__PUBLIC_STORAGE_MAP_SLOT,
-        DOM_SEP__PUBLIC_TX_HASH, DOM_SEP__SECRET_HASH, DOM_SEP__SIGNATURE_PAYLOAD,
-        DOM_SEP__SILOED_NOTE_HASH, DOM_SEP__SILOED_NULLIFIER, DOM_SEP__SYMMETRIC_KEY,
-        DOM_SEP__SYMMETRIC_KEY_2, DOM_SEP__TSK_M, DOM_SEP__TX_NULLIFIER, DOM_SEP__TX_REQUEST,
+        DOM_SEP__PUBLIC_INITIALIZATION_NULLIFIER, DOM_SEP__PUBLIC_KEYS_HASH,
+        DOM_SEP__PUBLIC_LEAF_SLOT, DOM_SEP__PUBLIC_STORAGE_MAP_SLOT, DOM_SEP__PUBLIC_TX_HASH,
+        DOM_SEP__SECRET_HASH, DOM_SEP__SIGNATURE_PAYLOAD, DOM_SEP__SILOED_NOTE_HASH,
+        DOM_SEP__SILOED_NULLIFIER, DOM_SEP__SINGLE_USE_CLAIM_NULLIFIER, DOM_SEP__TSK_M,
+        DOM_SEP__TX_NULLIFIER, DOM_SEP__TX_REQUEST, DOM_SEP__UNCONSTRAINED_MSG_LOG_TAG,
         DOM_SEP__UNIQUE_NOTE_HASH, NULL_MSG_SENDER_CONTRACT_ADDRESS, SIDE_EFFECT_MASKING_ADDRESS,
         TX_START_PREFIX,
     },
@@ -49,6 +53,10 @@ impl<let NUM_VALUES: u32, let NUM_U32_VALUES: u32> HashedValueTester<NUM_VALUES,
         dom_sep_str: str<N>,
     ) {
         // For legacy reasons, we reduce the domain separator to a u32.
+        // Most separators are simply used as a standalone field element when hashing
+        // (via `poseidon2_hash_with_separator`) and would work fine as Fields. However, `DOM_SEP__PUBLIC_BYTECODE` is
+        // an exception: in `compute_public_bytecode_commitment`, it is bit-packed into the low 32 bits of a field, with
+        // the bytecode length shifted into bits 32+. Changing it to a Field would corrupt the length encoding.
         let derived = self.hash_to_u32(DOM_SEP_PREFIX, dom_sep_str);
         assert_eq(
             expected_dom_sep,
@@ -132,7 +140,7 @@ impl<let NUM_VALUES: u32, let NUM_U32_VALUES: u32> HashedValueTester<NUM_VALUES,
 
 #[test]
 fn hashed_values_match_derived() {
-    let mut tester = HashedValueTester::<58, 51>::new();
+    let mut tester = HashedValueTester::<65, 58>::new();
 
     // -----------------
     // Domain separators
@@ -142,6 +150,10 @@ fn hashed_values_match_derived() {
     tester.assert_dom_sep_matches_derived(DOM_SEP__UNIQUE_NOTE_HASH, "unique_note_hash");
     tester.assert_dom_sep_matches_derived(DOM_SEP__SILOED_NOTE_HASH, "siloed_note_hash");
     tester.assert_dom_sep_matches_derived(DOM_SEP__NOTE_NULLIFIER, "note_nullifier");
+    tester.assert_dom_sep_matches_derived(
+        DOM_SEP__SINGLE_USE_CLAIM_NULLIFIER,
+        "single_use_claim_nullifier",
+    );
     tester.assert_dom_sep_matches_derived(DOM_SEP__SILOED_NULLIFIER, "siloed_nullifier");
     tester.assert_dom_sep_matches_derived(
         DOM_SEP__PRIVATE_LOG_FIRST_FIELD,
@@ -151,6 +163,15 @@ fn hashed_values_match_derived() {
     tester.assert_dom_sep_matches_derived(
         DOM_SEP__PUBLIC_STORAGE_MAP_SLOT,
         "public_storage_map_slot",
+    );
+    tester.assert_dom_sep_matches_derived(DOM_SEP__EVENT_LOG_TAG, "event_log_tag");
+    tester.assert_dom_sep_matches_derived(
+        DOM_SEP__NOTE_COMPLETION_LOG_TAG,
+        "note_completion_log_tag",
+    );
+    tester.assert_dom_sep_matches_derived(
+        DOM_SEP__UNCONSTRAINED_MSG_LOG_TAG,
+        "unconstrained_msg_log_tag",
     );
     tester.assert_dom_sep_matches_derived(DOM_SEP__MESSAGE_NULLIFIER, "message_nullifier");
     tester.assert_dom_sep_matches_derived(DOM_SEP__PRIVATE_FUNCTION_LEAF, "private_function_leaf");
@@ -175,8 +196,12 @@ fn hashed_values_match_derived() {
     tester.assert_dom_sep_matches_derived(DOM_SEP__AUTHWIT_INNER, "authwit_inner");
     tester.assert_dom_sep_matches_derived(DOM_SEP__AUTHWIT_OUTER, "authwit_outer");
     tester.assert_dom_sep_matches_derived(DOM_SEP__AUTHWIT_NULLIFIER, "authwit_nullifier");
-    tester.assert_dom_sep_matches_derived(DOM_SEP__SYMMETRIC_KEY, "symmetric_key");
-    tester.assert_dom_sep_matches_derived(DOM_SEP__SYMMETRIC_KEY_2, "symmetric_key_2");
+    tester.assert_dom_sep_matches_derived(
+        DOM_SEP__APP_SILOED_ECDH_SHARED_SECRET,
+        "app_siloed_ecdh_shared_secret",
+    );
+    tester.assert_dom_sep_matches_derived(DOM_SEP__ECDH_SUBKEY, "ecdh_subkey");
+    tester.assert_dom_sep_matches_derived(DOM_SEP__ECDH_FIELD_MASK, "ecdh_field_mask");
     tester.assert_dom_sep_matches_derived(
         DOM_SEP__PARTIAL_NOTE_VALIDITY_COMMITMENT,
         "partial_note_validity_commitment",
@@ -184,6 +209,14 @@ fn hashed_values_match_derived() {
     tester.assert_dom_sep_matches_derived(
         DOM_SEP__INITIALIZATION_NULLIFIER,
         "initialization_nullifier",
+    );
+    tester.assert_dom_sep_matches_derived(
+        DOM_SEP__PUBLIC_INITIALIZATION_NULLIFIER,
+        "public_initialization_nullifier",
+    );
+    tester.assert_dom_sep_matches_derived(
+        DOM_SEP__PRIVATE_INITIALIZATION_NULLIFIER,
+        "private_initialization_nullifier",
     );
     tester.assert_dom_sep_matches_derived(DOM_SEP__SECRET_HASH, "secret_hash");
     tester.assert_dom_sep_matches_derived(DOM_SEP__TX_NULLIFIER, "tx_nullifier");

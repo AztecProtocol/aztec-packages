@@ -8,7 +8,7 @@ import { type ContractClassIdPreimage, computeContractClassIdWithPreimage } from
 import type { ContractClass, ContractClassWithId } from './interfaces/index.js';
 
 /** Contract artifact including its artifact hash */
-type ContractArtifactWithHash = ContractArtifact & { artifactHash: Fr };
+export type ContractArtifactWithHash = ContractArtifact & { artifactHash: Fr };
 
 const cmpFunctionArtifacts = <T extends { selector: FunctionSelector }>(a: T, b: T) =>
   a.selector.toField().cmp(b.selector.toField());
@@ -35,8 +35,8 @@ export async function getContractClassFromArtifact(
 
   privateArtifactFunctions.sort(cmpFunctionArtifacts);
 
-  const contractClass: ContractClass = {
-    version: 1,
+  const contractClass = {
+    version: 1 as const,
     artifactHash,
     packedBytecode,
     privateFunctions: privateArtifactFunctions,

@@ -1,8 +1,10 @@
+import { MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT, MAX_PROCESSABLE_L2_GAS } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { AvmTestContractArtifact } from '@aztec/noir-test-contracts.js/AvmTest';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
+import { Gas } from '@aztec/stdlib/gas';
 import { L2ToL1Message, ScopedL2ToL1Message } from '@aztec/stdlib/messaging';
 import { NativeWorldStateService } from '@aztec/world-state';
 
@@ -187,9 +189,15 @@ describe('AVM check-circuit – unhappy paths 3', () => {
   it(
     'a nested exceptional halt is recovered from in caller',
     async () => {
+      // The contract requires >200k DA gas (it allocates da_gas_left - 200_000 to the nested call).
+      // Use a higher DA gas limit than the default since APPROXIMATE_MAX_DA_GAS_PER_BLOCK is ~196k.
+      // For more information, refer to yarn-project/stdlib/src/gas/gas_settings.ts
+      const gasLimits = new Gas(MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT, MAX_PROCESSABLE_L2_GAS);
       await tester.simProveVerifyAppLogic(
         { address: avmTestContractInstance.address, fnName: 'external_call_to_divide_by_zero_recovers', args: [] },
         /*expectRevert=*/ false,
+        /*txLabel=*/ 'unlabeledTx',
+        gasLimits,
       );
     },
     TIMEOUT,

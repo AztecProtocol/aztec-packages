@@ -13,14 +13,19 @@ import {
   L2Block,
   type ValidateCheckpointResult,
 } from '@aztec/stdlib/block';
-import type { CheckpointData, PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
+import type {
+  CheckpointData,
+  CommonCheckpointData,
+  ProposedCheckpointData,
+  ProposedCheckpointInput,
+  PublishedCheckpoint,
+} from '@aztec/stdlib/checkpoint';
 import type {
   ContractClassPublic,
+  ContractClassPublicWithCommitment,
   ContractDataSource,
   ContractInstanceUpdateWithAddress,
   ContractInstanceWithAddress,
-  ExecutablePrivateFunctionWithMembershipProof,
-  UtilityFunctionWithMembershipProof,
 } from '@aztec/stdlib/contract';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import type { GetContractClassLogsResponse, GetPublicLogsResponse } from '@aztec/stdlib/interfaces/client';
@@ -37,7 +42,7 @@ import { ContractInstanceStore } from './contract_instance_store.js';
 import { LogStore } from './log_store.js';
 import { MessageStore } from './message_store.js';
 
-export const ARCHIVER_DB_VERSION = 5;
+export const ARCHIVER_DB_VERSION = 6;
 export const MAX_FUNCTION_SIGNATURES = 1000;
 export const MAX_FUNCTION_NAME_LEN = 256;
 
@@ -71,9 +76,8 @@ export class KVArchiverDataStore implements ContractDataSource {
   constructor(
     private db: AztecAsyncKVStore,
     logsMaxPageSize: number = 1000,
-    l1Constants: Pick<L1RollupConstants, 'epochDuration'>,
   ) {
-    this.#blockStore = new BlockStore(db, l1Constants);
+    this.#blockStore = new BlockStore(db);
     this.#logStore = new LogStore(db, this.#blockStore, logsMaxPageSize);
     this.#messageStore = new MessageStore(db);
     this.#contractClassStore = new ContractClassStore(db);
@@ -168,19 +172,14 @@ export class KVArchiverDataStore implements ContractDataSource {
 
   /**
    * Add new contract classes from an L2 block to the store's list.
-   * @param data - List of contract classes to be added.
-   * @param bytecodeCommitments - Bytecode commitments for the contract classes.
+   * @param data - List of contract classes (with bytecode commitments) to be added.
    * @param blockNumber - Number of the L2 block the contracts were registered in.
    * @returns True if the operation is successful.
    */
-  async addContractClasses(
-    data: ContractClassPublic[],
-    bytecodeCommitments: Fr[],
-    blockNumber: BlockNumber,
-  ): Promise<boolean> {
+  async addContractClasses(data: ContractClassPublicWithCommitment[], blockNumber: BlockNumber): Promise<boolean> {
     return (
       await Promise.all(
-        data.map((c, i) => this.#contractClassStore.addContractClass(c, bytecodeCommitments[i], blockNumber)),
+        data.map(c => this.#contractClassStore.addContractClass(c, c.publicBytecodeCommitment, blockNumber)),
       )
     ).every(Boolean);
   }
@@ -193,15 +192,6 @@ export class KVArchiverDataStore implements ContractDataSource {
 
   getBytecodeCommitment(contractClassId: Fr): Promise<Fr | undefined> {
     return this.#contractClassStore.getBytecodeCommitment(contractClassId);
-  }
-
-  /** Adds private functions to a contract class. */
-  addFunctions(
-    contractClassId: Fr,
-    privateFunctions: ExecutablePrivateFunctionWithMembershipProof[],
-    utilityFunctions: UtilityFunctionWithMembershipProof[],
-  ): Promise<boolean> {
-    return this.#contractClassStore.addFunctions(contractClassId, privateFunctions, utilityFunctions);
   }
 
   /**
@@ -246,14 +236,14 @@ export class KVArchiverDataStore implements ContractDataSource {
   }
 
   /**
-   * Append new proposed blocks to the store's list.
-   * These are uncheckpointed blocks that have been proposed by the sequencer but not yet included in a checkpoint on L1.
+   * Append a new proposed block to the store.
+   * This is an uncheckpointed block that has been proposed by the sequencer but not yet included in a checkpoint on L1.
    * For checkpointed blocks (already published to L1), use addCheckpoints() instead.
-   * @param blocks - The proposed L2 blocks to be added to the store.
+   * @param block - The proposed L2 block to be added to the store.
    * @returns True if the operation is successful.
    */
-  addProposedBlocks(blocks: L2Block[], opts: { force?: boolean; checkpointNumber?: number } = {}): Promise<boolean> {
-    return this.#blockStore.addProposedBlocks(blocks, opts);
+  addProposedBlock(block: L2Block, opts: { force?: boolean } = {}): Promise<boolean> {
+    return this.#blockStore.addProposedBlock(block, opts);
   }
 
   /**
@@ -270,7 +260,7 @@ export class KVArchiverDataStore implements ContractDataSource {
    * @returns The number of the latest block
    */
   getLatestBlockNumber(): Promise<BlockNumber> {
-    return this.#blockStore.getLatestBlockNumber();
+    return this.#blockStore.getLatestL2BlockNumber();
   }
 
   /**
@@ -410,8 +400,11 @@ export class KVArchiverDataStore implements ContractDataSource {
    * @param txHash - The hash of a tx we try to get the receipt for.
    * @returns The requested tx receipt (or undefined if not found).
    */
-  getSettledTxReceipt(txHash: TxHash): Promise<TxReceipt | undefined> {
-    return this.#blockStore.getSettledTxReceipt(txHash);
+  getSettledTxReceipt(
+    txHash: TxHash,
+    l1Constants?: Pick<L1RollupConstants, 'epochDuration'>,
+  ): Promise<TxReceipt | undefined> {
+    return this.#blockStore.getSettledTxReceipt(txHash, l1Constants);
   }
 
   /**
@@ -472,10 +465,11 @@ export class KVArchiverDataStore implements ContractDataSource {
    * array implies no logs match that tag.
    * @param tags - The tags to search for.
    * @param page - The page number (0-indexed) for pagination. Returns at most 10 logs per tag per page.
+   * @param upToBlockNumber - If set, only return logs from blocks up to and including this block number.
    */
-  getPrivateLogsByTags(tags: SiloedTag[], page?: number): Promise<TxScopedL2Log[][]> {
+  getPrivateLogsByTags(tags: SiloedTag[], page?: number, upToBlockNumber?: BlockNumber): Promise<TxScopedL2Log[][]> {
     try {
-      return this.#logStore.getPrivateLogsByTags(tags, page);
+      return this.#logStore.getPrivateLogsByTags(tags, page, upToBlockNumber);
     } catch (err) {
       return Promise.reject(err);
     }
@@ -487,14 +481,16 @@ export class KVArchiverDataStore implements ContractDataSource {
    * @param contractAddress - The contract address to search logs for.
    * @param tags - The tags to search for.
    * @param page - The page number (0-indexed) for pagination. Returns at most 10 logs per tag per page.
+   * @param upToBlockNumber - If set, only return logs from blocks up to and including this block number.
    */
   getPublicLogsByTagsFromContract(
     contractAddress: AztecAddress,
     tags: Tag[],
     page?: number,
+    upToBlockNumber?: BlockNumber,
   ): Promise<TxScopedL2Log[][]> {
     try {
-      return this.#logStore.getPublicLogsByTagsFromContract(contractAddress, tags, page);
+      return this.#logStore.getPublicLogsByTagsFromContract(contractAddress, tags, page, upToBlockNumber);
     } catch (err) {
       return Promise.reject(err);
     }
@@ -542,15 +538,24 @@ export class KVArchiverDataStore implements ContractDataSource {
     await this.#blockStore.setProvenCheckpointNumber(checkpointNumber);
   }
 
-  async setBlockSynchedL1BlockNumber(l1BlockNumber: bigint) {
-    await this.#blockStore.setSynchedL1BlockNumber(l1BlockNumber);
+  /**
+   * Gets the number of the latest finalized checkpoint processed.
+   * @returns The number of the latest finalized checkpoint processed.
+   */
+  getFinalizedCheckpointNumber(): Promise<CheckpointNumber> {
+    return this.#blockStore.getFinalizedCheckpointNumber();
   }
 
   /**
-   * Stores the l1 block that messages have been synched until
+   * Stores the number of the latest finalized checkpoint processed.
+   * @param checkpointNumber - The number of the latest finalized checkpoint processed.
    */
-  async setMessageSynchedL1Block(l1Block: L1BlockId) {
-    await this.#messageStore.setSynchedL1Block(l1Block);
+  async setFinalizedCheckpointNumber(checkpointNumber: CheckpointNumber) {
+    await this.#blockStore.setFinalizedCheckpointNumber(checkpointNumber);
+  }
+
+  async setBlockSynchedL1BlockNumber(l1BlockNumber: bigint) {
+    await this.#blockStore.setSynchedL1BlockNumber(l1BlockNumber);
   }
 
   /**
@@ -585,6 +590,11 @@ export class KVArchiverDataStore implements ContractDataSource {
     return this.#messageStore.rollbackL1ToL2MessagesToCheckpoint(targetCheckpointNumber);
   }
 
+  /** Atomically updates the message sync state: the L1 sync point and the inbox tree-in-progress marker. */
+  public setMessageSyncState(l1Block: L1BlockId, treeInProgress: bigint | undefined): Promise<void> {
+    return this.#messageStore.setMessageSyncState(l1Block, treeInProgress);
+  }
+
   /** Returns an async iterator to all L1 to L2 messages on the range. */
   public iterateL1ToL2Messages(range: CustomRange<bigint> = {}): AsyncIterableIterator<InboxMessage> {
     return this.#messageStore.iterateL1ToL2Messages(range);
@@ -603,6 +613,38 @@ export class KVArchiverDataStore implements ContractDataSource {
   /** Sets the last synced validation status of the pending chain. */
   public setPendingChainValidationStatus(status: ValidateCheckpointResult | undefined): Promise<void> {
     return this.#blockStore.setPendingChainValidationStatus(status);
+  }
+
+  /**
+   * Gets the L2 block number of the proposed checkpoint.
+   * @returns The block number of the proposed checkpoint, or the checkpointed block number if none.
+   */
+  public getProposedCheckpointL2BlockNumber(): Promise<BlockNumber> {
+    return this.#blockStore.getProposedCheckpointL2BlockNumber();
+  }
+
+  /** Returns the checkpoint data at the proposed tip */
+  public getProposedCheckpoint(): Promise<CommonCheckpointData | undefined> {
+    return this.#blockStore.getProposedCheckpoint();
+  }
+
+  /** Returns the proposed checkpoint data, or undefined if no proposed checkpoint exists. No fallback to confirmed. */
+  public getProposedCheckpointOnly(): Promise<ProposedCheckpointData | undefined> {
+    return this.#blockStore.getProposedCheckpointOnly();
+  }
+
+  /**
+   * Set proposed checkpoint
+   * @param proposedCheckpoint
+   * @returns
+   */
+  public setProposedCheckpoint(proposedCheckpoint: ProposedCheckpointInput): Promise<void> {
+    return this.#blockStore.setProposedCheckpoint(proposedCheckpoint);
+  }
+
+  /** Deletes the proposed checkpoint from storage. */
+  public deleteProposedCheckpoint(): Promise<void> {
+    return this.#blockStore.deleteProposedCheckpoint();
   }
 
   /**

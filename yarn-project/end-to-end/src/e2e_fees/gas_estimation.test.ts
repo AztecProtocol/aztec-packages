@@ -1,19 +1,20 @@
 import type { AztecAddress } from '@aztec/aztec.js/addresses';
-import type { DeployTxReceipt } from '@aztec/aztec.js/contracts';
 import { type FeePaymentMethod, PublicFeePaymentMethod } from '@aztec/aztec.js/fee';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import type { Wallet } from '@aztec/aztec.js/wallet';
+import type { Logger } from '@aztec/foundation/log';
+import type { FPCContract } from '@aztec/noir-contracts.js/FPC';
+import { TokenContract as BananaCoin } from '@aztec/noir-contracts.js/Token';
+import { type Sequencer, type SequencerEvents, SequencerState } from '@aztec/sequencer-client';
 import {
   GAS_ESTIMATION_DA_GAS_LIMIT,
   GAS_ESTIMATION_L2_GAS_LIMIT,
   GAS_ESTIMATION_TEARDOWN_DA_GAS_LIMIT,
   GAS_ESTIMATION_TEARDOWN_L2_GAS_LIMIT,
-} from '@aztec/constants';
-import type { Logger } from '@aztec/foundation/log';
-import type { FPCContract } from '@aztec/noir-contracts.js/FPC';
-import { TokenContract as BananaCoin } from '@aztec/noir-contracts.js/Token';
-import { type Sequencer, type SequencerEvents, SequencerState } from '@aztec/sequencer-client';
-import { Gas, GasFees, GasSettings } from '@aztec/stdlib/gas';
+  Gas,
+  GasFees,
+  GasSettings,
+} from '@aztec/stdlib/gas';
 
 import { inspect } from 'util';
 
@@ -88,9 +89,13 @@ describe('e2e_fees gas_estimation', () => {
     paymentMethod?: FeePaymentMethod,
   ) =>
     Promise.all(
-      [GasSettings.from({ ...gasSettings, ...limits }), gasSettings].map(gasSettings =>
-        makeTransferRequest().send({ from: aliceAddress, fee: { gasSettings, paymentMethod } }),
-      ),
+      [GasSettings.from({ ...gasSettings, ...limits }), gasSettings].map(async gasSettings => {
+        const { receipt } = await makeTransferRequest().send({
+          from: aliceAddress,
+          fee: { gasSettings, paymentMethod },
+        });
+        return receipt;
+      }),
     );
 
   const logGasEstimate = (estimatedGas: Pick<GasSettings, 'gasLimits' | 'teardownGasLimits'>) =>
@@ -100,10 +105,11 @@ describe('e2e_fees gas_estimation', () => {
     });
 
   it('estimates gas with Fee Juice payment method', async () => {
-    const { estimatedGas } = await makeTransferRequest().simulate({
+    const sim = await makeTransferRequest().simulate({
       from: aliceAddress,
       fee: { gasSettings, estimateGas: true, estimatedGasPadding: 0 },
     });
+    const estimatedGas = sim.estimatedGas!;
     logGasEstimate(estimatedGas);
 
     const sequencer = t.context.sequencer!.getSequencer();
@@ -143,10 +149,11 @@ describe('e2e_fees gas_estimation', () => {
     );
     const paymentMethod = new PublicFeePaymentMethod(bananaFPC.address, aliceAddress, wallet, gasSettingsForEstimation);
 
-    const { estimatedGas } = await makeTransferRequest().simulate({
+    const sim2 = await makeTransferRequest().simulate({
       from: aliceAddress,
       fee: { paymentMethod, estimatedGasPadding: 0, estimateGas: true },
     });
+    const estimatedGas = sim2.estimatedGas!;
     logGasEstimate(estimatedGas);
 
     const [withEstimate, withoutEstimate] = await sendTransfers(estimatedGas, paymentMethod);
@@ -180,11 +187,10 @@ describe('e2e_fees gas_estimation', () => {
         from: aliceAddress,
         fee: { gasSettings: limits ? { ...gasSettings, ...limits } : gasSettings },
         skipClassPublication: true,
-        wait: { returnReceipt: true },
       };
     };
 
-    const { estimatedGas } = await deployMethod().simulate({
+    const sim3 = await deployMethod().simulate({
       from: aliceAddress,
       skipClassPublication: true,
       fee: {
@@ -192,12 +198,13 @@ describe('e2e_fees gas_estimation', () => {
         estimatedGasPadding: 0,
       },
     });
+    const estimatedGas = sim3.estimatedGas!;
     logGasEstimate(estimatedGas);
 
-    const [withEstimate, withoutEstimate] = (await Promise.all([
+    const [{ receipt: withEstimate }, { receipt: withoutEstimate }] = await Promise.all([
       deployMethod().send(deployOpts(estimatedGas)),
       deployMethod().send(deployOpts()),
-    ])) as unknown as DeployTxReceipt[];
+    ]);
 
     // Estimation should yield that teardown has no cost, so should send the tx with zero for teardown
     expect(withEstimate.transactionFee!).toEqual(withoutEstimate.transactionFee!);

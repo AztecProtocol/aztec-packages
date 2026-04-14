@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# Close stderr to prevent holding inherited pipeline FDs open (see cache_log).
+exec 2>/dev/null
 while IFS= read -r line; do
   printf '%(%H:%M:%S)T %s\n' -1 "$line"
 done

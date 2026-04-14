@@ -52,6 +52,8 @@ type BBExecResult = {
   signal: string | undefined;
 };
 
+export const DEFAULT_BB_VERIFY_CONCURRENCY = 4;
+
 /**
  * Invokes the Barretenberg binary with the provided command and args
  * @param pathToBB - The path to the BB binary
@@ -398,7 +400,14 @@ export async function verifyProof(
     '--disable_zk',
     ...getArgs(ultraHonkFlavor),
   ];
-  return await verifyProofInternal(pathToBB, `verify`, args, logger);
+
+  let concurrency = DEFAULT_BB_VERIFY_CONCURRENCY;
+
+  if (process.env.VERIFY_HARDWARE_CONCURRENCY) {
+    concurrency = parseInt(process.env.VERIFY_HARDWARE_CONCURRENCY, 10);
+  }
+
+  return await verifyProofInternal(pathToBB, `verify`, args, logger, concurrency);
 }
 
 export async function verifyAvmProof(

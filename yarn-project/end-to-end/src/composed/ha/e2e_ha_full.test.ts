@@ -5,7 +5,9 @@
  * and Web3Signer for remote signing. Verifies that blocks are produced,
  * attestations are signed, and no double-signing occurs.
  */
+import type { InitialAccountData } from '@aztec/accounts/testing';
 import { type AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
+import { NO_FROM } from '@aztec/aztec.js/account';
 import { AztecAddress, EthAddress } from '@aztec/aztec.js/addresses';
 import { waitForProven } from '@aztec/aztec.js/contracts';
 import { ContractDeployer } from '@aztec/aztec.js/deployment';
@@ -14,19 +16,25 @@ import type { Logger } from '@aztec/aztec.js/log';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import { GovernanceProposerContract } from '@aztec/ethereum/contracts';
 import type { DeployAztecL1ContractsReturnType } from '@aztec/ethereum/deploy-aztec-l1-contracts';
-import { BlockNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { SecretValue } from '@aztec/foundation/config';
 import { withLoggerBindings } from '@aztec/foundation/log/server';
 import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 import type { TestDateProvider } from '@aztec/foundation/timer';
+import { GovernanceProposerAbi } from '@aztec/l1-artifacts/GovernanceProposerAbi';
 import { StatefulTestContractArtifact } from '@aztec/noir-test-contracts.js/StatefulTest';
 import { type AttestationInfo, getAttestationInfoFromPublishedCheckpoint } from '@aztec/stdlib/block';
+import type { GenesisData } from '@aztec/stdlib/world-state';
+import type { ValidatorClient } from '@aztec/validator-client';
 import { PostgresSlashingProtectionDatabase } from '@aztec/validator-ha-signer/db';
 import { type DutyRow, DutyStatus, DutyType } from '@aztec/validator-ha-signer/types';
 
 import { jest } from '@jest/globals';
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { Pool } from 'pg';
 
 import {
@@ -61,13 +69,14 @@ describe('HA Full Setup', () => {
   let aztecNode: AztecNode;
   let config: AztecNodeConfig;
   let teardown: () => Promise<void>;
-  let initialFundedAccounts: any[];
-  let dateProvider: TestDateProvider | undefined;
-  let prefilledPublicData: any[] | undefined;
+  let initialFundedAccounts: InitialAccountData[];
+  let dateProvider: TestDateProvider;
+  let genesis: GenesisData | undefined;
 
   // HA specific resources
   let haNodePools: Pool[]; // Database pools for HA nodes (for cleanup)
   let haNodeServices: AztecNodeService[]; // All N HA peer nodes
+  let haKeystoreDirs: string[];
   let mainPool: Pool;
   let databaseConfig: HADatabaseConfig;
   let attesterPrivateKeys: `0x${string}`[];
@@ -77,6 +86,8 @@ describe('HA Full Setup', () => {
   let web3SignerUrl: string;
   let deployL1ContractsValues: DeployAztecL1ContractsReturnType;
   let governanceProposer: GovernanceProposerContract;
+  /** Per-node initial keystore JSON (all 4 attesters, node's own publisher) for restore after reload test */
+  let initialKeystoreJsons: string[];
 
   beforeAll(async () => {
     // Check required environment variables
@@ -132,7 +143,7 @@ describe('HA Full Setup', () => {
       initialFundedAccounts,
       dateProvider,
       deployL1ContractsValues,
-      prefilledPublicData,
+      genesis,
     } = await setup(1, {
       initialValidators,
       sequencerPublisherPrivateKeys: [new SecretValue(publisherPrivateKeys[0])],
@@ -149,10 +160,14 @@ describe('HA Full Setup', () => {
       // Enable P2P for transaction gossip
       p2pEnabled: true,
       // Enable slashing for testing governance + slashing vote coordination
-      slasherFlavor: 'tally',
+      slasherEnabled: true,
       slashingRoundSizeInEpochs: 1, // 32 slots (1 epoch)
       slashingQuorum: 17, // >50% of 32 slots for tally quorum,
     }));
+
+    if (!dateProvider) {
+      throw new Error('dateProvider must be provided by setup for HA tests');
+    }
 
     logger.info(`Bootstrap node setup complete (validation disabled)`);
 
@@ -171,17 +186,42 @@ describe('HA Full Setup', () => {
     logger.info('L1 contract wrappers initialized');
 
     haNodeServices = [];
+    haKeystoreDirs = [];
     logger.info(`Starting ${NODE_COUNT} HA peer nodes...`);
+
+    // Per-node keystore: all attesters but only this node's publisher to avoid nonce conflicts.
+    // When keyStoreDirectory is set the node loads validators/publishers from file only, so we omit them from config.
+    initialKeystoreJsons = [];
 
     for (let i = 0; i < NODE_COUNT; i++) {
       const nodeId = `${databaseConfig.nodeId}-${i + 1}`;
       logger.info(`Starting HA peer node ${i} with nodeId: ${nodeId}`);
+
+      const keystoreContent = {
+        schemaVersion: 1,
+        validators: [
+          {
+            attester: attesterAddresses,
+            feeRecipient: AztecAddress.ZERO.toString(),
+            coinbase: EthAddress.fromString(attesterAddresses[0]).toChecksumString(),
+            remoteSigner: web3SignerUrl,
+            publisher: [publisherAddresses[i]],
+          },
+        ],
+      };
+      const keystoreJson = JSON.stringify(keystoreContent, null, 2);
+      initialKeystoreJsons.push(keystoreJson);
+
+      const keystoreDir = await mkdtemp(join(tmpdir(), `ha-keystore-${i}-`));
+      haKeystoreDirs.push(keystoreDir);
+      await writeFile(join(keystoreDir, 'keystore.json'), keystoreJson);
 
       const dataDirectory = config.dataDirectory ? `${config.dataDirectory}-${i}` : undefined;
 
       const nodeConfig: AztecNodeConfig = {
         ...config,
         nodeId,
+        keyStoreDirectory: keystoreDir,
         // Ensure txs are included in proposals to test full signing path
         publishTxsWithProposals: true,
         dataDirectory,
@@ -197,15 +237,10 @@ describe('HA Full Setup', () => {
         // Connect to bootstrap node for tx gossip
         bootstrapNodes: [bootstrapNodeEnr],
         web3SignerUrl,
-        validatorAddresses: attesterAddresses.map(addr => EthAddress.fromString(addr)),
-        sequencerPublisherAddresses: publisherAddresses.map(addr => EthAddress.fromString(addr)),
-        validatorPrivateKeys: new SecretValue(attesterPrivateKeys),
-        // Each node has a unique publisher key
-        sequencerPublisherPrivateKeys: [new SecretValue(publisherPrivateKeys[i])],
       };
 
       const nodeService = await withLoggerBindings({ actor: `HA-${i}` }, async () => {
-        return await AztecNodeService.createAndSync(nodeConfig, { dateProvider }, { prefilledPublicData });
+        return await AztecNodeService.createAndSync(nodeConfig, { dateProvider }, { genesis });
       });
 
       haNodeServices.push(nodeService);
@@ -223,7 +258,7 @@ describe('HA Full Setup', () => {
       accountData.signingKey,
     );
     const deployMethod = await accountManager.getDeployMethod();
-    await deployMethod.send({ from: AztecAddress.ZERO });
+    await deployMethod.send({ from: NO_FROM });
     ownerAddress = accountManager.address;
     logger.info(`Test account deployed at ${ownerAddress}`);
   });
@@ -237,6 +272,17 @@ describe('HA Full Setup', () => {
           await haNodeServices[i].stop();
         } catch (error) {
           logger.error(`Failed to stop HA peer node ${i}: ${error}`);
+        }
+      }
+    }
+
+    // Cleanup HA keystore temp directories
+    if (haKeystoreDirs) {
+      for (let i = 0; i < haKeystoreDirs.length; i++) {
+        try {
+          await rm(haKeystoreDirs[i], { recursive: true });
+        } catch (error) {
+          logger.error(`Failed to remove HA keystore dir ${i}: ${error}`);
         }
       }
     }
@@ -279,12 +325,9 @@ describe('HA Full Setup', () => {
     const sender = ownerAddress;
 
     logger.info(`Deploying contract from ${sender}`);
-    const receipt = await deployer.deploy(ownerAddress, sender, 1).send({
+    const { receipt } = await deployer.deploy(ownerAddress, sender, 1).send({
       from: ownerAddress,
       contractAddressSalt: new Fr(BigInt(1)),
-      skipClassPublication: true,
-      skipInstancePublication: true,
-      wait: { returnReceipt: true },
     });
 
     await waitForProven(aztecNode, receipt, {
@@ -341,9 +384,13 @@ describe('HA Full Setup', () => {
     logger.info(`Found ${checkpointProposalDuties.length} checkpoint proposal duty`);
 
     // Check attestation duties
+    // All validators attest (tracked in DB), but the checkpoint posted to L1 is trimmed to quorum.
     const attestationDuties = allDuties.filter(d => d.dutyType === 'ATTESTATION');
-    expect(attestationDuties.length).toBe(attestations.length);
-    logger.info(`Found ${attestationDuties.length} attestation duties`);
+    expect(attestationDuties.length).toBe(VALIDATOR_COUNT);
+    expect(attestations.length).toBe(quorum);
+    logger.info(
+      `Found ${attestationDuties.length} attestation duties, ${attestations.length} in checkpoint (quorum: ${quorum})`,
+    );
 
     // Verify no duplicate attestations per validator (HA protection ensures 1 per validator address)
     const dutiesByValidator = verifyNoDuplicateAttestations(attestationDuties, logger);
@@ -361,8 +408,8 @@ describe('HA Full Setup', () => {
     const p2pAttestations = await p2p.getCheckpointAttestationsForSlot(slot);
     const p2pAttestationsWithSignatures = p2pAttestations.filter(a => !a.signature.isEmpty());
 
-    // Extract validator addresses from P2P attestations using getSender()
-    expect(p2pAttestationsWithSignatures.length).toBe(attestations.length);
+    // P2P pool has attestations from all committee members; checkpoint on L1 is trimmed to quorum
+    expect(p2pAttestationsWithSignatures.length).toBe(COMMITTEE_SIZE);
     const p2pValidatorAddresses = new Map<string, number>();
     for (const attestation of p2pAttestationsWithSignatures) {
       const sender = attestation.getSender();
@@ -396,10 +443,9 @@ describe('HA Full Setup', () => {
     // Send a transaction to trigger block building which will also trigger voting
     logger.info('Sending transaction to trigger block building...');
     const deployer = new ContractDeployer(StatefulTestContractArtifact, wallet);
-    const receipt = await deployer.deploy(ownerAddress, ownerAddress, 42).send({
+    const { receipt } = await deployer.deploy(ownerAddress, ownerAddress, 42).send({
       from: ownerAddress,
       contractAddressSalt: Fr.random(),
-      wait: { returnReceipt: true },
     });
     expect(receipt.blockNumber).toBeDefined();
     logger.info(`Transaction mined in block ${receipt.blockNumber}`);
@@ -416,65 +462,69 @@ describe('HA Full Setup', () => {
     const round = await governanceProposer.computeRound(blockSlot);
     logger.info(`Block slot ${blockSlot}, governance round ${round}`);
 
-    // Poll L1 until at least one governance vote appears
-    logger.info('Polling L1 for governance votes...');
-    await retryUntil(
+    // Poll until L1 vote count converges with the DB duties.
+    // The DB records a duty as "signed" when the crypto signature is produced, but before the L1 tx mines.
+    // We need to wait for all in-flight L1 txs to land before comparing.
+    logger.info('Polling L1 for governance votes and waiting for DB convergence...');
+    const rollupAddr = deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString() as `0x${string}`;
+    const govProposerAddr =
+      deployL1ContractsValues.l1ContractAddresses.governanceProposerAddress.toString() as `0x${string}`;
+
+    const { l1VoteCount, governanceVoteDuties } = await retryUntil(
       async () => {
-        const voteCount = Number(
-          await governanceProposer.getPayloadSignals(
-            deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString(),
-            round,
-            mockGovernancePayload.toString(),
-          ),
+        const snapshotBlock = await deployL1ContractsValues.l1Client.getBlockNumber();
+        const [roundData, l1VoteCountBig] = await Promise.all([
+          deployL1ContractsValues.l1Client.readContract({
+            address: govProposerAddr,
+            abi: GovernanceProposerAbi,
+            functionName: 'getRoundData',
+            args: [rollupAddr, round],
+            blockNumber: snapshotBlock,
+          }),
+          deployL1ContractsValues.l1Client.readContract({
+            address: govProposerAddr,
+            abi: GovernanceProposerAbi,
+            functionName: 'signalCount',
+            args: [rollupAddr, round, mockGovernancePayload.toString() as `0x${string}`],
+            blockNumber: snapshotBlock,
+          }),
+        ]);
+        const lastSignalSlot = Number(roundData.lastSignalSlot);
+        const l1VoteCount = Number(l1VoteCountBig);
+        if (l1VoteCount === 0) {
+          return undefined;
+        }
+
+        const dbResult = await mainPool.query<DutyRow>(
+          `SELECT * FROM validator_duties WHERE slot::numeric <= $1 AND duty_type = 'GOVERNANCE_VOTE' ORDER BY slot, started_at`,
+          [lastSignalSlot.toString()],
         );
-        return voteCount > 0 ? voteCount : undefined;
+        const governanceVoteDuties = dbResult.rows;
+        const uniqueSlots = new Set(governanceVoteDuties.map(row => row.slot));
+
+        logger.info(
+          `L1 round ${round}: lastSignalSlot=${lastSignalSlot}, l1VoteCount=${l1VoteCount}, ` +
+            `DB duties=${governanceVoteDuties.length}, uniqueSlots=${uniqueSlots.size} ` +
+            `(snapshot at L1 block ${snapshotBlock})`,
+        );
+
+        if (l1VoteCount < uniqueSlots.size) {
+          return undefined;
+        }
+        return { l1VoteCount, governanceVoteDuties };
       },
-      'governance votes to appear on L1',
-      6, // timeout in seconds (30 attempts * 200ms)
-      0.2, // interval in seconds (200ms)
+      'L1 vote count to match DB duties',
+      10,
+      0.2,
     );
 
-    // Get L1 round info to determine which slots have actually landed on L1.
-    // We anchor the comparison on L1's lastSignalSlot since:
-    // - The DB may have duties for future slots that haven't been published to L1 yet
-    // - L1 may have signals from earlier slots in the round before the governance payload was set in the DB
-    const roundInfo = await governanceProposer.getRoundInfo(
-      deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString(),
-      round,
-    );
-    const lastSignalSlot = Number(roundInfo.lastSignalSlot);
-
-    // Re-query L1 vote count after getting lastSignalSlot in case more votes landed between the poll and getRoundInfo:
-    // the retryUntil may return a stale count if more votes land between the poll and getRoundInfo
-    const l1VoteCount = Number(
-      await governanceProposer.getPayloadSignals(
-        deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString(),
-        round,
-        mockGovernancePayload.toString(),
-      ),
-    );
     expect(l1VoteCount).toBeGreaterThan(0);
-    logger.info(
-      `L1 round ${round} info: lastSignalSlot=${lastSignalSlot}, l1VoteCount=${l1VoteCount}, payloadWithMostSignals=${roundInfo.payloadWithMostSignals}`,
-    );
-
-    // Query governance vote duties only for slots that have actually landed on L1 (up to lastSignalSlot)
-    const dbResult = await mainPool.query<DutyRow>(
-      `SELECT * FROM validator_duties WHERE slot::numeric <= $1 AND duty_type = 'GOVERNANCE_VOTE' ORDER BY slot, started_at`,
-      [lastSignalSlot.toString()],
-    );
-    const governanceVoteDuties = dbResult.rows;
-    logger.info(
-      `HA database shows ${governanceVoteDuties.length} governance vote duty(ies) up to slot ${lastSignalSlot}`,
-    );
 
     if (governanceVoteDuties.length > 0) {
-      // Verify HA coordination: Only one duty per (slot, validator) should exist
       const dutyKeys = governanceVoteDuties.map(row => `${row.slot}-${row.validator_address}`);
       const uniqueDutyKeys = new Set(dutyKeys);
-      expect(uniqueDutyKeys.size).toBe(governanceVoteDuties.length); // No duplicate (slot, validator) pairs
+      expect(uniqueDutyKeys.size).toBe(governanceVoteDuties.length);
 
-      // All duties should be completed
       for (const duty of governanceVoteDuties) {
         logger.info(
           `  Governance vote duty: slot ${duty.slot}, validator ${duty.validator_address}, node ${duty.node_id}, status ${duty.status}`,
@@ -483,16 +533,90 @@ describe('HA Full Setup', () => {
         expect(duty.completed_at).toBeDefined();
       }
 
-      // L1 votes should match the number of unique slots in the DB that have landed on L1
       const uniqueSlots = new Set(governanceVoteDuties.map(row => row.slot));
       logger.info(
-        `L1 vote count: ${l1VoteCount}, unique slots in DB with governance votes up to L1 lastSignalSlot: ${uniqueSlots.size} (slots: ${[...uniqueSlots].join(', ')})`,
+        `L1 vote count: ${l1VoteCount}, unique slots in DB with governance votes: ${uniqueSlots.size} (slots: ${[...uniqueSlots].join(', ')})`,
       );
       expect(l1VoteCount).toBe(uniqueSlots.size);
       logger.info(`Verified L1 votes (${l1VoteCount}) === unique slots with votes (${uniqueSlots.size})`);
     }
 
     logger.info('Governance voting with HA coordination and L1 verification complete');
+  });
+
+  it('should reload keystore via admin API and keep building blocks after swapping attesters', async () => {
+    logger.info('Testing reloadKeystore: swap all attesters across HA nodes');
+
+    const groupA = attesterAddresses.slice(0, 2);
+    const groupB = attesterAddresses.slice(2, 4);
+
+    const writeKeystoreForNode = async (nodeIdx: number, attesters: string[]) => {
+      const ks = {
+        schemaVersion: 1,
+        validators: [
+          {
+            attester: attesters,
+            feeRecipient: AztecAddress.ZERO.toString(),
+            coinbase: EthAddress.fromString(attesters[0]).toChecksumString(),
+            remoteSigner: web3SignerUrl,
+            publisher: [publisherAddresses[nodeIdx]],
+          },
+        ],
+      };
+      await writeFile(join(haKeystoreDirs[nodeIdx], 'keystore.json'), JSON.stringify(ks, null, 2));
+    };
+
+    const verifyNodeAttesters = (nodeIdx: number, expectedAttesters: string[], label: string) => {
+      const vc: ValidatorClient = (haNodeServices[nodeIdx] as any).validatorClient;
+      const addrs = vc.getValidatorAddresses();
+      expect(addrs).toHaveLength(expectedAttesters.length);
+      for (const expected of expectedAttesters) {
+        expect(addrs.some(a => a.equals(EthAddress.fromString(expected)))).toBe(true);
+      }
+      logger.info(`Node ${nodeIdx}: ${addrs.length} attesters (${label})`);
+    };
+
+    const quorum = Math.floor((COMMITTEE_SIZE * 2) / 3) + 1;
+
+    try {
+      // Phase 1: Nodes 0,1,2 get attesters [A0,A1], nodes 3,4 get [A2,A3]
+      logger.info('Phase 1: Initial attester split');
+      for (let i = 0; i < NODE_COUNT; i++) {
+        await writeKeystoreForNode(i, i < 3 ? groupA : groupB);
+        await haNodeServices[i].reloadKeystore();
+      }
+      for (let i = 0; i < NODE_COUNT; i++) {
+        verifyNodeAttesters(i, i < 3 ? groupA : groupB, i < 3 ? 'group A' : 'group B');
+      }
+
+      // Phase 2: Swap — nodes 0,1,2 get [A2,A3], nodes 3,4 get [A0,A1]
+      logger.info('Phase 2: Swapping all attesters');
+      for (let i = 0; i < NODE_COUNT; i++) {
+        await writeKeystoreForNode(i, i < 3 ? groupB : groupA);
+        await haNodeServices[i].reloadKeystore();
+      }
+      for (let i = 0; i < NODE_COUNT; i++) {
+        verifyNodeAttesters(i, i < 3 ? groupB : groupA, i < 3 ? 'group B (swapped)' : 'group A (swapped)');
+      }
+
+      const deployer = new ContractDeployer(StatefulTestContractArtifact, wallet);
+      const receipt = await deployer.deploy(ownerAddress, ownerAddress, 201).send({
+        from: ownerAddress,
+        contractAddressSalt: new Fr(201),
+      });
+      expect(receipt.receipt.blockNumber).toBeDefined();
+      const [block] = await aztecNode.getCheckpointedBlocks(receipt.receipt.blockNumber!, 1);
+      const [cp] = await aztecNode.getCheckpoints(block!.checkpointNumber, 1);
+      const att = cp.attestations.filter(a => !a.signature.isEmpty());
+      expect(att.length).toBeGreaterThanOrEqual(quorum);
+      logger.info(`Phase 2: block ${receipt.receipt.blockNumber}, ${att.length} attestations (quorum ${quorum})`);
+    } finally {
+      // Restore each node's saved initial keystore so subsequent tests see original state
+      for (let i = 0; i < NODE_COUNT; i++) {
+        await writeFile(join(haKeystoreDirs[i], 'keystore.json'), initialKeystoreJsons[i]);
+        await haNodeServices[i].reloadKeystore();
+      }
+    }
   });
 
   // NOTE: this test needs to run last
@@ -518,12 +642,9 @@ describe('HA Full Setup', () => {
       logger.info(`Active nodes: ${haNodeServices.length - killedNodes.length}/${NODE_COUNT}`);
 
       const deployer = new ContractDeployer(StatefulTestContractArtifact, wallet);
-      const receipt = await deployer.deploy(ownerAddress, ownerAddress, i + 100).send({
+      const { receipt } = await deployer.deploy(ownerAddress, ownerAddress, i + 100).send({
         from: ownerAddress,
         contractAddressSalt: new Fr(BigInt(i + 100)),
-        skipClassPublication: true,
-        skipInstancePublication: true,
-        wait: { returnReceipt: true },
       });
 
       expect(receipt.blockNumber).toBeDefined();
@@ -668,13 +789,14 @@ describe('HA Full Setup', () => {
         (info: AttestationInfo) => info.status === 'recovered-from-signature' && info.address !== undefined,
       );
 
-      // Verify checkpoint has at least quorum attestations
+      // Verify checkpoint has exactly quorum attestations (trimmed to minimum required)
       const checkpointValidatorAddresses = new Set<string>(validAttestations.map(info => info.address!.toString()));
-      expect(checkpointValidatorAddresses.size).toBeGreaterThanOrEqual(quorum);
+      expect(checkpointValidatorAddresses.size).toBe(quorum);
 
-      // Verify checkpoint attestations match database records (each validator in DB should appear in checkpoint)
-      for (const validatorAddress of dutiesByValidator.keys()) {
-        expect(checkpointValidatorAddresses.has(validatorAddress)).toBe(true);
+      // Verify every validator in the checkpoint has a corresponding DB duty record
+      // (checkpoint is trimmed to quorum, so it's a subset of DB records)
+      for (const validatorAddress of checkpointValidatorAddresses) {
+        expect(dutiesByValidator.has(validatorAddress)).toBe(true);
       }
     }
   });
@@ -693,7 +815,8 @@ describe('HA Full Setup', () => {
           rollupAddress,
           validatorAddress,
           slot: SlotNumber(100),
-          blockNumber: BlockNumber(100),
+          blockNumber: BlockNumber(0),
+          checkpointNumber: CheckpointNumber(0),
           dutyType: DutyType.ATTESTATION,
           messageHash: Buffer32.random().toString(),
           nodeId: 'node-utc',
@@ -709,6 +832,7 @@ describe('HA Full Setup', () => {
           -1,
         );
 
+        // Wait for real database time to pass (duties need different timestamps in PostgreSQL)
         await sleep(100);
 
         // Node 2 in Tokyo creates and signs a duty at approximately the same time
@@ -717,7 +841,8 @@ describe('HA Full Setup', () => {
           rollupAddress,
           validatorAddress,
           slot: SlotNumber(101),
-          blockNumber: BlockNumber(101),
+          blockNumber: BlockNumber(0),
+          checkpointNumber: CheckpointNumber(0),
           dutyType: DutyType.ATTESTATION,
           messageHash: Buffer32.random().toString(),
           nodeId: 'node-tokyo',
@@ -763,7 +888,8 @@ describe('HA Full Setup', () => {
         rollupAddress,
         validatorAddress,
         slot: SlotNumber(200),
-        blockNumber: BlockNumber(200),
+        blockNumber: BlockNumber(0),
+        checkpointNumber: CheckpointNumber(0),
         dutyType: DutyType.ATTESTATION,
         messageHash: Buffer32.random().toString(),
         nodeId: 'test-node',
@@ -788,15 +914,22 @@ describe('HA Full Setup', () => {
       expect(beforeCleanup.rows.length).toBe(1);
       expect(beforeCleanup.rows[0].status).toBe('signed');
 
-      // Simulate node with clock 2 hours ahead
-      const realNow = Date.now;
-      jest.spyOn(Date, 'now').mockImplementation(() => realNow() + 2 * 60 * 60 * 1000);
+      // Simulate node with clock 2 hours ahead using dateProvider
+      // NOTE: Database cleanup uses PostgreSQL's CURRENT_TIMESTAMP, not application time
+      // This test verifies that even if the application clock is skewed, cleanup
+      // correctly uses database time to determine duty age
+      dateProvider.setTime(Date.now() + 2 * 60 * 60 * 1000); // 2 hours ahead
 
-      // Use our actual cleanupOldDuties method
-      const numCleaned = await spDb.cleanupOldDuties(60 * 60 * 1000); // 1 hour
+      try {
+        // Use our actual cleanupOldDuties method
+        const numCleaned = await spDb.cleanupOldDuties(60 * 60 * 1000); // 1 hour
 
-      // Should NOT delete the duty we just created (it uses DB's clock, not node's)
-      expect(numCleaned).toBe(0);
+        // Should NOT delete the duty we just created (it uses DB's clock, not node's)
+        expect(numCleaned).toBe(0);
+      } finally {
+        // Reset dateProvider back to real time
+        dateProvider.reset();
+      }
 
       // Verify duty still exists
       const result = await mainPool.query<DutyRow>(
@@ -817,7 +950,8 @@ describe('HA Full Setup', () => {
         rollupAddress,
         validatorAddress,
         slot: SlotNumber(300),
-        blockNumber: BlockNumber(300),
+        blockNumber: BlockNumber(0),
+        checkpointNumber: CheckpointNumber(0),
         dutyType: DutyType.ATTESTATION,
         messageHash: Buffer32.random().toString(),
         nodeId: 'test-node',
@@ -854,13 +988,17 @@ describe('HA Full Setup', () => {
       expect(beforeCleanup.rows[0].status).toBe('signed');
       expect(parseFloat(beforeCleanup.rows[0].age_seconds)).toBeGreaterThan(7000); // ~2 hours in seconds
 
-      // Simulate node with clock 1 hour behind
-      const realNow = Date.now;
-      jest.spyOn(Date, 'now').mockImplementation(() => realNow() - 1 * 60 * 60 * 1000);
+      // Simulate node with clock 1 hour behind using
+      dateProvider.setTime(Date.now() - 1 * 60 * 60 * 1000); // 1 hour behind
 
-      // Use our actual cleanupOldDuties method - should delete based on DB time
-      const numCleaned = await spDb.cleanupOldDuties(60 * 60 * 1000); // 1 hour
-      expect(numCleaned).toBeGreaterThanOrEqual(1);
+      try {
+        // Use our actual cleanupOldDuties method - should delete based on DB time
+        const numCleaned = await spDb.cleanupOldDuties(60 * 60 * 1000); // 1 hour
+        expect(numCleaned).toBeGreaterThanOrEqual(1);
+      } finally {
+        // Reset dateProvider back to real time
+        dateProvider.reset();
+      }
 
       // Verify duty was deleted
       const result = await mainPool.query<DutyRow>(
@@ -878,7 +1016,8 @@ describe('HA Full Setup', () => {
         rollupAddress,
         validatorAddress,
         slot: SlotNumber(400),
-        blockNumber: BlockNumber(400),
+        blockNumber: BlockNumber(0),
+        checkpointNumber: CheckpointNumber(0),
         dutyType: DutyType.ATTESTATION,
         messageHash: Buffer32.random().toString(),
         nodeId: 'stuck-node',
@@ -887,14 +1026,18 @@ describe('HA Full Setup', () => {
       // Don't call updateDutySigned - leave it in 'signing' state (stuck)
 
       // Simulate node with clock 3 hours ahead
-      const realNow = Date.now;
-      jest.spyOn(Date, 'now').mockImplementation(() => realNow() + 3 * 60 * 60 * 1000);
+      dateProvider.setTime(Date.now() + 3 * 60 * 60 * 1000); // 3 hours ahead
 
-      // Use our actual cleanupOwnStuckDuties method
-      const numCleaned = await spDb.cleanupOwnStuckDuties('stuck-node', 60 * 60 * 1000); // 1 hour
+      try {
+        // Use our actual cleanupOwnStuckDuties method
+        const numCleaned = await spDb.cleanupOwnStuckDuties('stuck-node', 60 * 60 * 1000); // 1 hour
 
-      // Should NOT delete the duty (it uses DB's clock, not node's)
-      expect(numCleaned).toBe(0);
+        // Should NOT delete the duty (it uses DB's clock, not node's)
+        expect(numCleaned).toBe(0);
+      } finally {
+        // Reset dateProvider back to real time
+        dateProvider.reset();
+      }
     });
   });
 });

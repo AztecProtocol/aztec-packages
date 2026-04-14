@@ -1,6 +1,7 @@
 #include "barretenberg/vm2/simulation/gadgets/concrete_dbs.hpp"
 
 #include "barretenberg/vm2/common/aztec_types.hpp"
+#include "barretenberg/vm2/simulation/events/indexed_tree_check_event.hpp"
 #include "barretenberg/vm2/simulation/interfaces/db.hpp"
 #include "barretenberg/vm2/simulation/lib/merkle.hpp"
 
@@ -9,6 +10,7 @@ namespace bb::avm2::simulation {
 // Contracts DB starts.
 std::optional<ContractInstance> ContractDB::get_contract_instance(const AztecAddress& address) const
 {
+    // Get the contract instance from the raw DB.
     std::optional<ContractInstance> instance = raw_contract_db.get_contract_instance(address);
     // If we didn't get a contract instance, we don't prove anything.
     // It is the responsibility of the caller to prove what the protocol expects.
@@ -19,6 +21,7 @@ std::optional<ContractInstance> ContractDB::get_contract_instance(const AztecAdd
     // For protocol contracts the input address is the canonical address, we need to retrieve the derived address.
     AztecAddress derived_address;
     if (is_protocol_contract_address(address)) {
+        // Extract the stored derived address from the protocol contract.
         auto maybe_derived = get_derived_address(protocol_contracts, address);
         BB_ASSERT(maybe_derived.has_value(),
                   "Derived address should be found for protocol contract whose instance is found");
@@ -26,6 +29,10 @@ std::optional<ContractInstance> ContractDB::get_contract_instance(const AztecAdd
     } else {
         derived_address = address;
     }
+
+    // Perform address derivation to verify the derived_address is correctly calculated from the instance.
+    // Emits AddressDerivationEvent (and corresponding Poseidon2HashEvents, Poseidon2PermutationEvents, ScalarMulEvent,
+    // and EccAddEvents) if we have yet to derive it. Otherwise, ignores the instance and simply returns.
     address_derivation.assert_derivation(derived_address, instance.value());
     return instance;
 }
@@ -44,6 +51,8 @@ std::optional<ContractClass> ContractDB::get_contract_class(const ContractClassI
     BB_ASSERT(maybe_bytecode_commitment.has_value(), "Bytecode commitment not found");
 
     // Perform class ID derivation to verify the class ID is correctly derived from the class data.
+    // Emits ClassIdDerivationEvent (and corresponding Poseidon2HashEvent and Poseidon2PermutationEvents) if
+    // we have yet to derive this class ID.
     class_id_derivation.assert_derivation(maybe_klass->with_commitment(maybe_bytecode_commitment.value()));
 
     return maybe_klass;
@@ -145,23 +154,32 @@ bool MerkleDB::siloed_nullifier_exists(const FF& nullifier) const
 bool MerkleDB::nullifier_exists_internal(std::optional<AztecAddress> contract_address, const FF& nullifier) const
 {
     FF siloed_nullifier = nullifier;
+    std::optional<IndexedTreeSiloingParameters> siloing_params = std::nullopt;
     if (contract_address.has_value()) {
         // Unconstrained siloing to fetch the hint, since the hints are keyed by siloed data.
         // The siloing will later be constrained in the nullifier tree check gadget.
         siloed_nullifier = unconstrained_silo_nullifier(contract_address.value(), nullifier);
+        siloing_params = IndexedTreeSiloingParameters{
+            .address = contract_address.value(),
+            .siloing_separator = DOM_SEP__SILOED_NULLIFIER,
+        };
     }
 
     auto [present, low_leaf_index] = raw_merkle_db.get_low_indexed_leaf(MerkleTreeId::NULLIFIER_TREE, siloed_nullifier);
     auto low_leaf_path = raw_merkle_db.get_sibling_path(MerkleTreeId::NULLIFIER_TREE, low_leaf_index);
     auto low_leaf_preimage = raw_merkle_db.get_leaf_preimage_nullifier_tree(low_leaf_index);
 
-    nullifier_tree_check.assert_read(nullifier,
-                                     contract_address,
-                                     present,
-                                     low_leaf_preimage,
-                                     low_leaf_index,
-                                     low_leaf_path,
-                                     raw_merkle_db.get_tree_roots().nullifier_tree);
+    indexed_tree_check.assert_read(nullifier,
+                                   siloing_params,
+                                   present,
+                                   IndexedTreeLeafData{
+                                       .value = low_leaf_preimage.leaf.nullifier,
+                                       .next_value = low_leaf_preimage.nextKey,
+                                       .next_index = low_leaf_preimage.nextIndex,
+                                   },
+                                   low_leaf_index,
+                                   low_leaf_path,
+                                   raw_merkle_db.get_tree_roots().nullifier_tree);
 
     return present;
 }
@@ -180,10 +198,15 @@ void MerkleDB::nullifier_write_internal(std::optional<AztecAddress> contract_add
 {
     uint32_t nullifier_counter = tree_counters_stack.top().nullifier_counter;
     FF siloed_nullifier = nullifier;
+    std::optional<IndexedTreeSiloingParameters> siloing_params = std::nullopt;
     if (contract_address.has_value()) {
         // Unconstrained siloing to fetch the hint, since the hints are keyed by siloed data.
         // The siloing will later be constrained in the nullifier tree check gadget.
         siloed_nullifier = unconstrained_silo_nullifier(contract_address.value(), nullifier);
+        siloing_params = IndexedTreeSiloingParameters{
+            .address = contract_address.value(),
+            .siloing_separator = DOM_SEP__SILOED_NULLIFIER,
+        };
     }
 
     auto [present, low_leaf_index] = raw_merkle_db.get_low_indexed_leaf(MerkleTreeId::NULLIFIER_TREE, siloed_nullifier);
@@ -204,14 +227,19 @@ void MerkleDB::nullifier_write_internal(std::optional<AztecAddress> contract_add
         insertion_path = insertion_result.insertion_witness_data.at(0).path;
     }
 
-    AppendOnlyTreeSnapshot snapshot_after = nullifier_tree_check.write(nullifier,
-                                                                       contract_address,
-                                                                       nullifier_counter,
-                                                                       low_leaf_preimage,
-                                                                       low_leaf_index,
-                                                                       low_leaf_path,
-                                                                       snapshot_before,
-                                                                       insertion_path);
+    AppendOnlyTreeSnapshot snapshot_after =
+        indexed_tree_check.write(nullifier,
+                                 siloing_params,
+                                 nullifier_counter + AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_NULLIFIERS_ROW_IDX,
+                                 IndexedTreeLeafData{
+                                     .value = low_leaf_preimage.leaf.nullifier,
+                                     .next_value = low_leaf_preimage.nextKey,
+                                     .next_index = low_leaf_preimage.nextIndex,
+                                 },
+                                 low_leaf_index,
+                                 low_leaf_path,
+                                 snapshot_before,
+                                 insertion_path);
 
     // This will throw an unexpected exception if it fails.
     BB_ASSERT_EQ(snapshot_after, raw_merkle_db.get_tree_roots().nullifier_tree, "Snapshot after mismatch");

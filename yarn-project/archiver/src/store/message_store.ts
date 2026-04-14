@@ -14,6 +14,7 @@ import {
 } from '@aztec/kv-store';
 import { InboxLeaf } from '@aztec/stdlib/messaging';
 
+import { L1ToL2MessagesNotReadyError } from '../errors.js';
 import {
   type InboxMessage,
   deserializeInboxMessage,
@@ -40,6 +41,8 @@ export class MessageStore {
   #lastSynchedL1Block: AztecAsyncSingleton<Buffer>;
   /** Stores total messages stored */
   #totalMessageCount: AztecAsyncSingleton<bigint>;
+  /** Stores the checkpoint number whose message tree is currently being filled on L1. */
+  #inboxTreeInProgress: AztecAsyncSingleton<bigint>;
 
   #log = createLogger('archiver:message_store');
 
@@ -48,6 +51,7 @@ export class MessageStore {
     this.#l1ToL2MessageIndices = db.openMap('archiver_l1_to_l2_message_indices');
     this.#lastSynchedL1Block = db.openSingleton('archiver_last_l1_block_id');
     this.#totalMessageCount = db.openSingleton('archiver_l1_to_l2_message_count');
+    this.#inboxTreeInProgress = db.openSingleton('archiver_inbox_tree_in_progress');
   }
 
   public async getTotalL1ToL2MessageCount(): Promise<bigint> {
@@ -137,7 +141,7 @@ export class MessageStore {
           );
         }
 
-        // Check the first message in a block has the correct index.
+        // Check the first message in a checkpoint has the correct index.
         if (
           (!lastMessage || message.checkpointNumber > lastMessage.checkpointNumber) &&
           message.index !== expectedStart
@@ -155,15 +159,6 @@ export class MessageStore {
         messageCount++;
         this.#log.trace(`Inserted L1 to L2 message ${message.leaf} with index ${message.index} into the store`);
         lastMessage = message;
-      }
-
-      // Update the L1 sync point to that of the last message added.
-      const currentSyncPoint = await this.getSynchedL1Block();
-      if (!currentSyncPoint || currentSyncPoint.l1BlockNumber < lastMessage!.l1BlockNumber) {
-        await this.setSynchedL1Block({
-          l1BlockNumber: lastMessage!.l1BlockNumber,
-          l1BlockHash: lastMessage!.l1BlockHash,
-        });
       }
 
       // Update total message count with the number of inserted messages.
@@ -185,7 +180,29 @@ export class MessageStore {
     return msg ? deserializeInboxMessage(msg) : undefined;
   }
 
+  /** Returns the inbox tree-in-progress checkpoint number from L1, or undefined if not yet set. */
+  public getInboxTreeInProgress(): Promise<bigint | undefined> {
+    return this.#inboxTreeInProgress.getAsync();
+  }
+
+  /** Atomically updates the message sync state: the L1 sync point and the inbox tree-in-progress marker. */
+  public setMessageSyncState(l1Block: L1BlockId, treeInProgress: bigint | undefined): Promise<void> {
+    return this.db.transactionAsync(async () => {
+      await this.setSynchedL1Block(l1Block);
+      if (treeInProgress !== undefined) {
+        await this.#inboxTreeInProgress.set(treeInProgress);
+      } else {
+        await this.#inboxTreeInProgress.delete();
+      }
+    });
+  }
+
   public async getL1ToL2Messages(checkpointNumber: CheckpointNumber): Promise<Fr[]> {
+    const treeInProgress = await this.#inboxTreeInProgress.getAsync();
+    if (treeInProgress !== undefined && BigInt(checkpointNumber) >= treeInProgress) {
+      throw new L1ToL2MessagesNotReadyError(checkpointNumber, treeInProgress);
+    }
+
     const messages: Fr[] = [];
 
     const [startIndex, endIndex] = InboxLeaf.indexRangeForCheckpoint(checkpointNumber);

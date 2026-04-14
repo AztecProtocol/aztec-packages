@@ -92,10 +92,8 @@ import {
   type ContractClassPublic,
   ContractDeploymentData,
   type ContractInstanceWithAddress,
-  type ExecutablePrivateFunctionWithMembershipProof,
   type PrivateFunction,
   SerializableContractInstance,
-  type UtilityFunctionWithMembershipProof,
   computeContractClassId,
   computePublicBytecodeCommitment,
 } from '../contract/index.js';
@@ -128,6 +126,7 @@ import {
   PublicCallRequestArrayLengths,
 } from '../kernel/public_call_request.js';
 import { PublicKeys, computeAddress } from '../keys/index.js';
+import { ExtendedDirectionalAppTaggingSecret } from '../logs/extended_directional_app_tagging_secret.js';
 import { ContractClassLog, ContractClassLogFields } from '../logs/index.js';
 import { PrivateLog } from '../logs/private_log.js';
 import { FlatPublicLogs, PublicLog } from '../logs/public_log.js';
@@ -233,7 +232,7 @@ export function makeTxContext(seed: number = 1): TxContext {
  * Creates a default instance of gas settings. No seed value is used to ensure we allocate a sensible amount of gas for testing.
  */
 export function makeGasSettings() {
-  return GasSettings.default({ maxFeesPerGas: new GasFees(10, 10) });
+  return GasSettings.fallback({ maxFeesPerGas: new GasFees(10, 10) });
 }
 
 /**
@@ -1182,35 +1181,6 @@ export function makePublicTxBaseRollupPrivateInputs(seed = 0) {
   });
 }
 
-export function makeExecutablePrivateFunctionWithMembershipProof(
-  seed = 0,
-): ExecutablePrivateFunctionWithMembershipProof {
-  return {
-    selector: makeSelector(seed),
-    bytecode: makeBytes(100, seed + 1),
-    artifactTreeSiblingPath: makeTuple(3, fr, seed + 2),
-    artifactTreeLeafIndex: seed + 2,
-    privateFunctionTreeSiblingPath: makeTuple(3, fr, seed + 3),
-    privateFunctionTreeLeafIndex: seed + 3,
-    artifactMetadataHash: fr(seed + 4),
-    functionMetadataHash: fr(seed + 5),
-    utilityFunctionsTreeRoot: fr(seed + 6),
-    vkHash: fr(seed + 7),
-  };
-}
-
-export function makeUtilityFunctionWithMembershipProof(seed = 0): UtilityFunctionWithMembershipProof {
-  return {
-    selector: makeSelector(seed),
-    bytecode: makeBytes(100, seed + 1),
-    artifactTreeSiblingPath: makeTuple(3, fr, seed + 2),
-    artifactTreeLeafIndex: seed + 2,
-    artifactMetadataHash: fr(seed + 4),
-    functionMetadataHash: fr(seed + 5),
-    privateFunctionsArtifactTreeRoot: fr(seed + 6),
-  };
-}
-
 export async function makeContractClassPublic(seed = 0, publicBytecode?: Buffer): Promise<ContractClassPublic> {
   const artifactHash = fr(seed + 1);
   const privateFunctionsRoot = fr(seed + 3);
@@ -1222,8 +1192,6 @@ export async function makeContractClassPublic(seed = 0, publicBytecode?: Buffer)
     artifactHash,
     packedBytecode,
     privateFunctionsRoot,
-    privateFunctions: [],
-    utilityFunctions: [],
     version: 1,
   };
 }
@@ -1747,6 +1715,10 @@ export function makeL2Tips(
       block: { number: bn, hash },
       checkpoint: { number: cpn, hash: cph },
     },
+    proposedCheckpoint: {
+      block: { number: bn, hash },
+      checkpoint: { number: cpn, hash: cph },
+    },
     proven: {
       block: { number: bn, hash },
       checkpoint: { number: cpn, hash: cph },
@@ -1756,4 +1728,12 @@ export function makeL2Tips(
       checkpoint: { number: cpn, hash: cph },
     },
   };
+}
+
+export async function randomExtendedDirectionalAppTaggingSecret(): Promise<ExtendedDirectionalAppTaggingSecret> {
+  const resolvedApp = await AztecAddress.random();
+  // Using the fromString method like this is messy as it leaks the underlying serialization format but I don't want to
+  // expose the type's constructor just for tests since in prod the secret is always constructed via compute. Also this
+  // method is tested in extended_directional_app_tagging_secret.test.ts hence all should be fine.
+  return ExtendedDirectionalAppTaggingSecret.fromString(`${Fr.random().toString()}:${resolvedApp.toString()}`);
 }

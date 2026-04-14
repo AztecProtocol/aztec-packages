@@ -7,7 +7,7 @@ function prepare_crs {
   echo_header "prepare crs for prover-agent image"
   local crs_src=${CRS_PATH:-$HOME/.bb-crs}
 
-  if [ ! -f "$crs_src/bn254_g1.dat" ]; then
+  if [ ! -f "$crs_src/bn254_g1_compressed.dat" ]; then
     # this assumes we pull the required number of points for proving the biggest circuit
     echo "CRS not found at $crs_src, downloading..."
     $root/barretenberg/scripts/download_bb_crs.sh
@@ -15,7 +15,7 @@ function prepare_crs {
   fi
 
   mkdir -p crs
-  cp "$crs_src/bn254_g1.dat" crs/
+  cp "$crs_src/bn254_g1_compressed.dat" crs/
   cp "$crs_src/bn254_g2.dat" crs/
   cp "$crs_src/grumpkin_g1.flat.dat" crs/
   # Normalize timestamps so COPY --link produces an identical layer across builds
@@ -72,6 +72,11 @@ export -f build_image
 function build {
   echo_header "release-image build"
 
+  if ! command -v docker &>/dev/null; then
+    echo "Docker is required to build the release image. Skipping."
+    exit 0
+  fi
+
   if ! cache_download release-image-base-$hash.zst; then
     denoise "cd .. && docker build -f release-image/Dockerfile.base -t aztecprotocol/release-image-base ."
     docker save aztecprotocol/release-image-base:latest > release-image-base
@@ -88,6 +93,10 @@ function build {
 }
 
 function test_cmds {
+  if ! command -v docker &>/dev/null; then
+    exit 0
+  fi
+
   # Very simple sanity test.
   echo "$hash docker run --rm aztecprotocol/aztec --version"
 }
@@ -160,8 +169,12 @@ function push_pr {
   echo $DOCKERHUB_PASSWORD | docker login -u ${DOCKERHUB_USERNAME:-aztecprotocolci} --password-stdin
   docker tag aztecprotocol/aztec:$COMMIT_HASH aztecprotocol/aztecdev:$COMMIT_HASH
   do_or_dryrun docker push aztecprotocol/aztecdev:$COMMIT_HASH
-  docker tag aztecprotocol/aztec-prover-agent:$COMMIT_HASH aztecprotocol/aztec-prover-agent-dev:$COMMIT_HASH
-  do_or_dryrun docker push aztecprotocol/aztec-prover-agent-dev:$COMMIT_HASH
+  # Best-effort: push prover-agent image if available.
+  if docker tag aztecprotocol/aztec-prover-agent:$COMMIT_HASH aztecprotocol/aztec-prover-agent-dev:$COMMIT_HASH 2>/dev/null; then
+    do_or_dryrun docker push aztecprotocol/aztec-prover-agent-dev:$COMMIT_HASH || echo "Warning: failed to push prover-agent-dev image, continuing."
+  else
+    echo "Warning: prover-agent image not found locally, skipping push."
+  fi
 }
 
 case "$cmd" in

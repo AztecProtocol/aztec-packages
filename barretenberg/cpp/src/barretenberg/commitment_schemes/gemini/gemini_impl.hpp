@@ -66,12 +66,12 @@ std::vector<typename GeminiProver_<Curve>::Claim> GeminiProver_<Curve>::prove(
     Polynomial A_0 = polynomial_batcher.compute_batched(rho);
 
     // Construct the d-1 Gemini foldings of A₀(X)
-    std::vector<Polynomial> fold_polynomials = compute_fold_polynomials(log_n, multilinear_challenge, A_0, has_zk);
+    std::vector<Polynomial> fold_polynomials = compute_fold_polynomials(log_n, multilinear_challenge, A_0);
 
     // If virtual_log_n >= log_n, pad the fold commitments with dummy group elements [1]_1.
     for (size_t l = 0; l < virtual_log_n - 1; l++) {
         std::string label = "Gemini:FOLD_" + std::to_string(l + 1);
-        // When has_zk is true, we are sending commitments to 0. Seems to work, but maybe brittle.
+        // Virtual-round fold polynomials are constant; their commitments are zeroed by the verifier.
         transcript->send_to_verifier(label, commitment_key.commit(fold_polynomials[l]));
     }
     const Fr r_challenge = transcript->template get_challenge<Fr>("Gemini:r");
@@ -96,21 +96,6 @@ std::vector<typename GeminiProver_<Curve>::Claim> GeminiProver_<Curve>::prove(
         transcript->send_to_verifier(label, claims[l].opening_pair.evaluation);
     }
 
-    // If running Gemini for the Translator VM polynomials, A₀(r) = A₀₊(r) + P₊(rˢ) and A₀(-r) = A₀₋(-r) + P₋(rˢ)
-    // where s is the size of the interleaved group assumed even. The prover sends P₊(rˢ) and P₋(rˢ) to the verifier
-    // so it can reconstruct the evaluation of A₀(r) and A₀(-r) respectively
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1282)
-    if (polynomial_batcher.has_interleaved()) {
-        auto [P_pos, P_neg] = polynomial_batcher.compute_partially_evaluated_interleaved_polynomial(r_challenge);
-        Fr r_pow = r_challenge.pow(polynomial_batcher.get_group_size());
-        Fr P_pos_eval = P_pos.evaluate(r_pow);
-        Fr P_neg_eval = P_neg.evaluate(r_pow);
-        claims.emplace_back(Claim{ std::move(P_pos), { r_pow, P_pos_eval } });
-        transcript->send_to_verifier("Gemini:P_pos", P_pos_eval);
-        claims.emplace_back(Claim{ std::move(P_neg), { r_pow, P_neg_eval } });
-        transcript->send_to_verifier("Gemini:P_neg", P_neg_eval);
-    }
-
     return claims;
 };
 
@@ -123,9 +108,10 @@ std::vector<typename GeminiProver_<Curve>::Claim> GeminiProver_<Curve>::prove(
  */
 template <typename Curve>
 std::vector<typename GeminiProver_<Curve>::Polynomial> GeminiProver_<Curve>::compute_fold_polynomials(
-    const size_t log_n, std::span<const Fr> multilinear_challenge, const Polynomial& A_0, const bool& has_zk)
+    const size_t log_n, std::span<const Fr> multilinear_challenge, const Polynomial& A_0)
 {
     BB_BENCH_NAME("Gemini::compute_fold_polynomials");
+    BB_ASSERT_GTE(log_n, size_t(2), "Gemini folding requires at least 4-element polynomials");
     const size_t virtual_log_n = multilinear_challenge.size();
 
     // Cost per iteration: 1 subtraction + 1 multiplication + 1 addition
@@ -151,8 +137,8 @@ std::vector<typename GeminiProver_<Curve>::Polynomial> GeminiProver_<Curve>::com
         // size of the previous polynomial/2
         const size_t n_l = 1 << (log_n - l - 1);
 
-        // Opening point is the same for all
-        const Fr u_l = multilinear_challenge[l];
+        // Opening point is the same for all; use zero for rounds beyond the challenge size
+        const Fr u_l = l < virtual_log_n ? multilinear_challenge[l] : Fr(0);
 
         // A_l_fold = Aₗ₊₁(X) = (1-uₗ)⋅even(Aₗ)(X) + uₗ⋅odd(Aₗ)(X)
         auto A_l_fold = fold_polynomials[l].data();
@@ -170,17 +156,15 @@ std::vector<typename GeminiProver_<Curve>::Polynomial> GeminiProver_<Curve>::com
         A_l = A_l_fold;
     }
 
-    // Perform virtual rounds.
-    // After the first `log_n - 1` rounds, the prover's `fold` univariates stabilize. With ZK, the verifier multiplies
-    // the evaluations by 0, otherwise, when `virtual_log_n > log_n`, the prover honestly computes and sends the
-    // constant folds.
+    // Virtual rounds (indices log_n .. virtual_log_n - 1).
+    // After real folding, the fold polynomials are constant. Since each constant polynomial evaluates to its own
+    // value at every point, (f(X) - f(x)) / (X - x) = 0, so these contribute nothing to the Shplonk quotient Q(X).
+    // On the verifier side, padding_indicator_array zeros their contributions independently.
     const auto& last = fold_polynomials.back();
-    const Fr u_last = multilinear_challenge[log_n - 1];
+    const Fr u_last = (log_n - 1) < virtual_log_n ? multilinear_challenge[log_n - 1] : Fr(0);
     const Fr final_eval = last.at(0) + u_last * (last.at(1) - last.at(0));
     Polynomial const_fold(1);
-    // Temporary fix: when we're running a zk proof, the verifier uses a `padding_indicator_array`. So the evals in
-    // rounds past `log_n - 1` will be ignored. Hence the prover also needs to ignore them, otherwise Shplonk will fail.
-    const_fold.at(0) = final_eval * Fr(static_cast<int>(!has_zk));
+    const_fold.at(0) = final_eval;
     fold_polynomials.emplace_back(const_fold);
 
     // FOLD_{log_n+1}, ..., FOLD_{d_v-1}
@@ -188,7 +172,7 @@ std::vector<typename GeminiProver_<Curve>::Polynomial> GeminiProver_<Curve>::com
     for (size_t k = log_n; k < virtual_log_n - 1; ++k) {
         tail *= (Fr(1) - multilinear_challenge[k]); // multiply by (1 - u_k)
         Polynomial next_const(1);
-        next_const.at(0) = final_eval * tail * Fr(static_cast<int>(!has_zk));
+        next_const.at(0) = final_eval * tail;
         fold_polynomials.emplace_back(next_const);
     }
 

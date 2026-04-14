@@ -401,6 +401,10 @@ where
 {
     /// Returns the current value.
     ///
+    /// This sets the transaction's `expiration_timestamp` (see
+    /// [`PrivateContext::set_expiration_timestamp`](crate::context::PrivateContext::set_expiration_timestamp)),
+    /// invalidating the transaction if not included before that time. See the 'Privacy' section below to learn more.
+    ///
     /// If [`schedule_value_change`](DelayedPublicMutable::schedule_value_change) has never been called, then this
     /// returns the default empty public storage value, which is all zeroes - equivalent to `let t =
     /// T::unpack(std::mem::zeroed());`.
@@ -410,18 +414,16 @@ where
     ///
     /// ## Privacy
     ///
-    /// This function does leak some privacy, though in a subtle way. Understanding this is key to understanding how to
-    /// use `DelayedPublicMutable` in a privacy-preserving way.
+    /// This function leaks information via the transaction's expiration timestamp. The degree of leakage depends on
+    /// the delay that is set, and on whether a value change is currently scheduled.
     ///
     /// Private reads are based on a historical public storage read at the anchor block (i.e.
     /// [`crate::history::storage::public_storage_historical_read`]). `DelayedPublicMutable` is able to provide
-    /// guarantees about values read in the past remaining the state variable's current value into the future due to
+    /// guarantees that values read in the past remain the state variable's current value into the future due to
     /// the existence of delays when scheduling writes. It then sets the `expiration_timestamp` property of the current
-    /// transaction (see
-    /// [`PrivateContext::set_expiration_timestamp`](crate::context::PrivateContext::set_expiration_timestamp)) to
-    /// ensure that the transaction can only be included in a block **prior** to the state variable's value changing.
-    /// In other words, it knows some facts about the near future up until some time horizon, and then makes sure that
-    /// it doesn't act on this knowledge past said moment.
+    /// transaction to ensure that the transaction can only be included in a block **prior** to the state variable's
+    /// value changing. In other words, it knows some facts about the near future up until some time horizon, and then
+    /// makes sure that it doesn't act on this knowledge past said moment.
     ///
     /// Because the `expiration_timestamp` property is part of the transaction's public information, any mutation to
     /// this value could result in transaction fingerprinting. Note that multiple contracts may set this value during a
@@ -470,7 +472,34 @@ where
     ///
     /// ## Cost
     ///
-    /// This function performs a single merkle tree inclusion proof, which is in the order of 4k gates.
+    /// This function performs a historical public storage read (which is ~4k gates), **regardless of
+    /// `T`'s packed length**. This is because [`DelayedPublicMutable::schedule_value_change`] stores not just the
+    /// value but also its hash: this function obtains the preimage from an oracle and proves that it matches the hash
+    /// from public storage.
+    ///
+    /// Because of this reason, if two mutable values are often privately read together it can be convenient to group
+    /// them in a single type `T`. Note however that this will result in them sharing the mutation delay:
+    ///
+    /// ```noir
+    /// // Bad: reading both `paused` and `fee` will require two historical public storage reads
+    /// #[storage]
+    /// struct Storage<C> {
+    ///     paused: DelayedPublicMutable<bool, INITIAL_DELAY_S, C>,
+    ///     fee: DelayedPublicMutable<Field, INITIAL_DELAY_S, C>,
+    /// }
+    ///
+    /// // Good: both `paused` and `fee` are retrieved in a single historical public storage read
+    /// #[derive(Packable)]
+    /// struct Config {
+    ///     paused: bool,
+    ///     fee: Field,
+    /// }
+    ///
+    /// #[storage]
+    /// struct Storage<Context> {
+    ///     config: DelayedPublicMutable<Config, INITIAL_DELAY_S, Context>,
+    /// }
+    /// ```
     pub fn get_current_value(self) -> T
     where
         T: Packable,
@@ -507,12 +536,10 @@ where
         let header = self.context.get_anchor_block_header();
         let address = self.context.this_address();
 
-        let anchor_block_timestamp = header.global_variables.timestamp;
-
         let values: DelayedPublicMutableValues<T, InitialDelay> =
             WithHash::historical_public_storage_read(header, address, self.storage_slot);
 
-        (values.svc, values.sdc, anchor_block_timestamp)
+        (values.svc, values.sdc, header.timestamp())
     }
 }
 

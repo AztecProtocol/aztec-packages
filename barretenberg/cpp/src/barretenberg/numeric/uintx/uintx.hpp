@@ -1,19 +1,18 @@
 // === AUDIT STATUS ===
-// internal:    { status: Planned, auditors: [], commit: }
+// internal:    { status: Complete, auditors: [Luke], commit: }
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 /**
- * uintx
- * Copyright Aztec 2020
+ * uintx: a wide unsigned integer formed by pairing two `base_uint` halves (lo, hi).
  *
- * An unsigned 512 bit integer type.
+ * Instantiated as:
+ *   uintx<uint256_t>  = uint512_t   (two 256-bit halves)
+ *   uintx<uint512_t>  = uint1024_t  (two 512-bit halves)
  *
- * Constructor and all methods are constexpr. Ideally, uintx should be able to be treated like any other literal
- *type.
- *
- * Not optimized for performance, this code doesn"t touch any of our hot paths when constructing PLONK proofs
+ * Constructor and all methods are constexpr.
+ * Not optimized for performance; does not touch hot paths when constructing proofs.
  **/
 #pragma once
 
@@ -57,7 +56,7 @@ template <class base_uint> class uintx {
     uintx& operator=(uintx&& other) noexcept = default;
 
     ~uintx() = default;
-    constexpr explicit operator bool() const { return static_cast<bool>(lo); };
+    constexpr explicit operator bool() const { return static_cast<bool>(lo) || static_cast<bool>(hi); };
     constexpr explicit operator uint8_t() const { return static_cast<uint8_t>(lo); };
     constexpr explicit operator uint16_t() const { return static_cast<uint16_t>(lo); };
     constexpr explicit operator uint32_t() const { return static_cast<uint32_t>(lo); };
@@ -82,7 +81,7 @@ template <class base_uint> class uintx {
     constexpr uintx slice(const uint64_t start, const uint64_t end) const
     {
         const uint64_t range = end - start;
-        const uintx mask = range == base_uint::length() ? -uintx(1) : (uintx(1) << range) - 1;
+        const uintx mask = (uintx(1) << range) - 1;
         return ((*this) >> start) & mask;
     }
 
@@ -272,7 +271,13 @@ template <class base_uint> class uintx {
     base_uint lo;
     base_uint hi;
 
-    template <base_uint modulus> std::pair<uintx, uintx> barrett_reduction() const;
+    // `modulus` is passed as a pointer NTTP rather than a class-type value NTTP. The latter
+    // would cause Clang to materialize a template parameter object in `.rodata` at the section's
+    // natural alignment (16 bytes), which under-aligns an `alignas(32)` type and is UB under
+    // UBSan's alignment check. A pointer NTTP has no synthesized storage; it just names an
+    // existing static object, whose `alignas(32)` is honored normally. We therefore pass `&X` where `X` is a named
+    // `static constexpr base_uint` (see uses in `divmod`).
+    template <const base_uint* modulus_ptr> std::pair<uintx, uintx> barrett_reduction() const;
 
     // This only works (and is only used) for uint256_t
     std::pair<uintx, uintx> divmod(const uintx& b) const;
@@ -307,6 +312,10 @@ extern template class uintx<uint256_t>;
 using uint512_t = uintx<uint256_t>;
 extern template class uintx<uint512_t>;
 using uint1024_t = uintx<uint512_t>;
+
+// Pin the [class.mem]/19 alignment-propagation rule: uintx<uint256_t> must inherit alignas(32).
+static_assert(alignof(uint512_t) >= 32);
+static_assert(alignof(uint1024_t) >= 32);
 
 } // namespace bb::numeric
 

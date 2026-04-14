@@ -6,11 +6,7 @@ metadata:
   labels:
     {{- include "chart.labels" . | nindent 4 }}
 spec:
-  serviceName: {{ include "chart.fullname" . }}
   replicas: {{ .Values.replicaCount }}
-  podManagementPolicy: {{ .Values.podManagementPolicy }}
-  updateStrategy:
-    {{- toYaml .Values.node.updateStrategy | nindent 4 }}
   selector:
     matchLabels:
       {{- include "chart.selectorLabels" . | nindent 6 }}

@@ -28,6 +28,24 @@ pub struct BlockHeader {
 }
 // docs:end:block-header
 
+impl BlockHeader {
+    pub fn chain_id(self) -> Field {
+        self.global_variables.chain_id
+    }
+
+    pub fn version(self) -> Field {
+        self.global_variables.version
+    }
+
+    pub fn block_number(self) -> u32 {
+        self.global_variables.block_number
+    }
+
+    pub fn timestamp(self) -> u64 {
+        self.global_variables.timestamp
+    }
+}
+
 impl Empty for BlockHeader {
     fn empty() -> Self {
         Self {

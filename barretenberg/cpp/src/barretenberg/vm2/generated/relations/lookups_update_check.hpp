@@ -78,15 +78,15 @@ struct lookup_update_check_update_hash_public_data_read_settings_ {
     static constexpr Column COUNTS = Column::lookup_update_check_update_hash_public_data_read_counts;
     static constexpr Column INVERSES = Column::lookup_update_check_update_hash_public_data_read_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::update_check_deployer_protocol_contract_address,
-        ColumnAndShifts::update_check_delayed_public_mutable_hash_slot,
         ColumnAndShifts::update_check_update_hash,
+        ColumnAndShifts::update_check_contract_instance_registry_address,
+        ColumnAndShifts::update_check_delayed_public_mutable_hash_slot,
         ColumnAndShifts::update_check_public_data_tree_root
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
+        ColumnAndShifts::public_data_check_value,
         ColumnAndShifts::public_data_check_address,
         ColumnAndShifts::public_data_check_slot,
-        ColumnAndShifts::public_data_check_value,
         ColumnAndShifts::public_data_check_root
     };
 };

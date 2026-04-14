@@ -4,7 +4,6 @@ import { type Logger, createLogger } from '@aztec/foundation/log';
 import { DateProvider } from '@aztec/foundation/timer';
 import { RegistryAbi } from '@aztec/l1-artifacts/RegistryAbi';
 
-import type { Anvil } from '@viem/anvil';
 import omit from 'lodash.omit';
 import { type Hex, createPublicClient, getContract, http } from 'viem';
 import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts';
@@ -17,6 +16,7 @@ import { L1Deployer } from '../deploy_l1_contract.js';
 import type { L1ContractAddresses } from '../l1_contract_addresses.js';
 import { defaultL1TxUtilsConfig } from '../l1_tx_utils/index.js';
 import { EthCheatCodes } from '../test/eth_cheat_codes.js';
+import type { Anvil } from '../test/start_anvil.js';
 import { startAnvil } from '../test/start_anvil.js';
 import type { ExtendedViemWalletClient } from '../types.js';
 import { RegistryContract } from './registry.js';
@@ -58,10 +58,9 @@ describe('Registry', () => {
       genesisArchiveRoot: Fr.random(),
       realVerifier: false,
     });
-    // Since the registry cannot "see" the slash factory, we omit it from the addresses for this test
+    // Since the registry cannot "see" these periphery contracts, we omit them from the addresses for this test
     deployedAddresses = omit(
       deployed.l1ContractAddresses,
-      'slashFactoryAddress',
       'feeAssetHandlerAddress',
       'stakingAssetHandlerAddress',
       'zkPassportVerifierAddress',

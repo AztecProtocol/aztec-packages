@@ -1,4 +1,4 @@
-import { type TxMetaData, comparePriority, stubTxMetaValidationData } from '../tx_metadata.js';
+import { type TxMetaData, comparePriority, stubTxMetaData } from '../tx_metadata.js';
 import { type PreAddContext, type PreAddPoolAccess, TxPoolRejectionCode } from './interfaces.js';
 import { LowPriorityPreAddRule } from './low_priority_pre_add_rule.js';
 
@@ -6,19 +6,7 @@ describe('LowPriorityPreAddRule', () => {
   let rule: LowPriorityPreAddRule;
 
   // Helper to create TxMetaData for testing
-  const createMeta = (txHash: string, priorityFee: bigint): TxMetaData => ({
-    txHash,
-    anchorBlockHeaderHash: '0x1234',
-    priorityFee,
-    feePayer: '0xfeepayer',
-    claimAmount: 0n,
-    feeLimit: 100n,
-    nullifiers: [`0x${txHash.slice(2)}null1`],
-    expirationTimestamp: 0n,
-    receivedAt: 0,
-    estimatedSizeBytes: 0,
-    data: stubTxMetaValidationData(),
-  });
+  const createMeta = (txHash: string, priorityFee: bigint) => stubTxMetaData(txHash, { priorityFee });
 
   // Mock pool access with configurable behavior
   const createPoolAccess = (pendingCount: number, lowestPriorityTx?: TxMetaData): PreAddPoolAccess => ({
@@ -88,7 +76,7 @@ describe('LowPriorityPreAddRule', () => {
         const result = await rule.check(incomingMeta, poolAccess);
 
         expect(result.shouldIgnore).toBe(false);
-        expect(result.txHashesToEvict).toContain('0x2222');
+        expect(result.txHashesToEvict).toContain(lowestPriorityMeta.txHash);
         expect(result.txHashesToEvict).toHaveLength(1);
       });
 
@@ -199,12 +187,12 @@ describe('LowPriorityPreAddRule', () => {
         // Without feeOnly
         const result1 = await rule.check(incomingMeta, poolAccess);
         expect(result1.shouldIgnore).toBe(false);
-        expect(result1.txHashesToEvict).toContain('0x2222');
+        expect(result1.txHashesToEvict).toContain(lowestPriorityMeta.txHash);
 
         // With feeOnly
         const result2 = await rule.check(incomingMeta, poolAccess, { feeComparisonOnly: true });
         expect(result2.shouldIgnore).toBe(false);
-        expect(result2.txHashesToEvict).toContain('0x2222');
+        expect(result2.txHashesToEvict).toContain(lowestPriorityMeta.txHash);
       });
 
       it('lower fee is always ignored regardless of feeOnly flag', async () => {
@@ -219,6 +207,72 @@ describe('LowPriorityPreAddRule', () => {
         // With feeOnly
         const result2 = await rule.check(incomingMeta, poolAccess, { feeComparisonOnly: true });
         expect(result2.shouldIgnore).toBe(true);
+      });
+    });
+
+    describe('with priceBumpPercentage', () => {
+      it('evicts when incoming fee exceeds the bump threshold', async () => {
+        const lowestPriorityMeta = createMeta('0x2222', 100n);
+        const poolAccess = createPoolAccess(100, lowestPriorityMeta);
+        const incomingMeta = createMeta('0x1111', 111n); // Above 10% bump
+
+        const context: PreAddContext = { feeComparisonOnly: true, priceBumpPercentage: 10n };
+        const result = await rule.check(incomingMeta, poolAccess, context);
+
+        expect(result.shouldIgnore).toBe(false);
+        expect(result.txHashesToEvict).toContain(lowestPriorityMeta.txHash);
+      });
+
+      it('evicts when incoming fee is exactly at the bump threshold', async () => {
+        const lowestPriorityMeta = createMeta('0x2222', 100n);
+        const poolAccess = createPoolAccess(100, lowestPriorityMeta);
+        const incomingMeta = createMeta('0x1111', 110n); // Exactly 10% bump — accepted
+
+        const context: PreAddContext = { feeComparisonOnly: true, priceBumpPercentage: 10n };
+        const result = await rule.check(incomingMeta, poolAccess, context);
+
+        expect(result.shouldIgnore).toBe(false);
+        expect(result.txHashesToEvict).toContain(lowestPriorityMeta.txHash);
+      });
+
+      it('ignores when incoming fee is below the bump threshold', async () => {
+        const lowestPriorityMeta = createMeta('0x2222', 100n);
+        const poolAccess = createPoolAccess(100, lowestPriorityMeta);
+        const incomingMeta = createMeta('0x1111', 109n); // Below 10% bump
+
+        const context: PreAddContext = { feeComparisonOnly: true, priceBumpPercentage: 10n };
+        const result = await rule.check(incomingMeta, poolAccess, context);
+
+        expect(result.shouldIgnore).toBe(true);
+        expect(result.reason?.code).toBe(TxPoolRejectionCode.LOW_PRIORITY_FEE);
+        if (result.reason?.code === TxPoolRejectionCode.LOW_PRIORITY_FEE) {
+          expect(result.reason.minimumPriorityFee).toBe(110n);
+          expect(result.reason.txPriorityFee).toBe(109n);
+        }
+      });
+
+      it('without price bump (P2P path), behavior unchanged', async () => {
+        const lowestPriorityMeta = createMeta('0x2222', 100n);
+        const poolAccess = createPoolAccess(100, lowestPriorityMeta);
+        const incomingMeta = createMeta('0x1111', 101n);
+
+        // No context — uses comparePriority, 101 > 100 so incoming wins
+        const result = await rule.check(incomingMeta, poolAccess);
+
+        expect(result.shouldIgnore).toBe(false);
+        expect(result.txHashesToEvict).toContain(lowestPriorityMeta.txHash);
+      });
+
+      it('with 0% bump, rejects equal fee (minimum bump of 1)', async () => {
+        const lowestPriorityMeta = createMeta('0x2222', 100n);
+        const poolAccess = createPoolAccess(100, lowestPriorityMeta);
+        const incomingMeta = createMeta('0x1111', 100n);
+
+        const context: PreAddContext = { feeComparisonOnly: true, priceBumpPercentage: 0n };
+        const result = await rule.check(incomingMeta, poolAccess, context);
+
+        expect(result.shouldIgnore).toBe(true);
+        expect(result.txHashesToEvict).toHaveLength(0);
       });
     });
   });

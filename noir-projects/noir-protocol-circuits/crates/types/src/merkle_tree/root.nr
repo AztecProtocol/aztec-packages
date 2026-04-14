@@ -20,10 +20,10 @@ pub fn root_from_sibling_path_with_hasher<let N: u32>(
     hasher: fn(Field, Field) -> Field,
 ) -> Field {
     let mut node = leaf;
-    let indices: [u1; N] = leaf_index.to_le_bits();
+    let indices: [bool; N] = leaf_index.to_le_bits();
 
     for i in 0..N {
-        let (hash_left, hash_right) = if indices[i] == 1 {
+        let (hash_left, hash_right) = if indices[i] {
             (sibling_path[i], node)
         } else {
             (node, sibling_path[i])

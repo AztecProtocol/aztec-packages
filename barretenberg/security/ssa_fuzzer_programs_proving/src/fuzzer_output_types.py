@@ -83,54 +83,64 @@ class ABI:
 @dataclass
 class Program:
     abi: ABI
-    brillig_names: List[str]
     bytecode: str
     debug: List[Debug]
     file_map: Dict[str, Any]
     hash: int
-    names: List[str]
     noir_version: str
     warnings: List[Any]
+    brillig_names: List[str]
+    names: List[str]
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "Program":
         return cls(
             abi=ABI.from_dict(data["abi"]),
-            brillig_names=data["brillig_names"],
             bytecode=data["bytecode"],
             debug=[Debug.from_dict(debug_item) for debug_item in data["debug"]],
             file_map=data["file_map"],
             hash=data["hash"],
-            names=data["names"],
             noir_version=data["noir_version"],
             warnings=data["warnings"],
+            brillig_names=data.get("brillig_names", []),
+            names=data.get("names", []),
         )
 
 
 @dataclass
 class NoirProgramData:
-    program: Program
+    inputs: List[str]
+    outputs: List[str]
+    program: Optional[Program]
     test_id: str
     witness_map_b64: str
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "NoirProgramData":
         return cls(
-            program=Program.from_dict(data["program"]),
+            inputs=data.get("inputs", []),
+            outputs=data.get("outputs", []),
+            program=(
+                Program.from_dict(data["program"])
+                if data.get("program") is not None
+                else None
+            ),
             test_id=data["test_id"],
             witness_map_b64=data["witness_map_b64"],
         )
 
     @classmethod
-    def from_json(cls, json_str: str) -> "NoirProgramData":
+    def from_json(cls, json_str: Union[str, bytes, bytearray]) -> "NoirProgramData":
         data = json.loads(json_str)
         return cls.from_dict(data)
 
 
-def parse_noir_program_data(json_data: Union[str, Dict[str, Any]]) -> NoirProgramData:
-    if isinstance(json_data, str):
+def parse_noir_program_data(
+    json_data: Union[str, bytes, bytearray, Dict[str, Any]]
+) -> NoirProgramData:
+    if isinstance(json_data, (str, bytes, bytearray)):
         return NoirProgramData.from_json(json_data)
     elif isinstance(json_data, dict):
         return NoirProgramData.from_dict(json_data)
     else:
-        raise ValueError("Input must be either a JSON string or a dictionary")
+        raise ValueError("Input must be either JSON bytes, a JSON string, or a dictionary")

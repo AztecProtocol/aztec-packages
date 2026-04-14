@@ -5,7 +5,8 @@ export type NetworkNames =
   | 'testnet'
   | 'mainnet'
   | 'next-net'
-  | 'devnet';
+  | 'devnet'
+  | `v${number}-devnet-${number}`;
 
 export function getActiveNetworkName(name?: string): NetworkNames {
   const network = name || process.env.NETWORK;
@@ -23,6 +24,8 @@ export function getActiveNetworkName(name?: string): NetworkNames {
     return 'next-net';
   } else if (network === 'devnet') {
     return 'devnet';
+  } else if (/^v\d+-devnet-\d+$/.test(network)) {
+    return network as `v${number}-devnet-${number}`;
   }
   throw new Error(`Unknown network: ${network}`);
 }

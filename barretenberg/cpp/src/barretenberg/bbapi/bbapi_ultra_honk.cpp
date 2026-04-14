@@ -72,6 +72,7 @@ CircuitProve::Response _prove(std::vector<uint8_t>&& bytecode,
         info("WARNING: computing verification key while proving. Pass in a precomputed vk for better performance.");
         vk = std::make_shared<VerificationKey>(prover_instance->get_precomputed());
     } else {
+        validate_vk_size<VerificationKey>(vk_bytes);
         vk = std::make_shared<VerificationKey>(from_buffer<VerificationKey>(vk_bytes));
     }
 
@@ -179,7 +180,8 @@ CircuitStats::Response _stats(std::vector<uint8_t>&& bytecode, bool include_gate
     response.num_gates = static_cast<uint32_t>(builder.get_finalized_total_circuit_size());
     response.num_gates_dyadic = static_cast<uint32_t>(builder.get_circuit_subgroup_size(response.num_gates));
     // note: will be empty if collect_gates_per_opcode is false
-    response.gates_per_opcode = std::move(program.constraints.gates_per_opcode);
+    response.gates_per_opcode =
+        std::vector<uint32_t>(program.constraints.gates_per_opcode.begin(), program.constraints.gates_per_opcode.end());
 
     return response;
 }

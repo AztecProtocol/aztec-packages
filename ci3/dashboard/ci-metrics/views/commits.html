@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Commits — aztec-packages</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { background: #0d1117; color: #e6edf3; font-family: monospace; font-size: 13px; padding: 16px; margin: 0; }
+    a { color: #58a6ff; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .nav { margin: 8px 0 14px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .nav a { color: #58a6ff; font-size: 13px; }
+    .nav a.active { color: #fff; border-bottom: 1px solid #58a6ff; }
+    .sep { color: #30363d; }
+    h2 { margin: 0 0 10px; color: #f0f6fc; font-size: 16px; font-weight: normal; }
+
+    .controls { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
+    .controls select, .controls input {
+      background: #161b22; border: 1px solid #30363d; color: #e6edf3;
+      font-family: monospace; font-size: 13px; padding: 5px 10px;
+    }
+    .controls input:focus, .controls select:focus { outline: none; border-color: #58a6ff; }
+    .controls input#search { width: 220px; }
+    .type-btn {
+      background: #161b22; border: 1px solid #30363d; color: #8b949e;
+      font-family: monospace; font-size: 12px; padding: 4px 10px; cursor: pointer;
+    }
+    .type-btn:hover { color: #e6edf3; border-color: #58a6ff; }
+    .type-btn[data-t="feat"].active    { border-color: #58a6ff; color: #58a6ff; }
+    .type-btn[data-t="fix"].active     { border-color: #3fb950; color: #3fb950; }
+    .type-btn[data-t="chore"].active   { border-color: #8b949e; color: #8b949e; }
+    .type-btn[data-t="refactor"].active{ border-color: #d2a8ff; color: #d2a8ff; }
+    .type-btn[data-t="perf"].active    { border-color: #f0883e; color: #f0883e; }
+    .type-btn[data-t="docs"].active    { border-color: #e3b341; color: #e3b341; }
+    .type-btn[data-t="other"].active   { border-color: #666;    color: #ccc; }
+
+    .day-header {
+      color: #8b949e; font-size: 11px; text-transform: uppercase; letter-spacing: 1px;
+      padding: 10px 0 4px; border-bottom: 1px solid #21262d; margin-bottom: 2px;
+    }
+    .commit-row {
+      display: grid;
+      grid-template-columns: 7ch 1fr auto;
+      gap: 0 10px;
+      align-items: baseline;
+      padding: 4px 2px;
+      border-bottom: 1px solid #0d1117;
+    }
+    .commit-row:hover { background: #161b22; }
+
+    .sha-col { color: #8b949e; font-size: 12px; }
+    .sha-col a { color: #8b949e; }
+    .sha-col a:hover { color: #e6edf3; }
+
+    .msg-col { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .msg-col > a {
+      color: #e6edf3; display: block; overflow: hidden;
+      text-overflow: ellipsis; white-space: nowrap; text-decoration: none;
+    }
+    .msg-col > a:hover { color: #fff; }
+    .type-tag { font-weight: bold; }
+    .type-feat    { color: #58a6ff; }
+    .type-fix     { color: #3fb950; }
+    .type-chore   { color: #8b949e; }
+    .type-refactor{ color: #d2a8ff; }
+    .type-perf    { color: #f0883e; }
+    .type-docs    { color: #e3b341; }
+    .type-test    { color: #79c0ff; }
+    .type-ci      { color: #a5d6ff; }
+    .type-build   { color: #ffa657; }
+    .type-style   { color: #ff7b72; }
+    .type-revert  { color: #f85149; }
+    .scope        { color: #8b949e; }
+    .breaking-bang{ color: #f85149; font-weight: bold; }
+    .merge-tag    {
+      background: #21262d; color: #8b949e; font-size: 10px;
+      padding: 1px 5px; border-radius: 3px; margin-right: 6px; vertical-align: middle;
+    }
+    .meta-col {
+      color: #8b949e; font-size: 12px; white-space: nowrap;
+      display: flex; align-items: center; gap: 6px; justify-content: flex-end;
+    }
+    .meta-col a { color: #8b949e; }
+    .meta-col a:hover { color: #e6edf3; }
+    .gh-icon { color: #484f58; display: inline-flex; align-items: center; }
+    .gh-icon:hover { color: #58a6ff; }
+    .gh-icon svg { fill: currentColor; vertical-align: middle; }
+    .ci-link { color: #484f58; font-size: 11px; letter-spacing: 0.5px; }
+    .ci-link:hover { color: #3fb950; text-decoration: none; }
+
+    .pagination {
+      display: flex; align-items: center; gap: 12px; margin-top: 14px;
+      color: #8b949e; font-size: 12px;
+    }
+    .pagination button {
+      background: #161b22; border: 1px solid #30363d; color: #e6edf3;
+      font-family: monospace; font-size: 12px; padding: 4px 12px; cursor: pointer;
+    }
+    .pagination button:hover:not(:disabled) { border-color: #58a6ff; color: #58a6ff; }
+    .pagination button:disabled { color: #484f58; cursor: default; border-color: #21262d; }
+
+    .empty  { color: #8b949e; padding: 20px 0; }
+    .loading{ color: #8b949e; padding: 12px 0; }
+  </style>
+</head>
+<body>
+  <div class="nav">
+    <a href="/">&lt; CI</a> <span class="sep">|</span>
+    <a href="/cost-overview">cost overview</a> <span class="sep">|</span>
+    <a href="/namespace-billing">namespace billing</a> <span class="sep">|</span>
+    <a href="/ci-insights">ci insights</a> <span class="sep">|</span>
+    <a href="/flake-prs">flake prs</a> <span class="sep">|</span>
+    <a href="/commits" class="active">commits</a>
+  </div>
+
+  <h2>commits — <span id="branch-label">next</span></h2>
+
+  <div class="controls">
+    <select id="branch-select" onchange="setBranch(this.value)">
+      <option value="next" selected>next</option>
+      <option value="master">master</option>
+      <option value="staging-public">staging-public</option>
+    </select>
+    <input id="search" type="text" placeholder="filter or SHA…" oninput="applyFilter()" onkeydown="searchKeydown(event)" />
+    <button class="type-btn" data-t="feat"     onclick="toggleType('feat')">feat</button>
+    <button class="type-btn" data-t="fix"      onclick="toggleType('fix')">fix</button>
+    <button class="type-btn" data-t="chore"    onclick="toggleType('chore')">chore</button>
+    <button class="type-btn" data-t="refactor" onclick="toggleType('refactor')">refactor</button>
+    <button class="type-btn" data-t="perf"     onclick="toggleType('perf')">perf</button>
+    <button class="type-btn" data-t="docs"     onclick="toggleType('docs')">docs</button>
+    <button class="type-btn" data-t="other"    onclick="toggleType('other')">other</button>
+    <button class="type-btn" onclick="clearFilters()" style="margin-left:4px;color:#484f58">clear</button>
+  </div>
+
+  <div id="list" class="loading">Loading…</div>
+
+  <div class="pagination">
+    <button id="prev-btn" onclick="goPage(currentPage - 1)" disabled>← prev</button>
+    <span id="page-info">—</span>
+    <button id="next-btn" onclick="goPage(currentPage + 1)" disabled>next →</button>
+  </div>
+
+<script>
+  const REPO = 'AztecProtocol/aztec-packages';
+  const BASE  = `https://github.com/${REPO}`;
+
+  let allCommits  = [];   // page's commits (before filter)
+  let currentPage = 1;
+  let totalPages  = 1;
+  let totalCommits= 0;
+  let currentBranch = 'next';
+  let activeTypes = new Set();
+
+  const TYPE_CLASS = {
+    feat:'type-feat', fix:'type-fix', chore:'type-chore', refactor:'type-refactor',
+    perf:'type-perf', docs:'type-docs', test:'type-test', ci:'type-ci',
+    build:'type-build', style:'type-style', revert:'type-revert',
+  };
+
+  function ghIcon() {
+    return `<svg aria-hidden="true" height="14" viewBox="0 0 16 16" width="14"><path d="M8 0c4.42 0 8 3.58 8 8a8.013 8.013 0 0 1-5.45 7.59c-.4.08-.55-.17-.55-.38 0-.27.01-1.13.01-2.2 0-.75-.25-1.23-.54-1.48 1.78-.2 3.65-.88 3.65-3.95 0-.88-.31-1.59-.82-2.15.08-.2.36-1.02-.08-2.12 0 0-.67-.22-2.2.82-.64-.18-1.32-.27-2-.27-.68 0-1.36.09-2 .27-1.53-1.03-2.2-.82-2.2-.82-.44 1.1-.16 1.92-.08 2.12-.51.56-.82 1.28-.82 2.15 0 3.06 1.86 3.75 3.64 3.95-.23.2-.44.55-.51 1.07-.46.21-1.61.55-2.33-.66-.15-.24-.6-.83-1.23-.82-.67.01-.27.38.01.53.34.19.73.9.82 1.13.16.45.68 1.31 2.69.94 0 .67.01 1.3.01 1.49 0 .21-.15.45-.55.38A7.995 7.995 0 0 1 0 8c0-4.42 3.58-8 8-8Z"/></svg>`;
+  }
+
+  function esc(s) {
+    return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  function relTime(iso) {
+    if (!iso) return '';
+    const diff = Date.now() - new Date(iso);
+    const m = Math.floor(diff / 60000);
+    if (m < 1)  return 'now';
+    if (m < 60) return m + 'm';
+    const h = Math.floor(m / 60);
+    if (h < 24) return h + 'h';
+    return Math.floor(h / 24) + 'd';
+  }
+
+  function dayKey(iso) {
+    return iso ? iso.slice(0, 10) : '';
+  }
+
+  function abbrev(s) {
+    return s === 'barretenberg' ? 'bb' : s.length > 16 ? s.slice(0,14)+'…' : s;
+  }
+
+  function renderCommit(c) {
+    const sha7     = c.sha.slice(0, 7);
+    const ghCommit = `${BASE}/commit/${c.sha}`;
+    const ghPR     = c.pr ? `${BASE}/pull/${c.pr}` : '';
+    const ghAuthor = c.author
+      ? `${BASE}/pulls?q=is:pr+author:${encodeURIComponent(c.author)}+sort:updated-desc`
+      : '';
+
+    const tm = c.subject.match(/^(fix|feat|chore|refactor|docs|style|test|perf|ci|build|revert)(\([^)]+\))?(!)?: (.*)/);
+    let msgHtml;
+    if (tm) {
+      const cls  = TYPE_CLASS[tm[1]] || '';
+      const sc   = tm[2] || '';
+      const bang = tm[3] || '';
+      const rest = tm[4];
+      msgHtml = `<span class="type-tag ${cls}">${tm[1]}</span>` +
+        (sc   ? `<span class="scope">${sc}</span>` : '') +
+        (bang ? `<span class="breaking-bang">!</span>` : '') +
+        `<span class="scope">: </span>${esc(rest)}`;
+    } else {
+      msgHtml = esc(c.subject);
+    }
+
+    const mergeTag = c.merge_train
+      ? `<span class="merge-tag">${abbrev(c.merge_train)}</span>`
+      : (c.is_merge ? `<span class="merge-tag">merge</span>` : '');
+
+    const prIcon = c.pr
+      ? `<a href="${ghPR}" target="_blank" class="gh-icon" title="PR #${c.pr}">${ghIcon()}</a>`
+      : '';
+
+    const ciLink = `<a href="/commit/${c.sha}" class="ci-link" title="CI logs for this commit">ci</a>`;
+
+    const authorHtml = c.author
+      ? `<a href="${ghAuthor}" target="_blank">${esc(c.author)}</a>`
+      : esc(c.author || '');
+
+    return `<div class="commit-row">
+      <span class="sha-col"><a href="${ghCommit}" target="_blank">${sha7}</a></span>
+      <span class="msg-col"><a href="${ghCommit}" target="_blank">${mergeTag}${msgHtml}</a></span>
+      <span class="meta-col"><span>${authorHtml}</span><span>· ${relTime(c.date)}</span>${ciLink}${prIcon}</span>
+    </div>`;
+  }
+
+  function searchKeydown(e) {
+    if (e.key !== 'Enter') return;
+    const q = document.getElementById('search').value.trim();
+    // If it looks like a hex SHA (7-40 hex chars), navigate to commit detail
+    if (/^[0-9a-f]{7,40}$/i.test(q)) {
+      window.location.href = '/commit/' + q;
+    }
+  }
+
+  function applyFilter() {
+    const q = document.getElementById('search').value.trim().toLowerCase();
+    const knownTypes = new Set(['feat','fix','chore','refactor','perf','docs','test','ci','build','style','revert']);
+
+    let rows = allCommits.filter(c => c.pr);
+
+    if (activeTypes.size > 0) {
+      const wantOther = activeTypes.has('other');
+      rows = rows.filter(c => {
+        if (activeTypes.has(c.type)) return true;
+        if (wantOther && !knownTypes.has(c.type)) return true;
+        return false;
+      });
+    }
+
+    if (q) {
+      rows = rows.filter(c =>
+        c.subject.toLowerCase().includes(q) ||
+        (c.author||'').toLowerCase().includes(q) ||
+        (c.pr ? String(c.pr).includes(q) : false) ||
+        c.sha.startsWith(q)
+      );
+    }
+
+    renderList(rows);
+  }
+
+  function renderList(commits) {
+    const el = document.getElementById('list');
+    if (!commits.length) {
+      el.innerHTML = '<div class="empty">No matching commits.</div>';
+      return;
+    }
+    const groups = {};
+    const keys = [];
+    commits.forEach(c => {
+      const k = dayKey(c.date);
+      if (!groups[k]) { groups[k] = []; keys.push(k); }
+      groups[k].push(c);
+    });
+    el.innerHTML = keys.map(k =>
+      `<div class="day-header">${k} — ${groups[k].length}</div>` +
+      groups[k].map(renderCommit).join('')
+    ).join('');
+  }
+
+  function toggleType(t) {
+    if (activeTypes.has(t)) activeTypes.delete(t);
+    else activeTypes.add(t);
+    document.querySelectorAll('.type-btn[data-t]').forEach(b => {
+      b.classList.toggle('active', activeTypes.has(b.dataset.t));
+    });
+    applyFilter();
+  }
+
+  function clearFilters() {
+    activeTypes.clear();
+    document.querySelectorAll('.type-btn[data-t]').forEach(b => b.classList.remove('active'));
+    document.getElementById('search').value = '';
+    applyFilter();
+  }
+
+  function updatePagination() {
+    document.getElementById('page-info').textContent =
+      `page ${currentPage} of ${totalPages} · ${totalCommits} cached`;
+    document.getElementById('prev-btn').disabled = currentPage <= 1;
+    document.getElementById('next-btn').disabled = currentPage >= totalPages;
+  }
+
+  async function goPage(page) {
+    if (page < 1 || page > totalPages) return;
+    document.getElementById('list').innerHTML = '<div class="loading">Loading…</div>';
+    document.getElementById('prev-btn').disabled = true;
+    document.getElementById('next-btn').disabled = true;
+    await loadPage(currentBranch, page);
+    window.scrollTo(0, 0);
+  }
+
+  async function loadPage(branch, page) {
+    try {
+      const resp = await fetch(`/api/commits?branch=${encodeURIComponent(branch)}&page=${page}`);
+      if (!resp.ok) throw new Error(resp.statusText);
+      const data = await resp.json();
+      allCommits   = data.commits || [];
+      currentPage  = data.page || page;
+      totalPages   = data.total_pages || 1;
+      totalCommits = data.total || allCommits.length;
+      applyFilter();
+      updatePagination();
+    } catch (e) {
+      document.getElementById('list').innerHTML = `<div class="empty">Error: ${e.message}</div>`;
+    }
+  }
+
+  function setBranch(branch) {
+    currentBranch = branch;
+    document.getElementById('branch-label').textContent = branch;
+    currentPage = 1;
+    clearFilters();
+    loadPage(branch, 1);
+  }
+
+  loadPage('next', 1);
+</script>
+</body>
+</html>

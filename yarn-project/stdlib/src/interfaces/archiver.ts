@@ -11,7 +11,7 @@ import { L2Block } from '../block/l2_block.js';
 import { type L2BlockSource, L2TipsSchema } from '../block/l2_block_source.js';
 import { ValidateCheckpointResultSchema } from '../block/validate_block_result.js';
 import { Checkpoint } from '../checkpoint/checkpoint.js';
-import { CheckpointDataSchema } from '../checkpoint/checkpoint_data.js';
+import { CheckpointDataSchema, ProposedCheckpointDataSchema } from '../checkpoint/checkpoint_data.js';
 import { PublishedCheckpoint } from '../checkpoint/published_checkpoint.js';
 import {
   ContractClassPublicSchema,
@@ -86,6 +86,7 @@ export const ArchiverApiSchema: ApiSchemaFor<ArchiverApi> = {
   getBlockNumber: z.function().args().returns(BlockNumberSchema),
   getProvenBlockNumber: z.function().args().returns(BlockNumberSchema),
   getCheckpointedL2BlockNumber: z.function().args().returns(BlockNumberSchema),
+  getCheckpointNumber: z.function().args().returns(CheckpointNumberSchema),
   getFinalizedL2BlockNumber: z.function().args().returns(BlockNumberSchema),
   getBlock: z.function().args(BlockNumberSchema).returns(L2Block.schema.optional()),
   getBlockHeader: z
@@ -113,8 +114,8 @@ export const ArchiverApiSchema: ApiSchemaFor<ArchiverApi> = {
   getL2BlockByArchive: z.function().args(schemas.Fr).returns(L2Block.schema.optional()),
   getTxEffect: z.function().args(TxHash.schema).returns(indexedTxSchema().optional()),
   getSettledTxReceipt: z.function().args(TxHash.schema).returns(TxReceipt.schema.optional()),
-  getL2SlotNumber: z.function().args().returns(schemas.SlotNumber.optional()),
-  getL2EpochNumber: z.function().args().returns(EpochNumberSchema.optional()),
+  getSyncedL2SlotNumber: z.function().args().returns(schemas.SlotNumber.optional()),
+  getSyncedL2EpochNumber: z.function().args().returns(EpochNumberSchema.optional()),
   getCheckpointsForEpoch: z.function().args(EpochNumberSchema).returns(z.array(Checkpoint.schema)),
   getCheckpointsDataForEpoch: z.function().args(EpochNumberSchema).returns(z.array(CheckpointDataSchema)),
   getCheckpointedBlocksForEpoch: z.function().args(EpochNumberSchema).returns(z.array(CheckpointedL2Block.schema)),
@@ -149,6 +150,8 @@ export const ArchiverApiSchema: ApiSchemaFor<ArchiverApi> = {
     .args()
     .returns(z.object({ genesisArchiveRoot: schemas.Fr })),
   getL1Timestamp: z.function().args().returns(schemas.BigInt.optional()),
+  getProposedCheckpoint: z.function().args().returns(ProposedCheckpointDataSchema.optional()),
+  getProposedCheckpointOnly: z.function().args().returns(ProposedCheckpointDataSchema.optional()),
   syncImmediate: z.function().args().returns(z.void()),
   isPendingChainInvalid: z.function().args().returns(z.boolean()),
   getPendingChainValidationStatus: z.function().args().returns(ValidateCheckpointResultSchema),

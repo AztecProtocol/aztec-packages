@@ -88,7 +88,7 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
 
   /** Loads initial slot and initializes blockstream. We will not process anything at or before the initial slot. */
   protected async init() {
-    this.initialSlot = this.epochCache.getEpochAndSlotNow().slot;
+    this.initialSlot = this.epochCache.getSlotNow();
     const startingBlock = BlockNumber(await this.archiver.getBlockNumber());
     this.logger.info(`Starting validator sentinel with initial slot ${this.initialSlot} and block ${startingBlock}`);
     this.blockStream = new L2BlockStream(this.archiver, this.l2TipsStore, this, this.logger, { startingBlock });
@@ -219,7 +219,7 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
     // Check that we have at least requiredConsecutiveEpochs and that all of them are above the inactivity threshold
     return pastEpochs
       .slice(0, requiredConsecutiveEpochs)
-      .every(p => p.missed / p.total >= this.config.slashInactivityTargetPercentage);
+      .every(p => (p.total === 0 ? false : p.missed / p.total >= this.config.slashInactivityTargetPercentage));
   }
 
   protected async handleProvenPerformance(epoch: EpochNumber, performance: ValidatorsEpochPerformance) {
@@ -228,7 +228,7 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
     }
 
     const inactiveValidators = getEntries(performance)
-      .filter(([_, { missed, total }]) => missed / total >= this.config.slashInactivityTargetPercentage)
+      .filter(([_, { missed, total }]) => total > 0 && missed / total >= this.config.slashInactivityTargetPercentage)
       .map(([address]) => address);
 
     this.logger.debug(`Found ${inactiveValidators.length} inactive validators in epoch ${epoch}`, {
@@ -264,7 +264,7 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
    * and we don't have that data if we were offline during the period.
    */
   public async work() {
-    const { slot: currentSlot } = this.epochCache.getEpochAndSlotNow();
+    const currentSlot = this.epochCache.getSlotNow();
     try {
       // Manually sync the block stream to ensure we have the latest data.
       // Note we never `start` the blockstream, so it loops at the same pace as we do.
@@ -309,9 +309,9 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
       return false;
     }
 
-    const archiverSlot = await this.archiver.getL2SlotNumber();
-    if (archiverSlot === undefined || archiverSlot < targetSlot) {
-      this.logger.debug(`Waiting for archiver to sync with L2 slot ${targetSlot}`, { archiverSlot, targetSlot });
+    const syncedSlot = await this.archiver.getSyncedL2SlotNumber();
+    if (syncedSlot === undefined || syncedSlot < targetSlot) {
+      this.logger.debug(`Waiting for archiver to sync with L2 slot ${targetSlot}`, { syncedSlot, targetSlot });
       return false;
     }
 
@@ -436,7 +436,7 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
       ? fromEntries(await Promise.all(validators.map(async v => [v.toString(), await this.store.getHistory(v)])))
       : await this.store.getHistories();
 
-    const slotNow = this.epochCache.getEpochAndSlotNow().slot;
+    const slotNow = this.epochCache.getSlotNow();
     fromSlot ??= SlotNumber(Math.max((this.lastProcessedSlot ?? slotNow) - this.store.getHistoryLength(), 0));
     toSlot ??= this.lastProcessedSlot ?? slotNow;
 
@@ -464,7 +464,7 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
       return undefined;
     }
 
-    const slotNow = this.epochCache.getEpochAndSlotNow().slot;
+    const slotNow = this.epochCache.getSlotNow();
     const effectiveFromSlot =
       fromSlot ?? SlotNumber(Math.max((this.lastProcessedSlot ?? slotNow) - this.store.getHistoryLength(), 0));
     const effectiveToSlot = toSlot ?? this.lastProcessedSlot ?? slotNow;

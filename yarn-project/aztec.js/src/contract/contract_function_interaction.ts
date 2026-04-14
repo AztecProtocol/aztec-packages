@@ -1,24 +1,30 @@
 import {
+  type ABIParameter,
+  type AbiType,
   type FunctionAbi,
   FunctionCall,
   FunctionSelector,
   FunctionType,
+  canBeMappedFromNullOrUndefined,
   decodeFromAbi,
   encodeArguments,
+  isOptionStruct,
 } from '@aztec/stdlib/abi';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { type Capsule, type HashedValues, type TxProfileResult, collectOffchainEffects } from '@aztec/stdlib/tx';
+import type { Capsule, HashedValues, TxProfileResult } from '@aztec/stdlib/tx';
 import { ExecutionPayload, mergeExecutionPayloads } from '@aztec/stdlib/tx';
 
 import type { Wallet } from '../wallet/wallet.js';
 import { BaseContractInteraction } from './base_contract_interaction.js';
 import { getGasLimits } from './get_gas_limits.js';
 import {
+  NO_FROM,
   type ProfileInteractionOptions,
   type RequestInteractionOptions,
   type SimulateInteractionOptions,
-  type SimulationReturn,
+  type SimulationResult,
+  extractOffchainOutput,
   toProfileOptions,
   toSimulateOptions,
 } from './interaction_options.js';
@@ -38,9 +44,30 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
     private extraHashedArgs: HashedValues[] = [],
   ) {
     super(wallet, authWitnesses, capsules);
-    if (args.some(arg => arg === undefined || arg === null)) {
-      throw new Error(`All function interaction arguments must be defined and not null. Received: ${args}`);
+    // This may feel a bit ad-hoc here, so it warrants a comment. We accept Noir Option<T> parameters, and it's natural
+    // to map JS's null/undefined to Noir Option's None. One possible way to deal with null/undefined arguments at this
+    // point in the codebase is to conclude that they are accepted since at least one Noir type (ie: Option) can be
+    // encoded from them. Then we would let `encode` deal with potential mismatches. I chose not to do that because of
+    // the pervasiveness of null/undefined in JS, and how easy it is to inadvertently pass it around. Having this check
+    // here allows us to fail at a point where the boundaries and intent are clear.
+    if (this.hasInvalidNullOrUndefinedArguments(args)) {
+      const signature = formatFunctionSignature(this.functionDao.name, this.functionDao.parameters);
+      const received = args.map(formatArg).join(', ');
+      throw new Error(
+        `Null or undefined arguments are only allowed for Option<T> parameters in ${signature}. Received: (${received}).`,
+      );
     }
+  }
+
+  private hasInvalidNullOrUndefinedArguments(args: any[]) {
+    return args.some((arg, index) => {
+      if (arg !== undefined && arg !== null) {
+        return false;
+      }
+
+      const parameterType = this.functionDao.parameters[index]?.type;
+      return !parameterType || !canBeMappedFromNullOrUndefined(parameterType);
+    });
   }
 
   /**
@@ -97,36 +124,30 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
    * function or a rich object containing extra metadata, such as estimated gas costs (if requested via options),
    * execution statistics and emitted offchain effects
    */
-  public async simulate<T extends SimulateInteractionOptions>(
-    options: T,
-  ): Promise<SimulationReturn<Exclude<T['fee'], undefined>['estimateGas']>>;
-  // eslint-disable-next-line jsdoc/require-jsdoc
-  public async simulate<T extends SimulateInteractionOptions>(
-    options: T,
-  ): Promise<SimulationReturn<T['includeMetadata']>>;
-  // eslint-disable-next-line jsdoc/require-jsdoc
   public async simulate(
-    options: SimulateInteractionOptions,
-  ): Promise<SimulationReturn<typeof options.includeMetadata>> {
+    options: SimulateInteractionOptions = {} as SimulateInteractionOptions,
+  ): Promise<SimulationResult> {
     // docs:end:simulate
     if (this.functionDao.functionType == FunctionType.UTILITY) {
       const call = await this.getFunctionCall();
+      const scopes = [...(options.additionalScopes ?? [])];
       const utilityResult = await this.wallet.executeUtility(call, {
-        scope: options.from,
+        scopes: options.from === NO_FROM ? scopes : [options.from, ...scopes],
         authWitnesses: options.authWitnesses,
       });
 
       // Decode the raw field elements to the actual return type
       const returnValue = utilityResult.result ? decodeFromAbi(this.functionDao.returnTypes, utilityResult.result) : [];
+      const offchainOutput = extractOffchainOutput(utilityResult.offchainEffects, utilityResult.anchorBlockTimestamp);
 
       if (options.includeMetadata) {
         return {
           stats: utilityResult.stats,
+          ...offchainOutput,
           result: returnValue,
         };
-      } else {
-        return returnValue;
       }
+      return { result: returnValue, ...offchainOutput };
     }
 
     const executionPayload = await this.request(options);
@@ -134,20 +155,17 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
 
     let rawReturnValues;
     if (this.functionDao.functionType == FunctionType.PRIVATE) {
-      if (simulatedTx.getPrivateReturnValues().nested.length > 0) {
-        // The function invoked is private and it was called via an account contract
-        // TODO(#10631): There is a bug here: this branch might be triggered when there is no-account contract as well
-        rawReturnValues = simulatedTx.getPrivateReturnValues().nested[0].values;
-      } else {
-        // The function invoked is private and it was called directly (without account contract)
-        rawReturnValues = simulatedTx.getPrivateReturnValues().values;
-      }
+      rawReturnValues = simulatedTx.getPrivateReturnValuesOfAppCall(0)?.values;
     } else {
       // For public functions we retrieve the first values directly from the public output.
       rawReturnValues = simulatedTx.getPublicReturnValues()?.[0]?.values;
     }
 
     const returnValue = rawReturnValues ? decodeFromAbi(this.functionDao.returnTypes, rawReturnValues) : [];
+    const offchainOutput = extractOffchainOutput(
+      simulatedTx.offchainEffects,
+      simulatedTx.publicInputs.constants.anchorBlockHeader.globalVariables.timestamp,
+    );
 
     if (options.includeMetadata || options.fee?.estimateGas) {
       const { gasLimits, teardownGasLimits } = getGasLimits(simulatedTx, options.fee?.estimatedGasPadding);
@@ -156,13 +174,12 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
       );
       return {
         stats: simulatedTx.stats,
-        offchainEffects: collectOffchainEffects(simulatedTx.privateExecutionResult),
+        ...offchainOutput,
         result: returnValue,
         estimatedGas: { gasLimits, teardownGasLimits },
       };
-    } else {
-      return returnValue;
     }
+    return { result: returnValue, ...offchainOutput };
   }
 
   /**
@@ -209,4 +226,63 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
       this.extraHashedArgs.concat(extraHashedArgs),
     );
   }
+}
+
+/**
+ *  Render an AbiType as a human readable string
+ * */
+function formatAbiType(abiType: AbiType): string {
+  switch (abiType.kind) {
+    case 'field':
+      return 'Field';
+    case 'boolean':
+      return 'bool';
+    case 'integer':
+      return `${abiType.sign === 'signed' ? 'i' : 'u'}${abiType.width}`;
+    case 'string':
+      return `str<${abiType.length}>`;
+    case 'array':
+      return `[${formatAbiType(abiType.type)}; ${abiType.length}]`;
+    case 'struct': {
+      if (isOptionStruct(abiType)) {
+        const innerType = abiType.fields.find(f => f.name === '_value')!.type;
+        return `Option<${formatAbiType(innerType)}>`;
+      }
+      return `(${abiType.fields.map(f => `${f.name}: ${formatAbiType(f.type)}`).join(', ')})`;
+    }
+    case 'tuple':
+      return `(${abiType.fields.map(formatAbiType).join(', ')})`;
+  }
+}
+
+/**
+ * Pretty print a function signature
+ */
+function formatFunctionSignature(name: string, parameters: ABIParameter[]): string {
+  const params = parameters.map(p => `${p.name}: ${formatAbiType(p.type)}`).join(', ');
+  return `${name}(${params})`;
+}
+
+/**
+ * Non-exhaustive pretty print of JS args to display in error messages in this module
+ */
+function formatArg(arg: unknown): string {
+  if (arg === undefined) {
+    return 'undefined';
+  }
+  if (arg === null) {
+    return 'null';
+  }
+  if (typeof arg === 'bigint') {
+    return `${arg}n`;
+  }
+  if (Array.isArray(arg)) {
+    return `[${arg.map(formatArg).join(', ')}]`;
+  }
+  if (typeof arg === 'object') {
+    const entries = Object.entries(arg).map(([k, v]) => `${k}: ${formatArg(v)}`);
+    return `{ ${entries.join(', ')} }`;
+  }
+  // eslint-disable-next-line @typescript-eslint/no-base-to-string
+  return String(arg);
 }

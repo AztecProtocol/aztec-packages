@@ -1,7 +1,7 @@
 import type { ClientProtocolCircuitVerifier } from '@aztec/stdlib/interfaces/server';
 import { Tx, type TxValidationResult, type TxValidator } from '@aztec/stdlib/tx';
 
-import { createTxReqRespValidator } from '../../../msg_validators/tx_validator/factory.js';
+import { createTxValidatorForReqResponseReceivedTxs } from '../../../msg_validators/index.js';
 
 export interface BatchRequestTxValidatorConfig {
   l1ChainId: number;
@@ -29,7 +29,7 @@ export class BatchRequestTxValidator implements IBatchRequestTxValidator {
   }
 
   static createRequestedTxValidator(config: BatchRequestTxValidatorConfig): TxValidator {
-    return createTxReqRespValidator(config.proofVerifier, {
+    return createTxValidatorForReqResponseReceivedTxs(config.proofVerifier, {
       l1ChainId: config.l1ChainId,
       rollupVersion: config.rollupVersion,
     });

@@ -1,9 +1,9 @@
 use crate::messages::processing::MessageContext;
-use crate::protocol::{constants::PRIVATE_LOG_SIZE_IN_FIELDS, traits::Deserialize};
+use crate::protocol::{constants::PRIVATE_LOG_SIZE_IN_FIELDS, traits::{Deserialize, Serialize}};
 
 /// A private log that was tagged for `recipient` and has not yet been processed, plus information related to the
 /// transaction in which it was emitted.
-#[derive(Deserialize, Eq)]
+#[derive(Deserialize, Eq, Serialize)]
 pub(crate) struct PendingTaggedLog {
     pub log: BoundedVec<Field, PRIVATE_LOG_SIZE_IN_FIELDS>,
     // Context of the message included in the log.
@@ -12,7 +12,7 @@ pub(crate) struct PendingTaggedLog {
 
 mod test {
     use crate::messages::processing::MessageContext;
-    use crate::protocol::{address::AztecAddress, traits::{Deserialize, FromField}};
+    use crate::protocol::traits::Deserialize;
     use super::PendingTaggedLog;
 
     #[test]
@@ -21,14 +21,12 @@ mod test {
         let tx_hash = 123;
         let unique_note_hashes = BoundedVec::from_array([4, 5]);
         let first_nullifier = 6;
-        let recipient = AztecAddress::from_field(789);
         let pending_log = PendingTaggedLog {
             log,
             context: MessageContext {
                 tx_hash,
                 unique_note_hashes_in_tx: unique_note_hashes,
                 first_nullifier_in_tx: first_nullifier,
-                recipient,
             },
         };
 
@@ -119,7 +117,6 @@ mod test {
             0x0000000000000000000000000000000000000000000000000000000000000000,
             0x0000000000000000000000000000000000000000000000000000000000000002,
             0x0000000000000000000000000000000000000000000000000000000000000006,
-            0x0000000000000000000000000000000000000000000000000000000000000315,
         ];
 
         let deserialized = PendingTaggedLog::deserialize(serialized_pending_tagged_log_from_typescript);

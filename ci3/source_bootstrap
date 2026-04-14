@@ -1,8 +1,19 @@
 # Source this first in all bootstrap scripts.
 # Usage: source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
+
+if (( BASH_VERSINFO[0] < 5 )); then
+  echo "Error: Bash 5 or newer is required." >&2
+  if [ "$(uname -s)" == "Darwin" ]; then
+    echo "On macOS, you can install it with Homebrew: brew install bash" >&2
+  fi
+  exit 1
+fi
+
 source $(git rev-parse --show-toplevel)/ci3/source
-source $ci3/source_refname
-source $ci3/source_redis
+
+# Silence parallel citation message.
+mkdir -p $HOME/.parallel
+touch $HOME/.parallel/will-cite
 
 cmd=${1:-}
 [ -n "$cmd" ] && shift

@@ -26,7 +26,7 @@ export async function getContractInstanceRegistryArtifact(): Promise<ContractArt
 export async function getCanonicalInstanceRegistry(): Promise<ProtocolContract> {
   if (!protocolContract) {
     const contractInstanceRegistryArtifact = await getContractInstanceRegistryArtifact();
-    protocolContract = await makeProtocolContract('ContractInstanceRegistry', contractInstanceRegistryArtifact);
+    protocolContract = makeProtocolContract('ContractInstanceRegistry', contractInstanceRegistryArtifact);
   }
   return protocolContract;
 }

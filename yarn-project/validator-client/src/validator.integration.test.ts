@@ -23,13 +23,13 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { CommitteeAttestation, L2Block } from '@aztec/stdlib/block';
 import { L1PublishedData, PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 import { type L1RollupConstants, getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
-import { GasFees } from '@aztec/stdlib/gas';
+import { Gas, GasFees } from '@aztec/stdlib/gas';
 import { tryStop } from '@aztec/stdlib/interfaces/server';
 import { computeInHashFromL1ToL2Messages } from '@aztec/stdlib/messaging';
 import { type BlockProposal, CheckpointProposal } from '@aztec/stdlib/p2p';
 import { mockTx } from '@aztec/stdlib/testing';
-import type { PublicDataTreeLeaf } from '@aztec/stdlib/trees';
 import { BlockHeader, type CheckpointGlobalVariables, Tx } from '@aztec/stdlib/tx';
+import type { GenesisData } from '@aztec/stdlib/world-state';
 import { ServerWorldStateSynchronizer } from '@aztec/world-state';
 import { NativeWorldStateService } from '@aztec/world-state/native';
 import { getGenesisValues } from '@aztec/world-state/testing';
@@ -53,6 +53,7 @@ describe('ValidatorClient Integration', () => {
     proofSubmissionEpochs: 2,
     l1StartBlock: 0n,
     targetCommitteeSize: 48,
+    rollupManaLimit: 200_000_000,
   };
 
   const emptyL1ToL2Messages: Fr[] = [];
@@ -75,7 +76,7 @@ describe('ValidatorClient Integration', () => {
   let epochCache: TestEpochCache;
   let rollupAddress: EthAddress;
   let genesisArchiveRoot: Fr;
-  let prefilledPublicData: PublicDataTreeLeaf[];
+  let genesis: GenesisData;
   let genesisBlockHeader: BlockHeader;
   let proposerSigner: Secp256k1Signer;
   let proposerPrivateKey: Hex<32>;
@@ -96,14 +97,11 @@ describe('ValidatorClient Integration', () => {
   /** Creates a new validator and dependencies */
   const createValidatorContext = async (privateKey: Hex<32>): Promise<ValidatorContext> => {
     // Create archiver store and NoopL1Archiver
-    const archiverStore = await createArchiverStore(
-      {
-        archiverStoreMapSizeKb: 1024 * 1024,
-        dataDirectory: undefined,
-        dataStoreMapSizeKb: 1024 * 1024,
-      },
-      { epochDuration: l1Constants.epochDuration },
-    );
+    const archiverStore = await createArchiverStore({
+      archiverStoreMapSizeKb: 1024 * 1024,
+      dataDirectory: undefined,
+      dataStoreMapSizeKb: 1024 * 1024,
+    });
     await registerProtocolContracts(archiverStore);
     const archiver = await createNoopL1Archiver(archiverStore, { ...l1Constants, genesisArchiveRoot });
     await archiver.start();
@@ -116,7 +114,7 @@ describe('ValidatorClient Integration', () => {
       worldStateDbMapSizeKb: 1024 * 1024,
       worldStateCheckpointHistory: 0,
     };
-    const worldStateDb = await NativeWorldStateService.tmp(rollupAddress, true, prefilledPublicData);
+    const worldStateDb = await NativeWorldStateService.tmp(rollupAddress, true, genesis);
     const synchronizer = new ServerWorldStateSynchronizer(worldStateDb, archiver, wsConfig);
     await synchronizer.start();
 
@@ -127,7 +125,8 @@ describe('ValidatorClient Integration', () => {
         slotDuration: l1Constants.slotDuration,
         l1ChainId: chainId.toNumber(),
         rollupVersion: version.toNumber(),
-        txPublicSetupAllowList: [],
+        rollupManaLimit: 200_000_000,
+        txPublicSetupAllowListExtend: [],
       },
       synchronizer,
       archiver,
@@ -167,13 +166,13 @@ describe('ValidatorClient Integration', () => {
         attestationPollingIntervalMs: 100,
         disableValidator: false,
         disabledValidators: [],
-        validatorReexecute: true,
         slashBroadcastedInvalidBlockPenalty: 10n,
         slashDuplicateProposalPenalty: 10n,
         slashDuplicateAttestationPenalty: 10n,
         haSigningEnabled: false,
         skipCheckpointProposalValidation: false,
         skipPushProposedBlocksToArchiver: false,
+        dataStoreMapSizeKb: 128 * 1024,
         nodeId: 'test-node',
         pollingIntervalMs: 100,
         signingTimeoutMs: 3000,
@@ -208,19 +207,27 @@ describe('ValidatorClient Integration', () => {
   const buildBlockProposal = async (
     checkpointBuilder: CheckpointBuilder,
     blockNumber: BlockNumber,
+    cpNumber: CheckpointNumber,
     txs: Tx[] = [],
     l1ToL2Messages: Fr[] = [],
   ): Promise<{ block: L2Block; proposal: BlockProposal }> => {
     const inHash = computeInHashFromL1ToL2Messages(l1ToL2Messages);
-    const { block, usedTxs } = await checkpointBuilder.buildBlock(txs, blockNumber, timestamp, {});
+    const { block, usedTxs } = await checkpointBuilder.buildBlock(txs, blockNumber, timestamp, {
+      isBuildingProposal: true,
+      maxBlocksPerCheckpoint: 1,
+      perBlockAllocationMultiplier: 1.2,
+      minValidTxs: 0,
+    });
 
     const proposal = await proposer.validator.createBlockProposal(
       block.header,
+      cpNumber,
       block.indexWithinCheckpoint,
       inHash,
       block.archive.root,
       usedTxs,
       proposerSigner.address,
+      {},
     );
 
     logger.warn(`Built block proposal for block ${blockNumber}`, { ...block.toBlockInfo() });
@@ -242,6 +249,8 @@ describe('ValidatorClient Integration', () => {
         vkTreeRoot: getVKTreeRoot(),
         protocolContractsHash,
         anchorBlockHeader: anchorBlockHeader ?? genesisBlockHeader,
+        gasLimits: new Gas(100_000, 1_000_000),
+        gasUsed: new Gas(10_000, 100_000),
         maxFeesPerGas: new GasFees(1e12, 1e12),
         feePayer,
       });
@@ -296,7 +305,7 @@ describe('ValidatorClient Integration', () => {
     for (let i = 0; i < blockCount; i++) {
       const blockNumber = BlockNumber(startBlockNumber + i);
       const txs = await getTxsForBlock(blockNumber, blocks);
-      const block = await buildBlockProposal(builder, blockNumber, txs, l1ToL2Messages);
+      const block = await buildBlockProposal(builder, blockNumber, checkpointNumber, txs, l1ToL2Messages);
       blocks.push(block);
     }
 
@@ -305,9 +314,11 @@ describe('ValidatorClient Integration', () => {
     const proposal = await proposer.validator.createCheckpointProposal(
       checkpoint.header,
       checkpoint.archive.root,
+      checkpointNumber,
       0n,
       undefined,
       proposerSigner.address,
+      {},
     );
 
     return { blocks, checkpoint, proposal, l1ToL2Messages, globalVariables };
@@ -351,7 +362,7 @@ describe('ValidatorClient Integration', () => {
     feePayerAddresses = await Promise.all(Array.from({ length: 10 }, () => AztecAddress.random()));
     const genesisValues = await getGenesisValues(feePayerAddresses);
     genesisArchiveRoot = genesisValues.genesisArchiveRoot;
-    prefilledPublicData = genesisValues.prefilledPublicData;
+    genesis = genesisValues.genesis;
 
     // Create validator clients
     logger.warn(`Setting up validator contexts`);
@@ -531,6 +542,7 @@ describe('ValidatorClient Integration', () => {
       const badProposal = await CheckpointProposal.createProposalFromSigner(
         checkpoint.header,
         Fr.random(), // Wrong archive root
+        CheckpointNumber(1),
         0n,
         undefined,
         payload => Promise.resolve(proposerSigner.sign(payload)),
@@ -561,6 +573,35 @@ describe('ValidatorClient Integration', () => {
 
       // Block proposal validator should reject the old proposal
       const isValid = await attestor.validator.validateBlockProposal(blocks[0].proposal, mockPeerId);
+      expect(isValid).toBe(false);
+    });
+
+    it('rejects block that would exceed checkpoint mana limit', async () => {
+      const { blocks } = await buildCheckpoint(
+        CheckpointNumber(1),
+        slotNumber,
+        emptyL1ToL2Messages,
+        emptyPreviousCheckpointOutHashes,
+        BlockNumber(1),
+        3,
+        () => buildTxs(2),
+      );
+
+      // Measure total mana used by the first two blocks
+      const manaFirstTwo =
+        blocks[0].block.header.totalManaUsed.toNumber() + blocks[1].block.header.totalManaUsed.toNumber();
+
+      // Set rollupManaLimit to only cover the first two blocks' actual mana.
+      // Block 3 re-execution will have 0 remaining mana, so the actual gas check
+      // in the public processor will reject all txs, producing a tx count mismatch.
+      attestor.checkpointsBuilder.updateConfig({ rollupManaLimit: manaFirstTwo });
+
+      // Blocks 1 and 2 should validate successfully
+      await attestorValidateBlocks(blocks.slice(0, 2));
+
+      // Block 3 should fail: remaining checkpoint mana is 0, so the processor
+      // stops after the first tx's actual gas exceeds the limit.
+      const isValid = await attestor.validator.validateBlockProposal(blocks[2].proposal, mockPeerId);
       expect(isValid).toBe(false);
     });
 

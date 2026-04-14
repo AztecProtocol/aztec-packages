@@ -3,75 +3,6 @@
 
 using namespace bb;
 
-TEST(fq6, Eq)
-{
-    fq6 a{ { { 0x01, 0x02, 0x03, 0x04 }, { 0x06, 0x07, 0x08, 0x09 } },
-           { { 0x01, 0x02, 0x03, 0x04 }, { 0x06, 0x07, 0x08, 0x09 } },
-           { { 0x01, 0x02, 0x03, 0x04 }, { 0x06, 0x07, 0x08, 0x09 } } };
-    fq6 b{ { { 0x01, 0x02, 0x03, 0x04 }, { 0x06, 0x07, 0x08, 0x09 } },
-           { { 0x01, 0x02, 0x03, 0x04 }, { 0x06, 0x07, 0x08, 0x09 } },
-           { { 0x01, 0x02, 0x03, 0x04 }, { 0x06, 0x07, 0x08, 0x09 } } };
-    fq6 c{ { { 0x01, 0x02, 0x03, 0x05 }, { 0x06, 0x07, 0x08, 0x09 } },
-           { { 0x01, 0x02, 0x03, 0x05 }, { 0x06, 0x07, 0x08, 0x09 } },
-           { { 0x01, 0x02, 0x03, 0x05 }, { 0x06, 0x07, 0x08, 0x09 } } };
-    fq6 d{ { { 0x01, 0x02, 0x04, 0x04 }, { 0x06, 0x07, 0x08, 0x09 } },
-           { { 0x01, 0x02, 0x04, 0x04 }, { 0x06, 0x07, 0x08, 0x09 } },
-           { { 0x01, 0x02, 0x04, 0x04 }, { 0x06, 0x07, 0x08, 0x09 } } };
-    fq6 e{ { { 0x01, 0x03, 0x03, 0x04 }, { 0x06, 0x07, 0x08, 0x09 } },
-           { { 0x01, 0x03, 0x03, 0x04 }, { 0x06, 0x07, 0x08, 0x09 } },
-           { { 0x01, 0x03, 0x03, 0x04 }, { 0x06, 0x07, 0x08, 0x09 } } };
-    fq6 f{ { { 0x02, 0x02, 0x03, 0x04 }, { 0x06, 0x07, 0x08, 0x09 } },
-           { { 0x02, 0x02, 0x03, 0x04 }, { 0x06, 0x07, 0x08, 0x09 } },
-           { { 0x02, 0x02, 0x03, 0x04 }, { 0x06, 0x07, 0x08, 0x09 } } };
-    fq6 g{ { { 0x01, 0x02, 0x03, 0x04 }, { 0x07, 0x07, 0x08, 0x09 } },
-           { { 0x01, 0x02, 0x03, 0x04 }, { 0x07, 0x07, 0x08, 0x09 } },
-           { { 0x01, 0x02, 0x03, 0x04 }, { 0x07, 0x07, 0x08, 0x09 } } };
-    fq6 h{ { { 0x01, 0x02, 0x03, 0x04 }, { 0x06, 0x08, 0x08, 0x09 } },
-           { { 0x01, 0x02, 0x03, 0x04 }, { 0x06, 0x08, 0x08, 0x09 } },
-           { { 0x01, 0x02, 0x03, 0x04 }, { 0x06, 0x08, 0x08, 0x09 } } };
-    fq6 i{ { { 0x01, 0x02, 0x03, 0x04 }, { 0x06, 0x07, 0x09, 0x09 } },
-           { { 0x01, 0x02, 0x03, 0x04 }, { 0x06, 0x07, 0x09, 0x09 } },
-           { { 0x01, 0x02, 0x03, 0x04 }, { 0x06, 0x07, 0x09, 0x09 } } };
-    fq6 j{ { { 0x01, 0x02, 0x03, 0x04 }, { 0x06, 0x07, 0x08, 0x0a } },
-           { { 0x01, 0x02, 0x03, 0x04 }, { 0x06, 0x07, 0x08, 0x0a } },
-           { { 0x01, 0x02, 0x03, 0x04 }, { 0x06, 0x07, 0x08, 0x0a } } };
-
-    EXPECT_EQ((a == b), true);
-    EXPECT_EQ((a == c), false);
-    EXPECT_EQ((a == d), false);
-    EXPECT_EQ((a == e), false);
-    EXPECT_EQ((a == f), false);
-    EXPECT_EQ((a == g), false);
-    EXPECT_EQ((a == h), false);
-    EXPECT_EQ((a == i), false);
-    EXPECT_EQ((a == j), false);
-}
-
-TEST(fq6, IsZero)
-{
-    fq6 a = fq6::zero();
-    fq6 b = fq6::zero();
-    fq6 c = fq6::zero();
-    fq6 d = fq6::zero();
-    b.c0.c0.data[0] = 1;
-    c.c1.c0.data[0] = 1;
-    d.c2.c0.data[0] = 1;
-    EXPECT_EQ(a.is_zero(), true);
-    EXPECT_EQ(b.is_zero(), false);
-    EXPECT_EQ(c.is_zero(), false);
-    EXPECT_EQ(d.is_zero(), false);
-}
-
-TEST(fq6, RandomElement)
-{
-    fq6 a = fq6::random_element();
-    fq6 b = fq6::random_element();
-
-    EXPECT_EQ((a == b), false);
-    EXPECT_EQ(a.is_zero(), false);
-    EXPECT_EQ(b.is_zero(), false);
-}
-
 TEST(fq6, AddCheckAgainstConstants)
 {
     fq6 a{ { { 0x68138b3c3e5e820b, 0x9bf71d36786da85f, 0x815831c12e257996, 0x2280b875a27e6d1d },
@@ -169,7 +100,6 @@ TEST(fq6, MulCheckAgainstConstants)
 
 TEST(fq6, SqrCheckAgainstConstants)
 {
-
 #if defined(__SIZEOF_INT128__) && !defined(__wasm__)
     fq6 a{ { { 0xe337aaa063afce6, 0xff4b5477485eb20, 0xef6dcf13b3855ef8, 0x14554c38da988ece },
              { 0x6a70e65e71431416, 0xd21f95045c45f422, 0x2a17b6c6ff517884, 0x1b01ad6487a3ff16 } },
@@ -202,84 +132,55 @@ TEST(fq6, SqrCheckAgainstConstants)
     EXPECT_EQ(result, expected);
 }
 
-TEST(fq6, ToMontgomeryForm)
+TEST(fq6, FrobeniusCoefficients)
 {
-    fq6 result = fq6::zero();
-    result.c0.c0.data[0] = 1;
-    fq6 expected = fq6::one();
-    result = result.to_montgomery_form();
+    fq2 frobenius_coeff_1_1{ Bn254Fq6Params::frobenius_coeffs_c1_1 };
+    fq2 frobenius_coeff_1_2{ Bn254Fq6Params::frobenius_coeffs_c1_2 };
+    fq2 frobenius_coeff_1_3{ Bn254Fq6Params::frobenius_coeffs_c1_3 };
+    fq2 frobenius_coeff_2_1{ Bn254Fq6Params::frobenius_coeffs_c2_1 };
+    fq2 frobenius_coeff_2_2{ Bn254Fq6Params::frobenius_coeffs_c2_2 };
+    fq2 frobenius_coeff_2_3{ Bn254Fq6Params::frobenius_coeffs_c2_3 };
+
+    // \xi^{(q-1)/3}
+    fq2 expected_frobenius_coeff_1_1 = fq2{ 0x09, 0x01 }.pow((fq::modulus - 1) / 3);
+    // \xi^{(q^2-1)/3} = \xi^{(q-1)/3}^{q+1}
+    fq2 expected_frobenius_coeff_1_2 = expected_frobenius_coeff_1_1.pow(fq::modulus + 1);
+    // \xi^{(q^3-1)/3} = \xi^{(q-1)/3}^{q^2+q+1}
+    fq2 expected_frobenius_coeff_1_3 = expected_frobenius_coeff_1_1.pow(fq::modulus).pow(fq::modulus) *
+                                       expected_frobenius_coeff_1_1.pow(fq::modulus) * expected_frobenius_coeff_1_1;
+    // \xi^{2(q-1)/3}
+    fq2 expected_frobenius_coeff_2_1 = fq2{ 0x09, 0x01 }.pow(uint256_t(2) * (fq::modulus - 1) / 3);
+    // \xi^{2(q^2-1)/3} = \xi^{2(q-1)/3}^{q+1}
+    fq2 expected_frobenius_coeff_2_2 = expected_frobenius_coeff_2_1.pow(fq::modulus + 1);
+    // \xi^{2(q^3-1)/3} = \xi^{2(q-1)/3}^{q^2+q+1}
+    fq2 expected_frobenius_coeff_2_3 = expected_frobenius_coeff_2_1.pow(fq::modulus).pow(fq::modulus) *
+                                       expected_frobenius_coeff_2_1.pow(fq::modulus) * expected_frobenius_coeff_2_1;
+
+    EXPECT_EQ(frobenius_coeff_1_1, expected_frobenius_coeff_1_1);
+    EXPECT_EQ(frobenius_coeff_1_2, expected_frobenius_coeff_1_2);
+    EXPECT_EQ(frobenius_coeff_1_3, expected_frobenius_coeff_1_3);
+    EXPECT_EQ(frobenius_coeff_2_1, expected_frobenius_coeff_2_1);
+    EXPECT_EQ(frobenius_coeff_2_2, expected_frobenius_coeff_2_2);
+    EXPECT_EQ(frobenius_coeff_2_3, expected_frobenius_coeff_2_3);
+}
+
+TEST(fq6, MulByNonResidue)
+{
+    fq2 one = fq2::one();
+    fq2 result = fq6::mul_by_non_residue(one);
+    fq2 expected = fq2{ 0x09, 0x01 };
+
     EXPECT_EQ(result, expected);
 }
 
-TEST(fq6, FromMontgomeryForm)
+TEST(fq6, SparseMul)
 {
-    fq6 result = fq6::one();
-    fq6 expected = fq6::zero();
-    expected.c0.c0.data[0] = 1;
-    result = result.from_montgomery_form();
-    EXPECT_EQ(result, expected);
-}
-
-TEST(fq6, MulSqrConsistency)
-{
-    fq6 a = fq6::random_element();
+    fq2 a0 = fq2::random_element();
+    fq2 a1 = fq2::random_element();
     fq6 b = fq6::random_element();
-    fq6 t1 = a - b;
-    fq6 t2 = a + b;
-    fq6 mul_result = t1 * t2;
-    fq6 sqr_result = a.sqr() - b.sqr();
 
-    EXPECT_EQ(mul_result, sqr_result);
-}
+    fq6 result = b.sparse_mul(a0, a1);
+    fq6 expected = fq6{ a0, a1, fq2::zero() } * b;
 
-TEST(fq6, AddMulConsistency)
-{
-    fq6 multiplicand = fq6::zero();
-    multiplicand.c0.c0.data[0] = 9;
-    multiplicand = multiplicand.to_montgomery_form();
-
-    fq6 a = fq6::random_element();
-    fq6 result = a + a;
-    result += result;
-    result += result;
-    result += a;
-
-    fq6 expected = a * multiplicand;
-    EXPECT_EQ(result, expected);
-}
-
-TEST(fq6, SubMulConsistency)
-{
-    fq6 multiplicand = fq6::zero();
-    multiplicand.c0.c0.data[0] = 5;
-    multiplicand = multiplicand.to_montgomery_form();
-    fq6 a = fq6::random_element();
-    fq6 result = a + a;
-    result += result;
-    result += result;
-    result -= a;
-    result -= a;
-    result -= a;
-
-    fq6 expected = a * multiplicand;
-
-    EXPECT_EQ(result, expected);
-}
-
-TEST(fq6, Invert)
-{
-    fq6 input = fq6::random_element();
-    fq6 result = input.invert();
-
-    result *= input;
-    EXPECT_EQ(result, fq6::one());
-}
-
-TEST(fq6, Copy)
-{
-    fq6 result = fq6::random_element();
-
-    // NOLINTNEXTLINE(performance-unnecessary-copy-initialization) this is what we want to test!
-    fq6 expected = result;
     EXPECT_EQ(result, expected);
 }

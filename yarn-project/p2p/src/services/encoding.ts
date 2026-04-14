@@ -1,13 +1,21 @@
 // Taken from lodestar: https://github.com/ChainSafe/lodestar
-import { sha256 } from '@aztec/foundation/crypto/sha256';
 import { createLogger } from '@aztec/foundation/log';
 import { MAX_TX_SIZE_KB, TopicType, getTopicFromString } from '@aztec/stdlib/p2p';
 
 import type { RPC } from '@chainsafe/libp2p-gossipsub/message';
 import type { DataTransform } from '@chainsafe/libp2p-gossipsub/types';
 import type { Message } from '@libp2p/interface';
+import { webcrypto } from 'node:crypto';
 import { compressSync, uncompressSync } from 'snappy';
 import xxhashFactory from 'xxhash-wasm';
+
+/** Thrown when a Snappy-compressed response exceeds the allowed decompressed size. */
+export class OversizedSnappyResponseError extends Error {
+  constructor(decompressedSize: number, maxSizeKb: number) {
+    super(`Decompressed size ${decompressedSize} exceeds maximum allowed size of ${maxSizeKb}kb`);
+    this.name = 'OversizedSnappyResponseError';
+  }
+}
 
 // Load WASM
 const xxhash = await xxhashFactory();
@@ -44,11 +52,10 @@ export function msgIdToStrFn(msgId: Uint8Array): string {
  * @param message - The libp2p message
  * @returns The message identifier
  */
-export function getMsgIdFn(message: Message) {
-  const { topic } = message;
-
-  const vec = [Buffer.from(topic), message.data];
-  return sha256(Buffer.concat(vec)).subarray(0, 20);
+export async function getMsgIdFn({ topic, data }: Message): Promise<Uint8Array> {
+  const buffer = Buffer.concat([Buffer.from(topic), data]);
+  const hash = await webcrypto.subtle.digest('SHA-256', buffer);
+  return Buffer.from(hash.slice(0, 20));
 }
 
 const DefaultMaxSizesKb: Record<TopicType, number> = {
@@ -87,7 +94,7 @@ export class SnappyTransform implements DataTransform {
     const { decompressedSize } = readSnappyPreamble(data);
     if (decompressedSize > maxSizeKb * 1024) {
       this.logger.warn(`Decompressed size ${decompressedSize} exceeds maximum allowed size of ${maxSizeKb}kb`);
-      throw new Error(`Decompressed size ${decompressedSize} exceeds maximum allowed size of ${maxSizeKb}kb`);
+      throw new OversizedSnappyResponseError(decompressedSize, maxSizeKb);
     }
 
     return Buffer.from(uncompressSync(data, { asBuffer: true }));

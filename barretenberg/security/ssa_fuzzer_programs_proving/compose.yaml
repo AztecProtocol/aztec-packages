@@ -9,7 +9,7 @@ services:
       context: .
       dockerfile: Dockerfile
       args:
-        BB_VERSION: "0.84.0"
+        BB_VERSION: "5.0.0-nightly.20260311"
     depends_on:
       - redis
     environment:

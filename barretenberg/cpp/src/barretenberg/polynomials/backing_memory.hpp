@@ -1,5 +1,5 @@
 // === AUDIT STATUS ===
-// internal:    { status: Planned, auditors: [], commit: }
+// internal:    { status: Complete, auditors: [Nishat], commit: 94f596f8b3bbbc216f9ad7dc33253256141156b2 }
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
@@ -13,7 +13,7 @@
 #include <fcntl.h>
 #include <filesystem>
 #include <memory>
-#ifndef __wasm__
+#if !defined(__wasm__) && !defined(_WIN32)
 #include <sys/mman.h>
 #endif
 
@@ -33,7 +33,7 @@ template <typename Fr> struct BackingMemory {
     // Common raw data pointer used by all storage types
     Fr* raw_data = nullptr;
 
-#ifndef __wasm__
+#if !defined(__wasm__) && !defined(_WIN32)
     // File-backed data substruct with cleanup metadata
     struct FileBackedData {
         size_t file_size;
@@ -67,7 +67,7 @@ template <typename Fr> struct BackingMemory {
 
     BackingMemory(BackingMemory&& other) noexcept
         : raw_data(other.raw_data)
-#ifndef __wasm__
+#if !defined(__wasm__) && !defined(_WIN32)
         , file_backed(std::move(other.file_backed))
 #endif
         , aligned_memory(std::move(other.aligned_memory))
@@ -79,7 +79,7 @@ template <typename Fr> struct BackingMemory {
     {
         if (this != &other) {
             raw_data = other.raw_data;
-#ifndef __wasm__
+#if !defined(__wasm__) && !defined(_WIN32)
             file_backed = std::move(other.file_backed);
 #endif
             aligned_memory = std::move(other.aligned_memory);
@@ -88,11 +88,12 @@ template <typename Fr> struct BackingMemory {
         return *this;
     }
 
-    // Allocate memory, preferring file-backed if in low memory mode
+    // Allocate memory, preferring file-backed if in low memory mode.
+    // Memory is NOT zeroed — callers that need zeroed memory must do so themselves.
     static BackingMemory allocate(size_t size)
     {
         BackingMemory memory;
-#ifndef __wasm__
+#if !defined(__wasm__) && !defined(_WIN32)
         if (slow_low_memory) {
             if (try_allocate_file_backed(memory, size)) {
                 return memory;
@@ -106,26 +107,43 @@ template <typename Fr> struct BackingMemory {
     ~BackingMemory() = default;
 
   private:
+    // Use new Fr[] instead of std::make_shared<Fr[]>(n) to avoid serial
+    // value-initialization (zeroing). Polynomial's constructor handles
+    // zeroing in parallel where needed.
     static void allocate_aligned(BackingMemory& memory, size_t size)
     {
-        // Fr has alignas on it so this is fine post c++20.
-        memory.aligned_memory = std::make_shared<Fr[]>(size);
-        memory.raw_data = memory.aligned_memory.get();
+        if (size == 0) {
+            memory.aligned_memory = nullptr;
+            memory.raw_data = nullptr;
+            return;
+        }
+        Fr* ptr = new Fr[size];
+        memory.aligned_memory = std::shared_ptr<Fr[]>(ptr, [](Fr* p) { delete[] p; });
+        memory.raw_data = ptr;
     }
 
-#ifndef __wasm__
+#if !defined(__wasm__) && !defined(_WIN32)
     static bool try_allocate_file_backed(BackingMemory& memory, size_t size)
     {
         if (size == 0) {
             return false;
         }
 
-        size_t required_bytes = size * sizeof(Fr);
-        size_t current_usage = current_storage_usage.load();
-
-        // Check if we're under the storage budget
-        if (current_usage + required_bytes > storage_budget) {
+        if (size > std::numeric_limits<size_t>::max() / sizeof(Fr)) {
             return false;
+        }
+
+        size_t required_bytes = size * sizeof(Fr);
+
+        // Check and update storage usage to enforce budget
+        size_t current_usage = current_storage_usage.load();
+        while (true) {
+            if (current_usage + required_bytes > storage_budget) {
+                return false;
+            }
+            if (current_storage_usage.compare_exchange_weak(current_usage, current_usage + required_bytes)) {
+                break;
+            }
         }
 
         size_t file_size = required_bytes;
@@ -141,21 +159,24 @@ template <typename Fr> struct BackingMemory {
 
         std::string filename = temp_dir / ("poly-mmap-" + std::to_string(getpid()) + "-" + std::to_string(id));
 
-        int fd = open(filename.c_str(), O_CREAT | O_RDWR | O_TRUNC, 0644);
+        int fd = open(filename.c_str(), O_CREAT | O_RDWR | O_TRUNC | O_EXCL, 0600);
         if (fd < 0) {
+            current_storage_usage.fetch_sub(required_bytes);
             return false;
         }
 
         if (ftruncate(fd, static_cast<off_t>(file_size)) != 0) {
             close(fd);
             std::filesystem::remove(filename);
+            current_storage_usage.fetch_sub(required_bytes);
             return false;
         }
 
-        void* addr = mmap(nullptr, file_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+        void* addr = mmap(nullptr, file_size, PROT_READ | PROT_WRITE, MAP_PRIVATE, fd, 0);
         if (addr == MAP_FAILED) {
             close(fd);
             std::filesystem::remove(filename);
+            current_storage_usage.fetch_sub(required_bytes);
             return false;
         }
 
@@ -167,8 +188,6 @@ template <typename Fr> struct BackingMemory {
 
         memory.raw_data = static_cast<Fr*>(addr);
         memory.file_backed = std::move(file_backed_data);
-
-        current_storage_usage.fetch_add(required_bytes);
 
         return true;
     }

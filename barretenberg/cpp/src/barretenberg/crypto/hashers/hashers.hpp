@@ -1,5 +1,5 @@
 // === AUDIT STATUS ===
-// internal:    { status: Planned, auditors: [Federico], commit: }
+// internal:    { status: Completed, auditors: [Federico], commit: }
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
@@ -19,12 +19,12 @@ struct KeccakHasher {
     static constexpr size_t OUTPUT_SIZE = 32;
     static std::vector<uint8_t> hash(const std::vector<uint8_t>& message)
     {
-        keccak256 hash_result = ethash_keccak256(&message[0], message.size());
+        const uint8_t* ptr = message.empty() ? nullptr : message.data();
+        keccak256 hash_result = ethash_keccak256(ptr, message.size());
 
-        std::vector<uint8_t> output;
-        output.resize(32);
+        std::vector<uint8_t> output(32);
 
-        memcpy((void*)&output[0], (void*)&hash_result.word64s[0], 32);
+        memcpy(output.data(), &hash_result.word64s[0], output.size());
         return output;
     }
 };

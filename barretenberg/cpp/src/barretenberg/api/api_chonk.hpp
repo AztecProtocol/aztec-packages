@@ -82,6 +82,14 @@ class ChonkAPI : public API {
                   const std::filesystem::path& output_path) override;
 
     /**
+     * @brief Batch-verify multiple Chonk proofs from a directory of proof_N/vk_N pairs.
+     *
+     * @param proofs_dir Directory containing proof_0/vk_0, proof_1/vk_1, ...
+     * @return true if all proofs verify
+     */
+    bool batch_verify(const Flags& flags, const std::filesystem::path& proofs_dir);
+
+    /**
      * @brief Validate that precomputed VKs in ivc-inputs.msgpack match computed VKs.
      *
      * @details Iterates through all execution steps and verifies each precomputed VK.
@@ -91,6 +99,17 @@ class ChonkAPI : public API {
      * @return true if all VKs match (or were successfully rewritten)
      */
     bool check_precomputed_vks(const Flags& flags, const std::filesystem::path& input_path);
+
+    /**
+     * @brief Output proof statistics: compressed proof and its size.
+     *
+     * @details Reads a serialized Chonk proof, computes the compressed proof using ProofCompressor,
+     * writes the compressed proof binary and a JSON file with compressed_proof_size_bytes.
+     *
+     * @param proof_path Path to the serialized Chonk proof
+     * @param output_path Path to write the JSON stats file (or "-" for stdout)
+     */
+    void proof_stats(const std::filesystem::path& proof_path, const std::filesystem::path& output_path);
 
     bool check(const Flags& flags,
                const std::filesystem::path& bytecode_path,

@@ -1,11 +1,16 @@
 import { type FunctionCall, FunctionType, decodeFromAbi } from '@aztec/stdlib/abi';
-import { ExecutionPayload, TxSimulationResult, UtilityExecutionResult, mergeExecutionPayloads } from '@aztec/stdlib/tx';
+import { ExecutionPayload, HashedValues, UtilityExecutionResult, mergeExecutionPayloads } from '@aztec/stdlib/tx';
 
+import type { TxSimulationResultWithAppOffset } from '../wallet/tx_simulation_result_with_app_offset.js';
 import type { BatchedMethod, Wallet } from '../wallet/wallet.js';
 import { BaseContractInteraction } from './base_contract_interaction.js';
+import { getGasLimits } from './get_gas_limits.js';
 import {
+  NO_FROM,
   type RequestInteractionOptions,
   type SimulateInteractionOptions,
+  type SimulationResult,
+  extractOffchainOutput,
   toSimulateOptions,
 } from './interaction_options.js';
 
@@ -15,6 +20,7 @@ export class BatchCall extends BaseContractInteraction {
   constructor(
     wallet: Wallet,
     protected interactions: (BaseContractInteraction | ExecutionPayload)[],
+    private extraHashedArgs: HashedValues[] = [],
   ) {
     super(wallet);
   }
@@ -30,9 +36,18 @@ export class BatchCall extends BaseContractInteraction {
     const feeExecutionPayload = options.fee?.paymentMethod
       ? await options.fee.paymentMethod.getExecutionPayload()
       : undefined;
+    const { authWitnesses, capsules } = options;
+
+    // Propagates the included authwitnesses, capsules, and extraHashedArgs potentially baked into the interaction
+    const initialExecutionPayload = new ExecutionPayload(
+      [],
+      this.authWitnesses.concat(authWitnesses ?? []),
+      this.capsules.concat(capsules ?? []),
+      this.extraHashedArgs,
+    );
     const finalExecutionPayload = feeExecutionPayload
-      ? mergeExecutionPayloads([feeExecutionPayload, ...requests])
-      : mergeExecutionPayloads([...requests]);
+      ? mergeExecutionPayloads([initialExecutionPayload, feeExecutionPayload, ...requests])
+      : mergeExecutionPayloads([initialExecutionPayload, ...requests]);
     return finalExecutionPayload;
   }
 
@@ -44,7 +59,7 @@ export class BatchCall extends BaseContractInteraction {
    * @param options - An optional object containing additional configuration for the interaction.
    * @returns The results of all the interactions that make up the batch
    */
-  public async simulate(options: SimulateInteractionOptions): Promise<any> {
+  public async simulate(options: SimulateInteractionOptions): Promise<SimulationResult> {
     const { indexedExecutionPayloads, utility } = (await this.getExecutionPayloads()).reduce<{
       /** Keep track of the number of private calls to retrieve the return values */
       privateIndex: 0;
@@ -77,7 +92,7 @@ export class BatchCall extends BaseContractInteraction {
     for (const [call] of utility) {
       batchRequests.push({
         name: 'executeUtility' as const,
-        args: [call, { scope: options.from, authWitnesses: options.authWitnesses }],
+        args: [call, { scopes: options.from === NO_FROM ? [] : [options.from], authWitnesses: options.authWitnesses }],
       });
     }
 
@@ -107,32 +122,55 @@ export class BatchCall extends BaseContractInteraction {
       const [call, resultIndex] = utility[i];
       const wrappedResult = batchResults[i];
       if (wrappedResult.name === 'executeUtility') {
-        const rawReturnValues = (wrappedResult.result as UtilityExecutionResult).result;
-        results[resultIndex] = rawReturnValues ? decodeFromAbi(call.returnTypes, rawReturnValues) : [];
+        const utilityResult = wrappedResult.result as UtilityExecutionResult;
+        const rawReturnValues = utilityResult.result;
+        const offchainOutput = extractOffchainOutput(utilityResult.offchainEffects, utilityResult.anchorBlockTimestamp);
+        results[resultIndex] = {
+          result: rawReturnValues ? decodeFromAbi(call.returnTypes, rawReturnValues) : [],
+          ...offchainOutput,
+        };
       }
     }
 
     // Process tx simulation result (it comes last if present)
+    let simulatedTx: TxSimulationResultWithAppOffset | undefined;
     if (indexedExecutionPayloads.length > 0) {
       const txResultWrapper = batchResults[utility.length];
       if (txResultWrapper.name === 'simulateTx') {
-        const simulatedTx = txResultWrapper.result as TxSimulationResult;
+        simulatedTx = txResultWrapper.result as TxSimulationResultWithAppOffset;
         indexedExecutionPayloads.forEach(([request, callIndex, resultIndex]) => {
           const call = request.calls[0];
-          // As account entrypoints are private, for private functions we retrieve the return values from the first nested call
-          // since we're interested in the first set of values AFTER the account entrypoint
-          // For public functions we retrieve the first values directly from the public output.
+          // For public functions we retrieve the values directly from the public output.
           const rawReturnValues =
             call.type == FunctionType.PRIVATE
-              ? simulatedTx.getPrivateReturnValues()?.nested?.[resultIndex].values
-              : simulatedTx.getPublicReturnValues()?.[resultIndex].values;
+              ? simulatedTx!.getPrivateReturnValuesOfAppCall(resultIndex)?.values
+              : simulatedTx!.getPublicReturnValues()?.[resultIndex].values;
 
-          results[callIndex] = rawReturnValues ? decodeFromAbi(call.returnTypes, rawReturnValues) : [];
+          results[callIndex] = {
+            result: rawReturnValues ? decodeFromAbi(call.returnTypes, rawReturnValues) : [],
+            ...extractOffchainOutput(
+              simulatedTx!.offchainEffects,
+              simulatedTx!.publicInputs.constants.anchorBlockHeader.globalVariables.timestamp,
+            ),
+          };
         });
       }
     }
 
-    return results;
+    if ((options.includeMetadata || options.fee?.estimateGas) && simulatedTx) {
+      const { gasLimits, teardownGasLimits } = getGasLimits(simulatedTx, options.fee?.estimatedGasPadding);
+      this.log.verbose(
+        `Estimated gas limits for batch tx: DA=${gasLimits.daGas} L2=${gasLimits.l2Gas} teardownDA=${teardownGasLimits.daGas} teardownL2=${teardownGasLimits.l2Gas}`,
+      );
+      return {
+        result: results,
+        estimatedGas: { gasLimits, teardownGasLimits },
+        offchainEffects: [],
+        offchainMessages: [],
+      };
+    }
+
+    return { result: results, offchainEffects: [], offchainMessages: [] };
   }
 
   protected async getExecutionPayloads(): Promise<ExecutionPayload[]> {

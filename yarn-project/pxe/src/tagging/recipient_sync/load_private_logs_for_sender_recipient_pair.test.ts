@@ -2,11 +2,15 @@ import { MAX_TX_LIFETIME } from '@aztec/constants';
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
-import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { BlockHash } from '@aztec/stdlib/block';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
-import { DirectionalAppTaggingSecret, SiloedTag, Tag } from '@aztec/stdlib/logs';
-import { makeBlockHeader, makeL2Tips, randomTxScopedPrivateL2Log } from '@aztec/stdlib/testing';
+import { type ExtendedDirectionalAppTaggingSecret, SiloedTag } from '@aztec/stdlib/logs';
+import {
+  makeBlockHeader,
+  makeL2Tips,
+  randomExtendedDirectionalAppTaggingSecret,
+  randomTxScopedPrivateL2Log,
+} from '@aztec/stdlib/testing';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
@@ -20,17 +24,15 @@ const FAR_FUTURE_BLOCK_NUMBER = BlockNumber(100);
 const MOCK_ANCHOR_BLOCK_HASH = BlockHash.random();
 
 describe('loadPrivateLogsForSenderRecipientPair', () => {
-  let secret: DirectionalAppTaggingSecret;
-  let app: AztecAddress;
+  let secret: ExtendedDirectionalAppTaggingSecret;
 
   let aztecNode: MockProxy<AztecNode>;
   let taggingStore: RecipientTaggingStore;
 
   const currentTimestamp = BigInt(Math.floor(Date.now() / 1000));
 
-  async function computeSiloedTagForIndex(index: number) {
-    const tag = await Tag.compute({ secret, index });
-    return SiloedTag.compute(tag, app);
+  function computeSiloedTagForIndex(index: number) {
+    return SiloedTag.compute({ extendedSecret: secret, index });
   }
 
   function makeLog(blockNumber: number, blockTimestamp: bigint, tag: Fr) {
@@ -38,8 +40,7 @@ describe('loadPrivateLogsForSenderRecipientPair', () => {
   }
 
   beforeAll(async () => {
-    secret = DirectionalAppTaggingSecret.fromString(Fr.random().toString());
-    app = await AztecAddress.random();
+    secret = await randomExtendedDirectionalAppTaggingSecret();
     aztecNode = mock<AztecNode>();
   });
 
@@ -62,7 +63,6 @@ describe('loadPrivateLogsForSenderRecipientPair', () => {
 
     const logs = await loadPrivateLogsForSenderRecipientPair(
       secret,
-      app,
       aztecNode,
       taggingStore,
       FAR_FUTURE_BLOCK_NUMBER,
@@ -97,7 +97,6 @@ describe('loadPrivateLogsForSenderRecipientPair', () => {
 
     const logs = await loadPrivateLogsForSenderRecipientPair(
       secret,
-      app,
       aztecNode,
       taggingStore,
       FAR_FUTURE_BLOCK_NUMBER,
@@ -132,7 +131,6 @@ describe('loadPrivateLogsForSenderRecipientPair', () => {
 
     const logs = await loadPrivateLogsForSenderRecipientPair(
       secret,
-      app,
       aztecNode,
       taggingStore,
       FAR_FUTURE_BLOCK_NUMBER,
@@ -184,7 +182,6 @@ describe('loadPrivateLogsForSenderRecipientPair', () => {
 
     const logs = await loadPrivateLogsForSenderRecipientPair(
       secret,
-      app,
       aztecNode,
       taggingStore,
       FAR_FUTURE_BLOCK_NUMBER,

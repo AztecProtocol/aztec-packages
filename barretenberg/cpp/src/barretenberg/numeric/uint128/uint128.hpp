@@ -1,5 +1,5 @@
 // === AUDIT STATUS ===
-// internal:    { status: Planned, auditors: [], commit: }
+// internal:    { status: Complete, auditors: [Luke], commit: }
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
@@ -37,12 +37,15 @@ class alignas(32) uint128_t {
         return { static_cast<uint32_t>(a), static_cast<uint32_t>(a >> 32), 0, 0 };
     }
 
-    constexpr explicit operator uint64_t() { return (static_cast<uint64_t>(data[1]) << 32) + data[0]; }
+    constexpr explicit operator uint64_t() const { return (static_cast<uint64_t>(data[1]) << 32) + data[0]; }
 
     constexpr uint128_t& operator=(const uint128_t& other) = default;
     constexpr uint128_t& operator=(uint128_t&& other) = default;
     constexpr ~uint128_t() = default;
-    explicit constexpr operator bool() const { return static_cast<bool>(data[0]); };
+    explicit constexpr operator bool() const
+    {
+        return (data[0] != 0) || (data[1] != 0) || (data[2] != 0) || (data[3] != 0);
+    };
 
     template <std::integral T> explicit constexpr operator T() const { return static_cast<T>(data[0]); };
 

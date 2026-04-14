@@ -1,4 +1,4 @@
-import { type Logger, type LoggerBindings, createLogger, logLevel } from '@aztec/foundation/log';
+import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import { type CancellationToken, avmSimulate, cancelSimulation, createCancellationToken } from '@aztec/native';
 import { ProtocolContractsList } from '@aztec/protocol-contracts';
@@ -100,8 +100,7 @@ export class CppPublicTxSimulator extends PublicTxSimulator implements PublicTxS
       inputBuffer,
       contractProvider,
       wsCppHandle,
-      logLevel,
-      // TODO: re-enable logging
+      this.log.level,
       undefined,
       this.cancellationToken,
     );

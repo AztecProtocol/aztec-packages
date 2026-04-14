@@ -1,3 +1,4 @@
+import { getActiveNetworkName } from '@aztec/foundation/config';
 import {
   type NamespacedApiHandlers,
   createNamespacedSafeJsonRpcServer,
@@ -6,14 +7,14 @@ import {
 } from '@aztec/foundation/json-rpc/server';
 import type { LogFn, Logger } from '@aztec/foundation/log';
 import type { ChainConfig } from '@aztec/stdlib/config';
-import { AztecNodeApiSchema } from '@aztec/stdlib/interfaces/client';
+import { AztecNodeAdminApiSchema, AztecNodeApiSchema, AztecNodeDebugApiSchema } from '@aztec/stdlib/interfaces/client';
+import { getPackageVersion } from '@aztec/stdlib/update-checker';
 import { getVersioningMiddleware } from '@aztec/stdlib/versioning';
 import { getOtelJsonRpcPropagationMiddleware } from '@aztec/telemetry-client';
 
 import { createLocalNetwork } from '../local-network/index.js';
 import { github, splash } from '../splash.js';
 import { resolveAdminApiKey } from './admin_api_key_store.js';
-import { getCliVersion } from './release_version.js';
 import { extractNamespacedOptions, installSignalHandlers } from './util.js';
 import { getVersions } from './versioning.js';
 
@@ -22,14 +23,14 @@ export async function aztecStart(options: any, userLog: LogFn, debugLogger: Logg
   const signalHandlers: Array<() => Promise<void>> = [];
   const services: NamespacedApiHandlers = {};
   const adminServices: NamespacedApiHandlers = {};
+  const packageVersion = getPackageVersion();
   let config: ChainConfig | undefined = undefined;
 
   if (options.localNetwork) {
-    const cliVersion = getCliVersion();
     const localNetwork = extractNamespacedOptions(options, 'local-network');
     localNetwork.testAccounts = true;
     userLog(`${splash}\n${github}\n\n`);
-    userLog(`Setting up Aztec local network ${cliVersion}, please stand by...`);
+    userLog(`Setting up Aztec local network ${packageVersion ?? 'unknown'}, please stand by...`);
 
     const { node, stop } = await createLocalNetwork(
       {
@@ -37,11 +38,11 @@ export async function aztecStart(options: any, userLog: LogFn, debugLogger: Logg
         l1RpcUrls: options.l1RpcUrls,
         testAccounts: localNetwork.testAccounts,
         realProofs: false,
-        // Setting the epoch duration to 4 by default for local network. This allows the epoch to be "proven" faster, so
+        // Setting the epoch duration to 2 by default for local network. This allows the epoch to be "proven" faster, so
         // the users can consume out hash without having to wait for a long time.
         // Note: We are not proving anything in the local network (realProofs == false). But in `createLocalNetwork`,
         // the EpochTestSettler will set the out hash to the outbox when an epoch is complete.
-        aztecEpochDuration: 4,
+        aztecEpochDuration: 2,
       },
       userLog,
     );
@@ -49,6 +50,8 @@ export async function aztecStart(options: any, userLog: LogFn, debugLogger: Logg
     // Start Node and PXE JSON-RPC server
     signalHandlers.push(stop);
     services.node = [node, AztecNodeApiSchema];
+    adminServices.node = [node, AztecNodeAdminApiSchema];
+    services.nodeDebug = [node, AztecNodeDebugApiSchema];
   } else {
     // Route --prover-node through startNode
     if (options.proverNode && !options.node) {
@@ -57,7 +60,11 @@ export async function aztecStart(options: any, userLog: LogFn, debugLogger: Logg
 
     if (options.node) {
       const { startNode } = await import('./cmds/start_node.js');
-      ({ config } = await startNode(options, signalHandlers, services, adminServices, userLog));
+      const networkName = getActiveNetworkName(options.network);
+      ({ config } = await startNode(options, signalHandlers, services, adminServices, userLog, networkName));
+      if (options.nodeDebug && services.node) {
+        services.nodeDebug = [services.node[0], AztecNodeDebugApiSchema];
+      }
     } else if (options.bot) {
       const { startBot } = await import('./cmds/start_bot.js');
       await startBot(options, signalHandlers, services, userLog);
@@ -87,13 +94,14 @@ export async function aztecStart(options: any, userLog: LogFn, debugLogger: Logg
 
   installSignalHandlers(debugLogger.info, signalHandlers);
   const versions = getVersions(config);
+  const versioningOpts = { packageVersion };
 
   // Start the main JSON-RPC server
   if (Object.entries(services).length > 0) {
     const rpcServer = createNamespacedSafeJsonRpcServer(services, {
       http200OnError: false,
       log: debugLogger,
-      middlewares: [getOtelJsonRpcPropagationMiddleware(), getVersioningMiddleware(versions)],
+      middlewares: [getOtelJsonRpcPropagationMiddleware(), getVersioningMiddleware(versions, versioningOpts)],
       maxBatchSize: options.rpcMaxBatchSize,
       maxBodySizeBytes: options.rpcMaxBodySize,
     });
@@ -103,13 +111,13 @@ export async function aztecStart(options: any, userLog: LogFn, debugLogger: Logg
 
   // If there are any admin services, start a separate JSON-RPC server for them
   if (Object.entries(adminServices).length > 0) {
-    const adminMiddlewares = [getOtelJsonRpcPropagationMiddleware(), getVersioningMiddleware(versions)];
+    const adminMiddlewares = [getOtelJsonRpcPropagationMiddleware(), getVersioningMiddleware(versions, versioningOpts)];
 
     // Resolve the admin API key (auto-generated and persisted, or opt-out)
     const apiKeyResolution = await resolveAdminApiKey(
       {
         adminApiKeyHash: options.adminApiKeyHash,
-        noAdminApiKey: options.noAdminApiKey,
+        disableAdminApiKey: options.disableAdminApiKey,
         resetAdminApiKey: options.resetAdminApiKey,
         dataDirectory: options.dataDirectory,
       },
@@ -148,7 +156,7 @@ export async function aztecStart(options: any, userLog: LogFn, debugLogger: Logg
         userLog('  The key hash has been persisted — on next restart, the same key will be used.');
       }
       userLog('');
-      userLog('  To disable admin auth: --no-admin-api-key or AZTEC_NO_ADMIN_API_KEY=true');
+      userLog('  To disable admin auth: --disable-admin-api-key or AZTEC_DISABLE_ADMIN_API_KEY=true');
       userLog(separator);
       userLog('');
     }

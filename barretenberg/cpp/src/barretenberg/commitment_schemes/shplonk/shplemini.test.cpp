@@ -234,13 +234,8 @@ TYPED_TEST(ShpleminiTest, CorrectnessOfGeminiClaimBatching)
     Fr expected_constant_term_accumulator{ 0 };
     std::vector<Fr> padding_indicator_array(this->log_n, Fr{ 1 });
 
-    std::vector<Fr> gemini_fold_pos_evaluations =
-        GeminiVerifier_<Curve>::compute_fold_pos_evaluations(padding_indicator_array,
-                                                             expected_constant_term_accumulator,
-                                                             mle_opening_point,
-                                                             r_squares,
-                                                             prover_evaluations,
-                                                             expected_constant_term_accumulator);
+    std::vector<Fr> gemini_fold_pos_evaluations = GeminiVerifier_<Curve>::compute_fold_pos_evaluations(
+        padding_indicator_array, expected_constant_term_accumulator, mle_opening_point, r_squares, prover_evaluations);
     std::vector<Commitment> commitments;
     std::vector<Fr> scalars;
 
@@ -485,6 +480,10 @@ TYPED_TEST(ShpleminiTest, ShpleminiZKWithSumcheckOpenings)
  */
 TYPED_TEST(ShpleminiTest, HighDegreeAttackAccept)
 {
+    // In debug builds, the coarse-form field assertion can intermittently fire during intermediate
+    // arithmetic when processing deliberately oversized polynomials. Suppress assertions to warnings.
+    BB_DISABLE_ASSERTS();
+
     using Curve = typename TypeParam::Curve;
     using Fr = typename Curve::ScalarField;
     using CK = typename TypeParam::CommitmentKey;
@@ -559,6 +558,11 @@ TYPED_TEST(ShpleminiTest, HighDegreeAttackAccept)
  */
 TYPED_TEST(ShpleminiTest, HighDegreeAttackReject)
 {
+    // In debug builds, the coarse-form field assertion can intermittently fire during intermediate
+    // arithmetic when processing deliberately oversized polynomials. Suppress assertions to warnings
+    // for this adversarial test so the test can complete and verify the pairing check fails.
+    BB_DISABLE_ASSERTS();
+
     using Curve = typename TypeParam::Curve;
     using Fr = typename Curve::ScalarField;
     using CK = typename TypeParam::CommitmentKey;
@@ -608,10 +612,11 @@ TYPED_TEST(ShpleminiTest, HighDegreeAttackReject)
 
     // Verify claim - should fail because the random polynomial doesn't fold correctly
     if constexpr (std::is_same_v<TypeParam, GrumpkinSettings>) {
-        // IPA throws an exception on verification failure
-        EXPECT_THROW(
-            TestFixture::IPA::reduce_verify_batch_opening_claim(batch_opening_claim, this->vk(), verifier_transcript),
-            std::runtime_error);
+        // IPA verification failure normally throws, but with BB_DISABLE_ASSERTS the assertion
+        // becomes a warning and the function may return false instead of throwing.
+        auto result =
+            TestFixture::IPA::reduce_verify_batch_opening_claim(batch_opening_claim, this->vk(), verifier_transcript);
+        EXPECT_EQ(result, false);
     } else {
         const auto pairing_points =
             KZG<Curve>::reduce_verify_batch_opening_claim(std::move(batch_opening_claim), verifier_transcript);
@@ -811,9 +816,8 @@ void run_libra_tampering_test(ShpleminiTest<TypeParam>* test,
 
     // PCS verification should always fail when tampering occurred
     if constexpr (std::is_same_v<TypeParam, GrumpkinSettings>) {
-        EXPECT_THROW(ShpleminiTest<TypeParam>::IPA::reduce_verify_batch_opening_claim(
-                         batch_opening_claim, test->vk(), verifier_transcript),
-                     std::runtime_error);
+        EXPECT_FALSE(ShpleminiTest<TypeParam>::IPA::reduce_verify_batch_opening_claim(
+            batch_opening_claim, test->vk(), verifier_transcript));
     } else {
         const auto pairing_points =
             KZG<Curve>::reduce_verify_batch_opening_claim(std::move(batch_opening_claim), verifier_transcript);

@@ -19,7 +19,7 @@ use crate::protocol::address::AztecAddress;
 pub trait MessageEncryption {
     /// Encrypts a plaintext message to `recipient`.
     ///
-    /// The returned message ciphertext can be passed to [`decrypt`](MessageEncryption::decrypt) in order to obtain the
+    /// The returned message ciphertext can be passed to [`MessageEncryption::decrypt`] in order to obtain the
     /// original `plaintext`.
     ///
     /// ## Privacy
@@ -34,11 +34,12 @@ pub trait MessageEncryption {
     fn encrypt<let PlaintextLen: u32>(
         plaintext: [Field; PlaintextLen],
         recipient: AztecAddress,
+        contract_address: AztecAddress,
     ) -> [Field; MESSAGE_CIPHERTEXT_LEN];
 
     /// Decrypts a message ciphertext into its original plaintext.
     ///
-    /// Typically invoked with ciphertext obtained from calling [`encrypt`](MessageEncryption::encrypt) with
+    /// Typically invoked with ciphertext obtained from calling [`MessageEncryption::encrypt`] with
     /// `recipient`.
     ///
     /// Note that this function is unconstrained: decryption typically happens when processing messages in utility
@@ -49,5 +50,6 @@ pub trait MessageEncryption {
     unconstrained fn decrypt(
         ciphertext: BoundedVec<Field, MESSAGE_CIPHERTEXT_LEN>,
         recipient: AztecAddress,
+        contract_address: AztecAddress,
     ) -> Option<BoundedVec<Field, MESSAGE_PLAINTEXT_LEN>>;
 }

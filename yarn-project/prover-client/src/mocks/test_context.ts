@@ -24,6 +24,7 @@ import {
   StateReference,
   TreeSnapshots,
 } from '@aztec/stdlib/tx';
+import type { GenesisData } from '@aztec/stdlib/world-state';
 import type { MerkleTreeAdminDatabase } from '@aztec/world-state';
 import { NativeWorldStateService } from '@aztec/world-state/native';
 
@@ -84,14 +85,13 @@ export class TestContext {
     const feePayer = AztecAddress.fromNumber(42222);
     const initialFeePayerBalance = new Fr(10n ** 20n);
     const feePayerSlot = await computeFeePayerBalanceLeafSlot(feePayer);
-    const prefilledPublicData = [new PublicDataTreeLeaf(feePayerSlot, initialFeePayerBalance)];
+    const genesis: GenesisData = {
+      prefilledPublicData: [new PublicDataTreeLeaf(feePayerSlot, initialFeePayerBalance)],
+      genesisTimestamp: 0n,
+    };
 
     // Separated dbs for public processor and prover - see public_processor for context
-    const ws = await NativeWorldStateService.tmp(
-      /*rollupAddress=*/ undefined,
-      /*cleanupTmpDir=*/ true,
-      prefilledPublicData,
-    );
+    const ws = await NativeWorldStateService.tmp(/*rollupAddress=*/ undefined, /*cleanupTmpDir=*/ true, genesis);
 
     let localProver: ServerCircuitProver;
     const config = await getEnvironmentConfig(logger);
@@ -104,8 +104,10 @@ export class TestContext {
         bbBinaryPath: config.expectedBBPath,
         bbWorkingDirectory: config.bbWorkingDirectory,
         bbSkipCleanup: config.bbSkipCleanup,
-        numConcurrentIVCVerifiers: 2,
+        numConcurrentIVCVerifiers: 8,
         bbIVCConcurrency: 1,
+        bbChonkVerifyMaxBatch: 16,
+        bbChonkVerifyConcurrency: 6,
       };
       localProver = await createProver(bbConfig);
     }
@@ -116,7 +118,7 @@ export class TestContext {
 
     const broker = new TestBroker(proverCount, localProver);
     const facade = new BrokerCircuitProverFacade(broker);
-    const orchestrator = new TestProvingOrchestrator(ws, facade, EthAddress.ZERO);
+    const orchestrator = new TestProvingOrchestrator(ws, facade, EthAddress.ZERO, false, 10);
 
     await broker.start();
     facade.start();
@@ -262,7 +264,7 @@ export class TestContext {
       const txs = blockTxs[i];
       const state = blockEndStates[i];
 
-      const block = await builder.addBlock(blockGlobalVariables[i], txs, {
+      const { block } = await builder.addBlock(blockGlobalVariables[i], txs, {
         expectedEndState: state,
         insertTxsEffects: true,
       });

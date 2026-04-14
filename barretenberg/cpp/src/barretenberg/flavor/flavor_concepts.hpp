@@ -32,7 +32,8 @@ concept HasDataBus = IsMegaFlavor<T>;
 // hence requiring an adjustment to the round univariates via the RowDisablingPolynomial.
 // This is not the case for Translator, where randomness resides in different parts of the trace and the locations will
 // be reflected via Translator relations.
-template <typename T> concept UseRowDisablingPolynomial = !IsAnyOf<T,TranslatorFlavor, TranslatorRecursiveFlavor>;
+template <typename T> concept IsTranslatorFlavor = IsAnyOf<T, TranslatorFlavor, TranslatorRecursiveFlavor>;
+template <typename T> concept UseRowDisablingPolynomial = !IsTranslatorFlavor<T>;
 
 
 
@@ -59,6 +60,10 @@ concept isMultilinearBatchingFlavor =IsAnyOf<T, MultilinearBatchingFlavor>;
 
 // This concept is relevant for the Sumcheck Prover, where the logic differs between BN254 and Grumpkin
 template <typename T> concept IsGrumpkinFlavor = IsAnyOf<T, ECCVMFlavor, ECCVMRecursiveFlavor, SumcheckTestFlavorGrumpkinZK>;
+
+// Flavors whose Sumcheck round univariates are committed (sent as commitment + evals at 0,1)
+// rather than sent in the clear. The committed data is later verified via Shplemini.
+template <typename T> concept UsesCommittedSumcheck = IsGrumpkinFlavor<T>;
 template <typename Container, typename Element>
 inline std::string flavor_get_label(Container&& container, const Element& element) {
     for (auto [label, data] : zip_view(container.get_labels(), container.get_all())) {
@@ -67,6 +72,19 @@ inline std::string flavor_get_label(Container&& container, const Element& elemen
         }
     }
     return "(unknown label)";
+}
+
+// Whether a flavor includes a Gemini masking polynomial in its entities.
+// Defaults to Flavor::HasZK; flavors that define HasGeminiMasking = false (e.g., MegaZKFlavor)
+// opt out because a separate circuit provides the masking polynomial in the batched PCS.
+template <typename Flavor>
+constexpr bool flavor_has_gemini_masking()
+{
+    if constexpr (requires { Flavor::HasGeminiMasking; }) {
+        return Flavor::HasGeminiMasking;
+    } else {
+        return Flavor::HasZK;
+    }
 }
 
 // clang-format on

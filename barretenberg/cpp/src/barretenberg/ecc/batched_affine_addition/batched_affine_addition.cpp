@@ -62,7 +62,7 @@ typename BatchedAffineAddition<Curve>::ThreadData BatchedAffineAddition<Curve>::
     const size_t MIN_POINTS_PER_THREAD = 1 << 14; // heuristic; anecdotally optimal for practical cases
     const size_t total_num_points = points.size();
     const size_t optimal_threads = total_num_points / MIN_POINTS_PER_THREAD;
-    const size_t num_threads = std::max(1UL, std::min(get_num_cpus(), optimal_threads));
+    const size_t num_threads = std::max(size_t{ 1 }, std::min(get_num_cpus(), optimal_threads));
     // Distribute the work as evenly as possible across threads
     const size_t base_thread_size = total_num_points / num_threads;
     const size_t leftover_size = total_num_points % num_threads;
@@ -143,7 +143,7 @@ std::span<typename BatchedAffineAddition<Curve>::Fq> BatchedAffineAddition<
     // Define scratch space for batched inverse computations and eventual storage of denominators
     BB_ASSERT_GTE(add_sequences.scratch_space.size(), 2 * total_num_pairs);
     std::span<Fq> denominators = add_sequences.scratch_space.subspan(0, total_num_pairs);
-    std::span<Fq> differences = add_sequences.scratch_space.subspan(total_num_pairs, 2 * total_num_pairs);
+    std::span<Fq> differences = add_sequences.scratch_space.subspan(total_num_pairs, total_num_pairs);
 
     // Compute and store successive products of differences (x_2 - x_1)
     Fq accumulator = 1;

@@ -16,7 +16,13 @@ void memoryImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     using C = ColumnAndShifts;
 
     const auto constants_MEM_TAG_FF = FF(0);
-    const auto memory_GLOB_ADDR_DIFF = (in.get(C::memory_global_addr_shift) - in.get(C::memory_global_addr));
+    const auto memory_GLOBAL_ADDR = in.get(C::memory_space_id) * FF(4294967296UL) + in.get(C::memory_address);
+    const auto memory_NEXT_GLOBAL_ADDR =
+        in.get(C::memory_space_id_shift) * FF(4294967296UL) + in.get(C::memory_address_shift);
+    const auto memory_TIMESTAMP = FF(2) * in.get(C::memory_clk) + in.get(C::memory_rw);
+    const auto memory_NEXT_TIMESTAMP = FF(2) * in.get(C::memory_clk_shift) + in.get(C::memory_rw_shift);
+    const auto memory_GLOBAL_ADDR_DIFF = (memory_NEXT_GLOBAL_ADDR - memory_GLOBAL_ADDR);
+    const auto memory_TIMESTAMP_DIFF = (memory_NEXT_TIMESTAMP - memory_TIMESTAMP);
     const auto memory_TAG_FF_DIFF = (in.get(C::memory_tag) - constants_MEM_TAG_FF);
 
     {
@@ -333,7 +339,7 @@ void memoryImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
                    (FF(1) - static_cast<View>(in.get(C::memory_sel_tag_is_ff)));
         std::get<45>(evals) += (tmp * scaling_factor);
     }
-    { // MEM_CONTIGUOUS
+    { // MEM_CONTINUITY
         using View = typename std::tuple_element_t<46, ContainerOverSubrelations>::View;
         auto tmp = (FF(1) - static_cast<View>(in.get(C::precomputed_first_row))) *
                    (FF(1) - static_cast<View>(in.get(C::memory_sel))) * static_cast<View>(in.get(C::memory_sel_shift));
@@ -345,94 +351,79 @@ void memoryImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
                     static_cast<View>(in.get(C::memory_sel)) * static_cast<View>(in.get(C::memory_sel_shift)));
         std::get<47>(evals) += (tmp * scaling_factor);
     }
-    { // GLOBAL_ADDR
-        using View = typename std::tuple_element_t<48, ContainerOverSubrelations>::View;
-        auto tmp = (static_cast<View>(in.get(C::memory_global_addr)) -
-                    (static_cast<View>(in.get(C::memory_space_id)) * FF(4294967296UL) +
-                     static_cast<View>(in.get(C::memory_address))));
-        std::get<48>(evals) += (tmp * scaling_factor);
-    }
-    { // TIMESTAMP
-        using View = typename std::tuple_element_t<49, ContainerOverSubrelations>::View;
-        auto tmp = (static_cast<View>(in.get(C::memory_timestamp)) -
-                    (FF(2) * static_cast<View>(in.get(C::memory_clk)) + static_cast<View>(in.get(C::memory_rw))));
-        std::get<49>(evals) += (tmp * scaling_factor);
-    }
     { // LAST_ACCESS
-        using View = typename std::tuple_element_t<50, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<48, ContainerOverSubrelations>::View;
         auto tmp =
             static_cast<View>(in.get(C::memory_sel_rng_chk)) *
-            (CView(memory_GLOB_ADDR_DIFF) * ((FF(1) - static_cast<View>(in.get(C::memory_last_access))) *
-                                                 (FF(1) - static_cast<View>(in.get(C::memory_glob_addr_diff_inv))) +
-                                             static_cast<View>(in.get(C::memory_glob_addr_diff_inv))) -
+            (CView(memory_GLOBAL_ADDR_DIFF) * ((FF(1) - static_cast<View>(in.get(C::memory_last_access))) *
+                                                   (FF(1) - static_cast<View>(in.get(C::memory_glob_addr_diff_inv))) +
+                                               static_cast<View>(in.get(C::memory_glob_addr_diff_inv))) -
              static_cast<View>(in.get(C::memory_last_access)));
-        std::get<50>(evals) += (tmp * scaling_factor);
+        std::get<48>(evals) += (tmp * scaling_factor);
     }
     { // DIFF
-        using View = typename std::tuple_element_t<51, ContainerOverSubrelations>::View;
-        auto tmp =
-            (static_cast<View>(in.get(C::memory_diff)) -
-             static_cast<View>(in.get(C::memory_sel_rng_chk)) *
-                 (static_cast<View>(in.get(C::memory_last_access)) * CView(memory_GLOB_ADDR_DIFF) +
-                  (FF(1) - static_cast<View>(in.get(C::memory_last_access))) *
-                      ((static_cast<View>(in.get(C::memory_timestamp_shift)) -
-                        static_cast<View>(in.get(C::memory_timestamp))) -
-                       static_cast<View>(in.get(C::memory_rw_shift)) * static_cast<View>(in.get(C::memory_rw)))));
-        std::get<51>(evals) += (tmp * scaling_factor);
+        using View = typename std::tuple_element_t<49, ContainerOverSubrelations>::View;
+        auto tmp = (static_cast<View>(in.get(C::memory_diff)) -
+                    static_cast<View>(in.get(C::memory_sel_rng_chk)) *
+                        (static_cast<View>(in.get(C::memory_last_access)) * CView(memory_GLOBAL_ADDR_DIFF) +
+                         (FF(1) - static_cast<View>(in.get(C::memory_last_access))) *
+                             (CView(memory_TIMESTAMP_DIFF) - static_cast<View>(in.get(C::memory_rw_shift)) *
+                                                                 static_cast<View>(in.get(C::memory_rw)))));
+        std::get<49>(evals) += (tmp * scaling_factor);
     }
     { // DIFF_DECOMP
-        using View = typename std::tuple_element_t<52, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<50, ContainerOverSubrelations>::View;
         auto tmp =
             (static_cast<View>(in.get(C::memory_diff)) -
              (static_cast<View>(in.get(C::memory_limb_0_)) + static_cast<View>(in.get(C::memory_limb_1_)) * FF(65536) +
               static_cast<View>(in.get(C::memory_limb_2_)) * FF(4294967296UL)));
-        std::get<52>(evals) += (tmp * scaling_factor);
+        std::get<50>(evals) += (tmp * scaling_factor);
     }
     { // MEMORY_INIT_VALUE
-        using View = typename std::tuple_element_t<53, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<51, ContainerOverSubrelations>::View;
         auto tmp =
             (static_cast<View>(in.get(C::memory_last_access)) + static_cast<View>(in.get(C::precomputed_first_row))) *
             (FF(1) - static_cast<View>(in.get(C::memory_rw_shift))) * static_cast<View>(in.get(C::memory_value_shift));
-        std::get<53>(evals) += (tmp * scaling_factor);
+        std::get<51>(evals) += (tmp * scaling_factor);
     }
     { // MEMORY_INIT_TAG
-        using View = typename std::tuple_element_t<54, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<52, ContainerOverSubrelations>::View;
         auto tmp =
             (static_cast<View>(in.get(C::memory_last_access)) + static_cast<View>(in.get(C::precomputed_first_row))) *
             (FF(1) - static_cast<View>(in.get(C::memory_rw_shift))) *
             (static_cast<View>(in.get(C::memory_tag_shift)) - CView(constants_MEM_TAG_FF));
-        std::get<54>(evals) += (tmp * scaling_factor);
+        std::get<52>(evals) += (tmp * scaling_factor);
     }
     { // READ_WRITE_CONSISTENCY_VALUE
-        using View = typename std::tuple_element_t<55, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<53, ContainerOverSubrelations>::View;
         auto tmp = (FF(1) - static_cast<View>(in.get(C::memory_last_access))) *
                    (FF(1) - static_cast<View>(in.get(C::memory_rw_shift))) *
                    (static_cast<View>(in.get(C::memory_value_shift)) - static_cast<View>(in.get(C::memory_value)));
-        std::get<55>(evals) += (tmp * scaling_factor);
+        std::get<53>(evals) += (tmp * scaling_factor);
     }
     { // READ_WRITE_CONSISTENCY_TAG
-        using View = typename std::tuple_element_t<56, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<54, ContainerOverSubrelations>::View;
         auto tmp = (FF(1) - static_cast<View>(in.get(C::memory_last_access))) *
                    (FF(1) - static_cast<View>(in.get(C::memory_rw_shift))) *
                    (static_cast<View>(in.get(C::memory_tag_shift)) - static_cast<View>(in.get(C::memory_tag)));
-        std::get<56>(evals) += (tmp * scaling_factor);
+        std::get<54>(evals) += (tmp * scaling_factor);
     }
     { // TAG_IS_FF
-        using View = typename std::tuple_element_t<57, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<55, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::memory_sel)) *
                    ((CView(memory_TAG_FF_DIFF) * (static_cast<View>(in.get(C::memory_sel_tag_is_ff)) *
                                                       (FF(1) - static_cast<View>(in.get(C::memory_tag_ff_diff_inv))) +
                                                   static_cast<View>(in.get(C::memory_tag_ff_diff_inv))) +
                      static_cast<View>(in.get(C::memory_sel_tag_is_ff))) -
                     FF(1));
-        std::get<57>(evals) += (tmp * scaling_factor);
+        std::get<55>(evals) += (tmp * scaling_factor);
     }
     { // SEL_RNG_WRITE
-        using View = typename std::tuple_element_t<58, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<56, ContainerOverSubrelations>::View;
         auto tmp =
             (static_cast<View>(in.get(C::memory_sel_rng_write)) -
              static_cast<View>(in.get(C::memory_rw)) * (FF(1) - static_cast<View>(in.get(C::memory_sel_tag_is_ff))));
-        std::get<58>(evals) += (tmp * scaling_factor);
+        std::get<56>(evals) += (tmp * scaling_factor);
     }
 }
 

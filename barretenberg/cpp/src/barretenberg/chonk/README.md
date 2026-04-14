@@ -74,40 +74,54 @@ App₀ → Kernel₀ → App₁ → Kernel₁ → ... → Appₙ → Reset → T
 
 ### Proof Structure
 
-A Chonk proof (`ChonkProof_<IsRecursive>`) is a unified template structure that works for both native and recursive verification modes:
+A Chonk proof (`ChonkProof_<IsRecursive>`) contains five segments produced on a shared Fiat-Shamir transcript:
 
 ```cpp
 template <bool IsRecursive>
 struct ChonkProof_ {
-    HonkProof mega_proof;      // MegaZK proof of Hiding kernel
-    GoblinProof goblin_proof;  // Goblin sub-proofs
+    HonkProof hiding_oink_proof; // MegaZK Oink (pre-sumcheck commitments for the hiding kernel)
+    HonkProof merge_proof;       // Merge proof for hiding kernel's ECC op subtable
+    HonkProof eccvm_proof;       // ECCVM proof
+    HonkProof ipa_proof;         // IPA opening proof (separate transcript)
+    HonkProof joint_proof;       // Translator Oink + joint sumcheck + joint PCS
 };
 ```
 
 **Proof components:**
 
-1. **Mega proof** (MegaZK): ZK proof of the Hiding kernel which recursively verifies:
-   - The final HyperNova folding proof
-   - The decider proof
+1. **Hiding Oink proof**: Pre-sumcheck phase of the hiding kernel's MegaZK circuit (wire commitments, permutation grand products, relation parameters). Produces the `HidingKernelIO` public inputs.
 
-2. **Goblin proof**: Contains sub-proofs for efficient EC operations:
-   - **Merge proof**: Proves correct merging of op queue tables
-   - **ECCVM proof**: Proves correctness of EC operations (see [ECCVM README](../eccvm/README.md))
-   - **IPA proof**: Inner product argument for ECCVM (Grumpkin curve)
-   - **Translator proof**: Converts between BN254 and Grumpkin curves
+2. **Merge proof**: Proves correct APPEND-mode merging of the hiding kernel's ECC op subtable into the global op queue.
+
+3. **ECCVM proof**: Proves correctness of all accumulated EC operations on the Grumpkin curve. Produces translation parameters (`evaluation_input_x`, `batching_challenge_v`, `accumulated_result`) used by the translator. See [ECCVM README](../eccvm/README.md).
+
+4. **IPA proof**: Inner product argument opening proof for the ECCVM (Grumpkin curve, separate transcript).
+
+5. **Joint proof**: The translator's Oink phase followed by a **joint sumcheck and joint PCS** that batches the MegaZK hiding kernel and translator circuits together. The joint sumcheck runs for 17 rounds (the translator's fixed circuit size); the MegaZK circuit contributes via extension-by-zero for virtual rounds beyond its own `log_n`. A single Shplemini/KZG reduction covers polynomial openings from both circuits. See [Batched Honk + Translator README](batched_honk_translator/README.md) for the full protocol.
+
+**Key optimization**: By batching the MegaZK and translator sumcheck+PCS into a single joint protocol, the proof avoids two independent Honk proofs and reduces overall proof size.
 
 **Verification Architecture:**
 
-The Chonk verifier performs verification in stages:
-1. **MegaZK reduction**: Uses `MegaZKVerifier::reduce_to_pairing_check` to verify Hiding kernel
-2. **Goblin reduction**: Reduces Merge, ECCVM, and Translator to pairing checks and IPA verification
-3. **Pairing aggregation**: Aggregates 4 pairing point sets in a single operation using `aggregate_multiple`:
-   - Public Input (PI) pairing points from MegaZK
-   - Polynomial Commitment Scheme (PCS) pairing points from MegaZK
+The Chonk verifier performs verification on a shared transcript:
+
+```
+MegaZK Oink → Merge → ECCVM → Translator Oink + Joint Sumcheck + Joint PCS → Pairing Check
+```
+
+Concretely (`ChonkVerifier::reduce_to_ipa_claim` / `ChonkVerifier::verify`):
+
+1. **MegaZK Oink verification**: `BatchedHonkTranslatorVerifier::verify_mega_zk_oink` processes the hiding kernel's pre-sumcheck proof and extracts `HidingKernelIO` (pairing points, calldata commitment, ECC op wire commitments)
+2. **Databus consistency check**: Asserts the hiding kernel's calldata commitment equals its `kernel_return_data` commitment
+3. **Merge verification**: Verifies the hiding kernel's APPEND-mode merge proof using the ECC op wire commitments from step 1 and `ecc_op_tables` from `HidingKernelIO`
+4. **ECCVM verification**: Reduces to an IPA opening claim; extracts translator input parameters (`v`, `x`, `accumulated_result`)
+5. **Joint verification**: `BatchedHonkTranslatorVerifier::verify` processes the translator Oink, runs the 17-round joint sumcheck, and performs the joint Shplemini/KZG PCS reduction
+6. **Pairing aggregation**: Aggregates 3 pairing point sets using `aggregate_multiple`:
+   - Public Input (PI) pairing points from `HidingKernelIO`
    - Merge protocol pairing points
-   - Translator protocol pairing points
-4. **Native mode**: Immediately verifies aggregated pairing points and IPA claim
-5. **Recursive mode**: Returns `ChonkVerifier::ReductionResult` with aggregated pairing points and IPA claim for deferred verification
+   - Batched PCS pairing points (covering both MegaZK and translator polynomials)
+7. **Native mode**: Immediately verifies aggregated pairing points and IPA claim
+8. **Recursive mode**: Returns `ChonkVerifier::ReductionResult` with aggregated pairing points and IPA claim for deferred verification
 
 **Note on deferred verification**: IPA claims and pairing points are propagated through the rollup:
 - **IPA claims** (Grumpkin): originate from ECCVM verification when Chonk or AVM proofs are recursively verified. Carried in `RollupIO` public inputs through tx_merge → block_merge → checkpoint_root → checkpoint_merge. At each level, claims from child proofs are accumulated via `IPA::accumulate`. Finally verified **in-circuit in the root rollup** via `IPA::full_verify_recursive`.
@@ -218,6 +232,16 @@ See [HyperNova Folding Details](#hypernova-folding-details) for the full protoco
 Goblin handles non-native EC operations by deferring them to an op queue, then proving correct execution via:
 - **ECCVM**: Proves EC operations on the Grumpkin curve (see [ECCVM README](../eccvm/README.md))
 - **Translator**: Bridges BN254 ↔ Grumpkin field elements
+
+### Batched Honk + Translator
+
+`BatchedHonkTranslatorProver`/`BatchedHonkTranslatorVerifier` implement the joint proving and verification of the MegaZK hiding kernel and translator circuits. Both circuits operate over BN254 scalars, so their sumcheck and polynomial openings can be combined into a single protocol. This eliminates two independent Honk proofs and reduces proof size.
+
+The protocol has two phases separated by Merge + ECCVM verification:
+- **Phase 1 (MegaZK Oink)**: Pre-sumcheck commitments for the hiding kernel
+- **Phase 2 (Joint)**: Translator Oink + 17-round joint sumcheck + single Shplemini/KZG PCS
+
+See [Batched Honk + Translator README](batched_honk_translator/README.md) for the full protocol specification including the joint round univariate, extension-by-zero, and repeated commitments optimization.
 
 ### Merge Protocol
 
@@ -355,7 +379,7 @@ There are two verification paths:
    - `PrivateTxBaseRollup`: For private-only txs - verifies Chonk proof + processes tx (updates trees, validates fees, etc.)
    - `PublicChonkVerifier`: For public txs - verifies Chonk proof in parallel with AVM verification
 
-Both verify: the hiding kernel's MegaZK proof + Goblin proof (merge, ECCVM, translator).
+Both verify the Chonk proof: MegaZK Oink + Merge + ECCVM + joint Translator/MegaZK sumcheck+PCS (+ IPA).
 Output: `PrivateToRollupKernelCircuitPublicInputs` consumed by the rollup.
 
 ---
@@ -366,13 +390,11 @@ A Chonk proof must reveal nothing about the private execution. ZK is achieved th
 
 ### Proof-Level ZK
 
-1. **Hiding kernel proof** (verified server-side): Uses MegaZKFlavor with:
-   - ZK Sumcheck (Libra masking polynomials)
-   - ZK Shplemini (gemini masking polynomial)
+1. **Joint MegaZK + Translator proof**: The hiding kernel (MegaZKFlavor) and translator circuits are batched into a single joint sumcheck and PCS. ZK is achieved via:
+   - ZK Sumcheck with a joint Libra masking polynomial covering both circuits
+   - ZK Shplemini with a gemini masking polynomial for the joint PCS reduction
 
-2. **ECCVM proof**: Also ZK via ZK Sumcheck and ZK Shplemini
-
-3. **Translator proof**: ZK via the same mechanisms
+2. **ECCVM proof**: ZK via committed sumcheck and ZK Shplemini
 
 ### Op Queue Hiding
 
@@ -623,7 +645,7 @@ Transcripts are shared to ensure Fiat-Shamir challenge binding - challenges in l
    - The decider proof (after tail kernel) also continues this transcript
 
 2. **Final proof transcript**:
-   - Shared across: Hiding kernel MegaZK proof, Merge proof, ECCVM proof, Translator proof
+   - Shared across: MegaZK Oink, Merge proof, ECCVM proof, Translator Oink + Joint sumcheck + Joint PCS
    - This is the transcript serialized into the Chonk proof
 
 **Verifier-side transcript matching**: The recursive verifier in kernel $K_{i+1}$ reconstructs the same transcript state by processing the same proof elements in the same order, ensuring challenges match.
@@ -860,12 +882,14 @@ merge_commitments.T_prev_commitments = std::move(kernel_input.ecc_op_tables);
 
 **Step 5: Chonk verifier extracts [M_tail] from hiding kernel**
 ```cpp
-auto [mega_verified, kernel_return_data, T_prev_commitments] =
-    verifier.template verify_proof<bb::HidingKernelIO>(proof.mega_proof);
+auto oink_result = batched_verifier.verify_mega_zk_oink(proof.hiding_oink_proof);
+HidingKernelIO kernel_io;
+kernel_io.reconstruct_from_public(oink_result.public_inputs);
+// kernel_io.ecc_op_tables contains [M_tail]
 ```
-- Verifies hiding kernel's MegaZK proof (including its public inputs)
-- Extracts `T_prev_commitments` = $[M_{tail}]$ from `HidingKernelIO` public inputs
-- MegaZK verification ensures `T_prev_commitments` is bound to hiding kernel's proof
+- Verifies hiding kernel's MegaZK Oink proof (including its public inputs)
+- Extracts `ecc_op_tables` = $[M_{tail}]$ from `HidingKernelIO` public inputs
+- MegaZK verification (completed by the joint sumcheck+PCS) ensures `ecc_op_tables` is bound to the hiding kernel's proof
 
 **Step 6: Final merge (APPEND mode) - merges hiding kernel's ops with constant shift size**
 

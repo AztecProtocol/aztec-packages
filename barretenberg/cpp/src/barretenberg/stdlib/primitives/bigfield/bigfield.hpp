@@ -580,6 +580,7 @@ template <typename Builder, typename T> class bigfield {
     void assert_equal(const bigfield& other, std::string const& msg = "bigfield::assert_equal") const;
     void assert_is_not_equal(const bigfield& other,
                              std::string const& msg = "bigfield: prime limb diff is zero, but expected non-zero") const;
+    bool_t<Builder> is_less_than(const uint256_t& upper_limit, std::string const& msg = "bigfield::is_less_than") const;
 
     /**
      * @brief Reduce the bigfield element modulo the target modulus.

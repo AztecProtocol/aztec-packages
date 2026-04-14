@@ -234,6 +234,15 @@ export class PrivateKernelTailCircuitPublicInputs {
     return noteHashes.filter(n => !n.isZero());
   }
 
+  getNonEmptyL2ToL1Msgs() {
+    const l2ToL1Msgs = this.forPublic
+      ? this.forPublic.nonRevertibleAccumulatedData.l2ToL1Msgs.concat(
+          this.forPublic.revertibleAccumulatedData.l2ToL1Msgs,
+        )
+      : this.forRollup!.end.l2ToL1Msgs;
+    return l2ToL1Msgs.filter(m => !m.isEmpty());
+  }
+
   getNonEmptyNullifiers() {
     const nullifiers = this.forPublic
       ? this.forPublic.nonRevertibleAccumulatedData.nullifiers.concat(

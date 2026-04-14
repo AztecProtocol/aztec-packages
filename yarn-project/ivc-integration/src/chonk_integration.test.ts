@@ -40,7 +40,7 @@ describe.each([BackendType.Wasm, BackendType.NativeUnixSocket])('Client IVC Inte
     it('Should generate a verifiable client IVC proof from a simple mock tx via bb.js, verified by bb', async () => {
       const [bytecodes, witnessStack, , vks] = await generateTestingIVCStack(1, 0);
       const backend = new AztecClientBackend(bytecodes, barretenberg);
-      const [, proof, vk] = await backend.prove(witnessStack, vks);
+      const { proof, vk } = await backend.prove(witnessStack, vks);
       const verified = await backend.verify(proof, vk);
       expect(verified).toBe(true);
     });
@@ -56,9 +56,26 @@ describe.each([BackendType.Wasm, BackendType.NativeUnixSocket])('Client IVC Inte
     it('Should generate a verifiable client IVC proof from a complex mock tx', async () => {
       const [bytecodes, witnessStack, , vks] = await generateTestingIVCStack(1, 1);
       const backend = new AztecClientBackend(bytecodes, barretenberg);
-      const [, proof, vk] = await backend.prove(witnessStack, vks);
+      const { proof, vk } = await backend.prove(witnessStack, vks);
       const verified = await backend.verify(proof, vk);
       expect(verified).toBe(true);
+    });
+
+    it('Should compress and decompress a client IVC proof, producing a smaller proof', async () => {
+      const [bytecodes, witnessStack, , vks] = await generateTestingIVCStack(1, 0);
+      const ivcBackend = new AztecClientBackend(bytecodes, barretenberg);
+      const { proof, vk, compressedProof } = await ivcBackend.prove(witnessStack, vks, { compress: true });
+
+      expect(compressedProof).toBeDefined();
+      expect(compressedProof!.length).toBeGreaterThan(0);
+      expect(compressedProof!.length).toBeLessThan(proof.length);
+      logger.info(`Uncompressed proof: ${proof.length} bytes, compressed: ${compressedProof!.length} bytes`);
+      logger.info(`Compression ratio: ${(proof.length / compressedProof!.length).toFixed(2)}x`);
+
+      // Decompress and verify roundtrip
+      const decompressResult = await barretenberg.chonkDecompressProof({ compressedProof: compressedProof! });
+      const verified = await barretenberg.chonkVerify({ proof: decompressResult.proof, vk });
+      expect(verified.valid).toBe(true);
     });
 
     it('Should generate an array of gate numbers for the stack of programs being proved by ClientIVC', async () => {

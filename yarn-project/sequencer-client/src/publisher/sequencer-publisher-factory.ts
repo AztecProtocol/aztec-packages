@@ -7,7 +7,6 @@ import type { L1TxUtils } from '@aztec/ethereum/l1-tx-utils';
 import type { PublisherFilter, PublisherManager } from '@aztec/ethereum/publisher-manager';
 import { SlotNumber } from '@aztec/foundation/branded-types';
 import type { DateProvider } from '@aztec/foundation/timer';
-import type { SlashFactoryContract } from '@aztec/stdlib/l1-contracts';
 import type { TelemetryClient } from '@aztec/telemetry-client';
 import { NodeKeystoreAdapter } from '@aztec/validator-client';
 
@@ -40,7 +39,6 @@ export class SequencerPublisherFactory {
       epochCache: EpochCache;
       rollupContract: RollupContract;
       governanceProposerContract: GovernanceProposerContract;
-      slashFactoryContract: SlashFactoryContract;
       nodeKeyStore: NodeKeystoreAdapter;
       logger?: Logger;
     },
@@ -81,15 +79,29 @@ export class SequencerPublisherFactory {
     const rollup = this.deps.rollupContract;
     const slashingProposerContract = await rollup.getSlashingProposer();
 
+    const getNextPublisher = async (excludeAddresses: EthAddress[]): Promise<L1TxUtils | undefined> => {
+      const exclusionFilter: PublisherFilter<L1TxUtils> = (utils: L1TxUtils) => {
+        if (excludeAddresses.some(addr => addr.equals(utils.getSenderAddress()))) {
+          return false;
+        }
+        return filter(utils);
+      };
+      try {
+        return await this.deps.publisherManager.getAvailablePublisher(exclusionFilter);
+      } catch {
+        return undefined;
+      }
+    };
+
     const publisher = new SequencerPublisher(this.sequencerConfig, {
       l1TxUtils: l1Publisher,
+      getNextPublisher,
       telemetry: this.deps.telemetry,
       blobClient: this.deps.blobClient,
       rollupContract: this.deps.rollupContract,
       epochCache: this.deps.epochCache,
       governanceProposerContract: this.deps.governanceProposerContract,
       slashingProposerContract,
-      slashFactoryContract: this.deps.slashFactoryContract,
       dateProvider: this.deps.dateProvider,
       metrics: this.publisherMetrics,
       lastActions: this.lastActions,
@@ -102,8 +114,8 @@ export class SequencerPublisherFactory {
     };
   }
 
-  /** Interrupts all publishers managed by this factory. Used during sequencer shutdown. */
-  public interruptAll(): void {
-    this.deps.publisherManager.interrupt();
+  /** Stops all publishers managed by this factory. Used during sequencer shutdown. */
+  public async stopAll(): Promise<void> {
+    await this.deps.publisherManager.stop();
   }
 }

@@ -3,12 +3,7 @@ import type { AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
 import { AztecAddress, EthAddress } from '@aztec/aztec.js/addresses';
 import { Fr } from '@aztec/aztec.js/fields';
 import { getL1ContractsConfigEnvVars } from '@aztec/ethereum/config';
-import {
-  type EmpireSlashingProposerContract,
-  GSEContract,
-  RollupContract,
-  type TallySlashingProposerContract,
-} from '@aztec/ethereum/contracts';
+import { GSEContract, RollupContract, type SlashingProposerContract } from '@aztec/ethereum/contracts';
 import type { Operator } from '@aztec/ethereum/deploy-aztec-l1-contracts';
 import { deployL1Contract } from '@aztec/ethereum/deploy-l1-contract';
 import { MultiAdderArtifact } from '@aztec/ethereum/l1-artifacts';
@@ -24,9 +19,9 @@ import { SpamContract } from '@aztec/noir-test-contracts.js/Spam';
 import type { BootstrapNode } from '@aztec/p2p/bootstrap';
 import { createBootstrapNodeFromPrivateKey, getBootstrapNodeEnr } from '@aztec/p2p/test-helpers';
 import { tryStop } from '@aztec/stdlib/interfaces/server';
-import { SlashFactoryContract } from '@aztec/stdlib/l1-contracts';
 import { TopicType } from '@aztec/stdlib/p2p';
-import type { PublicDataTreeLeaf } from '@aztec/stdlib/trees';
+import { TxStatus } from '@aztec/stdlib/tx';
+import type { GenesisData } from '@aztec/stdlib/world-state';
 import { ZkPassportProofParams } from '@aztec/stdlib/zkpassport';
 import { getGenesisValues } from '@aztec/world-state/testing';
 
@@ -59,7 +54,7 @@ export const WAIT_FOR_TX_TIMEOUT = l1ContractsConfig.aztecSlotDuration * 3;
 export const SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES = {
   aztecSlotDuration: 12,
   ethereumSlotDuration: 4,
-  aztecProofSubmissionWindow: 640,
+  aztecProofSubmissionEpochs: 640,
 };
 
 export class P2PNetworkTest {
@@ -77,7 +72,7 @@ export class P2PNetworkTest {
   public validators: Operator[] = [];
 
   public deployedAccounts: InitialAccountData[] = [];
-  public prefilledPublicData: PublicDataTreeLeaf[] = [];
+  public genesis: GenesisData | undefined;
 
   // The re-execution test needs a wallet and a spam contract
   public wallet?: TestWallet;
@@ -124,7 +119,7 @@ export class P2PNetworkTest {
         initialValidatorConfig.aztecProofSubmissionEpochs ?? l1ContractsConfig.aztecProofSubmissionEpochs,
       slashingRoundSizeInEpochs:
         initialValidatorConfig.slashingRoundSizeInEpochs ?? l1ContractsConfig.slashingRoundSizeInEpochs,
-      slasherFlavor: initialValidatorConfig.slasherFlavor ?? 'tally',
+      slasherEnabled: initialValidatorConfig.slasherEnabled ?? true,
       aztecTargetCommitteeSize: numberOfValidators,
       metricsPort: metricsPort,
       numberOfInitialFundedAccounts: 2,
@@ -137,7 +132,7 @@ export class P2PNetworkTest {
       aztecEpochDuration: initialValidatorConfig.aztecEpochDuration ?? l1ContractsConfig.aztecEpochDuration,
       slashingRoundSizeInEpochs:
         initialValidatorConfig.slashingRoundSizeInEpochs ?? l1ContractsConfig.slashingRoundSizeInEpochs,
-      slasherFlavor: initialValidatorConfig.slasherFlavor ?? 'tally',
+      slasherEnabled: initialValidatorConfig.slasherEnabled ?? true,
 
       ethereumSlotDuration: initialValidatorConfig.ethereumSlotDuration ?? l1ContractsConfig.ethereumSlotDuration,
       aztecSlotDuration: initialValidatorConfig.aztecSlotDuration ?? l1ContractsConfig.aztecSlotDuration,
@@ -305,10 +300,11 @@ export class P2PNetworkTest {
 
   async setupAccount() {
     this.logger.info('Setting up account');
-    const { deployedAccounts } = await deployAccounts(
-      1,
-      this.logger,
-    )({
+    const { deployedAccounts } = await deployAccounts(1, this.logger, {
+      wait: {
+        waitForStatus: TxStatus.CHECKPOINTED,
+      },
+    })({
       wallet: this.context.wallet,
       initialFundedAccounts: this.context.initialFundedAccounts,
     });
@@ -323,8 +319,9 @@ export class P2PNetworkTest {
       throw new Error('Call setupAccount before deploying spam contract');
     }
 
-    const spamContract = await SpamContract.deploy(this.wallet).send({ from: this.defaultAccountAddress! });
-    this.spamContract = spamContract;
+    ({ contract: this.spamContract } = await SpamContract.deploy(this.wallet).send({
+      from: this.defaultAccountAddress!,
+    }));
   }
 
   async removeInitialNode() {
@@ -359,7 +356,7 @@ export class P2PNetworkTest {
         ...this.setupOptions,
         fundSponsoredFPC: true,
         skipAccountDeployment: true,
-        slasherFlavor: this.setupOptions.slasherFlavor ?? this.deployL1ContractsArgs.slasherFlavor ?? 'none',
+        slasherEnabled: this.setupOptions.slasherEnabled ?? this.deployL1ContractsArgs.slasherEnabled ?? false,
         aztecTargetCommitteeSize: 0,
         l1ContractsArgs: this.deployL1ContractsArgs,
       },
@@ -371,8 +368,13 @@ export class P2PNetworkTest {
     const sponsoredFPCAddress = await getSponsoredFPCAddress();
     const initialFundedAccounts = [...this.context.initialFundedAccounts.map(a => a.address), sponsoredFPCAddress];
 
-    const { prefilledPublicData } = await getGenesisValues(initialFundedAccounts);
-    this.prefilledPublicData = prefilledPublicData;
+    const { genesis } = await getGenesisValues(
+      initialFundedAccounts,
+      undefined,
+      undefined,
+      this.context.genesis!.genesisTimestamp,
+    );
+    this.genesis = genesis;
 
     const rollupContract = RollupContract.getFromL1ContractsValues(this.context.deployL1ContractsValues);
     this.monitor = new ChainMonitor(rollupContract, this.context.dateProvider).start();
@@ -407,6 +409,7 @@ export class P2PNetworkTest {
     expectedNodeCount?: number,
     timeoutSeconds = 30,
     checkIntervalSeconds = 0.1,
+    topics: TopicType[] = [TopicType.tx],
   ) {
     const nodeCount = expectedNodeCount ?? nodes.length;
     const minPeerCount = nodeCount - 1;
@@ -433,26 +436,28 @@ export class P2PNetworkTest {
 
     this.logger.warn('All nodes connected to P2P mesh');
 
-    // Wait for GossipSub mesh to form for the tx topic.
+    // Wait for GossipSub mesh to form for all specified topics.
     // We only require at least 1 mesh peer per node because GossipSub
     // stops grafting once it reaches Dlo peers and won't fill the mesh to all available peers.
-    this.logger.warn('Waiting for GossipSub mesh to form for tx topic...');
-    await Promise.all(
-      nodes.map(async (node, index) => {
-        const p2p = node.getP2P();
-        await retryUntil(
-          async () => {
-            const meshPeers = await p2p.getGossipMeshPeerCount(TopicType.tx);
-            this.logger.debug(`Node ${index} has ${meshPeers} gossip mesh peers for tx topic`);
-            return meshPeers >= 1 ? true : undefined;
-          },
-          `Node ${index} to have gossip mesh peers for tx topic`,
-          timeoutSeconds,
-          checkIntervalSeconds,
-        );
-      }),
-    );
-    this.logger.warn('All nodes have gossip mesh peers for tx topic');
+    for (const topic of topics) {
+      this.logger.warn(`Waiting for GossipSub mesh to form for ${topic} topic...`);
+      await Promise.all(
+        nodes.map(async (node, index) => {
+          const p2p = node.getP2P();
+          await retryUntil(
+            async () => {
+              const meshPeers = await p2p.getGossipMeshPeerCount(topic);
+              this.logger.debug(`Node ${index} has ${meshPeers} gossip mesh peers for ${topic} topic`);
+              return meshPeers >= 1 ? true : undefined;
+            },
+            `Node ${index} to have gossip mesh peers for ${topic} topic`,
+            timeoutSeconds,
+            checkIntervalSeconds,
+          );
+        }),
+      );
+      this.logger.warn(`All nodes have gossip mesh peers for ${topic} topic`);
+    }
   }
 
   async teardown() {
@@ -464,8 +469,7 @@ export class P2PNetworkTest {
   async getContracts(): Promise<{
     rollup: RollupContract;
     slasherContract: GetContractReturnType<typeof SlasherAbi, ViemClient>;
-    slashingProposer: EmpireSlashingProposerContract | TallySlashingProposerContract | undefined;
-    slashFactory: SlashFactoryContract;
+    slashingProposer: SlashingProposerContract | undefined;
   }> {
     if (!this.ctx.deployL1ContractsValues) {
       throw new Error('DeployAztecL1ContractsValues not set');
@@ -482,14 +486,9 @@ export class P2PNetworkTest {
       client: this.ctx.deployL1ContractsValues.l1Client,
     });
 
-    // Get the actual slashing proposer from rollup (which handles both empire and tally)
+    // Get the actual slashing proposer from rollup
     const slashingProposer = await rollup.getSlashingProposer();
 
-    const slashFactory = new SlashFactoryContract(
-      this.ctx.deployL1ContractsValues.l1Client,
-      getAddress(this.ctx.deployL1ContractsValues.l1ContractAddresses.slashFactoryAddress!.toString()),
-    );
-
-    return { rollup, slasherContract, slashingProposer, slashFactory };
+    return { rollup, slasherContract, slashingProposer };
   }
 }

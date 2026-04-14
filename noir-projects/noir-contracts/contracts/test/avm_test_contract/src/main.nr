@@ -38,7 +38,7 @@ pub contract AvmTest {
     use aztec::state_vars::PublicMutable;
     use aztec::state_vars::StateVariable;
     use compressed_string::CompressedString;
-    use std::embedded_curve_ops::{EmbeddedCurvePoint, multi_scalar_mul};
+    use std::embedded_curve_ops::multi_scalar_mul;
 
     use auth_contract::AuthRegistry;
     use aztec::context::PublicContext;
@@ -228,16 +228,16 @@ pub contract AvmTest {
         let g = Point { x: GRUMPKIN_ONE_X, y: GRUMPKIN_ONE_Y, is_infinite: false };
 
         let triple_g = multi_scalar_mul(
-            [g, g],
+            [g.to_embedded(), g.to_embedded()],
             [Scalar { lo: scalar_lo, hi: scalar_hi }, Scalar { lo: scalar2_lo, hi: scalar2_hi }],
         );
-        triple_g
+        triple_g.into()
     }
 
     #[external("public")]
-    fn pedersen_commit(x: Field, y: Field) -> EmbeddedCurvePoint {
+    fn pedersen_commit(x: Field, y: Field) -> Point {
         let commitment = ::std::hash::pedersen_commitment_with_separator([x, y], 20);
-        commitment
+        commitment.into()
     }
 
     #[external("public")]
@@ -253,8 +253,8 @@ pub contract AvmTest {
     fn bitwise_ops(x: u32, y: u32) -> u32 {
         let mut result = x & y;
         result = result | x;
-        result = result >> x;
-        result = result << y;
+        result = result >> (x % 32);
+        result = result << (y % 32);
         result ^ y
     }
 
@@ -290,12 +290,12 @@ pub contract AvmTest {
     }
 
     #[external("public")]
-    fn to_le_bits(input: Field) -> [u1; 16] {
+    fn to_le_bits(input: Field) -> [bool; 16] {
         _to_le_bits(input)
     }
 
     #[contract_library_method]
-    fn _to_le_bits(input: Field) -> [u1; 16] {
+    fn _to_le_bits(input: Field) -> [bool; 16] {
         input.to_le_bits()
     }
 
@@ -605,15 +605,18 @@ pub contract AvmTest {
 
     #[contract_library_method]
     fn _emit_public_log(context: PublicContext) {
-        context.emit_public_log(/*message=*/ [10, 20, 30]);
-        context.emit_public_log(/*message=*/ "Hello, world!");
+        context.emit_public_log_unsafe(0, /*message=*/ [10, 20, 30]);
+        context.emit_public_log_unsafe(0, /*message=*/ "Hello, world!");
         let s: CompressedString<2, 44> =
             CompressedString::from_string("A long time ago, in a galaxy far far away...");
-        context.emit_public_log(/*message=*/ s);
-        context.emit_public_log(/*message=*/ [
-            1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24,
-            25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42,
-        ]); // Large log
+        context.emit_public_log_unsafe(0, /*message=*/ s);
+        context.emit_public_log_unsafe(
+            0,
+            /*message=*/ [
+                1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23,
+                24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42,
+            ],
+        ); // Large log
     }
 
     #[external("public")]
@@ -684,7 +687,7 @@ pub contract AvmTest {
     #[external("public")]
     fn n_new_public_logs(num: u32) {
         for i in 0..num {
-            self.context.emit_public_log(/*message=*/ [i as Field]);
+            self.context.emit_public_log_unsafe(0, /*message=*/ [i as Field]);
         }
     }
 
@@ -1007,7 +1010,7 @@ pub contract AvmTest {
         assert(first_byte != 0);
         aztec::oracle::logging::debug_log("to_le_bits");
         let first_bit = _to_le_bits(args_field[0])[0];
-        assert(first_bit != 0);
+        assert(first_bit);
         //let _ = nested_call_to_nothing_recovers();
     }
 }

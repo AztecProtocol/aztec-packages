@@ -81,6 +81,18 @@ variable "PROVER_TEST_VERIFICATION_DELAY_MS" {
   default     = 10
 }
 
+variable "BB_CHONK_VERIFY_MAX_BATCH" {
+  description = "Upper bound on proofs per batch for the peer chonk batch verifier"
+  type        = number
+  default     = 16
+}
+
+variable "BB_CHONK_VERIFY_BATCH_CONCURRENCY" {
+  description = "Thread count for the peer batch verifier parallel reduce (0 = auto)"
+  type        = number
+  default     = 6
+}
+
 variable "K8S_CLUSTER_CONTEXT" {
   description = "GKE cluster context"
   type        = string
@@ -107,6 +119,12 @@ variable "AZTEC_DOCKER_IMAGE" {
 
 variable "PROVER_AGENT_DOCKER_IMAGE" {
   description = "Docker image for prover agents (includes baked-in CRS). Defaults to AZTEC_DOCKER_IMAGE."
+  type        = string
+  default     = ""
+}
+
+variable "VALIDATOR_HA_DOCKER_IMAGE" {
+  description = "Docker image for HA validator releases. When set, HA releases (idx > 0) use this image instead of AZTEC_DOCKER_IMAGE."
   type        = string
   default     = ""
 }
@@ -163,11 +181,6 @@ variable "REGISTRY_CONTRACT_ADDRESS" {
   type        = string
 }
 
-variable "SLASH_FACTORY_CONTRACT_ADDRESS" {
-  description = "The slash factory contract address"
-  type        = string
-}
-
 variable "FEE_ASSET_HANDLER_CONTRACT_ADDRESS" {
   description = "The fee asset handler contract address"
   type        = string
@@ -191,10 +204,10 @@ variable "VALIDATORS_PER_NODE" {
   default     = 12
 }
 
-variable "VALIDATOR_PUBLISHERS_PER_VALIDATOR_KEY" {
-  description = "Number of publisher EOAs per validator key"
+variable "VALIDATOR_PUBLISHERS_PER_REPLICA" {
+  description = "Number of publisher EOAs per validator replica (pod)"
   type        = number
-  default     = 1
+  default     = 4
 }
 
 variable "VALIDATOR_PUBLISHER_MNEMONIC_START_INDEX" {
@@ -227,6 +240,24 @@ variable "VALIDATOR_HA_REPLICAS" {
   description = "Number of additional HA validator releases (0 = no HA, 1 = primary + 1 HA, etc.)"
   type        = number
   default     = 0
+}
+
+variable "VALIDATOR_HA_REPLICA_COUNT" {
+  description = "Number of pod replicas per HA validator release. Defaults to VALIDATOR_REPLICAS if not set."
+  type        = number
+  default     = null
+}
+
+variable "VALIDATOR_HA_OLD_DUTIES_MAX_AGE_H" {
+  description = "Clean up old signed HA duties after this many hours (prevents unbounded DB growth)"
+  type        = number
+  default     = 24
+}
+
+variable "ADMIN_API_KEY_HASH" {
+  description = "SHA-256 hex hash of the admin API key. When set, enables admin API authentication on validator nodes. Leave empty to disable admin auth (default)."
+  type        = string
+  default     = ""
 }
 
 variable "PROVER_MNEMONIC" {
@@ -285,11 +316,6 @@ variable "PROVER_NODE_DISABLE_PROOF_PUBLISH" {
   default     = false
 }
 
-variable "P2P_MAX_TX_POOL_SIZE" {
-  description = "Maximum size of the P2P transaction pool"
-  type        = string
-  default     = "100000000"
-}
 variable "FISHERMAN_MNEMONIC" {
   description = "The fisherman mnemonic for RPC nodes (used when validators are disabled, e.g., fisherman mode)"
   type        = string
@@ -307,6 +333,20 @@ variable "OTEL_COLLECTOR_ENDPOINT" {
   type        = string
   default     = null
   nullable    = true
+}
+
+variable "OTEL_COLLECT_INTERVAL_MS" {
+  description = "Interval in ms at which OTEL metrics are exported from nodes"
+  type        = string
+  nullable    = true
+  default     = null
+}
+
+variable "OTEL_EXPORT_TIMEOUT_MS" {
+  description = "Timeout in ms for OTEL metric exports (must be <= OTEL_COLLECT_INTERVAL_MS)"
+  type        = string
+  nullable    = true
+  default     = null
 }
 
 variable "LOG_LEVEL" {
@@ -334,13 +374,26 @@ variable "TEST_ACCOUNTS" {
 variable "SEQ_MIN_TX_PER_BLOCK" {
   description = "Minimum number of sequencer transactions per block"
   type        = string
-  default     = "0"
+  default     = "1"
 }
 
 variable "SEQ_MAX_TX_PER_BLOCK" {
   description = "Maximum number of sequencer transactions per block"
   type        = string
   default     = "8"
+}
+
+variable "SEQ_MAX_TX_PER_CHECKPOINT" {
+  description = "Maximum number of sequencer transactions per checkpoint"
+  type        = string
+  default     = null
+}
+
+variable "SEQ_ENFORCE_TIME_TABLE" {
+  description = "Whether to enforce the time table when building blocks"
+  type        = string
+  nullable    = true
+  default     = null
 }
 
 variable "SEQ_SKIP_CHECKPOINT_PUBLISH_PERCENT" {
@@ -356,8 +409,34 @@ variable "SEQ_BLOCK_DURATION_MS" {
   default     = null
 }
 
+variable "SEQ_L1_PUBLISHING_TIME_ALLOWANCE_IN_SLOT" {
+  description = "Time allocated for publishing to L1, in seconds"
+  type        = string
+  nullable    = true
+  default     = null
+}
+
 variable "SEQ_BUILD_CHECKPOINT_IF_EMPTY" {
   description = "Have sequencer build and publish an empty checkpoint if there are no txs"
+  type        = string
+  nullable    = true
+  default     = null
+}
+
+variable "SEQ_PER_BLOCK_ALLOCATION_MULTIPLIER" {
+  description = "Per-block gas budget multiplier for both L2 and DA gas."
+  type        = string
+  default     = null
+}
+
+variable "SEQ_ENABLE_PROPOSER_PIPELINING" {
+  description = "Whether to enable build-ahead proposer pipelining"
+  type        = string
+  default     = "false"
+}
+
+variable "AZTEC_EPOCHS_LAG" {
+  description = "Epoch lag override for validator nodes"
   type        = string
   nullable    = true
   default     = null
@@ -367,18 +446,6 @@ variable "SENTINEL_ENABLED" {
   description = "Whether to enable sentinel"
   type        = string
   default     = true
-}
-
-variable "SLASH_MIN_PENALTY_PERCENTAGE" {
-  description = "The slash min penalty percentage"
-  type        = string
-  nullable    = true
-}
-
-variable "SLASH_MAX_PENALTY_PERCENTAGE" {
-  description = "The slash max penalty percentage"
-  type        = string
-  nullable    = true
 }
 
 variable "SLASH_INACTIVITY_TARGET_PERCENTAGE" {
@@ -617,6 +684,18 @@ variable "BOT_CROSS_CHAIN_PXE_SYNC_CHAIN_TIP" {
   default     = "checkpointed"
 }
 
+variable "BOT_DA_GAS_LIMIT" {
+  description = "DA gas limit for bot transactions (empty to use gas estimation)"
+  type        = string
+  default     = ""
+}
+
+variable "BOT_L2_GAS_LIMIT" {
+  description = "L2 gas limit for bot transactions (empty to use gas estimation)"
+  type        = string
+  default     = ""
+}
+
 # RPC ingress configuration (GKE-specific)
 variable "RPC_INGRESS_ENABLED" {
   description = "Enable GKE ingress for RPC nodes"
@@ -644,6 +723,13 @@ variable "RPC_INGRESS_SSL_CERT_NAMES" {
 
 variable "PROVER_FAILED_PROOF_STORE" {
   description = "Optional GCS/URI to store failed proofs from the prover"
+  type        = string
+  nullable    = false
+  default     = ""
+}
+
+variable "L1_TX_FAILED_STORE" {
+  description = "Optional GCS/URI to store failed L1 transaction inputs (e.g. gs://bucket/path)"
   type        = string
   nullable    = false
   default     = ""
@@ -699,6 +785,12 @@ variable "BLOB_FILE_STORE_UPLOAD_URL" {
   default     = null
 }
 
+variable "BLOB_FILE_STORE_URLS" {
+  description = "Comma-separated URLs for reading blobs from filestore. Set to ',' to disable."
+  type        = string
+  default     = ""
+}
+
 variable "TX_FILE_STORE_ENABLED" {
   description = "Whether to enable uploading transactions to file storage"
   type        = bool
@@ -736,16 +828,16 @@ variable "FULL_NODE_INCLUDE_METRICS" {
   default     = null
 }
 
-variable "FISHERMAN_MODE" {
-  description = "Whether to run in fisherman mode"
-  type        = bool
-  default     = false
+variable "FISHERMAN_REPLICAS" {
+  description = "Number of dedicated fisherman node replicas (separate from the rpc-node)"
+  type        = number
+  default     = 0
 }
 
 variable "P2P_GOSSIPSUB_D" {
   description = "The P2P Gossipsub D parameter"
   type        = string
-  default     = "6"
+  default     = "8"
 }
 
 variable "P2P_GOSSIPSUB_DLO" {
@@ -758,12 +850,6 @@ variable "P2P_GOSSIPSUB_DHI" {
   description = "The P2P Gossipsub D parameter"
   type        = string
   default     = "12"
-}
-
-variable "P2P_DROP_TX" {
-  description = "Whether to randomly drop incoming transactions in the P2P layer (for testing)"
-  type        = bool
-  default     = false
 }
 
 variable "P2P_DROP_TX_CHANCE" {

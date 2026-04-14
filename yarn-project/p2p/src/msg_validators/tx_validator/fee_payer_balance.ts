@@ -1,5 +1,6 @@
+import { FeeJuiceArtifact } from '@aztec/protocol-contracts/fee-juice';
 import { getCallRequestsWithCalldataByPhase } from '@aztec/simulator/server';
-import { FunctionSelector } from '@aztec/stdlib/abi';
+import { FunctionSelector, getAllFunctionAbis } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { type Tx, TxExecutionPhase } from '@aztec/stdlib/tx';
 
@@ -8,7 +9,10 @@ export type FeePayerBalanceDelta = {
   claimAmount: bigint;
 };
 
-const increasePublicBalanceSelectorPromise = FunctionSelector.fromSignature('_increase_public_balance((Field),u128)');
+const increasePublicBalanceSelectorPromise = (() => {
+  const fn = getAllFunctionAbis(FeeJuiceArtifact).find(f => f.name === '_increase_public_balance')!;
+  return FunctionSelector.fromNameAndParameters(fn.name, fn.parameters);
+})();
 
 export function getTxFeeLimit(tx: Tx): bigint {
   return tx.data.constants.txContext.gasSettings.getFeeLimit().toBigInt();

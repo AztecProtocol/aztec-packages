@@ -23,7 +23,6 @@ template <typename Curve> struct MockClaimGenerator {
     using PolynomialBatcher = bb::GeminiProver_<Curve>::PolynomialBatcher;
     using ClaimBatcher = ClaimBatcher_<Curve>;
     using ClaimBatch = ClaimBatcher::Batch;
-    using InterleavedBatch = ClaimBatcher::InterleavedBatch;
 
     CommitmentKey ck;
 
@@ -46,14 +45,6 @@ template <typename Curve> struct MockClaimGenerator {
     std::vector<Commitment> sumcheck_commitments;
     std::vector<std::array<Fr, 3>> sumcheck_evaluations;
 
-    struct InterleaveData {
-        std::vector<std::vector<Polynomial>> groups;
-        std::vector<Polynomial> polys;
-        std::vector<Fr> evaluations;
-        std::vector<std::vector<Commitment>> group_commitments;
-    };
-    InterleaveData interleave_data;
-
     /**
      * @brief Construct claim data for a set of random polynomials with the specified type
      * @note All to-be-shifted polynomials have an unshifted counterpart so the total number of claims is
@@ -69,9 +60,7 @@ template <typename Curve> struct MockClaimGenerator {
                        const size_t num_polynomials,
                        const size_t num_to_be_shifted,
                        const std::vector<Fr>& mle_opening_point,
-                       const CommitmentKey& commitment_key,
-                       size_t num_interleaved = 0,
-                       size_t num_to_be_interleaved = 0)
+                       const CommitmentKey& commitment_key)
 
         : ck(commitment_key) // Initialize the commitment key
         , polynomial_batcher(poly_size)
@@ -129,16 +118,6 @@ template <typename Curve> struct MockClaimGenerator {
             ClaimBatcher{ .unshifted = ClaimBatch{ RefVector(unshifted.commitments), RefVector(unshifted.evals) },
                           .shifted =
                               ClaimBatch{ RefVector(to_be_shifted.commitments), RefVector(to_be_shifted.evals) } };
-        if (num_interleaved > 0) {
-            interleave_data =
-                generate_interleaving_inputs(mle_opening_point, num_interleaved, num_to_be_interleaved, ck);
-            polynomial_batcher.set_interleaved(RefVector(interleave_data.polys),
-                                               to_vector_of_ref_vectors(interleave_data.groups));
-
-            claim_batcher.interleaved =
-                InterleavedBatch{ .commitments_groups = to_vector_of_ref_vectors(interleave_data.group_commitments),
-                                  .evaluations = RefVector(interleave_data.evaluations) };
-        }
     }
 
     // Generate zero polynomials to test edge cases in PCS
@@ -180,64 +159,6 @@ template <typename Curve> struct MockClaimGenerator {
 
         claim_batcher =
             ClaimBatcher{ .unshifted = ClaimBatch{ RefVector(unshifted.commitments), RefVector(unshifted.evals) } };
-    }
-
-    InterleaveData generate_interleaving_inputs(const std::vector<Fr>& u_challenge,
-                                                const size_t num_interleaved,
-                                                const size_t group_size,
-                                                const CommitmentKey& ck)
-    {
-
-        size_t N = 1 << u_challenge.size();
-        size_t MINI_CIRCUIT_N = N / group_size; // size of chunks
-
-        // Polynomials "chunks" that are interleaved in the PCS
-        std::vector<std::vector<Polynomial>> groups;
-
-        // Concatenated polynomials
-        std::vector<Polynomial> interleaved_polynomials;
-
-        // Evaluations of interleaved polynomials
-        std::vector<Fr> c_evaluations;
-
-        // For each polynomial to be interleaved
-        for (size_t i = 0; i < num_interleaved; ++i) {
-            std::vector<Polynomial> group;
-            Polynomial interleaved_polynomial(N);
-            for (size_t j = 0; j < group_size; j++) {
-                Polynomial chunk_polynomial(N);
-                // Fill the chunk polynomial with random values and appropriately fill the space in
-                // interleaved_polynomial
-                for (size_t k = 0; k < MINI_CIRCUIT_N; k++) {
-                    // Chunks should be shiftable
-                    auto tmp = Fr(0);
-                    if (k > 0) {
-                        tmp = Fr::random_element();
-                    }
-                    chunk_polynomial.at(k) = tmp;
-                    interleaved_polynomial.at(k * group_size + j) = tmp;
-                }
-                group.emplace_back(chunk_polynomial);
-            }
-            // Store chunks
-            groups.emplace_back(group);
-            // Store interleaved polynomial
-            interleaved_polynomials.emplace_back(interleaved_polynomial);
-            // Get evaluation
-            c_evaluations.emplace_back(interleaved_polynomial.evaluate_mle(u_challenge));
-        }
-
-        // Compute commitments of all polynomial chunks
-        std::vector<std::vector<Commitment>> groups_commitments;
-        for (size_t i = 0; i < num_interleaved; ++i) {
-            std::vector<Commitment> group_commitment;
-            for (size_t j = 0; j < group_size; j++) {
-                group_commitment.emplace_back(ck.commit(groups[i][j]));
-            }
-            groups_commitments.emplace_back(group_commitment);
-        }
-
-        return { groups, interleaved_polynomials, c_evaluations, groups_commitments };
     }
 
     template <typename Flavor>

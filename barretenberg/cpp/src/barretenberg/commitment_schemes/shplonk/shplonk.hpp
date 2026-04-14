@@ -61,10 +61,6 @@ template <typename Curve> class ShplonkProver_ {
                 max_poly_size = std::max(max_poly_size, claim.polynomial.size());
             }
         }
-        // The polynomials in Sumcheck Round claims and Libra opening claims are generally not dyadic,
-        // so we round up to the next power of 2.
-        max_poly_size = numeric::round_up_power_2(max_poly_size);
-
         // Q(X) = ∑ⱼ νʲ ⋅ ( fⱼ(X) − vⱼ) / ( X − xⱼ )
         Polynomial Q(max_poly_size);
         Polynomial tmp(max_poly_size);
@@ -93,11 +89,10 @@ template <typename Curve> class ShplonkProver_ {
             current_nu *= nu;
         }
         // We use the same batching challenge for Gemini and Libra opening claims. The number of the claims
-        // batched before adding Libra commitments and evaluations is bounded by 2 * `virtual_log_n` + 2, where
-        // 2 * `virtual_log_n` is the number of fold claims including the dummy ones, and +2 is reserved for
-        // interleaving.
+        // batched before adding Libra commitments and evaluations is bounded by 2 * `virtual_log_n`,
+        // which is the number of fold claims including the dummy ones.
         if (!libra_opening_claims.empty()) {
-            current_nu = nu.pow(2 * virtual_log_n + NUM_INTERLEAVING_CLAIMS);
+            current_nu = nu.pow(2 * virtual_log_n);
         }
 
         for (const auto& claim : libra_opening_claims) {
@@ -176,54 +171,45 @@ template <typename Curve> class ShplonkProver_ {
         // s.t. G(r) = 0
         Polynomial G(std::move(batched_quotient_Q)); // G(X) = Q(X)
 
-        // G₀ = ∑ⱼ νʲ ⋅ vⱼ / ( z − xⱼ )
         Fr current_nu = Fr::one();
-        Polynomial tmp(G.size());
         size_t idx = 0;
 
         size_t fold_idx = 0;
-        for (auto& claim : opening_claims) {
+        for (const auto& claim : opening_claims) {
 
             if (claim.gemini_fold) {
-                tmp = claim.polynomial;
-                tmp.at(0) = tmp[0] - gemini_fold_pos_evaluations[fold_idx++];
-                Fr scaling_factor = current_nu * inverse_vanishing_evals[idx++]; // = νʲ / (z − xⱼ )
-                // G -= νʲ ⋅ ( fⱼ(X) − vⱼ) / ( z − xⱼ )
-                G.add_scaled(tmp, -scaling_factor);
+                // G -= νʲ ⋅ ( fⱼ(X) − vⱼ₊) / ( z + xⱼ ), where vⱼ₊ is the positive fold evaluation
+                Fr scaling_factor = current_nu * inverse_vanishing_evals[idx++]; // = νʲ / (z + xⱼ )
+                G.add_scaled(claim.polynomial, -scaling_factor);
+                G.at(0) = G[0] + scaling_factor * gemini_fold_pos_evaluations[fold_idx++];
 
                 current_nu *= nu_challenge;
             }
-            // tmp = νʲ ⋅ ( fⱼ(X) − vⱼ) / ( z − xⱼ )
-            claim.polynomial.at(0) = claim.polynomial[0] - claim.opening_pair.evaluation;
-            Fr scaling_factor = current_nu * inverse_vanishing_evals[idx++]; // = νʲ / (z − xⱼ )
-
             // G -= νʲ ⋅ ( fⱼ(X) − vⱼ) / ( z − xⱼ )
+            Fr scaling_factor = current_nu * inverse_vanishing_evals[idx++]; // = νʲ / (z − xⱼ )
             G.add_scaled(claim.polynomial, -scaling_factor);
+            G.at(0) = G[0] + scaling_factor * claim.opening_pair.evaluation;
 
             current_nu *= nu_challenge;
         }
 
         // Take into account the constant proof size in Gemini
         if (!libra_opening_claims.empty()) {
-            current_nu = nu_challenge.pow(2 * virtual_log_n + NUM_INTERLEAVING_CLAIMS);
+            current_nu = nu_challenge.pow(2 * virtual_log_n);
         }
 
-        for (auto& claim : libra_opening_claims) {
-            // Compute individual claim quotient tmp = ( fⱼ(X) − vⱼ) / ( X − xⱼ )
-            claim.polynomial.at(0) = claim.polynomial[0] - claim.opening_pair.evaluation;
+        for (const auto& claim : libra_opening_claims) {
+            // G -= νʲ ⋅ ( fⱼ(X) − vⱼ) / ( z − xⱼ )
             Fr scaling_factor = current_nu * inverse_vanishing_evals[idx++]; // = νʲ / (z − xⱼ )
-
-            // Add the claim quotient to the batched quotient polynomial
             G.add_scaled(claim.polynomial, -scaling_factor);
+            G.at(0) = G[0] + scaling_factor * claim.opening_pair.evaluation;
             current_nu *= nu_challenge;
         }
 
-        for (auto& claim : sumcheck_opening_claims) {
-            claim.polynomial.at(0) = claim.polynomial[0] - claim.opening_pair.evaluation;
+        for (const auto& claim : sumcheck_opening_claims) {
             Fr scaling_factor = current_nu * inverse_vanishing_evals[idx++]; // = νʲ / (z − xⱼ )
-
-            // Add the claim quotient to the batched quotient polynomial
             G.add_scaled(claim.polynomial, -scaling_factor);
+            G.at(0) = G[0] + scaling_factor * claim.opening_pair.evaluation;
             current_nu *= nu_challenge;
         }
         // Return opening pair (z, 0) and polynomial G(X) = Q(X) - Q_z(X)
@@ -373,7 +359,9 @@ template <typename Curve> class ShplonkVerifier_ {
         , commitments({ quotient })
         , scalars{ Fr{ 1 } }
     {
-        BB_ASSERT_GT(num_claims, 1U, "Using Shplonk with just one claim. Should use batch reduction.");
+        if (num_claims <= 1U) {
+            throw_or_abort("Using Shplonk with just one claim. Should use batch reduction.");
+        }
         const size_t num_commitments = commitments.size();
         commitments.reserve(num_commitments);
         scalars.reserve(num_commitments);
@@ -545,11 +533,8 @@ static std::vector<Fr> compute_shplonk_batching_challenge_powers(const Fr& shplo
                                                                  bool has_zk = false,
                                                                  bool committed_sumcheck = false)
 {
-    // Minimum size of `denominators`
-    // Note that when the claim batch has no interleaving this will create one power more than it is used, so the
-    // circuit will have a witness appearing only in one gate. Getting rid of this extra power is complicated because of
-    // how Gemini and interleaving are coupled. This is not a security issue, we just compute a value that we never use.
-    size_t num_powers = 2 * virtual_log_n + NUM_INTERLEAVING_CLAIMS;
+    // Minimum number of powers: 2 * virtual_log_n for the Gemini fold claims
+    size_t num_powers = 2 * virtual_log_n;
     // Each round univariate is opened at 0, 1, and a round challenge.
     static constexpr size_t NUM_COMMITTED_SUMCHECK_CLAIMS_PER_ROUND = 3;
 

@@ -5,9 +5,7 @@ import { ContractClassPublishedEvent } from '@aztec/protocol-contracts/class-reg
 import { ContractInstancePublishedEvent } from '@aztec/protocol-contracts/instance-registry';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { L2Block } from '@aztec/stdlib/block';
-import { Checkpoint } from '@aztec/stdlib/checkpoint';
 import { ContractClassLog, PrivateLog } from '@aztec/stdlib/logs';
-import { CheckpointHeader } from '@aztec/stdlib/rollup';
 import '@aztec/stdlib/testing/jest';
 
 import { readFileSync } from 'fs';
@@ -15,7 +13,7 @@ import { dirname, resolve } from 'path';
 import { fileURLToPath } from 'url';
 
 import { KVArchiverDataStore } from '../store/kv_archiver_store.js';
-import { makePublishedCheckpoint } from '../test/mock_structs.js';
+import { makeCheckpoint, makePublishedCheckpoint } from '../test/mock_structs.js';
 import { ArchiverDataStoreUpdater } from './data_store_updater.js';
 
 /** Loads the sample ContractClassPublished event payload from protocol-contracts fixtures. */
@@ -44,7 +42,7 @@ describe('ArchiverDataStoreUpdater', () => {
   let instanceAddress: AztecAddress;
 
   beforeEach(async () => {
-    store = new KVArchiverDataStore(await openTmpStore('data_store_updater_test'), 1000, { epochDuration: 32 });
+    store = new KVArchiverDataStore(await openTmpStore('data_store_updater_test'), 1000);
     updater = new ArchiverDataStoreUpdater(store);
 
     // Create contract class log from sample fixture data
@@ -59,7 +57,7 @@ describe('ArchiverDataStoreUpdater', () => {
   });
 
   describe('contract data', () => {
-    it('stores contract class and instance data when blocks are added via addProposedBlocks', async () => {
+    it('stores contract class and instance data when blocks are added via addProposedBlock', async () => {
       // Create block with contract class and instance logs
       const block = await L2Block.random(BlockNumber(1), {
         checkpointNumber: CheckpointNumber(1),
@@ -68,7 +66,7 @@ describe('ArchiverDataStoreUpdater', () => {
       block.body.txEffects[0].contractClassLogs = [contractClassLog];
       block.body.txEffects[0].privateLogs = [PrivateLog.fromBuffer(getSampleContractInstancePublishedEventPayload())];
 
-      await updater.addProposedBlocks([block]);
+      await updater.addProposedBlock(block);
 
       // Verify contract class was stored
       const retrievedClass = await store.getContractClass(contractClassId);
@@ -94,7 +92,7 @@ describe('ArchiverDataStoreUpdater', () => {
         PrivateLog.fromBuffer(getSampleContractInstancePublishedEventPayload()),
       ];
 
-      await updater.addProposedBlocks([localBlock]);
+      await updater.addProposedBlock(localBlock);
 
       // Verify contract data was stored
       const timestamp = localBlock.header.globalVariables.timestamp + 1n;
@@ -110,12 +108,7 @@ describe('ArchiverDataStoreUpdater', () => {
       // Make sure it has a different archive root (which it will by default from random)
       expect(conflictingBlock.archive.root.equals(localBlock.archive.root)).toBe(false);
 
-      const checkpointWithConflict = new Checkpoint(
-        conflictingBlock.archive,
-        CheckpointHeader.random({ slotNumber: SlotNumber(100) }),
-        [conflictingBlock],
-        CheckpointNumber(1),
-      );
+      const checkpointWithConflict = makeCheckpoint([conflictingBlock]);
       const publishedCheckpoint = makePublishedCheckpoint(checkpointWithConflict, 10);
 
       // This should detect the conflict and prune the local block
@@ -135,8 +128,7 @@ describe('ArchiverDataStoreUpdater', () => {
       block.body.txEffects[0].contractClassLogs = [contractClassLog];
       block.body.txEffects[0].privateLogs = [PrivateLog.fromBuffer(getSampleContractInstancePublishedEventPayload())];
 
-      const checkpoint = new Checkpoint(block.archive, CheckpointHeader.random(), [block], CheckpointNumber(1));
-      const publishedCheckpoint = makePublishedCheckpoint(checkpoint, 10);
+      const publishedCheckpoint = makePublishedCheckpoint(makeCheckpoint([block]), 10);
 
       await updater.addCheckpoints([publishedCheckpoint]);
 
@@ -163,11 +155,10 @@ describe('ArchiverDataStoreUpdater', () => {
         slotNumber: SlotNumber(100),
       });
 
-      await updater.addProposedBlocks([block]);
+      await updater.addProposedBlock(block);
 
       // Create checkpoint with the SAME block (same archive root)
-      const checkpoint = new Checkpoint(block.archive, CheckpointHeader.random(), [block], CheckpointNumber(1));
-      const publishedCheckpoint = makePublishedCheckpoint(checkpoint, 10);
+      const publishedCheckpoint = makePublishedCheckpoint(makeCheckpoint([block]), 10);
 
       await updater.addCheckpoints([publishedCheckpoint]);
 
@@ -184,7 +175,7 @@ describe('ArchiverDataStoreUpdater', () => {
         indexWithinCheckpoint: IndexWithinCheckpoint(0),
         slotNumber: SlotNumber(100),
       });
-      await updater.addProposedBlocks([localBlock]);
+      await updater.addProposedBlock(localBlock);
       const publicLogsBefore = await store.getPublicLogs({});
       expect(publicLogsBefore.logs.map(l => l.log)).toEqual(localBlock.body.txEffects.flatMap(tx => tx.publicLogs));
 
@@ -196,13 +187,7 @@ describe('ArchiverDataStoreUpdater', () => {
       });
       expect(checkpointBlock.archive.root.equals(localBlock.archive.root)).toBe(false);
 
-      const checkpoint = new Checkpoint(
-        checkpointBlock.archive,
-        CheckpointHeader.random({ slotNumber: SlotNumber(100) }),
-        [checkpointBlock],
-        CheckpointNumber(1),
-      );
-      await updater.addCheckpoints([makePublishedCheckpoint(checkpoint, 10)]);
+      await updater.addCheckpoints([makePublishedCheckpoint(makeCheckpoint([checkpointBlock]), 10)]);
 
       // Verify checkpoint block is stored
       const storedBlock = await store.getBlock(BlockNumber(1));
@@ -218,7 +203,7 @@ describe('ArchiverDataStoreUpdater', () => {
         indexWithinCheckpoint: IndexWithinCheckpoint(0),
         slotNumber: SlotNumber(100),
       });
-      await updater.addProposedBlocks([localBlock]);
+      await updater.addProposedBlock(localBlock);
       const publicLogsBefore = await store.getPublicLogs({});
       expect(publicLogsBefore.logs.map(l => l.log)).toEqual(localBlock.body.txEffects.flatMap(tx => tx.publicLogs));
 

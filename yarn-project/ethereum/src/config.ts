@@ -2,7 +2,6 @@ import {
   type ConfigMappingsType,
   bigintConfigHelper,
   booleanConfigHelper,
-  enumConfigHelper,
   getConfigFromMappings,
   getDefaultConfig,
   numberConfigHelper,
@@ -19,6 +18,8 @@ export type GenesisStateConfig = {
   testAccounts: boolean;
   /** Whether to populate the genesis state with initial fee juice for the sponsored FPC */
   sponsoredFPC: boolean;
+  /** Additional addresses to prefund with fee juice at genesis */
+  prefundAddresses: string[];
 };
 
 export type L1ContractsConfig = {
@@ -58,13 +59,13 @@ export type L1ContractsConfig = {
   slashingOffsetInRounds: number;
   /** How long slashing can be disabled for in seconds when vetoer disables it */
   slashingDisableDuration: number;
-  /** Type of slasher proposer */
-  slasherFlavor: 'empire' | 'tally' | 'none';
-  /** Minimum amount that can be slashed in tally slashing */
+  /** Whether to deploy a slasher proposer */
+  slasherEnabled: boolean;
+  /** Minimum amount that can be slashed */
   slashAmountSmall: bigint;
-  /** Medium amount to slash in tally slashing */
+  /** Medium amount to slash */
   slashAmountMedium: bigint;
-  /** Largest amount that can be slashed per round in tally slashing */
+  /** Largest amount that can be slashed per round */
   slashAmountLarge: bigint;
   /** Governance proposing quorum (defaults to roundSize/2 + 1) */
   governanceProposerQuorum?: number;
@@ -150,13 +151,10 @@ export const l1ContractsConfigMappings: ConfigMappingsType<L1ContractsConfig> = 
       'How many slashing rounds back we slash (ie when slashing in round N, we slash for offenses committed during epochs of round N-offset)',
     ...numberConfigHelper(l1ContractsDefaultEnv.AZTEC_SLASHING_OFFSET_IN_ROUNDS),
   },
-  slasherFlavor: {
-    env: 'AZTEC_SLASHER_FLAVOR',
-    description: 'Type of slasher proposer (empire, tally, or none)',
-    ...enumConfigHelper(
-      ['empire', 'tally', 'none'] as const,
-      l1ContractsDefaultEnv.AZTEC_SLASHER_FLAVOR as 'empire' | 'tally' | 'none',
-    ),
+  slasherEnabled: {
+    env: 'AZTEC_SLASHER_ENABLED',
+    description: 'Whether to deploy a slasher proposer',
+    ...booleanConfigHelper(true),
   },
   slashAmountSmall: {
     env: 'AZTEC_SLASH_AMOUNT_SMALL',
@@ -258,6 +256,16 @@ export const genesisStateConfigMappings: ConfigMappingsType<GenesisStateConfig> 
     env: 'SPONSORED_FPC',
     description: 'Whether to populate the genesis state with initial fee juice for the sponsored FPC.',
     ...booleanConfigHelper(false),
+  },
+  prefundAddresses: {
+    env: 'PREFUND_ADDRESSES',
+    description: 'Comma-separated list of Aztec addresses to prefund with fee juice at genesis (local network only).',
+    parseEnv: (val: string) =>
+      val
+        .split(',')
+        .map(a => a.trim())
+        .filter(a => a.length > 0),
+    defaultValue: [],
   },
 };
 

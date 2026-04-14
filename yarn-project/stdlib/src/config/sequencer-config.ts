@@ -1,6 +1,10 @@
 import type { ConfigMappingsType } from '@aztec/foundation/config';
 
 import type { SequencerConfig } from '../interfaces/configs.js';
+import { DEFAULT_P2P_PROPAGATION_TIME } from '../timetable/index.js';
+
+/** Default maximum number of transactions per block. */
+export const DEFAULT_MAX_TXS_PER_BLOCK = 32;
 
 /**
  * Partial sequencer config mappings for fields that need to be shared across packages.
@@ -9,7 +13,10 @@ import type { SequencerConfig } from '../interfaces/configs.js';
  * to avoid duplication.
  */
 export const sharedSequencerConfigMappings: ConfigMappingsType<
-  Pick<SequencerConfig, 'blockDurationMs' | 'expectedBlockProposalsPerSlot'>
+  Pick<
+    SequencerConfig,
+    'blockDurationMs' | 'expectedBlockProposalsPerSlot' | 'maxTxsPerBlock' | 'attestationPropagationTime'
+  >
 > = {
   blockDurationMs: {
     env: 'SEQ_BLOCK_DURATION_MS',
@@ -25,5 +32,16 @@ export const sharedSequencerConfigMappings: ConfigMappingsType<
       '0 (default) disables block proposal scoring. Set to a positive value to enable.',
     parseEnv: (val: string) => (val ? parseInt(val, 10) : 0),
     defaultValue: 0,
+  },
+  maxTxsPerBlock: {
+    env: 'SEQ_MAX_TX_PER_BLOCK',
+    description: 'The maximum number of txs to include in a block.',
+    parseEnv: (val: string) => (val ? parseInt(val, 10) : undefined),
+  },
+  attestationPropagationTime: {
+    env: 'SEQ_ATTESTATION_PROPAGATION_TIME',
+    description: 'How many seconds it takes for proposals and attestations to travel across the p2p layer (one-way).',
+    parseEnv: (val: string) => (val ? parseFloat(val) : undefined),
+    defaultValue: DEFAULT_P2P_PROPAGATION_TIME,
   },
 };

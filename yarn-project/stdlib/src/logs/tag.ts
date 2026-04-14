@@ -20,7 +20,7 @@ export class Tag {
   constructor(public readonly value: Fr) {}
 
   static async compute(preTag: PreTag): Promise<Tag> {
-    const tag = await poseidon2Hash([preTag.secret.value, preTag.index]);
+    const tag = await poseidon2Hash([preTag.extendedSecret.secret, preTag.index]);
     return new Tag(tag);
   }
 

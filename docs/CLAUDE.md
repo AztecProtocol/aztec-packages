@@ -10,7 +10,7 @@ You are working with the **Aztec Protocol Documentation** - a comprehensive docu
 
 ### Package Manager
 
-This project uses Yarn 4.5.2 as specified in the `packageManager` field of package.json. Make sure to use Yarn for all dependency management.
+This project uses Yarn 4.13.0 as specified in the `packageManager` field of package.json. Make sure to use Yarn for all dependency management.
 
 ### Essential Commands
 
@@ -25,8 +25,12 @@ This project uses Yarn 4.5.2 as specified in the `packageManager` field of packa
 
 - `yarn generate:aztec-nr-api` - Generate Aztec.nr API docs (requires `nargo`)
 - `yarn generate:aztec-nr-api v1.0.0` - Generate for a specific version
+- `RELEASE_TYPE=mainnet yarn generate:aztec-nr-api v4.2.0` - Generate with explicit release type
 - `yarn generate:typescript-api` - Generate TypeScript API docs (requires yarn-project to be built)
 - `yarn generate:typescript-api v3.0.0-devnet.6` - Generate for a specific version
+- `RELEASE_TYPE=mainnet yarn generate:typescript-api v4.2.0` - Generate with explicit release type
+
+The `RELEASE_TYPE` env var overrides version string pattern matching for output folder selection. This is useful when the version string doesn't self-identify its release type.
 
 ### Development Workflow
 
@@ -48,23 +52,23 @@ For development:
 
 The preprocessing system uses these environment variables:
 
-| Variable       | Description                                                         | Default           |
-| -------------- | ------------------------------------------------------------------- | ----------------- |
-| `RELEASE_TYPE` | Release type: `nightly`, `devnet`, `testnet`, `mainnet`, `ignition` | `nightly`         |
-| `NIGHTLY_TAG`  | Version for nightly builds (falls back to `COMMIT_TAG`)             | `0.0.0-nightly.0` |
-| `DEVNET_TAG`   | Version for devnet builds                                           | `3.0.0-devnet.5`  |
-| `TESTNET_TAG`  | Version for testnet builds                                          | `2.1.11`          |
-| `MAINNET_TAG`  | Version for mainnet/ignition builds                                 | `2.1.11`          |
-| `COMMIT_TAG`   | Legacy variable, used as fallback for `NIGHTLY_TAG`                 | `next`            |
+| Variable       | Description                                                         | Default                                  |
+| -------------- | ------------------------------------------------------------------- | ---------------------------------------- |
+| `RELEASE_TYPE` | Release type: `nightly`, `devnet`, `testnet`, `mainnet`             | `nightly`                                |
+| `NIGHTLY_TAG`  | Version for nightly builds (falls back to `COMMIT_TAG`)             | from `developer_version_config.json`     |
+| `DEVNET_TAG`   | Version for devnet builds                                           | from `developer_version_config.json`     |
+| `TESTNET_TAG`  | Version for testnet builds                                          | from `developer_version_config.json`     |
+| `MAINNET_TAG`  | Version for mainnet builds                                          | from `developer_version_config.json`     |
+| `COMMIT_TAG`   | Legacy variable, used as fallback for `NIGHTLY_TAG`                 | `next`                                   |
 
 ### Preprocessing Macros
 
 **Release-type-aware macros:**
 
 - `#release_version` - Resolves to the version for the current `RELEASE_TYPE`:
-  - `nightly` → `NIGHTLY_TAG`, `devnet` → `DEVNET_TAG`, `testnet` → `TESTNET_TAG`, `mainnet`/`ignition` → `MAINNET_TAG`
+  - `nightly` → `NIGHTLY_TAG`, `devnet` → `DEVNET_TAG`, `testnet` → `TESTNET_TAG`, `mainnet` → `MAINNET_TAG`
 - `#release_network` - Resolves to the network name for CLI `--network` flag:
-  - `nightly` → `local-network`, `devnet` → `devnet`, `testnet` → `testnet`, `mainnet`/`ignition` → `mainnet`
+  - `nightly` → `local-network`, `devnet` → `devnet`, `testnet` → `testnet`, `mainnet` → `mainnet`
 
 **Legacy macros:**
 
@@ -85,7 +89,7 @@ Default content
 #endif
 ```
 
-**Supported conditions** (matching `RELEASE_TYPE` values): `nightly`, `devnet`, `testnet`, `mainnet`, `ignition`
+**Supported conditions** (matching `RELEASE_TYPE` values): `nightly`, `devnet`, `testnet`, `mainnet`
 
 **Notes:**
 
@@ -110,6 +114,9 @@ Default content
 - `static/img/` - Static images and assets
 - `static/aztec-nr-api/` - Auto-generated Aztec.nr API documentation (HTML)
 - `static/typescript-api/` - Auto-generated TypeScript API documentation (markdown)
+- `examples/` - Code examples (Noir circuits, Noir contracts, Solidity, TypeScript)
+- `examples/ts/` - TypeScript aztec.js examples with `docker-compose.yml` for CI execution
+- `examples/ts/aztecjs_runner/` - Runner script that executes examples against a live network
 - `scripts/` - Build and utility scripts
 - `scripts/typescript_api_generation/` - TypeScript API doc generation scripts and config
 
@@ -117,8 +124,8 @@ Default content
 
 This site uses **Docusaurus multi-instance docs** with independent versioning:
 
-- **Developer Guides** (`/developers/`) - Getting started, tutorials, references (devnet + nightly versions)
-- **Network Guides** (`/network/`) - Node operation and network participation (testnet + ignition versions)
+- **Developer Guides** (`/developers/`) - Getting started, tutorials, references (mainnet + testnet + devnet + nightly versions)
+- **Network Guides** (`/network/`) - Node operation and network participation (mainnet + testnet versions)
 
 ### Auto-Generated API Documentation
 
@@ -136,11 +143,31 @@ The TypeScript API generation is configured in `scripts/typescript_api_generatio
 
 Uses Docusaurus multi-instance versioning with separate version tracks:
 
-- **Developer docs**: Versions in `developer_versions.json`, stored in `developer_versioned_docs/`
-- **Network docs**: Versions in `network_versions.json`, stored in `network_versioned_docs/`
+- **Developer docs**: Version config in `developer_version_config.json`, stored in `developer_versioned_docs/`
+- **Network docs**: Version config in `network_version_config.json`, stored in `network_versioned_docs/`
+- Both config files map release types to version strings (e.g., `{"mainnet": "v4.2.0", "testnet": "v4.1.0", ...}`)
+- `docusaurus.config.js` auto-generates `*_versions.json` from these configs (filtered to versions with existing directories, plus any extra unmapped directories)
+- Use `scripts/update_docs_versions.sh` to update configs and reconcile: `./scripts/update_docs_versions.sh network mainnet v4.2.0`
 - Each docs instance has its own version dropdown in the navbar
 - Preprocessing macros (`#include_code`, `#release_version`, conditionals, etc.) only work in source folders, not in versioned copies
 - Create new versions with: `yarn docusaurus docs:version:<instance-id> <version>`
+
+### Code Examples Pipeline
+
+The `examples/` directory contains runnable code examples that are included in documentation via `#include_code` markers. The examples pipeline has two stages:
+
+**Validation (type-checking)**: `examples/bootstrap.sh` compiles Noir circuits, Noir contracts, Solidity, and type-checks TypeScript examples. This runs on every PR.
+
+**Execution (runtime testing)**: TypeScript examples in `examples/ts/` are executed against a live Aztec network via Docker Compose. The `examples/ts/docker-compose.yml` spins up Anvil (L1 fork), an Aztec local network, and a runner service that executes the examples.
+
+- **CI**: `docs/bootstrap.sh ci` calls `examples/bootstrap.sh execute`, which uses `run_compose_test` from `ci3/`
+- **Local**: Start a sandbox manually, then run `examples/ts/aztecjs_runner/run.sh`
+- **`AZTEC_NODE_URL`**: All example `index.ts` files and `run.sh` use this env var (defaults to `http://localhost:8080`). In Docker Compose, it points to `http://local-network:8080`.
+
+When adding new TypeScript examples:
+1. Create a directory under `examples/ts/` with `index.ts`, `config.yaml`, and empty `yarn.lock`
+2. Use `process.env.AZTEC_NODE_URL ?? "http://localhost:8080"` for the node URL
+3. Add the example to the list in `examples/ts/aztecjs_runner/run.sh` if it should be executed at runtime
 
 ## Documentation Review Standards
 
@@ -274,6 +301,7 @@ The description should:
 - ❌ Legal disclaimers or license text
 - ❌ Direct quotes from external sources
 - ❌ API endpoint URLs or configuration values
+- ❌ Existing migration notes in `resources/migration_notes.md` — never modify already-published migration entries. Instead, add new migration notes to the `## TBD` section at the top of the file.
 
 ## Review Output Format
 
@@ -329,5 +357,5 @@ Approved external documentation sources:
 - Suggest improvements even if they go beyond pure editing
 - When making changes to documentation processes or tooling, remember to check and update READMEs, project documentation (like this file), and code comments
 
-Last updated: 2026-02-04
-Version: 1.4
+Last updated: 2026-03-27
+Version: 1.6

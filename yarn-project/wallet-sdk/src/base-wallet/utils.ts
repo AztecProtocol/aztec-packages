@@ -1,9 +1,12 @@
 import type { AztecNode } from '@aztec/aztec.js/node';
+import { TxSimulationResultWithAppOffset } from '@aztec/aztec.js/wallet';
 import { MAX_ENQUEUED_CALLS_PER_CALL } from '@aztec/constants';
 import type { ChainInfo } from '@aztec/entrypoints/interfaces';
 import { makeTuple } from '@aztec/foundation/array';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import type { Tuple } from '@aztec/foundation/serialize';
+import type { ContractNameResolver } from '@aztec/pxe/client/lazy';
+import { displayDebugLogs } from '@aztec/pxe/client/lazy';
 import { generateSimulatedProvingResult } from '@aztec/pxe/simulator';
 import { type FunctionCall, FunctionSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -72,6 +75,7 @@ async function simulateBatchViaNode(
   gasSettings: GasSettings,
   blockHeader: BlockHeader,
   skipFeeEnforcement: boolean,
+  getContractName: ContractNameResolver,
 ): Promise<TxSimulationResult> {
   const txContext = new TxContext(chainInfo.chainId, chainInfo.version, gasSettings);
 
@@ -145,6 +149,9 @@ async function simulateBatchViaNode(
     throw publicOutput.revertReason;
   }
 
+  // Display debug logs from the public simulation.
+  await displayDebugLogs(publicOutput.debugLogs, getContractName);
+
   return new TxSimulationResult(privateResult, provingResult.publicInputs, publicOutput, undefined);
 }
 
@@ -169,6 +176,7 @@ export async function simulateViaNode(
   gasSettings: GasSettings,
   blockHeader: BlockHeader,
   skipFeeEnforcement: boolean = true,
+  getContractName: ContractNameResolver,
 ): Promise<TxSimulationResult[]> {
   const batches: FunctionCall[][] = [];
 
@@ -187,6 +195,7 @@ export async function simulateViaNode(
       gasSettings,
       blockHeader,
       skipFeeEnforcement,
+      getContractName,
     );
     results.push(result);
   }
@@ -206,13 +215,13 @@ export async function simulateViaNode(
  */
 export function buildMergedSimulationResult(
   optimizedResults: TxSimulationResult[],
-  normalResult: TxSimulationResult | null,
-): TxSimulationResult {
+  normalResult: TxSimulationResultWithAppOffset | null,
+): TxSimulationResultWithAppOffset {
   const optimizedReturnValues = optimizedResults.flatMap(r => r.publicOutput?.publicReturnValues ?? []);
   const normalReturnValues = normalResult?.publicOutput?.publicReturnValues ?? [];
   const allReturnValues = [...optimizedReturnValues, ...normalReturnValues];
 
-  const baseResult = normalResult ?? optimizedResults[0];
+  const baseResult: TxSimulationResult = normalResult ?? optimizedResults[0];
 
   const mergedPublicOutput: PublicSimulationOutput | undefined = baseResult.publicOutput
     ? {
@@ -221,10 +230,11 @@ export function buildMergedSimulationResult(
       }
     : undefined;
 
-  return new TxSimulationResult(
+  const merged = new TxSimulationResult(
     baseResult.privateExecutionResult,
     baseResult.publicInputs,
     mergedPublicOutput,
     normalResult?.stats,
   );
+  return TxSimulationResultWithAppOffset.fromResultAndOffset(merged, normalResult?.appCallOffset ?? 0);
 }

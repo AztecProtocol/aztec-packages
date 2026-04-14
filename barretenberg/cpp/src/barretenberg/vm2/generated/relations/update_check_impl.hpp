@@ -70,7 +70,7 @@ void update_checkImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
         using View = typename std::tuple_element_t<6, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::update_check_sel)) *
                    (CView(constants_CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS) -
-                    static_cast<View>(in.get(C::update_check_deployer_protocol_contract_address)));
+                    static_cast<View>(in.get(C::update_check_contract_instance_registry_address)));
         std::get<6>(evals) += (tmp * scaling_factor);
     }
     {

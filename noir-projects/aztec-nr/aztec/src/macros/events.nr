@@ -42,13 +42,22 @@ comptime fn register_event_selector(event_selector: Field, event_name: Quoted) {
     EVENT_SELECTORS.insert(event_selector, event_name);
 }
 
+/// Generates the core event functionality for a struct, including the
+/// [`EventInterface`](crate::event::event_interface::EventInterface) implementation (which provides the event type
+/// id) and a [`Serialize`](crate::protocol::traits::Serialize) implementation if one is not already provided.
+///
+/// ## Requirements
+///
+/// Events can be emitted both privately and publicly. Public emission imposes no requirements, but for an event to be
+/// emittable privately its serialization length must not exceeed
+/// [`MAX_EVENT_SERIALIZED_LEN`](crate::messages::logs::event::MAX_EVENT_SERIALIZED_LEN).
 pub comptime fn event(s: TypeDefinition) -> Quoted {
     let (event_interface_impl, event_selector) = generate_event_interface_and_get_selector(s);
     register_event_selector(event_selector, s.name());
 
     let serialize_impl = derive_serialize_if_not_implemented(s);
 
-    s.add_attribute("abi(events)");
+    s.add_abi("events");
 
     quote {
         $event_interface_impl

@@ -4,7 +4,9 @@ import {
   BlockNumber,
   BlockNumberPositiveSchema,
   BlockNumberSchema,
+  CheckpointNumber,
   CheckpointNumberPositiveSchema,
+  CheckpointNumberSchema,
   EpochNumber,
   EpochNumberSchema,
   type SlotNumber,
@@ -23,6 +25,7 @@ import { CheckpointedL2Block } from '../block/checkpointed_l2_block.js';
 import { type DataInBlock, dataInBlockSchemaFor } from '../block/in_block.js';
 import { L2Block } from '../block/l2_block.js';
 import { type L2BlockSource, type L2Tips, L2TipsSchema } from '../block/l2_block_source.js';
+import { CheckpointDataSchema } from '../checkpoint/checkpoint_data.js';
 import { PublishedCheckpoint } from '../checkpoint/published_checkpoint.js';
 import {
   type ContractClassPublic,
@@ -34,6 +37,7 @@ import {
   type ProtocolContractAddresses,
   ProtocolContractAddressesSchema,
 } from '../contract/index.js';
+import { ManaUsageEstimate } from '../gas/fee_math.js';
 import { GasFees } from '../gas/gas_fees.js';
 import { SiloedTag, Tag, TxScopedL2Log } from '../logs/index.js';
 import { type LogFilter, LogFilterSchema } from '../logs/log_filter.js';
@@ -72,7 +76,12 @@ import { type WorldStateSyncStatus, WorldStateSyncStatusSchema } from './world_s
 export interface AztecNode
   extends Pick<
     L2BlockSource,
-    'getBlocks' | 'getCheckpoints' | 'getBlockHeader' | 'getL2Tips' | 'getCheckpointedBlocks'
+    | 'getBlocks'
+    | 'getCheckpoints'
+    | 'getBlockHeader'
+    | 'getL2Tips'
+    | 'getCheckpointedBlocks'
+    | 'getCheckpointsDataForEpoch'
   > {
   /**
    * Returns the tips of the L2 chain.
@@ -114,6 +123,7 @@ export interface AztecNode
    * @param referenceBlock - The block parameter (block number, block hash, or 'latest') at which to get the data.
    * @param nullifier - Nullifier we try to find the low nullifier witness for.
    * @returns The low nullifier membership witness (if found).
+   * @throws If the nullifier already exists in the tree, since non-inclusion cannot be proven.
    * @remarks Low nullifier witness can be used to perform a nullifier non-inclusion proof by leveraging the "linked
    * list structure" of leaves and proving that a lower nullifier is pointing to a bigger next value than the nullifier
    * we are trying to prove non-inclusion for.
@@ -172,14 +182,14 @@ export interface AztecNode
     l1ToL2Message: Fr,
   ): Promise<[bigint, SiblingPath<typeof L1_TO_L2_MSG_TREE_HEIGHT>] | undefined>;
 
-  /** Returns the L2 block number in which this L1 to L2 message becomes available, or undefined if not found. */
-  getL1ToL2MessageBlock(l1ToL2Message: Fr): Promise<BlockNumber | undefined>;
+  /** Returns the L2 checkpoint number in which this L1 to L2 message becomes available, or undefined if not found. */
+  getL1ToL2MessageCheckpoint(l1ToL2Message: Fr): Promise<CheckpointNumber | undefined>;
 
   /**
    * Returns whether an L1 to L2 message is synced by archiver.
    * @param l1ToL2Message - The L1 to L2 message to check.
    * @returns Whether the message is synced.
-   * @deprecated Use `getL1ToL2MessageBlock` instead. This method may return true even if the message is not ready to use.
+   * @deprecated Use `getL1ToL2MessageCheckpoint` instead. This method may return true even if the message is not ready to use.
    */
   isL1ToL2MessageSynced(l1ToL2Message: Fr): Promise<boolean>;
 
@@ -231,6 +241,12 @@ export interface AztecNode
   getCheckpointedBlockNumber(): Promise<BlockNumber>;
 
   /**
+   * Method to fetch the latest checkpoint number synchronized by the node.
+   * @returns The checkpoint number.
+   */
+  getCheckpointNumber(): Promise<CheckpointNumber>;
+
+  /**
    * Method to determine if the node is ready to accept transactions.
    * @returns - Flag indicating the readiness for tx submission.
    */
@@ -256,6 +272,15 @@ export interface AztecNode
    * @returns The current min fees.
    */
   getCurrentMinFees(): Promise<GasFees>;
+
+  /**
+   * Returns predicted min fees for the current slot and next N slots.
+   * Each entry accounts for the L1 gas oracle transition and congestion growth based on the
+   * given mana usage estimate. Defaults to target usage (steady state).
+   * @param manaUsage - Expected mana usage per checkpoint (none, target, or limit).
+   * @returns An array of GasFees, one per slot in the prediction window.
+   */
+  getPredictedMinFees(manaUsage?: ManaUsageEstimate): Promise<GasFees[]>;
 
   /**
    * Method to fetch the current max priority fee of txs in the mempool.
@@ -517,7 +542,7 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
     .args(BlockParameterSchema, schemas.Fr)
     .returns(z.tuple([schemas.BigInt, SiblingPath.schemaFor(L1_TO_L2_MSG_TREE_HEIGHT)]).optional()),
 
-  getL1ToL2MessageBlock: z.function().args(schemas.Fr).returns(BlockNumberSchema.optional()),
+  getL1ToL2MessageCheckpoint: z.function().args(schemas.Fr).returns(CheckpointNumberSchema.optional()),
 
   isL1ToL2MessageSynced: z.function().args(schemas.Fr).returns(z.boolean()),
 
@@ -533,6 +558,8 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
   getBlockByArchive: z.function().args(schemas.Fr).returns(L2Block.schema.optional()),
 
   getBlockNumber: z.function().returns(BlockNumberSchema),
+
+  getCheckpointNumber: z.function().returns(CheckpointNumberSchema),
 
   getProvenBlockNumber: z.function().returns(BlockNumberSchema),
 
@@ -557,7 +584,14 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
     .args(BlockNumberPositiveSchema, z.number().gt(0).lte(MAX_RPC_BLOCKS_LEN))
     .returns(z.array(CheckpointedL2Block.schema)),
 
+  getCheckpointsDataForEpoch: z.function().args(EpochNumberSchema).returns(z.array(CheckpointDataSchema)),
+
   getCurrentMinFees: z.function().returns(GasFees.schema),
+
+  getPredictedMinFees: z
+    .function()
+    .args(optional(z.nativeEnum(ManaUsageEstimate)))
+    .returns(z.array(GasFees.schema)),
 
   getMaxPriorityFees: z.function().returns(GasFees.schema),
 

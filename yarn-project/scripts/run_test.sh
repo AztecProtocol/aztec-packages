@@ -2,7 +2,6 @@
 # This runs an individual test from the dest folder.
 # It's the script used by ./bootstrap.sh test_cmds.
 # It means we can return a concise, easy to read, easy to run command for reproducing a test run.
-# TODO: --forceExit *should not be needed*. Find out what's not being cleaned up.
 source $(git rev-parse --show-toplevel)/ci3/source
 
 test=$1
@@ -14,7 +13,8 @@ cd ../$dir
 
 export RAYON_NUM_THREADS=1
 export TOKIO_WORKER_THREADS=1
+export UV_THREADPOOL_SIZE=${UV_THREADPOOL_SIZE:-8}
 export HARDWARE_CONCURRENCY=${CPUS:-16}
 export LOG_LEVEL=${LOG_LEVEL:-info}
 exec node --no-warnings --experimental-vm-modules --loader @swc-node/register \
-  ../node_modules/.bin/jest --forceExit --runInBand $test "$@"
+  ../node_modules/.bin/jest --runInBand $test "$@"

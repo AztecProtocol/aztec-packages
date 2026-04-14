@@ -1,7 +1,9 @@
 #include "ecdsa.hpp"
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/common/utils.hpp"
+#include "barretenberg/crypto/ecdsa/ecdsa_tests_data.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
+#include "barretenberg/ecc/curves/secp256k1/secp256k1.hpp"
 #include "barretenberg/ecc/curves/secp256r1/secp256r1.hpp"
 #include "barretenberg/serialize/test_helper.hpp"
 #include <gtest/gtest.h>
@@ -9,134 +11,317 @@
 using namespace bb;
 using namespace bb::crypto;
 
+// Templated test fixture for ECDSA operations on different curves
+template <typename EcdsaTestParams> class EcdsaNativeTests : public ::testing::Test {
+  public:
+    using Curve = typename EcdsaTestParams::CurveType;
+    using Hasher = typename EcdsaTestParams::Hasher;
+    using Fr = typename Curve::ScalarField;
+    using Fq = typename Curve::BaseField;
+    using G1 = typename Curve::Group;
+    using AffineElement = typename Curve::AffineElement;
+
+    // Generate a random keypair for the curve
+    static ecdsa_key_pair<Fr, G1> generate_keypair()
+    {
+        ecdsa_key_pair<Fr, G1> account;
+        account.private_key = Fr::random_element();
+        account.public_key = G1::one * account.private_key;
+        return account;
+    }
+
+    // Create a valid signature for the given message and account
+    static ecdsa_signature create_valid_signature(const std::string& message, const ecdsa_key_pair<Fr, G1>& account)
+    {
+        return ecdsa_construct_signature<Hasher, Fq, Fr, G1>(message, account);
+    }
+
+    // Verify a signature
+    static bool verify_signature(const std::string& message,
+                                 const AffineElement& public_key,
+                                 const ecdsa_signature& sig)
+    {
+        return ecdsa_verify_signature<Hasher, Fq, Fr, G1>(message, public_key, sig);
+    }
+
+    // Recover public key from signature (only works for curves with recovery support)
+    static AffineElement recover_public_key(const std::string& message, const ecdsa_signature& sig)
+    {
+        return ecdsa_recover_public_key<Hasher, Fq, Fr, G1>(message, sig);
+    }
+
+    // Fetch Wycherproof test cases for the curve
+    template <typename T>
+    static auto get_wycheproof_test_cases()
+        requires(T::has_wycheproof_tests)
+    {
+        if constexpr (std::is_same_v<typename T::Type, bb::curve::SECP256K1>) {
+            return secp256k1_tests;
+        } else if constexpr (std::is_same_v<typename T::Type, bb::curve::SECP256R1>) {
+            return secp256r1_tests;
+        }
+    }
+};
+
+// Define curve wrapper structs to match the pattern
+struct secp256k1_curve {
+    using Type = bb::curve::SECP256K1;
+    using ScalarField = secp256k1::fr;
+    using BaseField = secp256k1::fq;
+    using Group = secp256k1::g1;
+    using AffineElement = secp256k1::g1::affine_element;
+    static constexpr bool supports_recovery = true;
+    static constexpr bool has_wycheproof_tests = true;
+};
+
+struct secp256r1_curve {
+    using Type = bb::curve::SECP256R1;
+    using ScalarField = secp256r1::fr;
+    using BaseField = secp256r1::fq;
+    using Group = secp256r1::g1;
+    using AffineElement = secp256r1::g1::affine_element;
+    static constexpr bool supports_recovery = true;
+    static constexpr bool has_wycheproof_tests = true;
+};
+
+struct grumpkin_curve {
+    using ScalarField = grumpkin::fr;
+    using BaseField = grumpkin::fq;
+    using Group = grumpkin::g1;
+    using AffineElement = grumpkin::g1::affine_element;
+    static constexpr bool supports_recovery = false;
+    static constexpr bool has_wycheproof_tests = false;
+};
+
+template <typename Curve, typename Hasher_> struct EcdsaTestParams {
+  public:
+    using CurveType = Curve;
+    using Hasher = Hasher_;
+};
+
+// Define the list of curve types to test
+using Params = ::testing::Types<EcdsaTestParams<secp256k1_curve, Sha256Hasher>,
+                                EcdsaTestParams<secp256r1_curve, Sha256Hasher>,
+                                EcdsaTestParams<grumpkin_curve, Sha256Hasher>,
+                                EcdsaTestParams<secp256k1_curve, Blake2sHasher>,
+                                EcdsaTestParams<secp256r1_curve, Blake2sHasher>,
+                                EcdsaTestParams<grumpkin_curve, Blake2sHasher>,
+                                EcdsaTestParams<secp256k1_curve, KeccakHasher>,
+                                EcdsaTestParams<secp256r1_curve, KeccakHasher>,
+                                EcdsaTestParams<grumpkin_curve, KeccakHasher>>;
+
+// Register the test suite
+TYPED_TEST_SUITE(EcdsaNativeTests, Params);
+
+// ================================================================================
+// POSITIVE TESTS: Valid signatures should pass verification
+// ================================================================================
+
+TYPED_TEST(EcdsaNativeTests, VerifyValidSignature)
+{
+    std::string message = "The quick brown dog jumped over the lazy fox.";
+
+    auto account = TestFixture::generate_keypair();
+    ecdsa_signature signature = TestFixture::create_valid_signature(message, account);
+    bool result = TestFixture::verify_signature(message, account.public_key, signature);
+
+    EXPECT_TRUE(result);
+}
+
+TYPED_TEST(EcdsaNativeTests, RecoverPublicKey)
+{
+    using Curve = TypeParam::CurveType;
+
+    std::string message = "The quick brown dog jumped over the lazy fox.";
+
+    if constexpr (Curve::supports_recovery) {
+        auto account = TestFixture::generate_keypair();
+        ecdsa_signature signature = TestFixture::create_valid_signature(message, account);
+
+        // Verify the signature is valid
+        bool result = TestFixture::verify_signature(message, account.public_key, signature);
+        EXPECT_TRUE(result);
+
+        // Recover the public key and check it matches
+        auto recovered_public_key = TestFixture::recover_public_key(message, signature);
+        EXPECT_EQ(recovered_public_key, account.public_key);
+    } else {
+        GTEST_SKIP() << "Public key recovery not supported for this curve";
+    }
+}
+
+// ================================================================================
+// NEGATIVE TESTS: Invalid signatures should be rejected
+// ================================================================================
+
+TYPED_TEST(EcdsaNativeTests, RejectZeroR)
+{
+    using serialize::write;
+
+    std::string message = "Test message";
+    auto account = TestFixture::generate_keypair();
+    ecdsa_signature signature = TestFixture::create_valid_signature(message, account);
+
+    // Set r = 0
+    uint256_t zero_r = 0;
+    auto* r_ptr = &signature.r[0];
+    write(r_ptr, zero_r);
+
+    bool result = TestFixture::verify_signature(message, account.public_key, signature);
+    EXPECT_FALSE(result);
+}
+
+TYPED_TEST(EcdsaNativeTests, RejectROverflowModulus)
+{
+    using serialize::read;
+    using serialize::write;
+    using Fr = typename TestFixture::Fr;
+
+    std::string message = "Test message";
+    auto account = TestFixture::generate_keypair();
+    ecdsa_signature signature = TestFixture::create_valid_signature(message, account);
+
+    // Set r = 1 + Fr::modulus (overflow)
+    uint256_t overflowing_r = uint256_t(1) + uint256_t(Fr::modulus);
+    auto* r_write_ptr = &signature.r[0];
+    write(r_write_ptr, overflowing_r);
+
+    bool result = TestFixture::verify_signature(message, account.public_key, signature);
+    EXPECT_FALSE(result);
+}
+
+TYPED_TEST(EcdsaNativeTests, RejectZeroS)
+{
+    using serialize::write;
+
+    std::string message = "Test message";
+    auto account = TestFixture::generate_keypair();
+    ecdsa_signature signature = TestFixture::create_valid_signature(message, account);
+
+    // Set s = 0
+    uint256_t zero_s = 0;
+    auto* s_ptr = &signature.s[0];
+    write(s_ptr, zero_s);
+
+    bool result = TestFixture::verify_signature(message, account.public_key, signature);
+    EXPECT_FALSE(result);
+}
+
+TYPED_TEST(EcdsaNativeTests, RejectHighS)
+{
+    using serialize::read;
+    using serialize::write;
+    using Fr = typename TestFixture::Fr;
+
+    std::string message = "Test message";
+    auto account = TestFixture::generate_keypair();
+    ecdsa_signature signature = TestFixture::create_valid_signature(message, account);
+
+    // Set s to high s (should be rejected)
+    Fr s = Fr::serialize_from_buffer(&signature.s[0]);
+    Fr::serialize_to_buffer(-s, &signature.s[0]);
+
+    bool result = TestFixture::verify_signature(message, account.public_key, signature);
+    EXPECT_FALSE(result);
+}
+
+TYPED_TEST(EcdsaNativeTests, RejectInvalidPublicKey)
+{
+    using Fq = typename TestFixture::Fq;
+    using AffineElement = typename TestFixture::AffineElement;
+
+    std::string message = "Test message";
+    auto account = TestFixture::generate_keypair();
+    ecdsa_signature signature = TestFixture::create_valid_signature(message, account);
+
+    // Create a point not on the curve by taking a valid point and modifying y
+    AffineElement invalid_pubkey = account.public_key;
+    invalid_pubkey.y = invalid_pubkey.y + Fq::one();
+
+    bool result = TestFixture::verify_signature(message, invalid_pubkey, signature);
+    EXPECT_FALSE(result);
+}
+
+TYPED_TEST(EcdsaNativeTests, RejectInfinityPublicKey)
+{
+    using AffineElement = typename TestFixture::AffineElement;
+
+    std::string message = "Test message";
+    auto account = TestFixture::generate_keypair();
+    ecdsa_signature signature = TestFixture::create_valid_signature(message, account);
+
+    // Use point at infinity as public key
+    AffineElement infinity_pubkey = AffineElement::infinity();
+
+    bool result = TestFixture::verify_signature(message, infinity_pubkey, signature);
+    EXPECT_FALSE(result);
+}
+
+TYPED_TEST(EcdsaNativeTests, RejectInfinityResult)
+{
+    using Fr = typename TestFixture::Fr;
+    using G1 = typename TestFixture::G1;
+
+    std::string message = "Test message";
+    auto account = TestFixture::generate_keypair();
+    ecdsa_signature signature = TestFixture::create_valid_signature(message, account);
+
+    // Compute H(m)
+    std::vector<uint8_t> buffer;
+    std::ranges::copy(message, std::back_inserter(buffer));
+    auto hash = Sha256Hasher::hash(buffer);
+
+    // Override the public key: new public key is (-hash) * r^{-1} * G
+    Fr fr_hash = Fr::serialize_from_buffer(hash.data());
+    Fr r = Fr::serialize_from_buffer(&signature.r[0]);
+    Fr r_inverse = r.invert();
+    Fr modified_private_key = r_inverse * (-fr_hash);
+    account.public_key = G1::one * modified_private_key;
+
+    // Verify that the result is the point at infinity
+    auto P = G1::one * fr_hash + account.public_key * r;
+    BB_ASSERT_EQ(P.is_point_at_infinity(), true);
+
+    bool result = TestFixture::verify_signature(message, account.public_key, signature);
+    EXPECT_FALSE(result);
+}
+
+TYPED_TEST(EcdsaNativeTests, Wycherproof)
+{
+    using Curve = TypeParam::CurveType;
+    using AffineElement = TestFixture::AffineElement;
+    using Fr = TestFixture::Fr;
+
+    if constexpr (Curve::has_wycheproof_tests) {
+        for (const auto& test_case : TestFixture::template get_wycheproof_test_cases<Curve>()) {
+            std::string message_string(test_case.message.begin(), test_case.message.end());
+            std::array<uint8_t, 32> r;
+            std::array<uint8_t, 32> s;
+            Fr::serialize_to_buffer(test_case.r, &r[0]);
+            Fr::serialize_to_buffer(test_case.s, &s[0]);
+            ecdsa_signature sig = { r, s, ECDSA_RECOVERY_ID_OFFSET };
+
+            bool is_signature_valid = ecdsa_verify_signature<Sha256Hasher,
+                                                             typename Curve::BaseField,
+                                                             typename Curve::ScalarField,
+                                                             typename Curve::Group>(
+                message_string, AffineElement(test_case.x, test_case.y), sig);
+
+            EXPECT_EQ(is_signature_valid, test_case.is_valid_signature) << "Test case: " << test_case.comment;
+        }
+    } else {
+        GTEST_SKIP() << "Wycheproof tests not available for this curve";
+    }
+}
+
+// ================================================================================
+// STANDALONE TESTS: Non-templated tests for specific scenarios
+// ================================================================================
+
 TEST(ecdsa, msgpack)
 {
     auto [actual, expected] = msgpack_roundtrip(ecdsa_signature{});
     EXPECT_EQ(actual, expected);
-}
-
-TEST(ecdsa, verify_signature_grumpkin_sha256)
-{
-    std::string message = "The quick brown dog jumped over the lazy fox.";
-
-    ecdsa_key_pair<grumpkin::fr, grumpkin::g1> account;
-    account.private_key = grumpkin::fr::random_element();
-    account.public_key = grumpkin::g1::one * account.private_key;
-
-    ecdsa_signature signature =
-        ecdsa_construct_signature<Sha256Hasher, grumpkin::fq, grumpkin::fr, grumpkin::g1>(message, account);
-
-    bool result = ecdsa_verify_signature<Sha256Hasher, grumpkin::fq, grumpkin::fr, grumpkin::g1>(
-        message, account.public_key, signature);
-
-    EXPECT_EQ(result, true);
-}
-
-TEST(ecdsa, verify_signature_secp256r1_sha256)
-{
-    std::string message = "The quick brown dog jumped over the lazy fox.";
-
-    ecdsa_key_pair<secp256r1::fr, secp256r1::g1> account;
-    account.private_key = secp256r1::fr::random_element();
-    account.public_key = secp256r1::g1::one * account.private_key;
-
-    ecdsa_signature signature =
-        ecdsa_construct_signature<Sha256Hasher, secp256r1::fq, secp256r1::fr, secp256r1::g1>(message, account);
-
-    bool result = ecdsa_verify_signature<Sha256Hasher, secp256r1::fq, secp256r1::fr, secp256r1::g1>(
-        message, account.public_key, signature);
-
-    EXPECT_EQ(result, true);
-}
-
-TEST(ecdsa, recover_public_key_secp256k1_sha256)
-{
-    std::string message = "The quick brown dog jumped over the lazy fox.";
-
-    ecdsa_key_pair<secp256k1::fr, secp256k1::g1> account;
-    account.private_key = secp256k1::fr::random_element();
-    account.public_key = secp256k1::g1::one * account.private_key;
-
-    ecdsa_signature signature =
-        ecdsa_construct_signature<Sha256Hasher, secp256k1::fq, secp256k1::fr, secp256k1::g1>(message, account);
-
-    bool result = ecdsa_verify_signature<Sha256Hasher, secp256k1::fq, secp256k1::fr, secp256k1::g1>(
-        message, account.public_key, signature);
-
-    auto recovered_public_key =
-        ecdsa_recover_public_key<Sha256Hasher, secp256k1::fq, secp256k1::fr, secp256k1::g1>(message, signature);
-
-    EXPECT_EQ(result, true);
-    EXPECT_EQ(recovered_public_key, account.public_key);
-}
-
-TEST(ecdsa, recover_public_key_secp256r1_sha256)
-{
-    std::string message = "The quick brown dog jumped over the lazy fox.";
-
-    ecdsa_key_pair<secp256r1::fr, secp256r1::g1> account;
-    account.private_key = secp256r1::fr::random_element();
-    account.public_key = secp256r1::g1::one * account.private_key;
-
-    ecdsa_signature signature =
-        ecdsa_construct_signature<Sha256Hasher, secp256r1::fq, secp256r1::fr, secp256r1::g1>(message, account);
-
-    bool result = ecdsa_verify_signature<Sha256Hasher, secp256r1::fq, secp256r1::fr, secp256r1::g1>(
-        message, account.public_key, signature);
-
-    auto recovered_public_key =
-        ecdsa_recover_public_key<Sha256Hasher, secp256r1::fq, secp256r1::fr, secp256r1::g1>(message, signature);
-
-    EXPECT_EQ(result, true);
-    EXPECT_EQ(recovered_public_key, account.public_key);
-}
-
-TEST(ecdsa, check_overflowing_r_and_s_are_rejected)
-{
-
-    std::vector<uint8_t> message_vec = utils::hex_to_bytes("41414141");
-
-    std::string message(message_vec.begin(), message_vec.end());
-    ecdsa_signature signature;
-    grumpkin::fr private_key;
-    grumpkin::g1::affine_element public_key;
-    ecdsa_key_pair<grumpkin::fr, grumpkin::g1> key_pair;
-    // We create a private and public key and a signature
-    private_key = grumpkin::fr::random_element();
-    public_key = grumpkin::g1::affine_element((grumpkin::g1::one * private_key).normalize());
-    key_pair = { private_key, public_key };
-    signature = ecdsa_construct_signature<Sha256Hasher, grumpkin::fq, grumpkin::fr, grumpkin::g1>(message, key_pair);
-    // Check that the signature is correct
-    bool result =
-        ecdsa_verify_signature<Sha256Hasher, grumpkin::fq, grumpkin::fr, grumpkin::g1>(message, public_key, signature);
-    EXPECT_TRUE(result);
-    using serialize::read;
-
-    const auto* p_r = &signature.r[0];
-    uint256_t old_r, new_r, old_s, new_s;
-    read(p_r, old_r);
-    new_r = old_r;
-    // We update r so it is larger than the modulus, but has the same value modulo fr::modulus
-    new_r = new_r + grumpkin::fr::modulus;
-    using serialize::write;
-    auto* p_r_m = &signature.r[0];
-    write(p_r_m, new_r);
-    result =
-        ecdsa_verify_signature<Sha256Hasher, grumpkin::fq, grumpkin::fr, grumpkin::g1>(message, public_key, signature);
-    // Signature verification should decline this signature, since it breaks specification
-    EXPECT_FALSE(result);
-    // Do the same for s, restore r
-    const auto* p_s = &signature.s[0];
-    read(p_s, old_s);
-    new_s = old_s;
-    new_s = new_s + grumpkin::fr::modulus;
-    using serialize::write;
-    auto* p_r_s = &signature.s[0];
-    write(p_r_m, old_r);
-    write(p_r_s, new_s);
-    result =
-        ecdsa_verify_signature<Sha256Hasher, grumpkin::fq, grumpkin::fr, grumpkin::g1>(message, public_key, signature);
-    EXPECT_FALSE(result);
 }
 
 TEST(ecdsa, verify_signature_secp256r1_sha256_NIST_1)

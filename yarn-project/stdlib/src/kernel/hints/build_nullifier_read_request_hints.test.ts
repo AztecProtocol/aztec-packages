@@ -97,7 +97,6 @@ describe('buildNullifierReadRequestHints', () => {
       oracle,
       new ClaimedLengthArray(nullifierReadRequests, numReadRequests),
       new ClaimedLengthArray(nullifiers, MAX_NULLIFIERS_PER_TX),
-      futureNullifiers,
     );
 
   beforeEach(() => {

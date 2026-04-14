@@ -115,7 +115,7 @@ function test_cmds {
   echo "$hash cd l1-contracts && forge fmt --check"
   echo "$hash cd l1-contracts && forge test"
   echo "$hash cd l1-contracts && forge test --no-match-contract UniswapPortalTest --match-contract MerkleCheck --ffi"
-  echo "$hash cd l1-contracts && scripts/test_rollup_upgrade.sh"
+  echo "$hash:ISOLATE=1 cd l1-contracts && scripts/test_rollup_upgrade.sh"
   if [[ "${TARGET_BRANCH:-}" == "master" || "${TARGET_BRANCH:-}" == "staging" ]]; then
     echo "$hash cd l1-contracts && forge test --no-match-contract UniswapPortalTest --match-contract ScreamAndShoutTest"
   fi
@@ -336,34 +336,39 @@ function coverage {
   forge --version
 
   # Default values
-  MATCH_PATH=""
+  TEST_MATCH_PATH=""
   LCOV=false
   SERVE=false
   HELP=false
   GOVERNANCE=false
+  CORE=false
 
   # Help text
   show_help() {
     echo "Usage: ./bootstrap.sh coverage [options]"
     echo "Options:"
-    echo "  -p <path>    Run coverage only for files matching this path pattern"
-    echo "  -l           Generate LCOV report"
-    echo "  -s           Serve coverage report (requires -l)"
+    echo "  -p <path>    Run only tests in files matching this path pattern"
+    echo "  -c           Run core coverage using only non-governance tests"
+    echo "  -l           Generate a fresh LCOV report"
+    echo "  -s           Serve the existing coverage report"
     echo "  -g           Run coverage for governance contracts using only gov tests"
     echo "  -h           Show this help message"
     echo ""
     echo "Examples:"
     echo "  ./bootstrap.sh coverage                  # Run coverage for all files"
-    echo "  ./bootstrap.sh coverage -p src/core      # Run coverage only for src/core"
-    echo "  ./bootstrap.sh coverage -l -s            # Generate and serve LCOV report"
+    echo "  ./bootstrap.sh coverage -p test/staking_asset_handler/**/*.t.sol  # Run only matching tests"
+    echo "  ./bootstrap.sh coverage -c               # Run core coverage using only non-governance tests"
+    echo "  ./bootstrap.sh coverage -s               # Serve the existing coverage report"
+    echo "  ./bootstrap.sh coverage -l -s            # Generate and serve a fresh LCOV report"
     echo "  ./bootstrap.sh coverage -g               # Run coverage for governance contracts using only gov tests"
     echo "  ./bootstrap.sh coverage -g -l -s         # Run coverage for governance contracts using only gov tests with LCOV report and serve"
   }
 
   # Parse options
-  while getopts "p:lshg" opt; do
+  while getopts "p:lcshg" opt; do
     case $opt in
-      p) MATCH_PATH="$OPTARG" ;;
+      p) TEST_MATCH_PATH="$OPTARG" ;;
+      c) CORE=true ;;
       l) LCOV=true ;;
       s) SERVE=true ;;
       h) HELP=true ;;
@@ -378,54 +383,100 @@ function coverage {
     exit 0
   fi
 
-  # Validate serve option
   if [ "$SERVE" = true ] && [ "$LCOV" = false ]; then
-    echo "Error: -s option requires -l option to be enabled"
-    exit 1
-  fi
-
-  # Build the command
-  if [ "$GOVERNANCE" = true ]; then
-    CMD="FORGE_COVERAGE=true forge coverage --match-path \"test/governance/**/*.t.sol\" --no-match-coverage \"(test|script|mock|generated|core|periphery)\""
-  else
-    # Default coverage command
-    CMD="FORGE_COVERAGE=true forge coverage --no-match-coverage \"(test|script|mock|generated)\""
-  fi
-
-  if [ -n "$MATCH_PATH" ] && [ "$GOVERNANCE" = true ]; then
-    echo "Warning: -p option is not supported in governance mode"
-    exit 1
-  fi
-
-  # Add path filter if specified (only if not in governance mode)
-  if [ -n "$MATCH_PATH" ] && [ "$GOVERNANCE" = false ]; then
-    if [ ! -e "$MATCH_PATH" ]; then
-      echo "Warning: Path '$MATCH_PATH' does not exist"
+    if [ -n "$TEST_MATCH_PATH" ] || [ "$GOVERNANCE" = true ] || [ "$CORE" = true ]; then
+      echo "Warning: -s serves the existing report only; it cannot be combined with -p, -c, or -g without -l"
       exit 1
     fi
-    CMD="$CMD --match-path \"$MATCH_PATH\""
+
+    coverage_serve
+    exit 0
+  fi
+
+  download_solc
+
+  local -a ENV_VARS=("FOUNDRY_PROFILE=coverage" "FORGE_COVERAGE=true")
+  local -a CMD=("forge" "coverage" "--offline")
+
+  if [ "$GOVERNANCE" = true ] && [ "$CORE" = true ]; then
+    echo "Warning: -c and -g cannot be used together"
+    exit 1
+  fi
+
+  if [ "$GOVERNANCE" = true ]; then
+    CMD+=(
+      "--match-path" "test/governance/**/*.t.sol"
+      "--no-match-coverage" "(test|script|mock|generated|core|periphery)"
+    )
+  elif [ "$CORE" = true ]; then
+    CMD+=(
+      "--no-match-path" "test/governance/**/*.t.sol"
+      "--no-match-coverage" "(test|script|mock|generated|governance)"
+    )
+  else
+    CMD+=("--no-match-coverage" "(test|script|mock|generated)")
+  fi
+
+  if [ -n "$TEST_MATCH_PATH" ] && { [ "$GOVERNANCE" = true ] || [ "$CORE" = true ]; }; then
+    echo "Warning: -p option is not supported in governance or core mode"
+    exit 1
+  fi
+
+  # Add a test-file filter if specified (only if not in governance mode).
+  # This narrows which tests execute via `--match-path`; it does not scope
+  # coverage output to those paths.
+  if [ -n "$TEST_MATCH_PATH" ] && [ "$GOVERNANCE" = false ]; then
+    local -a MATCHED_PATHS=()
+    shopt -s globstar nullglob
+    MATCHED_PATHS=($TEST_MATCH_PATH)
+    shopt -u globstar nullglob
+
+    if [ ${#MATCHED_PATHS[@]} -eq 0 ]; then
+      echo "Warning: Path pattern '$TEST_MATCH_PATH' did not match any files"
+      exit 1
+    fi
+    CMD+=("--match-path" "$TEST_MATCH_PATH")
   fi
 
   # Add LCOV report if requested
   if [ "$LCOV" = true ]; then
-    CMD="$CMD --report lcov"
+    CMD+=("--report" "lcov")
   fi
 
-  echo "Running coverage with command: $CMD"
-  eval "$CMD"
+  local DISPLAY_CMD
+  printf -v DISPLAY_CMD '%q ' env "${ENV_VARS[@]}" "${CMD[@]}"
+  echo "Running coverage with command: ${DISPLAY_CMD% }"
+  env "${ENV_VARS[@]}" "${CMD[@]}"
 
   # Serve report if requested
   if [ "$SERVE" = true ]; then
-    if ! command -v genhtml &> /dev/null; then
-      echo "Error: genhtml not found. Please install lcov package."
-      exit 1
-    fi
-
-    mkdir -p coverage
-    genhtml lcov.info --branch-coverage --output-dir coverage
-    echo "Serving coverage report at http://localhost:8000"
-    python3 -m http.server --directory "coverage" 8000
+    coverage_serve
   fi
+}
+
+function coverage_serve {
+  echo_header "l1-contracts coverage serve"
+
+  if ! command -v genhtml &> /dev/null; then
+    echo "Error: genhtml not found. Please install lcov package."
+    exit 1
+  fi
+
+  if [ ! -f "lcov.info" ]; then
+    echo "Error: lcov.info not found. Run './bootstrap.sh coverage -l' first."
+    exit 1
+  fi
+
+  mkdir -p coverage
+  # Foundry can emit LCOV branch records that genhtml treats as inconsistent
+  # even when the report is otherwise usable.
+  if ! genhtml lcov.info --branch-coverage --ignore-errors inconsistent,inconsistent --output-dir coverage; then
+    echo "Error: failed to generate coverage HTML from lcov.info."
+    echo "If the source tree has changed since lcov.info was created, rerun './bootstrap.sh coverage -l'."
+    exit 1
+  fi
+  echo "Serving coverage report at http://localhost:8000"
+  python3 -m http.server --directory "coverage" 8000
 }
 
 function release {

@@ -7,13 +7,14 @@ import type { L2BlockSink, L2BlockSource } from '@aztec/stdlib/block';
 import type { ValidatorClientFullConfig, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import type { TelemetryClient } from '@aztec/telemetry-client';
+import type { SlashingProtectionDatabase } from '@aztec/validator-ha-signer/types';
 
-import { BlockProposalHandler } from './block_proposal_handler.js';
 import type { FullNodeCheckpointsBuilder } from './checkpoint_builder.js';
 import { ValidatorMetrics } from './metrics.js';
+import { ProposalHandler } from './proposal_handler.js';
 import { ValidatorClient } from './validator.js';
 
-export function createBlockProposalHandler(
+export function createProposalHandler(
   config: ValidatorClientFullConfig,
   deps: {
     checkpointsBuilder: FullNodeCheckpointsBuilder;
@@ -22,6 +23,7 @@ export function createBlockProposalHandler(
     l1ToL2MessageSource: L1ToL2MessageSource;
     p2pClient: P2PClient;
     epochCache: EpochCache;
+    blobClient: BlobClientInterface;
     dateProvider: DateProvider;
     telemetry: TelemetryClient;
   },
@@ -29,8 +31,9 @@ export function createBlockProposalHandler(
   const metrics = new ValidatorMetrics(deps.telemetry);
   const blockProposalValidator = new BlockProposalValidator(deps.epochCache, {
     txsPermitted: !config.disableTransactions,
+    maxTxsPerBlock: config.validateMaxTxsPerBlock ?? config.validateMaxTxsPerCheckpoint,
   });
-  return new BlockProposalHandler(
+  return new ProposalHandler(
     deps.checkpointsBuilder,
     deps.worldState,
     deps.blockSource,
@@ -39,9 +42,11 @@ export function createBlockProposalHandler(
     blockProposalValidator,
     deps.epochCache,
     config,
+    deps.blobClient,
     metrics,
     deps.dateProvider,
     deps.telemetry,
+    undefined,
   );
 }
 
@@ -58,6 +63,7 @@ export function createValidatorClient(
     epochCache: EpochCache;
     keyStoreManager: KeystoreManager | undefined;
     blobClient: BlobClientInterface;
+    slashingProtectionDb?: SlashingProtectionDatabase;
   },
 ) {
   if (config.disableValidator || !deps.keyStoreManager) {
@@ -78,5 +84,6 @@ export function createValidatorClient(
     deps.blobClient,
     deps.dateProvider,
     deps.telemetry,
+    deps.slashingProtectionDb,
   );
 }

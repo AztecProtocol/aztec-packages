@@ -2,8 +2,6 @@
 
 #include <cstdint>
 
-// TODO(dbanks12): what is Cpp best practice? Import this here or somewhere common/shared?
-// It is needed for uint128_t
 #include "barretenberg/numeric/uint128/uint128.hpp"
 
 namespace bb::avm2::simulation {

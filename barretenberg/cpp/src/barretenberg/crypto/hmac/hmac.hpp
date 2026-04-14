@@ -1,5 +1,5 @@
 // === AUDIT STATUS ===
-// internal:    { status: Planned, auditors: [Federico], commit: }
+// internal:    { status: Completed, auditors: [Federico], commit: }
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
@@ -15,15 +15,35 @@
 #include <vector>
 
 namespace bb::crypto {
+inline void secure_erase_bytes(void* ptr, size_t size)
+{
+    volatile uint8_t* p = static_cast<volatile uint8_t*>(ptr);
+    while (size-- > 0) {
+        *p++ = 0;
+    }
+}
+
+template <typename T, size_t N> inline void secure_erase(std::array<T, N>& buffer)
+{
+    secure_erase_bytes(buffer.data(), buffer.size() * sizeof(T));
+}
+
+template <typename T> inline void secure_erase(std::vector<T>& buffer)
+{
+    if (!buffer.empty()) {
+        secure_erase_bytes(buffer.data(), buffer.size() * sizeof(T));
+    }
+}
+
 /**
- * @brief Compute an HMAC given a secret key and a message
+ * @brief Compute an HMAC given a secret key and a message, see https://datatracker.ietf.org/doc/html/rfc2104
  *
  * @tparam Hash hasher being used
  * @tparam MessageContainer a byte container (std::vector<uint8_t>, std::array<uint8_t, ...>, std::string)
  * @tparam KeyContainer a byte container
- * @param message the message!
- * @param key the key!
- * @return std::array<uint8_t, Hash::OUTPUT_SIZE> the HMAC output!
+ * @param message the message
+ * @param key the key
+ * @return std::array<uint8_t, Hash::OUTPUT_SIZE> the HMAC output
  */
 template <typename Hash, typename MessageContainer, typename KeyContainer>
 std::array<uint8_t, Hash::OUTPUT_SIZE> hmac(const MessageContainer& message, const KeyContainer& key)
@@ -40,96 +60,165 @@ std::array<uint8_t, Hash::OUTPUT_SIZE> hmac(const MessageContainer& message, con
 
     // initialize k_prime to 0x00,...,0x00
     // copy key or truncated key to start.
-    // TODO: securely erase `k_prime`
     std::array<uint8_t, B> k_prime{};
     if (key.size() > B) {
-        const auto truncated_key = Hash::hash(key);
+        std::vector<uint8_t> key_buffer(key.begin(), key.end());
+        auto truncated_key = Hash::hash(key_buffer);
         std::copy(truncated_key.begin(), truncated_key.end(), k_prime.begin());
+        secure_erase(key_buffer);
+        secure_erase(truncated_key);
     } else {
         std::copy(key.begin(), key.end(), k_prime.begin());
     }
 
-    // TODO: securely erase `h1`
     std::array<uint8_t, B> h1;
     for (size_t i = 0; i < B; ++i) {
         h1[i] = k_prime[i] ^ opad[i];
     }
 
-    // TODO: securely erase `h2`
     std::array<uint8_t, B> h2;
     for (size_t i = 0; i < B; ++i) {
         h2[i] = k_prime[i] ^ ipad[i];
     }
+    secure_erase(k_prime);
 
-    // TODO: securely erase copy of `h2` in `message_buffer`,
-    // ensure `message_buffer` is not re-allocated
     std::vector<uint8_t> message_buffer;
+    message_buffer.reserve(B + message.size());
     std::copy(h2.begin(), h2.end(), std::back_inserter(message_buffer));
     std::copy(message.begin(), message.end(), std::back_inserter(message_buffer));
 
-    const auto h3 = Hash::hash(message_buffer);
+    auto h3 = Hash::hash(message_buffer);
+    secure_erase(h2);
+    secure_erase(message_buffer);
 
-    // TODO: securely erase copy of `h1` in `hmac_buffer`,
-    // ensure `hmac_buffer` is not re-allocated
     std::vector<uint8_t> hmac_buffer;
+    hmac_buffer.reserve(B + Hash::OUTPUT_SIZE);
     std::copy(h1.begin(), h1.end(), std::back_inserter(hmac_buffer));
     std::copy(h3.begin(), h3.end(), std::back_inserter(hmac_buffer));
 
-    const auto hmac_key = Hash::hash(hmac_buffer);
+    auto hmac_key = Hash::hash(hmac_buffer);
+    secure_erase(h1);
+    secure_erase(h3);
+    secure_erase(hmac_buffer);
 
     std::array<uint8_t, Hash::OUTPUT_SIZE> result;
     std::copy(hmac_key.begin(), hmac_key.end(), result.begin());
+    secure_erase(hmac_key);
     return result;
 }
 
 /**
- * @brief Takes a size-HASH_OUTPUT buffer from HMAC and converts into a field element
- *
- * @details We assume HASH_OUTPUT = 32. Reducing HMAC(key, message) modulo r would result in an unacceptable bias.
- * We hash input with `0` and `1` to produce 64 bytes of input data. This is then converted into a uin512_t,
- * which is taken modulo Fr::modulus to produce our field element, where the statistical bias is negligble in
- * the security parameter.
+ * @brief Deterministic nonce derivation according to RFC6979 specification
+ * (https://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.186-5.pdf, A.3.3)
  *
  * @tparam Hash the hash function we're using
  * @tparam Fr field type
  * @tparam MessageContainer a byte container (std::vector<uint8_t>, std::array<uint8_t, ...>, std::string)
  * @tparam KeyContainer a byte container
- * @param message the input buffer
- * @param key key used to derive
- * @return Fr output field element as uint512_t( H(10...0 || HMAC(k,m)) || H(00...0 || HMAC(k,m)) ) % r
+ * @param message the input buffer used to derive the nonce
+ * @param key key used to derive the nonce
  */
 template <typename Hash, typename Fr, typename MessageContainer, typename KeyContainer>
-Fr get_unbiased_field_from_hmac(const MessageContainer& message, const KeyContainer& key)
+Fr deterministic_nonce_rfc6979(const MessageContainer& message, const KeyContainer& key)
     requires(Hash::OUTPUT_SIZE == 32)
 {
-    // Strong assumption that works for now with our suite of Hashers
-    static_assert(Hash::BLOCK_SIZE > Hash::OUTPUT_SIZE);
-    constexpr size_t DOMAIN_SEPARATOR_SIZE = Hash::BLOCK_SIZE - Hash::OUTPUT_SIZE;
+    using serialize::read;
+    using serialize::write;
 
-    // Domain separators whose size ensures we hash a block of the exact size expected by
-    // the Hasher.
-    constexpr std::array<uint8_t, DOMAIN_SEPARATOR_SIZE> KLO_DOMAIN_SEPARATOR{ 0x0 };
-    constexpr std::array<uint8_t, DOMAIN_SEPARATOR_SIZE> KHI_DOMAIN_SEPARATOR{ 0x1 };
+    static_assert(Hash::OUTPUT_SIZE == 32,
+                  "Hash output size must be 32 bytes for our implementation of RFC6979 nonce generation");
+    static constexpr size_t INITIAL_BUFFER_SIZE = 32; // Equal to 8 * (Hash::OUTPUT_SIZE + 7/ 8)
+    static constexpr size_t MODULUS_BIT_LENGTH = Fr::modulus.get_msb() + 1;
 
-    auto input = hmac<Hash, MessageContainer, KeyContainer>(message, key);
+    // Hash the message
+    std::vector<uint8_t> message_buffer(message.begin(), message.end());
+    auto hashed_message = Hash::hash(message_buffer);
+    secure_erase(message_buffer);
+    // Round trip reduces the hash modulo Fr::modulus
+    Fr hashed_message_fr = Fr::serialize_from_buffer(hashed_message.data());
+    secure_erase(hashed_message);
+    Fr::serialize_to_buffer(hashed_message_fr, hashed_message.data());
 
-    // klo = H(00...0 || input)
-    std::vector<uint8_t> lo_buffer(KLO_DOMAIN_SEPARATOR.begin(), KLO_DOMAIN_SEPARATOR.end());
-    std::copy(input.begin(), input.end(), std::back_inserter(lo_buffer));
-    auto klo = Hash::hash(lo_buffer);
+    // Concatenate the private key and the hashed message
+    std::vector<uint8_t> seed_material;
+    seed_material.reserve(key.size() + hashed_message.size());
+    std::ranges::copy(key, std::back_inserter(seed_material));
+    std::ranges::copy(hashed_message, std::back_inserter(seed_material));
+    secure_erase(hashed_message);
 
-    // khi = H(10...0 || input)
-    std::vector<uint8_t> hi_buffer(KHI_DOMAIN_SEPARATOR.begin(), KHI_DOMAIN_SEPARATOR.end());
-    std::copy(input.begin(), input.end(), std::back_inserter(hi_buffer));
-    auto khi = Hash::hash(hi_buffer);
+    // Initialize the buffers V and K
+    std::array<uint8_t, INITIAL_BUFFER_SIZE> v_buffer;
+    v_buffer.fill(0x01);
+    std::array<uint8_t, INITIAL_BUFFER_SIZE> key_buffer;
+    key_buffer.fill(0x00);
 
-    // full_buffer = khi || klo
-    std::vector<uint8_t> full_buffer(khi.begin(), khi.end());
-    std::copy(klo.begin(), klo.end(), std::back_inserter(full_buffer));
+    // Temporary buffer for first HMAC round: V || 0x00 || seed_material
+    std::vector<uint8_t> tmp_buffer;
+    tmp_buffer.reserve(INITIAL_BUFFER_SIZE + 1 + seed_material.size());
+    std::ranges::copy(v_buffer, std::back_inserter(tmp_buffer));
+    tmp_buffer.emplace_back(0x00);
+    std::ranges::copy(seed_material, std::back_inserter(tmp_buffer));
 
-    auto field_as_u512 = from_buffer<numeric::uint512_t>(full_buffer);
+    // First HMAC round: K = HMAC(K, V || 0x00 || seed_material), V = HMAC(K, V)
+    key_buffer = hmac<Hash, std::vector<uint8_t>, std::array<uint8_t, INITIAL_BUFFER_SIZE>>(tmp_buffer, key_buffer);
+    v_buffer = hmac<Hash, std::array<uint8_t, INITIAL_BUFFER_SIZE>, std::array<uint8_t, INITIAL_BUFFER_SIZE>>(
+        v_buffer, key_buffer);
 
-    Fr result((field_as_u512 % Fr::modulus).lo);
-    return result;
+    // Temporary buffer for second HMAC round: V || 0x01 || seed_material
+    tmp_buffer.clear();
+    tmp_buffer.reserve(INITIAL_BUFFER_SIZE + 1 + seed_material.size());
+    std::ranges::copy(v_buffer, std::back_inserter(tmp_buffer));
+    tmp_buffer.emplace_back(0x01);
+    std::ranges::copy(seed_material, std::back_inserter(tmp_buffer));
+
+    // Second HMAC round: K = HMAC(K, V || 0x01 || seed_material), V = HMAC(K, V)
+    key_buffer = hmac<Hash, std::vector<uint8_t>, std::array<uint8_t, INITIAL_BUFFER_SIZE>>(tmp_buffer, key_buffer);
+    v_buffer = hmac<Hash, std::array<uint8_t, INITIAL_BUFFER_SIZE>, std::array<uint8_t, INITIAL_BUFFER_SIZE>>(
+        v_buffer, key_buffer);
+
+    // Loop until we get a valid k: 0 < k < Fr::modulus
+    uint256_t k = 0;
+    while (k == 0 || k >= static_cast<uint256_t>(Fr::modulus)) {
+        v_buffer = hmac<Hash, std::array<uint8_t, INITIAL_BUFFER_SIZE>, std::array<uint8_t, INITIAL_BUFFER_SIZE>>(
+            v_buffer, key_buffer);
+
+        // Trim the output if required
+        if (Hash::OUTPUT_SIZE * 8 > MODULUS_BIT_LENGTH) {
+            std::vector<uint8_t> trimmed_v_buffer(v_buffer.begin(), v_buffer.end());
+            // Read the hash output
+            const uint8_t* ptr = trimmed_v_buffer.data();
+            uint256_t trimmed_v;
+            read(ptr, trimmed_v);
+
+            // Bit shift the output
+            trimmed_v = trimmed_v >> (Hash::OUTPUT_SIZE * 8 - MODULUS_BIT_LENGTH);
+
+            // Set k
+            k = trimmed_v;
+        } else {
+            const uint8_t* ptr = v_buffer.data();
+            read(ptr, k);
+        }
+
+        if ((k > 0) && (k < static_cast<uint256_t>(Fr::modulus))) {
+            break;
+        }
+
+        std::vector<uint8_t> tmp_buffer;
+        tmp_buffer.reserve(INITIAL_BUFFER_SIZE + 1);
+        std::ranges::copy(v_buffer, std::back_inserter(tmp_buffer));
+        tmp_buffer.emplace_back(0x00);
+        key_buffer = hmac<Hash, std::vector<uint8_t>, std::array<uint8_t, INITIAL_BUFFER_SIZE>>(tmp_buffer, key_buffer);
+        secure_erase(tmp_buffer);
+        v_buffer = hmac<Hash, std::array<uint8_t, INITIAL_BUFFER_SIZE>, std::array<uint8_t, INITIAL_BUFFER_SIZE>>(
+            v_buffer, key_buffer);
+    }
+
+    secure_erase(seed_material);
+    secure_erase(tmp_buffer);
+    secure_erase(v_buffer);
+    secure_erase(key_buffer);
+
+    return Fr(k);
 }
 } // namespace bb::crypto

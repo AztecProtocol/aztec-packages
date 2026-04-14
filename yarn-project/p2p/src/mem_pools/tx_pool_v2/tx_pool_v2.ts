@@ -11,7 +11,14 @@ import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-clien
 import EventEmitter from 'node:events';
 
 import { PoolInstrumentation, PoolName } from '../instrumentation.js';
-import type { AddTxsResult, TxPoolV2, TxPoolV2Config, TxPoolV2Dependencies, TxPoolV2Events } from './interfaces.js';
+import type {
+  AddTxsResult,
+  PoolReadAccess,
+  TxPoolV2,
+  TxPoolV2Config,
+  TxPoolV2Dependencies,
+  TxPoolV2Events,
+} from './interfaces.js';
 import type { TxState } from './tx_metadata.js';
 import { TxPoolV2Impl } from './tx_pool_v2_impl.js';
 
@@ -58,6 +65,9 @@ export class AztecKVTxPoolV2 extends (EventEmitter as new () => TypedEventEmitte
         const hashes = txHashes.map(h => (typeof h === 'string' ? TxHash.fromString(h) : TxHash.fromBigInt(h)));
         this.emit('txs-removed', { txHashes: hashes });
       },
+      onTxsMined: (txHashes: string[]) => {
+        this.#metrics?.transactionsRemoved(txHashes);
+      },
     };
 
     // Create the implementation
@@ -74,7 +84,7 @@ export class AztecKVTxPoolV2 extends (EventEmitter as new () => TypedEventEmitte
     return this.#queue.put(() => this.#impl.addPendingTxs(txs, opts));
   }
 
-  canAddPendingTx(tx: Tx): Promise<'accepted' | 'ignored' | 'rejected'> {
+  canAddPendingTx(tx: Tx): Promise<'accepted' | 'ignored'> {
     return this.#queue.put(() => this.#impl.canAddPendingTx(tx));
   }
 
@@ -160,6 +170,11 @@ export class AztecKVTxPoolV2 extends (EventEmitter as new () => TypedEventEmitte
 
   getLowestPriorityPending(limit: number): Promise<TxHash[]> {
     return this.#queue.put(() => Promise.resolve(this.#impl.getLowestPriorityPending(limit)));
+  }
+
+  /** Returns read-only access to the pool. Used for testing. */
+  getPoolReadAccess(): PoolReadAccess {
+    return this.#impl.getPoolReadAccess();
   }
 
   // === Configuration ===

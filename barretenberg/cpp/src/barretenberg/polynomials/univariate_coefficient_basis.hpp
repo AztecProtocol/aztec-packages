@@ -1,5 +1,5 @@
 // === AUDIT STATUS ===
-// internal:    { status: Planned, auditors: [], commit: }
+// internal:    { status: Complete, auditors: [Nishat], commit: 94f596f8b3bbbc216f9ad7dc33253256141156b2 }
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
@@ -43,11 +43,14 @@ template <class Fr, size_t domain_end, bool has_a0_plus_a1> class UnivariateCoef
     using value_type = Fr; // used to get the type of the elements consistently with std::array
 
     /**
-     * @brief coefficients is a length-3 array with the following representation:
+     * @brief Storage for polynomial coefficients (always 3 elements for uniform layout).
      * @details This class represents a polynomial P(X) = a0 + a1.X + a2.X^2
-     *          We define `coefficients[0] = a0` and `coefficients[1] = a1`
-     *          If LENGTH == 2 AND `has_a0_plus_a1 = true` then `coefficients[2] = a0 + a1`
-     *          If LENGTH == 3 then `coefficients[3] = a2`
+     *          `coefficients[0] = a0`, `coefficients[1] = a1`.
+     *          The meaning of `coefficients[2]` depends on the template parameters:
+     *            - LENGTH == 2 AND has_a0_plus_a1 == true:  coefficients[2] = a0 + a1
+     *              (precomputed for Karatsuba multiplication; NOT a polynomial coefficient)
+     *            - LENGTH == 2 AND has_a0_plus_a1 == false: coefficients[2] is unused
+     *            - LENGTH == 3:                             coefficients[2] = a2
      */
     std::array<Fr, 3> coefficients;
 
@@ -79,55 +82,6 @@ template <class Fr, size_t domain_end, bool has_a0_plus_a1> class UnivariateCoef
             coefficients[2] = 0;
         }
     };
-
-    size_t size() { return coefficients.size(); };
-
-    // Check if the UnivariateCoefficientBasis is identically zero
-    bool is_zero() const
-        requires(LENGTH == 2)
-    {
-        return coefficients[0].is_zero() || coefficients[1].is_zero();
-    }
-
-    // Check if the UnivariateCoefficientBasis is identically zero
-    bool is_zero() const
-        requires(LENGTH == 3)
-    {
-        return coefficients[2].is_zero() || coefficients[0].is_zero() || coefficients[1].is_zero();
-    }
-
-    // Write the Univariate coefficients to a buffer
-    [[nodiscard]] std::vector<uint8_t> to_buffer() const { return ::to_buffer(coefficients); }
-
-    // Static method for creating a Univariate from a buffer
-    // IMPROVEMENT: Could be made to identically match equivalent methods in e.g. field.hpp. Currently bypasses
-    // unnecessary ::from_buffer call
-    static UnivariateCoefficientBasis serialize_from_buffer(uint8_t const* buffer)
-    {
-        UnivariateCoefficientBasis result;
-        std::read(buffer, result.coefficients);
-        return result;
-    }
-
-    static UnivariateCoefficientBasis get_random()
-    {
-        auto output = UnivariateCoefficientBasis<Fr, domain_end, has_a0_plus_a1>();
-        for (size_t i = 0; i < LENGTH; ++i) {
-            output.value_at(i) = Fr::random_element();
-        }
-        return output;
-    };
-
-    static UnivariateCoefficientBasis zero()
-    {
-        auto output = UnivariateCoefficientBasis<Fr, domain_end, has_a0_plus_a1>();
-        for (size_t i = 0; i != LENGTH; ++i) {
-            output.coefficients[i] = Fr::zero();
-        }
-        return output;
-    }
-
-    static UnivariateCoefficientBasis random_element() { return get_random(); };
 
     // Operations between UnivariateCoefficientBasis and other UnivariateCoefficientBasis
     bool operator==(const UnivariateCoefficientBasis& other) const = default;
@@ -326,13 +280,6 @@ template <class Fr, size_t domain_end, bool has_a0_plus_a1> class UnivariateCoef
         }
         return os;
     }
-
-    // Begin iterators
-    auto begin() { return coefficients.begin(); }
-    auto begin() const { return coefficients.begin(); }
-    // End iterators
-    auto end() { return coefficients.end(); }
-    auto end() const { return coefficients.end(); }
 };
 
 template <typename B, class Fr, size_t domain_end, bool has_a0_plus_a1>

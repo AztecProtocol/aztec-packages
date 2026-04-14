@@ -42,7 +42,10 @@ describe('MetadataTxValidator', () => {
   };
 
   const expectInvalid = async (tx: Tx, reason: string) => {
-    await expect(validator.validateTx(tx)).resolves.toEqual({ result: 'invalid', reason: [reason] });
+    await expect(validator.validateTx(tx)).resolves.toEqual({
+      result: 'invalid',
+      reason: [expect.stringContaining(reason)],
+    });
   };
 
   const makeTxs = async () => {

@@ -2,13 +2,12 @@ import { EpochCache } from '@aztec/epoch-cache';
 import { RollupContract } from '@aztec/ethereum/contracts';
 import type { ViemClient } from '@aztec/ethereum/types';
 import type { SlotNumber } from '@aztec/foundation/branded-types';
-import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
 import { DateProvider } from '@aztec/foundation/timer';
-import type { DataStoreConfig } from '@aztec/kv-store/config';
 import { AztecLMDBStoreV2 } from '@aztec/kv-store/lmdb-v2';
 import type { SlasherConfig } from '@aztec/stdlib/interfaces/server';
-import type { Offense, ProposerSlashAction, SlashPayloadRound } from '@aztec/stdlib/slashing';
+import type { DataStoreConfig } from '@aztec/stdlib/kv-store';
+import type { Offense, ProposerSlashAction } from '@aztec/stdlib/slashing';
 
 import { createSlasherImplementation } from './factory/create_implementation.js';
 import type { SlasherClientInterface } from './slasher_client_interface.js';
@@ -27,11 +26,11 @@ export class SlasherClientFacade implements SlasherClientInterface {
     private config: SlasherConfig & DataStoreConfig & { ethereumSlotDuration: number },
     private rollup: RollupContract,
     private l1Client: ViemClient,
-    private slashFactoryAddress: EthAddress | undefined,
     private watchers: Watcher[],
     private epochCache: EpochCache,
     private dateProvider: DateProvider,
     private kvStore: AztecLMDBStoreV2,
+    private rollupRegisteredAtL2Slot: SlotNumber,
     private logger = createLogger('slasher'),
   ) {}
 
@@ -62,16 +61,12 @@ export class SlasherClientFacade implements SlasherClientInterface {
     this.watchers.forEach(watcher => watcher.updateConfig?.(config));
   }
 
-  public getSlashPayloads(): Promise<SlashPayloadRound[]> {
-    return this.client?.getSlashPayloads() ?? Promise.reject(new Error('Slasher client not initialized'));
-  }
-
   public gatherOffensesForRound(round?: bigint): Promise<Offense[]> {
     return this.client?.gatherOffensesForRound(round) ?? Promise.reject(new Error('Slasher client not initialized'));
   }
 
-  public getPendingOffenses(): Promise<Offense[]> {
-    return this.client?.getPendingOffenses() ?? Promise.reject(new Error('Slasher client not initialized'));
+  public getOffenses(): Promise<Offense[]> {
+    return this.client?.getOffenses() ?? Promise.reject(new Error('Slasher client not initialized'));
   }
 
   public getProposerActions(slotNumber: SlotNumber): Promise<ProposerSlashAction[]> {
@@ -83,11 +78,11 @@ export class SlasherClientFacade implements SlasherClientInterface {
       this.config,
       this.rollup,
       this.l1Client,
-      this.slashFactoryAddress,
       this.watchers,
       this.epochCache,
       this.dateProvider,
       this.kvStore,
+      this.rollupRegisteredAtL2Slot,
       this.logger,
     );
   }

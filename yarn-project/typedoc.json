@@ -17,7 +17,6 @@
     "aztec-node",
     "sequencer-client",
     "types",
-    "world-state",
-    "merkle-tree"
+    "world-state"
   ]
 }

@@ -1,8 +1,7 @@
 import { MAX_NOTE_HASHES_PER_TX } from '@aztec/constants';
+import { range } from '@aztec/foundation/array';
 import { Fr } from '@aztec/foundation/curves/bn254';
 
-import type { AztecAddress } from '../aztec-address/index.js';
-import type { TxEffect } from '../tx/tx_effect.js';
 import type { TxHash } from '../tx/tx_hash.js';
 
 /**
@@ -19,7 +18,6 @@ export class MessageContext {
     public txHash: TxHash,
     public uniqueNoteHashesInTx: Fr[],
     public firstNullifierInTx: Fr,
-    public recipient: AztecAddress,
   ) {}
 
   toFields(): Fr[] {
@@ -27,7 +25,6 @@ export class MessageContext {
       this.txHash.hash,
       ...serializeBoundedVec(this.uniqueNoteHashesInTx, MAX_NOTE_HASHES_PER_TX),
       this.firstNullifierInTx,
-      this.recipient.toField(),
     ];
   }
 
@@ -37,13 +34,22 @@ export class MessageContext {
       tx_hash: this.txHash.hash,
       unique_note_hashes_in_tx: this.uniqueNoteHashesInTx,
       first_nullifier_in_tx: this.firstNullifierInTx,
-      recipient: this.recipient,
     };
     /* eslint-enable camelcase */
   }
 
-  static fromTxEffectAndRecipient(txEffect: TxEffect, recipient: AztecAddress): MessageContext {
-    return new MessageContext(txEffect.txHash, txEffect.noteHashes, txEffect.nullifiers[0], recipient);
+  static toEmptyFields(): Fr[] {
+    const serializationLen =
+      1 /* txHash */ + MAX_NOTE_HASHES_PER_TX + 1 /* uniqueNoteHashesInTx BVec */ + 1; /* firstNullifierInTx */
+    return range(serializationLen).map(_ => Fr.zero());
+  }
+
+  static toSerializedOption(response: MessageContext | null): Fr[] {
+    if (response) {
+      return [new Fr(1), ...response.toFields()];
+    } else {
+      return [new Fr(0), ...MessageContext.toEmptyFields()];
+    }
   }
 }
 
@@ -55,6 +61,10 @@ export class MessageContext {
  * @dev Copied over from pending_tagged_log.ts.
  */
 function serializeBoundedVec(values: Fr[], maxLength: number): Fr[] {
+  if (values.length > maxLength) {
+    throw new Error(`Attempted to serialize ${values} values into a BoundedVec with max length ${maxLength}`);
+  }
+
   const lengthDiff = maxLength - values.length;
   const zeroPaddingArray = Array(lengthDiff).fill(Fr.ZERO);
   const storage = values.concat(zeroPaddingArray);

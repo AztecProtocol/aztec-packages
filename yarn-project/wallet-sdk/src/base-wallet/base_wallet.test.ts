@@ -9,16 +9,20 @@ import { FunctionCall, FunctionSelector, FunctionType } from '@aztec/stdlib/abi'
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { BlockHash } from '@aztec/stdlib/block';
 import type { NodeInfo } from '@aztec/stdlib/contract';
-import { Gas, GasFees } from '@aztec/stdlib/gas';
+import { Gas, GasFees, ManaUsageEstimate } from '@aztec/stdlib/gas';
 import { PrivateKernelTailCircuitPublicInputs } from '@aztec/stdlib/kernel';
 import {
   BlockHeader,
   ExecutionPayload,
   GlobalVariables,
   NestedProcessReturnValues,
+  OFFCHAIN_MESSAGE_IDENTIFIER,
+  type OffchainEffect,
   PrivateExecutionResult,
+  Tx,
   TxEffect,
   TxHash,
+  TxProvingResult,
   TxSimulationResult,
 } from '@aztec/stdlib/tx';
 
@@ -39,6 +43,10 @@ class BasicWallet extends BaseWallet {
 
   override getAccounts(): Promise<Aliased<AztecAddress>[]> {
     throw new Error('Method not implemented.');
+  }
+
+  public override getMinFees(estimate?: ManaUsageEstimate): Promise<GasFees> {
+    return super.getMinFees(estimate);
   }
 }
 
@@ -75,6 +83,7 @@ describe('BaseWallet', () => {
     const optimizedRv1 = new NestedProcessReturnValues([new Fr(200)]);
     const normalRv0 = new NestedProcessReturnValues([new Fr(300)]);
 
+    node.getPredictedMinFees.mockResolvedValue([new GasFees(2, 2)]);
     node.getCurrentMinFees.mockResolvedValue(new GasFees(2, 2));
     node.getNodeInfo.mockResolvedValue({ ...mock<NodeInfo>(), l1ChainId: 1, rollupVersion: 1 });
     pxe.getSyncedBlockHeader.mockResolvedValue(BlockHeader.empty());
@@ -88,6 +97,7 @@ describe('BaseWallet', () => {
       txEffect: TxEffect.empty(),
       publicReturnValues: [optimizedRv0, optimizedRv1],
       gasUsed: { totalGas: Gas.empty(), teardownGas: Gas.empty(), publicGas: Gas.empty(), billedGas: Gas.empty() },
+      debugLogs: [],
     };
     node.simulatePublicCalls.mockResolvedValue(optimizedPublicOutput);
 
@@ -98,6 +108,7 @@ describe('BaseWallet', () => {
       txEffect: TxEffect.empty(),
       publicReturnValues: [normalRv0],
       gasUsed: { totalGas: Gas.empty(), teardownGas: Gas.empty(), publicGas: Gas.empty(), billedGas: Gas.empty() },
+      debugLogs: [],
     };
     const normalResult = new TxSimulationResult(
       mock<PrivateExecutionResult>(),
@@ -174,5 +185,116 @@ describe('BaseWallet', () => {
         metadata: { l2BlockNumber: packed2.l2BlockNumber, l2BlockHash: packed2.l2BlockHash, txHash: packed2.txHash },
       },
     ]);
+  });
+
+  describe('getMinFees', () => {
+    let pxe: MockProxy<PXE>;
+    let node: MockProxy<AztecNode>;
+    let wallet: BasicWallet;
+
+    beforeEach(() => {
+      pxe = mock<PXE>();
+      node = mock<AztecNode>();
+      wallet = new BasicWallet(pxe, node);
+    });
+
+    it('returns max fee across all predicted slots', async () => {
+      node.getPredictedMinFees.mockResolvedValue([new GasFees(1, 100), new GasFees(1, 300), new GasFees(1, 200)]);
+
+      const result = await wallet.getMinFees();
+
+      expect(result.feePerL2Gas).toBe(300n);
+    });
+
+    it('passes ManaUsageEstimate to the node', async () => {
+      node.getPredictedMinFees.mockResolvedValue([new GasFees(1, 100)]);
+
+      await wallet.getMinFees(ManaUsageEstimate.Limit);
+
+      expect(node.getPredictedMinFees).toHaveBeenCalledWith(ManaUsageEstimate.Limit);
+    });
+
+    it('defaults to ManaUsageEstimate.Limit', async () => {
+      node.getPredictedMinFees.mockResolvedValue([new GasFees(1, 100)]);
+
+      await wallet.getMinFees();
+
+      expect(node.getPredictedMinFees).toHaveBeenCalledWith(ManaUsageEstimate.Limit);
+    });
+
+    it('falls back to getCurrentMinFees on empty array', async () => {
+      node.getPredictedMinFees.mockResolvedValue([]);
+      node.getCurrentMinFees.mockResolvedValue(new GasFees(1, 500));
+
+      const result = await wallet.getMinFees();
+
+      expect(result.feePerL2Gas).toBe(500n);
+      expect(node.getCurrentMinFees).toHaveBeenCalled();
+    });
+
+    it('falls back to getCurrentMinFees when getPredictedMinFees throws', async () => {
+      node.getPredictedMinFees.mockRejectedValue(new Error('Method not found'));
+      node.getCurrentMinFees.mockResolvedValue(new GasFees(1, 500));
+
+      const result = await wallet.getMinFees();
+
+      expect(result.feePerL2Gas).toBe(500n);
+      expect(node.getCurrentMinFees).toHaveBeenCalled();
+    });
+  });
+
+  it('should extract offchain messages with anchor block timestamp on sendTx', async () => {
+    pxe = mock<PXE>();
+    node = mock<AztecNode>();
+    const wallet = new BasicWallet(pxe, node);
+    const from = await AztecAddress.random();
+
+    const recipient = await AztecAddress.random();
+    const contractAddress = await AztecAddress.random();
+    const msgPayload = [Fr.random(), Fr.random()];
+    const anchorBlockTimestamp = 55555n;
+
+    const offchainEffects: OffchainEffect[] = [
+      {
+        data: [OFFCHAIN_MESSAGE_IDENTIFIER, recipient.toField(), ...msgPayload],
+        contractAddress,
+      },
+    ];
+
+    // Mock the proven tx returned by pxe.proveTx
+    const provenTx = mock<TxProvingResult>();
+    provenTx.getOffchainEffects.mockReturnValue(offchainEffects);
+    Object.defineProperty(provenTx, 'publicInputs', {
+      value: {
+        constants: { anchorBlockHeader: { globalVariables: { timestamp: anchorBlockTimestamp } } },
+      },
+    });
+
+    const mockTx = mock<Tx>();
+    mockTx.getTxHash.mockReturnValue(TxHash.random());
+    provenTx.toTx.mockResolvedValue(mockTx);
+
+    // Mock dependencies for completeFeeOptions and createTxExecutionRequestFromPayloadAndFee
+    node.getPredictedMinFees.mockResolvedValue([new GasFees(2, 2)]);
+    node.getCurrentMinFees.mockResolvedValue(new GasFees(2, 2));
+    node.getNodeInfo.mockResolvedValue({ ...mock<NodeInfo>(), l1ChainId: 1, rollupVersion: 1 });
+    pxe.getSyncedBlockHeader.mockResolvedValue(BlockHeader.empty());
+    wallet.mockAccount.createTxExecutionRequest.mockResolvedValue(mock());
+    pxe.proveTx.mockResolvedValue(provenTx);
+    node.getTxEffect.mockResolvedValue(undefined);
+    node.sendTx.mockResolvedValue();
+
+    const payload = new ExecutionPayload([await makeFunctionCall(FunctionType.PRIVATE, false, 'transfer')], [], []);
+
+    const result = await wallet.sendTx(payload, { from, wait: 'NO_WAIT' });
+
+    expect(result.offchainMessages).toHaveLength(1);
+    expect(result.offchainMessages[0]).toEqual({
+      recipient,
+      payload: msgPayload,
+      contractAddress,
+      anchorBlockTimestamp,
+    });
+    expect(result.offchainEffects).toEqual([]);
   });
 });

@@ -33,9 +33,9 @@ pub(crate) comptime fn generate_public_external(f: FunctionDefinition) -> Quoted
             let storage = Storage::init(context);
         }
     } else {
-        // Contract does not have Storage defined, so we set storage to the unit type `()`. ContractSelf requires a
-        // storage struct in its constructor. Using an Option type would lead to worse developer experience and higher
-        // constraint counts so we use the unit type `()` instead.
+        // Contract does not have Storage defined, so we set storage to the unit type `()`. ContractSelfPublic requires
+        // a storage struct in its constructor. Using an Option type would lead to worse developer experience and
+        // higher constraint counts so we use the unit type `()` instead.
         quote {
             let storage = ();
         }
@@ -55,7 +55,7 @@ pub(crate) comptime fn generate_public_external(f: FunctionDefinition) -> Quoted
             let call_self: CallSelf<aztec::context::PublicContext> = CallSelf { address: self_address, context };
             let call_self_static: CallSelfStatic<aztec::context::PublicContext> = CallSelfStatic { address: self_address, context };
             let internal: CallInternal<aztec::context::PublicContext> = CallInternal { context };
-            aztec::ContractSelf::new_public(context, storage, call_self, call_self_static, internal)
+            aztec::contract_self::ContractSelfPublic::new(context, storage, call_self, call_self_static, internal)
         };
     };
 
@@ -79,7 +79,7 @@ pub(crate) comptime fn generate_public_external(f: FunctionDefinition) -> Quoted
     let (assert_initializer, mark_as_initialized) = if is_fn_initializer(f) {
         (
             quote { aztec::macros::functions::initialization_utils::assert_initialization_matches_address_preimage_public(self.context); },
-            quote { aztec::macros::functions::initialization_utils::mark_as_initialized_public(self.context); },
+            quote { aztec::macros::functions::initialization_utils::mark_as_initialized_from_public_initializer(self.context); },
         )
     } else {
         (quote {}, quote {})
@@ -108,6 +108,9 @@ pub(crate) comptime fn generate_public_external(f: FunctionDefinition) -> Quoted
         $authorize_once_check
     };
 
+    // `mark_as_initialized` is placed after the user's function body. If it ran at the beginning, the contract
+    // would appear initialized while the initializer is still running, allowing contracts called by the initializer
+    // to re-enter into a half-initialized contract.
     let to_append = quote {
         $mark_as_initialized
     };

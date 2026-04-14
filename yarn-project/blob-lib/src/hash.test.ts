@@ -1,11 +1,11 @@
 import { randomBytes } from '@aztec/foundation/crypto/random';
 
 import { commitmentToFields } from './hash.js';
-import { BYTES_PER_COMMITMENT } from './kzg_context.js';
+import { getBytesPerCommitment } from './kzg_context.js';
 
 describe('commitment', () => {
   it('converts to fields correctly', () => {
-    const commitment = randomBytes(BYTES_PER_COMMITMENT);
+    const commitment = randomBytes(getBytesPerCommitment());
     const fields = commitmentToFields(commitment);
     expect(fields.length).toBe(2);
     expect(fields[0].toBuffer()).toEqual(Buffer.concat([Buffer.alloc(1), commitment.subarray(0, 31)]));

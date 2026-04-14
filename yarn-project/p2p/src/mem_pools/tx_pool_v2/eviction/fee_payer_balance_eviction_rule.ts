@@ -29,12 +29,13 @@ export class FeePayerBalanceEvictionRule implements EvictionRule {
 
       if (context.event === EvictionEvent.BLOCK_MINED) {
         const blockNumber = context.block.getBlockNumber();
-        await this.worldState.syncImmediate(blockNumber);
+        const blockHash = await context.block.hash();
+        await this.worldState.syncImmediate(blockNumber, blockHash);
         return await this.evictForFeePayers(context.feePayers, this.worldState.getSnapshot(blockNumber), pool);
       }
 
       if (context.event === EvictionEvent.CHAIN_PRUNED) {
-        await this.worldState.syncImmediate(context.blockNumber);
+        await this.worldState.syncImmediate();
         const feePayers = pool.getPendingFeePayers();
         return await this.evictForFeePayers(feePayers, this.worldState.getSnapshot(context.blockNumber), pool);
       }

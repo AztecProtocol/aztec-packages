@@ -1,9 +1,11 @@
+import { NO_FROM } from '@aztec/aztec.js/account';
 import { AztecAddress } from '@aztec/aztec.js/addresses';
 import { BatchCall, ContractFunctionInteraction, type DeployOptions, NO_WAIT } from '@aztec/aztec.js/contracts';
 import { Fr } from '@aztec/aztec.js/fields';
 import type { Logger } from '@aztec/aztec.js/log';
 import { type AztecNode, waitForTx } from '@aztec/aztec.js/node';
 import { TxStatus } from '@aztec/aztec.js/tx';
+import { ContractInitializationStatus } from '@aztec/aztec.js/wallet';
 import { AnvilTestWatcher, CheatCodes } from '@aztec/aztec/testing';
 import { asyncMap } from '@aztec/foundation/async-map';
 import { BlockNumber, EpochNumber } from '@aztec/foundation/branded-types';
@@ -15,7 +17,9 @@ import { StatefulTestContract } from '@aztec/noir-test-contracts.js/StatefulTest
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
 import type { SequencerClient } from '@aztec/sequencer-client';
 import type { TestSequencerClient } from '@aztec/sequencer-client/test';
+import { getAllFunctionAbis } from '@aztec/stdlib/abi';
 import { getProofSubmissionDeadlineEpoch } from '@aztec/stdlib/epoch-helpers';
+import { GasFees } from '@aztec/stdlib/gas';
 import { computeSiloedPrivateLogFirstField } from '@aztec/stdlib/hash';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 import { TX_ERROR_EXISTING_NULLIFIER } from '@aztec/stdlib/tx';
@@ -72,7 +76,12 @@ describe('e2e_block_building', () => {
     });
 
     afterEach(async () => {
-      await aztecNodeAdmin.setConfig({ minTxsPerBlock: 1 });
+      await aztecNodeAdmin.setConfig({
+        fakeProcessingDelayPerTxMs: 0,
+        minTxsPerBlock: 1,
+        maxTxsPerBlock: undefined, // reset to default
+        enforceTimeTable: false, // reset to false (as it is in setup())
+      });
       // Clean up any mocks
       jest.restoreAllMocks();
     });
@@ -80,28 +89,40 @@ describe('e2e_block_building', () => {
     afterAll(() => teardown());
 
     it('processes txs until hitting timetable', async () => {
-      // We send enough txs so they are spread across multiple blocks, but not
-      // so many so that we don't end up hitting a reorg or timing out the tx wait().
-      const TX_COUNT = 16;
+      const DEADLINE_S = 0.5; // half a second of building per block
+      const DEADLINE_MS = DEADLINE_S * 1000;
+      const MAX_TXS_FIT_IN_DEADLINE = 5; // via deadline and fake delay, we force this maximum to be true
+      const FAKE_DELAY_PER_TX_MS = DEADLINE_MS / MAX_TXS_FIT_IN_DEADLINE; // e.g. 100ms if 5 txs per 0.5s
 
-      const contract = await StatefulTestContract.deploy(wallet, ownerAddress, 1).send({ from: ownerAddress });
+      // the minimum number of blocks we want to see
+      const EXPECTED_BLOCKS = 3;
+      // choose a tx count should ensure that we use EXPECTED_BLOCKS or more
+      // Note that we don't need to ensure that last block is _full_
+      const TX_COUNT = MAX_TXS_FIT_IN_DEADLINE * (EXPECTED_BLOCKS - 1) + 1;
+
+      // print out the test parameters
+      logger.info(`multi-block timetable test parameters:`);
+      logger.info(`  Deadline per block: ${DEADLINE_MS} ms`);
+      logger.info(`  Fake delay per tx: ${FAKE_DELAY_PER_TX_MS} ms`);
+      logger.info(`  Max txs that should fit in deadline: ${MAX_TXS_FIT_IN_DEADLINE}`);
+      logger.info(`  Total txs to send: ${TX_COUNT}`);
+      logger.info(`  Expected minimum blocks: ${EXPECTED_BLOCKS}`);
+
+      const { contract } = await StatefulTestContract.deploy(wallet, ownerAddress, 1).send({ from: ownerAddress });
       logger.info(`Deployed stateful test contract at ${contract.address}`);
 
-      // We add a delay to every public tx processing
-      logger.info(`Updating aztec node config`);
+      // Configure sequencer with a small delay per tx and enforce timetable
       await aztecNodeAdmin.setConfig({
-        fakeProcessingDelayPerTxMs: 300,
+        fakeProcessingDelayPerTxMs: FAKE_DELAY_PER_TX_MS, // ensure that each tx takes at least this long
         minTxsPerBlock: 1,
-        maxTxsPerBlock: TX_COUNT,
+        maxTxsPerBlock: TX_COUNT, // intentionally large because we want to flex deadline, not this max
+        enforceTimeTable: true,
       });
 
-      // We also cheat the sequencer's timetable so it allocates little time to processing.
-      // This will leave the sequencer with just a few seconds to build the block, so it shouldn't
-      // be able to squeeze in more than a few txs in each. This is sensitive to the time it takes
-      // to pick up and validate the txs, so we may need to bump it to work on CI.
+      // Mock the timetable to limit time for block building.
       jest.spyOn(sequencer.sequencer.timetable, 'canStartNextBlock').mockImplementation((secondsIntoSlot: number) => ({
         canStart: true,
-        deadline: secondsIntoSlot + 1, // Give only 1 second for building
+        deadline: secondsIntoSlot + DEADLINE_S, // limit block-building time
         isLastBlock: true,
       }));
 
@@ -118,7 +139,7 @@ describe('e2e_block_building', () => {
       const receipts = await Promise.all(txHashes.map(txHash => waitForTx(aztecNode, txHash)));
       const blockNumbers = receipts.map(r => r.blockNumber!).sort((a, b) => a - b);
       logger.info(`Txs mined on blocks: ${unique(blockNumbers)}`);
-      expect(blockNumbers.at(-1)! - blockNumbers[0]).toBeGreaterThan(1);
+      expect(blockNumbers.at(-1)! - blockNumbers[0]).toBeGreaterThanOrEqual(EXPECTED_BLOCKS - 1);
     });
 
     it('assembles a block with multiple txs', async () => {
@@ -137,8 +158,6 @@ describe('e2e_block_building', () => {
         const options: DeployOptions = {
           from: ownerAddress,
           contractAddressSalt: new Fr(BigInt(i + 1)),
-          skipClassPublication: true,
-          skipInstancePublication: true,
         };
         const instance = await methods[i].getInstance(options);
         addresses.push(instance.address);
@@ -158,14 +177,14 @@ describe('e2e_block_building', () => {
 
       // Assert all contracts got initialized
       const areInitialized = await Promise.all(
-        addresses.map(async a => (await wallet.getContractMetadata(a)).isContractInitialized),
+        addresses.map(async a => (await wallet.getContractMetadata(a)).initializationStatus),
       );
-      expect(areInitialized).toEqual(times(TX_COUNT, () => true));
+      expect(areInitialized).toEqual(times(TX_COUNT, () => ContractInitializationStatus.INITIALIZED));
     });
 
     it('assembles a block with multiple txs with public fns', async () => {
       // First deploy the contract
-      const contract = await StatefulTestContract.deploy(wallet, ownerAddress, 1).send({ from: ownerAddress });
+      const { contract } = await StatefulTestContract.deploy(wallet, ownerAddress, 1).send({ from: ownerAddress });
 
       // Assemble N contract deployment txs
       // We need to create them sequentially since we cannot have parallel calls to a circuit
@@ -194,8 +213,8 @@ describe('e2e_block_building', () => {
     // Skipped since we only use it to manually test number of invocations to world-state.
     it.skip('builds blocks with multiple public fns after multiple nullifier insertions', async () => {
       // First deploy the contracts
-      const contract = await StatefulTestContract.deploy(wallet, ownerAddress, 1).send({ from: ownerAddress });
-      const another = await TestContract.deploy(wallet).send({ from: ownerAddress });
+      const { contract } = await StatefulTestContract.deploy(wallet, ownerAddress, 1).send({ from: ownerAddress });
+      const { contract: another } = await TestContract.deploy(wallet).send({ from: ownerAddress });
 
       await aztecNodeAdmin.setConfig({ minTxsPerBlock: 16, maxTxsPerBlock: 16 });
 
@@ -225,7 +244,8 @@ describe('e2e_block_building', () => {
       logger.info(`Txs sent`);
     });
 
-    it.skip('can call public function from different tx in same block as deployed', async () => {
+    // Uses priority fees to guarantee the deploy tx is ordered before the call tx within the same block.
+    it('can call public function from different tx in same block as deployed', async () => {
       // Ensure both txs will land on the same block
       await aztecNodeAdmin.setConfig({ minTxsPerBlock: 2 });
 
@@ -239,16 +259,27 @@ describe('e2e_block_building', () => {
       const callInteraction = new ContractFunctionInteraction(
         wallet,
         deployerInstance.address,
-        TokenContract.artifact.functions.find(x => x.name === 'set_minter')!,
+        getAllFunctionAbis(TokenContract.artifact).find(x => x.name === 'set_minter')!,
         [minterAddress, true],
       );
 
-      const [deployTxReceipt, callTxReceipt] = await Promise.all([
-        deployMethod.send({ from: ownerAddress, wait: { returnReceipt: true } }),
-        callInteraction.send({ from: ownerAddress }),
+      // Use priority fees to guarantee ordering: deploy tx gets higher priority so the
+      // sequencer places it before the call tx in the block.
+      const highPriority = new GasFees(100, 100);
+      const lowPriority = new GasFees(1, 1);
+
+      const [deployResult, callResult] = await Promise.all([
+        deployMethod.send({
+          from: ownerAddress,
+          fee: { gasSettings: { maxPriorityFeesPerGas: highPriority } },
+        }),
+        callInteraction.send({
+          from: ownerAddress,
+          fee: { gasSettings: { maxPriorityFeesPerGas: lowPriority } },
+        }),
       ]);
 
-      expect(deployTxReceipt.blockNumber).toEqual(callTxReceipt.blockNumber);
+      expect(deployResult.receipt.blockNumber).toEqual(callResult.receipt.blockNumber);
     });
   });
 
@@ -263,7 +294,7 @@ describe('e2e_block_building', () => {
         wallet,
         accounts: [ownerAddress],
       } = await setup(1));
-      contract = await TestContract.deploy(wallet).send({ from: ownerAddress });
+      ({ contract } = await TestContract.deploy(wallet).send({ from: ownerAddress }));
       logger.info(`Test contract deployed at ${contract.address}`);
     });
 
@@ -391,7 +422,7 @@ describe('e2e_block_building', () => {
       } = await setup(1));
 
       logger.info(`Deploying test contract`);
-      testContract = await TestContract.deploy(wallet).send({ from: ownerAddress });
+      ({ contract: testContract } = await TestContract.deploy(wallet).send({ from: ownerAddress }));
     }, 60_000);
 
     afterAll(() => teardown());
@@ -415,7 +446,8 @@ describe('e2e_block_building', () => {
       // call test contract
       const valuesAsArray = Object.values(values);
 
-      const action = testContract.methods.emit_array_as_encrypted_log(valuesAsArray, ownerAddress, true);
+      const tag = 42n;
+      const action = testContract.methods.emit_array_as_encrypted_log(tag, valuesAsArray, ownerAddress, true);
       const tx = await proveInteraction(wallet, action, { from: ownerAddress });
       const rct = await tx.send();
 
@@ -436,14 +468,12 @@ describe('e2e_block_building', () => {
       expect(events[1].event).toEqual(nestedValues);
 
       // The last log is not encrypted.
-      // The first field is the first value and is siloed with contract address by the kernel circuit.
-      const expectedFirstField = await computeSiloedPrivateLogFirstField(
-        testContract.address,
-        new Fr(valuesAsArray[0]),
-      );
-      expect(privateLogs[2].fields.slice(0, 5).map((f: Fr) => f.toBigInt())).toEqual([
-        expectedFirstField.toBigInt(),
-        ...valuesAsArray.slice(1),
+      // fields[0] is the tag, siloed with the contract address by the kernel circuit.
+      // The payload starts at fields[1].
+      const expectedSiloedTag = await computeSiloedPrivateLogFirstField(testContract.address, new Fr(tag));
+      expect(privateLogs[2].fields.slice(0, 6).map((f: Fr) => f.toBigInt())).toEqual([
+        expectedSiloedTag.toBigInt(),
+        ...valuesAsArray,
       ]);
     }, 60_000);
   });
@@ -478,7 +508,7 @@ describe('e2e_block_building', () => {
       const accountManager = await (wallet as TestWallet).createSchnorrAccount(accountData.secret, accountData.salt);
       const deployMethod = await accountManager.getDeployMethod();
       await deployMethod.send({
-        from: AztecAddress.ZERO,
+        from: NO_FROM,
       });
     });
 
@@ -495,9 +525,11 @@ describe('e2e_block_building', () => {
       }));
 
       logger.info('Deploying token contract');
-      const token = await TokenContract.deploy(wallet, ownerAddress, 'TokenName', 'TokenSymbol', 18).send({
-        from: ownerAddress,
-      });
+      const { contract: token } = await TokenContract.deploy(wallet, ownerAddress, 'TokenName', 'TokenSymbol', 18).send(
+        {
+          from: ownerAddress,
+        },
+      );
 
       logger.info('Updating txs per block to 4');
       await aztecNodeAdmin.setConfig({ minTxsPerBlock: 4, maxTxsPerBlock: 4 });
@@ -530,7 +562,7 @@ describe('e2e_block_building', () => {
         accounts: [ownerAddress],
       } = context);
 
-      const testContract = await TestContract.deploy(wallet).send({ from: ownerAddress });
+      const { contract: testContract } = await TestContract.deploy(wallet).send({ from: ownerAddress });
       logger.warn(`Test contract deployed at ${testContract.address}`);
 
       // We want the sequencer to wait until both txs have arrived (so minTxsPerBlock=2), but agree to build
@@ -549,7 +581,8 @@ describe('e2e_block_building', () => {
         ]);
       const batches = times(2, makeBatch);
 
-      const txHashes = await Promise.all(batches.map(batch => batch.send({ from: ownerAddress, wait: NO_WAIT })));
+      const txHashResults = await Promise.all(batches.map(batch => batch.send({ from: ownerAddress, wait: NO_WAIT })));
+      const txHashes = txHashResults.map(({ txHash }) => txHash);
       logger.warn(`Sent two txs to test contract`, { txs: txHashes.map(hash => hash.toString()) });
       await Promise.race(txHashes.map(txHash => waitForTx(aztecNode, txHash, { timeout: 60 })));
 
@@ -581,7 +614,7 @@ describe('e2e_block_building', () => {
         accounts: [ownerAddress],
       } = await setup(1));
 
-      contract = await StatefulTestContract.deploy(wallet, ownerAddress, 1).send({ from: ownerAddress });
+      ({ contract } = await StatefulTestContract.deploy(wallet, ownerAddress, 1).send({ from: ownerAddress }));
       initialBlockNumber = await aztecNode.getBlockNumber();
       logger.info(`Stateful test contract deployed at ${contract.address}`);
 
@@ -605,15 +638,15 @@ describe('e2e_block_building', () => {
       // Send a tx to the contract that creates a note. This tx will be reorgd but re-included,
       // since it is being built against a proven block number.
       logger.info('Sending initial tx');
-      const tx1 = await contract.methods.create_note(ownerAddress, 20).send({ from: ownerAddress });
+      const { receipt: tx1 } = await contract.methods.create_note(ownerAddress, 20).send({ from: ownerAddress });
       expect(tx1.blockNumber).toEqual(initialBlockNumber + 1);
-      expect(await contract.methods.summed_values(ownerAddress).simulate({ from: ownerAddress })).toEqual(21n);
+      expect((await contract.methods.summed_values(ownerAddress).simulate({ from: ownerAddress })).result).toEqual(21n);
 
       // And send a second one, which won't be re-included.
       logger.info('Sending second tx');
-      const tx2 = await contract.methods.create_note(ownerAddress, 30).send({ from: ownerAddress });
+      const { receipt: tx2 } = await contract.methods.create_note(ownerAddress, 30).send({ from: ownerAddress });
       expect(tx2.blockNumber).toEqual(initialBlockNumber + 2);
-      expect(await contract.methods.summed_values(ownerAddress).simulate({ from: ownerAddress })).toEqual(51n);
+      expect((await contract.methods.summed_values(ownerAddress).simulate({ from: ownerAddress })).result).toEqual(51n);
 
       logger.info('Advancing past the proof submission window');
 
@@ -648,12 +681,12 @@ describe('e2e_block_building', () => {
       expect(newTx1Receipt.blockHash).not.toEqual(tx1.blockHash);
 
       // PXE should have cleared out the 30-note from tx2, but reapplied the 20-note from tx1
-      expect(await contract.methods.summed_values(ownerAddress).simulate({ from: ownerAddress })).toEqual(21n);
+      expect((await contract.methods.summed_values(ownerAddress).simulate({ from: ownerAddress })).result).toEqual(21n);
 
       // And we should be able to send a new tx on the new chain
       logger.info('Sending new tx on reorgd chain');
-      const tx3 = await contract.methods.create_note(ownerAddress, 10).send({ from: ownerAddress });
-      expect(await contract.methods.summed_values(ownerAddress).simulate({ from: ownerAddress })).toEqual(31n);
+      const { receipt: tx3 } = await contract.methods.create_note(ownerAddress, 10).send({ from: ownerAddress });
+      expect((await contract.methods.summed_values(ownerAddress).simulate({ from: ownerAddress })).result).toEqual(31n);
       expect(tx3.blockNumber).toBeGreaterThanOrEqual(newTx1Receipt.blockNumber! + 1);
     });
   });

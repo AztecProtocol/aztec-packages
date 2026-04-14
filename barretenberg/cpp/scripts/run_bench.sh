@@ -14,13 +14,20 @@ filter=$4
 export GTEST_COLOR=1
 export HARDWARE_CONCURRENCY=${CPUS:-8}
 
+# Set ALLOCATOR=tcmalloc to use tcmalloc via LD_PRELOAD.
+BENCH_PRELOAD=""
+if [ "${ALLOCATOR:-}" = "tcmalloc" ]; then
+  sudo apt-get update -qq && sudo apt-get install -y -qq libtcmalloc-minimal4t64
+  BENCH_PRELOAD="/usr/lib/$(uname -m)-linux-gnu/libtcmalloc_minimal.so.4"
+fi
+
 mkdir -p bench-out/$(dirname $name)
 
 export MEMUSAGE_OUT="bench-out/$name-peak-memory-mb.txt"
 
 case $arch in
   native)
-    memusage $bin --benchmark_out=./bench-out/$name.json --benchmark_filter=$filter
+    LD_PRELOAD="${BENCH_PRELOAD}" memusage $bin --benchmark_out=./bench-out/$name.json --benchmark_filter=$filter
     ;;
   wasm)
     memusage ./scripts/wasmtime.sh $bin --benchmark_out=./bench-out/$name.json --benchmark_filter=$filter

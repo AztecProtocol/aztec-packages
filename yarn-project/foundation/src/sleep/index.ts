@@ -22,6 +22,7 @@ import { InterruptError } from '../error/index.js';
  */
 export class InterruptibleSleep {
   private interrupts: Array<(shouldThrow: boolean) => void> = [];
+  private timeoutIds: NodeJS.Timeout[] = [];
 
   /**
    * Sleep for a specified amount of time in milliseconds.
@@ -38,9 +39,15 @@ export class InterruptibleSleep {
       this.interrupts.push(resolve);
     });
 
-    const timeoutPromise = new Promise<boolean>(resolve => setTimeout(() => resolve(false), ms));
+    let timeoutId: NodeJS.Timeout;
+    const timeoutPromise = new Promise<boolean>(resolve => {
+      timeoutId = setTimeout(() => resolve(false), ms);
+      this.timeoutIds.push(timeoutId);
+    });
     const shouldThrow = await Promise.race([interruptPromise, timeoutPromise]);
 
+    clearTimeout(timeoutId!);
+    this.timeoutIds = this.timeoutIds.filter(id => id !== timeoutId);
     this.interrupts = this.interrupts.filter(res => res !== interruptResolve);
 
     if (shouldThrow) {
@@ -58,6 +65,8 @@ export class InterruptibleSleep {
   public interrupt(sleepShouldThrow = false): void {
     this.interrupts.forEach(resolve => resolve(sleepShouldThrow));
     this.interrupts = [];
+    this.timeoutIds.forEach(id => clearTimeout(id));
+    this.timeoutIds = [];
   }
 }
 

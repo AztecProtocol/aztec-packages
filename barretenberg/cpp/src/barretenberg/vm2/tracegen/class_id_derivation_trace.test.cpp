@@ -13,7 +13,6 @@ namespace bb::avm2::tracegen {
 namespace {
 
 using testing::ElementsAre;
-using testing::Field;
 
 using R = TestTraceContainer::Row;
 
@@ -22,14 +21,13 @@ TEST(ClassIdDerivationTraceGenTest, TraceGeneration)
     TestTraceContainer trace;
     ClassIdDerivationTraceBuilder builder;
 
-    ContractClassWithCommitment klass{
-        .id = FF(0xdeadbeef),
+    simulation::ClassIdDerivationEvent class_event{
+        .class_id = FF(0xdeadbeef),
         .artifact_hash = FF(12),
         .private_functions_root = FF(23),
-        .packed_bytecode = {},
         .public_bytecode_commitment = FF(45),
     };
-    builder.process({ { .klass = klass } }, trace);
+    builder.process({ { class_event } }, trace);
 
     EXPECT_THAT(trace.as_rows(),
                 ElementsAre(

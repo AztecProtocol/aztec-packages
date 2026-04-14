@@ -44,7 +44,6 @@ describe('reqresp effectiveness under tx drop', () => {
     try {
       await setValidatorTxDrop({
         namespace: config.NAMESPACE,
-        enabled: false,
         probability: 0,
         logger,
       });
@@ -72,7 +71,8 @@ describe('reqresp effectiveness under tx drop', () => {
     testAccounts = await deploySponsoredTestAccountsWithTokens(wallet, aztecNode, MINT_AMOUNT, logger);
     recipient = testAccounts.recipientAddress;
     const name = readFieldCompressedString(
-      await testAccounts.tokenContract.methods.private_get_name().simulate({ from: testAccounts.tokenAdminAddress }),
+      (await testAccounts.tokenContract.methods.private_get_name().simulate({ from: testAccounts.tokenAdminAddress }))
+        .result,
     );
     expect(name).toBe(testAccounts.tokenName);
   });
@@ -101,7 +101,6 @@ describe('reqresp effectiveness under tx drop', () => {
     if (!(probability == 0)) {
       await setValidatorTxDrop({
         namespace: config.NAMESPACE,
-        enabled: true,
         probability,
         logger,
       });

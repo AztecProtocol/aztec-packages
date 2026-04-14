@@ -1,4 +1,5 @@
 import { getInitialTestAccountsData } from '@aztec/accounts/testing';
+import { NO_FROM } from '@aztec/aztec.js/account';
 import { Fr } from '@aztec/aztec.js/fields';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import { TxReceipt } from '@aztec/aztec.js/tx';
@@ -13,11 +14,10 @@ import {
   SupportedTokenContracts,
   getBotDefaultConfig,
 } from '@aztec/bot';
-import { AVM_MAX_PROCESSABLE_L2_GAS, MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT } from '@aztec/constants';
+import { MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT, MAX_PROCESSABLE_L2_GAS } from '@aztec/constants';
 import { SecretValue } from '@aztec/foundation/config';
 import { bufferToHex } from '@aztec/foundation/string';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
-import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 import { EmbeddedWallet } from '@aztec/wallets/embedded';
 
@@ -47,10 +47,13 @@ describe('e2e_bot', () => {
     wallet = await EmbeddedWallet.create(aztecNode, { ephemeral: true });
     const accountManager = await wallet.createSchnorrAccount(botAccount.secret, botAccount.salt, botAccount.signingKey);
     const deployMethod = await accountManager.getDeployMethod();
-    await deployMethod.send({ from: AztecAddress.ZERO });
+    await deployMethod.send({ from: NO_FROM });
   });
 
   afterAll(() => teardown());
+
+  let privateKeyIndex = 10;
+  const getPrivateKey = () => new SecretValue(bufferToHex(getPrivateKeyFromIndex(privateKeyIndex++)!));
 
   describe('transaction-bot', () => {
     let bot: Bot;
@@ -73,7 +76,7 @@ describe('e2e_bot', () => {
     });
 
     it('sends token transfers with hardcoded gas and no simulation', async () => {
-      bot.updateConfig({ daGasLimit: MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT, l2GasLimit: AVM_MAX_PROCESSABLE_L2_GAS });
+      bot.updateConfig({ daGasLimit: MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT, l2GasLimit: MAX_PROCESSABLE_L2_GAS });
       const { recipient: recipientBefore } = await bot.getBalances();
 
       await bot.run();
@@ -131,9 +134,14 @@ describe('e2e_bot', () => {
 
         l1RpcUrls,
         feePaymentMethod: 'fee_juice',
-        // TODO: this should be taken from the `setup` call above
-        l1Mnemonic: new SecretValue('test test test test test test test test test test test junk'),
+        // Use a dedicated L1 account (index 7) for bridging. The default mnemonic account (index 0)
+        // is shared with the sequencer which sends L1 block proposals, causing nonce races on the
+        // approve/deposit calls in bridgeL1FeeJuice. Indices 8 and 9 are used by other tests below.
+        l1PrivateKey: new SecretValue(bufferToHex(getPrivateKeyFromIndex(7)!)),
         flushSetupTransactions: true,
+        // Increase fee headroom to handle fee volatility from rapid block building in tests.
+        // Fees can escalate >10x due to blocks built by earlier tests and bridge operations.
+        minFeePadding: 99,
       };
 
       {
@@ -169,9 +177,13 @@ describe('e2e_bot', () => {
 
         l1RpcUrls,
         feePaymentMethod: 'fee_juice',
-        // TODO: this should be taken from the `setup` call above
-        l1Mnemonic: new SecretValue('test test test test test test test test test test test junk'),
+        // See comment above — dedicated L1 account to avoid nonce races with the sequencer.
+        l1PrivateKey: new SecretValue(bufferToHex(getPrivateKeyFromIndex(7)!)),
         flushSetupTransactions: true,
+        // Increase fee headroom to handle fee volatility from rapid block building in tests.
+        // This test is especially susceptible because changing salt triggers a new bridge claim,
+        // adding more block building on top of what earlier tests already produced.
+        minFeePadding: 99,
       };
 
       {
@@ -231,7 +243,7 @@ describe('e2e_bot', () => {
         followChain: 'PROPOSED',
         botMode: 'transfer',
         senderPrivateKey: new SecretValue(Fr.random()),
-        l1PrivateKey: new SecretValue(bufferToHex(getPrivateKeyFromIndex(8)!)),
+        l1PrivateKey: getPrivateKey(),
         l1RpcUrls,
         flushSetupTransactions: true,
       };
@@ -254,7 +266,7 @@ describe('e2e_bot', () => {
         followChain: 'PROPOSED',
         botMode: 'crosschain',
         l1RpcUrls,
-        l1PrivateKey: new SecretValue(bufferToHex(getPrivateKeyFromIndex(9)!)),
+        l1PrivateKey: getPrivateKey(),
         flushSetupTransactions: true,
         l1ToL2SeedCount: 2,
       };

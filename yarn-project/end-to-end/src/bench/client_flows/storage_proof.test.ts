@@ -36,7 +36,6 @@ describe('Storage proof benchmark', () => {
 
     const deployed = await StorageProofTestContract.deploy(t.adminWallet).send({
       from: t.adminAddress,
-      wait: { returnReceipt: true },
     });
     storageProofContract = deployed.contract;
     storageProofInstance = deployed.instance;
@@ -106,7 +105,7 @@ describe('Storage proof benchmark', () => {
           );
 
           if (process.env.SANITY_CHECKS) {
-            const tx = await interaction.send(options);
+            const { receipt: tx } = await interaction.send(options);
             expect(tx.transactionFee!).toBeGreaterThan(0n);
             expect(tx.hasExecutionSucceeded()).toBe(true);
           }

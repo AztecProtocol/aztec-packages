@@ -91,7 +91,7 @@ export class TransportClient<Payload> extends EventEmitter {
     }
     const msgId = this.msgId++;
     const msg = { msgId, payload };
-    log.debug(format(`->`, msg));
+    log.trace(format(`->`, msg));
     return new Promise<any>((resolve, reject) => {
       this.pendingRequests.push({ resolve, reject, msgId });
       this.socket!.send(msg, transfer).catch(reject);
@@ -111,7 +111,7 @@ export class TransportClient<Payload> extends EventEmitter {
       this.close();
       return;
     }
-    log.debug(format(`<-`, msg));
+    log.trace(format(`<-`, msg));
     if (isEventMessage(msg)) {
       this.emit('event_msg', msg.payload);
       return;

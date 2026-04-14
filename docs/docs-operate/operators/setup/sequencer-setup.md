@@ -621,7 +621,6 @@ After setting up and registering your sequencer:
 - **[Monitor Sequencer Status](#monitoring-sequencer-status)** - Track performance and attestation rate
 - **[Operator FAQ](../operator-faq.md)** - Common issues and resolutions
 - **[Governance Participation](../sequencer-management/governance-participation.md)** - Participate in governance
-- **[High Availability Setup](./high-availability.md)** - Run your sequencer across multiple nodes for redundancy
 - **[Advanced Keystore Patterns](../keystore/advanced-patterns.md)** - Manage multiple sequencer identities
 
 **Community support:**

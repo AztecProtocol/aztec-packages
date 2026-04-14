@@ -75,7 +75,7 @@ def deduplicate_release_notes(input_file, output_file=None):
     if output_file is None:
         output_file = input_file
 
-    with open(input_file, 'r', encoding='utf-8') as f:
+    with open(input_file, 'r', encoding='utf-8', errors='replace') as f:
         lines = f.readlines()
 
     original_count = len(lines)

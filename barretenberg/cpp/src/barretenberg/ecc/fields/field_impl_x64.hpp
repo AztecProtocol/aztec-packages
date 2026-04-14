@@ -1,5 +1,5 @@
 // === AUDIT STATUS ===
-// internal:    { status: Planned, auditors: [Raju], commit: }
+// internal:    { status: Completed, auditors: [Raju], commit: }
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
@@ -46,7 +46,7 @@ template <class T> field<T> field<T>::asm_mul_with_coarse_reduction(const field&
     return r;
 }
 
-template <class T> void field<T>::asm_self_mul_with_coarse_reduction(const field& a, const field& b) noexcept
+template <class T> void field<T>::asm_self_mul_with_coarse_reduction(field& a, const field& b) noexcept
 {
     constexpr uint64_t r_inv = T::r_inv;
     constexpr uint64_t modulus_0 = modulus.data[0];
@@ -141,7 +141,7 @@ template <class T> field<T> field<T>::asm_sqr_with_coarse_reduction(const field&
     return r;
 }
 
-template <class T> void field<T>::asm_self_sqr_with_coarse_reduction(const field& a) noexcept
+template <class T> void field<T>::asm_self_sqr_with_coarse_reduction(field& a) noexcept
 {
     constexpr uint64_t r_inv = T::r_inv;
     constexpr uint64_t modulus_0 = modulus.data[0];
@@ -227,7 +227,7 @@ template <class T> field<T> field<T>::asm_add_with_coarse_reduction(const field&
     return r;
 }
 
-template <class T> void field<T>::asm_self_add_with_coarse_reduction(const field& a, const field& b) noexcept
+template <class T> void field<T>::asm_self_add_with_coarse_reduction(field& a, const field& b) noexcept
 {
     constexpr uint64_t twice_not_modulus_0 = twice_not_modulus.data[0];
     constexpr uint64_t twice_not_modulus_1 = twice_not_modulus.data[1];
@@ -259,41 +259,43 @@ template <class T> field<T> field<T>::asm_sub_with_coarse_reduction(const field&
     constexpr uint64_t twice_modulus_2 = twice_modulus.data[2];
     constexpr uint64_t twice_modulus_3 = twice_modulus.data[3];
 
-    __asm__(
-        CLEAR_FLAGS("%%r12") LOAD_FIELD_ELEMENT("%0", "%%r12", "%%r13", "%%r14", "%%r15") SUB("%1")
-            REDUCE_FIELD_ELEMENT("%[twice_modulus_0]", "%[twice_modulus_1]", "%[twice_modulus_2]", "%[twice_modulus_3]")
-                STORE_FIELD_ELEMENT("%2", "%%r12", "%%r13", "%%r14", "%%r15")
-        :
-        : "r"(&a),
-          "r"(&b),
-          "r"(&r),
-          [twice_modulus_0] "m"(twice_modulus_0),
-          [twice_modulus_1] "m"(twice_modulus_1),
-          [twice_modulus_2] "m"(twice_modulus_2),
-          [twice_modulus_3] "m"(twice_modulus_3)
-        : "%r8", "%r9", "%r10", "%r11", "%r12", "%r13", "%r14", "%r15", "cc", "memory");
+    /* Note: the ADX CONDITIONAL_ADD reads OF via adoxq, but OF is guaranteed to be 0 here.   */
+    /* SUB's sbbq sets OF on signed overflow, which cannot occur for field elements in [0,2p) */
+    /* because the top limb is always < 2^63 (positive in signed interpretation).             */
+    __asm__(CLEAR_FLAGS("%%r12") LOAD_FIELD_ELEMENT("%0", "%%r12", "%%r13", "%%r14", "%%r15") SUB("%1")
+                CONDITIONAL_ADD("%[twice_modulus_0]", "%[twice_modulus_1]", "%[twice_modulus_2]", "%[twice_modulus_3]")
+                    STORE_FIELD_ELEMENT("%2", "%%r12", "%%r13", "%%r14", "%%r15")
+            :
+            : "r"(&a),
+              "r"(&b),
+              "r"(&r),
+              [twice_modulus_0] "m"(twice_modulus_0),
+              [twice_modulus_1] "m"(twice_modulus_1),
+              [twice_modulus_2] "m"(twice_modulus_2),
+              [twice_modulus_3] "m"(twice_modulus_3)
+            : "%r8", "%r9", "%r10", "%r11", "%r12", "%r13", "%r14", "%r15", "cc", "memory");
     return r;
 }
 
-template <class T> void field<T>::asm_self_sub_with_coarse_reduction(const field& a, const field& b) noexcept
+template <class T> void field<T>::asm_self_sub_with_coarse_reduction(field& a, const field& b) noexcept
 {
     constexpr uint64_t twice_modulus_0 = twice_modulus.data[0];
     constexpr uint64_t twice_modulus_1 = twice_modulus.data[1];
     constexpr uint64_t twice_modulus_2 = twice_modulus.data[2];
     constexpr uint64_t twice_modulus_3 = twice_modulus.data[3];
 
-    __asm__(
-        CLEAR_FLAGS("%%r12") LOAD_FIELD_ELEMENT("%0", "%%r12", "%%r13", "%%r14", "%%r15") SUB("%1")
-            REDUCE_FIELD_ELEMENT("%[twice_modulus_0]", "%[twice_modulus_1]", "%[twice_modulus_2]", "%[twice_modulus_3]")
-                STORE_FIELD_ELEMENT("%0", "%%r12", "%%r13", "%%r14", "%%r15")
-        :
-        : "r"(&a),
-          "r"(&b),
-          [twice_modulus_0] "m"(twice_modulus_0),
-          [twice_modulus_1] "m"(twice_modulus_1),
-          [twice_modulus_2] "m"(twice_modulus_2),
-          [twice_modulus_3] "m"(twice_modulus_3)
-        : "%r8", "%r9", "%r10", "%r11", "%r12", "%r13", "%r14", "%r15", "cc", "memory");
+    /* See comment in asm_sub_with_coarse_reduction: OF is guaranteed 0 after SUB. */
+    __asm__(CLEAR_FLAGS("%%r12") LOAD_FIELD_ELEMENT("%0", "%%r12", "%%r13", "%%r14", "%%r15") SUB("%1")
+                CONDITIONAL_ADD("%[twice_modulus_0]", "%[twice_modulus_1]", "%[twice_modulus_2]", "%[twice_modulus_3]")
+                    STORE_FIELD_ELEMENT("%0", "%%r12", "%%r13", "%%r14", "%%r15")
+            :
+            : "r"(&a),
+              "r"(&b),
+              [twice_modulus_0] "m"(twice_modulus_0),
+              [twice_modulus_1] "m"(twice_modulus_1),
+              [twice_modulus_2] "m"(twice_modulus_2),
+              [twice_modulus_3] "m"(twice_modulus_3)
+            : "%r8", "%r9", "%r10", "%r11", "%r12", "%r13", "%r14", "%r15", "cc", "memory");
 }
 
 template <class T> void field<T>::asm_conditional_negate(field& r, const uint64_t predicate) noexcept
@@ -338,7 +340,7 @@ template <class T> field<T> field<T>::asm_reduce_once(const field& a) noexcept
     constexpr uint64_t not_modulus_3 = not_modulus.data[3];
 
     __asm__(CLEAR_FLAGS("%%r12") LOAD_FIELD_ELEMENT("%0", "%%r12", "%%r13", "%%r14", "%%r15")
-                REDUCE_FIELD_ELEMENT("%[not_modulus_0]", "%[not_modulus_1]", "%[not_modulus_2]", "%[not_modulus_3]")
+                CONDITIONAL_ADD("%[not_modulus_0]", "%[not_modulus_1]", "%[not_modulus_2]", "%[not_modulus_3]")
                     STORE_FIELD_ELEMENT("%1", "%%r12", "%%r13", "%%r14", "%%r15")
             :
             : "r"(&a),
@@ -351,7 +353,7 @@ template <class T> field<T> field<T>::asm_reduce_once(const field& a) noexcept
     return r;
 }
 
-template <class T> void field<T>::asm_self_reduce_once(const field& a) noexcept
+template <class T> void field<T>::asm_self_reduce_once(field& a) noexcept
 {
     constexpr uint64_t not_modulus_0 = not_modulus.data[0];
     constexpr uint64_t not_modulus_1 = not_modulus.data[1];
@@ -359,7 +361,7 @@ template <class T> void field<T>::asm_self_reduce_once(const field& a) noexcept
     constexpr uint64_t not_modulus_3 = not_modulus.data[3];
 
     __asm__(CLEAR_FLAGS("%%r12") LOAD_FIELD_ELEMENT("%0", "%%r12", "%%r13", "%%r14", "%%r15")
-                REDUCE_FIELD_ELEMENT("%[not_modulus_0]", "%[not_modulus_1]", "%[not_modulus_2]", "%[not_modulus_3]")
+                CONDITIONAL_ADD("%[not_modulus_0]", "%[not_modulus_1]", "%[not_modulus_2]", "%[not_modulus_3]")
                     STORE_FIELD_ELEMENT("%0", "%%r12", "%%r13", "%%r14", "%%r15")
             :
             : "r"(&a),

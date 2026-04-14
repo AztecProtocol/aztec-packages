@@ -1,4 +1,4 @@
-import { BlockNumber, IndexWithinCheckpoint, SlotNumber } from '@aztec/foundation/branded-types';
+import { type CheckpointNumber, IndexWithinCheckpoint, SlotNumber } from '@aztec/foundation/branded-types';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { keccak256 } from '@aztec/foundation/crypto/keccak';
 import { tryRecoverAddress } from '@aztec/foundation/crypto/secp256k1-signer';
@@ -6,10 +6,10 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import { Signature } from '@aztec/foundation/eth-signature';
 import { BufferReader, serializeSignedBigInt, serializeToBuffer } from '@aztec/foundation/serialize';
-import { DutyType, type SigningContext } from '@aztec/validator-ha-signer/types';
 
 import type { L2BlockInfo } from '../block/l2_block_info.js';
 import { MAX_TXS_PER_BLOCK } from '../deserialization/index.js';
+import { DutyType, type SigningContext } from '../ha-signing/index.js';
 import { CheckpointHeader } from '../rollup/checkpoint_header.js';
 import { BlockHeader } from '../tx/block_header.js';
 import { TxHash } from '../tx/index.js';
@@ -101,23 +101,6 @@ export class CheckpointProposal extends Gossipable {
     return this.checkpointHeader.slotNumber;
   }
 
-  get blockNumber(): BlockNumber {
-    if (!this.lastBlock) {
-      throw new Error('Cannot get blockNumber without lastBlock');
-    }
-    return this.lastBlock.blockHeader.getBlockNumber();
-  }
-
-  /** Convenience getter for txHashes from lastBlock */
-  get txHashes(): TxHash[] {
-    return this.lastBlock?.txHashes ?? [];
-  }
-
-  /** Convenience getter for txs from lastBlock */
-  get txs(): Tx[] | undefined {
-    return this.lastBlock?.signedTxs?.txs;
-  }
-
   /**
    * Extract a BlockProposal from the last block info.
    * Uses inHash from checkpointHeader.contentCommitment.inHash
@@ -177,8 +160,9 @@ export class CheckpointProposal extends Gossipable {
   static async createProposalFromSigner(
     checkpointHeader: CheckpointHeader,
     archiveRoot: Fr,
+    checkpointNumber: CheckpointNumber,
     feeAssetPriceModifier: bigint,
-    lastBlockInfo: CheckpointLastBlockData | undefined,
+    lastBlockProposal: BlockProposal | undefined,
     payloadSigner: (payload: Buffer32, context: SigningContext) => Promise<Signature>,
   ): Promise<CheckpointProposal> {
     // Sign the checkpoint payload with CHECKPOINT_PROPOSAL duty type
@@ -192,32 +176,19 @@ export class CheckpointProposal extends Gossipable {
 
     const checkpointContext: SigningContext = {
       slot: checkpointHeader.slotNumber,
-      blockNumber: lastBlockInfo?.blockHeader?.globalVariables.blockNumber ?? BlockNumber(0),
+      checkpointNumber,
       dutyType: DutyType.CHECKPOINT_PROPOSAL,
     };
+
     const checkpointSignature = await payloadSigner(checkpointHash, checkpointContext);
 
-    if (!lastBlockInfo) {
-      return new CheckpointProposal(checkpointHeader, archiveRoot, feeAssetPriceModifier, checkpointSignature);
-    }
-
-    const lastBlockProposal = await BlockProposal.createProposalFromSigner(
-      lastBlockInfo.blockHeader,
-      lastBlockInfo.indexWithinCheckpoint,
-      checkpointHeader.inHash,
+    return new CheckpointProposal(
+      checkpointHeader,
       archiveRoot,
-      lastBlockInfo.txHashes,
-      lastBlockInfo.txs,
-      payloadSigner,
+      feeAssetPriceModifier,
+      checkpointSignature,
+      lastBlockProposal,
     );
-
-    return new CheckpointProposal(checkpointHeader, archiveRoot, feeAssetPriceModifier, checkpointSignature, {
-      blockHeader: lastBlockInfo.blockHeader,
-      indexWithinCheckpoint: lastBlockInfo.indexWithinCheckpoint,
-      txHashes: lastBlockInfo.txHashes,
-      signature: lastBlockProposal.signature,
-      signedTxs: lastBlockProposal.signedTxs,
-    });
   }
 
   /**

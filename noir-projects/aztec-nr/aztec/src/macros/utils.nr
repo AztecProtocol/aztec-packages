@@ -30,7 +30,9 @@ pub(crate) comptime fn is_fn_initializer(f: FunctionDefinition) -> bool {
 }
 
 pub(crate) comptime fn fn_has_noinitcheck(f: FunctionDefinition) -> bool {
-    f.has_named_attribute("noinitcheck")
+    // #[only_self] functions automatically skip the initialization check as the check is assumed to be done by the
+    // calling external function or explicitly skipped. See only_self function docs for more details.
+    f.has_named_attribute("noinitcheck") | is_fn_only_self(f)
 }
 
 pub(crate) comptime fn fn_has_allow_phase_change(f: FunctionDefinition) -> bool {
@@ -85,15 +87,15 @@ comptime fn signature_of_type(typ: Type) -> CtString {
     }
 }
 
-pub(crate) comptime fn compute_fn_selector(f: FunctionDefinition) -> Field {
+/// Computes a function selector from a name and parameter list.
+pub(crate) comptime fn compute_fn_selector(fn_name: Quoted, parameters: [(Quoted, Type)]) -> Field {
     // The function selector is computed from the function signature, which is made up of the function name and types
     // of parameters, but not including the return type. For example, given:
     //
     // fn foo(a: Field, b: AztecAddress) -> Field
     //
     // The signature will be "foo(Field,AztecAddress)".
-    let fn_name = f.name();
-    let args_signatures = f.parameters().map(|(_, typ)| signature_of_type(typ)).join(",".as_ctstring());
+    let args_signatures = parameters.map(|(_, typ)| signature_of_type(typ)).join(",".as_ctstring());
     let signature_quote = f"{fn_name}({args_signatures})".as_ctstring();
 
     let computation_quote = quote {

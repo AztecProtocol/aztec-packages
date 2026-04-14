@@ -90,7 +90,7 @@ export function FunctionCard({ fn, contract, contractArtifact, onSendTxRequested
     let result;
     try {
       const call = contract.methods[fnName](...parameters);
-      result = await call.simulate({ from, skipFeeEnforcement: true });
+      ({ result } = await call.simulate({ from, skipFeeEnforcement: true }));
       const stringResult = JSON.stringify(result, (key, value) => {
         if (typeof value === 'bigint') {
           return value.toString();

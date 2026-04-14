@@ -19,7 +19,6 @@ global:
   customAztecNetwork:
     l1ChainId:
     registryContractAddress:
-    slashFactoryContractAddress:
     feeAssetHandlerContractAddress:
 
   # -- Ethereum configuration
@@ -29,9 +28,9 @@ global:
   l1ConsensusUrls: []
   ## Only when api key is required via header, otherwise just provide in l1ConsensusHostUrls
   ## Example: "1234abcd"
-  l1ConsensusHostApiKeys: []
+  l1ConsensusHostApiKeys: ""
   ## Example: "X-API-KEY"
-  l1ConsensusHostApiKeyHeaders: []
+  l1ConsensusHostApiKeyHeaders: ""
 
   aztecImage:
     repository: aztecprotocol/aztec
@@ -106,7 +105,7 @@ node:
 
   # -- Disable admin API key authentication.
   # Set to false in production to enable API key auth.
-  noAdminApiKey: true
+  disableAdminApiKey: true
 
   # the address that will receive block or proof rewards
   coinbase:
@@ -145,9 +144,6 @@ node:
   sentinel:
     enabled: true
   slash:
-    # Penalty percentages for slashing offenses
-    minPenaltyPercentage: ""
-    maxPenaltyPercentage: ""
     # Validator allowlists/denylists
     validatorsAlways: []
     validatorsNever: []
@@ -241,6 +237,10 @@ rbac:
         - "get"
         - "list"
         - "watch"
+
+podDisruptionBudget:
+  enabled: false
+  minAvailable: 1
 
 serviceAccount:
   # -- Create a service account

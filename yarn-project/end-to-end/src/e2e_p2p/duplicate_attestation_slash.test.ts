@@ -4,6 +4,7 @@ import { EthAddress } from '@aztec/aztec.js/addresses';
 import { EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { bufferToHex } from '@aztec/foundation/string';
 import { OffenseType } from '@aztec/slasher';
+import { TopicType } from '@aztec/stdlib/p2p';
 
 import { jest } from '@jest/globals';
 import fs from 'fs';
@@ -15,7 +16,7 @@ import { shouldCollectMetrics } from '../fixtures/fixtures.js';
 import { ATTESTER_PRIVATE_KEYS_START_INDEX, createNode } from '../fixtures/setup_p2p_test.js';
 import { getPrivateKeyFromIndex } from '../fixtures/utils.js';
 import { P2PNetworkTest } from './p2p_network.js';
-import { awaitCommitteeExists, awaitOffenseDetected } from './shared.js';
+import { advanceToEpochBeforeProposer, awaitCommitteeExists, awaitOffenseDetected } from './shared.js';
 
 const TEST_TIMEOUT = 600_000; // 10 minutes
 
@@ -67,6 +68,7 @@ describe('e2e_p2p_duplicate_attestation_slash', () => {
       basePort: BOOT_NODE_UDP_PORT,
       metricsPort: shouldCollectMetrics(),
       initialConfig: {
+        anvilSlotsInAnEpoch: 4,
         listenAddress: '127.0.0.1',
         aztecEpochDuration,
         ethereumSlotDuration: ETHEREUM_SLOT_DURATION,
@@ -83,6 +85,7 @@ describe('e2e_p2p_duplicate_attestation_slash', () => {
         slashAmountLarge: slashingUnit * 3n,
         enforceTimeTable: true,
         blockDurationMs: BLOCK_DURATION * 1000,
+        l1PublishingTime: 1,
         slashDuplicateProposalPenalty: slashingUnit,
         slashDuplicateAttestationPenalty: slashingUnit,
         slashingOffsetInRounds: 1,
@@ -141,12 +144,16 @@ describe('e2e_p2p_duplicate_attestation_slash', () => {
         coinbase: coinbase1,
         attestToEquivocatedProposals: true, // Attest to all proposals - creates duplicate attestations
         broadcastEquivocatedProposals: true, // Don't abort checkpoint building on duplicate block proposals
+        dontStartSequencer: true,
+        // Prevent HA peer proposals from being added to the archiver, so both
+        // malicious nodes build their own blocks instead of one yielding to the other.
+        skipPushProposedBlocksToArchiver: true,
       },
       t.ctx.dateProvider!,
       BOOT_NODE_UDP_PORT + 1,
       t.bootstrapNodeEnr,
       maliciousProposerIndex,
-      t.prefilledPublicData,
+      t.genesis,
       `${DATA_DIR}-0`,
       shouldCollectMetrics(),
     );
@@ -159,12 +166,16 @@ describe('e2e_p2p_duplicate_attestation_slash', () => {
         coinbase: coinbase2,
         attestToEquivocatedProposals: true, // Attest to all proposals - creates duplicate attestations
         broadcastEquivocatedProposals: true, // Don't abort checkpoint building on duplicate block proposals
+        dontStartSequencer: true,
+        // Prevent HA peer proposals from being added to the archiver, so both
+        // malicious nodes build their own blocks instead of one yielding to the other.
+        skipPushProposedBlocksToArchiver: true,
       },
       t.ctx.dateProvider!,
       BOOT_NODE_UDP_PORT + 2,
       t.bootstrapNodeEnr,
       maliciousProposerIndex,
-      t.prefilledPublicData,
+      t.genesis,
       `${DATA_DIR}-1`,
       shouldCollectMetrics(),
     );
@@ -172,31 +183,59 @@ describe('e2e_p2p_duplicate_attestation_slash', () => {
     // Create honest nodes with unique validator keys (indices 1 and 2)
     t.logger.warn('Creating honest nodes');
     const honestNode1 = await createNode(
-      t.ctx.aztecNodeConfig,
+      {
+        ...t.ctx.aztecNodeConfig,
+        dontStartSequencer: true,
+      },
       t.ctx.dateProvider!,
       BOOT_NODE_UDP_PORT + 3,
       t.bootstrapNodeEnr,
       1,
-      t.prefilledPublicData,
+      t.genesis,
       `${DATA_DIR}-2`,
       shouldCollectMetrics(),
     );
     const honestNode2 = await createNode(
-      t.ctx.aztecNodeConfig,
+      {
+        ...t.ctx.aztecNodeConfig,
+        dontStartSequencer: true,
+      },
       t.ctx.dateProvider!,
       BOOT_NODE_UDP_PORT + 4,
       t.bootstrapNodeEnr,
       2,
-      t.prefilledPublicData,
+      t.genesis,
       `${DATA_DIR}-3`,
       shouldCollectMetrics(),
     );
 
     nodes = [maliciousNode1, maliciousNode2, honestNode1, honestNode2];
 
-    // Wait for P2P mesh and the committee to be fully formed before proceeding
-    await t.waitForP2PMeshConnectivity(nodes, NUM_VALIDATORS);
+    // Wait for P2P mesh on all needed topics before starting sequencers
+    await t.waitForP2PMeshConnectivity(nodes, NUM_VALIDATORS, 30, 0.1, [
+      TopicType.tx,
+      TopicType.block_proposal,
+      TopicType.checkpoint_proposal,
+    ]);
     await awaitCommitteeExists({ rollup, logger: t.logger });
+
+    // Find an epoch where the malicious proposer is selected, stopping one epoch before
+    // so we have time to start sequencers before the target epoch arrives
+    const epochCache = (honestNode1 as TestAztecNodeService).epochCache;
+    const { targetEpoch } = await advanceToEpochBeforeProposer({
+      epochCache,
+      cheatCodes: t.ctx.cheatCodes.rollup,
+      targetProposer: maliciousProposerAddress,
+      logger: t.logger,
+    });
+
+    // Start all sequencers while still one epoch before the target
+    t.logger.warn('Starting all sequencers');
+    await Promise.all(nodes.map(n => n.getSequencer()!.start()));
+
+    // Now warp to the target epoch — sequencers are already running
+    t.logger.warn(`Advancing to target epoch ${targetEpoch}`);
+    await t.ctx.cheatCodes.rollup.advanceToEpoch(targetEpoch);
 
     // Wait for offenses to be detected
     // We expect BOTH duplicate proposal AND duplicate attestation offenses
@@ -236,7 +275,6 @@ describe('e2e_p2p_duplicate_attestation_slash', () => {
     }
 
     // Verify that for each duplicate attestation offense, the attester for that slot is the malicious validator
-    const epochCache = (honestNode1 as TestAztecNodeService).epochCache;
     for (const offense of duplicateAttestationOffenses) {
       const offenseSlot = SlotNumber(Number(offense.epochOrSlot));
       const committeeInfo = await epochCache.getCommittee(offenseSlot);

@@ -16,7 +16,7 @@ import {
   IndividualReqRespTimeoutError,
   InvalidResponseError,
 } from '../../errors/reqresp.error.js';
-import { SnappyTransform } from '../encoding.js';
+import { OversizedSnappyResponseError, SnappyTransform } from '../encoding.js';
 import type { PeerScoring } from '../peer-manager/peer_scoring.js';
 import {
   DEFAULT_INDIVIDUAL_REQUEST_TIMEOUT_MS,
@@ -34,7 +34,9 @@ import {
   type ReqRespSubProtocolHandlers,
   type ReqRespSubProtocolRateLimits,
   type ReqRespSubProtocolValidators,
+  type ShouldRejectPeer,
   type SubProtocolMap,
+  UNAUTHENTICATED_ALLOWED_PROTOCOLS,
   responseFromBuffer,
   subProtocolSizeCalculators,
 } from './interface.js';
@@ -72,6 +74,8 @@ export class ReqResp implements ReqRespInterface {
 
   private snappyTransform: SnappyTransform;
 
+  private shouldRejectPeer: ShouldRejectPeer | undefined;
+
   private metrics: ReqRespMetrics;
 
   constructor(
@@ -106,6 +110,10 @@ export class ReqResp implements ReqRespInterface {
     if (typeof config.dialTimeoutMs === 'number') {
       this.dialTimeoutMs = config.dialTimeoutMs;
     }
+  }
+
+  public setShouldRejectPeer(checker: ShouldRejectPeer): void {
+    this.shouldRejectPeer = checker;
   }
 
   get tracer() {
@@ -320,7 +328,7 @@ export class ReqResp implements ReqRespInterface {
               };
 
               for (const index of indices) {
-                this.logger.info(`Sending request ${index} to peer ${peerAsString}`);
+                this.logger.trace(`Sending request ${index} to peer ${peerAsString}`);
                 const response = await this.sendRequestToPeer(peer, subProtocol, requestBuffers[index]);
 
                 // Check the status of the response buffer
@@ -462,7 +470,7 @@ export class ReqResp implements ReqRespInterface {
       );
       return resp;
     } catch (e: any) {
-      this.logger.warn(`SUBPROTOCOL: ${subProtocol}\n`, e);
+      this.logger.debug(`SUBPROTOCOL: ${subProtocol}\n`, e);
       // On error we immediately abort the stream, this is preferred way,
       // because it signals to the sender that error happened, whereas
       // closing the stream only closes our side and is much slower
@@ -553,16 +561,10 @@ export class ReqResp implements ReqRespInterface {
         data: message,
       };
     } catch (e: any) {
+      // All errors (invalid status bytes, oversized snappy responses, corrupt data, etc.)
+      // are re-thrown so the caller can penalize the peer via handleResponseError.
       this.logger.debug(`Reading message failed: ${e.message}`);
-
-      let status = ReqRespStatus.UNKNOWN;
-      if (e instanceof ReqRespStatusError) {
-        status = e.status;
-      }
-
-      return {
-        status,
-      };
+      throw e;
     }
   }
 
@@ -602,6 +604,15 @@ export class ReqResp implements ReqRespInterface {
         throw new ReqRespStatusError(ReqRespStatus.RATE_LIMIT_EXCEEDED);
       }
 
+      // When p2pAllowOnlyValidators is enabled, reject unauthenticated peers on data protocols
+      if (
+        !UNAUTHENTICATED_ALLOWED_PROTOCOLS.has(protocol) &&
+        (this.shouldRejectPeer?.(connection.remotePeer.toString()) ?? false)
+      ) {
+        this.logger.debug(`Rejecting unauthenticated peer ${connection.remotePeer} on gated protocol ${protocol}`);
+        throw new ReqRespStatusError(ReqRespStatus.FAILURE);
+      }
+
       await this.processStream(protocol, incomingStream);
     } catch (err: any) {
       this.metrics.recordResponseError(protocol);
@@ -627,7 +638,9 @@ export class ReqResp implements ReqRespInterface {
         // and that this stream should be dropped
         const isMessageToNotWarn =
           err instanceof Error &&
-          ['stream reset', 'Cannot push value onto an ended pushable'].some(msg => err.message.includes(msg));
+          ['stream reset', 'Cannot push value onto an ended pushable', 'read ECONNRESET'].some(msg =>
+            err.message.includes(msg),
+          );
         const level = isMessageToNotWarn ? 'debug' : 'warn';
         this.logger[level]('Unknown stream error while handling the stream, aborting', {
           protocol,
@@ -776,6 +789,20 @@ export class ReqResp implements ReqRespInterface {
     if (e instanceof CollectiveReqRespTimeoutError || e instanceof InvalidResponseError) {
       this.logger.debug(`Non-punishable error in ${subProtocol}: ${e.message}`, logTags);
       return undefined;
+    }
+
+    // Invalid status byte: the peer sent a status byte that doesn't match any known status code.
+    // This is a protocol violation, penalize harshly.
+    if (e instanceof ReqRespStatusError) {
+      this.logger.warn(`Invalid status byte from peer ${peerId.toString()} in ${subProtocol}: ${e.message}`, logTags);
+      return PeerErrorSeverity.LowToleranceError;
+    }
+
+    // Oversized snappy response: the peer is sending data that exceeds the allowed size.
+    // This is a protocol violation that wastes bandwidth, so penalize harshly.
+    if (e instanceof OversizedSnappyResponseError) {
+      this.logger.warn(`Oversized response from peer ${peerId.toString()} in ${subProtocol}: ${e.message}`, logTags);
+      return PeerErrorSeverity.LowToleranceError;
     }
 
     return this.categorizeConnectionErrors(e, peerId, subProtocol);

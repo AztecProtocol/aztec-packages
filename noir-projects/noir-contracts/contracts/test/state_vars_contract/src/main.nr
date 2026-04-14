@@ -41,7 +41,7 @@ pub contract StateVars {
 
     #[external("public")]
     fn initialize_public_immutable(value: u8) {
-        let mut new_mock_struct = MockStruct { account: self.msg_sender(), value };
+        let new_mock_struct = MockStruct { account: self.msg_sender(), value };
         self.storage.public_immutable.initialize(new_mock_struct);
     }
 

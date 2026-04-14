@@ -111,7 +111,6 @@ template <class Curve> class CommitmentKey {
             std::vector<std::span<Fr>> scalar_spans;
 
             for (auto& polynomial : polynomials.subspan(i, batch_end - i)) {
-                std::span<const Commitment> point_table = get_monomial_points().subspan(polynomial.start_index());
                 size_t consumed_srs = polynomial.start_index() + polynomial.size();
                 if (consumed_srs > get_monomial_size()) {
                     throw_or_abort(format("Attempting to commit to a polynomial that needs ",
@@ -119,6 +118,7 @@ template <class Curve> class CommitmentKey {
                                           " points with an SRS of size ",
                                           get_monomial_size()));
                 }
+                std::span<const Commitment> point_table = get_monomial_points().subspan(polynomial.start_index());
                 scalar_spans.emplace_back(polynomial.coeffs());
                 points_spans.emplace_back(point_table);
             }
@@ -138,24 +138,29 @@ template <class Curve> class CommitmentKey {
         CommitmentKey* key;
         RefVector<Polynomial<Fr>> wires;
         std::vector<std::string> labels;
+        std::vector<const Polynomial<Fr>*> tail_polys; // optional ZK masking tails (parallel to wires)
+
         std::vector<Commitment> commit_and_send_to_verifier(auto transcript,
                                                             size_t max_batch_size = std::numeric_limits<size_t>::max())
         {
             std::vector<Commitment> commitments = key->batch_commit(wires, max_batch_size);
+
+            // Adjust commitments for wires with masking tails: C' = C_short + commit(tail)
             for (size_t i = 0; i < commitments.size(); ++i) {
+                if (i < tail_polys.size() && tail_polys[i] != nullptr && !tail_polys[i]->is_empty()) {
+                    commitments[i] = commitments[i] + key->commit(*tail_polys[i]);
+                }
                 transcript->send_to_verifier(labels[i], commitments[i]);
             }
 
             return commitments;
         }
 
-        void add_to_batch(Polynomial<Fr>& poly, const std::string& label, bool mask)
+        void add_to_batch(Polynomial<Fr>& poly, const std::string& label, const Polynomial<Fr>* tail = nullptr)
         {
-            if (mask) {
-                poly.mask();
-            }
             wires.push_back(poly);
             labels.push_back(label);
+            tail_polys.push_back(tail);
         }
     };
 

@@ -86,9 +86,11 @@ describe('e2e_blacklist_token_contract mint', () => {
 
     describe('Mint flow', () => {
       it('mint_private as minter and redeem as recipient', async () => {
-        const balanceBefore = await asset.methods.balance_of_private(adminAddress).simulate({ from: adminAddress });
+        const { result: balanceBefore } = await asset.methods
+          .balance_of_private(adminAddress)
+          .simulate({ from: adminAddress });
 
-        const receipt = await asset.methods.mint_private(amount, secretHash).send({ from: adminAddress });
+        const { receipt } = await asset.methods.mint_private(amount, secretHash).send({ from: adminAddress });
         txHash = receipt.txHash;
 
         await t.addPendingShieldNoteToPXE(asset, adminAddress, amount, secretHash, txHash);
@@ -96,7 +98,9 @@ describe('e2e_blacklist_token_contract mint', () => {
         await asset.methods.redeem_shield(adminAddress, amount, secret).send({ from: adminAddress });
 
         tokenSim.mintPrivate(adminAddress, amount);
-        const balanceAfter = await asset.methods.balance_of_private(adminAddress).simulate({ from: adminAddress });
+        const { result: balanceAfter } = await asset.methods
+          .balance_of_private(adminAddress)
+          .simulate({ from: adminAddress });
         expect(balanceAfter).toBe(balanceBefore + amount);
       });
     });

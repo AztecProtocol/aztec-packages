@@ -1,6 +1,6 @@
+import circuitJson from "../../../../target/hello_circuit.json" with { type: "json" };
 // docs:start:generate_data
 import { Noir } from "@aztec/noir-noir_js";
-import circuitJson from "../../../../circuits/hello_circuit/target/hello_circuit.json" with { type: "json" };
 import { Barretenberg, UltraHonkBackend, deflattenFields } from "@aztec/bb.js";
 import fs from "fs";
 import { exit } from "process";
@@ -56,14 +56,14 @@ if (proofAsFields.length === 0) {
 const vkAsFields = recursiveArtifacts.vkAsFields;
 
 console.log(`VK size: ${vkAsFields.length}`); // Should be 115
-console.log(`Proof size: ${proofAsFields.length}`); // Should be 508
+console.log(`Proof size: ${proofAsFields.length}`); // Should be ~500
 console.log(`Public inputs: ${mainProofData.publicInputs.length}`); // Should be 1
 
 // Step 9: Save all data to JSON for contract interaction
 const data = {
   vkAsFields: vkAsFields, // 115 field elements - the verification key
   vkHash: recursiveArtifacts.vkHash, // Hash of VK - stored in contract
-  proofAsFields: proofAsFields, // 508 field elements - the proof
+  proofAsFields: proofAsFields, // ~500 field elements - the proof
   publicInputs: mainProofData.publicInputs.map((p: string) => p.toString()),
 };
 

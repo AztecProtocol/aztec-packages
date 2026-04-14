@@ -8,6 +8,7 @@
 #include "barretenberg/commitment_schemes/claim.hpp"
 #include "barretenberg/commitment_schemes/verification_key.hpp"
 #include "barretenberg/common/assert.hpp"
+#include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/common/container.hpp"
 #include "barretenberg/common/thread.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
@@ -98,6 +99,7 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
 
     // Compute the length of the vector of coefficients of a polynomial being opened.
     static constexpr size_t poly_length = 1UL << log_poly_length;
+    static_assert(log_poly_length >= 1, "log_poly_length must be at least 1");
 
 // These allow access to internal functions so that we can never use a mock transcript unless it's fuzzing or testing of
 // IPA specifically
@@ -167,14 +169,11 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
         // Compute auxiliary generator U, which is used to bind together the inner product claim and the commitment.
         // This yields the binding property because we assume it is computationally difficult to find a linear relation
         // between the CRS and `Commitment::one()`.
-        // Compute auxiliary generator U, which is used to bind together the inner product claim and the commitment.
-        // This yields the binding property because we assume it is computationally difficult to find a linear relation
-        // between the CRS and `Commitment::one()`.
         auto aux_generator = Commitment::one() * generator_challenge;
 
         // Checks poly_degree is greater than zero and a power of two
         // In the future, we might want to consider if non-powers of two are needed
-        BB_ASSERT((poly_length > 0) && (!(poly_length & (poly_length - 1))) &&
+        BB_ASSERT((poly_length > 0) && (!(poly_length & (poly_length - 1))),
                   "The polynomial degree plus 1 should be positive and a power of two");
 
         // Step 4.
@@ -325,6 +324,112 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
     }
 
     /**
+     * @brief Per-proof data extracted from an IPA transcript.
+     * @details Contains all values derived from transcript processing (steps 2–7, 9 of the IPA verification
+     * protocol) that are needed for either single-proof or batch IPA verification.
+     * Does not include the MSM (step 8).
+     */
+    struct TranscriptData {
+        GroupElement C_zero;           ///< \f$C_0 = C' + \sum_{j=0}^{k-1}(u_j^{-1}L_j + u_jR_j)\f$
+        Fr b_zero;                     ///< \f$b_0 = g(\beta) = \prod_{i=0}^{k-1}(1+u_{i}^{-1}x^{2^{i}})\f$
+        Polynomial<Fr> s_vec;          ///< \f$\vec{s}=(1,u_{0}^{-1},u_{1}^{-1},u_{0}^{-1}u_{1}^{-1},...,
+                                       ///<  \prod_{i=0}^{k-1}u_{i}^{-1})\f$
+        Fr gen_challenge;              ///< Generator challenge \f$u\f$ where \f$U = u \cdot G\f$
+        Commitment G_zero_from_prover; ///< \f$G_0\f$ received from prover (not recomputed)
+        Fr a_zero;                     ///< \f$a_0\f$ received from prover
+    };
+
+    /**
+     * @brief Process a single IPA proof's transcript, extracting all per-proof verification data.
+     *
+     * @param opening_claim Contains the commitment \f$C\f$ and opening pair \f$(\beta, f(\beta))\f$
+     * @param transcript Transcript with elements from the prover and generated challenges
+     *
+     * @return TranscriptData containing \f$C_0, b_0, \vec{s}, u, G_0, a_0\f$
+     *
+     * @details Performs steps 2–7 and 9 of the IPA verification protocol (see reduce_verify_internal_native):
+     *
+     *2. Receive the generator challenge \f$u\f$, abort if it's zero, otherwise compute \f$U=u\cdot G\f$
+     *3. Compute \f$C'=C+f(\beta)\cdot U\f$. (Recall that \f$f(\beta)\f$ is the claimed evaluation.)
+     *4. Receive \f$L_j, R_j\f$ and compute challenges \f$u_j\f$ for \f$j \in {k-1,..,0}\f$, abort on \f$u_j=0\f$
+     *5. Compute \f$C_0 = C' + \sum_{j=0}^{k-1}(u_j^{-1}L_j + u_jR_j)\f$
+     *6. Compute \f$b_0=g(\beta)=\prod_{i=0}^{k-1}(1+u_{i}^{-1}x^{2^{i}})\f$
+     *7. Compute vector \f$\vec{s}=(1,u_{0}^{-1},u_{1}^{-1},u_{0}^{-1}u_{1}^{-1},...,\prod_{i=0}^{k-1}u_{i}^{-1})\f$
+     *
+     * Additionally receives \f$G_0\f$ and \f$a_0\f$ from the prover transcript (step 9).
+     * Does NOT compute \f$G_s=\langle \vec{s},\vec{G}\rangle\f$ (step 8, the MSM)
+     * or perform the final verification check (steps 10–11).
+     *
+     * @pre add_claim_to_hash_buffer must have been called on the transcript (step 1).
+     */
+    template <typename Transcript>
+    static TranscriptData read_transcript_data(const OpeningClaim<Curve>& opening_claim,
+                                               const std::shared_ptr<Transcript>& transcript)
+        requires(!Curve::is_stdlib_type)
+    {
+        // Step 2.
+        // Receive generator challenge u and compute auxiliary generator
+        const Fr generator_challenge = transcript->template get_challenge<Fr>("IPA:generator_challenge");
+        if (generator_challenge.is_zero()) {
+            throw_or_abort("The generator challenge can't be zero");
+        }
+        const Commitment aux_generator = Commitment::one() * generator_challenge;
+
+        // Step 3.
+        // Compute C' = C + f(\beta) ⋅ U, i.e., the _joint_ commitment of f and f(\beta).
+        const GroupElement C_prime = opening_claim.commitment + (aux_generator * opening_claim.opening_pair.evaluation);
+
+        const auto pippenger_size = 2 * log_poly_length;
+        std::vector<Fr> round_challenges(log_poly_length);
+        std::vector<Commitment> msm_elements(pippenger_size);
+        std::vector<Fr> msm_scalars(pippenger_size);
+
+        // Step 4.
+        // Receive all L_j, R_j and compute round challenges u_j
+        for (size_t i = 0; i < log_poly_length; i++) {
+            std::string index = std::to_string(log_poly_length - i - 1);
+            const auto element_L = transcript->template receive_from_prover<Commitment>("IPA:L_" + index);
+            const auto element_R = transcript->template receive_from_prover<Commitment>("IPA:R_" + index);
+            round_challenges[i] = transcript->template get_challenge<Fr>("IPA:round_challenge_" + index);
+            if (round_challenges[i].is_zero()) {
+                throw_or_abort("Round challenges can't be zero");
+            }
+            msm_elements[2 * i] = element_L;
+            msm_elements[2 * i + 1] = element_R;
+        }
+
+        std::vector<Fr> round_challenges_inv = round_challenges;
+        Fr::batch_invert(round_challenges_inv);
+
+        // populate msm_scalars.
+        for (size_t i = 0; i < log_poly_length; i++) {
+            msm_scalars[2 * i] = round_challenges_inv[i];
+            msm_scalars[2 * i + 1] = round_challenges[i];
+        }
+
+        // Step 5.
+        // Compute C_zero = C' + ∑_{j ∈ [k]} u_j^{-1}L_j + ∑_{j ∈ [k]} u_jR_j
+        GroupElement LR_sums = scalar_multiplication::pippenger<Curve>(
+            { 0, { &msm_scalars[0], /*size*/ pippenger_size } }, { &msm_elements[0], /*size*/ pippenger_size });
+        GroupElement C_zero = C_prime + LR_sums;
+
+        // Step 6.
+        // Compute b_zero succinctly
+        const Fr b_zero = evaluate_challenge_poly(round_challenges_inv, opening_claim.opening_pair.challenge);
+
+        // Step 7.
+        // Construct vector s
+        Polynomial<Fr> s_vec(
+            construct_poly_from_u_challenges_inv(std::span(round_challenges_inv).subspan(0, log_poly_length)));
+
+        // Receive G_0 and a_0 from prover (advances transcript; G_0 not recomputed here)
+        Commitment G_zero_from_prover = transcript->template receive_from_prover<Commitment>("IPA:G_0");
+        Fr a_zero = transcript->template receive_from_prover<Fr>("IPA:a_0");
+
+        return { C_zero, b_zero, std::move(s_vec), generator_challenge, G_zero_from_prover, a_zero };
+    }
+
+    /**
      * @brief Natively verify the correctness of a Proof
      *
      * @tparam Transcript Allows to specify a transcript class. Useful for testing
@@ -352,91 +457,36 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
     static bool reduce_verify_internal_native(const VK& vk, const OpeningClaim<Curve>& opening_claim, auto& transcript)
         requires(!Curve::is_stdlib_type)
     {
-        // Step 1
-        // Done by `add_claim_to_hash_buffer`.
+        BB_BENCH_NAME("IPA::reduce_verify");
 
-        // Step 2.
-        // Receive generator challenge u and compute auxiliary generator
-        const Fr generator_challenge = transcript->template get_challenge<Fr>("IPA:generator_challenge");
+        // Steps 2–7, 9: Process transcript and extract per-proof data (step 1 done by add_claim_to_hash_buffer)
+        auto data = read_transcript_data(opening_claim, transcript);
 
-        if (generator_challenge.is_zero()) {
-            throw_or_abort("The generator challenge can't be zero");
-        }
-
-        const Commitment aux_generator = Commitment::one() * generator_challenge;
-
-        // Step 3.
-        // Compute C' = C + f(\beta) ⋅ U, i.e., the _joint_ commitment of f and f(\beta).
-        const GroupElement C_prime = opening_claim.commitment + (aux_generator * opening_claim.opening_pair.evaluation);
-
-        const auto pippenger_size = 2 * log_poly_length;
-        std::vector<Fr> round_challenges(log_poly_length);
-        // the group elements that will participate in our MSM.
-        std::vector<Commitment> msm_elements(pippenger_size); // L_{k-1}, R_{k-1}, L_{k-2}, ..., L_0, R_0.
-        // the scalars that will participate in our MSM.
-        std::vector<Fr> msm_scalars(pippenger_size); // w_{k-1}^{-1}, w_{k-1}, ..., w_{0}^{-1}, w_{0}.
-
-        // Step 4.
-        // Receive all L_i and R_i and populate msm_elements.
-        for (size_t i = 0; i < log_poly_length; i++) {
-            std::string index = std::to_string(log_poly_length - i - 1);
-            const auto element_L = transcript->template receive_from_prover<Commitment>("IPA:L_" + index);
-            const auto element_R = transcript->template receive_from_prover<Commitment>("IPA:R_" + index);
-            round_challenges[i] = transcript->template get_challenge<Fr>("IPA:round_challenge_" + index);
-            if (round_challenges[i].is_zero()) {
-                throw_or_abort("Round challenges can't be zero");
-            }
-            msm_elements[2 * i] = element_L;
-            msm_elements[2 * i + 1] = element_R;
-        }
-
-        std::vector<Fr> round_challenges_inv = round_challenges;
-        Fr::batch_invert(round_challenges_inv);
-
-        // populate msm_scalars.
-        for (size_t i = 0; i < log_poly_length; i++) {
-            msm_scalars[2 * i] = round_challenges_inv[i];
-            msm_scalars[2 * i + 1] = round_challenges[i];
-        }
-
-        // Step 5.
-        // Compute C_zero = C' + ∑_{j ∈ [k]} u_j^{-1}L_j + ∑_{j ∈ [k]} u_jR_j
-        GroupElement LR_sums = scalar_multiplication::pippenger_unsafe<Curve>(
-            { 0, { &msm_scalars[0], /*size*/ pippenger_size } }, { &msm_elements[0], /*size*/ pippenger_size });
-        GroupElement C_zero = C_prime + LR_sums;
-
-        //  Step 6.
-        // Compute b_zero succinctly
-        const Fr b_zero = evaluate_challenge_poly(round_challenges_inv, opening_claim.opening_pair.challenge);
-
-        // Step 7.
-        // Construct vector s
-        Polynomial<Fr> s_vec(
-            construct_poly_from_u_challenges_inv(std::span(round_challenges_inv).subspan(0, log_poly_length)));
-
+        // Step 8.
+        // Compute G_s = <s, G> via SRS MSM and verify against prover's G_0
         std::span<const Commitment> srs_elements = vk.get_monomial_points();
         if (poly_length > srs_elements.size()) {
             throw_or_abort("potential bug: Not enough SRS points for IPA!");
         }
-
-        // Step 8.
-        // Compute G_zero
-        Commitment G_zero =
-            scalar_multiplication::pippenger_unsafe<Curve>(s_vec, { &srs_elements[0], /*size*/ poly_length });
-        Commitment G_zero_sent = transcript->template receive_from_prover<Commitment>("IPA:G_0");
-        BB_ASSERT_EQ(G_zero, G_zero_sent, "G_0 should be equal to G_0 sent in transcript. IPA verification fails.");
-
-        // Step 9.
-        // Receive a_zero from the prover
-        auto a_zero = transcript->template receive_from_prover<Fr>("IPA:a_0");
+        Commitment G_zero;
+        {
+            BB_BENCH_NAME("IPA::srs_msm");
+            G_zero =
+                scalar_multiplication::pippenger_unsafe<Curve>(data.s_vec, { &srs_elements[0], /*size*/ poly_length });
+        }
+        if (G_zero != data.G_zero_from_prover) {
+            info("IPA verification failed: G_0 mismatch");
+            return false;
+        }
 
         // Step 10.
-        // Compute C_right. Implicitly, this is an IPA statement for the length 1 vectors <a_0> and <b_0> together with
-        // the URS G_0.
-        GroupElement right_hand_side = G_zero * a_zero + aux_generator * a_zero * b_zero;
+        // Compute C_right = a_0 * G_s + a_0 * b_0 * U
+        Commitment aux_generator = Commitment::one() * data.gen_challenge;
+        GroupElement right_hand_side = G_zero * data.a_zero + aux_generator * data.a_zero * data.b_zero;
+
         // Step 11.
-        // Check if C_right == C_zero
-        return (C_zero.normalize() == right_hand_side.normalize());
+        // Check if C_right == C_0
+        return (data.C_zero.normalize() == right_hand_side.normalize());
     }
 
     /**
@@ -527,23 +577,24 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
 
         // Step 6.
         // Receive a_zero from the prover
-        const auto a_zero = transcript->template receive_from_prover<Fr>("IPA:a_0");
+        auto a_zero = transcript->template receive_from_prover<Fr>("IPA:a_0");
 
         // OriginTag false positive: G_zero and a_zero are fully determined once all round challenges are fixed - the
         // prover must send the correct values or the final relation check fails.
         if constexpr (Curve::is_stdlib_type) {
             const auto last_round_tag = round_challenges.back().get_origin_tag();
             G_zero.set_origin_tag(last_round_tag);
-            const_cast<Fr&>(a_zero).set_origin_tag(last_round_tag);
+            a_zero.set_origin_tag(last_round_tag);
         }
 
         // Step 7.
-        // Compute R = C' + ∑_{j ∈ [k]} u_j^{-1}L_j + ∑_{j ∈ [k]} u_jR_j - G₀ * a₀ - (f(\beta) - a₀ * b₀) ⋅ U
-        // If everything is correct, then R == -C, as C':= C + f(\beta) ⋅ U
-        msm_elements.emplace_back(-G_zero);
-        msm_elements.emplace_back(-Commitment::one(builder));
-        msm_scalars.emplace_back(a_zero);
-        msm_scalars.emplace_back(generator_challenge * a_zero.madd(b_zero, { -opening_claim.opening_pair.evaluation }));
+        // Compute R = ∑_{j ∈ [k]} u_j^{-1}L_j + ∑_{j ∈ [k]} u_jR_j - G₀ * a₀ - (a₀ * b₀ - f(\beta)) ⋅ U
+        // If everything is correct, then R == -C.
+        msm_elements[(2 * log_poly_length)] = -G_zero;
+        msm_elements[(2 * log_poly_length) + 1] = -Commitment::one(builder);
+        msm_scalars[(2 * log_poly_length)] = a_zero;
+        msm_scalars[(2 * log_poly_length) + 1] =
+            generator_challenge * a_zero.madd(b_zero, { -opening_claim.opening_pair.evaluation });
         GroupElement ipa_relation = GroupElement::batch_mul(msm_elements, msm_scalars);
         auto neg_commitment = -opening_claim.commitment;
 
@@ -595,6 +646,97 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
     }
 
     /**
+     * @brief Batch verify multiple IPA proofs with a single large SRS MSM.
+     *
+     * @details For N proofs, IPA verification's dominant cost is the SRS MSM (pippenger over poly_length points).
+     * By combining N proofs via random linear combination with challenge \f$\alpha\f$, we replace N separate MSMs with
+     * one.
+     *
+     * The batch check verifies:
+     *   \f$\sum \alpha^i C_{0,i} = \langle \sum \alpha^i a_{0,i} \vec{s}_i, \vec{G} \rangle
+     *     + (\sum \alpha^i a_{0,i} b_{0,i} u_i) \cdot G\f$
+     *
+     * where \f$G\f$ = Commitment::one() and \f$U_i = u_i \cdot G\f$.
+     *
+     * @param vk Verification key containing SRS
+     * @param opening_claims The opening claims for each proof
+     * @param transcripts The transcripts containing each proof's data
+     * @return true if all proofs verify
+     */
+    template <typename Transcript = NativeTranscript>
+    static bool batch_reduce_verify(const VK& vk,
+                                    const std::vector<OpeningClaim<Curve>>& opening_claims,
+                                    const std::vector<std::shared_ptr<Transcript>>& transcripts)
+        requires(!Curve::is_stdlib_type)
+    {
+        const size_t num_claims = opening_claims.size();
+        if (num_claims != transcripts.size()) {
+            info("IPA batch verification failed: claims/transcripts size mismatch");
+            return false;
+        }
+        if (num_claims == 0) {
+            info("IPA batch verification failed: no claims provided");
+            return false;
+        }
+
+        // Phase 1: Per-proof transcript processing (sequential, each proof is cheap)
+        std::vector<GroupElement> C_zeros(num_claims);
+        std::vector<Fr> a_zeros(num_claims);
+        std::vector<Fr> b_zeros(num_claims);
+        std::vector<Fr> gen_challenges(num_claims);
+        std::vector<Polynomial<Fr>> s_vecs(num_claims);
+
+        for (size_t i = 0; i < num_claims; i++) {
+            add_claim_to_hash_buffer(opening_claims[i], transcripts[i]);
+            auto data = read_transcript_data(opening_claims[i], transcripts[i]);
+            C_zeros[i] = std::move(data.C_zero);
+            b_zeros[i] = data.b_zero;
+            s_vecs[i] = std::move(data.s_vec);
+            gen_challenges[i] = data.gen_challenge;
+            a_zeros[i] = data.a_zero;
+        }
+
+        // Phase 2: Batched computation using random challenge alpha
+        Fr alpha = Fr::random_element();
+        std::vector<Fr> alpha_pows(num_claims);
+        alpha_pows[0] = Fr::one();
+        for (size_t i = 1; i < num_claims; i++) {
+            alpha_pows[i] = alpha_pows[i - 1] * alpha;
+        }
+
+        // Combined s_vec: combined_s[j] = \sum \alpha^i * a_zero_i * s_vec_i[j]
+        Polynomial<Fr> combined_s(poly_length);
+        for (size_t i = 0; i < num_claims; i++) {
+            Fr scalar = alpha_pows[i] * a_zeros[i];
+            combined_s.add_scaled(s_vecs[i], scalar);
+        }
+
+        // Single MSM over combined scalars
+        std::span<const Commitment> srs_elements = vk.get_monomial_points();
+        if (poly_length > srs_elements.size()) {
+            throw_or_abort("potential bug: Not enough SRS points for IPA!");
+        }
+        Commitment G_batch =
+            scalar_multiplication::pippenger_unsafe<Curve>(combined_s, { &srs_elements[0], /*size*/ poly_length });
+
+        // Combined LHS: C_batch = \sum \alpha^i * C_zero_i
+        GroupElement C_batch = C_zeros[0];
+        for (size_t i = 1; i < num_claims; i++) {
+            C_batch = C_batch + C_zeros[i] * alpha_pows[i];
+        }
+
+        // Combined scalar for U terms: bU_scalar = \sum \alpha^i * a_zero_i * b_zero_i * gen_challenge_i
+        Fr bU_scalar = Fr::zero();
+        for (size_t i = 0; i < num_claims; i++) {
+            bU_scalar += alpha_pows[i] * a_zeros[i] * b_zeros[i] * gen_challenges[i];
+        }
+
+        // Check: C_batch == G_batch + bU_scalar * G
+        GroupElement right_hand_side = G_batch + Commitment::one() * bU_scalar;
+        return (C_batch.normalize() == right_hand_side.normalize());
+    }
+
+    /**
      * @brief Recursively _partially_ verify the correctness of an IPA proof.
      *
      * @param vk Verification_key containing srs
@@ -635,6 +777,12 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
     static bool full_verify_recursive(const VK& vk, const OpeningClaim<Curve>& opening_claim, auto& transcript)
         requires Curve::is_stdlib_type
     {
+        // Check SRS size up front before any circuit construction
+        if (vk.get_monomial_points().size() < poly_length) {
+            throw_or_abort("IPA recursive verification: not enough SRS points (need " + std::to_string(poly_length) +
+                           ", have " + std::to_string(vk.get_monomial_points().size()) + ")");
+        }
+
         add_claim_to_hash_buffer(opening_claim, transcript);
         VerifierAccumulator verifier_accumulator = reduce_verify_internal_recursive(opening_claim, transcript);
         auto round_challenges_inv = verifier_accumulator.u_challenges_inv;
@@ -669,12 +817,13 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
         }
 
         // Compute G_zero
-        // In the native verifier, this uses pippenger. Here we were batch_mul.
-        const std::vector<Commitment> srs_elements = vk.get_monomial_points();
+        // In the native verifier, this uses pippenger. Here we use batch_mul.
+        std::vector<Commitment> srs_elements = vk.get_monomial_points();
+        srs_elements.resize(poly_length);
         Commitment computed_G_zero = Commitment::batch_mul(srs_elements, s_vec);
         // check the computed G_zero and the claimed G_zero are the same.
-        claimed_G_zero.assert_equal(computed_G_zero);
-        BB_ASSERT_EQ(computed_G_zero.get_value(), claimed_G_zero.get_value(), "G_zero doesn't match received G_zero.");
+        // The circuit constraint enforces correctness; mismatched witnesses will produce an unsatisfiable circuit.
+        claimed_G_zero.assert_equal(computed_G_zero, "G_zero doesn't match received G_zero.");
 
         bool running_truth_value = verifier_accumulator.running_truth_value;
         return running_truth_value;
@@ -696,7 +845,7 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
     {
         // Extract batch_mul arguments from the accumulator
         const auto& commitments = batch_opening_claim.commitments;
-        const auto& scalars = batch_opening_claim.scalars;
+        auto scalars = batch_opening_claim.scalars; // mutable copy: batch_mul temporarily modifies scalars
         const Fr& shplonk_eval_challenge = batch_opening_claim.evaluation_point;
         // Compute \f$ C = \sum \text{commitments}_i \cdot \text{scalars}_i \f$
         GroupElement shplonk_output_commitment = GroupElement::batch_mul(commitments, scalars);
@@ -737,7 +886,7 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
     {
         const auto opening_claim = reduce_batch_opening_claim(batch_opening_claim);
         add_claim_to_hash_buffer(opening_claim, transcript);
-        return reduce_verify_internal_recursive(opening_claim, transcript).verifier_accumulator;
+        return reduce_verify_internal_recursive(opening_claim, transcript);
     }
 
     /**
@@ -852,8 +1001,7 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
      *
      * @details We create an IPA accumulator by running the partial IPA recursive verifier on each claim. Then, we
      * generate challenges, and use these challenges to compute the new accumulator. We also create the accumulated
-     * polynomial, and generate the IPA proof for the accumulated claim. More details are described here:
-     * https://hackmd.io/IXoLIPhVT_ej8yhZ_Ehvuw?both.
+     * polynomial, and generate the IPA proof for the accumulated claim.
      *
      * @param ck
      * @param transcript_1
@@ -916,9 +1064,6 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
 
         IPA<NativeCurve, log_poly_length>::compute_opening_proof(
             ck, { challenge_poly, opening_pair }, prover_transcript);
-        BB_ASSERT_EQ(challenge_poly.evaluate(bb::fq(output_claim.opening_pair.challenge.get_value())),
-                     bb::fq(output_claim.opening_pair.evaluation.get_value()),
-                     "Opening claim does not hold for challenge polynomial.");
 
         output_claim.opening_pair.evaluation.self_reduce();
         return { output_claim, prover_transcript->export_proof() };

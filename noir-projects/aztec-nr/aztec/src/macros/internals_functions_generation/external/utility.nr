@@ -1,13 +1,16 @@
-use crate::macros::utils::module_has_storage;
+use crate::macros::utils::{fn_has_noinitcheck, module_has_initializer, module_has_storage};
 
 pub(crate) comptime fn generate_utility_external(f: FunctionDefinition) -> Quoted {
+    let module_has_initializer = module_has_initializer(f.module());
+
     // Initialize Storage if module has storage
     let storage_init = if module_has_storage(f.module()) {
         quote {
             let storage = Storage::init(context);
         }
     } else {
-        // Contract does not have Storage defined, so we set storage to the unit type `()`. ContractSelf requires a
+        // Contract does not have Storage defined, so we set storage to the unit type `()`. ContractSelfUtility
+        // requires a
         // storage struct in its constructor. Using an Option type would lead to worse developer experience and higher
         // constraint counts so we use the unit type `()` instead.
         quote {
@@ -21,14 +24,26 @@ pub(crate) comptime fn generate_utility_external(f: FunctionDefinition) -> Quote
         let mut self = {
             let context = aztec::context::UtilityContext::new();
             $storage_init
-            aztec::ContractSelf::new_utility(context, storage)
+            aztec::contract_self::ContractSelfUtility::new(context, storage)
         };
+    };
+
+    // Initialization checks are not included in contracts that don't have initializers.
+    let init_check = if module_has_initializer & !fn_has_noinitcheck(f) {
+        quote {
+            aztec::macros::functions::initialization_utils::assert_is_initialized_utility(
+                self.context,
+            );
+        }
+    } else {
+        quote {}
     };
 
     // A quote to be injected at the beginning of the function body.
     let to_prepend = quote {
         aztec::oracle::version::assert_compatible_oracle_version();
         $contract_self_creation
+        $init_check
     };
 
     let original_function_name = f.name();

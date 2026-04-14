@@ -1,9 +1,10 @@
-import { BlockNumber, BlockNumberSchema } from '@aztec/foundation/branded-types';
+import { BlockNumber, BlockNumberSchema, EpochNumber, EpochNumberSchema } from '@aztec/foundation/branded-types';
 
 import { z } from 'zod';
 
 import { RevertCode } from '../avm/revert_code.js';
 import { BlockHash } from '../block/block_hash.js';
+import { DebugLog } from '../logs/debug_log.js';
 import { type ZodFor, schemas } from '../schemas/schemas.js';
 import { TxHash } from './tx_hash.js';
 
@@ -14,7 +15,7 @@ export enum TxStatus {
   PROPOSED = 'proposed',
   CHECKPOINTED = 'checkpointed',
   PROVEN = 'proven',
-  FINALIZED = 'finalized', // TODO(#13569): Implement finalized status properly
+  FINALIZED = 'finalized',
 }
 
 /** Tx status sorted by finalization progress. */
@@ -30,9 +31,16 @@ export const SortedTxStatuses: TxStatus[] = [
 /** Execution result - only set when tx is in a block. */
 export enum TxExecutionResult {
   SUCCESS = 'success',
-  APP_LOGIC_REVERTED = 'app_logic_reverted',
-  TEARDOWN_REVERTED = 'teardown_reverted',
-  BOTH_REVERTED = 'both_reverted',
+  REVERTED = 'reverted',
+  /** @deprecated Use REVERTED instead. */
+  // eslint-disable-next-line @typescript-eslint/no-duplicate-enum-values
+  APP_LOGIC_REVERTED = 'reverted',
+  /** @deprecated Use REVERTED instead. */
+  // eslint-disable-next-line @typescript-eslint/no-duplicate-enum-values
+  TEARDOWN_REVERTED = 'reverted',
+  /** @deprecated Use REVERTED instead. */
+  // eslint-disable-next-line @typescript-eslint/no-duplicate-enum-values
+  BOTH_REVERTED = 'reverted',
 }
 
 /**
@@ -57,6 +65,14 @@ export class TxReceipt {
     public blockHash?: BlockHash,
     /** The block number in which the transaction was included. */
     public blockNumber?: BlockNumber,
+    /** The epoch number in which the transaction was included. */
+    public epochNumber?: EpochNumber,
+    /**
+     * Debug logs collected during public function execution. Served only when the node is in test mode and placed on
+     * the receipt only because it's a convenient place for it (the logs are printed out by the wallet when a mined
+     * tx receipt is obtained).
+     */
+    public debugLogs?: DebugLog[],
   ) {}
 
   /** Returns true if the transaction was executed successfully. */
@@ -102,7 +118,9 @@ export class TxReceipt {
         error: z.string().optional(),
         blockHash: BlockHash.schema.optional(),
         blockNumber: BlockNumberSchema.optional(),
+        epochNumber: EpochNumberSchema.optional(),
         transactionFee: schemas.BigInt.optional(),
+        debugLogs: z.array(DebugLog.schema).optional(),
       })
       .transform(fields => TxReceipt.from(fields));
   }
@@ -115,6 +133,8 @@ export class TxReceipt {
     transactionFee?: bigint;
     blockHash?: BlockHash;
     blockNumber?: BlockNumber;
+    epochNumber?: EpochNumber;
+    debugLogs?: DebugLog[];
   }) {
     return new TxReceipt(
       fields.txHash,
@@ -124,20 +144,12 @@ export class TxReceipt {
       fields.transactionFee,
       fields.blockHash,
       fields.blockNumber,
+      fields.epochNumber,
+      fields.debugLogs,
     );
   }
 
   public static executionResultFromRevertCode(revertCode: RevertCode): TxExecutionResult {
-    if (revertCode.equals(RevertCode.OK)) {
-      return TxExecutionResult.SUCCESS;
-    } else if (revertCode.equals(RevertCode.APP_LOGIC_REVERTED)) {
-      return TxExecutionResult.APP_LOGIC_REVERTED;
-    } else if (revertCode.equals(RevertCode.TEARDOWN_REVERTED)) {
-      return TxExecutionResult.TEARDOWN_REVERTED;
-    } else if (revertCode.equals(RevertCode.BOTH_REVERTED)) {
-      return TxExecutionResult.BOTH_REVERTED;
-    } else {
-      throw new Error(`Unknown revert code: ${revertCode.getCode()}`);
-    }
+    return revertCode.isOK() ? TxExecutionResult.SUCCESS : TxExecutionResult.REVERTED;
   }
 }

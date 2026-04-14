@@ -64,6 +64,35 @@ export function siloNullifier(contract: AztecAddress, innerNullifier: Fr): Promi
 }
 
 /**
+ * Computes the siloed private initialization nullifier for a contract, given its address and initialization hash.
+ * @param contract - The contract address.
+ * @param initializationHash - The contract's initialization hash.
+ * @returns The siloed private initialization nullifier.
+ */
+export async function computeSiloedPrivateInitializationNullifier(
+  contract: AztecAddress,
+  initializationHash: Fr,
+): Promise<Fr> {
+  const innerNullifier = await poseidon2HashWithSeparator(
+    [contract, initializationHash],
+    DomainSeparator.PRIVATE_INITIALIZATION_NULLIFIER,
+  );
+  return siloNullifier(contract, innerNullifier);
+}
+
+/**
+ * Computes the siloed public initialization nullifier for a contract. Not all contracts emit this nullifier: it is only
+ * emitted when the contract has public functions that perform initialization checks (i.e. external public functions that
+ * are not `#[noinitcheck]` or `#[only_self]`).
+ * @param contract - The contract address.
+ * @returns The siloed public initialization nullifier.
+ */
+export async function computeSiloedPublicInitializationNullifier(contract: AztecAddress): Promise<Fr> {
+  const innerNullifier = await poseidon2HashWithSeparator([contract], DomainSeparator.PUBLIC_INITIALIZATION_NULLIFIER);
+  return siloNullifier(contract, innerNullifier);
+}
+
+/**
  * Computes the protocol nullifier, which is the hash of the initial tx request siloed with the null msg sender address.
  * @param txRequestHash - The hash of the initial tx request.
  * @returns The siloed value of the protocol nullifier.
@@ -72,6 +101,11 @@ export function siloNullifier(contract: AztecAddress, innerNullifier: Fr): Promi
  */
 export function computeProtocolNullifier(txRequestHash: Fr): Promise<Fr> {
   return siloNullifier(AztecAddress.fromBigInt(NULL_MSG_SENDER_CONTRACT_ADDRESS), txRequestHash);
+}
+
+/** Domain-separates a raw log tag with the given domain separator. */
+export function computeLogTag(rawTag: number | bigint | boolean | Fr | Buffer, domSep: DomainSeparator): Promise<Fr> {
+  return poseidon2HashWithSeparator([new Fr(rawTag)], domSep);
 }
 
 export function computeSiloedPrivateLogFirstField(contract: AztecAddress, field: Fr): Promise<Fr> {

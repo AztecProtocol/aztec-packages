@@ -50,6 +50,12 @@ async function generateFromNoirAbi(outputPath: string, noirAbiPath: string, opts
 
   const file = await readFile(noirAbiPath, 'utf8');
   const contract = JSON.parse(file);
+
+  if (!Array.isArray(contract.functions)) {
+    console.log(`${fileName} is not a contract artifact. Skipping.`);
+    return;
+  }
+
   const aztecAbi = loadContractArtifact(contract);
 
   await mkdir(outputPath, { recursive: true });

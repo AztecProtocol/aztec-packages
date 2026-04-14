@@ -5,6 +5,7 @@
  * Batch config modeled after AVM: ~2618 wire polys of size 2^21, committed in batches of 32.
  */
 #include "barretenberg/common/assert.hpp"
+#include "barretenberg/common/thread.hpp"
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/ecc/scalar_multiplication/scalar_multiplication.hpp"
 #include "barretenberg/polynomials/polynomial_arithmetic.hpp"
@@ -82,6 +83,43 @@ BENCHMARK_DEFINE_F(PippengerBench, BatchMSM)(benchmark::State& state)
     }
 }
 
+/**
+ * @brief Batch MSM benchmark variant added to investigate `AztecProtocol/barretenberg#1656`.
+ *
+ * The issue is concerned about the single-threaded final reduction step in
+ * `MSM::batch_multi_scalar_mul(...)` when the work is split across a large number of threads,
+ * e.g. `2^16` points with `256` threads.
+ *
+ * We run a single MSM (num_polys = 1) and sweep thread counts and MSM sizes to make the
+ * final reduction overhead visible in the phase breakdown reported via `BB_BENCH` counters.
+ */
+BENCHMARK_DEFINE_F(PippengerBench, BatchMSM_1656)(benchmark::State& state)
+{
+    const size_t num_threads = static_cast<size_t>(state.range(0));
+    const size_t msm_size = static_cast<size_t>(state.range(1));
+
+    std::vector<Fr> msm_scalars(msm_size);
+    for (auto& s : msm_scalars) {
+        s = Fr::random_element(&engine);
+    }
+
+    std::vector<std::span<Fr>> scalar_spans;
+    std::vector<std::span<const G1>> point_spans;
+    scalar_spans.emplace_back(msm_scalars);
+    point_spans.emplace_back(srs->get_monomial_points().subspan(0, msm_size));
+
+    // This is thread-local: restore after the benchmark so other cases in this binary are unaffected.
+    const size_t original_concurrency = bb::get_num_cpus();
+    bb::set_parallel_for_concurrency(num_threads);
+
+    for (auto _ : state) {
+        GOOGLE_BB_BENCH_REPORTER(state);
+        bb::scalar_multiplication::MSM<Curve>::batch_multi_scalar_mul(point_spans, scalar_spans, false);
+    }
+
+    bb::set_parallel_for_concurrency(original_concurrency);
+}
+
 // ===================== Registration =====================
 
 // Single MSM: 2^14 to 2^20
@@ -96,6 +134,12 @@ BENCHMARK_REGISTER_F(PippengerBench, BatchMSM)
     ->Unit(benchmark::kMillisecond)
     ->Args({ 32, 1 << 19 })
     ->Args({ 32, 1 << 21 });
+
+// Issue #1656 target: {threads=256, msm_size}
+BENCHMARK_REGISTER_F(PippengerBench, BatchMSM_1656)
+    ->Unit(benchmark::kMillisecond)
+    ->Args({ 256, 1 << 16 })
+    ->Args({ 256, 1 << 20 });
 
 } // namespace
 

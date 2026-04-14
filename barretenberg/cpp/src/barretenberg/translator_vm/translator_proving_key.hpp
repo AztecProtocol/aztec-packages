@@ -10,7 +10,6 @@
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/translator_vm/translator_flavor.hpp"
 namespace bb {
-// TODO(https://github.com/AztecProtocol/barretenberg/issues/1317)
 class TranslatorProvingKey {
   public:
     using Flavor = TranslatorFlavor;
@@ -21,9 +20,9 @@ class TranslatorProvingKey {
     using Polynomial = typename Flavor::Polynomial;
     using ProverPolynomials = typename Flavor::ProverPolynomials;
     static constexpr size_t mini_circuit_dyadic_size = Flavor::MINI_CIRCUIT_SIZE;
-    // The actual circuit size is several times bigger than the trace in the circuit, because we use interleaving
+    // The actual circuit size is several times bigger than the trace in the circuit, because we use concatenation
     // to bring the degree of relations down, while extending the length.
-    static constexpr size_t dyadic_circuit_size = mini_circuit_dyadic_size * Flavor::INTERLEAVING_GROUP_SIZE;
+    static constexpr size_t dyadic_circuit_size = mini_circuit_dyadic_size * Flavor::CONCATENATION_GROUP_SIZE;
 
     // Real mini and full circuit sizes i.e. the number of rows excluding those reserved for randomness (to achieve
     // hiding of polynomial commitments and evaluation). Bound to change, but it has to be even as translator works two
@@ -31,7 +30,7 @@ class TranslatorProvingKey {
     static constexpr size_t dyadic_mini_circuit_size_without_masking =
         mini_circuit_dyadic_size - Flavor::NUM_MASKED_ROWS_END;
     static constexpr size_t dyadic_circuit_size_without_masking =
-        dyadic_circuit_size - Flavor::NUM_MASKED_ROWS_END * Flavor::INTERLEAVING_GROUP_SIZE;
+        dyadic_circuit_size - Flavor::NUM_MASKED_ROWS_END * Flavor::CONCATENATION_GROUP_SIZE;
 
     std::shared_ptr<ProvingKey> proving_key;
 
@@ -54,20 +53,18 @@ class TranslatorProvingKey {
 
         proving_key = std::make_shared<ProvingKey>();
         auto wires = proving_key->polynomials.get_wires();
-        for (auto [wire_poly_, wire_] : zip_view(wires, circuit.wires)) {
-            auto& wire_poly = wire_poly_;
-            const auto& wire = wire_;
-            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1383)
-            parallel_for_range(circuit.num_gates(), [&](size_t start, size_t end) {
-                for (size_t i = start; i < end; i++) {
-                    if (i >= wire_poly.start_index() && i < wire_poly.end_index()) {
-                        wire_poly.at(i) = circuit.get_variable(wire[i]);
-                    } else {
-                        BB_ASSERT_EQ(circuit.get_variable(wire[i]), 0);
-                    }
+        // Distribute wires across threads (one task per wire) rather than multithreading within each wire.
+        parallel_for(wires.size(), [&](size_t wire_idx) {
+            auto& wire_poly = wires[wire_idx];
+            const auto& wire = circuit.wires[wire_idx];
+            for (size_t i = 0; i < circuit.num_gates(); i++) {
+                if (i >= wire_poly.start_index() && i < wire_poly.end_index()) {
+                    wire_poly.at(i) = circuit.get_variable(wire[i]);
+                } else {
+                    BB_ASSERT_EQ(circuit.get_variable(wire[i]), 0);
                 }
-            });
-        }
+            }
+        });
 
         // Iterate over all circuit wire polynomials, except the ones representing the op queue, and add random values
         // at the end.
@@ -81,15 +78,14 @@ class TranslatorProvingKey {
         compute_lagrange_polynomials();
 
         // Construct the extra range constraint numerator which contains all the additional values in ordered range
-        // constraints not present in the interleaved polynomials
+        // constraints not present in the concatenated polynomials
         // NB this will always have a fixed size unless we change the allowed range
         compute_extra_range_constraint_numerator();
 
-        // Construct the polynomials resulted from interleaving the small range constraints polynomials in each group
-        // to be interleaved
-        compute_interleaved_polynomials();
+        // Construct the concatenated polynomials from the groups of minicircuit wires
+        compute_concatenated_polynomials();
 
-        // Construct the ordered polynomials, containing the values of the interleaved polynomials + enough values to
+        // Construct the ordered polynomials, containing the values of the concatenated polynomials + enough values to
         // bridge the range from 0 to 3 (3 is the maximum difference between two consecutive values in the ordered range
         // constraint).
         compute_translator_range_constraint_ordered_polynomials();
@@ -130,8 +126,8 @@ class TranslatorProvingKey {
 
     void compute_translator_range_constraint_ordered_polynomials();
 
-    void compute_interleaved_polynomials();
+    void compute_concatenated_polynomials();
 
-    void split_interleaved_random_coefficients_to_ordered();
+    void split_concatenated_random_coefficients_to_ordered();
 };
 } // namespace bb

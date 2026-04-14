@@ -11,7 +11,7 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { type PromiseWithResolvers, promiseWithResolvers } from '@aztec/foundation/promise';
 import { RunningPromise, makeLoggingErrorHandler } from '@aztec/foundation/running-promise';
-import { DateProvider } from '@aztec/foundation/timer';
+import { DateProvider, elapsed } from '@aztec/foundation/timer';
 import {
   type ArchiverEmitter,
   L2Block,
@@ -19,19 +19,18 @@ import {
   type L2Tips,
   type ValidateCheckpointResult,
 } from '@aztec/stdlib/block';
-import { PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
+import { type ProposedCheckpointInput, PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 import {
   type L1RollupConstants,
-  getEpochNumberAtTimestamp,
+  getEpochAtSlot,
   getSlotAtNextL1Block,
-  getSlotAtTimestamp,
   getSlotRangeForEpoch,
   getTimestampRangeForEpoch,
 } from '@aztec/stdlib/epoch-helpers';
 import { type TelemetryClient, type Traceable, type Tracer, trackSpan } from '@aztec/telemetry-client';
 
 import { type ArchiverConfig, mapArchiverConfig } from './config.js';
-import { NoBlobBodiesFoundError } from './errors.js';
+import { BlockAlreadyCheckpointedError, NoBlobBodiesFoundError } from './errors.js';
 import { validateAndLogTraceAvailability } from './l1/validate_trace.js';
 import { ArchiverDataSourceBase } from './modules/data_source_base.js';
 import { ArchiverDataStoreUpdater } from './modules/data_store_updater.js';
@@ -86,17 +85,18 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
 
   public readonly tracer: Tracer;
 
+  private readonly instrumentation: ArchiverInstrumentation;
+
   /**
    * Creates a new instance of the Archiver.
    * @param publicClient - A client for interacting with the Ethereum node.
    * @param debugClient - A client for interacting with the Ethereum node for debug/trace methods.
    * @param rollup - Rollup contract instance.
    * @param inbox - Inbox contract instance.
-   * @param l1Addresses - L1 contract addresses (registry, governance proposer, slash factory, slashing proposer).
+   * @param l1Addresses - L1 contract addresses (registry, governance proposer, slashing proposer).
    * @param dataStore - An archiver data store for storage & retrieval of blocks, encrypted logs & contract data.
    * @param config - Archiver configuration options.
    * @param blobClient - Client for retrieving blob data.
-   * @param epochCache - Cache for epoch-related data.
    * @param dateProvider - Provider for current date/time.
    * @param instrumentation - Instrumentation for metrics and tracing.
    * @param l1Constants - L1 rollup constants.
@@ -106,10 +106,9 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
     private readonly publicClient: ViemPublicClient,
     private readonly debugClient: ViemPublicDebugClient,
     private readonly rollup: RollupContract,
-    private readonly l1Addresses: Pick<
-      L1ContractAddresses,
-      'registryAddress' | 'governanceProposerAddress' | 'slashFactoryAddress'
-    > & { slashingProposerAddress: EthAddress },
+    private readonly l1Addresses: Pick<L1ContractAddresses, 'registryAddress' | 'governanceProposerAddress'> & {
+      slashingProposerAddress: EthAddress;
+    },
     readonly dataStore: KVArchiverDataStore,
     private config: {
       pollingIntervalMs: number;
@@ -120,7 +119,10 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
     },
     private readonly blobClient: BlobClientInterface,
     instrumentation: ArchiverInstrumentation,
-    protected override readonly l1Constants: L1RollupConstants & { l1StartBlockHash: Buffer32; genesisArchiveRoot: Fr },
+    protected override readonly l1Constants: L1RollupConstants & {
+      l1StartBlockHash: Buffer32;
+      genesisArchiveRoot: Fr;
+    },
     synchronizer: ArchiverL1Synchronizer,
     events: ArchiverEmitter,
     l2TipsCache?: L2TipsCache,
@@ -129,11 +131,14 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
     super(dataStore, l1Constants);
 
     this.tracer = instrumentation.tracer;
+    this.instrumentation = instrumentation;
     this.initialSyncPromise = promiseWithResolvers();
     this.synchronizer = synchronizer;
     this.events = events;
     this.l2TipsCache = l2TipsCache ?? new L2TipsCache(this.dataStore.blockStore);
-    this.updater = new ArchiverDataStoreUpdater(this.dataStore, this.l2TipsCache);
+    this.updater = new ArchiverDataStoreUpdater(this.dataStore, this.l2TipsCache, {
+      rollupManaLimit: l1Constants.rollupManaLimit,
+    });
 
     // Running promise starts with a small interval inbetween runs, so all iterations needed for the initial sync
     // are done as fast as possible. This then gets updated once the initial sync completes.
@@ -206,6 +211,10 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
     });
   }
 
+  public async setProposedCheckpoint(pending: ProposedCheckpointInput): Promise<void> {
+    await this.updater.setProposedCheckpoint(pending);
+  }
+
   /**
    * Processes all queued blocks, adding them to the store.
    * Called at the beginning of each sync iteration.
@@ -238,10 +247,16 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
       }
 
       try {
-        await this.updater.addProposedBlocks([block]);
+        const [durationMs] = await elapsed(() => this.updater.addProposedBlock(block));
+        this.instrumentation.processNewProposedBlock(durationMs, block);
         this.log.debug(`Added block ${block.number} to store`);
         resolve();
       } catch (err: any) {
+        if (err instanceof BlockAlreadyCheckpointedError) {
+          this.log.debug(`Proposed block ${block.number} matches already checkpointed block, ignoring late proposal`);
+          resolve();
+          continue;
+        }
         this.log.error(`Failed to add block ${block.number} to store: ${err.message}`);
         reject(err);
       }
@@ -333,16 +348,49 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
     return Promise.resolve(this.synchronizer.getL1Timestamp());
   }
 
-  public getL2SlotNumber(): Promise<SlotNumber | undefined> {
+  public async getSyncedL2SlotNumber(): Promise<SlotNumber | undefined> {
+    // The synced L2 slot is the latest slot for which we have all L1 data,
+    // either because we have seen all L1 blocks for that slot, or because
+    // we have seen the corresponding checkpoint.
+
+    let slotFromL1Sync: SlotNumber | undefined;
     const l1Timestamp = this.synchronizer.getL1Timestamp();
-    return Promise.resolve(l1Timestamp === undefined ? undefined : getSlotAtTimestamp(l1Timestamp, this.l1Constants));
+    if (l1Timestamp !== undefined) {
+      const nextL1BlockSlot = getSlotAtNextL1Block(l1Timestamp, this.l1Constants);
+      if (Number(nextL1BlockSlot) > 0) {
+        slotFromL1Sync = SlotNumber.add(nextL1BlockSlot, -1);
+      }
+    }
+
+    let slotFromCheckpoint: SlotNumber | undefined;
+    const latestCheckpointNumber = await this.store.getSynchedCheckpointNumber();
+    if (latestCheckpointNumber > 0) {
+      const checkpointData = await this.store.getCheckpointData(latestCheckpointNumber);
+      if (checkpointData) {
+        slotFromCheckpoint = checkpointData.header.slotNumber;
+      }
+    }
+
+    if (slotFromL1Sync === undefined && slotFromCheckpoint === undefined) {
+      return undefined;
+    }
+    return SlotNumber(Math.max(slotFromL1Sync ?? 0, slotFromCheckpoint ?? 0));
   }
 
-  public getL2EpochNumber(): Promise<EpochNumber | undefined> {
-    const l1Timestamp = this.synchronizer.getL1Timestamp();
-    return Promise.resolve(
-      l1Timestamp === undefined ? undefined : getEpochNumberAtTimestamp(l1Timestamp, this.l1Constants),
-    );
+  public async getSyncedL2EpochNumber(): Promise<EpochNumber | undefined> {
+    const syncedSlot = await this.getSyncedL2SlotNumber();
+    if (syncedSlot === undefined) {
+      return undefined;
+    }
+    // An epoch is fully synced when all its slots are synced.
+    // We check if syncedSlot is the last slot of its epoch; if so, that epoch is fully synced.
+    // Otherwise, only the previous epoch is fully synced.
+    const epoch = getEpochAtSlot(syncedSlot, this.l1Constants);
+    const [, endSlot] = getSlotRangeForEpoch(epoch, this.l1Constants);
+    if (syncedSlot >= endSlot) {
+      return epoch;
+    }
+    return Number(epoch) > 0 ? EpochNumber(Number(epoch) - 1) : undefined;
   }
 
   public async isEpochComplete(epochNumber: EpochNumber): Promise<boolean> {
@@ -399,7 +447,6 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
   }
 
   public async rollbackTo(targetL2BlockNumber: BlockNumber): Promise<void> {
-    // TODO(pw/mbps): This still assumes 1 block per checkpoint
     const currentBlocks = await this.getL2Tips();
     const currentL2Block = currentBlocks.proposed.number;
     const currentProvenBlock = currentBlocks.proven.block.number;
@@ -411,8 +458,25 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
     if (!targetL2Block) {
       throw new Error(`Target L2 block ${targetL2BlockNumber} not found`);
     }
-    const targetL1BlockNumber = targetL2Block.l1.blockNumber;
     const targetCheckpointNumber = targetL2Block.checkpointNumber;
+
+    // Rollback operates at checkpoint granularity: the target block must be the last block of its checkpoint.
+    const checkpointData = await this.store.getCheckpointData(targetCheckpointNumber);
+    if (checkpointData) {
+      const lastBlockInCheckpoint = BlockNumber(checkpointData.startBlock + checkpointData.blockCount - 1);
+      if (targetL2BlockNumber !== lastBlockInCheckpoint) {
+        const previousCheckpointBoundary =
+          checkpointData.startBlock > 1 ? BlockNumber(checkpointData.startBlock - 1) : BlockNumber(0);
+        throw new Error(
+          `Target L2 block ${targetL2BlockNumber} is not at a checkpoint boundary. ` +
+            `Checkpoint ${targetCheckpointNumber} spans blocks ${checkpointData.startBlock} to ${lastBlockInCheckpoint}. ` +
+            `Use block ${lastBlockInCheckpoint} to roll back to this checkpoint, ` +
+            `or block ${previousCheckpointBoundary} to roll back to the previous one.`,
+        );
+      }
+    }
+
+    const targetL1BlockNumber = targetL2Block.l1.blockNumber;
     const targetL1Block = await this.publicClient.getBlock({
       blockNumber: targetL1BlockNumber,
       includeTransactions: false,
@@ -429,15 +493,18 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
     await this.store.rollbackL1ToL2MessagesToCheckpoint(targetCheckpointNumber);
     this.log.info(`Setting L1 syncpoints to ${targetL1BlockNumber}`);
     await this.store.setCheckpointSynchedL1BlockNumber(targetL1BlockNumber);
-    await this.store.setMessageSynchedL1Block({ l1BlockNumber: targetL1BlockNumber, l1BlockHash: targetL1BlockHash });
+    await this.store.setMessageSyncState(
+      { l1BlockNumber: targetL1BlockNumber, l1BlockHash: targetL1BlockHash },
+      undefined,
+    );
     if (targetL2BlockNumber < currentProvenBlock) {
-      this.log.info(`Clearing proven L2 block number`);
-      await this.updater.setProvenCheckpointNumber(CheckpointNumber.ZERO);
+      this.log.info(`Rolling back proven L2 checkpoint to ${targetCheckpointNumber}`);
+      await this.updater.setProvenCheckpointNumber(targetCheckpointNumber);
     }
-    // TODO(palla/reorg): Set the finalized block when we add support for it.
-    // if (targetL2BlockNumber < currentFinalizedBlock) {
-    //   this.log.info(`Clearing finalized L2 block number`);
-    //   await this.store.setFinalizedL2BlockNumber(0);
-    // }
+    const currentFinalizedBlock = currentBlocks.finalized.block.number;
+    if (targetL2BlockNumber < currentFinalizedBlock) {
+      this.log.info(`Rolling back finalized L2 checkpoint to ${targetCheckpointNumber}`);
+      await this.updater.setFinalizedCheckpointNumber(targetCheckpointNumber);
+    }
   }
 }

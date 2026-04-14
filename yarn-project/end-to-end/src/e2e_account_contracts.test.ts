@@ -1,7 +1,12 @@
 import { EcdsaKAccountContract } from '@aztec/accounts/ecdsa';
 import { SchnorrAccountContract } from '@aztec/accounts/schnorr';
-import { SingleKeyAccountContract } from '@aztec/accounts/single_key';
-import { type Account, type AccountContract, BaseAccount, getAccountContractAddress } from '@aztec/aztec.js/account';
+import {
+  type Account,
+  type AccountContract,
+  BaseAccount,
+  NO_FROM,
+  getAccountContractAddress,
+} from '@aztec/aztec.js/account';
 import { AztecAddress, CompleteAddress } from '@aztec/aztec.js/addresses';
 import { Fr, GrumpkinScalar } from '@aztec/aztec.js/fields';
 import type { Logger } from '@aztec/aztec.js/log';
@@ -26,7 +31,8 @@ export class TestWalletInternals extends TestWallet {
   }
 
   replaceAccountAt(account: Account, address: AztecAddress) {
-    this.accounts.set(address.toString(), account);
+    const existing = this.accounts.get(address.toString());
+    this.accounts.set(address.toString(), { account, type: existing!.type });
   }
 }
 
@@ -62,10 +68,10 @@ const itShouldBehaveLikeAnAccountContract = (
       if (await accountManager.hasInitializer()) {
         // The account is pre-funded and can pay for its own fee.
         const deployMethod = await accountManager.getDeployMethod();
-        await deployMethod.send({ from: AztecAddress.ZERO });
+        await deployMethod.send({ from: NO_FROM });
       }
 
-      child = await ChildContract.deploy(wallet).send({ from: address });
+      ({ contract: child } = await ChildContract.deploy(wallet).send({ from: address }));
     });
 
     afterAll(() => teardown());
@@ -99,11 +105,7 @@ const itShouldBehaveLikeAnAccountContract = (
 };
 
 describe('e2e_account_contracts', () => {
-  describe('schnorr single-key account', () => {
-    itShouldBehaveLikeAnAccountContract((encryptionKey: GrumpkinScalar) => new SingleKeyAccountContract(encryptionKey));
-  });
-
-  describe('schnorr multi-key account', () => {
+  describe('schnorr account', () => {
     itShouldBehaveLikeAnAccountContract(() => new SchnorrAccountContract(GrumpkinScalar.random()));
   });
 

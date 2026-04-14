@@ -1,31 +1,34 @@
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
-import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { RevertCode } from '@aztec/stdlib/avm';
 import { BlockHash } from '@aztec/stdlib/block';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
-import { randomTxScopedPrivateL2Log } from '@aztec/stdlib/testing';
-import { TxExecutionResult, TxHash, TxReceipt, TxStatus } from '@aztec/stdlib/tx';
+import { PrivateLog } from '@aztec/stdlib/logs';
+import { randomExtendedDirectionalAppTaggingSecret, randomTxScopedPrivateL2Log } from '@aztec/stdlib/testing';
+import { type IndexedTxEffect, TxEffect, TxExecutionResult, TxHash, TxReceipt, TxStatus } from '@aztec/stdlib/tx';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
 import { SenderTaggingStore } from '../../storage/tagging_store/sender_tagging_store.js';
-import { DirectionalAppTaggingSecret, SiloedTag, Tag, UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN } from '../index.js';
+import {
+  type ExtendedDirectionalAppTaggingSecret,
+  SiloedTag,
+  UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN,
+} from '../index.js';
 import { syncSenderTaggingIndexes } from './sync_sender_tagging_indexes.js';
 
 const MOCK_ANCHOR_BLOCK_HASH = BlockHash.random();
 
 describe('syncSenderTaggingIndexes', () => {
-  // Contract address and secret to be used on the input of the syncSenderTaggingIndexes function.
-  let secret: DirectionalAppTaggingSecret;
-  let contractAddress: AztecAddress;
+  // The secret to be used on the input of the syncSenderTaggingIndexes function.
+  let secret: ExtendedDirectionalAppTaggingSecret;
 
   let aztecNode: MockProxy<AztecNode>;
   let taggingStore: SenderTaggingStore;
 
-  async function computeSiloedTagForIndex(index: number) {
-    const tag = await Tag.compute({ secret, index });
-    return SiloedTag.compute(tag, contractAddress);
+  function computeSiloedTagForIndex(index: number) {
+    return SiloedTag.compute({ extendedSecret: secret, index });
   }
 
   function makeLog(txHash: TxHash, tag: Fr) {
@@ -33,8 +36,7 @@ describe('syncSenderTaggingIndexes', () => {
   }
 
   async function setUp() {
-    secret = DirectionalAppTaggingSecret.fromString(Fr.random().toString());
-    contractAddress = await AztecAddress.random();
+    secret = await randomExtendedDirectionalAppTaggingSecret();
 
     aztecNode = mock<AztecNode>();
     taggingStore = new SenderTaggingStore(await openTmpStore('test'));
@@ -48,7 +50,7 @@ describe('syncSenderTaggingIndexes', () => {
       return Promise.resolve(tags.map((_tag: SiloedTag) => []));
     });
 
-    await syncSenderTaggingIndexes(secret, contractAddress, aztecNode, taggingStore, MOCK_ANCHOR_BLOCK_HASH, 'test');
+    await syncSenderTaggingIndexes(secret, aztecNode, taggingStore, MOCK_ANCHOR_BLOCK_HASH, 'test');
 
     // Highest used and finalized indexes should stay undefined
     expect(await taggingStore.getLastUsedIndex(secret, 'test')).toBeUndefined();
@@ -91,7 +93,7 @@ describe('syncSenderTaggingIndexes', () => {
         ),
       );
 
-      await syncSenderTaggingIndexes(secret, contractAddress, aztecNode, taggingStore, MOCK_ANCHOR_BLOCK_HASH, 'test');
+      await syncSenderTaggingIndexes(secret, aztecNode, taggingStore, MOCK_ANCHOR_BLOCK_HASH, 'test');
 
       // Verify the highest finalized index is updated to 3
       expect(await taggingStore.getLastFinalizedIndex(secret, 'test')).toBe(finalizedIndexStep1);
@@ -123,7 +125,7 @@ describe('syncSenderTaggingIndexes', () => {
         ),
       );
 
-      await syncSenderTaggingIndexes(secret, contractAddress, aztecNode, taggingStore, MOCK_ANCHOR_BLOCK_HASH, 'test');
+      await syncSenderTaggingIndexes(secret, aztecNode, taggingStore, MOCK_ANCHOR_BLOCK_HASH, 'test');
 
       // Verify the highest finalized index was not updated
       expect(await taggingStore.getLastFinalizedIndex(secret, 'test')).toBe(finalizedIndexStep1);
@@ -206,7 +208,7 @@ describe('syncSenderTaggingIndexes', () => {
         }
       });
 
-      await syncSenderTaggingIndexes(secret, contractAddress, aztecNode, taggingStore, MOCK_ANCHOR_BLOCK_HASH, 'test');
+      await syncSenderTaggingIndexes(secret, aztecNode, taggingStore, MOCK_ANCHOR_BLOCK_HASH, 'test');
 
       expect(await taggingStore.getLastFinalizedIndex(secret, 'test')).toBe(newHighestFinalizedIndex);
       expect(await taggingStore.getLastUsedIndex(secret, 'test')).toBe(newHighestUsedIndex);
@@ -269,10 +271,74 @@ describe('syncSenderTaggingIndexes', () => {
     });
 
     // Sync tagged logs
-    await syncSenderTaggingIndexes(secret, contractAddress, aztecNode, taggingStore, MOCK_ANCHOR_BLOCK_HASH, 'test');
+    await syncSenderTaggingIndexes(secret, aztecNode, taggingStore, MOCK_ANCHOR_BLOCK_HASH, 'test');
 
     // Verify that both highest finalized and highest used were set to the pending and finalized index
     expect(await taggingStore.getLastFinalizedIndex(secret, 'test')).toBe(pendingAndFinalizedIndex);
     expect(await taggingStore.getLastUsedIndex(secret, 'test')).toBe(pendingAndFinalizedIndex);
+  });
+
+  it('handles a partially reverted transaction', async () => {
+    await setUp();
+
+    const revertedTxHash = TxHash.random();
+
+    // Create logs at indexes 4 and 6 for the same (reverted) tx
+    const tag4 = await computeSiloedTagForIndex(4);
+    const tag6 = await computeSiloedTagForIndex(6);
+
+    aztecNode.getPrivateLogsByTags.mockImplementation((tags: SiloedTag[]) => {
+      return Promise.resolve(
+        tags.map((tag: SiloedTag) => {
+          if (tag.equals(tag4)) {
+            return [makeLog(revertedTxHash, tag4.value)];
+          } else if (tag.equals(tag6)) {
+            return [makeLog(revertedTxHash, tag6.value)];
+          }
+          return [];
+        }),
+      );
+    });
+
+    // Mock getTxReceipt to return FINALIZED with APP_LOGIC_REVERTED
+    aztecNode.getTxReceipt.mockResolvedValue(
+      new TxReceipt(
+        revertedTxHash,
+        TxStatus.FINALIZED,
+        TxExecutionResult.APP_LOGIC_REVERTED,
+        undefined,
+        undefined,
+        undefined,
+        BlockNumber(14),
+      ),
+    );
+
+    // Mock getTxEffect to return a TxEffect where only the tag at index 4 survived (non-revertible phase)
+    const txEffect = new TxEffect(
+      RevertCode.APP_LOGIC_REVERTED,
+      revertedTxHash,
+      Fr.ZERO,
+      [Fr.random()], // noteHashes
+      [Fr.random()], // nullifiers
+      [], // l2ToL1Msgs
+      [], // publicDataWrites
+      [PrivateLog.random(tag4.value)], // only the tag at index 4 survived
+      [], // publicLogs
+      [], // contractClassLogs
+    );
+
+    aztecNode.getTxEffect.mockResolvedValue({
+      data: txEffect,
+      l2BlockNumber: BlockNumber(14),
+      l2BlockHash: MOCK_ANCHOR_BLOCK_HASH,
+      txIndexInBlock: 0,
+    } as IndexedTxEffect);
+
+    await syncSenderTaggingIndexes(secret, aztecNode, taggingStore, MOCK_ANCHOR_BLOCK_HASH, 'test');
+
+    // Index 4 should be finalized (it survived the partial revert)
+    expect(await taggingStore.getLastFinalizedIndex(secret, 'test')).toBe(4);
+    // No pending indexes should remain for this secret
+    expect(await taggingStore.getLastUsedIndex(secret, 'test')).toBe(4);
   });
 });

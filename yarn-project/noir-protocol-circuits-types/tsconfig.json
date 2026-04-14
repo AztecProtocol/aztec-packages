@@ -21,9 +21,6 @@
     },
     {
       "path": "../kv-store"
-    },
-    {
-      "path": "../merkle-tree"
     }
   ],
   "include": ["src", "artifacts/*.d.json.ts", "artifacts/**/*.d.json.ts"],

@@ -82,7 +82,14 @@ describe('L2BlockStream', () => {
   });
 
   /** Sets the remote tips. All tips default to 0 except latest. */
-  const setRemoteTips = (latest_: number, checkpointed_?: number, proven?: number, finalized?: number) => {
+  const setRemoteTips = (
+    latest_: number,
+    checkpointed_?: number,
+    proven?: number,
+    finalized?: number,
+    proposedCheckpoint_?: number,
+  ) => {
+    proposedCheckpoint_ = proposedCheckpoint_ ?? 0;
     checkpointed_ = checkpointed_ ?? 0;
     proven = proven ?? 0;
     finalized = finalized ?? 0;
@@ -92,6 +99,7 @@ describe('L2BlockStream', () => {
     blockSource.getL2Tips.mockResolvedValue({
       proposed: { number: BlockNumber(latest), hash: makeHash(latest) },
       checkpointed: makeTipId(checkpointed_),
+      proposedCheckpoint: makeTipId(proposedCheckpoint_),
       proven: makeTipId(proven),
       finalized: makeTipId(finalized),
     });
@@ -405,16 +413,19 @@ describe('L2BlockStream', () => {
       checkpointedBlock?: number,
       proven?: number,
       finalized?: number,
+      proposedCheckpointBlock?: number,
     ) => {
       checkpointedBlock = checkpointedBlock ?? 0;
       proven = proven ?? 0;
       finalized = finalized ?? 0;
+      proposedCheckpointBlock = proposedCheckpointBlock ?? 0;
       latest = latest_;
       checkpointed = checkpointedBlock;
 
       const checkpointedCheckpointNum = checkpointedBlock > 0 ? getCheckpointForBlock(checkpointedBlock) : 0;
       const provenCheckpointNum = proven > 0 ? getCheckpointForBlock(proven) : 0;
       const finalizedCheckpointNum = finalized > 0 ? getCheckpointForBlock(finalized) : 0;
+      const proposedCheckpointNum = proposedCheckpointBlock > 0 ? getCheckpointForBlock(proposedCheckpointBlock) : 0;
 
       blockSource.getL2Tips.mockResolvedValue({
         proposed: { number: BlockNumber(latest), hash: makeHash(latest) },
@@ -423,6 +434,13 @@ describe('L2BlockStream', () => {
           checkpoint: {
             number: CheckpointNumber(checkpointedCheckpointNum),
             hash: makeHash(checkpointedCheckpointNum),
+          },
+        },
+        proposedCheckpoint: {
+          block: { number: BlockNumber(proposedCheckpointBlock), hash: makeHash(proposedCheckpointBlock) },
+          checkpoint: {
+            number: CheckpointNumber(proposedCheckpointNum),
+            hash: makeHash(proposedCheckpointNum),
           },
         },
         proven: {
@@ -753,6 +771,60 @@ describe('L2BlockStream', () => {
         expectBlocksAdded([10, 11, 12]),
         expectCheckpointed(4),
       ]);
+    });
+
+    describe('startingBlock with stale checkpoint state', () => {
+      // When a node restarts with startingBlock set and has local blocks but no checkpoint
+      // state (e.g. checkpoint tracking is new, or checkpoint state was reset), Loop 1
+      // should not spam checkpoint events for all historical checkpoints.
+
+      it('skips historical checkpoint events before startingBlock on restart with stale checkpoint state', async () => {
+        // node has blocks 1-15 locally (proposed=15) but no checkpoint state.
+        // Checkpoint 5 covers blocks 13-15 (the last checkpoint).
+        setRemoteTipsMultiBlock(15, 15);
+        localData.proposed.number = BlockNumber(15);
+        // localData.checkpointed starts at 0 - simulating stale/missing checkpoint state
+
+        blockStream = new TestL2BlockStream(blockSource, localData, handler, undefined, {
+          batchSize: 10,
+          startingBlock: 13, // start from checkpoint 5 (blocks 13-15)
+        });
+
+        await blockStream.work();
+
+        // Should only emit checkpoint 5 (the one containing startingBlock=13), not all 5 checkpoints
+        expect(handler.events).toEqual([expectCheckpointed(5)]);
+        // Verify we don't spam checkpoints 1-4
+        const checkpointEvents = handler.events.filter(e => e.type === 'chain-checkpointed');
+        expect(checkpointEvents).toHaveLength(1);
+      });
+
+      it('without startingBlock emits all historical checkpoints for already-local blocks', async () => {
+        // Same scenario without startingBlock: should emit all 5 checkpoints (correct catch-up behavior)
+        setRemoteTipsMultiBlock(15, 15);
+        localData.proposed.number = BlockNumber(15);
+        // localData.checkpointed starts at 0
+
+        await blockStream.work();
+
+        // All 5 checkpoints should be emitted since they're all for already-local blocks
+        const checkpointEvents = handler.events.filter(e => e.type === 'chain-checkpointed');
+        expect(checkpointEvents).toHaveLength(5);
+      });
+
+      it('does not call getCheckpointedBlocks(0) when startingBlock is 0', async () => {
+        // getCheckpointedBlocks rejects block 0
+        setRemoteTipsMultiBlock(15, 15);
+        blockStream = new TestL2BlockStream(blockSource, localData, handler, undefined, {
+          batchSize: 10,
+          startingBlock: 0,
+        });
+
+        await blockStream.work();
+
+        const calls = blockSource.getCheckpointedBlocks.mock.calls;
+        expect(calls.every(([blockNum]) => blockNum >= 1)).toBe(true);
+      });
     });
 
     describe('checkpoint prefetching', () => {
@@ -1645,6 +1717,10 @@ class TestL2BlockStreamLocalDataProvider implements L2BlockStreamLocalDataProvid
     block: { number: BlockNumber.ZERO, hash: GENESIS_BLOCK_HEADER_HASH.toString() },
     checkpoint: { number: CheckpointNumber.ZERO, hash: GENESIS_CHECKPOINT_HEADER_HASH.toString() },
   };
+  public proposedCheckpointed = {
+    block: { number: BlockNumber.ZERO, hash: GENESIS_BLOCK_HEADER_HASH.toString() },
+    checkpoint: { number: CheckpointNumber.ZERO, hash: GENESIS_CHECKPOINT_HEADER_HASH.toString() },
+  };
   public proven = {
     block: { number: BlockNumber.ZERO, hash: GENESIS_BLOCK_HEADER_HASH.toString() },
     checkpoint: { number: CheckpointNumber.ZERO, hash: GENESIS_CHECKPOINT_HEADER_HASH.toString() },
@@ -1664,6 +1740,7 @@ class TestL2BlockStreamLocalDataProvider implements L2BlockStreamLocalDataProvid
     return Promise.resolve({
       proposed: this.proposed,
       checkpointed: this.checkpointed,
+      proposedCheckpoint: this.proposedCheckpointed,
       proven: this.proven,
       finalized: this.finalized,
     });

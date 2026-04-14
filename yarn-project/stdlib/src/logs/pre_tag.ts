@@ -3,9 +3,9 @@ import { schemas } from '@aztec/foundation/schemas';
 import { z } from 'zod';
 
 import {
-  type DirectionalAppTaggingSecret,
-  DirectionalAppTaggingSecretSchema,
-} from './directional_app_tagging_secret.js';
+  type ExtendedDirectionalAppTaggingSecret,
+  ExtendedDirectionalAppTaggingSecretSchema,
+} from './extended_directional_app_tagging_secret.js';
 
 /**
  * Represents a preimage of a private log tag (see `Tag` in `pxe/src/tagging`).
@@ -15,11 +15,11 @@ import {
  * around this.
  */
 export type PreTag = {
-  secret: DirectionalAppTaggingSecret;
+  extendedSecret: ExtendedDirectionalAppTaggingSecret;
   index: number;
 };
 
 export const PreTagSchema = z.object({
-  secret: DirectionalAppTaggingSecretSchema,
+  extendedSecret: ExtendedDirectionalAppTaggingSecretSchema,
   index: schemas.Integer,
 });

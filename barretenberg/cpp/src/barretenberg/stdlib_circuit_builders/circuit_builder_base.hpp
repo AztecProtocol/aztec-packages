@@ -16,6 +16,7 @@
 #include <utility>
 
 #include <algorithm>
+#include <span>
 #include <unordered_map>
 
 namespace bb {
@@ -76,7 +77,8 @@ template <typename FF_> class CircuitBuilderBase {
      * variables
      * @param variable_indices The indices to validate
      */
-    void assert_valid_variables(const std::vector<uint32_t>& variable_indices);
+    void assert_valid_variables(std::initializer_list<uint32_t> variable_indices);
+    void assert_valid_variables(std::span<const uint32_t> variable_indices);
 
     /**
      * @brief The permutation on variable tags, as a constituent of the generalized permutation argument.
@@ -122,12 +124,14 @@ template <typename FF_> class CircuitBuilderBase {
     std::vector<uint32_t> real_variable_tags;
     uint32_t current_tag = DEFAULT_TAG;
 
+    bool circuit_finalized = false;
+
     CircuitBuilderBase(bool is_write_vk_mode = false);
 
     CircuitBuilderBase(const CircuitBuilderBase& other) = default;
-    CircuitBuilderBase(CircuitBuilderBase&& other) noexcept = default;
+    CircuitBuilderBase(CircuitBuilderBase&& other) = delete;
     CircuitBuilderBase& operator=(const CircuitBuilderBase& other) = default;
-    CircuitBuilderBase& operator=(CircuitBuilderBase&& other) noexcept = default;
+    CircuitBuilderBase& operator=(CircuitBuilderBase&& other) = delete;
     virtual ~CircuitBuilderBase() = default;
 
     bool operator==(const CircuitBuilderBase& other) const = default;
@@ -139,7 +143,11 @@ template <typename FF_> class CircuitBuilderBase {
     size_t num_gates() const { return _num_gates; }
 
     // Increment the gate count by the specified amount
-    void increment_num_gates(size_t count = 1) { _num_gates += count; }
+    void increment_num_gates(size_t count = 1)
+    {
+        BB_ASSERT(!circuit_finalized, "Cannot add gates after circuit is finalized");
+        _num_gates += count;
+    }
 
     // Get the permutation on variable tags
     const std::unordered_map<uint32_t, uint32_t>& tau() const { return _tau; }
@@ -257,12 +265,6 @@ template <typename FF_> class CircuitBuilderBase {
      */
     virtual void set_variable_name(uint32_t index, const std::string& name);
 
-    /**
-     * @brief Export the existing circuit as msgpack compatible buffer
-     * @return msgpack compatible buffer
-     */
-    virtual msgpack::sbuffer export_circuit();
-
     bool failed() const;
     const std::string& err() const;
 
@@ -312,21 +314,21 @@ template <typename FF> struct CircuitSchemaInternal {
     std::vector<std::vector<std::vector<uint32_t>>> ram_records;
     std::vector<std::vector<uint32_t>> ram_states;
     bool circuit_finalized;
-    MSGPACK_FIELDS(modulus,
-                   public_inps,
-                   vars_of_interest,
-                   variables,
-                   selectors,
-                   wires,
-                   real_variable_index,
-                   lookup_tables,
-                   real_variable_tags,
-                   range_tags,
-                   rom_records,
-                   rom_states,
-                   ram_records,
-                   ram_states,
-                   circuit_finalized);
+    SERIALIZATION_FIELDS(modulus,
+                         public_inps,
+                         vars_of_interest,
+                         variables,
+                         selectors,
+                         wires,
+                         real_variable_index,
+                         lookup_tables,
+                         real_variable_tags,
+                         range_tags,
+                         rom_records,
+                         rom_states,
+                         ram_records,
+                         ram_states,
+                         circuit_finalized);
 };
 // ========================================================================================
 } // namespace bb

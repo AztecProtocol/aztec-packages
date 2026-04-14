@@ -22,11 +22,12 @@ import { EpochCache } from '@aztec/epoch-cache';
 import { createEthereumChain } from '@aztec/ethereum/chain';
 import { createExtendedL1Client } from '@aztec/ethereum/client';
 import { getL1ContractsConfigEnvVars } from '@aztec/ethereum/config';
-import { GovernanceProposerContract, RollupContract } from '@aztec/ethereum/contracts';
+import { GovernanceProposerContract, RollupContract, SimulationOverridesBuilder } from '@aztec/ethereum/contracts';
 import { type DeployAztecL1ContractsArgs, deployAztecL1Contracts } from '@aztec/ethereum/deploy-aztec-l1-contracts';
 import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
 import { TxUtilsState, createL1TxUtils } from '@aztec/ethereum/l1-tx-utils';
 import { EthCheatCodesWithState, RollupCheatCodes, startAnvil } from '@aztec/ethereum/test';
+import type { Anvil } from '@aztec/ethereum/test';
 import type { ExtendedViemWalletClient } from '@aztec/ethereum/types';
 import { range } from '@aztec/foundation/array';
 import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
@@ -57,7 +58,6 @@ import { Checkpoint, L1PublishedData, PublishedCheckpoint } from '@aztec/stdlib/
 import { type L1RollupConstants, getSlotStartBuildTimestamp } from '@aztec/stdlib/epoch-helpers';
 import { GasFees, GasSettings } from '@aztec/stdlib/gas';
 import { tryStop } from '@aztec/stdlib/interfaces/server';
-import { SlashFactoryContract } from '@aztec/stdlib/l1-contracts';
 import { orderAttestations } from '@aztec/stdlib/p2p';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
 import {
@@ -75,7 +75,6 @@ import {
 } from '@aztec/world-state';
 
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
-import type { Anvil } from '@viem/anvil';
 import { type MockProxy, mock } from 'jest-mock-extended';
 import { type Address, encodeFunctionData, getAbiItem, getAddress, multicall3Abi } from 'viem';
 import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts';
@@ -164,7 +163,7 @@ describe('L1Publisher integration', () => {
       protocolContractsHash,
       genesisArchiveRoot: deployL1ContractsArgs.genesisArchiveRoot ?? new Fr(GENESIS_ARCHIVE_ROOT),
       aztecTargetCommitteeSize: 0,
-      slasherFlavor: 'none',
+      slasherEnabled: false,
       ...deployL1ContractsArgs,
     }));
 
@@ -236,7 +235,13 @@ describe('L1Publisher integration', () => {
           checkpoint: { number: CheckpointNumber.fromBlockNumber(blockId.number), hash: blockId.hash },
         };
 
-        return { proposed: blockId, checkpointed: tipId, proven: tipId, finalized: tipId };
+        return {
+          proposed: blockId,
+          checkpointed: tipId,
+          proven: tipId,
+          finalized: tipId,
+          proposedCheckpoint: tipId,
+        };
       },
       getBlockNumber(): Promise<BlockNumber> {
         return Promise.resolve(BlockNumber(blocks.at(-1)?.number ?? BlockNumber.ZERO));
@@ -274,6 +279,7 @@ describe('L1Publisher integration', () => {
       {
         l1ChainId: chainId,
         ethereumSlotDuration: config.ethereumSlotDuration,
+        aztecSlotDuration: config.aztecSlotDuration,
       },
       {
         blobClient,
@@ -282,7 +288,6 @@ describe('L1Publisher integration', () => {
         epochCache,
         governanceProposerContract,
         slashingProposerContract,
-        slashFactoryContract: undefined as unknown as SlashFactoryContract,
         dateProvider,
         metrics: sequencerPublisherMetrics,
         lastActions: {},
@@ -322,7 +327,7 @@ describe('L1Publisher integration', () => {
       chainId: fr(chainId),
       version: fr(version),
       vkTreeRoot: getVKTreeRoot(),
-      gasSettings: GasSettings.default({ maxFeesPerGas: minFee }),
+      gasSettings: GasSettings.fallback({ maxFeesPerGas: minFee }),
       protocolContracts: ProtocolContractsList,
       seed,
     });
@@ -450,7 +455,7 @@ describe('L1Publisher integration', () => {
         const checkpoint = await buildCheckpoint(globalVariables, txs, currentL1ToL2Messages);
         const block = checkpoint.blocks[0];
 
-        const totalManaUsed = txs.reduce((acc, tx) => acc.add(new Fr(tx.gasUsed.totalGas.l2Gas)), Fr.ZERO);
+        const totalManaUsed = txs.reduce((acc, tx) => acc.add(new Fr(tx.gasUsed.billedGas.l2Gas)), Fr.ZERO);
         expect(totalManaUsed.toBigInt()).toEqual(block.header.totalManaUsed.toBigInt());
 
         prevHeader = block.header;
@@ -606,7 +611,7 @@ describe('L1Publisher integration', () => {
       const checkpointAttestations = validators.map(v => makeCheckpointAttestationFromCheckpoint(checkpoint, v));
       const attestations = orderAttestations(checkpointAttestations, committee!);
 
-      const canPropose = await publisher.canProposeAtNextEthBlock(new Fr(GENESIS_ARCHIVE_ROOT), proposer!);
+      const canPropose = await publisher.canProposeAt(new Fr(GENESIS_ARCHIVE_ROOT), proposer!);
       expect(canPropose?.slot).toEqual(block.header.getSlot());
       await publisher.validateBlockHeader(checkpoint.header);
 
@@ -630,7 +635,7 @@ describe('L1Publisher integration', () => {
       const attestations = orderAttestations(checkpointAttestations, committee!).reverse();
       const attestationsAndSigners = new CommitteeAttestationsAndSigners(attestations);
 
-      const canPropose = await publisher.canProposeAtNextEthBlock(new Fr(GENESIS_ARCHIVE_ROOT), proposer!);
+      const canPropose = await publisher.canProposeAt(new Fr(GENESIS_ARCHIVE_ROOT), proposer!);
       expect(canPropose?.slot).toEqual(block.header.getSlot());
       await publisher.validateBlockHeader(checkpoint.header);
 
@@ -645,7 +650,7 @@ describe('L1Publisher integration', () => {
       const checkpointAttestations = validators.map(v => makeCheckpointAttestationFromCheckpoint(checkpoint, v));
       const attestations = orderAttestations(checkpointAttestations, committee!);
 
-      const canPropose = await publisher.canProposeAtNextEthBlock(new Fr(GENESIS_ARCHIVE_ROOT), proposer!);
+      const canPropose = await publisher.canProposeAt(new Fr(GENESIS_ARCHIVE_ROOT), proposer!);
       expect(canPropose?.slot).toEqual(block.header.getSlot());
       await publisher.validateBlockHeader(checkpoint.header);
 
@@ -670,7 +675,7 @@ describe('L1Publisher integration', () => {
       const checkpointAttestations = validators.map(v => makeCheckpointAttestationFromCheckpoint(checkpoint, v));
       const attestations = orderAttestations(checkpointAttestations, committee!);
 
-      const canPropose = await publisher.canProposeAtNextEthBlock(new Fr(GENESIS_ARCHIVE_ROOT), proposer!);
+      const canPropose = await publisher.canProposeAt(new Fr(GENESIS_ARCHIVE_ROOT), proposer!);
       expect(canPropose?.slot).toEqual(block.header.getSlot());
       await publisher.validateBlockHeader(checkpoint.header);
 
@@ -738,20 +743,21 @@ describe('L1Publisher integration', () => {
       expect(invalidateRequest).toBeDefined();
       const forcePendingCheckpointNumber = invalidateRequest?.forcePendingCheckpointNumber;
       expect(forcePendingCheckpointNumber).toEqual(0);
+      const invalidationSimulationOverridesPlan = new SimulationOverridesBuilder()
+        .forPendingCheckpoint(forcePendingCheckpointNumber ?? CheckpointNumber.ZERO)
+        .build();
 
       // We cannot propose directly, we need to assume the previous checkpoint is invalidated
       const genesis = new Fr(GENESIS_ARCHIVE_ROOT);
       logger.warn(`Checking can propose at next eth block on top of genesis ${genesis}`);
-      expect(await publisher.canProposeAtNextEthBlock(genesis, proposer!)).toBeUndefined();
-      const canPropose = await publisher.canProposeAtNextEthBlock(genesis, proposer!, { forcePendingCheckpointNumber });
+      expect(await publisher.canProposeAt(genesis, proposer!)).toBeUndefined();
+      const canPropose = await publisher.canProposeAt(genesis, proposer!, invalidationSimulationOverridesPlan);
       expect(canPropose?.slot).toEqual(block.header.getSlot());
 
       // Same for validation
       logger.warn('Checking validate block header');
       await expect(publisher.validateBlockHeader(checkpoint.header)).rejects.toThrow(/Rollup__InvalidArchive/);
-      await publisher.validateBlockHeader(checkpoint.header, {
-        forcePendingCheckpointNumber: forcePendingCheckpointNumber ?? CheckpointNumber.ZERO,
-      });
+      await publisher.validateBlockHeader(checkpoint.header, invalidationSimulationOverridesPlan);
 
       // At this point I'm gonna need to propose the correct signature ye? So confused actually here.
       const attestationsAndSigners = new CommitteeAttestationsAndSigners(attestations);
@@ -764,7 +770,7 @@ describe('L1Publisher integration', () => {
       logger.warn('Enqueuing requests to invalidate and propose the checkpoint');
       publisher.enqueueInvalidateCheckpoint(invalidateRequest);
       await publisher.enqueueProposeCheckpoint(checkpoint, attestationsAndSigners, attestationsAndSignersSignature, {
-        forcePendingCheckpointNumber: forcePendingCheckpointNumber ?? CheckpointNumber.ZERO,
+        simulationOverridesPlan: invalidationSimulationOverridesPlan,
       });
       const result = await publisher.sendRequests();
       expect(result!.successfulActions).toEqual(['invalidate-by-insufficient-attestations', 'propose']);
@@ -785,7 +791,6 @@ describe('L1Publisher integration', () => {
       await publisher.enqueueGovernanceCastSignal(
         l1ContractAddresses.rollupAddress,
         block.slot,
-        block.timestamp,
         EthAddress.random(),
         (_payload: any) => Promise.resolve(Signature.random().toString()),
       );

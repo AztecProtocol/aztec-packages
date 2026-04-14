@@ -398,27 +398,31 @@ TEST(PlookupTests, secp256k1_generator)
         const auto xhi = plookup_read::read_pair_from_table(MultiTableId::SECP256K1_XHI, index);
         const auto ylo = plookup_read::read_pair_from_table(MultiTableId::SECP256K1_YLO, index);
         const auto yhi = plookup_read::read_pair_from_table(MultiTableId::SECP256K1_YHI, index);
-        curve::fq_ct x = curve::fq_ct::unsafe_construct_from_limbs(xlo.first, xlo.second, xhi.first, xhi.second);
-        curve::fq_ct y = curve::fq_ct::unsafe_construct_from_limbs(ylo.first, ylo.second, yhi.first, yhi.second);
+        curve::BaseField x =
+            curve::BaseField::unsafe_construct_from_limbs(xlo.first, xlo.second, xhi.first, xhi.second);
+        curve::BaseField y =
+            curve::BaseField::unsafe_construct_from_limbs(ylo.first, ylo.second, yhi.first, yhi.second);
 
-        const auto res = curve::g1_ct(x, y).get_value();
-        curve::fr scalar(i);
+        const auto res = curve::Group(x, y).get_value();
+        curve::ScalarFieldNative scalar(i);
         scalar = scalar + scalar;
         scalar = scalar - 255;
-        curve::g1::affine_element expec(curve::g1::one * scalar);
+        curve::GroupNative::affine_element expec(curve::GroupNative::one * scalar);
 
         EXPECT_EQ(res, expec);
     }
-    curve::g1_ct accumulator;
+    curve::Group accumulator;
     {
         const auto xlo = plookup_read::read_pair_from_table(MultiTableId::SECP256K1_XLO, circuit_naf_values[0]);
         const auto xhi = plookup_read::read_pair_from_table(MultiTableId::SECP256K1_XHI, circuit_naf_values[0]);
         const auto ylo = plookup_read::read_pair_from_table(MultiTableId::SECP256K1_YLO, circuit_naf_values[0]);
         const auto yhi = plookup_read::read_pair_from_table(MultiTableId::SECP256K1_YHI, circuit_naf_values[0]);
 
-        curve::fq_ct x = curve::fq_ct::unsafe_construct_from_limbs(xlo.first, xlo.second, xhi.first, xhi.second);
-        curve::fq_ct y = curve::fq_ct::unsafe_construct_from_limbs(ylo.first, ylo.second, yhi.first, yhi.second);
-        accumulator = curve::g1_ct(x, y);
+        curve::BaseField x =
+            curve::BaseField::unsafe_construct_from_limbs(xlo.first, xlo.second, xhi.first, xhi.second);
+        curve::BaseField y =
+            curve::BaseField::unsafe_construct_from_limbs(ylo.first, ylo.second, yhi.first, yhi.second);
+        accumulator = curve::Group(x, y);
     }
     for (size_t i = 1; i < circuit_naf_values.size(); ++i) {
         accumulator = accumulator.dbl();
@@ -433,17 +437,19 @@ TEST(PlookupTests, secp256k1_generator)
         const auto xhi = plookup_read::read_pair_from_table(MultiTableId::SECP256K1_XHI, circuit_naf_values[i]);
         const auto ylo = plookup_read::read_pair_from_table(MultiTableId::SECP256K1_YLO, circuit_naf_values[i]);
         const auto yhi = plookup_read::read_pair_from_table(MultiTableId::SECP256K1_YHI, circuit_naf_values[i]);
-        curve::fq_ct x = curve::fq_ct::unsafe_construct_from_limbs(xlo.first, xlo.second, xhi.first, xhi.second);
-        curve::fq_ct y = curve::fq_ct::unsafe_construct_from_limbs(ylo.first, ylo.second, yhi.first, yhi.second);
-        accumulator = accumulator.dbl() + curve::g1_ct(x, y);
+        curve::BaseField x =
+            curve::BaseField::unsafe_construct_from_limbs(xlo.first, xlo.second, xhi.first, xhi.second);
+        curve::BaseField y =
+            curve::BaseField::unsafe_construct_from_limbs(ylo.first, ylo.second, yhi.first, yhi.second);
+        accumulator = accumulator.dbl() + curve::Group(x, y);
     }
 
     if (skew) {
-        accumulator = accumulator - curve::g1_ct::one(&builder);
+        accumulator = accumulator - curve::Group::one(&builder);
     }
 
-    curve::g1::affine_element result = accumulator.get_value();
-    curve::g1::affine_element expected(curve::g1::one * input_value);
+    curve::GroupNative::affine_element result = accumulator.get_value();
+    curve::GroupNative::affine_element expected(curve::GroupNative::one * input_value);
     EXPECT_EQ(result, expected);
 
     bool proof_result = CircuitChecker::check(builder);

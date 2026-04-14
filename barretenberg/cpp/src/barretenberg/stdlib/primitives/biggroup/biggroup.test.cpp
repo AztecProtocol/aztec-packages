@@ -36,15 +36,15 @@ concept HasGoblinBuilder = IsMegaBuilder<typename T::Curve::Builder>;
 
 // One can only define a TYPED_TEST with a single template paramter.
 // Our workaround is to pass parameters of the following type.
-template <typename _Curve, bool _use_bigfield = false> struct TestType {
+template <typename Curve_, typename ScalarField_, bool use_bigfield> struct TestType {
   public:
-    using Curve = _Curve;
-    static const bool use_bigfield = _use_bigfield;
-    using element_ct =
-        typename std::conditional<_use_bigfield, typename Curve::g1_bigfr_ct, typename Curve::Group>::type;
+    using Curve = Curve_;
+    // The base field is always a bigfield, so we only have to select the scalar field type
+    using bigfield_element = bb::stdlib::
+        element<typename Curve::Builder, typename Curve::BaseField, ScalarField_, typename Curve::GroupNative>;
+    using element_ct = std::conditional_t<use_bigfield, bigfield_element, typename Curve::Group>;
     // the field of scalars acting on element_ct
-    using scalar_ct =
-        typename std::conditional<_use_bigfield, typename Curve::bigfr_ct, typename Curve::ScalarField>::type;
+    using scalar_ct = ScalarField_;
 };
 
 STANDARD_TESTING_TAGS
@@ -68,6 +68,7 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
     static constexpr auto EXPECT_CIRCUIT_CORRECTNESS = [](Builder& builder, bool expected_result = true) {
         info("num gates = ", builder.get_num_finalized_gates_inefficient());
         EXPECT_EQ(CircuitChecker::check(builder), expected_result);
+        EXPECT_EQ(builder.failed(), !expected_result);
     };
 
     // Helper to check the infinity status of a circuit element.
@@ -223,15 +224,17 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
         }
 
 #ifndef NDEBUG
-        // Instant death tag causes exception on use
+        // Instant death tag causes exception on use.
+        // NOTE: We construct the element BEFORE poisoning its x coordinate.
+        // The 2-argument element_ct constructor sums the x limbs to detect the point at infinity,
+        // which would trigger the instant_death check if the tag were already set.
         affine_element input_death(element::random_element());
         auto x_death = element_ct::BaseField::from_witness(&builder, input_death.x);
         auto y_normal = element_ct::BaseField::from_witness(&builder, input_death.y);
-        auto pif_normal = bool_ct(witness_ct(&builder, false));
-        x_death.set_origin_tag(instant_death_tag);
         y_normal.set_origin_tag(constant_tag);
-        pif_normal.set_origin_tag(constant_tag);
-        element_ct death_point(x_death, y_normal, pif_normal, /*assert_on_curve=*/false);
+        element_ct death_point(x_death, y_normal, /*assert_on_curve=*/false);
+        // Poison the x coordinate after construction so the throw happens inside operator+
+        death_point.x().set_origin_tag(instant_death_tag);
         EXPECT_THROW(death_point + death_point, std::runtime_error);
 
         // AUDITTODO: incomplete_assert_equal has inconsistent instant_death behavior between builders. (this was simply
@@ -1383,22 +1386,11 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             points.emplace_back(point);
         }
 
-        // If with_edgecases = true, should handle linearly dependent points correctly
-        // Define masking scalar (128 bits)
-        const auto get_128_bit_scalar = []() {
-            uint256_t scalar_u256(0, 0, 0, 0);
-            scalar_u256.data[0] = engine.get_random_uint64();
-            scalar_u256.data[1] = engine.get_random_uint64();
-            fr scalar(scalar_u256);
-            return scalar;
-        };
-        fr masking_scalar = get_128_bit_scalar();
-        scalar_ct masking_scalar_ct = scalar_ct::from_witness(&builder, masking_scalar);
+        // Since with_edgecases = true by default, should handle linearly dependent points correctly
+        // (offset generator is now a free witness sampled inside batch_mul)
         element_ct c = element_ct::batch_mul(points,
                                              scalars,
-                                             /*max_num_bits*/ 128,
-                                             /*with_edgecases*/ true,
-                                             /*masking_scalar*/ masking_scalar_ct);
+                                             /*max_num_bits*/ 128);
         element input_e = (element(input_P_a) * scalar_a);
         element input_f = (element(input_P_b) * scalar_b);
         element input_g = (element(input_P_c) * scalar_c);
@@ -1512,20 +1504,8 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             circuit_points.push_back(P);
         }
 
-        // Define masking scalar (128 bits) if with_edgecases is true
-        const auto get_128_bit_scalar = []() {
-            uint256_t scalar_u256(0, 0, 0, 0);
-            scalar_u256.data[0] = engine.get_random_uint64();
-            scalar_u256.data[1] = engine.get_random_uint64();
-            fr scalar(scalar_u256);
-            return scalar;
-        };
-        fr masking_scalar = with_edgecases ? get_128_bit_scalar() : fr(1);
-        scalar_ct masking_scalar_ct =
-            with_edgecases ? scalar_ct::from_witness(&builder, masking_scalar) : scalar_ct(&builder, fr(1));
-
-        element_ct result_point = element_ct::batch_mul(
-            circuit_points, circuit_scalars, /*max_num_bits=*/0, with_edgecases, masking_scalar_ct);
+        element_ct result_point =
+            element_ct::batch_mul(circuit_points, circuit_scalars, /*max_num_bits=*/0, with_edgecases);
 
         element expected_point = g1::one;
         expected_point.self_set_infinity();
@@ -2371,22 +2351,27 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
 };
 
 // bn254 with ultra arithmetisation where scalar field is native field, base field is non-native field (bigfield)
-using bn254_with_ultra = stdlib_biggroup<TestType<stdlib::bn254<bb::UltraCircuitBuilder>, /*_use_bigfield=*/false>>;
+using bn254_with_ultra =
+    TestType<stdlib::bn254<bb::UltraCircuitBuilder>, stdlib::bn254<bb::UltraCircuitBuilder>::ScalarField, false>;
 
 // bn254 with ultra arithmetisation where both scalar and base fields are non-native fields
-using bn254_with_ultra_scalar_bigfield =
-    stdlib_biggroup<TestType<stdlib::bn254<bb::UltraCircuitBuilder>, /*_use_bigfield=*/true>>;
+using bn254_with_ultra_scalar_bigfield = TestType<stdlib::bn254<bb::UltraCircuitBuilder>,
+                                                  bb::stdlib::bigfield<bb::UltraCircuitBuilder, bb::Bn254FrParams>,
+                                                  true>;
 
 // bn254 with mega arithmetisation where scalar field is native field, base field is non-native field
-using bn254_with_mega = stdlib_biggroup<TestType<stdlib::bn254<bb::MegaCircuitBuilder>, /*_use_bigfield=*/false>>;
+using bn254_with_mega =
+    TestType<stdlib::bn254<bb::MegaCircuitBuilder>, stdlib::bn254<bb::MegaCircuitBuilder>::ScalarField, false>;
 
 // secp256r1 with ultra arithmetisation where both scalar and base fields are (naturally) non-native fields
-using secp256r1_with_ultra =
-    stdlib_biggroup<TestType<stdlib::secp256r1<bb::UltraCircuitBuilder>, /*_use_bigfield=*/true>>;
+using secp256r1_with_ultra = TestType<stdlib::secp256r1<bb::UltraCircuitBuilder>,
+                                      stdlib::secp256r1<bb::UltraCircuitBuilder>::ScalarField,
+                                      false>;
 
 // secp256k1 with ultra arithmetisation where both scalar and base fields are (naturally) non-native fields
-using secp256k1_with_ultra =
-    stdlib_biggroup<TestType<stdlib::secp256k1<bb::UltraCircuitBuilder>, /*_use_bigfield=*/true>>;
+using secp256k1_with_ultra = TestType<stdlib::secp256k1<bb::UltraCircuitBuilder>,
+                                      stdlib::secp256k1<bb::UltraCircuitBuilder>::ScalarField,
+                                      false>;
 
 using TestTypes = testing::Types<bn254_with_ultra,
                                  bn254_with_ultra_scalar_bigfield,
@@ -2395,6 +2380,49 @@ using TestTypes = testing::Types<bn254_with_ultra,
                                  secp256k1_with_ultra>;
 
 TYPED_TEST_SUITE(stdlib_biggroup, TestTypes);
+
+TYPED_TEST(stdlib_biggroup, validate_on_curve)
+{
+    BB_DISABLE_ASSERTS();
+    // Goblin points do not implement validate on curve
+    if constexpr (!HasGoblinBuilder<TypeParam>) {
+        using Builder = TestFixture::Builder;
+        using element_ct = TestFixture::element_ct;
+        using Fq = TestFixture::Curve::BaseField;
+        using FqNative = TestFixture::Curve::BaseFieldNative;
+        using GroupNative = TestFixture::Curve::GroupNative;
+
+        Builder builder;
+        auto [native_point, witness_point] = TestFixture::get_random_witness_point(&builder);
+
+        // Valid point
+        Fq expected_zero = witness_point.validate_on_curve("biggroup::validate_on_curve", false);
+        expected_zero.assert_equal(Fq::zero());
+        EXPECT_EQ(expected_zero.get_value(), static_cast<uint512_t>(FqNative::zero()));
+
+        // Invalid point
+        Fq random_x = Fq::from_witness(&builder, FqNative::random_element());
+        Fq random_y = Fq::from_witness(&builder, FqNative::random_element());
+        element_ct invalid_point(random_x, random_y, /*assert_on_curve*/ false);
+        Fq expected_non_zero = invalid_point.validate_on_curve("biggroup::validate_on_curve", false);
+        Fq expected_value = -random_y.sqr() + random_x.pow(3) + Fq(uint256_t(GroupNative::curve_b));
+        if constexpr (GroupNative::has_a) {
+            expected_value += random_x * Fq(uint256_t(GroupNative::curve_a));
+        }
+        expected_non_zero.assert_equal(expected_value);
+
+        // Reduce the value to remove constants
+        expected_non_zero.self_reduce();
+        expected_value.self_reduce();
+        EXPECT_EQ(expected_non_zero.get_value(), expected_value.get_value());
+
+        TestFixture::EXPECT_CIRCUIT_CORRECTNESS(builder);
+
+        // Check that the circuit fails if validate_on_curve is called with default parameters
+        [[maybe_unused]] Fq _ = invalid_point.validate_on_curve();
+        TestFixture::EXPECT_CIRCUIT_CORRECTNESS(builder, false);
+    }
+}
 
 TYPED_TEST(stdlib_biggroup, basic_tag_logic)
 {

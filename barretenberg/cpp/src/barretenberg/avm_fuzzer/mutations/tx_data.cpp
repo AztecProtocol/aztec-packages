@@ -112,7 +112,7 @@ void mutate_tx(Tx& tx, std::vector<AztecAddress>& contract_addresses, std::mt199
     case TxMutationOptions::GasUsedByPrivate:
         // Mutate gas_used_by_private
         fuzz_info("Mutating gas used by private");
-        mutate_gas(tx.gas_used_by_private, rng, tx.gas_settings.gas_limits);
+        mutate_gas(tx.gas_used_by_private, rng, GAS_USED_BY_PRIVATE, tx.gas_settings.gas_limits);
         break;
     case TxMutationOptions::FeePayer:
         // Mutate fee_payer

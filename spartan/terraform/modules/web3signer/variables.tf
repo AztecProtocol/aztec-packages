@@ -53,10 +53,10 @@ variable "VALIDATOR_PUBLISHER_MNEMONIC_START_INDEX" {
   type        = number
 }
 
-variable "VALIDATOR_PUBLISHERS_PER_VALIDATOR_KEY" {
-  description = "Number of publishers for each attester key"
+variable "VALIDATOR_PUBLISHERS_PER_REPLICA" {
+  description = "Number of publisher EOAs per validator replica (pod)"
   type        = number
-  default     = 0
+  default     = 4
 }
 
 variable "AZTEC_DOCKER_IMAGE" {

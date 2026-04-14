@@ -1,7 +1,6 @@
 import { PRIVATE_LOG_SIZE_IN_FIELDS } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/curves/bn254';
 
-import type { AztecAddress } from '../aztec-address/index.js';
 import type { TxHash } from '../tx/tx_hash.js';
 import { MessageContext } from './message_context.js';
 
@@ -17,9 +16,8 @@ export class PendingTaggedLog {
     txHash: TxHash,
     uniqueNoteHashesInTx: Fr[],
     firstNullifierInTx: Fr,
-    recipient: AztecAddress,
   ) {
-    this.context = new MessageContext(txHash, uniqueNoteHashesInTx, firstNullifierInTx, recipient);
+    this.context = new MessageContext(txHash, uniqueNoteHashesInTx, firstNullifierInTx);
   }
 
   toFields(): Fr[] {

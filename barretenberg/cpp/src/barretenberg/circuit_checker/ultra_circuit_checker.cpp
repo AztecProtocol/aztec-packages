@@ -48,6 +48,10 @@ MegaCircuitBuilder_<bb::fr> UltraCircuitChecker::prepare_circuit<MegaCircuitBuil
 
 template <typename Builder> bool UltraCircuitChecker::check(const Builder& builder_in)
 {
+    if (builder_in.failed()) {
+        info("CircuitChecker: circuit contains invalid witnesses: ", builder_in.err());
+    }
+
     Builder builder = UltraCircuitChecker::prepare_circuit(builder_in);
 
     // Construct a hash table for lookup table entries to efficiently determine if a lookup gate is valid
@@ -185,6 +189,9 @@ bool UltraCircuitChecker::check_block(Builder& builder,
             if (!result) {
                 return report_fail("Failed databus read at row idx = ", idx);
             }
+            // Note: EccOpQueueRelation is not checked here because it simply establishes that the ecc_op_wire
+            // polynomials contain copies of the conventional wire data in the ecc_op region (and are zero elsewhere) so
+            // there is nothing to check at the level of the builder.
         }
         if (!result) {
             return report_fail("Failed at row idx = ", idx);

@@ -1,7 +1,7 @@
 # External Audit Scope: Boomerang Value Detection
 
 Repository: https://github.com/AztecProtocol/aztec-packages
-Commit hash: [5824b41fac25d588f13c08578e179d1c4f37f27d](https://github.com/AztecProtocol/aztec-packages/tree/5824b41fac25d588f13c08578e179d1c4f37f27d)
+Commit hash: Most recent commit on branch 'next'
 
 ## Files to Audit
 

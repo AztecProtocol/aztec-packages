@@ -133,7 +133,7 @@ COPY --from=foundry /opt/foundry /opt/foundry
 ENV PATH="/opt/foundry/bin:$PATH"
 
 # Install corepack and yarn.
-RUN npm install --global corepack && corepack enable && corepack install --global yarn@4.5.2
+RUN npm install --global corepack && corepack enable && corepack install --global yarn@4.13.0
 
 # Install solhint.
 RUN npm install --global solhint
@@ -203,6 +203,7 @@ RUN apt update && \
         neovim \
         psmisc \
         python3-blessed \
+        qemu-utils \
         redis-tools \
         rsync \
         software-properties-common \
@@ -264,7 +265,7 @@ RUN echo '%sudo ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers
 # It can be used independently:
 # - The user should use the ./run.sh script to launch.
 # - A persistent volume will be mounted to /home/aztec-dev.
-# - It provides docker via the hosts docker instance, mounted at /var/lib/docker.sock.
+# - It provides docker-in-docker.
 # - It uses an entrypoint script at runtime to perform uid/gid alignment with the host and drop into user account.
 FROM basebox AS devbox
 

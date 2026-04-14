@@ -21,6 +21,7 @@ export interface PublicTxMetrics {
   totalDurationMs: number;
   manaUsed: number | undefined;
   totalInstructionsExecuted: number;
+  bytecodeSizes: { contractName: string; sizeBytes: number }[];
   nonRevertiblePrivateInsertionsUs: number | undefined;
   revertiblePrivateInsertionsUs: number | undefined;
   enqueuedCalls: PublicEnqueuedCallMetrics[];
@@ -62,6 +63,7 @@ function createEmptyTxMetrics(): PublicTxMetrics {
     totalDurationMs: 0,
     manaUsed: 0,
     totalInstructionsExecuted: 0,
+    bytecodeSizes: [],
     nonRevertiblePrivateInsertionsUs: undefined,
     revertiblePrivateInsertionsUs: undefined,
     enqueuedCalls: [],
@@ -172,6 +174,12 @@ export class TestExecutorMetrics implements ExecutorMetricsInterface {
     }
   }
 
+  recordBytecodeSize(txLabel: string, contractName: string, sizeBytes: number) {
+    const txMetrics = this.txMetrics.get(txLabel);
+    assert(txMetrics, `Cannot record bytecode size for unknown tx label: ${txLabel}`);
+    txMetrics.bytecodeSizes.push({ contractName, sizeBytes });
+  }
+
   recordProverMetrics(txLabel: string, metrics: Partial<PublicTxMetrics>) {
     if (!this.txMetrics.has(txLabel)) {
       this.txMetrics.set(txLabel, createEmptyTxMetrics());
@@ -215,6 +223,15 @@ export class TestExecutorMetrics implements ExecutorMetricsInterface {
         filter === PublicTxMetricsFilter.ALL
       ) {
         pretty += `${INDENT0}Total instructions executed: ${fmtNum(txMetrics.totalInstructionsExecuted)}\n`;
+      }
+      if (
+        (filter === PublicTxMetricsFilter.TOTALS || filter === PublicTxMetricsFilter.ALL) &&
+        txMetrics.bytecodeSizes.length > 0
+      ) {
+        pretty += `${INDENT0}Bytecode sizes:\n`;
+        for (const { contractName, sizeBytes } of txMetrics.bytecodeSizes) {
+          pretty += `${INDENT1}${contractName}: ${fmtNum(sizeBytes, 'bytes')}\n`;
+        }
       }
       if (filter === PublicTxMetricsFilter.DURATIONS || filter === PublicTxMetricsFilter.ALL) {
         pretty += `${INDENT0}Private insertions:\n`;
@@ -386,6 +403,13 @@ export class TestExecutorMetrics implements ExecutorMetricsInterface {
             unit: metricsInfo[key as keyof typeof metricsInfo].unit,
           });
         }
+      }
+      for (const { contractName, sizeBytes } of txMetrics.bytecodeSizes) {
+        data.push({
+          name: `${txLabel}/bytecodeSizeBytes/${contractName}`,
+          value: sizeBytes,
+          unit: 'bytes',
+        });
       }
     }
     return JSON.stringify(data, null, indent);

@@ -2,12 +2,12 @@ use crate::{
     context::PrivateContext,
     messages::{
         encryption::{aes128::AES128, message_encryption::MessageEncryption},
-        logs::utils::prefix_with_tag,
+        logs::utils::compute_discovery_tag,
         offchain_messages::deliver_offchain_message,
     },
     utils::remove_constraints::remove_constraints_if,
 };
-use crate::protocol::address::AztecAddress;
+use crate::protocol::{address::AztecAddress, constants::DOM_SEP__UNCONSTRAINED_MSG_LOG_TAG, hash::compute_log_tag};
 
 /// Placeholder struct until Noir adds `enum` support.
 ///
@@ -192,7 +192,7 @@ pub global MessageDelivery: MessageDeliveryEnum =
 /// be created, there is no point in delivering the message.
 ///
 /// `delivery_mode` must be one of [`MessageDeliveryEnum`].
-pub(crate) fn do_private_message_delivery<Env, let MESSAGE_PLAINTEXT_LEN: u32>(
+pub fn do_private_message_delivery<Env, let MESSAGE_PLAINTEXT_LEN: u32>(
     context: &mut PrivateContext,
     encode_into_message_plaintext: fn[Env]() -> [Field; MESSAGE_PLAINTEXT_LEN],
     maybe_note_hash_counter: Option<u32>,
@@ -205,22 +205,25 @@ pub(crate) fn do_private_message_delivery<Env, let MESSAGE_PLAINTEXT_LEN: u32>(
     assert_constant(delivery_mode);
 
     // The following maps out the 3 dimensions across which we configure message delivery.
-    let constrained_encryption = delivery_mode == MessageDelivery.ONCHAIN_UNCONSTRAINED;
+    let constrained_encryption = delivery_mode == MessageDelivery.ONCHAIN_CONSTRAINED;
     let deliver_as_offchain_message = delivery_mode == MessageDelivery.OFFCHAIN;
     // TODO(#14565): Add constrained tagging
     let _constrained_tagging = delivery_mode == MessageDelivery.ONCHAIN_CONSTRAINED;
 
+    let contract_address = context.this_address();
     let ciphertext = remove_constraints_if(
         !constrained_encryption,
-        || AES128::encrypt(encode_into_message_plaintext(), recipient),
+        || AES128::encrypt(encode_into_message_plaintext(), recipient, contract_address),
     );
 
     if deliver_as_offchain_message {
         deliver_offchain_message(ciphertext, recipient);
     } else {
-        // Safety: Currently unsafe. See description of ONCHAIN_CONSTRAINED in MessageDeliveryEnum. TODO(#14565):
-        // Implement proper constrained tag prefixing to make this truly ONCHAIN_CONSTRAINED
-        let log_content = prefix_with_tag(ciphertext, recipient);
+        // TODO(#14565): constrained tagging is not yet implemented. Both modes currently use the unconstrained
+        // domain separator because the discovery tag always comes from an oracle. Once constrained tagging lands,
+        // this should branch on `constrained_tagging` to select the appropriate separator.
+        let discovery_tag = compute_discovery_tag(recipient);
+        let log_tag = compute_log_tag(discovery_tag, DOM_SEP__UNCONSTRAINED_MSG_LOG_TAG);
 
         // We forbid this value not being constant to avoid predicating the context calls below, which might result in
         // the context's arrays having unknown compile time write indices and hence dramatically increasing constraints
@@ -234,9 +237,9 @@ pub(crate) fn do_private_message_delivery<Env, let MESSAGE_PLAINTEXT_LEN: u32>(
             //
             // Note that the log always has the same length regardless of `MESSAGE_PLAINTEXT_LEN`, because all message
             // ciphertexts also have the same length. This prevents accidental privacy leakage via the log length.
-            context.emit_raw_note_log(log_content, log_content.len(), maybe_note_hash_counter.unwrap());
+            context.emit_raw_note_log_unsafe(log_tag, ciphertext, ciphertext.len(), maybe_note_hash_counter.unwrap());
         } else {
-            context.emit_private_log(log_content, log_content.len());
+            context.emit_private_log_unsafe(log_tag, ciphertext, ciphertext.len());
         }
     }
 }

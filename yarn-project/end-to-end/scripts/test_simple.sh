@@ -34,7 +34,6 @@ else
 
   node --experimental-vm-modules ../node_modules/.bin/jest \
   --testTimeout=300000 \
-  --forceExit \
   --no-cache \
   "${cache_dir_arg[@]}" \
   "${test_name_arg[@]}" \

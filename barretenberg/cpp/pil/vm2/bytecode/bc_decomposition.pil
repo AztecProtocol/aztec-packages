@@ -98,7 +98,7 @@ include "../precomputed.pil";
  *                --> bc_retrieval.pil                            --> precomputed.pil
  * This trace is looked up by:
  * - instr_fetching.pil: To constrain the bytecode size (#[BYTECODE_SIZE_FROM_BC_DEC]) and values (#[BYTES_FROM_BC_DEC]).
- * - bc_hashing.pil: To constrain the bytecode size (#[CHECK_FINAL_BYTES_REMAINING] and #[BYTECODE_LENGTH_BYTES]) and packed field values
+ * - bc_hashing.pil: To constrain the bytecode size (#[BYTECODE_LENGTH_BYTES]) and packed field values
  *                   (#[GET_PACKED_FIELD_i] for i = 0, 1, 2) via a multipermutation. It enforces that the id is the public bytecode commitment.
  *
  * This trace looks up:
@@ -154,7 +154,7 @@ pol LATCH_CONDITION = precomputed.first_row + last_of_contract;
 // Note that sel cannot be activated in the first row as sel' is defined.
 // As a consequence, if a row is activated (sel == 1) somewhere in this sub-trace, then
 // the activated rows start from the second row and are contiguous.
-// See common recipes: https://hackmd.io/moq6viBpRJeLpWrHAogCZw#Contiguous-Multi-Rows-Computation-Trace
+// See common recipes: https://github.com/AztecProtocol/aztec-packages/blob/next/barretenberg/cpp/pil/vm2/docs/recipes.md#contiguous-multi-rows-computation-trace
 #[TRACE_CONTINUITY]
 (1 - LATCH_CONDITION) * (sel - sel') = 0;
 

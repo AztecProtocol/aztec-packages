@@ -15,6 +15,7 @@ use crate::{
     private_kernel_reset::PrivateKernelResetCircuitPrivateInputs,
     reset::{KeyValidationHint, ReadRequestHintsBuilder, TransientDataSquashingHint},
 };
+use protocol_test_utils::{FixtureBuilder, pad_end, pad_end_with};
 use std::embedded_curve_ops::{EmbeddedCurveScalar, fixed_base_scalar_mul as derive_public_key};
 use types::{
     abis::{
@@ -30,13 +31,9 @@ use types::{
         PRIVATE_KERNEL_INNER_VK_INDEX,
     },
     hash::{compute_app_siloed_secret_key, compute_siloed_nullifier},
-    merkle_tree::{LeafPreimage, MembershipWitness},
+    merkle_tree::{LeafPreimage, MembershipWitness, test_utils::SingleSubtreeMerkleTree},
+    point::Point,
     side_effect::{Counted, Scoped},
-    tests::{
-        fixture_builder::FixtureBuilder,
-        merkle_tree_utils::SingleSubtreeMerkleTree,
-        utils::{pad_end, pad_end_with},
-    },
     traits::Empty,
     utils::arrays::find_first_index,
 };
@@ -112,7 +109,7 @@ impl TestBuilder {
         previous_kernel.anchor_block_header.state.partial.nullifier_tree.next_available_leaf_index =
             nullifier_tree.get_next_available_index();
 
-        let mut output = previous_kernel;
+        let output = previous_kernel;
 
         Self {
             previous_kernel,
@@ -197,7 +194,7 @@ impl TestBuilder {
 
     pub fn add_key_validation_request(&mut self, sk: Field) {
         let sk_m = EmbeddedCurveScalar::from_field(sk);
-        let pk_m = derive_public_key(sk_m);
+        let pk_m: Point = derive_public_key(sk_m).into();
 
         let key_type_domain_separator = 123321;
         let contract_address = self.previous_kernel.contract_address;

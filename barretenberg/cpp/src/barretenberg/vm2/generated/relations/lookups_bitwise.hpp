@@ -39,7 +39,7 @@ struct lookup_bitwise_byte_operations_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_BITWISE_BYTE_OPERATIONS";
     static constexpr std::string_view RELATION_NAME = "bitwise";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 5;
-    static constexpr Column SRC_SELECTOR = Column::bitwise_sel;
+    static constexpr Column SRC_SELECTOR = Column::bitwise_sel_compute;
     static constexpr Column DST_SELECTOR = Column::precomputed_sel_range_16;
     static constexpr Column COUNTS = Column::lookup_bitwise_byte_operations_counts;
     static constexpr Column INVERSES = Column::lookup_bitwise_byte_operations_inv;

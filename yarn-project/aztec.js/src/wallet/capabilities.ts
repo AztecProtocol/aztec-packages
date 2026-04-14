@@ -32,6 +32,15 @@ export interface ContractFunctionPattern {
 
   /** Function name or '*' for any function */
   function: string;
+
+  /**
+   * Additional addresses whose private state and keys are accessible
+   * when calling this function, beyond the sender's.
+   * - undefined: No additional scopes allowed
+   * - AztecAddress[]: Only these specific addresses allowed as additional scopes
+   * - '*': All known address allowed as an additional scope
+   */
+  additionalScopes?: AztecAddress[] | '*';
 }
 
 /**

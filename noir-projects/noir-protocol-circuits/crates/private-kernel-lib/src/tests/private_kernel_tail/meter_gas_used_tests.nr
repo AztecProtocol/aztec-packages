@@ -12,7 +12,7 @@ use types::{
 /// A minimum (private) tx initialized in the TestBuilder contains a protocol nullifier, which must exist in every tx.
 fn get_minimum_private_tx_gas_used() -> Gas {
     let nullifier_gas_used = Gas { da_gas: DA_GAS_PER_FIELD, l2_gas: L2_GAS_PER_NULLIFIER };
-    Gas::tx_overhead() + nullifier_gas_used
+    Gas::private_tx_overhead() + nullifier_gas_used
 }
 
 #[test]
@@ -100,7 +100,7 @@ fn full_side_effects() {
     let mut builder = TestBuilder::new();
 
     // Fill the tx with side effects and compute the expected gas used.
-    let mut expected_gas_used = Gas::tx_overhead();
+    let mut expected_gas_used = Gas::private_tx_overhead();
     // Note hashes.
     builder.previous_kernel.append_siloed_note_hashes(MAX_NOTE_HASHES_PER_TX);
     expected_gas_used += Gas {

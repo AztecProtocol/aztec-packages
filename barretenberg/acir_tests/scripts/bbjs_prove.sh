@@ -5,16 +5,16 @@ cd ../acir_tests/$1
 
 export HARDWARE_CONCURRENCY=8
 
-mkdir -p output-$$
-trap "rm -rf output-$$" EXIT
+output_dir=$(mktemp -d ./output-XXXXXX)
+trap "rm -rf $output_dir" EXIT
 
 # Writes the proof, public inputs ./target; this also writes the VK
 node ../../bbjs-test prove \
   -b target/program.json \
   -w target/witness.gz \
-  -o output-$$ \
+  -o $output_dir \
   --multi-threaded
 
 # Verify the proof by reading the files in ./target
 node ../../bbjs-test verify \
-  -d output-$$
+  -d $output_dir

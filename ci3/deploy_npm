@@ -22,16 +22,27 @@ if [ "$version" == "$published_version" ]; then
   exit 0
 fi
 
-cp package.json package.json.deploy_bkup
-# Restore package.json as we write over it.
+# Create temp directory for publishing
+tmpdir=$(mktemp -d)
 function cleanup {
-  mv package.json.deploy_bkup package.json &>/dev/null || true
+  rm -rf "$tmpdir"
 }
 trap cleanup SIGINT SIGTERM EXIT
 
+# Use npm pack instead of yarn pack. yarn pack fails on portal: dependencies (e.g. bb.js)
+# because its beforeWorkspacePacking hook can't resolve workspace:^ for portal links.
+# npm pack just packs the files without trying to resolve workspace refs.
+npm pack --pack-destination "$tmpdir" --quiet
+
+# Extract and prepare
+cd "$tmpdir"
+tar -xzf *.tgz
+cd package
+
+# Replace workspace:^ with concrete versions.
 release_prep_package_json $version
 
-# Publish.
+# Publish from temp dir
 if [ "$dry_run" -eq 1 ]; then
   denoise "npm publish --ignore-scripts --dry-run --tag $dist_tag --access public"
 else

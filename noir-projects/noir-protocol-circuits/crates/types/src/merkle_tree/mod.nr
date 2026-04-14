@@ -5,6 +5,7 @@ pub mod root;
 pub mod unbalanced_merkle_tree;
 pub mod append_only_tree;
 pub mod indexed_tree;
+pub mod test_utils;
 
 pub use append_only_tree::{append_leaf_to_snapshot, append_leaf_to_snapshot_sha};
 pub use leaf_preimage::{IndexedTreeLeafPreimage, LeafPreimage};

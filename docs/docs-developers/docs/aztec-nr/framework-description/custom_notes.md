@@ -4,7 +4,7 @@ description: Learn how to create and use custom note types for specialized priva
 sidebar_position: 6
 tags: [smart contracts, notes, privacy]
 keywords: [implementing note, note, custom note]
-references: ["docs/examples/tutorials/token_bridge_contract/contracts/aztec/nft/*", "noir-projects/noir-contracts/contracts/app/nft_contract/*"]
+references: ["noir-projects/noir-contracts/contracts/app/nft_contract/*"]
 ---
 
 This guide shows you how to create custom note types for storing specialized private data in your Aztec contracts.
@@ -29,21 +29,21 @@ Aztec.nr provides pre-built note types for common use cases:
 
 ```toml
 # In Nargo.toml
-uint_note = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="noir-projects/aztec-nr/uint-note" }
+uint_note = { git="https://github.com/AztecProtocol/aztec-nr", tag="#include_aztec_version", directory="uint-note" }
 ```
 
 **FieldNote** - For storing single Field values:
 
 ```toml
 # In Nargo.toml
-field_note = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="noir-projects/aztec-nr/field-note" }
+field_note = { git="https://github.com/AztecProtocol/aztec-nr", tag="#include_aztec_version", directory="field-note" }
 ```
 
 **AddressNote** - For storing Aztec addresses:
 
 ```toml
 # In Nargo.toml
-address_note = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="noir-projects/aztec-nr/address-note" }
+address_note = { git="https://github.com/AztecProtocol/aztec-nr", tag="#include_aztec_version", directory="address-note" }
 ```
 
 :::
@@ -124,6 +124,7 @@ With `#[custom_note]`, you must implement the `NoteHash` trait yourself:
 ```rust
 use aztec::{
     context::PrivateContext,
+    keys::getters::{get_nhk_app, get_public_keys, try_get_public_keys},
     macros::notes::custom_note,
     note::note_interface::NoteHash,
     protocol::{
@@ -161,7 +162,7 @@ impl NoteHash for CustomHashNote {
         note_hash_for_nullification: Field,
     ) -> Field {
         // Standard nullifier using owner's nullifier hiding key
-        let owner_npk_m = aztec::keys::getters::get_public_keys(owner).npk_m;
+        let owner_npk_m = get_public_keys(owner).npk_m;
         let secret = context.request_nhk_app(owner_npk_m.hash());
         poseidon2_hash_with_separator(
             [note_hash_for_nullification, secret],
@@ -173,16 +174,21 @@ impl NoteHash for CustomHashNote {
         self,
         owner: AztecAddress,
         note_hash_for_nullification: Field,
-    ) -> Field {
-        let owner_npk_m = aztec::keys::getters::get_public_keys(owner).npk_m;
-        let secret = aztec::keys::getters::get_nhk_app(owner_npk_m.hash());
-        poseidon2_hash_with_separator(
-            [note_hash_for_nullification, secret],
-            DOM_SEP__NOTE_NULLIFIER,
-        )
+    ) -> Option<Field> {
+        try_get_public_keys(owner).map(|public_keys| {
+            let secret = get_nhk_app(public_keys.npk_m.hash());
+            poseidon2_hash_with_separator(
+                [note_hash_for_nullification, secret],
+                DOM_SEP__NOTE_NULLIFIER,
+            )
+        })
     }
 }
 ```
+
+:::tip Naming note
+The secret returned by `request_nhk_app` is the **nullifier hiding key** (abbreviated `nhk`). Older docs and code comments may call it the "nullifier secret key" (`nsk`) — these refer to the same key. Always use `request_nhk_app()` rather than computing this key yourself.
+:::
 
 ## Viewing notes (unconstrained)
 

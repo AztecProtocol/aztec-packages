@@ -37,10 +37,9 @@ export function injectAztecCommands(program: Command, userLog: LogFn, debugLogge
       `
 Additional commands:
 
-  init [folder] [options]  creates a new Aztec Noir project.
-  new <path> [options]     creates a new Aztec Noir project in a new directory.
-  compile [options]        compiles Aztec Noir contracts.
-  test [options]           starts a TXE and runs "nargo test" using it as the oracle resolver.
+  init               creates a new Aztec Noir workspace in the current directory.
+  new <name>         creates a new Aztec Noir workspace in its own directory (or creates a new contract-test crates pair and adds it to the current workspace if run in workspace).
+  test [options]     starts a TXE and runs "nargo test" using it as the oracle resolver.
     `,
     );
   }

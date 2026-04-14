@@ -133,12 +133,14 @@ pub contract ContractInstanceRegistry {
         let partial_address =
             PartialAddress::compute(contract_class_id, salt, initialization_hash, deployer);
 
-        // Validate public key points lie on the Grumpkin curve to prevent AVM DoS attacks.
+        // Validate public key points lie on the Grumpkin curve and are non-0 to prevent AVM DoS attacks.
         public_keys.validate_on_curve();
+        public_keys.validate_non_infinity();
 
         let address = AztecAddress::compute(public_keys, partial_address);
 
         // Emit address as nullifier: prevents duplicate deployment and proves publication.
+        // We use no domain separators because these are the only nullifiers this contract uses.
         context.push_nullifier(address.to_field());
 
         // Broadcast deployment event. Uses non-standard serialization (2 fields per point,

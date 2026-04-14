@@ -1,4 +1,4 @@
-import { AVM_MAX_PROCESSABLE_L2_GAS } from '@aztec/constants';
+import { MAX_PROCESSABLE_L2_GAS } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
 import { ProtocolContractAddress, ProtocolContractsList } from '@aztec/protocol-contracts';
@@ -199,8 +199,8 @@ export class PublicTxSimulator implements PublicTxSimulatorInterface {
 
     // Such transactions should be filtered by GasTxValidator.
     assert(
-      context.getActualGasUsed().l2Gas <= AVM_MAX_PROCESSABLE_L2_GAS,
-      `Transaction consumes ${context.getActualGasUsed().l2Gas} L2 gas, which exceeds the AVM maximum processable gas of ${AVM_MAX_PROCESSABLE_L2_GAS}`,
+      context.getActualGasUsed().l2Gas <= MAX_PROCESSABLE_L2_GAS,
+      `Transaction consumes ${context.getActualGasUsed().l2Gas} L2 gas, which exceeds the maximum processable gas of ${MAX_PROCESSABLE_L2_GAS}`,
     );
     await this.payFee(context);
 
@@ -401,7 +401,7 @@ export class PublicTxSimulator implements PublicTxSimulatorInterface {
     // However, things work as expected because later calls to getters on the hintingContractsDB
     // will pick up the new contracts and will generate the necessary hints.
     // So, a consumer of the hints will always see the new contracts.
-    await this.contractsDB.addContracts(context.nonRevertibleContractDeploymentData);
+    this.contractsDB.addContracts(context.nonRevertibleContractDeploymentData);
   }
 
   /**
@@ -486,7 +486,7 @@ export class PublicTxSimulator implements PublicTxSimulatorInterface {
     // However, things work as expected because later calls to getters on the hintingContractsDB
     // will pick up the new contracts and will generate the necessary hints.
     // So, a consumer of the hints will always see the new contracts.
-    await this.contractsDB.addContracts(context.revertibleContractDeploymentData);
+    this.contractsDB.addContracts(context.revertibleContractDeploymentData);
   }
 
   private async payFee(context: PublicTxContext) {

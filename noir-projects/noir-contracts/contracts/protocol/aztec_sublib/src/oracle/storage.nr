@@ -4,7 +4,8 @@ use crate::protocol::{
     traits::{Hash, Packable, ToField},
 };
 
-#[oracle(utilityStorageRead)]
+// TODO(F-498): review naming consistency
+#[oracle(aztec_utl_getFromPublicStorage)]
 unconstrained fn storage_read_oracle<let N: u32>(
     block_hash: Field,
     address: Field,

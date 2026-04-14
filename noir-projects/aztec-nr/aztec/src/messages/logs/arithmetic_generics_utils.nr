@@ -31,16 +31,16 @@ fn get_arr_of_size__ciphertext<let FullPt: u32, let PtAesPadding: u32>(
     [0; FullPt + PtAesPadding]
 }
 
-// Ok, so we have the following bytes: eph_pk_sign, header_ciphertext, ciphertext: Let mbwop = 1 +
+// Ok, so we have the following bytes: header_ciphertext, ciphertext: Let mbwop =
 // HEADER_CIPHERTEXT_SIZE_IN_BYTES + |ct| // aka message bytes without padding
 fn get_arr_of_size__message_bytes_without_padding<let Ct: u32>(
     _ct: [u8; Ct],
-) -> [u8; 1 + HEADER_CIPHERTEXT_SIZE_IN_BYTES + Ct] {
-    [0; 1 + HEADER_CIPHERTEXT_SIZE_IN_BYTES + Ct]
+) -> [u8; HEADER_CIPHERTEXT_SIZE_IN_BYTES + Ct] {
+    [0; HEADER_CIPHERTEXT_SIZE_IN_BYTES + Ct]
 }
 
 // Recall:
-//   mbwop := 1 + HEADER_CIPHERTEXT_SIZE_IN_BYTES + |ct| // aka message bytes without padding
+//   mbwop := HEADER_CIPHERTEXT_SIZE_IN_BYTES + |ct| // aka message bytes without padding
 // We now want to pad b to the next multiple of 31, so as to "fill" fields. Let p be that padding. p = 31 * ceil(mbwop
 // / 31) - mbwop
 //   = 31 * ((mbwop + 30) // 31) - mbwop
@@ -51,16 +51,16 @@ fn get_arr_of_size__message_bytes_padding<let Mbwop: u32>(
     [0; (31 * ((Mbwop + 30) / 31)) - Mbwop]
 }
 
-// |message_bytes| = 1 + HEADER_CIPHERTEXT_SIZE_IN_BYTES + |ct| + p // aka message bytes (with
+// |message_bytes| = HEADER_CIPHERTEXT_SIZE_IN_BYTES + |ct| + p // aka message bytes (with
 // padding) Recall:
-//   mbwop := 1 + HEADER_CIPHERTEXT_SIZE_IN_BYTES + |ct| p is the padding
+//   mbwop := HEADER_CIPHERTEXT_SIZE_IN_BYTES + |ct| p is the padding
 fn get_arr_of_size__message_bytes<let MBWOP: u32, let P: u32>(_mbwop: [u8; MBWOP], _p: [u8; P]) -> [u8; MBWOP + P] {
     [0; MBWOP + P]
 }
 
 // The return type is pasted from the LSP's expectation, because it was too difficult to match its weird way of doing
 // algebra. It doesn't know all rules of arithmetic. Pt is the plaintext length.
-pub(crate) fn get_arr_of_size__message_bytes_padding__from_PT<let Pt: u32>() -> [u8; ((((((Pt + (16 - (Pt % 16))) + HEADER_CIPHERTEXT_SIZE_IN_BYTES + 1) + 30) / 31) * 31) - ((Pt + (16 - (Pt % 16))) + HEADER_CIPHERTEXT_SIZE_IN_BYTES + 1))] {
+pub(crate) fn get_arr_of_size__message_bytes_padding__from_PT<let Pt: u32>() -> [u8; ((((((Pt + (16 - (Pt % 16))) + HEADER_CIPHERTEXT_SIZE_IN_BYTES) + 30) / 31) * 31) - ((Pt + (16 - (Pt % 16))) + HEADER_CIPHERTEXT_SIZE_IN_BYTES))] {
     let full_pt = get_arr_of_size__full_plaintext::<Pt>();
     let pt_aes_padding = get_arr_of_size__plaintext_aes_padding(full_pt);
     let ct = get_arr_of_size__ciphertext(full_pt, pt_aes_padding);
@@ -71,7 +71,7 @@ pub(crate) fn get_arr_of_size__message_bytes_padding__from_PT<let Pt: u32>() -> 
 
 // The return type is pasted from the LSP's expectation, because it was too difficult to match its weird way of doing
 // algebra. It doesn't know all rules of arithmetic.
-pub(crate) fn get_arr_of_size__message_bytes__from_PT<let Pt: u32>() -> [u8; (((Pt + (16 - (Pt % 16))) + HEADER_CIPHERTEXT_SIZE_IN_BYTES + 1) + ((((((Pt + (16 - (Pt % 16))) + HEADER_CIPHERTEXT_SIZE_IN_BYTES + 1) + 30) / 31) * 31) - ((Pt + (16 - (Pt % 16))) + HEADER_CIPHERTEXT_SIZE_IN_BYTES + 1)))] {
+pub(crate) fn get_arr_of_size__message_bytes__from_PT<let Pt: u32>() -> [u8; (((Pt + (16 - (Pt % 16))) + HEADER_CIPHERTEXT_SIZE_IN_BYTES) + ((((((Pt + (16 - (Pt % 16))) + HEADER_CIPHERTEXT_SIZE_IN_BYTES) + 30) / 31) * 31) - ((Pt + (16 - (Pt % 16))) + HEADER_CIPHERTEXT_SIZE_IN_BYTES)))] {
     let full_pt = get_arr_of_size__full_plaintext::<Pt>();
     let pt_aes_padding = get_arr_of_size__plaintext_aes_padding(full_pt);
     let ct = get_arr_of_size__ciphertext(full_pt, pt_aes_padding);

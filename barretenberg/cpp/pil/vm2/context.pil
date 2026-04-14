@@ -242,9 +242,9 @@ namespace execution;
     //         PC and NEXT_PC
     // =============================
 
-    // `instr_length` is from execution.pil and constrained when `sel_instruction_fetching_success == 1`.
+    // `instr_size` is from execution.pil and constrained when `sel_instruction_fetching_success == 1`.
     #[NEXT_PC]
-    sel_instruction_fetching_success * (pc + instr_length - next_pc) = 0;
+    sel_instruction_fetching_success * (pc + instr_size - next_pc) = 0;
 
     // Initialization: enqueued_call_start = 1 ==> pc = 0;
     //                 sel_enter_call      = 1 ==> pc' = 0;
@@ -613,7 +613,7 @@ namespace execution;
 
     // `prev_retrieved_bytecodes_tree_root/size --> prev_retrieved_bytecodes_tree_root/size`:
     // In execution.pil, the two constraints #[BYTECODE_RETRIEVAL_RESULT] and
-    //#[RETRIEVED_BYTECODES_TREE_ROOT/SIZE_NOT_CHANGED] constrain the transition `prev_retrieved_bytecodes_tree_root/size`
+    // #[RETRIEVED_BYTECODES_TREE_ROOT/SIZE_NOT_CHANGED] constrain the transition `prev_retrieved_bytecodes_tree_root/size`
     // to `retrieved_bytecodes_tree_root/size` in the same row.
 
     // The state of the retrieved bytecodes tree should be continuous unless we have finished an enqueued call, i.e.,

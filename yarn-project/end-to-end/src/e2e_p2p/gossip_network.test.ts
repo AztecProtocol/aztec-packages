@@ -30,6 +30,8 @@ const CHECK_ALERTS = process.env.CHECK_ALERTS === 'true';
 const NUM_VALIDATORS = 4;
 const NUM_TXS_PER_NODE = 2;
 const BOOT_NODE_UDP_PORT = 4500;
+const AZTEC_SLOT_DURATION = 36;
+const AZTEC_EPOCH_DURATION = 4;
 
 const DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'gossip-'));
 
@@ -61,8 +63,8 @@ describe('e2e_p2p_network', () => {
       startProverNode: false, // we'll start our own using p2p
       initialConfig: {
         ...SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES,
-        aztecSlotDuration: 36,
-        aztecEpochDuration: 4,
+        aztecSlotDuration: AZTEC_SLOT_DURATION,
+        aztecEpochDuration: AZTEC_EPOCH_DURATION,
         slashingRoundSizeInEpochs: 2,
         slashingQuorum: 5,
         listenAddress: '127.0.0.1',
@@ -96,8 +98,6 @@ describe('e2e_p2p_network', () => {
       throw new Error('Bootstrap node ENR is not available');
     }
 
-    t.ctx.aztecNodeConfig.validatorReexecute = true;
-
     // create our network of nodes and submit txs into each of them
     // the number of txs per node and the number of txs per rollup
     // should be set so that the only way for rollups to be built
@@ -110,7 +110,7 @@ describe('e2e_p2p_network', () => {
       t.bootstrapNodeEnr,
       NUM_VALIDATORS,
       BOOT_NODE_UDP_PORT,
-      t.prefilledPublicData,
+      t.genesis,
       DATA_DIR,
       // To collect metrics - run in aztec-packages `docker compose --profile metrics up` and set COLLECT_METRICS=true
       shouldCollectMetrics(),
@@ -124,7 +124,7 @@ describe('e2e_p2p_network', () => {
       t.bootstrapNodeEnr,
       ATTESTER_PRIVATE_KEYS_START_INDEX + NUM_VALIDATORS + 1,
       { dateProvider: t.ctx.dateProvider },
-      t.prefilledPublicData,
+      t.genesis,
       `${DATA_DIR}-prover`,
       shouldCollectMetrics(),
     ));
@@ -136,7 +136,7 @@ describe('e2e_p2p_network', () => {
       t.ctx.dateProvider,
       BOOT_NODE_UDP_PORT + NUM_VALIDATORS + 2,
       t.bootstrapNodeEnr,
-      t.prefilledPublicData,
+      t.genesis,
       `${DATA_DIR}-monitor`,
       shouldCollectMetrics(),
     );
@@ -211,7 +211,7 @@ describe('e2e_p2p_network', () => {
         return provenBlock > 0;
       },
       'proven block',
-      120,
+      SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES.aztecProofSubmissionEpochs * AZTEC_EPOCH_DURATION * AZTEC_SLOT_DURATION,
     );
   });
 });

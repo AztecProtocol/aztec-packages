@@ -18,6 +18,7 @@ export class ProvingBrokerInstrumentation {
   private activeJobs: ObservableGauge;
   private resolvedJobs: UpDownCounter;
   private rejectedJobs: UpDownCounter;
+  private abortedJobs: UpDownCounter;
   private timedOutJobs: UpDownCounter;
   private cachedJobs: UpDownCounter;
   private totalJobs: UpDownCounter;
@@ -38,6 +39,8 @@ export class ProvingBrokerInstrumentation {
     this.resolvedJobs = createUpDownCounterWithDefault(meter, Metrics.PROVING_QUEUE_RESOLVED_JOBS, provingJobAttrs);
 
     this.rejectedJobs = createUpDownCounterWithDefault(meter, Metrics.PROVING_QUEUE_REJECTED_JOBS, provingJobAttrs);
+
+    this.abortedJobs = createUpDownCounterWithDefault(meter, Metrics.PROVING_QUEUE_ABORTED_JOBS, provingJobAttrs);
 
     this.retriedJobs = createUpDownCounterWithDefault(meter, Metrics.PROVING_QUEUE_RETRIED_JOBS, provingJobAttrs);
 
@@ -68,6 +71,12 @@ export class ProvingBrokerInstrumentation {
 
   incRejectedJobs(proofType: ProvingRequestType) {
     this.rejectedJobs.add(1, {
+      [Attributes.PROVING_JOB_TYPE]: ProvingRequestType[proofType],
+    });
+  }
+
+  incAbortedJobs(proofType: ProvingRequestType) {
+    this.abortedJobs.add(1, {
       [Attributes.PROVING_JOB_TYPE]: ProvingRequestType[proofType],
     });
   }

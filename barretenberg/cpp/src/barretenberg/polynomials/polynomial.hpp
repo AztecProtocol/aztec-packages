@@ -1,5 +1,5 @@
 // === AUDIT STATUS ===
-// internal:    { status: Planned, auditors: [], commit: }
+// internal:    { status: Complete, auditors: [Nishat], commit: 94f596f8b3bbbc216f9ad7dc33253256141156b2 }
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
@@ -106,6 +106,7 @@ template <typename Fr> class Polynomial {
      */
     static Polynomial shiftable(size_t virtual_size)
     {
+        BB_ASSERT_GTE(virtual_size, NUM_ZERO_ROWS, "shiftable virtual_size must be >= NUM_ZERO_ROWS");
         return Polynomial(
             /*actual size*/ virtual_size - NUM_ZERO_ROWS, virtual_size, /*shiftable offset*/ NUM_ZERO_ROWS);
     }
@@ -114,6 +115,7 @@ template <typename Fr> class Polynomial {
      */
     static Polynomial shiftable(size_t size, size_t virtual_size)
     {
+        BB_ASSERT_GTE(size, NUM_ZERO_ROWS, "shiftable size must be >= NUM_ZERO_ROWS");
         return Polynomial(/*actual size*/ size - NUM_ZERO_ROWS, virtual_size, /*shiftable offset*/ NUM_ZERO_ROWS);
     }
     // Allow polynomials to be entirely reset/dormant
@@ -137,8 +139,6 @@ template <typename Fr> class Polynomial {
      * Return a shallow clone of the polynomial. i.e. underlying memory is shared.
      */
     Polynomial share() const;
-
-    void clear() { coefficients_ = SharedShiftedVirtualZeroesArray<Fr>{}; }
 
     /**
      * @brief Check whether or not a polynomial is identically zero
@@ -179,12 +179,6 @@ template <typename Fr> class Polynomial {
     Polynomial shifted() const;
 
     /**
-     * @brief Returns a Polynomial equal to the right-shift-by-magnitude of self.
-     * @note Resulting Polynomial shares the memory of that used to generate it
-     */
-    Polynomial right_shifted(const size_t magnitude) const;
-
-    /**
      * @brief Returns the polynomial equal to the reverse of self
      *
      * @details If the coefficients of self are \f$(a_0, \dots, a_n)\f$, we return the polynomial with coefficients
@@ -209,9 +203,6 @@ template <typename Fr> class Polynomial {
      */
     Fr evaluate_mle(std::span<const Fr> evaluation_points, bool shift = false) const;
 
-    Fr compute_barycentric_evaluation(const Fr& z, const EvaluationDomain<Fr>& domain)
-        requires polynomial_arithmetic::SupportsFFT<Fr>;
-
     /**
      * @brief Divides p(X) by (X-r) in-place.
      * Assumes that p(rⱼ)=0 for all j
@@ -224,7 +215,6 @@ template <typename Fr> class Polynomial {
      */
     void factor_roots(const Fr& root) { polynomial_arithmetic::factor_roots(coeffs(), root); };
 
-    Fr evaluate(const Fr& z, size_t target_size) const;
     Fr evaluate(const Fr& z) const;
 
     /**
@@ -259,22 +249,6 @@ template <typename Fr> class Polynomial {
     Polynomial& operator*=(const Fr& scaling_factor);
 
     void multiply_chunk(const ThreadChunk& chunk, const Fr& scaling_factor);
-
-    /**
-     * @brief Add random values to the coefficients of a polynomial. In practice, this is used for ensuring the
-     * commitment and evaluation of a polynomial don't leak information about the coefficients in the context of zero
-     * knowledge.
-     */
-    void mask()
-    {
-        // Ensure there is sufficient space to add masking and also that we have memory allocated up to the virtual_size
-        BB_ASSERT_GTE(virtual_size(), NUM_MASKED_ROWS);
-        BB_ASSERT_EQ(virtual_size(), end_index());
-
-        for (size_t i = virtual_size() - NUM_MASKED_ROWS; i < virtual_size(); ++i) {
-            at(i) = FF::random_element();
-        }
-    }
 
     std::size_t size() const { return coefficients_.size(); }
     std::size_t virtual_size() const { return coefficients_.virtual_size(); }
@@ -385,11 +359,9 @@ template <typename Fr> class Polynomial {
     /**
      * @brief Copy over values from a vector that is of a convertible type.
      *
-     * @details There is an underlying assumption that the relevant start index in the vector
-     * corresponds to the start_index of the destination polynomial and also that the number of elements we want to copy
-     * corresponds to the size of the polynomial. This is quirky behavior and we might want to improve the UX.
-     *
-     * @todo https://github.com/AztecProtocol/barretenberg/issues/1292
+     * @details Assumes that the relevant start index in the vector corresponds to the start_index of the destination
+     * polynomial and also that the number of elements we want to copy corresponds to the size of the polynomial. It is
+     * not intended to be a general-purpose method for vector copy and should be used with caution.
      *
      * @tparam T a convertible type
      * @param vec the vector
@@ -403,25 +375,10 @@ template <typename Fr> class Polynomial {
         }
     }
 
-    /*
-     * @brief For quick and dirty comparisons. ONLY for development and log use!
-     */
-    Fr debug_hash() const
-    {
-        Fr result{ 0 };
-        for (size_t i = start_index(); i < end_index(); i++) {
-            result += (*this)[i] * i;
-        }
-        return result;
-    }
-
   private:
     // allocate a fresh memory pointer for backing memory
     // DOES NOT initialize memory
     void allocate_backing_memory(size_t size, size_t virtual_size, size_t start_index);
-
-    // safety check for in place operations
-    bool in_place_operation_viable(size_t domain_size) { return (size() >= domain_size); }
 
     // The underlying memory, with a bespoke (but minimal) shared array struct that fits our needs.
     // Namely, it supports polynomial shifts and 'virtual' zeroes past a size up until a 'virtual' size.
@@ -464,9 +421,7 @@ Fr_ _evaluate_mle(std::span<const Fr_> evaluation_points,
     size_t n_l = 1 << (dim - 1);
 
     // temporary buffer of half the size of the Polynomial
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1096): Make this a Polynomial with
-    // DontZeroMemory::FLAG
-    auto tmp_ptr = _allocate_aligned_memory<Fr_>(sizeof(Fr_) * n_l);
+    auto tmp_ptr = _allocate_aligned_memory<Fr_>(n_l);
     auto tmp = tmp_ptr.get();
 
     size_t offset = 0;

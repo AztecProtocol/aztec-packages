@@ -5,8 +5,8 @@ import type { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
-import type { DataStoreConfig } from '@aztec/kv-store/config';
 import type { Checkpoint } from '@aztec/stdlib/checkpoint';
+import type { DataStoreConfig } from '@aztec/stdlib/kv-store';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 
 import { describe, jest } from '@jest/globals';
@@ -251,6 +251,44 @@ describe('world-state integration', () => {
       archiver.setFinalizedBlockNumber(4);
       await awaitSync(5, 4);
       await expectSynchedToBlock(5, 4);
+    });
+
+    it('does not throw when finalized block jumps backwards past pruned blocks', async () => {
+      // Create 20 blocks and sync them all
+      await archiver.createBlocks(MAX_CHECKPOINT_COUNT);
+      await synchronizer.start();
+      await awaitSync(MAX_CHECKPOINT_COUNT);
+      await expectSynchedToBlock(MAX_CHECKPOINT_COUNT);
+
+      // Manually finalize to block 15 and prune historical blocks up to block 10
+      // to simulate world-state having pruned old data.
+      await db.setFinalized(BlockNumber(15));
+      await db.removeHistoricalBlocks(BlockNumber(10));
+
+      const summary = await db.getStatusSummary();
+      log.info(
+        `After manual finalize+prune: oldest=${summary.oldestHistoricalBlock}, finalized=${summary.finalizedBlockNumber}`,
+      );
+      expect(summary.oldestHistoricalBlock).toBe(10);
+      expect(summary.finalizedBlockNumber).toBe(15);
+
+      // Now simulate the scenario from PR #21597: finalized block jumps backwards
+      // to a block M that is older than oldestHistoricalBlock.
+      // This should NOT throw — the clamping logic should handle it.
+      const backwardsFinalized = BlockNumber(5);
+      log.info(
+        `Sending chain-finalized for block ${backwardsFinalized} (below oldest ${summary.oldestHistoricalBlock})`,
+      );
+      await expect(
+        synchronizer.handleBlockStreamEvent({
+          type: 'chain-finalized',
+          block: { number: backwardsFinalized, hash: '' },
+        }),
+      ).resolves.not.toThrow();
+
+      // Finalized block should remain at 15 (unchanged by the backwards event)
+      const afterSummary = await db.getStatusSummary();
+      expect(afterSummary.finalizedBlockNumber).toBe(15);
     });
   });
 });

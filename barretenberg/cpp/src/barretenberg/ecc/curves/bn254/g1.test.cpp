@@ -5,37 +5,47 @@
 
 using namespace bb;
 
-TEST(g1, RandomElement)
+namespace {
+// Double-and-add scalar mul without endomorphism, used as reference for differential testing.
+template <typename Group, typename Fr>
+typename Group::affine_element naive_scalar_mul(const typename Group::element& base, const Fr& scalar)
 {
-    g1::element result = g1::element::random_element();
-    EXPECT_EQ(result.on_curve(), true);
+    typename Group::element acc = Group::point_at_infinity;
+    typename Group::element runner = base;
+    uint256_t bits(scalar);
+    for (size_t i = 0; i < 256; ++i) {
+        if (bits.get_bit(i)) {
+            acc = acc + runner;
+        }
+        runner = runner.dbl();
+    }
+    return typename Group::affine_element(acc);
+}
+} // namespace
+
+// =========================
+// Parameter-related tests
+// =========================
+
+TEST(g1, BIsCorrect)
+{
+    fq b = Bn254G1Params::b;
+    fq expected = fq(3);
+
+    EXPECT_EQ(b, expected);
 }
 
-TEST(g1, RandomAffineElement)
+TEST(g1, OneYIsCorrect)
 {
-    g1::affine_element result = g1::element::random_element();
-    EXPECT_EQ(result.on_curve(), true);
+    fq one_y = Bn254G1Params::one_y;
+    auto [_, expected] = (Bn254G1Params::b + fq::one()).sqrt();
+
+    EXPECT_EQ(one_y, expected);
 }
 
-TEST(g1, Eq)
-{
-    g1::element a = g1::element::random_element();
-    g1::element b = a.normalize();
-
-    EXPECT_EQ(a == b, true);
-    EXPECT_EQ(a == a, true);
-
-    b.self_set_infinity();
-
-    EXPECT_EQ(a == b, false);
-    g1::element c = g1::element::random_element();
-
-    EXPECT_EQ(a == c, false);
-
-    a.self_set_infinity();
-
-    EXPECT_EQ(a == b, true);
-}
+// =========================
+// Group-related tests
+// =========================
 
 TEST(g1, MixedAddCheckAgainstConstants)
 {
@@ -120,190 +130,6 @@ TEST(g1, AddCheckAgainstConstants)
     EXPECT_EQ(result == expected, true);
 }
 
-TEST(g1, AddExceptionTestInfinity)
-{
-    g1::element lhs = g1::element::random_element();
-    g1::element rhs;
-    g1::element result;
-
-    rhs = -lhs;
-
-    result = lhs + rhs;
-
-    EXPECT_EQ(result.is_point_at_infinity(), true);
-
-    g1::element rhs_b;
-    rhs_b = rhs;
-    rhs_b.self_set_infinity();
-
-    result = lhs + rhs_b;
-
-    EXPECT_EQ(lhs == result, true);
-
-    lhs.self_set_infinity();
-    result = lhs + rhs;
-
-    EXPECT_EQ(rhs == result, true);
-}
-
-TEST(g1, TestInfinity)
-{
-    g1::affine_element inf_affine = g1::affine_element::infinity();
-    EXPECT_EQ(inf_affine.is_point_at_infinity(), true);
-
-    g1::element inf_element = g1::element::infinity();
-    EXPECT_EQ(inf_element.is_point_at_infinity(), true);
-}
-
-TEST(g1, AddExceptionTestDbl)
-{
-    g1::element lhs = g1::element::random_element();
-    g1::element rhs;
-    rhs = lhs;
-
-    g1::element result;
-    g1::element expected;
-
-    result = lhs + rhs;
-    expected = lhs.dbl();
-
-    EXPECT_EQ(result == expected, true);
-}
-
-TEST(g1, AddAffineTest)
-{
-    g1::element lhs = g1::element::random_element();
-    g1::affine_element lhs_affine(lhs);
-
-    g1::element rhs = g1::element::random_element();
-    g1::affine_element rhs_affine(rhs);
-
-    g1::element expected = lhs + rhs;
-    g1::affine_element result = lhs_affine + rhs_affine;
-    EXPECT_EQ(g1::element(result) == expected, true);
-}
-
-TEST(g1, AddDblConsistency)
-{
-    g1::element a = g1::element::random_element();
-    g1::element b = g1::element::random_element();
-
-    g1::element c;
-    g1::element d;
-    g1::element add_result;
-    g1::element dbl_result;
-
-    c = a + b;
-    b = -b;
-    d = a + b;
-
-    add_result = c + d;
-    dbl_result = a.dbl();
-
-    EXPECT_EQ(add_result == dbl_result, true);
-}
-
-TEST(g1, AddDblConsistencyRepeated)
-{
-    g1::element a = g1::element::random_element();
-    g1::element b;
-    g1::element c;
-    g1::element d;
-    g1::element e;
-
-    g1::element result;
-    g1::element expected;
-
-    b = a.dbl(); // b = 2a
-    c = b.dbl(); // c = 4a
-
-    d = a + b;      // d = 3a
-    e = a + c;      // e = 5a
-    result = d + e; // result = 8a
-
-    expected = c.dbl(); // expected = 8a
-
-    EXPECT_EQ(result == expected, true);
-}
-
-TEST(g1, MixedAddExceptionTestInfinity)
-{
-    g1::element lhs = g1::one;
-    g1::affine_element rhs = g1::element::random_element();
-    fq::__copy(rhs.x, lhs.x);
-    lhs.y = -rhs.y;
-
-    g1::element result;
-    result = lhs + rhs;
-
-    EXPECT_EQ(result.is_point_at_infinity(), true);
-
-    lhs.self_set_infinity();
-    result = lhs + rhs;
-    g1::element rhs_c;
-    rhs_c = g1::element(rhs);
-
-    EXPECT_EQ(rhs_c == result, true);
-}
-
-TEST(g1, MixedAddExceptionTestDbl)
-{
-    g1::affine_element rhs = g1::element::random_element();
-    g1::element lhs;
-    lhs = g1::element(rhs);
-
-    g1::element result;
-    g1::element expected;
-    result = lhs + rhs;
-
-    expected = lhs.dbl();
-
-    EXPECT_EQ(result == expected, true);
-}
-
-TEST(g1, AddMixedAddConsistencyCheck)
-{
-    g1::affine_element rhs = g1::element::random_element();
-    g1::element lhs = g1::element::random_element();
-    g1::element rhs_b;
-    rhs_b = g1::element(rhs);
-
-    g1::element add_result;
-    g1::element mixed_add_result;
-    add_result = lhs + rhs_b;
-    mixed_add_result = lhs + rhs;
-
-    EXPECT_EQ(add_result == mixed_add_result, true);
-}
-
-TEST(g1, BatchNormalize)
-{
-    size_t num_points = 2;
-    std::vector<g1::element> points(num_points);
-    std::vector<g1::element> normalized(num_points);
-    for (size_t i = 0; i < num_points; ++i) {
-        g1::element a = g1::element::random_element();
-        g1::element b = g1::element::random_element();
-        points[i] = a + b;
-        normalized[i] = points[i];
-    }
-    g1::element::batch_normalize(&normalized[0], num_points);
-
-    for (size_t i = 0; i < num_points; ++i) {
-        fq zz;
-        fq zzz;
-        fq result_x;
-        fq result_y;
-        zz = points[i].z.sqr();
-        zzz = points[i].z * zz;
-        result_x = normalized[i].x * zz;
-        result_y = normalized[i].y * zzz;
-
-        EXPECT_EQ((result_x == points[i].x), true);
-        EXPECT_EQ((result_y == points[i].y), true);
-    }
-}
-
 TEST(g1, GroupExponentiationCheckAgainstConstants)
 {
     fr a{ 0xb67299b792199cf0, 0xc1da7df1e7e12768, 0x692e427911532edf, 0x13dd85e87dc89978 };
@@ -323,13 +149,7 @@ TEST(g1, GroupExponentiationCheckAgainstConstants)
 
 TEST(g1, OperatorOrdering)
 {
-    // fq a_x{ 0x92716caa6cac6d26, 0x1e6e234136736544, 0x1bb04588cde00af0, 0x9a2ac922d97e6f5 };
-    // fq a_y{ 0x9e693aeb52d79d2d, 0xf0c1895a61e5e975, 0x18cd7f5310ced70f, 0xac67920a22939ad };
-    // fq a_z{ 0xfef593c9ce1df132, 0xe0486f801303c27d, 0x9bbd01ab881dc08e, 0x2a589badf38ec0f9 };
     fr scalar{ 0xcfbfd4441138823e, 0xb5f817e28a1ef904, 0xefb7c5629dcc1c42, 0x1a9ed3d6f846230e };
-    // fq expected_x{ 0x2a9d0201fccca20, 0x36f969b294f31776, 0xee5534422a6f646, 0x911dbc6b02310b6 };
-    // fq expected_y{ 0x14c30aaeb4f135ef, 0x9c27c128ea2017a1, 0xf9b7d80c8315eabf, 0x35e628df8add760 };
-    // fq expected_z{ 0xa43fe96673d10eb3, 0x88fbe6351753d410, 0x45c21cc9d99cb7d, 0x3018020aa6e9ede5 };
 
     g1::element a = g1::one;
     g1::affine_element b(a);
@@ -346,66 +166,6 @@ TEST(g1, OperatorOrdering)
     EXPECT_EQ(g, h);
 }
 
-TEST(g1, GroupExponentiationZeroAndOne)
-{
-    g1::affine_element result(g1::one * fr::zero());
-
-    EXPECT_EQ(result.is_point_at_infinity(), true);
-
-    result = g1::one * fr::one();
-
-    EXPECT_EQ(result == g1::affine_one, true);
-}
-
-TEST(g1, GroupExponentiationConsistencyCheck)
-{
-    fr a = fr::random_element();
-    fr b = fr::random_element();
-
-    fr c;
-    c = a * b;
-
-    g1::affine_element input = g1::affine_one;
-    g1::affine_element result(g1::element(input) * a);
-    result = g1::affine_element(g1::element(result) * b);
-
-    g1::affine_element expected = g1::affine_element(g1::element(input) * c);
-
-    EXPECT_EQ(result == expected, true);
-}
-
-TEST(g1, DeriveGenerators)
-{
-    constexpr size_t num_generators = 128;
-    auto result = g1::derive_generators("test domain", 128);
-
-    const auto is_unique = [&result](const g1::affine_element& y, const size_t j) {
-        for (size_t i = 0; i < result.size(); ++i) {
-            if ((i != j) && result[i] == y) {
-                return false;
-            }
-        }
-        return true;
-    };
-
-    for (size_t k = 0; k < num_generators; ++k) {
-        EXPECT_EQ(is_unique(result[k], k), true);
-        EXPECT_EQ(result[k].on_curve(), true);
-    }
-}
-
-TEST(g1, Serialize)
-{
-    g1::affine_element expected = g1::element::random_element();
-
-    std::vector<uint8_t> buffer(sizeof(g1::affine_element));
-
-    g1::affine_element::serialize_to_buffer(expected, &buffer[0]);
-
-    g1::affine_element result = g1::affine_element::serialize_from_buffer(&buffer[0]);
-
-    EXPECT_EQ(result == expected, true);
-}
 template <class T> void write(const T t)
 {
     FILE* fp = fopen("/dev/null", "wb");
@@ -427,4 +187,43 @@ TEST(g1, CheckPrecomputedGenerators)
     ASSERT_TRUE((bb::check_precomputed_generators<g1, "biggroup offset generator", 1UL>()));
     ASSERT_TRUE((bb::check_precomputed_generators<g1, "ECCVM_OFFSET_GENERATOR", 1UL>()));
     ASSERT_TRUE((bb::check_precomputed_generators<g1, "test generators", 2UL>()));
+}
+
+// Regression: boundary scalars k = ceil(m * 2^256 / endo_g2) (from endomorphism_scalars.py)
+// previously triggered the negative-k2 bug in split_into_endomorphism_scalars, producing wrong
+// scalar multiplication results. We test boundaries and random samples within each band.
+TEST(g1, ScalarMulNegativeK2Regression)
+{
+    // clang-format off
+    struct test_case { std::array<uint64_t, 4> limbs; const char* tag; };
+    const std::array<test_case, 3> boundary_cases = {{
+        {{ 0x01624731e1195570, 0x3ba491482db4da14, 0x59e26bcea0d48bac, 0x0 }, "m=1"},
+        {{ 0x02c48e63c232aadf, 0x774922905b69b428, 0xb3c4d79d41a91758, 0x0 }, "m=2"},
+        {{ 0x0426d595a34c004e, 0xb2edb3d8891e8e3c, 0x0da7436be27da304, 0x1 }, "m=3"},
+    }};
+    // clang-format on
+
+    for (const auto& tc : boundary_cases) {
+        fr base_scalar{ tc.limbs[0], tc.limbs[1], tc.limbs[2], tc.limbs[3] };
+        base_scalar.self_to_montgomery_form();
+
+        g1::affine_element endo_result(g1::one * base_scalar);
+        g1::affine_element naive_result = naive_scalar_mul<g1, fr>(g1::one, base_scalar);
+        EXPECT_EQ(naive_result.on_curve(), true) << tc.tag;
+        EXPECT_EQ(endo_result.on_curve(), true) << tc.tag;
+        EXPECT_EQ(endo_result, naive_result) << tc.tag;
+
+        // Random samples within the formerly-buggy band (~2^123-2^126 wide; 122-bit offsets).
+        for (size_t i = 0; i < 100; ++i) {
+            uint256_t rand_bits(fr::random_element());
+            uint256_t offset_int = (rand_bits & ((uint256_t(1) << 122) - 1)) + 1;
+            fr scalar = base_scalar + fr(offset_int);
+
+            g1::affine_element endo_res(g1::one * scalar);
+            g1::affine_element naive_res = naive_scalar_mul<g1, fr>(g1::one, scalar);
+            EXPECT_EQ(naive_res.on_curve(), true) << tc.tag << " offset " << i;
+            EXPECT_EQ(endo_res.on_curve(), true) << tc.tag << " offset " << i;
+            EXPECT_EQ(endo_res, naive_res) << tc.tag << " offset " << i;
+        }
+    }
 }

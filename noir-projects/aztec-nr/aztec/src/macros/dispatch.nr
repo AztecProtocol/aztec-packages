@@ -1,23 +1,28 @@
 use crate::macros::internals_functions_generation::external_functions_registry::get_public_functions;
 use crate::protocol::meta::utils::get_params_len_quote;
 use crate::utils::cmap::CHashMap;
+use super::functions::initialization_utils::EMIT_PUBLIC_INIT_NULLIFIER_FN_NAME;
 use super::utils::compute_fn_selector;
 use std::panic;
 
-/// Returns an `fn public_dispatch(...)` function for the given module that's assumed to be an Aztec contract.
-pub comptime fn generate_public_dispatch(m: Module) -> Quoted {
+/// Generates a `public_dispatch` function for an Aztec contract module `m`.
+///
+/// The generated function dispatches public calls based on selector to the appropriate contract function. If
+/// `generate_emit_public_init_nullifier` is true, it also handles dispatch to the macro-generated
+/// `__emit_public_init_nullifier` function.
+pub comptime fn generate_public_dispatch(m: Module, generate_emit_public_init_nullifier: bool) -> Quoted {
     let functions = get_public_functions(m);
 
     let unit = get_type::<()>();
 
     let seen_selectors = &mut CHashMap::<Field, Quoted>::new();
 
-    let ifs = functions.map(|function: FunctionDefinition| {
+    let mut ifs = functions.map(|function: FunctionDefinition| {
         let parameters = function.parameters();
         let return_type = function.return_type();
 
-        let selector: Field = compute_fn_selector(function);
         let fn_name = function.name();
+        let selector: Field = compute_fn_selector(fn_name, parameters);
 
         // Since function selectors are computed as the first 4 bytes of the hash of the function signature, it's
         // possible to have collisions. With the following check, we ensure it doesn't happen within the same contract.
@@ -95,6 +100,22 @@ pub comptime fn generate_public_dispatch(m: Module) -> Quoted {
         };
         if_
     });
+
+    // If we injected the auto-generated public function to emit the public initialization nullifier, then
+    // we'll also need to handle its dispatch.
+    if generate_emit_public_init_nullifier {
+        let name = EMIT_PUBLIC_INIT_NULLIFIER_FN_NAME;
+        let init_nullifier_selector: Field = compute_fn_selector(name, @[]);
+
+        ifs = ifs.push_back(
+            quote {
+            if selector == $init_nullifier_selector {
+                $name();
+                aztec::oracle::avm::avm_return([]);
+            }
+        },
+        );
+    }
 
     if ifs.len() == 0 {
         // No dispatch function if there are no public functions

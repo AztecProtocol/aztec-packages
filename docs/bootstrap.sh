@@ -44,6 +44,9 @@ function test_cmds {
 
   local test_hash=$hash
   echo "$test_hash cd docs && yarn spellcheck"
+
+  # Delegate to examples for their test commands
+  (cd examples && ./bootstrap.sh test_cmds)
 }
 
 function test {
@@ -52,18 +55,20 @@ function test {
 }
 
 function check_references {
+  if [[ "${GITHUB_EVENT_NAME:-}" != "merge_group" ]]; then
+    echo "Skipping doc reference check (only runs in merge queue)."
+    return
+  fi
   echo_header "Check doc references"
-  ./scripts/check_doc_references.sh docs
-}
-
-function update_doc_references {
-  echo_header "Auto-update doc references"
-  # Only run if Claude Code CLI is available
-  if command -v claude &> /dev/null; then
-    ./scripts/update_doc_references.sh docs
-  else
-    echo "Claude Code CLI not available. Skipping automatic doc updates."
-    echo "To enable automatic doc updates, install Claude Code: npm install -g @anthropic-ai/claude-code"
+  if ! ./scripts/check_doc_references.sh docs; then
+    echo "⚠ Doc reference check failed (non-blocking)."
+    if [[ -n "${SLACK_BOT_TOKEN:-}" ]]; then
+      curl -s -X POST https://slack.com/api/chat.postMessage \
+        -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
+        -H "Content-type: application/json" \
+        -d "{\"channel\": \"#devrel-docs-updates\", \"text\": \"⚠️ Doc reference check script failed for ref \`${GITHUB_REF_NAME:-unknown}\`. Check CI logs.\"}" \
+        > /dev/null 2>&1 || true
+    fi
   fi
 }
 
@@ -78,7 +83,6 @@ case "$cmd" in
     build_docs
     test
     check_references
-    update_doc_references
     ;;
   "")
     build_examples

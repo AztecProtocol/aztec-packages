@@ -10,7 +10,6 @@ describe("getReleaseVersion", () => {
     ["devnet", "2.0.0"],
     ["testnet", "3.0.0"],
     ["mainnet", "4.0.0"],
-    ["ignition", "4.0.0"],
   ];
 
   testCases.forEach(([releaseType, expected]) => {
@@ -34,7 +33,6 @@ describe("getReleaseNetwork", () => {
     ["devnet", "devnet"],
     ["testnet", "testnet"],
     ["mainnet", "mainnet"],
-    ["ignition", "mainnet"],
   ];
 
   testCases.forEach(([releaseType, expected]) => {
@@ -61,7 +59,6 @@ describe("preprocessIncludeVersion", () => {
       ["devnet", { DEVNET_TAG: "3.0.0-devnet.5" }, "3.0.0-devnet.5"],
       ["testnet", { TESTNET_TAG: "2.1.11" }, "2.1.11"],
       ["mainnet", { MAINNET_TAG: "2.1.11" }, "2.1.11"],
-      ["ignition", { MAINNET_TAG: "2.1.11" }, "2.1.11"],
     ];
 
     testCases.forEach(([releaseType, envVars, expected]) => {
@@ -86,7 +83,6 @@ describe("preprocessIncludeVersion", () => {
       ["devnet", "devnet"],
       ["testnet", "testnet"],
       ["mainnet", "mainnet"],
-      ["ignition", "mainnet"],
     ];
 
     testCases.forEach(([releaseType, expected]) => {
@@ -122,6 +118,23 @@ describe("preprocessIncludeVersion", () => {
         setEnv({ RELEASE_TYPE: "nightly", [envVar]: value });
         const { content } = await preprocessIncludeVersion(macro, "test.md");
         assert.strictEqual(content, value);
+      });
+    });
+  });
+
+  describe("#api_ref_version macro", () => {
+    const testCases = [
+      ["nightly", "nightly"],
+      ["devnet", "devnet"],
+      ["testnet", "testnet"],
+      ["mainnet", "mainnet"],
+    ];
+
+    testCases.forEach(([releaseType, expected]) => {
+      it(`resolves to ${expected} for ${releaseType}`, async () => {
+        setEnv({ RELEASE_TYPE: releaseType });
+        const { content } = await preprocessIncludeVersion("#api_ref_version", "test.md");
+        assert.strictEqual(content, expected);
       });
     });
   });

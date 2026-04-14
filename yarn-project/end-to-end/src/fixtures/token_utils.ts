@@ -8,7 +8,6 @@ export async function deployToken(wallet: Wallet, admin: AztecAddress, initialAd
   logger.info(`Deploying Token contract...`);
   const { contract, instance } = await TokenContract.deploy(wallet, admin, 'TokenName', 'TokenSymbol', 18).send({
     from: admin,
-    wait: { returnReceipt: true },
   });
 
   if (initialAdminBalance > 0n) {
@@ -25,8 +24,9 @@ export async function mintTokensToPrivate(
   minter: AztecAddress,
   recipient: AztecAddress,
   amount: bigint,
+  additionalScopes?: AztecAddress[],
 ) {
-  await token.methods.mint_to_private(recipient, amount).send({ from: minter });
+  await token.methods.mint_to_private(recipient, amount).send({ from: minter, additionalScopes });
 }
 
 export async function expectTokenBalance(
@@ -38,7 +38,7 @@ export async function expectTokenBalance(
 ) {
   // Then check the balance
   const contractWithWallet = TokenContract.at(token.address, wallet);
-  const balance = await contractWithWallet.methods.balance_of_private(owner).simulate({ from: owner });
+  const { result: balance } = await contractWithWallet.methods.balance_of_private(owner).simulate({ from: owner });
   logger.info(`Account ${owner} balance: ${balance}`);
   expect(balance).toBe(expectedBalance);
 }

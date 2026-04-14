@@ -8,6 +8,7 @@
 // See: chonk/README.md
 //
 #pragma once
+#include "barretenberg/chonk/batched_honk_translator/batched_honk_translator_verifier.hpp"
 #include "barretenberg/chonk/chonk_proof.hpp"
 #include "barretenberg/constants.hpp"
 #include "barretenberg/eccvm/eccvm_flavor.hpp"
@@ -54,8 +55,8 @@ template <bool IsRecursive> class ChonkVerifier {
     using IPAProof = typename GoblinVerifier::ReductionResult::IPAProof;
     using MergeCommitments = typename GoblinVerifier::MergeVerifier::InputCommitments;
 
-    // Number of pairing point sets aggregated in recursive verification (PI, PCS, Merge, Translator)
-    static constexpr size_t NUM_PAIRING_POINTS = 4;
+    // Number of pairing point sets aggregated in recursive verification (PI, Merge, Batched PCS)
+    static constexpr size_t NUM_PAIRING_POINTS = 3;
 
   public:
     /**
@@ -103,6 +104,28 @@ template <bool IsRecursive> class ChonkVerifier {
      * @return Output (ReductionResult for recursive, bool for native)
      */
     [[nodiscard("IPA claim and pairing points must be accumulated")]] Output verify(const Proof& proof);
+
+    /**
+     * @brief Result of reducing Chonk verification to an IPA opening claim (native mode only).
+     * @details Contains the IPA claim and proof from non-IPA verification (MegaZK, databus, Goblin),
+     * allowing batch IPA verification across multiple Chonk proofs.
+     */
+    struct IPAReductionResult {
+        OpeningClaim<curve::Grumpkin> ipa_claim;
+        ::bb::HonkProof ipa_proof;
+        bool all_checks_passed;
+    };
+
+    /**
+     * @brief Run Chonk verification up to but not including IPA, returning the IPA claim for deferred verification.
+     * @details Verifies the MegaZK proof, databus consistency, and Goblin proof (merge/eccvm/translator),
+     * then returns the IPA opening claim and proof without performing the final IPA MSM.
+     * This enables batch IPA verification across multiple Chonk proofs.
+     *
+     * @param proof The Chonk proof to partially verify
+     * @return IPAReductionResult containing the IPA claim/proof and whether all non-IPA checks passed
+     */
+    IPAReductionResult reduce_to_ipa_claim(const Proof& proof);
 
   private:
     // VK and hash of the hiding kernel

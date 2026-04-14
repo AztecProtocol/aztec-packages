@@ -36,10 +36,8 @@ describe('e2e_deploy_contract legacy', () => {
       deployer: defaultAccountAddress,
     });
     const deployer = new ContractDeployer(TestContractArtifact, wallet);
-    const receipt = await deployer
-      .deploy()
-      .send({ from: defaultAccountAddress, contractAddressSalt: salt, wait: { returnReceipt: true } });
-    expect(receipt.contract.address).toEqual(deploymentData.address);
+    const { contract } = await deployer.deploy().send({ from: defaultAccountAddress, contractAddressSalt: salt });
+    expect(contract.address).toEqual(deploymentData.address);
     const { instance, isContractPublished } = await wallet.getContractMetadata(deploymentData.address);
     expect(instance).toBeDefined();
     expect(isContractPublished).toBe(true);
@@ -65,11 +63,11 @@ describe('e2e_deploy_contract legacy', () => {
 
     for (let index = 0; index < 2; index++) {
       logger.info(`Deploying contract ${index + 1}...`);
-      const receipt = await deployer
+      const { contract: deployed } = await deployer
         .deploy()
-        .send({ from: defaultAccountAddress, contractAddressSalt: Fr.random(), wait: { returnReceipt: true } });
+        .send({ from: defaultAccountAddress, contractAddressSalt: Fr.random() });
       logger.info(`Sending TX to contract ${index + 1}...`);
-      await receipt.contract.methods
+      await deployed.methods
         .get_master_incoming_viewing_public_key(defaultAccountAddress)
         .send({ from: defaultAccountAddress });
     }
@@ -97,8 +95,6 @@ describe('e2e_deploy_contract legacy', () => {
     const badDeploy = new ContractDeployer(artifact, wallet).deploy(AztecAddress.ZERO, ...initArgs);
 
     const firstOpts: DeployOptions = {
-      skipClassPublication: true,
-      skipInstancePublication: true,
       from: defaultAccountAddress,
     };
     const secondOpts: DeployOptions = {
@@ -106,15 +102,15 @@ describe('e2e_deploy_contract legacy', () => {
     };
 
     const [goodTxPromiseResult, badTxReceiptResult] = await Promise.allSettled([
-      goodDeploy.send({ ...firstOpts, wait: { returnReceipt: true } }),
-      badDeploy.send({ ...secondOpts, wait: { dontThrowOnRevert: true, returnReceipt: true } }),
+      goodDeploy.send({ ...firstOpts }),
+      badDeploy.send({ ...secondOpts, wait: { dontThrowOnRevert: true } }),
     ]);
 
     expect(goodTxPromiseResult.status).toBe('fulfilled');
     expect(badTxReceiptResult.status).toBe('fulfilled'); // but reverted
 
-    const goodTxReceipt = goodTxPromiseResult.status === 'fulfilled' ? goodTxPromiseResult.value : null;
-    const badTxReceipt = badTxReceiptResult.status === 'fulfilled' ? badTxReceiptResult.value : null;
+    const goodTxReceipt = goodTxPromiseResult.status === 'fulfilled' ? goodTxPromiseResult.value.receipt : null;
+    const badTxReceipt = badTxReceiptResult.status === 'fulfilled' ? badTxReceiptResult.value.receipt : null;
 
     // Both the good and bad transactions are included
     expect(goodTxReceipt).toBeDefined();

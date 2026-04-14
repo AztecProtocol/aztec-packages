@@ -1,26 +1,23 @@
 use crate::{
     capsules::CapsuleArray,
     messages::{
-        discovery::{ComputeNoteHashAndNullifier, nonce_discovery::attempt_note_nonce_discovery},
+        discovery::{ComputeNoteHash, ComputeNoteNullifier, nonce_discovery::attempt_note_nonce_discovery},
         encoding::MAX_MESSAGE_CONTENT_LEN,
         logs::partial_note::{decode_partial_note_private_message, MAX_PARTIAL_NOTE_PRIVATE_PACKED_LEN},
         processing::{
-            enqueue_note_for_validation, get_pending_partial_notes_completion_logs,
-            log_retrieval_response::LogRetrievalResponse,
+            enqueue_note_for_validation,
+            get_pending_partial_notes_completion_logs,
+            log_retrieval_response::{LogRetrievalResponse, MAX_LOG_CONTENT_LEN},
         },
     },
     utils::array,
 };
 
-use crate::protocol::{
-    address::AztecAddress,
-    hash::sha256_to_field,
-    logging::debug_log_format,
-    traits::{Deserialize, Serialize},
-};
+use crate::logging::{aztecnr_debug_log_format, aztecnr_warn_log_format};
+use crate::protocol::{address::AztecAddress, hash::sha256_to_field, traits::{Deserialize, Serialize}};
 
 /// The slot in the PXE capsules where we store a `CapsuleArray` of `DeliveredPendingPartialNote`.
-pub global DELIVERED_PENDING_PARTIAL_NOTE_ARRAY_LENGTH_CAPSULES_SLOT: Field = sha256_to_field(
+pub(crate) global DELIVERED_PENDING_PARTIAL_NOTE_ARRAY_LENGTH_CAPSULES_SLOT: Field = sha256_to_field(
     "AZTEC_NR::DELIVERED_PENDING_PARTIAL_NOTE_ARRAY_LENGTH_CAPSULES_SLOT".as_bytes(),
 );
 
@@ -29,57 +26,64 @@ pub global DELIVERED_PENDING_PARTIAL_NOTE_ARRAY_LENGTH_CAPSULES_SLOT: Field = sh
 #[derive(Serialize, Deserialize)]
 pub(crate) struct DeliveredPendingPartialNote {
     pub(crate) owner: AztecAddress,
-    pub(crate) storage_slot: Field,
     pub(crate) randomness: Field,
     pub(crate) note_completion_log_tag: Field,
     pub(crate) note_type_id: Field,
     pub(crate) packed_private_note_content: BoundedVec<Field, MAX_PARTIAL_NOTE_PRIVATE_PACKED_LEN>,
-    pub(crate) recipient: AztecAddress,
 }
 
-pub unconstrained fn process_partial_note_private_msg(
+pub(crate) unconstrained fn process_partial_note_private_msg(
     contract_address: AztecAddress,
-    recipient: AztecAddress,
     msg_metadata: u64,
     msg_content: BoundedVec<Field, MAX_MESSAGE_CONTENT_LEN>,
+    tx_hash: Field,
+    scope: AztecAddress,
 ) {
-    // We store the information of the partial note we found in a persistent capsule in PXE, so that we can later
-    // search for the public log that will complete it.
-    let (owner, storage_slot, randomness, note_completion_log_tag, note_type_id, packed_private_note_content) =
-        decode_partial_note_private_message(msg_metadata, msg_content);
+    let decoded = decode_partial_note_private_message(msg_metadata, msg_content);
 
-    let pending = DeliveredPendingPartialNote {
-        owner,
-        storage_slot,
-        randomness,
-        note_completion_log_tag,
-        note_type_id,
-        packed_private_note_content,
-        recipient,
-    };
+    if decoded.is_some() {
+        // We store the information of the partial note we found in a persistent capsule in PXE, so that we can later
+        // search for the public log that will complete it.
+        let (owner, randomness, note_completion_log_tag, note_type_id, packed_private_note_content) = decoded.unwrap();
 
-    CapsuleArray::at(
-        contract_address,
-        DELIVERED_PENDING_PARTIAL_NOTE_ARRAY_LENGTH_CAPSULES_SLOT,
-    )
-        .push(pending);
+        let pending = DeliveredPendingPartialNote {
+            owner,
+            randomness,
+            note_completion_log_tag,
+            note_type_id,
+            packed_private_note_content,
+        };
+
+        CapsuleArray::at(
+            contract_address,
+            DELIVERED_PENDING_PARTIAL_NOTE_ARRAY_LENGTH_CAPSULES_SLOT,
+            scope,
+        )
+            .push(pending);
+    } else {
+        aztecnr_warn_log_format!(
+            "Could not decode partial note private message from tx {0}, ignoring",
+        )(
+            [tx_hash],
+        );
+    }
 }
 
 /// Searches for logs that would result in the completion of pending partial notes, ultimately resulting in the notes
 /// being delivered to PXE if completed.
-pub unconstrained fn fetch_and_process_partial_note_completion_logs<Env>(
+pub(crate) unconstrained fn fetch_and_process_partial_note_completion_logs(
     contract_address: AztecAddress,
-    compute_note_hash_and_nullifier: ComputeNoteHashAndNullifier<Env>,
+    compute_note_hash: ComputeNoteHash,
+    compute_note_nullifier: ComputeNoteNullifier,
+    scope: AztecAddress,
 ) {
     let pending_partial_notes = CapsuleArray::at(
         contract_address,
         DELIVERED_PENDING_PARTIAL_NOTE_ARRAY_LENGTH_CAPSULES_SLOT,
+        scope,
     );
 
-    debug_log_format(
-        "{} pending partial notes",
-        [pending_partial_notes.len() as Field],
-    );
+    aztecnr_debug_log_format!("{} pending partial notes")([pending_partial_notes.len() as Field]);
 
     // Each of the pending partial notes might get completed by a log containing its public values. For performance
     // reasons, we fetch all of these logs concurrently and then process them one by one, minimizing the amount of time
@@ -92,15 +96,10 @@ pub unconstrained fn fetch_and_process_partial_note_completion_logs<Env>(
     assert_eq(maybe_completion_logs.len(), pending_partial_notes.len());
 
     maybe_completion_logs.for_each(|i, maybe_log: Option<LogRetrievalResponse>| {
-        // We clear the completion logs as we read them so that the array is empty by the time we next query it.
-        // TODO(#14943): use volatile arrays to avoid having to manually clear this.
-        maybe_completion_logs.remove(i);
-
         let pending_partial_note = pending_partial_notes.get(i);
 
         if maybe_log.is_none() {
-            debug_log_format(
-                "Found no completion logs for partial note with tag {}",
+            aztecnr_debug_log_format!("Found no completion logs for partial note with tag {}")(
                 [pending_partial_note.note_completion_log_tag],
             );
 
@@ -108,27 +107,32 @@ pub unconstrained fn fetch_and_process_partial_note_completion_logs<Env>(
             // searching for this tagged log when performing message discovery in the future until we either find it or
             // the entry is somehow removed from the array.
         } else {
-            debug_log_format(
-                "Completion log found for partial note with tag {}",
-                [pending_partial_note.note_completion_log_tag],
-            );
+            aztecnr_debug_log_format!("Completion log found for partial note with tag {}")([
+                pending_partial_note.note_completion_log_tag,
+            ]);
             let log = maybe_log.unwrap();
 
-            // Public fields are assumed to all be placed at the end of the packed representation, so we combine the
-            // private and public packed fields (i.e. the contents of the private message and public log plaintext to
-            // get the complete packed content.
+            // The first field in the completion log payload is the storage slot, followed by the public note
+            // content fields.
+            let storage_slot = log.log_payload.get(0);
+            let public_note_content: BoundedVec<Field, MAX_LOG_CONTENT_LEN - 1> = array::subbvec(log.log_payload, 1);
+
+            // Public fields are assumed to all be placed at the end of the packed representation, so we combine
+            // the private and public packed fields (i.e. the contents of the private message and public log
+            // plaintext) to get the complete packed content.
             let complete_packed_note = array::append(
                 pending_partial_note.packed_private_note_content,
-                log.log_payload,
+                public_note_content,
             );
 
             let discovered_notes = attempt_note_nonce_discovery(
                 log.unique_note_hashes_in_tx,
                 log.first_nullifier_in_tx,
-                compute_note_hash_and_nullifier,
+                compute_note_hash,
+                compute_note_nullifier,
                 contract_address,
                 pending_partial_note.owner,
-                pending_partial_note.storage_slot,
+                storage_slot,
                 pending_partial_note.randomness,
                 pending_partial_note.note_type_id,
                 complete_packed_note,
@@ -142,23 +146,22 @@ pub unconstrained fn fetch_and_process_partial_note_completion_logs<Env>(
                 );
             }
 
-            debug_log_format(
-                "Discovered {0} notes for partial note with tag {1}",
-                [discovered_notes.len() as Field, pending_partial_note.note_completion_log_tag],
-            );
+            aztecnr_debug_log_format!("Discovered {0} notes for partial note with tag {1}")([
+                discovered_notes.len() as Field,
+                pending_partial_note.note_completion_log_tag,
+            ]);
 
             discovered_notes.for_each(|discovered_note| {
                 enqueue_note_for_validation(
                     contract_address,
                     pending_partial_note.owner,
-                    pending_partial_note.storage_slot,
+                    storage_slot,
                     pending_partial_note.randomness,
                     discovered_note.note_nonce,
                     complete_packed_note,
                     discovered_note.note_hash,
                     discovered_note.inner_nullifier,
                     log.tx_hash,
-                    pending_partial_note.recipient,
                 );
             });
 

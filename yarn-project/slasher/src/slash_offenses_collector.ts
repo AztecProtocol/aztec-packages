@@ -1,15 +1,20 @@
+import type { SlotNumber } from '@aztec/foundation/branded-types';
 import { createLogger } from '@aztec/foundation/log';
 import type { Prettify } from '@aztec/foundation/types';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import type { SlasherConfig } from '@aztec/stdlib/interfaces/server';
-import { type Offense, type OffenseIdentifier, getSlotForOffense } from '@aztec/stdlib/slashing';
+import { type Offense, getSlotForOffense } from '@aztec/stdlib/slashing';
 
 import type { SlasherOffensesStore } from './stores/offenses_store.js';
 import { WANT_TO_SLASH_EVENT, type WantToSlashArgs, type Watcher } from './watcher.js';
 
 export type SlashOffensesCollectorConfig = Prettify<Pick<SlasherConfig, 'slashGracePeriodL2Slots'>>;
 export type SlashOffensesCollectorSettings = Prettify<
-  Pick<L1RollupConstants, 'epochDuration'> & { slashingAmounts: [bigint, bigint, bigint] | undefined }
+  Pick<L1RollupConstants, 'epochDuration'> & {
+    slashingAmounts: [bigint, bigint, bigint] | undefined;
+    /** L2 slot at which the rollup was registered as canonical in the Registry. Used to anchor the slash grace period. */
+    rollupRegisteredAtL2Slot: SlotNumber;
+  }
 >;
 
 /**
@@ -61,20 +66,20 @@ export class SlashOffensesCollector {
    */
   public async handleWantToSlash(args: WantToSlashArgs[]) {
     for (const arg of args) {
-      const pendingOffense: Offense = {
+      const offense: Offense = {
         validator: arg.validator,
         amount: arg.amount,
         offenseType: arg.offenseType,
         epochOrSlot: arg.epochOrSlot,
       };
 
-      if (this.shouldSkipOffense(pendingOffense)) {
-        this.log.verbose('Skipping offense during grace period', pendingOffense);
+      if (this.shouldSkipOffense(offense)) {
+        this.log.verbose('Skipping offense during grace period', offense);
         continue;
       }
 
-      if (await this.offensesStore.hasOffense(pendingOffense)) {
-        this.log.debug('Skipping repeated offense', pendingOffense);
+      if (await this.offensesStore.hasOffense(offense)) {
+        this.log.debug('Skipping repeated offense', offense);
         continue;
       }
 
@@ -85,8 +90,8 @@ export class SlashOffensesCollector {
         }
       }
 
-      this.log.info(`Adding pending offense for validator ${arg.validator}`, pendingOffense);
-      await this.offensesStore.addPendingOffense(pendingOffense);
+      this.log.info(`Adding pending offense for validator ${arg.validator}`, offense);
+      await this.offensesStore.addOffense(offense);
     }
   }
 
@@ -101,18 +106,9 @@ export class SlashOffensesCollector {
     }
   }
 
-  /**
-   * Marks offenses as slashed (no longer pending)
-   * @param offenses - The offenses to mark as slashed
-   */
-  public markAsSlashed(offenses: OffenseIdentifier[]) {
-    this.log.verbose(`Marking offenses as slashed`, { offenses });
-    return this.offensesStore.markAsSlashed(offenses);
-  }
-
-  /** Returns whether to skip an offense if it happened during the grace period at the beginning of the chain */
+  /** Returns whether to skip an offense if it happened during the grace period after the network upgrade */
   private shouldSkipOffense(offense: Offense): boolean {
     const offenseSlot = getSlotForOffense(offense, this.settings);
-    return offenseSlot < this.config.slashGracePeriodL2Slots;
+    return offenseSlot < this.settings.rollupRegisteredAtL2Slot + this.config.slashGracePeriodL2Slots;
   }
 }

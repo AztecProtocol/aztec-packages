@@ -38,14 +38,14 @@ template <typename LeafValueType> struct BatchInsertionResult {
     std::vector<std::pair<LeafValueType, index_t>> sorted_leaves;
     crypto::merkle_tree::fr_sibling_path subtree_path;
 
-    MSGPACK_FIELDS(low_leaf_witness_data, sorted_leaves, subtree_path);
+    SERIALIZATION_FIELDS(low_leaf_witness_data, sorted_leaves, subtree_path);
 };
 
 template <typename LeafValueType> struct SequentialInsertionResult {
     std::vector<crypto::merkle_tree::LeafUpdateWitnessData<LeafValueType>> low_leaf_witness_data;
     std::vector<crypto::merkle_tree::LeafUpdateWitnessData<LeafValueType>> insertion_witness_data;
 
-    MSGPACK_FIELDS(low_leaf_witness_data, insertion_witness_data);
+    SERIALIZATION_FIELDS(low_leaf_witness_data, insertion_witness_data);
 };
 
 const uint64_t DEFAULT_MIN_NUMBER_OF_READERS = 128;
@@ -63,14 +63,16 @@ class WorldState {
                uint64_t map_size,
                const std::unordered_map<MerkleTreeId, uint32_t>& tree_heights,
                const std::unordered_map<MerkleTreeId, index_t>& tree_prefill,
-               uint32_t initial_header_generator_point);
+               uint32_t initial_header_generator_point,
+               uint64_t genesis_timestamp = 0);
 
     WorldState(uint64_t thread_pool_size,
                const std::string& data_dir,
                const std::unordered_map<MerkleTreeId, uint64_t>& map_size,
                const std::unordered_map<MerkleTreeId, uint32_t>& tree_heights,
                const std::unordered_map<MerkleTreeId, index_t>& tree_prefill,
-               uint32_t initial_header_generator_point);
+               uint32_t initial_header_generator_point,
+               uint64_t genesis_timestamp = 0);
 
     WorldState(uint64_t thread_pool_size,
                const std::string& data_dir,
@@ -78,7 +80,8 @@ class WorldState {
                const std::unordered_map<MerkleTreeId, uint32_t>& tree_heights,
                const std::unordered_map<MerkleTreeId, index_t>& tree_prefill,
                const std::vector<PublicDataLeafValue>& prefilled_public_data,
-               uint32_t initial_header_generator_point);
+               uint32_t initial_header_generator_point,
+               uint64_t genesis_timestamp = 0);
 
     WorldState(uint64_t thread_pool_size,
                const std::string& data_dir,
@@ -86,7 +89,8 @@ class WorldState {
                const std::unordered_map<MerkleTreeId, uint32_t>& tree_heights,
                const std::unordered_map<MerkleTreeId, index_t>& tree_prefill,
                const std::vector<PublicDataLeafValue>& prefilled_public_data,
-               uint32_t initial_header_generator_point);
+               uint32_t initial_header_generator_point,
+               uint64_t genesis_timestamp = 0);
 
     /**
      * @brief Copies all underlying LMDB stores to the target directory while acquiring a write lock
@@ -287,11 +291,11 @@ class WorldState {
                                     const std::vector<crypto::merkle_tree::NullifierLeafValue>& nullifiers,
                                     const std::vector<crypto::merkle_tree::PublicDataLeafValue>& public_writes);
 
-    void checkpoint(const uint64_t& forkId);
+    uint32_t checkpoint(const uint64_t& forkId);
     void commit_checkpoint(const uint64_t& forkId);
     void revert_checkpoint(const uint64_t& forkId);
-    void commit_all_checkpoints(const uint64_t& forkId);
-    void revert_all_checkpoints(const uint64_t& forkId);
+    void commit_all_checkpoints_to(const uint64_t& forkId, uint32_t depth);
+    void revert_all_checkpoints_to(const uint64_t& forkId, uint32_t depth);
 
   private:
     std::shared_ptr<bb::ThreadPool> _workers;
@@ -303,6 +307,7 @@ class WorldState {
     std::unordered_map<uint64_t, Fork::SharedPtr> _forks;
     uint64_t _forkId = 0;
     uint32_t _initial_header_generator_point;
+    uint64_t _genesis_timestamp;
 
     TreeStateReference get_tree_snapshot(MerkleTreeId id);
     void create_canonical_fork(const std::string& dataDir,
@@ -330,7 +335,9 @@ class WorldState {
     bool is_archive_tip(const WorldStateRevision& revision, const bb::fr& block_header_hash) const;
 
     bool is_same_state_reference(const WorldStateRevision& revision, const StateReference& state_ref) const;
-    static bb::fr compute_initial_block_header_hash(const StateReference& initial_state_ref, uint32_t generator_point);
+    static bb::fr compute_initial_block_header_hash(const StateReference& initial_state_ref,
+                                                    uint32_t generator_point,
+                                                    uint64_t genesis_timestamp = 0);
 
     static StateReference get_state_reference(const WorldStateRevision& revision,
                                               Fork::SharedPtr fork,

@@ -26,8 +26,10 @@
 #include "barretenberg/bbapi/bbapi.hpp"
 #include "barretenberg/bbapi/bbapi_ultra_honk.hpp"
 #include "barretenberg/bbapi/c_bind.hpp"
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/common/get_bytecode.hpp"
+#include "barretenberg/common/memory_profile.hpp"
 #include "barretenberg/common/thread.hpp"
 #include "barretenberg/common/version.hpp"
 #include "barretenberg/dsl/acir_format/serde/index.hpp"
@@ -310,6 +312,15 @@ int parse_and_run_cli_command(int argc, char* argv[])
             ->group(advanced_group);
     };
 
+    bool disable_asserts = false;
+    const auto add_disable_asserts_flag = [&](CLI::App* subcommand) {
+        return subcommand
+            ->add_flag("--disable_asserts",
+                       disable_asserts,
+                       "Disable BB assertions (asserts become warnings). Not for production use.")
+            ->group(advanced_group);
+    };
+
     const auto add_include_gates_per_opcode_flag = [&](CLI::App* subcommand) {
         return subcommand->add_flag("--include_gates_per_opcode",
                                     flags.include_gates_per_opcode,
@@ -379,6 +390,15 @@ int parse_and_run_cli_command(int argc, char* argv[])
                          "parent-child relationships) as json.")
             ->group(advanced_group);
     };
+    std::string memory_profile_out;
+    const auto add_memory_profile_out_option = [&](CLI::App* subcommand) {
+        return subcommand
+            ->add_option("--memory_profile_out",
+                         memory_profile_out,
+                         "Path to write memory profile data (polynomial breakdown by category, RSS "
+                         "checkpoints, CRS size) as json.")
+            ->group(advanced_group);
+    };
 
     /***************************************************************************************************************
      * Top-level flags
@@ -429,6 +449,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
     add_witness_path_option(check);
     add_ivc_inputs_path_options(check);
     add_vk_policy_option(check);
+    add_disable_asserts_flag(check);
 
     /***************************************************************************************************************
      * Subcommand: gates
@@ -471,6 +492,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
     add_print_bench_flag(prove);
     add_bench_out_option(prove);
     add_bench_out_hierarchical_option(prove);
+    add_memory_profile_out_option(prove);
     add_storage_budget_option(prove);
     add_output_format_option(prove);
 
@@ -518,6 +540,32 @@ int parse_and_run_cli_command(int argc, char* argv[])
     add_oracle_hash_option(verify);
     remove_zk_option(verify);
     add_ipa_accumulation_flag(verify);
+
+    /***************************************************************************************************************
+     * Subcommand: batch_verify
+     ***************************************************************************************************************/
+    std::filesystem::path batch_verify_proofs_dir{ "./proofs" };
+    CLI::App* batch_verify =
+        app.add_subcommand("batch_verify", "Batch-verify multiple Chonk proofs with a single IPA SRS MSM.");
+
+    add_help_extended_flag(batch_verify);
+    add_scheme_option(batch_verify);
+    batch_verify->add_option("--proofs_dir", batch_verify_proofs_dir, "Directory containing proof_N/vk_N pairs.");
+    add_verbose_flag(batch_verify);
+    add_debug_flag(batch_verify);
+    add_crs_path_option(batch_verify);
+
+    /***************************************************************************************************************
+     * Subcommand: proof_stats
+     ***************************************************************************************************************/
+    CLI::App* proof_stats =
+        app.add_subcommand("proof_stats", "Output proof statistics (compressed size, number of public inputs).");
+
+    add_help_extended_flag(proof_stats);
+    add_scheme_option(proof_stats);
+    add_proof_path_option(proof_stats);
+    add_output_path_option(proof_stats, output_path);
+    add_verbose_flag(proof_stats);
 
     /***************************************************************************************************************
      * Subcommand: write_solidity_verifier
@@ -774,6 +822,10 @@ int parse_and_run_cli_command(int argc, char* argv[])
     if (!flags.storage_budget.empty()) {
         storage_budget = parse_size_string(flags.storage_budget);
     }
+    if (!memory_profile_out.empty()) {
+        bb::detail::use_memory_profile = true;
+        vinfo("Memory profiling enabled via --memory_profile_out");
+    }
     if (print_bench || !bench_out.empty() || !bench_out_hierarchical.empty()) {
         bb::detail::use_bb_bench = true;
         vinfo("BB_BENCH enabled via --print_bench or --bench_out");
@@ -812,6 +864,11 @@ int parse_and_run_cli_command(int argc, char* argv[])
                 flags.verifier_target != "evm-no-zk") {
                 throw_or_abort("write_solidity_verifier requires --verifier_target to be 'evm' or 'evm-no-zk', got '" +
                                flags.verifier_target + "'");
+            }
+            if (flags.optimized_solidity_verifier && !flags.disable_zk) {
+                throw_or_abort(
+                    "An optimized ZK Solidity verifier is not currently available. "
+                    "Use --verifier_target evm-no-zk, or remove --optimized to use the non-optimized ZK verifier.");
             }
             api.write_solidity_verifier(flags, output_path, vk_path);
             return 0;
@@ -945,6 +1002,11 @@ int parse_and_run_cli_command(int argc, char* argv[])
                     bb::detail::GLOBAL_BENCH_STATS.serialize_aggregate_data_json(file);
                 }
 #endif
+                if (!memory_profile_out.empty()) {
+                    std::ofstream file(memory_profile_out);
+                    bb::detail::GLOBAL_MEMORY_PROFILE.serialize_json(file);
+                    vinfo("Memory profile written to ", memory_profile_out);
+                }
                 return 0;
             }
             if (check->parsed()) {
@@ -952,7 +1014,20 @@ int parse_and_run_cli_command(int argc, char* argv[])
                     throw_or_abort("The check command for Chonk expect a valid file passed with --ivc_inputs_path "
                                    "<ivc-inputs.msgpack> (default ./ivc-inputs.msgpack)");
                 }
+                if (disable_asserts) {
+                    BB_DISABLE_ASSERTS();
+                    return api.check_precomputed_vks(flags, ivc_inputs_path) ? 0 : 1;
+                }
                 return api.check_precomputed_vks(flags, ivc_inputs_path) ? 0 : 1;
+            }
+            if (batch_verify->parsed()) {
+                const bool verified = api.batch_verify(flags, batch_verify_proofs_dir);
+                vinfo("batch verified: ", verified);
+                return verified ? 0 : 1;
+            }
+            if (proof_stats->parsed()) {
+                api.proof_stats(proof_path, output_path);
+                return 0;
             }
             return execute_non_prove_command(api);
         } else if (flags.scheme == "ultra_honk") {

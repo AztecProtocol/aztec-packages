@@ -10,16 +10,9 @@
  * or can be queried via `simulate()`.
  *
  * ```ts
- * // Deploy and get the contract instance directly (default behavior)
- * const contract = await Contract.deploy(wallet, MyContractArtifact, [...constructorArgs]).send({ from: accountAddress });
+ * // Deploy and get the contract, receipt, and instance
+ * const { contract, receipt, instance } = await Contract.deploy(wallet, MyContractArtifact, [...constructorArgs]).send({ from: accountAddress });
  * console.log(`Contract deployed at ${contract.address}`);
- *
- * // Or get the full receipt with contract and instance
- * const receipt = await Contract.deploy(wallet, MyContractArtifact, [...constructorArgs]).send({
- *   from: accountAddress,
- *   wait: { returnReceipt: true }
- * });
- * console.log(`Contract deployed at ${receipt.contract.address}`);
  * ```
  *
  * ```ts
@@ -48,6 +41,8 @@ export { ContractFunctionInteraction } from '../contract/contract_function_inter
 export {
   NO_WAIT,
   type NoWait,
+  type OffchainMessage,
+  type OffchainOutput,
   type RequestInteractionOptions,
   type SendInteractionOptions,
   type ProfileInteractionOptions,
@@ -56,7 +51,10 @@ export {
   type InteractionWaitOptions,
   type GasSettingsOption,
   type SendReturn,
-  type SimulationReturn,
+  type SimulationResult,
+  type TxSendResultImmediate,
+  type TxSendResultMined,
+  extractOffchainOutput,
   toProfileOptions,
   toSendOptions,
   toSimulateOptions,
@@ -67,9 +65,8 @@ export { ContractBase, type ContractMethod, type ContractStorageLayout } from '.
 export { BatchCall } from '../contract/batch_call.js';
 export {
   type DeployOptions,
+  type DeployResultMined,
   type DeployReturn,
-  type DeployTxReceipt,
-  type DeployWaitOptions,
   type DeployInteractionWaitOptions,
   DeployMethod,
   type RequestDeployOptions,

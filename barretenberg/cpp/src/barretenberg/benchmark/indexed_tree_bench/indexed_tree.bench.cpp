@@ -18,7 +18,6 @@ using namespace bb::crypto::merkle_tree;
 using StoreType = ContentAddressedCachedTreeStore<NullifierLeafValue>;
 
 using Poseidon2 = ContentAddressedIndexedTree<StoreType, Poseidon2HashPolicy>;
-using Pedersen = ContentAddressedIndexedTree<StoreType, PedersenHashPolicy>;
 
 const size_t TREE_DEPTH = 40;
 const size_t MAX_BATCH_SIZE = 64;

@@ -1,5 +1,5 @@
 // === AUDIT STATUS ===
-// internal:    { status: Planned, auditors: [Raju], commit: }
+// internal:    { status: Complete, auditors: [Nishat], commit: 22d6fc368da0fbe5412f4f7b2890a052aa48d803 }
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
@@ -144,6 +144,9 @@ template <typename HashingPolicy> fr_sibling_path NullifierMemoryTree<HashingPol
     if (value == 0) {
         auto zero_leaf = WrappedNullifierLeaf<HashingPolicy>::zero();
         hash_path = get_sibling_path(leaves_.size() - 1);
+        if (leaves_.size() >= total_size_) {
+            throw std::runtime_error("NullifierMemoryTree is full");
+        }
         leaves_.push_back(zero_leaf);
         update_element(leaves_.size() - 1, zero_leaf.hash());
         return hash_path;
@@ -164,6 +167,10 @@ template <typename HashingPolicy> fr_sibling_path NullifierMemoryTree<HashingPol
         current_leaf.nextValue = value;
 
         leaves_[current].set(current_leaf);
+
+        if (leaves_.size() >= total_size_) {
+            throw std::runtime_error("NullifierMemoryTree is full");
+        }
 
         // Insert the new leaf with (nextIndex, nextValue) of the current leaf
         leaves_.push_back(new_leaf);

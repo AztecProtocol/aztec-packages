@@ -6,6 +6,7 @@
 
 #include "merge_verifier.hpp"
 #include "barretenberg/commitment_schemes/shplonk/shplonk.hpp"
+#include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/stdlib/proof/proof.hpp"
@@ -114,19 +115,13 @@ template <typename Curve>
 typename MergeVerifier_<Curve>::ReductionResult MergeVerifier_<Curve>::reduce_to_pairing_check(
     const Proof& proof, const InputCommitments& input_commitments)
 {
+    BB_BENCH_NAME("MergeVerifier::reduce");
     transcript->load_proof(proof);
 
     // Receive shift size from prover
     // For native: shift_size is uint32_t
     // For stdlib: shift_size is FF (we'll get the value later)
     const FF shift_size = transcript->template receive_from_prover<FF>("shift_size");
-    ;
-    if constexpr (IsRecursive) {
-        BB_ASSERT_GT(uint32_t(shift_size.get_value()), 0U, "Shift size should always be bigger than 0");
-    } else {
-
-        BB_ASSERT_GT(shift_size, 0U, "Shift size should always be bigger than 0");
-    }
 
     // Store T_commitments of the verifier
     TableCommitments merged_table_commitments;

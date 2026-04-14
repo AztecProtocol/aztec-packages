@@ -7,7 +7,7 @@ import { createLogger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { retryUntil } from '@aztec/foundation/retry';
 import { timeoutPromise } from '@aztec/foundation/timer';
-import { type SlasherConfig, type TallySlasherSettings, getTallySlasherSettings } from '@aztec/slasher';
+import { type SlasherConfig, type SlasherSettings, getSlasherSettings } from '@aztec/slasher';
 import { type L1RollupConstants, getSlotRangeForEpoch, getStartTimestampForEpoch } from '@aztec/stdlib/epoch-helpers';
 
 import { jest } from '@jest/globals';
@@ -38,7 +38,7 @@ describe('slash inactivity test', () => {
 
   let client: ViemPublicClient;
   let rollup: RollupContract;
-  let slashSettings: TallySlasherSettings;
+  let slashSettings: Omit<SlasherSettings, 'rollupRegisteredAtL2Slot'>;
   let constants: Omit<L1RollupConstants, 'ethereumSlotDuration'>;
   let monitor: ChainMonitor;
   let offlineValidator: EthAddress;
@@ -53,7 +53,7 @@ describe('slash inactivity test', () => {
     rollup = new RollupContract(client, deployAddresses.rollupAddress);
     monitor = new ChainMonitor(rollup, undefined, logger.createChild('chain-monitor'), 500).start();
     constants = await rollup.getRollupConstants();
-    slashSettings = await getTallySlasherSettings(rollup);
+    slashSettings = await getSlasherSettings(rollup);
   });
 
   afterAll(async () => {
@@ -92,7 +92,7 @@ describe('slash inactivity test', () => {
 
     // Log every slash vote event
     const proposer = await rollup.getSlashingProposer();
-    assert(proposer!.type === 'tally', 'Expected tally slashing proposer');
+    assert(proposer, 'Expected slashing proposer');
     proposer!.listenToVoteCast(
       args =>
         void (async () => {

@@ -76,7 +76,7 @@ export class InMemoryTxPool extends EventEmitter implements TxPoolV2 {
     return Promise.resolve({ accepted, ignored: [], rejected: [] });
   }
 
-  canAddPendingTx(tx: Tx): Promise<'accepted' | 'ignored' | 'rejected'> {
+  canAddPendingTx(tx: Tx): Promise<'accepted' | 'ignored'> {
     const key = tx.getTxHash().toString();
     if (this.txsByHash.has(key)) {
       return Promise.resolve('ignored');
@@ -273,17 +273,42 @@ export class InMemoryAttestationPool {
  * Creates a mock EpochCache for testing.
  */
 export function createMockEpochCache(): EpochCacheInterface {
-  return {
+  const cache: EpochCacheInterface = {
     getCommittee: () => Promise.resolve({ committee: [], seed: 1n, epoch: EpochNumber.ZERO, isEscapeHatchOpen: false }),
     getProposerIndexEncoding: () => '0x' as `0x${string}`,
-    getEpochAndSlotNow: () => ({ epoch: EpochNumber.ZERO, slot: SlotNumber.ZERO, ts: 0n, nowMs: 0n }),
+    getSlotNow: () => SlotNumber.ZERO,
+    getTargetSlot: () => SlotNumber.ZERO,
+    getEpochNow: () => EpochNumber.ZERO,
+    getTargetEpoch: () => EpochNumber.ZERO,
+    getEpochAndSlotNow: () => ({
+      epoch: EpochNumber.ZERO,
+      slot: SlotNumber.ZERO,
+      ts: 0n,
+      nowMs: 0n,
+    }),
+    isProposerPipeliningEnabled: () => false,
+    pipeliningOffset: () => 0,
     computeProposerIndex: () => 0n,
     getCurrentAndNextSlot: () => ({ currentSlot: SlotNumber.ZERO, nextSlot: SlotNumber.ZERO }),
+    getTargetAndNextSlot: () => ({ targetSlot: SlotNumber.ZERO, nextSlot: SlotNumber.ZERO }),
     getProposerAttesterAddressInSlot: () => Promise.resolve(undefined),
-    getEpochAndSlotInNextL1Slot: () => ({ epoch: EpochNumber.ZERO, slot: SlotNumber.ZERO, ts: 0n, now: 0n }),
+    getEpochAndSlotInNextL1Slot: () => ({
+      epoch: EpochNumber.ZERO,
+      slot: SlotNumber.ZERO,
+      ts: 0n,
+      nowSeconds: 0n,
+    }),
+    getTargetEpochAndSlotInNextL1Slot: () => ({
+      epoch: EpochNumber.ZERO,
+      slot: SlotNumber.ZERO,
+      ts: 0n,
+      nowSeconds: 0n,
+    }),
     isInCommittee: () => Promise.resolve(false),
     getRegisteredValidators: () => Promise.resolve([]),
     filterInCommittee: () => Promise.resolve([]),
+    isEscapeHatchOpen: () => Promise.resolve(false),
+    isEscapeHatchOpenAtSlot: () => Promise.resolve(false),
     getL1Constants: () => ({
       l1StartBlock: 0n,
       l1GenesisTime: 0n,
@@ -292,8 +317,10 @@ export function createMockEpochCache(): EpochCacheInterface {
       ethereumSlotDuration: 1,
       proofSubmissionEpochs: 1,
       targetCommitteeSize: 48,
+      rollupManaLimit: Number.MAX_SAFE_INTEGER,
     }),
   };
+  return cache;
 }
 
 /**

@@ -1,5 +1,6 @@
 # Ensure multiple environments have all publisher keys and bot accounts funded
-# This workflow checks and funds publisher keys and bot accounts for staging-public, next-net, staging-ignition, and testnet
+# This workflow checks and funds publisher keys and bot accounts for all environments
+# including dynamically discovered devnet iterations.
 name: Ensure Funded Environments
 
 on:
@@ -24,22 +25,51 @@ concurrency:
   cancel-in-progress: false # Don't cancel funding operations
 
 jobs:
+  discover:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.build-matrix.outputs.matrix }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          fetch-depth: 1
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Discover active devnets
+        id: discover
+        run: spartan/scripts/get_active_devnets.ts
+
+      - name: Build funding matrix
+        id: build-matrix
+        run: |
+          # Static environments
+          static='[
+            {"environment":"staging-public"},
+            {"environment":"staging-ignition"},
+            {"environment":"next-net"},
+            {"environment":"tps-scenario"},
+            {"environment":"testnet"}
+          ]'
+
+          # Convert devnet namespaces to matrix entries
+          devnets=$(echo '${{ steps.discover.outputs.devnets }}' \
+            | jq -c '[.[] | {environment: "devnet", namespace: .}]')
+
+          matrix=$(jq -c -n --argjson s "$static" --argjson d "$devnets" '{"include": ($s + $d)}')
+          echo "matrix=$matrix" >> $GITHUB_OUTPUT
+
   fund:
+    needs: discover
     strategy:
       # we can only run one funding operation at a time because all jobs fund from the same address
       max-parallel: 1
       fail-fast: false
-      matrix:
-        environment:
-          - staging-public
-          - staging-ignition
-          - next-net
-          - tps-scenario
-          - testnet
-          - devnet
-        include:
-          - environment: devnet
-            namespace: v4-devnet-1
+      matrix: ${{ fromJSON(needs.discover.outputs.matrix) }}
     uses: ./.github/workflows/ensure-funded-environment.yml
     with:
       environment: ${{ matrix.environment }}
@@ -47,4 +77,3 @@ jobs:
       low_watermark: ${{ inputs.low_watermark || '5.0' }}
       high_watermark: ${{ inputs.high_watermark || '10.0' }}
     secrets: inherit
-

@@ -23,7 +23,7 @@ export async function getAuthRegistryArtifact(): Promise<ContractArtifact> {
 export async function getCanonicalAuthRegistry(): Promise<ProtocolContract> {
   if (!protocolContract) {
     const authRegistryArtifact = await getAuthRegistryArtifact();
-    protocolContract = await makeProtocolContract('AuthRegistry', authRegistryArtifact);
+    protocolContract = makeProtocolContract('AuthRegistry', authRegistryArtifact);
   }
   return protocolContract;
 }

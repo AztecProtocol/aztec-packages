@@ -1,0 +1,999 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Aztec CI Health Report</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:#0d1117;color:#e6edf3;font-family:-apple-system,'Segoe UI',sans-serif;overflow:hidden}
+.deck{width:100%;height:100vh;position:relative}
+.slide{position:absolute;top:0;left:0;width:100%;height:100%;display:flex;flex-direction:column;padding:40px 56px;opacity:0;transition:opacity .25s ease;pointer-events:none;overflow:hidden}
+.slide.active{opacity:1;pointer-events:all}
+.nav{position:fixed;bottom:24px;right:32px;display:flex;gap:10px;z-index:100}
+.nav button{background:#161b22;border:1px solid #30363d;color:#e6edf3;padding:7px 18px;border-radius:6px;cursor:pointer;font-size:13px;transition:background .15s}
+.nav button:hover{background:#21262d}
+.progress{position:fixed;bottom:31px;left:50%;transform:translateX(-50%);color:#7d8590;font-size:12px;font-family:monospace;letter-spacing:.04em}
+.label{font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:#7d8590;margin-bottom:6px}
+h2{font-size:26px;font-weight:600;color:#e6edf3;margin-bottom:3px;line-height:1.2}
+.sub{color:#7d8590;font-size:14px;margin-bottom:18px}
+.card{flex:1;background:#161b22;border:1px solid #21262d;border-radius:8px;padding:18px 20px}
+.card .num{font-size:34px;font-weight:700;line-height:1;margin:6px 0 3px;font-family:monospace}
+.card .sub2{font-size:13px;color:#8b949e}
+.g{color:#3fb950}.y{color:#e3b341}.r{color:#f85149}.b{color:#58a6ff}.o{color:#f0883e}
+.row{display:flex;gap:20px;flex:1;min-height:0}
+.col{display:flex;flex-direction:column;flex:1;min-height:0}
+.cw{position:relative;flex:1;min-height:0}
+.note{background:#161b22;border-left:3px solid #58a6ff;padding:10px 14px;border-radius:0 6px 6px 0;font-size:13px;color:#c9d1d9;margin-top:10px;line-height:1.55}
+.note.y{border-color:#e3b341}.note.r{border-color:#f85149}.note.g{border-color:#3fb950}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:16px;flex:1}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;flex:1}
+.title-slide{justify-content:center}
+.eyebrow{font-size:12px;text-transform:uppercase;letter-spacing:.12em;color:#58a6ff;margin-bottom:20px}
+h1{font-size:56px;font-weight:700;line-height:1.05;margin-bottom:6px}
+.kpis{display:flex;gap:48px;margin-top:44px}
+.knum{font-size:44px;font-weight:700;font-family:monospace;line-height:1}
+.klabel{font-size:12px;color:#7d8590;margin-top:4px}
+.source{margin-top:auto;font-size:11px;color:#484f58}
+.block{background:#161b22;border:1px solid #21262d;border-radius:8px;padding:16px 18px;margin-bottom:10px}
+.block .bhead{font-size:13px;font-weight:600;color:#e6edf3;margin-bottom:5px}
+.block p{font-size:13px;color:#8b949e;line-height:1.6}
+.pr-card{background:#161b22;border:1px solid #21262d;border-radius:8px;padding:12px 14px;margin-bottom:8px;display:flex;align-items:flex-start;gap:10px}
+.pr-card.cause{border-left:3px solid #f85149}
+.pr-card.fix{border-left:3px solid #3fb950}
+.pr-num{font-family:monospace;font-size:13px;font-weight:700;white-space:nowrap}
+.pr-num a{color:#58a6ff;text-decoration:none}
+.pr-num a:hover{text-decoration:underline}
+.pr-meta{flex:1;min-width:0}
+.pr-title{font-size:13px;color:#e6edf3;font-weight:600;line-height:1.3}
+.pr-body{font-size:12px;color:#8b949e;margin-top:3px;line-height:1.5}
+.linear-tag{display:inline-block;background:#21262d;border:1px solid #30363d;border-radius:4px;padding:2px 7px;font-size:11px;color:#58a6ff;text-decoration:none;margin-top:4px}
+.linear-tag:hover{background:#30363d}
+.deflake-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px}
+.dtag{background:#161b22;border:1px solid #21262d;border-radius:6px;padding:5px 9px;font-size:11px;font-family:monospace}
+.dtag a{color:#58a6ff;text-decoration:none}
+.dtag a:hover{text-decoration:underline}
+.dtag .dauthor{color:#7d8590;font-size:10px;display:block;margin-top:1px}
+</style>
+</head>
+<body>
+
+<div class="deck" id="deck">
+
+<!-- 0: TITLE -->
+<div class="slide title-slide active" id="s0">
+  <div class="eyebrow">aztec-packages · Jan 21 – Feb 23, 2026</div>
+  <h1>CI Health Report</h1>
+  <div style="color:#7d8590;font-size:16px">34-day view · spend · flake · pipeline health · actions</div>
+  <div class="kpis">
+    <div><div class="knum y">$6,107</div><div class="klabel">AWS CI EC2 (34d · metrics.db)</div></div>
+    <div><div class="knum" style="color:#d2a8ff">$22,738</div><div class="klabel">AWS operational total (34d · Cost Explorer, ex-tax, ex-contract)</div></div>
+    <div><div class="knum b">$9,972</div><div class="klabel">GCP compute (30d · 31 namespaces)</div></div>
+    <div><div class="knum r">63.5%</div><div class="klabel">merge queue success (712 attempts)</div></div>
+    <div><div class="knum g">92.3%</div><div class="klabel">next pipeline pass rate</div></div>
+    <div><div class="knum b">33.6 min</div><div class="klabel">next P50 · +8% in 3 weeks</div></div>
+  </div>
+  <div class="source">source: ci.aztec-labs.com metrics.db + BigQuery · 5,136 tracked runs · Jan 21–Feb 23, 2026</div>
+</div>
+
+<!-- 1: SPEND OVERVIEW -->
+<div class="slide" id="s-spend">
+  <div class="label">§1 spend · overview</div>
+  <h2>$6,107 AWS CI EC2 in 34 days — network is the cost hotspot at 30% of spend, 18.4% spot</h2>
+  <div class="sub">Jan 21–Feb 23 · metrics.db cost_usd · CI pipelines only (GCP on next slide)</div>
+  <div class="row">
+    <div class="col">
+      <div class="cw"><canvas id="spendBar"></canvas></div>
+    </div>
+    <div class="col" style="max-width:300px;justify-content:center;gap:10px">
+      <div class="card">
+        <div class="label">network pipeline</div>
+        <div class="num r" style="font-size:28px">$5.03<span style="font-size:14px;color:#7d8590">/run avg</span></div>
+        <div class="sub2">523 runs · only 15.5% spot · $2,632 total = 37% of all CI spend</div>
+      </div>
+      <div class="card">
+        <div class="label">prs pipeline</div>
+        <div class="num g" style="font-size:28px">$0.72<span style="font-size:14px;color:#7d8590">/run avg</span></div>
+        <div class="sub2">1,864 runs · 94.4% spot · $1,340 total · most cost-efficient pipeline</div>
+      </div>
+      <div class="note r" style="margin-top:0">Network spot rate 15.5% vs 87–99% everywhere else. Spot costs ~86% less than on-demand. Network pipeline is the single largest AWS cost lever.</div>
+    </div>
+  </div>
+</div>
+
+<!-- 2: GCP FULL PICTURE -->
+<div class="slide" id="s-gcp-total">
+  <div class="label">§1 spend · full picture</div>
+  <h2>$16K/month total: $9K dev/testing across both clouds, $6K always-on production</h2>
+  <div class="sub">AWS CI EC2 $6,107 (34d · metrics.db) · AWS operational $22,738 (34d · Cost Explorer, ex-tax, ex-contract) · GCP $9,972 (30d)</div>
+  <div class="row">
+    <div class="col" style="max-width:260px">
+      <div class="cw"><canvas id="gcpDonut"></canvas></div>
+    </div>
+    <div class="col">
+      <div class="cw"><canvas id="awsGcpBar"></canvas></div>
+    </div>
+    <div class="col" style="max-width:280px;justify-content:center;gap:10px">
+      <div class="card">
+        <div class="label">GCP production clusters</div>
+        <div class="num b" style="font-size:26px">$6,379<span style="font-size:14px;color:#7d8590">/mo</span></div>
+        <div class="sub2">testnet $997 · next-net $859 · mainnet $816 · staging $792 · fisherman $334. Always-on regardless of CI activity.</div>
+      </div>
+      <div class="note"><strong style="color:#e3b341">$6,107</strong> = CI run EC2 tracked in metrics.db — what we directly pay per CI job. Gap to $16,221 total EC2 bill = always-on infra (NAT, VPC, bastion, EFS) not tagged as CI runs. <strong style="color:#d2a8ff">$22,738</strong> = full AWS operational (Cost Explorer, 34d): EC2 $16,221 + CloudFront $1,829 + EC2-Other $2,177 + ElastiCache $637 + misc $1,874. Excluded: $17,520 annual Savings Plan commitment (one-time contract) + $6,172 tax → $46,430 total AWS bill. GCP: $2,129 CI namespaces + $6,379 prod clusters (always-on, CI-independent).</div>
+    </div>
+  </div>
+</div>
+
+<!-- 3: WEEKLY COST TREND -->
+<div class="slide" id="s-weekly-cost">
+  <div class="label">§1 spend · weekly trend</div>
+  <h2>W04 network anomaly: $999 in one week — Feb 14 instance change cut it 91%</h2>
+  <div class="sub">Stacked weekly CI spend by pipeline · m6a.48xlarge eliminated from network CI Feb 14, replaced by m6a.4xlarge</div>
+  <div class="row">
+    <div class="col">
+      <div class="cw"><canvas id="weeklyCostBar"></canvas></div>
+    </div>
+    <div class="col" style="max-width:300px;justify-content:center;gap:10px">
+      <div class="card">
+        <div class="label">W04 network (m6a.48xlarge, on-demand)</div>
+        <div class="num r" style="font-size:28px">$9.79<span style="font-size:14px;color:#7d8590">/run</span></div>
+        <div class="sub2">192 vCPUs, on-demand pricing. Long-failing jobs during p2p/epoch instability. $999 in one week.</div>
+      </div>
+      <div class="card">
+        <div class="label">W07 network (m6a.4xlarge)</div>
+        <div class="num g" style="font-size:28px">$0.85<span style="font-size:14px;color:#7d8590">/run</span></div>
+        <div class="sub2">$94 total for the week. Network tests no longer run on the 192-vCPU on-demand beast.</div>
+      </div>
+      <div class="note g" style="margin-top:0">W07 total: $988 vs W06 peak $1,947. 49% weekly reduction driven by eliminating m6a.48xlarge from network tests. kind tests also moved to spot this period.</div>
+    </div>
+  </div>
+</div>
+
+<!-- 4: SPOT GAP -->
+<div class="slide" id="s-network-spot">
+  <div class="label">§1 spend · spot discipline</div>
+  <h2>Network pipeline: 15.5% spot — every other pipeline runs 87–99% spot</h2>
+  <div class="sub">Spot instances cost ~86% less than on-demand at equivalent capacity. The gap is isolated to network.</div>
+  <div class="row">
+    <div class="col">
+      <div class="cw"><canvas id="spotBar"></canvas></div>
+    </div>
+    <div class="col" style="max-width:300px;justify-content:center;gap:10px">
+      <div class="note r">Network at 15.5% spot: 442 of 523 runs were on-demand. At prs pipeline spot rates (94.4%) the network bill drops from $2,632 to ~$370. ~$2,200/month opportunity.</div>
+      <div class="note y">GCP spot migration: $1,397/month in 0%-spot namespaces (eth-mainnet, sepolia, monitoring). Ops complexity — preemption handling for archive nodes. See §4.</div>
+      <div class="note g">kind tests moved to spot (done). Network pipeline is the next highest-ROI action on AWS.</div>
+    </div>
+  </div>
+</div>
+
+<!-- 5: WEEKLY FLAKES -->
+<div class="slide" id="s-flakes">
+  <div class="label">§2 flake · weekly pattern</div>
+  <h2>One cluster drove every spike — p2p/epoch cleared completely in W07</h2>
+  <div class="sub">Jan 14–Feb 23 · stacked: p2p/epoch (orange) · other flakes (blue) · hard fails (red)</div>
+  <div class="row">
+    <div class="col">
+      <div class="cw"><canvas id="flakeBar"></canvas></div>
+    </div>
+    <div class="col" style="max-width:300px;justify-content:center;gap:10px">
+      <div class="card">
+        <div class="label">p2p/epoch cluster (W02–W06)</div>
+        <div class="num o" style="font-size:28px">2,034<span style="font-size:14px;color:#7d8590"> events</span></div>
+        <div class="sub2">56 distinct tests · all classified as flakes (0 hard fails) · 747 events in W06 → 2 in W07</div>
+      </div>
+      <div class="note r">W06 (Feb 9): 515 hard fails — highest of any week. Three high-risk PRs merged same day (see slide 8).</div>
+      <div class="note y">W08 (Feb 23, partial): 36 events, 0 p2p/epoch. Too early to call — partial week, low volume.</div>
+    </div>
+  </div>
+</div>
+
+<!-- 6: CLUSTER ANATOMY -->
+<div class="slide" id="s-cluster">
+  <div class="label">§2 flake · anatomy</div>
+  <h2>2,034 labeled events across 56 tests — and 1,912 unlabeled failures behind them</h2>
+  <div class="sub">The e2e-p2p-epoch-flakes cluster is tagged. Everything else is anonymous.</div>
+  <div class="row">
+    <div class="col" style="max-width:280px">
+      <div class="cw"><canvas id="clusterDonut"></canvas></div>
+    </div>
+    <div class="col" style="justify-content:center;gap:10px">
+      <div class="block">
+        <div class="bhead" style="color:#f0883e">e2e-p2p-epoch-flakes · 2,034 events · 56 tests · 0 hard fails</div>
+        <p>Known cluster. All events classified as flakes — timing-driven, not code bugs. Cleared in W07 after Santiago PRs <a href="https://github.com/AztecProtocol/aztec-packages/pull/20351" style="color:#58a6ff">#20351</a> (mbps test fix) and <a href="https://github.com/AztecProtocol/aztec-packages/pull/20462" style="color:#58a6ff">#20462</a> (remove hardcoded 10s timeout), plus ludamad <a href="https://github.com/AztecProtocol/aztec-packages/pull/20613" style="color:#58a6ff">#20613</a> (CI parallelism). Root cause: PXE using latest (not checkpointed) block across distributed epoch transitions. Will recur.</p>
+      </div>
+      <div class="block">
+        <div class="bhead" style="color:#e3b341">Unlabeled · 1,912 events · 938 distinct tests · merge queue failures</div>
+        <p>These are failures in the merge queue (next pipeline). In the queue, any failure blocks a PR — whether it's a real bug, infrastructure noise, or a timing race. 938 distinct failing tests with no cluster assignment and no assigned owner. This is the long tail of test rot that grows with every feature sprint.</p>
+      </div>
+      <div class="note r">The labeled cluster cleared. The unlabeled tail didn't. 938 distinct failing tests is residual risk that accumulates without active maintenance.</div>
+    </div>
+  </div>
+</div>
+
+<!-- 7: REAL BUGS & DEFLAKE GATE -->
+<div class="slide" id="s-real-bugs">
+  <div class="label">§2 flake · signal quality</div>
+  <h2>New flakes keep appearing — the floor doesn't clear, and 4 grinds didn't catch W04</h2>
+  <div class="sub">0.12% overall flake rate (6,632 flakes / 5.5M test runs) — low headline, lumpy reality</div>
+  <div class="row" style="gap:24px;margin-top:8px">
+    <div class="col">
+      <div class="label" style="color:#f85149;margin-bottom:8px">W04: the gate failed</div>
+      <div class="block">
+        <div class="bhead">valid_epoch_pruned_slash: 0 events W03 → 346 events W04</div>
+        <p>This test passed the 4-run deflake gate and was merged. In its first full week in CI it produced 346 fail/flake events — 33% of the entire W04 spike. Similarly, tx_proposal_collector (180 events) and inactivity_slash_with_consequence (74 events) debuted in W04 with immediate instability. All passed the gate.</p>
+      </div>
+      <div class="block">
+        <div class="bhead" style="color:#e3b341">team-alpha now running 10 grinds</div>
+        <p>A stricter informal standard adopted by one team. Not yet universal policy. Reduces risk of introducing flaky tests but increases CI time per new test by 2.5×. Proposal: targeted deflake — instrument tests for determinism before setting a grind count. Outstanding from offsite.</p>
+      </div>
+    </div>
+    <div class="col">
+      <div class="label" style="color:#f85149;margin-bottom:8px">W07: new regressions after p2p fix</div>
+      <div class="block">
+        <div class="bhead">profile_gates.test.ts (12 events) + compile.test.ts (11 events)</div>
+        <p>Both appeared for the first time in W07 — the same week the p2p cluster cleared. CLI-layer tests, hash-prefixed job context. Not present in W06. New regressions introduced during the W07 fix sprint, or surface area exposed once p2p noise was removed.</p>
+      </div>
+      <div class="block">
+        <div class="bhead" style="color:#e3b341">~7% of CI run failures are genuine code bugs</div>
+        <p>Most failures are infrastructure noise (nightly 61% quick-fail) or p2p timing (labeled cluster). Merge-queue failures often behave like flakes regardless of their root cause — they block PRs that may be perfectly correct. New failing tests appear every week; old ones aren't fully removed.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 8: PR CORRELATION — CAUSES + FIXES -->
+<div class="slide" id="s-pr-causes">
+  <div class="label">§2 flake · PR correlation</div>
+  <h2 style="color:#e6edf3">What caused the spikes — and who fixed them</h2>
+  <div class="sub">Attribution via ci_runs × pr_authors. Santiago Palladino: 18+ fix PRs in 6 weeks.</div>
+  <div class="row" style="gap:24px;margin-top:8px">
+    <div class="col">
+      <div class="label" style="color:#f85149;margin-bottom:8px">spike causes</div>
+      <div class="pr-card cause">
+        <div class="pr-num"><a href="https://github.com/AztecProtocol/aztec-packages/pull/19532">#19532</a> <a href="https://github.com/AztecProtocol/aztec-packages/pull/19509">#19509</a> <a href="https://github.com/AztecProtocol/aztec-packages/pull/19564">#19564</a></div>
+        <div class="pr-meta">
+          <div class="pr-title" style="color:#f85149">W02 — Jan 13 · 2,072 flakes</div>
+          <div class="pr-body">spalladino refactors (e2e setup, archiver, test setup). Changed patterns exposing latent timing races across p2p/epoch simultaneously. Tipping point for existing instability.</div>
+        </div>
+      </div>
+      <div class="pr-card cause">
+        <div class="pr-num"><a href="https://github.com/AztecProtocol/aztec-packages/pull/19982">#19982</a></div>
+        <div class="pr-meta">
+          <div class="pr-title" style="color:#f85149">W04 — Jan 26 · 935 flakes</div>
+          <div class="pr-body">PhilWindle added cross-chain mbps e2e tests without pre-deflaking. valid_epoch_pruned_slash: 0→346 events. tx_proposal_collector: 180 events. inactivity_slash_with_consequence: 74 events. All absent the prior week.</div>
+        </div>
+      </div>
+      <div class="pr-card cause">
+        <div class="pr-num"><a href="https://github.com/AztecProtocol/aztec-packages/pull/20047">#20047</a> <a href="https://github.com/AztecProtocol/aztec-packages/pull/20241">#20241</a> <a href="https://github.com/AztecProtocol/aztec-packages/pull/20257">#20257</a></div>
+        <div class="pr-meta">
+          <div class="pr-title" style="color:#f85149">W06 — Feb 9 · 850 flakes + 515 hard fails (worst week)</div>
+          <div class="pr-body">Three high-risk PRs same day: <a href="https://github.com/AztecProtocol/aztec-packages/pull/20047" style="color:#58a6ff">#20047</a> peer scoring (15:27, mrzeszutko), <a href="https://github.com/AztecProtocol/aztec-packages/pull/20241" style="color:#58a6ff">#20241</a> max checkpoints→32 (11:21), <a href="https://github.com/AztecProtocol/aztec-packages/pull/20257" style="color:#58a6ff">#20257</a> hash constants (14:38, LeilaWang). Spanning p2p + epoch config + consensus hashes — the exact subsystems where all flakes live.</div>
+        </div>
+      </div>
+    </div>
+    <div class="col">
+      <div class="label" style="color:#3fb950;margin-bottom:8px">fixes that worked</div>
+      <div class="pr-card fix">
+        <div class="pr-num"><a href="https://github.com/AztecProtocol/aztec-packages/pull/19914">#19914</a></div>
+        <div class="pr-meta">
+          <div class="pr-title" style="color:#3fb950">W03 — Jan 23 · −57% · root fix</div>
+          <div class="pr-body">spalladino: checkpointed chain tip for PXE. PXE was using latest (not checkpointed) block, causing epoch boundary races. 6 of 7 CI runs passed cleanly. Most impactful single fix of the period.</div>
+        </div>
+      </div>
+      <div class="pr-card fix">
+        <div class="pr-num"><a href="https://github.com/AztecProtocol/aztec-packages/pull/20088">#20088</a> <a href="https://github.com/AztecProtocol/aztec-packages/pull/20140">#20140</a></div>
+        <div class="pr-meta">
+          <div class="pr-title" style="color:#3fb950">W05 — Feb 3–5 · −33%</div>
+          <div class="pr-body">spalladino <a href="https://github.com/AztecProtocol/aztec-packages/pull/20088" style="color:#58a6ff">#20088</a> slasher multi-block handling. PhilWindle <a href="https://github.com/AztecProtocol/aztec-packages/pull/20140" style="color:#58a6ff">#20140</a> deflake discv5. 20+ CI runs over 2 days before clean merge.</div>
+        </div>
+      </div>
+      <div class="pr-card fix">
+        <div class="pr-num"><a href="https://github.com/AztecProtocol/aztec-packages/pull/20351">#20351</a> <a href="https://github.com/AztecProtocol/aztec-packages/pull/20462">#20462</a> <a href="https://github.com/AztecProtocol/aztec-packages/pull/20613">#20613</a></div>
+        <div class="pr-meta">
+          <div class="pr-title" style="color:#3fb950">W07 — Feb 10–17 · −65% · p2p cluster cleared</div>
+          <div class="pr-body">spalladino <a href="https://github.com/AztecProtocol/aztec-packages/pull/20351" style="color:#58a6ff">#20351</a> fix mbps chain test (p2p_client 311→0 flakes). <a href="https://github.com/AztecProtocol/aztec-packages/pull/20462" style="color:#58a6ff">#20462</a> remove hardcoded 10s timeout. ludamad <a href="https://github.com/AztecProtocol/aztec-packages/pull/20613" style="color:#58a6ff">#20613</a> CI parallelism — insufficient workers caused timeout cascades misclassified as flakes.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="note r" style="margin-top:8px">Pattern: every spike triggered by new unstable tests or multi-subsystem config changes without pre-deflaking. Will recur without structural change.</div>
+</div>
+
+<!-- 9: FIX/DEFLAKE TRACKER -->
+<div class="slide" id="s-flake-track">
+  <div class="label">§2 flake · maintenance cost</div>
+  <h2>30 fix/deflake PRs in 34 days — nearly one per day of ongoing maintenance overhead</h2>
+  <div class="sub">PRs with "fix/flake/deflake" in title or branch · Jan 14–Feb 23 · engineers patching unstable tests continuously</div>
+  <div class="row" style="gap:24px;margin-top:4px">
+    <div class="col">
+      <div class="label" style="color:#7d8590;margin-bottom:8px">recent (Feb)</div>
+      <div class="deflake-row">
+        <div class="dtag"><a href="https://github.com/AztecProtocol/aztec-packages/pull/20636">#20636</a><span class="dauthor">spypsy · Feb 18</span></div>
+        <div class="dtag"><a href="https://github.com/AztecProtocol/aztec-packages/pull/20609">#20609</a><span class="dauthor">alexghr · Feb 17</span></div>
+        <div class="dtag"><a href="https://github.com/AztecProtocol/aztec-packages/pull/20439">#20439</a><span class="dauthor">ludamad · Feb 12</span></div>
+        <div class="dtag"><a href="https://github.com/AztecProtocol/aztec-packages/pull/20335">#20335</a><span class="dauthor">spypsy · Feb 10</span></div>
+        <div class="dtag"><a href="https://github.com/AztecProtocol/aztec-packages/pull/20330">#20330</a><span class="dauthor">ludamad · Feb 10</span></div>
+        <div class="dtag"><a href="https://github.com/AztecProtocol/aztec-packages/pull/19322">#19322</a><span class="dauthor">charlielye · Feb 10</span></div>
+        <div class="dtag"><a href="https://github.com/AztecProtocol/aztec-packages/pull/20246">#20246</a><span class="dauthor">mverzilli · Feb 6</span></div>
+        <div class="dtag"><a href="https://github.com/AztecProtocol/aztec-packages/pull/20243">#20243</a><span class="dauthor">mverzilli · Feb 6</span></div>
+        <div class="dtag"><a href="https://github.com/AztecProtocol/aztec-packages/pull/20240">#20240</a><span class="dauthor">mverzilli · Feb 6</span></div>
+        <div class="dtag"><a href="https://github.com/AztecProtocol/aztec-packages/pull/20215">#20215</a><span class="dauthor">ludamad · Feb 5</span></div>
+        <div class="dtag"><a href="https://github.com/AztecProtocol/aztec-packages/pull/20160">#20160</a><span class="dauthor">mverzilli · Feb 4</span></div>
+        <div class="dtag"><a href="https://github.com/AztecProtocol/aztec-packages/pull/20095">#20095</a><span class="dauthor">suyash67 · Feb 4</span></div>
+        <div class="dtag"><a href="https://github.com/AztecProtocol/aztec-packages/pull/20140">#20140</a><span class="dauthor">PhilWindle · Feb 3</span></div>
+        <div class="dtag"><a href="https://github.com/AztecProtocol/aztec-packages/pull/20131">#20131</a><span class="dauthor">alexghr · Feb 3</span></div>
+        <div class="dtag"><a href="https://github.com/AztecProtocol/aztec-packages/pull/20119">#20119</a><span class="dauthor">alexghr · Feb 3</span></div>
+        <div class="dtag"><a href="https://github.com/AztecProtocol/aztec-packages/pull/20115">#20115</a><span class="dauthor">danielntmd · Feb 2</span></div>
+      </div>
+    </div>
+    <div class="col">
+      <div class="label" style="color:#7d8590;margin-bottom:8px">earlier (Jan)</div>
+      <div class="deflake-row">
+        <div class="dtag"><a href="https://github.com/AztecProtocol/aztec-packages/pull/20090">#20090</a><span class="dauthor">mralj · Jan 30</span></div>
+        <div class="dtag"><a href="https://github.com/AztecProtocol/aztec-packages/pull/20070">#20070</a><span class="dauthor">mralj · Jan 30</span></div>
+        <div class="dtag"><a href="https://github.com/AztecProtocol/aztec-packages/pull/20068">#20068</a><span class="dauthor">mralj · Jan 30</span></div>
+        <div class="dtag"><a href="https://github.com/AztecProtocol/aztec-packages/pull/20040">#20040</a><span class="dauthor">mralj · Jan 29</span></div>
+        <div class="dtag"><a href="https://github.com/AztecProtocol/aztec-packages/pull/20024">#20024</a><span class="dauthor">spalladino · Jan 28</span></div>
+        <div class="dtag"><a href="https://github.com/AztecProtocol/aztec-packages/pull/20004">#20004</a><span class="dauthor">spalladino · Jan 28</span></div>
+        <div class="dtag"><a href="https://github.com/AztecProtocol/aztec-packages/pull/19952">#19952</a><span class="dauthor">ludamad · Jan 26</span></div>
+        <div class="dtag"><a href="https://github.com/AztecProtocol/aztec-packages/pull/19910">#19910</a><span class="dauthor">spalladino · Jan 23</span></div>
+        <div class="dtag"><a href="https://github.com/AztecProtocol/aztec-packages/pull/19782">#19782</a><span class="dauthor">alexghr · Jan 21</span></div>
+        <div class="dtag"><a href="https://github.com/AztecProtocol/aztec-packages/pull/19767">#19767</a><span class="dauthor">spalladino · Jan 20</span></div>
+        <div class="dtag"><a href="https://github.com/AztecProtocol/aztec-packages/pull/19705">#19705</a><span class="dauthor">PhilWindle · Jan 19</span></div>
+        <div class="dtag"><a href="https://github.com/AztecProtocol/aztec-packages/pull/19618">#19618</a><span class="dauthor">alexghr · Jan 15</span></div>
+        <div class="dtag"><a href="https://github.com/AztecProtocol/aztec-packages/pull/19588">#19588</a><span class="dauthor">spalladino · Jan 15</span></div>
+        <div class="dtag"><a href="https://github.com/AztecProtocol/aztec-packages/pull/19580">#19580</a><span class="dauthor">PhilWindle · Jan 14</span></div>
+      </div>
+    </div>
+    <div class="col" style="max-width:260px;justify-content:center">
+      <div class="card" style="text-align:center">
+        <div class="label">deflake maintenance rate</div>
+        <div class="num r">30</div>
+        <div class="sub2">PRs in 34 days = 0.88/day. 8 distinct contributors. spalladino (6), alexghr (5), ludamad (4), mverzilli (4), mralj (4), PhilWindle (3).</div>
+      </div>
+      <div class="note r" style="margin-top:10px">This is the hidden cost of test rot — not paid in dollars but in senior engineer hours. Each deflake PR is an interrupt to feature work.</div>
+    </div>
+  </div>
+</div>
+
+<!-- 10: PIPELINE PASS RATES -->
+<div class="slide" id="s-pass-rates">
+  <div class="label">§3 health · pass rates</div>
+  <h2>next at 92% — nightly and network stuck at 58%, different failure modes</h2>
+  <div class="sub">Jan 21–Feb 23 · ci_run_daily_stats · 4,870 total runs across 5 pipelines</div>
+  <div class="row">
+    <div class="col">
+      <div class="cw"><canvas id="passRatesBar"></canvas></div>
+    </div>
+    <div class="col" style="max-width:300px;justify-content:center;gap:10px">
+      <div class="card">
+        <div class="label">nightly (573 runs)</div>
+        <div class="num r" style="font-size:28px">58.1%</div>
+        <div class="sub2">61% of failures complete in under 5 min — single job, crashes at startup before tests run. Environment instability, not code.</div>
+      </div>
+      <div class="card">
+        <div class="label">network (450 runs)</div>
+        <div class="num r" style="font-size:28px">58.0%</div>
+        <div class="sub2">9.5% quick-fail, 87.9min avg fail duration. Network runs often partially pass — a FAIL may have completed 80% of its test suite before one test times out.</div>
+      </div>
+      <div class="note">Nightly failures are environment crashes (startup), not code regressions. Network failures are long-running timeouts — pass rate understates how much actually succeeds.</div>
+    </div>
+  </div>
+</div>
+
+<!-- 11: INFRA VS CODE FAILURES -->
+<div class="slide" id="s-infra">
+  <div class="label">§3 health · failure anatomy</div>
+  <h2>61% of nightly failures complete in under 5 minutes — infra crashes, not code</h2>
+  <div class="sub">Quick-fail proxy: FAILED runs completing in &lt;5 min. Heuristic — some short unit tests legitimately fail fast.</div>
+  <div class="row">
+    <div class="col">
+      <div class="cw"><canvas id="infraBar"></canvas></div>
+    </div>
+    <div class="col" style="max-width:300px;justify-content:center;gap:10px">
+      <div class="note r">nightly: 60.8% quick-fail (avg 5.2min to failure). Single job type (next), bailing at startup. The pipeline is crashing on environment setup — likely a Docker pull, secret mount, or k8s scheduling failure — before any test code runs.</div>
+      <div class="note y">prs: 30.3% quick-fail (168 of 555 failures). 1 in 3 PR CI failures is infrastructure, not the engineer's code. Significant developer friction that inflates apparent failure rates.</div>
+      <div class="note g">next: 9.0% quick-fail — next failures are mostly genuine test failures. The highest-signal pipeline for code quality.</div>
+    </div>
+  </div>
+</div>
+
+<!-- 12: BUILD TIME -->
+<div class="slide" id="s-build-time">
+  <div class="label">§3 health · build time</div>
+  <h2>next P50 +8% in 3 weeks — P95 up 22%, tail latency accelerating</h2>
+  <div class="sub">W05=Feb 2 · W06=Feb 9 · W07=Feb 16 · individual ci_runs PASSED records · exact percentiles</div>
+  <div class="row">
+    <div class="col">
+      <div class="cw"><canvas id="buildTimeChart"></canvas></div>
+    </div>
+    <div class="col" style="max-width:300px;justify-content:center;gap:10px">
+      <div class="card">
+        <div class="label">P95 growth (3 weeks)</div>
+        <div class="num r" style="font-size:28px">+22%</div>
+        <div class="sub2">45.3min (W05) → 55.1min (W07). At this rate: P95 exceeds 70min by May.</div>
+      </div>
+      <div class="card">
+        <div class="label">P50 growth (3 weeks)</div>
+        <div class="num y" style="font-size:28px">+8%</div>
+        <div class="sub2">31.0min (W05) → 33.6min (W07). Compounded across 1,100+ next runs/month.</div>
+      </div>
+      <div class="note">W08 early data (Feb 23, 10 runs only): P50=32.9, P95=34.5. Too small a sample to conclude. No identified root cause for the growth trend.</div>
+    </div>
+  </div>
+</div>
+
+<!-- 13: MERGE QUEUE -->
+<div class="slide" id="s-mq">
+  <div class="label">§3 health · merge queue</div>
+  <h2>63.5% merge queue success — W04 bottomed at 57.6%, W07 still only 59.5%</h2>
+  <div class="sub">712 total attempts · 452 successes · 251 failures · Jan 21–Feb 23</div>
+  <div class="row">
+    <div class="col">
+      <div class="cw"><canvas id="mqChart"></canvas></div>
+    </div>
+    <div class="col" style="max-width:300px;justify-content:center;gap:10px">
+      <div class="card">
+        <div class="label">34-day success rate</div>
+        <div class="num r" style="font-size:34px">63.5%</div>
+        <div class="sub2">1 in 3 merge attempts needs a retry. Target for a healthy queue: 85%+.</div>
+      </div>
+      <div class="note r">W07 (59.5%) is worse than W06 (69.6%) despite the p2p fix. Hard test failures replaced flakes as merge blockers — the queue improved in one dimension and degraded in another.</div>
+      <div class="note y">W04 worst week: 91 failures out of 217 attempts (57.6%). Coincided with the p2p/epoch spike and the new unstable test introductions.</div>
+    </div>
+  </div>
+</div>
+
+<!-- 14: DAY OF WEEK -->
+<div class="slide" id="s-dow">
+  <div class="label">§3 health · scheduling patterns</div>
+  <h2>Tuesday 72% vs Thursday 82% — the Monday queue effect is measurable</h2>
+  <div class="sub">Jan 21–Feb 23 · all pipelines · 4,870 runs · 9.5pp spread between worst and best weekday</div>
+  <div class="row">
+    <div class="col">
+      <div class="cw"><canvas id="dowBar"></canvas></div>
+    </div>
+    <div class="col" style="max-width:300px;justify-content:center;gap:10px">
+      <div class="note">Mon/Tue dip: PRs accumulate over the weekend and all enter the merge queue simultaneously Monday morning. Pipeline contention drives higher failure rates. By Thursday the queue has cleared and pass rates recover.</div>
+      <div class="note y">9.5pp spread (Tue 72.3% → Thu 81.8%). Thursday–Friday is measurably safer for large feature merges. Batch rollouts on Monday are higher risk.</div>
+    </div>
+  </div>
+</div>
+
+<!-- 15: GCP SPOT OPPORTUNITY -->
+<div class="slide" id="s-gcp-opt">
+  <div class="label">§4 GCP · optimization</div>
+  <h2>$1,397/month in 0%-spot namespaces — ops complexity vs savings is the open question</h2>
+  <div class="sub">Five GCP namespaces running 100% on-demand at 86% spot discount foregone · Jan 21–Feb 20</div>
+  <div class="row">
+    <div class="col">
+      <div class="cw"><canvas id="gcpOptBar"></canvas></div>
+    </div>
+    <div class="col" style="max-width:310px;justify-content:center;gap:10px">
+      <div class="card">
+        <div class="label">Monthly savings potential</div>
+        <div class="num g" style="font-size:26px">$1,397<span style="font-size:14px;color:#7d8590">/mo</span></div>
+        <div class="sub2">eth-mainnet + sepolia ($800) · monitoring ($599). At 86% spot discount, matching cluster-wide spot rate.</div>
+      </div>
+      <div class="note r">eth-mainnet and sepolia: Ethereum archive nodes, 80% memory utilization. Spot preemption means re-syncing from chain tip. Engineering cost to handle graceful preemption needs evaluation.</div>
+      <div class="note y">metrics + public-telemetry: Prometheus/Grafana. Spot-tolerant with PVC persistence — a platform ops task, not a code change. Lower risk than archive nodes.</div>
+    </div>
+  </div>
+</div>
+
+<!-- 16: WHAT WE'VE DONE -->
+<div class="slide" id="s-done">
+  <div class="label">§5 actions · done</div>
+  <h2>Three improvements landed in February</h2>
+  <div class="sub">Concrete changes with measured impact on cost and flake counts.</div>
+  <div class="g3" style="margin-top:8px">
+    <div>
+      <div class="label" style="color:#3fb950;margin-bottom:8px">cost — instance type</div>
+      <div class="block">
+        <div class="bhead" style="color:#3fb950">m6a.48xlarge → m6a.4xlarge (Feb 14)</div>
+        <p>The 192-vCPU on-demand instance running network tests is gone. At W04's failure rate it cost $9.79/run and $999 in a single week. m6a.4xlarge costs $0.85/run. W07 network spend: $94 vs W04's $999. 91% per-run cost reduction. Network tests no longer run on an oversized on-demand machine. Done.</p>
+      </div>
+      <div class="block">
+        <div class="bhead" style="color:#3fb950">kind tests moved to spot</div>
+        <p>kind test runs moved from on-demand to spot instances. ~86% cost reduction on affected runs. Done.</p>
+      </div>
+    </div>
+    <div>
+      <div class="label" style="color:#3fb950;margin-bottom:8px">flake — p2p/epoch cleared</div>
+      <div class="block">
+        <div class="bhead" style="color:#3fb950">e2e-p2p-epoch-flakes: 2,034 → ~0 events</div>
+        <p>The cluster that drove every spike since Jan 6 cleared in W07. Two p2p/epoch events in W07 vs 747 in W06. W08: zero p2p events so far.</p>
+      </div>
+      <div class="block">
+        <div class="bhead" style="color:#3fb950">Santiago Palladino: 18+ fix PRs (Jan–Feb)</div>
+        <p><a href="https://github.com/AztecProtocol/aztec-packages/pull/19914" style="color:#58a6ff">#19914</a> checkpointed PXE chain tip (root fix), <a href="https://github.com/AztecProtocol/aztec-packages/pull/20088" style="color:#58a6ff">#20088</a> slasher multi-block, <a href="https://github.com/AztecProtocol/aztec-packages/pull/20351" style="color:#58a6ff">#20351</a> mbps chain test (311→0 flakes), <a href="https://github.com/AztecProtocol/aztec-packages/pull/20462" style="color:#58a6ff">#20462</a> remove hardcoded 10s timeout. ludamad <a href="https://github.com/AztecProtocol/aztec-packages/pull/20613" style="color:#58a6ff">#20613</a> CI parallelism fix.</p>
+      </div>
+    </div>
+    <div>
+      <div class="label" style="color:#e3b341;margin-bottom:8px">open — not yet resolved</div>
+      <div class="block">
+        <div class="bhead" style="color:#e3b341">p2p cluster root cause</div>
+        <p>Cleared via targeted fixes, not architectural resolution. PXE epoch boundary races and test isolation issues remain. Will recur when new p2p/epoch features merge. No assigned owner for permanent fix.</p>
+      </div>
+      <div class="block">
+        <div class="bhead" style="color:#e3b341">Build time creep unresolved</div>
+        <p>next P50 +8%, P95 +22% in 3 weeks. No identified cause. At current rate P95 exceeds 70 min by May.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 17: DEFLAKE QUESTION -->
+<div class="slide" id="s-deflake">
+  <div class="label">§5 actions · in progress</div>
+  <h2>The deflake gate exists — but W04 proved 4 grinds isn't enough for epoch/slashing tests</h2>
+  <div class="sub">Outstanding from offsite: reassess deflake strategy. team-alpha already at 10 grinds.</div>
+  <div class="row" style="gap:24px;margin-top:8px">
+    <div class="col">
+      <div class="label" style="color:#7d8590;margin-bottom:8px">current state</div>
+      <div class="block">
+        <div class="bhead">4-run deflake gate (universal, always existed)</div>
+        <p>All new e2e tests must pass 4 consecutive CI runs before merging. Has been standard for some time. Cost: ~$11 in deflake CI spend over 34 days — not a cost constraint.</p>
+      </div>
+      <div class="block">
+        <div class="bhead" style="color:#f85149">W04 evidence: the gate failed</div>
+        <p>valid_epoch_pruned_slash passed 4 grinds and produced 346 events in its first week. tx_proposal_collector (180 events) and inactivity_slash_with_consequence (74 events) debuted similarly. The gate is not filtering unstable epoch/slashing tests adequately.</p>
+      </div>
+      <div class="block">
+        <div class="bhead" style="color:#3fb950">team-alpha: 10 grinds</div>
+        <p>Informal higher standard on one team. Not yet universal. Reduces risk but increases CI wait time by 2.5× per new test.</p>
+      </div>
+    </div>
+    <div class="col">
+      <div class="label" style="color:#7d8590;margin-bottom:8px">options</div>
+      <div class="block">
+        <div class="bhead">Option A: raise blanket gate to 10 grinds</div>
+        <p>Universal. Simple to enforce. team-alpha already doing this. Tradeoff: 2.5× CI cost per new e2e test; developers wait longer before merge. Not evidence-based — fast-passing tests still get 10 runs.</p>
+        <a class="linear-tag" href="https://linear.app/aztec-labs/issue/A-533/set-up-hard-grinding-tests-in-spartan-merge-train-for-next" target="_blank">A-533 · set up hard grinding tests in spartan merge train</a>
+      </div>
+      <div class="block">
+        <div class="bhead">Option B: targeted deflake (proposed)</div>
+        <p>Analyze test pass rate distribution over N runs. Flag tests above a variance threshold. Grind count becomes adaptive: stable tests get 4, timing-sensitive tests get 20+. More surgical, higher tooling cost to implement.</p>
+      </div>
+      <div class="block">
+        <div class="bhead" style="color:#e3b341">Decision needed from offsite follow-up</div>
+        <p>Who owns the deflake gate upgrade? What is the target flake rate threshold before a test is considered acceptable for CI merge?</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 18: OPEN QUESTIONS -->
+<div class="slide" id="s-open-qs">
+  <div class="label">§5 actions · open questions</div>
+  <h2>Three questions for discussion</h2>
+  <div class="sub">Not answered here — require team input, owner assignment, or cost-benefit analysis.</div>
+  <div class="g3" style="margin-top:16px">
+    <div>
+      <div class="label" style="color:#e3b341;margin-bottom:8px">deflake strategy</div>
+      <div class="block">
+        <div class="bhead">Targeted deflake vs blanket grinds?</div>
+        <p>team-alpha doing 10 grinds — should this become universal? Or build adaptive tooling that sets the grind count per-test based on variance? Who owns the implementation and the policy?</p>
+        <a class="linear-tag" href="https://linear.app/aztec-labs/issue/A-533/set-up-hard-grinding-tests-in-spartan-merge-train-for-next" target="_blank">A-533</a>
+      </div>
+      <div class="note y" style="margin-top:10px">Evidence: W04 proved 4 isn't enough for epoch/slashing tests. 10 is pragmatic but not evidence-based. Targeted deflake is surgical but requires tooling investment.</div>
+    </div>
+    <div>
+      <div class="label" style="color:#e3b341;margin-bottom:8px">GCP spot migration</div>
+      <div class="block">
+        <div class="bhead">$1,397/month savings — worth the ops complexity?</div>
+        <p>eth-mainnet and sepolia archive nodes: spot preemption means re-syncing from chain tip. metrics and public-telemetry: lower risk, Prometheus/Grafana with PVC persistence. What's the engineering cost to make each namespace preemption-safe?</p>
+      </div>
+      <div class="note y" style="margin-top:10px">AWS network pipeline spot migration (~$2,200/mo) is likely the easier, higher-ROI first step — no archive node complexity.</div>
+    </div>
+    <div>
+      <div class="label" style="color:#f85149;margin-bottom:8px">p2p/epoch ownership</div>
+      <div class="block">
+        <div class="bhead">Who owns the cluster to permanent resolution?</div>
+        <p>The cluster cleared through 18+ targeted fix PRs. Root cause — PXE epoch boundary races, test isolation, distributed timing — is not architecturally resolved. Next p2p feature merge will likely trigger another spike without a named owner and explicit SLO.</p>
+      </div>
+      <div class="note r" style="margin-top:10px">Without assignment: the next spike will be diagnosed reactively, same as this one. Expected recurrence: within 1–2 major p2p feature merges.</div>
+    </div>
+  </div>
+</div>
+
+</div><!-- /deck -->
+
+<div class="progress" id="progress">1 / 19</div>
+<div class="nav">
+  <button onclick="go(-1)">← prev</button>
+  <button onclick="go(1)">next →</button>
+</div>
+
+<script>
+// ── DATA ──────────────────────────────────────────────────────────────
+const C = {
+  blue:'#58a6ff', green:'#3fb950', yellow:'#e3b341', red:'#f85149',
+  purple:'#d2a8ff', orange:'#f0883e', gray:'#484f58', text:'#c9d1d9'
+};
+
+const SPEND = [
+  {p:'next',     cost:2442, runs:1247, spot_pct:88.7, avg:1.96},
+  {p:'network',  cost:1855, runs:445,  spot_pct:18.4, avg:4.17},
+  {p:'prs',      cost:1366, runs:1904, spot_pct:94.4, avg:0.72},
+  {p:'releases', cost:188,  runs:288,  spot_pct:91.3, avg:0.65},
+  {p:'nightly',  cost:140,  runs:505,  spot_pct:98.4, avg:0.28},
+  {p:'local',    cost:105,  runs:107,  spot_pct:97.2, avg:0.98},
+  {p:'deflake',  cost:11,   runs:32,   spot_pct:96.9, avg:0.34},
+];
+
+const GCP_CATS = [
+  {cat:'Production clusters', v:6379, col:'#58a6ff'},
+  {cat:'CI scenarios',        v:2129, col:'#f0883e'},
+  {cat:'K8s infra floor',     v:1190, col:'#e3b341'},
+  {cat:'Other/misc',          v:274,  col:'#484f58'},
+];
+
+const WEEKLY_COST = [
+  {w:'W03', net:158, ntly:45,  lcl:21, rel:11,  nxt:0,    prs:0},
+  {w:'W04', net:999, ntly:18,  lcl:0,  rel:27,  nxt:0,    prs:0},
+  {w:'W05', net:462, ntly:21,  lcl:0,  rel:48,  nxt:1075, prs:146},
+  {w:'W06', net:130, ntly:39,  lcl:84, rel:58,  nxt:937,  prs:699},
+  {w:'W07', net:94,  ntly:13,  lcl:0,  rel:38,  nxt:402,  prs:441},
+];
+
+const WEEKLY_FLAKES = [
+  {w:'W02', date:'Jan 14', flakes:2072, fails:178,  p2p:1363},
+  {w:'W03', date:'Jan 19', flakes:598,  fails:20,   p2p:472},
+  {w:'W04', date:'Jan 26', flakes:935,  fails:119,  p2p:868},
+  {w:'W05', date:'Feb 2',  flakes:390,  fails:313,  p2p:247},
+  {w:'W06', date:'Feb 9',  flakes:850,  fails:515,  p2p:747},
+  {w:'W07', date:'Feb 16', flakes:299,  fails:256,  p2p:2},
+  {w:'W08', date:'Feb 23', flakes:19,   fails:17,   p2p:0},
+];
+
+const PIPELINES = [
+  {p:'next',     pass:92.3, runs:1442},
+  {p:'releases', pass:86.6, runs:299},
+  {p:'prs',      pass:73.6, runs:2106},
+  {p:'nightly',  pass:58.1, runs:573},
+  {p:'network',  pass:58.0, runs:450},
+];
+
+const INFRA = [
+  {p:'nightly',  total:240, quick:146, pct:60.8},
+  {p:'releases', total:40,  quick:19,  pct:47.5},
+  {p:'prs',      total:555, quick:168, pct:30.3},
+  {p:'network',  total:189, quick:18,  pct:9.5},
+  {p:'next',     total:111, quick:10,  pct:9.0},
+];
+
+const BUILD_TIMES = [
+  {w:'W05', p50:31.0, p95:45.3},
+  {w:'W06', p50:32.2, p95:49.5},
+  {w:'W07', p50:33.6, p95:55.1},
+];
+
+const MQ_WEEKLY = [
+  {w:'W03', attempts:120, success:87,  fail:31, pct:72.5},
+  {w:'W04', attempts:217, success:125, fail:91, pct:57.6},
+  {w:'W05', attempts:137, success:86,  fail:50, pct:62.8},
+  {w:'W06', attempts:115, success:80,  fail:32, pct:69.6},
+  {w:'W07', attempts:121, success:72,  fail:47, pct:59.5},
+];
+
+const DOW = [
+  {d:'Sun', r:81.6, n:207},
+  {d:'Mon', r:73.1, n:814},
+  {d:'Tue', r:72.3, n:935},
+  {d:'Wed', r:77.2, n:813},
+  {d:'Thu', r:81.8, n:886},
+  {d:'Fri', r:77.8, n:979},
+  {d:'Sat', r:76.3, n:236},
+];
+
+const GCP_OPT = [
+  {ns:'eth-mainnet',      cost:465, savings:400, note:'archive node · 80% memory'},
+  {ns:'sepolia',          cost:465, savings:400, note:'archive node · 80% memory'},
+  {ns:'metrics',          cost:396, savings:340, note:'0% spot · Prometheus/Grafana'},
+  {ns:'public-telemetry', cost:301, savings:259, note:'0% spot · monitoring'},
+  {ns:'kube:sys-overhead',cost:395, savings:56,  note:'13.6% spot · k8s system'},
+];
+
+// ── NAVIGATION ────────────────────────────────────────────────────────
+let cur = 0;
+const slides = document.querySelectorAll('.slide');
+const N = slides.length;
+const rendered = new Set([0]);
+
+function go(d) {
+  slides[cur].classList.remove('active');
+  cur = Math.max(0, Math.min(N-1, cur+d));
+  slides[cur].classList.add('active');
+  document.getElementById('progress').textContent = `${cur+1} / ${N}`;
+  if (!rendered.has(cur)) { renderSlide(cur); rendered.add(cur); }
+}
+document.addEventListener('keydown', e => {
+  if (e.key==='ArrowRight'||e.key==='ArrowDown') go(1);
+  if (e.key==='ArrowLeft'||e.key==='ArrowUp') go(-1);
+});
+
+// ── CHART HELPERS ─────────────────────────────────────────────────────
+Chart.defaults.color = '#7d8590';
+const GRID = {color:'#21262d'};
+const TICK = (sz=11) => ({color:'#7d8590', font:{family:'monospace',size:sz}});
+const LEG = {labels:{color:'#8b949e',boxWidth:10,font:{size:10,family:'monospace'}}};
+const TIP = {bodyFont:{family:'monospace',size:11},titleFont:{size:11}};
+
+function mk(id, type, data, opts={}) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  return new Chart(el, {type, data, options:{responsive:true,maintainAspectRatio:false,plugins:{legend:LEG,tooltip:TIP},...opts}});
+}
+
+// ── RENDERERS ─────────────────────────────────────────────────────────
+function renderSlide(n) {
+  const fns = {1:sSpend,2:sGCPTotal,3:sWeeklyCost,4:sSpotBar,5:sFlakes,6:sCluster,
+               10:sPassRates,11:sInfra,12:sBuildTime,13:sMQ,14:sDOW,15:sGCPOpt};
+  if (fns[n]) fns[n]();
+}
+
+function sSpend() {
+  const s = [...SPEND].sort((a,b)=>b.cost-a.cost);
+  mk('spendBar','bar',{
+    labels: s.map(d=>d.p),
+    datasets:[{
+      label:'total cost ($)',
+      data: s.map(d=>d.cost),
+      backgroundColor: s.map(d=>d.p==='network'?C.red+'cc':d.p==='next'?C.blue+'cc':C.green+'66'),
+      borderWidth:0,
+    }]
+  },{
+    indexAxis:'y',
+    scales:{
+      x:{ticks:{...TICK(),callback:v=>`$${v.toLocaleString()}`},grid:GRID},
+      y:{ticks:{color:'#c9d1d9',font:{size:12}},grid:{display:false}},
+    },
+    plugins:{
+      legend:{display:false},
+      tooltip:{callbacks:{label:c=>{
+        const d=s[c.dataIndex];
+        return ` $${d.cost.toLocaleString()} · ${d.runs} runs · $${d.avg}/run · ${d.spot_pct}% spot`;
+      }}}
+    }
+  });
+}
+
+function sGCPTotal() {
+  mk('gcpDonut','doughnut',{
+    labels: GCP_CATS.map(d=>d.cat),
+    datasets:[{data:GCP_CATS.map(d=>d.v),backgroundColor:GCP_CATS.map(d=>d.col),borderWidth:0,hoverOffset:6}]
+  },{
+    cutout:'60%',
+    plugins:{
+      legend:{position:'bottom',labels:{...LEG.labels}},
+      tooltip:{callbacks:{label:c=>` ${c.label}: $${c.raw.toLocaleString()} (${(c.raw/9972*100).toFixed(0)}%)`}}
+    }
+  });
+  mk('awsGcpBar','bar',{
+    labels:['AWS CI EC2 (34d)','GCP CI namespaces','GCP prod clusters','GCP k8s floor'],
+    datasets:[{
+      data:[6107,2129,6379,1190],
+      backgroundColor:[C.yellow+'cc',C.orange+'cc',C.blue+'cc',C.gray+'cc'],
+      borderWidth:0,
+    }]
+  },{
+    scales:{
+      x:{ticks:{color:'#c9d1d9',font:{size:11}},grid:{display:false}},
+      y:{ticks:{...TICK(),callback:v=>`$${v.toLocaleString()}`},grid:GRID},
+    },
+    plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>` $${c.raw.toLocaleString()}`}}}
+  });
+}
+
+function sWeeklyCost() {
+  mk('weeklyCostBar','bar',{
+    labels: WEEKLY_COST.map(d=>d.w),
+    datasets:[
+      {label:'next',    data:WEEKLY_COST.map(d=>d.nxt), backgroundColor:C.blue+'99',   borderWidth:0, stack:'s'},
+      {label:'prs',     data:WEEKLY_COST.map(d=>d.prs), backgroundColor:C.green+'99',  borderWidth:0, stack:'s'},
+      {label:'network', data:WEEKLY_COST.map(d=>d.net), backgroundColor:C.red+'cc',    borderWidth:0, stack:'s'},
+      {label:'releases',data:WEEKLY_COST.map(d=>d.rel), backgroundColor:C.purple+'99', borderWidth:0, stack:'s'},
+      {label:'nightly', data:WEEKLY_COST.map(d=>d.ntly),backgroundColor:C.orange+'99', borderWidth:0, stack:'s'},
+      {label:'local',   data:WEEKLY_COST.map(d=>d.lcl), backgroundColor:C.gray+'99',   borderWidth:0, stack:'s'},
+    ]
+  },{
+    scales:{
+      x:{stacked:true,ticks:{color:'#c9d1d9'},grid:{display:false}},
+      y:{stacked:true,ticks:{...TICK(),callback:v=>`$${v}`},grid:GRID},
+    },
+    plugins:{legend:LEG,tooltip:{callbacks:{label:c=>` ${c.dataset.label}: $${c.raw}`}}}
+  });
+}
+
+function sSpotBar() {
+  const s = [...SPEND].sort((a,b)=>a.spot_pct-b.spot_pct);
+  mk('spotBar','bar',{
+    labels: s.map(d=>d.p),
+    datasets:[{
+      label:'spot usage (%)',
+      data: s.map(d=>d.spot_pct),
+      backgroundColor: s.map(d=>d.spot_pct<30?C.red+'cc':d.spot_pct<70?C.yellow+'cc':C.green+'99'),
+      borderWidth:0,
+    }]
+  },{
+    indexAxis:'y',
+    scales:{
+      x:{min:0,max:100,ticks:{...TICK(),callback:v=>`${v}%`},grid:GRID},
+      y:{ticks:{color:'#c9d1d9',font:{size:12}},grid:{display:false}},
+    },
+    plugins:{
+      legend:{display:false},
+      tooltip:{callbacks:{label:c=>{
+        const d=s[c.dataIndex];
+        return ` ${d.spot_pct}% spot · ${d.runs} runs · $${d.cost.toLocaleString()} total`;
+      }}}
+    }
+  });
+}
+
+function sFlakes() {
+  mk('flakeBar','bar',{
+    labels: WEEKLY_FLAKES.map(d=>`${d.w} ${d.date}`),
+    datasets:[
+      {label:'p2p/epoch cluster', data:WEEKLY_FLAKES.map(d=>d.p2p),           backgroundColor:C.orange+'cc', borderWidth:0, stack:'s'},
+      {label:'other flakes',      data:WEEKLY_FLAKES.map(d=>d.flakes-d.p2p),  backgroundColor:C.blue+'99',   borderWidth:0, stack:'s'},
+      {label:'hard fails',        data:WEEKLY_FLAKES.map(d=>d.fails),          backgroundColor:C.red+'cc',    borderWidth:0, stack:'s'},
+    ]
+  },{
+    scales:{
+      x:{stacked:true,ticks:{color:'#c9d1d9',font:{size:11}},grid:{display:false}},
+      y:{stacked:true,ticks:TICK(),grid:GRID,title:{display:true,text:'fail+flake events',color:'#7d8590'}},
+    },
+    plugins:{legend:LEG}
+  });
+}
+
+function sCluster() {
+  mk('clusterDonut','doughnut',{
+    labels:['e2e-p2p-epoch-flakes (labeled)','Unlabeled failures (938 tests)'],
+    datasets:[{
+      data:[2034,1912],
+      backgroundColor:[C.orange+'cc',C.gray+'99'],
+      borderWidth:0,hoverOffset:6,
+    }]
+  },{
+    cutout:'60%',
+    plugins:{
+      legend:{position:'bottom',labels:{...LEG.labels}},
+      tooltip:{callbacks:{label:c=>` ${c.raw.toLocaleString()} events (${(c.raw/3946*100).toFixed(0)}%)`}}
+    }
+  });
+}
+
+function sPassRates() {
+  const s = [...PIPELINES].sort((a,b)=>b.pass-a.pass);
+  mk('passRatesBar','bar',{
+    labels: s.map(d=>d.p),
+    datasets:[{
+      label:'pass rate (%)',
+      data: s.map(d=>d.pass),
+      backgroundColor: s.map(d=>d.pass>=85?C.green+'99':d.pass>=75?C.yellow+'cc':C.red+'cc'),
+      borderWidth:0,
+    }]
+  },{
+    indexAxis:'y',
+    scales:{
+      x:{min:50,max:100,ticks:{...TICK(),callback:v=>`${v}%`},grid:GRID},
+      y:{ticks:{color:'#c9d1d9',font:{size:12}},grid:{display:false}},
+    },
+    plugins:{
+      legend:{display:false},
+      tooltip:{callbacks:{label:c=>{
+        const d=s[c.dataIndex];
+        return ` ${d.pass}% pass rate · ${d.runs.toLocaleString()} runs`;
+      }}}
+    }
+  });
+}
+
+function sInfra() {
+  const s = [...INFRA].sort((a,b)=>b.pct-a.pct);
+  mk('infraBar','bar',{
+    labels: s.map(d=>d.p),
+    datasets:[{
+      label:'quick-fail rate (< 5 min)',
+      data: s.map(d=>d.pct),
+      backgroundColor: s.map(d=>d.pct>50?C.red+'cc':d.pct>25?C.yellow+'cc':C.green+'99'),
+      borderWidth:0,
+    }]
+  },{
+    indexAxis:'y',
+    scales:{
+      x:{min:0,max:75,ticks:{...TICK(),callback:v=>`${v}%`},grid:GRID},
+      y:{ticks:{color:'#c9d1d9',font:{size:12}},grid:{display:false}},
+    },
+    plugins:{
+      legend:{display:false},
+      tooltip:{callbacks:{label:c=>{
+        const d=s[c.dataIndex];
+        return ` ${d.pct}% quick-fail · ${d.quick} of ${d.total} failures`;
+      }}}
+    }
+  });
+}
+
+function sBuildTime() {
+  mk('buildTimeChart','line',{
+    labels: BUILD_TIMES.map(d=>d.w),
+    datasets:[
+      {label:'P50 (min)', data:BUILD_TIMES.map(d=>d.p50), borderColor:C.blue, backgroundColor:'transparent', tension:.3, pointRadius:6},
+      {label:'P95 (min)', data:BUILD_TIMES.map(d=>d.p95), borderColor:C.red,  backgroundColor:'transparent', tension:.3, pointRadius:6, borderDash:[5,3]},
+    ]
+  },{
+    scales:{
+      x:{ticks:{color:'#c9d1d9'},grid:{display:false}},
+      y:{min:25,max:65,ticks:TICK(),grid:GRID,title:{display:true,text:'minutes',color:'#7d8590'}},
+    },
+    plugins:{legend:LEG}
+  });
+}
+
+function sMQ() {
+  mk('mqChart','bar',{
+    labels: MQ_WEEKLY.map(d=>d.w),
+    datasets:[
+      {label:'merge attempts', data:MQ_WEEKLY.map(d=>d.attempts), backgroundColor:C.gray+'55', borderWidth:0, yAxisID:'y2'},
+      {label:'success rate (%)', data:MQ_WEEKLY.map(d=>d.pct), backgroundColor:MQ_WEEKLY.map(d=>d.pct<60?C.red+'cc':d.pct<70?C.yellow+'cc':C.green+'99'), borderWidth:0, yAxisID:'y'},
+    ]
+  },{
+    scales:{
+      y:{min:50,max:80,ticks:{...TICK(),callback:v=>`${v}%`},grid:GRID,title:{display:true,text:'success rate',color:'#7d8590'}},
+      y2:{position:'right',ticks:TICK(10),grid:{display:false},title:{display:true,text:'attempts',color:'#7d8590'}},
+      x:{ticks:{color:'#c9d1d9'},grid:{display:false}},
+    },
+    plugins:{legend:LEG,tooltip:{callbacks:{label:c=>{
+      if(c.datasetIndex===0) return ` ${c.raw} merge attempts`;
+      const d=MQ_WEEKLY[c.dataIndex];
+      return ` ${d.pct}% success · ${d.success} ok · ${d.fail} failed`;
+    }}}}
+  });
+}
+
+function sDOW() {
+  mk('dowBar','bar',{
+    labels: DOW.map(d=>d.d),
+    datasets:[{
+      label:'pass rate (%)',
+      data: DOW.map(d=>d.r),
+      backgroundColor: DOW.map(d=>d.r<75?C.red+'cc':d.r<80?C.yellow+'99':C.green+'99'),
+      borderWidth:0,
+    }]
+  },{
+    scales:{
+      x:{ticks:{color:'#c9d1d9'},grid:{display:false}},
+      y:{min:60,max:90,ticks:{...TICK(),callback:v=>`${v}%`},grid:GRID},
+    },
+    plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>{
+      const d=DOW[c.dataIndex]; return ` ${d.r}% pass rate · ${d.n.toLocaleString()} runs`;
+    }}}}
+  });
+}
+
+function sGCPOpt() {
+  mk('gcpOptBar','bar',{
+    labels: GCP_OPT.map(d=>d.ns),
+    datasets:[
+      {label:'current cost (0% spot)', data:GCP_OPT.map(d=>d.cost),    backgroundColor:C.red+'bb',  borderWidth:0},
+      {label:'potential spot savings', data:GCP_OPT.map(d=>d.savings),  backgroundColor:C.green+'99',borderWidth:0},
+    ]
+  },{
+    scales:{
+      x:{ticks:{color:'#c9d1d9',font:{size:11}},grid:{display:false}},
+      y:{ticks:{...TICK(),callback:v=>`$${v}`},grid:GRID,title:{display:true,text:'monthly cost (USD)',color:'#7d8590'}},
+    },
+    plugins:{legend:LEG,tooltip:{callbacks:{label:c=>{
+      const d=GCP_OPT[c.dataIndex];
+      return c.datasetIndex===0?` $${c.raw}/mo — ${d.note}`:` save ~$${c.raw}/mo at spot rates`;
+    }}}}
+  });
+}
+</script>
+</body>
+</html>
