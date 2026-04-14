@@ -11,17 +11,17 @@
     },
     "setupEpoch": {
       "calls": 150,
-      "min": 29281,
-      "mean": 32010,
-      "median": 29281,
-      "max": 113661
+      "min": 29236,
+      "mean": 31965,
+      "median": 29236,
+      "max": 113616
     },
     "submitEpochRootProof": {
       "calls": 4,
-      "min": 677906,
-      "mean": 698954,
-      "median": 686579,
-      "max": 744754,
+      "min": 677928,
+      "mean": 698976,
+      "median": 686601,
+      "max": 744776,
       "calldata_size": 2820,
       "calldata_gas": 45120
     }
@@ -38,26 +38,26 @@
     },
     "setupEpoch": {
       "calls": 150,
-      "min": 29281,
-      "mean": 46471,
-      "median": 29281,
-      "max": 547494
+      "min": 29236,
+      "mean": 46426,
+      "median": 29236,
+      "max": 547449
     },
     "submitEpochRootProof": {
       "calls": 4,
-      "min": 876090,
-      "mean": 897128,
-      "median": 884745,
-      "max": 942932,
+      "min": 876112,
+      "mean": 897150,
+      "median": 884767,
+      "max": 942954,
       "calldata_size": 5316,
       "calldata_gas": 85056
     },
     "aggregate3": {
       "calls": 55,
-      "min": 360343,
-      "mean": 371446,
-      "median": 371210,
-      "max": 384876
+      "min": 360298,
+      "mean": 371401,
+      "median": 371165,
+      "max": 384831
     }
   }
 }

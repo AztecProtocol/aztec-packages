@@ -271,7 +271,13 @@ template <class base_uint> class uintx {
     base_uint lo;
     base_uint hi;
 
-    template <base_uint modulus> std::pair<uintx, uintx> barrett_reduction() const;
+    // `modulus` is passed as a pointer NTTP rather than a class-type value NTTP. The latter
+    // would cause Clang to materialize a template parameter object in `.rodata` at the section's
+    // natural alignment (16 bytes), which under-aligns an `alignas(32)` type and is UB under
+    // UBSan's alignment check. A pointer NTTP has no synthesized storage; it just names an
+    // existing static object, whose `alignas(32)` is honored normally. We therefore pass `&X` where `X` is a named
+    // `static constexpr base_uint` (see uses in `divmod`).
+    template <const base_uint* modulus_ptr> std::pair<uintx, uintx> barrett_reduction() const;
 
     // This only works (and is only used) for uint256_t
     std::pair<uintx, uintx> divmod(const uintx& b) const;
@@ -306,6 +312,10 @@ extern template class uintx<uint256_t>;
 using uint512_t = uintx<uint256_t>;
 extern template class uintx<uint512_t>;
 using uint1024_t = uintx<uint512_t>;
+
+// Pin the [class.mem]/19 alignment-propagation rule: uintx<uint256_t> must inherit alignas(32).
+static_assert(alignof(uint512_t) >= 32);
+static_assert(alignof(uint1024_t) >= 32);
 
 } // namespace bb::numeric
 

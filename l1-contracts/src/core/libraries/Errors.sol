@@ -87,8 +87,6 @@ library Errors {
   error Rollup__ProverHaveAlreadySubmitted(address prover, Epoch epoch);
   error Rollup__InvalidManaTarget(uint256 minimum, uint256 provided);
   error Rollup__ManaLimitExceeded();
-  error Rollup__RewardsNotClaimable();
-  error Rollup__TooSoonToSetRewardsClaimable(uint256 earliestRewardsClaimableTimestamp, uint256 currentTimestamp);
   error Rollup__InvalidFirstEpochProof();
   error Rollup__InvalidCoinbase();
   error Rollup__UnavailableTempCheckpointLog(
