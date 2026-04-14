@@ -208,6 +208,8 @@ export type SetupOptions = {
   l1ContractsArgs?: Partial<DeployAztecL1ContractsArgs>;
   /** Wallet minimum fee padding multiplier (defaults to 0.5, which is 50% padding). */
   walletMinFeePadding?: number;
+  /** Whether to start the initial node without a sequencer (for tests that create their own nodes). */
+  dontStartSequencer?: boolean;
 } & Partial<AztecNodeConfig>;
 
 /** Context for an end-to-end test as returned by the `setup` function */
@@ -503,7 +505,11 @@ export async function setup(
     }
 
     const aztecNodeService = await withLoggerBindings({ actor: 'node-0' }, () =>
-      AztecNodeService.createAndSync(config, { dateProvider, telemetry: telemetryClient, p2pClientDeps }, { genesis }),
+      AztecNodeService.createAndSync(
+        config,
+        { dateProvider, telemetry: telemetryClient, p2pClientDeps },
+        { genesis, dontStartSequencer: opts.dontStartSequencer },
+      ),
     );
     const sequencerClient = aztecNodeService.getSequencer();
 
@@ -563,7 +569,9 @@ export async function setup(
 
     let accounts: AztecAddress[] = [];
 
-    if (shouldDeployAccounts) {
+    if (opts.dontStartSequencer) {
+      logger.info('Sequencer not started on initial node, skipping block progression');
+    } else if (shouldDeployAccounts) {
       logger.info(
         `${numberOfAccounts} accounts are being deployed. Reliably progressing past genesis by setting minTxsPerBlock to 1 and waiting for the accounts to be deployed`,
       );

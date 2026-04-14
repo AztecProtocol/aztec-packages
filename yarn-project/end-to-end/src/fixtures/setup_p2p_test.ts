@@ -206,6 +206,7 @@ export async function createValidatorConfig(
   const nodeConfig: AztecNodeConfig = {
     ...config,
     ...p2pConfig,
+    disableValidator: false,
     validatorPrivateKeys: new SecretValue(attesterPrivateKeys),
     sequencerPublisherPrivateKeys: [new SecretValue(attesterPrivateKeys[0])],
   };

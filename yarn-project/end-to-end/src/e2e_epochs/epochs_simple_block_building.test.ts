@@ -46,26 +46,27 @@ describe('e2e_epochs/epochs_simple_block_building', () => {
     // Setup context with the given set of validators, no reorgs, mocked gossip sub network, and no anvil test watcher.
     test = await EpochsTestContext.setup({
       numberOfAccounts: 1,
+      skipAccountDeployment: true,
       initialValidators: validators,
       mockGossipSubNetwork: true,
       disableAnvilTestWatcher: true,
       aztecProofSubmissionEpochs: 1024,
       startProverNode: false,
       enforceTimeTable: true,
+      dontStartSequencer: true,
     });
 
     ({ context, logger } = test);
 
-    // Halt block building in initial aztec node, which was not set up as a validator.
-    logger.warn(`Stopping sequencer in initial aztec node.`);
-    await context.sequencer!.stop();
-
     // Start the validator nodes
     logger.warn(`Initial setup complete. Starting ${NODE_COUNT} validator nodes.`);
     nodes = await asyncMap(validators, ({ privateKey }) =>
-      test.createValidatorNode([privateKey], { dontStartSequencer: true, minTxsPerBlock: 1, maxTxsPerBlock: 1 }),
+      test.createValidatorNode([privateKey], { minTxsPerBlock: 1, maxTxsPerBlock: 1 }),
     );
     logger.warn(`Started ${NODE_COUNT} validator nodes.`, { validators: validators.map(v => v.attester.toString()) });
+
+    // Deploy accounts now that validators are running to mine blocks.
+    await test.deployTestAccounts(1);
 
     // Register spam contract for sending txs.
     contract = await test.registerSpamContract(context.wallet);
@@ -78,6 +79,9 @@ describe('e2e_epochs/epochs_simple_block_building', () => {
   });
 
   it('builds blocks without any errors', async () => {
+    const sequencers = nodes.map(node => node.getSequencer()!);
+    const { failEvents } = test.watchSequencerEvents(sequencers, i => ({ validator: validators[i].attester }));
+
     // Create and submit a bunch of txs
     const txs = await timesAsync(TX_COUNT, i =>
       proveInteraction(context.wallet, contract.methods.spam(i, 1n, false), { from: context.accounts[0] }),
@@ -86,13 +90,6 @@ describe('e2e_epochs/epochs_simple_block_building', () => {
     logger.warn(`Sent ${txHashes.length} transactions`, {
       txs: txHashes,
     });
-
-    const sequencers = nodes.map(node => node.getSequencer()!);
-    const { failEvents } = test.watchSequencerEvents(sequencers, i => ({ validator: validators[i].attester }));
-
-    // Start the sequencers!
-    await Promise.all(sequencers.map(sequencer => sequencer.start()));
-    logger.warn(`Started all sequencers`);
 
     // Wait until all txs are mined
     const timeout = test.L2_SLOT_DURATION_IN_S * (TX_COUNT * 2 + 1);

@@ -298,6 +298,12 @@ export class P2PNetworkTest {
     await this._sendDummyTx(this.context.deployL1ContractsValues.l1Client);
   }
 
+  /** Points the wallet to a P2P-enabled node so transactions can propagate through the network. */
+  setupWalletOnNode(node: AztecNodeService) {
+    this.logger.info('Pointing wallet to a P2P-enabled node');
+    this.context.wallet.updateNode(node);
+  }
+
   async setupAccount() {
     this.logger.info('Setting up account');
     const { deployedAccounts } = await deployAccounts(1, this.logger, {
@@ -356,6 +362,10 @@ export class P2PNetworkTest {
         ...this.setupOptions,
         fundSponsoredFPC: true,
         skipAccountDeployment: true,
+        dontStartSequencer: true,
+        disableValidator: true,
+        p2pEnabled: false,
+        bootstrapNodes: [],
         slasherEnabled: this.setupOptions.slasherEnabled ?? this.deployL1ContractsArgs.slasherEnabled ?? false,
         aztecTargetCommitteeSize: 0,
         l1ContractsArgs: this.deployL1ContractsArgs,
@@ -364,6 +374,13 @@ export class P2PNetworkTest {
       { syncChainTip: 'checkpointed' },
     );
     this.ctx = this.context;
+
+    // Clear initial-node-only settings from the config so validator nodes don't inherit them.
+    // The initial node is a lightweight archiver with no sequencer/validator/p2p.
+    // Validator nodes created by tests need sequencers, validators, and p2p.
+    const nodeConfig = this.context.aztecNodeConfig as Record<string, any>;
+    delete nodeConfig.dontStartSequencer;
+    nodeConfig.disableValidator = false;
 
     const sponsoredFPCAddress = await getSponsoredFPCAddress();
     const initialFundedAccounts = [...this.context.initialFundedAccounts.map(a => a.address), sponsoredFPCAddress];

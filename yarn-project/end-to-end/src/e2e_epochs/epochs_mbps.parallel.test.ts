@@ -90,6 +90,7 @@ describe('e2e_epochs/epochs_mbps', () => {
     // - Total: 0.5 + 24 + 8 + 2.5 = 35s → use 36s for margin
     test = await EpochsTestContext.setup({
       numberOfAccounts: 1,
+      skipAccountDeployment: true,
       initialValidators: validators,
       mockGossipSubNetwork: true,
       disableAnvilTestWatcher: true,
@@ -112,29 +113,15 @@ describe('e2e_epochs/epochs_mbps', () => {
       ...setupOpts,
       // PXE options for chain tip syncing
       pxeOpts: { syncChainTip },
+      dontStartSequencer: true,
     });
 
     ({ context, logger, rollup } = test);
     wallet = context.wallet;
-    from = context.accounts[0];
 
-    // Deploy cross-chain contract if needed (before stopping the initial node).
-    // Unlike emit_nullifier (which has #[noinitcheck]), cross-chain methods require a deployed contract.
-    if (deployCrossChainContract) {
-      logger.warn(`Deploying cross-chain test contract before stopping initial sequencer`);
-      ({ contract: crossChainContract } = await TestContract.deploy(wallet).send({ from }));
-      logger.warn(`Cross-chain test contract deployed at ${crossChainContract!.address}`);
-    }
-
-    // Halt block building in initial aztec node, which was not set up as a validator.
-    logger.warn(`Stopping sequencer in initial aztec node.`);
-    await context.sequencer!.stop();
-
-    // Start the validator nodes (but don't start sequencers yet)
+    // Start the validator nodes
     logger.warn(`Initial setup complete. Starting ${NODE_COUNT} validator nodes.`);
-    nodes = await asyncMap(validators, ({ privateKey }) =>
-      test.createValidatorNode([privateKey], { dontStartSequencer: true }),
-    );
+    nodes = await asyncMap(validators, ({ privateKey }) => test.createValidatorNode([privateKey]));
     logger.warn(`Started ${NODE_COUNT} validator nodes.`, { validators: validators.map(v => v.attester.toString()) });
 
     // Point the wallet at a validator node. The initial node-0 has all validator keys in its config,
@@ -142,6 +129,20 @@ describe('e2e_epochs/epochs_mbps', () => {
     // the wallet to a validator node, the PXE correctly tracks proposed blocks.
     wallet.updateNode(nodes[0]);
     archiver = nodes[0].getBlockSource() as Archiver;
+
+    // Deploy accounts now that validators are running to mine blocks.
+    const accounts = await test.deployTestAccounts(1);
+    from = accounts[0];
+
+    // Deploy cross-chain contract if needed (before stopping sequencers).
+    if (deployCrossChainContract) {
+      logger.warn(`Deploying cross-chain test contract`);
+      ({ contract: crossChainContract } = await TestContract.deploy(wallet).send({ from }));
+      logger.warn(`Cross-chain test contract deployed at ${crossChainContract!.address}`);
+    }
+
+    // Stop sequencers so the test body can configure and restart them.
+    await Promise.all(nodes.map(n => n.getSequencer()!.stop()));
 
     // Register contract for sending txs.
     contract = await test.registerTestContract(wallet);

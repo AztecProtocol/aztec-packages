@@ -56,9 +56,6 @@ describe('e2e_p2p_reex', () => {
     t.logger.info('Applying base setup');
     await t.applyBaseSetup();
 
-    t.logger.info('Stopping main node sequencer');
-    await t.ctx.aztecNodeService.getSequencer()?.stop();
-
     if (!t.bootstrapNodeEnr) {
       throw new Error('Bootstrap node ENR is not available');
     }
@@ -85,6 +82,7 @@ describe('e2e_p2p_reex', () => {
     await sleep(8000);
 
     t.logger.info('Setup account');
+    t.setupWalletOnNode(nodes[0]);
     await t.setupAccount();
 
     t.logger.info('Deploy spam contract');

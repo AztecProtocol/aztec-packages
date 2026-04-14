@@ -57,6 +57,7 @@ describe('e2e_epochs/epochs_high_tps_block_building', () => {
     // Setup context with the given set of validators, no reorgs, mocked gossip sub network, and no anvil test watcher.
     test = await EpochsTestContext.setup({
       numberOfAccounts: 1,
+      skipAccountDeployment: true,
       initialValidators: validators,
       mockGossipSubNetwork: true,
       disableAnvilTestWatcher: true,
@@ -70,22 +71,25 @@ describe('e2e_epochs/epochs_high_tps_block_building', () => {
       attestationPropagationTime: 1,
       minTxsPerBlock: 1,
       maxTxsPerBlock: 100,
+      dontStartSequencer: true,
     });
 
     ({ context, logger } = test);
-
-    // Halt block building in initial aztec node, which was not set up as a validator.
-    logger.warn(`Stopping sequencer in initial aztec node.`);
-    await context.sequencer!.stop();
 
     // Start the validator nodes. Note the txDelayerMaxInclusionTimeIntoSlot is set to 1s,
     // so the tx delayer will simulate the network not accepting a tx for the next block
     // unless it is sent within the first second of the L1 slot.
     logger.warn(`Initial setup complete. Starting ${NODE_COUNT} validator nodes.`);
     nodes = await asyncMap(validators, ({ privateKey }) =>
-      test.createValidatorNode([privateKey], { dontStartSequencer: true, txDelayerMaxInclusionTimeIntoSlot: 1 }),
+      test.createValidatorNode([privateKey], { txDelayerMaxInclusionTimeIntoSlot: 1 }),
     );
     logger.warn(`Started ${NODE_COUNT} validator nodes.`, { validators: validators.map(v => v.attester.toString()) });
+
+    // Deploy accounts now that validators are running to mine blocks.
+    await test.deployTestAccounts(1);
+
+    // Stop sequencers so the test body can configure and restart them.
+    await Promise.all(nodes.map(n => n.getSequencer()!.stop()));
 
     // Register spam contract for sending txs.
     contract = await test.registerSpamContract(context.wallet);

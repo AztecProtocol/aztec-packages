@@ -62,6 +62,7 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
       l1PublishingTime: 8,
       enforceTimeTable: true,
       numberOfAccounts: 1,
+      skipAccountDeployment: true,
       initialValidators: validators,
       mockGossipSubNetwork: true,
       disableAnvilTestWatcher: true,
@@ -76,26 +77,28 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
       slasherEnabled: true,
       minTxsPerBlock: 1,
       maxTxsPerBlock: 1,
+      dontStartSequencer: true,
     });
 
     ({ context, logger, l1Client } = test);
     rollupContract = new RollupContract(l1Client, test.rollup.address);
-
-    // Halt block building in initial aztec node
-    logger.warn(`Stopping sequencer in initial aztec node.`);
-    await context.sequencer!.stop();
 
     // Start the validator nodes
     logger.warn(`Initial setup complete. Starting ${NODE_COUNT} validator nodes.`);
     const validatorNodes = validators.slice(0, NODE_COUNT);
     nodes = await asyncMap(validatorNodes, ({ privateKey }) =>
       test.createValidatorNode([privateKey], {
-        dontStartSequencer: true,
         minTxsPerBlock: 1,
         maxTxsPerBlock: 1,
       }),
     );
     logger.warn(`Started ${NODE_COUNT} validator nodes.`, { validators: validatorNodes.map(v => v.attester) });
+
+    // Deploy accounts now that validators are running to mine blocks.
+    await test.deployTestAccounts(1);
+
+    // Stop sequencers so the test body can configure and restart them.
+    await Promise.all(nodes.map(n => n.getSequencer()!.stop()));
 
     // Register test contract for lightweight txs
     testContract = await test.registerTestContract(context.wallet);

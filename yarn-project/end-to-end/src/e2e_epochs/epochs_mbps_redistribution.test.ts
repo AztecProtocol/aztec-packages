@@ -93,6 +93,7 @@ describe('e2e_epochs/epochs_mbps_redistribution', () => {
     // - Total: 0.5 + 24 + 8 + 2.5 = 35s => use 36s
     test = await EpochsTestContext.setup({
       numberOfAccounts: 1,
+      skipAccountDeployment: true,
       initialValidators: validators,
       mockGossipSubNetwork: true,
       disableAnvilTestWatcher: true,
@@ -114,26 +115,29 @@ describe('e2e_epochs/epochs_mbps_redistribution', () => {
       // PXE syncs on checkpointed chain tip.
       pxeOpts: { syncChainTip: 'checkpointed' },
       ...contextConfigOverride,
+      dontStartSequencer: true,
     });
 
     ({ context, logger, rollup } = test);
     wallet = context.wallet;
-    from = context.accounts[0];
 
-    // Halt the default sequencer (it's not a validator).
-    logger.warn(`Stopping sequencer in initial aztec node.`);
-    await context.sequencer!.stop();
-
-    // Start validator nodes (sequencers not started yet).
+    // Start validator nodes.
     logger.warn(`Starting ${NODE_COUNT} validator nodes.`);
     nodes = await asyncMap(validators, ({ privateKey }, i) =>
-      test.createValidatorNode([privateKey], { dontStartSequencer: true, ...nodeConfigOverride?.(i) }),
+      test.createValidatorNode([privateKey], { ...nodeConfigOverride?.(i) }),
     );
     logger.warn(`Started ${NODE_COUNT} validator nodes.`, { validators: validators.map(v => v.attester.toString()) });
 
     // Point the wallet at a validator node.
     wallet.updateNode(nodes[0]);
     archiver = nodes[0].getBlockSource() as Archiver;
+
+    // Deploy accounts now that validators are running to mine blocks.
+    const accounts = await test.deployTestAccounts(1);
+    from = accounts[0];
+
+    // Stop sequencers so the test body can configure and restart them.
+    await Promise.all(nodes.map(n => n.getSequencer()!.stop()));
 
     // Register the test contract.
     contract = await test.registerTestContract(wallet);

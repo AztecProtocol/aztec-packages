@@ -38,6 +38,7 @@ import {
   type EndToEndContext,
   type SetupOptions,
   createAndSyncProverNode,
+  deployAccounts,
   getPrivateKeyFromIndex,
   setup,
 } from '../fixtures/utils.js';
@@ -155,6 +156,8 @@ export class EpochsTestContext {
     );
 
     this.context = context;
+    // Clear dontStartSequencer from the config so validator nodes created by tests don't inherit it.
+    delete (context.config as Record<string, any>).dontStartSequencer;
     this.proverNodes = context.proverNode ? [context.proverNode] : [];
     this.nodes = context.aztecNode ? [context.aztecNode as AztecNodeService] : [];
     this.logger = context.logger;
@@ -195,6 +198,20 @@ export class EpochsTestContext {
     await Promise.all(this.proverNodes.map(node => tryStop(node, this.logger)));
     await Promise.all(this.nodes.map(node => tryStop(node, this.logger)));
     await this.context.teardown();
+  }
+
+  /** Deploys funded accounts using the wallet. Call after validators are running so blocks can be mined. */
+  public async deployTestAccounts(numberOfAccounts = 1) {
+    const { deployedAccounts } = await deployAccounts(
+      numberOfAccounts,
+      this.logger,
+    )({
+      wallet: this.context.wallet,
+      initialFundedAccounts: this.context.initialFundedAccounts,
+    });
+    const addresses = deployedAccounts.map(a => a.address);
+    this.context.accounts = addresses;
+    return addresses;
   }
 
   public async createProverNode(opts: { dontStart?: boolean } & Partial<ProverNodeConfig> = {}) {
