@@ -1092,8 +1092,9 @@ describe('public_tx_simulator', () => {
     });
   });
 
-  it('nullifier collision in insertRevertiblesFromPrivate skips app logic but executes teardown', async () => {
-    // Mock a transaction with all three phases
+  it('nullifier collision in insertRevertiblesFromPrivate is unrecoverable', async () => {
+    // A nullifier collision during revertible insertions is unprovable (matches AVM circuit behavior).
+    // The NullifierCollisionError propagates out of simulate() rather than triggering a soft revert.
     const tx = await mockTxWithPublicCalls({
       numberOfSetupCalls: 1,
       numberOfAppLogicCalls: 1,
@@ -1104,16 +1105,7 @@ describe('public_tx_simulator', () => {
     tx.data.forPublic!.revertibleAccumulatedData.nullifiers[0] = duplicateNullifier;
     tx.data.forPublic!.revertibleAccumulatedData.nullifiers[1] = duplicateNullifier;
 
-    // Simulate the transaction
-    const txResult = await simulator.simulate(tx);
-
-    // Verify that the transaction has app logic reverted code
-    expect(txResult.revertCode).toEqual(RevertCode.APP_LOGIC_REVERTED);
-
-    // Verify that the SimulationError contains information about the nullifier collision
-    const revertReason = txResult.findRevertReason();
-    expect(revertReason).toBeDefined();
-    expect(revertReason?.getOriginalMessage()).toContain('Nullifier collision');
+    await expect(simulator.simulate(tx)).rejects.toThrow(/Nullifier collision/);
   });
 
   describe('prover id', () => {
