@@ -104,6 +104,8 @@ Key properties for developers integrating with an FPC:
 - **Quote expiry.** Quotes are time-bound and single-use. Fetch a fresh quote per transaction.
 - **Cold-start variant.** Some FPCs offer a cold-start entrypoint where a brand-new account can bridge tokens from L1, claim them on L2, and pay the fee in one transaction — no prior L2 balance or authwit needed, because the FPC itself claims and distributes the bridged tokens. The user still needs L1 tokens and ETH for the initial bridge transaction.
 
+Fee payments themselves can also be made private via a fully private FPC that holds Fee Juice internally and nominates itself as the fee payer during the setup phase — without revealing who initiated the transaction. See [Pay Fees Privately](../aztec-js/how_to_use_private_fee_juice.md) for how this pattern works and an example implementation.
+
 ### Teardown phase
 
 <Tx_Teardown_Phase />
