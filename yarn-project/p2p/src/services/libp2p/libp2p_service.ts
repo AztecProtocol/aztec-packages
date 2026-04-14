@@ -400,9 +400,6 @@ export class LibP2PService extends WithTracer implements P2PService {
         // libp2p will start aggressively rejecting all new connections, preventing network discovery and crawling.
         maxConnections: maxPeerCount * 2,
         maxParallelDials: 100,
-        dialTimeout: 30_000,
-        maxPeerAddrsToDial: 5,
-        maxIncomingPendingConnections: 5,
       },
       connectionGater: {
         denyInboundConnection: (maConn: MultiaddrConnection) => {
@@ -430,11 +427,9 @@ export class LibP2PService extends WithTracer implements P2PService {
         identify: identify({
           protocolPrefix: 'aztec',
           runOnConnectionOpen: true,
-          timeout: 30_000,
         }),
         identifyPush: identifyPush({
           protocolPrefix: 'aztec',
-          timeout: 30_000,
         }),
         ping: ping({
           protocolPrefix: 'aztec',
