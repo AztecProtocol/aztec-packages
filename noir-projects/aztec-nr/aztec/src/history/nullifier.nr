@@ -4,7 +4,11 @@ use crate::oracle::get_nullifier_membership_witness::{
     get_low_nullifier_membership_witness, get_nullifier_membership_witness,
 };
 
-use crate::protocol::{abis::block_header::BlockHeader, merkle_tree::root::root_from_sibling_path, traits::Hash};
+use crate::protocol::{
+    abis::block_header::BlockHeader,
+    merkle_tree::{leaf_preimage::IndexedTreeLeafPreimage, root::root_from_sibling_path},
+    traits::Hash,
+};
 
 mod test;
 
