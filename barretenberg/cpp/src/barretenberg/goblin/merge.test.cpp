@@ -161,13 +161,10 @@ template <typename Curve> class MergeTests : public testing::Test {
         auto native_proof = merge_prover.construct_proof();
         tamper_with_proof(native_proof, tampering_mode);
 
-        // Both L and R are shifted. For PREPEND: M shifted too. For APPEND: M unshifted (Translator).
-        auto t_current = op_queue->construct_current_ultra_ops_subtable_columns();
-        auto T_prev = op_queue->construct_previous_ultra_ops_table_columns();
-        MergeProver::shift_table_by_disabled_rows(t_current);
-        MergeProver::shift_table_by_disabled_rows(T_prev);
+        // Construct shifted column polynomials matching the circuit's ecc_op_wire layout
+        auto t_current = op_queue->construct_current_ultra_ops_subtable_columns(MergeProver::FULL_SHIFT);
+        auto T_prev = op_queue->construct_previous_ultra_ops_table_columns(MergeProver::FULL_SHIFT);
 
-        // Native commitments
         std::array<curve::BN254::AffineElement, NUM_WIRES> native_t_commitments;
         std::array<curve::BN254::AffineElement, NUM_WIRES> native_T_prev_commitments;
         for (size_t idx = 0; idx < NUM_WIRES; idx++) {
@@ -175,12 +172,9 @@ template <typename Curve> class MergeTests : public testing::Test {
             native_T_prev_commitments[idx] = merge_prover.pcs_commitment_key.commit(T_prev[idx]);
         }
 
-        auto T_merged = op_queue->construct_ultra_ops_table_columns();
-        if (settings == MergeSettings::PREPEND) {
-            MergeProver::shift_table_by_disabled_rows(T_merged);
-        } else {
-            MergeProver::shift_table(T_merged, MergeProver::APPEND_OUTPUT_SHIFT);
-        }
+        const size_t m_shift =
+            (settings == MergeSettings::PREPEND) ? MergeProver::FULL_SHIFT : MergeProver::APPEND_OUTPUT_SHIFT;
+        auto T_merged = op_queue->construct_ultra_ops_table_columns(m_shift);
         std::array<curve::BN254::AffineElement, NUM_WIRES> expected_merged_commitments;
         for (size_t idx = 0; idx < NUM_WIRES; idx++) {
             expected_merged_commitments[idx] = merge_prover.pcs_commitment_key.commit(T_merged[idx]);
@@ -608,10 +602,8 @@ TYPED_TEST(MergeTests, DifferentTranscriptOriginTagFailure)
     auto proof_2 = prover_2.construct_proof();
 
     // Get native commitments for proof 1 (shifted to match circuit ecc_op_wire layout)
-    auto t_1 = op_queue_1->construct_current_ultra_ops_subtable_columns();
-    auto T_prev_1 = op_queue_1->construct_previous_ultra_ops_table_columns();
-    MergeProver::shift_table_by_disabled_rows(t_1);
-    MergeProver::shift_table_by_disabled_rows(T_prev_1);
+    auto t_1 = op_queue_1->construct_current_ultra_ops_subtable_columns(MergeProver::FULL_SHIFT);
+    auto T_prev_1 = op_queue_1->construct_previous_ultra_ops_table_columns(MergeProver::FULL_SHIFT);
     std::array<curve::BN254::AffineElement, NUM_WIRES> native_t_commitments_1;
     std::array<curve::BN254::AffineElement, NUM_WIRES> native_T_prev_commitments_1;
     for (size_t idx = 0; idx < NUM_WIRES; idx++) {
@@ -796,10 +788,8 @@ TEST_F(MergeTranscriptTests, VerifierManifestConsistency)
 
     // Construct commitments for verifier (shifted to match circuit ecc_op_wire layout)
     MergeVerifier::InputCommitments merge_commitments;
-    auto t_current = op_queue->construct_current_ultra_ops_subtable_columns();
-    auto T_prev = op_queue->construct_previous_ultra_ops_table_columns();
-    MergeProver::shift_table_by_disabled_rows(t_current);
-    MergeProver::shift_table_by_disabled_rows(T_prev);
+    auto t_current = op_queue->construct_current_ultra_ops_subtable_columns(MergeProver::FULL_SHIFT);
+    auto T_prev = op_queue->construct_previous_ultra_ops_table_columns(MergeProver::FULL_SHIFT);
     for (size_t idx = 0; idx < MegaFlavor::NUM_WIRES; idx++) {
         merge_commitments.t_commitments[idx] = merge_prover.pcs_commitment_key.commit(t_current[idx]);
         merge_commitments.T_prev_commitments[idx] = merge_prover.pcs_commitment_key.commit(T_prev[idx]);

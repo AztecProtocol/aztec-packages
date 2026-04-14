@@ -41,43 +41,21 @@ class MergeProver {
 
     BB_PROFILE MergeProof construct_proof();
 
-    // Public for test access (computing commitments)
+    using Table = std::array<Polynomial, NUM_WIRES>;
+
     CommitmentKey pcs_commitment_key;
 
-    static constexpr size_t TRACE_OFFSET = MegaExecutionTraceBlocks::TRACE_OFFSET;
+    // Offset for L and R: matches the circuit's ecc_op_wire layout (TRACE_OFFSET + NUM_ZERO_ROWS).
+    static constexpr size_t FULL_SHIFT = MegaExecutionTraceBlocks::TRACE_OFFSET + NUM_ZERO_ROWS;
 
-    // Full shift applied to L, R, and M in PREPEND mode: matches the ecc_op_wire layout in the circuit.
-    static constexpr size_t FULL_SHIFT = TRACE_OFFSET + NUM_ZERO_ROWS;
-
-    // In APPEND mode (final merge), M retains a partial shift to provide leading zeros that match the
-    // Translator's polynomial layout (which requires RANDOMNESS_START = 2 zeros for shiftability).
+    // In APPEND mode (final merge), M retains a partial shift for Translator shiftability.
     static constexpr size_t APPEND_OUTPUT_SHIFT = 2; // == TranslatorFlavor::RANDOMNESS_START
-
-    /**
-     * @brief Prepend `shift` zeros to each polynomial in a table.
-     */
-    static void shift_table(std::array<Polynomial, NUM_WIRES>& table, size_t shift)
-    {
-        for (auto& poly : table) {
-            const size_t new_size = poly.size() + shift;
-            Polynomial shifted(new_size, new_size);
-            for (size_t i = 0; i < poly.size(); i++) {
-                shifted.at(i + shift) = poly[i];
-            }
-            poly = std::move(shifted);
-        }
-    }
-
-    // Convenience: shift by FULL_SHIFT (used in tests and for L/R tables)
-    static void shift_table_by_disabled_rows(std::array<Polynomial, NUM_WIRES>& table)
-    {
-        shift_table(table, FULL_SHIFT);
-    }
 
   private:
     std::shared_ptr<Transcript> transcript;
     std::shared_ptr<ECCOpQueue> op_queue;
     MergeSettings settings;
+
     std::vector<std::string> labels_degree_check = { "LEFT_TABLE_DEGREE_CHECK_0",
                                                      "LEFT_TABLE_DEGREE_CHECK_1",
                                                      "LEFT_TABLE_DEGREE_CHECK_2",

@@ -32,7 +32,7 @@ MergeProver::MergeProver(const std::shared_ptr<ECCOpQueue>& op_queue,
     }
 
     // Size the commitment key to accommodate the X^s shift applied to merge polynomials
-    pcs_commitment_key = CommitmentKey(op_queue->get_ultra_ops_table_num_rows() + TRACE_OFFSET + NUM_ZERO_ROWS);
+    pcs_commitment_key = CommitmentKey(op_queue->get_ultra_ops_table_num_rows() + FULL_SHIFT);
 };
 
 MergeProver::Polynomial MergeProver::compute_degree_check_polynomial(
@@ -164,30 +164,20 @@ MergeProver::OpeningClaim MergeProver::compute_shplonk_opening_claim(
 MergeProver::MergeProof MergeProver::construct_proof()
 {
 
-    std::array<Polynomial, NUM_WIRES> left_table;
-    std::array<Polynomial, NUM_WIRES> right_table;
-    std::array<Polynomial, NUM_WIRES> merged_table = op_queue->construct_ultra_ops_table_columns(); // T
-    std::array<Polynomial, NUM_WIRES> left_table_reversed;
+    // Construct L and R with FULL_SHIFT leading zeros to match the circuit's ecc_op_wire layout.
+    // Derive M from the full merged table with the appropriate shift for Translator/chain propagation.
+    const size_t m_shift = (settings == MergeSettings::PREPEND) ? FULL_SHIFT : APPEND_OUTPUT_SHIFT;
 
-    if (settings == MergeSettings::PREPEND) {
-        left_table = op_queue->construct_current_ultra_ops_subtable_columns(); // t
-        right_table = op_queue->construct_previous_ultra_ops_table_columns();  // T_prev
-    } else {
-        left_table = op_queue->construct_previous_ultra_ops_table_columns();    // T_prev
-        right_table = op_queue->construct_current_ultra_ops_subtable_columns(); // t
-    }
+    Table left_table = (settings == MergeSettings::PREPEND)
+                           ? op_queue->construct_current_ultra_ops_subtable_columns(FULL_SHIFT)
+                           : op_queue->construct_previous_ultra_ops_table_columns(FULL_SHIFT);
+    Table right_table = (settings == MergeSettings::PREPEND)
+                            ? op_queue->construct_previous_ultra_ops_table_columns(FULL_SHIFT)
+                            : op_queue->construct_current_ultra_ops_subtable_columns(FULL_SHIFT);
+    Table merged_table = op_queue->construct_ultra_ops_table_columns(m_shift);
 
-    // Capture shift_size BEFORE the X^s shift (the concatenation identity uses the unshifted size)
-    const size_t shift_size = left_table[0].size();
-
-    // Shift L and R by X^s (s = FULL_SHIFT) so their commitments match the circuit's ecc_op_wire
-    // commitments and the T_prev chain from prior PREPEND merges (which output [X^s·M]).
-    // For PREPEND: also shift M by s to maintain the chain.
-    // For APPEND (final merge): shift M by APPEND_OUTPUT_SHIFT (= 2) to provide leading zeros
-    // matching the Translator's polynomial layout (which needs 2 zeros for shiftability).
-    shift_table(left_table, FULL_SHIFT);
-    shift_table(right_table, FULL_SHIFT);
-    shift_table(merged_table, (settings == MergeSettings::PREPEND) ? FULL_SHIFT : APPEND_OUTPUT_SHIFT);
+    // shift_size is the unshifted L size (strip the leading zeros)
+    const size_t shift_size = left_table[0].size() - FULL_SHIFT;
 
     transcript->send_to_verifier("shift_size", static_cast<uint32_t>(shift_size));
 

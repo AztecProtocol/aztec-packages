@@ -93,23 +93,24 @@ class ECCOpQueue {
         ultra_ops_table.merge(settings, ultra_fixed_offset);
     }
 
-    // Construct polynomials corresponding to the columns of the full aggregate ultra ecc ops table
-    std::array<Polynomial<Fr>, ULTRA_TABLE_WIDTH> construct_ultra_ops_table_columns() const
+    // Construct column polynomials for the full aggregate ultra ops table
+    std::array<Polynomial<Fr>, ULTRA_TABLE_WIDTH> construct_ultra_ops_table_columns(size_t start_offset = 0) const
     {
-        return ultra_ops_table.construct_table_columns();
+        return ultra_ops_table.construct_table_columns(start_offset);
     }
 
-    // Construct polys corresponding to the columns of the aggregate ultra ops table, excluding the most recent
-    // subtable
-    std::array<Polynomial<Fr>, ULTRA_TABLE_WIDTH> construct_previous_ultra_ops_table_columns() const
+    // Construct column polynomials for the aggregate table excluding the most recent subtable
+    std::array<Polynomial<Fr>, ULTRA_TABLE_WIDTH> construct_previous_ultra_ops_table_columns(
+        size_t start_offset = 0) const
     {
-        return ultra_ops_table.construct_previous_table_columns();
+        return ultra_ops_table.construct_previous_table_columns(start_offset);
     }
 
-    // Construct polynomials corresponding to the columns of the current subtable of ultra ecc ops
-    std::array<Polynomial<Fr>, ULTRA_TABLE_WIDTH> construct_current_ultra_ops_subtable_columns() const
+    // Construct column polynomials for the most recently merged subtable
+    std::array<Polynomial<Fr>, ULTRA_TABLE_WIDTH> construct_current_ultra_ops_subtable_columns(
+        size_t start_offset = 0) const
     {
-        return ultra_ops_table.construct_current_ultra_ops_subtable_columns();
+        return ultra_ops_table.construct_current_ultra_ops_subtable_columns(start_offset);
     }
 
     // Reconstruct the full table of eccvm ops in contiguous memory from the independent subtables
