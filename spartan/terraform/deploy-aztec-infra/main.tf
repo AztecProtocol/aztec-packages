@@ -792,16 +792,23 @@ resource "kubernetes_manifest" "rpc_ingress_backend" {
       name      = "${var.RELEASE_PREFIX}-rpc-ingress-backend"
       namespace = var.NAMESPACE
     }
-    spec = {
-      healthCheck = {
-        checkIntervalSec   = 15
-        timeoutSec         = 5
-        healthyThreshold   = 2
-        unhealthyThreshold = 2
-        type               = "HTTP"
-        port               = 8080
-        requestPath        = "/status"
-      }
-    }
+    spec = merge(
+      {
+        healthCheck = {
+          checkIntervalSec   = 15
+          timeoutSec         = 5
+          healthyThreshold   = 2
+          unhealthyThreshold = 2
+          type               = "HTTP"
+          port               = 8080
+          requestPath        = "/status"
+        }
+      },
+      var.RPC_CLOUD_ARMOR_POLICY_NAME != "" ? {
+        securityPolicy = {
+          name = var.RPC_CLOUD_ARMOR_POLICY_NAME
+        }
+      } : {}
+    )
   }
 }

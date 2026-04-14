@@ -721,6 +721,12 @@ variable "RPC_INGRESS_SSL_CERT_NAMES" {
   default     = []
 }
 
+variable "RPC_CLOUD_ARMOR_POLICY_NAME" {
+  description = "Name of a Cloud Armor security policy to attach to the RPC ingress BackendConfig. API key rules are managed via GCP Console. Leave empty to disable."
+  type        = string
+  default     = ""
+}
+
 variable "PROVER_FAILED_PROOF_STORE" {
   description = "Optional GCS/URI to store failed proofs from the prover"
   type        = string
