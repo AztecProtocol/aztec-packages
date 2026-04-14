@@ -6,7 +6,6 @@ import { toBigIntBE, toBufferBE } from '../../bigint-buffer/index.js';
 import { randomBytes } from '../../crypto/random/index.js';
 import { hexSchemaFor } from '../../schemas/utils.js';
 import { BufferReader } from '../../serialize/buffer_reader.js';
-import { TypeRegistry } from '../../serialize/type_registry.js';
 
 /**
  * Represents a field derived from BaseField.
@@ -352,9 +351,6 @@ export class Fr extends BaseFr {
   }
 }
 
-// For deserializing JSON.
-TypeRegistry.register('Fr', Fr);
-
 /**
  * Fq field class.
  * @dev This class is used to represent elements of BN254 base field or elements in the scalar field of Grumpkin.
@@ -470,9 +466,6 @@ export class Fq extends BaseField {
     return hexSchemaFor(Fq);
   }
 }
-
-// For deserializing JSON.
-TypeRegistry.register('Fq', Fq);
 
 // Beware: Performance bottleneck below
 

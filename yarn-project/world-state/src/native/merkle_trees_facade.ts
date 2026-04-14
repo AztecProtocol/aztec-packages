@@ -229,7 +229,7 @@ export class MerkleTreesForkFacade extends MerkleTreesFacade implements MerkleTr
 
   async appendLeaves<ID extends MerkleTreeId>(treeId: ID, leaves: MerkleTreeLeafType<ID>[]): Promise<void> {
     await this.instance.call(WorldStateMessageType.APPEND_LEAVES, {
-      leaves: leaves.map(leaf => leaf as any),
+      leaves: leaves.map(leaf => serializeLeaf(hydrateLeaf(treeId, leaf as any))),
       forkId: this.revision.forkId,
       treeId,
     });

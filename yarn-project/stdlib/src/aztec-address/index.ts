@@ -1,7 +1,7 @@
 import { Fr, fromBuffer } from '@aztec/foundation/curves/bn254';
 import { Point } from '@aztec/foundation/curves/grumpkin';
 import { type ZodFor, bufferSchemaFor, hexSchemaFor } from '@aztec/foundation/schemas';
-import { type BufferReader, FieldReader, TypeRegistry } from '@aztec/foundation/serialize';
+import { type BufferReader, FieldReader } from '@aztec/foundation/serialize';
 import { hexToBuffer } from '@aztec/foundation/string';
 
 import { inspect } from 'util';
@@ -162,6 +162,3 @@ export class AztecAddress {
     ]);
   }
 }
-
-// For deserializing JSON.
-TypeRegistry.register('AztecAddress', AztecAddress);

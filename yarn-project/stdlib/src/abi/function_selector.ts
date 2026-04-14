@@ -3,7 +3,7 @@ import { poseidon2HashBytes } from '@aztec/foundation/crypto/poseidon';
 import { randomBytes } from '@aztec/foundation/crypto/random';
 import type { Fr } from '@aztec/foundation/curves/bn254';
 import { type ZodFor, hexSchemaFor } from '@aztec/foundation/schemas';
-import { BufferReader, FieldReader, TypeRegistry } from '@aztec/foundation/serialize';
+import { BufferReader, FieldReader } from '@aztec/foundation/serialize';
 
 import type { ABIParameter } from './abi.js';
 import { decodeFunctionSignature } from './function_signature_decoder.js';
@@ -121,6 +121,3 @@ export class FunctionSelector extends Selector {
     return hexSchemaFor(FunctionSelector);
   }
 }
-
-// For deserializing JSON.
-TypeRegistry.register('FunctionSelector', FunctionSelector);

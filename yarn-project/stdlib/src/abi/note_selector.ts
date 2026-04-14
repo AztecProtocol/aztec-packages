@@ -2,7 +2,7 @@ import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
 import { randomInt } from '@aztec/foundation/crypto/random';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { hexSchemaFor } from '@aztec/foundation/schemas';
-import { BufferReader, TypeRegistry } from '@aztec/foundation/serialize';
+import { BufferReader } from '@aztec/foundation/serialize';
 
 import { Selector } from './selector.js';
 
@@ -67,6 +67,3 @@ export class NoteSelector extends Selector {
     return hexSchemaFor(NoteSelector);
   }
 }
-
-// For deserializing JSON.
-TypeRegistry.register('NoteSelector', NoteSelector);
