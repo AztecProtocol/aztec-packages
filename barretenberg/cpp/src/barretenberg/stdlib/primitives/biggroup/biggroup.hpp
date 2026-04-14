@@ -695,60 +695,56 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
      *
      **/
     struct batch_lookup_table_plookup {
+
         batch_lookup_table_plookup(const std::vector<element>& points)
             : num_points(points.size())
-            , num_fives(num_points / 5)
+            , num_sevens(0)
+            , num_sixes(0)
+            , num_fives(0)
         {
-            // size-6 table is expensive and only benefits us if creating them reduces the number of total tables
-            if (num_points == 1) {
-                num_fives = 0;
-                num_sixes = 0;
-            } else if (num_fives * 5 == (num_points - 1)) {
-                // last 6 points to be added as one 6-table
-                num_fives -= 1;
-                num_sixes = 1;
-            } else if (num_fives * 5 == (num_points - 2) && num_fives >= 2) {
-                // last 12 points to be added as two 6-tables
-                num_fives -= 2;
-                num_sixes = 2;
-            } else if (num_fives * 5 == (num_points - 3) && num_fives >= 3) {
-                // last 18 points to be added as three 6-tables
-                num_fives -= 3;
-                num_sixes = 3;
-            }
+            // Greedily allocate tables from k = 7 downward
+            size_t remaining_points = num_points;
+            num_sevens = remaining_points / 7;
+            remaining_points -= num_sevens * 7;
+            num_sixes = remaining_points / 6;
+            remaining_points -= num_sixes * 6;
+            num_fives = remaining_points / 5;
+            remaining_points -= num_fives * 5;
 
-            // Calculate remaining points after allocating fives and sixes tables
-            size_t remaining_points = num_points - (num_fives * 5 + num_sixes * 6);
-
-            // Allocate one quad table if required (and update remaining points)
             has_quad = (remaining_points >= 4) && (num_points >= 4);
             if (has_quad) {
                 remaining_points -= 4;
             }
-
-            // Allocate one triple table if required (and update remaining points)
             has_triple = (remaining_points >= 3) && (num_points >= 3);
             if (has_triple) {
                 remaining_points -= 3;
             }
-
-            // Allocate one twin table if required (and update remaining points)
             has_twin = (remaining_points >= 2) && (num_points >= 2);
             if (has_twin) {
                 remaining_points -= 2;
             }
-
-            // If there is anything remaining, allocate a singleton
             has_singleton = (remaining_points != 0) && (num_points >= 1);
 
             // Sanity check
             BB_ASSERT_EQ(num_points,
-                         num_sixes * 6 + num_fives * 5 + static_cast<size_t>(has_quad) * 4 +
+                         num_sevens * 7 + num_sixes * 6 + num_fives * 5 + static_cast<size_t>(has_quad) * 4 +
                              static_cast<size_t>(has_triple) * 3 + static_cast<size_t>(has_twin) * 2 +
                              static_cast<size_t>(has_singleton) * 1,
                          "point allocation mismatch");
 
             size_t offset = 0;
+            for (size_t i = 0; i < num_sevens; ++i) {
+                seven_tables.push_back(lookup_table_plookup<7>({
+                    points[offset + (7 * i)],
+                    points[offset + (7 * i) + 1],
+                    points[offset + (7 * i) + 2],
+                    points[offset + (7 * i) + 3],
+                    points[offset + (7 * i) + 4],
+                    points[offset + (7 * i) + 5],
+                    points[offset + (7 * i) + 6],
+                }));
+            }
+            offset += 7 * num_sevens;
             for (size_t i = 0; i < num_sixes; ++i) {
                 six_tables.push_back(lookup_table_plookup<6>({
                     points[offset + (6 * i)],
@@ -790,6 +786,9 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
         chain_add_accumulator get_chain_initial_entry() const
         {
             std::vector<element> add_accumulator;
+            for (size_t i = 0; i < num_sevens; ++i) {
+                add_accumulator.push_back(seven_tables[i][0]);
+            }
             for (size_t i = 0; i < num_sixes; ++i) {
                 add_accumulator.push_back(six_tables[i][0]);
             }
@@ -821,15 +820,25 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
         element::chain_add_accumulator get_chain_add_accumulator(std::vector<bool_ct>& naf_entries) const
         {
             std::vector<element> round_accumulator;
-            for (size_t j = 0; j < num_sixes; ++j) {
-                round_accumulator.push_back(six_tables[j].get({ naf_entries[6 * j],
-                                                                naf_entries[(6 * j) + 1],
-                                                                naf_entries[(6 * j) + 2],
-                                                                naf_entries[(6 * j) + 3],
-                                                                naf_entries[(6 * j) + 4],
-                                                                naf_entries[(6 * j) + 5] }));
+            for (size_t j = 0; j < num_sevens; ++j) {
+                round_accumulator.push_back(seven_tables[j].get({ naf_entries[7 * j],
+                                                                  naf_entries[(7 * j) + 1],
+                                                                  naf_entries[(7 * j) + 2],
+                                                                  naf_entries[(7 * j) + 3],
+                                                                  naf_entries[(7 * j) + 4],
+                                                                  naf_entries[(7 * j) + 5],
+                                                                  naf_entries[(7 * j) + 6] }));
             }
-            size_t offset = num_sixes * 6;
+            size_t offset = num_sevens * 7;
+            for (size_t j = 0; j < num_sixes; ++j) {
+                round_accumulator.push_back(six_tables[j].get({ naf_entries[offset + (6 * j)],
+                                                                naf_entries[offset + (6 * j) + 1],
+                                                                naf_entries[offset + (6 * j) + 2],
+                                                                naf_entries[offset + (6 * j) + 3],
+                                                                naf_entries[offset + (6 * j) + 4],
+                                                                naf_entries[offset + (6 * j) + 5] }));
+            }
+            offset += num_sixes * 6;
             for (size_t j = 0; j < num_fives; ++j) {
                 round_accumulator.push_back(five_tables[j].get({ naf_entries[offset + (j * 5)],
                                                                  naf_entries[offset + (j * 5) + 1],
@@ -877,16 +886,25 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
         element get(std::vector<bool_ct>& naf_entries) const
         {
             std::vector<element> round_accumulator;
-            for (size_t j = 0; j < num_sixes; ++j) {
-                round_accumulator.push_back(six_tables[j].get({ naf_entries[(6 * j)],
-                                                                naf_entries[(6 * j) + 1],
-                                                                naf_entries[(6 * j) + 2],
-                                                                naf_entries[(6 * j) + 3],
-                                                                naf_entries[(6 * j) + 4],
-                                                                naf_entries[(6 * j) + 5] }));
+            for (size_t j = 0; j < num_sevens; ++j) {
+                round_accumulator.push_back(seven_tables[j].get({ naf_entries[(7 * j)],
+                                                                  naf_entries[(7 * j) + 1],
+                                                                  naf_entries[(7 * j) + 2],
+                                                                  naf_entries[(7 * j) + 3],
+                                                                  naf_entries[(7 * j) + 4],
+                                                                  naf_entries[(7 * j) + 5],
+                                                                  naf_entries[(7 * j) + 6] }));
             }
-            size_t offset = num_sixes * 6;
-
+            size_t offset = num_sevens * 7;
+            for (size_t j = 0; j < num_sixes; ++j) {
+                round_accumulator.push_back(six_tables[j].get({ naf_entries[offset + (6 * j)],
+                                                                naf_entries[offset + (6 * j) + 1],
+                                                                naf_entries[offset + (6 * j) + 2],
+                                                                naf_entries[offset + (6 * j) + 3],
+                                                                naf_entries[offset + (6 * j) + 4],
+                                                                naf_entries[offset + (6 * j) + 5] }));
+            }
+            offset += num_sixes * 6;
             for (size_t j = 0; j < num_fives; ++j) {
                 round_accumulator.push_back(five_tables[j].get({ naf_entries[offset + (5 * j)],
                                                                  naf_entries[offset + (5 * j) + 1],
@@ -894,7 +912,6 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
                                                                  naf_entries[offset + (5 * j) + 3],
                                                                  naf_entries[offset + (5 * j) + 4] }));
             }
-
             offset += num_fives * 5;
 
             if (has_quad) {
@@ -931,6 +948,7 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
             return element::chain_add_end(accumulator);
         }
 
+        std::vector<lookup_table_plookup<7>> seven_tables;
         std::vector<lookup_table_plookup<6>> six_tables;
         std::vector<lookup_table_plookup<5>> five_tables;
         std::vector<quad_lookup_table> quad_tables;
@@ -939,8 +957,9 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
         std::vector<element> singletons;
         size_t num_points;
 
+        size_t num_sevens = 0;
         size_t num_sixes = 0;
-        size_t num_fives;
+        size_t num_fives = 0;
         bool has_quad;
         bool has_triple;
         bool has_twin;
