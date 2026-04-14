@@ -39,10 +39,11 @@ template <typename Flavor> ProverInstance_<Flavor>::ProverInstance_(Circuit& cir
     if (!circuit.circuit_finalized) {
         circuit.finalize_circuit(/* ensure_nonzero = */ true);
     }
+    // Compute block offsets before dyadic size so that compute_dyadic_size can account for the lookup table offset
+    circuit.blocks.compute_offsets(TRACE_OFFSET);
     metadata.dyadic_size = compute_dyadic_size(circuit);
 
     // Find index of last non-trivial wire value in the trace
-    circuit.blocks.compute_offsets(TRACE_OFFSET);
     for (auto& block : circuit.blocks.get()) {
         if (block.size() > 0) {
             final_active_wire_idx = block.trace_end() - 1;
@@ -126,9 +127,10 @@ template <typename Flavor> size_t ProverInstance_<Flavor>::compute_dyadic_size(C
     // minimum size of execution trace due to everything else
     size_t min_size_of_execution_trace = circuit.blocks.get_total_content_size();
 
-    // The number of gates is the maximum required by the lookup argument or everything else, plus a zero row to allow
-    // for shifts.
-    size_t total_num_gates = TRACE_OFFSET + NUM_ZERO_ROWS + std::max(tables_size, min_size_of_execution_trace);
+    // Tables are placed at the lookup block's trace offset, so account for blocks preceding lookup
+    const size_t tables_end = circuit.blocks.lookup.trace_offset() + tables_size;
+    const size_t trace_end = TRACE_OFFSET + NUM_ZERO_ROWS + min_size_of_execution_trace;
+    size_t total_num_gates = std::max(tables_end, trace_end);
 
     // Next power of 2 (dyadic circuit size)
     return circuit.get_circuit_subgroup_size(total_num_gates);
@@ -195,6 +197,7 @@ template <typename Flavor> void ProverInstance_<Flavor>::allocate_table_lookup_p
     const size_t tables_end = table_offset + tables_size;
 
     // Allocate polynomials containing the actual table data; offset to align with the lookup gate block
+    BB_ASSERT_GT(dyadic_size(), tables_end);
     for (auto& table_poly : polynomials.get_tables()) {
         table_poly = Polynomial(tables_end, dyadic_size());
     }

@@ -113,7 +113,6 @@ class BatchedHonkTranslatorTests : public ::testing::Test {
      *   Round 8+JOINT_LOG_N: Shplonk:Q → Shplonk:z
      *   Round 9+JOINT_LOG_N: KZG:W
      *
-     * @param mega_zk_log_n  log₂(circuit_size) of the MegaZK instance
      * @param num_mega_zk_pub_inputs  number of MegaZK public inputs
      */
     static TranscriptManifest build_expected_batched_manifest(const size_t num_mega_zk_pub_inputs)
