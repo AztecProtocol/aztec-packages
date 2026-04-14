@@ -610,7 +610,7 @@ describe('aztec node', () => {
           globalVariables: GlobalVariables.empty({ blockNumber: BlockNumber(3) }),
         });
         l2BlockSource.getBlockHeaderByHash.mockResolvedValue(header);
-        snapshotMerkleTreeOps.getLeafValue.mockResolvedValue(blockHash.toFr());
+        snapshotMerkleTreeOps.getLeafValue.mockResolvedValue(blockHash);
 
         const result = await node.getWorldState(blockHash);
         expect(result).toBe(snapshotMerkleTreeOps);
@@ -632,7 +632,7 @@ describe('aztec node', () => {
         });
         l2BlockSource.getBlockHeaderByHash.mockResolvedValue(header);
         // World state returns a different hash for the same block number
-        snapshotMerkleTreeOps.getLeafValue.mockResolvedValue(differentHash.toFr());
+        snapshotMerkleTreeOps.getLeafValue.mockResolvedValue(differentHash);
 
         await expect(node.getWorldState(blockHash)).rejects.toThrow(/not found in world state at block number/);
       });
