@@ -829,7 +829,7 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
         std::vector<Fr> remaining_s(s_vec.begin() + 1, s_vec.end());
         Commitment first_term = srs_elements[0] * s_vec[0];
         Commitment remaining_term = Commitment::fixed_batch_mul(remaining_srs, remaining_s, {}, /*table_bits=*/8);
-        Commitment computed_G_zero = first_term.unconditional_add(remaining_term);
+        Commitment computed_G_zero = first_term + remaining_term;
         // check the computed G_zero and the claimed G_zero are the same.
         // The circuit constraint enforces correctness; mismatched witnesses will produce an unsatisfiable circuit.
         claimed_G_zero.assert_equal(computed_G_zero, "G_zero doesn't match received G_zero.");
