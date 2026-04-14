@@ -174,7 +174,6 @@ export class LogService {
 
         if (!secret) {
           // Note that all senders originate from either the SenderAddressBookStore or the KeyStore.
-          // TODO(F-512): make sure we actually prevent registering invalid senders.
           throw new Error(
             `Failed to compute a tagging secret for sender ${sender} - this implies this is an invalid address, which should not happen as they have been previously registered in PXE.`,
           );
