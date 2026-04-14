@@ -6,7 +6,7 @@ This specification defines how logs are emitted, encoded, siloed, and committed 
 
 Aztec distinguishes three types of logs:
 
-1. **Private logs** — emitted during private execution, carrying application-encrypted data (typically note or event payloads). The protocol treats their contents as opaque field arrays, with only the first field (the tag) subject to siloing.
+1. **Private logs** — emitted during private execution, carrying application-encrypted data (typically note or event payloads). The protocol treats their contents as arbitrary fields, with only the first field (the tag) subject to siloing.
 2. **Public logs** — emitted during public (AVM) execution, carrying unencrypted data visible to all observers.
 3. **Contract class logs** — a special-purpose log type used to publish contract class bytecode and function metadata during class registration.
 
@@ -26,21 +26,21 @@ Logs are not stored in any Merkle tree. They are ephemeral data included in tran
 
 ## Requirements
 
-### R1: Private Log Confidentiality
+### R1: Arbitrary Content
 
-Private logs MUST be opaque to all parties except their intended recipients. The protocol MUST NOT impose any structure on private log contents beyond the siloed first field.
+The protocol MUST NOT impose any structure on log contents beyond the siloed first field (for private logs).
 
-**Rationale:** Private logs carry encrypted note data and event payloads. The protocol treats them as opaque field arrays to preserve sender and recipient privacy. Application-layer encryption (not protocol-layer) determines who can read the contents.
+**Rationale:** Applications determine the usage and content of logs. For private logs, it is application-layer encryption (not protocol-layer) that determines who can read the contents.
 
-### R2: Log Siloing
+### R2: Private Log Siloing
 
 Private logs MUST be siloed to their originating contract before leaving the private kernel circuit chain. Siloing MUST prevent a log emitted by one contract from being attributed to another.
 
 **Rationale:** Without siloing, a malicious contract could emit logs that appear to originate from a different contract, breaking recipient discovery and trust assumptions.
 
-### R3: Log–Note Hash Linkage
+### R3: Private Log–Note Hash Linkage
 
-Private logs MAY be linked to a specific note hash via a `note_hash_counter`. When a linked note hash is squashed (created and nullified within the same transaction), its associated logs MUST also be squashed.
+Private logs MAY be linked to a specific note hash via a `note_hash_counter`. When a linked note hash is squashed (created and nullified within the same transaction during private execution), its associated logs MUST also be squashed.
 
 **Rationale:** Logs linked to transient notes carry information about notes that will never exist on-chain. Propagating them would leak information about squashed notes and consume unnecessary data availability.
 
@@ -54,7 +54,7 @@ Logs emitted during revertible execution MUST be discarded if the transaction's 
 
 All logs included in a `TxEffect` MUST be encoded into EIP-4844 blobs and committed via the block header's `sponge_blob_hash`. An independent node MUST be able to reconstruct all logs from blob data.
 
-**Rationale:** Logs are necessary for recipients to discover notes and events. Without data availability, the privacy model breaks — recipients cannot sync.
+**Rationale:** Logs are critical protocol infrastructure, and contracts need to be able to rely on all external observers having access to them. Without data availability, parties may be unable to send transactions.
 
 ### R6: Bounded Log Sizes
 
@@ -68,12 +68,6 @@ Contract class log hashes included in kernel output MUST be validated against th
 
 **Rationale:** The kernel circuit only carries a hash of the contract class log (to reduce circuit size). The rollup circuit must verify the preimage matches, ensuring the published bytecode is authentic.
 
-### R8: Tag-Based Discovery
-
-Private logs MUST support a tagging mechanism that allows intended recipients to identify logs meant for them without scanning all logs. The tag (first field) MUST be siloed to the originating contract.
-
-**Rationale:** Without tags, recipients would need to attempt decryption of every log in every block — an O(n) operation that does not scale. Tags enable efficient log discovery.
-
 ## Specification
 
 ### Log Types
@@ -82,7 +76,7 @@ Private logs MUST support a tagging mechanism that allows intended recipients to
 
 A private log is a fixed-capacity array of field elements emitted during private function execution. The protocol treats the contents as opaque, with the following conventions:
 
-- **Field 0 (tag):** Used for recipient discovery. Siloed to the originating contract by the private kernel.
+- **Field 0 (tag):** Siloed to the originating contract by the private kernel.
 - **Fields 1..length-1 (payload):** Application-encrypted data. The protocol does not inspect or validate these fields.
 
 ```
@@ -115,7 +109,7 @@ Scoped<Counted<PrivateLogData>> {
 
 #### Public Logs
 
-A public log is a variable-length array of field elements emitted during AVM (public) execution via the `EMITUNENCRYPTEDLOG` opcode. Public logs are unencrypted and visible to all observers.
+A public log is a variable-length array of field elements emitted during AVM (public) execution via the `EMITUNENCRYPTEDLOG` opcode.
 
 Each public log carries its originating contract address:
 
@@ -200,7 +194,7 @@ Siloing is performed by the Private Kernel Reset circuit (see Spec #7).
 
 ### Log Squashing
 
-Logs linked to transient note hashes (notes created and nullified within the same transaction) are squashed — removed from the output. This is part of the transient data squashing process in the Private Kernel Reset circuit.
+Logs linked to transient note hashes (notes created and nullified within the same transaction during private execution) are squashed — removed from the output. This is part of the transient data squashing process in the Private Kernel Reset circuit.
 
 A log is a **note log** if `note_hash_counter != 0`. A note log is squashed if its linked note hash is squashed. The squashing rules are:
 
@@ -214,6 +208,8 @@ Kept logs MUST preserve their original relative order.
 ### Log Padding
 
 To obscure the true number of logs in a transaction, the Private Kernel Reset circuit pads the private log array with random values after real logs. The padding values are provided by the PXE (client) and are not validated for randomness by the circuit.
+
+Padded logs are siloed using `SIDE_EFFECT_MASKING_ADDRESS`. This prevents log forgery.
 
 Padding entries have `length > 0` (they are indistinguishable from real logs to external observers). After padding, the array is dense — all entries with `length > 0` appear before any with `length == 0`.
 
@@ -326,91 +322,6 @@ Where `DA_BYTES_PER_FIELD = 32` and `DA_GAS_PER_BYTE = 16`.
 
 Public log gas is metered dynamically by the AVM per-opcode (see Spec #8).
 
-### Private Log Encryption
-
-The protocol does not mandate a specific encryption scheme for private logs. Encryption is performed at the application layer (in aztec-nr), and the protocol treats log contents as opaque. However, the protocol defines infrastructure that encryption schemes rely on:
-
-1. **Fixed ciphertext length:** All private logs are `PRIVATE_LOG_SIZE_IN_FIELDS = 18` fields, regardless of plaintext length. Unused fields are padded (typically with random data) to make all logs indistinguishable by size.
-
-2. **Message structure convention:** The application-layer convention (not enforced by the protocol) structures the ciphertext portion of a private log (fields 1 through `PRIVATE_LOG_CIPHERTEXT_LEN = 17`) as an encrypted message.
-
-3. **Encryption directions:** Private logs carry one of three categories of encrypted data, each using different keys from the key hierarchy (see Spec #13):
-   - **Incoming data** — created by a sender for a recipient, encrypted to the recipient's incoming viewing public key (`ivpk_m`). Only the recipient can decrypt using their `ivsk_m`.
-   - **Outgoing data** — a copy of the sender's own note data, encrypted to the sender's outgoing viewing public key (`ovpk_m`). Allows the sender to later reconstruct details of notes they created for others.
-   - **Internal incoming data** — created by a user for themselves (self-send), encrypted to the user's own incoming or outgoing viewing key.
-
-   The protocol does not distinguish between these categories; all are opaque private logs. The distinction is enforced by the application-layer encryption, which selects the appropriate key for each direction.
-
-The current aztec-nr implementation provides two encryption schemes, both using ECDH key agreement on the Grumpkin curve:
-
-#### AES-128 Encryption (Default)
-
-The default scheme encrypts messages using AES-128-CBC:
-
-1. **Key agreement:** Generate ephemeral key pair `(eph_sk, eph_pk)` on Grumpkin. Compute shared secret: `S = eph_sk * recipient.address_point`.
-2. **Key derivation:** Derive two (key, IV) pairs from the shared secret using Poseidon2 with domain separators `DOM_SEP__SYMMETRIC_KEY` and `DOM_SEP__SYMMETRIC_KEY_2`:
-   - `(body_key, body_iv)` — for encrypting the message body
-   - `(header_key, header_iv)` — for encrypting the header (ciphertext length)
-3. **Encryption:** Encrypt the plaintext bytes with AES-128-CBC using PKCS#7 padding. Encrypt a 2-byte header containing the ciphertext length.
-4. **Ciphertext layout (in bytes):**
-   ```
-   [eph_pk.x (field)] [eph_pk_sign (1 byte), header_ct (16 bytes), body_ct, random_padding]
-   ```
-5. **Field packing:** The byte payload (excluding `eph_pk.x`) is packed into fields at 31 bytes per field. The `eph_pk.x` occupies a full field as field 0 of the ciphertext. Remaining fields are filled with random padding to reach `MESSAGE_CIPHERTEXT_LEN = 17` fields.
-6. **Final log:** `[tag, eph_pk.x, ciphertext_field_1, ..., ciphertext_field_16]` (18 fields total).
-
-#### Poseidon2 Encryption (Alternative)
-
-An alternative scheme using Poseidon2 as a sponge-based stream cipher. It is faster to prove (~160 constraints for 8 fields) but is less battle-tested than AES-128 and does not provide post-quantum privacy.
-
-### Tag-Based Log Discovery
-
-Tags enable recipients to identify private logs intended for them without attempting decryption of every log.
-
-#### Tag Derivation
-
-The tagging system uses a hierarchical secret derivation:
-
-1. **Shared tagging secret:** Computed via ECDH between sender and recipient using their incoming viewing secret keys (ivsk):
-   ```
-   tagging_secret_point = ecdh(local_ivsk, external_address_point)
-   ```
-
-2. **App tagging secret:** The shared secret is siloed to the application (contract):
-   ```
-   app_tagging_secret = poseidon2_hash([tagging_secret_point.x, tagging_secret_point.y, app_address])
-   ```
-
-3. **Directional app tagging secret:** Specific to the direction of communication (sender→recipient ≠ recipient→sender):
-   ```
-   directional_secret = poseidon2_hash([app_tagging_secret, recipient_address])
-   ```
-
-4. **Tag:** Combines the directional secret with a monotonically increasing index:
-   ```
-   tag = poseidon2_hash([directional_secret, index])
-   ```
-
-5. **Siloed tag:** The protocol silos the tag to the contract (this is what appears as field 0 of the emitted log):
-   ```
-   siloed_tag = poseidon2_hash_with_separator(
-       [contract_address, tag],
-       DOM_SEP__PRIVATE_LOG_FIRST_FIELD
-   )
-   ```
-
-#### Discovery Process
-
-Recipients discover logs by:
-
-1. Computing the directional app tagging secret for each (sender, contract) pair they expect to receive logs from.
-2. Computing tags for sequential index values starting from the last known index.
-3. Computing siloed tags for each (tag, contract) pair.
-4. Scanning block logs for matching siloed tags (field 0).
-5. When a match is found, extracting the remaining fields and attempting decryption.
-
-The tagging index is maintained per (sender, recipient, contract) tuple and incremented after each log emission. Recipients track these indexes to efficiently sync new logs.
-
 ## Data Structures
 
 ### Core Log Structures
@@ -482,35 +393,6 @@ classDiagram
     FlatPublicLogs *-- PublicLog : contains many
 ```
 
-### Private Log Layout
-
-The 18 fields of a private log follow a convention (not enforced by the protocol):
-
-| Field Index | Convention | Protocol Role |
-|---|---|---|
-| 0 | Tag (siloed) | Siloed by kernel; used for discovery |
-| 1 | Ephemeral public key x-coordinate | Opaque to protocol |
-| 2..17 | Encrypted message bytes (packed at 31 bytes/field) | Opaque to protocol |
-
-### Message Plaintext Structure
-
-The application-layer message encoding (within the encrypted payload) follows this structure:
-
-```
-message_plaintext: [expanded_metadata, ...content]
-```
-
-Where `expanded_metadata` is a 128-bit value packed as:
-
-```
-expanded_metadata = (msg_type_id << 64) | msg_metadata
-```
-
-| Message Type | `msg_type_id` | `msg_metadata` | Content |
-|---|---|---|---|
-| Private note | `PRIVATE_NOTE_MSG_TYPE_ID` | Note type ID | `[owner, storage_slot, randomness, ...packed_note]` |
-| Private event | `PRIVATE_EVENT_MSG_TYPE_ID` | Event type ID | `[randomness, ...serialized_event]` |
-
 ### Constants
 
 | Constant | Value | Description |
@@ -520,9 +402,6 @@ expanded_metadata = (msg_type_id << 64) | msg_metadata
 | `MAX_CONTRACT_CLASS_LOGS_PER_TX` | 1 | Maximum contract class logs per transaction |
 | `MAX_CONTRACT_CLASS_LOGS_PER_CALL` | 1 | Maximum contract class logs per function call |
 | `PRIVATE_LOG_SIZE_IN_FIELDS` | 18 | Fixed field count for private logs |
-| `PRIVATE_LOG_CIPHERTEXT_LEN` | 17 | Ciphertext fields (size - 1 for tag) |
-| `MESSAGE_PLAINTEXT_LEN` | 14 | Maximum decrypted plaintext fields |
-| `MAX_MESSAGE_CONTENT_LEN` | 13 | Maximum message content fields (plaintext - metadata) |
 | `FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH` | 4096 | Maximum total public log fields per tx |
 | `PUBLIC_LOG_HEADER_LENGTH` | 2 | Header fields per public log (length + address) |
 | `MAX_PUBLIC_LOG_SIZE_IN_FIELDS` | 4094 | Maximum fields per individual public log |
@@ -556,7 +435,7 @@ A single private function call MUST NOT emit more than `MAX_PRIVATE_LOGS_PER_CAL
 
 ### V4: Siloing Completeness
 
-All private logs in the Tail or Tail-to-Public circuit output MUST have been siloed. A siloed log is identified by having its contract address cleared to zero.
+All private logs in the Tail or Tail-to-Public circuit output MUST have been siloed. A siloed log is identified by having its contract address cleared to zero. This includes logs that originated from padding.
 
 **Enforced by:** Private Kernel Tail circuit (V-Tail-7 in Spec #7).
 
@@ -651,18 +530,9 @@ Private logs provide confidentiality through a combination of protocol and appli
 - **Siloed tags:** Tags are siloed to the contract address, preventing cross-contract tag correlation.
 - **Fixed-size logs:** All private logs are 18 fields regardless of content, preventing length-based analysis.
 - **Random padding:** The kernel pads arrays with random values to obscure the true number of logs.
-- **Application encryption:** The ciphertext payload is encrypted by the application (not the protocol), using either AES-128 or Poseidon2 encryption with ECDH key agreement.
+- **Application encryption:** The ciphertext payload is encrypted by the application (not the protocol).
 
 **Limitation:** The number of non-empty logs per transaction is bounded but their count within the padded range is hidden. An observer can determine the maximum possible number of real logs from the array length, but not the exact count.
-
-### Tag Unlinkability
-
-The tagging system provides the following properties:
-
-- **Sender-recipient privacy:** The shared tagging secret is derived from ECDH, so only the sender and recipient can compute tags.
-- **Cross-contract isolation:** Tags are siloed per-contract, preventing correlation across contracts.
-- **Directionality:** The directional component ensures A→B tags differ from B→A tags.
-- **Forward secrecy (limited):** Tags use monotonic indexes, so compromising a tagging secret reveals all past and future tags for that (sender, recipient, contract) tuple.
 
 ### Contract Class Log Integrity
 
@@ -671,18 +541,6 @@ Contract class logs carry bytecode that defines contract behavior. A malicious p
 ### Public Log Censorship
 
 Public logs are emitted by the AVM and included in the transaction effect. A sequencer could censor specific transactions but cannot selectively remove logs from an included transaction — the sponge blob hash commits to all transaction effect data including logs.
-
-## Open Questions
-
-1. **Post-quantum privacy for private logs:** The current AES-128 encryption provides classical security but the ECDH key agreement on Grumpkin is not post-quantum secure. Should the protocol plan for migration to post-quantum encryption schemes?
-
-2. **Tag exhaustion and rotation:** The tagging system uses monotonically increasing indexes per (sender, recipient, contract) tuple. If a sender exhausts their tag space or their tagging secret is compromised, there is no specified rotation mechanism.
-
-3. **Public log indexing:** The protocol does not define a standardized event signature or topic system for public logs (analogous to Ethereum's LOG topics). Should the protocol specify a standard first-field convention for public log filtering?
-
-4. **Encryption scheme agility:** The protocol's fixed `PRIVATE_LOG_SIZE_IN_FIELDS = 18` currently accommodates the AES-128 encryption overhead. If new encryption schemes with different overhead are introduced, this constant would need to change, affecting all implementations.
-
-5. **Log ordering across private and public execution:** Private logs are ordered by side-effect counter within the private phase. Public logs are ordered by AVM execution order. The relative ordering between private and public logs within a single transaction is implicitly defined (private logs come first in the TxEffect) but deserves explicit specification.
 
 ## References
 
