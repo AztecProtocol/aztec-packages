@@ -199,6 +199,10 @@ export abstract class BaseFr extends BaseField {
   protected modulus() {
     return BaseFr.MODULUS;
   }
+
+  toJSON() {
+    return this.toString();
+  }
 }
 
 /**
@@ -324,10 +328,6 @@ export class Fr extends BaseFr {
       return null;
     }
     return Fr.fromBuffer(Buffer.from(response.value));
-  }
-
-  toJSON() {
-    return this.toString();
   }
 
   /**
