@@ -71,7 +71,7 @@ export const proverConfigMappings: ConfigMappingsType<ProverConfig> = {
   },
   proverId: {
     env: 'PROVER_ID',
-    parseEnv: (val?: string) => parseProverId(val),
+    parseEnv: (val: string) => parseProverId(val),
     description: 'Hex value that identifies the prover. Defaults to the address used for submitting proofs if not set.',
   },
   proverTestDelayType: {
@@ -117,10 +117,7 @@ export const proverConfigMappings: ConfigMappingsType<ProverConfig> = {
   },
 };
 
-function parseProverId(str?: string) {
-  if (!str) {
-    return undefined;
-  }
+function parseProverId(str: string) {
   return EthAddress.fromString(str);
 }
 

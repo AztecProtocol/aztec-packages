@@ -154,14 +154,32 @@ describe('Config', () => {
       expect(parseEnv!('2.5e5')).toBe(250000n);
     });
 
-    it('returns default value for empty string', () => {
-      const { parseEnv } = bigintConfigHelper(42n);
-      expect(parseEnv!('')).toBe(42n);
-    });
-
     it('throws for non-integer scientific notation results', () => {
       const { parseEnv } = bigintConfigHelper();
       expect(() => parseEnv!('1e-3')).toThrow();
+    });
+
+    it('returns default value for empty string env var', () => {
+      const originalEnv = process.env;
+      process.env = { ...originalEnv, L1_MINIMUM_PRIORITY_FEE_PER_GAS_GWEI: '' };
+      try {
+        interface TestConfig {
+          value: bigint;
+        }
+        const config = getConfigFromMappings<TestConfig>({
+          value: {
+            env: 'L1_MINIMUM_PRIORITY_FEE_PER_GAS_GWEI',
+            description: 'test',
+            parseEnv: () => {
+              throw new Error('parseEnv should not be called for empty string');
+            },
+            defaultValue: 42n,
+          },
+        });
+        expect(config.value).toBe(42n);
+      } finally {
+        process.env = originalEnv;
+      }
     });
   });
 });
