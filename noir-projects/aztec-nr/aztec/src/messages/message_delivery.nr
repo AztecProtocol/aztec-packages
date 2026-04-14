@@ -192,6 +192,11 @@ pub global MessageDelivery: MessageDeliveryEnum =
 /// be created, there is no point in delivering the message.
 ///
 /// `delivery_mode` must be one of [`MessageDeliveryEnum`].
+///
+/// ## Privacy
+///
+/// The emitted log always has the same length regardless of `MESSAGE_PLAINTEXT_LEN`, because all message ciphertexts
+/// also have the same length. This prevents accidental privacy leakage via the log length.
 pub fn do_private_message_delivery<Env, let MESSAGE_PLAINTEXT_LEN: u32>(
     context: &mut PrivateContext,
     encode_into_message_plaintext: fn[Env]() -> [Field; MESSAGE_PLAINTEXT_LEN],
@@ -212,8 +217,6 @@ pub fn do_private_message_delivery<Env, let MESSAGE_PLAINTEXT_LEN: u32>(
 
     let contract_address = context.this_address();
 
-    // Note that the log always has the same length regardless of `MESSAGE_PLAINTEXT_LEN`, because all message
-    // ciphertexts also have the same length. This prevents accidental privacy leakage via the log length.
     let ciphertext = remove_constraints_if(
         !constrained_encryption,
         || AES128::encrypt(encode_into_message_plaintext(), recipient, contract_address),
@@ -238,9 +241,9 @@ pub fn do_private_message_delivery<Env, let MESSAGE_PLAINTEXT_LEN: u32>(
         if maybe_note_hash_counter.is_some() {
             // We associate the log with the note's side effect counter, so that if the note ends up being squashed in
             // the current transaction, the log will be removed as well.
-            context.emit_raw_note_log_unsafe(log_tag, log, maybe_note_hash_counter.unwrap());
+            context.emit_raw_note_log_vec_unsafe(log_tag, log, maybe_note_hash_counter.unwrap());
         } else {
-            context.emit_private_log_unsafe(log_tag, log);
+            context.emit_private_log_vec_unsafe(log_tag, log);
         }
     }
 }
