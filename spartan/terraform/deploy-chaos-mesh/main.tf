@@ -38,7 +38,8 @@ resource "helm_release" "chaos_mesh" {
   upgrade_install   = true
   force_update      = true
   recreate_pods     = true
-  reuse_values      = true
+  reuse_values      = false
+  reset_values      = true
   wait              = true
   wait_for_jobs     = true
   timeout           = 600

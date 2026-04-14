@@ -148,6 +148,7 @@ resource "helm_release" "releases" {
   force_update     = true
   recreate_pods    = true
   reuse_values     = false
+  reset_values     = true
   timeout          = 600
   wait             = false
 }

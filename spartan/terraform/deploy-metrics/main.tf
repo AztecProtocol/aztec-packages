@@ -121,7 +121,8 @@ resource "helm_release" "aztec-gke-cluster" {
   upgrade_install   = true
   dependency_update = true
   force_update      = true
-  reuse_values      = true
+  reuse_values      = false
+  reset_values      = true
 
   # base values file
   values = [

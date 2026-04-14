@@ -709,6 +709,7 @@ resource "helm_release" "releases" {
   force_update     = true
   recreate_pods    = true
   reuse_values     = false
+  reset_values     = true
   timeout          = lookup(each.value, "timeout", 600)
   wait             = each.value.wait
   wait_for_jobs    = true
