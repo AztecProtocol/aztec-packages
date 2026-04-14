@@ -560,6 +560,12 @@ export class PXE {
    * TODO: It's strange that we return the address here and I (benesjan) think we should drop the return value.
    */
   public async registerSender(sender: AztecAddress): Promise<AztecAddress> {
+    if (!(await sender.isValid())) {
+      throw new Error(
+        `Address ${sender} is not valid: it does not correspond to a point on the Grumpkin curve. Cannot register it as a sender.`,
+      );
+    }
+
     const accounts = await this.keyStore.getAccounts();
     if (accounts.includes(sender)) {
       this.log.info(`Sender:\n "${sender.toString()}"\n already registered.`);

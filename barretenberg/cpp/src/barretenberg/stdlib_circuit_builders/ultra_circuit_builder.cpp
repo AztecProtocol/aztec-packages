@@ -513,6 +513,43 @@ plookup::BasicTable& UltraCircuitBuilder_<ExecutionTrace>::get_table(const plook
     return lookup_tables.back();
 }
 
+/** @copydoc UltraCircuitBuilder_::register_basic_lookup_table */
+template <typename ExecutionTrace>
+plookup::BasicTable* UltraCircuitBuilder_<ExecutionTrace>::register_basic_lookup_table(plookup::BasicTable&& table)
+{
+    table.table_index = lookup_tables.size();
+    lookup_tables.emplace_back(std::move(table));
+    return &lookup_tables.back();
+}
+
+/** @copydoc UltraCircuitBuilder_::create_lookup_gate */
+template <typename ExecutionTrace>
+void UltraCircuitBuilder_<ExecutionTrace>::create_lookup_gate(const uint32_t key_idx,
+                                                              const uint32_t val1_idx,
+                                                              const uint32_t val2_idx,
+                                                              plookup::BasicTable& table,
+                                                              const plookup::BasicTable::LookupEntry& entry,
+                                                              const FF column_1_step_size,
+                                                              const FF column_2_step_size,
+                                                              const FF column_3_step_size)
+{
+    this->assert_valid_variables({ key_idx, val1_idx, val2_idx });
+
+    table.lookup_gates.emplace_back(entry);
+
+    blocks.lookup.populate_wires(key_idx, val1_idx, val2_idx, this->zero_idx());
+    blocks.lookup.set_gate_selector(1);
+    blocks.lookup.q_3().emplace_back(FF(table.table_index));
+    blocks.lookup.q_2().emplace_back(column_1_step_size);
+    blocks.lookup.q_m().emplace_back(column_2_step_size);
+    blocks.lookup.q_c().emplace_back(column_3_step_size);
+    blocks.lookup.q_1().emplace_back(0);
+    blocks.lookup.q_4().emplace_back(0);
+
+    check_selector_length_consistency();
+    this->increment_num_gates();
+}
+
 /**
  * @brief Create gates from pre-computed accumulator values which simultaneously establish individual basic-table
  * lookups and the reconstruction of the desired result from those components.
@@ -559,7 +596,6 @@ plookup::ReadData<uint32_t> UltraCircuitBuilder_<ExecutionTrace>::create_gates_f
 
         // Get basic lookup table; construct and add to builder.lookup_tables if not already present
         plookup::BasicTable& table = get_table(multi_table.basic_table_ids[i]);
-        table.lookup_gates.emplace_back(read_values.lookup_entries[i]);
 
         // Create witness variables: first lookup reuses user's input indices, subsequent create new variables
         const auto first_idx = is_first_lookup ? key_a_index : this->add_variable(read_values[ColumnIdx::C1][i]);
@@ -571,21 +607,14 @@ plookup::ReadData<uint32_t> UltraCircuitBuilder_<ExecutionTrace>::create_gates_f
         read_data[ColumnIdx::C1].push_back(first_idx);
         read_data[ColumnIdx::C2].push_back(second_idx);
         read_data[ColumnIdx::C3].push_back(third_idx);
-        this->assert_valid_variables({ first_idx, second_idx, third_idx });
 
-        // Populate lookup gate: wire values and selectors
-        blocks.lookup.populate_wires(first_idx, second_idx, third_idx, this->zero_idx());
-        blocks.lookup.set_gate_selector(1);                      // mark as lookup gate
-        blocks.lookup.q_3().emplace_back(FF(table.table_index)); // unique table identifier
         // Step size coefficients: zero for last lookup (no next accumulator), negative step sizes otherwise
-        blocks.lookup.q_2().emplace_back(is_last_lookup ? 0 : -multi_table.column_1_step_sizes[i + 1]);
-        blocks.lookup.q_m().emplace_back(is_last_lookup ? 0 : -multi_table.column_2_step_sizes[i + 1]);
-        blocks.lookup.q_c().emplace_back(is_last_lookup ? 0 : -multi_table.column_3_step_sizes[i + 1]);
-        blocks.lookup.q_1().emplace_back(0); // unused
-        blocks.lookup.q_4().emplace_back(0); // unused
+        const FF col1_step = is_last_lookup ? FF(0) : -multi_table.column_1_step_sizes[i + 1];
+        const FF col2_step = is_last_lookup ? FF(0) : -multi_table.column_2_step_sizes[i + 1];
+        const FF col3_step = is_last_lookup ? FF(0) : -multi_table.column_3_step_sizes[i + 1];
 
-        check_selector_length_consistency();
-        this->increment_num_gates();
+        create_lookup_gate(
+            first_idx, second_idx, third_idx, table, read_values.lookup_entries[i], col1_step, col2_step, col3_step);
     }
     return read_data;
 }

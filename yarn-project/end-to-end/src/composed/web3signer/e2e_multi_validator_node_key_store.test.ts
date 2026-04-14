@@ -9,7 +9,7 @@ import { getAddressFromPrivateKey } from '@aztec/ethereum/account';
 import { getL1ContractsConfigEnvVars } from '@aztec/ethereum/config';
 import { RollupContract } from '@aztec/ethereum/contracts';
 import type { DeployAztecL1ContractsReturnType } from '@aztec/ethereum/deploy-aztec-l1-contracts';
-import { IndexWithinCheckpoint } from '@aztec/foundation/branded-types';
+import { type CheckpointNumber, IndexWithinCheckpoint } from '@aztec/foundation/branded-types';
 import { SecretValue } from '@aztec/foundation/config';
 import { retryUntil } from '@aztec/foundation/retry';
 import { type EthPrivateKey, KeystoreManager, loadKeystores, mergeKeystores } from '@aztec/node-keystore';
@@ -364,6 +364,7 @@ describe('e2e_multi_validator_node', () => {
     const originalCreateProposal = validatorClient.createBlockProposal.bind(validatorClient);
     const createBlockProposal = (
       blockHeader: BlockHeader,
+      checkpointNumber: CheckpointNumber,
       indexWithinCheckpoint: number,
       inHash: Fr,
       archive: Fr,
@@ -384,6 +385,7 @@ describe('e2e_multi_validator_node', () => {
 
       return originalCreateProposal(
         blockHeader,
+        checkpointNumber,
         IndexWithinCheckpoint(indexWithinCheckpoint),
         inHash,
         archive,

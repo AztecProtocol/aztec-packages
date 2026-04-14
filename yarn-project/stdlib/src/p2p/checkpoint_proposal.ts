@@ -1,4 +1,4 @@
-import { BlockNumber, IndexWithinCheckpoint, SlotNumber } from '@aztec/foundation/branded-types';
+import { type CheckpointNumber, IndexWithinCheckpoint, SlotNumber } from '@aztec/foundation/branded-types';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { keccak256 } from '@aztec/foundation/crypto/keccak';
 import { tryRecoverAddress } from '@aztec/foundation/crypto/secp256k1-signer';
@@ -160,6 +160,7 @@ export class CheckpointProposal extends Gossipable {
   static async createProposalFromSigner(
     checkpointHeader: CheckpointHeader,
     archiveRoot: Fr,
+    checkpointNumber: CheckpointNumber,
     feeAssetPriceModifier: bigint,
     lastBlockProposal: BlockProposal | undefined,
     payloadSigner: (payload: Buffer32, context: SigningContext) => Promise<Signature>,
@@ -175,7 +176,7 @@ export class CheckpointProposal extends Gossipable {
 
     const checkpointContext: SigningContext = {
       slot: checkpointHeader.slotNumber,
-      blockNumber: lastBlockProposal?.blockNumber ?? BlockNumber(0),
+      checkpointNumber,
       dutyType: DutyType.CHECKPOINT_PROPOSAL,
     };
 

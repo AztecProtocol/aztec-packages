@@ -46,6 +46,10 @@ Add GitHub labels to PRs to control what CI runs. Choose based on what changed:
 - **`ci-barretenberg-full`** or **`ci-full`** — Full builds including cross-compilation (macOS, iOS, ARM64 Linux), SMT verification, ASAN, and GCC syntax checks. Use when changing CMake presets, bootstrap.sh, or build infrastructure.
 - **`ci-release-pr`** — Creates a test release tag for pre-release validation. Use when changing release packaging or publish workflows.
 
+## Code comments
+
+Comments must describe the code as it is, not relative to what it used to be. Never write comments like "replaces the old X", "no longer needs Y", "previously this was Z", or "eliminates the need for W". These become stale immediately after the commit lands. Instead, describe what the code does and why.
+
 ## Handling noir/noir-repo submodule
 
 If `git status` shows `noir/noir-repo` as modified but your changes have nothing to do with updating noir, run:
