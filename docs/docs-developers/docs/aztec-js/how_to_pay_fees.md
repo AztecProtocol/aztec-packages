@@ -28,6 +28,7 @@ This guide walks you through paying transaction fees on Aztec using various paym
 #else
 | Sponsored FPC       | Testing, free transactions                     | Public          | None (devnet and local only) |
 #endif
+| Private FPC         | Privacy-preserving fees                        | Private         | Bridged Fee Juice via FPC    |
 | Third-party FPC     | Pay in other tokens on testnet/mainnet         | Varies by FPC   | FPC provider's SDK           |
 | Bridge + Claim      | Bootstrap from L1                              | Public          | L1 ETH for gas               |
 
@@ -110,6 +111,14 @@ Here's a simpler example from the test suite:
 
 #include_code sponsored_fpc_simple yarn-project/end-to-end/src/e2e_fees/sponsored_payments.test.ts typescript
 
+### Private Fee Payment
+
+For transactions where the fee payment itself should be private, you can use a fully private FPC — one that holds Fee Juice claimed from L1 as an internal private balance, works on every network, and never needs an onchain deployment. See [Pay Fees Privately](./how_to_use_private_fee_juice.md) for how this pattern works and a walkthrough using a community-built example.
+
+:::tip Shared salt for privacy
+When multiple apps derive the same private FPC address (using the same artifact and salt), every private fee payment joins a single, larger privacy set. See [Recommended salt](./how_to_use_private_fee_juice.md#recommended-salt-0) for details.
+:::
+
 ### Third-party FPCs on testnet and mainnet
 
 On networks where the Sponsored FPC is unavailable, third-party FPCs deployed by ecosystem teams let you pay fees in tokens other than Fee Juice. Each FPC provider typically offers an SDK or API that handles payment method construction on the client side — this may include quote fetching and authwit creation, though the exact flow depends on the FPC design. For background on how FPCs work at the protocol level, see [How FPCs work](../foundational-topics/fees.md#how-fpcs-work).
@@ -123,10 +132,10 @@ This FPC is quote-based and operates privately:
 - A single deployment accepts many tokens — the asset is selected per quote rather than hard-coded at deploy time.
 - Fee payments are transferred as private notes, so fee activity is not visible onchain.
 - An operator-run attestation service signs per-user quotes binding the FPC address, accepted asset, amounts, expiry, and user.
-- A cold-start entrypoint allows a brand-new account to bridge tokens from L1, claim on L2, and pay the fee in a single transaction.
+- A cold-start entrypoint allows a brand-new account to bridge tokens from L1, claim on L2, and pay the fee in a single transaction. Note that the cold-start path calls `Token::mint_to_private`, which enqueues a public call to update the token's total supply — so the minted amount is visible onchain even though the user's identity and balances remain private.
 
 :::warning Third-party software
-This FPC is developed and maintained by Nethermind, not by Aztec Labs. The SDK (`@nethermindeth/aztec-fpc-sdk`) is not yet published to npm — install from source per the [repository README](https://github.com/NethermindEth/aztec-fpc/blob/main/sdk/README.md). Review the [protocol spec](https://github.com/NethermindEth/aztec-fpc/blob/main/docs/spec/protocol-spec.md) and evaluate independently before integrating.
+This FPC is developed and maintained by Nethermind, not by Aztec Labs. The SDK (`@nethermindeth/aztec-fpc-sdk`) may not yet be published to npm — check the [repository README](https://github.com/NethermindEth/aztec-fpc/blob/main/sdk/README.md) for current install instructions. Review the [protocol spec](https://github.com/NethermindEth/aztec-fpc/blob/main/docs/spec/protocol-spec.md) and evaluate independently before integrating.
 :::
 
 The SDK wraps the quote-and-pay flow into a single call. The snippet below shows the general shape of the integration (illustrative — verify against the current SDK API before using):
