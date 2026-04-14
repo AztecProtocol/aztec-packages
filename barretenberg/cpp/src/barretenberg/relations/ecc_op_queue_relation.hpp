@@ -10,10 +10,10 @@
 namespace bb {
 
 /**
- * @brief Constrains ecc_op_wire polynomials to equal shifted wires on the ECC op domain, and zero elsewhere.
+ * @brief Constrains ecc_op_wire polynomials to equal wires on the ECC op domain, and zero elsewhere.
  * @details The relation is defined as C(in(X)...) =
  *    \alpha_{base} *
- *       ( \Sum_{i=0}^3 \alpha^i * (w_i_shift - w_{op,i}) * \chi_{ecc_op} +
+ *       ( \Sum_{i=0}^3 \alpha^i * (w_i - w_{op,i}) * \chi_{ecc_op} +
  *         \Sum_{i=0}^3 \alpha^{i+4} w_{op,i} * \bar{\chi}_{ecc_op} )
  *
  * where w_{op,i} are the ecc op gate wires, \chi_{ecc_op} is the indicator for the portion of the domain
@@ -22,11 +22,8 @@ namespace bb {
  * The first four sub-relations check that the values in the conventional wires are identical to the values in the
  * ecc op wires over the portion of the execution trace representing ECC op queue gates. The next four check
  * that the op wire polynomials are identically zero everywhere else.
- * @note In other words, the `ecc_op_wire`s are derived witnesses, which the prover "fills in". We wish that these
- * values are constrained to be `w_i_shift` when `i` is in the `ecc_op` range and 0 else. This tacitly assumes that
- * the ecc ops "come first" in the execution trace.
- * @note This relation utilizes the shifted wires so that the ecc op wires can store the data begining at index 0,
- * unlike the wires which contain an initial zero row to facilitate the left-shift-by-1 needed by other relations.
+ * @note The `ecc_op_wire`s are derived witnesses which the prover "fills in". They are constrained to equal `w_i`
+ * (not `w_i_shift`) on the `ecc_op` range and 0 elsewhere. The ecc_op block must be first in the execution trace.
  */
 template <typename FF_> class EccOpQueueRelationImpl {
   public:
@@ -67,10 +64,10 @@ template <typename FF_> class EccOpQueueRelationImpl {
         // 3). To do a degree-1 multiplication in the coefficient basis requires 3 Fp muls and 4 Fp adds (karatsuba
         // multiplication). But a multiplication of a degree-3 Univariate only requires 3 Fp muls.
         // We still cast to CoefficientAccumulator so that the degree is extended to degree-3 from degree-1
-        auto w_1_shift = Accumulator(CoefficientAccumulator(in.w_l_shift));
-        auto w_2_shift = Accumulator(CoefficientAccumulator(in.w_r_shift));
-        auto w_3_shift = Accumulator(CoefficientAccumulator(in.w_o_shift));
-        auto w_4_shift = Accumulator(CoefficientAccumulator(in.w_4_shift));
+        auto w_1 = Accumulator(CoefficientAccumulator(in.w_l));
+        auto w_2 = Accumulator(CoefficientAccumulator(in.w_r));
+        auto w_3 = Accumulator(CoefficientAccumulator(in.w_o));
+        auto w_4 = Accumulator(CoefficientAccumulator(in.w_4));
         auto op_wire_1 = Accumulator(CoefficientAccumulator(in.ecc_op_wire_1));
         auto op_wire_2 = Accumulator(CoefficientAccumulator(in.ecc_op_wire_2));
         auto op_wire_3 = Accumulator(CoefficientAccumulator(in.ecc_op_wire_3));
@@ -83,22 +80,22 @@ template <typename FF_> class EccOpQueueRelationImpl {
         auto complement_ecc_op_by_scaling = -lagrange_by_scaling + scaling_factor;
 
         // Contribution (1)
-        auto tmp = op_wire_1 - w_1_shift;
+        auto tmp = op_wire_1 - w_1;
         tmp *= lagrange_by_scaling;
         std::get<0>(accumulators) += tmp;
 
         // Contribution (2)
-        tmp = op_wire_2 - w_2_shift;
+        tmp = op_wire_2 - w_2;
         tmp *= lagrange_by_scaling;
         std::get<1>(accumulators) += tmp;
 
         // Contribution (3)
-        tmp = op_wire_3 - w_3_shift;
+        tmp = op_wire_3 - w_3;
         tmp *= lagrange_by_scaling;
         std::get<2>(accumulators) += tmp;
 
         // Contribution (4)
-        tmp = op_wire_4 - w_4_shift;
+        tmp = op_wire_4 - w_4;
         tmp *= lagrange_by_scaling;
         std::get<3>(accumulators) += tmp;
 

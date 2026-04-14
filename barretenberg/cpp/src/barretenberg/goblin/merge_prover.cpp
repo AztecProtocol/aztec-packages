@@ -25,15 +25,14 @@ MergeProver::MergeProver(const std::shared_ptr<ECCOpQueue>& op_queue,
     // Merge the current subtable (for which a merge proof is being constructed) prior to
     // procedeing with proving.
     if (settings == MergeSettings::APPEND) {
-        size_t last_subtable_size = op_queue->get_current_subtable_size();
-        op_queue->merge(settings, ECCOpQueue::OP_QUEUE_SIZE - last_subtable_size);
+        op_queue->merge(settings, op_queue->get_append_offset());
 
     } else {
         op_queue->merge(settings);
     }
 
     // Size the commitment key to accommodate the X^s shift applied to merge polynomials
-    pcs_commitment_key = CommitmentKey(op_queue->get_ultra_ops_table_num_rows() + TRACE_OFFSET);
+    pcs_commitment_key = CommitmentKey(op_queue->get_ultra_ops_table_num_rows() + TRACE_OFFSET + NUM_ZERO_ROWS);
 };
 
 MergeProver::Polynomial MergeProver::compute_degree_check_polynomial(
@@ -181,16 +180,14 @@ MergeProver::MergeProof MergeProver::construct_proof()
     // Capture shift_size BEFORE the X^s shift (the concatenation identity uses the unshifted size)
     const size_t shift_size = left_table[0].size();
 
-    // Shift L and R by X^s so their commitments match the circuit's ecc_op_wire commitments and
-    // the T_prev chain from prior PREPEND merges (which output [X^s·M]).
-    // For PREPEND: also shift M to maintain the chain ([X^s·M] becomes T_prev for the next merge).
-    // For APPEND (final merge): do NOT shift M — commit to [M] directly for the Translator.
-    // The Shplonk uses X^s·L, X^s·R, and M or X^s·M — each matches its commitment.
-    shift_table_by_disabled_rows(left_table);
-    shift_table_by_disabled_rows(right_table);
-    if (settings == MergeSettings::PREPEND) {
-        shift_table_by_disabled_rows(merged_table);
-    }
+    // Shift L and R by X^s (s = FULL_SHIFT) so their commitments match the circuit's ecc_op_wire
+    // commitments and the T_prev chain from prior PREPEND merges (which output [X^s·M]).
+    // For PREPEND: also shift M by s to maintain the chain.
+    // For APPEND (final merge): shift M by APPEND_OUTPUT_SHIFT (= 2) to provide leading zeros
+    // matching the Translator's polynomial layout (which needs 2 zeros for shiftability).
+    shift_table(left_table, FULL_SHIFT);
+    shift_table(right_table, FULL_SHIFT);
+    shift_table(merged_table, (settings == MergeSettings::PREPEND) ? FULL_SHIFT : APPEND_OUTPUT_SHIFT);
 
     transcript->send_to_verifier("shift_size", static_cast<uint32_t>(shift_size));
 

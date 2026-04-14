@@ -20,10 +20,8 @@ class MegaAvmFlavor : public bb::MegaFlavor {
     // Override VIRTUAL_LOG_N for the AVM recursive verifier circuit
     static constexpr size_t VIRTUAL_LOG_N = MEGA_AVM_LOG_N;
 
-    // AVM doesn't use ZK masking, so no disabled rows are needed. Setting TRACE_OFFSET=0
-    // makes the ecc_op_wire commitments match the raw op_queue data (no leading zeros),
-    // which the Translator expects.
-    static constexpr size_t TRACE_OFFSET = 0;
+    // Gives ecc_op_wire polynomials 2 leading zeros, matching the Translator's shiftability layout.
+    static constexpr size_t TRACE_OFFSET = 1;
 
     static constexpr size_t FINAL_PCS_MSM_SIZE(size_t log_n = VIRTUAL_LOG_N)
     {

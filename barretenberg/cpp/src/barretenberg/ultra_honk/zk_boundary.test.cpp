@@ -72,22 +72,23 @@ TEST_F(ZKBoundaryTests, EccOpWireAlignmentAtDisabledBoundary)
     auto instance = build_instance();
     auto& polys = instance->polynomials;
 
-    constexpr size_t ecc_op_start = ProverInstance::TRACE_OFFSET;
+    // ecc_op block starts at TRACE_OFFSET + NUM_ZERO_ROWS (the block's trace_offset)
+    constexpr size_t ecc_op_start = ProverInstance::TRACE_OFFSET + NUM_ZERO_ROWS;
 
     // Sanity: lagrange_ecc_op should be 1 starting at ecc_op_start
     ASSERT_EQ(polys.lagrange_ecc_op[ecc_op_start], FF{ 1 })
         << "lagrange_ecc_op should be active at row " << ecc_op_start;
 
-    // Verify alignment: ecc_op_wire[r] == w[r+1] for each active ecc_op row
+    // Verify alignment: ecc_op_wire[r] == w[r] for each active ecc_op row (no shift)
     auto ecc_op_wires = polys.get_ecc_op_wires();
     auto wires = polys.get_wires();
     for (size_t r = ecc_op_start; polys.lagrange_ecc_op[r] == FF{ 1 }; r++) {
         for (auto [ecc_op_wire, wire] : zip_view(ecc_op_wires, wires)) {
-            ASSERT_EQ(ecc_op_wire[r], wire[r + 1]) << "ecc_op_wire / w_shift mismatch at row " << r;
+            ASSERT_EQ(ecc_op_wire[r], wire[r]) << "ecc_op_wire / w mismatch at row " << r;
         }
     }
 
-    // Now corrupt: shift ecc_op_wire[ecc_op_start] and verify EccOpQueueRelation detects it
+    // Now corrupt: ecc_op_wire[ecc_op_start] and verify EccOpQueueRelation detects it
     FF original = polys.ecc_op_wire_1[ecc_op_start];
     polys.ecc_op_wire_1.at(ecc_op_start) = original + FF{ 1 };
 
@@ -180,8 +181,9 @@ TEST_F(ZKBoundaryTests, EccOpWiresZeroInDisabledRegion)
     auto instance = build_instance();
     auto& polys = instance->polynomials;
 
+    // ecc_op data now starts at TRACE_OFFSET + NUM_ZERO_ROWS; everything before should be zero
     for (auto ecc_op_wire : polys.get_ecc_op_wires()) {
-        for (size_t r = 0; r < ProverInstance::TRACE_OFFSET; r++) {
+        for (size_t r = 0; r < ProverInstance::TRACE_OFFSET + NUM_ZERO_ROWS; r++) {
             EXPECT_EQ(ecc_op_wire[r], FF{ 0 }) << "ecc_op_wire should be zero at row " << r << " (disabled region)";
         }
     }

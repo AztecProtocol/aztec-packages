@@ -79,6 +79,13 @@ class ECCOpQueue {
 
     size_t get_current_subtable_size() const { return ultra_ops_table.get_current_subtable_size(); }
 
+    /**
+     * @brief Compute the fixed append offset for the final APPEND merge.
+     * @details Places the appended subtable so the total table fits in OP_QUEUE_SIZE, reserving
+     * NUM_ZERO_ROWS slots for the Translator's shiftability zero rows.
+     */
+    size_t get_append_offset() const { return OP_QUEUE_SIZE - get_current_subtable_size() - NUM_ZERO_ROWS; }
+
     void merge(MergeSettings settings = MergeSettings::PREPEND, std::optional<size_t> ultra_fixed_offset = std::nullopt)
     {
         eccvm_ops_table.merge(settings);
@@ -231,19 +238,6 @@ class ECCOpQueue {
         });
 
         return ultra_op;
-    }
-
-    /**
-     * @brief Writes a no op (i.e. two zero rows) to the ultra ops table but adds no eccvm operations.
-     *
-     * @details We want to be able to add zero rows to the ultra ops table without affecting the
-     * operations in the ECCVM.
-     */
-    UltraOp no_op_ultra_only()
-    {
-        UltraOp no_op{};
-        ultra_ops_table.push(no_op);
-        return no_op;
     }
 
     /**

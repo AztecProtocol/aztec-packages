@@ -178,6 +178,8 @@ template <typename Curve> class MergeTests : public testing::Test {
         auto T_merged = op_queue->construct_ultra_ops_table_columns();
         if (settings == MergeSettings::PREPEND) {
             MergeProver::shift_table_by_disabled_rows(T_merged);
+        } else {
+            MergeProver::shift_table(T_merged, MergeProver::APPEND_OUTPUT_SHIFT);
         }
         std::array<curve::BN254::AffineElement, NUM_WIRES> expected_merged_commitments;
         for (size_t idx = 0; idx < NUM_WIRES; idx++) {

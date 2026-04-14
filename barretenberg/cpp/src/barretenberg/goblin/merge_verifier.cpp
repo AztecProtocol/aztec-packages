@@ -164,8 +164,9 @@ typename MergeVerifier_<Curve>::ReductionResult MergeVerifier_<Curve>::reduce_to
     const FF kappa = transcript->template get_challenge<FF>("kappa");
     const FF kappa_inv = kappa.invert();
     const FF pow_kappa = kappa.pow(shift_size);
-    // L is always shifted by X^s (both PREPEND and APPEND). Degree check needs κ^{k+s-1}.
-    const FF pow_kappa_degree_check = pow_kappa * kappa.pow(TRACE_OFFSET) * kappa_inv;
+    // L is always shifted by X^s where s = TRACE_OFFSET + NUM_ZERO_ROWS (= FULL_SHIFT). Degree check needs κ^{k+s-1}.
+    static constexpr size_t FULL_SHIFT = TRACE_OFFSET + NUM_ZERO_ROWS;
+    const FF pow_kappa_degree_check = pow_kappa * kappa.pow(FULL_SHIFT) * kappa_inv;
 
     // Receive evaluations of [Lᵢ], [Rᵢ], [Mᵢ] at κ
     std::vector<FF> evals;
@@ -193,9 +194,11 @@ typename MergeVerifier_<Curve>::ReductionResult MergeVerifier_<Curve>::reduce_to
         evals.back().set_origin_tag(degree_check_challenges.back().get_origin_tag());
     }
 
-    // PREPEND: all shifted (L', R', M') — standard concatenation check: L' + κ^k·R' = M'.
-    // APPEND: L', R' shifted, M unshifted — adjusted: L' + κ^k·R' = κ^s·M.
-    const FF pow_kappa_s = (settings == MergeSettings::APPEND) ? kappa.pow(TRACE_OFFSET) : FF(1);
+    // PREPEND: all shifted by s (L', R', M') — standard concatenation check: L' + κ^k·R' = M'.
+    // APPEND: L', R' shifted by s, M shifted by APPEND_OUTPUT_SHIFT (=2, for Translator's leading zeros).
+    //   Check: L' + κ^k·R' = κ^(s - APPEND_OUTPUT_SHIFT)·M.
+    static constexpr size_t APPEND_OUTPUT_SHIFT = 2; // == TranslatorFlavor::RANDOMNESS_START
+    const FF pow_kappa_s = (settings == MergeSettings::APPEND) ? kappa.pow(FULL_SHIFT - APPEND_OUTPUT_SHIFT) : FF(1);
     bool concatenation_verified = check_concatenation_identities(evals, pow_kappa, pow_kappa_s);
 
     // Check degree identity

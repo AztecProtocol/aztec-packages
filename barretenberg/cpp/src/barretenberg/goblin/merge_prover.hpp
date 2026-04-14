@@ -46,24 +46,32 @@ class MergeProver {
 
     static constexpr size_t TRACE_OFFSET = MegaExecutionTraceBlocks::TRACE_OFFSET;
 
+    // Full shift applied to L, R, and M in PREPEND mode: matches the ecc_op_wire layout in the circuit.
+    static constexpr size_t FULL_SHIFT = TRACE_OFFSET + NUM_ZERO_ROWS;
+
+    // In APPEND mode (final merge), M retains a partial shift to provide leading zeros that match the
+    // Translator's polynomial layout (which requires RANDOMNESS_START = 2 zeros for shiftability).
+    static constexpr size_t APPEND_OUTPUT_SHIFT = 2; // == TranslatorFlavor::RANDOMNESS_START
+
     /**
-     * @brief Prepend TRACE_OFFSET zeros to each polynomial in a table.
-     * @details The circuit's ecc_op_wire polynomials have data starting at
-     * row TRACE_OFFSET (X^s · t(X) structure). The merge protocol polynomials must match this layout
-     * so that the prover's Shplonk quotient is consistent with the ecc_op_wire commitments held by
-     * the verifier.
+     * @brief Prepend `shift` zeros to each polynomial in a table.
      */
-    static void shift_table_by_disabled_rows(std::array<Polynomial, NUM_WIRES>& table)
+    static void shift_table(std::array<Polynomial, NUM_WIRES>& table, size_t shift)
     {
-        constexpr size_t s = TRACE_OFFSET;
         for (auto& poly : table) {
-            const size_t new_size = poly.size() + s;
+            const size_t new_size = poly.size() + shift;
             Polynomial shifted(new_size, new_size);
             for (size_t i = 0; i < poly.size(); i++) {
-                shifted.at(i + s) = poly[i];
+                shifted.at(i + shift) = poly[i];
             }
             poly = std::move(shifted);
         }
+    }
+
+    // Convenience: shift by FULL_SHIFT (used in tests and for L/R tables)
+    static void shift_table_by_disabled_rows(std::array<Polynomial, NUM_WIRES>& table)
+    {
+        shift_table(table, FULL_SHIFT);
     }
 
   private:

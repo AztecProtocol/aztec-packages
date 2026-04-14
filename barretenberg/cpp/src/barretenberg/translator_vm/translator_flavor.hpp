@@ -104,8 +104,9 @@ class TranslatorFlavor {
     // This is the space reserved at the end of each ordered polynomial (contiguous)
     static constexpr size_t MAX_RANDOM_VALUES_PER_ORDERED = CONCATENATION_GROUP_SIZE * NUM_MASKED_ROWS_END;
 
-    // Index at which random coefficients start (for zk) within Translator trace
-    static constexpr size_t RANDOMNESS_START = 2 * CircuitBuilder::NUM_NO_OPS_START;
+    // Index at which random coefficients start (for zk) within Translator trace.
+    // The first 2 rows are zeros for polynomial shiftability (one op's worth of rows).
+    static constexpr size_t RANDOMNESS_START = 2;
 
     // The bitness of the range constraint
     static constexpr size_t MICRO_LIMB_BITS = CircuitBuilder::MICRO_LIMB_BITS;
