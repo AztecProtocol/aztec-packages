@@ -61,6 +61,39 @@ describe('abi/encoder', () => {
     expect(encodeArguments(abi, [arr])).toEqual(arr);
   });
 
+  it('throws when array argument length does not match fixed-length ABI type', () => {
+    const abi: FunctionAbi = {
+      name: 'constructor',
+      isInitializer: true,
+      functionType: FunctionType.PRIVATE,
+      isOnlySelf: false,
+      isStatic: false,
+      parameters: [
+        {
+          name: 'proof',
+          type: {
+            kind: 'array',
+            length: 500,
+            type: { kind: 'field' },
+          },
+          visibility: 'private',
+        },
+      ],
+      returnTypes: [],
+      errorTypes: {},
+    };
+
+    const oversized = Array.from({ length: 519 }, () => Fr.random());
+    expect(() => encodeArguments(abi, [oversized])).toThrow(
+      "Error encoding param 'proof': expected an array of length 500 and got 519 instead",
+    );
+
+    const undersized = Array.from({ length: 499 }, () => Fr.random());
+    expect(() => encodeArguments(abi, [undersized])).toThrow(
+      "Error encoding param 'proof': expected an array of length 500 and got 499 instead",
+    );
+  });
+
   it('serializes string', () => {
     const abi: FunctionAbi = {
       name: 'constructor',

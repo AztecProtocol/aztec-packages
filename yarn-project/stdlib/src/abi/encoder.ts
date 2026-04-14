@@ -106,6 +106,12 @@ class ArgumentEncoder {
         this.flattened.push(new Fr(arg ? 1n : 0n));
         break;
       case 'array':
+        if (arg.length !== abiType.length) {
+          throw new Error(
+            `Error encoding param '${name ?? 'unnamed'}': ` +
+              `expected an array of length ${abiType.length} and got ${arg.length} instead`,
+          );
+        }
         for (let i = 0; i < abiType.length; i += 1) {
           this.encodeArgument(abiType.type, arg[i], `${name}[${i}]`);
         }
