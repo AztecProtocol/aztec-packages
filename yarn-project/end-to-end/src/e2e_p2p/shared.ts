@@ -19,7 +19,7 @@ import { getPXEConfig, getPXEConfig as getRpcConfig } from '@aztec/pxe/server';
 import { getRoundForOffense } from '@aztec/slasher';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 
-import { SchnorrHardcodedKeyAccountContract } from '../e2e_epochs/schnorr_hardcoded_account_contract.js';
+import { SchnorrHardcodedKeyAccountContract } from '../fixtures/schnorr_hardcoded_account_contract.js';
 import { submitTxsTo } from '../shared/submit-transactions.js';
 import { TestWallet } from '../test-wallet/test_wallet.js';
 import { type ProvenTx, proveInteraction } from '../test-wallet/utils.js';

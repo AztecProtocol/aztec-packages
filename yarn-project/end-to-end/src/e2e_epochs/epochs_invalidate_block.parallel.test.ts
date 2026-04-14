@@ -1,4 +1,3 @@
-import type { InitialAccountData } from '@aztec/accounts/testing';
 import type { AztecNodeService } from '@aztec/aztec-node';
 import type { AztecAddress } from '@aztec/aztec.js/addresses';
 import { NO_WAIT } from '@aztec/aztec.js/contracts';
@@ -47,7 +46,6 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
   let validators: (Operator & { privateKey: `0x${string}` })[];
   let nodes: AztecNodeService[];
   let testContract: TestContract;
-  let accountData: InitialAccountData;
   let from: AztecAddress;
 
   beforeEach(async () => {
@@ -56,9 +54,6 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
       const attester = EthAddress.fromString(privateKeyToAccount(privateKey).address);
       return { attester, withdrawer: attester, privateKey, bn254SecretKey: new SecretValue(Fr.random().toBigInt()) };
     });
-
-    // Pre-compute hardcoded account data so it gets funded in genesis.
-    accountData = await EpochsTestContext.getHardcodedAccountData(Fr.random(), Fr.random());
 
     // Setup context with the given set of validators, mocked gossip sub network, and no anvil test watcher.
     // Uses multiple-blocks-per-slot timing configuration.
@@ -69,7 +64,6 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
       l1PublishingTime: 8,
       enforceTimeTable: true,
       numberOfAccounts: 0,
-      initialFundedAccounts: [accountData],
       initialValidators: validators,
       mockGossipSubNetwork: true,
       disableAnvilTestWatcher: true,
@@ -89,9 +83,7 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
 
     ({ context, logger, l1Client } = test);
     rollupContract = new RollupContract(l1Client, test.rollup.address);
-
-    // Register the hardcoded account in PXE (local only, no on-chain deployment).
-    from = await test.registerHardcodedAccount(accountData);
+    from = context.accounts[0]; // auto-created by setup
 
     // Start the validator nodes
     logger.warn(`Initial setup complete. Starting ${NODE_COUNT} validator nodes.`);

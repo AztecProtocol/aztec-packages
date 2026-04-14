@@ -332,7 +332,6 @@ describe('e2e_p2p_preferred_network', () => {
     // We need to `createNodes` before we setup account, because
     // those nodes actually form the committee, and so we cannot build
     // blocks without them (since targetCommitteeSize is set to the number of nodes)
-    t.setupWalletOnNode(nodes[0]);
     await t.setupAccount();
 
     // Send the required number of transactions to each node

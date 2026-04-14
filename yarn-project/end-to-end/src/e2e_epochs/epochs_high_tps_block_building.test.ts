@@ -1,4 +1,3 @@
-import type { InitialAccountData } from '@aztec/accounts/testing';
 import type { AztecNodeService } from '@aztec/aztec-node';
 import type { AztecAddress } from '@aztec/aztec.js/addresses';
 import { EthAddress } from '@aztec/aztec.js/addresses';
@@ -48,7 +47,6 @@ describe('e2e_epochs/epochs_high_tps_block_building', () => {
   let validators: (Operator & { privateKey: `0x${string}` })[];
   let nodes: AztecNodeService[];
   let contract: SpamContract;
-  let accountData: InitialAccountData;
   let from: AztecAddress;
 
   beforeEach(async () => {
@@ -58,13 +56,9 @@ describe('e2e_epochs/epochs_high_tps_block_building', () => {
       return { attester, withdrawer: attester, privateKey, bn254SecretKey: new SecretValue(Fr.random().toBigInt()) };
     });
 
-    // Pre-compute hardcoded account data so it gets funded in genesis.
-    accountData = await EpochsTestContext.getHardcodedAccountData(Fr.random(), Fr.random());
-
     // Setup context with the given set of validators, no reorgs, mocked gossip sub network, and no anvil test watcher.
     test = await EpochsTestContext.setup({
       numberOfAccounts: 0,
-      initialFundedAccounts: [accountData],
       initialValidators: validators,
       mockGossipSubNetwork: true,
       disableAnvilTestWatcher: true,
@@ -82,9 +76,7 @@ describe('e2e_epochs/epochs_high_tps_block_building', () => {
     });
 
     ({ context, logger } = test);
-
-    // Register the hardcoded account in PXE (local only, no on-chain deployment).
-    from = await test.registerHardcodedAccount(accountData);
+    from = context.accounts[0]; // auto-created by setup
 
     // Start the validator nodes. Note the txDelayerMaxInclusionTimeIntoSlot is set to 1s,
     // so the tx delayer will simulate the network not accepting a tx for the next block

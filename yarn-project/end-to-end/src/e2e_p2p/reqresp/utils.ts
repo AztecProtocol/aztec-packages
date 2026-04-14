@@ -99,7 +99,6 @@ export async function runReqrespTxTest(params: {
   t.logger.info('Waiting for nodes to connect');
   await t.waitForP2PMeshConnectivity(nodes, NUM_VALIDATORS);
 
-  t.setupWalletOnNode(nodes[0]);
   await t.setupAccount();
 
   const targetBlockNumber = await t.ctx.aztecNodeService.getBlockNumber();

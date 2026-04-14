@@ -37,18 +37,17 @@ import type { Hex } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 
 import {
+  SCHNORR_HARDCODED_PRIVATE_KEY,
+  SchnorrHardcodedKeyAccountContract,
+} from '../fixtures/schnorr_hardcoded_account_contract.js';
+import {
   type EndToEndContext,
   type SetupOptions,
   createAndSyncProverNode,
-  deployAccounts,
   getPrivateKeyFromIndex,
   setup,
 } from '../fixtures/utils.js';
 import type { TestWallet } from '../test-wallet/test_wallet.js';
-import {
-  SCHNORR_HARDCODED_PRIVATE_KEY,
-  SchnorrHardcodedKeyAccountContract,
-} from './schnorr_hardcoded_account_contract.js';
 
 export const WORLD_STATE_CHECKPOINT_HISTORY = 2;
 export const WORLD_STATE_BLOCK_CHECK_INTERVAL = 50;
@@ -59,6 +58,8 @@ export type EpochsTestOpts = Partial<SetupOptions> & {
   numberOfAccounts?: number;
   pxeOpts?: Partial<PXEConfig>;
   aztecSlotDurationInL1Slots?: number;
+  /** Skip creating/registering the hardcoded account during setup (for tests that handle accounts themselves). */
+  skipHardcodedAccount?: boolean;
 };
 
 export type TrackedSequencerEvent = {
@@ -129,10 +130,18 @@ export class EpochsTestContext {
     this.L1_BLOCK_TIME_IN_S = ethereumSlotDuration;
     this.L2_SLOT_DURATION_IN_S = aztecSlotDuration;
 
+    // When skipInitialSequencer is set, auto-create a hardcoded account funded via genesis.
+    // This avoids needing to deploy accounts on-chain (which would require a running sequencer).
+    const useHardcodedAccount = opts.skipInitialSequencer && !opts.skipHardcodedAccount;
+    let hardcodedAccountData: InitialAccountData | undefined;
+    if (useHardcodedAccount) {
+      hardcodedAccountData = await EpochsTestContext.getHardcodedAccountData(Fr.random(), Fr.random());
+    }
+
     // Set up system without any account nor protocol contracts
     // and with faster block times and shorter epochs.
     const context = await setup(
-      opts.numberOfAccounts ?? 0,
+      useHardcodedAccount ? 0 : (opts.numberOfAccounts ?? 0),
       {
         automineL1Setup: true,
         checkIntervalMs: 50,
@@ -147,15 +156,13 @@ export class EpochsTestContext {
         realProofs: false,
         startProverNode: true,
         proverTestDelayMs: opts.proverTestDelayMs ?? 0,
-        // We use numeric incremental prover ids for simplicity, but we can switch to
-        // using the prover's eth address if the proverId is used for something in the rollup contract
-        // Use numeric EthAddress for deterministic prover id
         proverId: EthAddress.fromNumber(1),
         worldStateCheckpointHistory: WORLD_STATE_CHECKPOINT_HISTORY,
         exitDelaySeconds: DefaultL1ContractsConfig.exitDelaySeconds,
         slasherEnabled: false,
         l1PublishingTime,
         ...opts,
+        ...(hardcodedAccountData ? { initialFundedAccounts: [hardcodedAccountData], numberOfAccounts: 0 } : {}),
       },
       // Use checkpointed chain tip for PXE by default to avoid issues with blocks being dropped due to pruned anchor blocks.
       // Can be overridden via opts.pxeOpts.
@@ -163,6 +170,11 @@ export class EpochsTestContext {
     );
 
     this.context = context;
+
+    // Register the hardcoded account in PXE (local only, no on-chain deployment needed).
+    if (hardcodedAccountData) {
+      await this.registerHardcodedAccount(hardcodedAccountData);
+    }
     this.proverNodes = context.proverNode ? [context.proverNode] : [];
     this.nodes = context.aztecNode ? [context.aztecNode as AztecNodeService] : [];
     this.logger = context.logger;
@@ -203,32 +215,6 @@ export class EpochsTestContext {
     await Promise.all(this.proverNodes.map(node => tryStop(node, this.logger)));
     await Promise.all(this.nodes.map(node => tryStop(node, this.logger)));
     await this.context.teardown();
-  }
-
-  /** Deploys funded accounts using the wallet. Call after validators are running so blocks can be mined. */
-  public async deployTestAccounts(numberOfAccounts = 1) {
-    const { deployedAccounts } = await deployAccounts(
-      numberOfAccounts,
-      this.logger,
-    )({
-      wallet: this.context.wallet,
-      initialFundedAccounts: this.context.initialFundedAccounts,
-    });
-    const addresses = deployedAccounts.map(a => a.address);
-    this.context.accounts = addresses;
-    return addresses;
-  }
-
-  /** Registers funded accounts locally in PXE without deploying them on-chain. No sequencer or block mining needed. */
-  public async registerTestAccounts(numberOfAccounts = 1) {
-    const accountsData = this.context.initialFundedAccounts.slice(0, numberOfAccounts);
-    const addresses = [];
-    for (const { secret, salt, signingKey } of accountsData) {
-      const accountManager = await this.context.wallet.createSchnorrAccount(secret, salt, signingKey);
-      addresses.push(accountManager.address);
-    }
-    this.context.accounts = addresses;
-    return addresses;
   }
 
   /**

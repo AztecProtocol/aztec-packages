@@ -1,4 +1,3 @@
-import type { InitialAccountData } from '@aztec/accounts/testing';
 import type { AztecNodeService } from '@aztec/aztec-node';
 import type { AztecAddress } from '@aztec/aztec.js/addresses';
 import { EthAddress } from '@aztec/aztec.js/addresses';
@@ -37,7 +36,6 @@ describe('e2e_epochs/epochs_simple_block_building', () => {
   let validators: (Operator & { privateKey: `0x${string}` })[];
   let nodes: AztecNodeService[];
   let contract: TestContract;
-  let accountData: InitialAccountData;
   let from: AztecAddress;
 
   beforeEach(async () => {
@@ -47,14 +45,10 @@ describe('e2e_epochs/epochs_simple_block_building', () => {
       return { attester, withdrawer: attester, privateKey, bn254SecretKey: new SecretValue(Fr.random().toBigInt()) };
     });
 
-    // Pre-compute hardcoded account data so it gets funded in genesis.
-    accountData = await EpochsTestContext.getHardcodedAccountData(Fr.random(), Fr.random());
-
     // Setup context with no initial sequencer (lightweight RPC-only node).
     // The hardcoded account is funded via genesis without needing on-chain deployment.
     test = await EpochsTestContext.setup({
       numberOfAccounts: 0,
-      initialFundedAccounts: [accountData],
       initialValidators: validators,
       mockGossipSubNetwork: true,
       disableAnvilTestWatcher: true,
@@ -65,9 +59,7 @@ describe('e2e_epochs/epochs_simple_block_building', () => {
     });
 
     ({ context, logger } = test);
-
-    // Register the hardcoded account in PXE (local only, no on-chain deployment).
-    from = await test.registerHardcodedAccount(accountData);
+    from = context.accounts[0]; // auto-created by setup
 
     // Register test contract locally for sending txs (no on-chain deployment needed).
     contract = await test.registerTestContract(context.wallet);

@@ -149,7 +149,6 @@ describe('e2e_p2p_data_withholding_slash', () => {
 
     // Send Aztec txs
     t.logger.warn('Setup account');
-    t.setupWalletOnNode(nodes[0]);
     await t.setupAccount();
     t.logger.warn('Stopping nodes');
     await t.removeInitialNode();

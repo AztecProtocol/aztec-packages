@@ -32,7 +32,7 @@ import { privateKeyToAccount } from 'viem/accounts';
 import {
   SCHNORR_HARDCODED_PRIVATE_KEY,
   SchnorrHardcodedKeyAccountContract,
-} from '../e2e_epochs/schnorr_hardcoded_account_contract.js';
+} from '../fixtures/schnorr_hardcoded_account_contract.js';
 import {
   type EndToEndContext,
   type SetupOptions,

@@ -1,4 +1,3 @@
-import type { InitialAccountData } from '@aztec/accounts/testing';
 import type { Archiver } from '@aztec/archiver';
 import type { AztecNodeService } from '@aztec/aztec-node';
 import { AztecAddress, EthAddress } from '@aztec/aztec.js/addresses';
@@ -68,12 +67,8 @@ describe('e2e_epochs/epochs_mbps_pipeline', () => {
       return { attester, withdrawer: attester, privateKey, bn254SecretKey: new SecretValue(Fr.random().toBigInt()) };
     });
 
-    // Pre-compute hardcoded account data so it gets funded in genesis.
-    const accountData: InitialAccountData = await EpochsTestContext.getHardcodedAccountData(Fr.random(), Fr.random());
-
     test = await EpochsTestContext.setup({
       numberOfAccounts: 0,
-      initialFundedAccounts: [accountData],
       initialValidators: validators,
       enableProposerPipelining: true, // <- yehaw
       mockGossipSubNetwork: true,
@@ -96,9 +91,7 @@ describe('e2e_epochs/epochs_mbps_pipeline', () => {
 
     ({ context, logger, rollup } = test);
     wallet = context.wallet;
-
-    // Register the hardcoded account in PXE (local only, no on-chain deployment).
-    from = await test.registerHardcodedAccount(accountData);
+    from = context.accounts[0]; // auto-created by setup
 
     logger.warn(`Initial setup complete. Starting ${NODE_COUNT} validator nodes.`);
     // Clear inherited coinbase so each validator derives coinbase from its own attester key

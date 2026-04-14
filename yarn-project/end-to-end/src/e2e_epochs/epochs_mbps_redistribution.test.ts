@@ -1,4 +1,3 @@
-import type { InitialAccountData } from '@aztec/accounts/testing';
 import type { Archiver } from '@aztec/archiver';
 import type { AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
 import { AztecAddress, EthAddress } from '@aztec/aztec.js/addresses';
@@ -86,9 +85,6 @@ describe('e2e_epochs/epochs_mbps_redistribution', () => {
       return { attester, withdrawer: attester, privateKey, bn254SecretKey: new SecretValue(Fr.random().toBigInt()) };
     });
 
-    // Pre-compute hardcoded account data so it gets funded in genesis.
-    const accountData: InitialAccountData = await EpochsTestContext.getHardcodedAccountData(Fr.random(), Fr.random());
-
     // Timing calculation for 3 blocks per checkpoint with 8s sub-slots:
     // - initializationOffset = 0.5s (test mode, ethereumSlotDuration < 8)
     // - 3 blocks x 8s = 24s
@@ -97,7 +93,6 @@ describe('e2e_epochs/epochs_mbps_redistribution', () => {
     // - Total: 0.5 + 24 + 8 + 2.5 = 35s => use 36s
     test = await EpochsTestContext.setup({
       numberOfAccounts: 0,
-      initialFundedAccounts: [accountData],
       initialValidators: validators,
       mockGossipSubNetwork: true,
       disableAnvilTestWatcher: true,
@@ -124,9 +119,7 @@ describe('e2e_epochs/epochs_mbps_redistribution', () => {
 
     ({ context, logger, rollup } = test);
     wallet = context.wallet;
-
-    // Register the hardcoded account in PXE (local only, no on-chain deployment).
-    from = await test.registerHardcodedAccount(accountData);
+    from = context.accounts[0]; // auto-created by setup
 
     // Start validator nodes.
     logger.warn(`Starting ${NODE_COUNT} validator nodes.`);
