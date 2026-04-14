@@ -10,7 +10,7 @@
 #   ./run.sh connection     # Run specific example
 #   ./run.sh getting_started advanced  # Run multiple examples
 #
-# Available examples: connection, getting_started, advanced, authwit, testing, swap, aave_bridge, recursive_verification
+# Available examples: connection, getting_started, advanced, authwit, testing, swap, aave_bridge, recursive_verification, offchain_transfer
 
 set -euo pipefail
 
@@ -178,7 +178,7 @@ cleanup_project() {
 if [ $# -eq 0 ]; then
     # aave_bridge disabled: timing out on merge queue (~600s), blocked on proving block 64.
     # See http://ci.aztec-labs.com/aabf2c7e271636a0
-    EXAMPLES=("aztecjs_connection" "aztecjs_getting_started" "aztecjs_advanced" "aztecjs_authwit" "aztecjs_testing" "example_swap" "recursive_verification")
+    EXAMPLES=("aztecjs_connection" "aztecjs_getting_started" "aztecjs_advanced" "aztecjs_authwit" "aztecjs_testing" "example_swap" "recursive_verification" "offchain_transfer")
 else
     EXAMPLES=()
     for arg in "$@"; do
@@ -191,6 +191,7 @@ else
             swap)            EXAMPLES+=("example_swap") ;;
             aave_bridge)     EXAMPLES+=("aave_bridge") ;;
             recursive_verification) EXAMPLES+=("recursive_verification") ;;
+            offchain_transfer)     EXAMPLES+=("offchain_transfer") ;;
             *)
                 if [ -d "$EXAMPLES_DIR/aztecjs_$arg" ]; then
                     EXAMPLES+=("aztecjs_$arg")

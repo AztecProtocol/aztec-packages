@@ -180,7 +180,6 @@ pub contract OffchainTransfer {
         let pub_key = std::embedded_curve_ops::EmbeddedCurvePoint {
             x: signer_pub_key_x,
             y: signer_pub_key_y,
-            is_infinite: false,
         };
         assert(
             schnorr::verify_signature(pub_key, signature, message_hash.to_be_bytes::<32>()),

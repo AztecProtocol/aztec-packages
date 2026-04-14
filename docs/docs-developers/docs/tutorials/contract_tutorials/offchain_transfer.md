@@ -315,6 +315,28 @@ This is the core function. It consumes the L1-to-L2 message, deducts from Bob's 
 
 The content hash computation inside this function reconstructs the exact encoding the L1 portal used when calling `inbox.sendL2Message`. If even one byte differs, `consume_l1_to_l2_message` will fail — this is the cryptographic handshake between the two layers.
 
+### TypeScript Integration (Exercise)
+
+A full end-to-end TypeScript example for Part 2 is left as an exercise. The key steps are:
+
+1. **Deploy the L1 portal.** Deploy `EmailClaimPortal` to an Ethereum network (or a local Anvil fork). Call `initialize` with the Aztec registry address, the L2 `EmailClaim` contract address, and a zkEmail verifier address. Register at least one trusted DKIM public key hash via `registerDkimKeyHash`.
+
+2. **Deploy the L2 contract.** Deploy `EmailClaim` on Aztec, passing the token address. Call `set_portal` with the L1 portal's Ethereum address.
+
+3. **Bob deposits.** Same pattern as Part 1: set up a public authwit on the token contract, then call `deposit` with Bob's email address hash and amount.
+
+4. **Carol creates a claim.** Identical to Part 1: generate randomness, compute the commitment offchain, call `create_claim`, and wait for finalization.
+
+5. **Bob sends the email.** Bob sends an email with the subject line `pay 0x<commitment> <amount>`. The commitment and amount are encoded as hex strings. This step happens entirely outside the Aztec/Ethereum stack.
+
+6. **Carol generates the zkEmail proof.** Use the [zkEmail SDK](https://prove.email/) to parse the raw email (including DKIM headers) and generate a ZK proof. The proof's public inputs are: the DKIM public key hash (two fields), the sender's email address hash, the commitment, the amount, and the email nullifier.
+
+7. **Carol submits the proof to L1.** Generate a random `secret` and compute `secretHash = hash(secret)`. Call `verifyAndSendToL2` on the portal with the proof, public inputs, and `secretHash`. This sends an L1-to-L2 message.
+
+8. **Carol completes the claim on L2.** After ~2 L2 blocks, call `claim_with_email` with the `from_address_hash`, `partial_note`, `amount`, `secret` (the preimage), and the `message_leaf_index` returned by the L1 transaction.
+
+The main additional dependencies compared to Part 1 are: a zkEmail prover (for step 6), Solidity deployment tooling such as Foundry or Hardhat (for steps 1 and 7), and access to raw email data including DKIM headers (for step 5).
+
 ## Privacy Tradeoffs
 
 Both approaches share the same privacy profile:
