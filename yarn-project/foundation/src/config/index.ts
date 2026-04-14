@@ -70,7 +70,7 @@ export function getValueFromEnvWithFallback<T>(
   }
 
   // Parse the value if needed. Empty strings are treated as "not set".
-  if (value) {
+  if (value !== undefined && value !== '') {
     return parseFunc ? parseFunc(value) : (value as unknown as T);
   }
 
