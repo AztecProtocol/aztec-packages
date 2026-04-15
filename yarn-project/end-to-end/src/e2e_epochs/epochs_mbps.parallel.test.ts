@@ -112,7 +112,10 @@ describe('e2e_epochs/epochs_mbps', () => {
       // PXE options for chain tip syncing
       pxeOpts: { syncChainTip },
       skipInitialSequencer: true,
-      enableProposerPipelining: true,
+      // Pipelining is NOT enabled here. With MBPS, a single proposer can build blocks spanning
+      // 3+ checkpoints in one slot, triggering CheckpointNumberNotSequentialError on non-proposer
+      // nodes (they reject checkpoint N+2 before N+1 is confirmed on L1). The dedicated pipelining
+      // test (epochs_mbps.pipeline.parallel) uses wider timing (72s slots, 12s L1) that avoids this.
       inboxLag: 2,
     });
 
@@ -266,10 +269,7 @@ describe('e2e_epochs/epochs_mbps', () => {
   });
 
   it('builds multiple blocks per slot with L2 to L1 messages', async () => {
-    // Use maxTxsPerBlock: 4 to avoid building too many blocks that span 3+ checkpoints.
-    // With pipelining, a proposer spanning 3 checkpoints triggers CheckpointNumberNotSequentialError
-    // on non-proposer nodes (they reject checkpoint N+2 before checkpoint N+1 is confirmed on L1).
-    await setupTest({ syncChainTip: 'proposed', minTxsPerBlock: 1, maxTxsPerBlock: 4 });
+    await setupTest({ syncChainTip: 'proposed', minTxsPerBlock: 1, maxTxsPerBlock: 2 });
 
     // Start sequencers first, then deploy cross-chain contract (needs running sequencer to mine).
     await Promise.all(nodes.map(n => n.getSequencer()!.start()));
@@ -309,9 +309,7 @@ describe('e2e_epochs/epochs_mbps', () => {
       0.1,
     );
 
-    // With maxTxsPerBlock: 4, we get fewer blocks per checkpoint than the default 3-block target,
-    // but we're testing L2→L1 message correctness, not the specific block count.
-    const multiBlockCheckpoint = await assertMultipleBlocksPerSlot(2, logger);
+    const multiBlockCheckpoint = await assertMultipleBlocksPerSlot(EXPECTED_BLOCKS_PER_CHECKPOINT, logger);
 
     // Verify L2→L1 messages are in the blocks
     const checkpoints = await archiver.getCheckpoints(CheckpointNumber(1), 50);
@@ -323,9 +321,7 @@ describe('e2e_epochs/epochs_mbps', () => {
   });
 
   it('builds multiple blocks per slot with L1 to L2 messages', async () => {
-    // Use maxTxsPerBlock: 2 to keep block count per phase within 2 checkpoints.
-    // With pipelining, spanning 3+ checkpoints triggers CheckpointNumberNotSequentialError.
-    await setupTest({ syncChainTip: 'proposed', minTxsPerBlock: 1, maxTxsPerBlock: 2 });
+    await setupTest({ syncChainTip: 'proposed', minTxsPerBlock: 1, maxTxsPerBlock: 1 });
 
     // Start sequencers first, then deploy cross-chain contract (needs running sequencer to mine).
     await Promise.all(nodes.map(n => n.getSequencer()!.start()));

@@ -45,21 +45,19 @@ previous checkpoints land on L1 promptly. Pipelining was NOT enabled for these.
 | `epochs_partial_proof` | `enableProposerPipelining: true`, increased timeout 6x -> 12x slots |
 | `epochs_manual_rollback` | `enableProposerPipelining: true`, increased timeout 6x -> 12x slots |
 
-### Pipelining enabled and verified (13 tests)
+### Pipelining enabled and verified (12 tests)
 
 The 11 tests listed above plus:
 
 | Test | Changes |
 |------|---------|
-| `epochs_mbps.parallel` | `enableProposerPipelining: true`, `inboxLag: 2` |
 | `epochs_invalidate_block.parallel` | `enableProposerPipelining: true`, `inboxLag: 2` |
 
-Both were verified passing locally (first sub-test each).
-
-### Pipelining NOT enabled (7 tests)
+### Pipelining NOT enabled (8 tests)
 
 | Test | Reason |
 |------|--------|
+| `epochs_mbps.parallel` | With MBPS, a single proposer builds blocks spanning 3+ checkpoints in one slot, triggering `CheckpointNumberNotSequentialError` on non-proposer nodes. The dedicated `epochs_mbps.pipeline.parallel` test covers MBPS+pipelining with wider timing. |
 | `epochs_proof_fails.parallel` | Deliberately delays L1 txs via `proverDelayer`/`sequencerDelayer` with `cancelTxOnTimeout: false` and `maxSpeedUpAttempts: 0` |
 | `epochs_missed_l1_slot` | Deliberately pauses L1 mining to simulate missed slots |
 | `epochs_l1_reorgs.parallel` | Manipulates L1 state via reorgs with `cancelTxOnTimeout: false` and `maxSpeedUpAttempts: 0` |
