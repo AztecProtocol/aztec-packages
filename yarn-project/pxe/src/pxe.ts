@@ -18,6 +18,7 @@ import {
 } from '@aztec/stdlib/abi';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { L2TipsProvider } from '@aztec/stdlib/block';
 import {
   CompleteAddress,
   type ContractInstanceWithAddress,
@@ -161,6 +162,7 @@ export class PXE {
     private privateEventStore: PrivateEventStore,
     private contractSyncService: ContractSyncService,
     private messageContextService: MessageContextService,
+    private l2TipsStore: L2TipsProvider,
     private simulator: CircuitSimulator,
     private proverEnabled: boolean,
     private proofCreator: PrivateKernelProver,
@@ -260,6 +262,7 @@ export class PXE {
       privateEventStore,
       contractSyncService,
       messageContextService,
+      tipsStore,
       simulator,
       proverEnabled,
       proofCreator,
@@ -294,6 +297,7 @@ export class PXE {
       keyStore: this.keyStore,
       addressStore: this.addressStore,
       aztecNode: BenchmarkedNodeFactory.create(this.node),
+      l2TipsStore: this.l2TipsStore,
       senderTaggingStore: this.senderTaggingStore,
       recipientTaggingStore: this.recipientTaggingStore,
       senderAddressBookStore: this.senderAddressBookStore,

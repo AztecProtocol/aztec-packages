@@ -1,6 +1,7 @@
 import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
 import type { KeyStore } from '@aztec/key-store';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { L2TipsProvider } from '@aztec/stdlib/block';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
 import { ExtendedDirectionalAppTaggingSecret, PendingTaggedLog, SiloedTag, Tag } from '@aztec/stdlib/logs';
 import type { BlockHeader } from '@aztec/stdlib/tx';
@@ -22,6 +23,7 @@ export class LogService {
   constructor(
     private readonly aztecNode: AztecNode,
     private readonly anchorBlockHeader: BlockHeader,
+    private readonly l2TipsStore: L2TipsProvider,
     private readonly keyStore: KeyStore,
     private readonly recipientTaggingStore: RecipientTaggingStore,
     private readonly senderAddressBookStore: SenderAddressBookStore,
@@ -119,14 +121,10 @@ export class LogService {
     const anchorBlockHash = await this.anchorBlockHeader.hash();
 
     // Fetch chain state once — all sender-recipient pairs need the same values and fetching
-    // per-pair would cause N redundant node_getL2Tips + node_getBlockHeader calls in parallel.
-    const [l2Tips, latestBlockHeader] = await Promise.all([
-      this.aztecNode.getL2Tips(),
-      this.aztecNode.getBlockHeader('latest'),
-    ]);
-    if (!latestBlockHeader) {
-      throw new Error('Node failed to return latest block header when syncing logs');
-    }
+    // per-pair would cause N redundant RPC calls in parallel. We read tips from the local store
+    // (no RPC) and use the anchor block's timestamp for log aging, which is always recent enough.
+    const l2Tips = await this.l2TipsStore.getL2Tips();
+    const currentTimestamp = this.anchorBlockHeader.globalVariables.timestamp;
     // Get all secrets for this recipient (one per sender)
     const secrets = await this.#getSecretsForSenders(contractAddress, recipient);
 
@@ -139,7 +137,7 @@ export class LogService {
           this.recipientTaggingStore,
           anchorBlockNumber,
           anchorBlockHash,
-          latestBlockHeader.globalVariables.timestamp,
+          currentTimestamp,
           l2Tips.finalized.block.number,
           this.jobId,
         ),
