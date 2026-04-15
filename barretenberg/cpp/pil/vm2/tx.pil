@@ -365,7 +365,7 @@ namespace tx;
         da_gas_limit
     } is
     execution.enqueued_call_start {
-        execution.context_id, // next_context_id must be constrained in the execution trace on enqueued_call_start
+        execution.context_id,
         execution.discard,
         execution.msg_sender,
         execution.contract_address,
