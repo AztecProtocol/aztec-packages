@@ -7,7 +7,7 @@ import { StatefulTestContractArtifact } from '@aztec/noir-test-contracts.js/Stat
 import { WASMSimulator } from '@aztec/simulator/client';
 import { FunctionCall, FunctionSelector, FunctionType, encodeArguments } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { BlockHash } from '@aztec/stdlib/block';
+import { BlockHash, type L2TipsProvider } from '@aztec/stdlib/block';
 import {
   CompleteAddress,
   type ContractInstanceWithAddress,
@@ -51,6 +51,7 @@ describe('Utility Execution test suite', () => {
   let capsuleStore: ReturnType<typeof mock<CapsuleStore>>;
   let privateEventStore: ReturnType<typeof mock<PrivateEventStore>>;
   let contractSyncService: ReturnType<typeof mock<ContractSyncService>>;
+  let l2TipsStore: ReturnType<typeof mock<L2TipsProvider>>;
   let messageContextService: MessageContextService;
   let acirSimulator: ContractFunctionSimulator;
   let owner: AztecAddress;
@@ -74,6 +75,7 @@ describe('Utility Execution test suite', () => {
     capsuleStore = mock<CapsuleStore>();
     privateEventStore = mock<PrivateEventStore>();
     contractSyncService = mock<ContractSyncService>();
+    l2TipsStore = mock<L2TipsProvider>();
     messageContextService = new MessageContextService(aztecNode);
     const capsuleArrays = new Map<string, Fr[][]>();
     anchorBlockHeader = BlockHeader.random();
@@ -83,14 +85,7 @@ describe('Utility Execution test suite', () => {
     senderTaggingStore.storePendingIndexes.mockResolvedValue();
     senderAddressBookStore.getSenders.mockResolvedValue([]);
 
-    // Mock getL2Tips and getBlockHeader for loadPrivateLogsForSenderRecipientPair
-    aztecNode.getL2Tips.mockResolvedValue(makeL2Tips(anchorBlockHeader.globalVariables.blockNumber));
-    aztecNode.getBlockHeader.mockImplementation((blockNumber: BlockNumber | 'latest') => {
-      if (blockNumber === 'latest') {
-        return Promise.resolve(anchorBlockHeader);
-      }
-      return Promise.resolve(anchorBlockHeader);
-    });
+    l2TipsStore.getL2Tips.mockResolvedValue(makeL2Tips(anchorBlockHeader.globalVariables.blockNumber));
     aztecNode.getPrivateLogsByTags.mockImplementation((tags: any[]) => Promise.resolve(tags.map(() => [])));
 
     capsuleStore.setCapsuleArray.mockImplementation((address, slot, content) => {
@@ -106,6 +101,7 @@ describe('Utility Execution test suite', () => {
       keyStore,
       addressStore,
       aztecNode,
+      l2TipsStore,
       senderTaggingStore,
       recipientTaggingStore,
       senderAddressBookStore,
@@ -227,6 +223,96 @@ describe('Utility Execution test suite', () => {
     expect(offchainEffects).toEqual([]);
   }, 30_000);
 
+  it('WASM simulator supports N-way concurrent utility execution', async () => {
+    // Fires N concurrent runUtility calls through the shared WASMSimulator instance. Each call runs its own ACIR
+    // execution with its own oracle, but they all funnel through the same `executeUserCircuit` entry point and
+    // therefore the same Wasm module. If the underlying noir-acvm_js binding cannot handle overlapping executions,
+    // concurrent calls can corrupt each other's witness maps: we'd expect crashes, rejections, or wrong sums.
+    //
+    // This guards the parallelization in ContractSyncService (MAX_CONCURRENT_SCOPE_SYNCS = 5), which is the first
+    // code path to run multiple utility ACIR calls simultaneously. N is set to 10 so we test twice the production
+    // cap to catch issues that would only surface at higher concurrency.
+    const N = 10;
+    const artifact = {
+      ...StatefulTestContractArtifact.functions.find(f => f.name === 'summed_values')!,
+      contractName: StatefulTestContractArtifact.name,
+    };
+
+    const notes: Note[] = [...Array(5).fill(buildNote(1n)), ...Array(2).fill(buildNote(2n))];
+    const expectedSum = new Fr(9);
+
+    const instanceFields = {
+      version: 1 as const,
+      salt: Fr.random(),
+      deployer: await AztecAddress.random(),
+      currentContractClassId: new Fr(42),
+      originalContractClassId: new Fr(42),
+      initializationHash: Fr.random(),
+      publicKeys: await PublicKeys.random(),
+    };
+    const contractAddress = await computeContractAddressFromInstance(instanceFields);
+
+    aztecNode.getPublicStorageAt.mockResolvedValue(Fr.ZERO);
+    aztecNode.findLeavesIndexes.mockResolvedValue([
+      { data: 1n, l2BlockNumber: BlockNumber(1), l2BlockHash: BlockHash.random() },
+    ]);
+    contractStore.getFunctionArtifact.mockResolvedValue(artifact);
+    contractStore.getContractInstance.mockResolvedValue({
+      ...instanceFields,
+      address: contractAddress,
+    } as ContractInstanceWithAddress);
+    contractStore.getFunctionArtifactWithDebugMetadata.mockImplementation(async (address, selector) => {
+      const artifact = await contractStore.getFunctionArtifact(address, selector);
+      if (!artifact) {
+        throw new Error(`Function not found: ${selector.toString()} in contract ${address}`);
+      }
+      return { ...artifact, debug: undefined };
+    });
+    noteStore.getNotes.mockResolvedValue(
+      notes.map(
+        note =>
+          new NoteDao(
+            note,
+            contractAddress,
+            owner,
+            Fr.random(),
+            Fr.random(),
+            Fr.random(),
+            Fr.random(),
+            Fr.random(),
+            TxHash.random(),
+            BlockNumber(42),
+            BlockHash.random().toString(),
+            0,
+            0,
+          ),
+      ),
+    );
+    capsuleStore.getCapsule.mockImplementation((_, __) => Promise.resolve(null));
+
+    const execRequest = FunctionCall.from({
+      name: artifact.name,
+      to: contractAddress,
+      selector: FunctionSelector.empty(),
+      type: FunctionType.UTILITY,
+      hideMsgSender: false,
+      isStatic: false,
+      args: encodeArguments(artifact, [owner]),
+      returnTypes: artifact.returnTypes,
+    });
+
+    const results = await Promise.all(
+      Array.from({ length: N }, (_, i) =>
+        acirSimulator.runUtility(execRequest, [], anchorBlockHeader, [], `reentrance-job-${i}`),
+      ),
+    );
+
+    expect(results).toHaveLength(N);
+    for (const { result } of results) {
+      expect(result).toEqual([expectedSum]);
+    }
+  }, 60_000);
+
   describe('UtilityExecutionOracle', () => {
     let contractAddress: AztecAddress;
     let utilityExecutionOracle: UtilityExecutionOracle;
@@ -260,6 +346,7 @@ describe('Utility Execution test suite', () => {
         contractSyncService,
         jobId: 'test-job-id',
         scopes: [scope],
+        l2TipsStore,
       });
     });
 
@@ -326,6 +413,7 @@ describe('Utility Execution test suite', () => {
           contractSyncService,
           jobId: 'test-job-id',
           scopes: [scope],
+          l2TipsStore,
         });
 
         capsuleStore.getCapsule.mockResolvedValueOnce(persisted);
@@ -506,6 +594,7 @@ describe('Utility Execution test suite', () => {
             contractSyncService,
             jobId: 'test-job-id',
             scopes: [],
+            l2TipsStore,
           });
 
         const oracleA = makeOracle(contractAddressA);

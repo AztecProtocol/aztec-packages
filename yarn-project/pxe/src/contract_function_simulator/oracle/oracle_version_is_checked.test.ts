@@ -4,6 +4,7 @@ import { OracleVersionCheckContractArtifact } from '@aztec/noir-test-contracts.j
 import { WASMSimulator } from '@aztec/simulator/client';
 import { FunctionCall, FunctionSelector, FunctionType, encodeArguments } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { L2TipsProvider } from '@aztec/stdlib/block';
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import { GasFees, GasSettings } from '@aztec/stdlib/gas';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
@@ -43,6 +44,7 @@ describe('Oracle Version Check test suite', () => {
   let privateEventStore: ReturnType<typeof mock<PrivateEventStore>>;
   let contractSyncService: ReturnType<typeof mock<ContractSyncService>>;
   let messageContextService: ReturnType<typeof mock<MessageContextService>>;
+  let l2TipsStore: ReturnType<typeof mock<L2TipsProvider>>;
   let acirSimulator: ContractFunctionSimulator;
   let contractAddress: AztecAddress;
   let anchorBlockHeader: BlockHeader;
@@ -63,6 +65,7 @@ describe('Oracle Version Check test suite', () => {
     privateEventStore = mock<PrivateEventStore>();
     contractSyncService = mock<ContractSyncService>();
     messageContextService = mock<MessageContextService>();
+    l2TipsStore = mock<L2TipsProvider>();
     assertCompatibleOracleVersionSpy = jest.spyOn(UtilityExecutionOracle.prototype, 'assertCompatibleOracleVersion');
     assertCompatibleOracleVersionSpy.mockClear();
 
@@ -99,6 +102,7 @@ describe('Oracle Version Check test suite', () => {
       keyStore,
       addressStore,
       aztecNode,
+      l2TipsStore: mock(),
       senderTaggingStore,
       recipientTaggingStore,
       senderAddressBookStore,
@@ -208,6 +212,7 @@ describe('Oracle Version Check test suite', () => {
         contractSyncService,
         jobId: 'test',
         scopes: [],
+        l2TipsStore,
       });
     });
 

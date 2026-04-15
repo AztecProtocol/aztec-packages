@@ -143,9 +143,9 @@ pub contract SchnorrAccount {
         // it is not as part of execution of the contract, so we are good.
         let nullifier = compute_authwit_nullifier(self.address, inner_hash);
         let siloed_nullifier = compute_siloed_nullifier(consumer, nullifier);
-        let lower_wit =
+        let (low_leaf_preimage, _witness) =
             get_low_nullifier_membership_witness(self.context.block_header(), siloed_nullifier);
-        let is_spent = lower_wit.leaf_preimage.nullifier == siloed_nullifier;
+        let is_spent = low_leaf_preimage.nullifier == siloed_nullifier;
 
         !is_spent & valid_in_private
     }

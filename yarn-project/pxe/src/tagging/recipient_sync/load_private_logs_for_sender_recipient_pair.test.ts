@@ -5,12 +5,7 @@ import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { BlockHash } from '@aztec/stdlib/block';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
 import { type ExtendedDirectionalAppTaggingSecret, SiloedTag } from '@aztec/stdlib/logs';
-import {
-  makeBlockHeader,
-  makeL2Tips,
-  randomExtendedDirectionalAppTaggingSecret,
-  randomTxScopedPrivateL2Log,
-} from '@aztec/stdlib/testing';
+import { randomExtendedDirectionalAppTaggingSecret, randomTxScopedPrivateL2Log } from '@aztec/stdlib/testing';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
@@ -46,15 +41,11 @@ describe('loadPrivateLogsForSenderRecipientPair', () => {
 
   beforeEach(async () => {
     aztecNode.getPrivateLogsByTags.mockReset();
-    aztecNode.getL2Tips.mockReset();
-    aztecNode.getBlockHeader.mockReset();
     taggingStore = new RecipientTaggingStore(await openTmpStore('test'));
   });
 
   it('returns empty array when no logs found', async () => {
-    aztecNode.getL2Tips.mockResolvedValue(makeL2Tips(10));
-
-    aztecNode.getBlockHeader.mockResolvedValue(makeBlockHeader(0, { timestamp: currentTimestamp }));
+    const finalizedBlockNumber = BlockNumber(10);
 
     // no logs found for any tag
     aztecNode.getPrivateLogsByTags.mockImplementation((tags: SiloedTag[]) => {
@@ -67,6 +58,8 @@ describe('loadPrivateLogsForSenderRecipientPair', () => {
       taggingStore,
       FAR_FUTURE_BLOCK_NUMBER,
       MOCK_ANCHOR_BLOCK_HASH,
+      currentTimestamp,
+      finalizedBlockNumber,
       'test',
     );
 
@@ -76,21 +69,17 @@ describe('loadPrivateLogsForSenderRecipientPair', () => {
   });
 
   it('loads log and updates highest finalized index but not highest aged index', async () => {
-    const finalizedBlockNumber = 10;
+    const finalizedBlockNumber = BlockNumber(10);
 
     const logBlockTimestamp = currentTimestamp - 5000n; // not aged
     const logIndex = 5;
     const logTag = await computeSiloedTagForIndex(logIndex);
 
-    aztecNode.getL2Tips.mockResolvedValue(makeL2Tips(finalizedBlockNumber));
-
-    aztecNode.getBlockHeader.mockResolvedValue(makeBlockHeader(0, { timestamp: currentTimestamp }));
-
     // The log is finalized
     aztecNode.getPrivateLogsByTags.mockImplementation((tags: SiloedTag[]) => {
       return Promise.resolve(
         tags.map((t: SiloedTag) =>
-          t.equals(logTag) ? [makeLog(finalizedBlockNumber, logBlockTimestamp, logTag.value)] : [],
+          t.equals(logTag) ? [makeLog(Number(finalizedBlockNumber), logBlockTimestamp, logTag.value)] : [],
         ),
       );
     });
@@ -101,6 +90,8 @@ describe('loadPrivateLogsForSenderRecipientPair', () => {
       taggingStore,
       FAR_FUTURE_BLOCK_NUMBER,
       MOCK_ANCHOR_BLOCK_HASH,
+      currentTimestamp,
+      finalizedBlockNumber,
       'test',
     );
 
@@ -110,21 +101,17 @@ describe('loadPrivateLogsForSenderRecipientPair', () => {
   });
 
   it('loads log and updates both highest aged and highest finalized indexes', async () => {
-    const finalizedBlockNumber = 10;
+    const finalizedBlockNumber = BlockNumber(10);
 
     const logBlockTimestamp = currentTimestamp - BigInt(MAX_TX_LIFETIME) - 1000n; // aged
     const logIndex = 7;
     const logTag = await computeSiloedTagForIndex(logIndex);
 
-    aztecNode.getL2Tips.mockResolvedValue(makeL2Tips(finalizedBlockNumber));
-
-    aztecNode.getBlockHeader.mockResolvedValue(makeBlockHeader(0, { timestamp: currentTimestamp }));
-
     // The log is finalized
     aztecNode.getPrivateLogsByTags.mockImplementation((tags: SiloedTag[]) => {
       return Promise.resolve(
         tags.map((t: SiloedTag) =>
-          t.equals(logTag) ? [makeLog(finalizedBlockNumber, logBlockTimestamp, logTag.value)] : [],
+          t.equals(logTag) ? [makeLog(Number(finalizedBlockNumber), logBlockTimestamp, logTag.value)] : [],
         ),
       );
     });
@@ -135,6 +122,8 @@ describe('loadPrivateLogsForSenderRecipientPair', () => {
       taggingStore,
       FAR_FUTURE_BLOCK_NUMBER,
       MOCK_ANCHOR_BLOCK_HASH,
+      currentTimestamp,
+      finalizedBlockNumber,
       'test',
     );
 
@@ -144,7 +133,7 @@ describe('loadPrivateLogsForSenderRecipientPair', () => {
   });
 
   it('logs at boundaries are properly loaded, window and highest indexes advance as expected', async () => {
-    const finalizedBlockNumber = 10;
+    const finalizedBlockNumber = BlockNumber(10);
 
     const log1BlockTimestamp = currentTimestamp - BigInt(MAX_TX_LIFETIME) - 1000n; // Aged
     const log2BlockTimestamp = currentTimestamp - 5000n; // Not aged
@@ -159,10 +148,6 @@ describe('loadPrivateLogsForSenderRecipientPair', () => {
     await taggingStore.updateHighestAgedIndex(secret, highestAgedIndex, 'test');
     await taggingStore.updateHighestFinalizedIndex(secret, highestFinalizedIndex, 'test');
 
-    aztecNode.getL2Tips.mockResolvedValue(makeL2Tips(finalizedBlockNumber));
-
-    aztecNode.getBlockHeader.mockResolvedValue(makeBlockHeader(0, { timestamp: currentTimestamp }));
-
     // We record the number of queried tags to be able to verify that the window was moved forward correctly.
     let numQueriedTags = 0;
 
@@ -171,9 +156,9 @@ describe('loadPrivateLogsForSenderRecipientPair', () => {
       return Promise.resolve(
         tags.map((t: SiloedTag) => {
           if (t.equals(log1Tag)) {
-            return [makeLog(finalizedBlockNumber, log1BlockTimestamp, log1Tag.value)];
+            return [makeLog(Number(finalizedBlockNumber), log1BlockTimestamp, log1Tag.value)];
           } else if (t.equals(log2Tag)) {
-            return [makeLog(finalizedBlockNumber, log2BlockTimestamp, log2Tag.value)];
+            return [makeLog(Number(finalizedBlockNumber), log2BlockTimestamp, log2Tag.value)];
           }
           return [];
         }),
@@ -186,6 +171,8 @@ describe('loadPrivateLogsForSenderRecipientPair', () => {
       taggingStore,
       FAR_FUTURE_BLOCK_NUMBER,
       MOCK_ANCHOR_BLOCK_HASH,
+      currentTimestamp,
+      finalizedBlockNumber,
       'test',
     );
 
