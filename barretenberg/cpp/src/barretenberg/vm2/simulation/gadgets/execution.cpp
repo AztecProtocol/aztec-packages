@@ -1505,19 +1505,26 @@ void Execution::ecc_add(ContextInterface& context,
     // Read the points from memory.
     const auto& p_x = memory.get(p_x_addr);
     const auto& p_y = memory.get(p_y_addr);
+    // TODO(#AVM-266): Remove infinity flags from point representation, the below is currently ignored in-circuit.
     const auto& p_inf = memory.get(p_inf_addr);
 
     const auto& q_x = memory.get(q_x_addr);
     const auto& q_y = memory.get(q_y_addr);
+    // TODO(#AVM-266): Remove infinity flags from point representation, the below is currently ignored in-circuit.
     const auto& q_inf = memory.get(q_inf_addr);
 
     set_and_validate_inputs(opcode, { p_x, p_y, p_inf, q_x, q_y, q_inf });
     get_gas_tracker().consume_gas();
 
     // Once inputs are tag checked the conversion to EmbeddedCurvePoint is safe, on curve checks are done in the add
-    // method.
-    EmbeddedCurvePoint p = EmbeddedCurvePoint(p_x.as_ff(), p_y.as_ff(), p_inf == MemoryValue::from<uint1_t>(1));
-    EmbeddedCurvePoint q = EmbeddedCurvePoint(q_x.as_ff(), q_y.as_ff(), q_inf == MemoryValue::from<uint1_t>(1));
+    // method. TODO(#AVM-266): We derive is_infinity from coordinates using the Noir convention of (x=0, y=0) <==>
+    // is_infinity. The flag will be removed in future.
+    const FF p_x_ff = p_x.as_ff();
+    const FF p_y_ff = p_y.as_ff();
+    EmbeddedCurvePoint p = EmbeddedCurvePoint(p_x_ff, p_y_ff, (p_x_ff == FF::zero()) && (p_y_ff == FF::zero()));
+    const FF q_x_ff = q_x.as_ff();
+    const FF q_y_ff = q_y.as_ff();
+    EmbeddedCurvePoint q = EmbeddedCurvePoint(q_x_ff, q_y_ff, (q_x_ff == FF::zero()) && (q_y_ff == FF::zero()));
 
     try {
         embedded_curve.add(memory, p, q, dst_addr);
