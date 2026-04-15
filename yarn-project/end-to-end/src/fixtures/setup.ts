@@ -271,6 +271,25 @@ export type EndToEndContext = {
 };
 
 /**
+ * When CONTRACT_ARTIFACTS_VERSION is set (backwards compatibility testing), asserts that the loaded artifact's
+ * aztecVersion matches the expected version. This ensures that the legacy artifact resolver actually swapped in the
+ * correct version.
+ */
+function assertContractArtifactsVersion() {
+  const expected = process.env.CONTRACT_ARTIFACTS_VERSION;
+  if (!expected) {
+    return;
+  }
+  const { aztecVersion } = SponsoredFPCContract.artifact;
+  if (aztecVersion !== expected) {
+    throw new Error(
+      `Artifact version mismatch: expected ${expected} but got ${aztecVersion}. ` +
+        `The legacy artifact resolver may not have swapped in the correct version.`,
+    );
+  }
+}
+
+/**
  * Sets up the environment for the end-to-end tests.
  * @param numberOfAccounts - The number of new accounts to be created once the PXE is initiated.
  * @param opts - Options to pass to the node initialization and to the setup script.
@@ -282,6 +301,7 @@ export async function setup(
   pxeOpts: Partial<PXEConfig> = {},
   chain: Chain = foundry,
 ): Promise<EndToEndContext> {
+  assertContractArtifactsVersion();
   let anvil: Anvil | undefined;
   try {
     opts.aztecTargetCommitteeSize ??= 0;

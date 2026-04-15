@@ -31,6 +31,9 @@ export BB=${BB:-../../barretenberg/cpp/build/bin/bb}
 export NARGO=${NARGO:-../../noir/noir-repo/target/release/nargo}
 export BB_HASH=${BB_HASH:-$(../../barretenberg/cpp/bootstrap.sh hash)}
 export NOIR_HASH=${NOIR_HASH:-$(../../noir/bootstrap.sh hash)}
+# Use the git tag version (e.g. 5.0.0-nightly.20260414) when available, otherwise "dev" for local builds.
+export AZTEC_VERSION=${REF_NAME:+${REF_NAME#v}}
+export AZTEC_VERSION=${AZTEC_VERSION:-dev}
 
 # Set common flags for parallel.
 export PARALLEL_FLAGS="-j${PARALLELISM:-16} --halt now,fail=1 --memsuspend $(memsuspend_limit)"

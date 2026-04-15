@@ -6,6 +6,7 @@ import { schemas, zodFor } from '@aztec/foundation/schemas';
 import { inflate } from 'pako';
 import { z } from 'zod';
 
+import { DEV_VERSION } from '../update-checker/package_version.js';
 import { FunctionSelector } from './function_selector.js';
 
 /** A basic value. */
@@ -343,6 +344,9 @@ export interface ContractArtifact {
   /** The name of the contract. */
   name: string;
 
+  /** The version of the Aztec stack that compiled this artifact. */
+  aztecVersion: string;
+
   /** The functions of the contract. Includes private and utility functions, plus the public dispatch function. */
   functions: FunctionArtifact[];
 
@@ -365,6 +369,7 @@ export interface ContractArtifact {
 export const ContractArtifactSchema = zodFor<ContractArtifact>()(
   z.object({
     name: z.string(),
+    aztecVersion: z.string(),
     functions: z.array(FunctionArtifactSchema),
     nonDispatchPublicFunctions: z.array(FunctionAbiSchema),
     outputs: z.object({
@@ -551,6 +556,7 @@ export function emptyFunctionArtifact(): FunctionArtifact {
 export function emptyContractArtifact(): ContractArtifact {
   return {
     name: '',
+    aztecVersion: DEV_VERSION,
     functions: [emptyFunctionArtifact()],
     nonDispatchPublicFunctions: [emptyFunctionAbi()],
     outputs: {
