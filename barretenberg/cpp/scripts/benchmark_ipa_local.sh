@@ -18,7 +18,7 @@ if [ "$(uname)" = "Darwin" ]; then
 else
   NATIVE_PRESET=clang20-no-avm
 fi
-TARGET=commitment_schemes_bench
+TARGET=commit_bench
 FILTER='bench_pippenger_without_endomorphism_basis_points<bb::curve::Grumpkin>'
 
 echo "== Building $TARGET native ($NATIVE_PRESET) =="
