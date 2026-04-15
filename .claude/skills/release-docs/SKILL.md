@@ -137,18 +137,32 @@ This creates/updates the API docs in:
 - `docs/static/aztec-nr-api/<release_type>/` (e.g. `mainnet/`, `testnet/`)
 - `docs/static/typescript-api/<release_type>/`
 
-**Prerequisites:**
+**Prerequisites — you MUST build dependencies before generating API docs:**
 
-- `nargo` must be available (for aztec-nr docs)
-- `yarn-project` must be built for the checked-out tag (for TypeScript docs):
-  ```bash
-  cd yarn-project && yarn && yarn build
-  ```
-  This ensures TypeDoc can resolve cross-package types correctly.
+1. **Initialize submodules** (needed for noir packages and yarn-project):
+   ```bash
+   # Use submodule_update MCP tool, or:
+   git submodule update --init --recursive
+   ```
+2. **Bootstrap noir** (provides nargo for aztec-nr docs and JS packages for
+   yarn-project):
+   ```bash
+   cd noir && ./bootstrap.sh
+   ```
+3. **Install and build yarn-project** (for TypeScript docs — TypeDoc needs
+   compiled packages to resolve cross-package types):
+   ```bash
+   cd yarn-project && yarn && yarn build
+   ```
+4. **Install aztec CLI** matching the release version (provides nargo if not
+   already available from noir bootstrap):
+   ```bash
+   VERSION=<nodeVersion> bash -i <(curl -sL https://install.aztec.network/<nodeVersion>)
+   ```
 
-If generation fails, check that the tag has the required source code and that
-`yarn-project` has been built. The build step (Step 10) will validate that API
-reference links resolve correctly.
+If generation fails, check that the tag has the required source code, that
+submodules are initialized, and that dependencies have been built. The build
+step (Step 10) will validate that API reference links resolve correctly.
 
 ### Step 7: Generate CLI Reference Docs
 
