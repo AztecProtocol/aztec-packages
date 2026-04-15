@@ -79,6 +79,8 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
       minTxsPerBlock: 1,
       maxTxsPerBlock: 1,
       skipInitialSequencer: true,
+      enableProposerPipelining: true,
+      inboxLag: 2,
     });
 
     ({ context, logger, l1Client } = test);
@@ -432,12 +434,14 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
       timeoutPromise(test.L2_SLOT_DURATION_IN_S * 8 * 1000).then(() => [CheckpointNumber(0), CheckpointNumber(0)]),
     ]);
 
-    // Subscribe to checkpoint invalidation events
-    const invalidatePromise = promiseWithResolvers<CheckpointNumber>();
-    const unsubscribe = rollupContract.listenToCheckpointInvalidated(event => {
-      logger.warn(`Checkpoint ${event.checkpointNumber} has been invalidated`, event);
-      invalidatePromise.resolve(event.checkpointNumber);
-      unsubscribe();
+    // Subscribe to checkpoint invalidation events, capturing the L1 tx hash so we can verify the sender
+    const invalidatePromise = promiseWithResolvers<{ checkpointNumber: CheckpointNumber; txHash: `0x${string}` }>();
+    const checkpointInvalidatedFilter = await l1Client.createContractEventFilter({
+      address: rollupContract.address,
+      abi: RollupAbi,
+      eventName: 'CheckpointInvalidated',
+      fromBlock: 1n,
+      toBlock: 'latest',
     });
 
     // Wait for a slot with a good proposer
@@ -454,14 +458,39 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
 
     // As soon as it's the turn of a good proposer, we should see the first checkpoint being invalidated
     logger.warn(`Turn for ${goodProposer}. Waiting for invalidation.`);
-    const invalidatedCheckpoint = await Promise.race([
-      invalidatePromise.promise,
-      timeoutPromise(test.L2_SLOT_DURATION_IN_S * 4 * 1000).then(() => CheckpointNumber(0)),
-    ]);
+    const invalidationEvent = await retryUntil(
+      async () => {
+        const events = await l1Client.getFilterLogs({ filter: checkpointInvalidatedFilter });
+        if (events.length > 0) {
+          const event = events[0];
+          return {
+            checkpointNumber: CheckpointNumber.fromBigInt(event.args.checkpointNumber!),
+            l1BlockNumber: event.blockNumber,
+          };
+        }
+        return undefined;
+      },
+      'CheckpointInvalidated event',
+      test.L2_SLOT_DURATION_IN_S * 4,
+      0.1,
+    );
 
     // The invalidated checkpoint should be the first one,
     // but it may also be a checkpoint *before* the first one that gets mined in an early slot
-    expect(invalidatedCheckpoint).toBeLessThanOrEqual(firstCheckpoint);
+    expect(invalidationEvent.checkpointNumber).toBeLessThanOrEqual(firstCheckpoint);
+
+    // Verify the invalidation happened during the good proposer's target slot (pipelining: targetSlot = slotNow + 1).
+    // This confirms it was the proposer's waitForParentCheckpointOnL1 that detected and invalidated,
+    // not the committee member fallback (which has a 144s delay).
+    const { timestamp: invalidationL1Timestamp } = await l1Client.getBlock({
+      blockNumber: invalidationEvent.l1BlockNumber,
+    });
+    const { currentSlot: goodProposerSlot } = test.epochCache.getCurrentAndNextSlot();
+    const goodProposerTargetSlotTimestamp = getTimestampForSlot(SlotNumber(goodProposerSlot + 1), test.constants);
+    // The invalidation should have happened within one L2 slot of the good proposer's target slot start
+    expect(Number(invalidationL1Timestamp)).toBeLessThan(
+      Number(goodProposerTargetSlotTimestamp) + test.L2_SLOT_DURATION_IN_S,
+    );
 
     // Restore bad nodes back to normal. They should eventually detect that their archive root does not
     // match the value on chain and roll back their invalid nodes.
