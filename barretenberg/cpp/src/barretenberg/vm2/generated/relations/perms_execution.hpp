@@ -270,8 +270,8 @@ struct perm_execution_dispatch_to_ecc_add_settings_ {
     static constexpr std::array<ColumnAndShifts, COLUMNS_PER_SET> DST_COLUMNS = {
         ColumnAndShifts::ecc_add_mem_execution_clk, ColumnAndShifts::ecc_add_mem_space_id,
         ColumnAndShifts::ecc_add_mem_p_x,           ColumnAndShifts::ecc_add_mem_p_y,
-        ColumnAndShifts::ecc_add_mem_p_is_inf,      ColumnAndShifts::ecc_add_mem_q_x,
-        ColumnAndShifts::ecc_add_mem_q_y,           ColumnAndShifts::ecc_add_mem_q_is_inf,
+        ColumnAndShifts::ecc_add_mem_p_is_inf_,     ColumnAndShifts::ecc_add_mem_q_x,
+        ColumnAndShifts::ecc_add_mem_q_y,           ColumnAndShifts::ecc_add_mem_q_is_inf_,
         ColumnAndShifts::ecc_add_mem_dst_addr_0_,   ColumnAndShifts::ecc_add_mem_err
     };
 };

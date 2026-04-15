@@ -1279,6 +1279,7 @@ sel_exec_dispatch_keccakf1600 {
 // ECADD DISPATCHING
 // Each input point uses 3 registers:
 //  P = [x, y, is_inf] -> register[0..2], Q = [x, y, is_inf] -> register[3..5]
+// TODO(#AVM-266): Remove is_inf and use 2 registers per point (for now, the 3rd register is read but ignored).
 // The output point is written to memory internally inside the ecc_add_mem (ecc_mem.pil) trace, starting at:
 //  dst_addr[0] -> rop[6]
 // Outputs (#[WRITE_MEM_x]) and memory write checks (#[CHECK_DST_ADDR_IN_RANGE]) are hence handled by the trace.
@@ -1305,11 +1306,11 @@ sel_exec_dispatch_ecc_add {
         // Point P
         ecc_add_mem.p_x,
         ecc_add_mem.p_y,
-        ecc_add_mem.p_is_inf,
+        ecc_add_mem.p_is_inf_,
         // Point Q
         ecc_add_mem.q_x,
         ecc_add_mem.q_y,
-        ecc_add_mem.q_is_inf,
+        ecc_add_mem.q_is_inf_,
         // Dst address
         ecc_add_mem.dst_addr[0],
         // Error

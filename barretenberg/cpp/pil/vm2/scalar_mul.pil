@@ -17,12 +17,17 @@ include "precomputed.pil";
  *
  * The correctness of point addition (res + temp and temp + temp above) is constrained by a lookup into ecc.pil.
  *
- * PRECONDITIONS: Input P is a valid point on the Grumpkin curve, input s is FF (see below note).
+ * PRECONDITIONS: Input P is a valid point on the Grumpkin curve, either satisfying the curve equation or the point
+ * at infinity representation (such that is_inf <==> (X, Y) == (ecc.INFINITY_X, ecc.INFINITY_Y)), and input s is FF.
  * Note: Grumpkin forms a 2-cycle with BN254, i.e the base field of one is the scalar field of the other and vice-versa,
  * so the scalar is actually a Fq value. We treat it as a Fr (FF tagged) value in circuit. Since r < q, we cannot use an
  * invalid scalar here.
  *
- * USAGE: This is a non-memory aware subtrace used to constrain scalar point multiplicationas defined above. Each point can
+ * Note that once TODO(#AVM-266) is complete, is_inf will no longer be part of our point representation and we must either:
+ *  - continue to rely on the 'calling' trace to inject a constrained is_inf, or
+ *  - derive is_inf (<==> (X, Y) == (ecc.INFINITY_X, ecc.INFINITY_Y)) within this trace.
+ *
+ * USAGE: This is a non-memory aware subtrace used to constrain scalar point multiplication as defined above. Each point can
  *        be looked up by coordinates (lookup as defined in address_derivation.pil):
  *        #[PREADDRESS_SCALAR_MUL]
  *        sel {
@@ -76,12 +81,14 @@ namespace scalar_mul;
     // Point P in affine form
     pol commit point_x;
     pol commit point_y;
+    // TODO(#AVM-266): Remove infinity flags from point representation.
     pol commit point_inf; // @boolean
     point_inf * (1 - point_inf) = 0;
 
     // Point R = sP in affine form
     pol commit res_x;
     pol commit res_y;
+    // TODO(#AVM-266): Remove infinity flags from point representation.
     pol commit res_inf; // @boolean (constrained to be @boolean by lookup in the ecc subtrace)
 
     ///////////////////////////////

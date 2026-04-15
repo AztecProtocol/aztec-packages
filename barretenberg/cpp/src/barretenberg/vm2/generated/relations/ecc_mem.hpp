@@ -41,6 +41,10 @@ template <typename FF> class ecc_mem : public Relation<ecc_memImpl<FF>> {
     static constexpr size_t SR_P_ON_CURVE_CHECK = 7;
     static constexpr size_t SR_Q_CURVE_EQN = 8;
     static constexpr size_t SR_Q_ON_CURVE_CHECK = 9;
+    static constexpr size_t SR_P_INF_X_CHECK = 12;
+    static constexpr size_t SR_P_INF_Y_CHECK = 13;
+    static constexpr size_t SR_Q_INF_X_CHECK = 14;
+    static constexpr size_t SR_Q_INF_Y_CHECK = 15;
 
     static std::string get_subrelation_label(size_t index)
     {
@@ -55,6 +59,14 @@ template <typename FF> class ecc_mem : public Relation<ecc_memImpl<FF>> {
             return "Q_CURVE_EQN";
         case SR_Q_ON_CURVE_CHECK:
             return "Q_ON_CURVE_CHECK";
+        case SR_P_INF_X_CHECK:
+            return "P_INF_X_CHECK";
+        case SR_P_INF_Y_CHECK:
+            return "P_INF_Y_CHECK";
+        case SR_Q_INF_X_CHECK:
+            return "Q_INF_X_CHECK";
+        case SR_Q_INF_Y_CHECK:
+            return "Q_INF_Y_CHECK";
         }
         return std::to_string(index);
     }

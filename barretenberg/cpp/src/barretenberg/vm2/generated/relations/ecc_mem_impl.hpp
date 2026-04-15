@@ -112,40 +112,28 @@ void ecc_memImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
              static_cast<View>(in.get(C::ecc_add_mem_sel)) * (FF(1) - static_cast<View>(in.get(C::ecc_add_mem_err))));
         std::get<11>(evals) += (tmp * scaling_factor);
     }
-    {
+    { // P_INF_X_CHECK
         using View = typename std::tuple_element_t<12, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::ecc_add_mem_sel_should_exec)) *
-                   ((static_cast<View>(in.get(C::ecc_add_mem_p_x_n)) -
-                     (FF(1) - static_cast<View>(in.get(C::ecc_add_mem_p_is_inf))) *
-                         static_cast<View>(in.get(C::ecc_add_mem_p_x))) -
-                    static_cast<View>(in.get(C::ecc_add_mem_p_is_inf)) * CView(ecc_INFINITY_X));
+        auto tmp = static_cast<View>(in.get(C::ecc_add_mem_sel)) * static_cast<View>(in.get(C::ecc_add_mem_p_is_inf)) *
+                   (static_cast<View>(in.get(C::ecc_add_mem_p_x)) - CView(ecc_INFINITY_X));
         std::get<12>(evals) += (tmp * scaling_factor);
     }
-    {
+    { // P_INF_Y_CHECK
         using View = typename std::tuple_element_t<13, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::ecc_add_mem_sel_should_exec)) *
-                   ((static_cast<View>(in.get(C::ecc_add_mem_p_y_n)) -
-                     (FF(1) - static_cast<View>(in.get(C::ecc_add_mem_p_is_inf))) *
-                         static_cast<View>(in.get(C::ecc_add_mem_p_y))) -
-                    static_cast<View>(in.get(C::ecc_add_mem_p_is_inf)) * CView(ecc_INFINITY_Y));
+        auto tmp = static_cast<View>(in.get(C::ecc_add_mem_sel)) * static_cast<View>(in.get(C::ecc_add_mem_p_is_inf)) *
+                   (static_cast<View>(in.get(C::ecc_add_mem_p_y)) - CView(ecc_INFINITY_Y));
         std::get<13>(evals) += (tmp * scaling_factor);
     }
-    {
+    { // Q_INF_X_CHECK
         using View = typename std::tuple_element_t<14, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::ecc_add_mem_sel_should_exec)) *
-                   ((static_cast<View>(in.get(C::ecc_add_mem_q_x_n)) -
-                     (FF(1) - static_cast<View>(in.get(C::ecc_add_mem_q_is_inf))) *
-                         static_cast<View>(in.get(C::ecc_add_mem_q_x))) -
-                    static_cast<View>(in.get(C::ecc_add_mem_q_is_inf)) * CView(ecc_INFINITY_X));
+        auto tmp = static_cast<View>(in.get(C::ecc_add_mem_sel)) * static_cast<View>(in.get(C::ecc_add_mem_q_is_inf)) *
+                   (static_cast<View>(in.get(C::ecc_add_mem_q_x)) - CView(ecc_INFINITY_X));
         std::get<14>(evals) += (tmp * scaling_factor);
     }
-    {
+    { // Q_INF_Y_CHECK
         using View = typename std::tuple_element_t<15, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::ecc_add_mem_sel_should_exec)) *
-                   ((static_cast<View>(in.get(C::ecc_add_mem_q_y_n)) -
-                     (FF(1) - static_cast<View>(in.get(C::ecc_add_mem_q_is_inf))) *
-                         static_cast<View>(in.get(C::ecc_add_mem_q_y))) -
-                    static_cast<View>(in.get(C::ecc_add_mem_q_is_inf)) * CView(ecc_INFINITY_Y));
+        auto tmp = static_cast<View>(in.get(C::ecc_add_mem_sel)) * static_cast<View>(in.get(C::ecc_add_mem_q_is_inf)) *
+                   (static_cast<View>(in.get(C::ecc_add_mem_q_y)) - CView(ecc_INFINITY_Y));
         std::get<15>(evals) += (tmp * scaling_factor);
     }
 }

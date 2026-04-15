@@ -32,6 +32,7 @@ EmbeddedCurvePoint Ecc::add(const EmbeddedCurvePoint& p, const EmbeddedCurvePoin
     // Check if points are on the curve. These will throw an unexpected exception if they fail.
     BB_ASSERT(p.on_curve(), "Point p is not on the curve");
     BB_ASSERT(q.on_curve(), "Point q is not on the curve");
+    // TODO(#AVM-266): Remove is_infinity flag from point representation.
     // Check if the points are normalized (infinity points must be (0, 0, true)).
     if (p.is_infinity()) {
         BB_ASSERT((p.x() == 0) && (p.y() == 0), "Point p is not normalized");
@@ -124,6 +125,7 @@ void Ecc::add(MemoryInterface& memory,
     uint16_t space_id = memory.get_space_id();
 
     try {
+        // TODO(#AVM-266): Remove is_infinity flag from point representation.
         // The resulting EmbeddedCurvePoint is a triple of (x, y, is_infinity).
         // The x and y coordinates are stored at dst_address and dst_address + 1 respectively,
         // and the is_infinity flag is stored at dst_address + 2.
@@ -135,6 +137,10 @@ void Ecc::add(MemoryInterface& memory,
         }
 
         if (!p.on_curve() || !q.on_curve()) {
+            // TODO(#AVM-266): Note: We now use this to enforce (X, Y) == (0, 0) ==> is_inf
+            // until is_inf is removed. This means a bb inf point (!= (0, 0)) will
+            // not throw here but would throw in the circuit. Since we remap such points to
+            // (0, 0) below, it shouldn't reach the circuit at all.
             throw InternalEccException("One of the points is not on the curve");
         }
 
