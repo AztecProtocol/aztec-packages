@@ -1,9 +1,15 @@
 ---
 title: "Offchain-Authorized Transfers"
 sidebar_position: 2
-tags: [privacy, tokens, partial notes, cross-chain, advanced]
+tags: [privacy, tokens, partial notes, advanced]
 description: "Build contracts where users authorize token payments offchain via Schnorr signatures or DKIM-signed emails, without ever submitting a transaction."
-references: ["docs/examples/contracts/offchain_transfer_contract/src/main.nr", "docs/examples/ts/offchain_transfer/index.ts", "docs/examples/contracts/email_claim_contract/src/main.nr", "docs/examples/solidity/email_claim/EmailClaimPortal.sol"]
+references:
+  [
+    "docs/examples/contracts/offchain_transfer_contract/src/main.nr",
+    "docs/examples/ts/offchain_transfer/index.ts",
+    "docs/examples/contracts/email_claim_contract/src/main.nr",
+    "docs/examples/circuits/email_verifier/src/main.nr",
+  ]
 ---
 
 ## Overview
@@ -21,7 +27,7 @@ Before starting, ensure you have the following:
 - Completed the [Private Token Contract tutorial](./token_contract.md)
 - Understanding of partial notes and the public/private execution split
 - Aztec toolchain installed
-- For Part 4: familiarity with [L1-to-L2 messaging](../../foundational-topics/ethereum-aztec-messaging/inbox.md) and Solidity basics
+- For Part 4: familiarity with [recursive proof verification](./recursive_verification.md)
 
 ## Part 1: Understanding the Architecture
 
@@ -67,13 +73,13 @@ The alternative -- atomically creating and completing the note in a single trans
 
 This tutorial builds two contracts that implement this pattern in different ways:
 
-| | Part 2: Schnorr Signatures | Part 4: Email via zkEmail |
-|---|---|---|
-| **How Bob authorizes** | Signs with a dedicated Schnorr key | Sends a plain email (DKIM-signed by his mail server) |
-| **Where verification happens** | Private function on L2 | Recursive proof verification on L2 |
-| **Key management** | Bob manages a Schnorr private key | Bob uses his existing email account |
-| **Latency** | Immediate (single L2 transaction) | Immediate (single L2 transaction, after offchain proof generation) |
-| **Cost** | One L2 transaction | One L2 transaction |
+|                                | Part 2: Schnorr Signatures         | Part 4: Email via zkEmail                                          |
+| ------------------------------ | ---------------------------------- | ------------------------------------------------------------------ |
+| **How Bob authorizes**         | Signs with a dedicated Schnorr key | Sends a plain email (DKIM-signed by his mail server)               |
+| **Where verification happens** | Private function on L2             | Recursive proof verification on L2                                 |
+| **Key management**             | Bob manages a Schnorr private key  | Bob uses his existing email account                                |
+| **Latency**                    | Immediate (single L2 transaction)  | Immediate (single L2 transaction, after offchain proof generation) |
+| **Cost**                       | One L2 transaction                 | One L2 transaction                                                 |
 
 Both share the same balance model: Bob deposits tokens, the contract tracks his balance, and claims deduct from it.
 
@@ -219,7 +225,7 @@ By combining zkEmail with partial notes, we replace the Schnorr signing step wit
 
 ### Architecture
 
-The email flow uses **recursive proof verification** to stay entirely on L2. Carol generates a zkEmail proof offchain using a standalone Noir circuit, then submits the proof to an Aztec contract that verifies it privately using `verify_honk_proof`. No L1 contracts, no cross-chain messaging.
+The email flow uses **recursive proof verification**. Carol generates a zkEmail proof offchain using a standalone Noir circuit, then submits the proof to an Aztec contract that verifies it privately using `verify_honk_proof`.
 
 This follows the same pattern as the [Verify Noir Proofs in Aztec Contracts](./recursive_verification.md) tutorial: a computation-heavy Noir circuit runs offchain, and only the fixed-size proof is verified onchain.
 
@@ -258,8 +264,6 @@ sequenceDiagram
 As with Part 2, Carol's `create_claim` transaction must finalize before she submits `claim_with_email`. The proof generation step typically provides more than enough time, but Carol should not submit the claim before her `create_claim` has been included in a block.
 :::
 
-
-
 ## Part 5: The Email Verification Circuit
 
 The email verification circuit is a standalone Noir binary (not an Aztec contract) that verifies a DKIM-signed email and outputs public values for the contract to consume. It uses the [zkemail.nr](https://github.com/zkemail/zkemail.nr) library for DKIM signature verification and email header parsing.
@@ -270,15 +274,15 @@ The email verification circuit is a standalone Noir binary (not an Aztec contrac
 
 The circuit produces seven public outputs:
 
-| Output | Description |
-|---|---|
-| `pubkey_hash[0]` | Poseidon hash of the DKIM RSA public key modulus. The contract checks this against the trusted key to prevent self-signed forgeries. |
-| `pubkey_hash[1]` | Poseidon hash of the DKIM RSA public key redc parameter. Checked alongside `pubkey_hash[0]`. |
-| `email_nullifier` | Poseidon2 hash of the DKIM signature. Prevents the same email from being claimed twice -- pushed into Aztec's nullifier tree. |
-| `from_address_hash` | Poseidon2 hash of the sender (from) email address. Identifies the depositor -- the contract uses this to look up whose balance to deduct. The circuit also verifies the sender's domain is `icloud.com`. |
-| `to_address_hash` | Poseidon2 hash of the recipient (to) email address. The contract uses this for recipient binding -- ensuring the email was sent to the expected address. |
-| `intent_hash` | Poseidon2 hash of the email subject. Binds the email to a specific action -- the contract asserts this matches the caller's expected intent. The subject should encode the claim details (amount, commitment, etc.) in a canonical format agreed upon offchain. |
-| `dkim_timestamp` | The DKIM signing timestamp (`t=` tag) in seconds since epoch. Used for freshness checks -- the contract rejects emails that are too old. |
+| Output              | Description                                                                                                                                                                                                                                                     |
+| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pubkey_hash[0]`    | Poseidon hash of the DKIM RSA public key modulus. The contract checks this against the trusted key to prevent self-signed forgeries.                                                                                                                            |
+| `pubkey_hash[1]`    | Poseidon hash of the DKIM RSA public key redc parameter. Checked alongside `pubkey_hash[0]`.                                                                                                                                                                    |
+| `email_nullifier`   | Poseidon2 hash of the DKIM signature. Prevents the same email from being claimed twice -- pushed into Aztec's nullifier tree.                                                                                                                                   |
+| `from_address_hash` | Poseidon2 hash of the sender (from) email address. Identifies the depositor -- the contract uses this to look up whose balance to deduct. The circuit also verifies the sender's domain is `icloud.com`.                                                        |
+| `to_address_hash`   | Poseidon2 hash of the recipient (to) email address. The contract uses this for recipient binding -- ensuring the email was sent to the expected address.                                                                                                        |
+| `intent_hash`       | Poseidon2 hash of the email subject. Binds the email to a specific action -- the contract asserts this matches the caller's expected intent. The subject should encode the claim details (amount, commitment, etc.) in a canonical format agreed upon offchain. |
+| `dkim_timestamp`    | The DKIM signing timestamp (`t=` tag) in seconds since epoch. Used for freshness checks -- the contract rejects emails that are too old.                                                                                                                        |
 
 ### What the Circuit Proves
 
@@ -325,6 +329,7 @@ The Aztec contract follows the same balance model as Part 2, but replaces Schnor
 #include_code storage /docs/examples/contracts/email_claim_contract/src/main.nr rust
 
 The storage extends Part 2's structure with:
+
 - `vk_hash` stores the email circuit's verification key hash (set at deployment)
 - `trusted_dkim_key_hash_0` and `trusted_dkim_key_hash_1` store the Poseidon hashes of the trusted mail server's DKIM RSA public key components. Without this, an attacker could forge emails using their own RSA keypair.
 - `max_email_age` sets the maximum allowed age of an email in seconds, enforced via the DKIM signing timestamp
@@ -376,14 +381,17 @@ The public phase performs the sixth check and completes the claim:
 ### Security Notes
 
 **Shared across both approaches:**
+
 - **Randomness must be fresh.** Carol should never reuse randomness across claims. Reusing randomness links partial notes together and reveals her identity as the common owner.
 - **Front-running is bounded.** An attacker who sees a pending claim transaction cannot redirect it: the authorization (signature or email proof) binds to a specific commitment, and only Carol's partial note has that commitment.
 - **Over-authorization is possible.** Both approaches use a simple balance model. Bob can sign authorizations (or send emails) totaling more than his deposit; excess claims fail at the balance check. This is a social problem, not a cryptographic one -- like writing checks that exceed your bank balance.
 
 **Schnorr-specific:**
+
 - **Key management matters.** If Bob's signing key leaks, anyone with the key can sign authorizations in his name until his deposited balance is fully claimed.
 
 **Email-specific:**
+
 - **DKIM key binding prevents forgery.** The contract checks the proof's public key hash against a trusted key stored at deployment. Without this, an attacker could generate their own RSA keypair, forge a DKIM signature, and produce a valid proof. This is the most critical security check.
 - **Recipient binding prevents misdirection.** The circuit extracts the `To` address and the contract checks it matches the depositor, preventing an attacker from using an email sent to someone else.
 - **Intent binding prevents replay across actions.** The email subject is hashed by the circuit and the contract asserts it matches the caller's expected intent. This prevents reusing an email sent for a different purpose (e.g. using a "pay 50" email to claim 100). The subject format (what to encode and how) is an offchain convention -- the circuit hashes whatever is in the subject field, and the contract checks the hash matches. A production deployment should define a canonical subject format that includes the amount, commitment, and contract address.
@@ -394,16 +402,19 @@ The public phase performs the sixth check and completes the claim:
 ### When to Use Which
 
 **Use the Schnorr signature approach when:**
+
 - You need immediate settlement (no L1 round-trip)
 - The sender can manage a dedicated signing key
 - You want the simplest possible implementation
 
 **Use the email approach when:**
+
 - The sender cannot or will not install any special software
 - You want the lowest possible barrier to entry for the sender
 - The sender is willing to use a structured email subject format
 
 **Neither approach is a good fit when:**
+
 - The sender also needs balance privacy (both approaches make the deposit public)
 - The sender can run a PXE and submit transactions normally (use standard [authwits](../../foundational-topics/advanced/authwit.md) instead)
 
