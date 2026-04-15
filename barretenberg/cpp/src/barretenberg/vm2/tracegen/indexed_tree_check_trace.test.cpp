@@ -4,7 +4,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
-#include "barretenberg/crypto/merkle_tree/aztec_hash_policy.hpp"
+#include "barretenberg/aztec/aztec_hash_policy.hpp"
 #include "barretenberg/crypto/poseidon2/poseidon2.hpp"
 #include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/constraining/flavor_settings.hpp"
@@ -192,7 +192,7 @@ TEST_F(IndexedTreeCheckTracegenTest, WriteWithInteractions)
     FF siloing_separator = 42;
     FF siloed_value = RawPoseidon2::hash({ siloing_separator, contract_address, value });
     FF low_value = 40;
-    TestMemoryTree<crypto::merkle_tree::AztecMerkleHashPolicy> tree(8, TREE_HEIGHT);
+    TestMemoryTree<aztec::AztecMerkleHashPolicy> tree(8, TREE_HEIGHT);
 
     IndexedTreeLeafData low_leaf = { .leaf_separator = FF(DOM_SEP__NULLIFIER_LEAF),
                                      .value = low_value,
