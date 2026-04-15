@@ -9,6 +9,27 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
+### [aztec-nr] Nullifier membership witness oracle returns split types
+
+`get_nullifier_membership_witness` and `get_low_nullifier_membership_witness` now return `(NullifierLeafPreimage, MembershipWitness<NULLIFIER_TREE_HEIGHT>)` instead of the bundled `NullifierMembershipWitness` struct (which has been removed).
+
+If you were using these oracle functions directly (e.g. in `schnorr_account_contract`'s `lookup_validity`), update your code to destructure the tuple:
+
+```diff
+- let witness = get_low_nullifier_membership_witness(block_header, siloed_nullifier);
+- let nullifier_value = witness.leaf_preimage.nullifier;
+- let index = witness.index;
+- let path = witness.path;
++ let (leaf_preimage, witness) = get_low_nullifier_membership_witness(block_header, siloed_nullifier);
++ let nullifier_value = leaf_preimage.nullifier;
++ let index = witness.leaf_index;
++ let path = witness.sibling_path;
+```
+
+Note the field renames: `index` is now `leaf_index`, and `path` is now `sibling_path` (matching the protocol circuit's `MembershipWitness` type).
+
+This has been done because this is the format expected by the functionality in protocol circuits and given that this is sensitive security-wise it made sense to reuse that functionality in Aztec.nr.
+
 ### [L1 Contracts] Empire slasher removed, slasher config simplified
 
 The empire slashing model has been removed. Only the tally-based slashing model remains, and it has been renamed from `TallySlashingProposer` to `SlashingProposer`.
