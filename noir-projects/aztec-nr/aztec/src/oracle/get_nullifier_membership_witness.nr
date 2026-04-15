@@ -5,9 +5,11 @@ use crate::protocol::{
     traits::{Deserialize, Hash, Serialize},
 };
 
-/// Raw witness struct matching the TypeScript oracle serialization format. Use the public wrapper functions instead of
-/// this type directly.
-/// TODO(F-554): Remove once the TypeScript side serializes preimage and witness separately.
+// This internal type matches the oracle response. This module's functions (e.g.
+// [`get_low_nullifier_membership_witness`]) wrap the oracle call and convert this into their respective
+// return types.
+// TODO(F-554): Remove once the TypeScript side serializes preimage and witness separately, as an
+// oracle interface breaking change.
 #[derive(Deserialize, Eq, Serialize)]
 struct RawNullifierMembershipWitness {
     index: Field,
