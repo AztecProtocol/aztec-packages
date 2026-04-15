@@ -11,7 +11,6 @@ import {
 import { type ContractArtifact, EventSelector, FunctionSelector, NoteSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { BlockHash } from '@aztec/stdlib/block';
-import { OFFCHAIN_MESSAGE_IDENTIFIER } from '@aztec/stdlib/tx';
 
 import type { IAvmExecutionOracle, ITxeExecutionOracle } from './oracle/interfaces.js';
 import type { TXESessionStateHandler } from './txe_session.js';
@@ -344,59 +343,33 @@ export class RPCTranslator {
   // eslint-disable-next-line camelcase
   aztec_txe_getLastCallOffchainEffects() {
     // Returns the offchain effect payloads emitted by the last top-level call as a
-    // `BoundedVec<[Field; OFFCHAIN_EFFECT_LEN], MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL>`, plus the shared tx hash and
-    // anchor block timestamp captured at the entry point.
-    //
-    // Each payload follows the layout defined by `deliver_offchain_message` in aztec-nr:
-    //   [OFFCHAIN_MESSAGE_IDENTIFIER, recipient, ...ciphertext]
-    // where ciphertext is `PRIVATE_LOG_CIPHERTEXT_LEN` fields long. The Noir helper on `TestEnvironment` decodes these
-    // into `OffchainMessage` structs and injects `tx_hash` / `anchor_block_timestamp` from the extra return values.
-    //
-    // TODO(@mverzilli): currently only constants in Noir protocol contracts are processed and automatically made
-    // available in TS. We should think of similar mechanisms for other constants like the ones below.
-    const MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL = 16;
+    // `BoundedVec<[Field; OFFCHAIN_EFFECT_LEN], MAX_OFFCHAIN_EFFECTS_PER_TXE_QUERY>`.
+    const MAX_OFFCHAIN_EFFECTS_PER_TXE_QUERY = 64;
     const OFFCHAIN_EFFECT_LEN = 2 + PRIVATE_LOG_CIPHERTEXT_LEN; // identifier + recipient + ciphertext
 
-    const { effects: rawEffects, txHash, anchorBlockTimestamp } = this.stateHandler.getLastCallOffchainEffects();
-
-    // A top-level call may emit multiple flavors of offchain effect - `deliver_offchain_message`
-    // note/event payloads (17 fields, prefixed with `OFFCHAIN_MESSAGE_IDENTIFIER`), but also
-    // authwit requests (from `auth.nr::emit_offchain_effect`) and anything else a contract chooses
-    // to emit via `emit_offchain_effect`. `env.offchain_messages()` only decodes the standard
-    // `OffchainMessage` shape, so we filter the buffer down to payloads matching that layout and
-    // silently drop the rest. A shape mismatch on a prefixed payload is still an error since it
-    // signals a corrupt emission.
-    const effects = rawEffects.filter(payload => {
-      if (payload.length === 0 || !payload[0].equals(OFFCHAIN_MESSAGE_IDENTIFIER)) {
-        return false;
-      }
-      if (payload.length !== OFFCHAIN_EFFECT_LEN) {
-        throw new Error(
-          `Offchain effect tagged as OffchainMessage has ${payload.length} fields, expected ` +
-            `exactly ${OFFCHAIN_EFFECT_LEN}. The emitting contract used a non-standard layout.`,
-        );
-      }
-      return true;
-    });
-
-    // Not great, but we need some bound. If we see people hitting this limit we can easily increase it.
-    if (effects.length > MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL) {
-      throw new Error(
-        `Last top-level call emitted ${effects.length} offchain messages, which exceeds the ` +
-          `limit of ${MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL} readable per call from tests.`,
-      );
-    }
+    const { effects: rawEffects } = this.stateHandler.getLastCallOffchainEffects();
+    const effects = rawEffects.filter(payload => payload.length === OFFCHAIN_EFFECT_LEN);
 
     const payloadsAsForeignCallArrays = effects.map(payload => toArray(payload));
-    return toForeignCallResult([
-      ...arrayOfArraysToBoundedVecOfArrays(
+    return toForeignCallResult(
+      arrayOfArraysToBoundedVecOfArrays(
         payloadsAsForeignCallArrays,
-        MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL,
+        MAX_OFFCHAIN_EFFECTS_PER_TXE_QUERY,
         OFFCHAIN_EFFECT_LEN,
       ),
-      toSingle(txHash),
-      toSingle(new Fr(anchorBlockTimestamp)),
-    ]);
+    );
+  }
+
+  // eslint-disable-next-line camelcase
+  aztec_txe_getLastCallTxHash() {
+    const { txHash } = this.stateHandler.getLastCallOffchainEffects();
+    return toForeignCallResult([toSingle(txHash)]);
+  }
+
+  // eslint-disable-next-line camelcase
+  aztec_txe_getLastCallAnchorBlockTimestamp() {
+    const { anchorBlockTimestamp } = this.stateHandler.getLastCallOffchainEffects();
+    return toForeignCallResult([toSingle(new Fr(anchorBlockTimestamp))]);
   }
 
   // eslint-disable-next-line camelcase

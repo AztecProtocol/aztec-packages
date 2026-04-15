@@ -22,6 +22,10 @@ use crate::protocol::{
 /// `[OFFCHAIN_MESSAGE_IDENTIFIER, recipient, ...ciphertext]`.
 pub(crate) global OFFCHAIN_EFFECT_LEN: u32 = 2 + MESSAGE_CIPHERTEXT_LEN;
 
+/// Upper bound on the number of raw offchain effects the TXE test environment will surface
+/// to Noir in a single `get_last_call_offchain_effects` query.
+pub(crate) global MAX_OFFCHAIN_EFFECTS_PER_TXE_QUERY: u32 = 64;
+
 global MAX_PRIVATE_EVENTS_PER_TXE_QUERY: u32 = 5;
 global MAX_EVENT_SERIALIZATION_LENGTH: u32 = 10;
 
@@ -90,19 +94,22 @@ pub unconstrained fn get_last_block_timestamp() -> u64 {}
 pub unconstrained fn get_last_tx_effects() -> (Field, BoundedVec<Field, MAX_NOTE_HASHES_PER_TX>, BoundedVec<Field, MAX_NULLIFIERS_PER_TX>) {}
 
 /// Returns the raw offchain effect payloads emitted by the last top-level call into TXE.
-///
-///
-/// Return tuple:
-/// - `effects`: raw payloads, each shaped `[OFFCHAIN_MESSAGE_IDENTIFIER, recipient, ...ciphertext]`.
-/// - `tx_hash`: the tx hash of the top-level call, or zero if the call was tx-less (e.g. `execute_utility`,
-///   `private_context`).
-/// - `anchor_block_timestamp`: the timestamp of the block the call was anchored against.
-///
-/// Decoded into `OffchainMessage` values by the `TestEnvironment::offchain_messages` helper.
 #[oracle(aztec_txe_getLastCallOffchainEffects)]
-pub unconstrained fn get_last_call_offchain_effects() -> (BoundedVec<[Field; OFFCHAIN_EFFECT_LEN], MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL>, Field, /* tx_hash */
-u64 /* anchor_block_timestamp */
-) {}
+pub unconstrained fn get_last_call_offchain_effects() -> BoundedVec<[Field; OFFCHAIN_EFFECT_LEN], MAX_OFFCHAIN_EFFECTS_PER_TXE_QUERY> {}
+
+/// Returns the tx hash of the last top-level call.
+///
+/// `0` indicates the call was tx-less (`execute_utility`, context setters, etc). The
+/// `TestEnvironment::offchain_messages` helper converts this to `Option::none()` in the
+/// `OffchainMessage` struct.
+#[oracle(aztec_txe_getLastCallTxHash)]
+pub unconstrained fn get_last_call_tx_hash() -> Field {}
+
+/// Returns the anchor block timestamp captured at the start of the top-level call that last
+/// populated the offchain effect buffer. This is the timestamp used for offchain message expiry
+/// (`MAX_MSG_TTL`) when the inbox stores the `PendingOffchainMsg`.
+#[oracle(aztec_txe_getLastCallAnchorBlockTimestamp)]
+pub unconstrained fn get_last_call_anchor_block_timestamp() -> u64 {}
 
 #[oracle(aztec_txe_getDefaultAddress)]
 pub unconstrained fn get_default_address() -> AztecAddress {}

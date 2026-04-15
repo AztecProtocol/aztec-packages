@@ -613,10 +613,10 @@ impl TestEnvironment {
         T::deserialize(serialized_return_values)
     }
 
-    /// Returns the offchain messages emitted by the last top-level call into TXE.
+    /// Returns offchain messages emitted by the last top-level call into TXE.
     ///
-    /// The returned `BoundedVec<OffchainMessage, _>` can be passed directly to a contract's auto-generated
-    /// `offchain_receive` utility function to ingest the messages into the recipient's private state.
+    /// The returned `BoundedVec<OffchainMessage, _>` can be passed directly to a contract `offchain_receive`
+    /// utility function to ingest the messages into the recipient's private state.
     ///
     /// Each returned message is populated with:
     /// - `ciphertext` / `recipient`: decoded from the raw emitted payload.
@@ -636,7 +636,9 @@ impl TestEnvironment {
     pub unconstrained fn offchain_messages(
         _self: Self,
     ) -> BoundedVec<OffchainMessage, MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL> {
-        let (raw_effects, raw_tx_hash, anchor_block_timestamp) = txe_oracles::get_last_call_offchain_effects();
+        let raw_effects = txe_oracles::get_last_call_offchain_effects();
+        let raw_tx_hash = txe_oracles::get_last_call_tx_hash();
+        let anchor_block_timestamp = txe_oracles::get_last_call_anchor_block_timestamp();
 
         // TXE encodes "tx-less" as zero on the wire so the field fits a plain `Field`.
         // Convert back to `Option::none()` here to match the production type.
@@ -651,23 +653,20 @@ impl TestEnvironment {
         for i in 0..raw_effects.len() {
             let payload = raw_effects.get(i);
 
-            // The raw payload layout (produced by `deliver_offchain_message`) is:
+            // The raw payload layout produced by `deliver_offchain_message` is:
             //   [OFFCHAIN_MESSAGE_IDENTIFIER, recipient, ...ciphertext]
-            // Any other shape indicates the emitting contract used a non-standard offchain message format that TXE's
-            // test helper does not support.
-            assert(
-                payload[0] == OFFCHAIN_MESSAGE_IDENTIFIER,
-                "Offchain effect does not have the expected message identifier prefix",
-            );
+            // A call may also emit offchain effects that are *not* `OffchainMessage`s (e.g. authwit requests
+            // via `auth.nr::emit_offchain_effect`). We only concern ourselves with offchain messages here.
+            if payload[0] == OFFCHAIN_MESSAGE_IDENTIFIER {
+                let recipient = AztecAddress::from_field(payload[1]);
 
-            let recipient = AztecAddress::from_field(payload[1]);
+                let mut ciphertext: BoundedVec<Field, MESSAGE_CIPHERTEXT_LEN> = BoundedVec::new();
+                for j in 0..MESSAGE_CIPHERTEXT_LEN {
+                    ciphertext.push(payload[2 + j]);
+                }
 
-            let mut ciphertext: BoundedVec<Field, MESSAGE_CIPHERTEXT_LEN> = BoundedVec::new();
-            for j in 0..MESSAGE_CIPHERTEXT_LEN {
-                ciphertext.push(payload[2 + j]);
+                messages.push(OffchainMessage { ciphertext, recipient, tx_hash, anchor_block_timestamp });
             }
-
-            messages.push(OffchainMessage { ciphertext, recipient, tx_hash, anchor_block_timestamp });
         }
 
         messages
