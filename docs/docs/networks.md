@@ -28,7 +28,7 @@ The developer SDK/aztec-nr version (used for writing and compiling contracts) ma
 | **Getting Started** | [Run a sequencer →](/operate/operators/setup/sequencer_management) | [Run a node →](/operate/operators/setup/running_a_node) |
 
 :::tip Network Roles (Post-Alpha)
-**Testnet is your production path.** It's decentralized, live, and stable — treat it as your staging environment for Alpha. If you want to deploy on Alpha, validate on Testnet first. Note: Sponsored FPC is not available on Testnet.
+**Testnet is your production path.** It's decentralized, live, and stable — treat it as your staging environment for Alpha. If you want to deploy on Alpha, validate on Testnet first.
 :::
 
 ## Contract Addresses
@@ -132,7 +132,7 @@ Testnet is ideal for testing node configurations, governance proposals, and unde
 - Fully decentralized sequencer set
 - Connected to Ethereum Sepolia
 - Transactions are proven
-- No Sponsored FPC — you must handle fee payment
+- Sponsored FPC available for free transactions
 - Good environment for testing node operations
 
 ## Next Steps

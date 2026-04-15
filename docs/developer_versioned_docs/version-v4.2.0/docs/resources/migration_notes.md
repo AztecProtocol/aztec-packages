@@ -9,6 +9,60 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
+### [aztec-nr] Nullifier membership witness oracle returns split types
+
+`get_nullifier_membership_witness` and `get_low_nullifier_membership_witness` now return `(NullifierLeafPreimage, MembershipWitness<NULLIFIER_TREE_HEIGHT>)` instead of the bundled `NullifierMembershipWitness` struct (which has been removed).
+
+If you were using these oracle functions directly (e.g. in `schnorr_account_contract`'s `lookup_validity`), update your code to destructure the tuple:
+
+```diff
+- let witness = get_low_nullifier_membership_witness(block_header, siloed_nullifier);
+- let nullifier_value = witness.leaf_preimage.nullifier;
+- let index = witness.index;
+- let path = witness.path;
++ let (leaf_preimage, witness) = get_low_nullifier_membership_witness(block_header, siloed_nullifier);
++ let nullifier_value = leaf_preimage.nullifier;
++ let index = witness.leaf_index;
++ let path = witness.sibling_path;
+```
+
+Note the field renames: `index` is now `leaf_index`, and `path` is now `sibling_path` (matching the protocol circuit's `MembershipWitness` type).
+
+This has been done because this is the format expected by the functionality in protocol circuits and given that this is sensitive security-wise it made sense to reuse that functionality in Aztec.nr.
+
+### [L1 Contracts] Empire slasher removed, slasher config simplified
+
+The empire slashing model has been removed. Only the tally-based slashing model remains, and it has been renamed from `TallySlashingProposer` to `SlashingProposer`.
+
+**L1 contract changes:**
+- `SlasherFlavor` enum removed from `ISlasher.sol`
+- `RollupConfigInput.slasherFlavor` (enum) replaced with `slasherEnabled` (bool)
+- `TallySlashingProposer` contract renamed to `SlashingProposer`
+- `TallySlasherDeploymentExtLib` library renamed to `SlasherDeploymentExtLib`
+- `SlashFactory` periphery contract removed
+- `SLASHING_PROPOSER_TYPE` constant removed from `SlashingProposer`
+- All `TallySlashingProposer__` error prefixes renamed to `SlashingProposer__`
+
+**Environment variable changes:**
+```diff
+- AZTEC_SLASHER_FLAVOR=tally    # was: "tally" | "empire" | "none"
++ AZTEC_SLASHER_ENABLED=true    # now a boolean
+```
+
+**Removed environment variables:** `SLASH_MIN_PENALTY_PERCENTAGE`, `SLASH_MAX_PENALTY_PERCENTAGE`
+
+**Removed from deploy outputs:** `slashFactoryAddress`
+
+**Node admin API:** `getSlashPayloads()` method removed.
+
+**TypeScript config changes:**
+```diff
+- slasherFlavor: 'tally' | 'none'
++ slasherEnabled: boolean
+```
+
+`slashMinPenaltyPercentage` and `slashMaxPenaltyPercentage` removed from `SlasherConfig`.
+
 ### [Aztec.js] `GasSettings.default()` renamed to `GasSettings.fallback()`
 
 `GasSettings.default()` has been renamed to `GasSettings.fallback()` to clarify that these gas limits are not protocol defaults — the protocol has no concept of "default" gas settings. `fallback()` is a convenience for cases where gas estimation is not being used, but callers should prefer estimating gas via simulation for accurate limits.
