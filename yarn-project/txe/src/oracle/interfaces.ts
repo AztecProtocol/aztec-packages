@@ -68,13 +68,19 @@ export interface ITxeExecutionOracle {
     argsHash: Fr,
     isStaticCall: boolean,
     jobId: string,
-  ): Promise<Fr[]>;
+  ): Promise<{ returnValues: Fr[]; offchainEffects: Fr[][] }>;
   executeUtilityFunction(
     targetContractAddress: AztecAddress,
     functionSelector: FunctionSelector,
     args: Fr[],
     jobId: string,
   ): Promise<Fr[]>;
+  /**
+   * Dispatches the contract's auto-generated `offchain_receive` utility function with the given
+   * pre-serialized arguments. Looks up the `offchain_receive` selector from the contract artifact
+   * and routes the call through the normal utility execution path.
+   */
+  deliverOffchainMessages(targetContractAddress: AztecAddress, args: Fr[], jobId: string): Promise<void>;
   publicCallNewFlow(
     from: AztecAddress,
     targetContractAddress: AztecAddress,

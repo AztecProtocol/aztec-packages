@@ -1,6 +1,6 @@
 import type { ContractInstanceWithAddress } from '@aztec/aztec.js/contracts';
 import { Fr, Point } from '@aztec/aztec.js/fields';
-import { MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX } from '@aztec/constants';
+import { MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, PRIVATE_LOG_CIPHERTEXT_LEN } from '@aztec/constants';
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import {
   type IMiscOracle,
@@ -11,6 +11,7 @@ import {
 import { type ContractArtifact, EventSelector, FunctionSelector, NoteSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { BlockHash } from '@aztec/stdlib/block';
+import { OFFCHAIN_MESSAGE_IDENTIFIER } from '@aztec/stdlib/tx';
 
 import type { IAvmExecutionOracle, ITxeExecutionOracle } from './oracle/interfaces.js';
 import type { TXESessionStateHandler } from './txe_session.js';
@@ -102,6 +103,42 @@ export class RPCTranslator {
     return this.oracleHandler;
   }
 
+  /**
+   * Wipes the offchain effects buffer and captures the anchor block timestamp of the block
+   * the call is about to execute against.
+   */
+  private beginOffchainEffectCapture(): Promise<bigint> {
+    this.stateHandler.resetLastCallOffchainEffects();
+    return this.handlerAsTxe().getLastBlockTimestamp();
+  }
+
+  /**
+   * Completes offchain capture for a top-level call that produced a transaction. Reads
+   * the tx hash from the archiver (populated once the call's block is mined) and commits
+   * it alongside the pre-captured anchor block timestamp.
+   */
+  private async finishOffchainCaptureWithTxHash(anchorBlockTimestamp: bigint): Promise<void> {
+    const { txHash } = await this.handlerAsTxe().getLastTxEffects();
+    this.stateHandler.setLastCallOffchainContext(txHash.hash, anchorBlockTimestamp);
+  }
+
+  /**
+   * Completes offchain capture for a top-level call that did not produce a transaction.
+   */
+  private async finishOffchainCaptureWithoutTxHash(anchorBlockTimestamp: bigint): Promise<void> {
+    this.stateHandler.setLastCallOffchainContext(Fr.ZERO, anchorBlockTimestamp);
+  }
+
+  /**
+   * One-shot bookkeeping for top-level entry points that don't execute a transaction:
+   * wipes the buffer and commits a tx-less context (`Fr.ZERO`) paired with the current
+   * anchor block timestamp.
+   */
+  private async resetOffchainMessageContext(): Promise<void> {
+    this.stateHandler.resetLastCallOffchainEffects();
+    this.stateHandler.setLastCallOffchainContext(Fr.ZERO, await this.handlerAsTxe().getLastBlockTimestamp());
+  }
+
   // TXE session state transition functions - these get handled by the state handler
 
   // eslint-disable-next-line camelcase
@@ -118,6 +155,8 @@ export class RPCTranslator {
     foreignAnchorBlockNumberIsSome: ForeignCallSingle,
     foreignAnchorBlockNumberValue: ForeignCallSingle,
   ) {
+    await this.resetOffchainMessageContext();
+
     const contractAddress = fromSingle(foreignContractAddressIsSome).toBool()
       ? AztecAddress.fromField(fromSingle(foreignContractAddressValue))
       : undefined;
@@ -136,6 +175,8 @@ export class RPCTranslator {
     foreignContractAddressIsSome: ForeignCallSingle,
     foreignContractAddressValue: ForeignCallSingle,
   ) {
+    await this.resetOffchainMessageContext();
+
     const contractAddress = fromSingle(foreignContractAddressIsSome).toBool()
       ? AztecAddress.fromField(fromSingle(foreignContractAddressValue))
       : undefined;
@@ -150,6 +191,8 @@ export class RPCTranslator {
     foreignContractAddressIsSome: ForeignCallSingle,
     foreignContractAddressValue: ForeignCallSingle,
   ) {
+    await this.resetOffchainMessageContext();
+
     const contractAddress = fromSingle(foreignContractAddressIsSome).toBool()
       ? AztecAddress.fromField(fromSingle(foreignContractAddressValue))
       : undefined;
@@ -295,6 +338,64 @@ export class RPCTranslator {
       toSingle(txHash.hash),
       ...arrayToBoundedVec(toArray(noteHashes), MAX_NOTE_HASHES_PER_TX),
       ...arrayToBoundedVec(toArray(nullifiers), MAX_NULLIFIERS_PER_TX),
+    ]);
+  }
+
+  // eslint-disable-next-line camelcase
+  aztec_txe_getLastCallOffchainEffects() {
+    // Returns the offchain effect payloads emitted by the last top-level call as a
+    // `BoundedVec<[Field; OFFCHAIN_EFFECT_LEN], MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL>`, plus the shared tx hash and
+    // anchor block timestamp captured at the entry point.
+    //
+    // Each payload follows the layout defined by `deliver_offchain_message` in aztec-nr:
+    //   [OFFCHAIN_MESSAGE_IDENTIFIER, recipient, ...ciphertext]
+    // where ciphertext is `PRIVATE_LOG_CIPHERTEXT_LEN` fields long. The Noir helper on `TestEnvironment` decodes these
+    // into `OffchainMessage` structs and injects `tx_hash` / `anchor_block_timestamp` from the extra return values.
+    //
+    // TODO(@mverzilli): currently only constants in Noir protocol contracts are processed and automatically made
+    // available in TS. We should think of similar mechanisms for other constants like the ones below.
+    const MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL = 16;
+    const OFFCHAIN_EFFECT_LEN = 2 + PRIVATE_LOG_CIPHERTEXT_LEN; // identifier + recipient + ciphertext
+
+    const { effects: rawEffects, txHash, anchorBlockTimestamp } = this.stateHandler.getLastCallOffchainEffects();
+
+    // A top-level call may emit multiple flavors of offchain effect - `deliver_offchain_message`
+    // note/event payloads (17 fields, prefixed with `OFFCHAIN_MESSAGE_IDENTIFIER`), but also
+    // authwit requests (from `auth.nr::emit_offchain_effect`) and anything else a contract chooses
+    // to emit via `emit_offchain_effect`. `env.offchain_messages()` only decodes the standard
+    // `OffchainMessage` shape, so we filter the buffer down to payloads matching that layout and
+    // silently drop the rest. A shape mismatch on a prefixed payload is still an error since it
+    // signals a corrupt emission.
+    const effects = rawEffects.filter(payload => {
+      if (payload.length === 0 || !payload[0].equals(OFFCHAIN_MESSAGE_IDENTIFIER)) {
+        return false;
+      }
+      if (payload.length !== OFFCHAIN_EFFECT_LEN) {
+        throw new Error(
+          `Offchain effect tagged as OffchainMessage has ${payload.length} fields, expected ` +
+            `exactly ${OFFCHAIN_EFFECT_LEN}. The emitting contract used a non-standard layout.`,
+        );
+      }
+      return true;
+    });
+
+    // Not great, but we need some bound. If we see people hitting this limit we can easily increase it.
+    if (effects.length > MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL) {
+      throw new Error(
+        `Last top-level call emitted ${effects.length} offchain messages, which exceeds the ` +
+          `limit of ${MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL} readable per call from tests.`,
+      );
+    }
+
+    const payloadsAsForeignCallArrays = effects.map(payload => toArray(payload));
+    return toForeignCallResult([
+      ...arrayOfArraysToBoundedVecOfArrays(
+        payloadsAsForeignCallArrays,
+        MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL,
+        OFFCHAIN_EFFECT_LEN,
+      ),
+      toSingle(txHash),
+      toSingle(new Fr(anchorBlockTimestamp)),
     ]);
   }
 
@@ -1071,8 +1172,13 @@ export class RPCTranslator {
   }
 
   // eslint-disable-next-line camelcase
-  aztec_utl_emitOffchainEffect(_foreignData: ForeignCallArray) {
-    throw new Error('Offchain effects are not yet supported in the TestEnvironment');
+  aztec_utl_emitOffchainEffect(foreignData: ForeignCallArray) {
+    // Record the raw payload against the currently-executing top-level call. The Noir side
+    // (via `env.offchain_messages()`) is responsible for decoding the protocol-reserved prefix
+    // (`OFFCHAIN_MESSAGE_IDENTIFIER`, recipient) and turning each payload into an `OffchainMessage` struct suitable
+    // for `offchain_receive`.
+    this.stateHandler.recordOffchainEffect(fromArray(foreignData));
+    return Promise.resolve(toForeignCallResult([]));
   }
 
   // AVM opcodes
@@ -1274,6 +1380,8 @@ export class RPCTranslator {
     foreignArgsHash: ForeignCallSingle,
     foreignIsStaticCall: ForeignCallSingle,
   ) {
+    const anchorBlockTimestamp = await this.beginOffchainEffectCapture();
+
     const from = addressFromSingle(foreignFrom);
     const targetContractAddress = addressFromSingle(foreignTargetContractAddress);
     const functionSelector = FunctionSelector.fromField(fromSingle(foreignFunctionSelector));
@@ -1281,7 +1389,7 @@ export class RPCTranslator {
     const argsHash = fromSingle(foreignArgsHash);
     const isStaticCall = fromSingle(foreignIsStaticCall).toBool();
 
-    const returnValues = await this.handlerAsTxe().privateCallNewFlow(
+    const { returnValues, offchainEffects } = await this.handlerAsTxe().privateCallNewFlow(
       from,
       targetContractAddress,
       functionSelector,
@@ -1291,9 +1399,50 @@ export class RPCTranslator {
       this.stateHandler.getCurrentJob(),
     );
 
+    // Private execution collects offchain effects inside PXE's PrivateExecutionOracle rather than
+    // round-tripping them through `aztec_utl_emitOffchainEffect`, so the session buffer is empty
+    // at this point. Drain the effects from the execution tree into the session buffer so the
+    // next `env.offchain_messages()` call in the test sees them.
+    for (const data of offchainEffects) {
+      this.stateHandler.recordOffchainEffect(data);
+    }
+
     // TODO(F-335): Avoid doing the following call here.
     await this.stateHandler.cycleJob();
+
+    await this.finishOffchainCaptureWithTxHash(anchorBlockTimestamp);
+
     return toForeignCallResult([toArray(returnValues)]);
+  }
+
+  // eslint-disable-next-line camelcase
+  async aztec_txe_deliverOffchainMessages(
+    foreignTargetContractAddress: ForeignCallSingle,
+    foreignMessagesStorage: ForeignCallArray,
+    foreignMessagesLen: ForeignCallSingle,
+  ) {
+    // Test-only entry point used by `TestEnvironment::deliver_offchain_messages`. The caller passes
+    // a `BoundedVec<OffchainMessage, MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL>`, which Noir flattens
+    // across the wire as (storage_array, len) - the same shape the real `offchain_receive` utility
+    // stub would serialize. We concatenate the two halves back into a single `[...storage, len]`
+    // Field array, which matches the arg layout `executeUtilityFunction` expects for a utility
+    // taking one `BoundedVec` parameter, and forward it unmodified.
+    const anchorBlockTimestamp = await this.beginOffchainEffectCapture();
+
+    const targetContractAddress = addressFromSingle(foreignTargetContractAddress);
+    const storage = fromArray(foreignMessagesStorage);
+    const len = fromSingle(foreignMessagesLen);
+    const args = [...storage, len];
+
+    await this.handlerAsTxe().deliverOffchainMessages(targetContractAddress, args, this.stateHandler.getCurrentJob());
+
+    // TODO(F-335): Avoid doing the following call here.
+    await this.stateHandler.cycleJob();
+
+    // Utility calls are tx-less.
+    await this.finishOffchainCaptureWithoutTxHash(anchorBlockTimestamp);
+
+    return toForeignCallResult([]);
   }
 
   // eslint-disable-next-line camelcase
@@ -1302,6 +1451,8 @@ export class RPCTranslator {
     foreignFunctionSelector: ForeignCallSingle,
     foreignArgs: ForeignCallArray,
   ) {
+    const anchorBlockTimestamp = await this.beginOffchainEffectCapture();
+
     const targetContractAddress = addressFromSingle(foreignTargetContractAddress);
     const functionSelector = FunctionSelector.fromField(fromSingle(foreignFunctionSelector));
     const args = fromArray(foreignArgs);
@@ -1315,6 +1466,10 @@ export class RPCTranslator {
 
     // TODO(F-335): Avoid doing the following call here.
     await this.stateHandler.cycleJob();
+
+    // Utility calls are tx-less.
+    await this.finishOffchainCaptureWithoutTxHash(anchorBlockTimestamp);
+
     return toForeignCallResult([toArray(returnValues)]);
   }
 
@@ -1325,6 +1480,8 @@ export class RPCTranslator {
     foreignCalldata: ForeignCallArray,
     foreignIsStaticCall: ForeignCallSingle,
   ) {
+    const anchorBlockTimestamp = await this.beginOffchainEffectCapture();
+
     const from = addressFromSingle(foreignFrom);
     const address = addressFromSingle(foreignAddress);
     const calldata = fromArray(foreignCalldata);
@@ -1334,6 +1491,9 @@ export class RPCTranslator {
 
     // TODO(F-335): Avoid doing the following call here.
     await this.stateHandler.cycleJob();
+
+    await this.finishOffchainCaptureWithTxHash(anchorBlockTimestamp);
+
     return toForeignCallResult([toArray(returnValues)]);
   }
 

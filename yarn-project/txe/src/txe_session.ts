@@ -118,6 +118,35 @@ export interface TXESessionStateHandler {
   // TODO(F-335): Exposing the job info is abstraction breakage - drop the following 2 functions.
   cycleJob(): Promise<string>;
   getCurrentJob(): string;
+
+  /**
+   * Resets the buffer of offchain effects emitted by the last top-level call.
+   */
+  resetLastCallOffchainEffects(): void;
+
+  /**
+   * Captures a raw offchain effect payload for consumption from test environment. Called by the `emit_offchain_effect`
+   * oracle handler whenever a contract function emits an offchain message, at any call depth.
+   */
+  recordOffchainEffect(data: Fr[]): void;
+
+  /**
+   * Records the tx hash and anchor block timestamp associated with the top-level call that produced the currently-buffered
+   * effects. Called by the call executor handlers after execution completes, so that `OffchainMessage.tx_hash` and
+   * `anchor_block_timestamp` can be populated at drain time with values that match what the production flow would observe.
+   *
+   * For top-level entry points that don't produce a tx (e.g. context setters, `execute_utility`), pass `Fr.ZERO` for
+   * `txHash` to indicate "tx-less".
+   */
+  setLastCallOffchainContext(txHash: Fr, anchorBlockTimestamp: bigint): void;
+
+  /**
+   * Returns the raw offchain effect payloads and the associated tx context emitted by the last top-level call. Each payload
+   * follows the protocol convention documented on `OFFCHAIN_MESSAGE_IDENTIFIER`, i.e.
+   * `[identifier, recipient, ...ciphertext]`. Decoding into `OffchainMessage` structs happens on the Noir side of the test
+   * helper; the tx context is threaded through to populate `tx_hash` and `anchor_block_timestamp`.
+   */
+  getLastCallOffchainEffects(): { effects: Fr[][]; txHash: Fr; anchorBlockTimestamp: bigint };
 }
 
 /**
@@ -127,6 +156,25 @@ export interface TXESessionStateHandler {
 export class TXESession implements TXESessionStateHandler {
   private state: SessionState = { name: 'TOP_LEVEL' };
   private authwits: Map<string, AuthWitness> = new Map();
+  /**
+   * Raw offchain effect payloads emitted by the currently-executing (or most recently
+   * completed) top-level call. Wiped at the start of every top-level entry point, appended
+   * to on every `emit_offchain_effect` oracle invocation. See `TXESessionStateHandler` for
+   * the contract.
+   */
+  private lastCallOffchainEffects: Fr[][] = [];
+  /**
+   * Tx hash of the most recently completed top-level call that produced offchain effects,
+   * or `Fr.ZERO` if the top-level call was tx-less (context setters, utility execution).
+   * Populated by call executor handlers after execution completes.
+   */
+  private lastCallOffchainTxHash: Fr = Fr.ZERO;
+  /**
+   * Anchor block timestamp of the most recently completed top-level call that produced
+   * offchain effects. Populated by call executor handlers after execution completes, from
+   * the anchor block header that was active while the call ran.
+   */
+  private lastCallOffchainAnchorBlockTimestamp: bigint = 0n;
 
   constructor(
     private logger: Logger,
@@ -273,6 +321,29 @@ export class TXESession implements TXESessionStateHandler {
     await this.jobCoordinator.commitJob(this.currentJobId);
     this.currentJobId = this.jobCoordinator.beginJob();
     return this.currentJobId;
+  }
+
+  resetLastCallOffchainEffects(): void {
+    this.lastCallOffchainEffects = [];
+    this.lastCallOffchainTxHash = Fr.ZERO;
+    this.lastCallOffchainAnchorBlockTimestamp = 0n;
+  }
+
+  recordOffchainEffect(data: Fr[]): void {
+    this.lastCallOffchainEffects.push(data);
+  }
+
+  setLastCallOffchainContext(txHash: Fr, anchorBlockTimestamp: bigint): void {
+    this.lastCallOffchainTxHash = txHash;
+    this.lastCallOffchainAnchorBlockTimestamp = anchorBlockTimestamp;
+  }
+
+  getLastCallOffchainEffects(): { effects: Fr[][]; txHash: Fr; anchorBlockTimestamp: bigint } {
+    return {
+      effects: this.lastCallOffchainEffects,
+      txHash: this.lastCallOffchainTxHash,
+      anchorBlockTimestamp: this.lastCallOffchainAnchorBlockTimestamp,
+    };
   }
 
   async enterTopLevelState() {

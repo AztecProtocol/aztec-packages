@@ -513,11 +513,17 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
       }
     }
 
+    // Walk the nested private-call tree and collect every offchain effect the transaction emitted.
+    // PXE stores these on each `PrivateCallExecutionResult` and they never reach TXE via the
+    // `aztec_utl_emitOffchainEffect` foreign-call path (that path only fires at the top-level), so
+    // we pull them out here and the RPC wrapper will hand them to `TXESession` for buffering.
+    const offchainEffects = collectNested([executionResult], r => r.offchainEffects.map(e => e.data));
+
     if (isStaticCall) {
       await checkpoint!.revert();
 
       await forkedWorldTrees.close();
-      return executionResult.returnValues ?? [];
+      return { returnValues: executionResult.returnValues ?? [], offchainEffects };
     }
 
     const txEffect = TxEffect.empty();
@@ -539,7 +545,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
 
     await forkedWorldTrees.close();
 
-    return executionResult.returnValues ?? [];
+    return { returnValues: executionResult.returnValues ?? [], offchainEffects };
   }
 
   async publicCallNewFlow(
@@ -735,6 +741,23 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     return this.executeUtilityCall(call, await this.keyStore.getAccounts(), jobId);
   }
 
+  async deliverOffchainMessages(targetContractAddress: AztecAddress, args: Fr[], jobId: string): Promise<void> {
+    // Look up the contract's auto-generated `offchain_receive` utility. It's injected by the
+    // `#[aztec]` macro and isn't reachable via the normal `Contract::at(addr).offchain_receive(...)`
+    // stub (see `aztec-nr/aztec/src/macros/aztec.nr::generate_offchain_receive`), so we resolve the
+    // selector by name from the artifact and dispatch via the standard utility path.
+    const contract = await this.contractStore.getContract(targetContractAddress);
+    if (!contract) {
+      throw new Error(`No contract artifact found at ${targetContractAddress} for offchain message delivery.`);
+    }
+    const fn = contract.functions.find(f => f.name === 'offchain_receive');
+    if (!fn) {
+      throw new Error(`Contract at ${targetContractAddress} does not expose an 'offchain_receive' utility function.`);
+    }
+    const selector = await FunctionSelector.fromNameAndParameters(fn.name, fn.parameters);
+    await this.executeUtilityFunction(targetContractAddress, selector, args, jobId);
+  }
+
   private async executeUtilityCall(call: FunctionCall, scopes: AztecAddress[], jobId: string): Promise<Fr[]> {
     const entryPointArtifact = await this.contractStore.getFunctionArtifactWithDebugMetadata(call.to, call.selector);
     if (entryPointArtifact.functionType !== FunctionType.UTILITY) {
@@ -763,7 +786,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
         capsuleService: new CapsuleService(this.capsuleStore, scopes),
         privateEventStore: this.privateEventStore,
         messageContextService: this.stateMachine.messageContextService,
-        contractSyncService: this.contractSyncService,
+        contractSyncService: this.stateMachine.contractSyncService,
         jobId,
         scopes,
       });

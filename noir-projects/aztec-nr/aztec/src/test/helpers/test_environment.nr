@@ -1,7 +1,7 @@
 use crate::protocol::{
     abis::function_selector::FunctionSelector,
     address::AztecAddress,
-    traits::{Deserialize, Packable, Serialize},
+    traits::{Deserialize, FromField, Packable, Serialize},
 };
 
 use crate::{
@@ -15,9 +15,14 @@ use crate::{
         discovery::{
             ComputeNoteHash, ComputeNoteNullifier, CustomMessageHandler, process_message::process_message_plaintext,
         },
-        encoding::MESSAGE_PLAINTEXT_LEN,
+        encoding::{MESSAGE_CIPHERTEXT_LEN, MESSAGE_PLAINTEXT_LEN},
         logs::{event::encode_private_event_message, note::encode_private_note_message},
-        processing::{MessageContext, validate_and_store_enqueued_notes_and_events},
+        offchain_messages::OFFCHAIN_MESSAGE_IDENTIFIER,
+        processing::{
+            MessageContext,
+            offchain::{MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL, OffchainMessage},
+            validate_and_store_enqueued_notes_and_events,
+        },
     },
     note::{note_interface::{NoteHash, NoteType}, NoteMessage},
     oracle::version::assert_compatible_oracle_version,
@@ -606,6 +611,84 @@ impl TestEnvironment {
             txe_oracles::execute_utility_function(call.target_contract, call.selector, call.args);
 
         T::deserialize(serialized_return_values)
+    }
+
+    /// Returns the offchain messages emitted by the last top-level call into TXE.
+    ///
+    /// The returned `BoundedVec<OffchainMessage, _>` can be passed directly to a contract's auto-generated
+    /// `offchain_receive` utility function to ingest the messages into the recipient's private state.
+    ///
+    /// Each returned message is populated with:
+    /// - `ciphertext` / `recipient`: decoded from the raw emitted payload.
+    /// - `tx_hash`: `Option::some(hash)` for tx-producing entry points (`call_private`,
+    ///   `call_public`); `Option::none()` for tx-less entry points (`execute_utility`,
+    ///   `private_context`, `utility_context`).
+    /// - `anchor_block_timestamp`: the timestamp of the block the top-level call was
+    ///   anchored against, matching the value the production flow would produce.
+    ///
+    /// # Example
+    ///
+    /// ```noir
+    /// env.call_private(sender, Token::at(token).transfer_in_private_deliver_offchain(...));
+    /// let messages = env.offchain_messages();
+    /// env.deliver_offchain_messages(token, messages);
+    /// ```
+    pub unconstrained fn offchain_messages(
+        _self: Self,
+    ) -> BoundedVec<OffchainMessage, MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL> {
+        let (raw_effects, raw_tx_hash, anchor_block_timestamp) = txe_oracles::get_last_call_offchain_effects();
+
+        // TXE encodes "tx-less" as zero on the wire so the field fits a plain `Field`.
+        // Convert back to `Option::none()` here to match the production type.
+        let tx_hash = if raw_tx_hash == 0 {
+            Option::none()
+        } else {
+            Option::some(raw_tx_hash)
+        };
+
+        let mut messages: BoundedVec<OffchainMessage, MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL> = BoundedVec::new();
+
+        for i in 0..raw_effects.len() {
+            let payload = raw_effects.get(i);
+
+            // The raw payload layout (produced by `deliver_offchain_message`) is:
+            //   [OFFCHAIN_MESSAGE_IDENTIFIER, recipient, ...ciphertext]
+            // Any other shape indicates the emitting contract used a non-standard offchain message format that TXE's
+            // test helper does not support.
+            assert(
+                payload[0] == OFFCHAIN_MESSAGE_IDENTIFIER,
+                "Offchain effect does not have the expected message identifier prefix",
+            );
+
+            let recipient = AztecAddress::from_field(payload[1]);
+
+            let mut ciphertext: BoundedVec<Field, MESSAGE_CIPHERTEXT_LEN> = BoundedVec::new();
+            for j in 0..MESSAGE_CIPHERTEXT_LEN {
+                ciphertext.push(payload[2 + j]);
+            }
+
+            messages.push(OffchainMessage { ciphertext, recipient, tx_hash, anchor_block_timestamp });
+        }
+
+        messages
+    }
+
+    /// Delivers offchain messages to `contract_address`'s offchain inbox by invoking the contract's
+    /// auto-generated `offchain_receive` utility function.
+    ///
+    /// This mirrors what a production recipient does: TXE looks up `offchain_receive` in the
+    /// contract artifact and dispatches it through the normal utility execution path, so the call
+    /// runs inside a proper utility execution context and all `aztec_utl_*` oracles resolve.
+    ///
+    /// We can't use the usual `env.execute_utility(Token::at(contract_address).offchain_receive(messages))`
+    /// sugar here: `offchain_receive` is auto-injected by the `#[aztec]` macro *after* the contract
+    /// interface is generated, so it never lands on the `Token::at(...)` stub impl.
+    pub unconstrained fn deliver_offchain_messages(
+        _self: Self,
+        contract_address: AztecAddress,
+        messages: BoundedVec<OffchainMessage, MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL>,
+    ) {
+        txe_oracles::deliver_offchain_messages(contract_address, messages);
     }
 
     /// Performs a public contract function call, including the processing of any nested public calls. Returns the
