@@ -396,7 +396,10 @@ export class LibP2PService extends WithTracer implements P2PService {
       peerDiscovery,
       streamMuxers: [yamux()],
       connectionEncrypters: [noise()],
-      connectionMonitor: { enabled: false }, // EXPERIMENT: disabled to measure regression cause
+      connectionMonitor: {
+        protocolPrefix: 'aztec',
+        pingInterval: 12_000,
+      },
       connectionManager: {
         // We set maxConnections above maxPeerCount because if we hit limit of maxPeerCount
         // libp2p will start aggressively rejecting all new connections, preventing network discovery and crawling.
@@ -430,7 +433,9 @@ export class LibP2PService extends WithTracer implements P2PService {
           protocolPrefix: 'aztec',
           runOnConnectionOpen: true,
         }),
-        // EXPERIMENT: identifyPush disabled to measure regression cause
+        identifyPush: identifyPush({
+          protocolPrefix: 'aztec',
+        }),
         ping: ping({
           protocolPrefix: 'aztec',
         }),
