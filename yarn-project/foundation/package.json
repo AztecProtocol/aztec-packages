@@ -88,6 +88,7 @@
     "./committable": "./dest/committable/index.js",
     "./noir": "./dest/noir/index.js",
     "./testing": "./dest/testing/index.js",
+    "./testing/elu_jest_setup": "./dest/testing/elu_jest_setup.js",
     "./testing/files": "./dest/testing/files/index.js",
     "./profiler": "./dest/profiler/index.js",
     "./array": "./dest/array/index.js",

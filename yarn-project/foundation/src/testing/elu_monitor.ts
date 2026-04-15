@@ -2,8 +2,13 @@ import { appendFileSync } from 'node:fs';
 import { type EventLoopUtilization, type IntervalHistogram, monitorEventLoopDelay, performance } from 'node:perf_hooks';
 
 const NANOS_PER_MS = 1_000_000;
+const BYTES_PER_MB = 1024 * 1024;
+const US_PER_MS = 1000;
 
-/** Samples event-loop utilization, delay histogram, and heap usage per test, writing columnar text to a file. */
+/**
+ * Samples event-loop utilization, delay histogram, V8 heap, per-process CPU usage, and RSS memory per test.
+ * Writes columnar text to a per-test file that CI uploads for post-run analysis.
+ */
 export class EluMonitor {
   private filePath: string;
   private intervalMs: number;
@@ -13,6 +18,12 @@ export class EluMonitor {
   private testName: string | undefined;
   private testStart: number | undefined;
   private eluSamples: number[] = [];
+  private cpuUserSamples: number[] = [];
+  private cpuSystemSamples: number[] = [];
+  private rssSamples: number[] = [];
+  private heapSamples: number[] = [];
+  private lastCpuUsage: NodeJS.CpuUsage | undefined;
+  private lastSampleTime: number | undefined;
 
   constructor(filePath: string, intervalMs?: number) {
     this.filePath = filePath;
@@ -27,11 +38,17 @@ export class EluMonitor {
     this.testName = testName;
     this.testStart = performance.now();
     this.eluSamples = [];
+    this.cpuUserSamples = [];
+    this.cpuSystemSamples = [];
+    this.rssSamples = [];
+    this.heapSamples = [];
+    this.lastCpuUsage = undefined;
+    this.lastSampleTime = undefined;
 
     appendFileSync(this.filePath, `\n=== Test: ${testName} ===\n`);
     appendFileSync(
       this.filePath,
-      padColumns('TIME', 'ELU', 'EL_DLY_P50', 'EL_DLY_P99', 'EL_DLY_MAX', 'HEAP_MB') + '\n',
+      padColumns('TIME', 'ELU', 'EL_DLY_P50', 'EL_DLY_P99', 'EL_DLY_MAX', 'HEAP_MB', 'CPU_U', 'CPU_S', 'RSS_MB') + '\n',
     );
 
     this.lastELU = performance.eventLoopUtilization();
@@ -62,6 +79,12 @@ export class EluMonitor {
     this.testName = undefined;
     this.testStart = undefined;
     this.eluSamples = [];
+    this.cpuUserSamples = [];
+    this.cpuSystemSamples = [];
+    this.rssSamples = [];
+    this.heapSamples = [];
+    this.lastCpuUsage = undefined;
+    this.lastSampleTime = undefined;
   }
 
   /** Alias for stopTest — call on process exit to flush any remaining data. */
@@ -70,6 +93,8 @@ export class EluMonitor {
   }
 
   private sample(): void {
+    const nowMs = performance.now();
+
     const newELU = performance.eventLoopUtilization();
     const delta = performance.eventLoopUtilization(newELU, this.lastELU);
     this.lastELU = newELU;
@@ -80,7 +105,29 @@ export class EluMonitor {
     const p50 = this.histogram.percentile(50) / NANOS_PER_MS;
     const p99 = this.histogram.percentile(99) / NANOS_PER_MS;
     const max = this.histogram.max / NANOS_PER_MS;
-    const heapMb = Math.round(process.memoryUsage().heapUsed / (1024 * 1024));
+
+    const memUsage = process.memoryUsage();
+    const heapMb = Math.round(memUsage.heapUsed / BYTES_PER_MB);
+    const rssMb = Math.round(memUsage.rss / BYTES_PER_MB);
+    this.heapSamples.push(heapMb);
+    this.rssSamples.push(rssMb);
+
+    // CPU usage: compute delta since last sample. First sample has no baseline so report 0.0.
+    let cpuUserPct = 0;
+    let cpuSystemPct = 0;
+    const currentCpuUsage = process.cpuUsage();
+    if (this.lastCpuUsage !== undefined && this.lastSampleTime !== undefined) {
+      const cpuDelta = process.cpuUsage(this.lastCpuUsage);
+      const wallElapsedUs = (nowMs - this.lastSampleTime) * US_PER_MS;
+      if (wallElapsedUs > 0) {
+        cpuUserPct = (cpuDelta.user / wallElapsedUs) * 100;
+        cpuSystemPct = (cpuDelta.system / wallElapsedUs) * 100;
+      }
+    }
+    this.lastCpuUsage = currentCpuUsage;
+    this.lastSampleTime = nowMs;
+    this.cpuUserSamples.push(cpuUserPct);
+    this.cpuSystemSamples.push(cpuSystemPct);
 
     const now = new Date();
     const time = [now.getHours(), now.getMinutes(), now.getSeconds()].map(n => String(n).padStart(2, '0')).join(':');
@@ -92,6 +139,9 @@ export class EluMonitor {
       `${p99.toFixed(1)}ms`,
       `${max.toFixed(1)}ms`,
       String(heapMb),
+      cpuUserPct.toFixed(1),
+      cpuSystemPct.toFixed(1),
+      String(rssMb),
     );
     appendFileSync(this.filePath, line + '\n');
 
@@ -110,7 +160,21 @@ export class EluMonitor {
     const p90Elu = sorted[Math.floor(sorted.length * 0.9)] ?? maxElu;
     const durationS = ((performance.now() - this.testStart) / 1000).toFixed(1);
 
+    const meanCpuU =
+      this.cpuUserSamples.length > 0 ? this.cpuUserSamples.reduce((a, b) => a + b, 0) / this.cpuUserSamples.length : 0;
+    const maxCpuU = this.cpuUserSamples.length > 0 ? Math.max(...this.cpuUserSamples) : 0;
+    const meanCpuS =
+      this.cpuSystemSamples.length > 0
+        ? this.cpuSystemSamples.reduce((a, b) => a + b, 0) / this.cpuSystemSamples.length
+        : 0;
+    const maxCpuS = this.cpuSystemSamples.length > 0 ? Math.max(...this.cpuSystemSamples) : 0;
+    const peakRss = this.rssSamples.length > 0 ? Math.max(...this.rssSamples) : 0;
+    const peakHeap = this.heapSamples.length > 0 ? Math.max(...this.heapSamples) : 0;
+
     let summary = `--- Summary: mean_elu=${mean.toFixed(2)} max_elu=${maxElu.toFixed(2)} p90_elu=${p90Elu.toFixed(2)} duration=${durationS}s`;
+    summary += ` mean_cpu_u=${meanCpuU.toFixed(2)} max_cpu_u=${maxCpuU.toFixed(2)}`;
+    summary += ` mean_cpu_s=${meanCpuS.toFixed(2)} max_cpu_s=${maxCpuS.toFixed(2)}`;
+    summary += ` peak_rss=${peakRss} peak_heap=${peakHeap}`;
     if (maxElu > 0.85) {
       summary += ' WARNING:ELU>0.85';
     }
@@ -121,6 +185,6 @@ export class EluMonitor {
 }
 
 function padColumns(...cols: string[]): string {
-  const widths = [11, 7, 12, 12, 12, 8];
+  const widths = [11, 7, 12, 12, 12, 8, 8, 8, 8];
   return cols.map((col, i) => col.padEnd(widths[i] ?? 10)).join('');
 }

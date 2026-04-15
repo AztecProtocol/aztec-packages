@@ -27,7 +27,8 @@
     "start:dev": "concurrently -k \"../scripts/tsc.sh --watch\" \"nodemon --watch dest --exec yarn start\""
   },
   "inherits": [
-    "../package.common.json"
+    "../package.common.json",
+    "./package.local.json"
   ],
   "jest": {
     "moduleNameMapper": {
@@ -63,7 +64,8 @@
     ],
     "testEnvironment": "../../foundation/src/jest/env.mjs",
     "setupFilesAfterEnv": [
-      "../../foundation/src/jest/setupAfterEnv.mjs"
+      "../../foundation/src/jest/setupAfterEnv.mjs",
+      "../../foundation/src/testing/elu_jest_setup.ts"
     ]
   },
   "dependencies": {
