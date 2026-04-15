@@ -1,7 +1,6 @@
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { randomInt } from '@aztec/foundation/crypto/random';
-import { Fr } from '@aztec/foundation/curves/bn254';
 import { KeyStore } from '@aztec/key-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -27,7 +26,7 @@ describe('LogService', () => {
   let logService: LogService;
 
   describe('bulkRetrieveLogs', () => {
-    const tag = new Tag(Fr.random());
+    const tag = Tag.random();
 
     beforeEach(async () => {
       // Set up contract address
@@ -139,7 +138,7 @@ describe('LogService', () => {
     it('rejects a batch where at least one request targets a different contract', async () => {
       const differentContract = await AztecAddress.random();
       const validRequest = new LogRetrievalRequest(contractAddress, tag);
-      const invalidRequest = new LogRetrievalRequest(differentContract, new Tag(Fr.random()));
+      const invalidRequest = new LogRetrievalRequest(differentContract, Tag.random());
 
       await expect(logService.fetchLogsByTag(contractAddress, [validRequest, invalidRequest])).rejects.toThrow(
         /Got a log retrieval request from/,

@@ -19,6 +19,7 @@ import type { SlasherClientInterface } from '@aztec/slasher';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
   type BlockData,
+  BlockHash,
   CommitteeAttestation,
   CommitteeAttestationsAndSigners,
   GENESIS_CHECKPOINT_HEADER_HASH,
@@ -287,7 +288,7 @@ describe('sequencer', () => {
       getBlockData: mockFn().mockResolvedValue({
         header: BlockHeader.empty(),
         archive: AppendOnlyTreeSnapshot.empty(),
-        blockHash: Fr.ZERO,
+        blockHash: BlockHash.ZERO,
         checkpointNumber: CheckpointNumber(0),
         indexWithinCheckpoint: IndexWithinCheckpoint(0),
       } satisfies BlockData),
@@ -1055,7 +1056,7 @@ describe('sequencer', () => {
       l2BlockSource.getBlockData.mockResolvedValue({
         header: BlockHeader.empty({ globalVariables: GlobalVariables.empty({ blockNumber: BlockNumber(1) }) }),
         archive: AppendOnlyTreeSnapshot.empty(),
-        blockHash: Fr.ZERO,
+        blockHash: BlockHash.ZERO,
         checkpointNumber: CheckpointNumber(1),
         indexWithinCheckpoint: IndexWithinCheckpoint(0),
       } satisfies BlockData);
@@ -1116,7 +1117,7 @@ describe('sequencer', () => {
       l2BlockSource.getBlockData.mockResolvedValue({
         header: BlockHeader.empty({ globalVariables: GlobalVariables.empty({ blockNumber: BlockNumber(3) }) }),
         archive: AppendOnlyTreeSnapshot.empty(),
-        blockHash: Fr.ZERO,
+        blockHash: BlockHash.ZERO,
         checkpointNumber: CheckpointNumber(3),
         indexWithinCheckpoint: IndexWithinCheckpoint(0),
       } satisfies BlockData);

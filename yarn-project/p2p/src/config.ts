@@ -225,23 +225,23 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
     env: 'VALIDATOR_MAX_TX_PER_BLOCK',
     description:
       'Maximum transactions per block for validation. Overrides maxTxsPerBlock for gossip validation when set.',
-    parseEnv: (val: string) => (val ? parseInt(val, 10) : undefined),
+    parseEnv: (val: string) => parseInt(val, 10),
   },
   validateMaxTxsPerCheckpoint: {
     env: 'VALIDATOR_MAX_TX_PER_CHECKPOINT',
     description:
       'Maximum transactions per checkpoint for validation. Used as fallback for maxTxsPerBlock when that is not set.',
-    parseEnv: (val: string) => (val ? parseInt(val, 10) : undefined),
+    parseEnv: (val: string) => parseInt(val, 10),
   },
   validateMaxL2BlockGas: {
     env: 'VALIDATOR_MAX_L2_BLOCK_GAS',
     description: 'Maximum L2 gas per block for validation. When set, txs exceeding this limit are rejected.',
-    parseEnv: (val: string) => (val ? parseInt(val, 10) : undefined),
+    parseEnv: (val: string) => parseInt(val, 10),
   },
   validateMaxDABlockGas: {
     env: 'VALIDATOR_MAX_DA_BLOCK_GAS',
     description: 'Maximum DA gas per block for validation. When set, txs exceeding this limit are rejected.',
-    parseEnv: (val: string) => (val ? parseInt(val, 10) : undefined),
+    parseEnv: (val: string) => parseInt(val, 10),
   },
   p2pEnabled: {
     env: 'P2P_ENABLED',
@@ -443,7 +443,7 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
   },
   p2pStoreMapSizeKb: {
     env: 'P2P_STORE_MAP_SIZE_KB',
-    parseEnv: (val: string | undefined) => (val ? +val : undefined),
+    parseEnv: (val: string) => +val,
     description: 'The maximum possible size of the P2P DB in KB. Overwrites the general dataStoreMapSizeKb.',
   },
   txPublicSetupAllowListExtend: {
@@ -505,7 +505,7 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
   l1PublishingTime: {
     env: 'SEQ_L1_PUBLISHING_TIME_ALLOWANCE_IN_SLOT',
     description: 'How much time (in seconds) we allow in the slot for publishing the L1 tx (defaults to 1 L1 slot).',
-    parseEnv: (val: string) => (val ? parseInt(val, 10) : undefined),
+    parseEnv: (val: string) => parseInt(val, 10),
   },
   fishermanMode: {
     env: 'FISHERMAN_MODE',
