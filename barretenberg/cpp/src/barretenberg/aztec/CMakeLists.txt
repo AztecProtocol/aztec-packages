@@ -1,5 +1,3 @@
+# Header-only module: registers aztec_constants.hpp and aztec_hash_policy.hpp
+# with the global barretenberg_headers INTERFACE target. No library is produced.
 barretenberg_module(aztec crypto_merkle_tree)
-
-# aztec_objects needs -fPIC because it's pulled (via world_state) into the
-# nodejs_module shared library.
-set_target_properties(aztec_objects PROPERTIES POSITION_INDEPENDENT_CODE ON)
