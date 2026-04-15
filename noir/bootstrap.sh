@@ -121,7 +121,6 @@ function get_projects {
 }
 
 function release {
-  local dist_tag=$(dist_tag)
   local version=${REF_NAME#v}
   cd packages
 
@@ -132,7 +131,7 @@ function release {
     jq --arg v $version '.version = $v' package.json >tmp.json
     mv tmp.json package.json
 
-    retry "deploy_npm $dist_tag $version"
+    retry "deploy_npm $version"
     cd ..
   done
 }
