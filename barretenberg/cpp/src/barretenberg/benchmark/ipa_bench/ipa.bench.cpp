@@ -154,4 +154,33 @@ BENCHMARK(ipa_verify)
     ->Setup(DoSetup);
 BENCHMARK(ipa_verify_individual)->Unit(kMillisecond)->Arg(1)->Arg(2)->Arg(4)->Arg(8)->Setup(DoBatchSetup);
 BENCHMARK(ipa_batch_verify)->Unit(kMillisecond)->Arg(1)->Arg(2)->Arg(4)->Arg(8)->Setup(DoBatchSetup);
+
+// Full random IPA claim + proof pipeline (native part of IPA::create_random_valid_ipa_claim_and_proof):
+// random poly generation, commitment, evaluation, and opening proof at IPA::poly_length (2^CONST_ECCVM_LOG_N).
+namespace {
+void ipa_full_claim_and_proof(benchmark::State& state) noexcept
+{
+    srs::init_file_crs_factory(srs::bb_crs_path());
+    static constexpr size_t N = IPA<Curve>::poly_length;
+    CommitmentKey<Curve> commitment_key(N);
+    numeric::RNG& engine = numeric::get_debug_randomness();
+
+    for (auto _ : state) {
+        Polynomial poly(N);
+        for (size_t i = 0; i < N; ++i) {
+            poly.at(i) = Fr::random_element(&engine);
+        }
+        Fr x = Fr::random_element(&engine);
+        Fr eval = poly.evaluate(x);
+        auto commitment = commitment_key.commit(poly);
+        const OpeningPair<Curve> opening_pair = { x, eval };
+        auto transcript = std::make_shared<NativeTranscript>();
+        IPA<Curve>::compute_opening_proof(commitment_key, { poly, opening_pair }, transcript);
+        benchmark::DoNotOptimize(commitment);
+        benchmark::DoNotOptimize(transcript);
+    }
+}
+} // namespace
+BENCHMARK(ipa_full_claim_and_proof)->Unit(kMillisecond)->MinTime(2.0);
+
 BENCHMARK_MAIN();
