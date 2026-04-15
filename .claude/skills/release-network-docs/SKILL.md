@@ -21,11 +21,14 @@ self-identify its release type, ask the user to confirm.
 
 **This skill does NOT:**
 
-- Generate API docs (aztec-nr or TypeScript)
+- Generate developer API docs (aztec-nr or TypeScript)
 - Generate CLI reference docs
 - Update developer version config or cut developer versioned docs
 - Update migration notes
 - Require aztec CLI, nargo, or yarn-project build
+
+**This skill DOES** regenerate the Node JSON-RPC API reference for the
+versioned docs (see Step 5a).
 
 ## Usage
 
@@ -165,7 +168,27 @@ Ask the user if any content changes are needed in `docs/docs-operate/`:
 - Operator changelog updates (if not handled by `/updating-changelog`)
 
 If the user has content changes, apply them to the source files in
-`docs/docs-operate/`. If no content changes are needed, skip to Step 6.
+`docs/docs-operate/`. If no content changes are needed, skip to Step 5a.
+
+### Step 5a: Regenerate Node API Reference
+
+The Node JSON-RPC API reference is auto-generated from TypeScript source. It
+must be regenerated from the release tag's source files to ensure the versioned
+docs reflect the actual API at that release.
+
+```bash
+cd docs
+yarn generate:node-api-reference
+```
+
+This writes to `docs/docs-operate/operators/reference/node-api-reference.md`
+using the source files from the currently checked-out tag. The generator parses
+`yarn-project/stdlib/src/interfaces/aztec-node.ts` and
+`yarn-project/stdlib/src/interfaces/aztec-node-admin.ts` directly (no
+yarn-project build needed).
+
+Verify the output lists the expected number of methods and has no ungrouped
+methods warnings.
 
 ### Step 6: Build and Validate
 
@@ -284,6 +307,9 @@ Check for stash conflicts. Then report to the user:
 - **No heavy prerequisites**: This skill does not require aztec CLI, nargo, or
   a yarn-project build. Only `yarn` (for the docs build), `curl`/`jq` (for
   the RPC query), and `cast` (for on-chain address queries) are needed.
+- **Node API reference is auto-generated**: Run `yarn generate:node-api-reference`
+  (Step 5a) before building. The generator parses TypeScript source directly and
+  does not require a yarn-project build.
 - **Build must pass**: Do not cut versioned docs until `yarn build` succeeds.
 - **COMMIT_TAG needs `v` prefix**: The preprocessor uses COMMIT_TAG for GitHub
   URLs and git tag references. Omitting the `v` will break links in versioned

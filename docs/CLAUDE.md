@@ -29,6 +29,8 @@ This project uses Yarn 4.13.0 as specified in the `packageManager` field of pack
 - `yarn generate:typescript-api` - Generate TypeScript API docs (requires yarn-project to be built)
 - `yarn generate:typescript-api v3.0.0-devnet.6` - Generate for a specific version
 - `RELEASE_TYPE=mainnet yarn generate:typescript-api v4.2.0` - Generate with explicit release type
+- `yarn generate:node-api-reference` - Generate Node JSON-RPC API reference (requires yarn-project source)
+- `yarn generate:node-api-reference --target-dir <dir>` - Generate into a specific versioned docs directory
 
 The `RELEASE_TYPE` env var overrides version string pattern matching for output folder selection. This is useful when the version string doesn't self-identify its release type.
 
