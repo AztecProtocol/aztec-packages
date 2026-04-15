@@ -1,6 +1,5 @@
 import { CalldataRetriever } from '@aztec/archiver';
 import type { AztecNodeService } from '@aztec/aztec-node';
-import type { AztecAddress } from '@aztec/aztec.js/addresses';
 import { NO_WAIT } from '@aztec/aztec.js/contracts';
 import { Fr } from '@aztec/aztec.js/fields';
 import type { Logger } from '@aztec/aztec.js/log';
@@ -49,7 +48,6 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
   let validators: (Operator & { privateKey: `0x${string}` })[];
   let nodes: AztecNodeService[];
   let testContract: TestContract;
-  let from: AztecAddress;
 
   beforeEach(async () => {
     validators = times(VALIDATOR_COUNT, i => {
@@ -66,7 +64,7 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
       blockDurationMs: 6000,
       l1PublishingTime: 8,
       enforceTimeTable: true,
-      numberOfAccounts: 0,
+      numberOfAccounts: 1,
       initialValidators: validators,
       mockGossipSubNetwork: true,
       disableAnvilTestWatcher: true,
@@ -82,14 +80,14 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
       slasherEnabled: true,
       minTxsPerBlock: 1,
       maxTxsPerBlock: 1,
-      skipInitialSequencer: true,
-      enableProposerPipelining: true,
-      inboxLag: 2,
     });
 
     ({ context, logger, l1Client } = test);
     rollupContract = new RollupContract(l1Client, test.rollup.address);
-    from = context.accounts[0]; // auto-created by setup
+
+    // Halt block building in initial aztec node
+    logger.warn(`Stopping sequencer in initial aztec node.`);
+    await context.sequencer!.stop();
 
     // Start the validator nodes
     logger.warn(`Initial setup complete. Starting ${NODE_COUNT} validator nodes.`);
@@ -345,8 +343,8 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
     expect(receipt.isMined()).toBeTrue();
     logger.warn(`Transaction included in block ${receipt.blockNumber}`);
 
-    // Check that we have tagged an offense for that (query a validator node since the initial node has no slasher)
-    const offenses = await nodes[0].getSlashOffenses('all');
+    // Check that we have tagged an offense for that
+    const offenses = await context.aztecNodeAdmin.getSlashOffenses('all');
     expect(offenses.length).toBeGreaterThan(0);
     const invalidBlockOffense = offenses.find(o => o.offenseType === OffenseType.PROPOSED_INSUFFICIENT_ATTESTATIONS);
     expect(invalidBlockOffense).toBeDefined();
@@ -354,7 +352,9 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
     const currentCheckpoint = await test.rollup.getCheckpointNumber();
 
     logger.warn('Sending further transactions to trigger more block building');
-    await timesAsync(8, i => testContract.methods.emit_nullifier(BigInt(i + 100)).send({ from, wait: NO_WAIT }));
+    await timesAsync(8, i =>
+      testContract.methods.emit_nullifier(BigInt(i + 100)).send({ from: context.accounts[0], wait: NO_WAIT }),
+    );
 
     logger.warn(`Waiting for checkpoint ${currentCheckpoint + 2} to be mined to ensure chain can progress`);
     await test.waitUntilCheckpointNumber(CheckpointNumber(currentCheckpoint + 2), test.L2_SLOT_DURATION_IN_S * 8);
