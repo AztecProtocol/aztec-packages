@@ -6,6 +6,10 @@
  * Grumpkin Curve Eqn in SW form:  Y^2 = X^3 − 17.
  * Note: Grumpkin forms a 2-cycle with BN254, i.e the base field of one is the scalar field of the other and vice-versa.
  *
+* Note that once TODO(#AVM-266) is complete, is_inf will no longer be part of our point representation and we must either:
+ *  - continue to rely on the 'calling' trace to inject a constrained is_inf, or
+ *  - derive is_inf (<==> (X, Y) == (INFINITY_X, INFINITY_Y)) within this trace.
+ *
  * USAGE: This is a non-memory aware subtrace used to constrain point addition as defined above. Each point can be looked up
  *        by coordinates (lookup as defined in ecc_mem.pil):
  *        #[INPUT_OUTPUT_ECC_ADD]

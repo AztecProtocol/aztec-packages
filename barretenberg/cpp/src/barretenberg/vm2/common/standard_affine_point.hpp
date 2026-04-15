@@ -16,6 +16,10 @@ namespace bb::avm2 {
  * NOTE: When constructing infinity via BaseFields, input coordinates are maintained and can be any values, so may
  * mismatch the underlying AffinePoint. Always check is_infinity() before ECC operations on coordinates. See test
  * InfinityPreservesRawCoordinates for an example.
+ *
+ * TODO(#AVM-266): Remove is_infinity flag from point representation.
+ * Now that the is_inf flag has been removed from noir (noir-lang/noir/#11926) we should consider a point to be
+ * infinity iff its coordinates are (0, 0). This likely means changing our handling of underlying coordinates below.
  */
 template <typename AffinePoint> class StandardAffinePoint {
   public:

@@ -8,6 +8,8 @@ include "precomputed.pil";
  * This handles the memory writes when the ECADD opcode is executed by user code.
  * Given two points, P & Q, this trace constrains that both exist on the Grumpkin curve
  * and the claimed result point, R = P + Q, is written to memory addresses within range.
+ * A point exists on the curve if it satisfies the curve equation (SW form: Y^2 = X^3 − 17)
+ * or is the point at infinity, represented by (X, Y) = (0, 0).
  * The reads of P and Q are handled by the registers in the execution trace. The correctness
  * of point addition is handled by the ECC subtrace.
  *
@@ -37,11 +39,15 @@ include "precomputed.pil";
  * Opcode operands (relevant in EXECUTION when interacting with this gadget):
  * - rop[0]: p_x_addr
  * - rop[1]: p_y_addr
- * - rop[2]: p_is_inf_addr
+ * - rop[2]: p_is_inf_addr (ignored)
  * - rop[3]: q_x_addr
  * - rop[4]: q_y_addr
- * - rop[5]: q_is_inf_addr
+ * - rop[5]: q_is_inf_addr (ignored)
  * - rop[6]: dst_addr
+ *
+ * Note: The values at p_is_inf_addr, q_is_inf_addr are ignored by this circuit and will be removed
+ *      in TODO(#AVM-266). We instead derive whether the point is infinity by checking its coordinates
+ *      for our standard representation of (0, 0). See below for details on infinity points.
  *
  * Memory I/O:
  * - register[0]: M[p_x_addr] aka p_x (x coordinate of point P - read from memory by EXECUTION)
@@ -49,13 +55,13 @@ include "precomputed.pil";
  * - register[1]: M[p_y_addr] aka p_y (y coordinate of point P - read from memory by EXECUTION)
  *     - p_y is tagged-checked by execution/registers to be FF based on instruction spec.
  * - register[2]: M[p_is_inf_addr] aka p_is_inf (boolean flag if P is the point at infinity - read from memory by EXECUTION)
- *     - p_is_inf is tagged-checked by execution/registers to be U1 based on instruction spec.
+ *     - Note: ignored by this circuit and will be removed in TODO(#AVM-266).
  * - register[3]: M[q_x_addr] aka q_x (x coordinate of point Q - read from memory by EXECUTION)
  *     - q_x is tagged-checked by execution/registers to be FF based on instruction spec.
  * - register[4]: M[q_y_addr] aka q_y (y coordinate of point Q - read from memory by EXECUTION)
  *     - q_y is tagged-checked by execution/registers to be FF based on instruction spec.
  * - register[5]: M[q_is_inf_addr] aka q_is_inf (boolean flag if Q is the point at infinity - read from memory by EXECUTION)
- *     - q_is_inf is tagged-checked by execution/registers to be U1 based on instruction spec.
+ *     - Note: ignored by this circuit and will be removed in TODO(#AVM-266).
  * - M[rop[6]]: M[dst_addr] aka res_x (x coordinate of the resulting point RES - written by this gadget)
  *     - guaranteed by this gadget to be FF.
  * - M[rop[6]+1]: M[dst_offset+1] aka res_y (y coordinate of the resulting point RES - written by this gadget)
@@ -68,7 +74,7 @@ include "precomputed.pil";
  * (1) DST_OUT_OF_BOUNDS_ACCESS: If the writes would access a memory address outside
  *     of the max AVM memory address (AVM_HIGHEST_MEM_ADDRESS).
  * (2) POINT_NOT_ON_CURVE: If either of the inputs (embedded curve points) do not
- *     satisfy the Grumpkin curve equation (SW form: Y^2 = X^3 − 17)
+ *     exist on the Grumpkin curve.
  *
  * TRACE SHAPE: This subtrace writes the values within 1 single row (i.e. 3 output columns)
  *
@@ -87,10 +93,24 @@ include "precomputed.pil";
  *            (#[INPUT_OUTPUT_ECC_ADD]). See below for details on infinity points.
  * - gt.pil: To constrain that the maximum written memory address is within range (#[CHECK_DST_ADDR_IN_RANGE]).
  *
- * This subtrace is connected to the ECC subtrace via a lookup. ECC is used by
- * other subtraces internally (e.g., address derivation). We re-map any input infinity points to (0, 0)
- * so ECC correctly manages edge cases. Resulting infinity points are guaranteed to be (0, 0) by the
- * ECC subtrace (see #[OUTPUT_X_COORD] and #[OUTPUT_Y_COORD]).
+ * This subtrace is connected to the ECC subtrace via a lookup. ECC is used by other subtraces internally
+ * (e.g. address derivation). Now that the is_inf flag has been removed from noir (noir-lang/noir/#11926/) we consider
+ * a point to be infinity iff its coordinates are (0, 0); the noir standard representation.
+ *
+ * Note that the point at infinity, O, does not have valid coordinates (a property of SW curves like Grumpkin). We represent it
+ * as (0, 0) but any (ecc.INFINITY_X, ecc.INFINITY_Y) not satisfying the curve equation will be correctly handled in this trace.
+ *
+ * For now, we simply ignore any is_inf flags coming from memory (assigning and not reading the placeholder is_inf_), but
+ * will eventually remove it from the operands TODO(#AVM-266).
+ *
+ * TODO(MW): Is ignoring i.e. leaving a memory operand unconstrained safe? Execution still reads them but will remove
+ *  p/q_is_inf_ if so.
+ *
+ * Until #AVM-266, the ECC subtrace still requires a correctly constrained is_inf flag for each point. We derive it within
+ * this circuit by enforcing (0, 0) <==> is_inf for input points P and Q:
+ *  - (0, 0) ==> is_inf by #[P/Q_ON_CURVE_CHECK] (zero coordinates will fail this relation unless is_inf is set correctly).
+ *  - is_inf ==> (0, 0) by #[P/Q_INF_X/Y_CHECK].
+ * Resulting infinity points are guaranteed to be (0, 0) by the ECC subtrace (see #[OUTPUT_X_COORD] and #[OUTPUT_Y_COORD]).
  */
 
 namespace ecc_add_mem;
@@ -110,9 +130,13 @@ namespace ecc_add_mem;
     dst_addr[1] = sel * (dst_addr[0] + 1);
     dst_addr[2] = sel * (dst_addr[0] + 2);
 
-    // p_is_inf, q_is_inf are constrained to be @boolean in the ecc subtrace (see #[INPUT_OUTPUT_ECC_ADD])
-    pol commit p_x, p_y, p_is_inf;
-    pol commit q_x, q_y, q_is_inf;
+    // TODO(#AVM-266): Remove p_is_inf_, q_is_inf_ (currently placeholders for #[DISPATCH_TO_ECC_ADD]).
+    pol commit p_x, p_y, p_is_inf_;
+    pol commit q_x, q_y, q_is_inf_;
+
+    // TODO(#AVM-266): Remove p_is_inf, q_is_inf entirely.
+    // Needs to be committed columns as they are used in the lookups
+    pol commit p_is_inf, q_is_inf; // constrained to be @boolean in the ecc subtrace (see #[INPUT_OUTPUT_ECC_ADD])
 
     ////////////////////////////////////////////////
     // Error Handling - Out of Range Memory Access
@@ -141,6 +165,8 @@ namespace ecc_add_mem;
 
     pol commit sel_q_not_on_curve_err; // @boolean
     sel_q_not_on_curve_err * (1 - sel_q_not_on_curve_err) = 0;
+
+    // Note: The below additionally constrains that (X, Y) == (INFINITY_X, INFINITY_Y) ==> is_inf. See above description.
 
     // Y^2 = X^3 − 17, re-formulate to Y^2 - (X^3 - 17) = 0
     pol commit p_is_on_curve_eqn; // Needs to be committed to reduce relation degrees
@@ -174,22 +200,23 @@ namespace ecc_add_mem;
     pol commit sel_should_exec; // @boolean (by definition)
     sel_should_exec = sel * (1 - err);
 
-    // Needs to be committed columns as they are used in the lookups
-    pol commit p_x_n, p_y_n;
-    pol commit q_x_n, q_y_n;
-
-    // We re-map input infinity points to (0, 0) for ecc.pil. Output infinities are already constrained to be (0, 0) in the subtrace.
-    // Note that we cannot use p_x, p_y, etc. because they are read from memory in execution's #[DISPATCH_TO_ECC_ADD].
-    sel_should_exec * (p_x_n - (1 - p_is_inf) * p_x - p_is_inf * ecc.INFINITY_X) = 0;
-    sel_should_exec * (p_y_n - (1 - p_is_inf) * p_y - p_is_inf * ecc.INFINITY_Y) = 0;
-    sel_should_exec * (q_x_n - (1 - q_is_inf) * q_x - q_is_inf * ecc.INFINITY_X) = 0;
-    sel_should_exec * (q_y_n - (1 - q_is_inf) * q_y - q_is_inf * ecc.INFINITY_Y) = 0;
+    // TODO(#AVM-266): Remove p_is_inf, q_is_inf entirely. For now, we ensure that the flag being set means that the coordinates
+    // are set to our infinity representation: (INFINITY_X, INFINITY_Y) = (0, 0). The reverse ((INFINITY_X, INFINITY_Y) ==> is_inf)
+    // is constrained by #[P/Q_ON_CURVE_CHECK]. Output infinities are already constrained to be (0, 0) in the subtrace.
+    #[P_INF_X_CHECK]
+    sel * p_is_inf * (p_x - ecc.INFINITY_X) = 0;
+    #[P_INF_Y_CHECK]
+    sel * p_is_inf * (p_y - ecc.INFINITY_Y) = 0;
+    #[Q_INF_X_CHECK]
+    sel * q_is_inf * (q_x - ecc.INFINITY_X) = 0;
+    #[Q_INF_Y_CHECK]
+    sel * q_is_inf * (q_y - ecc.INFINITY_Y) = 0;
 
 
     #[INPUT_OUTPUT_ECC_ADD]
     sel_should_exec {
-        p_x_n, p_y_n, p_is_inf,
-        q_x_n, q_y_n, q_is_inf,
+        p_x, p_y, p_is_inf,
+        q_x, q_y, q_is_inf,
         res_x, res_y, res_is_inf
     } in
     ecc.sel {
