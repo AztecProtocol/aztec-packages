@@ -504,34 +504,6 @@ function release_bb_github {
     --notes "Release $REF_NAME — see https://github.com/AztecProtocol/aztec-packages/commits/$COMMIT_HASH"
 }
 
-function check_noir_release_assets {
-  git -C noir/noir-repo fetch --tags 2>/dev/null || true
-  local noir_tag
-  noir_tag=$(git -C noir/noir-repo describe --tags --exact-match HEAD 2>/dev/null) || {
-    echo "Warning: noir-repo HEAD is not a tagged commit. Skipping noir release asset check."
-    return 0
-  }
-
-  echo "Checking noir release $noir_tag for nargo binary assets..."
-  local asset_count
-  asset_count=$(gh release view "$noir_tag" \
-    --repo noir-lang/noir \
-    --json assets \
-    --jq '[.assets[] | select(.name | test("^nargo-"))] | length') || {
-    echo_stderr "Error: Failed to query noir-lang/noir release '$noir_tag'. Does the release exist?"
-    exit 1
-  }
-
-  if [ "$asset_count" -eq 0 ]; then
-    echo_stderr "Error: Noir release '$noir_tag' exists but has no nargo binary assets."
-    echo_stderr "Users will get 404 errors when trying to install nargo via noirup."
-    echo_stderr "Ensure the noir release pipeline has finished uploading binaries before releasing aztec-packages."
-    exit 1
-  fi
-
-  echo "Found $asset_count nargo binary asset(s) in noir release $noir_tag."
-}
-
 function release {
   # Releases are triggered when REF_NAME is a valid semver (but can have a leading v).
   # We ensure there is a github release for our REF_NAME, if not on latest (in which case release-please creates it).
@@ -831,7 +803,6 @@ case "$cmd" in
     if ! semver check $REF_NAME; then
       exit 1
     fi
-    check_noir_release_assets
     if [[ "$(semver prerelease $REF_NAME)" == private* ]]; then
       echo_header "Private fork release: $REF_NAME"
       echo "Creating GitHub release from public repo context (COMMIT_HASH=$COMMIT_HASH)..."

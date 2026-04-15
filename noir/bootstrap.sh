@@ -108,6 +108,26 @@ function build {
       echo_stderr "We're building a release but the noir-repo HEAD is not an official release."
       exit 1
     fi
+
+    # Check that the noir release has nargo binaries available for download.
+    # Without this check, users get 404/gzip errors when noirup tries to download nargo.
+    local noir_tag=$(git -C noir-repo describe --tags --exact-match HEAD)
+    echo "Checking noir release $noir_tag for nargo binary assets..."
+    local asset_count
+    asset_count=$(gh release view "$noir_tag" \
+      --repo noir-lang/noir \
+      --json assets \
+      --jq '[.assets[] | select(.name | test("^nargo-"))] | length') || {
+      echo_stderr "Error: Failed to query noir-lang/noir release '$noir_tag'. Does the release exist?"
+      exit 1
+    }
+    if [ "$asset_count" -eq 0 ]; then
+      echo_stderr "Error: Noir release '$noir_tag' exists but has no nargo binary assets."
+      echo_stderr "Users will get 404 errors when trying to install nargo via noirup."
+      echo_stderr "Ensure the noir release pipeline has finished uploading binaries before releasing aztec-packages."
+      exit 1
+    fi
+    echo "Found $asset_count nargo binary asset(s) in noir release $noir_tag."
   fi
 
   denoise "retry install_deps"
