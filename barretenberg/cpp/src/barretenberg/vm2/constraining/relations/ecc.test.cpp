@@ -1,3 +1,4 @@
+#include <cstdio>
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
@@ -1388,28 +1389,42 @@ TEST(EccAddMemoryConstrainingTest, InfinityRepresentations)
     check_relation<ecc>(trace);
     EXPECT_EQ(trace.get(C::ecc_double_op, 0), 1);
 
+    ecc_simulator.add(memory, inf, inf_bb, dst_address);
+
+    // Set memory reads:
+    trace.set(0,
+              { { // Execution
+                  { C::execution_sel, 1 },
+                  { C::execution_sel_exec_dispatch_ecc_add, 1 },
+                  { C::execution_rop_6_, dst_address + 3 },
+                  { C::execution_register_0_, inf.x() },
+                  { C::execution_register_1_, inf.y() },
+                  { C::execution_register_2_, inf.is_infinity() ? 1 : 0 },
+                  { C::execution_register_3_, inf_bb.x() },
+                  { C::execution_register_4_, inf_bb.y() },
+                  { C::execution_register_5_, inf_bb.is_infinity() ? 1 : 0 },
+                  // GT - dst out of range check
+                  { C::gt_sel, 1 },
+                  { C::gt_input_a, dst_address + 2 },
+                  { C::gt_input_b, AVM_HIGHEST_MEM_ADDRESS },
+                  { C::gt_res, 0 } } });
+
+    builder.process_add_with_memory(ecc_add_memory_event_emitter.dump_events(), trace);
+
+    // The derived is_inf column must be true if the coordinates are (0, 0):
+    trace.set(C::ecc_add_mem_p_is_inf, 0, 0);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<mem_aware_ecc>(trace, mem_aware_ecc::SR_P_CURVE_EQN), "P_CURVE_EQN");
+
+    // If is_if is set, the coordinates must be (0, 0):
+    trace.set(C::ecc_add_mem_q_x, 0, 1);
+    trace.set(C::ecc_add_mem_q_y, 0, 2);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<mem_aware_ecc>(trace, mem_aware_ecc::SR_Q_INF_X_CHECK), "Q_INF_X_CHECK");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<mem_aware_ecc>(trace, mem_aware_ecc::SR_Q_INF_Y_CHECK), "Q_INF_Y_CHECK");
+
     // TODO(#AVM-266): Rework test when is_infinity flag is removed from point representations.
     // We now derive is_inf from coordinates, whereas previously we remapped coordinates /from/ is_inf.
     // The below test no longer makes sense since it checks we store non-(0,0) coordinates for an inf
     // point, which we do not allow.
-
-    // // Set memory reads:
-    // trace.set(0,
-    //           { { // Execution
-    //               { C::execution_sel, 1 },
-    //               { C::execution_sel_exec_dispatch_ecc_add, 1 },
-    //               { C::execution_rop_6_, dst_address + 3 },
-    //               { C::execution_register_0_, inf.x() },
-    //               { C::execution_register_1_, inf.y() },
-    //               { C::execution_register_2_, inf.is_infinity() ? 1 : 0 },
-    //               { C::execution_register_3_, inf_bb.x() },
-    //               { C::execution_register_4_, inf_bb.y() },
-    //               { C::execution_register_5_, inf_bb.is_infinity() ? 1 : 0 },
-    //               // GT - dst out of range check
-    //               { C::gt_sel, 1 },
-    //               { C::gt_input_a, dst_address + 2 },
-    //               { C::gt_input_b, AVM_HIGHEST_MEM_ADDRESS },
-    //               { C::gt_res, 0 } } });
 
     // builder.process_add_with_memory(ecc_add_memory_event_emitter.dump_events(), trace);
 
@@ -1422,7 +1437,8 @@ TEST(EccAddMemoryConstrainingTest, InfinityRepresentations)
     // check_relation<mem_aware_ecc>(trace);
     // check_relation<ecc>(trace);
     // check_all_interactions<EccTraceBuilder>(trace);
-    // check_interaction<tracegen::ExecutionTraceBuilder, bb::avm2::perm_execution_dispatch_to_ecc_add_settings>(trace);
+    // check_interaction<tracegen::ExecutionTraceBuilder,
+    // bb::avm2::perm_execution_dispatch_to_ecc_add_settings>(trace);
 }
 
 } // namespace

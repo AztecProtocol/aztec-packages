@@ -80,6 +80,7 @@ template <typename AffinePoint> class StandardAffinePoint {
 
     // Always returns the raw coordinates, when an operation results in infinity these will be (0,0).
     // If a point at infinity is constructed with non-zero coordinates, we likely want to preserve those.
+    // TODO(#AVM-266): Now that Noir uses (0, 0) <==> is_infinite, the above may not be true.
     constexpr const BaseField& x() const noexcept { return x_coord; }
 
     constexpr const BaseField& y() const noexcept { return y_coord; }
