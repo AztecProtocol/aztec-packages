@@ -5,6 +5,7 @@
 // =====================
 
 #pragma once
+#include "barretenberg/aztec/aztec_constants.hpp"
 #include "barretenberg/crypto/merkle_tree/types.hpp"
 #include "barretenberg/crypto/pedersen_commitment/pedersen.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
@@ -27,12 +28,9 @@ struct indexed_nullifier_leaf {
         return os;
     }
 
-    // Must match NullifierLeafValue::HASH_DOMAIN_SEPARATOR in indexed_leaf.hpp
-    static constexpr uint64_t HASH_DOMAIN_SEPARATOR = 2344184091;
-
     std::vector<fr> get_hash_inputs() const
     {
-        return std::vector<fr>{ fr(HASH_DOMAIN_SEPARATOR), value, nextValue, nextIndex };
+        return std::vector<fr>{ fr(DOM_SEP__NULLIFIER_LEAF), value, nextValue, nextIndex };
     }
 
     static indexed_nullifier_leaf zero()
