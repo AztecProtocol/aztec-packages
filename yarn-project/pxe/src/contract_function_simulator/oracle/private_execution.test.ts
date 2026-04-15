@@ -34,7 +34,7 @@ import {
   getFunctionArtifactByName,
 } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { BlockHash, type BlockParameter } from '@aztec/stdlib/block';
+import { BlockHash, type BlockParameter, type L2TipsProvider } from '@aztec/stdlib/block';
 import {
   CompleteAddress,
   getContractClassFromArtifact,
@@ -125,6 +125,7 @@ describe('Private Execution test suite', () => {
   let privateEventStore: MockProxy<PrivateEventStore>;
   let contractSyncService: MockProxy<ContractSyncService>;
   let messageContextService: MockProxy<MessageContextService>;
+  let l2TipsStore: MockProxy<L2TipsProvider>;
   let acirSimulator: ContractFunctionSimulator;
   let anchorBlockHeader = BlockHeader.empty();
   let logger: Logger;
@@ -316,6 +317,7 @@ describe('Private Execution test suite', () => {
     aztecNode = mock<AztecNode>();
     keyStore = mock<KeyStore>();
     capsuleStore = mock<CapsuleStore>();
+    l2TipsStore = mock<L2TipsProvider>();
     privateEventStore = mock<PrivateEventStore>();
     senderAddressBookStore = mock<SenderAddressBookStore>();
     contractSyncService = mock<ContractSyncService>();
@@ -356,13 +358,7 @@ describe('Private Execution test suite', () => {
     aztecNode.getPrivateLogsByTags.mockImplementation((tags: SiloedTag[]) => Promise.resolve(tags.map(() => [])));
 
     // Mock getL2Tips and getBlockHeader for loadPrivateLogsForSenderRecipientPair
-    aztecNode.getL2Tips.mockResolvedValue(makeL2Tips(anchorBlockHeader.globalVariables.blockNumber));
-    aztecNode.getBlockHeader.mockImplementation((blockNumber: BlockNumber | 'latest') => {
-      if (blockNumber === 'latest') {
-        return Promise.resolve(anchorBlockHeader);
-      }
-      return Promise.resolve(anchorBlockHeader);
-    });
+    l2TipsStore.getL2Tips.mockResolvedValue(makeL2Tips(anchorBlockHeader.globalVariables.blockNumber));
 
     // TODO: refactor. Maybe it's worth stubbing a key store
     // and cleaning up the mess that is setting up keys.
@@ -496,6 +492,7 @@ describe('Private Execution test suite', () => {
       keyStore,
       addressStore,
       aztecNode,
+      l2TipsStore,
       senderTaggingStore,
       recipientTaggingStore,
       senderAddressBookStore,

@@ -7,7 +7,7 @@ import { StatefulTestContractArtifact } from '@aztec/noir-test-contracts.js/Stat
 import { WASMSimulator } from '@aztec/simulator/client';
 import { FunctionCall, FunctionSelector, FunctionType, encodeArguments } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { BlockHash } from '@aztec/stdlib/block';
+import { BlockHash, type L2TipsProvider } from '@aztec/stdlib/block';
 import {
   CompleteAddress,
   type ContractInstanceWithAddress,
@@ -51,6 +51,7 @@ describe('Utility Execution test suite', () => {
   let capsuleStore: ReturnType<typeof mock<CapsuleStore>>;
   let privateEventStore: ReturnType<typeof mock<PrivateEventStore>>;
   let contractSyncService: ReturnType<typeof mock<ContractSyncService>>;
+  let l2TipsStore: ReturnType<typeof mock<L2TipsProvider>>;
   let messageContextService: MessageContextService;
   let acirSimulator: ContractFunctionSimulator;
   let owner: AztecAddress;
@@ -74,6 +75,7 @@ describe('Utility Execution test suite', () => {
     capsuleStore = mock<CapsuleStore>();
     privateEventStore = mock<PrivateEventStore>();
     contractSyncService = mock<ContractSyncService>();
+    l2TipsStore = mock<L2TipsProvider>();
     messageContextService = new MessageContextService(aztecNode);
     const capsuleArrays = new Map<string, Fr[][]>();
     anchorBlockHeader = BlockHeader.random();
@@ -83,14 +85,7 @@ describe('Utility Execution test suite', () => {
     senderTaggingStore.storePendingIndexes.mockResolvedValue();
     senderAddressBookStore.getSenders.mockResolvedValue([]);
 
-    // Mock getL2Tips and getBlockHeader for loadPrivateLogsForSenderRecipientPair
-    aztecNode.getL2Tips.mockResolvedValue(makeL2Tips(anchorBlockHeader.globalVariables.blockNumber));
-    aztecNode.getBlockHeader.mockImplementation((blockNumber: BlockNumber | 'latest') => {
-      if (blockNumber === 'latest') {
-        return Promise.resolve(anchorBlockHeader);
-      }
-      return Promise.resolve(anchorBlockHeader);
-    });
+    l2TipsStore.getL2Tips.mockResolvedValue(makeL2Tips(anchorBlockHeader.globalVariables.blockNumber));
     aztecNode.getPrivateLogsByTags.mockImplementation((tags: any[]) => Promise.resolve(tags.map(() => [])));
 
     capsuleStore.setCapsuleArray.mockImplementation((address, slot, content) => {
@@ -106,6 +101,7 @@ describe('Utility Execution test suite', () => {
       keyStore,
       addressStore,
       aztecNode,
+      l2TipsStore,
       senderTaggingStore,
       recipientTaggingStore,
       senderAddressBookStore,
@@ -350,6 +346,7 @@ describe('Utility Execution test suite', () => {
         contractSyncService,
         jobId: 'test-job-id',
         scopes: [scope],
+        l2TipsStore,
       });
     });
 
@@ -416,6 +413,7 @@ describe('Utility Execution test suite', () => {
           contractSyncService,
           jobId: 'test-job-id',
           scopes: [scope],
+          l2TipsStore,
         });
 
         capsuleStore.getCapsule.mockResolvedValueOnce(persisted);
@@ -596,6 +594,7 @@ describe('Utility Execution test suite', () => {
             contractSyncService,
             jobId: 'test-job-id',
             scopes: [],
+            l2TipsStore,
           });
 
         const oracleA = makeOracle(contractAddressA);
