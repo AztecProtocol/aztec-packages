@@ -120,9 +120,6 @@ export class LogService {
     const anchorBlockNumber = this.anchorBlockHeader.getBlockNumber();
     const anchorBlockHash = await this.anchorBlockHeader.hash();
 
-    // Fetch chain state once — all sender-recipient pairs need the same values and fetching
-    // per-pair would cause N redundant RPC calls in parallel. We read tips from the local store
-    // (no RPC) and use the anchor block's timestamp for log aging, which is always recent enough.
     const l2Tips = await this.l2TipsStore.getL2Tips();
     const currentTimestamp = this.anchorBlockHeader.globalVariables.timestamp;
     // Get all secrets for this recipient (one per sender)
