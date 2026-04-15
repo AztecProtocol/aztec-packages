@@ -12,6 +12,7 @@ import {
 import {
   type ABIParameter,
   type ABIParameterVisibility,
+  ARTIFACT_VERSION_BEFORE_INJECTION,
   type AbiType,
   type BasicValue,
   type ContractArtifact,
@@ -51,6 +52,10 @@ export function contractArtifactFromBuffer(buffer: Buffer): ContractArtifact {
  */
 export function loadContractArtifact(input: NoirCompiledContract): ContractArtifact {
   if (isContractArtifact(input)) {
+    // TODO(F-557): Remove this fallback once pre-version artifacts are no longer tested.
+    if (!(input as unknown as Record<string, unknown>).aztecVersion) {
+      return { ...input, aztecVersion: ARTIFACT_VERSION_BEFORE_INJECTION };
+    }
     return input;
   }
   return generateContractArtifact(input);

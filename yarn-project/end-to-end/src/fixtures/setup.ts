@@ -50,6 +50,7 @@ import { protocolContractsHash } from '@aztec/protocol-contracts';
 import type { ProverNodeConfig } from '@aztec/prover-node';
 import { type PXEConfig, getPXEConfig } from '@aztec/pxe/server';
 import type { SequencerClient } from '@aztec/sequencer-client';
+import { ARTIFACT_VERSION_BEFORE_INJECTION } from '@aztec/stdlib/abi';
 import { type ContractInstanceWithAddress, getContractInstanceFromInstantiationParams } from '@aztec/stdlib/contract';
 import type { AztecNodeAdmin, AztecNodeDebug } from '@aztec/stdlib/interfaces/client';
 import { tryStop } from '@aztec/stdlib/interfaces/server';
@@ -281,6 +282,13 @@ function assertContractArtifactsVersion() {
     return;
   }
   const { aztecVersion } = SponsoredFPCContract.artifact;
+  // TODO(F-557): Remove this bypass once pre-version artifacts are no longer tested.
+  if (aztecVersion === ARTIFACT_VERSION_BEFORE_INJECTION) {
+    createLogger('e2e:setup').info(
+      `Skipping artifact version check: artifact predates version injection (CONTRACT_ARTIFACTS_VERSION=${expected})`,
+    );
+    return;
+  }
   if (aztecVersion !== expected) {
     throw new Error(
       `Artifact version mismatch: expected ${expected} but got ${aztecVersion}. ` +

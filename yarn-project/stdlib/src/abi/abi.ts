@@ -339,6 +339,9 @@ export type FieldLayout = {
   slot: Fr;
 };
 
+/** Placeholder version injected into artifacts compiled before aztecVersion was added. TODO(F-557): Remove. */
+export const ARTIFACT_VERSION_BEFORE_INJECTION = 'FROM_RELEASE_BEFORE_VERSION_INJECTION';
+
 /** Defines artifact of a contract. */
 export interface ContractArtifact {
   /** The name of the contract. */
@@ -369,7 +372,7 @@ export interface ContractArtifact {
 export const ContractArtifactSchema = zodFor<ContractArtifact>()(
   z.object({
     name: z.string(),
-    aztecVersion: z.string(),
+    aztecVersion: z.string().default(ARTIFACT_VERSION_BEFORE_INJECTION), // TODO(F-557): Remove default.
     functions: z.array(FunctionArtifactSchema),
     nonDispatchPublicFunctions: z.array(FunctionAbiSchema),
     outputs: z.object({
