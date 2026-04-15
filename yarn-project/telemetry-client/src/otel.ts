@@ -33,8 +33,8 @@ import { ATTR_SERVICE_NAME, ATTR_SERVICE_VERSION } from '@opentelemetry/semantic
 
 import type { TelemetryClientConfig } from './config.js';
 import { toMetricOptions } from './metric-utils.js';
-import { MonitoredBatchSpanProcessor } from './monitored_batch_span_processor.js';
 import type { MetricDefinition } from './metrics.js';
+import { MonitoredBatchSpanProcessor } from './monitored_batch_span_processor.js';
 import { NodejsMetricsMonitor } from './nodejs_metrics_monitor.js';
 import { OtelFilterMetricExporter, PublicOtelFilterMetricExporter } from './otel_filter_metric_exporter.js';
 import { registerOtelLoggerProvider } from './otel_logger_provider.js';
