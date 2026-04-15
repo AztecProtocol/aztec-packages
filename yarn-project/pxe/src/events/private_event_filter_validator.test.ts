@@ -93,6 +93,38 @@ describe('PrivateEventFilterValidator', () => {
     ).toThrow(/toBlock must be strictly greater than fromBlock/);
   });
 
+  it('caps toBlock to last synced block + 1 when it exceeds the synced range', () => {
+    const dataProviderFilter = validator.validate({
+      contractAddress,
+      scopes: [scope],
+      fromBlock: INITIAL_L2_BLOCK_NUM,
+      toBlock: BlockNumber(lastKnownBlockNumber + 100),
+    });
+    expect(dataProviderFilter).toEqual({
+      contractAddress,
+      scopes: [scope],
+      fromBlock: INITIAL_L2_BLOCK_NUM,
+      toBlock: BlockNumber(lastKnownBlockNumber + 1),
+    });
+  });
+
+  it('leaves filter unchanged when fromBlock is past the synced range', () => {
+    const fromBlock = BlockNumber(lastKnownBlockNumber + 5);
+    const toBlock = BlockNumber(lastKnownBlockNumber + 10);
+    const dataProviderFilter = validator.validate({
+      contractAddress,
+      scopes: [scope],
+      fromBlock,
+      toBlock,
+    });
+    expect(dataProviderFilter).toEqual({
+      contractAddress,
+      scopes: [scope],
+      fromBlock,
+      toBlock,
+    });
+  });
+
   it('preserves txHash', () => {
     let dataProviderFilter = validator.validate({
       contractAddress,
