@@ -56,7 +56,11 @@ run_one() {
 }
 
 run_one native ./build/bin/bb prove
-run_one wasm ./scripts/wasmtime.sh ./build-wasm-threads/bin/bb prove
+
+# wasmtime sandbox only sees cwd + $HOME/.bb-crs, so copy msgpack to a local stage.
+cp "$INPUTS" "$OUT/ivc-inputs.msgpack"
+INPUTS="$OUT/ivc-inputs.msgpack"
+run_one wasm ./scripts/wasmtime.sh --dir="$OUT" ./build-wasm-threads/bin/bb prove
 
 # --- Extract numbers ---
 python3 - <<PY
