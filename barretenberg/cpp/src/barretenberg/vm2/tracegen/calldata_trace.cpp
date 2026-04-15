@@ -4,7 +4,7 @@
 #include <cstdint>
 #include <vector>
 
-#include "barretenberg/vm2/common/aztec_constants.hpp"
+#include "barretenberg/aztec/aztec_constants.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_calldata_hashing.hpp"
 #include "barretenberg/vm2/generated/relations/perms_calldata_hashing.hpp"
