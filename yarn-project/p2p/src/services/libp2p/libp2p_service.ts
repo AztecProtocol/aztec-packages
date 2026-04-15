@@ -49,7 +49,7 @@ import { SignaturePolicy } from '@chainsafe/libp2p-gossipsub/types';
 import { noise } from '@chainsafe/libp2p-noise';
 import { yamux } from '@chainsafe/libp2p-yamux';
 import { bootstrap } from '@libp2p/bootstrap';
-import { identify, identifyPush } from '@libp2p/identify';
+import { identify } from '@libp2p/identify';
 import {
   type Message,
   type MultiaddrConnection,
@@ -396,10 +396,7 @@ export class LibP2PService extends WithTracer implements P2PService {
       peerDiscovery,
       streamMuxers: [yamux()],
       connectionEncrypters: [noise()],
-      connectionMonitor: {
-        protocolPrefix: 'aztec',
-        pingInterval: 12_000,
-      },
+      connectionMonitor: { enabled: false }, // EXPERIMENT: disabled to measure regression cause
       connectionManager: {
         // We set maxConnections above maxPeerCount because if we hit limit of maxPeerCount
         // libp2p will start aggressively rejecting all new connections, preventing network discovery and crawling.
@@ -433,9 +430,7 @@ export class LibP2PService extends WithTracer implements P2PService {
           protocolPrefix: 'aztec',
           runOnConnectionOpen: true,
         }),
-        identifyPush: identifyPush({
-          protocolPrefix: 'aztec',
-        }),
+        // EXPERIMENT: identifyPush disabled to measure regression cause
         ping: ping({
           protocolPrefix: 'aztec',
         }),
