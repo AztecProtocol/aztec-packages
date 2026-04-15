@@ -1,4 +1,4 @@
-import type { InitialAccountData } from '@aztec/accounts/testing';
+import { type InitialAccountData, generateSchnorrAccounts } from '@aztec/accounts/testing';
 import type { AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
 import { getAccountContractAddress } from '@aztec/aztec.js/account';
 import { AztecAddress, EthAddress } from '@aztec/aztec.js/addresses';
@@ -369,6 +369,9 @@ export class P2PNetworkTest {
       address: await getAccountContractAddress(contract, secret, salt),
     };
 
+    // Generate regular Schnorr accounts for tests that need deployable accounts (e.g. add_rollup).
+    const regularAccounts = await generateSchnorrAccounts(this.setupOptions.numberOfInitialFundedAccounts ?? 2);
+
     this.context = await setup(
       0,
       {
@@ -376,7 +379,7 @@ export class P2PNetworkTest {
         fundSponsoredFPC: true,
         skipAccountDeployment: true,
         skipInitialSequencer: true,
-        initialFundedAccounts: [this.hardcodedAccountData],
+        initialFundedAccounts: [...regularAccounts, this.hardcodedAccountData],
         slasherEnabled: this.setupOptions.slasherEnabled ?? this.deployL1ContractsArgs.slasherEnabled ?? false,
         aztecTargetCommitteeSize: 0,
         l1ContractsArgs: this.deployL1ContractsArgs,

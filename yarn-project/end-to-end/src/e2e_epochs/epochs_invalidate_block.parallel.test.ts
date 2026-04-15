@@ -301,8 +301,8 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
     expect(receipt.isMined()).toBeTrue();
     logger.warn(`Transaction included in block ${receipt.blockNumber}`);
 
-    // Check that we have tagged an offense for that
-    const offenses = await context.aztecNodeAdmin.getSlashOffenses('all');
+    // Check that we have tagged an offense for that (query a validator node since the initial node has no slasher)
+    const offenses = await nodes[0].getSlashOffenses('all');
     expect(offenses.length).toBeGreaterThan(0);
     const invalidBlockOffense = offenses.find(o => o.offenseType === OffenseType.PROPOSED_INSUFFICIENT_ATTESTATIONS);
     expect(invalidBlockOffense).toBeDefined();
