@@ -18,7 +18,7 @@ import { PrivateLog, PublicLog, SiloedTag, Tag } from '@aztec/stdlib/logs';
 import { InboxLeaf } from '@aztec/stdlib/messaging';
 import { orderAttestations } from '@aztec/stdlib/p2p';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
-import { makeCheckpointAttestationFromCheckpoint } from '@aztec/stdlib/testing';
+import { TEST_COORDINATION_SIGNATURE_CONTEXT, makeCheckpointAttestationFromCheckpoint } from '@aztec/stdlib/testing';
 import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
 import { PartialStateReference, StateReference, TxEffect } from '@aztec/stdlib/tx';
 
@@ -230,7 +230,7 @@ export function makeSignedPublishedCheckpoint(
   l1BlockNumber = 1,
 ): PublishedCheckpoint {
   const attestations = signers.map(signer => makeCheckpointAttestationFromCheckpoint(checkpoint, signer));
-  const committeeAttestations = orderAttestations(attestations, committee);
+  const committeeAttestations = orderAttestations(attestations, committee, TEST_COORDINATION_SIGNATURE_CONTEXT);
   return new PublishedCheckpoint(checkpoint, makeL1PublishedData(l1BlockNumber), committeeAttestations);
 }
 

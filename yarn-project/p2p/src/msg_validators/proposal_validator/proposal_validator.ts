@@ -4,6 +4,7 @@ import { type Logger, createLogger } from '@aztec/foundation/log';
 import {
   type BlockProposal,
   type CheckpointProposalCore,
+  type CoordinationSignatureContext,
   PeerErrorSeverity,
   type ValidationResult,
 } from '@aztec/stdlib/p2p';
@@ -17,16 +18,23 @@ export class ProposalValidator {
   private txsPermitted: boolean;
   private maxTxsPerBlock?: number;
   private pipeliningWindow: PipeliningWindow;
+  private signatureContext: CoordinationSignatureContext;
 
   constructor(
     epochCache: EpochCacheInterface,
-    opts: { txsPermitted: boolean; maxTxsPerBlock?: number; p2pPropagationTime?: number },
+    opts: {
+      txsPermitted: boolean;
+      maxTxsPerBlock?: number;
+      p2pPropagationTime?: number;
+      signatureContext: CoordinationSignatureContext;
+    },
     loggerName: string,
   ) {
     this.epochCache = epochCache;
     this.txsPermitted = opts.txsPermitted;
     this.maxTxsPerBlock = opts.maxTxsPerBlock;
     this.pipeliningWindow = new PipeliningWindow(epochCache, { p2pPropagationTime: opts.p2pPropagationTime });
+    this.signatureContext = opts.signatureContext;
     this.logger = createLogger(loggerName);
   }
 
@@ -52,7 +60,7 @@ export class ProposalValidator {
       }
 
       // Signature validity
-      const proposer = proposal.getSender();
+      const proposer = proposal.getSender(this.signatureContext);
       if (!proposer) {
         this.logger.warn(`Penalizing peer for proposal with invalid signature`);
         return { result: 'reject', severity: PeerErrorSeverity.MidToleranceError };

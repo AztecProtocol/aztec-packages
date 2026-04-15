@@ -5,19 +5,32 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { jest } from '@jest/globals';
 
 import { CheckpointHeader } from '../rollup/index.js';
+import { TEST_COORDINATION_SIGNATURE_CONTEXT } from '../tests/mocks.js';
 import { trimAttestations } from './attestation_utils.js';
 import { CheckpointAttestation } from './checkpoint_attestation.js';
+import { CheckpointProposal } from './checkpoint_proposal.js';
 import { ConsensusPayload } from './consensus_payload.js';
-import { SignatureDomainSeparator, getHashedSignaturePayloadEthSignedMessage } from './signature_utils.js';
+import { SignatureDomainSeparator, getHashedSignaturePayloadTypedData } from './signature_utils.js';
 
 function makeAttestation(signer: Secp256k1Signer): CheckpointAttestation {
   const header = CheckpointHeader.random({ slotNumber: SlotNumber(0) });
   const payload = new ConsensusPayload(header, Fr.random(), 0n);
-  const attestationHash = getHashedSignaturePayloadEthSignedMessage(
+  const attestationHash = getHashedSignaturePayloadTypedData(
     payload,
     SignatureDomainSeparator.checkpointAttestation,
+    TEST_COORDINATION_SIGNATURE_CONTEXT,
   );
-  const proposalHash = getHashedSignaturePayloadEthSignedMessage(payload, SignatureDomainSeparator.checkpointProposal);
+  const proposal = new CheckpointProposal(
+    header,
+    payload.archive,
+    payload.feeAssetPriceModifier,
+    signer.sign(attestationHash),
+  );
+  const proposalHash = getHashedSignaturePayloadTypedData(
+    proposal,
+    SignatureDomainSeparator.checkpointProposal,
+    TEST_COORDINATION_SIGNATURE_CONTEXT,
+  );
   return new CheckpointAttestation(payload, signer.sign(attestationHash), signer.sign(proposalHash));
 }
 
@@ -36,6 +49,7 @@ describe('trimAttestations', () => {
       3,
       proposer.address,
       [],
+      TEST_COORDINATION_SIGNATURE_CONTEXT,
     );
 
     expect(result).toHaveLength(3);
@@ -50,6 +64,7 @@ describe('trimAttestations', () => {
       3,
       proposer.address,
       [],
+      TEST_COORDINATION_SIGNATURE_CONTEXT,
     );
 
     expect(result).toHaveLength(3);
@@ -65,10 +80,11 @@ describe('trimAttestations', () => {
       3,
       proposer.address,
       [],
+      TEST_COORDINATION_SIGNATURE_CONTEXT,
     );
 
     expect(result).toHaveLength(3);
-    const resultSenders = result.map(a => a.getSender()!.toString());
+    const resultSenders = result.map(a => a.getSender(TEST_COORDINATION_SIGNATURE_CONTEXT)!.toString());
     expect(resultSenders).toContain(proposer.address.toString());
   });
 
@@ -82,10 +98,16 @@ describe('trimAttestations', () => {
     const allAttestations = [proposer, local1, local2, external1, external2].map(i => i.attestation);
     const localAddresses = [local1.address, local2.address];
 
-    const result = trimAttestations(allAttestations, 3, proposer.address, localAddresses);
+    const result = trimAttestations(
+      allAttestations,
+      3,
+      proposer.address,
+      localAddresses,
+      TEST_COORDINATION_SIGNATURE_CONTEXT,
+    );
 
     expect(result).toHaveLength(3);
-    const resultSenders = new Set(result.map(a => a.getSender()!.toString()));
+    const resultSenders = new Set(result.map(a => a.getSender(TEST_COORDINATION_SIGNATURE_CONTEXT)!.toString()));
     expect(resultSenders.has(proposer.address.toString())).toBe(true);
     expect(resultSenders.has(local1.address.toString())).toBe(true);
     expect(resultSenders.has(local2.address.toString())).toBe(true);
@@ -102,10 +124,16 @@ describe('trimAttestations', () => {
 
     const allAttestations = [proposer, local1, external1, external2, external3].map(i => i.attestation);
 
-    const result = trimAttestations(allAttestations, 3, proposer.address, [local1.address]);
+    const result = trimAttestations(
+      allAttestations,
+      3,
+      proposer.address,
+      [local1.address],
+      TEST_COORDINATION_SIGNATURE_CONTEXT,
+    );
 
     expect(result).toHaveLength(3);
-    const resultSenders = new Set(result.map(a => a.getSender()!.toString()));
+    const resultSenders = new Set(result.map(a => a.getSender(TEST_COORDINATION_SIGNATURE_CONTEXT)!.toString()));
     expect(resultSenders.has(proposer.address.toString())).toBe(true);
     expect(resultSenders.has(local1.address.toString())).toBe(true);
     // One external fills the remaining slot
@@ -123,10 +151,16 @@ describe('trimAttestations', () => {
     // Proposer address is also listed in local addresses
     const localAddresses = [proposer.address, local1.address];
 
-    const result = trimAttestations(allAttestations, 3, proposer.address, localAddresses);
+    const result = trimAttestations(
+      allAttestations,
+      3,
+      proposer.address,
+      localAddresses,
+      TEST_COORDINATION_SIGNATURE_CONTEXT,
+    );
 
     expect(result).toHaveLength(3);
-    const resultSenders = result.map(a => a.getSender()!.toString());
+    const resultSenders = result.map(a => a.getSender(TEST_COORDINATION_SIGNATURE_CONTEXT)!.toString());
     // Proposer should appear exactly once
     expect(resultSenders.filter(s => s === proposer.address.toString())).toHaveLength(1);
     expect(resultSenders).toContain(local1.address.toString());
@@ -142,10 +176,10 @@ describe('trimAttestations', () => {
 
     const allAttestations = [proposer.attestation, valid.attestation, badAttestation, external1.attestation];
 
-    const result = trimAttestations(allAttestations, 3, proposer.address, []);
+    const result = trimAttestations(allAttestations, 3, proposer.address, [], TEST_COORDINATION_SIGNATURE_CONTEXT);
 
     expect(result).toHaveLength(3);
-    const resultSenders = result.map(a => a.getSender()?.toString()).filter(Boolean);
+    const resultSenders = result.map(a => a.getSender(TEST_COORDINATION_SIGNATURE_CONTEXT)?.toString()).filter(Boolean);
     expect(resultSenders).toHaveLength(3);
   });
 });

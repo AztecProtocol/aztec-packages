@@ -4,13 +4,14 @@ import {
   IndexWithinCheckpoint,
   SlotNumber,
 } from '@aztec/foundation/branded-types';
-import { type BaseBuffer32, Buffer32 } from '@aztec/foundation/buffer';
+import type { BaseBuffer32 } from '@aztec/foundation/buffer';
 import { keccak256 } from '@aztec/foundation/crypto/keccak';
-import { tryRecoverAddress } from '@aztec/foundation/crypto/secp256k1-signer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import { Signature } from '@aztec/foundation/eth-signature';
 import { BufferReader, serializeSignedBigInt, serializeToBuffer } from '@aztec/foundation/serialize';
+
+import type { TypedDataDefinition } from 'viem';
 
 import type { L2BlockInfo } from '../block/l2_block_info.js';
 import { MAX_TXS_PER_BLOCK } from '../deserialization/index.js';
@@ -22,9 +23,11 @@ import type { Tx } from '../tx/tx.js';
 import { BlockProposal } from './block_proposal.js';
 import { Gossipable } from './gossipable.js';
 import {
+  type CoordinationSignatureContext,
   SignatureDomainSeparator,
-  getHashedSignaturePayload,
-  getHashedSignaturePayloadEthSignedMessage,
+  getCoordinationSignatureContextKey,
+  getCoordinationSignatureTypedData,
+  recoverCoordinationSigner,
 } from './signature_utils.js';
 import { SignedTxs } from './signed_txs.js';
 import { TopicType } from './topic_type.js';
@@ -72,7 +75,12 @@ export type CheckpointLastBlock = Omit<CheckpointLastBlockData, 'txs'> & {
 export class CheckpointProposal extends Gossipable {
   static override p2pTopic = TopicType.checkpoint_proposal;
 
-  private sender: EthAddress | undefined;
+  private senderCache:
+    | {
+        key: string;
+        sender: EthAddress | undefined;
+      }
+    | undefined;
 
   constructor(
     /** The aggregated checkpoint header for consensus */
@@ -163,7 +171,8 @@ export class CheckpointProposal extends Gossipable {
     checkpointNumber: CheckpointNumber,
     feeAssetPriceModifier: bigint,
     lastBlockProposal: BlockProposal | undefined,
-    payloadSigner: (payload: Buffer32, context: SigningContext) => Promise<Signature>,
+    signatureContext: CoordinationSignatureContext,
+    payloadSigner: (typedData: TypedDataDefinition, context: SigningContext) => Promise<Signature>,
   ): Promise<CheckpointProposal> {
     // Sign the checkpoint payload with CHECKPOINT_PROPOSAL duty type
     const tempProposal = new CheckpointProposal(
@@ -172,15 +181,18 @@ export class CheckpointProposal extends Gossipable {
       feeAssetPriceModifier,
       Signature.empty(),
     );
-    const checkpointHash = getHashedSignaturePayload(tempProposal, SignatureDomainSeparator.checkpointProposal);
-
     const checkpointContext: SigningContext = {
       slot: checkpointHeader.slotNumber,
       checkpointNumber,
       dutyType: DutyType.CHECKPOINT_PROPOSAL,
     };
 
-    const checkpointSignature = await payloadSigner(checkpointHash, checkpointContext);
+    const typedData = getCoordinationSignatureTypedData(
+      tempProposal,
+      SignatureDomainSeparator.checkpointProposal,
+      signatureContext,
+    );
+    const checkpointSignature = await payloadSigner(typedData, checkpointContext);
 
     return new CheckpointProposal(
       checkpointHeader,
@@ -196,25 +208,30 @@ export class CheckpointProposal extends Gossipable {
    * If there's a lastBlock, also verifies the block proposal sender matches the checkpoint sender.
    * @returns The sender address, or undefined if signature recovery fails or senders don't match
    */
-  getSender(): EthAddress | undefined {
-    if (!this.sender) {
-      const hashed = getHashedSignaturePayloadEthSignedMessage(this, SignatureDomainSeparator.checkpointProposal);
-      const checkpointSender = tryRecoverAddress(hashed, this.signature);
+  getSender(signatureContext: CoordinationSignatureContext): EthAddress | undefined {
+    const cacheKey = getCoordinationSignatureContextKey(signatureContext);
+    if (!this.senderCache || this.senderCache.key !== cacheKey) {
+      const checkpointSender = recoverCoordinationSigner(
+        this,
+        SignatureDomainSeparator.checkpointProposal,
+        this.signature,
+        signatureContext,
+      );
 
       // If there's a lastBlock, verify the block proposal sender matches
       if (checkpointSender && this.lastBlock) {
         const blockProposal = this.getBlockProposal();
-        const blockSender = blockProposal?.getSender();
+        const blockSender = blockProposal?.getSender(signatureContext);
         if (!blockSender || !blockSender.equals(checkpointSender)) {
           return undefined; // Sender mismatch - fail
         }
       }
 
       // Cache the sender for later use
-      this.sender = checkpointSender;
+      this.senderCache = { key: cacheKey, sender: checkpointSender };
     }
 
-    return this.sender;
+    return this.senderCache.sender;
   }
 
   getPayload() {

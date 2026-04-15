@@ -1,6 +1,4 @@
 import { type CheckpointNumber, IndexWithinCheckpoint, type SlotNumber } from '@aztec/foundation/branded-types';
-import { Buffer32 } from '@aztec/foundation/buffer';
-import { keccak256 } from '@aztec/foundation/crypto/keccak';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { Signature } from '@aztec/foundation/eth-signature';
@@ -14,7 +12,9 @@ import {
   type CheckpointProposalCore,
   type CheckpointProposalOptions,
   ConsensusPayload,
+  type CoordinationSignatureContext,
   SignatureDomainSeparator,
+  getCoordinationSignatureTypedData,
 } from '@aztec/stdlib/p2p';
 import type { CheckpointHeader } from '@aztec/stdlib/rollup';
 import type { BlockHeader, Tx } from '@aztec/stdlib/tx';
@@ -26,6 +26,7 @@ import type { ValidatorKeyStore } from '../key_store/interface.js';
 export class ValidationService {
   constructor(
     private keyStore: ValidatorKeyStore,
+    private signatureContext: CoordinationSignatureContext,
     private log = createLogger('validator:validation-service'),
   ) {}
 
@@ -62,7 +63,11 @@ export class ValidationService {
 
     // Create a signer that uses the appropriate address
     const address = proposerAttesterAddress ?? this.keyStore.getAddress(0);
-    const payloadSigner = (payload: Buffer32, context: SigningContext) =>
+    const payloadSigner = (
+      typedData: Parameters<ValidatorKeyStore['signTypedDataWithAddress']>[1],
+      context: SigningContext,
+    ) => this.keyStore.signTypedDataWithAddress(address, typedData, context);
+    const txsSigner = (payload: Parameters<ValidatorKeyStore['signMessageWithAddress']>[1], context: SigningContext) =>
       this.keyStore.signMessageWithAddress(address, payload, context);
 
     return BlockProposal.createProposalFromSigner(
@@ -73,7 +78,9 @@ export class ValidationService {
       archive,
       txs.map(tx => tx.getTxHash()),
       options.publishFullTxs ? txs : undefined,
+      this.signatureContext,
       payloadSigner,
+      txsSigner,
     );
   }
 
@@ -106,9 +113,12 @@ export class ValidationService {
     }
 
     // Create a signer that takes payload and context, and uses the appropriate address
-    const payloadSigner = (payload: Buffer32, context: SigningContext) => {
+    const payloadSigner = (
+      typedData: Parameters<ValidatorKeyStore['signTypedDataWithAddress']>[1],
+      context: SigningContext,
+    ) => {
       const address = proposerAttesterAddress ?? this.keyStore.getAddress(0);
-      return this.keyStore.signMessageWithAddress(address, payload, context);
+      return this.keyStore.signTypedDataWithAddress(address, typedData, context);
     };
 
     return CheckpointProposal.createProposalFromSigner(
@@ -117,6 +127,7 @@ export class ValidationService {
       checkpointNumber,
       feeAssetPriceModifier,
       lastBlockProposal,
+      this.signatureContext,
       payloadSigner,
     );
   }
@@ -138,8 +149,10 @@ export class ValidationService {
   ): Promise<CheckpointAttestation[]> {
     // Create the attestation payload from the checkpoint proposal
     const payload = new ConsensusPayload(proposal.checkpointHeader, proposal.archive, proposal.feeAssetPriceModifier);
-    const buf = Buffer32.fromBuffer(
-      keccak256(payload.getPayloadToSign(SignatureDomainSeparator.checkpointAttestation)),
+    const typedData = getCoordinationSignatureTypedData(
+      payload,
+      SignatureDomainSeparator.checkpointAttestation,
+      this.signatureContext,
     );
 
     const context: SigningContext = {
@@ -151,8 +164,7 @@ export class ValidationService {
     // Sign each attestor in parallel, catching HA errors per-attestor
     const results = await Promise.allSettled(
       attestors.map(async attestor => {
-        const sig = await this.keyStore.signMessageWithAddress(attestor, buf, context);
-        // return new BlockAttestation(proposal.payload, sig, proposal.signature);
+        const sig = await this.keyStore.signTypedDataWithAddress(attestor, typedData, context);
         return new CheckpointAttestation(payload, sig, proposal.signature);
       }),
     );
@@ -199,9 +211,11 @@ export class ValidationService {
       dutyType: DutyType.ATTESTATIONS_AND_SIGNERS,
     };
 
-    const buf = Buffer32.fromBuffer(
-      keccak256(attestationsAndSigners.getPayloadToSign(SignatureDomainSeparator.attestationsAndSigners)),
+    const typedData = getCoordinationSignatureTypedData(
+      attestationsAndSigners,
+      SignatureDomainSeparator.attestationsAndSigners,
+      this.signatureContext,
     );
-    return this.keyStore.signMessageWithAddress(proposer, buf, context);
+    return this.keyStore.signTypedDataWithAddress(proposer, typedData, context);
   }
 }

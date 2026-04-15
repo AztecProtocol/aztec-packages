@@ -10,6 +10,7 @@ import { BlockNumber, CheckpointNumber, EpochNumber } from '@aztec/foundation/br
 import { Buffer16, Buffer32 } from '@aztec/foundation/buffer';
 import { partition, pick } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { EthAddress } from '@aztec/foundation/eth-address';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { retryTimes } from '@aztec/foundation/retry';
 import { count } from '@aztec/foundation/string';
@@ -19,6 +20,7 @@ import { type ArchiverEmitter, L2BlockSourceEvents, type ValidateCheckpointResul
 import { Checkpoint, PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 import { type L1RollupConstants, getEpochAtSlot, getSlotAtNextL1Block } from '@aztec/stdlib/epoch-helpers';
 import { computeInHashFromL1ToL2Messages } from '@aztec/stdlib/messaging';
+import type { CoordinationSignatureContext } from '@aztec/stdlib/p2p';
 import { type Traceable, type Tracer, execInSpan, trackSpan } from '@aztec/telemetry-client';
 
 import { InitialCheckpointNumberNotSequentialError } from '../errors.js';
@@ -109,6 +111,13 @@ export class ArchiverL1Synchronizer implements Traceable {
   /** Returns the last L1 timestamp that was synced. */
   public getL1Timestamp(): bigint | undefined {
     return this.l1Timestamp;
+  }
+
+  private getSignatureContext(): CoordinationSignatureContext {
+    return {
+      chainId: this.publicClient.chain.id,
+      rollupAddress: EthAddress.fromString(this.rollup.address),
+    };
   }
 
   /** Checks that the ethereum node we are connected to has a latest timestamp no more than the allowed drift. Throw if not. */
@@ -812,7 +821,13 @@ export class ArchiverL1Synchronizer implements Traceable {
       for (const published of publishedCheckpoints) {
         const validationResult = this.config.skipValidateCheckpointAttestations
           ? { valid: true as const }
-          : await validateCheckpointAttestations(published, this.epochCache, this.l1Constants, this.log);
+          : await validateCheckpointAttestations(
+              published,
+              this.epochCache,
+              this.l1Constants,
+              this.getSignatureContext(),
+              this.log,
+            );
 
         // Only update the validation result if it has changed, so we can keep track of the first invalid checkpoint
         // in case there is a sequence of more than one invalid checkpoint, as we need to invalidate the first one.

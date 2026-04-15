@@ -7,11 +7,12 @@ import {
 } from '@aztec/foundation/branded-types';
 import { type BaseBuffer32, Buffer32 } from '@aztec/foundation/buffer';
 import { keccak256 } from '@aztec/foundation/crypto/keccak';
-import { tryRecoverAddress } from '@aztec/foundation/crypto/secp256k1-signer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import { Signature } from '@aztec/foundation/eth-signature';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
+
+import type { TypedDataDefinition } from 'viem';
 
 import type { L2Block } from '../block/l2_block.js';
 import type { L2BlockInfo } from '../block/l2_block_info.js';
@@ -22,9 +23,11 @@ import { TxHash } from '../tx/index.js';
 import type { Tx } from '../tx/tx.js';
 import { Gossipable } from './gossipable.js';
 import {
+  type CoordinationSignatureContext,
   SignatureDomainSeparator,
-  getHashedSignaturePayload,
-  getHashedSignaturePayloadEthSignedMessage,
+  getCoordinationSignatureContextKey,
+  getCoordinationSignatureTypedData,
+  recoverCoordinationSigner,
 } from './signature_utils.js';
 import { SignedTxs } from './signed_txs.js';
 import { TopicType } from './topic_type.js';
@@ -52,7 +55,12 @@ export type BlockProposalOptions = {
 export class BlockProposal extends Gossipable {
   static override p2pTopic = TopicType.block_proposal;
 
-  private sender: EthAddress | undefined;
+  private senderCache:
+    | {
+        key: string;
+        sender: EthAddress | undefined;
+      }
+    | undefined;
 
   constructor(
     /** The per-block header containing block state and global variables */
@@ -134,7 +142,9 @@ export class BlockProposal extends Gossipable {
     archiveRoot: Fr,
     txHashes: TxHash[],
     txs: Tx[] | undefined,
-    payloadSigner: (payload: Buffer32, context: SigningContext) => Promise<Signature>,
+    signatureContext: CoordinationSignatureContext,
+    proposalSigner: (typedData: TypedDataDefinition, context: SigningContext) => Promise<Signature>,
+    txsSigner?: (payload: Buffer32, context: SigningContext) => Promise<Signature>,
   ): Promise<BlockProposal> {
     // Create a temporary proposal to get the payload to sign
     const tempProposal = new BlockProposal(
@@ -155,15 +165,21 @@ export class BlockProposal extends Gossipable {
       dutyType: DutyType.BLOCK_PROPOSAL,
     };
 
-    const hashed = getHashedSignaturePayload(tempProposal, SignatureDomainSeparator.blockProposal);
-    const sig = await payloadSigner(hashed, blockContext);
+    const typedData = getCoordinationSignatureTypedData(
+      tempProposal,
+      SignatureDomainSeparator.blockProposal,
+      signatureContext,
+    );
+    const sig = await proposalSigner(typedData, blockContext);
 
     // If txs are provided, sign them as well
     let signedTxs: SignedTxs | undefined;
     if (txs) {
       const txsSigningContext: SigningContext = { dutyType: DutyType.TXS };
-      const txsSigner = (payload: Buffer32) => payloadSigner(payload, txsSigningContext);
-      signedTxs = await SignedTxs.createFromSigner(txs, txsSigner);
+      if (!txsSigner) {
+        throw new Error('signed_txs requires a message signer');
+      }
+      signedTxs = await SignedTxs.createFromSigner(txs, payload => txsSigner(payload, txsSigningContext));
     }
 
     return new BlockProposal(blockHeader, indexWithinCheckpoint, inHash, archiveRoot, txHashes, sig, signedTxs);
@@ -174,10 +190,15 @@ export class BlockProposal extends Gossipable {
    * If there's signedTxs, also verifies the signedTxs sender matches the block proposal sender.
    * @returns The sender address, or undefined if signature recovery fails or senders don't match
    */
-  getSender(): EthAddress | undefined {
-    if (!this.sender) {
-      const hashed = getHashedSignaturePayloadEthSignedMessage(this, SignatureDomainSeparator.blockProposal);
-      const blockSender = tryRecoverAddress(hashed, this.signature);
+  getSender(signatureContext: CoordinationSignatureContext): EthAddress | undefined {
+    const cacheKey = getCoordinationSignatureContextKey(signatureContext);
+    if (!this.senderCache || this.senderCache.key !== cacheKey) {
+      const blockSender = recoverCoordinationSigner(
+        this,
+        SignatureDomainSeparator.blockProposal,
+        this.signature,
+        signatureContext,
+      );
 
       // If there's signedTxs, verify the sender matches
       if (blockSender && this.signedTxs) {
@@ -188,10 +209,10 @@ export class BlockProposal extends Gossipable {
       }
 
       // Cache the sender for later use
-      this.sender = blockSender;
+      this.senderCache = { key: cacheKey, sender: blockSender };
     }
 
-    return this.sender;
+    return this.senderCache.sender;
   }
 
   getPayload() {

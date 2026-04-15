@@ -2,6 +2,7 @@ import type { EthAddress } from '@aztec/foundation/eth-address';
 
 import { CommitteeAttestation } from '../block/index.js';
 import type { CheckpointAttestation } from './checkpoint_attestation.js';
+import type { CoordinationSignatureContext } from './signature_utils.js';
 
 /**
  * Returns attestation signatures in the order of a series of provided ethereum addresses
@@ -11,12 +12,13 @@ import type { CheckpointAttestation } from './checkpoint_attestation.js';
 export function orderAttestations(
   attestations: CheckpointAttestation[],
   orderAddresses: EthAddress[],
+  signatureContext: CoordinationSignatureContext,
 ): CommitteeAttestation[] {
   // Create a map of sender addresses to attestations
   const attestationMap = new Map<string, CommitteeAttestation>();
 
   for (const attestation of attestations) {
-    const sender = attestation.getSender();
+    const sender = attestation.getSender(signatureContext);
     if (sender) {
       attestationMap.set(
         sender.toString(),
@@ -48,6 +50,7 @@ export function trimAttestations(
   required: number,
   proposerAddress: EthAddress,
   localAddresses: EthAddress[],
+  signatureContext: CoordinationSignatureContext,
 ): CheckpointAttestation[] {
   if (attestations.length <= required) {
     return attestations;
@@ -58,7 +61,7 @@ export function trimAttestations(
   const otherAttestations: CheckpointAttestation[] = [];
 
   for (const attestation of attestations) {
-    const sender = attestation.getSender();
+    const sender = attestation.getSender(signatureContext);
     if (!sender) {
       continue;
     }

@@ -8,6 +8,7 @@ import {
   CheckpointAttestation,
   CheckpointProposal,
   type CheckpointProposalCore,
+  type CoordinationSignatureContext,
 } from '@aztec/stdlib/p2p';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
@@ -80,6 +81,7 @@ export class AttestationPool {
 
   constructor(
     private store: AztecAsyncKVStore,
+    private signatureContext: CoordinationSignatureContext,
     telemetry: TelemetryClient = getTelemetryClient(),
     private log = createLogger('aztec:attestation_pool'),
   ) {
@@ -350,7 +352,7 @@ export class AttestationPool {
       for (const attestation of attestations) {
         const slotNumber = attestation.payload.header.slotNumber;
         const proposalId = attestation.archive.toString();
-        const sender = attestation.getSender();
+        const sender = attestation.getSender(this.signatureContext);
 
         // Skip attestations with invalid signatures
         if (!sender) {
@@ -490,7 +492,7 @@ export class AttestationPool {
   public async tryAddCheckpointAttestation(attestation: CheckpointAttestation): Promise<TryAddResult> {
     const slotNumber = attestation.payload.header.slotNumber;
     const proposalId = attestation.archive.toString();
-    const sender = attestation.getSender();
+    const sender = attestation.getSender(this.signatureContext);
 
     if (!sender) {
       return { added: false, alreadyExists: false, count: 0 };
@@ -562,6 +564,7 @@ export class AttestationPool {
 /** Creates an AttestationPool backed by a temporary store for testing. */
 export async function createTestAttestationPool(telemetry?: TelemetryClient): Promise<AttestationPool> {
   const { openTmpStore } = await import('@aztec/kv-store/lmdb-v2');
+  const { EthAddress } = await import('@aztec/foundation/eth-address');
   const store = await openTmpStore('test-attestation-pool');
-  return new AttestationPool(store, telemetry);
+  return new AttestationPool(store, { chainId: 31337, rollupAddress: EthAddress.fromNumber(1) }, telemetry);
 }

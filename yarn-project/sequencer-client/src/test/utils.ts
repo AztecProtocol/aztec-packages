@@ -145,8 +145,9 @@ export function createCheckpointAttestation(
   const checkpointHeader = createCheckpointHeaderFromBlock(block);
   const payload = new ConsensusPayload(checkpointHeader, block.archive.root, feeAssetPriceModifier);
   const attestation = new CheckpointAttestation(payload, signature, signature);
-  // Set sender directly for testing (bypasses signature recovery)
-  (attestation as any).sender = sender;
+  // Bypass signature recovery for testing since we use random signatures
+  (attestation as any).getSender = () => sender;
+  (attestation as any).getProposer = () => sender;
   return attestation;
 }
 

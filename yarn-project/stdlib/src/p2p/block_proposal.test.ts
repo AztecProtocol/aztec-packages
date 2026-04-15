@@ -1,7 +1,7 @@
 // Serde test for the block proposal type
 import { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';
 
-import { makeBlockProposal } from '../tests/mocks.js';
+import { TEST_COORDINATION_SIGNATURE_CONTEXT, makeBlockProposal } from '../tests/mocks.js';
 import { Tx } from '../tx/tx.js';
 import { BlockProposal } from './block_proposal.js';
 
@@ -56,7 +56,7 @@ describe('Block Proposal serialization / deserialization', () => {
     checkEquivalence(proposal, deserialized);
 
     // Recover signature
-    const sender = deserialized.getSender();
+    const sender = deserialized.getSender(TEST_COORDINATION_SIGNATURE_CONTEXT);
     expect(sender).toEqual(account.address);
   });
 

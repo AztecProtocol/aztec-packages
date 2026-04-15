@@ -36,6 +36,7 @@ import { getGenesisValues } from '@aztec/world-state/testing';
 
 import { describe, expect, it, jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
+import { hashTypedData } from 'viem';
 import { generatePrivateKey } from 'viem/accounts';
 
 import { CheckpointBuilder, FullNodeCheckpointsBuilder } from './checkpoint_builder.js';
@@ -162,6 +163,7 @@ describe('ValidatorClient Integration', () => {
     const validator = await ValidatorClient.new(
       {
         l1Contracts: { rollupAddress },
+        l1ChainId: chainId.toNumber(),
         validatorPrivateKeys: new SecretValue([privateKey]),
         attestationPollingIntervalMs: 100,
         disableValidator: false,
@@ -400,7 +402,9 @@ describe('ValidatorClient Integration', () => {
       const attestations = await attestor.validator.attestToCheckpointProposal(proposal, mockPeerId);
       expect(attestations).toBeDefined();
       expect(attestations).toHaveLength(1);
-      expect(attestations![0].getSender()).toEqual(validatorSigner.address);
+      expect(attestations![0].getSender({ chainId: chainId.toNumber(), rollupAddress })).toEqual(
+        validatorSigner.address,
+      );
 
       // Verify blocks are in archiver and hashes match
       await attestor.archiver.syncImmediate();
@@ -435,7 +439,9 @@ describe('ValidatorClient Integration', () => {
       const attestations = await attestor.validator.attestToCheckpointProposal(proposal, mockPeerId);
       expect(attestations).toBeDefined();
       expect(attestations).toHaveLength(1);
-      expect(attestations![0].getSender()).toEqual(validatorSigner.address);
+      expect(attestations![0].getSender({ chainId: chainId.toNumber(), rollupAddress })).toEqual(
+        validatorSigner.address,
+      );
 
       // Verify blocks are in archiver and hashes match
       await attestor.archiver.syncImmediate();
@@ -545,7 +551,8 @@ describe('ValidatorClient Integration', () => {
         CheckpointNumber(1),
         0n,
         undefined,
-        payload => Promise.resolve(proposerSigner.sign(payload)),
+        { chainId: chainId.toNumber(), rollupAddress },
+        typedData => Promise.resolve(proposerSigner.sign(Buffer32.fromString(hashTypedData(typedData)))),
       );
 
       await attestorValidateBlocks(blocks);

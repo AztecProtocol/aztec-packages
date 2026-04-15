@@ -3,7 +3,12 @@ import { CheckpointNumber, IndexWithinCheckpoint } from '@aztec/foundation/brand
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { makeBlockHeader, makeCheckpointHeader, makeCheckpointProposal } from '@aztec/stdlib/testing';
+import {
+  TEST_COORDINATION_SIGNATURE_CONTEXT,
+  makeBlockHeader,
+  makeCheckpointHeader,
+  makeCheckpointProposal,
+} from '@aztec/stdlib/testing';
 import { Tx } from '@aztec/stdlib/tx';
 import { DutyType } from '@aztec/validator-ha-signer/types';
 
@@ -22,7 +27,7 @@ describe('ValidationService', () => {
     keys = [generatePrivateKey(), generatePrivateKey()];
     addresses = keys.map(key => EthAddress.fromString(getAddressFromPrivateKey(key)));
     store = new LocalKeyStore(keys.map(key => Buffer32.fromString(key)));
-    service = new ValidationService(store);
+    service = new ValidationService(store, TEST_COORDINATION_SIGNATURE_CONTEXT);
   });
 
   it('creates a block proposal with txs appended', async () => {
@@ -42,7 +47,7 @@ describe('ValidationService', () => {
       addresses[0],
       { publishFullTxs: true },
     );
-    expect(proposal.getSender()).toEqual(store.getAddress(0));
+    expect(proposal.getSender(TEST_COORDINATION_SIGNATURE_CONTEXT)).toEqual(store.getAddress(0));
     expect(proposal.txs).toBeDefined();
     expect(proposal.txs).toBe(txs);
   });
@@ -64,7 +69,7 @@ describe('ValidationService', () => {
       addresses[0],
       { publishFullTxs: false },
     );
-    expect(proposal.getSender()).toEqual(addresses[0]);
+    expect(proposal.getSender(TEST_COORDINATION_SIGNATURE_CONTEXT)).toEqual(addresses[0]);
     expect(proposal.txs).toBeUndefined();
   });
 
@@ -73,8 +78,8 @@ describe('ValidationService', () => {
     const proposal = await makeCheckpointProposal({ lastBlock: { txs } });
     const attestations = await service.attestToCheckpointProposal(proposal, addresses, CheckpointNumber(1));
     expect(attestations.length).toBe(2);
-    expect(attestations[0].getSender()).toEqual(addresses[0]);
-    expect(attestations[1].getSender()).toEqual(addresses[1]);
+    expect(attestations[0].getSender(TEST_COORDINATION_SIGNATURE_CONTEXT)).toEqual(addresses[0]);
+    expect(attestations[1].getSender(TEST_COORDINATION_SIGNATURE_CONTEXT)).toEqual(addresses[1]);
   });
 
   it('creates checkpoint proposal with an already-signed block proposal', async () => {
@@ -101,17 +106,17 @@ describe('ValidationService', () => {
     const capturedContexts: Array<{ dutyType: DutyType; blockIndexWithinCheckpoint?: number }> = [];
     const spyStore = {
       ...store,
-      signMessageWithAddress: (address: EthAddress, message: Buffer32, context: any) => {
+      signTypedDataWithAddress: (address: EthAddress, typedData: any, context: any) => {
         capturedContexts.push({
           dutyType: context.dutyType,
           blockIndexWithinCheckpoint: context.blockIndexWithinCheckpoint,
         });
-        return store.signMessageWithAddress(address, message, context);
+        return store.signTypedDataWithAddress(address, typedData, context);
       },
       getAddress: (index: number) => store.getAddress(index),
       getAddresses: () => store.getAddresses(),
     };
-    const spyService = new ValidationService(spyStore as any);
+    const spyService = new ValidationService(spyStore as any, TEST_COORDINATION_SIGNATURE_CONTEXT);
 
     // Create checkpoint proposal with the already-signed block proposal
     const proposal = await spyService.createCheckpointProposal(
@@ -125,7 +130,7 @@ describe('ValidationService', () => {
     );
 
     // Verify proposal was created successfully
-    expect(proposal.getSender()).toEqual(addresses[0]);
+    expect(proposal.getSender(TEST_COORDINATION_SIGNATURE_CONTEXT)).toEqual(addresses[0]);
     expect(proposal.lastBlock).toBeDefined();
     expect(proposal.lastBlock!.signature).toEqual(blockProposal.signature);
 

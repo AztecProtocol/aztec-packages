@@ -48,6 +48,7 @@ import type {
   BlockProposalOptions,
   CheckpointProposal,
   CheckpointProposalOptions,
+  CoordinationSignatureContext,
 } from '@aztec/stdlib/p2p';
 import { orderAttestations, trimAttestations } from '@aztec/stdlib/p2p';
 import type { L2BlockBuiltStats } from '@aztec/stdlib/stats';
@@ -104,6 +105,10 @@ export class CheckpointProposalJob implements Traceable {
   /** Pipelined parent chain state used while building and later submitting this checkpoint. */
   private pipelinedParentSimulationOverridesPlan?: SimulationOverridesPlan;
 
+  private getSignatureContext(): CoordinationSignatureContext {
+    return this.signatureContext;
+  }
+
   constructor(
     private readonly slotNow: SlotNumber,
     private readonly targetSlot: SlotNumber,
@@ -124,6 +129,7 @@ export class CheckpointProposalJob implements Traceable {
     private readonly checkpointsBuilder: FullNodeCheckpointsBuilder,
     private readonly blockSink: L2BlockSink,
     private readonly l1Constants: SequencerRollupConstants,
+    private readonly signatureContext: CoordinationSignatureContext,
     protected config: ResolvedSequencerConfig,
     protected timetable: SequencerTimetable,
     private readonly slasherClient: SlasherClientInterface | undefined,
@@ -1068,7 +1074,9 @@ export class CheckpointProposalJob implements Traceable {
     if (this.config.skipCollectingAttestations) {
       this.log.warn('Skipping attestation collection as per config (attesting with own keys only)');
       const attestations = await this.validatorClient?.collectOwnAttestations(proposal, this.checkpointNumber);
-      return new CommitteeAttestationsAndSigners(orderAttestations(attestations ?? [], committee));
+      return new CommitteeAttestationsAndSigners(
+        orderAttestations(attestations ?? [], committee, this.getSignatureContext()),
+      );
     }
 
     const attestationTimeAllowed = this.config.enforceTimeTable
@@ -1097,13 +1105,14 @@ export class CheckpointProposalJob implements Traceable {
         numberOfRequiredAttestations,
         this.attestorAddress,
         localAddresses,
+        this.getSignatureContext(),
       );
       if (trimmed.length < attestations.length) {
         this.log.debug(`Trimmed attestations from ${attestations.length} to ${trimmed.length} for L1 submission`);
       }
 
       // Rollup contract requires that the signatures are provided in the order of the committee
-      const sorted = orderAttestations(trimmed, committee);
+      const sorted = orderAttestations(trimmed, committee, this.getSignatureContext());
 
       // Manipulate the attestations if we've been configured to do so
       if (

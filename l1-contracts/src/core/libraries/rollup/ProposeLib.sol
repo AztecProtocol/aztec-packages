@@ -10,6 +10,7 @@ import {FeeHeader} from "@aztec/core/libraries/compressed-data/fees/FeeStructs.s
 import {ChainTipsLib, CompressedChainTips} from "@aztec/core/libraries/compressed-data/Tips.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {SignatureDomainSeparator, CommitteeAttestations} from "@aztec/core/libraries/rollup/AttestationLib.sol";
+import {CoordinationSignatureLib} from "@aztec/core/libraries/rollup/CoordinationSignatureLib.sol";
 import {OracleInput, FeeLib, ManaMinFeeComponents} from "@aztec/core/libraries/rollup/FeeLib.sol";
 import {ValidatorSelectionLib} from "@aztec/core/libraries/rollup/ValidatorSelectionLib.sol";
 import {Timestamp, Slot, Epoch, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
@@ -375,7 +376,13 @@ library ProposeLib {
     return FeeLib.getManaMinFeeComponentsAt(checkpointOfInterest, _timestamp, _inFeeAsset);
   }
 
-  function digest(ProposePayload memory _args) internal pure returns (bytes32) {
-    return keccak256(abi.encode(SignatureDomainSeparator.checkpointAttestation, _args));
+  function digest(ProposePayload memory _args) internal view returns (bytes32) {
+    return digest(_args, address(this));
+  }
+
+  function digest(ProposePayload memory _args, address _verifyingContract) internal view returns (bytes32) {
+    return CoordinationSignatureLib.checkpointAttestationDigest(
+      keccak256(abi.encode(SignatureDomainSeparator.checkpointAttestation, _args)), _verifyingContract
+    );
   }
 }

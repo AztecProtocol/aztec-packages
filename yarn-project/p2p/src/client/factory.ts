@@ -81,6 +81,10 @@ export async function createP2PClient(
 
   const rollupAddress = inputConfig.l1Contracts.rollupAddress.toString().toLowerCase().replace(/^0x/, '');
   const txFileStoreBasePath = `aztec-${inputConfig.l1ChainId}-${inputConfig.rollupVersion}-0x${rollupAddress}`;
+  const signatureContext = {
+    chainId: inputConfig.l1ChainId,
+    rollupAddress: inputConfig.l1Contracts.rollupAddress,
+  };
 
   const allowedInSetup = [
     ...(await getDefaultAllowedSetupFunctions()),
@@ -133,7 +137,7 @@ export async function createP2PClient(
 
   const mempools: MemPools = {
     txPool,
-    attestationPool: deps.attestationPool ?? new AttestationPool(attestationStore, telemetry),
+    attestationPool: deps.attestationPool ?? new AttestationPool(attestationStore, signatureContext, telemetry),
   };
 
   const p2pService = await createP2PService(

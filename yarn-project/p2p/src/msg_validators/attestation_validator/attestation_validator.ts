@@ -3,6 +3,7 @@ import { NoCommitteeError } from '@aztec/ethereum/contracts';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import {
   type CheckpointAttestation,
+  type CoordinationSignatureContext,
   type P2PValidator,
   PeerErrorSeverity,
   type ValidationResult,
@@ -14,12 +15,14 @@ export class CheckpointAttestationValidator implements P2PValidator<CheckpointAt
   protected epochCache: EpochCacheInterface;
   protected logger: Logger;
   private readonly pipeliningWindow: PipeliningWindow;
+  protected readonly signatureContext: CoordinationSignatureContext;
 
   constructor(
     epochCache: EpochCacheInterface,
     opts: {
       l1PublishingTime?: number;
       p2pPropagationTime?: number;
+      signatureContext: CoordinationSignatureContext;
     },
   ) {
     this.epochCache = epochCache;
@@ -27,6 +30,7 @@ export class CheckpointAttestationValidator implements P2PValidator<CheckpointAt
       l1PublishingTime: opts.l1PublishingTime,
       p2pPropagationTime: opts.p2pPropagationTime,
     });
+    this.signatureContext = opts.signatureContext;
     this.logger = createLogger('p2p:checkpoint-attestation-validator');
   }
 
@@ -54,7 +58,7 @@ export class CheckpointAttestationValidator implements P2PValidator<CheckpointAt
       }
 
       // Verify the signature is valid
-      const attester = message.getSender();
+      const attester = message.getSender(this.signatureContext);
       if (attester === undefined) {
         this.logger.warn(`Invalid signature in checkpoint attestation for slot ${slotNumber}`);
         return { result: 'reject', severity: PeerErrorSeverity.LowToleranceError };
@@ -69,7 +73,7 @@ export class CheckpointAttestationValidator implements P2PValidator<CheckpointAt
       // Verify the proposer signature matches the expected proposer for the attestation's slot
       // We look up the proposer for the specific slot rather than using currentSlot/nextSlot
       // since timing differences could cause mismatches
-      const proposer = message.getProposer();
+      const proposer = message.getProposer(this.signatureContext);
       const expectedProposer = await this.epochCache.getProposerAttesterAddressInSlot(slotNumber);
       if (!expectedProposer) {
         this.logger.warn(`No proposer defined for slot ${slotNumber}`);

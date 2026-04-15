@@ -89,6 +89,10 @@ describe('HA Full Setup', () => {
   let governanceProposer: GovernanceProposerContract;
   /** Per-node initial keystore JSON (all 4 attesters, node's own publisher) for restore after reload test */
   let initialKeystoreJsons: string[];
+  const getSignatureContext = () => ({
+    chainId: config.l1ChainId,
+    rollupAddress: deployL1ContractsValues.l1ContractAddresses.rollupAddress,
+  });
 
   beforeAll(async () => {
     // Check required environment variables
@@ -414,7 +418,7 @@ describe('HA Full Setup', () => {
     expect(p2pAttestationsWithSignatures.length).toBe(COMMITTEE_SIZE);
     const p2pValidatorAddresses = new Map<string, number>();
     for (const attestation of p2pAttestationsWithSignatures) {
-      const sender = attestation.getSender();
+      const sender = attestation.getSender(getSignatureContext());
       if (sender) {
         const addr = sender.toString();
         p2pValidatorAddresses.set(addr, (p2pValidatorAddresses.get(addr) || 0) + 1);
@@ -762,7 +766,7 @@ describe('HA Full Setup', () => {
       // Extract validator addresses from P2P attestations using getSender()
       const p2pValidatorAddresses = new Map<string, number>();
       for (const attestation of p2pAttestationsWithSignatures) {
-        const sender = attestation.getSender();
+        const sender = attestation.getSender(getSignatureContext());
         if (sender) {
           const addr = sender.toString();
           p2pValidatorAddresses.set(addr, (p2pValidatorAddresses.get(addr) || 0) + 1);
@@ -783,16 +787,19 @@ describe('HA Full Setup', () => {
       const [publishedCheckpoint] = await aztecNode.getCheckpoints(block.checkpointNumber, 1, {
         includeAttestations: true,
       });
-      const attestationInfos = getAttestationInfoFromPublishedCheckpoint({
-        attestations: publishedCheckpoint.attestations ?? [],
-        checkpoint: new Checkpoint(
-          publishedCheckpoint.archive,
-          publishedCheckpoint.header,
-          [],
-          publishedCheckpoint.number,
-          publishedCheckpoint.feeAssetPriceModifier,
-        ),
-      });
+      const attestationInfos = getAttestationInfoFromPublishedCheckpoint(
+        {
+          attestations: publishedCheckpoint.attestations ?? [],
+          checkpoint: new Checkpoint(
+            publishedCheckpoint.archive,
+            publishedCheckpoint.header,
+            [],
+            publishedCheckpoint.number,
+            publishedCheckpoint.feeAssetPriceModifier,
+          ),
+        },
+        getSignatureContext(),
+      );
 
       // Filter to only valid attestations with recovered addresses
       const validAttestations = attestationInfos.filter(

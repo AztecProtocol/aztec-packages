@@ -5,6 +5,7 @@ import { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { PeerErrorSeverity } from '@aztec/stdlib/p2p';
 import {
+  TEST_COORDINATION_SIGNATURE_CONTEXT,
   makeBlockHeader,
   makeBlockProposal,
   makeCheckpointHeader,
@@ -47,7 +48,12 @@ describe('ProposalValidator', () => {
     } as any);
     validator = new ProposalValidator(
       epochCache,
-      { txsPermitted: true, maxTxsPerBlock: undefined, p2pPropagationTime: 2 },
+      {
+        txsPermitted: true,
+        maxTxsPerBlock: undefined,
+        p2pPropagationTime: 2,
+        signatureContext: TEST_COORDINATION_SIGNATURE_CONTEXT,
+      },
       'test',
     );
     epochCache.getEpochAndSlotNow.mockReturnValue({
@@ -233,7 +239,15 @@ describe('ProposalValidator', () => {
   describe('validateTxs', () => {
     describe('txsPermitted', () => {
       it('rejects proposal with txHashes when txs not permitted', async () => {
-        validator = new ProposalValidator(epochCache, { txsPermitted: false, maxTxsPerBlock: undefined }, 'test');
+        validator = new ProposalValidator(
+          epochCache,
+          {
+            txsPermitted: false,
+            maxTxsPerBlock: undefined,
+            signatureContext: TEST_COORDINATION_SIGNATURE_CONTEXT,
+          },
+          'test',
+        );
 
         const proposal = await makeBlockProposal({ txHashes: [TxHash.random(), TxHash.random()] });
         const result = await validator.validateTxs(proposal);
@@ -241,7 +255,15 @@ describe('ProposalValidator', () => {
       });
 
       it('accepts proposal with no txHashes when txs not permitted', async () => {
-        validator = new ProposalValidator(epochCache, { txsPermitted: false, maxTxsPerBlock: undefined }, 'test');
+        validator = new ProposalValidator(
+          epochCache,
+          {
+            txsPermitted: false,
+            maxTxsPerBlock: undefined,
+            signatureContext: TEST_COORDINATION_SIGNATURE_CONTEXT,
+          },
+          'test',
+        );
 
         const proposal = await makeBlockProposal({ txHashes: [] });
         const result = await validator.validateTxs(proposal);
@@ -281,7 +303,15 @@ describe('ProposalValidator', () => {
 
     describe('maxTxsPerBlock', () => {
       it('rejects when txHashes exceed maxTxsPerBlock', async () => {
-        validator = new ProposalValidator(epochCache, { txsPermitted: true, maxTxsPerBlock: 2 }, 'test');
+        validator = new ProposalValidator(
+          epochCache,
+          {
+            txsPermitted: true,
+            maxTxsPerBlock: 2,
+            signatureContext: TEST_COORDINATION_SIGNATURE_CONTEXT,
+          },
+          'test',
+        );
 
         const proposal = await makeBlockProposal({ txHashes: Array.from({ length: 3 }, () => TxHash.random()) });
         const result = await validator.validateTxs(proposal);
@@ -289,7 +319,15 @@ describe('ProposalValidator', () => {
       });
 
       it('accepts when txHashes count equals maxTxsPerBlock', async () => {
-        validator = new ProposalValidator(epochCache, { txsPermitted: true, maxTxsPerBlock: 2 }, 'test');
+        validator = new ProposalValidator(
+          epochCache,
+          {
+            txsPermitted: true,
+            maxTxsPerBlock: 2,
+            signatureContext: TEST_COORDINATION_SIGNATURE_CONTEXT,
+          },
+          'test',
+        );
 
         const proposal = await makeBlockProposal({ txHashes: Array.from({ length: 2 }, () => TxHash.random()) });
         const result = await validator.validateTxs(proposal);

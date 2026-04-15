@@ -1,5 +1,10 @@
 import type { EpochCacheInterface } from '@aztec/epoch-cache';
-import { type CheckpointAttestation, PeerErrorSeverity, type ValidationResult } from '@aztec/stdlib/p2p';
+import {
+  type CheckpointAttestation,
+  type CoordinationSignatureContext,
+  PeerErrorSeverity,
+  type ValidationResult,
+} from '@aztec/stdlib/p2p';
 import { Attributes, Metrics, type TelemetryClient, createUpDownCounterWithDefault } from '@aztec/telemetry-client';
 
 import type { AttestationPoolApi } from '../../mem_pools/attestation_pool/attestation_pool.js';
@@ -23,7 +28,8 @@ export class FishermanAttestationValidator extends CheckpointAttestationValidato
     opts: {
       l1PublishingTime?: number;
       p2pPropagationTime?: number;
-    } = {},
+      signatureContext: CoordinationSignatureContext;
+    },
   ) {
     super(epochCache, opts);
     this.logger = this.logger.createChild('[FISHERMAN]');
@@ -51,8 +57,8 @@ export class FishermanAttestationValidator extends CheckpointAttestationValidato
 
     // fisherman validation: verify attestation payload matches proposal payload
     const slotNumberBigInt = message.payload.header.slotNumber;
-    const attester = message.getSender();
-    const proposer = message.getProposer();
+    const attester = message.getSender(this.signatureContext);
+    const proposer = message.getProposer(this.signatureContext);
 
     if (!attester || !proposer) {
       return { result: 'accept' };

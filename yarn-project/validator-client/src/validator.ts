@@ -30,6 +30,7 @@ import {
   CheckpointProposal,
   type CheckpointProposalCore,
   type CheckpointProposalOptions,
+  type CoordinationSignatureContext,
 } from '@aztec/stdlib/p2p';
 import type { CheckpointHeader } from '@aztec/stdlib/rollup';
 import type { BlockHeader, Tx } from '@aztec/stdlib/tx';
@@ -113,9 +114,13 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     this.log = config.fishermanMode ? log.createChild('[FISHERMAN]') : log;
 
     this.tracer = telemetry.getTracer('Validator');
-    this.metrics = new ValidatorMetrics(telemetry);
+    this.metrics = new ValidatorMetrics(telemetry, this.getSignatureContext());
 
-    this.validationService = new ValidationService(keyStore, this.log.createChild('validation-service'));
+    this.validationService = new ValidationService(
+      keyStore,
+      this.getSignatureContext(),
+      this.log.createChild('validation-service'),
+    );
 
     // Refresh epoch cache every second to trigger alert if participation in committee changes
     this.epochCacheUpdateLoop = new RunningPromise(this.handleEpochCommitteeUpdate.bind(this), this.log, 1000);
@@ -192,10 +197,17 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     telemetry: TelemetryClient = getTelemetryClient(),
     slashingProtectionDb?: SlashingProtectionDatabase,
   ) {
-    const metrics = new ValidatorMetrics(telemetry);
+    const metrics = new ValidatorMetrics(telemetry, {
+      chainId: config.l1ChainId,
+      rollupAddress: config.l1Contracts.rollupAddress,
+    });
     const blockProposalValidator = new BlockProposalValidator(epochCache, {
       txsPermitted: !config.disableTransactions,
       maxTxsPerBlock: config.validateMaxTxsPerBlock,
+      signatureContext: {
+        chainId: config.l1ChainId,
+        rollupAddress: config.l1Contracts.rollupAddress,
+      },
     });
     const proposalHandler = new ProposalHandler(
       checkpointsBuilder,
@@ -275,6 +287,13 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     return this.keyStore.signTypedDataWithAddress(addr, msg, context);
   }
 
+  private getSignatureContext(): CoordinationSignatureContext {
+    return {
+      chainId: this.config.l1ChainId,
+      rollupAddress: this.config.l1Contracts.rollupAddress,
+    };
+  }
+
   public getCoinbaseForAttestor(attestor: EthAddress): EthAddress {
     return this.keyStore.getCoinbaseAddress(attestor);
   }
@@ -294,7 +313,11 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
   public reloadKeystore(newManager: KeystoreManager): void {
     const newAdapter = NodeKeystoreAdapter.fromKeyStoreManager(newManager);
     this.keyStore = new HAKeyStore(newAdapter, this.slashingProtectionSigner);
-    this.validationService = new ValidationService(this.keyStore, this.log.createChild('validation-service'));
+    this.validationService = new ValidationService(
+      this.keyStore,
+      this.getSignatureContext(),
+      this.log.createChild('validation-service'),
+    );
   }
 
   public async start() {
@@ -372,7 +395,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     // but we intentionally reject them and disable slashing invalid block and attestation flow.
     const escapeHatchOpen = await this.epochCache.isEscapeHatchOpenAtSlot(slotNumber);
 
-    const proposer = proposal.getSender();
+    const proposer = proposal.getSender(this.getSignatureContext());
 
     // Reject proposals with invalid signatures
     if (!proposer) {
@@ -475,7 +498,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     _proposalSender: PeerId,
   ): Promise<CheckpointAttestation[] | undefined> {
     const proposalSlotNumber = proposal.slotNumber;
-    const proposer = proposal.getSender();
+    const proposer = proposal.getSender(this.getSignatureContext());
 
     // If escape hatch is open for this slot's epoch, do not attest.
     if (await this.epochCache.isEscapeHatchOpenAtSlot(proposalSlotNumber)) {
@@ -649,7 +672,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
   }
 
   private slashInvalidBlock(proposal: BlockProposal) {
-    const proposer = proposal.getSender();
+    const proposer = proposal.getSender(this.getSignatureContext());
 
     // Skip if signature is invalid (shouldn't happen since we validate earlier)
     if (!proposer) {
@@ -871,7 +894,9 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
         attestation => {
           if (!attestation.archive.equals(proposal.archive)) {
             this.log.warn(
-              `Received attestation for slot ${slot} with mismatched archive from ${attestation.getSender()?.toString()}`,
+              `Received attestation for slot ${slot} with mismatched archive from ${attestation
+                .getSender(this.getSignatureContext())
+                ?.toString()}`,
               { attestationArchive: attestation.archive.toString(), proposalArchive: proposal.archive.toString() },
             );
             return false;
@@ -881,9 +906,9 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
       );
 
       // Log new attestations we collected
-      const oldSenders = attestations.map(attestation => attestation.getSender());
+      const oldSenders = attestations.map(attestation => attestation.getSender(this.getSignatureContext()));
       for (const collected of collectedAttestations) {
-        const collectedSender = collected.getSender();
+        const collectedSender = collected.getSender(this.getSignatureContext());
         // Skip attestations with invalid signatures
         if (!collectedSender) {
           this.log.warn(`Skipping attestation with invalid signature for slot ${slot}`);

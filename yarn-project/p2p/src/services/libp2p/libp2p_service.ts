@@ -15,6 +15,7 @@ import {
   CheckpointAttestation,
   CheckpointProposal,
   type CheckpointProposalCore,
+  type CoordinationSignatureContext,
   type Gossipable,
   P2PMessage,
   PeerErrorSeverity,
@@ -184,6 +185,13 @@ export class LibP2PService extends WithTracer implements P2PService {
 
   protected logger: Logger;
 
+  private getSignatureContext(): CoordinationSignatureContext {
+    return {
+      chainId: this.config.l1ChainId,
+      rollupAddress: this.config.l1Contracts.rollupAddress,
+    };
+  }
+
   constructor(
     private config: P2PConfig,
     protected node: PubSubLibp2p,
@@ -232,10 +240,18 @@ export class LibP2PService extends WithTracer implements P2PService {
       txsPermitted: !config.disableTransactions,
       maxTxsPerBlock: config.validateMaxTxsPerBlock ?? config.validateMaxTxsPerCheckpoint,
       p2pPropagationTime,
+      signatureContext: {
+        chainId: config.l1ChainId,
+        rollupAddress: config.l1Contracts.rollupAddress,
+      },
     };
     this.blockProposalValidator = new BlockProposalValidator(epochCache, proposalValidatorOpts);
     this.checkpointProposalValidator = new CheckpointProposalValidator(epochCache, proposalValidatorOpts);
-    const attestationValidatorOpts = { l1PublishingTime: config.l1PublishingTime, p2pPropagationTime };
+    const attestationValidatorOpts = {
+      l1PublishingTime: config.l1PublishingTime,
+      p2pPropagationTime,
+      signatureContext: proposalValidatorOpts.signatureContext,
+    };
     this.checkpointAttestationValidator = config.fishermanMode
       ? new FishermanAttestationValidator(epochCache, mempools.attestationPool, telemetry, attestationValidatorOpts)
       : new CheckpointAttestationValidator(epochCache, attestationValidatorOpts);
@@ -1142,7 +1158,7 @@ export class LibP2PService extends WithTracer implements P2PService {
         slot: slot.toString(),
         archive: attestation.archive.toString(),
         source: peerId.toString(),
-        attester: attestation.getSender()?.toString(),
+        attester: attestation.getSender(this.getSignatureContext())?.toString(),
         count,
       });
       return { result: TopicValidatorResult.Reject, severity: PeerErrorSeverity.HighToleranceError };
@@ -1151,7 +1167,7 @@ export class LibP2PService extends WithTracer implements P2PService {
     // Check if this is a duplicate attestation (signer attested to a different proposal at the same slot)
     // count is the number of attestations by this signer for this slot
     if (count === 2) {
-      const attester = attestation.getSender();
+      const attester = attestation.getSender(this.getSignatureContext());
       if (attester) {
         this.logger.warn(`Detected duplicate attestation (equivocation) at slot ${slot}`, {
           slot: slot.toString(),
@@ -1216,7 +1232,7 @@ export class LibP2PService extends WithTracer implements P2PService {
       this.logger.debug(`Ignoring duplicate block proposal received`, {
         ...block.toBlockInfo(),
         indexWithinCheckpoint: block.indexWithinCheckpoint,
-        proposer: block.getSender()?.toString(),
+        proposer: block.getSender(this.getSignatureContext())?.toString(),
         source: peerId.toString(),
       });
       return { result: TopicValidatorResult.Ignore, obj: block, metadata: { isEquivocated } };
@@ -1228,7 +1244,7 @@ export class LibP2PService extends WithTracer implements P2PService {
         ...block.toBlockInfo(),
         indexWithinCheckpoint: block.indexWithinCheckpoint,
         count,
-        proposer: block.getSender()?.toString(),
+        proposer: block.getSender(this.getSignatureContext())?.toString(),
         source: peerId.toString(),
       });
       return {
@@ -1241,7 +1257,7 @@ export class LibP2PService extends WithTracer implements P2PService {
     // If this was a duplicate proposal, do not process it, but do invoke the duplicate callback,
     // and do re-broadcast it so other nodes in the network know to slash the proposer
     if (isEquivocated) {
-      const proposer = block.getSender();
+      const proposer = block.getSender(this.getSignatureContext());
       this.logger.warn(`Detected duplicate block proposal (equivocation) at slot ${block.slotNumber}`, {
         ...block.toBlockInfo(),
         source: peerId.toString(),
@@ -1400,7 +1416,7 @@ export class LibP2PService extends WithTracer implements P2PService {
     // If this was a duplicate proposal, do not process it, but do invoke the duplicate callback,
     // and do re-broadcast it so other nodes in the network know to slash the proposer
     if (isEquivocated) {
-      const proposer = checkpoint.getSender();
+      const proposer = checkpoint.getSender(this.getSignatureContext());
       this.logger.warn(`Detected duplicate checkpoint proposal (equivocation) at slot ${checkpoint.slotNumber}`, {
         ...checkpoint.toCheckpointInfo(),
         source: peerId.toString(),

@@ -4,7 +4,7 @@ import { EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';
 import { PeerErrorSeverity } from '@aztec/stdlib/p2p';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
-import { makeCheckpointAttestation } from '@aztec/stdlib/testing';
+import { TEST_COORDINATION_SIGNATURE_CONTEXT, makeCheckpointAttestation } from '@aztec/stdlib/testing';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
@@ -22,7 +22,10 @@ describe('CheckpointAttestationValidator', () => {
       slotDuration: 72,
       ethereumSlotDuration: 12,
     } as any);
-    validator = new CheckpointAttestationValidator(epochCache, { l1PublishingTime: 12 });
+    validator = new CheckpointAttestationValidator(epochCache, {
+      l1PublishingTime: 12,
+      signatureContext: TEST_COORDINATION_SIGNATURE_CONTEXT,
+    });
     proposer = Secp256k1Signer.random();
     attester = Secp256k1Signer.random();
   });

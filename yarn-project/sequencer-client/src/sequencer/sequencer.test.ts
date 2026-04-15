@@ -29,6 +29,7 @@ import {
   type ValidateCheckpointNegativeResult,
 } from '@aztec/stdlib/block';
 import { Checkpoint } from '@aztec/stdlib/checkpoint';
+import type { ChainConfig } from '@aztec/stdlib/config';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import { GasFees } from '@aztec/stdlib/gas';
 import {
@@ -350,7 +351,12 @@ describe('sequencer', () => {
 
     dateProvider = new TestDateProvider();
 
-    const config: SequencerConfig = { enforceTimeTable: true, maxTxsPerBlock: 4 };
+    const config: SequencerConfig & Pick<ChainConfig, 'l1ChainId' | 'l1Contracts'> = {
+      enforceTimeTable: true,
+      maxTxsPerBlock: 4,
+      l1ChainId: chainId.toNumber(),
+      l1Contracts: { rollupAddress: EthAddress.random() },
+    };
     sequencer = new TestSequencer(
       publisherFactory,
       validatorClient,

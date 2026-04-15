@@ -14,7 +14,10 @@ import { padArrayEnd, times } from '@aztec/foundation/collection';
 import { randomBytes } from '@aztec/foundation/crypto/random';
 import { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { EthAddress } from '@aztec/foundation/eth-address';
 import { Signature } from '@aztec/foundation/eth-signature';
+
+import { type TypedDataDefinition, hashTypedData } from 'viem';
 
 import type { ContractArtifact } from '../abi/abi.js';
 import { PublicTxEffect } from '../avm/avm.js';
@@ -51,7 +54,12 @@ import { BlockProposal } from '../p2p/block_proposal.js';
 import { CheckpointAttestation } from '../p2p/checkpoint_attestation.js';
 import { CheckpointProposal } from '../p2p/checkpoint_proposal.js';
 import { ConsensusPayload } from '../p2p/consensus_payload.js';
-import { SignatureDomainSeparator, getHashedSignaturePayloadEthSignedMessage } from '../p2p/signature_utils.js';
+import {
+  type CoordinationSignatureContext,
+  SignatureDomainSeparator,
+  getHashedSignaturePayloadEthSignedMessage,
+  getHashedSignaturePayloadTypedData,
+} from '../p2p/signature_utils.js';
 import { ChonkProof } from '../proofs/chonk_proof.js';
 import { ProvingRequestType } from '../proofs/proving_request_type.js';
 import { CheckpointHeader } from '../rollup/checkpoint_header.js';
@@ -85,6 +93,15 @@ import {
   makePublicCallRequest,
   makePublicDataWrite,
 } from './factories.js';
+
+export const TEST_COORDINATION_SIGNATURE_CONTEXT: CoordinationSignatureContext = {
+  chainId: 31337,
+  rollupAddress: EthAddress.fromNumber(1),
+};
+
+function signTypedData(signer: Secp256k1Signer, typedData: TypedDataDefinition): Signature {
+  return signer.sign(Buffer32.fromString(hashTypedData(typedData)));
+}
 
 export const randomTxHash = (): TxHash => TxHash.random();
 
@@ -559,7 +576,10 @@ const makeAndSignConsensusPayload = (
     feeAssetPriceModifier,
   });
 
-  const hash = getHashedSignaturePayloadEthSignedMessage(payload, domainSeparator);
+  const hash =
+    domainSeparator === SignatureDomainSeparator.signedTxs
+      ? getHashedSignaturePayloadEthSignedMessage(payload, domainSeparator)
+      : getHashedSignaturePayloadTypedData(payload, domainSeparator, TEST_COORDINATION_SIGNATURE_CONTEXT);
   const signature = signer.sign(hash);
 
   return { blockNumber: header.slotNumber, payload, signature };
@@ -569,9 +589,10 @@ export const makeAndSignCommitteeAttestationsAndSigners = (
   attestationsAndSigners: CommitteeAttestationsAndSigners,
   signer: Secp256k1Signer = Secp256k1Signer.random(),
 ) => {
-  const hash = getHashedSignaturePayloadEthSignedMessage(
+  const hash = getHashedSignaturePayloadTypedData(
     attestationsAndSigners,
     SignatureDomainSeparator.attestationsAndSigners,
+    TEST_COORDINATION_SIGNATURE_CONTEXT,
   );
   return signer.sign(hash);
 };
@@ -593,7 +614,9 @@ export const makeBlockProposal = (options?: MakeBlockProposalOptions): Promise<B
     archiveRoot,
     txHashes,
     txs,
-    (_payload, _context) => Promise.resolve(signer.signMessage(_payload)),
+    TEST_COORDINATION_SIGNATURE_CONTEXT,
+    (typedData, _context) => Promise.resolve(signTypedData(signer, typedData)),
+    (payload, _context) => Promise.resolve(signer.signMessage(payload)),
   );
 };
 
@@ -622,7 +645,8 @@ export const makeCheckpointProposal = async (options?: MakeCheckpointProposalOpt
     CheckpointNumber(1),
     feeAssetPriceModifier,
     lastBlockProposal,
-    payload => Promise.resolve(signer.signMessage(payload)),
+    TEST_COORDINATION_SIGNATURE_CONTEXT,
+    typedData => Promise.resolve(signTypedData(signer, typedData)),
   );
 };
 
@@ -650,9 +674,10 @@ export const makeCheckpointAttestation = (options: MakeCheckpointAttestationOpti
   const payload = new ConsensusPayload(header, archive, feeAssetPriceModifier);
 
   // Sign as attester
-  const attestationHash = getHashedSignaturePayloadEthSignedMessage(
+  const attestationHash = getHashedSignaturePayloadTypedData(
     payload,
     SignatureDomainSeparator.checkpointAttestation,
+    TEST_COORDINATION_SIGNATURE_CONTEXT,
   );
   const attestationSigner = attesterSigner ?? Secp256k1Signer.random();
   const attestationSignature = attestationSigner.sign(attestationHash);
@@ -661,9 +686,10 @@ export const makeCheckpointAttestation = (options: MakeCheckpointAttestationOpti
   // This is different from ConsensusPayload's format (ABI encoding)
   const proposalSignerToUse = proposerSigner ?? Secp256k1Signer.random();
   const tempProposal = new CheckpointProposal(header, archive, feeAssetPriceModifier, Signature.empty());
-  const proposalHash = getHashedSignaturePayloadEthSignedMessage(
+  const proposalHash = getHashedSignaturePayloadTypedData(
     tempProposal,
     SignatureDomainSeparator.checkpointProposal,
+    TEST_COORDINATION_SIGNATURE_CONTEXT,
   );
   const proposerSignature = proposalSignerToUse.sign(proposalHash);
 
@@ -680,9 +706,10 @@ export const makeCheckpointAttestationFromProposal = (
   const payload = new ConsensusPayload(proposal.checkpointHeader, proposal.archive, proposal.feeAssetPriceModifier);
 
   // Sign as attester
-  const attestationHash = getHashedSignaturePayloadEthSignedMessage(
+  const attestationHash = getHashedSignaturePayloadTypedData(
     payload,
     SignatureDomainSeparator.checkpointAttestation,
+    TEST_COORDINATION_SIGNATURE_CONTEXT,
   );
   const attestationSigner = attesterSigner ?? Secp256k1Signer.random();
   const attestationSignature = attestationSigner.sign(attestationHash);

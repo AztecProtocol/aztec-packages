@@ -129,10 +129,14 @@ describe('e2e_multi_validator_node', () => {
     const attestations = publishedCheckpoint.attestations
       .filter(a => !a.signature.isEmpty())
       .map(a => new CheckpointAttestation(payload, a.signature, Signature.empty()));
+    const signatureContext = {
+      chainId: config.l1ChainId,
+      rollupAddress: deployL1ContractsValues.l1ContractAddresses.rollupAddress,
+    };
 
     expect(attestations.length).toBeGreaterThanOrEqual((COMMITTEE_SIZE * 2) / 3 + 1);
 
-    const signers = attestations.map(att => att.getSender()!.toString());
+    const signers = attestations.map(att => att.getSender(signatureContext)!.toString());
 
     expect(signers.every(s => validatorAddresses.includes(s))).toBe(true);
   });
@@ -187,10 +191,14 @@ describe('e2e_multi_validator_node', () => {
     const attestations = publishedCheckpoint.attestations
       .filter(a => !a.signature.isEmpty())
       .map(a => new CheckpointAttestation(payload, a.signature, Signature.empty()));
+    const signatureContext = {
+      chainId: config.l1ChainId,
+      rollupAddress: deployL1ContractsValues.l1ContractAddresses.rollupAddress,
+    };
 
     expect(attestations.length).toBeGreaterThanOrEqual((COMMITTEE_SIZE * 2) / 3 + 1);
 
-    const signers = attestations.map(att => att.getSender()!.toString());
+    const signers = attestations.map(att => att.getSender(signatureContext)!.toString());
 
     expect(signers).toEqual(expect.arrayContaining(validatorAddresses.slice(0, COMMITTEE_SIZE)));
   });
