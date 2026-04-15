@@ -29,11 +29,6 @@ pub(crate) fn encode_fields_as_bytes<let N: u32>(fields: [Field; N]) -> [u8; 32 
     bytes
 }
 
-/// Decodes a `BoundedVec` of native fields from their 32-byte big-endian encoding, as produced by
-/// [`encode_fields_as_bytes`](crate::utils::conversion::fields_as_bytes::encode_fields_as_bytes).
-///
-/// Returns `Option::none()` if the input length is not a multiple of 32, or if any 32-byte chunk is `>=` the BN254
-/// field modulus (since field arithmetic silently wraps such values).
 /// Panicking counterpart to
 /// [`try_decode_fields_from_bytes`](crate::utils::conversion::fields_as_bytes::try_decode_fields_from_bytes).
 /// Asserts the input length is a multiple of 32 and panics if any chunk exceeds the BN254 field modulus.
@@ -42,6 +37,11 @@ pub(crate) fn decode_fields_from_bytes<let N: u32>(bytes: BoundedVec<u8, N>) -> 
     try_decode_fields_from_bytes(bytes).expect(f"Value does not fit in field")
 }
 
+/// Decodes a `BoundedVec` of native fields from their 32-byte big-endian encoding, as produced by
+/// [`encode_fields_as_bytes`](crate::utils::conversion::fields_as_bytes::encode_fields_as_bytes).
+///
+/// Returns `Option::none()` if the input length is not a multiple of 32, or if any 32-byte chunk is `>=` the BN254
+/// field modulus (since field arithmetic silently wraps such values).
 pub(crate) fn try_decode_fields_from_bytes<let N: u32>(bytes: BoundedVec<u8, N>) -> Option<BoundedVec<Field, N / 32>> {
     if bytes.len() % 32 == 0 {
         let num_chunks = bytes.len() / 32;
@@ -89,7 +89,7 @@ fn try_decode_field_from_bytes<let N: u32>(bytes: BoundedVec<u8, N>, offset: u32
 
 mod tests {
     use crate::utils::array::subarray;
-    use super::{encode_fields_as_bytes, try_decode_fields_from_bytes};
+    use super::{decode_fields_from_bytes, encode_fields_as_bytes, try_decode_fields_from_bytes};
 
     #[test]
     unconstrained fn round_trips_fields(input: [Field; 3]) {
@@ -143,5 +143,27 @@ mod tests {
         let p: [u8; 32] = std::field::modulus_be_bytes().as_array();
         let input = BoundedVec::<u8, 32>::from_array(p);
         assert(try_decode_fields_from_bytes(input).is_none());
+    }
+
+    #[test(should_fail_with = "Input length must be a multiple of 32")]
+    unconstrained fn decode_asserts_length_multiple_of_32() {
+        let input = BoundedVec::<_, 143>::from_array([
+            1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29,
+            30, 31, 32, 33,
+        ]);
+        let _fields = decode_fields_from_bytes(input);
+    }
+
+    #[test(should_fail_with = "Value does not fit in field")]
+    unconstrained fn decode_panics_on_chunk_above_modulus(random_value: u8) {
+        let index_of_byte_to_bump = random_value % 32;
+        let max_field_value_as_bytes: [u8; 32] = (-1).to_be_bytes();
+        let byte_to_bump = max_field_value_as_bytes[index_of_byte_to_bump as u32];
+
+        if byte_to_bump != 255 {
+            let mut input = BoundedVec::<_, 32>::from_array(max_field_value_as_bytes);
+            input.set(index_of_byte_to_bump as u32, byte_to_bump + 1);
+            let _fields = decode_fields_from_bytes(input);
+        }
     }
 }
