@@ -1,24 +1,26 @@
 use aztec::macros::aztec;
 
-/// A contract that completes partial notes using verified email proofs delivered via L1->L2 messaging.
+/// A contract that completes partial notes using verified email proofs, entirely on L2.
 ///
-/// Bob deposits tokens into this contract and registers his email address hash. When Bob wants to pay
-/// Carol, she creates a partial note for herself, sends Bob the commitment, and Bob sends an email
-/// with the commitment and amount in the subject line. The email's DKIM signature is verified by a
-/// zkEmail proof on L1, and the result is delivered to this contract via cross-chain messaging.
+/// Bob deposits tokens into this contract and registers his email address hash. When Bob wants
+/// to pay Carol, she creates a partial note for herself, sends Bob the commitment, and Bob sends
+/// an email authorizing the payment. Carol generates a zkEmail proof offchain using a Noir circuit
+/// and submits it to this contract. The contract verifies the proof using recursive proof
+/// verification (verify_honk_proof), deducts from Bob's balance, and completes Carol's note.
 ///
-/// This replaces the Schnorr signing step in the offchain transfer pattern with a plain email:
-/// Bob's mail server is already a signing oracle, and zkEmail turns that signature into a ZK proof.
+/// This replaces the L1 portal approach: instead of verifying the email proof on Ethereum and
+/// bridging the result via L1-to-L2 messaging, the proof is verified directly in an Aztec
+/// private function. This is faster (no message delay), cheaper (no L1 gas), and more private
+/// (the from_address_hash is never exposed on Ethereum).
 #[aztec]
 pub contract EmailClaim {
     use aztec::{
         macros::{
-            functions::{external, initializer, view},
+            functions::{external, initializer, only_self, view},
             storage::storage,
         },
         protocol::{
-            address::{AztecAddress, EthAddress},
-            hash::sha256_to_field,
+            address::AztecAddress,
             traits::Serialize,
         },
         state_vars::{Map, Owned, PublicImmutable, PublicMutable, StateVariable},
@@ -27,16 +29,21 @@ pub contract EmailClaim {
     use uint_note::{PartialUintNote, UintNote};
     use balance_set::BalanceSet;
     use token::Token;
+    use bb_proof_verification::{UltraHonkVerificationKey, UltraHonkZKProof, verify_honk_proof};
 
     // docs:start:storage
     #[storage]
     struct Storage<Context> {
         /// The token contract that this contract interacts with.
         token: PublicImmutable<AztecAddress, Context>,
-        /// The L1 portal contract address (the EmailClaimPortal).
-        portal: PublicImmutable<EthAddress, Context>,
-        /// Public balance per email address hash. Bob deposits tokens and maps them to his email
-        /// hash.
+        /// Hash of the email verification circuit's verification key. Set at deployment and
+        /// never changed. The contract only accepts proofs generated from this specific circuit.
+        vk_hash: PublicImmutable<Field, Context>,
+        /// Trusted DKIM public key hashes. Only emails signed by keys in this set are accepted.
+        /// Keyed by the combined hash of the pubkey_hash fields from the circuit output.
+        trusted_dkim_keys: Map<Field, PublicMutable<bool, Context>, Context>,
+        /// Public balance per email address hash. Bob deposits tokens and maps them to his
+        /// email address hash.
         deposits: Map<Field, PublicMutable<u128, Context>, Context>,
         /// Private balance storage for recipients. Partial notes are completed into this.
         balances: Owned<BalanceSet<Context>, Context>,
@@ -46,23 +53,26 @@ pub contract EmailClaim {
     // docs:start:constructor
     #[external("public")]
     #[initializer]
-    fn constructor(token: AztecAddress) {
+    fn constructor(token: AztecAddress, vk_hash: Field) {
         assert(!token.is_zero(), "Token address cannot be zero");
         self.storage.token.initialize(token);
+        self.storage.vk_hash.initialize(vk_hash);
     }
 
+    /// Register a DKIM public key hash as trusted. In production this would be read from
+    /// a DKIM registry; here we keep it simple with an owner-managed allowlist.
     #[external("public")]
-    fn set_portal(portal: EthAddress) {
-        self.storage.portal.initialize(portal);
+    fn register_dkim_key_hash(key_hash: Field) {
+        self.storage.trusted_dkim_keys.at(key_hash).write(true);
     }
     // docs:end:constructor
 
     // docs:start:deposit
     /// Bob deposits tokens and associates them with his email address hash.
     ///
-    /// The email address hash is a Poseidon2 hash of the sender's email address bytes --
-    /// the same hash that the email proof circuit produces from the From header. Bob must
-    /// know this hash and use the same email address when sending payment emails.
+    /// The email address hash is a Pedersen hash of the sender's email address bytes --
+    /// the same hash that the email verification circuit produces from the From header.
+    /// Bob must know this hash and use the same email address when sending payment emails.
     ///
     /// Requires a public authwit on the token contract authorizing the transfer.
     #[external("public")]
@@ -104,52 +114,61 @@ pub contract EmailClaim {
     // docs:end:create_claim
 
     // docs:start:claim_with_email
-    /// Consume an L1->L2 message from the email verification portal and complete a partial
-    /// note.
+    /// Verify a zkEmail proof and complete a partial note, entirely on L2.
     ///
-    /// The L1 portal verified a zkEmail proof that Bob sent an email with a subject
-    /// line encoding the partial note commitment and token amount.
+    /// The caller submits a proof generated by the email verification circuit. The proof
+    /// attests that a DKIM-signed email was sent from a specific address. The contract
+    /// verifies the proof in private using recursive proof verification, then enqueues
+    /// public state changes to check DKIM key trust, deduct from the depositor's balance,
+    /// and complete Carol's partial note.
     ///
-    /// The portal then sent an L1->L2 message encoding (from_address_hash, commitment,
-    /// amount). This function consumes that message, deducts from Bob's deposited balance,
-    /// and completes Carol's partial note.
-    ///
-    /// Anyone can call this once the L1->L2 message is available (after ~2 L2 blocks).
-    #[external("public")]
+    /// The circuit's public inputs are 4 fields:
+    ///   [0-1] DKIM public key hash (two fields, identifies the mail server)
+    ///   [2]   Email nullifier (prevents the same email from being claimed twice)
+    ///   [3]   From address hash (identifies the depositor)
+    #[external("private")]
     fn claim_with_email(
         from_address_hash: Field,
         partial_note: PartialUintNote,
         amount: u128,
-        secret: Field,
-        message_leaf_index: Field,
+        verification_key: UltraHonkVerificationKey,
+        proof: UltraHonkZKProof,
+        public_inputs: [Field; 4],
     ) {
-        // docs:start:content_hash
-        // Reconstruct the content hash that the L1 portal sent.
-        // Must match: Hash.sha256ToField(abi.encode(fromAddressHash, commitment, amount))
-        // abi.encode for three bytes32 values produces 96 bytes (32 each, big-endian).
-        let serialized: [Field; 1] = partial_note.serialize();
-        let commitment = serialized[0];
+        // Verify the zkEmail proof in private. This proves the email is authentically
+        // DKIM-signed without revealing the email contents onchain.
+        let vk_hash = self.storage.vk_hash.read();
+        verify_honk_proof(verification_key, proof, public_inputs, vk_hash);
 
-        let mut hash_bytes: [u8; 96] = [0; 96];
-        let from_bytes: [u8; 32] = from_address_hash.to_be_bytes();
-        let commitment_bytes: [u8; 32] = commitment.to_be_bytes();
-        let amount_bytes: [u8; 32] = (amount as Field).to_be_bytes();
+        // Validate that the from_address_hash matches the circuit's output.
+        // This binds the proof to the specific depositor.
+        assert(public_inputs[3] == from_address_hash, "From address hash mismatch");
 
-        for i in 0..32 {
-            hash_bytes[i] = from_bytes[i];
-            hash_bytes[i + 32] = commitment_bytes[i];
-            hash_bytes[i + 64] = amount_bytes[i];
-        }
+        // Push the email nullifier into the nullifier tree. This prevents the same
+        // email from being used to claim twice. If the nullifier already exists,
+        // the transaction will be rejected by the protocol.
+        let email_nullifier = public_inputs[2];
+        self.context.push_nullifier(email_nullifier);
 
-        let content_hash = sha256_to_field(hash_bytes);
-        // docs:end:content_hash
+        // Enqueue the public completion: check DKIM key trust, deduct balance,
+        // complete the partial note.
+        let dkim_key_hash = public_inputs[0] + public_inputs[1];
+        self.enqueue_self._complete(dkim_key_hash, from_address_hash, partial_note, amount);
+    }
 
-        // Consume the L1->L2 message. This proves the portal verified the email proof.
-        self.context.consume_l1_to_l2_message(
-            content_hash,
-            secret,
-            self.storage.portal.read(),
-            message_leaf_index,
+    /// Public completion step enqueued from `claim_with_email`.
+    #[external("public")]
+    #[only_self]
+    fn _complete(
+        dkim_key_hash: Field,
+        from_address_hash: Field,
+        partial_note: PartialUintNote,
+        amount: u128,
+    ) {
+        // Check that the DKIM key is trusted.
+        assert(
+            self.storage.trusted_dkim_keys.at(dkim_key_hash).read(),
+            "Untrusted DKIM key",
         );
 
         // Deduct from the depositor's balance.

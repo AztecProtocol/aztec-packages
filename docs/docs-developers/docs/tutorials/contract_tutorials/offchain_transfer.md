@@ -219,13 +219,14 @@ By combining zkEmail with partial notes, we replace the Schnorr signing step wit
 
 ### Architecture
 
-Where the Schnorr version lives entirely on L2, the email version spans both layers:
+The email flow uses **recursive proof verification** to stay entirely on L2. Carol generates a zkEmail proof offchain using a standalone Noir circuit, then submits the proof to an Aztec contract that verifies it privately using `verify_honk_proof`. No L1 contracts, no cross-chain messaging.
+
+This follows the same pattern as the [Verify Noir Proofs in Aztec Contracts](./recursive_verification.md) tutorial: a computation-heavy Noir circuit runs offchain, and only the fixed-size proof is verified onchain.
 
 ```mermaid
 sequenceDiagram
     participant Bob as Bob (email only)
     participant Carol
-    participant L1 as L1 EmailClaimPortal
     participant L2 as L2 EmailClaim
 
     Note over Bob,L2: Setup
@@ -236,73 +237,78 @@ sequenceDiagram
     Carol->>Carol: commitment = poseidon2([carol, randomness])
     Carol->>L2: create_claim(randomness) creates partial note
     Carol-->>Bob: sends commitment
-    Bob-->>Carol: sends email with subject: pay 0x... amount
+    Bob-->>Carol: sends email authorizing payment
 
-    Note over Carol,L1: L1 Verification
-    Carol->>Carol: secret = random(), secretHash = hash(secret)
-    Carol->>Carol: proof = zkEmail.prove(email)
-    Carol->>L1: verifyAndSendToL2(proof, publicInputs, secretHash)
-    L1->>L1: verify proof, check DKIM key, consume nullifier
-    L1->>L2: L1-to-L2 message (from_hash, commitment, amount, secretHash)
+    Note over Carol,L2: Proof Generation (offchain)
+    Carol->>Carol: proof = zkEmail circuit(email)
 
-    Note over Carol,L2: L2 Completion (~2 blocks later)
-    Carol->>L2: claim_with_email(from_hash, partial_note, amount, secret, leaf_index)
-    L2->>L2: consume message (verify secret), deduct balance, complete note
+    Note over Carol,L2: L2 Verification
+    Carol->>L2: claim_with_email(proof, vk, public_inputs, ...)
+    L2->>L2: private: verify_honk_proof, push nullifier
+    L2->>L2: public: check DKIM trust, deduct balance, complete note
 ```
 
 1. **Setup:** Bob deposits tokens into the L2 contract and maps them to his email address hash.
 2. **Carol creates a claim:** Same as Part 2 -- Carol creates a partial note, computes the commitment, and waits for the transaction to finalize.
-3. **Bob sends an email:** Carol sends Bob the commitment. Bob replies with an email whose subject line encodes the commitment and amount:
-   ```
-   pay 0x<commitment> <amount>
-   ```
-   The `Subject` header is included in the DKIM `h=` field by default, so the mail server's DKIM signature covers it. Bob can compose this email from any standard email client.
-4. **Carol submits the proof to L1:** Carol feeds the raw email into a zkEmail circuit and generates a ZK proof. She also generates a `secret` and computes its hash (`secretHash`). She submits the proof and `secretHash` to the L1 portal contract. The portal verifies the proof, checks the DKIM key is trusted, consumes the email's nullifier, and sends an L1-to-L2 message. The `secretHash` ensures only Carol (who knows the preimage) can consume the message on L2.
-5. **Carol completes the claim on L2:** After ~2 L2 blocks (the minimum delay for L1-to-L2 messages), Carol provides her `secret` (the preimage of the `secretHash` she submitted to L1) along with the message leaf index. The L2 contract verifies the secret, consumes the message, deducts from Bob's balance, and completes her partial note.
+3. **Bob sends an email:** Carol sends Bob the commitment. Bob replies with an email authorizing the payment. The `Subject` header is included in the DKIM `h=` field by default, so the mail server's DKIM signature covers it. Bob can compose this email from any standard email client.
+4. **Carol generates a proof offchain:** Carol feeds the raw email into a Noir circuit built with [zkemail.nr](https://github.com/zkemail/zkemail.nr) and generates an UltraHonk proof. This happens entirely on Carol's machine -- no network interaction.
+5. **Carol submits the proof to L2:** Carol submits the proof, verification key, and public inputs to the `claim_with_email` function. The contract verifies the proof in private (using `verify_honk_proof`), pushes the email nullifier to prevent double-claiming, then deducts from Bob's balance and completes Carol's partial note in public.
 
 :::warning Transaction ordering
-As with Part 2, Carol's `create_claim` transaction must finalize before she submits `claim_with_email`. The L1-to-L2 message delay (~2 L2 blocks) typically provides more than enough time, but Carol should not submit the L1 proof before her `create_claim` has been included in a block.
+As with Part 2, Carol's `create_claim` transaction must finalize before she submits `claim_with_email`. The proof generation step typically provides more than enough time, but Carol should not submit the claim before her `create_claim` has been included in a block.
 :::
 
-### The Email Proof
+### Why L2-Only?
 
-The ZK proof of the email produces six public outputs that the L1 portal and L2 contract consume:
+The recursive proof verification approach has significant advantages over an L1 portal design:
+
+- **More private.** The `from_address_hash` is never exposed on Ethereum. Proof verification happens inside a private function, hidden by another layer of ZK.
+- **Faster.** No L1-to-L2 message delay (which adds ~2 L2 blocks).
+- **Cheaper.** No L1 gas costs.
+- **Simpler.** One contract instead of two, no cross-chain message encoding/decoding, no `secretHash` mechanism.
+
+## Part 5: The Email Verification Circuit
+
+The email verification circuit is a standalone Noir binary (not an Aztec contract) that verifies a DKIM-signed email and outputs public values for the contract to consume. It uses the [zkemail.nr](https://github.com/zkemail/zkemail.nr) library for DKIM signature verification and email header parsing.
+
+### Circuit Code
+
+#include_code circuit /docs/examples/circuits/email_verifier/src/main.nr rust
+
+The circuit produces four public outputs:
 
 | Output | Description |
 |---|---|
-| `pubkey_hash[0..1]` | Hash of the mail server's RSA public key (two fields, since RSA keys are large). The L1 portal checks this against a set of trusted DKIM keys. |
-| `from_address_hash` | Hash of the sender's email address. The L2 contract uses this to look up the depositor's balance. |
-| `commitment` | The partial note commitment, parsed from the email subject line. |
-| `amount` | The token amount, parsed from the email subject line. |
-| `nullifier` | Hash of the DKIM signature itself. This is deliberately **unblinded** (unlike zkEmail's built-in `blinded_nullifier`) so the L1 portal can detect and reject reuse of the same email. |
+| `pubkey_hash[0..1]` | Poseidon hash of the mail server's RSA public key (two fields). The L2 contract checks this against a set of trusted DKIM keys. |
+| `email_nullifier` | Pedersen hash of the DKIM signature. Prevents the same email from being claimed twice -- pushed into Aztec's nullifier tree. |
+| `from_address_hash` | Pedersen hash of the sender's email address. The L2 contract uses this to look up the depositor's balance. |
 
-The proof can be generated using zkEmail's existing TypeScript toolchain and verified by their Solidity verifier on L1. The prover never needs to interact with Aztec directly.
+### Constraint Breakdown
 
-## Part 5: The L1 Portal Contract
+The circuit costs approximately 222,000 constraints:
 
-The Solidity portal sits on Ethereum and bridges email verification results to Aztec via L1-to-L2 messaging. It references a zkEmail proof verifier interface:
+- DKIM RSA-2048 signature verification: ~86,500
+- Body hash (SHA256): ~114,000
+- Email address extraction: ~16,000
+- Key + nullifier hashing: ~10,200
 
-#include_code verifier_interface /docs/examples/solidity/email_claim/EmailClaimPortal.sol solidity
+This is too expensive for a single Aztec private function, which is why the circuit runs offchain and only the proof is verified onchain. The proof verification itself is fixed-size (~624 field elements) regardless of circuit complexity.
 
-The portal maintains a set of trusted DKIM public key hashes (an allowlist of mail server keys) and a nullifier registry (to prevent the same email from being claimed twice):
+### Proof Generation
 
-#include_code portal_contract /docs/examples/solidity/email_claim/EmailClaimPortal.sol solidity
+The proof is generated offchain using Barretenberg's UltraHonk backend. The key requirement is using `verifierTarget: "noir-recursive"` so the proof format is compatible with `verify_honk_proof` inside the Aztec contract.
 
-The core function verifies the proof, checks the DKIM key, consumes the nullifier, and sends the cross-chain message:
-
-#include_code verify_and_send /docs/examples/solidity/email_claim/EmailClaimPortal.sol solidity
-
-The content hash `sha256ToField(abi.encode(fromAddressHash, commitment, amount))` is the critical link between L1 and L2: the L2 contract must reconstruct this exact hash to consume the message.
+For a complete working example of proof generation, compilation, and deployment, see the [zkemail verification example](https://github.com/AztecProtocol/aztec-packages/tree/#include_aztec_version/docs/examples) in the repository.
 
 ## Part 6: The L2 Email Claim Contract
 
-The Aztec contract follows the same balance model as Part 2. Bob deposits tokens mapped to his email address hash, and the L1-to-L2 message serves as the authorization instead of a Schnorr signature.
+The Aztec contract follows the same balance model as Part 2, but replaces Schnorr signature verification with recursive proof verification via `verify_honk_proof`.
 
 ### Storage
 
 #include_code storage /docs/examples/contracts/email_claim_contract/src/main.nr rust
 
-The storage mirrors Part 2's structure: a `deposits` map tracks a balance (here keyed by email address hash instead of Aztec address), and `balances` stores recipients' private notes. The `portal` field holds the L1 contract address for message verification.
+The storage mirrors Part 2's structure with two additions: `vk_hash` stores the email circuit's verification key hash (set at deployment), and `trusted_dkim_keys` is an allowlist of mail server key hashes.
 
 ### Deposit
 
@@ -318,33 +324,13 @@ Identical to Part 2. Carol provides randomness so the commitment is deterministi
 
 ### Claiming with an Email Proof
 
-This is the core function. It consumes the L1-to-L2 message, deducts from Bob's balance, and completes Carol's partial note:
+This is the core function. It verifies the zkEmail proof in private, pushes the email nullifier, then enqueues public state changes to check DKIM key trust, deduct from Bob's balance, and complete Carol's partial note:
 
 #include_code claim_with_email /docs/examples/contracts/email_claim_contract/src/main.nr rust
 
-The content hash computation inside this function reconstructs the exact encoding the L1 portal used when calling `inbox.sendL2Message`. If even one byte differs, `consume_l1_to_l2_message` will fail -- this is the cryptographic handshake between the two layers.
+The private phase calls `verify_honk_proof` to verify the email circuit's proof. This is the same function used in the [recursive verification tutorial](./recursive_verification.md) -- it checks the verification key hash matches what was stored at deployment and verifies the proof against the public inputs. The email's contents are never revealed onchain.
 
-### TypeScript Integration (Exercise)
-
-A full end-to-end TypeScript example for the email flow is left as an exercise. The key steps are:
-
-1. **Deploy the L1 portal.** Deploy `EmailClaimPortal` to an Ethereum network (or a local Anvil fork). Call `initialize` with the Aztec registry address, the L2 `EmailClaim` contract address, and a zkEmail verifier address. Register at least one trusted DKIM public key hash via `registerDkimKeyHash`.
-
-2. **Deploy the L2 contract.** Deploy `EmailClaim` on Aztec, passing the token address. Call `set_portal` with the L1 portal's Ethereum address.
-
-3. **Bob deposits.** Same pattern as Part 2: set up a public authwit on the token contract, then call `deposit` with Bob's email address hash and amount.
-
-4. **Carol creates a claim.** Identical to Part 2: generate randomness, compute the commitment offchain, call `create_claim`, and wait for finalization.
-
-5. **Bob sends the email.** Bob sends an email with the subject line `pay 0x<commitment> <amount>`. The commitment and amount are encoded as hex strings. This step happens entirely outside the Aztec/Ethereum stack.
-
-6. **Carol generates the zkEmail proof.** Use the [zkEmail SDK](https://prove.email/) to parse the raw email (including DKIM headers) and generate a ZK proof. The proof's public inputs are: the DKIM public key hash (two fields), the sender's email address hash, the commitment, the amount, and the email nullifier.
-
-7. **Carol submits the proof to L1.** Generate a random `secret` and compute `secretHash = hash(secret)`. Call `verifyAndSendToL2` on the portal with the proof, public inputs, and `secretHash`. This sends an L1-to-L2 message.
-
-8. **Carol completes the claim on L2.** After ~2 L2 blocks, call `claim_with_email` with the `from_address_hash`, `partial_note`, `amount`, `secret` (the preimage), and the `message_leaf_index` returned by the L1 transaction.
-
-The main additional dependencies compared to Part 2 are: a zkEmail prover (for step 6), Solidity deployment tooling such as Foundry or Hardhat (for steps 1 and 7), and access to raw email data including DKIM headers (for step 5).
+The email nullifier is pushed into Aztec's native nullifier tree via `push_nullifier`. If the same email has already been used to claim, the protocol rejects the transaction -- no custom nullifier tracking needed.
 
 ## Part 7: Security and Design Considerations
 
@@ -359,8 +345,8 @@ The main additional dependencies compared to Part 2 are: a zkEmail prover (for s
 - **Key management matters.** If Bob's signing key leaks, anyone with the key can sign authorizations in his name until his deposited balance is fully claimed.
 
 **Email-specific:**
-- **Double-emailing is possible but cannot be double-claimed.** Each email produces a unique nullifier (hash of the DKIM signature). The L1 portal rejects any nullifier it has seen before.
-- **DKIM key rotation.** If a mail server rotates its DKIM key, the portal's trusted key set must be updated. Emails signed with an old key will be rejected unless the old key hash is still trusted.
+- **Double-emailing is possible but cannot be double-claimed.** Each email produces a unique nullifier (Pedersen hash of the DKIM signature). The nullifier is pushed into Aztec's nullifier tree, so the protocol itself rejects duplicate claims.
+- **DKIM key rotation.** If a mail server rotates its DKIM key, the contract's trusted key set must be updated. Emails signed with an old key will be rejected unless the old key hash is still trusted.
 
 ### When to Use Which
 
@@ -372,7 +358,6 @@ The main additional dependencies compared to Part 2 are: a zkEmail prover (for s
 **Use the email approach when:**
 - The sender cannot or will not install any special software
 - You want the lowest possible barrier to entry for the sender
-- You are comfortable with L1 transaction costs and the ~2 block message delay
 - The sender is willing to use a structured email subject format
 
 **Neither approach is a good fit when:**
@@ -389,6 +374,6 @@ The tradeoff is real complexity: the contract needs per-voucher storage (validit
 
 ## Next Steps
 
-- **[L1-to-L2 Messaging](../../foundational-topics/ethereum-aztec-messaging/inbox.md):** Understand how cross-chain messages flow between Ethereum and Aztec, which underpins the email authorization pattern in Part 4.
+- **[Verify Noir Proofs in Aztec Contracts](./recursive_verification.md):** A deeper dive into the recursive proof verification pattern used in Part 4. Covers circuit compilation, proof generation, and onchain verification from scratch.
+- **[L1-to-L2 Messaging](../../foundational-topics/ethereum-aztec-messaging/inbox.md):** Understand how cross-chain messages flow between Ethereum and Aztec. While Part 4 uses L2-only verification, L1-to-L2 messaging is useful for other bridge patterns.
 - **[Bridge Your NFT to Aztec](../js_tutorials/token_bridge.md):** A full end-to-end tutorial on building an L1 portal contract and L2 bridge, including deployment and TypeScript testing.
-- **[Verify Noir Proofs in Aztec Contracts](./recursive_verification.md):** Learn how to generate offchain ZK proofs and verify them inside Aztec private functions -- a complementary pattern to the L1 verification used in Part 4.

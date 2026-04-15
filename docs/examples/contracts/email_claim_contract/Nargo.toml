@@ -9,3 +9,4 @@ aztec = { path = "../../../../noir-projects/aztec-nr/aztec" }
 uint_note = { path = "../../libs/uint_note" }
 balance_set = { path = "../../../../noir-projects/aztec-nr/balance-set" }
 token = { path = "../../../../noir-projects/noir-contracts/contracts/app/token_contract" }
+bb_proof_verification = { path = "../../../../barretenberg/noir/bb_proof_verification" }

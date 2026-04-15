@@ -1,0 +1,9 @@
+[package]
+name = "email_verifier"
+type = "bin"
+authors = [""]
+compiler_version = ">=1.0.0"
+
+[dependencies]
+zkemail = { tag = "update/aztec-4.2.0-compat", git = "https://github.com/critesjosh/zkemail.nr", directory = "lib" }
+sha256 = { git = "https://github.com/noir-lang/sha256", tag = "v0.3.0" }
