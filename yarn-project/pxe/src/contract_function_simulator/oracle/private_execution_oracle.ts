@@ -575,6 +575,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
       scopes: this.scopes,
       senderForTags: this.senderForTags,
       simulator: this.simulator!,
+      l2TipsStore: this.l2TipsStore,
     });
 
     const setupTime = simulatorSetupTimer.ms();
