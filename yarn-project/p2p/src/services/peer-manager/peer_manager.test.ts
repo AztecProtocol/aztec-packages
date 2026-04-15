@@ -287,7 +287,7 @@ describe('PeerManager', () => {
 
     it('should not dial a discovered peer that has exceeded auth failure threshold', async () => {
       const enr = await createMockENR();
-      const peerId = await enr.peerId();
+      const peerId = enr.peerId;
       const peerIdStr = peerId.toString();
 
       const mockConnection = {
