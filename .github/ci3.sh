@@ -100,8 +100,7 @@ function main {
   fi
   check_cache
   echo_header "Run ${CI_MODE} CI"
-  # Temporary: grind p2p tests instead of normal CI
-  exec ./ci.sh grind-p2p "$@"
+  exec ./ci.sh "${CI_MODE}" "$@"
 }
 
 main "$@"
