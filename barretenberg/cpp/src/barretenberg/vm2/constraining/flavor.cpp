@@ -128,7 +128,8 @@ const bb::Univariate<AvmFlavor::FF, AvmFlavor::MAX_PARTIAL_RELATION_LENGTH>& Avm
             // the extend_to computation for zero selectors on sparse AVM traces.
             if (val0.is_zero() && val1.is_zero()) {
                 static const auto zero_univariate = bb::Univariate<FF, MAX_PARTIAL_RELATION_LENGTH>::zero();
-                return zero_univariate;
+                return zero_univariate; // Weirdly, defining a single static zero_univariate above the "if" block
+                                        // leads to a performance regression and obliterates the performance gain.
             }
             extended_ptr = std::make_unique<bb::Univariate<FF, MAX_PARTIAL_RELATION_LENGTH>>(
                 bb::Univariate<FF, 2>({ val0, val1 }).template extend_to<MAX_PARTIAL_RELATION_LENGTH>());
