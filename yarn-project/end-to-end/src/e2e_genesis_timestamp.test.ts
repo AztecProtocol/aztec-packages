@@ -33,6 +33,7 @@ describe('e2e_genesis_timestamp', () => {
     const provenTx = await proveInteraction(wallet, deployMethod, {
       from: NO_FROM,
       skipClassPublication: true,
+      additionalScopes: [accountManager.address],
     });
 
     // Verify the tx is anchored to block 0 (genesis).

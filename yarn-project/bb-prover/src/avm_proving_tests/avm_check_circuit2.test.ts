@@ -1,3 +1,4 @@
+import { MAX_NULLIFIERS_PER_TX } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { AvmTestContractArtifact } from '@aztec/noir-test-contracts.js/AvmTest';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -77,6 +78,10 @@ describe('AVM check-circuit – unhappy paths 2', () => {
   });
 
   it('error during revertible insertions - skips to teardown', async () => {
+    // Exceed MAX_NULLIFIERS_PER_TX during revertible insertions so that the revertible phase
+    // errors out and the tx skips to teardown. Note: nullifier *collisions* during revertible
+    // insertions are unprovable (not revertible), so we use the side-effect limit path instead.
+    const revertibleNullifiers = Array.from({ length: MAX_NULLIFIERS_PER_TX }, (_, i) => new Fr(100_000 + i));
     await tester.simProveVerify(
       sender,
       /*setupCalls=*/ [],
@@ -96,9 +101,9 @@ describe('AVM check-circuit – unhappy paths 2', () => {
       },
       /*expectRevert=*/ true,
       /*feePayer=*/ sender,
-      // duplicate nullifiers during revertible insertions!
       /*privateInsertions=*/ {
-        revertible: { nullifiers: [new Fr(100_000), /*duplicate*/ new Fr(100_000)] },
+        // Total nullifiers = 1 non-revertible + MAX_NULLIFIERS_PER_TX revertible = over the limit.
+        revertible: { nullifiers: revertibleNullifiers },
         nonRevertible: { nullifiers: [/*firstNullifier=*/ new Fr(66000)] },
       },
     );

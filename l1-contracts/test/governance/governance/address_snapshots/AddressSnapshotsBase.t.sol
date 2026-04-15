@@ -4,7 +4,7 @@ pragma solidity >=0.8.27;
 
 import {AddressSnapshotLib, SnapshottedAddressSet} from "@aztec/governance/libraries/AddressSnapshotLib.sol";
 
-import {Test} from "forge-std/Test.sol";
+import {TestBase} from "@test/base/Base.sol";
 import {TimeLib, TimeStorage, Epoch, Timestamp} from "@aztec/core/libraries/TimeLib.sol";
 import {TimeCheater} from "test/staking/TimeCheater.sol";
 import {TestConstants} from "test/harnesses/TestConstants.sol";
@@ -56,7 +56,7 @@ contract AddressSetWrapper {
   }
 }
 
-contract AddressSnapshotsBase is Test {
+contract AddressSnapshotsBase is TestBase {
   using AddressSnapshotLib for SnapshottedAddressSet;
   using TimeLib for Epoch;
   using SafeCast for uint256;

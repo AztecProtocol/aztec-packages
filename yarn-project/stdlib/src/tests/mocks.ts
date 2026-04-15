@@ -134,7 +134,7 @@ export const mockTx = async (
   const data = PrivateKernelTailCircuitPublicInputs.empty();
   const firstNullifier = new Nullifier(new Fr(seed + 1), Fr.ZERO, 0);
   data.constants.anchorBlockHeader = anchorBlockHeader;
-  data.constants.txContext.gasSettings = GasSettings.default({ gasLimits, maxFeesPerGas, maxPriorityFeesPerGas });
+  data.constants.txContext.gasSettings = GasSettings.fallback({ gasLimits, maxFeesPerGas, maxPriorityFeesPerGas });
   data.feePayer = feePayer ?? (await AztecAddress.random());
   data.gasUsed = gasUsed;
   data.constants.txContext.chainId = chainId;
@@ -200,7 +200,7 @@ export async function mockProcessedTx({
   db,
   chainId = Fr.ZERO,
   version = Fr.ZERO,
-  gasSettings = GasSettings.default({ maxFeesPerGas: new GasFees(10, 10) }),
+  gasSettings = GasSettings.fallback({ maxFeesPerGas: new GasFees(10, 10) }),
   vkTreeRoot = Fr.ZERO,
   protocolContracts = makeProtocolContracts(seed + 0x100),
   globalVariables = GlobalVariables.empty(),
@@ -587,6 +587,7 @@ export const makeBlockProposal = (options?: MakeBlockProposalOptions): Promise<B
 
   return BlockProposal.createProposalFromSigner(
     blockHeader,
+    CheckpointNumber(1),
     indexWithinCheckpoint,
     inHash,
     archiveRoot,
@@ -596,28 +597,31 @@ export const makeBlockProposal = (options?: MakeBlockProposalOptions): Promise<B
   );
 };
 
-export const makeCheckpointProposal = (options?: MakeCheckpointProposalOptions): Promise<CheckpointProposal> => {
-  const blockHeader = options?.lastBlock?.blockHeader ?? makeBlockHeader(1);
+export const makeCheckpointProposal = async (options?: MakeCheckpointProposalOptions): Promise<CheckpointProposal> => {
   const checkpointHeader = options?.checkpointHeader ?? makeCheckpointHeader(1);
   const archiveRoot = options?.archiveRoot ?? Fr.random();
   const feeAssetPriceModifier = options?.feeAssetPriceModifier ?? 0n;
   const signer = options?.signer ?? Secp256k1Signer.random();
 
-  // Build lastBlock info if provided
-  const lastBlockInfo = options?.lastBlock
-    ? {
-        blockHeader,
-        indexWithinCheckpoint: options.lastBlock.indexWithinCheckpoint ?? IndexWithinCheckpoint(4), // Last block in a 5-block checkpoint
-        txHashes: options.lastBlock.txHashes ?? [0, 1, 2, 3, 4, 5].map(() => TxHash.random()),
+  // Build a signed block proposal if lastBlock options are provided
+  const lastBlockProposal = options?.lastBlock
+    ? await makeBlockProposal({
+        blockHeader: options.lastBlock.blockHeader,
+        indexWithinCheckpoint: options.lastBlock.indexWithinCheckpoint ?? IndexWithinCheckpoint(4),
+        inHash: checkpointHeader.inHash,
+        archiveRoot,
+        txHashes: options.lastBlock.txHashes,
         txs: options.lastBlock.txs,
-      }
+        signer,
+      })
     : undefined;
 
   return CheckpointProposal.createProposalFromSigner(
     checkpointHeader,
     archiveRoot,
+    CheckpointNumber(1),
     feeAssetPriceModifier,
-    lastBlockInfo,
+    lastBlockProposal,
     payload => Promise.resolve(signer.signMessage(payload)),
   );
 };

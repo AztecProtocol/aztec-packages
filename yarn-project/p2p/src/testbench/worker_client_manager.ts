@@ -425,6 +425,61 @@ class WorkerClientManager {
   }
 
   /**
+   * Checks that the aggregator (client 0) has sufficient peer connections before running a benchmark.
+   * This prevents benchmark cases from starting with degraded connectivity after a previous case
+   * caused connection failures.
+   */
+  async waitForConnectivity(minPeers: number, timeoutMs: number = 15_000): Promise<number> {
+    const waitInterval = 1000;
+    let waited = 0;
+
+    while (waited < timeoutMs) {
+      const count = await this.getPeerCount(0, 5000);
+      if (count >= minPeers) {
+        this.logger.info(`Connectivity check passed: ${count}/${minPeers} peers connected`);
+        return count;
+      }
+      this.logger.debug(`Waiting for connectivity: ${count}/${minPeers} (waited ${waited}ms)`);
+      await sleep(waitInterval);
+      waited += waitInterval;
+    }
+
+    const finalCount = await this.getPeerCount(0, 5000);
+    this.logger.warn(`Connectivity check: only ${finalCount}/${minPeers} peers after ${timeoutMs}ms`);
+    return finalCount;
+  }
+
+  private getPeerCount(clientIndex: number, timeoutMs: number): Promise<number> {
+    return new Promise<number>(resolve => {
+      let resolved = false;
+
+      const handler = (msg: any) => {
+        if (resolved) {
+          return;
+        }
+        if (msg.type === 'PEER_COUNT') {
+          resolved = true;
+          clearTimeout(timeout);
+          this.processes[clientIndex].off('message', handler);
+          resolve(msg.count as number);
+        }
+      };
+
+      const timeout = setTimeout(() => {
+        if (resolved) {
+          return;
+        }
+        resolved = true;
+        this.processes[clientIndex].off('message', handler);
+        resolve(0);
+      }, timeoutMs);
+
+      this.processes[clientIndex].on('message', handler);
+      this.processes[clientIndex].send({ type: 'GET_PEER_COUNT' });
+    });
+  }
+
+  /**
    * Run a req/resp benchmark across all worker clients.
    *
    * This sends a BENCH_REQRESP command to all workers:

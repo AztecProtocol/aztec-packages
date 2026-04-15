@@ -15,8 +15,7 @@ import { EthCheatCodes } from '../test/eth_cheat_codes.js';
 import type { Anvil } from '../test/start_anvil.js';
 import { startAnvil } from '../test/start_anvil.js';
 import type { ViemClient } from '../types.js';
-import type { FeeHeader } from './rollup.js';
-import { RollupContract } from './rollup.js';
+import { type FeeHeader, RollupContract, TempCheckpointLogField } from './rollup.js';
 
 describe('compressFeeHeader', () => {
   /** Creates a zero fee header with the given overrides. */
@@ -328,10 +327,99 @@ describe('Rollup', () => {
     });
   });
 
+  describe('makeArchiveOverride', () => {
+    it('creates state override that correctly sets archive for a checkpoint number', async () => {
+      const checkpointNumber = CheckpointNumber(5);
+      const expectedArchive = Fr.random();
+
+      // Create the override
+      const stateOverride = rollup.makeArchiveOverride(checkpointNumber, expectedArchive);
+
+      // Test the override using simulateContract to read archiveAt(checkpointNumber)
+      const { result: overriddenArchive } = await publicClient.simulateContract({
+        address: rollupAddress,
+        abi: RollupAbi as Abi,
+        functionName: 'archiveAt',
+        args: [BigInt(checkpointNumber)],
+        stateOverride,
+      });
+
+      expect(Fr.fromString(overriddenArchive as string).equals(expectedArchive)).toBe(true);
+    });
+  });
+
   describe('getSlashingProposer', () => {
     it('returns a slashing proposer', async () => {
       const slashingProposer = await rollup.getSlashingProposer();
       expect(slashingProposer).toBeDefined();
+    });
+  });
+
+  describe('compressFeeHeader', () => {
+    it('compressed fee header can be read back by L1 getFeeHeader', async () => {
+      const feeHeader: FeeHeader = {
+        manaUsed: 12345n,
+        excessMana: 67890n,
+        ethPerFeeAsset: 1_000_000_000_000n,
+        congestionCost: 99999n,
+        proverCost: 55555n,
+      };
+
+      // Ensure pending checkpoint is 0 so getFeeHeader(0) is in range
+      await cheatCodes.store(
+        EthAddress.fromString(rollupAddress),
+        RollupContract.chainTipsStorageSlot,
+        RollupContract.packChainTips(0n, 0n),
+      );
+
+      const checkpointNumber = CheckpointNumber(0);
+      const slot = await rollup.getTempCheckpointLogStorageSlot(checkpointNumber, TempCheckpointLogField.FeeHeader);
+      await cheatCodes.store(EthAddress.fromString(rollupAddress), slot, RollupContract.compressFeeHeader(feeHeader));
+
+      const result = await rollup.getFeeHeader(0n);
+      expect(result.manaUsed).toBe(feeHeader.manaUsed);
+      expect(result.excessMana).toBe(feeHeader.excessMana);
+      expect(result.ethPerFeeAsset).toBe(feeHeader.ethPerFeeAsset);
+      expect(result.congestionCost).toBe(feeHeader.congestionCost);
+      expect(result.proverCost).toBe(feeHeader.proverCost);
+    });
+  });
+
+  describe('packChainTips', () => {
+    it('packed tips can be read back as pending and proven checkpoint numbers', async () => {
+      const pending = 200n;
+      const proven = 150n;
+
+      await cheatCodes.store(
+        EthAddress.fromString(rollupAddress),
+        RollupContract.chainTipsStorageSlot,
+        RollupContract.packChainTips(pending, proven),
+      );
+
+      expect(await rollup.getCheckpointNumber()).toBe(CheckpointNumber.fromBigInt(pending));
+      expect(await rollup.getProvenCheckpointNumber()).toBe(CheckpointNumber.fromBigInt(proven));
+    });
+  });
+
+  describe('getTempCheckpointLogStorageSlot', () => {
+    it('writing to the slot number field is readable via getCheckpoint', async () => {
+      // First restore tips so checkpoint 0 is pending
+      await cheatCodes.store(
+        EthAddress.fromString(rollupAddress),
+        RollupContract.chainTipsStorageSlot,
+        RollupContract.packChainTips(0n, 0n),
+      );
+
+      const slotNumberStorageSlot = await rollup.getTempCheckpointLogStorageSlot(
+        CheckpointNumber(0),
+        TempCheckpointLogField.SlotNumber,
+      );
+
+      const testSlotNumber = 42n;
+      await cheatCodes.store(EthAddress.fromString(rollupAddress), slotNumberStorageSlot, testSlotNumber);
+
+      const checkpoint = await rollup.getCheckpoint(CheckpointNumber(0));
+      expect(BigInt(checkpoint.slotNumber)).toBe(testSlotNumber);
     });
   });
 });

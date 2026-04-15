@@ -1,5 +1,5 @@
 import { DA_GAS_PER_FIELD, TX_DA_GAS_OVERHEAD } from '@aztec/constants';
-import { Buffer32 } from '@aztec/foundation/buffer';
+import { type BaseBuffer32, Buffer32 } from '@aztec/foundation/buffer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import type { ZodFor } from '@aztec/foundation/schemas';
 import { BufferReader, serializeArrayOfBufferableToVector, serializeToBuffer } from '@aztec/foundation/serialize';
@@ -64,7 +64,7 @@ export class Tx extends Gossipable {
   // docs:end:tx_class
 
   // Gossipable method
-  override generateP2PMessageIdentifier(): Promise<Buffer32> {
+  override generateP2PMessageIdentifier(): Promise<BaseBuffer32> {
     return Promise.resolve(new Buffer32(this.getTxHash().toBuffer()));
   }
 

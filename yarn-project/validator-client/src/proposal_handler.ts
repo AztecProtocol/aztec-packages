@@ -76,7 +76,9 @@ export type BlockProposalValidationFailureResult = {
 
 export type BlockProposalValidationResult = BlockProposalValidationSuccessResult | BlockProposalValidationFailureResult;
 
-export type CheckpointProposalValidationResult = { isValid: true } | { isValid: false; reason: string };
+export type CheckpointProposalValidationResult =
+  | { isValid: true; checkpointNumber: CheckpointNumber }
+  | { isValid: false; reason: string };
 
 type CheckpointComputationResult =
   | { checkpointNumber: CheckpointNumber; reason?: undefined }
@@ -175,6 +177,7 @@ export class ProposalHandler {
       _sender: PeerId,
     ): Promise<CheckpointAttestation[] | undefined> => {
       try {
+        const pipeliningTimer = new Timer();
         const proposalInfo: LogData = {
           slot: proposal.slotNumber,
           archive: proposal.archive.toString(),
@@ -196,7 +199,10 @@ export class ProposalHandler {
 
         const result = await this.handleCheckpointProposal(proposal, proposalInfo);
         if (result.isValid && this.archiver && this.epochCache.isProposerPipeliningEnabled()) {
-          await this.setProposedCheckpointFromValidation(proposal);
+          const set = await this.setProposedCheckpointFromValidation(proposal);
+          if (set) {
+            this.metrics?.recordCheckpointProposalToPipelinedStateDuration(pipeliningTimer.ms());
+          }
         }
       } catch (err) {
         this.log.warn(`Error handling checkpoint proposal for slot ${proposal.slotNumber}`, { err });
@@ -374,7 +380,6 @@ export class ProposalHandler {
 
   private async getParentBlock(proposal: BlockProposal): Promise<'genesis' | BlockData | undefined> {
     const parentArchive = proposal.blockHeader.lastArchive.root;
-    const slot = proposal.slotNumber;
     const config = this.checkpointsBuilder.getConfig();
     const { genesisArchiveRoot } = await this.blockSource.getGenesisValues();
 
@@ -382,7 +387,7 @@ export class ProposalHandler {
       return 'genesis';
     }
 
-    const deadline = this.getReexecutionDeadline(slot, config);
+    const deadline = this.getReexecutionDeadline(proposal.slotNumber, config);
     const currentTime = this.dateProvider.now();
     const timeoutDurationMs = deadline.getTime() - currentTime;
 
@@ -531,8 +536,14 @@ export class ProposalHandler {
     return undefined;
   }
 
-  private getReexecutionDeadline(slot: SlotNumber, config: { l1GenesisTime: bigint; slotDuration: number }): Date {
-    const nextSlotTimestampSeconds = Number(getTimestampForSlot(SlotNumber(slot + 1), config));
+  private getReexecutionDeadline(
+    slotNumber: SlotNumber,
+    config: { l1GenesisTime: bigint; slotDuration: number },
+  ): Date {
+    // Under proposer pipelining, the proposal slot may be ahead of wall clock time.
+    // Reexecution budgets should still be bounded by the current slot we are in now.
+    const wallclockSlot = slotNumber - this.epochCache.pipeliningOffset();
+    const nextSlotTimestampSeconds = Number(getTimestampForSlot(SlotNumber(wallclockSlot + 1), config));
     return new Date(nextSlotTimestampSeconds * 1000);
   }
 
@@ -545,8 +556,9 @@ export class ProposalHandler {
     }
 
     // Make a quick check before triggering an archiver sync
+    // If we are pipelining and have a pending checkpoint number stored, we will allow the block proposal to be for a slot further
     const syncedSlot = await this.blockSource.getSyncedL2SlotNumber();
-    if (syncedSlot !== undefined && syncedSlot + 1 >= slot) {
+    if (syncedSlot !== undefined && syncedSlot + 1 + this.epochCache.pipeliningOffset() >= slot) {
       return true;
     }
 
@@ -555,8 +567,8 @@ export class ProposalHandler {
       return await retryUntil(
         async () => {
           await this.blockSource.syncImmediate();
-          const syncedSlot = await this.blockSource.getSyncedL2SlotNumber();
-          return syncedSlot !== undefined && syncedSlot + 1 >= slot;
+          const updatedSyncedSlot = await this.blockSource.getSyncedL2SlotNumber();
+          return updatedSyncedSlot !== undefined && updatedSyncedSlot + 1 >= slot;
         },
         'wait for block source sync',
         timeoutMs / 1000,
@@ -904,7 +916,7 @@ export class ProposalHandler {
     }
 
     this.log.verbose(`Checkpoint proposal validation successful for slot ${slot}`, proposalInfo);
-    return { isValid: true };
+    return { isValid: true, checkpointNumber };
   }
 
   /** Extracts checkpoint global variables from a block. */
@@ -961,16 +973,16 @@ export class ProposalHandler {
    * Used after successful validation of a foreign proposal.
    * Does not retry since we already waited for the block during validation.
    */
-  private async setProposedCheckpointFromValidation(proposal: CheckpointProposalCore): Promise<void> {
+  private async setProposedCheckpointFromValidation(proposal: CheckpointProposalCore): Promise<boolean> {
     if (!this.archiver) {
-      return;
+      return false;
     }
     const blockData = await this.blockSource.getBlockDataByArchive(proposal.archive);
     if (!blockData) {
       this.log.debug(`Block data not found for checkpoint proposal archive, cannot set proposed checkpoint`, {
         archive: proposal.archive.toString(),
       });
-      return;
+      return false;
     }
 
     await this.archiver.setProposedCheckpoint({
@@ -981,6 +993,7 @@ export class ProposalHandler {
       totalManaUsed: proposal.checkpointHeader.totalManaUsed.toBigInt(),
       feeAssetPriceModifier: proposal.feeAssetPriceModifier,
     });
+    return true;
   }
 
   /**
@@ -988,9 +1001,9 @@ export class ProposalHandler {
    * Retries fetching block data since the checkpoint proposal often arrives before the last block
    * finishes re-execution.
    */
-  private async setProposedCheckpointFromBlocks(proposal: CheckpointProposalCore): Promise<void> {
+  private async setProposedCheckpointFromBlocks(proposal: CheckpointProposalCore): Promise<boolean> {
     if (!this.archiver) {
-      return;
+      return false;
     }
     let blockData = await this.blockSource.getBlockDataByArchive(proposal.archive);
 
@@ -1018,10 +1031,12 @@ export class ProposalHandler {
         totalManaUsed: proposal.checkpointHeader.totalManaUsed.toBigInt(),
         feeAssetPriceModifier: proposal.feeAssetPriceModifier,
       });
+      return true;
     } else {
       this.log.debug(`Block data not found for own checkpoint proposal archive, cannot set proposed checkpoint`, {
         archive: proposal.archive.toString(),
       });
+      return false;
     }
   }
 }

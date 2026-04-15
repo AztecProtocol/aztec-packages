@@ -1,4 +1,3 @@
-import { GENESIS_BLOCK_HEADER_HASH } from '@aztec/constants';
 import type { EpochCacheInterface } from '@aztec/epoch-cache';
 import { BlockNumber, CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { createLogger } from '@aztec/foundation/log';
@@ -9,6 +8,7 @@ import { L2TipsKVStore } from '@aztec/kv-store/stores';
 import {
   type CheckpointId,
   type EthAddress,
+  GENESIS_BLOCK_HEADER_HASH,
   type L2Block,
   type L2BlockId,
   type L2BlockSource,
@@ -257,7 +257,11 @@ export class P2PClient extends WithTracer implements P2P {
       });
     }
 
-    this.blockStream!.start();
+    // Should never happen: all branches above call initBlockStream()
+    if (!this.blockStream) {
+      throw new Error('Block stream not initialized');
+    }
+    this.blockStream.start();
     await this.txCollection.start();
     this.txFileStore?.start();
 
@@ -319,7 +323,11 @@ export class P2PClient extends WithTracer implements P2P {
   /** Triggers a sync to the archiver. Used for testing. */
   public async sync() {
     this.initBlockStream();
-    await this.blockStream!.sync();
+    // Should never happen: initBlockStream() creates blockStream if absent
+    if (!this.blockStream) {
+      throw new Error('Block stream not initialized');
+    }
+    await this.blockStream.sync();
   }
 
   @trackSpan('p2pClient.broadcastProposal', async proposal => ({

@@ -10,7 +10,6 @@ import {
 } from '@aztec/pxe/simulator';
 import { type ContractArtifact, EventSelector, FunctionSelector, NoteSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { BlockHash } from '@aztec/stdlib/block';
 
 import type { IAvmExecutionOracle, ITxeExecutionOracle } from './oracle/interfaces.js';
 import type { TXESessionStateHandler } from './txe_session.js';
@@ -20,6 +19,7 @@ import {
   addressFromSingle,
   arrayOfArraysToBoundedVecOfArrays,
   arrayToBoundedVec,
+  blockHashFromSingle,
   bufferToU8Array,
   fromArray,
   fromSingle,
@@ -264,10 +264,11 @@ export class RPCTranslator {
   // PXE oracles
 
   // eslint-disable-next-line camelcase
-  aztec_utl_assertCompatibleOracleVersion(foreignVersion: ForeignCallSingle) {
-    const version = fromSingle(foreignVersion).toNumber();
+  aztec_utl_assertCompatibleOracleVersionV2(foreignMajor: ForeignCallSingle, foreignMinor: ForeignCallSingle) {
+    const major = fromSingle(foreignMajor).toNumber();
+    const minor = fromSingle(foreignMinor).toNumber();
 
-    this.handlerAsMisc().assertCompatibleOracleVersion(version);
+    this.handlerAsMisc().assertCompatibleOracleVersion(major, minor);
 
     return toForeignCallResult([]);
   }
@@ -384,7 +385,7 @@ export class RPCTranslator {
     foreignStartStorageSlot: ForeignCallSingle,
     foreignNumberOfElements: ForeignCallSingle,
   ) {
-    const blockHash = new BlockHash(fromSingle(foreignBlockHash));
+    const blockHash = blockHashFromSingle(foreignBlockHash);
     const contractAddress = addressFromSingle(foreignContractAddress);
     const startStorageSlot = fromSingle(foreignStartStorageSlot);
     const numberOfElements = fromSingle(foreignNumberOfElements).toNumber();
@@ -401,7 +402,7 @@ export class RPCTranslator {
 
   // eslint-disable-next-line camelcase
   async aztec_utl_getPublicDataWitness(foreignBlockHash: ForeignCallSingle, foreignLeafSlot: ForeignCallSingle) {
-    const blockHash = new BlockHash(fromSingle(foreignBlockHash));
+    const blockHash = blockHashFromSingle(foreignBlockHash);
     const leafSlot = fromSingle(foreignLeafSlot);
 
     const witness = await this.handlerAsUtility().getPublicDataWitness(blockHash, leafSlot);
@@ -628,7 +629,7 @@ export class RPCTranslator {
     foreignBlockHash: ForeignCallSingle,
     foreignNullifier: ForeignCallSingle,
   ) {
-    const blockHash = new BlockHash(fromSingle(foreignBlockHash));
+    const blockHash = blockHashFromSingle(foreignBlockHash);
     const nullifier = fromSingle(foreignNullifier);
 
     const witness = await this.handlerAsUtility().getNullifierMembershipWitness(blockHash, nullifier);
@@ -692,7 +693,7 @@ export class RPCTranslator {
     foreignAnchorBlockHash: ForeignCallSingle,
     foreignNoteHash: ForeignCallSingle,
   ) {
-    const blockHash = new BlockHash(fromSingle(foreignAnchorBlockHash));
+    const blockHash = blockHashFromSingle(foreignAnchorBlockHash);
     const noteHash = fromSingle(foreignNoteHash);
 
     const witness = await this.handlerAsUtility().getNoteHashMembershipWitness(blockHash, noteHash);
@@ -708,8 +709,8 @@ export class RPCTranslator {
     foreignAnchorBlockHash: ForeignCallSingle,
     foreignBlockHash: ForeignCallSingle,
   ) {
-    const anchorBlockHash = new BlockHash(fromSingle(foreignAnchorBlockHash));
-    const blockHash = new BlockHash(fromSingle(foreignBlockHash));
+    const anchorBlockHash = blockHashFromSingle(foreignAnchorBlockHash);
+    const blockHash = blockHashFromSingle(foreignBlockHash);
 
     const witness = await this.handlerAsUtility().getBlockHashMembershipWitness(anchorBlockHash, blockHash);
 
@@ -726,7 +727,7 @@ export class RPCTranslator {
     foreignBlockHash: ForeignCallSingle,
     foreignNullifier: ForeignCallSingle,
   ) {
-    const blockHash = new BlockHash(fromSingle(foreignBlockHash));
+    const blockHash = blockHashFromSingle(foreignBlockHash);
     const nullifier = fromSingle(foreignNullifier);
 
     const witness = await this.handlerAsUtility().getLowNullifierMembershipWitness(blockHash, nullifier);
@@ -751,6 +752,13 @@ export class RPCTranslator {
   }
 
   // eslint-disable-next-line camelcase
+  async aztec_utl_getPendingTaggedLogs_v2(foreignScope: ForeignCallSingle) {
+    const scope = AztecAddress.fromField(fromSingle(foreignScope));
+    const slot = await this.handlerAsUtility().getPendingTaggedLogsV2(scope);
+    return toForeignCallResult([toSingle(slot)]);
+  }
+
+  // eslint-disable-next-line camelcase
   public async aztec_utl_validateAndStoreEnqueuedNotesAndEvents(
     foreignContractAddress: ForeignCallSingle,
     foreignNoteValidationRequestsArrayBaseSlot: ForeignCallSingle,
@@ -768,6 +776,31 @@ export class RPCTranslator {
 
     await this.handlerAsUtility().validateAndStoreEnqueuedNotesAndEvents(
       contractAddress,
+      noteValidationRequestsArrayBaseSlot,
+      eventValidationRequestsArrayBaseSlot,
+      maxNotePackedLen,
+      maxEventSerializedLen,
+      scope,
+    );
+
+    return toForeignCallResult([]);
+  }
+
+  // eslint-disable-next-line camelcase
+  public async aztec_utl_validateAndStoreEnqueuedNotesAndEvents_v2(
+    foreignNoteValidationRequestsArrayBaseSlot: ForeignCallSingle,
+    foreignEventValidationRequestsArrayBaseSlot: ForeignCallSingle,
+    foreignMaxNotePackedLen: ForeignCallSingle,
+    foreignMaxEventSerializedLen: ForeignCallSingle,
+    foreignScope: ForeignCallSingle,
+  ) {
+    const noteValidationRequestsArrayBaseSlot = fromSingle(foreignNoteValidationRequestsArrayBaseSlot);
+    const eventValidationRequestsArrayBaseSlot = fromSingle(foreignEventValidationRequestsArrayBaseSlot);
+    const maxNotePackedLen = fromSingle(foreignMaxNotePackedLen).toNumber();
+    const maxEventSerializedLen = fromSingle(foreignMaxEventSerializedLen).toNumber();
+    const scope = AztecAddress.fromField(fromSingle(foreignScope));
+
+    await this.handlerAsUtility().validateAndStoreEnqueuedNotesAndEventsV2(
       noteValidationRequestsArrayBaseSlot,
       eventValidationRequestsArrayBaseSlot,
       maxNotePackedLen,
@@ -820,6 +853,20 @@ export class RPCTranslator {
     );
 
     return toForeignCallResult([]);
+  }
+
+  // eslint-disable-next-line camelcase
+  async aztec_utl_getLogsByTag_v2(foreignRequestArrayBaseSlot: ForeignCallSingle) {
+    const requestArrayBaseSlot = fromSingle(foreignRequestArrayBaseSlot);
+    const responseSlot = await this.handlerAsUtility().getLogsByTagV2(requestArrayBaseSlot);
+    return toForeignCallResult([toSingle(responseSlot)]);
+  }
+
+  // eslint-disable-next-line camelcase
+  async aztec_utl_getMessageContextsByTxHash_v2(foreignRequestArrayBaseSlot: ForeignCallSingle) {
+    const requestArrayBaseSlot = fromSingle(foreignRequestArrayBaseSlot);
+    const responseSlot = await this.handlerAsUtility().getMessageContextsByTxHashV2(requestArrayBaseSlot);
+    return toForeignCallResult([toSingle(responseSlot)]);
   }
 
   // eslint-disable-next-line camelcase
@@ -895,6 +942,64 @@ export class RPCTranslator {
 
     await this.handlerAsUtility().copyCapsule(contractAddress, srcSlot, dstSlot, numEntries, scope);
 
+    return toForeignCallResult([]);
+  }
+
+  // eslint-disable-next-line camelcase
+  aztec_utl_pushEphemeral(foreignSlot: ForeignCallSingle, foreignElements: ForeignCallArray) {
+    const slot = fromSingle(foreignSlot);
+    const elements = fromArray(foreignElements);
+    const newLen = this.handlerAsUtility().pushEphemeral(slot, elements);
+    return toForeignCallResult([toSingle(new Fr(newLen))]);
+  }
+
+  // eslint-disable-next-line camelcase
+  aztec_utl_popEphemeral(foreignSlot: ForeignCallSingle) {
+    const slot = fromSingle(foreignSlot);
+    const element = this.handlerAsUtility().popEphemeral(slot);
+    return toForeignCallResult([toArray(element)]);
+  }
+
+  // eslint-disable-next-line camelcase
+  aztec_utl_getEphemeral(foreignSlot: ForeignCallSingle, foreignIndex: ForeignCallSingle) {
+    const slot = fromSingle(foreignSlot);
+    const index = fromSingle(foreignIndex).toNumber();
+    const element = this.handlerAsUtility().getEphemeral(slot, index);
+    return toForeignCallResult([toArray(element)]);
+  }
+
+  // eslint-disable-next-line camelcase
+  aztec_utl_setEphemeral(
+    foreignSlot: ForeignCallSingle,
+    foreignIndex: ForeignCallSingle,
+    foreignElements: ForeignCallArray,
+  ) {
+    const slot = fromSingle(foreignSlot);
+    const index = fromSingle(foreignIndex).toNumber();
+    const elements = fromArray(foreignElements);
+    this.handlerAsUtility().setEphemeral(slot, index, elements);
+    return toForeignCallResult([]);
+  }
+
+  // eslint-disable-next-line camelcase
+  aztec_utl_getEphemeralLen(foreignSlot: ForeignCallSingle) {
+    const slot = fromSingle(foreignSlot);
+    const len = this.handlerAsUtility().getEphemeralLen(slot);
+    return toForeignCallResult([toSingle(new Fr(len))]);
+  }
+
+  // eslint-disable-next-line camelcase
+  aztec_utl_removeEphemeral(foreignSlot: ForeignCallSingle, foreignIndex: ForeignCallSingle) {
+    const slot = fromSingle(foreignSlot);
+    const index = fromSingle(foreignIndex).toNumber();
+    this.handlerAsUtility().removeEphemeral(slot, index);
+    return toForeignCallResult([]);
+  }
+
+  // eslint-disable-next-line camelcase
+  aztec_utl_clearEphemeral(foreignSlot: ForeignCallSingle) {
+    const slot = fromSingle(foreignSlot);
+    this.handlerAsUtility().clearEphemeral(slot);
     return toForeignCallResult([]);
   }
 

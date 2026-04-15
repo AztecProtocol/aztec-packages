@@ -629,14 +629,14 @@ template <class Params_> struct alignas(32) field {
     BB_INLINE static field asm_sqr_with_coarse_reduction(const field& a) noexcept;
     BB_INLINE static field asm_add_with_coarse_reduction(const field& a, const field& b) noexcept;
     BB_INLINE static field asm_sub_with_coarse_reduction(const field& a, const field& b) noexcept;
-    BB_INLINE static void asm_self_mul_with_coarse_reduction(const field& a, const field& b) noexcept;
-    BB_INLINE static void asm_self_sqr_with_coarse_reduction(const field& a) noexcept;
-    BB_INLINE static void asm_self_add_with_coarse_reduction(const field& a, const field& b) noexcept;
-    BB_INLINE static void asm_self_sub_with_coarse_reduction(const field& a, const field& b) noexcept;
+    BB_INLINE static void asm_self_mul_with_coarse_reduction(field& a, const field& b) noexcept;
+    BB_INLINE static void asm_self_sqr_with_coarse_reduction(field& a) noexcept;
+    BB_INLINE static void asm_self_add_with_coarse_reduction(field& a, const field& b) noexcept;
+    BB_INLINE static void asm_self_sub_with_coarse_reduction(field& a, const field& b) noexcept;
 
     BB_INLINE static void asm_conditional_negate(field& r, uint64_t predicate) noexcept;
     BB_INLINE static field asm_reduce_once(const field& a) noexcept;
-    BB_INLINE static void asm_self_reduce_once(const field& a) noexcept;
+    BB_INLINE static void asm_self_reduce_once(field& a) noexcept;
     static constexpr uint64_t zero_reference = 0x00ULL;
 #endif
     constexpr field tonelli_shanks_sqrt() const noexcept;

@@ -145,7 +145,7 @@ export class EpochsTestContext {
         proverId: EthAddress.fromNumber(1),
         worldStateCheckpointHistory: WORLD_STATE_CHECKPOINT_HISTORY,
         exitDelaySeconds: DefaultL1ContractsConfig.exitDelaySeconds,
-        slasherFlavor: 'none',
+        slasherEnabled: false,
         l1PublishingTime,
         ...opts,
       },

@@ -180,9 +180,9 @@ template <typename Builder> field_t<Builder> ram_table<Builder>::read(const fiel
 
     const auto native_index = uint256_t(index.get_value());
     if (native_index >= length) {
-        // set a failure when the index is out of bounds. another error will be thrown when we try to call
-        // `read_RAM_array`.
+        // Set a failure when the index is out of bounds. Return early to avoid OOB vector access.
         context->failure("ram_table: RAM array access out of bounds");
+        return field_pt::from_witness_index(context, context->zero_idx());
     }
 
     if (!check_indices_initialized()) {
@@ -228,9 +228,9 @@ template <typename Builder> void ram_table<Builder>::write(const field_pt& index
     initialize_table();
 
     if (uint256_t(index.get_value()) >= length) {
-        // set a failure when the index is out of bounds. an error will be thrown when we try to call either
-        // `init_RAM_element` or `write_RAM_array`.
+        // set a failure when the index is out of bounds. Return early to avoid OOB vector access.
         context->failure("ram_table: RAM array access out of bounds");
+        return;
     }
 
     field_pt index_wire = index;

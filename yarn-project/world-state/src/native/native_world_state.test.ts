@@ -1349,6 +1349,34 @@ describe('NativeWorldState', () => {
     });
   });
 
+  describe('Map size validation', () => {
+    it('rejects zero map size', async () => {
+      const invalidSizes: WorldStateTreeMapSizes = {
+        archiveTreeMapSizeKb: 0,
+        nullifierTreeMapSizeKb: 1024,
+        noteHashTreeMapSizeKb: 1024,
+        messageTreeMapSizeKb: 1024,
+        publicDataTreeMapSizeKb: 1024,
+      };
+      await expect(NativeWorldStateService.new(EthAddress.random(), dataDir, invalidSizes)).rejects.toThrow(
+        'Map size must be a positive number',
+      );
+    });
+
+    it('rejects negative map size', async () => {
+      const invalidSizes: WorldStateTreeMapSizes = {
+        archiveTreeMapSizeKb: 1024,
+        nullifierTreeMapSizeKb: -1,
+        noteHashTreeMapSizeKb: 1024,
+        messageTreeMapSizeKb: 1024,
+        publicDataTreeMapSizeKb: 1024,
+      };
+      await expect(NativeWorldStateService.new(EthAddress.random(), dataDir, invalidSizes)).rejects.toThrow(
+        'Map size must be a positive number',
+      );
+    });
+  });
+
   describe('Concurrent requests', () => {
     let ws: NativeWorldStateService;
 

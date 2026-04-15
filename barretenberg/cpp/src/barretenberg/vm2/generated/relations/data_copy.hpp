@@ -14,9 +14,9 @@ template <typename FF_> class data_copyImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 41> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 4, 3, 3, 3, 4, 3, 3, 3, 3, 3, 4, 5,
-                                                                            3, 3, 3, 5, 4, 6, 4, 5, 3, 4, 4, 3, 3, 3,
-                                                                            3, 4, 5, 5, 3, 6, 4, 3, 5, 6, 3, 6, 3 };
+    static constexpr std::array<size_t, 40> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 4, 5, 3,
+                                                                            3, 3, 5, 4, 6, 4, 5, 3, 4, 4, 3, 3, 3, 3,
+                                                                            4, 5, 5, 3, 6, 4, 3, 5, 6, 3, 6, 3 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -37,36 +37,36 @@ template <typename FF> class data_copy : public Relation<data_copyImpl<FF>> {
     static constexpr const std::string_view NAME = "data_copy";
 
     // Subrelation indices constants, to be used in tests.
-    static constexpr size_t SR_TRACE_CONTINUITY = 2;
-    static constexpr size_t SR_COMPUTATION_FINISH_AT_END = 6;
-    static constexpr size_t SR_START_AFTER_LATCH = 7;
-    static constexpr size_t SR_ZERO_SIZED_WRITE = 17;
-    static constexpr size_t SR_END_IF_WRITE_IS_ZERO = 18;
-    static constexpr size_t SR_END_WRITE_CONDITION = 19;
-    static constexpr size_t SR_END_ON_ERR = 20;
-    static constexpr size_t SR_INIT_READS_LEFT = 21;
-    static constexpr size_t SR_DECR_COPY_SIZE = 23;
-    static constexpr size_t SR_INCR_WRITE_ADDR = 24;
-    static constexpr size_t SR_SRC_CONTEXT_ID_PROPAGATION = 25;
-    static constexpr size_t SR_DST_CONTEXT_ID_PROPAGATION = 26;
-    static constexpr size_t SR_CLK_PROPAGATION = 27;
-    static constexpr size_t SR_SEL_CD_COPY_PROPAGATION = 28;
-    static constexpr size_t SR_INIT_READ_ADDR = 29;
-    static constexpr size_t SR_INCR_READ_ADDR = 30;
-    static constexpr size_t SR_DECR_READ_COUNT = 31;
-    static constexpr size_t SR_PADDING_CONDITION = 33;
-    static constexpr size_t SR_PADDING_PROPAGATION = 34;
-    static constexpr size_t SR_TOP_LEVEL_COND = 36;
-    static constexpr size_t SR_PAD_VALUE = 38;
-    static constexpr size_t SR_CD_COPY_COLUMN = 39;
+    static constexpr size_t SR_SEL_ON_START_OR_END = 4;
+    static constexpr size_t SR_TRACE_CONTINUITY = 5;
+    static constexpr size_t SR_START_AFTER_LATCH = 6;
+    static constexpr size_t SR_ZERO_SIZED_WRITE = 16;
+    static constexpr size_t SR_END_IF_WRITE_IS_ZERO = 17;
+    static constexpr size_t SR_END_WRITE_CONDITION = 18;
+    static constexpr size_t SR_END_ON_ERR = 19;
+    static constexpr size_t SR_INIT_READS_LEFT = 20;
+    static constexpr size_t SR_DECR_COPY_SIZE = 22;
+    static constexpr size_t SR_INCR_WRITE_ADDR = 23;
+    static constexpr size_t SR_SRC_CONTEXT_ID_PROPAGATION = 24;
+    static constexpr size_t SR_DST_CONTEXT_ID_PROPAGATION = 25;
+    static constexpr size_t SR_CLK_PROPAGATION = 26;
+    static constexpr size_t SR_SEL_CD_COPY_PROPAGATION = 27;
+    static constexpr size_t SR_INIT_READ_ADDR = 28;
+    static constexpr size_t SR_INCR_READ_ADDR = 29;
+    static constexpr size_t SR_DECR_READ_COUNT = 30;
+    static constexpr size_t SR_PADDING_CONDITION = 32;
+    static constexpr size_t SR_PADDING_PROPAGATION = 33;
+    static constexpr size_t SR_TOP_LEVEL_COND = 35;
+    static constexpr size_t SR_PAD_VALUE = 37;
+    static constexpr size_t SR_CD_COPY_COLUMN = 38;
 
     static std::string get_subrelation_label(size_t index)
     {
         switch (index) {
+        case SR_SEL_ON_START_OR_END:
+            return "SEL_ON_START_OR_END";
         case SR_TRACE_CONTINUITY:
             return "TRACE_CONTINUITY";
-        case SR_COMPUTATION_FINISH_AT_END:
-            return "COMPUTATION_FINISH_AT_END";
         case SR_START_AFTER_LATCH:
             return "START_AFTER_LATCH";
         case SR_ZERO_SIZED_WRITE:

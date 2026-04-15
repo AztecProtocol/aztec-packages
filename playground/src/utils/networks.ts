@@ -19,16 +19,6 @@ export type Network = {
 
 export const NETWORKS: Network[] = [
   {
-    nodeURL: 'https://v4-devnet-2.aztec-labs.com/',
-    name: 'Aztec Devnet',
-    description: 'Public development network',
-    chainId: 11155111,
-    version: 615022430,
-    hasTestAccounts: false,
-    hasSponsoredFPC: true,
-    nodeVersion: '4.0.0-devnet.2-patch.1',
-  },
-  {
     nodeURL: 'http://localhost:8080',
     name: 'Local Network',
     description: `Run your own local network (v${VERSION})`,

@@ -56,13 +56,6 @@ template <typename FF> void MegaCircuitBuilder_<FF>::add_mega_gates_to_ensure_al
     raw_read_idx = static_cast<uint32_t>(get_return_data().size()) - 1;   // read data that was just added
     read_idx = this->add_variable(FF(raw_read_idx));
     update_finalize_witnesses({ read_idx, read_return_data(read_idx) });
-
-    if (op_queue->get_current_subtable_size() == 0) {
-        // Add a mul dummy op in the subtable to avoid column polynomial being zero (it has to be a mul rather than an
-        // add to ensure all 4 column polynomials contain some data)
-        this->queue_ecc_mul_accum(bb::g1::affine_element::one(), 2, /*in_finalize=*/true);
-        this->queue_ecc_eq(/*in_finalize=*/true);
-    }
 }
 
 /**

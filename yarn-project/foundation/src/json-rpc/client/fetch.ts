@@ -54,7 +54,7 @@ export async function defaultFetch(
   }
 
   if (!resp.ok) {
-    const errorMessage = `Error ${resp.status} from server ${host}: ${responseJson.error.message}`;
+    const errorMessage = `Error ${resp.status} from server ${host}: ${responseJson?.error?.message ?? JSON.stringify(responseJson)}`;
     if (noRetry || (resp.status >= 400 && resp.status < 500)) {
       throw new NoRetryError(errorMessage);
     } else {

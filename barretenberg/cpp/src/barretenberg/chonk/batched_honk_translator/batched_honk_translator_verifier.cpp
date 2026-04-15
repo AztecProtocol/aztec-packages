@@ -44,6 +44,9 @@ typename BatchedHonkTranslatorVerifier_<Curve>::OinkResult BatchedHonkTranslator
     mega_zk_verifier_instance = std::make_shared<MegaZKVerifierInstance>(mega_zk_vk_and_hash);
 
     // Derive num_public_inputs from the Oink-only MegaZK proof.
+    if (mega_zk_proof.size() < ProofLength::Oink<MegaZKFlavorT>::LENGTH_WITHOUT_PUB_INPUTS) {
+        throw_or_abort("MegaZK Oink proof too short to derive num_public_inputs");
+    }
     const size_t num_public_inputs = mega_zk_proof.size() - ProofLength::Oink<MegaZKFlavorT>::LENGTH_WITHOUT_PUB_INPUTS;
 
     OinkVerifier<MegaZKFlavorT> oink_verifier{ mega_zk_verifier_instance, transcript, num_public_inputs };
@@ -113,10 +116,8 @@ template <typename Curve> bool BatchedHonkTranslatorVerifier_<Curve>::verify_joi
     auto translator_alphas = initialize_relation_separator<FF, TransFlavor::NUM_SUBRELATIONS - 1>(alpha);
 
     // Draw gate challenges.
-    std::vector<FF> gate_challenges(JOINT_LOG_N);
-    for (size_t i = 0; i < JOINT_LOG_N; i++) {
-        gate_challenges[i] = transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(i));
-    }
+    std::vector<FF> gate_challenges =
+        transcript->template get_dyadic_powers_of_challenge<FF>("Sumcheck:gate_challenge", JOINT_LOG_N);
 
     // Receive Libra masking commitments.
     libra_commitments = {};
