@@ -190,7 +190,7 @@ TEST(TxContextConstrainingTest, StateMutability)
         {
             { C::tx_sel, 1 },
             { C::tx_is_public_call_request, 1 },
-            { C::tx_should_process_call_request, 1 },
+            { C::tx_sel_process_call_request, 1 },
             { C::tx_prev_note_hash_tree_root, 1 },
             { C::tx_prev_note_hash_tree_size, 2 },
             { C::tx_prev_num_note_hashes_emitted, 3 },
@@ -283,7 +283,7 @@ TEST(TxContextConstrainingTest, StateMutability)
                               "L2_TO_L1_MESSAGE_COUNT_IMMUTABILITY");
 
     // Negative test: immutability check on retrieved bytecodes tree
-    trace.set(C::tx_should_process_call_request, 0, 0);
+    trace.set(C::tx_sel_process_call_request, 0, 0);
 
     EXPECT_THROW_WITH_MESSAGE(
         check_relation<tx_context>(trace, tx_context::SR_RETRIEVED_BYTECODES_TREE_ROOT_IMMUTABILITY),
@@ -538,7 +538,7 @@ TEST(TxContextConstrainingTest, NegativeContextIdChecks)
             // Row 2
             { C::tx_sel, 1 },
             { C::tx_next_context_id, 1 },
-            { C::tx_should_process_call_request, 1 },
+            { C::tx_sel_process_call_request, 1 },
         },
         {
             // Row 3
