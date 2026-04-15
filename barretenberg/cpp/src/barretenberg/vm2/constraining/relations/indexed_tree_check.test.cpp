@@ -3,7 +3,9 @@
 
 #include <cstdint>
 
+#include "barretenberg/crypto/merkle_tree/aztec_hash_policy.hpp"
 #include "barretenberg/crypto/poseidon2/poseidon2.hpp"
+#include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/constraining/flavor_settings.hpp"
 #include "barretenberg/vm2/constraining/testing/check_relation.hpp"
 #include "barretenberg/vm2/generated/relations/indexed_tree_check.hpp"
@@ -71,13 +73,27 @@ struct TestParams {
 
 std::vector<TestParams> positive_read_tests = {
     // Exists = true, leaf pointers to infinity
-    TestParams{ .value = 42, .exists = true, .low_leaf = { .value = 42, .next_value = 0, .next_index = 0 } },
+    TestParams{
+        .value = 42,
+        .exists = true,
+        .low_leaf = { .leaf_separator = FF(DOM_SEP__NULLIFIER_LEAF), .value = 42, .next_value = 0, .next_index = 0 } },
     // Exists = true, leaf points to higher value
-    TestParams{ .value = 42, .exists = true, .low_leaf = { .value = 42, .next_value = 50, .next_index = 28 } },
+    TestParams{ .value = 42,
+                .exists = true,
+                .low_leaf = { .leaf_separator = FF(DOM_SEP__NULLIFIER_LEAF),
+                              .value = 42,
+                              .next_value = 50,
+                              .next_index = 28 } },
     // Exists = false, low leaf points to infinity
-    TestParams{ .value = 42, .exists = false, .low_leaf = { .value = 10, .next_value = 0, .next_index = 0 } },
+    TestParams{
+        .value = 42,
+        .exists = false,
+        .low_leaf = { .leaf_separator = FF(DOM_SEP__NULLIFIER_LEAF), .value = 10, .next_value = 0, .next_index = 0 } },
     // Exists = false, low leaf points to higher value
-    TestParams{ .value = 42, .exists = false, .low_leaf = { .value = 10, .next_value = 50, .next_index = 28 } }
+    TestParams{
+        .value = 42,
+        .exists = false,
+        .low_leaf = { .leaf_separator = FF(DOM_SEP__NULLIFIER_LEAF), .value = 10, .next_value = 50, .next_index = 28 } }
 };
 
 class IndexedTreeReadPositiveTests : public TestWithParam<TestParams> {};
@@ -159,9 +175,11 @@ TEST(IndexedTreeCheckConstrainingTest, PositiveWriteAppend)
 
     FF value = 100;
     FF low_value = 40;
-    TestMemoryTree<Poseidon2HashPolicy> tree(8, NULLIFIER_TREE_HEIGHT);
+    TestMemoryTree<crypto::merkle_tree::AztecMerkleHashPolicy> tree(8, NULLIFIER_TREE_HEIGHT);
 
-    IndexedTreeLeafData low_leaf = { .value = low_value, .next_value = value + 1, .next_index = 10 };
+    IndexedTreeLeafData low_leaf = {
+        .leaf_separator = FF(DOM_SEP__NULLIFIER_LEAF), .value = low_value, .next_value = value + 1, .next_index = 10
+    };
     FF low_leaf_hash = RawPoseidon2::hash(low_leaf.get_hash_inputs());
     uint64_t low_leaf_index = 0;
     tree.update_element(low_leaf_index, low_leaf_hash);
@@ -178,7 +196,8 @@ TEST(IndexedTreeCheckConstrainingTest, PositiveWriteAppend)
 
     std::vector<FF> insertion_sibling_path = tree.get_sibling_path(prev_snapshot.next_available_leaf_index);
 
-    IndexedTreeLeafData new_leaf = { .value = value,
+    IndexedTreeLeafData new_leaf = { .leaf_separator = FF(DOM_SEP__NULLIFIER_LEAF),
+                                     .value = value,
                                      .next_value = low_leaf.next_value,
                                      .next_index = low_leaf.next_index };
     FF new_leaf_hash = RawPoseidon2::hash(new_leaf.get_hash_inputs());
@@ -203,7 +222,9 @@ TEST(IndexedTreeCheckConstrainingTest, PositiveWriteAppend)
 TEST(IndexedTreeCheckConstrainingTest, PositiveWriteMembership)
 {
     FF value = 42;
-    IndexedTreeLeafData low_leaf = { .value = 42, .next_value = 0, .next_index = 0 };
+    IndexedTreeLeafData low_leaf = {
+        .leaf_separator = FF(DOM_SEP__NULLIFIER_LEAF), .value = 42, .next_value = 0, .next_index = 0
+    };
 
     NoopEventEmitter<Poseidon2HashEvent> hash_event_emitter;
     NoopEventEmitter<Poseidon2PermutationEvent> perm_event_emitter;
@@ -255,7 +276,9 @@ TEST(IndexedTreeCheckConstrainingTest, Siloing)
     AztecAddress contract_address = 1;
     FF value = 42;
     FF siloed_value = RawPoseidon2::hash({ DOM_SEP__SILOED_NULLIFIER, FF(contract_address), value });
-    IndexedTreeLeafData low_leaf = { .value = siloed_value, .next_value = 0, .next_index = 0 };
+    IndexedTreeLeafData low_leaf = {
+        .leaf_separator = FF(DOM_SEP__NULLIFIER_LEAF), .value = siloed_value, .next_value = 0, .next_index = 0
+    };
 
     NoopEventEmitter<Poseidon2HashEvent> hash_event_emitter;
     NoopEventEmitter<Poseidon2PermutationEvent> perm_event_emitter;

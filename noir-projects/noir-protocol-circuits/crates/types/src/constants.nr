@@ -691,6 +691,9 @@ pub global DOM_SEP__PUBLIC_STORAGE_MAP_SLOT: u32 = 4015149901;
 pub global DOM_SEP__PUBLIC_DATA_LEAF: u32 = 1961613833;
 pub global DOM_SEP__NULLIFIER_LEAF: u32 = 2344184091;
 pub global DOM_SEP__MERKLE_HASH: u32 = 2982624097;
+// AVM-internal indexed tree leaf domain separators
+pub global DOM_SEP__INT_WRITTEN_PUBLIC_DATA_SLOT_LEAF: u32 = 4178345146;
+pub global DOM_SEP__INT_CLASS_ID_LEAF: u32 = 4188413753;
 
 // ---------------------------------------------------------------
 // Contract Address
@@ -1251,13 +1254,13 @@ pub global TWO_POW_64: Field = 18446744073709551616;
 // TODO: Move inside BB noir constants lib
 pub global AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_HEIGHT: u32 = 6;
 pub global AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_INITIAL_ROOT: Field =
-    0x24063877bf89946cddacd31e055e70bb41375efc668a23b2f17416d6964ef4bb;
+    0x03cea199c4ee9327403886887afe99ea9dd5ca649e0ff77bc001d0a3546e4113;
 pub global AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_INITIAL_SIZE: u32 = 1;
 // AVM_RETRIEVED_BYTECODES_TREE_HEIGHT = CEIL(LOG2(MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS + 1))
 // +1 due to the tree prefill
 pub global AVM_RETRIEVED_BYTECODES_TREE_HEIGHT: u32 = 5;
 pub global AVM_RETRIEVED_BYTECODES_TREE_INITIAL_ROOT: Field =
-    0x27faf5f3897487762ac2db3c71de0845936e2e91cb7824eae33be08898b56de7;
+    0x202e64d692b23522cd4d081604c3c3e7952cef38b74b5159fa34c46f238c2e21;
 pub global AVM_RETRIEVED_BYTECODES_TREE_INITIAL_SIZE: u32 = 1;
 
 // Note that by casting timestamp to u32 we make this explode in year 2106. We do not care.

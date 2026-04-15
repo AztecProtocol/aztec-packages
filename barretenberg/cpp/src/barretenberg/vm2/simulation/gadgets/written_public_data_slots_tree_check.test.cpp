@@ -39,6 +39,7 @@ TEST(AvmSimulationWrittenPublicDataSlotsTreeCheck, ContainsNotExists)
     ASSERT_FALSE(exists);
 
     IndexedTreeLeafData expected_leaf_data = {
+        .leaf_separator = FF(DOM_SEP__INT_WRITTEN_PUBLIC_DATA_SLOT_LEAF),
         .value = low_leaf.leaf.slot,
         .next_value = low_leaf.nextKey,
         .next_index = low_leaf.nextIndex,
@@ -67,6 +68,7 @@ TEST(AvmSimulationWrittenPublicDataSlotsTreeCheck, ContainsExists)
     ASSERT_TRUE(exists);
 
     IndexedTreeLeafData expected_leaf_data = {
+        .leaf_separator = FF(DOM_SEP__INT_WRITTEN_PUBLIC_DATA_SLOT_LEAF),
         .value = low_leaf.leaf.slot,
         .next_value = low_leaf.nextKey,
         .next_index = low_leaf.nextIndex,

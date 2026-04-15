@@ -5,6 +5,7 @@
 
 #include "barretenberg/crypto/merkle_tree/memory_tree.hpp"
 #include "barretenberg/crypto/poseidon2/poseidon2.hpp"
+#include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/events/indexed_tree_check_event.hpp"
@@ -33,7 +34,9 @@ TEST(AvmSimulationIndexedTreeCheck, ReadExists)
     EventEmitter<IndexedTreeCheckEvent> event_emitter;
     IndexedTreeCheck indexed_tree_check(poseidon2, merkle_check, field_gt, event_emitter);
 
-    IndexedTreeLeafData low_leaf = { .value = 42, .next_value = 0, .next_index = 0 };
+    IndexedTreeLeafData low_leaf = {
+        .leaf_separator = FF(DOM_SEP__NULLIFIER_LEAF), .value = 42, .next_value = 0, .next_index = 0
+    };
     FF low_leaf_hash = RawPoseidon2::hash(low_leaf.get_hash_inputs());
     uint64_t low_leaf_index = 30;
     std::vector<FF> sibling_path = { 1, 2, 3, 4, 5 };
@@ -75,7 +78,9 @@ TEST(AvmSimulationIndexedTreeCheck, ReadNotExistsLowPointsToInfinity)
     EventEmitter<IndexedTreeCheckEvent> event_emitter;
     IndexedTreeCheck indexed_tree_check(poseidon2, merkle_check, field_gt, event_emitter);
 
-    IndexedTreeLeafData low_leaf = { .value = 40, .next_value = 0, .next_index = 0 };
+    IndexedTreeLeafData low_leaf = {
+        .leaf_separator = FF(DOM_SEP__NULLIFIER_LEAF), .value = 40, .next_value = 0, .next_index = 0
+    };
     FF low_leaf_hash = RawPoseidon2::hash(low_leaf.get_hash_inputs());
     uint64_t low_leaf_index = 30;
     std::vector<FF> sibling_path = { 1, 2, 3, 4, 5 };
@@ -123,7 +128,9 @@ TEST(AvmSimulationIndexedTreeCheck, ReadNotExistsLowPointsToAnotherLeaf)
     EventEmitter<IndexedTreeCheckEvent> event_emitter;
     IndexedTreeCheck indexed_tree_check(poseidon2, merkle_check, field_gt, event_emitter);
 
-    IndexedTreeLeafData low_leaf = { .value = 40, .next_value = 50, .next_index = 28 };
+    IndexedTreeLeafData low_leaf = {
+        .leaf_separator = FF(DOM_SEP__NULLIFIER_LEAF), .value = 40, .next_value = 50, .next_index = 28
+    };
     FF low_leaf_hash = RawPoseidon2::hash(low_leaf.get_hash_inputs());
     uint64_t low_leaf_index = 30;
     std::vector<FF> sibling_path = { 1, 2, 3, 4, 5 };
@@ -172,7 +179,9 @@ TEST(AvmSimulationIndexedTreeCheck, WriteExists)
     EventEmitter<IndexedTreeCheckEvent> event_emitter;
     IndexedTreeCheck indexed_tree_check(poseidon2, merkle_check, field_gt, event_emitter);
 
-    IndexedTreeLeafData low_leaf = { .value = 42, .next_value = 0, .next_index = 0 };
+    IndexedTreeLeafData low_leaf = {
+        .leaf_separator = FF(DOM_SEP__NULLIFIER_LEAF), .value = 42, .next_value = 0, .next_index = 0
+    };
     FF low_leaf_hash = RawPoseidon2::hash(low_leaf.get_hash_inputs());
     uint64_t low_leaf_index = 30;
     std::vector<FF> sibling_path = { 1, 2, 3, 4, 5 };
@@ -225,7 +234,9 @@ TEST(AvmSimulationIndexedTreeCheck, Siloing)
     std::vector<FF> siloed_hash_inputs = { separator, address, value };
     FF siloed_value = RawPoseidon2::hash(siloed_hash_inputs);
 
-    IndexedTreeLeafData low_leaf = { .value = siloed_value, .next_value = 0, .next_index = 0 };
+    IndexedTreeLeafData low_leaf = {
+        .leaf_separator = FF(DOM_SEP__NULLIFIER_LEAF), .value = siloed_value, .next_value = 0, .next_index = 0
+    };
     FF low_leaf_hash = RawPoseidon2::hash(low_leaf.get_hash_inputs());
     uint64_t low_leaf_index = 30;
     std::vector<FF> sibling_path = { 1, 2, 3, 4, 5 };
@@ -287,7 +298,9 @@ TEST(AvmSimulationIndexedTreeCheck, WriteAppend)
 
     MemoryTree<Poseidon2HashPolicy> tree(8);
 
-    IndexedTreeLeafData low_leaf = { .value = low_value, .next_value = value + 1, .next_index = 10 };
+    IndexedTreeLeafData low_leaf = {
+        .leaf_separator = FF(DOM_SEP__NULLIFIER_LEAF), .value = low_value, .next_value = value + 1, .next_index = 10
+    };
     FF low_leaf_hash = RawPoseidon2::hash(low_leaf.get_hash_inputs());
     uint64_t low_leaf_index = 0;
     tree.update_element(low_leaf_index, low_leaf_hash);
@@ -296,6 +309,7 @@ TEST(AvmSimulationIndexedTreeCheck, WriteAppend)
     std::vector<FF> low_leaf_sibling_path = tree.get_sibling_path(low_leaf_index);
 
     IndexedTreeLeafData updated_low_leaf = {
+        .leaf_separator = FF(DOM_SEP__NULLIFIER_LEAF),
         .value = low_leaf.value,
         .next_value = value,
         .next_index = prev_snapshot.next_available_leaf_index,
@@ -307,7 +321,8 @@ TEST(AvmSimulationIndexedTreeCheck, WriteAppend)
     std::vector<FF> insertion_sibling_path = tree.get_sibling_path(prev_snapshot.next_available_leaf_index);
 
     // The new leaf gets the old low leaf's next pointer.
-    IndexedTreeLeafData new_leaf = { .value = value,
+    IndexedTreeLeafData new_leaf = { .leaf_separator = FF(DOM_SEP__NULLIFIER_LEAF),
+                                     .value = value,
                                      .next_value = low_leaf.next_value,
                                      .next_index = low_leaf.next_index };
     FF new_leaf_hash = RawPoseidon2::hash(new_leaf.get_hash_inputs());
@@ -360,7 +375,8 @@ TEST(AvmSimulationIndexedTreeCheck, WriteAppend)
     EXPECT_THAT(event_emitter.dump_events(), ElementsAre(expect_event));
 
     // Negative test: value already exists in tree
-    IndexedTreeLeafData matching_leaf = { .value = value,
+    IndexedTreeLeafData matching_leaf = { .leaf_separator = FF(DOM_SEP__NULLIFIER_LEAF),
+                                          .value = value,
                                           .next_value = low_leaf.next_value,
                                           .next_index = low_leaf.next_index };
     EXPECT_THROW_WITH_MESSAGE(indexed_tree_check.write(value,

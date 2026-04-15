@@ -3,6 +3,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/simulation/lib/retrieved_bytecodes_tree.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_indexed_tree_check.hpp"
 
@@ -29,6 +30,7 @@ TEST(AvmSimulationRetrievedBytecodesTreeCheck, ContainsNotExists)
     ASSERT_FALSE(exists);
 
     IndexedTreeLeafData expected_leaf_data = {
+        .leaf_separator = FF(DOM_SEP__INT_CLASS_ID_LEAF),
         .value = low_leaf.leaf.class_id,
         .next_value = low_leaf.nextKey,
         .next_index = low_leaf.nextIndex,
@@ -54,6 +56,7 @@ TEST(AvmSimulationRetrievedBytecodesTreeCheck, ContainsExists)
     ASSERT_TRUE(exists);
 
     IndexedTreeLeafData expected_leaf_data = {
+        .leaf_separator = FF(DOM_SEP__INT_CLASS_ID_LEAF),
         .value = low_leaf.leaf.class_id,
         .next_value = low_leaf.nextKey,
         .next_index = low_leaf.nextIndex,

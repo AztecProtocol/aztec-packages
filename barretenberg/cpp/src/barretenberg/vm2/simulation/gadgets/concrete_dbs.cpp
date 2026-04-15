@@ -173,6 +173,7 @@ bool MerkleDB::nullifier_exists_internal(std::optional<AztecAddress> contract_ad
                                    siloing_params,
                                    present,
                                    IndexedTreeLeafData{
+                                       .leaf_separator = FF(DOM_SEP__NULLIFIER_LEAF),
                                        .value = low_leaf_preimage.leaf.nullifier,
                                        .next_value = low_leaf_preimage.nextKey,
                                        .next_index = low_leaf_preimage.nextIndex,
@@ -232,6 +233,7 @@ void MerkleDB::nullifier_write_internal(std::optional<AztecAddress> contract_add
                                  siloing_params,
                                  nullifier_counter + AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_NULLIFIERS_ROW_IDX,
                                  IndexedTreeLeafData{
+                                     .leaf_separator = FF(DOM_SEP__NULLIFIER_LEAF),
                                      .value = low_leaf_preimage.leaf.nullifier,
                                      .next_value = low_leaf_preimage.nextKey,
                                      .next_index = low_leaf_preimage.nextIndex,

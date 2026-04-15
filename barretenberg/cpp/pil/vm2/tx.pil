@@ -556,6 +556,9 @@ namespace tx;
     pol commit nullifier_tree_height;
     should_nullifier_append * (nullifier_tree_height - constants.NULLIFIER_TREE_HEIGHT) = 0;
 
+    pol commit nullifier_leaf_separator;
+    should_nullifier_append * (nullifier_leaf_separator - constants.DOM_SEP__NULLIFIER_LEAF) = 0;
+
     // We revert if the nullifier already exists.
     #[NULLIFIER_APPEND]
     should_nullifier_append {
@@ -567,6 +570,7 @@ namespace tx;
         discard, // from tx_discard.pil virtual trace
         write_nullifier_pi_offset,
         nullifier_tree_height,
+        nullifier_leaf_separator,
         precomputed.zero // sel_silo = 0 (nullifiers already siloed)
     } in indexed_tree_check.write {
         indexed_tree_check.value,
@@ -577,6 +581,7 @@ namespace tx;
         indexed_tree_check.discard,
         indexed_tree_check.public_inputs_index,
         indexed_tree_check.tree_height,
+        indexed_tree_check.leaf_separator,
         indexed_tree_check.sel_silo
     };
 

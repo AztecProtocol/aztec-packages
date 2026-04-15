@@ -3,6 +3,7 @@
 
 #include <cstdint>
 
+#include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/common/memory_types.hpp"
 #include "barretenberg/vm2/constraining/flavor_settings.hpp"
 #include "barretenberg/vm2/constraining/testing/check_relation.hpp"
@@ -66,6 +67,7 @@ TEST(EmitNullifierConstrainingTest, Positive)
         { C::execution_num_nullifiers_emitted, prev_num_nullifiers_emitted + 1 },
         { C::execution_nullifier_siloing_separator, DOM_SEP__SILOED_NULLIFIER },
         { C::execution_nullifier_tree_height, NULLIFIER_TREE_HEIGHT },
+        { C::execution_nullifier_leaf_separator, DOM_SEP__NULLIFIER_LEAF },
     } });
     check_relation<emit_nullifier>(trace);
 }
@@ -169,6 +171,7 @@ TEST(EmitNullifierConstrainingTest, Interactions)
 
     // low leaf preimage
     IndexedTreeLeafData low_leaf_preimage = {
+        .leaf_separator = FF(DOM_SEP__NULLIFIER_LEAF),
         .value = low_leaf_nullifier,
         .next_value = 0,
         .next_index = 0,
@@ -204,6 +207,7 @@ TEST(EmitNullifierConstrainingTest, Interactions)
         { C::execution_contract_address, siloing_params.address },
         { C::execution_nullifier_siloing_separator, DOM_SEP__SILOED_NULLIFIER },
         { C::execution_nullifier_tree_height, NULLIFIER_TREE_HEIGHT },
+        { C::execution_nullifier_leaf_separator, DOM_SEP__NULLIFIER_LEAF },
     } });
 
     IndexedTreeCheckTraceBuilder indexed_tree_check_trace_builder;
@@ -245,6 +249,7 @@ TEST(EmitNullifierConstrainingTest, InteractionsCollision)
 
     // low leaf preimage
     IndexedTreeLeafData low_leaf_preimage = {
+        .leaf_separator = FF(DOM_SEP__NULLIFIER_LEAF),
         .value = siloed_nullifier,
         .next_value = 0,
         .next_index = 0,
@@ -281,6 +286,7 @@ TEST(EmitNullifierConstrainingTest, InteractionsCollision)
         { C::execution_contract_address, siloing_params.address },
         { C::execution_nullifier_siloing_separator, DOM_SEP__SILOED_NULLIFIER },
         { C::execution_nullifier_tree_height, NULLIFIER_TREE_HEIGHT },
+        { C::execution_nullifier_leaf_separator, DOM_SEP__NULLIFIER_LEAF },
     } });
 
     IndexedTreeCheckTraceBuilder indexed_tree_check_trace_builder;

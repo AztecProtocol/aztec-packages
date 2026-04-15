@@ -24,6 +24,7 @@ bool RetrievedBytecodesTreeCheck::contains(const FF& class_id)
                                    std::nullopt, // No siloing
                                    exists,
                                    IndexedTreeLeafData{
+                                       .leaf_separator = FF(DOM_SEP__INT_CLASS_ID_LEAF),
                                        .value = low_leaf_preimage.leaf.class_id,
                                        .next_value = low_leaf_preimage.nextKey,
                                        .next_index = low_leaf_preimage.nextIndex,
@@ -59,6 +60,7 @@ void RetrievedBytecodesTreeCheck::insert(const FF& class_id)
                                  std::nullopt, // No siloing
                                  std::nullopt, // No public inputs write
                                  IndexedTreeLeafData{
+                                     .leaf_separator = FF(DOM_SEP__INT_CLASS_ID_LEAF),
                                      .value = low_leaf_preimage.leaf.class_id,
                                      .next_value = low_leaf_preimage.nextKey,
                                      .next_index = low_leaf_preimage.nextIndex,

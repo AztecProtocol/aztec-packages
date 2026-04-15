@@ -1,6 +1,7 @@
 include "merkle_check.pil";
 include "../ff_gt.pil";
 include "../poseidon2_hash.pil";
+include "../constants_gen.pil";
 include "../precomputed.pil";
 include "../public_inputs.pil";
 
@@ -43,6 +44,7 @@ include "../public_inputs.pil";
  *       value,
  *       tree_root,
  *       tree_height,
+ *       leaf_separator,    // Domain separator for leaf preimage hash (e.g. DOM_SEP__NULLIFIER_LEAF)
  *       sel_silo,
  *       siloing_separator, // Can be omitted if sel_silo is precomputed.zero
  *       address            // Can be omitted if sel_silo is precomputed.zero
@@ -52,6 +54,7 @@ include "../public_inputs.pil";
  *       indexed_tree_check.value,                     // Input
  *       indexed_tree_check.root,                      // Input
  *       indexed_tree_check.tree_height,               // Input
+ *       indexed_tree_check.leaf_separator,            // Input
  *       indexed_tree_check.sel_silo,                  // Input
  *       indexed_tree_check.siloing_separator,         // Input (omit if sel_silo == 0)
  *       indexed_tree_check.address                    // Input (omit if sel_silo == 0)
@@ -69,6 +72,7 @@ include "../public_inputs.pil";
  *       discard,              // Can be omitted if not writing to public inputs
  *       public_inputs_index,  // Can be omitted if not writing to public inputs
  *       tree_height,
+ *       leaf_separator,       // Domain separator for leaf preimage hash (e.g. DOM_SEP__NULLIFIER_LEAF)
  *       sel_silo,
  *       siloing_separator,    // Can be omitted if sel_silo is precomputed.zero
  *       address               // Can be omitted if sel_silo is precomputed.zero
@@ -83,6 +87,7 @@ include "../public_inputs.pil";
  *     indexed_tree_check.discard,                // Input (omit if not writing to public inputs)
  *     indexed_tree_check.public_inputs_index,    // Input (omit if not writing to public inputs)
  *     indexed_tree_check.tree_height,            // Input
+ *     indexed_tree_check.leaf_separator,         // Input
  *     indexed_tree_check.sel_silo,               // Input
  *     indexed_tree_check.siloing_separator,      // Input (omit if sel_silo == 0)
  *     indexed_tree_check.address                 // Input (omit if sel_silo == 0)
@@ -100,8 +105,9 @@ include "../public_inputs.pil";
  * - The tree genesis state must have an irreproducible hash for uninitialized leaves (0). See note.
  *
  * Interactions:
- * - poseidon2_hash: Conditional siloing (sel_silo), low leaf hash, updated low leaf hash (sel_insert), new leaf hash (sel_insert)
- *      - All calls to poseidon2 are 1 row hashes with input_len = 3.
+ * - poseidon2_hash: Conditional siloing (sel_silo, 1-row, input_len=3),
+ *      low leaf hash (2-row, input_len=4), updated low leaf hash (sel_insert, 2-row, input_len=4),
+ *      new leaf hash (sel_insert, 2-row, input_len=4).
  * - merkle_check: Low leaf membership/update (sel_insert), new leaf insertion (sel_insert)
  * - ff_gt: Low leaf value validation (not_exists), next value validation (next_value_is_nonzero)
  * - public_inputs: Write siloed value to public inputs (sel_write_to_public_inputs)
@@ -136,6 +142,7 @@ namespace indexed_tree_check;
     sel_silo * (1 - sel_silo) = 0;
     pol commit address;
     pol commit siloing_separator;
+    pol commit leaf_separator; // Domain separator for leaf preimage hash (e.g. DOM_SEP__NULLIFIER_LEAF)
     pol commit tree_height;
 
     // Write specific inputs
@@ -153,6 +160,10 @@ namespace indexed_tree_check;
 
     pol commit const_three;
     sel * (const_three - 3) = 0;
+
+    // Lookup constant support: Can be removed when we support constants in lookups.
+    pol commit const_four;
+    sel * (const_four - 4) = 0;
 
     #[SILO_POSEIDON2]
     sel_silo {
@@ -222,22 +233,36 @@ namespace indexed_tree_check;
     // Tracegen must set it to 0 if sel_insert is 0 (precondition to merkle check).
     pol commit updated_low_leaf_hash;
 
-    #[LOW_LEAF_POSEIDON2]
+    #[LOW_LEAF_POSEIDON2_0]
     sel {
-        low_leaf_value, low_leaf_next_value, low_leaf_next_index,
-        low_leaf_hash, const_three
+        leaf_separator, low_leaf_value, low_leaf_next_value,
+        low_leaf_hash, const_four
     } in poseidon2_hash.start {
         poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2,
         poseidon2_hash.output, poseidon2_hash.input_len
     };
 
-    #[UPDATED_LOW_LEAF_POSEIDON2]
+    #[LOW_LEAF_POSEIDON2_1]
+    sel {
+        low_leaf_next_index, precomputed.zero, precomputed.zero, low_leaf_hash
+    } in poseidon2_hash.end {
+        poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2, poseidon2_hash.output
+    };
+
+    #[UPDATED_LOW_LEAF_POSEIDON2_0]
     sel_insert {
-        low_leaf_value, updated_low_leaf_next_value, updated_low_leaf_next_index,
-        updated_low_leaf_hash, const_three
+        leaf_separator, low_leaf_value, updated_low_leaf_next_value,
+        updated_low_leaf_hash, const_four
     } in poseidon2_hash.start {
         poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2,
         poseidon2_hash.output, poseidon2_hash.input_len
+    };
+
+    #[UPDATED_LOW_LEAF_POSEIDON2_1]
+    sel_insert {
+        updated_low_leaf_next_index, precomputed.zero, precomputed.zero, updated_low_leaf_hash
+    } in poseidon2_hash.end {
+        poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2, poseidon2_hash.output
     };
 
     pol commit low_leaf_index;
@@ -259,13 +284,20 @@ namespace indexed_tree_check;
     // Unconstrained if sel_insert=0
     pol commit new_leaf_hash;
 
-    #[NEW_LEAF_POSEIDON2]
+    #[NEW_LEAF_POSEIDON2_0]
     sel_insert {
-        siloed_value, low_leaf_next_value, low_leaf_next_index,
-        new_leaf_hash, const_three
+        leaf_separator, siloed_value, low_leaf_next_value,
+        new_leaf_hash, const_four
     } in poseidon2_hash.start {
         poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2,
         poseidon2_hash.output, poseidon2_hash.input_len
+    };
+
+    #[NEW_LEAF_POSEIDON2_1]
+    sel_insert {
+        low_leaf_next_index, precomputed.zero, precomputed.zero, new_leaf_hash
+    } in poseidon2_hash.end {
+        poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2, poseidon2_hash.output
     };
 
     #[NEW_LEAF_MERKLE_CHECK]

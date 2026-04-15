@@ -2,6 +2,7 @@
 
 #include <cstdint>
 
+#include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/common/memory_types.hpp"
 #include "barretenberg/vm2/constraining/flavor_settings.hpp"
 #include "barretenberg/vm2/constraining/testing/check_relation.hpp"
@@ -57,6 +58,7 @@ TEST(NullifierExistsConstrainingTest, PositiveTest)
                                  { C::execution_mem_tag_reg_0_, static_cast<uint8_t>(MemoryTag::FF) },
                                  { C::execution_mem_tag_reg_1_, static_cast<uint8_t>(MemoryTag::U1) },
                                  { C::execution_nullifier_tree_height, NULLIFIER_TREE_HEIGHT },
+                                 { C::execution_nullifier_leaf_separator, DOM_SEP__NULLIFIER_LEAF },
                                  { C::execution_sel_opcode_error, 0 },
                                  { C::execution_subtrace_operation_id, AVM_EXEC_OP_ID_NULLIFIER_EXISTS } } });
     check_relation<nullifier_exists>(trace);
@@ -72,6 +74,7 @@ TEST(NullifierExistsConstrainingTest, PositiveNullifierNotExists)
                                  { C::execution_mem_tag_reg_0_, static_cast<uint8_t>(MemoryTag::FF) },
                                  { C::execution_mem_tag_reg_1_, static_cast<uint8_t>(MemoryTag::U1) },
                                  { C::execution_nullifier_tree_height, NULLIFIER_TREE_HEIGHT },
+                                 { C::execution_nullifier_leaf_separator, DOM_SEP__NULLIFIER_LEAF },
                                  { C::execution_sel_opcode_error, 0 },
                                  { C::execution_subtrace_operation_id, AVM_EXEC_OP_ID_NULLIFIER_EXISTS } } });
     check_relation<nullifier_exists>(trace);
@@ -87,6 +90,7 @@ TEST(NullifierExistsConstrainingTest, NegativeInvalidOutputTag)
                                  { C::execution_mem_tag_reg_0_, static_cast<uint8_t>(MemoryTag::FF) },
                                  { C::execution_mem_tag_reg_1_, static_cast<uint8_t>(MemoryTag::U8) }, // WRONG!
                                  { C::execution_nullifier_tree_height, NULLIFIER_TREE_HEIGHT },
+                                 { C::execution_nullifier_leaf_separator, DOM_SEP__NULLIFIER_LEAF },
                                  { C::execution_sel_opcode_error, 0 },
                                  { C::execution_subtrace_operation_id, AVM_EXEC_OP_ID_NULLIFIER_EXISTS } } });
     EXPECT_THROW_WITH_MESSAGE(
@@ -122,6 +126,7 @@ TEST(NullifierExistsConstrainingTest, Interactions)
 
     // For exists=true, the low leaf's nullifier must match the searched nullifier
     IndexedTreeLeafData low_leaf = {
+        .leaf_separator = FF(DOM_SEP__NULLIFIER_LEAF),
         .value = siloed_nullifier,
         .next_value = 0,
         .next_index = 0,
@@ -151,6 +156,7 @@ TEST(NullifierExistsConstrainingTest, Interactions)
         { C::execution_mem_tag_reg_1_, static_cast<uint8_t>(MemoryTag::U1) },
         { C::execution_prev_nullifier_tree_root, nullifier_tree_snapshot.root },
         { C::execution_nullifier_tree_height, NULLIFIER_TREE_HEIGHT },
+        { C::execution_nullifier_leaf_separator, DOM_SEP__NULLIFIER_LEAF },
         { C::execution_sel_opcode_error, 0 },
         { C::execution_subtrace_operation_id, AVM_EXEC_OP_ID_NULLIFIER_EXISTS },
     } });

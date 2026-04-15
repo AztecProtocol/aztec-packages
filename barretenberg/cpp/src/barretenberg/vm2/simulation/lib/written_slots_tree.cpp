@@ -32,7 +32,7 @@ bool WrittenPublicDataSlotLeafValue::is_empty() const
 
 std::vector<fr> WrittenPublicDataSlotLeafValue::get_hash_inputs(fr nextKey, fr nextIndex) const
 {
-    return std::vector<fr>({ slot, nextKey, nextIndex });
+    return std::vector<fr>({ fr(DOM_SEP__INT_WRITTEN_PUBLIC_DATA_SLOT_LEAF), slot, nextKey, nextIndex });
 }
 
 WrittenPublicDataSlotLeafValue::operator uint256_t() const

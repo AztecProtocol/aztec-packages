@@ -76,6 +76,8 @@ void IndexedTreeCheckTraceBuilder::process(
                   { {
                       { C::indexed_tree_check_sel, 1 },
                       { C::indexed_tree_check_const_three, 3 },
+                      { C::indexed_tree_check_const_four, 4 },
+                      { C::indexed_tree_check_leaf_separator, event.low_leaf_data.leaf_separator },
                       { C::indexed_tree_check_write, event.write ? 1 : 0 },
                       { C::indexed_tree_check_value, value },
                       { C::indexed_tree_check_root, event.prev_snapshot.root },
@@ -119,14 +121,17 @@ void IndexedTreeCheckTraceBuilder::process(
 const InteractionDefinition IndexedTreeCheckTraceBuilder::interactions =
     InteractionDefinition()
         .add<lookup_indexed_tree_check_silo_poseidon2_settings, InteractionType::LookupSequential>()
-        .add<lookup_indexed_tree_check_low_leaf_poseidon2_settings, InteractionType::LookupSequential>()
-        .add<lookup_indexed_tree_check_updated_low_leaf_poseidon2_settings, InteractionType::LookupSequential>()
+        .add<lookup_indexed_tree_check_low_leaf_poseidon2_0_settings, InteractionType::LookupSequential>()
+        .add<lookup_indexed_tree_check_low_leaf_poseidon2_1_settings, InteractionType::LookupSequential>()
+        .add<lookup_indexed_tree_check_updated_low_leaf_poseidon2_0_settings, InteractionType::LookupSequential>()
+        .add<lookup_indexed_tree_check_updated_low_leaf_poseidon2_1_settings, InteractionType::LookupSequential>()
         .add<lookup_indexed_tree_check_low_leaf_merkle_check_settings, InteractionType::LookupSequential>()
         .add<lookup_indexed_tree_check_low_leaf_value_validation_settings,
              InteractionType::LookupGeneric>() // ff_gt deduplicates
         .add<lookup_indexed_tree_check_low_leaf_next_value_validation_settings,
              InteractionType::LookupGeneric>() // ff_gt deduplicates
-        .add<lookup_indexed_tree_check_new_leaf_poseidon2_settings, InteractionType::LookupSequential>()
+        .add<lookup_indexed_tree_check_new_leaf_poseidon2_0_settings, InteractionType::LookupSequential>()
+        .add<lookup_indexed_tree_check_new_leaf_poseidon2_1_settings, InteractionType::LookupSequential>()
         .add<lookup_indexed_tree_check_new_leaf_merkle_check_settings, InteractionType::LookupSequential>()
         .add<lookup_indexed_tree_check_write_value_to_public_inputs_settings,
              InteractionType::LookupIntoIndexedByRow>();

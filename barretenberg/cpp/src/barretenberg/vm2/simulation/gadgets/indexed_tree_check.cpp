@@ -173,6 +173,7 @@ AppendOnlyTreeSnapshot IndexedTreeCheck::write(const FF& source_value,
 
         // Insertion
         IndexedTreeLeafData new_leaf_preimage = {
+            .leaf_separator = low_leaf_preimage.leaf_separator,
             .value = value,
             .next_value = low_leaf_preimage.next_value,
             .next_index = low_leaf_preimage.next_index,

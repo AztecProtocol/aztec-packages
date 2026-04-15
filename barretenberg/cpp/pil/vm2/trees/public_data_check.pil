@@ -256,10 +256,6 @@ namespace public_data_check;
     // ========= LOW LEAF MEMBERSHIP =========
     pol commit low_leaf_hash;
 
-    // Lookup constant support: Can be removed when we support constants in lookups.
-    pol commit const_four;
-    sel * (const_four - 4) = 0;
-
     #[LOW_LEAF_POSEIDON2_0]
     sel {
         public_data_leaf_separator, low_leaf_slot, low_leaf_value,

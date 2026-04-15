@@ -3,6 +3,7 @@
 
 #include <cstdint>
 
+#include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/common/memory_types.hpp"
 #include "barretenberg/vm2/constraining/flavor_settings.hpp"
 #include "barretenberg/vm2/constraining/testing/check_relation.hpp"
@@ -274,6 +275,7 @@ TEST(SStoreConstrainingTest, Interactions)
             { C::execution_contract_address, contract_address },
             { C::execution_sel_gas_sstore, 1 },
             { C::execution_written_slots_tree_height, AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_HEIGHT },
+            { C::execution_written_slots_leaf_separator, DOM_SEP__INT_WRITTEN_PUBLIC_DATA_SLOT_LEAF },
             { C::execution_written_slots_tree_siloing_separator, DOM_SEP__PUBLIC_LEAF_SLOT },
             { C::execution_dynamic_da_gas_factor, 1 },
             { C::execution_register_0_, value },

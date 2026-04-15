@@ -32,7 +32,7 @@ bool ClassIdLeafValue::is_empty() const
 
 std::vector<fr> ClassIdLeafValue::get_hash_inputs(fr nextKey, fr nextIndex) const
 {
-    return std::vector<fr>({ class_id, nextKey, nextIndex });
+    return std::vector<fr>({ fr(DOM_SEP__INT_CLASS_ID_LEAF), class_id, nextKey, nextIndex });
 }
 
 ClassIdLeafValue::operator uint256_t() const

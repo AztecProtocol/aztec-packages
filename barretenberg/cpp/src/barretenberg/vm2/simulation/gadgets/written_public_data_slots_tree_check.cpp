@@ -34,6 +34,7 @@ bool WrittenPublicDataSlotsTreeCheck::contains(const AztecAddress& contract_addr
                                    },
                                    exists,
                                    IndexedTreeLeafData{
+                                       .leaf_separator = FF(DOM_SEP__INT_WRITTEN_PUBLIC_DATA_SLOT_LEAF),
                                        .value = low_leaf_preimage.leaf.slot,
                                        .next_value = low_leaf_preimage.nextKey,
                                        .next_index = low_leaf_preimage.nextIndex,
@@ -77,6 +78,7 @@ void WrittenPublicDataSlotsTreeCheck::insert(const AztecAddress& contract_addres
                                  },
                                  std::nullopt, // No public inputs write
                                  IndexedTreeLeafData{
+                                     .leaf_separator = FF(DOM_SEP__INT_WRITTEN_PUBLIC_DATA_SLOT_LEAF),
                                      .value = low_leaf_preimage.leaf.slot,
                                      .next_value = low_leaf_preimage.nextKey,
                                      .next_index = low_leaf_preimage.nextIndex,

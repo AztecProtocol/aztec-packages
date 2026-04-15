@@ -141,10 +141,10 @@ namespace bb::avm2 {
 
 struct AvmFlavorVariables {
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 122;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 2949;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 2962;
     static constexpr size_t NUM_SHIFTED_ENTITIES = 363;
-    static constexpr size_t NUM_WIRES = 2505;
-    static constexpr size_t NUM_ALL_ENTITIES = 3434;
+    static constexpr size_t NUM_WIRES = 2515;
+    static constexpr size_t NUM_ALL_ENTITIES = 3447;
 
     // Need to be templated for recursive verifier
     template <typename FF_>
@@ -306,12 +306,15 @@ struct AvmFlavorVariables {
         lookup_gt_gt_range_relation<FF_>,
         lookup_indexed_tree_check_low_leaf_merkle_check_relation<FF_>,
         lookup_indexed_tree_check_low_leaf_next_value_validation_relation<FF_>,
-        lookup_indexed_tree_check_low_leaf_poseidon2_relation<FF_>,
+        lookup_indexed_tree_check_low_leaf_poseidon2_0_relation<FF_>,
+        lookup_indexed_tree_check_low_leaf_poseidon2_1_relation<FF_>,
         lookup_indexed_tree_check_low_leaf_value_validation_relation<FF_>,
         lookup_indexed_tree_check_new_leaf_merkle_check_relation<FF_>,
-        lookup_indexed_tree_check_new_leaf_poseidon2_relation<FF_>,
+        lookup_indexed_tree_check_new_leaf_poseidon2_0_relation<FF_>,
+        lookup_indexed_tree_check_new_leaf_poseidon2_1_relation<FF_>,
         lookup_indexed_tree_check_silo_poseidon2_relation<FF_>,
-        lookup_indexed_tree_check_updated_low_leaf_poseidon2_relation<FF_>,
+        lookup_indexed_tree_check_updated_low_leaf_poseidon2_0_relation<FF_>,
+        lookup_indexed_tree_check_updated_low_leaf_poseidon2_1_relation<FF_>,
         lookup_indexed_tree_check_write_value_to_public_inputs_relation<FF_>,
         lookup_instr_fetching_bytecode_size_from_bc_dec_relation<FF_>,
         lookup_instr_fetching_bytes_from_bc_dec_relation<FF_>,

@@ -11,13 +11,14 @@
 namespace bb::avm2::simulation {
 
 struct IndexedTreeLeafData {
+    FF leaf_separator; // Domain separator for leaf preimage hash (e.g. DOM_SEP__NULLIFIER_LEAF)
     FF value;
     FF next_value;
     uint64_t next_index;
 
     bool operator==(const IndexedTreeLeafData& other) const = default;
 
-    std::vector<FF> get_hash_inputs() const { return { value, next_value, next_index }; }
+    std::vector<FF> get_hash_inputs() const { return { leaf_separator, value, next_value, next_index }; }
 };
 
 struct IndexedTreeSiloingParameters {

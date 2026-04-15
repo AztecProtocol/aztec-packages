@@ -151,7 +151,9 @@ TEST_F(BytecodeRetrievalConstrainingTest, SuccessfulRetrieval)
               .prev_snapshot = snapshot_before,
               .next_snapshot = snapshot_before,
               .tree_height = AVM_RETRIEVED_BYTECODES_TREE_HEIGHT,
-              .low_leaf_data = IndexedTreeLeafData{ .value = 0, .next_value = 0, .next_index = 0 },
+              .low_leaf_data =
+                  IndexedTreeLeafData{
+                      .leaf_separator = FF(DOM_SEP__INT_CLASS_ID_LEAF), .value = 0, .next_value = 0, .next_index = 0 },
               .low_leaf_hash = 0,
               .low_leaf_index = 0,
           },
@@ -161,7 +163,9 @@ TEST_F(BytecodeRetrievalConstrainingTest, SuccessfulRetrieval)
               .prev_snapshot = snapshot_before,
               .next_snapshot = snapshot_after,
               .tree_height = AVM_RETRIEVED_BYTECODES_TREE_HEIGHT,
-              .low_leaf_data = IndexedTreeLeafData{ .value = 0, .next_value = 0, .next_index = 0 },
+              .low_leaf_data =
+                  IndexedTreeLeafData{
+                      .leaf_separator = FF(DOM_SEP__INT_CLASS_ID_LEAF), .value = 0, .next_value = 0, .next_index = 0 },
               .low_leaf_hash = 0,
               .low_leaf_index = 0,
               .write = true,
@@ -260,6 +264,7 @@ TEST_F(BytecodeRetrievalConstrainingTest, NonExistentInstance)
             { C::bc_retrieval_prev_retrieved_bytecodes_tree_size, 1 },
             { C::bc_retrieval_next_retrieved_bytecodes_tree_size, 1 },
             { C::bc_retrieval_retrieved_bytecodes_tree_height, AVM_RETRIEVED_BYTECODES_TREE_HEIGHT },
+            { C::bc_retrieval_class_id_leaf_separator, DOM_SEP__INT_CLASS_ID_LEAF },
             { C::bc_retrieval_remaining_bytecodes_inv, FF(MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS).invert() },
             { C::bc_retrieval_error, 1 },
         } });
