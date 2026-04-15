@@ -113,9 +113,9 @@ export class L1TxMetrics implements IL1TxMetrics {
       isCancelTx,
       isReverted,
       scope: this.scope,
-      maxPriorityFeeWei,
-      maxFeeWei,
-      blobFeeWei,
+      maxPriorityFeeGwei,
+      maxFeeGwei,
+      blobFeeGwei,
     });
   }
 
