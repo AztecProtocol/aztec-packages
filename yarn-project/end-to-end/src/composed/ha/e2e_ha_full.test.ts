@@ -130,7 +130,10 @@ describe('HA Full Setup', () => {
     await refreshWeb3Signer(web3SignerUrl, ...attesterAddresses, ...publisherAddresses);
 
     // Create database pools for HA nodes
-    haNodePools = Array.from({ length: NODE_COUNT }, () => new Pool({ connectionString: databaseConfig.databaseUrl.getValue()! }));
+    haNodePools = Array.from(
+      { length: NODE_COUNT },
+      () => new Pool({ connectionString: databaseConfig.databaseUrl.getValue()! }),
+    );
 
     const initialValidators = createInitialValidatorsFromPrivateKeys(attesterPrivateKeys);
 

@@ -28,7 +28,9 @@ export interface HADatabaseConfig {
  * Get database configuration from environment variables
  */
 export function createHADatabaseConfig(nodeId: string): HADatabaseConfig {
-  const databaseUrl = new SecretValue(process.env.DATABASE_URL || 'postgresql://aztec:aztec@localhost:5432/aztec_ha_test');
+  const databaseUrl = new SecretValue(
+    process.env.DATABASE_URL || 'postgresql://aztec:aztec@localhost:5432/aztec_ha_test',
+  );
 
   return {
     databaseUrl,
