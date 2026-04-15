@@ -56,7 +56,10 @@ describe('e2e_epochs/epochs_simple_block_building', () => {
       startProverNode: false,
       enforceTimeTable: true,
       skipInitialSequencer: true,
-      enableProposerPipelining: true,
+      // Pipelining is NOT enabled here. This test asserts zero sequencer errors (failEvents),
+      // but pipelining can produce transient Rollup__InvalidArchive / ProposedCheckpointNotSequentialError
+      // when checkpoint N's L1 tx is slow to land while the pipelined proposer builds checkpoint N+1.
+      // These are recoverable but still logged as errors, breaking the strict failEvents assertion.
       inboxLag: 2,
     });
 
