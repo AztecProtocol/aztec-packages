@@ -424,14 +424,14 @@ void tx_contextImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     }
     { // RETRIEVED_BYTECODES_TREE_ROOT_IMMUTABILITY
         using View = typename std::tuple_element_t<54, ContainerOverSubrelations>::View;
-        auto tmp = (FF(1) - static_cast<View>(in.get(C::tx_should_process_call_request))) *
+        auto tmp = (FF(1) - static_cast<View>(in.get(C::tx_sel_process_call_request))) *
                    (static_cast<View>(in.get(C::tx_prev_retrieved_bytecodes_tree_root)) -
                     static_cast<View>(in.get(C::tx_next_retrieved_bytecodes_tree_root)));
         std::get<54>(evals) += (tmp * scaling_factor);
     }
     { // RETRIEVED_BYTECODES_TREE_SIZE_IMMUTABILITY
         using View = typename std::tuple_element_t<55, ContainerOverSubrelations>::View;
-        auto tmp = (FF(1) - static_cast<View>(in.get(C::tx_should_process_call_request))) *
+        auto tmp = (FF(1) - static_cast<View>(in.get(C::tx_sel_process_call_request))) *
                    (static_cast<View>(in.get(C::tx_prev_retrieved_bytecodes_tree_size)) -
                     static_cast<View>(in.get(C::tx_next_retrieved_bytecodes_tree_size)));
         std::get<55>(evals) += (tmp * scaling_factor);
@@ -523,14 +523,14 @@ void tx_contextImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     { // L2_GAS_USED_IMMUTABILITY
         using View = typename std::tuple_element_t<68, ContainerOverSubrelations>::View;
         auto tmp =
-            (FF(1) - static_cast<View>(in.get(C::tx_should_process_call_request))) *
+            (FF(1) - static_cast<View>(in.get(C::tx_sel_process_call_request))) *
             (static_cast<View>(in.get(C::tx_prev_l2_gas_used)) - static_cast<View>(in.get(C::tx_next_l2_gas_used)));
         std::get<68>(evals) += (tmp * scaling_factor);
     }
     { // DA_GAS_USED_IMMUTABILITY
         using View = typename std::tuple_element_t<69, ContainerOverSubrelations>::View;
         auto tmp =
-            (FF(1) - static_cast<View>(in.get(C::tx_should_process_call_request))) *
+            (FF(1) - static_cast<View>(in.get(C::tx_sel_process_call_request))) *
             (static_cast<View>(in.get(C::tx_prev_da_gas_used)) - static_cast<View>(in.get(C::tx_next_da_gas_used)));
         std::get<69>(evals) += (tmp * scaling_factor);
     }
@@ -571,7 +571,7 @@ void tx_contextImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     { // NEXT_CONTEXT_ID_CONTINUITY
         using View = typename std::tuple_element_t<75, ContainerOverSubrelations>::View;
         auto tmp =
-            CView(tx_NOT_LAST_ROW) * (FF(1) - static_cast<View>(in.get(C::tx_should_process_call_request))) *
+            CView(tx_NOT_LAST_ROW) * (FF(1) - static_cast<View>(in.get(C::tx_sel_process_call_request))) *
             (static_cast<View>(in.get(C::tx_next_context_id_shift)) - static_cast<View>(in.get(C::tx_next_context_id)));
         std::get<75>(evals) += (tmp * scaling_factor);
     }
