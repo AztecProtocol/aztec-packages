@@ -4,7 +4,11 @@ use crate::oracle::get_nullifier_membership_witness::{
     get_low_nullifier_membership_witness, get_nullifier_membership_witness,
 };
 
-use crate::protocol::{abis::block_header::BlockHeader, merkle_tree::root::root_from_sibling_path, traits::Hash};
+use crate::protocol::{
+    abis::block_header::BlockHeader,
+    merkle_tree::membership::{check_membership, check_non_membership},
+    traits::Hash,
+};
 
 mod test;
 
@@ -28,22 +32,24 @@ mod test;
 /// is typically cheaper. Note that there are semantic differences though, as that function also considers _pending_
 /// nullifiers.
 pub fn assert_nullifier_existed_by(block_header: BlockHeader, siloed_nullifier: Field) {
-    // 1) Get the membership witness of the nullifier.
-    // Safety: The witness is only used as a "magical value" that makes the proof below pass. Hence it's safe.
-    let witness = unsafe { get_nullifier_membership_witness(block_header, siloed_nullifier) };
+    // 1) Get the leaf preimage and membership witness of the nullifier.
+    // Safety: These are only used as "magical values" that make the proof below pass. Hence it's safe.
+    let (leaf_preimage, witness) = unsafe { get_nullifier_membership_witness(block_header, siloed_nullifier) };
 
-    // 2) First we prove that the tree leaf in the witness is present in the nullifier tree. This is expected to be the
-    // leaf that contains the nullifier we're proving inclusion for.
-    assert_eq(
-        block_header.state.partial.nullifier_tree.root,
-        root_from_sibling_path(witness.leaf_preimage.hash(), witness.index, witness.path),
+    // 2) Prove that the leaf is present in the nullifier tree.
+    assert(
+        check_membership(
+            leaf_preimage.hash(),
+            witness,
+            block_header.state.partial.nullifier_tree.root,
+        ),
         "Proving nullifier inclusion failed",
     );
 
-    // 3) Then we simply check that the value in the leaf is the expected one. Note that we don't need to perform any
-    // checks on the rest of the values in the leaf preimage (the next index or next nullifier), since all we care
-    // about is showing that the tree contains an entry with the expected nullifier.
-    assert_eq(witness.leaf_preimage.nullifier, siloed_nullifier, "Nullifier does not match value in witness");
+    // 3) Check that the value in the leaf is the expected one. We don't need to check the rest of the leaf preimage
+    // (next index or next nullifier), since all we care about is that the tree contains an entry with the expected
+    // nullifier.
+    assert_eq(leaf_preimage.nullifier, siloed_nullifier, "Nullifier does not match value in witness");
 }
 
 /// Asserts that a nullifier did not exist by the time a block was mined.
@@ -79,36 +85,26 @@ pub fn assert_nullifier_existed_by(block_header: BlockHeader, siloed_nullifier: 
 ///
 /// This function performs a single merkle tree inclusion proof, which is ~4k gates.
 pub fn assert_nullifier_did_not_exist_by(block_header: BlockHeader, siloed_nullifier: Field) {
-    // 1) Get the membership witness of a low nullifier of the nullifier.
-    // Safety: The witness is only used as a "magical value" that makes the proof below pass. Hence it's safe.
-    let witness = unsafe { get_low_nullifier_membership_witness(block_header, siloed_nullifier) };
+    // 1) Get the leaf preimage and membership witness of the low nullifier.
+    // Safety: These are only used as "magical values" that make the proof below pass. Hence it's safe.
+    let (low_leaf_preimage, witness) = unsafe { get_low_nullifier_membership_witness(block_header, siloed_nullifier) };
 
     // 2) Check that the leaf preimage is not empty. An empty leaf preimage would pass validation as a low leaf.
     // However, it's not a valid low leaf. It's used to pad the nullifiers emitted from a tx so they can be inserted
     // into the tree in a fixed-size batch.
-    assert(!witness.leaf_preimage.is_empty(), "The provided nullifier tree leaf preimage cannot be empty");
+    assert(!low_leaf_preimage.is_empty(), "The provided nullifier tree leaf preimage cannot be empty");
 
-    // 3) Prove that the tree leaf in the witness is present in the nullifier tree. This is expected to be the 'low
-    // leaf', i.e. the leaf that would come immediately before the nullifier's leaf, if the nullifier were to be in the
-    // tree.
-    let low_nullifier_leaf = witness.leaf_preimage;
-    assert_eq(
+    // 3) Prove non-inclusion: the low leaf must exist in the tree and the nullifier must be in range of the low leaf
+    // (i.e. greater than the low leaf's nullifier and less than the low leaf's next nullifier, or the low leaf points
+    // to infinity meaning it is the largest entry). This guarantees the nullifier is not in the tree because, if it
+    // were, it would need to be between the low leaf and the next leaf.
+    let (non_inclusion, is_valid_low_leaf, low_leaf_exists) = check_non_membership(
+        siloed_nullifier,
+        low_leaf_preimage,
+        witness,
         block_header.state.partial.nullifier_tree.root,
-        root_from_sibling_path(low_nullifier_leaf.hash(), witness.index, witness.path),
-        "Proving nullifier non-inclusion failed: Could not prove low nullifier inclusion",
     );
-
-    // 4) Prove that the low leaf is indeed smaller than the nullifier
-    assert(
-        low_nullifier_leaf.nullifier.lt(siloed_nullifier),
-        "Proving nullifier non-inclusion failed: low_nullifier.value < nullifier.value check failed",
-    );
-
-    // 5) Prove that the low leaf is pointing "over" the nullifier, which means that the nullifier is not included in
-    // the nullifier tree, since if it were it'd need to be between the low leaf and the next leaf. Note the special
-    // case in which the low leaf is the largest of all entries, in which case there's no 'next' entry.
-    assert(
-        siloed_nullifier.lt(low_nullifier_leaf.next_nullifier) | (low_nullifier_leaf.next_index == 0),
-        "Proving nullifier non-inclusion failed: low_nullifier.next_value > nullifier.value check failed",
-    );
+    assert(low_leaf_exists, "Proving nullifier non-inclusion failed: Could not prove low nullifier inclusion");
+    assert(is_valid_low_leaf, "Proving nullifier non-inclusion failed: invalid low leaf for the given nullifier");
+    assert(non_inclusion, "Proving nullifier non-inclusion failed");
 }
