@@ -42,23 +42,31 @@ describe('e2e_fees fee settings', () => {
   });
 
   describe('setting max fee per gas', () => {
-    const bumpL2Fees = async () => {
-      const before = await aztecNode.getCurrentMinFees();
-      t.logger.info(`Initial L2 min fees are ${inspect(before)}`, { minFees: before.toInspect() });
-      await cheatCodes.rollup.bumpProvingCostPerMana(current => (current * 120n) / 100n);
-      return await retryUntil(
-        async () => {
-          const after = await aztecNode.getCurrentMinFees();
-          t.logger.info(`L2 min fees are now ${inspect(after)}`, {
-            minFeesBefore: before.toInspect(),
-            minFeesAfter: after.toInspect(),
-          });
-          return after.feePerL2Gas > before.feePerL2Gas ? after : undefined;
-        },
-        'L2 min fee increase',
-        5,
-        1,
-      );
+    const bumpL2Fees = async (minTarget?: GasFees) => {
+      let current = await aztecNode.getCurrentMinFees();
+      t.logger.info(`Initial L2 min fees are ${inspect(current)}`, { minFees: current.toInspect() });
+
+      // Keep bumping until fees exceed the minimum target (if provided).
+      // Fees can decay between when the target was captured and now, so a single bump may not suffice.
+      do {
+        const before = current;
+        await cheatCodes.rollup.bumpProvingCostPerMana(c => (c * 120n) / 100n);
+        current = await retryUntil(
+          async () => {
+            const after = await aztecNode.getCurrentMinFees();
+            t.logger.info(`L2 min fees are now ${inspect(after)}`, {
+              minFeesBefore: before.toInspect(),
+              minFeesAfter: after.toInspect(),
+            });
+            return after.feePerL2Gas > before.feePerL2Gas ? after : undefined;
+          },
+          'L2 min fee increase',
+          5,
+          1,
+        );
+      } while (minTarget && current.feePerL2Gas <= minTarget.feePerL2Gas);
+
+      return current;
     };
 
     // Pick a baseline from the post-checkpoint chain state. The prove step itself is
@@ -121,8 +129,9 @@ describe('e2e_fees fee settings', () => {
         txWithDefaultPadding.data.constants.txContext.gasSettings.maxFeesPerGas.equals(stableMinFees.mul(1.5)),
       ).toBe(true);
 
-      // Now bump the L2 fees before we actually send them
-      const bumpedMinFees = await bumpL2Fees();
+      // Now bump the L2 fees before we actually send them.
+      // Pass stableMinFees as target so fees are bumped past the level the txs were prepared at.
+      const bumpedMinFees = await bumpL2Fees(stableMinFees);
       expect(stableMinFees.feePerL2Gas).toBeLessThan(bumpedMinFees.feePerL2Gas);
       expect(stableMinFees.mul(1.5).feePerL2Gas).toBeGreaterThan(bumpedMinFees.feePerL2Gas);
 
@@ -143,7 +152,7 @@ describe('e2e_fees fee settings', () => {
         txWithDefaultPadding.data.constants.txContext.gasSettings.maxFeesPerGas.equals(lowerMinFees.mul(1.5)),
       ).toBe(true);
 
-      const bumpedMinFees = await bumpL2Fees();
+      const bumpedMinFees = await bumpL2Fees(lowerMinFees);
       expect(lowerMinFees.feePerL2Gas).toBeLessThan(bumpedMinFees.feePerL2Gas);
       expect(higherMinFees.feePerL2Gas).toBeGreaterThan(bumpedMinFees.feePerL2Gas);
       expect(lowerMinFees.mul(1.5).feePerL2Gas).toBeGreaterThan(bumpedMinFees.feePerL2Gas);
