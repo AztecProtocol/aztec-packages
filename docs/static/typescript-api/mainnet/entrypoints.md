@@ -1,6 +1,6 @@
 # @aztec/entrypoints
 
-Version: 4.2.0-aztecnr-rc.2
+Version: v4.2.0
 
 ## Quick Import Reference
 

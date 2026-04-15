@@ -1,6 +1,6 @@
 # @aztec/aztec.js
 
-Version: 4.2.0-aztecnr-rc.2
+Version: v4.2.0
 
 ## Quick Import Reference
 
@@ -106,13 +106,14 @@ Read-only data that is passed to the contract through an oracle during a transac
 
 **Constructor**
 ```typescript
-new Capsule(contractAddress: AztecAddress, storageSlot: Fr, data: Fr[])
+new Capsule(contractAddress: AztecAddress, storageSlot: Fr, data: Fr[], scope?: AztecAddress)
 ```
 
 **Properties**
 - `readonly contractAddress: AztecAddress` - The address of the contract the capsule is for
 - `readonly data: Fr[]` - Data passed to the contract
 - `static schema: unknown`
+- `readonly scope?: AztecAddress` - Optional namespace for the capsule contents
 - `readonly storageSlot: Fr` - The storage slot of the capsule
 
 **Methods**
@@ -211,17 +212,21 @@ Extends: `DeployMethod<TContract>`
 
 **Constructor**
 ```typescript
-new DeployAccountMethod(publicKeys: PublicKeys, wallet: Wallet, artifact: ContractArtifact, postDeployCtor: (instance: ContractInstanceWithAddress, wallet: Wallet) => TContract, salt: Fr, account: Account, args: any[], constructorNameOrArtifact?: string | FunctionArtifact)
+new DeployAccountMethod(publicKeys: PublicKeys, wallet: Wallet, artifact: ContractArtifact, postDeployCtor: (instance: ContractInstanceWithAddress, wallet: Wallet) => TContract, salt: Fr, account: Account, args: any[], constructorNameOrArtifact?: string | FunctionArtifact, authWitnesses: AuthWitness[], capsules: Capsule[], extraHashedArgs: HashedValues[])
 ```
 
 **Properties**
 - `address: unknown`
+- `args: any[]`
 - `artifact: ContractArtifact`
 - `authWitnesses: AuthWitness[]`
 - `capsules: Capsule[]`
+- `constructorArtifact: FunctionAbi | undefined` - Constructor function to call.
+- `extraHashedArgs: HashedValues[]`
 - `log: Logger`
 - `partialAddress: unknown`
 - `postDeployCtor: (instance: ContractInstanceWithAddress, wallet: Wallet) => TContract`
+- `publicKeys: PublicKeys`
 - `wallet: Wallet`
 
 **Methods**
@@ -237,7 +242,7 @@ new DeployAccountMethod(publicKeys: PublicKeys, wallet: Wallet, artifact: Contra
 - `request(opts?: RequestDeployAccountOptions) => Promise<ExecutionPayload>` - Returns the execution payload that allows this operation to happen on chain. For self-deployments (from === NO_FROM), the payload is wrapped through the multicall entrypoint on the app side so the wallet can execute it directly.
 - `send(options: DeployOptionsWithoutWait) => Promise<DeployResultMined<TContract>>` - Send a contract deployment transaction (initialize and/or publish) using the provided options. By default, waits for the transaction to be mined and returns the deployed contract instance.
 - `simulate(options: SimulateDeployOptions) => Promise<SimulationResult>` - Simulate the deployment
-- `with(options: { authWitnesses?: AuthWitness[]; capsules?: Capsule[] }) => DeployMethod` - Augments this DeployMethod with additional metadata, such as authWitnesses and capsules.
+- `with(options: { authWitnesses?: AuthWitness[]; capsules?: Capsule[]; extraHashedArgs?: HashedValues[] }) => DeployAccountMethod<TContract>` - Augments this DeployAccountMethod with additional metadata, such as authWitnesses and capsules.
 
 ### DeployMethod
 
@@ -252,12 +257,16 @@ new DeployMethod(publicKeys: PublicKeys, wallet: Wallet, artifact: ContractArtif
 
 **Properties**
 - `address: unknown`
+- `args: any[]`
 - `artifact: ContractArtifact`
 - `authWitnesses: AuthWitness[]`
 - `capsules: Capsule[]`
+- `constructorArtifact: FunctionAbi | undefined` - Constructor function to call.
+- `extraHashedArgs: HashedValues[]`
 - `log: Logger`
 - `partialAddress: unknown`
 - `postDeployCtor: (instance: ContractInstanceWithAddress, wallet: Wallet) => TContract`
+- `publicKeys: PublicKeys`
 - `wallet: Wallet`
 
 **Methods**
@@ -502,7 +511,7 @@ new FunctionSelector(value: number)
 - `static fromField(fr: Fr) => FunctionSelector` - Converts a field to selector.
 - `static fromFieldOrUndefined(fr: Fr) => FunctionSelector | undefined`
 - `static fromFields(fields: Fr[] | FieldReader) => FunctionSelector`
-- `static fromNameAndParameters(args: { name: string; parameters: { name: string; type: AbiType } & { visibility: "public" | "private" | "databus" }[] }) => Promise<FunctionSelector>` - Creates a function selector for a given function name and parameters.
+- `static fromNameAndParameters(args: { name: string; parameters: { name: string; type: AbiType } & { visibility: "databus" | "private" | "public" }[] }) => Promise<FunctionSelector>` - Creates a function selector for a given function name and parameters.
 - `static fromSignature(signature: string) => Promise<FunctionSelector>` - Creates a selector from a signature.
 - `static fromString(selector: string) => FunctionSelector` - Create a Selector instance from a hex-encoded string.
 - `isEmpty() => boolean` - Checks if the selector is empty (all bytes are 0).
@@ -714,11 +723,11 @@ new Point(x: Fr, y: Fr, isInfinite: boolean)
 - `hash() => Promise<Fr>`
 - `isOnGrumpkin() => boolean`
 - `isZero() => boolean`
-- `static random() => Promise<Point>` - Generate a random Point instance.
+- `static random() => Promise<Point>` - Generate a random Point instance that is on the curve.
 - `toBigInts() => { isInfinite: bigint; x: bigint; y: bigint }` - Returns the contents of the point as BigInts.
 - `toBuffer() => Buffer<ArrayBufferLike>` - Converts the Point instance to a Buffer representation of the coordinates.
 - `toCompressedBuffer() => Buffer<ArrayBufferLike>` - Converts the Point instance to a compressed Buffer representation of the coordinates.
-- `toFields() => Fr[]` - Returns the contents of the point as an array of 2 fields.
+- `toFields() => Fr[]` - Returns the contents of the point as an array of 3 fields.
 - `toJSON() => string`
 - `toNoirStruct() => { is_infinite: boolean; x: Fr; y: Fr }`
 - `toShortString() => string` - Generate a short string representation of the Point instance. The returned string includes the first 10 and last 4 characters of the full string representation, with '...' in between to indicate truncation. This is useful for displaying or logging purposes when the full string representation may be too long.
@@ -969,6 +978,37 @@ new TxReceipt(txHash: TxHash, status: TxStatus, executionResult: TxExecutionResu
 - `isMined() => boolean` - Returns true if the transaction has been included in a block (proposed, checkpointed, proven, or finalized).
 - `isPending() => boolean` - Returns true if the transaction is pending.
 
+### TxSimulationResultWithAppOffset
+
+Extends TxSimulationResult with the app call offset, which tracks where the app's calls begin in the flattened array of calls. Tracking of app call offset is a wallet-level concern: the wallet may wrap the app payload in an entrypoint or may prepend calls (this is typically done for fee payments).
+
+Extends: `TxSimulationResult`
+
+**Constructor**
+```typescript
+new TxSimulationResultWithAppOffset(privateExecutionResult: PrivateExecutionResult, publicInputs: PrivateKernelTailCircuitPublicInputs, publicOutput?: PublicSimulationOutput, stats?: SimulationStats, appCallOffset: number | undefined)
+```
+
+**Properties**
+- `readonly appCallOffset: number | undefined` - Index of the app's first call in a flattened array of calls. 0 = app call is the root execution itself (DefaultEntrypoint / NO_FROM). 1..N = wallet prepended calls before the app call. undefined = wallet did not send the field; use heuristic fallback.
+- `gasUsed: unknown`
+- `offchainEffects: unknown`
+- `privateExecutionResult: PrivateExecutionResult`
+- `publicInputs: PrivateKernelTailCircuitPublicInputs`
+- `publicOutput?: PublicSimulationOutput`
+- `static schema: unknown`
+- `stats?: SimulationStats`
+
+**Methods**
+- `static from(fields: Omit<FieldsOf<TxSimulationResult>, "gasUsed" | "offchainEffects">) => TxSimulationResult`
+- `static fromPrivateSimulationResultAndPublicOutput(privateSimulationResult: PrivateSimulationResult, publicOutput?: PublicSimulationOutput, stats?: SimulationStats) => TxSimulationResult`
+- `static fromResultAndOffset(result: TxSimulationResult, appCallOffset: number) => TxSimulationResultWithAppOffset` - Creates a TxSimulationResultWithAppOffset from an existing TxSimulationResult, attaching the app call offset computed by the wallet (i.e. how many calls precede the first app call in the flattened execution tree).
+- `getPrivateReturnValues() => NestedProcessReturnValues`
+- `getPrivateReturnValuesOfAppCall(appCallIndex: number) => NestedProcessReturnValues | undefined` - Returns the private return values that correspond to the provided app call.
+- `getPublicReturnValues() => NestedProcessReturnValues[]`
+- `static random() => Promise<TxSimulationResultWithAppOffset>`
+- `toSimulatedTx() => Promise<Tx>`
+
 ## Interfaces
 
 ### AccountContract
@@ -1083,7 +1123,7 @@ The abi entry of a function.
 - `isOnlySelf: boolean` - Whether the function is marked as `#[only_self]` and hence callable only from within the contract.
 - `isStatic: boolean` - Whether the function can alter state or not
 - `name: string` - The name of the function.
-- `parameters: { name: string; type: AbiType } & { visibility: "public" | "private" | "databus" }[]` - Function parameters.
+- `parameters: { name: string; type: AbiType } & { visibility: "databus" | "private" | "public" }[]` - Function parameters.
 - `returnTypes: AbiType[]` - The types of the return values.
 
 ### FunctionArtifact
@@ -1102,7 +1142,7 @@ Extends: `FunctionAbi`
 - `isOnlySelf: boolean` - Whether the function is marked as `#[only_self]` and hence callable only from within the contract.
 - `isStatic: boolean` - Whether the function can alter state or not
 - `name: string` - The name of the function.
-- `parameters: { name: string; type: AbiType } & { visibility: "public" | "private" | "databus" }[]` - Function parameters.
+- `parameters: { name: string; type: AbiType } & { visibility: "databus" | "private" | "public" }[]` - Function parameters.
 - `returnTypes: AbiType[]` - The types of the return values.
 - `verificationKey?: string` - The verification key of the function, base64 encoded, if it's a private fn.
 
@@ -1901,7 +1941,7 @@ Values: `private`, `public`, `utility`
 ### TxExecutionResult
 Execution result - only set when tx is in a block.
 
-Values: `app_logic_reverted`, `both_reverted`, `success`, `teardown_reverted`
+Values: `reverted`, `reverted`, `reverted`, `success`, `reverted`
 
 ### TxStatus
 Block inclusion/finalization status.
@@ -1922,4 +1962,4 @@ This package references types from other Aztec packages:
 - `BaseField`, `BlockNumber`, `Branded`, `Buffer32`, `BufferReader`, `CheckpointNumber`, `EpochNumber`, `EthAddress`, `FieldReader`, `FieldsOf`, `Fq`, `Fr`, `Logger`, `Point`, `SiblingPath`, `SlotNumber`
 
 **@aztec/stdlib**
-- `ABIParameterSchema`, `AbiDecoded`, `AbiErrorType`, `AbiType`, `AbiValue`, `ArrayType`, `AuthWitness`, `AztecAddress`, `AztecNode`, `BasicType`, `BlockHash`, `Capsule`, `ChonkProof`, `CompleteAddress`, `ContractArtifact`, `ContractArtifactWithHash`, `ContractClass`, `ContractClassCommitments`, `ContractClassIdPreimage`, `ContractClassLog`, `ContractClassLogFields`, `ContractInstance`, `ContractInstanceWithAddress`, `ContractInstantiationData`, `DebugFileMap`, `DebugLog`, `EventSelector`, `ExecutionPayload`, `FieldLayout`, `FunctionAbi`, `FunctionArtifact`, `FunctionCall`, `FunctionDebugMetadata`, `FunctionSelector`, `FunctionType`, `Gas`, `GasFees`, `GasSettings`, `GetPublicLogsResponse`, `GlobalVariables`, `Gossipable`, `HashedValues`, `IntegerType`, `L2LogsSource`, `NoirCompiledContract`, `NoirFunctionEntry`, `NoteSelector`, `OffchainEffect`, `PrivateExecutionStep`, `PrivateKernelTailCircuitPublicInputs`, `ProtocolContractAddresses`, `ProvingStats`, `PublicCallRequestWithCalldata`, `PublicKeys`, `RevertCode`, `Selector`, `SimulationStats`, `StringType`, `StructType`, `TopicType`, `TupleType`, `Tx`, `TxContext`, `TxExecutionRequest`, `TxExecutionResult`, `TxHash`, `TxProfileResult`, `TxReceipt`, `TxRequest`, `TxSimulationResult`, `TxStats`, `TxStatus`
+- `ABIParameterSchema`, `AbiDecoded`, `AbiErrorType`, `AbiType`, `AbiValue`, `ArrayType`, `AuthWitness`, `AztecAddress`, `AztecNode`, `BasicType`, `BlockHash`, `Capsule`, `ChonkProof`, `CompleteAddress`, `ContractArtifact`, `ContractArtifactWithHash`, `ContractClass`, `ContractClassCommitments`, `ContractClassIdPreimage`, `ContractClassLog`, `ContractClassLogFields`, `ContractInstance`, `ContractInstanceWithAddress`, `ContractInstantiationData`, `DebugFileMap`, `DebugLog`, `EventSelector`, `ExecutionPayload`, `FieldLayout`, `FunctionAbi`, `FunctionArtifact`, `FunctionCall`, `FunctionDebugMetadata`, `FunctionSelector`, `FunctionType`, `Gas`, `GasFees`, `GasSettings`, `GetPublicLogsResponse`, `GlobalVariables`, `Gossipable`, `HashedValues`, `IntegerType`, `L2LogsSource`, `NestedProcessReturnValues`, `NoirCompiledContract`, `NoirFunctionEntry`, `NoteSelector`, `OffchainEffect`, `PrivateExecutionResult`, `PrivateExecutionStep`, `PrivateKernelTailCircuitPublicInputs`, `PrivateSimulationResult`, `ProtocolContractAddresses`, `ProvingStats`, `PublicCallRequestWithCalldata`, `PublicKeys`, `PublicSimulationOutput`, `RevertCode`, `Selector`, `SimulationStats`, `StringType`, `StructType`, `TopicType`, `TupleType`, `Tx`, `TxContext`, `TxExecutionRequest`, `TxExecutionResult`, `TxHash`, `TxProfileResult`, `TxReceipt`, `TxRequest`, `TxSimulationResult`, `TxStats`, `TxStatus`

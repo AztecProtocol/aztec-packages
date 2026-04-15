@@ -1,6 +1,6 @@
 # @aztec/constants
 
-Version: 4.2.0-aztecnr-rc.2
+Version: v4.2.0
 
 ## Quick Import Reference
 
@@ -1342,11 +1342,6 @@ type DA_GAS_PER_BYTE = 1
 type DA_GAS_PER_FIELD = 32
 ```
 
-### DEFAULT_DA_GAS_LIMIT
-```typescript
-type DEFAULT_DA_GAS_LIMIT = 786432
-```
-
 ### DEFAULT_IVPK_M_X
 ```typescript
 type DEFAULT_IVPK_M_X = [object Object]
@@ -1355,11 +1350,6 @@ type DEFAULT_IVPK_M_X = [object Object]
 ### DEFAULT_IVPK_M_Y
 ```typescript
 type DEFAULT_IVPK_M_Y = [object Object]
-```
-
-### DEFAULT_L2_GAS_LIMIT
-```typescript
-type DEFAULT_L2_GAS_LIMIT = 6540000
 ```
 
 ### DEFAULT_MAX_DEBUG_LOG_MEMORY_READS
@@ -1385,16 +1375,6 @@ type DEFAULT_OVPK_M_X = [object Object]
 ### DEFAULT_OVPK_M_Y
 ```typescript
 type DEFAULT_OVPK_M_Y = [object Object]
-```
-
-### DEFAULT_TEARDOWN_DA_GAS_LIMIT
-```typescript
-type DEFAULT_TEARDOWN_DA_GAS_LIMIT = 393216
-```
-
-### DEFAULT_TEARDOWN_L2_GAS_LIMIT
-```typescript
-type DEFAULT_TEARDOWN_L2_GAS_LIMIT = 1000000
 ```
 
 ### DEFAULT_TPK_M_X
@@ -1490,26 +1470,6 @@ type FUNCTION_SELECTOR_NUM_BYTES = 4
 ### FUNCTION_TREE_HEIGHT
 ```typescript
 type FUNCTION_TREE_HEIGHT = 7
-```
-
-### GAS_ESTIMATION_DA_GAS_LIMIT
-```typescript
-type GAS_ESTIMATION_DA_GAS_LIMIT = 1572864
-```
-
-### GAS_ESTIMATION_L2_GAS_LIMIT
-```typescript
-type GAS_ESTIMATION_L2_GAS_LIMIT = 13080000
-```
-
-### GAS_ESTIMATION_TEARDOWN_DA_GAS_LIMIT
-```typescript
-type GAS_ESTIMATION_TEARDOWN_DA_GAS_LIMIT = 786432
-```
-
-### GAS_ESTIMATION_TEARDOWN_L2_GAS_LIMIT
-```typescript
-type GAS_ESTIMATION_TEARDOWN_L2_GAS_LIMIT = 6540000
 ```
 
 ### GAS_FEES_LENGTH

@@ -1,6 +1,6 @@
 # @aztec/wallet-sdk
 
-Version: 4.2.0-aztecnr-rc.2
+Version: v4.2.0
 
 ## Quick Import Reference
 
@@ -63,8 +63,8 @@ new BaseWallet(pxe: PXE, aztecNode: AztecNode, log: Logger)
 
 **Methods**
 - `batch<T extends readonly BatchedMethod[]>(methods: T) => Promise<BatchResults<T>>`
-- `completeFeeOptions(from: AztecAddress | "NO_FROM", feePayer?: AztecAddress, gasSettings?: Partial<FieldsOf<GasSettings>>) => Promise<FeeOptions>` - Completes partial user-provided fee options with wallet defaults.
-- `completeFeeOptionsForEstimation(from: AztecAddress | "NO_FROM", feePayer?: AztecAddress, gasSettings?: Partial<FieldsOf<GasSettings>>) => Promise<{ accountFeePaymentMethodOptions?: AccountFeePaymentMethodOptions; gasSettings: GasSettings; walletFeePaymentMethod?: FeePaymentMethod }>` - Completes partial user-provided fee options with unreasonably high gas limits for gas estimation. Uses the same logic as completeFeeOptions but sets high limits to avoid running out of gas during estimation.
+- `completeFeeOptions(config: CompleteFeeOptionsConfig) => Promise<FeeOptions>` - Completes partial user-provided fee options with wallet defaults.
+- `computeAppCallOffset(from: AztecAddress | "NO_FROM", feeOptions: FeeOptions) => Promise<number>` - Computes the index where the app's calls begin in the flattened array of calls (0 = entrypoint/root, 1..N = fee calls, N+1 = app).
 - `contextualizeError(err: Error, ...context: string[]) => Error`
 - `createAuthWit(from: AztecAddress, messageHashOrIntent: IntentInnerHash | CallIntent) => Promise<AuthWitness>`
 - `createTxExecutionRequestFromPayloadAndFee(executionPayload: ExecutionPayload, from: AztecAddress | "NO_FROM", feeOptions: FeeOptions) => Promise<TxExecutionRequest>`
@@ -83,8 +83,8 @@ new BaseWallet(pxe: PXE, aztecNode: AztecNode, log: Logger)
 - `requestCapabilities(_manifest: AppCapabilities) => Promise<WalletCapabilities>` - Request capabilities from the wallet. This method is wallet-implementation-dependent and must be provided by classes extending BaseWallet. Embedded wallets typically don't support capability-based authorization (no user authorization flow), while external wallets (browser extensions, hardware wallets) implement this to reduce authorization friction by allowing apps to request permissions upfront. Consider making it abstract so implementing it is a conscious decision. Leaving it as-is while the feature stabilizes.
 - `scopesFrom(from: AztecAddress | "NO_FROM", additionalScopes: AztecAddress[]) => AztecAddress[]`
 - `sendTx<W extends InteractionWaitOptions>(executionPayload: ExecutionPayload, opts: SendOptions<W>) => Promise<SendReturn<W>>`
-- `simulateTx(executionPayload: ExecutionPayload, opts: SimulateOptions) => Promise<TxSimulationResult>` - Simulates a transaction, optimizing leading public static calls by running them directly on the node while sending the remaining calls through the standard PXE path. Return values from both paths are merged back in original call order.
-- `simulateViaEntrypoint(executionPayload: ExecutionPayload, opts: SimulateViaEntrypointOptions) => Promise<TxSimulationResult>` - Simulates calls through the standard PXE path (account entrypoint).
+- `simulateTx(executionPayload: ExecutionPayload, opts: SimulateOptions) => Promise<TxSimulationResultWithAppOffset>` - Simulates a transaction, optimizing leading public static calls by running them directly on the node while sending the remaining calls through the standard PXE path. Return values from both paths are merged back in original call order.
+- `simulateViaEntrypoint(executionPayload: ExecutionPayload, opts: SimulateViaEntrypointOptions) => Promise<TxSimulationResultWithAppOffset>` - Simulates calls through the standard PXE path (account entrypoint).
 
 ### ContentScriptConnectionHandler
 
@@ -540,7 +540,7 @@ Converts a base64 string to a Uint8Array.
 
 ### buildMergedSimulationResult
 ```typescript
-function buildMergedSimulationResult(optimizedResults: TxSimulationResult[], normalResult: TxSimulationResult | null) => TxSimulationResult
+function buildMergedSimulationResult(optimizedResults: TxSimulationResult[], normalResult: TxSimulationResultWithAppOffset | null) => TxSimulationResultWithAppOffset
 ```
 Merges simulation results from the optimized (public static) and normal paths. Since optimized calls are always a leading prefix, return values are simply concatenated: optimized first, then normal. Stats are taken from the normal result only (the optimized path doesn't produce them).
 
@@ -630,6 +630,12 @@ Converts a Uint8Array to a base64 string.
 
 ## Types
 
+### CompleteFeeOptionsConfig
+```typescript
+type CompleteFeeOptionsConfig = unknown
+```
+Options for `completeFeeOptions`.
+
 ### DEFAULT_EMOJI_GRID_SIZE
 ```typescript
 type DEFAULT_EMOJI_GRID_SIZE = 9
@@ -674,7 +680,7 @@ Callback type for wallet disconnect events at the provider level.
 
 ### SimulateViaEntrypointOptions
 ```typescript
-type SimulateViaEntrypointOptions = Pick<SimulateOptions, "from" | "additionalScopes" | "skipTxValidation" | "skipFeeEnforcement"> & { feeOptions: FeeOptions; scopes: AccessScopes }
+type SimulateViaEntrypointOptions = Pick<SimulateOptions, "from" | "additionalScopes" | "skipTxValidation" | "skipFeeEnforcement"> & { feeOptions: FeeOptions }
 ```
 Options for `simulateViaEntrypoint`.
 
@@ -696,16 +702,16 @@ Values: `aztec-wallet-disconnect`, `aztec-wallet-discovery`, `aztec-wallet-disco
 This package references types from other Aztec packages:
 
 **@aztec/aztec.js**
-- `Account`, `Aliased`, `AppCapabilities`, `BatchResults`, `BatchedMethod`, `CallIntent`, `ContractInitializationStatus`, `ExecuteUtilityOptions`, `FeePaymentMethod`, `IntentInnerHash`, `InteractionWaitOptions`, `PrivateEvent`, `PrivateEventFilter`, `ProfileOptions`, `SendOptions`, `SendReturn`, `SimulateOptions`, `Wallet`, `WalletCapabilities`
+- `Account`, `Aliased`, `AppCapabilities`, `BatchResults`, `BatchedMethod`, `CallIntent`, `ContractInitializationStatus`, `ExecuteUtilityOptions`, `IntentInnerHash`, `InteractionWaitOptions`, `PrivateEvent`, `PrivateEventFilter`, `ProfileOptions`, `SendOptions`, `SendReturn`, `SimulateOptions`, `TxSimulationResultWithAppOffset`, `Wallet`, `WalletCapabilities`
 
 **@aztec/entrypoints**
-- `AccountFeePaymentMethodOptions`, `ChainInfo`
+- `ChainInfo`
 
 **@aztec/foundation**
-- `FieldsOf`, `Fr`, `Logger`
+- `Fr`, `Logger`
 
 **@aztec/pxe**
-- `AccessScopes`, `ContractNameResolver`, `PXE`
+- `ContractNameResolver`, `PXE`
 
 **@aztec/stdlib**
 - `AuthWitness`, `AztecAddress`, `AztecNode`, `BlockHeader`, `ContractArtifact`, `ContractInstanceWithAddress`, `EventMetadataDefinition`, `ExecutionPayload`, `FunctionCall`, `GasSettings`, `TxExecutionRequest`, `TxProfileResult`, `TxSimulationResult`, `UtilityExecutionResult`
