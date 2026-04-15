@@ -27,7 +27,6 @@ import { type PublicContractsDB, PublicTreesDB } from '../public_db_sources.js';
 import {
   L2ToL1MessageLimitReachedError,
   NoteHashLimitReachedError,
-  NullifierCollisionError,
   NullifierLimitReachedError,
 } from '../side_effect_errors.js';
 import type { PublicPersistableStateManager } from '../state_manager/state_manager.js';
@@ -147,7 +146,8 @@ export class PublicTxSimulator implements PublicTxSimulatorInterface {
     hintingContractsDB.createCheckpoint();
 
     try {
-      // This will throw if there is a nullifier collision or other insertion error (limit reached).
+      // This may throw: a side-effect limit error triggers a soft revert (caught below), while a
+      // nullifier collision is unrecoverable and propagates out of simulate() to throw out the tx.
       await this.insertRevertiblesFromPrivate(context);
 
       // Only proceed with app logic if there was no revert during revertible insertion.
@@ -409,9 +409,13 @@ export class PublicTxSimulator implements PublicTxSimulatorInterface {
    * Throws TxSimRevertibleInsertionsRevert if there is some checked error during revertible insertions.
    * This function checks for the following errors:
    * - NullifierLimitReachedError
-   * - NullifierCollisionError
    * - NoteHashLimitReachedError
    * - L2ToL1MessageLimitReachedError
+   *
+   * Note: NullifierCollisionError is intentionally NOT caught here. A nullifier collision
+   * during revertible insertions is unprovable (the nullifier originated from private, so
+   * a collision indicates the tx should never have been proposed). It propagates as-is to
+   * make the transaction unrecoverable, matching the AVM circuit behavior.
    */
   protected async insertRevertiblesFromPrivate(context: PublicTxContext) {
     const stateManager = context.state.getActiveStateManager();
@@ -421,7 +425,7 @@ export class PublicTxSimulator implements PublicTxSimulatorInterface {
         await stateManager.writeSiloedNullifier(siloedNullifier);
       }
     } catch (e: any) {
-      if (e instanceof NullifierLimitReachedError || e instanceof NullifierCollisionError) {
+      if (e instanceof NullifierLimitReachedError) {
         context.revert(
           TxExecutionPhase.APP_LOGIC,
           new SimulationError(
@@ -431,7 +435,7 @@ export class PublicTxSimulator implements PublicTxSimulatorInterface {
         );
         throw new TxSimRevertibleInsertionsRevert();
       } else {
-        // Unchecked/unknown error - re-throw as-is
+        // Unchecked/unknown error or NullifierCollisionError (unrecoverable) - re-throw as-is
         throw e;
       }
     }
