@@ -18,23 +18,28 @@ if [ "$(uname)" = "Darwin" ]; then
 else
   NATIVE_PRESET=clang20-no-avm
 fi
-echo "== Building ipa_bench native ($NATIVE_PRESET) =="
+TARGET=commitment_schemes_bench
+FILTER='bench_pippenger_without_endomorphism_basis_points<bb::curve::Grumpkin>'
+
+echo "== Building $TARGET native ($NATIVE_PRESET) =="
 cmake --preset "$NATIVE_PRESET" >/dev/null
-cmake --build --preset "$NATIVE_PRESET" --target ipa_bench
+cmake --build --preset "$NATIVE_PRESET" --target $TARGET
 
-echo "== Building ipa_bench wasm (wasm-threads) =="
+echo "== Building $TARGET wasm (wasm-threads) =="
 cmake --preset wasm-threads >/dev/null
-cmake --build --preset wasm-threads --target ipa_bench
+cmake --build --preset wasm-threads --target $TARGET
 
-# --- Run ---
+# --- Run (Grumpkin MSM, the dominant cost of random IPA claim generation) ---
 echo
 echo ">>> native (HARDWARE_CONCURRENCY=$THREADS)"
-HARDWARE_CONCURRENCY=$THREADS ./build/bin/ipa_bench \
+HARDWARE_CONCURRENCY=$THREADS ./build/bin/$TARGET \
+  --benchmark_filter="$FILTER" \
   --benchmark_out="$OUT/native.json" --benchmark_out_format=json 2>&1 | tee "$OUT/native.log"
 
 echo
 echo ">>> wasm (HARDWARE_CONCURRENCY=$THREADS)"
-HARDWARE_CONCURRENCY=$THREADS ./scripts/wasmtime.sh --dir="$OUT" ./build-wasm-threads/bin/ipa_bench \
+HARDWARE_CONCURRENCY=$THREADS ./scripts/wasmtime.sh --dir="$OUT" ./build-wasm-threads/bin/$TARGET \
+  --benchmark_filter="$FILTER" \
   --benchmark_out="$OUT/wasm.json" --benchmark_out_format=json 2>&1 | tee "$OUT/wasm.log"
 
 echo
