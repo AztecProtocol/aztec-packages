@@ -12,6 +12,7 @@
 #include <sys/types.h>
 #include <unordered_map>
 
+#include "barretenberg/aztec/aztec_indexed_leaves.hpp"
 #include "barretenberg/crypto/merkle_tree/hash_path.hpp"
 #include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp"
 #include "barretenberg/crypto/merkle_tree/response.hpp"
@@ -30,6 +31,8 @@ using namespace bb::nodejs;
 using namespace bb::world_state;
 using namespace bb::crypto::merkle_tree;
 using namespace bb::messaging;
+using bb::aztec::NullifierLeafValue;
+using bb::aztec::PublicDataLeafValue;
 
 const uint64_t DEFAULT_MAP_SIZE = 1024UL * 1024;
 
@@ -410,7 +413,7 @@ bool WorldStateWrapper::get_leaf_value(msgpack::object& obj, msgpack::sbuffer& b
     }
 
     case MerkleTreeId::PUBLIC_DATA_TREE: {
-        auto leaf = _ws->get_leaf<crypto::merkle_tree::PublicDataLeafValue>(
+        auto leaf = _ws->get_leaf<aztec::PublicDataLeafValue>(
             request.value.revision, request.value.treeId, request.value.leafIndex);
         MsgHeader header(request.header.messageId);
         messaging::TypedMessage<std::optional<PublicDataLeafValue>> resp_msg(
@@ -420,7 +423,7 @@ bool WorldStateWrapper::get_leaf_value(msgpack::object& obj, msgpack::sbuffer& b
     }
 
     case MerkleTreeId::NULLIFIER_TREE: {
-        auto leaf = _ws->get_leaf<crypto::merkle_tree::NullifierLeafValue>(
+        auto leaf = _ws->get_leaf<aztec::NullifierLeafValue>(
             request.value.revision, request.value.treeId, request.value.leafIndex);
         MsgHeader header(request.header.messageId);
         messaging::TypedMessage<std::optional<NullifierLeafValue>> resp_msg(
@@ -522,14 +525,14 @@ bool WorldStateWrapper::find_leaf_indices(msgpack::object& obj, msgpack::sbuffer
     }
 
     case MerkleTreeId::PUBLIC_DATA_TREE: {
-        TypedMessage<FindLeafIndicesRequest<crypto::merkle_tree::PublicDataLeafValue>> r2;
+        TypedMessage<FindLeafIndicesRequest<aztec::PublicDataLeafValue>> r2;
         obj.convert(r2);
         _ws->find_leaf_indices<PublicDataLeafValue>(
             request.value.revision, request.value.treeId, r2.value.leaves, response.indices, r2.value.startIndex);
         break;
     }
     case MerkleTreeId::NULLIFIER_TREE: {
-        TypedMessage<FindLeafIndicesRequest<crypto::merkle_tree::NullifierLeafValue>> r3;
+        TypedMessage<FindLeafIndicesRequest<aztec::NullifierLeafValue>> r3;
         obj.convert(r3);
         _ws->find_leaf_indices<NullifierLeafValue>(
             request.value.revision, request.value.treeId, r3.value.leaves, response.indices, r3.value.startIndex);
@@ -565,14 +568,14 @@ bool WorldStateWrapper::find_sibling_paths(msgpack::object& obj, msgpack::sbuffe
     }
 
     case MerkleTreeId::PUBLIC_DATA_TREE: {
-        TypedMessage<FindLeafPathsRequest<crypto::merkle_tree::PublicDataLeafValue>> r2;
+        TypedMessage<FindLeafPathsRequest<aztec::PublicDataLeafValue>> r2;
         obj.convert(r2);
         _ws->find_sibling_paths<PublicDataLeafValue>(
             request.value.revision, request.value.treeId, r2.value.leaves, response.paths);
         break;
     }
     case MerkleTreeId::NULLIFIER_TREE: {
-        TypedMessage<FindLeafPathsRequest<crypto::merkle_tree::NullifierLeafValue>> r3;
+        TypedMessage<FindLeafPathsRequest<aztec::NullifierLeafValue>> r3;
         obj.convert(r3);
         _ws->find_sibling_paths<NullifierLeafValue>(
             request.value.revision, request.value.treeId, r3.value.leaves, response.paths);
@@ -621,15 +624,15 @@ bool WorldStateWrapper::append_leaves(msgpack::object& obj, msgpack::sbuffer& bu
         break;
     }
     case MerkleTreeId::PUBLIC_DATA_TREE: {
-        TypedMessage<AppendLeavesRequest<crypto::merkle_tree::PublicDataLeafValue>> r2;
+        TypedMessage<AppendLeavesRequest<aztec::PublicDataLeafValue>> r2;
         obj.convert(r2);
-        _ws->append_leaves<crypto::merkle_tree::PublicDataLeafValue>(r2.value.treeId, r2.value.leaves, r2.value.forkId);
+        _ws->append_leaves<aztec::PublicDataLeafValue>(r2.value.treeId, r2.value.leaves, r2.value.forkId);
         break;
     }
     case MerkleTreeId::NULLIFIER_TREE: {
-        TypedMessage<AppendLeavesRequest<crypto::merkle_tree::NullifierLeafValue>> r3;
+        TypedMessage<AppendLeavesRequest<aztec::NullifierLeafValue>> r3;
         obj.convert(r3);
-        _ws->append_leaves<crypto::merkle_tree::NullifierLeafValue>(r3.value.treeId, r3.value.leaves, r3.value.forkId);
+        _ws->append_leaves<aztec::NullifierLeafValue>(r3.value.treeId, r3.value.leaves, r3.value.forkId);
         break;
     }
     default:
@@ -652,7 +655,7 @@ bool WorldStateWrapper::batch_insert(msgpack::object& obj, msgpack::sbuffer& buf
     case MerkleTreeId::PUBLIC_DATA_TREE: {
         TypedMessage<BatchInsertRequest<PublicDataLeafValue>> r1;
         obj.convert(r1);
-        auto result = _ws->batch_insert_indexed_leaves<crypto::merkle_tree::PublicDataLeafValue>(
+        auto result = _ws->batch_insert_indexed_leaves<aztec::PublicDataLeafValue>(
             request.value.treeId, r1.value.leaves, r1.value.subtreeDepth, r1.value.forkId);
         MsgHeader header(request.header.messageId);
         messaging::TypedMessage<BatchInsertionResult<PublicDataLeafValue>> resp_msg(
@@ -664,7 +667,7 @@ bool WorldStateWrapper::batch_insert(msgpack::object& obj, msgpack::sbuffer& buf
     case MerkleTreeId::NULLIFIER_TREE: {
         TypedMessage<BatchInsertRequest<NullifierLeafValue>> r2;
         obj.convert(r2);
-        auto result = _ws->batch_insert_indexed_leaves<crypto::merkle_tree::NullifierLeafValue>(
+        auto result = _ws->batch_insert_indexed_leaves<aztec::NullifierLeafValue>(
             request.value.treeId, r2.value.leaves, r2.value.subtreeDepth, r2.value.forkId);
         MsgHeader header(request.header.messageId);
         messaging::TypedMessage<BatchInsertionResult<NullifierLeafValue>> resp_msg(
@@ -688,7 +691,7 @@ bool WorldStateWrapper::sequential_insert(msgpack::object& obj, msgpack::sbuffer
     case MerkleTreeId::PUBLIC_DATA_TREE: {
         TypedMessage<InsertRequest<PublicDataLeafValue>> r1;
         obj.convert(r1);
-        auto result = _ws->insert_indexed_leaves<crypto::merkle_tree::PublicDataLeafValue>(
+        auto result = _ws->insert_indexed_leaves<aztec::PublicDataLeafValue>(
             request.value.treeId, r1.value.leaves, r1.value.forkId);
         MsgHeader header(request.header.messageId);
         messaging::TypedMessage<SequentialInsertionResult<PublicDataLeafValue>> resp_msg(
@@ -700,7 +703,7 @@ bool WorldStateWrapper::sequential_insert(msgpack::object& obj, msgpack::sbuffer
     case MerkleTreeId::NULLIFIER_TREE: {
         TypedMessage<InsertRequest<NullifierLeafValue>> r2;
         obj.convert(r2);
-        auto result = _ws->insert_indexed_leaves<crypto::merkle_tree::NullifierLeafValue>(
+        auto result = _ws->insert_indexed_leaves<aztec::NullifierLeafValue>(
             request.value.treeId, r2.value.leaves, r2.value.forkId);
         MsgHeader header(request.header.messageId);
         messaging::TypedMessage<SequentialInsertionResult<NullifierLeafValue>> resp_msg(

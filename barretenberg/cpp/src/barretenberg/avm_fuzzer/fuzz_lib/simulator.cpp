@@ -34,13 +34,12 @@ using namespace bb::world_state;
 constexpr auto MAX_RETURN_DATA_SIZE_IN_FIELDS = 1024;
 
 // Helper function to serialize simulation request via msgpack
-std::string serialize_simulation_request(
-    const Tx& tx,
-    const GlobalVariables& globals,
-    const FuzzerContractDB& contract_db,
-    const std::vector<bb::crypto::merkle_tree::PublicDataLeafValue>& public_data_writes,
-    const std::vector<FF>& note_hashes,
-    const ProtocolContracts& protocol_contracts)
+std::string serialize_simulation_request(const Tx& tx,
+                                         const GlobalVariables& globals,
+                                         const FuzzerContractDB& contract_db,
+                                         const std::vector<bb::aztec::PublicDataLeafValue>& public_data_writes,
+                                         const std::vector<FF>& note_hashes,
+                                         const ProtocolContracts& protocol_contracts)
 {
     // Build vectors from contract_db
     std::vector<ContractClass> classes_vec = contract_db.get_contract_classes();
@@ -84,7 +83,7 @@ SimulatorResult CppSimulator::simulate(
     fuzzer::FuzzerContractDB& contract_db,
     const Tx& tx,
     const GlobalVariables& globals,
-    [[maybe_unused]] const std::vector<bb::crypto::merkle_tree::PublicDataLeafValue>& public_data_writes,
+    [[maybe_unused]] const std::vector<bb::aztec::PublicDataLeafValue>& public_data_writes,
     [[maybe_unused]] const std::vector<FF>& note_hashes,
     const ProtocolContracts& protocol_contracts)
 {
@@ -153,14 +152,13 @@ void JsSimulator::initialize(std::string& simulator_path)
     instance = new JsSimulator(simulator_path);
 }
 
-SimulatorResult JsSimulator::simulate(
-    [[maybe_unused]] fuzzer::FuzzerWorldStateManager& ws_mgr,
-    fuzzer::FuzzerContractDB& contract_db,
-    const Tx& tx,
-    const GlobalVariables& globals,
-    const std::vector<bb::crypto::merkle_tree::PublicDataLeafValue>& public_data_writes,
-    const std::vector<FF>& note_hashes,
-    const ProtocolContracts& protocol_contracts)
+SimulatorResult JsSimulator::simulate([[maybe_unused]] fuzzer::FuzzerWorldStateManager& ws_mgr,
+                                      fuzzer::FuzzerContractDB& contract_db,
+                                      const Tx& tx,
+                                      const GlobalVariables& globals,
+                                      const std::vector<bb::aztec::PublicDataLeafValue>& public_data_writes,
+                                      const std::vector<FF>& note_hashes,
+                                      const ProtocolContracts& protocol_contracts)
 {
     std::string serialized =
         serialize_simulation_request(tx, globals, contract_db, public_data_writes, note_hashes, protocol_contracts);

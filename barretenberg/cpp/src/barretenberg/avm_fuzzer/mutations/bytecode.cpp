@@ -43,7 +43,7 @@ namespace bb::avm2::fuzzer {
 void mutate_bytecode(std::vector<ContractClassWithCommitment>& contract_classes,
                      std::vector<ContractInstance>& contract_instances,
                      const std::vector<AztecAddress>& contract_addresses,
-                     std::vector<bb::crypto::merkle_tree::PublicDataLeafValue>& public_data_writes,
+                     std::vector<bb::aztec::PublicDataLeafValue>& public_data_writes,
                      std::mt19937_64& rng)
 {
     using Poseidon2 = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>;
@@ -109,7 +109,7 @@ void mutate_bytecode(std::vector<ContractClassWithCommitment>& contract_classes,
         FF storage_slot = delayed_public_mutable_slot + i;
         FF leaf_slot = Poseidon2::hash(
             { FF(DOM_SEP__PUBLIC_LEAF_SLOT), FF(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS), storage_slot });
-        public_data_writes.push_back(bb::crypto::merkle_tree::PublicDataLeafValue{ leaf_slot, values[i] });
+        public_data_writes.push_back(bb::aztec::PublicDataLeafValue{ leaf_slot, values[i] });
     }
 }
 

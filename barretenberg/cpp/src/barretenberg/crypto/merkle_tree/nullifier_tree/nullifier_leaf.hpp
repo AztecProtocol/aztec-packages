@@ -27,7 +27,10 @@ struct indexed_nullifier_leaf {
         return os;
     }
 
-    // Must match NullifierLeafValue::HASH_DOMAIN_SEPARATOR in indexed_leaf.hpp
+    // Must match DOM_SEP__NULLIFIER_LEAF (see barretenberg/aztec/aztec_constants.hpp).
+    // This legacy in-memory tree is test-only and lives in aztec-agnostic crypto/,
+    // so the value is intentionally duplicated as a plain literal here rather than
+    // pulled from aztec/ (which would flip the crypto/ -> aztec/ dependency direction).
     static constexpr uint64_t HASH_DOMAIN_SEPARATOR = 2344184091;
 
     std::vector<fr> get_hash_inputs() const

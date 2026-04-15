@@ -52,6 +52,7 @@ using simulation::Poseidon2;
 using simulation::Poseidon2HashEvent;
 using simulation::Poseidon2PermutationEvent;
 using simulation::Poseidon2PermutationMemoryEvent;
+using simulation::PublicDataLeafValue;
 using simulation::PublicDataTreeCheck;
 using simulation::PublicDataTreeCheckEvent;
 using simulation::PublicDataTreeLeafPreimage;

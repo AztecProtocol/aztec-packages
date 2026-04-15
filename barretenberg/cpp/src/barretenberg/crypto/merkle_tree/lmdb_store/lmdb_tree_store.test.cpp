@@ -8,6 +8,7 @@
 #include <stdexcept>
 #include <vector>
 
+#include "barretenberg/aztec/aztec_indexed_leaves.hpp"
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/common/streams.hpp"
 #include "barretenberg/common/test.hpp"
@@ -24,6 +25,7 @@
 
 using namespace bb::stdlib;
 using namespace bb::crypto::merkle_tree;
+using bb::aztec::PublicDataLeafValue;
 
 using Builder = bb::UltraCircuitBuilder;
 

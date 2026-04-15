@@ -1,4 +1,5 @@
 #include "barretenberg/crypto/merkle_tree/node_store/content_addressed_cache.hpp"
+#include "barretenberg/aztec/aztec_indexed_leaves.hpp"
 #include "barretenberg/common/test.hpp"
 #include "barretenberg/crypto/merkle_tree/fixtures.hpp"
 #include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp"
@@ -9,6 +10,7 @@
 
 using namespace bb;
 using namespace bb::crypto::merkle_tree;
+using bb::aztec::PublicDataLeafValue;
 
 using LeafValueType = PublicDataLeafValue;
 using IndexedLeafType = IndexedLeaf<PublicDataLeafValue>;

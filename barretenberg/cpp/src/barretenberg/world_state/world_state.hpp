@@ -1,5 +1,6 @@
 #pragma once
 
+#include "barretenberg/aztec/aztec_indexed_leaves.hpp"
 #include "barretenberg/common/thread_pool.hpp"
 #include "barretenberg/crypto/merkle_tree/append_only_tree/content_addressed_append_only_tree.hpp"
 #include "barretenberg/crypto/merkle_tree/hash.hpp"
@@ -31,6 +32,8 @@
 
 namespace bb::world_state {
 
+using aztec::NullifierLeafValue;
+using aztec::PublicDataLeafValue;
 using crypto::merkle_tree::index_t;
 
 template <typename LeafValueType> struct BatchInsertionResult {
@@ -252,8 +255,7 @@ class WorldState {
      *
      * @param new_value The new value of the leaf.
      */
-    void update_public_data(const crypto::merkle_tree::PublicDataLeafValue& new_value,
-                            Fork::Id fork_id = CANONICAL_FORK_ID);
+    void update_public_data(const aztec::PublicDataLeafValue& new_value, Fork::Id fork_id = CANONICAL_FORK_ID);
 
     /**
      * @brief Updates the archive tree with a new block.
@@ -288,8 +290,8 @@ class WorldState {
                                     const bb::fr& block_header_hash,
                                     const std::vector<bb::fr>& notes,
                                     const std::vector<bb::fr>& l1_to_l2_messages,
-                                    const std::vector<crypto::merkle_tree::NullifierLeafValue>& nullifiers,
-                                    const std::vector<crypto::merkle_tree::PublicDataLeafValue>& public_writes);
+                                    const std::vector<aztec::NullifierLeafValue>& nullifiers,
+                                    const std::vector<aztec::PublicDataLeafValue>& public_writes);
 
     uint32_t checkpoint(const uint64_t& forkId);
     void commit_checkpoint(const uint64_t& forkId);

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "barretenberg/aztec/aztec_hash_policy.hpp"
+#include "barretenberg/aztec/aztec_indexed_leaves.hpp"
 #include "barretenberg/crypto/merkle_tree/append_only_tree/content_addressed_append_only_tree.hpp"
 #include "barretenberg/crypto/merkle_tree/indexed_tree/content_addressed_indexed_tree.hpp"
 #include "barretenberg/crypto/merkle_tree/node_store/cached_content_addressed_tree_store.hpp"
@@ -16,10 +17,10 @@ using HashPolicy = aztec::AztecMerkleHashPolicy;
 using FrStore = crypto::merkle_tree::ContentAddressedCachedTreeStore<fr>;
 using FrTree = crypto::merkle_tree::ContentAddressedAppendOnlyTree<FrStore, HashPolicy>;
 
-using NullifierStore = crypto::merkle_tree::ContentAddressedCachedTreeStore<crypto::merkle_tree::NullifierLeafValue>;
+using NullifierStore = crypto::merkle_tree::ContentAddressedCachedTreeStore<aztec::NullifierLeafValue>;
 using NullifierTree = crypto::merkle_tree::ContentAddressedIndexedTree<NullifierStore, HashPolicy>;
 
-using PublicDataStore = crypto::merkle_tree::ContentAddressedCachedTreeStore<crypto::merkle_tree::PublicDataLeafValue>;
+using PublicDataStore = crypto::merkle_tree::ContentAddressedCachedTreeStore<aztec::PublicDataLeafValue>;
 using PublicDataTree = crypto::merkle_tree::ContentAddressedIndexedTree<PublicDataStore, HashPolicy>;
 
 using Tree = std::variant<TreeWithStore<FrTree>, TreeWithStore<NullifierTree>, TreeWithStore<PublicDataTree>>;

@@ -3,6 +3,7 @@
 #include <optional>
 #include <span>
 
+#include "barretenberg/aztec/aztec_indexed_leaves.hpp"
 #include "barretenberg/crypto/merkle_tree/hash_path.hpp"
 #include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp"
 #include "barretenberg/crypto/merkle_tree/response.hpp"
@@ -35,8 +36,8 @@ class ContractDBInterface {
 using MerkleTreeId = ::bb::world_state::MerkleTreeId;
 using SiblingPath = ::bb::crypto::merkle_tree::fr_sibling_path;
 using index_t = ::bb::crypto::merkle_tree::index_t;
-using PublicDataLeafValue = ::bb::crypto::merkle_tree::PublicDataLeafValue;
-using NullifierLeafValue = ::bb::crypto::merkle_tree::NullifierLeafValue;
+using PublicDataLeafValue = ::bb::aztec::PublicDataLeafValue;
+using NullifierLeafValue = ::bb::aztec::NullifierLeafValue;
 template <typename LeafValueType> using IndexedLeaf = ::bb::crypto::merkle_tree::IndexedLeaf<LeafValueType>;
 template <typename LeafValueType>
 using SequentialInsertionResult = ::bb::world_state::SequentialInsertionResult<LeafValueType>;

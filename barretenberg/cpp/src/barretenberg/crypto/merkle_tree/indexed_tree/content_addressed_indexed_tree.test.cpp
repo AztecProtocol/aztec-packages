@@ -4,6 +4,7 @@
 #include "../node_store/array_store.hpp"
 #include "../nullifier_tree/nullifier_memory_tree.hpp"
 #include "../test_fixtures.hpp"
+#include "barretenberg/aztec/aztec_indexed_leaves.hpp"
 #include "barretenberg/common/streams.hpp"
 #include "barretenberg/common/test.hpp"
 #include "barretenberg/common/thread_pool.hpp"
@@ -42,6 +43,8 @@ template <typename Store, typename HashingPolicy> struct ContentAddressedIndexed
 
 using namespace bb;
 using namespace bb::crypto::merkle_tree;
+using bb::aztec::NullifierLeafValue;
+using bb::aztec::PublicDataLeafValue;
 
 using HashPolicy = Poseidon2HashPolicy;
 

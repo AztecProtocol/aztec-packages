@@ -1,5 +1,6 @@
 #pragma once
 
+#include "barretenberg/aztec/aztec_indexed_leaves.hpp"
 #include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp"
 #include "barretenberg/crypto/merkle_tree/types.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
@@ -9,8 +10,8 @@
 
 namespace bb::avm2::simulation {
 
-using NullifierTreeLeafPreimage = crypto::merkle_tree::IndexedLeaf<crypto::merkle_tree::NullifierLeafValue>;
-using PublicDataTreeLeafPreimage = crypto::merkle_tree::IndexedLeaf<crypto::merkle_tree::PublicDataLeafValue>;
+using NullifierTreeLeafPreimage = crypto::merkle_tree::IndexedLeaf<aztec::NullifierLeafValue>;
+using PublicDataTreeLeafPreimage = crypto::merkle_tree::IndexedLeaf<aztec::PublicDataLeafValue>;
 
 // Keys for hints stored in unordered_flat_maps, used in raw_data_dbs and hinting_dbs.
 using GetSiblingPathKey = std::tuple<AppendOnlyTreeSnapshot, MerkleTreeId, index_t>;

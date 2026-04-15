@@ -1,5 +1,6 @@
 #include "barretenberg/world_state/world_state.hpp"
 #include "barretenberg/aztec/aztec_constants.hpp"
+#include "barretenberg/aztec/aztec_indexed_leaves.hpp"
 #include "barretenberg/crypto/merkle_tree/fixtures.hpp"
 #include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp"
 #include "barretenberg/crypto/merkle_tree/node_store/tree_meta.hpp"
@@ -18,6 +19,8 @@
 
 using namespace bb::world_state;
 using namespace bb::crypto::merkle_tree;
+using bb::aztec::NullifierLeafValue;
+using bb::aztec::PublicDataLeafValue;
 
 class WorldStateTest : public testing::Test {
   protected:

@@ -38,7 +38,7 @@ using simulation::IndexedTreeLeafData;
 using simulation::MockMerkleCheck;
 using simulation::MockPoseidon2;
 using simulation::MockRangeCheck;
-using NullifierLeafValue = crypto::merkle_tree::NullifierLeafValue;
+using NullifierLeafValue = aztec::NullifierLeafValue;
 using NullifierTreeLeafPreimage = simulation::NullifierTreeLeafPreimage;
 
 using testing::NiceMock;

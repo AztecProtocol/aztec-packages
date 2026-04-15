@@ -44,6 +44,7 @@ using simulation::MockExecutionIdManager;
 using simulation::MockFieldGreaterThan;
 using simulation::MockMerkleCheck;
 using simulation::MockPoseidon2;
+using simulation::PublicDataLeafValue;
 using simulation::PublicDataTreeCheck;
 using simulation::PublicDataTreeCheckEvent;
 using simulation::PublicDataTreeLeafPreimage;

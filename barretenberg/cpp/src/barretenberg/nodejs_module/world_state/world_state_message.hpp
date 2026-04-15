@@ -1,4 +1,5 @@
 #pragma once
+#include "barretenberg/aztec/aztec_indexed_leaves.hpp"
 #include "barretenberg/crypto/merkle_tree/hash_path.hpp"
 #include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp"
 #include "barretenberg/crypto/merkle_tree/response.hpp"
@@ -249,8 +250,8 @@ struct SyncBlockRequest {
     StateReference blockStateRef;
     bb::fr blockHeaderHash;
     std::vector<bb::fr> paddedNoteHashes, paddedL1ToL2Messages;
-    std::vector<crypto::merkle_tree::NullifierLeafValue> paddedNullifiers;
-    std::vector<crypto::merkle_tree::PublicDataLeafValue> publicDataWrites;
+    std::vector<aztec::NullifierLeafValue> paddedNullifiers;
+    std::vector<aztec::PublicDataLeafValue> publicDataWrites;
 
     SERIALIZATION_FIELDS(blockNumber,
                          blockStateRef,

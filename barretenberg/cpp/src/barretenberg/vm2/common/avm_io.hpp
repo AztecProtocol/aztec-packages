@@ -4,6 +4,7 @@
 #include <ostream>
 #include <vector>
 
+#include "barretenberg/aztec/aztec_indexed_leaves.hpp"
 #include "barretenberg/common/streams.hpp" // Derives operator<< from SERIALIZATION_FIELDS.
 #include "barretenberg/common/utils.hpp"
 #include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp"
@@ -372,14 +373,13 @@ struct ExecutionHints {
     TreeSnapshots starting_tree_roots;
     std::vector<GetSiblingPathHint> get_sibling_path_hints;
     std::vector<GetPreviousValueIndexHint> get_previous_value_index_hints;
-    std::vector<GetLeafPreimageHint<crypto::merkle_tree::IndexedLeaf<crypto::merkle_tree::PublicDataLeafValue>>>
+    std::vector<GetLeafPreimageHint<crypto::merkle_tree::IndexedLeaf<aztec::PublicDataLeafValue>>>
         get_leaf_preimage_hints_public_data_tree;
-    std::vector<GetLeafPreimageHint<crypto::merkle_tree::IndexedLeaf<crypto::merkle_tree::NullifierLeafValue>>>
+    std::vector<GetLeafPreimageHint<crypto::merkle_tree::IndexedLeaf<aztec::NullifierLeafValue>>>
         get_leaf_preimage_hints_nullifier_tree;
     std::vector<GetLeafValueHint> get_leaf_value_hints;
-    std::vector<SequentialInsertHint<crypto::merkle_tree::PublicDataLeafValue>>
-        sequential_insert_hints_public_data_tree;
-    std::vector<SequentialInsertHint<crypto::merkle_tree::NullifierLeafValue>> sequential_insert_hints_nullifier_tree;
+    std::vector<SequentialInsertHint<aztec::PublicDataLeafValue>> sequential_insert_hints_public_data_tree;
+    std::vector<SequentialInsertHint<aztec::NullifierLeafValue>> sequential_insert_hints_nullifier_tree;
     std::vector<AppendLeavesHint> append_leaves_hints;
     std::vector<CreateCheckpointHint> create_checkpoint_hints;
     std::vector<CommitCheckpointHint> commit_checkpoint_hints;

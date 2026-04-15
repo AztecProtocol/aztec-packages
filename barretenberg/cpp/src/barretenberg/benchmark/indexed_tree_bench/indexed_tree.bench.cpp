@@ -1,3 +1,4 @@
+#include "barretenberg/aztec/aztec_indexed_leaves.hpp"
 #include "barretenberg/common/thread_pool.hpp"
 #include "barretenberg/crypto/merkle_tree/fixtures.hpp"
 #include "barretenberg/crypto/merkle_tree/hash.hpp"
@@ -14,6 +15,7 @@
 
 using namespace benchmark;
 using namespace bb::crypto::merkle_tree;
+using bb::aztec::NullifierLeafValue;
 
 using StoreType = ContentAddressedCachedTreeStore<NullifierLeafValue>;
 

@@ -207,7 +207,9 @@ if(NOT WASM AND NOT FUZZING AND NOT BB_LITE)
     list(APPEND BARRETENBERG_TARGET_OBJECTS $<TARGET_OBJECTS:crypto_merkle_tree_objects>)
     list(APPEND BARRETENBERG_TARGET_OBJECTS $<TARGET_OBJECTS:lmdblib_objects>)
     list(APPEND BARRETENBERG_TARGET_OBJECTS $<TARGET_OBJECTS:api_objects>)
-    list(APPEND BARRETENBERG_TARGET_OBJECTS $<TARGET_OBJECTS:aztec_objects>)
+    # aztec is now a header-only INTERFACE library (no object files) after
+    # NullifierLeafValue/PublicDataLeafValue moved to headers and the static_assert
+    # .cpp was deleted, so no $<TARGET_OBJECTS:aztec_objects> entry is needed here.
     list(APPEND BARRETENBERG_TARGET_OBJECTS $<TARGET_OBJECTS:world_state_objects>)
 endif()
 

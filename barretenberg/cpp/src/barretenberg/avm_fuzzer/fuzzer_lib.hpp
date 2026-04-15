@@ -11,7 +11,7 @@
 #include "barretenberg/avm_fuzzer/fuzz_lib/simulator.hpp"
 #include "barretenberg/avm_fuzzer/mutations/bytecode.hpp"
 #include "barretenberg/avm_fuzzer/mutations/tx_data.hpp"
-#include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp"
+#include "barretenberg/aztec/aztec_indexed_leaves.hpp"
 #include "barretenberg/serialize/msgpack_impl.hpp"
 #include "barretenberg/vm2/common/avm_io.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
@@ -32,7 +32,7 @@ struct FuzzerTxData {
     ProtocolContracts protocol_contracts;
 
     // Public data tree writes to be applied during state setup (e.g., for bytecode upgrades)
-    std::vector<bb::crypto::merkle_tree::PublicDataLeafValue> public_data_writes;
+    std::vector<bb::aztec::PublicDataLeafValue> public_data_writes;
     std::vector<FF> note_hashes;
 
     SERIALIZATION_FIELDS(input_programs,

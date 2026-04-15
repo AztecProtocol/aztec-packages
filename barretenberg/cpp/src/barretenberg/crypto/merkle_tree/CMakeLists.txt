@@ -7,7 +7,10 @@ barretenberg_module(
 set_target_properties(crypto_merkle_tree_objects PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
 if (NOT FUZZING)
-    # but the tests use poseidon
-    target_link_libraries(crypto_merkle_tree_tests PRIVATE stdlib_poseidon2)
+    # Tests use poseidon, and (in indexed_tree/node_store/lmdb_store tests) reference
+    # bb::aztec::NullifierLeafValue / PublicDataLeafValue — link aztec here rather than
+    # making crypto_merkle_tree itself depend on aztec (that would be a circular dependency:
+    # aztec already depends on crypto_merkle_tree for the generic IndexedLeaf<T> template).
+    target_link_libraries(crypto_merkle_tree_tests PRIVATE stdlib_poseidon2 aztec)
 endif()
 

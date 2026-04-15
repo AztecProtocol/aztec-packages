@@ -1,5 +1,6 @@
 #include "barretenberg/world_state/world_state.hpp"
 #include "barretenberg/aztec/aztec_constants.hpp"
+#include "barretenberg/aztec/aztec_indexed_leaves.hpp"
 #include "barretenberg/crypto/merkle_tree/append_only_tree/content_addressed_append_only_tree.hpp"
 #include "barretenberg/crypto/merkle_tree/hash.hpp"
 #include "barretenberg/crypto/merkle_tree/hash_path.hpp"
@@ -32,6 +33,8 @@
 namespace bb::world_state {
 
 using namespace bb::crypto::merkle_tree;
+using bb::aztec::NullifierLeafValue;
+using bb::aztec::PublicDataLeafValue;
 
 WorldState::WorldState(uint64_t thread_pool_size,
                        const std::string& data_dir,
@@ -593,8 +596,8 @@ WorldStateStatusFull WorldState::sync_block(const StateReference& block_state_re
                                             const bb::fr& block_header_hash,
                                             const std::vector<bb::fr>& notes,
                                             const std::vector<bb::fr>& l1_to_l2_messages,
-                                            const std::vector<crypto::merkle_tree::NullifierLeafValue>& nullifiers,
-                                            const std::vector<crypto::merkle_tree::PublicDataLeafValue>& public_writes)
+                                            const std::vector<NullifierLeafValue>& nullifiers,
+                                            const std::vector<PublicDataLeafValue>& public_writes)
 {
     validate_trees_are_equally_synched();
     rollback();
