@@ -4,7 +4,7 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "barretenberg/vm2/common/aztec_constants.hpp"
+#include "barretenberg/aztec/aztec_constants.hpp"
 #include "barretenberg/vm2/common/constants.hpp"
 #include "barretenberg/vm2/common/memory_types.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_keccakf1600.hpp"

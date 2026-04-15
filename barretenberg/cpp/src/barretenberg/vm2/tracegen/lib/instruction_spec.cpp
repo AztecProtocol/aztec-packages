@@ -4,7 +4,7 @@
 #include <cstdint>
 #include <unordered_map>
 
-#include "barretenberg/vm2/common/aztec_constants.hpp"
+#include "barretenberg/aztec/aztec_constants.hpp"
 #include "barretenberg/vm2/common/opcodes.hpp"
 
 namespace bb::avm2::tracegen {

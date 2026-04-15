@@ -30,7 +30,7 @@
 #include "barretenberg/vm2/tracegen/test_trace_container.hpp"
 
 // Imports for class_id_derivation-based vulnerability test
-#include "barretenberg/vm2/common/aztec_constants.hpp"
+#include "barretenberg/aztec/aztec_constants.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/generated/relations/class_id_derivation.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_class_id_derivation.hpp"

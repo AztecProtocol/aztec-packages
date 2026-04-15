@@ -4,8 +4,8 @@
 #include <array>
 #include <vector>
 
+#include "barretenberg/aztec/aztec_constants.hpp"
 #include "barretenberg/common/assert.hpp"
-#include "barretenberg/vm2/common/aztec_constants.hpp"
 
 namespace bb::avm2::simulation {
 

@@ -4,9 +4,9 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include "barretenberg/aztec/aztec_constants.hpp"
 #include "barretenberg/aztec/aztec_hash_policy.hpp"
 #include "barretenberg/crypto/poseidon2/poseidon2.hpp"
-#include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/constraining/flavor_settings.hpp"
 #include "barretenberg/vm2/constraining/testing/check_relation.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_indexed_tree_check.hpp"
