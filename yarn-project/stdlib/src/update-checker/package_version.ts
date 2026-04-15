@@ -26,17 +26,16 @@ export const DEV_VERSION = 'dev';
 /**
  * Returns the precise Aztec stack version for embedding in contract artifacts.
  *
- * 1. REF_NAME env var (e.g. "v5.0.0-nightly.20260414") — set during CI release builds when bootstrap.sh compiles
- *    contracts before publishing npm packages.
+ * 1. AZTEC_VERSION env var (e.g. "5.0.0-nightly.20260414") — set by ci3/source_refname during CI release builds when
+ *    the git tag is a valid semver.
  * 2. package.json version — when a developer installs the CLI (e.g. via aztec-up or npm) and runs `aztec compile`. The
  *    installed package.json carries the exact version.
  * 3. DEV_VERSION — local repo checkout during development (neither CI release nor npm install).
  */
 export function getAztecVersion(): string {
-  // Use the git tag version (e.g. 5.0.0-nightly.20260414) when available in CI release builds.
-  const refName = process.env.REF_NAME;
-  if (refName?.startsWith('v')) {
-    return refName.slice(1);
+  const aztecVersion = process.env.AZTEC_VERSION;
+  if (aztecVersion) {
+    return aztecVersion;
   }
 
   const dir = dirname(fileURLToPath(import.meta.url));
@@ -45,6 +44,8 @@ export function getAztecVersion(): string {
   try {
     const packageJsonPath = resolve(dir, '../../package.json');
     const version = JSON.parse(readFileSync(packageJsonPath).toString()).version;
+    // 0.1.0 is the placeholder version in all monorepo package.json files during development. Published packages will
+    // have the real version (e.g. 5.0.0-nightly.20260414).
     if (version && version !== '0.1.0') {
       return version;
     }
