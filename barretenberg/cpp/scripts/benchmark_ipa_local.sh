@@ -19,7 +19,7 @@ else
   NATIVE_PRESET=clang20-no-avm
 fi
 TARGET=commit_bench
-FILTER='bench_pippenger_without_endomorphism_basis_points<bb::curve::Grumpkin>'
+FILTER='bench_pippenger_without_endomorphism_basis_points.*Grumpkin'
 
 echo "== Building $TARGET native ($NATIVE_PRESET) =="
 cmake --preset "$NATIVE_PRESET" >/dev/null
