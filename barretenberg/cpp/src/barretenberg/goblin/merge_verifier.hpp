@@ -113,7 +113,8 @@ template <typename Curve> class MergeVerifier_ {
                                         const FF& pow_kappa,
                                         const FF& pow_kappa_disabled) const;
 
-    bool check_degree_identity(std::vector<FF>& evals,
+    bool check_degree_identity(const std::vector<FF>& l_data_evals,
+                               const FF& g_eval,
                                const FF& pow_kappa_minus_one,
                                const std::vector<FF>& degree_check_challenges) const;
 

@@ -101,18 +101,16 @@ The `MergeProver::construct_proof()` method executes the following steps:
 
 These are **not** sent again during the merge proof. They are always shifted by $X^s$.
 
-#### Step 1: Table Construction and Shifting
-Construct unshifted tables from the op queue, then shift L, R (and M for PREPEND) by $X^s$:
+#### Step 1: Table Construction
+Construct L, R, M with the offset baked in (data starts at position $s$ = `FULL_SHIFT`):
 ```cpp
-std::array<Polynomial, NUM_WIRES> merged_table = op_queue->construct_ultra_ops_table_columns();
-// ... assign left_table and right_table based on PREPEND/APPEND ...
-shift_table(left_table, FULL_SHIFT);   // X^s · L
-shift_table(right_table, FULL_SHIFT);  // X^s · R
-shift_table(merged_table, (settings == MergeSettings::PREPEND) ? FULL_SHIFT : APPEND_OUTPUT_SHIFT);
+Table left_table = op_queue->construct_current_ultra_ops_subtable_columns(FULL_SHIFT);   // X^s · L
+Table right_table = op_queue->construct_previous_ultra_ops_table_columns(FULL_SHIFT);    // X^s · R
+Table merged_table = op_queue->construct_ultra_ops_table_columns(m_shift);               // X^s · M or X^t · M
 ```
 
 #### Step 2: Send Shift Size
-The unshifted size $\ell$ (captured before shifting):
+The data-only size $\ell$ (total L size minus the offset):
 ```cpp
 transcript->send_to_verifier("shift_size", static_cast<uint32_t>(shift_size));
 ```
@@ -121,9 +119,11 @@ transcript->send_to_verifier("shift_size", static_cast<uint32_t>(shift_size));
 Commit to $X^s \cdot M_j$ (PREPEND) or $X^t \cdot M_j$ (APPEND) and send to the verifier.
 
 #### Step 4: Degree Check Polynomial
-Receive challenges $\alpha_1, \ldots, \alpha_4$ and compute the batched polynomial from the **shifted** left table:
-$$G(X) = X^{\ell+s-1} \cdot \left(\sum_{i=1}^{4} \alpha_i \cdot L'_i(X^{-1})\right)$$
-where $L'_i = X^s \cdot L_i$ is the shifted polynomial.
+Receive challenges $\alpha_1, \ldots, \alpha_4$ and compute $G$ from the **data-only** portion of L
+(positions $s$ through $s+\ell-1$, excluding the leading zeros):
+$$G(X) = X^{\ell-1} \cdot \sum_{i=1}^{4} \alpha_i \cdot L_i(X^{-1})$$
+
+$G$ has size $\ell$ (not $\ell + s$), giving a tight degree bound.
 
 #### Step 5: Commit to Degree Check Polynomial
 ```cpp
@@ -135,35 +135,40 @@ transcript->send_to_verifier("REVERSED_BATCHED_LEFT_TABLES",
 Receive evaluation challenge $\kappa$ from the verifier.
 
 #### Step 7: Send Evaluations
-Evaluate **shifted** polynomials and send:
-- $l'_j = (X^s \cdot L_j)(\kappa)$ for all $j$
+Send **unshifted** L evaluations and shifted R, M evaluations:
+- $l_j = L_j(\kappa)$ (data-only, unshifted) for all $j$
 - $r'_j = (X^s \cdot R_j)(\kappa)$ for all $j$
-- $m_j = M_j(\kappa)$ (shifted or unshifted depending on mode)
+- $m_j = M_j(\kappa)$ (shifted by $s$ or $t$ depending on mode)
 - $g = G(\kappa^{-1})$
 
 #### Step 8: Shplonk Batched Opening
-Use the Shplonk protocol to batch all openings into a single KZG opening proof. All evaluations match their committed polynomials directly.
+Use the Shplonk protocol to batch all openings into a single KZG opening proof. For L, the
+PCS opens $[X^s \cdot L_j]$ against the reconstructed evaluation $\kappa^s \cdot l_j$. This enforces
+the zero-prefix: if $L'_j$ has non-zero coefficients in positions $0 \ldots s-1$, then
+$L'_j(\kappa) \neq \kappa^s \cdot l_j$ and the KZG opening fails.
 
 ### Verifier Algorithm
 
-Mirrors the Prover's steps. The verifier receives evaluations of the shifted polynomials.
-
 #### Check Concatenation Identity
-For PREPEND (all shifted): $l'_j + \kappa^\ell \cdot r'_j = m'_j$
+The verifier reconstructs the shifted L evaluation as $\kappa^s \cdot l_j$:
 
-For APPEND (L, R shifted by $s$; M shifted by $t$): $l'_j + \kappa^\ell \cdot r'_j = \kappa^{s-t} \cdot m'_j$
+For PREPEND: $\kappa^s \cdot l_j + \kappa^\ell \cdot r'_j = m'_j$
 
-The $\kappa^{s-t}$ factor compensates for M having a smaller shift than L, R.
+For APPEND: $\kappa^s \cdot l_j + \kappa^\ell \cdot r'_j = \kappa^{s-t} \cdot m'_j$
+
+The $\kappa^{s-t}$ factor in APPEND compensates for M having a smaller shift than L, R.
 
 #### Check Degree Identity
-Verifies using shifted evaluations:
-$$\sum_{i=1}^{4} \alpha_i \cdot l'_i = g \cdot \kappa^{\ell+s-1}$$
+Verifies using the **unshifted** L evaluations with a tight exponent:
+$$\sum_{i=1}^{4} \alpha_i \cdot l_i = g \cdot \kappa^{\ell-1}$$
 
-This proves $\deg(L_j) < \ell$ (the X^s shift adds $s$ to both sides).
+This proves $\deg(L_j) < \ell$. The exponent $\kappa^{\ell-1}$ forces $\deg(G) \leq \ell - 1$:
+if $\deg(G) > \ell - 1$, the LHS (polynomial of degree $\leq \ell - 1$ in $\kappa$) cannot match
+the RHS (which would contain negative powers of $\kappa$).
 
 #### Verify Shplonk Opening
 Use KZG to verify the batched opening claim for ALL commitments:
-- $[X^s \cdot L_1], \ldots, [X^s \cdot L_4]$ (from input commitments)
+- $[X^s \cdot L_1], \ldots, [X^s \cdot L_4]$ (from input commitments, opened against $\kappa^s \cdot l_j$)
 - $[X^s \cdot R_1], \ldots, [X^s \cdot R_4]$ (from input commitments)
 - $[X^s \cdot M_1], \ldots, [X^s \cdot M_4]$ (PREPEND) or $[X^t \cdot M_1], \ldots, [X^t \cdot M_4]$ (APPEND)
 - $[G]$ (from proof)
@@ -179,19 +184,28 @@ $$L_j^{\ast}(X) = X^{\ell-1} \cdot L_j(X^{-1}) \implies L_j^{\ast}(\kappa^{-1}) 
 **Batching:** Check all 4 columns simultaneously:
 $$G(X) = X^{\ell-1} \cdot \sum_{i=1}^{4} \alpha_i \cdot L_i(X^{-1})$$
 
-**Verification:** Check $g = \sum_{i=1}^{4} \alpha_i \cdot l'_i \cdot \kappa^{-(\ell+s-1)}$, where $l'_i$ are the shifted evaluations. If any $\deg(L_i) \geq \ell$, this fails with overwhelming probability.
+$G$ reverses only the data portion of $L$ (size $\ell$), not the full shifted polynomial.
+
+**Verification:** Check $\sum_{i=1}^{4} \alpha_i \cdot l_i = g \cdot \kappa^{\ell-1}$, where $l_i$
+are the unshifted data evaluations.
+
+**Zero-prefix enforcement:** The PCS opens $[X^s \cdot L_j]$ against $\kappa^s \cdot l_j$.
+If $L'_j$ has non-zero prefix, $L'_j(\kappa) \neq \kappa^s \cdot l_j$ and the opening fails.
 
 **Implementation** (`merge_prover.cpp`):
 ```cpp
 static Polynomial compute_degree_check_polynomial(
     const std::array<Polynomial, NUM_WIRES>& left_table,
-    const std::vector<FF>& degree_check_challenges)
+    const std::vector<FF>& degree_check_challenges,
+    size_t shift_size)
 {
-    Polynomial reversed_batched_left_tables(left_table[0].size());
+    Polynomial batched_data(shift_size);
     for (size_t idx = 0; idx < NUM_WIRES; idx++) {
-        reversed_batched_left_tables.add_scaled(left_table[idx], degree_check_challenges[idx]);
+        for (size_t j = 0; j < shift_size; j++) {
+            batched_data.at(j) += degree_check_challenges[idx] * left_table[idx][FULL_SHIFT + j];
+        }
     }
-    return reversed_batched_left_tables.reverse();
+    return batched_data.reverse();
 }
 ```
 

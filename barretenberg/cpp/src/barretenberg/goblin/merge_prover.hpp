@@ -84,7 +84,8 @@ class MergeProver {
      * @return Polynomial
      */
     static Polynomial compute_degree_check_polynomial(const std::array<Polynomial, NUM_WIRES>& left_table,
-                                                      const std::vector<FF>& degree_check_challenges);
+                                                      const std::vector<FF>& degree_check_challenges,
+                                                      size_t shift_size);
 
     /**
      * @brief Compute the batched Shplonk quotient polynomial.
