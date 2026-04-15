@@ -816,6 +816,8 @@ TEST(ScalarMulConstrainingTest, MulAddInteractionsInfinityRep)
                                ecc_add_memory_event_emitter);
 
     EmbeddedCurvePoint inf = EmbeddedCurvePoint::infinity();
+    // TODO(#AVM-266): Rework test when is_infinity flag is removed from point representations.
+    // We now derive is_inf from coordinates, whereas previously we remapped coordinates /from/ is_inf.
     // EmbeddedCurvePoint preserves raw coordinates (see StandardAffinePointTest)
     EmbeddedCurvePoint inf_bb = EmbeddedCurvePoint(avm2::AffinePoint::infinity());
     EmbeddedCurvePoint inf_alt = EmbeddedCurvePoint(1, 2, true);
@@ -1366,6 +1368,9 @@ TEST(EccAddMemoryConstrainingTest, InfinityRepresentations)
                                ecc_add_memory_event_emitter);
     MemoryAddress dst_address = 5;
 
+    // TODO(#AVM-266): Rework test when is_infinity flag is removed from point representations.
+    // We now derive is_inf from coordinates, whereas previously we remapped coordinates /from/ is_inf.
+
     // Point P is infinity
     EmbeddedCurvePoint inf = EmbeddedCurvePoint::infinity();
     // EmbeddedCurvePoint preserves raw coordinates (see StandardAffinePointTest)
@@ -1376,62 +1381,48 @@ TEST(EccAddMemoryConstrainingTest, InfinityRepresentations)
     // Internal add() expects normalized points:
     EXPECT_THROW_WITH_MESSAGE(ecc_simulator.add(inf, inf_alt), "normalized");
 
-    // Coordinates are normalized in tracegen, so even though inf_bb and inf_alt have different coordinates, the circuit
-    // correctly assigns double_op = true when doubling inf:
-    ecc_simulator.add(memory, inf, inf_alt, dst_address);
-    // As above for the noir (0, 0) and bb (x, 0) inf reps:
-    ecc_simulator.add(memory, inf, inf_bb, dst_address + 3);
+    // The circuit correctly assigns double_op = true when doubling inf:
+    ecc_simulator.add(memory, inf, inf_bb, dst_address);
 
     builder.process_add(ecc_add_event_emitter.dump_events(), trace);
     check_relation<ecc>(trace);
     EXPECT_EQ(trace.get(C::ecc_double_op, 0), 1);
 
-    // Set memory reads:
-    trace.set(0,
-              { { // Execution
-                  { C::execution_sel, 1 },
-                  { C::execution_sel_exec_dispatch_ecc_add, 1 },
-                  { C::execution_rop_6_, dst_address },
-                  { C::execution_register_0_, inf.x() },
-                  { C::execution_register_1_, inf.y() },
-                  { C::execution_register_2_, inf.is_infinity() ? 1 : 0 },
-                  { C::execution_register_3_, inf_alt.x() },
-                  { C::execution_register_4_, inf_alt.y() },
-                  { C::execution_register_5_, inf_alt.is_infinity() ? 1 : 0 },
-                  // GT - dst out of range check
-                  { C::gt_sel, 1 },
-                  { C::gt_input_a, dst_address + 2 }, // highest write address is dst_address + 2
-                  { C::gt_input_b, AVM_HIGHEST_MEM_ADDRESS },
-                  { C::gt_res, 0 } } });
-    trace.set(1,
-              { { // Execution
-                  { C::execution_sel, 1 },
-                  { C::execution_sel_exec_dispatch_ecc_add, 1 },
-                  { C::execution_rop_6_, dst_address + 3 },
-                  { C::execution_register_0_, inf.x() },
-                  { C::execution_register_1_, inf.y() },
-                  { C::execution_register_2_, inf.is_infinity() ? 1 : 0 },
-                  { C::execution_register_3_, inf_bb.x() },
-                  { C::execution_register_4_, inf_bb.y() },
-                  { C::execution_register_5_, inf_bb.is_infinity() ? 1 : 0 },
-                  // GT - dst out of range check
-                  { C::gt_sel, 1 },
-                  { C::gt_input_a, dst_address + 5 },
-                  { C::gt_input_b, AVM_HIGHEST_MEM_ADDRESS },
-                  { C::gt_res, 0 } } });
+    // TODO(#AVM-266): Rework test when is_infinity flag is removed from point representations.
+    // We now derive is_inf from coordinates, whereas previously we remapped coordinates /from/ is_inf.
+    // The below test no longer makes sense since it checks we store non-(0,0) coordinates for an inf
+    // point, which we do not allow.
 
-    builder.process_add_with_memory(ecc_add_memory_event_emitter.dump_events(), trace);
+    // // Set memory reads:
+    // trace.set(0,
+    //           { { // Execution
+    //               { C::execution_sel, 1 },
+    //               { C::execution_sel_exec_dispatch_ecc_add, 1 },
+    //               { C::execution_rop_6_, dst_address + 3 },
+    //               { C::execution_register_0_, inf.x() },
+    //               { C::execution_register_1_, inf.y() },
+    //               { C::execution_register_2_, inf.is_infinity() ? 1 : 0 },
+    //               { C::execution_register_3_, inf_bb.x() },
+    //               { C::execution_register_4_, inf_bb.y() },
+    //               { C::execution_register_5_, inf_bb.is_infinity() ? 1 : 0 },
+    //               // GT - dst out of range check
+    //               { C::gt_sel, 1 },
+    //               { C::gt_input_a, dst_address + 2 },
+    //               { C::gt_input_b, AVM_HIGHEST_MEM_ADDRESS },
+    //               { C::gt_res, 0 } } });
 
-    // The original coordinates are stored in memory for the read...
-    EXPECT_EQ(trace.get(C::ecc_add_mem_q_x, 1), inf_bb.x());
-    EXPECT_EQ(trace.get(C::ecc_add_mem_q_y, 1), inf_bb.y());
-    // ...but normalised coordinates are sent to the ecc subtrace:
-    EXPECT_EQ(trace.get(C::ecc_add_mem_q_x_n, 1), 0);
-    EXPECT_EQ(trace.get(C::ecc_add_mem_q_y_n, 1), 0);
-    check_relation<mem_aware_ecc>(trace);
-    check_relation<ecc>(trace);
-    check_all_interactions<EccTraceBuilder>(trace);
-    check_interaction<tracegen::ExecutionTraceBuilder, bb::avm2::perm_execution_dispatch_to_ecc_add_settings>(trace);
+    // builder.process_add_with_memory(ecc_add_memory_event_emitter.dump_events(), trace);
+
+    // // The original coordinates are stored in memory for the read...
+    // EXPECT_EQ(trace.get(C::ecc_add_mem_q_x, 1), inf_bb.x());
+    // EXPECT_EQ(trace.get(C::ecc_add_mem_q_y, 1), inf_bb.y());
+    // // ...but normalised coordinates are sent to the ecc subtrace:
+    // EXPECT_EQ(trace.get(C::ecc_add_mem_q_x_n, 1), 0);
+    // EXPECT_EQ(trace.get(C::ecc_add_mem_q_y_n, 1), 0);
+    // check_relation<mem_aware_ecc>(trace);
+    // check_relation<ecc>(trace);
+    // check_all_interactions<EccTraceBuilder>(trace);
+    // check_interaction<tracegen::ExecutionTraceBuilder, bb::avm2::perm_execution_dispatch_to_ecc_add_settings>(trace);
 }
 
 } // namespace

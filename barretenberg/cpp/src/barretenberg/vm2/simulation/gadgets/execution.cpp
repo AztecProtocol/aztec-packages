@@ -1466,6 +1466,8 @@ void Execution::poseidon2_permutation(ContextInterface& context, MemoryAddress s
  * @brief ECADD execution opcode handler: Perform an elliptic curve addition and
  *        write the result to the destination memory address.
  *
+ * TODO(#AVM-266): Remove infinity flags from point representation.
+ *
  * @param context The context.
  * @param p_x_addr The resolved address of the x coordinate of the first point.
  * @param p_y_addr The resolved address of the y coordinate of the first point.
