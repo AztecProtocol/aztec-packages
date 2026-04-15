@@ -273,8 +273,8 @@ export type EndToEndContext = {
 
 /**
  * When CONTRACT_ARTIFACTS_VERSION is set (backwards compatibility testing), asserts that the loaded artifact's
- * aztecVersion matches the expected version. This ensures that the legacy artifact resolver actually swapped in the
- * correct version.
+ * aztecVersion matches the expected version. This is a sanity check verifying that the legacy artifact resolver
+ * actually swapped in the correct version.
  */
 function assertContractArtifactsVersion() {
   const expected = process.env.CONTRACT_ARTIFACTS_VERSION;
