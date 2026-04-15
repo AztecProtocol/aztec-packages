@@ -1,6 +1,7 @@
 import {
   type ConfigMappingsType,
   booleanConfigHelper,
+  enumConfigHelper,
   getConfigFromMappings,
   numberConfigHelper,
   parseBooleanEnv,
@@ -58,14 +59,7 @@ export const pxeConfigMappings: ConfigMappingsType<PXEConfig> = {
   syncChainTip: {
     env: 'PXE_SYNC_CHAIN_TIP',
     description: 'Which chain tip to sync to (proposed, checkpointed, proven, finalized)',
-    defaultValue: 'proposed',
-    parseEnv: (val: string) => {
-      const allowedValues = ['proposed', 'checkpointed', 'proven', 'finalized'];
-      if (allowedValues.includes(val)) {
-        return val;
-      }
-      throw new Error(`Invalid value for PXE_SYNC_CHAIN_TIP: ${val}. Allowed values are: ${allowedValues.join(', ')}`);
-    },
+    ...enumConfigHelper(['proposed', 'checkpointed', 'proven', 'finalized'], 'proposed'),
   },
 };
 

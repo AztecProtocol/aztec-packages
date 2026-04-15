@@ -29,7 +29,7 @@ import {
 } from '@aztec/p2p';
 import { OffenseType, WANT_TO_SLASH_EVENT } from '@aztec/slasher';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { type BlockData, L2Block, type L2BlockSink, type L2BlockSource } from '@aztec/stdlib/block';
+import { type BlockData, BlockHash, L2Block, type L2BlockSink, type L2BlockSource } from '@aztec/stdlib/block';
 import { type getEpochAtSlot, getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
 import type { SlasherConfig, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import { type L1ToL2MessageSource, computeInHashFromL1ToL2Messages } from '@aztec/stdlib/messaging';
@@ -400,7 +400,7 @@ describe('ValidatorClient', () => {
           globalVariables: blockHeader.globalVariables,
         },
         archive: new AppendOnlyTreeSnapshot(Fr.random(), blockNumber - 1),
-        blockHash: Fr.random(),
+        blockHash: BlockHash.random(),
         checkpointNumber: CheckpointNumber(1),
         indexWithinCheckpoint: IndexWithinCheckpoint(0),
       } as unknown as BlockData);
@@ -895,7 +895,7 @@ describe('ValidatorClient', () => {
             globalVariables: parentGlobalVariables,
           },
           archive: new AppendOnlyTreeSnapshot(Fr.random(), parentBlockNumber),
-          blockHash: Fr.random(),
+          blockHash: BlockHash.random(),
           checkpointNumber: parentCheckpointNumber,
           indexWithinCheckpoint: IndexWithinCheckpoint(0), // Parent is first block in checkpoint
         } as unknown as BlockData);
