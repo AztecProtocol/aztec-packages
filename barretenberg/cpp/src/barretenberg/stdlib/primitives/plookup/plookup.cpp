@@ -21,8 +21,6 @@ plookup::ReadData<field_t<Builder>> plookup_read<Builder>::get_lookup_accumulato
                                                                                    const field_t<Builder>& key_b,
                                                                                    const bool is_2_to_1_lookup)
 {
-    // NOTE: Cannot simply delegate to the MultiTable& overload because the builder's MultiTableId overload
-    // handles lazy BasicTable creation and index resolution internally.
     Builder* ctx = key_a.get_context() ? key_a.get_context() : key_b.get_context();
     const plookup::ReadData<bb::fr> lookup_data =
         plookup::get_lookup_accumulators(id, key_a.get_value(), key_b.get_value(), is_2_to_1_lookup);
@@ -51,7 +49,6 @@ plookup::ReadData<field_t<Builder>> plookup_read<Builder>::get_lookup_accumulato
             key_b_witness = std::nullopt;
         }
 
-        // Use the MultiTableId overload which handles lazy table creation and index resolution
         const auto accumulator_witnesses =
             ctx->create_gates_from_plookup_accumulators(id, lookup_data, lhs_index, key_b_witness);
 
@@ -74,71 +71,6 @@ std::pair<field_t<Builder>, field_t<Builder>> plookup_read<Builder>::read_pair_f
     const auto lookup = get_lookup_accumulators(id, key);
 
     return { lookup[ColumnIdx::C2][0], lookup[ColumnIdx::C3][0] };
-}
-
-template <typename Builder>
-std::pair<field_t<Builder>, field_t<Builder>> plookup_read<Builder>::read_pair_from_table(
-    const plookup::MultiTable& multi_table, const field_t<Builder>& key)
-{
-    const auto lookup = get_lookup_accumulators(multi_table, key);
-
-    return { lookup[ColumnIdx::C2][0], lookup[ColumnIdx::C3][0] };
-}
-
-template <typename Builder>
-plookup::ReadData<field_t<Builder>> plookup_read<Builder>::get_lookup_accumulators(
-    const plookup::MultiTable& multi_table,
-    const field_t<Builder>& key_a,
-    const field_t<Builder>& key_b,
-    const bool is_2_to_1_lookup)
-{
-    Builder* ctx = key_a.get_context() ? key_a.get_context() : key_b.get_context();
-    const plookup::ReadData<bb::fr> lookup_data =
-        plookup::get_lookup_accumulators(multi_table, key_a.get_value(), key_b.get_value(), is_2_to_1_lookup);
-
-    plookup::ReadData<field_t<Builder>> lookup;
-
-    // If both keys are constant (or key_b unused), we can directly create constant field elements
-    if (key_a.is_constant() && (key_b.is_constant() || !is_2_to_1_lookup)) {
-        for (size_t i = 0; i < lookup_data[ColumnIdx::C1].size(); ++i) {
-            lookup[ColumnIdx::C1].emplace_back(field_t<Builder>(ctx, lookup_data[ColumnIdx::C1][i]));
-            lookup[ColumnIdx::C2].emplace_back(field_t<Builder>(ctx, lookup_data[ColumnIdx::C2][i]));
-            lookup[ColumnIdx::C3].emplace_back(field_t<Builder>(ctx, lookup_data[ColumnIdx::C3][i]));
-        }
-    } else {
-        // At least one key needs witness constraints, so create plookup gates
-        uint32_t lhs_index = key_a.get_witness_index();
-        uint32_t rhs_index = key_b.get_witness_index();
-
-        if (key_a.is_constant()) {
-            lhs_index = ctx->put_constant_variable(key_a.get_value());
-        }
-        if (key_b.is_constant() && is_2_to_1_lookup) {
-            rhs_index = ctx->put_constant_variable(key_b.get_value());
-        }
-
-        auto key_b_witness = std::make_optional(rhs_index);
-        if (rhs_index == stdlib::IS_CONSTANT) {
-            key_b_witness = std::nullopt;
-        }
-
-        const auto accumulator_witnesses =
-            ctx->create_gates_from_plookup_accumulators(multi_table, lookup_data, lhs_index, key_b_witness);
-
-        const auto merged_tag = OriginTag(key_a.get_origin_tag(), key_b.get_origin_tag());
-        for (size_t i = 0; i < lookup_data[ColumnIdx::C1].size(); ++i) {
-            lookup[ColumnIdx::C1].emplace_back(
-                field_t<Builder>::from_witness_index(ctx, accumulator_witnesses[ColumnIdx::C1][i]));
-            lookup[ColumnIdx::C2].emplace_back(
-                field_t<Builder>::from_witness_index(ctx, accumulator_witnesses[ColumnIdx::C2][i]));
-            lookup[ColumnIdx::C3].emplace_back(
-                field_t<Builder>::from_witness_index(ctx, accumulator_witnesses[ColumnIdx::C3][i]));
-            lookup[ColumnIdx::C1].back().set_origin_tag(merged_tag);
-            lookup[ColumnIdx::C2].back().set_origin_tag(merged_tag);
-            lookup[ColumnIdx::C3].back().set_origin_tag(merged_tag);
-        }
-    }
-    return lookup;
 }
 
 template <typename Builder>

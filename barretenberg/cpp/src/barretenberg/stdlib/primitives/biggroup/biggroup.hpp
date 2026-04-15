@@ -372,8 +372,8 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
                              const size_t max_num_bits = 0,
                              const bool with_edgecases = true);
 
-    // MSM for constant points using fixed plookup tables (no ROM init cost, 1 gate per read instead of 2).
-    // All points must be circuit constants. Scalars are witnesses.
+    // MSM for fixed points using fixed plookup tables (no ROM init cost, ~1 gate per read instead of ~2).
+    // All points must be circuit constants or fixed witnesses (is_fixed() == true). Scalars are witnesses.
     static element fixed_lookup_batch_mul(const std::vector<element>& points,
                                           const std::vector<Fr>& scalars,
                                           size_t max_num_bits = 0);
