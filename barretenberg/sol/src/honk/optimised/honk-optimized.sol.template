@@ -16,7 +16,7 @@ uint256 constant CIRCUIT_SIZE = 32768;
 uint256 constant LOG_N = 15;
 uint256 constant NUMBER_PUBLIC_INPUTS = 12;
 uint256 constant REAL_NUMBER_PUBLIC_INPUTS = 12 - 8;
-uint256 constant PUBLIC_INPUTS_OFFSET = 5;
+uint256 constant PUBLIC_INPUTS_OFFSET = 5; // NUM_DISABLED_ROWS_IN_SUMCHECK + NUM_ZERO_ROWS = 4 + 1
 
 contract BlakeOptHonkVerifier is IVerifier {
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/

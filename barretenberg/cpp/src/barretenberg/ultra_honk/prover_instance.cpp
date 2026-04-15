@@ -196,8 +196,10 @@ template <typename Flavor> void ProverInstance_<Flavor>::allocate_table_lookup_p
     const size_t table_offset = circuit.blocks.lookup.trace_offset();
     const size_t tables_end = table_offset + tables_size;
 
+    // Tables start at the lookup block's trace offset, which is always past the disabled region
+    BB_ASSERT_GTE(table_offset, TRACE_OFFSET);
     // Allocate polynomials containing the actual table data; offset to align with the lookup gate block
-    BB_ASSERT_GT(dyadic_size(), tables_end);
+    BB_ASSERT_GTE(dyadic_size(), tables_end);
     for (auto& table_poly : polynomials.get_tables()) {
         table_poly = Polynomial(tables_end, dyadic_size());
     }

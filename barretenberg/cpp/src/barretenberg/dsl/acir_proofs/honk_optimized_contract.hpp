@@ -410,7 +410,7 @@ uint256 constant CIRCUIT_SIZE = {{ CIRCUIT_SIZE }};
 uint256 constant LOG_N = {{ LOG_CIRCUIT_SIZE }};
 uint256 constant NUMBER_PUBLIC_INPUTS = {{ NUM_PUBLIC_INPUTS }};
 uint256 constant REAL_NUMBER_PUBLIC_INPUTS = {{ REAL_NUM_PUBLIC_INPUTS }};
-uint256 constant PUBLIC_INPUTS_OFFSET = 5;
+uint256 constant PUBLIC_INPUTS_OFFSET = 5; // NUM_DISABLED_ROWS_IN_SUMCHECK + NUM_ZERO_ROWS = 4 + 1
 
 contract HonkVerifier is IVerifier {
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
