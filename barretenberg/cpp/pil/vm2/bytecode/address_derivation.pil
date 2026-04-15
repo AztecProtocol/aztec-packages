@@ -186,7 +186,7 @@ namespace address_derivation;
 
     // TODO(#AVM-266): Remove infinity flags from point representation. Note that we may still need to use
     // precomputed.zero in the hash preimages until address derivation removes them:
-    // TODO(#7529): Remove all the 0s for is_infinity when removed from public_keys.nr
+    // TODO(#7529)/TODO(F-553): Remove all the 0s for is_infinity when removed from public_keys.nr
     // https://github.com/AztecProtocol/aztec-packages/issues/7529
     // TODO(#14031): Compress keys in public_keys_hash
     // https://github.com/AztecProtocol/aztec-packages/issues/14031

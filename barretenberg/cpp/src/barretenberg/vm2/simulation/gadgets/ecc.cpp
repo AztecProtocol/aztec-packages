@@ -136,11 +136,10 @@ void Ecc::add(MemoryInterface& memory,
             throw InternalEccException("dst address out of range");
         }
 
+        // TODO(#AVM-266): Note: bb infinity points (is_inf=true with x=(P+1)/2, y=0) pass on_curve() without
+        // throwing here, but would throw in the circuit. We assume here input points follow the Noir convention
+        // of (x=0, y=0) <==> is_infinity.
         if (!p.on_curve() || !q.on_curve()) {
-            // TODO(#AVM-266): Note: We now use this to enforce (X, Y) == (0, 0) ==> is_inf
-            // until is_inf is removed. This means a bb inf point (!= (0, 0)) will
-            // not throw here but would throw in the circuit. Since we remap such points to
-            // (0, 0) below, it shouldn't reach the circuit at all.
             throw InternalEccException("One of the points is not on the curve");
         }
 
