@@ -42,7 +42,9 @@ using namespace bb;
 template <typename Flavor, typename IO>
 [[nodiscard("IPA claim and Pairing points should be accumulated")]] HonkRecursionConstraintOutput<
     typename Flavor::CircuitBuilder>
-create_honk_recursion_constraints(typename Flavor::CircuitBuilder& builder, const RecursionConstraint& input)
+create_honk_recursion_constraints(typename Flavor::CircuitBuilder& builder,
+                                  const RecursionConstraint& input,
+                                  bool fix_vk_witnesses = false)
     requires(IsRecursiveFlavor<Flavor> && IsUltraHonk<typename Flavor::NativeFlavor>);
 
 #ifndef NDEBUG

@@ -575,14 +575,13 @@ HEAVY_TYPED_TEST(RecursiveVerifierTest, GraphAnalysisOfRecursiveVerifier)
  */
 HEAVY_TYPED_TEST(RecursiveVerifierTest, ProfilingRecursiveVerifier)
 {
-    // Only run profiling for UltraRecursiveFlavor with UltraCircuitBuilder
+    // Run profiling for all UltraCircuitBuilder-based recursive flavors
     using RecursiveFlavor = typename TypeParam::RecursiveFlavor;
     using OuterBuilder = typename RecursiveFlavor::CircuitBuilder;
-    if constexpr (std::is_same_v<RecursiveFlavor, UltraRecursiveFlavor_<UltraCircuitBuilder>> &&
-                  std::is_same_v<OuterBuilder, UltraCircuitBuilder>) {
+    if constexpr (std::is_same_v<OuterBuilder, UltraCircuitBuilder>) {
         TestFixture::test_recursive_verifier_profiling();
     } else {
-        GTEST_SKIP() << "Profiling only for UltraRecursiveFlavor_<UltraCircuitBuilder>";
+        GTEST_SKIP() << "Profiling only for UltraCircuitBuilder-based recursive flavors";
     }
 };
 

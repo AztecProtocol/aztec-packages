@@ -2953,6 +2953,415 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             info("Gate savings: ", savings, "%");
         }
     }
+
+    /**
+     * @brief Verify fixed_lookup_batch_mul produces identical results to batch_mul on the same inputs.
+     * @details The key correctness property: the two MSM algorithms must agree on every input.
+     *          We test small and medium sizes, with random full-width scalars.
+     */
+    static void test_fixed_lookup_batch_mul_matches_batch_mul()
+    {
+        if constexpr (HasGoblinBuilder<TestType>) {
+            return;
+        } else {
+            for (size_t num_points : { 1UL, 2UL, 4UL, 7UL, 15UL, 16UL }) {
+                // Generate shared native inputs
+                std::vector<affine_element> native_points(num_points);
+                std::vector<fr> native_scalars(num_points);
+                for (size_t i = 0; i < num_points; ++i) {
+                    native_points[i] = affine_element(element::random_element());
+                    native_scalars[i] = fr::random_element();
+                }
+
+                // batch_mul result
+                element expected_native = element::infinity();
+                for (size_t i = 0; i < num_points; ++i) {
+                    expected_native += element(native_points[i]) * native_scalars[i];
+                }
+                affine_element expected_aff(expected_native);
+
+                // fixed_lookup_batch_mul result
+                {
+                    Builder builder;
+                    std::vector<element_ct> circuit_points(num_points);
+                    std::vector<scalar_ct> circuit_scalars(num_points);
+                    for (size_t i = 0; i < num_points; ++i) {
+                        using Fq_ct = typename element_ct::BaseField;
+                        Fq_ct x_const(&builder, uint256_t(native_points[i].x));
+                        Fq_ct y_const(&builder, uint256_t(native_points[i].y));
+                        circuit_points[i] = element_ct(x_const, y_const);
+                        circuit_scalars[i] = scalar_ct::from_witness(&builder, native_scalars[i]);
+                    }
+                    element_ct result = element_ct::fixed_lookup_batch_mul(circuit_points, circuit_scalars);
+                    auto result_val = result.get_value();
+                    EXPECT_EQ(result_val.x, expected_aff.x)
+                        << "fixed_lookup vs batch_mul x mismatch for num_points=" << num_points;
+                    EXPECT_EQ(result_val.y, expected_aff.y)
+                        << "fixed_lookup vs batch_mul y mismatch for num_points=" << num_points;
+                    EXPECT_CIRCUIT_CORRECTNESS(builder);
+                }
+            }
+        }
+    }
+
+    /**
+     * @brief Test fixed_lookup_batch_mul with fixed-witness points (convert_constant_to_fixed_witness).
+     * @details is_fixed() returns true for both raw constants and fixed witnesses. Ensure the latter
+     *          path through fixed_lookup_batch_mul also produces correct results and valid circuits.
+     */
+    static void test_fixed_lookup_batch_mul_fixed_witness_points()
+    {
+        if constexpr (HasGoblinBuilder<TestType>) {
+            return;
+        } else {
+            constexpr size_t num_points = 4;
+            Builder builder;
+
+            std::vector<affine_element> native_points(num_points);
+            std::vector<fr> native_scalars(num_points);
+            std::vector<element_ct> circuit_points(num_points);
+            std::vector<scalar_ct> circuit_scalars(num_points);
+
+            for (size_t i = 0; i < num_points; ++i) {
+                native_points[i] = affine_element(element::random_element());
+                native_scalars[i] = fr::random_element();
+
+                // Create as constant then convert to fixed witness — this is the VK path
+                using Fq_ct = typename element_ct::BaseField;
+                Fq_ct x_fq(&builder, uint256_t(native_points[i].x));
+                Fq_ct y_fq(&builder, uint256_t(native_points[i].y));
+                element_ct p(x_fq, y_fq);
+                p.convert_constant_to_fixed_witness(&builder);
+                EXPECT_TRUE(p.is_fixed()) << "Point should be fixed witness";
+                circuit_points[i] = p;
+                circuit_scalars[i] = scalar_ct::from_witness(&builder, native_scalars[i]);
+            }
+
+            element expected_native = element::infinity();
+            for (size_t i = 0; i < num_points; ++i) {
+                expected_native += element(native_points[i]) * native_scalars[i];
+            }
+            affine_element expected_aff(expected_native);
+
+            element_ct result = element_ct::fixed_lookup_batch_mul(circuit_points, circuit_scalars);
+            auto result_val = result.get_value();
+            EXPECT_EQ(result_val.x, expected_aff.x) << "x mismatch with fixed-witness points";
+            EXPECT_EQ(result_val.y, expected_aff.y) << "y mismatch with fixed-witness points";
+            EXPECT_CIRCUIT_CORRECTNESS(builder);
+        }
+    }
+
+    /**
+     * @brief Test fixed_lookup_batch_mul with scalar = 1 for each point individually.
+     * @details Verifies the degenerate case where the MSM reduces to a point identity.
+     *          For a single point P with scalar 1, the result must equal P exactly.
+     */
+    static void test_fixed_lookup_batch_mul_scalar_one()
+    {
+        if constexpr (HasGoblinBuilder<TestType>) {
+            return;
+        } else {
+            Builder builder;
+
+            affine_element native_point(element::random_element());
+            using Fq_ct = typename element_ct::BaseField;
+            Fq_ct x_const(&builder, uint256_t(native_point.x));
+            Fq_ct y_const(&builder, uint256_t(native_point.y));
+            element_ct circuit_point(x_const, y_const);
+            scalar_ct scalar_one = scalar_ct::from_witness(&builder, fr(1));
+
+            element_ct result = element_ct::fixed_lookup_batch_mul({ circuit_point }, { scalar_one });
+            auto result_val = result.get_value();
+
+            EXPECT_EQ(result_val.x, native_point.x) << "scalar=1: x should equal point x";
+            EXPECT_EQ(result_val.y, native_point.y) << "scalar=1: y should equal point y";
+            EXPECT_CIRCUIT_CORRECTNESS(builder);
+        }
+    }
+
+    /**
+     * @brief Test fixed_lookup_batch_mul with scalar equal to the group order (= 0 mod r).
+     * @details scalar = r means scalar * P = infinity. Verifies the MSM handles this correctly.
+     */
+    static void test_fixed_lookup_batch_mul_scalar_order()
+    {
+        if constexpr (HasGoblinBuilder<TestType>) {
+            return;
+        } else {
+            Builder builder;
+
+            affine_element native_point(element::random_element());
+            using Fq_ct = typename element_ct::BaseField;
+            Fq_ct x_const(&builder, uint256_t(native_point.x));
+            Fq_ct y_const(&builder, uint256_t(native_point.y));
+            element_ct circuit_point(x_const, y_const);
+
+            // Scalar = 0 (group order ≡ 0 mod r). Result must be infinity.
+            scalar_ct scalar_zero = scalar_ct::from_witness(&builder, fr(0));
+            element_ct result = element_ct::fixed_lookup_batch_mul({ circuit_point }, { scalar_zero });
+
+            EXPECT_TRUE(is_infinity(result)) << "scalar=0 should yield point at infinity";
+            EXPECT_CIRCUIT_CORRECTNESS(builder);
+        }
+    }
+
+    /**
+     * @brief Test get() with constant NAF bits (not witnesses).
+     * @details Exercises the key.is_constant() branch in fixed_group_table::get() / read_pair,
+     *          which returns field_ct constants rather than creating lookup gates.
+     */
+    static void test_fixed_group_table_constant_naf_bits()
+    {
+        if constexpr (HasGoblinBuilder<TestType>) {
+            return;
+        } else {
+            constexpr size_t k = 3;
+            Builder builder;
+
+            std::vector<affine_element> native_points(k);
+            std::vector<element_ct> circuit_points(k);
+            for (size_t i = 0; i < k; ++i) {
+                native_points[i] = affine_element(element::random_element());
+                using Fq_ct = typename element_ct::BaseField;
+                Fq_ct x_const(&builder, uint256_t(native_points[i].x));
+                Fq_ct y_const(&builder, uint256_t(native_points[i].y));
+                circuit_points[i] = element_ct(x_const, y_const);
+            }
+
+            typename element_ct::fixed_group_table table(&builder, circuit_points);
+
+            // Use constant (non-witness) NAF bits — exercises the is_constant() branch
+            const size_t test_index = 5; // bits: 1,0,1 → -P0 + P1 - P2
+            std::vector<bool_ct> naf_bits(k);
+            for (size_t j = 0; j < k; ++j) {
+                // constant bool (not from_witness)
+                naf_bits[j] = bool_ct(&builder, static_cast<bool>((test_index >> j) & 1));
+            }
+            const size_t gates_before = builder.num_gates();
+            element_ct result = table.get(naf_bits);
+            const size_t gates_after = builder.num_gates();
+
+            // Constant index → should add no lookup gates
+            EXPECT_LT(gates_after - gates_before, 50UL)
+                << "constant NAF bits should not create lookup gates";
+
+            // Verify the result value
+            using NativeElement = typename g1::element;
+            NativeElement expected_native = NativeElement::one();
+            expected_native.self_set_infinity();
+            for (size_t j = 0; j < k; ++j) {
+                bool bit_set = (test_index >> j) & 1;
+                expected_native = bit_set ? expected_native - NativeElement(native_points[j])
+                                          : expected_native + NativeElement(native_points[j]);
+            }
+            affine_element expected_aff(expected_native);
+            auto result_val = result.get_value();
+            EXPECT_EQ(result_val.x, expected_aff.x) << "constant NAF bits: x mismatch";
+            EXPECT_EQ(result_val.y, expected_aff.y) << "constant NAF bits: y mismatch";
+
+            EXPECT_CIRCUIT_CORRECTNESS(builder);
+        }
+    }
+
+    /**
+     * @brief Test fixed_lookup_batch_mul with a mix of constant and witness scalars.
+     * @details The all_constant check short-circuits to an out-of-circuit computation.
+     *          A mix should fall through to the in-circuit path (since not all_constant).
+     */
+    static void test_fixed_lookup_batch_mul_mixed_constant_witness_scalars()
+    {
+        if constexpr (HasGoblinBuilder<TestType>) {
+            return;
+        } else {
+            constexpr size_t num_points = 4;
+            Builder builder;
+
+            std::vector<affine_element> native_points(num_points);
+            std::vector<fr> native_scalars(num_points);
+            std::vector<element_ct> circuit_points(num_points);
+            std::vector<scalar_ct> circuit_scalars(num_points);
+
+            for (size_t i = 0; i < num_points; ++i) {
+                native_points[i] = affine_element(element::random_element());
+                native_scalars[i] = fr::random_element();
+
+                using Fq_ct = typename element_ct::BaseField;
+                Fq_ct x_const(&builder, uint256_t(native_points[i].x));
+                Fq_ct y_const(&builder, uint256_t(native_points[i].y));
+                circuit_points[i] = element_ct(x_const, y_const);
+
+                // Alternate: even indices are constants, odd are witnesses
+                if (i % 2 == 0) {
+                    circuit_scalars[i] = scalar_ct(&builder, native_scalars[i]); // constant
+                } else {
+                    circuit_scalars[i] = scalar_ct::from_witness(&builder, native_scalars[i]); // witness
+                }
+            }
+
+            element expected_native = element::infinity();
+            for (size_t i = 0; i < num_points; ++i) {
+                expected_native += element(native_points[i]) * native_scalars[i];
+            }
+            affine_element expected_aff(expected_native);
+
+            element_ct result = element_ct::fixed_lookup_batch_mul(circuit_points, circuit_scalars);
+            auto result_val = result.get_value();
+            EXPECT_EQ(result_val.x, expected_aff.x) << "mixed scalars: x mismatch";
+            EXPECT_EQ(result_val.y, expected_aff.y) << "mixed scalars: y mismatch";
+            EXPECT_CIRCUIT_CORRECTNESS(builder);
+        }
+    }
+
+    /**
+     * @brief Test fixed_group_table correctness for k=1 (single-point table, single round_result).
+     * @details k=1 exercises the round_results.size() == 1 branch in get_round_accumulator.
+     *          The table has 2 entries: +P (index 0) and -P (index 1).
+     */
+    static void test_fixed_group_table_single_point()
+    {
+        if constexpr (HasGoblinBuilder<TestType>) {
+            return;
+        } else {
+            Builder builder;
+
+            affine_element native_point(element::random_element());
+            using Fq_ct = typename element_ct::BaseField;
+            Fq_ct x_const(&builder, uint256_t(native_point.x));
+            Fq_ct y_const(&builder, uint256_t(native_point.y));
+            element_ct circuit_point(x_const, y_const);
+
+            typename element_ct::fixed_group_table table(&builder, { circuit_point });
+
+            // index 0 (bit=0): should give +P
+            {
+                std::vector<bool_ct> naf_bits = { bool_ct(witness_ct(&builder, false)) };
+                element_ct result = table.get(naf_bits);
+                auto result_val = result.get_value();
+                EXPECT_EQ(result_val.x, native_point.x) << "k=1 index=0: x should be +P.x";
+                EXPECT_EQ(result_val.y, native_point.y) << "k=1 index=0: y should be +P.y";
+            }
+
+            // index 1 (bit=1): should give -P
+            {
+                std::vector<bool_ct> naf_bits = { bool_ct(witness_ct(&builder, true)) };
+                element_ct result = table.get(naf_bits);
+                auto result_val = result.get_value();
+                affine_element neg_p = affine_element(-element(native_point));
+                EXPECT_EQ(result_val.x, neg_p.x) << "k=1 index=1: x should be -P.x";
+                EXPECT_EQ(result_val.y, neg_p.y) << "k=1 index=1: y should be -P.y";
+            }
+
+            EXPECT_CIRCUIT_CORRECTNESS(builder);
+        }
+    }
+
+    /**
+     * @brief Test that fixed_lookup_batch_mul with MSM sizes at and above MAX_K (15) distributes
+     *        points evenly across tables and produces the correct result.
+     * @details Checks sizes 14, 15, 16, 17, 29, 30, 31 to cover:
+     *          - below boundary (1 table)
+     *          - at boundary (1 full table)
+     *          - one above (2 tables)
+     *          - uneven split (2 tables, sizes differ by 1)
+     *          - near 2*MAX_K (2 full tables, or 3 tables)
+     */
+    static void test_fixed_lookup_batch_mul_table_distribution()
+    {
+        if constexpr (HasGoblinBuilder<TestType>) {
+            return;
+        } else {
+            for (size_t num_points : { 14UL, 15UL, 16UL, 17UL, 29UL, 30UL, 31UL }) {
+                Builder builder;
+
+                std::vector<affine_element> native_points(num_points);
+                std::vector<fr> native_scalars(num_points);
+                std::vector<element_ct> circuit_points(num_points);
+                std::vector<scalar_ct> circuit_scalars(num_points);
+
+                for (size_t i = 0; i < num_points; ++i) {
+                    native_points[i] = affine_element(element::random_element());
+                    native_scalars[i] = fr::random_element();
+                    using Fq_ct = typename element_ct::BaseField;
+                    Fq_ct x_const(&builder, uint256_t(native_points[i].x));
+                    Fq_ct y_const(&builder, uint256_t(native_points[i].y));
+                    circuit_points[i] = element_ct(x_const, y_const);
+                    circuit_scalars[i] = scalar_ct::from_witness(&builder, native_scalars[i]);
+                }
+
+                element expected_native = element::infinity();
+                for (size_t i = 0; i < num_points; ++i) {
+                    expected_native += element(native_points[i]) * native_scalars[i];
+                }
+                affine_element expected_aff(expected_native);
+
+                element_ct result = element_ct::fixed_lookup_batch_mul(circuit_points, circuit_scalars);
+                auto result_val = result.get_value();
+                EXPECT_EQ(result_val.x, expected_aff.x)
+                    << "table distribution: x mismatch for num_points=" << num_points;
+                EXPECT_EQ(result_val.y, expected_aff.y)
+                    << "table distribution: y mismatch for num_points=" << num_points;
+                EXPECT_CIRCUIT_CORRECTNESS(builder);
+            }
+        }
+    }
+
+    /**
+     * @brief Test that fixed_group_table sign-combination encoding is consistent with the NAF skew
+     *        subtraction in fixed_lookup_batch_mul: bit=0 → +P, bit=1 → -P.
+     * @details Directly checks the 4-point table (k=4, 16 entries) by computing each entry
+     *          independently and comparing against the table lookup.
+     */
+    static void test_fixed_group_table_sign_encoding()
+    {
+        if constexpr (HasGoblinBuilder<TestType>) {
+            return;
+        } else {
+            constexpr size_t k = 4;
+            Builder builder;
+
+            std::vector<affine_element> native_points(k);
+            std::vector<element_ct> circuit_points(k);
+            for (size_t i = 0; i < k; ++i) {
+                native_points[i] = affine_element(element::random_element());
+                using Fq_ct = typename element_ct::BaseField;
+                Fq_ct x_const(&builder, uint256_t(native_points[i].x));
+                Fq_ct y_const(&builder, uint256_t(native_points[i].y));
+                circuit_points[i] = element_ct(x_const, y_const);
+            }
+
+            typename element_ct::fixed_group_table table(&builder, circuit_points);
+            const size_t table_size = 1UL << k;
+
+            using NativeElement = typename g1::element;
+
+            for (size_t idx = 0; idx < table_size; ++idx) {
+                // Compute expected: bit j=0 → +Pj, bit j=1 → -Pj
+                NativeElement expected_native = NativeElement::one();
+                expected_native.self_set_infinity();
+                for (size_t j = 0; j < k; ++j) {
+                    bool bit_set = (idx >> j) & 1;
+                    expected_native = bit_set ? expected_native - NativeElement(native_points[j])
+                                              : expected_native + NativeElement(native_points[j]);
+                }
+                affine_element expected_aff(expected_native);
+
+                // Build witness NAF bits for this index
+                std::vector<bool_ct> naf_bits(k);
+                for (size_t j = 0; j < k; ++j) {
+                    naf_bits[j] = bool_ct(witness_ct(&builder, static_cast<bool>((idx >> j) & 1)));
+                }
+
+                element_ct result = table.get(naf_bits);
+                auto result_val = result.get_value();
+                EXPECT_EQ(result_val.x, expected_aff.x)
+                    << "sign encoding mismatch at idx=" << idx;
+                EXPECT_EQ(result_val.y, expected_aff.y)
+                    << "sign encoding mismatch at idx=" << idx;
+            }
+
+            EXPECT_CIRCUIT_CORRECTNESS(builder);
+        }
+    }
 };
 
 // bn254 with ultra arithmetisation where scalar field is native field, base field is non-native field (bigfield)
@@ -3622,5 +4031,86 @@ TYPED_TEST(stdlib_biggroup, split_msm_for_recursive_verifier)
         GTEST_SKIP() << "mega builder does not support fixed_lookup_batch_mul (uses plookup)";
     } else {
         TestFixture::test_split_msm_for_recursive_verifier();
+    }
+}
+
+TYPED_TEST(stdlib_biggroup, fixed_lookup_batch_mul_matches_batch_mul)
+{
+    if constexpr (HasGoblinBuilder<TypeParam>) {
+        GTEST_SKIP() << "mega builder does not support fixed_lookup_batch_mul (uses plookup)";
+    } else {
+        TestFixture::test_fixed_lookup_batch_mul_matches_batch_mul();
+    }
+}
+
+TYPED_TEST(stdlib_biggroup, fixed_lookup_batch_mul_fixed_witness_points)
+{
+    if constexpr (HasGoblinBuilder<TypeParam>) {
+        GTEST_SKIP() << "mega builder does not support fixed_lookup_batch_mul (uses plookup)";
+    } else {
+        TestFixture::test_fixed_lookup_batch_mul_fixed_witness_points();
+    }
+}
+
+TYPED_TEST(stdlib_biggroup, fixed_lookup_batch_mul_scalar_one)
+{
+    if constexpr (HasGoblinBuilder<TypeParam>) {
+        GTEST_SKIP() << "mega builder does not support fixed_lookup_batch_mul (uses plookup)";
+    } else {
+        TestFixture::test_fixed_lookup_batch_mul_scalar_one();
+    }
+}
+
+TYPED_TEST(stdlib_biggroup, fixed_lookup_batch_mul_scalar_order)
+{
+    if constexpr (HasGoblinBuilder<TypeParam>) {
+        GTEST_SKIP() << "mega builder does not support fixed_lookup_batch_mul (uses plookup)";
+    } else {
+        TestFixture::test_fixed_lookup_batch_mul_scalar_order();
+    }
+}
+
+TYPED_TEST(stdlib_biggroup, fixed_group_table_constant_naf_bits)
+{
+    if constexpr (HasGoblinBuilder<TypeParam>) {
+        GTEST_SKIP() << "mega builder does not support fixed_group_table (uses plookup)";
+    } else {
+        TestFixture::test_fixed_group_table_constant_naf_bits();
+    }
+}
+
+TYPED_TEST(stdlib_biggroup, fixed_lookup_batch_mul_mixed_constant_witness_scalars)
+{
+    if constexpr (HasGoblinBuilder<TypeParam>) {
+        GTEST_SKIP() << "mega builder does not support fixed_lookup_batch_mul (uses plookup)";
+    } else {
+        TestFixture::test_fixed_lookup_batch_mul_mixed_constant_witness_scalars();
+    }
+}
+
+TYPED_TEST(stdlib_biggroup, fixed_group_table_single_point)
+{
+    if constexpr (HasGoblinBuilder<TypeParam>) {
+        GTEST_SKIP() << "mega builder does not support fixed_group_table (uses plookup)";
+    } else {
+        TestFixture::test_fixed_group_table_single_point();
+    }
+}
+
+TYPED_TEST(stdlib_biggroup, fixed_lookup_batch_mul_table_distribution)
+{
+    if constexpr (HasGoblinBuilder<TypeParam>) {
+        GTEST_SKIP() << "mega builder does not support fixed_lookup_batch_mul (uses plookup)";
+    } else {
+        TestFixture::test_fixed_lookup_batch_mul_table_distribution();
+    }
+}
+
+TYPED_TEST(stdlib_biggroup, fixed_group_table_sign_encoding)
+{
+    if constexpr (HasGoblinBuilder<TypeParam>) {
+        GTEST_SKIP() << "mega builder does not support fixed_group_table (uses plookup)";
+    } else {
+        TestFixture::test_fixed_group_table_sign_encoding();
     }
 }

@@ -141,16 +141,6 @@ typename UltraVerifier_<Flavor, IO>::ReductionResult UltraVerifier_<Flavor, IO>:
 
     transcript->load_proof(proof);
 
-    // Profiling helper: get current gate count for recursive builders
-    [[maybe_unused]] auto get_gates = [&]() -> size_t {
-        if constexpr (IsRecursive) {
-            return builder->num_gates();
-        } else {
-            return 0;
-        }
-    };
-    [[maybe_unused]] size_t gates_start = get_gates();
-
     // Compute log_n first (needed for proof layout calculation)
     const size_t log_n = compute_log_n();
 
@@ -166,12 +156,6 @@ typename UltraVerifier_<Flavor, IO>::ReductionResult UltraVerifier_<Flavor, IO>:
 
     OinkVerifier<Flavor> oink_verifier{ verifier_instance, transcript, num_public_inputs };
     oink_verifier.verify();
-
-    if constexpr (IsRecursive) {
-        size_t gates_after_oink = get_gates();
-        info("PROFILE: OinkVerifier gates: ", gates_after_oink - gates_start);
-        gates_start = gates_after_oink;
-    }
 
     // Compute padding indicator array AFTER OinkVerifier so VK fields are properly tagged
     auto padding_indicator_array = compute_padding_indicator_array(log_n);
@@ -202,12 +186,6 @@ typename UltraVerifier_<Flavor, IO>::ReductionResult UltraVerifier_<Flavor, IO>:
         libra_commitments[2] = transcript->template receive_from_prover<Commitment>("Libra:quotient_commitment");
     }
 
-    if constexpr (IsRecursive) {
-        size_t gates_after_sumcheck = get_gates();
-        info("PROFILE: SumcheckVerifier gates: ", gates_after_sumcheck - gates_start);
-        gates_start = gates_after_sumcheck;
-    }
-
     ClaimBatcher claim_batcher{
         .unshifted = ClaimBatch{ commitments.get_unshifted(), sumcheck_output.claimed_evaluations.get_unshifted() },
         .shifted = ClaimBatch{ commitments.get_to_be_shifted(), sumcheck_output.claimed_evaluations.get_shifted() }
@@ -230,21 +208,10 @@ typename UltraVerifier_<Flavor, IO>::ReductionResult UltraVerifier_<Flavor, IO>:
                                                                    libra_commitments,
                                                                    sumcheck_output.claimed_libra_evaluation);
 
-    if constexpr (IsRecursive) {
-        size_t gates_after_shplemini = get_gates();
-        info("PROFILE: Shplemini gates: ", gates_after_shplemini - gates_start);
-        gates_start = gates_after_shplemini;
-    }
-
     // Build reduction result
     ReductionResult result;
     result.pairing_points = PCS::reduce_verify_batch_opening_claim(
         std::move(shplemini_output.batch_opening_claim), transcript, Flavor::FINAL_PCS_MSM_SIZE(log_n));
-
-    if constexpr (IsRecursive) {
-        size_t gates_after_msm = get_gates();
-        info("PROFILE: Final MSM gates: ", gates_after_msm - gates_start);
-    }
 
     bool consistency_checked = true;
     if constexpr (Flavor::HasZK) {

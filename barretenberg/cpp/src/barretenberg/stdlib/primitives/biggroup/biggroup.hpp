@@ -159,6 +159,8 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
     {
         this->_x.convert_constant_to_fixed_witness(builder);
         this->_y.convert_constant_to_fixed_witness(builder);
+        // Mark as fixed so is_fixed() returns true after converting from constant
+        _is_fixed = true;
         // Origin tags should be unset after fixing the witness
         unset_free_witness_tag();
     }

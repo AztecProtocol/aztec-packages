@@ -19,11 +19,6 @@
 
 namespace bb {
 
-// Set to true to enable split MSM in recursive verifier.
-// Routes fixed commitments (constants + fixed witnesses) through plookup tables,
-// and remaining witness commitments through ROM tables.
-constexpr bool KZG_USE_SPLIT_MSM = true;
-
 template <typename Curve_> class KZG {
   public:
     using Curve = Curve_;
@@ -167,18 +162,18 @@ template <typename Curve_> class KZG {
             }
         }
 
-        // Determine whether to use split MSM approach for stdlib types with UltraBuilder (not Mega)
+        // For stdlib types with UltraBuilder (not Mega), split the MSM: route fixed commitments (VK)
+        // through plookup tables and witness commitments through ROM tables.
+        // Mega uses ECCVM which bypasses circuit MSM entirely.
         constexpr bool use_split_msm = []() {
-            if constexpr (!Curve::is_stdlib_type || !KZG_USE_SPLIT_MSM) {
+            if constexpr (!Curve::is_stdlib_type) {
                 return false;
             } else {
-                // Only use split MSM for non-Mega builders (Mega uses ECCVM which bypasses circuit MSM)
                 return !IsMegaBuilder<typename Curve::Builder>;
             }
         }();
 
         if constexpr (use_split_msm) {
-            // EXPERIMENTAL: Split MSM approach
             // Separate constant (VK) commitments from witness commitments and use
             // fixed_lookup_batch_mul for constants (plookup tables) vs batch_mul for witnesses (ROM tables)
 
@@ -206,9 +201,6 @@ template <typename Curve_> class KZG {
                     witness_scalars.push_back(batch_opening_claim.scalars[i]);
                 }
             }
-
-            info("Split MSM: ", constant_commitments.size(), " fixed + ",
-                 witness_commitments.size(), " witness points");
 
             // Use fixed_lookup_batch_mul for constant points (plookup tables)
             GroupElement constant_result;
