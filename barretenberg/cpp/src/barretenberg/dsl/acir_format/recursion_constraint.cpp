@@ -106,15 +106,17 @@ HonkRecursionConstraintsOutput<UltraCircuitBuilder> create_recursion_constraints
         if (constraint.proof_type == HONK_ZK) {
             honk_recursion_constraint =
                 create_honk_recursion_constraints<UltraZKRecursiveFlavor_<UltraCircuitBuilder>,
-                                                  stdlib::recursion::honk::DefaultIO<UltraCircuitBuilder>>(
-                    builder, constraint, /*fix_vk_witnesses=*/true);
+                                                  stdlib::recursion::honk::DefaultIO<UltraCircuitBuilder>>(builder,
+                                                                                                           constraint);
         } else if (constraint.proof_type == HONK) {
             honk_recursion_constraint =
                 create_honk_recursion_constraints<UltraRecursiveFlavor_<UltraCircuitBuilder>,
-                                                  stdlib::recursion::honk::DefaultIO<UltraCircuitBuilder>>(
-                    builder, constraint, /*fix_vk_witnesses=*/true);
+                                                  stdlib::recursion::honk::DefaultIO<UltraCircuitBuilder>>(builder,
+                                                                                                           constraint);
         } else if (constraint.proof_type == ROLLUP_HONK || constraint.proof_type == ROOT_ROLLUP_HONK) {
-            // Use UltraRecursiveFlavor with RollupIO for rollup proofs (IO determines IPA handling)
+            // Use UltraRecursiveFlavor with RollupIO for rollup proofs (IO determines IPA handling).
+            // fix_vk_witnesses=true: rollup VKs are protocol-fixed, so we can route them through plookup
+            // tables (fixed_lookup_batch_mul) instead of ROM tables, saving gates.
             honk_recursion_constraint =
                 create_honk_recursion_constraints<UltraRecursiveFlavor_<UltraCircuitBuilder>,
                                                   stdlib::recursion::honk::RollupIO>(
