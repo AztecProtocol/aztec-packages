@@ -97,17 +97,13 @@ void TraceToPolynomials<Flavor>::add_ecc_op_wires_to_prover_instance(Builder& bu
 {
     auto& ecc_op_selector = polynomials.lagrange_ecc_op;
 
-    // The EccOpQueueRelation constrains ecc_op_wire[row] == w_shift[row] (i.e. w[row+1]) where
-    // lagrange_ecc_op == 1. The ecc_op wires are not shiftable, so their data sits one row before the
-    // corresponding wire data (block trace_offset).
+    // The EccOpQueueRelation constrains ecc_op_wire[row] == w[row] where lagrange_ecc_op == 1.
     const auto& ecc_op_block = builder.blocks.ecc_op;
     const size_t wire_start = ecc_op_block.trace_offset();
-    BB_ASSERT(wire_start > 0); // ecc_op_wire data lives at wire_start - 1; must not underflow
     for (auto [ecc_op_wire, wire] : zip_view(polynomials.get_ecc_op_wires(), polynomials.get_wires())) {
         for (size_t i = 0; i < ecc_op_block.size(); ++i) {
-            // ecc_op_wire[wire_start - 1 + i] = w[wire_start + i] satisfies the shift relation
-            ecc_op_wire.at(wire_start - 1 + i) = wire[wire_start + i];
-            ecc_op_selector.at(wire_start - 1 + i) = 1;
+            ecc_op_wire.at(wire_start + i) = wire[wire_start + i];
+            ecc_op_selector.at(wire_start + i) = 1;
         }
     }
 }

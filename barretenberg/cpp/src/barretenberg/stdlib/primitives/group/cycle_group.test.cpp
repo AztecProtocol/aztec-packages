@@ -2080,4 +2080,79 @@ TYPED_TEST(CycleGroupTest, TestInfinityAutoDetectionInConstructor)
     EXPECT_FALSE(builder.failed());
     EXPECT_TRUE(CircuitChecker::check(builder));
 }
+
+/**
+ * @brief Test fixed_batch_mul correctness with constant points and witness scalars
+ */
+TYPED_TEST(CycleGroupTest, TestFixedBatchMul)
+{
+    STDLIB_TYPE_ALIASES;
+    auto builder = Builder();
+
+    constexpr size_t num_points = 8;
+    std::vector<cycle_group_ct> points;
+    std::vector<typename cycle_group_ct::cycle_scalar> scalars;
+    Element expected = Group::point_at_infinity;
+
+    for (size_t i = 0; i < num_points; ++i) {
+        auto element = TestFixture::generators[i];
+        typename Group::Fr scalar = Group::Fr::random_element(&engine);
+        expected += (element * scalar);
+        // Points are constant, scalars are witnesses
+        points.emplace_back(cycle_group_ct(element));
+        scalars.emplace_back(cycle_group_ct::cycle_scalar::from_witness(&builder, scalar));
+    }
+
+    auto result = cycle_group_ct::fixed_batch_mul(points, scalars);
+    EXPECT_EQ(result.get_value(), AffineElement(expected));
+
+    EXPECT_FALSE(builder.failed());
+    EXPECT_TRUE(CircuitChecker::check(builder));
+}
+
+/**
+ * @brief Test fixed_batch_mul with a single constant point
+ */
+TYPED_TEST(CycleGroupTest, TestFixedBatchMulSinglePoint)
+{
+    STDLIB_TYPE_ALIASES;
+    auto builder = Builder();
+
+    auto element = TestFixture::generators[0];
+    typename Group::Fr scalar = Group::Fr::random_element(&engine);
+    Element expected = element * scalar;
+
+    std::vector<cycle_group_ct> points{ cycle_group_ct(element) };
+    std::vector<typename cycle_group_ct::cycle_scalar> scalars{ cycle_group_ct::cycle_scalar::from_witness(&builder,
+                                                                                                           scalar) };
+
+    auto result = cycle_group_ct::fixed_batch_mul(points, scalars);
+    EXPECT_EQ(result.get_value(), AffineElement(expected));
+
+    EXPECT_FALSE(builder.failed());
+    EXPECT_TRUE(CircuitChecker::check(builder));
+}
+
+/**
+ * @brief Test fixed_batch_mul with a zero scalar
+ */
+TYPED_TEST(CycleGroupTest, TestFixedBatchMulZeroScalar)
+{
+    STDLIB_TYPE_ALIASES;
+    auto builder = Builder();
+
+    auto element = TestFixture::generators[0];
+    typename Group::Fr zero_scalar = 0;
+
+    std::vector<cycle_group_ct> points{ cycle_group_ct(element) };
+    std::vector<typename cycle_group_ct::cycle_scalar> scalars{ cycle_group_ct::cycle_scalar::from_witness(
+        &builder, zero_scalar) };
+
+    auto result = cycle_group_ct::fixed_batch_mul(points, scalars);
+    EXPECT_TRUE(result.is_point_at_infinity().get_value());
+
+    EXPECT_FALSE(builder.failed());
+    EXPECT_TRUE(CircuitChecker::check(builder));
+}
+
 #pragma GCC diagnostic pop

@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/eccvm/eccvm_builder_types.hpp"
 #include "barretenberg/op_queue/ecc_ops_table.hpp"
@@ -79,29 +80,37 @@ class ECCOpQueue {
 
     size_t get_current_subtable_size() const { return ultra_ops_table.get_current_subtable_size(); }
 
+    /**
+     * @brief Compute the fixed append offset for the final APPEND merge.
+     * @details Places the appended subtable so the total table fits in OP_QUEUE_SIZE, reserving
+     * NUM_ZERO_ROWS slots for the Translator's shiftability zero rows.
+     */
+    size_t get_append_offset() const { return OP_QUEUE_SIZE - get_current_subtable_size() - NUM_ZERO_ROWS; }
+
     void merge(MergeSettings settings = MergeSettings::PREPEND, std::optional<size_t> ultra_fixed_offset = std::nullopt)
     {
         eccvm_ops_table.merge(settings);
         ultra_ops_table.merge(settings, ultra_fixed_offset);
     }
 
-    // Construct polynomials corresponding to the columns of the full aggregate ultra ecc ops table
-    std::array<Polynomial<Fr>, ULTRA_TABLE_WIDTH> construct_ultra_ops_table_columns() const
+    // Construct column polynomials for the full aggregate ultra ops table
+    std::array<Polynomial<Fr>, ULTRA_TABLE_WIDTH> construct_ultra_ops_table_columns(size_t start_offset = 0) const
     {
-        return ultra_ops_table.construct_table_columns();
+        return ultra_ops_table.construct_table_columns(start_offset);
     }
 
-    // Construct polys corresponding to the columns of the aggregate ultra ops table, excluding the most recent
-    // subtable
-    std::array<Polynomial<Fr>, ULTRA_TABLE_WIDTH> construct_previous_ultra_ops_table_columns() const
+    // Construct column polynomials for the aggregate table excluding the most recent subtable
+    std::array<Polynomial<Fr>, ULTRA_TABLE_WIDTH> construct_previous_ultra_ops_table_columns(
+        size_t start_offset = 0) const
     {
-        return ultra_ops_table.construct_previous_table_columns();
+        return ultra_ops_table.construct_previous_table_columns(start_offset);
     }
 
-    // Construct polynomials corresponding to the columns of the current subtable of ultra ecc ops
-    std::array<Polynomial<Fr>, ULTRA_TABLE_WIDTH> construct_current_ultra_ops_subtable_columns() const
+    // Construct column polynomials for the most recently merged subtable
+    std::array<Polynomial<Fr>, ULTRA_TABLE_WIDTH> construct_current_ultra_ops_subtable_columns(
+        size_t start_offset = 0) const
     {
-        return ultra_ops_table.construct_current_ultra_ops_subtable_columns();
+        return ultra_ops_table.construct_current_ultra_ops_subtable_columns(start_offset);
     }
 
     // Reconstruct the full table of eccvm ops in contiguous memory from the independent subtables
@@ -214,6 +223,7 @@ class ECCOpQueue {
      */
     UltraOp mul_accumulate(const Point& to_mul, const Fr& scalar)
     {
+        BB_BENCH_NAME("ECCOpQueue::mul_accumulate");
         // Update the accumulator natively
         accumulator = accumulator + to_mul * scalar;
         EccOpCode op_code{ .mul = true };
@@ -231,19 +241,6 @@ class ECCOpQueue {
         });
 
         return ultra_op;
-    }
-
-    /**
-     * @brief Writes a no op (i.e. two zero rows) to the ultra ops table but adds no eccvm operations.
-     *
-     * @details We want to be able to add zero rows to the ultra ops table without affecting the
-     * operations in the ECCVM.
-     */
-    UltraOp no_op_ultra_only()
-    {
-        UltraOp no_op{};
-        ultra_ops_table.push(no_op);
-        return no_op;
     }
 
     /**

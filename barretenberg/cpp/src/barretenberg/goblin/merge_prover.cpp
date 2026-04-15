@@ -25,25 +25,32 @@ MergeProver::MergeProver(const std::shared_ptr<ECCOpQueue>& op_queue,
     // Merge the current subtable (for which a merge proof is being constructed) prior to
     // procedeing with proving.
     if (settings == MergeSettings::APPEND) {
-        size_t last_subtable_size = op_queue->get_current_subtable_size();
-        op_queue->merge(settings, ECCOpQueue::OP_QUEUE_SIZE - last_subtable_size);
+        op_queue->merge(settings, op_queue->get_append_offset());
 
     } else {
         op_queue->merge(settings);
     }
 
     // Size the commitment key to accommodate the X^s shift applied to merge polynomials
-    pcs_commitment_key = CommitmentKey(op_queue->get_ultra_ops_table_num_rows() + TRACE_OFFSET);
+    pcs_commitment_key = CommitmentKey(op_queue->get_ultra_ops_table_num_rows() + FULL_SHIFT);
 };
 
 MergeProver::Polynomial MergeProver::compute_degree_check_polynomial(
-    const std::array<Polynomial, NUM_WIRES>& left_table, const std::vector<FF>& degree_check_challenges)
+    const std::array<Polynomial, NUM_WIRES>& left_table,
+    const std::vector<FF>& degree_check_challenges,
+    size_t shift_size)
 {
-    Polynomial reversed_batched_left_tables(left_table[0].size());
+    // Reverse only the data portion of L (positions FULL_SHIFT..FULL_SHIFT+shift_size-1).
+    // G has size shift_size, giving a tight degree bound deg(L_data) < shift_size via Thakur's check.
+    // The zero prefix of L is enforced separately by the PCS: the verifier opens [L'] = [X^s·L_data]
+    // against κ^s·l_data, which fails if L' has non-zero coefficients in positions 0..s-1.
+    Polynomial batched_data(shift_size);
     for (size_t idx = 0; idx < NUM_WIRES; idx++) {
-        reversed_batched_left_tables.add_scaled(left_table[idx], degree_check_challenges[idx]);
+        for (size_t j = 0; j < shift_size; j++) {
+            batched_data.at(j) += degree_check_challenges[idx] * left_table[idx][FULL_SHIFT + j];
+        }
     }
-    return reversed_batched_left_tables.reverse();
+    return batched_data.reverse();
 }
 
 MergeProver::Polynomial MergeProver::compute_shplonk_batched_quotient(
@@ -165,32 +172,20 @@ MergeProver::OpeningClaim MergeProver::compute_shplonk_opening_claim(
 MergeProver::MergeProof MergeProver::construct_proof()
 {
 
-    std::array<Polynomial, NUM_WIRES> left_table;
-    std::array<Polynomial, NUM_WIRES> right_table;
-    std::array<Polynomial, NUM_WIRES> merged_table = op_queue->construct_ultra_ops_table_columns(); // T
-    std::array<Polynomial, NUM_WIRES> left_table_reversed;
+    // Construct L and R with FULL_SHIFT leading zeros to match the circuit's ecc_op_wire layout.
+    // Derive M from the full merged table with the appropriate shift for Translator/chain propagation.
+    const size_t m_shift = (settings == MergeSettings::PREPEND) ? FULL_SHIFT : APPEND_OUTPUT_SHIFT;
 
-    if (settings == MergeSettings::PREPEND) {
-        left_table = op_queue->construct_current_ultra_ops_subtable_columns(); // t
-        right_table = op_queue->construct_previous_ultra_ops_table_columns();  // T_prev
-    } else {
-        left_table = op_queue->construct_previous_ultra_ops_table_columns();    // T_prev
-        right_table = op_queue->construct_current_ultra_ops_subtable_columns(); // t
-    }
+    Table left_table = (settings == MergeSettings::PREPEND)
+                           ? op_queue->construct_current_ultra_ops_subtable_columns(FULL_SHIFT)
+                           : op_queue->construct_previous_ultra_ops_table_columns(FULL_SHIFT);
+    Table right_table = (settings == MergeSettings::PREPEND)
+                            ? op_queue->construct_previous_ultra_ops_table_columns(FULL_SHIFT)
+                            : op_queue->construct_current_ultra_ops_subtable_columns(FULL_SHIFT);
+    Table merged_table = op_queue->construct_ultra_ops_table_columns(m_shift);
 
-    // Capture shift_size BEFORE the X^s shift (the concatenation identity uses the unshifted size)
-    const size_t shift_size = left_table[0].size();
-
-    // Shift L and R by X^s so their commitments match the circuit's ecc_op_wire commitments and
-    // the T_prev chain from prior PREPEND merges (which output [X^s·M]).
-    // For PREPEND: also shift M to maintain the chain ([X^s·M] becomes T_prev for the next merge).
-    // For APPEND (final merge): do NOT shift M — commit to [M] directly for the Translator.
-    // The Shplonk uses X^s·L, X^s·R, and M or X^s·M — each matches its commitment.
-    shift_table_by_disabled_rows(left_table);
-    shift_table_by_disabled_rows(right_table);
-    if (settings == MergeSettings::PREPEND) {
-        shift_table_by_disabled_rows(merged_table);
-    }
+    // shift_size is the unshifted L size (strip the leading zeros)
+    const size_t shift_size = left_table[0].size() - FULL_SHIFT;
 
     transcript->send_to_verifier("shift_size", static_cast<uint32_t>(shift_size));
 
@@ -200,10 +195,10 @@ MergeProver::MergeProof MergeProver::construct_proof()
                                      pcs_commitment_key.commit(merged_table[idx]));
     }
 
-    // Generate degree check batching challenges, batch polynomials, compute reversed polynomial, send commitment to the
-    // verifier
+    // Generate degree check batching challenges, compute reversed polynomial from L_data only (tight degree bound)
     std::vector<FF> degree_check_challenges = transcript->template get_challenges<FF>(labels_degree_check);
-    Polynomial reversed_batched_left_tables = compute_degree_check_polynomial(left_table, degree_check_challenges);
+    Polynomial reversed_batched_left_tables =
+        compute_degree_check_polynomial(left_table, degree_check_challenges, shift_size);
     transcript->send_to_verifier("REVERSED_BATCHED_LEFT_TABLES",
                                  pcs_commitment_key.commit(reversed_batched_left_tables));
 
@@ -214,13 +209,19 @@ MergeProver::MergeProof MergeProver::construct_proof()
     // Compute evaluation challenge
     const FF kappa = transcript->template get_challenge<FF>("kappa");
     const FF kappa_inv = kappa.invert();
+    const FF kappa_to_s = kappa.pow(FULL_SHIFT);
 
-    // Send evaluations of [Lᵢ], [Rᵢ], [Mᵢ] at κ
+    // Send L_data evaluations (unshifted) to the transcript. The verifier reconstructs the shifted
+    // evaluations as κ^s · l_data for the concatenation check and PCS opening. This enables:
+    // (1) tight degree check: deg(L_data) < shift_size via G of size shift_size
+    // (2) zero-prefix enforcement: PCS opens [X^s·L_data] against κ^s·l_data, which fails if prefix ≠ 0
     std::vector<FF> evals;
     evals.reserve((3 * NUM_WIRES) + 1);
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
-        evals.emplace_back(left_table[idx].evaluate(kappa));
-        transcript->send_to_verifier("LEFT_TABLE_EVAL_" + std::to_string(idx), evals.back());
+        FF l_data = left_table[idx].evaluate(kappa) * kappa_to_s.invert();
+        transcript->send_to_verifier("LEFT_TABLE_EVAL_" + std::to_string(idx), l_data);
+        // Store the SHIFTED eval (κ^s · l_data) for Shplonk — this is what the PCS opens [L'] against
+        evals.emplace_back(kappa_to_s * l_data);
     }
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
         evals.emplace_back(right_table[idx].evaluate(kappa));

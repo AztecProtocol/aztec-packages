@@ -475,6 +475,46 @@ TYPED_TEST(UltraHonkTests, DyadicSizeJumpsToProtectMaskingArea)
 }
 
 /**
+ * @brief Verify that dyadic circuit size accounts for lookup tables placed at the lookup block's trace offset.
+ * @details Tables are allocated starting at lookup.trace_offset() (>= TRACE_OFFSET). The dyadic size must be large
+ * enough to contain them. This test populates a XOR lookup table and checks that the offset is past the disabled
+ * region and the dyadic size accommodates tables_end = table_offset + tables_size.
+ */
+TYPED_TEST(UltraHonkTests, DyadicSizeAccountsForTableOffset)
+{
+    using Flavor = TypeParam;
+    using Builder = typename Flavor::CircuitBuilder;
+    using IO = typename TestFixture::IO;
+
+    // Test with several lookup table types of varying sizes
+    for (auto table_id : { plookup::MultiTableId::UINT32_XOR,
+                           plookup::MultiTableId::UINT32_AND,
+                           plookup::MultiTableId::SHA256_CH_INPUT }) {
+        auto builder = Builder{};
+        uint32_t left_idx = builder.add_variable(fr(engine.get_random_uint32()));
+        uint32_t right_idx = builder.add_variable(fr(engine.get_random_uint32()));
+        auto accumulators = plookup::get_lookup_accumulators(
+            table_id, builder.get_variable(left_idx), builder.get_variable(right_idx), true);
+        builder.create_gates_from_plookup_accumulators(table_id, accumulators, left_idx, right_idx);
+        IO::add_default(builder);
+
+        auto prover_instance = std::make_shared<ProverInstance_<Flavor>>(builder);
+
+        const size_t tables_size = builder.get_tables_size();
+        ASSERT_GT(tables_size, 0) << "expected non-empty lookup tables";
+
+        const size_t table_offset = builder.blocks.lookup.trace_offset();
+        const size_t tables_end = table_offset + tables_size;
+
+        EXPECT_GE(table_offset, ProverInstance_<Flavor>::TRACE_OFFSET)
+            << "lookup block should be past the disabled region";
+        EXPECT_GE(prover_instance->dyadic_size(), tables_end)
+            << "dyadic size (" << prover_instance->dyadic_size() << ") must accommodate tables_end (" << tables_end
+            << ") for table_offset=" << table_offset << " tables_size=" << tables_size;
+    }
+}
+
+/**
  * @brief Verify that witness polynomials have masking values in the reserved head region.
  * @details Wires, z_perm, and lookup polynomials should have non-zero random values at rows 1..NUM_MASKED_ROWS.
  */

@@ -237,29 +237,14 @@ std::pair<ECCVMProver::Proof, ECCVMProver::OpeningClaim> ECCVMProver::construct_
  * \f{align}{ x\cdot A = \sum_{i=0}^4 T_i(x) \cdot v^i, \f}
  * where \f$ x \f$ is an artifact of our implementation of shiftable polynomials.
  *
- * This check gets trickier when the witness wires in ECCVM are masked. Namely, we randomize the last \f$
- * \text{NUM_DISABLED_ROWS_IN_SUMCHECK} \f$ coefficients of \f$ T_i \f$. Let \f$ N = \text{circuit_size} -
- * \text{NUM_DISABLED_ROWS_IN_SUMCHECK}\f$. Denote
- * \f{align}{ \widetilde{T}_i(X) = T_i(X) + X^N \cdot m_i(X). \f}
+ * The translation polynomials \f$ T_i \f$ contain random masking values in their first TRACE_OFFSET coefficients.
+ * Commitments to the masked \f$ T_i \f$ are safe to reveal, but the evaluations \f$ T_i(x) \f$ include the masking
+ * contribution. To preserve ZK, the prover uses SmallSubgroupIPA to prove the masking correction: the masking
+ * terms from all five \f$ T_i \f$ are concatenated into a polynomial \f$ M \f$ over a small subgroup \f$ H \f$,
+ * and the verifier recovers \f$ \sum_i m_i(x) \cdot v^i \f$ via an inner-product argument without learning
+ * the individual masking values.
  *
- * Informally speaking, to preserve ZK, the \ref ECCVMVerifier must never obtain the commitments to \f$ T_i \f$ or
- * the evaluations \f$ T_i(x) \f$ of the unmasked wires.
- *
- * With masking, the identity above becomes
- * \f{align}{ x\cdot A = \sum_i (\widetilde{T}_i - X^N \cdot m_i(X)) v^i =\sum_i \widetilde{T}_i v^i - X^N \cdot \sum_i
- * m_i(X) v^i \f}
- *
- * The prover could send the evals of \f$ \widetilde{T}_i \f$ without revealing witness information. Moreover, the
- * prover could prove the evaluation \f$ x^N \cdot \sum m_i(x) v^i \f$ using SmallSubgroupIPA argument. Namely, before
- * obtaining \f$ x \f$ and \f$ v \f$, the prover sends a commitment to the polynomial \f$ \widetilde{M} = M + Z_H \cdot
- * R\f$, where the coefficients of \f$ M \f$ are given by the concatenation \f{align}{ M = (m_0||m_1||m_2||m_3||m_4 ||
- * \vec{0}) \f} in the Lagrange basis over the small multiplicative subgroup \f$ H \f$, where \f$ Z_H \f$ is the
- * vanishing polynomial \f$ X^{|H|} -1 \f$ and \f$ R(X) \f$ is a random polynomial of degree \f$ 2 \f$. \ref
- * SmallSubgroupIPAProver allows us to prove the inner product of \f$ M \f$ against the `challenge_polynomial`
- * \f{align}{ ( 1, x , x^2 , x^3, v , v\cdot x ,\ldots, ... , v^4, v^4 x , v^4 x^2 , v^4 x^3, \vec{0} )\f}
- * without revealing any other witness information apart from the claimed inner product.
- *
- * @return Ppopulate `opening_claims`.
+ * @return Populate `opening_claims`.
  *
  */
 void ECCVMProver::compute_translation_opening_claims()

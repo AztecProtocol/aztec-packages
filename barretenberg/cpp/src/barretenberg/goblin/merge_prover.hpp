@@ -41,35 +41,21 @@ class MergeProver {
 
     BB_PROFILE MergeProof construct_proof();
 
-    // Public for test access (computing commitments)
+    using Table = std::array<Polynomial, NUM_WIRES>;
+
     CommitmentKey pcs_commitment_key;
 
-    static constexpr size_t TRACE_OFFSET = MegaExecutionTraceBlocks::TRACE_OFFSET;
+    // Offset for L and R: matches the circuit's ecc_op_wire layout (TRACE_OFFSET + NUM_ZERO_ROWS).
+    static constexpr size_t FULL_SHIFT = MegaExecutionTraceBlocks::TRACE_OFFSET + NUM_ZERO_ROWS;
 
-    /**
-     * @brief Prepend TRACE_OFFSET zeros to each polynomial in a table.
-     * @details The circuit's ecc_op_wire polynomials have data starting at
-     * row TRACE_OFFSET (X^s · t(X) structure). The merge protocol polynomials must match this layout
-     * so that the prover's Shplonk quotient is consistent with the ecc_op_wire commitments held by
-     * the verifier.
-     */
-    static void shift_table_by_disabled_rows(std::array<Polynomial, NUM_WIRES>& table)
-    {
-        constexpr size_t s = TRACE_OFFSET;
-        for (auto& poly : table) {
-            const size_t new_size = poly.size() + s;
-            Polynomial shifted(new_size, new_size);
-            for (size_t i = 0; i < poly.size(); i++) {
-                shifted.at(i + s) = poly[i];
-            }
-            poly = std::move(shifted);
-        }
-    }
+    // In APPEND mode (final merge), M retains a partial shift for Translator shiftability.
+    static constexpr size_t APPEND_OUTPUT_SHIFT = 2; // == TranslatorFlavor::RANDOMNESS_START
 
   private:
     std::shared_ptr<Transcript> transcript;
     std::shared_ptr<ECCOpQueue> op_queue;
     MergeSettings settings;
+
     std::vector<std::string> labels_degree_check = { "LEFT_TABLE_DEGREE_CHECK_0",
                                                      "LEFT_TABLE_DEGREE_CHECK_1",
                                                      "LEFT_TABLE_DEGREE_CHECK_2",
@@ -98,7 +84,8 @@ class MergeProver {
      * @return Polynomial
      */
     static Polynomial compute_degree_check_polynomial(const std::array<Polynomial, NUM_WIRES>& left_table,
-                                                      const std::vector<FF>& degree_check_challenges);
+                                                      const std::vector<FF>& degree_check_challenges,
+                                                      size_t shift_size);
 
     /**
      * @brief Compute the batched Shplonk quotient polynomial.
