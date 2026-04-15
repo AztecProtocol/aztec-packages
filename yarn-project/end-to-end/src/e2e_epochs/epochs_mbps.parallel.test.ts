@@ -112,10 +112,6 @@ describe('e2e_epochs/epochs_mbps', () => {
       // PXE options for chain tip syncing
       pxeOpts: { syncChainTip },
       skipInitialSequencer: true,
-      // Pipelining is NOT enabled here. With MBPS, a single proposer can build blocks spanning
-      // 3+ checkpoints in one slot, triggering CheckpointNumberNotSequentialError on non-proposer
-      // nodes (they reject checkpoint N+2 before N+1 is confirmed on L1). The dedicated pipelining
-      // test (epochs_mbps.pipeline.parallel) uses wider timing (72s slots, 12s L1) that avoids this.
       inboxLag: 2,
     });
 
