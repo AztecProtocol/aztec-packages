@@ -1,10 +1,21 @@
 pub mod bytes_as_fields;
 pub mod fields_as_bytes;
 
-// Backward-compatibility aliases for the pre-rename API (see F-371). External contract consumers may still import
-// these names from `conversion`. TODO(F-371): clean this up
+// Backward-compatibility wrappers around the new pub(crate) API. These exist so that external contracts importing
+// the pre-rename names continue to compile. TODO(F-371): clean this up.
 
-pub use bytes_as_fields::decode_bytes_from_fields as bytes_from_fields;
-pub use bytes_as_fields::encode_bytes_as_fields as bytes_to_fields;
-pub use fields_as_bytes::decode_fields_from_bytes as fields_from_bytes;
-pub use fields_as_bytes::encode_fields_as_bytes as fields_to_bytes;
+pub fn bytes_from_fields<let N: u32>(fields: BoundedVec<Field, N>) -> BoundedVec<u8, N * 31> {
+    bytes_as_fields::decode_bytes_from_fields(fields)
+}
+
+pub fn bytes_to_fields<let N: u32>(bytes: [u8; N]) -> [Field; N / 31] {
+    bytes_as_fields::encode_bytes_as_fields(bytes)
+}
+
+pub fn fields_from_bytes<let N: u32>(bytes: BoundedVec<u8, N>) -> BoundedVec<Field, N / 32> {
+    fields_as_bytes::decode_fields_from_bytes(bytes)
+}
+
+pub fn fields_to_bytes<let N: u32>(fields: [Field; N]) -> [u8; 32 * N] {
+    fields_as_bytes::encode_fields_as_bytes(fields)
+}
