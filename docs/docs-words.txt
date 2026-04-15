@@ -259,7 +259,6 @@ rdoffset
 reahed
 recalibrated
 Receipient
-redc
 reexecute
 Reexecute
 REEXECUTE

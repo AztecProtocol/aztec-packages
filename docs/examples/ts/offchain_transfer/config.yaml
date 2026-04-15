@@ -15,3 +15,4 @@ dependencies:
   - "@aztec/wallets"
   - "@aztec/noir-contracts.js"
   - "@aztec/foundation"
+  - "@aztec/constants"

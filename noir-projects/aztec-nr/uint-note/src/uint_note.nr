@@ -110,15 +110,25 @@ impl UintNote {
         // therefore assume that the sender will cooperate in the random value generation.
         let randomness = unsafe { random() };
 
-        // We create a commitment to the private data, which we then use to construct the log we send to the recipient.
+        UintNote::partial_with_randomness(owner, context, recipient, completer, randomness)
+    }
+
+    /// Variant of [`partial`](Self::partial) that takes the randomness as an explicit parameter instead of sampling
+    /// it from the oracle.
+    ///
+    /// This is useful when the caller needs the partial note commitment to be deterministic from its inputs, for
+    /// example to know the commitment offchain without having to query the PXE after the transaction completes. The
+    /// caller is responsible for generating cryptographically-strong randomness; using a predictable value enables a
+    /// brute-force attack that recovers the owner from the public commitment.
+    pub fn partial_with_randomness(
+        owner: AztecAddress,
+        context: &mut PrivateContext,
+        recipient: AztecAddress,
+        completer: AztecAddress,
+        randomness: Field,
+    ) -> PartialUintNote {
         let commitment = compute_partial_commitment(owner, randomness);
 
-        // Our partial note log encoding scheme includes a field with the tag of the public completion log, and we use
-        // the commitment as the tag. This is good for multiple reasons:
-        //  - the commitment is uniquely tied to this partial note
-        //  - the commitment is already public information, so we're not revealing anything else
-        //  - we don't need to create any additional information, private or public, for the tag
-        //  - other contracts cannot impersonate us and emit logs with the same tag due to public log siloing
         let private_log_content = UintPartialNotePrivateLogContent {};
 
         do_private_message_delivery(
@@ -131,9 +141,6 @@ impl UintNote {
 
         let partial_note = PartialUintNote { commitment };
 
-        // Now we compute the validity commitment and push it to the nullifier tree. It can be safely pushed to the
-        // nullifier tree since it uses its own separator, making collisions with actual note nullifiers practically
-        // impossible.
         let validity_commitment = partial_note.compute_validity_commitment(completer);
         context.push_nullifier(validity_commitment);
 

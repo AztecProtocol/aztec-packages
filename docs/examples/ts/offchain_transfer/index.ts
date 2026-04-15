@@ -9,20 +9,18 @@ import { SetPublicAuthwitContractInteraction } from "@aztec/aztec.js/authorizati
 import { Schnorr } from "@aztec/foundation/crypto/schnorr";
 import { poseidon2HashWithSeparator } from "@aztec/foundation/crypto/poseidon";
 import { GrumpkinScalar } from "@aztec/foundation/curves/grumpkin";
+import { DomainSeparator } from "@aztec/constants";
 // docs:end:imports
 
 // docs:start:constants
-// These must match the values in the Noir contract and its dependencies.
+// Must match the value in the Noir contract.
 const MESSAGE_HASH_SEPARATOR = 2;
-// From noir-protocol-circuits/crates/types/src/constants.nr: DOM_SEP__NOTE_HASH
-// Used by uint_note's compute_partial_commitment.
-const DOM_SEP_NOTE_HASH = 116501019;
 // docs:end:constants
 
 // docs:start:helpers
 /**
  * Computes the partial note commitment the same way uint_note's compute_partial_commitment does.
- * commitment = poseidon2_hash_with_separator([owner, randomness], DOM_SEP__NOTE_HASH)
+ * commitment = poseidon2_hash_with_separator([owner, randomness], DomainSeparator.NOTE_HASH)
  *
  * This lets the recipient know the commitment offchain (before Bob signs it) without needing to
  * query the PXE for the transaction's private return values.
@@ -33,7 +31,7 @@ async function computePartialCommitment(
 ): Promise<Fr> {
   return poseidon2HashWithSeparator(
     [owner.toField(), randomness],
-    DOM_SEP_NOTE_HASH,
+    DomainSeparator.NOTE_HASH,
   );
 }
 // docs:end:helpers
