@@ -23,9 +23,15 @@ if [ ! -f "$INPUTS" ]; then
 fi
 
 # --- Build ---
-echo "== Building native bb (clang20-no-avm) =="
-cmake --preset clang20-no-avm >/dev/null
-cmake --build --preset clang20-no-avm --target bb
+if [ "$(uname)" = "Darwin" ]; then
+  NATIVE_PRESET=homebrew
+  export BREW_PREFIX="${BREW_PREFIX:-$(brew --prefix)}"
+else
+  NATIVE_PRESET=clang20-no-avm
+fi
+echo "== Building native bb ($NATIVE_PRESET) =="
+cmake --preset "$NATIVE_PRESET" >/dev/null
+cmake --build --preset "$NATIVE_PRESET" --target bb
 
 echo "== Building wasm bb (wasm-threads) =="
 cmake --preset wasm-threads >/dev/null
