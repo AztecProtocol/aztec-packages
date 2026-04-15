@@ -1,7 +1,7 @@
 #include "barretenberg/vm2/simulation/gadgets/written_public_data_slots_tree_check.hpp"
 
+#include "barretenberg/aztec/aztec_constants.hpp"
 #include "barretenberg/common/assert.hpp"
-#include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/simulation/lib/merkle.hpp"
 
 namespace bb::avm2::simulation {

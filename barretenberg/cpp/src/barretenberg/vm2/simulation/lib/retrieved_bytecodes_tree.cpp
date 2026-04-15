@@ -1,6 +1,6 @@
 #include "retrieved_bytecodes_tree.hpp"
 
-#include "barretenberg/vm2/common/aztec_constants.hpp"
+#include "barretenberg/aztec/aztec_constants.hpp"
 
 namespace bb::avm2::simulation {
 

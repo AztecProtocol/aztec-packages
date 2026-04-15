@@ -1,5 +1,5 @@
 #include "barretenberg/vm2/tracegen/lib/phase_spec.hpp"
-#include "barretenberg/vm2/common/aztec_constants.hpp"
+#include "barretenberg/aztec/aztec_constants.hpp"
 
 #include <array>
 #include <cstdint>
