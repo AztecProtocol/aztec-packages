@@ -5,5 +5,5 @@ compiler_version = ">=0.25.0"
 type = "contract"
 
 [dependencies]
-aztec = { path = "../../../../aztec-nr/aztec" }
-balance_set = { path = "../../../../aztec-nr/balance-set" }
+aztec = { path = "../../../../../aztec-nr/aztec" }
+balance_set = { path = "../../../../../aztec-nr/balance-set" }

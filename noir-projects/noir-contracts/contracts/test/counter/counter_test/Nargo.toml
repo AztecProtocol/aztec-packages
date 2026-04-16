@@ -1,0 +1,10 @@
+[package]
+name = "counter_contract_test"
+authors = [""]
+compiler_version = ">=0.25.0"
+type = "lib"
+
+[dependencies]
+aztec = { path = "../../../../../aztec-nr/aztec" }
+balance_set = { path = "../../../../../aztec-nr/balance-set" }
+counter_contract = { path = "../counter_contract" }
