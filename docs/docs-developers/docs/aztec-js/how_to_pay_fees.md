@@ -23,11 +23,7 @@ This guide walks you through paying transaction fees on Aztec using various paym
 | Method              | Use Case                                       | Privacy         | Requirements                 |
 | ------------------- | ---------------------------------------------- | --------------- | ---------------------------- |
 | Fee Juice (default) | Account already has Fee Juice                  | Public          | Funded account               |
-#if(devnet)
 | Sponsored FPC       | Testing, free transactions                     | Public          | None                         |
-#else
-| Sponsored FPC       | Testing, free transactions                     | Public          | None (devnet and local only) |
-#endif
 | Private FPC         | Privacy-preserving fees                        | Private         | Bridged Fee Juice via FPC    |
 | Third-party FPC     | Pay in other tokens on testnet/mainnet         | Varies by FPC   | FPC provider's SDK           |
 | Bridge + Claim      | Bootstrap from L1                              | Public          | L1 ETH for gas               |
@@ -89,19 +85,15 @@ Fee Payment Contracts (FPCs) pay Fee Juice on your behalf. An FPC holds its own 
 The SDK includes `PrivateFeePaymentMethod` and `PublicFeePaymentMethod` classes for the built-in reference FPC, but these are **deprecated** and do not work on mainnet alpha. For custom-token fee payment, use a third-party FPC with its own SDK (see [below](#third-party-fpcs-on-testnet-and-mainnet)).
 :::
 
-### Sponsored FPC (devnet and local only)
+### Sponsored FPC
 
-#if(testnet)
+#if(mainnet)
 :::note
-The Sponsored FPC is not available on testnet or mainnet. It is only available on devnet and local network.
-:::
-#elif(mainnet)
-:::note
-The Sponsored FPC is not available on mainnet. It is only available on devnet and local network.
+The Sponsored FPC is not available on mainnet. It is available on testnet, devnet, and local network.
 :::
 #endif
 
-The Sponsored FPC pays fees unconditionally. It is only available on devnet and local network.
+The Sponsored FPC pays fees unconditionally, enabling free transactions. It is available on testnet, devnet, and local network.
 
 You can derive the Sponsored FPC address from its deployment parameters, register it with your wallet, and use it to pay for transactions:
 

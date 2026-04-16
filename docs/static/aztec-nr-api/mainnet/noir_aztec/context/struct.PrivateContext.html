@@ -770,7 +770,12 @@ consider using <code>emit_private_log_unsafe</code> instead, or emitting additio
 <p>Same as <a href="../../noir_aztec/context/struct.PrivateContext.html#emit_private_log_unsafe"><code>PrivateContext::emit_private_log_unsafe</code></a>: the <code>tag</code> should be domain-separated.</p></div>
 </div><code id="emit_contract_class_log" class="code-header">pub fn <a href="#emit_contract_class_log"><span class="fn">emit_contract_class_log</span></a>&lt;let N: <a href="../../std/primitive.u32.html" class="primitive">u32</a>&gt;(&mut self, log: [<a href="../../std/primitive.Field.html" class="primitive">Field</a>; N])</code>
 
-<code id="call_private_function" class="code-header">pub fn <a href="#call_private_function"><span class="fn">call_private_function</span></a>&lt;let ArgsCount: <a href="../../std/primitive.u32.html" class="primitive">u32</a>&gt;(
+<div class="padded-description"><div class="comments">
+<p>Emits large data blobs.</p>
+<p>This reuses the Contract Class Log channel to emit blobs of up to <a href="../../protocol_types/constants/global.CONTRACT_CLASS_LOG_SIZE_IN_FIELDS.html"><code>CONTRACT_CLASS_LOG_SIZE_IN_FIELDS</code></a>.</p>
+<h4>Privacy</h4>
+<p>The address of the contract emitting these blobs is revelead.</p></div>
+</div><code id="call_private_function" class="code-header">pub fn <a href="#call_private_function"><span class="fn">call_private_function</span></a>&lt;let ArgsCount: <a href="../../std/primitive.u32.html" class="primitive">u32</a>&gt;(
     &mut self,
     contract_address: <a href="../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>,
     function_selector: <a href="../../protocol_types/abis/function_selector/struct.FunctionSelector.html" class="struct">FunctionSelector</a>,
