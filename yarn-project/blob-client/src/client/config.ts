@@ -93,7 +93,7 @@ export const blobClientConfigMapping: ConfigMappingsType<BlobClientConfig> = {
   blobSinkMapSizeKb: {
     env: 'BLOB_SINK_MAP_SIZE_KB',
     description: 'The maximum possible size of the blob sink DB in KB. Overwrites the general dataStoreMapSizeKb.',
-    parseEnv: (val: string) => +val,
+    ...optionalNumberConfigHelper(),
   },
   blobAllowEmptySources: {
     env: 'BLOB_ALLOW_EMPTY_SOURCES',
@@ -116,7 +116,7 @@ export const blobClientConfigMapping: ConfigMappingsType<BlobClientConfig> = {
   blobHealthcheckUploadIntervalMinutes: {
     env: 'BLOB_HEALTHCHECK_UPLOAD_INTERVAL_MINUTES',
     description: 'Interval in minutes for uploading healthcheck file to file store (default: 60 = 1 hour)',
-    parseEnv: (val: string) => +val,
+    ...optionalNumberConfigHelper(),
   },
   l1HttpTimeoutMS: {
     env: 'ETHEREUM_HTTP_TIMEOUT_MS',

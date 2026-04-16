@@ -1,5 +1,5 @@
 import { l1ContractAddressesMapping } from '@aztec/ethereum/l1-contract-addresses';
-import type { ConfigMappingsType } from '@aztec/foundation/config';
+import { type ConfigMappingsType, numberConfigHelper } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
 
 export { type SequencerConfig, SequencerConfigSchema } from '../interfaces/configs.js';
@@ -14,8 +14,7 @@ export const emptyChainConfig: ChainConfig = {
 export const chainConfigMappings: ConfigMappingsType<ChainConfig> = {
   l1ChainId: {
     env: 'L1_CHAIN_ID',
-    parseEnv: (val: string) => +val,
-    defaultValue: 31337,
+    ...numberConfigHelper(31337),
     description: 'The chain ID of the ethereum host.',
   },
   rollupVersion: {

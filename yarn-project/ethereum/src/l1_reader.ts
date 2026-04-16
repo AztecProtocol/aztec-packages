@@ -30,7 +30,7 @@ export const l1ReaderConfigMappings: ConfigMappingsType<L1ReaderConfig> = {
   },
   l1ChainId: {
     env: 'L1_CHAIN_ID',
-    parseEnv: (val: string) => +val,
+    ...optionalNumberConfigHelper(),
     description: 'The chain ID of the ethereum host.',
   },
   l1RpcUrls: {

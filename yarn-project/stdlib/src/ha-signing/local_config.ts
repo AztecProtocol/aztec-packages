@@ -1,4 +1,4 @@
-import { type ConfigMappingsType, getConfigFromMappings } from '@aztec/foundation/config';
+import { type ConfigMappingsType, getConfigFromMappings, optionalNumberConfigHelper } from '@aztec/foundation/config';
 import { zodFor } from '@aztec/foundation/schemas';
 import { type DataStoreConfig, dataConfigMappings } from '@aztec/stdlib/kv-store';
 
@@ -26,7 +26,7 @@ export const localSignerConfigMappings: ConfigMappingsType<LocalSignerConfig> = 
     env: 'SIGNING_PROTECTION_MAP_SIZE_KB',
     description:
       'Maximum size of the local signing-protection LMDB store in KB. Overwrites the general dataStoreMapSizeKb.',
-    parseEnv: (val: string) => +val,
+    ...optionalNumberConfigHelper(),
   },
 };
 

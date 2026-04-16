@@ -1,4 +1,9 @@
-import { type ConfigMappingsType, getConfigFromMappings, numberConfigHelper } from '@aztec/foundation/config';
+import {
+  type ConfigMappingsType,
+  getConfigFromMappings,
+  numberConfigHelper,
+  optionalNumberConfigHelper,
+} from '@aztec/foundation/config';
 
 /** World State synchronizer configuration values. */
 export interface WorldStateConfig {
@@ -36,47 +41,46 @@ export interface WorldStateConfig {
 export const worldStateConfigMappings: ConfigMappingsType<WorldStateConfig> = {
   worldStateBlockCheckIntervalMS: {
     env: 'WS_BLOCK_CHECK_INTERVAL_MS',
-    parseEnv: (val: string) => +val,
-    defaultValue: 100,
+    ...numberConfigHelper(100),
     description: 'The frequency in which to check.',
   },
   worldStateBlockRequestBatchSize: {
     env: 'WS_BLOCK_REQUEST_BATCH_SIZE',
-    parseEnv: (val: string) => +val,
+    ...optionalNumberConfigHelper(),
     description: 'Size of the batch for each get-blocks request from the synchronizer to the archiver.',
   },
   worldStateDbMapSizeKb: {
     env: 'WS_DB_MAP_SIZE_KB',
-    parseEnv: (val: string) => +val,
+    ...optionalNumberConfigHelper(),
     description: 'The maximum possible size of the world state DB in KB. Overwrites the general dataStoreMapSizeKb.',
   },
   archiveTreeMapSizeKb: {
     env: 'ARCHIVE_TREE_MAP_SIZE_KB',
-    parseEnv: (val: string) => +val,
+    ...optionalNumberConfigHelper(),
     description:
       'The maximum possible size of the world state archive tree in KB. Overwrites the general worldStateDbMapSizeKb.',
   },
   nullifierTreeMapSizeKb: {
     env: 'NULLIFIER_TREE_MAP_SIZE_KB',
-    parseEnv: (val: string) => +val,
+    ...optionalNumberConfigHelper(),
     description:
       'The maximum possible size of the world state nullifier tree in KB. Overwrites the general worldStateDbMapSizeKb.',
   },
   noteHashTreeMapSizeKb: {
     env: 'NOTE_HASH_TREE_MAP_SIZE_KB',
-    parseEnv: (val: string) => +val,
+    ...optionalNumberConfigHelper(),
     description:
       'The maximum possible size of the world state note hash tree in KB. Overwrites the general worldStateDbMapSizeKb.',
   },
   messageTreeMapSizeKb: {
     env: 'MESSAGE_TREE_MAP_SIZE_KB',
-    parseEnv: (val: string) => +val,
+    ...optionalNumberConfigHelper(),
     description:
       'The maximum possible size of the world state message tree in KB. Overwrites the general worldStateDbMapSizeKb.',
   },
   publicDataTreeMapSizeKb: {
     env: 'PUBLIC_DATA_TREE_MAP_SIZE_KB',
-    parseEnv: (val: string) => +val,
+    ...optionalNumberConfigHelper(),
     description:
       'The maximum possible size of the world state public data tree in KB. Overwrites the general worldStateDbMapSizeKb.',
   },
