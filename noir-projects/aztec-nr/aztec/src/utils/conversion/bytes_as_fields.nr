@@ -1,16 +1,19 @@
 use std::static_assert;
 
-/// Encodes an array of native bytes as fields by packing 31 bytes into each `Field` in big-endian order.
+/// Encodes an array of bytes as fields.
 ///
-/// `N` must be a multiple of 31. Use
+/// Use
 /// [`decode_bytes_from_fields`](crate::utils::conversion::bytes_as_fields::decode_bytes_from_fields) to recover
 /// the original bytes.
+///
+/// The `bytes` array length must be a multiple of 31. If padding is added, it will need to be manually removed
+/// after decoding.
 ///
 /// ## Encoding
 ///
 /// Each 31-byte chunk is interpreted as a big-endian integer and stored in a `Field`. For input `[1, 10, 3, ..., 0]`
 /// (31 bytes), the resulting `Field` is `1 * 256^30 + 10 * 256^29 + 3 * 256^28 + ... + 0`.
-pub(crate) fn encode_bytes_as_fields<let N: u32>(bytes: [u8; N]) -> [Field; N / 31] {
+pub fn encode_bytes_as_fields<let N: u32>(bytes: [u8; N]) -> [Field; N / 31] {
     static_assert(N % 31 == 0, "N must be a multiple of 31");
 
     let mut fields = [0; N / 31];
@@ -25,13 +28,12 @@ pub(crate) fn encode_bytes_as_fields<let N: u32>(bytes: [u8; N]) -> [Field; N / 
     fields
 }
 
-/// Decodes a `BoundedVec` of bytes from its field-packed encoding, as produced by
-/// [`encode_bytes_as_fields`](crate::utils::conversion::bytes_as_fields::encode_bytes_as_fields).
+/// Decodes fields back into bytes.
 ///
-/// Each input `Field` must fit in 248 bits; `Field::to_be_bytes::<31>()` fails the proof otherwise. Arbitrary field
-/// arrays are not valid input - this assumes the input was produced by
+/// Inverse of
 /// [`encode_bytes_as_fields`](crate::utils::conversion::bytes_as_fields::encode_bytes_as_fields).
-pub(crate) fn decode_bytes_from_fields<let N: u32>(fields: BoundedVec<Field, N>) -> BoundedVec<u8, N * 31> {
+/// Each input `Field` must fit in 248 bits; `Field::to_be_bytes::<31>()` fails the proof otherwise.
+pub fn decode_bytes_from_fields<let N: u32>(fields: BoundedVec<Field, N>) -> BoundedVec<u8, N * 31> {
     let mut bytes = BoundedVec::new();
     for i in 0..fields.len() {
         let chunk: [u8; 31] = fields.get(i).to_be_bytes();

@@ -1,4 +1,4 @@
-/// Encodes an array of native fields as bytes by serializing each `Field` as 32 big-endian bytes.
+/// Encodes an array of fields as bytes.
 ///
 /// Losslessly preserves any field value; use
 /// [`try_decode_fields_from_bytes`](crate::utils::conversion::fields_as_bytes::try_decode_fields_from_bytes) to
@@ -18,7 +18,7 @@
 /// The BN254 modulus is `< 2^254`, so every 32-byte chunk has its top bit at zero and the next bit biased. The output
 /// is therefore distinguishable from uniform random bytes; take this into account when feeding it into anything that
 /// assumes uniform randomness (e.g. ciphertexts meant to look random).
-pub(crate) fn encode_fields_as_bytes<let N: u32>(fields: [Field; N]) -> [u8; 32 * N] {
+pub fn encode_fields_as_bytes<let N: u32>(fields: [Field; N]) -> [u8; 32 * N] {
     let mut bytes = [0; 32 * N];
     for i in 0..N {
         let chunk: [u8; 32] = fields[i].to_be_bytes();
@@ -29,20 +29,23 @@ pub(crate) fn encode_fields_as_bytes<let N: u32>(fields: [Field; N]) -> [u8; 32 
     bytes
 }
 
-/// Panicking counterpart to
-/// [`try_decode_fields_from_bytes`](crate::utils::conversion::fields_as_bytes::try_decode_fields_from_bytes).
-/// Asserts the input length is a multiple of 32 and panics if any chunk exceeds the BN254 field modulus.
-pub(crate) fn decode_fields_from_bytes<let N: u32>(bytes: BoundedVec<u8, N>) -> BoundedVec<Field, N / 32> {
+/// Decodes bytes back into fields.
+///
+/// Panics if the input length is not a multiple of 32 or if any chunk exceeds the BN254 field modulus. See
+/// [`try_decode_fields_from_bytes`](crate::utils::conversion::fields_as_bytes::try_decode_fields_from_bytes)
+/// for a non-panicking variant.
+pub fn decode_fields_from_bytes<let N: u32>(bytes: BoundedVec<u8, N>) -> BoundedVec<Field, N / 32> {
     assert(bytes.len() % 32 == 0, "Input length must be a multiple of 32");
     try_decode_fields_from_bytes(bytes).expect(f"Value does not fit in field")
 }
 
-/// Decodes a `BoundedVec` of native fields from their 32-byte big-endian encoding, as produced by
-/// [`encode_fields_as_bytes`](crate::utils::conversion::fields_as_bytes::encode_fields_as_bytes).
+/// Decodes bytes back into fields, returning None on failure.
 ///
+/// Inverse of
+/// [`encode_fields_as_bytes`](crate::utils::conversion::fields_as_bytes::encode_fields_as_bytes).
 /// Returns `Option::none()` if the input length is not a multiple of 32, or if any 32-byte chunk is `>=` the BN254
-/// field modulus (since field arithmetic silently wraps such values).
-pub(crate) fn try_decode_fields_from_bytes<let N: u32>(bytes: BoundedVec<u8, N>) -> Option<BoundedVec<Field, N / 32>> {
+/// field modulus.
+pub fn try_decode_fields_from_bytes<let N: u32>(bytes: BoundedVec<u8, N>) -> Option<BoundedVec<Field, N / 32>> {
     if bytes.len() % 32 == 0 {
         let num_chunks = bytes.len() / 32;
         let mut fields: BoundedVec<Field, N / 32> = BoundedVec::new();
