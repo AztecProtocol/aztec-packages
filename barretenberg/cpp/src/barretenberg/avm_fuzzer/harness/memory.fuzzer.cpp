@@ -219,7 +219,7 @@ extern "C" size_t LLVMFuzzerCustomMutator(uint8_t* data, size_t size, size_t, un
         for (size_t i = 0; i < 4; ++i) {
             limbs[i] = dist(rng);
         }
-        auto random_value = FF(limbs[0], limbs[1], limbs[2], limbs[3]);
+        auto random_value = FF(uint256_t(limbs[0], limbs[1], limbs[2], limbs[3]));
         input.init_memory_values[value_idx] = MemoryValue::from_tag_truncating(memory_tags[tag_idx], random_value);
         break;
     }

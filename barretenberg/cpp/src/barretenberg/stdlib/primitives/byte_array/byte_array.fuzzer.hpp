@@ -343,7 +343,12 @@ template <typename Builder> class ByteArrayFuzzBase {
       public:
         std::vector<uint8_t> reference_value;
 
-        byte_array_t byte_array{ nullptr, std::vector<uint8_t>{} };
+        static Builder& dummy_builder()
+        {
+            static Builder b;
+            return b;
+        }
+        byte_array_t byte_array{ &dummy_builder(), std::vector<uint8_t>{} };
 
         static std::vector<uint8_t> get_value(const byte_array_t& byte_array) { return byte_array.get_value(); }
         static const std::vector<uint8_t>& bool_to_vector(const bool& b)
