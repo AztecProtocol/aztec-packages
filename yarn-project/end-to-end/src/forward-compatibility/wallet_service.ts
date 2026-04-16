@@ -9,7 +9,9 @@
  */
 import { getInitialTestAccountsData } from '@aztec/accounts/testing';
 import { createLocalNetwork } from '@aztec/aztec';
+import { Fr } from '@aztec/aztec.js/fields';
 import { WalletSchema } from '@aztec/aztec.js/wallet';
+import { GrumpkinScalar } from '@aztec/foundation/curves/grumpkin';
 import { createNamespacedSafeJsonRpcServer, startHttpRpcServer } from '@aztec/foundation/json-rpc/server';
 import { createLogger } from '@aztec/foundation/log';
 import { AztecNodeApiSchema } from '@aztec/stdlib/interfaces/client';
@@ -41,7 +43,17 @@ async function main() {
   const accounts = await Promise.all(
     testAccountsData.map(({ secret, salt, signingKey }) => wallet.createSchnorrAccount(secret, salt, signingKey)),
   );
-  logger.info('Embedded wallet created', { accounts: accounts.map(a => a.address.toString()) });
+
+  // Create an additional 4th account beyond the 3 initial test accounts. Some tests (e.g. AMM) need 4 separate
+  // accounts and we want the test body to be identical to the original.
+  const extraAccount = await wallet.createSchnorrAccount(Fr.random(), Fr.random(), GrumpkinScalar.random());
+  // Deploy the extra account contract so it can send transactions.
+  const deployMethod = await extraAccount.getDeployMethod();
+  await deployMethod.send({ from: accounts[0].address });
+
+  logger.info('Embedded wallet created', {
+    accounts: [...accounts, extraAccount].map(a => a.address.toString()),
+  });
 
   // Contract artifacts are large, so allow generous body sizes for RPC requests.
   const rpcOptions = { maxBodySizeBytes: '50mb' };
