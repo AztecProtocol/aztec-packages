@@ -1180,6 +1180,7 @@ export class PXE {
    */
   public async stop(): Promise<void> {
     await this.jobQueue.end();
+    await this.blockStateSynchronizer.stop();
     await this.db.close();
   }
 }
