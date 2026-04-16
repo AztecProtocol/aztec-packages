@@ -37,6 +37,11 @@ function main {
     echo "NO_FAIL_FAST=1" >> $GITHUB_ENV
   fi
 
+  # Handle skip-compat-e2e label (escape hatch for backwards compat test failures on release PRs)
+  if has_label "ci-skip-compat-e2e"; then
+    echo "SKIP_COMPAT_E2E=1" >> $GITHUB_ENV
+  fi
+
   # Determine CI mode based on event, labels, and target branch
   local ci_mode
   if [ "${GITHUB_EVENT_NAME:-}" == "merge_group" ] || has_label "ci-merge-queue"; then

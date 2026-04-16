@@ -288,3 +288,56 @@ jobs:
           AWS_SHUTDOWN_TIME: 180
         run: |
           ./.github/ci3.sh network-tests-kind
+
+  # Backwards compatibility e2e tests.
+  # Runs e2e tests with contract artifacts from every prior stable release to validate
+  # that new client code works with old contract artifacts ("new pxe / old contracts").
+  # Blocking for stable/RC releases, report-only for nightlies.
+  # Escape hatch: ci-skip-compat-e2e label makes failures non-blocking on release PRs.
+  ci-compat-e2e:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    needs: [ci, validate-nightly-tag]
+    if: |
+      always()
+      && (needs.ci.result == 'success' || needs.ci.result == 'skipped')
+      && github.event.pull_request.head.repo.fork != true
+      && github.event.pull_request.draft == false
+      && (
+        (startsWith(github.ref, 'refs/tags/v') && !contains(github.ref_name, '-nightly.') && !contains(github.ref_name, '-commit.'))
+        || needs.validate-nightly-tag.outputs.is_current == 'true'
+        || contains(github.event.pull_request.labels.*.name, 'ci-compat-e2e')
+        || contains(github.event.pull_request.labels.*.name, 'ci-release-pr')
+      )
+    # Non-blocking for nightlies and when ci-skip-compat-e2e escape hatch is applied.
+    continue-on-error: ${{ contains(github.ref_name, '-nightly.') || contains(github.event.pull_request.labels.*.name, 'ci-skip-compat-e2e') }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_OIDC_ROLE_ARN }}
+          aws-region: us-east-2
+          role-session-name: ci3-compat-e2e-${{ github.run_id }}
+          role-duration-seconds: 21600 # 6h – covers AWS_SHUTDOWN_TIME (300 min) + 60 min buffer
+
+      - name: Run Backwards Compatibility E2E Tests
+        timeout-minutes: 330
+        env:
+          GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+          BUILD_INSTANCE_SSH_KEY: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
+          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
+          DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          CI3_INSTANCE_PROFILE_NAME: ${{ secrets.CI3_INSTANCE_PROFILE_NAME }}
+          CI3_SECURITY_GROUP_ID: ${{ secrets.CI3_SECURITY_GROUP_ID }}
+          RUN_ID: ${{ github.run_id }}
+          AWS_SHUTDOWN_TIME: 300
+        run: ./.github/ci3.sh compat-e2e

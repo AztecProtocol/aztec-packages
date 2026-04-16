@@ -771,6 +771,67 @@ case "$cmd" in
     build
     yarn-project/end-to-end/bootstrap.sh avm_check_circuit
     ;;
+  #############################################
+  # BACKWARDS COMPATIBILITY E2E TESTS         #
+  #############################################
+  "ci-compat-e2e")
+    # Runs e2e tests with contract artifacts from every prior stable release since 4.2.0 (version where we committed to
+    # backwards compatibility). This Validates that old contract artifacts work on current release.
+    export CI=1
+    export USE_TEST_CACHE=0
+    export CI_FULL=0
+    export NO_FAIL_FAST=1
+
+    build
+
+    # Get current major version.
+    current_version=$(jq -r '.[""]' .release-please-manifest.json)
+    major=$(echo "$current_version" | cut -d. -f1)
+    # Only v4 has backwards-compatible contract artifacts. Skip for other majors.
+    if [ "$major" != "4" ]; then
+      echo "Compat e2e tests only apply to v4. Current major: v${major}. Skipping."
+      exit 0
+    fi
+    # Artifacts before v4.2.0 are incompatible due to oracle interface changes.
+    min_version="4.2.0"
+
+    # Fetch tags (EC2 clone may not have them).
+    git fetch origin 'refs/tags/v*:refs/tags/v*' 2>/dev/null || true
+
+    # Discover stable tags for this major version (no prerelease suffixes).
+    versions=()
+    while IFS= read -r tag; do
+      ver=${tag#v}
+      # Include only versions >= min_version (sort -V puts smaller first).
+      if [ "$(printf '%s\n%s' "$min_version" "$ver" | sort -V | head -1)" = "$min_version" ]; then
+        versions+=("$ver")
+      fi
+    done < <(git tag -l "v${major}.*" | grep -E "^v[0-9]+\.[0-9]+\.[0-9]+$" | sort -V)
+
+    # Exclude the current tag when running on a release tag push.
+    if [[ "${REF_NAME:-}" =~ ^v([0-9]+\.[0-9]+\.[0-9]+)$ ]]; then
+      current_tag="${BASH_REMATCH[1]}"
+      filtered=()
+      for v in "${versions[@]}"; do
+        [ "$v" != "$current_tag" ] && filtered+=("$v")
+      done
+      versions=("${filtered[@]}")
+    fi
+
+    if [ ${#versions[@]} -eq 0 ]; then
+      echo "No prior stable versions found for v${major}.x (>= $min_version). Skipping compat tests."
+      exit 0
+    fi
+
+    echo_header "Backwards compatibility e2e tests"
+    echo "Testing against ${#versions[@]} prior stable version(s): ${versions[*]}"
+
+    # Generate compat test commands for all versions and run them in parallel.
+    for ver in "${versions[@]}"; do
+      yarn-project/end-to-end/bootstrap.sh compat_test_cmds "$ver"
+    done | filter_test_cmds | parallelize
+    ;;
+
   ##########################################
   # ROLLUP UPGRADE DEPLOYMENT              #
   ##########################################
