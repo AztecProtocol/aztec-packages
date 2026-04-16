@@ -1,5 +1,6 @@
 import type { BlobClientInterface } from '@aztec/blob-client/client';
 import { type Blob, getBlobsPerL1Block, getPrefixedEthBlobCommitments } from '@aztec/blob-lib';
+import { INITIAL_CHECKPOINT_NUMBER } from '@aztec/constants';
 import type { CheckpointProposedLog, InboxContract, MessageSentLog, RollupContract } from '@aztec/ethereum/contracts';
 import { MULTI_CALL_3_ADDRESS } from '@aztec/ethereum/contracts';
 import type { ViemPublicClient } from '@aztec/ethereum/types';
@@ -465,15 +466,6 @@ export class FakeL1State {
   createMockInboxContract(_publicClient: MockProxy<ViemPublicClient>): MockProxy<InboxContract> {
     const mockInbox = mock<InboxContract>();
 
-<<<<<<< HEAD
-    mockInbox.getState.mockImplementation(() =>
-      Promise.resolve({
-        messagesRollingHash: this.messagesRollingHash,
-        totalMessagesInserted: BigInt(this.messages.length),
-        treeInProgress: 0n,
-      }),
-    );
-=======
     mockInbox.getState.mockImplementation((opts: { blockTag?: string; blockNumber?: bigint } = {}) => {
       // Filter messages visible at the given block number (or all if not specified)
       const blockNumber = opts.blockNumber ?? this.l1BlockNumber;
@@ -504,7 +496,6 @@ export class FakeL1State {
         treeInProgress: BigInt(treeInProgress),
       });
     });
->>>>>>> 77c78761552 (fix(archiver): always advance L1-to-L2 messages syncpoint to current L1 block)
 
     // Mock the wrapper methods for fetching message events
     mockInbox.getMessageSentEvents.mockImplementation((fromBlock: bigint, toBlock: bigint) =>

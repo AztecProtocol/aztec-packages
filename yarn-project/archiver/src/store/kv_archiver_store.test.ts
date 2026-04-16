@@ -1811,7 +1811,7 @@ describe('KVArchiverDataStore', () => {
     it('returns the L1 block set via setMessageSyncState', async () => {
       const l1BlockHash = Buffer32.random();
       const l1BlockNumber = 10n;
-      await store.setMessageSyncState({ l1BlockNumber, l1BlockHash }, 1n);
+      await store.setMessageSyncState({ l1BlockNumber, l1BlockHash });
       await store.addL1ToL2Messages([
         makeInboxMessage(Buffer16.ZERO, { l1BlockNumber: 5n, l1BlockHash: Buffer32.random() }),
       ]);
@@ -2225,46 +2225,6 @@ describe('KVArchiverDataStore', () => {
       await store.removeL1ToL2Messages(msgs[13].index);
       await checkMessages(msgs.slice(0, 13));
     });
-<<<<<<< HEAD
-=======
-
-    describe('inbox tree in progress guard', () => {
-      it('throws when checkpointNumber >= treeInProgress', async () => {
-        const msgs = makeInboxMessages(3, { initialCheckpointNumber: CheckpointNumber(5) });
-        await store.addL1ToL2Messages(msgs);
-
-        // Set treeInProgress to 7, meaning checkpoints 5 and 6 are sealed, 7+ are not
-        await store.setMessageSyncState({ l1BlockNumber: 1n, l1BlockHash: Buffer32.random() }, 7n);
-
-        // Sealed checkpoint should succeed
-        await expect(store.getL1ToL2Messages(CheckpointNumber(5))).resolves.toEqual([msgs[0].leaf]);
-
-        // Unsealed checkpoint (== treeInProgress) should throw
-        await expect(store.getL1ToL2Messages(CheckpointNumber(7))).rejects.toThrow(L1ToL2MessagesNotReadyError);
-
-        // Future checkpoint should also throw
-        await expect(store.getL1ToL2Messages(CheckpointNumber(8))).rejects.toThrow(L1ToL2MessagesNotReadyError);
-      });
-
-      it('returns messages when checkpointNumber < treeInProgress', async () => {
-        const msgs = makeInboxMessages(3, { initialCheckpointNumber: CheckpointNumber(10) });
-        await store.addL1ToL2Messages(msgs);
-
-        await store.setMessageSyncState({ l1BlockNumber: 1n, l1BlockHash: Buffer32.random() }, 13n);
-
-        await expect(store.getL1ToL2Messages(CheckpointNumber(10))).resolves.toEqual([msgs[0].leaf]);
-        await expect(store.getL1ToL2Messages(CheckpointNumber(11))).resolves.toEqual([msgs[1].leaf]);
-      });
-
-      it('skips guard when treeInProgress is not set', async () => {
-        const msgs = makeInboxMessages(2, { initialCheckpointNumber: CheckpointNumber(1) });
-        await store.addL1ToL2Messages(msgs);
-
-        // No setMessageSyncState call — guard should be permissive
-        await expect(store.getL1ToL2Messages(CheckpointNumber(1))).resolves.toEqual([msgs[0].leaf]);
-      });
-    });
->>>>>>> 77c78761552 (fix(archiver): always advance L1-to-L2 messages syncpoint to current L1 block)
   });
 
   describe('contractInstances', () => {
