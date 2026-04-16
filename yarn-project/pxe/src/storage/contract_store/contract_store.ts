@@ -248,7 +248,7 @@ export class ContractStore {
     contractClassId: Fr,
   ): Promise<(ContractClassWithId & ContractClassIdPreimage) | undefined> {
     const key = contractClassId.toString();
-    const buf = await this.#store.transactionAsync(async () => this.#contractClassData.getAsync(key));
+    const buf = await this.#store.transactionAsync(() => this.#contractClassData.getAsync(key));
     if (!buf) {
       return undefined;
     }
