@@ -7,6 +7,7 @@
  * new artifacts to old runtime code (loadContractArtifact, ACIR simulator, class-ID computation, entrypoint encoding,
  * etc.).
  */
+import { getSchnorrAccountContractAddress } from '@aztec/accounts/schnorr';
 import { getInitialTestAccountsData } from '@aztec/accounts/testing';
 import { createLocalNetwork } from '@aztec/aztec';
 import { Fr } from '@aztec/aztec.js/fields';
@@ -24,12 +25,26 @@ const { ETHEREUM_HOSTS = 'http://localhost:8545', NODE_PORT = '8080', WALLET_POR
 async function main() {
   const l1RpcUrls = ETHEREUM_HOSTS.split(',').map(url => url.trim());
 
+  // Some tests (e.g. AMM) need 4 accounts but only 3 are funded via genesis. Generate deterministic keys for a 4th
+  // account so we can compute its address before network startup and include it in genesis funding.
+  const extraAccountSecret = Fr.fromHexString('0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef');
+  const extraAccountSalt = Fr.ZERO;
+  const extraAccountSigningKey = GrumpkinScalar.random();
+  const extraAccountAddress = await getSchnorrAccountContractAddress(
+    extraAccountSecret,
+    extraAccountSalt,
+    extraAccountSigningKey,
+  );
+
   logger.info('Starting wallet service...', { l1RpcUrls });
 
   // createLocalNetwork deploys L1 contracts, starts the node, and optionally deploys funded test accounts (when
   // TEST_ACCOUNTS=true via env). We are not proving anything just like is done when local network is started by
-  // the aztecStart` function.
-  const { node, stop: stopNetwork } = await createLocalNetwork({ l1RpcUrls, realProofs: false }, logger.info);
+  // the `aztecStart` function. The extra account address is passed via prefundAddresses so it gets fee juice at genesis.
+  const { node, stop: stopNetwork } = await createLocalNetwork(
+    { l1RpcUrls, realProofs: false, prefundAddresses: [extraAccountAddress.toString()] },
+    logger.info,
+  );
 
   // Create an ephemeral embedded wallet backed by the local node.
   const wallet = await EmbeddedWallet.create(node, { ephemeral: true });
@@ -44,10 +59,8 @@ async function main() {
     testAccountsData.map(({ secret, salt, signingKey }) => wallet.createSchnorrAccount(secret, salt, signingKey)),
   );
 
-  // Create an additional 4th account beyond the 3 initial test accounts. Some tests (e.g. AMM) need 4 separate
-  // accounts and we want the test body to be identical to the original.
-  const extraAccount = await wallet.createSchnorrAccount(Fr.random(), Fr.random(), GrumpkinScalar.random());
-  // Deploy the extra account contract so it can send transactions.
+  // Register and deploy the 4th account.
+  const extraAccount = await wallet.createSchnorrAccount(extraAccountSecret, extraAccountSalt, extraAccountSigningKey);
   const deployMethod = await extraAccount.getDeployMethod();
   await deployMethod.send({ from: accounts[0].address });
 
