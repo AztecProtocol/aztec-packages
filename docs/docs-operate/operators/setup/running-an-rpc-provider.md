@@ -232,7 +232,7 @@ docker compose logs -f aztec-rpc
 
 ### OpenTelemetry (Optional)
 
-For production monitoring, add the `otel-lgtm` stack to get metrics, traces, and a Grafana dashboard. See the [Monitoring Guide](../monitoring/monitoring.md) for details.
+For production monitoring, add the `otel-lgtm` stack to get metrics, traces, and a Grafana dashboard. See the [Monitoring Guide](../monitoring/index.md) for details.
 
 ## Troubleshooting
 
@@ -257,5 +257,5 @@ For production monitoring, add the `otel-lgtm` stack to get metrics, traces, and
 ## Next Steps
 
 - Review [syncing best practices](./syncing-best-practices.md) for faster synchronization
-- Set up [monitoring](../monitoring/monitoring.md) for production visibility
+- Set up [monitoring](../monitoring/index.md) for production visibility
 - Check the [CLI reference](../reference/cli-reference.md) for advanced configuration options
