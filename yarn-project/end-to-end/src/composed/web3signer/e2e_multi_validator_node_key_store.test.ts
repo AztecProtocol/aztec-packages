@@ -324,9 +324,9 @@ describe('e2e_multi_validator_node', () => {
     await rmdir(keyStoreDirectory, { recursive: true });
   });
 
-  const sendTx = (sender: AztecAddress, contractAddressSalt: Fr) => {
+  const sendTx = (contractAddressSalt: Fr) => {
     const deployer = new ContractDeployer(artifact, wallet);
-    return deployer.deploy(ownerAddress, sender, 1).send({
+    return deployer.deploy(ownerAddress, 1).send({
       from: ownerAddress,
       contractAddressSalt,
       skipClassPublication: true,
@@ -400,7 +400,7 @@ describe('e2e_multi_validator_node', () => {
     // Then we check the results captured above
     const sentTransactionPromises = Array.from({ length: BLOCK_COUNT }, (_, i) => {
       const contractAddressSalt = new Fr(i + 1);
-      return sendTx(ownerAddress, contractAddressSalt);
+      return sendTx(contractAddressSalt);
     });
 
     const settledTransactions = await Promise.all(
