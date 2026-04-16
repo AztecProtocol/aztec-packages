@@ -299,14 +299,6 @@ void EccTraceBuilder::process_add_with_memory(
 
         bool error = dst_out_of_range_err || !p_is_on_curve || !q_is_on_curve;
 
-        // TODO(#AVM-266): Remove is_infinity flag from point representation. For now, we derive is_inf by
-        // checking coordinates in-circuit and ignoring the flag read from memory. Below, we do the 'reverse'
-        // and set derive coordinates as (0, 0) if is_inf is true. This allows us to handle bb inf points until
-        // the flag is removed.
-        // Normalized points, ensures that input infinity points are represented by (0, 0) in the ecc subtrace.
-        EmbeddedCurvePoint p_n = event.p.is_infinity() ? EmbeddedCurvePoint::infinity() : event.p;
-        EmbeddedCurvePoint q_n = event.q.is_infinity() ? EmbeddedCurvePoint::infinity() : event.q;
-
         trace.set(
             row,
             { {
@@ -331,14 +323,14 @@ void EccTraceBuilder::process_add_with_memory(
                 { C::ecc_add_mem_dst_addr_1_, dst_addr + 1 },
                 { C::ecc_add_mem_dst_addr_2_, dst_addr + 2 },
                 // Input - Point P
-                { C::ecc_add_mem_p_x, p_n.x() },
-                { C::ecc_add_mem_p_y, p_n.y() },
+                { C::ecc_add_mem_p_x, event.p.x() },
+                { C::ecc_add_mem_p_y, event.p.y() },
                 { C::ecc_add_mem_p_is_inf,
                   event.p.is_infinity() ? 1 : 0 }, // TODO(#AVM-266): If committed, Will be p.x() == 0 && p.y() == 0
                 { C::ecc_add_mem_p_is_inf_, event.p.is_infinity() ? 1 : 0 }, // TODO(#AVM-266): Remove is_infinity flag
                 // Input - Point Q
-                { C::ecc_add_mem_q_x, q_n.x() },
-                { C::ecc_add_mem_q_y, q_n.y() },
+                { C::ecc_add_mem_q_x, event.q.x() },
+                { C::ecc_add_mem_q_y, event.q.y() },
                 { C::ecc_add_mem_q_is_inf,
                   event.q.is_infinity() ? 1 : 0 }, // TODO(#AVM-266): If committed, Will be q.x() == 0 && q.y() == 0
                 { C::ecc_add_mem_q_is_inf_, event.q.is_infinity() ? 1 : 0 }, // TODO(#AVM-266): Remove is_infinity flag
