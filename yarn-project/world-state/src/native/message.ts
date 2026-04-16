@@ -1,7 +1,6 @@
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import type { Tuple } from '@aztec/foundation/serialize';
-import type { BlockHash } from '@aztec/stdlib/block';
 import { AppendOnlyTreeSnapshot, MerkleTreeId } from '@aztec/stdlib/trees';
 import type { StateReference } from '@aztec/stdlib/tx';
 import type { UInt32 } from '@aztec/stdlib/types';
@@ -423,7 +422,7 @@ interface UpdateArchiveRequest extends WithForkId {
 interface SyncBlockRequest extends WithCanonicalForkId {
   blockNumber: BlockNumber;
   blockStateRef: BlockStateReference;
-  blockHeaderHash: BlockHash;
+  blockHeaderHash: Buffer;
   paddedNoteHashes: readonly SerializedLeafValue[];
   paddedL1ToL2Messages: readonly SerializedLeafValue[];
   paddedNullifiers: readonly SerializedLeafValue[];

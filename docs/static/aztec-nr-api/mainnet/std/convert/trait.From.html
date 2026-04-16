@@ -34,6 +34,7 @@
 <li><a href="#impl-From&lt;PendingPreviousPhaseNoteMetadata&gt;-for-NoteMetadata">NoteMetadata</a></li>
 <li><a href="#impl-From&lt;PendingSamePhaseNoteMetadata&gt;-for-NoteMetadata">NoteMetadata</a></li>
 <li><a href="#impl-From&lt;SettledNoteMetadata&gt;-for-NoteMetadata">NoteMetadata</a></li>
+<li><a href="#impl-From&lt;EmbeddedCurvePoint&gt;-for-Point">Point</a></li>
 <li><a href="#impl-From&lt;T&gt;-for-T">T</a></li>
 <li><a href="#impl-From&lt;str&lt;N&gt;&gt;-for-[u8; N]">[u8; N]</a></li>
 <li><a href="#impl-From&lt;bool&gt;-for-i16">i16</a></li>
@@ -78,6 +79,9 @@
     pub fn <a href="#from"><span class="fn">from</span></a>(input: T) -> Self;
 }</code></pre>
 
+<div class="comments">
+<p>Create a new <code>Self</code> value from the given <code>T</code> value</p>
+</div>
 <h2>Required methods</h2>
 <div class="padded-methods"><code id="from" class="code-header">pub fn <a href="#from"><span class="fn">from</span></a>(input: T) -> Self</code>
 
@@ -101,6 +105,8 @@
 <h3 id="impl-From&lt;PendingSamePhaseNoteMetadata&gt;-for-NoteMetadata"><code class="code-header">impl <a href="../../std/convert/trait.From.html" class="trait">From</a>&lt;<a href="../../noir_aztec/note/note_metadata/struct.PendingSamePhaseNoteMetadata.html" class="struct">PendingSamePhaseNoteMetadata</a>&gt; for <a href="../../noir_aztec/note/note_metadata/struct.NoteMetadata.html" class="struct">NoteMetadata</a></code></h3>
 
 <h3 id="impl-From&lt;SettledNoteMetadata&gt;-for-NoteMetadata"><code class="code-header">impl <a href="../../std/convert/trait.From.html" class="trait">From</a>&lt;<a href="../../noir_aztec/note/note_metadata/struct.SettledNoteMetadata.html" class="struct">SettledNoteMetadata</a>&gt; for <a href="../../noir_aztec/note/note_metadata/struct.NoteMetadata.html" class="struct">NoteMetadata</a></code></h3>
+
+<h3 id="impl-From&lt;EmbeddedCurvePoint&gt;-for-Point"><code class="code-header">impl <a href="../../std/convert/trait.From.html" class="trait">From</a>&lt;<a href="../../std/embedded_curve_ops/struct.EmbeddedCurvePoint.html" class="struct">EmbeddedCurvePoint</a>&gt; for <a href="../../protocol_types/point/struct.Point.html" class="struct">Point</a></code></h3>
 
 <h3 id="impl-From&lt;T&gt;-for-T"><code class="code-header">impl&lt;T&gt; <a href="../../std/convert/trait.From.html" class="trait">From</a>&lt;T&gt; for T</code></h3>
 
