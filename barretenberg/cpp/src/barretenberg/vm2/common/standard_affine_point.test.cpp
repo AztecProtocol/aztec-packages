@@ -10,18 +10,24 @@ using EmbeddedCurvePoint = StandardAffinePoint<grumpkin::g1::affine_element>;
 using Fr = grumpkin::fr;
 using Fq = grumpkin::fq;
 
-TEST(StandardAffinePointTest, InfinityPreservesRawCoordinates)
+TEST(StandardAffinePointTest, InfinityDiscardsRawCoordinates)
 {
+    // NOTE: As of #AVM-248, we moved from preserving raw coordinates in
+    // infinity points to our (0,0) representation when using x() and y().
+    // The underlying AffinePoint is set to AffinePoint::infinity() for
+    // bb operations.
+
     // When constructing an infinity point with non-zero coordinates,
-    // x() and y() should return the raw coordinates
+    // x() and y() should return our standard representation.
     Fq raw_x = 1;
     Fq raw_y = 2;
 
+    // Note that raw x and y are silently discarded.
     EmbeddedCurvePoint point(raw_x, raw_y, /*is_infinity=*/true);
 
     EXPECT_TRUE(point.is_infinity());
-    EXPECT_EQ(point.x(), raw_x);
-    EXPECT_EQ(point.y(), raw_y);
+    EXPECT_TRUE(point.x().is_zero());
+    EXPECT_TRUE(point.y().is_zero());
 }
 
 TEST(StandardAffinePointTest, NormalPointCoordinates)
@@ -80,18 +86,16 @@ TEST(StandardAffinePointTest, StaticInfinityHasZeroCoordinates)
     EXPECT_TRUE(inf.y().is_zero());
 }
 
-TEST(StandardAffinePointTest, NegatingInfinityPreservesRawCoordinates)
+TEST(StandardAffinePointTest, NegatingInfinity)
 {
-    // Negating an infinity point should preserve its raw coordinates
-    Fq raw_x = 1;
-    Fq raw_y = 2;
-    EmbeddedCurvePoint inf(raw_x, raw_y, /*is_infinity=*/true);
+    // Negating an infinity point should return (0,0,true)
+    EmbeddedCurvePoint inf(0, 0, /*is_infinity=*/true);
 
     auto neg_inf = -inf;
 
     EXPECT_TRUE(neg_inf.is_infinity());
-    EXPECT_EQ(neg_inf.x(), raw_x);
-    EXPECT_EQ(neg_inf.y(), raw_y);
+    EXPECT_TRUE(neg_inf.x().is_zero());
+    EXPECT_TRUE(neg_inf.y().is_zero());
 }
 
 } // namespace
