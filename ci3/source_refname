@@ -53,8 +53,3 @@ fi
 if [ -z "${CURRENT_VERSION:-}" ]; then
   export CURRENT_VERSION=$(jq -r '."."' $root/.release-please-manifest.json)
 fi
-
-# Aztec version to inject into contract artifacts. Only set when REF_NAME is a valid semver (release tag).
-if [ -z "${AZTEC_VERSION:-}" ] && semver check "$REF_NAME" 2>/dev/null; then
-  export AZTEC_VERSION="${REF_NAME#v}"
-fi

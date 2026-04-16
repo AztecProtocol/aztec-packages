@@ -31,8 +31,16 @@ export BB=${BB:-../../barretenberg/cpp/build/bin/bb}
 export NARGO=${NARGO:-../../noir/noir-repo/target/release/nargo}
 export BB_HASH=${BB_HASH:-$(../../barretenberg/cpp/bootstrap.sh hash)}
 export NOIR_HASH=${NOIR_HASH:-$(../../noir/bootstrap.sh hash)}
-# Aztec version to inject into contract artifacts. Set by the release pipeline (e.g. AZTEC_VERSION=5.0.0-nightly.20260414).
-export AZTEC_VERSION=${AZTEC_VERSION:-dev}
+# Aztec version to inject into contract artifacts.
+# On release builds (REF_NAME is valid semver), use the tag without the leading "v".
+# Otherwise default to "dev".
+if [ -z "${AZTEC_VERSION:-}" ]; then
+  if semver check "$REF_NAME" 2>/dev/null; then
+    export AZTEC_VERSION="${REF_NAME#v}"
+  else
+    export AZTEC_VERSION="dev"
+  fi
+fi
 
 # Set common flags for parallel.
 export PARALLEL_FLAGS="-j${PARALLELISM:-16} --halt now,fail=1 --memsuspend $(memsuspend_limit)"
