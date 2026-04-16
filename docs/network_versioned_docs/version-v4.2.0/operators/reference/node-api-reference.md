@@ -821,26 +821,6 @@ curl -X POST http://localhost:8080 \
   -d '{"jsonrpc":"2.0","method":"node_getCurrentMinFees","params":[],"id":1}'
 ```
 
-### node_getPredictedMinFees
-
-Returns predicted min fees for the current slot and next N slots.
-Each entry accounts for the L1 gas oracle transition and congestion growth based on the
-given mana usage estimate. Defaults to target usage (steady state).
-
-**Parameters**:
-
-1. `manaUsage` - `ManaUsageEstimate | undefined` - Expected mana usage per checkpoint (none, target, or limit).
-
-**Returns**: `GasFees[]` - An array of GasFees, one per slot in the prediction window.
-
-**Example**:
-
-```bash
-curl -X POST http://localhost:8080 \
-  -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","method":"node_getPredictedMinFees","params":[1],"id":1}'
-```
-
 ### node_getMaxPriorityFees
 
 Method to fetch the current max priority fee of txs in the mempool.
@@ -1189,8 +1169,6 @@ Pauses syncing and rolls back the database to the target L2 block number.
 **Parameters**:
 
 1. `targetBlockNumber` - `number` - The block number to roll back to.
-2. `force` - `boolean | undefined` - If true, clears the world state db and p2p dbs if rolling back to behind the finalized block.
-3. `resumeSync` - `boolean | undefined` - If true (default), resumes archiver and world state sync after rollback.
 
 **Returns**: `void`
 
@@ -1199,7 +1177,7 @@ Pauses syncing and rolls back the database to the target L2 block number.
 ```bash
 curl -X POST http://localhost:8880 \
   -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","method":"nodeAdmin_rollbackTo","params":[12345,true,true],"id":1}'
+  -d '{"jsonrpc":"2.0","method":"nodeAdmin_rollbackTo","params":[12345],"id":1}'
 ```
 
 **Example (Docker)**:
@@ -1207,7 +1185,7 @@ curl -X POST http://localhost:8880 \
 ```bash
 docker exec -it aztec-node curl -X POST http://localhost:8880 \
   -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","method":"nodeAdmin_rollbackTo","params":[12345,true,true],"id":1}'
+  -d '{"jsonrpc":"2.0","method":"nodeAdmin_rollbackTo","params":[12345],"id":1}'
 ```
 
 ### nodeAdmin_startSnapshotUpload
@@ -1234,6 +1212,30 @@ curl -X POST http://localhost:8880 \
 docker exec -it aztec-node curl -X POST http://localhost:8880 \
   -H 'Content-Type: application/json' \
   -d '{"jsonrpc":"2.0","method":"nodeAdmin_startSnapshotUpload","params":["0x1234..."],"id":1}'
+```
+
+### nodeAdmin_getSlashPayloads
+
+Returns all monitored payloads by the slasher for the current round.
+
+**Parameters**: None
+
+**Returns**: `SlashPayloadRound[]`
+
+**Example (CLI)**:
+
+```bash
+curl -X POST http://localhost:8880 \
+  -H 'Content-Type: application/json' \
+  -d '{"jsonrpc":"2.0","method":"nodeAdmin_getSlashPayloads","params":[],"id":1}'
+```
+
+**Example (Docker)**:
+
+```bash
+docker exec -it aztec-node curl -X POST http://localhost:8880 \
+  -H 'Content-Type: application/json' \
+  -d '{"jsonrpc":"2.0","method":"nodeAdmin_getSlashPayloads","params":[],"id":1}'
 ```
 
 ### nodeAdmin_getSlashOffenses
