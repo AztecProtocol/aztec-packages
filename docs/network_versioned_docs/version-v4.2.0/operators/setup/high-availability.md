@@ -156,7 +156,6 @@ aztec validator-keys new \
   --data-dir ~/ha-keys-temp
 ```
 
-
 This command generates:
 
 - **One attester** with both ETH and BLS keys (at derivation index 0)
@@ -178,7 +177,6 @@ Never commit mnemonics to version control or share them over insecure channels.
 ### Step 2: Fund Publisher Accounts
 
 Each publisher account needs ETH to pay for L1 gas when submitting proposals. You must maintain at least **0.1 ETH** in each publisher account.
-
 
 **Check publisher balances:**
 
@@ -395,15 +393,13 @@ export VALIDATOR_HA_SIGNING_TIMEOUT_MS=3000      # Default: 3000ms
 
 **Optional Tuning Variables:**
 
-| Variable                               | Description                                      | Default            |
-| -------------------------------------- | ------------------------------------------------ | ------------------ |
-| `VALIDATOR_HA_POLLING_INTERVAL_MS`     | How often to check duty status                   | `100`              |
-| `VALIDATOR_HA_SIGNING_TIMEOUT_MS`      | Max wait for in-progress signing                 | `3000`             |
-| `VALIDATOR_HA_MAX_STUCK_DUTIES_AGE_MS` | Max age before cleanup                           | `2 * slotDuration` |
-| `VALIDATOR_HA_POOL_MAX`                | Max database connections                         | `10`               |
-| `VALIDATOR_HA_POOL_MIN`                | Min database connections                         | `0`                |
-| `VALIDATOR_HA_OLD_DUTIES_MAX_AGE_H`    | Clean up old signed duties after this many hours | N/A                |
-
+| Variable                               | Description                      | Default            |
+| -------------------------------------- | -------------------------------- | ------------------ |
+| `VALIDATOR_HA_POLLING_INTERVAL_MS`     | How often to check duty status   | `100`              |
+| `VALIDATOR_HA_SIGNING_TIMEOUT_MS`      | Max wait for in-progress signing | `3000`             |
+| `VALIDATOR_HA_MAX_STUCK_DUTIES_AGE_MS` | Max age before cleanup           | `2 * slotDuration` |
+| `VALIDATOR_HA_POOL_MAX`                | Max database connections         | `10`               |
+| `VALIDATOR_HA_POOL_MIN`                | Min database connections         | `0`                |
 
 When `VALIDATOR_HA_SIGNING_ENABLED=true`, the validator client automatically:
 

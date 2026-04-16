@@ -37,8 +37,9 @@ Rewards are not automatically sent to your coinbase address. You must explicitly
 
 Before claiming, verify these conditions:
 
-1. **Rewards have accumulated**: Query your pending rewards before attempting to claim.
-2. **Sufficient gas**: Ensure you have ETH to pay transaction gas costs.
+1. **Rewards must be claimable**: A governance vote must pass to enable the claiming of rewards (only possible after a minimum configured timestamp) and governance must have called `setRewardsClaimable(true)` on the rollup contract.
+2. **Rewards have accumulated**: Query your pending rewards before attempting to claim.
+3. **Sufficient gas**: Ensure you have ETH to pay transaction gas costs.
 
 ## Checking Reward Status
 
@@ -52,6 +53,26 @@ export ROLLUP_ADDRESS="[YOUR_ROLLUP_CONTRACT_ADDRESS]"
 ```
 
 Replace `[YOUR_ROLLUP_CONTRACT_ADDRESS]` with your actual Rollup contract address.
+
+### Check if Rewards Are Claimable
+
+Verify reward claiming is enabled before attempting to claim:
+
+```bash
+cast call $ROLLUP_ADDRESS "isRewardsClaimable()" --rpc-url $RPC_URL
+```
+
+**Expected output:**
+- `0x0000000000000000000000000000000000000000000000000000000000000001` - Rewards are claimable (true)
+- `0x0000000000000000000000000000000000000000000000000000000000000000` - Rewards are not yet claimable (false)
+
+If rewards are not claimable, check when they will become claimable:
+
+```bash
+cast call $ROLLUP_ADDRESS "getEarliestRewardsClaimableTimestamp()" --rpc-url $RPC_URL
+```
+
+This returns a Unix timestamp indicating the earliest time when governance can enable reward claiming.
 
 ### Query Your Pending Rewards
 
@@ -139,6 +160,15 @@ cast call $ROLLUP_ADDRESS "getSequencerRewards(address)" [COINBASE_ADDRESS] --rp
 ```
 
 ## Troubleshooting
+
+### "Rewards not claimable" Error
+
+**Symptom**: Transaction reverts with "Rewards not claimable" error.
+
+**Solution**:
+1. Check if rewards are claimable using `isRewardsClaimable()`
+2. If `false`, wait until governance enables claiming via `setRewardsClaimable(true)`
+3. Check the earliest claimable timestamp using `getEarliestRewardsClaimableTimestamp()`
 
 ### No Pending Rewards
 
