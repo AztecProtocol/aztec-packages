@@ -39,6 +39,7 @@ Blockscience
 blockspace
 bootstraping
 bvec
+Caddyfile
 cafecafe
 CALLCODE
 cdoffset

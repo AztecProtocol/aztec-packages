@@ -37,6 +37,10 @@ const sidebars = {
       id: "operators/setup/running_a_node",
     },
     {
+      type: "doc",
+      id: "operators/setup/running_an_rpc_provider",
+    },
+    {
       type: "category",
       label: "Running a Sequencer",
       link: {

@@ -120,5 +120,6 @@ If port forwarding isn't properly configured, your node may not be able to parti
 Once you have met the prerequisites, proceed to set up your desired node type:
 
 - [Run a Full Node →](./setup/running-a-node.md)
+- [Run an RPC Provider →](./setup/running-an-rpc-provider.md) — serve the Aztec JSON-RPC API for your app's users
 - [Run a Sequencer Node →](./setup/sequencer-setup.md)
 - [Run a Prover Node →](./setup/running-a-prover.md)
