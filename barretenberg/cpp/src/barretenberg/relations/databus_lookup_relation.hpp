@@ -60,10 +60,13 @@ namespace bb {
 template <typename FF_> class DatabusLookupRelationImpl {
   public:
     using FF = FF_;
-    static constexpr size_t NUM_BUS_COLUMNS = 3;             // calldata, secondary calldata, return data
+    static constexpr size_t NUM_BUS_COLUMNS = 3; // calldata, secondary calldata, return data
+    // Note: All three subrelations use length 6 to make efficient use of shared computation. Shortening (1b)/(2) to
+    // length 5 forces the shared factors (lookup_term, table_term, read_selector, inverses, `I*L*T - 1`) to be
+    // recomputed and is a net loss in performance.
     static constexpr size_t INVERSE_READ_SUBREL_LENGTH = 6;  // deg 5: (I*L*T - 1) * is_read
-    static constexpr size_t INVERSE_WRITE_SUBREL_LENGTH = 5; // deg 4: (I*L*T - 1) * count
-    static constexpr size_t LOOKUP_SUBREL_LENGTH = 5;        // deg 4: (is_read*T - count*L) * I
+    static constexpr size_t INVERSE_WRITE_SUBREL_LENGTH = 6; // deg 4: (I*L*T - 1) * count
+    static constexpr size_t LOOKUP_SUBREL_LENGTH = 6;        // deg 4: (is_read*T - count*L) * I
     static constexpr size_t NUM_SUB_RELATION_PER_IDX = 3;    // the number of subrelations per bus column
 
     static constexpr std::array<size_t, NUM_SUB_RELATION_PER_IDX * NUM_BUS_COLUMNS> SUBRELATION_PARTIAL_LENGTHS{
@@ -254,45 +257,35 @@ template <typename FF_> class DatabusLookupRelationImpl {
                                                      const FF& scaling_factor)
     {
         // Subrelation indices for this bus column
-        constexpr size_t subrel_idx_inv_read = NUM_SUB_RELATION_PER_IDX * bus_idx;      // (1a) length 6
-        constexpr size_t subrel_idx_inv_write = NUM_SUB_RELATION_PER_IDX * bus_idx + 1; // (1b) length 5
-        constexpr size_t subrel_idx_lookup = NUM_SUB_RELATION_PER_IDX * bus_idx + 2;    // (2)  length 5
+        constexpr size_t subrel_idx_inv_read = NUM_SUB_RELATION_PER_IDX * bus_idx;      // (1a)
+        constexpr size_t subrel_idx_inv_write = NUM_SUB_RELATION_PER_IDX * bus_idx + 1; // (1b)
+        constexpr size_t subrel_idx_lookup = NUM_SUB_RELATION_PER_IDX * bus_idx + 2;    // (2)
 
-        // Use accumulator types matching the subrelation partial lengths.
-        // (1a) has length 6 (degree 5), while (1b) and (2) have length 5 (degree 4).
-        using LongAccumulator = typename std::tuple_element_t<subrel_idx_inv_read, ContainerOverSubrelations>;
-        using ShortAccumulator = typename std::tuple_element_t<subrel_idx_inv_write, ContainerOverSubrelations>;
-        using CoefficientAccumulator = typename LongAccumulator::CoefficientAccumulator;
+        using Accumulator = typename std::tuple_element_t<subrel_idx_inv_read, ContainerOverSubrelations>;
+        using CoefficientAccumulator = typename Accumulator::CoefficientAccumulator;
 
         const auto inverses_m = CoefficientAccumulator(BusData<bus_idx, AllEntities>::inverses(in));
         const auto read_counts_m = CoefficientAccumulator(BusData<bus_idx, AllEntities>::read_counts(in));
 
-        // (1a) Inverse correctness on read rows: (I*L*T - 1) * is_read = 0 [degree 5, length 6]
-        // Compute at full length to accommodate the degree-5 product.
-        {
-            const LongAccumulator inverses(inverses_m);
-            const auto lookup_term = compute_lookup_term<LongAccumulator>(in, params);
-            const auto table_term = compute_table_term<LongAccumulator, bus_idx>(in, params);
-            const auto read_selector = get_read_selector<LongAccumulator, bus_idx>(in);
-            const auto common = lookup_term * table_term * inverses - FF(1);
-            std::get<subrel_idx_inv_read>(accumulator) += (common * read_selector) * scaling_factor;
-        }
+        const Accumulator inverses(inverses_m);
+        const Accumulator read_counts(read_counts_m);
+        const auto lookup_term = compute_lookup_term<Accumulator>(in, params);
+        const auto table_term = compute_table_term<Accumulator, bus_idx>(in, params);
+        const auto read_selector = get_read_selector<Accumulator, bus_idx>(in);
 
-        // (1b) and (2) fit in the shorter accumulator (degree 4, length 5)
-        const ShortAccumulator inverses(inverses_m);
-        const auto lookup_term = compute_lookup_term<ShortAccumulator>(in, params);
-        const auto table_term = compute_table_term<ShortAccumulator, bus_idx>(in, params);
-        const auto read_selector = get_read_selector<ShortAccumulator, bus_idx>(in);
+        // Shared factor in (1a) and (1b): I*L*T - 1
+        const auto common = lookup_term * table_term * inverses - FF(1);
 
-        // (1b) Inverse correctness on write rows: (I*L*T - 1) * count = 0 [degree 4, length 5]
-        const auto common_short = lookup_term * table_term * inverses - FF(1);
-        std::get<subrel_idx_inv_write>(accumulator) +=
-            (common_short * ShortAccumulator(read_counts_m)) * scaling_factor;
+        // (1a) Inverse correctness on read rows: (I*L*T - 1) * is_read = 0
+        std::get<subrel_idx_inv_read>(accumulator) += (common * read_selector) * scaling_factor;
 
-        // (2) Lookup identity: (is_read*T - count*L) * I = 0 [degree 4, length 5]
+        // (1b) Inverse correctness on write rows: (I*L*T - 1) * count = 0
+        std::get<subrel_idx_inv_write>(accumulator) += (common * read_counts) * scaling_factor;
+
+        // (2) Lookup identity: (is_read*T - count*L) * I = 0.
         // No scaling factor here since this constraint is enforced across the entire trace, not per-row.
-        ShortAccumulator tmp = read_selector * table_term;
-        tmp -= ShortAccumulator(read_counts_m) * lookup_term;
+        Accumulator tmp = read_selector * table_term;
+        tmp -= read_counts * lookup_term;
         tmp *= inverses;
         std::get<subrel_idx_lookup>(accumulator) += tmp;
     }
