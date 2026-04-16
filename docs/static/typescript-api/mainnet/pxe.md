@@ -1,6 +1,6 @@
 # @aztec/pxe
 
-Version: v4.2.0
+Version: 4.2.0
 
 ## Quick Import Reference
 
@@ -383,6 +383,11 @@ function getPXEConfig() => PXEConfig
 ```
 Creates an instance of PXEConfig out of environment variables using sensible defaults for integration testing if not set.
 
+### getPackageInfo
+```typescript
+function getPackageInfo() => { name: string; version: string }
+```
+
 ### logContractMessage
 ```typescript
 function logContractMessage(logger: Logger, level: "silent" | "fatal" | "error" | "warn" | "info" | "verbose" | "debug" | "trace", message: string, fields: Fr[]) => void
@@ -480,11 +485,6 @@ Options for PXE.simulateTx.
 ### allPxeConfigMappings
 ```typescript
 type allPxeConfigMappings = ConfigMappingsType<CliPXEOptions & PXEConfig>
-```
-
-### getPackageInfo
-```typescript
-type getPackageInfo = any
 ```
 
 ### pxeCliConfigMappings
