@@ -114,6 +114,8 @@ export type CompleteFeeOptionsConfig = {
 export abstract class BaseWallet implements Wallet {
   protected minFeePadding = 0.5;
   protected cancellableTransactions = false;
+  // A wallet is instantiated for a particular chain, so chain info never changes during its lifetime.
+  // We cache it here because getChainInfo is called frequently (every tx simulation, send, auth wit, etc.).
   private nodeInfoPromise: Promise<NodeInfo> | undefined;
 
   // Protected because we want to force wallets to instantiate their own PXE.
