@@ -18,7 +18,7 @@ Writes to public storage at the specified slot. Performs a write to the Public D
 
 | Component | Value | Scales with |
 |-----------|-------|-------------|
-| L2 Base | 33140 | - |
+| L2 Base | 33440 | - |
 | DA Base | 0 | - |
 | L2 Addressing | 3 | 3 L2 gas per indirect memory offset<br/>3 L2 gas per relative memory offset |
 | DA Dynamic | 1024 | - |
