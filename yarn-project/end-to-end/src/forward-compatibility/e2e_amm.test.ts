@@ -14,12 +14,10 @@
  *   anvil --silent -p 8545 --host 0.0.0.0 --chain-id 31337
  *
  * Terminal 2 — start the wallet service (from yarn-project/):
- *   ETHEREUM_HOSTS=http://localhost:8545 L1_CHAIN_ID=31337 TEST_ACCOUNTS=true \
- *     node --no-warnings ./end-to-end/dest/forward-compatibility/wallet_service.js
+ *   ETHEREUM_HOSTS=http://localhost:8545 L1_CHAIN_ID=31337 TEST_ACCOUNTS=true  node --no-warnings ./end-to-end/dest/forward-compatibility/wallet_service.js
  *
  * Terminal 3 — run this test (from yarn-project/):
- *   REMOTE_WALLET_URL=http://localhost:8081 \
- *     yarn workspace @aztec/end-to-end test:e2e src/forward-compatibility/e2e_amm.test.ts
+ *   REMOTE_WALLET_URL=http://localhost:8081 yarn workspace @aztec/end-to-end test:e2e src/forward-compatibility/e2e_amm.test.ts
  */
 import { AztecAddress } from '@aztec/aztec.js/addresses';
 import { Fr } from '@aztec/aztec.js/fields';
