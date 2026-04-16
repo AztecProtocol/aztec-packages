@@ -90,6 +90,75 @@ The zero address (`AztecAddress::zero()`) is always allowed regardless of the sc
 
 **Impact**: Contracts that access capsules scoped to addresses not included in the transaction's authorized scopes will now fail at runtime. Ensure the correct scopes are passed when executing transactions.
 
+### `aztec new` and `aztec init` now create a 2-crate workspace
+
+`aztec new` and `aztec init` now create a workspace with two crates instead of a single contract crate:
+
+- A `contract` crate (type = "contract") for your smart contract code
+- A `test` crate (type = "lib") for Noir tests, which depends on the contract crate
+
+The new project structure looks like:
+
+```
+my_project/
+├── Nargo.toml           # [workspace] members = ["contract", "test"]
+├── contract/
+│   ├── src/main.nr
+│   └── Nargo.toml       # type = "contract"
+└── test/
+    ├── src/lib.nr
+    └── Nargo.toml       # type = "lib"
+```
+
+**What changed:**
+
+- The `--contract` and `--lib` flags have been removed from `aztec new` and `aztec init`. These commands now always create a contract workspace.
+- Contract code is now at `contract/src/main.nr` instead of `src/main.nr`.
+- The `Nargo.toml` in the project root is now a workspace file. Contract dependencies go in `contract/Nargo.toml`.
+- Tests should be written in the separate `test` crate (`test/src/lib.nr`) and import the contract by package name (e.g., `use my_contract::MyContract;`) instead of using `crate::`.
+
+### `aztec new` crate directories are now named after the contract
+
+`aztec new` and `aztec init` now name the generated crate directories after the contract instead of using generic `contract/` and `test/` names. For example, `aztec new counter` now creates:
+
+```
+counter/
+├── Nargo.toml                # [workspace] members = ["counter_contract", "counter_test"]
+├── counter_contract/
+│   ├── src/main.nr
+│   └── Nargo.toml            # type = "contract"
+└── counter_test/
+    ├── src/lib.nr
+    └── Nargo.toml            # type = "lib"
+```
+
+This enables adding multiple contracts to a single workspace. Running `aztec new <name>` inside an existing workspace (a directory with a `Nargo.toml` containing `[workspace]`) now adds a new `<name>_contract` and `<name>_test` crate pair to the workspace instead of creating a new directory.
+
+**What changed:**
+
+- Crate directories are now `<name>_contract/` and `<name>_test/` instead of `contract/` and `test/`.
+- Contract code is now at `<name>_contract/src/main.nr` instead of `contract/src/main.nr`.
+- Contract dependencies go in `<name>_contract/Nargo.toml` instead of `contract/Nargo.toml`.
+- Tests import the contract by its new crate name (e.g., `use counter_contract::Main;` instead of `use counter::Main;`).
+
+### [CLI] `--name` flag removed from `aztec new` and `aztec init`
+
+The `--name` flag has been removed from both `aztec new` and `aztec init`. For `aztec new`, the positional argument now serves as both the contract name and the directory name. For `aztec init`, the directory name is always used as the contract name.
+
+**Migration:**
+
+```diff
+- aztec new my_project --name counter
++ aztec new counter
+```
+
+```diff
+- aztec init --name counter
++ aztec init
+```
+
+**Impact**: If you were using `--name` to set a contract name different from the directory name, rename your directory or use `aztec new` with the desired contract name directly.
+
 ## 4.2.0-aztecnr-rc.2
 
 ### Custom token FPCs removed from default public setup allowlist
@@ -534,48 +603,6 @@ If you implement the `Wallet` interface (or extend `BaseWallet`), the `sendTx()`
   }
 ```
 
-### `aztec new` crate directories are now named after the contract
-
-`aztec new` and `aztec init` now name the generated crate directories after the contract instead of using generic `contract/` and `test/` names. For example, `aztec new counter` now creates:
-
-```
-counter/
-├── Nargo.toml                # [workspace] members = ["counter_contract", "counter_test"]
-├── counter_contract/
-│   ├── src/main.nr
-│   └── Nargo.toml            # type = "contract"
-└── counter_test/
-    ├── src/lib.nr
-    └── Nargo.toml            # type = "lib"
-```
-
-This enables adding multiple contracts to a single workspace. Running `aztec new <name>` inside an existing workspace (a directory with a `Nargo.toml` containing `[workspace]`) now adds a new `<name>_contract` and `<name>_test` crate pair to the workspace instead of creating a new directory.
-
-**What changed:**
-
-- Crate directories are now `<name>_contract/` and `<name>_test/` instead of `contract/` and `test/`.
-- Contract code is now at `<name>_contract/src/main.nr` instead of `contract/src/main.nr`.
-- Contract dependencies go in `<name>_contract/Nargo.toml` instead of `contract/Nargo.toml`.
-- Tests import the contract by its new crate name (e.g., `use counter_contract::Main;` instead of `use counter::Main;`).
-
-### [CLI] `--name` flag removed from `aztec new` and `aztec init`
-
-The `--name` flag has been removed from both `aztec new` and `aztec init`. For `aztec new`, the positional argument now serves as both the contract name and the directory name. For `aztec init`, the directory name is always used as the contract name.
-
-**Migration:**
-
-```diff
-- aztec new my_project --name counter
-+ aztec new counter
-```
-
-```diff
-- aztec init --name counter
-+ aztec init
-```
-
-**Impact**: If you were using `--name` to set a contract name different from the directory name, rename your directory or use `aztec new` with the desired contract name directly.
-
 ### [Aztec.js] Removed `SingleKeyAccountContract`
 
 The `SchnorrSingleKeyAccount` contract and its TypeScript wrapper `SingleKeyAccountContract` have been removed. This contract was insecure: it used `ivpk_m` (incoming viewing public key) as its Schnorr signing key, meaning anyone who received a user's viewing key could sign transactions on their behalf.
@@ -590,33 +617,6 @@ The `SchnorrSingleKeyAccount` contract and its TypeScript wrapper `SingleKeyAcco
 ```
 
 **Impact**: If you were using `@aztec/accounts/single_key`, switch to `@aztec/accounts/schnorr` which uses separate keys for encryption and authentication.
-
-### `aztec new` and `aztec init` now create a 2-crate workspace
-
-`aztec new` and `aztec init` now create a workspace with two crates instead of a single contract crate:
-
-- A `contract` crate (type = "contract") for your smart contract code
-- A `test` crate (type = "lib") for Noir tests, which depends on the contract crate
-
-The new project structure looks like:
-
-```
-my_project/
-├── Nargo.toml           # [workspace] members = ["contract", "test"]
-├── contract/
-│   ├── src/main.nr
-│   └── Nargo.toml       # type = "contract"
-└── test/
-    ├── src/lib.nr
-    └── Nargo.toml       # type = "lib"
-```
-
-**What changed:**
-
-- The `--contract` and `--lib` flags have been removed from `aztec new` and `aztec init`. These commands now always create a contract workspace.
-- Contract code is now at `contract/src/main.nr` instead of `src/main.nr`.
-- The `Nargo.toml` in the project root is now a workspace file. Contract dependencies go in `contract/Nargo.toml`.
-- Tests should be written in the separate `test` crate (`test/src/lib.nr`) and import the contract by package name (e.g., `use my_contract::MyContract;`) instead of using `crate::`.
 
 ### Scope enforcement for private state access (TXE and PXE)
 
