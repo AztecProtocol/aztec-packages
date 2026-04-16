@@ -28,11 +28,7 @@ echo "Compiling contract..."
 NARGO=${NARGO:-../../../noir/noir-repo/target/release/nargo}
 $NARGO compile --silence-warnings --inliner-aggressiveness 0 --package $CONTRACT_PACKAGE_NAME
 
-# Strip __aztec_nr_internals__ prefix from function names in the ABI.
-echo "Stripping aztec nr prefix..."
-./strip_aztec_nr_prefix.sh "../target/$JSON_NAME.json"
-
-# Transpile public functions and generate VKs for private functions.
+# Transpile public functions, strip internal prefixes, and generate VKs for private functions.
 echo "Processing contract artifact..."
 BB=${BB:-../../../barretenberg/cpp/build/bin/bb}
 "$BB" aztec_process -i "../target/$JSON_NAME.json" -o "../target/$JSON_NAME.json" -f
