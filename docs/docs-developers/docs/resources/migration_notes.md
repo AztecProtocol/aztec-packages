@@ -29,7 +29,6 @@ If you were using these oracle functions directly (e.g. in `schnorr_account_cont
 Note the field renames: `index` is now `leaf_index`, and `path` is now `sibling_path` (matching the protocol circuit's `MembershipWitness` type).
 
 This has been done because this is the format expected by the functionality in protocol circuits and given that this is sensitive security-wise it made sense to reuse that functionality in Aztec.nr.
-<<<<<<< HEAD
 ### [Aztec.js] `GasSettings.default()` renamed to `GasSettings.fallback()`
 
 `GasSettings.default()` has been renamed to `GasSettings.fallback()` to clarify that these gas limits are not protocol defaults — the protocol has no concept of "default" gas settings. `fallback()` is a convenience for cases where gas estimation is not being used, but callers should prefer estimating gas via simulation for accurate limits.
@@ -37,54 +36,10 @@ This has been done because this is the format expected by the functionality in p
 The old `DEFAULT_GAS_LIMIT` and `DEFAULT_TEARDOWN_GAS_LIMIT` constants have been removed. Gas limits are now derived from protocol-level maximums (`MAX_PROCESSABLE_L2_GAS`, `MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT`) rather than arbitrary fixed values.
 
 A new `GasSettings.forEstimation()` method provides intentionally high gas limits for use during simulation. These limits exceed protocol maximums so the simulation doesn't hit gas caps — you must pass `skipTxValidation: true` when simulating with them, then use the results to set accurate gas limits on the actual transaction. `EmbeddedWallet` does this by default.
-=======
-
-### [L1 Contracts] Empire slasher removed, slasher config simplified
-
-The empire slashing model has been removed. Only the tally-based slashing model remains, and it has been renamed from `TallySlashingProposer` to `SlashingProposer`.
-
-**L1 contract changes:**
-- `SlasherFlavor` enum removed from `ISlasher.sol`
-- `RollupConfigInput.slasherFlavor` (enum) replaced with `slasherEnabled` (bool)
-- `TallySlashingProposer` contract renamed to `SlashingProposer`
-- `TallySlasherDeploymentExtLib` library renamed to `SlasherDeploymentExtLib`
-- `SlashFactory` periphery contract removed
-- `SLASHING_PROPOSER_TYPE` constant removed from `SlashingProposer`
-- All `TallySlashingProposer__` error prefixes renamed to `SlashingProposer__`
-
-**Environment variable changes:**
-```diff
-- AZTEC_SLASHER_FLAVOR=tally    # was: "tally" | "empire" | "none"
-+ AZTEC_SLASHER_ENABLED=true    # now a boolean
-```
-
-**Removed environment variables:** `SLASH_MIN_PENALTY_PERCENTAGE`, `SLASH_MAX_PENALTY_PERCENTAGE`
-
-**Removed from deploy outputs:** `slashFactoryAddress`
-
-**Node admin API:** `getSlashPayloads()` method removed.
-
-**TypeScript config changes:**
-```diff
-- slasherFlavor: 'tally' | 'none'
-+ slasherEnabled: boolean
-```
-
-`slashMinPenaltyPercentage` and `slashMaxPenaltyPercentage` removed from `SlasherConfig`.
-
-## Unreleased (v5)
-
-### [aztec.js] `DeployMethod.send()` always returns `{ contract, receipt, instance }`
-
-The `returnReceipt` option in deploy wait options has been removed. `DeployMethod.send()` now always returns an object with `contract`, `receipt`, and `instance` at the top level, provided the user waits for the transaction to be included.
-
-The `DeployTxReceipt` and `DeployWaitOptions` types have been removed.
->>>>>>> dec97a2d55 (docs: backfill v4.2.0 migration notes (#22612))
 
 **Migration:**
 
 ```diff
-<<<<<<< HEAD
 - import { DEFAULT_GAS_LIMIT, DEFAULT_TEARDOWN_GAS_LIMIT } from '@aztec/constants';
 - const settings = GasSettings.default({ maxFeesPerGas });
 + const settings = GasSettings.fallback({ maxFeesPerGas });
@@ -135,20 +90,44 @@ The zero address (`AztecAddress::zero()`) is always allowed regardless of the sc
 
 **Impact**: Contracts that access capsules scoped to addresses not included in the transaction's authorized scopes will now fail at runtime. Ensure the correct scopes are passed when executing transactions.
 
-=======
-- const {
--   receipt: { contract, instance },
-- } = await MyContract.deploy(wallet, ...args).send({
--   from: address,
--   wait: { returnReceipt: true },
-- });
+### [Aztec.nr] Ephemeral arrays replace capsule arrays in PXE oracle interfaces
 
-+ const { contract, instance } = await MyContract.deploy(wallet, ...args).send({
-+   from: address,
-+ });
+Oracle interfaces between Aztec.nr and PXE now use a new `EphemeralArray` type (`aztec::ephemeral::EphemeralArray`) instead of `CapsuleArray`. Ephemeral arrays live in memory and are scoped by contract call frame, so they no longer need to be addressed by `(contract_address, scope)`. Several public message-discovery and validation functions lost their `recipient`, `scope`, and `contract_address` parameters as a result.
+
+Most contracts are not affected, as the macro-generated `sync_state` and `process_message` functions handle these APIs automatically. Only contracts that call these functions directly need to update.
+
+**Migration:**
+
+```diff
+  attempt_note_discovery(
+      contract_address,
+      tx_hash,
+      unique_note_hashes_in_tx,
+      first_nullifier_in_tx,
+-     recipient,
+      compute_note_hash,
+      compute_note_nullifier,
+      owner,
+      storage_slot,
+      randomness,
+      note_type_id,
+      packed_note,
+  );
+
+- enqueue_note_for_validation(contract_address, owner, storage_slot, randomness, note_nonce, packed_note, note_hash, nullifier, tx_hash, scope);
++ enqueue_note_for_validation(contract_address, owner, storage_slot, randomness, note_nonce, packed_note, note_hash, nullifier, tx_hash);
+
+- enqueue_event_for_validation(contract_address, event_type_id, randomness, serialized_event, event_commitment, tx_hash, scope);
++ enqueue_event_for_validation(contract_address, event_type_id, randomness, serialized_event, event_commitment, tx_hash);
+
+- validate_and_store_enqueued_notes_and_events(contract_address, scope);
++ validate_and_store_enqueued_notes_and_events(scope);
 ```
 
->>>>>>> dec97a2d55 (docs: backfill v4.2.0 migration notes (#22612))
+The `sync_inbox` function and the `OffchainInboxSync` type now return `EphemeralArray<OffchainMessageWithContext>` instead of `CapsuleArray<OffchainMessageWithContext>`. Custom message handlers that bind the returned array to an explicit type must update the type annotation.
+
+**Impact**: Contracts that call the above functions directly (rather than relying on macro-generated code) will fail to compile until the trailing `recipient`, `scope`, and `contract_address` parameters are removed.
+
 ### `aztec new` and `aztec init` now create a 2-crate workspace
 
 `aztec new` and `aztec init` now create a workspace with two crates instead of a single contract crate:
@@ -218,127 +197,6 @@ The `--name` flag has been removed from both `aztec new` and `aztec init`. For `
 
 **Impact**: If you were using `--name` to set a contract name different from the directory name, rename your directory or use `aztec new` with the desired contract name directly.
 
-<<<<<<< HEAD
-=======
-## 4.2.0
-
-### [Aztec.js] `GasSettings.default()` renamed to `GasSettings.fallback()`
-
-`GasSettings.default()` has been renamed to `GasSettings.fallback()` to clarify that these gas limits are not protocol defaults — the protocol has no concept of "default" gas settings. `fallback()` is a convenience for cases where gas estimation is not being used, but callers should prefer estimating gas via simulation for accurate limits.
-
-The old `DEFAULT_GAS_LIMIT` and `DEFAULT_TEARDOWN_GAS_LIMIT` constants have been removed. Gas limits are now derived from protocol-level maximums (`MAX_PROCESSABLE_L2_GAS`, `MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT`) rather than arbitrary fixed values.
-
-A new `GasSettings.forEstimation()` method provides intentionally high gas limits for use during simulation. These limits exceed protocol maximums so the simulation doesn't hit gas caps — you must pass `skipTxValidation: true` when simulating with them, then use the results to set accurate gas limits on the actual transaction. `EmbeddedWallet` does this by default.
-
-**Migration:**
-
-```diff
-- import { DEFAULT_GAS_LIMIT, DEFAULT_TEARDOWN_GAS_LIMIT } from '@aztec/constants';
-- const settings = GasSettings.default({ maxFeesPerGas });
-+ const settings = GasSettings.fallback({ maxFeesPerGas });
-```
-
-**Impact**: Any code referencing `GasSettings.default()`, `DEFAULT_GAS_LIMIT`, or `DEFAULT_TEARDOWN_GAS_LIMIT` will fail to compile.
-
-### [PXE] `simulateTx`, `executeUtility`, `profileTx`, and `proveTx` no longer accept `scopes: 'ALL_SCOPES'`
-
-The `AccessScopes` type (`'ALL_SCOPES' | AztecAddress[]`) has been removed. The `scopes` field in `SimulateTxOpts`,
-`ExecuteUtilityOpts`, and `ProfileTxOpts` now requires an explicit `AztecAddress[]`. Callers that previously passed
-`'ALL_SCOPES'` must now specify which addresses will be in scope for the call.
-
-**Migration:**
-
-```diff
-+ const accounts = await pxe.getRegisteredAccounts();
-+ const scopes = accounts.map(a => a.address);
-
-  // simulateTx
-- await pxe.simulateTx(txRequest, { simulatePublic: true, scopes: 'ALL_SCOPES' });
-+ await pxe.simulateTx(txRequest, { simulatePublic: true, scopes });
-
-  // executeUtility
-- await pxe.executeUtility(call, { scopes: 'ALL_SCOPES' });
-+ await pxe.executeUtility(call, { scopes });
-
-  // profileTx
-- await pxe.profileTx(txRequest, { profileMode: 'full', scopes: 'ALL_SCOPES' });
-+ await pxe.profileTx(txRequest, { profileMode: 'full', scopes });
-
-  // proveTx
-- await pxe.proveTx(txRequest, 'ALL_SCOPES');
-+ await pxe.proveTx(txRequest, scopes);
-```
-
-**Impact**: Any code passing `'ALL_SCOPES'` to `simulateTx`, `executeUtility`, `profileTx`, or `proveTx` will fail to compile. Replace with an explicit array of account addresses.
-
-### [PXE] Capsule operations are now scope-enforced at the PXE level
-
-The PXE now enforces that capsule operations can only access scopes that were authorized for the current execution. If a contract attempts to access a capsule scope that is not in its allowed scopes list, the PXE will throw an error:
-
-```
-Scope 0x1234... is not in the allowed scopes list: [0xabcd...].
-```
-
-The zero address (`AztecAddress::zero()`) is always allowed regardless of the scopes list, preserving backwards compatibility for contracts using the global scope.
-
-**Impact**: Contracts that access capsules scoped to addresses not included in the transaction's authorized scopes will now fail at runtime. Ensure the correct scopes are passed when executing transactions.
-
-### [aztec.js] `EmbeddedWalletOptions` now uses a unified `pxe` field
-
-The `pxeConfig` and `pxeOptions` fields on `EmbeddedWalletOptions` have been deprecated in favor of a single `pxe` field that accepts both PXE configuration and dependency overrides (custom prover, store, simulator):
-
-```diff
-const wallet = await EmbeddedWallet.create(nodeUrl, {
--  pxeConfig: { proverEnabled: true },
--  pxeOptions: { proverOrOptions: myCustomProver },
-+  pxe: {
-+    proverEnabled: true,
-+    proverOrOptions: myCustomProver,
-+  },
-});
-```
-
-The old fields still work but will be removed in a future release.
-
-### [Aztec.nr] Ephemeral arrays replace capsule arrays in PXE oracle interfaces
-
-Oracle interfaces between Aztec.nr and PXE now use a new `EphemeralArray` type (`aztec::ephemeral::EphemeralArray`) instead of `CapsuleArray`. Ephemeral arrays live in memory and are scoped by contract call frame, so they no longer need to be addressed by `(contract_address, scope)`. Several public message-discovery and validation functions lost their `recipient`, `scope`, and `contract_address` parameters as a result.
-
-Most contracts are not affected, as the macro-generated `sync_state` and `process_message` functions handle these APIs automatically. Only contracts that call these functions directly need to update.
-
-**Migration:**
-
-```diff
-  attempt_note_discovery(
-      contract_address,
-      tx_hash,
-      unique_note_hashes_in_tx,
-      first_nullifier_in_tx,
--     recipient,
-      compute_note_hash,
-      compute_note_nullifier,
-      owner,
-      storage_slot,
-      randomness,
-      note_type_id,
-      packed_note,
-  );
-
-- enqueue_note_for_validation(contract_address, owner, storage_slot, randomness, note_nonce, packed_note, note_hash, nullifier, tx_hash, scope);
-+ enqueue_note_for_validation(contract_address, owner, storage_slot, randomness, note_nonce, packed_note, note_hash, nullifier, tx_hash);
-
-- enqueue_event_for_validation(contract_address, event_type_id, randomness, serialized_event, event_commitment, tx_hash, scope);
-+ enqueue_event_for_validation(contract_address, event_type_id, randomness, serialized_event, event_commitment, tx_hash);
-
-- validate_and_store_enqueued_notes_and_events(contract_address, scope);
-+ validate_and_store_enqueued_notes_and_events(scope);
-```
-
-The `sync_inbox` function and the `OffchainInboxSync` type now return `EphemeralArray<OffchainMessageWithContext>` instead of `CapsuleArray<OffchainMessageWithContext>`. Custom message handlers that bind the returned array to an explicit type must update the type annotation.
-
-**Impact**: Contracts that call the above functions directly (rather than relying on macro-generated code) will fail to compile until the trailing `recipient`, `scope`, and `contract_address` parameters are removed.
-
->>>>>>> dec97a2d55 (docs: backfill v4.2.0 migration notes (#22612))
 ## 4.2.0-aztecnr-rc.2
 
 ### Custom token FPCs removed from default public setup allowlist
