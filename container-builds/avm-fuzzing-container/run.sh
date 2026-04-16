@@ -20,7 +20,7 @@ show_help() {
 	echo ""
 	echo "Options:"
 	echo "  -t, --target <name>     Target name (from /targets/), e.g. harness_alu_fuzzer_avm"
-	echo "  -m, --mode <mode>       fuzz | coverage | minimize | reproduce | regress (default: $mode)"
+	echo "  --mode <mode>           fuzz | coverage | minimize | reproduce | regress (default: $mode)"
 	echo "  --timeout <secs>        Fuzzing timeout in seconds (default: $timeout)"
 	echo "  -c, --cpus <n>          CPU allocation (default: $cpus)"
 	echo "  --mem <size>            Memory limit (default: $mem)"
@@ -39,7 +39,7 @@ list_targets=0
 while [[ $# -gt 0 ]]; do
 	case "$1" in
 	-t | --target)  target="$2";    shift 2 ;;
-	-m | --mode)    mode="$2";      shift 2 ;;
+	--mode)         mode="$2";      shift 2 ;;
 	--timeout)      timeout="$2";   shift 2 ;;
 	-c | --cpus)    cpus="$2"; jobs_="$cpus"; shift 2 ;;
 	--mem)          mem="$2";       shift 2 ;;

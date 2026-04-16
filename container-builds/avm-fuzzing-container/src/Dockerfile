@@ -44,6 +44,9 @@ RUN CRS_FORMAT=uncompressed ./crs/bootstrap.sh
 
 WORKDIR /root/aztec-packages/barretenberg/cpp
 
+# Create a clean copy of the source tree BEFORE builds (for coverage reports)
+RUN cp -r /root/aztec-packages /root/aztec-packages-src && rm -rf /root/aztec-packages-src/.git
+
 # Build all AVM fuzzers
 RUN cmake --preset fuzzing-avm
 RUN cmake --build build-fuzzing-avm
@@ -51,13 +54,11 @@ RUN cmake --build build-fuzzing-avm
 # Build coverage variants (instrumented for llvm-cov)
 RUN cmake -B build-fuzzing-avm-cov -G Ninja \
     -DCMAKE_C_COMPILER=clang-20 -DCMAKE_CXX_COMPILER=clang++-20 \
-    -DFUZZING=ON -DFUZZING_AVM=ON \
+    -DCMAKE_BUILD_TYPE=RelWithAssert \
+    -DFUZZING=ON -DFUZZING_AVM=ON -DDISABLE_ASM=OFF -DMULTITHREADING=ON \
     -DCMAKE_CXX_FLAGS="-fprofile-instr-generate -fcoverage-mapping" \
     -DCMAKE_C_FLAGS="-fprofile-instr-generate -fcoverage-mapping"
 RUN cmake --build build-fuzzing-avm-cov
-
-# Create a clean copy of the source tree for coverage reports
-RUN cp -r /root/aztec-packages /root/aztec-packages-src && rm -rf /root/aztec-packages-src/.git
 
 # Flatten binaries into /targets/ and auto-generate v2 manifest.
 # AVM fuzzers use a singleton LMDB world state that cannot handle concurrent
@@ -104,16 +105,18 @@ COPY --from=builder /root/aztec-packages/barretenberg/ts \
 COPY --from=builder /root/aztec-packages/noir/packages \
     ./aztec-packages/noir/packages/
 
-# Copy source tree for coverage reports
-COPY --from=builder /root/aztec-packages-src ./aztec-packages-src
+# Copy source tree for coverage reports at the same path used during build,
+# so llvm-cov can find source files without path remapping.
+COPY --from=builder /root/aztec-packages-src /root/aztec-packages
 
 # Copy coverage build directory (needed for llvm-cov links)
 COPY --from=builder /root/aztec-packages/barretenberg/cpp/build-fuzzing-avm-cov/ \
-    ./aztec-packages/barretenberg/cpp/build-fuzzing-avm-cov/
+    /root/aztec-packages/barretenberg/cpp/build-fuzzing-avm-cov/
 
-# Copy CRS
-COPY --from=builder /root/.bb-crs /home/fuzzer/aztec-packages/.bb-crs
-ENV CRS_PATH=/home/fuzzer/aztec-packages/.bb-crs
+# Copy CRS to a world-readable location so non-root containers can access it
+COPY --from=builder /root/.bb-crs /opt/bb-crs
+RUN chmod -R 755 /opt/bb-crs
+ENV CRS_PATH=/opt/bb-crs
 
 # AVM simulator binary path for differential fuzzers
 ENV AVM_SIMULATOR_BIN=/home/fuzzer/aztec-packages/yarn-project/simulator/dest/public/fuzzing/avm_simulator_bin.js
@@ -132,7 +135,8 @@ COPY entrypoint.sh ./entrypoint.sh
 # All copied files must be world-readable/executable.
 RUN chmod a+rx /home/fuzzer && \
     chmod -R a+rX /home/fuzzer/aztec-packages/ && \
-    chmod -R a+rX /home/fuzzer/aztec-packages-src/ && \
+    chmod a+rx /root && \
+    chmod -R a+rX /root/aztec-packages/ && \
     chmod a+rx /home/fuzzer/entrypoint.sh && \
     chmod -R a+rx /targets/
 
