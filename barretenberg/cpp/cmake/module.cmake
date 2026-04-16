@@ -245,6 +245,12 @@ function(barretenberg_module_with_sources MODULE_NAME)
             set_property(GLOBAL APPEND PROPERTY BB_FUZZER_MANIFEST_ENTRIES
                 "${MODULE_NAME}_${FUZZER_NAME_STEM}_fuzzer|${_source_path}")
 
+            # Track AVM-specific fuzzer targets for the avm_fuzzers umbrella target
+            if(_source_path MATCHES "^avm_fuzzer")
+                set_property(GLOBAL APPEND PROPERTY BB_AVM_FUZZER_TARGETS
+                    ${MODULE_NAME}_${FUZZER_NAME_STEM}_fuzzer)
+            endif()
+
             if(ENABLE_STACKTRACES)
                 target_link_libraries(
                     ${MODULE_NAME}_${FUZZER_NAME_STEM}_fuzzer

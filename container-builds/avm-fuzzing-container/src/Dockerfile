@@ -47,24 +47,10 @@ WORKDIR /root/aztec-packages/barretenberg/cpp
 # Create a clean copy of the source tree BEFORE builds (for coverage reports)
 RUN cp -r /root/aztec-packages /root/aztec-packages-src && rm -rf /root/aztec-packages-src/.git
 
-# Build AVM-specific fuzzers only (the preset also rebuilds all base fuzzers
-# as a side effect — listing targets explicitly avoids that and cuts ~15 GB).
+# Build AVM-specific fuzzers only via the umbrella target (the preset also
+# rebuilds all base fuzzers as a side effect — avm_fuzzers avoids that).
 RUN cmake --preset fuzzing-avm
-RUN cmake --build build-fuzzing-avm --target \
-    avm_fuzzer_avm_differential_fuzzer \
-    avm_fuzzer_prover_fuzzer \
-    avm_fuzzer_tx_fuzzer \
-    harness_alu_fuzzer \
-    harness_bitwise_fuzzer \
-    harness_calldata_fuzzer \
-    harness_ecc_fuzzer \
-    harness_emit_public_log_fuzzer \
-    harness_external_call_fuzzer \
-    harness_gt_fuzzer \
-    harness_internal_call_fuzzer \
-    harness_memory_fuzzer \
-    harness_merkle_check_fuzzer \
-    harness_range_check_fuzzer
+RUN cmake --build build-fuzzing-avm --target avm_fuzzers
 
 # Build coverage variants (instrumented for llvm-cov)
 RUN cmake -B build-fuzzing-avm-cov -G Ninja \
@@ -74,21 +60,7 @@ RUN cmake -B build-fuzzing-avm-cov -G Ninja \
     -DFUZZER_PRESET_NAME=fuzzing-cov \
     -DCMAKE_CXX_FLAGS="-fprofile-instr-generate -fcoverage-mapping" \
     -DCMAKE_C_FLAGS="-fprofile-instr-generate -fcoverage-mapping"
-RUN cmake --build build-fuzzing-avm-cov --target \
-    avm_fuzzer_avm_differential_fuzzer \
-    avm_fuzzer_prover_fuzzer \
-    avm_fuzzer_tx_fuzzer \
-    harness_alu_fuzzer \
-    harness_bitwise_fuzzer \
-    harness_calldata_fuzzer \
-    harness_ecc_fuzzer \
-    harness_emit_public_log_fuzzer \
-    harness_external_call_fuzzer \
-    harness_gt_fuzzer \
-    harness_internal_call_fuzzer \
-    harness_memory_fuzzer \
-    harness_merkle_check_fuzzer \
-    harness_range_check_fuzzer
+RUN cmake --build build-fuzzing-avm-cov --target avm_fuzzers
 
 # Flatten binaries into /targets/ and auto-generate v2 manifest.
 # AVM fuzzers use a singleton LMDB world state that cannot handle concurrent
