@@ -1374,13 +1374,12 @@ TEST(EccAddMemoryConstrainingTest, InfinityRepresentations)
 
     // Point P is infinity
     EmbeddedCurvePoint inf = EmbeddedCurvePoint::infinity();
-    // EmbeddedCurvePoint preserves raw coordinates (see StandardAffinePointTest)
+    // EmbeddedCurvePoint always sets extractable coordinates as (0,0) and the underlying point as
+    // AffinePoint::infinity() for input infinity points.
     EmbeddedCurvePoint inf_bb = EmbeddedCurvePoint(avm2::AffinePoint::infinity());
-    EmbeddedCurvePoint inf_alt = EmbeddedCurvePoint(1, 2, true);
+    EmbeddedCurvePoint inf_alt = EmbeddedCurvePoint(0, 7, true);
+    EXPECT_EQ(inf_bb, inf_alt);
     TestTraceContainer trace;
-
-    // Internal add() expects normalized points:
-    EXPECT_THROW_WITH_MESSAGE(ecc_simulator.add(inf, inf_alt), "normalized");
 
     // The circuit correctly assigns double_op = true when doubling inf:
     ecc_simulator.add(memory, inf, inf_bb, dst_address);
@@ -1415,7 +1414,7 @@ TEST(EccAddMemoryConstrainingTest, InfinityRepresentations)
     trace.set(C::ecc_add_mem_p_is_inf, 0, 0);
     EXPECT_THROW_WITH_MESSAGE(check_relation<mem_aware_ecc>(trace, mem_aware_ecc::SR_P_CURVE_EQN), "P_CURVE_EQN");
 
-    // If is_if is set, the coordinates must be (0, 0):
+    // If is_inf is set, the coordinates must be (0, 0):
     trace.set(C::ecc_add_mem_q_x, 0, 1);
     trace.set(C::ecc_add_mem_q_y, 0, 2);
     EXPECT_THROW_WITH_MESSAGE(check_relation<mem_aware_ecc>(trace, mem_aware_ecc::SR_Q_INF_X_CHECK), "Q_INF_X_CHECK");
