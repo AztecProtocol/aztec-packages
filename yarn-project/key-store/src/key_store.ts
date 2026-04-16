@@ -268,10 +268,6 @@ export class KeyStore {
    * @dev Used when feeding the sk_m to the kernel circuit for keys verification.
    */
   public async getMasterSecretKey(pkM: PublicKey): Promise<GrumpkinScalar> {
-    // Wrap in transactionAsync to keep the IndexedDB transaction alive across the full scan in
-    // getKeyPrefixAndAccount (entriesAsync) and the subsequent getAsync. Without this, the browser may
-    // auto-commit the IDB transaction between awaits, causing a TransactionInactiveError.
-    // The derivePublicKeyFromSecretKey await is safe because it comes after the last DB read.
     return this.#db.transactionAsync(async () => {
       const [keyPrefix, account] = await this.getKeyPrefixAndAccount(pkM);
 
@@ -304,8 +300,6 @@ export class KeyStore {
    * @returns True if the account has a key with the given hash.
    */
   public async accountHasKey(account: AztecAddress, pkMHash: Fr): Promise<boolean> {
-    // Wrap in transactionAsync to keep the IndexedDB transaction alive across the loop of sequential getAsync
-    // calls. Without this, the browser may auto-commit the IDB transaction between iterations.
     return this.#db.transactionAsync(async () => {
       const pkMHashBuffer = serializeToBuffer(pkMHash);
       for (const prefix of KEY_PREFIXES) {
