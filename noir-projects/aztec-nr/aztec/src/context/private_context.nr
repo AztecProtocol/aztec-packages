@@ -909,11 +909,22 @@ impl PrivateContext {
     /// happen to share a raw tag value become indistinguishable. Prefer the higher-level APIs
     /// ([`crate::messages::message_delivery::MessageDelivery`] for messages, `self.emit(event)` for events) which
     /// handle tagging automatically.
+    // TODO(F-555): remove this function in favor of `emit_private_log_vec_unsafe`
+    #[deprecated("use `emit_private_log_vec_unsafe` instead")]
     pub fn emit_private_log_unsafe(&mut self, tag: Field, log: [Field; PRIVATE_LOG_CIPHERTEXT_LEN], length: u32) {
         let counter = self.next_counter();
         let full_log = [tag].concat(log);
         self.private_logs.push(PrivateLogData { log: PrivateLog::new(full_log, length + 1), note_hash_counter: 0 }
             .count(counter));
+    }
+
+    /// `BoundedVec`-based variant of [`emit_private_log_unsafe`](PrivateContext::emit_private_log_unsafe).
+    ///
+    /// See [`emit_private_log_unsafe`](PrivateContext::emit_private_log_unsafe) for the full description of private
+    /// log semantics.
+    // TODO(F-555): once `emit_private_log_unsafe` is removed, rename this function to drop the `_vec` suffix.
+    pub fn emit_private_log_vec_unsafe(&mut self, tag: Field, log: BoundedVec<Field, PRIVATE_LOG_CIPHERTEXT_LEN>) {
+        self.emit_raw_note_log_vec_unsafe(tag, log, 0);
     }
 
     // TODO: rename.
@@ -938,6 +949,8 @@ impl PrivateContext {
     /// ## Safety
     ///
     /// Same as [`PrivateContext::emit_private_log_unsafe`]: the `tag` should be domain-separated.
+    // TODO(F-555): remove this function in favor of `emit_raw_note_log_vec_unsafe`
+    #[deprecated("use `emit_raw_note_log_vec_unsafe` instead")]
     pub fn emit_raw_note_log_unsafe(
         &mut self,
         tag: Field,
@@ -948,6 +961,23 @@ impl PrivateContext {
         let counter = self.next_counter();
         let full_log = [tag].concat(log);
         let private_log = PrivateLogData { log: PrivateLog::new(full_log, length + 1), note_hash_counter };
+        self.private_logs.push(private_log.count(counter));
+    }
+
+    /// `BoundedVec`-based variant of [`emit_raw_note_log_unsafe`](PrivateContext::emit_raw_note_log_unsafe).
+    ///
+    /// See [`emit_raw_note_log_unsafe`](PrivateContext::emit_raw_note_log_unsafe) for the full description of
+    /// note-tied private log semantics.
+    // TODO(F-555): once `emit_raw_note_log_unsafe` is removed, rename this function to drop the `_vec` suffix.
+    pub fn emit_raw_note_log_vec_unsafe(
+        &mut self,
+        tag: Field,
+        log: BoundedVec<Field, PRIVATE_LOG_CIPHERTEXT_LEN>,
+        note_hash_counter: u32,
+    ) {
+        let counter = self.next_counter();
+        let full_log = [tag].concat(log.storage());
+        let private_log = PrivateLogData { log: PrivateLog::new(full_log, log.len() + 1), note_hash_counter };
         self.private_logs.push(private_log.count(counter));
     }
 
