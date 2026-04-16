@@ -650,12 +650,12 @@ impl TestEnvironment {
             //   [OFFCHAIN_MESSAGE_IDENTIFIER, recipient, ...ciphertext]
             // A call may also emit offchain effects that are *not* `OffchainMessage`s (e.g. authwit requests
             // via `auth.nr::emit_offchain_effect`). We only concern ourselves with offchain messages here.
-            if payload[0] == OFFCHAIN_MESSAGE_IDENTIFIER {
-                let recipient = AztecAddress::from_field(payload[1]);
+            if payload.get(0) == OFFCHAIN_MESSAGE_IDENTIFIER {
+                let recipient = AztecAddress::from_field(payload.get(1));
 
                 let mut ciphertext: BoundedVec<Field, MESSAGE_CIPHERTEXT_LEN> = BoundedVec::new();
                 for j in 0..MESSAGE_CIPHERTEXT_LEN {
-                    ciphertext.push(payload[2 + j]);
+                    ciphertext.push(payload.get(2 + j));
                 }
 
                 messages.push(OffchainMessage { ciphertext, recipient, tx_hash, anchor_block_timestamp });

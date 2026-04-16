@@ -342,22 +342,35 @@ export class RPCTranslator {
 
   // eslint-disable-next-line camelcase
   aztec_txe_getLastCallOffchainEffects() {
-    // Returns the offchain effect payloads emitted by the last top-level call as a
-    // `BoundedVec<[Field; OFFCHAIN_EFFECT_LEN], MAX_OFFCHAIN_EFFECTS_PER_TXE_QUERY>`.
+    // This oracle returns all offchain effect payloads (messages, authwit requests, etc.) emitted by the last top-level call,
+    // MAX_OFFCHAIN_EFFECTS_PER_TXE_QUERY is arbitrarily set at 64 because we need a bound. Nothing inherent about it.
     const MAX_OFFCHAIN_EFFECTS_PER_TXE_QUERY = 64;
-    const OFFCHAIN_EFFECT_LEN = 2 + PRIVATE_LOG_CIPHERTEXT_LEN; // identifier + recipient + ciphertext
+    // Must match MAX_OFFCHAIN_EFFECT_LEN in txe_oracles.nr.
+    const MAX_OFFCHAIN_EFFECT_LEN = 2 + PRIVATE_LOG_CIPHERTEXT_LEN;
 
-    const { effects: rawEffects } = this.stateHandler.getLastCallOffchainEffects();
-    const effects = rawEffects.filter(payload => payload.length === OFFCHAIN_EFFECT_LEN);
+    const { effects } = this.stateHandler.getLastCallOffchainEffects();
 
-    const payloadsAsForeignCallArrays = effects.map(payload => toArray(payload));
-    return toForeignCallResult(
-      arrayOfArraysToBoundedVecOfArrays(
-        payloadsAsForeignCallArrays,
-        MAX_OFFCHAIN_EFFECTS_PER_TXE_QUERY,
-        OFFCHAIN_EFFECT_LEN,
-      ),
-    );
+    if (effects.length > MAX_OFFCHAIN_EFFECTS_PER_TXE_QUERY) {
+      throw new Error(`${effects.length} offchain effects exceed max ${MAX_OFFCHAIN_EFFECTS_PER_TXE_QUERY}`);
+    }
+    if (effects.some(e => e.length > MAX_OFFCHAIN_EFFECT_LEN)) {
+      throw new Error(`Some offchain effect has length larger than max ${MAX_OFFCHAIN_EFFECT_LEN}`);
+    }
+
+    const rawArrayStorage = effects
+      .map(e => e.concat(Array(MAX_OFFCHAIN_EFFECT_LEN - e.length).fill(new Fr(0))))
+      .concat(
+        Array(MAX_OFFCHAIN_EFFECTS_PER_TXE_QUERY - effects.length).fill(Array(MAX_OFFCHAIN_EFFECT_LEN).fill(new Fr(0))),
+      )
+      .flat();
+
+    const effectLengths = effects
+      .map(e => new Fr(e.length))
+      .concat(Array(MAX_OFFCHAIN_EFFECTS_PER_TXE_QUERY - effects.length).fill(new Fr(0)));
+
+    const count = new Fr(effects.length);
+
+    return toForeignCallResult([toArray(rawArrayStorage), toArray(effectLengths), toSingle(count)]);
   }
 
   // eslint-disable-next-line camelcase

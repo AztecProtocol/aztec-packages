@@ -18,13 +18,12 @@ use crate::protocol::{
     traits::{Deserialize, ToField},
 };
 
-/// Fixed length of a raw offchain effect payload produced by `deliver_offchain_message`:
-/// `[OFFCHAIN_MESSAGE_IDENTIFIER, recipient, ...ciphertext]`.
-pub(crate) global OFFCHAIN_EFFECT_LEN: u32 = 2 + MESSAGE_CIPHERTEXT_LEN;
-
 /// Upper bound on the number of raw offchain effects the TXE test environment will surface
 /// to Noir in a single `get_last_call_offchain_effects` query.
 pub(crate) global MAX_OFFCHAIN_EFFECTS_PER_TXE_QUERY: u32 = 64;
+
+/// Maximum number of fields in a single raw offchain effect payload.
+pub(crate) global MAX_OFFCHAIN_EFFECT_LEN: u32 = 2 + MESSAGE_CIPHERTEXT_LEN;
 
 global MAX_PRIVATE_EVENTS_PER_TXE_QUERY: u32 = 5;
 global MAX_EVENT_SERIALIZATION_LENGTH: u32 = 10;
@@ -94,8 +93,20 @@ pub unconstrained fn get_last_block_timestamp() -> u64 {}
 pub unconstrained fn get_last_tx_effects() -> (Field, BoundedVec<Field, MAX_NOTE_HASHES_PER_TX>, BoundedVec<Field, MAX_NULLIFIERS_PER_TX>) {}
 
 /// Returns the raw offchain effect payloads emitted by the last top-level call into TXE.
+/// Each effect is a variable-length field array (e.g. offchain messages have a different size
+/// than authwit authorization requests).
+pub unconstrained fn get_last_call_offchain_effects() -> BoundedVec<BoundedVec<Field, MAX_OFFCHAIN_EFFECT_LEN>, MAX_OFFCHAIN_EFFECTS_PER_TXE_QUERY> {
+    let (raw_storage, effect_lengths, count) = get_last_call_offchain_effects_oracle();
+
+    let mut effects = BoundedVec::new();
+    for i in 0..count {
+        effects.push(BoundedVec::from_parts(raw_storage[i], effect_lengths[i]));
+    }
+    effects
+}
+
 #[oracle(aztec_txe_getLastCallOffchainEffects)]
-pub unconstrained fn get_last_call_offchain_effects() -> BoundedVec<[Field; OFFCHAIN_EFFECT_LEN], MAX_OFFCHAIN_EFFECTS_PER_TXE_QUERY> {}
+unconstrained fn get_last_call_offchain_effects_oracle() -> ([[Field; MAX_OFFCHAIN_EFFECT_LEN]; MAX_OFFCHAIN_EFFECTS_PER_TXE_QUERY], [u32; MAX_OFFCHAIN_EFFECTS_PER_TXE_QUERY], u32) {}
 
 /// Returns the tx hash of the last top-level call, or `None` if the call was tx-less
 /// (`execute_utility`, context setters, etc).
