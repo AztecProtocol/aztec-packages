@@ -57,6 +57,8 @@ template <typename FF> class tx : public Relation<txImpl<FF>> {
     static constexpr size_t SR_INCR_READ_PI_OFFSET = 22;
     static constexpr size_t SR_MAX_NOTE_HASH_WRITES_REACHED = 31;
     static constexpr size_t SR_MAX_NULLIFIER_WRITES_REACHED = 37;
+    static constexpr size_t SR_NULLIFIER_TREE_SIZE_INCREMENT = 43;
+    static constexpr size_t SR_NULLIFIER_EMITTED_COUNT_INCREMENT = 44;
     static constexpr size_t SR_MAX_L2_L1_MSG_WRITES_REACHED = 46;
     static constexpr size_t SR_UPDATE_NUM_L2_TO_L1_MSGS = 49;
     static constexpr size_t SR_SEL_ACTIVE_ON_COLLECT_FEE = 50;
@@ -108,6 +110,10 @@ template <typename FF> class tx : public Relation<txImpl<FF>> {
             return "MAX_NOTE_HASH_WRITES_REACHED";
         case SR_MAX_NULLIFIER_WRITES_REACHED:
             return "MAX_NULLIFIER_WRITES_REACHED";
+        case SR_NULLIFIER_TREE_SIZE_INCREMENT:
+            return "NULLIFIER_TREE_SIZE_INCREMENT";
+        case SR_NULLIFIER_EMITTED_COUNT_INCREMENT:
+            return "NULLIFIER_EMITTED_COUNT_INCREMENT";
         case SR_MAX_L2_L1_MSG_WRITES_REACHED:
             return "MAX_L2_L1_MSG_WRITES_REACHED";
         case SR_UPDATE_NUM_L2_TO_L1_MSGS:

@@ -347,14 +347,14 @@ void txImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
             (static_cast<View>(in.get(C::tx_nullifier_leaf_separator)) - CView(constants_DOM_SEP__NULLIFIER_LEAF));
         std::get<42>(evals) += (tmp * scaling_factor);
     }
-    {
+    { // NULLIFIER_TREE_SIZE_INCREMENT
         using View = typename std::tuple_element_t<43, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::tx_should_nullifier_append)) *
                    ((static_cast<View>(in.get(C::tx_prev_nullifier_tree_size)) + FF(1)) -
                     static_cast<View>(in.get(C::tx_next_nullifier_tree_size)));
         std::get<43>(evals) += (tmp * scaling_factor);
     }
-    {
+    { // NULLIFIER_EMITTED_COUNT_INCREMENT
         using View = typename std::tuple_element_t<44, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::tx_should_nullifier_append)) *
                    ((static_cast<View>(in.get(C::tx_prev_num_nullifiers_emitted)) + FF(1)) -

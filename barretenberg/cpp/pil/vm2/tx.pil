@@ -587,7 +587,9 @@ namespace tx;
 
     // If reverted, the next state is unconstrained since `should_nullifier_append = 0`. This is okay since we are going to restore the state at the end of setup.
     // Namely, #[RESTORE_STATE_ON_REVERT] restores the tree state to its value at the end of setup.
+    #[NULLIFIER_TREE_SIZE_INCREMENT]
     should_nullifier_append * (prev_nullifier_tree_size + 1 - next_nullifier_tree_size) = 0;
+    #[NULLIFIER_EMITTED_COUNT_INCREMENT]
     should_nullifier_append * (prev_num_nullifiers_emitted + 1 - next_num_nullifiers_emitted) = 0;
 
     // ===== L2 - L1 Messages =====
