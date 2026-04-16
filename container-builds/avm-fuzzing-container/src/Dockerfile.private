@@ -54,7 +54,7 @@ RUN cmake --build build-fuzzing-avm
 
 # Build coverage variants (instrumented for llvm-cov)
 RUN cmake -B build-fuzzing-avm-cov -G Ninja \
-    -DCMAKE_C_COMPILER=clang-18 -DCMAKE_CXX_COMPILER=clang++-18 \
+    -DCMAKE_C_COMPILER=clang-20 -DCMAKE_CXX_COMPILER=clang++-20 \
     -DFUZZING=ON -DFUZZING_AVM=ON \
     -DCMAKE_CXX_FLAGS="-fprofile-instr-generate -fcoverage-mapping" \
     -DCMAKE_C_FLAGS="-fprofile-instr-generate -fcoverage-mapping"

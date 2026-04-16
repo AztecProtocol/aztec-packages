@@ -156,8 +156,8 @@ regress() {
 		set -e
 		if [ "$s" -ne 0 ]; then
 			"$ASAN_BINARY" "$x" &>"$FUZZ_OUTPUT_DIR/$(basename "$x")_result.txt" || true
-			cp "$x" "$FUZZ_CRASH_DIR/" 2>/dev/null || true
-			log "Regression failure: $x (exit $s)"
+			mv "$x" "$FUZZ_CRASH_DIR/" 2>/dev/null || true
+			log "Regression failure: $x (exit $s) — moved to crashes"
 			failures=$((failures + 1))
 		fi
 	done
