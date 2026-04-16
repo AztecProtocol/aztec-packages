@@ -116,7 +116,7 @@ export class KeyStore {
    * @param contractAddress - The contract address to silo the secret key in the key validation request with.
    * @returns The key validation request.
    */
-  public async getKeyValidationRequest(pkMHash: Fr, contractAddress: AztecAddress): Promise<KeyValidationRequest> {
+  public getKeyValidationRequest(pkMHash: Fr, contractAddress: AztecAddress): Promise<KeyValidationRequest> {
     return this.#db.transactionAsync(async () => {
       const [keyPrefix, account] = await this.getKeyPrefixAndAccount(pkMHash);
 
@@ -267,7 +267,7 @@ export class KeyStore {
    * @returns A Promise that resolves to sk_m.
    * @dev Used when feeding the sk_m to the kernel circuit for keys verification.
    */
-  public async getMasterSecretKey(pkM: PublicKey): Promise<GrumpkinScalar> {
+  public getMasterSecretKey(pkM: PublicKey): Promise<GrumpkinScalar> {
     return this.#db.transactionAsync(async () => {
       const [keyPrefix, account] = await this.getKeyPrefixAndAccount(pkM);
 
@@ -299,7 +299,7 @@ export class KeyStore {
    * @param pkMHash - The master public key hash to look for.
    * @returns True if the account has a key with the given hash.
    */
-  public async accountHasKey(account: AztecAddress, pkMHash: Fr): Promise<boolean> {
+  public accountHasKey(account: AztecAddress, pkMHash: Fr): Promise<boolean> {
     return this.#db.transactionAsync(async () => {
       const pkMHashBuffer = serializeToBuffer(pkMHash);
       for (const prefix of KEY_PREFIXES) {
