@@ -635,12 +635,13 @@ impl TestEnvironment {
     /// ```
     pub unconstrained fn offchain_messages(
         _self: Self,
-    ) -> BoundedVec<OffchainMessage, MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL> {
+    ) -> BoundedVec<OffchainMessage, txe_oracles::MAX_OFFCHAIN_EFFECTS_PER_TXE_QUERY> {
         let raw_effects = txe_oracles::get_last_call_offchain_effects();
         let tx_hash = txe_oracles::get_last_call_tx_hash();
         let anchor_block_timestamp = txe_oracles::get_last_call_anchor_block_timestamp();
 
-        let mut messages: BoundedVec<OffchainMessage, MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL> = BoundedVec::new();
+        let mut messages: BoundedVec<OffchainMessage, txe_oracles::MAX_OFFCHAIN_EFFECTS_PER_TXE_QUERY> =
+            BoundedVec::new();
 
         for i in 0..raw_effects.len() {
             let payload = raw_effects.get(i);
@@ -671,15 +672,33 @@ impl TestEnvironment {
     /// contract artifact and dispatches it through the normal utility execution path, so the call
     /// runs inside a proper utility execution context and all `aztec_utl_*` oracles resolve.
     ///
+    /// Messages are delivered in batches of `MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL` to match
+    /// the production `offchain_receive` signature.
+    ///
     /// We can't use the usual `env.execute_utility(Token::at(contract_address).offchain_receive(messages))`
     /// sugar here: `offchain_receive` is auto-injected by the `#[aztec]` macro *after* the contract
     /// interface is generated, so it never lands on the `Token::at(...)` stub impl.
     pub unconstrained fn deliver_offchain_messages(
         _self: Self,
         contract_address: AztecAddress,
-        messages: BoundedVec<OffchainMessage, MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL>,
+        messages: BoundedVec<OffchainMessage, txe_oracles::MAX_OFFCHAIN_EFFECTS_PER_TXE_QUERY>,
     ) {
-        txe_oracles::deliver_offchain_messages(contract_address, messages);
+        let total = messages.len();
+        let batch_size = MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL;
+        let mut offset = 0;
+        while offset < total {
+            let mut batch: BoundedVec<OffchainMessage, MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL> = BoundedVec::new();
+            let end = if offset + batch_size > total {
+                total
+            } else {
+                offset + batch_size
+            };
+            for i in offset..end {
+                batch.push(messages.get(i));
+            }
+            txe_oracles::deliver_offchain_messages(contract_address, batch);
+            offset += batch_size;
+        }
     }
 
     /// Performs a public contract function call, including the processing of any nested public calls. Returns the
