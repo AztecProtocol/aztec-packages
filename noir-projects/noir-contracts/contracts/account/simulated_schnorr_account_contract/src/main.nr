@@ -39,10 +39,9 @@ pub contract SimulatedSchnorrAccount {
         // and is therefore never nullified, so in practice the log will never be squashed. We
         // pass the note hash counter anyway for correctness.
         let dummy_log: [Field; MESSAGE_CIPHERTEXT_LEN] = [seed + 2; MESSAGE_CIPHERTEXT_LEN];
-        self.context.emit_raw_note_log_unsafe(
+        self.context.emit_raw_note_log_vec_unsafe(
             seed + 3,
-            dummy_log,
-            MESSAGE_CIPHERTEXT_LEN,
+            BoundedVec::from_array(dummy_log),
             self.context.side_effect_counter,
         );
     }
