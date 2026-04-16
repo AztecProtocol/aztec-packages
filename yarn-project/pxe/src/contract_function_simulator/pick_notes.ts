@@ -110,7 +110,11 @@ const selectNotes = <T extends ContainsNote>(noteDatas: T[], selects: Select[]):
         [Comparator.GTE]: () => !noteValueFr.lt(value),
       };
 
-      return comparatorSelector[comparator]();
+      const fn = comparatorSelector[comparator];
+      if (!fn) {
+        throw new Error(`Invalid comparator value: ${comparator}`);
+      }
+      return fn();
     }),
   );
 
