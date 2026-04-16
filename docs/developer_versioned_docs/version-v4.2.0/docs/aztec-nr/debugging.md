@@ -111,9 +111,12 @@ LOG_LEVEL="info;debug:simulator:client_execution_context;debug:simulator:client_
 ### Quick Fixes for Common Issues
 
 ```bash
-# Archiver sync issues - force progress with dummy transactions
-aztec-wallet send transfer --from test0 --to test0 --amount 0
-aztec-wallet send transfer --from test0 --to test0 --amount 0
+# Archiver sync issues - force progress with dummy transactions.
+# Assumes you have imported the local network test accounts
+# (aztec-wallet import-test-accounts) and have a deployed token
+# aliased as `testtoken`.
+aztec-wallet send transfer --from test0 --contract-address testtoken --args accounts:test0 0
+aztec-wallet send transfer --from test0 --contract-address testtoken --args accounts:test0 0
 
 # L1 to L2 message pending - wait for inclusion
 # Messages need 2 blocks to be processed

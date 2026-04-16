@@ -16,8 +16,8 @@ This guide shows you how to retrieve and filter notes from private storage using
 ## Required imports
 
 ```rust
-use dep::aztec::note::note_getter_options::{NoteGetterOptions, NoteStatus, SortOrder};
-use dep::aztec::utils::comparison::Comparator;
+use aztec::note::note_getter_options::{NoteGetterOptions, NoteStatus, SortOrder};
+use aztec::utils::comparison::Comparator;
 ```
 
 ## Set up basic note retrieval

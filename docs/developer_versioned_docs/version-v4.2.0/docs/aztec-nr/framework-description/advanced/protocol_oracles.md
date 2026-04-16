@@ -30,7 +30,7 @@ Oracles introduce **non-determinism** into a circuit, and thus are `unconstraine
 
 ## Inbuilt oracles
 
-- [`debug_log`](https://github.com/AztecProtocol/aztec-packages/blob/v4.2.0/noir-projects/noir-protocol-circuits/crates/types/src/debug_log.nr) - Provides debug functions that can be used to log information to the console. Read more about debugging [here](../../debugging.md).
+- [`debug_log`](https://github.com/AztecProtocol/aztec-packages/blob/v4.2.0/noir-projects/noir-protocol-circuits/crates/types/src/logging.nr) - Provides debug functions that can be used to log information to the console. Read more about debugging [here](../../debugging.md).
 - [`auth_witness`](https://github.com/AztecProtocol/aztec-packages/blob/v4.2.0/noir-projects/aztec-nr/aztec/src/oracle/auth_witness.nr) - Provides a way to fetch the authentication witness for a given address. This is useful when building account contracts to support approve-like functionality.
 - [`get_l1_to_l2_membership_witness`](https://github.com/AztecProtocol/aztec-packages/blob/v4.2.0/noir-projects/aztec-nr/aztec/src/oracle/get_l1_to_l2_membership_witness.nr) - Returns the leaf index and sibling path for an L1 to L2 message, used to prove message existence in cross-chain applications like token bridges.
 - [`notes`](https://github.com/AztecProtocol/aztec-packages/blob/v4.2.0/noir-projects/aztec-nr/aztec/src/oracle/notes.nr) - Provides functions related to notes, such as fetching notes from storage, used behind the scenes for value notes and other pre-built note implementations.

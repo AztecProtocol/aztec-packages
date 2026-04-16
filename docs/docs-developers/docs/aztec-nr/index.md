@@ -42,15 +42,15 @@ storage.votes.insert(new_vote).deliver(MessageDelivery.ONCHAIN_CONSTRAINED); // 
 
 ### Flow
 
-1. Write your contract and specify your contract dependencies. Create a new project with `aztec new my_project`, which sets up a workspace with a `my_project_contract` crate and a `my_project_test` crate, with the `aztec` dependency already configured. If you need additional dependencies, add them to `my_project_contract/Nargo.toml`:
+1. Write your contract and specify your contract dependencies. Create a new project with `aztec new my_project`, which creates a single-crate Noir contract project (`Nargo.toml` + `src/main.nr`) with the `aztec` dependency already configured. If you need additional dependencies, add them to `my_project/Nargo.toml`:
 
 ```toml
-# my_project_contract/Nargo.toml
+# my_project/Nargo.toml
 [dependencies]
 aztec = { git="https://github.com/AztecProtocol/aztec-nr/", tag="#include_aztec_version", directory="aztec" }
 ```
 
-Update your `my_project_contract/src/main.nr` contract file to use the Aztec.nr macros for writing contracts.
+Update your `my_project/src/main.nr` contract file to use the Aztec.nr macros for writing contracts.
 
 #include_code setup /docs/examples/contracts/counter_contract/src/main.nr rust
 

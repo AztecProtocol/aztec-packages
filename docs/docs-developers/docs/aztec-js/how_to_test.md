@@ -37,7 +37,7 @@ Deploy contracts using the generated contract class:
 
 Use `.simulate()` to read contract state without creating a transaction:
 
-#include_code simulate_function docs/examples/ts/aztecjs_connection/index.ts typescript
+#include_code simulate_function /docs/examples/ts/aztecjs_connection/index.ts typescript
 
 Simulations are free (no gas cost) and return the function's result directly. Use them for:
 

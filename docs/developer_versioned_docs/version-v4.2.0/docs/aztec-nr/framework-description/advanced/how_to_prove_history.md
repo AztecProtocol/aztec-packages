@@ -51,7 +51,7 @@ let confirmed_note = assert_note_existed_by(header, hinted_note);
 To prove a note was valid (existed AND wasn't nullified) at a historical block:
 
 ```rust
-use dep::aztec::history::note::assert_note_was_valid_by;
+use aztec::history::note::assert_note_was_valid_by;
 
 let header = self.context.get_anchor_block_header();
 assert_note_was_valid_by(header, hinted_note, &mut self.context);
@@ -66,7 +66,7 @@ This verifies both:
 To prove against state at a specific past block (not just the anchor block):
 
 ```rust
-use dep::aztec::history::note::assert_note_existed_by;
+use aztec::history::note::assert_note_existed_by;
 
 let historical_header = self.context.get_block_header_at(block_number);
 assert_note_existed_by(historical_header, hinted_note);
@@ -81,7 +81,7 @@ Using `get_block_header_at` adds ~3k constraints to prove Archive tree membershi
 To prove a note has been spent/nullified:
 
 ```rust
-use dep::aztec::history::note::assert_note_was_nullified_by;
+use aztec::history::note::assert_note_was_nullified_by;
 
 let header = self.context.get_anchor_block_header();
 assert_note_was_nullified_by(header, confirmed_note, &mut self.context);
@@ -92,7 +92,7 @@ assert_note_was_nullified_by(header, confirmed_note, &mut self.context);
 To prove a contract's bytecode was published at a historical block:
 
 ```rust
-use dep::aztec::history::deployment::assert_contract_bytecode_was_published_by;
+use aztec::history::deployment::assert_contract_bytecode_was_published_by;
 
 let header = self.context.get_anchor_block_header();
 assert_contract_bytecode_was_published_by(header, contract_address);
@@ -101,8 +101,8 @@ assert_contract_bytecode_was_published_by(header, contract_address);
 You can also prove a contract was initialized (constructor was called):
 
 ```rust
-use dep::aztec::history::deployment::assert_contract_was_initialized_by;
-use dep::aztec::oracle::get_contract_instance::get_contract_instance;
+use aztec::history::deployment::assert_contract_was_initialized_by;
+use aztec::oracle::get_contract_instance::get_contract_instance;
 
 let header = self.context.get_anchor_block_header();
 let instance = get_contract_instance(contract_address);
