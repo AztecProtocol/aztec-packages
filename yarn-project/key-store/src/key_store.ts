@@ -117,43 +117,45 @@ export class KeyStore {
    * @returns The key validation request.
    */
   public async getKeyValidationRequest(pkMHash: Fr, contractAddress: AztecAddress): Promise<KeyValidationRequest> {
-    const [keyPrefix, account] = await this.getKeyPrefixAndAccount(pkMHash);
+    return this.#db.transactionAsync(async () => {
+      const [keyPrefix, account] = await this.getKeyPrefixAndAccount(pkMHash);
 
-    // Now we find the master public key for the account
-    const pkMBuffer = await this.#keys.getAsync(`${account.toString()}-${keyPrefix}pk_m`);
-    if (!pkMBuffer) {
-      throw new Error(
-        `Could not find ${keyPrefix}pk_m for account ${account.toString()} whose address was successfully obtained with ${keyPrefix}pk_m_hash ${pkMHash.toString()}.`,
-      );
-    }
+      // Now we find the master public key for the account
+      const pkMBuffer = await this.#keys.getAsync(`${account.toString()}-${keyPrefix}pk_m`);
+      if (!pkMBuffer) {
+        throw new Error(
+          `Could not find ${keyPrefix}pk_m for account ${account.toString()} whose address was successfully obtained with ${keyPrefix}pk_m_hash ${pkMHash.toString()}.`,
+        );
+      }
 
-    const pkM = Point.fromBuffer(pkMBuffer);
-    const computedPkMHash = await pkM.hash();
-    if (!computedPkMHash.equals(pkMHash)) {
-      throw new Error(`Could not find ${keyPrefix}pkM for ${keyPrefix}pk_m_hash ${pkMHash.toString()}.`);
-    }
+      const pkM = Point.fromBuffer(pkMBuffer);
 
-    // Now we find the secret key for the public key
-    const skStorageSuffix = secretKeyStorageSuffix(keyPrefix);
-    const skMBuffer = await this.#keys.getAsync(`${account.toString()}-${skStorageSuffix}`);
-    if (!skMBuffer) {
-      throw new Error(
-        `Could not find ${skStorageSuffix} for account ${account.toString()} whose address was successfully obtained with ${keyPrefix}pk_m_hash ${pkMHash.toString()}.`,
-      );
-    }
+      // Now we find the secret key for the public key
+      const skStorageSuffix = secretKeyStorageSuffix(keyPrefix);
+      const skMBuffer = await this.#keys.getAsync(`${account.toString()}-${skStorageSuffix}`);
+      if (!skMBuffer) {
+        throw new Error(
+          `Could not find ${skStorageSuffix} for account ${account.toString()} whose address was successfully obtained with ${keyPrefix}pk_m_hash ${pkMHash.toString()}.`,
+        );
+      }
 
-    const skM = GrumpkinScalar.fromBuffer(skMBuffer);
+      const skM = GrumpkinScalar.fromBuffer(skMBuffer);
 
-    // We sanity check that it's possible to derive the public key from the secret key
-    const derivedPkM = await derivePublicKeyFromSecretKey(skM);
-    if (!derivedPkM.equals(pkM)) {
-      throw new Error(`Could not derive ${keyPrefix}pkM from ${keyPrefix}skM.`);
-    }
+      // The remaining awaits are non-DB computations. They are safe because no further IDB operations follow them.
+      const computedPkMHash = await pkM.hash();
+      if (!computedPkMHash.equals(pkMHash)) {
+        throw new Error(`Could not find ${keyPrefix}pkM for ${keyPrefix}pk_m_hash ${pkMHash.toString()}.`);
+      }
 
-    // At last we silo the secret key and return the key validation request
-    const skApp = await computeAppSecretKey(skM, contractAddress, keyPrefix!);
+      const derivedPkM = await derivePublicKeyFromSecretKey(skM);
+      if (!derivedPkM.equals(pkM)) {
+        throw new Error(`Could not derive ${keyPrefix}pkM from ${keyPrefix}skM.`);
+      }
 
-    return new KeyValidationRequest(pkM, skApp);
+      const skApp = await computeAppSecretKey(skM, contractAddress, keyPrefix!);
+
+      return new KeyValidationRequest(pkM, skApp);
+    });
   }
 
   /**
@@ -266,23 +268,33 @@ export class KeyStore {
    * @dev Used when feeding the sk_m to the kernel circuit for keys verification.
    */
   public async getMasterSecretKey(pkM: PublicKey): Promise<GrumpkinScalar> {
-    const [keyPrefix, account] = await this.getKeyPrefixAndAccount(pkM);
+    // Wrap in transactionAsync to keep the IndexedDB transaction alive across the full scan in
+    // getKeyPrefixAndAccount (entriesAsync) and the subsequent getAsync. Without this, the browser may
+    // auto-commit the IDB transaction between awaits, causing a TransactionInactiveError.
+    // The derivePublicKeyFromSecretKey await is safe because it comes after the last DB read.
+    return this.#db.transactionAsync(async () => {
+      const [keyPrefix, account] = await this.getKeyPrefixAndAccount(pkM);
 
-    const skStorageSuffix = secretKeyStorageSuffix(keyPrefix);
-    const secretKeyBuffer = await this.#keys.getAsync(`${account.toString()}-${skStorageSuffix}`);
-    if (!secretKeyBuffer) {
-      throw new Error(
-        `Could not find ${skStorageSuffix} for ${keyPrefix}pk_m ${pkM.toString()}. This should not happen.`,
-      );
-    }
+      const skStorageSuffix = secretKeyStorageSuffix(keyPrefix);
+      const secretKeyBuffer = await this.#keys.getAsync(`${account.toString()}-${skStorageSuffix}`);
+      if (!secretKeyBuffer) {
+        throw new Error(
+          `Could not find ${skStorageSuffix} for ${keyPrefix}pk_m ${pkM.toString()}. This should not happen.`,
+        );
+      }
 
-    const skM = GrumpkinScalar.fromBuffer(secretKeyBuffer);
-    const derivedpkM = await derivePublicKeyFromSecretKey(skM);
-    if (!derivedpkM.equals(pkM)) {
-      throw new Error(`Could not find ${skStorageSuffix} for ${keyPrefix}pkM ${pkM.toString()} in secret keys buffer.`);
-    }
+      const skM = GrumpkinScalar.fromBuffer(secretKeyBuffer);
 
-    return Promise.resolve(skM);
+      // Non-DB computation — safe because no further IDB operations follow.
+      const derivedpkM = await derivePublicKeyFromSecretKey(skM);
+      if (!derivedpkM.equals(pkM)) {
+        throw new Error(
+          `Could not find ${skStorageSuffix} for ${keyPrefix}pkM ${pkM.toString()} in secret keys buffer.`,
+        );
+      }
+
+      return skM;
+    });
   }
 
   /**
@@ -292,14 +304,18 @@ export class KeyStore {
    * @returns True if the account has a key with the given hash.
    */
   public async accountHasKey(account: AztecAddress, pkMHash: Fr): Promise<boolean> {
-    const pkMHashBuffer = serializeToBuffer(pkMHash);
-    for (const prefix of KEY_PREFIXES) {
-      const stored = await this.#keys.getAsync(`${account.toString()}-${prefix}pk_m_hash`);
-      if (stored && Buffer.from(stored).equals(pkMHashBuffer)) {
-        return true;
+    // Wrap in transactionAsync to keep the IndexedDB transaction alive across the loop of sequential getAsync
+    // calls. Without this, the browser may auto-commit the IDB transaction between iterations.
+    return this.#db.transactionAsync(async () => {
+      const pkMHashBuffer = serializeToBuffer(pkMHash);
+      for (const prefix of KEY_PREFIXES) {
+        const stored = await this.#keys.getAsync(`${account.toString()}-${prefix}pk_m_hash`);
+        if (stored && Buffer.from(stored).equals(pkMHashBuffer)) {
+          return true;
+        }
       }
-    }
-    return false;
+      return false;
+    });
   }
 
   /**
