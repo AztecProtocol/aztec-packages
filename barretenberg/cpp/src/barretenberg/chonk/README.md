@@ -1,4 +1,4 @@
-#Chonk : Client - side Highly Optimized ploNK
+# Chonk: Client-side Highly Optimized ploNK
 
 ![chonk](https://hackmd.io/_uploads/BkpsblXEgg.jpg)
 
@@ -179,26 +179,14 @@ The key insight of HyperNova folding is: **we don't need to complete PCS verific
 3. **Defer opening proof** → only verify the final accumulated claim at the end
 
 After Sumcheck, the verifier has `NUM_ALL_ENTITIES` evaluation claims (commitment + claimed value at point $r$). These are batched using random challenges $\rho_i, \sigma_j$ into just **two claims**:
-- Non-shifted: $([p_{\text{unshifted}}], v_{
-    \text
-    {
-        unshifted
-    }}, r)$
-- Shifted: $([p_{\text{shifted}}], v_{
-    \text
-    {
-        shifted
-    }}, r)$
+- Non-shifted: $([p_{\text{unshifted}}], v_{\text{unshifted}}, r)$
+- Shifted: $([p_{\text{shifted}}], v_{\text{shifted}}, r)$
 
 #### The Challenge: Different Evaluation Points
 
 Each circuit's Sumcheck produces claims at a **different random point** $r_i$. We need to reduce individual openings at given points to the opening of a random linear combination at a new random challenge.
 
-The solution is `MultilinearBatchingSumcheck`: a small Sumcheck (only 6 witness columns) that reduces two claims at different points $(r_{\text{acc}}, r_{\text{inst}})$ to a single claim at a **common point** $r_{
-    \text
-    {
-        new
-    }}$. See [HyperNova Folding Details](#hypernova-folding-details) for the full protocol.
+The solution is `MultilinearBatchingSumcheck`: a small Sumcheck (only 6 witness columns) that reduces two claims at different points $(r_{\text{acc}}, r_{\text{inst}})$ to a single claim at a **common point** $r_{\text{new}}$. See [HyperNova Folding Details](#hypernova-folding-details) for the full protocol.
 
 #### EC Operations per Fold
 
@@ -227,8 +215,7 @@ A key benefit of Chonk's folding approach is that prover memory is bounded by th
 
 **Memory bound**: Peak memory occurs during the first Sumcheck round and is bounded by $1.5 \times \max_i |\text{ProverPolynomials}_i|$, where the max is over all input circuits. Crucially, this bound is independent of the number of circuits being folded.
 
-*Example*: 55 dense polynomials of size $2^{18}$ consume $1.5 \times 55 \times 2^{18} \times 32\text{
-    bytes} \approx 660\text{ MB}$ (shifted polynomials share memory with unshifted), which serves as a rough upper bound for a Mega circuit's RAM footprint during Chonk.
+*Example*: 55 dense polynomials of size $2^{18}$ consume $1.5 \times 55 \times 2^{18} \times 32\text{ bytes} \approx 660\text{ MB}$ (shifted polynomials share memory with unshifted), which serves as a rough upper bound for a Mega circuit's RAM footprint during Chonk.
 
 ---
 
@@ -300,23 +287,19 @@ $$\sum_{i=0}^{n-1}\frac{a_i}{b_i + i\beta + \gamma} - \frac{q_{busread,i}}{w_{1,
 
 In practice, we precompute an inverse polynomial $I$ where:
 
-$$I_i = \frac{1}{(b_i + i\beta + \gamma)(w_{1,i} + w_{
-    2, i}\beta + \gamma)}$$
+$$I_i = \frac{1}{(b_i + i\beta + \gamma)(w_{1,i} + w_{2,i}\beta + \gamma)}$$
 
 This allows expressing the lookup as two subrelations:
 
 1. **Inverse correctness** (only checked where $a_i \neq 0$ or $q_{busread,i} = 1$):
 
-$$I_i \cdot (b_i + i\beta + \gamma)(w_{1,i} + w_{
-    2, i}\beta + \gamma) - \varepsilon_i = 0$$
+$$I_i \cdot (b_i + i\beta + \gamma)(w_{1,i} + w_{2,i}\beta + \gamma) - \varepsilon_i = 0$$
 
 2. **Lookup relation**:
 
-$$\sum_{i=0}^{n-1} a_i \cdot I_i \cdot (w_{1,i} + w_{
-    2, i}\beta + \gamma) - q_{
-    busread, i} \cdot I_i \cdot (b_i + i\beta + \gamma) = 0$$
+$$\sum_{i=0}^{n-1} a_i \cdot I_i \cdot (w_{1,i} + w_{2,i}\beta + \gamma) - q_{busread,i} \cdot I_i \cdot (b_i + i\beta + \gamma) = 0$$
 
-Inverse correctness is enforced by two separate gating subrelations: $(I \cdot L \cdot T - 1) \cdot \text{is\_read} = 0$ on read rows, and $(I \cdot L \cdot T - 1) \cdot \text{count} = 0$ on write rows. At inactive rows (where both gates are zero), $I$ is unconstrained but the lookup identity contribution is also zero, so the prover gets no free degrees of freedom.
+The `is_active` flag $\varepsilon$ indicates when the inverse $I$ needs to be computed. It is given by the expression `q_busread OR read_tags = q_busread + read_tags - q_busread * read_tags `. Third subrelation `read_tags * read_tags = read_tags` ensures `read_tags` entries are boolean, which is required for the OR formula to work correctly.
 
 **Multiple columns**: Each bus column (calldata, secondary_calldata, return_data) has separate subrelations, distinguished by column-specific selectors $q_j$.
 
@@ -551,13 +534,13 @@ The resulting accumulator contains $(r, v_{\text{unshifted}}, v_{\text{shifted}}
 **Prover Accumulator** (`MultilinearBatchingProverClaim`):
 ```cpp
 struct MultilinearBatchingProverClaim {
-    std::vector<FF> challenge;         // Evaluation point (r₀, r₁, ...)
-    FF non_shifted_evaluation;         // p(r)
-    FF shifted_evaluation;             // p_shifted(r)
-    Polynomial non_shifted_polynomial; // Full polynomial p
-    Polynomial shifted_polynomial;     // Full shifted polynomial
-    Commitment non_shifted_commitment; // [p]
-    Commitment shifted_commitment;     // [p_shifted]
+    std::vector<FF> challenge;           // Evaluation point (r₀, r₁, ...)
+    FF non_shifted_evaluation;           // p(r)
+    FF shifted_evaluation;               // p_shifted(r)
+    Polynomial non_shifted_polynomial;   // Full polynomial p
+    Polynomial shifted_polynomial;       // Full shifted polynomial
+    Commitment non_shifted_commitment;   // [p]
+    Commitment shifted_commitment;       // [p_shifted]
     size_t dyadic_size;
 };
 ```
@@ -565,11 +548,11 @@ struct MultilinearBatchingProverClaim {
 **Verifier Accumulator** (`MultilinearBatchingVerifierClaim`):
 ```cpp
 struct MultilinearBatchingVerifierClaim {
-    std::vector<FF> challenge;         // Evaluation point
-    FF non_shifted_evaluation;         // Claimed evaluation p(r)
-    FF shifted_evaluation;             // Claimed shifted evaluation
-    Commitment non_shifted_commitment; // [p]
-    Commitment shifted_commitment;     // [p_shifted]
+    std::vector<FF> challenge;           // Evaluation point
+    FF non_shifted_evaluation;           // Claimed evaluation p(r)
+    FF shifted_evaluation;               // Claimed shifted evaluation
+    Commitment non_shifted_commitment;   // [p]
+    Commitment shifted_commitment;       // [p_shifted]
 };
 ```
 
@@ -601,35 +584,19 @@ The fold operation:
 
    - Runs Sumcheck on the batching relation which checks (sums are over the Boolean hypercube $\{0,1\}^n$):
 
-   $$\sum_{\mathbf{i} \in \{0,1\}^n} p_{\text{acc}}(\mathbf{i}) \cdot \text{eq}(\mathbf{i}, r_{\text{acc}}) = v_{
-    \text
-    {
-        acc
-    }}$$
+   $$\sum_{\mathbf{i} \in \{0,1\}^n} p_{\text{acc}}(\mathbf{i}) \cdot \text{eq}(\mathbf{i}, r_{\text{acc}}) = v_{\text{acc}}$$
 
-   $$\sum_{\mathbf{i} \in \{0,1\}^n} p_{\text{inst}}(\mathbf{i}) \cdot \text{eq}(\mathbf{i}, r_{\text{inst}}) = v_{
-    \text
-    {
-        inst
-    }}$$
+   $$\sum_{\mathbf{i} \in \{0,1\}^n} p_{\text{inst}}(\mathbf{i}) \cdot \text{eq}(\mathbf{i}, r_{\text{inst}}) = v_{\text{inst}}$$
 
    This verifies that the claimed evaluations match the polynomials at the respective challenge points.
 
 3. **Compute folded claim**: Generate batching challenge $\gamma$ and compute:
 
-$$p_{\text{new}} = p_{\text{inst}} + \gamma \cdot p_{
-    \text
-    {
-        acc
-    }}$$
+$$p_{\text{new}} = p_{\text{inst}} + \gamma \cdot p_{\text{acc}}$$
 
 $$[p_{\text{new}}] = [p_{\text{inst}}] + \gamma \cdot [p_{\text{acc}}]$$
 
-$$v_{\text{new}} = v_{\text{inst}} + \gamma \cdot v_{
-    \text
-    {
-        acc
-    }}$$
+$$v_{\text{new}} = v_{\text{inst}} + \gamma \cdot v_{\text{acc}}$$
 
    (Same formulas apply to shifted polynomials)
 
@@ -717,11 +684,11 @@ Kernel circuits output a structured public input block that carries cross-circui
 ```cpp
 // KernelIO (for non-hiding kernels)
 struct KernelIO {
-    PairingInputs pairing_inputs;   // Accumulated {P0, P1} for deferred pairing check
-    G1 kernel_return_data;          // Commitment to this kernel's return data
-    G1 app_return_data;             // Commitment to the app's return data
-    TableCommitments ecc_op_tables; // [M_1]...[M_4] merged op queue tables from Merge
-    FF output_hn_accum_hash;        // Hash of the HyperNova accumulator state
+    PairingInputs pairing_inputs;      // Accumulated {P0, P1} for deferred pairing check
+    G1 kernel_return_data;             // Commitment to this kernel's return data
+    G1 app_return_data;                // Commitment to the app's return data
+    TableCommitments ecc_op_tables;    // [M_1]...[M_4] merged op queue tables from Merge
+    FF output_hn_accum_hash;           // Hash of the HyperNova accumulator state
 };
 
 // HidingKernelIO (for the final hiding kernel - no accumulator hash since folding terminates)
@@ -887,11 +854,7 @@ This appendix provides the detailed soundness argument for why the merged op que
 
 **Step 1: Tail kernel performs final PREPEND merge**
 - Recursive merge verifier runs in K_tail
-- Verifies: $M_{tail}(\kappa) = t_{tail}(\kappa) + \kappa^{
-    \ell_
-    {
-        tail
-    }} \cdot T_{prev}(\kappa)$ where $\ell_{tail} = |t_{tail}| \times 2$
+- Verifies: $M_{tail}(\kappa) = t_{tail}(\kappa) + \kappa^{\ell_{tail}} \cdot T_{prev}(\kappa)$ where $\ell_{tail} = |t_{tail}| \times 2$
 - Verifies: $\deg(t_{tail}) < \ell_{tail}$ (Thakur degree check)
 - Outputs: `merged_table_commitments` = $[M_{tail,1}], [M_{tail,2}], [M_{tail,3}], [M_{tail,4}]$
 - K_tail's public inputs contain these commitments via `kernel_output.ecc_op_tables`
@@ -915,8 +878,7 @@ merge_commitments.T_prev_commitments = std::move(kernel_input.ecc_op_tables);
 - Recursively verifies K_tail's merge proof
 - Returns `merged_table_commitments` = $[M_{tail}]$
 - **Critical**: Hiding kernel's own ops are NOT merged here - they will be merged by Chonk Verifier
-- Public output: `HidingKernelIO{
-    ..., T_prev_commitments }` where `T_prev_commitments` = $[M_{tail}]$
+- Public output: `HidingKernelIO{ ..., T_prev_commitments }` where `T_prev_commitments` = $[M_{tail}]$
 
 **Step 5: Chonk verifier extracts [M_tail] from hiding kernel**
 ```cpp
