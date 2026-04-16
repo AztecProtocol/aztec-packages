@@ -1,4 +1,3 @@
-import { GENESIS_BLOCK_HEADER_HASH } from '@aztec/constants';
 import type { EpochCacheInterface } from '@aztec/epoch-cache';
 import { BlockNumber, CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { createLogger } from '@aztec/foundation/log';
@@ -9,6 +8,7 @@ import { L2TipsKVStore } from '@aztec/kv-store/stores';
 import {
   type CheckpointId,
   type EthAddress,
+  GENESIS_BLOCK_HEADER_HASH,
   type L2Block,
   type L2BlockId,
   type L2BlockSource,
