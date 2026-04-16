@@ -557,10 +557,15 @@ impl PrivateContext {
     /// counter.
     ///
     pub fn end_setup(&mut self) {
-        // Incrementing the side effect counter when ending setup ensures non ambiguity for the counter where we change
-        // phases.
+        // We bump the counter twice: once so that `min_revertible_side_effect_counter` sits strictly above any
+        // non-revertible side effect counter (including queries made via `in_revertible_phase` before this call), and
+        // once more so that the next revertible side effect counter is strictly greater than
+        // `min_revertible_side_effect_counter`. This ensures `min_revertible_side_effect_counter` occupies a gap that
+        // no side effect takes, which the kernel relies on when validating the phase split.
         self.side_effect_counter += 1;
         self.min_revertible_side_effect_counter = self.side_effect_counter;
+        self.side_effect_counter += 1;
+
         aztecnr_trace_log_format!(
             "Ending setup, minimum revertible side effect counter is {0}",
         )(
