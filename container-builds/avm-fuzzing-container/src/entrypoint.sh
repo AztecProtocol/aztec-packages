@@ -495,11 +495,7 @@ do_regress() {
 	done
 
 	log "Regression complete: $total file(s) tested, $failures failure(s)"
-	# Non-fatal regression: move failures to crashes but don't exit 1
-	# AVM fuzzers may have transient failures due to Node.js simulator state
-	if [ "$failures" -gt 0 ]; then
-		log "WARNING: $failures failure(s) moved to $FUZZ_CRASH_DIR"
-	fi
+	[ "$failures" -gt 0 ] && exit 1
 	exit 0
 }
 
