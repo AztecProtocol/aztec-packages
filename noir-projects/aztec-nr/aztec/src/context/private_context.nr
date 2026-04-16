@@ -557,11 +557,20 @@ impl PrivateContext {
     /// counter.
     ///
     pub fn end_setup(&mut self) {
-        // Incrementing the side effect counter when ending setup ensures non ambiguity for the counter where we change
-        // phases.
+        // We bump the counter twice: once so that `min_revertible_side_effect_counter` sits strictly above any
+        // non-revertible side effect counter (including queries made via `in_revertible_phase` before this call), and
+        // once more so that the next revertible side effect counter is strictly greater than
+        // `min_revertible_side_effect_counter`. This ensures `min_revertible_side_effect_counter` occupies a gap that
+        // no side effect takes, which the kernel relies on when validating the phase split.
         self.side_effect_counter += 1;
-        aztecnr_trace_log_format!("Ending setup at counter {0}")([self.side_effect_counter as Field]);
-        self.min_revertible_side_effect_counter = self.next_counter();
+        self.min_revertible_side_effect_counter = self.side_effect_counter;
+        self.side_effect_counter += 1;
+
+        aztecnr_trace_log_format!(
+            "Ending setup, minimum revertible side effect counter is {0}",
+        )(
+            [self.min_revertible_side_effect_counter as Field],
+        );
         notify_revertible_phase_start(self.min_revertible_side_effect_counter);
     }
 
@@ -1154,16 +1163,12 @@ impl PrivateContext {
             },
         );
 
-        // TODO (fees) figure out why this crashes the prover and enable it we need this in order to pay fees inside
-        // child call contexts assert(
-        //     (item.public_inputs.min_revertible_side_effect_counter == 0 as u32)
-        //     | (item.public_inputs.min_revertible_side_effect_counter
-        //         > self.min_revertible_side_effect_counter)
-        // ); if item.public_inputs.min_revertible_side_effect_counter
-        //     > self.min_revertible_side_effect_counter { self.min_revertible_side_effect_counter =
-        // item.public_inputs.min_revertible_side_effect_counter; }
-        self.side_effect_counter = end_side_effect_counter + 1; // TODO: call `next_counter`
-        // instead, for consistency
+        // The kernel circuits ensure that end_side_effect_counter is greater than start_side_effect_counter, and that
+        // all side effects emitted in the child call have counters within the range [start_side_effect_counter,
+        // end_side_effect_counter]. Therefore, we only need to ensure that the next side effect from the current call
+        // starts after the end side effect from the child call.
+        self.side_effect_counter = end_side_effect_counter + 1;
+
         ReturnsHash::new(returns_hash)
     }
 
