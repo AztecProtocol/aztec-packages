@@ -109,8 +109,10 @@ def main():
         if i == 0:
             base_names = set(copied)
 
-        # See docstring above — only the AVM preset needs dedup.
-        dedup = preset == "fuzzing-avm" and bool(base_names)
+        # See docstring above — only the AVM preset needs dedup, and only when
+        # a prior (non-AVM) base manifest established the base_names set.
+        # When fuzzing-avm is the first/only manifest, skip dedup entirely.
+        dedup = preset == "fuzzing-avm" and i > 0 and bool(base_names)
 
         # Use preset-specific resources if provided, otherwise global defaults
         res = preset_res.get(preset, {"cpus": args.cpus, "memory_gb": args.memory_gb})
