@@ -27,6 +27,11 @@ import { General, Fees } from '@site/src/components/Snippets/general_snippets';
 
 - <General.node_ver />
 
+### macOS-specific requirements
+
+- **Homebrew**: [Homebrew](https://brew.sh/) is required for installing dependencies on macOS.
+- **Bash**: macOS ships with an outdated version of Bash (v3.2) that is known to cause issues with the Aztec installer. Install a modern version with `brew install bash`. Even if you use zsh as your default shell, the installer explicitly invokes `bash`. If the installer still picks up the old version, add the Homebrew `bash` to your `$PATH` or [set it as your default shell](https://support.apple.com/en-gb/guide/terminal/trml113/mac).
+
 ## Install and run the local network
 
 ### Install the Aztec toolchain

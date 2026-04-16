@@ -17,7 +17,7 @@ import {
   type ContractStore,
   type ContractSyncService,
   NoteStore,
-  ORACLE_VERSION,
+  ORACLE_VERSION_MAJOR,
   PrivateEventStore,
   RecipientTaggingStore,
   SenderAddressBookStore,
@@ -122,16 +122,24 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     this.logger.debug('Entering Top Level Context');
   }
 
-  assertCompatibleOracleVersion(version: number): void {
-    if (version !== ORACLE_VERSION) {
+  private contractOracleVersion: { major: number; minor: number } | undefined;
+
+  assertCompatibleOracleVersion(major: number, minor: number): void {
+    if (major !== ORACLE_VERSION_MAJOR) {
       const hint =
-        version > ORACLE_VERSION
+        major > ORACLE_VERSION_MAJOR
           ? 'The contract was compiled with a newer version of Aztec.nr than this aztec cli version supports. Upgrade your aztec cli version to a compatible version.'
           : 'The contract was compiled with an older version of Aztec.nr than this aztec cli version supports. Recompile the contract with a compatible version of Aztec.nr.';
       throw new Error(
-        `Incompatible aztec cli version: ${hint} See https://docs.aztec.network/errors/8 (expected oracle version ${ORACLE_VERSION}, got ${version})`,
+        `Incompatible aztec cli version: ${hint} See https://docs.aztec.network/errors/8 (expected oracle major version ${ORACLE_VERSION_MAJOR}, got ${major})`,
       );
     }
+    this.contractOracleVersion = { major, minor };
+  }
+
+  // Prefixed with "nonOracleFunction" as it is not used as an oracle handler.
+  nonOracleFunctionGetContractOracleVersion(): { major: number; minor: number } | undefined {
+    return this.contractOracleVersion;
   }
 
   // This is typically only invoked in private contexts, but it is convenient to also have it in top-level for testing
@@ -398,6 +406,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
       senderForTags: from,
       simulator,
       messageContextService: this.stateMachine.messageContextService,
+      l2TipsStore: this.stateMachine.node,
     });
 
     // Note: This is a slight modification of simulator.run without any of the checks. Maybe we should modify simulator.run with a boolean value to skip checks.
@@ -756,6 +765,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
         privateEventStore: this.privateEventStore,
         messageContextService: this.stateMachine.messageContextService,
         contractSyncService: this.contractSyncService,
+        l2TipsStore: this.stateMachine.node,
         jobId,
         scopes,
       });

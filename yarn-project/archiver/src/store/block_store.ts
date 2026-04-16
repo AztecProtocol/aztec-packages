@@ -976,7 +976,7 @@ export class BlockStore {
     return {
       header: BlockHeader.fromBuffer(blockStorage.header),
       archive: AppendOnlyTreeSnapshot.fromBuffer(blockStorage.archive),
-      blockHash: Fr.fromBuffer(blockStorage.blockHash),
+      blockHash: BlockHash.fromBuffer(blockStorage.blockHash),
       checkpointNumber: CheckpointNumber(blockStorage.checkpointNumber),
       indexWithinCheckpoint: IndexWithinCheckpoint(blockStorage.indexWithinCheckpoint),
     };

@@ -74,7 +74,7 @@ void DataCopyTraceBuilder::process(
                       // Unconditional values
                       { C::data_copy_sel, 1 },
                       { C::data_copy_clk, event.execution_clk },
-                      { C::data_copy_sel_start, 1 },
+                      { C::data_copy_start, 1 },
                       { C::data_copy_sel_cd_copy, is_cd_copy ? 1 : 0 },
                       { C::data_copy_sel_cd_copy_start, is_cd_copy ? 1 : 0 },
                       { C::data_copy_sel_rd_copy_start, is_rd_copy ? 1 : 0 },
@@ -113,7 +113,7 @@ void DataCopyTraceBuilder::process(
         if (write_address_overflow) {
             trace.set(row,
                       { {
-                          { C::data_copy_sel_end, 1 },
+                          { C::data_copy_end, 1 },
                           { C::data_copy_dst_out_of_range_err, 1 },
                       } });
             row++;
@@ -131,8 +131,8 @@ void DataCopyTraceBuilder::process(
         if (copy_size == 0) {
             trace.set(row,
                       { {
-                          { C::data_copy_sel_start_no_err, 1 },
-                          { C::data_copy_sel_end, 1 },
+                          { C::data_copy_start_no_err, 1 },
+                          { C::data_copy_end, 1 },
                           { C::data_copy_sel_write_count_is_zero, 1 },
                           { C::data_copy_sel_has_reads, clamped_read_index_upper_bound > data_offset ? 1 : 0 },
                       } });
@@ -175,8 +175,8 @@ void DataCopyTraceBuilder::process(
                     { C::data_copy_dst_context_id, event.write_context_id },
                     { C::data_copy_dst_addr, event.dst_addr + i },
 
-                    { C::data_copy_sel_start_no_err, start ? 1 : 0 },
-                    { C::data_copy_sel_end, end ? 1 : 0 },
+                    { C::data_copy_start_no_err, start ? 1 : 0 },
+                    { C::data_copy_end, end ? 1 : 0 },
                     { C::data_copy_copy_size, current_copy_size },
                     { C::data_copy_write_count_minus_one_inv,
                       current_copy_size - 1 }, // Will be inverted in batch later

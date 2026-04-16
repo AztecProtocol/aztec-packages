@@ -1,6 +1,7 @@
 import { EcdsaRAccountContract, EcdsaRSSHAccountContract } from '@aztec/accounts/ecdsa';
 import { SchnorrAccountContract } from '@aztec/accounts/schnorr';
-import { StubAccountContractArtifact, createStubAccount } from '@aztec/accounts/stub';
+import { StubEcdsaAccountContractArtifact, createStubEcdsaAccount } from '@aztec/accounts/stub/ecdsa';
+import { StubSchnorrAccountContractArtifact, createStubSchnorrAccount } from '@aztec/accounts/stub/schnorr';
 import { getIdentities } from '@aztec/accounts/utils';
 import { type Account, type AccountContract, NO_FROM } from '@aztec/aztec.js/account';
 import {
@@ -10,6 +11,7 @@ import {
 } from '@aztec/aztec.js/contracts';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import { AccountManager, type Aliased, type SimulateOptions } from '@aztec/aztec.js/wallet';
+import { TxSimulationResultWithAppOffset } from '@aztec/aztec.js/wallet';
 import type { DefaultAccountEntrypointOptions } from '@aztec/entrypoints/account';
 import { DefaultEntrypoint } from '@aztec/entrypoints/default';
 import { Fr } from '@aztec/foundation/curves/bn254';
@@ -21,7 +23,7 @@ import { createPXE, getPXEConfig } from '@aztec/pxe/server';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { deriveSigningKey } from '@aztec/stdlib/keys';
 import { NoteDao } from '@aztec/stdlib/note';
-import type { SimulationOverrides, TxExecutionRequest, TxProvingResult, TxSimulationResult } from '@aztec/stdlib/tx';
+import type { SimulationOverrides, TxExecutionRequest, TxProvingResult } from '@aztec/stdlib/tx';
 import { ExecutionPayload, mergeExecutionPayloads } from '@aztec/stdlib/tx';
 import { BaseWallet, type SimulateViaEntrypointOptions } from '@aztec/wallet-sdk/base-wallet';
 
@@ -199,18 +201,18 @@ export class CLIWallet extends BaseWallet {
     if (!contractInstance) {
       throw new Error(`No contract instance found for address: ${originalAddress.address}`);
     }
-    const stubAccount = createStubAccount(originalAddress);
-    const instance = await getContractInstanceFromInstantiationParams(StubAccountContractArtifact, {
-      salt: Fr.random(),
-    });
-    return {
-      account: stubAccount,
-      instance,
-      artifact: StubAccountContractArtifact,
-    };
+    const { type } = await this.db!.retrieveAccount(address);
+    const isSchnorr = type === 'schnorr';
+    const artifact = isSchnorr ? StubSchnorrAccountContractArtifact : StubEcdsaAccountContractArtifact;
+    const stubAccount = isSchnorr ? createStubSchnorrAccount(originalAddress) : createStubEcdsaAccount(originalAddress);
+    const instance = await getContractInstanceFromInstantiationParams(artifact, { salt: Fr.random() });
+    return { account: stubAccount, instance, artifact };
   }
 
-  override async simulateTx(executionPayload: ExecutionPayload, opts: SimulateOptions): Promise<TxSimulationResult> {
+  override async simulateTx(
+    executionPayload: ExecutionPayload,
+    opts: SimulateOptions,
+  ): Promise<TxSimulationResultWithAppOffset> {
     const simulationResults = await super.simulateTx(executionPayload, opts);
 
     if (opts.fee?.estimateGas) {
@@ -232,8 +234,9 @@ export class CLIWallet extends BaseWallet {
   protected override async simulateViaEntrypoint(
     executionPayload: ExecutionPayload,
     opts: SimulateViaEntrypointOptions,
-  ): Promise<TxSimulationResult> {
-    const { from, feeOptions, scopes } = opts;
+  ): Promise<TxSimulationResultWithAppOffset> {
+    const { from, feeOptions, additionalScopes } = opts;
+    const scopes = this.scopesFrom(from, additionalScopes);
     const feeExecutionPayload = await feeOptions.walletFeePaymentMethod?.getExecutionPayload();
     const finalExecutionPayload = feeExecutionPayload
       ? mergeExecutionPayloads([feeExecutionPayload, executionPayload])
@@ -264,13 +267,15 @@ export class CLIWallet extends BaseWallet {
       );
     }
 
-    return this.pxe.simulateTx(txRequest, {
+    const result = await this.pxe.simulateTx(txRequest, {
       simulatePublic: true,
       skipFeeEnforcement: true,
       skipTxValidation: true,
       overrides,
       scopes,
     });
+    const appCallOffset = await this.computeAppCallOffset(from, feeOptions);
+    return TxSimulationResultWithAppOffset.fromResultAndOffset(result, appCallOffset);
   }
 
   // Exposed because of the `aztec-wallet get-tx` command. It has been decided that it's fine to keep around because

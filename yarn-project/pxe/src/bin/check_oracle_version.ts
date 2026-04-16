@@ -13,8 +13,9 @@ import { ORACLE_INTERFACE_HASH } from '../oracle_version.js';
  *
  * The Oracle interface needs to be versioned to ensure compatibility between Aztec.nr and PXE. This function computes
  * a hash of the Oracle interface and compares it against a known hash. If they don't match, it means the interface has
- * changed and the ORACLE_VERSION constant needs to be incremented and the ORACLE_INTERFACE_HASH constant needs to be
- * updated.
+ * changed and the oracle version needs to be bumped:
+ *   - If the change is backward-breaking (e.g. removing/renaming an oracle), bump ORACLE_VERSION_MAJOR.
+ *   - If the change is an oracle addition (non-breaking), bump ORACLE_VERSION_MINOR.
  *
  * TODO(#16581): The following only takes into consideration changes to the oracles defined in Oracle.ts and omits TXE
  * oracles. Ensure this checks TXE oracles as well. This hasn't been implemented yet since we don't have a clean TXE
@@ -26,9 +27,8 @@ function assertOracleInterfaceMatches(): void {
   // We use keccak256 here just because we already have it in the dependencies.
   const oracleInterfaceHash = keccak256String(oracleInterfaceSignature);
   if (oracleInterfaceHash !== ORACLE_INTERFACE_HASH) {
-    // This check exists only to notify you when you need to update the ORACLE_VERSION constant.
     throw new Error(
-      `The Oracle interface has changed, which implies a breaking change in the aztec.nr/PXE oracle interface. Update ORACLE_INTERFACE_HASH to ${oracleInterfaceHash} and bump ORACLE_VERSION in pxe/src/oracle_version.ts.`,
+      `The Oracle interface has changed. Update ORACLE_INTERFACE_HASH to ${oracleInterfaceHash} in pxe/src/oracle_version.ts and bump the oracle version (ORACLE_VERSION_MAJOR for breaking changes, ORACLE_VERSION_MINOR for oracle additions).`,
     );
   }
 }

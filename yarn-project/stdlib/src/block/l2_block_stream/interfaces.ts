@@ -2,10 +2,14 @@ import type { PublishedCheckpoint } from '../../checkpoint/published_checkpoint.
 import type { L2Block } from '../l2_block.js';
 import type { CheckpointId, L2BlockId, L2Tips } from '../l2_block_source.js';
 
-/** Interface to the local view of the chain. Implemented by world-state and l2-tips-store. */
-export interface L2BlockStreamLocalDataProvider {
-  getL2BlockHash(number: number): Promise<string | undefined>;
+/** Provides the current chain tips. Implemented by world-state, l2-tips-store, and AztecNode. */
+export interface L2TipsProvider {
   getL2Tips(): Promise<L2Tips>;
+}
+
+/** Interface to the local view of the chain. Implemented by world-state and l2-tips-store. */
+export interface L2BlockStreamLocalDataProvider extends L2TipsProvider {
+  getL2BlockHash(number: number): Promise<string | undefined>;
 }
 
 /** Interface to a handler of events emitted. */

@@ -86,8 +86,15 @@ interface ContainsNote {
 
 const selectPropertyFromPackedNoteContent = (noteData: Fr[], selector: PropertySelector): Fr => {
   const noteValueBuffer = noteData[selector.index].toBuffer();
-  const noteValue = noteValueBuffer.subarray(selector.offset, selector.offset + selector.length);
-  return Fr.fromBuffer(noteValue);
+  // Noir's PropertySelector counts offset from the LSB (last byte of the big-endian buffer),
+  // so offset=0,length=Fr.SIZE_IN_BYTES reads the entire field, and offset=0,length=1 reads the last byte.
+  const start = Fr.SIZE_IN_BYTES - selector.offset - selector.length;
+  const end = Fr.SIZE_IN_BYTES - selector.offset;
+  const noteValue = noteValueBuffer.subarray(start, end);
+  // Left-pad to Fr.SIZE_IN_BYTES so Fr.fromBuffer interprets the value correctly.
+  const padded = Buffer.alloc(Fr.SIZE_IN_BYTES);
+  noteValue.copy(padded, Fr.SIZE_IN_BYTES - noteValue.length);
+  return Fr.fromBuffer(padded);
 };
 
 const selectNotes = <T extends ContainsNote>(noteDatas: T[], selects: Select[]): T[] =>

@@ -43,11 +43,14 @@ template <class Fr, size_t domain_end, bool has_a0_plus_a1> class UnivariateCoef
     using value_type = Fr; // used to get the type of the elements consistently with std::array
 
     /**
-     * @brief coefficients is a length-3 array with the following representation:
+     * @brief Storage for polynomial coefficients (always 3 elements for uniform layout).
      * @details This class represents a polynomial P(X) = a0 + a1.X + a2.X^2
-     *          We define `coefficients[0] = a0` and `coefficients[1] = a1`
-     *          If LENGTH == 2 AND `has_a0_plus_a1 = true` then `coefficients[2] = a0 + a1`
-     *          If LENGTH == 3 then `coefficients[2] = a2`
+     *          `coefficients[0] = a0`, `coefficients[1] = a1`.
+     *          The meaning of `coefficients[2]` depends on the template parameters:
+     *            - LENGTH == 2 AND has_a0_plus_a1 == true:  coefficients[2] = a0 + a1
+     *              (precomputed for Karatsuba multiplication; NOT a polynomial coefficient)
+     *            - LENGTH == 2 AND has_a0_plus_a1 == false: coefficients[2] is unused
+     *            - LENGTH == 3:                             coefficients[2] = a2
      */
     std::array<Fr, 3> coefficients;
 

@@ -29,6 +29,7 @@
 <li><a href="../capsules/index.html">capsules</a></div></li>
 <li><a href="../context/index.html">context</a></div></li>
 <li><a href="../contract_self/index.html">contract_self</a></div></li>
+<li><a href="../ephemeral/index.html">ephemeral</a></div></li>
 <li><a href="../event/index.html">event</a></div></li>
 <li><a href="../hash/index.html">hash</a></div></li>
 <li><a href="../history/index.html">history</a></div></li>
@@ -87,8 +88,8 @@ requires
     }
 
     <span class="kw">fn</span> unpack(packed: [Field; Self::N]) -&gt; Self {
-        <span class="kw">let</span> b = (packed[<span class="number">0</span>] <span class="kw">as</span> u1) != <span class="number">0</span>;
-        <span class="kw">let</span> a = (((packed[<span class="number">0</span>] - b <span class="kw">as</span> Field) / <span class="number">2</span>.pow_32(<span class="number">1</span>)) <span class="kw">as</span> u1) != <span class="number">0</span>;
+        <span class="kw">let</span> b = (packed[<span class="number">0</span>] <span class="kw">as</span> u8) % <span class="number">2</span> != <span class="number">0</span>;
+        <span class="kw">let</span> a = ((packed[<span class="number">0</span>] - b <span class="kw">as</span> Field) / <span class="number">2</span>.pow_32(<span class="number">1</span>)) != <span class="number">0</span>;
 
         Self { a, b }
     }

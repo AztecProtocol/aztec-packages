@@ -4,6 +4,7 @@ import { OracleVersionCheckContractArtifact } from '@aztec/noir-test-contracts.j
 import { WASMSimulator } from '@aztec/simulator/client';
 import { FunctionCall, FunctionSelector, FunctionType, encodeArguments } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { L2TipsProvider } from '@aztec/stdlib/block';
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import { GasFees, GasSettings } from '@aztec/stdlib/gas';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
@@ -14,7 +15,7 @@ import { mock } from 'jest-mock-extended';
 
 import type { ContractSyncService } from '../../contract_sync/contract_sync_service.js';
 import type { MessageContextService } from '../../messages/message_context_service.js';
-import { ORACLE_VERSION } from '../../oracle_version.js';
+import { ORACLE_VERSION_MAJOR, ORACLE_VERSION_MINOR } from '../../oracle_version.js';
 import type { AddressStore } from '../../storage/address_store/address_store.js';
 import { CapsuleService } from '../../storage/capsule_store/capsule_service.js';
 import type { CapsuleStore } from '../../storage/capsule_store/capsule_store.js';
@@ -25,6 +26,7 @@ import type { RecipientTaggingStore } from '../../storage/tagging_store/recipien
 import type { SenderAddressBookStore } from '../../storage/tagging_store/sender_address_book_store.js';
 import type { SenderTaggingStore } from '../../storage/tagging_store/sender_tagging_store.js';
 import { ContractFunctionSimulator } from '../contract_function_simulator.js';
+import { Oracle } from './oracle.js';
 import { UtilityExecutionOracle } from './utility_execution_oracle.js';
 
 describe('Oracle Version Check test suite', () => {
@@ -42,6 +44,7 @@ describe('Oracle Version Check test suite', () => {
   let privateEventStore: ReturnType<typeof mock<PrivateEventStore>>;
   let contractSyncService: ReturnType<typeof mock<ContractSyncService>>;
   let messageContextService: ReturnType<typeof mock<MessageContextService>>;
+  let l2TipsStore: ReturnType<typeof mock<L2TipsProvider>>;
   let acirSimulator: ContractFunctionSimulator;
   let contractAddress: AztecAddress;
   let anchorBlockHeader: BlockHeader;
@@ -62,6 +65,7 @@ describe('Oracle Version Check test suite', () => {
     privateEventStore = mock<PrivateEventStore>();
     contractSyncService = mock<ContractSyncService>();
     messageContextService = mock<MessageContextService>();
+    l2TipsStore = mock<L2TipsProvider>();
     assertCompatibleOracleVersionSpy = jest.spyOn(UtilityExecutionOracle.prototype, 'assertCompatibleOracleVersion');
     assertCompatibleOracleVersionSpy.mockClear();
 
@@ -98,6 +102,7 @@ describe('Oracle Version Check test suite', () => {
       keyStore,
       addressStore,
       aztecNode,
+      l2TipsStore: mock(),
       senderTaggingStore,
       recipientTaggingStore,
       senderAddressBookStore,
@@ -207,25 +212,65 @@ describe('Oracle Version Check test suite', () => {
         contractSyncService,
         jobId: 'test',
         scopes: [],
+        l2TipsStore,
       });
     });
 
-    it('suggests upgrading PXE when contract oracle version is newer', () => {
-      const newerVersion = ORACLE_VERSION + 1;
-      expect(() => oracle.assertCompatibleOracleVersion(newerVersion)).toThrow(
+    it('suggests upgrading PXE when contract major oracle version is newer', () => {
+      const newerMajor = ORACLE_VERSION_MAJOR + 1;
+      expect(() => oracle.assertCompatibleOracleVersion(newerMajor, ORACLE_VERSION_MINOR)).toThrow(
         /Incompatible private environment version:.*Upgrade your private environment to a compatible version.*See https:\/\/docs\.aztec\.network\/errors\/8/,
       );
     });
 
-    it('suggests recompiling the contract when contract oracle version is older', () => {
-      const olderVersion = ORACLE_VERSION - 1;
-      expect(() => oracle.assertCompatibleOracleVersion(olderVersion)).toThrow(
+    it('suggests recompiling the contract when contract major oracle version is older', () => {
+      const olderMajor = ORACLE_VERSION_MAJOR - 1;
+      expect(() => oracle.assertCompatibleOracleVersion(olderMajor, ORACLE_VERSION_MINOR)).toThrow(
         /Incompatible private environment version:.*Recompile the contract with a compatible version of Aztec\.nr.*See https:\/\/docs\.aztec\.network\/errors\/8/,
       );
     });
 
-    it('does not throw when oracle version matches', () => {
-      expect(() => oracle.assertCompatibleOracleVersion(ORACLE_VERSION)).not.toThrow();
+    it('does not throw when major version matches', () => {
+      expect(() => oracle.assertCompatibleOracleVersion(ORACLE_VERSION_MAJOR, ORACLE_VERSION_MINOR)).not.toThrow();
+    });
+
+    it('does not throw when contract minor version is higher than PXE minor version', () => {
+      // We don't throw if AZTEC_NR_MINOR > PXE_MINOR because if a contract is updated to use a newer Aztec.nr
+      // dependency without actually using any of the new oracles then there is no reason to throw.
+      const higherMinor = ORACLE_VERSION_MINOR + 5;
+      expect(() => oracle.assertCompatibleOracleVersion(ORACLE_VERSION_MAJOR, higherMinor)).not.toThrow();
+    });
+
+    it('stores the contract oracle version for later diagnostics', () => {
+      oracle.assertCompatibleOracleVersion(ORACLE_VERSION_MAJOR, 3);
+      expect(oracle.nonOracleFunctionGetContractOracleVersion()).toEqual({ major: ORACLE_VERSION_MAJOR, minor: 3 });
+    });
+
+    it('provides enhanced error when oracle not found and contract minor > PXE minor', () => {
+      // Register a higher minor version (contract expects oracles the PXE doesn't have)
+      oracle.assertCompatibleOracleVersion(ORACLE_VERSION_MAJOR, ORACLE_VERSION_MINOR + 1);
+
+      // Build the ACIR callback and try to call a non-existent oracle
+      const callback = new Oracle(oracle).toACIRCallback();
+      const contractVersion = `${ORACLE_VERSION_MAJOR}\\.${ORACLE_VERSION_MINOR + 1}`;
+      const pxeVersion = `${ORACLE_VERSION_MAJOR}\\.${ORACLE_VERSION_MINOR}`;
+      expect(() => callback['aztec_utl_someNewOracle']()).toThrow(
+        new RegExp(
+          `Oracle 'aztec_utl_someNewOracle' not found\\. This usually means the contract requires a newer private execution environment than you have\\. Upgrade your private execution environment to a compatible version\\. The contract was compiled with Aztec\\.nr oracle version ${contractVersion}, but this private execution environment only supports up to ${pxeVersion}\\.`,
+        ),
+      );
+    });
+
+    it('suggests contract bug when oracle not found and contract minor <= PXE minor', () => {
+      const contractMinor = 0;
+      oracle.assertCompatibleOracleVersion(ORACLE_VERSION_MAJOR, contractMinor);
+
+      const callback = new Oracle(oracle).toACIRCallback();
+      expect(() => callback['aztec_utl_someNewOracle']()).toThrow(
+        new RegExp(
+          `Oracle 'aztec_utl_someNewOracle' not found\\. The contract's oracle version \\(${ORACLE_VERSION_MAJOR}\\.${contractMinor}\\) is compatible with this private execution environment \\(${ORACLE_VERSION_MAJOR}\\.${ORACLE_VERSION_MINOR}\\), so all standard oracles should be available\\. This could mean the contract was compiled against a modified version of Aztec\\.nr, or that it references an oracle that does not exist\\.`,
+        ),
+      );
     });
   });
 });

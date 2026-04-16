@@ -308,6 +308,12 @@ export const ARCHIVER_SYNC_PER_BLOCK: MetricDefinition = {
   unit: 'ms',
   valueType: ValueType.INT,
 };
+export const ARCHIVER_SYNC_PER_CHECKPOINT: MetricDefinition = {
+  name: 'aztec.archiver.checkpoint.sync_per_item_duration',
+  description: 'Duration to sync a checkpoint',
+  unit: 'ms',
+  valueType: ValueType.INT,
+};
 export const ARCHIVER_SYNC_BLOCK_COUNT: MetricDefinition = {
   name: 'aztec.archiver.block.sync_count',
   description: 'Number of blocks synced from L1',
@@ -405,6 +411,12 @@ export const SEQUENCER_BLOCK_COUNT: MetricDefinition = {
   description: 'Number of blocks built by this sequencer',
   valueType: ValueType.INT,
 };
+export const SEQUENCER_BLOCK_INTER_BLOCK_TIME: MetricDefinition = {
+  name: 'aztec.sequencer.block.inter_block_time',
+  description: 'Wall-clock time elapsed between consecutive blocks being built by this sequencer',
+  unit: 'ms',
+  valueType: ValueType.INT,
+};
 export const SEQUENCER_CURRENT_SLOT_REWARDS: MetricDefinition = {
   name: 'aztec.sequencer.current_slot_rewards',
   description: 'The rewards earned per filled slot',
@@ -474,6 +486,25 @@ export const SEQUENCER_CHECKPOINT_PROPOSAL_FAILED_COUNT: MetricDefinition = {
 export const SEQUENCER_CHECKPOINT_BUILD_DURATION: MetricDefinition = {
   name: 'aztec.sequencer.checkpoint.build_duration',
   description: 'Total duration to build all blocks in a checkpoint',
+  unit: 'ms',
+  valueType: ValueType.INT,
+};
+export const SEQUENCER_CHECKPOINT_START_TO_FIRST_BLOCK_DURATION: MetricDefinition = {
+  name: 'aztec.sequencer.checkpoint.start_to_first_block_duration',
+  description: 'Time from starting checkpoint work to the first block finishing build',
+  unit: 'ms',
+  valueType: ValueType.INT,
+};
+export const SEQUENCER_CHECKPOINT_LAST_BLOCK_TO_BROADCAST_DURATION: MetricDefinition = {
+  name: 'aztec.sequencer.checkpoint.last_block_to_broadcast_duration',
+  description: 'Time from the final block finishing build to the checkpoint proposal being broadcast',
+  unit: 'ms',
+  valueType: ValueType.INT,
+};
+export const SEQUENCER_PIPELINED_CHECKPOINT_BUILD_START_OFFSET_FROM_SLOT_BOUNDARY: MetricDefinition = {
+  name: 'aztec.sequencer.pipelined_checkpoint.build_start_offset_from_slot_boundary',
+  description:
+    'Absolute offset from the wall-clock slot boundary when a pipelined checkpoint build starts. Use aztec.slot_boundary_side to distinguish before vs after the boundary.',
   unit: 'ms',
   valueType: ValueType.INT,
 };
@@ -1284,6 +1315,19 @@ export const VALIDATOR_RE_EXECUTION_TX_COUNT: MetricDefinition = {
   name: 'aztec.validator.re_execution_tx_count',
   description: 'The number of txs in a block proposal',
   unit: 'tx',
+  valueType: ValueType.INT,
+};
+export const VALIDATOR_CHECKPOINT_PROPOSAL_TO_PIPELINED_STATE_DURATION: MetricDefinition = {
+  name: 'aztec.validator.checkpoint_proposal_to_pipelined_state_duration',
+  description: 'Time from receiving a checkpoint proposal to setting proposed checkpoint state for pipelining',
+  unit: 'ms',
+  valueType: ValueType.INT,
+};
+export const VALIDATOR_CHECKPOINT_PROPOSAL_RECEIVE_OFFSET_FROM_NEXT_SLOT_BOUNDARY: MetricDefinition = {
+  name: 'aztec.validator.checkpoint.proposal_receive_offset_from_next_slot_boundary',
+  description:
+    'Absolute offset from the next slot boundary when a foreign checkpoint proposal is received. Use aztec.slot_boundary_side to distinguish before vs after the boundary.',
+  unit: 'ms',
   valueType: ValueType.INT,
 };
 

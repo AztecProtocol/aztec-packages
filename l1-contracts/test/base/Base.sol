@@ -14,6 +14,17 @@ contract TestBase is Test {
   AppendOnlyTreeSnapshot EMPTY_APPENDONLY_TREE_SNAPSHOT =
     AppendOnlyTreeSnapshot({root: bytes32(0), nextAvailableLeafIndex: 0});
 
+  modifier skipWhenCoverage() {
+    if (isCoverage()) {
+      vm.skip(true);
+    }
+    _;
+  }
+
+  function isCoverage() internal view returns (bool) {
+    return vm.envOr("FORGE_COVERAGE", false);
+  }
+
   function assertGt(Timestamp a, Timestamp b) internal {
     if (a <= b) {
       emit log("Error: a > b not satisfied [Timestamp]");

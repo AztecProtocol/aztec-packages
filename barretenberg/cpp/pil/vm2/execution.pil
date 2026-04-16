@@ -196,19 +196,21 @@ sel_bytecode_retrieval_success = sel * (1 - sel_bytecode_retrieval_failure);
  *  Temporality group 2: Instruction fetching
  **************************************************************************************************/
 
-pol commit instr_length; // Need this for shift col on next_pc
+pol commit instr_size; // Need this for shift col on next_pc
 pol commit sel_instruction_fetching_failure; // @boolean (by definition below)
 
-pol commit ex_opcode;
+pol commit exec_opcode;
 pol commit addressing_mode;
 pol commit op[7];  // operands
 
 // We now proceed to fetch the instruction.
-// The handling is slightly subtle: suppose fetching fails, then in simulation/tracegen
-// we will NOT have the partial information of the instruction, and we prefer to leave
-// the instruction unconstrained here. Fixing this would require the partial instruction
-// result to execution.cpp which is not very elegant neither.
-// This is why we do 2 lookups instead of 1.
+
+// We separate the fetching into two lookups. This ensures that if fetching fails we constrain
+// the error cleanly without needing to feed execution partial and/or filler instruction values.
+//  1. #[INSTRUCTION_FETCHING_RESULT] - constrains the success or failure of fetching given we
+//      have retrieved the bytecode.
+//  2. #[INSTRUCTION_FETCHING_BODY] - constrains the instruction's addressing, operands, and
+//      size against the opcode, given we have retrieved the bytecode and parsed the instruction.
 
 // Note: the below lookups additionally constrain that the bytecode with bytecode_id has
 // been correctly hashed due to instr_fetching's lookups into bc_decomposition, where
@@ -232,8 +234,8 @@ sel_instruction_fetching_success = sel_bytecode_retrieval_success * (1 - sel_ins
 sel_instruction_fetching_success {
     pc,
     bytecode_id,
-    ex_opcode,
-    instr_length,
+    exec_opcode,
+    instr_size,
     addressing_mode,
     op[0],
     op[1],
@@ -265,7 +267,7 @@ sel_instruction_fetching_success {
 
 #[EXEC_SPEC_READ]
 sel_instruction_fetching_success {
-    ex_opcode,
+    exec_opcode,
     // in gas.pil.
     opcode_gas,
     base_da_gas,

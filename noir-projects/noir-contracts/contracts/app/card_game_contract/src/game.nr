@@ -93,11 +93,11 @@ impl Packable for Game {
         let rounds_cards = <[Card; PLAYABLE_CARDS]>::unpack(cards_packed);
 
         let mut tmp = packed[SCALARS_OFFSET];
-        let started = (tmp as u1) != 0;
+        let started = (tmp as u8) % 2 != 0;
         tmp = (tmp - started as Field) / 2.pow_32(1);
-        let finished = (tmp as u1) != 0;
+        let finished = (tmp as u8) % 2 != 0;
         tmp = (tmp - finished as Field) / 2.pow_32(1);
-        let claimed = (tmp as u1) != 0;
+        let claimed = (tmp as u8) % 2 != 0;
         tmp = (tmp - claimed as Field) / 2.pow_32(1);
         let current_player = tmp as u32;
         tmp = (tmp - current_player as Field) / 2.pow_32(32);

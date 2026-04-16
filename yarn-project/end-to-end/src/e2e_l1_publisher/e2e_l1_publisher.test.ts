@@ -12,17 +12,12 @@ import {
   getBlobsPerL1Block,
   getPrefixedEthBlobCommitments,
 } from '@aztec/blob-lib';
-import {
-  GENESIS_ARCHIVE_ROOT,
-  GENESIS_BLOCK_HEADER_HASH,
-  MAX_NULLIFIERS_PER_TX,
-  NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
-} from '@aztec/constants';
+import { GENESIS_ARCHIVE_ROOT, MAX_NULLIFIERS_PER_TX, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
 import { EpochCache } from '@aztec/epoch-cache';
 import { createEthereumChain } from '@aztec/ethereum/chain';
 import { createExtendedL1Client } from '@aztec/ethereum/client';
 import { getL1ContractsConfigEnvVars } from '@aztec/ethereum/config';
-import { GovernanceProposerContract, RollupContract } from '@aztec/ethereum/contracts';
+import { GovernanceProposerContract, RollupContract, SimulationOverridesBuilder } from '@aztec/ethereum/contracts';
 import { type DeployAztecL1ContractsArgs, deployAztecL1Contracts } from '@aztec/ethereum/deploy-aztec-l1-contracts';
 import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
 import { TxUtilsState, createL1TxUtils } from '@aztec/ethereum/l1-tx-utils';
@@ -50,6 +45,7 @@ import {
   CheckpointedL2Block,
   type CommitteeAttestation,
   CommitteeAttestationsAndSigners,
+  GENESIS_BLOCK_HEADER_HASH,
   L2Block,
   type L2Tips,
   Signature,
@@ -58,7 +54,6 @@ import { Checkpoint, L1PublishedData, PublishedCheckpoint } from '@aztec/stdlib/
 import { type L1RollupConstants, getSlotStartBuildTimestamp } from '@aztec/stdlib/epoch-helpers';
 import { GasFees, GasSettings } from '@aztec/stdlib/gas';
 import { tryStop } from '@aztec/stdlib/interfaces/server';
-import { SlashFactoryContract } from '@aztec/stdlib/l1-contracts';
 import { orderAttestations } from '@aztec/stdlib/p2p';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
 import {
@@ -164,7 +159,7 @@ describe('L1Publisher integration', () => {
       protocolContractsHash,
       genesisArchiveRoot: deployL1ContractsArgs.genesisArchiveRoot ?? new Fr(GENESIS_ARCHIVE_ROOT),
       aztecTargetCommitteeSize: 0,
-      slasherFlavor: 'none',
+      slasherEnabled: false,
       ...deployL1ContractsArgs,
     }));
 
@@ -289,7 +284,6 @@ describe('L1Publisher integration', () => {
         epochCache,
         governanceProposerContract,
         slashingProposerContract,
-        slashFactoryContract: undefined as unknown as SlashFactoryContract,
         dateProvider,
         metrics: sequencerPublisherMetrics,
         lastActions: {},
@@ -745,20 +739,21 @@ describe('L1Publisher integration', () => {
       expect(invalidateRequest).toBeDefined();
       const forcePendingCheckpointNumber = invalidateRequest?.forcePendingCheckpointNumber;
       expect(forcePendingCheckpointNumber).toEqual(0);
+      const invalidationSimulationOverridesPlan = new SimulationOverridesBuilder()
+        .forPendingCheckpoint(forcePendingCheckpointNumber ?? CheckpointNumber.ZERO)
+        .build();
 
       // We cannot propose directly, we need to assume the previous checkpoint is invalidated
       const genesis = new Fr(GENESIS_ARCHIVE_ROOT);
       logger.warn(`Checking can propose at next eth block on top of genesis ${genesis}`);
       expect(await publisher.canProposeAt(genesis, proposer!)).toBeUndefined();
-      const canPropose = await publisher.canProposeAt(genesis, proposer!, { forcePendingCheckpointNumber });
+      const canPropose = await publisher.canProposeAt(genesis, proposer!, invalidationSimulationOverridesPlan);
       expect(canPropose?.slot).toEqual(block.header.getSlot());
 
       // Same for validation
       logger.warn('Checking validate block header');
       await expect(publisher.validateBlockHeader(checkpoint.header)).rejects.toThrow(/Rollup__InvalidArchive/);
-      await publisher.validateBlockHeader(checkpoint.header, {
-        forcePendingCheckpointNumber: forcePendingCheckpointNumber ?? CheckpointNumber.ZERO,
-      });
+      await publisher.validateBlockHeader(checkpoint.header, invalidationSimulationOverridesPlan);
 
       // At this point I'm gonna need to propose the correct signature ye? So confused actually here.
       const attestationsAndSigners = new CommitteeAttestationsAndSigners(attestations);
@@ -771,7 +766,7 @@ describe('L1Publisher integration', () => {
       logger.warn('Enqueuing requests to invalidate and propose the checkpoint');
       publisher.enqueueInvalidateCheckpoint(invalidateRequest);
       await publisher.enqueueProposeCheckpoint(checkpoint, attestationsAndSigners, attestationsAndSignersSignature, {
-        forcePendingCheckpointNumber: forcePendingCheckpointNumber ?? CheckpointNumber.ZERO,
+        simulationOverridesPlan: invalidationSimulationOverridesPlan,
       });
       const result = await publisher.sendRequests();
       expect(result!.successfulActions).toEqual(['invalidate-by-insufficient-attestations', 'propose']);

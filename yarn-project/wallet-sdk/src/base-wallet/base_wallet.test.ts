@@ -9,7 +9,7 @@ import { FunctionCall, FunctionSelector, FunctionType } from '@aztec/stdlib/abi'
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { BlockHash } from '@aztec/stdlib/block';
 import type { NodeInfo } from '@aztec/stdlib/contract';
-import { Gas, GasFees } from '@aztec/stdlib/gas';
+import { Gas, GasFees, ManaUsageEstimate } from '@aztec/stdlib/gas';
 import { PrivateKernelTailCircuitPublicInputs } from '@aztec/stdlib/kernel';
 import {
   BlockHeader,
@@ -43,6 +43,10 @@ class BasicWallet extends BaseWallet {
 
   override getAccounts(): Promise<Aliased<AztecAddress>[]> {
     throw new Error('Method not implemented.');
+  }
+
+  public override getMinFees(estimate?: ManaUsageEstimate): Promise<GasFees> {
+    return super.getMinFees(estimate);
   }
 }
 
@@ -79,6 +83,7 @@ describe('BaseWallet', () => {
     const optimizedRv1 = new NestedProcessReturnValues([new Fr(200)]);
     const normalRv0 = new NestedProcessReturnValues([new Fr(300)]);
 
+    node.getPredictedMinFees.mockResolvedValue([new GasFees(2, 2)]);
     node.getCurrentMinFees.mockResolvedValue(new GasFees(2, 2));
     node.getNodeInfo.mockResolvedValue({ ...mock<NodeInfo>(), l1ChainId: 1, rollupVersion: 1 });
     pxe.getSyncedBlockHeader.mockResolvedValue(BlockHeader.empty());
@@ -182,6 +187,62 @@ describe('BaseWallet', () => {
     ]);
   });
 
+  describe('getMinFees', () => {
+    let pxe: MockProxy<PXE>;
+    let node: MockProxy<AztecNode>;
+    let wallet: BasicWallet;
+
+    beforeEach(() => {
+      pxe = mock<PXE>();
+      node = mock<AztecNode>();
+      wallet = new BasicWallet(pxe, node);
+    });
+
+    it('returns max fee across all predicted slots', async () => {
+      node.getPredictedMinFees.mockResolvedValue([new GasFees(1, 100), new GasFees(1, 300), new GasFees(1, 200)]);
+
+      const result = await wallet.getMinFees();
+
+      expect(result.feePerL2Gas).toBe(300n);
+    });
+
+    it('passes ManaUsageEstimate to the node', async () => {
+      node.getPredictedMinFees.mockResolvedValue([new GasFees(1, 100)]);
+
+      await wallet.getMinFees(ManaUsageEstimate.Limit);
+
+      expect(node.getPredictedMinFees).toHaveBeenCalledWith(ManaUsageEstimate.Limit);
+    });
+
+    it('defaults to ManaUsageEstimate.Limit', async () => {
+      node.getPredictedMinFees.mockResolvedValue([new GasFees(1, 100)]);
+
+      await wallet.getMinFees();
+
+      expect(node.getPredictedMinFees).toHaveBeenCalledWith(ManaUsageEstimate.Limit);
+    });
+
+    it('falls back to getCurrentMinFees on empty array', async () => {
+      node.getPredictedMinFees.mockResolvedValue([]);
+      node.getCurrentMinFees.mockResolvedValue(new GasFees(1, 500));
+
+      const result = await wallet.getMinFees();
+
+      expect(result.feePerL2Gas).toBe(500n);
+      expect(node.getCurrentMinFees).toHaveBeenCalled();
+    });
+
+    it('falls back to getCurrentMinFees when getPredictedMinFees throws', async () => {
+      node.getPredictedMinFees.mockRejectedValue(new Error('Method not found'));
+      node.getCurrentMinFees.mockResolvedValue(new GasFees(1, 500));
+
+      const result = await wallet.getMinFees();
+
+      expect(result.feePerL2Gas).toBe(500n);
+      expect(node.getCurrentMinFees).toHaveBeenCalled();
+    });
+  });
+
   it('should extract offchain messages with anchor block timestamp on sendTx', async () => {
     pxe = mock<PXE>();
     node = mock<AztecNode>();
@@ -214,6 +275,7 @@ describe('BaseWallet', () => {
     provenTx.toTx.mockResolvedValue(mockTx);
 
     // Mock dependencies for completeFeeOptions and createTxExecutionRequestFromPayloadAndFee
+    node.getPredictedMinFees.mockResolvedValue([new GasFees(2, 2)]);
     node.getCurrentMinFees.mockResolvedValue(new GasFees(2, 2));
     node.getNodeInfo.mockResolvedValue({ ...mock<NodeInfo>(), l1ChainId: 1, rollupVersion: 1 });
     pxe.getSyncedBlockHeader.mockResolvedValue(BlockHeader.empty());

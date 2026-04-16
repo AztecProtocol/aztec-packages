@@ -7,16 +7,10 @@ import { BufferReader } from '@aztec/foundation/serialize';
 
 import { Selector } from './selector.js';
 
-/* eslint-disable @typescript-eslint/no-unsafe-declaration-merging */
-
-/** Event selector branding */
-export interface EventSelector {
-  /** Brand. */
-  _branding: 'EventSelector';
-}
-
 /** An event selector is the first 4 bytes of the hash of an event signature. */
 export class EventSelector extends Selector {
+  /** Branding for nominal typing. */
+  declare private readonly _branding: 'EventSelector';
   /**
    * Deserializes from a buffer or reader, corresponding to a write in cpp.
    * @param buffer - Buffer  or BufferReader to read from.

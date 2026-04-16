@@ -9,7 +9,7 @@ import { getAddressFromPrivateKey } from '@aztec/ethereum/account';
 import { getL1ContractsConfigEnvVars } from '@aztec/ethereum/config';
 import { RollupContract } from '@aztec/ethereum/contracts';
 import type { DeployAztecL1ContractsReturnType } from '@aztec/ethereum/deploy-aztec-l1-contracts';
-import { IndexWithinCheckpoint } from '@aztec/foundation/branded-types';
+import { type CheckpointNumber, IndexWithinCheckpoint } from '@aztec/foundation/branded-types';
 import { SecretValue } from '@aztec/foundation/config';
 import { retryUntil } from '@aztec/foundation/retry';
 import { type EthPrivateKey, KeystoreManager, loadKeystores, mergeKeystores } from '@aztec/node-keystore';
@@ -324,9 +324,9 @@ describe('e2e_multi_validator_node', () => {
     await rmdir(keyStoreDirectory, { recursive: true });
   });
 
-  const sendTx = (sender: AztecAddress, contractAddressSalt: Fr) => {
+  const sendTx = (contractAddressSalt: Fr) => {
     const deployer = new ContractDeployer(artifact, wallet);
-    return deployer.deploy(ownerAddress, sender, 1).send({
+    return deployer.deploy(ownerAddress, 1).send({
       from: ownerAddress,
       contractAddressSalt,
       skipClassPublication: true,
@@ -364,6 +364,7 @@ describe('e2e_multi_validator_node', () => {
     const originalCreateProposal = validatorClient.createBlockProposal.bind(validatorClient);
     const createBlockProposal = (
       blockHeader: BlockHeader,
+      checkpointNumber: CheckpointNumber,
       indexWithinCheckpoint: number,
       inHash: Fr,
       archive: Fr,
@@ -384,6 +385,7 @@ describe('e2e_multi_validator_node', () => {
 
       return originalCreateProposal(
         blockHeader,
+        checkpointNumber,
         IndexWithinCheckpoint(indexWithinCheckpoint),
         inHash,
         archive,
@@ -398,7 +400,7 @@ describe('e2e_multi_validator_node', () => {
     // Then we check the results captured above
     const sentTransactionPromises = Array.from({ length: BLOCK_COUNT }, (_, i) => {
       const contractAddressSalt = new Fr(i + 1);
-      return sendTx(ownerAddress, contractAddressSalt);
+      return sendTx(contractAddressSalt);
     });
 
     const settledTransactions = await Promise.all(
