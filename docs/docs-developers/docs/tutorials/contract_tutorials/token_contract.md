@@ -41,7 +41,7 @@ Let's create a simple yarn + aztec.nr project:
 ```bash
 aztec new bob_token
 cd bob_token
-yarn init
+yarn init -y
 # This is to ensure yarn uses node_modules instead of pnp for dependency installation
 yarn config set nodeLinker node-modules
 yarn add @aztec/aztec.js@#include_aztec_version @aztec/accounts@#include_aztec_version @aztec/kv-store@#include_aztec_version @aztec/wallets@#include_aztec_version

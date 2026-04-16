@@ -202,9 +202,9 @@ nargo test
 Expected output:
 
 ```text
-[hello_circuit] Running 1 test functions
-[hello_circuit] Testing test_main... ok
-[hello_circuit] All tests passed
+[hello_circuit] Running 1 test function
+[hello_circuit] Testing test_main ... ok
+[hello_circuit] 1 test passed
 ```
 
 **Tip**: Circuit tests run without generating proofs, making them fast for development. Use them to verify your circuit logic before the more expensive proof generation step.
@@ -225,10 +225,10 @@ The contract demonstrates several important patterns:
 
 ### Create the Contract Project
 
-Use `aztec init` to generate the contract project structure:
+Use `aztec new` to generate the contract project structure:
 
 ```bash
-aztec init --contract contract
+aztec new contract --name ValueNotEqual
 ```
 
 This creates:
@@ -699,7 +699,7 @@ Expected output:
 Proof verification: SUCCESS
 Using deflattenFields to convert proof...
 VK size: 115
-Proof size: 508
+Proof size: 500
 Public inputs: 1
 Done
 ```
