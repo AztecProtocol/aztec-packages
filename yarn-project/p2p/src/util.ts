@@ -1,5 +1,5 @@
 import { SecretValue } from '@aztec/foundation/config';
-import type { Logger } from '@aztec/foundation/log';
+import { type Logger, createLogger } from '@aztec/foundation/log';
 import type { AztecAsyncKVStore, AztecAsyncSingleton } from '@aztec/kv-store';
 import type { DataStoreConfig } from '@aztec/stdlib/kv-store';
 
@@ -7,7 +7,7 @@ import type { GossipSub } from '@chainsafe/libp2p-gossipsub';
 import { generateKeyPair, marshalPrivateKey, unmarshalPrivateKey } from '@libp2p/crypto/keys';
 import type { Identify } from '@libp2p/identify';
 import type { PeerId, PrivateKey } from '@libp2p/interface';
-import type { ConnectionManager } from '@libp2p/interface-internal';
+import type { AddressManager, ConnectionManager } from '@libp2p/interface-internal';
 import { createFromPrivKey } from '@libp2p/peer-id-factory';
 import { resolve } from 'dns/promises';
 import { promises as fs } from 'fs';
@@ -18,6 +18,13 @@ import path from 'path';
 import type { P2PConfig } from './config.js';
 
 const PEER_ID_DATA_DIR_FILE = 'p2p-private-key';
+
+const PUBLIC_IP_SERVICES = [
+  'https://api.ipify.org/',
+  'https://checkip.amazonaws.com/',
+  'https://ifconfig.me/ip',
+  'https://icanhazip.com/',
+];
 
 export interface PubSubLibp2p extends Pick<Libp2p, 'status' | 'start' | 'stop' | 'peerId'> {
   services: {
@@ -31,6 +38,9 @@ export interface PubSubLibp2p extends Pick<Libp2p, 'status' | 'start' | 'stop' |
       | 'direct'
       | 'getMeshPeers'
     > & { score: Pick<GossipSub['score'], 'score'> };
+    components: {
+      addressManager: Pick<AddressManager, 'addObservedAddr' | 'confirmObservedAddr' | 'removeObservedAddr'>;
+    };
   };
 }
 
@@ -39,6 +49,7 @@ export type FullLibp2p = Libp2p<{
   pubsub: GossipSub;
   components: {
     connectionManager: ConnectionManager;
+    addressManager: AddressManager;
   };
 }>;
 
@@ -60,16 +71,24 @@ export function convertToMultiaddr(address: string, port: number, protocol: 'tcp
 }
 
 /**
- * Queries the public IP address of the machine.
+ * Queries the public IP address of the machine, trying multiple services in order.
  */
 export async function getPublicIp(): Promise<string> {
-  const resp = await fetch('https://checkip.amazonaws.com/');
-  const text = await resp.text();
-  const address = text.trim();
-  if (!isValidIpAddress(address)) {
-    throw new Error(`Received invalid IP address from checkip service: ${address}`);
+  const errors: string[] = [];
+  for (const url of PUBLIC_IP_SERVICES) {
+    try {
+      const resp = await fetch(url, { signal: AbortSignal.timeout(5000) });
+      const text = await resp.text();
+      const address = text.trim();
+      if (isValidIpAddress(address)) {
+        return address;
+      }
+      errors.push(`${url}: invalid IP "${address}"`);
+    } catch (err: any) {
+      errors.push(`${url}: ${err.message ?? err}`);
+    }
   }
-  return address;
+  throw new Error(`Failed to determine public IP from all services:\n${errors.join('\n')}`);
 }
 
 export function isValidIpAddress(address: string): boolean {
@@ -107,18 +126,20 @@ export async function configureP2PClientAddresses(
 ): Promise<P2PConfig & DataStoreConfig> {
   const config = { ..._config };
   const { p2pIp, queryForIp, p2pBroadcastPort, p2pPort } = config;
+  const logger = createLogger('p2p:config');
 
   // If no broadcast port is provided, use the given p2p port as the broadcast port
   if (!p2pBroadcastPort) {
     config.p2pBroadcastPort = p2pPort;
   }
 
-  // check if no announce IP was provided
-  if (!p2pIp) {
-    if (queryForIp) {
-      const publicIp = await getPublicIp();
-      config.p2pIp = publicIp;
-    }
+  // Resolve the initial public IP so the ENR and announce address are set at startup.
+  // If queryForIp is enabled, discv5 will also track IP changes at runtime via enrUpdate.
+  if (!p2pIp && queryForIp) {
+    config.p2pIp = await getPublicIp();
+    logger.info('Resolved initial public IP for P2P', { ip: config.p2pIp, queryForIp });
+  } else if (p2pIp) {
+    logger.info('Using configured static P2P IP', { ip: p2pIp, queryForIp });
   }
   // TODO(md): guard against setting a local ip address as the announce ip
 

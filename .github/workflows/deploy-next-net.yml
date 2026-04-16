@@ -10,7 +10,7 @@ on:
   workflow_dispatch:
     inputs:
       image_tag:
-        description: 'Docker image tag (e.g., 2.3.4, 3.0.0-nightly.20251004-amd64, or leave empty for latest nightly)'
+        description: "Docker image tag (e.g., 2.3.4, 3.0.0-nightly.20251004-amd64, or leave empty for latest nightly)"
         required: false
         type: string
 
@@ -67,6 +67,6 @@ jobs:
     with:
       network: next-net
       semver: ${{ needs.get-image-tag.outputs.semver }}
-      docker_image_tag: ${{ needs.get-image-tag.outputs.tag }}
+      docker_image: "aztecprotocol/aztec:${{ needs.get-image-tag.outputs.tag }}"
       ref: ${{ github.ref }}
     secrets: inherit

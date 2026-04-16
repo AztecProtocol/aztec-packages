@@ -144,6 +144,45 @@ describe('Discv5Service', () => {
     await stopNodes(...nodes);
   });
 
+  it('should correct a wrong initial IP via PONG votes and emit ip:changed', async () => {
+    const extraNodes = 3;
+    const nodes: DiscV5Service[] = [];
+
+    // Simulate the scenario where getPublicIp() returned a wrong IP at startup (e.g. NAT egress IP).
+    // With enrUpdate forced on, PONG votes from peers should correct the ENR to 127.0.0.1.
+    const node = await createNode({
+      p2pIp: '1.2.3.4',
+      config: { enrUpdate: true, addrVotesToUpdateEnr: 1, pingInterval: 200 },
+    });
+    await node.start();
+    nodes.push(node);
+
+    // Track ip:changed events (these are what libp2p_service bridges to its AddressManager)
+    const ipChanges: string[] = [];
+    node.on('ip:changed', (ip: string) => ipChanges.push(ip));
+
+    expect(node.getEnr().ip).toEqual('1.2.3.4');
+
+    for (let i = 1; i < extraNodes; i++) {
+      const n = await createNode({ config: { pingInterval: 200 } });
+      await n.start();
+      nodes.push(n);
+    }
+
+    // Wait for the ENR IP to be corrected by PONG votes
+    await runDiscoveryUntil(nodes, () => node.getEnr().ip !== '1.2.3.4');
+
+    // ENR should now reflect the real IP (127.0.0.1) as reported by peers
+    expect(node.getEnr().ip).toEqual('127.0.0.1');
+    expect(node.getEnr().tcp).toEqual(node.getEnr().udp);
+
+    // ip:changed should have fired with the corrected IP
+    expect(ipChanges.length).toBeGreaterThanOrEqual(1);
+    expect(ipChanges[ipChanges.length - 1]).toEqual('127.0.0.1');
+
+    await stopNodes(...nodes);
+  });
+
   it('should refuse to connect to a bootstrap node with wrong chain id', async () => {
     const node1 = await createNode({ l1ChainId: 13, bootstrapNodeEnrVersionCheck: true });
     const node2 = await createNode({ l1ChainId: 14, bootstrapNodeEnrVersionCheck: false });
