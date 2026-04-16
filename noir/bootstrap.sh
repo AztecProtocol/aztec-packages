@@ -103,14 +103,16 @@ function build {
   echo_header "noir build"
 
   if semver check $REF_NAME; then
+    # REF_NAME matches semver meaning we are doing a release
+
     git -C noir-repo fetch --tags
     if ! git -C noir-repo describe --tags --exact-match HEAD &>/dev/null; then
       echo_stderr "We're building a release but the noir-repo HEAD is not an official release."
       exit 1
     fi
 
-    # Check that the noir release has nargo binaries available for download.
-    # Without this check, users get 404/gzip errors when noirup tries to download nargo.
+    # Check that the noir release has nargo binaries available for download. Without this check, we could push an aztec
+    # release that errors out with a 404/gzip error on install (the install scripts invoke noirup which would fail).
     local noir_tag=$(git -C noir-repo describe --tags --exact-match HEAD)
     echo "Checking noir release $noir_tag for nargo binary assets..."
     local asset_count
