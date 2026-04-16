@@ -27,6 +27,13 @@ namespace bb {
  * \f]
  *
  * where the lookup and table terms are both of the form \f$\text{value}_i + \text{idx}_i \cdot \beta + \gamma\f$.
+ * This expression is motivated by taking the derivative of the log of a more conventional grand product style set
+ * equivalence argument (see e.g. https://eprint.iacr.org/2022/1530.pdf for details). For the table term, the
+ * (idx, value) pair comes from the "table" (bus column), and for the lookup term the (idx, value) pair comes from
+ * wires 1 and 2 which should contain a valid entry in the table.
+ *
+ * Each column of the DataBus requires its own set of subrelations. The column being read is selected via a unique
+ * product, i.e. a lookup from bus column \f$j\f$ is selected via \f$q_{\text{busread}} \cdot q_j\f$ (j = 1,2,...).
  *
  * For each bus column j, the inverse polynomial \f$I_j\f$ stores \f$1/(L \cdot T_j)\f$ at active rows. Inverse
  * correctness is enforced by two separate subrelations gated by disjoint conditions:
@@ -47,7 +54,8 @@ namespace bb {
  * zero regardless. The prover gets no free degrees of freedom.
  *
  * @note Subrelation (2) is "linearly dependent" in the sense that it establishes that a sum across all rows of the
- * execution trace is zero, rather than that some expression holds independently at each row.
+ * execution trace is zero, rather than that some expression holds independently at each row. Accordingly, this
+ * subrelation is not multiplied by a scaling factor at each accumulation step.
  */
 template <typename FF_> class DatabusLookupRelationImpl {
   public:
