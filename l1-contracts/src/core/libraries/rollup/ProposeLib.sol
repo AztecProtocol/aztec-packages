@@ -9,7 +9,7 @@ import {TempCheckpointLog} from "@aztec/core/libraries/compressed-data/Checkpoin
 import {FeeHeader} from "@aztec/core/libraries/compressed-data/fees/FeeStructs.sol";
 import {ChainTipsLib, CompressedChainTips} from "@aztec/core/libraries/compressed-data/Tips.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
-import {SignatureDomainSeparator, CommitteeAttestations} from "@aztec/core/libraries/rollup/AttestationLib.sol";
+import {CommitteeAttestations} from "@aztec/core/libraries/rollup/AttestationLib.sol";
 import {CoordinationSignatureLib} from "@aztec/core/libraries/rollup/CoordinationSignatureLib.sol";
 import {OracleInput, FeeLib, ManaMinFeeComponents} from "@aztec/core/libraries/rollup/FeeLib.sol";
 import {ValidatorSelectionLib} from "@aztec/core/libraries/rollup/ValidatorSelectionLib.sol";
@@ -381,8 +381,6 @@ library ProposeLib {
   }
 
   function digest(ProposePayload memory _args, address _verifyingContract) internal view returns (bytes32) {
-    return CoordinationSignatureLib.checkpointAttestationDigest(
-      keccak256(abi.encode(SignatureDomainSeparator.checkpointAttestation, _args)), _verifyingContract
-    );
+    return CoordinationSignatureLib.checkpointAttestationDigest(keccak256(abi.encode(_args)), _verifyingContract);
   }
 }

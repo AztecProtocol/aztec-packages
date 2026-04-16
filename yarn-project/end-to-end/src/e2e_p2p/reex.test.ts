@@ -133,7 +133,7 @@ describe('e2e_p2p_reex', () => {
           chainId: t.ctx.aztecNodeConfig.l1ChainId,
           rollupAddress: t.ctx.deployL1ContractsValues.l1ContractAddresses.rollupAddress,
         };
-        const proposerAddress = proposal.getSender(signatureContext);
+        const proposerAddress = proposal.getSender();
         const txHashes = proposal.txHashes;
 
         // Mutate txhashes to remove the last one

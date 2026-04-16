@@ -12,12 +12,7 @@ import type { ZodFor } from '../schemas/index.js';
 import { CheckpointProposal } from './checkpoint_proposal.js';
 import { ConsensusPayload } from './consensus_payload.js';
 import { Gossipable } from './gossipable.js';
-import {
-  type CoordinationSignatureContext,
-  SignatureDomainSeparator,
-  getCoordinationSignatureContextKey,
-  recoverCoordinationSigner,
-} from './signature_utils.js';
+import { type CoordinationSignatureContext, recoverCoordinationSigner } from './signature_utils.js';
 import { TopicType } from './topic_type.js';
 
 export type { CheckpointAttestationHash } from '@aztec/foundation/branded-types';
@@ -31,18 +26,8 @@ export type { CheckpointAttestationHash } from '@aztec/foundation/branded-types'
 export class CheckpointAttestation extends Gossipable {
   static override p2pTopic = TopicType.checkpoint_attestation;
 
-  private senderCache:
-    | {
-        key: string;
-        sender: EthAddress | undefined;
-      }
-    | undefined;
-  private proposerCache:
-    | {
-        key: string;
-        proposer: EthAddress | undefined;
-      }
-    | undefined;
+  private cachedSender: EthAddress | undefined | null = null;
+  private cachedProposer: EthAddress | undefined | null = null;
 
   constructor(
     /** The payload of the message, and what the signature is over */
@@ -79,32 +64,27 @@ export class CheckpointAttestation extends Gossipable {
     return this.payload.header.slotNumber;
   }
 
+  get signatureContext(): CoordinationSignatureContext {
+    return this.payload.signatureContext;
+  }
+
   /**
    * Lazily evaluate and cache the signer of the attestation
    * @returns The signer of the attestation, or undefined if signature recovery fails
    */
-  getSender(signatureContext: CoordinationSignatureContext): EthAddress | undefined {
-    const cacheKey = getCoordinationSignatureContextKey(signatureContext);
-    if (!this.senderCache || this.senderCache.key !== cacheKey) {
-      const sender = recoverCoordinationSigner(
-        this.payload,
-        SignatureDomainSeparator.checkpointAttestation,
-        this.signature,
-        signatureContext,
-      );
-      this.senderCache = { key: cacheKey, sender };
+  getSender(): EthAddress | undefined {
+    if (this.cachedSender === null) {
+      this.cachedSender = recoverCoordinationSigner(this.payload, this.signature);
     }
-
-    return this.senderCache.sender;
+    return this.cachedSender;
   }
 
   /**
    * Lazily evaluate and cache the proposer of the checkpoint
    * @returns The proposer of the checkpoint
    */
-  getProposer(signatureContext: CoordinationSignatureContext): EthAddress | undefined {
-    const cacheKey = getCoordinationSignatureContextKey(signatureContext);
-    if (!this.proposerCache || this.proposerCache.key !== cacheKey) {
+  getProposer(): EthAddress | undefined {
+    if (this.cachedProposer === null) {
       // Create a temporary CheckpointProposal to recover the proposer address.
       // We need to use CheckpointProposal because it has a different getPayloadToSign()
       // implementation than ConsensusPayload (uses serializeToBuffer vs ABI encoding).
@@ -113,16 +93,15 @@ export class CheckpointAttestation extends Gossipable {
         this.payload.archive,
         this.payload.feeAssetPriceModifier,
         this.proposerSignature,
+        this.payload.signatureContext,
       );
-      const proposer = proposal.getSender(signatureContext);
-      this.proposerCache = { key: cacheKey, proposer };
+      this.cachedProposer = proposal.getSender();
     }
-
-    return this.proposerCache.proposer;
+    return this.cachedProposer;
   }
 
   getPayload(): Buffer {
-    return this.payload.getPayloadToSign(SignatureDomainSeparator.checkpointAttestation);
+    return this.payload.getPayloadToSign();
   }
 
   toBuffer(): Buffer {

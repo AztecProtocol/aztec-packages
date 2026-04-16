@@ -375,9 +375,7 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
     const checkpoint = this.slotNumberToCheckpoint.get(slot);
     const p2pAttested = await this.p2p.getCheckpointAttestationsForSlot(slot, checkpoint?.archive);
     // Filter out attestations with invalid signatures
-    const p2pAttestors = p2pAttested
-      .map(a => a.getSender(this.getSignatureContext()))
-      .filter((s): s is EthAddress => s !== undefined);
+    const p2pAttestors = p2pAttested.map(a => a.getSender()).filter((s): s is EthAddress => s !== undefined);
     const attestors = new Set(
       [...p2pAttestors.map(a => a.toString()), ...(checkpoint?.attestors.map(a => a.toString()) ?? [])].filter(
         addr => proposer.toString() !== addr, // Exclude the proposer from the attestors

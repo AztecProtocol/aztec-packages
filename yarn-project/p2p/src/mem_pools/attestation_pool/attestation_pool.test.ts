@@ -3,7 +3,7 @@ import { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
-import { TEST_COORDINATION_SIGNATURE_CONTEXT, makeBlockHeader, makeBlockProposal } from '@aztec/stdlib/testing';
+import { makeBlockHeader, makeBlockProposal } from '@aztec/stdlib/testing';
 
 import { AttestationPool, MAX_ATTESTATIONS_PER_SLOT_AND_SIGNER } from './attestation_pool.js';
 import { describeAttestationPool } from './attestation_pool_test_suite.js';
@@ -15,7 +15,7 @@ describe('Attestation Pool', () => {
 
   beforeEach(async () => {
     store = await openTmpStore('test');
-    attestationPool = new AttestationPool(store, TEST_COORDINATION_SIGNATURE_CONTEXT);
+    attestationPool = new AttestationPool(store);
   });
 
   afterEach(() => store.close());

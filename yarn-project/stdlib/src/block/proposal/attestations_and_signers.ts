@@ -4,26 +4,38 @@ import { hexToBuffer } from '@aztec/foundation/string';
 import { encodeAbiParameters, parseAbiParameters } from 'viem';
 import { z } from 'zod';
 
-import type { Signable, SignatureDomainSeparator } from '../../p2p/signature_utils.js';
+import {
+  type CoordinationSignatureContext,
+  type CoordinationSignatureType,
+  EMPTY_COORDINATION_SIGNATURE_CONTEXT,
+  type Signable,
+  coordinationSignatureContextSchema,
+} from '../../p2p/signature_utils.js';
 import { CommitteeAttestation, EthAddress } from './committee_attestation.js';
 
 export class CommitteeAttestationsAndSigners implements Signable {
-  constructor(public attestations: CommitteeAttestation[]) {}
+  readonly primaryType: CoordinationSignatureType = 'AttestationsAndSigners';
+
+  constructor(
+    public attestations: CommitteeAttestation[],
+    public readonly signatureContext: CoordinationSignatureContext = EMPTY_COORDINATION_SIGNATURE_CONTEXT,
+  ) {}
 
   static get schema() {
     return z
       .object({
         attestations: CommitteeAttestation.schema.array(),
+        signatureContext: coordinationSignatureContextSchema.default(EMPTY_COORDINATION_SIGNATURE_CONTEXT),
       })
-      .transform(obj => new CommitteeAttestationsAndSigners(obj.attestations));
+      .transform(obj => new CommitteeAttestationsAndSigners(obj.attestations, obj.signatureContext));
   }
 
-  getPayloadToSign(domainSeparator: SignatureDomainSeparator): Buffer {
-    const abi = parseAbiParameters('uint8,(bytes,bytes),address[]');
+  getPayloadToSign(): Buffer {
+    // Matches the L1 abi.encode(attestations, signers) in AttestationLib.sol#getAttestationsAndSignersDigest.
+    const abi = parseAbiParameters('(bytes,bytes),address[]');
     const packed = this.getPackedAttestations();
 
     const encodedData = encodeAbiParameters(abi, [
-      domainSeparator,
       [packed.signatureIndices, packed.signaturesOrAddresses],
       this.getSigners().map(s => s.toString()),
     ]);
@@ -130,8 +142,9 @@ export class MaliciousCommitteeAttestationsAndSigners extends CommitteeAttestati
   constructor(
     attestations: CommitteeAttestation[],
     private signers: EthAddress[],
+    signatureContext: CoordinationSignatureContext = EMPTY_COORDINATION_SIGNATURE_CONTEXT,
   ) {
-    super(attestations);
+    super(attestations, signatureContext);
   }
 
   override getSigners(): EthAddress[] {

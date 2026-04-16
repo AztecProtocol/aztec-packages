@@ -58,7 +58,6 @@ import {
   CheckpointProposal,
   ConsensusPayload,
   CheckpointAttestation as P2PCheckpointAttestation,
-  SignatureDomainSeparator,
   getHashedSignaturePayloadTypedData,
   orderAttestations,
 } from '@aztec/stdlib/p2p';
@@ -143,36 +142,23 @@ describe('L1Publisher integration', () => {
     rollupAddress: l1ContractAddresses.rollupAddress,
   });
   const makeCheckpointAttestationForCurrentContext = (checkpoint: Checkpoint, signer: Secp256k1Signer) => {
-    const payload = ConsensusPayload.fromCheckpoint(checkpoint);
-    const attestationDigest = getHashedSignaturePayloadTypedData(
-      payload,
-      SignatureDomainSeparator.checkpointAttestation,
-      getSignatureContext(),
-    );
+    const signatureContext = getSignatureContext();
+    const payload = ConsensusPayload.fromCheckpoint(checkpoint, signatureContext);
+    const attestationDigest = getHashedSignaturePayloadTypedData(payload);
     const proposal = new CheckpointProposal(
       checkpoint.header,
       checkpoint.archive.root,
       checkpoint.feeAssetPriceModifier,
       Signature.empty(),
+      signatureContext,
     );
-    const proposalDigest = getHashedSignaturePayloadTypedData(
-      proposal,
-      SignatureDomainSeparator.checkpointProposal,
-      getSignatureContext(),
-    );
+    const proposalDigest = getHashedSignaturePayloadTypedData(proposal);
     return new P2PCheckpointAttestation(payload, signer.sign(attestationDigest), signer.sign(proposalDigest));
   };
   const signAttestationsAndSigners = (
     attestationsAndSigners: CommitteeAttestationsAndSigners,
     signer: Secp256k1Signer,
-  ) =>
-    signer.sign(
-      getHashedSignaturePayloadTypedData(
-        attestationsAndSigners,
-        SignatureDomainSeparator.attestationsAndSigners,
-        getSignatureContext(),
-      ),
-    );
+  ) => signer.sign(getHashedSignaturePayloadTypedData(attestationsAndSigners));
 
   const progressTimeBySlot = async (slotsToJump = 1) => {
     const currentTime = (await l1Client.getBlock()).timestamp;
@@ -629,7 +615,7 @@ describe('L1Publisher integration', () => {
     ) => {
       await publisher.enqueueProposeCheckpoint(
         checkpoint,
-        new CommitteeAttestationsAndSigners(attestations),
+        new CommitteeAttestationsAndSigners(attestations, getSignatureContext()),
         signature,
       );
       const result = await publisher.sendRequests();
@@ -642,7 +628,7 @@ describe('L1Publisher integration', () => {
       const block = checkpoint.blocks[0];
 
       const checkpointAttestations = validators.map(v => makeCheckpointAttestationForCurrentContext(checkpoint, v));
-      const attestations = orderAttestations(checkpointAttestations, committee!, getSignatureContext());
+      const attestations = orderAttestations(checkpointAttestations, committee!);
 
       const canPropose = await publisher.canProposeAt(new Fr(GENESIS_ARCHIVE_ROOT), proposer!);
       expect(canPropose?.slot).toEqual(block.header.getSlot());
@@ -650,7 +636,7 @@ describe('L1Publisher integration', () => {
 
       const proposerSigner = validators.find(v => v.address.equals(proposer!));
 
-      const attestationsAndSigners = new CommitteeAttestationsAndSigners(attestations);
+      const attestationsAndSigners = new CommitteeAttestationsAndSigners(attestations, getSignatureContext());
       const attestationsAndSignersSignature = signAttestationsAndSigners(attestationsAndSigners, proposerSigner!);
 
       await expectPublishCheckpoint(checkpoint, attestations, attestationsAndSignersSignature);
@@ -662,8 +648,8 @@ describe('L1Publisher integration', () => {
       const checkpointAttestations = validators.map(v => makeCheckpointAttestationForCurrentContext(checkpoint, v));
 
       // Reverse attestations to break proposer attestation
-      const attestations = orderAttestations(checkpointAttestations, committee!, getSignatureContext()).reverse();
-      const attestationsAndSigners = new CommitteeAttestationsAndSigners(attestations);
+      const attestations = orderAttestations(checkpointAttestations, committee!).reverse();
+      const attestationsAndSigners = new CommitteeAttestationsAndSigners(attestations, getSignatureContext());
 
       const canPropose = await publisher.canProposeAt(new Fr(GENESIS_ARCHIVE_ROOT), proposer!);
       expect(canPropose?.slot).toEqual(block.header.getSlot());
@@ -678,13 +664,13 @@ describe('L1Publisher integration', () => {
       const { checkpoint } = await buildSingleCheckpoint();
       const block = checkpoint.blocks[0];
       const checkpointAttestations = validators.map(v => makeCheckpointAttestationForCurrentContext(checkpoint, v));
-      const attestations = orderAttestations(checkpointAttestations, committee!, getSignatureContext());
+      const attestations = orderAttestations(checkpointAttestations, committee!);
 
       const canPropose = await publisher.canProposeAt(new Fr(GENESIS_ARCHIVE_ROOT), proposer!);
       expect(canPropose?.slot).toEqual(block.header.getSlot());
       await publisher.validateBlockHeader(checkpoint.header);
 
-      const attestationsAndSigners = new CommitteeAttestationsAndSigners(attestations);
+      const attestationsAndSigners = new CommitteeAttestationsAndSigners(attestations, getSignatureContext());
       const attestationsAndSignersSignature = signAttestationsAndSigners(
         attestationsAndSigners,
         validators.find(v => v.address.equals(proposer!))!,
@@ -703,13 +689,13 @@ describe('L1Publisher integration', () => {
       const { checkpoint } = await buildSingleCheckpoint();
       const block = checkpoint.blocks[0];
       const checkpointAttestations = validators.map(v => makeCheckpointAttestationForCurrentContext(checkpoint, v));
-      const attestations = orderAttestations(checkpointAttestations, committee!, getSignatureContext());
+      const attestations = orderAttestations(checkpointAttestations, committee!);
 
       const canPropose = await publisher.canProposeAt(new Fr(GENESIS_ARCHIVE_ROOT), proposer!);
       expect(canPropose?.slot).toEqual(block.header.getSlot());
       await publisher.validateBlockHeader(checkpoint.header);
 
-      const attestationsAndSigners = new CommitteeAttestationsAndSigners(attestations);
+      const attestationsAndSigners = new CommitteeAttestationsAndSigners(attestations, getSignatureContext());
       const attestationsAndSignersSignature = signAttestationsAndSigners(
         attestationsAndSigners,
         validators.find(v => v.address.equals(proposer!))!,
@@ -734,9 +720,9 @@ describe('L1Publisher integration', () => {
       const badCheckpointAttestations = validators
         .filter(v => v.address.equals(proposer!))
         .map(v => makeCheckpointAttestationForCurrentContext(badCheckpoint, v));
-      const badAttestations = orderAttestations(badCheckpointAttestations, committee!, getSignatureContext());
+      const badAttestations = orderAttestations(badCheckpointAttestations, committee!);
 
-      const badAttestationsAndSigners = new CommitteeAttestationsAndSigners(badAttestations);
+      const badAttestationsAndSigners = new CommitteeAttestationsAndSigners(badAttestations, getSignatureContext());
       const badAttestationsAndSignersSignature = signAttestationsAndSigners(
         badAttestationsAndSigners,
         validators.find(v => v.address.equals(proposer!))!,
@@ -756,7 +742,7 @@ describe('L1Publisher integration', () => {
       const block = checkpoint.blocks[0];
       expect(block.number).toEqual(badBlock.number);
       const checkpointAttestations = validators.map(v => makeCheckpointAttestationForCurrentContext(checkpoint, v));
-      const attestations = orderAttestations(checkpointAttestations, committee!, getSignatureContext());
+      const attestations = orderAttestations(checkpointAttestations, committee!);
 
       // Check we can invalidate the checkpoint
       logger.warn('Checking simulate invalidate checkpoint');
@@ -790,7 +776,7 @@ describe('L1Publisher integration', () => {
       await publisher.validateBlockHeader(checkpoint.header, invalidationSimulationOverridesPlan);
 
       // At this point I'm gonna need to propose the correct signature ye? So confused actually here.
-      const attestationsAndSigners = new CommitteeAttestationsAndSigners(attestations);
+      const attestationsAndSigners = new CommitteeAttestationsAndSigners(attestations, getSignatureContext());
       const attestationsAndSignersSignature = signAttestationsAndSigners(
         attestationsAndSigners,
         validators.find(v => v.address.equals(proposer!))!,

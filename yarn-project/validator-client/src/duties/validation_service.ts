@@ -3,7 +3,7 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { Signature } from '@aztec/foundation/eth-signature';
 import { createLogger } from '@aztec/foundation/log';
-import type { CommitteeAttestationsAndSigners } from '@aztec/stdlib/block';
+import { CommitteeAttestationsAndSigners } from '@aztec/stdlib/block';
 import {
   BlockProposal,
   type BlockProposalOptions,
@@ -13,7 +13,6 @@ import {
   type CheckpointProposalOptions,
   ConsensusPayload,
   type CoordinationSignatureContext,
-  SignatureDomainSeparator,
   getCoordinationSignatureTypedData,
 } from '@aztec/stdlib/p2p';
 import type { CheckpointHeader } from '@aztec/stdlib/rollup';
@@ -67,8 +66,10 @@ export class ValidationService {
       typedData: Parameters<ValidatorKeyStore['signTypedDataWithAddress']>[1],
       context: SigningContext,
     ) => this.keyStore.signTypedDataWithAddress(address, typedData, context);
-    const txsSigner = (payload: Parameters<ValidatorKeyStore['signMessageWithAddress']>[1], context: SigningContext) =>
-      this.keyStore.signMessageWithAddress(address, payload, context);
+    const txsSigner = (
+      typedData: Parameters<ValidatorKeyStore['signTypedDataWithAddress']>[1],
+      context: SigningContext,
+    ) => this.keyStore.signTypedDataWithAddress(address, typedData, context);
 
     return BlockProposal.createProposalFromSigner(
       blockHeader,
@@ -148,12 +149,13 @@ export class ValidationService {
     checkpointNumber: CheckpointNumber,
   ): Promise<CheckpointAttestation[]> {
     // Create the attestation payload from the checkpoint proposal
-    const payload = new ConsensusPayload(proposal.checkpointHeader, proposal.archive, proposal.feeAssetPriceModifier);
-    const typedData = getCoordinationSignatureTypedData(
-      payload,
-      SignatureDomainSeparator.checkpointAttestation,
+    const payload = new ConsensusPayload(
+      proposal.checkpointHeader,
+      proposal.archive,
+      proposal.feeAssetPriceModifier,
       this.signatureContext,
     );
+    const typedData = getCoordinationSignatureTypedData(payload);
 
     const context: SigningContext = {
       slot: proposal.slotNumber,
@@ -211,11 +213,7 @@ export class ValidationService {
       dutyType: DutyType.ATTESTATIONS_AND_SIGNERS,
     };
 
-    const typedData = getCoordinationSignatureTypedData(
-      attestationsAndSigners,
-      SignatureDomainSeparator.attestationsAndSigners,
-      this.signatureContext,
-    );
+    const typedData = getCoordinationSignatureTypedData(attestationsAndSigners);
     return this.keyStore.signTypedDataWithAddress(proposer, typedData, context);
   }
 }

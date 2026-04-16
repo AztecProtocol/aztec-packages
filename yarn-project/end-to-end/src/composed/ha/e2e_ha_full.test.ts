@@ -418,7 +418,7 @@ describe('HA Full Setup', () => {
     expect(p2pAttestationsWithSignatures.length).toBe(COMMITTEE_SIZE);
     const p2pValidatorAddresses = new Map<string, number>();
     for (const attestation of p2pAttestationsWithSignatures) {
-      const sender = attestation.getSender(getSignatureContext());
+      const sender = attestation.getSender();
       if (sender) {
         const addr = sender.toString();
         p2pValidatorAddresses.set(addr, (p2pValidatorAddresses.get(addr) || 0) + 1);
@@ -766,7 +766,7 @@ describe('HA Full Setup', () => {
       // Extract validator addresses from P2P attestations using getSender()
       const p2pValidatorAddresses = new Map<string, number>();
       for (const attestation of p2pAttestationsWithSignatures) {
-        const sender = attestation.getSender(getSignatureContext());
+        const sender = attestation.getSender();
         if (sender) {
           const addr = sender.toString();
           p2pValidatorAddresses.set(addr, (p2pValidatorAddresses.get(addr) || 0) + 1);

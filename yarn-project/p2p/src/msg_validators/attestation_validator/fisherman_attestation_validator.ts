@@ -57,8 +57,8 @@ export class FishermanAttestationValidator extends CheckpointAttestationValidato
 
     // fisherman validation: verify attestation payload matches proposal payload
     const slotNumberBigInt = message.payload.header.slotNumber;
-    const attester = message.getSender(this.signatureContext);
-    const proposer = message.getProposer(this.signatureContext);
+    const attester = message.getSender();
+    const proposer = message.getProposer();
 
     if (!attester || !proposer) {
       return { result: 'accept' };

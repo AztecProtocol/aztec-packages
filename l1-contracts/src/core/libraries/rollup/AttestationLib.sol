@@ -9,15 +9,6 @@ import {Signature, SignatureLib} from "@aztec/shared/libraries/SignatureLib.sol"
 uint256 constant SIGNATURE_LENGTH = 65; // v (1) + r (32) + s (32)
 uint256 constant ADDRESS_LENGTH = 20;
 
-/**
- * @notice The domain separator for the signatures
- */
-enum SignatureDomainSeparator {
-  checkpointProposal,
-  checkpointAttestation,
-  attestationsAndSigners
-}
-
 // A committee attestation can be made up of a signature and an address.
 // Committee members that have attested will produce a signature, and if they have not attested, the signature will be
 // empty and an address provided.
@@ -50,8 +41,7 @@ library AttestationLib {
     address _verifyingContract
   ) internal view returns (bytes32) {
     return CoordinationSignatureLib.attestationsAndSignersDigest(
-      keccak256(abi.encode(SignatureDomainSeparator.attestationsAndSigners, _attestations, _signers)),
-      _verifyingContract
+      keccak256(abi.encode(_attestations, _signers)), _verifyingContract
     );
   }
 

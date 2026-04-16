@@ -3,11 +3,7 @@ import type { EthAddress } from '@aztec/foundation/eth-address';
 
 import { Checkpoint } from '../checkpoint/checkpoint.js';
 import { ConsensusPayload } from '../p2p/consensus_payload.js';
-import {
-  type CoordinationSignatureContext,
-  SignatureDomainSeparator,
-  getHashedSignaturePayloadTypedData,
-} from '../p2p/signature_utils.js';
+import { type CoordinationSignatureContext, getHashedSignaturePayloadTypedData } from '../p2p/signature_utils.js';
 import type { CommitteeAttestation } from './proposal/committee_attestation.js';
 
 /**
@@ -43,20 +39,15 @@ export function getAttestationInfoFromPublishedCheckpoint(
   },
   signatureContext: CoordinationSignatureContext,
 ): AttestationInfo[] {
-  const payload = ConsensusPayload.fromCheckpoint(block.checkpoint);
-  return getAttestationInfoFromPayload(payload, block.attestations, signatureContext);
+  const payload = ConsensusPayload.fromCheckpoint(block.checkpoint, signatureContext);
+  return getAttestationInfoFromPayload(payload, block.attestations);
 }
 
 export function getAttestationInfoFromPayload(
   payload: ConsensusPayload,
   attestations: CommitteeAttestation[],
-  signatureContext: CoordinationSignatureContext,
 ): AttestationInfo[] {
-  const hashedPayload = getHashedSignaturePayloadTypedData(
-    payload,
-    SignatureDomainSeparator.checkpointAttestation,
-    signatureContext,
-  );
+  const hashedPayload = getHashedSignaturePayloadTypedData(payload);
 
   return attestations.map(attestation => {
     // If signature is empty, check if we have an address directly

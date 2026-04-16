@@ -251,22 +251,36 @@ describe('CheckpointProposalJob', () => {
           archiveRoot,
           txHashes,
           mockedSig,
+          signatureContext,
         );
       },
     );
     validatorClient.createCheckpointProposal.mockImplementation(
       async (checkpointHeader, archiveRoot, _checkpointNumber, feeAssetPriceModifier, lastBlockInfo) => {
         if (!lastBlockInfo) {
-          return new CheckpointProposal(checkpointHeader, archiveRoot, feeAssetPriceModifier, mockedSig);
+          return new CheckpointProposal(
+            checkpointHeader,
+            archiveRoot,
+            feeAssetPriceModifier,
+            mockedSig,
+            signatureContext,
+          );
         }
         const txHashes = await Promise.all((lastBlockInfo.txs ?? []).map((tx: Tx) => tx.getTxHash()));
-        return new CheckpointProposal(checkpointHeader, archiveRoot, feeAssetPriceModifier, mockedSig, {
-          blockHeader: lastBlockInfo.blockHeader,
-          indexWithinCheckpoint: lastBlockInfo.indexWithinCheckpoint,
-          txHashes,
-          signature: mockedSig,
-          // Note: signedTxs omitted since publishTxsWithProposals is false in tests
-        });
+        return new CheckpointProposal(
+          checkpointHeader,
+          archiveRoot,
+          feeAssetPriceModifier,
+          mockedSig,
+          signatureContext,
+          {
+            blockHeader: lastBlockInfo.blockHeader,
+            indexWithinCheckpoint: lastBlockInfo.indexWithinCheckpoint,
+            txHashes,
+            signature: mockedSig,
+            // Note: signedTxs omitted since publishTxsWithProposals is false in tests
+          },
+        );
       },
     );
     validatorClient.signAttestationsAndSigners.mockImplementation(() => Promise.resolve(getSignatures()[0].signature));

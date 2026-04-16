@@ -125,18 +125,18 @@ describe('e2e_multi_validator_node', () => {
     const dataStore = (aztecNode as AztecNodeService).getBlockSource() as Archiver;
     const checkpointedBlock = await dataStore.getCheckpointedBlock(tx.blockNumber!);
     const [publishedCheckpoint] = await dataStore.getCheckpoints(checkpointedBlock!.checkpointNumber, 1);
-    const payload = ConsensusPayload.fromCheckpoint(publishedCheckpoint.checkpoint);
-    const attestations = publishedCheckpoint.attestations
-      .filter(a => !a.signature.isEmpty())
-      .map(a => new CheckpointAttestation(payload, a.signature, Signature.empty()));
     const signatureContext = {
       chainId: config.l1ChainId,
       rollupAddress: deployL1ContractsValues.l1ContractAddresses.rollupAddress,
     };
+    const payload = ConsensusPayload.fromCheckpoint(publishedCheckpoint.checkpoint, signatureContext);
+    const attestations = publishedCheckpoint.attestations
+      .filter(a => !a.signature.isEmpty())
+      .map(a => new CheckpointAttestation(payload, a.signature, Signature.empty()));
 
     expect(attestations.length).toBeGreaterThanOrEqual((COMMITTEE_SIZE * 2) / 3 + 1);
 
-    const signers = attestations.map(att => att.getSender(signatureContext)!.toString());
+    const signers = attestations.map(att => att.getSender()!.toString());
 
     expect(signers.every(s => validatorAddresses.includes(s))).toBe(true);
   });
@@ -187,18 +187,18 @@ describe('e2e_multi_validator_node', () => {
     const dataStore = (aztecNode as AztecNodeService).getBlockSource() as Archiver;
     const checkpointedBlock = await dataStore.getCheckpointedBlock(tx.blockNumber!);
     const [publishedCheckpoint] = await dataStore.getCheckpoints(checkpointedBlock!.checkpointNumber, 1);
-    const payload = ConsensusPayload.fromCheckpoint(publishedCheckpoint.checkpoint);
-    const attestations = publishedCheckpoint.attestations
-      .filter(a => !a.signature.isEmpty())
-      .map(a => new CheckpointAttestation(payload, a.signature, Signature.empty()));
     const signatureContext = {
       chainId: config.l1ChainId,
       rollupAddress: deployL1ContractsValues.l1ContractAddresses.rollupAddress,
     };
+    const payload = ConsensusPayload.fromCheckpoint(publishedCheckpoint.checkpoint, signatureContext);
+    const attestations = publishedCheckpoint.attestations
+      .filter(a => !a.signature.isEmpty())
+      .map(a => new CheckpointAttestation(payload, a.signature, Signature.empty()));
 
     expect(attestations.length).toBeGreaterThanOrEqual((COMMITTEE_SIZE * 2) / 3 + 1);
 
-    const signers = attestations.map(att => att.getSender(signatureContext)!.toString());
+    const signers = attestations.map(att => att.getSender()!.toString());
 
     expect(signers).toEqual(expect.arrayContaining(validatorAddresses.slice(0, COMMITTEE_SIZE)));
   });

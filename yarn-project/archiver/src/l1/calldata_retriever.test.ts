@@ -11,7 +11,7 @@ import { withHexPrefix } from '@aztec/foundation/string';
 import { RollupAbi } from '@aztec/l1-artifacts';
 import { Signature } from '@aztec/stdlib/block';
 import { GasFees } from '@aztec/stdlib/gas';
-import { ConsensusPayload, SignatureDomainSeparator, getHashedSignaturePayloadTypedData } from '@aztec/stdlib/p2p';
+import { ConsensusPayload, getHashedSignaturePayloadTypedData } from '@aztec/stdlib/p2p';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
 
 import { jest } from '@jest/globals';
@@ -381,12 +381,11 @@ describe('CalldataRetriever', () => {
       // Compute the expected payloadDigest using the same EIP-712 typed data hash
       // that CalldataRetriever.computePayloadDigest uses under the hood.
       const checkpointHeader = CheckpointHeader.fromViem(header);
-      const consensusPayload = new ConsensusPayload(checkpointHeader, archiveRoot, feeAssetPriceModifier);
-      const expectedPayloadDigest = getHashedSignaturePayloadTypedData(
-        consensusPayload,
-        SignatureDomainSeparator.checkpointAttestation,
-        { chainId: 1, rollupAddress },
-      ).toString() as Hex;
+      const consensusPayload = new ConsensusPayload(checkpointHeader, archiveRoot, feeAssetPriceModifier, {
+        chainId: 1,
+        rollupAddress,
+      });
+      const expectedPayloadDigest = getHashedSignaturePayloadTypedData(consensusPayload).toString() as Hex;
 
       // Mock only attestationsHash computation; use real payloadDigest
       jest

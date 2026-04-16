@@ -5,7 +5,6 @@ import {
   CheckpointAttestation,
   CheckpointProposal,
   ConsensusPayload,
-  SignatureDomainSeparator,
   getHashedSignaturePayloadTypedData,
 } from '@aztec/stdlib/p2p';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
@@ -39,21 +38,19 @@ export const mockCheckpointAttestation = (
   feeAssetPriceModifier: bigint = 0n,
 ): CheckpointAttestation => {
   header = header ?? CheckpointHeader.random({ slotNumber: SlotNumber(slot) });
-  const payload = new ConsensusPayload(header, archive, feeAssetPriceModifier);
+  const payload = new ConsensusPayload(header, archive, feeAssetPriceModifier, TEST_COORDINATION_SIGNATURE_CONTEXT);
 
-  const attestationHash = getHashedSignaturePayloadTypedData(
-    payload,
-    SignatureDomainSeparator.checkpointAttestation,
-    TEST_COORDINATION_SIGNATURE_CONTEXT,
-  );
+  const attestationHash = getHashedSignaturePayloadTypedData(payload);
   const attestationSignature = signer.sign(attestationHash);
 
-  const proposal = new CheckpointProposal(header, archive, feeAssetPriceModifier, attestationSignature);
-  const proposalHash = getHashedSignaturePayloadTypedData(
-    proposal,
-    SignatureDomainSeparator.checkpointProposal,
+  const proposal = new CheckpointProposal(
+    header,
+    archive,
+    feeAssetPriceModifier,
+    attestationSignature,
     TEST_COORDINATION_SIGNATURE_CONTEXT,
   );
+  const proposalHash = getHashedSignaturePayloadTypedData(proposal);
   const proposerSignature = signer.sign(proposalHash);
 
   return new CheckpointAttestation(payload, attestationSignature, proposerSignature);

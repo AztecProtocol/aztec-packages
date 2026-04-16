@@ -54,12 +54,7 @@ import { BlockProposal } from '../p2p/block_proposal.js';
 import { CheckpointAttestation } from '../p2p/checkpoint_attestation.js';
 import { CheckpointProposal } from '../p2p/checkpoint_proposal.js';
 import { ConsensusPayload } from '../p2p/consensus_payload.js';
-import {
-  type CoordinationSignatureContext,
-  SignatureDomainSeparator,
-  getHashedSignaturePayloadEthSignedMessage,
-  getHashedSignaturePayloadTypedData,
-} from '../p2p/signature_utils.js';
+import { type CoordinationSignatureContext, getHashedSignaturePayloadTypedData } from '../p2p/signature_utils.js';
 import { ChonkProof } from '../proofs/chonk_proof.js';
 import { ProvingRequestType } from '../proofs/proving_request_type.js';
 import { CheckpointHeader } from '../rollup/checkpoint_header.js';
@@ -536,6 +531,7 @@ export interface MakeConsensusPayloadOptions {
   txHashes?: TxHash[];
   txs?: Tx[];
   feeAssetPriceModifier?: bigint;
+  signatureContext?: CoordinationSignatureContext;
 }
 
 export interface MakeBlockProposalOptions {
@@ -546,6 +542,7 @@ export interface MakeBlockProposalOptions {
   archiveRoot?: Fr;
   txHashes?: TxHash[];
   txs?: Tx[];
+  signatureContext?: CoordinationSignatureContext;
 }
 
 export interface MakeCheckpointProposalOptions {
@@ -553,6 +550,7 @@ export interface MakeCheckpointProposalOptions {
   checkpointHeader?: CheckpointHeader;
   archiveRoot?: Fr;
   feeAssetPriceModifier?: bigint;
+  signatureContext?: CoordinationSignatureContext;
   /** Options for the lastBlock - if undefined, no lastBlock is included */
   lastBlock?: {
     blockHeader?: BlockHeader;
@@ -563,10 +561,7 @@ export interface MakeCheckpointProposalOptions {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-const makeAndSignConsensusPayload = (
-  domainSeparator: SignatureDomainSeparator,
-  options?: MakeConsensusPayloadOptions,
-) => {
+const makeAndSignConsensusPayload = (options?: MakeConsensusPayloadOptions) => {
   const header = options?.header ?? makeCheckpointHeader(1);
   const { signer = Secp256k1Signer.random(), archive = Fr.random(), feeAssetPriceModifier = 0n } = options ?? {};
 
@@ -574,12 +569,10 @@ const makeAndSignConsensusPayload = (
     header,
     archive,
     feeAssetPriceModifier,
+    signatureContext: TEST_COORDINATION_SIGNATURE_CONTEXT,
   });
 
-  const hash =
-    domainSeparator === SignatureDomainSeparator.signedTxs
-      ? getHashedSignaturePayloadEthSignedMessage(payload, domainSeparator)
-      : getHashedSignaturePayloadTypedData(payload, domainSeparator, TEST_COORDINATION_SIGNATURE_CONTEXT);
+  const hash = getHashedSignaturePayloadTypedData(payload);
   const signature = signer.sign(hash);
 
   return { blockNumber: header.slotNumber, payload, signature };
@@ -589,11 +582,7 @@ export const makeAndSignCommitteeAttestationsAndSigners = (
   attestationsAndSigners: CommitteeAttestationsAndSigners,
   signer: Secp256k1Signer = Secp256k1Signer.random(),
 ) => {
-  const hash = getHashedSignaturePayloadTypedData(
-    attestationsAndSigners,
-    SignatureDomainSeparator.attestationsAndSigners,
-    TEST_COORDINATION_SIGNATURE_CONTEXT,
-  );
+  const hash = getHashedSignaturePayloadTypedData(attestationsAndSigners);
   return signer.sign(hash);
 };
 
@@ -605,6 +594,7 @@ export const makeBlockProposal = (options?: MakeBlockProposalOptions): Promise<B
   const txHashes = options?.txHashes ?? [0, 1, 2, 3, 4, 5].map(() => TxHash.random());
   const txs = options?.txs;
   const signer = options?.signer ?? Secp256k1Signer.random();
+  const signatureContext = options?.signatureContext ?? TEST_COORDINATION_SIGNATURE_CONTEXT;
 
   return BlockProposal.createProposalFromSigner(
     blockHeader,
@@ -614,9 +604,9 @@ export const makeBlockProposal = (options?: MakeBlockProposalOptions): Promise<B
     archiveRoot,
     txHashes,
     txs,
-    TEST_COORDINATION_SIGNATURE_CONTEXT,
+    signatureContext,
     (typedData, _context) => Promise.resolve(signTypedData(signer, typedData)),
-    (payload, _context) => Promise.resolve(signer.signMessage(payload)),
+    (typedData, _context) => Promise.resolve(signTypedData(signer, typedData)),
   );
 };
 
@@ -625,6 +615,7 @@ export const makeCheckpointProposal = async (options?: MakeCheckpointProposalOpt
   const archiveRoot = options?.archiveRoot ?? Fr.random();
   const feeAssetPriceModifier = options?.feeAssetPriceModifier ?? 0n;
   const signer = options?.signer ?? Secp256k1Signer.random();
+  const signatureContext = options?.signatureContext ?? TEST_COORDINATION_SIGNATURE_CONTEXT;
 
   // Build a signed block proposal if lastBlock options are provided
   const lastBlockProposal = options?.lastBlock
@@ -636,6 +627,7 @@ export const makeCheckpointProposal = async (options?: MakeCheckpointProposalOpt
         txHashes: options.lastBlock.txHashes,
         txs: options.lastBlock.txs,
         signer,
+        signatureContext,
       })
     : undefined;
 
@@ -645,7 +637,7 @@ export const makeCheckpointProposal = async (options?: MakeCheckpointProposalOpt
     CheckpointNumber(1),
     feeAssetPriceModifier,
     lastBlockProposal,
-    TEST_COORDINATION_SIGNATURE_CONTEXT,
+    signatureContext,
     typedData => Promise.resolve(signTypedData(signer, typedData)),
   );
 };
@@ -660,6 +652,7 @@ export type MakeCheckpointAttestationOptions = {
   attesterSigner?: Secp256k1Signer;
   proposerSigner?: Secp256k1Signer;
   signer?: Secp256k1Signer;
+  signatureContext?: CoordinationSignatureContext;
 };
 
 /**
@@ -669,28 +662,27 @@ export const makeCheckpointAttestation = (options: MakeCheckpointAttestationOpti
   const header = options.header ?? makeCheckpointHeader(1);
   const archive = options.archive ?? Fr.random();
   const feeAssetPriceModifier = options.feeAssetPriceModifier ?? 0n;
+  const signatureContext = options.signatureContext ?? TEST_COORDINATION_SIGNATURE_CONTEXT;
   const { signer, attesterSigner = signer, proposerSigner = signer } = options;
 
-  const payload = new ConsensusPayload(header, archive, feeAssetPriceModifier);
+  const payload = new ConsensusPayload(header, archive, feeAssetPriceModifier, signatureContext);
 
   // Sign as attester
-  const attestationHash = getHashedSignaturePayloadTypedData(
-    payload,
-    SignatureDomainSeparator.checkpointAttestation,
-    TEST_COORDINATION_SIGNATURE_CONTEXT,
-  );
+  const attestationHash = getHashedSignaturePayloadTypedData(payload);
   const attestationSigner = attesterSigner ?? Secp256k1Signer.random();
   const attestationSignature = attestationSigner.sign(attestationHash);
 
   // Sign as proposer - use CheckpointProposal's payload format (serializeToBuffer)
   // This is different from ConsensusPayload's format (ABI encoding)
   const proposalSignerToUse = proposerSigner ?? Secp256k1Signer.random();
-  const tempProposal = new CheckpointProposal(header, archive, feeAssetPriceModifier, Signature.empty());
-  const proposalHash = getHashedSignaturePayloadTypedData(
-    tempProposal,
-    SignatureDomainSeparator.checkpointProposal,
-    TEST_COORDINATION_SIGNATURE_CONTEXT,
+  const tempProposal = new CheckpointProposal(
+    header,
+    archive,
+    feeAssetPriceModifier,
+    Signature.empty(),
+    signatureContext,
   );
+  const proposalHash = getHashedSignaturePayloadTypedData(tempProposal);
   const proposerSignature = proposalSignerToUse.sign(proposalHash);
 
   return new CheckpointAttestation(payload, attestationSignature, proposerSignature);
@@ -703,14 +695,15 @@ export const makeCheckpointAttestationFromProposal = (
   proposal: CheckpointProposal,
   attesterSigner?: Secp256k1Signer,
 ): CheckpointAttestation => {
-  const payload = new ConsensusPayload(proposal.checkpointHeader, proposal.archive, proposal.feeAssetPriceModifier);
+  const payload = new ConsensusPayload(
+    proposal.checkpointHeader,
+    proposal.archive,
+    proposal.feeAssetPriceModifier,
+    proposal.signatureContext,
+  );
 
   // Sign as attester
-  const attestationHash = getHashedSignaturePayloadTypedData(
-    payload,
-    SignatureDomainSeparator.checkpointAttestation,
-    TEST_COORDINATION_SIGNATURE_CONTEXT,
-  );
+  const attestationHash = getHashedSignaturePayloadTypedData(payload);
   const attestationSigner = attesterSigner ?? Secp256k1Signer.random();
   const attestationSignature = attestationSigner.sign(attestationHash);
 

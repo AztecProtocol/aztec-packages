@@ -514,7 +514,7 @@ describe('LibP2PService', () => {
 
     beforeEach(() => {
       signer = Secp256k1Signer.random();
-      attestationPool = new AttestationPool(openTmpStore(true), TEST_COORDINATION_SIGNATURE_CONTEXT);
+      attestationPool = new AttestationPool(openTmpStore(true));
       mockTxPool = mock<TxPoolV2>();
       mockTxPool.protectTxs.mockResolvedValue([]);
 
@@ -749,7 +749,7 @@ describe('LibP2PService', () => {
 
     beforeEach(() => {
       signer = Secp256k1Signer.random();
-      attestationPool = new AttestationPool(openTmpStore(true), TEST_COORDINATION_SIGNATURE_CONTEXT);
+      attestationPool = new AttestationPool(openTmpStore(true));
       mockTxPool = mock<TxPoolV2>();
       mockTxPool.protectTxs.mockResolvedValue([]);
 
@@ -1177,7 +1177,7 @@ function createTestLibP2PService(options: CreateTestLibP2PServiceOptions): TestL
     peerManager,
     node,
     archiver = mock<L2BlockSource & ContractDataSource>(),
-    attestationPool = new AttestationPool(openTmpStore(true), TEST_COORDINATION_SIGNATURE_CONTEXT),
+    attestationPool = new AttestationPool(openTmpStore(true)),
     txPool = mock<TxPoolV2>(),
     epochCache = mock<EpochCacheInterface>(),
   } = options;

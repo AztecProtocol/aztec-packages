@@ -7,7 +7,7 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import type { Logger } from '@aztec/foundation/log';
 import { RollupAbi } from '@aztec/l1-artifacts';
 import { CommitteeAttestation } from '@aztec/stdlib/block';
-import { ConsensusPayload, SignatureDomainSeparator, getHashedSignaturePayloadTypedData } from '@aztec/stdlib/p2p';
+import { ConsensusPayload, getHashedSignaturePayloadTypedData } from '@aztec/stdlib/p2p';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
 
 import {
@@ -473,12 +473,13 @@ export class CalldataRetriever {
 
   /** Computes the keccak256 payload digest from the checkpoint header, archive root, and fee asset price modifier. */
   private computePayloadDigest(header: CheckpointHeader, archiveRoot: Fr, feeAssetPriceModifier: bigint): Hex {
-    const consensusPayload = new ConsensusPayload(header, archiveRoot, feeAssetPriceModifier);
-    return getHashedSignaturePayloadTypedData(
-      consensusPayload,
-      SignatureDomainSeparator.checkpointAttestation,
+    const consensusPayload = new ConsensusPayload(
+      header,
+      archiveRoot,
+      feeAssetPriceModifier,
       this.getSignatureContext(),
-    ).toString();
+    );
+    return getHashedSignaturePayloadTypedData(consensusPayload).toString();
   }
 
   /**

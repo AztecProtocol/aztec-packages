@@ -4,7 +4,6 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import type { BlockProposal, CheckpointAttestation, CheckpointProposalCore } from '@aztec/stdlib/p2p';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
 import {
-  TEST_COORDINATION_SIGNATURE_CONTEXT,
   makeBlockHeader,
   makeBlockProposal,
   makeCheckpointHeader,
@@ -119,9 +118,7 @@ export function describeAttestationPool(getAttestationPool: () => AttestationPoo
       );
       expect(retreivedAttestations.length).toBe(1);
       expect(retreivedAttestations[0].toBuffer()).toEqual(attestations[0].toBuffer());
-      expect(retreivedAttestations[0].getSender(TEST_COORDINATION_SIGNATURE_CONTEXT)?.toString()).toEqual(
-        signer.address.toString(),
-      );
+      expect(retreivedAttestations[0].getSender()?.toString()).toEqual(signer.address.toString());
 
       // Try adding them on another operation and check they are still not duplicated
       await ap.addOwnCheckpointAttestations([attestations[0]]);
@@ -233,9 +230,7 @@ export function describeAttestationPool(getAttestationPool: () => AttestationPoo
       const retrievedProposal = await ap.getBlockProposal(proposalId);
       expect(retrievedProposal).toBeDefined();
       expect(retrievedProposal!.toBuffer()).toEqual(proposal1.toBuffer());
-      expect(retrievedProposal!.getSender(TEST_COORDINATION_SIGNATURE_CONTEXT)?.toString()).toBe(
-        signers[0].address.toString(),
-      );
+      expect(retrievedProposal!.getSender()?.toString()).toBe(signers[0].address.toString());
     });
   });
 
@@ -327,9 +322,7 @@ export function describeAttestationPool(getAttestationPool: () => AttestationPoo
       const retrievedProposal = await ap.getCheckpointProposal(proposalId);
       expect(retrievedProposal).toBeDefined();
       expect(retrievedProposal!.toBuffer()).toEqual(proposal1.toBuffer());
-      expect(retrievedProposal!.getSender(TEST_COORDINATION_SIGNATURE_CONTEXT)?.toString()).toBe(
-        signers[0].address.toString(),
-      );
+      expect(retrievedProposal!.getSender()?.toString()).toBe(signers[0].address.toString());
     });
 
     it('should return added=false when exceeding capacity', async () => {

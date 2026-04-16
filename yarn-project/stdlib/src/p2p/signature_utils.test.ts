@@ -15,9 +15,9 @@ import {
   makeCheckpointAttestation,
   makeCheckpointProposal,
 } from '../tests/mocks.js';
-import type { Signable } from './signature_utils.js';
+import { CheckpointAttestation } from './checkpoint_attestation.js';
+import type { CoordinationSignatureType, Signable } from './signature_utils.js';
 import {
-  SignatureDomainSeparator,
   getHashedSignaturePayload,
   getHashedSignaturePayloadTypedData,
   recoverCoordinationSigner,
@@ -29,12 +29,13 @@ const DOMAIN_TYPEHASH = `0x${keccak256String(
 const NAME_HASH = `0x${keccak256String('Aztec Rollup')}` as const;
 const VERSION_HASH = `0x${keccak256String('1')}` as const;
 
-const TYPEHASHES = {
-  [SignatureDomainSeparator.blockProposal]: `0x${keccak256String('BlockProposal(bytes32 payloadHash)')}`,
-  [SignatureDomainSeparator.checkpointProposal]: `0x${keccak256String('CheckpointProposal(bytes32 payloadHash)')}`,
-  [SignatureDomainSeparator.checkpointAttestation]: `0x${keccak256String('CheckpointAttestation(bytes32 payloadHash)')}`,
-  [SignatureDomainSeparator.attestationsAndSigners]: `0x${keccak256String('AttestationsAndSigners(bytes32 payloadHash)')}`,
-} as const;
+const TYPEHASHES: Record<CoordinationSignatureType, `0x${string}`> = {
+  BlockProposal: `0x${keccak256String('BlockProposal(bytes32 payloadHash)')}`,
+  CheckpointProposal: `0x${keccak256String('CheckpointProposal(bytes32 payloadHash)')}`,
+  CheckpointAttestation: `0x${keccak256String('CheckpointAttestation(bytes32 payloadHash)')}`,
+  AttestationsAndSigners: `0x${keccak256String('AttestationsAndSigners(bytes32 payloadHash)')}`,
+  SignedTxs: `0x${keccak256String('SignedTxs(bytes32 payloadHash)')}`,
+};
 
 const WRONG_CHAIN_CONTEXT = {
   ...TEST_COORDINATION_SIGNATURE_CONTEXT,
@@ -46,14 +47,8 @@ const WRONG_ROLLUP_CONTEXT = {
   rollupAddress: EthAddress.fromString('0x0000000000000000000000000000000000000002'),
 };
 
-type CoordinationSignatureDomain =
-  | SignatureDomainSeparator.blockProposal
-  | SignatureDomainSeparator.checkpointProposal
-  | SignatureDomainSeparator.checkpointAttestation
-  | SignatureDomainSeparator.attestationsAndSigners;
-
-function getSolidityCoordinationDigest(signable: Signable, domainSeparator: CoordinationSignatureDomain): Buffer32 {
-  const payloadHash = getHashedSignaturePayload(signable, domainSeparator);
+function getSolidityCoordinationDigest(signable: Signable): Buffer32 {
+  const payloadHash = getHashedSignaturePayload(signable);
   const domainSeparatorHash = Buffer32.fromBuffer(
     keccak256(
       hexToBuffer(
@@ -61,8 +56,8 @@ function getSolidityCoordinationDigest(signable: Signable, domainSeparator: Coor
           DOMAIN_TYPEHASH,
           NAME_HASH,
           VERSION_HASH,
-          BigInt(TEST_COORDINATION_SIGNATURE_CONTEXT.chainId),
-          TEST_COORDINATION_SIGNATURE_CONTEXT.rollupAddress.toString(),
+          BigInt(signable.signatureContext.chainId),
+          signable.signatureContext.rollupAddress.toString(),
         ]),
       ),
     ),
@@ -71,7 +66,7 @@ function getSolidityCoordinationDigest(signable: Signable, domainSeparator: Coor
     keccak256(
       hexToBuffer(
         encodeAbiParameters(parseAbiParameters('bytes32,bytes32'), [
-          TYPEHASHES[domainSeparator],
+          TYPEHASHES[signable.primaryType],
           payloadHash.toString() as `0x${string}`,
         ]),
       ),
@@ -89,40 +84,21 @@ describe('coordination signature typed data', () => {
     const blockProposal = await makeBlockProposal({ signer });
     const checkpointProposal = await makeCheckpointProposal({ signer });
     const checkpointAttestation = makeCheckpointAttestation({ signer });
-    const attestationsAndSigners = new CommitteeAttestationsAndSigners([
-      CommitteeAttestation.fromAddressAndSignature(signer.address, checkpointAttestation.signature),
-    ]);
-
-    expect(
-      getHashedSignaturePayloadTypedData(
-        blockProposal,
-        SignatureDomainSeparator.blockProposal,
-        TEST_COORDINATION_SIGNATURE_CONTEXT,
-      ),
-    ).toEqual(getSolidityCoordinationDigest(blockProposal, SignatureDomainSeparator.blockProposal));
-    expect(
-      getHashedSignaturePayloadTypedData(
-        checkpointProposal,
-        SignatureDomainSeparator.checkpointProposal,
-        TEST_COORDINATION_SIGNATURE_CONTEXT,
-      ),
-    ).toEqual(getSolidityCoordinationDigest(checkpointProposal, SignatureDomainSeparator.checkpointProposal));
-    expect(
-      getHashedSignaturePayloadTypedData(
-        checkpointAttestation.payload,
-        SignatureDomainSeparator.checkpointAttestation,
-        TEST_COORDINATION_SIGNATURE_CONTEXT,
-      ),
-    ).toEqual(
-      getSolidityCoordinationDigest(checkpointAttestation.payload, SignatureDomainSeparator.checkpointAttestation),
+    const attestationsAndSigners = new CommitteeAttestationsAndSigners(
+      [CommitteeAttestation.fromAddressAndSignature(signer.address, checkpointAttestation.signature)],
+      TEST_COORDINATION_SIGNATURE_CONTEXT,
     );
-    expect(
-      getHashedSignaturePayloadTypedData(
-        attestationsAndSigners,
-        SignatureDomainSeparator.attestationsAndSigners,
-        TEST_COORDINATION_SIGNATURE_CONTEXT,
-      ),
-    ).toEqual(getSolidityCoordinationDigest(attestationsAndSigners, SignatureDomainSeparator.attestationsAndSigners));
+
+    expect(getHashedSignaturePayloadTypedData(blockProposal)).toEqual(getSolidityCoordinationDigest(blockProposal));
+    expect(getHashedSignaturePayloadTypedData(checkpointProposal)).toEqual(
+      getSolidityCoordinationDigest(checkpointProposal),
+    );
+    expect(getHashedSignaturePayloadTypedData(checkpointAttestation.payload)).toEqual(
+      getSolidityCoordinationDigest(checkpointAttestation.payload),
+    );
+    expect(getHashedSignaturePayloadTypedData(attestationsAndSigners)).toEqual(
+      getSolidityCoordinationDigest(attestationsAndSigners),
+    );
   });
 
   it('recovers with the right context and changes sender for the wrong domain', async () => {
@@ -140,51 +116,72 @@ describe('coordination signature typed data', () => {
       attesterSigner,
       proposerSigner,
     });
-    const attestationsAndSigners = new CommitteeAttestationsAndSigners([
-      CommitteeAttestation.fromAddressAndSignature(attesterSigner.address, checkpointAttestation.signature),
-    ]);
+    const attestationsAndSigners = new CommitteeAttestationsAndSigners(
+      [CommitteeAttestation.fromAddressAndSignature(attesterSigner.address, checkpointAttestation.signature)],
+      TEST_COORDINATION_SIGNATURE_CONTEXT,
+    );
     const attestationsAndSignersSignature = makeAndSignCommitteeAttestationsAndSigners(
       attestationsAndSigners,
       attestationsAndSignersSigner,
     );
 
-    expect(blockProposal.getSender(TEST_COORDINATION_SIGNATURE_CONTEXT)).toEqual(blockSigner.address);
-    expect(blockProposal.getSender(WRONG_CHAIN_CONTEXT)).not.toEqual(blockSigner.address);
-    expect(blockProposal.getSender(WRONG_ROLLUP_CONTEXT)).not.toEqual(blockSigner.address);
+    // Helpers to create variants of the same signables but with the wrong context baked in.
+    // Reset any memoized sender/proposer so the copy re-derives them against the altered context.
+    const withContext = <T extends { signatureContext: unknown }>(
+      signable: T,
+      ctx: typeof TEST_COORDINATION_SIGNATURE_CONTEXT,
+    ): T => {
+      const copy = Object.create(Object.getPrototypeOf(signable));
+      Object.assign(copy, signable);
+      copy.signatureContext = ctx;
+      if ('cachedSender' in copy) {
+        copy.cachedSender = null;
+      }
+      if ('cachedProposer' in copy) {
+        copy.cachedProposer = null;
+      }
+      return copy;
+    };
 
-    expect(checkpointProposal.getSender(TEST_COORDINATION_SIGNATURE_CONTEXT)).toEqual(checkpointSigner.address);
-    expect(checkpointProposal.getSender(WRONG_CHAIN_CONTEXT)).not.toEqual(checkpointSigner.address);
-    expect(checkpointProposal.getSender(WRONG_ROLLUP_CONTEXT)).not.toEqual(checkpointSigner.address);
+    expect(blockProposal.getSender()).toEqual(blockSigner.address);
+    expect(withContext(blockProposal, WRONG_CHAIN_CONTEXT).getSender()).not.toEqual(blockSigner.address);
+    expect(withContext(blockProposal, WRONG_ROLLUP_CONTEXT).getSender()).not.toEqual(blockSigner.address);
 
-    expect(checkpointAttestation.getSender(TEST_COORDINATION_SIGNATURE_CONTEXT)).toEqual(attesterSigner.address);
-    expect(checkpointAttestation.getProposer(TEST_COORDINATION_SIGNATURE_CONTEXT)).toEqual(proposerSigner.address);
-    expect(checkpointAttestation.getSender(WRONG_CHAIN_CONTEXT)).not.toEqual(attesterSigner.address);
-    expect(checkpointAttestation.getSender(WRONG_ROLLUP_CONTEXT)).not.toEqual(attesterSigner.address);
-    expect(checkpointAttestation.getProposer(WRONG_CHAIN_CONTEXT)).not.toEqual(proposerSigner.address);
-    expect(checkpointAttestation.getProposer(WRONG_ROLLUP_CONTEXT)).not.toEqual(proposerSigner.address);
+    expect(checkpointProposal.getSender()).toEqual(checkpointSigner.address);
+    expect(withContext(checkpointProposal, WRONG_CHAIN_CONTEXT).getSender()).not.toEqual(checkpointSigner.address);
+    expect(withContext(checkpointProposal, WRONG_ROLLUP_CONTEXT).getSender()).not.toEqual(checkpointSigner.address);
 
+    expect(checkpointAttestation.getSender()).toEqual(attesterSigner.address);
+    expect(checkpointAttestation.getProposer()).toEqual(proposerSigner.address);
+    // To change the context on a CheckpointAttestation, we need to swap the embedded payload's context.
+    const wrongChainAttestation = new CheckpointAttestation(
+      withContext(checkpointAttestation.payload, WRONG_CHAIN_CONTEXT),
+      checkpointAttestation.signature,
+      checkpointAttestation.proposerSignature,
+    );
+    const wrongRollupAttestation = new CheckpointAttestation(
+      withContext(checkpointAttestation.payload, WRONG_ROLLUP_CONTEXT),
+      checkpointAttestation.signature,
+      checkpointAttestation.proposerSignature,
+    );
+    expect(wrongChainAttestation.getSender()).not.toEqual(attesterSigner.address);
+    expect(wrongRollupAttestation.getSender()).not.toEqual(attesterSigner.address);
+    expect(wrongChainAttestation.getProposer()).not.toEqual(proposerSigner.address);
+    expect(wrongRollupAttestation.getProposer()).not.toEqual(proposerSigner.address);
+
+    expect(recoverCoordinationSigner(attestationsAndSigners, attestationsAndSignersSignature)).toEqual(
+      attestationsAndSignersSigner.address,
+    );
     expect(
       recoverCoordinationSigner(
-        attestationsAndSigners,
-        SignatureDomainSeparator.attestationsAndSigners,
+        withContext(attestationsAndSigners, WRONG_CHAIN_CONTEXT),
         attestationsAndSignersSignature,
-        TEST_COORDINATION_SIGNATURE_CONTEXT,
-      ),
-    ).toEqual(attestationsAndSignersSigner.address);
-    expect(
-      recoverCoordinationSigner(
-        attestationsAndSigners,
-        SignatureDomainSeparator.attestationsAndSigners,
-        attestationsAndSignersSignature,
-        WRONG_CHAIN_CONTEXT,
       ),
     ).not.toEqual(attestationsAndSignersSigner.address);
     expect(
       recoverCoordinationSigner(
-        attestationsAndSigners,
-        SignatureDomainSeparator.attestationsAndSigners,
+        withContext(attestationsAndSigners, WRONG_ROLLUP_CONTEXT),
         attestationsAndSignersSignature,
-        WRONG_ROLLUP_CONTEXT,
       ),
     ).not.toEqual(attestationsAndSignersSigner.address);
   });

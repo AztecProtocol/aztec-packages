@@ -15,7 +15,7 @@ import { CommitteeAttestation, CommitteeAttestationsAndSigners, L2Block } from '
 import { Checkpoint } from '@aztec/stdlib/checkpoint';
 import { getSlotAtTimestamp } from '@aztec/stdlib/epoch-helpers';
 import { InboxLeaf } from '@aztec/stdlib/messaging';
-import { ConsensusPayload, SignatureDomainSeparator, getHashedSignaturePayloadTypedData } from '@aztec/stdlib/p2p';
+import { ConsensusPayload, getHashedSignaturePayloadTypedData } from '@aztec/stdlib/p2p';
 import { mockCheckpointAndMessages } from '@aztec/stdlib/testing';
 import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
 
@@ -659,13 +659,9 @@ export class FakeL1State {
     checkpoint: Checkpoint,
     signers: Secp256k1Signer[],
   ): Promise<{ tx: Transaction; attestationsHash: Buffer32; payloadDigest: Buffer32 }> {
-    const consensusPayload = ConsensusPayload.fromCheckpoint(checkpoint);
     const signatureContext = this.getSignatureContext();
-    const attestationDigest = getHashedSignaturePayloadTypedData(
-      consensusPayload,
-      SignatureDomainSeparator.checkpointAttestation,
-      signatureContext,
-    );
+    const consensusPayload = ConsensusPayload.fromCheckpoint(checkpoint, signatureContext);
+    const attestationDigest = getHashedSignaturePayloadTypedData(consensusPayload);
     const attestations = signers
       .map(signer => CommitteeAttestation.fromSignature(signer.sign(attestationDigest)))
       .map(committeeAttestation => committeeAttestation.toViem());
@@ -675,6 +671,7 @@ export class FakeL1State {
     const archive = toHex(checkpoint.archive.root.toBuffer());
     const attestationsAndSigners = new CommitteeAttestationsAndSigners(
       attestations.map(attestation => CommitteeAttestation.fromViem(attestation)),
+      signatureContext,
     );
 
     // Fall back to a random signer when no attesters are provided, so tests that
@@ -682,11 +679,7 @@ export class FakeL1State {
     // valid-looking signature for the attestationsAndSigners struct.
     const proposerSigner = signers[0] ?? Secp256k1Signer.random();
     const attestationsAndSignersSignature = proposerSigner.sign(
-      getHashedSignaturePayloadTypedData(
-        attestationsAndSigners,
-        SignatureDomainSeparator.attestationsAndSigners,
-        signatureContext,
-      ),
+      getHashedSignaturePayloadTypedData(attestationsAndSigners),
     );
 
     const packedAttestations = attestationsAndSigners.getPackedAttestations();
@@ -727,11 +720,7 @@ export class FakeL1State {
     );
 
     // Compute payloadDigest (same logic as CalldataRetriever)
-    const payloadDigest = getHashedSignaturePayloadTypedData(
-      consensusPayload,
-      SignatureDomainSeparator.checkpointAttestation,
-      signatureContext,
-    );
+    const payloadDigest = getHashedSignaturePayloadTypedData(consensusPayload);
 
     const tx = {
       input: multiCallInput,

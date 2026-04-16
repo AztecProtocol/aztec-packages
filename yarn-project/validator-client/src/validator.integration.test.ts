@@ -402,9 +402,7 @@ describe('ValidatorClient Integration', () => {
       const attestations = await attestor.validator.attestToCheckpointProposal(proposal, mockPeerId);
       expect(attestations).toBeDefined();
       expect(attestations).toHaveLength(1);
-      expect(attestations![0].getSender({ chainId: chainId.toNumber(), rollupAddress })).toEqual(
-        validatorSigner.address,
-      );
+      expect(attestations![0].getSender()).toEqual(validatorSigner.address);
 
       // Verify blocks are in archiver and hashes match
       await attestor.archiver.syncImmediate();
@@ -439,9 +437,7 @@ describe('ValidatorClient Integration', () => {
       const attestations = await attestor.validator.attestToCheckpointProposal(proposal, mockPeerId);
       expect(attestations).toBeDefined();
       expect(attestations).toHaveLength(1);
-      expect(attestations![0].getSender({ chainId: chainId.toNumber(), rollupAddress })).toEqual(
-        validatorSigner.address,
-      );
+      expect(attestations![0].getSender()).toEqual(validatorSigner.address);
 
       // Verify blocks are in archiver and hashes match
       await attestor.archiver.syncImmediate();

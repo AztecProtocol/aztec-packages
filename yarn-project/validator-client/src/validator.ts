@@ -114,7 +114,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     this.log = config.fishermanMode ? log.createChild('[FISHERMAN]') : log;
 
     this.tracer = telemetry.getTracer('Validator');
-    this.metrics = new ValidatorMetrics(telemetry, this.getSignatureContext());
+    this.metrics = new ValidatorMetrics(telemetry);
 
     this.validationService = new ValidationService(
       keyStore,
@@ -197,10 +197,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     telemetry: TelemetryClient = getTelemetryClient(),
     slashingProtectionDb?: SlashingProtectionDatabase,
   ) {
-    const metrics = new ValidatorMetrics(telemetry, {
-      chainId: config.l1ChainId,
-      rollupAddress: config.l1Contracts.rollupAddress,
-    });
+    const metrics = new ValidatorMetrics(telemetry);
     const blockProposalValidator = new BlockProposalValidator(epochCache, {
       txsPermitted: !config.disableTransactions,
       maxTxsPerBlock: config.validateMaxTxsPerBlock,
@@ -395,7 +392,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     // but we intentionally reject them and disable slashing invalid block and attestation flow.
     const escapeHatchOpen = await this.epochCache.isEscapeHatchOpenAtSlot(slotNumber);
 
-    const proposer = proposal.getSender(this.getSignatureContext());
+    const proposer = proposal.getSender();
 
     // Reject proposals with invalid signatures
     if (!proposer) {
@@ -498,7 +495,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     _proposalSender: PeerId,
   ): Promise<CheckpointAttestation[] | undefined> {
     const proposalSlotNumber = proposal.slotNumber;
-    const proposer = proposal.getSender(this.getSignatureContext());
+    const proposer = proposal.getSender();
 
     // If escape hatch is open for this slot's epoch, do not attest.
     if (await this.epochCache.isEscapeHatchOpenAtSlot(proposalSlotNumber)) {
@@ -672,7 +669,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
   }
 
   private slashInvalidBlock(proposal: BlockProposal) {
-    const proposer = proposal.getSender(this.getSignatureContext());
+    const proposer = proposal.getSender();
 
     // Skip if signature is invalid (shouldn't happen since we validate earlier)
     if (!proposer) {
@@ -895,7 +892,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
           if (!attestation.archive.equals(proposal.archive)) {
             this.log.warn(
               `Received attestation for slot ${slot} with mismatched archive from ${attestation
-                .getSender(this.getSignatureContext())
+                .getSender()
                 ?.toString()}`,
               { attestationArchive: attestation.archive.toString(), proposalArchive: proposal.archive.toString() },
             );
@@ -906,9 +903,9 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
       );
 
       // Log new attestations we collected
-      const oldSenders = attestations.map(attestation => attestation.getSender(this.getSignatureContext()));
+      const oldSenders = attestations.map(attestation => attestation.getSender());
       for (const collected of collectedAttestations) {
-        const collectedSender = collected.getSender(this.getSignatureContext());
+        const collectedSender = collected.getSender();
         // Skip attestations with invalid signatures
         if (!collectedSender) {
           this.log.warn(`Skipping attestation with invalid signature for slot ${slot}`);

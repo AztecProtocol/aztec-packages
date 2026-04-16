@@ -1,6 +1,6 @@
 import type { EpochNumber } from '@aztec/foundation/branded-types';
 import type { EthAddress } from '@aztec/foundation/eth-address';
-import type { BlockProposal, CoordinationSignatureContext } from '@aztec/stdlib/p2p';
+import type { BlockProposal } from '@aztec/stdlib/p2p';
 import {
   Attributes,
   type Gauge,
@@ -27,10 +27,7 @@ export class ValidatorMetrics {
   private checkpointProposalToPipelinedStateDuration: Histogram;
   private checkpointProposalReceiveOffsetFromNextSlotBoundary: Histogram;
 
-  constructor(
-    telemetryClient: TelemetryClient,
-    private signatureContext: CoordinationSignatureContext,
-  ) {
+  constructor(telemetryClient: TelemetryClient) {
     const meter = telemetryClient.getMeter('Validator');
 
     this.failedReexecutionCounter = createUpDownCounterWithDefault(meter, Metrics.VALIDATOR_FAILED_REEXECUTION_COUNT, {
@@ -107,7 +104,7 @@ export class ValidatorMetrics {
   }
 
   public recordFailedReexecution(proposal: BlockProposal) {
-    const proposer = proposal.getSender(this.signatureContext);
+    const proposer = proposal.getSender();
     this.failedReexecutionCounter.add(1, {
       [Attributes.STATUS]: 'failed',
       [Attributes.BLOCK_PROPOSER]: proposer?.toString() ?? 'unknown',

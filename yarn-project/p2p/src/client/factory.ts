@@ -76,15 +76,11 @@ export async function createP2PClient(
   const store = deps.store ?? (await createStore(P2P_STORE_NAME, 2, config, bindings));
   const archive = await createStore(P2P_ARCHIVE_STORE_NAME, 1, config, bindings);
   const peerStore = await createStore(P2P_PEER_STORE_NAME, 1, config, bindings);
-  const attestationStore = await createStore(P2P_ATTESTATION_STORE_NAME, 1, config, bindings);
+  const attestationStore = await createStore(P2P_ATTESTATION_STORE_NAME, 2, config, bindings);
   const l1Constants = await archiver.getL1Constants();
 
   const rollupAddress = inputConfig.l1Contracts.rollupAddress.toString().toLowerCase().replace(/^0x/, '');
   const txFileStoreBasePath = `aztec-${inputConfig.l1ChainId}-${inputConfig.rollupVersion}-0x${rollupAddress}`;
-  const signatureContext = {
-    chainId: inputConfig.l1ChainId,
-    rollupAddress: inputConfig.l1Contracts.rollupAddress,
-  };
 
   const allowedInSetup = [
     ...(await getDefaultAllowedSetupFunctions()),
@@ -137,7 +133,7 @@ export async function createP2PClient(
 
   const mempools: MemPools = {
     txPool,
-    attestationPool: deps.attestationPool ?? new AttestationPool(attestationStore, signatureContext, telemetry),
+    attestationPool: deps.attestationPool ?? new AttestationPool(attestationStore, telemetry),
   };
 
   const p2pService = await createP2PService(

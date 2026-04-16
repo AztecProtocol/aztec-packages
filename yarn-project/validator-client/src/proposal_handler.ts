@@ -24,12 +24,7 @@ import {
   accumulateCheckpointOutHashes,
   computeInHashFromL1ToL2Messages,
 } from '@aztec/stdlib/messaging';
-import type {
-  BlockProposal,
-  CheckpointAttestation,
-  CheckpointProposalCore,
-  CoordinationSignatureContext,
-} from '@aztec/stdlib/p2p';
+import type { BlockProposal, CheckpointAttestation, CheckpointProposalCore } from '@aztec/stdlib/p2p';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 import type { CheckpointGlobalVariables, FailedTx, Tx } from '@aztec/stdlib/tx';
 import {
@@ -127,13 +122,6 @@ export class ProposalHandler {
     this.tracer = telemetry.getTracer('ProposalHandler');
   }
 
-  private getSignatureContext(): CoordinationSignatureContext {
-    return {
-      chainId: this.config.l1ChainId,
-      rollupAddress: this.config.l1Contracts.rollupAddress,
-    };
-  }
-
   /**
    * Registers handlers for block and checkpoint proposals on the p2p client.
    * Block proposals are registered for non-validator nodes (validators register their own enhanced handler).
@@ -193,11 +181,11 @@ export class ProposalHandler {
         const proposalInfo: LogData = {
           slot: proposal.slotNumber,
           archive: proposal.archive.toString(),
-          proposer: proposal.getSender(this.getSignatureContext())?.toString(),
+          proposer: proposal.getSender()?.toString(),
         };
 
         // For own proposals, skip validation — the proposer already built and validated the checkpoint
-        const proposer = proposal.getSender(this.getSignatureContext());
+        const proposer = proposal.getSender();
         const ownAddresses = this.getOwnValidatorAddresses?.();
         const isOwnProposal = proposer && ownAddresses?.some(addr => addr === proposer.toString());
 
@@ -233,7 +221,7 @@ export class ProposalHandler {
     shouldReexecute: boolean,
   ): Promise<BlockProposalValidationResult> {
     const slotNumber = proposal.slotNumber;
-    const proposer = proposal.getSender(this.getSignatureContext());
+    const proposer = proposal.getSender();
     const config = this.checkpointsBuilder.getConfig();
 
     // Reject proposals with invalid signatures
@@ -757,7 +745,7 @@ export class ProposalHandler {
       return this.lastCheckpointValidationResult.result;
     }
 
-    const proposer = proposal.getSender(this.getSignatureContext());
+    const proposer = proposal.getSender();
     if (!proposer) {
       this.log.warn(`Received checkpoint proposal with invalid signature for slot ${proposal.slotNumber}`);
       const result: CheckpointProposalValidationResult = { isValid: false, reason: 'invalid_signature' };

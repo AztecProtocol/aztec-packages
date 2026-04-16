@@ -47,7 +47,7 @@ describe('ValidationService', () => {
       addresses[0],
       { publishFullTxs: true },
     );
-    expect(proposal.getSender(TEST_COORDINATION_SIGNATURE_CONTEXT)).toEqual(store.getAddress(0));
+    expect(proposal.getSender()).toEqual(store.getAddress(0));
     expect(proposal.txs).toBeDefined();
     expect(proposal.txs).toBe(txs);
   });
@@ -69,7 +69,7 @@ describe('ValidationService', () => {
       addresses[0],
       { publishFullTxs: false },
     );
-    expect(proposal.getSender(TEST_COORDINATION_SIGNATURE_CONTEXT)).toEqual(addresses[0]);
+    expect(proposal.getSender()).toEqual(addresses[0]);
     expect(proposal.txs).toBeUndefined();
   });
 
@@ -78,8 +78,8 @@ describe('ValidationService', () => {
     const proposal = await makeCheckpointProposal({ lastBlock: { txs } });
     const attestations = await service.attestToCheckpointProposal(proposal, addresses, CheckpointNumber(1));
     expect(attestations.length).toBe(2);
-    expect(attestations[0].getSender(TEST_COORDINATION_SIGNATURE_CONTEXT)).toEqual(addresses[0]);
-    expect(attestations[1].getSender(TEST_COORDINATION_SIGNATURE_CONTEXT)).toEqual(addresses[1]);
+    expect(attestations[0].getSender()).toEqual(addresses[0]);
+    expect(attestations[1].getSender()).toEqual(addresses[1]);
   });
 
   it('creates checkpoint proposal with an already-signed block proposal', async () => {
@@ -130,7 +130,7 @@ describe('ValidationService', () => {
     );
 
     // Verify proposal was created successfully
-    expect(proposal.getSender(TEST_COORDINATION_SIGNATURE_CONTEXT)).toEqual(addresses[0]);
+    expect(proposal.getSender()).toEqual(addresses[0]);
     expect(proposal.lastBlock).toBeDefined();
     expect(proposal.lastBlock!.signature).toEqual(blockProposal.signature);
 

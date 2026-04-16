@@ -7,6 +7,7 @@ import {
   type P2PValidator,
   PeerErrorSeverity,
   type ValidationResult,
+  hasValidSignatureContext,
 } from '@aztec/stdlib/p2p';
 
 import { PipeliningWindow, isWithinClockTolerance } from '../clock_tolerance.js';
@@ -38,6 +39,17 @@ export class CheckpointAttestationValidator implements P2PValidator<CheckpointAt
     const slotNumber = message.payload.header.slotNumber;
 
     try {
+      // Cross-chain replay check: reject attestations that carry a foreign signing domain.
+      if (!hasValidSignatureContext(message.payload, this.signatureContext)) {
+        this.logger.warn(`Rejecting checkpoint attestation with foreign signature context for slot ${slotNumber}`, {
+          chainId: message.payload.signatureContext.chainId,
+          rollupAddress: message.payload.signatureContext.rollupAddress.toString(),
+          expectedChainId: this.signatureContext.chainId,
+          expectedRollupAddress: this.signatureContext.rollupAddress.toString(),
+        });
+        return { result: 'reject', severity: PeerErrorSeverity.HighToleranceError };
+      }
+
       // Use target slots since proposals target pipeline slots (slot + 1 when pipelining).
       const { targetSlot, nextSlot } = this.epochCache.getTargetAndNextSlot();
 
@@ -58,7 +70,7 @@ export class CheckpointAttestationValidator implements P2PValidator<CheckpointAt
       }
 
       // Verify the signature is valid
-      const attester = message.getSender(this.signatureContext);
+      const attester = message.getSender();
       if (attester === undefined) {
         this.logger.warn(`Invalid signature in checkpoint attestation for slot ${slotNumber}`);
         return { result: 'reject', severity: PeerErrorSeverity.LowToleranceError };
@@ -73,7 +85,7 @@ export class CheckpointAttestationValidator implements P2PValidator<CheckpointAt
       // Verify the proposer signature matches the expected proposer for the attestation's slot
       // We look up the proposer for the specific slot rather than using currentSlot/nextSlot
       // since timing differences could cause mismatches
-      const proposer = message.getProposer(this.signatureContext);
+      const proposer = message.getProposer();
       const expectedProposer = await this.epochCache.getProposerAttesterAddressInSlot(slotNumber);
       if (!expectedProposer) {
         this.logger.warn(`No proposer defined for slot ${slotNumber}`);

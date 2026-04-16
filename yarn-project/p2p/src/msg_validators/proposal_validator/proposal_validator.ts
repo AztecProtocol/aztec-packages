@@ -7,6 +7,7 @@ import {
   type CoordinationSignatureContext,
   PeerErrorSeverity,
   type ValidationResult,
+  hasValidSignatureContext,
 } from '@aztec/stdlib/p2p';
 
 import { PipeliningWindow, isWithinClockTolerance } from '../clock_tolerance.js';
@@ -41,6 +42,17 @@ export class ProposalValidator {
   /** Validates header-level fields: slot, signature, and proposer. */
   public async validate(proposal: BlockProposal | CheckpointProposalCore): Promise<ValidationResult> {
     try {
+      // Cross-chain replay check: reject proposals that carry a foreign signing domain.
+      if (!hasValidSignatureContext(proposal, this.signatureContext)) {
+        this.logger.warn(`Penalizing peer for proposal with foreign signature context`, {
+          chainId: proposal.signatureContext.chainId,
+          rollupAddress: proposal.signatureContext.rollupAddress.toString(),
+          expectedChainId: this.signatureContext.chainId,
+          expectedRollupAddress: this.signatureContext.rollupAddress.toString(),
+        });
+        return { result: 'reject', severity: PeerErrorSeverity.HighToleranceError };
+      }
+
       // Slot check: use target slots since proposals target pipeline slots (slot + 1 when pipelining).
       const { targetSlot, nextSlot } = this.epochCache.getTargetAndNextSlot();
 
@@ -60,7 +72,7 @@ export class ProposalValidator {
       }
 
       // Signature validity
-      const proposer = proposal.getSender(this.signatureContext);
+      const proposer = proposal.getSender();
       if (!proposer) {
         this.logger.warn(`Penalizing peer for proposal with invalid signature`);
         return { result: 'reject', severity: PeerErrorSeverity.MidToleranceError };

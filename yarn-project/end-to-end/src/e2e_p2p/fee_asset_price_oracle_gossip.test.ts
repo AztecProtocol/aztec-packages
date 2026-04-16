@@ -185,15 +185,15 @@ describe('e2e_p2p_network', () => {
       120,
       1,
     );
-    const payload = ConsensusPayload.fromCheckpoint(publishedCheckpoint.checkpoint);
-    const attestations = publishedCheckpoint.attestations
-      .filter(a => !a.signature.isEmpty())
-      .map(a => new CheckpointAttestation(payload, a.signature, Signature.empty()));
     const signatureContext = {
       chainId: t.ctx.aztecNodeConfig.l1ChainId,
       rollupAddress: t.ctx.deployL1ContractsValues.l1ContractAddresses.rollupAddress,
     };
-    const signers = await Promise.all(attestations.map(att => att.getSender(signatureContext)!.toString()));
+    const payload = ConsensusPayload.fromCheckpoint(publishedCheckpoint.checkpoint, signatureContext);
+    const attestations = publishedCheckpoint.attestations
+      .filter(a => !a.signature.isEmpty())
+      .map(a => new CheckpointAttestation(payload, a.signature, Signature.empty()));
+    const signers = await Promise.all(attestations.map(att => att.getSender()!.toString()));
     t.logger.info(`Attestation signers`, { signers });
 
     // Check that the signers found are part of the proposer nodes to ensure the archiver fetched them right

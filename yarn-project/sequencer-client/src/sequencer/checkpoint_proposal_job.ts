@@ -1075,7 +1075,8 @@ export class CheckpointProposalJob implements Traceable {
       this.log.warn('Skipping attestation collection as per config (attesting with own keys only)');
       const attestations = await this.validatorClient?.collectOwnAttestations(proposal, this.checkpointNumber);
       return new CommitteeAttestationsAndSigners(
-        orderAttestations(attestations ?? [], committee, this.getSignatureContext()),
+        orderAttestations(attestations ?? [], committee),
+        this.getSignatureContext(),
       );
     }
 
@@ -1105,14 +1106,13 @@ export class CheckpointProposalJob implements Traceable {
         numberOfRequiredAttestations,
         this.attestorAddress,
         localAddresses,
-        this.getSignatureContext(),
       );
       if (trimmed.length < attestations.length) {
         this.log.debug(`Trimmed attestations from ${attestations.length} to ${trimmed.length} for L1 submission`);
       }
 
       // Rollup contract requires that the signatures are provided in the order of the committee
-      const sorted = orderAttestations(trimmed, committee, this.getSignatureContext());
+      const sorted = orderAttestations(trimmed, committee);
 
       // Manipulate the attestations if we've been configured to do so
       if (
@@ -1124,7 +1124,7 @@ export class CheckpointProposalJob implements Traceable {
         return this.manipulateAttestations(proposal.slotNumber, epoch, seed, committee, sorted);
       }
 
-      return new CommitteeAttestationsAndSigners(sorted);
+      return new CommitteeAttestationsAndSigners(sorted, this.getSignatureContext());
     } catch (err) {
       if (err && err instanceof AttestationTimeoutError) {
         collectedAttestationsCount = err.collectedCount;
@@ -1184,7 +1184,7 @@ export class CheckpointProposalJob implements Traceable {
           unfreeze(attestations[targetIndex]).signature = generateRecoverableSignature();
         }
       }
-      return new CommitteeAttestationsAndSigners(attestations);
+      return new CommitteeAttestationsAndSigners(attestations, this.getSignatureContext());
     }
 
     if (this.config.shuffleAttestationOrdering) {
@@ -1206,11 +1206,11 @@ export class CheckpointProposalJob implements Traceable {
         [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
       }
 
-      const signers = new CommitteeAttestationsAndSigners(attestations).getSigners();
-      return new MaliciousCommitteeAttestationsAndSigners(shuffled, signers);
+      const signers = new CommitteeAttestationsAndSigners(attestations, this.getSignatureContext()).getSigners();
+      return new MaliciousCommitteeAttestationsAndSigners(shuffled, signers, this.getSignatureContext());
     }
 
-    return new CommitteeAttestationsAndSigners(attestations);
+    return new CommitteeAttestationsAndSigners(attestations, this.getSignatureContext());
   }
 
   private async dropFailedTxsFromP2P(failedTxs: FailedTx[]) {

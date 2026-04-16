@@ -24,10 +24,13 @@ import { BlockProposal } from './block_proposal.js';
 import { Gossipable } from './gossipable.js';
 import {
   type CoordinationSignatureContext,
-  SignatureDomainSeparator,
-  getCoordinationSignatureContextKey,
+  type CoordinationSignatureType,
+  EMPTY_COORDINATION_SIGNATURE_CONTEXT,
+  type Signable,
   getCoordinationSignatureTypedData,
+  readCoordinationSignatureContext,
   recoverCoordinationSigner,
+  serializeCoordinationSignatureContext,
 } from './signature_utils.js';
 import { SignedTxs } from './signed_txs.js';
 import { TopicType } from './topic_type.js';
@@ -72,15 +75,12 @@ export type CheckpointLastBlock = Omit<CheckpointLastBlockData, 'txs'> & {
  * It includes the aggregated checkpoint header that validators will attest to, plus optionally
  * the last block's info for nodes to re-execute. This marks the completion of a slot's worth of blocks.
  */
-export class CheckpointProposal extends Gossipable {
+export class CheckpointProposal extends Gossipable implements Signable {
   static override p2pTopic = TopicType.checkpoint_proposal;
 
-  private senderCache:
-    | {
-        key: string;
-        sender: EthAddress | undefined;
-      }
-    | undefined;
+  readonly primaryType: CoordinationSignatureType = 'CheckpointProposal';
+
+  private cachedSender: EthAddress | undefined | null = null;
 
   constructor(
     /** The aggregated checkpoint header for consensus */
@@ -94,6 +94,9 @@ export class CheckpointProposal extends Gossipable {
 
     /** The proposer's signature over the checkpoint payload (checkpointHeader + archive + feeAssetPriceModifier) */
     public readonly signature: Signature,
+
+    /** The signing domain (chainId + rollupAddress) the signature is bound to */
+    public readonly signatureContext: CoordinationSignatureContext,
 
     /** Optional last block info, including its own signature for BlockProposal extraction */
     public readonly lastBlock?: CheckpointLastBlock,
@@ -125,6 +128,7 @@ export class CheckpointProposal extends Gossipable {
       this.archive,
       this.lastBlock.txHashes,
       this.lastBlock.signature,
+      this.signatureContext,
       this.lastBlock.signedTxs,
     );
   }
@@ -156,13 +160,8 @@ export class CheckpointProposal extends Gossipable {
    * Get the payload to sign for this checkpoint proposal.
    * The signature is over the checkpoint header + archive root + feeAssetPriceModifier (for consensus).
    */
-  getPayloadToSign(domainSeparator: SignatureDomainSeparator): Buffer {
-    return serializeToBuffer([
-      domainSeparator,
-      this.checkpointHeader,
-      this.archive,
-      serializeSignedBigInt(this.feeAssetPriceModifier),
-    ]);
+  getPayloadToSign(): Buffer {
+    return serializeToBuffer([this.checkpointHeader, this.archive, serializeSignedBigInt(this.feeAssetPriceModifier)]);
   }
 
   static async createProposalFromSigner(
@@ -180,6 +179,7 @@ export class CheckpointProposal extends Gossipable {
       archiveRoot,
       feeAssetPriceModifier,
       Signature.empty(),
+      signatureContext,
     );
     const checkpointContext: SigningContext = {
       slot: checkpointHeader.slotNumber,
@@ -187,11 +187,7 @@ export class CheckpointProposal extends Gossipable {
       dutyType: DutyType.CHECKPOINT_PROPOSAL,
     };
 
-    const typedData = getCoordinationSignatureTypedData(
-      tempProposal,
-      SignatureDomainSeparator.checkpointProposal,
-      signatureContext,
-    );
+    const typedData = getCoordinationSignatureTypedData(tempProposal);
     const checkpointSignature = await payloadSigner(typedData, checkpointContext);
 
     return new CheckpointProposal(
@@ -199,6 +195,7 @@ export class CheckpointProposal extends Gossipable {
       archiveRoot,
       feeAssetPriceModifier,
       checkpointSignature,
+      signatureContext,
       lastBlockProposal,
     );
   }
@@ -208,34 +205,27 @@ export class CheckpointProposal extends Gossipable {
    * If there's a lastBlock, also verifies the block proposal sender matches the checkpoint sender.
    * @returns The sender address, or undefined if signature recovery fails or senders don't match
    */
-  getSender(signatureContext: CoordinationSignatureContext): EthAddress | undefined {
-    const cacheKey = getCoordinationSignatureContextKey(signatureContext);
-    if (!this.senderCache || this.senderCache.key !== cacheKey) {
-      const checkpointSender = recoverCoordinationSigner(
-        this,
-        SignatureDomainSeparator.checkpointProposal,
-        this.signature,
-        signatureContext,
-      );
+  getSender(): EthAddress | undefined {
+    if (this.cachedSender === null) {
+      const checkpointSender = recoverCoordinationSigner(this, this.signature);
 
-      // If there's a lastBlock, verify the block proposal sender matches
       if (checkpointSender && this.lastBlock) {
         const blockProposal = this.getBlockProposal();
-        const blockSender = blockProposal?.getSender(signatureContext);
+        const blockSender = blockProposal?.getSender();
         if (!blockSender || !blockSender.equals(checkpointSender)) {
-          return undefined; // Sender mismatch - fail
+          this.cachedSender = undefined;
+          return undefined;
         }
       }
 
-      // Cache the sender for later use
-      this.senderCache = { key: cacheKey, sender: checkpointSender };
+      this.cachedSender = checkpointSender;
     }
 
-    return this.senderCache.sender;
+    return this.cachedSender;
   }
 
   getPayload() {
-    return this.getPayloadToSign(SignatureDomainSeparator.checkpointProposal);
+    return this.getPayloadToSign();
   }
 
   toBuffer(): Buffer {
@@ -244,6 +234,7 @@ export class CheckpointProposal extends Gossipable {
       this.archive,
       serializeSignedBigInt(this.feeAssetPriceModifier),
       this.signature,
+      serializeCoordinationSignatureContext(this.signatureContext),
     ];
 
     if (this.lastBlock) {
@@ -273,6 +264,7 @@ export class CheckpointProposal extends Gossipable {
     const archive = reader.readObject(Fr);
     const feeAssetPriceModifier = reader.readInt256();
     const signature = reader.readObject(Signature);
+    const signatureContext = readCoordinationSignatureContext(reader);
 
     const hasLastBlock = reader.readNumber();
 
@@ -294,7 +286,7 @@ export class CheckpointProposal extends Gossipable {
         }
       }
 
-      return new CheckpointProposal(checkpointHeader, archive, feeAssetPriceModifier, signature, {
+      return new CheckpointProposal(checkpointHeader, archive, feeAssetPriceModifier, signature, signatureContext, {
         blockHeader,
         indexWithinCheckpoint,
         txHashes,
@@ -303,7 +295,7 @@ export class CheckpointProposal extends Gossipable {
       });
     }
 
-    return new CheckpointProposal(checkpointHeader, archive, feeAssetPriceModifier, signature);
+    return new CheckpointProposal(checkpointHeader, archive, feeAssetPriceModifier, signature, signatureContext);
   }
 
   getSize(): number {
@@ -312,6 +304,8 @@ export class CheckpointProposal extends Gossipable {
       this.archive.size +
       this.signature.getSize() +
       8 /* feeAssetPriceModifier */ +
+      4 /* chainId */ +
+      20 /* rollupAddress */ +
       4; /* hasLastBlock flag */
 
     if (this.lastBlock) {
@@ -329,16 +323,29 @@ export class CheckpointProposal extends Gossipable {
   }
 
   static empty(): CheckpointProposal {
-    return new CheckpointProposal(CheckpointHeader.empty(), Fr.ZERO, 0n, Signature.empty());
+    return new CheckpointProposal(
+      CheckpointHeader.empty(),
+      Fr.ZERO,
+      0n,
+      Signature.empty(),
+      EMPTY_COORDINATION_SIGNATURE_CONTEXT,
+    );
   }
 
   static random(): CheckpointProposal {
-    return new CheckpointProposal(CheckpointHeader.random(), Fr.random(), 0n, Signature.random(), {
-      blockHeader: BlockHeader.random(),
-      indexWithinCheckpoint: IndexWithinCheckpoint(Math.floor(Math.random() * 5)),
-      txHashes: [TxHash.random(), TxHash.random()],
-      signature: Signature.random(),
-    });
+    return new CheckpointProposal(
+      CheckpointHeader.random(),
+      Fr.random(),
+      0n,
+      Signature.random(),
+      EMPTY_COORDINATION_SIGNATURE_CONTEXT,
+      {
+        blockHeader: BlockHeader.random(),
+        indexWithinCheckpoint: IndexWithinCheckpoint(Math.floor(Math.random() * 5)),
+        txHashes: [TxHash.random(), TxHash.random()],
+        signature: Signature.random(),
+      },
+    );
   }
 
   toInspect() {
@@ -347,6 +354,8 @@ export class CheckpointProposal extends Gossipable {
       archive: this.archive.toString(),
       signature: this.signature.toString(),
       feeAssetPriceModifier: this.feeAssetPriceModifier.toString(),
+      chainId: this.signatureContext.chainId,
+      rollupAddress: this.signatureContext.rollupAddress.toString(),
       lastBlock: this.lastBlock
         ? {
             blockHeader: this.lastBlock.blockHeader.toInspect(),
@@ -363,7 +372,13 @@ export class CheckpointProposal extends Gossipable {
    * Used when the lastBlock has been extracted and stored separately.
    */
   toCore(): CheckpointProposalCore {
-    return new CheckpointProposal(this.checkpointHeader, this.archive, this.feeAssetPriceModifier, this.signature);
+    return new CheckpointProposal(
+      this.checkpointHeader,
+      this.archive,
+      this.feeAssetPriceModifier,
+      this.signature,
+      this.signatureContext,
+    );
   }
 }
 

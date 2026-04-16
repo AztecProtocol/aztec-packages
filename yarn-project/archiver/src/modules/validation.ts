@@ -22,8 +22,8 @@ export function getAttestationInfoFromPublishedCheckpoint(
   { checkpoint, attestations }: PublishedCheckpoint,
   signatureContext: CoordinationSignatureContext,
 ): AttestationInfo[] {
-  const payload = ConsensusPayload.fromCheckpoint(checkpoint);
-  return getAttestationInfoFromPayload(payload, attestations, signatureContext);
+  const payload = ConsensusPayload.fromCheckpoint(checkpoint, signatureContext);
+  return getAttestationInfoFromPayload(payload, attestations);
 }
 
 /**

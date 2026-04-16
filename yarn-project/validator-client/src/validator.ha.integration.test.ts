@@ -203,7 +203,7 @@ describe('ValidatorClient HA Integration', () => {
     const haKeyStore = new HAKeyStore(baseKeyStore, haSigner);
 
     // Create block proposal handler
-    const metrics = new ValidatorMetrics(getTelemetryClient(), TEST_COORDINATION_SIGNATURE_CONTEXT);
+    const metrics = new ValidatorMetrics(getTelemetryClient());
     const blockProposalValidator = new BlockProposalValidator(epochCache, {
       txsPermitted: true,
       maxTxsPerBlock: undefined,
@@ -320,7 +320,7 @@ describe('ValidatorClient HA Integration', () => {
       const successfulResult = results.find(r => r.status === 'fulfilled') as PromiseFulfilledResult<any> | undefined;
       expect(successfulResult).toBeDefined();
       expect(successfulResult?.value).toBeDefined();
-      expect(successfulResult?.value?.getSender(TEST_COORDINATION_SIGNATURE_CONTEXT)).toEqual(proposerAddress);
+      expect(successfulResult?.value?.getSender()).toEqual(proposerAddress);
     });
 
     it('should allow different validators to create proposals for different slots', async () => {
@@ -350,7 +350,7 @@ describe('ValidatorClient HA Integration', () => {
       expect(proposals).toHaveLength(5);
       proposals.forEach(proposal => {
         expect(proposal).toBeDefined();
-        expect(proposal.getSender(TEST_COORDINATION_SIGNATURE_CONTEXT)).toEqual(proposerAddress);
+        expect(proposal.getSender()).toEqual(proposerAddress);
       });
     });
 

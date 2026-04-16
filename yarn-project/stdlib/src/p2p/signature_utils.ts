@@ -1,33 +1,68 @@
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { keccak256 } from '@aztec/foundation/crypto/keccak';
-import { makeEthSignDigest, tryRecoverAddress } from '@aztec/foundation/crypto/secp256k1-signer';
-import type { EthAddress } from '@aztec/foundation/eth-address';
+import { tryRecoverAddress } from '@aztec/foundation/crypto/secp256k1-signer';
+import { EthAddress } from '@aztec/foundation/eth-address';
 import type { Signature } from '@aztec/foundation/eth-signature';
+import { type BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { type TypedDataDefinition, hashTypedData } from 'viem';
+import { z } from 'zod';
 
-export enum SignatureDomainSeparator {
-  blockProposal = 0,
-  checkpointAttestation = 1,
-  attestationsAndSigners = 2,
-  checkpointProposal = 3,
-  signedTxs = 4,
-}
+import type { ZodFor } from '../schemas/index.js';
 
-export interface Signable {
-  getPayloadToSign(domainSeparator: SignatureDomainSeparator): Buffer;
-}
+export type CoordinationSignatureType =
+  | 'BlockProposal'
+  | 'CheckpointProposal'
+  | 'CheckpointAttestation'
+  | 'AttestationsAndSigners'
+  | 'SignedTxs';
 
 export type CoordinationSignatureContext = {
   chainId: number;
   rollupAddress: EthAddress;
 };
 
-type CoordinationSignatureType =
-  | 'BlockProposal'
-  | 'CheckpointProposal'
-  | 'CheckpointAttestation'
-  | 'AttestationsAndSigners';
+export const EMPTY_COORDINATION_SIGNATURE_CONTEXT: CoordinationSignatureContext = {
+  chainId: 0,
+  rollupAddress: EthAddress.ZERO,
+};
+
+export const coordinationSignatureContextSchema: ZodFor<CoordinationSignatureContext> = z.object({
+  chainId: z.number(),
+  rollupAddress: EthAddress.schema,
+});
+
+export interface Signable {
+  readonly primaryType: CoordinationSignatureType;
+  readonly signatureContext: CoordinationSignatureContext;
+  getPayloadToSign(): Buffer;
+}
+
+export function coordinationSignatureContextEquals(
+  a: CoordinationSignatureContext,
+  b: CoordinationSignatureContext,
+): boolean {
+  return a.chainId === b.chainId && a.rollupAddress.equals(b.rollupAddress);
+}
+
+export function serializeCoordinationSignatureContext(ctx: CoordinationSignatureContext): Buffer {
+  return serializeToBuffer([ctx.chainId, ctx.rollupAddress]);
+}
+
+export function readCoordinationSignatureContext(reader: BufferReader): CoordinationSignatureContext {
+  const chainId = reader.readNumber();
+  const rollupAddress = reader.readObject(EthAddress);
+  return { chainId, rollupAddress };
+}
+
+/**
+ * Returns true if the signable carries a context matching the node's expected context.
+ * Use this at the P2P ingress boundary to reject foreign-chain messages cheaply before
+ * performing any signature recovery.
+ */
+export function hasValidSignatureContext(signable: Signable, expected: CoordinationSignatureContext): boolean {
+  return coordinationSignatureContextEquals(signable.signatureContext, expected);
+}
 
 const COORDINATION_SIGNATURE_NAME = 'Aztec Rollup';
 const COORDINATION_SIGNATURE_VERSION = '1';
@@ -45,26 +80,8 @@ const COORDINATION_SIGNATURE_TYPES = {
   CheckpointProposal: [{ name: 'payloadHash', type: 'bytes32' }],
   CheckpointAttestation: [{ name: 'payloadHash', type: 'bytes32' }],
   AttestationsAndSigners: [{ name: 'payloadHash', type: 'bytes32' }],
+  SignedTxs: [{ name: 'payloadHash', type: 'bytes32' }],
 } as const;
-
-function getCoordinationSignatureType(domainSeparator: SignatureDomainSeparator): CoordinationSignatureType {
-  switch (domainSeparator) {
-    case SignatureDomainSeparator.blockProposal:
-      return 'BlockProposal';
-    case SignatureDomainSeparator.checkpointProposal:
-      return 'CheckpointProposal';
-    case SignatureDomainSeparator.checkpointAttestation:
-      return 'CheckpointAttestation';
-    case SignatureDomainSeparator.attestationsAndSigners:
-      return 'AttestationsAndSigners';
-    case SignatureDomainSeparator.signedTxs:
-      throw new Error('SignedTxs does not use the coordination EIP-712 signature domain');
-  }
-}
-
-export function getCoordinationSignatureContextKey(context: CoordinationSignatureContext): string {
-  return `${context.chainId}:${context.rollupAddress.toString()}`;
-}
 
 export function getCoordinationSignatureTypedDataForPayloadHash(
   payloadHash: Buffer32,
@@ -86,55 +103,20 @@ export function getCoordinationSignatureTypedDataForPayloadHash(
   };
 }
 
-export function getCoordinationSignatureTypedData(
-  signable: Signable,
-  domainSeparator: SignatureDomainSeparator,
-  context: CoordinationSignatureContext,
-): TypedDataDefinition {
-  const payloadHash = getHashedSignaturePayload(signable, domainSeparator);
-  return getCoordinationSignatureTypedDataForPayloadHash(
-    payloadHash,
-    getCoordinationSignatureType(domainSeparator),
-    context,
-  );
+export function getCoordinationSignatureTypedData(signable: Signable): TypedDataDefinition {
+  const payloadHash = getHashedSignaturePayload(signable);
+  return getCoordinationSignatureTypedDataForPayloadHash(payloadHash, signable.primaryType, signable.signatureContext);
 }
 
-export function getHashedSignaturePayloadTypedData(
-  signable: Signable,
-  domainSeparator: SignatureDomainSeparator,
-  context: CoordinationSignatureContext,
-): Buffer32 {
-  return Buffer32.fromString(hashTypedData(getCoordinationSignatureTypedData(signable, domainSeparator, context)));
+export function getHashedSignaturePayloadTypedData(signable: Signable): Buffer32 {
+  return Buffer32.fromString(hashTypedData(getCoordinationSignatureTypedData(signable)));
 }
 
-export function recoverCoordinationSigner(
-  signable: Signable,
-  domainSeparator: SignatureDomainSeparator,
-  signature: Signature,
-  context: CoordinationSignatureContext,
-): EthAddress | undefined {
-  const digest = getHashedSignaturePayloadTypedData(signable, domainSeparator, context);
+export function recoverCoordinationSigner(signable: Signable, signature: Signature): EthAddress | undefined {
+  const digest = getHashedSignaturePayloadTypedData(signable);
   return tryRecoverAddress(digest, signature, { allowYParityAsV: true });
 }
 
-/**
- * Get the hashed payload for the signature of the `Signable`
- * @param s - The `Signable` to sign
- * @returns The hashed payload for the signature of the `Signable`
- */
-export function getHashedSignaturePayload(s: Signable, domainSeparator: SignatureDomainSeparator): Buffer32 {
-  return Buffer32.fromBuffer(keccak256(s.getPayloadToSign(domainSeparator)));
-}
-
-/**
- * Get the hashed payload for the signature of the `Signable` as an Ethereum signed message EIP-712
- * @param s - the `Signable` to sign
- * @returns The hashed payload for the signature of the `Signable` as an Ethereum signed message
- */
-export function getHashedSignaturePayloadEthSignedMessage(
-  s: Signable,
-  domainSeparator: SignatureDomainSeparator,
-): Buffer32 {
-  const payload = getHashedSignaturePayload(s, domainSeparator);
-  return makeEthSignDigest(payload);
+export function getHashedSignaturePayload(s: Signable): Buffer32 {
+  return Buffer32.fromBuffer(keccak256(s.getPayloadToSign()));
 }
