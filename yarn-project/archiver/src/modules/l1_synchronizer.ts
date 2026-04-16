@@ -521,18 +521,17 @@ export class ArchiverL1Synchronizer implements Traceable {
       }
     }
 
-    // Delete everything after the common message we found.
-    const lastGoodIndex = commonMsg?.index;
-    this.log.warn(`Deleting all local L1 to L2 messages after index ${lastGoodIndex ?? 'undefined'}`);
-    await this.store.removeL1ToL2Messages(lastGoodIndex !== undefined ? lastGoodIndex + 1n : 0n);
-
-    // Update the syncpoint so the loop below reprocesses the changed messages. We go to the block before
+    // Compute the new syncpoint so the loop below reprocesses the changed messages. We go to the block before
     // the last common one, so we force reprocessing it, in case new messages were added on that same L1 block
     // after the last common message.
     const syncPointL1BlockNumber = commonMsg ? commonMsg.l1BlockNumber - 1n : this.l1Constants.l1StartBlock;
     const syncPointL1BlockHash = await this.getL1BlockHash(syncPointL1BlockNumber);
     messagesSyncPoint = { l1BlockNumber: syncPointL1BlockNumber, l1BlockHash: syncPointL1BlockHash };
-    await this.store.setMessageSynchedL1Block(messagesSyncPoint);
+
+    // Delete everything after the common message we found and update the syncpoint atomically.
+    const lastGoodIndex = commonMsg?.index;
+    this.log.warn(`Deleting all local L1 to L2 messages after index ${lastGoodIndex ?? 'undefined'}`);
+    await this.store.removeL1ToL2Messages(lastGoodIndex !== undefined ? lastGoodIndex + 1n : 0n, messagesSyncPoint);
     return messagesSyncPoint;
   }
 

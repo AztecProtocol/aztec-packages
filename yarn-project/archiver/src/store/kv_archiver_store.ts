@@ -561,13 +561,6 @@ export class KVArchiverDataStore implements ContractDataSource {
   }
 
   /**
-   * Stores the l1 block that messages have been synched until
-   */
-  async setMessageSynchedL1Block(l1Block: L1BlockId) {
-    await this.#messageStore.setSynchedL1Block(l1Block);
-  }
-
-  /**
    * Returns the number of the most recent proven block
    * @returns The number of the most recent proven block
    */
@@ -594,9 +587,12 @@ export class KVArchiverDataStore implements ContractDataSource {
     return this.db.estimateSize();
   }
 
-  /** Deletes all L1 to L2 messages up until (excluding) the target checkpoint number. */
-  public rollbackL1ToL2MessagesToCheckpoint(targetCheckpointNumber: CheckpointNumber): Promise<void> {
-    return this.#messageStore.rollbackL1ToL2MessagesToCheckpoint(targetCheckpointNumber);
+  /** Deletes all L1 to L2 messages up until (excluding) the target checkpoint number and updates the message syncpoint atomically. */
+  public rollbackL1ToL2MessagesToCheckpoint(
+    targetCheckpointNumber: CheckpointNumber,
+    syncPoint: L1BlockId,
+  ): Promise<void> {
+    return this.#messageStore.rollbackL1ToL2MessagesToCheckpoint(targetCheckpointNumber, syncPoint);
   }
 
   /** Returns an async iterator to all L1 to L2 messages on the range. */
@@ -604,9 +600,9 @@ export class KVArchiverDataStore implements ContractDataSource {
     return this.#messageStore.iterateL1ToL2Messages(range);
   }
 
-  /** Removes all L1 to L2 messages starting from the given index (inclusive). */
-  public removeL1ToL2Messages(startIndex: bigint): Promise<void> {
-    return this.#messageStore.removeL1ToL2Messages(startIndex);
+  /** Removes all L1 to L2 messages starting from the given index (inclusive) and updates the message syncpoint atomically. */
+  public removeL1ToL2Messages(startIndex: bigint, syncPoint: L1BlockId): Promise<void> {
+    return this.#messageStore.removeL1ToL2Messages(startIndex, syncPoint);
   }
 
   /** Returns the last synced validation status of the pending chain. */

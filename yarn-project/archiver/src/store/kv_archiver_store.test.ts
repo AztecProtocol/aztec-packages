@@ -1811,7 +1811,7 @@ describe('KVArchiverDataStore', () => {
     it('returns the L1 block number that most recently added messages from inbox', async () => {
       const l1BlockHash = Buffer32.random();
       const l1BlockNumber = 10n;
-      await store.setMessageSynchedL1Block({ l1BlockNumber: 5n, l1BlockHash: Buffer32.random() });
+      await store.removeL1ToL2Messages(0n, { l1BlockNumber: 5n, l1BlockHash: Buffer32.random() });
       await store.addL1ToL2Messages([makeInboxMessage(Buffer16.ZERO, { l1BlockNumber, l1BlockHash })]);
       await expect(store.getSynchPoint()).resolves.toEqual({
         blocksSynchedTo: undefined,
@@ -1822,7 +1822,7 @@ describe('KVArchiverDataStore', () => {
     it('returns the latest syncpoint if latest message is behind', async () => {
       const l1BlockHash = Buffer32.random();
       const l1BlockNumber = 10n;
-      await store.setMessageSynchedL1Block({ l1BlockNumber, l1BlockHash });
+      await store.removeL1ToL2Messages(0n, { l1BlockNumber, l1BlockHash });
       const msg = makeInboxMessage(Buffer16.ZERO, { l1BlockNumber: 5n, l1BlockHash: Buffer32.random() });
       await store.addL1ToL2Messages([msg]);
       await expect(store.getSynchPoint()).resolves.toEqual({
@@ -2218,7 +2218,10 @@ describe('KVArchiverDataStore', () => {
       expect(await store.getL1ToL2Messages(CheckpointNumber(3))).toHaveLength(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP);
       expect(await store.getL1ToL2Messages(CheckpointNumber(4))).toHaveLength(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP);
 
-      await store.rollbackL1ToL2MessagesToCheckpoint(CheckpointNumber(2));
+      await store.rollbackL1ToL2MessagesToCheckpoint(CheckpointNumber(2), {
+        l1BlockNumber: 0n,
+        l1BlockHash: Buffer32.random(),
+      });
 
       expect(await store.getL1ToL2Messages(CheckpointNumber(1))).toHaveLength(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP);
       expect(await store.getL1ToL2Messages(CheckpointNumber(2))).toHaveLength(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP);
@@ -2232,7 +2235,7 @@ describe('KVArchiverDataStore', () => {
       const msgs = makeInboxMessagesWithFullBlocks(4, { initialCheckpointNumber: CheckpointNumber(1) });
       await store.addL1ToL2Messages(msgs);
 
-      await store.removeL1ToL2Messages(msgs[13].index);
+      await store.removeL1ToL2Messages(msgs[13].index, { l1BlockNumber: 0n, l1BlockHash: Buffer32.random() });
       await checkMessages(msgs.slice(0, 13));
     });
   });

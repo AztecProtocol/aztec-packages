@@ -217,7 +217,7 @@ export class MessageStore {
     }
   }
 
-  public removeL1ToL2Messages(startIndex: bigint): Promise<void> {
+  public removeL1ToL2Messages(startIndex: bigint, syncPoint: L1BlockId): Promise<void> {
     this.#log.debug(`Deleting L1 to L2 messages from index ${startIndex}`);
     let deleteCount = 0;
 
@@ -231,14 +231,18 @@ export class MessageStore {
         deleteCount++;
       }
       await this.increaseTotalMessageCount(-deleteCount);
+      await this.setSynchedL1Block(syncPoint);
       this.#log.warn(`Deleted ${deleteCount} L1 to L2 messages from index ${startIndex} from the store`);
     });
   }
 
-  public rollbackL1ToL2MessagesToCheckpoint(targetCheckpointNumber: CheckpointNumber): Promise<void> {
+  public rollbackL1ToL2MessagesToCheckpoint(
+    targetCheckpointNumber: CheckpointNumber,
+    syncPoint: L1BlockId,
+  ): Promise<void> {
     this.#log.debug(`Deleting L1 to L2 messages up to target checkpoint ${targetCheckpointNumber}`);
     const startIndex = InboxLeaf.smallestIndexForCheckpoint(CheckpointNumber(targetCheckpointNumber + 1));
-    return this.removeL1ToL2Messages(startIndex);
+    return this.removeL1ToL2Messages(startIndex, syncPoint);
   }
 
   private indexToKey(index: bigint): number {
