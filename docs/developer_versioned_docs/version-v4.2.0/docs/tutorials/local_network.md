@@ -80,11 +80,11 @@ This can present confusion when opening older contracts (and dependencies) writt
 
 ### Steps to keep up to date
 
-1. Update the Aztec local network to a specific version (includes `aztec` command, pxe, etc) — `aztec-up` uses explicit subcommands to install and switch between versions. For example, to install and use [v**0.77.0**](https://github.com/AztecProtocol/aztec-packages/tree/v0.77.0):
+1. Update the Aztec local network to a specific version (includes `aztec` command, pxe, etc) — `aztec-up` uses explicit subcommands to install and switch between versions. For example, to install and use [v**4.2.0**](https://github.com/AztecProtocol/aztec-packages/tree/v4.2.0):
 
 ```shell
-aztec-up install 0.77.0
-aztec-up use 0.77.0
+aztec-up install 4.2.0
+aztec-up use 4.2.0
 ```
 
 Run `aztec-up list` to see installed versions, or `aztec-up --help` for all available subcommands.
