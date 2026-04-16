@@ -434,8 +434,7 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
       timeoutPromise(test.L2_SLOT_DURATION_IN_S * 8 * 1000).then(() => [CheckpointNumber(0), CheckpointNumber(0)]),
     ]);
 
-    // Subscribe to checkpoint invalidation events, capturing the L1 tx hash so we can verify the sender
-    const invalidatePromise = promiseWithResolvers<{ checkpointNumber: CheckpointNumber; txHash: `0x${string}` }>();
+    // Subscribe to checkpoint invalidation events
     const checkpointInvalidatedFilter = await l1Client.createContractEventFilter({
       address: rollupContract.address,
       abi: RollupAbi,
