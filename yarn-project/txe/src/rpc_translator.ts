@@ -363,7 +363,9 @@ export class RPCTranslator {
   // eslint-disable-next-line camelcase
   aztec_txe_getLastCallTxHash() {
     const { txHash } = this.stateHandler.getLastCallOffchainEffects();
-    return toForeignCallResult([toSingle(txHash)]);
+    // Return a Noir Option<Field>: [is_some, value]
+    const isSome = txHash.isZero() ? 0 : 1;
+    return toForeignCallResult([toSingle(isSome), toSingle(txHash)]);
   }
 
   // eslint-disable-next-line camelcase

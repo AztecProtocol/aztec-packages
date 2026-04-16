@@ -97,13 +97,10 @@ pub unconstrained fn get_last_tx_effects() -> (Field, BoundedVec<Field, MAX_NOTE
 #[oracle(aztec_txe_getLastCallOffchainEffects)]
 pub unconstrained fn get_last_call_offchain_effects() -> BoundedVec<[Field; OFFCHAIN_EFFECT_LEN], MAX_OFFCHAIN_EFFECTS_PER_TXE_QUERY> {}
 
-/// Returns the tx hash of the last top-level call.
-///
-/// `0` indicates the call was tx-less (`execute_utility`, context setters, etc). The
-/// `TestEnvironment::offchain_messages` helper converts this to `Option::none()` in the
-/// `OffchainMessage` struct.
+/// Returns the tx hash of the last top-level call, or `None` if the call was tx-less
+/// (`execute_utility`, context setters, etc).
 #[oracle(aztec_txe_getLastCallTxHash)]
-pub unconstrained fn get_last_call_tx_hash() -> Field {}
+pub unconstrained fn get_last_call_tx_hash() -> Option<Field> {}
 
 /// Returns the anchor block timestamp captured at the start of the top-level call that last
 /// populated the offchain effect buffer. This is the timestamp used for offchain message expiry

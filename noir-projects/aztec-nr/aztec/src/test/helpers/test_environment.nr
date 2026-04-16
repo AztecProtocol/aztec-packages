@@ -637,16 +637,8 @@ impl TestEnvironment {
         _self: Self,
     ) -> BoundedVec<OffchainMessage, MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL> {
         let raw_effects = txe_oracles::get_last_call_offchain_effects();
-        let raw_tx_hash = txe_oracles::get_last_call_tx_hash();
+        let tx_hash = txe_oracles::get_last_call_tx_hash();
         let anchor_block_timestamp = txe_oracles::get_last_call_anchor_block_timestamp();
-
-        // TXE encodes "tx-less" as zero on the wire so the field fits a plain `Field`.
-        // Convert back to `Option::none()` here to match the production type.
-        let tx_hash = if raw_tx_hash == 0 {
-            Option::none()
-        } else {
-            Option::some(raw_tx_hash)
-        };
 
         let mut messages: BoundedVec<OffchainMessage, MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL> = BoundedVec::new();
 
