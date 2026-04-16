@@ -25,7 +25,7 @@ services:
       - /bin/bash
       - -c
       - |
-        node --no-warnings /usr/src/yarn-project/end-to-end/dest/backwards-compat/wallet_service.js
+        node --no-warnings /usr/src/yarn-project/end-to-end/dest/forward-compatibility/wallet_service.js
     environment:
       LOG_LEVEL: ${LOG_LEVEL:-verbose}
       ETHEREUM_HOSTS: http://fork:8545
@@ -48,7 +48,7 @@ services:
     entrypoint: >
       bash -c '
         while ! nc -z old-stack 8081; do sleep 1; done;
-        setsid ./scripts/test_simple.sh $${TEST:-./src/backwards-compat/} &
+        setsid ./scripts/test_simple.sh $${TEST:-./src/forward-compatibility/} &
         pid=$$!
         pgid=$$(($$(ps -o pgid= -p $$pid)))
         trap "kill -SIGTERM -$$pgid" SIGTERM

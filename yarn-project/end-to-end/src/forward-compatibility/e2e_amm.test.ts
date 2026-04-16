@@ -15,11 +15,11 @@
  *
  * Terminal 2 — start the wallet service (from yarn-project/):
  *   ETHEREUM_HOSTS=http://localhost:8545 L1_CHAIN_ID=31337 TEST_ACCOUNTS=true \
- *     node --no-warnings ./end-to-end/dest/backwards-compat/wallet_service.js
+ *     node --no-warnings ./end-to-end/dest/forward-compatibility/wallet_service.js
  *
  * Terminal 3 — run this test (from yarn-project/):
  *   REMOTE_WALLET_URL=http://localhost:8081 \
- *     yarn workspace @aztec/end-to-end test:e2e src/backwards-compat/e2e_amm.test.ts
+ *     yarn workspace @aztec/end-to-end test:e2e src/forward-compatibility/e2e_amm.test.ts
  */
 import { AztecAddress } from '@aztec/aztec.js/addresses';
 import { Fr } from '@aztec/aztec.js/fields';
@@ -38,7 +38,7 @@ const TIMEOUT = 300_000;
 
 const { REMOTE_WALLET_URL = 'http://localhost:8081' } = process.env;
 
-describe('backwards-compat: AMM', () => {
+describe('forward-compatibility: AMM', () => {
   jest.setTimeout(TIMEOUT);
 
   let logger: Logger;
@@ -59,7 +59,7 @@ describe('backwards-compat: AMM', () => {
   const INITIAL_TOKEN_BALANCE = 1_000_000_000n;
 
   beforeAll(async () => {
-    logger = createLogger('e2e:backwards-compat:amm');
+    logger = createLogger('e2e:forward-compatibility:amm');
 
     wallet = createWalletClient(REMOTE_WALLET_URL);
 
