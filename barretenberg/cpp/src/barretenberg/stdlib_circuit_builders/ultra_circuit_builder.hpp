@@ -432,6 +432,26 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
     std::deque<plookup::BasicTable>& get_lookup_tables() { return lookup_tables; }
     size_t get_num_lookup_tables() const { return lookup_tables.size(); }
 
+    /**
+     * @brief Register a BasicTable with the builder, assigning it a unique table_index.
+     * @return Stable pointer into the builder's lookup_tables deque.
+     */
+    plookup::BasicTable* register_basic_lookup_table(plookup::BasicTable&& table);
+
+    /**
+     * @brief Create a single plookup lookup gate.
+     * @details Records the lookup entry, populates one row of the lookup block with the given wire indices and
+     * step-size selectors, and increments the gate count. Step sizes are 0 for standalone or last-in-chain lookups.
+     */
+    void create_lookup_gate(uint32_t key_idx,
+                            uint32_t val1_idx,
+                            uint32_t val2_idx,
+                            plookup::BasicTable& table,
+                            const plookup::BasicTable::LookupEntry& entry,
+                            FF column_1_step_size = 0,
+                            FF column_2_step_size = 0,
+                            FF column_3_step_size = 0);
+
     plookup::ReadData<uint32_t> create_gates_from_plookup_accumulators(
         const plookup::MultiTableId& id,
         const plookup::ReadData<FF>& read_values,

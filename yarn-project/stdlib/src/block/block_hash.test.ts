@@ -1,4 +1,4 @@
-import { Fr } from '@aztec/foundation/curves/bn254';
+import { BaseFr, Fr } from '@aztec/foundation/curves/bn254';
 
 import { BlockHash } from './block_hash.js';
 
@@ -16,9 +16,14 @@ describe('BlockHash', () => {
   });
 
   describe('inheritance', () => {
-    it('is an instance of Fr', () => {
+    it('is an instance of BaseFr', () => {
       const hash = BlockHash.random();
-      expect(hash).toBeInstanceOf(Fr);
+      expect(hash).toBeInstanceOf(BaseFr);
+    });
+
+    it('is not an instance of Fr', () => {
+      const hash = BlockHash.random();
+      expect(hash).not.toBeInstanceOf(Fr);
     });
 
     it('round-trips through toString/fromString', () => {

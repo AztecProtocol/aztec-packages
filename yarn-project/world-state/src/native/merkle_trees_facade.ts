@@ -4,6 +4,7 @@ import { createLogger } from '@aztec/foundation/log';
 import { serializeToBuffer } from '@aztec/foundation/serialize';
 import { sleep } from '@aztec/foundation/sleep';
 import { type IndexedTreeLeafPreimage, SiblingPath } from '@aztec/foundation/trees';
+import { BlockHash } from '@aztec/stdlib/block';
 import type {
   BatchInsertionResult,
   IndexedTreeId,
@@ -118,7 +119,7 @@ export class MerkleTreesFacade implements MerkleTreeReadOperations {
 
     const leaf = deserializeLeafValue(resp);
     if (leaf instanceof Fr) {
-      return leaf as any;
+      return treeId === MerkleTreeId.ARCHIVE ? (new BlockHash(leaf) as any) : (leaf as any);
     } else {
       return leaf.toBuffer() as any;
     }
@@ -228,7 +229,7 @@ export class MerkleTreesForkFacade extends MerkleTreesFacade implements MerkleTr
 
   async appendLeaves<ID extends MerkleTreeId>(treeId: ID, leaves: MerkleTreeLeafType<ID>[]): Promise<void> {
     await this.instance.call(WorldStateMessageType.APPEND_LEAVES, {
-      leaves: leaves.map(leaf => leaf as any),
+      leaves: leaves.map(leaf => serializeLeaf(hydrateLeaf(treeId, leaf as any))),
       forkId: this.revision.forkId,
       treeId,
     });
@@ -352,9 +353,11 @@ export class MerkleTreesForkFacade extends MerkleTreesFacade implements MerkleTr
   }
 }
 
-function hydrateLeaf<ID extends MerkleTreeId>(treeId: ID, leaf: Fr | Buffer) {
+function hydrateLeaf(treeId: MerkleTreeId, leaf: Fr | BlockHash | Buffer) {
   if (leaf instanceof Fr) {
     return leaf;
+  } else if (leaf instanceof BlockHash) {
+    return leaf.toFr();
   } else if (treeId === MerkleTreeId.NULLIFIER_TREE) {
     return NullifierLeaf.fromBuffer(leaf);
   } else if (treeId === MerkleTreeId.PUBLIC_DATA_TREE) {
@@ -364,8 +367,10 @@ function hydrateLeaf<ID extends MerkleTreeId>(treeId: ID, leaf: Fr | Buffer) {
   }
 }
 
-export function serializeLeaf(leaf: Fr | NullifierLeaf | PublicDataTreeLeaf): SerializedLeafValue {
-  if (leaf instanceof Fr) {
+export function serializeLeaf(leaf: Fr | BlockHash | NullifierLeaf | PublicDataTreeLeaf): SerializedLeafValue {
+  if (leaf instanceof BlockHash) {
+    return leaf.toBuffer();
+  } else if (leaf instanceof Fr) {
     return leaf.toBuffer();
   } else if (leaf instanceof NullifierLeaf) {
     return { nullifier: leaf.nullifier.toBuffer() };

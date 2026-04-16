@@ -45,9 +45,9 @@ jobs:
           build-args: |
             COMMIT=${{ github.event_name == 'workflow_dispatch' && github.event.inputs.commit || github.sha }}
           labels: |
-            com.aztec.source-repo=${{ github.repository }}
-            com.aztec.source-branch=${{ github.ref_name }}
-            com.aztec.commit=${{ github.sha }}
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.revision.branch=${{ github.ref_name }}
             com.aztec.visibility=public
 
       - name: Install cosign

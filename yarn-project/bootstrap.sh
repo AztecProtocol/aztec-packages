@@ -263,9 +263,9 @@ function release_packages {
 
   local package_list=()
   for package in $packages; do
-    (cd $package && retry "deploy_npm $1 $2")
+    (cd $package && retry "deploy_npm $1")
     local package_name=$(jq -r .name "$package/package.json")
-    package_list+=("$package_name@$2")
+    package_list+=("$package_name@$1")
   done
   # Smoke test the deployed packages.
   local dir=$(mktemp -d)
@@ -280,7 +280,7 @@ function release_packages {
 
 function release {
   echo_header "yarn-project release"
-  release_packages "$(dist_tag)" "${REF_NAME#v}"
+  release_packages "${REF_NAME#v}"
 }
 
 case "$cmd" in

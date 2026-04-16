@@ -181,7 +181,7 @@ struct lookup_tx_nullifier_append_settings_ {
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
         ColumnAndShifts::tx_leaf_value,
         ColumnAndShifts::tx_prev_nullifier_tree_root,
-        ColumnAndShifts::tx_reverted,
+        ColumnAndShifts::precomputed_zero,
         ColumnAndShifts::tx_next_nullifier_tree_root,
         ColumnAndShifts::tx_prev_nullifier_tree_size,
         ColumnAndShifts::tx_discard,

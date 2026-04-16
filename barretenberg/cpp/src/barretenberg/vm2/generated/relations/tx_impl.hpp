@@ -350,7 +350,6 @@ void txImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     {
         using View = typename std::tuple_element_t<43, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::tx_should_nullifier_append)) *
-                   (FF(1) - static_cast<View>(in.get(C::tx_reverted))) *
                    ((static_cast<View>(in.get(C::tx_prev_nullifier_tree_size)) + FF(1)) -
                     static_cast<View>(in.get(C::tx_next_nullifier_tree_size)));
         std::get<43>(evals) += (tmp * scaling_factor);
@@ -358,7 +357,6 @@ void txImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     {
         using View = typename std::tuple_element_t<44, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::tx_should_nullifier_append)) *
-                   (FF(1) - static_cast<View>(in.get(C::tx_reverted))) *
                    ((static_cast<View>(in.get(C::tx_prev_num_nullifiers_emitted)) + FF(1)) -
                     static_cast<View>(in.get(C::tx_next_num_nullifiers_emitted)));
         std::get<44>(evals) += (tmp * scaling_factor);

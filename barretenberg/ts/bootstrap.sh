@@ -64,7 +64,7 @@ function test {
 
 function release {
   cross_copy
-  retry "deploy_npm $(dist_tag) ${REF_NAME#v}"
+  retry "deploy_npm ${REF_NAME#v}"
 }
 
 function cross_copy {
