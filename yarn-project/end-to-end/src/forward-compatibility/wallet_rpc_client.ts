@@ -1,7 +1,6 @@
+import type { Wallet } from '@aztec/aztec.js/wallet';
+import { WalletSchema } from '@aztec/aztec.js/wallet';
 import { createSafeJsonRpcClient, makeFetch } from '@aztec/foundation/json-rpc/client';
-
-import type { Wallet } from './wallet.js';
-import { WalletSchema } from './wallet.js';
 
 /**
  * Creates a JSON-RPC client that connects to a remote wallet service.

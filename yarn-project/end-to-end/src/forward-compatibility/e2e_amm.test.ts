@@ -26,13 +26,13 @@ import { Fr } from '@aztec/aztec.js/fields';
 import type { Logger } from '@aztec/aztec.js/log';
 import { createLogger } from '@aztec/aztec.js/log';
 import type { Wallet } from '@aztec/aztec.js/wallet';
-import { createWalletClient } from '@aztec/aztec.js/wallet';
 import { AMMContract } from '@aztec/noir-contracts.js/AMM';
 import type { TokenContract } from '@aztec/noir-contracts.js/Token';
 
 import { jest } from '@jest/globals';
 
 import { deployToken, mintTokensToPrivate } from '../fixtures/token_utils.js';
+import { createWalletClient } from './wallet_rpc_client.js';
 
 const TIMEOUT = 300_000;
 
