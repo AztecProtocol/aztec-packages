@@ -26,7 +26,9 @@ async function main() {
   const l1RpcUrls = ETHEREUM_HOSTS.split(',').map(url => url.trim());
 
   // Some tests (e.g. AMM) need 4 accounts but only 3 are funded via genesis. Generate deterministic keys for a 4th
-  // account so we can compute its address before network startup and include it in genesis funding.
+  // account so we can compute its address before network startup and include it in genesis funding. We cannot do this
+  // in the test because Wallet interface does not expose account creation functionality (only TestWallet exposes that
+  // but that's not used in forward compatibility testing).
   const extraAccountSecret = Fr.fromHexString('0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef');
   const extraAccountSalt = Fr.ZERO;
   const extraAccountSigningKey = GrumpkinScalar.random();
