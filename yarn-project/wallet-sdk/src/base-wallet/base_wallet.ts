@@ -43,6 +43,7 @@ import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
   type ContractInstanceWithAddress,
+  type NodeInfo,
   computePartialAddress,
   getContractClassFromArtifact,
 } from '@aztec/stdlib/contract';
@@ -113,6 +114,7 @@ export type CompleteFeeOptionsConfig = {
 export abstract class BaseWallet implements Wallet {
   protected minFeePadding = 0.5;
   protected cancellableTransactions = false;
+  private nodeInfoPromise: Promise<NodeInfo> | undefined;
 
   // Protected because we want to force wallets to instantiate their own PXE.
   protected constructor(
@@ -144,7 +146,10 @@ export abstract class BaseWallet implements Wallet {
   }
 
   async getChainInfo(): Promise<ChainInfo> {
-    const { l1ChainId, rollupVersion } = await this.aztecNode.getNodeInfo();
+    if (!this.nodeInfoPromise) {
+      this.nodeInfoPromise = this.aztecNode.getNodeInfo();
+    }
+    const { l1ChainId, rollupVersion } = await this.nodeInfoPromise;
     return { chainId: new Fr(l1ChainId), version: new Fr(rollupVersion) };
   }
 
