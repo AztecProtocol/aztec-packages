@@ -911,9 +911,6 @@ impl PrivateContext {
 
     /// `BoundedVec`-based variant of [`emit_private_log_unsafe`](PrivateContext::emit_private_log_unsafe).
     ///
-    /// The `.len()` of the `BoundedVec` replaces the separate `length` argument: callers no longer need to manually
-    /// pad arrays with zeroes and track length alongside.
-    ///
     /// See [`emit_private_log_unsafe`](PrivateContext::emit_private_log_unsafe) for the full description of private
     /// log semantics.
     // TODO(F-555): once `emit_private_log_unsafe` is removed, rename this function to drop the `_vec` suffix.
@@ -959,9 +956,6 @@ impl PrivateContext {
     }
 
     /// `BoundedVec`-based variant of [`emit_raw_note_log_unsafe`](PrivateContext::emit_raw_note_log_unsafe).
-    ///
-    /// The `.len()` of the `BoundedVec` replaces the separate `length` argument: callers no longer need to manually
-    /// pad arrays with zeroes and track length alongside.
     ///
     /// See [`emit_raw_note_log_unsafe`](PrivateContext::emit_raw_note_log_unsafe) for the full description of
     /// note-tied private log semantics.
