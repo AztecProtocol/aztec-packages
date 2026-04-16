@@ -85,7 +85,7 @@ An account with Fee Juice can pay for its transactions directly. A new account c
 
 Alternatively, accounts can use [fee-paying contracts (FPCs)](../aztec-js/how_to_pay_fees.md#use-fee-payment-contracts) to pay for transactions. An FPC holds its own Fee Juice balance to pay the protocol, and can accept other tokens from users in exchange.
 
-The **Sponsored FPC** pays fees unconditionally, enabling free transactions. It is only available on devnet and local network. For testnet and mainnet, ecosystem-deployed FPCs are the practical option — the built-in reference FPC contract does not work on mainnet alpha because custom token class IDs are not included in the default public setup allowlist. As an example, Nethermind's [Private Multi Asset FPC](https://github.com/NethermindEth/aztec-fpc) demonstrates one such design — it accepts multiple tokens and routes fee payments as private notes.
+The **Sponsored FPC** pays fees unconditionally, enabling free transactions. It is available on testnet, devnet, and local network. On mainnet, ecosystem-deployed FPCs are the practical option — the built-in reference FPC contract does not work on mainnet alpha because custom token class IDs are not included in the default public setup allowlist. As an example, Nethermind's [Private Multi Asset FPC](https://github.com/NethermindEth/aztec-fpc) demonstrates one such design — it accepts multiple tokens and routes fee payments as private notes.
 
 ### How FPCs work
 

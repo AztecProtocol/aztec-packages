@@ -29,14 +29,20 @@
 <li><a href="#double">double</a></li>
 <li><a href="#generator">generator</a></li>
 <li><a href="#point_at_infinity">point_at_infinity</a></li>
+<li><a href="#to_embedded">to_embedded</a></li>
 </ul>
 <h3>Trait implementations</h3>
 <ul class="sidebar-list">
-<li><a href="#impl-Add-for-EmbeddedCurvePoint">Add</a></li>
-<li><a href="#impl-Eq-for-EmbeddedCurvePoint">Eq</a></li>
-<li><a href="#impl-Hash-for-EmbeddedCurvePoint">Hash</a></li>
-<li><a href="#impl-Neg-for-EmbeddedCurvePoint">Neg</a></li>
-<li><a href="#impl-Sub-for-EmbeddedCurvePoint">Sub</a></li>
+<li><a href="#impl-Add-for-Point">Add</a></li>
+<li><a href="#impl-Deserialize-for-Point">Deserialize</a></li>
+<li><a href="#impl-Empty-for-Point">Empty</a></li>
+<li><a href="#impl-Eq-for-Point">Eq</a></li>
+<li><a href="#impl-From&lt;EmbeddedCurvePoint&gt;-for-Point">From&lt;EmbeddedCurvePoint&gt;</a></li>
+<li><a href="#impl-Hash-for-Point">Hash</a></li>
+<li><a href="#impl-Neg-for-Point">Neg</a></li>
+<li><a href="#impl-Packable-for-Point">Packable</a></li>
+<li><a href="#impl-Serialize-for-Point">Serialize</a></li>
+<li><a href="#impl-Sub-for-Point">Sub</a></li>
 </ul>
 <h2>In module point</h2>
 <h3>Structs</h3><ul class="item-list">
@@ -58,71 +64,77 @@
     pub is_infinite: <a href="../../std/primitive.bool.html" class="primitive">bool</a>,
 }
 </code></pre>
-<div class="comments">
-<p>A point on the embedded elliptic curve
-By definition, the base field of the embedded curve is the scalar field of the proof system curve, i.e the Noir Field.
-x and y denotes the Weierstrass coordinates of the point, if is_infinite is false.</p>
-</div>
 <h2>Fields</h2>
 <div id="structfield.x" class="struct-field"><code class="code-header">x: <a href="../../std/primitive.Field.html" class="primitive">Field</a></code></div>
 <div class="padded-description"></div><div id="structfield.y" class="struct-field"><code class="code-header">y: <a href="../../std/primitive.Field.html" class="primitive">Field</a></code></div>
 <div class="padded-description"></div><div id="structfield.is_infinite" class="struct-field"><code class="code-header">is_infinite: <a href="../../std/primitive.bool.html" class="primitive">bool</a></code></div>
 <div class="padded-description"></div><h2>Implementations</h2>
-<h3><code class="code-header">impl <a href="../../protocol_types/point/struct.Point.html" class="struct">EmbeddedCurvePoint</a></code></h3>
+<h3><code class="code-header">impl <a href="../../protocol_types/point/struct.Point.html" class="struct">Point</a></code></h3>
 
-<div class="padded-methods"><code id="double" class="code-header">pub fn <a href="#double"><span class="fn">double</span></a>(self) -> Self</code>
+<div class="padded-methods"><code id="generator" class="code-header">pub fn <a href="#generator"><span class="fn">generator</span></a>() -> Self</code>
 
-<div class="padded-description"><div class="comments">
-<p>Elliptic curve point doubling operation
-returns the doubled point of a point P, i.e P+P</p>
-</div>
-</div><code id="point_at_infinity" class="code-header">pub fn <a href="#point_at_infinity"><span class="fn">point_at_infinity</span></a>() -> Self</code>
+<code id="point_at_infinity" class="code-header">pub fn <a href="#point_at_infinity"><span class="fn">point_at_infinity</span></a>() -> Self</code>
 
-<div class="padded-description"><div class="comments">
-<p>Returns the null element of the curve; 'the point at infinity'</p>
-</div>
-</div><code id="generator" class="code-header">pub fn <a href="#generator"><span class="fn">generator</span></a>() -> Self</code>
+<code id="double" class="code-header">pub fn <a href="#double"><span class="fn">double</span></a>(self) -> Self</code>
 
-<div class="padded-description"><div class="comments">
-<p>Returns the curve's generator point.</p>
-</div>
-</div></div><h2>Trait implementations</h2>
-<h3 id="impl-Add-for-EmbeddedCurvePoint"><code class="code-header">impl <a href="../../std/ops/trait.Add.html" class="trait">Add</a> for <a href="../../protocol_types/point/struct.Point.html" class="struct">EmbeddedCurvePoint</a></code></h3>
+<code id="to_embedded" class="code-header">pub fn <a href="#to_embedded"><span class="fn">to_embedded</span></a>(self) -> <a href="../../std/embedded_curve_ops/struct.EmbeddedCurvePoint.html" class="struct">EmbeddedCurvePoint</a></code>
+
+</div><h2>Trait implementations</h2>
+<h3 id="impl-Add-for-Point"><code class="code-header">impl <a href="../../std/ops/trait.Add.html" class="trait">Add</a> for <a href="../../protocol_types/point/struct.Point.html" class="struct">Point</a></code></h3>
 
 <div class="padded-methods"><code class="code-header">pub fn <span class="fn">add</span>(self, other: Self) -> Self</code>
 
+</div><h3 id="impl-Deserialize-for-Point"><code class="code-header">impl <a href="../../serde/serialization/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../protocol_types/point/struct.Point.html" class="struct">Point</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">deserialize</span>(fields: [<a href="../../std/primitive.Field.html" class="primitive">Field</a>; 3]) -> Self</code>
+
+<code class="code-header">pub fn <span class="fn">stream_deserialize</span>&lt;let K: <a href="../../std/primitive.u32.html" class="primitive">u32</a>&gt;(reader: &mut <a href="../../serde/reader/struct.Reader.html" class="struct">Reader</a>&lt;K&gt;) -> Self</code>
+
+</div><h3 id="impl-Empty-for-Point"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a> for <a href="../../protocol_types/point/struct.Point.html" class="struct">Point</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">empty</span>() -> Self</code>
+
 <div class="padded-description"><div class="comments">
-<p>Adds two points P+Q, using the curve addition formula, and also handles point at infinity</p>
+<p>Note: Does not return a valid point on curve - instead represents an empty/&quot;unpopulated&quot; point struct (e.g.
+empty/unpopulated value in an array of points).</p>
 </div>
-</div></div><h3 id="impl-Eq-for-EmbeddedCurvePoint"><code class="code-header">impl <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../protocol_types/point/struct.Point.html" class="struct">EmbeddedCurvePoint</a></code></h3>
+</div><code class="code-header">pub fn <span class="fn">is_empty</span>(self) -> <a href="../../std/primitive.bool.html" class="primitive">bool</a></code>
 
-<div class="padded-methods"><code class="code-header">pub fn <span class="fn">eq</span>(self, b: Self) -> <a href="../../std/primitive.bool.html" class="primitive">bool</a></code>
+<code class="code-header">pub fn <span class="fn">assert_empty</span>&lt;let S: <a href="../../std/primitive.u32.html" class="primitive">u32</a>&gt;(self, msg: <a href="../../std/primitive.str.html" class="primitive">str</a>&lt;S&gt;)</code>
 
-<div class="padded-description"><div class="comments">
-<p>Checks whether two points are equal</p>
-</div>
-</div></div><h3 id="impl-Hash-for-EmbeddedCurvePoint"><code class="code-header">impl <a href="../../std/hash/trait.Hash.html" class="trait">Hash</a> for <a href="../../protocol_types/point/struct.Point.html" class="struct">EmbeddedCurvePoint</a></code></h3>
+</div><h3 id="impl-Eq-for-Point"><code class="code-header">impl <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../protocol_types/point/struct.Point.html" class="struct">Point</a></code></h3>
 
-<div class="padded-methods"><code class="code-header">pub fn <span class="fn">hash</span>&lt;H&gt;(self, state: &mut H)
-<div class="where-clause">where
-    H: <a href="../../std/hash/trait.Hasher.html" class="trait">Hasher</a></div></code>
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">eq</span>(self, other: Self) -> <a href="../../std/primitive.bool.html" class="primitive">bool</a></code>
 
-</div><h3 id="impl-Neg-for-EmbeddedCurvePoint"><code class="code-header">impl <a href="../../std/ops/trait.Neg.html" class="trait">Neg</a> for <a href="../../protocol_types/point/struct.Point.html" class="struct">EmbeddedCurvePoint</a></code></h3>
+</div><h3 id="impl-From&lt;EmbeddedCurvePoint&gt;-for-Point"><code class="code-header">impl <a href="../../std/convert/trait.From.html" class="trait">From</a>&lt;<a href="../../std/embedded_curve_ops/struct.EmbeddedCurvePoint.html" class="struct">EmbeddedCurvePoint</a>&gt; for <a href="../../protocol_types/point/struct.Point.html" class="struct">Point</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">from</span>(p: <a href="../../std/embedded_curve_ops/struct.EmbeddedCurvePoint.html" class="struct">EmbeddedCurvePoint</a>) -> Self</code>
+
+</div><h3 id="impl-Hash-for-Point"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Hash.html" class="trait">Hash</a> for <a href="../../protocol_types/point/struct.Point.html" class="struct">Point</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">hash</span>(self) -> <a href="../../std/primitive.Field.html" class="primitive">Field</a></code>
+
+</div><h3 id="impl-Neg-for-Point"><code class="code-header">impl <a href="../../std/ops/trait.Neg.html" class="trait">Neg</a> for <a href="../../protocol_types/point/struct.Point.html" class="struct">Point</a></code></h3>
 
 <div class="padded-methods"><code class="code-header">pub fn <span class="fn">neg</span>(self) -> Self</code>
 
-<div class="padded-description"><div class="comments">
-<p>Negates a point P, i.e returns -P, by negating the y coordinate.
-If the point is at infinity, then the result is also at infinity.</p>
-</div>
-</div></div><h3 id="impl-Sub-for-EmbeddedCurvePoint"><code class="code-header">impl <a href="../../std/ops/trait.Sub.html" class="trait">Sub</a> for <a href="../../protocol_types/point/struct.Point.html" class="struct">EmbeddedCurvePoint</a></code></h3>
+</div><h3 id="impl-Packable-for-Point"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a> for <a href="../../protocol_types/point/struct.Point.html" class="struct">Point</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">pack</span>(self) -> [<a href="../../std/primitive.Field.html" class="primitive">Field</a>; 3]</code>
+
+<code class="code-header">pub fn <span class="fn">unpack</span>(packed: [<a href="../../std/primitive.Field.html" class="primitive">Field</a>; 3]) -> Self</code>
+
+</div><h3 id="impl-Serialize-for-Point"><code class="code-header">impl <a href="../../serde/serialization/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../protocol_types/point/struct.Point.html" class="struct">Point</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">serialize</span>(self) -> [<a href="../../std/primitive.Field.html" class="primitive">Field</a>; 3]</code>
+
+<code class="code-header">pub fn <span class="fn">stream_serialize</span>&lt;let K: <a href="../../std/primitive.u32.html" class="primitive">u32</a>&gt;(self, writer: &mut <a href="../../serde/writer/struct.Writer.html" class="struct">Writer</a>&lt;K&gt;)</code>
+
+</div><h3 id="impl-Sub-for-Point"><code class="code-header">impl <a href="../../std/ops/trait.Sub.html" class="trait">Sub</a> for <a href="../../protocol_types/point/struct.Point.html" class="struct">Point</a></code></h3>
 
 <div class="padded-methods"><code class="code-header">pub fn <span class="fn">sub</span>(self, other: Self) -> Self</code>
 
-<div class="padded-description"><div class="comments">
-<p>Points subtraction operation, using addition and negation</p>
-</div>
-</div></div></main>
+</div></main>
 </span>
 </body>
 </html>
