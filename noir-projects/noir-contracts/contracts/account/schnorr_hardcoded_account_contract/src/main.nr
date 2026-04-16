@@ -4,7 +4,10 @@ use aztec::macros::aztec;
 #[aztec]
 pub contract SchnorrHardcodedAccount {
     use aztec::{
-        authwit::{account::AccountActions, entrypoint::app::AppPayload},
+        authwit::{
+            account::AccountActions, entrypoint::app::AppPayload,
+            signature_witness::auth_witness_to_byte_signature,
+        },
         context::PrivateContext,
         macros::functions::{allow_phase_change, external, view},
         oracle::{auth_witness::get_auth_witness, notes::set_sender_for_tags},
@@ -38,15 +41,12 @@ pub contract SchnorrHardcodedAccount {
 
     #[contract_library_method]
     fn is_valid_impl(_context: &mut PrivateContext, outer_hash: Field) -> bool {
-        // Load auth witness and format as an u8 array
-
-        // Safety: The witness is only used as a "magical value" that makes the signature verification below pass.
-        // Hence it's safe.
+        // Safety: untrusted oracle output is safe here because:
+        // 1. `auth_witness_to_byte_signature` range-checks every field to a single byte (prevents aliasing, e.g. b + 256).
+        // 2. The signature is then verified against the hardcoded public key and the contract-computed `outer_hash`,
+        //    so a fabricated or wrong-hash witness is rejected by the signature scheme.
         let witness: [Field; 64] = unsafe { get_auth_witness(outer_hash) };
-        let mut signature: [u8; 64] = [0; 64];
-        for i in 0..64 {
-            signature[i] = witness[i] as u8;
-        }
+        let signature = auth_witness_to_byte_signature(witness);
 
         // Verify signature using hardcoded public key
         schnorr::verify_signature(

@@ -11,6 +11,7 @@ pub contract SchnorrAccount {
             account::AccountActions,
             auth::{compute_authwit_message_hash, compute_authwit_nullifier},
             entrypoint::app::AppPayload,
+            signature_witness::auth_witness_to_byte_signature,
         },
         context::PrivateContext,
         hash::compute_siloed_nullifier,
@@ -95,14 +96,12 @@ pub contract SchnorrAccount {
         let storage = Storage::init(context);
         let public_key = storage.signing_public_key.get_note();
 
-        // Load auth witness
-        // Safety: The witness is only used as a "magical value" that makes the signature verification below pass.
-        // Hence it's safe.
+        // Safety: untrusted oracle output is safe here because:
+        // 1. `auth_witness_to_byte_signature` range-checks every field to a single byte (prevents aliasing, e.g. b + 256).
+        // 2. The signature is then verified against the account's public key and the contract-computed `outer_hash`,
+        //    so a fabricated or wrong-hash witness is rejected by the signature scheme.
         let witness: [Field; 64] = unsafe { get_auth_witness(outer_hash) };
-        let mut signature: [u8; 64] = [0; 64];
-        for i in 0..64 {
-            signature[i] = witness[i] as u8;
-        }
+        let signature = auth_witness_to_byte_signature(witness);
 
         let pub_key =
             std::embedded_curve_ops::EmbeddedCurvePoint { x: public_key.x, y: public_key.y };
@@ -129,10 +128,7 @@ pub contract SchnorrAccount {
         );
 
         let witness: [Field; 64] = get_auth_witness(message_hash);
-        let mut signature: [u8; 64] = [0; 64];
-        for i in 0..64 {
-            signature[i] = witness[i] as u8;
-        }
+        let signature = auth_witness_to_byte_signature(witness);
         let pub_key =
             std::embedded_curve_ops::EmbeddedCurvePoint { x: public_key.x, y: public_key.y };
         let valid_in_private =

@@ -12,9 +12,11 @@ import { Fr, GrumpkinScalar } from '@aztec/aztec.js/fields';
 import type { Logger } from '@aztec/aztec.js/log';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import { DefaultAccountEntrypoint } from '@aztec/entrypoints/account';
+import type { AuthWitnessProvider } from '@aztec/entrypoints/interfaces';
 import { randomBytes } from '@aztec/foundation/crypto/random';
 import { ChildContract } from '@aztec/noir-test-contracts.js/Child';
 import { createPXE, getPXEConfig } from '@aztec/pxe/server';
+import { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { deriveSigningKey } from '@aztec/stdlib/keys';
 
 import { setup } from './fixtures/utils.js';
@@ -46,12 +48,14 @@ const itShouldBehaveLikeAnAccountContract = (
     let wallet: TestWalletInternals;
     let completeAddress: CompleteAddress;
     let child: ChildContract;
+    let accountContract: AccountContract;
 
     beforeAll(async () => {
       const secret = Fr.random();
       const salt = Fr.random();
       const signingKey = deriveSigningKey(secret);
       const contract = getAccountContract(signingKey);
+      accountContract = contract;
       const address = await getAccountContractAddress(contract, secret, salt);
       const accountData = {
         secret,
@@ -101,8 +105,41 @@ const itShouldBehaveLikeAnAccountContract = (
         'Cannot satisfy constraint',
       );
     });
+
+    // AuthWitnesses cross the TS -> PXE -> Noir boundary as `[Field; 64]`. Each field must fit in one byte: simply
+    // truncating to u8 is not enough because a value like `b + 256` would alias to `b`, so the account contract
+    // range-checks every field before casting.
+    it('rejects a witness field that aliases a valid signature byte', async () => {
+      const validProvider = accountContract.getAuthWitnessProvider(completeAddress);
+      const aliasingProvider = buildAliasingProvider(validProvider, 0, 256n);
+
+      const account = new BaseAccount(
+        new DefaultAccountEntrypoint(completeAddress.address, aliasingProvider),
+        aliasingProvider,
+        completeAddress,
+      );
+      wallet.replaceAccountAt(account, completeAddress.address);
+
+      await expect(child.methods.value(42).simulate({ from: completeAddress.address })).rejects.toThrow(
+        'auth witness field is not a single byte',
+      );
+    });
   });
 };
+
+const buildAliasingProvider = (
+  validProvider: AuthWitnessProvider,
+  index: number,
+  addend: bigint,
+): AuthWitnessProvider => ({
+  async createAuthWit(messageHash) {
+    const validAuthWit = await validProvider.createAuthWit(messageHash);
+    const aliased = new Fr(validAuthWit.witness[index].toBigInt() + addend);
+    const witness = [...validAuthWit.witness];
+    witness[index] = aliased;
+    return new AuthWitness(validAuthWit.requestHash, witness);
+  },
+});
 
 describe('e2e_account_contracts', () => {
   describe('schnorr account', () => {
