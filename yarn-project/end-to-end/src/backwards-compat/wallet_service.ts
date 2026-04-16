@@ -25,7 +25,8 @@ async function main() {
   logger.info('Starting wallet service...', { l1RpcUrls });
 
   // createLocalNetwork deploys L1 contracts, starts the node, and optionally deploys funded test accounts (when
-  // TEST_ACCOUNTS=true via env).
+  // TEST_ACCOUNTS=true via env). We are not proving anything just like is done when local network is started by
+  // the aztecStart` function.
   const { node, stop: stopNetwork } = await createLocalNetwork({ l1RpcUrls, realProofs: false }, logger.info);
 
   // Create an ephemeral embedded wallet backed by the local node.
