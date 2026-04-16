@@ -1,16 +1,25 @@
 /**
  * Forward-compatibility variant of the AMM e2e test.
  *
- * Connects to a remote wallet (old release) over JSON-RPC and deploys
- * contracts compiled with the current Noir version. Exercises:
- *   - old loadContractArtifact parsing new JSON
- *   - old class-ID / artifact-hash computation
- *   - old ACIR simulator executing new bytecode
- *   - old entrypoint encoding
- *   - old wallet RPC deserialization
+ * Connects to a remote wallet (old release) over JSON-RPC and deploys contracts compiled with the current Noir
+ * version. Exercises old loadContractArtifact, class-ID computation, ACIR simulator, entrypoint encoding, and wallet
+ * RPC deserialization against new artifacts.
  *
- * Uses only the standard {@link Wallet} interface (no TestWallet).
- * Requires 3 pre-funded accounts from the wallet service.
+ * Uses only the standard {@link Wallet} interface (no TestWallet). Requires 3 pre-funded accounts from the wallet
+ * service.
+ *
+ * ## How to run
+ *
+ * Terminal 1 — start an Anvil L1 fork:
+ *   anvil --silent -p 8545 --host 0.0.0.0 --chain-id 31337
+ *
+ * Terminal 2 — start the wallet service (from yarn-project/):
+ *   ETHEREUM_HOSTS=http://localhost:8545 L1_CHAIN_ID=31337 TEST_ACCOUNTS=true \
+ *     node --no-warnings ./end-to-end/dest/backwards-compat/wallet_service.js
+ *
+ * Terminal 3 — run this test (from yarn-project/):
+ *   REMOTE_WALLET_URL=http://localhost:8081 \
+ *     yarn workspace @aztec/end-to-end test:e2e src/backwards-compat/e2e_amm.test.ts
  */
 import { AztecAddress } from '@aztec/aztec.js/addresses';
 import { Fr } from '@aztec/aztec.js/fields';
