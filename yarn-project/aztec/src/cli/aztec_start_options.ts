@@ -129,6 +129,12 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
       defaultValue: DefaultMnemonic,
       env: 'MNEMONIC',
     },
+    {
+      flag: '--local-network.testAccounts',
+      description: 'Deploy test accounts on local network start',
+      env: 'TEST_ACCOUNTS',
+      ...booleanConfigHelper(true),
+    },
   ],
   API: [
     {

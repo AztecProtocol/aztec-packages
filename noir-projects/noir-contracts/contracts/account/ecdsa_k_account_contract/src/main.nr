@@ -12,7 +12,10 @@ pub contract EcdsaKAccount {
             storage::storage,
         },
         messages::message_delivery::MessageDelivery,
-        oracle::{auth_witness::get_auth_witness, notes::{get_sender_for_tags, set_sender_for_tags}},
+        oracle::{
+            auth_witness::get_auth_witness_as_bytes,
+            notes::{get_sender_for_tags, set_sender_for_tags},
+        },
         state_vars::SinglePrivateImmutable,
     };
 
@@ -81,14 +84,9 @@ pub contract EcdsaKAccount {
         let storage = Storage::init(context);
         let public_key = storage.signing_public_key.get_note();
 
-        // Load auth witness
         // Safety: The witness is only used as a "magical value" that makes the signature verification below pass.
         // Hence it's safe.
-        let witness: [Field; 64] = unsafe { get_auth_witness(outer_hash) };
-        let mut signature: [u8; 64] = [0; 64];
-        for i in 0..64 {
-            signature[i] = witness[i] as u8;
-        }
+        let signature: [u8; 64] = unsafe { get_auth_witness_as_bytes(outer_hash) };
 
         // Verify payload signature using Ethereum's signing scheme
         // Note that noir expects the hash of the message/challenge as input to the ECDSA verification.
