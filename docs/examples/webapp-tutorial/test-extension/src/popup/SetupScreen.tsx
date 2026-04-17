@@ -3,7 +3,6 @@ import React, { useState } from 'react';
 import { MessageTypes } from '../config';
 import { sendToBackground, waitForTask, createAndActivateAccount } from './helpers';
 
-// docs:start:setup-screen
 export function SetupScreen({ onComplete, skipAccountCreation = false }: { onComplete: () => void; skipAccountCreation?: boolean }) {
   const [step, setStep] = useState<'password' | 'account'>('password');
   const [password, setPassword] = useState('');
@@ -129,4 +128,3 @@ export function SetupScreen({ onComplete, skipAccountCreation = false }: { onCom
     </div>
   );
 }
-// docs:end:setup-screen

@@ -1,4 +1,3 @@
-// docs:start:wallet-storage
 /**
  * Encrypted key storage for the Aztec Tutorial Wallet.
  *
@@ -13,7 +12,6 @@
  * hardware security modules, secure enclaves, or platform keychain APIs.
  */
 
-// docs:start:constants
 /** Known plaintext used to verify the master password is correct */
 const VERIFICATION_PLAINTEXT = 'aztec-wallet-verify';
 
@@ -46,9 +44,7 @@ export const STORAGE_KEYS = {
   PASSWORD_DATA: 'aztec_password_data',
   ACTIVE_ACCOUNT: 'aztec_active_account',
 } as const;
-// docs:end:constants
 
-// docs:start:base64-helpers
 /** Encode bytes to base64 */
 function bytesToBase64(bytes: Uint8Array): string {
   return btoa(String.fromCharCode(...bytes));
@@ -58,7 +54,6 @@ function bytesToBase64(bytes: Uint8Array): string {
 function base64ToBytes(b64: string): Uint8Array {
   return Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
 }
-// docs:end:base64-helpers
 
 // docs:start:derive-master-key
 /**
@@ -143,7 +138,6 @@ export async function decryptWithKey(
 
 import { getChromeRuntime } from '../utils';
 
-// docs:start:storage-proxy
 /**
  * Chrome runtime for messaging (available in offscreen documents).
  * Offscreen documents don't have direct chrome.storage access,
@@ -189,7 +183,6 @@ async function storageSet(data: Record<string, any>): Promise<void> {
     );
   });
 }
-// docs:end:storage-proxy
 
 // docs:start:password-management
 /**
@@ -338,4 +331,3 @@ export async function setActiveAccount(address: string): Promise<void> {
   await storageSet({ [STORAGE_KEYS.ACTIVE_ACCOUNT]: address });
 }
 // docs:end:account-operations
-// docs:end:wallet-storage

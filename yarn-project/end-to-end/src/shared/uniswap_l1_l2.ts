@@ -154,7 +154,6 @@ export const uniswapL1L2TestSuite = (
       await cleanup();
     });
 
-    // docs:start:uniswap_private
     it('should uniswap trade on L1 from L2 funds privately (swaps WETH -> DAI)', async () => {
       const wethL1BeforeBalance = await wethCrossChainHarness.getL1BalanceOf(ownerEthAddress);
 
@@ -345,10 +344,8 @@ export const uniswapL1L2TestSuite = (
       logger.info('WETH balance after swap : ', wethL2BalanceAfterSwap.toString());
       logger.info('DAI balance after swap  : ', daiL2BalanceAfterSwap.toString());
     });
-    // docs:end:uniswap_private
 
     // TODO(#7463): reenable look into this failure https://github.com/AztecProtocol/aztec-packages/actions/runs/9912612912/job/27388320150?pr=7462
-    // // docs:start:uniswap_public
     // it('should uniswap trade on L1 from L2 funds publicly (swaps WETH -> DAI)', async () => {
     //   const wethL1BeforeBalance = await wethCrossChainHarness.getL1BalanceOf(ownerEthAddress);
 
@@ -581,7 +578,6 @@ export const uniswapL1L2TestSuite = (
     //   logger.info('WETH balance after swap : ', wethL2BalanceAfterSwap.toString());
     //   logger.info('DAI balance after swap  : ', daiL2BalanceAfterSwap.toString());
     // });
-    // // docs:end:uniswap_public
 
     // Edge cases for the private flow:
     // note - tests for uniswapPortal.sol and minting asset on L2 are covered in other tests.

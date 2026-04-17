@@ -3,7 +3,6 @@ import React, { useState } from 'react';
 import { MessageTypes } from '../config';
 import { sendToBackground, waitForTask } from './helpers';
 
-// docs:start:lock-screen
 export function LockScreen({ onUnlocked }: { onUnlocked: () => void }) {
   const [password, setPassword] = useState('');
   const [unlocking, setUnlocking] = useState(false);
@@ -59,4 +58,3 @@ export function LockScreen({ onUnlocked }: { onUnlocked: () => void }) {
     </div>
   );
 }
-// docs:end:lock-screen

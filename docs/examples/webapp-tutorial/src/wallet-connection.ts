@@ -1,4 +1,3 @@
-// docs:start:wallet-connection
 import { Fr } from '@aztec/aztec.js/fields';
 import type { Wallet, AppCapabilities } from '@aztec/aztec.js/wallet';
 import { WalletManager, type WalletProvider } from '@aztec/wallet-sdk/manager';
@@ -111,4 +110,3 @@ export function getAppCapabilities(): AppCapabilities {
   };
 }
 // docs:end:app-capabilities
-// docs:end:wallet-connection

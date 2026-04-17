@@ -9,7 +9,6 @@ const EXPECTED_FORKED_BLOCK = 0; //17514288;
 
 let teardown: () => Promise<void>;
 
-// docs:start:uniswap_setup
 const testSetup = async () => {
   const context = await e2eSetup(2, { stateLoad: dumpedState, startProverNode: true });
 
@@ -17,7 +16,6 @@ const testSetup = async () => {
 
   return context;
 };
-// docs:end:uniswap_setup
 
 const testCleanup = async () => {
   await teardown();

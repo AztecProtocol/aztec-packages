@@ -27,7 +27,6 @@ pub contract Lending {
 
     use aztec::protocol::traits::{FromField, ToField};
 
-    // docs:start:custom_struct_storage_map
     // Storage structure, containing all storage, and specifying what slots they use.
     #[storage]
     struct Storage<Context> {
@@ -39,14 +38,12 @@ pub contract Lending {
         collateral: Map<AztecAddress, PublicMutable<u128, Context>, Context>,
         static_debt: Map<AztecAddress, PublicMutable<u128, Context>, Context>, // abusing keys very heavily
     }
-    // docs:end:custom_struct_storage_map
 
     // Constructs the contract.
     #[external("private")]
     #[initializer]
     fn constructor() {}
 
-    // docs:start:custom_struct_read_write
     #[external("public")]
     fn init(
         oracle: AztecAddress,
@@ -78,7 +75,6 @@ pub contract Lending {
         // docs:end:public_mutable_write
         self.storage.stable_coin.write(stable_coin);
     }
-    // docs:end:custom_struct_read_write
 
     // Create a position.
     #[external("public")]

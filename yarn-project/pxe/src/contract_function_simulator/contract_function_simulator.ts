@@ -309,7 +309,6 @@ export class ContractFunctionSimulator {
     }
   }
 
-  // docs:start:execute_utility_function
   /**
    * Runs a utility function.
    * @param call - The function call to execute.
@@ -384,7 +383,6 @@ export class ContractFunctionSimulator {
       throw createSimulationError(err instanceof Error ? err : new Error('Unknown error during private execution'));
     }
   }
-  // docs:end:execute_utility_function
 
   /**
    * Returns the execution statistics collected during the simulator run.

@@ -82,7 +82,6 @@ pub contract FPC {
     /// - the `max_fee`,
     /// - which FPC has been used to make the payment,
     /// - the asset which was used to make the payment.
-    // docs:start:fee_entrypoint_private
     #[external("private")]
     #[allow_phase_change]
     fn fee_entrypoint_private(max_fee: u128, authwit_nonce: Field) {
@@ -112,11 +111,9 @@ pub contract FPC {
         // End the setup phase, from now on all side effects are revertible
         self.context.end_setup();
     }
-    // docs:end:fee_entrypoint_private
 
     /// Executed as a public teardown function and is responsible for completing the refund in the private fee payment
     /// flow.
-    // docs:start:complete_refund
     #[external("public")]
     #[only_self]
     fn _complete_refund(
@@ -138,7 +135,6 @@ pub contract FPC {
             self.context,
         );
     }
-    // docs:end:complete_refund
 
     /// Pays for the tx fee with msg_sender's public balance of accepted asset (AA). The maximum fee a user is willing
     /// to pay is defined by `max_fee` and is denominated in AA.

@@ -1,4 +1,3 @@
-// docs:start:aztec-imports
 /**
  * Centralized lazy import cache for Aztec SDK modules.
  *
@@ -124,4 +123,3 @@ export async function getAztecDeploy(): Promise<AztecDeployImports> {
 
   return deployCache;
 }
-// docs:end:aztec-imports

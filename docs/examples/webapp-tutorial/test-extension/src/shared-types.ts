@@ -1,4 +1,3 @@
-// docs:start:shared-types
 /**
  * Shared type definitions for the Aztec Tutorial Wallet extension.
  * Single source of truth for types used across background, offscreen, and popup.
@@ -96,4 +95,3 @@ export interface WalletExportData {
 
 /** Popup view state. */
 export type View = 'loading' | 'setup' | 'lock' | 'main' | 'switcher' | 'createAccount' | 'approvals' | 'verifySession' | 'settings';
-// docs:end:shared-types

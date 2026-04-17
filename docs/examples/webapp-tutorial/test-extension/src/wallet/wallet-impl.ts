@@ -1,4 +1,3 @@
-// docs:start:extension-wallet
 /**
  * Wallet implementation for the Aztec Tutorial Wallet extension.
  *
@@ -152,4 +151,3 @@ export async function markDeployed(address: string): Promise<void> {
 
 // Re-export storage functions for convenience
 export { getActiveAccount, setActiveAccount };
-// docs:end:extension-wallet

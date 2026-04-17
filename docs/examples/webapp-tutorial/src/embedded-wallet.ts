@@ -1,4 +1,3 @@
-// docs:start:embedded-wallet
 // docs:start:embedded-wallet-imports
 import { type NoFrom, NO_FROM } from '@aztec/aztec.js/account';
 import { AztecAddress } from '@aztec/aztec.js/addresses';
@@ -143,4 +142,3 @@ export class EmbeddedWallet extends BaseEmbeddedWallet {
   }
   // docs:end:embedded-wallet-class
 }
-// docs:end:embedded-wallet

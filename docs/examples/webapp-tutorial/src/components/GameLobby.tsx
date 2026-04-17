@@ -1,4 +1,3 @@
-// docs:start:game-lobby
 // docs:start:game-lobby-imports
 import React, { useState } from 'react';
 import { AztecAddress } from '@aztec/aztec.js/addresses';
@@ -14,7 +13,6 @@ interface GameLobbyProps {
 }
 // docs:end:game-lobby-imports
 
-// docs:start:game-lobby-component
 export function GameLobby({ wallet, account, onGameJoined }: GameLobbyProps) {
   const [status, setStatus] = useState('');
   const [isCreating, setIsCreating] = useState(false);
@@ -154,5 +152,3 @@ export function GameLobby({ wallet, account, onGameJoined }: GameLobbyProps) {
     </div>
   );
 }
-// docs:end:game-lobby-component
-// docs:end:game-lobby

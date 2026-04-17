@@ -7,7 +7,6 @@ import type { PendingDiscovery } from '@aztec/wallet-sdk/extension/handlers';
 import type { PendingTransaction, PendingCapabilities, PendingSessionVerification } from '../shared-types';
 import { sendToBackground, truncateAddress } from './helpers';
 
-// docs:start:approvals-view
 interface ApprovalsViewProps {
   discoveries: PendingDiscovery[];
   transactions: PendingTransaction[];
@@ -101,9 +100,7 @@ export function ApprovalsView({
     </div>
   );
 }
-// docs:end:approvals-view
 
-// docs:start:session-verification
 export function SessionVerificationView({ verification, onConfirm, onReject }: {
   verification: PendingSessionVerification;
   onConfirm: () => void;
@@ -141,7 +138,6 @@ export function SessionVerificationView({ verification, onConfirm, onReject }: {
     </div>
   );
 }
-// docs:end:session-verification
 
 // docs:start:connection-approval
 interface ConnectionApprovalProps {
@@ -299,7 +295,6 @@ function TransactionApproval({
 }
 // docs:end:transaction-approval
 
-// docs:start:capabilities-approval
 interface ExpandableSection {
   summary: string;
   items: string[];
@@ -512,4 +507,3 @@ function CapabilitiesApproval({
     </div>
   );
 }
-// docs:end:capabilities-approval

@@ -1,4 +1,3 @@
-// docs:start:utils
 /**
  * Shared utilities for the Aztec Tutorial Wallet extension.
  * Extracted from multiple files to eliminate duplication.
@@ -43,4 +42,3 @@ export function getOriginHost(origin: string): string {
   }
 }
 
-// docs:end:utils

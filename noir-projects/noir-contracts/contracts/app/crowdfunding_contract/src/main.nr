@@ -22,14 +22,12 @@ pub contract Crowdfunding {
         who: AztecAddress,
         amount: u128,
     }
-    // docs:start:storage
     #[storage]
     struct Storage<Context> {
         config: PublicImmutable<Config, Context>,
         // Notes emitted to donors when they donate (can be used as proof to obtain rewards, eg in Claim contracts)
         donation_receipts: Owned<PrivateSet<UintNote, Context>, Context>,
     }
-    // docs:end:storage
 
     // TODO(#8367): Ensure deadline is quantized to improve privacy set.
     #[external("public")]

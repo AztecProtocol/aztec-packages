@@ -1,4 +1,3 @@
-// docs:start:wallet-connect
 // docs:start:wallet-connect-imports
 import React, { useState, useEffect } from 'react';
 import type { Wallet, GrantedAccountsCapability } from '@aztec/aztec.js/wallet';
@@ -26,7 +25,6 @@ export function WalletConnect({ network, onWalletConnected }: WalletConnectProps
   const [discoveryDone, setDiscoveryDone] = useState(false);
   const { addLog } = useTransactionLog();
 
-  // docs:start:local-connect
   /** Connect using the embedded wallet with a pre-deployed test account */
   async function connectLocal() {
     setLoading(true);
@@ -53,7 +51,6 @@ export function WalletConnect({ network, onWalletConnected }: WalletConnectProps
       setLoading(false);
     }
   }
-  // docs:end:local-connect
 
   // docs:start:remote-connect
   /** Discover and connect to a browser extension wallet */
@@ -199,4 +196,3 @@ export function WalletConnect({ network, onWalletConnected }: WalletConnectProps
   );
 }
 // docs:end:wallet-connect-component
-// docs:end:wallet-connect

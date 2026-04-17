@@ -1,4 +1,3 @@
-# docs:start:nargo_toml
 [package]
 name = "recursive_verification_contract"
 type = "contract"
@@ -8,4 +7,3 @@ compiler_version = ">=0.25.0"
 [dependencies]
 aztec = { path = "../../../../noir-projects/aztec-nr/aztec" }
 bb_proof_verification = { path = "../../../../barretenberg/noir/bb_proof_verification" }
-# docs:end:nargo_toml

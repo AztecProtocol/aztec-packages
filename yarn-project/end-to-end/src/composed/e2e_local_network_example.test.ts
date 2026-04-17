@@ -34,7 +34,6 @@ const { AZTEC_NODE_URL = 'http://localhost:8080' } = process.env;
 describe('e2e_local_network_example', () => {
   it('local network example works', async () => {
     ////////////// CREATE THE CLIENT INTERFACE AND CONTACT THE LOCAL NETWORK //////////////
-    // docs:start:setup
     const logger = createLogger('e2e:token');
 
     // We create PXE client connected to the local network URL
@@ -46,8 +45,6 @@ describe('e2e_local_network_example', () => {
     const nodeInfo = await node.getNodeInfo();
 
     logger.info(format('Aztec Local Network Info ', nodeInfo));
-
-    // docs:end:setup
 
     expect(typeof nodeInfo.rollupVersion).toBe('number');
     expect(typeof nodeInfo.l1ChainId).toBe('number');
@@ -182,7 +179,6 @@ describe('e2e_local_network_example', () => {
     ////////////// USE A NEW ACCOUNT TO SEND A TX AND PAY WITH BANANA COIN //////////////
     const amountTransferToBob = 100n;
     const bananaFPCAddress = await registerDeployedBananaFPCInWalletAndGetAddress(wallet);
-    // docs:start:private_fpc_payment
     // The private fee paying method assembled on the app side requires knowledge of the maximum
     // fee the user is willing to pay
     const maxFeesPerGas = (await node.getCurrentMinFees()).mul(1.5);
@@ -191,7 +187,6 @@ describe('e2e_local_network_example', () => {
     const { receipt: receiptForAlice } = await bananaCoin.methods
       .transfer(bob, amountTransferToBob)
       .send({ from: alice, fee: { paymentMethod } });
-    // docs:end:private_fpc_payment
     const transactionFee = receiptForAlice.transactionFee!;
     logger.info(`Transaction fee: ${transactionFee}`);
 
@@ -208,7 +203,6 @@ describe('e2e_local_network_example', () => {
     const amountTransferToAlice = 48n;
 
     const sponsoredFPC = await registerDeployedSponsoredFPCInWalletAndGetAddress(wallet);
-    // docs:start:sponsored_fpc_payment
     const sponsoredPaymentMethod = new SponsoredFeePaymentMethod(sponsoredFPC);
     // The payment method can also be initialized as follows:
     // const sponsoredPaymentMethod = await SponsoredFeePaymentMethod.new(pxe);
@@ -217,7 +211,6 @@ describe('e2e_local_network_example', () => {
     const { receipt: receiptForBob } = await bananaCoin.methods
       .transfer(alice, amountTransferToAlice)
       .send({ from: bob, fee: { paymentMethod: sponsoredPaymentMethod } });
-    // docs:end:sponsored_fpc_payment
     // Check the balances
     const { result: aliceNewBalance } = await bananaCoin.methods.balance_of_private(alice).simulate({ from: alice });
     logger.info(`Alice's new balance: ${aliceNewBalance}`);

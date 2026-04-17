@@ -66,7 +66,6 @@ pub contract Auth {
         self.storage.authorized.schedule_delay_change(new_delay);
     }
 
-    // docs:start:get_current_value_private
     #[external("private")]
     fn do_private_authorized_thing() {
         // Reading a value from authorized in private automatically adds an extra validity condition: the base rollup
@@ -76,7 +75,6 @@ pub contract Auth {
         let authorized = self.storage.authorized.get_current_value();
         assert_eq(authorized, self.msg_sender(), "caller is not authorized");
     }
-    // docs:end:get_current_value_private
 
     #[external("private")]
     #[view]

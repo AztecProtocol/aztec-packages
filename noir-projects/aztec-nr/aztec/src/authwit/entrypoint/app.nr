@@ -12,7 +12,6 @@ global ACCOUNT_MAX_CALLS: u32 = 5;
 // - default_entrypoint.ts
 // - account_entrypoint.ts (specifically `getEntrypointAbi()`)
 // - default_multi_call_entrypoint.ts (specifically `getEntrypointAbi()`)
-// docs:start:app-payload-struct
 #[derive(Serialize)]
 pub struct AppPayload {
     function_calls: [FunctionCall; ACCOUNT_MAX_CALLS],

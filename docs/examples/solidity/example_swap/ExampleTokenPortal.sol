@@ -62,7 +62,6 @@ contract ExampleTokenPortal {
     }
     // docs:end:deposit_to_aztec_public
 
-    // docs:start:deposit_to_aztec_private
     /// @notice Deposit tokens and send L1->L2 message for private minting on Aztec
     function depositToAztecPrivate(
         uint256 _amount,
@@ -78,7 +77,6 @@ contract ExampleTokenPortal {
 
         return inbox.sendL2Message(actor, contentHash, _secretHash);
     }
-    // docs:end:deposit_to_aztec_private
 
     // docs:start:withdraw
     /// @notice Withdraw tokens after consuming an L2->L1 message.

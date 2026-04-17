@@ -61,7 +61,6 @@ pub contract TokenBlacklist {
         roles: Map<AztecAddress, DelayedPublicMutable<UserFlags, CHANGE_ROLES_DELAY, Context>, Context>,
     }
 
-    // docs:start:constructor
     #[external("public")]
     #[initializer]
     fn constructor(admin: AztecAddress) {
@@ -221,7 +220,6 @@ pub contract TokenBlacklist {
         self.enqueue_self._increase_public_balance(to, amount);
     }
 
-    // docs:start:transfer_private
     #[authorize_once("from", "authwit_nonce")]
     #[external("private")]
     fn transfer(from: AztecAddress, to: AztecAddress, amount: u128, authwit_nonce: Field) {

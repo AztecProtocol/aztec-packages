@@ -1,4 +1,3 @@
-// docs:start:tx-status
 import React from 'react';
 
 type TxState = 'idle' | 'sending' | 'proving' | 'confirmed' | 'error';
@@ -33,4 +32,3 @@ export function TxStatus({ state, txHash, error }: TxStatusProps) {
   );
 }
 // docs:end:tx-status-component
-// docs:end:tx-status

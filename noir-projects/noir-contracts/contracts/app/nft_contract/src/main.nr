@@ -1,4 +1,3 @@
-// docs:start:imports
 mod types;
 mod test;
 
@@ -26,8 +25,6 @@ pub contract NFT {
     };
     use compressed_string::FieldCompressedString;
 
-    // docs:end:imports
-
     // TODO(#8467): Rename this to Transfer - calling this NFTTransfer to avoid export conflict with the Transfer event
     // in the Token contract.
     // #[event]
@@ -37,7 +34,6 @@ pub contract NFT {
     //     token_id: Field,
     // }
 
-    // docs:start:storage_struct
     #[storage]
     struct Storage<Context> {
         // The symbol of the NFT
@@ -55,9 +51,7 @@ pub contract NFT {
         // A map from token ID to the public owner of the NFT.
         public_owners: Map<Field, PublicMutable<AztecAddress, Context>, Context>,
     }
-    // docs:end:storage_struct
 
-    // docs:start:constructor
     #[external("public")]
     #[initializer]
     fn constructor(admin: AztecAddress, name: str<31>, symbol: str<31>) {
@@ -67,7 +61,6 @@ pub contract NFT {
         self.storage.name.initialize(FieldCompressedString::from_string(name));
         self.storage.symbol.initialize(FieldCompressedString::from_string(symbol));
     }
-    // docs:end:constructor
 
     #[external("public")]
     fn set_admin(new_admin: AztecAddress) {
@@ -75,13 +68,11 @@ pub contract NFT {
         self.storage.admin.write(new_admin);
     }
 
-    // docs:start:set_minter
     #[external("public")]
     fn set_minter(minter: AztecAddress, approve: bool) {
         assert(self.storage.admin.read().eq(self.msg_sender()), "caller is not an admin");
         self.storage.minters.at(minter).write(approve);
     }
-    // docs:end:set_minter
 
     #[external("public")]
     fn mint(to: AztecAddress, token_id: Field) {
