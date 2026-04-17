@@ -73,9 +73,55 @@ impl Packable for GameConfig {
 }
 // docs:end:mixed_width_packable
 
+// docs:start:game_state_manual_packable
+// Mixed-width with a bool: started (1 bit) + round (32 bits) + score (32 bits).
+// Derived Packable would give N = 3; manual packing gives N = 1.
+#[derive(Eq, Serialize)]
+pub struct GameState {
+    pub started: bool,
+    pub round: u32,
+    pub score: u32,
+}
+
+impl Packable for GameState {
+    let N: u32 = 1;
+
+    // docs:start:game_state_pack
+    fn pack(self) -> [Field; Self::N] {
+        // Layout within a single Field:
+        // [ started (1 bit) | round (32 bits) | score (32 bits) ]
+        //   bit 64            bits 32..63       bits 0..31
+        [
+            (self.started as Field) * 2.pow_32(64) // shift left by 64 bits
+                + (self.round as Field) * 2.pow_32(32) // shift left by 32 bits
+                + (self.score as Field), // lowest bits
+        ]
+    }
+    // docs:end:game_state_pack
+
+    // docs:start:game_state_unpack
+    fn unpack(packed: [Field; Self::N]) -> Self {
+        // 1. Extract lowest value via truncating cast
+        let score = packed[0] as u32;
+
+        // 2. Subtract and shift right to get next value
+        let round = ((packed[0] - score as Field) / 2.pow_32(32)) as u32;
+
+        // 3. Subtract and shift right to get highest value.
+        //    Bools are extracted by comparing the resulting Field to 0.
+        let started = ((packed[0] - score as Field - (round as Field) * 2.pow_32(32))
+            / 2.pow_32(64))
+            != 0;
+
+        Self { started, round, score }
+    }
+    // docs:end:game_state_unpack
+}
+// docs:end:game_state_manual_packable
+
 // docs:start:pack_unpack_tests
 mod test {
-    use super::{AztecAddress, Card, FromField, GameConfig, Packable};
+    use super::{AztecAddress, Card, FromField, GameConfig, GameState, Packable};
 
     #[test]
     fn test_card_pack_unpack() {
@@ -118,5 +164,26 @@ mod test {
         assert_eq(unpacked.last_updated_ts, config.last_updated_ts);
         assert(unpacked.admin.eq(config.admin));
     }
+
+    // docs:start:game_state_tests
+    #[test]
+    fn test_gamestate_pack_unpack() {
+        let state = GameState { started: true, round: 42, score: 1000 };
+        let unpacked = GameState::unpack(state.pack());
+        assert_eq(unpacked.started, state.started);
+        assert_eq(unpacked.round, state.round);
+        assert_eq(unpacked.score, state.score);
+    }
+
+    #[test]
+    fn test_gamestate_pack_unpack_max() {
+        let state =
+            GameState { started: true, round: 0xffffffff, score: 0xffffffff };
+        let unpacked = GameState::unpack(state.pack());
+        assert_eq(unpacked.started, state.started);
+        assert_eq(unpacked.round, state.round);
+        assert_eq(unpacked.score, state.score);
+    }
+    // docs:end:game_state_tests
 }
 // docs:end:pack_unpack_tests

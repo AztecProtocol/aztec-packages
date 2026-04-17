@@ -248,6 +248,7 @@ Use these terms consistently throughout:
 - **Emphasis**: Use _italics_ sparingly for emphasis
 - **File paths**: Always use forward slashes (e.g., `/usr/local/bin`)
 - **Placeholders**: Use `[PLACEHOLDER_NAME]` format in examples
+- **Punctuation**: Do not use em-dashes (`—`) or en-dashes (`–`). Use commas, colons, parentheses, or separate sentences instead.
 
 ### Standard Sections
 
@@ -301,7 +302,7 @@ The description should:
 - ❌ Legal disclaimers or license text
 - ❌ Direct quotes from external sources
 - ❌ API endpoint URLs or configuration values
-- ❌ Existing migration notes in `resources/migration_notes.md` — never modify already-published migration entries. Instead, add new migration notes to the `## TBD` section at the top of the file.
+- ❌ Existing migration notes in `resources/migration_notes.md`: never modify already-published migration entries. Instead, add new migration notes to the `## TBD` section at the top of the file.
 
 ## Review Output Format
 
