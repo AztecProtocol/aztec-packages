@@ -67,6 +67,13 @@ export const archiverConfigMappings: ConfigMappingsType<ArchiverConfig> = {
     description: 'Whether to allow starting the archiver without debug/trace method support on Ethereum hosts',
     ...booleanConfigHelper(true),
   },
+  archiverSkipHistoricalLogsCheck: {
+    env: 'ARCHIVER_SKIP_HISTORICAL_LOGS_CHECK',
+    description:
+      'Skip the startup check that probes the L1 RPC for historical Rollup contract logs. ' +
+      'Set to true to bypass the check when the connected RPC node is known to prune old logs.',
+    ...booleanConfigHelper(false),
+  },
   ...chainConfigMappings,
   ...l1ReaderConfigMappings,
   viemPollingIntervalMS: {
@@ -98,5 +105,6 @@ export function mapArchiverConfig(config: Partial<ArchiverConfig>) {
     skipValidateCheckpointAttestations: config.skipValidateCheckpointAttestations,
     maxAllowedEthClientDriftSeconds: config.maxAllowedEthClientDriftSeconds,
     ethereumAllowNoDebugHosts: config.ethereumAllowNoDebugHosts,
+    skipHistoricalLogsCheck: config.archiverSkipHistoricalLogsCheck,
   };
 }

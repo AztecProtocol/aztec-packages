@@ -60,6 +60,9 @@ export type ArchiverSpecificConfig = {
   /** Whether to allow starting the archiver without debug/trace method support on Ethereum hosts */
   ethereumAllowNoDebugHosts?: boolean;
 
+  /** Skip the startup check that probes the L1 RPC for historical logs on the Rollup contract. */
+  archiverSkipHistoricalLogsCheck?: boolean;
+
   /** Skip validating checkpoint attestations (for testing purposes only) */
   skipValidateCheckpointAttestations?: boolean;
 };
@@ -72,6 +75,7 @@ export const ArchiverSpecificConfigSchema = z.object({
   archiverStoreMapSizeKb: schemas.Integer.optional(),
   maxAllowedEthClientDriftSeconds: schemas.Integer.optional(),
   ethereumAllowNoDebugHosts: z.boolean().optional(),
+  archiverSkipHistoricalLogsCheck: z.boolean().optional(),
   skipValidateCheckpointAttestations: z.boolean().optional(),
 });
 

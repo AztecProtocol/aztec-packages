@@ -31,6 +31,7 @@ import { type TelemetryClient, type Traceable, type Tracer, trackSpan } from '@a
 
 import { type ArchiverConfig, mapArchiverConfig } from './config.js';
 import { BlockAlreadyCheckpointedError, NoBlobBodiesFoundError } from './errors.js';
+import { validateAndLogHistoricalLogsAvailability } from './l1/validate_historical_logs.js';
 import { validateAndLogTraceAvailability } from './l1/validate_trace.js';
 import { ArchiverDataSourceBase } from './modules/data_source_base.js';
 import { ArchiverDataStoreUpdater } from './modules/data_store_updater.js';
@@ -106,7 +107,10 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
     private readonly publicClient: ViemPublicClient,
     private readonly debugClient: ViemPublicDebugClient,
     private readonly rollup: RollupContract,
-    private readonly l1Addresses: Pick<L1ContractAddresses, 'registryAddress' | 'governanceProposerAddress'> & {
+    private readonly l1Addresses: Pick<
+      L1ContractAddresses,
+      'rollupAddress' | 'registryAddress' | 'inboxAddress' | 'governanceProposerAddress'
+    > & {
       slashingProposerAddress: EthAddress;
     },
     readonly dataStore: KVArchiverDataStore,
@@ -116,6 +120,7 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
       skipValidateCheckpointAttestations?: boolean;
       maxAllowedEthClientDriftSeconds: number;
       ethereumAllowNoDebugHosts?: boolean;
+      skipHistoricalLogsCheck?: boolean;
     },
     private readonly blobClient: BlobClientInterface,
     instrumentation: ArchiverInstrumentation,
@@ -170,6 +175,17 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
     await validateAndLogTraceAvailability(
       this.debugClient,
       this.config.ethereumAllowNoDebugHosts ?? false,
+      this.log.getBindings(),
+    );
+    await validateAndLogHistoricalLogsAvailability(
+      this.publicClient,
+      {
+        rollupAddress: this.l1Addresses.rollupAddress,
+        inboxAddress: this.l1Addresses.inboxAddress,
+        registryAddress: this.l1Addresses.registryAddress,
+        governanceProposerAddress: this.l1Addresses.governanceProposerAddress,
+      },
+      this.config.skipHistoricalLogsCheck ?? false,
       this.log.getBindings(),
     );
 
