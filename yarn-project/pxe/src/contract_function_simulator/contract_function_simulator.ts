@@ -208,7 +208,7 @@ export class ContractFunctionSimulator {
     }
 
     if (request.origin !== contractAddress) {
-      this.log.warn(
+      throw new Error(
         `Request origin does not match contract address in simulation. Request origin: ${request.origin}, contract address: ${contractAddress}`,
       );
     }
