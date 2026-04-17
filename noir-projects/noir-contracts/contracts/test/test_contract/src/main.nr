@@ -31,7 +31,7 @@ pub contract Test {
         protocol::{
             abis::function_selector::FunctionSelector,
             address::{AztecAddress, EthAddress},
-            constants::{PRIVATE_LOG_CIPHERTEXT_LEN, MAX_PUBLIC_LOG_SIZE_IN_FIELDS},
+            constants::MAX_PUBLIC_LOG_SIZE_IN_FIELDS,
             traits::{Hash, Packable, Serialize},
         },
         // Event related
@@ -347,8 +347,8 @@ pub contract Test {
             self.call_self.emit_array_as_encrypted_log(tag, [0, 0, 0, 0, 0], owner, false);
 
             // Emit a log with non-encrypted content for testing purpose.
-            let leaky_log = event.serialize().concat([0; PRIVATE_LOG_CIPHERTEXT_LEN - 5]);
-            self.context.emit_private_log_unsafe(tag, leaky_log, 5);
+            let leaky_log = BoundedVec::from_array(event.serialize());
+            self.context.emit_private_log_vec_unsafe(tag, leaky_log);
         }
     }
 

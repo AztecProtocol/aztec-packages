@@ -1,27 +1,49 @@
+/**
+ * Forward-compatibility variant of the AMM e2e test.
+ *
+ * Connects to a remote wallet (old release) over JSON-RPC and deploys contracts compiled with the current Noir
+ * version. Exercises old loadContractArtifact, class-ID computation, ACIR simulator, entrypoint encoding, and wallet
+ * RPC deserialization against new artifacts.
+ *
+ * Uses only the standard {@link Wallet} interface (no TestWallet). Requires 4 pre-funded accounts from the wallet
+ * service.
+ *
+ * ## How to run
+ *
+ * Terminal 1 — start an Anvil L1 fork:
+ *   anvil --silent -p 8545 --host 0.0.0.0 --chain-id 31337
+ *
+ * Terminal 2 — start the wallet service (from yarn-project/):
+ *   ETHEREUM_HOSTS=http://localhost:8545 L1_CHAIN_ID=31337 TEST_ACCOUNTS=true \
+ *     node --no-warnings ./end-to-end/dest/forward-compatibility/wallet_service.js
+ *
+ * Terminal 3 — run this test (from yarn-project/):
+ *   REMOTE_WALLET_URL=http://localhost:8081 \
+ *     yarn workspace @aztec/end-to-end test:e2e src/forward-compatibility/e2e_amm.test.ts
+ */
 import { AztecAddress } from '@aztec/aztec.js/addresses';
 import { Fr } from '@aztec/aztec.js/fields';
 import type { Logger } from '@aztec/aztec.js/log';
+import { createLogger } from '@aztec/aztec.js/log';
+import type { Wallet } from '@aztec/aztec.js/wallet';
 import { AMMContract } from '@aztec/noir-contracts.js/AMM';
 import type { TokenContract } from '@aztec/noir-contracts.js/Token';
 
 import { jest } from '@jest/globals';
 
-import { deployToken, mintTokensToPrivate } from './fixtures/token_utils.js';
-import { setup } from './fixtures/utils.js';
-import type { TestWallet } from './test-wallet/test_wallet.js';
+import { deployToken, mintTokensToPrivate } from '../fixtures/token_utils.js';
+import { createWalletClient } from './wallet_rpc_client.js';
 
-const TIMEOUT = 120_000;
+const TIMEOUT = 300_000;
 
-// TODO(F-560): Consider whether it makes sense to drop this
-// https://linear.app/aztec-labs/issue/F-560/add-more-tests-to-forward-compatibility-testing
-describe('AMM', () => {
+const { REMOTE_WALLET_URL = 'http://localhost:8081' } = process.env;
+
+describe('forward-compatibility: AMM', () => {
   jest.setTimeout(TIMEOUT);
-
-  let teardown: () => Promise<void>;
 
   let logger: Logger;
 
-  let wallet: TestWallet;
+  let wallet: Wallet;
 
   let adminAddress: AztecAddress;
   let liquidityProviderAddress: AztecAddress;
@@ -40,12 +62,13 @@ describe('AMM', () => {
   const INITIAL_TOKEN_BALANCE = 1_000_000_000n;
 
   beforeAll(async () => {
-    ({
-      teardown,
-      wallet,
-      accounts: [adminAddress, liquidityProviderAddress, otherLiquidityProviderAddress, swapperAddress],
-      logger,
-    } = await setup(4));
+    logger = createLogger('e2e:forward-compatibility:amm');
+
+    wallet = createWalletClient(REMOTE_WALLET_URL);
+
+    const accounts = (await wallet.getAccounts()).map(a => a.item);
+    expect(accounts.length).toBeGreaterThanOrEqual(4);
+    [adminAddress, liquidityProviderAddress, otherLiquidityProviderAddress, swapperAddress] = accounts;
 
     ({ contract: token0 } = await deployToken(wallet, adminAddress, 0n, logger));
     ({ contract: token1 } = await deployToken(wallet, adminAddress, 0n, logger));
@@ -69,8 +92,6 @@ describe('AMM', () => {
     // Note that the swapper only holds token0, not token1
     await mintTokensToPrivate(token0, adminAddress, swapperAddress, INITIAL_TOKEN_BALANCE);
   });
-
-  afterAll(() => teardown());
 
   describe('full flow', () => {
     // This is an integration test in which we perform an entire run of the happy path. Thorough unit testing is not
@@ -115,21 +136,25 @@ describe('AMM', () => {
       const nonceForAuthwits = Fr.random();
       const token0Authwit = await wallet.createAuthWit(liquidityProviderAddress, {
         caller: amm.address,
-        action: token0.methods.transfer_to_public_and_prepare_private_balance_increase(
-          liquidityProviderAddress,
-          amm.address,
-          amount0Max,
-          nonceForAuthwits,
-        ),
+        call: await token0.methods
+          .transfer_to_public_and_prepare_private_balance_increase(
+            liquidityProviderAddress,
+            amm.address,
+            amount0Max,
+            nonceForAuthwits,
+          )
+          .getFunctionCall(),
       });
       const token1Authwit = await wallet.createAuthWit(liquidityProviderAddress, {
         caller: amm.address,
-        action: token1.methods.transfer_to_public_and_prepare_private_balance_increase(
-          liquidityProviderAddress,
-          amm.address,
-          amount1Max,
-          nonceForAuthwits,
-        ),
+        call: await token1.methods
+          .transfer_to_public_and_prepare_private_balance_increase(
+            liquidityProviderAddress,
+            amm.address,
+            amount1Max,
+            nonceForAuthwits,
+          )
+          .getFunctionCall(),
       });
 
       const addLiquidityInteraction = amm.methods
@@ -187,21 +212,25 @@ describe('AMM', () => {
       const nonceForAuthwits = Fr.random();
       const token1Authwit = await wallet.createAuthWit(otherLiquidityProviderAddress, {
         caller: amm.address,
-        action: token0.methods.transfer_to_public_and_prepare_private_balance_increase(
-          otherLiquidityProviderAddress,
-          amm.address,
-          amount0Max,
-          nonceForAuthwits,
-        ),
+        call: await token0.methods
+          .transfer_to_public_and_prepare_private_balance_increase(
+            otherLiquidityProviderAddress,
+            amm.address,
+            amount0Max,
+            nonceForAuthwits,
+          )
+          .getFunctionCall(),
       });
       const token2Authwit = await wallet.createAuthWit(otherLiquidityProviderAddress, {
         caller: amm.address,
-        action: token1.methods.transfer_to_public_and_prepare_private_balance_increase(
-          otherLiquidityProviderAddress,
-          amm.address,
-          amount1Max,
-          nonceForAuthwits,
-        ),
+        call: await token1.methods
+          .transfer_to_public_and_prepare_private_balance_increase(
+            otherLiquidityProviderAddress,
+            amm.address,
+            amount1Max,
+            nonceForAuthwits,
+          )
+          .getFunctionCall(),
       });
 
       await amm.methods
@@ -242,7 +271,9 @@ describe('AMM', () => {
       const nonceForAuthwits = Fr.random();
       const swapAuthwit = await wallet.createAuthWit(swapperAddress, {
         caller: amm.address,
-        action: token0.methods.transfer_to_public(swapperAddress, amm.address, amountIn, nonceForAuthwits),
+        call: await token0.methods
+          .transfer_to_public(swapperAddress, amm.address, amountIn, nonceForAuthwits)
+          .getFunctionCall(),
       });
 
       // We compute the expected amount out and set it as the minimum. In a real-life scenario we'd choose a slightly
@@ -287,12 +318,14 @@ describe('AMM', () => {
       const nonceForAuthwits = Fr.random();
       const swapAuthwit = await wallet.createAuthWit(swapperAddress, {
         caller: amm.address,
-        action: token1.methods.transfer_to_public_and_prepare_private_balance_increase(
-          swapperAddress,
-          amm.address,
-          amountInMax,
-          nonceForAuthwits,
-        ),
+        call: await token1.methods
+          .transfer_to_public_and_prepare_private_balance_increase(
+            swapperAddress,
+            amm.address,
+            amountInMax,
+            nonceForAuthwits,
+          )
+          .getFunctionCall(),
       });
 
       await amm.methods
@@ -323,12 +356,9 @@ describe('AMM', () => {
       const nonceForAuthwits = Fr.random();
       const liquidityAuthwit = await wallet.createAuthWit(otherLiquidityProviderAddress, {
         caller: amm.address,
-        action: liquidityToken.methods.transfer_to_public(
-          otherLiquidityProviderAddress,
-          amm.address,
-          liquidityTokenBalance,
-          nonceForAuthwits,
-        ),
+        call: await liquidityToken.methods
+          .transfer_to_public(otherLiquidityProviderAddress, amm.address, liquidityTokenBalance, nonceForAuthwits)
+          .getFunctionCall(),
       });
 
       // We don't bother setting the minimum amounts, since we know nobody else is interacting with the AMM. In a
