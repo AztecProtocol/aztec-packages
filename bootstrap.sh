@@ -826,6 +826,28 @@ case "$cmd" in
     echo_header "Backwards compatibility e2e tests"
     echo "Testing against ${#versions[@]} prior stable version(s): ${versions[*]}"
 
+    # Pre-populate the legacy contract cache on the host. Test containers run with --net=none, so the
+    # jest resolver's on-demand npm install would fail with EAI_AGAIN. Install here where we have network.
+    legacy_pkgs=("@aztec/noir-contracts.js" "@aztec/noir-test-contracts.js" "@aztec/accounts")
+    for ver in "${versions[@]}"; do
+      cache_dir="yarn-project/end-to-end/.legacy-contracts/$ver"
+      missing=0
+      for pkg in "${legacy_pkgs[@]}"; do
+        [ -f "$cache_dir/node_modules/$pkg/package.json" ] || missing=1
+      done
+      if [ "$missing" -eq 0 ]; then
+        continue
+      fi
+      mkdir -p "$cache_dir"
+      [ -f "$cache_dir/package.json" ] || echo '{"name":"legacy-contracts-cache","private":true}' > "$cache_dir/package.json"
+      specs=()
+      for pkg in "${legacy_pkgs[@]}"; do
+        specs+=("$pkg@$ver")
+      done
+      echo "[legacy-contracts] installing ${specs[*]} into $cache_dir"
+      npm install --prefix "$cache_dir" --no-save --ignore-scripts --legacy-peer-deps "${specs[@]}"
+    done
+
     # Generate compat test commands for all versions and run them in parallel.
     for ver in "${versions[@]}"; do
       yarn-project/end-to-end/bootstrap.sh compat_test_cmds "$ver"
