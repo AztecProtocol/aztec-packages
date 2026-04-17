@@ -1,9 +1,4 @@
-import {
-  BlockNumber,
-  type CheckpointNumber,
-  IndexWithinCheckpoint,
-  type SlotNumber,
-} from '@aztec/foundation/branded-types';
+import { type CheckpointNumber, IndexWithinCheckpoint, type SlotNumber } from '@aztec/foundation/branded-types';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { keccak256 } from '@aztec/foundation/crypto/keccak';
 import { Fr } from '@aztec/foundation/curves/bn254';
@@ -51,6 +46,7 @@ export class ValidationService {
    */
   public createBlockProposal(
     blockHeader: BlockHeader,
+    checkpointNumber: CheckpointNumber,
     blockIndexWithinCheckpoint: IndexWithinCheckpoint,
     inHash: Fr,
     archive: Fr,
@@ -71,6 +67,7 @@ export class ValidationService {
 
     return BlockProposal.createProposalFromSigner(
       blockHeader,
+      checkpointNumber,
       blockIndexWithinCheckpoint,
       inHash,
       archive,
@@ -94,6 +91,7 @@ export class ValidationService {
   public createCheckpointProposal(
     checkpointHeader: CheckpointHeader,
     archive: Fr,
+    checkpointNumber: CheckpointNumber,
     feeAssetPriceModifier: bigint,
     lastBlockProposal: BlockProposal | undefined,
     proposerAttesterAddress: EthAddress | undefined,
@@ -116,6 +114,7 @@ export class ValidationService {
     return CheckpointProposal.createProposalFromSigner(
       checkpointHeader,
       archive,
+      checkpointNumber,
       feeAssetPriceModifier,
       lastBlockProposal,
       payloadSigner,
@@ -135,6 +134,7 @@ export class ValidationService {
   async attestToCheckpointProposal(
     proposal: CheckpointProposalCore,
     attestors: EthAddress[],
+    checkpointNumber: CheckpointNumber,
   ): Promise<CheckpointAttestation[]> {
     // Create the attestation payload from the checkpoint proposal
     const payload = new ConsensusPayload(proposal.checkpointHeader, proposal.archive, proposal.feeAssetPriceModifier);
@@ -142,14 +142,9 @@ export class ValidationService {
       keccak256(payload.getPayloadToSign(SignatureDomainSeparator.checkpointAttestation)),
     );
 
-    // TODO(spy/ha): Use checkpointNumber instead of blockNumber once CheckpointHeader includes it.
-    // CheckpointProposalCore doesn't have lastBlock info, so use 0 as a proxy.
-    // blockNumber is NOT used for the primary key so it's safe to use here.
-    // See CheckpointHeader TODO and SigningContext types documentation.
-    const blockNumber = BlockNumber(0);
     const context: SigningContext = {
       slot: proposal.slotNumber,
-      blockNumber,
+      checkpointNumber,
       dutyType: DutyType.ATTESTATION,
     };
 
@@ -188,7 +183,6 @@ export class ValidationService {
    * @param attestationsAndSigners - The attestations and signers to sign
    * @param proposer - The proposer address to sign with
    * @param slot - The slot number for HA signing context
-   * @param blockNumber - The block or checkpoint number for HA signing context
    * @returns signature
    * @throws DutyAlreadySignedError if already signed by another HA node
    * @throws SlashingProtectionError if attempting to sign different data for same slot
@@ -197,11 +191,11 @@ export class ValidationService {
     attestationsAndSigners: CommitteeAttestationsAndSigners,
     proposer: EthAddress,
     slot: SlotNumber,
-    blockNumber: BlockNumber | CheckpointNumber,
+    checkpointNumber: CheckpointNumber,
   ): Promise<Signature> {
     const context: SigningContext = {
       slot,
-      blockNumber,
+      checkpointNumber,
       dutyType: DutyType.ATTESTATIONS_AND_SIGNERS,
     };
 

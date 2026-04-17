@@ -88,7 +88,8 @@ checkpointFinalizationTime = propagationTime
 timeReservedAtEnd (normal mode) = blockDuration               (last sub-slot for reexecution)
                                 + checkpointFinalizationTime
 
-timeReservedAtEnd (pipelining) = blockDuration                (last sub-slot for reexecution only)
+timeReservedAtEnd (pipelining) = assembleTime
+                               + propagationTime             (proposal must reach validators before the slot flips)
 
 timeAvailableForBlocks = slotDuration - initializationOffset - timeReservedAtEnd
 
@@ -109,9 +110,9 @@ This means:
 
 **The same slot with proposer pipelining enabled:**
 ```
-timeReservedAtEnd = 8s
-timeAvailableForBlocks = 72s - 2s - 8s = 62s
-numberOfBlocks = floor(62s / 8s) = 7 blocks
+timeReservedAtEnd = 1s + 2s = 3s
+timeAvailableForBlocks = 72s - 2s - 3s = 67s
+numberOfBlocks = floor(67s / 8s) = 8 blocks
 ```
 
 The extra two block opportunities come from not charging the current slot for checkpoint finalization and L1 publishing.
@@ -128,8 +129,8 @@ It helps to think in terms of two different slots:
 So the work is split like this:
 
 - **During slot N-1**: Initialization, block building, and last-block re-execution
-- **Near the end of slot N-1**: The checkpoint proposal is broadcast and validators attest to checkpoint N.
-- **During slot N**: The proposer collects signatures, and the checkpoint is submitted to L1
+- **Near the end of slot N-1**: The checkpoint proposal is broadcast so validators can start the last re-execution as slot `N` begins.
+- **During slot N**: Validators finish re-executing, send attestations, the proposer collects them, and the checkpoint is submitted to L1 before slot `N` reaches its publish cutoff
 
 In other words, pipelining does not mean "do everything for slot N earlier". It specifically moves **block production and block re-execution** earlier, while **checkpoint proposal, attestation gathering, and L1 submission** remain aligned with slot `N`.
 
@@ -142,7 +143,7 @@ Slot 11 (wall clock):
 - Collect checkpoint 12 attestations
 
 Slot 12 (target/submission slot):
-- Collect remaining checkpoint 12 attestations
+- Collect attestations for checkpoint 12 until slot 12 reaches its L1 publish cutoff
 - Submit checkpoint 12 to L1
 ```
 
@@ -534,7 +535,7 @@ The sequencer transitions through these states during a slot:
 | **WAITING_UNTIL_NEXT_BLOCK** | Until next sub-slot start | Sleep between blocks to maintain intervals |
 | **ASSEMBLING_CHECKPOINT** | assembleTime (1s) | Assemble final checkpoint |
 | **COLLECTING_ATTESTATIONS** | Until L1 publish deadline | Wait for validator signatures |
-| **PUBLISHING_CHECKPOINT** | Until slot end | Submit to L1 |
+| **PUBLISHING_CHECKPOINT** | Until L1 publish deadline | Submit to L1 |
 
 ## Complete Example: 72-Second Slot with 8-Second Sub-Slots
 

@@ -16,6 +16,7 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { BadRequestError } from '@aztec/foundation/json-rpc';
 import { type Logger, createLogger } from '@aztec/foundation/log';
+import { retryUntil } from '@aztec/foundation/retry';
 import { count } from '@aztec/foundation/string';
 import { DateProvider, Timer } from '@aztec/foundation/timer';
 import { MembershipWitness, SiblingPath } from '@aztec/foundation/trees';
@@ -32,7 +33,12 @@ import {
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { type ProverNode, type ProverNodeDeps, createProverNode } from '@aztec/prover-node';
 import { createKeyStoreForProver } from '@aztec/prover-node/config';
-import { GlobalVariableBuilder, SequencerClient, type SequencerPublisher } from '@aztec/sequencer-client';
+import {
+  FeeProviderImpl,
+  GlobalVariableBuilder,
+  SequencerClient,
+  type SequencerPublisher,
+} from '@aztec/sequencer-client';
 import { PublicProcessorFactory } from '@aztec/simulator/server';
 import {
   AttestationsBlockWatcher,
@@ -59,13 +65,14 @@ import type {
   NodeInfo,
   ProtocolContractAddresses,
 } from '@aztec/stdlib/contract';
-import { GasFees } from '@aztec/stdlib/gas';
+import { GasFees, type ManaUsageEstimate } from '@aztec/stdlib/gas';
 import { computePublicDataTreeLeafSlot } from '@aztec/stdlib/hash';
 import {
   type AztecNode,
   type AztecNodeAdmin,
   type AztecNodeAdminConfig,
   AztecNodeAdminConfigSchema,
+  type AztecNodeDebug,
   type GetContractClassLogsResponse,
   type GetPublicLogsResponse,
 } from '@aztec/stdlib/interfaces/client';
@@ -86,6 +93,7 @@ import type { NullifierLeafPreimage, PublicDataTreeLeafPreimage } from '@aztec/s
 import { MerkleTreeId, NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
 import {
   type BlockHeader,
+  type FeeProvider,
   type GlobalVariableBuilder as GlobalVariableBuilderInterface,
   type IndexedTxEffect,
   PublicSimulationOutput,
@@ -127,7 +135,7 @@ import { NodeMetrics } from './node_metrics.js';
 /**
  * The aztec node.
  */
-export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
+export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDebug, Traceable {
   private metrics: NodeMetrics;
   private initialHeaderHashPromise: Promise<BlockHash> | undefined = undefined;
 
@@ -152,6 +160,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     protected readonly l1ChainId: number,
     protected readonly version: number,
     protected readonly globalVariableBuilder: GlobalVariableBuilderInterface,
+    protected readonly feeProvider: FeeProvider,
     protected readonly epochCache: EpochCacheInterface,
     protected readonly packageVersion: string,
     private peerProofVerifier: ClientProtocolCircuitVerifier,
@@ -466,7 +475,6 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     void archiver
       .waitForInitialSync()
       .then(async () => {
-        await p2pClient.start();
         await validatorsSentinel?.start();
         await epochPruneWatcher?.start();
         await attestationsBlockWatcher?.start();
@@ -474,13 +482,16 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       })
       .catch(err => log.error('Failed to start p2p services after archiver sync', err));
 
-    const globalVariableBuilder = new GlobalVariableBuilder(dateProvider, publicClient, {
+    const globalVariableBuilderConfig = {
       l1Contracts: config.l1Contracts,
       ethereumSlotDuration: config.ethereumSlotDuration,
       rollupVersion: BigInt(config.rollupVersion),
       l1GenesisTime,
       slotDuration: Number(slotDuration),
-    });
+    };
+
+    const globalVariableBuilder = new GlobalVariableBuilder(dateProvider, publicClient, globalVariableBuilderConfig);
+    const feeProvider = new FeeProviderImpl(dateProvider, publicClient, globalVariableBuilderConfig);
 
     // Validator enabled, create/start relevant service
     let sequencer: SequencerClient | undefined;
@@ -608,6 +619,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       ethereumChain.chainInfo.id,
       config.rollupVersion,
       globalVariableBuilder,
+      feeProvider,
       epochCache,
       packageVersion,
       peerProofVerifier,
@@ -760,12 +772,13 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     return this.blockSource.getCheckpointsDataForEpoch(epochNumber);
   }
 
-  /**
-   * Method to fetch the current min L2 fees.
-   * @returns The current min L2 fees.
-   */
   public async getCurrentMinFees(): Promise<GasFees> {
-    return await this.globalVariableBuilder.getCurrentMinFees();
+    return await this.feeProvider.getCurrentMinFees();
+  }
+
+  /** Returns predicted min fees for the current slot and next N slots. */
+  public async getPredictedMinFees(manaUsage?: ManaUsageEstimate): Promise<GasFees[]> {
+    return await this.feeProvider.getPredictedMinFees(manaUsage);
   }
 
   public async getMaxPriorityFees(): Promise<GasFees> {
@@ -1048,7 +1061,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     );
 
     // Build a map from block number to block hash
-    const blockNumberToHash = new Map<BlockNumber, Fr>();
+    const blockNumberToHash = new Map<BlockNumber, BlockHash>();
     for (let i = 0; i < uniqueBlockNumbers.length; i++) {
       const blockHash = blockHashes[i];
       if (blockHash === undefined) {
@@ -1066,13 +1079,13 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       if (blockNumber === undefined) {
         throw new Error(`Block number not found for leaf index ${index} in tree ${MerkleTreeId[treeId]}`);
       }
-      const blockHash = blockNumberToHash.get(blockNumber);
-      if (blockHash === undefined) {
+      const l2BlockHash = blockNumberToHash.get(blockNumber);
+      if (l2BlockHash === undefined) {
         throw new Error(`Block hash not found for block number ${blockNumber}`);
       }
       return {
         l2BlockNumber: blockNumber,
-        l2BlockHash: new BlockHash(blockHash),
+        l2BlockHash,
         data: index,
       };
     });
@@ -1636,6 +1649,40 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     this.log.info('Keystore reloaded: coinbase, feeRecipient, and attester keys updated');
   }
 
+  public async mineBlock(): Promise<void> {
+    if (!this.sequencer) {
+      throw new BadRequestError('Cannot mine block: no sequencer is running');
+    }
+
+    const currentBlockNumber = await this.getBlockNumber();
+
+    // Use slot duration + 50% buffer as the timeout so this works on running networks too
+    const { slotDuration } = await this.blockSource.getL1Constants();
+    const timeoutSeconds = Math.ceil(slotDuration * 1.5);
+
+    // Temporarily set minTxsPerBlock to 0 so the sequencer produces a block even with no txs
+    const originalMinTxsPerBlock = this.sequencer.getSequencer().getConfig().minTxsPerBlock;
+    this.sequencer.updateConfig({ minTxsPerBlock: 0 });
+
+    try {
+      // Trigger the sequencer to produce a block immediately
+      void this.sequencer.trigger();
+
+      // Wait for the new L2 block to appear
+      await retryUntil(
+        async () => {
+          const newBlockNumber = await this.getBlockNumber();
+          return newBlockNumber > currentBlockNumber ? true : undefined;
+        },
+        'mineBlock',
+        timeoutSeconds,
+        0.1,
+      );
+    } finally {
+      this.sequencer.updateConfig({ minTxsPerBlock: originalMinTxsPerBlock });
+    }
+  }
+
   #getInitialHeaderHash(): Promise<BlockHash> {
     if (!this.initialHeaderHashPromise) {
       this.initialHeaderHashPromise = this.worldStateSynchronizer.getCommitted().getInitialHeader().hash();
@@ -1694,7 +1741,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     // Double-check world-state synced to the same block hash as was requested
     if (BlockHash.isBlockHash(block)) {
       const blockHash = await snapshot.getLeafValue(MerkleTreeId.ARCHIVE, BigInt(blockNumber));
-      if (!blockHash || !new BlockHash(blockHash).equals(block)) {
+      if (!blockHash || !block.equals(blockHash)) {
         throw new Error(
           `Block hash ${block.toString()} not found in world state at block number ${blockNumber}. If the node API has been queried with anchor block hash possibly a reorg has occurred.`,
         );

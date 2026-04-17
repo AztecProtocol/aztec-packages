@@ -563,14 +563,14 @@ describe('e2e_node_rpc_perf', () => {
     });
 
     it('benchmarks getPrivateLogsByTags', async () => {
-      const tags = [new SiloedTag(Fr.random())];
+      const tags = [SiloedTag.random()];
       const { stats } = await benchmark('getPrivateLogsByTags', () => aztecNode.getPrivateLogsByTags(tags));
       addResult('getPrivateLogsByTags', stats);
       expect(stats.avg).toBeLessThan(3000);
     });
 
     it('benchmarks getPublicLogsByTagsFromContract', async () => {
-      const tags = [new Tag(Fr.random())];
+      const tags = [Tag.random()];
       const { stats } = await benchmark('getPublicLogsByTagsFromContract', () =>
         aztecNode.getPublicLogsByTagsFromContract(contractAddress, tags),
       );

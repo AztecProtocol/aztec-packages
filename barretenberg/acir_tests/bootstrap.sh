@@ -86,7 +86,7 @@ function regenerate_recursive_inputs {
   mv ./target/assert_statement.json ./target/program.json
   mv ./target/assert_statement.gz ./target/witness.gz
   cd ../..
-  parallel 'run_proof_generation {}' ::: "double_verify_honk_proof" "verify_honk_proof" "verify_honk_zk_proof" "double_verify_honk_zk_proof" "verify_rollup_honk_proof"
+  parallel 'run_proof_generation {}' ::: "double_verify_honk_proof" "verify_honk_proof" "verify_honk_zk_proof" "double_verify_honk_zk_proof" "verify_rollup_honk_proof" "double_verify_root_rollup_honk_proof"
 }
 
 export -f regenerate_recursive_inputs run_proof_generation generate_toml
@@ -108,9 +108,6 @@ function build {
     rm -rf acir_tests/{diamond_deps_0,workspace,workspace_default_member,regression_7323}
     # These use folding, which is not currently supported.
     rm -rf acir_tests/{fold_call_witness_condition,fold_after_inlined_calls,fold_complex_outputs,fold_basic_nested_call,fold_numeric_generic_poseidon,fold_fibonacci,fold_basic,fold_2_to_17,fold_distinct_return}
-    # These are breaking with:
-    # Failed to solve program: 'Failed to solve blackbox function: embedded_curve_add, reason: Infinite input: embedded_curve_add(infinity, infinity)'
-    rm -rf acir_tests/{regression_5045,regression_7744}
     # The following test fails because it uses CallData/ReturnData with UltraBuilder, which is not supported
     rm -rf acir_tests/{regression_7612,regression_7143,databus_composite_calldata,databus_two_calldata_simple,databus_two_calldata,databus}
     # Merge the internal test programs with the acir tests.
@@ -143,7 +140,7 @@ function test_cmds {
 
   # non_recursive_tests include all of the non recursive test programs
   local non_recursive_tests=$(find ./acir_tests -maxdepth 1 -mindepth 1 -type d | \
-    grep -vE 'verify_honk_proof|verify_honk_zk_proof|verify_rollup_honk_proof')
+    grep -vE 'verify_honk_proof|verify_honk_zk_proof|verify_rollup_honk_proof|double_verify_root_rollup_honk_proof')
   local scripts=$(realpath --relative-to=$root scripts)
 
   local sol_prefix="$tests_hash:ISOLATE=1"
@@ -196,6 +193,9 @@ function test_cmds {
   #echo "$tests_hash $scripts/bb_prove.sh assert_statement --oracle_hash starknet"
   # Test rollup verification (rollup uses --ipa_accumulation)
   echo "$tests_hash $scripts/bb_prove.sh verify_rollup_honk_proof --ipa_accumulation"
+  # Test root-rollup verification: outer circuit verifies two RollupHonk proofs and closes the IPA
+  # accumulator in-circuit, so it is proved as a standard (non-rollup) UltraHonk (no --ipa_accumulation).
+  echo "$tests_hash $scripts/bb_prove.sh double_verify_root_rollup_honk_proof"
   # Run the assert_statement test with ZK disabled.
   echo "$tests_hash $scripts/bb_prove.sh assert_statement --disable_zk"
 

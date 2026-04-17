@@ -13,7 +13,7 @@ import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import type { P2P } from '@aztec/p2p';
 import { protocolContractsHash } from '@aztec/protocol-contracts';
 import { computeFeePayerBalanceLeafSlot } from '@aztec/protocol-contracts/fee-juice';
-import type { GlobalVariableBuilder, SequencerClient } from '@aztec/sequencer-client';
+import type { GlobalVariableBuilder, Sequencer, SequencerClient } from '@aztec/sequencer-client';
 import type { SlasherClientInterface } from '@aztec/slasher';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { BlockHash, type BlockParameter, CheckpointedL2Block, L2Block, type L2BlockSource } from '@aztec/stdlib/block';
@@ -25,6 +25,7 @@ import type { L2LogsSource, MerkleTreeReadOperations, WorldStateSynchronizer } f
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import { mockTx } from '@aztec/stdlib/testing';
 import { MerkleTreeId, PublicDataTreeLeaf, PublicDataTreeLeafPreimage } from '@aztec/stdlib/trees';
+import type { FeeProvider } from '@aztec/stdlib/tx';
 import {
   BlockHeader,
   GlobalVariables,
@@ -73,6 +74,7 @@ class TestAztecNodeService extends AztecNodeService {
 describe('aztec node', () => {
   let p2p: MockProxy<P2P>;
   let globalVariablesBuilder: MockProxy<GlobalVariableBuilder>;
+  let feeProvider: MockProxy<FeeProvider>;
   let merkleTreeOps: MockProxy<MerkleTreeReadOperations>;
   let worldState: MockProxy<WorldStateSynchronizer>;
   let l2BlockSource: MockProxy<L2BlockSource>;
@@ -108,7 +110,8 @@ describe('aztec node', () => {
     p2p = mock<P2P>();
 
     globalVariablesBuilder = mock<GlobalVariableBuilder>();
-    globalVariablesBuilder.getCurrentMinFees.mockResolvedValue(new GasFees(0, BlockNumber.ZERO));
+    feeProvider = mock<FeeProvider>();
+    feeProvider.getCurrentMinFees.mockResolvedValue(new GasFees(0, BlockNumber.ZERO));
 
     merkleTreeOps = mock<MerkleTreeReadOperations>();
     merkleTreeOps.findLeafIndices.mockImplementation((treeId: MerkleTreeId, _value: any[]) => {
@@ -196,6 +199,7 @@ describe('aztec node', () => {
       12345,
       rollupVersion.toNumber(),
       globalVariablesBuilder,
+      feeProvider,
       epochCache,
       getPackageVersion() ?? '',
       new TestCircuitVerifier(),
@@ -634,8 +638,7 @@ describe('aztec node', () => {
       });
 
       it('returns snapshot at block 0 for initial header hash', async () => {
-        const initialHash = await initialHeader.hash();
-        const initialBlockHash = new BlockHash(initialHash);
+        const initialBlockHash = await initialHeader.hash();
 
         const result = await node.getWorldState(initialBlockHash);
         expect(worldState.getSnapshot).toHaveBeenCalledWith(BlockNumber.ZERO);
@@ -658,8 +661,7 @@ describe('aztec node', () => {
         // The initial block (block 0) has an empty archive — no block hashes exist in it.
         // getBlockHashMembershipWitness computes referenceBlockNumber - 1, which would be 0 - 1 = -1.
         // This should return undefined (empty archive has no witnesses) rather than crashing.
-        const initialHash = await initialHeader.hash();
-        const initialBlockHash = new BlockHash(initialHash);
+        const initialBlockHash = await initialHeader.hash();
         const someBlockHash = BlockHash.random();
 
         const result = await node.getBlockHashMembershipWitness(initialBlockHash, someBlockHash);
@@ -738,6 +740,7 @@ describe('aztec node', () => {
           12345,
           rollupVersion.toNumber(),
           globalVariablesBuilder,
+          feeProvider,
           epochCache,
           getPackageVersion() ?? '',
           new TestCircuitVerifier(),
@@ -927,6 +930,7 @@ describe('aztec node', () => {
           12345,
           rollupVersion.toNumber(),
           globalVariablesBuilder,
+          feeProvider,
           epochCache,
           getPackageVersion() ?? '',
           new TestCircuitVerifier(),
@@ -955,6 +959,69 @@ describe('aztec node', () => {
         // reload rejected before mutation
         expect(validatorClient.reloadKeystore).not.toHaveBeenCalled();
       });
+    });
+  });
+
+  describe('mineBlock', () => {
+    const INITIAL_MIN_TXS_PER_BLOCK = 1;
+
+    let sequencerClient: MockProxy<SequencerClient>;
+    let nodeWithSequencer: AztecNodeService;
+
+    /** Simulates block number advancing from `from` to `to` after the first call. */
+    const mockBlockNumberAdvancing = (from: number, to: number) => {
+      let callCount = 0;
+      l2BlockSource.getBlockNumber.mockImplementation(() => {
+        callCount++;
+        return Promise.resolve(callCount > 1 ? BlockNumber(to) : BlockNumber(from));
+      });
+    };
+
+    beforeEach(() => {
+      const sequencer = mock<Sequencer>();
+      sequencer.getConfig.mockReturnValue({ minTxsPerBlock: INITIAL_MIN_TXS_PER_BLOCK } as any);
+
+      sequencerClient = mock<SequencerClient>();
+      sequencerClient.getSequencer.mockReturnValue(sequencer);
+      sequencerClient.trigger.mockReturnValue(Promise.resolve());
+
+      nodeWithSequencer = new AztecNodeService(
+        nodeConfig,
+        p2p,
+        l2BlockSource,
+        mock(),
+        mock(),
+        mock(),
+        worldState,
+        sequencerClient,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        12345,
+        rollupVersion.toNumber(),
+        globalVariablesBuilder,
+        mock<FeeProvider>(),
+        epochCache,
+        getPackageVersion() ?? '',
+        new TestCircuitVerifier(),
+        new TestCircuitVerifier(),
+      );
+    });
+
+    it('throws when no sequencer is running', async () => {
+      await expect(node.mineBlock()).rejects.toThrow('Cannot mine block: no sequencer is running');
+    });
+
+    it('restores minTxsPerBlock after successful block production', async () => {
+      mockBlockNumberAdvancing(5, 6);
+
+      await nodeWithSequencer.mineBlock();
+
+      const updateCalls = sequencerClient.updateConfig.mock.calls;
+      expect(updateCalls[0][0]).toEqual({ minTxsPerBlock: 0 });
+      // Last call to update calls should revert the value to the original
+      expect(updateCalls[1][0]).toEqual({ minTxsPerBlock: INITIAL_MIN_TXS_PER_BLOCK });
     });
   });
 

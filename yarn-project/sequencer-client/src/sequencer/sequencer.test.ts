@@ -19,6 +19,7 @@ import type { SlasherClientInterface } from '@aztec/slasher';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
   type BlockData,
+  BlockHash,
   CommitteeAttestation,
   CommitteeAttestationsAndSigners,
   GENESIS_CHECKPOINT_HEADER_HASH,
@@ -158,9 +159,9 @@ describe('sequencer', () => {
       expect.any(Checkpoint),
       attestationsAndSigners,
       getSignatures()[0].signature,
-      {
+      expect.objectContaining({
         txTimeoutAt: expect.any(Date),
-      },
+      }),
     );
   };
 
@@ -287,7 +288,7 @@ describe('sequencer', () => {
       getBlockData: mockFn().mockResolvedValue({
         header: BlockHeader.empty(),
         archive: AppendOnlyTreeSnapshot.empty(),
-        blockHash: Fr.ZERO,
+        blockHash: BlockHash.ZERO,
         checkpointNumber: CheckpointNumber(0),
         indexWithinCheckpoint: IndexWithinCheckpoint(0),
       } satisfies BlockData),
@@ -373,6 +374,7 @@ describe('sequencer', () => {
     it('builds a block out of a single tx', async () => {
       await setupSingleTxBlock();
       await sequencer.work();
+      await sequencer.awaitLastProposalSubmission();
 
       expectPublisherProposeL2Block();
     });
@@ -417,6 +419,7 @@ describe('sequencer', () => {
       });
 
       await sequencer.work();
+      await sequencer.awaitLastProposalSubmission();
       // Now we should build and publish the checkpoint
       expect(checkpointBuilder.buildBlockCalls.length).toBeGreaterThan(0);
       expectPublisherProposeL2Block();
@@ -439,6 +442,7 @@ describe('sequencer', () => {
       block = await makeBlock(txs);
 
       await sequencer.work();
+      await sequencer.awaitLastProposalSubmission();
 
       expect(checkpointBuilder.buildBlockCalls.length).toBeGreaterThan(0);
       expectPublisherProposeL2Block();
@@ -455,6 +459,7 @@ describe('sequencer', () => {
       // Archiver reports synced to slot 0, which satisfies syncedL2Slot + 1 >= slot (slot=1)
       l2BlockSource.getSyncedL2SlotNumber.mockResolvedValue(SlotNumber(0));
       await sequencer.work();
+      await sequencer.awaitLastProposalSubmission();
       expect(publisher.enqueueProposeCheckpoint).toHaveBeenCalled();
     });
 
@@ -475,10 +480,9 @@ describe('sequencer', () => {
 
       publisher.enqueueProposeCheckpoint.mockRejectedValueOnce(new Error('Failed to enqueue propose checkpoint'));
 
+      // The error is caught in the background attestation/L1 pipeline and does not surface as an unhandled rejection
       await sequencer.work();
-
-      // We still call sendRequestsAt in case there are votes enqueued
-      expect(publisher.sendRequestsAt).toHaveBeenCalled();
+      await sequencer.awaitLastProposalSubmission();
     });
 
     it('should proceed with block proposal when there is no proposer yet', async () => {
@@ -497,6 +501,7 @@ describe('sequencer', () => {
       block = await makeBlock(txs);
 
       await sequencer.work();
+      await sequencer.awaitLastProposalSubmission();
 
       // Verify that the sequencer attempted to create and broadcast a block proposal
       expect(publisher.enqueueProposeCheckpoint).toHaveBeenCalled();
@@ -579,6 +584,7 @@ describe('sequencer', () => {
         block = await makeBlock([tx]);
         TestUtils.mockPendingTxs(p2p, [tx]);
         await sequencer.work();
+        await sequencer.awaitLastProposalSubmission();
 
         const attestationsAndSigners = new CommitteeAttestationsAndSigners(getSignatures());
         expect(publishers[i].enqueueProposeCheckpoint).toHaveBeenCalledTimes(1);
@@ -586,7 +592,9 @@ describe('sequencer', () => {
           expect.any(Checkpoint),
           attestationsAndSigners,
           getSignatures()[0].signature,
-          { txTimeoutAt: expect.any(Date) },
+          expect.objectContaining({
+            txTimeoutAt: expect.any(Date),
+          }),
         );
       }
     });
@@ -928,6 +936,7 @@ describe('sequencer', () => {
       await setupSingleTxBlock();
 
       await sequencer.work();
+      await sequencer.awaitLastProposalSubmission();
 
       // Verify checkpoint was built and proposed
       expect(checkpointBuilder.buildBlockCalls.length).toBeGreaterThan(0);
@@ -941,6 +950,7 @@ describe('sequencer', () => {
       await setupSingleTxBlock();
 
       await sequencer.work();
+      await sequencer.awaitLastProposalSubmission();
 
       // Verify checkpoint was built and proposed
       expect(checkpointBuilder.buildBlockCalls).toHaveLength(1);
@@ -957,6 +967,7 @@ describe('sequencer', () => {
       TestUtils.mockPendingTxs(p2p, txs);
 
       await sequencer.work();
+      await sequencer.awaitLastProposalSubmission();
 
       expect(checkpointBuilder.buildBlockCalls.length).toBeGreaterThan(1);
       expect(validatorClient.createCheckpointProposal).toHaveBeenCalled();
@@ -1045,7 +1056,7 @@ describe('sequencer', () => {
       l2BlockSource.getBlockData.mockResolvedValue({
         header: BlockHeader.empty({ globalVariables: GlobalVariables.empty({ blockNumber: BlockNumber(1) }) }),
         archive: AppendOnlyTreeSnapshot.empty(),
-        blockHash: Fr.ZERO,
+        blockHash: BlockHash.ZERO,
         checkpointNumber: CheckpointNumber(1),
         indexWithinCheckpoint: IndexWithinCheckpoint(0),
       } satisfies BlockData);
@@ -1055,14 +1066,9 @@ describe('sequencer', () => {
 
       await sequencer.work();
 
-      // L1 check should be called with archive override for the parent checkpoint
-      expect(publisher.canProposeAt).toHaveBeenCalledWith(
-        expect.anything(), // archive
-        expect.anything(), // proposer
-        expect.objectContaining({
-          forceArchive: expect.objectContaining({ checkpointNumber: CheckpointNumber(1) }),
-        }),
-      );
+      const simulationOverridesPlan = publisher.canProposeAt.mock.calls.at(-1)?.[2];
+      expect(simulationOverridesPlan?.pendingCheckpointNumber).toEqual(CheckpointNumber(1));
+      expect(simulationOverridesPlan?.pendingCheckpointState?.archive).toEqual(expect.anything());
     });
 
     it('skips proposal when checkpoint exceeds pipeline depth', async () => {
@@ -1111,7 +1117,7 @@ describe('sequencer', () => {
       l2BlockSource.getBlockData.mockResolvedValue({
         header: BlockHeader.empty({ globalVariables: GlobalVariables.empty({ blockNumber: BlockNumber(3) }) }),
         archive: AppendOnlyTreeSnapshot.empty(),
-        blockHash: Fr.ZERO,
+        blockHash: BlockHash.ZERO,
         checkpointNumber: CheckpointNumber(3),
         indexWithinCheckpoint: IndexWithinCheckpoint(0),
       } satisfies BlockData);
@@ -1130,8 +1136,7 @@ describe('sequencer', () => {
 
       await sequencer.work();
 
-      // L1 check should be called without archive override (empty overrides object)
-      expect(publisher.canProposeAt).toHaveBeenCalledWith(expect.anything(), expect.anything(), {});
+      expect(publisher.canProposeAt.mock.calls.at(-1)?.[2]).toBeUndefined();
     });
 
     it('calls L1 check without overrides when not pipelining', async () => {
@@ -1153,8 +1158,7 @@ describe('sequencer', () => {
 
       await sequencer.work();
 
-      // L1 check should be called without any overrides (empty object)
-      expect(publisher.canProposeAt).toHaveBeenCalledWith(expect.anything(), expect.anything(), {});
+      expect(publisher.canProposeAt.mock.calls.at(-1)?.[2]).toBeUndefined();
     });
   });
 
@@ -1210,6 +1214,10 @@ class TestSequencer extends Sequencer {
       return;
     }
     return super.work();
+  }
+
+  public async awaitLastProposalSubmission() {
+    await this.lastCheckpointProposalJob?.awaitPendingSubmission();
   }
 
   public checkCanProposeForTest(slot: SlotNumber) {

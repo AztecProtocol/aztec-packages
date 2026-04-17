@@ -18,6 +18,21 @@ use super::{
     TRANSIENT_DATA_SQUASHING_HINTS_LEN,
 };
 
+/// Rebuilds a BoundedVec with clean zero-initialized storage past its length.
+/// BoundedVec.pop() no longer zeroes vacated slots; call this after pop() to
+/// ensure elements beyond the claimed length are zero.
+fn rebuild_bounded_vec<T, let N: u32>(vec: BoundedVec<T, N>) -> BoundedVec<T, N> {
+    let storage = vec.storage();
+    let len = vec.len();
+    let mut clean: BoundedVec<T, N> = BoundedVec::new();
+    for i in 0..N {
+        if i < len {
+            clean.push(storage[i]);
+        }
+    }
+    clean
+}
+
 impl TestBuilder {
     pub fn get_output_hints(self) -> SquashedOutputArrayHints {
         let previous_kernel = self.previous_kernel.to_private_kernel_circuit_public_inputs();

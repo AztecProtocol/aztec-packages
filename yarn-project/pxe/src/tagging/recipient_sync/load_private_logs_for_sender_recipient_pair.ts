@@ -21,6 +21,8 @@ export async function loadPrivateLogsForSenderRecipientPair(
   taggingStore: RecipientTaggingStore,
   anchorBlockNumber: BlockNumber,
   anchorBlockHash: BlockHash,
+  currentTimestamp: bigint,
+  finalizedBlockNumber: BlockNumber,
   jobId: string,
 ): Promise<TxScopedL2Log[]> {
   // # Explanation of how the algorithm works
@@ -60,20 +62,6 @@ export async function loadPrivateLogsForSenderRecipientPair(
   // When a sender chooses a tagging index, they will select an index that is at most `WINDOW_LEN` greater than
   // the highest finalized index. If that index was already used, they will throw an error. For this reason we
   // don't have to look further than `highestFinalizedIndex + WINDOW_LEN`.
-
-  let finalizedBlockNumber: number, currentTimestamp: bigint;
-  {
-    const [l2Tips, latestBlockHeader] = await Promise.all([aztecNode.getL2Tips(), aztecNode.getBlockHeader('latest')]);
-
-    if (!latestBlockHeader) {
-      throw new Error('Node failed to return latest block header when syncing logs');
-    }
-
-    [finalizedBlockNumber, currentTimestamp] = [
-      l2Tips.finalized.block.number,
-      latestBlockHeader.globalVariables.timestamp,
-    ];
-  }
 
   let start: number, end: number;
   {
@@ -125,7 +113,9 @@ export async function loadPrivateLogsForSenderRecipientPair(
 
     if (highestAgedIndex !== undefined && highestAgedIndex > highestFinalizedIndex) {
       // This is just a sanity check as this should never happen.
-      throw new Error('Highest aged index lower than highest finalized index invariant violated');
+      throw new Error(
+        `Highest aged index (${highestAgedIndex}) must not exceed highest finalized index (${highestFinalizedIndex})`,
+      );
     }
 
     await taggingStore.updateHighestFinalizedIndex(secret, highestFinalizedIndex, jobId);

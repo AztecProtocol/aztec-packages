@@ -1,5 +1,4 @@
 import { BBBundlePrivateKernelProver } from '@aztec/bb-prover/client/bundle';
-import { GENESIS_BLOCK_HEADER_HASH } from '@aztec/constants';
 import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
 import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
@@ -10,7 +9,7 @@ import { BundledProtocolContractsProvider } from '@aztec/protocol-contracts/prov
 import { WASMSimulator } from '@aztec/simulator/client';
 import { EventSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { BlockHash, GENESIS_CHECKPOINT_HEADER_HASH } from '@aztec/stdlib/block';
+import { BlockHash, GENESIS_BLOCK_HEADER_HASH, GENESIS_CHECKPOINT_HEADER_HASH } from '@aztec/stdlib/block';
 import { getContractClassFromArtifact } from '@aztec/stdlib/contract';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import { SiloedTag } from '@aztec/stdlib/logs';
@@ -95,6 +94,12 @@ describe('PXE', () => {
     // Check that the account is correctly registered using the getAccounts and getRecipients methods
     const accounts = await pxe.getRegisteredAccounts();
     expect(accounts).toContainEqual(completeAddress);
+  });
+
+  it('refuses to register an invalid address as a sender', async () => {
+    // x = 3 is not a valid x-coordinate on the Grumpkin curve (y^2 = x^3 - 17 = 10 has no square root in Fr)
+    const invalidAddress = new AztecAddress(new Fr(3));
+    await expect(pxe.registerSender(invalidAddress)).rejects.toThrow(/not valid/);
   });
 
   it('does not throw when registering the same account twice (just ignores the second attempt)', async () => {

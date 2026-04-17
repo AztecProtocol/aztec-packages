@@ -1,16 +1,18 @@
-import { RollupContract } from '@aztec/ethereum/contracts';
+import {
+  RollupContract,
+  type SimulationOverridesPlan,
+  buildSimulationOverridesStateOverride,
+} from '@aztec/ethereum/contracts';
 import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
 import type { ViemPublicClient } from '@aztec/ethereum/types';
 import { BlockNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import type { EthAddress } from '@aztec/foundation/eth-address';
-import { createLogger } from '@aztec/foundation/log';
 import type { DateProvider } from '@aztec/foundation/timer';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { type L1RollupConstants, getNextL1SlotTimestamp, getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
 import { GasFees } from '@aztec/stdlib/gas';
 import type {
-  BuildCheckpointGlobalVariablesOpts,
   CheckpointGlobalVariables,
   GlobalVariableBuilder as GlobalVariableBuilderInterface,
 } from '@aztec/stdlib/tx';
@@ -27,10 +29,6 @@ export type GlobalVariableBuilderConfig = {
  * Simple global variables builder.
  */
 export class GlobalVariableBuilder implements GlobalVariableBuilderInterface {
-  private log = createLogger('sequencer:global_variable_builder');
-  private currentMinFees: Promise<GasFees> = Promise.resolve(new GasFees(0, 0));
-  private currentL1BlockNumber: bigint | undefined = undefined;
-
   private readonly rollupContract: RollupContract;
   private readonly ethereumSlotDuration: number;
   private readonly aztecSlotDuration: number;
@@ -52,40 +50,6 @@ export class GlobalVariableBuilder implements GlobalVariableBuilderInterface {
     this.l1GenesisTime = config.l1GenesisTime;
 
     this.rollupContract = new RollupContract(this.publicClient, config.l1Contracts.rollupAddress);
-  }
-
-  /**
-   * Computes the "current" min fees, e.g., the price that you currently should pay to get include in the next block
-   * @returns Min fees for the next block
-   */
-  private async computeCurrentMinFees(): Promise<GasFees> {
-    // Since this might be called in the middle of a slot where a block might have been published,
-    // we need to fetch the last block written, and estimate the earliest timestamp for the next block.
-    // The timestamp of that last block will act as a lower bound for the next block.
-
-    const lastCheckpoint = await this.rollupContract.getPendingCheckpoint();
-    const earliestTimestamp = await this.rollupContract.getTimestampForSlot(
-      SlotNumber.fromBigInt(BigInt(lastCheckpoint.slotNumber) + 1n),
-    );
-    const nextEthTimestamp = getNextL1SlotTimestamp(this.dateProvider.nowInSeconds(), {
-      l1GenesisTime: this.l1GenesisTime,
-      ethereumSlotDuration: this.ethereumSlotDuration,
-    });
-    const timestamp = earliestTimestamp > nextEthTimestamp ? earliestTimestamp : nextEthTimestamp;
-
-    return new GasFees(0, await this.rollupContract.getManaMinFeeAt(timestamp, true));
-  }
-
-  public async getCurrentMinFees(): Promise<GasFees> {
-    // Get the current block number
-    const blockNumber = await this.publicClient.getBlockNumber();
-
-    // If the L1 block number has changed then chain a new promise to get the current min fees
-    if (this.currentL1BlockNumber === undefined || blockNumber > this.currentL1BlockNumber) {
-      this.currentL1BlockNumber = blockNumber;
-      this.currentMinFees = this.currentMinFees.then(() => this.computeCurrentMinFees());
-    }
-    return this.currentMinFees;
   }
 
   /**
@@ -120,7 +84,7 @@ export class GlobalVariableBuilder implements GlobalVariableBuilderInterface {
     coinbase: EthAddress,
     feeRecipient: AztecAddress,
     slotNumber: SlotNumber,
-    opts?: BuildCheckpointGlobalVariablesOpts,
+    simulationOverridesPlan?: SimulationOverridesPlan,
   ): Promise<CheckpointGlobalVariables> {
     const { chainId, version } = this;
 
@@ -129,18 +93,7 @@ export class GlobalVariableBuilder implements GlobalVariableBuilderInterface {
       l1GenesisTime: this.l1GenesisTime,
     });
 
-    // When pipelining, force the proposed checkpoint number and fee header to the parent so that
-    // the fee computation matches what L1 will see when the previous pipelined checkpoint has landed.
-    const pendingNumberOverride = await this.rollupContract.makePendingCheckpointNumberOverride(
-      opts?.forcePendingCheckpointNumber,
-    );
-    const feeHeaderOverride = opts?.forceProposedFeeHeader
-      ? await this.rollupContract.makeFeeHeaderOverride(
-          opts.forceProposedFeeHeader.checkpointNumber,
-          opts.forceProposedFeeHeader.feeHeader,
-        )
-      : [];
-    const stateOverride = RollupContract.mergeStateOverrides(pendingNumberOverride, feeHeaderOverride);
+    const stateOverride = await buildSimulationOverridesStateOverride(this.rollupContract, simulationOverridesPlan);
     const gasFees = new GasFees(0, await this.rollupContract.getManaMinFeeAt(timestamp, true, stateOverride));
 
     return { chainId, version, slotNumber, timestamp, coinbase, feeRecipient, gasFees };

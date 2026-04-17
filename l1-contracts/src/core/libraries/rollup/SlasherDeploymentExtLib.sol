@@ -3,6 +3,7 @@
 // solhint-disable imports-order
 pragma solidity >=0.8.27;
 
+import {RollupConfigInput} from "@aztec/core/interfaces/IRollup.sol";
 import {Slasher, ISlasher} from "@aztec/core/slashing/Slasher.sol";
 import {SlashingProposer} from "@aztec/core/slashing/SlashingProposer.sol";
 
@@ -16,35 +17,25 @@ import {SlashingProposer} from "@aztec/core/slashing/SlashingProposer.sol";
  *      to resolve the circular dependency between Slasher and SlashingProposer.
  */
 library SlasherDeploymentExtLib {
-  function deploySlasher(
-    address _rollup,
-    address _vetoer,
-    address _governance,
-    uint256 _quorum,
-    uint256 _roundSize,
-    uint256 _lifetimeInRounds,
-    uint256 _executionDelayInRounds,
-    uint256[3] calldata _slashAmounts,
-    uint256 _committeeSize,
-    uint256 _epochDuration,
-    uint256 _slashOffsetInRounds,
-    uint256 _slashingDisableDuration
-  ) external returns (ISlasher) {
+  function deploySlasher(address _rollup, address _governance, RollupConfigInput memory _config)
+    external
+    returns (ISlasher)
+  {
     // Deploy slasher first
-    Slasher slasher = new Slasher(_vetoer, _governance, _slashingDisableDuration);
+    Slasher slasher = new Slasher(_config.slashingVetoer, _governance, _config.slashingDisableDuration);
 
     // Deploy proposer with slasher address
     SlashingProposer proposer = new SlashingProposer(
       _rollup,
       ISlasher(address(slasher)),
-      _quorum,
-      _roundSize,
-      _lifetimeInRounds,
-      _executionDelayInRounds,
-      _slashAmounts,
-      _committeeSize,
-      _epochDuration,
-      _slashOffsetInRounds
+      _config.slashingQuorum,
+      _config.slashingRoundSize,
+      _config.slashingLifetimeInRounds,
+      _config.slashingExecutionDelayInRounds,
+      _config.slashAmounts,
+      _config.targetCommitteeSize,
+      _config.aztecEpochDuration,
+      _config.slashingOffsetInRounds
     );
 
     // Initialize the slasher with the proposer address

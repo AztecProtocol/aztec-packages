@@ -4,11 +4,9 @@ pragma solidity >=0.8.27;
 
 import {DecoderBase} from "./base/DecoderBase.sol";
 
-import {Registry} from "@aztec/governance/Registry.sol";
 import {FeeJuicePortal} from "@aztec/core/messagebridge/FeeJuicePortal.sol";
 import {TestERC20} from "@aztec/mock/TestERC20.sol";
 import {TestConstants} from "./harnesses/TestConstants.sol";
-import {RewardDistributor} from "@aztec/governance/RewardDistributor.sol";
 import {ProposeArgs, ProposeLib} from "@aztec/core/libraries/rollup/ProposeLib.sol";
 
 import {Timestamp, Slot, Epoch, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
@@ -18,7 +16,6 @@ import {Errors} from "@aztec/core/libraries/Errors.sol";
 
 import {RollupBase, IInstance} from "./base/RollupBase.sol";
 import {RollupBuilder} from "./builder/RollupBuilder.sol";
-import {Ownable} from "@oz/access/Ownable.sol";
 import {stdStorage, StdStorage} from "forge-std/StdStorage.sol";
 import {RewardBooster, ActivityScore} from "@aztec/core/reward-boost/RewardBooster.sol";
 import {BoostedHelper} from "./boosted_rewards/BoostRewardHelper.sol";
@@ -36,10 +33,8 @@ contract MultiProofTest is RollupBase {
   using TimeLib for Slot;
   using TimeLib for Epoch;
 
-  Registry internal registry;
   TestERC20 internal testERC20;
   FeeJuicePortal internal feeJuicePortal;
-  RewardDistributor internal rewardDistributor;
   RewardBooster internal rewardBooster;
 
   uint256 internal SLOT_DURATION;
@@ -144,18 +139,6 @@ contract MultiProofTest is RollupBase {
     assertTrue(rollup.getHasSubmitted(Epoch.wrap(0), 2, bob));
 
     assertEq(rollup.getProvenCheckpointNumber(), 2, "Checkpoint not proven");
-
-    {
-      // Ensure that we cannot claim rewards when not toggled yet
-      vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__RewardsNotClaimable.selector));
-      rollup.claimSequencerRewards(sequencer);
-
-      vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__RewardsNotClaimable.selector));
-      rollup.claimProverRewards(alice, new Epoch[](1));
-
-      vm.prank(Ownable(address(rollup)).owner());
-      rollup.setRewardsClaimable(true);
-    }
 
     {
       uint256 sequencerRewards = rollup.getSequencerRewards(sequencer);
