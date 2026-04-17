@@ -299,7 +299,7 @@ jobs:
     permissions:
       id-token: write
       contents: read
-    needs: [ci, validate-nightly-tag]
+    needs: [ci]
     if: |
       always()
       && (needs.ci.result == 'success' || needs.ci.result == 'skipped')
@@ -307,7 +307,6 @@ jobs:
       && github.event.pull_request.draft == false
       && (
         (startsWith(github.ref, 'refs/tags/v') && !contains(github.ref_name, '-nightly.') && !contains(github.ref_name, '-commit.'))
-        || needs.validate-nightly-tag.outputs.is_current == 'true'
         || contains(github.event.pull_request.labels.*.name, 'ci-compat-e2e')
         || contains(github.event.pull_request.labels.*.name, 'ci-release-pr')
       )
