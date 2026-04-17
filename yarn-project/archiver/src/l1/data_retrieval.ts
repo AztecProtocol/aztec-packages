@@ -338,7 +338,7 @@ export async function retrieveL1ToL2Message(
   inbox: InboxContract,
   message: InboxMessage,
 ): Promise<InboxMessage | undefined> {
-  const log = await inbox.getMessageSentEventByHash(message.leaf.toString(), message.l1BlockHash.toString());
+  const log = await inbox.getMessageSentEventByHash(message.leaf.toString(), message.l1BlockNumber);
   return log && mapLogInboxMessage(log);
 }
 
