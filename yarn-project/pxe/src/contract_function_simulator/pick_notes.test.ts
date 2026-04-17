@@ -361,4 +361,19 @@ describe('getNotes', () => {
       [7n, 6n, 3n],
     ]);
   });
+
+  it('throws a clear error for an invalid comparator value', () => {
+    const notes = [createNote([1n])];
+    const options = {
+      selects: [
+        {
+          selector: { index: 0, offset: 0, length: 32 },
+          value: new Fr(1n),
+          comparator: 99 as Comparator,
+        },
+      ],
+    };
+
+    expect(() => pickNotes(notes, options)).toThrow('Invalid comparator value: 99');
+  });
 });

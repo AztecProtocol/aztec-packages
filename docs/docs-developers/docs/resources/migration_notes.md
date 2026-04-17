@@ -9,6 +9,33 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
+### [Aztec.nr] `emit_private_log_unsafe` / `emit_raw_note_log_unsafe` are deprecated
+
+`emit_private_log_unsafe` and `emit_raw_note_log_unsafe` are deprecated and will be removed in a future release. Migrate to the new `emit_private_log_vec_unsafe` / `emit_raw_note_log_vec_unsafe` functions, which take a `BoundedVec<Field, PRIVATE_LOG_CIPHERTEXT_LEN>` instead of the `(log: [Field; PRIVATE_LOG_CIPHERTEXT_LEN], length: u32)` pair.
+
+```diff
+- context.emit_private_log_unsafe(tag, log, length);
++ context.emit_private_log_vec_unsafe(tag, bounded_vec_log);
+- context.emit_raw_note_log_unsafe(tag, log, length, note_hash_counter);
++ context.emit_raw_note_log_vec_unsafe(tag, bounded_vec_log, note_hash_counter);
+```
+
+If you were manually padding an array and passing a shorter length, you can now create a `BoundedVec` from just the meaningful fields:
+
+```diff
+- let padded = payload.concat([0; PRIVATE_LOG_CIPHERTEXT_LEN - 2]);
+- context.emit_private_log_unsafe(tag, padded, 2);
++ let log = BoundedVec::from_array(payload);
++ context.emit_private_log_vec_unsafe(tag, log);
+```
+
+If you were passing the full array, wrap it with `BoundedVec::from_array`:
+
+```diff
+- context.emit_private_log_unsafe(tag, ciphertext, ciphertext.len());
++ context.emit_private_log_vec_unsafe(tag, BoundedVec::from_array(ciphertext));
+```
+
 ### [aztec-nr] Nullifier membership witness oracle returns split types
 
 `get_nullifier_membership_witness` and `get_low_nullifier_membership_witness` now return `(NullifierLeafPreimage, MembershipWitness<NULLIFIER_TREE_HEIGHT>)` instead of the bundled `NullifierMembershipWitness` struct (which has been removed).
