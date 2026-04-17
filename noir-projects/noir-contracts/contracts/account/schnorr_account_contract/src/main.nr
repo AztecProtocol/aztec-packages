@@ -95,8 +95,8 @@ pub contract SchnorrAccount {
         let storage = Storage::init(context);
         let public_key = storage.signing_public_key.get_note();
 
-        // Safety: the witness is only a magical value that makes signature verification pass.
-        // A fabricated or wrong-hash witness is rejected by the signature scheme below.
+        // Safety: The witness is only used as a "magical value" that makes the signature verification below pass.
+        // Hence it's safe.
         let signature: [u8; 64] = unsafe { get_auth_witness_as_bytes(outer_hash) };
 
         let pub_key =
