@@ -261,17 +261,11 @@ template <typename Flavor> void OinkProver<Flavor>::compute_logderivative_invers
     LogDerivLookupRelation<FF>::compute_logderivative_inverse(polynomials, relation_parameters, circuit_size);
 
     if constexpr (HasDataBus<Flavor>) {
-        // Compute inverses for calldata reads
-        DatabusLookupRelation<FF>::template compute_logderivative_inverse</*bus_idx=*/0>(
-            polynomials, relation_parameters, circuit_size);
-
-        // Compute inverses for secondary_calldata reads
-        DatabusLookupRelation<FF>::template compute_logderivative_inverse</*bus_idx=*/1>(
-            polynomials, relation_parameters, circuit_size);
-
-        // Compute inverses for return data reads
-        DatabusLookupRelation<FF>::template compute_logderivative_inverse</*bus_idx=*/2>(
-            polynomials, relation_parameters, circuit_size);
+        // Compute inverses for each bus column's log-derivative lookup argument.
+        bb::constexpr_for<0, NUM_BUS_COLUMNS, 1>([&]<size_t bus_idx>() {
+            DatabusLookupRelation<FF>::template compute_logderivative_inverse<bus_idx>(
+                polynomials, relation_parameters, circuit_size);
+        });
     }
 }
 

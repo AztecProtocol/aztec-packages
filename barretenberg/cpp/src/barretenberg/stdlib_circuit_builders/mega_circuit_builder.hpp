@@ -191,6 +191,8 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<M
     const BusVector& get_calldata() const { return databus[static_cast<size_t>(BusId::CALLDATA)]; }
     const BusVector& get_secondary_calldata() const { return databus[static_cast<size_t>(BusId::SECONDARY_CALLDATA)]; }
     const BusVector& get_return_data() const { return databus[static_cast<size_t>(BusId::RETURNDATA)]; }
+    // Indexed access to the databus columns; enables NUM_BUS_COLUMNS-driven iteration over bus vectors.
+    const BusVector& get_bus_vector(size_t bus_idx) const { return databus[bus_idx]; }
 
     /**
      * @brief Compute a hash of the circuit
