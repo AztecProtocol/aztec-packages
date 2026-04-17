@@ -68,7 +68,7 @@ function legacyArtifactPath(resolved) {
       continue;
     }
     const basename = resolved.slice(idx + marker.length);
-    return path.join(cacheRoot, 'node_modules', pkg, 'artifacts', basename);
+    return path.join(cacheDir, 'node_modules', pkg, 'artifacts', basename);
   }
   return null;
 }
