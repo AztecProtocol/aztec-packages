@@ -5,30 +5,20 @@ use generic_proxy_contract::GenericProxy;
 
 #[test]
 unconstrained fn transfer_in_private_deliver_offchain_updates_both_balances() {
-    // Setup with account contracts. Slower since we actually deploy them, but needed for authwits.
-    let (env, token_contract_address, owner, recipient, mint_amount, proxy) =
-        utils::setup_and_mint_to_private_with_proxy();
+    let (env, token_contract_address, owner, recipient, mint_amount) =
+        utils::setup_and_mint_to_private(/* with_account_contracts */ false);
 
-    // Add authwit
     let transfer_amount = 1000 as u128;
     let transfer_call = Token::at(token_contract_address).transfer_in_private_deliver_offchain(
         owner,
         recipient,
         transfer_amount,
-        1,
+        0,
     );
-    add_private_authwit_from_call(env, owner, proxy, transfer_call);
 
     // Transfer tokens. The offchain-delivered notes (change note for the sender, balance note for the recipient,
     // Transfer event) end up in TXE's offchain effect buffer.
-    env.call_private(
-        owner,
-        GenericProxy::at(proxy).forward_private_4(
-            transfer_call.target_contract,
-            transfer_call.selector,
-            transfer_call.args,
-        ),
-    );
+    env.call_private(owner, transfer_call);
 
     let messages = env.offchain_messages();
     env.deliver_offchain_messages(token_contract_address, messages);
