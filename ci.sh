@@ -272,7 +272,7 @@ case "$cmd" in
   # RELEASES #
   ############
   release)
-    # Spin up ec2 instance and run the release flow.
+    # Spin up ec2 instance and run the release-tag verification build (no publish).
     export CI_DASHBOARD="releases"
     export DENOISE=1
     export DENOISE_WIDTH=32
@@ -284,6 +284,20 @@ case "$cmd" in
     parallel --termseq 'TERM,10000' --tagstring '{= $_=~s/run (\w+).*/$1/; =}' --line-buffered --halt now,fail=1 ::: \
       'run x-release amd64' \
       'run a-release arm64' | DUP=1 cache_log "Release CI run" $RUN_ID
+    ;;
+  release-publish)
+    # Spin up ec2 instance and run the actual publish flow. Gated in ci3.yml on ci + ci-compat-e2e.
+    export CI_DASHBOARD="releases"
+    export DENOISE=1
+    export DENOISE_WIDTH=32
+    run() {
+      PARENT_LOG_ID=$RUN_ID JOB_ID=$1 INSTANCE_POSTFIX=$1 ARCH=$2 exec denoise "bootstrap_ec2 './bootstrap.sh ci-release-publish'"
+    }
+    export -f run
+
+    parallel --termseq 'TERM,10000' --tagstring '{= $_=~s/run (\w+).*/$1/; =}' --line-buffered --halt now,fail=1 ::: \
+      'run x-release-publish amd64' \
+      'run a-release-publish arm64' | DUP=1 cache_log "Release Publish CI run" $RUN_ID
     ;;
 
   ##################

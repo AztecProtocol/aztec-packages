@@ -717,6 +717,17 @@ case "$cmd" in
   # RELEASES #
   ############
   "ci-release")
+    # Verification build for a release tag. Does NOT publish — publishing happens in
+    # ci-release-publish, gated on ci-compat-e2e so a compat regression blocks the release.
+    export CI=1
+    export USE_TEST_CACHE=1
+    if ! semver check $REF_NAME; then
+      exit 1
+    fi
+    build
+    ;;
+  "ci-release-publish")
+    # Actual publish step. `build` cache-hits against ci-release's build of the same commit.
     export CI=1
     export USE_TEST_CACHE=1
     if ! semver check $REF_NAME; then
