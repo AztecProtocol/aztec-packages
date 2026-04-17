@@ -1,14 +1,23 @@
 {
   "index_name": "aztec-docs",
   "start_urls": [
-      "https://docs.aztec.network/",
+      {
+        "url": "https://docs.aztec.network/",
+        "page_rank": 10
+      },
       {
         "url": "https://docs.aztec.network/aztec-nr-api/mainnet/",
-        "selectors_key": "api-nr"
+        "selectors_key": "api-nr",
+        "page_rank": 5
       }
     ],
     "sitemap_urls": [
       "https://docs.aztec.network/sitemap.xml"
+    ],
+    "stop_urls": [
+      "https://docs.aztec.network/aztec-nr-api/mainnet/std/",
+      "https://docs.aztec.network/aztec-nr-api/mainnet/all.html",
+      "aztec-nr-api/.*/global\\.[^/]+\\.html$"
     ],
   "sitemap_alternate_links": true,
   "selectors": {

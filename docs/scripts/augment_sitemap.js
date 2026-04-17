@@ -65,7 +65,15 @@ function main() {
 
   // Aztec.nr API HTML files (skip raw markdown — those aren't browsable pages)
   const nrApiDir = path.join(BUILD_DIR, `aztec-nr-api/${defaultType}`);
-  const htmlFiles = findFiles(nrApiDir, ".html");
+  // Exclude Noir stdlib (duplicated at noir-lang.org), the all.html mega-index,
+  // and per-constant global.*.html pages. Keeps the sitemap aligned with the
+  // Typesense stop_urls list so both discovery paths surface the same content.
+  const EXCLUDE_RE = new RegExp(
+    `aztec-nr-api/${defaultType}/(std/|all\\.html$|.*/global\\.[^/]+\\.html$)`
+  );
+  const htmlFiles = findFiles(nrApiDir, ".html").filter(
+    (f) => !EXCLUDE_RE.test(f.replace(/\\/g, "/"))
+  );
 
   if (htmlFiles.length === 0) {
     console.log("No static API docs found to add to sitemap");
