@@ -15,6 +15,7 @@ import {
   type Account,
   type GetContractReturnType,
   type Hex,
+  type Log,
   type StateOverride,
   type WatchContractEventReturnType,
   encodeAbiParameters,
@@ -1224,7 +1225,7 @@ export class RollupContract {
   }
 
   public listenToCheckpointInvalidated(
-    callback: (args: { checkpointNumber: CheckpointNumber }) => unknown,
+    callback: (args: { checkpointNumber: CheckpointNumber; event: Log }) => unknown,
   ): WatchContractEventReturnType {
     return this.rollup.watchEvent.CheckpointInvalidated(
       {},
@@ -1233,7 +1234,7 @@ export class RollupContract {
           for (const log of logs) {
             const args = log.args;
             if (args.checkpointNumber !== undefined) {
-              callback({ checkpointNumber: CheckpointNumber.fromBigInt(args.checkpointNumber) });
+              callback({ checkpointNumber: CheckpointNumber.fromBigInt(args.checkpointNumber), event: log });
             }
           }
         },

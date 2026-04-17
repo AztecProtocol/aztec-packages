@@ -813,6 +813,7 @@ describe('CheckpointProposalJob', () => {
       checkpointedHash?: string;
     }) {
       l2BlockSource.getSyncedL2SlotNumber.mockResolvedValue(opts.syncedSlot ?? SlotNumber(newSlotNumber));
+      l2BlockSource.getPendingChainValidationStatus.mockResolvedValue({ valid: true });
       l2BlockSource.getL2Tips.mockResolvedValue({
         proposed: { number: BlockNumber(1), hash: 'proposed-hash' },
         checkpointed: {
@@ -840,7 +841,6 @@ describe('CheckpointProposalJob', () => {
     it('proposes checkpoint when parent landed with matching hash and valid attestations', async () => {
       const pipelinedJob = await createPipelinedJobWithBlock(proposedParent);
       mockL2BlockSource({ checkpointedNumber: CheckpointNumber(1), checkpointedHash: parentCheckpointHash });
-      l2BlockSource.getPendingChainValidationStatus.mockResolvedValue({ valid: true });
 
       await pipelinedJob.executeAndAwait();
 
@@ -961,6 +961,59 @@ describe('CheckpointProposalJob', () => {
       expect(publisher.simulateInvalidateCheckpoint).not.toHaveBeenCalled();
       expect(publisher.enqueueInvalidateCheckpoint).not.toHaveBeenCalled();
       expect(mismatchEvents).toEqual([expect.objectContaining({ reason: 'parent-invalid-attestations' })]);
+    });
+
+    it('enqueues invalidation when attestation collection fails and pending chain has invalid attestations', async () => {
+      const pipelinedJob = await createPipelinedJobWithBlock(proposedParent);
+      mockL2BlockSource({ checkpointedNumber: CheckpointNumber(1), checkpointedHash: parentCheckpointHash });
+
+      // Attestation collection fails — waitForAttestations will return undefined
+      validatorClient.collectAttestations.mockRejectedValue(new AttestationTimeoutError(0, 1, SlotNumber.ZERO));
+
+      const invalidValidation: ValidateCheckpointResult = {
+        valid: false,
+        reason: 'invalid-attestation',
+        checkpoint: {
+          archive: Fr.random(),
+          lastArchive: Fr.random(),
+          slotNumber: SlotNumber(1),
+          checkpointNumber: CheckpointNumber(1),
+          timestamp: 0n,
+        },
+        committee: [EthAddress.random()],
+        epoch: EpochNumber.ZERO,
+        seed: 0n,
+        attestors: [EthAddress.random()],
+        invalidIndex: 0,
+        attestations: [CommitteeAttestation.random()],
+      };
+      l2BlockSource.getPendingChainValidationStatus.mockResolvedValue(invalidValidation);
+
+      const fakeRequest = { fake: true } as any;
+      publisher.simulateInvalidateCheckpoint.mockResolvedValue(fakeRequest);
+
+      await pipelinedJob.executeAndAwait();
+
+      // No propose action since we didn't collect attestations
+      expect(publisher.enqueueProposeCheckpoint).not.toHaveBeenCalled();
+      // But we still enqueue invalidation so the chain is cleaned up for the next proposer
+      expect(publisher.simulateInvalidateCheckpoint).toHaveBeenCalledWith(invalidValidation);
+      expect(publisher.enqueueInvalidateCheckpoint).toHaveBeenCalledWith(fakeRequest, expect.any(Object));
+      expect(publisher.sendRequestsAt).toHaveBeenCalled();
+    });
+
+    it('does not enqueue invalidation when attestation collection fails but pending chain is valid', async () => {
+      const pipelinedJob = await createPipelinedJobWithBlock(proposedParent);
+      mockL2BlockSource({ checkpointedNumber: CheckpointNumber(1), checkpointedHash: parentCheckpointHash });
+
+      validatorClient.collectAttestations.mockRejectedValue(new AttestationTimeoutError(0, 1, SlotNumber.ZERO));
+
+      await pipelinedJob.executeAndAwait();
+
+      expect(publisher.enqueueProposeCheckpoint).not.toHaveBeenCalled();
+      expect(publisher.simulateInvalidateCheckpoint).not.toHaveBeenCalled();
+      expect(publisher.enqueueInvalidateCheckpoint).not.toHaveBeenCalled();
+      expect(publisher.sendRequestsAt).toHaveBeenCalled();
     });
 
     it('skips proposal with unexpected-parent-appeared when a new checkpoint appears without proposed parent', async () => {
