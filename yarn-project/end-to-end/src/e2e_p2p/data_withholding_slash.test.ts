@@ -1,4 +1,3 @@
-import type { AztecNodeService } from '@aztec/aztec-node';
 import { EpochNumber } from '@aztec/foundation/branded-types';
 import { times } from '@aztec/foundation/collection';
 import { OffenseType } from '@aztec/slasher';
@@ -12,6 +11,7 @@ import { shouldCollectMetrics } from '../fixtures/fixtures.js';
 import { createNodes } from '../fixtures/setup_p2p_test.js';
 import { P2PNetworkTest } from './p2p_network.js';
 import { awaitCommitteeExists, awaitCommitteeKicked, awaitOffenseDetected } from './shared.js';
+import type { WorkerAztecNode } from './worker_node.js';
 
 jest.setTimeout(1000000);
 
@@ -43,7 +43,7 @@ const DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'data-withholding-slash-'
  */
 describe('e2e_p2p_data_withholding_slash', () => {
   let t: P2PNetworkTest;
-  let nodes: AztecNodeService[];
+  let nodes: WorkerAztecNode[];
 
   const slashingUnit = BigInt(1e18);
   const slashingQuorum = 3;
@@ -129,6 +129,7 @@ describe('e2e_p2p_data_withholding_slash', () => {
       // To collect metrics - run in aztec-packages `docker compose --profile metrics up` and set COLLECT_METRICS=true
       shouldCollectMetrics(),
     );
+    t.registerWorkerNodes(nodes);
 
     // Wait for P2P mesh to be fully formed before proceeding
     await t.waitForP2PMeshConnectivity(nodes, NUM_VALIDATORS);
@@ -172,6 +173,7 @@ describe('e2e_p2p_data_withholding_slash', () => {
       t.genesis,
       DATA_DIR,
     );
+    t.registerWorkerNodes(nodes);
 
     // Wait for P2P mesh to be fully formed before proceeding
     await t.waitForP2PMeshConnectivity(nodes, NUM_VALIDATORS);

@@ -1,4 +1,3 @@
-import type { Archiver } from '@aztec/archiver';
 import type { AztecNodeService } from '@aztec/aztec-node';
 import { createExtendedL1Client } from '@aztec/ethereum/client';
 import { RollupContract, STATE_VIEW_ADDRESS } from '@aztec/ethereum/contracts';
@@ -6,7 +5,6 @@ import { CheckpointNumber } from '@aztec/foundation/branded-types';
 import { Signature } from '@aztec/foundation/eth-signature';
 import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
-import type { SequencerClient } from '@aztec/sequencer-client';
 import { tryStop } from '@aztec/stdlib/interfaces/server';
 import { CheckpointAttestation, ConsensusPayload } from '@aztec/stdlib/p2p';
 
@@ -22,6 +20,7 @@ import { ATTESTER_PRIVATE_KEYS_START_INDEX, createNodes, createProverNode } from
 import { type AlertConfig, GrafanaClient } from '../quality_of_service/grafana_client.js';
 import { MockStateView, diffInBps } from '../shared/mock_state_view.js';
 import { P2PNetworkTest, SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES } from './p2p_network.js';
+import type { WorkerAztecNode } from './worker_node.js';
 
 const CHECK_ALERTS = process.env.CHECK_ALERTS === 'true';
 
@@ -45,7 +44,7 @@ const qosAlerts: AlertConfig[] = [
 
 describe('e2e_p2p_network', () => {
   let t: P2PNetworkTest;
-  let nodes: AztecNodeService[];
+  let nodes: WorkerAztecNode[];
   let proverNode: AztecNodeService;
 
   beforeEach(async () => {
@@ -120,6 +119,7 @@ describe('e2e_p2p_network', () => {
       // To collect metrics - run in aztec-packages `docker compose --profile metrics up` and set COLLECT_METRICS=true
       shouldCollectMetrics(),
     );
+    t.registerWorkerNodes(nodes);
 
     t.logger.warn(`Creating prover node`);
     ({ proverNode } = await createProverNode(
@@ -170,8 +170,7 @@ describe('e2e_p2p_network', () => {
 
     // Gather signers from attestations downloaded from L1
     const blockNumber = await nodes[0].getBlockNumber();
-    const dataStore = (nodes[0] as AztecNodeService).getBlockSource() as Archiver;
-    const [publishedCheckpoint] = await dataStore.getCheckpoints(CheckpointNumber.fromBlockNumber(blockNumber), 1);
+    const [publishedCheckpoint] = await nodes[0].getCheckpoints(CheckpointNumber.fromBlockNumber(blockNumber), 1);
     const payload = ConsensusPayload.fromCheckpoint(publishedCheckpoint.checkpoint);
     const attestations = publishedCheckpoint.attestations
       .filter(a => !a.signature.isEmpty())
@@ -180,9 +179,8 @@ describe('e2e_p2p_network', () => {
     t.logger.info(`Attestation signers`, { signers });
 
     // Check that the signers found are part of the proposer nodes to ensure the archiver fetched them right
-    const validatorAddresses = nodes.flatMap(node =>
-      ((node as AztecNodeService).getSequencer() as SequencerClient).validatorAddresses?.map(a => a.toString()),
-    );
+    const validatorAddressesPerNode = await Promise.all(nodes.map(node => node.getValidatorAddresses()));
+    const validatorAddresses = validatorAddressesPerNode.flatMap(addrs => addrs?.map(a => a.toString()) ?? []);
     t.logger.info(`Validator addresses`, { addresses: validatorAddresses });
     for (const signer of signers) {
       expect(validatorAddresses).toContain(signer);

@@ -5,13 +5,29 @@ const NANOS_PER_MS = 1_000_000;
 const BYTES_PER_MB = 1024 * 1024;
 const US_PER_MS = 1000;
 
+/** Summary stats returned by getSummaryStats() for aggregate reporting. */
+export type EluSummaryStats = {
+  label: string;
+  meanElu: number;
+  maxElu: number;
+  p90Elu: number;
+  durationS: number;
+  meanCpuU: number;
+  maxCpuU: number;
+  peakRss: number;
+  peakHeap: number;
+};
+
 /**
  * Samples event-loop utilization, delay histogram, V8 heap, per-process CPU usage, and RSS memory per test.
  * Writes columnar text to a per-test file that CI uploads for post-run analysis.
+ *
+ * When used in worker threads, pass a `label` (e.g. "Worker 0") to identify the section in the shared ELU file.
  */
 export class EluMonitor {
   private filePath: string;
   private intervalMs: number;
+  private label: string | undefined;
   private timer: ReturnType<typeof setInterval> | undefined;
   private lastELU: EventLoopUtilization | undefined;
   private histogram: IntervalHistogram;
@@ -24,10 +40,18 @@ export class EluMonitor {
   private heapSamples: number[] = [];
   private lastCpuUsage: NodeJS.CpuUsage | undefined;
   private lastSampleTime: number | undefined;
+  private lastSummaryStats: EluSummaryStats | undefined;
 
-  constructor(filePath: string, intervalMs?: number) {
+  /**
+   * @param filePath - Path to the ELU output file (shared across main thread and workers).
+   * @param intervalMs - Sampling interval in milliseconds (default 2000).
+   * @param label - Optional label for this monitor's section (e.g. "Worker 0"). If set, the section
+   *   header uses this label instead of the test name, and the summary line is prefixed with it.
+   */
+  constructor(filePath: string, intervalMs?: number, label?: string) {
     this.filePath = filePath;
     this.intervalMs = intervalMs ?? 2000;
+    this.label = label;
     this.histogram = monitorEventLoopDelay({ resolution: 20 });
   }
 
@@ -45,7 +69,8 @@ export class EluMonitor {
     this.lastCpuUsage = undefined;
     this.lastSampleTime = undefined;
 
-    appendFileSync(this.filePath, `\n=== Test: ${testName} ===\n`);
+    const header = this.label ? `--- ${this.label} ---` : `=== Test: ${testName} ===`;
+    appendFileSync(this.filePath, `\n${header}\n`);
     appendFileSync(
       this.filePath,
       padColumns('TIME', 'ELU', 'EL_DLY_P50', 'EL_DLY_P99', 'EL_DLY_MAX', 'HEAP_MB', 'CPU_U', 'CPU_S', 'RSS_MB') + '\n',
@@ -149,6 +174,11 @@ export class EluMonitor {
     this.histogram.reset();
   }
 
+  /** Returns the summary stats from the last completed test, or undefined if no test has been run. */
+  getSummaryStats(): EluSummaryStats | undefined {
+    return this.lastSummaryStats;
+  }
+
   private writeSummary(): void {
     if (this.eluSamples.length === 0 || this.testStart === undefined) {
       return;
@@ -158,7 +188,7 @@ export class EluMonitor {
     const maxElu = Math.max(...this.eluSamples);
     const sorted = [...this.eluSamples].sort((a, b) => a - b);
     const p90Elu = sorted[Math.floor(sorted.length * 0.9)] ?? maxElu;
-    const durationS = ((performance.now() - this.testStart) / 1000).toFixed(1);
+    const durationS = (performance.now() - this.testStart) / 1000;
 
     const meanCpuU =
       this.cpuUserSamples.length > 0 ? this.cpuUserSamples.reduce((a, b) => a + b, 0) / this.cpuUserSamples.length : 0;
@@ -171,7 +201,20 @@ export class EluMonitor {
     const peakRss = this.rssSamples.length > 0 ? Math.max(...this.rssSamples) : 0;
     const peakHeap = this.heapSamples.length > 0 ? Math.max(...this.heapSamples) : 0;
 
-    let summary = `--- Summary: mean_elu=${mean.toFixed(2)} max_elu=${maxElu.toFixed(2)} p90_elu=${p90Elu.toFixed(2)} duration=${durationS}s`;
+    this.lastSummaryStats = {
+      label: this.label ?? this.testName ?? 'unknown',
+      meanElu: mean,
+      maxElu,
+      p90Elu,
+      durationS,
+      meanCpuU,
+      maxCpuU,
+      peakRss,
+      peakHeap,
+    };
+
+    const prefix = this.label ? `[${this.label}] ` : '';
+    let summary = `--- ${prefix}Summary: mean_elu=${mean.toFixed(2)} max_elu=${maxElu.toFixed(2)} p90_elu=${p90Elu.toFixed(2)} duration=${durationS.toFixed(1)}s`;
     summary += ` mean_cpu_u=${meanCpuU.toFixed(2)} max_cpu_u=${maxCpuU.toFixed(2)}`;
     summary += ` mean_cpu_s=${meanCpuS.toFixed(2)} max_cpu_s=${maxCpuS.toFixed(2)}`;
     summary += ` peak_rss=${peakRss} peak_heap=${peakHeap}`;
@@ -182,6 +225,22 @@ export class EluMonitor {
 
     appendFileSync(this.filePath, summary);
   }
+}
+
+/**
+ * Writes an aggregate summary line to the ELU file, showing all workers' key metrics side by side.
+ * Call this from the main thread after all workers have stopped and reported their stats.
+ */
+export function writeAggregateEluSummary(filePath: string, stats: EluSummaryStats[]): void {
+  if (stats.length === 0) {
+    return;
+  }
+  let line = '\n=== Aggregate ===\n';
+  for (const s of stats) {
+    line += `${s.label}: mean_elu=${s.meanElu.toFixed(2)} p90_elu=${s.p90Elu.toFixed(2)} peak_rss=${s.peakRss}  `;
+  }
+  line += '\n';
+  appendFileSync(filePath, line);
 }
 
 function padColumns(...cols: string[]): string {

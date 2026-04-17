@@ -1,5 +1,3 @@
-import type { Archiver } from '@aztec/archiver';
-import type { AztecNodeService } from '@aztec/aztec-node';
 import { EthAddress } from '@aztec/aztec.js/addresses';
 import { Fr } from '@aztec/aztec.js/fields';
 import { waitForTx } from '@aztec/aztec.js/node';
@@ -10,7 +8,6 @@ import { EpochNumber } from '@aztec/foundation/branded-types';
 import { Signature } from '@aztec/foundation/eth-signature';
 import { MockZKPassportVerifierAbi } from '@aztec/l1-artifacts/MockZKPassportVerifierAbi';
 import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
-import type { SequencerClient } from '@aztec/sequencer-client';
 import { CheckpointAttestation, ConsensusPayload } from '@aztec/stdlib/p2p';
 import { ZkPassportProofParams } from '@aztec/stdlib/zkpassport';
 
@@ -25,6 +22,7 @@ import { createNodes } from '../fixtures/setup_p2p_test.js';
 import { type AlertConfig, GrafanaClient } from '../quality_of_service/grafana_client.js';
 import { P2PNetworkTest, SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES, WAIT_FOR_TX_TIMEOUT } from './p2p_network.js';
 import { submitTransactions } from './shared.js';
+import type { WorkerAztecNode } from './worker_node.js';
 
 const CHECK_ALERTS = process.env.CHECK_ALERTS === 'true';
 
@@ -49,7 +47,7 @@ const qosAlerts: AlertConfig[] = [
 
 describe('e2e_p2p_network', () => {
   let t: P2PNetworkTest;
-  let nodes: AztecNodeService[];
+  let nodes: WorkerAztecNode[];
 
   beforeEach(async () => {
     t = await P2PNetworkTest.create({
@@ -191,12 +189,13 @@ describe('e2e_p2p_network', () => {
       // To collect metrics - run in aztec-packages `docker compose --profile metrics up` and set COLLECT_METRICS=true
       shouldCollectMetrics(),
     );
+    t.registerWorkerNodes(nodes);
 
     await t.waitForP2PMeshConnectivity(nodes, NUM_VALIDATORS);
 
     // Advance to a fresh slot so the proposer gets a clean window for block building.
     const [freshSlotTimestamp] = await t.ctx.cheatCodes.rollup.advanceToNextSlot();
-    t.ctx.dateProvider.setTime(Number(freshSlotTimestamp) * 1000);
+    await t.setTimeOnAllNodes(Number(freshSlotTimestamp) * 1000);
 
     // We need to `createNodes` before we setup account, because
     // those nodes actually form the committee, and so we cannot build
@@ -223,9 +222,8 @@ describe('e2e_p2p_network', () => {
 
     // Gather signers from attestations downloaded from L1
     const blockNumber = await nodes[0].getTxReceipt(txsSentViaDifferentNodes[0][0]).then(r => r.blockNumber!);
-    const dataStore = (nodes[0] as AztecNodeService).getBlockSource() as Archiver;
-    const checkpointedBlock = await dataStore.getCheckpointedBlock(blockNumber);
-    const [publishedCheckpoint] = await dataStore.getCheckpoints(checkpointedBlock!.checkpointNumber, 1);
+    const [checkpointedBlock] = await nodes[0].getCheckpointedBlocks(blockNumber, 1);
+    const [publishedCheckpoint] = await nodes[0].getCheckpoints(checkpointedBlock!.checkpointNumber, 1);
     const payload = ConsensusPayload.fromCheckpoint(publishedCheckpoint.checkpoint);
     const attestations = publishedCheckpoint.attestations
       .filter(a => !a.signature.isEmpty())
@@ -234,9 +232,9 @@ describe('e2e_p2p_network', () => {
     t.logger.info(`Attestation signers`, { signers });
 
     // Check that the signers found are part of the proposer nodes to ensure the archiver fetched them right
-    const validatorAddresses = nodes.flatMap(node =>
-      ((node as AztecNodeService).getSequencer() as SequencerClient).validatorAddresses?.map(v => v.toString()),
-    );
+    const validatorAddresses = (
+      await Promise.all(nodes.map(async node => (await node.getValidatorAddresses())?.map(v => v.toString())))
+    ).flat();
     t.logger.info(`Validator addresses`, { addresses: validatorAddresses });
     for (const signer of signers) {
       expect(validatorAddresses).toContain(signer);

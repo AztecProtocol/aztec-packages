@@ -1,5 +1,4 @@
 import type { InitialAccountData } from '@aztec/accounts/testing';
-import type { AztecNodeService } from '@aztec/aztec-node';
 import { AztecAddress } from '@aztec/aztec.js/addresses';
 import { NO_WAIT, getContractInstanceFromInstantiationParams } from '@aztec/aztec.js/contracts';
 import { Fr } from '@aztec/aztec.js/fields';
@@ -18,6 +17,7 @@ import { TestContract, TestContractArtifact } from '@aztec/noir-test-contracts.j
 import { getPXEConfig, getPXEConfig as getRpcConfig } from '@aztec/pxe/server';
 import { getRoundForOffense } from '@aztec/slasher';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
+import type { AztecNode } from '@aztec/stdlib/interfaces/server';
 
 import { submitTxsTo } from '../shared/submit-transactions.js';
 import { TestWallet } from '../test-wallet/test_wallet.js';
@@ -47,7 +47,7 @@ export const submitComplexTxsTo = async (
 // creates a wallet and submit a given number of transactions through it.
 export const submitTransactions = async (
   logger: Logger,
-  node: AztecNodeService,
+  node: AztecNode,
   numTxs: number,
   fundedAccount: InitialAccountData,
 ): Promise<TxHash[]> => {
@@ -64,7 +64,7 @@ export const submitTransactions = async (
 
 export async function prepareTransactions(
   logger: Logger,
-  node: AztecNodeService,
+  node: AztecNode,
   numTxs: number,
   fundedAccount: InitialAccountData,
 ): Promise<ProvenTx[]> {

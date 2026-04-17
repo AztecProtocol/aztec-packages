@@ -1,10 +1,8 @@
-import type { Archiver } from '@aztec/archiver';
 import type { AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
 import { waitForTx } from '@aztec/aztec.js/node';
 import { TxHash } from '@aztec/aztec.js/tx';
 import { Signature } from '@aztec/foundation/eth-signature';
 import { retryUntil } from '@aztec/foundation/retry';
-import type { SequencerClient } from '@aztec/sequencer-client';
 import { tryStop } from '@aztec/stdlib/interfaces/server';
 import { CheckpointAttestation, ConsensusPayload } from '@aztec/stdlib/p2p';
 
@@ -23,6 +21,7 @@ import {
 import { type AlertConfig, GrafanaClient } from '../quality_of_service/grafana_client.js';
 import { P2PNetworkTest, SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES, WAIT_FOR_TX_TIMEOUT } from './p2p_network.js';
 import { submitTransactions } from './shared.js';
+import type { WorkerAztecNode } from './worker_node.js';
 
 const CHECK_ALERTS = process.env.CHECK_ALERTS === 'true';
 
@@ -49,7 +48,7 @@ const qosAlerts: AlertConfig[] = [
 
 describe('e2e_p2p_network', () => {
   let t: P2PNetworkTest;
-  let nodes: AztecNodeService[];
+  let nodes: WorkerAztecNode[];
   let proverAztecNode: AztecNodeService;
   let monitoringNode: AztecNodeService;
 
@@ -115,6 +114,7 @@ describe('e2e_p2p_network', () => {
       // To collect metrics - run in aztec-packages `docker compose --profile metrics up` and set COLLECT_METRICS=true
       shouldCollectMetrics(),
     );
+    t.registerWorkerNodes(nodes);
 
     // create a prover node that uses p2p only (not rpc) to gather txs to test prover tx collection
     t.logger.warn(`Creating prover node`);
@@ -148,7 +148,7 @@ describe('e2e_p2p_network', () => {
     // blocks while the mesh was forming. Without this, the proposer may have exhausted its slot
     // with "got 0 txs but needs 1" before setupAccount submits its tx.
     const [timestamp] = await t.ctx.cheatCodes.rollup.advanceToNextSlot();
-    t.ctx.dateProvider.setTime(Number(timestamp) * 1000);
+    await t.setTimeOnAllNodes(Number(timestamp) * 1000);
 
     // We need to `createNodes` before we setup account, because
     // those nodes actually form the committee, and so we cannot build
@@ -191,9 +191,8 @@ describe('e2e_p2p_network', () => {
     // Gather signers from attestations downloaded from L1
     const receipt = await nodes[0].getTxReceipt(txsSentViaDifferentNodes[0][0]);
     const blockNumber = receipt.blockNumber!;
-    const dataStore = (nodes[0] as AztecNodeService).getBlockSource() as Archiver;
-    const checkpointedBlock = await dataStore.getCheckpointedBlock(blockNumber);
-    const [publishedCheckpoint] = await dataStore.getCheckpoints(checkpointedBlock!.checkpointNumber, 1);
+    const [checkpointedBlock] = await nodes[0].getCheckpointedBlocks(blockNumber, 1);
+    const [publishedCheckpoint] = await nodes[0].getCheckpoints(checkpointedBlock!.checkpointNumber, 1);
     const payload = ConsensusPayload.fromCheckpoint(publishedCheckpoint.checkpoint);
     const attestations = publishedCheckpoint.attestations
       .filter(a => !a.signature.isEmpty())
@@ -202,9 +201,9 @@ describe('e2e_p2p_network', () => {
     t.logger.info(`Attestation signers`, { signers });
 
     // Check that the signers found are part of the proposer nodes to ensure the archiver fetched them right
-    const validatorAddresses = nodes.flatMap(node =>
-      ((node as AztecNodeService).getSequencer() as SequencerClient).validatorAddresses?.map(a => a.toString()),
-    );
+    const validatorAddresses = (
+      await Promise.all(nodes.map(async node => (await node.getValidatorAddresses())?.map(a => a.toString())))
+    ).flat();
     t.logger.info(`Validator addresses`, { addresses: validatorAddresses });
     for (const signer of signers) {
       expect(validatorAddresses).toContain(signer);
