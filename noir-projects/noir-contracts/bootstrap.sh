@@ -113,24 +113,6 @@ function compile {
     $BB aztec_process -i $json_path
     cache_upload contract-$contract_hash.tar.gz $json_path
   fi
-<<<<<<< HEAD
-
-  # We segregate equivalent vk's created by process_function. This was done to narrow down potential edge cases with identical VKs
-  # reading from cache at the same time. Create this folder up-front.
-  mkdir -p $tmp_dir/$contract_hash
-
-  # Pipe each contract function, one per line (jq -c), into parallel calls of process_function.
-  # The returned jsons from process_function are converted back to a json array in the second jq -s call.
-  # When slurping (-s) in the last jq, we get an array of two elements:
-  # .[0] is the original json (at $json_path)
-  # .[1] is the updated functions on stdin (-)
-  # * merges their fields.
-  jq -c '.functions[]' $json_path | \
-    parallel $PARALLEL_FLAGS --keep-order -N1 --block 8M --pipe process_function $contract_hash | \
-    jq -s '{functions: .}' | jq -s '.[0] * {functions: .[1].functions}' $json_path - > $tmp_dir/$filename
-  mv $tmp_dir/$filename $json_path
-=======
->>>>>>> 9c8bb7b244 (refactor: unify contract compilation pipeline via bb aztec_process (#22590))
 }
 export -f compile
 
