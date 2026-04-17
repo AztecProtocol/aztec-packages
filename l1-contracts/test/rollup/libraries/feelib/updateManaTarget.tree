@@ -1,6 +1,8 @@
 UpdateManaTargetTest
+├── when mana target is zero
+│   └── it reverts with {FeeLib__InvalidManaTarget}
 ├── when mana limit GT uint32
-│   └── it reverts with {FeeLib__InvalidManaLimitTarget}
+│   └── it reverts with {FeeLib__InvalidManaLimit}
 └── when mana limit LE uint32
     ├── it store the mana target
     └── it store the congestion update fraction

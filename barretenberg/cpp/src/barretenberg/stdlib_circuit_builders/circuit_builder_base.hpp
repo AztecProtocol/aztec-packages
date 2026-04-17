@@ -16,6 +16,7 @@
 #include <utility>
 
 #include <algorithm>
+#include <span>
 #include <unordered_map>
 
 namespace bb {
@@ -76,7 +77,8 @@ template <typename FF_> class CircuitBuilderBase {
      * variables
      * @param variable_indices The indices to validate
      */
-    void assert_valid_variables(const std::vector<uint32_t>& variable_indices);
+    void assert_valid_variables(std::initializer_list<uint32_t> variable_indices);
+    void assert_valid_variables(std::span<const uint32_t> variable_indices);
 
     /**
      * @brief The permutation on variable tags, as a constituent of the generalized permutation argument.

@@ -53,7 +53,17 @@ export class RollupCheatCodes {
   /** Returns the current slot */
   public async getSlot(): Promise<SlotNumber> {
     const ts = BigInt((await this.client.getBlock()).timestamp);
-    return SlotNumber.fromBigInt(await this.rollup.read.getSlotAt([ts]));
+    return this.getSlotAt(ts);
+  }
+
+  /** Returns the slot number at a given timestamp. */
+  public async getSlotAt(timestamp: bigint): Promise<SlotNumber> {
+    return SlotNumber.fromBigInt(await this.rollup.read.getSlotAt([timestamp]));
+  }
+
+  /** Returns the timestamp for the start of a given slot. */
+  public async getTimestampForSlot(slot: SlotNumber): Promise<bigint> {
+    return await this.rollup.read.getTimestampForSlot([BigInt(slot)]);
   }
 
   /** Returns the number of seconds until the start of the given slot based on L1 block timestamp. */

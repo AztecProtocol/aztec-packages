@@ -49,12 +49,6 @@ impl Empty for bool {
     }
 }
 
-impl Empty for u1 {
-    #[inline_always]
-    fn empty() -> Self {
-        0
-    }
-}
 impl Empty for u8 {
     #[inline_always]
     fn empty() -> Self {

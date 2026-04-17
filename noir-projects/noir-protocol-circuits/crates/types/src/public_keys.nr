@@ -9,8 +9,8 @@ use crate::{
     traits::{Deserialize, Hash, Serialize},
 };
 
+use crate::point::Point;
 use std::{default::Default, meta::derive};
-use std::embedded_curve_ops::EmbeddedCurvePoint as Point;
 
 pub trait ToPoint {
     fn to_point(self) -> Point;
@@ -114,6 +114,13 @@ impl PublicKeys {
         validate_on_curve(self.ovpk_m.inner);
         validate_on_curve(self.tpk_m.inner);
     }
+
+    pub fn validate_non_infinity(self) {
+        assert_eq(self.npk_m.inner.is_infinite, false, "NpkM is the point at infinity");
+        assert_eq(self.ivpk_m.inner.is_infinite, false, "IvpkM is the point at infinity");
+        assert_eq(self.ovpk_m.inner.is_infinite, false, "OvpkM is the point at infinity");
+        assert_eq(self.tpk_m.inner.is_infinite, false, "TpkM is the point at infinity");
+    }
 }
 
 pub struct AddressPoint {
@@ -127,12 +134,13 @@ impl ToPoint for AddressPoint {
 }
 
 mod test {
+    use crate::point::Point;
     use crate::{
         point::POINT_LENGTH,
         public_keys::{IvpkM, NpkM, OvpkM, PublicKeys, TpkM},
         traits::{Deserialize, Serialize},
     };
-    use std::embedded_curve_ops::EmbeddedCurvePoint as Point;
+    use std::ops::Neg;
 
     #[test]
     unconstrained fn compute_public_keys_hash() {
@@ -150,6 +158,54 @@ mod test {
             0x056998309f6c119e4d753e404f94fef859dddfa530a9379634ceb0854b29bf7a;
 
         assert(actual.to_field() == expected_public_keys_hash);
+    }
+
+    #[test]
+    unconstrained fn test_validate_on_curve() {
+        let keys = PublicKeys {
+            npk_m: NpkM { inner: Point::generator() },
+            ivpk_m: IvpkM { inner: Point::generator().double() },
+            ovpk_m: OvpkM { inner: Point::generator().neg() },
+            tpk_m: TpkM { inner: Point::generator() + Point::generator().double() },
+        };
+
+        keys.validate_on_curve();
+    }
+
+    #[test(should_fail_with = "Point not on curve")]
+    unconstrained fn test_validate_not_on_curve() {
+        let keys = PublicKeys {
+            npk_m: NpkM { inner: Point { x: 1, y: 2, is_infinite: false } },
+            ivpk_m: IvpkM { inner: Point { x: 3, y: 4, is_infinite: false } },
+            ovpk_m: OvpkM { inner: Point { x: 5, y: 6, is_infinite: false } },
+            tpk_m: TpkM { inner: Point { x: 7, y: 8, is_infinite: false } },
+        };
+
+        keys.validate_on_curve();
+    }
+
+    #[test]
+    unconstrained fn test_validate_non_infinity() {
+        let keys = PublicKeys {
+            npk_m: NpkM { inner: Point::generator() },
+            ivpk_m: IvpkM { inner: Point::generator().double() },
+            ovpk_m: OvpkM { inner: Point::generator().neg() },
+            tpk_m: TpkM { inner: Point::generator() + Point::generator().double() },
+        };
+
+        keys.validate_non_infinity();
+    }
+
+    #[test(should_fail_with = "TpkM is the point at infinity")]
+    unconstrained fn test_validate_infinity() {
+        let keys = PublicKeys {
+            npk_m: NpkM { inner: Point::generator() },
+            ivpk_m: IvpkM { inner: Point::generator().double() },
+            ovpk_m: OvpkM { inner: Point::generator().neg() },
+            tpk_m: TpkM { inner: Point::point_at_infinity() },
+        };
+
+        keys.validate_non_infinity();
     }
 
     #[test]

@@ -192,7 +192,7 @@ describe('e2e_p2p_preferred_network', () => {
       t.bootstrapNodeEnr,
       NUM_PREFERRED_NODES,
       BOOT_NODE_UDP_PORT,
-      t.prefilledPublicData,
+      t.genesis,
       DATA_DIR,
       // To collect metrics - run in aztec-packages `docker compose --profile metrics up` and set COLLECT_METRICS=true
       shouldCollectMetrics(),
@@ -226,7 +226,7 @@ describe('e2e_p2p_preferred_network', () => {
       t.bootstrapNodeEnr,
       NUM_NODES,
       BOOT_NODE_UDP_PORT,
-      t.prefilledPublicData,
+      t.genesis,
       DATA_DIR,
       // To collect metrics - run in aztec-packages `docker compose --profile metrics up` and set COLLECT_METRICS=true
       shouldCollectMetrics(),
@@ -249,7 +249,7 @@ describe('e2e_p2p_preferred_network', () => {
       t.bootstrapNodeEnr,
       NUM_VALIDATORS - 1,
       BOOT_NODE_UDP_PORT,
-      t.prefilledPublicData,
+      t.genesis,
       DATA_DIR,
       // To collect metrics - run in aztec-packages `docker compose --profile metrics up` and set COLLECT_METRICS=true
       shouldCollectMetrics(),
@@ -273,7 +273,7 @@ describe('e2e_p2p_preferred_network', () => {
       t.bootstrapNodeEnr,
       1,
       BOOT_NODE_UDP_PORT,
-      t.prefilledPublicData,
+      t.genesis,
       DATA_DIR,
       // To collect metrics - run in aztec-packages `docker compose --profile metrics up` and set COLLECT_METRICS=true
       shouldCollectMetrics(),

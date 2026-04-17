@@ -15,7 +15,7 @@
 inline std::string generate_memory_offsets(int log_n)
 {
     const int BATCHED_RELATION_PARTIAL_LENGTH = 8;
-    const int NUMBER_OF_SUBRELATIONS = 28;
+    const int NUMBER_OF_SUBRELATIONS = 29;
     const int NUMBER_OF_ALPHAS = NUMBER_OF_SUBRELATIONS - 1;
     const int START_POINTER = 0x1000;
     const int BARYCENTRIC_DOMAIN_SIZE = 8;
@@ -397,7 +397,7 @@ interface IVerifier {
 
 
 
-uint256 constant NUMBER_OF_SUBRELATIONS = 28;
+uint256 constant NUMBER_OF_SUBRELATIONS = 29;
 uint256 constant BATCHED_RELATION_PARTIAL_LENGTH = 8;
 uint256 constant ZK_BATCHED_RELATION_PARTIAL_LENGTH = 9;
 uint256 constant NUMBER_OF_ENTITIES = 41;
@@ -870,7 +870,7 @@ contract HonkVerifier is IVerifier {
 
                 // Compute powers of alpha: alpha^2, alpha^3, ..., alpha^26
                 let alpha_off_set := ALPHA_CHALLENGE_1
-                for {} lt(alpha_off_set, add(ALPHA_CHALLENGE_26, 0x20)) {} {
+                for {} lt(alpha_off_set, add(ALPHA_CHALLENGE_27, 0x20)) {} {
                     let prev_alpha := mload(sub(alpha_off_set, 0x20))
                     mstore(alpha_off_set, mulmod(prev_alpha, alpha, p))
                     alpha_off_set := add(alpha_off_set, 0x20)
@@ -1624,6 +1624,16 @@ contract HonkVerifier is IVerifier {
                         )
                         mstore(SUBRELATION_EVAL_3_LOC, acc)
                     }
+
+                    // Contribution 4: z_perm initialization (lagrange_first * z_perm = 0)
+                    {
+                        let acc := mulmod(
+                            mulmod(mload(LAGRANGE_FIRST_EVAL_LOC), mload(Z_PERM_EVAL_LOC), p),
+                            mload(POW_PARTIAL_EVALUATION_LOC),
+                            p
+                        )
+                        mstore(SUBRELATION_EVAL_4_LOC, acc)
+                    }
                 }
 
                 /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
@@ -1687,9 +1697,9 @@ contract HonkVerifier is IVerifier {
                     let read_tag_boolean_relation := mulmod(read_tag, addmod(read_tag, sub(p, 1), p), p)
                     read_tag_boolean_relation := mulmod(read_tag_boolean_relation, mload(POW_PARTIAL_EVALUATION_LOC), p)
 
-                    mstore(SUBRELATION_EVAL_4_LOC, accumulator_none)
-                    mstore(SUBRELATION_EVAL_5_LOC, accumulator_one)
-                    mstore(SUBRELATION_EVAL_6_LOC, read_tag_boolean_relation)
+                    mstore(SUBRELATION_EVAL_5_LOC, accumulator_none)
+                    mstore(SUBRELATION_EVAL_6_LOC, accumulator_one)
+                    mstore(SUBRELATION_EVAL_7_LOC, read_tag_boolean_relation)
                 }
 
                 /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
@@ -1712,7 +1722,7 @@ contract HonkVerifier is IVerifier {
                         acc := mulmod(acc, addmod(delta_1, minus_three, p), p)
                         acc := mulmod(acc, mload(QRANGE_EVAL_LOC), p)
                         acc := mulmod(acc, mload(POW_PARTIAL_EVALUATION_LOC), p)
-                        mstore(SUBRELATION_EVAL_7_LOC, acc)
+                        mstore(SUBRELATION_EVAL_8_LOC, acc)
                     }
 
                     {
@@ -1722,7 +1732,7 @@ contract HonkVerifier is IVerifier {
                         acc := mulmod(acc, addmod(delta_2, minus_three, p), p)
                         acc := mulmod(acc, mload(QRANGE_EVAL_LOC), p)
                         acc := mulmod(acc, mload(POW_PARTIAL_EVALUATION_LOC), p)
-                        mstore(SUBRELATION_EVAL_8_LOC, acc)
+                        mstore(SUBRELATION_EVAL_9_LOC, acc)
                     }
 
                     {
@@ -1732,7 +1742,7 @@ contract HonkVerifier is IVerifier {
                         acc := mulmod(acc, addmod(delta_3, minus_three, p), p)
                         acc := mulmod(acc, mload(QRANGE_EVAL_LOC), p)
                         acc := mulmod(acc, mload(POW_PARTIAL_EVALUATION_LOC), p)
-                        mstore(SUBRELATION_EVAL_9_LOC, acc)
+                        mstore(SUBRELATION_EVAL_10_LOC, acc)
                     }
 
                     {
@@ -1742,7 +1752,7 @@ contract HonkVerifier is IVerifier {
                         acc := mulmod(acc, addmod(delta_4, minus_three, p), p)
                         acc := mulmod(acc, mload(QRANGE_EVAL_LOC), p)
                         acc := mulmod(acc, mload(POW_PARTIAL_EVALUATION_LOC), p)
-                        mstore(SUBRELATION_EVAL_10_LOC, acc)
+                        mstore(SUBRELATION_EVAL_11_LOC, acc)
                     }
                 }
 
@@ -1767,7 +1777,7 @@ contract HonkVerifier is IVerifier {
                         let eval := mulmod(x_add_identity, mload(POW_PARTIAL_EVALUATION_LOC), p)
                         eval := mulmod(eval, mload(QELLIPTIC_EVAL_LOC), p)
                         eval := mulmod(eval, addmod(1, sub(p, mload(EC_Q_IS_DOUBLE)), p), p)
-                        mstore(SUBRELATION_EVAL_11_LOC, eval)
+                        mstore(SUBRELATION_EVAL_12_LOC, eval)
                     }
 
                     {
@@ -1784,7 +1794,7 @@ contract HonkVerifier is IVerifier {
                         let eval := mulmod(y_add_identity, mload(POW_PARTIAL_EVALUATION_LOC), p)
                         eval := mulmod(eval, mload(QELLIPTIC_EVAL_LOC), p)
                         eval := mulmod(eval, addmod(1, sub(p, mload(EC_Q_IS_DOUBLE)), p), p)
-                        mstore(SUBRELATION_EVAL_12_LOC, eval)
+                        mstore(SUBRELATION_EVAL_13_LOC, eval)
                     }
 
                     {
@@ -1800,10 +1810,10 @@ contract HonkVerifier is IVerifier {
 
                         let acc := mulmod(ep_x_double_identity, mload(POW_PARTIAL_EVALUATION_LOC), p)
                         acc := mulmod(mulmod(acc, mload(QELLIPTIC_EVAL_LOC), p), mload(EC_Q_IS_DOUBLE), p)
-                        acc := addmod(acc, mload(SUBRELATION_EVAL_11_LOC), p)
+                        acc := addmod(acc, mload(SUBRELATION_EVAL_12_LOC), p)
 
                         // Add to existing contribution - and double check that numbers here
-                        mstore(SUBRELATION_EVAL_11_LOC, acc)
+                        mstore(SUBRELATION_EVAL_12_LOC, acc)
                     }
 
                     {
@@ -1826,10 +1836,10 @@ contract HonkVerifier is IVerifier {
 
                         let acc := mulmod(y_double_identity, mload(POW_PARTIAL_EVALUATION_LOC), p)
                         acc := mulmod(mulmod(acc, mload(QELLIPTIC_EVAL_LOC), p), mload(EC_Q_IS_DOUBLE), p)
-                        acc := addmod(acc, mload(SUBRELATION_EVAL_12_LOC), p)
+                        acc := addmod(acc, mload(SUBRELATION_EVAL_13_LOC), p)
 
                         // Add to existing contribution - and double check that numbers here
-                        mstore(SUBRELATION_EVAL_12_LOC, acc)
+                        mstore(SUBRELATION_EVAL_13_LOC, acc)
                     }
                 }
 
@@ -1936,7 +1946,7 @@ contract HonkVerifier is IVerifier {
                             mulmod(record_delta, addmod(1, sub(p, index_delta), p), p)
 
                         mstore(
-                            SUBRELATION_EVAL_14_LOC,
+                            SUBRELATION_EVAL_15_LOC,
                             mulmod(
                                 adjacent_values_match_if_adjacent_indices_match,
                                 mulmod(
@@ -1954,7 +1964,7 @@ contract HonkVerifier is IVerifier {
 
                         // ROM_CONSISTENCY_CHECK_2
                         mstore(
-                            SUBRELATION_EVAL_15_LOC,
+                            SUBRELATION_EVAL_16_LOC,
                             mulmod(
                                 index_is_monotonically_increasing,
                                 mulmod(
@@ -2050,7 +2060,7 @@ contract HonkVerifier is IVerifier {
                                 )
 
                             mstore(
-                                SUBRELATION_EVAL_16_LOC,
+                                SUBRELATION_EVAL_17_LOC,
                                 mulmod(
                                     adjacent_values_match_if_adjacent_indices_match_and_next_access_is_a_read_operation,
                                     scaled_activation_selector,
@@ -2059,12 +2069,12 @@ contract HonkVerifier is IVerifier {
                             )
 
                             mstore(
-                                SUBRELATION_EVAL_17_LOC,
+                                SUBRELATION_EVAL_18_LOC,
                                 mulmod(index_is_monotonically_increasing, scaled_activation_selector, p)
                             )
 
                             mstore(
-                                SUBRELATION_EVAL_18_LOC,
+                                SUBRELATION_EVAL_19_LOC,
                                 mulmod(next_gate_access_type_is_boolean, scaled_activation_selector, p)
                             )
 
@@ -2121,7 +2131,7 @@ contract HonkVerifier is IVerifier {
                                 mulmod(mload(QMEMORY_EVAL_LOC), mload(POW_PARTIAL_EVALUATION_LOC), p),
                                 p
                             )
-                            mstore(SUBRELATION_EVAL_13_LOC, memory_identity)
+                            mstore(SUBRELATION_EVAL_14_LOC, memory_identity)
                         }
                     }
                 }
@@ -2268,7 +2278,7 @@ contract HonkVerifier is IVerifier {
                         p
                     )
 
-                    mstore(SUBRELATION_EVAL_19_LOC, nnf_identity)
+                    mstore(SUBRELATION_EVAL_20_LOC, nnf_identity)
                 }
 
                 /*
@@ -2321,22 +2331,22 @@ contract HonkVerifier is IVerifier {
                         mulmod(mload(QPOSEIDON2_EXTERNAL_EVAL_LOC), mload(POW_PARTIAL_EVALUATION_LOC), p)
 
                     mstore(
-                        SUBRELATION_EVAL_20_LOC,
+                        SUBRELATION_EVAL_21_LOC,
                         mulmod(q_pos_by_scaling, addmod(v1, sub(p, mload(W1_SHIFT_EVAL_LOC)), p), p)
                     )
 
                     mstore(
-                        SUBRELATION_EVAL_21_LOC,
+                        SUBRELATION_EVAL_22_LOC,
                         mulmod(q_pos_by_scaling, addmod(v2, sub(p, mload(W2_SHIFT_EVAL_LOC)), p), p)
                     )
 
                     mstore(
-                        SUBRELATION_EVAL_22_LOC,
+                        SUBRELATION_EVAL_23_LOC,
                         mulmod(q_pos_by_scaling, addmod(v3, sub(p, mload(W3_SHIFT_EVAL_LOC)), p), p)
                     )
 
                     mstore(
-                        SUBRELATION_EVAL_23_LOC,
+                        SUBRELATION_EVAL_24_LOC,
                         mulmod(q_pos_by_scaling, addmod(v4, sub(p, mload(W4_SHIFT_EVAL_LOC)), p), p)
                     )
                 }
@@ -2364,25 +2374,25 @@ contract HonkVerifier is IVerifier {
                     let v1 := addmod(mulmod(u1, POS_INTERNAL_MATRIX_D_0, p), u_sum, p)
 
                     mstore(
-                        SUBRELATION_EVAL_24_LOC,
+                        SUBRELATION_EVAL_25_LOC,
                         mulmod(q_pos_by_scaling, addmod(v1, sub(p, mload(W1_SHIFT_EVAL_LOC)), p), p)
                     )
                     let v2 := addmod(mulmod(u2, POS_INTERNAL_MATRIX_D_1, p), u_sum, p)
 
                     mstore(
-                        SUBRELATION_EVAL_25_LOC,
+                        SUBRELATION_EVAL_26_LOC,
                         mulmod(q_pos_by_scaling, addmod(v2, sub(p, mload(W2_SHIFT_EVAL_LOC)), p), p)
                     )
                     let v3 := addmod(mulmod(u3, POS_INTERNAL_MATRIX_D_2, p), u_sum, p)
 
                     mstore(
-                        SUBRELATION_EVAL_26_LOC,
+                        SUBRELATION_EVAL_27_LOC,
                         mulmod(q_pos_by_scaling, addmod(v3, sub(p, mload(W3_SHIFT_EVAL_LOC)), p), p)
                     )
 
                     let v4 := addmod(mulmod(u4, POS_INTERNAL_MATRIX_D_3, p), u_sum, p)
                     mstore(
-                        SUBRELATION_EVAL_27_LOC,
+                        SUBRELATION_EVAL_28_LOC,
                         mulmod(q_pos_by_scaling, addmod(v4, sub(p, mload(W4_SHIFT_EVAL_LOC)), p), p)
                     )
                 }
@@ -2529,6 +2539,11 @@ contract HonkVerifier is IVerifier {
                 accumulator := addmod(
                     accumulator,
                     mulmod(mload(SUBRELATION_EVAL_27_LOC), mload(ALPHA_CHALLENGE_26), p),
+                    p
+                )
+                accumulator := addmod(
+                    accumulator,
+                    mulmod(mload(SUBRELATION_EVAL_28_LOC), mload(ALPHA_CHALLENGE_27), p),
                     p
                 )
 

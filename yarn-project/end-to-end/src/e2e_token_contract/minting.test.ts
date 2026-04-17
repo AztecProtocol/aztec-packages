@@ -79,12 +79,13 @@ describe('e2e_token_contract minting', () => {
         ).rejects.toThrow('Assertion failed: caller is not minter');
       });
 
+      // This test is expected to fail at the ABI encoder rather than during contract logic.
+      // We keep the test to be defensive as it is the only e2e test with overflowed inputs.
       it('mint >u128 tokens to overflow', async () => {
         const overflowAmount = 2n ** 128n;
-
         await expect(
           asset.methods.mint_to_private(adminAddress, overflowAmount).simulate({ from: adminAddress }),
-        ).rejects.toThrow('Cannot satisfy constraint');
+        ).rejects.toThrow('does not fit in u128');
       });
 
       it('mint <u128 but recipient balance >u128', async () => {

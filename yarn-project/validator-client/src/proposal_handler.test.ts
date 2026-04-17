@@ -1,3 +1,4 @@
+import type { Archiver } from '@aztec/archiver';
 import type { BlobClientInterface } from '@aztec/blob-client/client';
 import type { EpochCache } from '@aztec/epoch-cache';
 import { MAX_FEE_ASSET_PRICE_MODIFIER_BPS } from '@aztec/ethereum/contracts';
@@ -5,10 +6,10 @@ import { CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { TestDateProvider } from '@aztec/foundation/timer';
 import type { FieldsOf } from '@aztec/foundation/types';
+import type { P2P } from '@aztec/p2p';
 import type { BlockProposalValidator } from '@aztec/p2p/msg_validators';
 import type { L2Block, L2BlockSink, L2BlockSource } from '@aztec/stdlib/block';
 import type { Checkpoint } from '@aztec/stdlib/checkpoint';
-import type { getEpochAtSlot } from '@aztec/stdlib/epoch-helpers';
 import type { ITxProvider, ValidatorClientFullConfig, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import { accumulateCheckpointOutHashes } from '@aztec/stdlib/messaging';
@@ -21,6 +22,7 @@ import { describe, expect, it, jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
 import type { CheckpointBuilder, FullNodeCheckpointsBuilder } from './checkpoint_builder.js';
+import type { ValidatorMetrics } from './metrics.js';
 import { ProposalHandler } from './proposal_handler.js';
 
 /** Creates a checkpoint proposal core with the given overrides. */
@@ -40,6 +42,7 @@ describe('ProposalHandler checkpoint validation', () => {
   let epochCache: MockProxy<EpochCache>;
   let checkpointsBuilder: MockProxy<FullNodeCheckpointsBuilder>;
   let dateProvider: TestDateProvider;
+  let metrics: MockProxy<ValidatorMetrics>;
   let config: ValidatorClientFullConfig;
 
   const proposalInfo = {};
@@ -63,12 +66,16 @@ describe('ProposalHandler checkpoint validation', () => {
     });
 
     epochCache = mock<EpochCache>();
-    epochCache.getL1Constants.mockReturnValue({ epochDuration: 8 } satisfies Parameters<
-      typeof getEpochAtSlot
-    >[1] as any);
+    epochCache.getL1Constants.mockReturnValue({
+      l1GenesisTime: 0n,
+      slotDuration: 24,
+      epochDuration: 8,
+    } as any);
     epochCache.isProposerPipeliningEnabled.mockReturnValue(true);
+    epochCache.pipeliningOffset.mockReturnValue(1);
 
     dateProvider = new TestDateProvider();
+    metrics = mock<ValidatorMetrics>();
 
     config = {} as ValidatorClientFullConfig;
 
@@ -82,7 +89,7 @@ describe('ProposalHandler checkpoint validation', () => {
       epochCache,
       config,
       mock<BlobClientInterface>(),
-      undefined, // metrics
+      metrics,
       dateProvider,
     );
   });
@@ -170,6 +177,37 @@ describe('ProposalHandler checkpoint validation', () => {
 
       const result = await handler.handleCheckpointProposal(await makeProposal(), proposalInfo);
       expect(result).toEqual({ isValid: false, reason: 'block_fetch_error' });
+    });
+  });
+
+  describe('checkpoint proposal pipelining timing', () => {
+    it('records receive-to-pipelined-state duration when proposed checkpoint is set from a foreign proposal', async () => {
+      const proposal = await makeProposal();
+      const p2p = mock<P2P>();
+      let checkpointHandler: ((proposal: any, sender: any) => Promise<unknown>) | undefined;
+      p2p.registerAllNodesCheckpointProposalHandler.mockImplementation(handler => {
+        checkpointHandler = handler;
+      });
+
+      const archiver = mock<Pick<Archiver, 'setProposedCheckpoint' | 'getL1Constants'>>();
+      archiver.setProposedCheckpoint.mockResolvedValue(undefined);
+
+      const blockData = {
+        checkpointNumber: CheckpointNumber(3),
+        header: { getBlockNumber: () => 9 },
+        indexWithinCheckpoint: 2,
+      } as any;
+      blockSource.getBlockDataByArchive.mockResolvedValue(blockData);
+
+      jest
+        .spyOn(handler, 'handleCheckpointProposal')
+        .mockResolvedValue({ isValid: true, checkpointNumber: CheckpointNumber(3) });
+
+      handler.register(p2p, true, archiver);
+      await checkpointHandler!(proposal, {} as any);
+
+      expect(archiver.setProposedCheckpoint).toHaveBeenCalled();
+      expect(metrics.recordCheckpointProposalToPipelinedStateDuration).toHaveBeenCalledWith(expect.any(Number));
     });
   });
 
@@ -309,7 +347,7 @@ describe('ProposalHandler checkpoint validation', () => {
 
       const proposal = await makeProposal({ archiveRoot, checkpointHeader: header });
       const result = await handler.handleCheckpointProposal(proposal, proposalInfo);
-      expect(result).toEqual({ isValid: true });
+      expect(result).toEqual({ isValid: true, checkpointNumber: CheckpointNumber(1) });
       expect(mockDispose).toHaveBeenCalled();
     });
 

@@ -263,13 +263,13 @@ describe('ArchiverApiSchema', () => {
   });
 
   it('getPrivateLogsByTags', async () => {
-    const result = await context.client.getPrivateLogsByTags([new SiloedTag(Fr.random())]);
+    const result = await context.client.getPrivateLogsByTags([SiloedTag.random()]);
     expect(result).toEqual([[expect.any(TxScopedL2Log)]]);
   });
 
   it('getPublicLogsByTagsFromContract', async () => {
     const contractAddress = await AztecAddress.random();
-    const result = await context.client.getPublicLogsByTagsFromContract(contractAddress, [new Tag(Fr.random())]);
+    const result = await context.client.getPublicLogsByTagsFromContract(contractAddress, [Tag.random()]);
     expect(result).toEqual([[expect.any(TxScopedL2Log)]]);
   });
 

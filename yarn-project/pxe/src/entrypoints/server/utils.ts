@@ -1,4 +1,3 @@
-import { BBPrivateKernelProver } from '@aztec/bb-prover/client';
 import { BBBundlePrivateKernelProver } from '@aztec/bb-prover/client/bundle';
 import { createLogger } from '@aztec/foundation/log';
 import { createStore } from '@aztec/kv-store/lmdb-v2';
@@ -10,7 +9,7 @@ import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import type { PXEConfig } from '../../config/index.js';
 import { PXE } from '../../pxe.js';
 import { PXE_DATA_SCHEMA_VERSION } from '../../storage/index.js';
-import type { PXECreationOptions } from '../pxe_creation_options.js';
+import { type PXECreationOptions, isPrivateKernelProver } from '../pxe_creation_options.js';
 
 type PXEConfigWithoutDefaults = Omit<PXEConfig, 'l1Contracts' | 'l1ChainId' | 'l2BlockBatchSize' | 'rollupVersion'>;
 
@@ -49,7 +48,7 @@ export async function createPXE(
   const proverLogger = loggers.prover ?? createLogger('pxe:bb:native', { actor });
 
   let prover;
-  if (options.proverOrOptions instanceof BBPrivateKernelProver) {
+  if (isPrivateKernelProver(options.proverOrOptions)) {
     prover = options.proverOrOptions;
   } else {
     prover = new BBBundlePrivateKernelProver(simulator, { ...options.proverOrOptions, logger: proverLogger });

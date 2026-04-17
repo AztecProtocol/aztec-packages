@@ -16,6 +16,7 @@ import { deriveKeys } from '@aztec/aztec.js/keys';
 import { createLogger } from '@aztec/aztec.js/log';
 import { waitForL1ToL2MessageReady } from '@aztec/aztec.js/messaging';
 import { waitForTx } from '@aztec/aztec.js/node';
+import { getFeeJuiceBalance } from '@aztec/aztec.js/utils';
 import { ContractInitializationStatus } from '@aztec/aztec.js/wallet';
 import { createEthereumChain } from '@aztec/ethereum/chain';
 import { createExtendedL1Client } from '@aztec/ethereum/client';
@@ -29,6 +30,7 @@ import { PrivateTokenContract } from '@aztec/noir-contracts.js/PrivateToken';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
+import { GasFees, GasSettings, ManaUsageEstimate } from '@aztec/stdlib/gas';
 import type { AztecNode, AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 import { deriveSigningKey } from '@aztec/stdlib/keys';
 import { EmbeddedWallet } from '@aztec/wallets/embedded';
@@ -40,6 +42,8 @@ import { getBalances, getPrivateBalance, isStandardTokenContract } from './utils
 
 const MINT_BALANCE = 1e12;
 const MIN_BALANCE = 1e3;
+const FEE_JUICE_TOP_UP_THRESHOLD = 100n * 10n ** 18n;
+const FEE_JUICE_TOP_UP_TARGET = 10_000n * 10n ** 18n;
 
 export class BotFactory {
   private log = createLogger('bot');
@@ -69,7 +73,8 @@ export class BotFactory {
   }> {
     const defaultAccountAddress = await this.setupAccount();
     const recipient = (await this.wallet.createSchnorrAccount(Fr.random(), Fr.random())).address;
-    const token = await this.setupToken(defaultAccountAddress);
+    const token = await this.setupTokenWithOptionalEarlyRefuel(defaultAccountAddress);
+    await this.ensureFeeJuiceBalance(defaultAccountAddress, token);
     await this.mintTokens(token, defaultAccountAddress);
     return { wallet: this.wallet, defaultAccountAddress, token, node: this.aztecNode, recipient };
   }
@@ -83,7 +88,13 @@ export class BotFactory {
     node: AztecNode;
   }> {
     const defaultAccountAddress = await this.setupAccount();
-    const token0 = await this.setupTokenContract(defaultAccountAddress, this.config.tokenSalt, 'BotToken0', 'BOT0');
+    const token0 = await this.setupTokenContractWithOptionalEarlyRefuel(
+      defaultAccountAddress,
+      this.config.tokenSalt,
+      'BotToken0',
+      'BOT0',
+    );
+    await this.ensureFeeJuiceBalance(defaultAccountAddress, token0);
     const token1 = await this.setupTokenContract(defaultAccountAddress, this.config.tokenSalt, 'BotToken1', 'BOT1');
     const liquidityToken = await this.setupTokenContract(
       defaultAccountAddress,
@@ -253,13 +264,78 @@ export class BotFactory {
   }
 
   /**
+   * Setup token and refuel first: if the token already exists (restart scenario),
+   * run ensureFeeJuiceBalance before any step that might need fee juice. When deploying,
+   * use a bridge claim if balance is below threshold.
+   */
+  private async setupTokenWithOptionalEarlyRefuel(sender: AztecAddress): Promise<TokenContract | PrivateTokenContract> {
+    const token = await this.getTokenInstance(sender);
+    const address = token.address;
+    const metadata = await this.wallet.getContractMetadata(address);
+    if (metadata.isContractPublished) {
+      this.log.info(`Token at ${address.toString()} already deployed, refueling before setup`);
+      await this.ensureFeeJuiceBalance(sender, token);
+    }
+    return this.setupToken(sender);
+  }
+
+  /**
+   * Setup token0 for AMM with refuel-first behaviour when token already exists.
+   */
+  private async setupTokenContractWithOptionalEarlyRefuel(
+    deployer: AztecAddress,
+    contractAddressSalt: Fr,
+    name: string,
+    ticker: string,
+    decimals = 18,
+  ): Promise<TokenContract> {
+    const deployOpts: DeployOptions = { from: deployer, contractAddressSalt, universalDeploy: true };
+    const deploy = TokenContract.deploy(this.wallet, deployer, name, ticker, decimals);
+    const instance = await deploy.getInstance(deployOpts);
+    const metadata = await this.wallet.getContractMetadata(instance.address);
+    if (metadata.isContractPublished) {
+      this.log.info(`Token ${name} at ${instance.address.toString()} already deployed, refueling before setup`);
+      const token = TokenContract.at(instance.address, this.wallet);
+      await this.ensureFeeJuiceBalance(deployer, token);
+    }
+    return this.setupTokenContract(deployer, contractAddressSalt, name, ticker, decimals);
+  }
+
+  private async getTokenInstance(sender: AztecAddress): Promise<TokenContract | PrivateTokenContract> {
+    const deployOpts: DeployOptions = {
+      from: sender,
+      contractAddressSalt: this.config.tokenSalt,
+      universalDeploy: true,
+    };
+    if (this.config.contract === SupportedTokenContracts.TokenContract) {
+      const deploy = TokenContract.deploy(this.wallet, sender, 'BotToken', 'BOT', 18);
+      const instance = await deploy.getInstance(deployOpts);
+      return TokenContract.at(instance.address, this.wallet);
+    }
+    if (this.config.contract === SupportedTokenContracts.PrivateTokenContract) {
+      const tokenSecretKey = Fr.random();
+      const tokenPublicKeys = (await deriveKeys(tokenSecretKey)).publicKeys;
+      const deploy = PrivateTokenContract.deployWithPublicKeys(tokenPublicKeys, this.wallet, MINT_BALANCE, sender);
+      const instance = await deploy.getInstance({
+        ...deployOpts,
+        skipInstancePublication: true,
+        skipClassPublication: true,
+        skipInitialization: false,
+      });
+      return PrivateTokenContract.at(instance.address, this.wallet);
+    }
+    throw new Error(`Unsupported token contract type: ${this.config.contract}`);
+  }
+
+  /**
    * Checks if the token contract is deployed and deploys it if necessary.
-   * @param wallet - Wallet to deploy the token contract from.
-   * @returns The TokenContract instance.
+   * Uses a bridge claim for deploy when balance is below threshold to avoid failing before refuel.
+   * @param sender - Aztec address to deploy the token contract from.
+   * @param existingToken - Optional token instance when called from setupTokenWithOptionalEarlyRefuel.
+   * @returns The TokenContract or PrivateTokenContract instance.
    */
   private async setupToken(sender: AztecAddress): Promise<TokenContract | PrivateTokenContract> {
     let deploy: DeployMethod<TokenContract | PrivateTokenContract>;
-    let tokenInstance: ContractInstanceWithAddress | undefined;
     const deployOpts: DeployOptions = {
       from: sender,
       contractAddressSalt: this.config.tokenSalt,
@@ -268,8 +344,8 @@ export class BotFactory {
     let token: TokenContract | PrivateTokenContract;
     if (this.config.contract === SupportedTokenContracts.TokenContract) {
       deploy = TokenContract.deploy(this.wallet, sender, 'BotToken', 'BOT', 18);
-      tokenInstance = await deploy.getInstance(deployOpts);
-      token = TokenContract.at(tokenInstance.address, this.wallet);
+      const instance = await deploy.getInstance(deployOpts);
+      token = TokenContract.at(instance.address, this.wallet);
     } else if (this.config.contract === SupportedTokenContracts.PrivateTokenContract) {
       // Generate keys for the contract since PrivateToken uses SinglePrivateMutable which requires keys
       const tokenSecretKey = Fr.random();
@@ -280,7 +356,7 @@ export class BotFactory {
       deployOpts.skipInitialization = false;
 
       // Register the contract with the secret key before deployment
-      tokenInstance = await deploy.getInstance(deployOpts);
+      const tokenInstance = await deploy.getInstance(deployOpts);
       token = PrivateTokenContract.at(tokenInstance.address, this.wallet);
       await this.wallet.registerContract(tokenInstance, PrivateTokenContract.artifact, tokenSecretKey);
       // The contract constructor initializes private storage vars that need the contract's own nullifier key.
@@ -289,20 +365,7 @@ export class BotFactory {
       throw new Error(`Unsupported token contract type: ${this.config.contract}`);
     }
 
-    const address = tokenInstance?.address ?? (await deploy.getInstance(deployOpts)).address;
-    const metadata = await this.wallet.getContractMetadata(address);
-    if (metadata.isContractPublished) {
-      this.log.info(`Token at ${address.toString()} already deployed`);
-      await deploy.register();
-    } else {
-      this.log.info(`Deploying token contract at ${address.toString()}`);
-      const { txHash } = await deploy.send({ ...deployOpts, wait: NO_WAIT });
-      this.log.info(`Sent tx for token setup with hash ${txHash.toString()}`);
-      await this.withNoMinTxsPerBlock(async () => {
-        await waitForTx(this.aztecNode, txHash, { timeout: this.config.txMinedWaitSeconds });
-        return token;
-      });
-    }
+    await this.registerOrDeployContract('token', deploy, deployOpts);
     return token;
   }
 
@@ -455,12 +518,42 @@ export class BotFactory {
       this.log.info(`Contract ${name} at ${address.toString()} already deployed`);
       await deploy.register();
     } else {
-      this.log.info(`Deploying contract ${name} at ${address.toString()}`);
-      await this.withNoMinTxsPerBlock(async () => {
-        const { txHash } = await deploy.send({ ...deployOpts, wait: NO_WAIT });
-        this.log.info(`Sent contract ${name} setup tx with hash ${txHash.toString()}`);
-        return waitForTx(this.aztecNode, txHash, { timeout: this.config.txMinedWaitSeconds });
-      });
+      const sender = deployOpts.from === NO_FROM ? undefined : deployOpts.from;
+      const balance = sender ? await getFeeJuiceBalance(sender, this.aztecNode) : 0n;
+      const useClaim =
+        sender &&
+        balance < FEE_JUICE_TOP_UP_THRESHOLD &&
+        this.config.feePaymentMethod === 'fee_juice' &&
+        !!this.config.l1RpcUrls?.length;
+      const mnemonicOrPrivateKey = this.config.l1PrivateKey?.getValue() ?? this.config.l1Mnemonic?.getValue();
+
+      if (useClaim && mnemonicOrPrivateKey) {
+        const claim = await this.getOrCreateBridgeClaim(sender!);
+        const paymentMethod = new FeeJuicePaymentMethodWithClaim(sender!, claim);
+        const { estimatedGas } = await deploy.simulate({ ...deployOpts, fee: { estimateGas: true, paymentMethod } });
+        const maxFeesPerGas = (await this.getMinFees()).mul(1 + this.config.minFeePadding);
+        const gasSettings = GasSettings.from({
+          ...estimatedGas!,
+          maxFeesPerGas,
+          maxPriorityFeesPerGas: GasFees.empty(),
+        });
+        await this.withNoMinTxsPerBlock(async () => {
+          const { txHash } = await deploy.send({ ...deployOpts, fee: { gasSettings, paymentMethod }, wait: NO_WAIT });
+          this.log.info(
+            `Sent contract ${name} deploy tx ${txHash.toString()} (using bridge claim, balance was ${balance})`,
+          );
+          return waitForTx(this.aztecNode, txHash, { timeout: this.config.txMinedWaitSeconds });
+        });
+        await this.store.deleteBridgeClaim(sender!);
+      } else {
+        const { estimatedGas } = await deploy.simulate({ ...deployOpts, fee: { estimateGas: true } });
+        this.log.info(`Deploying contract ${name} at ${address.toString()}`, { estimatedGas });
+        await this.withNoMinTxsPerBlock(async () => {
+          const { txHash } = await deploy.send({ ...deployOpts, fee: { gasSettings: estimatedGas }, wait: NO_WAIT });
+          this.log.info(`Sent contract ${name} setup tx with hash ${txHash.toString()}`);
+          return waitForTx(this.aztecNode, txHash, { timeout: this.config.txMinedWaitSeconds });
+        });
+      }
     }
     return instance;
   }
@@ -469,6 +562,66 @@ export class BotFactory {
    * Mints private and public tokens for the sender if their balance is below the minimum.
    * @param token - Token contract.
    */
+  /**
+   * Ensures the account has sufficient fee juice by bridging from L1 if balance is below threshold.
+   * Bridges repeatedly until balance reaches the target (10k FJ).
+   * Used on startup/restart to top up when the account has run out after previous runs.
+   */
+  private async ensureFeeJuiceBalance(
+    account: AztecAddress,
+    token: TokenContract | PrivateTokenContract,
+  ): Promise<void> {
+    const { feePaymentMethod, l1RpcUrls } = this.config;
+    if (feePaymentMethod !== 'fee_juice' || !l1RpcUrls?.length) {
+      return;
+    }
+    const mnemonicOrPrivateKey = this.config.l1PrivateKey?.getValue() ?? this.config.l1Mnemonic?.getValue();
+    if (!mnemonicOrPrivateKey) {
+      return;
+    }
+
+    let balance = await getFeeJuiceBalance(account, this.aztecNode);
+    if (balance >= FEE_JUICE_TOP_UP_THRESHOLD) {
+      this.log.info(`Fee juice balance ${balance} above threshold ${FEE_JUICE_TOP_UP_THRESHOLD}, skipping top-up`);
+      return;
+    }
+
+    this.log.info(
+      `Fee juice balance ${balance} below threshold ${FEE_JUICE_TOP_UP_THRESHOLD}, bridging from L1 until ${FEE_JUICE_TOP_UP_TARGET}`,
+    );
+    const maxFeesPerGas = (await this.getMinFees()).mul(1 + this.config.minFeePadding);
+    const minimalInteraction = isStandardTokenContract(token)
+      ? token.methods.transfer_in_public(account, account, 0n, 0)
+      : token.methods.transfer(0n, account, account);
+
+    while (balance < FEE_JUICE_TOP_UP_TARGET) {
+      const claim = await this.bridgeL1FeeJuice(account);
+      const paymentMethod = new FeeJuicePaymentMethodWithClaim(account, claim);
+      const { estimatedGas } = await minimalInteraction.simulate({
+        from: account,
+        fee: { estimateGas: true, paymentMethod },
+      });
+      const gasSettings = GasSettings.from({
+        ...estimatedGas!,
+        maxFeesPerGas,
+        maxPriorityFeesPerGas: GasFees.empty(),
+      });
+
+      await this.withNoMinTxsPerBlock(async () => {
+        const { txHash } = await minimalInteraction.send({
+          from: account,
+          fee: { gasSettings, paymentMethod },
+          wait: NO_WAIT,
+        });
+        this.log.info(`Sent fee juice top-up tx ${txHash.toString()}`);
+        return waitForTx(this.aztecNode, txHash, { timeout: this.config.txMinedWaitSeconds });
+      });
+      balance = await getFeeJuiceBalance(account, this.aztecNode);
+      this.log.info(`Fee juice balance after top-up: ${balance}`);
+    }
+    this.log.info(`Fee juice top-up complete for ${account.toString()}`);
+  }
+
   private async mintTokens(token: TokenContract | PrivateTokenContract, minter: AztecAddress) {
     const isStandardToken = isStandardTokenContract(token);
     let privateBalance = 0n;
@@ -574,6 +727,19 @@ export class BotFactory {
     this.log.info(`Created a claim for ${mintAmount} L1 fee juice to ${recipient}.`, claim);
 
     return claim as L2AmountClaim;
+  }
+
+  /** Returns worst-case min fees across predicted slots, with fallback to current min fees. */
+  private async getMinFees(): Promise<GasFees> {
+    try {
+      const predicted = await this.aztecNode.getPredictedMinFees(ManaUsageEstimate.Limit);
+      if (predicted.length === 0) {
+        return this.aztecNode.getCurrentMinFees();
+      }
+      return predicted.reduce((worst, fees) => (fees.feePerL2Gas > worst.feePerL2Gas ? fees : worst));
+    } catch {
+      return this.aztecNode.getCurrentMinFees();
+    }
   }
 
   private async withNoMinTxsPerBlock<T>(fn: () => Promise<T>): Promise<T> {

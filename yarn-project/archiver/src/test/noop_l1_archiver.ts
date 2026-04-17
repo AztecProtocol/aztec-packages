@@ -72,7 +72,6 @@ export class NoopL1Archiver extends Archiver {
       {
         registryAddress: EthAddress.ZERO,
         governanceProposerAddress: EthAddress.ZERO,
-        slashFactoryAddress: EthAddress.ZERO,
         slashingProposerAddress: EthAddress.ZERO,
       },
       dataStore,

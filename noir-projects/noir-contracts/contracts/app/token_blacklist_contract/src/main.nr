@@ -298,11 +298,10 @@ pub contract TokenBlacklist {
             TRANSPARENT_NOTE_RANDOMNESS,
             note_type_id,
             packed_note,
-            scope,
         );
 
         // At this point, the note is pending validation and storage in the database. We must call
         // validate_and_store_enqueued_notes_and_events to complete that process.
-        validate_and_store_enqueued_notes_and_events(contract_address, scope);
+        validate_and_store_enqueued_notes_and_events(scope);
     }
 }

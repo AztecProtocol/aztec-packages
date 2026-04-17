@@ -8,14 +8,21 @@ import {
   type ValidationResult,
 } from '@aztec/stdlib/p2p';
 
-import { isWithinClockTolerance } from '../clock_tolerance.js';
+import { PipeliningWindow, isWithinClockTolerance } from '../clock_tolerance.js';
 
 export class CheckpointAttestationValidator implements P2PValidator<CheckpointAttestation> {
   protected epochCache: EpochCacheInterface;
   protected logger: Logger;
+  private readonly pipeliningWindow: PipeliningWindow;
 
-  constructor(epochCache: EpochCacheInterface) {
+  constructor(
+    epochCache: EpochCacheInterface,
+    opts: {
+      l1PublishingTime?: number;
+    },
+  ) {
     this.epochCache = epochCache;
+    this.pipeliningWindow = new PipeliningWindow(epochCache, { l1PublishingTime: opts.l1PublishingTime });
     this.logger = createLogger('p2p:checkpoint-attestation-validator');
   }
 
@@ -23,19 +30,23 @@ export class CheckpointAttestationValidator implements P2PValidator<CheckpointAt
     const slotNumber = message.payload.header.slotNumber;
 
     try {
-      // Use target slots since proposals target pipeline slots (slot + 1 when pipelining)
+      // Use target slots since proposals target pipeline slots (slot + 1 when pipelining).
       const { targetSlot, nextSlot } = this.epochCache.getTargetAndNextSlot();
 
       if (slotNumber !== targetSlot && slotNumber !== nextSlot) {
-        // Check if message is for previous slot and within clock tolerance
-        if (!isWithinClockTolerance(slotNumber, targetSlot, this.epochCache)) {
+        // When pipelining, accept attestations for the current slot (built in the previous slot)
+        // until the target slot reaches its L1 publish cutoff.
+        if (this.pipeliningWindow.acceptsAttestation(slotNumber)) {
+          // Fall through to remaining validation (signature, committee, etc.)
+        } else if (!isWithinClockTolerance(slotNumber, targetSlot, this.epochCache)) {
           this.logger.warn(
             `Checkpoint attestation slot ${slotNumber} is not current (${targetSlot}) or next (${nextSlot}) slot`,
           );
           return { result: 'reject', severity: PeerErrorSeverity.HighToleranceError };
+        } else {
+          this.logger.debug(`Ignoring checkpoint attestation for previous slot ${slotNumber} within clock tolerance`);
+          return { result: 'ignore' };
         }
-        this.logger.debug(`Ignoring checkpoint attestation for previous slot ${slotNumber} within clock tolerance`);
-        return { result: 'ignore' };
       }
 
       // Verify the signature is valid

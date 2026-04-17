@@ -83,15 +83,34 @@ Fee Juice uses an enshrined `FeeJuicePortal` contract on Ethereum for bridging, 
 
 An account with Fee Juice can pay for its transactions directly. A new account can even pay for its own deployment transaction, provided Fee Juice was bridged to its address before deployment.
 
-Alternatively, accounts can use [fee-paying contracts (FPCs)](../aztec-js/how_to_pay_fees.md#use-fee-payment-contracts) to pay for transactions. FPCs must use Fee Juice exclusively on L2 during the setup phase, but can accept other tokens on L1 and bridge Fee Juice.
+Alternatively, accounts can use [fee-paying contracts (FPCs)](../aztec-js/how_to_pay_fees.md#use-fee-payment-contracts) to pay for transactions. An FPC holds its own Fee Juice balance to pay the protocol, and can accept other tokens from users in exchange.
 
-The **Sponsored FPC** pays fees unconditionally, enabling free transactions. It is only available on devnet and local network.
+The **Sponsored FPC** pays fees unconditionally, enabling free transactions. It is available on testnet, devnet, and local network. On mainnet, ecosystem-deployed FPCs are the practical option — the built-in reference FPC contract does not work on mainnet alpha because custom token class IDs are not included in the default public setup allowlist. As an example, Nethermind's [Private Multi Asset FPC](https://github.com/NethermindEth/aztec-fpc) demonstrates one such design — it accepts multiple tokens and routes fee payments as private notes.
+
+### How FPCs work
+
+An FPC acts as a fee payer on the user's behalf. Simpler FPCs (like the Sponsored FPC) just call `set_as_fee_payer()` with no user payment at all. More sophisticated FPCs accept user tokens in exchange for paying Fee Juice. A common pattern for quote-based FPCs works as follows:
+
+1. **Quote.** The user requests a fee quote from the FPC operator, specifying the token they want to pay with and the estimated gas cost. The operator signs the quote, binding it to the user, asset, amounts, and an expiry.
+2. **Authorization.** The user creates an [authentication witness](./advanced/authwit.md) authorizing the FPC to transfer tokens from their balance. This is the same authwit mechanism used for any delegated token transfer.
+3. **Setup phase (non-revertible).** The FPC's entrypoint runs during the transaction's setup phase. It verifies the quote, collects the user's payment, declares itself as the fee payer via `set_as_fee_payer()`, and calls `end_setup()` to mark the boundary between non-revertible and revertible execution. Because this runs in the non-revertible phase, the payment is **irrevocably committed** before application logic executes — the user pays regardless of whether the app-logic phase reverts.
+4. **App phase (revertible).** The user's actual transaction logic runs here. In the common fee-entrypoint flow the FPC is not involved in this phase, though some FPC designs (such as cold-start flows) perform additional app-phase work like claiming bridged tokens.
+
+Key properties for developers integrating with an FPC:
+
+- **Authwit scope.** The authwit authorizes a specific action hash (typically covering the transfer amount). A nonce can be included when otherwise-identical actions need to be distinguishable. The authwit is single-use — consumed by a nullifier onchain.
+- **Token interface.** The FPC calls the token contract's transfer function (private or public, depending on the FPC design). Any token that implements the standard Aztec token interface with authwit verification is compatible.
+- **Gas estimation first.** The Fee Juice amount in the quote is typically derived from the transaction's gas estimate. Simulate and estimate gas *before* requesting a quote, then pass the estimated cost to the FPC operator.
+- **Quote expiry.** Quotes are time-bound and single-use. Fetch a fresh quote per transaction.
+- **Cold-start variant.** Some FPCs offer a cold-start entrypoint where a brand-new account can bridge tokens from L1, claim them on L2, and pay the fee in one transaction — no prior L2 balance or authwit needed, because the FPC itself claims and distributes the bridged tokens. The user still needs L1 tokens and ETH for the initial bridge transaction.
+
+Fee payments themselves can also be made private via a fully private FPC that holds Fee Juice internally and nominates itself as the fee payer during the setup phase — without revealing who initiated the transaction. See [Pay Fees Privately](../aztec-js/how_to_use_private_fee_juice.md) for how this pattern works and an example implementation.
 
 ### Teardown phase
 
 <Tx_Teardown_Phase />
 
-This enables FPCs to calculate the actual transaction cost and refund any overpayment to the user.
+This enables FPCs to calculate the actual transaction cost and refund any overpayment to the user. Not all FPC designs use the teardown phase — some charge a fixed quoted amount with no refund, keeping unused Fee Juice in the FPC's balance for future transactions.
 
 ### Operator rewards
 
@@ -99,4 +118,4 @@ The calculated fee of a transaction is deducted from the fee payer (nominated ac
 
 ## Next steps
 
-For a guide on paying fees programmatically, see [How to Pay Fees](../aztec-js/how_to_pay_fees).
+For a guide on paying fees programmatically, see [How to Pay Fees](../aztec-js/how_to_pay_fees.md).

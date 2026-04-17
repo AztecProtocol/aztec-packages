@@ -1,7 +1,9 @@
+import type { Branded } from '@aztec/foundation/branded-types';
+
 import type { Hex } from 'viem';
 
 /** URI pointing to a stored failed L1 transaction. */
-export type FailedL1TxUri = string & { __brand: 'FailedL1TxUri' };
+export type FailedL1TxUri = Branded<string, 'FailedL1TxUri'>;
 
 /** A failed L1 transaction captured for debugging and replay. */
 export type FailedL1Tx = {

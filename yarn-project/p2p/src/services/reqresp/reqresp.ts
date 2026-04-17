@@ -34,7 +34,9 @@ import {
   type ReqRespSubProtocolHandlers,
   type ReqRespSubProtocolRateLimits,
   type ReqRespSubProtocolValidators,
+  type ShouldRejectPeer,
   type SubProtocolMap,
+  UNAUTHENTICATED_ALLOWED_PROTOCOLS,
   responseFromBuffer,
   subProtocolSizeCalculators,
 } from './interface.js';
@@ -72,6 +74,8 @@ export class ReqResp implements ReqRespInterface {
 
   private snappyTransform: SnappyTransform;
 
+  private shouldRejectPeer: ShouldRejectPeer | undefined;
+
   private metrics: ReqRespMetrics;
 
   constructor(
@@ -106,6 +110,10 @@ export class ReqResp implements ReqRespInterface {
     if (typeof config.dialTimeoutMs === 'number') {
       this.dialTimeoutMs = config.dialTimeoutMs;
     }
+  }
+
+  public setShouldRejectPeer(checker: ShouldRejectPeer): void {
+    this.shouldRejectPeer = checker;
   }
 
   get tracer() {
@@ -462,7 +470,7 @@ export class ReqResp implements ReqRespInterface {
       );
       return resp;
     } catch (e: any) {
-      this.logger.warn(`SUBPROTOCOL: ${subProtocol}\n`, e);
+      this.logger.debug(`SUBPROTOCOL: ${subProtocol}\n`, e);
       // On error we immediately abort the stream, this is preferred way,
       // because it signals to the sender that error happened, whereas
       // closing the stream only closes our side and is much slower
@@ -594,6 +602,15 @@ export class ReqResp implements ReqRespInterface {
         );
 
         throw new ReqRespStatusError(ReqRespStatus.RATE_LIMIT_EXCEEDED);
+      }
+
+      // When p2pAllowOnlyValidators is enabled, reject unauthenticated peers on data protocols
+      if (
+        !UNAUTHENTICATED_ALLOWED_PROTOCOLS.has(protocol) &&
+        (this.shouldRejectPeer?.(connection.remotePeer.toString()) ?? false)
+      ) {
+        this.logger.debug(`Rejecting unauthenticated peer ${connection.remotePeer} on gated protocol ${protocol}`);
+        throw new ReqRespStatusError(ReqRespStatus.FAILURE);
       }
 
       await this.processStream(protocol, incomingStream);
