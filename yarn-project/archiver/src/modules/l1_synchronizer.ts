@@ -403,11 +403,7 @@ export class ArchiverL1Synchronizer implements Traceable {
           `Failed to store L1 to L2 messages retrieved from L1: ${error.message}. Rolling back syncpoint to retry.`,
           { inboxMessage: error.inboxMessage },
         );
-<<<<<<< HEAD
-        await this.rollbackL1ToL2Messages();
-=======
         await this.rollbackL1ToL2Messages(remoteMessagesState);
->>>>>>> 4a1036521c0 (fix(archiver): handle L1 reorgs that move messages across blocks)
         return false;
       }
       throw error;
@@ -422,11 +418,7 @@ export class ArchiverL1Synchronizer implements Traceable {
         `Local L1 to L2 messages state does not match remote after sync attempt. Rolling back syncpoint to retry.`,
         { localLastMessageAfterSync, remoteMessagesState },
       );
-<<<<<<< HEAD
-      await this.rollbackL1ToL2Messages();
-=======
       await this.rollbackL1ToL2Messages(remoteMessagesState);
->>>>>>> 4a1036521c0 (fix(archiver): handle L1 reorgs that move messages across blocks)
       return false;
     }
 
@@ -481,19 +473,12 @@ export class ArchiverL1Synchronizer implements Traceable {
    * Rolls back local L1 to L2 messages to the last common message with L1, and updates the syncpoint to the L1 block of that message.
    * If no common message is found, rolls back all messages and sets the syncpoint to the start block.
    */
-<<<<<<< HEAD
-  private async rollbackL1ToL2Messages(): Promise<L1BlockId> {
-    // Slowly go back through our messages until we find the last common message.
-    // We could query the logs in batch as an optimization, but the depth of the reorg should not be deep, and this
-    // is a very rare case, so it's fine to query one log at a time.
-=======
   private async rollbackL1ToL2Messages(remoteMessagesState: InboxContractState): Promise<L1BlockId> {
-    const { treeInProgress: remoteTreeInProgress, messagesRollingHash: remoteRollingHash } = remoteMessagesState;
+    const { messagesRollingHash: remoteRollingHash } = remoteMessagesState;
 
     // Slowly go back through our messages until we find the last common message. We could query the logs in
     // batch as an optimization, but the depth of the reorg should not be deep, and this is a very rare case,
     // so it's fine to query one log at a time.
->>>>>>> 4a1036521c0 (fix(archiver): handle L1 reorgs that move messages across blocks)
     let commonMsg: undefined | InboxMessage;
     let messagesToDelete = 0;
     this.log.verbose(`Searching most recent common L1 to L2 message`);
