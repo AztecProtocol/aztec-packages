@@ -9,7 +9,7 @@ set -euo pipefail
 # Required environment variables:
 #   L1_RPC_URL                    - RPC URL for the target network
 #   ROLLUP_DEPLOYMENT_PRIVATE_KEY - Private key for the deployer account
-#   AZTEC_* / ETHEREUM_*          - Contract configuration (from network-defaults.yml)
+#   AZTEC_* / ETHEREUM_*          - Contract configuration (from .env files)
 #   VK_TREE_ROOT, PROTOCOL_CONTRACTS_HASH, GENESIS_ARCHIVE_ROOT - Genesis values
 
 cd "$(dirname "$0")/.."

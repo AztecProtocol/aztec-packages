@@ -7,7 +7,7 @@ set -euo pipefail
 
 # Deploy a new Rollup version and create a RegisterNewRollupVersionPayload for governance.
 #
-# Loads L1 contract defaults from network-defaults.yml (with YAML anchor inheritance),
+# Loads L1 contract defaults from .env files (common.env + per-network overrides),
 # infers L1 chain from L1_CHAIN_ID, fetches GCP secrets, builds yarn-project for
 # genesis values, then calls l1-contracts/scripts/run_rollup_upgrade.sh.
 #
@@ -34,11 +34,11 @@ die() { echo "[ERROR] $(date -Is) - $*" >&2; exit 1; }
 
 registry_address="${1:?Usage: $0 <registry_address>}"
 
-# Determine L1 chain ID - either from env or from network config
+# Determine L1 chain ID - either from env or from network .env file
 if [[ -z "${L1_CHAIN_ID:-}" ]]; then
   : "${NETWORK:?L1_CHAIN_ID or NETWORK is required}"
-  network_defaults="${repo_root}/spartan/environments/network-defaults.yml"
-  L1_CHAIN_ID=$(yq "explode(.) | .networks.$NETWORK.L1_CHAIN_ID" "$network_defaults")
+  env_file="${repo_root}/spartan/environments/${NETWORK}.env"
+  L1_CHAIN_ID=$(set +u; source "$env_file" 2>/dev/null; echo "${L1_CHAIN_ID:-${ETHEREUM_CHAIN_ID:-}}")
 fi
 
 log "Starting rollup upgrade deployment"
@@ -68,23 +68,14 @@ case "$L1_CHAIN_ID" in
 esac
 log "L1 Network: $L1_NETWORK"
 
-# Load network defaults
+# Load network defaults from .env files
 if [[ -n "${NETWORK:-}" ]]; then
-  log "Loading L1 contract defaults from network-defaults.yml for $NETWORK"
+  log "Loading L1 contract defaults from ${NETWORK}.env"
   source "${repo_root}/l1-contracts/scripts/load_network_defaults.sh" "$NETWORK"
 else
-  # No NETWORK specified - load base l1-contracts defaults, env vars will override
-  log "Loading base l1-contracts defaults (env vars will override)"
-  network_defaults="${repo_root}/spartan/environments/network-defaults.yml"
-  while IFS='=' read -r key value; do
-    # Only set if not already defined in environment
-    if [[ -z "${!key:-}" ]]; then
-      export "$key"="$value"
-    fi
-  done < <(yq -o=props '.l1-contracts' "$network_defaults" \
-    | grep -v '^#' \
-    | grep -v '^$' \
-    | sed 's/ = /=/')
+  # No NETWORK specified - load base defaults from common.env, env vars will override
+  log "Loading base l1-contracts defaults from common.env (env vars will override)"
+  source "${repo_root}/l1-contracts/scripts/load_network_defaults.sh" "common"
 fi
 
 # Configure L1 credentials
