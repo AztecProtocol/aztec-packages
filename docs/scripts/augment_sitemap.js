@@ -11,7 +11,9 @@ const fs = require("fs");
 const path = require("path");
 
 const BUILD_DIR = path.join(__dirname, "..", "build");
-const SITE_URL = "https://docs.aztec.network";
+// Override with SITE_URL env var if the canonical URL ever changes.
+// Kept in sync with `url` in docusaurus.config.js.
+const SITE_URL = process.env.SITE_URL || "https://docs.aztec.network";
 
 // Load version config to determine which version subdirectory to index.
 let developerVersionConfig;
@@ -79,6 +81,10 @@ function main() {
     .join("");
 
   // Insert before closing </urlset>
+  if (!sitemap.includes("</urlset>")) {
+    console.error("Error: build/sitemap.xml missing </urlset> closing tag — aborting.");
+    process.exit(1);
+  }
   sitemap = sitemap.replace("</urlset>", entries + "</urlset>");
 
   fs.writeFileSync(sitemapPath, sitemap);

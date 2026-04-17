@@ -132,7 +132,8 @@ function findHtmlFiles(dir) {
 }
 
 /**
- * Find all markdown files in a directory (non-recursive, excludes llm-summary.txt).
+ * Recursively find all markdown files in a directory.
+ * Note: `llm-summary.txt` is naturally excluded since it does not end in `.md`.
  */
 function findMarkdownFiles(dir) {
   return findFiles(dir, ".md");

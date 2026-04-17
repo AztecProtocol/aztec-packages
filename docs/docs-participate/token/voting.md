@@ -57,7 +57,7 @@ Your voting power is determined by the amount of tokens you have locked in the G
 
 - **Locking Required**: You must lock tokens in the Governance contract to activate voting power
 - **No Slashing on Votes**: Locked voting tokens are not subject to slashing (unlike staked tokens)
-- **Withdrawal Delay**: After voting, there's a delay before you can withdraw tokens to prevent governance attacks (approximately 1.6 days on testnet, ~38 days on mainnet)
+- **Withdrawal Delay**: After voting, there's a delay before you can withdraw tokens to prevent governance attacks (~1.6 days on testnet, ~38 days on mainnet)
 
 ### Voting Timeline
 
