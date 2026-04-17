@@ -290,25 +290,16 @@ void MegaCircuitBuilder_<FF>::create_databus_read_gate(const databus_lookup_gate
 template <typename FF> void MegaCircuitBuilder_<FF>::apply_databus_selectors(const BusId bus_idx)
 {
     auto& block = this->blocks.busread;
-    switch (bus_idx) {
-    case BusId::CALLDATA: {
-        block.q_1().emplace_back(1);
-        block.q_2().emplace_back(0);
-        block.q_3().emplace_back(0);
-        break;
-    }
-    case BusId::SECONDARY_CALLDATA: {
-        block.q_1().emplace_back(0);
-        block.q_2().emplace_back(1);
-        block.q_3().emplace_back(0);
-        break;
-    }
-    case BusId::RETURNDATA: {
-        block.q_1().emplace_back(0);
-        block.q_2().emplace_back(0);
-        block.q_3().emplace_back(1);
-        break;
-    }
+    // Bus column k is selected by q_{k+1}; all other wire-linear selectors stay zero on this row.
+    using SelectorAccessor = typename MegaTraceBlock::SelectorType& (MegaTraceBlock::*)();
+    constexpr std::array<SelectorAccessor, NUM_BUS_COLUMNS> bus_column_selectors = {
+        &MegaTraceBlock::q_1,
+        &MegaTraceBlock::q_2,
+        &MegaTraceBlock::q_3,
+    };
+    const size_t idx = static_cast<size_t>(bus_idx);
+    for (size_t k = 0; k < NUM_BUS_COLUMNS; ++k) {
+        (block.*bus_column_selectors[k])().emplace_back(k == idx ? 1 : 0);
     }
     block.q_4().emplace_back(0);
     block.q_m().emplace_back(0);
