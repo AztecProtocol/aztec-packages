@@ -110,7 +110,7 @@ describe('validateAndLogHistoricalLogsAvailability', () => {
       () => new Error('expected to throw'),
       (e: unknown) => e as Error,
     );
-    expect(err.message).toMatch(/Detected reth/);
+    expect(err.message).toMatch(/Detected L1 client version for .*: reth/);
     expect(err.message).toMatch(/prune\.segments\.receipts_log_filter/);
   });
 
