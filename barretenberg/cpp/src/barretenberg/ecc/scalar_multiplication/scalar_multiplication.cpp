@@ -83,6 +83,41 @@ void MSM<Curve>::transform_scalar_and_get_nonzero_scalar_indices(std::span<typen
 }
 
 template <typename Curve>
+void MSM<Curve>::interleave_indices_for_thread_balance(std::vector<uint32_t>& indices,
+                                                       const size_t num_threads) noexcept
+{
+    const size_t n = indices.size();
+    if (n == 0 || num_threads <= 1) {
+        return;
+    }
+
+    // Block-cyclic permutation. Thread t takes blocks {t, T+t, 2T+t, ...} from the input
+    // and packs them contiguously, so its chunk is a statistically uniform sample of
+    // the original array at block granularity. Within-block access stays sequential, so
+    // scalar[] reads stay L1-hot during the point-schedule build. B is clamped so each
+    // thread gets at least 4 blocks (mixing) and at most 1024 elements (L1-friendly for
+    // 32-byte scalars). Small-n collapses to B=1, i.e. per-element stride.
+    constexpr size_t MAX_BLOCK_SIZE = 1024;
+    constexpr size_t MIN_BLOCKS_PER_THREAD = 4;
+    const size_t B = std::clamp(n / (MIN_BLOCKS_PER_THREAD * num_threads), size_t{ 1 }, MAX_BLOCK_SIZE);
+    const size_t num_blocks = (n + B - 1) / B;
+
+    std::vector<uint32_t> permuted(n);
+    size_t dest = 0;
+    for (size_t t = 0; t < num_threads; ++t) {
+        for (size_t j = t; j < num_blocks; j += num_threads) {
+            const size_t src = j * B;
+            const size_t sz = std::min(B, n - src);
+            std::copy(indices.begin() + static_cast<ptrdiff_t>(src),
+                      indices.begin() + static_cast<ptrdiff_t>(src + sz),
+                      permuted.begin() + static_cast<ptrdiff_t>(dest));
+            dest += sz;
+        }
+    }
+    indices = std::move(permuted);
+}
+
+template <typename Curve>
 std::vector<typename MSM<Curve>::ThreadWorkUnits> MSM<Curve>::get_work_units(
     std::span<std::span<ScalarField>> scalars, std::vector<std::vector<uint32_t>>& msm_scalar_indices) noexcept
 {
@@ -113,6 +148,16 @@ std::vector<typename MSM<Curve>::ThreadWorkUnits> MSM<Curve>::get_work_units(
             });
         }
         return work_units;
+    }
+
+    // Reorder each MSM's nonzero-scalar indices so that contiguous chunks contain an interleaved sample of original
+    // positions. This averages out spatial clustering of heterogeneous scalar bit-sizes (e.g. small witness values
+    // concentrated in one region of a wire polynomial), which would otherwise leave some threads with far less
+    // per-round bucket work than others.
+    if (num_threads > 1) {
+        for (auto& indices : msm_scalar_indices) {
+            interleave_indices_for_thread_balance(indices, num_threads);
+        }
     }
 
     size_t thread_accumulated_work = 0;
