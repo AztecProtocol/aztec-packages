@@ -34,7 +34,7 @@ function print_usage {
   echo_cmd "network-teardown"      "Spin up an EC2 instance to teardown a network deployment."
   echo_cmd "network-tests-kind"    "Spin up an EC2 instance to run a KIND-based spartan test."
   echo_cmd "deploy-rollup-upgrade" "Spin up an EC2 instance to deploy a rollup upgrade."
-  echo_cmd "compat-e2e"             "Spin up an EC2 instance and run backwards compat e2e tests."
+  echo_cmd "compat-e2e"            "Spin up an EC2 instance and run backwards compat e2e tests."
   echo_cmd "release"               "Spin up an EC2 instance and run bootstrap release."
   echo_cmd "shell-new"             "Spin up an EC2 instance, clone the repo, and drop into a shell."
   echo_cmd "shell"                 "Drop into a shell in the current running build instance container."
