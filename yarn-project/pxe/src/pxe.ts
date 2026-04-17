@@ -1175,7 +1175,8 @@ export class PXE {
   /**
    * Stops the PXE's job queue.
    */
-  public stop(): Promise<void> {
-    return this.jobQueue.end();
+  public async stop(): Promise<void> {
+    await this.jobQueue.end();
+    await this.blockStateSynchronizer.stop();
   }
 }
