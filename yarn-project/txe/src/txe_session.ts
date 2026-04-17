@@ -43,7 +43,7 @@ import { GasSettings } from '@aztec/stdlib/gas';
 import { computeProtocolNullifier } from '@aztec/stdlib/hash';
 import { PrivateContextInputs } from '@aztec/stdlib/kernel';
 import { makeGlobalVariables } from '@aztec/stdlib/testing';
-import { CallContext, GlobalVariables, TxContext } from '@aztec/stdlib/tx';
+import { CallContext, GlobalVariables, OFFCHAIN_MESSAGE_IDENTIFIER, TxContext } from '@aztec/stdlib/tx';
 
 import { z } from 'zod';
 
@@ -150,31 +150,44 @@ export interface TXESessionStateHandler {
 }
 
 /**
+ * Session state tracking offchain effects emitted by the most recently completed top-level call.
+ */
+interface LastCallOffchainState {
+  /**
+   * Raw offchain effect payloads emitted by the currently-executing (or most recently completed) top-level call. Wiped
+   * at the start of every top-level entry point, appended to on every `emit_offchain_effect` oracle invocation.
+   */
+  offchainEffects: Fr[][];
+  /**
+   * Tracks whether the test has queried `effects` since the last reset. If a new top-level call clobbers the buffer
+   * without it being queried first, any accumulated messages are lost and we emit a warning so tests don't silently
+   * drop delivery.
+   */
+  queried: boolean;
+  /**
+   * Tx hash of the most recently completed top-level call that produced offchain effects, or `Fr.ZERO` if the call was
+   * tx-less (context setters, utility execution). Populated by call executor handlers after execution completes.
+   */
+  txHash: Fr;
+  /**
+   * Anchor block timestamp of the most recently completed top-level call that produced offchain effects. Populated by
+   * call executor handlers after execution completes, from the anchor block header that was active while the call ran.
+   */
+  anchorBlockTimestamp: bigint;
+}
+
+function emptyLastCallOffchainState(): LastCallOffchainState {
+  return { offchainEffects: [], queried: false, txHash: Fr.ZERO, anchorBlockTimestamp: 0n };
+}
+
+/**
  * A `TXESession` corresponds to a Noir `#[test]` function, and handles all of its oracle calls, stores test-specific
  * state, etc., independent of all other tests running in parallel.
  */
 export class TXESession implements TXESessionStateHandler {
   private state: SessionState = { name: 'TOP_LEVEL' };
   private authwits: Map<string, AuthWitness> = new Map();
-  /**
-   * Raw offchain effect payloads emitted by the currently-executing (or most recently
-   * completed) top-level call. Wiped at the start of every top-level entry point, appended
-   * to on every `emit_offchain_effect` oracle invocation. See `TXESessionStateHandler` for
-   * the contract.
-   */
-  private lastCallOffchainEffects: Fr[][] = [];
-  /**
-   * Tx hash of the most recently completed top-level call that produced offchain effects,
-   * or `Fr.ZERO` if the top-level call was tx-less (context setters, utility execution).
-   * Populated by call executor handlers after execution completes.
-   */
-  private lastCallOffchainTxHash: Fr = Fr.ZERO;
-  /**
-   * Anchor block timestamp of the most recently completed top-level call that produced
-   * offchain effects. Populated by call executor handlers after execution completes, from
-   * the anchor block header that was active while the call ran.
-   */
-  private lastCallOffchainAnchorBlockTimestamp: bigint = 0n;
+  private lastCallInfo: LastCallOffchainState = emptyLastCallOffchainState();
 
   constructor(
     private logger: Logger,
@@ -324,26 +337,33 @@ export class TXESession implements TXESessionStateHandler {
   }
 
   resetLastCallOffchainEffects(): void {
-    this.lastCallOffchainEffects = [];
-    this.lastCallOffchainTxHash = Fr.ZERO;
-    this.lastCallOffchainAnchorBlockTimestamp = 0n;
+    const notQueriedMessageCount = this.lastCallInfo.queried
+      ? 0
+      : this.lastCallInfo.offchainEffects.filter(payload => payload[0]?.equals(OFFCHAIN_MESSAGE_IDENTIFIER)).length;
+    if (notQueriedMessageCount > 0) {
+      this.logger.warn(
+        `Dropping ${notQueriedMessageCount} unqueried offchain message(s) from the previous top-level call. ` +
+          `To deliver them, call \`env.offchain_messages()\` and forward the result to the recipient contract's ` +
+          `\`offchain_receive\` utility before issuing another top-level call. To intentionally discard, assign ` +
+          `to \`let _ = env.offchain_messages()\` to silence this warning.`,
+      );
+    }
+    this.lastCallInfo = emptyLastCallOffchainState();
   }
 
   recordOffchainEffect(data: Fr[]): void {
-    this.lastCallOffchainEffects.push(data);
+    this.lastCallInfo.offchainEffects.push(data);
   }
 
   setLastCallOffchainContext(txHash: Fr, anchorBlockTimestamp: bigint): void {
-    this.lastCallOffchainTxHash = txHash;
-    this.lastCallOffchainAnchorBlockTimestamp = anchorBlockTimestamp;
+    this.lastCallInfo.txHash = txHash;
+    this.lastCallInfo.anchorBlockTimestamp = anchorBlockTimestamp;
   }
 
   getLastCallOffchainEffects(): { effects: Fr[][]; txHash: Fr; anchorBlockTimestamp: bigint } {
-    return {
-      effects: this.lastCallOffchainEffects,
-      txHash: this.lastCallOffchainTxHash,
-      anchorBlockTimestamp: this.lastCallOffchainAnchorBlockTimestamp,
-    };
+    this.lastCallInfo.queried = true;
+    const { offchainEffects: effects, txHash, anchorBlockTimestamp } = this.lastCallInfo;
+    return { effects, txHash, anchorBlockTimestamp };
   }
 
   async enterTopLevelState() {
