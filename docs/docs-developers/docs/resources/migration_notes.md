@@ -9,6 +9,33 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
+### [Aztec.nr] `emit_private_log_unsafe` / `emit_raw_note_log_unsafe` are deprecated
+
+`emit_private_log_unsafe` and `emit_raw_note_log_unsafe` are deprecated and will be removed in a future release. Migrate to the new `emit_private_log_vec_unsafe` / `emit_raw_note_log_vec_unsafe` functions, which take a `BoundedVec<Field, PRIVATE_LOG_CIPHERTEXT_LEN>` instead of the `(log: [Field; PRIVATE_LOG_CIPHERTEXT_LEN], length: u32)` pair.
+
+```diff
+- context.emit_private_log_unsafe(tag, log, length);
++ context.emit_private_log_vec_unsafe(tag, bounded_vec_log);
+- context.emit_raw_note_log_unsafe(tag, log, length, note_hash_counter);
++ context.emit_raw_note_log_vec_unsafe(tag, bounded_vec_log, note_hash_counter);
+```
+
+If you were manually padding an array and passing a shorter length, you can now create a `BoundedVec` from just the meaningful fields:
+
+```diff
+- let padded = payload.concat([0; PRIVATE_LOG_CIPHERTEXT_LEN - 2]);
+- context.emit_private_log_unsafe(tag, padded, 2);
++ let log = BoundedVec::from_array(payload);
++ context.emit_private_log_vec_unsafe(tag, log);
+```
+
+If you were passing the full array, wrap it with `BoundedVec::from_array`:
+
+```diff
+- context.emit_private_log_unsafe(tag, ciphertext, ciphertext.len());
++ context.emit_private_log_vec_unsafe(tag, BoundedVec::from_array(ciphertext));
+```
+
 ### [aztec-nr] Nullifier membership witness oracle returns split types
 
 `get_nullifier_membership_witness` and `get_low_nullifier_membership_witness` now return `(NullifierLeafPreimage, MembershipWitness<NULLIFIER_TREE_HEIGHT>)` instead of the bundled `NullifierMembershipWitness` struct (which has been removed).
@@ -62,67 +89,6 @@ The empire slashing model has been removed. Only the tally-based slashing model 
 ```
 
 `slashMinPenaltyPercentage` and `slashMaxPenaltyPercentage` removed from `SlasherConfig`.
-
-### [Aztec.js] `GasSettings.default()` renamed to `GasSettings.fallback()`
-
-`GasSettings.default()` has been renamed to `GasSettings.fallback()` to clarify that these gas limits are not protocol defaults — the protocol has no concept of "default" gas settings. `fallback()` is a convenience for cases where gas estimation is not being used, but callers should prefer estimating gas via simulation for accurate limits.
-
-The old `DEFAULT_GAS_LIMIT` and `DEFAULT_TEARDOWN_GAS_LIMIT` constants have been removed. Gas limits are now derived from protocol-level maximums (`MAX_PROCESSABLE_L2_GAS`, `MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT`) rather than arbitrary fixed values.
-
-A new `GasSettings.forEstimation()` method provides intentionally high gas limits for use during simulation. These limits exceed protocol maximums so the simulation doesn't hit gas caps — you must pass `skipTxValidation: true` when simulating with them, then use the results to set accurate gas limits on the actual transaction. `EmbeddedWallet` does this by default.
-
-**Migration:**
-
-```diff
-- import { DEFAULT_GAS_LIMIT, DEFAULT_TEARDOWN_GAS_LIMIT } from '@aztec/constants';
-- const settings = GasSettings.default({ maxFeesPerGas });
-+ const settings = GasSettings.fallback({ maxFeesPerGas });
-```
-
-**Impact**: Any code referencing `GasSettings.default()`, `DEFAULT_GAS_LIMIT`, or `DEFAULT_TEARDOWN_GAS_LIMIT` will fail to compile.
-
-### [PXE] `simulateTx`, `executeUtility`, `profileTx`, and `proveTx` no longer accept `scopes: 'ALL_SCOPES'`
-
-The `AccessScopes` type (`'ALL_SCOPES' | AztecAddress[]`) has been removed. The `scopes` field in `SimulateTxOpts`,
-`ExecuteUtilityOpts`, and `ProfileTxOpts` now requires an explicit `AztecAddress[]`. Callers that previously passed
-`'ALL_SCOPES'` must now specify which addresses will be in scope for the call.
-
-**Migration:**
-
-```diff
-+ const accounts = await pxe.getRegisteredAccounts();
-+ const scopes = accounts.map(a => a.address);
-
-  // simulateTx
-- await pxe.simulateTx(txRequest, { simulatePublic: true, scopes: 'ALL_SCOPES' });
-+ await pxe.simulateTx(txRequest, { simulatePublic: true, scopes });
-
-  // executeUtility
-- await pxe.executeUtility(call, { scopes: 'ALL_SCOPES' });
-+ await pxe.executeUtility(call, { scopes });
-
-  // profileTx
-- await pxe.profileTx(txRequest, { profileMode: 'full', scopes: 'ALL_SCOPES' });
-+ await pxe.profileTx(txRequest, { profileMode: 'full', scopes });
-
-  // proveTx
-- await pxe.proveTx(txRequest, 'ALL_SCOPES');
-+ await pxe.proveTx(txRequest, scopes);
-```
-
-**Impact**: Any code passing `'ALL_SCOPES'` to `simulateTx`, `executeUtility`, `profileTx`, or `proveTx` will fail to compile. Replace with an explicit array of account addresses.
-
-### [PXE] Capsule operations are now scope-enforced at the PXE level
-
-The PXE now enforces that capsule operations can only access scopes that were authorized for the current execution. If a contract attempts to access a capsule scope that is not in its allowed scopes list, the PXE will throw an error:
-
-```
-Scope 0x1234... is not in the allowed scopes list: [0xabcd...].
-```
-
-The zero address (`AztecAddress::zero()`) is always allowed regardless of the scopes list, preserving backwards compatibility for contracts using the global scope.
-
-**Impact**: Contracts that access capsules scoped to addresses not included in the transaction's authorized scopes will now fail at runtime. Ensure the correct scopes are passed when executing transactions.
 
 ## Unreleased (v5)
 
@@ -218,6 +184,67 @@ The `--name` flag has been removed from both `aztec new` and `aztec init`. For `
 
 ## 4.2.0
 
+### [Aztec.js] `GasSettings.default()` renamed to `GasSettings.fallback()`
+
+`GasSettings.default()` has been renamed to `GasSettings.fallback()` to clarify that these gas limits are not protocol defaults — the protocol has no concept of "default" gas settings. `fallback()` is a convenience for cases where gas estimation is not being used, but callers should prefer estimating gas via simulation for accurate limits.
+
+The old `DEFAULT_GAS_LIMIT` and `DEFAULT_TEARDOWN_GAS_LIMIT` constants have been removed. Gas limits are now derived from protocol-level maximums (`MAX_PROCESSABLE_L2_GAS`, `MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT`) rather than arbitrary fixed values.
+
+A new `GasSettings.forEstimation()` method provides intentionally high gas limits for use during simulation. These limits exceed protocol maximums so the simulation doesn't hit gas caps — you must pass `skipTxValidation: true` when simulating with them, then use the results to set accurate gas limits on the actual transaction. `EmbeddedWallet` does this by default.
+
+**Migration:**
+
+```diff
+- import { DEFAULT_GAS_LIMIT, DEFAULT_TEARDOWN_GAS_LIMIT } from '@aztec/constants';
+- const settings = GasSettings.default({ maxFeesPerGas });
++ const settings = GasSettings.fallback({ maxFeesPerGas });
+```
+
+**Impact**: Any code referencing `GasSettings.default()`, `DEFAULT_GAS_LIMIT`, or `DEFAULT_TEARDOWN_GAS_LIMIT` will fail to compile.
+
+### [PXE] `simulateTx`, `executeUtility`, `profileTx`, and `proveTx` no longer accept `scopes: 'ALL_SCOPES'`
+
+The `AccessScopes` type (`'ALL_SCOPES' | AztecAddress[]`) has been removed. The `scopes` field in `SimulateTxOpts`,
+`ExecuteUtilityOpts`, and `ProfileTxOpts` now requires an explicit `AztecAddress[]`. Callers that previously passed
+`'ALL_SCOPES'` must now specify which addresses will be in scope for the call.
+
+**Migration:**
+
+```diff
++ const accounts = await pxe.getRegisteredAccounts();
++ const scopes = accounts.map(a => a.address);
+
+  // simulateTx
+- await pxe.simulateTx(txRequest, { simulatePublic: true, scopes: 'ALL_SCOPES' });
++ await pxe.simulateTx(txRequest, { simulatePublic: true, scopes });
+
+  // executeUtility
+- await pxe.executeUtility(call, { scopes: 'ALL_SCOPES' });
++ await pxe.executeUtility(call, { scopes });
+
+  // profileTx
+- await pxe.profileTx(txRequest, { profileMode: 'full', scopes: 'ALL_SCOPES' });
++ await pxe.profileTx(txRequest, { profileMode: 'full', scopes });
+
+  // proveTx
+- await pxe.proveTx(txRequest, 'ALL_SCOPES');
++ await pxe.proveTx(txRequest, scopes);
+```
+
+**Impact**: Any code passing `'ALL_SCOPES'` to `simulateTx`, `executeUtility`, `profileTx`, or `proveTx` will fail to compile. Replace with an explicit array of account addresses.
+
+### [PXE] Capsule operations are now scope-enforced at the PXE level
+
+The PXE now enforces that capsule operations can only access scopes that were authorized for the current execution. If a contract attempts to access a capsule scope that is not in its allowed scopes list, the PXE will throw an error:
+
+```
+Scope 0x1234... is not in the allowed scopes list: [0xabcd...].
+```
+
+The zero address (`AztecAddress::zero()`) is always allowed regardless of the scopes list, preserving backwards compatibility for contracts using the global scope.
+
+**Impact**: Contracts that access capsules scoped to addresses not included in the transaction's authorized scopes will now fail at runtime. Ensure the correct scopes are passed when executing transactions.
+
 ### [aztec.js] `EmbeddedWalletOptions` now uses a unified `pxe` field
 
 The `pxeConfig` and `pxeOptions` fields on `EmbeddedWalletOptions` have been deprecated in favor of a single `pxe` field that accepts both PXE configuration and dependency overrides (custom prover, store, simulator):
@@ -234,6 +261,44 @@ const wallet = await EmbeddedWallet.create(nodeUrl, {
 ```
 
 The old fields still work but will be removed in a future release.
+
+### [Aztec.nr] Ephemeral arrays replace capsule arrays in PXE oracle interfaces
+
+Oracle interfaces between Aztec.nr and PXE now use a new `EphemeralArray` type (`aztec::ephemeral::EphemeralArray`) instead of `CapsuleArray`. Ephemeral arrays live in memory and are scoped by contract call frame, so they no longer need to be addressed by `(contract_address, scope)`. Several public message-discovery and validation functions lost their `recipient`, `scope`, and `contract_address` parameters as a result.
+
+Most contracts are not affected, as the macro-generated `sync_state` and `process_message` functions handle these APIs automatically. Only contracts that call these functions directly need to update.
+
+**Migration:**
+
+```diff
+  attempt_note_discovery(
+      contract_address,
+      tx_hash,
+      unique_note_hashes_in_tx,
+      first_nullifier_in_tx,
+-     recipient,
+      compute_note_hash,
+      compute_note_nullifier,
+      owner,
+      storage_slot,
+      randomness,
+      note_type_id,
+      packed_note,
+  );
+
+- enqueue_note_for_validation(contract_address, owner, storage_slot, randomness, note_nonce, packed_note, note_hash, nullifier, tx_hash, scope);
++ enqueue_note_for_validation(contract_address, owner, storage_slot, randomness, note_nonce, packed_note, note_hash, nullifier, tx_hash);
+
+- enqueue_event_for_validation(contract_address, event_type_id, randomness, serialized_event, event_commitment, tx_hash, scope);
++ enqueue_event_for_validation(contract_address, event_type_id, randomness, serialized_event, event_commitment, tx_hash);
+
+- validate_and_store_enqueued_notes_and_events(contract_address, scope);
++ validate_and_store_enqueued_notes_and_events(scope);
+```
+
+The `sync_inbox` function and the `OffchainInboxSync` type now return `EphemeralArray<OffchainMessageWithContext>` instead of `CapsuleArray<OffchainMessageWithContext>`. Custom message handlers that bind the returned array to an explicit type must update the type annotation.
+
+**Impact**: Contracts that call the above functions directly (rather than relying on macro-generated code) will fail to compile until the trailing `recipient`, `scope`, and `contract_address` parameters are removed.
 
 ## 4.2.0-aztecnr-rc.2
 
