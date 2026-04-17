@@ -148,7 +148,17 @@ export class CapsuleStore implements StagedStore {
    * @param slot - The slot in the database to read.
    * @returns The stored data or `null` if no data is stored under the slot.
    */
-  async getCapsule(contractAddress: AztecAddress, slot: Fr, jobId: string, scope: AztecAddress): Promise<Fr[] | null> {
+  getCapsule(contractAddress: AztecAddress, slot: Fr, jobId: string, scope: AztecAddress): Promise<Fr[] | null> {
+    return this.#store.transactionAsync(() => this.#getCapsuleInternal(contractAddress, slot, jobId, scope));
+  }
+
+  /** Same as getCapsule but without its own transaction, for use inside an existing transactionAsync. */
+  async #getCapsuleInternal(
+    contractAddress: AztecAddress,
+    slot: Fr,
+    jobId: string,
+    scope: AztecAddress,
+  ): Promise<Fr[] | null> {
     const dataBuffer = await this.#getFromStage(jobId, dbSlotToKey(contractAddress, slot, scope));
     if (!dataBuffer) {
       this.logger.trace(`Data not found for contract ${contractAddress.toString()} and slot ${slot.toString()}`);
@@ -240,7 +250,7 @@ export class CapsuleStore implements StagedStore {
     // and not using a transaction here would heavily impact performance.
     return this.#store.transactionAsync(async () => {
       // Load current length, defaulting to 0 if not found
-      const lengthData = await this.getCapsule(contractAddress, baseSlot, jobId, scope);
+      const lengthData = await this.#getCapsuleInternal(contractAddress, baseSlot, jobId, scope);
       const currentLength = lengthData ? lengthData[0].toNumber() : 0;
 
       // Store each capsule at consecutive slots after baseSlot + 1 + currentLength
@@ -263,14 +273,14 @@ export class CapsuleStore implements StagedStore {
     // of jobs: different calls running concurrently on the same contract may cause trouble.
     return this.#store.transactionAsync(async () => {
       // Load length, defaulting to 0 if not found
-      const maybeLength = await this.getCapsule(contractAddress, baseSlot, jobId, scope);
+      const maybeLength = await this.#getCapsuleInternal(contractAddress, baseSlot, jobId, scope);
       const length = maybeLength ? maybeLength[0].toBigInt() : 0n;
 
       const values: Fr[][] = [];
 
       // Read each capsule at consecutive slots after baseSlot
       for (let i = 0; i < length; i++) {
-        const currentValue = await this.getCapsule(contractAddress, arraySlot(baseSlot, i), jobId, scope);
+        const currentValue = await this.#getCapsuleInternal(contractAddress, arraySlot(baseSlot, i), jobId, scope);
         if (currentValue == undefined) {
           throw new Error(
             `Expected non-empty value at capsule array in base slot ${baseSlot} at index ${i} for contract ${contractAddress}`,
@@ -295,7 +305,7 @@ export class CapsuleStore implements StagedStore {
     // of jobs: different calls running concurrently on the same contract may cause trouble.
     return this.#store.transactionAsync(async () => {
       // Load current length, defaulting to 0 if not found
-      const maybeLength = await this.getCapsule(contractAddress, baseSlot, jobId, scope);
+      const maybeLength = await this.#getCapsuleInternal(contractAddress, baseSlot, jobId, scope);
       const originalLength = maybeLength ? maybeLength[0].toNumber() : 0;
 
       // Set the new length

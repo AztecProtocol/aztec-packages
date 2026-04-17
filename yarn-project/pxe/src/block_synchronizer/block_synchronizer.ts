@@ -167,6 +167,12 @@ export class BlockSynchronizer implements L2BlockStreamEventHandler {
     }
   }
 
+  /** Stops the block synchronizer, waiting for any in-progress sync to complete. */
+  public async stop() {
+    await this.isSyncing;
+    await this.blockStream.stop();
+  }
+
   private async doSync() {
     let currentHeader;
 

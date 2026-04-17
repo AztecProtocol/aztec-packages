@@ -1,6 +1,6 @@
 # @aztec/wallets
 
-Version: 4.2.0-aztecnr-rc.2
+Version: 4.2.0
 
 ## Quick Import Reference
 
@@ -38,8 +38,9 @@ new BrowserEmbeddedWallet(pxe: PXE, aztecNode: AztecNode, walletDB: WalletDB, ac
 
 **Methods**
 - `batch<T extends readonly BatchedMethod[]>(methods: T) => Promise<BatchResults<T>>`
-- `completeFeeOptions(from: AztecAddress | "NO_FROM", feePayer?: AztecAddress, gasSettings?: Partial<FieldsOf<GasSettings>>) => Promise<FeeOptions>` - Completes partial user-provided fee options with wallet defaults.
-- `completeFeeOptionsForEstimation(from: AztecAddress | "NO_FROM", feePayer?: AztecAddress, gasSettings?: Partial<FieldsOf<GasSettings>>) => Promise<{ accountFeePaymentMethodOptions?: AccountFeePaymentMethodOptions; gasSettings: GasSettings; walletFeePaymentMethod?: FeePaymentMethod }>` - Completes partial user-provided fee options with unreasonably high gas limits for gas estimation. Uses the same logic as completeFeeOptions but sets high limits to avoid running out of gas during estimation.
+- `buildAccountOverrides(addresses: AztecAddress[]) => Promise<ContractOverrides>` - Builds contract overrides for all provided addresses by replacing their account contracts with stub implementations. Uses a type-specific stub artifact so that the stub's constructor selector matches the real account's constructor.
+- `completeFeeOptions(config: CompleteFeeOptionsConfig) => Promise<FeeOptions>` - Completes partial user-provided fee options with wallet defaults.
+- `computeAppCallOffset(from: AztecAddress | "NO_FROM", feeOptions: FeeOptions) => Promise<number>` - Computes the index where the app's calls begin in the flattened array of calls (0 = entrypoint/root, 1..N = fee calls, N+1 = app).
 - `contextualizeError(err: Error, ...context: string[]) => Error`
 - `static create<T extends BrowserEmbeddedWallet>(this: (pxe: PXE, aztecNode: AztecNode, walletDB: WalletDB, accountContracts: AccountContractsProvider, log?: Logger) => T, nodeOrUrl: string | AztecNode, options: EmbeddedWalletOptions) => Promise<T>`
 - `createAccountInternal(type: "schnorr" | "ecdsasecp256r1" | "ecdsasecp256k1", secret: Fr, salt: Fr, signingKey: Buffer) => Promise<AccountManager>`
@@ -66,8 +67,8 @@ new BrowserEmbeddedWallet(pxe: PXE, aztecNode: AztecNode, walletDB: WalletDB, ac
 - `sendTx<W extends InteractionWaitOptions>(executionPayload: ExecutionPayload, opts: SendOptions<W>) => Promise<SendReturn<W>>` - Overrides the base sendTx to add a pre-simulation step before the actual send. The simulation estimates actual gas usage and captures call authorization requests to generate the necessary authwitnesses.
 - `setEstimatedGasPadding(value?: number) => void`
 - `setMinFeePadding(value?: number) => void`
-- `simulateTx(executionPayload: ExecutionPayload, opts: SimulateOptions) => Promise<TxSimulationResult>` - Simulates a transaction, optimizing leading public static calls by running them directly on the node while sending the remaining calls through the standard PXE path. Return values from both paths are merged back in original call order.
-- `simulateViaEntrypoint(executionPayload: ExecutionPayload, opts: SimulateViaEntrypointOptions) => Promise<TxSimulationResult>` - Simulates calls via a stub account entrypoint, bypassing real account authorization. This allows kernelless simulation with contract overrides, skipping expensive private kernel circuit execution.
+- `simulateTx(executionPayload: ExecutionPayload, opts: SimulateOptions) => Promise<TxSimulationResultWithAppOffset>` - Simulates a transaction, optimizing leading public static calls by running them directly on the node while sending the remaining calls through the standard PXE path. Return values from both paths are merged back in original call order.
+- `simulateViaEntrypoint(executionPayload: ExecutionPayload, opts: SimulateViaEntrypointOptions) => Promise<TxSimulationResultWithAppOffset>` - Simulates calls via a stub account entrypoint, bypassing real account authorization. This allows kernelless simulation with contract overrides, skipping expensive private kernel circuit execution.
 - `stop() => Promise<void>`
 
 ### NodeEmbeddedWallet
@@ -91,8 +92,9 @@ new NodeEmbeddedWallet(pxe: PXE, aztecNode: AztecNode, walletDB: WalletDB, accou
 
 **Methods**
 - `batch<T extends readonly BatchedMethod[]>(methods: T) => Promise<BatchResults<T>>`
-- `completeFeeOptions(from: AztecAddress | "NO_FROM", feePayer?: AztecAddress, gasSettings?: Partial<FieldsOf<GasSettings>>) => Promise<FeeOptions>` - Completes partial user-provided fee options with wallet defaults.
-- `completeFeeOptionsForEstimation(from: AztecAddress | "NO_FROM", feePayer?: AztecAddress, gasSettings?: Partial<FieldsOf<GasSettings>>) => Promise<{ accountFeePaymentMethodOptions?: AccountFeePaymentMethodOptions; gasSettings: GasSettings; walletFeePaymentMethod?: FeePaymentMethod }>` - Completes partial user-provided fee options with unreasonably high gas limits for gas estimation. Uses the same logic as completeFeeOptions but sets high limits to avoid running out of gas during estimation.
+- `buildAccountOverrides(addresses: AztecAddress[]) => Promise<ContractOverrides>` - Builds contract overrides for all provided addresses by replacing their account contracts with stub implementations. Uses a type-specific stub artifact so that the stub's constructor selector matches the real account's constructor.
+- `completeFeeOptions(config: CompleteFeeOptionsConfig) => Promise<FeeOptions>` - Completes partial user-provided fee options with wallet defaults.
+- `computeAppCallOffset(from: AztecAddress | "NO_FROM", feeOptions: FeeOptions) => Promise<number>` - Computes the index where the app's calls begin in the flattened array of calls (0 = entrypoint/root, 1..N = fee calls, N+1 = app).
 - `contextualizeError(err: Error, ...context: string[]) => Error`
 - `static create<T extends NodeEmbeddedWallet>(this: (pxe: PXE, aztecNode: AztecNode, walletDB: WalletDB, accountContracts: AccountContractsProvider, log?: Logger) => T, nodeOrUrl: string | AztecNode, options: EmbeddedWalletOptions) => Promise<T>`
 - `createAccountInternal(type: "schnorr" | "ecdsasecp256r1" | "ecdsasecp256k1", secret: Fr, salt: Fr, signingKey: Buffer) => Promise<AccountManager>`
@@ -119,8 +121,8 @@ new NodeEmbeddedWallet(pxe: PXE, aztecNode: AztecNode, walletDB: WalletDB, accou
 - `sendTx<W extends InteractionWaitOptions>(executionPayload: ExecutionPayload, opts: SendOptions<W>) => Promise<SendReturn<W>>` - Overrides the base sendTx to add a pre-simulation step before the actual send. The simulation estimates actual gas usage and captures call authorization requests to generate the necessary authwitnesses.
 - `setEstimatedGasPadding(value?: number) => void`
 - `setMinFeePadding(value?: number) => void`
-- `simulateTx(executionPayload: ExecutionPayload, opts: SimulateOptions) => Promise<TxSimulationResult>` - Simulates a transaction, optimizing leading public static calls by running them directly on the node while sending the remaining calls through the standard PXE path. Return values from both paths are merged back in original call order.
-- `simulateViaEntrypoint(executionPayload: ExecutionPayload, opts: SimulateViaEntrypointOptions) => Promise<TxSimulationResult>` - Simulates calls via a stub account entrypoint, bypassing real account authorization. This allows kernelless simulation with contract overrides, skipping expensive private kernel circuit execution.
+- `simulateTx(executionPayload: ExecutionPayload, opts: SimulateOptions) => Promise<TxSimulationResultWithAppOffset>` - Simulates a transaction, optimizing leading public static calls by running them directly on the node while sending the remaining calls through the standard PXE path. Return values from both paths are merged back in original call order.
+- `simulateViaEntrypoint(executionPayload: ExecutionPayload, opts: SimulateViaEntrypointOptions) => Promise<TxSimulationResultWithAppOffset>` - Simulates calls via a stub account entrypoint, bypassing real account authorization. This allows kernelless simulation with contract overrides, skipping expensive private kernel circuit execution.
 - `stop() => Promise<void>`
 
 ### WalletDB
@@ -158,6 +160,12 @@ type AccountType = typeof AccountTypes[number]
 type EmbeddedWalletOptions = unknown
 ```
 
+### EmbeddedWalletPXEOptions
+```typescript
+type EmbeddedWalletPXEOptions = Partial<PXEConfig> & PXECreationOptions
+```
+Options for the PXE instance created by the EmbeddedWallet.
+
 ## Cross-Package References
 
 This package references types from other Aztec packages:
@@ -166,22 +174,22 @@ This package references types from other Aztec packages:
 - `InitialAccountData`
 
 **@aztec/aztec.js**
-- `Account`, `AccountManager`, `Aliased`, `AppCapabilities`, `BatchResults`, `BatchedMethod`, `CallIntent`, `ContractInitializationStatus`, `ExecuteUtilityOptions`, `FeePaymentMethod`, `IntentInnerHash`, `InteractionWaitOptions`, `PrivateEvent`, `PrivateEventFilter`, `ProfileOptions`, `SendOptions`, `SendReturn`, `SimulateOptions`, `WaitOpts`, `WalletCapabilities`
+- `Account`, `AccountManager`, `Aliased`, `AppCapabilities`, `BatchResults`, `BatchedMethod`, `CallIntent`, `ContractInitializationStatus`, `ExecuteUtilityOptions`, `IntentInnerHash`, `InteractionWaitOptions`, `PrivateEvent`, `PrivateEventFilter`, `ProfileOptions`, `SendOptions`, `SendReturn`, `SimulateOptions`, `TxSimulationResultWithAppOffset`, `WaitOpts`, `WalletCapabilities`
 
 **@aztec/entrypoints**
-- `AccountFeePaymentMethodOptions`, `ChainInfo`
+- `ChainInfo`
 
 **@aztec/foundation**
-- `FieldsOf`, `Fq`, `Fr`, `LogFn`, `Logger`
+- `Fq`, `Fr`, `LogFn`, `Logger`
 
 **@aztec/kv-store**
 - `AztecAsyncKVStore`
 
 **@aztec/pxe**
-- `PXE`
+- `PXE`, `PXEConfig`, `PXECreationOptions`
 
 **@aztec/stdlib**
-- `AuthWitness`, `AztecAddress`, `AztecNode`, `ContractArtifact`, `ContractInstanceWithAddress`, `EventMetadataDefinition`, `ExecutionPayload`, `FunctionCall`, `GasSettings`, `TxExecutionRequest`, `TxProfileResult`, `TxSimulationResult`, `UtilityExecutionResult`
+- `AuthWitness`, `AztecAddress`, `AztecNode`, `ContractArtifact`, `ContractInstanceWithAddress`, `ContractOverrides`, `EventMetadataDefinition`, `ExecutionPayload`, `FunctionCall`, `TxExecutionRequest`, `TxProfileResult`, `UtilityExecutionResult`
 
 **@aztec/wallet-sdk**
-- `FeeOptions`, `SimulateViaEntrypointOptions`
+- `CompleteFeeOptionsConfig`, `FeeOptions`, `SimulateViaEntrypointOptions`

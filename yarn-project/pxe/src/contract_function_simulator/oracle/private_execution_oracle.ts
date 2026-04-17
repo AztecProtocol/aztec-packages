@@ -81,7 +81,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
   private readonly taggingIndexCache: ExecutionTaggingIndexCache;
   private readonly senderTaggingStore: SenderTaggingStore;
   private totalPublicCalldataCount: number;
-  protected sideEffectCounter: number;
+  private readonly initialSideEffectCounter: number;
   private senderForTags?: AztecAddress;
   private readonly simulator?: CircuitSimulator;
 
@@ -100,13 +100,18 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
     this.taggingIndexCache = args.taggingIndexCache;
     this.senderTaggingStore = args.senderTaggingStore;
     this.totalPublicCalldataCount = args.totalPublicCalldataCount ?? 0;
-    this.sideEffectCounter = args.sideEffectCounter ?? 0;
+    this.initialSideEffectCounter = args.sideEffectCounter ?? 0;
     this.senderForTags = args.senderForTags;
     this.simulator = args.simulator;
   }
 
   public getPrivateContextInputs(): PrivateContextInputs {
-    return new PrivateContextInputs(this.callContext, this.anchorBlockHeader, this.txContext, this.sideEffectCounter);
+    return new PrivateContextInputs(
+      this.callContext,
+      this.anchorBlockHeader,
+      this.txContext,
+      this.initialSideEffectCounter,
+    );
   }
 
   // We still need this function until we can get user-defined ordering of structs for fn arguments
@@ -216,7 +221,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
       this.logger.warn(`Computing a tag for invalid recipient ${recipient} - returning a random tag instead`, {
         contractAddress: this.contractAddress,
       });
-      return new Tag(Fr.random());
+      return Tag.random();
     }
 
     const index = await this.#getIndexToUseForSecret(extendedSecret);
@@ -575,6 +580,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
       scopes: this.scopes,
       senderForTags: this.senderForTags,
       simulator: this.simulator!,
+      l2TipsStore: this.l2TipsStore,
     });
 
     const setupTime = simulatorSetupTimer.ms();

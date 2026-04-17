@@ -43,7 +43,6 @@
 <li><a href="../keys/index.html">keys</a></div></li>
 <li><a href="../logging/index.html">logging</a></div></li>
 <li><a href="../logs/index.html">logs</a></div></li>
-<li><a href="../message_processing/index.html">message_processing</a></div></li>
 <li><a href="../notes/index.html">notes</a></div></li>
 <li><a href="../nullifiers/index.html">nullifiers</a></div></li>
 <li><a href="../offchain_effect/index.html">offchain_effect</a></div></li>
@@ -60,9 +59,13 @@
 <li><div class="item-name"><a href="fn.assert_compatible_oracle_version.html" class="fn">assert_compatible_oracle_version</a></div><div class="item-description">Asserts that the version of the oracle is compatible with the version expected by the contract.</div></li>
 </ul>
 <h2 id="globals">Globals</h2><ul class="item-list">
-<li><div class="item-name"><a href="global.ORACLE_VERSION.html" class="global">ORACLE_VERSION</a></div><div class="item-description">The ORACLE_VERSION constant is used to check that the oracle interface is in sync between PXE and Aztec.nr. We need
-to version the oracle interface to ensure that developers get a reasonable error message if they use incompatible
-versions of Aztec.nr and PXE. The TypeScript counterpart is in <code>oracle_version.ts</code>.</div></li>
+<li><div class="item-name"><a href="global.ORACLE_VERSION_MAJOR.html" class="global">ORACLE_VERSION_MAJOR</a></div><div class="item-description">The oracle version constants are used to check that the oracle interface is in sync between PXE and Aztec.nr.
+We version the oracle interface as <code>major.minor</code> where:</p>
+<ul>
+<li><code>major</code> = backward-breaking changes (must match exactly between PXE and Aztec.nr)</li>
+<li><code>minor</code> = oracle additions (non-breaking; PXE minor &gt;= contract minor)</li>
+</ul></div></li>
+<li><div class="item-name"><a href="global.ORACLE_VERSION_MINOR.html" class="global">ORACLE_VERSION_MINOR</a></div><div class="item-description"></div></li>
 </ul>
 </main>
 </span>

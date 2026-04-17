@@ -7,13 +7,13 @@ import { getVKIndex, getVKSiblingPath } from '@aztec/noir-protocol-circuits-type
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import type { FunctionSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { BlockHash } from '@aztec/stdlib/block';
 import { type ContractInstanceWithAddress, computeSaltedInitializationHash } from '@aztec/stdlib/contract';
 import { DelayedPublicMutableValues, DelayedPublicMutableValuesWithHash } from '@aztec/stdlib/delayed-public-mutable';
 import { computePublicDataTreeLeafSlot } from '@aztec/stdlib/hash';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import { UpdatedClassIdHints } from '@aztec/stdlib/kernel';
 import type { NullifierMembershipWitness } from '@aztec/stdlib/trees';
+import type { BlockHeader } from '@aztec/stdlib/tx';
 import type { VerificationKeyAsFields } from '@aztec/stdlib/vks';
 
 import type { ContractStore } from '../storage/contract_store/contract_store.js';
@@ -26,7 +26,7 @@ export class PrivateKernelOracle {
     private contractStore: ContractStore,
     private keyStore: KeyStore,
     private node: AztecNode,
-    private blockHash: BlockHash,
+    private blockHeader: BlockHeader,
   ) {}
 
   /** Retrieves the preimage of a contract address from the registered contract instances db. */
@@ -80,22 +80,20 @@ export class PrivateKernelOracle {
   }
 
   /** Returns a membership witness with the sibling path and leaf index in our note hash tree. */
-  getNoteHashMembershipWitness(noteHash: Fr): Promise<MembershipWitness<typeof NOTE_HASH_TREE_HEIGHT> | undefined> {
-    return this.node.getNoteHashMembershipWitness(this.blockHash, noteHash);
+  async getNoteHashMembershipWitness(
+    noteHash: Fr,
+  ): Promise<MembershipWitness<typeof NOTE_HASH_TREE_HEIGHT> | undefined> {
+    return this.node.getNoteHashMembershipWitness(await this.blockHeader.hash(), noteHash);
   }
 
   /** Returns a membership witness with the sibling path and leaf index in our nullifier indexed merkle tree. */
-  getNullifierMembershipWitness(nullifier: Fr): Promise<NullifierMembershipWitness | undefined> {
-    return this.node.getNullifierMembershipWitness(this.blockHash, nullifier);
+  async getNullifierMembershipWitness(nullifier: Fr): Promise<NullifierMembershipWitness | undefined> {
+    return this.node.getNullifierMembershipWitness(await this.blockHeader.hash(), nullifier);
   }
 
   /** Returns the root of our note hash merkle tree. */
-  async getNoteHashTreeRoot(): Promise<Fr> {
-    const header = await this.node.getBlockHeader(this.blockHash);
-    if (!header) {
-      throw new Error(`No block header found for block hash ${this.blockHash}`);
-    }
-    return header.state.partial.noteHashTree.root;
+  getNoteHashTreeRoot(): Fr {
+    return this.blockHeader.state.partial.noteHashTree.root;
   }
 
   /**
@@ -126,14 +124,16 @@ export class PrivateKernelOracle {
       ProtocolContractAddress.ContractInstanceRegistry,
       delayedPublicMutableHashSlot,
     );
-    const updatedClassIdWitness = await this.node.getPublicDataWitness(this.blockHash, hashLeafSlot);
+    const blockHash = await this.blockHeader.hash();
+
+    const updatedClassIdWitness = await this.node.getPublicDataWitness(blockHash, hashLeafSlot);
 
     if (!updatedClassIdWitness) {
       throw new Error(`No public data tree witness found for ${hashLeafSlot}`);
     }
 
     const readStorage = (storageSlot: Fr) =>
-      this.node.getPublicStorageAt(this.blockHash, ProtocolContractAddress.ContractInstanceRegistry, storageSlot);
+      this.node.getPublicStorageAt(blockHash, ProtocolContractAddress.ContractInstanceRegistry, storageSlot);
     const delayedPublicMutableValues = await DelayedPublicMutableValues.readFromTree(
       delayedPublicMutableSlot,
       readStorage,

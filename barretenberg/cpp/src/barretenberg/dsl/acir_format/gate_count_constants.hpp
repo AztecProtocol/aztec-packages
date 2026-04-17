@@ -55,7 +55,7 @@ template <typename Builder> inline constexpr size_t ASSERT_EQUALITY = ZERO_GATE 
 // Honk Recursion Constants
 // ========================================
 
-inline constexpr size_t ROOT_ROLLUP_GATE_COUNT = 12904895;
+inline constexpr size_t ROOT_ROLLUP_GATE_COUNT = 6351604;
 
 template <typename RecursiveFlavor>
 constexpr std::tuple<size_t, size_t> HONK_RECURSION_CONSTANTS(

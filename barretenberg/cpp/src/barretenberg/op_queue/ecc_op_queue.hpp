@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/eccvm/eccvm_builder_types.hpp"
 #include "barretenberg/op_queue/ecc_ops_table.hpp"
@@ -214,6 +215,7 @@ class ECCOpQueue {
      */
     UltraOp mul_accumulate(const Point& to_mul, const Fr& scalar)
     {
+        BB_BENCH_NAME("ECCOpQueue::mul_accumulate");
         // Update the accumulator natively
         accumulator = accumulator + to_mul * scalar;
         EccOpCode op_code{ .mul = true };
