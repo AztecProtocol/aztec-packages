@@ -129,6 +129,7 @@ function build {
 
   if [ "$#" -eq 0 ]; then
     rm -rf target
+    mkdir -p target
     local contracts=$(grep -oP "(?<=$folder_name/)[^\"]+" Nargo.toml)
 
     # If pinned contracts exist, extract them and skip their compilation.
