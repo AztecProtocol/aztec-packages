@@ -124,7 +124,7 @@ export class RPCTranslator {
   /**
    * Completes offchain capture for a top-level call that did not produce a transaction.
    */
-  private async finishOffchainCaptureWithoutTxHash(anchorBlockTimestamp: bigint): Promise<void> {
+  private finishOffchainCaptureWithoutTxHash(anchorBlockTimestamp: bigint): Promise<void> {
     this.stateHandler.setLastCallOffchainContext(Fr.ZERO, anchorBlockTimestamp);
   }
 
