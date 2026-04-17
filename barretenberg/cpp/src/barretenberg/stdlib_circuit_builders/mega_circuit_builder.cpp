@@ -291,16 +291,11 @@ template <typename FF> void MegaCircuitBuilder_<FF>::apply_databus_selectors(con
 {
     auto& block = this->blocks.busread;
     // Bus column k is selected by q_{k+1}; all other wire-linear selectors stay zero on this row.
-    using SelectorAccessor = typename MegaTraceBlock::SelectorType& (MegaTraceBlock::*)();
-    constexpr std::array<SelectorAccessor, NUM_BUS_COLUMNS> bus_column_selectors = {
-        &MegaTraceBlock::q_1,
-        &MegaTraceBlock::q_2,
-        &MegaTraceBlock::q_3,
-    };
+    // One line per bus column — Stage 1 adds siblings here when NUM_BUS_COLUMNS grows.
     const size_t idx = static_cast<size_t>(bus_idx);
-    for (size_t k = 0; k < NUM_BUS_COLUMNS; ++k) {
-        (block.*bus_column_selectors[k])().emplace_back(k == idx ? 1 : 0);
-    }
+    block.q_1().emplace_back(idx == 0 ? 1 : 0);
+    block.q_2().emplace_back(idx == 1 ? 1 : 0);
+    block.q_3().emplace_back(idx == 2 ? 1 : 0);
     block.q_4().emplace_back(0);
     block.q_m().emplace_back(0);
     block.q_c().emplace_back(0);
