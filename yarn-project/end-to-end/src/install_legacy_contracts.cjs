@@ -37,9 +37,9 @@ function installLegacyContracts(version) {
   const cacheDir = cacheRoot(version);
   fs.mkdirSync(cacheDir, { recursive: true });
 
-  // Seed a standalone package.json so `npm install --prefix` treats cacheDir as its own project.
-  // Without this, npm walks up and finds the yarn-project workspace root, which breaks on
-  // `workspace:` protocol deps and risks clobbering the monorepo's node_modules.
+  // Seed a standalone package.json so `npm install --prefix` treats cacheRoot as its own project. Without this, npm
+  // walks up and finds the yarn-project workspace root, which breaks on `workspace:` protocol deps and risks
+  // clobbering the monorepo's node_modules.
   const seed = path.join(cacheDir, 'package.json');
   if (!fs.existsSync(seed)) {
     fs.writeFileSync(seed, JSON.stringify({ name: 'legacy-contracts-cache', private: true }));
@@ -47,15 +47,19 @@ function installLegacyContracts(version) {
 
   const specs = REDIRECTED.map(pkg => `${pkg}@${version}`);
   process.stderr.write(`[legacy-contracts] installing ${specs.join(' ')} into ${cacheDir}\n`);
+  // --prefix: install into cacheRoot instead of cwd, so the cache is isolated from the monorepo.
   // --no-save: don't write the installed packages back to the seeded package.json.
-  // --ignore-scripts: skip lifecycle scripts of the legacy packages and their transitive deps.
-  // --legacy-peer-deps: tolerate peer-dependency mismatches between pinned legacy graph and current.
+  // --ignore-scripts: skip lifecycle scripts (preinstall/postinstall) of the legacy packages and their transitive
+  //   deps; we only want the files on disk, not to run any build steps.
+  // --legacy-peer-deps: tolerate peer-dependency mismatches between the pinned legacy @aztec/* graph and whatever
+  //   current versions npm would otherwise try to reconcile.
   execFileSync(
     'npm',
     ['install', '--prefix', cacheDir, '--no-save', '--ignore-scripts', '--legacy-peer-deps', ...specs],
     { stdio: 'inherit' },
   );
 
+  // Verify versions on disk match the requested version.
   for (const pkg of REDIRECTED) {
     const onDisk = JSON.parse(fs.readFileSync(pkgJsonPath(version, pkg), 'utf8')).version;
     if (onDisk !== version) {
