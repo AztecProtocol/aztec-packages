@@ -167,7 +167,7 @@ mod test {
 
     // docs:start:game_state_tests
     #[test]
-    fn test_gamestate_pack_unpack() {
+    fn test_game_state_pack_unpack() {
         let state = GameState { started: true, round: 42, score: 1000 };
         let unpacked = GameState::unpack(state.pack());
         assert_eq(unpacked.started, state.started);
@@ -176,7 +176,7 @@ mod test {
     }
 
     #[test]
-    fn test_gamestate_pack_unpack_max() {
+    fn test_game_state_pack_unpack_max() {
         let state =
             GameState { started: true, round: 0xffffffff, score: 0xffffffff };
         let unpacked = GameState::unpack(state.pack());

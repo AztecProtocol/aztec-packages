@@ -133,7 +133,7 @@ Always test that `unpack(pack(x)) == x` for boundary values:
 
 ### Derived Packable (Field-sized members)
 
-When all struct members are already `Field`-sized, `#[derive(Packable)]` is all you need. This is the common case for events, storage configs, and note types whose fields are `Field` or `AztecAddress`:
+When all struct members are already `Field`-sized, `#[derive(Packable)]` is all you need. This is how core aztec-nr types work today, e.g. `AztecAddress`, `AddressNote`, and `FieldNote` all derive `Packable` directly because their members are already `Field` or `AztecAddress`:
 
 #include_code derived_packable /docs/examples/contracts/packing_example/src/types.nr rust
 
