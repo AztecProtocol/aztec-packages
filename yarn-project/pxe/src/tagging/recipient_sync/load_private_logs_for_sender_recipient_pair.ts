@@ -113,7 +113,9 @@ export async function loadPrivateLogsForSenderRecipientPair(
 
     if (highestAgedIndex !== undefined && highestAgedIndex > highestFinalizedIndex) {
       // This is just a sanity check as this should never happen.
-      throw new Error('Highest aged index lower than highest finalized index invariant violated');
+      throw new Error(
+        `Highest aged index (${highestAgedIndex}) must not exceed highest finalized index (${highestFinalizedIndex})`,
+      );
     }
 
     await taggingStore.updateHighestFinalizedIndex(secret, highestFinalizedIndex, jobId);

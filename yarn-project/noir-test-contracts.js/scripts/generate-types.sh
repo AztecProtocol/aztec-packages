@@ -12,7 +12,7 @@ fi
 mkdir -p $OUT_DIR
 
 # Extract test contract names from Nargo.toml
-TEST_CONTRACTS=$(grep "contracts/test/" ../../noir-projects/noir-contracts/Nargo.toml | sed 's/.*contracts\/test\/\([^"]*\)_contract.*/\1/')
+TEST_CONTRACTS=$(grep "contracts/test/" ../../noir-projects/noir-contracts/Nargo.toml | sed 's/.*\/\([^/"]*\)_contract.*/\1/')
 
 # Check for .json files existence
 if ! ls ../../noir-projects/noir-contracts/target/*.json >/dev/null 2>&1; then

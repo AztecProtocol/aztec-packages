@@ -23,7 +23,7 @@ export class AnchorBlockStore {
   }
 
   async getBlockHeader(): Promise<BlockHeader> {
-    const headerBuffer = await this.#synchronizedHeader.getAsync();
+    const headerBuffer = await this.#store.transactionAsync(() => this.#synchronizedHeader.getAsync());
     if (!headerBuffer) {
       throw new Error(`Trying to get block header with a not-yet-synchronized PXE - this should never happen`);
     }
