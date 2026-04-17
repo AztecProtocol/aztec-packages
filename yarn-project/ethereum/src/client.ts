@@ -39,10 +39,19 @@ export function makeL1HttpTransport(rpcUrls: string[], opts?: { timeout?: number
 /**
  * Returns the individual RPC URLs underlying a viem public client that was constructed with a
  * fallback HTTP transport (see {@link makeL1HttpTransport}). Returns an empty array if the
- * transport shape is not recognized.
+ * transport shape is not recognized (e.g. mock clients in tests, or non-fallback transports).
  */
 export function getRpcUrlsFromClient(client: ViemPublicClient): string[] {
-  return client.transport.transports.map(t => t?.value?.url).filter((url): url is string => typeof url === 'string');
+  const transport = client.transport as unknown as {
+    transports?: { value?: { url?: string } }[];
+    value?: { url?: string };
+    url?: string;
+  };
+  if (Array.isArray(transport?.transports)) {
+    return transport.transports.map(t => t?.value?.url).filter((url): url is string => typeof url === 'string');
+  }
+  const singleUrl = transport?.value?.url ?? transport?.url;
+  return typeof singleUrl === 'string' ? [singleUrl] : [];
 }
 
 // TODO: Use these methods to abstract the creation of viem clients.
