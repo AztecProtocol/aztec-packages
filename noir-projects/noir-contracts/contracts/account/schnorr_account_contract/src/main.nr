@@ -20,7 +20,7 @@ pub contract SchnorrAccount {
         },
         messages::message_delivery::MessageDelivery,
         oracle::{
-            auth_witness::get_auth_witness,
+            auth_witness::get_auth_witness_as_bytes,
             get_nullifier_membership_witness::get_low_nullifier_membership_witness,
             notes::{get_sender_for_tags, set_sender_for_tags},
         },
@@ -95,14 +95,9 @@ pub contract SchnorrAccount {
         let storage = Storage::init(context);
         let public_key = storage.signing_public_key.get_note();
 
-        // Load auth witness
         // Safety: The witness is only used as a "magical value" that makes the signature verification below pass.
         // Hence it's safe.
-        let witness: [Field; 64] = unsafe { get_auth_witness(outer_hash) };
-        let mut signature: [u8; 64] = [0; 64];
-        for i in 0..64 {
-            signature[i] = witness[i] as u8;
-        }
+        let signature: [u8; 64] = unsafe { get_auth_witness_as_bytes(outer_hash) };
 
         let pub_key =
             std::embedded_curve_ops::EmbeddedCurvePoint { x: public_key.x, y: public_key.y };
@@ -128,11 +123,7 @@ pub contract SchnorrAccount {
             inner_hash,
         );
 
-        let witness: [Field; 64] = get_auth_witness(message_hash);
-        let mut signature: [u8; 64] = [0; 64];
-        for i in 0..64 {
-            signature[i] = witness[i] as u8;
-        }
+        let signature: [u8; 64] = get_auth_witness_as_bytes(message_hash);
         let pub_key =
             std::embedded_curve_ops::EmbeddedCurvePoint { x: public_key.x, y: public_key.y };
         let valid_in_private =
