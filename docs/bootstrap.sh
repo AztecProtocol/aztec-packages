@@ -4,7 +4,6 @@ source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 repo_root=$(git rev-parse --show-toplevel)
 export BB=${BB:-$repo_root/barretenberg/cpp/build/bin/bb}
 export NARGO=${NARGO:-$repo_root/noir/noir-repo/target/release/nargo}
-export TRANSPILER=${TRANSPILER:-$repo_root/avm-transpiler/target/release/avm-transpiler}
 export BB_HASH=${BB_HASH:-$($repo_root/barretenberg/cpp/bootstrap.sh hash)}
 
 # We search the docs/*.md files to find included code, and use those as our rebuild dependencies.
