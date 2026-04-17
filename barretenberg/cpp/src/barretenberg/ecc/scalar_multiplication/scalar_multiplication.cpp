@@ -83,60 +83,57 @@ void MSM<Curve>::transform_scalar_and_get_nonzero_scalar_indices(std::span<typen
 }
 
 template <typename Curve>
-void MSM<Curve>::interleave_indices_for_thread_balance(std::vector<uint32_t>& indices,
-                                                       const size_t num_threads) noexcept
-{
-    const size_t n = indices.size();
-    if (n == 0 || num_threads <= 1) {
-        return;
-    }
-
-    // Block-cyclic permutation. Thread t takes blocks {t, T+t, 2T+t, ...} from the input
-    // and packs them contiguously, so its chunk is a statistically uniform sample of
-    // the original array at block granularity. Within-block access stays sequential, so
-    // scalar[] reads stay L1-hot during the point-schedule build. B is clamped so each
-    // thread gets at least 4 blocks (mixing) and at most 1024 elements (L1-friendly for
-    // 32-byte scalars). Small-n collapses to B=1, i.e. per-element stride.
-    constexpr size_t MAX_BLOCK_SIZE = 1024;
-    constexpr size_t MIN_BLOCKS_PER_THREAD = 4;
-    const size_t B = std::clamp(n / (MIN_BLOCKS_PER_THREAD * num_threads), size_t{ 1 }, MAX_BLOCK_SIZE);
-    const size_t num_blocks = (n + B - 1) / B;
-
-    std::vector<uint32_t> permuted(n);
-    size_t dest = 0;
-    for (size_t t = 0; t < num_threads; ++t) {
-        for (size_t j = t; j < num_blocks; j += num_threads) {
-            const size_t src = j * B;
-            const size_t sz = std::min(B, n - src);
-            std::copy(indices.begin() + static_cast<ptrdiff_t>(src),
-                      indices.begin() + static_cast<ptrdiff_t>(src + sz),
-                      permuted.begin() + static_cast<ptrdiff_t>(dest));
-            dest += sz;
-        }
-    }
-    indices = std::move(permuted);
-}
-
-template <typename Curve>
 std::vector<typename MSM<Curve>::ThreadWorkUnits> MSM<Curve>::get_work_units(
     std::span<std::span<ScalarField>> scalars, std::vector<std::vector<uint32_t>>& msm_scalar_indices) noexcept
 {
     const size_t num_msms = scalars.size();
     msm_scalar_indices.resize(num_msms);
+
+    // Per-scalar work in Pippenger is dominated by the number of nonzero c-bit slices
+    // (zero slices are filtered out of bucket accumulation via the zero-bucket pre-sort).
+    // Weighting each scalar by ceil(bit_length / c) lets us partition threads by actual
+    // bucket-accumulation work, which is more balanced than partitioning by scalar count
+    // when scalar bit-sizes are spatially clustered (e.g. small witness values packed in
+    // one region of a wire polynomial next to full-field randomness).
+    std::vector<std::vector<size_t>> prefix_weights(num_msms);
+    size_t grand_total_weight = 0;
+    size_t total_work = 0;
     for (size_t i = 0; i < num_msms; ++i) {
         transform_scalar_and_get_nonzero_scalar_indices(scalars[i], msm_scalar_indices[i]);
-    }
 
-    size_t total_work = 0;
-    for (const auto& indices : msm_scalar_indices) {
-        total_work += indices.size();
+        const auto& indices = msm_scalar_indices[i];
+        const size_t n = indices.size();
+        total_work += n;
+
+        // bits_per_slice is chosen by the Pippenger solver based on this MSM's point count;
+        // the split is computed per-thread from its own slice size, but using the parent
+        // MSM's c here as a proxy is within one bit on realistic sizes and lets us do the
+        // weight scan right when scalars are warm in cache from the Montgomery pass above.
+        const uint32_t bps = get_optimal_log_num_buckets(n);
+
+        auto& pfx = prefix_weights[i];
+        pfx.assign(n + 1, 0);
+        for (size_t k = 0; k < n; ++k) {
+            const auto& scalar = scalars[i][indices[k]];
+            size_t bit_length;
+            if (scalar.data[3] != 0) {
+                bit_length = 192 + static_cast<size_t>(numeric::get_msb64(scalar.data[3])) + 1;
+            } else if (scalar.data[2] != 0) {
+                bit_length = 128 + static_cast<size_t>(numeric::get_msb64(scalar.data[2])) + 1;
+            } else if (scalar.data[1] != 0) {
+                bit_length = 64 + static_cast<size_t>(numeric::get_msb64(scalar.data[1])) + 1;
+            } else {
+                // indices only contains nonzero scalars, so data[0] must be nonzero here.
+                bit_length = static_cast<size_t>(numeric::get_msb64(scalar.data[0])) + 1;
+            }
+            const size_t weight = (bit_length + bps - 1) / bps;
+            pfx[k + 1] = pfx[k] + weight;
+        }
+        grand_total_weight += pfx[n];
     }
 
     const size_t num_threads = get_num_cpus();
     std::vector<ThreadWorkUnits> work_units(num_threads);
-
-    const size_t work_per_thread = numeric::ceil_div(total_work, num_threads);
-    const size_t work_of_last_thread = total_work - (work_per_thread * (num_threads - 1));
 
     // Only use a single work unit if we don't have enough work for every thread
     if (num_threads > total_work) {
@@ -150,43 +147,46 @@ std::vector<typename MSM<Curve>::ThreadWorkUnits> MSM<Curve>::get_work_units(
         return work_units;
     }
 
-    // Reorder each MSM's nonzero-scalar indices so that contiguous chunks contain an interleaved sample of original
-    // positions. This averages out spatial clustering of heterogeneous scalar bit-sizes (e.g. small witness values
-    // concentrated in one region of a wire polynomial), which would otherwise leave some threads with far less
-    // per-round bucket work than others.
-    if (num_threads > 1) {
-        for (auto& indices : msm_scalar_indices) {
-            interleave_indices_for_thread_balance(indices, num_threads);
-        }
-    }
+    const size_t weight_per_thread = numeric::ceil_div(grand_total_weight, num_threads);
 
-    size_t thread_accumulated_work = 0;
+    size_t thread_accumulated_weight = 0;
     size_t current_thread_idx = 0;
     for (size_t i = 0; i < num_msms; ++i) {
-        size_t msm_work_remaining = msm_scalar_indices[i].size();
-        const size_t initial_msm_work = msm_work_remaining;
+        const auto& pfx = prefix_weights[i];
+        const size_t n = msm_scalar_indices[i].size();
 
-        while (msm_work_remaining > 0) {
+        size_t start = 0;
+        while (start < n) {
             BB_ASSERT_LT(current_thread_idx, work_units.size());
 
-            const size_t total_thread_work =
-                (current_thread_idx == num_threads - 1) ? work_of_last_thread : work_per_thread;
-            const size_t available_thread_work = total_thread_work - thread_accumulated_work;
-            const size_t work_to_assign = std::min(available_thread_work, msm_work_remaining);
+            size_t end;
+            if (current_thread_idx == num_threads - 1) {
+                // Last thread absorbs everything remaining; avoid rounding drift.
+                end = n;
+            } else {
+                // Largest `end` in [start+1, n] with (pfx[end] - pfx[start]) <= remaining capacity.
+                const size_t remaining = weight_per_thread - thread_accumulated_weight;
+                const size_t target = pfx[start] + remaining;
+                auto it = std::upper_bound(pfx.begin() + static_cast<ptrdiff_t>(start + 1), pfx.end(), target);
+                end = static_cast<size_t>(it - pfx.begin()) - 1;
+                // Guarantee progress even when a single scalar's weight exceeds remaining capacity.
+                if (end <= start) {
+                    end = start + 1;
+                }
+            }
 
             work_units[current_thread_idx].push_back(MSMWorkUnit{
                 .batch_msm_index = i,
-                .start_index = initial_msm_work - msm_work_remaining,
-                .size = work_to_assign,
+                .start_index = start,
+                .size = end - start,
             });
 
-            thread_accumulated_work += work_to_assign;
-            msm_work_remaining -= work_to_assign;
+            thread_accumulated_weight += pfx[end] - pfx[start];
+            start = end;
 
-            // Move to next thread if current thread is full
-            if (thread_accumulated_work >= total_thread_work) {
+            if (current_thread_idx < num_threads - 1 && thread_accumulated_weight >= weight_per_thread) {
                 current_thread_idx++;
-                thread_accumulated_work = 0;
+                thread_accumulated_weight = 0;
             }
         }
     }

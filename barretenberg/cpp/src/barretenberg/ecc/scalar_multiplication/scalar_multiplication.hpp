@@ -288,16 +288,13 @@ template <typename Curve> class MSM {
     static void transform_scalar_and_get_nonzero_scalar_indices(std::span<ScalarField> scalars,
                                                                 std::vector<uint32_t>& nonzero_scalar_indices) noexcept;
 
-    /** @brief Distribute multiple MSMs across threads with balanced point counts */
+    /** @brief Distribute multiple MSMs across threads with balanced bucket-accumulation work.
+     *  @details Per-thread assignment is a contiguous range of each MSM's nonzero-scalar
+     *           indices, sized by cumulative weight. Weight per scalar is
+     *           ceil(bit_length / bits_per_slice), i.e. the number of nonzero c-bit slices
+     *           it contributes, which is what drives bucket accumulation cost. */
     static std::vector<ThreadWorkUnits> get_work_units(std::span<std::span<ScalarField>> scalars,
                                                        std::vector<std::vector<uint32_t>>& msm_scalar_indices) noexcept;
-
-    /** @brief Permute indices so contiguous chunks contain an interleaved sample.
-     *  @details For num_threads = T, output position t * chunk_size + k contains input
-     *           position k * T + t. Chunk t (of size ~N/T) therefore holds every T-th
-     *           input index starting at offset t, balancing bit-size-density across
-     *           subsequent contiguous-chunk work distribution. */
-    static void interleave_indices_for_thread_balance(std::vector<uint32_t>& indices, size_t num_threads) noexcept;
 
     /** @brief Decide if batch inversion saves work vs Jacobian additions */
     static bool use_affine_trick(size_t num_points, size_t num_buckets) noexcept;

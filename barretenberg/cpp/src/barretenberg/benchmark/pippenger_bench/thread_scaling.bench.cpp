@@ -1,22 +1,21 @@
 /**
  * @brief Pippenger thread-scaling benchmark for heterogeneous scalar distributions.
  *
- * Work in MSM::batch_multi_scalar_mul is partitioned across threads by *count* of
- * nonzero scalars (see get_work_units in scalar_multiplication.cpp). Per-round work
- * actually scales with the number of nonzero bit-slices, which is much smaller for
- * small scalars (high-order slices are zero and get filtered by the zero-bucket
- * pre-sort). When small and full-field scalars are spatially clustered in the
- * polynomial, threads get unequal bucket-accumulation work despite having equal
- * scalar counts.
+ * MSM::batch_multi_scalar_mul partitions work across threads by cumulative per-scalar
+ * weight (see get_work_units in scalar_multiplication.cpp), where each scalar's weight
+ * is ceil(bit_length / bits_per_slice) -- i.e. the number of nonzero c-bit slices it
+ * contributes to bucket accumulation. Small scalars weigh less because their high-order
+ * slices are zero and get filtered by the zero-bucket pre-sort. This benchmark exercises
+ * pathological and typical bit-size distributions to verify thread scaling stays uniform.
  *
  * Distributions contrasted here:
- *   - Clustered:    first half small (32-bit), second half full random -- pathological.
+ *   - Clustered:    first half small (32-bit), second half full random -- stresses the
+ *                   weighted split; count-based partitioning would give half the threads
+ *                   ~all of the heavy work.
  *   - UniformMixed: small/full randomly interleaved -- isolates heterogeneity alone.
  *   - AllFull:      all full random (z_perm-like baseline).
  *
- * Expected: AllFull scales ideally; Clustered scales poorly; UniformMixed is close
- * to AllFull. A block-cyclic work distribution in get_work_units should close the
- * Clustered gap without regressing the other two.
+ * Expected: all three scale comparably under the weighted partition.
  */
 #include "barretenberg/common/thread.hpp"
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
