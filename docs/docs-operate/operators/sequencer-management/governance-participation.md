@@ -98,7 +98,7 @@ The governance process follows these stages:
 #else
 3. **Voting Delay** (3 days): A mandatory waiting period before voting opens (allows time for community review).
 4. **Voting Period** (7 days): Users who hold stake in the network vote on the proposal using their staked tokens. A proposal passes if it receives at least 20% quorum, 2/3 of votes are "yea", and a minimum of 500 validators' worth of voting power is cast.
-5. **Execution Delay** (30 days): After passing the vote, another mandatory delay before execution (allows time for node upgrades).
+5. **Execution Delay** (7 days): After passing the vote, another mandatory delay before execution (allows time for node upgrades).
 6. **Execution**: Anyone can execute the proposal, which applies the changes. There is a 7-day grace period after the execution delay during which the proposal can still be executed.
 #endif
 

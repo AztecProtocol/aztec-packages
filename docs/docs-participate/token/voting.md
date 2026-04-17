@@ -47,7 +47,7 @@ If you want governance participation without staking, you can lock tokens direct
 
 To lock tokens for voting, visit the [Governance section of the Staking Dashboard](https://stake.aztec.network/governance). Connect your wallet, choose the amount to lock, and confirm the transaction. After depositing, your voting power will be active for any proposals that enter the voting phase after your deposit.
 
-Note that locked governance tokens do not earn staking rewards and are subject to a withdrawal delay (~1.6 days on testnet, ~38 days on mainnet).
+Note that locked governance tokens do not earn staking rewards and are subject to a withdrawal delay (~1.6 days on testnet, ~14.6 days on mainnet).
 
 ## How Voting Works
 
@@ -57,7 +57,7 @@ Your voting power is determined by the amount of tokens you have locked in the G
 
 - **Locking Required**: You must lock tokens in the Governance contract to activate voting power
 - **No Slashing on Votes**: Locked voting tokens are not subject to slashing (unlike staked tokens)
-- **Withdrawal Delay**: After voting, there's a delay before you can withdraw tokens to prevent governance attacks (~1.6 days on testnet, ~38 days on mainnet)
+- **Withdrawal Delay**: After voting, there's a delay before you can withdraw tokens to prevent governance attacks (approximately 1.6 days on testnet, 14.6 days on mainnet)
 
 ### Voting Timeline
 
