@@ -785,7 +785,7 @@ case "$cmd" in
     build
 
     # Get current major version.
-    current_version=$(jq -r '.[""]' .release-please-manifest.json)
+    current_version=$(jq -r '."."' .release-please-manifest.json)
     major=$(echo "$current_version" | cut -d. -f1)
     # Only v4 has backwards-compatible contract artifacts. Skip for other majors.
     if [ "$major" != "4" ]; then
