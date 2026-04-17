@@ -52,6 +52,7 @@ pub(crate) type OffchainInboxSync<Env> = unconstrained fn[Env](
 /* contract_address */AztecAddress, /* scope */ AztecAddress) -> EphemeralArray<OffchainMessageWithContext>;
 
 /// A message delivered via the `offchain_receive` utility function.
+#[derive(Serialize, Deserialize)]
 pub struct OffchainMessage {
     /// The encrypted message payload.
     pub ciphertext: BoundedVec<Field, MESSAGE_CIPHERTEXT_LEN>,

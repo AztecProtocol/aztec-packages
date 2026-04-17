@@ -1404,36 +1404,6 @@ export class RPCTranslator {
   }
 
   // eslint-disable-next-line camelcase
-  async aztec_txe_deliverOffchainMessages(
-    foreignTargetContractAddress: ForeignCallSingle,
-    foreignMessagesStorage: ForeignCallArray,
-    foreignMessagesLen: ForeignCallSingle,
-  ) {
-    // Test-only entry point used by `TestEnvironment::deliver_offchain_messages`. The caller passes
-    // a `BoundedVec<OffchainMessage, MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL>`, which Noir flattens
-    // across the wire as (storage_array, len) - the same shape the real `offchain_receive` utility
-    // stub would serialize. We concatenate the two halves back into a single `[...storage, len]`
-    // Field array, which matches the arg layout `executeUtilityFunction` expects for a utility
-    // taking one `BoundedVec` parameter, and forward it unmodified.
-    const anchorBlockTimestamp = await this.beginOffchainEffectCapture();
-
-    const targetContractAddress = addressFromSingle(foreignTargetContractAddress);
-    const storage = fromArray(foreignMessagesStorage);
-    const len = fromSingle(foreignMessagesLen);
-    const args = [...storage, len];
-
-    await this.handlerAsTxe().deliverOffchainMessages(targetContractAddress, args, this.stateHandler.getCurrentJob());
-
-    // TODO(F-335): Avoid doing the following call here.
-    await this.stateHandler.cycleJob();
-
-    // Utility calls are tx-less.
-    await this.finishOffchainCaptureWithoutTxHash(anchorBlockTimestamp);
-
-    return toForeignCallResult([]);
-  }
-
-  // eslint-disable-next-line camelcase
   async aztec_txe_executeUtilityFunction(
     foreignTargetContractAddress: ForeignCallSingle,
     foreignFunctionSelector: ForeignCallSingle,

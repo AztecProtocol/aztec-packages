@@ -3,6 +3,7 @@ use crate::macros::{
         create_private_self_call_stub, create_private_static_stub, create_private_stub,
         create_public_self_call_static_stub, create_public_self_call_stub, create_public_self_enqueue_static_stub,
         create_public_self_enqueue_stub, create_public_static_stub, create_public_stub, create_utility_stub,
+        create_utility_stub_from_parts,
     },
     internals_functions_generation::external_functions_registry,
     utils::is_fn_view,
@@ -37,13 +38,33 @@ pub(crate) comptime fn generate_external_function_calls(m: Module) -> Quoted {
         })
         .join(quote {});
 
-    let utility_contract_methods = utility_functions.map(|function| create_utility_stub(function)).join(quote {});
+    // `offchain_receive` is injected into every contract by `#[aztec]` as quoted code rather than via the
+    // `#[external("utility")]` attribute that populates `UTILITY_REGISTRY`, so it doesn't appear in
+    // `utility_functions`. We append its stub so it shows up in the interface like any other utility.
+    let utility_stubs =
+        utility_functions.map(|function| create_utility_stub(function)).push_back(create_offchain_receive_stub());
+    let utility_contract_methods = utility_stubs.join(quote {});
 
     quote {
         $private_contract_methods
         $public_contract_methods
         $utility_contract_methods
     }
+}
+
+/// Builds the interface stub for the macro-injected `offchain_receive` utility. The signature here must
+/// match the function emitted by `generate_offchain_receive` in `macros/aztec.nr` so that the computed
+/// selector matches.
+comptime fn create_offchain_receive_stub() -> Quoted {
+    let fn_name = quote { offchain_receive };
+    let messages_type = quote {
+        BoundedVec<crate::messages::processing::offchain::OffchainMessage, crate::messages::processing::offchain::MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL>
+    }
+        .as_type();
+    let fn_parameters = @[(quote { messages }, messages_type)];
+    let fn_return_type = quote { () }.as_type();
+
+    create_utility_stub_from_parts(fn_name, fn_parameters, fn_return_type)
 }
 
 /// Generates helper structs for convenient self-invocation of contract functions:

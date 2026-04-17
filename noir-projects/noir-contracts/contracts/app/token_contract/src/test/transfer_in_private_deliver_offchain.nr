@@ -20,8 +20,17 @@ unconstrained fn transfer_in_private_deliver_offchain_updates_both_balances() {
     // Transfer event) end up in TXE's offchain effect buffer.
     env.call_private(owner, transfer_call);
 
+    // `offchain_messages()` returns up to `MAX_OFFCHAIN_EFFECTS_PER_TXE_QUERY` (64), but `offchain_receive` takes at
+    // most `MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL` (16). This test only produces a handful of messages, so a single
+    // batch suffices.
     let messages = env.offchain_messages();
-    env.deliver_offchain_messages(token_contract_address, messages);
+    let mut batch
+        : BoundedVec<_, aztec::messages::processing::offchain::MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL> =
+        BoundedVec::new();
+    for i in 0..messages.len() {
+        batch.push(messages.get(i));
+    }
+    env.execute_utility(Token::at(token_contract_address).offchain_receive(batch));
 
     utils::check_private_balance(
         env,

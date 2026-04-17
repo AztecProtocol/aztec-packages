@@ -75,12 +75,6 @@ export interface ITxeExecutionOracle {
     args: Fr[],
     jobId: string,
   ): Promise<Fr[]>;
-  /**
-   * Dispatches the contract's auto-generated `offchain_receive` utility function with the given
-   * pre-serialized arguments. Looks up the `offchain_receive` selector from the contract artifact
-   * and routes the call through the normal utility execution path.
-   */
-  deliverOffchainMessages(targetContractAddress: AztecAddress, args: Fr[], jobId: string): Promise<void>;
   publicCallNewFlow(
     from: AztecAddress,
     targetContractAddress: AztecAddress,

@@ -18,11 +18,7 @@ use crate::{
         encoding::{MESSAGE_CIPHERTEXT_LEN, MESSAGE_PLAINTEXT_LEN},
         logs::{event::encode_private_event_message, note::encode_private_note_message},
         offchain_messages::OFFCHAIN_MESSAGE_IDENTIFIER,
-        processing::{
-            MessageContext,
-            offchain::{MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL, OffchainMessage},
-            validate_and_store_enqueued_notes_and_events,
-        },
+        processing::{MessageContext, offchain::OffchainMessage, validate_and_store_enqueued_notes_and_events},
     },
     note::{note_interface::{NoteHash, NoteType}, NoteMessage},
     oracle::version::assert_compatible_oracle_version,
@@ -626,12 +622,18 @@ impl TestEnvironment {
     /// - `anchor_block_timestamp`: the timestamp of the block the top-level call was
     ///   anchored against, matching the value the production flow would produce.
     ///
+    /// Returns up to `MAX_OFFCHAIN_EFFECTS_PER_TXE_QUERY` messages. The caller is responsible for
+    /// splitting the result into batches that fit `MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL` before
+    /// forwarding each batch to `offchain_receive`.
+    ///
     /// # Example
     ///
     /// ```noir
     /// env.call_private(sender, Token::at(token).transfer_in_private_deliver_offchain(...));
     /// let messages = env.offchain_messages();
-    /// env.deliver_offchain_messages(token, messages);
+    /// let mut batch: BoundedVec<_, MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL> = BoundedVec::new();
+    /// for i in 0..messages.len() { batch.push(messages.get(i)); }
+    /// env.execute_utility(Token::at(token).offchain_receive(batch));
     /// ```
     pub unconstrained fn offchain_messages(
         _self: Self,
@@ -663,42 +665,6 @@ impl TestEnvironment {
         }
 
         messages
-    }
-
-    /// Delivers offchain messages to `contract_address`'s offchain inbox by invoking the contract's
-    /// auto-generated `offchain_receive` utility function.
-    ///
-    /// This mirrors what a production recipient does: TXE looks up `offchain_receive` in the
-    /// contract artifact and dispatches it through the normal utility execution path, so the call
-    /// runs inside a proper utility execution context and all `aztec_utl_*` oracles resolve.
-    ///
-    /// Messages are delivered in batches of `MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL` to match
-    /// the production `offchain_receive` signature.
-    ///
-    /// We can't use the usual `env.execute_utility(Token::at(contract_address).offchain_receive(messages))`
-    /// sugar here: `offchain_receive` is auto-injected by the `#[aztec]` macro *after* the contract
-    /// interface is generated, so it never lands on the `Token::at(...)` stub impl.
-    pub unconstrained fn deliver_offchain_messages(
-        _self: Self,
-        contract_address: AztecAddress,
-        messages: BoundedVec<OffchainMessage, txe_oracles::MAX_OFFCHAIN_EFFECTS_PER_TXE_QUERY>,
-    ) {
-        let total = messages.len();
-        let batch_size = MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL;
-        let mut offset = 0;
-        while offset < total {
-            let mut batch: BoundedVec<OffchainMessage, MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL> = BoundedVec::new();
-            let end = if offset + batch_size > total {
-                total
-            } else {
-                offset + batch_size
-            };
-            for i in offset..end {
-                batch.push(messages.get(i));
-            }
-            txe_oracles::deliver_offchain_messages(contract_address, batch);
-            offset += batch_size;
-        }
     }
 
     /// Performs a public contract function call, including the processing of any nested public calls. Returns the
