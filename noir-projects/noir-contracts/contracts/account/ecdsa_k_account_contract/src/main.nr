@@ -5,17 +5,17 @@ use aztec::macros::aztec;
 #[aztec]
 pub contract EcdsaKAccount {
     use aztec::{
-        authwit::{
-            account::AccountActions, entrypoint::app::AppPayload,
-            signature_witness::auth_witness_to_byte_signature,
-        },
+        authwit::{account::AccountActions, entrypoint::app::AppPayload},
         context::PrivateContext,
         macros::{
             functions::{allow_phase_change, external, initializer, noinitcheck, view},
             storage::storage,
         },
         messages::message_delivery::MessageDelivery,
-        oracle::{auth_witness::get_auth_witness, notes::{get_sender_for_tags, set_sender_for_tags}},
+        oracle::{
+            auth_witness::get_auth_witness_as_bytes,
+            notes::{get_sender_for_tags, set_sender_for_tags},
+        },
         state_vars::SinglePrivateImmutable,
     };
 
@@ -84,12 +84,9 @@ pub contract EcdsaKAccount {
         let storage = Storage::init(context);
         let public_key = storage.signing_public_key.get_note();
 
-        // Safety: untrusted oracle output is safe here because:
-        // 1. `auth_witness_to_byte_signature` range-checks every field to a single byte (prevents aliasing, e.g. b + 256).
-        // 2. The signature is then verified against the account's public key and the contract-computed `outer_hash`,
-        //    so a fabricated or wrong-hash witness is rejected by the signature scheme.
-        let witness: [Field; 64] = unsafe { get_auth_witness(outer_hash) };
-        let signature = auth_witness_to_byte_signature(witness);
+        // Safety: the witness is only a magical value that makes signature verification pass.
+        // A fabricated or wrong-hash witness is rejected by the signature scheme below.
+        let signature: [u8; 64] = unsafe { get_auth_witness_as_bytes(outer_hash) };
 
         // Verify payload signature using Ethereum's signing scheme
         // Note that noir expects the hash of the message/challenge as input to the ECDSA verification.

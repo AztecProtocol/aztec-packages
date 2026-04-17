@@ -4,13 +4,10 @@ use aztec::macros::aztec;
 #[aztec]
 pub contract SchnorrHardcodedAccount {
     use aztec::{
-        authwit::{
-            account::AccountActions, entrypoint::app::AppPayload,
-            signature_witness::auth_witness_to_byte_signature,
-        },
+        authwit::{account::AccountActions, entrypoint::app::AppPayload},
         context::PrivateContext,
         macros::functions::{allow_phase_change, external, view},
-        oracle::{auth_witness::get_auth_witness, notes::set_sender_for_tags},
+        oracle::{auth_witness::get_auth_witness_as_bytes, notes::set_sender_for_tags},
     };
     use std::embedded_curve_ops::EmbeddedCurvePoint;
 
@@ -41,12 +38,9 @@ pub contract SchnorrHardcodedAccount {
 
     #[contract_library_method]
     fn is_valid_impl(_context: &mut PrivateContext, outer_hash: Field) -> bool {
-        // Safety: untrusted oracle output is safe here because:
-        // 1. `auth_witness_to_byte_signature` range-checks every field to a single byte (prevents aliasing, e.g. b + 256).
-        // 2. The signature is then verified against the hardcoded public key and the contract-computed `outer_hash`,
-        //    so a fabricated or wrong-hash witness is rejected by the signature scheme.
-        let witness: [Field; 64] = unsafe { get_auth_witness(outer_hash) };
-        let signature = auth_witness_to_byte_signature(witness);
+        // Safety: the witness is only a magical value that makes signature verification pass.
+        // A fabricated or wrong-hash witness is rejected by the signature scheme below.
+        let signature: [u8; 64] = unsafe { get_auth_witness_as_bytes(outer_hash) };
 
         // Verify signature using hardcoded public key
         schnorr::verify_signature(

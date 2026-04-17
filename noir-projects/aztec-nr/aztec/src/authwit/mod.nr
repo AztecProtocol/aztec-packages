@@ -6,4 +6,3 @@ mod authorization_selector;
 pub use authorization_selector::AuthorizationSelector;
 pub mod auth;
 pub mod entrypoint;
-pub mod signature_witness;

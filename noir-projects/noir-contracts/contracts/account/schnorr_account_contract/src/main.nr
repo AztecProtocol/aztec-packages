@@ -11,7 +11,6 @@ pub contract SchnorrAccount {
             account::AccountActions,
             auth::{compute_authwit_message_hash, compute_authwit_nullifier},
             entrypoint::app::AppPayload,
-            signature_witness::auth_witness_to_byte_signature,
         },
         context::PrivateContext,
         hash::compute_siloed_nullifier,
@@ -21,7 +20,7 @@ pub contract SchnorrAccount {
         },
         messages::message_delivery::MessageDelivery,
         oracle::{
-            auth_witness::get_auth_witness,
+            auth_witness::get_auth_witness_as_bytes,
             get_nullifier_membership_witness::get_low_nullifier_membership_witness,
             notes::{get_sender_for_tags, set_sender_for_tags},
         },
@@ -96,12 +95,9 @@ pub contract SchnorrAccount {
         let storage = Storage::init(context);
         let public_key = storage.signing_public_key.get_note();
 
-        // Safety: untrusted oracle output is safe here because:
-        // 1. `auth_witness_to_byte_signature` range-checks every field to a single byte (prevents aliasing, e.g. b + 256).
-        // 2. The signature is then verified against the account's public key and the contract-computed `outer_hash`,
-        //    so a fabricated or wrong-hash witness is rejected by the signature scheme.
-        let witness: [Field; 64] = unsafe { get_auth_witness(outer_hash) };
-        let signature = auth_witness_to_byte_signature(witness);
+        // Safety: the witness is only a magical value that makes signature verification pass.
+        // A fabricated or wrong-hash witness is rejected by the signature scheme below.
+        let signature: [u8; 64] = unsafe { get_auth_witness_as_bytes(outer_hash) };
 
         let pub_key =
             std::embedded_curve_ops::EmbeddedCurvePoint { x: public_key.x, y: public_key.y };
@@ -127,8 +123,7 @@ pub contract SchnorrAccount {
             inner_hash,
         );
 
-        let witness: [Field; 64] = get_auth_witness(message_hash);
-        let signature = auth_witness_to_byte_signature(witness);
+        let signature: [u8; 64] = get_auth_witness_as_bytes(message_hash);
         let pub_key =
             std::embedded_curve_ops::EmbeddedCurvePoint { x: public_key.x, y: public_key.y };
         let valid_in_private =
