@@ -327,7 +327,7 @@ ${methods}
       const schemaName = `    static constexpr const char MSGPACK_SCHEMA_NAME[] = "${s.name}";`;
       const serialization = fieldNames
         ? `    SERIALIZATION_FIELDS(${fieldNames})`
-        : `    void msgpack(auto&& pack_fn) { pack_fn(); }`;
+        : `    template <typename _PackFn> void msgpack(_PackFn&& pack_fn) { pack_fn(); }`;
       return `struct ${s.name} {\n${schemaName}\n${fields}\n${serialization}\n    bool operator==(const ${s.name}&) const = default;\n};`;
     }).join('\n\n');
 
@@ -374,7 +374,8 @@ ${methods}
 #define _SF_CAT(a, b) a##b
 #define _SF_SEL(n) _SF_CAT(_SF_E, n)
 #define _SF_NVP(...) _SF_SEL(_SF_NUM(__VA_ARGS__))(__VA_ARGS__)
-#define SERIALIZATION_FIELDS(...) void msgpack(auto pack_fn) { pack_fn(_SF_NVP(__VA_ARGS__)); }
+#define SERIALIZATION_FIELDS(...) \\
+    template <typename _PackFn> void msgpack(_PackFn pack_fn) { pack_fn(_SF_NVP(__VA_ARGS__)); }
 #endif
 
 /// 32-byte field element (Fr/Fq). Fixed-size, stack-allocated.
@@ -606,7 +607,7 @@ ${methods}
       const fieldNames = struct.fields.map(f => f.name).join(', ');
       const serialization = fieldNames
         ? `    SERIALIZATION_FIELDS(${fieldNames});`
-        : `    void msgpack(auto&& pack_fn) { pack_fn(); }`;
+        : `    template <typename _PackFn> void msgpack(_PackFn&& pack_fn) { pack_fn(); }`;
       helperStructs.push(
         `struct ${name} {\n    static constexpr const char MSGPACK_SCHEMA_NAME[] = "${name}";\n${fields}\n${serialization}\n    bool operator==(const ${name}&) const = default;\n};`
       );
@@ -626,7 +627,7 @@ ${methods}
       const cmdFieldNames = cmd.fields.map(f => f.name).join(', ');
       const cmdSerialization = cmdFieldNames
         ? `    SERIALIZATION_FIELDS(${cmdFieldNames});`
-        : `    void msgpack(auto&& pack_fn) { pack_fn(); }`;
+        : `    template <typename _PackFn> void msgpack(_PackFn&& pack_fn) { pack_fn(); }`;
 
       // Response fields
       let responseBlock: string;
@@ -642,7 +643,7 @@ ${respFields}
       } else {
         responseBlock = `    struct Response {
         static constexpr const char MSGPACK_SCHEMA_NAME[] = "${cmd.responseType}";
-        void msgpack(auto&& pack_fn) { pack_fn(); }
+        template <typename _PackFn> void msgpack(_PackFn&& pack_fn) { pack_fn(); }
         bool operator==(const Response&) const = default;
     };`;
       }
