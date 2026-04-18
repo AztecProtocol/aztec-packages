@@ -145,7 +145,7 @@ export class EpochsTestContext {
         proverId: EthAddress.fromNumber(1),
         worldStateCheckpointHistory: WORLD_STATE_CHECKPOINT_HISTORY,
         exitDelaySeconds: DefaultL1ContractsConfig.exitDelaySeconds,
-        slasherFlavor: 'none',
+        slasherEnabled: false,
         l1PublishingTime,
         ...opts,
       },
@@ -223,7 +223,7 @@ export class EpochsTestContext {
           },
         },
         {
-          prefilledPublicData: this.context.prefilledPublicData ?? [],
+          genesis: this.context.genesis,
           dontStart: opts.dontStart,
         },
       ),
@@ -278,7 +278,7 @@ export class EpochsTestContext {
           slashingProtectionDb: opts.slashingProtectionDb,
         },
         {
-          prefilledPublicData: this.context.prefilledPublicData,
+          genesis: this.context.genesis,
           ...opts,
         },
       ),

@@ -85,6 +85,7 @@ describe('e2e_p2p_duplicate_attestation_slash', () => {
         slashAmountLarge: slashingUnit * 3n,
         enforceTimeTable: true,
         blockDurationMs: BLOCK_DURATION * 1000,
+        l1PublishingTime: 1,
         slashDuplicateProposalPenalty: slashingUnit,
         slashDuplicateAttestationPenalty: slashingUnit,
         slashingOffsetInRounds: 1,
@@ -152,7 +153,7 @@ describe('e2e_p2p_duplicate_attestation_slash', () => {
       BOOT_NODE_UDP_PORT + 1,
       t.bootstrapNodeEnr,
       maliciousProposerIndex,
-      t.prefilledPublicData,
+      t.genesis,
       `${DATA_DIR}-0`,
       shouldCollectMetrics(),
     );
@@ -174,7 +175,7 @@ describe('e2e_p2p_duplicate_attestation_slash', () => {
       BOOT_NODE_UDP_PORT + 2,
       t.bootstrapNodeEnr,
       maliciousProposerIndex,
-      t.prefilledPublicData,
+      t.genesis,
       `${DATA_DIR}-1`,
       shouldCollectMetrics(),
     );
@@ -190,7 +191,7 @@ describe('e2e_p2p_duplicate_attestation_slash', () => {
       BOOT_NODE_UDP_PORT + 3,
       t.bootstrapNodeEnr,
       1,
-      t.prefilledPublicData,
+      t.genesis,
       `${DATA_DIR}-2`,
       shouldCollectMetrics(),
     );
@@ -203,7 +204,7 @@ describe('e2e_p2p_duplicate_attestation_slash', () => {
       BOOT_NODE_UDP_PORT + 4,
       t.bootstrapNodeEnr,
       2,
-      t.prefilledPublicData,
+      t.genesis,
       `${DATA_DIR}-3`,
       shouldCollectMetrics(),
     );

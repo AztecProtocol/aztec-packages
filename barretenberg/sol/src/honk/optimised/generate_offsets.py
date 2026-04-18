@@ -187,7 +187,7 @@ def print_proof(pointer: int):
 BATCHED_RELATION_PARTIAL_LENGTH = 8
 PROOF_SIZE_LOG_N = 15
 NUMBER_OF_ENTITIES = 41
-NUMBER_OF_SUBRELATIONS = 28
+NUMBER_OF_SUBRELATIONS = 29
 NUMBER_OF_ALPHAS = NUMBER_OF_SUBRELATIONS - 1
 # For the meantime we will load the entire proof into memory here
 # however i predict that it will be more efficient to load in the sumcheck univars

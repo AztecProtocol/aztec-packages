@@ -20,7 +20,7 @@ pub contract SchnorrAccount {
         },
         messages::message_delivery::MessageDelivery,
         oracle::{
-            auth_witness::get_auth_witness,
+            auth_witness::get_auth_witness_as_bytes,
             get_nullifier_membership_witness::get_low_nullifier_membership_witness,
             notes::{get_sender_for_tags, set_sender_for_tags},
         },
@@ -95,20 +95,12 @@ pub contract SchnorrAccount {
         let storage = Storage::init(context);
         let public_key = storage.signing_public_key.get_note();
 
-        // Load auth witness
         // Safety: The witness is only used as a "magical value" that makes the signature verification below pass.
         // Hence it's safe.
-        let witness: [Field; 64] = unsafe { get_auth_witness(outer_hash) };
-        let mut signature: [u8; 64] = [0; 64];
-        for i in 0..64 {
-            signature[i] = witness[i] as u8;
-        }
+        let signature: [u8; 64] = unsafe { get_auth_witness_as_bytes(outer_hash) };
 
-        let pub_key = std::embedded_curve_ops::EmbeddedCurvePoint {
-            x: public_key.x,
-            y: public_key.y,
-            is_infinite: false,
-        };
+        let pub_key =
+            std::embedded_curve_ops::EmbeddedCurvePoint { x: public_key.x, y: public_key.y };
         // Verify signature of the payload bytes
         schnorr::verify_signature(pub_key, signature, outer_hash.to_be_bytes::<32>())
         // docs:end:is_valid_impl
@@ -131,16 +123,9 @@ pub contract SchnorrAccount {
             inner_hash,
         );
 
-        let witness: [Field; 64] = get_auth_witness(message_hash);
-        let mut signature: [u8; 64] = [0; 64];
-        for i in 0..64 {
-            signature[i] = witness[i] as u8;
-        }
-        let pub_key = std::embedded_curve_ops::EmbeddedCurvePoint {
-            x: public_key.x,
-            y: public_key.y,
-            is_infinite: false,
-        };
+        let signature: [u8; 64] = get_auth_witness_as_bytes(message_hash);
+        let pub_key =
+            std::embedded_curve_ops::EmbeddedCurvePoint { x: public_key.x, y: public_key.y };
         let valid_in_private =
             schnorr::verify_signature(pub_key, signature, message_hash.to_be_bytes::<32>());
 
@@ -149,9 +134,9 @@ pub contract SchnorrAccount {
         // it is not as part of execution of the contract, so we are good.
         let nullifier = compute_authwit_nullifier(self.address, inner_hash);
         let siloed_nullifier = compute_siloed_nullifier(consumer, nullifier);
-        let lower_wit =
+        let (low_leaf_preimage, _witness) =
             get_low_nullifier_membership_witness(self.context.block_header(), siloed_nullifier);
-        let is_spent = lower_wit.leaf_preimage.nullifier == siloed_nullifier;
+        let is_spent = low_leaf_preimage.nullifier == siloed_nullifier;
 
         !is_spent & valid_in_private
     }

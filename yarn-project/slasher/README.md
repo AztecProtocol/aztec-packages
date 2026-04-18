@@ -16,15 +16,9 @@ No manual intervention is required for normal operation. The slasher client hand
 - Generating appropriate slash actions
 - Coordinating with the SequencerPublisher for L1 execution
 
-## Slashing Models
+## Slashing Model
 
-The system supports two slashing models:
-
-### Tally Model
-
-_This is the model currently in use._
-
-The tally model uses consensus-based voting where proposers vote on individual validator offenses. Time is divided into rounds, and during each round, proposers submit votes indicating which validators from a given past round should be slashed (eg round N votes to slash the validators from round N-2). Votes are encoded as bytes where each validator's vote is represented by 2 bits indicating the slash amount (0-3 slash units) for each validator. The L1 contract tallies votes and slashes validators that reach quorum.
+The slashing model uses consensus-based voting where proposers vote on individual validator offenses. Time is divided into rounds, and during each round, proposers submit votes indicating which validators from a given past round should be slashed (eg round N votes to slash the validators from round N-2). Votes are encoded as bytes where each validator's vote is represented by 2 bits indicating the slash amount (0-3 slash units) for each validator. The L1 contract tallies votes and slashes validators that reach quorum.
 
 Key characteristics:
 - Proposers vote directly on validator offenses
@@ -34,23 +28,12 @@ Key characteristics:
 - Execution happens after a delay period for review
 - Slash payloads can be vetoed during the execution delay period
 
-### Empire Model
-
-_This model was developed during an earlier iteration and later modified, but never tested in a real network. It remains in the code in case we decide to switch from the tally model in the future._
-
-The empire model piggybacks on the empire governance system and uses fixed slash payloads that are created and voted on. Proposers aggregate pending offenses and create payloads containing multiple offenses, or vote for existing payloads. The payload with the highest score (based on total offenses, votes received, and round progress) gets executed.
-
-Key characteristics:
-- Fixed payloads containing multiple offenses
-- Payload scoring system for selection
-- Requires agreement on payload contents (main reason why it was dropped in favor of the Tally model)
-
 ## Architecture
 
 ### Core Components
 
 #### SlasherClientInterface
-Common interface implemented by both tally and empire clients. Provides methods for:
+Interface implemented by the slasher client. Provides methods for:
 - `getProposerActions()`: Returns actions for the current proposer
 - `gatherOffensesForRound()`: Collects offenses for a specific round
 
@@ -73,11 +56,8 @@ Monitors slashing rounds and triggers actions on round transitions:
 
 #### ProposerSlashAction
 Actions returned by the slasher client to the SequencerPublisher:
-- `vote-offenses`: Vote on validator offenses (tally model)
-- `execute-slash`: Execute slashing for a round that reached quorum (tally model)
-- `create-empire-payload`: Create a new slash payload (empire model)
-- `vote-empire-payload`: Vote for an existing payload (empire model)
-- `execute-empire-payload`: Execute a payload with sufficient votes (empire model)
+- `vote-offenses`: Vote on validator offenses
+- `execute-slash`: Execute slashing for a round that reached quorum
 
 ### Integration Flow
 
@@ -101,39 +81,39 @@ Key features:
 List of all slashable offenses in the system:
 
 ### DATA_WITHHOLDING
-**Description**: The data required for proving an epoch was not made publicly available.  
-**Detection**: EpochPruneWatcher detects when an epoch cannot be proven due to missing data.  
-**Target**: Committee members of the affected epoch.  
+**Description**: The data required for proving an epoch was not made publicly available.
+**Detection**: EpochPruneWatcher detects when an epoch cannot be proven due to missing data.
+**Target**: Committee members of the affected epoch.
 **Time Unit**: Epoch-based offense.
 
 ### VALID_EPOCH_PRUNED
-**Description**: An epoch was not successfully proven within the proof submission window.  
-**Detection**: EpochPruneWatcher monitors epochs that expire without valid proofs.  
-**Target**: Committee members of the unpruned epoch.  
+**Description**: An epoch was not successfully proven within the proof submission window.
+**Detection**: EpochPruneWatcher monitors epochs that expire without valid proofs.
+**Target**: Committee members of the unpruned epoch.
 **Time Unit**: Epoch-based offense.
 
 ### INACTIVITY
-**Description**: A proposer failed to attest or propose blocks during their assigned slots.  
-**Detection**: Sentinel tracks validator performance and identifies validators who miss attestations beyond threshold.  
-**Target**: Individual inactive validator.  
+**Description**: A proposer failed to attest or propose blocks during their assigned slots.
+**Detection**: Sentinel tracks validator performance and identifies validators who miss attestations beyond threshold.
+**Target**: Individual inactive validator.
 **Time Unit**: Epoch-based offense.
 
 ### BROADCASTED_INVALID_BLOCK_PROPOSAL
-**Description**: A proposer broadcast an invalid block proposal over the p2p network.  
-**Detection**: Validators detect invalid proposals during attestation validation.  
-**Target**: Proposer who broadcast the invalid block.  
-**Time Unit**: Slot-based offense.  
+**Description**: A proposer broadcast an invalid block proposal over the p2p network.
+**Detection**: Validators detect invalid proposals during attestation validation.
+**Target**: Proposer who broadcast the invalid block.
+**Time Unit**: Slot-based offense.
 
 ### PROPOSED_INSUFFICIENT_ATTESTATIONS
-**Description**: A proposer submitted a block to L1 without sufficient committee attestations.  
-**Detection**: AttestationsBlockWatcher checks L1 blocks for attestation count.  
-**Target**: Block proposer.  
+**Description**: A proposer submitted a block to L1 without sufficient committee attestations.
+**Detection**: AttestationsBlockWatcher checks L1 blocks for attestation count.
+**Target**: Block proposer.
 **Time Unit**: Slot-based offense.
 
 ### PROPOSED_INCORRECT_ATTESTATIONS
-**Description**: A proposer submitted a block to L1 with signatures from non-committee members.  
-**Detection**: AttestationsBlockWatcher validates attestation signatures against committee membership.  
-**Target**: Block proposer.  
+**Description**: A proposer submitted a block to L1 with signatures from non-committee members.
+**Detection**: AttestationsBlockWatcher validates attestation signatures against committee membership.
+**Target**: Block proposer.
 **Time Unit**: Slot-based offense.
 
 ### ATTESTED_DESCENDANT_OF_INVALID
@@ -155,15 +135,15 @@ These settings are deployed with the L1 contracts and apply system-wide to the p
 
 - `slashingQuorumSize`: Votes required to slash (defaults to half the validators in a round, plus one)
 - `slashingRoundSizeInEpochs`: Number of epochs per slashing round
-- `slashingOffsetInRounds`: How many rounds to look back for offenses (tally model)
+- `slashingOffsetInRounds`: How many rounds to look back for offenses
 - `slashingExecutionDelayInRounds`: Rounds to wait before execution
 - `slashingLifetimeInRounds`: Maximum age of executable rounds
-- `slashingAmounts`: Valid values for each individual slash (tally model)
+- `slashingAmounts`: Valid values for each individual slash
 
 Considerations:
 
 - The `slashingQuorumSize` should be more than half and less than the total number of validators in a round, so that we require a majority to slash. The number of validators in a round is the committee size times the number of epochs in a round.
-- The bigger a `slashingRoundSizeInEpochs`, the bigger the upper bound on the quorum size. This increases security, as we need more validators to agree before slashing. However, it also makes slashing slower, and more expensive to execute in terms of gas in the tally model.
+- The bigger a `slashingRoundSizeInEpochs`, the bigger the upper bound on the quorum size. This increases security, as we need more validators to agree before slashing. However, it also makes slashing slower, and more expensive to execute in terms of gas.
 - The `slashingOffsetInRounds` is required because the validators in a given slashing round must vote for _past_ offenses. Otherwise, if someone commits an offense near the end of a round, they can get away with their offense without the validators being able to collect enough votes to slash them. The offset needs to be big enough so that all offenses are discoverable, so this value should be strictly greater than the proof submission window in order to be able to slash for epoch prunes or data withholding.
 - The `slashingExecutionDelayInRounds` allows vetoers to stop an invalid slash. This should be large enough to give vetoers time to act, but strictly smaller than the validator exit window, so an offender cannot escape before they are slashed. It should also be small enough so that an offender that would be kicked out does not get picked up to be a committee member again before their slash is executed. In other words, if a validator commits a serious enough offense that we want them out of the validator set as soon as possible, the execution delay should not allow them to be chosen to participate in another committee.
 
@@ -185,9 +165,7 @@ These settings are configured locally on each validator node:
 - `slashProposeInvalidAttestationsPenalty`: Penalty for PROPOSED_INSUFFICIENT_ATTESTATIONS and PROPOSED_INCORRECT_ATTESTATIONS
 - `slashAttestDescendantOfInvalidPenalty`: Penalty for ATTESTED_DESCENDANT_OF_INVALID
 - `slashUnknownPenalty`: Default penalty for unknown offense types
-- `slashMaxPayloadSize`: Maximum size of slash payloads. In the empire model this limits offenses per payload. In the tally model it limits the number of **unique validators** (across all committees and epochs in a round) that receive non-zero votes. When this cap is hit, the lowest-severity validator-epoch pairs are zeroed out first, so the most severe slashes are always preserved. Note that multiple offenses for the same validator in the same epoch are summed and counted as a single validator entry against this limit.
-- `slashMinPenaltyPercentage`: Agree to slashes if they are at least this percentage of the configured penalty (empire model)
-- `slashMaxPenaltyPercentage`: Agree to slashes if they are at most this percentage of the configured penalty (empire model)
+- `slashMaxPayloadSize`: Limits the number of **unique validators** (across all committees and epochs in a round) that receive non-zero votes. When this cap is hit, the lowest-severity validator-epoch pairs are zeroed out first, so the most severe slashes are always preserved. Note that multiple offenses for the same validator in the same epoch are summed and counted as a single validator entry against this limit.
 
 Considerations:
 
@@ -224,5 +202,3 @@ total_failures / total >= slash_inactivity_target_percentage
 ```
 
 They are voted to be slashed for inactivity. Note that, if `slashInactivityConsecutiveEpochThreshold` is greater than one, we first check if the above is true for the last `threshold` times the given validator was part of a committee, and only then trigger the offense.
-
-

@@ -182,7 +182,7 @@ TEST(ExecOpIdConstrainingTest, InteractionWithExecInstructionSpec)
         trace.set(C::execution_sel_should_execute_opcode, static_cast<uint32_t>(i + 1), 1);
         trace.set(C::execution_sel_exec_dispatch_execution, static_cast<uint32_t>(i + 1), 1);
         trace.set(SELECTOR_COLUMNS.at(i), static_cast<uint32_t>(i + 1), 1);
-        trace.set(C::execution_ex_opcode,
+        trace.set(C::execution_exec_opcode,
                   static_cast<uint32_t>(i + 1),
                   static_cast<uint8_t>(events.at(i).wire_instruction.get_exec_opcode()));
     }

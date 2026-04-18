@@ -1,7 +1,6 @@
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { BlockNumber, BlockNumberSchema } from '@aztec/foundation/branded-types';
-import { Fr } from '@aztec/foundation/curves/bn254';
 import { BufferReader } from '@aztec/foundation/serialize';
 
 import { z } from 'zod';
@@ -83,7 +82,7 @@ export class LogId {
     const reader = BufferReader.asReader(buffer);
 
     const blockNumber = BlockNumber(reader.readNumber());
-    const blockHash = new BlockHash(reader.readObject(Fr));
+    const blockHash = BlockHash.fromBuffer(reader);
     const txHash = reader.readObject(TxHash);
     const txIndex = reader.readNumber();
     const logIndex = reader.readNumber();

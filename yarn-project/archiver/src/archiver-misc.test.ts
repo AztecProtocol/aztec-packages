@@ -66,7 +66,6 @@ describe('Archiver misc', () => {
       {
         registryAddress: EthAddress.random(),
         governanceProposerAddress: EthAddress.random(),
-        slashFactoryAddress: EthAddress.random(),
         slashingProposerAddress: EthAddress.random(),
       },
       archiverStore,

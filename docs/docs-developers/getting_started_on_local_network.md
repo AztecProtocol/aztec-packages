@@ -8,7 +8,7 @@ tags: [local_network, testnet]
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
-Get started on your local environment using a local network.
+Get started on your local environment using a local network. If you'd rather deploy to a live network, read the [getting started on testnet guide](./getting_started_on_testnet.md).
 
 The local network is a local development Aztec network running fully on your machine, and interacting with a development Ethereum node. You can develop and deploy on it just like on a testnet or mainnet (when the time comes). The local network makes it faster and easier to develop and test your Aztec applications.
 
@@ -26,6 +26,11 @@ This guide will teach you how to install the Aztec local network, run it using t
 import { General, Fees } from '@site/src/components/Snippets/general_snippets';
 
 - <General.node_ver />
+
+### macOS-specific requirements
+
+- **Homebrew**: [Homebrew](https://brew.sh/) is required for installing dependencies on macOS.
+- **Bash**: macOS ships with an outdated version of Bash (v3.2) that is known to cause issues with the Aztec installer. Install a modern version with `brew install bash`. Even if you use zsh as your default shell, the installer explicitly invokes `bash`. If the installer still picks up the old version, add the Homebrew `bash` to your `$PATH` or [set it as your default shell](https://support.apple.com/en-gb/guide/terminal/trml113/mac).
 
 ## Install and run the local network
 
@@ -252,4 +257,5 @@ Simulation result:  25n
 Want to build something cool on Aztec?
 
 - Check out the [Token Contract Tutorial](./docs/tutorials/contract_tutorials/token_contract.md) for a beginner tutorial, or jump into more advanced ones
+- Ready for a live network? Try [deploying on testnet](./getting_started_on_testnet.md)
 - Start on your own thing and check out the How To Guides to help you!

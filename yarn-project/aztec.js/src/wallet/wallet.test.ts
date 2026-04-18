@@ -26,6 +26,7 @@ import {
   type SendReturn,
 } from '../contract/interaction_options.js';
 import type { AppCapabilities, WalletCapabilities } from './capabilities.js';
+import { TxSimulationResultWithAppOffset } from './tx_simulation_result_with_app_offset.js';
 import type {
   Aliased,
   BatchResults,
@@ -166,7 +167,7 @@ describe('WalletSchema', () => {
       from: await AztecAddress.random(),
     };
     const result = await context.client.simulateTx(exec, opts);
-    expect(result).toBeInstanceOf(TxSimulationResult);
+    expect(result).toBeInstanceOf(TxSimulationResultWithAppOffset);
   });
 
   it('executeUtility', async () => {
@@ -368,7 +369,7 @@ describe('WalletSchema', () => {
       name: 'registerContract',
       result: expect.objectContaining({ address: expect.any(AztecAddress) }),
     });
-    expect(results[8]).toEqual({ name: 'simulateTx', result: expect.any(TxSimulationResult) });
+    expect(results[8]).toEqual({ name: 'simulateTx', result: expect.any(TxSimulationResultWithAppOffset) });
     expect(results[9]).toEqual({ name: 'executeUtility', result: expect.any(UtilityExecutionResult) });
     expect(results[10]).toEqual({ name: 'profileTx', result: expect.any(TxProfileResult) });
     expect(results[11]).toEqual({
@@ -447,8 +448,8 @@ class MockWallet implements Wallet {
     };
   }
 
-  simulateTx(_exec: ExecutionPayload, _opts: SimulateOptions): Promise<TxSimulationResult> {
-    return Promise.resolve(TxSimulationResult.random());
+  async simulateTx(_exec: ExecutionPayload, _opts: SimulateOptions): Promise<TxSimulationResultWithAppOffset> {
+    return TxSimulationResultWithAppOffset.fromResultAndOffset(await TxSimulationResult.random(), 0);
   }
 
   executeUtility(

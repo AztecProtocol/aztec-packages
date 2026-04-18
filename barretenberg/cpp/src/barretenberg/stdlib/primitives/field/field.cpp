@@ -1102,7 +1102,7 @@ void field_t<Builder>::evaluate_linear_identity(
     Builder* ctx = validate_context(a.context, b.context, c.context, d.context);
 
     if (a.is_constant() && b.is_constant() && c.is_constant() && d.is_constant()) {
-        BB_ASSERT_EQ(a.get_value() + b.get_value() + c.get_value() + d.get_value(), 0);
+        BB_ASSERT_EQ(a.get_value() + b.get_value() + c.get_value() + d.get_value(), 0, msg);
         return;
     }
 
@@ -1136,7 +1136,7 @@ void field_t<Builder>::evaluate_polynomial_identity(
     const field_t& a, const field_t& b, const field_t& c, const field_t& d, const std::string& msg)
 {
     if (a.is_constant() && b.is_constant() && c.is_constant() && d.is_constant()) {
-        BB_ASSERT((a.get_value() * b.get_value() + c.get_value() + d.get_value()).is_zero());
+        BB_ASSERT((a.get_value() * b.get_value() + c.get_value() + d.get_value()).is_zero(), msg);
         return;
     }
 

@@ -267,6 +267,7 @@ export class ArchiverL1Synchronizer implements Traceable {
       `Pruning blocks after block ${lastCheckpointedBlockNumber} due to slot ${firstUncheckpointedBlockSlot} not being checkpointed`,
       { firstUncheckpointedBlockHeader: firstUncheckpointedBlockHeader.toInspect(), slotAtNextL1Block },
     );
+
     const prunedBlocks = await this.updater.removeUncheckpointedBlocksAfter(lastCheckpointedBlockNumber);
 
     if (prunedBlocks.length > 0) {
@@ -836,10 +837,13 @@ export class ArchiverL1Synchronizer implements Traceable {
             this.updater.addCheckpoints(validCheckpoints, updatedValidationResult),
           ),
         );
-        this.instrumentation.processNewBlocks(
-          processDuration / validCheckpoints.length,
-          validCheckpoints.flatMap(c => c.checkpoint.blocks),
-        );
+
+        if (validCheckpoints.length > 0) {
+          this.instrumentation.processNewCheckpointedBlocks(
+            processDuration / validCheckpoints.length,
+            validCheckpoints.flatMap(c => c.checkpoint.blocks),
+          );
+        }
 
         // If blocks were pruned due to conflict with L1 checkpoints, emit event
         if (result.prunedBlocks && result.prunedBlocks.length > 0) {

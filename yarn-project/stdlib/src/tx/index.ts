@@ -24,6 +24,7 @@ export * from './validator/tx_validator.js';
 export * from './validator/empty_validator.js';
 export * from './validator/error_texts.js';
 export * from './capsule.js';
+export * from './fee_provider.js';
 export * from './global_variable_builder.js';
 export * from './hashed_values.js';
 export * from './indexed_tx_effect.js';

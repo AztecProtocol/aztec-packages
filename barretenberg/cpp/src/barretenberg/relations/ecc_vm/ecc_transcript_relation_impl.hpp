@@ -566,5 +566,14 @@ void ECCVMTranscriptRelationImpl<FF>::accumulate(ContainerOverSubrelations& accu
         is_accumulator_empty * transcript_accumulator_x * scaling_factor; // degree 2
     std::get<INFINITY_ACC_Y>(accumulator) +=
         is_accumulator_empty * transcript_accumulator_y * scaling_factor; // degree 2
+
+    /**
+     * @brief Enforce accumulator_not_empty = 0 at the lagrange_first row.
+     * Without this, a malicious prover can set accumulator_not_empty = 1 at the lagrange_first row,
+     * which disables INFINITY_ACC_X/Y above, allowing arbitrary accumulator coordinates to be injected
+     * without any relation catching it.
+     */
+    std::get<ACCUMULATOR_NOT_EMPTY_INIT>(accumulator) +=
+        lagrange_first * View(in.transcript_accumulator_not_empty) * scaling_factor; // degree 2
 }
 } // namespace bb

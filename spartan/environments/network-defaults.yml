@@ -79,8 +79,8 @@ l1-contracts: &l1-contracts-defaults
   #---------------------------------------------------------------------------
   # Slashing Protocol Configuration
   #---------------------------------------------------------------------------
-  # Type of slasher: 'empire', 'tally', or 'none'.
-  AZTEC_SLASHER_FLAVOR: tally
+  # Whether to deploy a slasher proposer.
+  AZTEC_SLASHER_ENABLED: true
   # How many epochs in a slashing round.
   AZTEC_SLASHING_ROUND_SIZE_IN_EPOCHS: 4
   # How many rounds a slashing payload is valid.
@@ -113,10 +113,6 @@ l1-contracts: &l1-contracts-defaults
 # Used by yarn-project/slasher for penalty calculation and offense tracking.
 
 slasher: &slasher
-  # Minimum penalty percentage multiplier.
-  SLASH_MIN_PENALTY_PERCENTAGE: 0.5
-  # Maximum penalty percentage multiplier.
-  SLASH_MAX_PENALTY_PERCENTAGE: 2.0
   # Rounds after which an offense expires.
   SLASH_OFFENSE_EXPIRATION_ROUNDS: 4
   # Maximum size of slashing payload.
