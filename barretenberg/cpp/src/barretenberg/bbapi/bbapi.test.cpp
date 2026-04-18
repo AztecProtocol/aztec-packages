@@ -185,28 +185,28 @@ TEST(BBApiInputValidation, MsgpackLoadRejectsTrailingData)
 // encrypt zero-padded tail bytes.
 TEST(BBApiInputValidation, AesEncryptRejectsLengthMismatch)
 {
-    bbapi::BBApiRequest request{};
-    bbapi::AesEncrypt cmd{ .plaintext = std::vector<uint8_t>(16, 0), .iv = {}, .key = {}, .length = 32 };
+    bbapi::BbRequest request{};
+    bbapi::BbAesEncrypt cmd{ .plaintext = std::vector<uint8_t>(16, 0), .iv = {}, .key = {}, .length = 32 };
     EXPECT_THROW_OR_ABORT(std::move(cmd).execute(request), ".*length must equal plaintext.*");
 }
 
 TEST(BBApiInputValidation, AesEncryptRejectsNonBlockAlignedLength)
 {
-    bbapi::BBApiRequest request{};
-    bbapi::AesEncrypt cmd{ .plaintext = std::vector<uint8_t>(17, 0), .iv = {}, .key = {}, .length = 17 };
+    bbapi::BbRequest request{};
+    bbapi::BbAesEncrypt cmd{ .plaintext = std::vector<uint8_t>(17, 0), .iv = {}, .key = {}, .length = 17 };
     EXPECT_THROW_OR_ABORT(std::move(cmd).execute(request), ".*multiple of 16.*");
 }
 
 TEST(BBApiInputValidation, AesDecryptRejectsLengthMismatch)
 {
-    bbapi::BBApiRequest request{};
-    bbapi::AesDecrypt cmd{ .ciphertext = std::vector<uint8_t>(16, 0), .iv = {}, .key = {}, .length = 32 };
+    bbapi::BbRequest request{};
+    bbapi::BbAesDecrypt cmd{ .ciphertext = std::vector<uint8_t>(16, 0), .iv = {}, .key = {}, .length = 32 };
     EXPECT_THROW_OR_ABORT(std::move(cmd).execute(request), ".*length must equal ciphertext.*");
 }
 
 TEST(BBApiInputValidation, AesDecryptRejectsNonBlockAlignedLength)
 {
-    bbapi::BBApiRequest request{};
-    bbapi::AesDecrypt cmd{ .ciphertext = std::vector<uint8_t>(17, 0), .iv = {}, .key = {}, .length = 17 };
+    bbapi::BbRequest request{};
+    bbapi::BbAesDecrypt cmd{ .ciphertext = std::vector<uint8_t>(17, 0), .iv = {}, .key = {}, .length = 17 };
     EXPECT_THROW_OR_ABORT(std::move(cmd).execute(request), ".*multiple of 16.*");
 }
