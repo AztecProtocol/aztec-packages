@@ -5,6 +5,7 @@
 #include "barretenberg/serialize/msgpack_impl.hpp"
 #include "bb_bench.hpp"
 #include <algorithm>
+#include <atomic>
 #include <cassert>
 #include <chrono>
 #include <cmath>
@@ -172,6 +173,8 @@ namespace bb::detail {
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 bool use_bb_bench = std::getenv("BB_BENCH") == nullptr ? false : std::string(std::getenv("BB_BENCH")) == "1";
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
+std::atomic<bool> capture_per_call_events{ false };
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 using OperationKey = std::string_view;
 
 void AggregateEntry::add_thread_time_sample(const TimeAndCount& stats)
@@ -244,6 +247,29 @@ void GlobalBenchStatsContainer::add_entry(const char* key, const std::shared_ptr
     std::unique_lock<std::mutex> lock(mutex);
     entry->key = key;
     entries.push_back(entry);
+}
+
+void GlobalBenchStatsContainer::register_thread_event_buffer(ThreadEventBuffer* buf)
+{
+    std::unique_lock<std::mutex> lock(event_mutex);
+    // Reserve up front: avoids reallocation churn when a worker thread emits
+    // tens of thousands of events over a full Chonk prove.
+    buf->events.reserve(1U << 14U);
+    thread_event_buffers.push_back(buf);
+}
+
+ThreadEventBuffer& get_thread_event_buffer()
+{
+    // Lifetime: thread_local; the pointer registered into GLOBAL_BENCH_STATS is expected
+    // to outlive serialize_trace_events_json. In practice bb is a one-shot CLI, so the
+    // program exits after serialization and no thread has been joined in between.
+    static thread_local ThreadEventBuffer tl_buf;
+    if (!tl_buf.registered) {
+        tl_buf.tid = static_cast<uint64_t>(std::hash<std::thread::id>{}(std::this_thread::get_id()));
+        tl_buf.registered = true;
+        GLOBAL_BENCH_STATS.register_thread_event_buffer(&tl_buf);
+    }
+    return tl_buf;
 }
 
 void GlobalBenchStatsContainer::print() const
@@ -348,6 +374,136 @@ void GlobalBenchStatsContainer::serialize_aggregate_data_json(std::ostream& os) 
     msgpack::pack(buffer, serializable_data);
     msgpack::object_handle oh = msgpack::unpack(buffer.data(), buffer.size());
     os << oh.get() << std::endl;
+}
+
+namespace {
+// Emit a single Chrome Trace Event Format "X" (complete) event.
+// ts/dur are in microseconds (the Chrome Trace convention), with 3 digits after the
+// decimal so we don't lose nanosecond precision.
+void emit_x_event(
+    std::ostream& os, OperationKey name, OperationKey parent, double ts_us, double dur_us, uint64_t tid, bool& first)
+{
+    if (!first) {
+        os << ',';
+    }
+    first = false;
+    os << "\n    {";
+    os << "\"name\":\"" << name << "\"";
+    os << ",\"cat\":\"bb\"";
+    os << ",\"ph\":\"X\"";
+    os << ",\"pid\":0";
+    os << ",\"tid\":" << tid;
+    os << ",\"ts\":" << std::fixed << std::setprecision(3) << ts_us;
+    os << ",\"dur\":" << std::fixed << std::setprecision(3) << dur_us;
+    if (!parent.empty() && parent != "_root") {
+        os << ",\"args\":{\"parent\":\"" << parent << "\"}";
+    }
+    os << "}";
+}
+} // namespace
+
+void GlobalBenchStatsContainer::serialize_trace_events_json(std::ostream& os) const
+{
+    std::unique_lock<std::mutex> lock(const_cast<std::mutex&>(event_mutex));
+
+    // Find the earliest start across all threads so the timeline begins at ts=0 —
+    // absolute ns-since-epoch values are huge and make Perfetto's axis awkward.
+    uint64_t min_ts = UINT64_MAX;
+    for (const ThreadEventBuffer* buf : thread_event_buffers) {
+        for (const PerCallEvent& e : buf->events) {
+            if (e.ts_ns < min_ts) {
+                min_ts = e.ts_ns;
+            }
+        }
+    }
+    if (min_ts == UINT64_MAX) {
+        min_ts = 0;
+    }
+
+    os << "{\n  \"displayTimeUnit\":\"ns\",\n  \"traceEvents\":[";
+    bool first = true;
+    for (const ThreadEventBuffer* buf : thread_event_buffers) {
+        for (const PerCallEvent& e : buf->events) {
+            double ts_us = static_cast<double>(e.ts_ns - min_ts) / 1000.0;
+            double dur_us = static_cast<double>(e.dur_ns) / 1000.0;
+            emit_x_event(os, e.name, e.parent, ts_us, dur_us, e.tid, first);
+        }
+    }
+    os << "\n  ]\n}\n";
+}
+
+void GlobalBenchStatsContainer::serialize_aggregate_trace_json(std::ostream& os) const
+{
+    AggregateData data = aggregate();
+
+    os << "{\n  \"displayTimeUnit\":\"ns\",\n  \"traceEvents\":[";
+    bool first = true;
+
+    // Map each (key, parent) aggregate entry to a synthesized ph:"X" block. We DFS from
+    // roots (empty parent), assigning ts sequentially so children are contained within
+    // their parent's [ts, ts+dur] range — that makes Chrome/Perfetto nest them visually.
+    // Using tid=0 across the whole synthesized trace; per-thread layout would double-count
+    // time since aggregates already sum across threads.
+    std::function<void(OperationKey, OperationKey, uint64_t)> emit_tree;
+    emit_tree = [&](OperationKey key, OperationKey parent_key, uint64_t ts_start_ns) -> void {
+        auto it = data.find(key);
+        if (it == data.end()) {
+            return;
+        }
+        const AggregateEntry* self = nullptr;
+        for (const auto& [p, entry] : it->second) {
+            if (p == parent_key) {
+                self = &entry;
+                break;
+            }
+        }
+        if (self == nullptr || self->time_max == 0) {
+            return;
+        }
+
+        emit_x_event(os,
+                     key,
+                     parent_key.empty() ? OperationKey{ "_root" } : parent_key,
+                     static_cast<double>(ts_start_ns) / 1000.0,
+                     static_cast<double>(self->time_max) / 1000.0,
+                     /*tid=*/0,
+                     first);
+
+        // Collect children: any entry whose parent_map contains `key`.
+        std::vector<std::pair<OperationKey, uint64_t>> children;
+        for (const auto& [child_key, pmap] : data) {
+            auto cit = pmap.find(key);
+            if (cit != pmap.end() && cit->second.time_max > 0) {
+                children.emplace_back(child_key, cit->second.time_max);
+            }
+        }
+        // Largest children first so big blocks are visually dominant.
+        std::sort(children.begin(), children.end(), [](const auto& a, const auto& b) { return a.second > b.second; });
+
+        uint64_t child_offset = 0;
+        for (const auto& [child_key, child_dur] : children) {
+            emit_tree(child_key, key, ts_start_ns + child_offset);
+            child_offset += child_dur;
+        }
+    };
+
+    // Roots: any key that has an empty-parent aggregate entry with non-zero time.
+    std::vector<std::pair<OperationKey, uint64_t>> roots;
+    for (const auto& [key, pmap] : data) {
+        auto pit = pmap.find("");
+        if (pit != pmap.end() && pit->second.time_max > 0) {
+            roots.emplace_back(key, pit->second.time_max);
+        }
+    }
+    std::sort(roots.begin(), roots.end(), [](const auto& a, const auto& b) { return a.second > b.second; });
+
+    uint64_t root_offset = 0;
+    for (const auto& [root_key, root_dur] : roots) {
+        emit_tree(root_key, /*parent_key=*/OperationKey{ "" }, root_offset);
+        root_offset += root_dur;
+    }
+
+    os << "\n  ]\n}\n";
 }
 
 void GlobalBenchStatsContainer::print_aggregate_counts_hierarchical(std::ostream& os) const
@@ -643,8 +799,22 @@ BenchReporter::~BenchReporter()
     }
     auto now = std::chrono::high_resolution_clock::now();
     auto now_ns = std::chrono::time_point_cast<std::chrono::nanoseconds>(now);
+    uint64_t end_ns = static_cast<uint64_t>(now_ns.time_since_epoch().count());
     // Add, taking advantage of our parent context
-    stats->count.track(parent, static_cast<uint64_t>(now_ns.time_since_epoch().count()) - time);
+    stats->count.track(parent, end_ns - time);
+
+    // Per-call event capture for Chrome Trace Event / Perfetto output. Only active when
+    // --trace_out_perfetto was set; otherwise a single relaxed atomic load on the hot path.
+    if (capture_per_call_events.load(std::memory_order_relaxed)) {
+        ThreadEventBuffer& buf = get_thread_event_buffer();
+        buf.events.push_back(PerCallEvent{
+            /*name=*/stats->key,
+            /*parent=*/parent != nullptr ? parent->key : OperationKey{ "_root" },
+            /*ts_ns=*/time,
+            /*dur_ns=*/end_ns - time,
+            /*tid=*/buf.tid,
+        });
+    }
 
     // Unwind to previous parent
     GlobalBenchStatsContainer::parent = parent;
