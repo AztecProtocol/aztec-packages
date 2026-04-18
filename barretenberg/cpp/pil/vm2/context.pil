@@ -242,9 +242,9 @@ namespace execution;
     //         PC and NEXT_PC
     // =============================
 
-    // `instr_length` is from execution.pil and constrained when `sel_instruction_fetching_success == 1`.
+    // `instr_size` is from execution.pil and constrained when `sel_instruction_fetching_success == 1`.
     #[NEXT_PC]
-    sel_instruction_fetching_success * (pc + instr_length - next_pc) = 0;
+    sel_instruction_fetching_success * (pc + instr_size - next_pc) = 0;
 
     // Initialization: enqueued_call_start = 1 ==> pc = 0;
     //                 sel_enter_call      = 1 ==> pc' = 0;

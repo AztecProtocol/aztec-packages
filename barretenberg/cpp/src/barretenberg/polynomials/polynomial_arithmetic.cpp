@@ -12,6 +12,7 @@
 #include <math.h>
 #include <memory.h>
 #include <memory>
+#include <mutex>
 
 namespace bb::polynomial_arithmetic {
 
@@ -19,6 +20,8 @@ namespace {
 
 template <typename Fr> std::shared_ptr<Fr[]> get_scratch_space(const size_t num_elements)
 {
+    static std::mutex scratch_mutex;
+    std::lock_guard lock(scratch_mutex);
     static std::shared_ptr<Fr[]> working_memory = nullptr;
     static size_t current_size = 0;
     if (num_elements > current_size) {
@@ -52,6 +55,8 @@ void scale_by_generator(Fr* coeffs,
                         const Fr& generator_shift,
                         const size_t generator_size)
 {
+    BB_ASSERT(generator_size % domain.num_threads == 0,
+              "generator_size must be divisible by num_threads to avoid silently skipping elements");
     parallel_for(domain.num_threads, [&](size_t j) {
         Fr thread_shift = generator_shift.pow(static_cast<uint64_t>(j * (generator_size / domain.num_threads)));
         Fr work_generator = generator_start * thread_shift;
@@ -194,37 +199,6 @@ template <typename Fr> Fr evaluate(const Fr* coeffs, const Fr& z, const size_t n
     return r;
 }
 
-template <typename Fr> Fr evaluate(const std::vector<Fr*> coeffs, const Fr& z, const size_t large_n)
-{
-    const size_t num_polys = coeffs.size();
-    const size_t poly_size = large_n / num_polys;
-    BB_ASSERT(is_power_of_two(poly_size));
-    const size_t log2_poly_size = (size_t)numeric::get_msb(poly_size);
-    const size_t num_threads = get_num_cpus();
-    std::vector<Fr> evaluations(num_threads, Fr::zero());
-    parallel_for([&](const ThreadChunk& chunk) {
-        // parallel_for with ThreadChunk uses get_num_cpus() threads
-        BB_ASSERT_EQ(chunk.total_threads, evaluations.size());
-        auto range = chunk.range(large_n);
-        if (range.empty()) {
-            return;
-        }
-        size_t start = *range.begin();
-        Fr z_acc = z.pow(static_cast<uint64_t>(start));
-        for (size_t i : range) {
-            Fr work_var = z_acc * coeffs[i >> log2_poly_size][i & (poly_size - 1)];
-            evaluations[chunk.thread_index] += work_var;
-            z_acc *= z;
-        }
-    });
-
-    Fr r = Fr::zero();
-    for (const auto& eval : evaluations) {
-        r += eval;
-    }
-    return r;
-}
-
 // This function computes sum of all scalars in a given array.
 template <typename Fr> Fr compute_sum(const Fr* src, const size_t n)
 {
@@ -238,6 +212,9 @@ template <typename Fr> Fr compute_sum(const Fr* src, const size_t n)
 // This function computes the polynomial (x - a)(x - b)(x - c)... given n distinct roots (a, b, c, ...).
 template <typename Fr> void compute_linear_polynomial_product(const Fr* roots, Fr* dest, const size_t n)
 {
+    if (n == 0) {
+        return;
+    }
 
     auto scratch_space_ptr = get_scratch_space<Fr>(n);
     auto scratch_space = scratch_space_ptr.get();
@@ -389,7 +366,6 @@ void compute_efficient_interpolation(const Fr* src, Fr* dest, const Fr* evaluati
 }
 
 template fr evaluate<fr>(const fr*, const fr&, const size_t);
-template fr evaluate<fr>(const std::vector<fr*>, const fr&, const size_t);
 template void fft_inner_parallel<fr>(fr*, fr*, const EvaluationDomain<fr>&, const fr&, const std::vector<fr*>&);
 template void ifft<fr>(fr*, fr*, const EvaluationDomain<fr>&);
 template fr compute_sum<fr>(const fr*, const size_t);
@@ -397,7 +373,6 @@ template void compute_linear_polynomial_product<fr>(const fr*, fr*, const size_t
 template void compute_efficient_interpolation<fr>(const fr*, fr*, const fr*, const size_t);
 
 template grumpkin::fr evaluate<grumpkin::fr>(const grumpkin::fr*, const grumpkin::fr&, const size_t);
-template grumpkin::fr evaluate<grumpkin::fr>(const std::vector<grumpkin::fr*>, const grumpkin::fr&, const size_t);
 template grumpkin::fr compute_sum<grumpkin::fr>(const grumpkin::fr*, const size_t);
 template void compute_linear_polynomial_product<grumpkin::fr>(const grumpkin::fr*, grumpkin::fr*, const size_t);
 template void compute_efficient_interpolation<grumpkin::fr>(const grumpkin::fr*,

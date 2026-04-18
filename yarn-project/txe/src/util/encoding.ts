@@ -3,6 +3,7 @@ import type { EthAddress } from '@aztec/foundation/eth-address';
 import { hexToBuffer } from '@aztec/foundation/string';
 import { type ContractArtifact, ContractArtifactSchema } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { BlockHash } from '@aztec/stdlib/block';
 import { type ContractInstanceWithAddress, ContractInstanceWithAddressSchema } from '@aztec/stdlib/contract';
 
 import { z } from 'zod';
@@ -23,6 +24,10 @@ export function fromSingle(obj: ForeignCallSingle) {
 
 export function addressFromSingle(obj: ForeignCallSingle) {
   return new AztecAddress(fromSingle(obj));
+}
+
+export function blockHashFromSingle(obj: ForeignCallSingle) {
+  return new BlockHash(fromSingle(obj));
 }
 
 export function fromArray(obj: ForeignCallArray) {

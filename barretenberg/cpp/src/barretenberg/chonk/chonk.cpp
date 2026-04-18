@@ -732,7 +732,7 @@ void Chonk::update_native_verifier_accumulator(const VerifierInputs& queue_entry
         info("Chonk accumulate: hash of verifier accumulator computed natively set in previous kernel IO: ",
              native_verifier_accum_hash);
     }
-    has_last_app_been_accumulated = num_circuits_accumulated + 1 == num_circuits - 4;
+    has_last_app_been_accumulated = num_circuits_accumulated + 1 == num_circuits - 3;
     is_previous_circuit_a_kernel = queue_entry.is_kernel;
 
     info("======= END OF DEBUGGING INFO FOR NATIVE FOLDING STEP =======");

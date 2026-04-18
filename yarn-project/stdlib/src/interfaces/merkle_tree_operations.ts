@@ -3,6 +3,7 @@ import type { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
 import { type IndexedTreeLeafPreimage, SiblingPath } from '@aztec/foundation/trees';
 
+import type { BlockHash } from '../block/block_hash.js';
 import type { MerkleTreeId, TreeHeights } from '../trees/merkle_tree_id.js';
 import type { NullifierLeaf } from '../trees/nullifier_leaf.js';
 import type { PublicDataTreeLeaf } from '../trees/public_data_leaf.js';
@@ -99,7 +100,7 @@ type LeafTypes = {
   [MerkleTreeId.NOTE_HASH_TREE]: Fr;
   [MerkleTreeId.PUBLIC_DATA_TREE]: Buffer;
   [MerkleTreeId.L1_TO_L2_MESSAGE_TREE]: Fr;
-  [MerkleTreeId.ARCHIVE]: Fr;
+  [MerkleTreeId.ARCHIVE]: BlockHash;
 };
 
 type LeafValueTypes = {
@@ -107,7 +108,7 @@ type LeafValueTypes = {
   [MerkleTreeId.NOTE_HASH_TREE]: Fr;
   [MerkleTreeId.PUBLIC_DATA_TREE]: PublicDataTreeLeaf;
   [MerkleTreeId.L1_TO_L2_MESSAGE_TREE]: Fr;
-  [MerkleTreeId.ARCHIVE]: Fr;
+  [MerkleTreeId.ARCHIVE]: BlockHash;
 };
 
 export type MerkleTreeLeafType<ID extends MerkleTreeId> = LeafTypes[ID];

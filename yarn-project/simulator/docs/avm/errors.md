@@ -21,7 +21,7 @@ An **error** occurs when the AVM encounters an invalid condition during executio
 | `RELATIVE_ADDRESS_OVERFLOW` | Base address + relative offset exceeds max memory | Validation | No |
 | `STATIC_CALL_VIOLATION` | State-modifying operation in static context | Execution | No |
 | `SIDE_EFFECT_LIMIT_REACHED` | Transaction limit exceeded for a side effect type | Execution | Yes |
-| `NULLIFIER_COLLISION` | Emitted nullifier already exists | Execution (opcode-specific) | Yes |
+| `NULLIFIER_COLLISION` | Emitted nullifier already exists | Execution (opcode-specific) | Yes (unprovable) |
 | `INTERNAL_CALL_STACK_UNDERFLOW` | INTERNALRETURN with empty internal call stack | Execution (opcode-specific) | No |
 | `DIVISION_BY_ZERO` | Division or modulo operation with divisor = 0 | Execution (opcode-specific) | No |
 | `POINT_NOT_ON_CURVE` | ECADD operand is not a valid Grumpkin curve point | Execution (opcode-specific) | No |
@@ -38,6 +38,10 @@ An **error** occurs when the AVM encounters an invalid condition during executio
 | **Exceptional halt** | Failure | All allocated gas consumed | Changes discarded | `OUT_OF_GAS`, `TAG_MISMATCH` |
 | **Explicit REVERT** | Failure | Unused gas refunded | Changes discarded | REVERT instruction |
 | **Explicit RETURN** | Success | Unused gas refunded | Changes merged | RETURN instruction |
+
+### Note on `NULLIFIER_COLLISION` during private insertions
+
+During opcode execution (`EMITNULLIFIER`), a nullifier collision is a regular exceptional halt that reverts the enqueued call. However, during tx-level insertion of private nullifiers (both non-revertible and revertible phases), a collision makes the transaction **unprovable** rather than revertible. See [Public Transaction Simulation](./public-tx-simulation.md) for details.
 
 
 ---

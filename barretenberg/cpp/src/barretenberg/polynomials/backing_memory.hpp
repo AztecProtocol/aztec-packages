@@ -159,7 +159,7 @@ template <typename Fr> struct BackingMemory {
 
         std::string filename = temp_dir / ("poly-mmap-" + std::to_string(getpid()) + "-" + std::to_string(id));
 
-        int fd = open(filename.c_str(), O_CREAT | O_RDWR | O_TRUNC, 0644);
+        int fd = open(filename.c_str(), O_CREAT | O_RDWR | O_TRUNC | O_EXCL, 0600);
         if (fd < 0) {
             current_storage_usage.fetch_sub(required_bytes);
             return false;
@@ -172,7 +172,7 @@ template <typename Fr> struct BackingMemory {
             return false;
         }
 
-        void* addr = mmap(nullptr, file_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+        void* addr = mmap(nullptr, file_size, PROT_READ | PROT_WRITE, MAP_PRIVATE, fd, 0);
         if (addr == MAP_FAILED) {
             close(fd);
             std::filesystem::remove(filename);

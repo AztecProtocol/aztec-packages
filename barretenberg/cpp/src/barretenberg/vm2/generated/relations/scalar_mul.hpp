@@ -36,9 +36,9 @@ template <typename FF> class scalar_mul : public Relation<scalar_mulImpl<FF>> {
     static constexpr const std::string_view NAME = "scalar_mul";
 
     // Subrelation indices constants, to be used in tests.
-    static constexpr size_t SR_START_AFTER_LATCH = 4;
-    static constexpr size_t SR_SELECTOR_ON_START_OR_END = 5;
-    static constexpr size_t SR_SELECTOR_CONSISTENCY = 6;
+    static constexpr size_t SR_SEL_ON_START_OR_END = 4;
+    static constexpr size_t SR_TRACE_CONTINUITY = 5;
+    static constexpr size_t SR_START_AFTER_LATCH = 6;
     static constexpr size_t SR_INPUT_CONSISTENCY_X = 8;
     static constexpr size_t SR_INPUT_CONSISTENCY_Y = 9;
     static constexpr size_t SR_INPUT_CONSISTENCY_INF = 10;
@@ -48,12 +48,12 @@ template <typename FF> class scalar_mul : public Relation<scalar_mulImpl<FF>> {
     static std::string get_subrelation_label(size_t index)
     {
         switch (index) {
+        case SR_SEL_ON_START_OR_END:
+            return "SEL_ON_START_OR_END";
+        case SR_TRACE_CONTINUITY:
+            return "TRACE_CONTINUITY";
         case SR_START_AFTER_LATCH:
             return "START_AFTER_LATCH";
-        case SR_SELECTOR_ON_START_OR_END:
-            return "SELECTOR_ON_START_OR_END";
-        case SR_SELECTOR_CONSISTENCY:
-            return "SELECTOR_CONSISTENCY";
         case SR_INPUT_CONSISTENCY_X:
             return "INPUT_CONSISTENCY_X";
         case SR_INPUT_CONSISTENCY_Y:

@@ -122,13 +122,6 @@ typename MergeVerifier_<Curve>::ReductionResult MergeVerifier_<Curve>::reduce_to
     // For native: shift_size is uint32_t
     // For stdlib: shift_size is FF (we'll get the value later)
     const FF shift_size = transcript->template receive_from_prover<FF>("shift_size");
-    ;
-    if constexpr (IsRecursive) {
-        BB_ASSERT_GT(uint32_t(shift_size.get_value()), 0U, "Shift size should always be bigger than 0");
-    } else {
-
-        BB_ASSERT_GT(shift_size, 0U, "Shift size should always be bigger than 0");
-    }
 
     // Store T_commitments of the verifier
     TableCommitments merged_table_commitments;

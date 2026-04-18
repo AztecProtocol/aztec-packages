@@ -5,7 +5,7 @@ import {Test} from "forge-std/Test.sol";
 import {Rollup} from "@aztec/core/Rollup.sol";
 import {Registry} from "@aztec/governance/Registry.sol";
 import {Governance} from "@aztec/governance/Governance.sol";
-import {HonkVerifier} from "../generated/HonkVerifier.sol";
+import {HonkVerifier} from "@generated/HonkVerifier.sol";
 
 /**
  * @notice  This test is used to ensure that changes to L1 contracts don't go unnoticed.

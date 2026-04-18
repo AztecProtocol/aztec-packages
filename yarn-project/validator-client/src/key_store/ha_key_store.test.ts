@@ -1,4 +1,4 @@
-import { BlockNumber, IndexWithinCheckpoint, SlotNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, CheckpointNumber, IndexWithinCheckpoint, SlotNumber } from '@aztec/foundation/branded-types';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { Signature } from '@aztec/foundation/eth-signature';
@@ -194,6 +194,7 @@ describe('HAKeyStore', () => {
     const context: SigningContext = {
       slot: SlotNumber(100),
       blockNumber: BlockNumber(50),
+      checkpointNumber: CheckpointNumber(1),
       dutyType: DutyType.BLOCK_PROPOSAL,
       blockIndexWithinCheckpoint: IndexWithinCheckpoint(0),
     };
@@ -211,7 +212,8 @@ describe('HAKeyStore', () => {
         SIGNING_ROOT,
         {
           slot: context.slot,
-          blockNumber: context.blockNumber,
+          blockNumber: BlockNumber(50),
+          checkpointNumber: CheckpointNumber(1),
           dutyType: DutyType.BLOCK_PROPOSAL,
           blockIndexWithinCheckpoint: IndexWithinCheckpoint(0),
         },
@@ -268,7 +270,7 @@ describe('HAKeyStore', () => {
     let haKeyStore: HAKeyStore;
     const context: SigningContext = {
       slot: SlotNumber(100),
-      blockNumber: BlockNumber(50),
+      checkpointNumber: CheckpointNumber(0),
       dutyType: DutyType.ATTESTATION,
     };
 
@@ -285,7 +287,7 @@ describe('HAKeyStore', () => {
         expect.any(Buffer32),
         {
           slot: context.slot,
-          blockNumber: context.blockNumber,
+          checkpointNumber: CheckpointNumber(0),
           dutyType: DutyType.ATTESTATION,
         },
         expect.any(Function),
@@ -337,12 +339,13 @@ describe('HAKeyStore', () => {
         {
           slot: SlotNumber(100),
           blockNumber: BlockNumber(50),
+          checkpointNumber: CheckpointNumber(1),
           dutyType: DutyType.BLOCK_PROPOSAL,
           blockIndexWithinCheckpoint: IndexWithinCheckpoint(0),
         },
-        { slot: SlotNumber(100), blockNumber: BlockNumber(50), dutyType: DutyType.ATTESTATION },
-        { slot: SlotNumber(100), blockNumber: BlockNumber(50), dutyType: DutyType.ATTESTATIONS_AND_SIGNERS },
-        { slot: SlotNumber(100), blockNumber: BlockNumber(50), dutyType: DutyType.CHECKPOINT_PROPOSAL },
+        { slot: SlotNumber(100), checkpointNumber: CheckpointNumber(0), dutyType: DutyType.ATTESTATION },
+        { slot: SlotNumber(100), checkpointNumber: CheckpointNumber(0), dutyType: DutyType.ATTESTATIONS_AND_SIGNERS },
+        { slot: SlotNumber(100), checkpointNumber: CheckpointNumber(1), dutyType: DutyType.CHECKPOINT_PROPOSAL },
         // Vote duties only need slot (no blockNumber)
         { slot: SlotNumber(100), dutyType: DutyType.GOVERNANCE_VOTE },
         { slot: SlotNumber(100), dutyType: DutyType.SLASHING_VOTE },
@@ -390,6 +393,7 @@ describe('HAKeyStore', () => {
       const context: SigningContext = {
         slot: SlotNumber(100),
         blockNumber: BlockNumber(50),
+        checkpointNumber: CheckpointNumber(1),
         dutyType: DutyType.BLOCK_PROPOSAL,
         blockIndexWithinCheckpoint: IndexWithinCheckpoint(0),
       };
@@ -399,7 +403,7 @@ describe('HAKeyStore', () => {
     it('should return true for ATTESTATION', () => {
       const context: SigningContext = {
         slot: SlotNumber(100),
-        blockNumber: BlockNumber(50),
+        checkpointNumber: CheckpointNumber(0),
         dutyType: DutyType.ATTESTATION,
       };
       expect(isHAProtectedContext(context)).toBe(true);
@@ -408,7 +412,7 @@ describe('HAKeyStore', () => {
     it('should return true for CHECKPOINT_PROPOSAL', () => {
       const context: SigningContext = {
         slot: SlotNumber(100),
-        blockNumber: BlockNumber(50),
+        checkpointNumber: CheckpointNumber(1),
         dutyType: DutyType.CHECKPOINT_PROPOSAL,
       };
       expect(isHAProtectedContext(context)).toBe(true);
@@ -417,7 +421,7 @@ describe('HAKeyStore', () => {
     it('should return true for ATTESTATIONS_AND_SIGNERS', () => {
       const context: SigningContext = {
         slot: SlotNumber(100),
-        blockNumber: BlockNumber(50),
+        checkpointNumber: CheckpointNumber(0),
         dutyType: DutyType.ATTESTATIONS_AND_SIGNERS,
       };
       expect(isHAProtectedContext(context)).toBe(true);

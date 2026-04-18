@@ -168,12 +168,14 @@ export class ContractStore {
   }
 
   async addContractInstance(contract: ContractInstanceWithAddress): Promise<void> {
-    this.#contractClassIdMap.set(contract.address.toString(), contract.currentContractClassId);
+    await this.#store.transactionAsync(async () => {
+      await this.#contractInstances.set(
+        contract.address.toString(),
+        new SerializableContractInstance(contract).toBuffer(),
+      );
+    });
 
-    await this.#contractInstances.set(
-      contract.address.toString(),
-      new SerializableContractInstance(contract).toBuffer(),
-    );
+    this.#contractClassIdMap.set(contract.address.toString(), contract.currentContractClassId);
   }
 
   // Private getters
@@ -246,7 +248,7 @@ export class ContractStore {
     contractClassId: Fr,
   ): Promise<(ContractClassWithId & ContractClassIdPreimage) | undefined> {
     const key = contractClassId.toString();
-    const buf = await this.#contractClassData.getAsync(key);
+    const buf = await this.#store.transactionAsync(() => this.#contractClassData.getAsync(key));
     if (!buf) {
       return undefined;
     }

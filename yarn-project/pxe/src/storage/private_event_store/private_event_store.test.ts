@@ -669,7 +669,7 @@ describe('PrivateEventStore', () => {
           txIndexInBlock: 0,
           eventIndexInTx: 0,
         },
-        'test',
+        'before-rollback',
       );
       await privateEventStore.commit('before-rollback');
 
@@ -746,6 +746,33 @@ describe('PrivateEventStore', () => {
 
       expect(events.length).toBe(1);
       expect(events[0].packedEvent).toEqual(msgContent1);
+    });
+
+    it('throws when rollback is called while jobs are running', async () => {
+      await privateEventStore.storePrivateEventLog(
+        eventSelector,
+        randomness,
+        msgContent1,
+        Fr.random(),
+        {
+          contractAddress,
+          scope,
+          txHash: TxHash.random(),
+          l2BlockNumber: BlockNumber(100),
+          l2BlockHash,
+          txIndexInBlock: 0,
+          eventIndexInTx: 0,
+        },
+        'uncommitted-job',
+      );
+
+      await expect(privateEventStore.rollback(0, 10)).rejects.toThrow(
+        'PXE private event store rollback is not allowed while jobs are running',
+      );
+
+      await privateEventStore.discardStaged('uncommitted-job');
+
+      await expect(privateEventStore.rollback(0, 10)).resolves.not.toThrow();
     });
   });
 

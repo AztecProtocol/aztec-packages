@@ -86,13 +86,33 @@ class ECCVMFlavor {
     static constexpr size_t NUM_SHIFTED_ENTITIES = 26;
     // The number of entities in DerivedWitnessEntities that are not going to be shifted.
     static constexpr size_t NUM_DERIVED_WITNESS_ENTITIES_NON_SHIFTED = 1;
-    // A container to be fed to ShpleminiVerifier to avoid redundant scalar muls, the first number is the index of the
-    // first witness to be shifted.
+    // Indices into the Shplemini commitments vector that identify which "to-be-shifted" witness commitments in the
+    // unshifted block are duplicated in the shifted block, so their scalar muls can be merged.
+    //
+    // Shplemini's remove_repeated_commitments uses offset = HasZK ? 2 : 1. For ECCVM (HasZK=true), offset=2
+    // accounts for the Shplonk:Q commitment and the gemini_masking_poly that precede the Precomputed+Witness
+    // block in the commitments vector. The indices below are therefore relative to the start of
+    // {PrecomputedEntities + WitnessEntities} (i.e. they exclude MaskingEntities, which is covered by the offset).
+    //
+    // original_start: index of the first to-be-shifted entity within {Precomputed + Witness}
+    //               = NUM_PRECOMPUTED + NUM_WIRE_NON_SHIFTED (= NUM_WITNESS - NUM_DERIVED_NON_SHIFTED - NUM_SHIFTED)
+    // duplicate_start: index where the shifted copies begin = NUM_PRECOMPUTED + NUM_WITNESS
+    static constexpr size_t NUM_WIRE_NON_SHIFTED =
+        NUM_WITNESS_ENTITIES - NUM_DERIVED_WITNESS_ENTITIES_NON_SHIFTED - NUM_SHIFTED_ENTITIES;
     static constexpr RepeatedCommitmentsData REPEATED_COMMITMENTS =
-        RepeatedCommitmentsData(NUM_PRECOMPUTED_ENTITIES + NUM_WITNESS_ENTITIES -
-                                    NUM_DERIVED_WITNESS_ENTITIES_NON_SHIFTED - NUM_SHIFTED_ENTITIES,
+        RepeatedCommitmentsData(NUM_PRECOMPUTED_ENTITIES + NUM_WIRE_NON_SHIFTED,
                                 NUM_PRECOMPUTED_ENTITIES + NUM_WITNESS_ENTITIES,
                                 NUM_SHIFTED_ENTITIES);
+
+    // Pin entity counts and REPEATED_COMMITMENTS indices so that any layout change triggers a compile error.
+    // The to-be-shifted witnesses must form a contiguous block starting at NUM_WIRE_NON_SHIFTED within WitnessEntities.
+    static_assert(NUM_WIRE_NON_SHIFTED == 60, "WireNonShiftedEntities size changed — update REPEATED_COMMITMENTS");
+    static_assert(NUM_MASKING_POLYNOMIALS == 1, "MaskingEntities size changed — review REPEATED_COMMITMENTS offset");
+    static_assert(REPEATED_COMMITMENTS.first.original_start == 64,
+                  "REPEATED_COMMITMENTS original_start changed — verify Shplemini offset convention");
+    static_assert(REPEATED_COMMITMENTS.first.duplicate_start == 91,
+                  "REPEATED_COMMITMENTS duplicate_start changed — verify Shplemini offset convention");
+    static_assert(REPEATED_COMMITMENTS.first.count == 26, "REPEATED_COMMITMENTS count changed");
 
     using GrandProductRelations = std::tuple<ECCVMSetRelation<FF>>;
     // define the tuple of Relations that comprise the Sumcheck relation
@@ -1029,7 +1049,7 @@ class ECCVMFlavor {
         // 4: We also force that `transcript_op==0`.
         return (polynomials.z_perm[edge_idx] == polynomials.z_perm_shift[edge_idx]) &&
                (polynomials.z_perm[edge_idx + 1] == polynomials.z_perm_shift[edge_idx + 1]) &&
-               (polynomials.lagrange_last[edge_idx] == 0 && polynomials.lagrange_last[edge_idx + 1]) == 0 &&
+               (polynomials.lagrange_last[edge_idx] == 0 && polynomials.lagrange_last[edge_idx + 1] == 0) &&
                (polynomials.msm_transition[edge_idx] == 0 && polynomials.msm_transition[edge_idx + 1] == 0) &&
                (polynomials.transcript_mul[edge_idx] == 0 && polynomials.transcript_mul[edge_idx + 1] == 0) &&
                (polynomials.transcript_op[edge_idx] == 0 && polynomials.transcript_op[edge_idx + 1] == 0);

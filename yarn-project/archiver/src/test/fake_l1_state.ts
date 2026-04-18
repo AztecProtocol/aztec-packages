@@ -333,6 +333,21 @@ export class FakeL1State {
   }
 
   /**
+   * Moves a checkpoint to a different L1 block number (simulates L1 reorg that
+   * re-includes the same checkpoint transaction in a different block).
+   * The checkpoint content stays the same — only the L1 metadata changes.
+   * Auto-updates pending status.
+   */
+  moveCheckpointToL1Block(checkpointNumber: CheckpointNumber, newL1BlockNumber: bigint): void {
+    for (const cpData of this.checkpoints) {
+      if (cpData.checkpointNumber === checkpointNumber) {
+        cpData.l1BlockNumber = newL1BlockNumber;
+      }
+    }
+    this.updatePendingCheckpointNumber();
+  }
+
+  /**
    * Removes messages after a given total index (simulates L1 reorg).
    * Auto-updates rolling hash.
    */

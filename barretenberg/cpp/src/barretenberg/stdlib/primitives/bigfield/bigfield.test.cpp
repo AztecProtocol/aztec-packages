@@ -1472,6 +1472,57 @@ template <typename BigField> class stdlib_bigfield : public testing::Test {
         EXPECT_EQ(result, true);
     }
 
+    // Test byte_array constructor with boundary values: 0, 1, p-1, and values >= p.
+    static void test_byte_array_constructor_boundary_values()
+    {
+        // Helper: convert a uint256_t to a 32-byte big-endian vector (same layout as fq_native::serialize_to_buffer)
+        const auto to_bytes = [](uint256_t v) {
+            std::vector<uint8_t> buf(32, 0);
+            for (int i = 31; i >= 0; --i) {
+                buf[static_cast<size_t>(i)] = static_cast<uint8_t>(v.data[0] & 0xff);
+                v >>= 8;
+            }
+            return buf;
+        };
+
+        const uint256_t p = fq_ct::modulus;
+
+        struct TestCase {
+            uint256_t value;
+            bool expect_less_than_p; // whether value < p
+        };
+
+        // Boundary values: 0, 1, p-1 (all valid); p (invalid — equals modulus)
+        // Nibble-boundary values: 0x0f...f (all low nibbles set), 0x10...0 (carry into high nibble)
+        const std::vector<TestCase> cases = {
+            { uint256_t(0), true },
+            { uint256_t(1), true },
+            { p - 1, true },
+            // Nibble boundary: value whose split byte is 0x0f (lo nibble=0xf, hi nibble=0)
+            { uint256_t(0x0f) << (7 * 8), true }, // byte 7 from the right = overlap byte for limb0/limb1
+            // Nibble boundary: value whose split byte is 0xf0 (lo nibble=0, hi nibble=0xf)
+            { uint256_t(0xf0) << (7 * 8), true },
+            // p itself — a bigfield constructed from p bytes will have value == p, which is >= p
+            { p, false },
+        };
+
+        for (const auto& tc : cases) {
+            auto builder = Builder();
+            byte_array_ct arr(&builder, to_bytes(tc.value));
+            fq_ct el(arr);
+
+            // Check that the reconstructed value matches
+            EXPECT_EQ(el.get_value().lo, tc.value);
+
+            // Verify is_less_than agrees with our expectation
+            auto cmp = el.is_less_than(p);
+            cmp.assert_equal(stdlib::bool_t<Builder>(tc.expect_less_than_p));
+
+            EXPECT_TRUE(CircuitChecker::check(builder));
+            EXPECT_FALSE(builder.failed());
+        }
+    }
+
     // This check tests if elements are reduced to fit quotient into range proof
     static void test_quotient_completeness()
     {
@@ -2507,6 +2558,10 @@ TYPED_TEST(stdlib_bigfield, reduce_mod_target_modulus)
 TYPED_TEST(stdlib_bigfield, byte_array_constructors)
 {
     TestFixture::test_byte_array_constructors();
+}
+TYPED_TEST(stdlib_bigfield, byte_array_constructor_boundary_values)
+{
+    TestFixture::test_byte_array_constructor_boundary_values();
 }
 TYPED_TEST(stdlib_bigfield, quotient_completeness_regression)
 {

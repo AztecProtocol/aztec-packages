@@ -4,6 +4,7 @@ import { getCanonicalMultiCallEntrypoint } from '@aztec/protocol-contracts/multi
 import type { ContractArtifact } from '@aztec/stdlib/abi';
 import type { CompleteAddress, ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 
+import type { AccountType } from '../wallet_db.js';
 import type { AccountContractsProvider } from './types.js';
 
 /**
@@ -26,14 +27,24 @@ export class LazyAccountContractsProvider implements AccountContractsProvider {
     return new EcdsaKAccountContract(signingKey);
   }
 
-  async getStubAccountContractArtifact(): Promise<ContractArtifact> {
-    const { getStubAccountContractArtifact } = await import('@aztec/accounts/stub/lazy');
-    return getStubAccountContractArtifact();
+  async getStubAccountContractArtifact(type: AccountType): Promise<ContractArtifact> {
+    if (type === 'schnorr') {
+      const { getStubSchnorrAccountContractArtifact } = await import('@aztec/accounts/stub/schnorr/lazy');
+      return getStubSchnorrAccountContractArtifact();
+    } else {
+      const { getStubEcdsaAccountContractArtifact } = await import('@aztec/accounts/stub/ecdsa/lazy');
+      return getStubEcdsaAccountContractArtifact();
+    }
   }
 
-  async createStubAccount(address: CompleteAddress): Promise<Account> {
-    const { createStubAccount } = await import('@aztec/accounts/stub/lazy');
-    return createStubAccount(address);
+  async createStubAccount(address: CompleteAddress, type: AccountType): Promise<Account> {
+    if (type === 'schnorr') {
+      const { createStubSchnorrAccount } = await import('@aztec/accounts/stub/schnorr/lazy');
+      return createStubSchnorrAccount(address);
+    } else {
+      const { createStubEcdsaAccount } = await import('@aztec/accounts/stub/ecdsa/lazy');
+      return createStubEcdsaAccount(address);
+    }
   }
 
   getMulticallContract(): Promise<{ instance: ContractInstanceWithAddress; artifact: ContractArtifact }> {

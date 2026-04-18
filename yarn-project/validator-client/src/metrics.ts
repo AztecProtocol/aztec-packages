@@ -24,6 +24,8 @@ export class ValidatorMetrics {
   private reexMana: Histogram;
   private reexTx: Histogram;
   private reexDuration: Gauge;
+  private checkpointProposalToPipelinedStateDuration: Histogram;
+  private checkpointProposalReceiveOffsetFromNextSlotBoundary: Histogram;
 
   constructor(telemetryClient: TelemetryClient) {
     const meter = telemetryClient.getMeter('Validator');
@@ -77,12 +79,28 @@ export class ValidatorMetrics {
     this.reexTx = meter.createHistogram(Metrics.VALIDATOR_RE_EXECUTION_TX_COUNT);
 
     this.reexDuration = meter.createGauge(Metrics.VALIDATOR_RE_EXECUTION_TIME);
+    this.checkpointProposalToPipelinedStateDuration = meter.createHistogram(
+      Metrics.VALIDATOR_CHECKPOINT_PROPOSAL_TO_PIPELINED_STATE_DURATION,
+    );
+    this.checkpointProposalReceiveOffsetFromNextSlotBoundary = meter.createHistogram(
+      Metrics.VALIDATOR_CHECKPOINT_PROPOSAL_RECEIVE_OFFSET_FROM_NEXT_SLOT_BOUNDARY,
+    );
   }
 
   public recordReex(time: number, txs: number, mManaTotal: number) {
     this.reexDuration.record(Math.ceil(time));
     this.reexTx.record(txs);
     this.reexMana.record(mManaTotal);
+  }
+
+  public recordCheckpointProposalToPipelinedStateDuration(durationMs: number) {
+    this.checkpointProposalToPipelinedStateDuration.record(Math.ceil(durationMs));
+  }
+
+  public recordCheckpointProposalReceiveOffsetFromNextSlotBoundary(offsetMs: number) {
+    this.checkpointProposalReceiveOffsetFromNextSlotBoundary.record(Math.ceil(Math.abs(offsetMs)), {
+      [Attributes.SLOT_BOUNDARY_SIDE]: offsetMs < 0 ? 'before' : 'after',
+    });
   }
 
   public recordFailedReexecution(proposal: BlockProposal) {

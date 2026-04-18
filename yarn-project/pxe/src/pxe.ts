@@ -18,6 +18,7 @@ import {
 } from '@aztec/stdlib/abi';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { L2TipsProvider } from '@aztec/stdlib/block';
 import {
   CompleteAddress,
   type ContractInstanceWithAddress,
@@ -161,6 +162,7 @@ export class PXE {
     private privateEventStore: PrivateEventStore,
     private contractSyncService: ContractSyncService,
     private messageContextService: MessageContextService,
+    private l2TipsStore: L2TipsProvider,
     private simulator: CircuitSimulator,
     private proverEnabled: boolean,
     private proofCreator: PrivateKernelProver,
@@ -260,6 +262,7 @@ export class PXE {
       privateEventStore,
       contractSyncService,
       messageContextService,
+      tipsStore,
       simulator,
       proverEnabled,
       proofCreator,
@@ -294,6 +297,7 @@ export class PXE {
       keyStore: this.keyStore,
       addressStore: this.addressStore,
       aztecNode: BenchmarkedNodeFactory.create(this.node),
+      l2TipsStore: this.l2TipsStore,
       senderTaggingStore: this.senderTaggingStore,
       recipientTaggingStore: this.recipientTaggingStore,
       senderAddressBookStore: this.senderAddressBookStore,
@@ -482,8 +486,7 @@ export class PXE {
     config: PrivateKernelExecutionProverConfig,
   ): Promise<PrivateKernelExecutionProofOutput<PrivateKernelTailCircuitPublicInputs>> {
     const anchorBlockHeader = await this.anchorBlockStore.getBlockHeader();
-    const anchorBlockHash = await anchorBlockHeader.hash();
-    const kernelOracle = new PrivateKernelOracle(this.contractStore, this.keyStore, this.node, anchorBlockHash);
+    const kernelOracle = new PrivateKernelOracle(this.contractStore, this.keyStore, this.node, anchorBlockHeader);
     const kernelTraceProver = new PrivateKernelExecutionProver(
       kernelOracle,
       proofCreator,
@@ -560,6 +563,12 @@ export class PXE {
    * TODO: It's strange that we return the address here and I (benesjan) think we should drop the return value.
    */
   public async registerSender(sender: AztecAddress): Promise<AztecAddress> {
+    if (!(await sender.isValid())) {
+      throw new Error(
+        `Address ${sender} is not valid: it does not correspond to a point on the Grumpkin curve. Cannot register it as a sender.`,
+      );
+    }
+
     const accounts = await this.keyStore.getAccounts();
     if (accounts.includes(sender)) {
       this.log.info(`Sender:\n "${sender.toString()}"\n already registered.`);
@@ -571,8 +580,8 @@ export class PXE {
     if (wasAdded) {
       this.log.info(`Added sender:\n ${sender.toString()}`);
       // Wipe the entire sync cache: the new sender's tagged logs could contain notes/events for any contract, so
-      // all contracts must re-sync to discover them.
-      this.contractSyncService.wipe();
+      // all contracts must re-sync to discover them. Queued to avoid wiping while a job is in flight.
+      await this.#putInJobQueue(() => Promise.resolve(this.contractSyncService.wipe()));
     } else {
       this.log.info(`Sender:\n "${sender.toString()}"\n already registered.`);
     }
@@ -1170,6 +1179,7 @@ export class PXE {
    */
   public async stop(): Promise<void> {
     await this.jobQueue.end();
+    await this.blockStateSynchronizer.stop();
     await this.db.close();
   }
 }

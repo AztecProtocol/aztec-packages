@@ -13,8 +13,8 @@ import type {
 } from '@aztec/stdlib/interfaces/server';
 import type { SnapshotDataKeys } from '@aztec/stdlib/snapshots';
 import { MerkleTreeId, NullifierLeaf, type NullifierLeafPreimage, PublicDataTreeLeaf } from '@aztec/stdlib/trees';
-import { BlockHeader, PartialStateReference, StateReference } from '@aztec/stdlib/tx';
-import { WorldStateRevision } from '@aztec/stdlib/world-state';
+import { BlockHeader, GlobalVariables, PartialStateReference, StateReference } from '@aztec/stdlib/tx';
+import { EMPTY_GENESIS_DATA, type GenesisData, WorldStateRevision } from '@aztec/stdlib/world-state';
 import { getTelemetryClient } from '@aztec/telemetry-client';
 
 import assert from 'assert/strict';
@@ -53,6 +53,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
     protected instance: NativeWorldStateInstance,
     protected readonly worldStateInstrumentation: WorldStateInstrumentation,
     protected readonly log: Logger,
+    private readonly genesis: GenesisData = EMPTY_GENESIS_DATA,
     private readonly cleanup = () => Promise.resolve(),
     /** Factory to recreate a fresh IpcWorldState after clear(). */
     private readonly recreateInstance?: () => Promise<NativeWorldStateInstance>,
@@ -62,7 +63,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
     rollupAddress: EthAddress,
     dataDir: string,
     wsTreeMapSizes: WorldStateTreeMapSizes,
-    prefilledPublicData: PublicDataTreeLeaf[] = [],
+    genesis: GenesisData = EMPTY_GENESIS_DATA,
     instrumentation = new WorldStateInstrumentation(getTelemetryClient()),
     bindings?: LoggerBindings,
     cleanup = () => Promise.resolve(),
@@ -123,7 +124,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
   static async tmp(
     _rollupAddress = EthAddress.ZERO,
     cleanupTmpDir = true,
-    prefilledPublicData: PublicDataTreeLeaf[] = [],
+    genesis: GenesisData = EMPTY_GENESIS_DATA,
     instrumentation = new WorldStateInstrumentation(getTelemetryClient()),
     bindings?: LoggerBindings,
   ): Promise<NativeWorldStateService> {
@@ -228,7 +229,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
 
     // the initial header _must_ be the first element in the archive tree
     // if this assertion fails, check that the hashing done in Header in yarn-project matches the initial header hash done in world_state.cpp
-    const indices = await committed.findLeafIndices(MerkleTreeId.ARCHIVE, [(await this.initialHeader.hash()).toFr()]);
+    const indices = await committed.findLeafIndices(MerkleTreeId.ARCHIVE, [await this.initialHeader.hash()]);
     const initialHeaderIndex = indices[0];
     assert.strictEqual(initialHeaderIndex, 0n, 'Invalid initial archive state');
   }
@@ -326,7 +327,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
         WorldStateMessageType.SYNC_BLOCK,
         {
           blockNumber: l2Block.number,
-          blockHeaderHash: await l2Block.hash(),
+          blockHeaderHash: (await l2Block.hash()).toBuffer(),
           paddedL1ToL2Messages: paddedL1ToL2Messages.map(serializeLeaf),
           paddedNoteHashes: paddedNoteHashes.map(serializeLeaf),
           paddedNullifiers: paddedNullifiers.map(serializeLeaf),
@@ -353,7 +354,10 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
 
   private async buildInitialHeader(): Promise<BlockHeader> {
     const state = await this.getInitialStateReference();
-    return BlockHeader.empty({ state });
+    return BlockHeader.empty({
+      state,
+      globalVariables: GlobalVariables.empty({ timestamp: this.genesis.genesisTimestamp }),
+    });
   }
 
   private sanitizeAndCacheSummaryFromFull(response: WorldStateStatusFull) {

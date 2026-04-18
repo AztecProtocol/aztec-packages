@@ -1,5 +1,6 @@
 use crate::tests::private_kernel_reset::{NULLIFIER_SILOING_AMOUNT, TestBuilder};
 use protocol_test_utils::swap_items;
+use super::rebuild_bounded_vec;
 
 #[test]
 fn previous_nullifiers_sorted() {
@@ -125,6 +126,9 @@ fn with_padded_nullifiers() {
         builder.previous_kernel.nullifiers.pop().innermost().value;
     builder.padded_side_effects.nullifiers[3] =
         builder.previous_kernel.nullifiers.pop().innermost().value;
+
+    // BoundedVec.pop() no longer zeroes vacated slots; rebuild with clean storage.
+    builder.previous_kernel.nullifiers = rebuild_bounded_vec(builder.previous_kernel.nullifiers);
 
     builder.output.append_siloed_nullifiers(3);
     builder.output.append_padded_nullifiers(2);

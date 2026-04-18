@@ -29,8 +29,8 @@ import { tryStop } from '@aztec/stdlib/interfaces/server';
 import { computeInHashFromL1ToL2Messages } from '@aztec/stdlib/messaging';
 import { type BlockProposal, CheckpointProposal } from '@aztec/stdlib/p2p';
 import { mockTx } from '@aztec/stdlib/testing';
-import type { PublicDataTreeLeaf } from '@aztec/stdlib/trees';
 import { BlockHeader, type CheckpointGlobalVariables, Tx } from '@aztec/stdlib/tx';
+import type { GenesisData } from '@aztec/stdlib/world-state';
 import { ServerWorldStateSynchronizer } from '@aztec/world-state';
 import { NativeWorldStateService } from '@aztec/world-state/native';
 import { getGenesisValues } from '@aztec/world-state/testing';
@@ -79,7 +79,7 @@ describe('ValidatorClient Integration', () => {
   let epochCache: TestEpochCache;
   let rollupAddress: EthAddress;
   let genesisArchiveRoot: Fr;
-  let prefilledPublicData: PublicDataTreeLeaf[];
+  let genesis: GenesisData;
   let genesisBlockHeader: BlockHeader;
   let proposerSigner: Secp256k1Signer;
   let proposerPrivateKey: Hex<32>;
@@ -117,7 +117,7 @@ describe('ValidatorClient Integration', () => {
       worldStateDbMapSizeKb: 1024 * 1024,
       worldStateCheckpointHistory: 0,
     };
-    const worldStateDb = await NativeWorldStateService.tmp(rollupAddress, true, prefilledPublicData);
+    const worldStateDb = await NativeWorldStateService.tmp(rollupAddress, true, genesis);
     const synchronizer = new ServerWorldStateSynchronizer(worldStateDb, archiver, wsConfig);
     await synchronizer.start();
 
@@ -236,6 +236,7 @@ describe('ValidatorClient Integration', () => {
   const buildBlockProposal = async (
     checkpointBuilder: CheckpointBuilder,
     blockNumber: BlockNumber,
+    cpNumber: CheckpointNumber,
     txs: Tx[] = [],
     l1ToL2Messages: Fr[] = [],
   ): Promise<{ block: L2Block; proposal: BlockProposal }> => {
@@ -249,11 +250,13 @@ describe('ValidatorClient Integration', () => {
 
     const proposal = await proposer.validator.createBlockProposal(
       block.header,
+      cpNumber,
       block.indexWithinCheckpoint,
       inHash,
       block.archive.root,
       usedTxs,
       proposerSigner.address,
+      {},
     );
 
     logger.warn(`Built block proposal for block ${blockNumber}`, { ...block.toBlockInfo() });
@@ -331,7 +334,7 @@ describe('ValidatorClient Integration', () => {
     for (let i = 0; i < blockCount; i++) {
       const blockNumber = BlockNumber(startBlockNumber + i);
       const txs = await getTxsForBlock(blockNumber, blocks);
-      const block = await buildBlockProposal(builder, blockNumber, txs, l1ToL2Messages);
+      const block = await buildBlockProposal(builder, blockNumber, checkpointNumber, txs, l1ToL2Messages);
       blocks.push(block);
     }
 
@@ -340,9 +343,11 @@ describe('ValidatorClient Integration', () => {
     const proposal = await proposer.validator.createCheckpointProposal(
       checkpoint.header,
       checkpoint.archive.root,
+      checkpointNumber,
       0n,
       undefined,
       proposerSigner.address,
+      {},
     );
 
     return { blocks, checkpoint, proposal, l1ToL2Messages, globalVariables };
@@ -386,7 +391,7 @@ describe('ValidatorClient Integration', () => {
     feePayerAddresses = await Promise.all(Array.from({ length: 10 }, () => AztecAddress.random()));
     const genesisValues = await getGenesisValues(feePayerAddresses);
     genesisArchiveRoot = genesisValues.genesisArchiveRoot;
-    prefilledPublicData = genesisValues.prefilledPublicData;
+    genesis = genesisValues.genesis;
 
     // Create validator clients
     logger.warn(`Setting up validator contexts`);
@@ -568,6 +573,7 @@ describe('ValidatorClient Integration', () => {
       const badProposal = await CheckpointProposal.createProposalFromSigner(
         checkpoint.header,
         Fr.random(), // Wrong archive root
+        CheckpointNumber(1),
         0n,
         undefined,
         payload => Promise.resolve(proposerSigner.sign(payload)),

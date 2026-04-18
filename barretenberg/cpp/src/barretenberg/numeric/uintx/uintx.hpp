@@ -307,6 +307,10 @@ using uint512_t = uintx<uint256_t>;
 extern template class uintx<uint512_t>;
 using uint1024_t = uintx<uint512_t>;
 
+// Pin the [class.mem]/19 alignment-propagation rule: uintx<uint256_t> must inherit alignas(32).
+static_assert(alignof(uint512_t) >= 32);
+static_assert(alignof(uint1024_t) >= 32);
+
 } // namespace bb::numeric
 
 using bb::numeric::uint1024_t; // NOLINT

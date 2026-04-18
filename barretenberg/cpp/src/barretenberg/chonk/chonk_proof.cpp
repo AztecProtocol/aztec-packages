@@ -44,7 +44,9 @@ ChonkProof_<IsRecursive> ChonkProof_<IsRecursive>::from_field_elements(const std
     // MegaZK Oink proof size = total - all other fixed-size components.
     // This correctly accounts for any ACIR public inputs prepended to the oink portion.
     constexpr size_t fixed_total = merge_size + eccvm_size + ipa_size + joint_size;
-    BB_ASSERT_GTE(fields.size(), fixed_total, "ChonkProof::from_field_elements: proof too short");
+    if (fields.size() < fixed_total) {
+        throw_or_abort("ChonkProof::from_field_elements: proof too short");
+    }
     const size_t mega_zk_oink_length = fields.size() - fixed_total;
 
     auto it = fields.begin();
