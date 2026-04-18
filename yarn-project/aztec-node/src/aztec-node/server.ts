@@ -362,7 +362,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
       publicDataTreeMapSizeKb: config.publicDataTreeMapSizeKb ?? dataStoreMapSizeKb,
     };
     const wsdbOpts = getWsdbOptions(dataDirectory, wsTreeMapSizes);
-    const prefilledData = (options.prefilledPublicData ?? []).map(
+    const prefilledData = (options.genesis?.prefilledPublicData ?? []).map(
       d => [d.slot.toBuffer(), d.value.toBuffer()] as [Buffer, Buffer],
     );
 

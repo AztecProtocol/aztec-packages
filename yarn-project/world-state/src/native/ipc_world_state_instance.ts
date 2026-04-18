@@ -529,7 +529,7 @@ export class IpcWorldState implements NativeWorldStateInstance {
         const resp = await this.api.wsdbSyncBlock({
           blocknumber: Number(b.blockNumber),
           blockstateref: blockStateRefToMap(b.blockStateRef as Map<number, readonly [Buffer, number | bigint]>) as any,
-          blockheaderhash: new Uint8Array(b.blockHeaderHash.toBuffer()),
+          blockheaderhash: new Uint8Array(b.blockHeaderHash),
           paddednotehashes: b.paddedNoteHashes.map(l => new Uint8Array(l as Buffer)),
           paddedl1tol2messages: b.paddedL1ToL2Messages.map(l => new Uint8Array(l as Buffer)),
           paddednullifiers: b.paddedNullifiers.map(l => ({

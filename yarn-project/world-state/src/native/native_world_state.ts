@@ -82,7 +82,9 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
     // Used by both initial open and clear() to recreate from scratch.
     const createInstance = async (dir: string) => {
       const wsdbOpts = getWsdbOptions(dir, wsTreeMapSizes);
-      const prefilledData = prefilledPublicData.map(d => [d.slot.toBuffer(), d.value.toBuffer()] as [Buffer, Buffer]);
+      const prefilledData = genesis.prefilledPublicData.map(
+        d => [d.slot.toBuffer(), d.value.toBuffer()] as [Buffer, Buffer],
+      );
       const backend = new WsdbBackend({
         binaryPath: wsdbBinaryPath,
         dataDir: dir,
@@ -110,7 +112,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
       return createInstance(worldStateDirectory);
     };
 
-    const worldState = new this(instance, instrumentation, log, cleanup, recreateInstance);
+    const worldState = new this(instance, instrumentation, log, genesis, cleanup, recreateInstance);
     try {
       await worldState.init();
     } catch (e) {
@@ -148,7 +150,10 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
     }
 
     const wsdbOpts = getWsdbOptions(dataDir, worldStateTreeMapSizes);
-    const prefilledData = prefilledPublicData.map(d => [d.slot.toBuffer(), d.value.toBuffer()] as [Buffer, Buffer]);
+    const prefilledData = genesis.prefilledPublicData.map(
+      (d: { slot: { toBuffer(): Buffer }; value: { toBuffer(): Buffer } }) =>
+        [d.slot.toBuffer(), d.value.toBuffer()] as [Buffer, Buffer],
+    );
 
     const createInstance = async () => {
       const backend = new WsdbBackend({
@@ -180,7 +185,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
       return createInstance();
     };
 
-    const worldState = new this(instance, instrumentation, log, cleanup, recreateInstance);
+    const worldState = new this(instance, instrumentation, log, genesis, cleanup, recreateInstance);
     try {
       await worldState.init();
     } catch (e) {
@@ -203,7 +208,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
   ): Promise<NativeWorldStateService> {
     const log = createLogger('world-state:database', bindings);
     const instance = new IpcWorldState(wsdbBackend, instrumentation, bindings);
-    const worldState = new this(instance, instrumentation, log, cleanup, recreateInstance);
+    const worldState = new this(instance, instrumentation, log, EMPTY_GENESIS_DATA, cleanup, recreateInstance);
     try {
       await worldState.init();
     } catch (e) {
