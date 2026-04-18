@@ -375,6 +375,9 @@ void UltraCircuitChecker::populate_values(
     values.q_r = block.q_2()[idx];
     values.q_o = block.q_3()[idx];
     values.q_4 = block.q_4()[idx];
+    if constexpr (requires { values.q_5; }) {
+        values.q_5 = block.q_5()[idx];
+    }
     values.q_arith = block.q_arith()[idx];
     values.q_delta_range = block.q_delta_range()[idx];
     values.q_elliptic = block.q_elliptic()[idx];

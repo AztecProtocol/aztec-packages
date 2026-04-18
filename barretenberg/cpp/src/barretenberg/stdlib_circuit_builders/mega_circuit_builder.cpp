@@ -311,6 +311,7 @@ template <typename FF> void MegaCircuitBuilder_<FF>::apply_databus_selectors(con
     }
     }
     block.q_4().emplace_back(0);
+    block.q_5().emplace_back(0);
     block.q_m().emplace_back(0);
     block.q_c().emplace_back(0);
     block.set_gate_selector(1);

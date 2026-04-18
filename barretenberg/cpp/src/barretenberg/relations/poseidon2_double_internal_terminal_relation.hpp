@@ -1,125 +1,135 @@
 #pragma once
 #include "barretenberg/crypto/poseidon2/poseidon2_params.hpp"
+#include "barretenberg/crypto/poseidon2/poseidon2_quad_params.hpp"
 #include "relation_types.hpp"
 
 namespace bb {
 
 /**
- * @brief Terminal variant of the double-internal round relation.
+ * @brief Terminal variant of the K=4 compressed internal-round relation.
  *
- * @details Processes two consecutive internal rounds per row, like the interior double-internal
- * relation, but the successor row is expected to use STANDARD 4-element encoding
- * (s_0, s_1, s_2, s_3) rather than the compressed encoding. All four output subrelations
- * match the standard encoding directly:
+ * @details Same 4-round computation as `Poseidon2DoubleInternalRelationImpl`, but the successor
+ * is the standard-encoded bridge row (not another compressed row). The A_k constraints directly
+ * match out_k against w_{k,shift} — no forward-Vandermonde reconstruction on the shift side.
  *
- *   A_0: out_0 - w_l_shift = 0
- *   A_1: out_1 - w_r_shift = 0
- *   A_2: out_2 - w_o_shift = 0
- *   A_3: out_3 - w_4_shift = 0
+ * This ties the compressed chain's output state (state[0..3] after 56 internal rounds) to
+ * witnesses that the first final-external gate consumes via shared witness indices.
  *
- * No s_1^next reconstruction is needed, so the q_o selector is unused on the terminal row.
- *
- * Compared to `Poseidon2DoubleInternalRelationImpl`, this relation is strictly simpler:
- * A_1 is enforced directly against the successor's standard-encoded `w_r_shift`. This ties the
- * compressed block's output `state[1]` to a witness that the next block (the single-round tail
- * or a final-external block) can consume via shared witness indices.
+ * Selector layout on the terminal row:
+ *     q_l = c_{4i}, q_r = c_{4i+1}, q_o = c_{4i+2}, q_4 = c_{4i+3}   // this (last) pair
+ *     q_m, q_c, q_5 = 0 (unused — no next pair)
  */
 template <typename FF_> class Poseidon2DoubleInternalTerminalRelationImpl {
   public:
     using FF = FF_;
+    using QuadParams = crypto::Poseidon2QuadBn254Params;
 
-    static constexpr std::array<size_t, 4> SUBRELATION_PARTIAL_LENGTHS{
-        7, // A_0: out_0 - w_l_shift
-        7, // A_1: out_1 - w_r_shift
-        7, // A_2: out_2 - w_o_shift
-        7, // A_3: out_3 - w_4_shift
-    };
+    static constexpr std::array<size_t, 4> SUBRELATION_PARTIAL_LENGTHS{ 7, 7, 7, 7 };
 
-    static constexpr fr D1m1 = crypto::Poseidon2Bn254ScalarFieldParams::internal_matrix_diagonal_minus_one[0];
-    static constexpr fr D2m1 = crypto::Poseidon2Bn254ScalarFieldParams::internal_matrix_diagonal_minus_one[1];
-    static constexpr fr D3m1 = crypto::Poseidon2Bn254ScalarFieldParams::internal_matrix_diagonal_minus_one[2];
-    static constexpr fr D4m1 = crypto::Poseidon2Bn254ScalarFieldParams::internal_matrix_diagonal_minus_one[3];
-    static constexpr fr D1 = fr{ 1 } + D1m1;
-    static constexpr fr D2 = fr{ 1 } + D2m1;
-    static constexpr fr D3 = fr{ 1 } + D3m1;
-    static constexpr fr D4 = fr{ 1 } + D4m1;
+    static constexpr fr D1 = QuadParams::D1;
+    static constexpr fr D2 = QuadParams::D2;
+    static constexpr fr D3 = QuadParams::D3;
+    static constexpr fr D4 = QuadParams::D4;
+    static constexpr fr SIGMA = QuadParams::SIGMA;
 
-    static constexpr fr one_minus_D1 = fr{ 1 } - D1;
-    static constexpr fr one_minus_D2 = fr{ 1 } - D2;
-    static constexpr fr one_minus_D1_D2 = fr{ 1 } - (D1 * D2);
+    static constexpr fr A11 = QuadParams::alpha_1_1, A12 = QuadParams::alpha_1_2, A13 = QuadParams::alpha_1_3;
+    static constexpr fr A21 = QuadParams::alpha_2_1, A22 = QuadParams::alpha_2_2, A23 = QuadParams::alpha_2_3;
+    static constexpr fr A31 = QuadParams::alpha_3_1, A32 = QuadParams::alpha_3_2, A33 = QuadParams::alpha_3_3;
 
-    /**
-     * @brief Returns true if the contribution from all subrelations for the provided inputs is identically zero.
-     * @details The terminal relation is active on exactly one row per Poseidon2 permutation (the last compressed
-     * row whose successor is the standard-encoded transition row). Everywhere else the selector is 0, so the
-     * prover skips accumulation.
-     */
+    static constexpr fr TWO_D1_MINUS_3 = D1 + D1 - fr(3);
+    static constexpr fr SIGMA_PLUS_2 = SIGMA + fr(2);
+    static constexpr fr B3_U0_COEF = (SIGMA + fr(2)) * D1 - SIGMA - fr(3);
+    static constexpr fr D1_MINUS_3 = D1 - fr(3);
+
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
-        return (in.q_poseidon2_double_internal_terminal.is_zero());
+        return in.q_poseidon2_double_internal_terminal.is_zero();
     }
 
     template <typename ContainerOverSubrelations, typename AllEntities, typename Parameters>
     void static accumulate(ContainerOverSubrelations& evals,
                            const AllEntities& in,
-                           const Parameters&,
+                           const Parameters& /*params*/,
                            const FF& scaling_factor)
     {
-        using Accumulator7 = std::tuple_element_t<0, ContainerOverSubrelations>;
-        using CoefficientAccumulator7 = typename Accumulator7::CoefficientAccumulator;
+        using Accumulator = std::tuple_element_t<0, ContainerOverSubrelations>;
+        using CoeffAcc = typename Accumulator::CoefficientAccumulator;
 
-        const auto w_l = CoefficientAccumulator7(in.w_l);
-        const auto w_r = CoefficientAccumulator7(in.w_r);
-        const auto w_o = CoefficientAccumulator7(in.w_o);
-        const auto w_4 = CoefficientAccumulator7(in.w_4);
+        const auto w_l = CoeffAcc(in.w_l);
+        const auto w_r = CoeffAcc(in.w_r);
+        const auto w_o = CoeffAcc(in.w_o);
+        const auto w_4 = CoeffAcc(in.w_4);
 
-        const auto w_l_shift = CoefficientAccumulator7(in.w_l_shift);
-        const auto w_r_shift = CoefficientAccumulator7(in.w_r_shift);
-        const auto w_o_shift = CoefficientAccumulator7(in.w_o_shift);
-        const auto w_4_shift = CoefficientAccumulator7(in.w_4_shift);
+        const auto w_l_shift = CoeffAcc(in.w_l_shift);
+        const auto w_r_shift = CoeffAcc(in.w_r_shift);
+        const auto w_o_shift = CoeffAcc(in.w_o_shift);
+        const auto w_4_shift = CoeffAcc(in.w_4_shift);
 
-        const auto q_sel = CoefficientAccumulator7(in.q_poseidon2_double_internal_terminal);
-        const auto q_l = CoefficientAccumulator7(in.q_l);
-        const auto q_r = CoefficientAccumulator7(in.q_r);
+        const auto q_l = CoeffAcc(in.q_l);
+        const auto q_r = CoeffAcc(in.q_r);
+        const auto q_o = CoeffAcc(in.q_o);
+        const auto q_4 = CoeffAcc(in.q_4);
 
-        // Round 2i: S-box on state[0].
-        auto s1 = Accumulator7(w_l + q_l);
-        auto u1 = s1.sqr();
-        u1 = u1.sqr();
-        u1 *= s1;
+        const auto q_sel = CoeffAcc(in.q_poseidon2_double_internal_terminal);
 
-        // Intermediate state v_k after round 2i (s_1 substituted out via the M_I first-row equation).
-        auto one_minus_D1_u1 = u1 * one_minus_D1;
+        auto pow5 = [](const Accumulator& x) -> Accumulator {
+            auto sq = x.sqr();
+            auto quart = sq.sqr();
+            return quart * x;
+        };
 
-        auto v1 = u1 * one_minus_D1_D2;
-        auto v1_linear = Accumulator7((w_r * D2) + ((w_o + w_4) * one_minus_D2));
-        v1 += v1_linear;
+        // ── S-boxes for the 4 rounds ──
+        auto u_0 = pow5(Accumulator(w_l + q_l));
+        auto u_1 = pow5(Accumulator(w_r + q_r));
+        auto u_2 = pow5(Accumulator(w_o + q_o));
+        auto u_3 = pow5(Accumulator(w_4 + q_4));
 
-        auto v2 = one_minus_D1_u1 + Accumulator7(w_r + (w_o * D3m1));
-        auto v3 = one_minus_D1_u1 + Accumulator7(w_r + (w_4 * D4m1));
+        // ── Vandermonde RHS for the current row ──
+        auto b_1 = Accumulator(w_r) - u_0 * D1;
+        auto b_2 = Accumulator(w_o - w_r - w_r) + u_0 * TWO_D1_MINUS_3 - u_1 * D1;
+        auto b_3 = Accumulator(w_4 - w_o - w_r * SIGMA_PLUS_2) + u_0 * B3_U0_COEF + u_1 * D1_MINUS_3 - u_2 * D1;
 
-        // Round 2i+1: S-box on v_0 = w_r.
-        auto s1_prime = Accumulator7(w_r + q_r);
-        auto u1_prime = s1_prime.sqr();
-        u1_prime = u1_prime.sqr();
-        u1_prime *= s1_prime;
+        // ── Lagrange solve for (s_1, s_2, s_3) at row start ──
+        auto s1 = b_1 * A11 + b_2 * A12 + b_3 * A13;
+        auto s2 = b_1 * A21 + b_2 * A22 + b_3 * A23;
+        auto s3 = b_1 * A31 + b_2 * A32 + b_3 * A33;
 
-        auto v_sum = v1 + v2 + v3;
-        auto out0 = (u1_prime * D1) + v_sum;
-        auto out1 = u1_prime + (v1 * D2m1) + v_sum;
-        auto out2 = u1_prime + (v2 * D3m1) + v_sum;
-        auto out3 = u1_prime + (v3 * D4m1) + v_sum;
+        // ── Iterate the recurrence 4 rounds ──
+        auto step = [](Accumulator& x1, Accumulator& x2, Accumulator& x3, const Accumulator& u) {
+            auto sum = x1 + x2 + x3;
+            auto t = u + sum;
+            Accumulator new_s1 = t + x1 * (D2 - fr(1));
+            Accumulator new_s2 = t + x2 * (D3 - fr(1));
+            Accumulator new_s3 = t + x3 * (D4 - fr(1));
+            x1 = new_s1;
+            x2 = new_s2;
+            x3 = new_s3;
+        };
 
+        step(s1, s2, s3, u_0);
+        step(s1, s2, s3, u_1);
+        step(s1, s2, s3, u_2);
+        // After 3 steps, (s1, s2, s3) = state[1..3] at round 3.
+        auto T_3 = s1 + s2 + s3;
+        auto out_0 = u_3 * D1 + T_3;
+
+        step(s1, s2, s3, u_3);
+        auto& out_1 = s1;
+        auto& out_2 = s2;
+        auto& out_3 = s3;
+
+        // ── Direct match against standard-encoded successor ──
         const auto q_by_scaling_m = q_sel * scaling_factor;
-        const auto q_by_scaling = Accumulator7(q_by_scaling_m);
+        const auto q_by_scaling = Accumulator(q_by_scaling_m);
 
-        std::get<0>(evals) += q_by_scaling * (out0 - Accumulator7(w_l_shift));
-        std::get<1>(evals) += q_by_scaling * (out1 - Accumulator7(w_r_shift));
-        std::get<2>(evals) += q_by_scaling * (out2 - Accumulator7(w_o_shift));
-        std::get<3>(evals) += q_by_scaling * (out3 - Accumulator7(w_4_shift));
-    };
+        std::get<0>(evals) += q_by_scaling * (out_0 - Accumulator(w_l_shift));
+        std::get<1>(evals) += q_by_scaling * (out_1 - Accumulator(w_r_shift));
+        std::get<2>(evals) += q_by_scaling * (out_2 - Accumulator(w_o_shift));
+        std::get<3>(evals) += q_by_scaling * (out_3 - Accumulator(w_4_shift));
+    }
 };
 
 template <typename FF>
 using Poseidon2DoubleInternalTerminalRelation = Relation<Poseidon2DoubleInternalTerminalRelationImpl<FF>>;
+
 } // namespace bb

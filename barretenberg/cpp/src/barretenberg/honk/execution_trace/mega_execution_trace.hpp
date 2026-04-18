@@ -70,6 +70,7 @@ class MegaTraceBlock : public ExecutionTraceBlock<fr, /*NUM_WIRES_ */ 4> {
             q_2(),
             q_3(),
             q_4(),
+            q_5(),
             q_busread(),
             q_lookup(),
             q_arith(),

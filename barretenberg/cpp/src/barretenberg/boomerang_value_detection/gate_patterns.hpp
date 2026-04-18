@@ -370,10 +370,15 @@ inline const GatePattern
 // ============================================================================
 // Poseidon2 Transition Entry Pattern (from poseidon2_transition_entry_relation.hpp)
 //
-// Single subrelation:
-//   q_poseidon2_transition_entry * ( w_r_shift - D_1 (w_l + q_l)^5 - w_r - w_o - w_4 ) = 0
+// K=4: 3 subrelations forcing state[0] at rounds start+1, start+2, start+3 onto the first
+// compressed row. Each subrelation uses the PREVIOUS shifted wire as a fresh variable
+// (degree firewall), so A_0 reads w_l + w_r_shift, A_1 reads w_r_shift + w_o_shift, and
+// A_2 reads w_o_shift + w_4_shift. Linear terms in all of (w_r, w_o, w_4) appear in A_1
+// and A_2.
 //
-// Constrained wires: w_l, w_r, w_o, w_4, w_r_shift.
+// Constrained wires: w_l, w_r, w_o, w_4 (current) + w_r_shift, w_o_shift, w_4_shift.
+// w_l_shift is handled implicitly via shared witness indices (sigma permutation) — the
+// first compressed row's w_l uses the same witness index as this row's w_l.
 //
 // gate_selector = q_poseidon2_transition_entry
 // ============================================================================
@@ -385,6 +390,8 @@ inline const GatePattern POSEIDON2_TRANSITION_ENTRY = { .name = "poseidon2_trans
                                                             { Wire::W_O, [](const Selectors&) { return true; } },
                                                             { Wire::W_4, [](const Selectors&) { return true; } },
                                                             { Wire::W_R_SHIFT, [](const Selectors&) { return true; } },
+                                                            { Wire::W_O_SHIFT, [](const Selectors&) { return true; } },
+                                                            { Wire::W_4_SHIFT, [](const Selectors&) { return true; } },
                                                         } };
 
 // ============================================================================
