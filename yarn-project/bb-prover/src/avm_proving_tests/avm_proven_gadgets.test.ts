@@ -122,6 +122,7 @@ describe('AVM proven gadgets test: test vectors', () => {
   });
 
   afterEach(async () => {
+    await tester.close();
     await worldStateService.close();
   });
 
