@@ -323,6 +323,71 @@ inline const GatePattern POSEIDON2_EXTERNAL = { .name = "poseidon2_external",
                                                 } };
 
 // ============================================================================
+// Poseidon2 Double-Internal Pattern (from poseidon2_double_internal_relation.hpp)
+//
+// Four subrelations tie each output wire (w_l, w_r, w_o, w_4) to the corresponding
+// shifted wire (w_l_shift, w_r_shift, w_o_shift, w_4_shift). All 4 current + all 4
+// shifted wires are constrained.
+//
+// gate_selector = q_poseidon2_double_internal
+// ============================================================================
+
+inline const GatePattern POSEIDON2_DOUBLE_INTERNAL = { .name = "poseidon2_double_internal",
+                                                       .wires = {
+                                                           { Wire::W_L, [](const Selectors&) { return true; } },
+                                                           { Wire::W_R, [](const Selectors&) { return true; } },
+                                                           { Wire::W_O, [](const Selectors&) { return true; } },
+                                                           { Wire::W_4, [](const Selectors&) { return true; } },
+                                                           { Wire::W_L_SHIFT, [](const Selectors&) { return true; } },
+                                                           { Wire::W_R_SHIFT, [](const Selectors&) { return true; } },
+                                                           { Wire::W_O_SHIFT, [](const Selectors&) { return true; } },
+                                                           { Wire::W_4_SHIFT, [](const Selectors&) { return true; } },
+                                                       } };
+
+// ============================================================================
+// Poseidon2 Double-Internal Terminal Pattern
+// (from poseidon2_double_internal_terminal_relation.hpp)
+//
+// Four subrelations: A_k: out_k - w_k_shift (k = l, r, o, 4). All 4 current
+// + all 4 shifted wires are constrained.
+//
+// gate_selector = q_poseidon2_double_internal_terminal
+// ============================================================================
+
+inline const GatePattern
+    POSEIDON2_DOUBLE_INTERNAL_TERMINAL = { .name = "poseidon2_double_internal_terminal",
+                                           .wires = {
+                                               { Wire::W_L, [](const Selectors&) { return true; } },
+                                               { Wire::W_R, [](const Selectors&) { return true; } },
+                                               { Wire::W_O, [](const Selectors&) { return true; } },
+                                               { Wire::W_4, [](const Selectors&) { return true; } },
+                                               { Wire::W_L_SHIFT, [](const Selectors&) { return true; } },
+                                               { Wire::W_R_SHIFT, [](const Selectors&) { return true; } },
+                                               { Wire::W_O_SHIFT, [](const Selectors&) { return true; } },
+                                               { Wire::W_4_SHIFT, [](const Selectors&) { return true; } },
+                                           } };
+
+// ============================================================================
+// Poseidon2 Transition Entry Pattern (from poseidon2_transition_entry_relation.hpp)
+//
+// Single subrelation:
+//   q_poseidon2_transition_entry * ( w_r_shift - D_1 (w_l + q_l)^5 - w_r - w_o - w_4 ) = 0
+//
+// Constrained wires: w_l, w_r, w_o, w_4, w_r_shift.
+//
+// gate_selector = q_poseidon2_transition_entry
+// ============================================================================
+
+inline const GatePattern POSEIDON2_TRANSITION_ENTRY = { .name = "poseidon2_transition_entry",
+                                                        .wires = {
+                                                            { Wire::W_L, [](const Selectors&) { return true; } },
+                                                            { Wire::W_R, [](const Selectors&) { return true; } },
+                                                            { Wire::W_O, [](const Selectors&) { return true; } },
+                                                            { Wire::W_4, [](const Selectors&) { return true; } },
+                                                            { Wire::W_R_SHIFT, [](const Selectors&) { return true; } },
+                                                        } };
+
+// ============================================================================
 // Databus Pattern (from databus_lookup_relation.hpp)
 //
 // Read term uses: w_l (value), w_r (index)

@@ -628,6 +628,8 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
 
     void create_poseidon2_external_gate(const poseidon2_external_gate_<FF>& in);
     void create_poseidon2_internal_gate(const poseidon2_internal_gate_<FF>& in);
+    void create_poseidon2_double_internal_gate(const poseidon2_double_internal_gate_<FF>& in);
+    void create_poseidon2_transition_entry_gate(const poseidon2_transition_entry_gate_<FF>& in);
 
     // ========================================================================================
     // TOOLING: Boomerang Detection

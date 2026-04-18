@@ -27,10 +27,14 @@ template <typename Builder> class StdlibPoseidon2 : public testing::Test {
 
     static std::size_t gate_count(std::size_t N)
     {
+        // Per-permutation gate cost: Mega uses the double-internal encoding (46 gates: entry +
+        // 27 interior + terminal + standard transition + external rounds); Ultra uses the standard
+        // single-round encoding (73 gates).
+        constexpr bool is_mega = std::is_same_v<Builder, MegaCircuitBuilder>;
+        constexpr size_t P_cost = is_mega ? 46 : 73;
         if (N == 1) {
-            return 73;
+            return P_cost;
         }
-        const size_t P_cost = 73;
         const size_t D_full_adds = 3;
 
         // Number of Poseidon2 permutation invocations

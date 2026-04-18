@@ -186,6 +186,7 @@ class HypernovaFoldingVerifierTests : public ::testing::Test {
         for (const auto& bus : { "CALLDATA", "SECONDARY_CALLDATA", "RETURN_DATA" }) {
             manifest.add_entry(round, bus, frs_per_G);
             manifest.add_entry(round, std::string(bus) + "_READ_COUNTS", frs_per_G);
+            manifest.add_entry(round, std::string(bus) + "_READ_TAGS", frs_per_G);
         }
         round++;
 
@@ -220,7 +221,7 @@ class HypernovaFoldingVerifierTests : public ::testing::Test {
         for (size_t i = 0; i < MegaFlavor::NUM_SHIFTED_ENTITIES - 1; ++i) {
             manifest.add_challenge(round, "shifted_challenge_" + std::to_string(i));
         }
-        manifest.add_entry(round, "Sumcheck:evaluations", 57);
+        manifest.add_entry(round, "Sumcheck:evaluations", MegaFlavor::NUM_ALL_ENTITIES);
         round++;
 
         // Round 25: Sumcheck:alpha + MLB accumulator data (Sumcheck:alpha is consecutive challenge)

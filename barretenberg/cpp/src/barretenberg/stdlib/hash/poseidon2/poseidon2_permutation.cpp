@@ -44,24 +44,103 @@ typename Poseidon2Permutation<Builder>::State Poseidon2Permutation<Builder>::per
 
     propagate_current_state_to_next_row(builder, current_state, builder->blocks.poseidon2_external);
 
-    // Internal rounds
+    // Internal rounds. Mega: 1 entry + 27 interior + 1 terminal + 1 standard transition (covering all
+    //                        rounds_p rounds via 28 compressed pairs -- no single-round tail).
+    //                  Ultra: rounds_p single-round rows + propagate (standard Poseidon2 layout).
     const size_t p_end = rounds_f_beginning + rounds_p;
-    for (size_t i = rounds_f_beginning; i < p_end; ++i) {
-        poseidon2_internal_gate_<FF> in{ current_state[0].get_witness_index(),
-                                         current_state[1].get_witness_index(),
-                                         current_state[2].get_witness_index(),
-                                         current_state[3].get_witness_index(),
-                                         i };
-        builder->create_poseidon2_internal_gate(in);
-        current_native_state[0] += round_constants[i][0];
-        NativePermutation::apply_single_sbox(current_native_state[0]);
-        NativePermutation::matrix_multiplication_internal(current_native_state);
-        for (size_t j = 0; j < t; ++j) {
-            current_state[j] = witness_t<Builder>(builder, current_native_state[j]);
-        }
-    }
+    if constexpr (std::is_same_v<Builder, MegaCircuitBuilder>) {
+        // Double-round encoding: w_l = state[0] at even round, w_r = state[0] at odd round,
+        //   w_o = state[2] at even round, w_4 = state[3] at even round.
+        // state[1] is reconstructed inside the relation from the M_I first-row equation.
+        static_assert(rounds_p % 2 == 0);
+        constexpr size_t num_double_pairs = rounds_p / 2; // 28 pairs for rounds_p=56
 
-    propagate_current_state_to_next_row(builder, current_state, builder->blocks.poseidon2_internal);
+        // Entry transition row: standard-encoded state at round `rounds_f_beginning`, copy-constrained
+        // (via shared witness indices) to the external block's propagate row in ALL four columns.
+        // Forces the first compressed row's w_r (= intermediate_s0) to equal D_1 (s_0 + c)^5 + s_1 + s_2 + s_3.
+        {
+            poseidon2_transition_entry_gate_<FF> in{
+                current_state[0].get_witness_index(),
+                current_state[1].get_witness_index(),
+                current_state[2].get_witness_index(),
+                current_state[3].get_witness_index(),
+                rounds_f_beginning,
+            };
+            builder->create_poseidon2_transition_entry_gate(in);
+        }
+
+        // Helper: emits one compressed row (interior or terminal) and advances `current_state` by two
+        // internal rounds. On interior rows, A_1 uses `s_1^next` reconstruction via q_3. On the terminal
+        // row, A_1 compares directly against a standard-encoded successor, so q_3 is unused.
+        auto emit_compressed_row = [&](size_t pair, bool is_terminal) {
+            const size_t even_round = rounds_f_beginning + (2 * pair);
+            const size_t odd_round = even_round + 1;
+            const size_t next_even_round = even_round + 2; // unused on terminal row
+
+            NativeState intermediate_native_state = current_native_state;
+            intermediate_native_state[0] += round_constants[even_round][0];
+            NativePermutation::apply_single_sbox(intermediate_native_state[0]);
+            NativePermutation::matrix_multiplication_internal(intermediate_native_state);
+            auto intermediate_s0 = witness_t<Builder>(builder, intermediate_native_state[0]);
+
+            poseidon2_double_internal_gate_<FF> in{
+                current_state[0].get_witness_index(),
+                intermediate_s0.witness_index,
+                current_state[2].get_witness_index(),
+                current_state[3].get_witness_index(),
+                even_round,
+                odd_round,
+                next_even_round,
+                is_terminal,
+            };
+            builder->create_poseidon2_double_internal_gate(in);
+
+            current_native_state = intermediate_native_state;
+            current_native_state[0] += round_constants[odd_round][0];
+            NativePermutation::apply_single_sbox(current_native_state[0]);
+            NativePermutation::matrix_multiplication_internal(current_native_state);
+
+            for (size_t j = 0; j < t; ++j) {
+                current_state[j] = witness_t<Builder>(builder, current_native_state[j]);
+            }
+        };
+
+        // Phase 1a: 27 interior compressed rows.
+        for (size_t pair = 0; pair < num_double_pairs - 1; ++pair) {
+            emit_compressed_row(pair, /*is_terminal=*/false);
+        }
+        // Phase 1b: the last compressed row uses the TERMINAL relation. A_k enforces
+        // out_k = w_{k,shift}, where the shifted wires are the adjacent standard transition row.
+        emit_compressed_row(num_double_pairs - 1, /*is_terminal=*/true);
+
+        // Standard transition row (unconstrained, standard encoding holding state at round p_end).
+        // Placed in the double_internal block so the terminal row's shifted wires land on it. Its
+        // 4 wires are copy-constrained (shared witness indices) to the first final-external gate
+        // emitted by the external-rounds loop below, which ties the terminal row's A_k constraints
+        // to the standard state read by the final external rounds.
+        builder->create_unconstrained_gate(builder->blocks.poseidon2_double_internal,
+                                           current_state[0].get_witness_index(),
+                                           current_state[1].get_witness_index(),
+                                           current_state[2].get_witness_index(),
+                                           current_state[3].get_witness_index());
+    } else {
+        // Standard single-round layout for Ultra (and any non-Mega builder).
+        for (size_t i = rounds_f_beginning; i < p_end; ++i) {
+            poseidon2_internal_gate_<FF> in{ current_state[0].get_witness_index(),
+                                             current_state[1].get_witness_index(),
+                                             current_state[2].get_witness_index(),
+                                             current_state[3].get_witness_index(),
+                                             i };
+            builder->create_poseidon2_internal_gate(in);
+            current_native_state[0] += round_constants[i][0];
+            NativePermutation::apply_single_sbox(current_native_state[0]);
+            NativePermutation::matrix_multiplication_internal(current_native_state);
+            for (size_t j = 0; j < t; ++j) {
+                current_state[j] = witness_t<Builder>(builder, current_native_state[j]);
+            }
+        }
+        propagate_current_state_to_next_row(builder, current_state, builder->blocks.poseidon2_internal);
+    }
 
     // Remaining external rounds
     for (size_t i = p_end; i < NUM_ROUNDS; ++i) {
