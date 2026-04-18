@@ -304,18 +304,23 @@ pub global GLOBAL_VARIABLES_LENGTH: u32 = 7 + GAS_FEES_LENGTH;
 pub global APPEND_ONLY_TREE_SNAPSHOT_LENGTH: u32 = 2;
 pub global APPEND_ONLY_TREE_SNAPSHOT_LENGTH_BYTES: u32 = 36;
 pub global SPONGE_BLOB_LENGTH: u32 = 10;
-pub global BLS12_FR_LIMBS: u32 = 3; // TODO(#14646): get this from bignum
-pub global BLS12_FQ_LIMBS: u32 = 4; // TODO(#14646): get this from bignum
-pub global BLS12_POINT_LENGTH: u32 = 2 * BLS12_FQ_LIMBS + 1; // TODO(#14646): reduce num fields needed here?
-pub global BLS12_POINT_COMPRESSED_BYTES: u32 = 48; // TODO(#14646): get this from bignum
-pub global BLOB_ACCUMULATOR_LENGTH: u32 = 3 /* v_acc, z_acc, and gamma_acc */
-    + 2 * BLS12_FR_LIMBS /* y_acc and gamma^i */
-    + BLS12_POINT_LENGTH /* c_acc */;
+pub global BLS12_FR_LIMBS: u32 = 3;
+pub global BLS12_FQ_LIMBS: u32 = 4;
+// Packed serialization: two 120-bit limbs per BN254 field (limb0 + 2^120 * limb1).
+// BLS12_381_Fr (3 limbs) -> 2 fields; BLS12_381_Fq (4 limbs) -> 2 fields.
+pub global BLS12_FR_SERIALIZED_FIELDS: u32 = 2;
+pub global BLS12_FQ_SERIALIZED_FIELDS: u32 = 2;
+pub global BLS12_POINT_LENGTH: u32 = 2 * BLS12_FQ_LIMBS + 1; // Intrinsic serialization length (for oracle calls)
+pub global BLS12_POINT_SERIALIZED_LENGTH: u32 = 2 * BLS12_FQ_SERIALIZED_FIELDS + 1; // Packed serialization length
+pub global BLS12_POINT_COMPRESSED_BYTES: u32 = 48;
+pub global BLOB_ACCUMULATOR_LENGTH: u32 = 3 /* blob_commitments_hash_acc, z_acc, and gamma_acc */
+    + 2 * BLS12_FR_SERIALIZED_FIELDS /* y_acc and gamma_pow_acc */
+    + BLS12_POINT_SERIALIZED_LENGTH /* c_acc */;
 pub global FINAL_BLOB_BATCHING_CHALLENGES_LENGTH: u32 = 1 /* z */
-    + BLS12_FR_LIMBS /* gamma */;
+    + BLS12_FR_SERIALIZED_FIELDS /* gamma */;
 pub global FINAL_BLOB_ACCUMULATOR_LENGTH: u32 = 1 /* blob_commitments_hash */
     + 1 /* z */
-    + BLS12_FR_LIMBS /* y */
+    + BLS12_FR_LIMBS /* y (intrinsic serialization, not packed) */
     + 2 /* c */;
 pub global L1_TO_L2_MESSAGE_LENGTH: u32 = 6;
 pub global L2_TO_L1_MESSAGE_LENGTH: u32 = 1 /* recipient */ + 1 /* content */;
