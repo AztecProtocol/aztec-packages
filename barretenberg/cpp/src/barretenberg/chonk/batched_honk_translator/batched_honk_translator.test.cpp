@@ -141,18 +141,13 @@ class BatchedHonkTranslatorTests : public ::testing::Test {
         for (size_t i = 1; i <= 4; ++i) {
             m.add_entry(round, "ECC_OP_WIRE_" + std::to_string(i), G);
         }
-        // DataBus entities: calldata, calldata_read_counts, calldata_read_tags,
-        //                   secondary_calldata, secondary_calldata_read_counts, secondary_calldata_read_tags,
-        //                   return_data, return_data_read_counts, return_data_read_tags
+        // DataBus entities:
         for (const auto& label : { "CALLDATA",
                                    "CALLDATA_READ_COUNTS",
-                                   "CALLDATA_READ_TAGS",
                                    "SECONDARY_CALLDATA",
                                    "SECONDARY_CALLDATA_READ_COUNTS",
-                                   "SECONDARY_CALLDATA_READ_TAGS",
                                    "RETURN_DATA",
-                                   "RETURN_DATA_READ_COUNTS",
-                                   "RETURN_DATA_READ_TAGS" }) {
+                                   "RETURN_DATA_READ_COUNTS" }) {
             m.add_entry(round, label, G);
         }
         m.add_challenge(round, "eta");

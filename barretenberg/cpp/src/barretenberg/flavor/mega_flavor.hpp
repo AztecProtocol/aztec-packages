@@ -186,16 +186,13 @@ class MegaFlavor {
                               ecc_op_wire_4,                  // column 11
                               calldata,                       // column 12
                               calldata_read_counts,           // column 13
-                              calldata_read_tags,             // column 14
-                              calldata_inverses,              // column 15
-                              secondary_calldata,             // column 16
-                              secondary_calldata_read_counts, // column 17
-                              secondary_calldata_read_tags,   // column 18
-                              secondary_calldata_inverses,    // column 19
-                              return_data,                    // column 20
-                              return_data_read_counts,        // column 21
-                              return_data_read_tags,          // column 22
-                              return_data_inverses);          // column 23
+                              calldata_inverses,              // column 14
+                              secondary_calldata,             // column 15
+                              secondary_calldata_read_counts, // column 16
+                              secondary_calldata_inverses,    // column 17
+                              return_data,                    // column 18
+                              return_data_read_counts,        // column 19
+                              return_data_inverses);          // column 20
         auto get_to_be_shifted() { return RefArray{ z_perm }; };
     };
 
@@ -216,11 +213,9 @@ class MegaFlavor {
         }
         auto get_databus_entities() // Excludes the derived inverse polynomials
         {
-            return RefArray{
-                this->calldata,           this->calldata_read_counts,           this->calldata_read_tags,
-                this->secondary_calldata, this->secondary_calldata_read_counts, this->secondary_calldata_read_tags,
-                this->return_data,        this->return_data_read_counts,        this->return_data_read_tags
-            };
+            return RefArray{ this->calldata,           this->calldata_read_counts,
+                             this->secondary_calldata, this->secondary_calldata_read_counts,
+                             this->return_data,        this->return_data_read_counts };
         }
 
         auto get_databus_inverses()
@@ -249,15 +244,12 @@ class MegaFlavor {
                              this->lookup_read_counts,
                              this->lookup_read_tags,
                              this->calldata_read_counts,
-                             this->calldata_read_tags,
                              this->calldata_inverses,
                              this->secondary_calldata,
                              this->secondary_calldata_read_counts,
-                             this->secondary_calldata_read_tags,
                              this->secondary_calldata_inverses,
                              this->return_data,
                              this->return_data_read_counts,
-                             this->return_data_read_tags,
                              this->return_data_inverses };
         }
         auto get_masked() const
@@ -271,15 +263,12 @@ class MegaFlavor {
                              this->lookup_read_counts,
                              this->lookup_read_tags,
                              this->calldata_read_counts,
-                             this->calldata_read_tags,
                              this->calldata_inverses,
                              this->secondary_calldata,
                              this->secondary_calldata_read_counts,
-                             this->secondary_calldata_read_tags,
                              this->secondary_calldata_inverses,
                              this->return_data,
                              this->return_data_read_counts,
-                             this->return_data_read_tags,
                              this->return_data_inverses };
         }
     };
@@ -414,15 +403,12 @@ class MegaFlavor {
             ecc_op_wire_4 = "ECC_OP_WIRE_4";
             calldata = "CALLDATA";
             calldata_read_counts = "CALLDATA_READ_COUNTS";
-            calldata_read_tags = "CALLDATA_READ_TAGS";
             calldata_inverses = "CALLDATA_INVERSES";
             secondary_calldata = "SECONDARY_CALLDATA";
             secondary_calldata_read_counts = "SECONDARY_CALLDATA_READ_COUNTS";
-            secondary_calldata_read_tags = "SECONDARY_CALLDATA_READ_TAGS";
             secondary_calldata_inverses = "SECONDARY_CALLDATA_INVERSES";
             return_data = "RETURN_DATA";
             return_data_read_counts = "RETURN_DATA_READ_COUNTS";
-            return_data_read_tags = "RETURN_DATA_READ_TAGS";
             return_data_inverses = "RETURN_DATA_INVERSES";
 
             q_c = "Q_C";
