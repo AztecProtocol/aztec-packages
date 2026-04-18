@@ -244,15 +244,12 @@ void ProverInstance_<Flavor>::allocate_databus_polynomials(const Circuit& circui
     // Allocate only enough space for the databus data. For ZK, masking values are stored in MaskingTailData.
     polynomials.calldata = Polynomial(calldata_size, dyadic_size());
     polynomials.calldata_read_counts = Polynomial(calldata_size, dyadic_size());
-    polynomials.calldata_read_tags = Polynomial(calldata_size, dyadic_size());
 
     polynomials.secondary_calldata = Polynomial(sec_calldata_size, dyadic_size());
     polynomials.secondary_calldata_read_counts = Polynomial(sec_calldata_size, dyadic_size());
-    polynomials.secondary_calldata_read_tags = Polynomial(sec_calldata_size, dyadic_size());
 
     polynomials.return_data = Polynomial(return_data_size, dyadic_size());
     polynomials.return_data_read_counts = Polynomial(return_data_size, dyadic_size());
-    polynomials.return_data_read_tags = Polynomial(return_data_size, dyadic_size());
 
     // Databus lookup inverses: used in the log-derivative lookup argument
     // Must cover both the databus gate block (where reads occur) and the databus data itself
@@ -286,7 +283,7 @@ template <typename Flavor> void ProverInstance_<Flavor>::construct_lookup_polyno
 }
 
 /**
- * @brief Populate the databus polynomials (calldata, secondary_calldata, return_data) and their read counts/tags.
+ * @brief Populate the databus polynomials (calldata, secondary_calldata, return_data) and their read counts.
  */
 template <typename Flavor>
 void ProverInstance_<Flavor>::construct_databus_polynomials(Circuit& circuit)
@@ -294,13 +291,10 @@ void ProverInstance_<Flavor>::construct_databus_polynomials(Circuit& circuit)
 {
     auto& calldata_poly = polynomials.calldata;
     auto& calldata_read_counts = polynomials.calldata_read_counts;
-    auto& calldata_read_tags = polynomials.calldata_read_tags;
     auto& secondary_calldata_poly = polynomials.secondary_calldata;
     auto& secondary_calldata_read_counts = polynomials.secondary_calldata_read_counts;
-    auto& secondary_calldata_read_tags = polynomials.secondary_calldata_read_tags;
     auto& return_data_poly = polynomials.return_data;
     auto& return_data_read_counts = polynomials.return_data_read_counts;
-    auto& return_data_read_tags = polynomials.return_data_read_tags;
 
     const auto& calldata = circuit.get_calldata();
     const auto& secondary_calldata = circuit.get_secondary_calldata();
@@ -309,20 +303,16 @@ void ProverInstance_<Flavor>::construct_databus_polynomials(Circuit& circuit)
     // Note: Databus columns start from index 0. If this ever changes, make sure to also update the active range
     // construction in ExecutionTraceUsageTracker::update(). We do not utilize a zero row for databus columns.
     for (size_t idx = 0; idx < calldata.size(); ++idx) {
-        calldata_poly.at(idx) = circuit.get_variable(calldata[idx]);        // calldata values
-        calldata_read_counts.at(idx) = calldata.get_read_count(idx);        // read counts
-        calldata_read_tags.at(idx) = calldata_read_counts[idx] > 0 ? 1 : 0; // has row been read or not
+        calldata_poly.at(idx) = circuit.get_variable(calldata[idx]);
+        calldata_read_counts.at(idx) = calldata.get_read_count(idx);
     }
     for (size_t idx = 0; idx < secondary_calldata.size(); ++idx) {
-        secondary_calldata_poly.at(idx) = circuit.get_variable(secondary_calldata[idx]); // secondary_calldata values
-        secondary_calldata_read_counts.at(idx) = secondary_calldata.get_read_count(idx); // read counts
-        secondary_calldata_read_tags.at(idx) =
-            secondary_calldata_read_counts[idx] > 0 ? 1 : 0; // has row been read or not
+        secondary_calldata_poly.at(idx) = circuit.get_variable(secondary_calldata[idx]);
+        secondary_calldata_read_counts.at(idx) = secondary_calldata.get_read_count(idx);
     }
     for (size_t idx = 0; idx < return_data.size(); ++idx) {
-        return_data_poly.at(idx) = circuit.get_variable(return_data[idx]);        // return data values
-        return_data_read_counts.at(idx) = return_data.get_read_count(idx);        // read counts
-        return_data_read_tags.at(idx) = return_data_read_counts[idx] > 0 ? 1 : 0; // has row been read or not
+        return_data_poly.at(idx) = circuit.get_variable(return_data[idx]);
+        return_data_read_counts.at(idx) = return_data.get_read_count(idx);
     }
 
     auto& databus_id = polynomials.databus_id;
