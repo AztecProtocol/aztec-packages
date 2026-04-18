@@ -64,7 +64,7 @@ describe('Contract Class', () => {
         returnTypes: [],
         errorTypes: {},
         bytecode: Buffer.alloc(8, 0xfa),
-        verificationKey: Buffer.alloc(4064).toString('base64'),
+        verificationKey: Buffer.alloc(4448).toString('base64'),
       },
       {
         name: 'public_dispatch',
@@ -145,7 +145,7 @@ describe('Contract Class', () => {
         returnTypes: [],
         errorTypes: {},
         bytecode: Buffer.alloc(8, 0xfd),
-        verificationKey: Buffer.alloc(4064).toString('base64'),
+        verificationKey: Buffer.alloc(4448).toString('base64'),
         debugSymbols: '',
       },
       {
@@ -176,7 +176,7 @@ describe('Contract Class', () => {
         returnTypes: [],
         errorTypes: {},
         bytecode: Buffer.alloc(8, 0xfe),
-        verificationKey: Buffer.alloc(4064).toString('base64'),
+        verificationKey: Buffer.alloc(4448).toString('base64'),
         debugSymbols: '',
       },
     ],

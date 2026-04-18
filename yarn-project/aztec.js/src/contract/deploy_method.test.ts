@@ -30,7 +30,7 @@ describe('DeployMethod', () => {
         returnTypes: [],
         errorTypes: {},
         bytecode: Buffer.alloc(8, 0xfa),
-        verificationKey: Buffer.alloc(4064).toString('base64'),
+        verificationKey: Buffer.alloc(4448).toString('base64'),
       },
       {
         name: 'public_dispatch',
