@@ -118,4 +118,30 @@ template <typename FF> struct poseidon2_internal_gate_ {
     uint32_t d;
     size_t round_idx;
 };
+
+// Double internal round gate: processes two consecutive internal rounds per row.
+// Wires: a = state[0] at round 2i, b = state[0] at round 2i+1, c = state[2] at round 2i, d = state[3] at round 2i.
+// state[1] is reconstructed inside the relation from the M_I first-row equation.
+template <typename FF> struct poseidon2_double_internal_gate_ {
+    uint32_t a;            // state[0] at even round
+    uint32_t b;            // state[0] at odd round (= v_0 after even round)
+    uint32_t c;            // state[2] at even round
+    uint32_t d;            // state[3] at even round
+    size_t round_idx_even; // index of even round (for round constant lookup)
+    size_t round_idx_odd;  // index of odd round
+    size_t round_idx_next; // index of the next pair's even round (for s1_next reconstruction; unused on terminal)
+    bool is_terminal;      // true on the last compressed row (successor is external-encoded)
+};
+
+// Entry transition gate: standard-encoded state at round `round_idx` whose successor is the first
+// compressed double-internal row. The relation forces the successor's w_r (= intermediate_s0) to
+// equal D_1 (s_0 + c)^5 + s_1 + s_2 + s_3, where c = c_{round_idx} is stored in q_1.
+// Wires: a = s_0, b = s_1, c = s_2, d = s_3.
+template <typename FF> struct poseidon2_transition_entry_gate_ {
+    uint32_t a;       // s_0
+    uint32_t b;       // s_1
+    uint32_t c;       // s_2
+    uint32_t d;       // s_3
+    size_t round_idx; // index of the first internal round (used to look up c for q_1)
+};
 } // namespace bb
