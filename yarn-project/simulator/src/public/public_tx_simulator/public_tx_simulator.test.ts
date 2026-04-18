@@ -1108,7 +1108,7 @@ describe('public_tx_simulator', () => {
     tx.data.forPublic!.revertibleAccumulatedData.nullifiers[0] = duplicateNullifier;
     tx.data.forPublic!.revertibleAccumulatedData.nullifiers[1] = duplicateNullifier;
 
-    await expect(simulator.simulate(tx)).rejects.toThrow(/Nullifier collision/);
+    await expect(simulator.simulate(tx).result).rejects.toThrow(/Nullifier collision/);
   });
 
   describe('prover id', () => {
