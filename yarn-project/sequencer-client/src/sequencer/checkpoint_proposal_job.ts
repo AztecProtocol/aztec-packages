@@ -314,7 +314,8 @@ export class CheckpointProposalJob implements Traceable {
   private async waitForSyncedL2SlotNumber(waitForSlot: SlotNumber): Promise<boolean> {
     const targetSlotStart = Number(getTimestampForSlot(this.targetSlot, this.l1Constants));
     const targetSlotEndMs = (targetSlotStart + this.l1Constants.slotDuration) * 1000;
-    const timeoutSeconds = Math.max(0, (targetSlotEndMs - this.dateProvider.now()) / 1000);
+    // Use a small positive floor to avoid retryUntil treating timeout=0 as "never timeout".
+    const timeoutSeconds = Math.max(0.1, (targetSlotEndMs - this.dateProvider.now()) / 1000);
     try {
       return await retryUntil(
         async () => {
@@ -330,7 +331,7 @@ export class CheckpointProposalJob implements Traceable {
         `Archiver did not sync L1 past slot ${waitForSlot} before slot ${this.targetSlot} expired, discarding pipelined work`,
         { checkpointNumber: this.checkpointNumber },
       );
-      this.emitPipelineParentCheckpointMismatch('archiver-sync-timeout');
+      this.emitPipelinedCheckpointDiscarded('archiver-sync-timeout');
       return false;
     }
   }
@@ -365,7 +366,7 @@ export class CheckpointProposalJob implements Traceable {
           `Parent checkpoint ${parentCheckpointNumber} has invalid attestations, discarding pipelined work`,
           { checkpointNumber: this.checkpointNumber, reason: validationStatus.reason },
         );
-        this.emitPipelineParentCheckpointMismatch('parent-invalid-attestations');
+        this.emitPipelinedCheckpointDiscarded('parent-invalid-attestations');
         await this.enqueueInvalidation(validationStatus);
         return false;
       }
@@ -376,7 +377,7 @@ export class CheckpointProposalJob implements Traceable {
           checkpointNumber: this.checkpointNumber,
           checkpointedNumber,
         });
-        this.emitPipelineParentCheckpointMismatch('parent-not-on-l1');
+        this.emitPipelinedCheckpointDiscarded('parent-not-on-l1');
         return false;
       }
 
@@ -388,7 +389,7 @@ export class CheckpointProposalJob implements Traceable {
           expectedHash,
           actualHash: tips.checkpointed.checkpoint.hash,
         });
-        this.emitPipelineParentCheckpointMismatch('parent-hash-mismatch');
+        this.emitPipelinedCheckpointDiscarded('parent-hash-mismatch');
         return false;
       }
 
@@ -403,7 +404,7 @@ export class CheckpointProposalJob implements Traceable {
           `Unexpected checkpoint ${checkpointedNumber} landed on L1 after we built on top of parent ${parentCheckpointNumber}, discarding pipelined work`,
           { checkpointNumber: this.checkpointNumber, checkpointedNumber },
         );
-        this.emitPipelineParentCheckpointMismatch('unexpected-parent-appeared');
+        this.emitPipelinedCheckpointDiscarded('unexpected-parent-appeared');
         return false;
       }
 
@@ -411,10 +412,10 @@ export class CheckpointProposalJob implements Traceable {
     }
   }
 
-  /** Emits the checkpoint-parent-mismatch event and records the metric. */
-  private emitPipelineParentCheckpointMismatch(reason: string): void {
+  /** Emits the pipelined-checkpoint-discarded event and records the metric. */
+  private emitPipelinedCheckpointDiscarded(reason: string): void {
     this.metrics.recordPipelineParentCheckpointMismatch(reason);
-    this.eventEmitter.emit('checkpoint-parent-mismatch', {
+    this.eventEmitter.emit('pipelined-checkpoint-discarded', {
       slot: this.targetSlot,
       checkpointNumber: this.checkpointNumber,
       reason,

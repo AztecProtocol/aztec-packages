@@ -58,7 +58,7 @@ import type { TransactionReceipt } from 'viem';
 
 import { DefaultSequencerConfig } from '../config.js';
 import type { GlobalVariableBuilder } from '../global_variable_builder/global_builder.js';
-import type { SequencerPublisher } from '../publisher/sequencer-publisher.js';
+import type { InvalidateCheckpointRequest, SequencerPublisher } from '../publisher/sequencer-publisher.js';
 import {
   MockCheckpointBuilder,
   MockCheckpointsBuilder,
@@ -781,7 +781,7 @@ describe('CheckpointProposalJob', () => {
       // Listen for mismatch events on this job's emitter
       mismatchEvents = [];
       pipelinedJob.eventEmitter.on(
-        'checkpoint-parent-mismatch',
+        'pipelined-checkpoint-discarded',
         (evt: { slot: SlotNumber; checkpointNumber: CheckpointNumber; reason: string }) => {
           mismatchEvents.push(evt);
         },
@@ -919,7 +919,7 @@ describe('CheckpointProposalJob', () => {
       };
       l2BlockSource.getPendingChainValidationStatus.mockResolvedValue(invalidValidation);
 
-      const fakeRequest = { fake: true } as any;
+      const fakeRequest = { fake: true } as unknown as InvalidateCheckpointRequest;
       publisher.simulateInvalidateCheckpoint.mockResolvedValue(fakeRequest);
 
       await pipelinedJob.executeAndAwait();
@@ -989,7 +989,7 @@ describe('CheckpointProposalJob', () => {
       };
       l2BlockSource.getPendingChainValidationStatus.mockResolvedValue(invalidValidation);
 
-      const fakeRequest = { fake: true } as any;
+      const fakeRequest = { fake: true } as unknown as InvalidateCheckpointRequest;
       publisher.simulateInvalidateCheckpoint.mockResolvedValue(fakeRequest);
 
       await pipelinedJob.executeAndAwait();

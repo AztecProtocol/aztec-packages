@@ -24,7 +24,7 @@ export type SequencerEvents = {
   }) => void;
   ['checkpoint-published']: (args: { checkpoint: CheckpointNumber; slot: SlotNumber }) => void;
   ['checkpoint-error']: (args: { error: Error }) => void;
-  ['checkpoint-parent-mismatch']: (args: {
+  ['pipelined-checkpoint-discarded']: (args: {
     slot: SlotNumber;
     checkpointNumber: CheckpointNumber;
     reason: string;
