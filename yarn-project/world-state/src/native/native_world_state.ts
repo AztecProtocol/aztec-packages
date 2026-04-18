@@ -68,6 +68,12 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
     bindings?: LoggerBindings,
     cleanup = () => Promise.resolve(),
   ): Promise<NativeWorldStateService> {
+    for (const [key, value] of Object.entries(wsTreeMapSizes)) {
+      if (value <= 0) {
+        throw new Error(`Map size must be a positive number, got ${value} for ${key}`);
+      }
+    }
+
     const log = createLogger('world-state:database', bindings);
     const worldStateDirectory = join(dataDir, WORLD_STATE_DIR);
 
