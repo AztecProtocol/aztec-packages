@@ -60,7 +60,14 @@ export async function createWorldState(
 ) {
   // If an IPC backend is provided, use it directly (avoids spawning a new wsdb process)
   if (wsdbBackend) {
-    return NativeWorldStateService.fromIpc(wsdbBackend, instrumentation, bindings, undefined, recreateIpcInstance);
+    return NativeWorldStateService.fromIpc(
+      wsdbBackend,
+      instrumentation,
+      bindings,
+      genesis,
+      undefined,
+      recreateIpcInstance,
+    );
   }
 
   const dataDirectory = config.worldStateDataDirectory ?? config.dataDirectory;
