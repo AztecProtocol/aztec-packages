@@ -1106,3 +1106,4 @@ node --experimental-strip-types "$(dirname "$SCRIPT_DIR")/codegen/src/generate.t
 `;
   }
 }
+
