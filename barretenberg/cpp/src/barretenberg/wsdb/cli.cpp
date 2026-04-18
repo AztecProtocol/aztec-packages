@@ -83,6 +83,9 @@ int parse_and_run_wsdb(int argc, char* argv[])
     msgpack_run_command->add_option(
         "--prefilled-public-data", prefilled_public_data_json, "Prefilled public data as JSON array");
 
+    uint64_t genesis_timestamp = 0;
+    msgpack_run_command->add_option("--genesis-timestamp", genesis_timestamp, "Genesis block timestamp (default: 0)");
+
     size_t request_ring_size = 1024 * 1024;
     msgpack_run_command
         ->add_option(
@@ -118,6 +121,7 @@ int parse_and_run_wsdb(int argc, char* argv[])
                                        threads,
                                        initial_header_generator_point,
                                        prefilled_public_data_json,
+                                       genesis_timestamp,
                                        request_ring_size,
                                        response_ring_size);
         }

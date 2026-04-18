@@ -90,6 +90,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
         dataDir: dir,
         ...wsdbOpts,
         prefilledPublicData: prefilledData,
+        genesisTimestamp: Number(genesis.genesisTimestamp),
       });
       await backend.waitUntilReady();
       return new IpcWorldState(backend, instrumentation, bindings);
@@ -151,8 +152,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
 
     const wsdbOpts = getWsdbOptions(dataDir, worldStateTreeMapSizes);
     const prefilledData = genesis.prefilledPublicData.map(
-      (d: { slot: { toBuffer(): Buffer }; value: { toBuffer(): Buffer } }) =>
-        [d.slot.toBuffer(), d.value.toBuffer()] as [Buffer, Buffer],
+      d => [d.slot.toBuffer(), d.value.toBuffer()] as [Buffer, Buffer],
     );
 
     const createInstance = async () => {
@@ -161,6 +161,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
         dataDir,
         ...wsdbOpts,
         prefilledPublicData: prefilledData,
+        genesisTimestamp: Number(genesis.genesisTimestamp),
       });
       await backend.waitUntilReady();
       return new IpcWorldState(backend, instrumentation, bindings);

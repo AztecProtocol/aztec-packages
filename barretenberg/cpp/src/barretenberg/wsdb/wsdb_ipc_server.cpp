@@ -180,6 +180,7 @@ int execute_wsdb_server(const std::string& input_path,
                         uint32_t threads,
                         uint32_t initial_header_generator_point,
                         const std::string& prefilled_public_data_json,
+                        uint64_t genesis_timestamp,
                         size_t request_ring_size,
                         size_t response_ring_size)
 {
@@ -212,8 +213,14 @@ int execute_wsdb_server(const std::string& input_path,
 
     // Create WorldState
     std::cerr << "Creating WorldState at " << data_dir << " with " << threads << " threads" << '\n';
-    auto ws = std::make_unique<WorldState>(
-        threads, data_dir, map_size, tree_height, tree_prefill, prefilled_public_data, initial_header_generator_point);
+    auto ws = std::make_unique<WorldState>(threads,
+                                           data_dir,
+                                           map_size,
+                                           tree_height,
+                                           tree_prefill,
+                                           prefilled_public_data,
+                                           initial_header_generator_point,
+                                           genesis_timestamp);
 
     WsdbRequest request{ .world_state = *ws };
 

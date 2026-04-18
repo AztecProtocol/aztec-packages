@@ -35,6 +35,8 @@ export interface WsdbOptions {
   initialHeaderGeneratorPoint?: number;
   /** Prefilled public data as array of [slotBuffer, valueBuffer] pairs */
   prefilledPublicData?: Array<[Buffer, Buffer]>;
+  /** Genesis block timestamp (must match TS-side buildInitialHeader) */
+  genesisTimestamp?: number;
   /** Optional logger function */
   logger?: (msg: string) => void;
   /** Use shared memory instead of UDS for IPC (lower latency). */
@@ -89,6 +91,10 @@ function buildWsdbArgs(inputPath: string, options: WsdbOptions, threads: number)
   if (options.prefilledPublicData && options.prefilledPublicData.length > 0) {
     const pairs = options.prefilledPublicData.map(([slot, value]) => [slot.toString('hex'), value.toString('hex')]);
     args.push('--prefilled-public-data', JSON.stringify(pairs));
+  }
+
+  if (options.genesisTimestamp !== undefined && options.genesisTimestamp !== 0) {
+    args.push('--genesis-timestamp', options.genesisTimestamp.toString());
   }
 
   return args;

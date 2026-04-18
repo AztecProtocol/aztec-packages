@@ -377,6 +377,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
       dataDir: join(dataDirectory, 'world_state'),
       ...wsdbOpts,
       prefilledPublicData: prefilledData,
+      genesisTimestamp: Number(options.genesis?.genesisTimestamp ?? 0),
       logger: (msg: string) => log.debug(msg),
       useShm: false, // AVM connects to WSDB via UDS; SHM requires NAPI which AVM doesn't have
     });
