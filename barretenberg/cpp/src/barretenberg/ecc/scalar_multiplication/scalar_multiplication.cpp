@@ -511,6 +511,7 @@ std::vector<typename Curve::AffineElement> MSM<Curve>::batch_multi_scalar_mul(
         BB_BENCH_NAME("MSM::batch_multi_scalar_mul/scalars_to_montgomery");
         for (auto& scalar_span : scalars) {
             parallel_for_range(scalar_span.size(), [&](size_t start, size_t end) {
+                BB_BENCH_TRACY_NAME("MSM::scalars_to_montgomery/chunk");
                 for (size_t i = start; i < end; ++i) {
                     scalar_span[i].self_to_montgomery_form();
                 }

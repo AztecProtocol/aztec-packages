@@ -865,6 +865,7 @@ std::vector<affine_element<Fq, Fr, T>> element<Fq, Fr, T>::batch_mul_with_endomo
     std::vector<affine_element> temp_point_vector(num_points);
 
     auto execute_range = [&](size_t start, size_t end) {
+        BB_BENCH_TRACY_NAME("batch_mul_with_endo/execute_range");
         // Perform batch affine addition in parallel
         const auto add_chunked = [&](const affine_element* lhs, affine_element* rhs) {
             batch_affine_add_impl<affine_element, Fq>(&lhs[start], &rhs[start], end - start, &scratch_space[start]);

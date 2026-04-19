@@ -226,6 +226,7 @@ template <typename FF_> class DatabusLookupRelationImpl {
         size_t num_threads = bb::calculate_num_threads(num_rows, min_iterations_per_thread);
 
         parallel_for(num_threads, [&](ThreadChunk chunk) {
+            BB_BENCH_TRACY_NAME("Databus::compute_inverses/chunk");
             for (size_t j : chunk.range(num_rows)) {
                 size_t i = j + start_index;
                 // Determine if the present row contains a databus operation

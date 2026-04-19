@@ -176,6 +176,7 @@ template <typename FF> struct GateSeparatorPolynomial {
         parallel_for_heuristic(
             pow_size,
             [&](size_t start, size_t end, BB_UNUSED size_t chunk_index) {
+                BB_BENCH_TRACY_NAME("GateSeparator::beta_products/chunk");
                 for (size_t i = start; i < end; i++) {
                     if (i == 0) {
                         beta_products.at(0) = scaling_factor;

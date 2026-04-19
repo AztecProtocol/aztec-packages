@@ -17,6 +17,7 @@
 #include <set>
 #include <sstream>
 #include <thread>
+#include <unordered_map>
 #include <vector>
 
 namespace {
@@ -422,11 +423,49 @@ void GlobalBenchStatsContainer::serialize_trace_events_json(std::ostream& os) co
 
     os << "{\n  \"displayTimeUnit\":\"ns\",\n  \"traceEvents\":[";
     bool first = true;
+
+    // Remap each thread's raw pthread-hash tid to a small integer. Native
+    // std::hash<thread::id> returns values > 2^32 (pthread stack addresses),
+    // which Perfetto's Chrome-trace loader can collapse onto a single track.
+    // Small integer tids avoid that and also match the WASM trace style.
+    std::unordered_map<uint64_t, uint64_t> tid_remap;
+    uint64_t main_raw_tid = UINT64_MAX;
+    uint64_t main_start = UINT64_MAX;
+    for (const ThreadEventBuffer* buf : thread_event_buffers) {
+        if (!buf->events.empty() && buf->events.front().ts_ns < main_start) {
+            main_start = buf->events.front().ts_ns;
+            main_raw_tid = buf->tid;
+        }
+    }
+    // Main gets tid=1 (sorted first). Workers get 2..N.
+    tid_remap[main_raw_tid] = 1;
+    uint64_t next_worker_tid = 2;
+    for (const ThreadEventBuffer* buf : thread_event_buffers) {
+        if (buf->tid == main_raw_tid) {
+            continue;
+        }
+        tid_remap[buf->tid] = next_worker_tid++;
+    }
+
+    if (!first) {
+        os << ',';
+    }
+    first = false;
+    os << "\n    {\"name\":\"process_name\",\"ph\":\"M\",\"pid\":0,\"tid\":0,\"args\":{\"name\":\"bb\"}}";
+    for (const ThreadEventBuffer* buf : thread_event_buffers) {
+        uint64_t small_tid = tid_remap[buf->tid];
+        std::string label = (buf->tid == main_raw_tid) ? "main" : ("worker-" + std::to_string(small_tid - 1));
+        os << ",\n    {\"name\":\"thread_name\",\"ph\":\"M\",\"pid\":0,\"tid\":" << small_tid
+           << ",\"args\":{\"name\":\"" << label << "\"}}";
+        os << ",\n    {\"name\":\"thread_sort_index\",\"ph\":\"M\",\"pid\":0,\"tid\":" << small_tid
+           << ",\"args\":{\"sort_index\":" << small_tid << "}}";
+    }
+
     for (const ThreadEventBuffer* buf : thread_event_buffers) {
         for (const PerCallEvent& e : buf->events) {
             double ts_us = static_cast<double>(e.ts_ns - min_ts) / 1000.0;
             double dur_us = static_cast<double>(e.dur_ns) / 1000.0;
-            emit_x_event(os, e.name, e.parent, ts_us, dur_us, e.tid, first);
+            emit_x_event(os, e.name, e.parent, ts_us, dur_us, tid_remap[e.tid], first);
         }
     }
     os << "\n  ]\n}\n";

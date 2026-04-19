@@ -285,6 +285,7 @@ template <typename FF_> class LogDerivLookupRelationImpl {
         size_t num_threads = bb::calculate_num_threads(num_rows, min_iterations_per_thread);
 
         parallel_for(num_threads, [&](ThreadChunk chunk) {
+            BB_BENCH_TRACY_NAME("Lookup::compute_inverses/chunk");
             for (size_t j : chunk.range(num_rows)) {
                 size_t i = j + start_index;
                 // We only compute the inverse if this row contains a lookup gate or data that has been looked up
