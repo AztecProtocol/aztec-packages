@@ -187,6 +187,9 @@ class HypernovaFoldingVerifierTests : public ::testing::Test {
             manifest.add_entry(round, bus, frs_per_G);
             manifest.add_entry(round, std::string(bus) + "_READ_COUNTS", frs_per_G);
         }
+        for (const auto& wire : { "W_P2_S1", "W_P2_S2", "W_P2_S3" }) {
+            manifest.add_entry(round, wire, frs_per_G);
+        }
         round++;
 
         // Round 1: lookup + w_4 -> beta, gamma challenges
