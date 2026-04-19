@@ -100,7 +100,8 @@ template <typename Flavor> class HonkTranscriptTests : public ::testing::Test {
         manifest_expected.add_entry(round, "W_R", data_types_per_G);
         manifest_expected.add_entry(round, "W_O", data_types_per_G);
 
-        // Mega-specific witness commitments: ECC op wires and databus polynomials
+        // Mega-specific witness commitments: ECC op wires, databus polynomials, and the
+        // Poseidon2 K=4 7-wire state[1..3] extra witness columns.
         if constexpr (IsMegaFlavor<Flavor>) {
             manifest_expected.add_entry(round, "ECC_OP_WIRE_1", data_types_per_G);
             manifest_expected.add_entry(round, "ECC_OP_WIRE_2", data_types_per_G);
@@ -112,6 +113,9 @@ template <typename Flavor> class HonkTranscriptTests : public ::testing::Test {
             manifest_expected.add_entry(round, "SECONDARY_CALLDATA_READ_COUNTS", data_types_per_G);
             manifest_expected.add_entry(round, "RETURN_DATA", data_types_per_G);
             manifest_expected.add_entry(round, "RETURN_DATA_READ_COUNTS", data_types_per_G);
+            manifest_expected.add_entry(round, "W_P2_S1", data_types_per_G);
+            manifest_expected.add_entry(round, "W_P2_S2", data_types_per_G);
+            manifest_expected.add_entry(round, "W_P2_S3", data_types_per_G);
         }
 
         manifest_expected.add_challenge(round, "eta");

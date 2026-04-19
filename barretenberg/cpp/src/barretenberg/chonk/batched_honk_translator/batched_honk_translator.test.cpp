@@ -150,6 +150,10 @@ class BatchedHonkTranslatorTests : public ::testing::Test {
                                    "RETURN_DATA_READ_COUNTS" }) {
             m.add_entry(round, label, G);
         }
+        // Poseidon2 K=4 7-wire state[1..3] extra witness columns (Mega-only).
+        m.add_entry(round, "W_P2_S1", G);
+        m.add_entry(round, "W_P2_S2", G);
+        m.add_entry(round, "W_P2_S3", G);
         m.add_challenge(round, "eta");
         round++;
 

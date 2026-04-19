@@ -375,9 +375,6 @@ void UltraCircuitChecker::populate_values(
     values.q_r = block.q_2()[idx];
     values.q_o = block.q_3()[idx];
     values.q_4 = block.q_4()[idx];
-    if constexpr (requires { values.q_5; }) {
-        values.q_5 = block.q_5()[idx];
-    }
     values.q_arith = block.q_arith()[idx];
     values.q_delta_range = block.q_delta_range()[idx];
     values.q_elliptic = block.q_elliptic()[idx];
@@ -399,6 +396,36 @@ void UltraCircuitChecker::populate_values(
     }
     if constexpr (IsMegaBuilder<Builder>) {
         values.q_busread = block.q_busread()[idx];
+    }
+
+    // 7-wire K=4 extra wires: w_p2_s1/2/3 are sparse — live only on the poseidon2_double_internal
+    // block, zero everywhere else. `block` is a MegaTraceBlock& here; its concrete type is lost,
+    // so we detect the right block via pointer identity (same pattern as `is_ram_rom_block` above).
+    // Shifts follow the same "zero at block boundary" approximation used for the main wires.
+    if constexpr (IsMegaBuilder<Builder>) {
+        const auto& p2_block = builder.blocks.poseidon2_double_internal;
+        const bool is_p2_block = (&block == &p2_block);
+        if (is_p2_block) {
+            values.w_p2_s1 = p2_block.p2_s1()[idx];
+            values.w_p2_s2 = p2_block.p2_s2()[idx];
+            values.w_p2_s3 = p2_block.p2_s3()[idx];
+            if (idx + 1 < block.size()) {
+                values.w_p2_s1_shift = p2_block.p2_s1()[idx + 1];
+                values.w_p2_s2_shift = p2_block.p2_s2()[idx + 1];
+                values.w_p2_s3_shift = p2_block.p2_s3()[idx + 1];
+            } else {
+                values.w_p2_s1_shift = 0;
+                values.w_p2_s2_shift = 0;
+                values.w_p2_s3_shift = 0;
+            }
+        } else {
+            values.w_p2_s1 = 0;
+            values.w_p2_s2 = 0;
+            values.w_p2_s3 = 0;
+            values.w_p2_s1_shift = 0;
+            values.w_p2_s2_shift = 0;
+            values.w_p2_s3_shift = 0;
+        }
     }
 }
 

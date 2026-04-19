@@ -28,6 +28,7 @@ void TraceToPolynomials<Flavor>::populate(Builder& builder, typename Flavor::Pro
         BB_BENCH_NAME("add_ecc_op_wires_to_prover_instance");
 
         add_ecc_op_wires_to_prover_instance(builder, polynomials);
+        add_poseidon2_state_wires_to_prover_instance(builder, polynomials);
     }
 
     // Compute the permutation argument polynomials (sigma/id) and add them to proving key
@@ -105,6 +106,25 @@ void TraceToPolynomials<Flavor>::add_ecc_op_wires_to_prover_instance(Builder& bu
             ecc_op_wire.at(i) = wire[i + NUM_ZERO_ROWS];
             ecc_op_selector.at(i) = 1; // construct selector as the indicator on the ecc op block
         }
+    }
+}
+
+template <class Flavor>
+void TraceToPolynomials<Flavor>::add_poseidon2_state_wires_to_prover_instance(Builder& builder,
+                                                                              ProverPolynomials& polynomials)
+    requires IsMegaFlavor<Flavor>
+{
+    // 7-wire K=4 encoding: state[1..3] at row-start are committed as raw fr values per compressed
+    // row. The trace block stores them in parallel vectors (zero on entry/bridge rows, live on
+    // interior/terminal rows). Copy them into the witness polynomials at the block's trace offset.
+    // Everywhere outside this block, the polynomials remain zero (sparse).
+    auto& block = builder.blocks.poseidon2_double_internal;
+    const size_t offset = block.trace_offset();
+    const size_t block_size = block.size();
+    for (size_t i = 0; i < block_size; ++i) {
+        polynomials.w_p2_s1.at(offset + i) = block.p2_s1()[i];
+        polynomials.w_p2_s2.at(offset + i) = block.p2_s2()[i];
+        polynomials.w_p2_s3.at(offset + i) = block.p2_s3()[i];
     }
 }
 

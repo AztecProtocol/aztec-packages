@@ -94,6 +94,10 @@ template <typename Flavor> void OinkProver<Flavor>::commit_to_wires()
                                                        commitment_labels.get_databus_entities())) {
             batch.add_to_batch(polynomial, label, &tail);
         }
+        // Poseidon2 K=4 7-wire extra witness polynomials
+        batch.add_to_batch(prover_instance->polynomials.w_p2_s1, commitment_labels.w_p2_s1, &tails.w_p2_s1);
+        batch.add_to_batch(prover_instance->polynomials.w_p2_s2, commitment_labels.w_p2_s2, &tails.w_p2_s2);
+        batch.add_to_batch(prover_instance->polynomials.w_p2_s3, commitment_labels.w_p2_s3, &tails.w_p2_s3);
     }
 
     auto computed_commitments = batch.commit_and_send_to_verifier(transcript);
@@ -109,6 +113,9 @@ template <typename Flavor> void OinkProver<Flavor>::commit_to_wires()
         for (auto& commitment : prover_instance->commitments.get_databus_entities()) {
             commitment = computed_commitments[commitment_idx++];
         }
+        prover_instance->commitments.w_p2_s1 = computed_commitments[commitment_idx++];
+        prover_instance->commitments.w_p2_s2 = computed_commitments[commitment_idx++];
+        prover_instance->commitments.w_p2_s3 = computed_commitments[commitment_idx++];
     }
 }
 

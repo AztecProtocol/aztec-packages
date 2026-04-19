@@ -229,6 +229,13 @@ void ProverInstance_<Flavor>::allocate_ecc_op_polynomials(const Circuit& circuit
         wire = Polynomial(ecc_op_block_size, dyadic_size());
     }
     polynomials.lagrange_ecc_op = Polynomial(ecc_op_block_size, dyadic_size());
+
+    // Poseidon2 K=4 7-wire extra witness polynomials: sparse, live only on the
+    // poseidon2_double_internal block, but must be shiftable (they appear in get_to_be_shifted()).
+    // Allocate as shiftable across the full active trace (zeros outside the block).
+    polynomials.w_p2_s1 = Polynomial::shiftable(trace_active_range_size(), dyadic_size());
+    polynomials.w_p2_s2 = Polynomial::shiftable(trace_active_range_size(), dyadic_size());
+    polynomials.w_p2_s3 = Polynomial::shiftable(trace_active_range_size(), dyadic_size());
 }
 
 template <typename Flavor>

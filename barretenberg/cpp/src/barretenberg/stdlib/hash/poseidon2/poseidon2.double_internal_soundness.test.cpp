@@ -51,8 +51,17 @@ class Poseidon2DoubleInternalSoundnessTests : public ::testing::Test {
     //   row 27                  : terminal compressed row
     //   row 28                  : standard transition row (unconstrained, copy-constrained
     //                             to the single-round tail)
+    // Row layout inside `blocks.poseidon2_double_internal` after `CircuitChecker::check()`
+    // finalizes the circuit (the ensure-nonzero mock rows are appended to each block AFTER
+    // the user gates, so the actual permutation rows stay at indices 0..15):
+    //   row  0      : entry (standard → compressed transition)
+    //   rows 1..13  : 13 interior compressed rows
+    //   row  14     : terminal (compressed → standard transition)
+    //   row  15     : bridge (selectors all 0; copy-constrained to next external block)
+    //   rows 16..19 : mock entry / mock interior / mock terminal / mock successor
     static constexpr size_t dbl_entry_row = 0;
     static constexpr size_t dbl_first_interior_row = 1;
+    static constexpr size_t dbl_bridge_row = 15;
 
     // Build an honest Poseidon2 circuit: hashes a single fixed field element through the
     // `Poseidon2Permutation::permutation` call used by the stdlib.
@@ -143,6 +152,106 @@ TEST_F(Poseidon2DoubleInternalSoundnessTests, InteriorRelationRejectsTamperedWir
     builder->set_variable(w_o_idx, builder->get_variable(w_o_idx) + FF(1));
 
     EXPECT_FALSE(CircuitChecker::check(*builder));
+}
+
+// --------------------------------------------------------------------------
+// Boundary / redundancy tests specific to the K=4 7-wire encoding.
+//
+//   G1. External → entry binding: entry row's (w_l, w_r, w_o, w_4) must be the
+//       external-rounds output. No Poseidon2 subrelation binds this directly —
+//       sigma carries it from the external propagate row. Tampering must still
+//       reject (caught by the entry relation on s_1..s_3 and, for s_0, by the
+//       degree-firewall chain through first interior's A_0 via the pow5
+//       bijection on the BN254 scalar field).
+//
+//   G2. Terminal → bridge binding: terminal's A_3/A_4/A_5/A_6 pin the bridge
+//       row's (w_l, w_r, w_o, w_4) to the compressed chain's output. Sigma
+//       then carries it to the next external block. Tampering the bridge row's
+//       actual main wires must reject.
+//
+//   Q1. Entry's A_3/A_4/A_5 pin first interior's (w_p2_s1, w_p2_s2, w_p2_s3)
+//       to entry's (w_r, w_o, w_4). The extra wires are stored as raw fr values
+//       on the block (not witness indices), so we tamper via `p2_s1/2/3().set()`.
+//
+//   Q2. Bridge row's own (w_p2_s1, w_p2_s2, w_p2_s3) are intentionally unread
+//       (the terminal relation reads bridge's MAIN wires via w_{r,o,4}_shift,
+//       not w_p2_s{k}_shift; and bridge has no active Poseidon2 selector of
+//       its own). This test pins that design invariant: if a future relation
+//       accidentally starts consuming these wires, this test fails loudly.
+
+// G1. Tamper the entry row's w_l (= external output's state[0]). This witness
+// index is shared via sigma with the final external-propagate row's first wire,
+// so changing its value desynchronizes the external/entry boundary. The entry
+// relation's A_0 enforces `w_r_shift = D_1 (w_l + q_l)^5 + w_r + w_o + w_4`
+// using this w_l; first interior's A_0 enforces the same quantity using
+// first interior's w_l (which is copy-constrained to entry's). Either or both
+// should fire.
+TEST_F(Poseidon2DoubleInternalSoundnessTests, EntryBoundary_ActualEntryWlTampered)
+{
+    auto builder = build_honest_permutation(FF(uint256_t(0x11111111ULL)));
+    ASSERT_TRUE(CircuitChecker::check(*builder));
+
+    auto& dbl = builder->blocks.poseidon2_double_internal;
+    ASSERT_GT(dbl.size(), dbl_entry_row);
+    const uint32_t w_l_idx = dbl.w_l()[dbl_entry_row];
+    ASSERT_NE(w_l_idx, builder->zero_idx()); // sanity: we're tampering a real variable
+    builder->set_variable(w_l_idx, builder->get_variable(w_l_idx) + FF(1));
+
+    EXPECT_FALSE(CircuitChecker::check(*builder));
+}
+
+// G2. Tamper the ACTUAL bridge row's w_l (row 15), not the mock successor at
+// dbl.size() - 1. Bridge's w_l is pinned by terminal's A_3
+// (`w_l_shift = D_1 u_3 + sum_3` on the terminal row); changing the value of
+// that witness desynchronizes the compressed chain's computed output from the
+// wire that sigma carries into the next external block.
+TEST_F(Poseidon2DoubleInternalSoundnessTests, ExitBoundary_ActualBridgeWlTampered)
+{
+    auto builder = build_honest_permutation(FF(uint256_t(0x22222222ULL)));
+    ASSERT_TRUE(CircuitChecker::check(*builder));
+
+    auto& dbl = builder->blocks.poseidon2_double_internal;
+    ASSERT_GT(dbl.size(), dbl_bridge_row);
+    const uint32_t w_l_idx = dbl.w_l()[dbl_bridge_row];
+    ASSERT_NE(w_l_idx, builder->zero_idx());
+    builder->set_variable(w_l_idx, builder->get_variable(w_l_idx) + FF(1));
+
+    EXPECT_FALSE(CircuitChecker::check(*builder));
+}
+
+// Q1. Tamper first interior's w_p2_s1 (= state[1] at round 0 of the compressed
+// block). Entry's A_3 (`w_p2_s1_shift = w_r` on the entry row) flags this
+// directly; first interior's A_0 also uses w_p2_s1 inside `sum_0` and will
+// produce a different value for first interior's w_r.
+TEST_F(Poseidon2DoubleInternalSoundnessTests, EntryChain_FirstInteriorP2S1Tampered)
+{
+    auto builder = build_honest_permutation(FF(uint256_t(0x33333333ULL)));
+    ASSERT_TRUE(CircuitChecker::check(*builder));
+
+    auto& dbl = builder->blocks.poseidon2_double_internal;
+    ASSERT_GT(dbl.size(), dbl_first_interior_row);
+    const FF honest = dbl.p2_s1()[dbl_first_interior_row];
+    dbl.p2_s1().set(dbl_first_interior_row, honest + FF(1));
+
+    EXPECT_FALSE(CircuitChecker::check(*builder));
+}
+
+// Q2. Bridge's (w_p2_s1, w_p2_s2, w_p2_s3) are unread by any relation:
+// terminal reads bridge's main wires via w_{r,o,4}_shift and the bridge row
+// itself has no active Poseidon2 selector. Writing nonzero values to them
+// must NOT cause the checker to reject.
+TEST_F(Poseidon2DoubleInternalSoundnessTests, BridgeRow_ExtraWiresAreUnconstrained)
+{
+    auto builder = build_honest_permutation(FF(uint256_t(0x44444444ULL)));
+    ASSERT_TRUE(CircuitChecker::check(*builder));
+
+    auto& dbl = builder->blocks.poseidon2_double_internal;
+    ASSERT_GT(dbl.size(), dbl_bridge_row);
+    dbl.p2_s1().set(dbl_bridge_row, FF(uint256_t(0xdeadbeefULL)));
+    dbl.p2_s2().set(dbl_bridge_row, FF(uint256_t(0xcafebabeULL)));
+    dbl.p2_s3().set(dbl_bridge_row, FF(uint256_t(0xf00dfaceULL)));
+
+    EXPECT_TRUE(CircuitChecker::check(*builder));
 }
 
 } // namespace

@@ -120,22 +120,20 @@ template <typename FF> struct poseidon2_internal_gate_ {
 };
 
 // K=4 compressed internal-round gate: processes FOUR consecutive internal rounds per row.
-// Wires: a = state[0] at round 4i+0, b = state[0] at round 4i+1,
-//        c = state[0] at round 4i+2, d = state[0] at round 4i+3.
-// (s_1, s_2, s_3) at row start are reconstructed inside the relation via a 3x3 Vandermonde solve.
-//
-// Round constants on the row (see Poseidon2DoubleInternalRelationImpl):
-//   q_l, q_r, q_o, q_4 = c_{4i}, c_{4i+1}, c_{4i+2}, c_{4i+3}   // this pair's 4 S-box constants
-//   q_m, q_c, q_5      = c_{4(i+1)}, c_{4(i+1)+1}, c_{4(i+1)+2} // next pair's first 3 constants
-//                                                               // (unused on terminal row)
+// Wires (main trace): a = state[0] at round 4i+0, b = state[0] at round 4i+1,
+//                     c = state[0] at round 4i+2, d = state[0] at round 4i+3.
+// Wires (derived, stored as fr values on the block): state[1..3] at round 4i (row start).
+// Round constants on the row: q_l, q_r, q_o, q_4 = c_{4i}, c_{4i+1}, c_{4i+2}, c_{4i+3}.
+// (q_m, q_c unused — no next-pair firewall S-boxes in the 7-wire encoding.)
 template <typename FF> struct poseidon2_double_internal_gate_ {
     uint32_t a;             // state[0] at round 4i+0
     uint32_t b;             // state[0] at round 4i+1
     uint32_t c;             // state[0] at round 4i+2
     uint32_t d;             // state[0] at round 4i+3
-    size_t round_idx_start; // absolute round_constants index of round 4i (this pair's 1st round)
-    size_t next_pair_start; // absolute round_constants index of round 4(i+1) (next pair's 1st round);
-                            // ignored when is_terminal = true
+    FF s1_at_start;         // state[1] at round 4i (populated into w_p2_s1)
+    FF s2_at_start;         // state[2] at round 4i
+    FF s3_at_start;         // state[3] at round 4i
+    size_t round_idx_start; // absolute round_constants index of round 4i
     bool is_terminal;       // true on the last compressed row (successor is standard-encoded)
 };
 
@@ -145,7 +143,7 @@ template <typename FF> struct poseidon2_double_internal_gate_ {
 //
 // Round constants on the row:
 //   q_l, q_r, q_o = c_{start}, c_{start+1}, c_{start+2}   (first 3 internal round constants)
-//   q_4, q_m, q_c, q_5 = 0 (unused)
+//   q_4, q_m, q_c = 0 (unused)
 template <typename FF> struct poseidon2_transition_entry_gate_ {
     uint32_t a;             // s_0
     uint32_t b;             // s_1

@@ -46,6 +46,16 @@ template <class Flavor> class TraceToPolynomials {
      */
     static void add_ecc_op_wires_to_prover_instance(Builder& builder, ProverPolynomials&)
         requires IsMegaFlavor<Flavor>;
+
+    /**
+     * @brief Populate the Poseidon2 K=4 7-wire extra witness polynomials (w_p2_s1/2/3).
+     * @details For the 7-wire compressed-internal encoding, state[1..3] at each compressed row's
+     * round-start are carried as raw fr values on the `poseidon2_double_internal` block. This
+     * pass copies those values into `w_p2_s1/2/3` at the block's trace offset; the polynomials
+     * are zero everywhere else.
+     */
+    static void add_poseidon2_state_wires_to_prover_instance(Builder& builder, ProverPolynomials&)
+        requires IsMegaFlavor<Flavor>;
 };
 
 } // namespace bb

@@ -154,24 +154,31 @@ $$
 
 ## Three relations, all degree 7
 
-### 1. `Poseidon2TransitionEntryRelation` (entry) — 6 subrelations
+### 1. `Poseidon2TransitionEntryRelation` (entry) — 3 subrelations, degree 1
 
 The entry row holds the external output $(s_0, s_1, s_2, s_3)$ in standard encoding. The
-successor's 4 main wires pin state[0] at rounds 0..3 via the firewall-S-box chain; the
-successor's 3 extra wires pin state[1..3] at round 0 directly (linear).
+only bindings enforced here are the linear wire-copies pinning the successor row's three
+committed extra wires to entry's standard state[1..3]:
 
 $$
 \begin{aligned}
-A_0 &:\ w_{r,\text{shift}} - D_1 u_0 - w_r - w_o - w_4 = 0 & (\text{state}[0]\ \text{at round 1}) \\
-A_1 &:\ w_{o,\text{shift}} - D_1 (w_{r,\text{shift}} + q_r)^5 - 3 u_0 - \text{(lin.)} = 0 & (\text{round 2}) \\
-A_2 &:\ w_{4,\text{shift}} - D_1 (w_{o,\text{shift}} + q_o)^5 - 3 u_1 - (\Sigma + 6) u_0 - \text{(lin.)} = 0 & (\text{round 3}) \\
-A_3 &:\ w_{p2\_s1,\text{shift}} - w_r = 0 & \\
-A_4 &:\ w_{p2\_s2,\text{shift}} - w_o = 0 & \\
-A_5 &:\ w_{p2\_s3,\text{shift}} - w_4 = 0 &
+A_0 &:\ w_{p2\_s1,\text{shift}} - w_r = 0 \\
+A_1 &:\ w_{p2\_s2,\text{shift}} - w_o = 0 \\
+A_2 &:\ w_{p2\_s3,\text{shift}} - w_4 = 0
 \end{aligned}
 $$
 
-$w_{l,\text{shift}} = s_0$ is copy-constrained via sigma (shared witness index with the entry row's $w_l$).
+Subrelation partial length $=$ 3 (degree 1 + selector + gate-separator).
+
+**Bindings NOT enforced here (and why):**
+
+- Successor's $w_l = s_0$: handled by sigma (the stdlib permutation emits both the entry
+  gate's $w_l$ and the first compressed gate's $w_l$ with the same witness index).
+
+- Successor's $(w_r, w_o, w_4) = \text{state}[0]$ at rounds 1, 2, 3: re-pinned directly by
+  that row's own `Poseidon2DoubleInternalRelation` $A_0/A_1/A_2$. Adding the corresponding
+  "reach-forward-via-shift" subrelations to the entry relation would be algebraically
+  redundant under $A_0/A_1/A_2$ here + sigma on $w_l$.
 
 ### 2. `Poseidon2DoubleInternalRelation` (interior) — 13 rows, 7 subrelations
 
@@ -185,10 +192,11 @@ w_{4,\text{shift}})$ directly (bridge row's state[1..3]).
 
 ## Soundness
 
-**Entry boundary.** Entry row's $(w_l, w_r, w_o, w_4)$ = external output via sigma. $A_0, A_1,
-A_2$ pin state[0] at rounds 1, 2, 3 of the first compressed row via the firewall-S-box chain
-(each subrelation uses the successor's committed wire as a fresh degree-5 input). $A_3, A_4,
-A_5$ pin state[1..3] at round 0 of the first compressed row linearly.
+**Entry boundary.** Entry row's $(w_l, w_r, w_o, w_4)$ = external output via sigma. The entry
+relation's $A_0, A_1, A_2$ linearly pin state[1..3] at round 0 of the first compressed row.
+State[0] at round 0 is tied to entry's $w_l$ by sigma (same witness index used in both
+gates); state[0] at rounds 1, 2, 3 of the first compressed row are pinned by that row's own
+interior-relation subrelations $A_0, A_1, A_2$ (see below).
 
 **Interior chain.** For each interior row: the 4 state[0] checkpoints $(w_r, w_o, w_4,
 w_{l,\text{shift}})$ and 3 state[1..3] checkpoints $(w_{p2\_s_k,\text{shift}})$ uniquely
@@ -245,10 +253,9 @@ Each is sparse; bb's Pippenger skips zero scalars so per-wire MSM cost ≈ (Pose
 
 ## Files
 
-- `poseidon2_transition_entry_relation.hpp` — entry (6 subrels, deg 7)
+- `poseidon2_transition_entry_relation.hpp` — entry (3 subrels, deg 1)
 - `poseidon2_double_internal_relation.hpp` — interior (7 subrels, deg 7)
 - `poseidon2_double_internal_terminal_relation.hpp` — terminal (7 subrels, deg 7)
-- `poseidon2_quad_params.hpp` — just $D_i$ and $\Sigma$; no Vandermonde algebra
 - `flavor/mega_flavor.hpp` — add `w_p2_s1, w_p2_s2, w_p2_s3` to `DerivedEntities`; add
   `w_p2_s1_shift, w_p2_s2_shift, w_p2_s3_shift` to `ShiftedEntities`; drop `q_5` from
   `PrecomputedEntities` and `get_non_gate_selectors`

@@ -1,6 +1,5 @@
 #pragma once
 #include "barretenberg/crypto/poseidon2/poseidon2_params.hpp"
-#include "barretenberg/crypto/poseidon2/poseidon2_quad_params.hpp"
 #include "relation_types.hpp"
 
 namespace bb {
@@ -52,7 +51,6 @@ namespace bb {
 template <typename FF_> class Poseidon2DoubleInternalRelationImpl {
   public:
     using FF = FF_;
-    using QuadParams = crypto::Poseidon2QuadBn254Params;
 
     static constexpr std::array<size_t, 7> SUBRELATION_PARTIAL_LENGTHS{
         7, // A_0: D_1 u_0 + sum_0 - w_r
@@ -64,13 +62,10 @@ template <typename FF_> class Poseidon2DoubleInternalRelationImpl {
         7, // A_6: s_3 at round 4 - w_p2_s3_shift
     };
 
-    static constexpr fr D1 = QuadParams::D1;
-    static constexpr fr D2 = QuadParams::D2;
-    static constexpr fr D3 = QuadParams::D3;
-    static constexpr fr D4 = QuadParams::D4;
-    static constexpr fr D2_MINUS_1 = D2 - fr(1);
-    static constexpr fr D3_MINUS_1 = D3 - fr(1);
-    static constexpr fr D4_MINUS_1 = D4 - fr(1);
+    static constexpr fr D2_MINUS_1 = crypto::Poseidon2Bn254ScalarFieldParams::internal_matrix_diagonal_minus_one[1];
+    static constexpr fr D3_MINUS_1 = crypto::Poseidon2Bn254ScalarFieldParams::internal_matrix_diagonal_minus_one[2];
+    static constexpr fr D4_MINUS_1 = crypto::Poseidon2Bn254ScalarFieldParams::internal_matrix_diagonal_minus_one[3];
+    static constexpr fr D1 = fr(1) + crypto::Poseidon2Bn254ScalarFieldParams::internal_matrix_diagonal_minus_one[0];
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {

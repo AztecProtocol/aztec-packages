@@ -70,7 +70,6 @@ class MegaTraceBlock : public ExecutionTraceBlock<fr, /*NUM_WIRES_ */ 4> {
             q_2(),
             q_3(),
             q_4(),
-            q_5(),
             q_busread(),
             q_lookup(),
             q_arith(),
@@ -305,40 +304,55 @@ class MegaTracePoseidon2DoubleInternalBlock : public MegaTraceBlock {
     const SelectorType& q_poseidon2_double_internal_terminal() const override { return terminal_selector; }
     const SelectorType& q_poseidon2_transition_entry() const override { return entry_selector; }
 
-    // Activates q_poseidon2_double_internal on the row; used for interior compressed rows.
-    void set_gate_selector(const fr& value) override
+    // 7-wire encoding: state[1..3] at row-start are carried as raw fr values per row (zero on
+    // entry/bridge rows, live on interior/terminal rows). TraceToPolynomials copies these into
+    // `w_p2_s1/2/3` over this block's trace range.
+    SlabVectorSelector<fr>& p2_s1() { return p2_s1_values; }
+    SlabVectorSelector<fr>& p2_s2() { return p2_s2_values; }
+    SlabVectorSelector<fr>& p2_s3() { return p2_s3_values; }
+    const SlabVectorSelector<fr>& p2_s1() const { return p2_s1_values; }
+    const SlabVectorSelector<fr>& p2_s2() const { return p2_s2_values; }
+    const SlabVectorSelector<fr>& p2_s3() const { return p2_s3_values; }
+
+    // Activates q_poseidon2_double_internal on the row with state[1..3] committed at round 4i.
+    void set_gate_selector(const fr& value) override { set_gate_selector_with_state(value, fr(0), fr(0), fr(0)); }
+    void set_gate_selector_with_state(const fr& value, const fr& s1, const fr& s2, const fr& s3)
     {
-        q_busread().emplace_back(0);
-        q_lookup().emplace_back(0);
-        q_arith().emplace_back(0);
-        q_delta_range().emplace_back(0);
-        q_elliptic().emplace_back(0);
-        q_memory().emplace_back(0);
-        q_nnf().emplace_back(0);
-        q_poseidon2_external().emplace_back(0);
+        push_zero_other_selectors();
         interior_selector.emplace_back(value);
         terminal_selector.emplace_back(0);
         entry_selector.emplace_back(0);
+        p2_s1_values.push_back(s1);
+        p2_s2_values.push_back(s2);
+        p2_s3_values.push_back(s3);
     }
 
-    // Activates q_poseidon2_double_internal_terminal on the row; used for the terminal compressed row.
-    void set_terminal_gate_selector(const fr& value)
+    // Activates q_poseidon2_double_internal_terminal on the row with state[1..3] committed at round 4i.
+    void set_terminal_gate_selector(const fr& value, const fr& s1, const fr& s2, const fr& s3)
     {
-        q_busread().emplace_back(0);
-        q_lookup().emplace_back(0);
-        q_arith().emplace_back(0);
-        q_delta_range().emplace_back(0);
-        q_elliptic().emplace_back(0);
-        q_memory().emplace_back(0);
-        q_nnf().emplace_back(0);
-        q_poseidon2_external().emplace_back(0);
+        push_zero_other_selectors();
         interior_selector.emplace_back(0);
         terminal_selector.emplace_back(value);
         entry_selector.emplace_back(0);
+        p2_s1_values.push_back(s1);
+        p2_s2_values.push_back(s2);
+        p2_s3_values.push_back(s3);
     }
 
-    // Activates q_poseidon2_transition_entry on the row; used for the standard->compressed entry row.
+    // Activates q_poseidon2_transition_entry on the row; state[1..3] extra wires are zero here.
     void set_entry_gate_selector(const fr& value)
+    {
+        push_zero_other_selectors();
+        interior_selector.emplace_back(0);
+        terminal_selector.emplace_back(0);
+        entry_selector.emplace_back(value);
+        p2_s1_values.push_back(fr(0));
+        p2_s2_values.push_back(fr(0));
+        p2_s3_values.push_back(fr(0));
+    }
+
+  private:
+    void push_zero_other_selectors()
     {
         q_busread().emplace_back(0);
         q_lookup().emplace_back(0);
@@ -348,15 +362,14 @@ class MegaTracePoseidon2DoubleInternalBlock : public MegaTraceBlock {
         q_memory().emplace_back(0);
         q_nnf().emplace_back(0);
         q_poseidon2_external().emplace_back(0);
-        interior_selector.emplace_back(0);
-        terminal_selector.emplace_back(0);
-        entry_selector.emplace_back(value);
     }
 
-  private:
     SlabVectorSelector<fr> interior_selector;
     SlabVectorSelector<fr> terminal_selector;
     SlabVectorSelector<fr> entry_selector;
+    SlabVectorSelector<fr> p2_s1_values;
+    SlabVectorSelector<fr> p2_s2_values;
+    SlabVectorSelector<fr> p2_s3_values;
 };
 
 /**

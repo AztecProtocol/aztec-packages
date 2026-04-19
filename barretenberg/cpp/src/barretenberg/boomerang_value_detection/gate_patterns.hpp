@@ -325,9 +325,18 @@ inline const GatePattern POSEIDON2_EXTERNAL = { .name = "poseidon2_external",
 // ============================================================================
 // Poseidon2 Double-Internal Pattern (from poseidon2_double_internal_relation.hpp)
 //
-// Four subrelations tie each output wire (w_l, w_r, w_o, w_4) to the corresponding
-// shifted wire (w_l_shift, w_r_shift, w_o_shift, w_4_shift). All 4 current + all 4
-// shifted wires are constrained.
+// 7-wire K=4 encoding, interior row. The underlying relation directly constrains
+// only 5 main wires:
+//   - W_L/W_R/W_O/W_4 of the current row (state[0] at rounds 4i..4i+3 via S-boxes
+//     and subrelations A_0..A_2).
+//   - W_L_SHIFT (= next row's state[0] via A_3).
+// A_4..A_6 bind the extra untracked wires w_p2_s1/2/3_shift (not in the Wire enum).
+//
+// For static-analyzer gate-counting we also list W_R_SHIFT, W_O_SHIFT, W_4_SHIFT:
+// those are the same `real_variable_index` as the NEXT compressed row's W_R/W_O/W_4
+// (which its own relation does constrain), so the witness legitimately appears in
+// both gates' contexts. Omitting them here would drop their gate_count from 2 → 1
+// and flag them as "only-in-one-gate" false positives.
 //
 // gate_selector = q_poseidon2_double_internal
 // ============================================================================
@@ -348,8 +357,17 @@ inline const GatePattern POSEIDON2_DOUBLE_INTERNAL = { .name = "poseidon2_double
 // Poseidon2 Double-Internal Terminal Pattern
 // (from poseidon2_double_internal_terminal_relation.hpp)
 //
-// Four subrelations: A_k: out_k - w_k_shift (k = l, r, o, 4). All 4 current
-// + all 4 shifted wires are constrained.
+// 7-wire K=4 encoding, terminal row. Same 4-round forward recurrence as interior,
+// but the successor is the standard-encoded bridge row — so A_4..A_6 match round-4
+// state[1..3] against main-wire shifts, not extra-wire shifts. Subrelations:
+//   A_0..A_2: state[0] at rounds 1, 2, 3 = w_r, w_o, w_4 (main wires of THIS row).
+//   A_3:      state[0] at round 4        = w_l_shift    (bridge's s_0).
+//   A_4..A_6: state[1..3] at round 4     = w_r_shift, w_o_shift, w_4_shift
+//                                          (bridge's s_1, s_2, s_3 — standard encoding).
+//
+// All 4 main wires + all 4 main-wire shifts are read directly by the relation.
+// (Extra wires w_p2_s1/2/3 on the terminal row are also read as inputs but are not
+// tracked by the Wire enum.)
 //
 // gate_selector = q_poseidon2_double_internal_terminal
 // ============================================================================
@@ -370,29 +388,38 @@ inline const GatePattern
 // ============================================================================
 // Poseidon2 Transition Entry Pattern (from poseidon2_transition_entry_relation.hpp)
 //
-// K=4: 3 subrelations forcing state[0] at rounds start+1, start+2, start+3 onto the first
-// compressed row. Each subrelation uses the PREVIOUS shifted wire as a fresh variable
-// (degree firewall), so A_0 reads w_l + w_r_shift, A_1 reads w_r_shift + w_o_shift, and
-// A_2 reads w_o_shift + w_4_shift. Linear terms in all of (w_r, w_o, w_4) appear in A_1
-// and A_2.
+// K=4 7-wire variant: 3 linear subrelations pinning the successor row's committed
+// state[1..3] extra wires to the entry row's (w_r, w_o, w_4):
+//     A_0: w_p2_s1_shift - w_r = 0
+//     A_1: w_p2_s2_shift - w_o = 0
+//     A_2: w_p2_s3_shift - w_4 = 0
 //
-// Constrained wires: w_l, w_r, w_o, w_4 (current) + w_r_shift, w_o_shift, w_4_shift.
-// w_l_shift is handled implicitly via shared witness indices (sigma permutation) — the
-// first compressed row's w_l uses the same witness index as this row's w_l.
+// The ENTRY relation directly touches only w_r/w_o/w_4 + the untracked w_p2_s*_shift.
+// For the static analyzer's gate-counting we ALSO list the 4 main-wire shifts:
+// the entry row's W_L_SHIFT/W_R_SHIFT/W_O_SHIFT/W_4_SHIFT are the first compressed
+// row's W_L/W_R/W_O/W_4 — fresh witnesses for state[0] at rounds 0..3 that the
+// compressed row's own `Poseidon2DoubleInternalRelation` constrains. Without listing
+// them here, those witnesses get gate_count=1 (seen only by the compressed-row
+// pattern) and get falsely flagged as "only-in-one-gate" suspicious.
+//
+// Symmetric pattern with POSEIDON2_DOUBLE_INTERNAL: all 4 main wires + all 4 shifts.
 //
 // gate_selector = q_poseidon2_transition_entry
 // ============================================================================
 
-inline const GatePattern POSEIDON2_TRANSITION_ENTRY = { .name = "poseidon2_transition_entry",
-                                                        .wires = {
-                                                            { Wire::W_L, [](const Selectors&) { return true; } },
-                                                            { Wire::W_R, [](const Selectors&) { return true; } },
-                                                            { Wire::W_O, [](const Selectors&) { return true; } },
-                                                            { Wire::W_4, [](const Selectors&) { return true; } },
-                                                            { Wire::W_R_SHIFT, [](const Selectors&) { return true; } },
-                                                            { Wire::W_O_SHIFT, [](const Selectors&) { return true; } },
-                                                            { Wire::W_4_SHIFT, [](const Selectors&) { return true; } },
-                                                        } };
+inline const GatePattern POSEIDON2_TRANSITION_ENTRY = {
+    .name = "poseidon2_transition_entry",
+    .wires = {
+        { Wire::W_L, [](const Selectors&) { return true; } },
+        { Wire::W_R, [](const Selectors&) { return true; } },
+        { Wire::W_O, [](const Selectors&) { return true; } },
+        { Wire::W_4, [](const Selectors&) { return true; } },
+        { Wire::W_L_SHIFT, [](const Selectors&) { return true; } },
+        { Wire::W_R_SHIFT, [](const Selectors&) { return true; } },
+        { Wire::W_O_SHIFT, [](const Selectors&) { return true; } },
+        { Wire::W_4_SHIFT, [](const Selectors&) { return true; } },
+    },
+};
 
 // ============================================================================
 // Databus Pattern (from databus_lookup_relation.hpp)
