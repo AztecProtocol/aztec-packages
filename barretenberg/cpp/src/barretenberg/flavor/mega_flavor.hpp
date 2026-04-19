@@ -201,8 +201,11 @@ class MegaFlavor {
                               secondary_calldata_inverses,    // column 17
                               return_data,                    // column 18
                               return_data_read_counts,        // column 19
-                              return_data_inverses);          // column 20
-        auto get_to_be_shifted() { return RefArray{ z_perm }; };
+                              return_data_inverses,           // column 20
+                              w_p2_s1,                        // column 21
+                              w_p2_s2,                        // column 22
+                              w_p2_s3);                       // column 23
+        auto get_to_be_shifted() { return RefArray{ z_perm, w_p2_s1, w_p2_s2, w_p2_s3 }; };
     };
 
     /**
@@ -259,7 +262,10 @@ class MegaFlavor {
                              this->secondary_calldata_inverses,
                              this->return_data,
                              this->return_data_read_counts,
-                             this->return_data_inverses };
+                             this->return_data_inverses,
+                             this->w_p2_s1,
+                             this->w_p2_s2,
+                             this->w_p2_s3 };
         }
         auto get_masked() const
         {
@@ -278,7 +284,10 @@ class MegaFlavor {
                              this->secondary_calldata_inverses,
                              this->return_data,
                              this->return_data_read_counts,
-                             this->return_data_inverses };
+                             this->return_data_inverses,
+                             this->w_p2_s1,
+                             this->w_p2_s2,
+                             this->w_p2_s3 };
         }
     };
 
@@ -291,11 +300,14 @@ class MegaFlavor {
     template <typename DataType> class ShiftedEntities {
       public:
         DEFINE_FLAVOR_MEMBERS(DataType,
-                              w_l_shift,    // column 0
-                              w_r_shift,    // column 1
-                              w_o_shift,    // column 2
-                              w_4_shift,    // column 3
-                              z_perm_shift) // column 4
+                              w_l_shift,     // column 0
+                              w_r_shift,     // column 1
+                              w_o_shift,     // column 2
+                              w_4_shift,     // column 3
+                              z_perm_shift,  // column 4
+                              w_p2_s1_shift, // column 5
+                              w_p2_s2_shift, // column 6
+                              w_p2_s3_shift) // column 7
     };
 
     /**
@@ -419,6 +431,9 @@ class MegaFlavor {
             return_data = "RETURN_DATA";
             return_data_read_counts = "RETURN_DATA_READ_COUNTS";
             return_data_inverses = "RETURN_DATA_INVERSES";
+            w_p2_s1 = "W_P2_S1";
+            w_p2_s2 = "W_P2_S2";
+            w_p2_s3 = "W_P2_S3";
 
             q_c = "Q_C";
             q_l = "Q_L";
