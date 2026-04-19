@@ -91,18 +91,38 @@ Polynomial<HypernovaFoldingProver::FF> HypernovaFoldingProver::batch_polynomials
         max_end = std::max(max_end, polynomials_to_batch[idx].end_index());
     }
 
+    // Fuse the N-1 add_scaled dispatches into a single parallel_for. Each worker handles its
+    // slice of the destination range and iterates every source in turn, amortising N×
+    // parallel_for startup overhead into 1×. Chunking over the destination range (not per
+    // source) keeps writes disjoint across threads even when sources have different
+    // start_index/end_index.
+    auto fused_add_scaled = [&](Polynomial<FF>& dst) {
+        const size_t union_size = max_end - min_start;
+        parallel_for([&](const ThreadChunk& chunk) {
+            BB_BENCH_TRACY_NAME("HypernovaFoldingProver::batch_polynomials/chunk");
+            auto chunk_indices = chunk.range(union_size, min_start);
+            for (size_t idx = 1; idx < N; ++idx) {
+                const auto& src = polynomials_to_batch[idx];
+                const FF c = challenges[idx];
+                const size_t src_start = src.start_index();
+                const size_t src_end = src.end_index();
+                for (size_t i : chunk_indices) {
+                    if (i >= src_start && i < src_end) {
+                        dst.at(i) += c * src[i];
+                    }
+                }
+            }
+        });
+    };
+
     if (min_start < polynomials_to_batch[0].start_index() || max_end > polynomials_to_batch[0].end_index()) {
         Polynomial<FF> result(max_end - min_start, full_batched_size, min_start);
         result += polynomials_to_batch[0];
-        for (size_t idx = 1; idx < N; idx++) {
-            result.add_scaled(polynomials_to_batch[idx], challenges[idx]);
-        }
+        fused_add_scaled(result);
         return result;
     }
 
-    for (size_t idx = 1; idx < N; idx++) {
-        polynomials_to_batch[0].add_scaled(polynomials_to_batch[idx], challenges[idx]);
-    }
+    fused_add_scaled(polynomials_to_batch[0]);
 
     return polynomials_to_batch[0];
 };
