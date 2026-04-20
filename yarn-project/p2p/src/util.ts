@@ -15,16 +15,9 @@ import type { Libp2p } from 'libp2p';
 import net from 'net';
 import path from 'path';
 
-import type { P2PConfig } from './config.js';
+import { DEFAULT_PUBLIC_IP_SERVICES, type P2PConfig } from './config.js';
 
 const PEER_ID_DATA_DIR_FILE = 'p2p-private-key';
-
-const PUBLIC_IP_SERVICES = [
-  'https://api.ipify.org/',
-  'https://checkip.amazonaws.com/',
-  'https://ifconfig.me/ip',
-  'https://icanhazip.com/',
-];
 
 export interface PubSubLibp2p extends Pick<Libp2p, 'status' | 'start' | 'stop' | 'peerId'> {
   services: {
@@ -72,10 +65,11 @@ export function convertToMultiaddr(address: string, port: number, protocol: 'tcp
 
 /**
  * Queries the public IP address of the machine, trying multiple services in order.
+ * @param services - HTTPS URLs to try; defaults to {@link DEFAULT_PUBLIC_IP_SERVICES}.
  */
-export async function getPublicIp(): Promise<string> {
+export async function getPublicIp(services: string[] = DEFAULT_PUBLIC_IP_SERVICES): Promise<string> {
   const errors: string[] = [];
-  for (const url of PUBLIC_IP_SERVICES) {
+  for (const url of services) {
     try {
       const resp = await fetch(url, { signal: AbortSignal.timeout(5000) });
       const text = await resp.text();
@@ -136,7 +130,7 @@ export async function configureP2PClientAddresses(
   // Resolve the initial public IP so the ENR and announce address are set at startup.
   // If queryForIp is enabled, discv5 will also track IP changes at runtime via enrUpdate.
   if (!p2pIp && queryForIp) {
-    config.p2pIp = await getPublicIp();
+    config.p2pIp = await getPublicIp(config.publicIpServices);
     logger.info('Resolved initial public IP for P2P', { ip: config.p2pIp, queryForIp });
   } else if (p2pIp) {
     logger.info('Using configured static P2P IP', { ip: p2pIp, queryForIp });

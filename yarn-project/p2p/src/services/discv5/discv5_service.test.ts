@@ -11,7 +11,7 @@ import { createSecp256k1PeerId } from '@libp2p/peer-id-factory';
 import type { IDiscv5CreateOptions } from '@nethermindeth/discv5';
 
 import { BootstrapNode } from '../../bootstrap/bootstrap.js';
-import { type BootnodeConfig, type P2PConfig, getP2PDefaultConfig } from '../../config.js';
+import { type BootnodeConfig, DEFAULT_PUBLIC_IP_SERVICES, type P2PConfig, getP2PDefaultConfig } from '../../config.js';
 import { AZTEC_ENR_CLIENT_VERSION_KEY } from '../../types/index.js';
 import { PeerDiscoveryState } from '../service.js';
 import { DiscV5Service } from './discV5_service.js';
@@ -48,6 +48,7 @@ describe('Discv5Service', () => {
     dataStoreMapSizeKb: 0,
     bootstrapNodes: [],
     queryForIp: false,
+    publicIpServices: DEFAULT_PUBLIC_IP_SERVICES,
     ...emptyChainConfig,
   };
 

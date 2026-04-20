@@ -83,4 +83,14 @@ describe('config', () => {
     const config = getP2PDefaultConfig();
     expect(config.txCollectionMissingTxsCollectorType).toBe('new');
   });
+
+  it('defaults public IP service URLs', () => {
+    const config = getP2PDefaultConfig();
+    expect(config.publicIpServices).toEqual([
+      'https://api.ipify.org/',
+      'https://checkip.amazonaws.com/',
+      'https://ifconfig.me/ip',
+      'https://icanhazip.com/',
+    ]);
+  });
 });

@@ -30,7 +30,7 @@ import getPort from 'get-port';
 import { type Libp2p, type Libp2pOptions, createLibp2p } from 'libp2p';
 
 import { BootstrapNode } from '../bootstrap/bootstrap.js';
-import type { BootnodeConfig, P2PConfig } from '../config.js';
+import { type BootnodeConfig, DEFAULT_PUBLIC_IP_SERVICES, type P2PConfig } from '../config.js';
 import type { MemPools } from '../mem_pools/interface.js';
 import { DiscV5Service } from '../services/discv5/discV5_service.js';
 import { APP_SPECIFIC_WEIGHT } from '../services/gossipsub/scoring.js';
@@ -294,6 +294,7 @@ export function createBootstrapNodeConfig(privateKey: string, port: number, chai
     bootstrapNodes: [],
     listenAddress: '127.0.0.1',
     queryForIp: false,
+    publicIpServices: DEFAULT_PUBLIC_IP_SERVICES,
   };
 }
 

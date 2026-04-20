@@ -40,7 +40,7 @@ export class BootstrapNode implements P2PBootstrapApi {
     if (!p2pIp) {
       if (queryForIp) {
         this.logger.info('Querying for public IP address...');
-        const publicIp = await getPublicIp();
+        const publicIp = await getPublicIp(config.publicIpServices);
         p2pIp = publicIp;
         this.logger.info(`Found public IP address: ${publicIp}`);
       }
