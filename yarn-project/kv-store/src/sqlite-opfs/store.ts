@@ -107,7 +107,7 @@ export class AztecSQLiteOPFSStore implements AztecAsyncKVStore {
     return new SQLiteOPFSAztecSingleton<T>(this, name);
   }
 
-  async transactionAsync<T>(callback: () => Promise<T>): Promise<T> {
+  transactionAsync<T>(callback: () => Promise<T>): Promise<T> {
     // Nested calls join the outer transaction — SQLite does not support nested BEGIN,
     // and re-acquiring the SerialQueue while the outer call holds it would deadlock.
     // Errors in the nested callback propagate to the outer catch, which rolls back the
@@ -195,7 +195,7 @@ export class AztecSQLiteOPFSStore implements AztecAsyncKVStore {
    * `transactionAsync` block, bypasses the queue; otherwise acquires it so the
    * op runs in its own auto-commit.
    */
-  async runAsync(sql: string, bind?: SqlValue[]): Promise<{ changes: number }> {
+  runAsync(sql: string, bind?: SqlValue[]): Promise<{ changes: number }> {
     const send = () =>
       this.#sendRequest({ type: 'run', id: this.#allocId(), sql, bind }).then(r => ({
         changes: 'changes' in r ? (r.changes ?? 0) : 0,
@@ -204,7 +204,7 @@ export class AztecSQLiteOPFSStore implements AztecAsyncKVStore {
   }
 
   /** Runs a SELECT statement and returns rows in array row-mode. */
-  async allAsync(sql: string, bind?: SqlValue[]): Promise<ResultRow[]> {
+  allAsync(sql: string, bind?: SqlValue[]): Promise<ResultRow[]> {
     const send = () =>
       this.#sendRequest({ type: 'all', id: this.#allocId(), sql, bind }).then(r => ('rows' in r ? (r.rows ?? []) : []));
     return this.#inTx ? send() : this.#txQueue.put(send);

@@ -1,4 +1,4 @@
-import { type Logger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 
 import type { Key } from '../interfaces/common.js';

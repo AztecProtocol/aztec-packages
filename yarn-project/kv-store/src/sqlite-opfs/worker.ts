@@ -28,7 +28,7 @@ let db: Database | undefined;
 let dbPath: string | undefined;
 
 async function ensurePool(directory: string): Promise<SAHPoolUtil> {
-  sqlite3 ??= await sqlite3InitModule({ printErr: console.error });
+  sqlite3 ??= await sqlite3InitModule();
   if (!pool) {
     poolDirectory = directory;
     pool = await sqlite3.installOpfsSAHPoolVfs({
@@ -41,7 +41,7 @@ async function ensurePool(directory: string): Promise<SAHPoolUtil> {
 }
 
 async function handleInit(dbName: string, ephemeral: boolean, directory?: string): Promise<void> {
-  sqlite3 ??= await sqlite3InitModule({ printErr: console.error });
+  sqlite3 ??= await sqlite3InitModule();
   if (ephemeral) {
     db = new sqlite3.oo1.DB(':memory:', 'c');
   } else {
@@ -65,7 +65,7 @@ async function handleExport(): Promise<Uint8Array> {
   if (!pool) {
     throw new Error('SQLite worker: no SAH Pool available (ephemeral DBs cannot be exported)');
   }
-  return pool.exportFile(dbPath);
+  return await pool.exportFile(dbPath);
 }
 
 async function handleDeleteDb(dbName: string): Promise<void> {
