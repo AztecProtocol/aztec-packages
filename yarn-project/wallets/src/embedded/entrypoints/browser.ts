@@ -53,18 +53,20 @@ export class BrowserEmbeddedWallet extends EmbeddedWallet {
 
     const pxe = await createPXE(aztecNode, pxeConfig, pxeOptions);
 
-    const walletDBStore = options.ephemeral
-      ? await openTmpStore(true)
-      : await createStore(
-          'wallet_data',
-          {
-            dataDirectory: `wallet_data_${l1Contracts.rollupAddress}`,
-            dataStoreMapSizeKb: pxeConfig.dataStoreMapSizeKb,
-            l1Contracts,
-          },
-          1,
-          rootLogger.createChild('wallet:data'),
-        );
+    const walletDBStore =
+      options.walletDb?.store ??
+      (options.ephemeral
+        ? await openTmpStore(true)
+        : await createStore(
+            'wallet_data',
+            {
+              dataDirectory: `wallet_data_${l1Contracts.rollupAddress}`,
+              dataStoreMapSizeKb: pxeConfig.dataStoreMapSizeKb,
+              l1Contracts,
+            },
+            1,
+            rootLogger.createChild('wallet:data'),
+          ));
     const walletDB = WalletDB.init(walletDBStore, rootLogger.createChild('wallet:db').info);
 
     return new this(pxe, aztecNode, walletDB, new LazyAccountContractsProvider(), rootLogger) as T;
