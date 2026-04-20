@@ -189,11 +189,14 @@ class HypernovaFoldingVerifierTests : public ::testing::Test {
         }
         round++;
 
-        // Round 1: lookup + w_4 -> beta, gamma challenges
+        // Round 1: lookup + w_4 + Mega z-commit witnesses -> beta, gamma challenges
         manifest.add_challenge(round, std::array{ "beta", "gamma" });
         manifest.add_entry(round, "LOOKUP_READ_COUNTS", frs_per_G);
         manifest.add_entry(round, "LOOKUP_READ_TAGS", frs_per_G);
         manifest.add_entry(round, "W_4", frs_per_G);
+        for (const auto& z : { "Z_L", "Z_R", "Z_O", "Z_4" }) {
+            manifest.add_entry(round, z, frs_per_G);
+        }
         round++;
 
         // Round 2: inverses + z_perm -> alpha + gate_challenge (consecutive challenges in same round)
@@ -207,9 +210,12 @@ class HypernovaFoldingVerifierTests : public ::testing::Test {
         round++;
 
         // Rounds 3-23: main sumcheck univariates (21 rounds)
+        // Per-round univariate length = BATCHED_RELATION_PARTIAL_LENGTH (drops with the Mega
+        // z-commit external-relation degree reduction; previously hardcoded as 8).
+        constexpr size_t MAIN_SUMCHECK_UNIVARIATE_LENGTH = NativeFlavor::BATCHED_RELATION_PARTIAL_LENGTH;
         for (size_t i = 0; i < NUM_SUMCHECK_UNIVARIATES; ++i) {
             manifest.add_challenge(round, "Sumcheck:u_" + std::to_string(i));
-            manifest.add_entry(round, "Sumcheck:univariate_" + std::to_string(i), 8);
+            manifest.add_entry(round, "Sumcheck:univariate_" + std::to_string(i), MAIN_SUMCHECK_UNIVARIATE_LENGTH);
             round++;
         }
 

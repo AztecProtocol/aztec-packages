@@ -30,8 +30,18 @@ template <typename Flavor> struct ZKSumcheckData {
     static constexpr FF subgroup_generator = Curve::subgroup_generator;
 
     // The size of the LibraUnivariates.
-    static constexpr size_t LIBRA_UNIVARIATES_LENGTH =
-        IsMegaFlavor<Flavor> ? Flavor::BATCHED_RELATION_PARTIAL_LENGTH : Curve::LIBRA_UNIVARIATES_LENGTH;
+    // For Mega flavors, use BATCHED_RELATION_PARTIAL_LENGTH directly so that Libra masks the
+    // round univariates at the right degree even when the Mega flavor's batched length is below
+    // the curve's default. For non-flavor `Settings` test types (e.g. GrumpkinSettings), fall
+    // back to the curve constant. Wrapped in an IIFE so `Flavor::BATCHED_RELATION_PARTIAL_LENGTH`
+    // is only name-looked-up on the branch where it actually exists.
+    static constexpr size_t LIBRA_UNIVARIATES_LENGTH = []() {
+        if constexpr (IsMegaFlavor<Flavor>) {
+            return Flavor::BATCHED_RELATION_PARTIAL_LENGTH;
+        } else {
+            return Curve::LIBRA_UNIVARIATES_LENGTH;
+        }
+    }();
 
     static constexpr FF one_half = FF(1) / FF(2);
 
