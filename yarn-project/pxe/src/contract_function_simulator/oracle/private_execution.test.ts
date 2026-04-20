@@ -596,7 +596,7 @@ describe('Private Execution test suite', () => {
     });
 
     it('should have a constructor with arguments that inserts notes', async () => {
-      const initArgs = [owner, owner, 140];
+      const initArgs = [owner, 140];
       const instance = await getContractInstanceFromInstantiationParams(StatefulTestContractArtifact, {
         constructorArgs: initArgs,
         salt: Fr.random(),
@@ -628,7 +628,7 @@ describe('Private Execution test suite', () => {
 
     it('should run the create_note function', async () => {
       const { entrypoint: result } = await runSimulator({
-        args: [owner, owner, 140],
+        args: [owner, 140],
         artifact: StatefulTestContractArtifact,
         anchorBlockHeader,
         functionName: 'create_note_no_init_check',

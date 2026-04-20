@@ -1,10 +1,11 @@
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
+import type { Logger } from '@aztec/foundation/log';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { EventSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { BlockHash } from '@aztec/stdlib/block';
-import { siloNullifier } from '@aztec/stdlib/hash';
+import { computePrivateEventCommitment, siloNullifier } from '@aztec/stdlib/hash';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
 import { makeBlockHeader } from '@aztec/stdlib/testing';
 import { type IndexedTxEffect, TxEffect } from '@aztec/stdlib/tx';
@@ -28,6 +29,7 @@ describe('validateAndStoreEvent', () => {
 
   let privateEventStore: PrivateEventStore;
   let aztecNode: ReturnType<typeof mock<AztecNode>>;
+  let logger: ReturnType<typeof mock<Logger>>;
 
   let eventService: EventService;
 
@@ -47,7 +49,7 @@ describe('validateAndStoreEvent', () => {
     randomness = Fr.random();
     eventContent = [Fr.random(), Fr.random()];
 
-    eventCommitment = Fr.random();
+    eventCommitment = await computePrivateEventCommitment(randomness, eventSelector.toField(), eventContent);
     eventNullifier = await siloNullifier(contractAddress, eventCommitment);
 
     txEffect = TxEffect.from({
@@ -70,11 +72,13 @@ describe('validateAndStoreEvent', () => {
 
     aztecNode.getTxEffect.mockImplementation(() => Promise.resolve(indexedTxEffect));
 
-    eventService = new EventService(anchorBlockHeader, aztecNode, privateEventStore, 'test');
+    logger = mock<Logger>();
+    eventService = new EventService(anchorBlockHeader, aztecNode, privateEventStore, 'test', logger);
   });
 
   async function runStoreEvent(
     overrides: {
+      eventContent?: Fr[];
       eventCommitment?: Fr;
     } = {},
   ) {
@@ -82,7 +86,7 @@ describe('validateAndStoreEvent', () => {
       contractAddress,
       eventSelector,
       randomness,
-      eventContent,
+      overrides.eventContent || eventContent,
       overrides.eventCommitment || eventCommitment,
       txEffect.txHash,
       recipient,
@@ -109,10 +113,12 @@ describe('validateAndStoreEvent', () => {
   });
 
   it('should not store event if event commitment is not in the tx effects', async () => {
-    // The service logs a warning and returns early rather than throwing
-    await runStoreEvent({ eventCommitment: Fr.random() });
+    // Use a valid (content -> commitment) pair that just isn't present in the tx.
+    const otherContent = [Fr.random()];
+    const otherCommitment = await computePrivateEventCommitment(randomness, eventSelector.toField(), otherContent);
 
-    // Verify event was not stored
+    await runStoreEvent({ eventContent: otherContent, eventCommitment: otherCommitment });
+
     const result = await privateEventStore.getPrivateEvents(eventSelector, {
       contractAddress,
       fromBlock: blockNumber,
@@ -121,6 +127,22 @@ describe('validateAndStoreEvent', () => {
     });
 
     expect(result.length).toEqual(0);
+    expect(logger.warn).toHaveBeenCalledWith(expect.stringMatching(/commitment is not present in its tx/));
+  });
+
+  it('should not store event if content does not match the event commitment', async () => {
+    // Commitment is legitimately present in the tx, but the provided content does not hash to it.
+    await runStoreEvent({ eventContent: [Fr.random(), Fr.random()] });
+
+    const result = await privateEventStore.getPrivateEvents(eventSelector, {
+      contractAddress,
+      fromBlock: blockNumber,
+      toBlock: blockNumber + 1,
+      scopes: [recipient],
+    });
+
+    expect(result.length).toEqual(0);
+    expect(logger.warn).toHaveBeenCalledWith(expect.stringMatching(/content does not hash to the provided commitment/));
   });
 
   it('should store event for later retrieval', async () => {

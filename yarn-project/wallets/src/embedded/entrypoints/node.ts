@@ -54,24 +54,26 @@ export class NodeEmbeddedWallet extends EmbeddedWallet {
 
     const pxe = await createPXE(aztecNode, pxeConfig, pxeOptions);
 
-    const walletDBStore = options.ephemeral
-      ? await openTmpStore(
-          `wallet_data_${l1Contracts.rollupAddress}`,
-          true,
-          undefined,
-          undefined,
-          rootLogger.createChild('wallet:data').getBindings(),
-        )
-      : await createStore(
-          'wallet_data',
-          1,
-          {
-            dataDirectory: `wallet_data_${l1Contracts.rollupAddress}`,
-            dataStoreMapSizeKb: pxeConfig.dataStoreMapSizeKb,
-            l1Contracts,
-          },
-          rootLogger.createChild('wallet:data').getBindings(),
-        );
+    const walletDBStore =
+      options.walletDb?.store ??
+      (options.ephemeral
+        ? await openTmpStore(
+            `wallet_data_${l1Contracts.rollupAddress}`,
+            true,
+            undefined,
+            undefined,
+            rootLogger.createChild('wallet:data').getBindings(),
+          )
+        : await createStore(
+            'wallet_data',
+            1,
+            {
+              dataDirectory: `wallet_data_${l1Contracts.rollupAddress}`,
+              dataStoreMapSizeKb: pxeConfig.dataStoreMapSizeKb,
+              l1Contracts,
+            },
+            rootLogger.createChild('wallet:data').getBindings(),
+          ));
     const walletDB = WalletDB.init(walletDBStore, rootLogger.createChild('wallet:db').info);
 
     return new this(pxe, aztecNode, walletDB, new BundleAccountContractsProvider(), rootLogger) as T;

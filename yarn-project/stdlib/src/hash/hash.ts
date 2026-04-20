@@ -103,6 +103,18 @@ export function computeLogTag(rawTag: number | bigint | boolean | Fr | Buffer, d
   return poseidon2HashWithSeparator([new Fr(rawTag)], domSep);
 }
 
+/**
+ * Computes the commitment of a private event from its preimage.
+ * @param randomness - Random value emitted alongside the event to prevent preimage brute-forcing.
+ * @param eventSelector - Event selector as an Fr.
+ * @param content - Serialized event content.
+ *
+ * @dev Must match the implementation in aztec-nr/aztec/src/event/event_interface.nr > compute_private_serialized_event_commitment
+ */
+export function computePrivateEventCommitment(randomness: Fr, eventSelector: Fr, content: Fr[]): Promise<Fr> {
+  return poseidon2HashWithSeparator([randomness, eventSelector, ...content], DomainSeparator.EVENT_COMMITMENT);
+}
+
 export function computeSiloedPrivateLogFirstField(contract: AztecAddress, field: Fr): Promise<Fr> {
   return poseidon2HashWithSeparator([contract, field], DomainSeparator.PRIVATE_LOG_FIRST_FIELD);
 }
