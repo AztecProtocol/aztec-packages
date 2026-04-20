@@ -452,6 +452,17 @@ int parse_and_run_cli_command(int argc, char* argv[])
     add_disable_asserts_flag(check);
 
     /***************************************************************************************************************
+     * Subcommand: check_pipeline
+     ***************************************************************************************************************/
+    CLI::App* check_pipeline =
+        app.add_subcommand("check_pipeline",
+                           "Verify that pipelined circuit construction (split Phase A/B with dummy op_queue) "
+                           "produces VKs identical to the precomputed VKs in the inputs.");
+
+    add_scheme_option(check_pipeline);
+    add_ivc_inputs_path_options(check_pipeline);
+
+    /***************************************************************************************************************
      * Subcommand: gates
      ***************************************************************************************************************/
     CLI::App* gates = app.add_subcommand("gates",
@@ -1019,6 +1030,12 @@ int parse_and_run_cli_command(int argc, char* argv[])
                     return api.check_precomputed_vks(flags, ivc_inputs_path) ? 0 : 1;
                 }
                 return api.check_precomputed_vks(flags, ivc_inputs_path) ? 0 : 1;
+            }
+            if (check_pipeline->parsed()) {
+                if (!std::filesystem::exists(ivc_inputs_path)) {
+                    throw_or_abort("The check_pipeline command expects a valid file passed with --ivc_inputs_path");
+                }
+                return api.check_pipelined_vks(ivc_inputs_path) ? 0 : 1;
             }
             if (batch_verify->parsed()) {
                 const bool verified = api.batch_verify(flags, batch_verify_proofs_dir);

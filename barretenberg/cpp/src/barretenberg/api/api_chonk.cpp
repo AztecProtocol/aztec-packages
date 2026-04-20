@@ -17,10 +17,31 @@
 #include "barretenberg/serialize/msgpack.hpp"
 #include "barretenberg/serialize/msgpack_check_eq.hpp"
 #include <algorithm>
+#include <fstream>
+#include <limits>
+#include <malloc.h>
 #include <stdexcept>
+#include <string>
 
 namespace bb {
 namespace { // anonymous namespace
+
+// Read this process's resident set size in KB from /proc/self/status. Linux-specific.
+size_t read_self_rss_kb()
+{
+    std::ifstream f("/proc/self/status");
+    std::string key;
+    size_t value = 0;
+    std::string unit;
+    while (f >> key) {
+        if (key == "VmRSS:") {
+            f >> value >> unit;
+            return value;
+        }
+        f.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+    }
+    return 0;
+}
 
 /**
  * @brief Compute and write to file a MegaHonk VK for a circuit to be accumulated by Chonk.
@@ -59,19 +80,27 @@ void ChonkAPI::prove(const Flags& flags,
     request.vk_policy = bbapi::parse_vk_policy(flags.vk_policy);
     std::vector<PrivateExecutionStepRaw> raw_steps = PrivateExecutionStepRaw::load_and_decompress(input_path);
 
-    bbapi::ChonkStart{ .num_circuits = static_cast<uint32_t>(raw_steps.size()) }.execute(request);
-    info("Chonk: starting with ", raw_steps.size(), " circuits");
-    for (const auto& step : raw_steps) {
-        bbapi::ChonkLoad{
-            .circuit = { .name = step.function_name, .bytecode = step.bytecode, .verification_key = step.vk }
-        }.execute(request);
-
-        // NOLINTNEXTLINE(bugprone-unchecked-optional-access): we know the optional has been set here.
-        info("Chonk: accumulating " + step.function_name);
-        bbapi::ChonkAccumulate{ .witness = step.witness }.execute(request);
+    // Save hiding kernel bytecode before moving raw_steps (needed for VK generation)
+    std::vector<uint8_t> hiding_kernel_bytecode;
+    if (flags.write_vk && !raw_steps.empty()) {
+        hiding_kernel_bytecode = raw_steps.back().bytecode;
     }
 
-    auto proof = bbapi::ChonkProve{}.execute(request).proof;
+    // Parse all circuits upfront, then run pipelined accumulation
+    PrivateExecutionSteps steps;
+    steps.parse(std::move(raw_steps));
+
+    std::shared_ptr<Chonk> ivc = steps.accumulate();
+
+    auto proof = ivc->prove();
+    auto vk_and_hash = ivc->get_hiding_kernel_vk_and_hash();
+
+    // Verify the proof as a sanity check — catch failures early rather than downstream
+    info("Chonk: verifying the generated proof as a sanity check");
+    ChonkNativeVerifier verifier(vk_and_hash);
+    if (!verifier.verify(proof)) {
+        throw_or_abort("Failed to verify the generated proof!");
+    }
 
     const bool output_to_stdout = output_dir == "-";
 
@@ -96,8 +125,7 @@ void ChonkAPI::prove(const Flags& flags,
 
     if (flags.write_vk) {
         vinfo("writing Chonk vk in directory ", output_dir);
-        // write CHONK vk using the bytecode of the Hiding kernel (the last step of the execution)
-        write_chonk_vk(raw_steps[raw_steps.size() - 1].bytecode, output_dir, flags);
+        write_chonk_vk(std::move(hiding_kernel_bytecode), output_dir, flags);
     }
 }
 
@@ -185,6 +213,84 @@ bool ChonkAPI::prove_and_verify(const std::filesystem::path& input_path)
     ChonkNativeVerifier verifier(vk_and_hash);
     const bool verified = verifier.verify(proof);
     return verified;
+}
+
+bool ChonkAPI::check_pipelined_vks(const std::filesystem::path& input_path)
+{
+    PrivateExecutionSteps steps;
+    steps.parse(PrivateExecutionStepRaw::load_and_decompress(input_path));
+
+    auto ivc = std::make_shared<Chonk>(steps.folding_stack.size());
+    const acir_format::ProgramMetadata metadata{ ivc };
+
+    // Trim once up front so the baseline RSS reflects only what's actually live (parsed inputs +
+    // empty IVC), not allocator slack from earlier in the binary's run.
+    malloc_trim(0);
+    const size_t baseline_rss = read_self_rss_kb();
+    info("MEM baseline (after parse + trim): ", baseline_rss, " KB (", baseline_rss / 1024, " MB)");
+
+    bool all_match = true;
+    size_t max_per_builder_kb = 0;
+    for (size_t i = 0; i < steps.folding_stack.size(); i++) {
+        auto& program = steps.folding_stack[i];
+        const auto& precomputed_vk = steps.precomputed_vks[i];
+        if (!precomputed_vk) {
+            info("FAIL: Missing precomputed VK for circuit ", i, " (", steps.function_names[i], ")");
+            return false;
+        }
+
+        // Trim before measuring so retained-but-free pages from previous iterations don't inflate
+        // the per-builder delta.
+        malloc_trim(0);
+        const size_t rss_before = read_self_rss_kb();
+
+        // Pipelined construction: Phase A with no op_queue (stray queue_ecc_* calls trip a
+        // BB_ASSERT at the access site), Phase B attaches the real op_queue and runs recursion.
+        MegaCircuitBuilder builder{
+            /*op_queue_in=*/nullptr, program.witness, program.constraints.public_inputs, /*is_write_vk_mode=*/false
+        };
+        acir_format::build_non_recursion_constraints(builder, program.constraints, acir_format::ProgramMetadata{});
+
+        // Phase B: attach real op_queue and build recursion constraints
+        builder.attach_op_queue(ivc->get_goblin().op_queue);
+        acir_format::build_recursion_and_finalize_constraints(builder, program.constraints, metadata);
+
+        // Trim before measuring "after" so the delta is the working set of the builder, not slack.
+        malloc_trim(0);
+        const size_t rss_after = read_self_rss_kb();
+        const size_t delta_kb = rss_after > rss_before ? rss_after - rss_before : 0;
+        max_per_builder_kb = std::max(max_per_builder_kb, delta_kb);
+        info("MEM circuit ",
+             i,
+             " (",
+             steps.function_names[i],
+             "): before=",
+             rss_before / 1024,
+             " MB, after_build=",
+             rss_after / 1024,
+             " MB, builder_delta=",
+             delta_kb / 1024,
+             " MB");
+
+        // Compare VK from pipelined construction against the precomputed VK
+        auto prover_instance = std::make_shared<Chonk::ProverInstance>(builder);
+        auto computed_vk = std::make_shared<Chonk::MegaVerificationKey>(prover_instance->get_precomputed());
+
+        if (*computed_vk != *precomputed_vk) {
+            info("FAIL: VK mismatch for circuit ", i, " (", steps.function_names[i], ")");
+            all_match = false;
+        } else {
+            info("OK: Circuit ", i, " (", steps.function_names[i], ") VK matches");
+        }
+
+        // Accumulate to advance IVC state for the next circuit
+        ivc->accumulate(builder, precomputed_vk);
+    }
+
+    info("MEM SUMMARY: max single-builder working set = ",
+         max_per_builder_kb / 1024,
+         " MB (this is the structural floor for pipelining one extra builder)");
+    return all_match;
 }
 
 void ChonkAPI::gates(const Flags& flags, const std::filesystem::path& bytecode_path)

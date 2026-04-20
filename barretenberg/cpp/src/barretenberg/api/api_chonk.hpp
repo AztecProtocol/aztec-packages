@@ -63,6 +63,14 @@ class ChonkAPI : public API {
     bool prove_and_verify(const std::filesystem::path& input_path);
 
     /**
+     * @brief Verify that pipelined circuit construction produces correct VKs.
+     * @details Constructs each circuit via the pipelined path (Phase A with dummy op_queue,
+     * Phase B with real op_queue) and compares the resulting VK against the precomputed VK
+     * in the inputs. This is the correctness test for the pipelining optimization.
+     */
+    bool check_pipelined_vks(const std::filesystem::path& input_path);
+
+    /**
      * @brief Output gate count statistics for a circuit.
      */
     void gates(const Flags& flags, const std::filesystem::path& bytecode_path) override;

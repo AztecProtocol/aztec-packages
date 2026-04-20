@@ -32,7 +32,7 @@ namespace acir_format {
 using namespace bb;
 
 template <typename Builder>
-void build_constraints(Builder& builder, AcirFormat& constraints, const ProgramMetadata& metadata)
+void build_non_recursion_constraints(Builder& builder, AcirFormat& constraints, const ProgramMetadata& metadata)
 {
     bool collect_gates_per_opcode = metadata.collect_gates_per_opcode;
 
@@ -160,8 +160,15 @@ void build_constraints(Builder& builder, AcirFormat& constraints, const ProgramM
             }
         }
     }
+}
 
-    // RecursionConstraints
+template <typename Builder>
+void build_recursion_and_finalize_constraints(Builder& builder,
+                                              AcirFormat& constraints,
+                                              const ProgramMetadata& metadata)
+{
+    GateCounter gate_counter{ &builder, metadata.collect_gates_per_opcode };
+
     const bool is_hn_recursion_constraints = !constraints.hn_recursion_constraints.empty();
     HonkRecursionConstraintsOutput<Builder> output = create_recursion_constraints<Builder>(
         builder,
@@ -177,8 +184,14 @@ void build_constraints(Builder& builder, AcirFormat& constraints, const ProgramM
         /*chonk_recursion_data=*/
         { constraints.chonk_recursion_constraints, constraints.original_opcode_indices.chonk_recursion_constraints });
 
-    // Process the result of adding recursion constraints and propagate the public inputs as needed
     output.finalize(builder, is_hn_recursion_constraints, metadata.has_ipa_claim);
+}
+
+template <typename Builder>
+void build_constraints(Builder& builder, AcirFormat& constraints, const ProgramMetadata& metadata)
+{
+    build_non_recursion_constraints(builder, constraints, metadata);
+    build_recursion_and_finalize_constraints(builder, constraints, metadata);
 }
 
 /**
@@ -250,5 +263,12 @@ template <> MegaCircuitBuilder create_circuit(AcirProgram& program, const Progra
 
 template void build_constraints<UltraCircuitBuilder>(UltraCircuitBuilder&, AcirFormat&, const ProgramMetadata&);
 template void build_constraints<MegaCircuitBuilder>(MegaCircuitBuilder&, AcirFormat&, const ProgramMetadata&);
+
+template void build_non_recursion_constraints<MegaCircuitBuilder>(MegaCircuitBuilder&,
+                                                                  AcirFormat&,
+                                                                  const ProgramMetadata&);
+template void build_recursion_and_finalize_constraints<MegaCircuitBuilder>(MegaCircuitBuilder&,
+                                                                           AcirFormat&,
+                                                                           const ProgramMetadata&);
 
 } // namespace acir_format

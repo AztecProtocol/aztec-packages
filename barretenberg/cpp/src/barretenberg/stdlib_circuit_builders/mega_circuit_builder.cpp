@@ -79,6 +79,8 @@ template <typename FF> void MegaCircuitBuilder_<FF>::add_ultra_and_mega_gates_to
  */
 template <typename FF> ecc_op_tuple MegaCircuitBuilder_<FF>::queue_ecc_add_accum(const bb::g1::affine_element& point)
 {
+    BB_ASSERT(op_queue != nullptr,
+              "op_queue accessed during Phase A — non-recursion constraints must not emit goblin ECC ops");
     // Add the operation to the op queue
     auto ultra_op = op_queue->add_accumulate(point);
 
@@ -102,6 +104,8 @@ ecc_op_tuple MegaCircuitBuilder_<FF>::queue_ecc_mul_accum(const bb::g1::affine_e
                                                           const FF& scalar,
                                                           bool in_finalize)
 {
+    BB_ASSERT(op_queue != nullptr,
+              "op_queue accessed during Phase A — non-recursion constraints must not emit goblin ECC ops");
     // Add the operation to the op queue
     auto ultra_op = op_queue->mul_accumulate(point, scalar);
 
@@ -119,6 +123,8 @@ ecc_op_tuple MegaCircuitBuilder_<FF>::queue_ecc_mul_accum(const bb::g1::affine_e
  */
 template <typename FF> ecc_op_tuple MegaCircuitBuilder_<FF>::queue_ecc_eq(bool in_finalize)
 {
+    BB_ASSERT(op_queue != nullptr,
+              "op_queue accessed during Phase A — non-recursion constraints must not emit goblin ECC ops");
     // Add the operation to the op queue
     auto ultra_op = op_queue->eq_and_reset();
 
@@ -135,6 +141,8 @@ template <typename FF> ecc_op_tuple MegaCircuitBuilder_<FF>::queue_ecc_eq(bool i
  */
 template <typename FF> ecc_op_tuple MegaCircuitBuilder_<FF>::queue_ecc_no_op()
 {
+    BB_ASSERT(op_queue != nullptr,
+              "op_queue accessed during Phase A — non-recursion constraints must not emit goblin ECC ops");
     // Add the operation to the op queue
     auto ultra_op = op_queue->no_op_ultra_only();
 
@@ -206,6 +214,8 @@ ecc_op_tuple MegaCircuitBuilder_<FF>::populate_ecc_op_wires(const UltraOp& ultra
  */
 template <typename FF> void MegaCircuitBuilder_<FF>::queue_ecc_random_op()
 {
+    BB_ASSERT(op_queue != nullptr,
+              "op_queue accessed during Phase A — non-recursion constraints must not emit goblin ECC ops");
     // Add the operation to the op queue
     auto ultra_op = op_queue->random_op_ultra_only();
 
@@ -227,6 +237,8 @@ template <typename FF> void MegaCircuitBuilder_<FF>::queue_ecc_random_op()
 template <typename FF>
 void MegaCircuitBuilder_<FF>::queue_ecc_hiding_op(const curve::BN254::BaseField& Px, const curve::BN254::BaseField& Py)
 {
+    BB_ASSERT(op_queue != nullptr,
+              "op_queue accessed during Phase A — non-recursion constraints must not emit goblin ECC ops");
     // Add the operation to the op queue (returns the UltraOp for gate creation)
     auto ultra_op = op_queue->append_hiding_op(Px, Py);
 
