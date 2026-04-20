@@ -85,7 +85,7 @@ template <typename Flavor> class SumcheckProverRound {
     SumcheckTupleOfTuplesOfUnivariates univariate_accumulators;
 
     // The length of the polynomials used to mask the Sumcheck Round Univariates.
-    static constexpr size_t LIBRA_UNIVARIATES_LENGTH = Flavor::Curve::LIBRA_UNIVARIATES_LENGTH;
+    static constexpr size_t LIBRA_UNIVARIATES_LENGTH = ZKData::LIBRA_UNIVARIATES_LENGTH;
 
     // Prover constructor
     SumcheckProverRound(size_t initial_round_size)

@@ -491,7 +491,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
         block.q_c().emplace_back(0);
         block.q_4().emplace_back(0);
         block.q_5().emplace_back(0);
-        block.set_gate_selector(0); // all selectors zero
+        block.set_gate_selector(0); // all selectors zero (also pads Mega z_k with zero)
 
         check_selector_length_consistency();
         this->increment_num_gates();

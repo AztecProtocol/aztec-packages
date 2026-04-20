@@ -106,6 +106,24 @@ class MegaTraceBlock : public ExecutionTraceBlock<fr, /*NUM_WIRES_ */ 4> {
      */
     virtual void set_gate_selector([[maybe_unused]] const fr& value) {}
 
+    // Committed squares of the Poseidon2 S-box inputs: z_k = (w_k + q_k)^2 on rows where a
+    // Poseidon2 selector is active, zero elsewhere. Stored on every Mega block so each row
+    // carries a valid entry; Poseidon2 gate emitters overwrite the zero-padded value via
+    // `z_l.back() = ...` after calling `set_gate_selector`. z_4 has no shift counterpart.
+    SlabVectorSelector<fr> z_l;
+    SlabVectorSelector<fr> z_r;
+    SlabVectorSelector<fr> z_o;
+    SlabVectorSelector<fr> z_4;
+
+  protected:
+    void pad_z_zero()
+    {
+        z_l.emplace_back(0);
+        z_r.emplace_back(0);
+        z_o.emplace_back(0);
+        z_4.emplace_back(0);
+    }
+
   private:
     std::array<ZeroSelector<fr>, 11> zero_selectors;
 };
@@ -290,6 +308,7 @@ class MegaTracePoseidon2ExternalBlock : public MegaTraceBlock {
         q_poseidon2_double_internal().emplace_back(0);
         q_poseidon2_double_internal_terminal().emplace_back(0);
         q_poseidon2_transition_entry().emplace_back(0);
+        pad_z_zero();
     }
 
   private:
@@ -319,6 +338,7 @@ class MegaTracePoseidon2DoubleInternalBlock : public MegaTraceBlock {
         interior_selector.emplace_back(value);
         terminal_selector.emplace_back(0);
         entry_selector.emplace_back(0);
+        pad_z_zero();
     }
 
     // Activates q_poseidon2_double_internal_terminal on the row; used for the terminal compressed row.
@@ -335,6 +355,7 @@ class MegaTracePoseidon2DoubleInternalBlock : public MegaTraceBlock {
         interior_selector.emplace_back(0);
         terminal_selector.emplace_back(value);
         entry_selector.emplace_back(0);
+        pad_z_zero();
     }
 
     // Activates q_poseidon2_transition_entry on the row; used for the standard->compressed entry row.
@@ -351,6 +372,7 @@ class MegaTracePoseidon2DoubleInternalBlock : public MegaTraceBlock {
         interior_selector.emplace_back(0);
         terminal_selector.emplace_back(0);
         entry_selector.emplace_back(value);
+        pad_z_zero();
     }
 
   private:

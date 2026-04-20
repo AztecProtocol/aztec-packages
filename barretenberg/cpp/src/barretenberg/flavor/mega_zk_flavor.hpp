@@ -31,10 +31,15 @@ class MegaZKFlavor : public bb::MegaFlavor {
     // at the correct joint circuit size in the batched Chonk flow.
     static constexpr bool HasGeminiMasking = false;
 
-    // The degree has to be increased because the relation is multiplied by the Row Disabling Polynomial
-    static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = MegaFlavor::BATCHED_RELATION_PARTIAL_LENGTH + 1;
+    // +1 for the Row Disabling Polynomial multiplication, plus an additional +1 so this length
+    // matches Curve::LIBRA_UNIVARIATES_LENGTH (= 9 for BN254). The extra slot is padding: with
+    // Poseidon2 z-commits MegaFlavor's BATCHED dropped below 9, and the Libra argument (via
+    // SmallSubgroupIPA) assumes the prover's sumcheck univariates share the curve's fixed
+    // Libra length. The Sumcheck prover extends each round univariate to this length before
+    // adding the Libra mask, so the padding is zero-cost on the protocol side.
+    static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = MegaFlavor::BATCHED_RELATION_PARTIAL_LENGTH + 2;
     static_assert(BATCHED_RELATION_PARTIAL_LENGTH == Curve::LIBRA_UNIVARIATES_LENGTH,
-                  "LIBRA_UNIVARIATES_LENGTH must be equal to MegaZKFlavor::BATCHED_RELATION_PARTIAL_LENGTH");
+                  "MegaZKFlavor::BATCHED_RELATION_PARTIAL_LENGTH must equal Curve::LIBRA_UNIVARIATES_LENGTH");
 
     // Shplemini's remove_repeated_commitments uses offset = HasZK ? 2 : 1. Since MegaZK has HasZK=true
     // but no masking poly in its entities, the offset is 1 larger than the actual entity layout.

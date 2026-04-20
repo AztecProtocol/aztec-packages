@@ -2018,15 +2018,29 @@ template <typename FF>
 void UltraCircuitBuilder_<FF>::create_poseidon2_external_gate(const poseidon2_external_gate_<FF>& in)
 {
     auto& block = this->blocks.poseidon2_external;
+    const auto& rc = crypto::Poseidon2Bn254ScalarFieldParams::round_constants[in.round_idx];
     block.populate_wires(in.a, in.b, in.c, in.d);
     block.q_m().emplace_back(0);
-    block.q_1().emplace_back(crypto::Poseidon2Bn254ScalarFieldParams::round_constants[in.round_idx][0]);
-    block.q_2().emplace_back(crypto::Poseidon2Bn254ScalarFieldParams::round_constants[in.round_idx][1]);
-    block.q_3().emplace_back(crypto::Poseidon2Bn254ScalarFieldParams::round_constants[in.round_idx][2]);
+    block.q_1().emplace_back(rc[0]);
+    block.q_2().emplace_back(rc[1]);
+    block.q_3().emplace_back(rc[2]);
     block.q_c().emplace_back(0);
-    block.q_4().emplace_back(crypto::Poseidon2Bn254ScalarFieldParams::round_constants[in.round_idx][3]);
+    block.q_4().emplace_back(rc[3]);
     block.q_5().emplace_back(0);
     block.set_gate_selector(1);
+    // Committed S-box squares for the Mega z-commit flavor. `set_gate_selector` has already
+    // pad-pushed zeros onto block.z_k via pad_z_zero(); overwrite those with the real squares.
+    if constexpr (requires { block.z_l; }) {
+        const size_t last = block.z_l.size() - 1;
+        auto x1 = this->get_variable(in.a) + rc[0];
+        auto x2 = this->get_variable(in.b) + rc[1];
+        auto x3 = this->get_variable(in.c) + rc[2];
+        auto x4 = this->get_variable(in.d) + rc[3];
+        block.z_l.set(last, x1 * x1);
+        block.z_r.set(last, x2 * x2);
+        block.z_o.set(last, x3 * x3);
+        block.z_4.set(last, x4 * x4);
+    }
     this->check_selector_length_consistency();
     this->increment_num_gates();
 }
@@ -2073,10 +2087,14 @@ void UltraCircuitBuilder_<FF>::create_poseidon2_double_internal_gate(const posei
         block.populate_wires(in.a, in.b, in.c, in.d);
         const auto& rc = crypto::Poseidon2Bn254ScalarFieldParams::round_constants;
         // This pair's 4 round constants
-        block.q_1().emplace_back(rc[in.round_idx_start + 0][0]);
-        block.q_2().emplace_back(rc[in.round_idx_start + 1][0]);
-        block.q_3().emplace_back(rc[in.round_idx_start + 2][0]);
-        block.q_4().emplace_back(rc[in.round_idx_start + 3][0]);
+        const auto c0 = rc[in.round_idx_start + 0][0];
+        const auto c1 = rc[in.round_idx_start + 1][0];
+        const auto c2 = rc[in.round_idx_start + 2][0];
+        const auto c3 = rc[in.round_idx_start + 3][0];
+        block.q_1().emplace_back(c0);
+        block.q_2().emplace_back(c1);
+        block.q_3().emplace_back(c2);
+        block.q_4().emplace_back(c3);
         if (in.is_terminal) {
             block.q_m().emplace_back(0);
             block.q_c().emplace_back(0);
@@ -2089,6 +2107,18 @@ void UltraCircuitBuilder_<FF>::create_poseidon2_double_internal_gate(const posei
             block.q_5().emplace_back(rc[in.next_pair_start + 2][0]);
             block.set_gate_selector(1);
         }
+        // Committed S-box squares for the z-commit flavor. The four z-check subrels on this row
+        // constrain z_k = (w_k + c_k)^2 for all four wires (both interior and terminal variants).
+        // set_{terminal_,}gate_selector has already padded z with zeros; overwrite with squares.
+        const size_t last = block.z_l.size() - 1;
+        auto x0 = this->get_variable(in.a) + c0;
+        auto x1 = this->get_variable(in.b) + c1;
+        auto x2 = this->get_variable(in.c) + c2;
+        auto x3 = this->get_variable(in.d) + c3;
+        block.z_l.set(last, x0 * x0);
+        block.z_r.set(last, x1 * x1);
+        block.z_o.set(last, x2 * x2);
+        block.z_4.set(last, x3 * x3);
         this->check_selector_length_consistency();
         this->increment_num_gates();
     } else {
@@ -2113,14 +2143,20 @@ void UltraCircuitBuilder_<FF>::create_poseidon2_transition_entry_gate(const pose
         auto& block = this->blocks.poseidon2_double_internal;
         block.populate_wires(in.a, in.b, in.c, in.d);
         const auto& rc = crypto::Poseidon2Bn254ScalarFieldParams::round_constants;
+        const auto c0 = rc[in.round_idx_start + 0][0];
         block.q_m().emplace_back(0);
-        block.q_1().emplace_back(rc[in.round_idx_start + 0][0]);
+        block.q_1().emplace_back(c0);
         block.q_2().emplace_back(rc[in.round_idx_start + 1][0]);
         block.q_3().emplace_back(rc[in.round_idx_start + 2][0]);
         block.q_4().emplace_back(0);
         block.q_5().emplace_back(0);
         block.q_c().emplace_back(0);
         block.set_entry_gate_selector(1);
+        // Only z_l is enforced on the transition-entry row (the sole z-check subrel). z_r/z_o/z_4
+        // on this row are left at the zeros already pushed by set_entry_gate_selector → pad_z_zero
+        // (neither used nor checked by any relation — keeps the corresponding commits sparse).
+        auto x0 = this->get_variable(in.a) + c0;
+        block.z_l.set(block.z_l.size() - 1, x0 * x0);
         this->check_selector_length_consistency();
         this->increment_num_gates();
     } else {

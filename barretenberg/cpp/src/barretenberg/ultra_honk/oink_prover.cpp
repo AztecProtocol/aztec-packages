@@ -133,11 +133,25 @@ template <typename Flavor> void OinkProver<Flavor>::commit_to_lookup_counts_and_
     batch.add_to_batch(
         prover_instance->polynomials.lookup_read_tags, commitment_labels.lookup_read_tags, &tails.lookup_read_tags);
     batch.add_to_batch(prover_instance->polynomials.w_4, commitment_labels.w_4, &tails.w_4);
+    // Mega z-commit witnesses: committed squares of Poseidon2 S-box inputs. Nonzero only on
+    // Poseidon2 rows so their Pippenger MSMs skip zero scalars.
+    if constexpr (IsMegaFlavor<Flavor>) {
+        batch.add_to_batch(prover_instance->polynomials.z_l, commitment_labels.z_l, &tails.z_l);
+        batch.add_to_batch(prover_instance->polynomials.z_r, commitment_labels.z_r, &tails.z_r);
+        batch.add_to_batch(prover_instance->polynomials.z_o, commitment_labels.z_o, &tails.z_o);
+        batch.add_to_batch(prover_instance->polynomials.z_4, commitment_labels.z_4, &tails.z_4);
+    }
     auto computed_commitments = batch.commit_and_send_to_verifier(transcript);
 
     prover_instance->commitments.lookup_read_counts = computed_commitments[0];
     prover_instance->commitments.lookup_read_tags = computed_commitments[1];
     prover_instance->commitments.w_4 = computed_commitments[2];
+    if constexpr (IsMegaFlavor<Flavor>) {
+        prover_instance->commitments.z_l = computed_commitments[3];
+        prover_instance->commitments.z_r = computed_commitments[4];
+        prover_instance->commitments.z_o = computed_commitments[5];
+        prover_instance->commitments.z_4 = computed_commitments[6];
+    }
 }
 
 /**

@@ -25,9 +25,14 @@ void TraceToPolynomials<Flavor>::populate(Builder& builder, typename Flavor::Pro
     auto copy_cycles = populate_wires_and_selectors_and_compute_copy_cycles(builder, polynomials);
 
     if constexpr (IsMegaFlavor<Flavor>) {
-        BB_BENCH_NAME("add_ecc_op_wires_to_prover_instance");
-
-        add_ecc_op_wires_to_prover_instance(builder, polynomials);
+        {
+            BB_BENCH_NAME("add_ecc_op_wires_to_prover_instance");
+            add_ecc_op_wires_to_prover_instance(builder, polynomials);
+        }
+        {
+            BB_BENCH_NAME("add_poseidon2_z_witnesses");
+            add_poseidon2_z_witnesses(builder, polynomials);
+        }
     }
 
     // Compute the permutation argument polynomials (sigma/id) and add them to proving key
@@ -89,6 +94,25 @@ std::vector<CyclicPermutation> TraceToPolynomials<Flavor>::populate_wires_and_se
     }
 
     return copy_cycles;
+}
+
+template <class Flavor>
+void TraceToPolynomials<Flavor>::add_poseidon2_z_witnesses(Builder& builder, ProverPolynomials& polynomials)
+    requires IsMegaFlavor<Flavor>
+{
+    // z_l/r/o/4 live on the MegaTraceBlock base; set_gate_selector → pad_z_zero keeps them
+    // aligned with wires. Blocks that bypass set_gate_selector (e.g. ecc_op) leave z empty —
+    // those rows are non-Poseidon2 so the polynomial stays at its default zero there.
+    for (const auto& block : builder.blocks.get()) {
+        const size_t offset = block.trace_offset();
+        const size_t n = block.z_l.size();
+        for (size_t i = 0; i < n; ++i) {
+            polynomials.z_l.at(i + offset) = block.z_l[i];
+            polynomials.z_r.at(i + offset) = block.z_r[i];
+            polynomials.z_o.at(i + offset) = block.z_o[i];
+            polynomials.z_4.at(i + offset) = block.z_4[i];
+        }
+    }
 }
 
 template <class Flavor>

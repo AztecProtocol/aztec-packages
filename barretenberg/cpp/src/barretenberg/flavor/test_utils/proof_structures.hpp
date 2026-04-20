@@ -327,6 +327,12 @@ template <typename Flavor> struct MegaStructuredProofBase : StructuredProofHelpe
     Commitment lookup_read_counts_comm;
     Commitment lookup_read_tags_comm;
     Commitment w_4_comm;
+    // Poseidon2 committed-square witnesses (z_k = (w_k + q_k)^2). Sent in Oink round 1 right
+    // after w_4 and before beta/gamma are issued.
+    Commitment z_l_comm;
+    Commitment z_r_comm;
+    Commitment z_o_comm;
+    Commitment z_4_comm;
     Commitment lookup_inverses_comm;
     Commitment calldata_inverses_comm;
     Commitment secondary_calldata_inverses_comm;
@@ -367,6 +373,10 @@ template <typename Flavor> struct MegaStructuredProofBase : StructuredProofHelpe
         lookup_read_counts_comm = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
         lookup_read_tags_comm = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
         w_4_comm = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
+        z_l_comm = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
+        z_r_comm = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
+        z_o_comm = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
+        z_4_comm = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
         lookup_inverses_comm = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
         calldata_inverses_comm = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
         secondary_calldata_inverses_comm = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
@@ -393,6 +403,10 @@ template <typename Flavor> struct MegaStructuredProofBase : StructuredProofHelpe
         Base::serialize_to_buffer(lookup_read_counts_comm, proof_data);
         Base::serialize_to_buffer(lookup_read_tags_comm, proof_data);
         Base::serialize_to_buffer(w_4_comm, proof_data);
+        Base::serialize_to_buffer(z_l_comm, proof_data);
+        Base::serialize_to_buffer(z_r_comm, proof_data);
+        Base::serialize_to_buffer(z_o_comm, proof_data);
+        Base::serialize_to_buffer(z_4_comm, proof_data);
         Base::serialize_to_buffer(lookup_inverses_comm, proof_data);
         Base::serialize_to_buffer(calldata_inverses_comm, proof_data);
         Base::serialize_to_buffer(secondary_calldata_inverses_comm, proof_data);

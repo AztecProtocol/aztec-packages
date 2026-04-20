@@ -23,7 +23,7 @@
 #include "barretenberg/relations/permutation_relation.hpp"
 #include "barretenberg/relations/poseidon2_double_internal_relation.hpp"
 #include "barretenberg/relations/poseidon2_double_internal_terminal_relation.hpp"
-#include "barretenberg/relations/poseidon2_external_relation.hpp"
+#include "barretenberg/relations/poseidon2_external_mega_relation.hpp"
 #include "barretenberg/relations/poseidon2_transition_entry_relation.hpp"
 #include "barretenberg/relations/relation_tuple_helpers.hpp"
 #include "barretenberg/relations/ultra_arithmetic_relation.hpp"
@@ -70,7 +70,7 @@ class MegaFlavor {
                                   bb::NonNativeFieldRelation<FF>,
                                   bb::EccOpQueueRelation<FF>,
                                   bb::DatabusLookupRelation<FF>,
-                                  bb::Poseidon2ExternalRelation<FF>,
+                                  bb::Poseidon2ExternalMegaRelation<FF>,
                                   bb::Poseidon2DoubleInternalRelation<FF>,
                                   bb::Poseidon2DoubleInternalTerminalRelation<FF>,
                                   bb::Poseidon2TransitionEntryRelation<FF>>;
@@ -181,28 +181,40 @@ class MegaFlavor {
                               w_4); // column 3
     };
 
-    // DerivedEntities for derived witness entities
+    // DerivedEntities for derived witness entities.
+    // Note on ordering: `z_perm` and `z_l/z_r/z_o` are the four shifted Derived entities and are
+    // kept contiguous at columns 4..7 (right after the WireEntities) so the overall to-be-shifted
+    // run (w_l, w_r, w_o, w_4, z_perm, z_l, z_r, z_o) spans witness indices 0..7. This yields a
+    // single-DuplicateRange REPEATED_COMMITMENTS.
+    //
+    // `z_l, z_r, z_o, z_4` are committed squares of the Poseidon2 S-box inputs used to drop the
+    // max Poseidon2 relation degree 5 → 3 via `u_k = z_k² · (w_k + c_k)`. `z_4` has no shift
+    // (no firewall S-box reads the shifted z_4).
     template <typename DataType> class DerivedEntities {
       public:
         DEFINE_FLAVOR_MEMBERS(DataType,
                               z_perm,                         // column 4
-                              lookup_inverses,                // column 5
-                              lookup_read_counts,             // column 6
-                              lookup_read_tags,               // column 7
-                              ecc_op_wire_1,                  // column 8
-                              ecc_op_wire_2,                  // column 9
-                              ecc_op_wire_3,                  // column 10
-                              ecc_op_wire_4,                  // column 11
-                              calldata,                       // column 12
-                              calldata_read_counts,           // column 13
-                              calldata_inverses,              // column 14
-                              secondary_calldata,             // column 15
-                              secondary_calldata_read_counts, // column 16
-                              secondary_calldata_inverses,    // column 17
-                              return_data,                    // column 18
-                              return_data_read_counts,        // column 19
-                              return_data_inverses);          // column 20
-        auto get_to_be_shifted() { return RefArray{ z_perm }; };
+                              z_l,                            // column 5 (Poseidon2 (w_l+q_l)^2)
+                              z_r,                            // column 6 (Poseidon2 (w_r+q_r)^2)
+                              z_o,                            // column 7 (Poseidon2 (w_o+q_o)^2)
+                              z_4,                            // column 8 (Poseidon2 (w_4+q_4)^2)
+                              lookup_inverses,                // column 9
+                              lookup_read_counts,             // column 10
+                              lookup_read_tags,               // column 11
+                              ecc_op_wire_1,                  // column 12
+                              ecc_op_wire_2,                  // column 13
+                              ecc_op_wire_3,                  // column 14
+                              ecc_op_wire_4,                  // column 15
+                              calldata,                       // column 16
+                              calldata_read_counts,           // column 17
+                              calldata_inverses,              // column 18
+                              secondary_calldata,             // column 19
+                              secondary_calldata_read_counts, // column 20
+                              secondary_calldata_inverses,    // column 21
+                              return_data,                    // column 22
+                              return_data_read_counts,        // column 23
+                              return_data_inverses);          // column 24
+        auto get_to_be_shifted() { return RefArray{ z_perm, z_l, z_r, z_o }; };
     };
 
     /**
@@ -249,6 +261,10 @@ class MegaFlavor {
                              this->w_o,
                              this->w_4,
                              this->z_perm,
+                             this->z_l,
+                             this->z_r,
+                             this->z_o,
+                             this->z_4,
                              this->lookup_inverses,
                              this->lookup_read_counts,
                              this->lookup_read_tags,
@@ -268,6 +284,10 @@ class MegaFlavor {
                              this->w_o,
                              this->w_4,
                              this->z_perm,
+                             this->z_l,
+                             this->z_r,
+                             this->z_o,
+                             this->z_4,
                              this->lookup_inverses,
                              this->lookup_read_counts,
                              this->lookup_read_tags,
@@ -295,7 +315,10 @@ class MegaFlavor {
                               w_r_shift,    // column 1
                               w_o_shift,    // column 2
                               w_4_shift,    // column 3
-                              z_perm_shift) // column 4
+                              z_perm_shift, // column 4
+                              z_l_shift,    // column 5 (Poseidon2 next row's z_l — firewall)
+                              z_r_shift,    // column 6
+                              z_o_shift)    // column 7
     };
 
     /**
@@ -403,6 +426,10 @@ class MegaFlavor {
             w_o = "W_O";
             w_4 = "W_4";
             z_perm = "Z_PERM";
+            z_l = "Z_L";
+            z_r = "Z_R";
+            z_o = "Z_O";
+            z_4 = "Z_4";
             lookup_inverses = "LOOKUP_INVERSES";
             lookup_read_counts = "LOOKUP_READ_COUNTS";
             lookup_read_tags = "LOOKUP_READ_TAGS";
@@ -477,12 +504,16 @@ class MegaFlavor {
                     witness = witness_in;
                 }
 
-                // Set shifted commitments
+                // Set shifted commitments — each shifted entity shares its commitment with its
+                // unshifted counterpart (same polynomial, just evaluated at the next row).
                 this->w_l_shift = witness_commitments->w_l;
                 this->w_r_shift = witness_commitments->w_r;
                 this->w_o_shift = witness_commitments->w_o;
                 this->w_4_shift = witness_commitments->w_4;
                 this->z_perm_shift = witness_commitments->z_perm;
+                this->z_l_shift = witness_commitments->z_l;
+                this->z_r_shift = witness_commitments->z_r;
+                this->z_o_shift = witness_commitments->z_o;
             }
         }
     };

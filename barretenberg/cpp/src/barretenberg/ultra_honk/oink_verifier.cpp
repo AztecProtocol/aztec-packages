@@ -116,6 +116,18 @@ template <typename Flavor> void OinkVerifier<Flavor>::receive_lookup_counts_and_
     verifier_instance->witness_commitments.lookup_read_tags =
         transcript->template receive_from_prover<Commitment>(comm_labels.lookup_read_tags);
     verifier_instance->witness_commitments.w_4 = transcript->template receive_from_prover<Commitment>(comm_labels.w_4);
+
+    // Mega z-commit witnesses (committed squares of Poseidon2 S-box inputs).
+    if constexpr (IsMegaFlavor<Flavor>) {
+        verifier_instance->witness_commitments.z_l =
+            transcript->template receive_from_prover<Commitment>(comm_labels.z_l);
+        verifier_instance->witness_commitments.z_r =
+            transcript->template receive_from_prover<Commitment>(comm_labels.z_r);
+        verifier_instance->witness_commitments.z_o =
+            transcript->template receive_from_prover<Commitment>(comm_labels.z_o);
+        verifier_instance->witness_commitments.z_4 =
+            transcript->template receive_from_prover<Commitment>(comm_labels.z_4);
+    }
 }
 
 /**

@@ -400,6 +400,24 @@ void UltraCircuitChecker::populate_values(
     if constexpr (IsMegaBuilder<Builder>) {
         values.q_busread = block.q_busread()[idx];
     }
+
+    // Mega z-commit witnesses: z_k = (w_k + q_k)^2 on Poseidon2 rows, 0 elsewhere. Stored on
+    // the MegaTraceBlock base (pad_z_zero is called from every set_gate_selector). Blocks that
+    // bypass set_gate_selector (e.g. ecc_op) leave z_k empty — those rows have no Poseidon2
+    // selector active so zero is the correct stand-in.
+    if constexpr (requires { values.z_l; }) {
+        const bool has_z = idx < block.z_l.size();
+        values.z_l = has_z ? block.z_l[idx] : FF(0);
+        values.z_r = has_z ? block.z_r[idx] : FF(0);
+        values.z_o = has_z ? block.z_o[idx] : FF(0);
+        values.z_4 = has_z ? block.z_4[idx] : FF(0);
+        if constexpr (requires { values.z_l_shift; }) {
+            const bool has_next = (idx + 1) < block.z_l.size();
+            values.z_l_shift = has_next ? block.z_l[idx + 1] : FF(0);
+            values.z_r_shift = has_next ? block.z_r[idx + 1] : FF(0);
+            values.z_o_shift = has_next ? block.z_o[idx + 1] : FF(0);
+        }
+    }
 }
 
 #ifdef ULTRA_FUZZ

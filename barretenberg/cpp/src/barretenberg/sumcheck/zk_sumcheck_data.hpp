@@ -8,6 +8,7 @@
 
 #include "barretenberg/constants.hpp"
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
+#include "barretenberg/flavor/flavor_concepts.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
 #include <array>
@@ -29,7 +30,8 @@ template <typename Flavor> struct ZKSumcheckData {
     static constexpr FF subgroup_generator = Curve::subgroup_generator;
 
     // The size of the LibraUnivariates.
-    static constexpr size_t LIBRA_UNIVARIATES_LENGTH = Curve::LIBRA_UNIVARIATES_LENGTH;
+    static constexpr size_t LIBRA_UNIVARIATES_LENGTH =
+        IsMegaFlavor<Flavor> ? Flavor::BATCHED_RELATION_PARTIAL_LENGTH : Curve::LIBRA_UNIVARIATES_LENGTH;
 
     static constexpr FF one_half = FF(1) / FF(2);
 

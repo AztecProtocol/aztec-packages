@@ -63,6 +63,7 @@ template <typename Flavor> ProverInstance_<Flavor>::ProverInstance_(Circuit& cir
 
         if constexpr (IsMegaFlavor<Flavor>) {
             allocate_ecc_op_polynomials(circuit);
+            allocate_poseidon2_z_polynomials();
         }
         if constexpr (HasDataBus<Flavor>) {
             allocate_databus_polynomials(circuit);
@@ -214,6 +215,21 @@ template <typename Flavor> void ProverInstance_<Flavor>::allocate_table_lookup_p
 
     // Allocate to the minimum needed size. For ZK, masking values are stored in MaskingTailData.
     polynomials.lookup_inverses = Polynomial(lookup_inverses_end, dyadic_size());
+}
+
+template <typename Flavor>
+void ProverInstance_<Flavor>::allocate_poseidon2_z_polynomials()
+    requires IsMegaFlavor<Flavor>
+{
+    BB_BENCH_NAME("allocate_poseidon2_z_polynomials");
+
+    // z_l/z_r/z_o are read by interior-row firewall S-boxes at the shifted position, so they
+    // must be shiftable over the active range; z_4 has no shift but follows the same sizing for
+    // simplicity. Outside Poseidon2 rows these polynomials are zero.
+    polynomials.z_l = Polynomial::shiftable(trace_active_range_size(), dyadic_size());
+    polynomials.z_r = Polynomial::shiftable(trace_active_range_size(), dyadic_size());
+    polynomials.z_o = Polynomial::shiftable(trace_active_range_size(), dyadic_size());
+    polynomials.z_4 = Polynomial(trace_active_range_size(), dyadic_size());
 }
 
 template <typename Flavor>

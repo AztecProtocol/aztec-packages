@@ -46,6 +46,15 @@ template <class Flavor> class TraceToPolynomials {
      */
     static void add_ecc_op_wires_to_prover_instance(Builder& builder, ProverPolynomials&)
         requires IsMegaFlavor<Flavor>;
+
+    /**
+     * @brief Copy the Poseidon2 committed-square witnesses (z_l/r/o/4) from block storage into the
+     * prover polynomials at each block's trace offset.
+     * @details The Mega Poseidon2 gate emitters compute z_k = (w_k + c_k)^2 at emit time and stash
+     * them on the block alongside the wires. This pass unpacks them into the polynomial buffers.
+     */
+    static void add_poseidon2_z_witnesses(Builder& builder, ProverPolynomials&)
+        requires IsMegaFlavor<Flavor>;
 };
 
 } // namespace bb

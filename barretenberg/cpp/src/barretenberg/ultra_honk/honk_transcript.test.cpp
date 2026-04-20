@@ -120,6 +120,13 @@ template <typename Flavor> class HonkTranscriptTests : public ::testing::Test {
         manifest_expected.add_entry(round, "LOOKUP_READ_COUNTS", data_types_per_G);
         manifest_expected.add_entry(round, "LOOKUP_READ_TAGS", data_types_per_G);
         manifest_expected.add_entry(round, "W_4", data_types_per_G);
+        // Mega z-commit witnesses (Poseidon2 S-box squares)
+        if constexpr (IsMegaFlavor<Flavor>) {
+            manifest_expected.add_entry(round, "Z_L", data_types_per_G);
+            manifest_expected.add_entry(round, "Z_R", data_types_per_G);
+            manifest_expected.add_entry(round, "Z_O", data_types_per_G);
+            manifest_expected.add_entry(round, "Z_4", data_types_per_G);
+        }
         manifest_expected.add_challenge(round, std::array{ "beta", "gamma" });
 
         round++;

@@ -101,6 +101,9 @@ template <typename Flavor_> class ProverInstance_ {
     void allocate_ecc_op_polynomials(const Circuit&)
         requires IsMegaFlavor<Flavor>;
 
+    void allocate_poseidon2_z_polynomials()
+        requires IsMegaFlavor<Flavor>;
+
     void allocate_databus_polynomials(const Circuit&)
         requires HasDataBus<Flavor>;
 

@@ -153,10 +153,14 @@ class BatchedHonkTranslatorTests : public ::testing::Test {
         m.add_challenge(round, "eta");
         round++;
 
-        // ── Round 1: MegaZK lookup counts/tags/W_4 ───────────────────────────────
+        // ── Round 1: MegaZK lookup counts/tags/W_4 + Poseidon2 z-commits ─────────
         m.add_entry(round, "LOOKUP_READ_COUNTS", G);
         m.add_entry(round, "LOOKUP_READ_TAGS", G);
         m.add_entry(round, "W_4", G);
+        m.add_entry(round, "Z_L", G);
+        m.add_entry(round, "Z_R", G);
+        m.add_entry(round, "Z_O", G);
+        m.add_entry(round, "Z_4", G);
         m.add_challenge(round, std::array<std::string, 2>{ "beta", "gamma" });
         round++;
 

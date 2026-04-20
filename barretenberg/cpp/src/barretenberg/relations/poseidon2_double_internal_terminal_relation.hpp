@@ -6,7 +6,8 @@
 namespace bb {
 
 /**
- * @brief Terminal variant of the K=4 compressed internal-round relation.
+ * @brief Terminal variant of the K=4 compressed internal-round relation with committed-square
+ * S-boxes.
  *
  * @details Same 4-round computation as `Poseidon2DoubleInternalRelationImpl`, but the successor
  * is the standard-encoded bridge row (not another compressed row). The A_k constraints directly
@@ -18,13 +19,25 @@ namespace bb {
  * Selector layout on the terminal row:
  *     q_l = c_{4i}, q_r = c_{4i+1}, q_o = c_{4i+2}, q_4 = c_{4i+3}   // this (last) pair
  *     q_m, q_c, q_5 = 0 (unused — no next pair)
+ *
+ * S-boxes are computed via z-commits: u_k = z_k² · (w_k + q_k), with z_l, z_r, z_o, z_4
+ * committed at the current row and enforced by four deg-3 z-check subrels.
  */
 template <typename FF_> class Poseidon2DoubleInternalTerminalRelationImpl {
   public:
     using FF = FF_;
     using QuadParams = crypto::Poseidon2QuadBn254Params;
 
-    static constexpr std::array<size_t, 4> SUBRELATION_PARTIAL_LENGTHS{ 7, 7, 7, 7 };
+    static constexpr std::array<size_t, 8> SUBRELATION_PARTIAL_LENGTHS{
+        5, // A_0: out_0 - w_l_shift
+        5, // A_1: out_1 - w_r_shift
+        5, // A_2: out_2 - w_o_shift
+        5, // A_3: out_3 - w_4_shift
+        4, // z_l - (w_l + q_l)^2
+        4, // z_r - (w_r + q_r)^2
+        4, // z_o - (w_o + q_o)^2
+        4, // z_4 - (w_4 + q_4)^2
+    };
 
     static constexpr fr D1 = QuadParams::D1;
     static constexpr fr D2 = QuadParams::D2;
@@ -41,7 +54,7 @@ template <typename FF_> class Poseidon2DoubleInternalTerminalRelationImpl {
     static constexpr fr B3_U0_COEF = (SIGMA + fr(2)) * D1 - SIGMA - fr(3);
     static constexpr fr D1_MINUS_3 = D1 - fr(3);
 
-    template <typename AllEntities> inline static bool skip(const AllEntities& in)
+    template <typename AllEntities> static bool skip(const AllEntities& in)
     {
         return in.q_poseidon2_double_internal_terminal.is_zero();
     }
@@ -70,19 +83,24 @@ template <typename FF_> class Poseidon2DoubleInternalTerminalRelationImpl {
         const auto q_o = CoeffAcc(in.q_o);
         const auto q_4 = CoeffAcc(in.q_4);
 
+        const auto z_1 = CoeffAcc(in.z_l);
+        const auto z_2 = CoeffAcc(in.z_r);
+        const auto z_3 = CoeffAcc(in.z_o);
+        const auto z_4 = CoeffAcc(in.z_4);
+
         const auto q_sel = CoeffAcc(in.q_poseidon2_double_internal_terminal);
 
-        auto pow5 = [](const Accumulator& x) -> Accumulator {
-            auto sq = x.sqr();
-            auto quart = sq.sqr();
-            return quart * x;
-        };
+        // x_k = w_k + q_k in CoefficientAccumulator (shared between u_k and z-check body).
+        auto x0_ca = w_l + q_l;
+        auto x1_ca = w_r + q_r;
+        auto x2_ca = w_o + q_o;
+        auto x3_ca = w_4 + q_4;
 
-        // ── S-boxes for the 4 rounds ──
-        auto u_0 = pow5(Accumulator(w_l + q_l));
-        auto u_1 = pow5(Accumulator(w_r + q_r));
-        auto u_2 = pow5(Accumulator(w_o + q_o));
-        auto u_3 = pow5(Accumulator(w_4 + q_4));
+        // ── S-boxes via z-commits: u_k = z_k² · x_k ──
+        auto u_0 = Accumulator(z_1 * z_1) * Accumulator(x0_ca);
+        auto u_1 = Accumulator(z_2 * z_2) * Accumulator(x1_ca);
+        auto u_2 = Accumulator(z_3 * z_3) * Accumulator(x2_ca);
+        auto u_3 = Accumulator(z_4 * z_4) * Accumulator(x3_ca);
 
         // ── Vandermonde RHS for the current row ──
         auto b_1 = Accumulator(w_r) - u_0 * D1;
@@ -119,13 +137,21 @@ template <typename FF_> class Poseidon2DoubleInternalTerminalRelationImpl {
         auto& out_3 = s3;
 
         // ── Direct match against standard-encoded successor ──
-        const auto q_by_scaling_m = q_sel * scaling_factor;
-        const auto q_by_scaling = Accumulator(q_by_scaling_m);
+        const auto q_by_scaling_ca = q_sel * scaling_factor;
+        const auto q_by_scaling = Accumulator(q_by_scaling_ca);
 
         std::get<0>(evals) += q_by_scaling * (out_0 - Accumulator(w_l_shift));
         std::get<1>(evals) += q_by_scaling * (out_1 - Accumulator(w_r_shift));
         std::get<2>(evals) += q_by_scaling * (out_2 - Accumulator(w_o_shift));
         std::get<3>(evals) += q_by_scaling * (out_3 - Accumulator(w_4_shift));
+
+        // ── Z-check subrels: enforce z_k = (w_k + q_k)² on the current row ──
+        using ZCheckAccumulator = std::tuple_element_t<4, ContainerOverSubrelations>;
+        const auto q_by_scaling_zc = ZCheckAccumulator(q_by_scaling_ca);
+        std::get<4>(evals) -= q_by_scaling_zc * ZCheckAccumulator(x0_ca * x0_ca - z_1);
+        std::get<5>(evals) -= q_by_scaling_zc * ZCheckAccumulator(x1_ca * x1_ca - z_2);
+        std::get<6>(evals) -= q_by_scaling_zc * ZCheckAccumulator(x2_ca * x2_ca - z_3);
+        std::get<7>(evals) -= q_by_scaling_zc * ZCheckAccumulator(x3_ca * x3_ca - z_4);
     }
 };
 
