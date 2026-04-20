@@ -8,13 +8,9 @@
     "./lmdb": "./dest/lmdb/index.js",
     "./lmdb-v2": "./dest/lmdb-v2/index.js",
     "./indexeddb": "./dest/indexeddb/index.js",
-<<<<<<< HEAD
+    "./sqlite-opfs": "./dest/sqlite-opfs/index.js",
     "./stores": "./dest/stores/index.js",
     "./config": "./dest/config.js"
-=======
-    "./sqlite-opfs": "./dest/sqlite-opfs/index.js",
-    "./stores": "./dest/stores/index.js"
->>>>>>> 01c0ab1db0 (feat!: kv-store on SQLite-wasm over OPFS (#22658))
   },
   "scripts": {
     "build": "yarn clean && ../scripts/tsc.sh",
