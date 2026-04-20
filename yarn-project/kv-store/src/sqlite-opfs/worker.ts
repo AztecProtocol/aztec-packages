@@ -58,6 +58,16 @@ function handleClose(): void {
   dbPath = undefined;
 }
 
+async function handleExport(): Promise<Uint8Array> {
+  if (!db || !dbPath) {
+    throw new Error('SQLite worker: no database open to export');
+  }
+  if (!pool) {
+    throw new Error('SQLite worker: no SAH Pool available (ephemeral DBs cannot be exported)');
+  }
+  return pool.exportFile(dbPath);
+}
+
 async function handleDeleteDb(dbName: string): Promise<void> {
   const path = normalizeDbPath(dbName);
   if (db && dbPath === path) {
@@ -121,6 +131,10 @@ function respond(msg: WorkerResponse): void {
       case 'all': {
         const rows = selectAll(req.sql, req.bind);
         return respond({ type: 'ok', id: req.id, rows });
+      }
+      case 'export': {
+        const bytes = await handleExport();
+        return respond({ type: 'ok', id: req.id, bytes });
       }
       case 'begin':
         runSql('BEGIN');

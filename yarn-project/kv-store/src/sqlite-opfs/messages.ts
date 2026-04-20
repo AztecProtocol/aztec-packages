@@ -16,12 +16,13 @@ export type WorkerRequest =
   | { type: 'deleteDb'; id: number; dbName: string }
   | { type: 'run'; id: number; sql: string; bind?: SqlValue[] }
   | { type: 'all'; id: number; sql: string; bind?: SqlValue[] }
+  | { type: 'export'; id: number }
   | { type: 'begin'; id: number }
   | { type: 'commit'; id: number }
   | { type: 'rollback'; id: number };
 
 export type WorkerResponse =
-  | { type: 'ok'; id: number; rows?: ResultRow[]; changes?: number }
+  | { type: 'ok'; id: number; rows?: ResultRow[]; changes?: number; bytes?: Uint8Array }
   | { type: 'err'; id: number; message: string };
 
 export type WorkerRequestType = WorkerRequest['type'];

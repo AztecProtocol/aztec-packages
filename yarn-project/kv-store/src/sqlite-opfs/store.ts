@@ -171,6 +171,19 @@ export class AztecSQLiteOPFSStore implements AztecAsyncKVStore {
   }
 
   /**
+   * Returns a raw SQLite image (bytes suitable for writing as a `.sqlite` file and
+   * opening in any SQLite tool). Works only for non-ephemeral DBs because the OPFS
+   * SAH Pool has to be initialized. Useful for inspection/debugging.
+   */
+  async exportDb(): Promise<Uint8Array> {
+    const resp = await this.#sendRequest({ type: 'export', id: this.#allocId() });
+    if (!('bytes' in resp) || !resp.bytes) {
+      throw new Error('exportDb: worker returned no bytes');
+    }
+    return resp.bytes;
+  }
+
+  /**
    * Runs a write statement (INSERT/UPDATE/DELETE/DDL). If called inside a
    * `transactionAsync` block, bypasses the queue; otherwise acquires it so the
    * op runs in its own auto-commit.
