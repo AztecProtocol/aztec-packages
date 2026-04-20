@@ -46,7 +46,13 @@ See the [guide on fees](./how_to_pay_fees.md#sponsored-fpc) for more details on 
 
 ### Using Fee Juice
 
-If your account has Fee Juice from a [bridge from L1](./how_to_pay_fees.md#bridge-fee-juice-from-l1), you can claim it and deploy in one step using `FeeJuicePaymentMethodWithClaim`:
+If your account has Fee Juice from a [bridge from L1](./how_to_pay_fees.md#bridge-fee-juice-from-l1), you can claim it and deploy in one step using `FeeJuicePaymentMethodWithClaim`.
+
+Create a new Schnorr account for this path:
+
+#include_code create_fee_juice_account /docs/examples/ts/aztecjs_connection/index.ts typescript
+
+Claim the bridged Fee Juice and deploy in one step:
 
 #include_code bridge_fee_juice_claim /docs/examples/ts/aztecjs_connection/index.ts typescript
 
@@ -56,7 +62,7 @@ The `from: NO_FROM` signals that this transaction should be executed without acc
 
 ## Verify deployment
 
-Confirm the account was deployed successfully:
+Confirm the account was deployed successfully. Substitute the account variable for whichever path you used above (`newAccount` for the Sponsored FPC path, `feeJuiceAccount` for the Fee Juice path):
 
 #include_code verify_account_deployment /docs/examples/ts/aztecjs_connection/index.ts typescript
 
