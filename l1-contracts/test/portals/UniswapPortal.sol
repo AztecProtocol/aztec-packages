@@ -45,7 +45,6 @@ contract UniswapPortal {
     bytes32 contentHash;
   }
 
-
   /**
    * @notice Exit with funds from L2, perform swap on L1 and deposit output asset to L2 again publicly
    * @dev `msg.value` indicates fee to submit message to inbox. Currently, anyone can call this method on your behalf.
@@ -150,7 +149,6 @@ contract UniswapPortal {
     // Deposit the output asset to the L2 via its portal
     return TokenPortal(_outputTokenPortal).depositToAztecPublic(_aztecRecipient, amountOut, _secretHashForL1ToL2Message);
   }
-
 
   /**
    * @notice Exit with funds from L2, perform swap on L1 and deposit output asset to L2 again privately
