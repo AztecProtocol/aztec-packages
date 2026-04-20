@@ -34,4 +34,3 @@ export type UInt64 = bigint;
  * A type alias for a 128-bit unsigned integer.
  */
 export type UInt128 = bigint;
-
