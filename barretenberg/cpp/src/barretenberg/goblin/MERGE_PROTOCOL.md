@@ -3,12 +3,13 @@
 ## Table of Contents
 1. [Overview](#overview)
 2. [Mathematical Foundation](#mathematical-foundation)
-3. [Protocol Description](#protocol-description)
-4. [Degree Check Mechanism](#degree-check-mechanism)
-5. [Concatenation Check](#concatenation-check)
-6. [Implementation Details](#implementation-details)
-7. [Usage Examples](#usage-examples)
-8. [Security Considerations](#security-considerations)
+3. [Trace Layout Alignment](#trace-layout-alignment)
+4. [Protocol Description](#protocol-description)
+5. [Degree Check Mechanism](#degree-check-mechanism)
+6. [Concatenation Check](#concatenation-check)
+7. [Implementation Details](#implementation-details)
+8. [Usage Examples](#usage-examples)
+9. [Security Considerations](#security-considerations)
 
 ## Overview
 
@@ -65,19 +66,87 @@ The protocol supports two merge modes:
 - $R_j = t_j$ (current subtable)
 - New operations are added at the end (with optional fixed offset)
 
+## Trace Layout Alignment
+
+The merge protocol's correctness rests on the layout of three distinct polynomial families:
+
+1. The **Mega circuit's `ecc_op_wire` polynomials** — the source of $[t_j]$ for each merge.
+2. The **merge output $[M_j]$** — produced by this protocol.
+3. The **Translator's op queue wire polynomials** (`x_lo_y_hi`, `x_hi_z_1`, `y_lo_z_2`, plus `op`) — consumed at the end of the IVC.
+
+These three share commitments via copy-constraining across proof layers, so their leading-zero structure must agree exactly.
+
+### Mega circuit trace layout
+
+Constants (from `constants.hpp` and `flavor/mega_flavor.hpp`):
+
+- `NUM_ZERO_ROWS = 1` — single leading zero row that makes wire polynomials shiftable.
+- `NUM_MASKED_ROWS = 3` — ZK masking rows, only populated with random values when `Flavor::HasZK`.
+- `TRACE_OFFSET = NUM_MASKED_ROWS + 1 = 4` — number of rows disabled in Sumcheck (rows `[0, 4)`); equivalently, the first row where the Sumcheck gate separator is non-zero is `TRACE_OFFSET = 4`.
+
+The first block (always `ecc_op`) has `trace_offset() = TRACE_OFFSET + NUM_ZERO_ROWS = 5`:
+
+```
+Row 0:     zero row (shiftability)
+Rows 1-3:  masking rows in ZK flavors (MegaZKFlavor); zero otherwise
+Row 4:     first active Sumcheck row; lagrange_first = 1 here
+Row 5+:    ecc_op block data starts
+```
+
+Note the gap between row 4 and row 5. `lagrange_first` is placed at row 4 — the first row where the gate separator fires — and enforces the permutation boundary condition $\texttt{lagrange\_first} \cdot z_{\text{perm}} = 0$, pinning $z_{\text{perm}}(4) = 0$. The first ecc_op witness values begin one row later at the ecc_op block's trace offset.
+
+The Mega `ecc_op_wire_*` polynomials are **not shiftable** (`start_index = 0`) and **not masked** — they rely on random ops placed into the op queue itself for ZK. The regular wires `w_l, w_r, w_o, w_4` are shiftable (`start_index = NUM_ZERO_ROWS = 1`) and masked iff `HasZK`. Both copies hold identical values at rows 5+; the `EccOpQueueRelation` constrains them to agree wherever `lagrange_ecc_op = 1`.
+
+### Translator mini-circuit layout
+
+Constants (from `translator_vm/translator_flavor.hpp`):
+
+- `TRACE_OFFSET = 0` — no disabled preamble.
+- `RANDOMNESS_START = 2` — first row of real op-queue data.
+
+```
+Row 0:    zero (shiftability)
+Row 1:    zero (RANDOMNESS_START - 1)
+Row 2:    first op's data (x_lo, x_hi, y_lo, op)
+Row 3:    first op's data (y_hi, z_1, z_2, 0)
+```
+
+Each op occupies `NUM_ROWS_PER_OP = 2` rows, with the split `(op, x_lo, x_hi, y_lo)` on the even row and `(0, y_hi, z_1, z_2)` on the odd row. Rows 0 and 1 — together one op-slot's worth of zeros — form the leading gap. The op queue wires (`x_lo_y_hi`, `x_hi_z_1`, `y_lo_z_2`) are shiftable with `start_index = 1`.
+
+Critically, **the Translator does not commit to its op queue wires**. Instead, the commitment comes from the merge protocol's output $[M_j]$ (copy-constrained through public inputs), so $[M_j]$ must commit to a polynomial with exactly `RANDOMNESS_START` leading zeros followed by the op-queue data.
+
+### MegaAvmFlavor
+
+The AVM recursive verifier uses `MegaAvmFlavor` which overrides the Mega preamble:
+
+- `TRACE_OFFSET = 1` (no masking — `MegaAvmFlavor` inherits `HasZK = false` from `MegaFlavor`).
+- Block offsets start at `TRACE_OFFSET + NUM_ZERO_ROWS = 2`.
+
+```
+Row 0:    zero (shiftability)
+Row 1:    first active Sumcheck row (no masking)
+Row 2+:   ecc_op block data
+```
+
+By construction this yields exactly 2 leading zeros in the ecc_op_wire commitments, matching the Translator's `RANDOMNESS_START = 2` without any merge-protocol shift adjustment.
+
+### The merge protocol constants
+
+Given the three layouts above, the merge protocol's shift constants are determined:
+
+- $\texttt{MERGE\_FULL\_SHIFT} = \texttt{MegaExecutionTraceBlocks::TRACE\_OFFSET} + \texttt{NUM\_ZERO\_ROWS} = 5$, applied to $L$ and $R$ (and $M$ in PREPEND mode), so their commitments line up with the Mega circuit's `ecc_op_wire` layout.
+- $\texttt{MERGE\_APPEND\_OUTPUT\_SHIFT} = 2$, applied to $M$ only in APPEND mode (final merge), so its commitment lines up with the Translator's op-queue-wire layout. Compile-time enforced (`static_assert` in `merge_prover.cpp`) to equal `TranslatorFlavor::RANDOMNESS_START`.
+
+The APPEND-mode concatenation identity carries a $\kappa^{s-t}$ correction factor because $L$ and $R$ are shifted by $s = \texttt{MERGE\_FULL\_SHIFT}$ but $M$ is shifted by only $t = \texttt{MERGE\_APPEND\_OUTPUT\_SHIFT}$ (see [Concatenation Check](#concatenation-check)).
+
 ## Protocol Description
 
-### Trace Offset and Commitment Layout
+### Commitment Layout Summary
 
-Circuit ecc_op_wire polynomials have their data starting at row
-$s = \texttt{TRACE\_OFFSET}$. The prover shifts $L$, $R$ (and $M$ in PREPEND mode) by $X^s$
-so that their commitments match the circuit's ecc_op_wire commitments and the $T_{\text{prev}}$
-chain from prior merges.
-
-- **L and R**: always shifted to $X^s \cdot L$, $X^s \cdot R$
-- **M (PREPEND)**: shifted to $X^s \cdot M$ (becomes $T_{\text{prev}}$ for the next merge)
-- **M (APPEND)**: shifted by `APPEND_OUTPUT_SHIFT` (= 2) to provide leading zeros for the Translator
-- **G**: committed directly (no shift)
+- **L and R**: always shifted to $X^s \cdot L$, $X^s \cdot R$ where $s = \texttt{MERGE\_FULL\_SHIFT}$.
+- **M (PREPEND)**: shifted to $X^s \cdot M$ (becomes $T_{\text{prev}}$ for the next merge).
+- **M (APPEND)**: shifted by $t = \texttt{MERGE\_APPEND\_OUTPUT\_SHIFT}$ to match the Translator's leading-zero layout.
+- **G**: committed directly (no shift).
 
 The `shift_size` $\ell$ sent to the verifier is the **unshifted** size of $L$ (captured before shifting).
 
