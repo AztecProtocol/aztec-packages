@@ -593,6 +593,9 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
       functionSelector,
     );
 
+    // Propagate the nested call's calldata count so the parent sees its increments on subsequent enqueues.
+    this.totalPublicCalldataCount = privateExecutionOracle.getTotalPublicCalldataCount();
+
     if (isStaticCall) {
       this.#checkValidStaticCall(childExecutionResult);
     }
@@ -624,6 +627,10 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
       throw new Error(`Too many total args to all enqueued public calls! (> ${MAX_FR_CALLDATA_TO_ALL_ENQUEUED_CALLS})`);
     }
     return Promise.resolve();
+  }
+
+  public getTotalPublicCalldataCount(): number {
+    return this.totalPublicCalldataCount;
   }
 
   public notifyRevertiblePhaseStart(minRevertibleSideEffectCounter: number): Promise<void> {
