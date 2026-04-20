@@ -126,7 +126,7 @@ inline constexpr size_t CHONK_RECURSION_GATES = 1531511;
 inline constexpr size_t MSM_ROWS_OFFSET = 2;
 
 // Init kernel gate counts (verifies OINK proof)
-inline constexpr size_t INIT_KERNEL_GATE_COUNT = 15717;
+inline constexpr size_t INIT_KERNEL_GATE_COUNT = 15715;
 inline constexpr size_t INIT_KERNEL_ECC_ROWS = 914 + MSM_ROWS_OFFSET;
 inline constexpr size_t INIT_KERNEL_ULTRA_OPS = 96;
 
