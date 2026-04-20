@@ -15,7 +15,7 @@ This guide shows you how to create and deploy a new account on Aztec.
 ## Install dependencies
 
 ```bash
-yarn add @aztec/aztec.js@4.2.0 @aztec/wallets@4.2.0
+yarn add @aztec/aztec.js@4.2.0 @aztec/wallets@4.2.0 @aztec/noir-contracts.js@4.2.0
 ```
 
 ## Create a new account
@@ -78,7 +78,7 @@ await deployMethod.send({
 
 
 :::info
-See the [guide on fees](./how_to_pay_fees.md#sponsored-fpc) for setting up the Sponsored FPC.
+See the [guide on fees](./how_to_pay_fees.md#sponsored-fpc) for more details on the Sponsored FPC and what this snippet means.
 :::
 
 ### Using Fee Juice

@@ -15,7 +15,7 @@ This guide shows you how to create and deploy a new account on Aztec.
 ## Install dependencies
 
 ```bash
-yarn add @aztec/aztec.js@#include_version_without_prefix @aztec/wallets@#include_version_without_prefix
+yarn add @aztec/aztec.js@#include_version_without_prefix @aztec/wallets@#include_version_without_prefix @aztec/noir-contracts.js@#include_version_without_prefix
 ```
 
 ## Create a new account
@@ -41,7 +41,7 @@ If your account doesn't have Fee Juice, use the [Sponsored FPC](./how_to_pay_fee
 #include_code deploy_account_sponsored_fpc /docs/examples/ts/aztecjs_connection/index.ts typescript
 
 :::info
-See the [guide on fees](./how_to_pay_fees.md#sponsored-fpc) for setting up the Sponsored FPC.
+See the [guide on fees](./how_to_pay_fees.md#sponsored-fpc) for more details on the Sponsored FPC and what this snippet means.
 :::
 
 ### Using Fee Juice
