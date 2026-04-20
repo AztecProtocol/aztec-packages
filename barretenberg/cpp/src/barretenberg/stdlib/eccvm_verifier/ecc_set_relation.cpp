@@ -10,7 +10,13 @@
 #include "barretenberg/stdlib/primitives/bigfield/bigfield.hpp"
 
 namespace bb {
-template class ECCVMSetRelationImpl<stdlib::bigfield<UltraCircuitBuilder, bb::Bn254FqParams>>;
-DEFINE_SUMCHECK_VERIFIER_RELATION_CLASS(ECCVMSetRelationImpl, ECCVMRecursiveFlavor);
-DEFINE_SUMCHECK_VERIFIER_PERMUTATION_CLASS(ECCVMSetRelationImpl, ECCVMRecursiveFlavor);
+template class ECCVMSetWnafRelationImpl<stdlib::bigfield<UltraCircuitBuilder, bb::Bn254FqParams>>;
+template class ECCVMSetScalarRelationImpl<stdlib::bigfield<UltraCircuitBuilder, bb::Bn254FqParams>>;
+template class ECCVMSetMsmRelationImpl<stdlib::bigfield<UltraCircuitBuilder, bb::Bn254FqParams>>;
+DEFINE_SUMCHECK_VERIFIER_RELATION_CLASS(ECCVMSetWnafRelationImpl, ECCVMRecursiveFlavor);
+DEFINE_SUMCHECK_VERIFIER_RELATION_CLASS(ECCVMSetScalarRelationImpl, ECCVMRecursiveFlavor);
+DEFINE_SUMCHECK_VERIFIER_RELATION_CLASS(ECCVMSetMsmRelationImpl, ECCVMRecursiveFlavor);
+DEFINE_SUMCHECK_VERIFIER_PERMUTATION_CLASS(ECCVMSetWnafRelationImpl, ECCVMRecursiveFlavor);
+DEFINE_SUMCHECK_VERIFIER_PERMUTATION_CLASS(ECCVMSetScalarRelationImpl, ECCVMRecursiveFlavor);
+DEFINE_SUMCHECK_VERIFIER_PERMUTATION_CLASS(ECCVMSetMsmRelationImpl, ECCVMRecursiveFlavor);
 } // namespace bb

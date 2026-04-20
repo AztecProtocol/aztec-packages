@@ -50,7 +50,9 @@ TEST_F(EccRelationsConsistency, RecursiveToNativeConsistency)
 {
 
     validate_relation_execution<ECCVMLookupRelation>();
-    validate_relation_execution<ECCVMSetRelation>();
+    validate_relation_execution<ECCVMSetWnafRelation>();
+    validate_relation_execution<ECCVMSetScalarRelation>();
+    validate_relation_execution<ECCVMSetMsmRelation>();
     validate_relation_execution<ECCVMMSMRelation>();
     validate_relation_execution<ECCVMPointTableRelation>();
     validate_relation_execution<ECCVMTranscriptRelation>();

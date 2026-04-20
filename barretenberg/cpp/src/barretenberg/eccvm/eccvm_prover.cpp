@@ -114,6 +114,43 @@ void ECCVMProver::execute_log_derivative_commitments_round()
     transcript->send_to_verifier(commitment_labels.lookup_inverses,
                                  key->commitment_key.commit(li) +
                                      key->commitment_key.commit(key->masking_tail_data.tails.lookup_inverses));
+
+    // Compute the intermediate committed polynomial den_wnaf_partial (product of first two wnaf denominator factors).
+    // This depends on beta/gamma, so it must be computed here (after challenges are received).
+    // den_wnaf_partial[i] = wnaf_out1 * wnaf_out2 where each wnaf_outK is:
+    //   addK * (sliceK + gamma + (pc - count - (K-1)) * beta + round * beta_sqr + tag) + (1 - addK)
+    {
+        auto& polys = key->polynomials;
+        const auto& gamma = relation_parameters.gamma;
+        const auto& beta_val = relation_parameters.beta;
+        const auto& beta_sqr_val = relation_parameters.beta_sqr;
+        const auto& beta_quartic_val = relation_parameters.beta_quartic;
+        const auto first_term_tag = beta_quartic_val * ECCVMSetRelationConstants::FIRST_TERM_TAG;
+
+        for (size_t i = 0; i < unmasked_witness_size; ++i) {
+            const auto msm_pc_val = polys.msm_pc[i];
+            const auto msm_count_val = polys.msm_count[i];
+            const auto msm_round_val = polys.msm_round[i];
+
+            const auto add1_val = polys.msm_add1[i];
+            const auto slice1_val = polys.msm_slice1[i];
+            auto wnaf_out1 = add1_val * (slice1_val + gamma + (msm_pc_val - msm_count_val) * beta_val +
+                                          msm_round_val * beta_sqr_val + first_term_tag) +
+                              (-add1_val + 1);
+
+            const auto add2_val = polys.msm_add2[i];
+            const auto slice2_val = polys.msm_slice2[i];
+            auto wnaf_out2 = add2_val * (slice2_val + gamma + (msm_pc_val - msm_count_val - 1) * beta_val +
+                                          msm_round_val * beta_sqr_val + first_term_tag) +
+                              (-add2_val + 1);
+
+            polys.den_wnaf_partial.at(i) = wnaf_out1 * wnaf_out2;
+        }
+    }
+    auto& dwp = key->polynomials.den_wnaf_partial;
+    transcript->send_to_verifier(commitment_labels.den_wnaf_partial,
+                                 key->commitment_key.commit(dwp) +
+                                     key->commitment_key.commit(key->masking_tail_data.tails.den_wnaf_partial));
 }
 
 /**
@@ -125,10 +162,21 @@ void ECCVMProver::execute_grand_product_computation_round()
     BB_BENCH_NAME("ECCVMProver::execute_grand_product_computation_round");
     // Compute permutation grand product and their commitments
     compute_grand_products<Flavor>(key->polynomials, relation_parameters, unmasked_witness_size);
+
     auto& zp = key->polynomials.z_perm;
     transcript->send_to_verifier(commitment_labels.z_perm,
                                  key->commitment_key.commit(zp) +
                                      key->commitment_key.commit(key->masking_tail_data.tails.z_perm));
+
+    auto& zps = key->polynomials.z_perm_scalar;
+    transcript->send_to_verifier(commitment_labels.z_perm_scalar,
+                                 key->commitment_key.commit(zps) +
+                                     key->commitment_key.commit(key->masking_tail_data.tails.z_perm_scalar));
+
+    auto& zpm = key->polynomials.z_perm_msm;
+    transcript->send_to_verifier(commitment_labels.z_perm_msm,
+                                 key->commitment_key.commit(zpm) +
+                                     key->commitment_key.commit(key->masking_tail_data.tails.z_perm_msm));
 }
 
 /**

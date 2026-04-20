@@ -9,8 +9,14 @@
 #include "ecc_set_relation_impl.hpp"
 
 namespace bb {
-template class ECCVMSetRelationImpl<grumpkin::fr>;
-DEFINE_SUMCHECK_RELATION_CLASS(ECCVMSetRelationImpl, ECCVMFlavor);
-DEFINE_SUMCHECK_PERMUTATION_CLASS(ECCVMSetRelationImpl, ECCVMFlavor);
+template class ECCVMSetWnafRelationImpl<grumpkin::fr>;
+template class ECCVMSetScalarRelationImpl<grumpkin::fr>;
+template class ECCVMSetMsmRelationImpl<grumpkin::fr>;
+DEFINE_SUMCHECK_RELATION_CLASS(ECCVMSetWnafRelationImpl, ECCVMFlavor);
+DEFINE_SUMCHECK_RELATION_CLASS(ECCVMSetScalarRelationImpl, ECCVMFlavor);
+DEFINE_SUMCHECK_RELATION_CLASS(ECCVMSetMsmRelationImpl, ECCVMFlavor);
+DEFINE_SUMCHECK_PERMUTATION_CLASS(ECCVMSetWnafRelationImpl, ECCVMFlavor);
+DEFINE_SUMCHECK_PERMUTATION_CLASS(ECCVMSetScalarRelationImpl, ECCVMFlavor);
+DEFINE_SUMCHECK_PERMUTATION_CLASS(ECCVMSetMsmRelationImpl, ECCVMFlavor);
 
 } // namespace bb
