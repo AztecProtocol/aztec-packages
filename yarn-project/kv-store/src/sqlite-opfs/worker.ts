@@ -18,32 +18,34 @@ const SCHEMA_SQL = `
   CREATE UNIQUE INDEX IF NOT EXISTS idx_container_key_hash ON data(container, key, hash);
 `;
 
-const SAH_POOL_DIRECTORY = '.aztec-kv';
+const DEFAULT_SAH_POOL_DIRECTORY = '.aztec-kv';
 const SAH_POOL_VFS_NAME = 'aztec-kv-opfs';
 
 let sqlite3: Sqlite3Static | undefined;
 let pool: SAHPoolUtil | undefined;
+let poolDirectory: string | undefined;
 let db: Database | undefined;
 let dbPath: string | undefined;
 
-async function ensurePool(): Promise<SAHPoolUtil> {
+async function ensurePool(directory: string): Promise<SAHPoolUtil> {
   sqlite3 ??= await sqlite3InitModule({ printErr: console.error });
   if (!pool) {
+    poolDirectory = directory;
     pool = await sqlite3.installOpfsSAHPoolVfs({
       name: SAH_POOL_VFS_NAME,
-      directory: SAH_POOL_DIRECTORY,
+      directory,
       initialCapacity: 8,
     });
   }
   return pool;
 }
 
-async function handleInit(dbName: string, ephemeral: boolean): Promise<void> {
+async function handleInit(dbName: string, ephemeral: boolean, directory?: string): Promise<void> {
   sqlite3 ??= await sqlite3InitModule({ printErr: console.error });
   if (ephemeral) {
     db = new sqlite3.oo1.DB(':memory:', 'c');
   } else {
-    const p = await ensurePool();
+    const p = await ensurePool(directory ?? DEFAULT_SAH_POOL_DIRECTORY);
     dbPath = normalizeDbPath(dbName);
     db = new p.OpfsSAHPoolDb(dbPath);
   }
@@ -63,7 +65,7 @@ async function handleDeleteDb(dbName: string): Promise<void> {
     db = undefined;
     dbPath = undefined;
   }
-  const p = await ensurePool();
+  const p = await ensurePool(poolDirectory ?? DEFAULT_SAH_POOL_DIRECTORY);
   try {
     p.unlink(path);
   } catch {
@@ -104,7 +106,7 @@ function respond(msg: WorkerResponse): void {
   try {
     switch (req.type) {
       case 'init':
-        await handleInit(req.dbName, req.ephemeral);
+        await handleInit(req.dbName, req.ephemeral, req.poolDirectory);
         return respond({ type: 'ok', id: req.id });
       case 'close':
         handleClose();

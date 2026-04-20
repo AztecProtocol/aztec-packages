@@ -68,13 +68,21 @@ export class AztecSQLiteOPFSStore implements AztecAsyncKVStore {
   /**
    * Opens (or creates) a SQLite database stored in the OPFS SAH Pool. When `ephemeral`
    * is true the database lives only in memory and is lost when the worker terminates.
+   * Pass `poolDirectory` to place the SAH Pool in a non-default OPFS subdirectory —
+   * required when multiple stores coexist in the same tab, because the SAH Pool holds
+   * an exclusive lock on its directory.
    */
-  static async open(log: Logger, name?: string, ephemeral: boolean = false): Promise<AztecSQLiteOPFSStore> {
+  static async open(
+    log: Logger,
+    name?: string,
+    ephemeral: boolean = false,
+    poolDirectory?: string,
+  ): Promise<AztecSQLiteOPFSStore> {
     const dbName = name && !ephemeral ? name : `tmp-${globalThis.crypto.getRandomValues(new Uint8Array(8)).join('')}`;
     log.debug(`Opening SQLite-OPFS ${ephemeral ? 'ephemeral ' : ''}database ${dbName}`);
     const worker = new Worker(new URL('./worker.js', import.meta.url), { type: 'module' });
     const store = new AztecSQLiteOPFSStore(worker, dbName, log, ephemeral);
-    await store.#sendRequest({ type: 'init', id: store.#allocId(), dbName, ephemeral });
+    await store.#sendRequest({ type: 'init', id: store.#allocId(), dbName, ephemeral, poolDirectory });
     return store;
   }
 
