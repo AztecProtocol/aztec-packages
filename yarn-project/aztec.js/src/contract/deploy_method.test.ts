@@ -1,3 +1,4 @@
+import { MEGA_VK_LENGTH_IN_FIELDS } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { type ContractArtifact, FunctionType } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -30,7 +31,7 @@ describe('DeployMethod', () => {
         returnTypes: [],
         errorTypes: {},
         bytecode: Buffer.alloc(8, 0xfa),
-        verificationKey: Buffer.alloc(4064).toString('base64'),
+        verificationKey: Buffer.alloc(MEGA_VK_LENGTH_IN_FIELDS * Fr.SIZE_IN_BYTES).toString('base64'),
       },
       {
         name: 'public_dispatch',
