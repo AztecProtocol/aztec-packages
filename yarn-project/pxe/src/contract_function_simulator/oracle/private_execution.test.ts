@@ -17,12 +17,9 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import type { FieldsOf } from '@aztec/foundation/types';
 import { KeyStore } from '@aztec/key-store';
-<<<<<<< HEAD
 import { openTmpStore } from '@aztec/kv-store/lmdb';
 import { type AppendOnlyTree, Poseidon, StandardTree, newTree } from '@aztec/merkle-tree';
-=======
 import { CalldataLimitTestContractArtifact } from '@aztec/noir-test-contracts.js/CalldataLimitTest';
->>>>>>> 1e6db27f0d (fix(pxe): propagate calldata count from nested private oracles (#22642))
 import { ChildContractArtifact } from '@aztec/noir-test-contracts.js/Child';
 import { ParentContractArtifact } from '@aztec/noir-test-contracts.js/Parent';
 import { PendingNoteHashesContractArtifact } from '@aztec/noir-test-contracts.js/PendingNoteHashes';
