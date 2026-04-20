@@ -127,10 +127,18 @@ export class SQLiteOPFSAztecMap<K extends Key, V extends Value> implements Aztec
   }
 
   protected decodeValue(val: SqlValue): V {
-    if (val instanceof Uint8Array) {
-      return this.encoder.unpack(val) as V;
+    if (!(val instanceof Uint8Array)) {
+      return val as V;
     }
-    return val as V;
+    const unpacked = this.encoder.unpack(val);
+    // msgpackr returns plain Uint8Array in browsers for packed Buffers. Callers that
+    // stored Buffers (walletDB uses Buffer.from(...).toString('utf8') round-trips)
+    // rely on Buffer-flavored behavior — re-wrap at the storage boundary, mirroring
+    // IndexedDBAztecMap.restoreBuffers.
+    if (unpacked instanceof Uint8Array && !Buffer.isBuffer(unpacked)) {
+      return Buffer.from(unpacked) as V;
+    }
+    return unpacked as V;
   }
 
   protected decodeKey(raw: Uint8Array): K {
