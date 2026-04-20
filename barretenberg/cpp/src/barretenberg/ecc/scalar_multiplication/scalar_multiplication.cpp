@@ -95,7 +95,11 @@ std::vector<typename MSM<Curve>::ThreadWorkUnits> MSM<Curve>::get_work_units(
     // bucket-accumulation work, which is more balanced than partitioning by scalar count
     // when scalar bit-sizes are spatially clustered (e.g. small witness values packed in
     // one region of a wire polynomial next to full-field randomness).
-    std::vector<std::vector<size_t>> prefix_weights(num_msms);
+    //
+    // bits_per_slice is chosen by the Pippenger solver based on this MSM's point count;
+    // the split is computed per-thread from its own slice size, but using the parent
+    // MSM's c here as a proxy is within one bit on realistic sizes.
+    std::vector<uint32_t> bits_per_slice(num_msms);
     size_t grand_total_weight = 0;
     size_t total_work = 0;
     for (size_t i = 0; i < num_msms; ++i) {
@@ -105,23 +109,16 @@ std::vector<typename MSM<Curve>::ThreadWorkUnits> MSM<Curve>::get_work_units(
         const size_t n = indices.size();
         total_work += n;
 
-        // bits_per_slice is chosen by the Pippenger solver based on this MSM's point count;
-        // the split is computed per-thread from its own slice size, but using the parent
-        // MSM's c here as a proxy is within one bit on realistic sizes and lets us do the
-        // weight scan right when scalars are warm in cache from the Montgomery pass above.
         const uint32_t bps = get_optimal_log_num_buckets(n);
+        bits_per_slice[i] = bps;
 
-        auto& pfx = prefix_weights[i];
-        pfx.assign(n + 1, 0);
         for (size_t k = 0; k < n; ++k) {
             // Scalars are in non-Montgomery form here, so data[] are the raw integer limbs.
             // indices only contains nonzero scalars, so get_msb() returns a valid bit index.
             const auto& s = scalars[i][indices[k]];
-            const size_t bit_length = uint256_t{ s.data[0], s.data[1], s.data[2], s.data[3] }.get_msb() + 1;
-            const size_t weight = (bit_length + bps - 1) / bps;
-            pfx[k + 1] = pfx[k] + weight;
+            const size_t msb = uint256_t{ s.data[0], s.data[1], s.data[2], s.data[3] }.get_msb();
+            grand_total_weight += (msb + bps) / bps; // == ceil((msb + 1) / bps)
         }
-        grand_total_weight += pfx[n];
     }
 
     const size_t num_threads = get_num_cpus();
@@ -141,45 +138,39 @@ std::vector<typename MSM<Curve>::ThreadWorkUnits> MSM<Curve>::get_work_units(
 
     const size_t weight_per_thread = numeric::ceil_div(grand_total_weight, num_threads);
 
+    // Walk each MSM's nonzero scalars linearly, closing a work unit every time the
+    // running weight crosses the per-thread target. The last thread absorbs any
+    // remainder so rounding drift doesn't leave work stranded.
     size_t thread_accumulated_weight = 0;
     size_t current_thread_idx = 0;
     for (size_t i = 0; i < num_msms; ++i) {
-        const auto& pfx = prefix_weights[i];
-        const size_t n = msm_scalar_indices[i].size();
+        const auto& indices = msm_scalar_indices[i];
+        const size_t n = indices.size();
+        const uint32_t bps = bits_per_slice[i];
 
         size_t start = 0;
-        while (start < n) {
-            BB_ASSERT_LT(current_thread_idx, work_units.size());
-
-            size_t end;
-            if (current_thread_idx == num_threads - 1) {
-                // Last thread absorbs everything remaining; avoid rounding drift.
-                end = n;
-            } else {
-                // Largest `end` in [start+1, n] with (pfx[end] - pfx[start]) <= remaining capacity.
-                const size_t remaining = weight_per_thread - thread_accumulated_weight;
-                const size_t target = pfx[start] + remaining;
-                auto it = std::upper_bound(pfx.begin() + static_cast<ptrdiff_t>(start + 1), pfx.end(), target);
-                end = static_cast<size_t>(it - pfx.begin()) - 1;
-                // Guarantee progress even when a single scalar's weight exceeds remaining capacity.
-                if (end <= start) {
-                    end = start + 1;
-                }
-            }
-
-            work_units[current_thread_idx].push_back(MSMWorkUnit{
-                .batch_msm_index = i,
-                .start_index = start,
-                .size = end - start,
-            });
-
-            thread_accumulated_weight += pfx[end] - pfx[start];
-            start = end;
+        for (size_t k = 0; k < n; ++k) {
+            const auto& s = scalars[i][indices[k]];
+            const size_t msb = uint256_t{ s.data[0], s.data[1], s.data[2], s.data[3] }.get_msb();
+            thread_accumulated_weight += (msb + bps) / bps;
 
             if (current_thread_idx < num_threads - 1 && thread_accumulated_weight >= weight_per_thread) {
+                work_units[current_thread_idx].push_back(MSMWorkUnit{
+                    .batch_msm_index = i,
+                    .start_index = start,
+                    .size = k + 1 - start,
+                });
+                start = k + 1;
                 current_thread_idx++;
                 thread_accumulated_weight = 0;
             }
+        }
+        if (start < n) {
+            work_units[current_thread_idx].push_back(MSMWorkUnit{
+                .batch_msm_index = i,
+                .start_index = start,
+                .size = n - start,
+            });
         }
     }
     return work_units;
