@@ -152,6 +152,14 @@ export class AztecSQLiteOPFSStore implements AztecAsyncKVStore {
     this.#worker.terminate();
   }
 
+  /**
+   * Placeholder — returns zeros to mirror the IndexedDB backend. SQLite exposes real
+   * numbers cheaply via `PRAGMA page_count` / `page_size` / `freelist_count` and
+   * `SELECT COUNT(*) FROM data`, which would populate `physicalFileSize`, `actualSize`,
+   * and `numItems` meaningfully (`mappingSize` stays 0 — it's an LMDB mmap concept).
+   * Upgrade when any caller actually consumes these values; all current consumers
+   * tolerate zeros.
+   */
   estimateSize(): Promise<StoreSize> {
     return Promise.resolve({ mappingSize: 0, physicalFileSize: 0, actualSize: 0, numItems: 0 });
   }
