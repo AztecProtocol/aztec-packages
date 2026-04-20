@@ -284,15 +284,22 @@ template <typename Curve> class MSM {
   private:
     // ======================= Private Implementation =======================
 
-    /** @brief Convert scalars from Montgomery form and collect indices of nonzero scalars */
-    static void transform_scalar_and_get_nonzero_scalar_indices(std::span<ScalarField> scalars,
-                                                                std::vector<uint32_t>& nonzero_scalar_indices) noexcept;
+    /** @brief Convert scalars from Montgomery form; collect indices and bit-lengths of nonzero scalars.
+     *  @details Bit-lengths are emitted alongside indices so thread-partitioning can weight
+     *           each scalar by its contribution to bucket-accumulation work without a second
+     *           serial pass over the scalar limbs.
+     *  @return Sum of bit-lengths across all nonzero scalars (used to compute per-thread targets). */
+    static size_t transform_scalar_and_get_nonzero_scalar_indices(
+        std::span<ScalarField> scalars,
+        std::vector<uint32_t>& nonzero_scalar_indices,
+        std::vector<uint8_t>& nonzero_scalar_bit_lengths) noexcept;
 
     /** @brief Distribute multiple MSMs across threads with balanced bucket-accumulation work.
      *  @details Per-thread assignment is a contiguous range of each MSM's nonzero-scalar
-     *           indices, sized by cumulative weight. Weight per scalar is
-     *           ceil(bit_length / bits_per_slice), i.e. the number of nonzero c-bit slices
-     *           it contributes, which is what drives bucket accumulation cost. */
+     *           indices, sized by cumulative bit-length. Weighting by bit_length is
+     *           proportional to the per-scalar slice count ceil(bit_length / c) up to a
+     *           per-MSM scale factor c that cancels out when MSMs share a point count
+     *           (as in Chonk wire/z_perm polynomials). */
     static std::vector<ThreadWorkUnits> get_work_units(std::span<std::span<ScalarField>> scalars,
                                                        std::vector<std::vector<uint32_t>>& msm_scalar_indices) noexcept;
 

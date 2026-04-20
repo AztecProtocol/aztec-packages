@@ -38,48 +38,80 @@ template <typename Curve> typename Curve::Element small_mul(const typename MSM<C
 }
 
 template <typename Curve>
-void MSM<Curve>::transform_scalar_and_get_nonzero_scalar_indices(std::span<typename Curve::ScalarField> scalars,
-                                                                 std::vector<uint32_t>& nonzero_scalar_indices) noexcept
+size_t MSM<Curve>::transform_scalar_and_get_nonzero_scalar_indices(
+    std::span<typename Curve::ScalarField> scalars,
+    std::vector<uint32_t>& nonzero_scalar_indices,
+    std::vector<uint8_t>& nonzero_scalar_bit_lengths) noexcept
 {
-    std::vector<std::vector<uint32_t>> thread_indices(get_num_cpus());
+    // bit_length is at most NUM_BITS_IN_FIELD (254 for BN254/Grumpkin), which fits in uint8_t.
+    static_assert(NUM_BITS_IN_FIELD <= std::numeric_limits<uint8_t>::max(),
+                  "bit_length stored as uint8_t; widen the type if a larger scalar field is added");
 
-    // Pass 1: Each thread converts from Montgomery and collects nonzero indices into its own vector
+    struct PerThreadScratch {
+        std::vector<uint32_t> indices;
+        std::vector<uint8_t> bit_lengths;
+        size_t bit_length_sum = 0;
+    };
+
+    const size_t num_cpus = get_num_cpus();
+    std::vector<PerThreadScratch> scratch(num_cpus);
+
+    // Pass 1: Each thread converts from Montgomery, collects nonzero indices and bit-lengths,
+    // and accumulates a local bit-length sum. Bit-length is cheap here because the limbs are
+    // already hot from the Montgomery reduction.
     parallel_for([&](const ThreadChunk& chunk) {
-        BB_ASSERT_EQ(chunk.total_threads, thread_indices.size());
+        BB_ASSERT_EQ(chunk.total_threads, scratch.size());
         auto range = chunk.range(scalars.size());
         if (range.empty()) {
             return;
         }
-        std::vector<uint32_t>& thread_scalar_indices = thread_indices[chunk.thread_index];
-        thread_scalar_indices.reserve(range.size());
+        PerThreadScratch& local = scratch[chunk.thread_index];
+        local.indices.reserve(range.size());
+        local.bit_lengths.reserve(range.size());
+        size_t local_bit_length_sum = 0;
         for (size_t i : range) {
             BB_ASSERT_DEBUG(i < scalars.size());
             auto& scalar = scalars[i];
             scalar.self_from_montgomery_form_reduced();
 
             if (!scalar.is_zero()) {
-                thread_scalar_indices.push_back(static_cast<uint32_t>(i));
+                local.indices.push_back(static_cast<uint32_t>(i));
+                // Post-reduction, scalar.data[] are the raw integer limbs. is_zero() was
+                // just false, so get_msb() returns a valid bit index in [0, NUM_BITS_IN_FIELD).
+                const uint64_t msb =
+                    uint256_t{ scalar.data[0], scalar.data[1], scalar.data[2], scalar.data[3] }.get_msb();
+                const uint8_t bit_length = static_cast<uint8_t>(msb + 1);
+                local.bit_lengths.push_back(bit_length);
+                local_bit_length_sum += bit_length;
             }
         }
+        local.bit_length_sum = local_bit_length_sum;
     });
 
     size_t num_entries = 0;
-    for (const auto& indices : thread_indices) {
-        num_entries += indices.size();
+    size_t total_bit_length = 0;
+    for (const auto& s : scratch) {
+        num_entries += s.indices.size();
+        total_bit_length += s.bit_length_sum;
     }
     nonzero_scalar_indices.resize(num_entries);
+    nonzero_scalar_bit_lengths.resize(num_entries);
 
-    // Pass 2: Copy each thread's indices to the output vector (no branching)
+    // Pass 2: Copy each thread's indices and bit-lengths to the output vectors (no branching)
     parallel_for([&](const ThreadChunk& chunk) {
-        BB_ASSERT_EQ(chunk.total_threads, thread_indices.size());
+        BB_ASSERT_EQ(chunk.total_threads, scratch.size());
         size_t offset = 0;
         for (size_t i = 0; i < chunk.thread_index; ++i) {
-            offset += thread_indices[i].size();
+            offset += scratch[i].indices.size();
         }
-        for (size_t i = offset; i < offset + thread_indices[chunk.thread_index].size(); ++i) {
-            nonzero_scalar_indices[i] = thread_indices[chunk.thread_index][i - offset];
+        const auto& local = scratch[chunk.thread_index];
+        for (size_t i = 0; i < local.indices.size(); ++i) {
+            nonzero_scalar_indices[offset + i] = local.indices[i];
+            nonzero_scalar_bit_lengths[offset + i] = local.bit_lengths[i];
         }
     });
+
+    return total_bit_length;
 }
 
 template <typename Curve>
@@ -91,34 +123,20 @@ std::vector<typename MSM<Curve>::ThreadWorkUnits> MSM<Curve>::get_work_units(
 
     // Per-scalar work in Pippenger is dominated by the number of nonzero c-bit slices
     // (zero slices are filtered out of bucket accumulation via the zero-bucket pre-sort).
-    // Weighting each scalar by ceil(bit_length / c) lets us partition threads by actual
+    // Weighting each scalar by its bit-length lets us partition threads by actual
     // bucket-accumulation work, which is more balanced than partitioning by scalar count
     // when scalar bit-sizes are spatially clustered (e.g. small witness values packed in
     // one region of a wire polynomial next to full-field randomness).
     //
-    // bits_per_slice is chosen by the Pippenger solver based on this MSM's point count;
-    // the split is computed per-thread from its own slice size, but using the parent
-    // MSM's c here as a proxy is within one bit on realistic sizes.
-    std::vector<uint32_t> bits_per_slice(num_msms);
+    // Bit-lengths are computed in the already-parallel Montgomery pass below, so adding
+    // this weighting introduces no serial per-scalar work.
+    std::vector<std::vector<uint8_t>> msm_scalar_bit_lengths(num_msms);
     size_t grand_total_weight = 0;
     size_t total_work = 0;
     for (size_t i = 0; i < num_msms; ++i) {
-        transform_scalar_and_get_nonzero_scalar_indices(scalars[i], msm_scalar_indices[i]);
-
-        const auto& indices = msm_scalar_indices[i];
-        const size_t n = indices.size();
-        total_work += n;
-
-        const uint32_t bps = get_optimal_log_num_buckets(n);
-        bits_per_slice[i] = bps;
-
-        for (size_t k = 0; k < n; ++k) {
-            // Scalars are in non-Montgomery form here, so data[] are the raw integer limbs.
-            // indices only contains nonzero scalars, so get_msb() returns a valid bit index.
-            const auto& s = scalars[i][indices[k]];
-            const size_t msb = uint256_t{ s.data[0], s.data[1], s.data[2], s.data[3] }.get_msb();
-            grand_total_weight += (msb + bps) / bps; // == ceil((msb + 1) / bps)
-        }
+        grand_total_weight += transform_scalar_and_get_nonzero_scalar_indices(
+            scalars[i], msm_scalar_indices[i], msm_scalar_bit_lengths[i]);
+        total_work += msm_scalar_indices[i].size();
     }
 
     const size_t num_threads = get_num_cpus();
@@ -138,21 +156,18 @@ std::vector<typename MSM<Curve>::ThreadWorkUnits> MSM<Curve>::get_work_units(
 
     const size_t weight_per_thread = numeric::ceil_div(grand_total_weight, num_threads);
 
-    // Walk each MSM's nonzero scalars linearly, closing a work unit every time the
-    // running weight crosses the per-thread target. The last thread absorbs any
-    // remainder so rounding drift doesn't leave work stranded.
+    // Walk each MSM's cached bit-lengths linearly, closing a work unit every time the
+    // running weight crosses the per-thread target. The last thread absorbs any remainder
+    // so rounding drift doesn't leave work stranded.
     size_t thread_accumulated_weight = 0;
     size_t current_thread_idx = 0;
     for (size_t i = 0; i < num_msms; ++i) {
-        const auto& indices = msm_scalar_indices[i];
-        const size_t n = indices.size();
-        const uint32_t bps = bits_per_slice[i];
+        const auto& bit_lengths = msm_scalar_bit_lengths[i];
+        const size_t n = bit_lengths.size();
 
         size_t start = 0;
         for (size_t k = 0; k < n; ++k) {
-            const auto& s = scalars[i][indices[k]];
-            const size_t msb = uint256_t{ s.data[0], s.data[1], s.data[2], s.data[3] }.get_msb();
-            thread_accumulated_weight += (msb + bps) / bps;
+            thread_accumulated_weight += bit_lengths[k];
 
             if (current_thread_idx < num_threads - 1 && thread_accumulated_weight >= weight_per_thread) {
                 work_units[current_thread_idx].push_back(MSMWorkUnit{
