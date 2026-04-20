@@ -43,11 +43,14 @@ export default defineConfig({
       'idb-keyval',
       'comlink',
     ],
+    // sqlite-wasm ships its own .wasm asset loader; let Vite serve it as a static asset
+    // rather than pre-bundling, per the upstream docs' recommendation.
+    exclude: ['@sqlite.org/sqlite-wasm'],
   },
   test: {
     globals: true,
     reporters: ['verbose'],
-    include: ['./src/indexeddb/**/*.test.ts'],
+    include: ['./src/indexeddb/**/*.test.ts', './src/sqlite-opfs/**/*.test.ts'],
     // Run test files sequentially to avoid race conditions in browser module loading
     fileParallelism: false,
     browser: {

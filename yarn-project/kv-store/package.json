@@ -8,6 +8,7 @@
     "./lmdb": "./dest/lmdb/index.js",
     "./lmdb-v2": "./dest/lmdb-v2/index.js",
     "./indexeddb": "./dest/indexeddb/index.js",
+    "./sqlite-opfs": "./dest/sqlite-opfs/index.js",
     "./stores": "./dest/stores/index.js"
   },
   "scripts": {
@@ -29,6 +30,7 @@
     "@aztec/foundation": "workspace:^",
     "@aztec/native": "workspace:^",
     "@aztec/stdlib": "workspace:^",
+    "@sqlite.org/sqlite-wasm": "3.50.4-build1",
     "idb": "^8.0.0",
     "lmdb": "^3.2.0",
     "msgpackr": "^1.11.2",
