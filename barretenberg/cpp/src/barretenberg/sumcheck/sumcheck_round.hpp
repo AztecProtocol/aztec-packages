@@ -388,6 +388,71 @@ template <typename Flavor> class SumcheckProverRound {
     {
         BB_BENCH_NAME("compute_univariate_with_row_skipping");
 
+        constexpr bool can_skip_rows = (isRowSkippable<Flavor, decltype(polynomials), size_t>);
+
+        if constexpr (!can_skip_rows) {
+            // Dynamic chunk dispatch via an atomic counter: each worker pulls the next chunk when
+            // it finishes the previous one. Balances per-row cost variance that a static slab split
+            // would leave pegged to the slowest thread.
+            const size_t effective_round_size = compute_effective_round_size(polynomials);
+            BB_ASSERT(effective_round_size % 2 == 0, "effective_round_size must be even");
+
+            constexpr size_t rows_per_chunk = 64; // Empirically determined for Chonk
+            static_assert((rows_per_chunk >= 2) && (rows_per_chunk % 2 == 0),
+                          "rows_per_chunk must be at least 2 and even");
+
+            const size_t total_chunks =
+                (effective_round_size / rows_per_chunk) + (effective_round_size % rows_per_chunk > 0 ? 1 : 0);
+            // Cap num_slots at total_chunks so tail rounds don't wake threads that would find nothing.
+            const size_t num_slots = std::min(bb::get_num_cpus(), std::max<size_t>(total_chunks, 1));
+
+            // Construct univariate accumulator containers; one per slot.
+            // Note: std::vector will trigger {}-initialization of the contents. Therefore no need to zero the
+            // univariates.
+            std::vector<SumcheckTupleOfTuplesOfUnivariates> thread_univariate_accumulators(num_slots);
+            std::atomic<size_t> next_chunk(0);
+
+            parallel_for(num_slots, [&](size_t slot_id) {
+                // Construct extended univariates container; reused across every chunk this slot claims.
+                ExtendedEdges extended_edges;
+                while (true) {
+                    const size_t chunk_id = next_chunk.fetch_add(1, std::memory_order_relaxed);
+                    if (chunk_id >= total_chunks) {
+                        break;
+                    }
+                    const size_t start = chunk_id * rows_per_chunk;
+                    const size_t end = std::min(start + rows_per_chunk, effective_round_size);
+
+                    for (size_t edge_idx = start; edge_idx < end; edge_idx += 2) {
+                        extend_edges(extended_edges, polynomials, edge_idx);
+                        // Compute the \f$ \ell \f$-th edge's univariate contribution,
+                        // scale it by the corresponding \f$ pow_{\beta} \f$ contribution and add it to the accumulators
+                        // for \f$ \tilde{S}^i(X_i) \f$. If \f$ \ell \f$'s binary representation is given by \f$
+                        // (\ell_{i+1},\ldots, \ell_{d-1})\f$, the \f$ pow_{\beta}\f$-contribution is
+                        // \f$\beta_{i+1}^{\ell_{i+1}} \cdot \ldots \cdot \beta_{d-1}^{\ell_{d-1}}\f$.
+                        FF scaling_factor{ 1 };
+                        if constexpr (!isMultilinearBatchingFlavor<Flavor>) {
+                            scaling_factor = gate_separators[edge_idx];
+                        }
+                        accumulate_relation_univariates(thread_univariate_accumulators[slot_id],
+                                                        extended_edges,
+                                                        relation_parameters,
+                                                        scaling_factor);
+                    }
+                }
+            });
+
+            // Accumulate the per-slot univariate accumulators into a single set of accumulators.
+            for (auto& accumulators : thread_univariate_accumulators) {
+                Utils::add_nested_tuples(univariate_accumulators, accumulators);
+            }
+            // Batch the univariate contributions from each sub-relation to obtain the round univariate;
+            // these are unmasked; we will mask in sumcheck.
+            return batch_over_relations<SumcheckRoundUnivariate>(univariate_accumulators, alphas, gate_separators);
+        }
+
+        // Row-skipping flavors (ECCVM, Translator) iterate only over contiguous blocks of non-skippable
+        // rows; work within each block is statically divided among threads via ThreadChunk ranges.
         std::vector<BlockOfContiguousRows> round_manifest = compute_contiguous_round_size(polynomials);
 
         // Construct univariate accumulator containers; one per thread
@@ -434,11 +499,7 @@ template <typename Flavor> class SumcheckProverRound {
         }
         // Batch the univariate contributions from each sub-relation to obtain the round univariate
         // these are unmasked; we will mask in sumcheck.
-        const auto round_univariate =
-            batch_over_relations<SumcheckRoundUnivariate>(univariate_accumulators, alphas, gate_separators);
-        // define eval at 0 from target sum/or previous round univariate
-
-        return round_univariate;
+        return batch_over_relations<SumcheckRoundUnivariate>(univariate_accumulators, alphas, gate_separators);
     };
 
     /**
