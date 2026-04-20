@@ -186,7 +186,6 @@ class HypernovaFoldingVerifierTests : public ::testing::Test {
         for (const auto& bus : { "CALLDATA", "SECONDARY_CALLDATA", "RETURN_DATA" }) {
             manifest.add_entry(round, bus, frs_per_G);
             manifest.add_entry(round, std::string(bus) + "_READ_COUNTS", frs_per_G);
-            manifest.add_entry(round, std::string(bus) + "_READ_TAGS", frs_per_G);
         }
         round++;
 
