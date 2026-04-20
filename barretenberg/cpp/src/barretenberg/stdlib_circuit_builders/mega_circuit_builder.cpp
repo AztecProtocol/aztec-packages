@@ -291,7 +291,6 @@ template <typename FF> void MegaCircuitBuilder_<FF>::apply_databus_selectors(con
 {
     auto& block = this->blocks.busread;
     // Bus column k is selected by q_{k+1}; all other wire-linear selectors stay zero on this row.
-    // One line per bus column — Stage 1 adds siblings here when NUM_BUS_COLUMNS grows.
     const size_t idx = static_cast<size_t>(bus_idx);
     block.q_1().emplace_back(idx == 0 ? 1 : 0);
     block.q_2().emplace_back(idx == 1 ? 1 : 0);

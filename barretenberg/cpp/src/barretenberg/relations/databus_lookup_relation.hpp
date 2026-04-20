@@ -61,8 +61,7 @@ namespace bb {
 template <typename FF_> class DatabusLookupRelationImpl {
   public:
     using FF = FF_;
-    // NUM_BUS_COLUMNS (= 3: calldata, secondary calldata, return data) is defined in databus.hpp so all consumers
-    // (relation, flavor, builder) share a single source of truth.
+
     // Note: All three subrelations use length 6 to make efficient use of shared computation. Shortening (1b)/(2) to
     // length 5 forces the shared factors (lookup_term, table_term, read_selector, inverses, `I*L*T - 1`) to be
     // recomputed and is a net loss in performance.
