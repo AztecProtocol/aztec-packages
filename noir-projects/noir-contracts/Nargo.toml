@@ -9,6 +9,7 @@ members = [
     "contracts/app/amm_contract",
     "contracts/app/app_subscription_contract",
     "contracts/app/auth_contract",
+    "contracts/app/asserted_token_contract",
     "contracts/app/card_game_contract",
     "contracts/app/claim_contract",
     "contracts/app/crowdfunding_contract",

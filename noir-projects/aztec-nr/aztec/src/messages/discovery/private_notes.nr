@@ -9,7 +9,7 @@ use crate::{
     protocol::{address::AztecAddress, constants::MAX_NOTE_HASHES_PER_TX, traits::ToField},
 };
 
-pub(crate) unconstrained fn process_private_note_msg(
+pub unconstrained fn process_private_note_msg(
     contract_address: AztecAddress,
     tx_hash: Field,
     unique_note_hashes_in_tx: BoundedVec<Field, MAX_NOTE_HASHES_PER_TX>,
