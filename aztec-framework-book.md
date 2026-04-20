@@ -147,9 +147,9 @@ struct Storage<Context> {
 
 **What it generates:**
 - Sequential slot allocation (slot 0 is reserved)
-- `Storage::init(context)` constructor
+- `Storage::init(context)` constructor that wires each field to its slot
 - `StorageLayoutFields` struct exposed in artifact ABI
-- Validation that all fields implement `StateVariable`
+- A compile-time check that every field's type implements the `StateVariable` trait (which supplies a `STORAGE_SIZE` constant and a `new(context, slot)` constructor)
 
 For manual slot control, use `#[storage_no_init]` and provide your own `init()`.
 
@@ -169,12 +169,12 @@ Every contract function must have exactly one of:
 
 | Attribute | Purpose |
 |-----------|---------|
-| `#[initializer]` | Contract constructor, can only be called once. As of 4.2.0 the **private** init nullifier is `poseidon2([address, init_hash])` (formerly just `address`), and a **separate public init nullifier** is also emitted. `assert_contract_was_initialized_by` / `_not_initialized_by` therefore require an additional `init_hash` parameter |
+| `#[initializer]` | Contract constructor that can only be called once. The **init nullifier** is a special nullifier emitted by the initializer so that subsequent calls (which verify non-membership of the initialized-flag) fail if the contract was already constructed. A private initializer emits a private init nullifier; if any public functions exist that must check initialization, the private initializer also enqueues a call to emit a **separate public init nullifier** (since private nullifiers aren't visible to public reads on the current tip). As of 4.2.0 the private init nullifier is `poseidon2([address, init_hash])` (formerly just `address`), so `assert_contract_was_initialized_by` / `_not_initialized_by` take an additional `init_hash` parameter |
 | `#[noinitcheck]` | Skip initialization nullifier check. `#[only_self]` external functions also implicitly skip the init check, and any external public function called *during* a private init must itself be `#[only_self]` |
 | `#[view]` | Read-only, cannot modify state |
 | `#[only_self]` | Can only be called by the contract itself |
 | `#[authorize_once]` | Requires authorization via authwit |
-| `#[allow_phase_change]` | Allow phase transition (private only) |
+| `#[allow_phase_change]` | Allow phase transition (private only) -- the function may call `context.end_setup()` to end the non-revertible *setup* phase and enter the revertible *app logic* phase |
 
 #### Function Transformation
 
@@ -409,7 +409,7 @@ self.storage.vote_rights.at(voter).claim(); // Emits nullifier, can only call on
 
 Like `PrivateMutable`/`PrivateImmutable` but contract-wide (not per-account). A single note exists for the entire contract rather than one per owner.
 
-**Requires the contract to have associated keys:** The contract address itself must have a nullifier hiding key (NHK) registered. This is automatically the case for account contracts (which derive keys from the user's secret). For non-account contracts, keys must be associated at deployment by passing `publicKeys` to the deployer. Without keys, the contract cannot compute nullifiers and these state variables will fail at runtime.
+**Requires the contract to have associated keys:** The contract address itself must have a nullifier hiding key (NHK) registered. This is automatically the case for account contracts (which derive keys from the user's secret). For non-account contracts, keys must be associated at deployment by passing `publicKeys` to the deployer. Because nullifying contract-wide notes uses this single NHK -- which is known to whoever holds the secret behind it -- associating keys with a non-account contract effectively grants one entity (the admin/deployer) sole authority to nullify notes stored in these variables. Without keys, the contract cannot compute nullifiers and these state variables will fail at runtime.
 
 #### Container Types
 
@@ -423,7 +423,7 @@ balances: Map<AztecAddress, PublicMutable<u128, Context>, Context>,
 ```
 
 - No way to enumerate keys
-- Works with any `StateVariable` type (including nested Maps)
+- The value type `V` may be any `StateVariable` -- e.g. `PublicMutable`, `PrivateSet`, `Owned<...>`, or even another `Map` (nested)
 
 ##### `Owned<V, Context>`
 
@@ -446,8 +446,13 @@ let recipient_balance = self.storage.balances.at(recipient); // Different Privat
 | PublicImmutable | initialize, read | read (historical) | unconstrained read |
 | DelayedPublicMutable | schedule, get_current | get_current | unconstrained read |
 | PrivateMutable | -- | initialize, replace, get_note | unconstrained view |
+| PrivateImmutable | -- | initialize, get_note (non-consuming) | unconstrained view |
 | PrivateSet | -- | insert, pop_notes, get_notes, remove | unconstrained view |
 | SingleUseClaim | -- | claim, assert_claimed | unconstrained has_claimed |
+| SinglePrivateMutable | -- | initialize, replace, get_note | unconstrained view |
+| SinglePrivateImmutable | -- | initialize, get_note (non-consuming) | unconstrained view |
+| Map\<K, V\> | delegates to V | delegates to V | delegates to V |
+| Owned\<V\> | delegates to V (via `.at(owner)`) | delegates to V (via `.at(owner)`) | delegates to V (via `.at(owner)`) |
 
 ### 2.4 The Note System
 
@@ -481,7 +486,11 @@ Default: `poseidon2(note_hash_for_nullification || owner.nhk_app)`
 
 The nullifier hiding key (NHK) is requested from the kernel via `context.request_nhk_app()`, which validates key ownership. This prevents applications from computing incorrect nullifiers.
 
+Each entity that can create nullifiers in a given app has its *own* NHK for that app: the NHK is derived per `(account, contract)` pair, so a user's NHK for token A is distinct from their NHK for token B, and from another user's NHK for either. This is what lets `Owned<...>` state give each owner independent authority to nullify the notes stored under their address.
+
 #### Note Getter Options
+
+`NoteGetterOptions` tells the getter *which* notes to read and in *what* order to hand them back. Because a `PrivateSet` (e.g. a user's balance split across many UTXO-style notes) can contain far more notes than a single transaction should pull in, an app uses these options to tune the selection -- e.g. a token can sort ascending to spend the smallest "dust" notes first and consolidate balance, or sort descending to cover a large transfer with the fewest note reads.
 
 ```noir
 let mut options = NoteGetterOptions::new();
@@ -501,7 +510,7 @@ Supports: equality, less than, greater than comparisons; ascending/descending so
 
 Create notes privately with incomplete data, complete them publicly. The canonical implementation is `PartialUintNote` from the `uint-note` crate, used by Wonderland's AIP-20 and AIP-721 standards.
 
-**Two-step hashing (updated in 4.2.0 -- `storage_slot` moved into the completion hash):**
+*Two-step hashing* (updated in 4.2.0 -- `storage_slot` moved into the completion hash):
 ```noir
 // Step 1 (private): Commitment hides only owner + randomness
 commitment = poseidon2_hash([owner, randomness], DOM_SEP__NOTE_HASH);
@@ -512,7 +521,7 @@ note_hash = poseidon2_hash([commitment, storage_slot, value], DOM_SEP__NOTE_HASH
 
 This change enables cleaner partial-note flows where the same commitment can be completed at different storage slots without re-running private code (for example, completing into a per-recipient `Owned<...>` slot computed in public).
 
-**Validity commitment mechanism** (prevents malicious completers):
+*Validity commitment mechanism* (prevents malicious completers):
 ```noir
 // Private phase: emit validity commitment as a nullifier
 validity_commitment = poseidon2_hash([partial_commitment, completer_address]);
@@ -522,19 +531,20 @@ context.push_nullifier(validity_commitment);
 assert(context.nullifier_exists_unsafe(validity_commitment, context.this_address()));
 ```
 
-**Usage:**
+*Usage:*
 ```noir
 // Private: Create partial note (storage_slot AND value unknown, both supplied at completion)
 let partial = UintNote::partial(owner, context, recipient, completer);
 
-// Public: Complete with storage slot + value derived from public state (e.g., AMM output, oracle price)
+// Later, in a public call: Complete with storage slot + value derived from public state
+// (e.g., AMM output, oracle price)
 partial.complete(context, completer, storage_slot, computed_amount);
 
 // There is also a `complete_from_private(...)` variant for completing the note in a follow-up private call
 // (uses an existing settled validity-commitment nullifier).
 ```
 
-**Limitations:**
+*Limitations:*
 - `value = 0` is not supported (trailing zero fields are trimmed from logs)
 - Each partial note type supports only one variant
 - The `token_id = 0` sentinel in AIP-721 NFTs means NFT #0 cannot exist
@@ -722,7 +732,9 @@ fn finalize_transfer(to: AztecAddress, amount: u128) {
 
 ##### `#[internal]` -- Inlined Functions
 
-`#[internal("private")]` and `#[internal("public")]` functions are **not compiled as separate entry points**. They are inlined as library methods (`#[contract_library_method]`) within the calling external function's circuit. Because they share the caller's execution context (they receive `context: &mut PrivateContext` directly), there is no separate msg_sender check -- the internal function runs within the same call frame as the external function that invokes it.
+`#[internal("private")]` and `#[internal("public")]` functions are **not compiled as separate entry points**. They are inlined as library methods (`#[contract_library_method]`) within the calling external function's circuit or public function. Because they share the caller's execution context (they receive `context: &mut PrivateContext` or `&mut PublicContext` directly), there is no separate msg_sender check -- the internal function runs within the same call frame as the external function that invokes it.
+
+For `#[internal("private")]`, the function is inlined as Noir library code into the caller's private circuit. For `#[internal("public")]`, the function is still compiled to bytecode but gets **no entry in the public dispatch function** through which all external public calls are routed -- so it cannot be invoked as a top-level public call; it can only be called from other public functions in the same contract that hold a direct reference to it.
 
 This is different from `#[only_self]`: an `#[only_self]` external function is a separate call with its own call context (and msg_sender validation), while an `#[internal]` function is inlined code that doesn't create a new call frame.
 
@@ -768,11 +780,12 @@ The main interface for private function execution. Key capabilities:
 **Logs and Messages:**
 - `emit_private_log_unsafe(tag, log_data, length)` -- Low-level encrypted log emission. Requires the caller to pass an explicit `tag` as the first parameter. Prefer the high-level `self.emit(...)` / `MessageDelivery` APIs, which compute tags correctly and choose between offchain / unconstrained / constrained delivery for you.
 - `emit_raw_note_log_unsafe(tag, log_data, length)` -- Same as above for note logs.
-- `emit_public_log_unsafe(tag, log_data)` -- Public log emission. Public events no longer auto-prepend the event type selector at `fields[0]`; callers (or the higher-level `self.emit(event)` API) must prepend a domain-separated tag instead. Direct consumers of `node.getPublicLogs` need to be updated to read the new layout.
 - `emit_contract_class_log(log)` -- Contract class broadcast
 - `message_portal(recipient, content)` -- L2-to-L1 message
 
 The `_unsafe` suffix (introduced in 4.2.0) marks these as low-level: bypassing them means the caller is responsible for tag derivation, recipient discovery, and length encoding.
+
+Public logs **cannot** be emitted from private: they are only available through `PublicContext::emit_public_log_unsafe` (or the higher-level `self.emit(event)` in a public function). To surface something publicly from a private flow, enqueue a public call that emits the log there.
 
 **Cross-Context:**
 - `call_private_function_with_args_hash(target, selector, args_hash, is_static)` -- Call another private function
@@ -792,15 +805,52 @@ The `_unsafe` suffix (introduced in 4.2.0) marks these as low-level: bypassing t
 
 #### PublicContext
 
-Interface for AVM (Aztec Virtual Machine) public execution. Unlike PrivateContext which accumulates side effects for later kernel processing, PublicContext directly executes AVM opcodes that read/write the public data tree in real time.
+Interface for AVM (Aztec Virtual Machine) public execution. Unlike PrivateContext which accumulates side effects for later kernel processing, PublicContext directly executes AVM opcodes on the current tip of the chain. Public functions are executed by the block proposer within a zkVM (the AVM), which allows them to revert while still ensuring payment to the proposer and prover. Private functions, by contrast, cannot revert -- they either succeed or cannot be included.
 
 Key differences from PrivateContext:
 - **No privacy** -- all storage reads, writes, and logs are visible to all network participants
 - **Direct state tree access** via `storage_read(slot)` / `storage_write(slot, value)` AVM opcodes (no oracle indirection)
-- **`emit_public_log(log)`** emits unencrypted logs indexed by event selector
-- **Can call other public functions directly** via `call_public_function()` (synchronous, not enqueued)
-- **No note hashes or nullifiers** -- public state uses key-value storage, not the UTXO model
-- **Has access to `block_number()`, `timestamp()`, `transaction_fee()`** via AVM environment opcodes
+- **Operates on current state** at the tip of the chain, not a historical anchor block
+- **Synchronous calls** to other public functions via `call_public_function()` (not enqueued)
+- **Can revert** (private functions cannot)
+- **`transaction_fee()` is only nonzero during the teardown phase**
+
+**Public Storage (Key-Value):**
+- `storage_read<T>(slot) -> T` -- Read typed value from public storage (deserialized via `Packable`)
+- `storage_write<T>(slot, value)` -- Write typed value to public storage (takes effect immediately)
+- `raw_storage_read<N>(slot) -> [Field; N]` -- Read N consecutive raw storage slots
+- `raw_storage_write<N>(slot, values)` -- Write N consecutive raw storage slots
+
+**Note Hashes & Nullifiers:**
+- `push_note_hash(note_hash)` -- Insert note hash into the note hash tree. Used by partial note completion (a note created in private can be completed with public data).
+- `push_nullifier(nullifier)` -- Push a nullifier. Used for L1->L2 message consumption, contract initialization, and public one-time actions (cheaper than public storage for single-use flags).
+- `note_hash_exists(note_hash, leaf_index) -> bool` -- Check if a note hash exists at a given leaf index
+- `nullifier_exists_unsafe(nullifier, contract_address) -> bool` -- Check if a nullifier exists. Reliable in public (unlike private, which only sees the anchor block). **Safety caveat**: a nullifier emitted alongside an enqueued public call does not mean that public call has already executed -- all private side effects are committed before any enqueued public functions run.
+
+**Logs and Messages:**
+- `emit_public_log_unsafe(tag, log)` -- Emit a public log visible to everyone on-chain. The `tag` at `fields[0]` is used by nodes for indexing. Should be domain-separated; prefer `self.emit(event)` which handles tagging automatically.
+- `message_portal(recipient, content)` -- Send L2->L1 message to an Ethereum portal contract. Available for consumption on L1 once the epoch proof is verified.
+- `consume_l1_to_l2_message(content, secret, sender, leaf_index)` -- Consume an L1->L2 message: verifies existence in the message tree, checks not already consumed, pushes nullifier to prevent reuse. The `secret` acts as a claim key (the message hash includes `secret_hash`, but the nullifier uses the raw `secret`).
+- `l1_to_l2_msg_exists(msg_hash, leaf_index) -> bool` -- Check L1->L2 message existence without consuming (messages are never deleted from the tree; use this for unlimited reads)
+
+**Public Function Calls:**
+- `call_public_function(addr, selector, args, gas_opts) -> [Field]` -- Call another contract's public function synchronously. Reverts propagate. Optional gas allocation via `GasOpts`.
+- `static_call_public_function(addr, selector, args, gas_opts) -> [Field]` -- Read-only call (like Solidity's `staticcall`). Called function cannot modify state or emit logs.
+
+**Environment Accessors:**
+- `maybe_msg_sender() -> Option<AztecAddress>` -- Caller address (None if the private enqueuer used `hide_msg_sender`)
+- `this_address() -> AztecAddress` -- This contract's address
+- `selector() -> FunctionSelector` -- Current function selector
+- `get_args_hash() -> Field` -- Hash of function arguments
+- `chain_id() -> Field` / `version() -> Field` -- Chain and protocol identifiers
+- `block_number() -> u32` -- Current block number (not reliably spaced; use `timestamp()` for time-based logic)
+- `timestamp() -> u64` -- Current block timestamp (Unix seconds, shared by all txs in a block)
+- `transaction_fee() -> Field` -- Final tx fee (returns 0 during setup and app phases; only nonzero in teardown)
+- `is_static_call() -> bool` -- Whether executing in a read-only staticcall context
+
+**Gas Metering:**
+- `l2_gas_left() -> u32` / `da_gas_left() -> u32` -- Remaining gas
+- `min_fee_per_l2_gas() -> u128` / `min_fee_per_da_gas() -> u128` -- User-chosen gas prices (privacy note: gas price choices can leak wallet identity, urgency, or proving time)
 
 #### UtilityContext
 
@@ -821,6 +871,8 @@ Available APIs:
 ### 2.7 The Oracle System
 
 Oracles are unconstrained functions that bridge Noir execution to the PXE runtime. There are **25 oracle modules**.
+
+**A note on AVM opcodes.** Public functions also reach their execution environment (storage, call context, block info, L1->L2 messages) through Noir's `#[oracle(...)]` mechanism, but these are *not* oracles in the private sense. Each `avm_*` call is a thin Noir shim that, at bytecode-generation time, is lowered to a real AVM opcode. At prove time, every one of those opcodes is fully constrained by the AVM circuit -- so even though aztec-nr calls them through the same `#[oracle]` ABI that private oracles use, there is no "trust the PXE" assumption for their results. They are also **only callable during public execution**; attempting to call them from a private function is a compile-time or runtime error. In the table below the `avm` row groups these under a common `avm_*` prefix; for the full opcode set see the AVM specification.
 
 #### Oracle Pattern
 
@@ -856,7 +908,7 @@ Checked at the start of every function execution. The PXE rejects contracts whos
 | `keys` | `get_public_keys_and_partial_address` | Public key retrieval |
 | `key_validation_request` | `get_key_validation_request` | Kernel key validation |
 | `block_header` | `get_block_header_at` | Historical block state |
-| `get_membership_witness` | `get_note_hash_membership_witness` | Merkle inclusion proofs |
+| `get_membership_witness` | `get_note_hash_membership_witness` | Note hash inclusion proofs |
 | `get_nullifier_membership_witness` | `get_low_nullifier_membership_witness` | Nullifier non-inclusion proofs |
 | `get_public_data_witness` | `get_public_data_witness` | Public data Merkle proofs |
 | `get_l1_to_l2_membership_witness` | `get_l1_to_l2_membership_witness` | Cross-chain message proofs |
@@ -869,7 +921,7 @@ Checked at the start of every function execution. The PXE rejects contracts whos
 | `execution` | `get_utility_context` | Context bootstrapping |
 | `execution_cache` | `store`, `load` | Ephemeral tx-scoped cache |
 | `capsules` | `store`, `load`, `delete`, `copy` | Persistent per-contract storage. As of 4.2.0 every operation (and `CapsuleArray::at`) requires an explicit `scope: AztecAddress` argument; the PXE enforces scope access at runtime so a capsule written for one account cannot be read from a different scope |
-| `avm` | `address`, `sender`, `timestamp`, `storage_read`, `storage_write`, `emit_public_log`, ... | AVM opcodes for public execution |
+| `avm_*` | `address`, `sender`, `timestamp`, `storage_read`, `storage_write`, `emit_public_log`, ... | AVM opcodes for public execution (fully constrained by the AVM circuit; public-only). See the AVM spec for the full opcode set |
 | `aes128_decrypt` | `aes128_decrypt_oracle` | AES decryption (does not fail on bad key) |
 | `shared_secret` | `get_shared_secret` | ECDH shared secret computation |
 | `random` | `random` | Unconstrained randomness |
@@ -898,7 +950,7 @@ fn transfer(to: AztecAddress, amount: u128) {
 }
 ```
 
-Private event commitment = `poseidon2(randomness || event_type_id || event_data)`. The `#[must_use]` attribute on `EventMessage` ensures events are always delivered.
+Private event commitment = `poseidon2(randomness || event_type_id || event_data)`. The `#[must_use]` attribute on `EventMessage` ensures events are always delivered -- the compiler rejects code that discards the `self.emit(...)` return value, which forces the author to chain a `.deliver_to(recipient, mode)` call and actually send the event somewhere.
 
 **Message delivery modes:**
 
@@ -1131,7 +1183,7 @@ const authwit = await wallet.createAuthWit({
 
 Message hash = `poseidon2(consumer || chain_id || version || inner_hash)` where inner_hash = `hash(caller || consumer || selector || args_hash)`.
 
-**Public AuthWit:** Registry-based. Account calls `AuthRegistry.set_authorized(hash, true)`, consumer calls `AuthRegistry.consume(hash)`. Used when the authorization must be checked during public execution rather than private.
+**Public AuthWit:** Registry-based, used when the authorization is checked during public execution rather than private. It reuses most of the private AuthWit machinery -- the `#[authorize_once("from", "authwit_nonce")]` macro, the same message-hash construction (`poseidon2(consumer || chain_id || version || inner_hash)` with `inner_hash = hash(caller || consumer || selector || args_hash)`), and the nonce-as-nullifier replay protection. What differs is *how* the "is the caller authorized?" check is answered: instead of a static call to the account contract's `verify_private_authwit`, the account has previously called `AuthRegistry.set_authorized(hash, true)` to flip an on-chain flag, and the consumer calls `AuthRegistry.consume(hash)` which asserts the flag is set and clears it. No TypeScript-side `createAuthWit` signing is involved; the authorization is published as public on-chain state rather than handed over as a signed witness.
 
 ### 2.11 Historical State Access
 
