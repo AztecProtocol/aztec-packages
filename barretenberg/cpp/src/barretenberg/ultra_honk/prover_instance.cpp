@@ -237,36 +237,28 @@ void ProverInstance_<Flavor>::allocate_databus_polynomials(const Circuit& circui
 {
     BB_BENCH_NAME("allocate_databus_and_lookup_inverse_polynomials");
 
-    const size_t calldata_size = circuit.get_calldata().size();
-    const size_t sec_calldata_size = circuit.get_secondary_calldata().size();
-    const size_t return_data_size = circuit.get_return_data().size();
-
-    // Allocate only enough space for the databus data. For ZK, masking values are stored in MaskingTailData.
-    polynomials.calldata = Polynomial(calldata_size, dyadic_size());
-    polynomials.calldata_read_counts = Polynomial(calldata_size, dyadic_size());
-
-    polynomials.secondary_calldata = Polynomial(sec_calldata_size, dyadic_size());
-    polynomials.secondary_calldata_read_counts = Polynomial(sec_calldata_size, dyadic_size());
-
-    polynomials.return_data = Polynomial(return_data_size, dyadic_size());
-    polynomials.return_data_read_counts = Polynomial(return_data_size, dyadic_size());
-
-    // Databus lookup inverses: used in the log-derivative lookup argument
-    // Must cover both the databus gate block (where reads occur) and the databus data itself
+    // Databus inverses must cover both the databus gate block (where reads occur) and the data itself.
     const size_t q_busread_end = circuit.blocks.busread.trace_offset() + circuit.blocks.busread.size();
-    // Allocate to the minimum needed size. For ZK, masking values are stored in MaskingTailData.
-    size_t calldata_inverses_size = std::max(calldata_size, q_busread_end);
-    size_t sec_calldata_inverses_size = std::max(sec_calldata_size, q_busread_end);
-    size_t return_data_inverses_size = std::max(return_data_size, q_busread_end);
 
-    polynomials.calldata_inverses = Polynomial(calldata_inverses_size, dyadic_size());
-    polynomials.secondary_calldata_inverses = Polynomial(sec_calldata_inverses_size, dyadic_size());
-    polynomials.return_data_inverses = Polynomial(return_data_inverses_size, dyadic_size());
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1555): Minimum size >1 to avoid point at infinity
+    // commitment.
+    size_t max_databus_column_size = 2;
 
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1555): Allocate minimum size >1 to avoid point at
-    // infinity commitment.
-    const size_t max_databus_column_size =
-        std::max({ calldata_size, sec_calldata_size, return_data_size, size_t{ 2 } });
+    bb::constexpr_for<0, NUM_BUS_COLUMNS, 1>([&]<size_t bus_idx>() {
+        const size_t bus_size = circuit.get_bus_vector(bus_idx).size();
+        max_databus_column_size = std::max(max_databus_column_size, bus_size);
+
+        // Values + read_counts: sized to the bus data. For ZK, masking values are stored in MaskingTailData.
+        auto entities = polynomials.template databus_entities_for_bus<bus_idx>();
+        for (auto& entity : entities) {
+            entity = Polynomial(bus_size, dyadic_size());
+        }
+
+        // Inverse polynomial: sized to cover both the busread gate block and the bus data.
+        auto inverse_ref = polynomials.template databus_inverse_for_bus<bus_idx>();
+        inverse_ref[0] = Polynomial(std::max(bus_size, q_busread_end), dyadic_size());
+    });
+
     polynomials.databus_id = Polynomial(max_databus_column_size, dyadic_size());
 }
 
@@ -283,40 +275,27 @@ template <typename Flavor> void ProverInstance_<Flavor>::construct_lookup_polyno
 }
 
 /**
- * @brief Populate the databus polynomials (calldata, secondary_calldata, return_data) and their read counts.
+ * @brief Populate the per-bus databus polynomials (values and read counts) and the identity polynomial.
  */
 template <typename Flavor>
 void ProverInstance_<Flavor>::construct_databus_polynomials(Circuit& circuit)
     requires HasDataBus<Flavor>
 {
-    auto& calldata_poly = polynomials.calldata;
-    auto& calldata_read_counts = polynomials.calldata_read_counts;
-    auto& secondary_calldata_poly = polynomials.secondary_calldata;
-    auto& secondary_calldata_read_counts = polynomials.secondary_calldata_read_counts;
-    auto& return_data_poly = polynomials.return_data;
-    auto& return_data_read_counts = polynomials.return_data_read_counts;
-
-    const auto& calldata = circuit.get_calldata();
-    const auto& secondary_calldata = circuit.get_secondary_calldata();
-    const auto& return_data = circuit.get_return_data();
-
     // Note: Databus columns start from index 0. If this ever changes, make sure to also update the active range
     // construction in ExecutionTraceUsageTracker::update(). We do not utilize a zero row for databus columns.
-    for (size_t idx = 0; idx < calldata.size(); ++idx) {
-        calldata_poly.at(idx) = circuit.get_variable(calldata[idx]);
-        calldata_read_counts.at(idx) = calldata.get_read_count(idx);
-    }
-    for (size_t idx = 0; idx < secondary_calldata.size(); ++idx) {
-        secondary_calldata_poly.at(idx) = circuit.get_variable(secondary_calldata[idx]);
-        secondary_calldata_read_counts.at(idx) = secondary_calldata.get_read_count(idx);
-    }
-    for (size_t idx = 0; idx < return_data.size(); ++idx) {
-        return_data_poly.at(idx) = circuit.get_variable(return_data[idx]);
-        return_data_read_counts.at(idx) = return_data.get_read_count(idx);
-    }
+    bb::constexpr_for<0, NUM_BUS_COLUMNS, 1>([&]<size_t bus_idx>() {
+        const auto& bus_vec = circuit.get_bus_vector(bus_idx);
+        auto entities = polynomials.template databus_entities_for_bus<bus_idx>();
+        auto& values_poly = entities[0];
+        auto& read_counts_poly = entities[1];
+        for (size_t idx = 0; idx < bus_vec.size(); ++idx) {
+            values_poly.at(idx) = circuit.get_variable(bus_vec[idx]);
+            read_counts_poly.at(idx) = bus_vec.get_read_count(idx);
+        }
+    });
 
+    // Compute a simple identity polynomial for use in the databus lookup argument.
     auto& databus_id = polynomials.databus_id;
-    // Compute a simple identity polynomial for use in the databus lookup argument
     for (size_t i = 0; i < databus_id.size(); ++i) {
         databus_id.at(i) = i;
     }
