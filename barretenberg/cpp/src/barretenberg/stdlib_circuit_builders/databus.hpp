@@ -73,7 +73,9 @@ struct BusVector {
  * in-circuit as we would with public inputs).
  *
  */
-using DataBus = std::array<BusVector, 3>;
+constexpr size_t NUM_BUS_COLUMNS = 3;
+
+using DataBus = std::array<BusVector, NUM_BUS_COLUMNS>;
 enum class BusId { CALLDATA, SECONDARY_CALLDATA, RETURNDATA };
 
 } // namespace bb
