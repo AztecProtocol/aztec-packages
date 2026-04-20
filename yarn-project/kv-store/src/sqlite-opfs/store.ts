@@ -103,6 +103,13 @@ export class AztecSQLiteOPFSStore implements AztecAsyncKVStore {
   }
 
   async transactionAsync<T>(callback: () => Promise<T>): Promise<T> {
+    // Nested calls join the outer transaction — SQLite does not support nested BEGIN,
+    // and re-acquiring the SerialQueue while the outer call holds it would deadlock.
+    // Errors in the nested callback propagate to the outer catch, which rolls back the
+    // whole thing (the standard "nested tx = savepoint-free join" semantic).
+    if (this.#inTx) {
+      return callback();
+    }
     return this.#txQueue.put(async () => {
       this.#inTx = true;
       await this.#sendRequest({ type: 'begin', id: this.#allocId() });
