@@ -114,18 +114,10 @@ std::vector<typename MSM<Curve>::ThreadWorkUnits> MSM<Curve>::get_work_units(
         auto& pfx = prefix_weights[i];
         pfx.assign(n + 1, 0);
         for (size_t k = 0; k < n; ++k) {
-            const auto& scalar = scalars[i][indices[k]];
-            size_t bit_length;
-            if (scalar.data[3] != 0) {
-                bit_length = 192 + static_cast<size_t>(numeric::get_msb64(scalar.data[3])) + 1;
-            } else if (scalar.data[2] != 0) {
-                bit_length = 128 + static_cast<size_t>(numeric::get_msb64(scalar.data[2])) + 1;
-            } else if (scalar.data[1] != 0) {
-                bit_length = 64 + static_cast<size_t>(numeric::get_msb64(scalar.data[1])) + 1;
-            } else {
-                // indices only contains nonzero scalars, so data[0] must be nonzero here.
-                bit_length = static_cast<size_t>(numeric::get_msb64(scalar.data[0])) + 1;
-            }
+            // Scalars are in non-Montgomery form here, so data[] are the raw integer limbs.
+            // indices only contains nonzero scalars, so get_msb() returns a valid bit index.
+            const auto& s = scalars[i][indices[k]];
+            const size_t bit_length = uint256_t{ s.data[0], s.data[1], s.data[2], s.data[3] }.get_msb() + 1;
             const size_t weight = (bit_length + bps - 1) / bps;
             pfx[k + 1] = pfx[k] + weight;
         }
