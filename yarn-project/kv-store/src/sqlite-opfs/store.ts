@@ -57,10 +57,7 @@ export class AztecSQLiteOPFSStore implements AztecAsyncKVStore {
     };
     this.#worker.onerror = ev => {
       this.#log.error(`SQLite worker crashed: ${ev.message}`);
-      for (const { reject } of this.#pending.values()) {
-        reject(new Error(`SQLite worker crashed: ${ev.message}`));
-      }
-      this.#pending.clear();
+      this.#rejectPending(`SQLite worker crashed: ${ev.message}`);
     };
     this.#txQueue.start();
   }
@@ -150,6 +147,7 @@ export class AztecSQLiteOPFSStore implements AztecAsyncKVStore {
       this.#log.warn(`SQLite deleteDb failed: ${err instanceof Error ? err.message : err}`),
     );
     this.#worker.terminate();
+    this.#rejectPending('SQLite store deleted');
   }
 
   /**
@@ -172,6 +170,7 @@ export class AztecSQLiteOPFSStore implements AztecAsyncKVStore {
     await this.#txQueue.end();
     await this.#sendRequest({ type: 'close', id: this.#allocId() }).catch(() => {});
     this.#worker.terminate();
+    this.#rejectPending('SQLite store closed');
   }
 
   backupTo(_dstPath: string, _compact?: boolean): Promise<void> {
@@ -213,6 +212,22 @@ export class AztecSQLiteOPFSStore implements AztecAsyncKVStore {
 
   #allocId(): number {
     return ++this.#nextId;
+  }
+
+  /**
+   * Reject any in-flight requests with `reason`, so callers awaiting a response to a
+   * request sent to a now-terminated worker don't hang forever. Called from
+   * close()/delete() and from the worker.onerror handler.
+   */
+  #rejectPending(reason: string): void {
+    if (this.#pending.size === 0) {
+      return;
+    }
+    const err = new Error(reason);
+    for (const { reject } of this.#pending.values()) {
+      reject(err);
+    }
+    this.#pending.clear();
   }
 
   #sendRequest(req: WorkerRequest): Promise<WorkerResponse> {
