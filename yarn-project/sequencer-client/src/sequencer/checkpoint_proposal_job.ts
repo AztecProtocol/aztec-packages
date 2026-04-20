@@ -314,8 +314,9 @@ export class CheckpointProposalJob implements Traceable {
   private async waitForSyncedL2SlotNumber(waitForSlot: SlotNumber): Promise<boolean> {
     const targetSlotStart = Number(getTimestampForSlot(this.targetSlot, this.l1Constants));
     const targetSlotEndMs = (targetSlotStart + this.l1Constants.slotDuration) * 1000;
-    // Use a small positive floor to avoid retryUntil treating timeout=0 as "never timeout".
-    const timeoutSeconds = Math.max(0.1, (targetSlotEndMs - this.dateProvider.now()) / 1000);
+    const syncDelayTolerance = this.l1Constants.slotDuration * 1000;
+    const timeoutSeconds = Math.max(0.1, (targetSlotEndMs + syncDelayTolerance - this.dateProvider.now()) / 1000);
+
     try {
       return await retryUntil(
         async () => {
