@@ -2,7 +2,7 @@ import type { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
 import type { EventSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { siloNullifier } from '@aztec/stdlib/hash';
+import { computePrivateEventCommitment, siloNullifier } from '@aztec/stdlib/hash';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
 import type { BlockHeader, TxHash } from '@aztec/stdlib/tx';
 
@@ -26,6 +26,18 @@ export class EventService {
     txHash: TxHash,
     scope: AztecAddress,
   ): Promise<void> {
+    // Defense-in-depth: the built-in private-event path derives this commitment from content before enqueueing, but
+    // unconstrained PXE-side code (e.g. a custom message handler) can reach this oracle with arbitrary
+    // (content, commitment) pairs. Without this check it could bind arbitrary content to a legitimate tx nullifier,
+    // causing PXE to surface fabricated event data.
+    const recomputedCommitment = await computePrivateEventCommitment(randomness, selector.toField(), content);
+    if (!recomputedCommitment.equals(eventCommitment)) {
+      this.log.warn(
+        `Skipping event whose content does not hash to the provided commitment. contract=${contractAddress}, selector=${selector}, eventCommitment=${eventCommitment}, txHash=${txHash}, recomputedCommitment=${recomputedCommitment}`,
+      );
+      return;
+    }
+
     // While using 'latest' block number would be fine for private events since they cannot be accessed from Aztec.nr
     // (and thus we're less concerned about being ahead of the synced block), we use the synced block number to
     // maintain consistent behavior in the PXE. Additionally, events should never be ahead of the synced block here
