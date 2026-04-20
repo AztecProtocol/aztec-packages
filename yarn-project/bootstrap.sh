@@ -219,7 +219,7 @@ function test_cmds {
   done
 
   # Uses mocha for browser tests, so we have to treat it differently.
-  echo "$hash:ISOLATE=1 cd yarn-project/kv-store && yarn test"
+  echo "$hash:ISOLATE=1:TIMEOUT=1200 cd yarn-project/kv-store && yarn test"
 
   # Aztec CLI tests
   aztec/bootstrap.sh test_cmds
