@@ -1714,18 +1714,18 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     if (BlockHash.isBlockHash(block)) {
       const initialBlockHash = await this.#getInitialHeaderHash();
       if (block.equals(initialBlockHash)) {
-        // Block source doesn't handle initial header so we need to handle the case separately.
-        return this.worldStateSynchronizer.getSnapshot(BlockNumber.ZERO);
+        // The block source doesn't store the initial header, but the archive tree at index 0 does —
+        // so resolve the block number to zero and fall through to the snapshot + archive-root check below.
+        blockNumber = BlockNumber.ZERO;
+      } else {
+        const header = await this.blockSource.getBlockHeaderByHash(block);
+        if (!header) {
+          throw new Error(
+            `Block hash ${block.toString()} not found when querying world state. If the node API has been queried with anchor block hash possibly a reorg has occurred.`,
+          );
+        }
+        blockNumber = header.getBlockNumber();
       }
-
-      const header = await this.blockSource.getBlockHeaderByHash(block);
-      if (!header) {
-        throw new Error(
-          `Block hash ${block.toString()} not found when querying world state. If the node API has been queried with anchor block hash possibly a reorg has occurred.`,
-        );
-      }
-
-      blockNumber = header.getBlockNumber();
     } else {
       blockNumber = block as BlockNumber;
     }
