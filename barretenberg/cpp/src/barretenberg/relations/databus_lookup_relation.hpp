@@ -12,6 +12,7 @@
 #include "barretenberg/common/thread.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
 #include "barretenberg/relations/relation_types.hpp"
+#include "barretenberg/stdlib_circuit_builders/databus.hpp"
 
 namespace bb {
 
@@ -60,7 +61,7 @@ namespace bb {
 template <typename FF_> class DatabusLookupRelationImpl {
   public:
     using FF = FF_;
-    static constexpr size_t NUM_BUS_COLUMNS = 3; // calldata, secondary calldata, return data
+
     // Note: All three subrelations use length 6 to make efficient use of shared computation. Shortening (1b)/(2) to
     // length 5 forces the shared factors (lookup_term, table_term, read_selector, inverses, `I*L*T - 1`) to be
     // recomputed and is a net loss in performance.
@@ -69,28 +70,43 @@ template <typename FF_> class DatabusLookupRelationImpl {
     static constexpr size_t LOOKUP_SUBREL_LENGTH = 6;        // deg 4: (is_read*T - count*L) * I
     static constexpr size_t NUM_SUB_RELATION_PER_IDX = 3;    // the number of subrelations per bus column
 
-    static constexpr std::array<size_t, NUM_SUB_RELATION_PER_IDX * NUM_BUS_COLUMNS> SUBRELATION_PARTIAL_LENGTHS{
-        INVERSE_READ_SUBREL_LENGTH,  // inverse correctness on read rows (bus_idx 0)
-        INVERSE_WRITE_SUBREL_LENGTH, // inverse correctness on write rows (bus_idx 0)
-        LOOKUP_SUBREL_LENGTH,        // log-derivative lookup argument subrelation (bus_idx 0)
-        INVERSE_READ_SUBREL_LENGTH,  // inverse correctness on read rows (bus_idx 1)
-        INVERSE_WRITE_SUBREL_LENGTH, // inverse correctness on write rows (bus_idx 1)
-        LOOKUP_SUBREL_LENGTH,        // log-derivative lookup argument subrelation (bus_idx 1)
-        INVERSE_READ_SUBREL_LENGTH,  // inverse correctness on read rows (bus_idx 2)
-        INVERSE_WRITE_SUBREL_LENGTH, // inverse correctness on write rows (bus_idx 2)
-        LOOKUP_SUBREL_LENGTH,        // log-derivative lookup argument subrelation (bus_idx 2)
+    // Per-bus subrelation layout: (1a) inverse-on-read, (1b) inverse-on-write, (2) lookup identity.
+    // The whole-relation arrays below repeat this layout once per bus column.
+    static constexpr std::array<size_t, NUM_SUB_RELATION_PER_IDX> PER_BUS_SUBREL_LENGTHS{
+        INVERSE_READ_SUBREL_LENGTH,
+        INVERSE_WRITE_SUBREL_LENGTH,
+        LOOKUP_SUBREL_LENGTH,
     };
+    // (1a) and (1b) are per-row identities; (2) is a sum across the trace.
+    static constexpr std::array<bool, NUM_SUB_RELATION_PER_IDX> PER_BUS_LIN_INDEPENDENT{ true, true, false };
 
-    // Subrelations (1a) and (1b) are linearly independent (per-row). Subrelation (2) is linearly dependent (summed).
-    static constexpr std::array<bool, NUM_SUB_RELATION_PER_IDX * NUM_BUS_COLUMNS> SUBRELATION_LINEARLY_INDEPENDENT = {
-        true, true, false, true, true, false, true, true, false
-    };
+    template <typename T, size_t N>
+    static constexpr std::array<T, N * NUM_BUS_COLUMNS> repeat_per_bus(const std::array<T, N>& pattern)
+    {
+        std::array<T, N * NUM_BUS_COLUMNS> out{};
+        for (size_t bus = 0; bus < NUM_BUS_COLUMNS; ++bus) {
+            for (size_t i = 0; i < N; ++i) {
+                out[(bus * N) + i] = pattern[i];
+            }
+        }
+        return out;
+    }
+
+    static constexpr std::array<size_t, NUM_SUB_RELATION_PER_IDX * NUM_BUS_COLUMNS> SUBRELATION_PARTIAL_LENGTHS =
+        repeat_per_bus(PER_BUS_SUBREL_LENGTHS);
+    static constexpr std::array<bool, NUM_SUB_RELATION_PER_IDX * NUM_BUS_COLUMNS> SUBRELATION_LINEARLY_INDEPENDENT =
+        repeat_per_bus(PER_BUS_LIN_INDEPENDENT);
 
     template <typename AllEntities> inline static bool skip([[maybe_unused]] const AllEntities& in)
     {
         // Ensure the input does not contain a read gate or data that is being read
-        return in.q_busread.is_zero() && in.calldata_read_counts.is_zero() &&
-               in.secondary_calldata_read_counts.is_zero() && in.return_data_read_counts.is_zero();
+        if (!in.q_busread.is_zero()) {
+            return false;
+        }
+        bool all_counts_zero = true;
+        bb::constexpr_for<0, NUM_BUS_COLUMNS, 1>(
+            [&]<size_t bus_idx>() { all_counts_zero &= BusData<bus_idx, AllEntities>::read_counts(in).is_zero(); });
+        return all_counts_zero;
     }
 
     // Interface for easy access of databus components by column (bus_idx)
@@ -201,28 +217,17 @@ template <typename FF_> class DatabusLookupRelationImpl {
     {
         BB_BENCH_NAME("Databus::compute_logderivative_inverse");
         auto& inverse_polynomial = BusData<bus_idx, Polynomials>::inverses(polynomials);
+        const auto& column_selector = BusData<bus_idx, Polynomials>::selector(polynomials);
+        const auto& read_counts = BusData<bus_idx, Polynomials>::read_counts(polynomials);
 
         size_t min_iterations_per_thread = 1 << 6; // min number of iterations for which we'll spin up a unique thread
         size_t num_threads = bb::calculate_num_threads(circuit_size, min_iterations_per_thread);
 
         parallel_for(num_threads, [&](ThreadChunk chunk) {
-            bool is_read = false;
-            bool nonzero_read_count = false;
             for (size_t i : chunk.range(circuit_size)) {
                 // Determine if the present row contains a databus operation
-                auto q_busread = polynomials.q_busread[i];
-                if constexpr (bus_idx == 0) { // calldata
-                    is_read = q_busread == 1 && polynomials.q_l[i] == 1;
-                    nonzero_read_count = polynomials.calldata_read_counts[i] > 0;
-                }
-                if constexpr (bus_idx == 1) { // secondary_calldata
-                    is_read = q_busread == 1 && polynomials.q_r[i] == 1;
-                    nonzero_read_count = polynomials.secondary_calldata_read_counts[i] > 0;
-                }
-                if constexpr (bus_idx == 2) { // return data
-                    is_read = q_busread == 1 && polynomials.q_o[i] == 1;
-                    nonzero_read_count = polynomials.return_data_read_counts[i] > 0;
-                }
+                const bool is_read = polynomials.q_busread[i] == 1 && column_selector[i] == 1;
+                const bool nonzero_read_count = read_counts[i] > 0;
                 // We only compute the inverse if this row contains a read gate or data that has been read
                 if (is_read || nonzero_read_count) {
                     // TODO(https://github.com/AztecProtocol/barretenberg/issues/940): avoid get_row if possible.
