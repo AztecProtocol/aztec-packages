@@ -5,6 +5,7 @@
 
 #include "barretenberg/crypto/merkle_tree/memory_tree.hpp"
 #include "barretenberg/crypto/poseidon2/poseidon2.hpp"
+#include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/events/indexed_tree_check_event.hpp"
@@ -31,7 +32,7 @@ TEST(AvmSimulationIndexedTreeCheck, ReadExists)
     StrictMock<MockFieldGreaterThan> field_gt;
 
     EventEmitter<IndexedTreeCheckEvent> event_emitter;
-    IndexedTreeCheck indexed_tree_check(poseidon2, merkle_check, field_gt, event_emitter);
+    IndexedTreeCheck indexed_tree_check(poseidon2, merkle_check, field_gt, DOM_SEP__NULLIFIER_MERKLE, event_emitter);
 
     IndexedTreeLeafData low_leaf = { .value = 42, .next_value = 0, .next_index = 0 };
     FF low_leaf_hash = RawPoseidon2::hash(low_leaf.get_hash_inputs());
@@ -42,7 +43,8 @@ TEST(AvmSimulationIndexedTreeCheck, ReadExists)
     FF value = 42;
 
     EXPECT_CALL(poseidon2, hash(low_leaf.get_hash_inputs())).WillRepeatedly(Return(low_leaf_hash));
-    EXPECT_CALL(merkle_check, assert_membership(low_leaf_hash, low_leaf_index, _, snapshot.root))
+    EXPECT_CALL(merkle_check,
+                assert_membership(DOM_SEP__NULLIFIER_MERKLE, low_leaf_hash, low_leaf_index, _, snapshot.root))
         .WillRepeatedly(Return());
 
     indexed_tree_check.assert_read(
@@ -53,6 +55,7 @@ TEST(AvmSimulationIndexedTreeCheck, ReadExists)
         .prev_snapshot = snapshot,
         .next_snapshot = snapshot,
         .tree_height = sibling_path.size(),
+        .merkle_hash_separator = FF(DOM_SEP__NULLIFIER_MERKLE),
         .low_leaf_data = low_leaf,
         .low_leaf_hash = low_leaf_hash,
         .low_leaf_index = low_leaf_index,
@@ -73,7 +76,7 @@ TEST(AvmSimulationIndexedTreeCheck, ReadNotExistsLowPointsToInfinity)
     StrictMock<MockFieldGreaterThan> field_gt;
 
     EventEmitter<IndexedTreeCheckEvent> event_emitter;
-    IndexedTreeCheck indexed_tree_check(poseidon2, merkle_check, field_gt, event_emitter);
+    IndexedTreeCheck indexed_tree_check(poseidon2, merkle_check, field_gt, DOM_SEP__NULLIFIER_MERKLE, event_emitter);
 
     IndexedTreeLeafData low_leaf = { .value = 40, .next_value = 0, .next_index = 0 };
     FF low_leaf_hash = RawPoseidon2::hash(low_leaf.get_hash_inputs());
@@ -83,7 +86,8 @@ TEST(AvmSimulationIndexedTreeCheck, ReadNotExistsLowPointsToInfinity)
     FF value = 42;
 
     EXPECT_CALL(poseidon2, hash(low_leaf.get_hash_inputs())).WillRepeatedly(Return(low_leaf_hash));
-    EXPECT_CALL(merkle_check, assert_membership(low_leaf_hash, low_leaf_index, _, snapshot.root))
+    EXPECT_CALL(merkle_check,
+                assert_membership(DOM_SEP__NULLIFIER_MERKLE, low_leaf_hash, low_leaf_index, _, snapshot.root))
         .WillRepeatedly(Return());
     EXPECT_CALL(field_gt, ff_gt(value, low_leaf.value)).WillRepeatedly(Return(true));
 
@@ -94,6 +98,7 @@ TEST(AvmSimulationIndexedTreeCheck, ReadNotExistsLowPointsToInfinity)
         .prev_snapshot = snapshot,
         .next_snapshot = snapshot,
         .tree_height = sibling_path.size(),
+        .merkle_hash_separator = FF(DOM_SEP__NULLIFIER_MERKLE),
         .low_leaf_data = low_leaf,
         .low_leaf_hash = low_leaf_hash,
         .low_leaf_index = low_leaf_index,
@@ -121,7 +126,7 @@ TEST(AvmSimulationIndexedTreeCheck, ReadNotExistsLowPointsToAnotherLeaf)
     StrictMock<MockFieldGreaterThan> field_gt;
 
     EventEmitter<IndexedTreeCheckEvent> event_emitter;
-    IndexedTreeCheck indexed_tree_check(poseidon2, merkle_check, field_gt, event_emitter);
+    IndexedTreeCheck indexed_tree_check(poseidon2, merkle_check, field_gt, DOM_SEP__NULLIFIER_MERKLE, event_emitter);
 
     IndexedTreeLeafData low_leaf = { .value = 40, .next_value = 50, .next_index = 28 };
     FF low_leaf_hash = RawPoseidon2::hash(low_leaf.get_hash_inputs());
@@ -131,7 +136,8 @@ TEST(AvmSimulationIndexedTreeCheck, ReadNotExistsLowPointsToAnotherLeaf)
     FF value = 42;
 
     EXPECT_CALL(poseidon2, hash(low_leaf.get_hash_inputs())).WillRepeatedly(Return(low_leaf_hash));
-    EXPECT_CALL(merkle_check, assert_membership(low_leaf_hash, low_leaf_index, _, snapshot.root))
+    EXPECT_CALL(merkle_check,
+                assert_membership(DOM_SEP__NULLIFIER_MERKLE, low_leaf_hash, low_leaf_index, _, snapshot.root))
         .WillRepeatedly(Return());
     EXPECT_CALL(field_gt, ff_gt(value, low_leaf.value)).WillRepeatedly(Return(true));
     EXPECT_CALL(field_gt, ff_gt(low_leaf.next_value, value)).WillRepeatedly(Return(true));
@@ -143,6 +149,7 @@ TEST(AvmSimulationIndexedTreeCheck, ReadNotExistsLowPointsToAnotherLeaf)
         .prev_snapshot = snapshot,
         .next_snapshot = snapshot,
         .tree_height = sibling_path.size(),
+        .merkle_hash_separator = FF(DOM_SEP__NULLIFIER_MERKLE),
         .low_leaf_data = low_leaf,
         .low_leaf_hash = low_leaf_hash,
         .low_leaf_index = low_leaf_index,
@@ -170,7 +177,7 @@ TEST(AvmSimulationIndexedTreeCheck, WriteExists)
     StrictMock<MockFieldGreaterThan> field_gt;
 
     EventEmitter<IndexedTreeCheckEvent> event_emitter;
-    IndexedTreeCheck indexed_tree_check(poseidon2, merkle_check, field_gt, event_emitter);
+    IndexedTreeCheck indexed_tree_check(poseidon2, merkle_check, field_gt, DOM_SEP__NULLIFIER_MERKLE, event_emitter);
 
     IndexedTreeLeafData low_leaf = { .value = 42, .next_value = 0, .next_index = 0 };
     FF low_leaf_hash = RawPoseidon2::hash(low_leaf.get_hash_inputs());
@@ -181,7 +188,8 @@ TEST(AvmSimulationIndexedTreeCheck, WriteExists)
     FF value = 42;
 
     EXPECT_CALL(poseidon2, hash(low_leaf.get_hash_inputs())).WillRepeatedly(Return(low_leaf_hash));
-    EXPECT_CALL(merkle_check, assert_membership(low_leaf_hash, low_leaf_index, _, snapshot.root))
+    EXPECT_CALL(merkle_check,
+                assert_membership(DOM_SEP__NULLIFIER_MERKLE, low_leaf_hash, low_leaf_index, _, snapshot.root))
         .WillRepeatedly(Return());
 
     AppendOnlyTreeSnapshot result_snapshot = indexed_tree_check.write(value,
@@ -200,6 +208,7 @@ TEST(AvmSimulationIndexedTreeCheck, WriteExists)
         .prev_snapshot = snapshot,
         .next_snapshot = snapshot,
         .tree_height = sibling_path.size(),
+        .merkle_hash_separator = FF(DOM_SEP__NULLIFIER_MERKLE),
         .low_leaf_data = low_leaf,
         .low_leaf_hash = low_leaf_hash,
         .low_leaf_index = low_leaf_index,
@@ -216,7 +225,7 @@ TEST(AvmSimulationIndexedTreeCheck, Siloing)
     StrictMock<MockFieldGreaterThan> field_gt;
 
     EventEmitter<IndexedTreeCheckEvent> event_emitter;
-    IndexedTreeCheck indexed_tree_check(poseidon2, merkle_check, field_gt, event_emitter);
+    IndexedTreeCheck indexed_tree_check(poseidon2, merkle_check, field_gt, DOM_SEP__NULLIFIER_MERKLE, event_emitter);
 
     FF value = 42;
     FF separator = 99;
@@ -233,7 +242,8 @@ TEST(AvmSimulationIndexedTreeCheck, Siloing)
 
     EXPECT_CALL(poseidon2, hash(siloed_hash_inputs)).WillRepeatedly(Return(siloed_value));
     EXPECT_CALL(poseidon2, hash(low_leaf.get_hash_inputs())).WillRepeatedly(Return(low_leaf_hash));
-    EXPECT_CALL(merkle_check, assert_membership(low_leaf_hash, low_leaf_index, _, snapshot.root))
+    EXPECT_CALL(merkle_check,
+                assert_membership(DOM_SEP__NULLIFIER_MERKLE, low_leaf_hash, low_leaf_index, _, snapshot.root))
         .WillRepeatedly(Return());
 
     indexed_tree_check.assert_read(value, siloing_params, true, low_leaf, low_leaf_index, sibling_path, snapshot);
@@ -244,6 +254,7 @@ TEST(AvmSimulationIndexedTreeCheck, Siloing)
         .prev_snapshot = snapshot,
         .next_snapshot = snapshot,
         .tree_height = sibling_path.size(),
+        .merkle_hash_separator = FF(DOM_SEP__NULLIFIER_MERKLE),
         .low_leaf_data = low_leaf,
         .low_leaf_hash = low_leaf_hash,
         .low_leaf_index = low_leaf_index,
@@ -263,6 +274,7 @@ TEST(AvmSimulationIndexedTreeCheck, Siloing)
         .prev_snapshot = snapshot,
         .next_snapshot = snapshot,
         .tree_height = sibling_path.size(),
+        .merkle_hash_separator = FF(DOM_SEP__NULLIFIER_MERKLE),
         .low_leaf_data = low_leaf,
         .low_leaf_hash = low_leaf_hash,
         .low_leaf_index = low_leaf_index,
@@ -280,7 +292,7 @@ TEST(AvmSimulationIndexedTreeCheck, WriteAppend)
     StrictMock<MockFieldGreaterThan> field_gt;
 
     EventEmitter<IndexedTreeCheckEvent> event_emitter;
-    IndexedTreeCheck indexed_tree_check(poseidon2, merkle_check, field_gt, event_emitter);
+    IndexedTreeCheck indexed_tree_check(poseidon2, merkle_check, field_gt, DOM_SEP__NULLIFIER_MERKLE, event_emitter);
 
     FF value = 100;
     FF low_value = 40;
@@ -321,12 +333,19 @@ TEST(AvmSimulationIndexedTreeCheck, WriteAppend)
     EXPECT_CALL(poseidon2, hash(_)).WillRepeatedly([](const std::vector<FF>& input) {
         return RawPoseidon2::hash(input);
     });
-    EXPECT_CALL(merkle_check, write(low_leaf_hash, updated_low_leaf_hash, low_leaf_index, _, prev_snapshot.root))
+    EXPECT_CALL(
+        merkle_check,
+        write(DOM_SEP__NULLIFIER_MERKLE, low_leaf_hash, updated_low_leaf_hash, low_leaf_index, _, prev_snapshot.root))
         .WillRepeatedly(Return(intermediate_root));
     EXPECT_CALL(field_gt, ff_gt(value, low_leaf.value)).WillRepeatedly(Return(true));
     EXPECT_CALL(field_gt, ff_gt(low_leaf.next_value, value)).WillRepeatedly(Return(true));
     EXPECT_CALL(merkle_check,
-                write(FF(0), new_leaf_hash, prev_snapshot.next_available_leaf_index, _, intermediate_root))
+                write(DOM_SEP__NULLIFIER_MERKLE,
+                      FF(0),
+                      new_leaf_hash,
+                      prev_snapshot.next_available_leaf_index,
+                      _,
+                      intermediate_root))
         .WillRepeatedly(Return(next_snapshot.root));
 
     AppendOnlyTreeSnapshot result_snapshot = indexed_tree_check.write(value,
@@ -345,6 +364,7 @@ TEST(AvmSimulationIndexedTreeCheck, WriteAppend)
         .prev_snapshot = prev_snapshot,
         .next_snapshot = next_snapshot,
         .tree_height = low_leaf_sibling_path.size(),
+        .merkle_hash_separator = FF(DOM_SEP__NULLIFIER_MERKLE),
         .low_leaf_data = low_leaf,
         .low_leaf_hash = low_leaf_hash,
         .low_leaf_index = low_leaf_index,

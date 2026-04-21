@@ -59,15 +59,24 @@ namespace l1_to_l2_message_tree_check;
     pol commit l1_to_l2_message_tree_height;
     sel * (constants.L1_TO_L2_MSG_TREE_HEIGHT - l1_to_l2_message_tree_height) = 0;
 
+    // Per-tree merkle-node domain separator. The L1->L2 message tree is append-only and always
+    // uses DOM_SEP__MERKLE_HASH. Bound internally so callers don't need to plumb a separator
+    // column. Forwarded into merkle_check via #[MERKLE_CHECK].
+    pol commit merkle_hash_separator;
+    #[MERKLE_HASH_SEPARATOR_CONSTANT]
+    sel * (merkle_hash_separator - constants.DOM_SEP__MERKLE_HASH) = 0;
+
     #[MERKLE_CHECK]
     sel {
         leaf_value,
         leaf_index,
         l1_to_l2_message_tree_height,
-        root
+        root,
+        merkle_hash_separator
     } in merkle_check.start {
         merkle_check.read_node,
         merkle_check.index,
         merkle_check.path_len,
-        merkle_check.read_root
+        merkle_check.read_root,
+        merkle_check.merkle_hash_separator
     };

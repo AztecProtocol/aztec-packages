@@ -334,7 +334,10 @@ mod tests {
     };
     use bignum::{BigNum, BLS12_381_Fr};
     use std::ops::Neg;
-    use types::{constants::FIELDS_PER_BLOB, hash::poseidon2_hash};
+    use types::{
+        constants::{DOM_SEP__BLOB_CHALLENGE_Z, FIELDS_PER_BLOB},
+        hash::{poseidon2_hash, poseidon2_hash_with_separator},
+    };
 
     #[test]
     fn test_multiple_of_8() {
@@ -351,7 +354,10 @@ mod tests {
         kzg_commitment: [Field; 2],
         blob_fields_hash: Field,
     ) -> (Field, BLS12_381_Fr) {
-        let challenge_z = poseidon2_hash([blob_fields_hash, kzg_commitment[0], kzg_commitment[1]]);
+        let challenge_z = poseidon2_hash_with_separator(
+            [blob_fields_hash, kzg_commitment[0], kzg_commitment[1]],
+            DOM_SEP__BLOB_CHALLENGE_Z,
+        );
         let challenge_z_as_bignum = BLS12_381_Fr::from(challenge_z);
         let blob = blob_as_fields.map(|b| BLS12_381_Fr::from(b));
         let fracs = compute_fracs(challenge_z_as_bignum);
@@ -401,7 +407,7 @@ mod tests {
             0x0000000000000000000000000000004dd1a971c7e8d8292be943d05bccebcfea,
         ];
         let y_limbs_blob_400_from_ts =
-            [0xdde7b57ab99b51e4b06e7d827b6c4c, 0x4f0c0ee5e7dd037110686a4639d191, 0x212c];
+            [0xac45e1ed214434c298758a8ecbb9b6, 0x3e9899a71532fd9787ba8424169e82, 0x2ed4];
 
         let padded_blob_fields = blob_fields.concat([0; FIELDS_PER_BLOB - 400]);
         let (_, y) = evaluate_blob(
@@ -428,7 +434,7 @@ mod tests {
             0x000000000000000000000000000000d195faad1967cdf005acf73088b0e8474a,
         ];
         let y_limbs_blob_full_from_ts =
-            [0xecc38f478ced014b6ae860502a1b1c, 0x494e66a289c4509ecf97af4ff92aa7, 0x0365];
+            [0xc94c4fd96f6184b2cae95ae0510e92, 0x451840b84faad4f5942121befd2b42, 0x64d9];
 
         let (_, y) = evaluate_blob(
             blob_fields,

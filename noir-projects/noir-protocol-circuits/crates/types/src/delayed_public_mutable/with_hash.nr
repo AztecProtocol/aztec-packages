@@ -99,7 +99,9 @@ mod tests {
             scheduled_delay_change::ScheduledDelayChange,
             scheduled_value_change::ScheduledValueChange,
         },
-        merkle_tree::{MembershipWitness, test_utils::SingleSubtreeMerkleTree},
+        merkle_tree::{
+            MembershipWitness, public_data_merkle_hash, test_utils::SingleSubtreeMerkleTree,
+        },
         traits::{Empty, FromField, Hash},
     };
     use super::{
@@ -181,8 +183,9 @@ mod tests {
                     next_index: 1,
                 },
             ];
-            let public_data_tree = SingleSubtreeMerkleTree::<4, 2, PUBLIC_DATA_TREE_HEIGHT>::new(
+            let public_data_tree = SingleSubtreeMerkleTree::<4, 2, PUBLIC_DATA_TREE_HEIGHT>::new_with_hasher(
                 prefilled_leaves.map(|l| l.hash()),
+                public_data_merkle_hash,
             );
 
             let mut historical_header = BlockHeader::empty();

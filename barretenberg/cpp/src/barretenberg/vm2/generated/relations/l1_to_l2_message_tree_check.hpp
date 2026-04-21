@@ -14,7 +14,7 @@ template <typename FF_> class l1_to_l2_message_tree_checkImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 4> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 5, 3 };
+    static constexpr std::array<size_t, 5> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 5, 3, 3 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -34,9 +34,15 @@ template <typename FF> class l1_to_l2_message_tree_check : public Relation<l1_to
   public:
     static constexpr const std::string_view NAME = "l1_to_l2_message_tree_check";
 
+    // Subrelation indices constants, to be used in tests.
+    static constexpr size_t SR_MERKLE_HASH_SEPARATOR_CONSTANT = 4;
+
     static std::string get_subrelation_label(size_t index)
     {
-        switch (index) {}
+        switch (index) {
+        case SR_MERKLE_HASH_SEPARATOR_CONSTANT:
+            return "MERKLE_HASH_SEPARATOR_CONSTANT";
+        }
         return std::to_string(index);
     }
 };
