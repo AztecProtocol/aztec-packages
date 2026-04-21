@@ -67,11 +67,7 @@ unconstrained fn test_basic_flow() {
 
 - Tests run in parallel by default
 - Use `unconstrained` functions for faster execution
-<<<<<<< HEAD:docs/developer_versioned_docs/version-v4.1.0-rc.2/docs/aztec-nr/testing_contracts.md
-- See all `TestEnvironment` methods [here](https://github.com/AztecProtocol/aztec-packages/blob/v4.1.0-rc.2/noir-projects/aztec-nr/aztec/src/test/helpers/test_environment.nr)
-=======
 - See all `TestEnvironment` methods [here](pathname:///aztec-nr-api/mainnet/noir_aztec/test/helpers/test_environment/struct.TestEnvironment)
->>>>>>> d84d562134 (docs: link to apiref, not gh, remove stale include code markers (#22649)):docs/developer_versioned_docs/version-v4.2.0/docs/aztec-nr/testing_contracts.md
 
 :::
 

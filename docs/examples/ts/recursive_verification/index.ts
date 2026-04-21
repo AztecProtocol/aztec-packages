@@ -8,11 +8,7 @@ import { EmbeddedWallet } from "@aztec/wallets/embedded";
 import { NO_FROM } from "@aztec/aztec.js/account";
 import { Fr } from "@aztec/aztec.js/fields";
 import fs from "node:fs";
-<<<<<<< HEAD
 import assert from "node:assert";
-// docs:end:imports
-=======
->>>>>>> d84d562134 (docs: link to apiref, not gh, remove stale include code markers (#22649))
 
 if (!fs.existsSync("data.json")) {
   console.error(
