@@ -119,8 +119,7 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<M
         return 0;
     }
 
-    static constexpr bool ENSURE_NONZERO = false;
-    void finalize_circuit(const bool ensure_nonzero = ENSURE_NONZERO);
+    void finalize_circuit();
 
     size_t get_num_constant_gates() const override { return 0; }
 

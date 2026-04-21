@@ -16,9 +16,9 @@ using namespace bb::crypto;
 
 namespace bb {
 
-template <typename FF> void MegaCircuitBuilder_<FF>::finalize_circuit([[maybe_unused]] const bool ensure_nonzero)
+template <typename FF> void MegaCircuitBuilder_<FF>::finalize_circuit()
 {
-    UltraCircuitBuilder_<MegaExecutionTraceBlocks>::finalize_circuit(ENSURE_NONZERO);
+    UltraCircuitBuilder_<MegaExecutionTraceBlocks>::finalize_circuit();
 }
 
 /**

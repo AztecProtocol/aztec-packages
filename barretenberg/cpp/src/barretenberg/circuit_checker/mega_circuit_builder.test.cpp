@@ -227,7 +227,7 @@ TEST(MegaCircuitBuilder, EccOpBlockIsFirstInTrace)
     auto c = builder.add_variable(builder.get_variable(a) + builder.get_variable(b));
     builder.create_add_gate({ a, b, c, 1, 1, -1, 0 });
 
-    builder.finalize_circuit(true);
+    builder.finalize_circuit();
     builder.blocks.compute_offsets();
 
     // Verify ecc_op block starts at offset TRACE_OFFSET + 1 (disabled rows + zero row)
@@ -246,9 +246,6 @@ TEST(MegaCircuitBuilder, EccOpBlockIsFirstInTrace)
 
 /**
  * @brief Verify that an empty circuit can be finalized and passes circuit checks
- * @details Mega finalization no longer adds dummy non-zero gates — the disabled head region and
- * polynomial allocation handle the zero-commitment issue. Finalization still processes ROM/RAM
- * arrays, range lists, and public inputs (all empty for an empty circuit).
  */
 TEST(MegaCircuitBuilder, EmptyCircuitFinalization)
 {
@@ -258,7 +255,7 @@ TEST(MegaCircuitBuilder, EmptyCircuitFinalization)
     EXPECT_EQ(builder.blocks.ecc_op.size(), 0);
     EXPECT_FALSE(builder.circuit_finalized);
 
-    builder.finalize_circuit(true);
+    builder.finalize_circuit();
 
     EXPECT_TRUE(builder.circuit_finalized);
 

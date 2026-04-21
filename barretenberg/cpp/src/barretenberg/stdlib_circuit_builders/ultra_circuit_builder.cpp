@@ -23,8 +23,7 @@
 
 namespace bb {
 
-template <typename ExecutionTrace>
-void UltraCircuitBuilder_<ExecutionTrace>::finalize_circuit(const bool ensure_nonzero)
+template <typename ExecutionTrace> void UltraCircuitBuilder_<ExecutionTrace>::finalize_circuit()
 {
     /**
      * First of all, add the gates related to ROM arrays and range lists.
@@ -52,9 +51,6 @@ void UltraCircuitBuilder_<ExecutionTrace>::finalize_circuit(const bool ensure_no
      * our circuit is finalized, and we must not to execute these functions again.
      */
     if (!this->circuit_finalized) {
-        if (ensure_nonzero) {
-            add_gates_to_ensure_all_polys_are_non_zero();
-        }
         process_non_native_field_multiplications();
 #ifndef ULTRA_FUZZ
         this->rom_ram_logic.process_ROM_arrays(this);
@@ -84,150 +80,6 @@ template <typename ExecutionTrace> void UltraCircuitBuilder_<ExecutionTrace>::po
             selector.emplace_back(0);
         }
     }
-}
-
-/**
- * @brief Ensure all polynomials have at least one non-zero coefficient to avoid commiting to the zero-polynomial
- *
- * @param in Structure containing variables and witness selectors
- */
-// TODO(#423): This function adds valid (but arbitrary) gates to ensure that the circuit which includes
-// them will not result in any zero-polynomials. It also ensures that the first coefficient of the wire
-// polynomials is zero, which is required for them to be shiftable.
-template <typename ExecutionTrace>
-void UltraCircuitBuilder_<ExecutionTrace>::add_gates_to_ensure_all_polys_are_non_zero()
-{
-    // q_m, q_1, q_2, q_3, q_4
-    blocks.arithmetic.populate_wires(this->zero_idx(), this->zero_idx(), this->zero_idx(), this->zero_idx());
-    blocks.arithmetic.q_m().emplace_back(1);
-    blocks.arithmetic.q_1().emplace_back(1);
-    blocks.arithmetic.q_2().emplace_back(1);
-    blocks.arithmetic.q_3().emplace_back(1);
-    blocks.arithmetic.q_4().emplace_back(1);
-    blocks.arithmetic.q_c().emplace_back(0);
-    blocks.arithmetic.set_gate_selector(0);
-    check_selector_length_consistency();
-    this->increment_num_gates();
-
-    // q_delta_range
-    blocks.delta_range.populate_wires(this->zero_idx(), this->zero_idx(), this->zero_idx(), this->zero_idx());
-    blocks.delta_range.q_m().emplace_back(0);
-    blocks.delta_range.q_1().emplace_back(0);
-    blocks.delta_range.q_2().emplace_back(0);
-    blocks.delta_range.q_3().emplace_back(0);
-    blocks.delta_range.q_4().emplace_back(0);
-    blocks.delta_range.q_c().emplace_back(0);
-    blocks.delta_range.set_gate_selector(1);
-
-    check_selector_length_consistency();
-    this->increment_num_gates();
-    create_unconstrained_gate(
-        blocks.delta_range, this->zero_idx(), this->zero_idx(), this->zero_idx(), this->zero_idx());
-
-    // q_elliptic
-    blocks.elliptic.populate_wires(this->zero_idx(), this->zero_idx(), this->zero_idx(), this->zero_idx());
-    blocks.elliptic.q_m().emplace_back(0);
-    blocks.elliptic.q_1().emplace_back(0);
-    blocks.elliptic.q_2().emplace_back(0);
-    blocks.elliptic.q_3().emplace_back(0);
-    blocks.elliptic.q_4().emplace_back(0);
-    blocks.elliptic.q_c().emplace_back(0);
-    blocks.elliptic.set_gate_selector(1);
-    check_selector_length_consistency();
-    this->increment_num_gates();
-    create_unconstrained_gate(blocks.elliptic, this->zero_idx(), this->zero_idx(), this->zero_idx(), this->zero_idx());
-
-    // q_memory
-    blocks.memory.populate_wires(this->zero_idx(), this->zero_idx(), this->zero_idx(), this->zero_idx());
-    blocks.memory.q_m().emplace_back(0);
-    blocks.memory.q_1().emplace_back(0);
-    blocks.memory.q_2().emplace_back(0);
-    blocks.memory.q_3().emplace_back(0);
-    blocks.memory.q_4().emplace_back(0);
-    blocks.memory.q_c().emplace_back(0);
-    blocks.memory.set_gate_selector(1);
-    check_selector_length_consistency();
-    this->increment_num_gates();
-    create_unconstrained_gate(blocks.memory, this->zero_idx(), this->zero_idx(), this->zero_idx(), this->zero_idx());
-
-    // q_nnf
-    blocks.nnf.populate_wires(this->zero_idx(), this->zero_idx(), this->zero_idx(), this->zero_idx());
-    blocks.nnf.q_m().emplace_back(0);
-    blocks.nnf.q_1().emplace_back(0);
-    blocks.nnf.q_2().emplace_back(0);
-    blocks.nnf.q_3().emplace_back(0);
-    blocks.nnf.q_4().emplace_back(0);
-    blocks.nnf.q_c().emplace_back(0);
-    blocks.nnf.set_gate_selector(1);
-    check_selector_length_consistency();
-    this->increment_num_gates();
-    create_unconstrained_gate(blocks.nnf, this->zero_idx(), this->zero_idx(), this->zero_idx(), this->zero_idx());
-
-    // Add nonzero values in w_4 and q_c (q_4*w_4 + q_c --> 1*1 - 1 = 0)
-    uint32_t one_idx = put_constant_variable(FF::one());
-    create_big_add_gate({ this->zero_idx(), this->zero_idx(), this->zero_idx(), one_idx, 0, 0, 0, 1, -1 });
-
-    // Take care of all polys related to lookups (q_lookup, tables, sorted, etc)
-    // by doing a dummy lookup with a special table.
-    // Note: the 4th table poly is the table index: this is not the value of the table
-    // type enum but rather the index of the table in the list of all tables utilized
-    // in the circuit. Therefore we naively need two different basic tables (indices 0, 1)
-    // to get a non-zero value in table_4.
-    // The multitable operates on 2-bit values, so the maximum is 3
-    uint32_t left_value = 3;
-    uint32_t right_value = 3;
-
-    FF left_witness_value = fr{ left_value, 0, 0, 0 }.to_montgomery_form();
-    FF right_witness_value = fr{ right_value, 0, 0, 0 }.to_montgomery_form();
-
-    uint32_t left_witness_index = this->add_variable(left_witness_value);
-    uint32_t right_witness_index = this->add_variable(right_witness_value);
-    const auto dummy_accumulators = plookup::get_lookup_accumulators(
-        plookup::MultiTableId::HONK_DUMMY_MULTI, left_witness_value, right_witness_value, true);
-    auto read_data = create_gates_from_plookup_accumulators(
-        plookup::MultiTableId::HONK_DUMMY_MULTI, dummy_accumulators, left_witness_index, right_witness_index);
-
-    update_used_witnesses(left_witness_index);
-    update_used_witnesses(right_witness_index);
-    std::array<std::vector<uint32_t>, 3> parse_read_data{ read_data[plookup::ColumnIdx::C1],
-                                                          read_data[plookup::ColumnIdx::C2],
-                                                          read_data[plookup::ColumnIdx::C3] };
-    for (const auto& column : parse_read_data) {
-        update_used_witnesses(column);
-        update_finalize_witnesses(column);
-    }
-
-    // mock a poseidon external gate, with all zeros as input
-    blocks.poseidon2_external.populate_wires(this->zero_idx(), this->zero_idx(), this->zero_idx(), this->zero_idx());
-    blocks.poseidon2_external.q_m().emplace_back(0);
-    blocks.poseidon2_external.q_1().emplace_back(0);
-    blocks.poseidon2_external.q_2().emplace_back(0);
-    blocks.poseidon2_external.q_3().emplace_back(0);
-    blocks.poseidon2_external.q_c().emplace_back(0);
-    blocks.poseidon2_external.q_4().emplace_back(0);
-    blocks.poseidon2_external.set_gate_selector(1);
-    check_selector_length_consistency();
-    this->increment_num_gates();
-
-    // unconstrained gate to be read into by previous poseidon external gate via shifts
-    create_unconstrained_gate(
-        blocks.poseidon2_external, this->zero_idx(), this->zero_idx(), this->zero_idx(), this->zero_idx());
-
-    // mock a poseidon internal gate, with all zeros as input
-    blocks.poseidon2_internal.populate_wires(this->zero_idx(), this->zero_idx(), this->zero_idx(), this->zero_idx());
-    blocks.poseidon2_internal.q_m().emplace_back(0);
-    blocks.poseidon2_internal.q_1().emplace_back(0);
-    blocks.poseidon2_internal.q_2().emplace_back(0);
-    blocks.poseidon2_internal.q_3().emplace_back(0);
-    blocks.poseidon2_internal.q_c().emplace_back(0);
-    blocks.poseidon2_internal.q_4().emplace_back(0);
-    blocks.poseidon2_internal.set_gate_selector(1);
-    check_selector_length_consistency();
-    this->increment_num_gates();
-
-    // dummy gate to be read into by previous poseidon internal gate via shifts
-    create_unconstrained_gate(
-        blocks.poseidon2_internal, this->zero_idx(), this->zero_idx(), this->zero_idx(), this->zero_idx());
 }
 
 /**
