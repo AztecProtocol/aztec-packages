@@ -69,7 +69,7 @@ describe('blob', () => {
     const blobCommitmentFields = commitmentToFields(blob.commitment);
 
     // If the snapshot has changed, update the noir test data as well.
-    expect(y.toString()).toMatchInlineSnapshot(`"0x212c4f0c0ee5e7dd037110686a4639d191dde7b57ab99b51e4b06e7d827b6c4c"`);
+    expect(y.toString()).toMatchInlineSnapshot(`"0x2ed43e9899a71532fd9787ba8424169e82ac45e1ed214434c298758a8ecbb9b6"`);
 
     // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data.
     updateInlineTestData(
@@ -99,7 +99,7 @@ describe('blob', () => {
     const blobCommitmentFields = commitmentToFields(blob.commitment);
 
     // If the snapshot has changed, update the noir test data as well.
-    expect(y.toString()).toMatchInlineSnapshot(`"0x0365494e66a289c4509ecf97af4ff92aa7ecc38f478ced014b6ae860502a1b1c"`);
+    expect(y.toString()).toMatchInlineSnapshot(`"0x64d9451840b84faad4f5942121befd2b42c94c4fd96f6184b2cae95ae0510e92"`);
 
     // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data.
     updateInlineTestData(
