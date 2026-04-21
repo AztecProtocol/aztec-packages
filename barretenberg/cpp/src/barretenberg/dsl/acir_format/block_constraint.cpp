@@ -165,16 +165,17 @@ void process_call_data_operations(Builder& builder,
         }
     };
 
-    // Process primary or secondary calldata based on calldata_id
+    // Process kernel or app calldata based on calldata_id (and app_idx for app columns)
     switch (constraint.calldata_id) {
     case CallDataType::Kernel:
         process_calldata(databus.kernel_calldata);
         break;
     case CallDataType::App:
-        process_calldata(databus.app_calldata[static_cast<size_t>(constraint.calldata_id) - 1]);
+        BB_ASSERT_LT(constraint.app_idx, static_cast<uint32_t>(databus.app_calldata.size()));
+        process_calldata(databus.app_calldata[constraint.app_idx]);
         break;
     default:
-        bb::assert_failure("Databus only supports two calldata arrays.");
+        bb::assert_failure("Unexpected calldata_id.");
         break;
     }
 }

@@ -46,14 +46,15 @@ enum BlockType : std::uint8_t {
  * @details 1. init holds the initial values of the RAM/ROM/CallData/ReturnData table
  *          2. trace holds the sequence of memory operations (reads/writes) performed on the table
  *          3. type indicates the type of memory being constrained (RAM/ROM/CallData/ReturnData)
- *          4. calldata_id (used only for CallData) indicates whether we are operating on primary (kernel) or secondary
- *             (app) calldata
+ *          4. calldata_id (used only for CallData) indicates whether we are operating on kernel or app calldata
+ *          5. app_idx (used only for CallData when calldata_id == App) selects which app calldata column
  */
 struct BlockConstraint {
     std::vector<uint32_t> init;
     std::vector<MemOp> trace;
     BlockType type;
     CallDataType calldata_id;
+    uint32_t app_idx = 0;
 };
 
 template <typename Builder> void create_block_constraints(Builder& builder, const BlockConstraint& constraint);

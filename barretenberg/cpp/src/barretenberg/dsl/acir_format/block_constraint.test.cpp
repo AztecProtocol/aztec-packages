@@ -405,15 +405,24 @@ TYPED_TEST(RAMTest, Tampering)
     TestFixture::test_tampering();
 }
 
-template <CallDataType CallDataType_, size_t CallDataSize_, size_t NumReads_, bool PerformConstantOps_>
+template <CallDataType CallDataType_,
+          size_t CallDataSize_,
+          size_t NumReads_,
+          bool PerformConstantOps_,
+          uint32_t AppIdx_ = 0>
 struct CallDataTestParams {
     static constexpr CallDataType calldata_type = CallDataType_;
     static constexpr size_t calldata_size = CallDataSize_;
     static constexpr size_t num_reads = NumReads_;
     static constexpr bool perform_constant_ops = PerformConstantOps_;
+    static constexpr uint32_t app_idx = AppIdx_;
 };
 
-template <CallDataType calldata_type, size_t calldata_size, size_t num_reads, bool perform_constant_ops>
+template <CallDataType calldata_type,
+          size_t calldata_size,
+          size_t num_reads,
+          bool perform_constant_ops,
+          uint32_t app_idx = 0>
 class CallDataTestingFunctions {
   public:
     using AcirConstraint = BlockConstraint;
@@ -482,9 +491,11 @@ class CallDataTestingFunctions {
         }
 
         // Create the MemoryConstraint
-        memory_constraint = AcirConstraint{
-            .init = init_indices, .trace = trace, .type = BlockType::CallData, .calldata_id = calldata_type
-        };
+        memory_constraint = AcirConstraint{ .init = init_indices,
+                                            .trace = trace,
+                                            .type = BlockType::CallData,
+                                            .calldata_id = calldata_type,
+                                            .app_idx = app_idx };
     }
 
     static std::pair<AcirConstraint, WitnessVector> invalidate_witness(
@@ -512,16 +523,19 @@ class CallDataTestingFunctions {
 using CallDataTestConfigs = testing::Types<CallDataTestParams<CallDataType::Kernel, 0, 0, false>,
                                            CallDataTestParams<CallDataType::Kernel, 10, 5, false>,
                                            CallDataTestParams<CallDataType::Kernel, 10, 5, true>,
-                                           CallDataTestParams<CallDataType::App, 0, 0, false>,
-                                           CallDataTestParams<CallDataType::App, 10, 5, false>,
-                                           CallDataTestParams<CallDataType::App, 10, 5, true>>;
+                                           CallDataTestParams<CallDataType::App, 0, 0, false, 0>,
+                                           CallDataTestParams<CallDataType::App, 10, 5, false, 0>,
+                                           CallDataTestParams<CallDataType::App, 10, 5, true, 0>,
+                                           CallDataTestParams<CallDataType::App, 10, 5, false, 1>,
+                                           CallDataTestParams<CallDataType::App, 10, 5, false, 2>>;
 
 template <typename Params>
 class CallDataTests : public ::testing::Test,
                       public TestClass<CallDataTestingFunctions<Params::calldata_type,
                                                                 Params::calldata_size,
                                                                 Params::num_reads,
-                                                                Params::perform_constant_ops>> {
+                                                                Params::perform_constant_ops,
+                                                                Params::app_idx>> {
   protected:
     static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 };

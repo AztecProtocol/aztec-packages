@@ -97,7 +97,7 @@ inline Acir::MemOp mem_op_to_acir_mem_op(const MemOp& mem_op)
 /**
  * @brief Convert an acir_format::BlockType to an Acir::BlockType.
  */
-inline Acir::BlockType block_type_to_acir_block_type(BlockType type, CallDataType calldata_id)
+inline Acir::BlockType block_type_to_acir_block_type(BlockType type, CallDataType calldata_id, uint32_t app_idx = 0)
 {
     switch (type) {
     case BlockType::ROM:
@@ -105,7 +105,7 @@ inline Acir::BlockType block_type_to_acir_block_type(BlockType type, CallDataTyp
         // ROM and RAM both map to Memory in ACIR
         return Acir::BlockType{ .value = Acir::BlockType::Memory{} };
     case BlockType::CallData: {
-        uint32_t id = (calldata_id == CallDataType::Kernel) ? 0 : 1;
+        uint32_t id = (calldata_id == CallDataType::Kernel) ? 0 : (app_idx + 1);
         return Acir::BlockType{ .value = Acir::BlockType::CallData{ .value = id } };
     }
     case BlockType::ReturnData:
@@ -141,7 +141,7 @@ inline std::vector<Acir::Opcode> block_constraint_to_acir_opcodes(const BlockCon
     Acir::Opcode::MemoryInit mem_init{
         .block_id = Acir::BlockId{ .value = block_id },
         .init = std::move(init_witnesses),
-        .block_type = block_type_to_acir_block_type(constraint.type, constraint.calldata_id),
+        .block_type = block_type_to_acir_block_type(constraint.type, constraint.calldata_id, constraint.app_idx),
     };
     opcodes.push_back(Acir::Opcode{ .value = mem_init });
 

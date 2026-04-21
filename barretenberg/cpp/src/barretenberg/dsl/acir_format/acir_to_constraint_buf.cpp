@@ -802,10 +802,20 @@ BlockConstraint memory_init_to_block_constraint(Acir::Opcode::MemoryInit const& 
     // array.
     if (std::holds_alternative<Acir::BlockType::CallData>(mem_init.block_type.value)) {
         uint32_t calldata_id = std::get<Acir::BlockType::CallData>(mem_init.block_type.value).value;
-        BB_ASSERT(calldata_id == 0 || calldata_id == 1, "acir_format::handle_memory_init: Unsupported calldata id");
+        BB_ASSERT_LTE(calldata_id,
+                      NUM_APP_PER_KERNEL,
+                      "acir_format::handle_memory_init: calldata id exceeds kernel + NUM_APP_PER_KERNEL app columns");
 
         block.type = BlockType::CallData;
-        block.calldata_id = calldata_id == 0 ? CallDataType::Kernel : CallDataType::App;
+        if (calldata_id == 0) {
+            block.calldata_id = CallDataType::Kernel;
+        } else {
+            // WORKTODO: bifurcating the ACIR bus_id into (CallDataType enum, app_idx) is vestigial now that
+            // NUM_APP_PER_KERNEL can exceed 1. Consider dropping CallDataType and storing the raw bus_id on
+            // BlockConstraint, collapsing this mapping to a single identity copy.
+            block.calldata_id = CallDataType::App;
+            block.app_idx = calldata_id - 1;
+        }
     } else if (std::holds_alternative<Acir::BlockType::ReturnData>(mem_init.block_type.value)) {
         block.type = BlockType::ReturnData;
     }
