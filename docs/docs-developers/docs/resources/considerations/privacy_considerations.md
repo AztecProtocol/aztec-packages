@@ -87,7 +87,7 @@ A 'Function Fingerprint' is any data which is exposed by a function to the outsi
 
 > Note: many of these were mentioned in the ["Crossing the private to public boundary"](#crossing-the-private-to-public-boundary) section.
 
-> Note: the distinct Tx Fingerprint of each transaction is publicly visible when submitted to the L2 tx pool.
+> Note: a transaction's Tx Fingerprint is the combined set of publicly observable data listed above (for example: the number of public function calls, the number of L2->L1 messages, the contents of public logs, and which tree roots were read). Anyone watching the L2 transaction pool can see this fingerprint for every transaction that is submitted, and transactions with distinctive fingerprints can be linked to specific contracts or to patterns of user behavior.
 
 #### Standardizing Fingerprints
 

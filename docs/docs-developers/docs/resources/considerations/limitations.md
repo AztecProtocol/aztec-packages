@@ -74,7 +74,7 @@ This pattern is likely to develop in Aztec as well, except there is a problem: p
 
 ### Limited private data authentication
 
-The PXE supports a `scopes` parameter that restricts which accounts' notes a function call can access. However, this is caller-specified — the app chooses its own scopes. There is no mandatory, protocol-enforced authorization layer where the PXE denies an app access to another app's private data. A wallet can restrict scope on behalf of the user, but this is not yet standardized or enforced by default.
+The PXE supports a `scopes` parameter that restricts which accounts' notes a function call can access. However, this is caller-specified: the app chooses its own scopes. There is no mandatory, protocol-enforced authorization layer where the PXE denies an app access to another app's private data. A wallet can restrict scope on behalf of the user, but this is not yet standardized or enforced by default.
 
 ### No client-side bytecode validation
 
