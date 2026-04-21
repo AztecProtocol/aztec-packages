@@ -611,11 +611,11 @@ impl TestEnvironment {
 
     /// Returns offchain messages emitted by the last top-level call into TXE.
     ///
-    /// The returned `BoundedVec<OffchainMessage, _>` can be passed directly to a contract `offchain_receive`
+    /// The returned `BoundedVec<OffchainMessage, _>` can be passed directly to a contract's `offchain_receive`
     /// utility function to ingest the messages into the recipient's private state.
     ///
     /// Each returned message is populated with:
-    /// - `ciphertext` / `recipient`: decoded from the raw emitted payload.
+    /// - `ciphertext`, `recipient`: decoded from the raw emitted payload.
     /// - `tx_hash`: `Option::some(hash)` for tx-producing entry points (`call_private`,
     ///   `call_public`); `Option::none()` for tx-less entry points (`execute_utility`,
     ///   `private_context`, `utility_context`).
