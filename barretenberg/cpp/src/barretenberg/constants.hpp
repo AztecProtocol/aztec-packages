@@ -63,5 +63,5 @@ static constexpr uint32_t NUM_TRANSLATION_EVALUATIONS = 5;
 static constexpr size_t NUM_ZERO_ROWS = 1;
 
 // The maximum number of app circuits a single kernel can recursively verify in one accumulation group.
-static constexpr uint8_t NUM_APP_PER_KERNEL = 1;
+static constexpr uint8_t NUM_APP_PER_KERNEL = 3;
 } // namespace bb

@@ -47,9 +47,9 @@ template <typename FF> void MegaCircuitBuilder_<FF>::add_mega_gates_to_ensure_al
     auto read_idx = this->add_variable(FF(raw_read_idx));
     update_finalize_witnesses({ read_idx, read_calldata(BusId::KERNEL_CALLDATA, read_idx) });
 
-    // Create an arbitrary secondary_calldata read gate
+    // Create an arbitrary first_app_calldata read gate
     add_public_calldata(BusId::APP_CALLDATA,
-                        this->add_variable(BusVector::DEFAULT_VALUE)); // add one entry in secondary_calldata
+                        this->add_variable(BusVector::DEFAULT_VALUE)); // add one entry in first_app_calldata
     raw_read_idx = static_cast<uint32_t>(get_calldata(BusId::APP_CALLDATA).size()) - 1; // read data that was just added
     read_idx = this->add_variable(FF(raw_read_idx));
     update_finalize_witnesses({ read_idx, read_calldata(BusId::APP_CALLDATA, read_idx) });
@@ -283,8 +283,8 @@ template <typename FF> void MegaCircuitBuilder_<FF>::apply_databus_selectors(con
     block.q_1().emplace_back(idx == 0 ? 1 : 0);
     block.q_2().emplace_back(idx == 1 ? 1 : 0);
     block.q_3().emplace_back(idx == 2 ? 1 : 0);
-    block.q_4().emplace_back(0);
-    block.q_m().emplace_back(0);
+    block.q_4().emplace_back(idx == 3 ? 1 : 0);
+    block.q_m().emplace_back(idx == 4 ? 1 : 0);
     block.q_c().emplace_back(0);
     block.set_gate_selector(1);
 }

@@ -499,7 +499,7 @@ TEST_F(ChonkTests, KernelReturnDataTamperingFailure)
 /**
  * @brief Test that tampering with app_return_data causes verification to fail
  * @details app_return_data is the commitment to the app's return data which must match
- * the secondary_calldata commitment of the next circuit.
+ * the first_app_calldata commitment of the next circuit.
  */
 TEST_F(ChonkTests, AppReturnDataTamperingFailure)
 {

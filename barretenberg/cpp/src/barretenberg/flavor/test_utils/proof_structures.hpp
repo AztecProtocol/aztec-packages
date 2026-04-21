@@ -318,10 +318,10 @@ template <typename Flavor> struct MegaStructuredProofBase : StructuredProofHelpe
     Commitment ecc_op_wire_2_comm;
     Commitment ecc_op_wire_3_comm;
     Commitment ecc_op_wire_4_comm;
-    Commitment calldata_comm;
+    Commitment kernel_calldata_comm;
     Commitment calldata_read_counts_comm;
-    Commitment secondary_calldata_comm;
-    Commitment secondary_calldata_read_counts_comm;
+    Commitment first_app_calldata_comm;
+    Commitment first_app_calldata_read_counts_comm;
     Commitment return_data_comm;
     Commitment return_data_read_counts_comm;
     Commitment lookup_read_counts_comm;
@@ -329,7 +329,7 @@ template <typename Flavor> struct MegaStructuredProofBase : StructuredProofHelpe
     Commitment w_4_comm;
     Commitment lookup_inverses_comm;
     Commitment calldata_inverses_comm;
-    Commitment secondary_calldata_inverses_comm;
+    Commitment first_app_calldata_inverses_comm;
     Commitment return_data_inverses_comm;
     Commitment z_perm_comm;
     std::vector<bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>> sumcheck_univariates;
@@ -358,10 +358,10 @@ template <typename Flavor> struct MegaStructuredProofBase : StructuredProofHelpe
         ecc_op_wire_2_comm = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
         ecc_op_wire_3_comm = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
         ecc_op_wire_4_comm = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
-        calldata_comm = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
+        kernel_calldata_comm = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
         calldata_read_counts_comm = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
-        secondary_calldata_comm = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
-        secondary_calldata_read_counts_comm = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
+        first_app_calldata_comm = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
+        first_app_calldata_read_counts_comm = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
         return_data_comm = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
         return_data_read_counts_comm = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
         lookup_read_counts_comm = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
@@ -369,7 +369,7 @@ template <typename Flavor> struct MegaStructuredProofBase : StructuredProofHelpe
         w_4_comm = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
         lookup_inverses_comm = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
         calldata_inverses_comm = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
-        secondary_calldata_inverses_comm = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
+        first_app_calldata_inverses_comm = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
         return_data_inverses_comm = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
         z_perm_comm = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
     }
@@ -384,10 +384,10 @@ template <typename Flavor> struct MegaStructuredProofBase : StructuredProofHelpe
         Base::serialize_to_buffer(ecc_op_wire_2_comm, proof_data);
         Base::serialize_to_buffer(ecc_op_wire_3_comm, proof_data);
         Base::serialize_to_buffer(ecc_op_wire_4_comm, proof_data);
-        Base::serialize_to_buffer(calldata_comm, proof_data);
+        Base::serialize_to_buffer(kernel_calldata_comm, proof_data);
         Base::serialize_to_buffer(calldata_read_counts_comm, proof_data);
-        Base::serialize_to_buffer(secondary_calldata_comm, proof_data);
-        Base::serialize_to_buffer(secondary_calldata_read_counts_comm, proof_data);
+        Base::serialize_to_buffer(first_app_calldata_comm, proof_data);
+        Base::serialize_to_buffer(first_app_calldata_read_counts_comm, proof_data);
         Base::serialize_to_buffer(return_data_comm, proof_data);
         Base::serialize_to_buffer(return_data_read_counts_comm, proof_data);
         Base::serialize_to_buffer(lookup_read_counts_comm, proof_data);
@@ -395,7 +395,7 @@ template <typename Flavor> struct MegaStructuredProofBase : StructuredProofHelpe
         Base::serialize_to_buffer(w_4_comm, proof_data);
         Base::serialize_to_buffer(lookup_inverses_comm, proof_data);
         Base::serialize_to_buffer(calldata_inverses_comm, proof_data);
-        Base::serialize_to_buffer(secondary_calldata_inverses_comm, proof_data);
+        Base::serialize_to_buffer(first_app_calldata_inverses_comm, proof_data);
         Base::serialize_to_buffer(return_data_inverses_comm, proof_data);
         Base::serialize_to_buffer(z_perm_comm, proof_data);
     }

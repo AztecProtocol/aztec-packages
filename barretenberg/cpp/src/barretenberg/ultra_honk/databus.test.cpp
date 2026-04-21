@@ -125,7 +125,7 @@ TYPED_TEST(DataBusTests, CallDataRead)
 }
 
 /**
- * @brief Test proof construction/verification for a circuit with secondary_calldata lookup gates
+ * @brief Test proof construction/verification for a circuit with first_app_calldata lookup gates
  *
  */
 TYPED_TEST(DataBusTests, CallData2Read)

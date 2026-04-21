@@ -32,21 +32,33 @@ struct DatabusInputElements {
     FF q_busread;
 
     // Column selectors (determine which bus column is being read)
-    FF q_l; // calldata selector
-    FF q_r; // secondary_calldata selector
-    FF q_o; // return_data selector
+    FF q_l; // kernel_calldata selector
+    FF q_r; // first_app_calldata selector
+    FF q_o; // second_app_calldata selector
+    FF q_4; // third_app_calldata selector
+    FF q_m; // return_data selector
 
-    // Calldata (bus_idx = 0)
-    FF calldata;
-    FF calldata_read_counts;
-    FF calldata_inverses;
+    // Kernel calldata (bus_idx = 0)
+    FF kernel_calldata;
+    FF kernel_calldata_read_counts;
+    FF kernel_calldata_inverses;
 
-    // Secondary calldata (bus_idx = 1)
-    FF secondary_calldata;
-    FF secondary_calldata_read_counts;
-    FF secondary_calldata_inverses;
+    // First app calldata (bus_idx = 1)
+    FF first_app_calldata;
+    FF first_app_calldata_read_counts;
+    FF first_app_calldata_inverses;
 
-    // Return data (bus_idx = 2)
+    // Second app calldata (bus_idx = 2)
+    FF second_app_calldata;
+    FF second_app_calldata_read_counts;
+    FF second_app_calldata_inverses;
+
+    // Third app calldata (bus_idx = 3)
+    FF third_app_calldata;
+    FF third_app_calldata_read_counts;
+    FF third_app_calldata_inverses;
+
+    // Return data (bus_idx = 4)
     FF return_data;
     FF return_data_read_counts;
     FF return_data_inverses;
@@ -61,40 +73,52 @@ struct DatabusInputElements {
         result.q_l = FF::random_element();
         result.q_r = FF::random_element();
         result.q_o = FF::random_element();
-        result.calldata = FF::random_element();
-        result.calldata_read_counts = FF::random_element();
-        result.calldata_inverses = FF::random_element();
-        result.secondary_calldata = FF::random_element();
-        result.secondary_calldata_read_counts = FF::random_element();
-        result.secondary_calldata_inverses = FF::random_element();
+        result.q_4 = FF::random_element();
+        result.q_m = FF::random_element();
+        result.kernel_calldata = FF::random_element();
+        result.kernel_calldata_read_counts = FF::random_element();
+        result.kernel_calldata_inverses = FF::random_element();
+        result.first_app_calldata = FF::random_element();
+        result.first_app_calldata_read_counts = FF::random_element();
+        result.first_app_calldata_inverses = FF::random_element();
+        result.second_app_calldata = FF::random_element();
+        result.second_app_calldata_read_counts = FF::random_element();
+        result.second_app_calldata_inverses = FF::random_element();
+        result.third_app_calldata = FF::random_element();
+        result.third_app_calldata_read_counts = FF::random_element();
+        result.third_app_calldata_inverses = FF::random_element();
         result.return_data = FF::random_element();
         result.return_data_read_counts = FF::random_element();
         result.return_data_inverses = FF::random_element();
         return result;
     }
 
-    // Create inputs representing a valid read gate for calldata
+    // Create inputs representing a valid read gate for kernel_calldata
     static DatabusInputElements get_valid_calldata_read()
     {
         DatabusInputElements result{};
 
-        // Set up a read from calldata at index 5, value 42
-        result.w_l = FF(42);       // value being read
-        result.w_r = FF(5);        // index
-        result.databus_id = FF(5); // same index in the bus
-        result.calldata = FF(42);  // value in bus matches
+        // Set up a read from kernel_calldata at index 5, value 42
+        result.w_l = FF(42);             // value being read
+        result.w_r = FF(5);              // index
+        result.databus_id = FF(5);       // same index in the bus
+        result.kernel_calldata = FF(42); // value in bus matches
 
-        // Enable read gate for calldata
+        // Enable read gate for kernel_calldata
         result.q_busread = FF(1);
-        result.q_l = FF(1); // calldata selector
+        result.q_l = FF(1); // kernel_calldata selector
         result.q_r = FF(0);
         result.q_o = FF(0);
+        result.q_4 = FF(0);
+        result.q_m = FF(0);
 
         // Read counts
-        result.calldata_read_counts = FF(1);
+        result.kernel_calldata_read_counts = FF(1);
 
         // Other columns inactive
-        result.secondary_calldata_read_counts = FF(0);
+        result.first_app_calldata_read_counts = FF(0);
+        result.second_app_calldata_read_counts = FF(0);
+        result.third_app_calldata_read_counts = FF(0);
         result.return_data_read_counts = FF(0);
 
         return result;
@@ -104,7 +128,7 @@ struct DatabusInputElements {
 class DatabusLookupRelationConsistency : public testing::Test {
   public:
     using Relation = DatabusLookupRelationImpl<FF>;
-    static constexpr size_t NUM_SUBRELATIONS = 9; // 3 subrelations per bus column, 3 columns
+    static constexpr size_t NUM_SUBRELATIONS = 15; // 3 subrelations per bus column, 5 columns
 
     /**
      * @brief Validate that the relation's accumulate function produces expected values
@@ -122,12 +146,12 @@ class DatabusLookupRelationConsistency : public testing::Test {
 /**
  * @brief Helper to compute all expected subrelation values for a given input
  */
-static std::array<FF, 9> compute_expected_values(const DatabusInputElements& in, const RelationParameters<FF>& params)
+static std::array<FF, 15> compute_expected_values(const DatabusInputElements& in, const RelationParameters<FF>& params)
 {
     const auto& beta = params.beta;
     const auto& gamma = params.gamma;
 
-    std::array<FF, 9> expected_values;
+    std::array<FF, 15> expected_values;
     std::fill(expected_values.begin(), expected_values.end(), FF(0));
 
     // Read term (same for all columns): value + index * beta + gamma
@@ -152,15 +176,24 @@ static std::array<FF, 9> compute_expected_values(const DatabusInputElements& in,
             expected_values[bus_idx * 3 + 2] = (is_read * table_term - read_counts * lookup_term) * inverses;
         };
 
-    // Bus column 0 (calldata)
-    compute_column_subrelations(0, in.q_l, in.calldata, in.calldata_read_counts, in.calldata_inverses);
-
-    // Bus column 1 (secondary_calldata)
+    // Bus column 0 (kernel_calldata)
     compute_column_subrelations(
-        1, in.q_r, in.secondary_calldata, in.secondary_calldata_read_counts, in.secondary_calldata_inverses);
+        0, in.q_l, in.kernel_calldata, in.kernel_calldata_read_counts, in.kernel_calldata_inverses);
 
-    // Bus column 2 (return_data)
-    compute_column_subrelations(2, in.q_o, in.return_data, in.return_data_read_counts, in.return_data_inverses);
+    // Bus column 1 (first_app_calldata)
+    compute_column_subrelations(
+        1, in.q_r, in.first_app_calldata, in.first_app_calldata_read_counts, in.first_app_calldata_inverses);
+
+    // Bus column 2 (second_app_calldata)
+    compute_column_subrelations(
+        2, in.q_o, in.second_app_calldata, in.second_app_calldata_read_counts, in.second_app_calldata_inverses);
+
+    // Bus column 3 (third_app_calldata)
+    compute_column_subrelations(
+        3, in.q_4, in.third_app_calldata, in.third_app_calldata_read_counts, in.third_app_calldata_inverses);
+
+    // Bus column 4 (return_data)
+    compute_column_subrelations(4, in.q_m, in.return_data, in.return_data_read_counts, in.return_data_inverses);
 
     return expected_values;
 }
@@ -197,16 +230,20 @@ TEST_F(DatabusLookupRelationConsistency, InactiveGates)
     in.q_l = FF(0);
     in.q_r = FF(0);
     in.q_o = FF(0);
-    in.calldata_read_counts = FF(0);
-    in.secondary_calldata_read_counts = FF(0);
+    in.q_4 = FF(0);
+    in.q_m = FF(0);
+    in.kernel_calldata_read_counts = FF(0);
+    in.first_app_calldata_read_counts = FF(0);
+    in.second_app_calldata_read_counts = FF(0);
+    in.third_app_calldata_read_counts = FF(0);
     in.return_data_read_counts = FF(0);
 
     // Set other values non-zero to ensure they don't affect inactive gates
     in.w_l = FF(42);
     in.w_r = FF(5);
     in.databus_id = FF(5);
-    in.calldata = FF(42);
-    in.calldata_inverses = FF(0); // inverse should be 0 when inactive
+    in.kernel_calldata = FF(42);
+    in.kernel_calldata_inverses = FF(0); // inverse should be 0 when inactive
 
     std::array<FF, NUM_SUBRELATIONS> accumulator{};
     Relation::accumulate(accumulator, in, parameters, FF(1));
@@ -229,31 +266,31 @@ TEST_F(DatabusLookupRelationConsistency, ValidInverseComputation)
 
     DatabusInputElements in{};
 
-    // Set up a read gate for calldata
+    // Set up a read gate for kernel_calldata
     in.q_busread = FF(1);
-    in.q_l = FF(1); // calldata selector
+    in.q_l = FF(1); // kernel_calldata selector
     in.q_r = FF(0);
     in.q_o = FF(0);
 
     // Value and index
     FF value = FF(42);
     FF index = FF(5);
-    in.w_l = value;        // value being read
-    in.w_r = index;        // index
-    in.databus_id = index; // same index in the bus
-    in.calldata = value;   // value in bus matches
+    in.w_l = value;             // value being read
+    in.w_r = index;             // index
+    in.databus_id = index;      // same index in the bus
+    in.kernel_calldata = value; // value in bus matches
 
     // Compute the correct inverse
     auto lookup_term = value + index * beta + gamma;
     auto table_term = value + index * beta + gamma; // same since value and index match
     auto inverse = (lookup_term * table_term).invert();
-    in.calldata_inverses = inverse;
+    in.kernel_calldata_inverses = inverse;
 
-    in.calldata_read_counts = FF(1);
+    in.kernel_calldata_read_counts = FF(1);
 
     // Other columns inactive
-    in.secondary_calldata_read_counts = FF(0);
-    in.secondary_calldata_inverses = FF(0);
+    in.first_app_calldata_read_counts = FF(0);
+    in.first_app_calldata_inverses = FF(0);
     in.return_data_read_counts = FF(0);
     in.return_data_inverses = FF(0);
 
@@ -286,7 +323,7 @@ TEST_F(DatabusLookupRelationConsistency, MismatchedReadWriteTerms)
 
     DatabusInputElements in{};
 
-    // Set up a read gate for calldata
+    // Set up a read gate for kernel_calldata
     in.q_busread = FF(1);
     in.q_l = FF(1);
     in.q_r = FF(0);
@@ -300,16 +337,16 @@ TEST_F(DatabusLookupRelationConsistency, MismatchedReadWriteTerms)
     in.w_l = read_value;
     in.w_r = index;
     in.databus_id = index;
-    in.calldata = bus_value;
+    in.kernel_calldata = bus_value;
 
     auto lookup_term = read_value + index * beta + gamma;
     auto table_term = bus_value + index * beta + gamma;
     auto inverse = (lookup_term * table_term).invert();
-    in.calldata_inverses = inverse;
+    in.kernel_calldata_inverses = inverse;
 
-    in.calldata_read_counts = FF(1);
-    in.secondary_calldata_read_counts = FF(0);
-    in.secondary_calldata_inverses = FF(0);
+    in.kernel_calldata_read_counts = FF(1);
+    in.first_app_calldata_read_counts = FF(0);
+    in.first_app_calldata_inverses = FF(0);
     in.return_data_read_counts = FF(0);
     in.return_data_inverses = FF(0);
 
@@ -343,19 +380,23 @@ TEST_F(DatabusLookupRelationConsistency, InverseUnconstrainedAtInactiveRows)
     in.q_l = FF(0);
     in.q_r = FF(0);
     in.q_o = FF(0);
-    in.calldata_read_counts = FF(0);
-    in.secondary_calldata_read_counts = FF(0);
+    in.q_4 = FF(0);
+    in.q_m = FF(0);
+    in.kernel_calldata_read_counts = FF(0);
+    in.first_app_calldata_read_counts = FF(0);
+    in.second_app_calldata_read_counts = FF(0);
+    in.third_app_calldata_read_counts = FF(0);
     in.return_data_read_counts = FF(0);
 
     // Set inverses to arbitrary nonzero values — should not matter
-    in.calldata_inverses = FF(999);
-    in.secondary_calldata_inverses = FF(777);
+    in.kernel_calldata_inverses = FF(999);
+    in.first_app_calldata_inverses = FF(777);
     in.return_data_inverses = FF(555);
 
     in.w_l = FF(42);
     in.w_r = FF(5);
     in.databus_id = FF(5);
-    in.calldata = FF(42);
+    in.kernel_calldata = FF(42);
 
     std::array<FF, NUM_SUBRELATIONS> accumulator{};
     Relation::accumulate(accumulator, in, parameters, FF(1));
@@ -397,13 +438,13 @@ TEST_F(DatabusLookupRelationConsistency, WrongInverseOnReadRowFails)
     in.w_l = value;
     in.w_r = index;
     in.databus_id = index;
-    in.calldata = value;
+    in.kernel_calldata = value;
 
     // Set a WRONG inverse (just some arbitrary value, not 1/(L*T))
-    in.calldata_inverses = FF(777);
-    in.calldata_read_counts = FF(0); // pure read row, no write
-    in.secondary_calldata_read_counts = FF(0);
-    in.secondary_calldata_inverses = FF(0);
+    in.kernel_calldata_inverses = FF(777);
+    in.kernel_calldata_read_counts = FF(0); // pure read row, no write
+    in.first_app_calldata_read_counts = FF(0);
+    in.first_app_calldata_inverses = FF(0);
     in.return_data_read_counts = FF(0);
     in.return_data_inverses = FF(0);
 
@@ -442,16 +483,16 @@ TEST_F(DatabusLookupRelationConsistency, WrongInverseOnWriteRowFails)
     FF value = FF(42);
     FF index = FF(5);
     in.databus_id = index;
-    in.calldata = value;
+    in.kernel_calldata = value;
     in.w_l = FF(0); // irrelevant (no read gate)
     in.w_r = FF(0);
 
     // Row has nonzero read_count (it's been read from elsewhere) but wrong inverse
-    in.calldata_read_counts = FF(3);
-    in.calldata_inverses = FF(999); // WRONG
+    in.kernel_calldata_read_counts = FF(3);
+    in.kernel_calldata_inverses = FF(999); // WRONG
 
-    in.secondary_calldata_read_counts = FF(0);
-    in.secondary_calldata_inverses = FF(0);
+    in.first_app_calldata_read_counts = FF(0);
+    in.first_app_calldata_inverses = FF(0);
     in.return_data_read_counts = FF(0);
     in.return_data_inverses = FF(0);
 
@@ -490,7 +531,7 @@ TEST_F(DatabusLookupRelationConsistency, CorrectInverseOnWriteRow)
     FF value = FF(42);
     FF index = FF(5);
     in.databus_id = index;
-    in.calldata = value;
+    in.kernel_calldata = value;
     in.w_l = FF(0);
     in.w_r = FF(0);
 
@@ -498,11 +539,11 @@ TEST_F(DatabusLookupRelationConsistency, CorrectInverseOnWriteRow)
     auto table_term = value + index * beta + gamma;
 
     // Correct inverse
-    in.calldata_inverses = (lookup_term * table_term).invert();
-    in.calldata_read_counts = FF(3);
+    in.kernel_calldata_inverses = (lookup_term * table_term).invert();
+    in.kernel_calldata_read_counts = FF(3);
 
-    in.secondary_calldata_read_counts = FF(0);
-    in.secondary_calldata_inverses = FF(0);
+    in.first_app_calldata_read_counts = FF(0);
+    in.first_app_calldata_inverses = FF(0);
     in.return_data_read_counts = FF(0);
     in.return_data_inverses = FF(0);
 

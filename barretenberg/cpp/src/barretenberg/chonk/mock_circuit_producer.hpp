@@ -14,7 +14,7 @@ namespace {
  * @brief Test utility for coordinating passing of databus data between mocked private function execution circuits
  * @details Facilitates testing of the databus consistency checks that establish the correct passing of databus data
  * between circuits. Generates arbitrary return data for each app/kernel. Sets the kernel calldata and
- * secondary_calldata based respectively on the previous kernel return data and app return data.
+ * first_app_calldata based respectively on the previous kernel return data and app return data.
  */
 class MockDatabusProducer {
   private:
@@ -65,7 +65,7 @@ class MockDatabusProducer {
         for (auto& val : kernel_return_data) {
             circuit.add_public_calldata(BusId::KERNEL_CALLDATA, circuit.add_variable(val));
         }
-        // Populate secondary_calldata from app return data (if it exists), then clear the app return data
+        // Populate first_app_calldata from app return data (if it exists), then clear the app return data
         for (size_t idx = 0; idx < app_return_data.size(); ++idx) {
             for (auto& val : app_return_data[idx]) {
                 circuit.add_public_calldata(static_cast<BusId>(idx + 1), circuit.add_variable(val));
@@ -82,7 +82,7 @@ class MockDatabusProducer {
 
     /**
      * @brief Add an arbitrary value to the app return data. This leads to a descrepency between the values used by the
-     * app itself and the secondary_calldata values in the kernel that will be set based on these tampered values.
+     * app itself and the first_app_calldata values in the kernel that will be set based on these tampered values.
      */
     void tamper_with_app_return_data() { app_return_data[0].emplace_back(17); }
 };

@@ -112,28 +112,46 @@ template <typename FF_> class DatabusLookupRelationImpl {
     // Interface for easy access of databus components by column (bus_idx)
     template <size_t bus_idx, typename AllEntities> struct BusData;
 
-    // Specialization for calldata (bus_idx = 0)
+    // Specialization for kernel_calldata (bus_idx = 0)
     template <typename AllEntities> struct BusData</*bus_idx=*/0, AllEntities> {
-        static auto& values(const AllEntities& in) { return in.calldata; }
+        static auto& values(const AllEntities& in) { return in.kernel_calldata; }
         static auto& selector(const AllEntities& in) { return in.q_l; }
-        static auto& inverses(AllEntities& in) { return in.calldata_inverses; }
-        static auto& inverses(const AllEntities& in) { return in.calldata_inverses; } // const version
-        static auto& read_counts(const AllEntities& in) { return in.calldata_read_counts; }
+        static auto& inverses(AllEntities& in) { return in.kernel_calldata_inverses; }
+        static auto& inverses(const AllEntities& in) { return in.kernel_calldata_inverses; } // const version
+        static auto& read_counts(const AllEntities& in) { return in.kernel_calldata_read_counts; }
     };
 
-    // Specialization for secondary_calldata (bus_idx = 1)
+    // Specialization for first_app_calldata (bus_idx = 1)
     template <typename AllEntities> struct BusData</*bus_idx=*/1, AllEntities> {
-        static auto& values(const AllEntities& in) { return in.secondary_calldata; }
+        static auto& values(const AllEntities& in) { return in.first_app_calldata; }
         static auto& selector(const AllEntities& in) { return in.q_r; }
-        static auto& inverses(AllEntities& in) { return in.secondary_calldata_inverses; }
-        static auto& inverses(const AllEntities& in) { return in.secondary_calldata_inverses; } // const version
-        static auto& read_counts(const AllEntities& in) { return in.secondary_calldata_read_counts; }
+        static auto& inverses(AllEntities& in) { return in.first_app_calldata_inverses; }
+        static auto& inverses(const AllEntities& in) { return in.first_app_calldata_inverses; } // const version
+        static auto& read_counts(const AllEntities& in) { return in.first_app_calldata_read_counts; }
     };
 
-    // Specialization for return data (bus_idx = 2)
+    // Specialization for second_app_calldata (bus_idx = 2)
     template <typename AllEntities> struct BusData</*bus_idx=*/2, AllEntities> {
-        static auto& values(const AllEntities& in) { return in.return_data; }
+        static auto& values(const AllEntities& in) { return in.second_app_calldata; }
         static auto& selector(const AllEntities& in) { return in.q_o; }
+        static auto& inverses(AllEntities& in) { return in.second_app_calldata_inverses; }
+        static auto& inverses(const AllEntities& in) { return in.second_app_calldata_inverses; } // const version
+        static auto& read_counts(const AllEntities& in) { return in.second_app_calldata_read_counts; }
+    };
+
+    // Specialization for third_app_calldata (bus_idx = 3)
+    template <typename AllEntities> struct BusData</*bus_idx=*/3, AllEntities> {
+        static auto& values(const AllEntities& in) { return in.third_app_calldata; }
+        static auto& selector(const AllEntities& in) { return in.q_4; }
+        static auto& inverses(AllEntities& in) { return in.third_app_calldata_inverses; }
+        static auto& inverses(const AllEntities& in) { return in.third_app_calldata_inverses; } // const version
+        static auto& read_counts(const AllEntities& in) { return in.third_app_calldata_read_counts; }
+    };
+
+    // Specialization for return data (bus_idx = 4)
+    template <typename AllEntities> struct BusData</*bus_idx=*/4, AllEntities> {
+        static auto& values(const AllEntities& in) { return in.return_data; }
+        static auto& selector(const AllEntities& in) { return in.q_m; }
         static auto& inverses(AllEntities& in) { return in.return_data_inverses; }
         static auto& inverses(const AllEntities& in) { return in.return_data_inverses; } // const version
         static auto& read_counts(const AllEntities& in) { return in.return_data_read_counts; }

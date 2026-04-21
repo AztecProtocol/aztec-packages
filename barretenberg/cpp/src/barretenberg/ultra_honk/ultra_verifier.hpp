@@ -201,12 +201,12 @@ template <typename Flavor, class IO> class UltraVerifier_ {
     }
 
     /**
-     * @brief Get calldata commitment (MegaFlavor only)
+     * @brief Get kernel_calldata commitment (MegaFlavor only)
      */
-    const Commitment& get_calldata_commitment() const
+    const Commitment& get_kernel_calldata_commitment() const
         requires IsMegaFlavor<Flavor>
     {
-        return verifier_instance->witness_commitments.calldata;
+        return verifier_instance->witness_commitments.kernel_calldata;
     }
 
     /**

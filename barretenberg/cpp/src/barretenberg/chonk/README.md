@@ -270,12 +270,12 @@ The databus solves this by using **commitments** instead of raw data. Rather tha
 | Column | Purpose |
 |--------|---------|
 | `calldata` | Input from previous kernel's return data ($C_i$) |
-| `secondary_calldata` | Input from previous app's return data ($C'_i$) |
+| `first_app_calldata` | Input from previous app's return data ($C'_i$) |
 | `return_data` | Output to be consumed by next circuit ($R_i$) |
 
 App circuits only produce `return_data` (no calldata). Kernel circuits receive both:
 - `calldata` from the previous kernel's return data
-- `secondary_calldata` from the corresponding app's return data
+- `first_app_calldata` from the corresponding app's return data
 
 #### Lookup Relations
 
@@ -301,7 +301,7 @@ $$\sum_{i=0}^{n-1} a_i \cdot I_i \cdot (w_{1,i} + w_{2,i}\beta + \gamma) - q_{bu
 
 Inverse correctness is enforced by two separate gating subrelations: $(I \cdot L \cdot T - 1) \cdot \text{is\_read} = 0$ on read rows, and $(I \cdot L \cdot T - 1) \cdot \text{count} = 0$ on write rows. At inactive rows (where both gates are zero), $I$ is unconstrained but the lookup identity contribution is also zero, so the prover gets no free degrees of freedom.
 
-**Multiple columns**: Each bus column (calldata, secondary_calldata, return_data) has separate subrelations, distinguished by column-specific selectors $q_j$.
+**Multiple columns**: Each bus column (calldata, first_app_calldata, return_data) has separate subrelations, distinguished by column-specific selectors $q_j$.
 
 #### Population
 
@@ -322,7 +322,7 @@ App₀ ──return_data [R'₀]──┐
 App₁ ──return_data [R'₁]──┐
                           ↓
                     Kernel₁ ←─calldata [C₁]─── Kernel₀.return_data
-                            ←─secondary_calldata [C'₁]─── App₁.return_data
+                            ←─first_app_calldata [C'₁]─── App₁.return_data
                       │
                 return_data [R₁]
                       ↓
@@ -725,8 +725,8 @@ The [Databus](#databus) section explains how circuits pass data via commitment e
 // Kernel's calldata must match previous kernel's return_data
 kernel_input.kernel_return_data.incomplete_assert_equal(witness_commitments.calldata);
 
-// Kernel's secondary_calldata must match previous app's return_data
-kernel_input.app_return_data.incomplete_assert_equal(witness_commitments.secondary_calldata);
+// Kernel's first_app_calldata must match previous app's return_data
+kernel_input.app_return_data.incomplete_assert_equal(witness_commitments.first_app_calldata);
 ```
 
 The `incomplete_assert_equal` (for non-native G1 points) adds in-circuit constraints that the commitments are equal. Combined with the HyperNova binding of public inputs to proofs, tampering with databus content invalidates the proof.

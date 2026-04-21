@@ -198,7 +198,7 @@ For large amounts of public data shared between multiple circuits (common in Azt
 
 Mega supports lookup-style reads on three bus vectors:
 - `calldata`: Primary input data
-- `secondary_calldata`: Additional input data
+- `first_app_calldata`: Additional input data
 - `returndata`: Output data
 
 See `databus.hpp` in this directory for implementation details.

@@ -73,7 +73,7 @@ constexpr size_t NUM_BUS_COLUMNS = NUM_APP_PER_KERNEL + /*kernel calldata*/ 1 + 
 
 using DataBus = std::array<BusVector, NUM_BUS_COLUMNS>;
 
-enum class BusId : uint8_t { KERNEL_CALLDATA, APP_CALLDATA, RETURNDATA };
+enum class BusId : uint8_t { KERNEL_CALLDATA = 0, APP_CALLDATA = 1, RETURNDATA = NUM_APP_PER_KERNEL + 1 };
 static_assert(static_cast<size_t>(BusId::RETURNDATA) == NUM_BUS_COLUMNS - 1, "BusId enum must match DataBus layout");
 
 } // namespace bb

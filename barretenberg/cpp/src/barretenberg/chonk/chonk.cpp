@@ -164,21 +164,21 @@ Chonk::PublicInputsResult Chonk::process_public_inputs_and_consistency_checks(
 
         // Kernel return data
         bool kernel_return_data_match =
-            kernel_input.kernel_return_data.get_value() == witness_commitments.calldata.get_value();
+            kernel_input.kernel_return_data.get_value() == witness_commitments.kernel_calldata.get_value();
         BB_ASSERT_DEBUG(kernel_return_data_match,
-                        "kernel_return_data mismatch: proof contains " << kernel_input.kernel_return_data.get_value()
-                                                                       << " but calldata commitment is "
-                                                                       << witness_commitments.calldata.get_value());
-        kernel_input.kernel_return_data.incomplete_assert_equal(witness_commitments.calldata);
+                        "kernel_return_data mismatch: proof contains "
+                            << kernel_input.kernel_return_data.get_value() << " but kernel_calldata commitment is "
+                            << witness_commitments.kernel_calldata.get_value());
+        kernel_input.kernel_return_data.incomplete_assert_equal(witness_commitments.kernel_calldata);
 
         // App return data
         bool app_return_data_match =
-            kernel_input.app_return_data.get_value() == witness_commitments.secondary_calldata.get_value();
+            kernel_input.app_return_data.get_value() == witness_commitments.first_app_calldata.get_value();
         BB_ASSERT_DEBUG(app_return_data_match,
                         "app_return_data mismatch: proof contains "
-                            << kernel_input.app_return_data.get_value() << " but secondary_calldata commitment is "
-                            << witness_commitments.secondary_calldata.get_value());
-        kernel_input.app_return_data.incomplete_assert_equal(witness_commitments.secondary_calldata);
+                            << kernel_input.app_return_data.get_value() << " but first_app_calldata commitment is "
+                            << witness_commitments.first_app_calldata.get_value());
+        kernel_input.app_return_data.incomplete_assert_equal(witness_commitments.first_app_calldata);
 
         // ============= Perform accumulator hash consistency check =========================
 

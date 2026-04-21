@@ -178,23 +178,29 @@ class MegaFlavor {
     template <typename DataType> class DerivedEntities {
       public:
         DEFINE_FLAVOR_MEMBERS(DataType,
-                              z_perm,                         // column 4
-                              lookup_inverses,                // column 5
-                              lookup_read_counts,             // column 6
-                              lookup_read_tags,               // column 7
-                              ecc_op_wire_1,                  // column 8
-                              ecc_op_wire_2,                  // column 9
-                              ecc_op_wire_3,                  // column 10
-                              ecc_op_wire_4,                  // column 11
-                              calldata,                       // column 12
-                              calldata_read_counts,           // column 13
-                              calldata_inverses,              // column 14
-                              secondary_calldata,             // column 15
-                              secondary_calldata_read_counts, // column 16
-                              secondary_calldata_inverses,    // column 17
-                              return_data,                    // column 18
-                              return_data_read_counts,        // column 19
-                              return_data_inverses);          // column 20
+                              z_perm,                          // column 4
+                              lookup_inverses,                 // column 5
+                              lookup_read_counts,              // column 6
+                              lookup_read_tags,                // column 7
+                              ecc_op_wire_1,                   // column 8
+                              ecc_op_wire_2,                   // column 9
+                              ecc_op_wire_3,                   // column 10
+                              ecc_op_wire_4,                   // column 11
+                              kernel_calldata,                 // column 12
+                              kernel_calldata_read_counts,     // column 13
+                              kernel_calldata_inverses,        // column 14
+                              first_app_calldata,              // column 15
+                              first_app_calldata_read_counts,  // column 16
+                              first_app_calldata_inverses,     // column 17
+                              second_app_calldata,             // column 18
+                              second_app_calldata_read_counts, // column 19
+                              second_app_calldata_inverses,    // column 20
+                              third_app_calldata,              // column 21
+                              third_app_calldata_read_counts,  // column 22
+                              third_app_calldata_inverses,     // column 23
+                              return_data,                     // column 24
+                              return_data_read_counts,         // column 25
+                              return_data_inverses);           // column 26
         auto get_to_be_shifted() { return RefArray{ z_perm }; };
     };
 
@@ -219,22 +225,30 @@ class MegaFlavor {
         template <size_t bus_idx> auto databus_entities_for_bus()
         {
             if constexpr (bus_idx == 0) {
-                return RefArray{ this->calldata, this->calldata_read_counts };
+                return RefArray{ this->kernel_calldata, this->kernel_calldata_read_counts };
             } else if constexpr (bus_idx == 1) {
-                return RefArray{ this->secondary_calldata, this->secondary_calldata_read_counts };
+                return RefArray{ this->first_app_calldata, this->first_app_calldata_read_counts };
+            } else if constexpr (bus_idx == 2) {
+                return RefArray{ this->second_app_calldata, this->second_app_calldata_read_counts };
+            } else if constexpr (bus_idx == 3) {
+                return RefArray{ this->third_app_calldata, this->third_app_calldata_read_counts };
             } else {
-                static_assert(bus_idx == 2);
+                static_assert(bus_idx == 4);
                 return RefArray{ this->return_data, this->return_data_read_counts };
             }
         }
         template <size_t bus_idx> auto databus_inverse_for_bus()
         {
             if constexpr (bus_idx == 0) {
-                return RefArray{ this->calldata_inverses };
+                return RefArray{ this->kernel_calldata_inverses };
             } else if constexpr (bus_idx == 1) {
-                return RefArray{ this->secondary_calldata_inverses };
+                return RefArray{ this->first_app_calldata_inverses };
+            } else if constexpr (bus_idx == 2) {
+                return RefArray{ this->second_app_calldata_inverses };
+            } else if constexpr (bus_idx == 3) {
+                return RefArray{ this->third_app_calldata_inverses };
             } else {
-                static_assert(bus_idx == 2);
+                static_assert(bus_idx == 4);
                 return RefArray{ this->return_data_inverses };
             }
         }
@@ -390,12 +404,18 @@ class MegaFlavor {
             ecc_op_wire_2 = "ECC_OP_WIRE_2";
             ecc_op_wire_3 = "ECC_OP_WIRE_3";
             ecc_op_wire_4 = "ECC_OP_WIRE_4";
-            calldata = "CALLDATA";
-            calldata_read_counts = "CALLDATA_READ_COUNTS";
-            calldata_inverses = "CALLDATA_INVERSES";
-            secondary_calldata = "SECONDARY_CALLDATA";
-            secondary_calldata_read_counts = "SECONDARY_CALLDATA_READ_COUNTS";
-            secondary_calldata_inverses = "SECONDARY_CALLDATA_INVERSES";
+            kernel_calldata = "KERNEL_CALLDATA";
+            kernel_calldata_read_counts = "KERNEL_CALLDATA_READ_COUNTS";
+            kernel_calldata_inverses = "KERNEL_CALLDATA_INVERSES";
+            first_app_calldata = "FIRST_APP_CALLDATA";
+            first_app_calldata_read_counts = "FIRST_APP_CALLDATA_READ_COUNTS";
+            first_app_calldata_inverses = "FIRST_APP_CALLDATA_INVERSES";
+            second_app_calldata = "SECOND_APP_CALLDATA";
+            second_app_calldata_read_counts = "SECOND_APP_CALLDATA_READ_COUNTS";
+            second_app_calldata_inverses = "SECOND_APP_CALLDATA_INVERSES";
+            third_app_calldata = "THIRD_APP_CALLDATA";
+            third_app_calldata_read_counts = "THIRD_APP_CALLDATA_READ_COUNTS";
+            third_app_calldata_inverses = "THIRD_APP_CALLDATA_INVERSES";
             return_data = "RETURN_DATA";
             return_data_read_counts = "RETURN_DATA_READ_COUNTS";
             return_data_inverses = "RETURN_DATA_INVERSES";
