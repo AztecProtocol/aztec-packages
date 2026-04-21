@@ -93,7 +93,8 @@ void IndexedTreeCheck::assert_read(const FF& source_value,
     }
     // Low leaf membership
     FF low_leaf_hash = poseidon2.hash(low_leaf_preimage.get_hash_inputs());
-    merkle_check.assert_membership(low_leaf_hash, low_leaf_index, sibling_path, snapshot.root);
+    merkle_check.assert_membership(
+        merkle_hash_domain_separator, low_leaf_hash, low_leaf_index, sibling_path, snapshot.root);
 
     // Low leaf and value validation
     validate_low_leaf(value, low_leaf_preimage, exists);
@@ -103,6 +104,7 @@ void IndexedTreeCheck::assert_read(const FF& source_value,
         .prev_snapshot = snapshot,
         .next_snapshot = snapshot,
         .tree_height = sibling_path.size(),
+        .merkle_hash_separator = FF(merkle_hash_domain_separator),
         .low_leaf_data = low_leaf_preimage,
         .low_leaf_hash = low_leaf_hash,
         .low_leaf_index = low_leaf_index,
@@ -160,7 +162,8 @@ AppendOnlyTreeSnapshot IndexedTreeCheck::write(const FF& source_value,
     FF low_leaf_hash = poseidon2.hash(low_leaf_preimage.get_hash_inputs());
 
     if (exists) {
-        merkle_check.assert_membership(low_leaf_hash, low_leaf_index, low_leaf_sibling_path, prev_snapshot.root);
+        merkle_check.assert_membership(
+            merkle_hash_domain_separator, low_leaf_hash, low_leaf_index, low_leaf_sibling_path, prev_snapshot.root);
     } else {
         // Low leaf update
         IndexedTreeLeafData updated_low_leaf_preimage = low_leaf_preimage;
@@ -168,8 +171,12 @@ AppendOnlyTreeSnapshot IndexedTreeCheck::write(const FF& source_value,
         updated_low_leaf_preimage.next_value = value;
         FF updated_low_leaf_hash = poseidon2.hash(updated_low_leaf_preimage.get_hash_inputs());
 
-        FF intermediate_root = merkle_check.write(
-            low_leaf_hash, updated_low_leaf_hash, low_leaf_index, low_leaf_sibling_path, prev_snapshot.root);
+        FF intermediate_root = merkle_check.write(merkle_hash_domain_separator,
+                                                  low_leaf_hash,
+                                                  updated_low_leaf_hash,
+                                                  low_leaf_index,
+                                                  low_leaf_sibling_path,
+                                                  prev_snapshot.root);
 
         // Insertion
         IndexedTreeLeafData new_leaf_preimage = {
@@ -180,7 +187,8 @@ AppendOnlyTreeSnapshot IndexedTreeCheck::write(const FF& source_value,
 
         FF new_leaf_hash = poseidon2.hash(new_leaf_preimage.get_hash_inputs());
 
-        FF write_root = merkle_check.write(FF(0),
+        FF write_root = merkle_check.write(merkle_hash_domain_separator,
+                                           FF(0),
                                            new_leaf_hash,
                                            prev_snapshot.next_available_leaf_index,
                                            insertion_sibling_path.value(),
@@ -201,6 +209,7 @@ AppendOnlyTreeSnapshot IndexedTreeCheck::write(const FF& source_value,
                                            .prev_snapshot = prev_snapshot,
                                            .next_snapshot = next_snapshot,
                                            .tree_height = low_leaf_sibling_path.size(),
+                                           .merkle_hash_separator = FF(merkle_hash_domain_separator),
                                            .low_leaf_data = low_leaf_preimage,
                                            .low_leaf_hash = low_leaf_hash,
                                            .low_leaf_index = low_leaf_index,

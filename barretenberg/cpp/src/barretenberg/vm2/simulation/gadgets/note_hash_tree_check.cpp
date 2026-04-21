@@ -1,5 +1,7 @@
 #include "barretenberg/vm2/simulation/gadgets/note_hash_tree_check.hpp"
 
+#include "barretenberg/vm2/common/aztec_constants.hpp"
+
 namespace bb::avm2::simulation {
 
 /**
@@ -24,7 +26,7 @@ bool NoteHashTreeCheck::note_hash_exists(const FF& unique_note_hash,
                                          std::span<const FF> sibling_path,
                                          const AppendOnlyTreeSnapshot& snapshot)
 {
-    merkle_check.assert_membership(leaf_value, leaf_index, sibling_path, snapshot.root);
+    merkle_check.assert_membership(DOM_SEP__MERKLE_HASH, leaf_value, leaf_index, sibling_path, snapshot.root);
     events.emit(NoteHashTreeReadWriteEvent{ .note_hash = unique_note_hash,
                                             .existing_leaf_value = leaf_value,
                                             .leaf_index = leaf_index,
@@ -185,8 +187,8 @@ AppendOnlyTreeSnapshot NoteHashTreeCheck::append_note_hash_internal(FF note_hash
             NoteHashUniquenessData{ .nonce = nonce, .unique_note_hash = note_hash, .first_nullifier = first_nullifier };
     }
 
-    FF next_root =
-        merkle_check.write(0, note_hash, prev_snapshot.next_available_leaf_index, sibling_path, prev_snapshot.root);
+    FF next_root = merkle_check.write(
+        DOM_SEP__MERKLE_HASH, 0, note_hash, prev_snapshot.next_available_leaf_index, sibling_path, prev_snapshot.root);
     AppendOnlyTreeSnapshot next_snapshot = AppendOnlyTreeSnapshot{
         .root = next_root,
         .next_available_leaf_index = prev_snapshot.next_available_leaf_index + 1,

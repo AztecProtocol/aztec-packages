@@ -2,6 +2,7 @@
 
 #include "barretenberg/avm_fuzzer/fuzz_lib/constants.hpp"
 #include "barretenberg/avm_fuzzer/fuzz_lib/simulator.hpp"
+#include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/simulation/events/update_check.hpp"
 #include "barretenberg/vm2/simulation/gadgets/bytecode_manager.hpp"
@@ -25,9 +26,12 @@ GadgetFuzzerContextHelper::GadgetFuzzerContextHelper(AztecAddress contract_addre
     , memory_provider(range_check, execution_id_manager, memory_emitter)
     , merkle_check(poseidon2, merkle_check_emitter)
     , poseidon2(execution_id_manager, greater_than, hash_event_emitter, perm_event_emitter, perm_mem_event_emitter)
-    , indexed_tree_check(poseidon2, merkle_check, field_gt, indexed_tree_check_emitter)
-    , written_public_data_slots_tree_check(indexed_tree_check, build_public_data_slots_tree())
-    , retrieved_bytecodes_tree_check(indexed_tree_check, build_retrieved_bytecodes_tree())
+    , indexed_tree_check_written_slots(
+          poseidon2, merkle_check, field_gt, DOM_SEP__WRITTEN_SLOTS_MERKLE, indexed_tree_check_emitter)
+    , indexed_tree_check_retrieved_bytecodes(
+          poseidon2, merkle_check, field_gt, DOM_SEP__RETRIEVED_BYTECODES_MERKLE, indexed_tree_check_emitter)
+    , written_public_data_slots_tree_check(indexed_tree_check_written_slots, build_public_data_slots_tree())
+    , retrieved_bytecodes_tree_check(indexed_tree_check_retrieved_bytecodes, build_retrieved_bytecodes_tree())
 
 {
     global_variables = create_default_globals();

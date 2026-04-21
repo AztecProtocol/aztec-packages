@@ -214,52 +214,45 @@ template <typename Flavor> class SumcheckProverRound {
         // Note: effective_round_size is expected to be even.
         BB_ASSERT(effective_round_size % 2 == 0, "effective_round_size must be even");
 
-        // Determine number of threads for multithreading.
-        // Note: Multithreading is "on" for every round but we reduce the number of threads from the max available based
-        // on a specified minimum number of iterations per thread. This eventually leads to the use of a single thread.
-        size_t min_iterations_per_thread = 1 << 6; // min number of iterations for which we'll spin up a unique thread
-        size_t num_threads = bb::calculate_num_threads(effective_round_size, min_iterations_per_thread);
+        // The AVM trace is very non-uniform: some rows are dense while others are nearly empty.
+        // To balance the load, we break the trace into fixed-size chunks (rows_per_chunk rows)
+        // and hand them out dynamically to workers via the atomic thread pool: each worker
+        // atomically grabs the next chunk when it finishes the previous one.
+        constexpr size_t rows_per_chunk = 16;
+        static_assert((rows_per_chunk >= 2) && (rows_per_chunk % 2 == 0), "rows_per_chunk must be at least 2 and even");
 
-        // In the AVM, the trace is more dense at the top and therefore it is worth to split the work per thread
-        // in a more distributed way over the edges. To achieve this, we split the trace into chunks and each chunk is
-        // evenly divided among the threads.
+        // One accumulator slot per outer task; each outer task's iteration index IS its slot.
+        // No state is shared with other SumcheckProverRound invocations.
+        const size_t num_slots = bb::get_num_cpus();
+        std::vector<SumcheckTupleOfTuplesOfUnivariates> thread_univariate_accumulators(num_slots);
 
-        // Pattern over edges is now (note that horizontal direction here is edge direction, i.e., vertical direction in
-        // the trace):
-        //
-        //          chunk_0             |           chunk_1             |         chunk_2 ....
-        //  thread_0 | thread_1 ...     | thread_0 | thread_1 ...       | thread_0 | thread_1 ...
-        //
-        // Any thread now processes edges which are distributed at different locations in the trace contrary
-        // to the "standard" method where thread_0 processes all the low indices and the last thread processes
-        // all the high indices.
+        const size_t total_chunks =
+            (effective_round_size / rows_per_chunk) + (effective_round_size % rows_per_chunk > 0 ? 1 : 0);
 
-        constexpr size_t rows_per_thread = 2; // Measured in rows, not edges.
-        static_assert((rows_per_thread >= 2) && (rows_per_thread % 2 == 0),
-                      "rows_per_thread must be at least 2 and even, because edges are processed in pairs");
-        size_t chunk_size = rows_per_thread * num_threads;
-        size_t num_chunks = (effective_round_size / chunk_size) +            // This rounds down.
-                            (effective_round_size % chunk_size > 0 ? 1 : 0); // If there's a remainder, add 1.
+        // Chunks are consumed dynamically via an atomic counter: faster threads naturally pick up
+        // more chunks while the slot they write to stays fixed for the life of their outer task.
+        std::atomic<size_t> next_chunk(0);
 
-        // Construct univariate accumulator containers; one per thread
-        // Note: std::vector will trigger {}-initialization of the contents. Therefore no need to zero the univariates.
-        std::vector<SumcheckTupleOfTuplesOfUnivariates> thread_univariate_accumulators(num_threads);
-
-        // Accumulate the contribution from each sub-relation across each edge of the hyper-cube
-        parallel_for(num_threads, [&](size_t thread_idx) {
+        // Accumulate the contribution from each sub-relation across each edge of the hyper-cube.
+        parallel_for(num_slots, [&](size_t slot_id) {
             ExtendedEdges lazy_extended_edges(polynomials);
 
-            for (size_t chunk_idx = 0; chunk_idx < num_chunks; chunk_idx++) {
-                size_t start = (chunk_idx * chunk_size) + (thread_idx * rows_per_thread);
-                size_t end = std::min(start + rows_per_thread, effective_round_size);
+            while (true) {
+                const size_t chunk_id = next_chunk.fetch_add(1, std::memory_order_relaxed);
+                if (chunk_id >= total_chunks) {
+                    break;
+                }
+                size_t start = chunk_id * rows_per_chunk;
+                size_t end = std::min(start + rows_per_chunk, effective_round_size);
+
                 for (size_t edge_idx = start; edge_idx < end; edge_idx += 2) {
                     lazy_extended_edges.set_current_edge(edge_idx);
                     // Compute the \f$ \ell \f$-th edge's univariate contribution,
-                    // scale it by the corresponding \f$ pow_{\beta} \f$ contribution and add it to the accumulators for
-                    // \f$ \tilde{S}^i(X_i) \f$. If \f$ \ell \f$'s binary representation is given by \f$
+                    // scale it by the corresponding \f$ pow_{\beta} \f$ contribution and add it to the accumulators
+                    // for \f$ \tilde{S}^i(X_i) \f$. If \f$ \ell \f$'s binary representation is given by \f$
                     // (\ell_{i+1},\ldots, \ell_{d-1})\f$, the \f$ pow_{\beta}\f$-contribution is
                     // \f$\beta_{i+1}^{\ell_{i+1}} \cdot \ldots \cdot \beta_{d-1}^{\ell_{d-1}}\f$.
-                    accumulate_relation_univariates(thread_univariate_accumulators[thread_idx],
+                    accumulate_relation_univariates(thread_univariate_accumulators[slot_id],
                                                     lazy_extended_edges,
                                                     relation_parameters,
                                                     gate_separators[edge_idx]);

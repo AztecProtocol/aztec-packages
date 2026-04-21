@@ -6,6 +6,7 @@
 
 #include "barretenberg/crypto/poseidon2/poseidon2.hpp"
 #include "barretenberg/vm2/common/avm_io.hpp"
+#include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/constraining/flavor_settings.hpp"
 #include "barretenberg/vm2/constraining/testing/check_relation.hpp"
@@ -64,7 +65,7 @@ TEST(L1ToL2MessageTreeCheckConstrainingTests, PositiveExists)
     for (size_t i = 0; i < L1_TO_L2_MSG_TREE_HEIGHT; ++i) {
         sibling_path.emplace_back(i);
     }
-    FF root = unconstrained_root_from_path(msg_hash, leaf_index, sibling_path);
+    FF root = unconstrained_root_from_path(DOM_SEP__MERKLE_HASH, msg_hash, leaf_index, sibling_path);
 
     EXPECT_TRUE(
         l1_to_l2_message_tree_check.exists(msg_hash,
@@ -103,7 +104,7 @@ TEST(L1ToL2MessageTreeCheckConstrainingTests, PositiveNotExists)
     for (size_t i = 0; i < L1_TO_L2_MSG_TREE_HEIGHT; ++i) {
         sibling_path.emplace_back(i);
     }
-    FF root = unconstrained_root_from_path(actual_leaf_value, leaf_index, sibling_path);
+    FF root = unconstrained_root_from_path(DOM_SEP__MERKLE_HASH, actual_leaf_value, leaf_index, sibling_path);
 
     EXPECT_FALSE(
         l1_to_l2_message_tree_check.exists(requested_msg_hash,
@@ -117,6 +118,24 @@ TEST(L1ToL2MessageTreeCheckConstrainingTests, PositiveNotExists)
 
     check_relation<l1_to_l2_message_tree_check_relations>(trace);
     check_all_interactions<L1ToL2MessageTreeCheckTraceBuilder>(trace);
+}
+
+TEST(L1ToL2MessageTreeCheckConstrainingTests, NegativeWrongMerkleHashSeparator)
+{
+    TestTraceContainer trace({ {
+        { C::l1_to_l2_message_tree_check_sel, 1 },
+        { C::l1_to_l2_message_tree_check_merkle_hash_separator, DOM_SEP__MERKLE_HASH },
+    } });
+
+    check_relation<l1_to_l2_message_tree_check_relations>(
+        trace, l1_to_l2_message_tree_check_relations::SR_MERKLE_HASH_SEPARATOR_CONSTANT);
+
+    // A malicious prover picking any other value must be rejected.
+    trace.set(C::l1_to_l2_message_tree_check_merkle_hash_separator, 0, DOM_SEP__NULLIFIER_MERKLE);
+
+    EXPECT_THROW_WITH_MESSAGE(check_relation<l1_to_l2_message_tree_check_relations>(
+                                  trace, l1_to_l2_message_tree_check_relations::SR_MERKLE_HASH_SEPARATOR_CONSTANT),
+                              "MERKLE_HASH_SEPARATOR_CONSTANT");
 }
 
 } // namespace
