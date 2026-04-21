@@ -82,7 +82,17 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
   private readonly senderTaggingStore: SenderTaggingStore;
   private totalPublicCalldataCount: number;
   private readonly initialSideEffectCounter: number;
-  private senderForTags?: AztecAddress;
+  /**
+   * Default sender for tags supplied when this oracle was constructed. Immutable for the lifetime of this call and
+   * propagated unchanged to every nested call. Used as the starting value of `currentSenderForTags` for each child,
+   * so a contract's `setSenderForTags` override never leaks to its descendants, siblings, or parents.
+   */
+  private readonly defaultSenderForTags?: AztecAddress;
+  /**
+   * The current sender-for-tags value visible to this contract call. Initialised from `defaultSenderForTags` and
+   * mutated only by `setSenderForTags`. Scoped to this call: nested calls do not see this override.
+   */
+  private currentSenderForTags?: AztecAddress;
   private readonly simulator?: CircuitSimulator;
 
   constructor(args: PrivateExecutionOracleArgs) {
@@ -101,7 +111,8 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
     this.senderTaggingStore = args.senderTaggingStore;
     this.totalPublicCalldataCount = args.totalPublicCalldataCount ?? 0;
     this.initialSideEffectCounter = args.sideEffectCounter ?? 0;
-    this.senderForTags = args.senderForTags;
+    this.defaultSenderForTags = args.senderForTags;
+    this.currentSenderForTags = args.senderForTags;
     this.simulator = args.simulator;
   }
 
@@ -178,11 +189,12 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
    * for a tag in order to emit a log. Constrained tagging should not use this as there is no
    * guarantee that the recipient knows about the sender, and hence about the shared secret.
    *
-   * The value persists through nested calls, meaning all calls down the stack will use the same
-   * 'senderForTags' value (unless it is replaced).
+   * Returns the default supplied when this oracle was constructed unless this contract call has
+   * overridden it via `setSenderForTags`. Overrides are scoped to the current contract call and
+   * never propagate to nested calls, siblings, or parents.
    */
   public getSenderForTags(): Promise<AztecAddress | undefined> {
-    return Promise.resolve(this.senderForTags);
+    return Promise.resolve(this.currentSenderForTags ?? this.defaultSenderForTags);
   }
 
   /**
@@ -192,12 +204,11 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
    * for a tag in order to emit a log. Constrained tagging should not use this as there is no
    * guarantee that the recipient knows about the sender, and hence about the shared secret.
    *
-   * Account contracts typically set this value before calling other contracts. The value persists
-   * through nested calls, meaning all calls down the stack will use the same 'senderForTags'
-   * value (unless it is replaced by another call to this setter).
+   * The override is scoped to this call. Nested calls start from the initial default, and
+   * siblings and parents calls are unaffected.
    */
   public setSenderForTags(senderForTags: AztecAddress): Promise<void> {
-    this.senderForTags = senderForTags;
+    this.currentSenderForTags = senderForTags;
     return Promise.resolve();
   }
 
@@ -578,7 +589,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
       sideEffectCounter,
       log: this.logger,
       scopes: this.scopes,
-      senderForTags: this.senderForTags,
+      senderForTags: this.defaultSenderForTags,
       simulator: this.simulator!,
       l2TipsStore: this.l2TipsStore,
     });

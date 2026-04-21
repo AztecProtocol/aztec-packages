@@ -320,7 +320,10 @@ export class TestWallet extends BaseWallet {
       gasSettings: opts.fee?.gasSettings,
     });
     const txRequest = await this.createTxExecutionRequestFromPayloadAndFee(exec, opts.from, fee);
-    const txProvingResult = await this.pxe.proveTx(txRequest, this.scopesFrom(opts.from, opts.additionalScopes));
+    const txProvingResult = await this.pxe.proveTx(txRequest, {
+      scopes: this.scopesFrom(opts.from, opts.additionalScopes),
+      senderForTags: this.senderForTagsFrom(opts.from, opts.sendMessagesAs),
+    });
     return new ProvenTx(
       this.aztecNode,
       await txProvingResult.toTx(),
