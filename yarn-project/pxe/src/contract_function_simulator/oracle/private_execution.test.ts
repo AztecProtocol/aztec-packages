@@ -769,12 +769,7 @@ describe('Private Execution test suite', () => {
       expect(contractStore.getFunctionCall).toHaveBeenCalledWith('sync_state', [owner], childAddress);
     });
 
-    // Exercises the `set_sender_for_tags` propagation rules via a parent -> middle -> leaf call chain in the
-    // `SenderForTagsTest` contract. Every relevant invariant is asserted inside Noir, so any propagation bug
-    // surfaces as a simulation failure here.
     it('sender_for_tags override in a nested call does not leak to siblings, parents, or further descendants', async () => {
-      // Deploy a single instance and call `parent`; it invokes `middle` and `leaf` on itself. We pass the PXE-supplied
-      // `senderForTags` to the entry function so parent can assert it received exactly what we configured.
       const contractAddress = await mockContractInstance(SenderForTagsTestContractArtifact);
       await runSimulator({
         args: [senderForTags],

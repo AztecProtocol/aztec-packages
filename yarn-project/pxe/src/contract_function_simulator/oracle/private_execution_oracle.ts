@@ -87,12 +87,12 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
    * propagated unchanged to every nested call. Used as the starting value of `currentSenderForTags` for each child,
    * so a contract's `setSenderForTags` override never leaks to its descendants, siblings, or parents.
    */
-  private readonly defaultSenderForTags?: AztecAddress;
+  private readonly defaultSenderForTags: AztecAddress | undefined;
   /**
    * The current sender-for-tags value visible to this contract call. Initialised from `defaultSenderForTags` and
    * mutated only by `setSenderForTags`. Scoped to this call: nested calls do not see this override.
    */
-  private currentSenderForTags?: AztecAddress;
+  private currentSenderForTags: AztecAddress | undefined;
   private readonly simulator?: CircuitSimulator;
 
   constructor(args: PrivateExecutionOracleArgs) {

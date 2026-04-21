@@ -212,9 +212,8 @@ unconstrained fn get_sender_for_tags_oracle() -> Option<AztecAddress> {}
 /// sender, and hence about the shared secret.
 ///
 /// The override is scoped to the current contract call. It does not propagate to nested calls (which always start
-/// from the initial default), nor to siblings or parents. The default is typically set by whichever software
-/// builds the transaction (for example, a wallet setting the originating account), so most contracts do not need
-/// to call this setter.
+/// from the initial default), nor to siblings or parents. The default is typically set by the wallet (to the
+/// originating account), so most contracts do not need to call this setter.
 pub unconstrained fn set_sender_for_tags(sender_for_tags: AztecAddress) {
     set_sender_for_tags_oracle(sender_for_tags);
 }

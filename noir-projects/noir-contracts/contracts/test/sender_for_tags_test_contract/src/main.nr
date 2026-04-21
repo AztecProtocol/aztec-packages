@@ -12,8 +12,6 @@ pub contract SenderForTagsTest {
         protocol::{address::AztecAddress, traits::FromField},
     };
 
-    // Entry point for the test. Asserts parent saw `default_sender_for_tags` as its initial sender, invokes `middle`
-    // passing the same value, then asserts parent's own sender is unchanged after middle (and the nested leaf) return.
     #[external("private")]
     fn parent(default_sender_for_tags: AztecAddress) {
         let before = self.internal.current_sender();
@@ -28,9 +26,6 @@ pub contract SenderForTagsTest {
         );
     }
 
-    // Middle hop. Asserts it inherited `default_sender_for_tags` from parent's default, overrides its own sender to a
-    // distinguished constant, invokes `leaf` passing the same default, then asserts the override is still in place
-    // after leaf returns (leaf must not mutate middle).
     #[external("private")]
     fn middle(default_sender_for_tags: AztecAddress) {
         assert(
@@ -52,8 +47,6 @@ pub contract SenderForTagsTest {
         );
     }
 
-    // Leaf. Asserts that it inherited the original default rather than middle's override. This is the critical
-    // invariant: nested calls inherit the immutable default, not the caller's `current`.
     #[external("private")]
     fn leaf(default_sender_for_tags: AztecAddress) {
         assert(
@@ -62,7 +55,6 @@ pub contract SenderForTagsTest {
         );
     }
 
-    // Returns the current sender-for-tags, panicking if none is set.
     #[internal("private")]
     fn current_sender() -> AztecAddress {
         // Safety: the returned value is always immediately asserted against a known expected value by the caller, so
