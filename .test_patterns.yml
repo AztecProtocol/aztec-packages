@@ -260,6 +260,14 @@ tests:
     owners:
       - *sean
 
+  # Multi-block + pipelining + bundled invalidate-and-propose scenario added in #22586.
+  # The test exhausts the per-test 600s docker budget on merge-train CI runners, so both
+  # the initial attempt and the engine retry get killed before completion.
+  - regex: "epochs_invalidate_block.parallel.test.ts.*proposer invalidates previous checkpoint with multiple blocks while posting its own"
+    skip: true
+    owners:
+      - *palla
+
   # Blanket flake patterns for unstable p2p, epoch, and l1 tx utils tests
   # This is a temporary measure while team bandwidth is constrained
   # Replaced many specific patterns - see https://github.com/AztecProtocol/aztec-packages/pull/17962 for historical context
