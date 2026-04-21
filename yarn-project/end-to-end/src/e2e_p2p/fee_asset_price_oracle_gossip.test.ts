@@ -2,7 +2,6 @@ import type { Archiver } from '@aztec/archiver';
 import type { AztecNodeService } from '@aztec/aztec-node';
 import { createExtendedL1Client } from '@aztec/ethereum/client';
 import { RollupContract, STATE_VIEW_ADDRESS } from '@aztec/ethereum/contracts';
-import { CheckpointNumber } from '@aztec/foundation/branded-types';
 import { Signature } from '@aztec/foundation/eth-signature';
 import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
@@ -168,10 +167,28 @@ describe('e2e_p2p_network', () => {
     const initialOnChainPrice = await rollup.getEthPerFeeAsset();
     t.logger.info(`Initial on-chain price: ${initialOnChainPrice}, target oracle price: ${targetOraclePrice}`);
 
-    // Gather signers from attestations downloaded from L1
-    const blockNumber = await nodes[0].getBlockNumber();
+    // Gather signers from attestations downloaded from L1. Wait until a block has been built
+    // (the validators will produce empty blocks once minTxsPerBlock is 0) and its checkpoint is
+    // available on L1 before reading attestations.
     const dataStore = (nodes[0] as AztecNodeService).getBlockSource() as Archiver;
-    const [publishedCheckpoint] = await dataStore.getCheckpoints(CheckpointNumber.fromBlockNumber(blockNumber), 1);
+    const publishedCheckpoint = await retryUntil(
+      async () => {
+        const blockNumber = await nodes[0].getBlockNumber();
+        if (blockNumber === 0) {
+          return undefined;
+        }
+        const checkpointedBlock = await dataStore.getCheckpointedBlock(blockNumber);
+        if (!checkpointedBlock) {
+          return undefined;
+        }
+        const [cp] = await dataStore.getCheckpoints(checkpointedBlock.checkpointNumber, 1);
+        return cp;
+      },
+      'checkpoint with attestations to be published',
+      120,
+      1,
+    );
+
     const payload = ConsensusPayload.fromCheckpoint(publishedCheckpoint.checkpoint);
     const attestations = publishedCheckpoint.attestations
       .filter(a => !a.signature.isEmpty())
