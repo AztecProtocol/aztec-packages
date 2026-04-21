@@ -57,10 +57,6 @@ export const archiverConfigMappings: ConfigMappingsType<ArchiverConfig> = {
     description: 'Skip validating checkpoint attestations (for testing purposes only)',
     ...booleanConfigHelper(false),
   },
-  skipPromoteProposedCheckpointDuringL1Sync: {
-    description: 'Skip promoting proposed checkpoints during L1 sync (for testing purposes only)',
-    ...booleanConfigHelper(false),
-  },
   maxAllowedEthClientDriftSeconds: {
     env: 'MAX_ALLOWED_ETH_CLIENT_DRIFT_SECONDS',
     description: 'Maximum allowed drift in seconds between the Ethereum client and current time.',
@@ -107,7 +103,6 @@ export function mapArchiverConfig(config: Partial<ArchiverConfig>) {
     pollingIntervalMs: config.archiverPollingIntervalMS,
     batchSize: config.archiverBatchSize,
     skipValidateCheckpointAttestations: config.skipValidateCheckpointAttestations,
-    skipPromoteProposedCheckpointDuringL1Sync: config.skipPromoteProposedCheckpointDuringL1Sync,
     maxAllowedEthClientDriftSeconds: config.maxAllowedEthClientDriftSeconds,
     ethereumAllowNoDebugHosts: config.ethereumAllowNoDebugHosts,
     skipHistoricalLogsCheck: config.archiverSkipHistoricalLogsCheck,

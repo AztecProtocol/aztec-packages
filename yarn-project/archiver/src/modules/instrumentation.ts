@@ -43,7 +43,6 @@ export class ArchiverInstrumentation {
   private blockProposalTxTargetCount: UpDownCounter;
 
   private checkpointL1InclusionDelay: Histogram;
-  private checkpointPromotedCount: UpDownCounter;
 
   private log = createLogger('archiver:instrumentation');
 
@@ -95,8 +94,6 @@ export class ArchiverInstrumentation {
     );
 
     this.checkpointL1InclusionDelay = meter.createHistogram(Metrics.ARCHIVER_CHECKPOINT_L1_INCLUSION_DELAY);
-
-    this.checkpointPromotedCount = createUpDownCounterWithDefault(meter, Metrics.ARCHIVER_CHECKPOINT_PROMOTED_COUNT);
 
     this.dbMetrics = new LmdbMetrics(
       meter,
@@ -182,11 +179,6 @@ export class ArchiverInstrumentation {
       [Attributes.L1_BLOCK_PROPOSAL_TX_TARGET]: target.toLowerCase(),
       [Attributes.L1_BLOCK_PROPOSAL_USED_TRACE]: usedTrace,
     });
-  }
-
-  /** Records a checkpoint promoted from proposed (blob fetch skipped). */
-  public processCheckpointPromoted() {
-    this.checkpointPromotedCount.add(1);
   }
 
   /**
