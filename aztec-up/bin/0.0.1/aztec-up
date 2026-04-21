@@ -549,8 +549,10 @@ function cmd_env {
 
   local version_dir="$AZTEC_HOME/versions/$resolved_version"
 
-  # Output PATH export with relevant bin directories
-  echo "export PATH=\"$version_dir/bin:$version_dir/node_modules/.bin:\$PATH\""
+  # Output PATH export with relevant bin directories.
+  # node_modules/.bin is intentionally excluded -- the per-version installer
+  # symlinks @aztec-owned bins into bin/, keeping transitive npm deps off PATH.
+  echo "export PATH=\"$version_dir/bin:\$PATH\""
 }
 
 # Main entry point
