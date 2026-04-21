@@ -222,7 +222,7 @@ export class CheckpointProposalJob implements Traceable {
 
       // If pipelining, wait for the previous checkpoint to land on L1 before submitting,
       // so we can check it matches the proposed checkpoint we used as parent, and has valid attestations.
-      if (signedAttestations && (!isPipelining || (await this.waitForParentCheckpointOnL1()))) {
+      if (signedAttestations && (!isPipelining || (await this.waitForValidParentCheckpointOnL1()))) {
         await this.enqueueCheckpointForSubmission({ checkpoint, ...signedAttestations });
       }
 
@@ -314,7 +314,7 @@ export class CheckpointProposalJob implements Traceable {
   private async waitForSyncedL2SlotNumber(waitForSlot: SlotNumber): Promise<boolean> {
     const targetSlotStart = Number(getTimestampForSlot(this.targetSlot, this.l1Constants));
     const targetSlotEndMs = (targetSlotStart + this.l1Constants.slotDuration) * 1000;
-    const syncDelayTolerance = this.l1Constants.slotDuration * 1000;
+    const syncDelayTolerance = this.l1Constants.ethereumSlotDuration * 2 * 1000;
     const timeoutSeconds = Math.max(0.1, (targetSlotEndMs + syncDelayTolerance - this.dateProvider.now()) / 1000);
 
     try {
@@ -344,7 +344,7 @@ export class CheckpointProposalJob implements Traceable {
    * - If we built without a proposed parent: no new checkpoint must have appeared for that slot.
    * If the parent has invalid attestations, enqueues an invalidation. Returns whether to proceed with the proposal.
    */
-  protected async waitForParentCheckpointOnL1(): Promise<boolean> {
+  protected async waitForValidParentCheckpointOnL1(): Promise<boolean> {
     const parentCheckpointNumber = CheckpointNumber(this.checkpointNumber - 1);
 
     // Wait until archiver has synced L1 past the parent's slot (slotNow)

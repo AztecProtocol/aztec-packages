@@ -1073,7 +1073,7 @@ describe('CheckpointProposalJob Timing Tests', () => {
     beforeEach(() => {
       epochCache.isProposerPipeliningEnabled.mockReturnValue(true);
 
-      // Mock l2BlockSource methods needed by waitForParentCheckpointOnL1
+      // Mock l2BlockSource methods needed by waitForValidParentCheckpointOnL1
       l2BlockSource.getSyncedL2SlotNumber.mockResolvedValue(slotNumber);
       l2BlockSource.getL2Tips.mockResolvedValue({
         proposed: { number: BlockNumber.ZERO, hash: '' },
