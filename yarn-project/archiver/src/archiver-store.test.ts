@@ -33,6 +33,7 @@ import { makeChainedCheckpoints } from './test/mock_structs.js';
 describe('Archiver Store', () => {
   const rollupAddress = EthAddress.random();
   const registryAddress = EthAddress.random();
+  const inboxAddress = EthAddress.random();
   const governanceProposerAddress = EthAddress.random();
   const slashingProposerAddress = EthAddress.random();
 
@@ -76,7 +77,9 @@ describe('Archiver Store', () => {
     };
 
     const contractAddresses = {
+      rollupAddress,
       registryAddress,
+      inboxAddress,
       governanceProposerAddress,
       slashingProposerAddress,
     };

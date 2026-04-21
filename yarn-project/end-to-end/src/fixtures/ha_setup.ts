@@ -11,7 +11,7 @@ import { privateKeyToAccount } from 'viem/accounts';
  */
 export interface HADatabaseConfig {
   /** PostgreSQL connection URL */
-  databaseUrl: string;
+  databaseUrl: SecretValue<string>;
   /** Node ID for HA coordination */
   nodeId: string;
   /** Enable HA signing */
@@ -28,7 +28,9 @@ export interface HADatabaseConfig {
  * Get database configuration from environment variables
  */
 export function createHADatabaseConfig(nodeId: string): HADatabaseConfig {
-  const databaseUrl = process.env.DATABASE_URL || 'postgresql://aztec:aztec@localhost:5432/aztec_ha_test';
+  const databaseUrl = new SecretValue(
+    process.env.DATABASE_URL || 'postgresql://aztec:aztec@localhost:5432/aztec_ha_test',
+  );
 
   return {
     databaseUrl,

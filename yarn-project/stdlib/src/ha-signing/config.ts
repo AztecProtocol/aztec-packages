@@ -1,11 +1,13 @@
 import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
 import {
   type ConfigMappingsType,
+  SecretValue,
   booleanConfigHelper,
   getConfigFromMappings,
   getDefaultConfig,
   numberConfigHelper,
   optionalNumberConfigHelper,
+  secretStringConfigHelper,
 } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { ZodFor } from '@aztec/foundation/schemas';
@@ -88,7 +90,7 @@ export interface ValidatorHASignerConfig extends BaseSignerConfig {
    * PostgreSQL connection string
    * Format: postgresql://user:password@host:port/database
    */
-  databaseUrl?: string;
+  databaseUrl?: SecretValue<string>;
   /** Maximum number of clients in the pool (default: 10) */
   poolMaxCount?: number;
   /** Minimum number of clients in the pool (default: 0) */
@@ -110,6 +112,7 @@ export const validatorHASignerConfigMappings: ConfigMappingsType<ValidatorHASign
     env: 'VALIDATOR_HA_DATABASE_URL',
     description:
       'PostgreSQL connection string for validator HA signer (format: postgresql://user:password@host:port/database)',
+    ...secretStringConfigHelper(),
   },
   poolMaxCount: {
     env: 'VALIDATOR_HA_POOL_MAX',
@@ -148,7 +151,7 @@ export function getConfigEnvVars(): ValidatorHASignerConfig {
 
 export const ValidatorHASignerConfigSchema = BaseSignerConfigSchema.extend({
   haSigningEnabled: z.boolean(),
-  databaseUrl: z.string().optional(),
+  databaseUrl: SecretValue.schema(z.string()).optional(),
   poolMaxCount: z.number().min(0).optional(),
   poolMinCount: z.number().min(0).optional(),
   poolIdleTimeoutMs: z.number().min(0).optional(),

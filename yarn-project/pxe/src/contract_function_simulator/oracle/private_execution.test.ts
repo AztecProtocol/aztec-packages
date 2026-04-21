@@ -11,6 +11,7 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import type { FieldsOf } from '@aztec/foundation/types';
 import { KeyStore } from '@aztec/key-store';
+import { CalldataLimitTestContractArtifact } from '@aztec/noir-test-contracts.js/CalldataLimitTest';
 import { ChildContractArtifact } from '@aztec/noir-test-contracts.js/Child';
 import { ParentContractArtifact } from '@aztec/noir-test-contracts.js/Parent';
 import { PendingNoteHashesContractArtifact } from '@aztec/noir-test-contracts.js/PendingNoteHashes';
@@ -484,6 +485,40 @@ describe('Private Execution test suite', () => {
       const privateLogs = result.entrypoint.publicInputs.privateLogs;
       expect(privateLogs.claimedLength).toBe(1);
     });
+  });
+
+  it('throws when request origin does not match contract address', async () => {
+    const contractAddress = await mockContractInstance(TestContractArtifact);
+    const differentAddress = await AztecAddress.random();
+    contracts[differentAddress.toString()] = TestContractArtifact;
+
+    const functionArtifact = getFunctionArtifactByName(TestContractArtifact, 'emit_array_as_encrypted_log');
+    const selector = await FunctionSelector.fromNameAndParameters(functionArtifact.name, functionArtifact.parameters);
+    const hashedArguments = await HashedValues.fromArgs(
+      encodeArguments(functionArtifact, [Fr.ZERO, times(5, () => Fr.random()), owner, false]),
+    );
+
+    const txRequest = TxExecutionRequest.from({
+      origin: differentAddress,
+      firstCallArgsHash: hashedArguments.hash,
+      functionSelector: selector,
+      txContext: TxContext.from(txContextFields),
+      argsOfCalls: [hashedArguments],
+      authWitnesses: [],
+      capsules: [],
+      salt: Fr.random(),
+    });
+
+    await expect(
+      acirSimulator.run(txRequest, {
+        contractAddress,
+        selector,
+        anchorBlockHeader,
+        senderForTags,
+        jobId: TEST_JOB_ID,
+        scopes: [owner],
+      }),
+    ).rejects.toThrow('Request origin does not match contract address');
   });
 
   describe('stateful test contract', () => {
@@ -1015,6 +1050,21 @@ describe('Private Execution test suite', () => {
           artifact: parentContractArtifact,
           functionName: 'enqueue_call_to_child_with_many_args_and_recurse',
           args,
+        }),
+      ).rejects.toThrow(/Too many total args to all enqueued public calls/);
+    });
+
+    it('should error if parent and nested private call enqueue public calls with too many TOTAL args', async () => {
+      const contractArtifact = structuredClone(CalldataLimitTestContractArtifact);
+      const contractAddress = await mockContractInstance(contractArtifact);
+
+      await expect(
+        runSimulator({
+          msgSender: contractAddress,
+          contractAddress: contractAddress,
+          anchorBlockHeader,
+          artifact: contractArtifact,
+          functionName: 'exceed_calldata_limit_via_nested_call',
         }),
       ).rejects.toThrow(/Too many total args to all enqueued public calls/);
     });

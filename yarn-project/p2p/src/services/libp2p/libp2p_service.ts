@@ -917,6 +917,17 @@ export class LibP2PService extends WithTracer implements P2PService {
       this.logger.error(`Error validating gossipsub message`, err, { msgId, source: source.toString(), topicType });
     }
 
+    const validationTimeMs = timer.ms();
+    const mcacheWindowMs = this.config.gossipsubMcacheLength * this.config.gossipsubInterval;
+    if (validationTimeMs > mcacheWindowMs * 0.75) {
+      this.instrumentation.incSlowValidation(topicType);
+      this.logger.warn(
+        `Gossip validation for ${topicType} took ${validationTimeMs}ms, approaching mcache eviction window of ${mcacheWindowMs}ms. ` +
+          `Message forwarding may be skipped if validation exceeds the window.`,
+        { msgId, source: source.toString(), topicType, validationTimeMs, mcacheWindowMs },
+      );
+    }
+
     if (resultAndObj.result === TopicValidatorResult.Accept) {
       this.logger.debug(`Message ${topicType} accepted by validator`, { msgId, source: source.toString(), topicType });
       this.instrumentation.recordMessageValidation(topicType, timer);

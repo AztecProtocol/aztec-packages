@@ -68,7 +68,7 @@ describe('e2e_epochs/epochs_mbps_pipeline', () => {
     });
 
     test = await EpochsTestContext.setup({
-      numberOfAccounts: 1,
+      numberOfAccounts: 0,
       initialValidators: validators,
       enableProposerPipelining: true, // <- yehaw
       mockGossipSubNetwork: true,
@@ -86,19 +86,17 @@ describe('e2e_epochs/epochs_mbps_pipeline', () => {
       inboxLag: 2,
       ...setupOpts,
       pxeOpts: { syncChainTip },
+      skipInitialSequencer: true,
     });
 
     ({ context, logger, rollup } = test);
     wallet = context.wallet;
-    from = context.accounts[0];
-
-    logger.warn(`Stopping sequencer in initial aztec node.`);
-    await context.sequencer!.stop();
+    from = context.accounts[0]; // auto-created by setup
 
     logger.warn(`Initial setup complete. Starting ${NODE_COUNT} validator nodes.`);
     // Clear inherited coinbase so each validator derives coinbase from its own attester key
     nodes = await asyncMap(validators, ({ privateKey }) =>
-      test.createValidatorNode([privateKey], { dontStartSequencer: true, coinbase: undefined }),
+      test.createValidatorNode([privateKey], { coinbase: undefined, dontStartSequencer: true }),
     );
     logger.warn(`Started ${NODE_COUNT} validator nodes.`, { validators: validators.map(v => v.attester.toString()) });
 

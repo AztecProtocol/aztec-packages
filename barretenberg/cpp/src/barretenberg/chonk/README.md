@@ -299,7 +299,7 @@ $$I_i \cdot (b_i + i\beta + \gamma)(w_{1,i} + w_{2,i}\beta + \gamma) - \varepsil
 
 $$\sum_{i=0}^{n-1} a_i \cdot I_i \cdot (w_{1,i} + w_{2,i}\beta + \gamma) - q_{busread,i} \cdot I_i \cdot (b_i + i\beta + \gamma) = 0$$
 
-The `is_active` flag $\varepsilon$ indicates when the inverse $I$ needs to be computed. It is given by the expression `q_busread OR read_tags = q_busread + read_tags - q_busread * read_tags `. Third subrelation `read_tags * read_tags = read_tags` ensures `read_tags` entries are boolean, which is required for the OR formula to work correctly.
+Inverse correctness is enforced by two separate gating subrelations: $(I \cdot L \cdot T - 1) \cdot \text{is\_read} = 0$ on read rows, and $(I \cdot L \cdot T - 1) \cdot \text{count} = 0$ on write rows. At inactive rows (where both gates are zero), $I$ is unconstrained but the lookup identity contribution is also zero, so the prover gets no free degrees of freedom.
 
 **Multiple columns**: Each bus column (calldata, secondary_calldata, return_data) has separate subrelations, distinguished by column-specific selectors $q_j$.
 
