@@ -1,0 +1,18 @@
+# Configuration for offchain_transfer example
+# Demonstrates signature-based transfers using partial notes and offchain delivery
+
+# Contract artifacts to import for codegen (names without .json extension)
+# These must already be compiled to docs/target/ directory
+contracts:
+  - offchain_transfer_contract-OffchainTransfer
+
+# Dependencies:
+#   - @aztec/* packages are auto-linked from yarn-project/
+#   - Use npm:package-name for external npm packages
+dependencies:
+  - "@aztec/aztec.js"
+  - "@aztec/accounts"
+  - "@aztec/wallets"
+  - "@aztec/noir-contracts.js"
+  - "@aztec/foundation"
+  - "@aztec/constants"
