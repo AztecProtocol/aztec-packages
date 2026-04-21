@@ -87,23 +87,14 @@ template <typename Flavor> class DataBusTests : public ::testing::Test {
         return builder;
     }
 
-    static Builder construct_circuit_with_calldata_reads(Builder& builder)
+    static Builder construct_circuit_with_calldata_reads(Builder& builder, BusId idx)
     {
         // Define interfaces for the add and read methods for databus calldata
-        auto add_method = [](Builder& builder, uint32_t witness_idx) { builder.add_public_calldata(witness_idx); };
-        auto read_method = [](Builder& builder, uint32_t witness_idx) { return builder.read_calldata(witness_idx); };
-
-        return construct_circuit_with_databus_reads(builder, add_method, read_method);
-    }
-
-    static Builder construct_circuit_with_secondary_calldata_reads(Builder& builder)
-    {
-        // Define interfaces for the add and read methods for databus secondary_calldata
-        auto add_method = [](Builder& builder, uint32_t witness_idx) {
-            builder.add_public_secondary_calldata(witness_idx);
+        auto add_method = [idx](Builder& builder, uint32_t witness_idx) {
+            builder.add_public_calldata(idx, witness_idx);
         };
-        auto read_method = [](Builder& builder, uint32_t witness_idx) {
-            return builder.read_secondary_calldata(witness_idx);
+        auto read_method = [idx](Builder& builder, uint32_t witness_idx) {
+            return builder.read_calldata(idx, witness_idx);
         };
 
         return construct_circuit_with_databus_reads(builder, add_method, read_method);
@@ -128,7 +119,7 @@ TYPED_TEST_SUITE(DataBusTests, FlavorTypes);
 TYPED_TEST(DataBusTests, CallDataRead)
 {
     typename TypeParam::CircuitBuilder builder = this->construct_test_builder();
-    this->construct_circuit_with_calldata_reads(builder);
+    this->construct_circuit_with_calldata_reads(builder, BusId::KERNEL_CALLDATA);
     EXPECT_TRUE(CircuitChecker::check(builder));
     EXPECT_TRUE(this->construct_and_verify_proof(builder));
 }
@@ -140,7 +131,7 @@ TYPED_TEST(DataBusTests, CallDataRead)
 TYPED_TEST(DataBusTests, CallData2Read)
 {
     typename TypeParam::CircuitBuilder builder = this->construct_test_builder();
-    this->construct_circuit_with_secondary_calldata_reads(builder);
+    this->construct_circuit_with_calldata_reads(builder, BusId::APP_CALLDATA);
 
     EXPECT_TRUE(this->construct_and_verify_proof(builder));
 }
@@ -164,8 +155,8 @@ TYPED_TEST(DataBusTests, ReturnDataRead)
 TYPED_TEST(DataBusTests, ReadAll)
 {
     typename TypeParam::CircuitBuilder builder = this->construct_test_builder();
-    this->construct_circuit_with_calldata_reads(builder);
-    this->construct_circuit_with_secondary_calldata_reads(builder);
+    this->construct_circuit_with_calldata_reads(builder, BusId::KERNEL_CALLDATA);
+    this->construct_circuit_with_calldata_reads(builder, BusId::APP_CALLDATA);
     this->construct_circuit_with_return_data_reads(builder);
 
     EXPECT_TRUE(this->construct_and_verify_proof(builder));
@@ -186,7 +177,7 @@ TYPED_TEST(DataBusTests, CallDataDuplicateRead)
 
     std::vector<FF> calldata_values = { 7, 10, 3, 12, 1 };
     for (auto& val : calldata_values) {
-        builder.add_public_calldata(builder.add_variable(val));
+        builder.add_public_calldata(BusId::KERNEL_CALLDATA, builder.add_variable(val));
     }
 
     // Define some read indices with a duplicate
@@ -198,7 +189,7 @@ TYPED_TEST(DataBusTests, CallDataDuplicateRead)
         // Create a variable corresponding to the index at which we want to read into calldata
         uint32_t read_idx_witness_idx = builder.add_variable(FF(read_idx));
 
-        auto value_witness_idx = builder.read_calldata(read_idx_witness_idx);
+        auto value_witness_idx = builder.read_calldata(BusId::KERNEL_CALLDATA, read_idx_witness_idx);
         result_witness_indices.emplace_back(value_witness_idx);
     }
 

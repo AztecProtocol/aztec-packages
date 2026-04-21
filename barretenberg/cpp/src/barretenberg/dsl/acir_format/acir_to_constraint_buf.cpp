@@ -805,7 +805,7 @@ BlockConstraint memory_init_to_block_constraint(Acir::Opcode::MemoryInit const& 
         BB_ASSERT(calldata_id == 0 || calldata_id == 1, "acir_format::handle_memory_init: Unsupported calldata id");
 
         block.type = BlockType::CallData;
-        block.calldata_id = calldata_id == 0 ? CallDataType::Primary : CallDataType::Secondary;
+        block.calldata_id = calldata_id == 0 ? CallDataType::Kernel : CallDataType::App;
     } else if (std::holds_alternative<Acir::BlockType::ReturnData>(mem_init.block_type.value)) {
         block.type = BlockType::ReturnData;
     }

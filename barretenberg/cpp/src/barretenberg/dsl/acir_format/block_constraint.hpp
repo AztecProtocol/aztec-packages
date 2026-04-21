@@ -19,8 +19,8 @@ enum AccessType : std::uint8_t {
 
 enum CallDataType : std::uint8_t {
     None = 0,
-    Primary = 1,
-    Secondary = 2,
+    Kernel = 1,
+    App = 2,
 };
 
 /**

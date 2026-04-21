@@ -167,11 +167,11 @@ void process_call_data_operations(Builder& builder,
 
     // Process primary or secondary calldata based on calldata_id
     switch (constraint.calldata_id) {
-    case CallDataType::Primary:
-        process_calldata(databus.calldata);
+    case CallDataType::Kernel:
+        process_calldata(databus.kernel_calldata);
         break;
-    case CallDataType::Secondary:
-        process_calldata(databus.secondary_calldata);
+    case CallDataType::App:
+        process_calldata(databus.app_calldata[static_cast<size_t>(constraint.calldata_id) - 1]);
         break;
     default:
         bb::assert_failure("Databus only supports two calldata arrays.");

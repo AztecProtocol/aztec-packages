@@ -61,4 +61,7 @@ static constexpr uint32_t NUM_TRANSLATION_EVALUATIONS = 5;
 
 // The number of leading zero rows in the execution trace. Used to enable shifted polynomials.
 static constexpr size_t NUM_ZERO_ROWS = 1;
+
+// The maximum number of app circuits a single kernel can recursively verify in one accumulation group.
+static constexpr uint8_t NUM_APP_PER_KERNEL = 1;
 } // namespace bb

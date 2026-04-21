@@ -260,8 +260,8 @@ TEST(MegaCircuitBuilder, EmptyCircuitFinalization)
 
     // After finalization, ecc_op block remains empty (no dummy ops needed)
     EXPECT_EQ(builder.blocks.ecc_op.size(), 0);
-    EXPECT_GT(builder.get_calldata().size(), 0) << "Finalization should add databus entries";
-    EXPECT_GT(builder.get_secondary_calldata().size(), 0);
+    EXPECT_GT(builder.get_calldata(BusId::KERNEL_CALLDATA).size(), 0) << "Finalization should add databus entries";
+    EXPECT_GT(builder.get_calldata(BusId::APP_CALLDATA).size(), 0);
     EXPECT_GT(builder.get_return_data().size(), 0);
 
     EXPECT_TRUE(CircuitChecker::check(builder));
@@ -276,13 +276,13 @@ TEST(MegaCircuitBuilder, DatabusOutOfBoundsReadFails)
 
     // Add single entry to calldata
     auto val = builder.add_variable(fr(42));
-    builder.add_public_calldata(val);
+    builder.add_public_calldata(BusId::KERNEL_CALLDATA, val);
 
     // Try to read at index 1 (out of bounds - only index 0 exists)
     auto bad_idx = builder.add_variable(fr(1));
 
     // This should trigger an assertion in read_calldata
-    EXPECT_THROW(builder.read_calldata(bad_idx), std::runtime_error);
+    EXPECT_THROW(builder.read_calldata(BusId::KERNEL_CALLDATA, bad_idx), std::runtime_error);
 }
 
 } // namespace bb

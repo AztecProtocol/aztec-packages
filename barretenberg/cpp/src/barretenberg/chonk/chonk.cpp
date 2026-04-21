@@ -203,7 +203,8 @@ Chonk::PublicInputsResult Chonk::process_public_inputs_and_consistency_checks(
     app_input.reconstruct_from_public(public_inputs);
 
     // Set the app return data commitment to be propagated via the public inputs
-    bus_depot.set_app_return_data_commitment(witness_commitments.return_data);
+    // TODO(lde/extend-databus): adapter for cherry-picked DataBusDepot API. Drop at rebase onto fb/multi_app_kernels.
+    bus_depot.set_app_return_data_commitment(witness_commitments.return_data, 0);
 
     return { std::move(app_input.pairing_inputs), std::nullopt };
 }
@@ -390,7 +391,9 @@ void Chonk::complete_kernel_circuit_logic(ClientCircuit& circuit)
 
         // Get databus commitments
         auto kernel_return_data_commitment = bus_depot.get_kernel_return_data_commitment(circuit);
-        auto app_return_data_commitment = bus_depot.get_app_return_data_commitment(circuit);
+        // TODO(lde/extend-databus): adapter for cherry-picked DataBusDepot API. Drop at rebase onto
+        // fb/multi_app_kernels.
+        auto app_return_data_commitment = bus_depot.get_app_return_data_commitment(circuit, 0);
 
         // Compute hash of output accumulator
         RecursiveTranscript hash_transcript;

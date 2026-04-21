@@ -40,16 +40,19 @@ template <typename FF> void MegaCircuitBuilder_<FF>::add_mega_gates_to_ensure_al
     // inter-circuit databus commitment checks to pass in IVC settings.
 
     // Create an arbitrary calldata read gate
-    add_public_calldata(this->add_variable(BusVector::DEFAULT_VALUE));    // add one entry in calldata
-    auto raw_read_idx = static_cast<uint32_t>(get_calldata().size()) - 1; // read data that was just added
+    add_public_calldata(BusId::KERNEL_CALLDATA,
+                        this->add_variable(BusVector::DEFAULT_VALUE)); // add one entry in calldata
+    auto raw_read_idx =
+        static_cast<uint32_t>(get_calldata(BusId::KERNEL_CALLDATA).size()) - 1; // read data that was just added
     auto read_idx = this->add_variable(FF(raw_read_idx));
-    update_finalize_witnesses({ read_idx, read_calldata(read_idx) });
+    update_finalize_witnesses({ read_idx, read_calldata(BusId::KERNEL_CALLDATA, read_idx) });
 
     // Create an arbitrary secondary_calldata read gate
-    add_public_secondary_calldata(this->add_variable(BusVector::DEFAULT_VALUE)); // add one entry in secondary_calldata
-    raw_read_idx = static_cast<uint32_t>(get_secondary_calldata().size()) - 1;   // read data that was just added
+    add_public_calldata(BusId::APP_CALLDATA,
+                        this->add_variable(BusVector::DEFAULT_VALUE)); // add one entry in secondary_calldata
+    raw_read_idx = static_cast<uint32_t>(get_calldata(BusId::APP_CALLDATA).size()) - 1; // read data that was just added
     read_idx = this->add_variable(FF(raw_read_idx));
-    update_finalize_witnesses({ read_idx, read_secondary_calldata(read_idx) });
+    update_finalize_witnesses({ read_idx, read_calldata(BusId::APP_CALLDATA, read_idx) });
 
     // Create an arbitrary return data read gate
     add_public_return_data(this->add_variable(BusVector::DEFAULT_VALUE)); // add one entry in return data

@@ -23,6 +23,8 @@ template <typename Builder> class databus {
         using field_pt = field_t<Builder>;
 
       public:
+        bus_vector() = default;
+
         bus_vector(const BusId bus_idx)
             : bus_idx(bus_idx) {};
 
@@ -59,9 +61,20 @@ template <typename Builder> class databus {
     };
 
   public:
-    // The columns of the DataBus
-    bus_vector calldata{ BusId::CALLDATA };
-    bus_vector secondary_calldata{ BusId::SECONDARY_CALLDATA };
+    // The columns of the DataBus:
+    // 1 Kernel calldata
+    // NUM_APP_PER_KERNEL App calldata
+    // 1 Return data
+    bus_vector kernel_calldata{ BusId::KERNEL_CALLDATA };
+
+    std::array<bus_vector, NUM_APP_PER_KERNEL> app_calldata = []() {
+        std::array<bus_vector, NUM_APP_PER_KERNEL> arr{};
+        for (uint8_t i = 1; i < NUM_APP_PER_KERNEL + 1; ++i) {
+            arr[i - 1] = bus_vector{ static_cast<BusId>(i) };
+        }
+        return arr;
+    }();
+
     bus_vector return_data{ BusId::RETURNDATA };
 };
 
@@ -91,11 +104,15 @@ template <class Builder> class DataBusDepot {
     using FrNative = typename Curve::ScalarFieldNative;
 
     // Storage for the return data commitments to be propagated via the public inputs
-    Commitment app_return_data_commitment;
+    std::array<Commitment, NUM_APP_PER_KERNEL> app_return_data_commitments;
     Commitment kernel_return_data_commitment;
 
     // Existence flags indicating whether each return data commitment has been set
-    bool app_return_data_commitment_exists = false;
+    std::array<bool, NUM_APP_PER_KERNEL> app_return_data_commitment_exists = []() {
+        std::array<bool, NUM_APP_PER_KERNEL> arr{};
+        arr.fill(false);
+        return arr;
+    }();
     bool kernel_return_data_commitment_exists = false;
 
     void set_kernel_return_data_commitment(const Commitment& commitment)
@@ -104,10 +121,11 @@ template <class Builder> class DataBusDepot {
         kernel_return_data_commitment_exists = true;
     }
 
-    void set_app_return_data_commitment(const Commitment& commitment)
+    void set_app_return_data_commitment(const Commitment& commitment, const size_t idx)
     {
-        app_return_data_commitment = commitment;
-        app_return_data_commitment_exists = true;
+        BB_ASSERT_LT(idx, NUM_APP_PER_KERNEL, "Index out of bounds");
+        app_return_data_commitments[idx] = commitment;
+        app_return_data_commitment_exists[idx] = true;
     }
 
     /**
@@ -139,13 +157,14 @@ template <class Builder> class DataBusDepot {
      * @brief Get the previously set app return data commitment if it exists, else a default one
      *
      */
-    Commitment get_app_return_data_commitment(Builder& builder)
+    Commitment get_app_return_data_commitment(Builder& builder, const size_t idx)
     {
-        if (!app_return_data_commitment_exists) {
+        BB_ASSERT_LT(idx, NUM_APP_PER_KERNEL, "Index out of bounds");
+        if (!app_return_data_commitment_exists[idx]) {
             return construct_default_commitment(builder);
         }
-        app_return_data_commitment_exists = false; // Reset the existence flag after retrieval
-        return app_return_data_commitment;
+        app_return_data_commitment_exists[idx] = false; // Reset the existence flag after retrieval
+        return app_return_data_commitments[idx];
     }
 };
 

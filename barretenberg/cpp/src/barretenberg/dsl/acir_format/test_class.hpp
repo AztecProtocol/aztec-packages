@@ -105,7 +105,7 @@ inline Acir::BlockType block_type_to_acir_block_type(BlockType type, CallDataTyp
         // ROM and RAM both map to Memory in ACIR
         return Acir::BlockType{ .value = Acir::BlockType::Memory{} };
     case BlockType::CallData: {
-        uint32_t id = (calldata_id == CallDataType::Primary) ? 0 : 1;
+        uint32_t id = (calldata_id == CallDataType::Kernel) ? 0 : 1;
         return Acir::BlockType{ .value = Acir::BlockType::CallData{ .value = id } };
     }
     case BlockType::ReturnData:
