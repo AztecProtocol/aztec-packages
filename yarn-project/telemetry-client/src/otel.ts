@@ -334,6 +334,36 @@ export class OpenTelemetryClient implements TelemetryClient {
             true,
           ),
         }),
+        // L1 gas prices in gwei: priority fees ~0.01-10, base fees ~1-500, spikes to 1000+
+        new View({
+          instrumentType: InstrumentType.HISTOGRAM,
+          instrumentUnit: 'gwei',
+          aggregation: new ExplicitBucketHistogramAggregation(
+            [0.1, 0.5, 1, 2, 5, 10, 20, 50, 100, 200, 500, 1_000],
+            true,
+          ),
+        }),
+        // L1 gas consumption: tx gas 100k-30M, calldata/blob gas varies
+        new View({
+          instrumentType: InstrumentType.HISTOGRAM,
+          instrumentUnit: 'gas',
+          aggregation: new ExplicitBucketHistogramAggregation(
+            [
+              10_000, 50_000, 100_000, 250_000, 500_000, 1_000_000, 2_000_000, 5_000_000, 10_000_000, 15_000_000,
+              30_000_000,
+            ],
+            true,
+          ),
+        }),
+        // L1 tx total fee in ETH: typically 0.001 - 1 ETH
+        new View({
+          instrumentType: InstrumentType.HISTOGRAM,
+          instrumentUnit: 'eth',
+          aggregation: new ExplicitBucketHistogramAggregation(
+            [0.0001, 0.0005, 0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1, 5, 10],
+            true,
+          ),
+        }),
       ],
     });
   }
