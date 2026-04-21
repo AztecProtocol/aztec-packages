@@ -114,17 +114,19 @@ class TranslatorFlavor {
     // The number of "steps" inserted in ordered range constraint polynomials to ensure that the
     // DeltaRangeConstraintRelation can always be satisfied if the polynomial is within the appropriate range.
     static constexpr size_t SORTED_STEPS_COUNT = ((1 << MICRO_LIMB_BITS) / SORT_STEP) + 1;
-    static_assert(SORTED_STEPS_COUNT * (NUM_CONCATENATED_POLYS + 1) < MINI_CIRCUIT_SIZE * CONCATENATION_GROUP_SIZE,
+
+    // The number of masking values in the overflow columns used for the ordered range constraint
+    static constexpr size_t MASKING_OVERFLOW_COLUMN =
+        MAX_RANDOM_VALUES_PER_ORDERED * (NUM_CONCATENATED_POLYS - 1) / NUM_CONCATENATED_POLYS;
+
+    static_assert(SORTED_STEPS_COUNT * NUM_CONCATENATED_POLYS + MASKING_OVERFLOW_COLUMN <
+                      MINI_CIRCUIT_SIZE * CONCATENATION_GROUP_SIZE,
                   "Translator circuit is too small for defined number of steps "
                   "(TranslatorDeltaRangeConstraintRelation). ");
 
     // Number of bits in a binary limb
     // This is not a configurable value. Relations are sepcifically designed for it to be 68
     static constexpr size_t NUM_LIMB_BITS = CircuitBuilder::NUM_LIMB_BITS;
-
-    // Lowest possible size of the Translator mini circuit due to the desing of range constraints.
-    static constexpr size_t MINIMUM_MINI_CIRCUIT_SIZE = 2048;
-    static_assert(MINI_CIRCUIT_SIZE > MINIMUM_MINI_CIRCUIT_SIZE);
 
     using GrandProductRelations = std::tuple<TranslatorPermutationRelation<FF>>;
     // define the tuple of Relations that comprise the Sumcheck relation
@@ -1082,7 +1084,7 @@ class TranslatorFlavor {
                                              /*virtual_size*/ circuit_size,
                                              /*start_index*/ circuit_size - MAX_RANDOM_VALUES_PER_ORDERED - 1 };
             ordered_extra_range_constraints_numerator =
-                Polynomial{ /*size*/ SORTED_STEPS_COUNT * (NUM_CONCATENATED_POLYS + 1),
+                Polynomial{ /*size*/ SORTED_STEPS_COUNT * NUM_CONCATENATED_POLYS + MASKING_OVERFLOW_COLUMN,
                             /*virtual_size*/ circuit_size,
                             /*start_index*/ 0 };
 
