@@ -207,4 +207,28 @@ TYPED_TEST(DataBusTests, CallDataDuplicateRead)
     bool result = this->construct_and_verify_proof(builder);
     EXPECT_TRUE(result);
 }
+/**
+ * @brief Target test for lde/extend-databus: databus supports 4 calldata columns (kernel + 3 apps).
+ *
+ * @details Today this fails at NUM_APP_PER_KERNEL=1 (databus has only 3 bus columns total:
+ * kernel_calldata + 1 app_calldata + return_data). Will pass once NUM_APP_PER_KERNEL is bumped to 3
+ * and MegaFlavor is expanded to expose the additional calldata witness polynomials (plus the
+ * related permutation / lookup relations that iterate over NUM_BUS_COLUMNS).
+ */
+TYPED_TEST(DataBusTests, MultiAppCallDataProveAndVerify)
+{
+    ASSERT_GE(NUM_APP_PER_KERNEL, 3U)
+        << "Target: kernel + 3 apps = 4 calldata columns. Expand MegaFlavor and bump NUM_APP_PER_KERNEL.";
+
+    typename TypeParam::CircuitBuilder builder = this->construct_test_builder();
+
+    // Populate and read from 4 distinct calldata columns: kernel + 3 apps.
+    this->construct_circuit_with_calldata_reads(builder, BusId::KERNEL_CALLDATA);
+    for (size_t app_idx = 0; app_idx < 3; ++app_idx) {
+        const auto bus_id = static_cast<BusId>(static_cast<size_t>(BusId::APP_CALLDATA) + app_idx);
+        this->construct_circuit_with_calldata_reads(builder, bus_id);
+    }
+
+    EXPECT_TRUE(this->construct_and_verify_proof(builder));
+}
 } // namespace
