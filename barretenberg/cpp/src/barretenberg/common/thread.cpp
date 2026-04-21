@@ -106,9 +106,9 @@ void parallel_for_queued(size_t num_iterations, const std::function<void(size_t)
 // proof: 11.28s
 void parallel_for_atomic_pool(size_t num_iterations, const std::function<void(size_t)>& func);
 
-void parallel_for_mutex_pool(size_t num_iterations, const std::function<void(size_t)>& func, const char* name);
+void parallel_for_mutex_pool(size_t num_iterations, const std::function<void(size_t)>& func);
 
-void parallel_for(size_t num_iterations, const std::function<void(size_t)>& func, [[maybe_unused]] const char* name)
+void parallel_for(size_t num_iterations, const std::function<void(size_t)>& func)
 {
 #ifdef NO_MULTITHREADING
     for (size_t i = 0; i < num_iterations; ++i) {
@@ -121,7 +121,7 @@ void parallel_for(size_t num_iterations, const std::function<void(size_t)>& func
     // parallel_for_spawning(num_iterations, func);
     // parallel_for_moody(num_iterations, func);
     // parallel_for_atomic_pool(num_iterations, func);
-    parallel_for_mutex_pool(num_iterations, func, name);
+    parallel_for_mutex_pool(num_iterations, func);
     // parallel_for_queued(num_iterations, func);
 #endif
 #endif
@@ -170,8 +170,7 @@ void parallel_for_range(size_t num_points,
 
 void parallel_for_heuristic(size_t num_points,
                             const std::function<void(size_t, size_t, size_t)>& func,
-                            size_t heuristic_cost,
-                            const char* name)
+                            size_t heuristic_cost)
 {
     using namespace thread_heuristics;
     // Get number of cpus we can split into
@@ -189,23 +188,20 @@ void parallel_for_heuristic(size_t num_points,
         return;
     }
     // Parallelize over chunks
-    parallel_for(
-        num_cpus,
-        [num_points, chunk_size, &func](size_t chunk_index) {
-            // If num_points is small, sometimes we need fewer CPUs
-            if ((chunk_size * chunk_index) > num_points) {
-                return;
-            }
-            // Compute the current chunk size (can differ in case it's the last chunk)
-            const size_t current_chunk_size = std::min(num_points - (chunk_size * chunk_index), chunk_size);
-            if (current_chunk_size == 0) {
-                return;
-            }
-            const size_t start = chunk_index * chunk_size;
-            const size_t end = start + current_chunk_size;
-            func(start, end, chunk_index);
-        },
-        name);
+    parallel_for(num_cpus, [num_points, chunk_size, &func](size_t chunk_index) {
+        // If num_points is small, sometimes we need fewer CPUs
+        if ((chunk_size * chunk_index) > num_points) {
+            return;
+        }
+        // Compute the current chunk size (can differ in case it's the last chunk)
+        const size_t current_chunk_size = std::min(num_points - (chunk_size * chunk_index), chunk_size);
+        if (current_chunk_size == 0) {
+            return;
+        }
+        const size_t start = chunk_index * chunk_size;
+        const size_t end = start + current_chunk_size;
+        func(start, end, chunk_index);
+    });
 };
 
 MultithreadData calculate_thread_data(size_t num_iterations, size_t min_iterations_per_thread)

@@ -37,13 +37,12 @@ class ThreadPool {
     ThreadPool& operator=(const ThreadPool& other) = delete;
     ThreadPool& operator=(ThreadPool&& other) = delete;
 
-    void start_tasks(size_t num_iterations, const std::function<void(size_t)>& func, const char* task_name = nullptr)
+    void start_tasks(size_t num_iterations, const std::function<void(size_t)>& func)
     {
         parent.store(bb::detail::GlobalBenchStatsContainer::parent);
         {
             std::unique_lock<std::mutex> lock(tasks_mutex);
             task_ = func;
-            task_name_ = task_name;
             num_iterations_ = num_iterations;
             iteration_ = 0;
             complete_ = 0;
@@ -64,7 +63,6 @@ class ThreadPool {
     std::vector<std::thread> workers;
     std::mutex tasks_mutex;
     std::function<void(size_t)> task_;
-    const char* task_name_ = nullptr;
     size_t num_iterations_ = 0;
     size_t iteration_ = 0;
     size_t complete_ = 0;
@@ -143,7 +141,7 @@ namespace bb {
  * A thread pooled strategy that uses std::mutex for protection. Each worker increments the "iteration" and processes.
  * The main thread acts as a worker also, and when it completes, it spins until thread workers are done.
  */
-void parallel_for_mutex_pool(size_t num_iterations, const std::function<void(size_t)>& func, const char* name)
+void parallel_for_mutex_pool(size_t num_iterations, const std::function<void(size_t)>& func)
 {
 #ifdef __wasm__
 #define THREAD_LOCAL_MAYBE
@@ -163,7 +161,7 @@ void parallel_for_mutex_pool(size_t num_iterations, const std::function<void(siz
     }
 
     nested = true;
-    pool.start_tasks(num_iterations, func, name);
+    pool.start_tasks(num_iterations, func);
     nested = false;
 }
 } // namespace bb
