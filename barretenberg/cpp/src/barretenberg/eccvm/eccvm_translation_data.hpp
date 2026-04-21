@@ -41,17 +41,15 @@ template <typename Transcript> class TranslationData {
     std::array<FF, SUBGROUP_SIZE> interpolation_domain;
 
     /**
-     * @brief Given masked `transcript_polynomials` \f$ \tilde{T}_i(X)  = T_i(X) + X^{n - 1 -
-     * \text{NUM_DISABLED_ROWS_IN_SUMCHECK}} \cdot m_i(X) \f$, for \f$ i = 0, \ldots,
-     * \text{NUM_TRANSLATION_EVALUATIONS}-1\f$, we extract and concatenate their masking terms \f$ m_i\f$. Let \f$ M(X)
-     * \f$ be the polynomial whose first \f$ \text{NUM_DISABLED_ROWS_IN_SUMCHECK}* \text{NUM_TRANSLATION_EVALUATIONS}\f$
-     * Lagrange coefficients over \f$ H \f$ are given by the concatenation of \f$ m_i \f$ padded by zeroes. To mask \f$
-     * M(X) \f$ and commit to the masked polynomial, we need to compute its coefficients in the monomial basis.
+     * @brief Let \f$ s = \text{TRACE\_OFFSET} \f$ and \f$ T = \text{NUM\_TRANSLATION\_EVALUATIONS} \f$.
+     * Given masked transcript polynomials \f$ \tilde{T}_i(X) \f$ for \f$ i = 0, \ldots, T-1 \f$,
+     * we extract their first \f$ s \f$ coefficients (the masking terms \f$ m_i \f$) and concatenate them.
+     * Let \f$ M(X) \f$ be the polynomial whose first \f$ s \cdot T \f$ Lagrange coefficients over \f$ H \f$
+     * are given by \f$ (m_0 \| \ldots \| m_{T-1}) \f$ padded by zeroes.
      *
-     * An object of this class is fed to the SmallSubgroupIPA prover to establish the claims about the inner product of
-     * Lagrange coefficients of \f$ M \f$ against the vectors of the following form.\f$(1, 1, x , x^2 ,
-     * x^{\text{NUM_DISABLED_ROWS_IN_SUMCHECK} - 1}, v , v\cdot x ,\ldots, ... , v^{T - 1}, v^{T-1} x , v^{T-1} x^2 ,
-     * v^{T-1} x^{\text{NUM_DISABLED_ROWS_IN_SUMCHECK} - 1} ).\f$
+     * An object of this class is fed to the SmallSubgroupIPA prover to establish claims about the inner product of
+     * Lagrange coefficients of \f$ M \f$ against vectors of the form
+     * \f$(1, x, \ldots, x^{s-1},\; v, vx, \ldots, v^{T-1} x^{s-1})\f$.
      *
      * @param transcript_polynomials
      * @param transcript
@@ -82,28 +80,26 @@ template <typename Transcript> class TranslationData {
                                      commitment_key.commit(masked_concatenated_polynomial));
     }
     /**
-     * @brief   Let \f$ T = NUM_TRANSLATION_EVALUATIONS \f$ and let \f$ m_0, ..., m_{T-1}\f$ be the vectors of last \f$
-     * \text{NUM_DISABLED_ROWS_IN_SUMCHECK} \f$  coeffs in each transcript poly \f$ \tilde{T}_i \f$,  we compute the
-     * concatenation \f$ (m_0 || ... || m_{T-1})\f$ in Lagrange and monomial basis and mask the latter.
+     * @brief Extract the first \f$ s = \text{TRACE\_OFFSET} \f$ coefficients from each of the \f$ T \f$ transcript
+     * polynomials, concatenate them as \f$ (m_0 \| \ldots \| m_{T-1}) \f$, and mask the result.
      *
      * @param transcript_polynomials
      */
     void compute_concatenated_polynomials(const RefVector<Polynomial>& transcript_polynomials)
     {
-        const size_t circuit_size = transcript_polynomials[0].size();
-
         std::array<FF, SUBGROUP_SIZE> coeffs_lagrange_subgroup;
 
         for (size_t idx = 0; idx < SUBGROUP_SIZE; idx++) {
             coeffs_lagrange_subgroup[idx] = FF{ 0 };
         }
 
-        // Extract the Lagrange coefficients of the concatenated masking term from the transcript polynomials
+        // Extract the masking terms from the head of the transcript polynomials (top-of-trace masking)
+        // Positions 0..TRACE_OFFSET-1 contain: zero row (pos 0), masking values (pos 1,2,3)
+        constexpr size_t coeffs_per_poly = Flavor::TRACE_OFFSET;
         for (size_t poly_idx = 0; poly_idx < NUM_TRANSLATION_EVALUATIONS; poly_idx++) {
-            for (size_t idx = 0; idx < NUM_DISABLED_ROWS_IN_SUMCHECK; idx++) {
-                size_t idx_to_populate = poly_idx * NUM_DISABLED_ROWS_IN_SUMCHECK + idx;
-                coeffs_lagrange_subgroup[idx_to_populate] =
-                    transcript_polynomials[poly_idx].at(circuit_size - NUM_DISABLED_ROWS_IN_SUMCHECK + idx);
+            for (size_t idx = 0; idx < coeffs_per_poly; idx++) {
+                size_t idx_to_populate = poly_idx * coeffs_per_poly + idx;
+                coeffs_lagrange_subgroup[idx_to_populate] = transcript_polynomials[poly_idx][idx];
             }
         }
         concatenated_polynomial_lagrange = Polynomial(coeffs_lagrange_subgroup);

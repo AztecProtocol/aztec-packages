@@ -247,9 +247,9 @@ TEST_F(UltraRelationCorrectnessTests, Mega)
         ensure_non_zero(selector);
     }
 
-    // Check the databus entities are non-zero
-    for (auto selector : prover_inst->polynomials.get_databus_entities()) {
-        ensure_non_zero(selector);
+    // Check the databus read counts/tags/inverses are non-zero (data columns may be zero with DEFAULT_VALUE=0)
+    for (auto poly : prover_inst->polynomials.get_databus_inverses()) {
+        ensure_non_zero(poly);
     }
     auto& prover_polynomials = prover_inst->polynomials;
     auto params = prover_inst->relation_parameters;

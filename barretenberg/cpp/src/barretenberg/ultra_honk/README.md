@@ -151,7 +151,7 @@ Several Fiat-Shamir challenges appear throughout the protocol:
 
 Circuits have variable size, but it is convenient if recursive verifier verification keys are independent of the inner proof's circuit size. To achieve this, flavors with `USE_PADDING = true` run Sumcheck and Gemini with a fixed log-size `VIRTUAL_LOG_N`, regardless of the actual `log_circuit_size`. This produces a fixed-length proof (fixed number of Sumcheck round univariates and Gemini fold commitments/evaluations), so the recursive verifier circuit and its VK are the same for all inner circuit sizes.
 
-A **padding indicator array** (1 for real rounds, 0 for padded) is used by the verifier to neutralize padded rounds: when the indicator is 0, the Sumcheck round check reduces to a tautology (the running target sum is preserved unchanged) and the Gemini fold claim is similarly disabled, so all rounds are processed uniformly without branching.
+The row-disabling polynomial is circuit-size independent, so all sumcheck rounds are processed uniformly by the verifier — no special handling is needed for padded rounds.
 
 On the prover side, `virtual_log_n` is used instead of `log_circuit_size` when generating gate challenges and running Sumcheck, so the prover produces the expected number of rounds. The actual polynomial data only spans `2^log_circuit_size` entries.
 
@@ -228,11 +228,11 @@ ZK flavors (`UltraZKFlavor`, `UltraKeccakZKFlavor`, `MegaZKFlavor`) add several 
 
 ### 1. Witness Polynomial Masking
 
-Each witness polynomial (wires, lookup counts/tags/inverses, z_perm, databus columns) has its last `NUM_MASKED_ROWS = 3` entries overwritten with random field elements before commitment. This is done by `Polynomial::mask()` during Oink, either via `batch.add_to_batch(..., /*mask?*/ Flavor::HasZK)` (which masks before batched commitment) or explicitly before `commitment_key.commit()` (for z_perm).
+Each witness polynomial (wires, lookup counts/tags/inverses, z_perm, databus columns) has its first `NUM_MASKED_ROWS = 3` entries (rows 1-3, after the zero row) overwritten with random field elements before commitment. This is done in-place during Oink via `batch.add_to_batch(..., /*mask?*/ Flavor::HasZK)` (which masks before batched commitment) or explicitly before `commitment_key.commit()` (for z_perm).
 
 ### 2. Row Disabling
 
-The 3 masked rows plus 1 adjacent row (needed for shifted polynomials) cannot satisfy the circuit relations, since the witness values there are random. To prevent this from causing Sumcheck to fail, ZK flavors multiply the entire relation by a **row-disabling polynomial** `1 - X_2·X_3·...·X_{d-1}` that evaluates to zero on the last 4 rows of the boolean hypercube. Like `pow_{β_gate}`, this polynomial has a simple closed form so the verifier can evaluate it efficiently without a commitment. This increases `BATCHED_RELATION_PARTIAL_LENGTH` by 1 compared to the non-ZK flavor.
+The 3 masked rows plus the zero row (row 0, needed for shifted polynomials) cannot satisfy the circuit relations, since the witness values there are random. To prevent this from causing Sumcheck to fail, ZK flavors multiply the entire relation by a **row-disabling polynomial** that evaluates to zero on the first 4 rows of the boolean hypercube (rows 0-3). Like `pow_{β_gate}`, this polynomial has a simple closed form so the verifier can evaluate it efficiently without a commitment. This increases `BATCHED_RELATION_PARTIAL_LENGTH` by 1 compared to the non-ZK flavor.
 
 ### 3. Libra Masking (Sumcheck Round Univariates)
 

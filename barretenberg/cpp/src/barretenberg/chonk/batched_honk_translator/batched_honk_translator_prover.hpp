@@ -25,9 +25,6 @@ namespace bb {
  *   U_joint(x) = U_MZK(x) + α^{K_H} · U_translator(x)
  *
  * where K_H = MegaZKFlavor::NUM_SUBRELATIONS and α is drawn after all pre-sumcheck commitments.
- *
- * The MegaZK circuit is treated as a 2^17 circuit via its RowDisablingPolynomial (padding_indicator
- * = [1]*16 + [0]), so its contribution to round 16 is zero by construction.
  */
 class BatchedHonkTranslatorProver {
   public:

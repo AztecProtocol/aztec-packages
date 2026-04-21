@@ -8,6 +8,7 @@
 
 #include "barretenberg/common/ref_vector.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
+#include "barretenberg/constants.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/honk/execution_trace/execution_trace_block.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
@@ -277,13 +278,15 @@ class UltraExecutionTraceBlocks : public UltraTraceBlockData {
 
   public:
     static constexpr size_t NUM_WIRES = UltraTraceBlock::NUM_WIRES;
+    // The number of rows reserved at the top of the trace for row-disabling / ZK masking.
+    static constexpr size_t TRACE_OFFSET = NUM_DISABLED_ROWS_IN_SUMCHECK;
     using FF = fr;
 
     UltraExecutionTraceBlocks() = default;
 
-    void compute_offsets()
+    void compute_offsets(size_t trace_offset = TRACE_OFFSET)
     {
-        uint32_t offset = 1; // start at 1 because the 0th row is unused for selectors for Honk
+        uint32_t offset = static_cast<uint32_t>(trace_offset + NUM_ZERO_ROWS);
         for (auto& block : this->get()) {
             block.trace_offset_ = offset;
             offset += static_cast<uint32_t>(block.size());

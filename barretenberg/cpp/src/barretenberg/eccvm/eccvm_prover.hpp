@@ -52,8 +52,6 @@ class ECCVMProver {
     void compute_translation_opening_claims();
     std::shared_ptr<Transcript> transcript;
 
-    size_t unmasked_witness_size;
-
     // The batch opening claim to be verified via IPA
     OpeningClaim batch_opening_claim;
 

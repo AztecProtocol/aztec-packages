@@ -224,7 +224,7 @@ TYPED_TEST(MegaHonkTests, PolySwap)
 /**
  * @brief Test that the dyadic size correctly jumps to the next power of 2 when the trace would otherwise
  * place lagrange_last in the ZK masking region.
- * @details For MegaZK, the last NUM_MASKED_ROWS rows are overwritten with random values for zero-knowledge.
+ * @details For MegaZK, the first NUM_MASKED_ROWS rows are overwritten with random values for zero-knowledge.
  * We incrementally add gates until the dyadic size doubles, verifying at each step that lagrange_last does not
  * overlap the masking area. At the tightest packing (right before the jump), we prove-and-verify.
  */
@@ -243,9 +243,9 @@ TYPED_TEST(MegaHonkTests, DyadicSizeJumpsToProtectMaskingArea)
         auto baseline_instance = std::make_shared<ProverInstance>(baseline_builder);
         const size_t baseline_dyadic = baseline_instance->dyadic_size();
 
-        // Add gates one at a time until the dyadic size doubles
+        // The disabled head region is always present.
+        // Verify active trace starts after it and dyadic size doubles when tightly packed.
         size_t prev_dyadic = 0;
-        size_t prev_final_active_idx = 0;
         bool found_jump = false;
         for (size_t num_extra_gates = 0; num_extra_gates <= baseline_dyadic; num_extra_gates++) {
             Builder builder;
@@ -257,26 +257,18 @@ TYPED_TEST(MegaHonkTests, DyadicSizeJumpsToProtectMaskingArea)
 
             const size_t dyadic_size = prover_instance->dyadic_size();
             const size_t final_active_idx = prover_instance->get_final_active_wire_idx();
-            const size_t first_masked_row = dyadic_size - NUM_MASKED_ROWS;
 
-            // Invariant: lagrange_last must be strictly before the masking area
-            ASSERT_LT(final_active_idx, first_masked_row)
-                << "lagrange_last (at " << final_active_idx << ") overlaps masking area (starting at "
-                << first_masked_row << ") with num_extra_gates=" << num_extra_gates;
-
-            // Sufficient headroom for disabled rows
-            ASSERT_GE(dyadic_size - final_active_idx - 1, static_cast<size_t>(NUM_DISABLED_ROWS_IN_SUMCHECK));
+            // Invariant: active trace doesn't overlap the disabled head region
+            ASSERT_GE(final_active_idx, ProverInstance::TRACE_OFFSET)
+                << "final_active_idx (" << final_active_idx << ") is within the disabled head region";
 
             if (prev_dyadic != 0 && dyadic_size > prev_dyadic) {
                 EXPECT_EQ(dyadic_size, 2 * prev_dyadic);
-                EXPECT_LE(prev_dyadic - prev_final_active_idx - 1,
-                          2 * static_cast<size_t>(NUM_DISABLED_ROWS_IN_SUMCHECK));
 
                 // Prove and verify at the tightest packing (right before the jump)
                 Builder tight_builder;
                 GoblinMockCircuits::construct_simple_circuit(tight_builder);
                 MockCircuits::add_arithmetic_gates(tight_builder, num_extra_gates - 1);
-                auto tight_instance = std::make_shared<ProverInstance>(tight_builder);
                 bool verified = this->construct_and_verify_honk_proof(tight_builder);
                 EXPECT_TRUE(verified);
 
@@ -285,7 +277,6 @@ TYPED_TEST(MegaHonkTests, DyadicSizeJumpsToProtectMaskingArea)
             }
 
             prev_dyadic = dyadic_size;
-            prev_final_active_idx = final_active_idx;
         }
 
         EXPECT_TRUE(found_jump) << "should have found a dyadic size jump within " << baseline_dyadic << " extra gates";
@@ -293,47 +284,47 @@ TYPED_TEST(MegaHonkTests, DyadicSizeJumpsToProtectMaskingArea)
 }
 
 /**
- * @brief Verify that masked witness commitments differ from naive poly commits, and unmasked are equal.
- * @details For ZK flavors, MaskingTailData adds random tail values that shift masked commitments away
- * from commit(short_poly). Unmasked witness poly commitments should match exactly.
+ * @brief Verify that witness polynomials have masking values in the reserved head region.
+ * @details Wires, z_perm, lookup, and databus inverse polynomials should have non-zero random values
+ * at rows 1..NUM_MASKED_ROWS. ECC op wires and public databus columns are intentionally NOT masked.
  */
-TYPED_TEST(MegaHonkTests, MaskingTailCommitments)
+TYPED_TEST(MegaHonkTests, WitnessPolynomialsMasked)
 {
     using Flavor = TypeParam;
     if constexpr (!Flavor::HasZK) {
         GTEST_SKIP() << "Masking only applies to ZK flavors";
     } else {
         using Builder = typename Flavor::CircuitBuilder;
-        using CommitmentKey = typename Flavor::CommitmentKey;
 
         Builder builder;
         GoblinMockCircuits::construct_simple_circuit(builder);
         auto prover_instance = std::make_shared<ProverInstance_<Flavor>>(builder);
-        auto verification_key = std::make_shared<typename Flavor::VerificationKey>(prover_instance->get_precomputed());
 
-        // Run oink to populate commitments
-        auto transcript = std::make_shared<typename Flavor::Transcript>();
-        OinkProver<Flavor> oink(prover_instance, verification_key, transcript);
-        oink.prove();
-
-        CommitmentKey ck(prover_instance->dyadic_size());
-
-        // Masked polys: commit(poly) should differ from stored commitment
-        auto masked_polys = prover_instance->polynomials.get_masked();
-        auto masked_commitments = prover_instance->commitments.get_masked();
-        for (auto [poly, commitment] : zip_view(masked_polys, masked_commitments)) {
-            EXPECT_NE(ck.commit(poly), commitment) << "Masked commitment should differ from naive commit";
-        }
-
-        // Unmasked witness polys: commit(poly) should equal stored commitment
-        auto witness_polys = prover_instance->polynomials.get_witness();
-        auto witness_commitments = prover_instance->commitments.get_all();
-        auto witness_flags = prover_instance->masking_tail_data.is_masked.get_witness();
-        for (auto [poly, commitment, is_masked] : zip_view(witness_polys, witness_commitments, witness_flags)) {
-            if (!is_masked && !commitment.is_point_at_infinity()) {
-                EXPECT_EQ(ck.commit(poly), commitment) << "Unmasked witness commitment should equal naive commit";
+        auto check_masked = [](const auto& poly, const std::string& label) {
+            bool has_masking = false;
+            for (size_t j = 0; j < NUM_MASKED_ROWS; j++) {
+                has_masking |= !poly[NUM_ZERO_ROWS + j].is_zero();
             }
-        }
+            EXPECT_TRUE(has_masking) << label << " should be masked";
+        };
+
+        auto& polys = prover_instance->polynomials;
+        check_masked(polys.w_l, "w_l");
+        check_masked(polys.w_r, "w_r");
+        check_masked(polys.w_o, "w_o");
+        check_masked(polys.w_4, "w_4");
+        check_masked(polys.z_perm, "z_perm");
+        check_masked(polys.lookup_read_counts, "lookup_read_counts");
+        check_masked(polys.lookup_read_tags, "lookup_read_tags");
+        check_masked(polys.lookup_inverses, "lookup_inverses");
+        check_masked(polys.calldata_read_counts, "calldata_read_counts");
+        check_masked(polys.calldata_inverses, "calldata_inverses");
+        check_masked(polys.secondary_calldata, "secondary_calldata");
+        check_masked(polys.secondary_calldata_read_counts, "secondary_calldata_read_counts");
+        check_masked(polys.secondary_calldata_inverses, "secondary_calldata_inverses");
+        check_masked(polys.return_data, "return_data");
+        check_masked(polys.return_data_read_counts, "return_data_read_counts");
+        check_masked(polys.return_data_inverses, "return_data_inverses");
     }
 }
 

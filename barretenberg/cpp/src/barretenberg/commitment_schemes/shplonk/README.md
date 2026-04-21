@@ -117,7 +117,6 @@ The shifted scalar differs by a factor of $ r^{-1} $ and uses subtraction instea
 
 - **Batch Opening**: Combines multiple polynomial commitments into one claim
 - **ZK Support**: When `HasZK=true`, handles Libra masking polynomials
-- **Padding Support**: Supports circuits smaller than the maximum size via `padding_indicator_array`
 - **Repeated Commitment Optimization**: Combines scalars for duplicate commitments
 
 ### Output Structure
@@ -167,7 +166,6 @@ auto opening_claim = ShpleminiProver::prove(
 ```cpp
 auto [batch_opening_claim, consistency_checked /* only for ZK flavors*/ ] =
     ShpleminiVerifier::compute_batch_opening_claim(
-        padding_indicator_array,
         claim_batcher,
         multilinear_challenge,
         g1_identity,

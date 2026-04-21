@@ -227,7 +227,6 @@ class ProofCompressor {
     static void walk_joint_proof(ScalarFn&& process_scalar, CommitmentFn&& process_commitment)
     {
         constexpr size_t JOINT_LOG_N = TranslatorFlavor::CONST_TRANSLATOR_LOG_N; // 17
-        constexpr size_t MEGA_ZK_LOG_N = MegaZKFlavor::VIRTUAL_LOG_N;            // 16
         // --- Translator Oink ---
         // Gemini masking poly commitment
         process_commitment();
@@ -244,29 +243,22 @@ class ProofCompressor {
         // Libra sum
         process_scalar();
 
-        // Committed sumcheck rounds 0..MEGA_ZK_LOG_N-1 (commitment + 2 evals per round)
-        for (size_t round = 0; round < MEGA_ZK_LOG_N; round++) {
-            process_commitment(); // round univariate commitment
-            process_scalar();     // eval at 0
-            process_scalar();     // eval at 1
+        // Committed sumcheck rounds 0..JOINT_LOG_N-1 (commitment + 2 evals per round)
+        for (size_t round = 0; round < JOINT_LOG_N; round++) {
             // Minicircuit evaluations sent at round LOG_MINI_CIRCUIT_SIZE - 1
-            if (round == TranslatorFlavor::LOG_MINI_CIRCUIT_SIZE - 1) {
+            if (round == TranslatorFlavor::LOG_MINI_CIRCUIT_SIZE) {
                 for (size_t j = 0; j < TranslatorFlavor::NUM_MINICIRCUIT_EVALUATIONS; j++) {
                     process_scalar();
                 }
             }
-        }
-
-        // MegaZK evaluations (sent after all real rounds, before virtual rounds)
-        for (size_t i = 0; i < MegaZKFlavor::NUM_ALL_ENTITIES; i++) {
-            process_scalar();
-        }
-
-        // Virtual committed sumcheck rounds MEGA_ZK_LOG_N..JOINT_LOG_N-1
-        for (size_t round = MEGA_ZK_LOG_N; round < JOINT_LOG_N; round++) {
             process_commitment(); // round univariate commitment
             process_scalar();     // eval at 0
             process_scalar();     // eval at 1
+        }
+
+        // MegaZK evaluations (sent after all sumcheck rounds)
+        for (size_t i = 0; i < MegaZKFlavor::NUM_ALL_ENTITIES; i++) {
+            process_scalar();
         }
 
         // Translator evaluations (sent after all rounds)
@@ -374,7 +366,6 @@ class ProofCompressor {
 
     // Joint proof — mirrors walk_joint_proof (translator oink + joint sumcheck + joint PCS)
     static constexpr size_t JOINT_LOG_N = TranslatorFlavor::CONST_TRANSLATOR_LOG_N;
-    static constexpr size_t MEGA_ZK_LOG_N = MegaZKFlavor::VIRTUAL_LOG_N;
     static constexpr size_t EXPECTED_JOINT_FRS =
         // Translator oink
         1 * BN254_FRS_PER_COMM +                                                                                   // gemini masking poly
@@ -388,7 +379,7 @@ class ProofCompressor {
         2 * JOINT_LOG_N * BN254_FRS_PER_SCALAR +                                                                   // round univariate evals
         // Minicircuit evaluations (sent once at round LOG_MINI_CIRCUIT_SIZE - 1)
         TranslatorFlavor::NUM_MINICIRCUIT_EVALUATIONS * BN254_FRS_PER_SCALAR +                                     // minicircuit evals
-        // MegaZK evaluations (sent after real rounds)
+        // MegaZK evaluations (sent after all sumcheck rounds)
         MegaZKFlavor::NUM_ALL_ENTITIES * BN254_FRS_PER_SCALAR +                                                    // mega_zk evals
         // Translator evaluations (sent after all rounds)
         TranslatorFlavor::NUM_FULL_CIRCUIT_EVALUATIONS * BN254_FRS_PER_SCALAR +                                    // translator evals

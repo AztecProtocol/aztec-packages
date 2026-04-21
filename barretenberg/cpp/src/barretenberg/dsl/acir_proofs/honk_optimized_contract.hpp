@@ -410,7 +410,7 @@ uint256 constant CIRCUIT_SIZE = {{ CIRCUIT_SIZE }};
 uint256 constant LOG_N = {{ LOG_CIRCUIT_SIZE }};
 uint256 constant NUMBER_PUBLIC_INPUTS = {{ NUM_PUBLIC_INPUTS }};
 uint256 constant REAL_NUMBER_PUBLIC_INPUTS = {{ REAL_NUM_PUBLIC_INPUTS }};
-uint256 constant PUBLIC_INPUTS_OFFSET = 1;
+uint256 constant PUBLIC_INPUTS_OFFSET = 5; // NUM_DISABLED_ROWS_IN_SUMCHECK + NUM_ZERO_ROWS = 4 + 1
 
 contract HonkVerifier is IVerifier {
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
@@ -3299,12 +3299,22 @@ contract HonkVerifier is IVerifier {
                     staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40)
                 )
 
-                // Accumulator = accumulator + scalar[27] * vk[26]
-                // optimization - Lagrange first is always G - (1,2)
-                //                later on we are expected to multiply constant_term_accumulator by G - (1,2)
-                //                here we can add scalars together and skip a ecMul + ecAdd for each
+                // Accumulator = accumulator + scalar[27] * [lagrange_first]
                 mcopy(G1_LOCATION, LAGRANGE_FIRST_X_LOC, 0x40)
-                mstore(SCALAR_LOCATION, addmod(constant_term_acc, mload(BATCH_SCALAR_27_LOC), p))
+                mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_27_LOC))
+                precomp_success_flag := and(
+                    precomp_success_flag,
+                    staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40)
+                )
+                precomp_success_flag := and(
+                    precomp_success_flag,
+                    staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40)
+                )
+
+                // Accumulator = accumulator + constant_term_acc * G (generator)
+                mstore(G1_LOCATION, 0x01) // G1 generator x
+                mstore(add(G1_LOCATION, 0x20), 0x02) // G1 generator y
+                mstore(SCALAR_LOCATION, constant_term_acc)
                 precomp_success_flag := and(
                     precomp_success_flag,
                     staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40)

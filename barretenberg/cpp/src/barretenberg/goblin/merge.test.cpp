@@ -161,11 +161,10 @@ template <typename Curve> class MergeTests : public testing::Test {
         auto native_proof = merge_prover.construct_proof();
         tamper_with_proof(native_proof, tampering_mode);
 
-        // Create commitments to subtables
-        auto t_current = op_queue->construct_current_ultra_ops_subtable_columns();
-        auto T_prev = op_queue->construct_previous_ultra_ops_table_columns();
+        // Construct shifted column polynomials matching the circuit's ecc_op_wire layout
+        auto t_current = op_queue->construct_current_ultra_ops_subtable_columns(MergeProver::FULL_SHIFT);
+        auto T_prev = op_queue->construct_previous_ultra_ops_table_columns(MergeProver::FULL_SHIFT);
 
-        // Native commitments
         std::array<curve::BN254::AffineElement, NUM_WIRES> native_t_commitments;
         std::array<curve::BN254::AffineElement, NUM_WIRES> native_T_prev_commitments;
         for (size_t idx = 0; idx < NUM_WIRES; idx++) {
@@ -173,9 +172,9 @@ template <typename Curve> class MergeTests : public testing::Test {
             native_T_prev_commitments[idx] = merge_prover.pcs_commitment_key.commit(T_prev[idx]);
         }
 
-        // Compute expected merged table commitments independently
-        // After merge, the full table is T_merged = T_prev || t_current (PREPEND) or t_current || T_prev (APPEND)
-        auto T_merged = op_queue->construct_ultra_ops_table_columns();
+        const size_t m_shift =
+            (settings == MergeSettings::PREPEND) ? MergeProver::FULL_SHIFT : MergeProver::APPEND_OUTPUT_SHIFT;
+        auto T_merged = op_queue->construct_ultra_ops_table_columns(m_shift);
         std::array<curve::BN254::AffineElement, NUM_WIRES> expected_merged_commitments;
         for (size_t idx = 0; idx < NUM_WIRES; idx++) {
             expected_merged_commitments[idx] = merge_prover.pcs_commitment_key.commit(T_merged[idx]);
@@ -494,6 +493,89 @@ template <typename Curve> class MergeTests : public testing::Test {
             EXPECT_TRUE(verified);
         } // if constexpr (!IsRecursive)
     }
+
+    /**
+     * @brief Verify that a prefix-tampered [L] is rejected by the merge verifier.
+     * @details The verifier opens [L'] against κ^s · l_data (where l_data is the unshifted evaluation
+     * sent by the prover). If L' has non-zero prefix, L'(κ) ≠ κ^s · l_data and the KZG opening fails.
+     *
+     * This test constructs a valid merge proof, then replaces [L] with a commitment to a prefix-tampered
+     * polynomial. Since [L] is an input commitment (not in the transcript), Fiat-Shamir challenges are
+     * unchanged — verified by extracting a challenge from both transcripts. The PCS rejects the mismatch.
+     */
+    static void test_degree_check_tightness()
+    {
+        using Polynomial = bb::Polynomial<bb::fr>;
+
+        auto op_queue = std::make_shared<ECCOpQueue>();
+        MegaCircuitBuilder circuit{ op_queue };
+        GoblinMockCircuits::construct_simple_circuit(circuit);
+
+        // Construct an honest merge proof
+        auto prover_transcript = std::make_shared<NativeTranscript>();
+        MergeProver merge_prover{ op_queue, prover_transcript };
+        auto honest_proof = merge_prover.construct_proof();
+
+        // Extract a challenge from the prover transcript to verify consistency later
+        bb::fr prover_final_challenge = prover_transcript->template get_challenge<bb::fr>("tightness_test_challenge");
+
+        // Construct honest input commitments
+        auto t_current = op_queue->construct_current_ultra_ops_subtable_columns(MergeProver::FULL_SHIFT);
+        auto T_prev = op_queue->construct_previous_ultra_ops_table_columns(MergeProver::FULL_SHIFT);
+
+        std::array<curve::BN254::AffineElement, NUM_WIRES> native_t_commitments;
+        std::array<curve::BN254::AffineElement, NUM_WIRES> native_T_prev_commitments;
+        for (size_t idx = 0; idx < NUM_WIRES; idx++) {
+            native_t_commitments[idx] = merge_prover.pcs_commitment_key.commit(t_current[idx]);
+            native_T_prev_commitments[idx] = merge_prover.pcs_commitment_key.commit(T_prev[idx]);
+        }
+
+        // Tamper with [L]: inject non-zero values in the FULL_SHIFT prefix
+        std::array<curve::BN254::AffineElement, NUM_WIRES> tampered_t_commitments;
+        for (size_t idx = 0; idx < NUM_WIRES; idx++) {
+            Polynomial tampered_L(t_current[idx], t_current[idx].size());
+            for (size_t j = 0; j < MergeProver::FULL_SHIFT; j++) {
+                tampered_L.at(j) = bb::fr::random_element();
+            }
+            tampered_t_commitments[idx] = merge_prover.pcs_commitment_key.commit(tampered_L);
+        }
+
+        // Create builder (only used in recursive context)
+        BuilderType builder;
+
+        // Build tampered input commitments in the appropriate context (native or recursive)
+        InputCommitments tampered_commitments;
+        for (size_t idx = 0; idx < NUM_WIRES; idx++) {
+            tampered_commitments.t_commitments[idx] = create_commitment(builder, tampered_t_commitments[idx]);
+            tampered_commitments.T_prev_commitments[idx] = create_commitment(builder, native_T_prev_commitments[idx]);
+        }
+        Proof proof = create_proof(builder, honest_proof);
+
+        // Verify the tampered proof. [L] is an input commitment (not in the transcript), so
+        // Fiat-Shamir challenges are unchanged. The concatenation and degree checks pass (they use
+        // evaluations from the honest proof). The PCS catches the commitment mismatch.
+        auto verifier_transcript = std::make_shared<Transcript>();
+        MergeVerifierType verifier{ MergeSettings::PREPEND, verifier_transcript };
+        auto result = verifier.reduce_to_pairing_check(proof, tampered_commitments);
+
+        // Verify transcript consistency: extract the same challenge from verifier transcript
+        // and confirm it matches the prover's. This proves no Fiat-Shamir divergence.
+        auto verifier_challenge_raw = verifier_transcript->template get_challenge<FF>("tightness_test_challenge");
+        bb::fr verifier_final_challenge;
+        if constexpr (IsRecursive) {
+            verifier_final_challenge = verifier_challenge_raw.get_value();
+        } else {
+            verifier_final_challenge = verifier_challenge_raw;
+        }
+        EXPECT_EQ(prover_final_challenge, verifier_final_challenge) << "Prover/verifier transcripts must be in sync";
+
+        // Concatenation and degree checks pass (same transcript, evaluations are self-consistent)
+        EXPECT_TRUE(result.reduction_succeeded) << "Concatenation and degree checks should pass (same transcript)";
+
+        // PCS rejects: [L_tampered] doesn't match the prover's l_data evaluation
+        bool pairing_verified = result.pairing_points.check();
+        EXPECT_FALSE(pairing_verified) << "PCS must reject prefix-tampered [L]";
+    }
 };
 
 // Define test types: native and recursive contexts
@@ -558,6 +640,11 @@ TYPED_TEST(MergeTests, HonestEmptyLeftTable)
     TestFixture::test_honest_empty_left_table();
 }
 
+TYPED_TEST(MergeTests, DegreeCheckTightness)
+{
+    TestFixture::test_degree_check_tightness();
+}
+
 /**
  * @brief Test that mixing values from different transcript instances causes instant failure
  * @details Simulates a realistic scenario where a circuit contains two merge verifiers, each with
@@ -602,9 +689,9 @@ TYPED_TEST(MergeTests, DifferentTranscriptOriginTagFailure)
     MergeProver prover_2{ op_queue_2, prover_transcript_2 };
     auto proof_2 = prover_2.construct_proof();
 
-    // Get native commitments for proof 1 (will be used with verifier 1's transcript)
-    auto t_1 = op_queue_1->construct_current_ultra_ops_subtable_columns();
-    auto T_prev_1 = op_queue_1->construct_previous_ultra_ops_table_columns();
+    // Get native commitments for proof 1 (shifted to match circuit ecc_op_wire layout)
+    auto t_1 = op_queue_1->construct_current_ultra_ops_subtable_columns(MergeProver::FULL_SHIFT);
+    auto T_prev_1 = op_queue_1->construct_previous_ultra_ops_table_columns(MergeProver::FULL_SHIFT);
     std::array<curve::BN254::AffineElement, NUM_WIRES> native_t_commitments_1;
     std::array<curve::BN254::AffineElement, NUM_WIRES> native_T_prev_commitments_1;
     for (size_t idx = 0; idx < NUM_WIRES; idx++) {
@@ -787,10 +874,10 @@ TEST_F(MergeTranscriptTests, VerifierManifestConsistency)
     MergeProver merge_prover{ op_queue, prover_transcript };
     auto merge_proof = merge_prover.construct_proof();
 
-    // Construct commitments for verifier
+    // Construct commitments for verifier (shifted to match circuit ecc_op_wire layout)
     MergeVerifier::InputCommitments merge_commitments;
-    auto t_current = op_queue->construct_current_ultra_ops_subtable_columns();
-    auto T_prev = op_queue->construct_previous_ultra_ops_table_columns();
+    auto t_current = op_queue->construct_current_ultra_ops_subtable_columns(MergeProver::FULL_SHIFT);
+    auto T_prev = op_queue->construct_previous_ultra_ops_table_columns(MergeProver::FULL_SHIFT);
     for (size_t idx = 0; idx < MegaFlavor::NUM_WIRES; idx++) {
         merge_commitments.t_commitments[idx] = merge_prover.pcs_commitment_key.commit(t_current[idx]);
         merge_commitments.T_prev_commitments[idx] = merge_prover.pcs_commitment_key.commit(T_prev[idx]);

@@ -39,7 +39,6 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<M
     ecc_op_tuple queue_ecc_add_accum(const g1::affine_element& point);
     ecc_op_tuple queue_ecc_mul_accum(const g1::affine_element& point, const FF& scalar, bool in_finalize = false);
     ecc_op_tuple queue_ecc_eq(bool in_finalize = true);
-    ecc_op_tuple queue_ecc_no_op();
     void queue_ecc_random_op();
     void queue_ecc_hiding_op(const curve::BN254::BaseField& Px, const curve::BN254::BaseField& Py);
 

@@ -8,6 +8,7 @@
 
 #include "barretenberg/common/ref_vector.hpp"
 #include "barretenberg/common/zip_view.hpp"
+#include "barretenberg/constants.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/flavor/flavor_concepts.hpp"
 #include "barretenberg/honk/execution_trace/execution_trace_block.hpp"
@@ -298,11 +299,10 @@ class MegaTracePoseidon2InternalBlock : public MegaTraceBlock {
  * @details We instantiate this both to contain the actual gates of an execution trace, and also to describe different
  * trace structures (i.e., sets of capacities for each block type, which we use to optimize the folding prover).
  *
- * @note The ecc_op block must be first in the execution trace. This is required because:
- * 1. The EccOpQueueRelation constrains ecc_op_wire polynomials to equal shifted wires inside the block
- * 2. ecc_op_wire stores data starting at index 0, while regular wires start at index 1 (due to zero row)
- * 3. The relation ecc_op_wire[i] == w[i+NUM_ZERO_ROWS] _only_ holds when ecc_op is first (immediately after the zero
- * row)
+ * @note The ecc_op block must be first in the execution trace. The merge protocol shifts its
+ * polynomials by TRACE_OFFSET + NUM_ZERO_ROWS leading zeros to match the circuit's ecc_op_wire
+ * commitments. This only works if ecc_op is the first block (so its trace_offset equals
+ * TRACE_OFFSET + NUM_ZERO_ROWS).
  *
  * @note The ecc_op block does NOT have a gate selector stored in the builder. Instead, the `lagrange_ecc_op`
  * selector polynomial is constructed during TraceToPolynomials::add_ecc_op_wires_to_prover_instance() as a
@@ -380,14 +380,16 @@ struct MegaTraceBlockData {
 class MegaExecutionTraceBlocks : public MegaTraceBlockData {
   public:
     static constexpr size_t NUM_WIRES = MegaTraceBlock::NUM_WIRES;
+    // The number of rows reserved at the top of the trace for row-disabling / ZK masking.
+    static constexpr size_t TRACE_OFFSET = NUM_DISABLED_ROWS_IN_SUMCHECK;
 
     using FF = fr;
 
     MegaExecutionTraceBlocks() = default;
 
-    void compute_offsets()
+    void compute_offsets(size_t trace_offset = TRACE_OFFSET)
     {
-        uint32_t offset = 1; // start at 1 because the 0th row is unused for selectors for Honk
+        uint32_t offset = static_cast<uint32_t>(trace_offset + NUM_ZERO_ROWS);
         for (auto& block : this->get()) {
             block.trace_offset_ = offset;
             offset += static_cast<uint32_t>(block.size());

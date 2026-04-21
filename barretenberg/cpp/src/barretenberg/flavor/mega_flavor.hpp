@@ -256,31 +256,6 @@ class MegaFlavor {
         {
             return concatenate(WireEntities<DataType>::get_all(), DerivedEntities<DataType>::get_to_be_shifted());
         }
-
-        // Entities masked in ZK mode: all witness except ECC op wires (masked via random ops)
-        // and all databus entities (not masked in ZK mode).
-        auto get_masked()
-        {
-            return RefArray{ this->w_l,
-                             this->w_r,
-                             this->w_o,
-                             this->w_4,
-                             this->z_perm,
-                             this->lookup_inverses,
-                             this->lookup_read_counts,
-                             this->lookup_read_tags };
-        }
-        auto get_masked() const
-        {
-            return RefArray{ this->w_l,
-                             this->w_r,
-                             this->w_o,
-                             this->w_4,
-                             this->z_perm,
-                             this->lookup_inverses,
-                             this->lookup_read_counts,
-                             this->lookup_read_tags };
-        }
     };
 
     // Default WitnessEntities alias
@@ -334,6 +309,10 @@ class MegaFlavor {
     static constexpr size_t NUM_SHIFTED_ENTITIES = ShiftedEntities<FF>::_members_size;
     static constexpr size_t NUM_UNSHIFTED_ENTITIES = NUM_PRECOMPUTED_ENTITIES + NUM_WITNESS_ENTITIES;
     static constexpr size_t NUM_ALL_ENTITIES = NUM_UNSHIFTED_ENTITIES + NUM_SHIFTED_ENTITIES;
+
+    // Rows reserved at the top of the trace for row-disabling / ZK masking.
+    // MegaAvmFlavor overrides to 0 (no masking needed).
+    static constexpr size_t TRACE_OFFSET = NUM_DISABLED_ROWS_IN_SUMCHECK;
 
     static constexpr RepeatedCommitmentsData REPEATED_COMMITMENTS = RepeatedCommitmentsData(
         NUM_PRECOMPUTED_ENTITIES, NUM_PRECOMPUTED_ENTITIES + NUM_WITNESS_ENTITIES, NUM_SHIFTED_ENTITIES);

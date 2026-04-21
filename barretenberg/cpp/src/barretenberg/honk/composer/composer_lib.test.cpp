@@ -55,19 +55,21 @@ TEST_F(ComposerLibTests, LookupReadCounts)
     // 1 lookup from the (1*64 + 5)th index in the table and 4 lookups from the (0*64 + 0)th index (for the remaining 4
     // 6-bits limbs  that are all 0) and one lookup from second table from the (64 * 64 + 0) index (for last 2 bits).
     // The counts and tags at all other indices should be zero.
+    // Read counts are offset by the lookup block's trace offset.
+    const size_t table_offset = builder.blocks.lookup.trace_offset();
     for (auto [idx, count, tag] : zip_polys(read_counts, read_tags)) {
-        if (idx == (0)) {
+        if (idx == table_offset + 0) {
             EXPECT_EQ(count, 4);
             EXPECT_EQ(tag, 1);
-        } else if (idx == (69)) {
+        } else if (idx == table_offset + 69) {
             EXPECT_EQ(count, 1);
             EXPECT_EQ(tag, 1);
-        } else if (idx == (64 * 64)) {
+        } else if (idx == table_offset + 64 * 64) {
             EXPECT_EQ(count, 1);
             EXPECT_EQ(tag, 1);
         } else {
-            EXPECT_EQ(count, 0);
-            EXPECT_EQ(tag, 0);
+            EXPECT_EQ(count, 0) << "Unexpected count at index " << idx;
+            EXPECT_EQ(tag, 0) << "Unexpected tag at index " << idx;
         }
         idx++;
     }

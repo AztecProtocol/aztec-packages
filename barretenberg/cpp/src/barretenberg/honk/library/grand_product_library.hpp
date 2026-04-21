@@ -92,14 +92,19 @@ void compute_grand_product(typename Flavor::ProverPolynomials& full_polynomials,
     // the permutation grand product does not need to be computed beyond the index of the last active wire
     size_t domain_size = size_override == 0 ? full_polynomials.get_polynomial_size() : size_override;
 
-    // The size of the iteration domain is one less than the number of domain size since the final value of the
+    // Grand product starts after the disabled/reserved head rows (where lagrange_first lives).
+    constexpr size_t gp_start = Flavor::TRACE_OFFSET;
+
+    const size_t active_size = domain_size - gp_start;
+
+    // The size of the iteration domain is one less than the active domain since the final value of the
     // grand product is constructed only in the relation and not explicitly in the polynomial
-    const MultithreadData thread_data = calculate_thread_data(domain_size - 1);
+    const MultithreadData thread_data = calculate_thread_data(active_size - 1);
 
     // Allocate numerator/denominator polynomials that will serve as scratch space
     // TODO: we can re-use the permutation polynomial as the numerator polynomial (reduces readability)
-    Polynomial numerator{ domain_size };
-    Polynomial denominator{ domain_size };
+    Polynomial numerator{ active_size };
+    Polynomial denominator{ active_size };
 
     // Step (1)
     // Populate `numerator` and `denominator` with the algebra described by Relation
@@ -108,11 +113,12 @@ void compute_grand_product(typename Flavor::ProverPolynomials& full_polynomials,
         const size_t end = thread_data.end[thread_idx];
         typename Flavor::AllValues row;
         for (size_t i = start; i < end; ++i) {
+            const size_t poly_idx = i + gp_start;
             // TODO: consider avoiding get_row if possible.
             if constexpr (IsUltraOrMegaHonk<Flavor>) {
-                row = full_polynomials.get_row_for_permutation_arg(i);
+                row = full_polynomials.get_row_for_permutation_arg(poly_idx);
             } else {
-                row = full_polynomials.get_row(i);
+                row = full_polynomials.get_row(poly_idx);
             }
             numerator.at(i) =
                 GrandProdRelation::template compute_grand_product_numerator<Accumulator>(row, relation_parameters);
@@ -181,12 +187,19 @@ void compute_grand_product(typename Flavor::ProverPolynomials& full_polynomials,
     auto& grand_product_polynomial = GrandProdRelation::get_grand_product_polynomial(full_polynomials);
     // The grand_product_polynomial must be shiftable for the permutation argument
     BB_ASSERT(grand_product_polynomial.is_shiftable());
-    // Compute grand product values
+
+    // Initialize grand product: z_perm[gp_start] = 1 (the first active row after disabled region)
+    // For non-ZK, gp_start = NUM_ZERO_ROWS = 1, which matches z_perm[1] = num[0] * inv_den[0] implicitly
+    // (since z_perm[0] = 0, the relation at lagrange_first uses z_perm + 1).
+    // For ZK with top masking, z_perm must be 0 at lagrange_first (row NUM_DISABLED_ROWS_IN_SUMCHECK)
+    // and the product starts from gp_start.
+
+    // Compute grand product values: z_perm[gp_start + i + 1] = numerator[i] / denominator[i]
     parallel_for(thread_data.num_threads, [&](size_t thread_idx) {
         const size_t start = thread_data.start[thread_idx];
         const size_t end = thread_data.end[thread_idx];
         for (size_t i = start; i < end; ++i) {
-            grand_product_polynomial.at(i + 1) = numerator[i] * denominator[i];
+            grand_product_polynomial.at(gp_start + i + 1) = numerator[i] * denominator[i];
         }
     });
 
