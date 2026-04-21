@@ -1,4 +1,3 @@
-// docs:start:uniswap_setup
 mod util;
 
 // Demonstrates how to use portal contracts to swap on L1 Uniswap with funds on L2
@@ -36,9 +35,7 @@ pub contract Uniswap {
     fn constructor(portal_address: EthAddress) {
         self.storage.portal_address.initialize(portal_address);
     }
-    // docs:end:uniswap_setup
 
-    // docs:start:swap_public
     #[external("public")]
     fn swap_public(
         sender: AztecAddress,
@@ -107,9 +104,7 @@ pub contract Uniswap {
         );
         self.context.message_portal(self.storage.portal_address.read(), content_hash);
     }
-    // docs:end:swap_public
 
-    // docs:start:swap_private
     #[external("private")]
     fn swap_private(
         input_asset: AztecAddress, // since private, we pass here and later assert that this is as expected by input_bridge
@@ -175,7 +170,6 @@ pub contract Uniswap {
         );
         self.context.message_portal(self.storage.portal_address.read(), content_hash);
     }
-    // docs:end:swap_private
 
     // docs:start:authwit_uniswap_set
     // This helper method approves the bridge to burn this contract's funds and exits the input asset to L1
