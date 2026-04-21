@@ -97,18 +97,15 @@ export class AztecSQLiteOPFSStore implements AztecAsyncKVStore {
   }
 
   openMap<K extends Key, V extends Value>(name: string, options?: OpenContainerOptions): AztecAsyncMap<K, V> {
-    this.#validateOpaqueKeys(name, options);
-    return new SQLiteOPFSAztecMap<K, V>(this, name, { opaqueKeys: !!options?.opaqueKeys });
+    return new SQLiteOPFSAztecMap<K, V>(this, name, { opaqueKeys: this.#effectiveOpaqueKeys(options) });
   }
 
   openSet<K extends Key>(name: string, options?: OpenContainerOptions): AztecAsyncSet<K> {
-    this.#validateOpaqueKeys(name, options);
-    return new SQLiteOPFSAztecSet<K>(this, name, { opaqueKeys: !!options?.opaqueKeys });
+    return new SQLiteOPFSAztecSet<K>(this, name, { opaqueKeys: this.#effectiveOpaqueKeys(options) });
   }
 
   openMultiMap<K extends Key, V extends Value>(name: string, options?: OpenContainerOptions): AztecAsyncMultiMap<K, V> {
-    this.#validateOpaqueKeys(name, options);
-    return new SQLiteOPFSAztecMultiMap<K, V>(this, name, { opaqueKeys: !!options?.opaqueKeys });
+    return new SQLiteOPFSAztecMultiMap<K, V>(this, name, { opaqueKeys: this.#effectiveOpaqueKeys(options) });
   }
 
   openCounter<K extends Key>(_name: string): AztecAsyncCounter<K> {
@@ -230,16 +227,17 @@ export class AztecSQLiteOPFSStore implements AztecAsyncKVStore {
     return ++this.#nextId;
   }
 
-  /** Guard: `opaqueKeys: true` needs a real cipher to HMAC the keys. The identity
-   *  cipher would leave them in the clear, silently defeating the caller's intent —
-   *  so we fail loudly at open time rather than on first write. */
-  #validateOpaqueKeys(containerName: string, options?: OpenContainerOptions): void {
-    if (options?.opaqueKeys && this.#cipher.isNullCipher) {
-      throw new Error(
-        `SQLite-OPFS container '${containerName}' was opened with opaqueKeys: true, but the store has no encryption cipher. ` +
-          `Pass a non-null cipher to AztecSQLiteOPFSStore.open(...) or omit opaqueKeys.`,
-      );
-    }
+  /** Returns the effective value of `opaqueKeys` for this store — always `false`
+   *  when the store has no encryption cipher, regardless of what the caller asked for.
+   *
+   *  Rationale: `opaqueKeys` is a *hint*, identical in spirit to the flag that LMDB
+   *  and IndexedDB silently ignore. Callers (notably PXE storage classes) hard-code
+   *  `opaqueKeys: true` on sensitive containers; the user enables or disables
+   *  encryption at the store level. If those two decisions disagreed we used to
+   *  throw, which turned "run PXE code without encryption" into an impossible state.
+   *  Silent fall-back matches the sibling backends and restores that path. */
+  #effectiveOpaqueKeys(options?: OpenContainerOptions): boolean {
+    return !!options?.opaqueKeys && !this.#cipher.isNullCipher;
   }
 
   /**
