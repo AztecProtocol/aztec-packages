@@ -75,9 +75,16 @@ async function handleDeleteDb(dbName: string): Promise<void> {
     db = undefined;
     dbPath = undefined;
   }
-  const p = await ensurePool(poolDirectory ?? DEFAULT_SAH_POOL_DIRECTORY);
+  // Ephemeral :memory: DBs never back a file — skip installing a pool just to unlink
+  // nothing. installOpfsSAHPoolVfs acquires an exclusive lock on the OPFS SAH
+  // directory, and under heavy test churn that can contend with workers from
+  // previous tests whose OPFS handles Chromium hasn't yet released, hanging the RPC
+  // and then the whole test run.
+  if (!pool) {
+    return;
+  }
   try {
-    p.unlink(path);
+    pool.unlink(path);
   } catch {
     // File may not exist; ignore.
   }
