@@ -191,13 +191,12 @@ class TranslatorTests : public ::testing::Test {
 
         // Add the same operations to the ECC op queue; the native computation is performed under the hood.
         auto op_queue = std::make_shared<bb::ECCOpQueue>();
-        op_queue->no_op_ultra_only();
         add_random_ops(op_queue, CircuitBuilder::NUM_RANDOM_OPS_START);
         add_mixed_ops(op_queue, circuit_size_parameter / 2);
         op_queue->merge();
         add_mixed_ops(op_queue, circuit_size_parameter / 2);
         add_random_ops(op_queue, CircuitBuilder::NUM_RANDOM_OPS_END);
-        op_queue->merge(MergeSettings::APPEND, ECCOpQueue::OP_QUEUE_SIZE - op_queue->get_current_subtable_size());
+        op_queue->merge(MergeSettings::APPEND, op_queue->get_append_offset());
 
         return CircuitBuilder{ batching_challenge_v, evaluation_challenge_x, op_queue };
     }
@@ -313,7 +312,6 @@ TEST_F(TranslatorTests, BasicAvmMode)
 
     // Add the same operations to the ECC op queue; the native computation is performed under the hood.
     auto op_queue = std::make_shared<bb::ECCOpQueue>();
-    op_queue->no_op_ultra_only();
     add_random_ops(op_queue, CircuitBuilder::NUM_RANDOM_OPS_START);
     add_mixed_ops(op_queue, 100);
     op_queue->merge();

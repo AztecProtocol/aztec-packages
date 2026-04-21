@@ -6,7 +6,6 @@
 #include "barretenberg/eccvm/eccvm_prover.hpp"
 #include "barretenberg/srs/global_crs.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
-#include "barretenberg/stdlib/primitives/padding_indicator_array/padding_indicator_array.hpp"
 #include "barretenberg/stdlib/primitives/pairing_points.hpp"
 #include "barretenberg/stdlib/proof/proof.hpp"
 #include <gtest/gtest.h>
@@ -110,9 +109,6 @@ template <class PCS> class ShpleminiRecursionTest : public CommitmentTest<typena
     void run_shplemini_generic(size_t num_polys, size_t num_shifted, bool short_scalars, bool prove_eccvm)
     {
         size_t N = 1 << log_circuit_size;
-
-        const auto padding_indicator_array =
-            stdlib::compute_padding_indicator_array<Curve, log_circuit_size>(log_circuit_size);
 
         CommitmentKey commitment_key(16384);
         std::vector<NativeFr> u_challenge = random_challenge_vector(log_circuit_size);
@@ -249,12 +245,10 @@ template <class PCS> class ShpleminiRecursionTest : public CommitmentTest<typena
             squashed_claim_batcher = claim_batcher;
         }
 
-        auto opening_claim = ShpleminiVerifier::compute_batch_opening_claim(padding_indicator_array,
-                                                                            squashed_claim_batcher,
-                                                                            u_challenge_in_circuit,
-                                                                            Commitment::one(&builder),
-                                                                            stdlib_verifier_transcript)
-                                 .batch_opening_claim;
+        auto opening_claim =
+            ShpleminiVerifier::compute_batch_opening_claim(
+                squashed_claim_batcher, u_challenge_in_circuit, Commitment::one(&builder), stdlib_verifier_transcript)
+                .batch_opening_claim;
         stdlib::recursion::PairingPoints<stdlib::bn254<Builder>> pairing_points(
             KZG<Curve>::reduce_verify_batch_opening_claim(std::move(opening_claim), stdlib_verifier_transcript));
         EXPECT_TRUE(CircuitChecker::check(builder));

@@ -264,14 +264,14 @@ The mini-circuit layout is illustrated below:
 - Let $n$ = total number of rows in the mini-circuit
 - Let $r_{\textsf{start}}$ = number of rows for randomness at start
 - Let $r_{\textsf{end}}$ = number of rows for randomness at the end
-- Let $z_1$ = number of initial no-op rows (to ensure column polynomials are shiftable)
+- Let $z_1$ = number of initial zero rows (to ensure column polynomials are shiftable)
 
 Color coding in the diagram:
 
 - Purple boxes ($\textcolor{violet}{\textsf{purple}}$): Zero values or initial values
-  - For all columns: initial no-op row contains zeros
+  - For all columns: initial zero rows for shiftability
   - For non-OP columns (13 limb + 64 microlimb): end randomness region initially contain zeros, later overwritten with random values for ZK sumcheck
-- Grey boxes ($\textcolor{grey}{\textsf{grey}}$): Random values (no-op) in the 4 OP queue columns only
+- Grey boxes ($\textcolor{grey}{\textsf{grey}}$): Random values in the 4 OP queue columns only
   - These remain as random values from the random op processing
   - Serve Merge Protocol ZK hiding
 - Orange boxes ($\textcolor{orange}{\textsf{orange}}$): Main operation rows
@@ -289,7 +289,7 @@ z_1
    }
 }^{4}
 &
-\textsf{\scriptsize $\longleftarrow$ initial no-op}
+\textsf{\scriptsize $\longleftarrow$ shiftability zeros}
 &
 \overbrace{
 \textcolor{violet}{
@@ -401,7 +401,7 @@ r_{\textsf{end}}
 \end{array}
 $$
 
-In our implementation, mini-circuit size is $n = 2^{13}$. We have $z_1 = 2$ (one no-op at the start to ensure shiftability), $r_{\textsf{start}} = 6$ (rows for three random ops at start), and $r_{\textsf{end}} = 4$ (rows for two random ops at end). Thus, the number of main operation rows is $n - r_{\textsf{start}} - r_{\textsf{end}} - z_1 = 8180$.
+In our implementation, mini-circuit size is $n = 2^{13}$. We have $z_1 = 2$ (two zero rows at the start to ensure shiftability), $r_{\textsf{start}} = 6$ (rows for three random ops at start), and $r_{\textsf{end}} = 4$ (rows for two random ops at end). Thus, the number of main operation rows is $n - r_{\textsf{start}} - r_{\textsf{end}} - z_1 = 8180$.
 
 The random ops serve dual purposes for zero-knowledge:
 
