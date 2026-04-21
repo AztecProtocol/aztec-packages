@@ -100,7 +100,9 @@ function main {
   fi
   check_cache
   echo_header "Run ${CI_MODE} CI"
-  exec ./ci.sh "${CI_MODE}" "$@"
+  # Temporary: grind p2p tests instead of normal CI for the libp2p v2 upgrade branch.
+  # Revert this block (and the ci-grind-p2p targets in ci.sh / bootstrap.sh) before merging.
+  exec ./ci.sh grind-p2p "$@"
 }
 
 main "$@"

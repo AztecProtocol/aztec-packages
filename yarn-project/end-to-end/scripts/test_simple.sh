@@ -29,13 +29,18 @@ if [[ "$test_file" == *".sh" ]]; then
 else
   cache_dir_arg=()
   test_name_arg=()
+  jest_extra_args=()
   [ -n "${JEST_CACHE_DIR:-}" ] && cache_dir_arg=(--cacheDirectory="$JEST_CACHE_DIR")
   [ -n "${test_name:-}" ] && test_name_arg=(--testNamePattern="$test_name")
+  # JEST_EXTRA_ARGS lets callers append flags like --forceExit or --detectOpenHandles
+  # (used by the ci-grind-p2p target where 300s is too short and tests leak handles).
+  [ -n "${JEST_EXTRA_ARGS:-}" ] && read -ra jest_extra_args <<< "$JEST_EXTRA_ARGS"
 
   node --experimental-vm-modules ../node_modules/.bin/jest \
-  --testTimeout=300000 \
+  --testTimeout="${JEST_TEST_TIMEOUT:-300000}" \
   --no-cache \
   "${cache_dir_arg[@]}" \
   "${test_name_arg[@]}" \
+  "${jest_extra_args[@]}" \
   --runInBand "$1"
 fi
