@@ -694,6 +694,16 @@ template <typename LeafValueType> void ContentAddressedCachedTreeStore<LeafValue
 
             meta.committedSize = meta.size;
             persist_meta(meta, *tx);
+
+            // Persist a BlockPayload entry for block 0 so that genesis state can be queried as a first-class
+            // historical block. Without this, get_block_data(0) would fail and any historical read targeting block 0
+            // would throw. The payload captures the tree's initial root/size before any blocks have been committed.
+            BlockPayload genesisBlock{ .size = meta.initialSize, .blockNumber = 0, .root = meta.initialRoot };
+            dataStore_->write_block_data(0, genesisBlock, *tx);
+            if (meta.initialSize > 0) {
+                dataStore_->write_block_index_data(0, meta.initialSize, *tx);
+            }
+
             tx->commit();
         } catch (std::exception& e) {
             tx->try_abort();
