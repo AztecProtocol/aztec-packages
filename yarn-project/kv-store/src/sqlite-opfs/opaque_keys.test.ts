@@ -16,31 +16,37 @@ function makePlaintextStore(): Promise<AztecSQLiteOPFSStore> {
 }
 
 describe('opaque-keys mode', () => {
-  describe('validation at open time', () => {
+  describe('opaqueKeys falls back to plaintext on an unencrypted store', () => {
     let store: AztecSQLiteOPFSStore;
 
     afterEach(async () => {
       await store.delete();
     });
 
-    it('throws when opaqueKeys is requested on an unencrypted store', async () => {
+    it('opens cleanly (no throw) — the flag is a hint', async () => {
       store = await makePlaintextStore();
-      expect(() => store.openMap('notes', { opaqueKeys: true })).toThrow(/opaqueKeys/i);
-    });
-
-    it('allows opaqueKeys on an encrypted store', async () => {
-      store = await makeEncryptedStore();
       expect(() => store.openMap('notes', { opaqueKeys: true })).not.toThrow();
+      expect(() => store.openSet('nullifiers', { opaqueKeys: true })).not.toThrow();
+      expect(() => store.openMultiMap('tags', { opaqueKeys: true })).not.toThrow();
     });
 
-    it('throws on openSet with opaqueKeys + no cipher', async () => {
+    it('silently stores keys in ordered-binary (not HMAC) when no cipher is configured', async () => {
       store = await makePlaintextStore();
-      expect(() => store.openSet('nullifiers', { opaqueKeys: true })).toThrow(/opaqueKeys/i);
+      const map = store.openMap<string, string>('notes', { opaqueKeys: true });
+      await map.set('commitment-0xabc', 'v1');
+      const rows = await store.allAsync('SELECT key FROM data WHERE container = ?', ['map:notes']);
+      const keyBlob = rows[0][0] as Uint8Array;
+      // 32 bytes would be HMAC-SHA256 — unencrypted container must be the shorter ordered-binary bytes.
+      expect(keyBlob.byteLength).not.toBe(32);
     });
 
-    it('throws on openMultiMap with opaqueKeys + no cipher', async () => {
-      store = await makePlaintextStore();
-      expect(() => store.openMultiMap('tags', { opaqueKeys: true })).toThrow(/opaqueKeys/i);
+    it('still HMACs keys on an encrypted store (no silent fall-back when cipher present)', async () => {
+      store = await makeEncryptedStore();
+      const map = store.openMap<string, string>('notes', { opaqueKeys: true });
+      await map.set('commitment-0xabc', 'v1');
+      const rows = await store.allAsync('SELECT key FROM data WHERE container = ?', ['map:notes']);
+      const keyBlob = rows[0][0] as Uint8Array;
+      expect(keyBlob.byteLength).toBe(32);
     });
   });
 
