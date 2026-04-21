@@ -55,7 +55,6 @@ pub contract PrivateToken {
     // docs:start:note_delivery
     #[external("private")]
     fn mint(amount: u128, recipient: AztecAddress) {
-        // docs:start:owned_single_private_mutable_get_note
         let replacement_note_message = self.storage.admin.get_note();
         let admin = replacement_note_message.get_note().address;
         assert(admin == self.msg_sender(), "Only admin can mint");
@@ -63,7 +62,6 @@ pub contract PrivateToken {
         // We deliver the new note message to the admin using unconstrained delivery, since the admin is motivated to
         // deliver the message to themselves (hence no need to constrain it).
         replacement_note_message.deliver(MessageDelivery.ONCHAIN_UNCONSTRAINED);
-        // docs:end:owned_single_private_mutable_get_note
         // We increase the total supply and once again use unconstrained delivery, since the admin is motivated to
         // deliver the message (he's the owner of the new note as well).
         self
