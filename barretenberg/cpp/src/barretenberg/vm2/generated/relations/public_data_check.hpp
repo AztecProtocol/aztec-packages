@@ -14,9 +14,9 @@ template <typename FF_> class public_data_checkImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 33> SUBRELATION_PARTIAL_LENGTHS = { 3, 4, 3, 2, 3, 3, 3, 3, 2, 3, 3,
-                                                                            3, 3, 3, 3, 5, 3, 5, 4, 4, 4, 3,
-                                                                            3, 4, 3, 4, 2, 4, 3, 3, 3, 3, 3 };
+    static constexpr std::array<size_t, 34> SUBRELATION_PARTIAL_LENGTHS = { 3, 4, 3, 2, 3, 3, 3, 3, 2, 3, 3, 3,
+                                                                            3, 3, 3, 3, 3, 5, 3, 5, 4, 4, 4, 3,
+                                                                            4, 3, 4, 2, 4, 3, 3, 3, 3, 3 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -41,15 +41,15 @@ template <typename FF> class public_data_check : public Relation<public_data_che
     static constexpr size_t SR_END_CONDITION = 3;
     static constexpr size_t SR_PROTOCOL_WRITE_CHECK = 8;
     static constexpr size_t SR_CLK_DIFF_DECOMP = 10;
-    static constexpr size_t SR_EXISTS_FLAG_CHECK = 15;
-    static constexpr size_t SR_NEXT_SLOT_IS_ZERO_CHECK = 17;
-    static constexpr size_t SR_LOW_LEAF_VALUE_UPDATE = 18;
-    static constexpr size_t SR_LOW_LEAF_NEXT_INDEX_UPDATE = 19;
-    static constexpr size_t SR_LOW_LEAF_NEXT_SLOT_UPDATE = 20;
-    static constexpr size_t SR_VALUE_IS_CORRECT = 23;
-    static constexpr size_t SR_UPDATE_ROOT_VALIDATION = 25;
-    static constexpr size_t SR_WRITE_IDX_INITIAL_VALUE = 27;
-    static constexpr size_t SR_WRITE_IDX_INCREMENT = 30;
+    static constexpr size_t SR_EXISTS_FLAG_CHECK = 17;
+    static constexpr size_t SR_NEXT_SLOT_IS_ZERO_CHECK = 19;
+    static constexpr size_t SR_LOW_LEAF_VALUE_UPDATE = 20;
+    static constexpr size_t SR_LOW_LEAF_NEXT_INDEX_UPDATE = 21;
+    static constexpr size_t SR_LOW_LEAF_NEXT_SLOT_UPDATE = 22;
+    static constexpr size_t SR_VALUE_IS_CORRECT = 24;
+    static constexpr size_t SR_UPDATE_ROOT_VALIDATION = 26;
+    static constexpr size_t SR_WRITE_IDX_INITIAL_VALUE = 28;
+    static constexpr size_t SR_WRITE_IDX_INCREMENT = 31;
 
     static std::string get_subrelation_label(size_t index)
     {

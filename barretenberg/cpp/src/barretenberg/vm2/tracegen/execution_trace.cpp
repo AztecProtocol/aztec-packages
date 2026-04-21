@@ -531,6 +531,7 @@ void ExecutionTraceBuilder::process(
                           { {
                               // SSTORE Dynamic Gas
                               { C::execution_written_slots_tree_height, AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_HEIGHT },
+                              { C::execution_written_slots_merkle_separator, DOM_SEP__WRITTEN_SLOTS_MERKLE },
                               { C::execution_written_slots_tree_siloing_separator, DOM_SEP__PUBLIC_LEAF_SLOT },
                           } });
             }
@@ -623,6 +624,7 @@ void ExecutionTraceBuilder::process(
                                 remaining_data_writes }, // Will be inverted in batch later.
                               { C::execution_sel_write_public_data, opcode_execution_failed ? 0 : 1 },
                               { C::execution_written_slots_tree_height, AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_HEIGHT },
+                              { C::execution_written_slots_merkle_separator, DOM_SEP__WRITTEN_SLOTS_MERKLE },
                               { C::execution_written_slots_tree_siloing_separator, DOM_SEP__PUBLIC_LEAF_SLOT },
                           } });
             } else if (*exec_opcode == ExecutionOpCode::NOTEHASHEXISTS) {
@@ -660,6 +662,7 @@ void ExecutionTraceBuilder::process(
                 trace.set(row,
                           { {
                               { C::execution_nullifier_tree_height, NULLIFIER_TREE_HEIGHT },
+                              { C::execution_nullifier_merkle_separator, DOM_SEP__NULLIFIER_MERKLE },
                           } });
             } else if (*exec_opcode == ExecutionOpCode::EMITNULLIFIER) {
                 uint32_t remaining_nullifiers =
@@ -675,6 +678,7 @@ void ExecutionTraceBuilder::process(
                                 AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_NULLIFIERS_ROW_IDX +
                                     ex_event.before_context_event.tree_states.nullifier_tree.counter },
                               { C::execution_nullifier_tree_height, NULLIFIER_TREE_HEIGHT },
+                              { C::execution_nullifier_merkle_separator, DOM_SEP__NULLIFIER_MERKLE },
                               { C::execution_nullifier_siloing_separator, DOM_SEP__SILOED_NULLIFIER } } });
             } else if (*exec_opcode == ExecutionOpCode::SENDL2TOL1MSG) {
                 uint32_t remaining_l2_to_l1_msgs =
