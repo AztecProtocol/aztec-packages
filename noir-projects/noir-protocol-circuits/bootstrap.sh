@@ -197,6 +197,13 @@ function test_cmds {
     fi
     echo "$prefix noir-projects/scripts/run_test.sh noir-protocol-circuits $package $test"
   done
+  # Pin gate counts of compiled hiding-kernel artifacts via the bb DSL test binary. The hash
+  # combines BB_HASH (test binary) and circuits_hash (artifacts) so the cache invalidates when
+  # either side changes. These are filtered out of barretenberg/cpp/bootstrap.sh test_cmds_native
+  # (where the artifacts don't exist) and live here, in the phase that has them.
+  local hk_hash=$(hash_str "$BB_HASH-$circuits_hash")
+  echo "$hk_hash barretenberg/cpp/scripts/run_test.sh dsl_tests HidingKernelProtocolCircuitsGateCount.HidingKernelToRollup"
+  echo "$hk_hash barretenberg/cpp/scripts/run_test.sh dsl_tests HidingKernelProtocolCircuitsGateCount.HidingKernelToPublic"
   # We don't blindly execute all circuits as some will have no `Prover.toml`.
   circuits_to_execute="
     private-kernel-init

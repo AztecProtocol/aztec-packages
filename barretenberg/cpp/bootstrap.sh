@@ -255,6 +255,11 @@ function test_cmds_native {
             continue
           fi
         fi
+        # These tests require compiled noir-protocol-circuits artifacts. They are run from
+        # noir-projects/noir-protocol-circuits/bootstrap.sh test_cmds, where the artifacts exist.
+        if [[ "$test" =~ ^HidingKernelProtocolCircuitsGateCount ]]; then
+          continue
+        fi
         local prefix=$hash
         # A little extra resource for these tests.
         # IPARecursiveTests fails with 2 threads.
