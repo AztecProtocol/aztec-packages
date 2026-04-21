@@ -6,6 +6,21 @@ import type { EthAddress } from '@aztec/foundation/eth-address';
 
 import { AztecAddress } from '../aztec-address/index.js';
 
+/** Computes a Poseidon2 merkle tree internal node hash for append-only trees (note-hash, L1->L2, archive). */
+export function computeMerkleHash(left: Fr, right: Fr): Promise<Fr> {
+  return poseidon2HashWithSeparator([left, right], DomainSeparator.MERKLE_HASH);
+}
+
+/** Merkle-node hasher for the nullifier tree's sibling paths. */
+export function computeNullifierMerkleHash(left: Fr, right: Fr): Promise<Fr> {
+  return poseidon2HashWithSeparator([left, right], DomainSeparator.NULLIFIER_MERKLE);
+}
+
+/** Merkle-node hasher for the public-data tree's sibling paths. */
+export function computePublicDataMerkleHash(left: Fr, right: Fr): Promise<Fr> {
+  return poseidon2HashWithSeparator([left, right], DomainSeparator.PUBLIC_DATA_MERKLE);
+}
+
 /**
  * Computes a hash of a given verification key.
  * @param keyAsFields - The verification key as fields.

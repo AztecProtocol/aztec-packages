@@ -21,11 +21,11 @@ use types::{
     address::{AztecAddress, EthAddress},
     blob_data::SpongeBlob,
     constants::{
-        ARCHIVE_HEIGHT, BLOBS_PER_CHECKPOINT, EMPTY_EPOCH_OUT_HASH, L1_TO_L2_MSG_SUBTREE_HEIGHT,
-        L1_TO_L2_MSG_TREE_HEIGHT, MAX_CHECKPOINTS_PER_EPOCH, OUT_HASH_TREE_HEIGHT,
-        OUT_HASH_TREE_LEAF_COUNT,
+        ARCHIVE_HEIGHT, BLOBS_PER_CHECKPOINT, DOM_SEP__BLOB_GAMMA_FINAL, EMPTY_EPOCH_OUT_HASH,
+        L1_TO_L2_MSG_SUBTREE_HEIGHT, L1_TO_L2_MSG_TREE_HEIGHT, MAX_CHECKPOINTS_PER_EPOCH,
+        OUT_HASH_TREE_HEIGHT, OUT_HASH_TREE_LEAF_COUNT,
     },
-    hash::poseidon2_hash,
+    hash::{poseidon2_hash, poseidon2_hash_with_separator},
     merkle_tree::{compute_empty_tree_root, MerkleTree, test_utils::SingleSubtreeMerkleTree},
     proof::proof_data::{AvmV2ProofData, ProofData},
     traits::{Deserialize, Empty, Hash},
@@ -418,7 +418,12 @@ impl RollupFixtureBuilder {
         let end_block_accumulator = self.get_blob_accumulator(self.end_slot_number);
         let z = end_block_accumulator.z_acc;
         // Safety: This is only for testing.
-        let gamma = unsafe { __from_field(poseidon2_hash([end_block_accumulator.gamma_acc, z])) };
+        let gamma = unsafe {
+            __from_field(poseidon2_hash_with_separator(
+                [end_block_accumulator.gamma_acc, z],
+                DOM_SEP__BLOB_GAMMA_FINAL,
+            ))
+        };
         FinalBlobBatchingChallenges { z, gamma: BigNum::from_limbs(gamma) }
     }
 

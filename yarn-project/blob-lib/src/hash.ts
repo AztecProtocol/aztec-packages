@@ -1,4 +1,5 @@
-import { poseidon2Hash } from '@aztec/foundation/crypto/poseidon';
+import { DomainSeparator } from '@aztec/constants';
+import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto/poseidon';
 import { sha256, sha256ToField } from '@aztec/foundation/crypto/sha256';
 import { BLS12Fr } from '@aztec/foundation/curves/bls12';
 import { Fr } from '@aztec/foundation/curves/bn254';
@@ -76,14 +77,18 @@ export function commitmentToFields(commitment: Buffer): [Fr, Fr] {
 
 export async function computeChallengeZ(blobFieldsHash: Fr, commitment: Buffer): Promise<Fr> {
   const commitmentFields = commitmentToFields(commitment);
-  return await poseidon2Hash([blobFieldsHash, commitmentFields[0], commitmentFields[1]]);
+  return await poseidon2HashWithSeparator(
+    [blobFieldsHash, commitmentFields[0], commitmentFields[1]],
+    DomainSeparator.BLOB_CHALLENGE_Z,
+  );
 }
 
 /**
- * Hash each u128 limb of the noir bignum struct representing the BLS field, to mimic the hash accumulation in the
- * rollup circuits.
+ * Hash the u128 limbs of a BLS field's noir bignum representation under the `BLOB_HASHED_Y_LIMBS` separator.
+ * Used to commit to blob evaluation values `y_i` before folding them into the gamma accumulator; mirrors the
+ * hash accumulation performed in the rollup circuits.
  */
-export async function hashNoirBigNumLimbs(field: BLS12Fr): Promise<Fr> {
+export async function hashBlobYLimbs(field: BLS12Fr): Promise<Fr> {
   const num = field.toNoirBigNum();
-  return await poseidon2Hash(num.limbs.map(Fr.fromHexString));
+  return await poseidon2HashWithSeparator(num.limbs.map(Fr.fromHexString), DomainSeparator.BLOB_HASHED_Y_LIMBS);
 }

@@ -9,6 +9,44 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
+### [Protocol] Domain separators introduced for merkle-node, block-headers, and blob hashes
+
+Several protocol hashes that previously used bare `poseidon2_hash` are now domain-separated via `poseidon2_hash_with_separator`. This is a security hardening change — it prevents a value produced by one hash context from being reinterpreted in another (e.g. a sibling path from one tree being transported to another).
+
+**New domain separators:**
+
+- `DOM_SEP__MERKLE_HASH` — sibling-pair hash for append-only trees (note-hash, L1→L2, archive, VK tree, and the balanced/unbalanced tree hash helpers in `@aztec/foundation/trees`).
+- `DOM_SEP__NULLIFIER_MERKLE`, `DOM_SEP__PUBLIC_DATA_MERKLE`, `DOM_SEP__WRITTEN_SLOTS_MERKLE`, `DOM_SEP__RETRIEVED_BYTECODES_MERKLE` — per-tree sibling-pair hash for each indexed tree. Each tree uses its own separator so sibling paths are non-transportable across trees.
+- `DOM_SEP__BLOCK_HEADERS_HASH` — used when accumulating block headers into `blockHeadersHash`.
+- `DOM_SEP__BLOB_HASHED_Y_LIMBS`, `DOM_SEP__BLOB_CHALLENGE_Z`, `DOM_SEP__BLOB_Z_ACC`, `DOM_SEP__BLOB_GAMMA_ACC`, `DOM_SEP__BLOB_GAMMA_FINAL` — blob accumulator and challenge derivations.
+
+**:warning: Hard-coded test constants will no longer match.** Every value derived from any of the hashes above is new in this release. This includes (non-exhaustively):
+
+- **All merkle tree roots** — note-hash, nullifier, public-data, L1→L2 message, archive, VK, and the AVM-internal written-slots and retrieved-bytecodes (class-ids) trees.
+- **Genesis constants** — `GENESIS_BLOCK_HEADER_HASH`, `GENESIS_ARCHIVE_ROOT`, `AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_INITIAL_ROOT`, `AVM_RETRIEVED_BYTECODES_TREE_INITIAL_ROOT`.
+- **Every block hash and archive root** — they commit to tree roots and the new block-headers-hash.
+- **Protocol contract addresses** — their derivation depends on the private-function tree root.
+- **Blob commitments / challenges** — any test that pins `z`, `gamma`, or the accumulator outputs.
+
+Regenerate these values from a fresh build of this release — do not copy them from previous release fixtures.
+
+**If you re-implement any of these hashes off-circuit** (e.g. a wallet that computes nullifier low-leaf membership, or an indexer that derives block hashes / tree roots), update the call sites:
+
+```diff
+  // Merkle sibling-pair hash (append-only trees)
+- poseidon2Hash([left, right])
++ poseidon2HashWithSeparator([left, right], DomainSeparator.MERKLE_HASH)
+
+  // Indexed-tree sibling-pair hash — pick the matching tree separator
+- poseidon2Hash([left, right])
++ poseidon2HashWithSeparator([left, right], DomainSeparator.NULLIFIER_MERKLE)
++ // or PUBLIC_DATA_MERKLE, WRITTEN_SLOTS_MERKLE, RETRIEVED_BYTECODES_MERKLE
+```
+
+`poseidon2HashWithSeparator` is exported from `@aztec/foundation/crypto/poseidon`; the `DomainSeparator` enum and the matching `DOM_SEP__*` constants are defined in `@aztec/constants`. The new entries listed above are additions — existing separator names are unchanged.
+
+For TypeScript consumers, `@aztec/stdlib/hash` exports ready-made helpers that wrap the right separator: `computeMerkleHash` (append-only), `computeNullifierMerkleHash`, and `computePublicDataMerkleHash`. Prefer these over calling `poseidon2HashWithSeparator` directly so the separator choice stays colocated with the tree.
+
 ### [Aztec.nr] `emit_private_log_unsafe` / `emit_raw_note_log_unsafe` are deprecated
 
 `emit_private_log_unsafe` and `emit_raw_note_log_unsafe` are deprecated and will be removed in a future release. Migrate to the new `emit_private_log_vec_unsafe` / `emit_raw_note_log_vec_unsafe` functions, which take a `BoundedVec<Field, PRIVATE_LOG_CIPHERTEXT_LEN>` instead of the `(log: [Field; PRIVATE_LOG_CIPHERTEXT_LEN], length: u32)` pair.

@@ -97,6 +97,7 @@ void NoteHashTreeCheckTraceBuilder::process(
                         prev_leaf_value_unique_note_hash_diff }, // Will be inverted in batch later
                       { C::note_hash_tree_check_next_leaf_value, write ? unique_note_hash : 0 },
                       { C::note_hash_tree_check_note_hash_tree_height, NOTE_HASH_TREE_HEIGHT },
+                      { C::note_hash_tree_check_merkle_hash_separator, DOM_SEP__MERKLE_HASH },
                       { C::note_hash_tree_check_sel_write_to_public_inputs, write && (!discard) },
                       { C::note_hash_tree_check_public_inputs_index,
                         AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_NOTE_HASHES_ROW_IDX + note_hash_counter } } });
