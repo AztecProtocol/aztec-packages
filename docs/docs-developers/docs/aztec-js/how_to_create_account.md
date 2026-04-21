@@ -41,11 +41,7 @@ If your account doesn't have Fee Juice, use the [Sponsored FPC](./how_to_pay_fee
 #include_code deploy_account_sponsored_fpc /docs/examples/ts/aztecjs_connection/index.ts typescript
 
 :::info
-<<<<<<< HEAD
-See the [guide on fees](./how_to_pay_fees.md#sponsored-fpc-devnet-and-local-only) for setting up the Sponsored FPC.
-=======
-See the [guide on fees](./how_to_pay_fees.md#sponsored-fpc) for more details on the Sponsored FPC and what this snippet means.
->>>>>>> 1c4aa0cb0e (docs: fix issues with Creating Accounts page (#22673))
+See the [guide on fees](./how_to_pay_fees.md#sponsored-fpc-devnet-and-local-only) for more details on the Sponsored FPC and what this snippet means.
 :::
 
 ### Using Fee Juice

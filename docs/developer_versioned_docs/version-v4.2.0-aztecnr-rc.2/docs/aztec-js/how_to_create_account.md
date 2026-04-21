@@ -15,11 +15,7 @@ This guide shows you how to create and deploy a new account on Aztec.
 ## Install dependencies
 
 ```bash
-<<<<<<< HEAD:docs/developer_versioned_docs/version-v4.2.0-aztecnr-rc.2/docs/aztec-js/how_to_create_account.md
-yarn add @aztec/aztec.js@4.2.0-aztecnr-rc.2 @aztec/wallets@4.2.0-aztecnr-rc.2
-=======
-yarn add @aztec/aztec.js@4.2.0 @aztec/wallets@4.2.0 @aztec/noir-contracts.js@4.2.0
->>>>>>> 1c4aa0cb0e (docs: fix issues with Creating Accounts page (#22673)):docs/developer_versioned_docs/version-v4.2.0/docs/aztec-js/how_to_create_account.md
+yarn add @aztec/aztec.js@4.2.0-aztecnr-rc.2 @aztec/wallets@4.2.0-aztecnr-rc.2 @aztec/noir-contracts.js@4.2.0-aztecnr-rc.2
 ```
 
 ## Create a new account
@@ -82,11 +78,7 @@ await deployMethod.send({
 
 
 :::info
-<<<<<<< HEAD:docs/developer_versioned_docs/version-v4.2.0-aztecnr-rc.2/docs/aztec-js/how_to_create_account.md
-See the [guide on fees](./how_to_pay_fees.md#sponsored-fee-payment-contracts) for setting up the Sponsored FPC.
-=======
-See the [guide on fees](./how_to_pay_fees.md#sponsored-fpc) for more details on the Sponsored FPC and what this snippet means.
->>>>>>> 1c4aa0cb0e (docs: fix issues with Creating Accounts page (#22673)):docs/developer_versioned_docs/version-v4.2.0/docs/aztec-js/how_to_create_account.md
+See the [guide on fees](./how_to_pay_fees.md#sponsored-fee-payment-contracts) for more details on the Sponsored FPC and what this snippet means.
 :::
 
 ### Using Fee Juice
