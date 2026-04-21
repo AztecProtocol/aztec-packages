@@ -1742,8 +1742,9 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     if (BlockHash.isBlockHash(block)) {
       const blockHash = await snapshot.getLeafValue(MerkleTreeId.ARCHIVE, BigInt(blockNumber));
       if (!blockHash || !block.equals(blockHash)) {
+        const initialBlockHash = await this.#getInitialHeaderHash();
         throw new Error(
-          `Block hash ${block.toString()} not found in world state at block number ${blockNumber}. If the node API has been queried with anchor block hash possibly a reorg has occurred.`,
+          `Block hash ${block.toString()} not found in world state at block number ${blockNumber} (world state has ${blockHash?.toString() ?? 'no hash'} at that index, genesis header hash is ${initialBlockHash.toString()}). If the node API has been queried with anchor block hash possibly a reorg has occurred.`,
         );
       }
     }
