@@ -142,6 +142,13 @@ inline constexpr size_t HIDING_KERNEL_GATE_COUNT = 35763;
 inline constexpr size_t HIDING_KERNEL_ECC_ROWS = 1374 + MSM_ROWS_OFFSET;
 inline constexpr size_t HIDING_KERNEL_ULTRA_OPS = 124;
 
+// Finalized gate counts for the compiled Noir protocol circuits `hiding_kernel_to_rollup` and
+// `hiding_kernel_to_public`. Unlike the mocked `HIDING_KERNEL_GATE_COUNT` above, these cover the
+// full production circuits: HN_FINAL recursive verification plus VK-tree membership check and
+// public-input forwarding from PrivateTo{Rollup,Public}KernelCircuitPublicInputs.
+inline constexpr size_t HIDING_KERNEL_TO_ROLLUP_GATE_COUNT = 37810;
+inline constexpr size_t HIDING_KERNEL_TO_PUBLIC_GATE_COUNT = 39491;
+
 // ========================================
 // ECCVM Recursive Verifier Constants
 // ========================================
