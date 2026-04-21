@@ -381,12 +381,14 @@ export class PXE {
   async #executePrivate({
     contractFunctionSimulator,
     txRequest,
+    anchorBlockHeader,
     scopes,
     jobId,
     senderForTags,
   }: {
     contractFunctionSimulator: ContractFunctionSimulator;
     txRequest: TxExecutionRequest;
+    anchorBlockHeader: BlockHeader;
     scopes: AztecAddress[];
     jobId: string;
     senderForTags?: AztecAddress;
@@ -394,8 +396,6 @@ export class PXE {
     const { origin: contractAddress, functionSelector } = txRequest;
 
     try {
-      const anchorBlockHeader = await this.anchorBlockStore.getBlockHeader();
-
       await this.contractSyncService.ensureContractSynced(
         contractAddress,
         functionSelector,
@@ -501,9 +501,9 @@ export class PXE {
     txExecutionRequest: TxExecutionRequest,
     proofCreator: PrivateKernelProver,
     privateExecutionResult: PrivateExecutionResult,
+    anchorBlockHeader: BlockHeader,
     config: PrivateKernelExecutionProverConfig,
   ): Promise<PrivateKernelExecutionProofOutput<PrivateKernelTailCircuitPublicInputs>> {
-    const anchorBlockHeader = await this.anchorBlockStore.getBlockHeader();
     const kernelOracle = new PrivateKernelOracle(this.contractStore, this.keyStore, this.node, anchorBlockHeader);
     const kernelTraceProver = new PrivateKernelExecutionProver(
       kernelOracle,
@@ -768,11 +768,13 @@ export class PXE {
       try {
         const syncTimer = new Timer();
         await this.blockStateSynchronizer.sync();
+        const anchorBlockHeader = await this.anchorBlockStore.getBlockHeader();
         const syncTime = syncTimer.ms();
         const contractFunctionSimulator = this.#getSimulatorForTx();
         privateExecutionResult = await this.#executePrivate({
           contractFunctionSimulator,
           txRequest,
+          anchorBlockHeader,
           scopes,
           jobId,
           senderForTags,
@@ -783,7 +785,7 @@ export class PXE {
           chonkProof,
           executionSteps,
           timings: { proving } = {},
-        } = await this.#prove(txRequest, this.proofCreator, privateExecutionResult, {
+        } = await this.#prove(txRequest, this.proofCreator, privateExecutionResult, anchorBlockHeader, {
           simulate: false,
           skipFeeEnforcement: false,
           profileMode: 'none',
@@ -866,12 +868,14 @@ export class PXE {
         );
         const syncTimer = new Timer();
         await this.blockStateSynchronizer.sync();
+        const anchorBlockHeader = await this.anchorBlockStore.getBlockHeader();
         const syncTime = syncTimer.ms();
 
         const contractFunctionSimulator = this.#getSimulatorForTx();
         const privateExecutionResult = await this.#executePrivate({
           contractFunctionSimulator,
           txRequest,
+          anchorBlockHeader,
           scopes,
           jobId,
           senderForTags,
@@ -881,6 +885,7 @@ export class PXE {
           txRequest,
           this.proofCreator,
           privateExecutionResult,
+          anchorBlockHeader,
           {
             simulate: skipProofGeneration,
             skipFeeEnforcement: false,
@@ -971,6 +976,7 @@ export class PXE {
         );
         const syncTimer = new Timer();
         await this.blockStateSynchronizer.sync();
+        const anchorBlockHeader = await this.anchorBlockStore.getBlockHeader();
         const syncTime = syncTimer.ms();
 
         const overriddenContracts = overrides?.contracts ? new Set(Object.keys(overrides.contracts)) : undefined;
@@ -993,6 +999,7 @@ export class PXE {
         const privateExecutionResult = await this.#executePrivate({
           contractFunctionSimulator,
           txRequest,
+          anchorBlockHeader,
           scopes,
           jobId,
           senderForTags,
@@ -1009,11 +1016,17 @@ export class PXE {
           ));
         } else {
           // Kernel logic, plus proving of all private functions and kernels.
-          ({ publicInputs, executionSteps } = await this.#prove(txRequest, this.proofCreator, privateExecutionResult, {
-            simulate: true,
-            skipFeeEnforcement,
-            profileMode: 'none',
-          }));
+          ({ publicInputs, executionSteps } = await this.#prove(
+            txRequest,
+            this.proofCreator,
+            privateExecutionResult,
+            anchorBlockHeader,
+            {
+              simulate: true,
+              skipFeeEnforcement,
+              profileMode: 'none',
+            },
+          ));
         }
 
         const privateSimulationResult = new PrivateSimulationResult(privateExecutionResult, publicInputs);
