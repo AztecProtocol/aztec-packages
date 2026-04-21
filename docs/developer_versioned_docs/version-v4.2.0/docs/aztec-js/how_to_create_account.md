@@ -15,7 +15,7 @@ This guide shows you how to create and deploy a new account on Aztec.
 ## Install dependencies
 
 ```bash
-yarn add @aztec/aztec.js@4.2.0 @aztec/wallets@4.2.0
+yarn add @aztec/aztec.js@4.2.0 @aztec/wallets@4.2.0 @aztec/noir-contracts.js@4.2.0
 ```
 
 ## Create a new account
@@ -78,12 +78,28 @@ await deployMethod.send({
 
 
 :::info
-See the [guide on fees](./how_to_pay_fees.md#sponsored-fpc) for setting up the Sponsored FPC.
+See the [guide on fees](./how_to_pay_fees.md#sponsored-fpc) for more details on the Sponsored FPC and what this snippet means.
 :::
 
 ### Using Fee Juice
 
-If your account has Fee Juice from a [bridge from L1](./how_to_pay_fees.md#bridge-fee-juice-from-l1), you can claim it and deploy in one step using `FeeJuicePaymentMethodWithClaim`:
+If your account has Fee Juice from a [bridge from L1](./how_to_pay_fees.md#bridge-fee-juice-from-l1), you can claim it and deploy in one step using `FeeJuicePaymentMethodWithClaim`.
+
+Create a new Schnorr account for this path:
+
+```typescript title="create_fee_juice_account" showLineNumbers
+// `feeJuiceAccount` is just another Schnorr account — the same kind as
+// `newAccount` above. It gets its own name here so both deploy paths
+// can coexist in one example; in your own code, pick whichever name fits.
+const feeJuiceSecret = Fr.random();
+const feeJuiceSalt = Fr.random();
+const feeJuiceAccount = await wallet.createSchnorrAccount(
+  feeJuiceSecret,
+  feeJuiceSalt,
+);
+```
+
+Claim the bridged Fee Juice and deploy in one step:
 
 ```typescript title="bridge_fee_juice_claim" showLineNumbers 
 import { FeeJuicePaymentMethodWithClaim } from "@aztec/aztec.js/fee";
@@ -108,10 +124,12 @@ The `from: NO_FROM` signals that this transaction should be executed without acc
 
 ## Verify deployment
 
-Confirm the account was deployed successfully:
+Confirm the account was deployed successfully. Substitute the account variable for whichever path you used above (`newAccount` for the Sponsored FPC path, `feeJuiceAccount` for the Fee Juice path):
 
 ```typescript title="verify_account_deployment" showLineNumbers 
-const metadata = await wallet.getContractMetadata(feeJuiceAccount.address);
+// `newAccount` refers to whichever account you just deployed —
+// either the Sponsored FPC account or `feeJuiceAccount` from the Fee Juice path.
+const metadata = await wallet.getContractMetadata(newAccount.address);
 console.log("Account deployed:", metadata.initializationStatus);
 ```
 > <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v4.2.0/docs/examples/ts/aztecjs_connection/index.ts#L167-L170" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aztecjs_connection/index.ts#L167-L170</a></sub></sup>
