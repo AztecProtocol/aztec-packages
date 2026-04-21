@@ -637,14 +637,17 @@ describe('aztec node', () => {
         await expect(node.getWorldState(blockHash)).rejects.toThrow(/not found in world state at block number/);
       });
 
-      it('returns committed db for initial header hash', async () => {
-        // Block 0 has no historical snapshot in world state, so we must return committed directly.
-        // The hash equality with the known genesis header means there is no reorg risk.
+      it('returns snapshot at block 0 for initial header hash', async () => {
+        // Block 0 is a first-class historical block: its state lives in the trees' persisted block-0
+        // payload. getWorldState resolves the genesis hash to block number 0 and returns the snapshot.
         const initialBlockHash = await initialHeader.hash();
+        // The archive at block 0 contains the genesis header hash at index 0, which is what the
+        // double-check compares against after the snapshot is resolved.
+        snapshotMerkleTreeOps.getLeafValue.mockResolvedValue(initialBlockHash);
 
         const result = await node.getWorldState(initialBlockHash);
-        expect(result).toBe(merkleTreeOps);
-        expect(worldState.getSnapshot).not.toHaveBeenCalled();
+        expect(result).toBe(snapshotMerkleTreeOps);
+        expect(worldState.getSnapshot).toHaveBeenCalledWith(BlockNumber.ZERO);
       });
     });
 

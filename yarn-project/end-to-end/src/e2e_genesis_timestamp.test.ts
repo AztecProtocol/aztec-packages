@@ -82,7 +82,7 @@ describe('e2e_genesis_timestamp', () => {
 
   // Regression for an issue where PXE failed to prove txs while anchored to block zero
   // if there were new blocks mined that modified the public data tree.
-  it.skip('can generate genesis-anchored tx after chain advances when PXE anchor is pinned to zero', async () => {
+  it('can generate genesis-anchored tx after chain advances when PXE anchor is pinned to zero', async () => {
     const { aztecNode } = context;
 
     // We're at block 0 -- no blocks have been mined yet.
