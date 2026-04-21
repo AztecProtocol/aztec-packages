@@ -207,7 +207,7 @@ uint64_t WorldState::create_fork(const std::optional<block_number_t>& blockNumbe
     block_number_t blockNumberForFork = 0;
     if (!blockNumber.has_value()) {
         // we are forking at latest
-        WorldStateRevision revision{ .forkId = CANONICAL_FORK_ID, .blockNumber = 0, .includeUncommitted = false };
+        WorldStateRevision revision{ .forkId = CANONICAL_FORK_ID, .includeUncommitted = false };
         TreeMetaResponse archiveMeta = get_tree_info(revision, MerkleTreeId::ARCHIVE);
         blockNumberForFork = archiveMeta.meta.unfinalizedBlockHeight;
     } else {
@@ -739,7 +739,7 @@ WorldStateStatusFull WorldState::unwind_blocks(const block_number_t& toBlockNumb
     // Ensure no uncommitted state
     rollback();
 
-    WorldStateRevision revision{ .forkId = CANONICAL_FORK_ID, .blockNumber = 0, .includeUncommitted = false };
+    WorldStateRevision revision{ .forkId = CANONICAL_FORK_ID, .includeUncommitted = false };
     std::array<TreeMeta, NUM_TREES> responses;
     get_all_tree_info(revision, responses);
 
@@ -773,7 +773,7 @@ WorldStateStatusFull WorldState::unwind_blocks(const block_number_t& toBlockNumb
 
 WorldStateStatusFull WorldState::remove_historical_blocks(const block_number_t& toBlockNumber)
 {
-    WorldStateRevision revision{ .forkId = CANONICAL_FORK_ID, .blockNumber = 0, .includeUncommitted = false };
+    WorldStateRevision revision{ .forkId = CANONICAL_FORK_ID, .includeUncommitted = false };
     std::array<TreeMeta, NUM_TREES> responses;
     get_all_tree_info(revision, responses);
 
@@ -1015,7 +1015,7 @@ bool WorldState::is_archive_tip(const WorldStateRevision& revision, const bb::fr
 
 void WorldState::get_status_summary(WorldStateStatusSummary& status) const
 {
-    WorldStateRevision revision{ .forkId = CANONICAL_FORK_ID, .blockNumber = 0, .includeUncommitted = false };
+    WorldStateRevision revision{ .forkId = CANONICAL_FORK_ID, .includeUncommitted = false };
     std::array<TreeMeta, NUM_TREES> responses;
     get_all_tree_info(revision, responses);
     get_status_summary_from_meta_responses(status, responses);
@@ -1050,7 +1050,7 @@ bool WorldState::is_same_state_reference(const WorldStateRevision& revision, con
 
 void WorldState::validate_trees_are_equally_synched()
 {
-    WorldStateRevision revision{ .forkId = CANONICAL_FORK_ID, .blockNumber = 0, .includeUncommitted = false };
+    WorldStateRevision revision{ .forkId = CANONICAL_FORK_ID, .includeUncommitted = false };
     std::array<TreeMeta, NUM_TREES> responses;
     get_all_tree_info(revision, responses);
 
@@ -1215,7 +1215,7 @@ void WorldState::revert_all_checkpoints_to(const uint64_t& forkId, uint32_t dept
 
 WorldStateStatusFull WorldState::attempt_tree_resync()
 {
-    WorldStateRevision revision{ .forkId = CANONICAL_FORK_ID, .blockNumber = 0, .includeUncommitted = false };
+    WorldStateRevision revision{ .forkId = CANONICAL_FORK_ID, .includeUncommitted = false };
     std::array<TreeMeta, NUM_TREES> responses;
     get_all_tree_info(revision, responses);
 
