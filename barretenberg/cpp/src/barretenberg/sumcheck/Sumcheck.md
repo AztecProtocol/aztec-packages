@@ -222,12 +222,12 @@ The list of `[(round_uni_commitment, round_uni_expected_eval)]` gets batched and
 
 # Virtual Rounds and Padding in Sumcheck
 
-Finally we describe the virtual rounds mechanism and padding indicator array used to support circuits of varying sizes while maintaining constant proof size and constant recursive verifier circuits.
+Finally we describe the virtual rounds mechanism used to support circuits of varying sizes while maintaining constant proof size and constant recursive verifier circuits.
 
 This is specifically important for recursive proving, since the inner verifier circuit must have a fixed size. However, circuits being verified may have different sizes (different values of `log_n`). To handle this:
 
 1. **Fixed proof size**: All proofs are padded to a maximum size `virtual_log_n` (defined by `CONST_PROOF_SIZE_LOG_N`).
-2. **Constant verifier circuit**: The recursive verifier always processes `virtual_log_n` rounds, using padding indicators to conditionally skip verification logic for padded rounds.
+2. **Constant verifier circuit**: The recursive verifier always processes `virtual_log_n` rounds uniformly.
 
 ## Virtual Rounds
 
@@ -264,44 +264,4 @@ The prover still generates challenges for these rounds to maintain transcript co
 
 ### Verifier Behavior
 
-The verifier processes all `virtual_log_n` rounds uniformly but uses the **padding indicator array** to conditionally apply verification logic.
-
-## Padding Indicator Array
-The padding indicator array is computed on the verifier side, to disable the contributions of the `virtual_rounds`.
-
-### Definition
-
-The padding indicator array is a vector of size `virtual_log_n` where:
-
-$$\text{padding\_indicator\_array}[i] = \begin{cases} 1 & \text{if } i < \text{multivariate\_d} \text{ (real round)} \\ 0 & \text{if } i \geq \text{multivariate\_d} \text{ (padding round)} \end{cases}$$
-
-### Native vs Recursive Computation
-
-**Native verification**: The array is computed trivially:
-```cpp
-std::vector<FF> padding_indicator_array(virtual_log_n, 1);
-for (size_t idx = multivariate_d; idx < virtual_log_n; idx++) {
-    padding_indicator_array[idx] = FF{ 0 };
-}
-```
-
-**Recursive verification**: The array is computed in-circuit using Lagrange interpolation to ensure constant gate count regardless of the actual `log_n` value. This is implemented in `compute_padding_indicator_array`.
-
-The in-circuit computation:
-1. Constrains `log_n` to be in range $[1, \text{virtual\_log\_n}]$
-2. Evaluates Lagrange polynomials $L_i(\text{log\_n} - 1)$
-3. Computes step functions: $b_i = \sum_{j=i}^{N-1} L_j(\text{log\_n} - 1)$
-
-### Usage in Verification
-
-The padding indicator is used to conditionally apply sumcheck verification logic. The following checks are only applied if `padding_indicator_array[i] = 1`
-
-1. **`check_sum`**: Verifying $S^{i-1}(u_{i-1}) = S^i(0) + S^i(1)$ .
-2. **`compute_next_target_sum`**: Updating target sum
-3. **`gate_separators.partially_evaluate`**: updating gate separator polynomial.
-4. **`RowDisablingPolynomial::evaluate_at_challenge`**: applying ZK correction.
-
-
-## ECCVM/Grumpkin Note
-
-For Grumpkin-based flavors (ECCVM), the padding indicator is **not used** in round processing. Instead, all consistency checks are deferred to the polynomial commitment scheme (Shplemini), which batches and verifies all round univariate commitments together.
+The verifier processes all `virtual_log_n` rounds uniformly — all rounds apply `check_sum`, `compute_next_target_sum`, and `gate_separators.partially_evaluate` unconditionally.

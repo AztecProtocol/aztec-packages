@@ -502,30 +502,25 @@ HonkProof create_mock_batched_joint_proof()
     populate_field_elements_for_mock_commitments<Curve>(proof, /*num_commitments=*/1);
     // 5. Libra sum
     populate_field_elements<FF>(proof, 1);
-    // 6. Committed sumcheck: real rounds 0..MEGA_ZK_LOG_N-1
-    constexpr size_t MEGA_ZK_LOG_N = MegaZKFlavor::VIRTUAL_LOG_N;
-    for (size_t round = 0; round < MEGA_ZK_LOG_N; round++) {
-        populate_field_elements_for_mock_commitments<Curve>(proof, /*num_commitments=*/1); // round univariate comm
-        populate_field_elements<FF>(proof, 2);                                             // evals at 0 and 1
-        // Minicircuit evaluations sent at round LOG_MINI_CIRCUIT_SIZE-1
-        if (round == TransFlavor::LOG_MINI_CIRCUIT_SIZE - 1) {
+    // 6. Committed sumcheck rounds 0..JOINT_LOG_N-1 (commitment + 2 evals per round)
+    constexpr size_t JOINT_LOG_N = TransFlavor::CONST_TRANSLATOR_LOG_N;
+    for (size_t round = 0; round < JOINT_LOG_N; round++) {
+        // Minicircuit evaluations appear after round LOG_MINI_CIRCUIT_SIZE-1's data
+        if (round == TransFlavor::LOG_MINI_CIRCUIT_SIZE) {
             populate_field_elements<FF>(proof, TransFlavor::NUM_MINICIRCUIT_EVALUATIONS);
         }
-    }
-    // 7. MegaZK evaluations (sent after real rounds, before virtual rounds)
-    populate_field_elements<FF>(proof, MegaZKFlavor::NUM_ALL_ENTITIES);
-    // 8. Virtual rounds MEGA_ZK_LOG_N..JOINT_LOG_N-1
-    for (size_t round = MEGA_ZK_LOG_N; round < TransFlavor::CONST_TRANSLATOR_LOG_N; round++) {
         populate_field_elements_for_mock_commitments<Curve>(proof, /*num_commitments=*/1); // round univariate comm
         populate_field_elements<FF>(proof, 2);                                             // evals at 0 and 1
     }
-    // 9. Translator full circuit evaluations (sent after all rounds)
+    // 7. MegaZK evaluations (sent after all sumcheck rounds)
+    populate_field_elements<FF>(proof, MegaZKFlavor::NUM_ALL_ENTITIES);
+    // 8. Translator full circuit evaluations (sent after all rounds)
     populate_field_elements<FF>(proof, TransFlavor::NUM_FULL_CIRCUIT_EVALUATIONS);
-    // 10. Libra claimed evaluation
+    // 9. Libra claimed evaluation
     populate_field_elements<FF>(proof, 1);
-    // 11. Libra grand sum commitment
+    // 10. Libra grand sum commitment
     populate_field_elements_for_mock_commitments<Curve>(proof, /*num_commitments=*/1);
-    // 12. Libra quotient commitment
+    // 11. Libra quotient commitment
     populate_field_elements_for_mock_commitments<Curve>(proof, /*num_commitments=*/1);
 
     // === Joint PCS (same structure as standalone translator PCS, using JOINT_LOG_N = 17) ===

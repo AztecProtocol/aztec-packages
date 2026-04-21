@@ -3,12 +3,13 @@
 ## Table of Contents
 1. [Overview](#overview)
 2. [Mathematical Foundation](#mathematical-foundation)
-3. [Protocol Description](#protocol-description)
-4. [Degree Check Mechanism](#degree-check-mechanism)
-5. [Concatenation Check](#concatenation-check)
-6. [Implementation Details](#implementation-details)
-7. [Usage Examples](#usage-examples)
-8. [Security Considerations](#security-considerations)
+3. [Trace Layout Alignment](#trace-layout-alignment)
+4. [Protocol Description](#protocol-description)
+5. [Degree Check Mechanism](#degree-check-mechanism)
+6. [Concatenation Check](#concatenation-check)
+7. [Implementation Details](#implementation-details)
+8. [Usage Examples](#usage-examples)
+9. [Security Considerations](#security-considerations)
 
 ## Overview
 
@@ -65,14 +66,96 @@ The protocol supports two merge modes:
 - $R_j = t_j$ (current subtable)
 - New operations are added at the end (with optional fixed offset)
 
+## Trace Layout Alignment
+
+The merge protocol's correctness rests on the layout of three distinct polynomial families:
+
+1. The **Mega circuit's `ecc_op_wire` polynomials** — the source of $[t_j]$ for each merge.
+2. The **merge output $[M_j]$** — produced by this protocol.
+3. The **Translator's op queue wire polynomials** (`x_lo_y_hi`, `x_hi_z_1`, `y_lo_z_2`, plus `op`) — consumed at the end of the IVC.
+
+These three share commitments via copy-constraining across proof layers, so their leading-zero structure must agree exactly.
+
+### Mega circuit trace layout
+
+Constants (from `constants.hpp` and `flavor/mega_flavor.hpp`):
+
+- `NUM_ZERO_ROWS = 1` — single leading zero row that makes wire polynomials shiftable.
+- `NUM_MASKED_ROWS = 3` — ZK masking rows, only populated with random values when `Flavor::HasZK`.
+- `TRACE_OFFSET = NUM_MASKED_ROWS + 1 = 4` — number of rows disabled in Sumcheck (rows `[0, 4)`); equivalently, the first row where the Sumcheck gate separator is non-zero is `TRACE_OFFSET = 4`.
+
+The first block (always `ecc_op`) has `trace_offset() = TRACE_OFFSET + NUM_ZERO_ROWS = 5`:
+
+```
+Row 0:     zero row (shiftability)
+Rows 1-3:  masking rows in ZK flavors (MegaZKFlavor); zero otherwise
+Row 4:     first active Sumcheck row; lagrange_first = 1 here
+Row 5+:    ecc_op block data starts
+```
+
+Note the gap between row 4 and row 5. `lagrange_first` is placed at row 4 — the first row where the gate separator fires — and enforces the permutation boundary condition $\texttt{lagrange\_first} \cdot z_{\text{perm}} = 0$, pinning $z_{\text{perm}}(4) = 0$. The first ecc_op witness values begin one row later at the ecc_op block's trace offset.
+
+The Mega `ecc_op_wire_*` polynomials are **not shiftable** (`start_index = 0`) and **not masked** — they rely on random ops placed into the op queue itself for ZK. The regular wires `w_l, w_r, w_o, w_4` are shiftable (`start_index = NUM_ZERO_ROWS = 1`) and masked iff `HasZK`. Both copies hold identical values at rows 5+; the `EccOpQueueRelation` constrains them to agree wherever `lagrange_ecc_op = 1`.
+
+### Translator mini-circuit layout
+
+Constants (from `translator_vm/translator_flavor.hpp`):
+
+- `TRACE_OFFSET = 0` — no disabled preamble.
+- `RANDOMNESS_START = 2` — first row of real op-queue data.
+
+```
+Row 0:    zero (shiftability)
+Row 1:    zero (RANDOMNESS_START - 1)
+Row 2:    first op's data (x_lo, x_hi, y_lo, op)
+Row 3:    first op's data (y_hi, z_1, z_2, 0)
+```
+
+Each op occupies `NUM_ROWS_PER_OP = 2` rows, with the split `(op, x_lo, x_hi, y_lo)` on the even row and `(0, y_hi, z_1, z_2)` on the odd row. Rows 0 and 1 — together one op-slot's worth of zeros — form the leading gap. The op queue wires (`x_lo_y_hi`, `x_hi_z_1`, `y_lo_z_2`) are shiftable with `start_index = 1`.
+
+Critically, **the Translator does not commit to its op queue wires**. Instead, the commitment comes from the merge protocol's output $[M_j]$ (copy-constrained through public inputs), so $[M_j]$ must commit to a polynomial with exactly `RANDOMNESS_START` leading zeros followed by the op-queue data.
+
+### MegaAvmFlavor
+
+The AVM recursive verifier uses `MegaAvmFlavor` which overrides the Mega preamble:
+
+- `TRACE_OFFSET = 1` (no masking — `MegaAvmFlavor` inherits `HasZK = false` from `MegaFlavor`).
+- Block offsets start at `TRACE_OFFSET + NUM_ZERO_ROWS = 2`.
+
+```
+Row 0:    zero (shiftability)
+Row 1:    first active Sumcheck row (no masking)
+Row 2+:   ecc_op block data
+```
+
+By construction this yields exactly 2 leading zeros in the ecc_op_wire commitments, matching the Translator's `RANDOMNESS_START = 2` without any merge-protocol shift adjustment.
+
+### The merge protocol constants
+
+Given the three layouts above, the merge protocol's shift constants are determined:
+
+- $\texttt{MERGE\_FULL\_SHIFT} = \texttt{MegaExecutionTraceBlocks::TRACE\_OFFSET} + \texttt{NUM\_ZERO\_ROWS} = 5$, applied to $L$ and $R$ (and $M$ in PREPEND mode), so their commitments line up with the Mega circuit's `ecc_op_wire` layout.
+- $\texttt{MERGE\_APPEND\_OUTPUT\_SHIFT} = 2$, applied to $M$ only in APPEND mode (final merge), so its commitment lines up with the Translator's op-queue-wire layout. Compile-time enforced (`static_assert` in `merge_prover.cpp`) to equal `TranslatorFlavor::RANDOMNESS_START`.
+
+The APPEND-mode concatenation identity carries a $\kappa^{s-t}$ correction factor because $L$ and $R$ are shifted by $s = \texttt{MERGE\_FULL\_SHIFT}$ but $M$ is shifted by only $t = \texttt{MERGE\_APPEND\_OUTPUT\_SHIFT}$ (see [Concatenation Check](#concatenation-check)).
+
 ## Protocol Description
+
+### Commitment Layout Summary
+
+- **L and R**: always shifted to $X^s \cdot L$, $X^s \cdot R$ where $s = \texttt{MERGE\_FULL\_SHIFT}$.
+- **M (PREPEND)**: shifted to $X^s \cdot M$ (becomes $T_{\text{prev}}$ for the next merge).
+- **M (APPEND)**: shifted by $t = \texttt{MERGE\_APPEND\_OUTPUT\_SHIFT}$ to match the Translator's leading-zero layout.
+- **G**: committed directly (no shift).
+
+The `shift_size` $\ell$ sent to the verifier is the **unshifted** size of $L$ (captured before shifting).
 
 ### Commitment Propagation
 
 The Merge Protocol does NOT independently commit to $L_j$ and $R_j$. Instead, these commitments are **obtained from previous steps via the transcript or public inputs**:
 
 **At a given step, prover commits only to:**
-- $[M_j]$: Merged table commitments
+- $[X^s \cdot M_j]$ (PREPEND) or $[X^t \cdot M_j]$ (APPEND, $t$ = `APPEND_OUTPUT_SHIFT`): Merged table commitments
 - $[G]$: Degree check polynomial commitment
 
 
@@ -82,45 +165,36 @@ The `MergeProver::construct_proof()` method executes the following steps:
 
 #### Step 0: Prerequisite - Input Commitments
 **Before** the merge proof begins, the following commitments must already exist in the shared transcript:
-- If PREPEND mode: $[t_j]$ from HyperNova, $[T_{\text{prev},j}]$ from previous merge
-- If APPEND mode: $[T_{\text{prev},j}]$ from previous merge, $[t_j]$ from HyperNova
+- If PREPEND mode: $[X^s \cdot t_j]$ from the circuit, $[X^s \cdot T_{\text{prev},j}]$ from previous merge
+- If APPEND mode: $[X^s \cdot T_{\text{prev},j}]$ from previous merge, $[X^s \cdot t_j]$ from the circuit
 
-These are **not** sent again during the merge proof.
+These are **not** sent again during the merge proof. They are always shifted by $X^s$.
 
-#### Step 1: Merged Table Construction
+#### Step 1: Table Construction
+Construct L, R, M with the offset baked in (data starts at position $s$ = `FULL_SHIFT`):
 ```cpp
-std::array<Polynomial, NUM_WIRES> merged_table = op_queue->construct_ultra_ops_table_columns();
+Table left_table = op_queue->construct_current_ultra_ops_subtable_columns(FULL_SHIFT);   // X^s · L
+Table right_table = op_queue->construct_previous_ultra_ops_table_columns(FULL_SHIFT);    // X^s · R
+Table merged_table = op_queue->construct_ultra_ops_table_columns(m_shift);               // X^s · M or X^t · M
 ```
 
 #### Step 2: Send Shift Size
+The data-only size $\ell$ (total L size minus the offset):
 ```cpp
-const size_t shift_size = left_table[0].size();
-transcript->send_to_verifier("shift_size", shift_size);
+transcript->send_to_verifier("shift_size", static_cast<uint32_t>(shift_size));
 ```
 
 #### Step 3: Commit to Merged Tables
-```cpp
-for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
-    // Commit to M_j and send [M_j] to verifier
-    transcript->send_to_verifier("MERGED_TABLE_" + std::to_string(idx),
-                                 pcs_commitment_key.commit(merged_table[idx]));
-}
-```
+Commit to $X^s \cdot M_j$ (PREPEND) or $X^t \cdot M_j$ (APPEND) and send to the verifier.
 
-#### Step 4: Get Challenges for Batched Degree Check
-Receive challenges $\alpha_1, \ldots, \alpha_4$ and compute the batched polynomial:
-$$G(X) = X^{\ell-1} \cdot \left(\sum_{i=1}^{4} \alpha_i \cdot L_i(X^{-1})\right)$$
+#### Step 4: Degree Check Polynomial
+Receive challenges $\alpha_1, \ldots, \alpha_4$ and compute $G$ from the **data-only** portion of L
+(positions $s$ through $s+\ell-1$, excluding the leading zeros):
+$$G(X) = X^{\ell-1} \cdot \sum_{i=1}^{4} \alpha_i \cdot L_i(X^{-1})$$
 
-This is computed via `compute_degree_check_polynomial()`:
-```cpp
-Polynomial reversed_batched_left_tables(left_table[0].size());
-for (size_t idx = 0; idx < NUM_WIRES; idx++) {
-    reversed_batched_left_tables.add_scaled(left_table[idx], degree_check_challenges[idx]);
-}
-return reversed_batched_left_tables.reverse(); // Multiply by X^(k-1)
-```
+$G$ has size $\ell$ (not $\ell + s$), giving a tight degree bound.
 
-#### Step 5: Commit to Batched Degree Check Polynomial
+#### Step 5: Commit to Degree Check Polynomial
 ```cpp
 transcript->send_to_verifier("REVERSED_BATCHED_LEFT_TABLES",
                              pcs_commitment_key.commit(reversed_batched_left_tables));
@@ -130,40 +204,42 @@ transcript->send_to_verifier("REVERSED_BATCHED_LEFT_TABLES",
 Receive evaluation challenge $\kappa$ from the verifier.
 
 #### Step 7: Send Evaluations
-Evaluate and send:
-- $l_j = L_j(\kappa)$ for all $j$
-- $r_j = R_j(\kappa)$ for all $j$
-- $m_j = M_j(\kappa)$ for all $j$
+Send **unshifted** L evaluations and shifted R, M evaluations:
+- $l_j = L_j(\kappa)$ (data-only, unshifted) for all $j$
+- $r'_j = (X^s \cdot R_j)(\kappa)$ for all $j$
+- $m_j = M_j(\kappa)$ (shifted by $s$ or $t$ depending on mode)
 - $g = G(\kappa^{-1})$
 
 #### Step 8: Shplonk Batched Opening
-Use the Shplonk protocol to batch all openings into a single KZG opening proof.
+Use the Shplonk protocol to batch all openings into a single KZG opening proof. For L, the
+PCS opens $[X^s \cdot L_j]$ against the reconstructed evaluation $\kappa^s \cdot l_j$. This enforces
+the zero-prefix: if $L'_j$ has non-zero coefficients in positions $0 \ldots s-1$, then
+$L'_j(\kappa) \neq \kappa^s \cdot l_j$ and the KZG opening fails.
 
 ### Verifier Algorithm
 
-Mirrors the Prover's steps. Critical checks are performed as follows.
-
 #### Check Concatenation Identity
-```cpp
-bool concatenation_verified = check_concatenation_identities(evals, pow_kappa);
-```
+The verifier reconstructs the shifted L evaluation as $\kappa^s \cdot l_j$:
 
-Verifies for each $j$:
-$$l_j + \kappa^\ell \cdot r_j = m_j$$
+For PREPEND: $\kappa^s \cdot l_j + \kappa^\ell \cdot r'_j = m'_j$
+
+For APPEND: $\kappa^s \cdot l_j + \kappa^\ell \cdot r'_j = \kappa^{s-t} \cdot m'_j$
+
+The $\kappa^{s-t}$ factor in APPEND compensates for M having a smaller shift than L, R.
 
 #### Check Degree Identity
-```cpp
-bool degree_check_verified = check_degree_identity(evals, pow_kappa_minus_one, degree_check_challenges);
-```
-
-Verifies:
+Verifies using the **unshifted** L evaluations with a tight exponent:
 $$\sum_{i=1}^{4} \alpha_i \cdot l_i = g \cdot \kappa^{\ell-1}$$
+
+This proves $\deg(L_j) < \ell$. The exponent $\kappa^{\ell-1}$ forces $\deg(G) \leq \ell - 1$:
+if $\deg(G) > \ell - 1$, the LHS (polynomial of degree $\leq \ell - 1$ in $\kappa$) cannot match
+the RHS (which would contain negative powers of $\kappa$).
 
 #### Verify Shplonk Opening
 Use KZG to verify the batched opening claim for ALL commitments:
-- $[L_1], \ldots, [L_4]$ (from input commitments)
-- $[R_1], \ldots, [R_4]$ (from input commitments)
-- $[M_1], \ldots, [M_4]$ (from proof)
+- $[X^s \cdot L_1], \ldots, [X^s \cdot L_4]$ (from input commitments, opened against $\kappa^s \cdot l_j$)
+- $[X^s \cdot R_1], \ldots, [X^s \cdot R_4]$ (from input commitments)
+- $[X^s \cdot M_1], \ldots, [X^s \cdot M_4]$ (PREPEND) or $[X^t \cdot M_1], \ldots, [X^t \cdot M_4]$ (APPEND)
 - $[G]$ (from proof)
 
 
@@ -177,45 +253,40 @@ $$L_j^{\ast}(X) = X^{\ell-1} \cdot L_j(X^{-1}) \implies L_j^{\ast}(\kappa^{-1}) 
 **Batching:** Check all 4 columns simultaneously:
 $$G(X) = X^{\ell-1} \cdot \sum_{i=1}^{4} \alpha_i \cdot L_i(X^{-1})$$
 
-**Verification:** Check $g = \sum_{i=1}^{4} \alpha_i \cdot l_i \cdot \kappa^{-(\ell-1)}$. If any $\deg(L_i) \geq \ell$, this fails with overwhelming probability.
+$G$ reverses only the data portion of $L$ (size $\ell$), not the full shifted polynomial.
+
+**Verification:** Check $\sum_{i=1}^{4} \alpha_i \cdot l_i = g \cdot \kappa^{\ell-1}$, where $l_i$
+are the unshifted data evaluations.
+
+**Zero-prefix enforcement:** The PCS opens $[X^s \cdot L_j]$ against $\kappa^s \cdot l_j$.
+If $L'_j$ has non-zero prefix, $L'_j(\kappa) \neq \kappa^s \cdot l_j$ and the opening fails.
 
 **Implementation** (`merge_prover.cpp`):
 ```cpp
 static Polynomial compute_degree_check_polynomial(
     const std::array<Polynomial, NUM_WIRES>& left_table,
-    const std::vector<FF>& degree_check_challenges)
+    const std::vector<FF>& degree_check_challenges,
+    size_t shift_size)
 {
-    Polynomial reversed_batched_left_tables(left_table[0].size());
+    Polynomial batched_data(shift_size);
     for (size_t idx = 0; idx < NUM_WIRES; idx++) {
-        reversed_batched_left_tables.add_scaled(left_table[idx], degree_check_challenges[idx]);
+        for (size_t j = 0; j < shift_size; j++) {
+            batched_data.at(j) += degree_check_challenges[idx] * left_table[idx][FULL_SHIFT + j];
+        }
     }
-    return reversed_batched_left_tables.reverse();
+    return batched_data.reverse();
 }
 ```
 
 ## Concatenation Check
 
-Verifies $M_j(X) = L_j(X) + X^\ell \cdot R_j(X)$ by checking at evaluation point $\kappa$: $m_j = l_j + \kappa^\ell \cdot r_j$
+Verifies $M_j(X) = L_j(X) + X^\ell \cdot R_j(X)$ by checking at evaluation point $\kappa$ using shifted evaluations.
 
-**Implementation** (`merge_verifier.cpp`):
-```cpp
-bool check_concatenation_identities(std::vector<FF>& evals, const FF& pow_kappa) const
-{
-    bool concatenation_verified = true;
-    FF concatenation_diff(0);
-    for (size_t idx = 0; idx < NUM_WIRES; idx++) {
-        // Check: l_j + pow_kappa * r_j = m_j
-        concatenation_diff = evals[idx] + (pow_kappa * evals[idx + NUM_WIRES]) - evals[idx + (2 * NUM_WIRES)];
-        if constexpr (IsRecursive) {
-            concatenation_verified &= concatenation_diff.get_value() == 0;
-            concatenation_diff.assert_equal(FF(0), "concatenation identity failed");
-        } else {
-            concatenation_verified &= concatenation_diff == 0;
-        }
-    }
-    return concatenation_verified;
-}
-```
+**PREPEND** (all polynomials shifted by $X^s$): $l'_j + \kappa^\ell \cdot r'_j = m'_j$
+
+**APPEND** (L, R shifted by $s$; M shifted by $t$): $l'_j + \kappa^\ell \cdot r'_j = \kappa^{s-t} \cdot m'_j$
+
+The $\kappa^{s-t}$ factor in APPEND compensates for M having a smaller shift than L, R.
 
 The polynomial identity holds for all $X$ if and only if it holds at random $\kappa$ (Schwartz-Zippel lemma).
 
@@ -523,7 +594,7 @@ $$M_j = t_{A_i,j} + X^{\ell_2} \cdot t_{K_{i-1},j} + X^{\ell_1 + \ell_2} \cdot T
 This shows the hierarchical structure: the current app's ops, followed by the previous kernel's ops, followed by all earlier accumulated ops. Each merge in PREPEND mode adds new operations at the beginning (low-degree terms).
 
 **Tail Kernel (HN_FINAL, PREPEND mode):**
-- Prepends 3 random non-ops + 1 no-op for ZK masking of left table
+- Prepends 3 random non-ops for ZK masking of left table
 - **Merge Verifier receives:**
   - $[t_{\text{tail},j}]$ (including random ops) from witness commitments
   - $[T_{\text{prev},j}]$ from previous kernel's public inputs
@@ -546,7 +617,7 @@ This shows the hierarchical structure: the current app's ops, followed by the pr
 
 The complete merged table has the following structure:
 
-$$M_{\text{final},j} = [\text{no-op} \mid 3 \text{ random} \mid \text{tail-ops} \mid \text{apps} \mid \text{hiding} \mid 2 \text{ random}]$$
+$$M_{\text{final},j} = [3 \text{ random} \mid \text{tail-ops} \mid \text{apps} \mid \text{hiding} \mid 2 \text{ random}]$$
 
 **ZK:**
 - 3 random non-ops at **START** (from tail kernel, prepended)
@@ -575,7 +646,7 @@ $$M^{(i)}_j = t_{A_i,j} + X^{\ell_{A_i}} \cdot M^{(i,1)}_j$$
 
 $$M^{\text{tail}}_j = t_{\text{tail},j} + X^{\ell_{\text{tail}}} \cdot M^{(n)}_j$$
 
-where $t_{\text{tail},j} = [\text{no-op} \mid 3 \text{ random} \mid \text{tail-ops}]$
+where $t_{\text{tail},j} = [3 \text{ random} \mid \text{tail-ops}]$
 
 **Final result after hiding kernel (APPEND mode):**
 
@@ -610,7 +681,7 @@ The complete Goblin proof consists of **three protocols**:
 
 2. **TRANSLATOR PROTOCOL**
    - Proves BN254 ↔ Grumpkin translation correctness
-   - Uses **same commitments** $[M_j]$ as Merge (copy-constrained)
+   - Uses **same commitments** $[X^t \cdot M_j]$ as Merge (copy-constrained, $t$ = `APPEND_OUTPUT_SHIFT`)
    - All 6 random ops contribute to ZK
    - **Enforces degree bound**: $\deg(M_j) <$ `MINI_CIRCUIT_SIZE`
 

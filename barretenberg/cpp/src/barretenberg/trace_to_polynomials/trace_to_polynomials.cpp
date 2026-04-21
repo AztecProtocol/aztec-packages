@@ -97,13 +97,13 @@ void TraceToPolynomials<Flavor>::add_ecc_op_wires_to_prover_instance(Builder& bu
 {
     auto& ecc_op_selector = polynomials.lagrange_ecc_op;
 
-    // Copy the ecc op data from the conventional wires into the op wires over the range of ecc op gates. The data is
-    // stored in the ecc op wires starting from index 0, whereas the wires contain the data offset by zero rows.
-    const size_t num_ecc_ops = builder.blocks.ecc_op.size();
+    // The EccOpQueueRelation constrains ecc_op_wire[row] == w[row] where lagrange_ecc_op == 1.
+    const auto& ecc_op_block = builder.blocks.ecc_op;
+    const size_t wire_start = ecc_op_block.trace_offset();
     for (auto [ecc_op_wire, wire] : zip_view(polynomials.get_ecc_op_wires(), polynomials.get_wires())) {
-        for (size_t i = 0; i < num_ecc_ops; ++i) {
-            ecc_op_wire.at(i) = wire[i + NUM_ZERO_ROWS];
-            ecc_op_selector.at(i) = 1; // construct selector as the indicator on the ecc op block
+        for (size_t i = 0; i < ecc_op_block.size(); ++i) {
+            ecc_op_wire.at(wire_start + i) = wire[wire_start + i];
+            ecc_op_selector.at(wire_start + i) = 1;
         }
     }
 }

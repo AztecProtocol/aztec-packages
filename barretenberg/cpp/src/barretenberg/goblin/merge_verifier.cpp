@@ -8,18 +8,24 @@
 #include "barretenberg/commitment_schemes/shplonk/shplonk.hpp"
 #include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/common/log.hpp"
+#include "barretenberg/goblin/merge_constants.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/stdlib/proof/proof.hpp"
 
 namespace bb {
 
 template <typename Curve>
-bool MergeVerifier_<Curve>::check_concatenation_identities(std::vector<FF>& evals, const FF& pow_kappa) const
+bool MergeVerifier_<Curve>::check_concatenation_identities(std::vector<FF>& evals,
+                                                           const FF& pow_kappa,
+                                                           const FF& pow_kappa_s) const
 {
     bool concatenation_verified = true;
     FF concatenation_diff(0);
     for (size_t idx = 0; idx < NUM_WIRES; idx++) {
-        concatenation_diff = evals[idx] + (pow_kappa * evals[idx + NUM_WIRES]) - evals[idx + (2 * NUM_WIRES)];
+        // L and R are always shifted. M is shifted for PREPEND (pow_kappa_s=1), unshifted for APPEND (pow_kappa_s=κ^s).
+        // Identity: L'(κ) + κ^k·R'(κ) = pow_kappa_s · M(κ)
+        concatenation_diff =
+            evals[idx] + (pow_kappa * evals[idx + NUM_WIRES]) - pow_kappa_s * evals[idx + (2 * NUM_WIRES)];
         if constexpr (IsRecursive) {
             concatenation_verified &= concatenation_diff.get_value() == 0;
             concatenation_diff.assert_equal(FF(0),
@@ -32,16 +38,17 @@ bool MergeVerifier_<Curve>::check_concatenation_identities(std::vector<FF>& eval
 }
 
 template <typename Curve>
-bool MergeVerifier_<Curve>::check_degree_identity(std::vector<FF>& evals,
+bool MergeVerifier_<Curve>::check_degree_identity(const std::vector<FF>& l_data_evals,
+                                                  const FF& g_eval,
                                                   const FF& pow_kappa_minus_one,
                                                   const std::vector<FF>& degree_check_challenges) const
 {
     bool degree_check_verified = true;
     FF degree_check_diff(0);
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
-        degree_check_diff += evals[idx] * degree_check_challenges[idx];
+        degree_check_diff += l_data_evals[idx] * degree_check_challenges[idx];
     }
-    degree_check_diff -= evals.back() * pow_kappa_minus_one;
+    degree_check_diff -= g_eval * pow_kappa_minus_one;
     if constexpr (IsRecursive) {
         degree_check_verified &= degree_check_diff.get_value() == 0;
         degree_check_diff.assert_equal(FF(0), "assert_equal: merge degree identity failed in Merge Verifier");
@@ -159,13 +166,25 @@ typename MergeVerifier_<Curve>::ReductionResult MergeVerifier_<Curve>::reduce_to
     const FF kappa = transcript->template get_challenge<FF>("kappa");
     const FF kappa_inv = kappa.invert();
     const FF pow_kappa = kappa.pow(shift_size);
-    const FF pow_kappa_minus_one = pow_kappa * kappa_inv;
+    const FF kappa_to_s = kappa.pow(MERGE_FULL_SHIFT);
 
-    // Receive evaluations of [Lᵢ], [Rᵢ], [Mᵢ] at κ
+    // Tight degree check exponent: κ^{ℓ-1} (bounds deg(L_data) < ℓ)
+    const FF pow_kappa_degree_check = pow_kappa * kappa_inv;
+
+    // Receive L_data evaluations (unshifted) from prover, then R and M evaluations (shifted)
+    std::vector<FF> l_data_evals;
+    l_data_evals.reserve(NUM_WIRES);
+    for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
+        l_data_evals.emplace_back(
+            transcript->template receive_from_prover<FF>("LEFT_TABLE_EVAL_" + std::to_string(idx)));
+    }
+
+    // Build the evals vector for concatenation check and PCS:
+    // L entries are the SHIFTED evals κ^s · l_data (for PCS opening against [X^s·L_data])
     std::vector<FF> evals;
     evals.reserve((3 * NUM_WIRES) + 1);
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
-        evals.emplace_back(transcript->template receive_from_prover<FF>("LEFT_TABLE_EVAL_" + std::to_string(idx)));
+        evals.emplace_back(kappa_to_s * l_data_evals[idx]);
     }
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
         evals.emplace_back(transcript->template receive_from_prover<FF>("RIGHT_TABLE_EVAL_" + std::to_string(idx)));
@@ -184,14 +203,24 @@ typename MergeVerifier_<Curve>::ReductionResult MergeVerifier_<Curve>::reduce_to
         for (auto& eval : evals) {
             eval.set_origin_tag(kappa.get_origin_tag());
         }
+        for (auto& eval : l_data_evals) {
+            eval.set_origin_tag(kappa.get_origin_tag());
+        }
         evals.back().set_origin_tag(degree_check_challenges.back().get_origin_tag());
     }
 
-    // Check concatenation identities
-    bool concatenation_verified = check_concatenation_identities(evals, pow_kappa);
+    // Concatenation check uses shifted L evals (evals[0..3] = κ^s · l_data)
+    // PREPEND: L' + κ^ℓ·R' = M'
+    // APPEND: L' + κ^ℓ·R' = κ^{s-t}·M'
+    const FF pow_kappa_s =
+        (settings == MergeSettings::APPEND) ? kappa.pow(MERGE_FULL_SHIFT - MERGE_APPEND_OUTPUT_SHIFT) : FF(1);
+    bool concatenation_verified = check_concatenation_identities(evals, pow_kappa, pow_kappa_s);
 
-    // Check degree identity
-    bool degree_check_verified = check_degree_identity(evals, pow_kappa_minus_one, degree_check_challenges);
+    // Degree check uses UNSHIFTED L_data evals with tight exponent κ^{ℓ-1}.
+    // The PCS enforces the zero prefix: it opens [X^s·L_data] against κ^s·l_data (= evals[0..3]).
+    const FF g_eval = evals.back();
+    bool degree_check_verified =
+        check_degree_identity(l_data_evals, g_eval, pow_kappa_degree_check, degree_check_challenges);
 
     // Receive Shplonk batched quotient
     Commitment shplonk_batched_quotient =

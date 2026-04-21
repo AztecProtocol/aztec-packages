@@ -18,7 +18,11 @@ using FlavorTypes = testing::Types<UltraFlavor, UltraZKFlavor, UltraKeccakFlavor
 #endif
 template <typename T> using PermutationTests = UltraHonkTests<T>;
 TYPED_TEST_SUITE(PermutationTests, FlavorTypes);
-using NonZKFlavorTypes = testing::Types<UltraFlavor, UltraKeccakFlavor>;
+#ifdef STARKNET_GARAGA_FLAVORS
+using NonZKFlavorTypes = testing::Types<UltraFlavor, UltraKeccakFlavor, UltraStarknetFlavor, MegaFlavor>;
+#else
+using NonZKFlavorTypes = testing::Types<UltraFlavor, UltraKeccakFlavor, MegaFlavor>;
+#endif
 template <typename T> using PermutationNonZKTests = UltraHonkTests<T>;
 TYPED_TEST_SUITE(PermutationNonZKTests, NonZKFlavorTypes);
 
@@ -256,15 +260,16 @@ TYPED_TEST(PermutationNonZKTests, ZPermZeroedOutFailure)
 }
 
 /**
- * @brief Test that z_perm must be zero at the first row (where lagrange_first = 1).
+ * @brief Test that z_perm must be zero at the lagrange_first row (row TRACE_OFFSET).
  *
  * @details The permutation argument includes an initialization constraint: lagrange_first * z_perm = 0.
- * The grand product relies on z_perm[0] = 0 so that (z_perm + lagrange_first) evaluates to 1 at row 0.
+ * The grand product relies on z_perm being 0 at the lagrange_first row so that
+ * (z_perm + lagrange_first) evaluates to 1 there.
  *
  * This test:
  *   1. Builds a valid circuit and verifies the permutation relation holds
- *   2. Expands z_perm to a full polynomial to access the boundary at index 0
- *   3. Tampers with z_perm at index 0, making it non-zero
+ *   2. Expands z_perm to a full polynomial to access the lagrange_first row
+ *   3. Tampers with z_perm at that row, making it non-zero
  *   4. Verifies the permutation relation now fails (sub-relation 2: lagrange_first * z_perm = 0)
  *
  * @note This test excludes ZK flavors because we manually tamper with z_perm, which would
@@ -308,38 +313,21 @@ TYPED_TEST(PermutationNonZKTests, ZPermNonZeroAtFirstRowFailure)
         prover_instance->polynomials, prover_instance->relation_parameters, "UltraPermutation - Before Tampering");
     EXPECT_TRUE(permutation_relation_failures.empty());
 
-    // Derive the expected lagrange_first position from the z_perm polynomial structure:
-    // z_perm is shiftable with start_index = NUM_ZERO_ROWS, so the zero row just before it
-    // is where lagrange_first must be active. Read this before expanding to full.
+    // lagrange_first is at row TRACE_OFFSET.
+    const size_t first_row = ProverInstance::TRACE_OFFSET;
+
+    // Verify lagrange_first is indeed 1 at the expected position.
+    ASSERT_EQ(prover_instance->polynomials.lagrange_first[first_row], fr(1))
+        << "lagrange_first should be 1 at row TRACE_OFFSET";
+
     auto& z_perm = prover_instance->polynomials.z_perm;
     auto& z_perm_shift = prover_instance->polynomials.z_perm_shift;
-    ASSERT_TRUE(z_perm.is_shiftable());
-    size_t structural_first_row = z_perm.start_index() - 1;
 
-    // z_perm is shiftable (start_index = 1), so z_perm[0] is a virtual zero not backed by memory.
-    // To tamper with it, we must expand to a full polynomial. We also expand z_perm_shift independently
+    // z_perm is shiftable (start_index = 1), so z_perm at first_row may be a virtual zero.
+    // Expand to a full polynomial to write at that index. Also expand z_perm_shift independently
     // (it cannot be derived via shifted() from a full polynomial with start_index = 0).
     prover_instance->polynomials.z_perm = z_perm.full();
     prover_instance->polynomials.z_perm_shift = z_perm_shift.full();
-
-    // Independently scan the lagrange_first polynomial for its non-zero entry.
-    const auto& lagrange_first = prover_instance->polynomials.lagrange_first;
-    size_t scanned_first_row = 0;
-    bool found = false;
-    for (size_t i = lagrange_first.start_index(); i < lagrange_first.end_index(); ++i) {
-        if (lagrange_first[i] != fr(0)) {
-            scanned_first_row = i;
-            found = true;
-            break;
-        }
-    }
-    ASSERT_TRUE(found) << "lagrange_first has no non-zero entry";
-
-    // Cross-check: both derivations must agree.
-    ASSERT_EQ(structural_first_row, scanned_first_row)
-        << "lagrange_first position doesn't match z_perm shiftable structure";
-
-    const size_t first_row = scanned_first_row;
 
     // Sanity check: z_perm is currently 0 at the lagrange_first row
     ASSERT_EQ(prover_instance->polynomials.z_perm[first_row], fr(0));
@@ -455,7 +443,7 @@ TYPED_TEST(PermutationNonZKTests, SigmaCorruptionFailure)
     using VerificationKey = typename Flavor::VerificationKey;
     using Prover = typename TestFixture::Prover;
 
-    auto builder = UltraCircuitBuilder();
+    auto builder = typename Flavor::CircuitBuilder();
 
     // Create variables with a copy constraint
     auto a = fr::random_element();
@@ -562,7 +550,7 @@ TYPED_TEST(PermutationNonZKTests, PublicInputDeltaMismatch)
     using VerificationKey = typename Flavor::VerificationKey;
     using Prover = typename TestFixture::Prover;
 
-    auto builder = UltraCircuitBuilder();
+    auto builder = typename Flavor::CircuitBuilder();
 
     // Add a public input
     fr public_value = fr(314159);

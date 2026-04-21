@@ -68,7 +68,6 @@ TEST(TranslatorCircuitBuilder, SeveralOperationCorrectness)
 
     // Add the same operations to the ECC op queue; the native computation is performed under the hood.
     auto op_queue = std::make_shared<ECCOpQueue>();
-    op_queue->no_op_ultra_only();
     op_queue->random_op_ultra_only();
     op_queue->random_op_ultra_only();
     op_queue->random_op_ultra_only();
@@ -86,7 +85,7 @@ TEST(TranslatorCircuitBuilder, SeveralOperationCorrectness)
     // Placeholder for randomness
     op_queue->random_op_ultra_only();
     op_queue->random_op_ultra_only();
-    op_queue->merge(MergeSettings::APPEND, ECCOpQueue::OP_QUEUE_SIZE - op_queue->get_current_subtable_size());
+    op_queue->merge(MergeSettings::APPEND, op_queue->get_append_offset());
 
     Fq batching_challenge = Fq::random_element();
     Fq x = Fq::random_element();
@@ -106,7 +105,6 @@ TEST(TranslatorCircuitBuilder, MinimalOperations)
     using Fq = fq;
 
     auto op_queue = std::make_shared<ECCOpQueue>();
-    op_queue->no_op_ultra_only();
     op_queue->random_op_ultra_only();
     op_queue->random_op_ultra_only();
     op_queue->random_op_ultra_only();
@@ -114,7 +112,7 @@ TEST(TranslatorCircuitBuilder, MinimalOperations)
     op_queue->merge();
     op_queue->random_op_ultra_only();
     op_queue->random_op_ultra_only();
-    op_queue->merge(MergeSettings::APPEND, ECCOpQueue::OP_QUEUE_SIZE - op_queue->get_current_subtable_size());
+    op_queue->merge(MergeSettings::APPEND, op_queue->get_append_offset());
 
     Fq batching_challenge = Fq::random_element();
     Fq x = Fq::random_element();
@@ -133,7 +131,6 @@ TEST(TranslatorCircuitBuilder, OnlyAddOperations)
     auto P2 = point::random_element();
 
     auto op_queue = std::make_shared<ECCOpQueue>();
-    op_queue->no_op_ultra_only();
     op_queue->random_op_ultra_only();
     op_queue->random_op_ultra_only();
     op_queue->random_op_ultra_only();
@@ -144,7 +141,7 @@ TEST(TranslatorCircuitBuilder, OnlyAddOperations)
     op_queue->merge();
     op_queue->random_op_ultra_only();
     op_queue->random_op_ultra_only();
-    op_queue->merge(MergeSettings::APPEND, ECCOpQueue::OP_QUEUE_SIZE - op_queue->get_current_subtable_size());
+    op_queue->merge(MergeSettings::APPEND, op_queue->get_append_offset());
 
     Fq batching_challenge = Fq::random_element();
     Fq x = Fq::random_element();
@@ -169,7 +166,6 @@ TEST(TranslatorCircuitBuilder, OnlyMulOperations)
     auto z2 = scalar::random_element();
 
     auto op_queue = std::make_shared<ECCOpQueue>();
-    op_queue->no_op_ultra_only();
     op_queue->random_op_ultra_only();
     op_queue->random_op_ultra_only();
     op_queue->random_op_ultra_only();
@@ -179,7 +175,7 @@ TEST(TranslatorCircuitBuilder, OnlyMulOperations)
     op_queue->merge();
     op_queue->random_op_ultra_only();
     op_queue->random_op_ultra_only();
-    op_queue->merge(MergeSettings::APPEND, ECCOpQueue::OP_QUEUE_SIZE - op_queue->get_current_subtable_size());
+    op_queue->merge(MergeSettings::APPEND, op_queue->get_append_offset());
 
     Fq batching_challenge = Fq::random_element();
     Fq x = Fq::random_element();
@@ -201,20 +197,16 @@ TEST(TranslatorCircuitBuilder, InterspersedNoOps)
     auto P = point::random_element();
 
     auto op_queue = std::make_shared<ECCOpQueue>();
-    op_queue->no_op_ultra_only();
     op_queue->random_op_ultra_only();
     op_queue->random_op_ultra_only();
     op_queue->random_op_ultra_only();
     op_queue->add_accumulate(P);
-    op_queue->no_op_ultra_only();
-    op_queue->no_op_ultra_only();
     op_queue->add_accumulate(P);
-    op_queue->no_op_ultra_only();
     op_queue->eq_and_reset();
     op_queue->merge();
     op_queue->random_op_ultra_only();
     op_queue->random_op_ultra_only();
-    op_queue->merge(MergeSettings::APPEND, ECCOpQueue::OP_QUEUE_SIZE - op_queue->get_current_subtable_size());
+    op_queue->merge(MergeSettings::APPEND, op_queue->get_append_offset());
 
     Fq batching_challenge = Fq::random_element();
     Fq x = Fq::random_element();
@@ -236,7 +228,6 @@ TEST(TranslatorCircuitBuilder, PointAtInfinity)
     auto P_infinity = point::infinity();
 
     auto op_queue = std::make_shared<ECCOpQueue>();
-    op_queue->no_op_ultra_only();
     op_queue->random_op_ultra_only();
     op_queue->random_op_ultra_only();
     op_queue->random_op_ultra_only();
@@ -245,7 +236,7 @@ TEST(TranslatorCircuitBuilder, PointAtInfinity)
     op_queue->merge();
     op_queue->random_op_ultra_only();
     op_queue->random_op_ultra_only();
-    op_queue->merge(MergeSettings::APPEND, ECCOpQueue::OP_QUEUE_SIZE - op_queue->get_current_subtable_size());
+    op_queue->merge(MergeSettings::APPEND, op_queue->get_append_offset());
 
     Fq batching_challenge = Fq::random_element();
     Fq x = Fq::random_element();
@@ -269,7 +260,6 @@ TEST(TranslatorCircuitBuilder, ZeroScalar)
     auto zero = scalar::zero();
 
     auto op_queue = std::make_shared<ECCOpQueue>();
-    op_queue->no_op_ultra_only();
     op_queue->random_op_ultra_only();
     op_queue->random_op_ultra_only();
     op_queue->random_op_ultra_only();
@@ -278,7 +268,7 @@ TEST(TranslatorCircuitBuilder, ZeroScalar)
     op_queue->merge();
     op_queue->random_op_ultra_only();
     op_queue->random_op_ultra_only();
-    op_queue->merge(MergeSettings::APPEND, ECCOpQueue::OP_QUEUE_SIZE - op_queue->get_current_subtable_size());
+    op_queue->merge(MergeSettings::APPEND, op_queue->get_append_offset());
 
     Fq batching_challenge = Fq::random_element();
     Fq x = Fq::random_element();
@@ -299,7 +289,6 @@ TEST(TranslatorCircuitBuilder, ManyOperations)
     using Fq = fq;
 
     auto op_queue = std::make_shared<ECCOpQueue>();
-    op_queue->no_op_ultra_only();
     op_queue->random_op_ultra_only();
     op_queue->random_op_ultra_only();
     op_queue->random_op_ultra_only();
@@ -316,7 +305,7 @@ TEST(TranslatorCircuitBuilder, ManyOperations)
     op_queue->merge();
     op_queue->random_op_ultra_only();
     op_queue->random_op_ultra_only();
-    op_queue->merge(MergeSettings::APPEND, ECCOpQueue::OP_QUEUE_SIZE - op_queue->get_current_subtable_size());
+    op_queue->merge(MergeSettings::APPEND, op_queue->get_append_offset());
 
     Fq batching_challenge = Fq::random_element();
     Fq x = Fq::random_element();
@@ -343,7 +332,6 @@ TEST(TranslatorCircuitBuilder, Determinism)
 
     // Build first circuit
     auto op_queue1 = std::make_shared<ECCOpQueue>();
-    op_queue1->no_op_ultra_only();
     op_queue1->random_op_ultra_only();
     op_queue1->random_op_ultra_only();
     op_queue1->random_op_ultra_only();
@@ -353,14 +341,13 @@ TEST(TranslatorCircuitBuilder, Determinism)
     op_queue1->merge();
     op_queue1->random_op_ultra_only();
     op_queue1->random_op_ultra_only();
-    op_queue1->merge(MergeSettings::APPEND, ECCOpQueue::OP_QUEUE_SIZE - op_queue1->get_current_subtable_size());
+    op_queue1->merge(MergeSettings::APPEND, op_queue1->get_append_offset());
 
     auto circuit_builder1 = TranslatorCircuitBuilder(batching_challenge, x, op_queue1);
     auto result1 = CircuitChecker::get_computation_result(circuit_builder1);
 
     // Build second circuit with same operations
     auto op_queue2 = std::make_shared<ECCOpQueue>();
-    op_queue2->no_op_ultra_only();
     op_queue2->random_op_ultra_only();
     op_queue2->random_op_ultra_only();
     op_queue2->random_op_ultra_only();
@@ -370,7 +357,7 @@ TEST(TranslatorCircuitBuilder, Determinism)
     op_queue2->merge();
     op_queue2->random_op_ultra_only();
     op_queue2->random_op_ultra_only();
-    op_queue2->merge(MergeSettings::APPEND, ECCOpQueue::OP_QUEUE_SIZE - op_queue2->get_current_subtable_size());
+    op_queue2->merge(MergeSettings::APPEND, op_queue2->get_append_offset());
 
     auto circuit_builder2 = TranslatorCircuitBuilder(batching_challenge, x, op_queue2);
     auto result2 = CircuitChecker::get_computation_result(circuit_builder2);

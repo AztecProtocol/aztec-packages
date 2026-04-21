@@ -2,6 +2,7 @@
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/common/test.hpp"
 #include "barretenberg/goblin/goblin.hpp"
+#include "barretenberg/goblin/merge_prover.hpp"
 #include "barretenberg/goblin/mock_circuits.hpp"
 #include "barretenberg/srs/global_crs.hpp"
 #include "barretenberg/stdlib/honk_verifier/ultra_verification_keys_comparator.hpp"
@@ -67,10 +68,12 @@ class GoblinRecursiveVerifierTests : public testing::Test {
         // Merge the ecc ops from the newly constructed circuit
         auto goblin_proof = goblin.prove();
         // Subtable values and commitments - needed for (Recursive)MergeVerifier
+        // Shift by TRACE_OFFSET to match circuit ecc_op_wire layout
         MergeCommitments merge_commitments;
-        auto t_current = goblin.op_queue->construct_current_ultra_ops_subtable_columns();
-        auto T_prev = goblin.op_queue->construct_previous_ultra_ops_table_columns();
-        CommitmentKey<curve::BN254> pcs_commitment_key(goblin.op_queue->get_ultra_ops_table_num_rows());
+        auto t_current = goblin.op_queue->construct_current_ultra_ops_subtable_columns(MergeProver::FULL_SHIFT);
+        auto T_prev = goblin.op_queue->construct_previous_ultra_ops_table_columns(MergeProver::FULL_SHIFT);
+        CommitmentKey<curve::BN254> pcs_commitment_key(goblin.op_queue->get_ultra_ops_table_num_rows() +
+                                                       MergeProver::FULL_SHIFT);
         for (size_t idx = 0; idx < MegaFlavor::NUM_WIRES; idx++) {
             merge_commitments.t_commitments[idx] = pcs_commitment_key.commit(t_current[idx]);
             merge_commitments.T_prev_commitments[idx] = pcs_commitment_key.commit(T_prev[idx]);

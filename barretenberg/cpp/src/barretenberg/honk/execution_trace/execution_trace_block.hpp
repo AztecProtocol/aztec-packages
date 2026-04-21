@@ -253,6 +253,9 @@ template <typename FF, size_t NUM_WIRES_> class ExecutionTraceBlock {
         return trace_offset_;
     }
 
+    // The first trace row past this block's data (trace_offset + size).
+    size_t trace_end() const { return trace_offset() + size(); }
+
     bool operator==(const ExecutionTraceBlock& other) const = default;
 
     size_t size() const { return data_freed_ ? cached_size_ : std::get<0>(this->wires).size(); }
