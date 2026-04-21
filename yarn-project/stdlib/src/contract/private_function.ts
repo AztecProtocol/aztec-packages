@@ -3,6 +3,7 @@ import { poseidon2Hash, poseidon2HashWithSeparator } from '@aztec/foundation/cry
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { type MerkleTree, MerkleTreeCalculator } from '@aztec/foundation/trees';
 
+import { computeMerkleHash } from '../hash/hash.js';
 import type { PrivateFunction } from './interfaces/contract_class.js';
 
 // Memoize the merkle tree calculators to avoid re-computing the zero-hash for each level in each call
@@ -42,7 +43,8 @@ async function getPrivateFunctionTreeCalculator(): Promise<MerkleTreeCalculator>
     privateFunctionTreeCalculator = await MerkleTreeCalculator.create(
       FUNCTION_TREE_HEIGHT,
       functionTreeZeroLeaf,
-      async (left, right) => (await poseidon2Hash([left, right])).toBuffer() as Buffer<ArrayBuffer>,
+      async (left, right) =>
+        (await computeMerkleHash(Fr.fromBuffer(left), Fr.fromBuffer(right))).toBuffer() as Buffer<ArrayBuffer>,
     );
   }
   return privateFunctionTreeCalculator;

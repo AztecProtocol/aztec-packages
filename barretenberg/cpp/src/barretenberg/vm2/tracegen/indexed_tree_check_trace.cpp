@@ -76,6 +76,7 @@ void IndexedTreeCheckTraceBuilder::process(
                   { {
                       { C::indexed_tree_check_sel, 1 },
                       { C::indexed_tree_check_const_three, 3 },
+                      { C::indexed_tree_check_merkle_hash_separator, event.merkle_hash_separator },
                       { C::indexed_tree_check_write, event.write ? 1 : 0 },
                       { C::indexed_tree_check_value, value },
                       { C::indexed_tree_check_root, event.prev_snapshot.root },

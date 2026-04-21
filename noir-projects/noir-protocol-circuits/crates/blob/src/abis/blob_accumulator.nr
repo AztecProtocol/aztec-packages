@@ -7,8 +7,11 @@ use bigcurve::{BigCurve, curves::bls12_381::{BLS12_381, BLS12_381Scalar}};
 use bignum::{BigNum, BLS12_381_Fq, BLS12_381_Fr};
 use std::ops::{Add, Mul};
 use types::{
-    constants::BLOB_ACCUMULATOR_LENGTH,
-    hash::{poseidon2_hash, sha256_to_field},
+    constants::{
+        BLOB_ACCUMULATOR_LENGTH, DOM_SEP__BLOB_GAMMA_ACC, DOM_SEP__BLOB_HASHED_Y_LIMBS,
+        DOM_SEP__BLOB_Z_ACC,
+    },
+    hash::{poseidon2_hash_with_separator, sha256_to_field},
     traits::{Deserialize, Empty, Serialize},
     utils::{reader::Reader, writer::Writer},
 };
@@ -76,7 +79,10 @@ impl BlobAccumulator {
     */
     pub fn init(first_output: BlobAccumulationInputs, final_gamma: BLS12_381_Fr) -> Self {
         // TODO(#13608): use a BLS12 based hash? Is using BN based safe - since the output is smaller is there a skew?
-        let hashed_y_0 = poseidon2_hash(first_output.y_i.get_limbs().map(|l| l as Field));
+        let hashed_y_0 = poseidon2_hash_with_separator(
+            first_output.y_i.get_limbs().map(|l| l as Field),
+            DOM_SEP__BLOB_HASHED_Y_LIMBS,
+        );
         Self {
             blob_commitments_hash_acc: sha256_to_field(first_output.c_i.compressed),
             z_acc: first_output.z_i,
@@ -116,7 +122,10 @@ impl BlobAccumulator {
     */
     pub fn accumulate(self, other: BlobAccumulationInputs, final_gamma: BLS12_381_Fr) -> Self {
         // TODO(#13608): use a BLS12 based hash? Is using BN based safe - since the output is smaller is there a skew?
-        let hashed_y_i = poseidon2_hash(other.y_i.get_limbs().map(|l| l as Field));
+        let hashed_y_i = poseidon2_hash_with_separator(
+            other.y_i.get_limbs().map(|l| l as Field),
+            DOM_SEP__BLOB_HASHED_Y_LIMBS,
+        );
 
         // Equivalent to self.c_acc.add(other.c_i.point.mul(BLS12_381Scalar::from_bignum(self.gamma_pow_acc)))
         let c_acc = BLS12_381::evaluate_linear_expression(
@@ -130,10 +139,13 @@ impl BlobAccumulator {
                 .blob_commitments_hash_acc
                 .to_be_bytes::<32>()
                 .concat(other.c_i.compressed)),
-            z_acc: poseidon2_hash([self.z_acc, other.z_i]),
+            z_acc: poseidon2_hash_with_separator([self.z_acc, other.z_i], DOM_SEP__BLOB_Z_ACC),
             y_acc: self.y_acc.add(other.y_i.mul(self.gamma_pow_acc)),
             c_acc,
-            gamma_acc: poseidon2_hash([self.gamma_acc, hashed_y_i]),
+            gamma_acc: poseidon2_hash_with_separator(
+                [self.gamma_acc, hashed_y_i],
+                DOM_SEP__BLOB_GAMMA_ACC,
+            ),
             gamma_pow_acc: self.gamma_pow_acc.mul(final_gamma),
         }
     }

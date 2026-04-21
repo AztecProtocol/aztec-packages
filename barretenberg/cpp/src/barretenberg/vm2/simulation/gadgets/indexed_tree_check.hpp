@@ -21,11 +21,13 @@ class IndexedTreeCheck : public IndexedTreeCheckInterface, public CheckpointNoti
     IndexedTreeCheck(Poseidon2Interface& poseidon2,
                      MerkleCheckInterface& merkle_check,
                      FieldGreaterThanInterface& field_gt,
+                     uint64_t merkle_hash_domain_separator,
                      EventEmitterInterface<IndexedTreeCheckEvent>& event_emitter)
         : events(event_emitter)
         , poseidon2(poseidon2)
         , merkle_check(merkle_check)
         , field_gt(field_gt)
+        , merkle_hash_domain_separator(merkle_hash_domain_separator)
     {}
 
     void assert_read(const FF& value,
@@ -56,6 +58,7 @@ class IndexedTreeCheck : public IndexedTreeCheckInterface, public CheckpointNoti
     Poseidon2Interface& poseidon2;
     MerkleCheckInterface& merkle_check;
     FieldGreaterThanInterface& field_gt;
+    uint64_t merkle_hash_domain_separator;
 };
 
 } // namespace bb::avm2::simulation

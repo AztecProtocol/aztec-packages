@@ -532,6 +532,9 @@ sel_gas_sstore * (written_slots_tree_height - constants.AVM_WRITTEN_PUBLIC_DATA_
 pol commit written_slots_tree_siloing_separator;
 sel_gas_sstore * (written_slots_tree_siloing_separator - constants.DOM_SEP__PUBLIC_LEAF_SLOT) = 0;
 
+pol commit written_slots_merkle_separator;
+sel_gas_sstore * (written_slots_merkle_separator - constants.DOM_SEP__WRITTEN_SLOTS_MERKLE) = 0;
+
 // We can probably unconditionally write to the written_public_data_slots_tree here
 // to avoid writing later in opcode execution, since the root would be reverted if it errors before
 // the opcode execution. However, this feels like an early optimization
@@ -542,6 +545,7 @@ sel_gas_sstore {
     register[1], // slot
     prev_written_public_data_slots_tree_root,
     written_slots_tree_height,
+    written_slots_merkle_separator,
     sel_gas_sstore, // sel_silo = 1
     written_slots_tree_siloing_separator,
     contract_address
@@ -550,6 +554,7 @@ sel_gas_sstore {
     indexed_tree_check.value,
     indexed_tree_check.root,
     indexed_tree_check.tree_height,
+    indexed_tree_check.merkle_hash_separator,
     indexed_tree_check.sel_silo,
     indexed_tree_check.siloing_separator,
     indexed_tree_check.address
@@ -799,6 +804,9 @@ sel_execute_returndata_size * (mem_tag_reg[0] - constants.MEM_TAG_U32) = 0; // W
 // Constant height set in nullifier_exists.pil and emit_nullifier.pil
 // Lookup constant support: Can be removed when we support constants in lookups.
 pol commit nullifier_tree_height;
+
+// Domain separator for nullifier leaf preimage hash. Set in nullifier_exists.pil and emit_nullifier.pil.
+pol commit nullifier_merkle_separator;
 
 // Whether the opcode logic failed.
 pol commit sel_opcode_error; // @boolean

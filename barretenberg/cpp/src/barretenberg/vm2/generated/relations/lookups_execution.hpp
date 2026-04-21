@@ -323,7 +323,7 @@ using lookup_execution_get_max_limbs_relation = lookup_relation_base<FF_, lookup
 struct lookup_execution_check_written_storage_slot_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_EXECUTION_CHECK_WRITTEN_STORAGE_SLOT";
     static constexpr std::string_view RELATION_NAME = "execution";
-    static constexpr size_t LOOKUP_TUPLE_SIZE = 7;
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 8;
     static constexpr Column SRC_SELECTOR = Column::execution_sel_gas_sstore;
     static constexpr Column DST_SELECTOR = Column::indexed_tree_check_sel;
     static constexpr Column COUNTS = Column::lookup_execution_check_written_storage_slot_counts;
@@ -333,14 +333,19 @@ struct lookup_execution_check_written_storage_slot_settings_ {
         ColumnAndShifts::execution_register_1_,
         ColumnAndShifts::execution_prev_written_public_data_slots_tree_root,
         ColumnAndShifts::execution_written_slots_tree_height,
+        ColumnAndShifts::execution_written_slots_merkle_separator,
         ColumnAndShifts::execution_sel_gas_sstore,
         ColumnAndShifts::execution_written_slots_tree_siloing_separator,
         ColumnAndShifts::execution_contract_address
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::indexed_tree_check_not_exists, ColumnAndShifts::indexed_tree_check_value,
-        ColumnAndShifts::indexed_tree_check_root,       ColumnAndShifts::indexed_tree_check_tree_height,
-        ColumnAndShifts::indexed_tree_check_sel_silo,   ColumnAndShifts::indexed_tree_check_siloing_separator,
+        ColumnAndShifts::indexed_tree_check_not_exists,
+        ColumnAndShifts::indexed_tree_check_value,
+        ColumnAndShifts::indexed_tree_check_root,
+        ColumnAndShifts::indexed_tree_check_tree_height,
+        ColumnAndShifts::indexed_tree_check_merkle_hash_separator,
+        ColumnAndShifts::indexed_tree_check_sel_silo,
+        ColumnAndShifts::indexed_tree_check_siloing_separator,
         ColumnAndShifts::indexed_tree_check_address
     };
 };

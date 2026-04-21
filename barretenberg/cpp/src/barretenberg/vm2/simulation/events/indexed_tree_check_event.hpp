@@ -11,9 +11,9 @@
 namespace bb::avm2::simulation {
 
 struct IndexedTreeLeafData {
-    FF value;
-    FF next_value;
-    uint64_t next_index;
+    FF value = 0;
+    FF next_value = 0;
+    uint64_t next_index = 0;
 
     bool operator==(const IndexedTreeLeafData& other) const = default;
 
@@ -21,36 +21,39 @@ struct IndexedTreeLeafData {
 };
 
 struct IndexedTreeSiloingParameters {
-    AztecAddress address;
-    FF siloing_separator;
+    AztecAddress address = 0;
+    FF siloing_separator = 0;
 
     bool operator==(const IndexedTreeSiloingParameters& other) const = default;
 };
 
 struct IndexedLeafSiloingData {
-    FF siloed_value;
-    IndexedTreeSiloingParameters parameters;
+    FF siloed_value = 0;
+    IndexedTreeSiloingParameters parameters{};
 
     bool operator==(const IndexedLeafSiloingData& other) const = default;
 };
 
 struct IndexedLeafAppendData {
-    FF updated_low_leaf_hash;
-    FF new_leaf_hash;
-    FF intermediate_root;
+    FF updated_low_leaf_hash = 0;
+    FF new_leaf_hash = 0;
+    FF intermediate_root = 0;
 
     bool operator==(const IndexedLeafAppendData& other) const = default;
 };
 
 struct IndexedTreeReadWriteEvent {
-    FF value;
-    AppendOnlyTreeSnapshot prev_snapshot;
-    AppendOnlyTreeSnapshot next_snapshot;
-    uint64_t tree_height;
+    FF value = 0;
+    AppendOnlyTreeSnapshot prev_snapshot{};
+    AppendOnlyTreeSnapshot next_snapshot{};
+    uint64_t tree_height = 0;
+    /// Per-tree merkle-node domain separator (e.g. DOM_SEP__NULLIFIER_MERKLE). Carried through to
+    /// the generated trace so the merkle_check lookup sees the tree-specific constant.
+    FF merkle_hash_separator = 0;
 
-    IndexedTreeLeafData low_leaf_data;
-    FF low_leaf_hash;
-    uint64_t low_leaf_index;
+    IndexedTreeLeafData low_leaf_data{};
+    FF low_leaf_hash = 0;
+    uint64_t low_leaf_index = 0;
 
     bool write = false;
     std::optional<IndexedLeafSiloingData> siloing_data = std::nullopt;

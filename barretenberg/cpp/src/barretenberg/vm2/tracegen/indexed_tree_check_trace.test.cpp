@@ -4,7 +4,9 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include "barretenberg/crypto/merkle_tree/aztec_hash_policy.hpp"
 #include "barretenberg/crypto/poseidon2/poseidon2.hpp"
+#include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/constraining/flavor_settings.hpp"
 #include "barretenberg/vm2/constraining/testing/check_relation.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_indexed_tree_check.hpp"
@@ -106,7 +108,8 @@ TEST_P(ReadInteractionsTests, PositiveWithInteractions)
     FieldGreaterThan field_gt(range_check, field_gt_event_emitter);
 
     EventEmitter<IndexedTreeCheckEvent> indexed_tree_check_event_emitter;
-    IndexedTreeCheck indexed_tree_check(poseidon2, merkle_check, field_gt, indexed_tree_check_event_emitter);
+    IndexedTreeCheck indexed_tree_check(
+        poseidon2, merkle_check, field_gt, DOM_SEP__NULLIFIER_MERKLE, indexed_tree_check_event_emitter);
 
     TestTraceContainer trace({ { { C::precomputed_first_row, 1 } } });
     Poseidon2TraceBuilder poseidon2_builder;
@@ -121,7 +124,7 @@ TEST_P(ReadInteractionsTests, PositiveWithInteractions)
     for (size_t i = 0; i < TREE_HEIGHT; ++i) {
         sibling_path.emplace_back(i);
     }
-    FF root = unconstrained_root_from_path(low_leaf_hash, leaf_index, sibling_path);
+    FF root = unconstrained_root_from_path(DOM_SEP__NULLIFIER_MERKLE, low_leaf_hash, leaf_index, sibling_path);
 
     indexed_tree_check.assert_read(param.value,
                                    std::nullopt,
@@ -160,7 +163,8 @@ TEST_F(IndexedTreeCheckTracegenTest, WriteWithInteractions)
     FieldGreaterThan field_gt(range_check, field_gt_event_emitter);
 
     EventEmitter<IndexedTreeCheckEvent> indexed_tree_check_event_emitter;
-    IndexedTreeCheck indexed_tree_check(poseidon2, merkle_check, field_gt, indexed_tree_check_event_emitter);
+    IndexedTreeCheck indexed_tree_check(
+        poseidon2, merkle_check, field_gt, DOM_SEP__NULLIFIER_MERKLE, indexed_tree_check_event_emitter);
 
     TestTraceContainer trace({ { { C::precomputed_first_row, 1 } } });
     Poseidon2TraceBuilder poseidon2_builder;
@@ -173,7 +177,7 @@ TEST_F(IndexedTreeCheckTracegenTest, WriteWithInteractions)
     FF siloing_separator = 42;
     FF siloed_value = RawPoseidon2::hash({ siloing_separator, contract_address, value });
     FF low_value = 40;
-    TestMemoryTree<Poseidon2HashPolicy> tree(8, TREE_HEIGHT);
+    TestMemoryTree<crypto::merkle_tree::NullifierMerkleHashPolicy> tree(8, TREE_HEIGHT);
 
     IndexedTreeLeafData low_leaf = { .value = low_value, .next_value = siloed_value + 1, .next_index = 10 };
     FF low_leaf_hash = RawPoseidon2::hash(low_leaf.get_hash_inputs());
