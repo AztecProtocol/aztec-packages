@@ -45,6 +45,10 @@ contract FakeRewardDistributor {
     feeAsset.transfer(_to, _amount);
   }
 
+  function availableTo(address _rollup) external view returns (uint256) {
+    return _rollup == canonicalRollup ? feeAsset.balanceOf(address(this)) : 0;
+  }
+
   function nuke() external {
     canonicalRollup = address(0);
   }

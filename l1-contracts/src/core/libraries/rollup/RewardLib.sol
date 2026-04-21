@@ -165,14 +165,11 @@ library RewardLib {
           // Cache the reward distributor contract
           IRewardDistributor distributor = rewardStorage.config.rewardDistributor;
 
-          if (address(this) == distributor.canonicalRollup()) {
-            uint256 amountToClaim =
-              Math.min(checkpointRewardsDesired, rollupStore.config.feeAsset.balanceOf(address(distributor)));
+          uint256 amountToClaim = Math.min(checkpointRewardsDesired, distributor.availableTo(address(this)));
 
-            if (amountToClaim > 0) {
-              distributor.claim(address(this), amountToClaim);
-              checkpointRewardsAvailable = amountToClaim;
-            }
+          if (amountToClaim > 0) {
+            distributor.claim(address(this), amountToClaim);
+            checkpointRewardsAvailable = amountToClaim;
           }
         }
 

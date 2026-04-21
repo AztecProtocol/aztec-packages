@@ -40,6 +40,15 @@ import {RollupBuilder} from "./builder/RollupBuilder.sol";
 import {Ownable} from "@oz/access/Ownable.sol";
 import {AttestationLib, CommitteeAttestations} from "@aztec/core/libraries/rollup/AttestationLib.sol";
 import {AttestationLibHelper} from "@test/helper_libraries/AttestationLibHelper.sol";
+import {IHaveVersion} from "@aztec/governance/interfaces/IRegistry.sol";
+
+// Minimal IHaveVersion implementation used to register a fresh canonical rollup so
+// that the rollup under test becomes "old" (non-canonical).
+contract SecondRollup {
+  function getVersion() external view returns (uint256) {
+    return uint256(keccak256(abi.encodePacked(bytes("aztec_rollup_v2"), block.chainid, address(this))));
+  }
+}
 
 // solhint-disable comprehensive-interface
 
@@ -550,6 +559,68 @@ contract RollupTest is RollupBase {
 
     assertEq(rollup.getPendingCheckpointNumber(), 1, "Invalid pending checkpoint number");
     assertEq(rollup.getProvenCheckpointNumber(), _toProve ? 1 : 0, "Invalid proven checkpoint number");
+  }
+
+  // Demonstrates that an old (non-canonical) rollup can be subsidized via
+  // RewardDistributor.subsidizeOld and still receive checkpoint rewards when it proves an epoch.
+  function testOldRollupReceivesSubsidyAndRewards() public setUpFor("mixed_checkpoint_1") {
+    // Sanity: `rollup` is currently the canonical rollup.
+    assertEq(address(registry.getCanonicalRollup()), address(rollup), "rollup should be canonical at setup");
+    uint256 checkpointReward = rollup.getCheckpointReward();
+    assertGt(checkpointReward, 0, "checkpoint reward should be non-zero for this test to be meaningful");
+
+    // Promote a new canonical rollup; the original one becomes "old".
+    IHaveVersion newCanonical = IHaveVersion(address(new SecondRollup()));
+    registry.addRollup(newCanonical);
+    assertEq(address(registry.getCanonicalRollup()), address(newCanonical), "new canonical not registered");
+    assertTrue(address(rollup) != address(newCanonical), "rollup is still canonical");
+
+    // Before subsidizing, the old rollup has no claim on the distributor.
+    assertEq(rewardDistributor.availableTo(address(rollup)), 0, "old rollup should start with 0 availableTo");
+
+    // Snapshot the canonical's availableTo for later comparison: subsidizing the old rollup
+    // must not reduce what is available to the new canonical (aggregateDebt isolates it).
+    uint256 canonicalAvailableBefore = rewardDistributor.availableTo(address(newCanonical));
+
+    // Subsidize the old rollup with enough to cover one full checkpoint reward + extra headroom.
+    uint256 subsidy = checkpointReward * 2;
+    deal(address(testERC20), address(this), subsidy);
+    testERC20.approve(address(rewardDistributor), subsidy);
+    rewardDistributor.subsidizeOld(address(rollup), subsidy);
+
+    assertEq(rewardDistributor.availableTo(address(rollup)), subsidy, "subsidy not credited to old rollup");
+    assertEq(
+      rewardDistributor.availableTo(address(newCanonical)),
+      canonicalAvailableBefore,
+      "canonical availability should be unaffected by old-rollup subsidy"
+    );
+
+    // `_proveCheckpoints` hardcodes the sequencer coinbase as bytes20("sequencer") in its
+    // fees array, so that is the address credited with the sequencer share.
+    address sequencerCoinbase = address(bytes20("sequencer"));
+    uint256 sequencerRewardsBefore = rollup.getSequencerRewards(sequencerCoinbase);
+
+    // Run a normal propose + prove on the old rollup. handleRewardsAndFees will call
+    // distributor.availableTo(old rollup) and distributor.claim(...) against the subsidy.
+    _proposeCheckpoint("mixed_checkpoint_1", 1);
+    _proveCheckpoints("mixed_checkpoint_", 1, 1, address(0x1234));
+
+    // The old rollup's subsidy should have been drawn down by exactly one checkpoint reward.
+    assertEq(
+      rewardDistributor.availableTo(address(rollup)),
+      subsidy - checkpointReward,
+      "subsidy not drawn by checkpoint reward"
+    );
+
+    // Rewards must have actually landed in the old rollup's reward accounting.
+    Epoch epoch = rollup.getCheckpoint(1).slotNumber.epochFromSlot();
+    uint256 sequencerRewardsGained = rollup.getSequencerRewards(sequencerCoinbase) - sequencerRewardsBefore;
+    uint256 proverRewardsGained = rollup.getCollectiveProverRewardsForEpoch(epoch);
+    assertGe(
+      sequencerRewardsGained + proverRewardsGained,
+      checkpointReward,
+      "old rollup did not accrue at least checkpointReward across sequencer + prover"
+    );
   }
 
   function testConsecutiveMixedCheckpoints(uint256 _checkpointsToProve) public setUpFor("mixed_checkpoint_1") {
