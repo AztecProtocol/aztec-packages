@@ -231,12 +231,34 @@ void compute_honk_style_permutation_lagrange_polynomials_from_mapping(
                     const auto& current_row_idx = permutation_mappings[wire_idx].row_idx[idx];
                     const auto& current_col_idx = permutation_mappings[wire_idx].col_idx[idx];
                     const auto& current_is_tag = permutation_mappings[wire_idx].is_tag[idx];
-                    const auto& current_is_public_input = permutation_mappings[wire_idx].is_public_input[idx];
+                    const auto& current_is_public_input =
+                        permutation_mappings[wire_idx]
+                            .is_public_input[idx]; // this is only `true` for sigma polynomials,
+                                                   // it is always false for the ID polynomials.
                     if (current_is_public_input) {
+                        // We intentionally want to break the cycles of the public input variables as an optimization.
+                        // During the witness generation, both the left and right wire polynomials (w_l and w_r
+                        // respectively) at row idx i contain the i-th public input. Let n = SEPARATOR. The initial
+                        // CyclicPermutation created for these variables copy-constrained to the ith public input
+                        // therefore always starts with (i) -> (n+i), followed by the indices of the variables in the
+                        // "real" gates (i.e., the gates not merely present to set-up inputs).
+                        //
+                        // We change this and make i point to -(i+1). This choice "unbalances" the grand product
+                        // argument, so that the final result of the grand product is _not_ 1. These indices are chosen
+                        // so they can easily be computed by the verifier (just knowing the public inputs), and this
+                        // algorithm constitutes a specification of the "permutation argument with public inputs"
+                        // optimization due to Gabizon and Williamson. The verifier can expect the final product to be
+                        // equal to the "public input delta" that is computed in <honk/library/grand_product_delta.hpp>.
                         current_permutation_poly.at(poly_idx) = -FF(current_row_idx + 1 + SEPARATOR * current_col_idx);
                     } else if (current_is_tag) {
+                        // Set evaluations to (arbitrary) values disjoint from non-tag values. This is for the
+                        // multiset-equality part of the generalized permutation argument, which requires auxiliary
+                        // values which have not been used as indices. In particular, these are the actual tags assigned
+                        // to the cycle.
                         current_permutation_poly.at(poly_idx) = SEPARATOR * Flavor::NUM_WIRES + current_row_idx;
                     } else {
+                        // For the regular permutation we simply point to the next location by setting the
+                        // evaluation to its idx
                         current_permutation_poly.at(poly_idx) = FF(current_row_idx + SEPARATOR * current_col_idx);
                     }
                 }
