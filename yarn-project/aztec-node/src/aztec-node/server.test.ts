@@ -637,12 +637,14 @@ describe('aztec node', () => {
         await expect(node.getWorldState(blockHash)).rejects.toThrow(/not found in world state at block number/);
       });
 
-      it('returns snapshot at block 0 for initial header hash', async () => {
+      it('returns committed db for initial header hash', async () => {
+        // Block 0 has no historical snapshot in world state, so we must return committed directly.
+        // The hash equality with the known genesis header means there is no reorg risk.
         const initialBlockHash = await initialHeader.hash();
 
         const result = await node.getWorldState(initialBlockHash);
-        expect(worldState.getSnapshot).toHaveBeenCalledWith(BlockNumber.ZERO);
-        expect(result).toBe(snapshotMerkleTreeOps);
+        expect(result).toBe(merkleTreeOps);
+        expect(worldState.getSnapshot).not.toHaveBeenCalled();
       });
     });
 

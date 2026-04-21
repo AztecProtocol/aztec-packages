@@ -176,7 +176,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
       this.initialHeader!,
       new WorldStateRevision(
         /*forkId=*/ resp.forkId,
-        /* blockNumber=*/ BlockNumber.ZERO,
+        /* blockNumber=*/ WorldStateRevision.LATEST,
         /* includeUncommitted=*/ true,
       ),
       opts,

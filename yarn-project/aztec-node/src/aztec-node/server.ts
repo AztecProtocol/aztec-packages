@@ -1731,17 +1731,18 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     if (BlockHash.isBlockHash(block)) {
       const initialBlockHash = await this.#getInitialHeaderHash();
       if (block.equals(initialBlockHash)) {
-        // Block source doesn't handle initial header so we need to handle the case separately.
-        return this.worldStateSynchronizer.getSnapshot(BlockNumber.ZERO);
+        // Block 0 has no historical snapshot in world state — its state only lives in the
+        // committed/uncommitted view via the tree's initial values. Since the anchor hash matches
+        // the known genesis hash, there is no reorg risk here and we can safely return committed.
+        this.log.debug(`Using committed db for block hash matching genesis header`);
+        return this.worldStateSynchronizer.getCommitted();
       }
-
       const header = await this.blockSource.getBlockHeaderByHash(block);
       if (!header) {
         throw new Error(
           `Block hash ${block.toString()} not found when querying world state. If the node API has been queried with anchor block hash possibly a reorg has occurred.`,
         );
       }
-
       blockNumber = header.getBlockNumber();
     } else {
       blockNumber = block as BlockNumber;
@@ -1759,8 +1760,9 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     if (BlockHash.isBlockHash(block)) {
       const blockHash = await snapshot.getLeafValue(MerkleTreeId.ARCHIVE, BigInt(blockNumber));
       if (!blockHash || !block.equals(blockHash)) {
+        const initialBlockHash = await this.#getInitialHeaderHash();
         throw new Error(
-          `Block hash ${block.toString()} not found in world state at block number ${blockNumber}. If the node API has been queried with anchor block hash possibly a reorg has occurred.`,
+          `Block hash ${block.toString()} not found in world state at block number ${blockNumber} (world state has ${blockHash?.toString() ?? 'no hash'} at that index, genesis header hash is ${initialBlockHash.toString()}). If the node API has been queried with anchor block hash possibly a reorg has occurred.`,
         );
       }
     }
