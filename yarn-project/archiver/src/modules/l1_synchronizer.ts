@@ -405,7 +405,7 @@ export class ArchiverL1Synchronizer implements Traceable {
           `Failed to store L1 to L2 messages retrieved from L1: ${error.message}. Rolling back syncpoint to retry.`,
           { inboxMessage: error.inboxMessage },
         );
-        await this.rollbackL1ToL2Messages(remoteMessagesState.treeInProgress);
+        await this.rollbackL1ToL2Messages(remoteMessagesState);
         return false;
       }
       throw error;
@@ -420,7 +420,7 @@ export class ArchiverL1Synchronizer implements Traceable {
         `Local L1 to L2 messages state does not match remote after sync attempt. Rolling back syncpoint to retry.`,
         { localLastMessageAfterSync, remoteMessagesState },
       );
-      await this.rollbackL1ToL2Messages(remoteMessagesState.treeInProgress);
+      await this.rollbackL1ToL2Messages(remoteMessagesState);
       return false;
     }
 
@@ -475,18 +475,39 @@ export class ArchiverL1Synchronizer implements Traceable {
    * Rolls back local L1 to L2 messages to the last common message with L1, and updates the syncpoint to the L1 block of that message.
    * If no common message is found, rolls back all messages and sets the syncpoint to the start block.
    */
-  private async rollbackL1ToL2Messages(remoteTreeInProgress: bigint): Promise<L1BlockId> {
-    // Slowly go back through our messages until we find the last common message.
-    // We could query the logs in batch as an optimization, but the depth of the reorg should not be deep, and this
-    // is a very rare case, so it's fine to query one log at a time.
+  private async rollbackL1ToL2Messages(remoteMessagesState: InboxContractState): Promise<L1BlockId> {
+    const { treeInProgress: remoteTreeInProgress, messagesRollingHash: remoteRollingHash } = remoteMessagesState;
+
+    // Slowly go back through our messages until we find the last common message. We could query the logs in
+    // batch as an optimization, but the depth of the reorg should not be deep, and this is a very rare case,
+    // so it's fine to query one log at a time.
     let commonMsg: undefined | InboxMessage;
     let messagesToDelete = 0;
     this.log.verbose(`Searching most recent common L1 to L2 message`);
     for await (const localMsg of this.store.iterateL1ToL2Messages({ reverse: true })) {
+      const logCtx = { remoteMsg: undefined as InboxMessage | undefined, localMsg, remoteMessagesState };
+
+      // First check if the local message rolling hash matches the current rolling hash of the inbox contract,
+      // which means we just need to rollback some local messages and we should be back in sync. This means there
+      // was an L1 reorg that removed some of the messages we had, but no new messages were added compared.
+      if (localMsg.rollingHash.equals(remoteRollingHash)) {
+        this.log.info(
+          `Found common L1 to L2 message at index ${localMsg.index} on L1 block ${localMsg.l1BlockNumber} matching current remote state`,
+          logCtx,
+        );
+        commonMsg = localMsg;
+        break;
+      }
+
+      // If there's no match with the current remote state, check if the message exists on the inbox contract at all
+      // by looking at the inbox events. If the L1 reorg *added* new messages in addition to deleting existing ones,
+      // then the current remote state's rolling hash will not match anything we have locally, so we need to check existence
+      // of individual messages via logs. Note we use logs and not historical queries so we don't have to depend on
+      // an archival rpc node, since the message could be from a long time ago if we're catching up with syncing.
       const remoteMsg = await retrieveL1ToL2Message(this.inbox, localMsg);
-      const logCtx = { remoteMsg, localMsg: localMsg };
+      logCtx.remoteMsg = remoteMsg;
       if (remoteMsg && remoteMsg.rollingHash.equals(localMsg.rollingHash)) {
-        this.log.verbose(
+        this.log.info(
           `Found most recent common L1 to L2 message at index ${localMsg.index} on L1 block ${localMsg.l1BlockNumber}`,
           logCtx,
         );

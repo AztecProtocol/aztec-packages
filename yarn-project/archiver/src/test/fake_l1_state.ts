@@ -502,8 +502,8 @@ export class FakeL1State {
       Promise.resolve(this.getMessageSentLogs(fromBlock, toBlock)),
     );
 
-    mockInbox.getMessageSentEventByHash.mockImplementation((msgHash: string, l1BlockHash: string) =>
-      Promise.resolve(this.getMessageSentLogByHash(msgHash, l1BlockHash) as MessageSentLog),
+    mockInbox.getMessageSentEventByHash.mockImplementation((msgHash: string, aroundL1BlockNumber: bigint) =>
+      Promise.resolve(this.getMessageSentLogByHash(msgHash, aroundL1BlockNumber) as MessageSentLog),
     );
 
     return mockInbox;
@@ -623,9 +623,12 @@ export class FakeL1State {
       }));
   }
 
-  private getMessageSentLogByHash(msgHash: string, l1BlockHash: string): MessageSentLog | undefined {
+  private getMessageSentLogByHash(msgHash: string, aroundL1BlockNumber: bigint): MessageSentLog | undefined {
     const msg = this.messages.find(
-      msg => msg.leaf.toString() === msgHash && Buffer32.fromBigInt(msg.l1BlockNumber).toString() === l1BlockHash,
+      msg =>
+        msg.leaf.toString() === msgHash &&
+        msg.l1BlockNumber >= aroundL1BlockNumber - 5n &&
+        msg.l1BlockNumber <= aroundL1BlockNumber + 5n,
     );
     if (!msg) {
       return undefined;
