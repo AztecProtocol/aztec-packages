@@ -466,14 +466,19 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Pr
       this.instrumentation.recordJobDuration(item.type, duration);
     }
 
-    try {
-      await this.database.setProvingJobError(id, err);
-    } catch (saveErr) {
-      this.logger.error(`Failed to save proving job error status id=${id} jobErr=${err}`, saveErr, {
-        provingJobId: id,
-      });
+    // Stale jobs belong to epochs whose database is being garbage-collected; skip the persist to avoid
+    // racing with cleanupPass -> deleteAllProvingJobsOlderThanEpoch. The in-memory result is enough for
+    // callers still waiting on this job.
+    if (!this.isJobStale(item)) {
+      try {
+        await this.database.setProvingJobError(id, err);
+      } catch (saveErr) {
+        this.logger.error(`Failed to save proving job error status id=${id} jobErr=${err}`, saveErr, {
+          provingJobId: id,
+        });
 
-      throw saveErr;
+        throw saveErr;
+      }
     }
 
     return this.#getProvingJob(filter);
@@ -580,14 +585,17 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Pr
       this.instrumentation.recordJobDuration(item.type, duration);
     }
 
-    try {
-      await this.database.setProvingJobResult(id, value);
-    } catch (saveErr) {
-      this.logger.error(`Failed to save proving job result id=${id}`, saveErr, {
-        provingJobId: id,
-      });
+    // See #reportProvingJobError: skip persisting stale results to avoid racing with epoch cleanup.
+    if (!this.isJobStale(item)) {
+      try {
+        await this.database.setProvingJobResult(id, value);
+      } catch (saveErr) {
+        this.logger.error(`Failed to save proving job result id=${id}`, saveErr, {
+          provingJobId: id,
+        });
 
-      throw saveErr;
+        throw saveErr;
+      }
     }
 
     return this.#getProvingJob(filter);
