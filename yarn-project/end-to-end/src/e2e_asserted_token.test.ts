@@ -1,12 +1,16 @@
+import { SchnorrAccountContract } from '@aztec/accounts/schnorr';
+import type { InitialAccountData } from '@aztec/accounts/testing';
 import { AztecAddress, EthAddress } from '@aztec/aztec.js/addresses';
 import { BatchCall } from '@aztec/aztec.js/contracts';
 import { Fr } from '@aztec/aztec.js/fields';
+import { deriveKeys } from '@aztec/aztec.js/keys';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import { poseidon2Hash } from '@aztec/foundation/crypto/poseidon';
 import { sha256ToField } from '@aztec/foundation/crypto/sha256';
 import type { Tuple } from '@aztec/foundation/serialize';
 import { AssertedTokenContractContract } from '@aztec/noir-contracts.js/AssertedTokenContract';
 import type { BlockHash } from '@aztec/stdlib/block';
+import { CompleteAddress, getContractInstanceFromInstantiationParams } from '@aztec/stdlib/contract';
 import { Capsule, type TxHash, type TxReceipt } from '@aztec/stdlib/tx';
 
 import { jest } from '@jest/globals';
@@ -15,7 +19,7 @@ import { getLogger, setup } from './fixtures/utils.js';
 import { generateGrumpkinKeypair } from './tee/grumpkin_schnorr.js';
 import { checkAncestorEffectsHints, produceAncestorEffectsHints } from './tee/index.js';
 import { TeeSigner } from './tee/signer.js';
-import { collectTokenEffects } from './tee/token_operations_collector.js';
+import { type SpendMetadata, buildTokenOperation, collectTokenEffects } from './tee/token_operations_collector.js';
 import { type MAX_EFFECTS, TEEMetadata } from './tee/types.js';
 import type { TestWallet } from './test-wallet/test_wallet.js';
 
@@ -26,8 +30,53 @@ describe('e2e_asserted_token', () => {
   let wallet: TestWallet;
   let aztecNode: AztecNode;
   let accounts: AztecAddress[];
+  let initialFundedAccounts: InitialAccountData[];
   let teardown: () => Promise<void>;
   const logger = getLogger();
+
+  /**
+   * Tracks which tx created each note, keyed by note randomness. Populated after each successful
+   * mint/transfer so subsequent spends can supply the correct creationTxHash in SpendMetadata.
+   */
+  const noteCreationTxHash = new Map<string, TxHash>();
+
+  async function buildSpendMetadataFor(owner: AztecAddress, randomness: Fr): Promise<SpendMetadata> {
+    const entry = initialFundedAccounts.find(a => a.address.equals(owner));
+    if (!entry) {
+      throw new Error(`No initialFundedAccounts entry for owner ${owner}`);
+    }
+    const keys = await deriveKeys(entry.secret);
+
+    const accountContract = new SchnorrAccountContract(entry.signingKey);
+    const { constructorName, constructorArgs } = (await accountContract.getInitializationFunctionAndArgs()) ?? {
+      constructorName: undefined,
+      constructorArgs: undefined,
+    };
+    const artifact = await accountContract.getContractArtifact();
+    const instance = await getContractInstanceFromInstantiationParams(artifact, {
+      constructorArtifact: constructorName,
+      constructorArgs,
+      salt: entry.salt,
+      publicKeys: keys.publicKeys,
+    });
+    const ownerAddressPreimage = await CompleteAddress.fromSecretKeyAndInstance(entry.secret, instance);
+
+    const creationTxHash = noteCreationTxHash.get(randomness.toString());
+    if (!creationTxHash) {
+      throw new Error(`No tracked creation tx hash for note with randomness ${randomness}`);
+    }
+    return {
+      creationTxHash,
+      ownerAddressPreimage,
+      masterNullifierSecretKey: keys.masterNullifierHidingKey,
+    };
+  }
+
+  function recordCreatedNotes(txHash: TxHash, createdNotes: ReadonlyArray<{ randomness: Fr }>): void {
+    for (const note of createdNotes) {
+      noteCreationTxHash.set(note.randomness.toString(), txHash);
+    }
+  }
 
   jest.setTimeout(TIMEOUT);
 
@@ -76,7 +125,7 @@ describe('e2e_asserted_token', () => {
   }
 
   beforeAll(async () => {
-    ({ teardown, wallet, accounts, aztecNode } = await setup(2));
+    ({ teardown, wallet, accounts, initialFundedAccounts, aztecNode } = await setup(2));
 
     ({ contract } = await AssertedTokenContractContract.deploy(wallet, EthAddress.ZERO).send({ from: accounts[0] }));
     logger.info(`AssertedTokenContract deployed at ${contract.address}`);
@@ -93,13 +142,17 @@ describe('e2e_asserted_token', () => {
       .with({ capsules: [randomnessSeedCapsule] })
       .simulate({ from: owner });
 
-    const tokenOperation = await collectTokenEffects(
+    const collected = collectTokenEffects(contract.address, simulation.offchainEffects);
+    // Mint has no nullified notes, so no spend metadata is needed.
+    const tokenOperation = await buildTokenOperation(
+      aztecNode,
       contract.address,
       await wallet.getSyncedBlockHeader(),
-      simulation.offchainEffects,
+      collected,
+      [],
     );
 
-    const { signatures, requiredNullifiers, teeNotes } = await signer.signTokenOperation(tokenOperation);
+    const { signatures, requiredNullifiers, teeNotes } = await signer.signTokenOperation(tokenOperation, true);
 
     // Build a signature capsule for each created note, keyed by poseidon2_hash([NOTE_SIGNATURE_SLOT, randomness]).
     const signatureCapsules = await Promise.all(
@@ -113,7 +166,7 @@ describe('e2e_asserted_token', () => {
     const teeNotesCapsule = buildTeeNotesCapsule(teeNotes);
     const requiredNullifiersCapsule = buildTeeRequiredNullifiersCapsule(requiredNullifiers);
     const metadataCapsule = buildTeeMetadataCapsule(
-      new TEEMetadata(signer.publicKey.x, signer.publicKey.y, tokenOperation.anchorBlockHash),
+      new TEEMetadata(signer.publicKey.x, signer.publicKey.y, await tokenOperation.anchorBlockHeader.hash()),
     );
 
     const mintCall = contract.methods
@@ -127,7 +180,61 @@ describe('e2e_asserted_token', () => {
       from: owner,
     });
 
+    recordCreatedNotes(mintReceipt.txHash, tokenOperation.createdNotes);
     return mintReceipt;
+  }
+
+  async function transfer(signer: TeeSigner, from: AztecAddress, to: AztecAddress, amount: bigint): Promise<TxReceipt> {
+    const randomnessSeedCapsule = buildSeedCapsule();
+
+    logger.info(`Transferring ${amount} from ${from} to ${to}`);
+    const simulation = await contract.methods
+      .transfer(from, to, amount)
+      .with({ capsules: [randomnessSeedCapsule] })
+      .simulate({ from });
+
+    const collected = collectTokenEffects(contract.address, simulation.offchainEffects);
+
+    // Build spend metadata for each nullified note (parallel array: same order/length).
+    const spendMetadata = await Promise.all(
+      collected.nullifiedNotes.map(nullified => buildSpendMetadataFor(nullified.owner, nullified.randomness)),
+    );
+
+    const tokenOperation = await buildTokenOperation(
+      aztecNode,
+      contract.address,
+      await wallet.getSyncedBlockHeader(),
+      collected,
+      spendMetadata,
+    );
+
+    const { signatures, requiredNullifiers, teeNotes } = await signer.signTokenOperation(tokenOperation, false);
+
+    const signatureCapsules = await Promise.all(
+      tokenOperation.createdNotes.map(async (note, i) => {
+        const slot = await poseidon2Hash([NOTE_SIGNATURE_CAPSULE_SLOT, note.randomness]);
+        const sig = signatures[i];
+        return new Capsule(contract.address, slot, [sig.sLo, sig.sHi, sig.eLo, sig.eHi]);
+      }),
+    );
+
+    const teeNotesCapsule = buildTeeNotesCapsule(teeNotes);
+    const requiredNullifiersCapsule = buildTeeRequiredNullifiersCapsule(requiredNullifiers);
+    const metadataCapsule = buildTeeMetadataCapsule(
+      new TEEMetadata(signer.publicKey.x, signer.publicKey.y, await tokenOperation.anchorBlockHeader.hash()),
+    );
+
+    const transferCall = contract.methods
+      .transfer(from, to, amount)
+      .with({ capsules: [randomnessSeedCapsule, ...signatureCapsules] });
+    const publishDaCall = contract.methods
+      .publish_da()
+      .with({ capsules: [teeNotesCapsule, requiredNullifiersCapsule, metadataCapsule] });
+
+    const { receipt: transferReceipt } = await new BatchCall(wallet, [transferCall, publishDaCall]).send({ from });
+
+    recordCreatedNotes(transferReceipt.txHash, tokenOperation.createdNotes);
+    return transferReceipt;
   }
 
   it(
@@ -151,11 +258,7 @@ describe('e2e_asserted_token', () => {
 
       // Alice transfers to Bob.
       // This succeeds only if Alice's minted note was discovered by the PXE.
-      logger.info('Transferring from Alice to Bob');
-      const { receipt: transferReceipt } = await contract.methods
-        .transfer(alice, bob, transferAmount)
-        .with({ capsules: [buildSeedCapsule()] })
-        .send({ from: alice });
+      const transferReceipt = await transfer(signer, alice, bob, transferAmount);
       receipts.push(transferReceipt);
 
       // Verify the mint tx using the transfer's block as anchor.
@@ -163,11 +266,7 @@ describe('e2e_asserted_token', () => {
 
       // Bob transfers back to Alice.
       // This succeeds only if Bob's transferred note was discovered by the PXE.
-      logger.info('Transferring from Bob to Alice');
-      const { receipt: transferBackReceipt } = await contract.methods
-        .transfer(bob, alice, transferBackAmount)
-        .with({ capsules: [buildSeedCapsule()] })
-        .send({ from: bob });
+      const transferBackReceipt = await transfer(signer, bob, alice, transferBackAmount);
       receipts.push(transferBackReceipt);
 
       // Verify the first two txs using the last block as anchor.

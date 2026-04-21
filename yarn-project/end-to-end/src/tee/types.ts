@@ -11,8 +11,11 @@ import type { BlockHeader, TxEffect } from '@aztec/stdlib/tx';
 export interface AncestorEffectsHints {
   /** Header of the anchor block (verified against the given anchor block hash to extract the archive root). */
   anchorBlockHeader: BlockHeader;
-  /** Merkle proof that the tx block's hash is a leaf in anchorBlockHeader.lastArchive. */
-  archiveMembershipWitness: MembershipWitness<typeof ARCHIVE_HEIGHT>;
+  /**
+   * Merkle proof that the tx block's hash is a leaf in anchorBlockHeader.lastArchive.
+   * Undefined when the tx block IS the anchor block (equality check replaces archive membership).
+   */
+  archiveMembershipWitness: MembershipWitness<typeof ARCHIVE_HEIGHT> | undefined;
   /** Header of the block containing the target tx. */
   txBlockHeader: BlockHeader;
   /**
@@ -43,13 +46,6 @@ export class TeeSignedData {
   ) {}
 
   toFields(): Fr[] {
-    console.log('Serializing signed data', [
-      this.anchorBlockHash.toField(),
-      this.tokenAddress.toField(),
-      this.siloedNoteHash,
-      ...this.requiredNullifiers,
-      ...this.committedSiloedNoteHashes,
-    ]);
     return [
       this.anchorBlockHash.toField(),
       this.tokenAddress.toField(),
@@ -68,7 +64,6 @@ export class TEEMetadata {
   ) {}
 
   toFields(): Fr[] {
-    console.log('Serializing metadata', [this.pubKeyX, this.pubKeyY, this.anchorBlockHash.toField()]);
     return [this.pubKeyX, this.pubKeyY, this.anchorBlockHash.toField()];
   }
 }

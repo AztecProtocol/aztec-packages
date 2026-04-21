@@ -1,4 +1,4 @@
-use crate::asserted_note::AssertedNote;
+use crate::{asserted_note::AssertedNote, schnorr::Signature};
 use aztec::{
     note::{ConfirmedNote, note_metadata::NoteMetadata},
     oracle::offchain_effect::emit_offchain_effect,
@@ -17,6 +17,7 @@ struct NullificationEffect {
     storage_slot: Field,
     proven_note_hash: Field,
     metadata: NoteMetadata,
+    signature: Signature,
 }
 
 impl NullificationEffect {
@@ -25,10 +26,11 @@ impl NullificationEffect {
             typ: NULLIFICATION_EFFECT_TYPE,
             amount: note.note.amount,
             owner: note.owner,
-            randomness: note.randomness,
+            randomness: note.note.randomness,
             storage_slot: note.storage_slot,
             proven_note_hash: note.proven_note_hash,
             metadata: note.metadata,
+            signature: note.note.signature,
         }
     }
 }

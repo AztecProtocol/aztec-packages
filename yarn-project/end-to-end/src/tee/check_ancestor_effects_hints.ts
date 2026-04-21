@@ -1,7 +1,8 @@
 import { SpongeBlob } from '@aztec/blob-lib';
 import { type BlockBlobData, encodeBlockBlobData } from '@aztec/blob-lib/encoding';
+import type { ARCHIVE_HEIGHT } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { computeRootFromSiblingPath } from '@aztec/foundation/trees';
+import { MembershipWitness, computeRootFromSiblingPath } from '@aztec/foundation/trees';
 import { BlockHash } from '@aztec/stdlib/block';
 import type { TxEffect } from '@aztec/stdlib/tx';
 
@@ -34,9 +35,15 @@ export async function checkAncestorEffectsHints(
   }
   const archiveRoot = hints.anchorBlockHeader.lastArchive.root;
 
-  // 2. Verify the tx block hash is in the archive via the membership witness
+  // 2. Verify the tx block hash is in the archive via the membership witness — or, if the tx
+  // block IS the anchor block, skip the membership check since equality is trivially sufficient.
   const txBlockHash = await hints.txBlockHeader.hash();
-  await verifyArchiveMembership(txBlockHash.toBuffer(), hints.archiveMembershipWitness, archiveRoot, 'tx block');
+  if (!txBlockHash.equals(anchorBlockHash)) {
+    if (!hints.archiveMembershipWitness) {
+      throw new Error('Missing archive membership witness for tx block (tx block differs from anchor block)');
+    }
+    await verifyArchiveMembership(txBlockHash.toBuffer(), hints.archiveMembershipWitness, archiveRoot, 'tx block');
+  }
 
   // 3. Authenticate previousBlockEndSpongeBlob (and derive whether the target is first in its checkpoint)
   const isFirstBlockInCheckpoint = await verifyPreviousBlockEndSponge(hints, archiveRoot);
@@ -118,7 +125,7 @@ async function verifyPreviousBlockEndSponge(hints: AncestorEffectsHints, archive
 /** Verifies a Merkle membership proof against the given root. */
 async function verifyArchiveMembership(
   leaf: Buffer,
-  witness: AncestorEffectsHints['archiveMembershipWitness'],
+  witness: MembershipWitness<typeof ARCHIVE_HEIGHT>,
   expectedRoot: Fr,
   label: string,
 ): Promise<void> {

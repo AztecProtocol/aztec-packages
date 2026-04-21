@@ -41,14 +41,20 @@ export async function produceAncestorEffectsHints(
     throw new Error(`Anchor block header not found for hash ${anchorBlockHash}`);
   }
 
-  // 3. Get archive membership witness proving txBlock is in the anchor block's archive
+  // 3. Get archive membership witness proving txBlock is in the anchor block's archive.
+  // Special case: if the tx block IS the anchor block, archive membership is trivial — a block's
+  // own hash isn't in its own archive, so we skip fetching a witness. The checker verifies this
+  // case via header-hash equality instead.
   const txBlockHash = await txBlock.hash();
-  const archiveMembershipWitness = await node.getBlockHashMembershipWitness(anchorBlockHash, txBlockHash);
-  if (!archiveMembershipWitness) {
-    throw new Error(
-      `Tx block ${txBlock.number} is not an ancestor of anchor block (hash ${anchorBlockHash}). ` +
-        `The anchor block's lastArchive does not contain the tx block's hash.`,
-    );
+  let archiveMembershipWitness: MembershipWitness<typeof ARCHIVE_HEIGHT> | undefined;
+  if (!txBlockHash.equals(anchorBlockHash)) {
+    archiveMembershipWitness = await node.getBlockHashMembershipWitness(anchorBlockHash, txBlockHash);
+    if (!archiveMembershipWitness) {
+      throw new Error(
+        `Tx block ${txBlock.number} is not an ancestor of anchor block (hash ${anchorBlockHash}). ` +
+          `The anchor block's lastArchive does not contain the tx block's hash.`,
+      );
+    }
   }
 
   // 4. Compute the sponge state at the start of the target block and gather previous-block authentication data
