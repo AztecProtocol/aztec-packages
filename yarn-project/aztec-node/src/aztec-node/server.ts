@@ -1734,7 +1734,11 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
         // Block 0 has no historical snapshot in world state — its state only lives in the
         // committed/uncommitted view via the tree's initial values. Since the anchor hash matches
         // the known genesis hash, there is no reorg risk here and we can safely return committed.
-        this.log.debug(`Using committed db for block hash matching genesis header`);
+        this.log.debug(`Using committed db for block hash matching genesis header`, {
+          blockSyncedTo,
+          initialBlockHash,
+          blockParameter: block,
+        });
         return this.worldStateSynchronizer.getCommitted();
       }
       const header = await this.blockSource.getBlockHeaderByHash(block);
