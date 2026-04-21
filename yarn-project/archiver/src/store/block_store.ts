@@ -52,7 +52,10 @@ import {
   CheckpointNotFoundError,
   CheckpointNumberNotSequentialError,
   InitialCheckpointNumberNotSequentialError,
+  NoProposedCheckpointToPromoteError,
+  ProposedCheckpointArchiveRootMismatchError,
   ProposedCheckpointNotSequentialError,
+  ProposedCheckpointPromotionNotSequentialError,
   ProposedCheckpointStaleError,
 } from '../errors.js';
 
@@ -692,6 +695,55 @@ export class BlockStore {
   /** Deletes the proposed checkpoint from storage. */
   async deleteProposedCheckpoint(): Promise<void> {
     await this.#proposedCheckpoint.delete();
+  }
+
+  /**
+   * Promotes the proposed checkpoint singleton to a confirmed checkpoint entry.
+   * This persists the checkpoint to the store, clears the proposed singleton, and updates the L1 sync point.
+   * Should only be called after the checkpoint has been validated.
+   * @param expectedArchiveRoot - The archive root to match against the proposed checkpoint, to guard against races.
+   */
+  async promoteProposedToCheckpointed(
+    l1: L1PublishedData,
+    attestations: CommitteeAttestation[],
+    expectedArchiveRoot: Fr,
+  ): Promise<void> {
+    return await this.db.transactionAsync(async () => {
+      const proposed = await this.getProposedCheckpointOnly();
+      if (!proposed) {
+        throw new NoProposedCheckpointToPromoteError();
+      }
+      if (!proposed.archive.root.equals(expectedArchiveRoot)) {
+        throw new ProposedCheckpointArchiveRootMismatchError(expectedArchiveRoot, proposed.archive.root);
+      }
+
+      // Verify sequentiality: promoted checkpoint must follow the latest confirmed one
+      const latestCheckpointNumber = await this.getLatestCheckpointNumber();
+      if (latestCheckpointNumber !== proposed.checkpointNumber - 1) {
+        throw new ProposedCheckpointPromotionNotSequentialError(proposed.checkpointNumber, latestCheckpointNumber);
+      }
+
+      // Write the checkpoint entry
+      await this.#checkpoints.set(proposed.checkpointNumber, {
+        header: proposed.header.toBuffer(),
+        archive: proposed.archive.toBuffer(),
+        checkpointOutHash: proposed.checkpointOutHash.toBuffer(),
+        l1: l1.toBuffer(),
+        attestations: attestations.map(attestation => attestation.toBuffer()),
+        checkpointNumber: proposed.checkpointNumber,
+        startBlock: proposed.startBlock,
+        blockCount: proposed.blockCount,
+      });
+
+      // Update the slot-to-checkpoint index
+      await this.#slotToCheckpoint.set(proposed.header.slotNumber, proposed.checkpointNumber);
+
+      // Clear the proposed checkpoint singleton
+      await this.#proposedCheckpoint.delete();
+
+      // Update the last synced L1 block
+      await this.#lastSynchedL1Block.set(l1.blockNumber);
+    });
   }
 
   /** Clears the proposed checkpoint if the given confirmed checkpoint number supersedes it. */
