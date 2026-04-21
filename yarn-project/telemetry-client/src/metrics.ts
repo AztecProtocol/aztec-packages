@@ -545,6 +545,11 @@ export const SEQUENCER_PIPELINE_DISCARDS_COUNT: MetricDefinition = {
   description: 'The number of times a pipeline was discarded',
   valueType: ValueType.INT,
 };
+export const SEQUENCER_PIPELINE_PARENT_CHECKPOINT_MISMATCH_COUNT: MetricDefinition = {
+  name: 'aztec.sequencer.pipeline.parent_checkpoint_mismatch_count',
+  description: 'The number of times a pipelined checkpoint was discarded because the parent did not match expectations',
+  valueType: ValueType.INT,
+};
 
 // Fisherman fee analysis metrics
 export const FISHERMAN_FEE_ANALYSIS_WOULD_BE_INCLUDED: MetricDefinition = {
