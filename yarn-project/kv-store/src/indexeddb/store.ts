@@ -4,7 +4,7 @@ import { SerialQueue } from '@aztec/foundation/queue';
 import { type DBSchema, type IDBPDatabase, deleteDB, openDB } from 'idb';
 
 import type { AztecAsyncArray } from '../interfaces/array.js';
-import type { Key, StoreSize, Value } from '../interfaces/common.js';
+import type { Key, OpenContainerOptions, StoreSize, Value } from '../interfaces/common.js';
 import type { AztecAsyncCounter } from '../interfaces/counter.js';
 import type { AztecAsyncMap } from '../interfaces/map.js';
 import type { AztecAsyncMultiMap } from '../interfaces/multi_map.js';
@@ -102,7 +102,8 @@ export class AztecIndexedDBStore implements AztecAsyncKVStore {
    * @param name - Name of the map
    * @returns A new AztecMap
    */
-  openMap<K extends Key, V extends Value>(name: string): AztecAsyncMap<K, V> {
+  openMap<K extends Key, V extends Value>(name: string, _options?: OpenContainerOptions): AztecAsyncMap<K, V> {
+    // opaqueKeys is ignored: IDB has no cipher to HMAC with, so keys stay in the clear.
     const map = new IndexedDBAztecMap<K, V>(this.#rootDB, name);
     this.#containers.add(map);
     return map;
@@ -113,7 +114,7 @@ export class AztecIndexedDBStore implements AztecAsyncKVStore {
    * @param name - Name of the set
    * @returns A new AztecSet
    */
-  openSet<K extends Key>(name: string): AztecAsyncSet<K> {
+  openSet<K extends Key>(name: string, _options?: OpenContainerOptions): AztecAsyncSet<K> {
     const set = new IndexedDBAztecSet<K>(this.#rootDB, name);
     this.#containers.add(set);
     return set;
@@ -124,7 +125,10 @@ export class AztecIndexedDBStore implements AztecAsyncKVStore {
    * @param name - Name of the map
    * @returns A new AztecMultiMap
    */
-  openMultiMap<K extends Key, V extends Value>(name: string): AztecAsyncMultiMap<K, V> {
+  openMultiMap<K extends Key, V extends Value>(
+    name: string,
+    _options?: OpenContainerOptions,
+  ): AztecAsyncMultiMap<K, V> {
     const multimap = new IndexedDBAztecMultiMap<K, V>(this.#rootDB, name);
     this.#containers.add(multimap);
     return multimap;

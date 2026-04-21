@@ -52,9 +52,15 @@ export class PrivateEventStore implements StagedStore {
 
   constructor(store: AztecAsyncKVStore) {
     this.#store = store;
-    this.#events = this.#store.openMap('private_event_logs');
-    this.#eventsByContractAndEventSelector = this.#store.openMultiMap('events_by_contract_selector');
-    this.#eventsByBlockNumber = this.#store.openMultiMap('events_by_block_number');
+    // opaqueKeys: siloed event commitments are post-decryption secrets from the
+    // user's perspective; contract/selector tuples reveal which apps + event types
+    // the user monitors; block numbers reveal sync history. Backends without a
+    // cipher silently ignore the flag.
+    this.#events = this.#store.openMap('private_event_logs', { opaqueKeys: true });
+    this.#eventsByContractAndEventSelector = this.#store.openMultiMap('events_by_contract_selector', {
+      opaqueKeys: true,
+    });
+    this.#eventsByBlockNumber = this.#store.openMultiMap('events_by_block_number', { opaqueKeys: true });
 
     this.#eventsForJob = new Map();
     this.#jobLocks = new Map();

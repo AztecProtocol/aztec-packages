@@ -2,7 +2,7 @@ import type { Logger } from '@aztec/foundation/log';
 import { SerialQueue } from '@aztec/foundation/queue';
 
 import type { AztecAsyncArray } from '../interfaces/array.js';
-import type { Key, StoreSize, Value } from '../interfaces/common.js';
+import type { Key, OpenContainerOptions, StoreSize, Value } from '../interfaces/common.js';
 import type { AztecAsyncCounter } from '../interfaces/counter.js';
 import type { AztecAsyncMap } from '../interfaces/map.js';
 import type { AztecAsyncMultiMap } from '../interfaces/multi_map.js';
@@ -10,6 +10,7 @@ import type { AztecAsyncSet } from '../interfaces/set.js';
 import type { AztecAsyncSingleton } from '../interfaces/singleton.js';
 import type { AztecAsyncKVStore } from '../interfaces/store.js';
 import { SQLiteOPFSAztecArray } from './array.js';
+import { IdentityCipher, type ValueCipher } from './cipher.js';
 import { SQLiteOPFSAztecMap } from './map.js';
 import type { ResultRow, SqlValue, WorkerRequest, WorkerResponse } from './messages.js';
 import { SQLiteOPFSAztecMultiMap } from './multi_map.js';
@@ -32,6 +33,7 @@ export class AztecSQLiteOPFSStore implements AztecAsyncKVStore {
   readonly #txQueue = new SerialQueue();
   readonly #name: string;
   readonly #log: Logger;
+  readonly #cipher: ValueCipher;
   #nextId = 0;
   #inTx = false;
   #closed = false;
@@ -40,11 +42,13 @@ export class AztecSQLiteOPFSStore implements AztecAsyncKVStore {
     worker: Worker,
     name: string,
     log: Logger,
+    cipher: ValueCipher,
     public readonly isEphemeral: boolean,
   ) {
     this.#worker = worker;
     this.#name = name;
     this.#log = log;
+    this.#cipher = cipher;
     this.#worker.onmessage = (ev: MessageEvent<WorkerResponse>) => {
       const { id } = ev.data;
       const handler = this.#pending.get(id);
@@ -67,32 +71,44 @@ export class AztecSQLiteOPFSStore implements AztecAsyncKVStore {
    * is true the database lives only in memory and is lost when the worker terminates.
    * Pass `poolDirectory` to place the SAH Pool in a non-default OPFS subdirectory —
    * required when multiple stores coexist in the same tab, because the SAH Pool holds
-   * an exclusive lock on its directory.
+   * an exclusive lock on its directory. Pass `cipher` to enable value-level encryption;
+   * defaults to `IdentityCipher` (byte-for-byte passthrough; on-disk format unchanged
+   * from phase-1 plaintext DBs).
    */
   static async open(
     log: Logger,
     name?: string,
     ephemeral: boolean = false,
     poolDirectory?: string,
+    cipher: ValueCipher = new IdentityCipher(),
   ): Promise<AztecSQLiteOPFSStore> {
     const dbName = name && !ephemeral ? name : `tmp-${globalThis.crypto.getRandomValues(new Uint8Array(8)).join('')}`;
     log.debug(`Opening SQLite-OPFS ${ephemeral ? 'ephemeral ' : ''}database ${dbName}`);
     const worker = new Worker(new URL('./worker.js', import.meta.url), { type: 'module' });
-    const store = new AztecSQLiteOPFSStore(worker, dbName, log, ephemeral);
+    const store = new AztecSQLiteOPFSStore(worker, dbName, log, cipher, ephemeral);
     await store.#sendRequest({ type: 'init', id: store.#allocId(), dbName, ephemeral, poolDirectory });
     return store;
   }
 
-  openMap<K extends Key, V extends Value>(name: string): AztecAsyncMap<K, V> {
-    return new SQLiteOPFSAztecMap<K, V>(this, name);
+  /** Cipher used for value encryption and keyed digests. Containers read from this
+   *  to match the store's confidentiality configuration. */
+  get cipher(): ValueCipher {
+    return this.#cipher;
   }
 
-  openSet<K extends Key>(name: string): AztecAsyncSet<K> {
-    return new SQLiteOPFSAztecSet<K>(this, name);
+  openMap<K extends Key, V extends Value>(name: string, options?: OpenContainerOptions): AztecAsyncMap<K, V> {
+    this.#validateOpaqueKeys(name, options);
+    return new SQLiteOPFSAztecMap<K, V>(this, name, { opaqueKeys: !!options?.opaqueKeys });
   }
 
-  openMultiMap<K extends Key, V extends Value>(name: string): AztecAsyncMultiMap<K, V> {
-    return new SQLiteOPFSAztecMultiMap<K, V>(this, name);
+  openSet<K extends Key>(name: string, options?: OpenContainerOptions): AztecAsyncSet<K> {
+    this.#validateOpaqueKeys(name, options);
+    return new SQLiteOPFSAztecSet<K>(this, name, { opaqueKeys: !!options?.opaqueKeys });
+  }
+
+  openMultiMap<K extends Key, V extends Value>(name: string, options?: OpenContainerOptions): AztecAsyncMultiMap<K, V> {
+    this.#validateOpaqueKeys(name, options);
+    return new SQLiteOPFSAztecMultiMap<K, V>(this, name, { opaqueKeys: !!options?.opaqueKeys });
   }
 
   openCounter<K extends Key>(_name: string): AztecAsyncCounter<K> {
@@ -212,6 +228,18 @@ export class AztecSQLiteOPFSStore implements AztecAsyncKVStore {
 
   #allocId(): number {
     return ++this.#nextId;
+  }
+
+  /** Guard: `opaqueKeys: true` needs a real cipher to HMAC the keys. The identity
+   *  cipher would leave them in the clear, silently defeating the caller's intent —
+   *  so we fail loudly at open time rather than on first write. */
+  #validateOpaqueKeys(containerName: string, options?: OpenContainerOptions): void {
+    if (options?.opaqueKeys && this.#cipher.isNullCipher) {
+      throw new Error(
+        `SQLite-OPFS container '${containerName}' was opened with opaqueKeys: true, but the store has no encryption cipher. ` +
+          `Pass a non-null cipher to AztecSQLiteOPFSStore.open(...) or omit opaqueKeys.`,
+      );
+    }
   }
 
   /**

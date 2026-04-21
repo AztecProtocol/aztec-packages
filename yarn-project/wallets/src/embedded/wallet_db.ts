@@ -4,24 +4,48 @@ import type { LogFn } from '@aztec/foundation/log';
 import type { AztecAsyncKVStore, AztecAsyncMap } from '@aztec/kv-store';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 
+import { Buffer } from 'buffer';
+
 export const AccountTypes = ['schnorr', 'ecdsasecp256r1', 'ecdsasecp256k1'] as const;
 export type AccountType = (typeof AccountTypes)[number];
 
-function accountKey(field: string, address: AztecAddress | string): string {
-  return `${field}:${address.toString()}`;
-}
+/** Stored shape of an account record. All byte fields are `toBuffer()`-encoded so
+ *  they round-trip cleanly through msgpackr. */
+type StoredAccount = {
+  type: AccountType;
+  secretKey: Buffer;
+  salt: Buffer;
+  signingKey: Buffer;
+};
 
+/**
+ * Persists wallet account data and user-defined aliases.
+ *
+ * Layout (opaqueKeys on all three maps — keys are user account addresses and
+ * user-chosen alias strings, which this design keeps out of on-disk plaintext
+ * when the backing store is encrypted):
+ *   - `accounts`: address.toString() → StoredAccount
+ *   - `account_aliases`: alias → address bytes
+ *   - `sender_aliases`:  alias → address bytes
+ *
+ * The two alias maps are separate (instead of a shared map with `accounts:` /
+ * `senders:` prefixes, as before) because opaqueKeys HMACs the keys — prefix
+ * range queries no longer work over HMAC'd keys. One map per namespace is both
+ * cleaner structurally and enables opaqueKeys uniformly.
+ */
 export class WalletDB {
   private constructor(
-    private accounts: AztecAsyncMap<string, Buffer>,
-    private aliases: AztecAsyncMap<string, Buffer>,
+    private accounts: AztecAsyncMap<string, StoredAccount>,
+    private accountAliases: AztecAsyncMap<string, Buffer>,
+    private senderAliases: AztecAsyncMap<string, Buffer>,
     private userLog: LogFn,
   ) {}
 
   static init(store: AztecAsyncKVStore, userLog: LogFn) {
-    const accounts = store.openMap<string, Buffer>('accounts');
-    const aliases = store.openMap<string, Buffer>('aliases');
-    return new WalletDB(accounts, aliases, userLog);
+    const accounts = store.openMap<string, StoredAccount>('accounts', { opaqueKeys: true });
+    const accountAliases = store.openMap<string, Buffer>('account_aliases', { opaqueKeys: true });
+    const senderAliases = store.openMap<string, Buffer>('sender_aliases', { opaqueKeys: true });
+    return new WalletDB(accounts, accountAliases, senderAliases, userLog);
   }
 
   async storeAccount(
@@ -41,59 +65,60 @@ export class WalletDB {
     },
     log: LogFn = this.userLog,
   ) {
+    const addressStr = address.toString();
     if (alias) {
-      await this.aliases.set(`accounts:${alias}`, Buffer.from(address.toString()));
+      await this.accountAliases.set(alias, Buffer.from(addressStr));
     }
-    await this.accounts.set(accountKey('type', address), Buffer.from(type));
-    await this.accounts.set(accountKey('sk', address), secretKey.toBuffer());
-    await this.accounts.set(accountKey('salt', address), salt.toBuffer());
-    await this.accounts.set(
-      accountKey('signingKey', address),
-      'toBuffer' in signingKey ? signingKey.toBuffer() : signingKey,
-    );
+    await this.accounts.set(addressStr, {
+      type,
+      secretKey: secretKey.toBuffer(),
+      salt: salt.toBuffer(),
+      signingKey: 'toBuffer' in signingKey ? signingKey.toBuffer() : signingKey,
+    });
     log(`Account stored in database${alias ? ` with alias ${alias}` : ''}`);
   }
 
   async storeSender(address: AztecAddress, alias: string, log: LogFn = this.userLog) {
-    await this.aliases.set(`senders:${alias}`, Buffer.from(address.toString()));
+    await this.senderAliases.set(alias, Buffer.from(address.toString()));
     log(`Sender stored in database with alias ${alias}`);
   }
 
   async retrieveAccount(address: AztecAddress | string) {
-    const secretKeyBuffer = await this.accounts.getAsync(accountKey('sk', address));
-    if (!secretKeyBuffer) {
-      throw new Error(`Account "${address.toString()}" does not exist on this wallet.`);
+    const addressStr = typeof address === 'string' ? address : address.toString();
+    const stored = await this.accounts.getAsync(addressStr);
+    if (!stored) {
+      throw new Error(`Account "${addressStr}" does not exist on this wallet.`);
     }
-    const [saltBuffer, typeBuffer, signingKey] = await Promise.all([
-      this.accounts.getAsync(accountKey('salt', address)),
-      this.accounts.getAsync(accountKey('type', address)),
-      this.accounts.getAsync(accountKey('signingKey', address)),
-    ]);
-    const secretKey = Fr.fromBuffer(secretKeyBuffer);
-    const salt = Fr.fromBuffer(saltBuffer!);
-    const type = typeBuffer!.toString('utf8') as AccountType;
-    return { address, secretKey, salt, type, signingKey: signingKey! };
+    // msgpackr returns Uint8Array for Buffer fields after the browser round-trip;
+    // wrap back to Buffer at the boundary so downstream `Fr.fromBuffer` / consumers
+    // that rely on Buffer methods keep working.
+    return {
+      address,
+      secretKey: Fr.fromBuffer(Buffer.from(stored.secretKey)),
+      salt: Fr.fromBuffer(Buffer.from(stored.salt)),
+      type: stored.type,
+      signingKey: Buffer.from(stored.signingKey),
+    };
   }
 
   async listAccounts(): Promise<Aliased<AztecAddress>[]> {
-    // Read aliases and account addresses in parallel using range queries
-    const [aliasesByAddress, accountAddresses] = await Promise.all([
-      this.#readAccountAliases(),
-      this.#readAccountAddresses(),
-    ]);
-
-    return accountAddresses.map(addressStr => ({
-      alias: aliasesByAddress.get(addressStr) ?? '',
-      item: AztecAddress.fromString(addressStr),
-    }));
+    const aliasesByAddress = await this.#readAccountAliases();
+    const result: Aliased<AztecAddress>[] = [];
+    for await (const addressStr of this.accounts.keysAsync()) {
+      result.push({
+        alias: aliasesByAddress.get(addressStr) ?? '',
+        item: AztecAddress.fromString(addressStr),
+      });
+    }
+    return result;
   }
 
   async listSenders(): Promise<Aliased<AztecAddress>[]> {
     const result: Aliased<AztecAddress>[] = [];
-    for await (const [alias, item] of this.aliases.entriesAsync({ start: 'senders:', end: 'senders:\uffff' })) {
+    for await (const [alias, item] of this.senderAliases.entriesAsync()) {
       result.push({
-        alias: alias.slice('senders:'.length),
-        item: AztecAddress.fromString(item.toString()),
+        alias,
+        item: AztecAddress.fromString(Buffer.from(item).toString()),
       });
     }
     return result;
@@ -101,34 +126,21 @@ export class WalletDB {
 
   async #readAccountAliases(): Promise<Map<string, string>> {
     const aliasesByAddress = new Map<string, string>();
-    for await (const [alias, item] of this.aliases.entriesAsync({ start: 'accounts:', end: 'accounts:\uffff' })) {
-      const address = item.toString();
-      aliasesByAddress.set(address, alias.slice('accounts:'.length));
+    for await (const [alias, item] of this.accountAliases.entriesAsync()) {
+      aliasesByAddress.set(Buffer.from(item).toString(), alias);
     }
     return aliasesByAddress;
   }
 
-  async #readAccountAddresses(): Promise<string[]> {
-    const addresses: string[] = [];
-    // Range query on 'type:' prefix — one entry per account, avoids scanning sk/salt/signingKey entries
-    for await (const [key] of this.accounts.entriesAsync({ start: 'type:', end: 'type:\uffff' })) {
-      addresses.push(key.slice('type:'.length));
-    }
-    return addresses;
-  }
-
   async deleteAccount(address: AztecAddress) {
-    await Promise.all([
-      this.accounts.delete(accountKey('sk', address)),
-      this.accounts.delete(accountKey('salt', address)),
-      this.accounts.delete(accountKey('type', address)),
-      this.accounts.delete(accountKey('signingKey', address)),
-    ]);
-    // Clean up alias if one exists
-    const aliasesByAddress = await this.#readAccountAliases();
-    const alias = aliasesByAddress.get(address.toString());
-    if (alias) {
-      await this.aliases.delete(`accounts:${alias}`);
+    const addressStr = address.toString();
+    await this.accounts.delete(addressStr);
+    // Clean up any alias pointing at this address. Opaque-keys maps don't support
+    // reverse indexing, so iterate and match — the alias set per user is small.
+    for await (const [alias, item] of this.accountAliases.entriesAsync()) {
+      if (Buffer.from(item).toString() === addressStr) {
+        await this.accountAliases.delete(alias);
+      }
     }
   }
 }

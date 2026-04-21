@@ -12,7 +12,10 @@ export class AddressStore {
     this.#store = store;
 
     this.#completeAddresses = this.#store.openArray('complete_addresses');
-    this.#completeAddressIndex = this.#store.openMap('complete_address_index');
+    // opaqueKeys: the index map is keyed by user-controlled account addresses.
+    // The array above stores addresses by numeric position, which doesn't leak
+    // identity; the map exposes the set directly and so needs HMAC'd keys.
+    this.#completeAddressIndex = this.#store.openMap('complete_address_index', { opaqueKeys: true });
   }
 
   addCompleteAddress(completeAddress: CompleteAddress): Promise<boolean> {

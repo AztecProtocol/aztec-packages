@@ -6,7 +6,7 @@ import { AsyncLocalStorage } from 'async_hooks';
 import { mkdir, rm } from 'fs/promises';
 
 import type { AztecAsyncArray } from '../interfaces/array.js';
-import type { Key, StoreSize, Value } from '../interfaces/common.js';
+import type { Key, OpenContainerOptions, StoreSize, Value } from '../interfaces/common.js';
 import type { AztecAsyncCounter } from '../interfaces/counter.js';
 import type { AztecAsyncMap } from '../interfaces/map.js';
 import type { AztecAsyncMultiMap } from '../interfaces/multi_map.js';
@@ -103,11 +103,15 @@ export class AztecLMDBStoreV2 implements AztecAsyncKVStore, LMDBMessageChannel {
     return currentWrite;
   }
 
-  openMap<K extends Key, V extends Value>(name: string): AztecAsyncMap<K, V> {
+  openMap<K extends Key, V extends Value>(name: string, _options?: OpenContainerOptions): AztecAsyncMap<K, V> {
+    // opaqueKeys is ignored: LMDB has no cipher to HMAC with, so keys stay in the clear.
     return new LMDBMap(this, name);
   }
 
-  openMultiMap<K extends Key, V extends Value>(name: string): AztecAsyncMultiMap<K, V> {
+  openMultiMap<K extends Key, V extends Value>(
+    name: string,
+    _options?: OpenContainerOptions,
+  ): AztecAsyncMultiMap<K, V> {
     return new LMDBMultiMap(this, name);
   }
 
@@ -119,7 +123,7 @@ export class AztecLMDBStoreV2 implements AztecAsyncKVStore, LMDBMessageChannel {
     return new LMDBArray(this, name);
   }
 
-  openSet<K extends Key>(name: string): AztecAsyncSet<K> {
+  openSet<K extends Key>(name: string, _options?: OpenContainerOptions): AztecAsyncSet<K> {
     return new LMDBSet(this, name);
   }
 

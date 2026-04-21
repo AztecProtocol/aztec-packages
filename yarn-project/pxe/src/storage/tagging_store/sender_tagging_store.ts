@@ -45,8 +45,11 @@ export class SenderTaggingStore implements StagedStore {
   constructor(store: AztecAsyncKVStore) {
     this.#store = store;
 
-    this.#pendingIndexes = this.#store.openMap('pending_indexes');
-    this.#lastFinalizedIndexes = this.#store.openMap('last_finalized_indexes');
+    // opaqueKeys: keys are directional app tagging secrets derived from the user's
+    // spending key. Leaking the key set lets anyone who knows a candidate sender
+    // verify whether this PXE is tracking them.
+    this.#pendingIndexes = this.#store.openMap('pending_indexes', { opaqueKeys: true });
+    this.#lastFinalizedIndexes = this.#store.openMap('last_finalized_indexes', { opaqueKeys: true });
 
     this.#pendingIndexesForJob = new Map();
     this.#lastFinalizedIndexesForJob = new Map();

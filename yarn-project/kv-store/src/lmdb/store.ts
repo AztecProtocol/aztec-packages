@@ -7,7 +7,7 @@ import { tmpdir } from 'os';
 import { join } from 'path';
 
 import type { AztecArray, AztecAsyncArray } from '../interfaces/array.js';
-import type { Key, StoreSize, Value } from '../interfaces/common.js';
+import type { Key, OpenContainerOptions, StoreSize, Value } from '../interfaces/common.js';
 import type { AztecAsyncCounter, AztecCounter } from '../interfaces/counter.js';
 import type { AztecAsyncMap, AztecMap } from '../interfaces/map.js';
 import type { AztecAsyncMultiMap, AztecMultiMap } from '../interfaces/multi_map.js';
@@ -84,7 +84,11 @@ export class AztecLmdbStore implements AztecKVStore, AztecAsyncKVStore {
    * @param name - Name of the map
    * @returns A new AztecMap
    */
-  openMap<K extends Key, V extends Value>(name: string): AztecMap<K, V> & AztecAsyncMap<K, V> {
+  openMap<K extends Key, V extends Value>(
+    name: string,
+    _options?: OpenContainerOptions,
+  ): AztecMap<K, V> & AztecAsyncMap<K, V> {
+    // opaqueKeys is ignored: LMDB has no cipher to HMAC with, so keys stay in the clear.
     return new LmdbAztecMap(this.#data, name);
   }
 
@@ -93,7 +97,7 @@ export class AztecLmdbStore implements AztecKVStore, AztecAsyncKVStore {
    * @param name - Name of the set
    * @returns A new AztecSet
    */
-  openSet<K extends Key>(name: string): AztecSet<K> & AztecAsyncSet<K> {
+  openSet<K extends Key>(name: string, _options?: OpenContainerOptions): AztecSet<K> & AztecAsyncSet<K> {
     return new LmdbAztecSet(this.#data, name);
   }
 
@@ -102,7 +106,10 @@ export class AztecLmdbStore implements AztecKVStore, AztecAsyncKVStore {
    * @param name - Name of the map
    * @returns A new AztecMultiMap
    */
-  openMultiMap<K extends Key, V extends Value>(name: string): AztecMultiMap<K, V> & AztecAsyncMultiMap<K, V> {
+  openMultiMap<K extends Key, V extends Value>(
+    name: string,
+    _options?: OpenContainerOptions,
+  ): AztecMultiMap<K, V> & AztecAsyncMultiMap<K, V> {
     return new LmdbAztecMultiMap(this.#multiMapData, name);
   }
 

@@ -28,8 +28,10 @@ export class RecipientTaggingStore implements StagedStore {
   constructor(store: AztecAsyncKVStore) {
     this.#store = store;
 
-    this.#highestAgedIndex = this.#store.openMap('highest_aged_index');
-    this.#highestFinalizedIndex = this.#store.openMap('highest_finalized_index');
+    // opaqueKeys: keys are extended directional app tagging secrets — same
+    // confirmation-oracle concern as sender_tagging_store.
+    this.#highestAgedIndex = this.#store.openMap('highest_aged_index', { opaqueKeys: true });
+    this.#highestFinalizedIndex = this.#store.openMap('highest_finalized_index', { opaqueKeys: true });
 
     this.#highestAgedIndexForJob = new Map();
     this.#highestFinalizedIndexForJob = new Map();
