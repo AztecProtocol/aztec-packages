@@ -49,9 +49,16 @@ export class NoteStore implements StagedStore {
 
   constructor(store: AztecAsyncKVStore) {
     this.#store = store;
-    this.#notes = store.openMap('notes');
-    this.#nullifiersByContractAddress = store.openMultiMap('note_nullifiers_by_contract');
-    this.#nullifiersByNullificationBlockNumber = store.openMultiMap('note_block_number_to_nullifier');
+    // opaqueKeys: keys here are siloed nullifiers (unspent → secret until the
+    // note is consumed), contract addresses (reveals watch-list), and block
+    // numbers (reveals sync history). All three leak forward-privacy-relevant
+    // access patterns when stored in the clear. Backends without an encryption
+    // cipher silently ignore the flag.
+    this.#notes = store.openMap('notes', { opaqueKeys: true });
+    this.#nullifiersByContractAddress = store.openMultiMap('note_nullifiers_by_contract', { opaqueKeys: true });
+    this.#nullifiersByNullificationBlockNumber = store.openMultiMap('note_block_number_to_nullifier', {
+      opaqueKeys: true,
+    });
 
     this.#jobLocks = new Map();
     this.#notesForJob = new Map();

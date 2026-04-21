@@ -1,5 +1,5 @@
 import type { AztecArray, AztecAsyncArray } from './array.js';
-import type { Key, StoreSize, Value } from './common.js';
+import type { Key, OpenContainerOptions, StoreSize, Value } from './common.js';
 import type { AztecAsyncCounter, AztecCounter } from './counter.js';
 import type { AztecAsyncMap, AztecMap } from './map.js';
 import type { AztecAsyncMultiMap, AztecMultiMap } from './multi_map.js';
@@ -12,23 +12,26 @@ export interface AztecKVStore {
   /**
    * Creates a new map.
    * @param name - The name of the map
+   * @param options - Optional per-container hints (see `OpenContainerOptions`).
    * @returns The map
    */
-  openMap<K extends Key, V extends Value>(name: string): AztecMap<K, V>;
+  openMap<K extends Key, V extends Value>(name: string, options?: OpenContainerOptions): AztecMap<K, V>;
 
   /**
    * Creates a new set.
    * @param name - The name of the set
+   * @param options - Optional per-container hints (see `OpenContainerOptions`).
    * @returns The set
    */
-  openSet<K extends Key>(name: string): AztecSet<K>;
+  openSet<K extends Key>(name: string, options?: OpenContainerOptions): AztecSet<K>;
 
   /**
    * Creates a new multi-map.
    * @param name - The name of the multi-map
+   * @param options - Optional per-container hints (see `OpenContainerOptions`).
    * @returns The multi-map
    */
-  openMultiMap<K extends Key, V extends Value>(name: string): AztecMultiMap<K, V>;
+  openMultiMap<K extends Key, V extends Value>(name: string, options?: OpenContainerOptions): AztecMultiMap<K, V>;
 
   /**
    * Creates a new array.
@@ -81,23 +84,26 @@ export interface AztecAsyncKVStore {
   /**
    * Creates a new map.
    * @param name - The name of the map
+   * @param options - Optional per-container hints (see `OpenContainerOptions`).
    * @returns The map
    */
-  openMap<K extends Key, V extends Value>(name: string): AztecAsyncMap<K, V>;
+  openMap<K extends Key, V extends Value>(name: string, options?: OpenContainerOptions): AztecAsyncMap<K, V>;
 
   /**
    * Creates a new set.
    * @param name - The name of the set
+   * @param options - Optional per-container hints (see `OpenContainerOptions`).
    * @returns The set
    */
-  openSet<K extends Key>(name: string): AztecAsyncSet<K>;
+  openSet<K extends Key>(name: string, options?: OpenContainerOptions): AztecAsyncSet<K>;
 
   /**
    * Creates a new multi-map.
    * @param name - The name of the multi-map
+   * @param options - Optional per-container hints (see `OpenContainerOptions`).
    * @returns The multi-map
    */
-  openMultiMap<K extends Key, V extends Value>(name: string): AztecAsyncMultiMap<K, V>;
+  openMultiMap<K extends Key, V extends Value>(name: string, options?: OpenContainerOptions): AztecAsyncMultiMap<K, V>;
 
   /**
    * Creates a new array.

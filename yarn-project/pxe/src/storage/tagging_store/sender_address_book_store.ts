@@ -13,7 +13,9 @@ export class SenderAddressBookStore {
   constructor(store: AztecAsyncKVStore) {
     this.#store = store;
 
-    this.#addressBook = this.#store.openMap('address_book');
+    // opaqueKeys: keys are sender addresses the user decrypts logs from — this
+    // is effectively the user's incoming-message contact list.
+    this.#addressBook = this.#store.openMap('address_book', { opaqueKeys: true });
   }
 
   addSender(address: AztecAddress): Promise<boolean> {
