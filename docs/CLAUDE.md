@@ -382,10 +382,5 @@ Approved external documentation sources:
 - Suggest improvements even if they go beyond pure editing
 - When making changes to documentation processes or tooling, remember to check and update READMEs, project documentation (like this file), and code comments
 
-<<<<<<< HEAD
-Last updated: 2026-02-23
-Version: 1.5
-=======
 Last updated: 2026-04-21
 Version: 1.7
->>>>>>> 63c67a0f44 (docs: add Alpha Network page and update privacy/limitations docs (#22515))
