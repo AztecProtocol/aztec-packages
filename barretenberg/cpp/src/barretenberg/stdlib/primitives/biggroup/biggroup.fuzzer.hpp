@@ -1,14 +1,14 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], commit: }
-// external_1:  { status: not started, auditors: [], commit: }
-// external_2:  { status: not started, auditors: [], commit: }
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
 // =====================
 
 /**
- * @file cycle_group.fuzzer.hpp
- * @brief Differential fuzzer for cycle_group elliptic curve operations
- * @details Implements an instruction-based differential fuzzer that validates the cycle_group implementation by
- * executing random sequences of operations both in-circuit (using cycle_group) and natively, then comparing the
+ * @file biggroup.fuzzer.hpp
+ * @brief Differential fuzzer for biggroup elliptic curve operations
+ * @details Implements an instruction-based differential fuzzer that validates the biggroup implementation by
+ * executing random sequences of operations both in-circuit (using biggroup) and natively, then comparing the
  * results. The architecture is as follows:
  *
  * ┌─────────────┐
@@ -22,13 +22,13 @@
  *   ExecutionHandler (maintains parallel state):
  *   ┌─────────────────────────────────────────┐
  *   │ Native:     GroupElement + ScalarField  │ (ground truth)
- *   │ Circuit:    cycle_group + cycle_scalar  │
+ *   │ Circuit:    biggroup + big_scalar       │
  *   └─────────────────────────────────────────┘
  *        │
  *        ├──> Execute each instruction in both representations
  *        │
  *        v
- *   Verify: cycle_group.get_value() == native_result
+ *   Verify: biggroup.get_value() == native_result
  *   CircuitChecker::check(circuit)
  */
 
@@ -36,14 +36,18 @@
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/numeric/random/engine.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
-#include "barretenberg/stdlib/primitives/group/cycle_group.hpp"
+#include "barretenberg/stdlib/primitives/biggroup/biggroup.hpp"
+#include "barretenberg/stdlib/primitives/curves/bn254.hpp"
+#include "barretenberg/stdlib/primitives/curves/secp256k1.hpp"
+#include "barretenberg/stdlib/primitives/curves/secp256r1.hpp"
+
 #pragma clang diagnostic push
 
 // -Wc99-designator prevents us from using designators and nested designators
 // in struct intializations
 // such as {.in.first = a, .out = b}, since it's not a part of c++17 standard
 // However the use of them in this particular file heavily increases
-// the readability and conciseness of the CycleGroupBase::Instruction initializations
+// the readability and conciseness of the biggroup::Instruction initializations
 #pragma clang diagnostic ignored "-Wc99-designator"
 
 #ifdef FUZZING_SHOW_INFORMATION
@@ -58,6 +62,19 @@ struct FormattedArgs {
 };
 
 /**
+ * @brief Format an operation on self for debug output
+ * @param stack The execution stack
+ * @param first_index Index of the input argument
+ * @return FormattedArgs with out (input) populated
+ */
+template <typename Stack> inline FormattedArgs format_self_arg(const Stack& stack, size_t first_index)
+{
+    std::string out = stack[first_index].biggroup.is_constant() ? "c" : "w";
+    out += std::to_string(first_index);
+    return FormattedArgs{ .lhs = "", .rhs = "", .out = out };
+}
+
+/**
  * @brief Format a single-argument operation for debug output
  * @param stack The execution stack
  * @param first_index Index of the input argument
@@ -67,7 +84,7 @@ struct FormattedArgs {
 template <typename Stack>
 inline FormattedArgs format_single_arg(const Stack& stack, size_t first_index, size_t output_index)
 {
-    std::string rhs = stack[first_index].cycle_group.is_constant() ? "c" : "w";
+    std::string rhs = stack[first_index].biggroup.is_constant() ? "c" : "w";
     std::string out = rhs;
     rhs += std::to_string(first_index);
     out += std::to_string(output_index >= stack.size() ? stack.size() : output_index);
@@ -86,10 +103,10 @@ inline FormattedArgs format_single_arg(const Stack& stack, size_t first_index, s
 template <typename Stack>
 inline FormattedArgs format_two_arg(const Stack& stack, size_t first_index, size_t second_index, size_t output_index)
 {
-    std::string lhs = stack[first_index].cycle_group.is_constant() ? "c" : "w";
-    std::string rhs = stack[second_index].cycle_group.is_constant() ? "c" : "w";
+    std::string lhs = stack[first_index].biggroup.is_constant() ? "c" : "w";
+    std::string rhs = stack[second_index].biggroup.is_constant() ? "c" : "w";
     std::string out =
-        (stack[first_index].cycle_group.is_constant() && stack[second_index].cycle_group.is_constant()) ? "c" : "w";
+        (stack[first_index].biggroup.is_constant() && stack[second_index].biggroup.is_constant()) ? "c" : "w";
     lhs += std::to_string(first_index);
     rhs += std::to_string(second_index);
     out += std::to_string(output_index >= stack.size() ? stack.size() : output_index);
@@ -110,6 +127,7 @@ bool circuit_should_fail = false;
 
 // #define DISABLE_MULTIPLICATION
 // #define DISABLE_BATCH_MUL
+
 FastRandom VarianceRNG(0);
 
 constexpr size_t MINIMUM_MUL_ELEMENTS = 0;
@@ -176,20 +194,49 @@ template <typename FF> inline FF get_special_scalar_value(SpecialScalarValue typ
 }
 
 /**
- * @brief The class parametrizing CycleGroup fuzzing instructions, execution, etc
+ * @brief The class parametrizing BigGroup fuzzing instructions, execution, etc
  */
-template <typename Builder> class CycleGroupBase {
+// When _use_bigfield=true, BigfieldScalar is used as the scalar field type.
+// It defaults to Curve::ScalarField (which for secp256k1/secp256r1 is already a bigfield).
+// For BN254_BF, pass bigfield<Builder, Bn254FrParams> explicitly.
+template <typename Builder,
+          typename BigGroupType,
+          bool _use_bigfield = false,
+          typename BigfieldScalar = typename BigGroupType::ScalarField>
+class BigGroupBase {
   private:
     using bool_t = typename bb::stdlib::bool_t<Builder>;
     using field_t = typename bb::stdlib::field_t<Builder>;
     using witness_t = typename bb::stdlib::witness_t<Builder>;
-    using cycle_group_t = typename bb::stdlib::cycle_group<Builder>;
-    using cycle_scalar_t = typename cycle_group_t::cycle_scalar;
-    using Curve = typename bb::stdlib::cycle_group<Builder>::Curve;
-    using GroupElement = typename Curve::Element;
-    using AffineElement = typename Curve::AffineElement;
-    using ScalarField = typename Curve::ScalarField;
-    using BaseField = typename Curve::BaseField;
+
+    using Curve = BigGroupType;
+
+    using GroupElement = typename Curve::ElementNative;
+    using AffineElement = typename Curve::AffineElementNative;
+    using ScalarField = typename Curve::ScalarFieldNative;
+    using BaseField = typename Curve::BaseFieldNative;
+
+    using big_scalar_t = std::conditional_t<_use_bigfield, BigfieldScalar, typename Curve::ScalarField>;
+    using biggroup_t = std::conditional_t<
+        _use_bigfield,
+        bb::stdlib::element<Builder, typename Curve::BaseField, BigfieldScalar, typename Curve::GroupNative>,
+        typename Curve::Group>;
+
+    /**
+     * @brief Create a constant (no-witness) biggroup element from a native affine element
+     * @details Replaces the removed element(const NativeGroup::affine_element&) constructor
+     */
+    static biggroup_t make_constant_biggroup(const AffineElement& native_elem)
+    {
+        using CircuitFq = typename biggroup_t::BaseField;
+        // Normalize infinity to (0, 0): the native affine representation of infinity may carry
+        // non-zero coordinates (e.g. from Jacobian conversion), but the new 2-arg circuit
+        // constructor auto-detects infinity only via limb_sum == 0.
+        const bool is_inf = native_elem.is_point_at_infinity();
+        CircuitFq x(nullptr, is_inf ? uint256_t(0) : uint256_t(native_elem.x));
+        CircuitFq y(nullptr, is_inf ? uint256_t(0) : uint256_t(native_elem.y));
+        return biggroup_t(x, y, /*assert_on_curve=*/false);
+    }
 
   public:
     class Instruction {
@@ -211,6 +258,7 @@ template <typename Builder> class CycleGroupBase {
 #ifndef DISABLE_BATCH_MUL
             BATCH_MUL,
 #endif
+            VALIDATE_ON_CURVE,
             RANDOMSEED,
             _LAST
         };
@@ -221,6 +269,10 @@ template <typename Builder> class CycleGroupBase {
                 , value(g) {};
             ScalarField scalar;
             GroupElement value;
+        };
+
+        struct OneArg {
+            uint8_t in;
         };
 
         struct TwoArgs {
@@ -259,6 +311,7 @@ template <typename Builder> class CycleGroupBase {
                 : randomseed(0) {};
             uint32_t randomseed;
             Element element;
+            OneArg oneArg;
             TwoArgs twoArgs;
             MulArgs mulArgs;
             ThreeArgs threeArgs;
@@ -295,6 +348,9 @@ template <typename Builder> class CycleGroupBase {
                 auto el = GroupElement::one() * scalar;
                 return { .id = instruction_opcode, .arguments.element = Element(scalar, el) };
             }
+            case OPCODE::VALIDATE_ON_CURVE:
+                in = static_cast<uint8_t>(rng.next() & 0xff);
+                return { .id = instruction_opcode, .arguments.oneArg = { .in = in } };
             case OPCODE::DBL:
             case OPCODE::NEG:
             case OPCODE::ASSERT_EQUAL:
@@ -644,6 +700,7 @@ template <typename Builder> class CycleGroupBase {
         static constexpr size_t CONSTANT = sizeof(typename Instruction::Element);
         static constexpr size_t WITNESS = sizeof(typename Instruction::Element);
         static constexpr size_t CONSTANT_WITNESS = sizeof(typename Instruction::Element);
+        static constexpr size_t VALIDATE_ON_CURVE = 1;
         static constexpr size_t DBL = 2;
         static constexpr size_t NEG = 2;
         static constexpr size_t ASSERT_EQUAL = 2;
@@ -679,6 +736,8 @@ template <typename Builder> class CycleGroupBase {
         static constexpr size_t NEG = 1;
         static constexpr size_t COND_ASSIGN = 1;
 
+        static constexpr size_t VALIDATE_ON_CURVE = 2;
+
 #ifndef DISABLE_MULTIPLICATION
         static constexpr size_t MULTIPLY = 2;
 #endif
@@ -689,6 +748,7 @@ template <typename Builder> class CycleGroupBase {
 #endif
         static constexpr size_t _LIMIT = 64;
     };
+
     /**
      * @brief Parser class handles the parsing and writing the instructions back to data buffer
      *
@@ -713,6 +773,10 @@ template <typename Builder> class CycleGroupBase {
                 auto scalar = ScalarField::serialize_from_buffer(Data);
                 auto el = GroupElement::one() * scalar;
                 instr.arguments.element = typename Instruction::Element(scalar, el);
+                break;
+            }
+            case Instruction::OPCODE::VALIDATE_ON_CURVE: {
+                instr.arguments.oneArg = { .in = *Data };
                 break;
             }
             case Instruction::OPCODE::DBL:
@@ -781,6 +845,9 @@ template <typename Builder> class CycleGroupBase {
             case Instruction::OPCODE::CONSTANT_WITNESS:
                 ScalarField::serialize_to_buffer(instruction.arguments.element.scalar, Data + 1);
                 break;
+            case Instruction::OPCODE::VALIDATE_ON_CURVE:
+                *(Data + 1) = instruction.arguments.oneArg.in;
+                break;
             case Instruction::OPCODE::DBL:
             case Instruction::OPCODE::NEG:
             case Instruction::OPCODE::ASSERT_EQUAL:
@@ -832,8 +899,9 @@ template <typename Builder> class CycleGroupBase {
             return;
         };
     };
+
     /**
-     * @brief This class implements the execution of cycle group with an oracle to detect discrepancies
+     * @brief This class implements the execution of biggroup with an oracle to detect discrepancies
      *
      */
     class ExecutionHandler {
@@ -854,25 +922,22 @@ template <typename Builder> class CycleGroupBase {
             return bool_t(witness_t(builder, predicate));
         }
 
-        cycle_group_t cg() const
+        biggroup_t bg() const
         {
-            const bool reconstruct = static_cast<bool>(VarianceRNG.next() % 2);
-            if (!reconstruct) {
-                return this->cycle_group;
-            }
-            return cycle_group_t(this->cycle_group);
+            const bool reconstruct = static_cast<bool>(VarianceRNG.next() & 1);
+            return reconstruct ? biggroup_t(this->biggroup) : this->biggroup;
         }
 
       public:
         ScalarField base_scalar;
         GroupElement base;
-        cycle_group_t cycle_group;
+        biggroup_t biggroup;
 
         ExecutionHandler() = default;
-        ExecutionHandler(ScalarField s, GroupElement g, cycle_group_t w_g)
+        ExecutionHandler(ScalarField s, GroupElement g, biggroup_t w_g)
             : base_scalar(s)
             , base(g)
-            , cycle_group(w_g)
+            , biggroup(w_g)
         {}
 
       private:
@@ -893,14 +958,14 @@ template <typename Builder> class CycleGroupBase {
             switch (dbl_path) {
             case 0:
                 debug_log("left.dbl", "\n");
-                return ExecutionHandler(base_scalar_res, base_res, this->cg().dbl());
+                return ExecutionHandler(base_scalar_res, base_res, this->bg().dbl());
             case 1:
                 debug_log("right.dbl", "\n");
-                return ExecutionHandler(base_scalar_res, base_res, other.cg().dbl());
+                return ExecutionHandler(base_scalar_res, base_res, other.bg().dbl());
             case 2:
-                return ExecutionHandler(base_scalar_res, base_res, this->cg() + other.cg());
+                return ExecutionHandler(base_scalar_res, base_res, this->bg() + other.bg());
             case 3:
-                return ExecutionHandler(base_scalar_res, base_res, other.cg() + this->cg());
+                return ExecutionHandler(base_scalar_res, base_res, other.bg() + this->bg());
             }
             return {};
         }
@@ -918,12 +983,12 @@ template <typename Builder> class CycleGroupBase {
                                                   const GroupElement& base_res)
         {
             uint8_t inf_path = VarianceRNG.next() % 2;
-            cycle_group_t res;
+            biggroup_t res;
             switch (inf_path) {
             case 0:
-                return ExecutionHandler(base_scalar_res, base_res, this->cg() + other.cg());
+                return ExecutionHandler(base_scalar_res, base_res, this->bg() + other.bg());
             case 1:
-                return ExecutionHandler(base_scalar_res, base_res, other.cg() + this->cg());
+                return ExecutionHandler(base_scalar_res, base_res, other.bg() + this->bg());
             }
             return {};
         }
@@ -939,27 +1004,21 @@ template <typename Builder> class CycleGroupBase {
                                                 const ScalarField& base_scalar_res,
                                                 const GroupElement& base_res)
         {
-            bool smth_inf = this->cycle_group.is_point_at_infinity().get_value() ||
-                            other.cycle_group.is_point_at_infinity().get_value();
-            uint8_t add_option = smth_inf ? 4 + (VarianceRNG.next() % 2) : VarianceRNG.next() % 6;
+            bool smth_inf =
+                this->biggroup.is_point_at_infinity().get_value() || other.biggroup.is_point_at_infinity().get_value();
+            uint8_t add_option = smth_inf ? 2 + (VarianceRNG.next() % 2) : VarianceRNG.next() % 4;
 
             switch (add_option) {
             case 0:
-                debug_log("left.unconditional_add(right);", "\n");
-                return ExecutionHandler(base_scalar_res, base_res, this->cg().unconditional_add(other.cg()));
-            case 1:
-                debug_log("right.unconditional_add(left);", "\n");
-                return ExecutionHandler(base_scalar_res, base_res, other.cg().unconditional_add(this->cg()));
-            case 2:
                 debug_log("left.checked_unconditional_add(right);", "\n");
-                return ExecutionHandler(base_scalar_res, base_res, this->cg().checked_unconditional_add(other.cg()));
-            case 3:
+                return ExecutionHandler(base_scalar_res, base_res, this->bg().checked_unconditional_add(other.bg()));
+            case 1:
                 debug_log("right.checked_unconditional_add(left);", "\n");
-                return ExecutionHandler(base_scalar_res, base_res, other.cg().checked_unconditional_add(this->cg()));
-            case 4:
-                return ExecutionHandler(base_scalar_res, base_res, this->cg() + other.cg());
-            case 5:
-                return ExecutionHandler(base_scalar_res, base_res, other.cg() + this->cg());
+                return ExecutionHandler(base_scalar_res, base_res, other.bg().checked_unconditional_add(this->bg()));
+            case 2:
+                return ExecutionHandler(base_scalar_res, base_res, this->bg() + other.bg());
+            case 3:
+                return ExecutionHandler(base_scalar_res, base_res, other.bg() + this->bg());
             }
             return {};
         }
@@ -971,12 +1030,12 @@ template <typename Builder> class CycleGroupBase {
             GroupElement base_res = this->base + other.base;
 
             // Test doubling path when points are equal
-            if (other.cg().get_value() == this->cg().get_value()) {
+            if (other.bg().get_value() == this->bg().get_value()) {
                 return handle_add_doubling_case(builder, other, base_scalar_res, base_res);
             }
 
             // Test infinity path when points are negations
-            if (other.cg().get_value() == -this->cg().get_value()) {
+            if (other.bg().get_value() == -this->bg().get_value()) {
                 return handle_add_infinity_case(other, base_scalar_res, base_res);
             }
 
@@ -998,12 +1057,12 @@ template <typename Builder> class CycleGroupBase {
             switch (dbl_path) {
             case 0:
                 debug_log("left.dbl();", "\n");
-                return ExecutionHandler(base_scalar_res, base_res, this->cg().dbl());
+                return ExecutionHandler(base_scalar_res, base_res, this->bg().dbl());
             case 1:
                 debug_log("-right.dbl();", "\n");
-                return ExecutionHandler(base_scalar_res, base_res, -other.cg().dbl());
+                return ExecutionHandler(base_scalar_res, base_res, -other.bg().dbl());
             case 2:
-                return ExecutionHandler(base_scalar_res, base_res, this->cg() - other.cg());
+                return ExecutionHandler(base_scalar_res, base_res, this->bg() - other.bg());
             }
             return {};
         }
@@ -1015,7 +1074,7 @@ template <typename Builder> class CycleGroupBase {
                                                   const ScalarField& base_scalar_res,
                                                   const GroupElement& base_res)
         {
-            return ExecutionHandler(base_scalar_res, base_res, this->cg() - other.cg());
+            return ExecutionHandler(base_scalar_res, base_res, this->bg() - other.bg());
         }
 
         /**
@@ -1025,20 +1084,17 @@ template <typename Builder> class CycleGroupBase {
                                                 const ScalarField& base_scalar_res,
                                                 const GroupElement& base_res)
         {
-            bool smth_inf = this->cycle_group.is_point_at_infinity().get_value() ||
-                            other.cycle_group.is_point_at_infinity().get_value();
-            uint8_t add_option = smth_inf ? 2 : VarianceRNG.next() % 3;
+            bool smth_inf =
+                this->biggroup.is_point_at_infinity().get_value() || other.biggroup.is_point_at_infinity().get_value();
+            uint8_t add_option = smth_inf ? 1 : VarianceRNG.next() % 2;
 
             switch (add_option) {
             case 0:
-                debug_log("left.unconditional_subtract(right);", "\n");
-                return ExecutionHandler(base_scalar_res, base_res, this->cg().unconditional_subtract(other.cg()));
-            case 1:
                 debug_log("left.checked_unconditional_subtract(right);", "\n");
                 return ExecutionHandler(
-                    base_scalar_res, base_res, this->cg().checked_unconditional_subtract(other.cg()));
-            case 2:
-                return ExecutionHandler(base_scalar_res, base_res, this->cg() - other.cg());
+                    base_scalar_res, base_res, this->bg().checked_unconditional_subtract(other.bg()));
+            case 1:
+                return ExecutionHandler(base_scalar_res, base_res, this->bg() - other.bg());
             }
             return {};
         }
@@ -1052,10 +1108,10 @@ template <typename Builder> class CycleGroupBase {
             ScalarField base_scalar_res = this->base_scalar - other.base_scalar;
             GroupElement base_res = this->base - other.base;
 
-            if (other.cg().get_value() == -this->cg().get_value()) {
+            if (other.bg().get_value() == -this->bg().get_value()) {
                 return handle_sub_doubling_case(builder, other, base_scalar_res, base_res);
             }
-            if (other.cg().get_value() == this->cg().get_value()) {
+            if (other.bg().get_value() == this->bg().get_value()) {
                 return handle_sub_infinity_case(other, base_scalar_res, base_res);
             }
             return handle_sub_normal_case(other, base_scalar_res, base_res);
@@ -1064,128 +1120,134 @@ template <typename Builder> class CycleGroupBase {
         ExecutionHandler mul(Builder* builder, const ScalarField& multiplier)
         {
             bool is_witness = VarianceRNG.next() & 1;
-            debug_log(" * cycle_scalar_t",
+            debug_log(" * big_scalar_t",
                       (is_witness ? "::from_witness(&builder, " : "("),
                       "ScalarField(\"",
                       multiplier,
                       "\"));");
-            auto scalar = is_witness ? cycle_scalar_t::from_witness(builder, multiplier) : cycle_scalar_t(multiplier);
-            return ExecutionHandler(this->base_scalar * multiplier, this->base * multiplier, this->cg() * scalar);
+            auto scalar = is_witness ? big_scalar_t::from_witness(builder, multiplier) : big_scalar_t(multiplier);
+            return ExecutionHandler(this->base_scalar * multiplier, this->base * multiplier, this->bg() * scalar);
         }
 
         static ExecutionHandler batch_mul(Builder* builder,
                                           const std::vector<ExecutionHandler>& to_add,
                                           const std::vector<ScalarField>& to_mul)
         {
-            std::vector<cycle_group_t> to_add_cg;
-            to_add_cg.reserve(to_add.size());
-            std::vector<cycle_scalar_t> to_mul_cs;
-            to_mul_cs.reserve(to_mul.size());
+            std::vector<biggroup_t> to_add_bg;
+            to_add_bg.reserve(to_add.size());
+            std::vector<big_scalar_t> to_mul_bs;
+            to_mul_bs.reserve(to_mul.size());
 
-            GroupElement accumulator_cg = GroupElement::one();
-            ScalarField accumulator_cs = ScalarField::zero();
+            GroupElement accumulator_bg = GroupElement::one();
+            ScalarField accumulator_bs = ScalarField::zero();
 
             for (size_t i = 0; i < to_add.size(); i++) {
-                to_add_cg.push_back(to_add[i].cycle_group);
+                to_add_bg.push_back(to_add[i].biggroup);
 
                 bool is_witness = VarianceRNG.next() & 1;
-                debug_log("cycle_scalar_t",
+                debug_log("biggroup_t",
                           (is_witness ? "::from_witness(&builder, " : "("),
                           "ScalarField(\"",
                           to_mul[i],
                           "\")), ");
-                auto scalar = is_witness ? cycle_scalar_t::from_witness(builder, to_mul[i]) : cycle_scalar_t(to_mul[i]);
-                to_mul_cs.push_back(scalar);
+                auto scalar = is_witness ? big_scalar_t::from_witness(builder, to_mul[i]) : big_scalar_t(to_mul[i]);
+                to_mul_bs.push_back(scalar);
 
-                accumulator_cg += to_add[i].base * to_mul[i];
-                accumulator_cs += to_add[i].base_scalar * to_mul[i];
+                accumulator_bg += to_add[i].base * to_mul[i];
+                accumulator_bs += to_add[i].base_scalar * to_mul[i];
             }
-            accumulator_cg -= GroupElement::one();
+            accumulator_bg -= GroupElement::one();
 
             // Handle the linearly dependant case that is
             // assumed to not happen in real life
-            if (accumulator_cg.is_point_at_infinity()) {
-                to_add_cg.push_back(cycle_group_t(GroupElement::one()));
-                to_mul_cs.push_back(cycle_scalar_t(ScalarField::one()));
-                accumulator_cg += GroupElement::one();
-                accumulator_cs += ScalarField::one();
+            if (accumulator_bg.is_point_at_infinity()) {
+                to_add_bg.push_back(make_constant_biggroup(AffineElement::one()));
+                to_mul_bs.push_back(big_scalar_t(ScalarField::one()));
+                accumulator_bg += GroupElement::one();
+                accumulator_bs += ScalarField::one();
             }
 
-            auto batch_mul_res = cycle_group_t::batch_mul(to_add_cg, to_mul_cs);
-            return ExecutionHandler(accumulator_cs, accumulator_cg, batch_mul_res);
+            auto batch_mul_res = biggroup_t::batch_mul(to_add_bg, to_mul_bs);
+            return ExecutionHandler(accumulator_bs, accumulator_bg, batch_mul_res);
         }
 
-        ExecutionHandler operator-() { return ExecutionHandler(-this->base_scalar, -this->base, -this->cg()); }
+        void validate_on_curve() const { this->bg().validate_on_curve(); }
+
+        ExecutionHandler operator-() { return ExecutionHandler(-this->base_scalar, -this->base, -this->bg()); }
 
         ExecutionHandler dbl()
         {
-            return ExecutionHandler(this->base_scalar + this->base_scalar, this->base.dbl(), this->cg().dbl());
+            return ExecutionHandler(this->base_scalar + this->base_scalar, this->base.dbl(), this->bg().dbl());
         }
 
-        ExecutionHandler conditional_assign(Builder* builder, ExecutionHandler& other, const bool predicate)
+        ExecutionHandler conditional_select(Builder* builder, ExecutionHandler& other, const bool predicate)
         {
             ScalarField new_base_scalar = predicate ? other.base_scalar : this->base_scalar;
             GroupElement new_base = predicate ? other.base : this->base;
-            cycle_group_t new_cycle_group =
-                cycle_group_t::conditional_assign(construct_predicate(builder, predicate), other.cg(), this->cg());
-            return ExecutionHandler(new_base_scalar, new_base, new_cycle_group);
+            biggroup_t new_biggroup;
+            if (VarianceRNG.next() & 1) {
+                debug_log("lhs.conditional_select(rhs, ");
+                new_biggroup = this->bg().conditional_select(other.bg(), construct_predicate(builder, predicate));
+            } else {
+                debug_log("rhs.conditional_select(lhs, ");
+                new_biggroup = other.bg().conditional_select(this->bg(), construct_predicate(builder, !predicate));
+            }
+            debug_log(");", "\n");
+            return ExecutionHandler(new_base_scalar, new_base, new_biggroup);
         }
 
-        void assert_equal(Builder* builder, ExecutionHandler& other)
+        void incomplete_assert_equal(Builder* builder, ExecutionHandler& other)
         {
-            if (other.cg().is_constant()) {
-                if (this->cg().is_constant()) {
+            if (other.bg().is_constant()) {
+                if (this->bg().is_constant()) {
                     // Assert equal does nothing in this case
                     return;
                 }
             }
-            auto to_add = cycle_group_t::from_witness(builder, AffineElement(this->base - other.base));
-            auto to_ae = other.cg() + to_add;
-            this->cg().assert_equal(to_ae);
+            auto to_add = biggroup_t::from_witness(builder, AffineElement(this->base - other.base));
+            auto to_ae = other.bg() + to_add;
+            this->bg().incomplete_assert_equal(to_ae);
         }
 
-        /* Explicit re-instantiation using the various cycle_group_t constructors */
+        /* Explicit re-instantiation using the various biggroup_t constructors */
         ExecutionHandler set(Builder* builder)
         {
             uint32_t switch_case = VarianceRNG.next() % 4;
             switch (switch_case) {
             case 0:
-                debug_log("cycle_group_t(", "\n");
-                /* construct via cycle_group_t */
-                return ExecutionHandler(this->base_scalar, this->base, cycle_group_t(this->cycle_group));
+                debug_log("biggroup_t(", "\n");
+                /* construct via biggroup_t */
+                return ExecutionHandler(this->base_scalar, this->base, biggroup_t(this->biggroup));
             case 1: {
-                debug_log("cycle_group_t::from",
-                          (this->cycle_group.is_constant() ? "" : "_constant"),
+                debug_log("biggroup_t::from",
+                          (this->biggroup.is_constant() ? "" : "_constant"),
                           "_witness(&builder, e.get_value());");
                 /* construct via AffineElement */
-                AffineElement e = this->cycle_group.get_value();
-                if (this->cycle_group.is_constant()) {
-                    return ExecutionHandler(
-                        this->base_scalar, this->base, cycle_group_t::from_constant_witness(builder, e));
-                }
-                return ExecutionHandler(this->base_scalar, this->base, cycle_group_t::from_witness(builder, e));
+                AffineElement e = this->biggroup.get_value();
+                return ExecutionHandler(this->base_scalar, this->base, biggroup_t::from_witness(builder, e));
             }
             case 2: {
                 debug_log("tmp = el;", "\n");
-                debug_log("res = cycle_group_t(tmp);", "\n");
+                debug_log("res = biggroup_t(tmp);", "\n");
                 /* Invoke assigment operator */
-                cycle_group_t cg_new(builder);
-                cg_new = this->cg();
-                return ExecutionHandler(this->base_scalar, this->base, cycle_group_t(cg_new));
+                biggroup_t bg_new = make_constant_biggroup(this->bg().get_value());
+                bg_new = this->bg();
+                return ExecutionHandler(this->base_scalar, this->base, biggroup_t(bg_new));
             }
             case 3: {
                 debug_log("tmp = el;", "\n");
-                debug_log("res = cycle_group_t(std::move(tmp));", "\n");
+                debug_log("res = biggroup_t(std::move(tmp));", "\n");
                 /* Invoke move constructor */
-                cycle_group_t cg_copy = this->cg();
-                return ExecutionHandler(this->base_scalar, this->base, cycle_group_t(std::move(cg_copy)));
+                biggroup_t bg_copy = this->bg();
+                return ExecutionHandler(this->base_scalar, this->base, biggroup_t(std::move(bg_copy)));
             }
             default:
                 abort();
             }
         }
+
         /**
-         * @brief Execute the constant instruction (push constant cycle group to the stack)
+         * @brief Execute the constant instruction (push constant biggroup to the stack)
          *
          * @param builder
          * @param stack
@@ -1197,18 +1259,18 @@ template <typename Builder> class CycleGroupBase {
                                               Instruction& instruction)
         {
             (void)builder;
-            stack.push_back(
-                ExecutionHandler(instruction.arguments.element.scalar,
-                                 instruction.arguments.element.value,
-                                 cycle_group_t(static_cast<AffineElement>(instruction.arguments.element.value))));
+            stack.push_back(ExecutionHandler(
+                instruction.arguments.element.scalar,
+                instruction.arguments.element.value,
+                make_constant_biggroup(static_cast<AffineElement>(instruction.arguments.element.value))));
             debug_log("// scalar = ", instruction.arguments.element.scalar);
             debug_log(
-                "auto c", stack.size() - 1, " = cycle_group_t(ae(\"", instruction.arguments.element.scalar, "\"));\n");
+                "auto c", stack.size() - 1, " = biggroup_t(ae(\"", instruction.arguments.element.scalar, "\"));\n");
             return 0;
         };
 
         /**
-         * @brief Execute the witness instruction (push witness cycle group to the stack)
+         * @brief Execute the witness instruction (push witness biggroup to the stack)
          *
          * @param builder
          * @param stack
@@ -1222,19 +1284,19 @@ template <typename Builder> class CycleGroupBase {
             stack.push_back(ExecutionHandler(
                 instruction.arguments.element.scalar,
                 instruction.arguments.element.value,
-                cycle_group_t::from_witness(builder, static_cast<AffineElement>(instruction.arguments.element.value))));
+                biggroup_t::from_witness(builder, static_cast<AffineElement>(instruction.arguments.element.value))));
             debug_log("// scalar = ", instruction.arguments.element.scalar);
             debug_log("auto w",
                       stack.size() - 1,
-                      " = cycle_group_t::from_witness(&builder, ae(\"",
+                      " = biggroup_t::from_witness(&builder, ae(\"",
                       instruction.arguments.element.scalar,
                       "\"));\n");
             return 0;
         }
 
         /**
-         * @brief Execute the constant_witness instruction (push a cycle group witness equal to the constant to the
-         * stack)
+         * @brief Execute the constant_witness instruction (push a biggroup witness set to be public or constant made
+         * witness to the stack)
          *
          * @param builder
          * @param stack
@@ -1245,19 +1307,67 @@ template <typename Builder> class CycleGroupBase {
                                                       std::vector<ExecutionHandler>& stack,
                                                       Instruction& instruction)
         {
-            stack.push_back(
-                ExecutionHandler(instruction.arguments.element.scalar,
-                                 instruction.arguments.element.value,
-                                 cycle_group_t::from_constant_witness(
-                                     builder, static_cast<AffineElement>(instruction.arguments.element.value))));
-            debug_log("// scalar = ", instruction.arguments.element.scalar);
-            debug_log("auto cw",
-                      stack.size() - 1,
-                      " = cycle_group_t::from_constant_witness(&builder, ae(\"",
-                      instruction.arguments.element.scalar,
-                      "\"));\n");
+
+            if (VarianceRNG.next() & 1) {
+                biggroup_t biggroup =
+                    biggroup_t::from_witness(builder, static_cast<AffineElement>(instruction.arguments.element.value));
+                biggroup.fix_witness();
+
+                stack.push_back(ExecutionHandler(
+                    instruction.arguments.element.scalar, instruction.arguments.element.value, biggroup));
+                debug_log("// scalar = ", instruction.arguments.element.scalar);
+                debug_log("auto cw",
+                          stack.size() - 1,
+                          " = biggroup_t::from_witness(&builder, ae(\"",
+                          instruction.arguments.element.scalar,
+                          "\"));",
+                          "\n");
+                debug_log("cw", stack.size() - 1, ".fix_witness();", "\n");
+            } else {
+                biggroup_t biggroup =
+                    make_constant_biggroup(static_cast<AffineElement>(instruction.arguments.element.value));
+                biggroup.convert_constant_to_fixed_witness(builder);
+
+                stack.push_back(ExecutionHandler(
+                    instruction.arguments.element.scalar, instruction.arguments.element.value, biggroup));
+                debug_log("// scalar = ", instruction.arguments.element.scalar);
+                debug_log("auto cw",
+                          stack.size() - 1,
+                          " = biggroup_t(ae(\"",
+                          instruction.arguments.element.scalar,
+                          "\"));",
+                          "\n");
+                debug_log("cw", stack.size() - 1, ".convert_constant_to_fixed_witness(&builder);", "\n");
+            }
+            // TODO(alex): set_public
             return 0;
         }
+
+        /**
+         * @brief Execute the VALIDATE_ON_CURVE instruction
+         *
+         * @param builder
+         * @param stack
+         * @param instruction
+         * @return 0 to continue, 1 to stop
+         */
+        static inline size_t execute_VALIDATE_ON_CURVE(Builder* builder,
+                                                       std::vector<ExecutionHandler>& stack,
+                                                       Instruction& instruction)
+        {
+            (void)builder;
+            if (stack.size() == 0) {
+                return 1;
+            }
+            size_t first_index = instruction.arguments.oneArg.in % stack.size();
+
+            if constexpr (SHOW_FUZZING_INFO) {
+                auto args = format_self_arg(stack, first_index);
+                debug_log(args.out, ".validate_on_curve();", "\n");
+            }
+            stack[first_index].validate_on_curve();
+            return 0;
+        };
 
         /**
          * @brief Execute the DBL instruction
@@ -1345,9 +1455,9 @@ template <typename Builder> class CycleGroupBase {
 
             if constexpr (SHOW_FUZZING_INFO) {
                 auto args = format_two_arg(stack, first_index, second_index, 0);
-                debug_log("assert_equal(", args.lhs, ", ", args.rhs, ", builder);", "\n");
+                debug_log("incomplete_assert_equal(", args.lhs, ", ", args.rhs, ", builder);", "\n");
             }
-            stack[first_index].assert_equal(builder, stack[second_index]);
+            stack[first_index].incomplete_assert_equal(builder, stack[second_index]);
             return 0;
         };
 
@@ -1481,12 +1591,11 @@ template <typename Builder> class CycleGroupBase {
             ExecutionHandler result;
             if constexpr (SHOW_FUZZING_INFO) {
                 auto args = format_two_arg(stack, first_index, second_index, output_index);
-                debug_log(args.out, " = cycle_group_t::conditional_assign(");
-                // Need to split logs here, since `conditional_assign` produces extra logs
-                result = stack[first_index].conditional_assign(builder, stack[second_index], predicate);
-                debug_log(args.rhs, ", ", args.lhs, ");", "\n");
+                debug_log("// ", args.out, " = ::conditional_select::", args.lhs, ", ", args.rhs, ";", "\n");
+                // Need to split logs here, since `conditional_select` produces extra logs
+                result = stack[first_index].conditional_select(builder, stack[second_index], predicate);
             } else {
-                result = stack[first_index].conditional_assign(builder, stack[second_index], predicate);
+                result = stack[first_index].conditional_select(builder, stack[second_index], predicate);
             }
 
             // If the output index is larger than the number of elements in stack, append
@@ -1562,15 +1671,15 @@ template <typename Builder> class CycleGroupBase {
                 bool is_const = true;
                 for (size_t i = 0; i < instruction.arguments.batchMulArgs.add_elements_count; i++) {
                     size_t idx = instruction.arguments.batchMulArgs.inputs[i] % stack.size();
-                    std::string el = stack[idx].cycle_group.is_constant() ? "c" : "w";
+                    std::string el = stack[idx].biggroup.is_constant() ? "c" : "w";
                     el += std::to_string(idx);
                     res += el + ", ";
-                    is_const &= stack[idx].cycle_group.is_constant();
+                    is_const &= stack[idx].biggroup.is_constant();
                 }
                 std::string out = is_const ? "c" : "w";
                 out = ((output_index >= stack.size()) ? "auto " : "") + out;
                 out += std::to_string(output_index >= stack.size() ? stack.size() : output_index);
-                debug_log(out, " = cycle_group_t::batch_mul({", res, "}, {");
+                debug_log(out, " = biggroup_t::batch_mul({", res, "}, {");
                 // Need to split logs here, since `batch_mul` produces extra logs
                 result = ExecutionHandler::batch_mul(builder, to_add, to_mul);
                 debug_log("});", "\n");
@@ -1606,7 +1715,7 @@ template <typename Builder> class CycleGroupBase {
         };
     };
 
-    /** For cycle group execution state is just a vector of ExecutionHandler objects
+    /** For biggroup execution state is just a vector of ExecutionHandler objects
      *
      * */
     typedef std::vector<ExecutionHandler> ExecutionState;
@@ -1620,19 +1729,19 @@ template <typename Builder> class CycleGroupBase {
      * @return true
      * @return false
      */
-    inline static bool postProcess(Builder* builder, std::vector<CycleGroupBase::ExecutionHandler>& stack)
+    inline static bool postProcess(Builder* builder, std::vector<BigGroupBase::ExecutionHandler>& stack)
     {
         (void)builder;
         for (size_t i = 0; i < stack.size(); i++) {
             auto element = stack[i];
-            if (element.cycle_group.get_value() != AffineElement(element.base)) {
+            if (element.biggroup.get_value() != AffineElement(element.base)) {
                 std::cerr << "Failed at " << i << " with actual value " << AffineElement(element.base)
-                          << " and value in CycleGroup " << element.cycle_group.get_value() << std::endl;
+                          << " and value in BigGroup " << element.biggroup.get_value() << std::endl;
                 return false;
             }
             if ((AffineElement::one() * element.base_scalar) != AffineElement(element.base)) {
                 std::cerr << "Failed at " << i << " with actual mul value " << element.base
-                          << " and value in scalar * CG " << element.cycle_group.get_value() * element.base_scalar
+                          << " and value in scalar * BG " << element.biggroup.get_value() * element.base_scalar
                           << std::endl;
                 return false;
             }
@@ -1641,13 +1750,30 @@ template <typename Builder> class CycleGroupBase {
     }
 };
 
+template <typename Builder>
+using BigGroupBN254Base = BigGroupBase<Builder, bb::stdlib::bn254<Builder>, /*_use_bigfield=*/false>;
+
+// BN254_BF: scalar field represented as bigfield<Builder, Bn254FrParams> rather than native field_t
+template <typename Builder>
+using BigGroupBN254BFBase = BigGroupBase<Builder,
+                                         bb::stdlib::bn254<Builder>,
+                                         /*_use_bigfield=*/true,
+                                         bb::stdlib::bigfield<Builder, bb::Bn254FrParams>>;
+
+// secp256k1/secp256r1: ScalarField is already bigfield, so BigfieldScalar defaults correctly
+template <typename Builder>
+using BigGroupSecp256k1Base = BigGroupBase<Builder, bb::stdlib::secp256k1<Builder>, /*_use_bigfield=*/true>;
+
+template <typename Builder>
+using BigGroupSecp256r1Base = BigGroupBase<Builder, bb::stdlib::secp256r1<Builder>, /*_use_bigfield=*/true>;
+
 #ifdef HAVOC_TESTING
 
 extern "C" int LLVMFuzzerInitialize(int* argc, char*** argv)
 {
     (void)argc;
     (void)argv;
-    // These are the settings, optimized for the cycle group class (under them, fuzzer reaches maximum expected
+    // These are the settings, optimized for the biggroup class (under them, fuzzer reaches maximum expected
     // coverage in 40 seconds)
     fuzzer_havoc_settings = HavocSettings{ .GEN_LLVM_POST_MUTATION_PROB = 30,          // Out of 200
                                            .GEN_MUTATION_COUNT_LOG = 5,                // -Fully checked
@@ -1768,7 +1894,17 @@ extern "C" int LLVMFuzzerInitialize(int* argc, char*** argv)
  */
 extern "C" size_t LLVMFuzzerTestOneInput(const uint8_t* Data, size_t Size)
 {
-    RunWithBuilders<CycleGroupBase, FuzzerCircuitTypes>(Data, Size, VarianceRNG);
+    if constexpr (BigCurveTypes == BigCurveType::BN254) {
+        RunWithBuilders<BigGroupBN254Base, FuzzerCircuitTypes>(Data, Size, VarianceRNG);
+    } else if constexpr (BigCurveTypes == BigCurveType::BN254_BF) {
+        RunWithBuilders<BigGroupBN254BFBase, FuzzerCircuitTypes>(Data, Size, VarianceRNG);
+    } else if constexpr (BigCurveTypes == BigCurveType::Secp256k1) {
+        RunWithBuilders<BigGroupSecp256k1Base, FuzzerCircuitTypes>(Data, Size, VarianceRNG);
+    } else if constexpr (BigCurveTypes == BigCurveType::Secp256r1) {
+        RunWithBuilders<BigGroupSecp256r1Base, FuzzerCircuitTypes>(Data, Size, VarianceRNG);
+    } else {
+        abort(); // Invalid BigGroup type
+    }
     return 0;
 }
 
