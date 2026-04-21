@@ -1,5 +1,6 @@
 #pragma once
 #include "barretenberg/crypto/poseidon2/poseidon2_params.hpp"
+#include "barretenberg/relations/poseidon2_sbox.hpp"
 #include "relation_types.hpp"
 
 namespace bb {
@@ -63,11 +64,8 @@ template <typename FF_> class Poseidon2TransitionEntryRelationImpl {
 
         const auto q_by_scaling_m = q_sel * scaling_factor;
 
-        // u = (w_l + q_l)^5  (3 Acc×Acc muls)
-        auto s = Accumulator(w_l + q_l);
-        auto u = s.sqr();
-        u = u.sqr();
-        u *= s;
+        // u = (w_l + q_l)^5 via binomial expansion + finite-diff extrapolation. See `poseidon2_sbox.hpp`.
+        auto u = poseidon2_sbox_lagrange_7<FF>(w_l + q_l);
 
         // Selector-scaled S-box value (1 Acc×Acc mul).
         const auto q_by_scaling = Accumulator(q_by_scaling_m);

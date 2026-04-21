@@ -1,5 +1,6 @@
 #pragma once
 #include "barretenberg/crypto/poseidon2/poseidon2_params.hpp"
+#include "barretenberg/relations/poseidon2_sbox.hpp"
 #include "relation_types.hpp"
 
 namespace bb {
@@ -119,21 +120,11 @@ template <typename FF_> class Poseidon2DoubleInternalRelationImpl {
         // Selector * scaling in monomial form; reused for every sub-relation's linear block.
         const auto q_by_scaling_m = q_sel * scaling_factor;
 
-        // ── Three x^5 S-boxes (3 Acc×Acc muls each) ──
-        auto s = Accumulator(w_l + q_l);
-        auto u1 = s.sqr();
-        u1 = u1.sqr();
-        u1 *= s;
-
-        s = Accumulator(w_r + q_r);
-        auto u1_prime = s.sqr();
-        u1_prime = u1_prime.sqr();
-        u1_prime *= s;
-
-        s = Accumulator(w_l_shift + q_o);
-        auto u_next = s.sqr();
-        u_next = u_next.sqr();
-        u_next *= s;
+        // ── Three x^5 S-boxes via binomial expansion + finite-diff extrapolation.
+        // 12 full field mults + ~60 adds each, vs. 21 elementwise mults naively. See `poseidon2_sbox.hpp`.
+        auto u1 = poseidon2_sbox_lagrange_7<FF>(w_l + q_l);
+        auto u1_prime = poseidon2_sbox_lagrange_7<FF>(w_r + q_r);
+        auto u_next = poseidon2_sbox_lagrange_7<FF>(w_l_shift + q_o);
 
         // ── Selector-scaled S-box values (3 Acc×Acc muls, shared across subrelations) ──
         const auto q_by_scaling = Accumulator(q_by_scaling_m);

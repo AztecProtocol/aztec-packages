@@ -1,5 +1,6 @@
 #pragma once
 #include "barretenberg/crypto/poseidon2/poseidon2_params.hpp"
+#include "barretenberg/relations/poseidon2_sbox.hpp"
 #include "relation_types.hpp"
 
 namespace bb {
@@ -92,16 +93,9 @@ template <typename FF_> class Poseidon2DoubleInternalTerminalRelationImpl {
 
         const auto q_by_scaling_m = q_sel * scaling_factor;
 
-        // ── Two x^5 S-boxes (no u_next on terminal) ──
-        auto s = Accumulator(w_l + q_l);
-        auto u1 = s.sqr();
-        u1 = u1.sqr();
-        u1 *= s;
-
-        s = Accumulator(w_r + q_r);
-        auto u1_prime = s.sqr();
-        u1_prime = u1_prime.sqr();
-        u1_prime *= s;
+        // ── Two x^5 S-boxes (no u_next on terminal) via binomial expansion. See `poseidon2_sbox.hpp`. ──
+        auto u1 = poseidon2_sbox_lagrange_7<FF>(w_l + q_l);
+        auto u1_prime = poseidon2_sbox_lagrange_7<FF>(w_r + q_r);
 
         // ── Selector-scaled S-box values (2 Acc×Acc muls, shared across subrelations) ──
         const auto q_by_scaling = Accumulator(q_by_scaling_m);
