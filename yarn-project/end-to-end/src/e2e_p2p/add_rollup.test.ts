@@ -278,7 +278,9 @@ describe('e2e_p2p_add_rollup', () => {
       // We are doing some of the things that are in the crosschain harness, but we don't actually want the full thing
       const wallet = await TestWallet.create(
         node,
-        { ...getPXEConfig(), proverEnabled: false },
+        // Use checkpointed chain tip to avoid anchoring on provisional blocks that the archiver can prune
+        // when their slot ends without a checkpoint landing on L1.
+        { ...getPXEConfig(), proverEnabled: false, syncChainTip: 'checkpointed' },
         { loggerActorLabel: 'pxe-bridge' },
       );
       const aliceAccountManager = await wallet.createSchnorrAccount(aliceAccount.secret, aliceAccount.salt);

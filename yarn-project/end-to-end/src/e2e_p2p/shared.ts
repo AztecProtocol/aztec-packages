@@ -55,7 +55,9 @@ export const submitTransactions = async (
   rpcConfig.proverEnabled = false;
   const wallet = await TestWallet.create(
     node,
-    { ...getPXEConfig(), proverEnabled: false },
+    // Use checkpointed chain tip to avoid anchoring on provisional blocks that the archiver can prune
+    // when their slot ends without a checkpoint landing on L1.
+    { ...getPXEConfig(), proverEnabled: false, syncChainTip: 'checkpointed' },
     { loggerActorLabel: 'pxe-tx' },
   );
   const fundedAccountManager = await wallet.createSchnorrAccount(fundedAccount.secret, fundedAccount.salt);
@@ -73,7 +75,7 @@ export async function prepareTransactions(
 
   const wallet = await TestWallet.create(
     node,
-    { ...getPXEConfig(), proverEnabled: false },
+    { ...getPXEConfig(), proverEnabled: false, syncChainTip: 'checkpointed' },
     { loggerActorLabel: 'pxe-tx' },
   );
   const fundedAccountManager = await wallet.createSchnorrAccount(fundedAccount.secret, fundedAccount.salt);
