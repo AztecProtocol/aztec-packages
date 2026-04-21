@@ -854,8 +854,6 @@ TEST_F(TxExecutionConstrainingWithCalldataTest, SimpleHandleCalldata)
 // A malicious prover cannot set reverted = 1 to skip the state increment.
 TEST(TxExecutionConstrainingTest, NegativeNullifierStateIncrementIsUnconditional)
 {
-    // Subrelation 42: should_nullifier_append * (prev_nullifier_tree_size + 1 - next_nullifier_tree_size) = 0
-    // Subrelation 43: should_nullifier_append * (prev_num_nullifiers_emitted + 1 - next_num_nullifiers_emitted) = 0
     TestTraceContainer trace({
         {
             // Row 0
@@ -873,14 +871,16 @@ TEST(TxExecutionConstrainingTest, NegativeNullifierStateIncrementIsUnconditional
         },
     });
 
-    // Subrelation 42: tree size must increment.
-    EXPECT_THROW_WITH_MESSAGE(check_relation<tx>(trace, static_cast<size_t>(42)), "subrelation 42");
+    // Tree size must increment unconditionally.
+    EXPECT_THROW_WITH_MESSAGE(check_relation<tx>(trace, tx::SR_NULLIFIER_TREE_SIZE_INCREMENT),
+                              "NULLIFIER_TREE_SIZE_INCREMENT");
     // Fix tree size, break emitted count.
     trace.set(C::tx_next_nullifier_tree_size, 1, 6);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<tx>(trace, static_cast<size_t>(43)), "subrelation 43");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<tx>(trace, tx::SR_NULLIFIER_EMITTED_COUNT_INCREMENT),
+                              "NULLIFIER_EMITTED_COUNT_INCREMENT");
     // Fix emitted count — both should pass now.
     trace.set(C::tx_next_num_nullifiers_emitted, 1, 4);
-    check_relation<tx>(trace, static_cast<size_t>(42), static_cast<size_t>(43));
+    check_relation<tx>(trace, tx::SR_NULLIFIER_TREE_SIZE_INCREMENT, tx::SR_NULLIFIER_EMITTED_COUNT_INCREMENT);
 }
 
 } // namespace bb::avm2::constraining

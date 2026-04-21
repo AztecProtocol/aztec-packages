@@ -18,6 +18,11 @@ struct Poseidon2HashPolicy {
 
     static fr hash_pair(const fr& lhs, const fr& rhs) { return hash(std::vector<fr>({ lhs, rhs })); }
 
+    static fr hash_pair_with_separator(uint64_t sep, const fr& lhs, const fr& rhs)
+    {
+        return hash(std::vector<fr>({ fr(sep), lhs, rhs }));
+    }
+
     static fr zero_hash() { return fr::zero(); }
 };
 

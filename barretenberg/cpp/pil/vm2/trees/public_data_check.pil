@@ -182,6 +182,11 @@ namespace public_data_check;
     // Lookup constant support: Can be removed when we support constants in lookups.
     pol commit const_three;
     sel * (const_three - 3) = 0;
+    pol commit const_four;
+    sel * (const_four - 4) = 0;
+    // Per-tree merkle-node domain separator for the public-data tree.
+    pol commit merkle_hash_separator;
+    sel * (merkle_hash_separator - constants.DOM_SEP__PUBLIC_DATA_MERKLE) = 0;
 
     #[SILO_POSEIDON2]
     sel {
@@ -252,10 +257,7 @@ namespace public_data_check;
     // ========= LOW LEAF MEMBERSHIP =========
     pol commit low_leaf_hash;
 
-    // Lookup constant support: Can be removed when we support constants in lookups.
-    pol commit const_four;
-    sel * (const_four - 4) = 0;
-
+    // Leaf preimage is (slot, value, next_slot, next_index) -- 4 inputs, 2-row chain.
     #[LOW_LEAF_POSEIDON2_0]
     sel {
         low_leaf_slot, low_leaf_value, low_leaf_next_slot,
@@ -304,10 +306,12 @@ namespace public_data_check;
     #[LOW_LEAF_MERKLE_CHECK]
     sel {
         write, low_leaf_hash, updated_low_leaf_hash,
-        low_leaf_index, tree_height, root, intermediate_root
+        low_leaf_index, tree_height, root, intermediate_root,
+        merkle_hash_separator
     } in merkle_check.start {
         merkle_check.write, merkle_check.read_node, merkle_check.write_node,
-        merkle_check.index, merkle_check.path_len, merkle_check.read_root, merkle_check.write_root
+        merkle_check.index, merkle_check.path_len, merkle_check.read_root, merkle_check.write_root,
+        merkle_check.merkle_hash_separator
     };
 
     // ========= READ VALUE CHECK =========
@@ -342,10 +346,12 @@ namespace public_data_check;
     #[NEW_LEAF_MERKLE_CHECK]
     should_insert {
         should_insert, precomputed.zero /* read_node=0 */, new_leaf_hash,
-        tree_size_before_write /* leaf_index */, tree_height, intermediate_root, write_root
+        tree_size_before_write /* leaf_index */, tree_height, intermediate_root, write_root,
+        merkle_hash_separator
     } in merkle_check.start {
         merkle_check.write, merkle_check.read_node, merkle_check.write_node,
-        merkle_check.index, merkle_check.path_len, merkle_check.read_root, merkle_check.write_root
+        merkle_check.index, merkle_check.path_len, merkle_check.read_root, merkle_check.write_root,
+        merkle_check.merkle_hash_separator
     };
 
     pol SHOULD_UPDATE = LEAF_EXISTS * write;

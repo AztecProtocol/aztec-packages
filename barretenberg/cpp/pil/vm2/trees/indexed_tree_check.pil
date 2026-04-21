@@ -1,6 +1,7 @@
 include "merkle_check.pil";
 include "../ff_gt.pil";
 include "../poseidon2_hash.pil";
+include "../constants_gen.pil";
 include "../precomputed.pil";
 include "../public_inputs.pil";
 
@@ -43,6 +44,7 @@ include "../public_inputs.pil";
  *       value,
  *       tree_root,
  *       tree_height,
+ *       merkle_hash_separator, // Per-tree merkle-node domain separator (e.g. DOM_SEP__NULLIFIER_MERKLE)
  *       sel_silo,
  *       siloing_separator, // Can be omitted if sel_silo is precomputed.zero
  *       address            // Can be omitted if sel_silo is precomputed.zero
@@ -52,6 +54,7 @@ include "../public_inputs.pil";
  *       indexed_tree_check.value,                     // Input
  *       indexed_tree_check.root,                      // Input
  *       indexed_tree_check.tree_height,               // Input
+ *       indexed_tree_check.merkle_hash_separator,     // Input
  *       indexed_tree_check.sel_silo,                  // Input
  *       indexed_tree_check.siloing_separator,         // Input (omit if sel_silo == 0)
  *       indexed_tree_check.address                    // Input (omit if sel_silo == 0)
@@ -69,6 +72,7 @@ include "../public_inputs.pil";
  *       discard,              // Can be omitted if not writing to public inputs
  *       public_inputs_index,  // Can be omitted if not writing to public inputs
  *       tree_height,
+ *       merkle_hash_separator, // Per-tree merkle-node domain separator (e.g. DOM_SEP__NULLIFIER_MERKLE)
  *       sel_silo,
  *       siloing_separator,    // Can be omitted if sel_silo is precomputed.zero
  *       address               // Can be omitted if sel_silo is precomputed.zero
@@ -83,6 +87,7 @@ include "../public_inputs.pil";
  *     indexed_tree_check.discard,                // Input (omit if not writing to public inputs)
  *     indexed_tree_check.public_inputs_index,    // Input (omit if not writing to public inputs)
  *     indexed_tree_check.tree_height,            // Input
+ *     indexed_tree_check.merkle_hash_separator,  // Input
  *     indexed_tree_check.sel_silo,               // Input
  *     indexed_tree_check.siloing_separator,      // Input (omit if sel_silo == 0)
  *     indexed_tree_check.address                 // Input (omit if sel_silo == 0)
@@ -100,8 +105,9 @@ include "../public_inputs.pil";
  * - The tree genesis state must have an irreproducible hash for uninitialized leaves (0). See note.
  *
  * Interactions:
- * - poseidon2_hash: Conditional siloing (sel_silo), low leaf hash, updated low leaf hash (sel_insert), new leaf hash (sel_insert)
- *      - All calls to poseidon2 are 1 row hashes with input_len = 3.
+ * - poseidon2_hash: Conditional siloing (sel_silo, 1-row, input_len=3),
+ *      low leaf hash (1-row, input_len=3), updated low leaf hash (sel_insert, 1-row, input_len=3),
+ *      new leaf hash (sel_insert, 1-row, input_len=3).
  * - merkle_check: Low leaf membership/update (sel_insert), new leaf insertion (sel_insert)
  * - ff_gt: Low leaf value validation (not_exists), next value validation (next_value_is_nonzero)
  * - public_inputs: Write siloed value to public inputs (sel_write_to_public_inputs)
@@ -136,6 +142,10 @@ namespace indexed_tree_check;
     sel_silo * (1 - sel_silo) = 0;
     pol commit address;
     pol commit siloing_separator;
+    // Per-tree merkle-node domain separator. Caller-supplied via lookup and passed through to
+    // merkle_check. Leaf preimages are no longer domain-separated; cross-tree separation
+    // comes entirely from this column.
+    pol commit merkle_hash_separator;
     pol commit tree_height;
 
     // Write specific inputs
@@ -222,6 +232,7 @@ namespace indexed_tree_check;
     // Tracegen must set it to 0 if sel_insert is 0 (precondition to merkle check).
     pol commit updated_low_leaf_hash;
 
+    // Leaf preimage is (value, next_value, next_index) with no domain separator -- fits in one row.
     #[LOW_LEAF_POSEIDON2]
     sel {
         low_leaf_value, low_leaf_next_value, low_leaf_next_index,
@@ -249,10 +260,12 @@ namespace indexed_tree_check;
     #[LOW_LEAF_MERKLE_CHECK]
     sel {
         sel_insert, low_leaf_hash, updated_low_leaf_hash,
-        low_leaf_index, tree_height, root, intermediate_root
+        low_leaf_index, tree_height, root, intermediate_root,
+        merkle_hash_separator
     } in merkle_check.start {
         merkle_check.write, merkle_check.read_node, merkle_check.write_node,
-        merkle_check.index, merkle_check.path_len, merkle_check.read_root, merkle_check.write_root
+        merkle_check.index, merkle_check.path_len, merkle_check.read_root, merkle_check.write_root,
+        merkle_check.merkle_hash_separator
     };
 
     // ========= NEW LEAF INSERTION =========
@@ -271,10 +284,12 @@ namespace indexed_tree_check;
     #[NEW_LEAF_MERKLE_CHECK]
     sel_insert {
         sel, precomputed.zero, new_leaf_hash,
-        tree_size_before_write, tree_height, intermediate_root, write_root
+        tree_size_before_write, tree_height, intermediate_root, write_root,
+        merkle_hash_separator
     } in merkle_check.start {
         merkle_check.write, merkle_check.read_node, merkle_check.write_node,
-        merkle_check.index, merkle_check.path_len, merkle_check.read_root, merkle_check.write_root
+        merkle_check.index, merkle_check.path_len, merkle_check.read_root, merkle_check.write_root,
+        merkle_check.merkle_hash_separator
     };
 
     // ====== WRITE TO PUBLIC INPUTS ======

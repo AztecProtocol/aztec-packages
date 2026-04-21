@@ -556,6 +556,9 @@ namespace tx;
     pol commit nullifier_tree_height;
     should_nullifier_append * (nullifier_tree_height - constants.NULLIFIER_TREE_HEIGHT) = 0;
 
+    pol commit nullifier_merkle_separator;
+    should_nullifier_append * (nullifier_merkle_separator - constants.DOM_SEP__NULLIFIER_MERKLE) = 0;
+
     // Collisions are disallowed, if the nullifier already exists the transaction is unprovable
     #[NULLIFIER_APPEND]
     should_nullifier_append {
@@ -567,6 +570,7 @@ namespace tx;
         discard, // from tx_discard.pil virtual trace
         write_nullifier_pi_offset,
         nullifier_tree_height,
+        nullifier_merkle_separator,
         precomputed.zero // sel_silo = 0 (nullifiers already siloed)
     } in indexed_tree_check.write {
         indexed_tree_check.value,
@@ -577,12 +581,15 @@ namespace tx;
         indexed_tree_check.discard,
         indexed_tree_check.public_inputs_index,
         indexed_tree_check.tree_height,
+        indexed_tree_check.merkle_hash_separator,
         indexed_tree_check.sel_silo
     };
 
     // If reverted, the next state is unconstrained since `should_nullifier_append = 0`. This is okay since we are going to restore the state at the end of setup.
     // Namely, #[RESTORE_STATE_ON_REVERT] restores the tree state to its value at the end of setup.
+    #[NULLIFIER_TREE_SIZE_INCREMENT]
     should_nullifier_append * (prev_nullifier_tree_size + 1 - next_nullifier_tree_size) = 0;
+    #[NULLIFIER_EMITTED_COUNT_INCREMENT]
     should_nullifier_append * (prev_num_nullifiers_emitted + 1 - next_num_nullifiers_emitted) = 0;
 
     // ===== L2 - L1 Messages =====
