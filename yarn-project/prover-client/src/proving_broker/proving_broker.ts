@@ -321,6 +321,10 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Pr
   private cleanUpProvingJobState(ids: ProvingJobId[]) {
     for (const id of ids) {
       this.jobsCache.delete(id);
+      const deferred = this.promises.get(id);
+      if (deferred) {
+        deferred.resolve({ status: 'rejected', reason: 'Proving job cleaned up' });
+      }
       this.promises.delete(id);
       this.resultsCache.delete(id);
       this.inProgress.delete(id);

@@ -919,6 +919,34 @@ describe.each([
       });
     });
 
+    it('settles pending promises with a rejected status when a stale job is cleaned up', async () => {
+      const id = makeRandomProvingJobId();
+      await broker.enqueueProvingJob({
+        id,
+        type: ProvingRequestType.PARITY_BASE,
+        epochNumber: EpochNumber(1),
+        inputsUri: makeInputsUri(),
+      });
+
+      const jobPromise = (broker as any).promises.get(id)?.promise;
+      expect(jobPromise).toBeDefined();
+
+      // Advance the epoch height so epoch 1 becomes stale (oldestEpochToKeep = 3 - 1 = 2)
+      await broker.enqueueProvingJob({
+        id: makeRandomProvingJobId(),
+        type: ProvingRequestType.PARITY_BASE,
+        epochNumber: EpochNumber(3),
+        inputsUri: makeInputsUri(),
+      });
+
+      // Wait for the cleanup pass to run and clean up the stale job
+      await sleep(brokerIntervalMs * 2);
+      await assertJobStatus(id, 'not-found');
+
+      // The promise must have been settled (resolved with a rejected status) rather than left pending
+      await expect(jobPromise).resolves.toEqual({ status: 'rejected', reason: 'Proving job cleaned up' });
+    });
+
     it('keeps the jobs in progress while it is alive', async () => {
       const id = makeRandomProvingJobId();
       await broker.enqueueProvingJob({
