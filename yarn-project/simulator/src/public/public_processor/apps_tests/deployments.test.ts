@@ -218,9 +218,10 @@ describe.each([
         },
       ],
     );
-    // FIXME(#12375): should be able to include the nullifier insertions, but at the moment
-    // tx simulator cannot recover from errors during revertible private insertions.
-    // Once fixed, this skipNullifierInsertion flag can be removed.
+    // We must skip the nullifier insertions here because this tx re-deploys the same contract
+    // class/instance as the first tx, which would produce a nullifier collision. By design, a
+    // nullifier collision during tx-level revertible insertions is unprovable (not revertible),
+    // so without this flag the tx would be thrown out rather than reverting in app logic.
     await addNewContractClassToTx(failingConstructorTx, contractClass, /*skipNullifierInsertion=*/ true);
     await addNewContractInstanceToTx(failingConstructorTx, contractInstance, /*skipNullifierInsertion=*/ true);
 

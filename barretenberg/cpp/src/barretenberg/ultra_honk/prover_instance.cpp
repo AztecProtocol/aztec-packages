@@ -247,52 +247,42 @@ void ProverInstance_<Flavor>::allocate_databus_polynomials(const Circuit& circui
     // offset_size gives the allocation size for a databus column of the given content length.
     const auto offset_size = [](size_t content) -> size_t { return TRACE_OFFSET + content; };
 
-    const size_t calldata_size = circuit.get_calldata().size();
-    const size_t sec_calldata_size = circuit.get_secondary_calldata().size();
-    const size_t return_data_size = circuit.get_return_data().size();
+    // Databus data is shifted by the disabled head region for uniform layout across ZK and non-ZK.
+    // offset_size gives the allocation size for a databus column of the given content length.
+    const auto offset_size = [](size_t content) -> size_t { return TRACE_OFFSET + content; };
 
-    // Calldata is public and not masked
-    polynomials.calldata = Polynomial(offset_size(calldata_size), dyadic_size());
-    polynomials.calldata_read_counts = Polynomial(offset_size(calldata_size), dyadic_size());
-    polynomials.calldata_read_tags = Polynomial(offset_size(calldata_size), dyadic_size());
-
-    polynomials.secondary_calldata = Polynomial(offset_size(sec_calldata_size), dyadic_size());
-    polynomials.secondary_calldata_read_counts = Polynomial(offset_size(sec_calldata_size), dyadic_size());
-    polynomials.secondary_calldata_read_tags = Polynomial(offset_size(sec_calldata_size), dyadic_size());
-
-    polynomials.return_data = Polynomial(offset_size(return_data_size), dyadic_size());
-    polynomials.return_data_read_counts = Polynomial(offset_size(return_data_size), dyadic_size());
-    polynomials.return_data_read_tags = Polynomial(offset_size(return_data_size), dyadic_size());
-
-    // Databus lookup inverses: used in the log-derivative lookup argument
-    // Must cover both the databus gate block (where reads occur) and the databus data itself
+    // Databus inverses must cover both the databus gate block (where reads occur) and the data itself.
     const size_t q_busread_end = circuit.blocks.busread.trace_end();
-    polynomials.calldata_inverses = Polynomial(std::max(offset_size(calldata_size), q_busread_end), dyadic_size());
-    polynomials.secondary_calldata_inverses =
-        Polynomial(std::max(offset_size(sec_calldata_size), q_busread_end), dyadic_size());
-    polynomials.return_data_inverses =
-        Polynomial(std::max(offset_size(return_data_size), q_busread_end), dyadic_size());
 
-    if constexpr (Flavor::HasZK) {
-        // Mask all databus witness polynomials. Note: calldata is NOT masked — its commitment must
-        // match across circuits in the Chonk IVC flow (it is constrained by the kernel).
-        polynomials.calldata_read_counts.add_masking();
-        polynomials.calldata_read_tags.add_masking();
-        polynomials.calldata_inverses.add_masking();
-        polynomials.secondary_calldata.add_masking();
-        polynomials.secondary_calldata_read_counts.add_masking();
-        polynomials.secondary_calldata_read_tags.add_masking();
-        polynomials.secondary_calldata_inverses.add_masking();
-        polynomials.return_data.add_masking();
-        polynomials.return_data_read_counts.add_masking();
-        polynomials.return_data_read_tags.add_masking();
-        polynomials.return_data_inverses.add_masking();
-    }
+    size_t max_databus_column_size = 0;
 
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1555): Allocate minimum size >1 to avoid point at
-    // infinity commitment.
-    const size_t max_databus_column_size =
-        std::max({ calldata_size, sec_calldata_size, return_data_size, size_t{ 2 } });
+    bb::constexpr_for<0, NUM_BUS_COLUMNS, 1>([&]<size_t bus_idx>() {
+        const size_t bus_size = circuit.get_bus_vector(bus_idx).size();
+        max_databus_column_size = std::max(max_databus_column_size, bus_size);
+
+        // Values + read_counts: sized to the bus data shifted by TRACE_OFFSET.
+        auto entities = polynomials.template databus_entities_for_bus<bus_idx>();
+        for (auto& entity : entities) {
+            entity = Polynomial(offset_size(bus_size), dyadic_size());
+        }
+
+        // Inverse polynomial: sized to cover both the busread gate block and the shifted bus data.
+        auto inverse_ref = polynomials.template databus_inverse_for_bus<bus_idx>();
+        inverse_ref[0] = Polynomial(std::max(offset_size(bus_size), q_busread_end), dyadic_size());
+
+        if constexpr (Flavor::HasZK) {
+            // Mask databus witness polynomials. The calldata values column (bus_idx == 0) is NOT
+            // masked; its read_counts column is.
+            auto& values_poly = entities[0];
+            auto& read_counts_poly = entities[1];
+            if constexpr (bus_idx != 0) {
+                values_poly.add_masking();
+            }
+            read_counts_poly.add_masking();
+            inverse_ref[0].add_masking();
+        }
+    });
+
     polynomials.databus_id = Polynomial(offset_size(max_databus_column_size), dyadic_size());
 }
 
@@ -309,51 +299,31 @@ template <typename Flavor> void ProverInstance_<Flavor>::construct_lookup_polyno
 }
 
 /**
- * @brief Populate the databus polynomials (calldata, secondary_calldata, return_data) and their read counts/tags.
+ * @brief Populate the per-bus databus polynomials (values and read counts) and the identity polynomial.
  */
 template <typename Flavor>
 void ProverInstance_<Flavor>::construct_databus_polynomials(Circuit& circuit)
     requires HasDataBus<Flavor>
 {
-    auto& calldata_poly = polynomials.calldata;
-    auto& calldata_read_counts = polynomials.calldata_read_counts;
-    auto& calldata_read_tags = polynomials.calldata_read_tags;
-    auto& secondary_calldata_poly = polynomials.secondary_calldata;
-    auto& secondary_calldata_read_counts = polynomials.secondary_calldata_read_counts;
-    auto& secondary_calldata_read_tags = polynomials.secondary_calldata_read_tags;
-    auto& return_data_poly = polynomials.return_data;
-    auto& return_data_read_counts = polynomials.return_data_read_counts;
-    auto& return_data_read_tags = polynomials.return_data_read_tags;
-
-    const auto& calldata = circuit.get_calldata();
-    const auto& secondary_calldata = circuit.get_secondary_calldata();
-    const auto& return_data = circuit.get_return_data();
-
-    // Databus data is shifted by the disabled head region for uniform layout
+    // Databus data is shifted by the disabled head region for uniform layout.
     constexpr size_t databus_offset = TRACE_OFFSET;
 
-    for (size_t idx = 0; idx < calldata.size(); ++idx) {
-        calldata_poly.at(databus_offset + idx) = circuit.get_variable(calldata[idx]);
-        calldata_read_counts.at(databus_offset + idx) = calldata.get_read_count(idx);
-        calldata_read_tags.at(databus_offset + idx) = calldata_read_counts[databus_offset + idx] > 0 ? 1 : 0;
-    }
-    for (size_t idx = 0; idx < secondary_calldata.size(); ++idx) {
-        secondary_calldata_poly.at(databus_offset + idx) = circuit.get_variable(secondary_calldata[idx]);
-        secondary_calldata_read_counts.at(databus_offset + idx) = secondary_calldata.get_read_count(idx);
-        secondary_calldata_read_tags.at(databus_offset + idx) =
-            secondary_calldata_read_counts[databus_offset + idx] > 0 ? 1 : 0;
-    }
-    for (size_t idx = 0; idx < return_data.size(); ++idx) {
-        return_data_poly.at(databus_offset + idx) = circuit.get_variable(return_data[idx]);
-        return_data_read_counts.at(databus_offset + idx) = return_data.get_read_count(idx);
-        return_data_read_tags.at(databus_offset + idx) = return_data_read_counts[databus_offset + idx] > 0 ? 1 : 0;
-    }
+    size_t max_bus_size = 0;
+    bb::constexpr_for<0, NUM_BUS_COLUMNS, 1>([&]<size_t bus_idx>() {
+        const auto& bus_vec = circuit.get_bus_vector(bus_idx);
+        max_bus_size = std::max(max_bus_size, bus_vec.size());
+        auto entities = polynomials.template databus_entities_for_bus<bus_idx>();
+        auto& values_poly = entities[0];
+        auto& read_counts_poly = entities[1];
+        for (size_t idx = 0; idx < bus_vec.size(); ++idx) {
+            values_poly.at(databus_offset + idx) = circuit.get_variable(bus_vec[idx]);
+            read_counts_poly.at(databus_offset + idx) = bus_vec.get_read_count(idx);
+        }
+    });
 
+    // Compute a simple identity polynomial for use in the databus lookup argument.
     auto& databus_id = polynomials.databus_id;
-    // Compute a simple identity polynomial for use in the databus lookup argument
-    const size_t num_databus_entries =
-        std::max({ calldata.size(), secondary_calldata.size(), return_data.size(), size_t{ 2 } });
-    for (size_t i = 0; i < num_databus_entries; ++i) {
+    for (size_t i = 0; i < max_bus_size; ++i) {
         databus_id.at(databus_offset + i) = i;
     }
 }

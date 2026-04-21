@@ -71,8 +71,7 @@ describe('e2e_simple', () => {
     it('deploys a contract', async () => {
       const deployer = new ContractDeployer(artifact, wallet);
 
-      const sender = ownerAddress;
-      const { receipt: txReceipt } = await deployer.deploy(ownerAddress, sender, 1).send({
+      const { receipt: txReceipt } = await deployer.deploy(ownerAddress, 1).send({
         from: ownerAddress,
         contractAddressSalt: new Fr(BigInt(1)),
       });

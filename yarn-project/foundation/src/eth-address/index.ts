@@ -5,7 +5,6 @@ import { randomBytes } from '../crypto/random/index.js';
 import { Fr } from '../curves/bn254/index.js';
 import { hexSchemaFor } from '../schemas/utils.js';
 import { BufferReader, FieldReader } from '../serialize/index.js';
-import { TypeRegistry } from '../serialize/type_registry.js';
 import { bufferToHex } from '../string/index.js';
 
 /**
@@ -268,6 +267,3 @@ export class EthAddress {
     return addrA.equals(addrB);
   }
 }
-
-// For deserializing JSON.
-TypeRegistry.register('EthAddress', EthAddress);

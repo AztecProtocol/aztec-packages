@@ -8,6 +8,7 @@
 #include "barretenberg/commitment_schemes/shplonk/shplonk.hpp"
 #include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/common/log.hpp"
+#include "barretenberg/goblin/merge_constants.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/stdlib/proof/proof.hpp"
 
@@ -165,8 +166,7 @@ typename MergeVerifier_<Curve>::ReductionResult MergeVerifier_<Curve>::reduce_to
     const FF kappa = transcript->template get_challenge<FF>("kappa");
     const FF kappa_inv = kappa.invert();
     const FF pow_kappa = kappa.pow(shift_size);
-    static constexpr size_t FULL_SHIFT = TRACE_OFFSET + NUM_ZERO_ROWS;
-    const FF kappa_to_s = kappa.pow(FULL_SHIFT);
+    const FF kappa_to_s = kappa.pow(MERGE_FULL_SHIFT);
 
     // Tight degree check exponent: κ^{ℓ-1} (bounds deg(L_data) < ℓ)
     const FF pow_kappa_degree_check = pow_kappa * kappa_inv;
@@ -212,8 +212,8 @@ typename MergeVerifier_<Curve>::ReductionResult MergeVerifier_<Curve>::reduce_to
     // Concatenation check uses shifted L evals (evals[0..3] = κ^s · l_data)
     // PREPEND: L' + κ^ℓ·R' = M'
     // APPEND: L' + κ^ℓ·R' = κ^{s-t}·M'
-    static constexpr size_t APPEND_OUTPUT_SHIFT = 2; // == TranslatorFlavor::RANDOMNESS_START
-    const FF pow_kappa_s = (settings == MergeSettings::APPEND) ? kappa.pow(FULL_SHIFT - APPEND_OUTPUT_SHIFT) : FF(1);
+    const FF pow_kappa_s =
+        (settings == MergeSettings::APPEND) ? kappa.pow(MERGE_FULL_SHIFT - MERGE_APPEND_OUTPUT_SHIFT) : FF(1);
     bool concatenation_verified = check_concatenation_identities(evals, pow_kappa, pow_kappa_s);
 
     // Degree check uses UNSHIFTED L_data evals with tight exponent κ^{ℓ-1}.

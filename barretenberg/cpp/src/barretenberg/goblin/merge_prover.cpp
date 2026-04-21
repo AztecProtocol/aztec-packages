@@ -7,8 +7,14 @@
 #include "merge_prover.hpp"
 #include "barretenberg/commitment_schemes/shplonk/shplonk.hpp"
 #include "barretenberg/flavor/mega_zk_flavor.hpp"
+#include "barretenberg/translator_vm/translator_flavor.hpp"
 
 namespace bb {
+
+static_assert(MERGE_APPEND_OUTPUT_SHIFT == TranslatorFlavor::RANDOMNESS_START,
+              "MERGE_APPEND_OUTPUT_SHIFT must equal TranslatorFlavor::RANDOMNESS_START: the merge protocol's output "
+              "polynomial and the Translator's wire polynomials share the same commitment, so their leading-zero "
+              "layout must match.");
 
 /**
  * @brief Create MergeProver

@@ -291,6 +291,8 @@ TEST_F(UltraRelationCorrectnessTests, Mega)
     for (auto selector : prover_inst->polynomials.get_gate_selectors()) {
         ensure_non_zero(selector);
     }
+
+    // Check the databus read counts/tags/inverses are non-zero (data columns may be zero with DEFAULT_VALUE=0)
     for (auto poly : prover_inst->polynomials.get_databus_inverses()) {
         ensure_non_zero(poly);
     }

@@ -940,6 +940,12 @@ export const P2P_GOSSIP_AGG_MESSAGE_VALIDATION_DURATION_AVG: MetricDefinition = 
   valueType: ValueType.INT,
 };
 
+export const P2P_GOSSIP_SLOW_VALIDATION_COUNT: MetricDefinition = {
+  name: 'aztec.p2p.gossip.slow_validation_count',
+  description: 'Number of gossip validations that exceeded 75% of the mcache eviction window',
+  valueType: ValueType.INT,
+};
+
 export const PUBLIC_PROCESSOR_TX_DURATION: MetricDefinition = {
   name: 'aztec.public_processor.tx_duration',
   description: 'Duration to process a public transaction',

@@ -525,7 +525,7 @@ namespace tx;
         note_hash_tree_check.next_root
     };
 
-    // If reverted, the next state is unconstrained. This is okay since we are going to restore the state at the end of setup or fail proving.
+    // If reverted, the next state is unconstrained as `should_note_hash_append = 0`. This is okay since we are going to restore the state at the end of setup or fail proving.
     // Namely, #[RESTORE_STATE_ON_REVERT] restores the tree state to its value at the end of setup.
     should_note_hash_append * (prev_note_hash_tree_size + 1 - next_note_hash_tree_size) = 0;
     should_note_hash_append * (prev_num_note_hashes_emitted + 1 - next_num_note_hashes_emitted) = 0;
@@ -556,12 +556,12 @@ namespace tx;
     pol commit nullifier_tree_height;
     should_nullifier_append * (nullifier_tree_height - constants.NULLIFIER_TREE_HEIGHT) = 0;
 
-    // We revert if the nullifier already exists.
+    // Collisions are disallowed, if the nullifier already exists the transaction is unprovable
     #[NULLIFIER_APPEND]
     should_nullifier_append {
         leaf_value,
         prev_nullifier_tree_root,
-        reverted,
+        precomputed.zero, // Nullifiers emitted in tx trace cannot have existed
         next_nullifier_tree_root,
         prev_nullifier_tree_size,
         discard, // from tx_discard.pil virtual trace
@@ -580,10 +580,10 @@ namespace tx;
         indexed_tree_check.sel_silo
     };
 
-    // If reverted, the next state is unconstrained. This is okay since we are going to restore the state at the end of setup.
+    // If reverted, the next state is unconstrained since `should_nullifier_append = 0`. This is okay since we are going to restore the state at the end of setup.
     // Namely, #[RESTORE_STATE_ON_REVERT] restores the tree state to its value at the end of setup.
-    should_nullifier_append * (1 - reverted) * (prev_nullifier_tree_size + 1 - next_nullifier_tree_size) = 0;
-    should_nullifier_append * (1 - reverted) * (prev_num_nullifiers_emitted + 1 - next_num_nullifiers_emitted) = 0;
+    should_nullifier_append * (prev_nullifier_tree_size + 1 - next_nullifier_tree_size) = 0;
+    should_nullifier_append * (prev_num_nullifiers_emitted + 1 - next_num_nullifiers_emitted) = 0;
 
     // ===== L2 - L1 Messages =====
     pol commit should_try_l2_l1_msg_append; // @boolean (follows from definition)

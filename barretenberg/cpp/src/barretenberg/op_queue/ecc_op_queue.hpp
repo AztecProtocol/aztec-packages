@@ -9,6 +9,7 @@
 #include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/eccvm/eccvm_builder_types.hpp"
+#include "barretenberg/goblin/merge_constants.hpp"
 #include "barretenberg/op_queue/ecc_ops_table.hpp"
 #include "barretenberg/op_queue/eccvm_row_tracker.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
@@ -82,10 +83,18 @@ class ECCOpQueue {
 
     /**
      * @brief Compute the fixed append offset for the final APPEND merge.
-     * @details Places the appended subtable so the total table fits in OP_QUEUE_SIZE, reserving
-     * NUM_ZERO_ROWS slots for the Translator's shiftability zero rows.
+     * @details Places the appended subtable so the merged polynomial fits exactly in MINI_CIRCUIT_SIZE
+     * rows, reserving MERGE_APPEND_OUTPUT_SHIFT rows of leading zeros at the start (for the Translator's
+     * shiftability layout). The reservation is converted to an op-slot count via NUM_ROWS_PER_OP.
      */
-    size_t get_append_offset() const { return OP_QUEUE_SIZE - get_current_subtable_size() - NUM_ZERO_ROWS; }
+    size_t get_append_offset() const
+    {
+        static_assert(MERGE_APPEND_OUTPUT_SHIFT % UltraEccOpsTable::NUM_ROWS_PER_OP == 0,
+                      "MERGE_APPEND_OUTPUT_SHIFT must be a multiple of NUM_ROWS_PER_OP so that ops land "
+                      "on even row boundaries after the shift");
+        constexpr size_t reserved_op_slots = MERGE_APPEND_OUTPUT_SHIFT / UltraEccOpsTable::NUM_ROWS_PER_OP;
+        return OP_QUEUE_SIZE - get_current_subtable_size() - reserved_op_slots;
+    }
 
     void merge(MergeSettings settings = MergeSettings::PREPEND, std::optional<size_t> ultra_fixed_offset = std::nullopt)
     {

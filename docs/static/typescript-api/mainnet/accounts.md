@@ -1,6 +1,6 @@
 # @aztec/accounts
 
-Version: 4.2.0-aztecnr-rc.2
+Version: 4.2.0
 
 ## Quick Import Reference
 

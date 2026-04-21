@@ -1,4 +1,3 @@
-import { GENESIS_BLOCK_HEADER_HASH } from '@aztec/constants';
 import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
 import { compactArray } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
@@ -8,7 +7,7 @@ import times from 'lodash.times';
 
 import type { PublishedCheckpoint } from '../../checkpoint/published_checkpoint.js';
 import type { BlockHeader } from '../../tx/block_header.js';
-import { BlockHash } from '../block_hash.js';
+import { BlockHash, GENESIS_BLOCK_HEADER_HASH } from '../block_hash.js';
 import type { CheckpointedL2Block } from '../checkpointed_l2_block.js';
 import type { L2Block } from '../l2_block.js';
 import { GENESIS_CHECKPOINT_HEADER_HASH, type L2BlockId, type L2BlockSource, type L2Tips } from '../l2_block_source.js';

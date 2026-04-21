@@ -10,6 +10,7 @@
 #include "barretenberg/constants.hpp"
 #include "barretenberg/flavor/mega_flavor.hpp"
 #include "barretenberg/flavor/ultra_flavor.hpp"
+#include "barretenberg/goblin/merge_constants.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/op_queue/ecc_op_queue.hpp"
 #include "barretenberg/transcript/transcript.hpp"
@@ -45,11 +46,11 @@ class MergeProver {
 
     CommitmentKey pcs_commitment_key;
 
-    // Offset for L and R: matches the circuit's ecc_op_wire layout (TRACE_OFFSET + NUM_ZERO_ROWS).
-    static constexpr size_t FULL_SHIFT = MegaExecutionTraceBlocks::TRACE_OFFSET + NUM_ZERO_ROWS;
+    // Offset for L and R: matches the circuit's ecc_op_wire layout.
+    static constexpr size_t FULL_SHIFT = MERGE_FULL_SHIFT;
 
     // In APPEND mode (final merge), M retains a partial shift for Translator shiftability.
-    static constexpr size_t APPEND_OUTPUT_SHIFT = 2; // == TranslatorFlavor::RANDOMNESS_START
+    static constexpr size_t APPEND_OUTPUT_SHIFT = MERGE_APPEND_OUTPUT_SHIFT;
 
   private:
     std::shared_ptr<Transcript> transcript;

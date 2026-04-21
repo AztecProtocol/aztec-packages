@@ -35,8 +35,9 @@
 <a href="../../../noir_aztec/event/event_interface/trait.EventInterface.html"><code>EventInterface</code></a> implementation (which provides the event type
 id) and a <a href="../../../serde/serialization/trait.Serialize.html"><code>Serialize</code></a> implementation if one is not already provided.</p>
 <h2>Requirements</h2>
-<p>The event struct must not exceed
-<a href="../../../noir_aztec/messages/logs/event/global.MAX_EVENT_SERIALIZED_LEN.html"><code>MAX_EVENT_SERIALIZED_LEN</code></a> when serialized.</p></div>
+<p>Events can be emitted both privately and publicly. Public emission imposes no requirements, but for an event to be
+emittable privately its serialization length must not exceeed
+<a href="../../../noir_aztec/messages/logs/event/global.MAX_EVENT_SERIALIZED_LEN.html"><code>MAX_EVENT_SERIALIZED_LEN</code></a>.</p></div>
 </main>
 </span>
 </body>

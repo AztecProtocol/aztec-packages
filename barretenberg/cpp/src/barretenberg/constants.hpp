@@ -37,7 +37,8 @@ static constexpr size_t IPA_PROOF_LENGTH = (4 * CONST_ECCVM_LOG_N) + 4;
 
 // The number of rows randomized to mask witness polynomials, hiding (1) witness commitments, (2) multilinear
 // evaluations of witness polynomials in Sumcheck, (3) evaluations of shifted witness polynomials in Sumcheck or
-// univariate evaluations required in ECCVM. The masking values are placed in the first TRACE_OFFSET rows of the trace.
+// univariate evaluations required in ECCVM. The masking values are placed in the rows NUM_ZERO_ROWS .. TRACE_OFFSET +
+// NUM_ZERO_ROWS - 1 of the trace. (Recall that the first NUM_ZERO_ROWS are zeroed out.)
 static constexpr uint32_t NUM_MASKED_ROWS = 3;
 
 // The first NUM_MASKED_ROWS + 1 rows are disabled in Sumcheck (= TRACE_OFFSET = NUM_DISABLED_ROWS_IN_SUMCHECK). The

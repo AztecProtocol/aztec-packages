@@ -12,12 +12,7 @@ import {
   getBlobsPerL1Block,
   getPrefixedEthBlobCommitments,
 } from '@aztec/blob-lib';
-import {
-  GENESIS_ARCHIVE_ROOT,
-  GENESIS_BLOCK_HEADER_HASH,
-  MAX_NULLIFIERS_PER_TX,
-  NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
-} from '@aztec/constants';
+import { GENESIS_ARCHIVE_ROOT, MAX_NULLIFIERS_PER_TX, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
 import { EpochCache } from '@aztec/epoch-cache';
 import { createEthereumChain } from '@aztec/ethereum/chain';
 import { createExtendedL1Client } from '@aztec/ethereum/client';
@@ -50,6 +45,7 @@ import {
   CheckpointedL2Block,
   type CommitteeAttestation,
   CommitteeAttestationsAndSigners,
+  GENESIS_BLOCK_HEADER_HASH,
   L2Block,
   type L2Tips,
   Signature,
