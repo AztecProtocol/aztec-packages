@@ -237,6 +237,14 @@ describe('e2e_asserted_token', () => {
     return transferReceipt;
   }
 
+  async function balanceOf(owner: AztecAddress): Promise<bigint> {
+    return (await contract.methods.balance_of_private(owner).simulate({ from: owner })).result;
+  }
+
+  async function assertBalance(address: AztecAddress, expectedBalance: bigint) {
+    expect(await balanceOf(address)).toBe(expectedBalance);
+  }
+
   it(
     'mints and transfers funds, verifying note discovery',
     async () => {
@@ -252,14 +260,22 @@ describe('e2e_asserted_token', () => {
       const signer = await createTeeSigner();
       await contract.methods.add_approved_signer(signer.publicKey.x, signer.publicKey.y).send({ from: alice });
 
+      // Initial balances: both zero.
+      await assertBalance(alice, 0n);
+      await assertBalance(bob, 0n);
+
       // Mint tokens to Alice.
       const mintReceipt = await mint(signer, mintAmount, alice);
       receipts.push(mintReceipt);
+      await assertBalance(alice, mintAmount);
+      await assertBalance(bob, 0n);
 
       // Alice transfers to Bob.
       // This succeeds only if Alice's minted note was discovered by the PXE.
       const transferReceipt = await transfer(signer, alice, bob, transferAmount);
       receipts.push(transferReceipt);
+      await assertBalance(alice, mintAmount - transferAmount);
+      await assertBalance(bob, transferAmount);
 
       // Verify the mint tx using the transfer's block as anchor.
       await verifyAncestorEffects(mintReceipt.txHash, transferReceipt.blockHash!);
@@ -268,6 +284,8 @@ describe('e2e_asserted_token', () => {
       // This succeeds only if Bob's transferred note was discovered by the PXE.
       const transferBackReceipt = await transfer(signer, bob, alice, transferBackAmount);
       receipts.push(transferBackReceipt);
+      await assertBalance(alice, mintAmount - transferAmount + transferBackAmount);
+      await assertBalance(bob, transferAmount - transferBackAmount);
 
       // Verify the first two txs using the last block as anchor.
       for (const receipt of receipts.slice(0, -1)) {

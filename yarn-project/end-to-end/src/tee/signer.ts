@@ -47,14 +47,14 @@ export class TeeSigner {
     public readonly publicKey: Point,
   ) {}
 
-  async validateOwnerPreimage(owner: AztecAddress, ownerAddressPreimage: CompleteAddress): Promise<void> {
+  private async validateOwnerPreimage(owner: AztecAddress, ownerAddressPreimage: CompleteAddress): Promise<void> {
     const derivedOwner = await computeAddress(ownerAddressPreimage.publicKeys, ownerAddressPreimage.partialAddress);
     if (!derivedOwner.equals(owner)) {
       throw new Error(`Owner address preimage does not match note owner: expected ${owner}, rederived ${derivedOwner}`);
     }
   }
 
-  async validateMasterNullifierSecretKey(
+  private async validateMasterNullifierSecretKey(
     masterNullifierSecretKey: GrumpkinScalar,
     ownerAddressPreimage: CompleteAddress,
   ): Promise<void> {
@@ -67,7 +67,7 @@ export class TeeSigner {
     }
   }
 
-  async validateSignature(
+  private async validateSignature(
     signature: GrumpkinPoseidonSignature,
     tokenAddress: AztecAddress,
     siloedNoteHash: Fr,
@@ -94,7 +94,7 @@ export class TeeSigner {
    * equal the operation's anchor block header hash, or be a leaf in that header's archive
    * (i.e. a strictly earlier block).
    */
-  async validateSpendAnchorBlockHash(
+  private async validateSpendAnchorBlockHash(
     spendAnchorBlockHash: BlockHash,
     operationAnchorBlockHeader: BlockHeader,
     membershipWitness: MembershipWitness<typeof ARCHIVE_HEIGHT>,
@@ -115,7 +115,7 @@ export class TeeSigner {
     }
   }
 
-  async validateSiloedVsUniqueNoteHash(siloedNoteHash: Fr, creationEffects: TxEffect): Promise<Fr> {
+  private async validateSiloedVsUniqueNoteHash(siloedNoteHash: Fr, creationEffects: TxEffect): Promise<Fr> {
     const firstNullifier = creationEffects.nullifiers[0];
     let foundUniqueNoteHash = undefined;
     for (let i = 0; i < creationEffects.noteHashes.length; i++) {
@@ -136,7 +136,10 @@ export class TeeSigner {
     return foundUniqueNoteHash;
   }
 
-  validateRequiredNullifiers(requiredNullifiers: Tuple<Fr, typeof MAX_EFFECTS>, creationEffects: TxEffect): void {
+  private validateRequiredNullifiers(
+    requiredNullifiers: Tuple<Fr, typeof MAX_EFFECTS>,
+    creationEffects: TxEffect,
+  ): void {
     for (const requiredNullifier of requiredNullifiers) {
       if (requiredNullifier.equals(Fr.zero())) {
         continue;
@@ -147,13 +150,13 @@ export class TeeSigner {
     }
   }
 
-  validateSiloedNoteHashInTeeNotes(siloedNoteHash: Fr, teeNotes: Tuple<Fr, typeof MAX_EFFECTS>): void {
+  private validateSiloedNoteHashInTeeNotes(siloedNoteHash: Fr, teeNotes: Tuple<Fr, typeof MAX_EFFECTS>): void {
     if (teeNotes.filter(teeNote => teeNote.equals(siloedNoteHash)).length !== 1) {
       throw new Error(`Siloed note hash ${siloedNoteHash} not found once in tee notes`);
     }
   }
 
-  async validateSpends(
+  private async validateSpends(
     operation: TokenOperation,
     anchorBlockHash: BlockHash,
   ): Promise<{
@@ -188,7 +191,7 @@ export class TeeSigner {
       this.validateRequiredNullifiers(creationRequiredNullifiers, spend.creationEffects);
 
       const creationMetadata = extractMetadata(spend.creationEffects);
-      //TODO: validate that the signer is registered
+      //TODO: validate that the signer is registered on L1
       await this.validateSpendAnchorBlockHash(
         creationMetadata.anchorBlockHash,
         operation.anchorBlockHeader,
@@ -248,7 +251,8 @@ export class TeeSigner {
       }),
     );
 
-    // TODO: add unrelated notes to tee notes or just do multiple token operations in one go
+    // TODO: Do multiple token address operations in one go, running the tee once per tx.
+    // For now tee notes are just the siloed note hashes of one token.
     const teeNotes = siloedNoteHashes.slice();
     if (new Set(teeNotes.map(teeNote => teeNote.toBigInt())).size !== teeNotes.length) {
       throw new Error(`Duplicate tee notes found in operation`);

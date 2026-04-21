@@ -6,6 +6,7 @@ mod effects;
 mod validation;
 mod delivery;
 mod da;
+mod balance;
 
 #[aztec(::aztec::macros::AztecConfig::new().custom_message_handler(crate::delivery::note_handler))]
 pub contract AssertedTokenContract {
@@ -48,6 +49,11 @@ pub contract AssertedTokenContract {
     fn add_approved_signer(pub_key_x: Field, pub_key_y: Field) {
         // TODO: read from l1.
         self.storage.approved_signers.at(poseidon2_hash([pub_key_x, pub_key_y])).write(true);
+    }
+
+    #[external("utility")]
+    unconstrained fn balance_of_private(owner: AztecAddress) -> u128 {
+        crate::balance::balance_of_with_offset(self.storage.balances.at(owner), 0)
     }
 
     #[external("private")]
