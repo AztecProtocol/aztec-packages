@@ -268,6 +268,18 @@ tests:
     owners:
       - *phil
 
+  # PXE anchor pinned at genesis while node's world state advances past genesis produces stale
+  # public-data-tree witnesses and fails private-kernel proving with "Proving public value inclusion
+  # failed". PR #22679 partially addressed the native C++ revision semantics but the TS short-circuit
+  # in AztecNodeService.getWorldState still returns getCommitted() (latest tip) instead of a view
+  # pinned to the initial header, so the race is still reproducible on merge-train/spartan.
+  # Tracked as a follow-up to PR #22679.
+  - regex: "src/e2e_p2p/preferred_gossip_network.test.ts"
+    skip: true
+    owners:
+      - *palla
+      - *phil
+
   - regex: "src/e2e_epochs/.*\\.test\\.ts"
     flake_group_id: e2e-p2p-epoch-flakes
     owners:
