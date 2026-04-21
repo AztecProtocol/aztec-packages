@@ -2,7 +2,7 @@ import { computeSecretHash } from '@aztec/aztec.js/crypto';
 import { Fr } from '@aztec/aztec.js/fields';
 import type { TxHash } from '@aztec/aztec.js/tx';
 
-import { BITSIZE_TOO_BIG_ERROR, U128_OVERFLOW_ERROR } from '../fixtures/index.js';
+import { U128_OVERFLOW_ERROR } from '../fixtures/index.js';
 import { BlacklistTokenContractTest } from './blacklist_token_contract_test.js';
 
 describe('e2e_blacklist_token_contract mint', () => {
@@ -41,14 +41,6 @@ describe('e2e_blacklist_token_contract mint', () => {
         const amount = 10000n;
         await expect(asset.methods.mint_public(adminAddress, amount).simulate({ from: otherAddress })).rejects.toThrow(
           'Assertion failed: caller is not minter',
-        );
-      });
-
-      // TODO(#12221): re-enable this test once we have proper unsigned integer overflow checks
-      it.skip('mint >u128 tokens to overflow', async () => {
-        const amount = 2n ** 128n; // u128::max() + 1;
-        await expect(asset.methods.mint_public(adminAddress, amount).simulate({ from: adminAddress })).rejects.toThrow(
-          BITSIZE_TOO_BIG_ERROR,
         );
       });
 
@@ -121,14 +113,6 @@ describe('e2e_blacklist_token_contract mint', () => {
       it('mint_private as non-minter', async () => {
         await expect(asset.methods.mint_private(amount, secretHash).simulate({ from: otherAddress })).rejects.toThrow(
           'Assertion failed: caller is not minter',
-        );
-      });
-
-      // TODO(#12221): re-enable this test once we have proper unsigned integer overflow checks
-      it.skip('mint >u128 tokens to overflow', async () => {
-        const amount = 2n ** 128n; // u128::max() + 1;
-        await expect(asset.methods.mint_private(amount, secretHash).simulate({ from: adminAddress })).rejects.toThrow(
-          BITSIZE_TOO_BIG_ERROR,
         );
       });
 

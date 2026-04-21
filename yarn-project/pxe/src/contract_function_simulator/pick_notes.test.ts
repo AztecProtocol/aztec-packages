@@ -361,4 +361,58 @@ describe('getNotes', () => {
       [7n, 6n, 3n],
     ]);
   });
+
+  it('throws a clear error for an invalid comparator value', () => {
+    const notes = [createNote([1n])];
+    const options = {
+      selects: [
+        {
+          selector: { index: 0, offset: 0, length: 32 },
+          value: new Fr(1n),
+          comparator: 99 as Comparator,
+        },
+      ],
+    };
+
+    expect(() => pickNotes(notes, options)).toThrow('Invalid comparator value: 99');
+  });
+
+  it('throws when selector.index is out of bounds', () => {
+    const notes = [createNote([1n, 2n])];
+    const options = {
+      selects: [
+        {
+          selector: { index: 5, offset: 0, length: 32 },
+          value: new Fr(1n),
+          comparator: Comparator.EQ,
+        },
+      ],
+    };
+
+    expect(() => pickNotes(notes, options)).toThrow(/index 5 out of bounds/);
+  });
+
+  it('throws when selector.index is out of bounds in a sort', () => {
+    const notes = [createNote([1n]), createNote([2n])];
+    const options = {
+      sorts: [{ selector: { index: 3, offset: 0, length: 32 }, order: SortOrder.ASC }],
+    };
+
+    expect(() => pickNotes(notes, options)).toThrow(/index 3 out of bounds/);
+  });
+
+  it('throws when selector.offset + selector.length exceeds Fr buffer size', () => {
+    const notes = [createNote([1n])];
+    const options = {
+      selects: [
+        {
+          selector: { index: 0, offset: 30, length: 5 },
+          value: new Fr(0n),
+          comparator: Comparator.EQ,
+        },
+      ],
+    };
+
+    expect(() => pickNotes(notes, options)).toThrow(/exceeds Fr buffer size/);
+  });
 });

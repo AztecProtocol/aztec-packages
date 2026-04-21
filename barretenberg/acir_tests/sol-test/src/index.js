@@ -71,7 +71,7 @@ export const compilationInput = {
     },
     outputSelection: {
       "*": {
-        "*": ["evm.bytecode.object", "abi"],
+        "*": ["evm.bytecode.object", "evm.bytecode.linkReferences", "abi"],
       },
     },
   },
@@ -94,6 +94,7 @@ output.errors.forEach((e) => {
 
 const contract = output.contracts["Test.sol"]["Test"];
 const bytecode = contract.evm.bytecode.object;
+const linkReferences = contract.evm.bytecode.linkReferences;
 const abi = contract.abi;
 
 /**
@@ -138,23 +139,57 @@ const deploy = async (signer, abi, bytecode) => {
 };
 
 /**
- * Links a library address to bytecode
- * @param {string} bytecode - The bytecode with library placeholders
- * @param {string} libraryName - The library name
- * @param {string} libraryAddress - The deployed library address
- * @returns {string} - The linked bytecode
+ * Deploys a library and returns its address
+ * @param {ethers.Signer} signer
+ * @param {object} contractObject - Compiled library contract from solc output
+ * @param {string} libraryName
+ * @returns {string} - Deployed library address (0x-prefixed)
  */
-const linkLibrary = (bytecode, libraryName, libraryAddress) => {
-  // Remove 0x prefix from address if present
-  const address = libraryAddress.replace(/^0x/, '');
+const deployLibrary = async (signer, contractObject, libraryName) => {
+    const libraryBytecode = contractObject.evm.bytecode.object;
+    const libraryAbi = contractObject.abi;
 
-  // Library placeholder is __$<keccak256(libraryName)[0:34]>$__
-  // We need to find and replace this placeholder with the actual address
-  const placeholder = `__\\$[a-fA-F0-9]{34}\\$__`;
-  const regex = new RegExp(placeholder, 'g');
+    console.log(`Deploying ${libraryName} library...`);
+    const libraryAddress = await deploy(signer, libraryAbi, libraryBytecode);
 
-  // Replace all occurrences of the placeholder with the library address
-  return bytecode.replace(regex, address);
+    // Wait for the library deployment - for some reason we have an issue with nonces here
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    console.log(`${libraryName} deployed at: ${libraryAddress}`);
+
+    return libraryAddress;
+};
+
+/**
+ * Links every library referenced in solc's linkReferences into the given bytecode.
+ * Uses the byte offsets provided by solc rather than re-hashing library names,
+ * so it works for any library the compiler reports.
+ *
+ * @param {string} bytecode - Hex string (no 0x prefix) of the contract to link
+ * @param {object} linkReferences - solc linkReferences: { [sourceFile]: { [libName]: [{start,length},...] } }
+ * @param {object} contracts - solc contracts output: { [sourceFile]: { [contractName]: ... } }
+ * @param {ethers.Signer} signer
+ * @returns {string} - Linked bytecode
+ */
+const linkLibraries = async (bytecode, linkReferences, contracts, signer) => {
+  let linked = bytecode;
+  for (const [sourceFile, libs] of Object.entries(linkReferences)) {
+    for (const [libraryName, refs] of Object.entries(libs)) {
+      const libraryContract = contracts[sourceFile]?.[libraryName];
+      if (!libraryContract) {
+        throw new Error(`Library ${sourceFile}:${libraryName} referenced but not found in compilation output`);
+      }
+      const libraryAddress = await deployLibrary(signer, libraryContract, libraryName);
+      const addressHex = libraryAddress.replace(/^0x/, '').toLowerCase();
+
+      // start/length from solc are byte offsets into the bytecode; we have a hex string (2 chars per byte).
+      for (const { start, length } of refs) {
+        const hexStart = start * 2;
+        const hexLength = length * 2;
+        linked = linked.slice(0, hexStart) + addressHex + linked.slice(hexStart + hexLength);
+      }
+    }
+  }
+  return linked;
 };
 
 /**
@@ -255,32 +290,7 @@ try {
   const provider = await getProvider(randomPort);
   const signer = new ethers.Wallet(key, provider);
 
-  let finalBytecode = bytecode;
-
-  // Deploy ZKTranscript library if needed and link it
-  if (hasZK) {
-    // Check if there's a library placeholder in the bytecode
-    const libraryPlaceholder = /__\$[a-fA-F0-9]{34}\$__/;
-    if (libraryPlaceholder.test(bytecode)) {
-      // Get the ZKTranscriptLib contract from compilation output
-      const zkTranscriptContract = output.contracts["Verifier.sol"]["ZKTranscriptLib"];
-      if (zkTranscriptContract) {
-        const libraryBytecode = zkTranscriptContract.evm.bytecode.object;
-        const libraryAbi = zkTranscriptContract.abi;
-
-        // Deploy the library
-        console.log("Deploying ZKTranscriptLib library...");
-        const libraryAddress = await deploy(signer, libraryAbi, libraryBytecode);
-
-        // Wait for the library deployment - for some reason we have an issue with nonces here
-        await new Promise((resolve) => setTimeout(resolve, 500));
-        console.log("ZKTranscriptLib deployed at:", libraryAddress);
-
-        // Link the library to the verifier bytecode
-        finalBytecode = linkLibrary(bytecode, "ZKTranscriptLib", libraryAddress);
-      }
-    }
-  }
+  const finalBytecode = await linkLibraries(bytecode, linkReferences, output.contracts, signer);
 
   const address = await deploy(signer, abi, finalBytecode);
   const contract = new ethers.Contract(address, abi, signer);

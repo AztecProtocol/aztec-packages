@@ -9,6 +9,54 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
+### [Aztec.nr] `emit_private_log_unsafe` / `emit_raw_note_log_unsafe` are deprecated
+
+`emit_private_log_unsafe` and `emit_raw_note_log_unsafe` are deprecated and will be removed in a future release. Migrate to the new `emit_private_log_vec_unsafe` / `emit_raw_note_log_vec_unsafe` functions, which take a `BoundedVec<Field, PRIVATE_LOG_CIPHERTEXT_LEN>` instead of the `(log: [Field; PRIVATE_LOG_CIPHERTEXT_LEN], length: u32)` pair.
+
+```diff
+- context.emit_private_log_unsafe(tag, log, length);
++ context.emit_private_log_vec_unsafe(tag, bounded_vec_log);
+- context.emit_raw_note_log_unsafe(tag, log, length, note_hash_counter);
++ context.emit_raw_note_log_vec_unsafe(tag, bounded_vec_log, note_hash_counter);
+```
+
+If you were manually padding an array and passing a shorter length, you can now create a `BoundedVec` from just the meaningful fields:
+
+```diff
+- let padded = payload.concat([0; PRIVATE_LOG_CIPHERTEXT_LEN - 2]);
+- context.emit_private_log_unsafe(tag, padded, 2);
++ let log = BoundedVec::from_array(payload);
++ context.emit_private_log_vec_unsafe(tag, log);
+```
+
+If you were passing the full array, wrap it with `BoundedVec::from_array`:
+
+```diff
+- context.emit_private_log_unsafe(tag, ciphertext, ciphertext.len());
++ context.emit_private_log_vec_unsafe(tag, BoundedVec::from_array(ciphertext));
+```
+
+### [aztec-nr] Nullifier membership witness oracle returns split types
+
+`get_nullifier_membership_witness` and `get_low_nullifier_membership_witness` now return `(NullifierLeafPreimage, MembershipWitness<NULLIFIER_TREE_HEIGHT>)` instead of the bundled `NullifierMembershipWitness` struct (which has been removed).
+
+If you were using these oracle functions directly (e.g. in `schnorr_account_contract`'s `lookup_validity`), update your code to destructure the tuple:
+
+```diff
+- let witness = get_low_nullifier_membership_witness(block_header, siloed_nullifier);
+- let nullifier_value = witness.leaf_preimage.nullifier;
+- let index = witness.index;
+- let path = witness.path;
++ let (leaf_preimage, witness) = get_low_nullifier_membership_witness(block_header, siloed_nullifier);
++ let nullifier_value = leaf_preimage.nullifier;
++ let index = witness.leaf_index;
++ let path = witness.sibling_path;
+```
+
+Note the field renames: `index` is now `leaf_index`, and `path` is now `sibling_path` (matching the protocol circuit's `MembershipWitness` type).
+
+This has been done because this is the format expected by the functionality in protocol circuits and given that this is sensitive security-wise it made sense to reuse that functionality in Aztec.nr.
+
 ### [L1 Contracts] Empire slasher removed, slasher config simplified
 
 The empire slashing model has been removed. Only the tally-based slashing model remains, and it has been renamed from `TallySlashingProposer` to `SlashingProposer`.
@@ -41,6 +89,100 @@ The empire slashing model has been removed. Only the tally-based slashing model 
 ```
 
 `slashMinPenaltyPercentage` and `slashMaxPenaltyPercentage` removed from `SlasherConfig`.
+
+## Unreleased (v5)
+
+### [aztec.js] `DeployMethod.send()` always returns `{ contract, receipt, instance }`
+
+The `returnReceipt` option in deploy wait options has been removed. `DeployMethod.send()` now always returns an object with `contract`, `receipt`, and `instance` at the top level, provided the user waits for the transaction to be included.
+
+The `DeployTxReceipt` and `DeployWaitOptions` types have been removed.
+
+**Migration:**
+
+```diff
+- const {
+-   receipt: { contract, instance },
+- } = await MyContract.deploy(wallet, ...args).send({
+-   from: address,
+-   wait: { returnReceipt: true },
+- });
+
++ const { contract, instance } = await MyContract.deploy(wallet, ...args).send({
++   from: address,
++ });
+```
+
+### `aztec new` and `aztec init` now create a 2-crate workspace
+
+`aztec new` and `aztec init` now create a workspace with two crates instead of a single contract crate:
+
+- A `contract` crate (type = "contract") for your smart contract code
+- A `test` crate (type = "lib") for Noir tests, which depends on the contract crate
+
+The new project structure looks like:
+
+```
+my_project/
+├── Nargo.toml           # [workspace] members = ["contract", "test"]
+├── contract/
+│   ├── src/main.nr
+│   └── Nargo.toml       # type = "contract"
+└── test/
+    ├── src/lib.nr
+    └── Nargo.toml       # type = "lib"
+```
+
+**What changed:**
+
+- The `--contract` and `--lib` flags have been removed from `aztec new` and `aztec init`. These commands now always create a contract workspace.
+- Contract code is now at `contract/src/main.nr` instead of `src/main.nr`.
+- The `Nargo.toml` in the project root is now a workspace file. Contract dependencies go in `contract/Nargo.toml`.
+- Tests should be written in the separate `test` crate (`test/src/lib.nr`) and import the contract by package name (e.g., `use my_contract::MyContract;`) instead of using `crate::`.
+
+### `aztec new` crate directories are now named after the contract
+
+`aztec new` and `aztec init` now name the generated crate directories after the contract instead of using generic `contract/` and `test/` names. For example, `aztec new counter` now creates:
+
+```
+counter/
+├── Nargo.toml                # [workspace] members = ["counter_contract", "counter_test"]
+├── counter_contract/
+│   ├── src/main.nr
+│   └── Nargo.toml            # type = "contract"
+└── counter_test/
+    ├── src/lib.nr
+    └── Nargo.toml            # type = "lib"
+```
+
+This enables adding multiple contracts to a single workspace. Running `aztec new <name>` inside an existing workspace (a directory with a `Nargo.toml` containing `[workspace]`) now adds a new `<name>_contract` and `<name>_test` crate pair to the workspace instead of creating a new directory.
+
+**What changed:**
+
+- Crate directories are now `<name>_contract/` and `<name>_test/` instead of `contract/` and `test/`.
+- Contract code is now at `<name>_contract/src/main.nr` instead of `contract/src/main.nr`.
+- Contract dependencies go in `<name>_contract/Nargo.toml` instead of `contract/Nargo.toml`.
+- Tests import the contract by its new crate name (e.g., `use counter_contract::Main;` instead of `use counter::Main;`).
+
+### [CLI] `--name` flag removed from `aztec new` and `aztec init`
+
+The `--name` flag has been removed from both `aztec new` and `aztec init`. For `aztec new`, the positional argument now serves as both the contract name and the directory name. For `aztec init`, the directory name is always used as the contract name.
+
+**Migration:**
+
+```diff
+- aztec new my_project --name counter
++ aztec new counter
+```
+
+```diff
+- aztec init --name counter
++ aztec init
+```
+
+**Impact**: If you were using `--name` to set a contract name different from the directory name, rename your directory or use `aztec new` with the desired contract name directly.
+
+## 4.2.0
 
 ### [Aztec.js] `GasSettings.default()` renamed to `GasSettings.fallback()`
 
@@ -103,7 +245,77 @@ The zero address (`AztecAddress::zero()`) is always allowed regardless of the sc
 
 **Impact**: Contracts that access capsules scoped to addresses not included in the transaction's authorized scopes will now fail at runtime. Ensure the correct scopes are passed when executing transactions.
 
+### [aztec.js] `EmbeddedWalletOptions` now uses a unified `pxe` field
+
+The `pxeConfig` and `pxeOptions` fields on `EmbeddedWalletOptions` have been deprecated in favor of a single `pxe` field that accepts both PXE configuration and dependency overrides (custom prover, store, simulator):
+
+```diff
+const wallet = await EmbeddedWallet.create(nodeUrl, {
+-  pxeConfig: { proverEnabled: true },
+-  pxeOptions: { proverOrOptions: myCustomProver },
++  pxe: {
++    proverEnabled: true,
++    proverOrOptions: myCustomProver,
++  },
+});
+```
+
+The old fields still work but will be removed in a future release.
+
+### [Aztec.nr] Ephemeral arrays replace capsule arrays in PXE oracle interfaces
+
+Oracle interfaces between Aztec.nr and PXE now use a new `EphemeralArray` type (`aztec::ephemeral::EphemeralArray`) instead of `CapsuleArray`. Ephemeral arrays live in memory and are scoped by contract call frame, so they no longer need to be addressed by `(contract_address, scope)`. Several public message-discovery and validation functions lost their `recipient`, `scope`, and `contract_address` parameters as a result.
+
+Most contracts are not affected, as the macro-generated `sync_state` and `process_message` functions handle these APIs automatically. Only contracts that call these functions directly need to update.
+
+**Migration:**
+
+```diff
+  attempt_note_discovery(
+      contract_address,
+      tx_hash,
+      unique_note_hashes_in_tx,
+      first_nullifier_in_tx,
+-     recipient,
+      compute_note_hash,
+      compute_note_nullifier,
+      owner,
+      storage_slot,
+      randomness,
+      note_type_id,
+      packed_note,
+  );
+
+- enqueue_note_for_validation(contract_address, owner, storage_slot, randomness, note_nonce, packed_note, note_hash, nullifier, tx_hash, scope);
++ enqueue_note_for_validation(contract_address, owner, storage_slot, randomness, note_nonce, packed_note, note_hash, nullifier, tx_hash);
+
+- enqueue_event_for_validation(contract_address, event_type_id, randomness, serialized_event, event_commitment, tx_hash, scope);
++ enqueue_event_for_validation(contract_address, event_type_id, randomness, serialized_event, event_commitment, tx_hash);
+
+- validate_and_store_enqueued_notes_and_events(contract_address, scope);
++ validate_and_store_enqueued_notes_and_events(scope);
+```
+
+The `sync_inbox` function and the `OffchainInboxSync` type now return `EphemeralArray<OffchainMessageWithContext>` instead of `CapsuleArray<OffchainMessageWithContext>`. Custom message handlers that bind the returned array to an explicit type must update the type annotation.
+
+**Impact**: Contracts that call the above functions directly (rather than relying on macro-generated code) will fail to compile until the trailing `recipient`, `scope`, and `contract_address` parameters are removed.
+
 ## 4.2.0-aztecnr-rc.2
+
+### [Aztec.js] Removed `SingleKeyAccountContract`
+
+The `SchnorrSingleKeyAccount` contract and its TypeScript wrapper `SingleKeyAccountContract` have been removed. This contract was insecure: it used `ivpk_m` (incoming viewing public key) as its Schnorr signing key, meaning anyone who received a user's viewing key could sign transactions on their behalf.
+
+**Migration:**
+
+```diff
+- import { SingleKeyAccountContract } from '@aztec/accounts/single_key';
+- const contract = new SingleKeyAccountContract(signingKey);
++ import { SchnorrAccountContract } from '@aztec/accounts/schnorr';
++ const contract = new SchnorrAccountContract(signingKey);
+```
+
+**Impact**: If you were using `@aztec/accounts/single_key`, switch to `@aztec/accounts/schnorr` which uses separate keys for encryption and authentication.
 
 ### Custom token FPCs removed from default public setup allowlist
 
@@ -123,23 +335,6 @@ FPCs that use only Fee Juice still work on all networks, since FeeJuice is a pro
 ```
 
 Similarly, the `fpc-public` and `fpc-private` CLI wallet payment methods use the reference Token-based FPC and will not work on public networks. Use `fee_juice` for direct Fee Juice payment, or `fpc-sponsored` on devnet and local network.
-
-### [aztec.js] `EmbeddedWalletOptions` now uses a unified `pxe` field
-
-The `pxeConfig` and `pxeOptions` fields on `EmbeddedWalletOptions` have been deprecated in favor of a single `pxe` field that accepts both PXE configuration and dependency overrides (custom prover, store, simulator):
-
-```diff
-const wallet = await EmbeddedWallet.create(nodeUrl, {
--  pxeConfig: { proverEnabled: true },
--  pxeOptions: { proverOrOptions: myCustomProver },
-+  pxe: {
-+    proverEnabled: true,
-+    proverOrOptions: myCustomProver,
-+  },
-});
-```
-
-The old fields still work but will be removed in a future release.
 
 ### [Aztec.nr] Domain-separated tags on log emission
 
@@ -230,27 +425,6 @@ The `CustomMessageHandler` function type now receives an additional `scope: Azte
 ```
 
 **Impact**: Contracts that implement a custom message handler must update the function signature.
-
-### [aztec.js] `DeployMethod.send()` always returns `{ contract, receipt, instance }`
-
-The `returnReceipt` option in deploy wait options has been removed. `DeployMethod.send()` now always returns an object with `contract`, `receipt`, and `instance` at the top level, provided the user waits for the transaction to be included.
-
-The `DeployTxReceipt` and `DeployWaitOptions` types have been removed.
-
-**Migration:**
-
-```diff
-- const {
--   receipt: { contract, instance },
-- } = await MyContract.deploy(wallet, ...args).send({
--   from: address,
--   wait: { returnReceipt: true },
-- });
-
-+ const { contract, instance } = await MyContract.deploy(wallet, ...args).send({
-+   from: address,
-+ });
-```
 
 ### [aztec.js] `isContractInitialized` is now `initializationStatus` tri-state enum
 
@@ -364,7 +538,7 @@ Most contracts are not affected, as the macro-generated `sync_state` and `proces
 
 The private initialization nullifier is no longer derived from just the contract address. It is now computed as a Poseidon2 hash of `[address, init_hash]` using a dedicated domain separator. This prevents observers from determining whether a fully private contract has been initialized by simply knowing its address.
 
-Note that `Wallet.getContractMetadata` now returns `isContractInitialized: undefined` when the wallet does not have the contract instance registered, since `init_hash` is needed to compute the nullifier and initialization status cannot be determined. Previously, this check worked for any address. Callers should check for `undefined` before branching on the boolean value.
+Note that `Wallet.getContractMetadata` now returns `initializationStatus: ContractInitializationStatus.UNKNOWN` when the wallet does not have the contract instance registered, since `init_hash` is needed to compute the nullifier and initialization status cannot be determined. Previously, this check worked for any address. Callers should check the enum value before branching on the initialization state.
 
 If you use `assert_contract_was_initialized_by` or `assert_contract_was_not_initialized_by` from `aztec::history::deployment`, these now require an additional `init_hash: Field` parameter:
 
@@ -548,90 +722,6 @@ If you implement the `Wallet` interface (or extend `BaseWallet`), the `sendTx()`
 +   return { receipt, ...offchainOutput };
   }
 ```
-
-### `aztec new` crate directories are now named after the contract
-
-`aztec new` and `aztec init` now name the generated crate directories after the contract instead of using generic `contract/` and `test/` names. For example, `aztec new counter` now creates:
-
-```
-counter/
-├── Nargo.toml                # [workspace] members = ["counter_contract", "counter_test"]
-├── counter_contract/
-│   ├── src/main.nr
-│   └── Nargo.toml            # type = "contract"
-└── counter_test/
-    ├── src/lib.nr
-    └── Nargo.toml            # type = "lib"
-```
-
-This enables adding multiple contracts to a single workspace. Running `aztec new <name>` inside an existing workspace (a directory with a `Nargo.toml` containing `[workspace]`) now adds a new `<name>_contract` and `<name>_test` crate pair to the workspace instead of creating a new directory.
-
-**What changed:**
-
-- Crate directories are now `<name>_contract/` and `<name>_test/` instead of `contract/` and `test/`.
-- Contract code is now at `<name>_contract/src/main.nr` instead of `contract/src/main.nr`.
-- Contract dependencies go in `<name>_contract/Nargo.toml` instead of `contract/Nargo.toml`.
-- Tests import the contract by its new crate name (e.g., `use counter_contract::Main;` instead of `use counter::Main;`).
-
-### [CLI] `--name` flag removed from `aztec new` and `aztec init`
-
-The `--name` flag has been removed from both `aztec new` and `aztec init`. For `aztec new`, the positional argument now serves as both the contract name and the directory name. For `aztec init`, the directory name is always used as the contract name.
-
-**Migration:**
-
-```diff
-- aztec new my_project --name counter
-+ aztec new counter
-```
-
-```diff
-- aztec init --name counter
-+ aztec init
-```
-
-**Impact**: If you were using `--name` to set a contract name different from the directory name, rename your directory or use `aztec new` with the desired contract name directly.
-
-### [Aztec.js] Removed `SingleKeyAccountContract`
-
-The `SchnorrSingleKeyAccount` contract and its TypeScript wrapper `SingleKeyAccountContract` have been removed. This contract was insecure: it used `ivpk_m` (incoming viewing public key) as its Schnorr signing key, meaning anyone who received a user's viewing key could sign transactions on their behalf.
-
-**Migration:**
-
-```diff
-- import { SingleKeyAccountContract } from '@aztec/accounts/single_key';
-- const contract = new SingleKeyAccountContract(signingKey);
-+ import { SchnorrAccountContract } from '@aztec/accounts/schnorr';
-+ const contract = new SchnorrAccountContract(signingKey);
-```
-
-**Impact**: If you were using `@aztec/accounts/single_key`, switch to `@aztec/accounts/schnorr` which uses separate keys for encryption and authentication.
-
-### `aztec new` and `aztec init` now create a 2-crate workspace
-
-`aztec new` and `aztec init` now create a workspace with two crates instead of a single contract crate:
-
-- A `contract` crate (type = "contract") for your smart contract code
-- A `test` crate (type = "lib") for Noir tests, which depends on the contract crate
-
-The new project structure looks like:
-
-```
-my_project/
-├── Nargo.toml           # [workspace] members = ["contract", "test"]
-├── contract/
-│   ├── src/main.nr
-│   └── Nargo.toml       # type = "contract"
-└── test/
-    ├── src/lib.nr
-    └── Nargo.toml       # type = "lib"
-```
-
-**What changed:**
-
-- The `--contract` and `--lib` flags have been removed from `aztec new` and `aztec init`. These commands now always create a contract workspace.
-- Contract code is now at `contract/src/main.nr` instead of `src/main.nr`.
-- The `Nargo.toml` in the project root is now a workspace file. Contract dependencies go in `contract/Nargo.toml`.
-- Tests should be written in the separate `test` crate (`test/src/lib.nr`) and import the contract by package name (e.g., `use my_contract::MyContract;`) instead of using `crate::`.
 
 ### Scope enforcement for private state access (TXE and PXE)
 

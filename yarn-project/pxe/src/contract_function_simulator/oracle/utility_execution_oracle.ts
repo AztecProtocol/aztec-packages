@@ -9,7 +9,7 @@ import type { KeyStore } from '@aztec/key-store';
 import { isProtocolContract } from '@aztec/protocol-contracts';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { BlockHash } from '@aztec/stdlib/block';
+import { BlockHash, type L2TipsProvider } from '@aztec/stdlib/block';
 import type { CompleteAddress, ContractInstance, PartialAddress } from '@aztec/stdlib/contract';
 import { siloNullifier } from '@aztec/stdlib/hash';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
@@ -63,6 +63,7 @@ export type UtilityExecutionOracleArgs = {
   privateEventStore: PrivateEventStore;
   messageContextService: MessageContextService;
   contractSyncService: ContractSyncService;
+  l2TipsStore: L2TipsProvider;
   jobId: string;
   log?: ReturnType<typeof createLogger>;
   scopes: AztecAddress[];
@@ -98,6 +99,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   protected readonly privateEventStore: PrivateEventStore;
   protected readonly messageContextService: MessageContextService;
   protected readonly contractSyncService: ContractSyncService;
+  protected readonly l2TipsStore: L2TipsProvider;
   protected readonly jobId: string;
   protected logger: ReturnType<typeof createLogger>;
   protected readonly scopes: AztecAddress[];
@@ -118,6 +120,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     this.privateEventStore = args.privateEventStore;
     this.messageContextService = args.messageContextService;
     this.contractSyncService = args.contractSyncService;
+    this.l2TipsStore = args.l2TipsStore;
     this.jobId = args.jobId;
     this.logger = args.log ?? createLogger('simulator:client_view_context');
     this.scopes = args.scopes;
@@ -330,10 +333,9 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   }
 
   /**
-   * Returns an auth witness for the given message hash. Checks on the list of transient witnesses
-   * for this transaction first, and falls back to the local database if not found.
+   * Returns an auth witness for the given message hash from the list of transient witnesses for this transaction.
    * @param messageHash - Hash of the message to authenticate.
-   * @returns Authentication witness for the requested message hash.
+   * @returns Authentication witness for the requested message hash, or undefined if not found.
    */
   public getAuthWitness(messageHash: Fr): Promise<Fr[] | undefined> {
     return Promise.resolve(this.authWitnesses.find(w => w.requestHash.equals(messageHash))?.witness);
@@ -531,6 +533,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     return new LogService(
       this.aztecNode,
       this.anchorBlockHeader,
+      this.l2TipsStore,
       this.keyStore,
       this.recipientTaggingStore,
       this.senderAddressBookStore,

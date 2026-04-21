@@ -1,5 +1,6 @@
 use crate::tests::private_kernel_reset::{NOTE_HASH_SILOING_AMOUNT, TestBuilder};
 use protocol_test_utils::swap_items;
+use super::rebuild_bounded_vec;
 
 #[test]
 fn previous_note_hashes_sorted() {
@@ -110,6 +111,9 @@ fn with_padded_note_hashes() {
         builder.previous_kernel.note_hashes.pop().innermost();
     builder.padded_side_effects.note_hashes[3] =
         builder.previous_kernel.note_hashes.pop().innermost();
+
+    // BoundedVec.pop() no longer zeroes vacated slots; rebuild with clean storage.
+    builder.previous_kernel.note_hashes = rebuild_bounded_vec(builder.previous_kernel.note_hashes);
 
     builder.output.append_siloed_note_hashes(3);
     builder.output.append_padded_note_hashes(2);

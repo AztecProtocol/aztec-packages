@@ -1061,7 +1061,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     );
 
     // Build a map from block number to block hash
-    const blockNumberToHash = new Map<BlockNumber, Fr>();
+    const blockNumberToHash = new Map<BlockNumber, BlockHash>();
     for (let i = 0; i < uniqueBlockNumbers.length; i++) {
       const blockHash = blockHashes[i];
       if (blockHash === undefined) {
@@ -1079,13 +1079,13 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
       if (blockNumber === undefined) {
         throw new Error(`Block number not found for leaf index ${index} in tree ${MerkleTreeId[treeId]}`);
       }
-      const blockHash = blockNumberToHash.get(blockNumber);
-      if (blockHash === undefined) {
+      const l2BlockHash = blockNumberToHash.get(blockNumber);
+      if (l2BlockHash === undefined) {
         throw new Error(`Block hash not found for block number ${blockNumber}`);
       }
       return {
         l2BlockNumber: blockNumber,
-        l2BlockHash: new BlockHash(blockHash),
+        l2BlockHash,
         data: index,
       };
     });
@@ -1741,7 +1741,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     // Double-check world-state synced to the same block hash as was requested
     if (BlockHash.isBlockHash(block)) {
       const blockHash = await snapshot.getLeafValue(MerkleTreeId.ARCHIVE, BigInt(blockNumber));
-      if (!blockHash || !new BlockHash(blockHash).equals(block)) {
+      if (!blockHash || !block.equals(blockHash)) {
         throw new Error(
           `Block hash ${block.toString()} not found in world state at block number ${blockNumber}. If the node API has been queried with anchor block hash possibly a reorg has occurred.`,
         );

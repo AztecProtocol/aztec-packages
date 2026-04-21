@@ -176,7 +176,7 @@ import { TxHash } from '../tx/tx_hash.js';
 import { TxRequest } from '../tx/tx_request.js';
 import { Vector } from '../types/index.js';
 import { VkData } from '../vks/index.js';
-import { VerificationKey, VerificationKeyAsFields, VerificationKeyData } from '../vks/verification_key.js';
+import { VerificationKeyAsFields, VerificationKeyData } from '../vks/verification_key.js';
 
 /**
  * Creates an arbitrary side effect object with the given seed.
@@ -571,14 +571,6 @@ export function makeMembershipWitness<N extends number>(size: N, start: number):
  */
 export function makeVerificationKeyAsFields(size: number): VerificationKeyAsFields {
   return VerificationKeyAsFields.makeFake(size);
-}
-
-/**
- * Creates arbitrary/mocked verification key.
- * @returns A verification key object
- */
-export function makeVerificationKey(): VerificationKey {
-  return VerificationKey.makeFake();
 }
 
 /**

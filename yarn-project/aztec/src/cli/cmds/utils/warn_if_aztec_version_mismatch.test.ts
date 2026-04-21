@@ -67,6 +67,75 @@ describe('warnIfAztecVersionMismatch', () => {
     expect(logMessages[0]).toContain('v1.0.0');
   });
 
+  it('warns when a non-aztec aztec-nr dependency tag does not match the CLI version', async () => {
+    await makePackage(tempDir, 'project', 'contract', {
+      // eslint-disable-next-line camelcase
+      uint_note: '{ git = "https://github.com/AztecProtocol/aztec-nr", tag = "v0.99.0", directory = "uint-note" }',
+    });
+
+    await warnIfAztecVersionMismatch(log, '1.0.0');
+
+    expect(logMessages).toHaveLength(1);
+    expect(logMessages[0]).toContain('WARNING');
+    expect(logMessages[0]).toContain('uint_note');
+    expect(logMessages[0]).toContain('v0.99.0');
+    expect(logMessages[0]).toContain('v1.0.0');
+  });
+
+  it('warns about a sibling aztec-nr dependency even when the aztec dependency matches', async () => {
+    await makePackage(tempDir, 'project', 'contract', {
+      aztec: '{ git = "https://github.com/AztecProtocol/aztec-nr", tag = "v1.0.0", directory = "aztec" }',
+      // eslint-disable-next-line camelcase
+      uint_note: '{ git = "https://github.com/AztecProtocol/aztec-nr", tag = "v0.99.0", directory = "uint-note" }',
+    });
+
+    await warnIfAztecVersionMismatch(log, '1.0.0');
+
+    expect(logMessages).toHaveLength(1);
+    expect(logMessages[0]).toContain('WARNING');
+    expect(logMessages[0]).toContain('uint_note');
+    expect(logMessages[0]).not.toMatch(/—\s*aztec\s*\(/);
+  });
+
+  it('does not warn when multiple aztec-nr dependencies all match the CLI version', async () => {
+    await makePackage(tempDir, 'project', 'contract', {
+      aztec: '{ git = "https://github.com/AztecProtocol/aztec-nr", tag = "v1.0.0", directory = "aztec" }',
+      // eslint-disable-next-line camelcase
+      uint_note: '{ git = "https://github.com/AztecProtocol/aztec-nr", tag = "v1.0.0", directory = "uint-note" }',
+      // eslint-disable-next-line camelcase
+      compressed_string:
+        '{ git = "https://github.com/AztecProtocol/aztec-nr", tag = "v1.0.0", directory = "compressed-string" }',
+    });
+
+    await warnIfAztecVersionMismatch(log, '1.0.0');
+
+    expect(logMessages.filter(m => m.includes('WARNING'))).toHaveLength(0);
+  });
+
+  it('does not warn for unrelated third-party git dependencies', async () => {
+    await makePackage(tempDir, 'project', 'contract', {
+      aztec: '{ git = "https://github.com/AztecProtocol/aztec-nr", tag = "v1.0.0", directory = "aztec" }',
+      // eslint-disable-next-line camelcase
+      noir_string_search: '{ git = "https://github.com/noir-lang/noir_string_search", tag = "v0.1.0" }',
+    });
+
+    await warnIfAztecVersionMismatch(log, '1.0.0');
+
+    expect(logMessages.filter(m => m.includes('WARNING'))).toHaveLength(0);
+  });
+
+  it('normalizes trailing slashes and .git suffixes in the aztec-nr git URL', async () => {
+    await makePackage(tempDir, 'project', 'contract', {
+      aztec: '{ git = "https://github.com/AztecProtocol/aztec-nr.git", tag = "v1.0.0", directory = "aztec" }',
+      // eslint-disable-next-line camelcase
+      uint_note: '{ git = "https://github.com/AztecProtocol/aztec-nr/", tag = "v1.0.0", directory = "uint-note" }',
+    });
+
+    await warnIfAztecVersionMismatch(log, '1.0.0');
+
+    expect(logMessages.filter(m => m.includes('WARNING'))).toHaveLength(0);
+  });
+
   it('warns when the CLI version is not available', async () => {
     await makePackage(tempDir, 'project', 'contract');
 

@@ -1,5 +1,5 @@
-import { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
+import { BlockHash } from '@aztec/stdlib/block';
 import type { WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 
@@ -33,14 +33,14 @@ export class InvalidTxsAfterReorgRule implements EvictionRule {
       const pendingTxs = pool.getPendingTxs();
 
       // Deduplicate block hashes to reduce redundant DB lookups
-      const uniqueBlockHashes = new Map<string, Fr>();
+      const uniqueBlockHashes = new Map<string, BlockHash>();
       const txsByBlockHash = new Map<string, string[]>();
 
       for (const meta of pendingTxs) {
         const blockHashStr = meta.anchorBlockHeaderHash;
         if (!txsByBlockHash.has(blockHashStr)) {
           txsByBlockHash.set(blockHashStr, []);
-          uniqueBlockHashes.set(blockHashStr, Fr.fromHexString(blockHashStr));
+          uniqueBlockHashes.set(blockHashStr, BlockHash.fromString(blockHashStr));
         }
         txsByBlockHash.get(blockHashStr)!.push(meta.txHash);
       }

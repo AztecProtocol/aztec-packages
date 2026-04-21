@@ -38,7 +38,7 @@ export const slasherConfigMappings: ConfigMappingsType<SlasherConfig> = {
   slashOverridePayload: {
     env: 'SLASH_OVERRIDE_PAYLOAD',
     description: 'An Ethereum address for a slash payload to vote for unconditionally.',
-    parseEnv: (val: string) => (val ? EthAddress.fromString(val) : undefined),
+    parseEnv: (val: string) => EthAddress.fromString(val),
     defaultValue: DefaultSlasherConfig.slashOverridePayload,
   },
   slashValidatorsAlways: {

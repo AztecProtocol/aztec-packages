@@ -450,5 +450,72 @@ TEST_F(TxExecutionTest, L2ToL1MessageLimitReached)
     EXPECT_EQ(reverts, 1);
 }
 
+TEST_F(TxExecutionTest, RevertibleNullifierCollisionIsUnrecoverable)
+{
+    // A nullifier collision during revertible insertion must propagate as NullifierCollisionException
+    // (not TxExecutionException), bypassing all recovery logic and making the tx unprovable.
+    Tx tx = {
+        .hash = "0x1234567890abcdef",
+        .non_revertible_accumulated_data =
+            AccumulatedData{
+                .nullifiers = testing::random_fields(1),
+            },
+        .revertible_accumulated_data =
+            AccumulatedData{
+                .nullifiers = testing::random_fields(1),
+            },
+        .fee_payer = FF::random_element(),
+    };
+
+    AppendOnlyTreeSnapshot dummy_snapshot = {
+        .root = 0,
+        .next_available_leaf_index = 0,
+    };
+    TreeStates tree_state = {
+        .note_hash_tree = { .tree = dummy_snapshot, .counter = 0 },
+        .nullifier_tree = { .tree = dummy_snapshot, .counter = 0 },
+        .l1_to_l2_message_tree = { .tree = dummy_snapshot, .counter = 0 },
+        .public_data_tree = { .tree = dummy_snapshot, .counter = 0 },
+    };
+    ON_CALL(merkle_db, get_tree_state()).WillByDefault([&]() { return tree_state; });
+
+    // First call (non-revertible) succeeds, second call (revertible) collides.
+    EXPECT_CALL(merkle_db, siloed_nullifier_write(_))
+        .WillOnce([&](const auto& /*nullifier*/) { tree_state.nullifier_tree.counter++; })
+        .WillOnce([](const auto& /*nullifier*/) { throw NullifierCollisionException("Nullifier collision"); });
+
+    EXPECT_THROW(tx_execution.simulate(tx), NullifierCollisionException);
+}
+
+TEST_F(TxExecutionTest, NonRevertibleNullifierCollisionIsUnrecoverable)
+{
+    // A nullifier collision during non-revertible insertion must propagate as NullifierCollisionException.
+    Tx tx = {
+        .hash = "0x1234567890abcdef",
+        .non_revertible_accumulated_data =
+            AccumulatedData{
+                .nullifiers = testing::random_fields(1),
+            },
+        .fee_payer = FF::random_element(),
+    };
+
+    AppendOnlyTreeSnapshot dummy_snapshot = {
+        .root = 0,
+        .next_available_leaf_index = 0,
+    };
+    TreeStates tree_state = {
+        .note_hash_tree = { .tree = dummy_snapshot, .counter = 0 },
+        .nullifier_tree = { .tree = dummy_snapshot, .counter = 0 },
+        .l1_to_l2_message_tree = { .tree = dummy_snapshot, .counter = 0 },
+        .public_data_tree = { .tree = dummy_snapshot, .counter = 0 },
+    };
+    ON_CALL(merkle_db, get_tree_state()).WillByDefault([&]() { return tree_state; });
+    ON_CALL(merkle_db, siloed_nullifier_write(_)).WillByDefault([](const auto& /*nullifier*/) {
+        throw NullifierCollisionException("Nullifier collision");
+    });
+
+    EXPECT_THROW(tx_execution.simulate(tx), NullifierCollisionException);
+}
+
 } // namespace
 } // namespace bb::avm2::simulation

@@ -36,7 +36,7 @@ export interface AztecStartOption {
   parseVal?: (val: string) => any;
 }
 
-export const getOptions = (namespace: string, configMappings: Record<string, ConfigMapping>) => {
+export const getOptions = (namespace: string, configMappings: Record<string, ConfigMapping<unknown>>) => {
   const options: AztecStartOption[] = [];
   for (const [key, { env, defaultValue: def, parseEnv, description, printDefault, fallback }] of Object.entries(
     configMappings,
@@ -58,7 +58,11 @@ export const getOptions = (namespace: string, configMappings: Record<string, Con
   return options;
 };
 
-const configToFlag = (flag: string, configMapping: ConfigMapping, overrideDefaultValue?: any): AztecStartOption => {
+const configToFlag = (
+  flag: string,
+  configMapping: ConfigMapping<unknown>,
+  overrideDefaultValue?: any,
+): AztecStartOption => {
   if (!configMapping.isBoolean) {
     flag += ' <value>';
   }
@@ -124,6 +128,12 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
       description: 'Mnemonic for L1 accounts. Will be used ',
       defaultValue: DefaultMnemonic,
       env: 'MNEMONIC',
+    },
+    {
+      flag: '--local-network.testAccounts',
+      description: 'Deploy test accounts on local network start',
+      env: 'TEST_ACCOUNTS',
+      ...booleanConfigHelper(true),
     },
   ],
   API: [

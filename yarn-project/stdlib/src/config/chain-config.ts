@@ -21,7 +21,13 @@ export const chainConfigMappings: ConfigMappingsType<ChainConfig> = {
   rollupVersion: {
     env: 'ROLLUP_VERSION',
     description: 'The version of the rollup.',
-    parseEnv: (val: string) => (Number.isSafeInteger(parseInt(val, 10)) ? parseInt(val, 10) : undefined),
+    parseEnv: (val: string) => {
+      const parsed = parseInt(val, 10);
+      if (!Number.isSafeInteger(parsed)) {
+        throw new Error(`Invalid rollup version: ${val}`);
+      }
+      return parsed;
+    },
   },
   l1Contracts: {
     description: 'The deployed L1 contract addresses',

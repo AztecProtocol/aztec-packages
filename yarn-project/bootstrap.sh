@@ -242,7 +242,7 @@ function bench_cmds {
   echo "$hash BENCH_OUTPUT=bench-out/kv_store.bench.json yarn-project/scripts/run_test.sh kv-store/src/bench/map_bench.test.ts"
   echo "$hash BENCH_OUTPUT=bench-out/tx_pool_v2.bench.json yarn-project/scripts/run_test.sh p2p/src/mem_pools/tx_pool_v2/tx_pool_v2_bench.test.ts"
   echo "$hash BENCH_OUTPUT=bench-out/tx_validator.bench.json yarn-project/scripts/run_test.sh p2p/src/msg_validators/tx_validator/tx_validator_bench.test.ts"
-  echo "$hash:ISOLATE=1:CPUS=16:MEM=32g:TIMEOUT=1200 BENCH_OUTPUT=bench-out/p2p_client_proposal_tx_collector.bench.json yarn-project/scripts/run_test.sh p2p/src/client/test/tx_proposal_collector/p2p_client.proposal_tx_collector.bench.test.ts"
+  echo "$hash:ISOLATE=1:CPUS=16:MEM=32g:TIMEOUT=1800 BENCH_OUTPUT=bench-out/p2p_client_proposal_tx_collector.bench.json yarn-project/scripts/run_test.sh p2p/src/client/test/tx_proposal_collector/p2p_client.proposal_tx_collector.bench.test.ts"
   echo "$hash BENCH_OUTPUT=bench-out/tx.bench.json yarn-project/scripts/run_test.sh stdlib/src/tx/tx_bench.test.ts"
   echo "$hash:ISOLATE=1:CPUS=10:MEM=16g:LOG_LEVEL=silent BENCH_OUTPUT=bench-out/proving_broker.bench.json yarn-project/scripts/run_test.sh prover-client/src/test/proving_broker_testbench.test.ts"
   echo "$hash:ISOLATE=1:CPUS=16:MEM=16g BENCH_OUTPUT=bench-out/avm_bulk_test.bench.json yarn-project/scripts/run_test.sh bb-prover/src/avm_proving_tests/avm_bulk.test.ts"
@@ -263,9 +263,9 @@ function release_packages {
 
   local package_list=()
   for package in $packages; do
-    (cd $package && retry "deploy_npm $1 $2")
+    (cd $package && retry "deploy_npm $1")
     local package_name=$(jq -r .name "$package/package.json")
-    package_list+=("$package_name@$2")
+    package_list+=("$package_name@$1")
   done
   # Smoke test the deployed packages.
   local dir=$(mktemp -d)
@@ -280,7 +280,7 @@ function release_packages {
 
 function release {
   echo_header "yarn-project release"
-  release_packages "$(dist_tag)" "${REF_NAME#v}"
+  release_packages "${REF_NAME#v}"
 }
 
 case "$cmd" in
