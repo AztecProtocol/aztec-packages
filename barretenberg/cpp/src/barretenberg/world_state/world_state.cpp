@@ -1,4 +1,5 @@
 #include "barretenberg/world_state/world_state.hpp"
+#include "barretenberg/aztec/aztec_constants.hpp"
 #include "barretenberg/crypto/merkle_tree/append_only_tree/content_addressed_append_only_tree.hpp"
 #include "barretenberg/crypto/merkle_tree/hash.hpp"
 #include "barretenberg/crypto/merkle_tree/hash_path.hpp"
@@ -9,7 +10,6 @@
 #include "barretenberg/crypto/merkle_tree/signal.hpp"
 #include "barretenberg/crypto/merkle_tree/types.hpp"
 #include "barretenberg/lmdblib/lmdb_helpers.hpp"
-#include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/world_state/fork.hpp"
 #include "barretenberg/world_state/tree_with_store.hpp"
 #include "barretenberg/world_state/types.hpp"

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "barretenberg/crypto/merkle_tree/aztec_hash_policy.hpp"
+#include "barretenberg/aztec/aztec_hash_policy.hpp"
 #include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/simulation/interfaces/db.hpp"
 #include "barretenberg/vm2/simulation/lib/indexed_memory_tree.hpp"
@@ -36,8 +36,7 @@ struct ClassIdLeafValue {
     static std::string name();
 };
 
-using RetrievedBytecodesTree =
-    IndexedMemoryTree<ClassIdLeafValue, crypto::merkle_tree::RetrievedBytecodesMerkleHashPolicy>;
+using RetrievedBytecodesTree = IndexedMemoryTree<ClassIdLeafValue, aztec::RetrievedBytecodesMerkleHashPolicy>;
 
 using RetrievedBytecodesTreeLeafPreimage = IndexedLeaf<ClassIdLeafValue>;
 

@@ -442,7 +442,7 @@ std::optional<crypto::merkle_tree::IndexedLeaf<T>> WorldState::get_indexed_leaf(
                                                                                 index_t leaf) const
 {
     using Store = ContentAddressedCachedTreeStore<T>;
-    using Tree = ContentAddressedIndexedTree<Store, crypto::merkle_tree::MerkleHashPolicyForT<T>>;
+    using Tree = ContentAddressedIndexedTree<Store, aztec::MerkleHashPolicyForT<T>>;
 
     Fork::SharedPtr fork = retrieve_fork(rev.forkId);
     TypedResponse<GetIndexedLeafResponse<T>> local;
@@ -506,7 +506,7 @@ std::optional<T> WorldState::get_leaf(const WorldStateRevision& revision,
         }
     } else {
         using Store = ContentAddressedCachedTreeStore<T>;
-        using Tree = ContentAddressedIndexedTree<Store, crypto::merkle_tree::MerkleHashPolicyForT<T>>;
+        using Tree = ContentAddressedIndexedTree<Store, aztec::MerkleHashPolicyForT<T>>;
 
         auto& wrapper = std::get<TreeWithStore<Tree>>(fork->_trees.at(tree_id));
         auto callback =
@@ -560,7 +560,7 @@ void WorldState::find_leaf_indices(const WorldStateRevision& rev,
 
     } else {
         using Store = ContentAddressedCachedTreeStore<T>;
-        using Tree = ContentAddressedIndexedTree<Store, crypto::merkle_tree::MerkleHashPolicyForT<T>>;
+        using Tree = ContentAddressedIndexedTree<Store, aztec::MerkleHashPolicyForT<T>>;
 
         auto& wrapper = std::get<TreeWithStore<Tree>>(fork->_trees.at(id));
         if (rev.is_historical()) {
@@ -606,7 +606,7 @@ void WorldState::find_sibling_paths(const WorldStateRevision& rev,
 
     } else {
         using Store = ContentAddressedCachedTreeStore<T>;
-        using Tree = ContentAddressedIndexedTree<Store, crypto::merkle_tree::MerkleHashPolicyForT<T>>;
+        using Tree = ContentAddressedIndexedTree<Store, aztec::MerkleHashPolicyForT<T>>;
 
         auto& wrapper = std::get<TreeWithStore<Tree>>(fork->_trees.at(id));
         if (rev.is_historical()) {
@@ -648,7 +648,7 @@ template <typename T> void WorldState::append_leaves(MerkleTreeId id, const std:
         wrapper.tree->add_values(leaves, callback);
     } else {
         using Store = ContentAddressedCachedTreeStore<T>;
-        using Tree = ContentAddressedIndexedTree<Store, crypto::merkle_tree::MerkleHashPolicyForT<T>>;
+        using Tree = ContentAddressedIndexedTree<Store, aztec::MerkleHashPolicyForT<T>>;
         auto& wrapper = std::get<TreeWithStore<Tree>>(fork->_trees.at(id));
         typename Tree::AddCompletionCallback callback = [&](const auto& resp) {
             if (!resp.success) {
@@ -675,7 +675,7 @@ BatchInsertionResult<T> WorldState::batch_insert_indexed_leaves(MerkleTreeId id,
 {
     using namespace crypto::merkle_tree;
     using Store = ContentAddressedCachedTreeStore<T>;
-    using Tree = ContentAddressedIndexedTree<Store, crypto::merkle_tree::MerkleHashPolicyForT<T>>;
+    using Tree = ContentAddressedIndexedTree<Store, aztec::MerkleHashPolicyForT<T>>;
 
     Fork::SharedPtr fork = retrieve_fork(fork_id);
 
@@ -715,7 +715,7 @@ SequentialInsertionResult<T> WorldState::insert_indexed_leaves(MerkleTreeId id,
 {
     using namespace crypto::merkle_tree;
     using Store = ContentAddressedCachedTreeStore<T>;
-    using Tree = ContentAddressedIndexedTree<Store, crypto::merkle_tree::MerkleHashPolicyForT<T>>;
+    using Tree = ContentAddressedIndexedTree<Store, aztec::MerkleHashPolicyForT<T>>;
 
     Fork::SharedPtr fork = retrieve_fork(fork_id);
 

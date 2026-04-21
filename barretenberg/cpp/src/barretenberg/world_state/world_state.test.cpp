@@ -1,10 +1,10 @@
 #include "barretenberg/world_state/world_state.hpp"
+#include "barretenberg/aztec/aztec_constants.hpp"
 #include "barretenberg/crypto/merkle_tree/fixtures.hpp"
 #include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp"
 #include "barretenberg/crypto/merkle_tree/node_store/tree_meta.hpp"
 #include "barretenberg/crypto/merkle_tree/response.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
-#include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/world_state/fork.hpp"
 #include "barretenberg/world_state/types.hpp"
 #include <array>
@@ -116,7 +116,7 @@ void assert_sibling_path(
     fr hash = leaf;
     // Pick the merkle-pair hasher that matches the target tree.
     auto hash_pair_for_tree = [tree_id](const fr& l, const fr& r) -> fr {
-        using namespace crypto::merkle_tree;
+        using namespace aztec;
         switch (tree_id) {
         case MerkleTreeId::NULLIFIER_TREE:
             return NullifierMerkleHashPolicy::hash_pair(l, r);

@@ -4,7 +4,7 @@
 #include <cmath>
 #include <cstdint>
 
-#include "barretenberg/crypto/merkle_tree/aztec_hash_policy.hpp"
+#include "barretenberg/aztec/aztec_hash_policy.hpp"
 #include "barretenberg/crypto/poseidon2/poseidon2.hpp"
 #include "barretenberg/vm2/common/avm_io.hpp"
 #include "barretenberg/vm2/constraining/flavor_settings.hpp"
@@ -313,7 +313,7 @@ TEST_F(PublicDataTreeCheckConstrainingTest, PositiveWriteExists)
     FF slot = 40;
     FF leaf_slot = unconstrained_compute_leaf_slot(contract_address, slot);
     FF new_value = 27;
-    TestMemoryTree<crypto::merkle_tree::PublicDataMerkleHashPolicy> public_data_tree(8, PUBLIC_DATA_TREE_HEIGHT);
+    TestMemoryTree<aztec::PublicDataMerkleHashPolicy> public_data_tree(8, PUBLIC_DATA_TREE_HEIGHT);
 
     AvmAccumulatedData accumulated_data = {};
     accumulated_data.public_data_writes[0] = PublicDataWrite{
@@ -438,7 +438,7 @@ TEST_F(PublicDataTreeCheckConstrainingTest, PositiveSquashing)
     ASSERT_GT(dummy_leaf_slot, leaf_slot + 1);
 
     FF low_leaf_slot = 40;
-    TestMemoryTree<crypto::merkle_tree::PublicDataMerkleHashPolicy> public_data_tree(8, PUBLIC_DATA_TREE_HEIGHT);
+    TestMemoryTree<aztec::PublicDataMerkleHashPolicy> public_data_tree(8, PUBLIC_DATA_TREE_HEIGHT);
 
     AvmAccumulatedData accumulated_data = {};
     accumulated_data.public_data_writes[0] = PublicDataWrite{
