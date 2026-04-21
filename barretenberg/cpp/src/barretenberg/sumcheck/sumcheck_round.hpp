@@ -190,8 +190,45 @@ template <typename Flavor> class SumcheckProverRound {
         }
     }
 
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1484): should we more intelligently incorporate the two
-    // `compute_univariate` types of functions?
+    /**
+     * @brief Shared chunk scheduler for dynamic work-stealing in the sumcheck prover's main loop.
+     * @details Splits the edge range [start_edge_idx, end_edge_idx) into fixed-size chunks and hands them out via an
+     * atomic counter. Workers call `pop()` in a loop; each call returns the next chunk to process (or nullopt when the
+     * range is exhausted). Spawns at most as many threads as there are chunks.
+     */
+    struct ChunkStealer {
+        const size_t start_edge_idx;
+        const size_t end_edge_idx;
+        const size_t rows_per_chunk;
+        const size_t total_chunks;
+        std::atomic<size_t> next_chunk{ 0 };
+
+        ChunkStealer(size_t start, size_t end, size_t rpc)
+            : start_edge_idx(start)
+            , end_edge_idx(end)
+            , rows_per_chunk(rpc)
+            , total_chunks(((end - start) / rpc) + ((end - start) % rpc > 0 ? 1 : 0))
+        {
+            BB_ASSERT(start % 2 == 0, "start_edge_idx must be even");
+            BB_ASSERT(end % 2 == 0, "end_edge_idx must be even");
+            BB_ASSERT(rpc >= 2 && rpc % 2 == 0, "rows_per_chunk must be at least 2 and even");
+            BB_ASSERT(start <= end, "start_edge_idx must not exceed end_edge_idx");
+        }
+
+        size_t num_slots() const { return std::min(bb::get_num_cpus(), std::max<size_t>(total_chunks, 1)); }
+
+        std::optional<std::pair<size_t, size_t>> pop()
+        {
+            const size_t id = next_chunk.fetch_add(1, std::memory_order_relaxed);
+            if (id >= total_chunks) {
+                return std::nullopt;
+            }
+            const size_t chunk_start = start_edge_idx + id * rows_per_chunk;
+            const size_t chunk_end = std::min(chunk_start + rows_per_chunk, end_edge_idx);
+            return std::make_pair(chunk_start, chunk_end);
+        }
+    };
+
     /**
      * @brief A version of `compute_univariate` that is better optimized for the AVM.
      * @details Main changes are:
@@ -208,40 +245,23 @@ template <typename Flavor> class SumcheckProverRound {
 
         // Compute the effective round size. If the trace is short, we don't need to iterate over the full round_size.
         const size_t effective_round_size = compute_effective_round_size(polynomials);
-        // Note: effective_round_size is expected to be even.
-        BB_ASSERT(effective_round_size % 2 == 0, "effective_round_size must be even");
 
         // The AVM trace is very non-uniform: some rows are dense while others are nearly empty.
         // To balance the load, we break the trace into fixed-size chunks (rows_per_chunk rows)
         // and hand them out dynamically to workers via the atomic thread pool: each worker
         // atomically grabs the next chunk when it finishes the previous one.
-        constexpr size_t rows_per_chunk = 16;
-        static_assert((rows_per_chunk >= 2) && (rows_per_chunk % 2 == 0), "rows_per_chunk must be at least 2 and even");
+        ChunkStealer chunks{ excluded_head_size, effective_round_size, /*rows_per_chunk=*/16 };
 
         // One accumulator slot per outer task; each outer task's iteration index IS its slot.
         // No state is shared with other SumcheckProverRound invocations.
-        const size_t num_slots = bb::get_num_cpus();
-        std::vector<SumcheckTupleOfTuplesOfUnivariates> thread_univariate_accumulators(num_slots);
-
-        const size_t total_chunks =
-            (effective_round_size / rows_per_chunk) + (effective_round_size % rows_per_chunk > 0 ? 1 : 0);
-
-        // Chunks are consumed dynamically via an atomic counter: faster threads naturally pick up
-        // more chunks while the slot they write to stays fixed for the life of their outer task.
-        std::atomic<size_t> next_chunk(0);
+        std::vector<SumcheckTupleOfTuplesOfUnivariates> thread_univariate_accumulators(chunks.num_slots());
 
         // Accumulate the contribution from each sub-relation across each edge of the hyper-cube.
-        parallel_for(num_slots, [&](size_t slot_id) {
+        parallel_for(chunks.num_slots(), [&](size_t slot_id) {
             ExtendedEdges lazy_extended_edges(polynomials);
-
-            while (true) {
-                const size_t chunk_id = next_chunk.fetch_add(1, std::memory_order_relaxed);
-                if (chunk_id >= total_chunks) {
-                    break;
-                }
-                size_t start = chunk_id * rows_per_chunk;
-                size_t end = std::min(start + rows_per_chunk, effective_round_size);
-
+            auto& accum = thread_univariate_accumulators[slot_id];
+            while (auto range = chunks.pop()) {
+                const auto [start, end] = *range;
                 for (size_t edge_idx = start; edge_idx < end; edge_idx += 2) {
                     lazy_extended_edges.set_current_edge(edge_idx);
                     // Compute the \f$ \ell \f$-th edge's univariate contribution,
@@ -249,10 +269,8 @@ template <typename Flavor> class SumcheckProverRound {
                     // for \f$ \tilde{S}^i(X_i) \f$. If \f$ \ell \f$'s binary representation is given by \f$
                     // (\ell_{i+1},\ldots, \ell_{d-1})\f$, the \f$ pow_{\beta}\f$-contribution is
                     // \f$\beta_{i+1}^{\ell_{i+1}} \cdot \ldots \cdot \beta_{d-1}^{\ell_{d-1}}\f$.
-                    accumulate_relation_univariates(thread_univariate_accumulators[slot_id],
-                                                    lazy_extended_edges,
-                                                    relation_parameters,
-                                                    gate_separators[edge_idx]);
+                    accumulate_relation_univariates(
+                        accum, lazy_extended_edges, relation_parameters, gate_separators[edge_idx]);
                 }
             }
         });
@@ -391,38 +409,23 @@ template <typename Flavor> class SumcheckProverRound {
         constexpr bool can_skip_rows = (isRowSkippable<Flavor, decltype(polynomials), size_t>);
 
         if constexpr (!can_skip_rows) {
-            // Dynamic chunk dispatch via an atomic counter: each worker pulls the next chunk when
-            // it finishes the previous one. Balances per-row cost variance that a static slab split
-            // would leave pegged to the slowest thread.
+            // Non-row-skipping flavors (UltraHonk, Mega, MultilinearBatching) use dynamic chunk
+            // dispatch to balance per-row cost variance from selector-gated relation skipping.
+            // Short traces don't need to iterate over the zero tail of the polynomial.
             const size_t effective_round_size = compute_effective_round_size(polynomials);
-            BB_ASSERT(effective_round_size % 2 == 0, "effective_round_size must be even");
-
-            constexpr size_t rows_per_chunk = 64; // Empirically determined for Chonk
-            static_assert((rows_per_chunk >= 2) && (rows_per_chunk % 2 == 0),
-                          "rows_per_chunk must be at least 2 and even");
-
-            const size_t total_chunks =
-                (effective_round_size / rows_per_chunk) + (effective_round_size % rows_per_chunk > 0 ? 1 : 0);
-            // Cap num_slots at total_chunks so tail rounds don't wake threads that would find nothing.
-            const size_t num_slots = std::min(bb::get_num_cpus(), std::max<size_t>(total_chunks, 1));
+            ChunkStealer chunks{ excluded_head_size, effective_round_size, /*rows_per_chunk=*/64 };
 
             // Construct univariate accumulator containers; one per slot.
             // Note: std::vector will trigger {}-initialization of the contents. Therefore no need to zero the
             // univariates.
-            std::vector<SumcheckTupleOfTuplesOfUnivariates> thread_univariate_accumulators(num_slots);
-            std::atomic<size_t> next_chunk(0);
+            std::vector<SumcheckTupleOfTuplesOfUnivariates> thread_univariate_accumulators(chunks.num_slots());
 
-            parallel_for(num_slots, [&](size_t slot_id) {
+            parallel_for(chunks.num_slots(), [&](size_t slot_id) {
                 // Construct extended univariates container; reused across every chunk this slot claims.
                 ExtendedEdges extended_edges;
-                while (true) {
-                    const size_t chunk_id = next_chunk.fetch_add(1, std::memory_order_relaxed);
-                    if (chunk_id >= total_chunks) {
-                        break;
-                    }
-                    const size_t start = chunk_id * rows_per_chunk;
-                    const size_t end = std::min(start + rows_per_chunk, effective_round_size);
-
+                auto& accum = thread_univariate_accumulators[slot_id];
+                while (auto range = chunks.pop()) {
+                    const auto [start, end] = *range;
                     for (size_t edge_idx = start; edge_idx < end; edge_idx += 2) {
                         extend_edges(extended_edges, polynomials, edge_idx);
                         // Compute the \f$ \ell \f$-th edge's univariate contribution,
@@ -430,14 +433,12 @@ template <typename Flavor> class SumcheckProverRound {
                         // for \f$ \tilde{S}^i(X_i) \f$. If \f$ \ell \f$'s binary representation is given by \f$
                         // (\ell_{i+1},\ldots, \ell_{d-1})\f$, the \f$ pow_{\beta}\f$-contribution is
                         // \f$\beta_{i+1}^{\ell_{i+1}} \cdot \ldots \cdot \beta_{d-1}^{\ell_{d-1}}\f$.
+                        // MultilinearBatching flavors use eq polynomials and no pow_beta, so the factor is 1.
                         FF scaling_factor{ 1 };
                         if constexpr (!isMultilinearBatchingFlavor<Flavor>) {
                             scaling_factor = gate_separators[edge_idx];
                         }
-                        accumulate_relation_univariates(thread_univariate_accumulators[slot_id],
-                                                        extended_edges,
-                                                        relation_parameters,
-                                                        scaling_factor);
+                        accumulate_relation_univariates(accum, extended_edges, relation_parameters, scaling_factor);
                     }
                 }
             });
