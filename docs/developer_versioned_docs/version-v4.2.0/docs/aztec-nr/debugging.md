@@ -31,7 +31,7 @@ Log values from your contract using `debug_log`:
 
 ```rust
 // Import debug logging
-use dep::aztec::oracle::debug_log::{ debug_log, debug_log_format };
+use dep::aztec::oracle::logging::{ debug_log, debug_log_format };
 
 // Log simple messages
 debug_log("checkpoint reached");
@@ -69,6 +69,8 @@ LOG_LEVEL="info;debug:simulator:client_execution_context;debug:simulator:client_
 - `level:module` - Sets level for a specific module
 - `level:module:submodule` - Sets level for a specific submodule
 
+**The default-level filter must be the first segment.** A bare `level:module` with no preceding default (e.g. `LOG_LEVEL="warn:simulator"`) is invalid and throws `Invalid log level`, because the parser reads everything before the first `;` as the default level. To filter only specific modules, lead with a default level — use `silent` to suppress everything else.
+
 ```bash
 # Default level only
 LOG_LEVEL="debug"
@@ -78,6 +80,9 @@ LOG_LEVEL="info;debug:simulator;debug:execution"
 
 # Default level + specific submodule overrides
 LOG_LEVEL="info;debug:simulator:client_execution_context;debug:simulator:client_view_context"
+
+# Silence everything except one module
+LOG_LEVEL="silent;debug:simulator"
 ```
 
 :::
@@ -205,7 +210,7 @@ LOG_LEVEL=verbose aztec start --local-network
 ### Common debug imports
 
 ```rust
-use dep::aztec::oracle::debug_log::{ debug_log, debug_log_format };
+use dep::aztec::oracle::logging::{ debug_log, debug_log_format };
 ```
 
 ### Check contract registration
