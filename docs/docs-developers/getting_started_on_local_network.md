@@ -42,11 +42,16 @@ Run:
 VERSION=#include_version_without_prefix bash -i <(curl -sL https://install.aztec.network/#include_version_without_prefix)
 ```
 
-This will install the following tools:
+This will install the following tools and add them to your `PATH`:
 
-- **aztec** - compiles and tests aztec contracts and launches various infrastructure subsystems (full local network, sequencer, prover, pxe, etc) and provides utility commands to interact with the network
+- **nargo** - the Noir programming language compiler and simulator
+- **noir-profiler** - a profiler for analyzing and visualizing Noir programs
+- **bb** - the Barretenberg proving backend
+- **aztec** - compiles and tests Aztec contracts and launches various infrastructure subsystems (full local network, sequencer, prover, PXE, etc.) and provides utility commands to interact with the network
 - **aztec-up** - a version manager for the Aztec toolchain. Use `aztec-up install <version>` to install a new version, `aztec-up use <version>` to switch between installed versions, or `aztec-up list` to see installed versions.
-- **aztec-wallet** - a tool for interacting with the aztec network
+- **aztec-wallet** - a tool for interacting with the Aztec network
+
+For syntax highlighting and LSP support while editing contracts, see the [Noir VSCode Extension guide](./docs/aztec-nr/installation.md).
 
 ### Start the local network
 
