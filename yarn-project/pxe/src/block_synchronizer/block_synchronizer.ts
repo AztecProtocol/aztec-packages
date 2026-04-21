@@ -194,5 +194,70 @@ export class BlockSynchronizer implements L2BlockStreamEventHandler {
       await this.anchorBlockStore.setHeader((await this.node.getBlockHeader(BlockNumber.ZERO))!);
     }
     await this.blockStream.sync();
+
+    // If the anchor is still pinned at the initial header (block 0) but the chain has advanced past
+    // genesis on whichever tip we follow, advance the anchor to that tip. The node cannot serve world
+    // state at the initial header once the chain has moved past genesis (block 0 has no historical
+    // snapshot in world state), which manifests as `Proving public value inclusion failed` in private
+    // kernel circuits. This commonly happens with `syncChainTip: 'checkpointed'` between PXE startup
+    // and the first checkpoint commit, when chain-checkpointed events have not yet fired.
+    await this.advanceAnchorPastGenesisIfNeeded();
+  }
+
+  private async advanceAnchorPastGenesisIfNeeded(): Promise<void> {
+    const anchor = await this.anchorBlockStore.getBlockHeader();
+    if (anchor.getBlockNumber() !== 0) {
+      return;
+    }
+    let targetBlockNumber: number | undefined;
+    try {
+      targetBlockNumber = await this.getTargetTipBlockNumber();
+    } catch (err) {
+      this.log.debug(`Skipping anchor advance: failed to read L2 tips`, { err });
+      return;
+    }
+    if (targetBlockNumber === undefined || targetBlockNumber <= 0) {
+      return;
+    }
+    const targetHeader = await this.node.getBlockHeader(BlockNumber(targetBlockNumber));
+    if (!targetHeader) {
+      this.log.warn(`Block header not found for tip block ${targetBlockNumber}, skipping anchor advance`);
+      return;
+    }
+    this.log.verbose(`Advancing PXE anchor from initial header to block ${targetBlockNumber}`);
+    await this.updateAnchorBlockHeader(targetHeader);
+  }
+
+  /**
+   * Picks a tip block number to use when advancing the anchor away from the initial header.
+   * Prefers the configured tip (committed checkpoint / proven / finalized) but falls back to the
+   * latest proposed checkpoint when the preferred tip is still at genesis. This avoids races
+   * where the PXE wants to prove a tx during the window between block proposal and the first
+   * checkpoint commit, in which the configured tip has not yet caught up.
+   */
+  private async getTargetTipBlockNumber(): Promise<number | undefined> {
+    const tips = await this.node.getL2Tips();
+    if (!tips) {
+      return undefined;
+    }
+    const proposedNumber = tips.proposed?.number ?? 0;
+    const proposedCheckpointNumber = tips.proposedCheckpoint?.block?.number ?? 0;
+    const checkpointedNumber = tips.checkpointed?.block?.number ?? 0;
+    const provenNumber = tips.proven?.block?.number ?? 0;
+    const finalizedNumber = tips.finalized?.block?.number ?? 0;
+    const fallback = proposedCheckpointNumber > 0 ? proposedCheckpointNumber : proposedNumber;
+    switch (this.config.syncChainTip) {
+      case 'checkpointed':
+        return checkpointedNumber > 0 ? checkpointedNumber : fallback;
+      case 'proven':
+        return provenNumber > 0 ? provenNumber : fallback;
+      case 'finalized':
+        return finalizedNumber > 0 ? finalizedNumber : fallback;
+      case 'proposed':
+      case undefined:
+        return proposedNumber;
+      default:
+        return undefined;
+    }
   }
 }
