@@ -2,23 +2,28 @@
 #include "../../primitives/plookup/plookup.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/numeric/random/engine.hpp"
+#include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 #include "keccak.hpp"
 #include <gtest/gtest.h>
 
 using namespace bb;
 
-using Builder = UltraCircuitBuilder;
-using byte_array = stdlib::byte_array<Builder>;
-using public_witness_t = stdlib::public_witness_t<Builder>;
-using field_ct = stdlib::field_t<Builder>;
-using witness_ct = stdlib::witness_t<Builder>;
+template <class Builder> class StdlibKeccak : public ::testing::Test {};
+
+using BuilderTypes = ::testing::Types<bb::UltraCircuitBuilder, bb::MegaCircuitBuilder>;
+TYPED_TEST_SUITE(StdlibKeccak, BuilderTypes);
 
 namespace {
 auto& engine = numeric::get_debug_randomness();
 }
 
-TEST(stdlib_keccak, keccak_format_input_table)
+TYPED_TEST(StdlibKeccak, keccak_format_input_table)
 {
+    using Builder = TypeParam;
+    using field_ct = stdlib::field_t<Builder>;
+    using witness_ct = stdlib::witness_t<Builder>;
+
     Builder builder = Builder();
 
     for (size_t i = 0; i < 25; ++i) {
@@ -41,8 +46,12 @@ TEST(stdlib_keccak, keccak_format_input_table)
     EXPECT_EQ(proof_result, true);
 }
 
-TEST(stdlib_keccak, keccak_format_output_table)
+TYPED_TEST(StdlibKeccak, keccak_format_output_table)
 {
+    using Builder = TypeParam;
+    using field_ct = stdlib::field_t<Builder>;
+    using witness_ct = stdlib::witness_t<Builder>;
+
     Builder builder = Builder();
 
     for (size_t i = 0; i < 25; ++i) {
@@ -58,8 +67,12 @@ TEST(stdlib_keccak, keccak_format_output_table)
     EXPECT_EQ(proof_result, true);
 }
 
-TEST(stdlib_keccak, keccak_theta_output_table)
+TYPED_TEST(StdlibKeccak, keccak_theta_output_table)
 {
+    using Builder = TypeParam;
+    using field_ct = stdlib::field_t<Builder>;
+    using witness_ct = stdlib::witness_t<Builder>;
+
     Builder builder = Builder();
 
     for (size_t i = 0; i < 25; ++i) {
@@ -84,8 +97,12 @@ TEST(stdlib_keccak, keccak_theta_output_table)
     EXPECT_EQ(proof_result, true);
 }
 
-TEST(stdlib_keccak, keccak_rho_output_table)
+TYPED_TEST(StdlibKeccak, keccak_rho_output_table)
 {
+    using Builder = TypeParam;
+    using field_ct = stdlib::field_t<Builder>;
+    using witness_ct = stdlib::witness_t<Builder>;
+
     Builder builder = Builder();
 
     constexpr_for<0, 25, 1>([&]<size_t i> {
@@ -109,7 +126,7 @@ TEST(stdlib_keccak, keccak_rho_output_table)
         const uint256_t expected_msb = (binary_native >> 63);
         field_ct limb(witness_ct(&builder, extended_native));
         field_ct result_msb;
-        field_ct result_limb = stdlib::keccak<Builder>::normalize_and_rotate<i>(limb, result_msb);
+        field_ct result_limb = stdlib::keccak<Builder>::template normalize_and_rotate<i>(limb, result_msb);
         EXPECT_EQ(static_cast<uint256_t>(result_limb.get_value()), expected_limb);
         EXPECT_EQ(static_cast<uint256_t>(result_msb.get_value()), expected_msb);
     });
@@ -119,8 +136,12 @@ TEST(stdlib_keccak, keccak_rho_output_table)
     EXPECT_EQ(proof_result, true);
 }
 
-TEST(stdlib_keccak, keccak_chi_output_table)
+TYPED_TEST(StdlibKeccak, keccak_chi_output_table)
 {
+    using Builder = TypeParam;
+    using field_ct = stdlib::field_t<Builder>;
+    using witness_ct = stdlib::witness_t<Builder>;
+
     static constexpr uint64_t chi_normalization_table[5]{
         0, // 1 + 2a - b + c => a xor (~b & c)
         0, 1, 1, 0,
@@ -156,8 +177,12 @@ TEST(stdlib_keccak, keccak_chi_output_table)
 }
 
 // Matches the fuzzer logic
-TEST(stdlib_keccak, permutation_opcode)
+TYPED_TEST(StdlibKeccak, permutation_opcode)
 {
+    using Builder = TypeParam;
+    using field_ct = stdlib::field_t<Builder>;
+    using witness_ct = stdlib::witness_t<Builder>;
+
     Builder builder = Builder();
 
     // Create a random state (25 lanes of 64 bits)

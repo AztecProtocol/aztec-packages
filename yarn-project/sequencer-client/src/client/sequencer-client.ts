@@ -202,6 +202,11 @@ export class SequencerClient {
     this.l1Metrics?.stop();
   }
 
+  /** Triggers an immediate run of the sequencer, bypassing the polling interval. */
+  public trigger() {
+    return this.sequencer.trigger();
+  }
+
   public getSequencer(): Sequencer {
     return this.sequencer;
   }

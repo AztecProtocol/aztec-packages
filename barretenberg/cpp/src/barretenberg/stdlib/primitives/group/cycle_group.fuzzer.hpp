@@ -46,6 +46,58 @@
 // the readability and conciseness of the CycleGroupBase::Instruction initializations
 #pragma clang diagnostic ignored "-Wc99-designator"
 
+#ifdef FUZZING_SHOW_INFORMATION
+/**
+ * @brief Formatted strings for debugging output
+ * Used to generate readable C++ code showing operation being performed
+ */
+struct FormattedArgs {
+    std::string lhs;
+    std::string rhs;
+    std::string out;
+};
+
+/**
+ * @brief Format a single-argument operation for debug output
+ * @param stack The execution stack
+ * @param first_index Index of the input argument
+ * @param output_index Index where result will be written
+ * @return FormattedArgs with rhs (input) and out (output) populated
+ */
+template <typename Stack>
+inline FormattedArgs format_single_arg(const Stack& stack, size_t first_index, size_t output_index)
+{
+    std::string rhs = stack[first_index].cycle_group.is_constant() ? "c" : "w";
+    std::string out = rhs;
+    rhs += std::to_string(first_index);
+    out += std::to_string(output_index >= stack.size() ? stack.size() : output_index);
+    out = (output_index >= stack.size() ? "auto " : "") + out;
+    return FormattedArgs{ .lhs = "", .rhs = rhs, .out = out };
+}
+
+/**
+ * @brief Format a two-argument operation for debug output
+ * @param stack The execution stack
+ * @param first_index Index of the first argument
+ * @param second_index Index of the second argument
+ * @param output_index Index where result will be written
+ * @return FormattedArgs with lhs, rhs (inputs) and out (output) populated
+ */
+template <typename Stack>
+inline FormattedArgs format_two_arg(const Stack& stack, size_t first_index, size_t second_index, size_t output_index)
+{
+    std::string lhs = stack[first_index].cycle_group.is_constant() ? "c" : "w";
+    std::string rhs = stack[second_index].cycle_group.is_constant() ? "c" : "w";
+    std::string out =
+        (stack[first_index].cycle_group.is_constant() && stack[second_index].cycle_group.is_constant()) ? "c" : "w";
+    lhs += std::to_string(first_index);
+    rhs += std::to_string(second_index);
+    out += std::to_string(output_index >= stack.size() ? stack.size() : output_index);
+    out = (output_index >= stack.size() ? "auto " : "") + out;
+    return FormattedArgs{ .lhs = lhs, .rhs = rhs, .out = out };
+}
+#endif
+
 #define HAVOC_TESTING
 
 // This is a global variable, so that the execution handling class could alter it and signal to the input tester
@@ -131,7 +183,6 @@ template <typename Builder> class CycleGroupBase {
     using bool_t = typename bb::stdlib::bool_t<Builder>;
     using field_t = typename bb::stdlib::field_t<Builder>;
     using witness_t = typename bb::stdlib::witness_t<Builder>;
-    using public_witness_t = typename bb::stdlib::public_witness_t<Builder>;
     using cycle_group_t = typename bb::stdlib::cycle_group<Builder>;
     using cycle_scalar_t = typename cycle_group_t::cycle_scalar;
     using Curve = typename bb::stdlib::cycle_group<Builder>::Curve;
@@ -360,7 +411,7 @@ template <typename Builder> class CycleGroupBase {
                              havoc_config.VAL_MUT_MONTGOMERY_PROBABILITY;
             uint256_t value_data;
 
-            // Pick the last value from the mutation distrivution vector
+            // Pick the last value from the mutation distribution vector
             const size_t mutation_type_count = havoc_config.value_mutation_distribution.size();
             // Choose mutation
             const size_t choice = rng.next() % havoc_config.value_mutation_distribution[mutation_type_count - 1];
@@ -702,6 +753,7 @@ template <typename Builder> class CycleGroupBase {
                     instr.arguments.batchMulArgs.scalars[i] = ScalarField::serialize_from_buffer(Data + offset);
                     offset += sizeof(ScalarField);
                 }
+                break;
             }
 #endif
             case Instruction::OPCODE::RANDOMSEED:
@@ -1063,12 +1115,7 @@ template <typename Builder> class CycleGroupBase {
             return ExecutionHandler(accumulator_cs, accumulator_cg, batch_mul_res);
         }
 
-        ExecutionHandler operator-()
-        {
-            this->base_scalar = -this->base_scalar;
-            this->base = -this->base;
-            this->cycle_group = -this->cycle_group;
-        }
+        ExecutionHandler operator-() { return ExecutionHandler(-this->base_scalar, -this->base, -this->cg()); }
 
         ExecutionHandler dbl()
         {
@@ -1154,6 +1201,7 @@ template <typename Builder> class CycleGroupBase {
                 ExecutionHandler(instruction.arguments.element.scalar,
                                  instruction.arguments.element.value,
                                  cycle_group_t(static_cast<AffineElement>(instruction.arguments.element.value))));
+            debug_log("// scalar = ", instruction.arguments.element.scalar);
             debug_log(
                 "auto c", stack.size() - 1, " = cycle_group_t(ae(\"", instruction.arguments.element.scalar, "\"));\n");
             return 0;
@@ -1175,6 +1223,7 @@ template <typename Builder> class CycleGroupBase {
                 instruction.arguments.element.scalar,
                 instruction.arguments.element.value,
                 cycle_group_t::from_witness(builder, static_cast<AffineElement>(instruction.arguments.element.value))));
+            debug_log("// scalar = ", instruction.arguments.element.scalar);
             debug_log("auto w",
                       stack.size() - 1,
                       " = cycle_group_t::from_witness(&builder, ae(\"",
@@ -1184,7 +1233,7 @@ template <typename Builder> class CycleGroupBase {
         }
 
         /**
-         * @brief Execute the constant_witness instruction (push a safeuint witness equal to the constant to the
+         * @brief Execute the constant_witness instruction (push a cycle group witness equal to the constant to the
          * stack)
          *
          * @param builder
@@ -1201,6 +1250,7 @@ template <typename Builder> class CycleGroupBase {
                                  instruction.arguments.element.value,
                                  cycle_group_t::from_constant_witness(
                                      builder, static_cast<AffineElement>(instruction.arguments.element.value))));
+            debug_log("// scalar = ", instruction.arguments.element.scalar);
             debug_log("auto cw",
                       stack.size() - 1,
                       " = cycle_group_t::from_constant_witness(&builder, ae(\"",
@@ -1521,7 +1571,7 @@ template <typename Builder> class CycleGroupBase {
                 out = ((output_index >= stack.size()) ? "auto " : "") + out;
                 out += std::to_string(output_index >= stack.size() ? stack.size() : output_index);
                 debug_log(out, " = cycle_group_t::batch_mul({", res, "}, {");
-                // Need to split logs here, since `conditional_assign` produces extra logs
+                // Need to split logs here, since `batch_mul` produces extra logs
                 result = ExecutionHandler::batch_mul(builder, to_add, to_mul);
                 debug_log("});", "\n");
             } else {
@@ -1597,7 +1647,7 @@ extern "C" int LLVMFuzzerInitialize(int* argc, char*** argv)
 {
     (void)argc;
     (void)argv;
-    // These are the settings, optimized for the safeuint class (under them, fuzzer reaches maximum expected
+    // These are the settings, optimized for the cycle group class (under them, fuzzer reaches maximum expected
     // coverage in 40 seconds)
     fuzzer_havoc_settings = HavocSettings{ .GEN_LLVM_POST_MUTATION_PROB = 30,          // Out of 200
                                            .GEN_MUTATION_COUNT_LOG = 5,                // -Fully checked

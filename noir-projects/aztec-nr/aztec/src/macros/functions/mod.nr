@@ -137,8 +137,8 @@ pub comptime fn noinitcheck(f: FunctionDefinition) {
     }
 }
 
-/// An `allow_phase_change` function will allow transitioning from the non-revertible to the revertible phase during its
-/// execution.
+/// An `allow_phase_change` function will allow transitioning from the non-revertible to the revertible phase
+/// during its execution.
 ///
 /// This is an advanced feature that is typically only required for account contract entrypoints that handle
 /// transaction fee payment.

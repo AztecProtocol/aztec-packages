@@ -4,7 +4,6 @@ import { MessageTypes, AZTEC_PACKAGES_VERSION } from '../config';
 import type { WalletExportData } from '../shared-types';
 import { sendToBackground, waitForTask } from './helpers';
 
-// docs:start:settings-page
 export function SettingsPage({ onImportStart }: { onImportStart: (data: WalletExportData) => void }) {
   const [exporting, setExporting] = useState(false);
   const [importPreview, setImportPreview] = useState<WalletExportData | null>(null);
@@ -153,4 +152,3 @@ export function SettingsPage({ onImportStart }: { onImportStart: (data: WalletEx
     </div>
   );
 }
-// docs:end:settings-page

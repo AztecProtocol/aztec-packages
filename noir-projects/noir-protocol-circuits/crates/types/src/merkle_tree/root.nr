@@ -20,10 +20,10 @@ pub fn root_from_sibling_path_with_hasher<let N: u32>(
     hasher: fn(Field, Field) -> Field,
 ) -> Field {
     let mut node = leaf;
-    let indices: [u1; N] = leaf_index.to_le_bits();
+    let indices: [bool; N] = leaf_index.to_le_bits();
 
     for i in 0..N {
-        let (hash_left, hash_right) = if indices[i] == 1 {
+        let (hash_left, hash_right) = if indices[i] {
             (sibling_path[i], node)
         } else {
             (node, sibling_path[i])
@@ -41,7 +41,7 @@ pub fn compute_sha_tree_root<let N: u32>(leaves: [Field; N]) -> Field {
     compute_tree_root_with_hasher(leaves, sha_merkle_hash)
 }
 
-fn compute_tree_root_with_hasher<let N: u32>(
+pub fn compute_tree_root_with_hasher<let N: u32>(
     leaves: [Field; N],
     hasher: fn(Field, Field) -> Field,
 ) -> Field {
@@ -72,12 +72,12 @@ fn test_merkle_roots_match_typescript() {
 
     let root = compute_tree_root([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]);
     let expected_tree_root_from_ts =
-        0x1528946361c480e8dc1e9ae3f8c31c997625fa1ddeddc7db5ad0dce3ac58fc4c;
+        0x2bc86dba04dfdd6352c3b1c66b2300445964e2888aa52fdb023d2e645a3d3399;
     assert_eq(root, expected_tree_root_from_ts);
 
     let empty_root = compute_tree_root([0; 16]);
     let expected_empty_root_from_ts =
-        0x2373ea368857ec7af97e7b470d705848e2bf93ed7bef142a490f2119bcf82d8e;
+        0x1e20ad4181460cbfdc74ca773502c59b890f184efe300ebad895956d318422da;
     assert_eq(empty_root, expected_empty_root_from_ts);
 
     let sha_root = compute_sha_tree_root([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]);
@@ -92,21 +92,21 @@ fn test_empty_tree_root() {
 
     assert_eq(
         compute_empty_tree_root::<1>(),
-        0x0b63a53787021a4a962a452c2921b3663aff1ffd8d5510540f8e659e782956f1,
+        0x19f1a0c09db4cd026f686e9c8fb45501a9fefb4eb1b4c6c328a51343a0094eeb,
     );
 
     assert_eq(
         compute_empty_tree_root::<2>(),
-        0x0e34ac2c09f45a503d2908bcb12f1cbae5fa4065759c88d501c097506a8b2290,
+        0x14e4b977b2203b70e6ee1c2456eb7114d090fe4b907f631eecd0919fed432e7d,
     );
 
     assert_eq(
         compute_empty_tree_root::<6>(),
-        0x01c28fe1059ae0237b72334700697bdf465e03df03986fe05200cadeda66bd76,
+        0x119f56a2e8423a7feaab49b9b5dcbadec0648dfa4096b61b6774ea33ae29dc7f,
     );
 
     assert_eq(
         compute_empty_tree_root::<10>(),
-        0x2a775ea761d20435b31fa2c33ff07663e24542ffb9e7b293dfce3042eb104686,
+        0x0d04c63f36bd168215c9b09a227c7e8d3ad48e2f11b8202fd07c524bd30ee88f,
     );
 }

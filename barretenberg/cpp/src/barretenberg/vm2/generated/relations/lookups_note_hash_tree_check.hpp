@@ -137,7 +137,7 @@ using lookup_note_hash_tree_check_unique_note_hash_poseidon2_relation =
 struct lookup_note_hash_tree_check_merkle_check_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_NOTE_HASH_TREE_CHECK_MERKLE_CHECK";
     static constexpr std::string_view RELATION_NAME = "note_hash_tree_check";
-    static constexpr size_t LOOKUP_TUPLE_SIZE = 7;
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 8;
     static constexpr Column SRC_SELECTOR = Column::note_hash_tree_check_sel;
     static constexpr Column DST_SELECTOR = Column::merkle_check_start;
     static constexpr Column COUNTS = Column::lookup_note_hash_tree_check_merkle_check_counts;
@@ -149,13 +149,14 @@ struct lookup_note_hash_tree_check_merkle_check_settings_ {
         ColumnAndShifts::note_hash_tree_check_leaf_index,
         ColumnAndShifts::note_hash_tree_check_note_hash_tree_height,
         ColumnAndShifts::note_hash_tree_check_prev_root,
-        ColumnAndShifts::note_hash_tree_check_next_root
+        ColumnAndShifts::note_hash_tree_check_next_root,
+        ColumnAndShifts::note_hash_tree_check_merkle_hash_separator
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
         ColumnAndShifts::merkle_check_write,      ColumnAndShifts::merkle_check_read_node,
         ColumnAndShifts::merkle_check_write_node, ColumnAndShifts::merkle_check_index,
         ColumnAndShifts::merkle_check_path_len,   ColumnAndShifts::merkle_check_read_root,
-        ColumnAndShifts::merkle_check_write_root
+        ColumnAndShifts::merkle_check_write_root, ColumnAndShifts::merkle_check_merkle_hash_separator
     };
 };
 

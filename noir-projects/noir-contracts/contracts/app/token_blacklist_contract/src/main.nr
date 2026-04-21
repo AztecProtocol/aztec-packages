@@ -61,7 +61,6 @@ pub contract TokenBlacklist {
         roles: Map<AztecAddress, DelayedPublicMutable<UserFlags, CHANGE_ROLES_DELAY, Context>, Context>,
     }
 
-    // docs:start:constructor
     #[external("public")]
     #[initializer]
     fn constructor(admin: AztecAddress) {
@@ -221,7 +220,6 @@ pub contract TokenBlacklist {
         self.enqueue_self._increase_public_balance(to, amount);
     }
 
-    // docs:start:transfer_private
     #[authorize_once("from", "authwit_nonce")]
     #[external("private")]
     fn transfer(from: AztecAddress, to: AztecAddress, amount: u128, authwit_nonce: Field) {
@@ -298,11 +296,10 @@ pub contract TokenBlacklist {
             TRANSPARENT_NOTE_RANDOMNESS,
             note_type_id,
             packed_note,
-            scope,
         );
 
         // At this point, the note is pending validation and storage in the database. We must call
         // validate_and_store_enqueued_notes_and_events to complete that process.
-        validate_and_store_enqueued_notes_and_events(contract_address, scope);
+        validate_and_store_enqueued_notes_and_events(scope);
     }
 }

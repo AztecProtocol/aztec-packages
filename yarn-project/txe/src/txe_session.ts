@@ -375,6 +375,7 @@ export class TXESession implements TXESessionStateHandler {
       capsuleService: new CapsuleService(this.capsuleStore, await this.keyStore.getAccounts()),
       privateEventStore: this.privateEventStore,
       contractSyncService: this.stateMachine.contractSyncService,
+      l2TipsStore: this.stateMachine.node,
       jobId: this.currentJobId,
       scopes: await this.keyStore.getAccounts(),
       messageContextService: this.stateMachine.messageContextService,
@@ -448,6 +449,7 @@ export class TXESession implements TXESessionStateHandler {
       privateEventStore: this.privateEventStore,
       messageContextService: this.stateMachine.messageContextService,
       contractSyncService: this.contractSyncService,
+      l2TipsStore: this.stateMachine.node,
       jobId: this.currentJobId,
       scopes: await this.keyStore.getAccounts(),
     });
@@ -541,6 +543,7 @@ export class TXESession implements TXESessionStateHandler {
           privateEventStore: this.privateEventStore,
           messageContextService: this.stateMachine.messageContextService,
           contractSyncService: this.contractSyncService,
+          l2TipsStore: this.stateMachine.node,
           jobId: this.currentJobId,
           scopes,
         });

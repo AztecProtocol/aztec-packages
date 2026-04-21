@@ -16,6 +16,7 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { BadRequestError } from '@aztec/foundation/json-rpc';
 import { type Logger, createLogger } from '@aztec/foundation/log';
+import { retryUntil } from '@aztec/foundation/retry';
 import { count } from '@aztec/foundation/string';
 import { DateProvider, Timer } from '@aztec/foundation/timer';
 import { MembershipWitness, SiblingPath } from '@aztec/foundation/trees';
@@ -32,7 +33,12 @@ import {
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { type ProverNode, type ProverNodeDeps, createProverNode } from '@aztec/prover-node';
 import { createKeyStoreForProver } from '@aztec/prover-node/config';
-import { GlobalVariableBuilder, SequencerClient, type SequencerPublisher } from '@aztec/sequencer-client';
+import {
+  FeeProviderImpl,
+  GlobalVariableBuilder,
+  SequencerClient,
+  type SequencerPublisher,
+} from '@aztec/sequencer-client';
 import { PublicProcessorFactory } from '@aztec/simulator/server';
 import {
   AttestationsBlockWatcher,
@@ -59,13 +65,14 @@ import type {
   NodeInfo,
   ProtocolContractAddresses,
 } from '@aztec/stdlib/contract';
-import { GasFees } from '@aztec/stdlib/gas';
+import { GasFees, type ManaUsageEstimate } from '@aztec/stdlib/gas';
 import { computePublicDataTreeLeafSlot } from '@aztec/stdlib/hash';
 import {
   type AztecNode,
   type AztecNodeAdmin,
   type AztecNodeAdminConfig,
   AztecNodeAdminConfigSchema,
+  type AztecNodeDebug,
   type GetContractClassLogsResponse,
   type GetPublicLogsResponse,
 } from '@aztec/stdlib/interfaces/client';
@@ -86,6 +93,7 @@ import type { NullifierLeafPreimage, PublicDataTreeLeafPreimage } from '@aztec/s
 import { MerkleTreeId, NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
 import {
   type BlockHeader,
+  type FeeProvider,
   type GlobalVariableBuilder as GlobalVariableBuilderInterface,
   type IndexedTxEffect,
   PublicSimulationOutput,
@@ -127,7 +135,7 @@ import { NodeMetrics } from './node_metrics.js';
 /**
  * The aztec node.
  */
-export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
+export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDebug, Traceable {
   private metrics: NodeMetrics;
   private initialHeaderHashPromise: Promise<BlockHash> | undefined = undefined;
 
@@ -152,6 +160,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     protected readonly l1ChainId: number,
     protected readonly version: number,
     protected readonly globalVariableBuilder: GlobalVariableBuilderInterface,
+    protected readonly feeProvider: FeeProvider,
     protected readonly epochCache: EpochCacheInterface,
     protected readonly packageVersion: string,
     private peerProofVerifier: ClientProtocolCircuitVerifier,
@@ -304,323 +313,343 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
 
     const epochCache = await EpochCache.create(config.l1Contracts.rollupAddress, config, { dateProvider });
 
-    const archiver = await createArchiver(
-      config,
-      { blobClient, epochCache, telemetry, dateProvider },
-      { blockUntilSync: !config.skipArchiverInitialSync },
-    );
-
-    // now create the merkle trees and the world state synchronizer
-    const worldStateSynchronizer = await createWorldStateSynchronizer(config, archiver, options.genesis, telemetry);
-    const useRealVerifiers = config.realProofs || config.debugForceTxProofVerification;
-    let peerProofVerifier: ClientProtocolCircuitVerifier;
-    let rpcProofVerifier: ClientProtocolCircuitVerifier;
-    if (useRealVerifiers) {
-      peerProofVerifier = await BatchChonkVerifier.new(config, config.bbChonkVerifyMaxBatch, 'peer');
-      const rpcVerifier = await BBCircuitVerifier.new(config);
-      rpcProofVerifier = new QueuedIVCVerifier(rpcVerifier, config.numConcurrentIVCVerifiers);
-    } else {
-      peerProofVerifier = new TestCircuitVerifier(config.proverTestVerificationDelayMs);
-      rpcProofVerifier = new TestCircuitVerifier(config.proverTestVerificationDelayMs);
-    }
-
-    let debugLogStore: DebugLogStore;
-    if (!config.realProofs) {
-      log.warn(`Aztec node is accepting fake proofs`);
-
-      debugLogStore = new InMemoryDebugLogStore();
-      log.info(
-        'Aztec node started in test mode (realProofs set to false) hence debug logs from public functions will be collected and served',
-      );
-    } else {
-      debugLogStore = new NullDebugLogStore();
-    }
-
-    const proverOnly = config.enableProverNode && config.disableValidator;
-    if (proverOnly) {
-      log.info('Starting in prover-only mode: skipping validator, sequencer, sentinel, and slasher subsystems');
-    }
-
-    // create the tx pool and the p2p client, which will need the l2 block source
-    const p2pClient = await createP2PClient(
-      config,
-      archiver,
-      peerProofVerifier,
-      worldStateSynchronizer,
-      epochCache,
-      packageVersion,
-      dateProvider,
-      telemetry,
-      deps.p2pClientDeps,
-    );
-
-    // We'll accumulate sentinel watchers here
-    const watchers: Watcher[] = [];
-
-    // Create FullNodeCheckpointsBuilder for block proposal handling and tx validation.
-    // Override maxTxsPerCheckpoint with the validator-specific limit if set.
-    const validatorCheckpointsBuilder = new FullNodeCheckpointsBuilder(
-      {
-        ...config,
-        l1GenesisTime,
-        slotDuration: Number(slotDuration),
-        rollupManaLimit,
-        maxTxsPerCheckpoint: config.validateMaxTxsPerCheckpoint,
-      },
-      worldStateSynchronizer,
-      archiver,
-      dateProvider,
-      telemetry,
-    );
-
-    let validatorClient: ValidatorClient | undefined;
-
-    if (!proverOnly) {
-      // Create validator client if required
-      validatorClient = await createValidatorClient(config, {
-        checkpointsBuilder: validatorCheckpointsBuilder,
-        worldState: worldStateSynchronizer,
-        p2pClient,
-        telemetry,
-        dateProvider,
-        epochCache,
-        blockSource: archiver,
-        l1ToL2MessageSource: archiver,
-        keyStoreManager,
-        blobClient,
-        slashingProtectionDb: deps.slashingProtectionDb,
-      });
-
-      // If we have a validator client, register it as a source of offenses for the slasher,
-      // and have it register callbacks on the p2p client *before* we start it, otherwise messages
-      // like attestations or auths will fail.
-      if (validatorClient) {
-        watchers.push(validatorClient);
-
-        const vc = validatorClient;
-        const getValidatorAddresses = () => vc.getValidatorAddresses().map(a => a.toString());
-        validatorClient.getProposalHandler().register(p2pClient, true, archiver, getValidatorAddresses);
-
-        if (!options.dontStartSequencer) {
-          await validatorClient.registerHandlers();
-        }
-      }
-    }
-
-    // If there's no validator client, create a ProposalHandler to handle block and checkpoint proposals
-    // for monitoring or reexecution. Reexecution (default) allows us to follow the pending chain,
-    // while non-reexecution is used for validating the proposals and collecting their txs.
-    // Checkpoint proposals rebuild blobs if the blob client can upload blobs.
-    if (!validatorClient) {
-      const reexecute = !!config.alwaysReexecuteBlockProposals;
-      log.info(`Setting up proposal handler` + (reexecute ? ' with reexecution of proposals' : ''));
-      createProposalHandler(config, {
-        checkpointsBuilder: validatorCheckpointsBuilder,
-        worldState: worldStateSynchronizer,
-        epochCache,
-        blockSource: archiver,
-        l1ToL2MessageSource: archiver,
-        p2pClient,
-        blobClient,
-        dateProvider,
-        telemetry,
-      }).register(p2pClient, reexecute, archiver);
-    }
-
-    // Start world state and wait for it to sync to the archiver.
-    await worldStateSynchronizer.start();
-
-    // Start p2p. Note that it depends on world state to be running.
-    await p2pClient.start();
-
-    let validatorsSentinel: Awaited<ReturnType<typeof createSentinel>> | undefined;
-    let epochPruneWatcher: EpochPruneWatcher | undefined;
-    let attestationsBlockWatcher: AttestationsBlockWatcher | undefined;
-
-    if (!proverOnly) {
-      validatorsSentinel = await createSentinel(epochCache, archiver, p2pClient, config);
-      if (validatorsSentinel && config.slashInactivityPenalty > 0n) {
-        watchers.push(validatorsSentinel);
-      }
-
-      if (config.slashPrunePenalty > 0n || config.slashDataWithholdingPenalty > 0n) {
-        epochPruneWatcher = new EpochPruneWatcher(
-          archiver,
-          archiver,
-          epochCache,
-          p2pClient.getTxProvider(),
-          validatorCheckpointsBuilder,
-          config,
-        );
-        watchers.push(epochPruneWatcher);
-      }
-
-      // We assume we want to slash for invalid attestations unless all max penalties are set to 0
-      if (config.slashProposeInvalidAttestationsPenalty > 0n || config.slashAttestDescendantOfInvalidPenalty > 0n) {
-        attestationsBlockWatcher = new AttestationsBlockWatcher(archiver, epochCache, config);
-        watchers.push(attestationsBlockWatcher);
-      }
-    }
-
-    // Start p2p-related services once the archiver has completed sync
-    void archiver
-      .waitForInitialSync()
-      .then(async () => {
-        await p2pClient.start();
-        await validatorsSentinel?.start();
-        await epochPruneWatcher?.start();
-        await attestationsBlockWatcher?.start();
-        log.info(`All p2p services started`);
-      })
-      .catch(err => log.error('Failed to start p2p services after archiver sync', err));
-
-    const globalVariableBuilder = new GlobalVariableBuilder(dateProvider, publicClient, {
-      l1Contracts: config.l1Contracts,
-      ethereumSlotDuration: config.ethereumSlotDuration,
-      rollupVersion: BigInt(config.rollupVersion),
-      l1GenesisTime,
-      slotDuration: Number(slotDuration),
-    });
-
-    // Validator enabled, create/start relevant service
-    let sequencer: SequencerClient | undefined;
-    let slasherClient: SlasherClientInterface | undefined;
-    if (!config.disableValidator && validatorClient) {
-      // We create a slasher only if we have a sequencer, since all slashing actions go through the sequencer publisher
-      // as they are executed when the node is selected as proposer.
-      const validatorAddresses = keyStoreManager
-        ? NodeKeystoreAdapter.fromKeyStoreManager(keyStoreManager).getAddresses()
-        : [];
-
-      slasherClient = await createSlasher(
+    // Track started resources so we can clean up on partial failure during node creation.
+    const started: { stop?(): Promise<void> | void }[] = [];
+    try {
+      const archiver = await createArchiver(
         config,
-        config.l1Contracts,
-        getPublicClient(config),
-        watchers,
-        dateProvider,
-        epochCache,
-        validatorAddresses,
-        undefined, // logger
+        { blobClient, epochCache, telemetry, dateProvider },
+        { blockUntilSync: !config.skipArchiverInitialSync },
       );
-      await slasherClient.start();
+      started.push(archiver);
 
-      const l1TxUtils = config.sequencerPublisherForwarderAddress
-        ? await createForwarderL1TxUtilsFromSigners(
-            publicClient,
-            keyStoreManager!.createAllValidatorPublisherSigners(),
-            config.sequencerPublisherForwarderAddress,
-            { ...config, scope: 'sequencer' },
-            { telemetry, logger: log.createChild('l1-tx-utils'), dateProvider, kzg: Blob.getViemKzgInstance() },
-          )
-        : await createL1TxUtilsFromSigners(
-            publicClient,
-            keyStoreManager!.createAllValidatorPublisherSigners(),
-            { ...config, scope: 'sequencer' },
-            { telemetry, logger: log.createChild('l1-tx-utils'), dateProvider, kzg: Blob.getViemKzgInstance() },
-          );
+      // now create the merkle trees and the world state synchronizer
+      const worldStateSynchronizer = await createWorldStateSynchronizer(config, archiver, options.genesis, telemetry);
+      started.push(worldStateSynchronizer);
+      const useRealVerifiers = config.realProofs || config.debugForceTxProofVerification;
+      let peerProofVerifier: ClientProtocolCircuitVerifier;
+      let rpcProofVerifier: ClientProtocolCircuitVerifier;
+      if (useRealVerifiers) {
+        peerProofVerifier = await BatchChonkVerifier.new(config, config.bbChonkVerifyMaxBatch, 'peer');
+        const rpcVerifier = await BBCircuitVerifier.new(config);
+        rpcProofVerifier = new QueuedIVCVerifier(rpcVerifier, config.numConcurrentIVCVerifiers);
+      } else {
+        peerProofVerifier = new TestCircuitVerifier(config.proverTestVerificationDelayMs);
+        rpcProofVerifier = new TestCircuitVerifier(config.proverTestVerificationDelayMs);
+      }
+      started.push(peerProofVerifier, rpcProofVerifier);
 
-      // Create a funder L1TxUtils from the keystore funding account (if configured)
-      const fundingSigner = keyStoreManager?.createFundingSigner();
-      let funderL1TxUtils: L1TxUtils | undefined;
-      if (fundingSigner) {
-        const [funder] = await createL1TxUtilsFromSigners(
-          publicClient,
-          [fundingSigner],
-          { ...config, scope: 'sequencer' },
-          { telemetry, logger: log.createChild('l1-tx-utils:funder'), dateProvider },
+      let debugLogStore: DebugLogStore;
+      if (!config.realProofs) {
+        log.warn(`Aztec node is accepting fake proofs`);
+
+        debugLogStore = new InMemoryDebugLogStore();
+        log.info(
+          'Aztec node started in test mode (realProofs set to false) hence debug logs from public functions will be collected and served',
         );
-        funderL1TxUtils = funder;
+      } else {
+        debugLogStore = new NullDebugLogStore();
       }
 
-      // Create and start the sequencer client
-      const checkpointsBuilder = new CheckpointsBuilder(
-        { ...config, l1GenesisTime, slotDuration: Number(slotDuration), rollupManaLimit },
+      const proverOnly = config.enableProverNode && config.disableValidator;
+      if (proverOnly) {
+        log.info('Starting in prover-only mode: skipping validator, sequencer, sentinel, and slasher subsystems');
+      }
+
+      // create the tx pool and the p2p client, which will need the l2 block source
+      const p2pClient = await createP2PClient(
+        config,
+        archiver,
+        peerProofVerifier,
+        worldStateSynchronizer,
+        epochCache,
+        packageVersion,
+        dateProvider,
+        telemetry,
+        deps.p2pClientDeps,
+      );
+      started.push(p2pClient);
+
+      // We'll accumulate sentinel watchers here
+      const watchers: Watcher[] = [];
+
+      // Create FullNodeCheckpointsBuilder for block proposal handling and tx validation.
+      // Override maxTxsPerCheckpoint with the validator-specific limit if set.
+      const validatorCheckpointsBuilder = new FullNodeCheckpointsBuilder(
+        {
+          ...config,
+          l1GenesisTime,
+          slotDuration: Number(slotDuration),
+          rollupManaLimit,
+          maxTxsPerCheckpoint: config.validateMaxTxsPerCheckpoint,
+        },
         worldStateSynchronizer,
         archiver,
         dateProvider,
         telemetry,
+      );
+
+      let validatorClient: ValidatorClient | undefined;
+
+      if (!proverOnly) {
+        // Create validator client if required
+        validatorClient = await createValidatorClient(config, {
+          checkpointsBuilder: validatorCheckpointsBuilder,
+          worldState: worldStateSynchronizer,
+          p2pClient,
+          telemetry,
+          dateProvider,
+          epochCache,
+          blockSource: archiver,
+          l1ToL2MessageSource: archiver,
+          keyStoreManager,
+          blobClient,
+          slashingProtectionDb: deps.slashingProtectionDb,
+        });
+
+        // If we have a validator client, register it as a source of offenses for the slasher,
+        // and have it register callbacks on the p2p client *before* we start it, otherwise messages
+        // like attestations or auths will fail.
+        if (validatorClient) {
+          watchers.push(validatorClient);
+
+          const vc = validatorClient;
+          const getValidatorAddresses = () => vc.getValidatorAddresses().map(a => a.toString());
+          validatorClient.getProposalHandler().register(p2pClient, true, archiver, getValidatorAddresses);
+
+          if (!options.dontStartSequencer) {
+            await validatorClient.registerHandlers();
+          }
+        }
+      }
+
+      // If there's no validator client, create a ProposalHandler to handle block and checkpoint proposals
+      // for monitoring or reexecution. Reexecution (default) allows us to follow the pending chain,
+      // while non-reexecution is used for validating the proposals and collecting their txs.
+      // Checkpoint proposals rebuild blobs if the blob client can upload blobs.
+      if (!validatorClient) {
+        const reexecute = !!config.alwaysReexecuteBlockProposals;
+        log.info(`Setting up proposal handler` + (reexecute ? ' with reexecution of proposals' : ''));
+        createProposalHandler(config, {
+          checkpointsBuilder: validatorCheckpointsBuilder,
+          worldState: worldStateSynchronizer,
+          epochCache,
+          blockSource: archiver,
+          l1ToL2MessageSource: archiver,
+          p2pClient,
+          blobClient,
+          dateProvider,
+          telemetry,
+        }).register(p2pClient, reexecute, archiver);
+      }
+
+      // Start world state and wait for it to sync to the archiver.
+      await worldStateSynchronizer.start();
+
+      // Start p2p. Note that it depends on world state to be running.
+      await p2pClient.start();
+
+      let validatorsSentinel: Awaited<ReturnType<typeof createSentinel>> | undefined;
+      let epochPruneWatcher: EpochPruneWatcher | undefined;
+      let attestationsBlockWatcher: AttestationsBlockWatcher | undefined;
+
+      if (!proverOnly) {
+        validatorsSentinel = await createSentinel(epochCache, archiver, p2pClient, config);
+        if (validatorsSentinel && config.slashInactivityPenalty > 0n) {
+          watchers.push(validatorsSentinel);
+        }
+
+        if (config.slashPrunePenalty > 0n || config.slashDataWithholdingPenalty > 0n) {
+          epochPruneWatcher = new EpochPruneWatcher(
+            archiver,
+            archiver,
+            epochCache,
+            p2pClient.getTxProvider(),
+            validatorCheckpointsBuilder,
+            config,
+          );
+          watchers.push(epochPruneWatcher);
+        }
+
+        // We assume we want to slash for invalid attestations unless all max penalties are set to 0
+        if (config.slashProposeInvalidAttestationsPenalty > 0n || config.slashAttestDescendantOfInvalidPenalty > 0n) {
+          attestationsBlockWatcher = new AttestationsBlockWatcher(archiver, epochCache, config);
+          watchers.push(attestationsBlockWatcher);
+        }
+      }
+
+      // Start p2p-related services once the archiver has completed sync
+      void archiver
+        .waitForInitialSync()
+        .then(async () => {
+          await validatorsSentinel?.start();
+          await epochPruneWatcher?.start();
+          await attestationsBlockWatcher?.start();
+          log.info(`All p2p services started`);
+        })
+        .catch(err => log.error('Failed to start p2p services after archiver sync', err));
+
+      const globalVariableBuilderConfig = {
+        l1Contracts: config.l1Contracts,
+        ethereumSlotDuration: config.ethereumSlotDuration,
+        rollupVersion: BigInt(config.rollupVersion),
+        l1GenesisTime,
+        slotDuration: Number(slotDuration),
+      };
+
+      const globalVariableBuilder = new GlobalVariableBuilder(dateProvider, publicClient, globalVariableBuilderConfig);
+      const feeProvider = new FeeProviderImpl(dateProvider, publicClient, globalVariableBuilderConfig);
+
+      // Validator enabled, create/start relevant service
+      let sequencer: SequencerClient | undefined;
+      let slasherClient: SlasherClientInterface | undefined;
+      if (!config.disableValidator && validatorClient) {
+        // We create a slasher only if we have a sequencer, since all slashing actions go through the sequencer publisher
+        // as they are executed when the node is selected as proposer.
+        const validatorAddresses = keyStoreManager
+          ? NodeKeystoreAdapter.fromKeyStoreManager(keyStoreManager).getAddresses()
+          : [];
+
+        slasherClient = await createSlasher(
+          config,
+          config.l1Contracts,
+          getPublicClient(config),
+          watchers,
+          dateProvider,
+          epochCache,
+          validatorAddresses,
+          undefined, // logger
+        );
+        await slasherClient.start();
+        started.push(slasherClient);
+
+        const l1TxUtils = config.sequencerPublisherForwarderAddress
+          ? await createForwarderL1TxUtilsFromSigners(
+              publicClient,
+              keyStoreManager!.createAllValidatorPublisherSigners(),
+              config.sequencerPublisherForwarderAddress,
+              { ...config, scope: 'sequencer' },
+              { telemetry, logger: log.createChild('l1-tx-utils'), dateProvider, kzg: Blob.getViemKzgInstance() },
+            )
+          : await createL1TxUtilsFromSigners(
+              publicClient,
+              keyStoreManager!.createAllValidatorPublisherSigners(),
+              { ...config, scope: 'sequencer' },
+              { telemetry, logger: log.createChild('l1-tx-utils'), dateProvider, kzg: Blob.getViemKzgInstance() },
+            );
+
+        // Create a funder L1TxUtils from the keystore funding account (if configured)
+        const fundingSigner = keyStoreManager?.createFundingSigner();
+        let funderL1TxUtils: L1TxUtils | undefined;
+        if (fundingSigner) {
+          const [funder] = await createL1TxUtilsFromSigners(
+            publicClient,
+            [fundingSigner],
+            { ...config, scope: 'sequencer' },
+            { telemetry, logger: log.createChild('l1-tx-utils:funder'), dateProvider },
+          );
+          funderL1TxUtils = funder;
+        }
+
+        // Create and start the sequencer client
+        const checkpointsBuilder = new CheckpointsBuilder(
+          { ...config, l1GenesisTime, slotDuration: Number(slotDuration), rollupManaLimit },
+          worldStateSynchronizer,
+          archiver,
+          dateProvider,
+          telemetry,
+          debugLogStore,
+        );
+
+        sequencer = await SequencerClient.new(config, {
+          ...deps,
+          epochCache,
+          l1TxUtils,
+          funderL1TxUtils,
+          validatorClient,
+          p2pClient,
+          worldStateSynchronizer,
+          slasherClient,
+          checkpointsBuilder,
+          l2BlockSource: archiver,
+          l1ToL2MessageSource: archiver,
+          telemetry,
+          dateProvider,
+          blobClient,
+          nodeKeyStore: keyStoreManager!,
+          globalVariableBuilder,
+        });
+      }
+
+      if (!options.dontStartSequencer && sequencer) {
+        await sequencer.start();
+        started.push(sequencer);
+        log.verbose(`Sequencer started`);
+      } else if (sequencer) {
+        log.warn(`Sequencer created but not started`);
+      }
+
+      // Create prover node subsystem if enabled
+      let proverNode: ProverNode | undefined;
+      if (config.enableProverNode) {
+        proverNode = await createProverNode(config, {
+          ...deps.proverNodeDeps,
+          telemetry,
+          dateProvider,
+          archiver,
+          worldStateSynchronizer,
+          p2pClient,
+          epochCache,
+          blobClient,
+          keyStoreManager,
+        });
+
+        if (!options.dontStartProverNode) {
+          await proverNode.start();
+          started.push(proverNode);
+          log.info(`Prover node subsystem started`);
+        } else {
+          log.info(`Prover node subsystem created but not started`);
+        }
+      }
+
+      const node = new AztecNodeService(
+        config,
+        p2pClient,
+        archiver,
+        archiver,
+        archiver,
+        archiver,
+        worldStateSynchronizer,
+        sequencer,
+        proverNode,
+        slasherClient,
+        validatorsSentinel,
+        epochPruneWatcher,
+        ethereumChain.chainInfo.id,
+        config.rollupVersion,
+        globalVariableBuilder,
+        feeProvider,
+        epochCache,
+        packageVersion,
+        peerProofVerifier,
+        rpcProofVerifier,
+        telemetry,
+        log,
+        blobClient,
+        validatorClient,
+        keyStoreManager,
         debugLogStore,
       );
 
-      sequencer = await SequencerClient.new(config, {
-        ...deps,
-        epochCache,
-        l1TxUtils,
-        funderL1TxUtils,
-        validatorClient,
-        p2pClient,
-        worldStateSynchronizer,
-        slasherClient,
-        checkpointsBuilder,
-        l2BlockSource: archiver,
-        l1ToL2MessageSource: archiver,
-        telemetry,
-        dateProvider,
-        blobClient,
-        nodeKeyStore: keyStoreManager!,
-        globalVariableBuilder,
-      });
-    }
-
-    if (!options.dontStartSequencer && sequencer) {
-      await sequencer.start();
-      log.verbose(`Sequencer started`);
-    } else if (sequencer) {
-      log.warn(`Sequencer created but not started`);
-    }
-
-    // Create prover node subsystem if enabled
-    let proverNode: ProverNode | undefined;
-    if (config.enableProverNode) {
-      proverNode = await createProverNode(config, {
-        ...deps.proverNodeDeps,
-        telemetry,
-        dateProvider,
-        archiver,
-        worldStateSynchronizer,
-        p2pClient,
-        epochCache,
-        blobClient,
-        keyStoreManager,
-      });
-
-      if (!options.dontStartProverNode) {
-        await proverNode.start();
-        log.info(`Prover node subsystem started`);
-      } else {
-        log.info(`Prover node subsystem created but not started`);
+      return node;
+    } catch (err) {
+      log.error('Failed during node creation, stopping started resources', err);
+      for (const resource of started.reverse()) {
+        await tryStop(resource);
       }
+      throw err;
     }
-
-    const node = new AztecNodeService(
-      config,
-      p2pClient,
-      archiver,
-      archiver,
-      archiver,
-      archiver,
-      worldStateSynchronizer,
-      sequencer,
-      proverNode,
-      slasherClient,
-      validatorsSentinel,
-      epochPruneWatcher,
-      ethereumChain.chainInfo.id,
-      config.rollupVersion,
-      globalVariableBuilder,
-      epochCache,
-      packageVersion,
-      peerProofVerifier,
-      rpcProofVerifier,
-      telemetry,
-      log,
-      blobClient,
-      validatorClient,
-      keyStoreManager,
-      debugLogStore,
-    );
-
-    return node;
   }
 
   /**
@@ -760,12 +789,13 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     return this.blockSource.getCheckpointsDataForEpoch(epochNumber);
   }
 
-  /**
-   * Method to fetch the current min L2 fees.
-   * @returns The current min L2 fees.
-   */
   public async getCurrentMinFees(): Promise<GasFees> {
-    return await this.globalVariableBuilder.getCurrentMinFees();
+    return await this.feeProvider.getCurrentMinFees();
+  }
+
+  /** Returns predicted min fees for the current slot and next N slots. */
+  public async getPredictedMinFees(manaUsage?: ManaUsageEstimate): Promise<GasFees[]> {
+    return await this.feeProvider.getPredictedMinFees(manaUsage);
   }
 
   public async getMaxPriorityFees(): Promise<GasFees> {
@@ -1048,7 +1078,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     );
 
     // Build a map from block number to block hash
-    const blockNumberToHash = new Map<BlockNumber, Fr>();
+    const blockNumberToHash = new Map<BlockNumber, BlockHash>();
     for (let i = 0; i < uniqueBlockNumbers.length; i++) {
       const blockHash = blockHashes[i];
       if (blockHash === undefined) {
@@ -1066,13 +1096,13 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       if (blockNumber === undefined) {
         throw new Error(`Block number not found for leaf index ${index} in tree ${MerkleTreeId[treeId]}`);
       }
-      const blockHash = blockNumberToHash.get(blockNumber);
-      if (blockHash === undefined) {
+      const l2BlockHash = blockNumberToHash.get(blockNumber);
+      if (l2BlockHash === undefined) {
         throw new Error(`Block hash not found for block number ${blockNumber}`);
       }
       return {
         l2BlockNumber: blockNumber,
-        l2BlockHash: new BlockHash(blockHash),
+        l2BlockHash,
         data: index,
       };
     });
@@ -1636,6 +1666,40 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     this.log.info('Keystore reloaded: coinbase, feeRecipient, and attester keys updated');
   }
 
+  public async mineBlock(): Promise<void> {
+    if (!this.sequencer) {
+      throw new BadRequestError('Cannot mine block: no sequencer is running');
+    }
+
+    const currentBlockNumber = await this.getBlockNumber();
+
+    // Use slot duration + 50% buffer as the timeout so this works on running networks too
+    const { slotDuration } = await this.blockSource.getL1Constants();
+    const timeoutSeconds = Math.ceil(slotDuration * 1.5);
+
+    // Temporarily set minTxsPerBlock to 0 so the sequencer produces a block even with no txs
+    const originalMinTxsPerBlock = this.sequencer.getSequencer().getConfig().minTxsPerBlock;
+    this.sequencer.updateConfig({ minTxsPerBlock: 0 });
+
+    try {
+      // Trigger the sequencer to produce a block immediately
+      void this.sequencer.trigger();
+
+      // Wait for the new L2 block to appear
+      await retryUntil(
+        async () => {
+          const newBlockNumber = await this.getBlockNumber();
+          return newBlockNumber > currentBlockNumber ? true : undefined;
+        },
+        'mineBlock',
+        timeoutSeconds,
+        0.1,
+      );
+    } finally {
+      this.sequencer.updateConfig({ minTxsPerBlock: originalMinTxsPerBlock });
+    }
+  }
+
   #getInitialHeaderHash(): Promise<BlockHash> {
     if (!this.initialHeaderHashPromise) {
       this.initialHeaderHashPromise = this.worldStateSynchronizer.getCommitted().getInitialHeader().hash();
@@ -1667,17 +1731,18 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     if (BlockHash.isBlockHash(block)) {
       const initialBlockHash = await this.#getInitialHeaderHash();
       if (block.equals(initialBlockHash)) {
-        // Block source doesn't handle initial header so we need to handle the case separately.
-        return this.worldStateSynchronizer.getSnapshot(BlockNumber.ZERO);
+        // Block 0 has no historical snapshot in world state — its state only lives in the
+        // committed/uncommitted view via the tree's initial values. Since the anchor hash matches
+        // the known genesis hash, there is no reorg risk here and we can safely return committed.
+        this.log.debug(`Using committed db for block hash matching genesis header`);
+        return this.worldStateSynchronizer.getCommitted();
       }
-
       const header = await this.blockSource.getBlockHeaderByHash(block);
       if (!header) {
         throw new Error(
           `Block hash ${block.toString()} not found when querying world state. If the node API has been queried with anchor block hash possibly a reorg has occurred.`,
         );
       }
-
       blockNumber = header.getBlockNumber();
     } else {
       blockNumber = block as BlockNumber;
@@ -1694,9 +1759,10 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     // Double-check world-state synced to the same block hash as was requested
     if (BlockHash.isBlockHash(block)) {
       const blockHash = await snapshot.getLeafValue(MerkleTreeId.ARCHIVE, BigInt(blockNumber));
-      if (!blockHash || !new BlockHash(blockHash).equals(block)) {
+      if (!blockHash || !block.equals(blockHash)) {
+        const initialBlockHash = await this.#getInitialHeaderHash();
         throw new Error(
-          `Block hash ${block.toString()} not found in world state at block number ${blockNumber}. If the node API has been queried with anchor block hash possibly a reorg has occurred.`,
+          `Block hash ${block.toString()} not found in world state at block number ${blockNumber} (world state has ${blockHash?.toString() ?? 'no hash'} at that index, genesis header hash is ${initialBlockHash.toString()}). If the node API has been queried with anchor block hash possibly a reorg has occurred.`,
         );
       }
     }

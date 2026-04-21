@@ -6,6 +6,7 @@ import { Timer } from '@aztec/foundation/timer';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { computeFeePayerBalanceLeafSlot } from '@aztec/protocol-contracts/fee-juice';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { BlockHash } from '@aztec/stdlib/block';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 import { GasFees } from '@aztec/stdlib/gas';
 import type { MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
@@ -396,7 +397,7 @@ describe('TxValidator: Benchmarks', () => {
       // Fill archive tree
       await localFork.appendLeaves(
         MerkleTreeId.ARCHIVE,
-        times(dbSize, i => new Fr(BigInt(200000 + i))),
+        times(dbSize, i => new BlockHash(new Fr(BigInt(200000 + i)))),
       );
 
       // Record priming time

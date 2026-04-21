@@ -849,4 +849,38 @@ TEST_F(TxExecutionConstrainingWithCalldataTest, SimpleHandleCalldata)
     check_relation<bb::avm2::calldata_hashing<FF>>(trace);
     check_all_interactions<tracegen::CalldataTraceBuilder>(trace);
 }
+
+// Verify that the nullifier state increment is unconditional when should_nullifier_append = 1.
+// A malicious prover cannot set reverted = 1 to skip the state increment.
+TEST(TxExecutionConstrainingTest, NegativeNullifierStateIncrementIsUnconditional)
+{
+    TestTraceContainer trace({
+        {
+            // Row 0
+            { C::precomputed_first_row, 1 },
+        },
+        {
+            // Row 1: Nullifier append with should_nullifier_append = 1 but state not incremented.
+            { C::tx_sel, 1 },
+            { C::tx_should_nullifier_append, 1 },
+            { C::tx_reverted, 1 }, // Prover tries to cheat by setting reverted = 1.
+            { C::tx_prev_nullifier_tree_size, 5 },
+            { C::tx_next_nullifier_tree_size, 5 }, // Should be 6.
+            { C::tx_prev_num_nullifiers_emitted, 3 },
+            { C::tx_next_num_nullifiers_emitted, 3 }, // Should be 4.
+        },
+    });
+
+    // Tree size must increment unconditionally.
+    EXPECT_THROW_WITH_MESSAGE(check_relation<tx>(trace, tx::SR_NULLIFIER_TREE_SIZE_INCREMENT),
+                              "NULLIFIER_TREE_SIZE_INCREMENT");
+    // Fix tree size, break emitted count.
+    trace.set(C::tx_next_nullifier_tree_size, 1, 6);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<tx>(trace, tx::SR_NULLIFIER_EMITTED_COUNT_INCREMENT),
+                              "NULLIFIER_EMITTED_COUNT_INCREMENT");
+    // Fix emitted count — both should pass now.
+    trace.set(C::tx_next_num_nullifiers_emitted, 1, 4);
+    check_relation<tx>(trace, tx::SR_NULLIFIER_TREE_SIZE_INCREMENT, tx::SR_NULLIFIER_EMITTED_COUNT_INCREMENT);
+}
+
 } // namespace bb::avm2::constraining

@@ -46,7 +46,6 @@ use crate::state_vars::StateVariable;
 /// The storage slot derivation uses `derive_storage_slot_in_map(base_slot, key)` which computes
 /// `poseidon2_hash([base_slot, key.to_field()])`, ensuring cryptographically secure slot separation.
 ///
-/// docs:start:map
 pub struct Map<K, V, Context> {
     pub context: Context,
     storage_slot: Field,

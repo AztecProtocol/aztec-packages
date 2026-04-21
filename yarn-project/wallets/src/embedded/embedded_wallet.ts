@@ -2,11 +2,12 @@ import { type Account, NO_FROM } from '@aztec/aztec.js/account';
 import { CallAuthorizationRequest } from '@aztec/aztec.js/authorization';
 import { type InteractionWaitOptions, type SendReturn, type WaitOpts, getGasLimits } from '@aztec/aztec.js/contracts';
 import type { Aliased, SendOptions } from '@aztec/aztec.js/wallet';
-import { AccountManager } from '@aztec/aztec.js/wallet';
+import { AccountManager, TxSimulationResultWithAppOffset } from '@aztec/aztec.js/wallet';
 import type { DefaultAccountEntrypointOptions } from '@aztec/entrypoints/account';
 import { DefaultEntrypoint } from '@aztec/entrypoints/default';
 import { Fq, Fr } from '@aztec/foundation/curves/bn254';
 import type { Logger } from '@aztec/foundation/log';
+import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import type { PXEConfig, PXECreationOptions } from '@aztec/pxe/client/lazy';
 import type { PXE } from '@aztec/pxe/server';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -19,7 +20,6 @@ import {
   ExecutionPayload,
   SimulationOverrides,
   type TxExecutionRequest,
-  type TxSimulationResult,
   TxStatus,
   collectOffchainEffects,
   mergeExecutionPayloads,
@@ -44,6 +44,12 @@ export function splitPxeOptions(pxe?: EmbeddedWalletPXEOptions): {
   return { config, creation: { loggers, loggerActorLabel, proverOrOptions, store, simulator } };
 }
 
+/** Options for the EmbeddedWallet's own DB (accounts, senders — distinct from PXE state). */
+export type EmbeddedWalletDBOptions = {
+  /** Override the wallet DB backend. If omitted, an IndexedDB (browser) / LMDB (node) store is created. */
+  store?: AztecAsyncKVStore;
+};
+
 export type EmbeddedWalletOptions = {
   /** Parent logger. Child loggers are derived via createChild() for each subsystem. */
   logger?: Logger;
@@ -51,6 +57,8 @@ export type EmbeddedWalletOptions = {
   ephemeral?: boolean;
   /** PXE configuration and dependency overrides (custom store, prover, simulator). */
   pxe?: EmbeddedWalletPXEOptions;
+  /** Wallet DB dependency overrides (custom store). */
+  walletDb?: EmbeddedWalletDBOptions;
   /**
    * Override PXE configuration.
    * @deprecated Use `pxe` instead.
@@ -131,7 +139,7 @@ export class EmbeddedWallet extends BaseWallet {
     const simulationResult = await this.simulateViaEntrypoint(executionPayload, {
       from: opts.from,
       feeOptions,
-      scopes: this.scopesFrom(opts.from, opts.additionalScopes),
+      additionalScopes: opts.additionalScopes,
       skipTxValidation: true,
     });
 
@@ -185,17 +193,19 @@ export class EmbeddedWallet extends BaseWallet {
 
   /**
    * Builds contract overrides for all provided addresses by replacing their account contracts with stub implementations.
+   * Uses a type-specific stub artifact so that the stub's constructor selector matches the real account's constructor.
    */
   protected async buildAccountOverrides(addresses: AztecAddress[]): Promise<ContractOverrides> {
     const accounts = await this.getAccounts();
     const contracts: ContractOverrides = {};
 
-    const stubArtifact = await this.accountContracts.getStubAccountContractArtifact();
-
     const filtered = accounts.filter(acc => addresses.some(addr => addr.equals(acc.item)));
 
     for (const account of filtered) {
       const address = account.item;
+      const { type } = await this.walletDB.retrieveAccount(address);
+      const stubArtifact = await this.accountContracts.getStubAccountContractArtifact(type);
+
       const originalAccount = await this.getAccountFromAddress(address);
       const completeAddress = originalAccount.getCompleteAddress();
       const contractInstance = await this.pxe.getContractInstance(completeAddress.address);
@@ -205,8 +215,10 @@ export class EmbeddedWallet extends BaseWallet {
         );
       }
 
+      const stubConstructorArgs = type === 'schnorr' ? [Fr.ZERO, Fr.ZERO] : [Buffer.alloc(32), Buffer.alloc(32)];
       const stubInstance = await getContractInstanceFromInstantiationParams(stubArtifact, {
         salt: Fr.random(),
+        constructorArgs: stubConstructorArgs,
       });
 
       contracts[address.toString()] = {
@@ -226,8 +238,9 @@ export class EmbeddedWallet extends BaseWallet {
   protected override async simulateViaEntrypoint(
     executionPayload: ExecutionPayload,
     opts: SimulateViaEntrypointOptions,
-  ): Promise<TxSimulationResult> {
-    const { from, feeOptions, scopes, skipTxValidation, skipFeeEnforcement } = opts;
+  ): Promise<TxSimulationResultWithAppOffset> {
+    const { from, feeOptions, additionalScopes, skipTxValidation, skipFeeEnforcement } = opts;
+    const scopes = this.scopesFrom(from, additionalScopes);
 
     const feeExecutionPayload = await feeOptions.walletFeePaymentMethod?.getExecutionPayload();
     const finalExecutionPayload = feeExecutionPayload
@@ -235,7 +248,7 @@ export class EmbeddedWallet extends BaseWallet {
       : executionPayload;
     const chainInfo = await this.getChainInfo();
 
-    const accountOverrides = await this.buildAccountOverrides(this.scopesFrom(from, opts.additionalScopes));
+    const accountOverrides = await this.buildAccountOverrides(scopes);
     const overrides = new SimulationOverrides(accountOverrides);
 
     let txRequest: TxExecutionRequest;
@@ -243,9 +256,10 @@ export class EmbeddedWallet extends BaseWallet {
       const entrypoint = new DefaultEntrypoint();
       txRequest = await entrypoint.createTxExecutionRequest(finalExecutionPayload, feeOptions.gasSettings, chainInfo);
     } else {
+      const { type } = await this.walletDB.retrieveAccount(from);
       const originalAccount = await this.getAccountFromAddress(from);
       const completeAddress = originalAccount.getCompleteAddress();
-      const account = await this.accountContracts.createStubAccount(completeAddress);
+      const account = await this.accountContracts.createStubAccount(completeAddress, type);
       const executionOptions: DefaultAccountEntrypointOptions = {
         txNonce: Fr.random(),
         cancellable: this.cancellableTransactions,
@@ -260,13 +274,15 @@ export class EmbeddedWallet extends BaseWallet {
       );
     }
 
-    return this.pxe.simulateTx(txRequest, {
+    const result = await this.pxe.simulateTx(txRequest, {
       simulatePublic: true,
       skipFeeEnforcement,
       skipTxValidation,
       overrides,
       scopes,
     });
+    const appCallOffset = await this.computeAppCallOffset(from, feeOptions);
+    return TxSimulationResultWithAppOffset.fromResultAndOffset(result, appCallOffset);
   }
 
   protected async createAccountInternal(

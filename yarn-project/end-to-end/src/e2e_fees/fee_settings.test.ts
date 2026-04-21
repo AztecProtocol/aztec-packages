@@ -92,6 +92,11 @@ describe('e2e_fees fee settings', () => {
     };
 
     const prepareTxsWithMockedMinFees = async (noPaddingMinFees: GasFees, defaultPaddingMinFees: GasFees) => {
+      // Mock getPredictedMinFees (used by the wallet) and getCurrentMinFees (used by bumpL2Fees and other callers).
+      const getPredictedMinFeesSpy = jest
+        .spyOn(aztecNode, 'getPredictedMinFees')
+        .mockResolvedValueOnce([noPaddingMinFees])
+        .mockResolvedValueOnce([defaultPaddingMinFees]);
       const getCurrentMinFeesSpy = jest
         .spyOn(aztecNode, 'getCurrentMinFees')
         .mockResolvedValueOnce(noPaddingMinFees)
@@ -102,6 +107,7 @@ describe('e2e_fees fee settings', () => {
         const txWithDefaultPadding = await proveTx(undefined);
         return { txWithNoPadding, txWithDefaultPadding };
       } finally {
+        getPredictedMinFeesSpy.mockRestore();
         getCurrentMinFeesSpy.mockRestore();
       }
     };

@@ -79,7 +79,6 @@ struct RollupConfigInput {
   RewardBoostConfig rewardBoostConfig;
   StakingQueueConfig stakingQueueConfig;
   uint256 localEjectionThreshold;
-  Timestamp earliestRewardsClaimableTimestamp;
   uint256 inboxLag;
 }
 
@@ -115,9 +114,7 @@ interface IRollupCore {
   event RewardConfigUpdated(RewardConfig rewardConfig);
   event ManaTargetUpdated(uint256 indexed manaTarget);
   event PrunedPending(uint256 provenCheckpointNumber, uint256 pendingCheckpointNumber);
-  event RewardsClaimableUpdated(bool isRewardsClaimable);
 
-  function setRewardsClaimable(bool _isRewardsClaimable) external;
   function claimSequencerRewards(address _recipient) external returns (uint256);
   function claimProverRewards(address _recipient, Epoch[] memory _epochs) external returns (uint256);
 
@@ -237,6 +234,4 @@ interface IRollup is IRollupCore, IHaveVersion {
 
   function getRewardConfig() external view returns (RewardConfig memory);
   function getCheckpointReward() external view returns (uint256);
-  function getEarliestRewardsClaimableTimestamp() external view returns (Timestamp);
-  function isRewardsClaimable() external view returns (bool);
 }

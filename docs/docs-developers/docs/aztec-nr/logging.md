@@ -113,7 +113,7 @@ The `LOG_LEVEL` environment variable uses a semicolon-delimited format:
 <default_level>;<level>:<module1>,<module2>;<level>:<module3>
 ```
 
-- **First segment**: the default log level for all modules
+- **First segment (required)**: the default log level for all modules. A bare `level:module` with no preceding default (e.g. `LOG_LEVEL="warn:simulator"`) is invalid and throws `Invalid log level` — the parser always reads the segment before the first `;` as the default level. To filter only specific modules, start with `silent` (e.g. `LOG_LEVEL="silent;debug:simulator"`)
 - **Remaining segments**: `level:module` pairs that override the default for specific modules
 - Modules are comma-separated within a segment
 - The `aztec:` prefix is automatically stripped from module names

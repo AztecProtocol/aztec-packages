@@ -42,41 +42,41 @@ export const worldStateConfigMappings: ConfigMappingsType<WorldStateConfig> = {
   },
   worldStateBlockRequestBatchSize: {
     env: 'WS_BLOCK_REQUEST_BATCH_SIZE',
-    parseEnv: (val: string | undefined) => (val ? +val : undefined),
+    parseEnv: (val: string) => +val,
     description: 'Size of the batch for each get-blocks request from the synchronizer to the archiver.',
   },
   worldStateDbMapSizeKb: {
     env: 'WS_DB_MAP_SIZE_KB',
-    parseEnv: (val: string | undefined) => (val ? +val : undefined),
+    parseEnv: (val: string) => +val,
     description: 'The maximum possible size of the world state DB in KB. Overwrites the general dataStoreMapSizeKb.',
   },
   archiveTreeMapSizeKb: {
     env: 'ARCHIVE_TREE_MAP_SIZE_KB',
-    parseEnv: (val: string | undefined) => (val ? +val : undefined),
+    parseEnv: (val: string) => +val,
     description:
       'The maximum possible size of the world state archive tree in KB. Overwrites the general worldStateDbMapSizeKb.',
   },
   nullifierTreeMapSizeKb: {
     env: 'NULLIFIER_TREE_MAP_SIZE_KB',
-    parseEnv: (val: string | undefined) => (val ? +val : undefined),
+    parseEnv: (val: string) => +val,
     description:
       'The maximum possible size of the world state nullifier tree in KB. Overwrites the general worldStateDbMapSizeKb.',
   },
   noteHashTreeMapSizeKb: {
     env: 'NOTE_HASH_TREE_MAP_SIZE_KB',
-    parseEnv: (val: string | undefined) => (val ? +val : undefined),
+    parseEnv: (val: string) => +val,
     description:
       'The maximum possible size of the world state note hash tree in KB. Overwrites the general worldStateDbMapSizeKb.',
   },
   messageTreeMapSizeKb: {
     env: 'MESSAGE_TREE_MAP_SIZE_KB',
-    parseEnv: (val: string | undefined) => (val ? +val : undefined),
+    parseEnv: (val: string) => +val,
     description:
       'The maximum possible size of the world state message tree in KB. Overwrites the general worldStateDbMapSizeKb.',
   },
   publicDataTreeMapSizeKb: {
     env: 'PUBLIC_DATA_TREE_MAP_SIZE_KB',
-    parseEnv: (val: string | undefined) => (val ? +val : undefined),
+    parseEnv: (val: string) => +val,
     description:
       'The maximum possible size of the world state public data tree in KB. Overwrites the general worldStateDbMapSizeKb.',
   },

@@ -6,7 +6,7 @@ import { TxHash } from '@aztec/stdlib/tx';
 
 /**
  * Intermediate struct used to perform batch event validation by PXE. The `utilityValidateAndStoreEnqueuedNotesAndEvents` oracle
- * expects for values of this type to be stored in a `CapsuleArray`.
+ * expects for values of this type to be stored in a `EphemeralArray`.
  */
 export class EventValidationRequest {
   constructor(

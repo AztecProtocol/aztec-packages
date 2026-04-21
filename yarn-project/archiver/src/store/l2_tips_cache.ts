@@ -1,6 +1,12 @@
-import { GENESIS_BLOCK_HEADER_HASH, INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
+import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
-import { type BlockData, type CheckpointId, GENESIS_CHECKPOINT_HEADER_HASH, type L2Tips } from '@aztec/stdlib/block';
+import {
+  type BlockData,
+  type CheckpointId,
+  GENESIS_BLOCK_HEADER_HASH,
+  GENESIS_CHECKPOINT_HEADER_HASH,
+  type L2Tips,
+} from '@aztec/stdlib/block';
 
 import type { BlockStore } from './block_store.js';
 

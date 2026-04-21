@@ -99,11 +99,13 @@ template <typename FF_> class ECCVMTranscriptRelationImpl {
         INFINITY_ACC_X = 29,
         // Infinity flag consistency: acc_y = 0 when accumulator empty
         INFINITY_ACC_Y = 30,
+        // Boundary: accumulator_not_empty must be 0 at lagrange_first row
+        ACCUMULATOR_NOT_EMPTY_INIT = 31,
         NUM_SUBRELATIONS,
     };
 
-    static constexpr std::array<size_t, 31> SUBRELATION_PARTIAL_LENGTHS{
-        8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,
+    static constexpr std::array<size_t, 32> SUBRELATION_PARTIAL_LENGTHS{
+        8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,
     };
     static_assert(NUM_SUBRELATIONS == SUBRELATION_PARTIAL_LENGTHS.size());
 

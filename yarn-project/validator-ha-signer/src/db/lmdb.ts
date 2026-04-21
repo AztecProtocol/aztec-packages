@@ -41,7 +41,7 @@ function dutyKey(
  * Does not provide cross-node coordination (that requires the PostgreSQL implementation).
  */
 export class LmdbSlashingProtectionDatabase implements SlashingProtectionDatabase {
-  public static readonly SCHEMA_VERSION = 1;
+  public static readonly SCHEMA_VERSION = 2;
 
   private readonly duties: AztecAsyncMap<string, StoredDutyRecord>;
   private readonly log: Logger;
@@ -83,6 +83,7 @@ export class LmdbSlashingProtectionDatabase implements SlashingProtectionDatabas
         validatorAddress: params.validatorAddress.toString(),
         slot: params.slot.toString(),
         blockNumber: params.blockNumber.toString(),
+        checkpointNumber: params.checkpointNumber.toString(),
         blockIndexWithinCheckpoint,
         dutyType: params.dutyType,
         status: DutyStatus.SIGNING,

@@ -1,4 +1,5 @@
 import type { Logger } from '@aztec/foundation/log';
+import { Semaphore } from '@aztec/foundation/queue';
 import type { FunctionCall, FunctionSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
@@ -8,6 +9,9 @@ import type { StagedStore } from '../job_coordinator/job_coordinator.js';
 import type { ContractStore } from '../storage/contract_store/contract_store.js';
 import type { NoteStore } from '../storage/note_store/note_store.js';
 import { syncState, verifyCurrentClassId } from './helpers.js';
+
+/** Maximum number of scope syncs running concurrently across the PXE. */
+const MAX_CONCURRENT_SCOPE_SYNCS = 5;
 
 /**
  * Service for syncing the private state of contracts and verifying that the PXE holds the current class artifact.
@@ -25,6 +29,11 @@ export class ContractSyncService implements StagedStore {
 
   // Per-job excluded contract addresses - these contracts should not be synced.
   private excludedFromSync: Map<string, Set<string>> = new Map();
+
+  // Bounds the number of scope syncs running concurrently. Scopes beyond this limit queue here. Sized to trade off
+  // parallelism on non-ACIR work (node RPC, note store reads) against memory pressure from concurrent circuit
+  // execution.
+  #syncSlot = new Semaphore(MAX_CONCURRENT_SCOPE_SYNCS);
 
   constructor(
     private aztecNode: AztecNode,
@@ -59,15 +68,22 @@ export class ContractSyncService implements StagedStore {
       return;
     }
 
-    this.#startSyncIfNeeded(contractAddress, scopes, scopesToSync =>
-      this.#syncContract(
-        contractAddress,
-        functionToInvokeAfterSync,
-        utilityExecutor,
-        anchorBlockHeader,
-        jobId,
-        scopesToSync,
-      ),
+    this.#startSyncIfNeeded(
+      contractAddress,
+      scopes,
+      () => verifyCurrentClassId(contractAddress, this.aztecNode, this.contractStore, anchorBlockHeader),
+      scope =>
+        syncState(
+          contractAddress,
+          this.contractStore,
+          functionToInvokeAfterSync,
+          utilityExecutor,
+          this.noteStore,
+          this.aztecNode,
+          anchorBlockHeader,
+          jobId,
+          scope,
+        ),
     );
 
     await this.#awaitSync(contractAddress, scopes);
@@ -79,39 +95,6 @@ export class ContractSyncService implements StagedStore {
       return;
     }
     scopes.forEach(scope => this.syncedContracts.delete(toKey(contractAddress, scope)));
-  }
-
-  async #syncContract(
-    contractAddress: AztecAddress,
-    functionToInvokeAfterSync: FunctionSelector | null,
-    utilityExecutor: (call: FunctionCall, scopes: AztecAddress[]) => Promise<any>,
-    anchorBlockHeader: BlockHeader,
-    jobId: string,
-    scopes: AztecAddress[],
-  ): Promise<void> {
-    this.log.debug(`Syncing contract ${contractAddress}`);
-
-    await Promise.all([
-      // Call sync_state sequentially for each scope address — each invocation synchronizes one account's private
-      // state using scoped capsule arrays.
-      (async () => {
-        for (const scope of scopes) {
-          await syncState(
-            contractAddress,
-            this.contractStore,
-            functionToInvokeAfterSync,
-            utilityExecutor,
-            this.noteStore,
-            this.aztecNode,
-            anchorBlockHeader,
-            jobId,
-            scope,
-          );
-        }
-      })(),
-      verifyCurrentClassId(contractAddress, this.aztecNode, this.contractStore, anchorBlockHeader),
-    ]);
-    this.log.debug(`Contract ${contractAddress} synced`);
   }
 
   /** Clears sync cache. Called by BlockSynchronizer when anchor block changes. */
@@ -138,22 +121,45 @@ export class ContractSyncService implements StagedStore {
     return !!this.excludedFromSync.get(jobId)?.has(contractAddress.toString());
   }
 
-  /** If there are unsynced scopes, starts sync and stores the promise in cache with error cleanup. */
+  /**
+   * If there are unsynced scopes, starts one sync per scope (bounded by #syncSlot) and stores each promise in the
+   * cache with per-scope error cleanup. The verifyFn runs once for the whole fan-out and is awaited by every new
+   * scope's promise, matching the pre-parallelization invariant that a cache-miss batch re-verifies the class id.
+   */
   #startSyncIfNeeded(
     contractAddress: AztecAddress,
     scopes: AztecAddress[],
-    syncFn: (scopesToSync: AztecAddress[]) => Promise<void>,
+    verifyFn: () => Promise<void>,
+    syncScopeFn: (scope: AztecAddress) => Promise<void>,
   ): void {
     const scopesToSync = scopes.filter(scope => !this.syncedContracts.has(toKey(contractAddress, scope)));
-    const keys = scopesToSync.map(scope => toKey(contractAddress, scope));
-    if (keys.length === 0) {
+    if (scopesToSync.length === 0) {
       return;
     }
-    const promise = syncFn(scopesToSync).catch(err => {
-      keys.forEach(key => this.syncedContracts.delete(key));
-      throw err;
-    });
-    keys.forEach(key => this.syncedContracts.set(key, promise));
+
+    this.log.debug(`Syncing contract ${contractAddress} for ${scopesToSync.length} scope(s)`);
+    const verifyPromise = verifyFn();
+
+    for (const scope of scopesToSync) {
+      const key = toKey(contractAddress, scope);
+      const promise = Promise.all([verifyPromise, this.#runBounded(() => syncScopeFn(scope))])
+        .then(() => {})
+        .catch(err => {
+          this.syncedContracts.delete(key);
+          throw err;
+        });
+      this.syncedContracts.set(key, promise);
+    }
+  }
+
+  /** Runs fn while holding a slot in #syncSlot, bounding total concurrent scope syncs. */
+  async #runBounded<T>(fn: () => Promise<T>): Promise<T> {
+    await this.#syncSlot.acquire();
+    try {
+      return await fn();
+    } finally {
+      this.#syncSlot.release();
+    }
   }
 
   /** Collects all relevant scope promises (including in-flight ones from concurrent calls) and awaits them. */

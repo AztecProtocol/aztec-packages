@@ -11,3 +11,4 @@ export { ContractInstanceStore } from './store/contract_instance_store.js';
 export { L2TipsCache } from './store/l2_tips_cache.js';
 
 export { retrieveCheckpointsFromRollup, retrieveL2ProofVerifiedEvents } from './l1/data_retrieval.js';
+export { CalldataRetriever } from './l1/calldata_retriever.js';

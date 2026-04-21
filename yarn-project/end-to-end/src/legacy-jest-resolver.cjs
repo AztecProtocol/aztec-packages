@@ -1,5 +1,5 @@
 // Custom Jest resolver. When CONTRACT_ARTIFACTS_VERSION is set, redirects *only* JSON artifact files under
-// @aztec/noir-contracts.js/artifacts/ and @aztec/noir-test-contracts.js/artifacts/ to a local cache of the pinned
+// @aztec/noir-contracts.js/artifacts/, @aztec/noir-test-contracts.js/artifacts/, and @aztec/accounts/artifacts/ to a local cache of the pinned
 // legacy versions. TypeScript wrapper classes (e.g. Token.ts) continue to load from the current workspace and use the
 // current @aztec/aztec.js — only the artifact JSON (the deployed-contract ABI / bytecode / notes surface) is swapped.
 //
@@ -18,7 +18,7 @@ const fs = require('fs');
 const { execSync } = require('child_process');
 
 const version = process.env.CONTRACT_ARTIFACTS_VERSION;
-const REDIRECTED = ['@aztec/noir-contracts.js', '@aztec/noir-test-contracts.js'];
+const REDIRECTED = ['@aztec/noir-contracts.js', '@aztec/noir-test-contracts.js', '@aztec/accounts'];
 
 // Jest sets rootDir to <e2e>/src; this file lives there too.
 const e2eRoot = path.resolve(__dirname, '..');

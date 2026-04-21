@@ -66,20 +66,20 @@ export class ReadTransaction {
   ): AsyncIterable<[Uint8Array, T]> {
     this.assertIsOpen();
 
-    const response = await this.channel.sendMessage(LMDBMessageType.START_CURSOR, {
-      key: startKey,
-      reverse,
-      count: typeof limit === 'number' ? Math.min(limit, CURSOR_PAGE_SIZE) : CURSOR_PAGE_SIZE,
-      onePage: typeof limit === 'number' && limit < CURSOR_PAGE_SIZE,
-      db,
-    });
-
-    const cursor = response.cursor;
-    let entries = response.entries;
-    let done = typeof cursor !== 'number';
-    let count = 0;
-
+    let cursor: number | undefined;
     try {
+      const response = await this.channel.sendMessage(LMDBMessageType.START_CURSOR, {
+        key: startKey,
+        reverse,
+        count: typeof limit === 'number' ? Math.min(limit, CURSOR_PAGE_SIZE) : CURSOR_PAGE_SIZE,
+        onePage: typeof limit === 'number' && limit < CURSOR_PAGE_SIZE,
+        db,
+      });
+
+      cursor = response.cursor ?? undefined;
+      let entries = response.entries;
+      let done = typeof cursor !== 'number';
+      let count = 0;
       // emit the first page and any subsequent pages in a while loop
       // NB: end contition is in the middle of the while loop
       while (entries.length > 0) {
@@ -125,17 +125,17 @@ export class ReadTransaction {
   async #countEntries(db: string, startKey: Uint8Array, endKey: Uint8Array, reverse: boolean): Promise<number> {
     this.assertIsOpen();
 
-    const response = await this.channel.sendMessage(LMDBMessageType.START_CURSOR, {
-      key: startKey,
-      reverse,
-      count: 0,
-      onePage: false,
-      db,
-    });
-
-    const cursor = response.cursor;
-
+    let cursor: number | undefined;
     try {
+      const response = await this.channel.sendMessage(LMDBMessageType.START_CURSOR, {
+        key: startKey,
+        reverse,
+        count: 0,
+        onePage: false,
+        db,
+      });
+
+      cursor = response.cursor ?? undefined;
       if (!cursor) {
         return 0;
       }

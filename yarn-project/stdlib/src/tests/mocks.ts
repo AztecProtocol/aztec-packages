@@ -587,6 +587,7 @@ export const makeBlockProposal = (options?: MakeBlockProposalOptions): Promise<B
 
   return BlockProposal.createProposalFromSigner(
     blockHeader,
+    CheckpointNumber(1),
     indexWithinCheckpoint,
     inHash,
     archiveRoot,
@@ -618,6 +619,7 @@ export const makeCheckpointProposal = async (options?: MakeCheckpointProposalOpt
   return CheckpointProposal.createProposalFromSigner(
     checkpointHeader,
     archiveRoot,
+    CheckpointNumber(1),
     feeAssetPriceModifier,
     lastBlockProposal,
     payload => Promise.resolve(signer.signMessage(payload)),

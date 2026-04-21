@@ -106,13 +106,28 @@ class ArgumentEncoder {
         this.flattened.push(new Fr(arg ? 1n : 0n));
         break;
       case 'array':
+        if (!Array.isArray(arg)) {
+          throw new Error(`Expected array for '${name ?? 'unnamed'}' but received ${typeof arg}`);
+        }
+        if (arg.length !== abiType.length) {
+          throw new Error(
+            `Expected array of length ${abiType.length} for '${name ?? 'unnamed'}' but received length ${arg.length}`,
+          );
+        }
         for (let i = 0; i < abiType.length; i += 1) {
           this.encodeArgument(abiType.type, arg[i], `${name}[${i}]`);
         }
         break;
       case 'string':
+        if (typeof arg !== 'string') {
+          throw new Error(`Expected string for '${name ?? 'unnamed'}' but received ${typeof arg}`);
+        }
+        if (arg.length > abiType.length) {
+          throw new Error(
+            `Expected string of max length ${abiType.length} for '${name ?? 'unnamed'}' but received length ${arg.length}`,
+          );
+        }
         for (let i = 0; i < abiType.length; i += 1) {
-          // If the string is shorter than the defined length, pad it with 0s.
           const toInsert = i < arg.length ? BigInt((arg as string).charCodeAt(i)) : 0n;
           this.flattened.push(new Fr(toInsert));
         }
@@ -157,12 +172,28 @@ class ArgumentEncoder {
       }
       case 'integer': {
         const value = BigInt(arg);
-        if (abiType.sign === 'signed' && value < 0n) {
-          // Convert negative values to two's complement representation
-          const twosComplement = value + (1n << BigInt(abiType.width));
-          this.flattened.push(new Fr(twosComplement));
-        } else {
+        if (abiType.sign === 'unsigned') {
+          const maxValue = (1n << BigInt(abiType.width)) - 1n;
+          if (value < 0n || value > maxValue) {
+            throw new Error(
+              `Value ${value} does not fit in u${abiType.width} for '${name ?? 'unnamed'}' (valid range: 0 to ${maxValue})`,
+            );
+          }
           this.flattened.push(new Fr(value));
+        } else {
+          const minValue = -(1n << BigInt(abiType.width - 1));
+          const maxValue = (1n << BigInt(abiType.width - 1)) - 1n;
+          if (value < minValue || value > maxValue) {
+            throw new Error(
+              `Value ${value} does not fit in i${abiType.width} for '${name ?? 'unnamed'}' (valid range: ${minValue} to ${maxValue})`,
+            );
+          }
+          if (value < 0n) {
+            const twosComplement = value + (1n << BigInt(abiType.width));
+            this.flattened.push(new Fr(twosComplement));
+          } else {
+            this.flattened.push(new Fr(value));
+          }
         }
         break;
       }
@@ -176,6 +207,11 @@ class ArgumentEncoder {
    * @returns The encoded arguments.
    */
   public encode() {
+    if (this.args.length !== this.abi.parameters.length) {
+      throw new Error(
+        `Function '${this.abi.name}' expects ${this.abi.parameters.length} argument(s) but received ${this.args.length}`,
+      );
+    }
     for (let i = 0; i < this.abi.parameters.length; i += 1) {
       const parameterAbi = this.abi.parameters[i];
       this.encodeArgument(parameterAbi.type, this.args[i], parameterAbi.name);

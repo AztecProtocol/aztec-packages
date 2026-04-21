@@ -28,6 +28,11 @@ contract UpdateManaTargetTest is TestBase {
     feeLibWrapper.initialize(100_000_000, TestConstants.AZTEC_INITIAL_ETH_PER_FEE_ASSET);
   }
 
+  function test_WhenManaTargetIsZero() external {
+    vm.expectRevert(abi.encodeWithSelector(Errors.FeeLib__InvalidManaTarget.selector, 1, 0));
+    feeLibWrapper.updateManaTarget(0);
+  }
+
   function test_WhenManaLimitGTUint32(uint256 _manaTarget) external {
     // it reverts with {FeeLib__InvalidManaLimitTarget}
 
@@ -42,7 +47,7 @@ contract UpdateManaTargetTest is TestBase {
     // it store the mana target
     // it store the congestion update fraction
 
-    uint256 manaTarget = bound(_manaTarget, 0, type(uint32).max / 2);
+    uint256 manaTarget = bound(_manaTarget, 1, type(uint32).max / 2);
 
     feeLibWrapper.updateManaTarget(manaTarget);
 

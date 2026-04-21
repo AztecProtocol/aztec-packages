@@ -21,9 +21,20 @@ import {Registry} from "@aztec/governance/Registry.sol";
 contract DeployRollupForUpgradeTest is Test {
   using stdJson for string;
 
+  modifier skipWhenCoverage() {
+    if (isCoverage()) {
+      vm.skip(true);
+    }
+    _;
+  }
+
+  function isCoverage() internal view returns (bool) {
+    return vm.envOr("FORGE_COVERAGE", false);
+  }
+
   // Load environment variables from generated/default.json
   // This file is copied from spartan/environments/default.json by bootstrap.sh
-  function setUp() public {
+  function setUp() public skipWhenCoverage {
     string memory root = vm.projectRoot();
     string memory path = string.concat(root, "/generated/default.json");
     string memory json = vm.readFile(path);

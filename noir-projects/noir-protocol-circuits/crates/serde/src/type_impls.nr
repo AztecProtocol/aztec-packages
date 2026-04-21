@@ -2,7 +2,6 @@ use crate::{reader::Reader, serialization::{Deserialize, Serialize}, writer::Wri
 use std::embedded_curve_ops::EmbeddedCurvePoint;
 use std::embedded_curve_ops::EmbeddedCurveScalar;
 
-global U1_SERIALIZED_LEN: u32 = 1;
 global BOOL_SERIALIZED_LEN: u32 = 1;
 global U8_SERIALIZED_LEN: u32 = 1;
 global U16_SERIALIZED_LEN: u32 = 1;
@@ -43,37 +42,6 @@ impl Deserialize for bool {
     #[inline_always]
     fn stream_deserialize<let K: u32>(reader: &mut Reader<K>) -> bool {
         reader.read() != 0
-    }
-}
-
-impl Serialize for u1 {
-    let N: u32 = U1_SERIALIZED_LEN;
-
-    fn serialize(self) -> [Field; Self::N] {
-        let mut writer: Writer<Self::N> = Writer::new();
-        self.stream_serialize(&mut writer);
-        writer.finish()
-    }
-
-    #[inline_always]
-    fn stream_serialize<let K: u32>(self, writer: &mut Writer<K>) {
-        writer.write(self as Field);
-    }
-}
-
-impl Deserialize for u1 {
-    let N: u32 = U1_SERIALIZED_LEN;
-
-    fn deserialize(fields: [Field; Self::N]) -> Self {
-        let mut reader = Reader::new(fields);
-        let result = Self::stream_deserialize(&mut reader);
-        reader.finish();
-        result
-    }
-
-    #[inline_always]
-    fn stream_deserialize<let K: u32>(reader: &mut Reader<K>) -> Self {
-        reader.read() as u1
     }
 }
 
@@ -507,19 +475,18 @@ impl Deserialize for EmbeddedCurveScalar {
     }
 }
 
-global POINT_SIZE: u32 = 3;
+global POINT_SIZE: u32 = 2;
 
 impl Serialize for EmbeddedCurvePoint {
     let N: u32 = POINT_SIZE;
 
     fn serialize(self) -> [Field; Self::N] {
-        [self.x, self.y, self.is_infinite as Field]
+        [self.x, self.y]
     }
 
     fn stream_serialize<let K: u32>(self, writer: &mut Writer<K>) {
         writer.write(self.x);
         writer.write(self.y);
-        writer.write(self.is_infinite as Field);
     }
 }
 
@@ -527,12 +494,12 @@ impl Deserialize for EmbeddedCurvePoint {
     let N: u32 = POINT_SIZE;
 
     fn deserialize(fields: [Field; Self::N]) -> Self {
-        Self { x: fields[0], y: fields[1], is_infinite: fields[2] != 0 }
+        Self { x: fields[0], y: fields[1] }
     }
 
     #[inline_always]
     fn stream_deserialize<let K: u32>(reader: &mut Reader<K>) -> Self {
-        Self { x: reader.read(), y: reader.read(), is_infinite: reader.read_bool() }
+        Self { x: reader.read(), y: reader.read() }
     }
 }
 

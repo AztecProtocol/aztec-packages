@@ -10,6 +10,7 @@ import { TokenBlacklistContract } from '@aztec/noir-contracts.js/TokenBlacklist'
 import { GenericProxyContract } from '@aztec/noir-test-contracts.js/GenericProxy';
 import { InvalidAccountContract } from '@aztec/noir-test-contracts.js/InvalidAccount';
 import type { SequencerClient } from '@aztec/sequencer-client';
+import type { AztecNodeDebug } from '@aztec/stdlib/interfaces/client';
 
 import { jest } from '@jest/globals';
 
@@ -57,7 +58,7 @@ export class BlacklistTokenContractTest {
   authwitProxy!: GenericProxyContract;
   cheatCodes!: CheatCodes;
   sequencer!: SequencerClient;
-  aztecNode!: AztecNode;
+  aztecNode!: AztecNode & AztecNodeDebug;
 
   adminAddress!: AztecAddress;
   otherAddress!: AztecAddress;
@@ -68,11 +69,7 @@ export class BlacklistTokenContractTest {
   }
 
   async crossTimestampOfChange() {
-    await this.cheatCodes.warpL2TimeAtLeastBy(
-      this.sequencer,
-      this.aztecNode,
-      BlacklistTokenContractTest.CHANGE_ROLES_DELAY,
-    );
+    await this.cheatCodes.warpL2TimeAtLeastBy(this.aztecNode, BlacklistTokenContractTest.CHANGE_ROLES_DELAY);
   }
 
   /**

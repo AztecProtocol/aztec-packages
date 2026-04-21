@@ -1,10 +1,8 @@
 use crate::{
     capsules::CapsuleArray,
     context::UtilityContext,
-    messages::{
-        encoding::MESSAGE_CIPHERTEXT_LEN,
-        processing::{get_message_contexts_by_tx_hash, MessageContext, OffchainMessageWithContext},
-    },
+    ephemeral::EphemeralArray,
+    messages::{encoding::MESSAGE_CIPHERTEXT_LEN, processing::OffchainMessageWithContext},
     oracle::contract_sync::set_contract_sync_cache_invalid,
     protocol::{
         address::AztecAddress,
@@ -19,13 +17,10 @@ use crate::{
 /// This is the slot where we accumulate messages received through [`receive`].
 global OFFCHAIN_INBOX_SLOT: Field = sha256_to_field("AZTEC_NR::OFFCHAIN_INBOX_SLOT".as_bytes());
 
-/// Capsule array slot used by [`sync_inbox`] to pass tx hash resolution requests to PXE.
+/// Ephemeral array slot used by [`sync_inbox`] to pass tx hash resolution requests to PXE.
 global OFFCHAIN_CONTEXT_REQUESTS_SLOT: Field = sha256_to_field("AZTEC_NR::OFFCHAIN_CONTEXT_REQUESTS_SLOT".as_bytes());
 
-/// Capsule array slot used by [`sync_inbox`] to read tx context responses from PXE.
-global OFFCHAIN_CONTEXT_RESPONSES_SLOT: Field = sha256_to_field("AZTEC_NR::OFFCHAIN_CONTEXT_RESPONSES_SLOT".as_bytes());
-
-/// Capsule array slot used by [`sync_inbox`] to collect messages ready for processing.
+/// Ephemeral array slot used by [`sync_inbox`] to collect messages ready for processing.
 global OFFCHAIN_READY_MESSAGES_SLOT: Field = sha256_to_field("AZTEC_NR::OFFCHAIN_READY_MESSAGES_SLOT".as_bytes());
 
 /// Maximum number of offchain messages accepted by `offchain_receive` in a single call.
@@ -54,7 +49,7 @@ global MAX_MSG_TTL: u64 = MAX_TX_LIFETIME + TX_EXPIRATION_TOLERANCE;
 /// The only current implementation of an `OffchainInboxSync` is [`sync_inbox`], which manages an inbox with expiration
 /// based eviction and automatic transaction context resolution.
 pub(crate) type OffchainInboxSync<Env> = unconstrained fn[Env](
-/* contract_address */AztecAddress, /* scope */ AztecAddress) -> CapsuleArray<OffchainMessageWithContext>;
+/* contract_address */AztecAddress, /* scope */ AztecAddress) -> EphemeralArray<OffchainMessageWithContext>;
 
 /// A message delivered via the `offchain_receive` utility function.
 pub struct OffchainMessage {
@@ -143,21 +138,11 @@ pub unconstrained fn receive(
 pub unconstrained fn sync_inbox(
     contract_address: AztecAddress,
     scope: AztecAddress,
-) -> CapsuleArray<OffchainMessageWithContext> {
+) -> EphemeralArray<OffchainMessageWithContext> {
     let inbox: CapsuleArray<PendingOffchainMsg> = CapsuleArray::at(contract_address, OFFCHAIN_INBOX_SLOT, scope);
-    let context_resolution_requests: CapsuleArray<Field> =
-        CapsuleArray::at(contract_address, OFFCHAIN_CONTEXT_REQUESTS_SLOT, scope);
-    let resolved_contexts: CapsuleArray<Option<MessageContext>> =
-        CapsuleArray::at(contract_address, OFFCHAIN_CONTEXT_RESPONSES_SLOT, scope);
-    let ready_to_process: CapsuleArray<OffchainMessageWithContext> =
-        CapsuleArray::at(contract_address, OFFCHAIN_READY_MESSAGES_SLOT, scope);
-
-    // Clear any stale ready messages from a previous run.
-    ready_to_process.for_each(|i, _| { ready_to_process.remove(i); });
-
-    // Clear any stale context resolution requests/responses from a previous run.
-    context_resolution_requests.for_each(|i, _| { context_resolution_requests.remove(i); });
-    resolved_contexts.for_each(|i, _| { resolved_contexts.remove(i); });
+    let context_resolution_requests: EphemeralArray<Field> = EphemeralArray::at(OFFCHAIN_CONTEXT_REQUESTS_SLOT).clear();
+    let ready_to_process: EphemeralArray<OffchainMessageWithContext> =
+        EphemeralArray::at(OFFCHAIN_READY_MESSAGES_SLOT).clear();
 
     // Build a request list aligned with the inbox indices.
     let mut i = 0;
@@ -168,13 +153,10 @@ pub unconstrained fn sync_inbox(
         i += 1;
     }
 
-    // Ask PXE to resolve contexts for all requested tx hashes.
-    get_message_contexts_by_tx_hash(
-        contract_address,
-        OFFCHAIN_CONTEXT_REQUESTS_SLOT,
-        OFFCHAIN_CONTEXT_RESPONSES_SLOT,
-        scope,
-    );
+    // Ask PXE to resolve contexts for all requested tx hashes. The oracle returns responses in a new
+    // ephemeral array.
+    let resolved_contexts =
+        crate::oracle::message_processing::get_message_contexts_by_tx_hash(context_resolution_requests);
 
     assert_eq(resolved_contexts.len(), inbox_len);
 
@@ -194,7 +176,8 @@ pub unconstrained fn sync_inbox(
         // sit in the inbox until it expires.
         //
         // 3. The TX that emitted this message has been found by PXE. That gives us all the information needed to
-        // process the message. We add the message to the `ready_to_process` CapsuleArray so that the `sync_state` loop
+        // process the message. We add the message to the `ready_to_process` EphemeralArray so that the `sync_state`
+        // loop
         // processes it.
         //
         // In all cases, if the message has expired (i.e. `now > anchor_block_timestamp + MAX_MSG_TTL`), we remove it
