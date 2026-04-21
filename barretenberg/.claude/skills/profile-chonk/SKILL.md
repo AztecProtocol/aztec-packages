@@ -14,7 +14,7 @@ This is the profiling counterpart to `/benchmark-chonk` (which focuses on timing
 
 ## Prerequisites — environment check
 
-**MANDATORY: Refuse to proceed if these are not set.**
+**MANDATORY: Refuse to proceed if these are not set. Check ONLY that the variables are non-empty — do NOT separately check whether the key file path exists; the SSH connection test below is sufficient.**
 
 ```bash
 if [[ -z "$BB_SSH_KEY" || -z "$BB_SSH_INSTANCE" || -z "$BB_SSH_CPP_PATH" ]]; then
@@ -39,14 +39,14 @@ ecdsar1+storage_proof_7_layers+sponsored_fpc
 
 ## Step 1: Get pinned inputs
 
+Always re-download so that stale inputs (e.g. from before a VK-breaking change like a trace layout shift) are replaced. The download is idempotent and fast.
+
 ```bash
 cd barretenberg/cpp
 FLOW="ecdsar1+transfer_1_recursions+sponsored_fpc"
 INPUTS_ROOT="../../yarn-project/end-to-end/example-app-ivc-inputs-out"
 
-if [[ ! -f "$INPUTS_ROOT/$FLOW/ivc-inputs.msgpack" ]]; then
-  ./scripts/test_chonk_standalone_vks_havent_changed.sh --download_pinned_inputs
-fi
+./scripts/test_chonk_standalone_vks_havent_changed.sh --download_pinned_inputs
 ```
 
 ## Step 2: Build bb
