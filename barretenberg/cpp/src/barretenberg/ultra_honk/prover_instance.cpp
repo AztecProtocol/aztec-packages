@@ -247,10 +247,6 @@ void ProverInstance_<Flavor>::allocate_databus_polynomials(const Circuit& circui
     // offset_size gives the allocation size for a databus column of the given content length.
     const auto offset_size = [](size_t content) -> size_t { return TRACE_OFFSET + content; };
 
-    // Databus data is shifted by the disabled head region for uniform layout across ZK and non-ZK.
-    // offset_size gives the allocation size for a databus column of the given content length.
-    const auto offset_size = [](size_t content) -> size_t { return TRACE_OFFSET + content; };
-
     // Databus inverses must cover both the databus gate block (where reads occur) and the data itself.
     const size_t q_busread_end = circuit.blocks.busread.trace_end();
 
