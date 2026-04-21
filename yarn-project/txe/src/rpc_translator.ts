@@ -723,6 +723,16 @@ export class RPCTranslator {
   }
 
   // eslint-disable-next-line camelcase
+  async aztec_utl_isBlockInArchive(foreignAnchorBlockHash: ForeignCallSingle, foreignBlockHash: ForeignCallSingle) {
+    const anchorBlockHash = new BlockHash(fromSingle(foreignAnchorBlockHash));
+    const blockHash = new BlockHash(fromSingle(foreignBlockHash));
+
+    const witness = await this.handlerAsUtility().getBlockHashMembershipWitness(anchorBlockHash, blockHash);
+
+    return toForeignCallResult([toSingle(new Fr(witness !== undefined))]);
+  }
+
+  // eslint-disable-next-line camelcase
   async aztec_utl_getLowNullifierMembershipWitness(
     foreignBlockHash: ForeignCallSingle,
     foreignNullifier: ForeignCallSingle,

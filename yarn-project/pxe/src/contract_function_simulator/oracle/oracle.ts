@@ -267,6 +267,15 @@ export class Oracle {
   }
 
   // eslint-disable-next-line camelcase
+  async aztec_utl_isBlockInArchive([anchorBlockHash]: ACVMField[], [blockHash]: ACVMField[]): Promise<ACVMField[]> {
+    const parsedAnchorBlockHash = BlockHash.fromString(anchorBlockHash);
+    const parsedBlockHash = BlockHash.fromString(blockHash);
+
+    const witness = await this.handlerAsUtility().getBlockHashMembershipWitness(parsedAnchorBlockHash, parsedBlockHash);
+    return [toACVMField(witness !== undefined)];
+  }
+
+  // eslint-disable-next-line camelcase
   async aztec_utl_getNullifierMembershipWitness(
     [blockHash]: ACVMField[],
     [nullifier]: ACVMField[], // nullifier, we try to find the witness for (to prove inclusion)

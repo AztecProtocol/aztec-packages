@@ -4,6 +4,7 @@ use super::{
         extract_metadata_da_component, extract_tee_notes_da_component,
         extract_tee_required_nullifiers_da_component, MAX_EFFECTS, TEEMetadata,
     },
+    schnorr::Signature,
 };
 use aztec::{
     context::UtilityContext,
@@ -16,7 +17,7 @@ use aztec::{
             compute_note_hash_nonce, compute_siloed_note_hash, compute_unique_note_hash,
             poseidon2_hash,
         },
-        traits::{Deserialize, Serialize},
+        traits::{Deserialize, Hash, Serialize},
     },
     state_vars::{Map, PublicMutable, StateVariable},
 };
@@ -57,7 +58,7 @@ impl DAComponents {
 }
 
 fn validate_signature(
-    note: AssertedNote,
+    signature: Signature,
     contract_address: AztecAddress,
     siloed_note_hash: Field,
     da_components: DAComponents,
@@ -76,20 +77,15 @@ fn validate_signature(
         "Public key: {0}, {1}",
         [da_components.metadata.pub_key_x, da_components.metadata.pub_key_y],
     );
-    aztec::protocol::logging::debug_log_format("Signature: {}", note.signature.serialize());
+    aztec::protocol::logging::debug_log_format("Signature: {}", signature.serialize());
     aztec::protocol::logging::debug_log_format("Signed data: {}", signed_data.serialize());
 
-    // TODO: Important! Make this boolean instead of panicking
     crate::schnorr::verify(
         da_components.metadata.pub_key_x,
         da_components.metadata.pub_key_y,
-        note.signature,
+        signature,
         signed_data.serialize(),
-    );
-
-    aztec::protocol::logging::debug_log("Validated signature");
-
-    true
+    )
 }
 
 fn validate_siloed_vs_unique_note_hash(siloed_note_hash: Field, effect: TxEffect) -> bool {
@@ -138,9 +134,14 @@ unconstrained fn validate_signer_registration(metadata: TEEMetadata) -> bool {
     approved_signers.at(signer_key).read()
 }
 
-fn validate_anchor_block_hash_in_the_past(_metadata: TEEMetadata) -> bool {
-    // TODO: Implement
-    true
+unconstrained fn validate_anchor_block_hash_in_the_past(metadata: TEEMetadata) -> bool {
+    let pxe_head_header = UtilityContext::new().block_header();
+    // Accept the PXE head as well: its archive only contains strictly earlier blocks.
+    (pxe_head_header.hash() == metadata.anchor_block_hash)
+        | aztec::oracle::get_membership_witness::is_block_in_archive(
+            pxe_head_header,
+            metadata.anchor_block_hash,
+        )
 }
 
 pub unconstrained fn validate_note(
@@ -176,8 +177,12 @@ pub unconstrained fn validate_note(
         } else {
             let da_components = da_components.unwrap_unchecked();
 
-            // TODO: Need to check that anchor block hash is in the past.
-            validate_signature(note, contract_address, siloed_note_hash, da_components)
+            validate_signature(
+                note.signature,
+                contract_address,
+                siloed_note_hash,
+                da_components,
+            )
                 & validate_siloed_vs_unique_note_hash(siloed_note_hash, effect)
                 & validate_required_nullifiers(da_components.required_nullifiers, effect)
                 & validate_siloed_note_hash_in_tee_notes(siloed_note_hash, da_components.tee_notes)

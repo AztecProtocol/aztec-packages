@@ -173,6 +173,7 @@ pub unconstrained fn note_handler(
             note_validation_request.owner,
             message_context.tx_hash,
         ) {
+            aztec::protocol::logging::debug_log("Validated note");
             discovered_notes.push(note_validation_request);
         }
     }
