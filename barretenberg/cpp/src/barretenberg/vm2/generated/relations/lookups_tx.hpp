@@ -173,7 +173,7 @@ using lookup_tx_note_hash_append_relation = lookup_relation_base<FF_, lookup_tx_
 struct lookup_tx_nullifier_append_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_TX_NULLIFIER_APPEND";
     static constexpr std::string_view RELATION_NAME = "tx";
-    static constexpr size_t LOOKUP_TUPLE_SIZE = 9;
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 10;
     static constexpr Column SRC_SELECTOR = Column::tx_should_nullifier_append;
     static constexpr Column DST_SELECTOR = Column::indexed_tree_check_write;
     static constexpr Column COUNTS = Column::lookup_tx_nullifier_append_counts;
@@ -187,6 +187,7 @@ struct lookup_tx_nullifier_append_settings_ {
         ColumnAndShifts::tx_discard,
         ColumnAndShifts::tx_write_nullifier_pi_offset,
         ColumnAndShifts::tx_nullifier_tree_height,
+        ColumnAndShifts::tx_nullifier_merkle_separator,
         ColumnAndShifts::precomputed_zero
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
@@ -198,6 +199,7 @@ struct lookup_tx_nullifier_append_settings_ {
         ColumnAndShifts::indexed_tree_check_discard,
         ColumnAndShifts::indexed_tree_check_public_inputs_index,
         ColumnAndShifts::indexed_tree_check_tree_height,
+        ColumnAndShifts::indexed_tree_check_merkle_hash_separator,
         ColumnAndShifts::indexed_tree_check_sel_silo
     };
 };
