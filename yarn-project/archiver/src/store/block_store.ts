@@ -52,7 +52,10 @@ import {
   CheckpointNotFoundError,
   CheckpointNumberNotSequentialError,
   InitialCheckpointNumberNotSequentialError,
+  NoProposedCheckpointToPromoteError,
+  ProposedCheckpointArchiveRootMismatchError,
   ProposedCheckpointNotSequentialError,
+  ProposedCheckpointPromotionNotSequentialError,
   ProposedCheckpointStaleError,
 } from '../errors.js';
 
@@ -708,20 +711,16 @@ export class BlockStore {
     return await this.db.transactionAsync(async () => {
       const proposed = await this.getProposedCheckpointOnly();
       if (!proposed) {
-        throw new Error('Cannot promote proposed checkpoint: no proposed checkpoint exists');
+        throw new NoProposedCheckpointToPromoteError();
       }
       if (!proposed.archive.root.equals(expectedArchiveRoot)) {
-        throw new Error(
-          `Cannot promote proposed checkpoint: archive root mismatch (expected ${expectedArchiveRoot}, got ${proposed.archive.root})`,
-        );
+        throw new ProposedCheckpointArchiveRootMismatchError(expectedArchiveRoot, proposed.archive.root);
       }
 
       // Verify sequentiality: promoted checkpoint must follow the latest confirmed one
       const latestCheckpointNumber = await this.getLatestCheckpointNumber();
       if (latestCheckpointNumber !== proposed.checkpointNumber - 1) {
-        throw new Error(
-          `Cannot promote proposed checkpoint: not sequential (latest ${latestCheckpointNumber}, proposed ${proposed.checkpointNumber})`,
-        );
+        throw new ProposedCheckpointPromotionNotSequentialError(proposed.checkpointNumber, latestCheckpointNumber);
       }
 
       // Write the checkpoint entry
