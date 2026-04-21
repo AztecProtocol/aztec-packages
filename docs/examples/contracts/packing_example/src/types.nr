@@ -1,3 +1,4 @@
+use aztec::macros::notes::note;
 use aztec::protocol::{
     address::AztecAddress,
     traits::{Deserialize, FromField, Packable, Serialize, ToField},
@@ -15,6 +16,41 @@ pub struct ServerConfig {
 }
 // N = 3 (one Field per member)
 // docs:end:derived_packable
+
+// docs:start:field_like_note
+// A note whose members are already Field-sized.
+// #[note] requires Packable; derive is sufficient here -- N = 1.
+#[derive(Deserialize, Eq, Packable, Serialize)]
+#[note]
+pub struct OwnerNote {
+    pub owner: AztecAddress,
+}
+// docs:end:field_like_note
+
+// docs:start:card_note
+// A note with two u32 members. Derived Packable would give N = 2;
+// a custom impl halves that to N = 1, reducing note-hash inputs.
+#[derive(Eq)]
+#[note]
+pub struct CardNote {
+    pub strength: u32,
+    pub points: u32,
+}
+
+impl Packable for CardNote {
+    let N: u32 = 1;
+
+    fn pack(self) -> [Field; Self::N] {
+        [(self.strength as Field) * 2.pow_32(32) + (self.points as Field)]
+    }
+
+    fn unpack(packed: [Field; Self::N]) -> Self {
+        let points = packed[0] as u32;
+        let strength = ((packed[0] - points as Field) / 2.pow_32(32)) as u32;
+        Self { strength, points }
+    }
+}
+// docs:end:card_note
 
 // docs:start:card_custom_packable
 // Two u32 values packed into a single Field.
