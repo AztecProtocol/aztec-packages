@@ -1266,6 +1266,17 @@ export class RollupContract {
     );
   }
 
+  /**
+   * Fetches OwnershipTransferred events emitted on the L1 block this rollup was deployed on.
+   * The Rollup inherits from Ownable and emits this event in its constructor, so the event
+   * is guaranteed to exist on `l1StartBlock` for any correctly deployed rollup. Used as a
+   * probe to detect RPC nodes that prune historical logs.
+   */
+  async getOwnershipTransferredEventsAtDeploy() {
+    const l1StartBlock = await this.getL1StartBlock();
+    return await this.rollup.getEvents.OwnershipTransferred({}, { fromBlock: l1StartBlock, toBlock: l1StartBlock });
+  }
+
   /** Fetches CheckpointProposed events within the given block range. */
   async getCheckpointProposedEvents(fromBlock: bigint, toBlock: bigint): Promise<CheckpointProposedLog[]> {
     const logs = await this.rollup.getEvents.CheckpointProposed({}, { fromBlock, toBlock });

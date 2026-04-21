@@ -355,6 +355,18 @@ describe('Rollup', () => {
     });
   });
 
+  describe('getOwnershipTransferredEventsAtDeploy', () => {
+    it('finds OwnershipTransferred event emitted at deploy block', async () => {
+      const logs = await rollup.getOwnershipTransferredEventsAtDeploy();
+      expect(logs.length).toBeGreaterThan(0);
+
+      const l1StartBlock = await rollup.getL1StartBlock();
+      for (const log of logs) {
+        expect(log.blockNumber).toBe(l1StartBlock);
+      }
+    });
+  });
+
   describe('compressFeeHeader', () => {
     it('compressed fee header can be read back by L1 getFeeHeader', async () => {
       const feeHeader: FeeHeader = {

@@ -100,7 +100,9 @@ describe('Archiver Sync', () => {
     archiverStore = new KVArchiverDataStore(await openTmpStore('archiver_sync_test'), 1000);
 
     const contractAddresses = {
+      rollupAddress,
       registryAddress,
+      inboxAddress,
       governanceProposerAddress,
       slashingProposerAddress,
     };
@@ -114,6 +116,7 @@ describe('Archiver Sync', () => {
       batchSize: 1000,
       maxAllowedEthClientDriftSeconds: 300,
       ethereumAllowNoDebugHosts: true,
+      skipHistoricalLogsCheck: true,
     };
 
     // Create event emitter shared by archiver and synchronizer
