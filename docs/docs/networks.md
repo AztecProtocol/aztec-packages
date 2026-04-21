@@ -90,7 +90,11 @@ Not sure which network to use? Jump to our [Network Selection Guide](#network-se
 
 ### Ignition (Mainnet - Phase 1)
 
+<<<<<<< HEAD
 Ignition is the Aztec **mainnet** in its first operational phase, focusing on establishing governance and network infrastructure.
+=======
+Alpha is the Aztec **mainnet** in its initial operational phase, with governance, networking, and transaction processing fully active. Alpha is live but early — bugs, including critical ones, are expected. For a full explanation of what this means, see the **[Alpha Network](/participate/alpha)** page.
+>>>>>>> 63c67a0f44 (docs: add Alpha Network page and update privacy/limitations docs (#22515))
 
 #### Overview
 
