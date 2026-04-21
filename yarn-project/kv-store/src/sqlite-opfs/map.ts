@@ -167,9 +167,17 @@ export class SQLiteOPFSAztecMap<K extends Key, V extends Value> implements Aztec
 
   /** Packs the payload that will land in the `value` column *before* encryption.
    *  In opaque-keys mode the packed tuple carries the clear key so iterators can
-   *  reconstruct it (HMAC is one-way). */
+   *  reconstruct it (HMAC is one-way).
+   *
+   *  Copies the pack output into a freshly-owned buffer because msgpackr's
+   *  `Encoder.pack()` returns a view into a reusable internal buffer by default —
+   *  if a subsequent pack call happens while the previous view is still in flight
+   *  (encrypt + digest run under Promise.all), the underlying bytes can be
+   *  overwritten out from under the async consumers. The copy is cheap and
+   *  removes a class of subtle concurrency bugs. */
   protected packForStorage(key: K, val: V): Uint8Array {
-    return this.opaqueKeys ? this.encoder.pack([key, val]) : this.encoder.pack(val);
+    const view = this.opaqueKeys ? this.encoder.pack([key, val]) : this.encoder.pack(val);
+    return new Uint8Array(view);
   }
 
   /** Decrypts and unpacks a stored value, returning the original V. Slot is passed
