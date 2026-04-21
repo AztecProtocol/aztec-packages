@@ -250,9 +250,7 @@ void ProverInstance_<Flavor>::allocate_databus_polynomials(const Circuit& circui
     // Databus inverses must cover both the databus gate block (where reads occur) and the data itself.
     const size_t q_busread_end = circuit.blocks.busread.trace_end();
 
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1555): Minimum size >1 to avoid point at infinity
-    // commitment.
-    size_t max_databus_column_size = 2;
+    size_t max_databus_column_size = 0;
 
     bb::constexpr_for<0, NUM_BUS_COLUMNS, 1>([&]<size_t bus_idx>() {
         const size_t bus_size = circuit.get_bus_vector(bus_idx).size();
@@ -267,6 +265,18 @@ void ProverInstance_<Flavor>::allocate_databus_polynomials(const Circuit& circui
         // Inverse polynomial: sized to cover both the busread gate block and the shifted bus data.
         auto inverse_ref = polynomials.template databus_inverse_for_bus<bus_idx>();
         inverse_ref[0] = Polynomial(std::max(offset_size(bus_size), q_busread_end), dyadic_size());
+
+        if constexpr (Flavor::HasZK) {
+            // Mask databus witness polynomials. The calldata values column (bus_idx == 0) is NOT
+            // masked; its read_counts column is.
+            auto& values_poly = entities[0];
+            auto& read_counts_poly = entities[1];
+            if constexpr (bus_idx != 0) {
+                values_poly.add_masking();
+            }
+            read_counts_poly.add_masking();
+            inverse_ref[0].add_masking();
+        }
     });
 
     polynomials.databus_id = Polynomial(offset_size(max_databus_column_size), dyadic_size());
@@ -294,7 +304,7 @@ void ProverInstance_<Flavor>::construct_databus_polynomials(Circuit& circuit)
     // Databus data is shifted by the disabled head region for uniform layout.
     constexpr size_t databus_offset = TRACE_OFFSET;
 
-    size_t max_bus_size = 2;
+    size_t max_bus_size = 0;
     bb::constexpr_for<0, NUM_BUS_COLUMNS, 1>([&]<size_t bus_idx>() {
         const auto& bus_vec = circuit.get_bus_vector(bus_idx);
         max_bus_size = std::max(max_bus_size, bus_vec.size());
