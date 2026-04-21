@@ -30,12 +30,21 @@ namespace bb {
  *   q_r = c_{2i+1} (round 2i+1 constant)
  *   q_o = c_{2(i+1)} (next pair's first round constant, used for s_1^next reconstruction)
  *
- * Constraints (4 subrelations):
- *   A_0: out_0 - w_l_shift = 0                                              [degree 7]
+ * Constraints (4 subrelations, each degree 7):
+ *   A_0: out_0 - w_l_shift = 0
  *   A_1: out_1 - s_1^next = 0  where s_1^next = w_r_shift - D_1*(w_l_shift+q_o)^5 - w_o_shift - w_4_shift
- *                                                                            [degree 7]
- *   A_2: out_2 - w_o_shift = 0                                              [degree 7]
- *   A_3: out_3 - w_4_shift = 0                                              [degree 7]
+ *   A_2: out_2 - w_o_shift = 0
+ *   A_3: out_3 - w_4_shift = 0
+ *
+ * ── Monomial-accumulator layout ──
+ * Each out_k expands into (u_1' coefficient) + (u_1 coefficient) + (affine combination of wires).
+ * Only the three quintic values u_1, u_1', u_next need the degree-7 Accumulator; everything else
+ * is degree <= 2 and lives in CoefficientAccumulator (2-coefficient monomial). We compute each
+ * quintic value once, multiply it by the degree-2 monomial `q_sel * scaling_factor` once to obtain
+ * `scaled_u*`, and then each subrelation is assembled as:
+ *     scaled_u1_prime * const + scaled_u1 * const [+ scaled_u_next * const for A_1]
+ *       + Accumulator( affine_wire_expression * q_by_scaling_m )
+ * promoting the linear block to Accumulator exactly once per subrelation.
  */
 template <typename FF_> class Poseidon2DoubleInternalRelationImpl {
   public:
@@ -43,12 +52,12 @@ template <typename FF_> class Poseidon2DoubleInternalRelationImpl {
 
     static constexpr std::array<size_t, 4> SUBRELATION_PARTIAL_LENGTHS{
         7, // A_0: out_0 - w_l_shift
-        7, // A_1: out_1 - s_1^next (degree 7)
+        7, // A_1: out_1 - s_1^next
         7, // A_2: out_2 - w_o_shift
         7, // A_3: out_3 - w_4_shift
     };
 
-    // Diagonal constants of M_I
+    // Diagonal entries of M_I and useful derivatives.
     static constexpr fr D1m1 = crypto::Poseidon2Bn254ScalarFieldParams::internal_matrix_diagonal_minus_one[0];
     static constexpr fr D2m1 = crypto::Poseidon2Bn254ScalarFieldParams::internal_matrix_diagonal_minus_one[1];
     static constexpr fr D3m1 = crypto::Poseidon2Bn254ScalarFieldParams::internal_matrix_diagonal_minus_one[2];
@@ -58,10 +67,19 @@ template <typename FF_> class Poseidon2DoubleInternalRelationImpl {
     static constexpr fr D3 = fr{ 1 } + D3m1;
     static constexpr fr D4 = fr{ 1 } + D4m1;
 
-    // Precomputed constants for the v_k expressions (after substituting s_1)
     static constexpr fr one_minus_D1 = fr{ 1 } - D1;
     static constexpr fr one_minus_D2 = fr{ 1 } - D2;
     static constexpr fr one_minus_D1_D2 = fr{ 1 } - D1 * D2;
+
+    // u_1 coefficient in v_sum := v_1 + v_2 + v_3 :
+    //   v_1 contributes (1 - D_1*D_2);  v_2, v_3 each contribute (1 - D_1).
+    static constexpr fr c_u1_sum = fr{ 3 } - D1 * D2 - D1 - D1;
+
+    // u_1 coefficient per sub-relation: c_u1_sum + (extra from (D_k-1) * v_k in out_k).
+    static constexpr fr c_u1_0 = c_u1_sum;
+    static constexpr fr c_u1_1 = D2m1 * one_minus_D1_D2 + c_u1_sum;
+    static constexpr fr c_u1_2 = D3m1 * one_minus_D1 + c_u1_sum;
+    static constexpr fr c_u1_3 = D4m1 * one_minus_D1 + c_u1_sum;
 
     /**
      * @brief Returns true if the contribution from all subrelations for the provided inputs is identically zero.
@@ -80,91 +98,84 @@ template <typename FF_> class Poseidon2DoubleInternalRelationImpl {
                            const Parameters&,
                            const FF& scaling_factor)
     {
-        // Degree-7 accumulator (for all subrelations)
-        using Accumulator7 = std::tuple_element_t<0, ContainerOverSubrelations>;
-        using CoefficientAccumulator7 = typename Accumulator7::CoefficientAccumulator;
+        using Accumulator = std::tuple_element_t<0, ContainerOverSubrelations>;
+        using CoefficientAccumulator = typename Accumulator::CoefficientAccumulator;
 
-        // Current row wires
-        const auto w_l = CoefficientAccumulator7(in.w_l);
-        const auto w_r = CoefficientAccumulator7(in.w_r);
-        const auto w_o = CoefficientAccumulator7(in.w_o);
-        const auto w_4 = CoefficientAccumulator7(in.w_4);
+        // ── Wires in monomial basis ──
+        const auto w_l = CoefficientAccumulator(in.w_l);
+        const auto w_r = CoefficientAccumulator(in.w_r);
+        const auto w_o = CoefficientAccumulator(in.w_o);
+        const auto w_4 = CoefficientAccumulator(in.w_4);
+        const auto w_l_shift = CoefficientAccumulator(in.w_l_shift);
+        const auto w_r_shift = CoefficientAccumulator(in.w_r_shift);
+        const auto w_o_shift = CoefficientAccumulator(in.w_o_shift);
+        const auto w_4_shift = CoefficientAccumulator(in.w_4_shift);
 
-        // Shifted wires (next row)
-        const auto w_l_shift = CoefficientAccumulator7(in.w_l_shift);
-        const auto w_r_shift = CoefficientAccumulator7(in.w_r_shift);
-        const auto w_o_shift = CoefficientAccumulator7(in.w_o_shift);
-        const auto w_4_shift = CoefficientAccumulator7(in.w_4_shift);
+        const auto q_sel = CoefficientAccumulator(in.q_poseidon2_double_internal);
+        const auto q_l = CoefficientAccumulator(in.q_l); // c_{2i}
+        const auto q_r = CoefficientAccumulator(in.q_r); // c_{2i+1}
+        const auto q_o = CoefficientAccumulator(in.q_o); // c_{2(i+1)}  (A_1 only)
 
-        // Selector and round constants
-        const auto q_pos_dbl_internal = CoefficientAccumulator7(in.q_poseidon2_double_internal);
-        const auto q_l = CoefficientAccumulator7(in.q_l); // c_{2i}
-        const auto q_r = CoefficientAccumulator7(in.q_r); // c_{2i+1}
-        const auto q_o = CoefficientAccumulator7(in.q_o); // c_{2(i+1)} (next pair constant)
+        // Selector * scaling in monomial form; reused for every sub-relation's linear block.
+        const auto q_by_scaling_m = q_sel * scaling_factor;
 
-        // ── Round 2i: S-box on state[0] ──
-        // u_1 = (w_l + c_{2i})^5
-        auto s1 = Accumulator7(w_l + q_l);
-        auto u1 = s1.sqr();
+        // ── Three x^5 S-boxes (3 Acc×Acc muls each) ──
+        auto s = Accumulator(w_l + q_l);
+        auto u1 = s.sqr();
         u1 = u1.sqr();
-        u1 *= s1;
+        u1 *= s;
 
-        // ── Intermediate state v_k after round 2i ──
-        // These are expressed directly in terms of wires (s_1 substituted out).
-        // v_0 = w_r  (by construction, not needed explicitly)
-        // v_1 = D_2*w_r + (1-D_1*D_2)*u_1 + (1-D_2)*(w_o+w_4)
-        // v_2 = w_r + (1-D_1)*u_1 + (D_3-1)*w_o
-        // v_3 = w_r + (1-D_1)*u_1 + (D_4-1)*w_4
-
-        // Common term: (1 - D_1) * u_1  (appears in v_2 and v_3)
-        auto one_minus_D1_u1 = u1 * one_minus_D1;
-
-        auto v1 = u1 * one_minus_D1_D2;
-        auto v1_linear = Accumulator7(w_r * D2 + (w_o + w_4) * one_minus_D2);
-        v1 += v1_linear;
-
-        auto v2 = one_minus_D1_u1 + Accumulator7(w_r + w_o * D3m1);
-        auto v3 = one_minus_D1_u1 + Accumulator7(w_r + w_4 * D4m1);
-
-        // ── Round 2i+1: S-box on v_0 = w_r ──
-        // u_1' = (w_r + c_{2i+1})^5
-        auto s1_prime = Accumulator7(w_r + q_r);
-        auto u1_prime = s1_prime.sqr();
+        s = Accumulator(w_r + q_r);
+        auto u1_prime = s.sqr();
         u1_prime = u1_prime.sqr();
-        u1_prime *= s1_prime;
+        u1_prime *= s;
 
-        // ── Output state after round 2i+1 ──
-        // out_k = M_I * (u_1', v_1, v_2, v_3)
-        auto v_sum = v1 + v2 + v3;
-        auto out0 = u1_prime * D1 + v_sum;
-        auto out1 = u1_prime + v1 * D2m1 + v_sum;
-        auto out2 = u1_prime + v2 * D3m1 + v_sum;
-        auto out3 = u1_prime + v3 * D4m1 + v_sum;
+        s = Accumulator(w_l_shift + q_o);
+        auto u_next = s.sqr();
+        u_next = u_next.sqr();
+        u_next *= s;
 
-        // ── Constraints ──
-        const auto q_pos_by_scaling_m = (q_pos_dbl_internal * scaling_factor);
-        const auto q_pos_by_scaling = Accumulator7(q_pos_by_scaling_m);
+        // ── Selector-scaled S-box values (3 Acc×Acc muls, shared across subrelations) ──
+        const auto q_by_scaling = Accumulator(q_by_scaling_m);
+        const auto scaled_u1 = u1 * q_by_scaling;
+        const auto scaled_u1_prime = u1_prime * q_by_scaling;
+        const auto scaled_u_next = u_next * q_by_scaling;
 
-        // A_0: q_sel * (out_0 - w_l_shift) = 0  [degree 7]
-        std::get<0>(evals) += q_pos_by_scaling * (out0 - Accumulator7(w_l_shift));
+        // ── Linear parts of v_k and v_sum (all in monomial basis) ──
+        //   v_1 linear : D_2 * w_r + (1 - D_2) * (w_o + w_4)
+        //   v_2 linear :  w_r + (D_3 - 1) * w_o
+        //   v_3 linear :  w_r + (D_4 - 1) * w_4
+        const auto v1_linear = w_r * D2 + (w_o + w_4) * one_minus_D2;
+        const auto v2_linear = w_r + w_o * D3m1;
+        const auto v3_linear = w_r + w_4 * D4m1;
+        const auto vsum_linear = v1_linear + v2_linear + v3_linear;
 
-        // A_1: q_sel * (out_1 - s_1^next) = 0  [degree 7]
-        // where s_1^next = w_r_shift - D_1*(w_l_shift + q_o)^5 - w_o_shift - w_4_shift
+        // ── A_0: out_0 - w_l_shift = D_1*u_1' + c_u1_0*u_1 + v_sum_linear - w_l_shift ──
         {
-            auto s_next = Accumulator7(w_l_shift + q_o);
-            auto u_next = s_next.sqr();
-            u_next = u_next.sqr();
-            u_next *= s_next;
-            auto s1_next = Accumulator7(w_r_shift) - u_next * D1 - Accumulator7(w_o_shift + w_4_shift);
-
-            std::get<1>(evals) += q_pos_by_scaling * (out1 - s1_next);
+            const auto linear_mono = vsum_linear - w_l_shift;
+            std::get<0>(evals) += scaled_u1_prime * D1 + scaled_u1 * c_u1_0 + Accumulator(linear_mono * q_by_scaling_m);
         }
 
-        // A_2: q_sel * (out_2 - w_o_shift) = 0  [degree 7]
-        std::get<2>(evals) += q_pos_by_scaling * (out2 - Accumulator7(w_o_shift));
+        // ── A_1: out_1 - s_1^next
+        //   = u_1' + c_u1_1*u_1 + D_1*u_next + (D_2-1)*v_1_linear + v_sum_linear
+        //     - w_r_shift + w_o_shift + w_4_shift
+        {
+            const auto linear_mono = v1_linear * D2m1 + vsum_linear - w_r_shift + w_o_shift + w_4_shift;
+            std::get<1>(evals) +=
+                scaled_u1_prime + scaled_u1 * c_u1_1 + scaled_u_next * D1 + Accumulator(linear_mono * q_by_scaling_m);
+        }
 
-        // A_3: q_sel * (out_3 - w_4_shift) = 0  [degree 7]
-        std::get<3>(evals) += q_pos_by_scaling * (out3 - Accumulator7(w_4_shift));
+        // ── A_2: out_2 - w_o_shift = u_1' + c_u1_2*u_1 + (D_3-1)*v_2_linear + v_sum_linear - w_o_shift ──
+        {
+            const auto linear_mono = v2_linear * D3m1 + vsum_linear - w_o_shift;
+            std::get<2>(evals) += scaled_u1_prime + scaled_u1 * c_u1_2 + Accumulator(linear_mono * q_by_scaling_m);
+        }
+
+        // ── A_3: out_3 - w_4_shift = u_1' + c_u1_3*u_1 + (D_4-1)*v_3_linear + v_sum_linear - w_4_shift ──
+        {
+            const auto linear_mono = v3_linear * D4m1 + vsum_linear - w_4_shift;
+            std::get<3>(evals) += scaled_u1_prime + scaled_u1 * c_u1_3 + Accumulator(linear_mono * q_by_scaling_m);
+        }
     };
 };
 

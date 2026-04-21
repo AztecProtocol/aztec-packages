@@ -19,10 +19,9 @@ namespace bb {
  *
  * No s_1^next reconstruction is needed, so the q_o selector is unused on the terminal row.
  *
- * Compared to `Poseidon2DoubleInternalRelationImpl`, this relation is strictly simpler:
- * A_1 is enforced directly against the successor's standard-encoded `w_r_shift`. This ties the
- * compressed block's output `state[1]` to a witness that the next block (the single-round tail
- * or a final-external block) can consume via shared witness indices.
+ * Compared to `Poseidon2DoubleInternalRelationImpl`, this relation is strictly simpler: A_1 is
+ * enforced directly against the successor's standard-encoded `w_r_shift`, so we skip the
+ * `u_next = (w_l_shift + q_o)^5` S-box and save one Acc×Acc multiplication.
  */
 template <typename FF_> class Poseidon2DoubleInternalTerminalRelationImpl {
   public:
@@ -48,6 +47,15 @@ template <typename FF_> class Poseidon2DoubleInternalTerminalRelationImpl {
     static constexpr fr one_minus_D2 = fr{ 1 } - D2;
     static constexpr fr one_minus_D1_D2 = fr{ 1 } - (D1 * D2);
 
+    // u_1 coefficient in v_sum := v_1 + v_2 + v_3.
+    static constexpr fr c_u1_sum = fr{ 3 } - D1 * D2 - D1 - D1;
+
+    // u_1 coefficient per sub-relation.
+    static constexpr fr c_u1_0 = c_u1_sum;
+    static constexpr fr c_u1_1 = D2m1 * one_minus_D1_D2 + c_u1_sum;
+    static constexpr fr c_u1_2 = D3m1 * one_minus_D1 + c_u1_sum;
+    static constexpr fr c_u1_3 = D4m1 * one_minus_D1 + c_u1_sum;
+
     /**
      * @brief Returns true if the contribution from all subrelations for the provided inputs is identically zero.
      * @details The terminal relation is active on exactly one row per Poseidon2 permutation (the last compressed
@@ -65,58 +73,70 @@ template <typename FF_> class Poseidon2DoubleInternalTerminalRelationImpl {
                            const Parameters&,
                            const FF& scaling_factor)
     {
-        using Accumulator7 = std::tuple_element_t<0, ContainerOverSubrelations>;
-        using CoefficientAccumulator7 = typename Accumulator7::CoefficientAccumulator;
+        using Accumulator = std::tuple_element_t<0, ContainerOverSubrelations>;
+        using CoefficientAccumulator = typename Accumulator::CoefficientAccumulator;
 
-        const auto w_l = CoefficientAccumulator7(in.w_l);
-        const auto w_r = CoefficientAccumulator7(in.w_r);
-        const auto w_o = CoefficientAccumulator7(in.w_o);
-        const auto w_4 = CoefficientAccumulator7(in.w_4);
+        const auto w_l = CoefficientAccumulator(in.w_l);
+        const auto w_r = CoefficientAccumulator(in.w_r);
+        const auto w_o = CoefficientAccumulator(in.w_o);
+        const auto w_4 = CoefficientAccumulator(in.w_4);
 
-        const auto w_l_shift = CoefficientAccumulator7(in.w_l_shift);
-        const auto w_r_shift = CoefficientAccumulator7(in.w_r_shift);
-        const auto w_o_shift = CoefficientAccumulator7(in.w_o_shift);
-        const auto w_4_shift = CoefficientAccumulator7(in.w_4_shift);
+        const auto w_l_shift = CoefficientAccumulator(in.w_l_shift);
+        const auto w_r_shift = CoefficientAccumulator(in.w_r_shift);
+        const auto w_o_shift = CoefficientAccumulator(in.w_o_shift);
+        const auto w_4_shift = CoefficientAccumulator(in.w_4_shift);
 
-        const auto q_sel = CoefficientAccumulator7(in.q_poseidon2_double_internal_terminal);
-        const auto q_l = CoefficientAccumulator7(in.q_l);
-        const auto q_r = CoefficientAccumulator7(in.q_r);
-
-        // Round 2i: S-box on state[0].
-        auto s1 = Accumulator7(w_l + q_l);
-        auto u1 = s1.sqr();
-        u1 = u1.sqr();
-        u1 *= s1;
-
-        // Intermediate state v_k after round 2i (s_1 substituted out via the M_I first-row equation).
-        auto one_minus_D1_u1 = u1 * one_minus_D1;
-
-        auto v1 = u1 * one_minus_D1_D2;
-        auto v1_linear = Accumulator7((w_r * D2) + ((w_o + w_4) * one_minus_D2));
-        v1 += v1_linear;
-
-        auto v2 = one_minus_D1_u1 + Accumulator7(w_r + (w_o * D3m1));
-        auto v3 = one_minus_D1_u1 + Accumulator7(w_r + (w_4 * D4m1));
-
-        // Round 2i+1: S-box on v_0 = w_r.
-        auto s1_prime = Accumulator7(w_r + q_r);
-        auto u1_prime = s1_prime.sqr();
-        u1_prime = u1_prime.sqr();
-        u1_prime *= s1_prime;
-
-        auto v_sum = v1 + v2 + v3;
-        auto out0 = (u1_prime * D1) + v_sum;
-        auto out1 = u1_prime + (v1 * D2m1) + v_sum;
-        auto out2 = u1_prime + (v2 * D3m1) + v_sum;
-        auto out3 = u1_prime + (v3 * D4m1) + v_sum;
+        const auto q_sel = CoefficientAccumulator(in.q_poseidon2_double_internal_terminal);
+        const auto q_l = CoefficientAccumulator(in.q_l);
+        const auto q_r = CoefficientAccumulator(in.q_r);
 
         const auto q_by_scaling_m = q_sel * scaling_factor;
-        const auto q_by_scaling = Accumulator7(q_by_scaling_m);
 
-        std::get<0>(evals) += q_by_scaling * (out0 - Accumulator7(w_l_shift));
-        std::get<1>(evals) += q_by_scaling * (out1 - Accumulator7(w_r_shift));
-        std::get<2>(evals) += q_by_scaling * (out2 - Accumulator7(w_o_shift));
-        std::get<3>(evals) += q_by_scaling * (out3 - Accumulator7(w_4_shift));
+        // ── Two x^5 S-boxes (no u_next on terminal) ──
+        auto s = Accumulator(w_l + q_l);
+        auto u1 = s.sqr();
+        u1 = u1.sqr();
+        u1 *= s;
+
+        s = Accumulator(w_r + q_r);
+        auto u1_prime = s.sqr();
+        u1_prime = u1_prime.sqr();
+        u1_prime *= s;
+
+        // ── Selector-scaled S-box values (2 Acc×Acc muls, shared across subrelations) ──
+        const auto q_by_scaling = Accumulator(q_by_scaling_m);
+        const auto scaled_u1 = u1 * q_by_scaling;
+        const auto scaled_u1_prime = u1_prime * q_by_scaling;
+
+        // ── Linear parts of v_k and v_sum (all in monomial basis) ──
+        const auto v1_linear = w_r * D2 + (w_o + w_4) * one_minus_D2;
+        const auto v2_linear = w_r + w_o * D3m1;
+        const auto v3_linear = w_r + w_4 * D4m1;
+        const auto vsum_linear = v1_linear + v2_linear + v3_linear;
+
+        // ── A_0: out_0 - w_l_shift = D_1*u_1' + c_u1_0*u_1 + v_sum_linear - w_l_shift ──
+        {
+            const auto linear_mono = vsum_linear - w_l_shift;
+            std::get<0>(evals) += scaled_u1_prime * D1 + scaled_u1 * c_u1_0 + Accumulator(linear_mono * q_by_scaling_m);
+        }
+
+        // ── A_1: out_1 - w_r_shift = u_1' + c_u1_1*u_1 + (D_2-1)*v_1_linear + v_sum_linear - w_r_shift ──
+        {
+            const auto linear_mono = v1_linear * D2m1 + vsum_linear - w_r_shift;
+            std::get<1>(evals) += scaled_u1_prime + scaled_u1 * c_u1_1 + Accumulator(linear_mono * q_by_scaling_m);
+        }
+
+        // ── A_2: out_2 - w_o_shift = u_1' + c_u1_2*u_1 + (D_3-1)*v_2_linear + v_sum_linear - w_o_shift ──
+        {
+            const auto linear_mono = v2_linear * D3m1 + vsum_linear - w_o_shift;
+            std::get<2>(evals) += scaled_u1_prime + scaled_u1 * c_u1_2 + Accumulator(linear_mono * q_by_scaling_m);
+        }
+
+        // ── A_3: out_3 - w_4_shift = u_1' + c_u1_3*u_1 + (D_4-1)*v_3_linear + v_sum_linear - w_4_shift ──
+        {
+            const auto linear_mono = v3_linear * D4m1 + vsum_linear - w_4_shift;
+            std::get<3>(evals) += scaled_u1_prime + scaled_u1 * c_u1_3 + Accumulator(linear_mono * q_by_scaling_m);
+        }
     };
 };
 

@@ -21,9 +21,6 @@ namespace bb {
  *
  * Single subrelation of degree 7:
  *   q_poseidon2_transition_entry * ( w_r_shift - D_1 (w_l + q_l)^5 - w_r - w_o - w_4 ) = 0
- *
- * Here (w_l, w_r, w_o, w_4) is the standard encoding at round `rounds_f_begin` and `w_r_shift`
- * is the first compressed row's `w_r` (= `intermediate_s0`).
  */
 template <typename FF_> class Poseidon2TransitionEntryRelationImpl {
   public:
@@ -53,29 +50,33 @@ template <typename FF_> class Poseidon2TransitionEntryRelationImpl {
                            const Parameters&,
                            const FF& scaling_factor)
     {
-        using Accumulator7 = std::tuple_element_t<0, ContainerOverSubrelations>;
-        using CoefficientAccumulator7 = typename Accumulator7::CoefficientAccumulator;
+        using Accumulator = std::tuple_element_t<0, ContainerOverSubrelations>;
+        using CoefficientAccumulator = typename Accumulator::CoefficientAccumulator;
 
-        const auto w_l = CoefficientAccumulator7(in.w_l);
-        const auto w_r = CoefficientAccumulator7(in.w_r);
-        const auto w_o = CoefficientAccumulator7(in.w_o);
-        const auto w_4 = CoefficientAccumulator7(in.w_4);
-        const auto w_r_shift = CoefficientAccumulator7(in.w_r_shift);
-        const auto q_sel = CoefficientAccumulator7(in.q_poseidon2_transition_entry);
-        const auto q_l = CoefficientAccumulator7(in.q_l);
+        const auto w_l = CoefficientAccumulator(in.w_l);
+        const auto w_r = CoefficientAccumulator(in.w_r);
+        const auto w_o = CoefficientAccumulator(in.w_o);
+        const auto w_4 = CoefficientAccumulator(in.w_4);
+        const auto w_r_shift = CoefficientAccumulator(in.w_r_shift);
+        const auto q_sel = CoefficientAccumulator(in.q_poseidon2_transition_entry);
+        const auto q_l = CoefficientAccumulator(in.q_l);
 
-        // u = (w_l + q_l)^5
-        auto s = Accumulator7(w_l + q_l);
+        const auto q_by_scaling_m = q_sel * scaling_factor;
+
+        // u = (w_l + q_l)^5  (3 Acc×Acc muls)
+        auto s = Accumulator(w_l + q_l);
         auto u = s.sqr();
         u = u.sqr();
         u *= s;
 
-        const auto q_by_scaling_m = q_sel * scaling_factor;
-        const auto q_by_scaling = Accumulator7(q_by_scaling_m);
+        // Selector-scaled S-box value (1 Acc×Acc mul).
+        const auto q_by_scaling = Accumulator(q_by_scaling_m);
+        const auto scaled_u = u * q_by_scaling;
 
         // q_sel * ( w_r_shift - D_1 * u - w_r - w_o - w_4 )
-        auto body = Accumulator7(w_r_shift) - (u * D1) - Accumulator7(w_r + w_o + w_4);
-        std::get<0>(evals) += q_by_scaling * body;
+        //   = -D_1 * scaled_u + Accumulator( (w_r_shift - w_r - w_o - w_4) * q_by_scaling_m )
+        const auto linear_mono = w_r_shift - w_r - w_o - w_4;
+        std::get<0>(evals) += Accumulator(linear_mono * q_by_scaling_m) - scaled_u * D1;
     };
 };
 
