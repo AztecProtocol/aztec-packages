@@ -235,7 +235,7 @@ export class CLIWallet extends BaseWallet {
     executionPayload: ExecutionPayload,
     opts: SimulateViaEntrypointOptions,
   ): Promise<TxSimulationResultWithAppOffset> {
-    const { from, feeOptions, additionalScopes } = opts;
+    const { from, feeOptions, additionalScopes, sendMessagesAs } = opts;
     const scopes = this.scopesFrom(from, additionalScopes);
     const feeExecutionPayload = await feeOptions.walletFeePaymentMethod?.getExecutionPayload();
     const finalExecutionPayload = feeExecutionPayload
@@ -273,6 +273,7 @@ export class CLIWallet extends BaseWallet {
       skipTxValidation: true,
       overrides,
       scopes,
+      senderForTags: this.senderForTagsFrom(from, sendMessagesAs),
     });
     const appCallOffset = await this.computeAppCallOffset(from, feeOptions);
     return TxSimulationResultWithAppOffset.fromResultAndOffset(result, appCallOffset);
