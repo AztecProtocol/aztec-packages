@@ -28,12 +28,13 @@ import {
   type PeriodicExportingMetricReaderOptions,
   View,
 } from '@opentelemetry/sdk-metrics';
-import { BatchSpanProcessor, NodeTracerProvider } from '@opentelemetry/sdk-trace-node';
+import { NodeTracerProvider } from '@opentelemetry/sdk-trace-node';
 import { ATTR_SERVICE_NAME, ATTR_SERVICE_VERSION } from '@opentelemetry/semantic-conventions';
 
 import type { TelemetryClientConfig } from './config.js';
 import { toMetricOptions } from './metric-utils.js';
 import type { MetricDefinition } from './metrics.js';
+import { MonitoredBatchSpanProcessor } from './monitored_batch_span_processor.js';
 import { NodejsMetricsMonitor } from './nodejs_metrics_monitor.js';
 import { OtelFilterMetricExporter, PublicOtelFilterMetricExporter } from './otel_filter_metric_exporter.js';
 import { registerOtelLoggerProvider } from './otel_logger_provider.js';
@@ -373,7 +374,7 @@ export class OpenTelemetryClient implements TelemetryClient {
       const tracerProvider = new NodeTracerProvider({
         resource,
         spanProcessors: config.tracesCollectorUrl
-          ? [new BatchSpanProcessor(new OTLPTraceExporter({ url: config.tracesCollectorUrl.href }))]
+          ? [new MonitoredBatchSpanProcessor(new OTLPTraceExporter({ url: config.tracesCollectorUrl.href }), log)]
           : [],
       });
 
