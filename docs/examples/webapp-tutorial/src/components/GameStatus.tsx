@@ -1,4 +1,3 @@
-// docs:start:game-status
 import React from 'react';
 import { AztecAddress } from '@aztec/aztec.js/addresses';
 
@@ -35,4 +34,3 @@ export function GameStatus({ account, gameId, currentRound }: GameStatusProps) {
   );
 }
 // docs:end:game-status-component
-// docs:end:game-status

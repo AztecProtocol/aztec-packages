@@ -161,12 +161,10 @@ impl NoteType for UintPartialNotePrivateLogContent {
 /// storage slot and value fields have not yet been set. A partial note can be completed in public with the `complete`
 /// function (revealing the storage slot and value to the public), resulting in a UintNote that can be used like any
 /// other one (except of course that its value is known).
-// docs:start:partial_uint_note_def
 #[derive(Packable, Serialize, Deserialize, Eq)]
 pub struct PartialUintNote {
     commitment: Field,
 }
-// docs:end:partial_uint_note_def
 
 impl PartialUintNote {
     /// Completes the partial note, creating a new note that can be used like any other UintNote.
