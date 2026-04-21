@@ -5,6 +5,8 @@ import { initStoreForRollupAndSchemaVersion } from '../utils.js';
 import { AztecSQLiteOPFSStore } from './store.js';
 
 export { AztecSQLiteOPFSStore } from './store.js';
+export { AesGcmCipher, IdentityCipher, RawKeyProvider } from './cipher.js';
+export type { KeyProvider, ValueCipher } from './cipher.js';
 
 export async function createStore(
   name: string,
