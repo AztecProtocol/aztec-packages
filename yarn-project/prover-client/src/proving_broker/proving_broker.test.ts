@@ -889,9 +889,10 @@ describe.each([
         inputsUri: makeInputsUri(),
       });
 
-      // advance time again so job times out. This time it should be not-found as it will have been removed
+      // advance time again so job times out. Since the job was in-progress, it won't be cleaned up as stale
+      // but will be rejected when it times out
       await sleep(jobTimeoutMs + brokerIntervalMs);
-      await assertJobStatus(id, 'not-found');
+      await assertJobStatus(id, 'rejected');
     });
 
     it('rejects jobs that time out more than maxRetries times', async () => {
@@ -1045,10 +1046,11 @@ describe.each([
 
       await sleep(brokerIntervalMs);
 
-      // job will have been removed
+      // job was in-progress so it won't be cleaned up as stale, but will be rejected on error
       await broker.reportProvingJobError(id, 'test error', true);
       await expect(broker.getProvingJobStatus(id)).resolves.toEqual({
-        status: 'not-found',
+        status: 'rejected',
+        reason: 'test error',
       });
     });
   });

@@ -608,7 +608,7 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Pr
     const jobsToClean: ProvingJobId[] = [];
     for (const id of jobIds) {
       const job = this.jobsCache.get(id)!;
-      if (this.isJobStale(job)) {
+      if (this.isJobStale(job) && !this.inProgress.has(id) && !this.resultsCache.has(id)) {
         jobsToClean.push(id);
       }
     }
