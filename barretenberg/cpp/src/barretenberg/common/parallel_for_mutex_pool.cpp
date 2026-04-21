@@ -78,22 +78,13 @@ class ThreadPool {
     {
         while (true) {
             size_t iteration = 0;
-            [[maybe_unused]] const char* name = nullptr;
             {
                 std::unique_lock<std::mutex> lock(tasks_mutex);
                 if (iteration_ == num_iterations_) {
                     return;
                 }
                 iteration = iteration_++;
-#ifdef TRACY_INSTRUMENTED
-                name = task_name_;
-#endif
             }
-#ifdef TRACY_INSTRUMENTED
-            ZoneNamed(tracy_zone, true);
-            const char* display_name = (name != nullptr) ? name : "parallel_task";
-            ZoneNameV(tracy_zone, display_name, strlen(display_name));
-#endif
             task_(iteration);
             {
                 std::unique_lock<std::mutex> lock(tasks_mutex);
@@ -128,11 +119,6 @@ ThreadPool::~ThreadPool()
 
 void ThreadPool::worker_loop([[maybe_unused]] size_t thread_index)
 {
-#ifdef TRACY_INSTRUMENTED
-    char thread_name[32];
-    snprintf(thread_name, sizeof(thread_name), "worker-%zu", thread_index);
-    tracy::SetThreadName(thread_name);
-#endif
     // info("created worker ", thread_index);
     while (true) {
         {
