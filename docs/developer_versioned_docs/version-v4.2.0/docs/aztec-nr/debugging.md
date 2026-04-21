@@ -31,7 +31,7 @@ Log values from your contract using `debug_log`:
 
 ```rust
 // Import debug logging
-use dep::aztec::oracle::debug_log::{ debug_log, debug_log_format };
+use aztec::oracle::logging::{ debug_log, debug_log_format };
 
 // Log simple messages
 debug_log("checkpoint reached");
@@ -63,23 +63,23 @@ LOG_LEVEL="info;debug:simulator:client_execution_context;debug:simulator:client_
 ```
 
 :::info Log filter format
-`LOG_LEVEL` accepts a semicolon-delimited list of filters. Each filter can be:
-
-- `level` - Sets default level for all modules
-- `level:module` - Sets level for a specific module
-- `level:module:submodule` - Sets level for a specific submodule
+`LOG_LEVEL` is a semicolon-delimited list. The **first segment must be a bare log level** — it sets the default level for all modules. Subsequent segments are `level:module` (or `level:module:submodule`) overrides.
 
 ```bash
 # Default level only
 LOG_LEVEL="debug"
 
-# Default level + specific module overrides
+# Default level + module overrides
 LOG_LEVEL="info;debug:simulator;debug:execution"
 
-# Default level + specific submodule overrides
+# Default level + submodule overrides
 LOG_LEVEL="info;debug:simulator:client_execution_context;debug:simulator:client_view_context"
+
+# Silence everything except one module
+LOG_LEVEL="silent;debug:simulator"
 ```
 
+A bare `level:module` (e.g. `LOG_LEVEL="warn:simulator"`) is **not valid** — the parser reads the first segment as the default level and rejects it with `Invalid log level: warn:simulator`.
 :::
 
 ## Debugging common errors
@@ -208,7 +208,7 @@ LOG_LEVEL=verbose aztec start --local-network
 ### Common debug imports
 
 ```rust
-use dep::aztec::oracle::debug_log::{ debug_log, debug_log_format };
+use aztec::oracle::logging::{ debug_log, debug_log_format };
 ```
 
 ### Check contract registration

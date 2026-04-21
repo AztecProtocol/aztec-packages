@@ -228,8 +228,10 @@ The contract demonstrates several important patterns:
 Use `aztec new` to generate the contract project structure:
 
 ```bash
-aztec new contract --name ValueNotEqual
+aztec new --name ValueNotEqual contract
 ```
+
+The `aztec new` wrapper stops parsing arguments at the first positional, so `--name` must come **before** the `contract` path — otherwise the flag is silently dropped and the Nargo package ends up named `contract`. The Nargo package name (`--name`) is independent of the Noir contract name declared inside `main.nr`; the artifact filename downstream is driven by the contract name.
 
 This creates:
 
