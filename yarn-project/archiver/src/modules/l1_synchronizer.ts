@@ -2,6 +2,7 @@ import type { BlobClientInterface } from '@aztec/blob-client/client';
 import { EpochCache } from '@aztec/epoch-cache';
 import { InboxContract, type InboxContractState, RollupContract } from '@aztec/ethereum/contracts';
 import type { L1BlockId } from '@aztec/ethereum/l1-types';
+import { getFinalizedL1Block } from '@aztec/ethereum/queries';
 import type { ViemPublicClient, ViemPublicDebugClient } from '@aztec/ethereum/types';
 import { asyncPool } from '@aztec/foundation/async-pool';
 import { maxBigint } from '@aztec/foundation/bigint';
@@ -215,7 +216,11 @@ export class ArchiverL1Synchronizer implements Traceable {
   /** Query L1 for its finalized block and update the finalized checkpoint accordingly. */
   private async updateFinalizedCheckpoint(): Promise<void> {
     try {
-      const finalizedL1Block = await this.publicClient.getBlock({ blockTag: 'finalized', includeTransactions: false });
+      const finalizedL1Block = await getFinalizedL1Block(this.publicClient);
+      if (!finalizedL1Block) {
+        this.log.trace(`Skipping finalized checkpoint update: L1 has no finalized block yet.`);
+        return;
+      }
       const finalizedL1BlockNumber = finalizedL1Block.number;
       const finalizedCheckpointNumber = await this.rollup.getProvenCheckpointNumber({
         blockNumber: finalizedL1BlockNumber,

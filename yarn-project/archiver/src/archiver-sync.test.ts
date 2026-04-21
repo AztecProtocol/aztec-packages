@@ -1339,6 +1339,24 @@ describe('Archiver Sync', () => {
       expect(tips.finalized.block.number).toEqual(lastBlockInCp1);
     });
 
+    it('leaves finalized checkpoint untouched when L1 has no finalized block yet', async () => {
+      await fake.addCheckpoint(CheckpointNumber(1), {
+        l1BlockNumber: 70n,
+        messagesL1BlockNumber: 50n,
+        numL1ToL2Messages: 3,
+      });
+
+      fake.markCheckpointAsProven(CheckpointNumber(1));
+      fake.setL1BlockNumber(101n);
+      fake.setFinalizedL1BlockNumber(undefined);
+
+      await expect(archiver.syncImmediate()).resolves.not.toThrow();
+
+      const tips = await archiver.getL2Tips();
+      expect(tips.finalized.checkpoint.number).toEqual(CheckpointNumber(0));
+      expect(tips.finalized.block.number).toEqual(BlockNumber(0));
+    });
+
     it('does not advance finalized checkpoint when finalized L1 block is before the proven checkpoint', async () => {
       await fake.addCheckpoint(CheckpointNumber(1), {
         l1BlockNumber: 70n,
