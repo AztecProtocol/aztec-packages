@@ -4,7 +4,6 @@ import { getPXEConfig } from '@aztec/pxe/config';
 import { createPXE } from '@aztec/pxe/client/lazy';
 
 
-// docs:start:network-type
 export type NetworkType = 'local' | 'remote';
 
 export function getNodeUrl(network: NetworkType): string {
@@ -14,9 +13,7 @@ export function getNodeUrl(network: NetworkType): string {
   // For remote networks, the wallet extension manages the node connection
   return process.env.AZTEC_NODE_URL || 'http://localhost:8080';
 }
-// docs:end:network-type
 
-// docs:start:create-pxe
 /**
  * Creates an in-browser PXE instance connected to an Aztec node.
  * PXE (Private eXecution Environment) runs locally and handles
@@ -33,5 +30,4 @@ export async function createLocalPXE(nodeUrl: string) {
 
   return { pxe, aztecNode };
 }
-// docs:end:create-pxe
 // docs:end:config

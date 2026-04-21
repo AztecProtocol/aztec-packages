@@ -1,6 +1,5 @@
 use crate::{reader::Reader, writer::Writer};
 
-// docs:start:serialize
 /// Trait for serializing Noir types into arrays of Fields.
 ///
 /// An implementation of the Serialize trait has to follow Noir's intrinsic serialization (each member of a struct
@@ -125,7 +124,6 @@ pub comptime fn derive_serialize(s: TypeDefinition) -> Quoted {
     }
 }
 
-// docs:start:deserialize
 /// Trait for deserializing Noir types from arrays of Fields.
 ///
 /// An implementation of the Deserialize trait has to follow Noir's intrinsic serialization (each member of a struct
