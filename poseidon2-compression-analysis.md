@@ -35,7 +35,7 @@ Standard Poseidon2 with $t = 4$, S-box $x \mapsto x^5$, $8$ external rounds ($4$
 
 Total per permutation: **$8 + 56 = 64$ rows, $8 \cdot 4 + 56 = 88$ S-box invocations**, and $56 \cdot 3 = 168$ linear moves of $(s_1, s_2, s_3)$.
 
-### `56→28` (this branch — double-internal compression)
+### `56→28` — double-internal compression
 
 Observation: in the internal round, only $s_0$ is non-linear. The other three state cells $s_1, s_2, s_3$ are updated linearly by $M_I$, so a sequence of internal rounds can be algebraically collapsed if we only commit to $s_0$.
 
@@ -54,9 +54,9 @@ That's **$30$ rows per permutation for the internal block** ($1$ entry $+\ 27$ i
 - `poseidon2_double_internal` (interior): **$3$ S-boxes** — $2$ for the current pair ($(w_l + q_l)^5, (w_r + q_r)^5$) and $1$ shift-side ($(w_l^{\mathrm{shift}} + q_o)^5$) so the next-pair's first round constant is already "baked in" at the row boundary
 - `poseidon2_double_internal_terminal`: $2$ S-boxes (no shift-side; successor is standard-encoded)
 
-Internal-block S-box total: $1 + 27 \cdot 3 + 2 = \mathbf{84}$ per permutation, vs. baseline's $\mathbf{56}$. Compression costs *more* S-box work but amortises it into fewer, shorter polynomial columns.
+Internal-block S-box total: $1 + 27 \cdot 3 + 2 = \mathbf{84}$ per permutation, vs. baseline's $\mathbf{56}$. Compression costs *more* S-box work but spreads it over a trace that is about half as long in the internal-block rows — the row-count win is what makes it pay.
 
-### `56→14` (si branch — K=4 "quad" compression)
+### `56→14` — K=4 "quad" compression
 
 Same idea taken further: each row stores $s_0$ at **four** consecutive internal rounds ($w_l, w_r, w_o, w_4$), with the row's four selectors carrying the four round constants and a few extra selector fields carrying the next row's first three round constants (used for the shifted-Vandermonde check).
 
@@ -141,99 +141,45 @@ What it costs:
 - **$4$ new committed polynomials** ($z_l, z_r, z_o, z_4$) on the Mega trace, plus the $4$ z-check subrelations that fire on every Poseidon2 row (internal *and* external — the z-squares are shared with the external relation in this branch).
 - Every place previously doing $(w + c)^2$ inside the relation as degree-$2$ work is now a *commitment* — moving CPU work from sumcheck into the MSM.
 
-### Why neither variant improves: commit cost vs. sumcheck savings
+### Cost model and per-variant analysis
 
-Chonk has no FFTs on the prover side, so the prover's compute budget is dominated by two buckets:
-
-$$
-T_{\mathrm{prover}} \;\approx\; C \cdot \mathrm{MSM}(N) \;+\; F_{\mathrm{sum}} \sum_{\tau} N_{\mathrm{active},\tau} \cdot R_{\tau}
-$$
-
-where $C$ is the number of committed polynomials on the Mega trace, $N$ the dyadic trace length ($\approx 2^{20}$ for a chonk app circuit), $R_\tau$ the per-row field-mult count of the relation firing on row-type $\tau$, and $F_{\mathrm{sum}} \approx 2$ the geometric factor that falls out of sumcheck summing $N_{\mathrm{active}}/2^k$ edges over $\log_2 N$ rounds.
-
-**Per-commit prover cost on BN254 at $N = 2^{20}$.** Pippenger on $N$ scalars with a 13-bit window does $\sim N / \log N$ bucketed EC additions after amortisation, each $\approx 11$ field muls, giving
+**Prover cost has two dominant buckets** — MSM commitments and sumcheck relation work — both scaling with the active support of the relevant polynomials / rows:
 
 $$
-\mathrm{MSM}(2^{20}) \;\approx\; 10^6 \text{ EC adds} \;\approx\; 10^7 \text{ field muls per new committed polynomial.}
+T_{\mathrm{prover}} \;\approx\; \underbrace{\sum_{p \in \mathrm{polys}} c_{\mathrm{msm}} \cdot N_{\mathrm{active},p}}_{\text{MSM (Pippenger filters zero scalars)}} \;+\; \underbrace{2 \sum_{\tau} R_{\tau} \cdot N_{\mathrm{active},\tau}}_{\text{sumcheck (relations }\texttt{skip()}\text{ on zero selectors)}}
 $$
 
-This cost scales with $N$, not with $N_{\mathrm{active}}$. A polynomial whose support is only the Poseidon2-tagged rows ($N_{\mathrm{active}} \approx N/50$ on an app circuit with $P \approx 10^3$ permutations) still pays the full length-$N$ MSM.
+$N_{\mathrm{active},p}$ = number of non-zero scalars on committed polynomial $p$; $R_\tau$ = per-active-row mult count of relation $\tau$; $N_{\mathrm{active},\tau}$ = rows where relation $\tau$ fires. The factor $2$ is the geometric sum over sumcheck rounds. Both terms exploit sparsity (Pippenger drops zeros, relation `skip()` drops rows with zero selector), so a Poseidon2-local optimisation's costs and savings all flow through "Poseidon2-row count".
 
-**Break-even inequality.** For an optimisation that adds $\Delta C$ committed polynomials but shrinks per-active-row sumcheck work by $\Delta R$ muls, the net profit is
+**$c_{\mathrm{msm}}$ calibration.** Barretenberg's own Pippenger cost model (`scalar_multiplication.cpp`) evaluates $\lceil 254 / c \rceil \cdot (N + 5 \cdot 2^c)$ for optimal window $c$. Averaging over $N \in \{2^{15}, \ldots, 2^{19}\}$ (the range relevant for Poseidon2-populated polys at app-proving scale) gives $\sim 25.6$ EC adds per scalar; with the affine trick active ($N \geq 128$), each batched affine add is $\sim 6$ field muls. So $c_{\mathrm{msm}} \approx \mathbf{150 \text{ muls/scalar}}$ in total work.
 
-$$
-\Delta T \;=\; F_{\mathrm{sum}} \cdot \Delta R \cdot N_{\mathrm{active}} \;-\; \Delta C \cdot \mathrm{MSM}(N)
-     \;\approx\; 2 \cdot \Delta R \cdot N_{\mathrm{active}} \;-\; \Delta C \cdot 10^7,
-$$
+**Per-variant accounting**, per Mega permutation. Columns (left to right): Poseidon2-tagged rows emitted per permutation; total non-zero scalars on Poseidon2-local committed polys (summed across $C_{p2}$ selectors: $q_{\mathrm{p2}\_\ast}$ on their own row types, plus round-constant selectors $q_l, q_r, \ldots$ active on Poseidon2 rows); interior per-row sumcheck cost; sumcheck total over all Poseidon2 rows × 2.
 
-so it is worth it iff
+| | rows/perm | $C_{p2}$ non-zero scalars/perm | interior $R_\tau$ | $2 \cdot \sum R_\tau N_\tau$ |
+|---|---:|---:|---:|---:|
+| baseline (K=1) | $64$ ($56$ int $+ 8$ ext) | high | $55$ | $7{,}984$ |
+| K=2 | $38$ ($27 + 1 + 1 + 1 + 8$) | medium | $154$ | $10{,}458$ |
+| 4-wire K=4 | $24$ ($13 + 1 + 1 + 1 + 8$) | low | $461$ | $14{,}714$ |
+| 7-wire K=4 (var. A) | $24$ rows but $+3$ polys active on the $14$ compressed rows | low + $3 \cdot 14$ | $268$ | $\sim 9{,}400$ |
+| low-deg K=4 (var. B) | $24$ rows but $+4$ polys active on the $23$ Poseidon-tagged rows | low + $4 \cdot 23$ | $310$ | $\sim 11{,}700$ |
 
-$$
-\Delta R \;>\; \frac{\Delta C \cdot 10^7}{2 \cdot N_{\mathrm{active}}}.
-$$
+**K=1 → K=2.** Rows $64 \to 38$ ($-41\%$); per-internal-round sumcheck $55 \to 77$ muls ($+40\%$, from reconstructing $s_1$ and the added shift-side S-box). MSM savings outweigh the sumcheck tax.
 
-On a chonk app circuit ($N_{\mathrm{active}} \approx 2 \cdot 10^4$) this evaluates to
+**K=2 → 4-wire K=4.** Rows $38 \to 24$ ($-37\%$); per-round sumcheck $77 \to \sim 115$ muls ($+50\%$, from the $3 \times 3$ Vandermonde inversion and 4 recurrence steps). The two effects roughly cancel.
 
-$$
-\boxed{\;\Delta R \;>\; 250 \cdot \Delta C \quad \text{muls per active-row evaluation.}\;}
-$$
+**Plain K=4 → variant A (7-wire).** Same rows as K=4. $\Delta R = 193$ (drop $461 \to 268$ per interior row, from removing the Vandermonde inversion and shift-side S-boxes), $\Delta C = 3$. Break-even $\Delta R > (c_{\mathrm{msm}}/2) \cdot \Delta C = 225$; measured $193$.
 
-#### `claudebox/956a32e9fbd268f2-6` (7-wire K=4, committed $s_1, s_2, s_3$)
+**Plain K=4 → variant B (low-deg).** Same row count, but $\Delta C = 4$ z-commits populated on all $\sim 23$ Poseidon-tagged rows (internal and external, since the external relation is rewritten to the same $u_k = z_k^2 \cdot (w_k + c_k)$ path). MSM cost: $4 \cdot 23 \cdot c_{\mathrm{msm}} \approx 13{,}800$ muls/perm. Sumcheck saving from the uniform length-$5$ shrink: internal $461 \to 310$, external $114 \to \sim 75$, totalling $\sim 4{,}800$ muls/perm after the sumcheck round factor. Net $\approx -9{,}000$ muls/perm — the extra commits per active row ($4 \cdot c_{\mathrm{msm}} = 600$) exceed the per-row sumcheck saving ($\sim 150$ internal, $\sim 40$ external) by $4\times$, so no scoping of the trick pays back.
 
-| Quantity | Value |
-|---|---|
-| Extra commits $\Delta C$ | $3$ ($w_{p2,s1}, w_{p2,s2}, w_{p2,s3}$) |
-| Commit cost | $3 \cdot 10^7$ muls |
-| Interior-row mult count (exact, from `accumulate()`) | $\mathbf{268}$ muls $=$ $2$ setup $+$ $84$ S-boxes $+$ $84$ recurrence $+$ $28$ $(s_0 \cdot D_1)$ adds $+$ $70$ subrel outputs |
-| Interior-row saving vs. 4-wire K=4 | $461 - 268 = \mathbf{193}$ muls |
-| Required $\Delta R$ to break even | $\Delta C \cdot 250 = \mathbf{750}$ muls |
+#### Effects not analyzed
 
-Numerically, with $P \approx 10^3$ permutations:
+- Multi-threading / memory bandwidth
+- Extra subrelation overhead per active row
+- Hypernova accumulator size reduction
 
-$$
-\begin{aligned}
-\text{Savings}    &\;\approx\; 2 \cdot 193 \cdot 13 \cdot P \;\approx\; 5 \cdot 10^6 \text{ muls}\\
-\text{Added cost} &\;\approx\; 3 \cdot 10^7 \text{ muls}\\
-\Delta T          &\;\approx\; -2.5 \cdot 10^7 \text{ muls}\quad(\approx 6\times\text{ net-negative}).
-\end{aligned}
-$$
+### Reference: precise field-mult counts
 
-The per-row saving ($193$) lands at roughly **one-quarter of break-even** — no relation-body rewrite that stays inside the K=4 skeleton can rescue the scheme, because what's eliminated (the $3\times 3$ Vandermonde inversion $+$ 3 shift-side S-boxes, $\sim 167$ muls) is smaller than what the commits cost per active row. Matches the empirical observation: the prototype runs within noise of 4-wire K=4.
-
-#### `si/poseidon2-opt-attempt-low-deg` (committed-square z-commits, length-$5$/$4$ sumcheck)
-
-| Quantity | Value |
-|---|---|
-| Extra commits $\Delta C$ | $4$ ($z_l, z_r, z_o, z_4$) |
-| Commit cost | $4 \cdot 10^7$ muls |
-| `SUBRELATION_PARTIAL_LENGTHS` | main: $7 \to \mathbf{5}$, z-checks: $- \to \mathbf{4}$ |
-| Interior-row mult count (length-$5$, z-squared S-boxes) | $\mathbf{\sim 328}$ muls $=$ $40$ S-boxes $+$ $32$ $b_k$ $+$ $45$ Lagrange solve $+$ $60$ recurrence $+$ $30$ shift-side S-boxes $+$ $32$ $b_k^{\mathrm{next}}$ $+$ $50$ subrel outputs $+$ $32$ z-checks $+$ $7$ misc |
-| Interior-row saving vs. 4-wire K=4 at length $7$ | $461 - 328 = \mathbf{\sim 133}$ muls |
-| Required $\Delta R$ to break even | $\Delta C \cdot 250 = \mathbf{1000}$ muls |
-
-Numerically:
-
-$$
-\begin{aligned}
-\text{Savings}    &\;\approx\; 2 \cdot 133 \cdot 13 \cdot P \;\approx\; 3.5 \cdot 10^6 \text{ muls}\\
-\text{Added cost} &\;\approx\; 4 \cdot 10^7 \text{ muls}\\
-\Delta T          &\;\approx\; -3.7 \cdot 10^7 \text{ muls}\quad(\approx 11\times\text{ net-negative}).
-\end{aligned}
-$$
-
-Low-deg gets a bigger per-row saving than the 7-wire variant on the 4-to-2 S-box reduction ($3 \cdot 21 \to 3 \cdot 10$ per S-box), but it fails for the same structural reason: $\Delta C \cdot \mathrm{MSM}(N)$ dominates the budget and $\Delta C = 4 > 3$. The `Univariate<FF, 7> → <FF, 5>` shrink is uniform across every Acc-level op (not a localised fix), but it's applied against $N_{\mathrm{active}} \approx N/50$, so the $N / N_{\mathrm{active}}$ factor still sinks it.
-
-#### The structural takeaway
-
-For a Poseidon2-local optimisation to pay for itself at $P \approx 10^3$ permutations on a $2^{20}$-row app circuit, the per-active-row saving must clear $\sim 250 \cdot \Delta C$ muls. Both variants eliminate work in the hundreds of muls per row — roughly half of the cheapest sub-component of the relation body — while paying in tens of millions of muls per added commit. The only escape routes are:
-
-1. **Stay at $\Delta C = 0$.** Rewrite the relation without new commits (what the `56→28` and 4-wire `56→14` branches do). Dollar-for-dollar the best ROI per saved mul.
-2. **Raise $N_{\mathrm{active}} / N$.** If Poseidon2 dominated the trace ($N_{\mathrm{active}} \approx N$), break-even would drop from $250 \cdot \Delta C$ to $\sim 10 \cdot \Delta C$ muls/row, and both variants turn into wins. Proving systems where Poseidon2 *is* the trace (pure hash proofs, folding schemes) should re-evaluate these.
-3. **Amortise the commits across other heavy relations.** If the same $z_k$ or $w_{p2,s\ast}$ columns get re-used by another relation, $\Delta C \cdot \mathrm{MSM}(N)$ is split — but nothing else on the Mega trace uses $(w + \text{const})^2$ or the internal-matrix state.
-
-### Precise field-mult count per permutation
-
-Each entry below is a full BN254 $\mathrm{Fr}$ multiplication, counted straight from the committed `accumulate()` bodies using this accounting:
+Backing numbers for the per-variant analysis above. Each entry is a full BN254 $\mathrm{Fr}$ multiplication, counted straight from the committed `accumulate()` bodies using this accounting:
 
 - $\mathrm{Acc.sqr()}$ / $\mathrm{Acc} \times \mathrm{Acc}$ / $\mathrm{Acc} \times \mathrm{Fr}$ → **$7$ muls** (elementwise over the length-$7$ Lagrange array)
 - $\mathrm{CoeffAcc} \times \mathrm{Fr}$ (scale a degree-$1$ monomial) → **$2$ muls**
@@ -291,7 +237,6 @@ Per-permutation totals (Mega, one hash):
 |  standard transition | 1 | 0 | 0 |  |
 |  **sum** | 24 |  | **7,357** | **+84%** |
 
-**Takeaway.** Both compressions *add* sumcheck work — K=2 by ~31%, K=4 by ~84% — because the reconstruction of the non-S-boxed state cells is not free. K=2 needs one Acc×Fr diagonal scaling per subrelation (single linear equation for `s_1`); K=4 needs a full 3×3 Vandermonde inversion (**63 muls**) plus four recurrence iterations (**84 muls**) to materialise `s_1, s_2, s_3` at each compressed row, on top of doubling the S-box count vs K=2. That's why K=4 spends ~40% more muls per permutation than K=2 despite halving the row count — the row-count win doesn't cover the per-row compute growth. In the end-to-end bench, K=2 lands at the inflection point where the trace-length savings still outweigh the extra sumcheck work, and K=4 slips back into mostly trading one cost for another.
 
 ## Native
 
@@ -329,8 +274,9 @@ Per-permutation totals (Mega, one hash):
 
 ## Summary
 
-- **Time**: both poseidon2 variants are faster than merge-train on every flow. The milder `56→28` variant is uniformly ahead of the more aggressive `56→14`.
-  - Native total: `56→28` **-6.3%**, `56→14` **-5.0%** vs mt
-  - WASM total: `56→28` **-6.0%**, `56→14` **-3.8%** vs mt
-- **Native memory**: both variants cut peak RSS on the larger flows (10–19% on `amm`, `transfer_1+private_fpc`, `schnorr+deploy_token`); small flows are within noise. Totals look flat because the `storage_proof_7_layers` peak dominates and is slightly higher on both variants than on mt (~+3–5%).
-- **WASM memory**: `56→28` reduces peak on the bigger flows the same way as native. `56→14`, by contrast, **increases** WASM peak memory on most flows (+10–25%) — this is wasm-specific (native is fine on the same branch). Worth investigating before taking the more aggressive compression.
+- **Time.** Both compressed variants beat `mt` on every flow. `56→28` is uniformly ahead of `56→14`.
+  - Native total: `56→28` $-6.3\%$, `56→14` $-5.0\%$ vs. `mt`.
+  - WASM total: `56→28` $-6.0\%$, `56→14` $-3.8\%$ vs. `mt`.
+- **Native memory.** Both variants cut peak RSS by $10$–$19\%$ on the larger flows (`amm`, `transfer_1+private_fpc`, `schnorr+deploy_token`); small flows are within noise. The totals look flat because the `storage_proof_7_layers` peak dominates and is slightly higher on both variants than on `mt` (${\sim}\!+3$–$5\%$).
+- **WASM memory.** `56→28` reduces peak like native. `56→14` *increases* WASM peak by $+10$–$25\%$ on most flows — this is wasm-specific (its native numbers are fine) and worth investigating before taking the more aggressive compression.
+- **Closed variants.** The 7-wire committed-state variant (`#22655`) and the committed-square z-commit / length-$5$ variant (`#22670`) both reduce per-row relation work, but in practice neither improves end-to-end proving. Even with scalar sparsity (Pippenger drops zeros, new wires only pay for their active support), the added committed polynomials bring enough extra prover overhead that the local sumcheck savings don't translate into a wall-time win. The missing cost likely isn't fully captured by the MSM-vs-sumcheck model — extra per-subrelation overhead, PCS opening/batching cost, and constant factors in sparse-commit handling are all candidates.
