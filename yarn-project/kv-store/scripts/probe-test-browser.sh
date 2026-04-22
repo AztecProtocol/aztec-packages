@@ -21,6 +21,16 @@ pids_of_interest() {
   pgrep -f 'chrom|node|vitest|esbuild|yarn' 2>/dev/null
 }
 
+# Force fixed CPU demand and measure what fraction we actually got.
+# ratio = (user+sys)/real. ~1.0 = full CPU; <0.5 = heavily preempted by host.
+# Disambiguates "processes not asking for CPU" (scenario A) from "host not
+# scheduling us" (scenario B) when cgroup counters are flat.
+microbench() {
+  local TIMEFORMAT='microbench: real=%R user=%U sys=%S'
+  { time awk 'BEGIN{x=0; for(i=0;i<100000;i++) x+=i*i; print x > "/dev/null"}' \
+    </dev/null 2>/dev/null; } 2>&1
+}
+
 snapshot() {
   local tag="$1"
   echo "=== $(date +%T.%N | cut -c1-12) $tag ==="
@@ -116,7 +126,13 @@ probe_loop() {
     silent_for=$((now_s - silent_since))
 
     if [ "$silent_for" -ge 3 ] && [ "$burst_count" -lt "$burst_cap" ]; then
-      snapshot "burst(${silent_for}s silent)" >> "$PROBE_LOG" 2>&1
+      {
+        snapshot "burst(${silent_for}s silent)"
+        # During a hang, microbench every burst snapshot — it's the core
+        # signal for "is the host giving us CPU?" Overhead is irrelevant
+        # since tests aren't running.
+        microbench
+      } >> "$PROBE_LOG" 2>&1
       # Stacks every 10th burst tick (~every 1s of burst) to keep log size sane
       if [ $((burst_count % 10)) -eq 0 ]; then
         stacks_snapshot "burst(${silent_for}s silent)" >> "$STACKS_LOG" 2>&1
@@ -124,7 +140,14 @@ probe_loop() {
       burst_count=$((burst_count + 1))
       sleep 0.1
     else
-      snapshot "steady" >> "$PROBE_LOG" 2>&1
+      {
+        snapshot "steady"
+        # Microbench every 5th steady iteration to bound CPU overhead
+        # while tests are actually running (~0.4% vs tests' CPU budget).
+        if [ $((steady_count % 5)) -eq 0 ]; then
+          microbench
+        fi
+      } >> "$PROBE_LOG" 2>&1
       # Periodic in-flight stacks baseline — gives us a "healthy waiting"
       # reference to diff against burst-triggered dumps during a hang.
       if [ $((steady_count % 10)) -eq 0 ]; then
