@@ -79,17 +79,15 @@ void compute_logderivative_inverse(Polynomials& polynomials,
         }
     };
     if constexpr (UseMultithreading) {
-        parallel_for(
-            [&](const ThreadChunk& chunk) {
-                BB_BENCH_TRACY_NAME("LogDerivative::compute_inverses");
-                auto range = chunk.range(num_rows);
-                if (!range.empty()) {
-                    size_t start = *range.begin();
-                    size_t end = start + range.size();
-                    compute_inverses(start, end);
-                }
-            },
-            "LogDerivative::compute_inverses");
+        parallel_for([&](const ThreadChunk& chunk) {
+            BB_BENCH_TRACY_NAME("LogDerivative::compute_inverses");
+            auto range = chunk.range(num_rows);
+            if (!range.empty()) {
+                size_t start = *range.begin();
+                size_t end = start + range.size();
+                compute_inverses(start, end);
+            }
+        });
     } else {
         compute_inverses(0, num_rows);
     }

@@ -672,18 +672,15 @@ template <typename Flavor> class SumcheckProver {
     {
         auto source_view = source_polynomials.get_all();
         auto dest_view = dest_polynomials.get_all();
-        parallel_for(
-            source_view.size(),
-            [&](size_t j) {
-                BB_BENCH_TRACY_NAME("Sumcheck::partially_evaluate");
-                const auto& poly = source_view[j];
-                size_t limit = poly.end_index();
-                for (size_t i = 0; i < limit; i += 2) {
-                    dest_view[j].at(i >> 1) = poly[i] + round_challenge * (poly[i + 1] - poly[i]);
-                }
-                dest_view[j].shrink_end_index((limit / 2) + (limit % 2));
-            },
-            "Sumcheck::partially_evaluate");
+        parallel_for(source_view.size(), [&](size_t j) {
+            BB_BENCH_TRACY_NAME("Sumcheck::partially_evaluate");
+            const auto& poly = source_view[j];
+            size_t limit = poly.end_index();
+            for (size_t i = 0; i < limit; i += 2) {
+                dest_view[j].at(i >> 1) = poly[i] + round_challenge * (poly[i + 1] - poly[i]);
+            }
+            dest_view[j].shrink_end_index((limit / 2) + (limit % 2));
+        });
     };
 
     /**

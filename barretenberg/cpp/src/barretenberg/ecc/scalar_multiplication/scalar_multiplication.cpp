@@ -45,27 +45,25 @@ void MSM<Curve>::transform_scalar_and_get_nonzero_scalar_indices(std::span<typen
     std::vector<std::vector<uint32_t>> thread_indices(get_num_cpus());
 
     // Pass 1: Each thread converts from Montgomery and collects nonzero indices into its own vector
-    parallel_for(
-        [&](const ThreadChunk& chunk) { // NOLINT
-            BB_BENCH_TRACY_NAME("MSM::convert_scalars");
-            BB_ASSERT_EQ(chunk.total_threads, thread_indices.size());
-            auto range = chunk.range(scalars.size());
-            if (range.empty()) {
-                return;
-            }
-            std::vector<uint32_t>& thread_scalar_indices = thread_indices[chunk.thread_index];
-            thread_scalar_indices.reserve(range.size());
-            for (size_t i : range) {
-                BB_ASSERT_DEBUG(i < scalars.size());
-                auto& scalar = scalars[i];
-                scalar.self_from_montgomery_form_reduced();
+    parallel_for([&](const ThreadChunk& chunk) { // NOLINT
+        BB_BENCH_TRACY_NAME("MSM::convert_scalars");
+        BB_ASSERT_EQ(chunk.total_threads, thread_indices.size());
+        auto range = chunk.range(scalars.size());
+        if (range.empty()) {
+            return;
+        }
+        std::vector<uint32_t>& thread_scalar_indices = thread_indices[chunk.thread_index];
+        thread_scalar_indices.reserve(range.size());
+        for (size_t i : range) {
+            BB_ASSERT_DEBUG(i < scalars.size());
+            auto& scalar = scalars[i];
+            scalar.self_from_montgomery_form_reduced();
 
-                if (!scalar.is_zero()) {
-                    thread_scalar_indices.push_back(static_cast<uint32_t>(i));
-                }
+            if (!scalar.is_zero()) {
+                thread_scalar_indices.push_back(static_cast<uint32_t>(i));
             }
-        },
-        "MSM::convert_scalars");
+        }
+    });
 
     size_t num_entries = 0;
     for (const auto& indices : thread_indices) {
@@ -74,19 +72,17 @@ void MSM<Curve>::transform_scalar_and_get_nonzero_scalar_indices(std::span<typen
     nonzero_scalar_indices.resize(num_entries);
 
     // Pass 2: Copy each thread's indices to the output vector (no branching)
-    parallel_for(
-        [&](const ThreadChunk& chunk) {
-            BB_BENCH_TRACY_NAME("MSM::copy_indices");
-            BB_ASSERT_EQ(chunk.total_threads, thread_indices.size());
-            size_t offset = 0;
-            for (size_t i = 0; i < chunk.thread_index; ++i) {
-                offset += thread_indices[i].size();
-            }
-            for (size_t i = offset; i < offset + thread_indices[chunk.thread_index].size(); ++i) {
-                nonzero_scalar_indices[i] = thread_indices[chunk.thread_index][i - offset];
-            }
-        },
-        "MSM::copy_indices");
+    parallel_for([&](const ThreadChunk& chunk) {
+        BB_BENCH_TRACY_NAME("MSM::copy_indices");
+        BB_ASSERT_EQ(chunk.total_threads, thread_indices.size());
+        size_t offset = 0;
+        for (size_t i = 0; i < chunk.thread_index; ++i) {
+            offset += thread_indices[i].size();
+        }
+        for (size_t i = offset; i < offset + thread_indices[chunk.thread_index].size(); ++i) {
+            nonzero_scalar_indices[i] = thread_indices[chunk.thread_index][i - offset];
+        }
+    });
 }
 
 template <typename Curve>
@@ -464,30 +460,27 @@ std::vector<typename Curve::AffineElement> MSM<Curve>::batch_multi_scalar_mul(
     // Once we have our work units, each thread can independently evaluate its assigned msms
     {
         BB_BENCH_NAME("MSM::batch_multi_scalar_mul/evaluate_work_units");
-        parallel_for(
-            num_cpus,
-            [&](size_t thread_idx) {
-                BB_BENCH_TRACY_NAME("MSM::evaluate_work_units");
-                if (!thread_work_units[thread_idx].empty()) {
-                    const std::vector<MSMWorkUnit>& msms = thread_work_units[thread_idx];
-                    std::vector<std::pair<Element, size_t>>& msm_results = thread_msm_results[thread_idx];
-                    msm_results.reserve(msms.size());
+        parallel_for(num_cpus, [&](size_t thread_idx) {
+            BB_BENCH_TRACY_NAME("MSM::evaluate_work_units");
+            if (!thread_work_units[thread_idx].empty()) {
+                const std::vector<MSMWorkUnit>& msms = thread_work_units[thread_idx];
+                std::vector<std::pair<Element, size_t>>& msm_results = thread_msm_results[thread_idx];
+                msm_results.reserve(msms.size());
 
-                    // Point schedule buffer for this thread - avoids per-work-unit heap allocation
-                    std::vector<uint64_t> point_schedule_buffer;
+                // Point schedule buffer for this thread - avoids per-work-unit heap allocation
+                std::vector<uint64_t> point_schedule_buffer;
 
-                    for (const MSMWorkUnit& msm : msms) {
-                        point_schedule_buffer.resize(msm.size);
-                        MSMData msm_data =
-                            MSMData::from_work_unit(scalars, points, msm_scalar_indices, point_schedule_buffer, msm);
-                        Element msm_result =
-                            (msm.size < PIPPENGER_THRESHOLD) ? small_mul<Curve>(msm_data) : pippenger_impl(msm_data);
+                for (const MSMWorkUnit& msm : msms) {
+                    point_schedule_buffer.resize(msm.size);
+                    MSMData msm_data =
+                        MSMData::from_work_unit(scalars, points, msm_scalar_indices, point_schedule_buffer, msm);
+                    Element msm_result =
+                        (msm.size < PIPPENGER_THRESHOLD) ? small_mul<Curve>(msm_data) : pippenger_impl(msm_data);
 
-                        msm_results.emplace_back(msm_result, msm.batch_msm_index);
-                    }
+                    msm_results.emplace_back(msm_result, msm.batch_msm_index);
                 }
-            },
-            "MSM::evaluate_work_units");
+            }
+        });
     }
 
     // Accumulate results. Single-threaded, but negligible in practice.

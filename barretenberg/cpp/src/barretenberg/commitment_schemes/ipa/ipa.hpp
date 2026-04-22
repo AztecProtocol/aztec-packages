@@ -195,8 +195,7 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
                 BB_BENCH_TRACY_NAME("IPA::copy_srs");
                 G_vec_local[i] = srs_elements[i];
             },
-            thread_heuristics::FF_COPY_COST,
-            "IPA::copy_srs");
+            thread_heuristics::FF_COPY_COST);
 
         // Step 5.
         // Compute vector b (vector of the powers of the challenge)
@@ -212,8 +211,7 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
                     b_power *= opening_pair.challenge;
                 }
             },
-            thread_heuristics::FF_COPY_COST + thread_heuristics::FF_MULTIPLICATION_COST,
-            "IPA::compute_b_vec");
+            thread_heuristics::FF_COPY_COST + thread_heuristics::FF_MULTIPLICATION_COST);
 
         // Iterate for log(poly_degree) rounds to compute the round commitments.
 
@@ -237,8 +235,7 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
                     // Compute inner_prod_R := < a_vec_hi, b_vec_lo >
                     inner_prod_left_right.second += a_vec[round_size + j] * b_vec[j];
                 },
-                thread_heuristics::FF_ADDITION_COST * 2 + thread_heuristics::FF_MULTIPLICATION_COST * 2,
-                "IPA::inner_product");
+                thread_heuristics::FF_ADDITION_COST * 2 + thread_heuristics::FF_MULTIPLICATION_COST * 2);
             // Sum inner product contributions computed in parallel and unpack the std::pair
             auto [inner_prod_L, inner_prod_R] = sum_pairs(inner_prods);
             // Step 6.a (using letters, because doxygen automatically converts the sublist counters to letters :( )
@@ -292,8 +289,7 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
                     a_vec.at(j) += round_challenge * a_vec[round_size + j];
                     b_vec[j] += round_challenge_inv * b_vec[round_size + j];
                 },
-                thread_heuristics::FF_ADDITION_COST * 2 + thread_heuristics::FF_MULTIPLICATION_COST * 2,
-                "IPA::fold_vecs");
+                thread_heuristics::FF_ADDITION_COST * 2 + thread_heuristics::FF_MULTIPLICATION_COST * 2);
         }
 
         // Step 7
