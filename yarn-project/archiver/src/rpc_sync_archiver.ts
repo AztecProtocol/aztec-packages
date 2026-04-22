@@ -6,6 +6,7 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import {
   type ArchiverEmitter,
+  GENESIS_BLOCK_HEADER_HASH,
   L2BlockSourceEvents,
   type L2BlockStreamEvent,
   type L2BlockStreamEventHandler,
@@ -88,7 +89,7 @@ export class RpcSyncArchiver extends ArchiverDataSourceBase implements L2BlockSt
       getL2Tips: () => this.l2TipsCache.getL2Tips(),
       getL2BlockHash: async (number: BlockNumber) => {
         if (number === 0) {
-          return undefined;
+          return GENESIS_BLOCK_HEADER_HASH.toString();
         }
         const headers = await this.store.getBlockHeaders(number, 1);
         return headers[0] ? (await headers[0].hash()).toString() : undefined;
