@@ -128,22 +128,17 @@ export type BuildBlockInCheckpointResult = {
 
 /** Interface for building blocks within a checkpoint context. */
 export interface ICheckpointBlockBuilder {
-  /** Builds a single block within this checkpoint. Throws InsufficientValidTxsError if fewer than minValidTxs succeed. */
+  /**
+   * Builds a single block within this checkpoint using the given fork. The caller owns the fork.
+   * Throws InsufficientValidTxsError if fewer than minValidTxs succeed.
+   */
   buildBlock(
+    fork: MerkleTreeWriteOperations,
     pendingTxs: Iterable<Tx> | AsyncIterable<Tx>,
     blockNumber: BlockNumber,
     timestamp: bigint,
     opts: BlockBuilderOptions,
   ): Promise<BuildBlockInCheckpointResult>;
-
-  /** Returns the current fork. */
-  getFork(): MerkleTreeWriteOperations;
-
-  /** Returns the native fork ID of the current fork. */
-  getForkId(): number;
-
-  /** Replaces the fork used for subsequent block builds, closing the previous one. */
-  setFork(fork: MerkleTreeWriteOperations): Promise<void>;
 }
 
 /** Interface for creating checkpoint builders. */

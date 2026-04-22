@@ -99,7 +99,6 @@ describe('CheckpointBuilder', () => {
 
     checkpointBuilder = new TestCheckpointBuilder(
       lightweightCheckpointBuilder as unknown as LightweightCheckpointBuilder,
-      fork,
       config,
       contractDataSource,
       dateProvider,
@@ -171,10 +170,10 @@ describe('CheckpointBuilder', () => {
 
     it('uses the same contractsDB across multiple block builds', async () => {
       await mockSuccessfulBlock();
-      await checkpointBuilder.buildBlock([], blockNumber, 1000n, validatorOpts());
+      await checkpointBuilder.buildBlock(fork, [], blockNumber, 1000n, validatorOpts());
 
       await mockSuccessfulBlock();
-      await checkpointBuilder.buildBlock([], BlockNumber(blockNumber + 1), 1001n, validatorOpts());
+      await checkpointBuilder.buildBlock(fork, [], BlockNumber(blockNumber + 1), 1001n, validatorOpts());
 
       expect(createCheckpointSpy).toHaveBeenCalledTimes(2);
       expect(commitCheckpointSpy).toHaveBeenCalledTimes(2);
@@ -184,7 +183,7 @@ describe('CheckpointBuilder', () => {
     it('calls revertCheckpoint when public processor fails', async () => {
       processor.process.mockRejectedValue(new Error('processor failure'));
 
-      await expect(checkpointBuilder.buildBlock([], blockNumber, 1000n, validatorOpts())).rejects.toThrow(
+      await expect(checkpointBuilder.buildBlock(fork, [], blockNumber, 1000n, validatorOpts())).rejects.toThrow(
         'processor failure',
       );
 
@@ -209,7 +208,7 @@ describe('CheckpointBuilder', () => {
         [], // debugLogs
       ]);
 
-      const result = await checkpointBuilder.buildBlock([], blockNumber, 1000n, validatorOpts());
+      const result = await checkpointBuilder.buildBlock(fork, [], blockNumber, 1000n, validatorOpts());
 
       expect(result.block).toBe(expectedBlock);
       expect(result.numTxs).toBe(1);
@@ -230,7 +229,13 @@ describe('CheckpointBuilder', () => {
         [], // debugLogs
       ]);
 
-      const result = await checkpointBuilder.buildBlock([], blockNumber, 1000n, validatorOpts({ minValidTxs: 0 }));
+      const result = await checkpointBuilder.buildBlock(
+        fork,
+        [],
+        blockNumber,
+        1000n,
+        validatorOpts({ minValidTxs: 0 }),
+      );
 
       expect(result.block).toBe(expectedBlock);
       expect(result.numTxs).toBe(0);
@@ -248,7 +253,7 @@ describe('CheckpointBuilder', () => {
       ]);
 
       await expect(
-        checkpointBuilder.buildBlock([], blockNumber, 1000n, validatorOpts({ minValidTxs: 1 })),
+        checkpointBuilder.buildBlock(fork, [], blockNumber, 1000n, validatorOpts({ minValidTxs: 1 })),
       ).rejects.toThrow(InsufficientValidTxsError);
 
       expect(lightweightCheckpointBuilder.addBlock).not.toHaveBeenCalled();
@@ -267,7 +272,7 @@ describe('CheckpointBuilder', () => {
       ]);
 
       const err = await checkpointBuilder
-        .buildBlock([], blockNumber, 1000n, validatorOpts({ minValidTxs: 2 }))
+        .buildBlock(fork, [], blockNumber, 1000n, validatorOpts({ minValidTxs: 2 }))
         .catch((e: unknown) => e);
 
       expect(err).toBeInstanceOf(InsufficientValidTxsError);
@@ -282,7 +287,7 @@ describe('CheckpointBuilder', () => {
 
       processor.process.mockResolvedValue([[], [], [], [], []]);
 
-      const result = await checkpointBuilder.buildBlock([], blockNumber, 1000n, validatorOpts());
+      const result = await checkpointBuilder.buildBlock(fork, [], blockNumber, 1000n, validatorOpts());
 
       expect(result.numTxs).toBe(0);
       expect(lightweightCheckpointBuilder.addBlock).toHaveBeenCalled();
@@ -575,7 +580,7 @@ describe('CheckpointBuilder', () => {
       processor.process.mockResolvedValue([[{ hash: Fr.random() } as unknown as ProcessedTx], [], [], [], []]);
 
       // Build block 2
-      await checkpointBuilder.buildBlock([], blockNumber, 1000n, blockBuilderOpts);
+      await checkpointBuilder.buildBlock(fork, [], blockNumber, 1000n, blockBuilderOpts);
 
       // Remaining mana = 1M - 600k = 400k, with 3 blocks remaining (out of 5).
       // Expected fair share = ceil(400k / 3 * 1.2) = ceil(160_000) = 160_000
@@ -602,7 +607,7 @@ describe('CheckpointBuilder', () => {
         );
         lightweightCheckpointBuilder.getBlocks.mockReturnValue(priorBlocks);
 
-        await checkpointBuilder.buildBlock([], BlockNumber(blockNumber + i), 1000n, blockBuilderOpts);
+        await checkpointBuilder.buildBlock(fork, [], BlockNumber(blockNumber + i), 1000n, blockBuilderOpts);
 
         const processCall = processor.process.mock.calls[i];
         const limits = processCall[1] as PublicProcessorLimits;
@@ -636,7 +641,7 @@ describe('CheckpointBuilder', () => {
         );
         lightweightCheckpointBuilder.getBlocks.mockReturnValue(priorBlocks);
 
-        await checkpointBuilder.buildBlock([], BlockNumber(blockNumber + i), 1000n, blockBuilderOpts);
+        await checkpointBuilder.buildBlock(fork, [], BlockNumber(blockNumber + i), 1000n, blockBuilderOpts);
 
         const processCall = processor.process.mock.calls[i];
         const limits = processCall[1] as PublicProcessorLimits;
@@ -667,7 +672,7 @@ describe('CheckpointBuilder', () => {
       // No prior blocks: remaining=1M, 5 remaining, fairShare=ceil(1M/5*1.2)=240k.
       // cap = min(100k, 240k, 1M) = 100k — explicit wins.
       lightweightCheckpointBuilder.getBlocks.mockReturnValue([]);
-      await checkpointBuilder.buildBlock([], blockNumber, 1000n, {
+      await checkpointBuilder.buildBlock(fork, [], blockNumber, 1000n, {
         ...blockBuilderOpts,
         maxBlockGas: new Gas(Infinity, 100_000),
       });

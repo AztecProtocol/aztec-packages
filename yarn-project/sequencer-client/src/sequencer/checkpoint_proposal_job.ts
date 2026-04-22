@@ -39,6 +39,7 @@ import { Gas } from '@aztec/stdlib/gas';
 import {
   type BlockBuilderOptions,
   InsufficientValidTxsError,
+  type MerkleTreeWriteOperations,
   type ResolvedSequencerConfig,
   type WorldStateSynchronizer,
 } from '@aztec/stdlib/interfaces/server';
@@ -449,8 +450,6 @@ export class CheckpointProposalJob implements Traceable {
     };
   })
   private async proposeCheckpoint(): Promise<CheckpointProposalBroadcast | undefined> {
-    let fork: Awaited<ReturnType<WorldStateSynchronizer['fork']>> | undefined;
-    let checkpointBuilder: CheckpointBuilder | undefined;
     try {
       const now = this.dateProvider.now();
       if (this.epochCache.isProposerPipeliningEnabled() && this.proposedCheckpointData) {
@@ -517,16 +516,16 @@ export class CheckpointProposalJob implements Traceable {
       // Create a forked world state for the checkpoint builder.
       // The fork is registered for each built block so SYNC_BLOCK can commit it.
       // After each block, a new fork is created at the advanced tip.
-      fork = await this.worldState.fork(this.syncedToBlockNumber, { closeDelayMs: 12_000 });
+      await using initialFork = await this.worldState.fork(this.syncedToBlockNumber, { closeDelayMs: 12_000 });
 
       // Create checkpoint builder for the entire slot
-      checkpointBuilder = await this.checkpointsBuilder.startCheckpoint(
+      const checkpointBuilder = await this.checkpointsBuilder.startCheckpoint(
         this.checkpointNumber,
         checkpointGlobalVariables,
         feeAssetPriceModifier,
         l1ToL2Messages,
         previousCheckpointOutHashes,
-        fork,
+        initialFork,
         this.log.getBindings(),
       );
 
@@ -549,6 +548,7 @@ export class CheckpointProposalJob implements Traceable {
         // Main loop: build blocks for the checkpoint
         const result = await this.buildBlocksForCheckpoint(
           checkpointBuilder,
+          initialFork,
           checkpointGlobalVariables.timestamp,
           inHash,
           blockProposalOptions,
@@ -651,13 +651,6 @@ export class CheckpointProposalJob implements Traceable {
 
       this.log.error(`Error building checkpoint at slot ${this.targetSlot}`, err);
       return undefined;
-    } finally {
-      // Close forks to release native resources. Already-committed forks silently handle "Fork not found".
-      const currentFork = checkpointBuilder?.getFork();
-      if (currentFork && currentFork !== fork) {
-        await currentFork.close();
-      }
-      await fork?.close();
     }
   }
 
@@ -667,6 +660,7 @@ export class CheckpointProposalJob implements Traceable {
   @trackSpan('CheckpointProposalJob.buildBlocksForCheckpoint')
   private async buildBlocksForCheckpoint(
     checkpointBuilder: CheckpointBuilder,
+    initialFork: MerkleTreeWriteOperations,
     timestamp: bigint,
     inHash: Fr,
     blockProposalOptions: BlockProposalOptions,
@@ -681,7 +675,10 @@ export class CheckpointProposalJob implements Traceable {
     // Last block in the checkpoint will usually be flagged as pending broadcast, so we send it along with the checkpoint proposal
     let blockPendingBroadcast: BlockProposal | undefined = undefined;
 
-    while (true) {
+    // Builds one block on the given fork and handles its post-processing.
+    // Returns 'stop' to exit the loop, 'retry' to try again on the same fork (wait already done),
+    // or a subslot deadline to wait before the next block.
+    const buildOne = async (fork: MerkleTreeWriteOperations): Promise<'stop' | 'retry' | { deadline: number }> => {
       const blocksBuilt = blocksInCheckpoint.length;
       const indexWithinCheckpoint = IndexWithinCheckpoint(blocksBuilt);
       const blockNumber = BlockNumber(initialBlockNumber + blocksBuilt);
@@ -695,10 +692,10 @@ export class CheckpointProposalJob implements Traceable {
           blocksBuilt,
           secondsIntoSlot,
         });
-        break;
+        return 'stop';
       }
 
-      const buildResult = await this.buildSingleBlock(checkpointBuilder, {
+      const buildResult = await this.buildSingleBlock(checkpointBuilder, fork, {
         // Create all blocks with the same timestamp
         blockTimestamp: timestamp,
         // Create an empty block if we haven't already and this is the last one
@@ -716,11 +713,11 @@ export class CheckpointProposalJob implements Traceable {
       if ('failure' in buildResult) {
         // If this was the last subslot, or we're running with a single block per slot, we're done
         if (timingInfo.isLastBlock || timingInfo.deadline === undefined) {
-          break;
+          return 'stop';
         }
         // Otherwise, if there is still time for more blocks, we wait until the next subslot and try again
         await this.waitUntilNextSubslot(timingInfo.deadline);
-        continue;
+        return 'retry';
       }
 
       // If there was an error building the block, we just exit the loop and give up the rest of the slot.
@@ -733,7 +730,7 @@ export class CheckpointProposalJob implements Traceable {
             error: buildResult.error,
           });
         }
-        break;
+        return 'stop';
       }
 
       const { block, usedTxs } = buildResult;
@@ -746,7 +743,7 @@ export class CheckpointProposalJob implements Traceable {
       usedTxs.forEach(tx => txHashesAlreadyIncluded.add(tx.txHash.toString()));
 
       // Register the fork so SYNC_BLOCK can commit it instead of recalculating.
-      this.worldState.registerForkForBlock(block.archive.root, checkpointBuilder.getForkId());
+      this.worldState.registerForkForBlock(block.archive.root, fork.forkId);
 
       // If this is the last block, exit the loop so we can build the checkpoint and start collecting attestations.
       // The block will be synced to LMDB when the block stream picks it up from the archiver.
@@ -768,24 +765,51 @@ export class CheckpointProposalJob implements Traceable {
         });
 
         blockPendingBroadcast = proposal;
-        break;
+        return 'stop';
       }
 
       // Once we have a signed proposal and the archiver agreed with our proposed block, then we broadcast it.
       proposal && (await this.p2pClient.broadcastProposal(proposal));
 
-      // Wait for LMDB to reach this block before creating the next fork.
-      // In HA mode, another peer's proposal may arrive via gossip and be committed instead of ours.
-      // If the block was not pushed to the archiver (e.g. skipPushProposedBlocksToArchiver), skip the
-      // sync and reuse the current fork for the next block.
-      if (!this.config.skipPushProposedBlocksToArchiver) {
-        await this.worldState.syncImmediate(blockNumber);
-        const newFork = await this.worldState.fork(undefined, { closeDelayMs: 12_000 });
-        await checkpointBuilder.setFork(newFork);
-      }
+      return { deadline: timingInfo.deadline };
+    };
 
-      // Wait until the next block's start time
-      await this.waitUntilNextSubslot(timingInfo.deadline);
+    if (this.config.skipPushProposedBlocksToArchiver) {
+      // skipPush: all blocks are built on initialFork so their in-memory state accumulates.
+      while (true) {
+        const result = await buildOne(initialFork);
+        if (result === 'stop') {
+          break;
+        }
+        if (result === 'retry') {
+          continue;
+        }
+        await this.waitUntilNextSubslot(result.deadline);
+      }
+    } else {
+      while (true) {
+        // Block 1 uses initialFork (has L1-to-L2 messages appended by startCheckpoint).
+        // Block 2+ uses a fresh fork at the previously built block after syncing LMDB.
+        const blocksBuilt = blocksInCheckpoint.length;
+        let result: 'stop' | 'retry' | { deadline: number };
+        if (blocksBuilt === 0) {
+          result = await buildOne(initialFork);
+        } else {
+          const prevBlock = BlockNumber(initialBlockNumber + blocksBuilt - 1);
+          // Wait for LMDB to reach the previously built block before creating the next fork.
+          // In HA mode, another peer's proposal may arrive via gossip and be committed instead of ours.
+          await this.worldState.syncImmediate(prevBlock);
+          await using fork = await this.worldState.fork(prevBlock, { closeDelayMs: 12_000 });
+          result = await buildOne(fork);
+        }
+        if (result === 'stop') {
+          break;
+        }
+        if (result === 'retry') {
+          continue;
+        }
+        await this.waitUntilNextSubslot(result.deadline);
+      }
     }
 
     this.log.verbose(`Block building loop completed for slot ${this.targetSlot}`, {
@@ -833,6 +857,7 @@ export class CheckpointProposalJob implements Traceable {
   @trackSpan('CheckpointProposalJob.buildSingleBlock')
   protected async buildSingleBlock(
     checkpointBuilder: CheckpointBuilder,
+    fork: MerkleTreeWriteOperations,
     opts: {
       forceCreate?: boolean;
       blockTimestamp: bigint;
@@ -900,6 +925,7 @@ export class CheckpointProposalJob implements Traceable {
       // updated for blocks that will be discarded.
       const buildResult = await this.buildSingleBlockWithCheckpointBuilder(
         checkpointBuilder,
+        fork,
         pendingTxs,
         blockNumber,
         blockTimestamp,
@@ -972,6 +998,7 @@ export class CheckpointProposalJob implements Traceable {
   /** Uses the checkpoint builder to build a block, catching InsufficientValidTxsError. */
   private async buildSingleBlockWithCheckpointBuilder(
     checkpointBuilder: CheckpointBuilder,
+    fork: MerkleTreeWriteOperations,
     pendingTxs: AsyncIterable<Tx>,
     blockNumber: BlockNumber,
     blockTimestamp: bigint,
@@ -979,7 +1006,13 @@ export class CheckpointProposalJob implements Traceable {
   ) {
     try {
       const workTimer = new Timer();
-      const result = await checkpointBuilder.buildBlock(pendingTxs, blockNumber, blockTimestamp, blockBuilderOptions);
+      const result = await checkpointBuilder.buildBlock(
+        fork,
+        pendingTxs,
+        blockNumber,
+        blockTimestamp,
+        blockBuilderOptions,
+      );
       const blockBuildDuration = workTimer.ms();
       return { ...result, blockBuildDuration, status: 'success' as const };
     } catch (err: unknown) {

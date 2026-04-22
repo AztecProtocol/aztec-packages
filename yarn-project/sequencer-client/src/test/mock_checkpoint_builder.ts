@@ -66,23 +66,12 @@ export class MockCheckpointBuilder implements ICheckpointBlockBuilder {
     return this;
   }
 
-  getFork(): MerkleTreeWriteOperations {
-    return { close: () => Promise.resolve() } as unknown as MerkleTreeWriteOperations;
-  }
-
-  getForkId(): number {
-    return 0;
-  }
-
-  async setFork(_fork: MerkleTreeWriteOperations): Promise<void> {
-    // No-op in mock — the mock doesn't use the fork directly
-  }
-
   getConstantData(): CheckpointGlobalVariables {
     return this.constants;
   }
 
   async buildBlock(
+    _fork: MerkleTreeWriteOperations,
     pendingTxs: Iterable<Tx> | AsyncIterable<Tx>,
     blockNumber: BlockNumber,
     timestamp: bigint,
