@@ -12,6 +12,7 @@
  *   - Discovery/diagnostic printing
  */
 
+#include "barretenberg/constants.hpp"
 #include "barretenberg/crypto/poseidon2/poseidon2.hpp"
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
 #include "barretenberg/honk/library/grand_product_delta.hpp"
@@ -2119,10 +2120,15 @@ bool find_and_validate_update_batch_mul_inputs_mega_zk(CircuitBuilder& builder,
     auto to_real = [&](uint32_t w) { return builder.real_variable_index[w]; };
 
     // Pattern B (mul-neg): q_arith=1, q_m=-1, q_3=-1, q_1=q_2=q_4=q_c=0.
-    auto pattern_b = [](const FF& q_arith, const FF& q_1, const FF& q_2, const FF& q_3, const FF& q_4, const FF& q_m,
+    auto pattern_b = [](const FF& q_arith,
+                        const FF& q_1,
+                        const FF& q_2,
+                        const FF& q_3,
+                        const FF& q_4,
+                        const FF& q_m,
                         const FF& q_c) {
-        return q_arith == FF::one() && q_m == FF::neg_one() && q_3 == FF::neg_one() && q_1.is_zero() &&
-               q_2.is_zero() && q_4.is_zero() && q_c.is_zero();
+        return q_arith == FF::one() && q_m == FF::neg_one() && q_3 == FF::neg_one() && q_1.is_zero() && q_2.is_zero() &&
+               q_4.is_zero() && q_c.is_zero();
     };
 
     // Scan rho's gate list for first-gate anchor.
@@ -2164,8 +2170,8 @@ bool find_and_validate_update_batch_mul_inputs_mega_zk(CircuitBuilder& builder,
         }
     }
     // N + 1 = 60 + 1 = 61 for MegaZK.
-    const size_t expected_rho_on_wr = UPDATE_BATCH_MUL_INPUTS_MEGA_ZK_NUM_UNSHIFTED +
-                                       UPDATE_BATCH_MUL_INPUTS_MEGA_ZK_NUM_SHIFTED + 1;
+    const size_t expected_rho_on_wr =
+        UPDATE_BATCH_MUL_INPUTS_MEGA_ZK_NUM_UNSHIFTED + UPDATE_BATCH_MUL_INPUTS_MEGA_ZK_NUM_SHIFTED + 1;
     if (rho_on_wr != expected_rho_on_wr) {
         return false;
     }
@@ -2219,8 +2225,7 @@ bool find_and_validate_add_zk_data_mega_zk(CircuitBuilder& builder,
     // Pattern E: q_arith=1, q_1=1, q_2=-1, q_3=-1, others 0.
     auto is_fp_e = [&](size_t g) {
         return ab.q_arith()[g] == FF::one() && ab.q_1()[g] == FF::one() && ab.q_2()[g] == FF::neg_one() &&
-               ab.q_3()[g] == FF::neg_one() && ab.q_4()[g].is_zero() && ab.q_m()[g].is_zero() &&
-               ab.q_c()[g].is_zero();
+               ab.q_3()[g] == FF::neg_one() && ab.q_4()[g].is_zero() && ab.q_m()[g].is_zero() && ab.q_c()[g].is_zero();
     };
     // Pattern B (invert): q_arith=1, q_m=1, q_c=-1, others 0.
     auto is_fp_b = [&](size_t g) {
@@ -2229,15 +2234,13 @@ bool find_and_validate_add_zk_data_mega_zk(CircuitBuilder& builder,
     };
     // Pattern D (fused with -g constant in q_2).
     auto is_fp_d = [&](size_t g) {
-        return ab.q_arith()[g] == FF::one() && ab.q_1()[g] == FF::one() &&
-               ab.q_2()[g] == neg_subgroup_generator && ab.q_3()[g] == FF::neg_one() &&
-               ab.q_4()[g].is_zero() && ab.q_m()[g].is_zero() && ab.q_c()[g].is_zero();
+        return ab.q_arith()[g] == FF::one() && ab.q_1()[g] == FF::one() && ab.q_2()[g] == neg_subgroup_generator &&
+               ab.q_3()[g] == FF::neg_one() && ab.q_4()[g].is_zero() && ab.q_m()[g].is_zero() && ab.q_c()[g].is_zero();
     };
     // Pattern F (neg-sum): q_arith=1, q_1=-1, q_2=-1, q_3=-1, others 0.
     auto is_fp_f = [&](size_t g) {
         return ab.q_arith()[g] == FF::one() && ab.q_1()[g] == FF::neg_one() && ab.q_2()[g] == FF::neg_one() &&
-               ab.q_3()[g] == FF::neg_one() && ab.q_4()[g].is_zero() && ab.q_m()[g].is_zero() &&
-               ab.q_c()[g].is_zero();
+               ab.q_3()[g] == FF::neg_one() && ab.q_4()[g].is_zero() && ab.q_m()[g].is_zero() && ab.q_c()[g].is_zero();
     };
 
     // Pre-filter candidate start gates via shplonk_z's arithmetic-block appearances.
@@ -2376,6 +2379,38 @@ bool find_and_validate_check_libra_consistency_mega_zk(CircuitBuilder& builder,
     // Step 5: selector hash.
     std::size_t selectors_hash = sha256_helpers::compute_selector_hash(0, ab, start, end - 1);
     return selectors_hash == CHECK_LIBRA_MEGA_ZK_HASH;
+}
+
+template <typename FF, typename CircuitBuilder>
+bool validate_shplonk_batching_challenges_powers(uint32_t shplonk_nu,
+                                                 size_t virtual_log_n,
+                                                 bool has_zk = true,
+                                                 bool committed_sumcheck = true)
+{
+    size_t num_powers = 2 * virtual_log_n + bb::NUM_INTERLEAVING_CLAIMS;
+    // Each round univariate is opened at 0, 1, and a round challenge.
+    static constexpr size_t NUM_COMMITTED_SUMCHECK_CLAIMS_PER_ROUND = 3;
+
+    // Shplonk evaluation and batching challenges are re-used in SmallSubgroupIPA.
+    if (has_zk) {
+        num_powers += bb::NUM_SMALL_IPA_EVALUATIONS;
+    }
+
+    // Commited sumcheck adds 3 claims per round.
+    if (committed_sumcheck) {
+        num_powers += NUM_COMMITTED_SUMCHECK_CLAIMS_PER_ROUND * virtual_log_n;
+    }
+    //
+    auto mul_pattern = [](const FF& q_arith,
+                          const FF& q_1,
+                          const FF& q_2,
+                          const FF& q_3,
+                          const FF& q_4,
+                          const FF& q_m,
+                          const FF& q_c) {
+        return poseidon2_helpers::all_equal(FF::one(), q_arith, q_m) && q_3 == FF::neg_one() &&
+               poseidon2_helpers::all_equal(FF::zero(), q_1, q_2, q_4, q_c);
+    };
 }
 
 } // namespace recursion_helpers
