@@ -13,7 +13,7 @@ Comparison of four approaches to Poseidon2 internal-round encoding on the Mega c
 Two further variants of the K=4 scheme (described under *Approaches* below) are also benched by CI and referenced here but not included in the tables:
 
 - 7-wire committed-state K=4: branch `claudebox/956a32e9fbd268f2-6`, [PR #22655](https://github.com/AztecProtocol/aztec-packages/pull/22655) (closed — did not improve on the 4-wire K=4)
-- Committed-square z-commits, length-$5$/$4$ sumcheck: branch `si/poseidon2-opt-attempt-low-deg`, [PR #22670](https://github.com/AztecProtocol/aztec-packages/pull/22670) (closed)
+- Committed-square z-commits, length-5/4 sumcheck: branch `si/poseidon2-opt-attempt-low-deg`, [PR #22670](https://github.com/AztecProtocol/aztec-packages/pull/22670) (closed)
 
 All four branches are benched automatically by CI on every push. Live historical / per-commit numbers: <https://aztecprotocol.github.io/benchmark-page-data/bench/?branch=prs>. The tables in this document are the single-run remote-machine measurements used for the write-up; the CI dashboard is the source of truth for trend lines and cross-branch comparison over time.
 
@@ -129,7 +129,7 @@ $$
 \{5, 5, 5, 5, \;\; 4, 4, 4, 4\}
 $$
 
-(main subrelations at partial length $5$, z-checks at $4$). **The length-$7$ `Univariate<FF, 7>` gets replaced with `Univariate<FF, 5>` for the main subrelations and `Univariate<FF, 4>` for the z-checks.**
+(main subrelations at partial length $5$, z-checks at $4$). **The length-7 `Univariate<FF, 7>` gets replaced with `Univariate<FF, 5>` for the main subrelations and `Univariate<FF, 4>` for the z-checks.**
 
 What this buys:
 
@@ -170,7 +170,7 @@ $N_p$ = non-zero scalars on committed polynomial $p$; $R_\tau$ = per-active-row 
 
 **Plain K=4 → variant A (7-wire).** Same rows as K=4. $\Delta R = 193$ (drop $461 \to 268$ per interior row, from removing the Vandermonde inversion and shift-side S-boxes), $\Delta C = 3$. Break-even $\Delta R > (c_{\mathrm{msm}}/2) \cdot \Delta C = 225$; measured $193$.
 
-**Plain K=4 → variant B (low-deg).** Same row count, but $\Delta C = 4$ z-commits populated on all $\sim 23$ Poseidon-tagged rows (internal and external, since the external relation is rewritten to the same $u_k = z_k^2 \cdot (w_k + c_k)$ path). MSM cost: $4 \cdot 23 \cdot c_{\mathrm{msm}} \approx 13{,}800$ muls/perm. Sumcheck saving from the uniform length-$5$ shrink: internal $461 \to 310$, external $114 \to \sim 75$, totalling $\sim 4{,}800$ muls/perm after the sumcheck round factor. Net $\approx -9{,}000$ muls/perm — the extra commits per active row ($4 \cdot c_{\mathrm{msm}} = 600$) exceed the per-row sumcheck saving ($\sim 150$ internal, $\sim 40$ external) by $4\times$, so no scoping of the trick pays back.
+**Plain K=4 → variant B (low-deg).** Same row count, but $\Delta C = 4$ z-commits populated on all $\sim 23$ Poseidon-tagged rows (internal and external, since the external relation is rewritten to the same $u_k = z_k^2 \cdot (w_k + c_k)$ path). MSM cost: $4 \cdot 23 \cdot c_{\mathrm{msm}} \approx 13{,}800$ muls/perm. Sumcheck saving from the uniform length-5 shrink: internal $461 \to 310$, external $114 \to \sim 75$, totalling $\sim 4{,}800$ muls/perm after the sumcheck round factor. Net $\approx -9{,}000$ muls/perm — the extra commits per active row ($4 \cdot c_{\mathrm{msm}} = 600$) exceed the per-row sumcheck saving ($\sim 150$ internal, $\sim 40$ external) by $4\times$, so no scoping of the trick pays back.
 
 #### Effects not analyzed
 
@@ -201,19 +201,19 @@ Breakdown of the interior compressed row — where the compute lives:
 
 | Component (Acc-level) | K=2 interior | K=4 interior |
 |---|---:|---:|
-| S-boxes on current row | $3 \cdot 21 = 63$ | $4 \cdot 21 = 84$ |
-| S-boxes on shift side | $1 \cdot 21 = 21$ | $3 \cdot 21 = 63$ |
-| $\mathrm{scaled}\_u_\ast \;=\; u_\ast \cdot q_{\mathrm{by\ scaling}}$ | $3 \cdot 7 = 21$ | — |
-| $b_1, b_2, b_3$ Vandermonde RHS | — | $44$ |
-| $b_k^{\mathrm{next}}$ on shift side | — | $44$ |
-| **$3 \times 3$ Lagrange solve $s_j = \sum_k \alpha_j^{(k)} \cdot b_k$** | — | $\mathbf{9 \cdot 7 = 63}$ |
-| **$4$ recurrence `step()`s** (each $3 \times s_k \cdot (D_{k+1} - 1)$) | — | $\mathbf{4 \cdot 21 = 84}$ |
-| $\mathrm{out}_0 = u_{\mathrm{last}} \cdot D_1 + T_3$ | — | $7$ |
-| Diagonal / linear combos in $v_k^{\mathrm{linear}}$ / $\mathrm{lhs}_k$ | $8$ | $42$ |
-| Per-subrelation output scalings | $37$ | $28$ |
-| $q_{\mathrm{sel}} \cdot \mathrm{scaling\_factor}$ | $2$ | $2$ |
-| Small linear-monomial setup | $2$ | — |
-| **Total per interior row** | $\mathbf{154}$ | $\mathbf{461}$ |
+| S-boxes on current row | 3 × 21 = 63 | 4 × 21 = 84 |
+| S-boxes on shift side | 1 × 21 = 21 | 3 × 21 = 63 |
+| Selector-scaled S-box values (Acc × Acc) | 3 × 7 = 21 | — |
+| Vandermonde RHS (b₁, b₂, b₃) | — | 44 |
+| Shift-side Vandermonde RHS (b_k next) | — | 44 |
+| **3 × 3 Lagrange solve (sⱼ from b₁, b₂, b₃)** | — | **9 × 7 = 63** |
+| **4 recurrence steps** (3 × Acc × Fr each) | — | **4 × 21 = 84** |
+| out₀ = u_last · D₁ + T₃ | — | 7 |
+| Diagonal / linear combos (v_k linear, lhs_k) | 8 | 42 |
+| Per-subrelation output scalings | 37 | 28 |
+| q_sel · scaling_factor | 2 | 2 |
+| Small linear-monomial setup | 2 | — |
+| **Total per interior row** | **154** | **461** |
 
 Per-permutation totals (Mega, one hash):
 
@@ -280,4 +280,4 @@ Per-permutation totals (Mega, one hash):
   - WASM total: `56→28` −6.0%, `56→14` −3.8% vs. `mt`.
 - **Native memory.** Both variants cut peak RSS by 10–19% on the larger flows (`amm`, `transfer_1+private_fpc`, `schnorr+deploy_token`); small flows are within noise. The totals look flat because the `storage_proof_7_layers` peak dominates and is slightly higher on both variants than on `mt` (~+3–5%).
 - **WASM memory.** `56→28` reduces peak like native. `56→14` *increases* WASM peak by +10–25% on most flows — this is wasm-specific (its native numbers are fine) and worth investigating before taking the more aggressive compression.
-- **Closed variants.** The 7-wire committed-state variant (`#22655`) and the committed-square z-commit / length-$5$ variant (`#22670`) both reduce per-row relation work, but in practice neither improves end-to-end proving. Even with scalar sparsity (Pippenger drops zeros, new wires only pay for their active support), the added committed polynomials bring enough extra prover overhead that the local sumcheck savings don't translate into a wall-time win. The missing cost likely isn't fully captured by the MSM-vs-sumcheck model — extra per-subrelation overhead, PCS opening/batching cost, and constant factors in sparse-commit handling are all candidates.
+- **Closed variants.** The 7-wire committed-state variant (`#22655`) and the committed-square z-commit / length-5 variant (`#22670`) both reduce per-row relation work, but in practice neither improves end-to-end proving. Even with scalar sparsity (Pippenger drops zeros, new wires only pay for their active support), the added committed polynomials bring enough extra prover overhead that the local sumcheck savings don't translate into a wall-time win. The missing cost likely isn't fully captured by the MSM-vs-sumcheck model — extra per-subrelation overhead, PCS opening/batching cost, and constant factors in sparse-commit handling are all candidates.
