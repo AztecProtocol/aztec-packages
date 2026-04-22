@@ -231,13 +231,29 @@ describe('epoch-proving-job', () => {
     expect(prover.cancel).toHaveBeenCalled();
   });
 
-  it('skips publishing when skipSubmitProof is enabled', async () => {
+  it('analyzes estimated fees and does not publish when skipSubmitProof is enabled', async () => {
+    publisher.analyzeEpochProofSubmission.mockResolvedValue(undefined);
+
     const job = createJob({ skipSubmitProof: true });
     await job.run();
 
     expect(job.getState()).toEqual('completed');
     expect(prover.finalizeEpoch).toHaveBeenCalled();
     expect(publisher.submitEpochProof).not.toHaveBeenCalled();
+    expect(publisher.analyzeEpochProofSubmission).toHaveBeenCalledWith(
+      expect.objectContaining({ epochNumber, proof, publicInputs, attestations: attestations.map(a => a.toViem()) }),
+    );
+  });
+
+  it('completes successfully even if fee analysis fails when skipSubmitProof is enabled', async () => {
+    publisher.analyzeEpochProofSubmission.mockRejectedValue(new Error('fee analysis failed'));
+
+    const job = createJob({ skipSubmitProof: true });
+    await job.run();
+
+    expect(job.getState()).toEqual('completed');
+    expect(publisher.submitEpochProof).not.toHaveBeenCalled();
+    expect(publisher.analyzeEpochProofSubmission).toHaveBeenCalled();
   });
 
   it('inserts L1 to L2 messages into the message tree only for the first block of each checkpoint', async () => {

@@ -151,8 +151,10 @@ export class FakeL1State {
   // Computed from checkpoints based on L1 block visibility
   private pendingCheckpointNumber: CheckpointNumber = CheckpointNumber(0);
 
-  // The L1 block number reported as "finalized" (defaults to the start block)
-  private finalizedL1BlockNumber: bigint;
+  // The L1 block number reported as "finalized" (defaults to the start block).
+  // `undefined` simulates the startup window on a fresh devnet where
+  // `getBlock({ blockTag: 'finalized' })` fails with "finalized block not found".
+  private finalizedL1BlockNumber: bigint | undefined;
 
   constructor(private readonly config: FakeL1StateConfig) {
     this.l1BlockNumber = config.l1StartBlock;
@@ -288,8 +290,11 @@ export class FakeL1State {
     this.updatePendingCheckpointNumber();
   }
 
-  /** Sets the L1 block number that will be reported as "finalized". */
-  setFinalizedL1BlockNumber(blockNumber: bigint): void {
+  /**
+   * Sets the L1 block number that will be reported as "finalized". Pass `undefined` to
+   * simulate a chain that does not yet have a finalized block (devnet startup).
+   */
+  setFinalizedL1BlockNumber(blockNumber: bigint | undefined): void {
     this.finalizedL1BlockNumber = blockNumber;
   }
 
@@ -502,8 +507,8 @@ export class FakeL1State {
       Promise.resolve(this.getMessageSentLogs(fromBlock, toBlock)),
     );
 
-    mockInbox.getMessageSentEventByHash.mockImplementation((msgHash: string, l1BlockHash: string) =>
-      Promise.resolve(this.getMessageSentLogByHash(msgHash, l1BlockHash) as MessageSentLog),
+    mockInbox.getMessageSentEventByHash.mockImplementation((msgHash: string, aroundL1BlockNumber: bigint) =>
+      Promise.resolve(this.getMessageSentLogByHash(msgHash, aroundL1BlockNumber) as MessageSentLog),
     );
 
     return mockInbox;
@@ -519,6 +524,11 @@ export class FakeL1State {
     publicClient.getBlock.mockImplementation((async (args: { blockNumber?: bigint; blockTag?: string } = {}) => {
       let blockNum: bigint;
       if (args.blockTag === 'finalized') {
+        if (this.finalizedL1BlockNumber === undefined) {
+          throw Object.assign(new Error('finalized block not found'), {
+            details: 'finalized block not found',
+          });
+        }
         blockNum = this.finalizedL1BlockNumber;
       } else {
         blockNum = args.blockNumber ?? (await publicClient.getBlockNumber());
@@ -544,10 +554,10 @@ export class FakeL1State {
   createMockBlobClient(): MockProxy<BlobClientInterface> {
     const blobClient = mock<BlobClientInterface>();
 
-    // The blockId is the transaction's blockHash, which we set to the checkpoint's archive root
+    // The blockId is the L1 block hash, which we derive from the L1 block number
     blobClient.getBlobSidecar.mockImplementation((blockId: `0x${string}`) =>
       Promise.resolve(
-        this.checkpoints.find(cpData => cpData.checkpoint.archive.root.toString() === blockId)?.blobs ?? [],
+        this.checkpoints.find(cpData => Buffer32.fromBigInt(cpData.l1BlockNumber).toString() === blockId)?.blobs ?? [],
       ),
     );
 
@@ -623,9 +633,12 @@ export class FakeL1State {
       }));
   }
 
-  private getMessageSentLogByHash(msgHash: string, l1BlockHash: string): MessageSentLog | undefined {
+  private getMessageSentLogByHash(msgHash: string, aroundL1BlockNumber: bigint): MessageSentLog | undefined {
     const msg = this.messages.find(
-      msg => msg.leaf.toString() === msgHash && Buffer32.fromBigInt(msg.l1BlockNumber).toString() === l1BlockHash,
+      msg =>
+        msg.leaf.toString() === msgHash &&
+        msg.l1BlockNumber >= aroundL1BlockNumber - 5n &&
+        msg.l1BlockNumber <= aroundL1BlockNumber + 5n,
     );
     if (!msg) {
       return undefined;
