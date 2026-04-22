@@ -4,7 +4,6 @@ import { Buffer16, Buffer32 } from '@aztec/foundation/buffer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { type Logger, createLogger } from '@aztec/foundation/log';
-import { SerialQueue } from '@aztec/foundation/queue';
 import {
   type ArchiverEmitter,
   type L2BlockSource,
@@ -63,7 +62,6 @@ export class RpcSyncArchiver extends ArchiverDataSourceBase implements L2BlockSt
   private readonly blockStream: L2BlockStream;
   private readonly updater: ArchiverDataStoreUpdater;
   private readonly l2TipsCache: L2TipsCache;
-  private readonly eventQueue = new SerialQueue();
 
   private initialSyncComplete = false;
   private initialSyncPromise: Promise<void>;
@@ -107,8 +105,6 @@ export class RpcSyncArchiver extends ArchiverDataSourceBase implements L2BlockSt
     this.initialSyncPromise = new Promise<void>(resolve => {
       this.resolveInitialSync = resolve;
     });
-
-    this.eventQueue.start();
   }
 
   /** Starts the underlying block stream. Optionally blocks until the first sync completes. */
@@ -130,7 +126,6 @@ export class RpcSyncArchiver extends ArchiverDataSourceBase implements L2BlockSt
   public async stop(): Promise<void> {
     this.log.debug('Stopping RPC-sync archiver');
     await this.blockStream.stop();
-    await this.eventQueue.end();
   }
 
   public async syncImmediate(): Promise<void> {
@@ -150,12 +145,7 @@ export class RpcSyncArchiver extends ArchiverDataSourceBase implements L2BlockSt
     return this.store.backupTo(destPath);
   }
 
-  /** Serializes event processing so updater transactions never overlap. */
-  public handleBlockStreamEvent(event: L2BlockStreamEvent): Promise<void> {
-    return this.eventQueue.put(() => this.doHandleBlockStreamEvent(event));
-  }
-
-  private async doHandleBlockStreamEvent(event: L2BlockStreamEvent): Promise<void> {
+  public async handleBlockStreamEvent(event: L2BlockStreamEvent): Promise<void> {
     switch (event.type) {
       case 'blocks-added':
         await this.handleBlocksAdded(event);
