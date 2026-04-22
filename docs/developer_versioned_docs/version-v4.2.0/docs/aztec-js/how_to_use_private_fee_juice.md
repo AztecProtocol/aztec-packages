@@ -30,16 +30,33 @@ A fully private FPC side-steps the allowlist entirely. Instead of collecting pay
 
 This section describes the design pattern using Wonderland's `PrivateFPC` as an example. The contract stores an internal, note-based `BalanceSet` of Fee Juice per user. There is no constructor, no admin, and no public surface.
 
-Two flows are supported:
+### Two salts, not one
 
-1. **Bridge + mint + pay** (for recurring use, once the account already has a private Fee Juice balance with the FPC):
-    1. On L1, deposit Fee Juice to the `FeeJuicePortal`, targeting the FPC's Aztec address as the recipient. Pass a **claimer-bound secret hash**: a hash whose preimage only the claimer knows, which the L2 claim transaction must reveal to consume the resulting L1-to-L2 message. This is the same pattern used by any Fee Juice bridge; the FPC is the *recipient* of the deposit, the user is the *claimer*.
-    2. On L2, consume the L1-to-L2 message with [`FeeJuicePaymentMethodWithClaim`](./how_to_pay_fees.md#bridge-fee-juice-from-l1). The payment method claims the bridged Fee Juice during setup (the claim itself funds the transaction's fee) and the claim nullifier lands onchain.
-    3. Call `PrivateFPC.mint(amount, salt, leaf_index)` to convert the bridge claim into a private Fee Juice balance inside the FPC, credited to the claimer. (The `salt` here is the deployment salt used to derive the FPC address; see [Recommended salt](#recommended-salt-0) below.)
-    4. From that point on, every transaction can call `PrivateFPC.pay_fee()` to deduct `max_gas_cost` from the internal balance and have the FPC set itself as the transaction's fee payer.
-2. **Cold-start** (when the account has never minted a private Fee Juice balance into the FPC before): deposit Fee Juice on L1 (same as step 1.1 above), then send an L2 transaction that claims the bridged Fee Juice using `FeeJuicePaymentMethodWithClaim` (same as step 1.2), so the claim nullifier lands onchain. In a follow-up transaction, call `PrivateFPC.mint_and_pay_fee(amount, salt, leaf_index)`. The contract verifies the nullifier exists, credits `amount - max_gas_cost` to the claimer, and pays this transaction's fee in one step. This avoids having to top up a balance first and then spend it later.
+Two different salt values show up in this flow; it's worth naming them up front so they don't get confused:
 
-Because `pay_fee` never makes cross-contract calls (it only deducts from the FPC's internal private balance and calls `set_as_fee_payer`), no custom token calls ever happen during the setup phase.
+- **Deployment salt.** Used to derive the FPC's contract address. Once a community agrees on the bytecode and this salt, everyone can derive the same address locally without an onchain deployment tx. The convention for Wonderland's `PrivateFPC` is `Fr.ZERO` (see [Recommended salt](#recommended-salt-0)).
+- **Bridge salt.** A random value the user chooses per L1 deposit. Combined with the user's Aztec address, it derives the *bridge secret* (`secret = poseidon2([salt, claimer], DOM_SEP__FPC_BRIDGE_SECRET)`), whose hash is passed as the `secretHash` on the L1 deposit. Only the user knows the preimage, so only the user can later produce the `secret` that `FeeJuice.claim` requires to consume the L1-to-L2 message.
+
+`PrivateFPC.mint(amount, salt, leaf_index)` and `PrivateFPC.mint_and_pay_fee(amount, salt, leaf_index)` take the **bridge** salt (along with the leaf index and the user's claimer address, which is `msg_sender`) to reconstruct the Fee Juice claim nullifier and verify the bridge was consumed.
+
+### Two flows
+
+1. **Bridge + mint + pay** (used the first time to seed a private balance, and then once per top-up):
+    1. **L1 deposit.** Call `FeeJuicePortal.depositToAztecPublic(_to = fpcAddress, _amount = amount, _secretHash = computeSecretHash(bridgeSecret))` where `bridgeSecret = poseidon2([bridgeSalt, claimer], DOM_SEP__FPC_BRIDGE_SECRET)`. The FPC is the *recipient* of the deposit, the user is the *claimer*.
+    2. **L2 claim.** In a normal L2 transaction, call `FeeJuice.claim(fpcAddress, amount, bridgeSecret, leafIndex)` directly. This consumes the L1-to-L2 message, credits Fee Juice to the FPC's **public** Fee Juice balance, and emits the claim nullifier. The fee for this transaction is paid by whatever mechanism the user normally uses (their own Fee Juice, `FeeJuicePaymentMethodWithClaim` on a *separate* bridge they control, the Sponsored FPC on devnet/testnet, and so on). The `PrivateFPC` does *not* sponsor this call, because at this point the user has no balance with it yet.
+    3. **Mint.** In a follow-up L2 transaction, call `PrivateFPC.mint(amount, bridgeSalt, leafIndex)` (again paid by whatever mechanism the user normally uses). `mint` does **not** call `FeeJuice.claim` again — the claim already happened in step 1.2. The contract recomputes the same nullifier value that the earlier `claim` emitted (possible because the user supplies the `bridgeSalt` that originally produced it), asserts that nullifier exists in the nullifier tree as proof the L1 deposit was consumed, emits its own FPC-scoped nullifier to prevent double-minting the same bridge credit, and credits `amount` to the claimer's private balance inside the FPC.
+    4. **Pay.** From that point on, the user can pass `new FPCFeePaymentMethod(fpcAddress)` as the payment method on any transaction. Under the hood, the method calls `PrivateFPC.pay_fee()` in setup, which deducts `max_gas_cost` from the user's private balance and makes the FPC the fee payer.
+2. **Cold-start** (single-transaction equivalent of steps 2–4 above, for first-time users who have only done the L1 deposit):
+    1. **L1 deposit.** Same as step 1.1 above.
+    2. **Single L2 transaction.** Pass `new PrivateMintAndPayFeePaymentMethod(fpcAddress, amount, bridgeSecret, bridgeSalt, leafIndex)` as the payment method on the user's first real transaction. The SDK bundles two calls into the setup phase of that single transaction:
+        - `FeeJuice.claim(fpcAddress, amount, bridgeSecret, leafIndex)` — consumes the L1-to-L2 message, crediting Fee Juice to the FPC and emitting the claim nullifier (pending within the same tx).
+        - `PrivateFPC.mint_and_pay_fee(amount, bridgeSalt, leafIndex)` — asserts the (pending) claim nullifier, credits `amount - max_gas_cost` to the user's private balance in the FPC, and marks the FPC as fee payer.
+
+       The bridged amount itself funds this transaction's fee, so the user doesn't need prior Fee Juice or a sponsor to bootstrap. Any remaining credit (`amount - max_gas_cost`) is available for subsequent transactions via `FPCFeePaymentMethod`.
+
+Cold-start is the simpler one-transaction bootstrap; the three-step `claim → mint → pay` path lets you decouple the L1 bridge from your first app transaction (useful for privacy) and credits the full `amount` rather than `amount - max_gas_cost`. For protocol details and the full API surface, see the [SDK README](https://github.com/defi-wonderland/aztec-fee-payment/blob/dev/src/ts/README.md) and [PRD](https://github.com/defi-wonderland/aztec-fee-payment/blob/dev/docs/private-product-requirements.md).
+
+Because neither `pay_fee` nor `mint_and_pay_fee` makes public cross-contract token calls in setup (they only deduct from the FPC's internal private balance and invoke `set_as_fee_payer`), the [setup-phase allowlist](../foundational-topics/transactions.md#setup-phase-non-revertible) never blocks these flows.
 
 :::note No refund
 `PrivateFPC.pay_fee()` deducts the full `max_gas_cost` and does not refund unused gas. Use `estimateGas` (see [Estimate mana costs](./how_to_pay_fees.md#estimate-mana-costs)) to right-size your limits.
@@ -65,7 +82,10 @@ The `PrivateFPC` address depends on the compiled contract bytecode. A different 
 
 ## Example: pay fees with Wonderland's `PrivateFPC`
 
-The SDK exports two payment methods (`FPCFeePaymentMethod` for users who already have a private balance, and `PrivateMintAndPayFeePaymentMethod` for cold-start) plus a `registerPrivateContract` helper that registers the FPC with your PXE using the shared salt, with no deployment transaction needed.
+The SDK exports two payment methods plus a `registerPrivateContract` helper that registers the FPC with your PXE using the shared deployment salt, with no deployment transaction needed:
+
+- `new FPCFeePaymentMethod(fpcAddress)` — for users who already have a private balance in the FPC. Wraps `PrivateFPC.pay_fee()`.
+- `new PrivateMintAndPayFeePaymentMethod(fpcAddress, amount, bridgeSecret, bridgeSalt, leafIndex)` — for cold-start. Bundles `FeeJuice.claim` and `PrivateFPC.mint_and_pay_fee` into the setup phase of a single transaction.
 
 For installation, the complete bridge-claim-mint-pay flow, required `send()` options (including `additionalScopes` and `gasSettings`), and a runnable end-to-end example, see the [SDK README](https://github.com/defi-wonderland/aztec-fee-payment/blob/dev/src/ts/README.md) and the [integration test](https://github.com/defi-wonderland/aztec-fee-payment/blob/dev/src/ts/test/private.test.ts).
 
