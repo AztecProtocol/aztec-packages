@@ -120,9 +120,10 @@ export interface TXESessionStateHandler {
   getCurrentJob(): string;
 
   /**
-   * Resets the buffer of offchain effects emitted by the last top-level call.
+   * Resets state associated with the last top-level call: clears the offchain effect buffer and the stored context
+   * (tx hash + anchor block timestamp).
    */
-  resetLastCallOffchainEffects(): void;
+  resetLastCall(): void;
 
   /**
    * Captures a raw offchain effect payload for consumption from test environment. Called by the `emit_offchain_effect`
@@ -131,28 +132,37 @@ export interface TXESessionStateHandler {
   recordOffchainEffect(data: Fr[]): void;
 
   /**
-   * Records the tx hash and anchor block timestamp associated with the top-level call that produced the currently-buffered
-   * effects. Called by the call executor handlers after execution completes, so that `OffchainMessage.tx_hash` and
-   * `anchor_block_timestamp` can be populated at drain time with values that match what the production flow would observe.
+   * Records the tx hash and anchor block timestamp of the last top-level call. Called by the call executor handlers
+   * after execution completes. Refreshed on every top-level call, independently of whether the call produced offchain
+   * effects.
    *
    * For top-level entry points that don't produce a tx (e.g. context setters, `execute_utility`), pass `Fr.ZERO` for
    * `txHash` to indicate "tx-less".
    */
-  setLastCallOffchainContext(txHash: Fr, anchorBlockTimestamp: bigint): void;
+  setLastCallContext(txHash: Fr, anchorBlockTimestamp: bigint): void;
 
   /**
-   * Returns the raw offchain effect payloads and the associated tx context emitted by the last top-level call. Each payload
-   * follows the protocol convention documented on `OFFCHAIN_MESSAGE_IDENTIFIER`, i.e.
-   * `[identifier, recipient, ...ciphertext]`. Decoding into `OffchainMessage` structs happens on the Noir side of the test
-   * helper; the tx context is threaded through to populate `tx_hash` and `anchor_block_timestamp`.
+   * Returns the raw offchain effect payloads emitted by the last top-level call. Each payload follows the protocol
+   * convention documented on `OFFCHAIN_MESSAGE_IDENTIFIER`, i.e. `[identifier, recipient, ...ciphertext]`. Decoding into
+   * `OffchainMessage` structs happens on the Noir side of the test helper. Marks the buffer as queried so the
+   * unqueried-messages warning doesn't fire on the next reset.
    */
-  getLastCallOffchainEffects(): { effects: Fr[][]; txHash: Fr; anchorBlockTimestamp: bigint };
+  getLastCallOffchainEffects(): { effects: Fr[][] };
+
+  /**
+   * Returns the context of the last top-level call: its tx hash (`Fr.ZERO` if the call was tx-less) and the anchor
+   * block timestamp captured at the start of the call. Does *not* mark the buffer as queried — context reads are
+   * metadata, not effect consumption.
+   */
+  getLastCallContext(): { txHash: Fr; anchorBlockTimestamp: bigint };
 }
 
 /**
- * Session state tracking offchain effects emitted by the most recently completed top-level call.
+ * Session state tracking the most recently completed top-level call: the offchain effect buffer it produced, and the
+ * call's context (tx hash + anchor block timestamp). The context is refreshed on every top-level call, independently
+ * of whether the call produced offchain effects.
  */
-interface LastCallOffchainState {
+interface LastCallState {
   /**
    * Raw offchain effect payloads emitted by the currently-executing (or most recently completed) top-level call. Wiped
    * at the start of every top-level entry point, appended to on every `emit_offchain_effect` oracle invocation.
@@ -165,18 +175,18 @@ interface LastCallOffchainState {
    */
   queried: boolean;
   /**
-   * Tx hash of the most recently completed top-level call that produced offchain effects, or `Fr.ZERO` if the call was
-   * tx-less (context setters, utility execution). Populated by call executor handlers after execution completes.
+   * Tx hash of the most recently completed top-level call, or `Fr.ZERO` if the call was tx-less (context setters,
+   * utility execution). Populated by call executor handlers after execution completes.
    */
   txHash: Fr;
   /**
-   * Anchor block timestamp of the most recently completed top-level call that produced offchain effects. Populated by
-   * call executor handlers after execution completes, from the anchor block header that was active while the call ran.
+   * Anchor block timestamp of the most recently completed top-level call, captured from the anchor block header that
+   * was active when the call started. Populated by call executor handlers after execution completes.
    */
   anchorBlockTimestamp: bigint;
 }
 
-function emptyLastCallOffchainState(): LastCallOffchainState {
+function emptyLastCallState(): LastCallState {
   return { offchainEffects: [], queried: false, txHash: Fr.ZERO, anchorBlockTimestamp: 0n };
 }
 
@@ -187,7 +197,7 @@ function emptyLastCallOffchainState(): LastCallOffchainState {
 export class TXESession implements TXESessionStateHandler {
   private state: SessionState = { name: 'TOP_LEVEL' };
   private authwits: Map<string, AuthWitness> = new Map();
-  private lastCallInfo: LastCallOffchainState = emptyLastCallOffchainState();
+  private lastCallInfo: LastCallState = emptyLastCallState();
 
   constructor(
     private logger: Logger,
@@ -336,7 +346,7 @@ export class TXESession implements TXESessionStateHandler {
     return this.currentJobId;
   }
 
-  resetLastCallOffchainEffects(): void {
+  resetLastCall(): void {
     const notQueriedMessageCount = this.lastCallInfo.queried
       ? 0
       : this.lastCallInfo.offchainEffects.filter(payload => payload[0]?.equals(OFFCHAIN_MESSAGE_IDENTIFIER)).length;
@@ -348,22 +358,26 @@ export class TXESession implements TXESessionStateHandler {
           `to \`let _ = env.offchain_messages()\` to silence this warning.`,
       );
     }
-    this.lastCallInfo = emptyLastCallOffchainState();
+    this.lastCallInfo = emptyLastCallState();
   }
 
   recordOffchainEffect(data: Fr[]): void {
     this.lastCallInfo.offchainEffects.push(data);
   }
 
-  setLastCallOffchainContext(txHash: Fr, anchorBlockTimestamp: bigint): void {
+  setLastCallContext(txHash: Fr, anchorBlockTimestamp: bigint): void {
     this.lastCallInfo.txHash = txHash;
     this.lastCallInfo.anchorBlockTimestamp = anchorBlockTimestamp;
   }
 
-  getLastCallOffchainEffects(): { effects: Fr[][]; txHash: Fr; anchorBlockTimestamp: bigint } {
+  getLastCallOffchainEffects(): { effects: Fr[][] } {
     this.lastCallInfo.queried = true;
-    const { offchainEffects: effects, txHash, anchorBlockTimestamp } = this.lastCallInfo;
-    return { effects, txHash, anchorBlockTimestamp };
+    return { effects: this.lastCallInfo.offchainEffects };
+  }
+
+  getLastCallContext(): { txHash: Fr; anchorBlockTimestamp: bigint } {
+    const { txHash, anchorBlockTimestamp } = this.lastCallInfo;
+    return { txHash, anchorBlockTimestamp };
   }
 
   async enterTopLevelState() {
