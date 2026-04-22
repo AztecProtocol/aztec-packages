@@ -257,9 +257,17 @@ void WorldState::delete_fork(const uint64_t& forkId)
     if (forkId == 0) {
         throw std::runtime_error("Unable to delete canonical fork");
     }
-    // Atomically retrieve and remove so no concurrent caller can obtain a reference.
-    // The local shared_ptr ensures the fork is destroyed outside the lock.
-    Fork::SharedPtr fork = retrieve_and_remove_fork(forkId);
+    // Idempotent: the fork may have already been removed (e.g. consumed by commit_fork).
+    Fork::SharedPtr fork;
+    {
+        std::unique_lock lock(mtx);
+        auto it = _forks.find(forkId);
+        if (it == _forks.end()) {
+            return;
+        }
+        fork = it->second;
+        _forks.erase(it);
+    }
 }
 
 WorldStateStatusFull WorldState::commit_fork(const uint64_t& forkId)
