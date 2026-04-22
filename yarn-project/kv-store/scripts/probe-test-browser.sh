@@ -44,7 +44,7 @@ snapshot() {
     wchan=$(cat "/proc/$pid/wchan" 2>/dev/null)
     rss_kb=$(awk '/^VmRSS:/{print $2}' "/proc/$pid/status" 2>/dev/null)
     threads=$(awk '/^Threads:/{print $2}' "/proc/$pid/status" 2>/dev/null)
-    cmd=$(tr '\0' ' ' < "/proc/$pid/cmdline" 2>/dev/null | cut -c1-120)
+    cmd=$({ tr '\0' ' ' < "/proc/$pid/cmdline"; } 2>/dev/null | cut -c1-120)
     echo "pid=$pid state=$state threads=$threads rss=${rss_kb}kB wchan=$wchan cmd=$cmd"
   done
   # TCP state hex (col 4): 01=ESTABLISHED 04=FIN_WAIT1 05=FIN_WAIT2 06=TIME_WAIT
@@ -68,7 +68,7 @@ stacks_snapshot() {
   for pid in $(pids_of_interest); do
     [ -d "/proc/$pid" ] || continue
     echo "--- pid=$pid ---"
-    tr '\0' ' ' < "/proc/$pid/cmdline" 2>/dev/null | cut -c1-140
+    { tr '\0' ' ' < "/proc/$pid/cmdline"; } 2>/dev/null | cut -c1-140
     echo ""
     # /proc/$pid/syscall: syscall_nr arg0..arg5 sp pc (readable by process owner)
     echo "syscall:"
@@ -102,7 +102,8 @@ probe_loop() {
   local silent_since
   silent_since=$(date +%s)
   local burst_count=0
-  local burst_cap=200  # ~20s dense sampling at 0.1s
+  local burst_cap=200   # ~20s dense sampling at 0.1s
+  local steady_count=0  # increments once per steady iteration
   while true; do
     local now_s cur_size silent_for
     now_s=$(date +%s)
@@ -124,6 +125,12 @@ probe_loop() {
       sleep 0.1
     else
       snapshot "steady" >> "$PROBE_LOG" 2>&1
+      # Periodic in-flight stacks baseline — gives us a "healthy waiting"
+      # reference to diff against burst-triggered dumps during a hang.
+      if [ $((steady_count % 10)) -eq 0 ]; then
+        stacks_snapshot "steady(tick=${steady_count})" >> "$STACKS_LOG" 2>&1
+      fi
+      steady_count=$((steady_count + 1))
       sleep 1
     fi
   done
