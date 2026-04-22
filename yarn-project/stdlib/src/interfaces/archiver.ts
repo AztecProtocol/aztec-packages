@@ -65,6 +65,9 @@ export type ArchiverSpecificConfig = {
 
   /** Skip validating checkpoint attestations (for testing purposes only) */
   skipValidateCheckpointAttestations?: boolean;
+
+  /** Skip promoting proposed checkpoints during L1 sync (for testing purposes only) */
+  skipPromoteProposedCheckpointDuringL1Sync?: boolean;
 };
 
 export const ArchiverSpecificConfigSchema = z.object({
@@ -77,6 +80,7 @@ export const ArchiverSpecificConfigSchema = z.object({
   ethereumAllowNoDebugHosts: z.boolean().optional(),
   archiverSkipHistoricalLogsCheck: z.boolean().optional(),
   skipValidateCheckpointAttestations: z.boolean().optional(),
+  skipPromoteProposedCheckpointDuringL1Sync: z.boolean().optional(),
 });
 
 export type ArchiverApi = Omit<

@@ -554,10 +554,10 @@ export class FakeL1State {
   createMockBlobClient(): MockProxy<BlobClientInterface> {
     const blobClient = mock<BlobClientInterface>();
 
-    // The blockId is the transaction's blockHash, which we set to the checkpoint's archive root
+    // The blockId is the L1 block hash, which we derive from the L1 block number
     blobClient.getBlobSidecar.mockImplementation((blockId: `0x${string}`) =>
       Promise.resolve(
-        this.checkpoints.find(cpData => cpData.checkpoint.archive.root.toString() === blockId)?.blobs ?? [],
+        this.checkpoints.find(cpData => Buffer32.fromBigInt(cpData.l1BlockNumber).toString() === blockId)?.blobs ?? [],
       ),
     );
 

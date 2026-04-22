@@ -95,8 +95,14 @@ describe('e2e_epochs/epochs_mbps_pipeline', () => {
 
     logger.warn(`Initial setup complete. Starting ${NODE_COUNT} validator nodes.`);
     // Clear inherited coinbase so each validator derives coinbase from its own attester key
-    nodes = await asyncMap(validators, ({ privateKey }) =>
-      test.createValidatorNode([privateKey], { coinbase: undefined, dontStartSequencer: true }),
+    nodes = await asyncMap(validators, ({ privateKey }, i) =>
+      test.createValidatorNode([privateKey], {
+        dontStartSequencer: true,
+        coinbase: undefined,
+        // Disable checkpoint promotion on the first node so it always fetches blobs,
+        // allowing us to assert that other nodes skip blob fetching via promotion.
+        ...(i === 0 ? { skipPromoteProposedCheckpointDuringL1Sync: true } : {}),
+      }),
     );
     logger.warn(`Started ${NODE_COUNT} validator nodes.`, { validators: validators.map(v => v.attester.toString()) });
 
@@ -208,6 +214,15 @@ describe('e2e_epochs/epochs_mbps_pipeline', () => {
   it('pipelining builds blocks using slot plus 1 proposer and proves them', async () => {
     await setupTest({ syncChainTip: 'checkpointed', minTxsPerBlock: 1, maxTxsPerBlock: 2 });
 
+    // Spy on getBlobSidecar on all validator nodes before sequencers start, so we check that nodes
+    // promote their proposed checkpoints and don't source data from blobs if they don't need to.
+    const blobSpies = nodes.map((node, i) => {
+      const blobClient = node.getBlobClient()!;
+      const spy = jest.spyOn(blobClient, 'getBlobSidecar');
+      logger.warn(`Installed getBlobSidecar spy on validator node ${i}`);
+      return spy;
+    });
+
     // Subscribe to block-proposed events to capture build slots
     const blockProposedEvents: { blockNumber: BlockNumber; slot: SlotNumber; buildSlot: SlotNumber }[] = [];
     const sequencers = nodes.map(n => n.getSequencer()!);
@@ -249,6 +264,18 @@ describe('e2e_epochs/epochs_mbps_pipeline', () => {
 
     // Verify the pipelining offset: build slot N vs submission slot N+1
     await assertProposerPipelining(blockProposedEvents, logger);
+
+    // Verify blob fetching behavior: node 0 has promotion disabled so it must fetch blobs,
+    // while all other nodes should promote their proposed checkpoints and skip blob fetching entirely.
+    for (let i = 0; i < blobSpies.length; i++) {
+      const calls = blobSpies[i].mock.calls.length;
+      logger.warn(`Validator ${i} made ${calls} getBlobSidecar calls`);
+      if (i === 0) {
+        expect(calls).toBeGreaterThan(0);
+      } else {
+        expect(calls).toBe(0);
+      }
+    }
 
     // Verify proving still works end-to-end with pipelined proposers
     await waitForProvenCheckpoint(multiBlockCheckpoint);

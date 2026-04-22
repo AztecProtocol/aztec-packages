@@ -112,6 +112,7 @@ describe('e2e_epochs/epochs_mbps', () => {
       // PXE options for chain tip syncing
       pxeOpts: { syncChainTip },
       skipInitialSequencer: true,
+      inboxLag: 2,
     });
 
     ({ context, logger, rollup } = test);
