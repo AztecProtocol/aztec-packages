@@ -1,6 +1,5 @@
 import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
 import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
-import { Buffer16, Buffer32 } from '@aztec/foundation/buffer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { type Logger, createLogger } from '@aztec/foundation/log';
@@ -14,17 +13,14 @@ import {
   type L2Tips,
 } from '@aztec/stdlib/block';
 import { L2BlockStream } from '@aztec/stdlib/block';
-import type { PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 import { type L1RollupConstants, getEpochAtSlot, getSlotRangeForEpoch } from '@aztec/stdlib/epoch-helpers';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
-import { InboxLeaf } from '@aztec/stdlib/messaging';
 import { type TelemetryClient, type Traceable, type Tracer, getTelemetryClient } from '@aztec/telemetry-client';
 
 import { ArchiverDataSourceBase } from './modules/data_source_base.js';
 import { ArchiverDataStoreUpdater } from './modules/data_store_updater.js';
 import type { KVArchiverDataStore } from './store/kv_archiver_store.js';
 import { L2TipsCache } from './store/l2_tips_cache.js';
-import { type InboxMessage, updateRollingHash } from './structs/inbox_message.js';
 
 /**
  * Source interface required by the RpcSyncArchiver. Any upstream `ArchiverDataSource`
@@ -199,57 +195,8 @@ export class RpcSyncArchiver extends ArchiverDataSourceBase implements L2BlockSt
     event: Extract<L2BlockStreamEvent, { type: 'chain-checkpointed' }>,
   ): Promise<void> {
     const published = event.checkpoint;
-    const checkpointNumber = published.checkpoint.number;
-    this.log.debug(`Handling checkpoint ${checkpointNumber}`);
-
-    // Ensure messages consumed by this checkpoint are stored before the checkpoint is readable.
-    const inboxMessages = await this.buildInboxMessagesForCheckpoint(published);
-    if (inboxMessages.length > 0) {
-      await this.store.addL1ToL2Messages(inboxMessages);
-    }
-
+    this.log.debug(`Handling checkpoint ${published.checkpoint.number}`);
     await this.updater.addCheckpoints([published]);
-  }
-
-  /**
-   * Reconstructs `InboxMessage` records from the leaves returned by the upstream source.
-   * The first message index for a checkpoint is determined by `InboxLeaf.smallestIndexForCheckpoint`;
-   * subsequent messages auto-increment. Rolling hashes are computed on the fly so the message store's
-   * chain invariant is preserved. L1 block metadata is taken from the checkpoint's own L1PublishedData
-   * since the upstream does not expose per-message L1 block data; this field is only used by L1
-   * reorg detection (which this archiver does not run) and for archival lookups.
-   */
-  private async buildInboxMessagesForCheckpoint(published: PublishedCheckpoint): Promise<InboxMessage[]> {
-    const checkpointNumber = published.checkpoint.number;
-    const leaves = await this.source.getL1ToL2Messages(checkpointNumber);
-    if (leaves.length === 0) {
-      return [];
-    }
-
-    const startIndex = InboxLeaf.smallestIndexForCheckpoint(checkpointNumber);
-    const lastMessage = await this.store.getLastL1ToL2Message();
-    let rollingHash = lastMessage?.rollingHash ?? Buffer16.ZERO;
-    const l1BlockNumber = published.l1.blockNumber;
-    const l1BlockHash = Buffer32.fromString(published.l1.blockHash);
-
-    const messages: InboxMessage[] = [];
-    for (let i = 0; i < leaves.length; i++) {
-      const index = startIndex + BigInt(i);
-      // Skip messages that are already stored to avoid rolling-hash conflicts on resync.
-      if (lastMessage && index <= lastMessage.index) {
-        continue;
-      }
-      rollingHash = updateRollingHash(rollingHash, leaves[i]);
-      messages.push({
-        index,
-        leaf: leaves[i],
-        checkpointNumber,
-        l1BlockNumber,
-        l1BlockHash,
-        rollingHash,
-      });
-    }
-    return messages;
   }
 
   private async handleChainPruned(event: Extract<L2BlockStreamEvent, { type: 'chain-pruned' }>): Promise<void> {
@@ -406,6 +353,15 @@ export class RpcSyncArchiver extends ArchiverDataSourceBase implements L2BlockSt
 
   public getL2Tips(): Promise<L2Tips> {
     return this.l2TipsCache.getL2Tips();
+  }
+
+  /**
+   * L1-to-L2 messages are not stored locally — this archiver doesn't handle L1 reorgs of the inbox,
+   * so persisting them and risking a stale rolling-hash chain would be worse than forwarding. Every
+   * query is answered by the upstream source.
+   */
+  public override getL1ToL2Messages(checkpointNumber: CheckpointNumber): Promise<Fr[]> {
+    return this.source.getL1ToL2Messages(checkpointNumber);
   }
 
   public async getSyncedL2SlotNumber(): Promise<SlotNumber | undefined> {

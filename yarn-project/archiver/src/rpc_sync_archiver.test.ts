@@ -5,7 +5,7 @@ import { DefaultL1ContractsConfig } from '@aztec/ethereum/config';
 import type { InboxContract, RollupContract } from '@aztec/ethereum/contracts';
 import type { ViemPublicClient } from '@aztec/ethereum/types';
 import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
-import { Buffer16, Buffer32 } from '@aztec/foundation/buffer';
+import { Buffer32 } from '@aztec/foundation/buffer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
@@ -13,7 +13,6 @@ import { TestDateProvider } from '@aztec/foundation/timer';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { L2BlockSourceEvents } from '@aztec/stdlib/block';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
-import { InboxLeaf } from '@aztec/stdlib/messaging';
 import { getTelemetryClient } from '@aztec/telemetry-client';
 
 import { jest } from '@jest/globals';
@@ -26,7 +25,6 @@ import { ArchiverL1Synchronizer } from './modules/l1_synchronizer.js';
 import { RpcSyncArchiver } from './rpc_sync_archiver.js';
 import { KVArchiverDataStore } from './store/kv_archiver_store.js';
 import { L2TipsCache } from './store/l2_tips_cache.js';
-import { updateRollingHash } from './structs/inbox_message.js';
 import { FakeL1State } from './test/fake_l1_state.js';
 
 describe('RpcSyncArchiver', () => {
@@ -351,35 +349,17 @@ describe('RpcSyncArchiver', () => {
     expect(await followerStore.getFinalizedCheckpointNumber()).toBe(CheckpointNumber(1));
   });
 
-  it('recovers from a crash between addL1ToL2Messages and addCheckpoints', async () => {
+  it('forwards getL1ToL2Messages queries directly to the source', async () => {
     const { messages } = await fake.addCheckpoint(CheckpointNumber(1), {
       l1BlockNumber: 101n,
       messagesL1BlockNumber: 98n,
       numL1ToL2Messages: 2,
     });
     fake.setL1BlockNumber(200n);
-
-    // Simulate a crash after messages were persisted but before the checkpoint was committed.
-    let rollingHash = Buffer16.ZERO;
-    const startIndex = InboxLeaf.smallestIndexForCheckpoint(CheckpointNumber(1));
-    const partialMessages = messages.map((leaf, i) => {
-      rollingHash = updateRollingHash(rollingHash, leaf);
-      return {
-        index: startIndex + BigInt(i),
-        leaf,
-        checkpointNumber: CheckpointNumber(1),
-        l1BlockNumber: 101n,
-        l1BlockHash: Buffer32.fromBigInt(101n),
-        rollingHash,
-      };
-    });
-    await followerStore.addL1ToL2Messages(partialMessages);
-
-    // Now run a full sync — the checkpoint handler must not double-insert the messages.
     await syncBoth();
 
-    expect(await follower.getSynchedCheckpointNumber()).toBe(CheckpointNumber(1));
+    // Messages are served from the upstream, not the local store, so the follower store is empty.
+    expect(await followerStore.getTotalL1ToL2MessageCount()).toBe(0n);
     expect(await follower.getL1ToL2Messages(CheckpointNumber(1))).toEqual(messages);
-    expect(await followerStore.getTotalL1ToL2MessageCount()).toBe(BigInt(messages.length));
   });
 });
