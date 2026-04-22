@@ -130,7 +130,10 @@ std::vector<typename GeminiProver_<Curve>::Polynomial> GeminiProver_<Curve>::com
         const size_t fold_size = (actual_size + 1) / 2;
 
         // A_l_fold = Aₗ₊₁(X) = (1-uₗ)⋅even(Aₗ)(X) + uₗ⋅odd(Aₗ)(X)
-        fold_polynomials.emplace_back(Polynomial(fold_size));
+        // Skip zero-init: the fold loop below writes every index in [0, fold_size) exactly once
+        // (num_pairs iterations + the actual_size-odd tail).
+        fold_polynomials.emplace_back(
+            Polynomial(fold_size, fold_size, /*start_index=*/0, Polynomial::DontZeroMemory::FLAG));
         actual_size = fold_size;
     }
 

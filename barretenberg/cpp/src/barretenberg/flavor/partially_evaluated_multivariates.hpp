@@ -33,7 +33,9 @@ class PartiallyEvaluatedMultivariatesBase : public AllEntitiesBase {
         for (auto [poly, full_poly] : zip_view(this->get_all(), full_polynomials.get_all())) {
             // After the initial sumcheck round, the new size is CEIL(size/2).
             size_t desired_size = (full_poly.end_index() / 2) + (full_poly.end_index() % 2);
-            poly = Polynomial(desired_size, circuit_size / 2);
+            // Skip zero-init: every allocated coefficient is overwritten by Sumcheck::partially_evaluate
+            // before any read (writes dest[i>>1] for i=0,2,...,end_index-1, covering [0, desired_size)).
+            poly = Polynomial(desired_size, circuit_size / 2, /*start_index=*/0, Polynomial::DontZeroMemory::FLAG);
         }
     }
 };
