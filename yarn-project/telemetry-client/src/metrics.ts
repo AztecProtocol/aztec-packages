@@ -363,6 +363,12 @@ export const ARCHIVER_CHECKPOINT_L1_INCLUSION_DELAY: MetricDefinition = {
   valueType: ValueType.INT,
 };
 
+export const ARCHIVER_CHECKPOINT_PROMOTED_COUNT: MetricDefinition = {
+  name: 'aztec.archiver.checkpoint_promoted_count',
+  description: 'Number of checkpoints promoted from proposed (blob fetch skipped)',
+  valueType: ValueType.INT,
+};
+
 export const NODE_RECEIVE_TX_DURATION: MetricDefinition = {
   name: 'aztec.node.receive_tx.duration',
   description: 'The duration of the receiveTx method',
@@ -545,6 +551,11 @@ export const SEQUENCER_PIPELINE_DISCARDS_COUNT: MetricDefinition = {
   description: 'The number of times a pipeline was discarded',
   valueType: ValueType.INT,
 };
+export const SEQUENCER_PIPELINE_PARENT_CHECKPOINT_MISMATCH_COUNT: MetricDefinition = {
+  name: 'aztec.sequencer.pipeline.parent_checkpoint_mismatch_count',
+  description: 'The number of times a pipelined checkpoint was discarded because the parent did not match expectations',
+  valueType: ValueType.INT,
+};
 
 // Fisherman fee analysis metrics
 export const FISHERMAN_FEE_ANALYSIS_WOULD_BE_INCLUDED: MetricDefinition = {
@@ -709,6 +720,24 @@ export const L1_PUBLISHER_BALANCE: MetricDefinition = {
 export const L1_PUBLISHER_TX_TOTAL_FEE: MetricDefinition = {
   name: 'aztec.l1_publisher.tx_total_fee',
   description: 'How much L1 tx costs',
+  unit: 'eth',
+  valueType: ValueType.DOUBLE,
+};
+export const PROVER_NODE_ESTIMATED_SUBMISSION_GAS: MetricDefinition = {
+  name: 'aztec.prover_node.estimated_submission.gas',
+  description: 'Estimated gas for a proof submission tx (proof publishing disabled, not actually sent)',
+  unit: 'gas',
+  valueType: ValueType.INT,
+};
+export const PROVER_NODE_ESTIMATED_SUBMISSION_GAS_PRICE: MetricDefinition = {
+  name: 'aztec.prover_node.estimated_submission.gas_price',
+  description: 'Estimated effective gas price for a proof submission tx (proof publishing disabled, not actually sent)',
+  unit: 'gwei',
+  valueType: ValueType.DOUBLE,
+};
+export const PROVER_NODE_ESTIMATED_SUBMISSION_TOTAL_FEE: MetricDefinition = {
+  name: 'aztec.prover_node.estimated_submission.total_fee',
+  description: 'Estimated total L1 fee for a proof submission tx (proof publishing disabled, not actually sent)',
   unit: 'eth',
   valueType: ValueType.DOUBLE,
 };
