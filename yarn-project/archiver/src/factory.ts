@@ -8,6 +8,7 @@ import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { merge } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { EthAddress } from '@aztec/foundation/eth-address';
 import { DateProvider } from '@aztec/foundation/timer';
 import { createStore } from '@aztec/kv-store/lmdb-v2';
 import { protocolContractNames } from '@aztec/protocol-contracts';
@@ -17,13 +18,14 @@ import { FunctionType, decodeFunctionSignature } from '@aztec/stdlib/abi';
 import type { ArchiverEmitter, BlockHash } from '@aztec/stdlib/block';
 import { DEFAULT_BLOCK_DURATION_MS } from '@aztec/stdlib/config';
 import { type ContractClassPublicWithCommitment, computePublicBytecodeCommitment } from '@aztec/stdlib/contract';
+import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import type { DataStoreConfig } from '@aztec/stdlib/kv-store';
 import {
   DEFAULT_ORPHAN_PRUNE_NO_PROPOSAL_TOLERANCE,
   getDefaultCheckpointProposalSyncGrace,
 } from '@aztec/stdlib/timetable';
 import type { BlockHeader } from '@aztec/stdlib/tx';
-import { getTelemetryClient } from '@aztec/telemetry-client';
+import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import { EventEmitter } from 'events';
 import { createPublicClient } from 'viem';
@@ -32,6 +34,7 @@ import { Archiver, type ArchiverDeps } from './archiver.js';
 import { type ArchiverConfig, mapArchiverConfig } from './config.js';
 import { ArchiverInstrumentation } from './modules/instrumentation.js';
 import { ArchiverL1Synchronizer } from './modules/l1_synchronizer.js';
+import { RpcSyncArchiver, type RpcSyncArchiverSource } from './rpc_sync_archiver.js';
 import { ARCHIVER_DB_VERSION, type ArchiverDataStores, createArchiverDataStores } from './store/data_stores.js';
 import { L2TipsCache } from './store/l2_tips_cache.js';
 
@@ -198,6 +201,50 @@ export async function createArchiver(
     initialBlockHash,
     l2TipsCache,
     deps.dateProvider ?? new DateProvider(),
+  );
+
+  await archiver.start(opts.blockUntilSync);
+  return archiver;
+}
+
+/**
+ * Creates a read-only RPC-sync archiver that syncs its local store from an upstream data source
+ * (typically another node's archiver) via an `L2BlockStream`. Unlike `createArchiver`, this variant
+ * does not connect to L1 — all block, checkpoint and message data is pulled from `source`.
+ *
+ * @param config - Archiver configuration (store config + L1 addresses + L1 rollup constants).
+ * @param source - Upstream data source. Any object satisfying `RpcSyncArchiverSource` (notably an in-process `Archiver` or an RPC client).
+ * @param l1Constants - L1 rollup constants. Must be supplied by the caller since the source does not expose them.
+ * @param deps - Optional dependencies (telemetry).
+ * @param opts - Options.
+ */
+export async function createRpcSyncArchiver(
+  config: ArchiverConfig & DataStoreConfig,
+  source: RpcSyncArchiverSource,
+  l1Constants: L1RollupConstants & { genesisArchiveRoot: Fr },
+  deps: { telemetry?: TelemetryClient } = {},
+  opts: { blockUntilSync: boolean } = { blockUntilSync: true },
+): Promise<RpcSyncArchiver> {
+  const archiverStore = await createArchiverStore(config);
+  await registerProtocolContracts(archiverStore);
+
+  const archiverConfig = merge({ pollingIntervalMs: 10_000, batchSize: 100 }, mapArchiverConfig(config));
+
+  const events = new EventEmitter() as ArchiverEmitter;
+  const telemetry = deps.telemetry ?? getTelemetryClient();
+
+  // Slashing proposer address is fetched from the rollup contract in the real factory. For the RPC-sync
+  // archiver we don't hit L1, so it's left zero and only exposed via getL1ContractAddresses-like lookups.
+  const l1Addresses = { ...config.l1Contracts, slashingProposerAddress: EthAddress.ZERO };
+
+  const archiver = new RpcSyncArchiver(
+    source,
+    archiverStore,
+    l1Addresses,
+    l1Constants,
+    { pollingIntervalMs: archiverConfig.pollingIntervalMs, batchSize: archiverConfig.batchSize },
+    events,
+    telemetry,
   );
 
   await archiver.start(opts.blockUntilSync);

@@ -6,6 +6,13 @@ The archiver fetches onchain data from L1 and stores it locally in a queryable f
 
 The interfaces `L2BlockSource`, `L2LogsSource`, and `ContractDataSource` define how consumers access this data. Interface `L2BlockSink` allows other subsystems, such as the validator client, to push not-yet-checkpointed blocks into the archiver.
 
+## Variants
+
+This package exposes two archiver implementations:
+
+- **`Archiver`** (`createArchiver`) — the standard archiver described in the rest of this document. Polls L1, implements `L2BlockSink`, and is the one used by a full node.
+- **`RpcSyncArchiver`** (`createRpcSyncArchiver`) — a read-only variant that syncs from an upstream `ArchiverDataSource` (typically another node's archiver) via an `L2BlockStream`. It does not talk to L1 and does not implement `L2BlockSink`. Use it when you need a local queryable copy of another node's state without running L1 polling (e.g. a read-only RPC gateway, a secondary archiver embedded in a tool). Consumers that depend on L1-specific methods such as `addBlock`, `rollbackTo`, or `getL1BlockNumber` must keep using the standard `Archiver`.
+
 ## Events
 
 The archiver emits events for other subsystems to react to state changes:

@@ -1,6 +1,7 @@
 export * from './factory.js';
 export * from './interfaces.js';
 export * from './archiver.js';
+export * from './rpc_sync_archiver.js';
 export * from './modules/data_source_base.js';
 export * from './modules/data_store_updater.js';
 export * from './config.js';

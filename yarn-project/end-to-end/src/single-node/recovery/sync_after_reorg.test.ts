@@ -1,3 +1,4 @@
+import { type Archiver, RpcSyncArchiver, createRpcSyncArchiver } from '@aztec/archiver';
 import type { AztecNodeService } from '@aztec/aztec-node';
 import { getTimestampRangeForEpoch } from '@aztec/aztec.js/block';
 import type { Logger } from '@aztec/aztec.js/log';
@@ -43,6 +44,21 @@ describe('single-node/recovery/sync_after_reorg', () => {
     // the L1 tx of the previous checkpoint to land before it can build the next one).
     await test.waitUntilCheckpointNumber(CheckpointNumber(5), L2_SLOT_DURATION_IN_S * 12 + 30);
 
+    // Before stopping the node, verify that an RpcSyncArchiver can sync from the primary archiver
+    // and ends up with tips matching the primary. This exercises the same non-L1 sync path that a
+    // light read-only node would use in production.
+    const primaryArchiver = (context.aztecNode as AztecNodeService).getBlockSource() as Archiver;
+    const rpcSyncArchiver = await createRpcSyncArchiverFromPrimary(primaryArchiver);
+    try {
+      const [primaryTips, followerTips] = await Promise.all([primaryArchiver.getL2Tips(), rpcSyncArchiver.getL2Tips()]);
+      expect(followerTips.checkpointed.block.number).toEqual(primaryTips.checkpointed.block.number);
+      expect(followerTips.checkpointed.block.hash).toEqual(primaryTips.checkpointed.block.hash);
+      expect(followerTips.proposed.number).toEqual(primaryTips.proposed.number);
+      expect(followerTips.proposed.hash).toEqual(primaryTips.proposed.hash);
+    } finally {
+      await rpcSyncArchiver.stop();
+    }
+
     // Stop the node generating blocks
     logger.warn(`Stopping the main node`);
     await (context.aztecNode as AztecNodeService).stop();
@@ -79,4 +95,30 @@ describe('single-node/recovery/sync_after_reorg', () => {
     expect(await node.getBlockNumber()).toEqual(0);
     logger.info(`Test succeeded`);
   });
+
+  /**
+   * Creates an RpcSyncArchiver pointed at the given primary archiver, reusing its L1 constants
+   * and addresses (the RPC-sync archiver does not read L1 on its own).
+   */
+  async function createRpcSyncArchiverFromPrimary(primary: Archiver): Promise<RpcSyncArchiver> {
+    const [l1Constants, genesisValues, rollupAddress, registryAddress] = await Promise.all([
+      primary.getL1Constants(),
+      primary.getGenesisValues(),
+      primary.getRollupAddress(),
+      primary.getRegistryAddress(),
+    ]);
+    const followerConfig = {
+      ...test.context.config,
+      dataDirectory: `${test.context.config.dataDirectory}/rpc-sync-follower`,
+      l1Contracts: {
+        ...test.context.config.l1Contracts,
+        rollupAddress,
+        registryAddress,
+      },
+    };
+    return createRpcSyncArchiver(followerConfig, primary, {
+      ...l1Constants,
+      genesisArchiveRoot: genesisValues.genesisArchiveRoot,
+    });
+  }
 });
