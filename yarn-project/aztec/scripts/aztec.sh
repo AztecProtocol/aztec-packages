@@ -26,7 +26,7 @@ case $cmd in
     export LOG_LEVEL="${LOG_LEVEL:-"error;trace:contract"}"
     # Enable job control so the backgrounded TXE gets its own process group.
     # Signalling the group on cleanup reaches node + any bb descendants, which
-    # otherwise get orphaned to init and keep port 8081 bound after Ctrl-C.
+    # otherwise get orphaned to init and keep the port bound after Ctrl-C.
     set -m
     aztec start --txe --port 8081 &
     server_pid=$!
