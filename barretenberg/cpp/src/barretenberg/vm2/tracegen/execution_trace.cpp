@@ -65,11 +65,10 @@ constexpr std::array<C, AVM_MAX_OPERANDS> RESOLVED_OPERAND_TAG_COLUMNS = {
     C::execution_rop_tag_0_, C::execution_rop_tag_1_, C::execution_rop_tag_2_, C::execution_rop_tag_3_,
     C::execution_rop_tag_4_, C::execution_rop_tag_5_, C::execution_rop_tag_6_,
 };
-constexpr std::array<C, AVM_MAX_OPERANDS> OPERAND_SHOULD_APPLY_INDIRECTION_COLUMNS = {
-    C::execution_sel_should_apply_indirection_0_, C::execution_sel_should_apply_indirection_1_,
-    C::execution_sel_should_apply_indirection_2_, C::execution_sel_should_apply_indirection_3_,
-    C::execution_sel_should_apply_indirection_4_, C::execution_sel_should_apply_indirection_5_,
-    C::execution_sel_should_apply_indirection_6_,
+constexpr std::array<C, AVM_MAX_OPERANDS> OPERAND_APPLY_INDIRECTION_COLUMNS = {
+    C::execution_sel_apply_indirection_0_, C::execution_sel_apply_indirection_1_, C::execution_sel_apply_indirection_2_,
+    C::execution_sel_apply_indirection_3_, C::execution_sel_apply_indirection_4_, C::execution_sel_apply_indirection_5_,
+    C::execution_sel_apply_indirection_6_,
 };
 constexpr std::array<C, AVM_MAX_OPERANDS> OPERAND_RELATIVE_OVERFLOW_COLUMNS = {
     C::execution_sel_relative_overflow_0_, C::execution_sel_relative_overflow_1_, C::execution_sel_relative_overflow_2_,
@@ -291,6 +290,30 @@ uint32_t dying_context_for_phase(TransactionPhase phase, const FailingContexts& 
 
 } // namespace
 
+/**
+ * @brief Process the execution events and populate the relevant columns in the trace.
+ *        ExecutionError enum is used to track the error type of the event. Each error
+ *        type is mutually exclusive and pertains to a specific temporality group. Each
+ *        temporality group is processed sequentially and an error prevents the processing
+ *        of the subsequent temporality groups.
+ *
+ * Events are emitted in the following flavors (keyed by ExecutionError enum value).
+ * The error field is populated in all failing variants; the bullets below describe
+ * which additional (non-error) fields are populated:
+ *   1. ExecutionError::NONE                 — normal execution: all fields populated.
+ *   2. ExecutionError::BYTECODE_RETRIEVAL   — TG1 failure: only context fields populated.
+ *   3. ExecutionError::INSTRUCTION_FETCHING — TG2 failure: context and bytecode fields populated.
+ *   4. ExecutionError::ADDRESSING           — TG2 failure: instruction fetched but operand
+ *                                              resolution failed.
+ *   5. ExecutionError::REGISTER_READ        — TG3 failure: addressing succeeded but tag
+ *                                              validation failed.
+ *   6. ExecutionError::GAS                  — TG4 failure: registers read but gas check failed.
+ *   7. ExecutionError::OPCODE_EXECUTION     — TG5 failure: gas consumed but opcode logic
+ *                                              failed, no register write.
+ *
+ * @param ex_events Container of ExecutionEvent to process.
+ * @param trace The trace container to populate.
+ */
 void ExecutionTraceBuilder::process(
     const simulation::EventEmitterInterface<simulation::ExecutionEvent>::Container& ex_events, TraceContainer& trace)
 {
@@ -491,12 +514,12 @@ void ExecutionTraceBuilder::process(
          *  Temporality group 3: Registers read.
          **************************************************************************************************/
 
-        // Note that if addressing did not fail, register reading will not fail.
+        // Note that if addressing did not fail, register reading will be performed.
         std::array<MemoryValue, AVM_MAX_REGISTERS> registers;
         std::ranges::fill(registers, MemoryValue::from_tag(static_cast<MemoryTag>(0), 0));
-        const bool should_process_registers = instruction_fetching_success && !addressing_failed;
+        const bool do_process_registers = instruction_fetching_success && !addressing_failed;
         const bool register_processing_failed = ex_event.error == ExecutionError::REGISTER_READ;
-        if (should_process_registers) {
+        if (do_process_registers) {
             process_registers(
                 *exec_opcode, ex_event.inputs, ex_event.output, registers, register_processing_failed, trace, row);
         }
@@ -505,8 +528,8 @@ void ExecutionTraceBuilder::process(
          *  Temporality group 4: Gas (both base and dynamic).
          **************************************************************************************************/
 
-        const bool should_check_gas = should_process_registers && !register_processing_failed;
-        if (should_check_gas) {
+        const bool check_gas = do_process_registers && !register_processing_failed;
+        if (check_gas) {
             process_gas(ex_event.gas_event, *exec_opcode, trace, row);
 
             // To_Radix Dynamic Gas Factor related selectors.
@@ -542,21 +565,21 @@ void ExecutionTraceBuilder::process(
          *  Temporality group 5: Opcode execution.
          **************************************************************************************************/
 
-        const bool should_execute_opcode = should_check_gas && !oog;
+        const bool execute_opcode = check_gas && !oog;
 
         // These booleans are used after of the "opcode code execution" block but need
         // to be set as part of the "opcode code execution" block.
         bool sel_enter_call = false;
         bool sel_exit_call = false;
-        bool should_execute_revert = false;
+        bool execute_revert = false;
 
         const bool opcode_execution_failed = ex_event.error == ExecutionError::OPCODE_EXECUTION;
-        if (should_execute_opcode) {
+        if (execute_opcode) {
             // At this point we can assume instruction fetching succeeded, so this should never fail.
             const auto& dispatch_to_subtrace = get_subtrace_info_map().at(*exec_opcode);
             trace.set(row,
                       { {
-                          { C::execution_sel_should_execute_opcode, 1 },
+                          { C::execution_sel_execute_opcode, 1 },
                           { C::execution_sel_opcode_error, opcode_execution_failed ? 1 : 0 },
                           { get_subtrace_selector(dispatch_to_subtrace.subtrace_selector), 1 },
                       } });
@@ -595,7 +618,7 @@ void ExecutionTraceBuilder::process(
                           } });
             } else if (*exec_opcode == ExecutionOpCode::REVERT) {
                 sel_exit_call = true;
-                should_execute_revert = true;
+                execute_revert = true;
             } else if (exec_opcode == ExecutionOpCode::GETENVVAR) {
                 BB_ASSERT_EQ(ex_event.addressing_event.resolution_info.size(),
                              static_cast<size_t>(2),
@@ -623,9 +646,8 @@ void ExecutionTraceBuilder::process(
                               { C::execution_remaining_data_writes_inv,
                                 remaining_data_writes }, // Will be inverted in batch later.
                               { C::execution_sel_write_public_data, opcode_execution_failed ? 0 : 1 },
-                              { C::execution_written_slots_tree_height, AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_HEIGHT },
-                              { C::execution_written_slots_merkle_separator, DOM_SEP__WRITTEN_SLOTS_MERKLE },
-                              { C::execution_written_slots_tree_siloing_separator, DOM_SEP__PUBLIC_LEAF_SLOT },
+                              // written_slots_tree_height, _merkle_separator, _tree_siloing_separator
+                              // are set in the check_gas SSTORE branch above (check_gas covers execute_opcode).
                           } });
             } else if (*exec_opcode == ExecutionOpCode::NOTEHASHEXISTS) {
                 uint64_t leaf_index = registers[1].as<uint64_t>();
@@ -708,8 +730,8 @@ void ExecutionTraceBuilder::process(
          *  Temporality group 6: Register write.
          **************************************************************************************************/
 
-        const bool should_process_register_write = should_execute_opcode && !opcode_execution_failed;
-        if (should_process_register_write) {
+        const bool do_process_register_write = execute_opcode && !opcode_execution_failed;
+        if (do_process_register_write) {
             process_registers_write(*exec_opcode, trace, row);
         }
 
@@ -722,11 +744,11 @@ void ExecutionTraceBuilder::process(
         // No need to condition by `!is_dying_context` as batch inversion skips 0.
         const FF dying_context_diff = FF(ex_event.after_context_event.id) - FF(dying_context_id);
 
-        // This is here instead of guarded by `should_execute_opcode` because is_err is a higher level error
+        // This is here instead of guarded by `execute_opcode` because is_err is a higher level error
         // than just an opcode error (i.e., it is on if there are any errors in any temporality group).
         const bool is_err = ex_event.error != ExecutionError::NONE;
         sel_exit_call = sel_exit_call || is_err; // sel_execute_revert || sel_execute_return || sel_error
-        const bool is_failure = should_execute_revert || is_err;
+        const bool is_failure = execute_revert || is_err;
         const bool enqueued_call_end = sel_exit_call && !has_parent;
         const bool nested_failure = is_failure && has_parent;
 
@@ -813,6 +835,13 @@ void ExecutionTraceBuilder::process_instr_fetching(const simulation::Instruction
     }
 }
 
+/**
+ * @brief Process the execution specification lookup columns (gas costs, register info, subtrace dispatch).
+ *
+ * @param ex_event The execution event.
+ * @param trace The trace container to populate.
+ * @param row The current row index.
+ */
 void ExecutionTraceBuilder::process_execution_spec(const simulation::ExecutionEvent& ex_event,
                                                    TraceContainer& trace,
                                                    uint32_t row)
@@ -838,7 +867,7 @@ void ExecutionTraceBuilder::process_execution_spec(const simulation::ExecutionEv
                       { REGISTER_IS_WRITE_COLUMNS[i], register_info.is_write(i) ? 1 : 0 },
                       { REGISTER_MEM_OP_COLUMNS[i], register_info.is_active(i) ? 1 : 0 },
                       { REGISTER_EXPECTED_TAG_COLUMNS[i],
-                        register_info.need_tag_check(i) ? static_cast<uint32_t>(*(register_info.expected_tag(i))) : 0 },
+                        register_info.need_tag_check(i) ? static_cast<uint8_t>(*(register_info.expected_tag(i))) : 0 },
                       { REGISTER_TAG_CHECK_COLUMNS[i], register_info.need_tag_check(i) ? 1 : 0 },
                   } });
     }
@@ -859,6 +888,14 @@ void ExecutionTraceBuilder::process_execution_spec(const simulation::ExecutionEv
               } });
 }
 
+/**
+ * @brief Process gas consumption and populate gas-related columns (OOG flags, addressing gas, dynamic gas).
+ *
+ * @param gas_event The gas event from simulation.
+ * @param exec_opcode The execution opcode.
+ * @param trace The trace container to populate.
+ * @param row The current row index.
+ */
 void ExecutionTraceBuilder::process_gas(const simulation::GasEvent& gas_event,
                                         ExecutionOpCode exec_opcode,
                                         TraceContainer& trace,
@@ -867,7 +904,7 @@ void ExecutionTraceBuilder::process_gas(const simulation::GasEvent& gas_event,
     bool oog = gas_event.oog_l2 || gas_event.oog_da;
     trace.set(row,
               { {
-                  { C::execution_sel_should_check_gas, 1 },
+                  { C::execution_sel_check_gas, 1 },
                   { C::execution_out_of_gas_l2, gas_event.oog_l2 ? 1 : 0 },
                   { C::execution_out_of_gas_da, gas_event.oog_da ? 1 : 0 },
                   { C::execution_sel_out_of_gas, oog ? 1 : 0 },
@@ -887,6 +924,14 @@ void ExecutionTraceBuilder::process_gas(const simulation::GasEvent& gas_event,
     }
 }
 
+/**
+ * @brief Process addressing resolution and populate operand columns (relative, indirect, resolved values, error flags).
+ *
+ * @param addr_event The addressing event from simulation.
+ * @param instruction The fetched instruction (for addressing mode bits).
+ * @param trace The trace container to populate.
+ * @param row The current row index.
+ */
 void ExecutionTraceBuilder::process_addressing(const simulation::AddressingEvent& addr_event,
                                                const simulation::Instruction& instruction,
                                                TraceContainer& trace,
@@ -908,7 +953,7 @@ void ExecutionTraceBuilder::process_addressing(const simulation::AddressingEvent
                                    .error = std::nullopt,
                                });
 
-    std::array<bool, AVM_MAX_OPERANDS> should_apply_indirection{};
+    std::array<bool, AVM_MAX_OPERANDS> apply_indirection{};
     std::array<bool, AVM_MAX_OPERANDS> is_relative{};
     std::array<bool, AVM_MAX_OPERANDS> is_indirect{};
     std::array<bool, AVM_MAX_OPERANDS> is_relative_effective{};
@@ -935,7 +980,7 @@ void ExecutionTraceBuilder::process_addressing(const simulation::AddressingEvent
         is_indirect[i] = is_operand_indirect(instruction.addressing_mode, i);
         is_relative_effective[i] = op_is_address && is_relative[i];
         is_indirect_effective[i] = op_is_address && is_indirect[i];
-        should_apply_indirection[i] = is_indirect_effective[i] && !relative_oob[i] && !base_address_invalid;
+        apply_indirection[i] = is_indirect_effective[i] && !relative_oob[i] && !base_address_invalid;
         resolved_operand_tag[i] = static_cast<uint8_t>(resolution_info.resolved_operand.get_tag());
         after_relative[i] = resolution_info.after_relative;
         resolved_operand[i] = resolution_info.resolved_operand;
@@ -955,7 +1000,7 @@ void ExecutionTraceBuilder::process_addressing(const simulation::AddressingEvent
                       { OPERAND_IS_INDIRECT_WIRE_COLUMNS[i], is_indirect[i] ? 1 : 0 },
                       { OPERAND_RELATIVE_OVERFLOW_COLUMNS[i], relative_oob[i] ? 1 : 0 },
                       { OPERAND_AFTER_RELATIVE_COLUMNS[i], after_relative[i] },
-                      { OPERAND_SHOULD_APPLY_INDIRECTION_COLUMNS[i], should_apply_indirection[i] ? 1 : 0 },
+                      { OPERAND_APPLY_INDIRECTION_COLUMNS[i], apply_indirection[i] ? 1 : 0 },
                       { OPERAND_IS_RELATIVE_VALID_BASE_COLUMNS[i],
                         (is_relative_effective[i] && !base_address_invalid) ? 1 : 0 },
                       { RESOLVED_OPERAND_COLUMNS[i], resolved_operand[i] },
@@ -988,7 +1033,7 @@ void ExecutionTraceBuilder::process_addressing(const simulation::AddressingEvent
     if (some_final_check_failed) {
         FF power_of_2 = 1;
         for (size_t i = 0; i < AVM_MAX_OPERANDS; ++i) {
-            if (should_apply_indirection[i]) {
+            if (apply_indirection[i]) {
                 batched_tags_diff += power_of_2 * (FF(resolved_operand_tag[i]) - FF(MEM_TAG_U32));
             }
             power_of_2 *= 8; // 2^3
@@ -1035,6 +1080,11 @@ void ExecutionTraceBuilder::process_addressing(const simulation::AddressingEvent
         } });
 }
 
+/**
+ * @brief Batch-invert all columns that were populated with pre-inversion values during trace generation.
+ *
+ * @param trace The trace container whose columns are inverted in place.
+ */
 void ExecutionTraceBuilder::invert_columns(TraceContainer& trace)
 {
     trace.invert_columns({ {
@@ -1060,6 +1110,17 @@ void ExecutionTraceBuilder::invert_columns(TraceContainer& trace)
     } });
 }
 
+/**
+ * @brief Process register reads: populate register value/tag columns and detect tag check failures.
+ *
+ * @param exec_opcode The execution opcode (determines register layout).
+ * @param inputs The input memory values from simulation.
+ * @param output The output memory value from simulation.
+ * @param registers Output span filled with the register values for downstream use.
+ * @param register_processing_failed Whether a tag check failed during register reading.
+ * @param trace The trace container to populate.
+ * @param row The current row index.
+ */
 void ExecutionTraceBuilder::process_registers(ExecutionOpCode exec_opcode,
                                               const std::vector<MemoryValue>& inputs,
                                               const MemoryValue& output,
@@ -1097,7 +1158,7 @@ void ExecutionTraceBuilder::process_registers(ExecutionOpCode exec_opcode,
         trace.set(REGISTER_COLUMNS[i], row, registers[i]);
         trace.set(REGISTER_MEM_TAG_COLUMNS[i], row, static_cast<uint8_t>(registers[i].get_tag()));
         // This one is special because it sets the reads (but not the writes).
-        // If we got here, sel_should_read_registers=1.
+        // If we got here, sel_read_registers=1.
         if (register_info.is_active(i) && !register_info.is_write(i)) {
             trace.set(REGISTER_OP_REG_EFFECTIVE_COLUMNS[i], row, 1);
         }
@@ -1117,26 +1178,41 @@ void ExecutionTraceBuilder::process_registers(ExecutionOpCode exec_opcode,
 
     trace.set(row,
               { {
-                  { C::execution_sel_should_read_registers, 1 },
+                  { C::execution_sel_read_registers, 1 },
                   { C::execution_batched_tags_diff_inv_reg, batched_tags_diff_reg }, // Will be inverted in batch.
                   { C::execution_sel_register_read_error, register_processing_failed ? 1 : 0 },
               } });
 }
 
+/**
+ * @brief Process register writes: activate the write selector and effective write columns for the opcode.
+ *
+ * @param exec_opcode The execution opcode (determines which registers are written).
+ * @param trace The trace container to populate.
+ * @param row The current row index.
+ */
 void ExecutionTraceBuilder::process_registers_write(ExecutionOpCode exec_opcode, TraceContainer& trace, uint32_t row)
 {
     const auto& register_info = get_exec_instruction_spec().at(exec_opcode).register_info;
-    trace.set(C::execution_sel_should_write_registers, row, 1);
+    trace.set(C::execution_sel_write_registers, row, 1);
 
     for (size_t i = 0; i < AVM_MAX_REGISTERS; i++) {
         // This one is special because it sets the writes.
-        // If we got here, sel_should_write_registers=1.
+        // If we got here, sel_write_registers=1.
         if (register_info.is_active(i) && register_info.is_write(i)) {
             trace.set(REGISTER_OP_REG_EFFECTIVE_COLUMNS[i], row, 1);
         }
     }
 }
 
+/**
+ * @brief Process the GETENVVAR opcode: populate environment variable lookup and selector columns.
+ *
+ * @param envvar_enum The environment variable enum operand (must have tag U8).
+ * @param output The output memory value produced by simulation.
+ * @param trace The trace container to populate.
+ * @param row The current row index.
+ */
 void ExecutionTraceBuilder::process_get_env_var_opcode(Operand envvar_enum,
                                                        MemoryValue output,
                                                        TraceContainer& trace,

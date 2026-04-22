@@ -324,7 +324,7 @@ std::vector<std::pair<C, FF>> handle_gas_limit(TransactionPhase phase, const Gas
  */
 std::vector<std::pair<C, FF>> handle_enqueued_call_event(const EnqueuedCallEvent& event)
 {
-    return { { C::tx_should_process_call_request, 1 },
+    return { { C::tx_sel_process_call_request, 1 },
              { C::tx_msg_sender, event.msg_sender },
              { C::tx_contract_addr, event.contract_address },
              { C::tx_fee, event.transaction_fee },
@@ -353,8 +353,8 @@ std::vector<std::pair<C, FF>> handle_note_hash_append(const PrivateAppendTreeEve
     return {
         { C::tx_leaf_value, event.leaf_value },
         { C::tx_remaining_side_effects_inv, remaining_note_hashes }, // Will be inverted in batch later
-        { C::tx_should_try_note_hash_append, 1 },
-        { C::tx_should_note_hash_append, remaining_note_hashes > 0 ? 1 : 0 },
+        { C::tx_sel_try_note_hash_append, 1 },
+        { C::tx_sel_note_hash_append, remaining_note_hashes > 0 ? 1 : 0 },
     };
 }
 
@@ -374,8 +374,8 @@ std::vector<std::pair<C, FF>> handle_nullifier_append(const PrivateAppendTreeEve
     return { { C::tx_leaf_value, event.leaf_value },
              { C::tx_nullifier_limit_error, remaining_nullifiers > 0 ? 0 : 1 },
              { C::tx_remaining_side_effects_inv, remaining_nullifiers }, // Will be inverted in batch later
-             { C::tx_should_try_nullifier_append, 1 },
-             { C::tx_should_nullifier_append, remaining_nullifiers > 0 ? 1 : 0 },
+             { C::tx_sel_try_nullifier_append, 1 },
+             { C::tx_sel_nullifier_append, remaining_nullifiers > 0 ? 1 : 0 },
              { C::tx_write_nullifier_pi_offset,
                AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_NULLIFIERS_ROW_IDX +
                    state_before.tree_states.nullifier_tree.counter },
@@ -420,9 +420,9 @@ std::vector<std::pair<C, FF>> handle_l2_l1_msg_event(const PrivateEmitL2L1Messag
 {
     uint32_t remaining_l2_to_l1_msgs = MAX_L2_TO_L1_MSGS_PER_TX - state_before.numL2ToL1Messages;
     return {
-        { C::tx_should_try_l2_l1_msg_append, 1 },
+        { C::tx_sel_try_l2_l1_msg_append, 1 },
         { C::tx_remaining_side_effects_inv, remaining_l2_to_l1_msgs }, // Will be inverted in batch later
-        { C::tx_should_l2_l1_msg_append, (remaining_l2_to_l1_msgs > 0 && !discard) ? 1 : 0 },
+        { C::tx_sel_l2_l1_msg_append, (remaining_l2_to_l1_msgs > 0 && !discard) ? 1 : 0 },
         { C::tx_l2_l1_msg_contract_address, event.scoped_msg.contract_address },
         { C::tx_l2_l1_msg_recipient, event.scoped_msg.message.recipient },
         { C::tx_l2_l1_msg_content, event.scoped_msg.message.content },

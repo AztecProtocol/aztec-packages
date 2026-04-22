@@ -15,9 +15,9 @@ template <typename FF_> class executionImpl {
     using FF = FF_;
 
     static constexpr std::array<size_t, 96> SUBRELATION_PARTIAL_LENGTHS = {
-        3, 3, 3, 2, 4, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 4, 4, 3, 3, 3, 3, 3, 3, 3, 3,
+        3, 3, 3, 2, 3, 3, 3, 3, 3, 3, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3, 3, 4, 4, 3, 3, 3, 3, 3, 3, 3, 2,
         3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
-        3, 3, 3, 3, 3, 4, 5, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 2
+        3, 3, 3, 3, 3, 3, 4, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 2, 2
     };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
@@ -45,7 +45,7 @@ template <typename FF> class execution : public Relation<executionImpl<FF>> {
     static constexpr size_t SR_EXEC_CLK_INIT = 5;
     static constexpr size_t SR_EXEC_CLK_CONTINUITY = 6;
     static constexpr size_t SR_BYTECODE_RETRIEVAL_NO_FAILURE = 7;
-    static constexpr size_t SR_NO_FETCHING_NO_INSTR_FETCH_ERROR = 10;
+    static constexpr size_t SR_NO_FETCHING_NO_INSTR_FETCH_ERROR = 9;
     static constexpr size_t SR_DYN_GAS_ID_DECOMPOSITION = 19;
     static constexpr size_t SR_NUM_P_LIMBS_CEIL = 22;
     static constexpr size_t SR_DYN_L2_FACTOR_TO_RADIX_BE = 23;
@@ -76,6 +76,7 @@ template <typename FF> class execution : public Relation<executionImpl<FF>> {
     static constexpr size_t SR_RETRIEVED_BYTECODES_TREE_ROOT_NOT_CHANGED = 89;
     static constexpr size_t SR_RETRIEVED_BYTECODES_TREE_SIZE_NOT_CHANGED = 90;
     static constexpr size_t SR_INFALLIBLE_OPCODES_SUCCESS = 92;
+    static constexpr size_t SR_NO_OPCODE_ERROR_IF_NOT_EXECUTING = 93;
 
     static std::string get_subrelation_label(size_t index)
     {
@@ -154,6 +155,8 @@ template <typename FF> class execution : public Relation<executionImpl<FF>> {
             return "RETRIEVED_BYTECODES_TREE_SIZE_NOT_CHANGED";
         case SR_INFALLIBLE_OPCODES_SUCCESS:
             return "INFALLIBLE_OPCODES_SUCCESS";
+        case SR_NO_OPCODE_ERROR_IF_NOT_EXECUTING:
+            return "NO_OPCODE_ERROR_IF_NOT_EXECUTING";
         }
         return std::to_string(index);
     }
