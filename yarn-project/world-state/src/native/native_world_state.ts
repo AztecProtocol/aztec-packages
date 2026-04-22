@@ -148,6 +148,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
   public async clear() {
     await this.instance.close();
     this.cachedStatusSummary = undefined;
+    this.registeredFork = undefined;
     await tryRmDir(this.instance.getDataDir(), this.log);
     this.instance = this.instance.clone();
   }

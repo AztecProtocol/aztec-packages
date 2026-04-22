@@ -513,9 +513,8 @@ export class CheckpointProposalJob implements Traceable {
       // Get the fee asset price modifier from the oracle
       const feeAssetPriceModifier = await this.publisher.getFeeAssetPriceModifier();
 
-      // Create a forked world state for the checkpoint builder.
-      // The fork is registered for each built block so SYNC_BLOCK can commit it.
-      // After each block, a new fork is created at the advanced tip.
+      // Seed fork for the checkpoint: startCheckpoint appends the L1-to-L2 messages onto it, and
+      // block 1 is built against it. Block 2+ create their own forks inside buildBlocksForCheckpoint.
       await using initialFork = await this.worldState.fork(this.syncedToBlockNumber, { closeDelayMs: 12_000 });
 
       // Create checkpoint builder for the entire slot
@@ -676,8 +675,8 @@ export class CheckpointProposalJob implements Traceable {
     let blockPendingBroadcast: BlockProposal | undefined = undefined;
 
     // Builds one block on the given fork and handles its post-processing.
-    // Returns 'stop' to exit the loop, 'retry' to try again on the same fork (wait already done),
-    // or a subslot deadline to wait before the next block.
+    // Returns 'stop' to exit the outer loop, 'retry' after already sleeping past the failed subslot
+    // (outer loop re-invokes on whichever fork it picks), or a subslot deadline for the caller to wait on.
     const buildOne = async (fork: MerkleTreeWriteOperations): Promise<'stop' | 'retry' | { deadline: number }> => {
       const blocksBuilt = blocksInCheckpoint.length;
       const indexWithinCheckpoint = IndexWithinCheckpoint(blocksBuilt);
@@ -745,8 +744,6 @@ export class CheckpointProposalJob implements Traceable {
       // Register the fork so SYNC_BLOCK can commit it instead of recalculating.
       this.worldState.registerForkForBlock(block.archive.root, fork.forkId);
 
-      // If this is the last block, exit the loop so we can build the checkpoint and start collecting attestations.
-      // The block will be synced to LMDB when the block stream picks it up from the archiver.
       // Sign the block proposal. This will throw if HA signing fails.
       const proposal = await this.createBlockProposal(block, inHash, usedTxs, blockProposalOptions);
 

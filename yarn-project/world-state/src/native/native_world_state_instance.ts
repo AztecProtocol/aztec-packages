@@ -185,34 +185,36 @@ export class NativeWorldState implements NativeWorldStateInstance {
     }
 
     // Enqueue the request and wait for the response
-    const response = await requestQueue.execute(
-      async () => {
-        assert.notEqual(messageType, WorldStateMessageType.CLOSE, 'Use close() to close the native instance');
-        assert.equal(this.open, true, 'Native instance is closed');
-        let response: WorldStateResponse[T];
-        try {
-          response = await this._sendMessage(messageType, body);
-        } catch (error: any) {
-          errorHandler(error.message);
-          throw error;
+    let response: WorldStateResponse[T];
+    try {
+      response = await requestQueue.execute(
+        async () => {
+          assert.notEqual(messageType, WorldStateMessageType.CLOSE, 'Use close() to close the native instance');
+          assert.equal(this.open, true, 'Native instance is closed');
+          let response: WorldStateResponse[T];
+          try {
+            response = await this._sendMessage(messageType, body);
+          } catch (error: any) {
+            errorHandler(error.message);
+            throw error;
+          }
+          return responseHandler(response);
+        },
+        messageType,
+        committedOnly,
+      );
+    } finally {
+      if (messageType === WorldStateMessageType.DELETE_FORK) {
+        await requestQueue.stop();
+        this.queues.delete(forkId);
+      } else if (messageType === WorldStateMessageType.COMMIT_FORK) {
+        // COMMIT_FORK runs on the canonical queue, but we need to clean up the fork's queue
+        const actualForkId = (body as { forkId: number }).forkId;
+        const forkQueue = this.queues.get(actualForkId);
+        if (forkQueue) {
+          await forkQueue.stop();
+          this.queues.delete(actualForkId);
         }
-        return responseHandler(response);
-      },
-      messageType,
-      committedOnly,
-    );
-
-    // If the request was to delete the fork then we clean it up here
-    if (messageType === WorldStateMessageType.DELETE_FORK) {
-      await requestQueue.stop();
-      this.queues.delete(forkId);
-    } else if (messageType === WorldStateMessageType.COMMIT_FORK) {
-      // COMMIT_FORK runs on the canonical queue, but we need to clean up the fork's queue
-      const actualForkId = (body as { forkId: number }).forkId;
-      const forkQueue = this.queues.get(actualForkId);
-      if (forkQueue) {
-        await forkQueue.stop();
-        this.queues.delete(actualForkId);
       }
     }
     return response;

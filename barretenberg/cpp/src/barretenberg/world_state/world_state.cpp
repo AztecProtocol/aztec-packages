@@ -281,17 +281,19 @@ WorldStateStatusFull WorldState::commit_fork(const uint64_t& forkId)
     }
     validate_trees_are_equally_synched();
 
-    // Atomically retrieve and remove so no concurrent caller can obtain a reference.
-    // The local shared_ptr keeps the fork alive for the duration of this method.
-    Fork::SharedPtr fork = retrieve_and_remove_fork(forkId);
-
-    // Validate tip hasn't moved since fork was created
+    // Validate tip hasn't moved since fork was created before removing the fork from the map,
+    // so a failed validation leaves the fork intact and the caller can inspect or delete it.
+    Fork::SharedPtr fork = retrieve_fork(forkId);
     auto archiveMeta = get_tree_info(WorldStateRevision::committed(), MerkleTreeId::ARCHIVE);
     if (archiveMeta.meta.unfinalizedBlockHeight != fork->_blockNumber) {
         throw std::runtime_error("Can't commit fork: canonical tip has moved from " +
                                  std::to_string(fork->_blockNumber) + " to " +
                                  std::to_string(archiveMeta.meta.unfinalizedBlockHeight));
     }
+
+    // Atomically retrieve and remove so no concurrent caller can obtain a reference.
+    // The local shared_ptr keeps the fork alive for the duration of this method.
+    fork = retrieve_and_remove_fork(forkId);
 
     // Rollback canonical to clear any uncommitted state
     rollback();
