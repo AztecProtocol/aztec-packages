@@ -123,9 +123,14 @@ export class RpcSyncArchiver extends ArchiverDataSourceBase implements L2BlockSt
     }
   }
 
+  /**
+   * Stops the block stream and closes the underlying data store. Since the factory opens the store
+   * on behalf of the archiver, the archiver is the sole owner and must release it on stop.
+   */
   public async stop(): Promise<void> {
     this.log.debug('Stopping RPC-sync archiver');
     await this.blockStream.stop();
+    await this.store.close();
   }
 
   public async syncImmediate(): Promise<void> {
@@ -162,6 +167,25 @@ export class RpcSyncArchiver extends ArchiverDataSourceBase implements L2BlockSt
       case 'chain-finalized':
         await this.handleChainFinalized(event);
         break;
+    }
+
+    // After each batch, check whether we've caught up to the source's proposed tip.
+    // This ensures `waitForInitialSync()` eventually resolves even when the caller did not
+    // pass `blockUntilSync: true` and does not call `syncImmediate()` manually.
+    if (!this.initialSyncComplete) {
+      await this.maybeMarkInitialSyncComplete();
+    }
+  }
+
+  private async maybeMarkInitialSyncComplete(): Promise<void> {
+    try {
+      const [sourceTips, localTips] = await Promise.all([this.source.getL2Tips(), this.l2TipsCache.getL2Tips()]);
+      if (localTips.proposed.number >= sourceTips.proposed.number) {
+        this.markInitialSyncComplete();
+      }
+    } catch (err) {
+      // If the source is transiently unavailable we'll retry on the next event.
+      this.log.debug(`Failed to check initial sync completion`, err);
     }
   }
 
@@ -233,6 +257,26 @@ export class RpcSyncArchiver extends ArchiverDataSourceBase implements L2BlockSt
     const targetBlockNumber = event.block.number;
     const localCheckpointedTip = await this.store.getCheckpointedL2BlockNumber();
 
+    // A prune target of block 0 means everything above genesis is being rolled back. The generic
+    // cross-checkpoint branch can't handle this case because `getCheckpointedBlock(0)` returns
+    // undefined. Handle it explicitly so we don't throw on every subsequent poll.
+    if (targetBlockNumber === 0) {
+      const latestBlockNumber = await this.store.getLatestBlockNumber();
+      const blocksBeingRemoved =
+        latestBlockNumber > 0 ? await this.store.getBlocks(BlockNumber(1), latestBlockNumber) : [];
+      this.log.info(`Pruning all checkpoints due to upstream chain-pruned event targeting block 0`);
+      await this.updater.removeCheckpointsAfter(CheckpointNumber(0));
+      if (blocksBeingRemoved.length > 0) {
+        const epochNumber = getEpochAtSlot(blocksBeingRemoved[0].header.globalVariables.slotNumber, this.l1Constants);
+        this.events.emit(L2BlockSourceEvents.L2PruneUnproven, {
+          type: 'l2PruneUnproven',
+          epochNumber,
+          blocks: blocksBeingRemoved,
+        });
+      }
+      return;
+    }
+
     if (targetBlockNumber >= localCheckpointedTip) {
       // Only uncheckpointed (proposed) blocks need to be pruned.
       const removed = await this.updater.removeUncheckpointedBlocksAfter(BlockNumber(targetBlockNumber));
@@ -252,7 +296,10 @@ export class RpcSyncArchiver extends ArchiverDataSourceBase implements L2BlockSt
     // remove everything above it.
     const targetBlock = await this.store.getCheckpointedBlock(BlockNumber(targetBlockNumber));
     if (!targetBlock) {
-      throw new Error(`Cannot resolve checkpoint for pruned block ${targetBlockNumber}`);
+      // Defence in depth: if we can't resolve the target block (e.g. store was partially cleared),
+      // log and return instead of throwing — the stream would otherwise rethrow on every poll.
+      this.log.warn(`Cannot resolve checkpoint for pruned block ${targetBlockNumber}; skipping`);
+      return;
     }
     const checkpointNumber = targetBlock.checkpointNumber;
     const checkpointData = await this.store.getCheckpointData(checkpointNumber);
