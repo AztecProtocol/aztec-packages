@@ -83,8 +83,7 @@ function build_verifier {
 
     # Generate network defaults from spartan (canonical source of truth for config values)
     source ../spartan/scripts/codegen_helper.sh
-    L1_KEYS="ETHEREUM_SLOT_DURATION AZTEC_SLOT_DURATION AZTEC_EPOCH_DURATION AZTEC_TARGET_COMMITTEE_SIZE AZTEC_LAG_IN_EPOCHS_FOR_VALIDATOR_SET AZTEC_LAG_IN_EPOCHS_FOR_RANDAO AZTEC_ACTIVATION_THRESHOLD AZTEC_EJECTION_THRESHOLD AZTEC_LOCAL_EJECTION_THRESHOLD AZTEC_EXIT_DELAY_SECONDS AZTEC_INBOX_LAG AZTEC_PROOF_SUBMISSION_EPOCHS AZTEC_MANA_TARGET AZTEC_PROVING_COST_PER_MANA AZTEC_INITIAL_ETH_PER_FEE_ASSET AZTEC_SLASHER_ENABLED AZTEC_SLASHING_ROUND_SIZE_IN_EPOCHS AZTEC_SLASHING_LIFETIME_IN_ROUNDS AZTEC_SLASHING_EXECUTION_DELAY_IN_ROUNDS AZTEC_SLASHING_OFFSET_IN_ROUNDS AZTEC_SLASHING_VETOER AZTEC_SLASHING_DISABLE_DURATION AZTEC_SLASH_AMOUNT_SMALL AZTEC_SLASH_AMOUNT_MEDIUM AZTEC_SLASH_AMOUNT_LARGE AZTEC_GOVERNANCE_PROPOSER_ROUND_SIZE"
-    extract_keys "$L1_KEYS" ../spartan/environments/common.env | format_json_object > generated/default.json
+    extract_codegen_keys "l1-contracts" ../spartan/environments/common.env | format_json_object > generated/default.json
 
     # Copy from noir-projects. Bootstrap must have ran in noir-projects.
     local rollup_verifier_path=../noir-projects/noir-protocol-circuits/target/keys/rollup_root_verifier.sol

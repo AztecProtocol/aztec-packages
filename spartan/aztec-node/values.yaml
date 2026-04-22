@@ -112,7 +112,7 @@ node:
   otelIncludeMetrics: null
 
   storage:
-    # -- Data directory (mount path, not DB config)
+    # -- Data directory
     dataDirectory: /data
 
   nodeJsOptions:
