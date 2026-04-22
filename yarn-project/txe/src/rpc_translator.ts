@@ -102,23 +102,23 @@ export class RPCTranslator {
     return this.oracleHandler;
   }
 
-  private captureLastCallContextBegin(): Promise<bigint> {
-    this.stateHandler.resetLastCall();
-    return this.handlerAsTxe().getLastBlockTimestamp();
-  }
-
-  private captureLastCallContextEnd(anchorBlockTimestamp: bigint, txHash?: Fr): void {
-    this.stateHandler.setLastCallContext(txHash ?? Fr.ZERO, anchorBlockTimestamp);
-  }
-
+  /**
+   * Resets call context session recording to initial state
+   */
   private async resetLastCallContext(): Promise<void> {
-    this.captureLastCallContextEnd(await this.captureLastCallContextBegin());
+    this.stateHandler.resetLastCall();
+    const anchorBlockTimestamp = await this.handlerAsTxe().getLastBlockTimestamp();
+    this.stateHandler.setLastCallContext(Fr.ZERO, anchorBlockTimestamp);
   }
 
+  /**
+   * Runs a call that may yield a txHash, capturing the context of the call in the session state handler for future usage.
+   */
   private async captureCallContext<T>(work: () => Promise<{ result: T; txHash?: Fr }>): Promise<T> {
-    const anchorBlockTimestamp = await this.captureLastCallContextBegin();
+    this.stateHandler.resetLastCall();
+    const anchorBlockTimestamp = await this.handlerAsTxe().getLastBlockTimestamp();
     const { result, txHash } = await work();
-    this.captureLastCallContextEnd(anchorBlockTimestamp, txHash);
+    this.stateHandler.setLastCallContext(txHash ?? Fr.ZERO, anchorBlockTimestamp);
     return result;
   }
 
