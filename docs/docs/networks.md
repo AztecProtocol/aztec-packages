@@ -90,7 +90,7 @@ Not sure which network to use? Jump to our [Network Selection Guide](#network-se
 
 ### Ignition (Mainnet - Phase 1)
 
-Ignition is the Aztec **mainnet** in its first operational phase, focusing on establishing governance and network infrastructure.
+Ignition is the Aztec **mainnet** in its first operational phase, focusing on establishing governance and network infrastructure. Ignition is live but early — bugs, including critical ones, are expected. For a full explanation of what this means, see the **[Alpha Network](/participate/alpha)** page.
 
 #### Overview
 
