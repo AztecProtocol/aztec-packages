@@ -4006,6 +4006,66 @@ describe('KVArchiverDataStore', () => {
     });
   });
 
+  describe('promoteProposedToCheckpointed', () => {
+    async function setupProposedCheckpoint() {
+      // Add confirmed checkpoint 1
+      const checkpoint1 = makePublishedCheckpoint(
+        await Checkpoint.random(CheckpointNumber(1), { numBlocks: 1, startBlockNumber: 1 }),
+        10,
+      );
+      await store.addCheckpoints([checkpoint1]);
+
+      // Add proposed blocks for checkpoint 2
+      const block2 = await L2Block.random(BlockNumber(2), {
+        checkpointNumber: CheckpointNumber(2),
+        indexWithinCheckpoint: IndexWithinCheckpoint(0),
+        lastArchive: checkpoint1.checkpoint.blocks[0].archive,
+      });
+      await store.addProposedBlock(block2, { force: true });
+
+      // Set proposed checkpoint 2
+      await store.blockStore.setProposedCheckpoint({
+        checkpointNumber: CheckpointNumber(2),
+        header: CheckpointHeader.empty(),
+        startBlock: BlockNumber(2),
+        blockCount: 1,
+        totalManaUsed: 100n,
+        feeAssetPriceModifier: 50n,
+      });
+
+      const proposed = await store.getProposedCheckpointOnly();
+      return { checkpoint1, proposed: proposed! };
+    }
+
+    it('promotes proposed checkpoint to confirmed', async () => {
+      const { proposed } = await setupProposedCheckpoint();
+      const l1 = makeL1PublishedData(20);
+      const attestations = [CommitteeAttestation.random()];
+
+      await store.promoteProposedToCheckpointed(l1, attestations, proposed.archive.root);
+
+      expect(await store.blockStore.hasProposedCheckpoint()).toBe(false);
+      expect(await store.blockStore.getLatestCheckpointNumber()).toBe(2);
+    });
+
+    it('throws when no proposed checkpoint exists', async () => {
+      await expect(store.promoteProposedToCheckpointed(makeL1PublishedData(20), [], Fr.random())).rejects.toThrow(
+        'no proposed checkpoint exists',
+      );
+    });
+
+    it('throws on archive root mismatch', async () => {
+      await setupProposedCheckpoint();
+
+      await expect(store.promoteProposedToCheckpointed(makeL1PublishedData(20), [], Fr.random())).rejects.toThrow(
+        'archive root mismatch',
+      );
+
+      // Proposed checkpoint should still exist (transaction rolled back)
+      expect(await store.blockStore.hasProposedCheckpoint()).toBe(true);
+    });
+  });
+
   describe('L2TipsCache proposedCheckpoint', () => {
     it('returns proposedCheckpoint equal to checkpointed when no pending exists', async () => {
       // Add checkpoint 1 with blocks 1-3

@@ -638,11 +638,16 @@ describe('aztec node', () => {
       });
 
       it('returns snapshot at block 0 for initial header hash', async () => {
+        // Block 0 is a first-class historical block: its state lives in the trees' persisted block-0
+        // payload. getWorldState resolves the genesis hash to block number 0 and returns the snapshot.
         const initialBlockHash = await initialHeader.hash();
+        // The archive at block 0 contains the genesis header hash at index 0, which is what the
+        // double-check compares against after the snapshot is resolved.
+        snapshotMerkleTreeOps.getLeafValue.mockResolvedValue(initialBlockHash);
 
         const result = await node.getWorldState(initialBlockHash);
-        expect(worldState.getSnapshot).toHaveBeenCalledWith(BlockNumber.ZERO);
         expect(result).toBe(snapshotMerkleTreeOps);
+        expect(worldState.getSnapshot).toHaveBeenCalledWith(BlockNumber.ZERO);
       });
     });
 
