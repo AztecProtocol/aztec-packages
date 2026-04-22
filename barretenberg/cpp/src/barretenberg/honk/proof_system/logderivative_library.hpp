@@ -30,10 +30,7 @@ namespace bb {
  *
  */
 template <typename FF, typename Relation, typename Polynomials, bool UseMultithreading = false>
-void compute_logderivative_inverse(Polynomials& polynomials,
-                                   auto& relation_parameters,
-                                   const size_t circuit_size,
-                                   const size_t start_index = 0)
+void compute_logderivative_inverse(Polynomials& polynomials, auto& relation_parameters, const size_t start_index = 0)
 {
     using Accumulator = typename Relation::ValueAccumulator0;
     constexpr size_t NUM_LOOKUP_TERMS = Relation::NUM_LOOKUP_TERMS;
@@ -43,7 +40,6 @@ void compute_logderivative_inverse(Polynomials& polynomials,
     const size_t offset = std::max(inverse_polynomial.start_index(), start_index);
     // Clamp to the polynomial's actual (non-virtual) data extent; beyond end_index() everything is virtual zero.
     const size_t actual_size = inverse_polynomial.end_index() > offset ? inverse_polynomial.end_index() - offset : 0;
-    (void)circuit_size;
     const auto compute_inverses = [&](size_t start, size_t end) {
         for (size_t i = start; i < end; ++i) {
             const size_t row_idx = i + offset;

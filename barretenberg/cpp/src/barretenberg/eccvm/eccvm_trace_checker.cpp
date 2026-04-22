@@ -45,7 +45,7 @@ bool ECCVMTraceChecker::check(Builder& builder,
 #endif
     const size_t num_rows = polynomials.get_polynomial_size();
     // Skip the disabled head region to preserve masking values
-    compute_logderivative_inverse<FF, ECCVMLookupRelation<FF>>(polynomials, params, num_rows, Flavor::TRACE_OFFSET);
+    compute_logderivative_inverse<FF, ECCVMLookupRelation<FF>>(polynomials, params, Flavor::TRACE_OFFSET);
     compute_grand_product<Flavor, ECCVMSetRelation<FF>>(polynomials, params);
 
     polynomials.z_perm_shift = Polynomial(polynomials.z_perm.shifted());
