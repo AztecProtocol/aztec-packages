@@ -214,6 +214,13 @@ describe('e2e_p2p_network', () => {
     // blocks without them (since targetCommitteeSize is set to the number of nodes)
     await t.setupAccount();
 
+    // Wait for the next L1 block so that all nodes' getCurrentMinFees() caches are
+    // refreshed after the first L2 checkpoint is published. Without this, some wallets
+    // may estimate fees based on pre-checkpoint values (very low due to fee decay),
+    // while receiving nodes already see the post-checkpoint fees (much higher).
+    const ethereumSlotDuration = t.ctx.aztecNodeConfig.ethereumSlotDuration ?? 4;
+    await sleep((ethereumSlotDuration + 1) * 1000);
+
     t.logger.info('Submitting transactions');
     for (const node of nodes) {
       const txs = await submitTransactions(t.logger, node, NUM_TXS_PER_NODE, t.fundedAccount);

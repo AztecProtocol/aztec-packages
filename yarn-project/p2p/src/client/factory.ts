@@ -7,6 +7,7 @@ import { AztecLMDBStoreV2, createStore } from '@aztec/kv-store/lmdb-v2';
 import type { L2BlockSource } from '@aztec/stdlib/block';
 import type { ChainConfig } from '@aztec/stdlib/config';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
+import type { BlockMinFeesProvider } from '@aztec/stdlib/gas';
 import type { AztecNode, ClientProtocolCircuitVerifier, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import type { DataStoreConfig } from '@aztec/stdlib/kv-store';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
@@ -52,6 +53,7 @@ export async function createP2PClient(
   proofVerifier: ClientProtocolCircuitVerifier,
   worldStateSynchronizer: WorldStateSynchronizer,
   epochCache: EpochCacheInterface,
+  blockMinFeesProvider: BlockMinFeesProvider,
   packageVersion: string,
   dateProvider: DateProvider = new DateProvider(),
   telemetry: TelemetryClient = getTelemetryClient(),
@@ -90,23 +92,6 @@ export async function createP2PClient(
     () => epochCache.getEpochAndSlotInNextL1Slot().ts,
   );
 
-  const createTxValidator = async () => {
-    // We accept transactions if they are not expired by the next slot and block number (checked based on the ExpirationTimestamp field)
-    const currentBlockNumber = await archiver.getBlockNumber();
-    const { ts: nextSlotTimestamp } = epochCache.getEpochAndSlotInNextL1Slot();
-    const l1Constants = await archiver.getL1Constants();
-    return createTxValidatorForTransactionsEnteringPendingTxPool(
-      worldStateSynchronizer,
-      nextSlotTimestamp,
-      BlockNumber(currentBlockNumber + 1),
-      {
-        rollupManaLimit: l1Constants.rollupManaLimit,
-        maxBlockL2Gas: config.validateMaxL2BlockGas,
-        maxBlockDAGas: config.validateMaxDABlockGas,
-      },
-    );
-  };
-
   const txPool =
     deps.txPool ??
     new AztecKVTxPoolV2(
@@ -116,7 +101,24 @@ export async function createP2PClient(
         l2BlockSource: archiver,
         worldStateSynchronizer,
         checkAllowedSetupCalls,
-        createTxValidator,
+        createTxValidator: async () => {
+          const currentBlockNumber = await archiver.getBlockNumber();
+          const { ts: nextSlotTimestamp } = epochCache.getEpochAndSlotInNextL1Slot();
+          const l1Constants = await archiver.getL1Constants();
+          const gasFees = await blockMinFeesProvider.getCurrentMinFees();
+          return createTxValidatorForTransactionsEnteringPendingTxPool(
+            worldStateSynchronizer,
+            nextSlotTimestamp,
+            BlockNumber(currentBlockNumber + 1),
+            {
+              rollupManaLimit: l1Constants.rollupManaLimit,
+              maxBlockL2Gas: config.validateMaxL2BlockGas,
+              maxBlockDAGas: config.validateMaxDABlockGas,
+            },
+            gasFees,
+          );
+        },
+        blockMinFeesProvider,
       },
       telemetry,
       {
@@ -140,6 +142,7 @@ export async function createP2PClient(
     proofVerifier,
     worldStateSynchronizer,
     epochCache,
+    blockMinFeesProvider,
     store,
     peerStore,
     mempools,
@@ -216,6 +219,7 @@ async function createP2PService(
   proofVerifier: ClientProtocolCircuitVerifier,
   worldStateSynchronizer: WorldStateSynchronizer,
   epochCache: EpochCacheInterface,
+  blockMinFeesProvider: BlockMinFeesProvider,
   store: AztecAsyncKVStore,
   peerStore: AztecLMDBStoreV2,
   mempools: MemPools,
@@ -243,6 +247,7 @@ async function createP2PService(
     proofVerifier,
     worldStateSynchronizer,
     peerStore,
+    blockMinFeesProvider,
     telemetry,
     logger: logger.createChild(`libp2p_service`),
   });

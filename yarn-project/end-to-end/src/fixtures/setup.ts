@@ -207,7 +207,7 @@ export type SetupOptions = {
   skipAccountDeployment?: boolean;
   /** L1 contracts deployment arguments. */
   l1ContractsArgs?: Partial<DeployAztecL1ContractsArgs>;
-  /** Wallet minimum fee padding multiplier (defaults to 0.5, which is 50% padding). */
+  /** Wallet minimum fee padding multiplier */
   walletMinFeePadding?: number;
   /** Whether the initial node should be a lightweight RPC-only node (no sequencer, no validator).
    *  Use for tests that create their own validator nodes and don't need the initial sequencer. */

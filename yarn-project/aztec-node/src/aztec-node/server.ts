@@ -351,6 +351,17 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
         debugLogStore = new NullDebugLogStore();
       }
 
+      const globalVariableBuilderConfig = {
+        l1Contracts: config.l1Contracts,
+        ethereumSlotDuration: config.ethereumSlotDuration,
+        rollupVersion: BigInt(config.rollupVersion),
+        l1GenesisTime,
+        slotDuration: Number(slotDuration),
+      };
+
+      const globalVariableBuilder = new GlobalVariableBuilder(dateProvider, publicClient, globalVariableBuilderConfig);
+      const feeProvider = new FeeProviderImpl(dateProvider, publicClient, globalVariableBuilderConfig);
+
       const proverOnly = config.enableProverNode && config.disableValidator;
       if (proverOnly) {
         log.info('Starting in prover-only mode: skipping validator, sequencer, sentinel, and slasher subsystems');
@@ -363,6 +374,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
         peerProofVerifier,
         worldStateSynchronizer,
         epochCache,
+        feeProvider,
         packageVersion,
         dateProvider,
         telemetry,
@@ -488,17 +500,6 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
           log.info(`All p2p services started`);
         })
         .catch(err => log.error('Failed to start p2p services after archiver sync', err));
-
-      const globalVariableBuilderConfig = {
-        l1Contracts: config.l1Contracts,
-        ethereumSlotDuration: config.ethereumSlotDuration,
-        rollupVersion: BigInt(config.rollupVersion),
-        l1GenesisTime,
-        slotDuration: Number(slotDuration),
-      };
-
-      const globalVariableBuilder = new GlobalVariableBuilder(dateProvider, publicClient, globalVariableBuilderConfig);
-      const feeProvider = new FeeProviderImpl(dateProvider, publicClient, globalVariableBuilderConfig);
 
       // Validator enabled, create/start relevant service
       let sequencer: SequencerClient | undefined;
