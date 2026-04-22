@@ -93,7 +93,12 @@ function snippetHtmlToMarkdown(html) {
     .replace(/&gt;/g, ">")
     .replace(/&amp;/g, "&")
     .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'");
+    .replace(/&#(x[0-9a-f]+|\d+);/gi, (_m, code) => {
+      const n = code[0] === "x" || code[0] === "X"
+        ? parseInt(code.slice(1), 16)
+        : parseInt(code, 10);
+      return Number.isFinite(n) ? String.fromCodePoint(n) : _m;
+    });
   return out.replace(/\n{3,}/g, "\n\n").trim();
 }
 
