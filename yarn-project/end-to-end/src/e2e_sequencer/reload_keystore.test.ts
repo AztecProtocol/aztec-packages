@@ -91,13 +91,16 @@ describe('e2e_reload_keystore', () => {
       wallet,
       accounts: [ownerAddress],
       sequencer: sequencerClient,
-    } = await setup(1, {
-      initialValidators,
-      aztecTargetCommitteeSize: COMMITTEE_SIZE,
-      keyStoreDirectory,
-      minTxsPerBlock: 1,
-      maxTxsPerBlock: 1,
-    }));
+    } = await setup(
+      1,
+      {
+        AZTEC_TARGET_COMMITTEE_SIZE: String(COMMITTEE_SIZE),
+        KEY_STORE_DIRECTORY: String(keyStoreDirectory),
+        SEQ_MIN_TX_PER_BLOCK: '1',
+        SEQ_MAX_TX_PER_BLOCK: '1',
+      },
+      { initialValidators },
+    ));
 
     if (!aztecNodeAdmin) {
       throw new Error('Aztec node admin API must be available for this test');

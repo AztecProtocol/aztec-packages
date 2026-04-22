@@ -22,7 +22,7 @@ describe('e2e_fees bridging_race', () => {
   const t = new FeesTest('bridging_race', 1, {
     ethereumSlotDuration: ETHEREUM_SLOT_DURATION,
     aztecSlotDuration: AZTEC_SLOT_DURATION,
-    minTxsPerBlock: 0,
+    env: { SEQ_MIN_TX_PER_BLOCK: '0' },
   });
 
   beforeAll(async () => {

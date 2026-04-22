@@ -61,13 +61,8 @@ describe('e2e_p2p_network', () => {
       basePort: BOOT_NODE_UDP_PORT,
       metricsPort: shouldCollectMetrics(),
       initialConfig: {
+        env: { AZTEC_SLOT_DURATION: '24', P2P_LISTEN_ADDR: '127.0.0.1', SEQ_MIN_TX_PER_BLOCK: '0' },
         ...SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES,
-        aztecSlotDuration: 24,
-        listenAddress: '127.0.0.1',
-        // Allow empty blocks so the first checkpoint can be published before any txs are submitted.
-        // Without this, no blocks are built until txs arrive, and a failed checkpoint during tx
-        // submission causes block pruning that invalidates tx references.
-        minTxsPerBlock: 0,
       },
     });
 

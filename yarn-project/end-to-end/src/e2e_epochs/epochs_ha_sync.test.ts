@@ -55,23 +55,25 @@ describe('e2e_epochs/epochs_ha_sync', () => {
     // Do NOT set skipPublishingCheckpointsPercent here: the initial sequencer needs to
     // publish checkpoints during setup (account deployment). We disable it per-validator-node below.
     test = await EpochsTestContext.setup({
+      env: {
+        AZTEC_EPOCH_DURATION: '4',
+        SEQ_ENFORCE_TIME_TABLE: 'true',
+        ETHEREUM_SLOT_DURATION: '4',
+        AZTEC_SLOT_DURATION: '36',
+        SEQ_BLOCK_DURATION_MS: '8000',
+        SEQ_L1_PUBLISHING_TIME_ALLOWANCE_IN_SLOT: '2',
+        SEQ_ATTESTATION_PROPAGATION_TIME: String(0.5),
+        AZTEC_TARGET_COMMITTEE_SIZE: String(VALIDATOR_COUNT),
+        SEQ_MIN_TX_PER_BLOCK: '1',
+        SEQ_MAX_TX_PER_BLOCK: '2',
+        SEQ_ENABLE_PROPOSER_PIPELINING: 'true',
+        AZTEC_INBOX_LAG: '2',
+      },
       numberOfAccounts: 1,
       initialValidators: validators,
       mockGossipSubNetwork: true,
       disableAnvilTestWatcher: true,
-      aztecEpochDuration: 4,
-      enforceTimeTable: true,
-      ethereumSlotDuration: 4,
-      aztecSlotDuration: 36,
-      blockDurationMs: 8000,
-      l1PublishingTime: 2,
-      attestationPropagationTime: 0.5,
-      aztecTargetCommitteeSize: VALIDATOR_COUNT,
-      minTxsPerBlock: 1,
-      maxTxsPerBlock: 2,
       pxeOpts: { syncChainTip: 'proposed' },
-      enableProposerPipelining: true,
-      inboxLag: 2,
     });
 
     ({ context, logger, rollup } = test);

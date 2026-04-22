@@ -54,7 +54,7 @@ describe('FeeAssetPriceOracle E2E', () => {
     await ethCheatCodes.mine(10);
     await ethCheatCodes.mineEmptyBlock();
 
-    const context = await setup(0, { l1ChainId: chain.id, minTxsPerBlock: 0 }, {}, chain);
+    const context = await setup(0, { L1_CHAIN_ID: String(chain.id), SEQ_MIN_TX_PER_BLOCK: '0' }, {}, {}, chain);
     teardown = context.teardown;
 
     const l1Client = context.deployL1ContractsValues.l1Client;

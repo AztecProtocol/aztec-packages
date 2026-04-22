@@ -1,6 +1,6 @@
 import { SchnorrAccountContractArtifact } from '@aztec/accounts/schnorr';
 import { type InitialAccountData, generateSchnorrAccounts } from '@aztec/accounts/testing';
-import { type AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
+import { type AztecNodeConfig, AztecNodeService, aztecNodeConfigMappings } from '@aztec/aztec-node';
 import { NO_FROM } from '@aztec/aztec.js/account';
 import { AztecAddress, EthAddress } from '@aztec/aztec.js/addresses';
 import {
@@ -21,7 +21,7 @@ import { AnvilTestWatcher, type AnvilTestWatcherOpts, CheatCodes } from '@aztec/
 import { SPONSORED_FPC_SALT } from '@aztec/constants';
 import { isAnvilTestChain } from '@aztec/ethereum/chain';
 import { createExtendedL1Client } from '@aztec/ethereum/client';
-import { getL1ContractsConfigEnvVars } from '@aztec/ethereum/config';
+import { l1ContractsConfigMappings } from '@aztec/ethereum/config';
 import { NULL_KEY } from '@aztec/ethereum/constants';
 import { deployMulticall3 } from '@aztec/ethereum/contracts';
 import {
@@ -35,7 +35,7 @@ import type { Delayer } from '@aztec/ethereum/l1-tx-utils';
 import { EthCheatCodes, EthCheatCodesWithState, startAnvil } from '@aztec/ethereum/test';
 import type { Anvil } from '@aztec/ethereum/test';
 import { BlockNumber, EpochNumber } from '@aztec/foundation/branded-types';
-import { SecretValue } from '@aztec/foundation/config';
+import { type EnvVar, SecretValue, getConfigFromMappings } from '@aztec/foundation/config';
 import { randomBytes } from '@aztec/foundation/crypto/random';
 import { tryRmDir } from '@aztec/foundation/fs';
 import { withLoggerBindings } from '@aztec/foundation/log/server';
@@ -151,7 +151,12 @@ export async function setupPXEAndGetWallet(
   };
 }
 
-/** Options for the e2e tests setup */
+/**
+ * Orchestration options for the e2e setup function.
+ *
+ * AztecNodeConfig-derived knobs are not here — pass those via the typed env-var argument to {@link setup}
+ * so they flow through the real config parser (see `aztecNodeConfigMappings`).
+ */
 export type SetupOptions = {
   /** State load */
   stateLoad?: string;
@@ -212,7 +217,84 @@ export type SetupOptions = {
   /** Whether the initial node should be a lightweight RPC-only node (no sequencer, no validator).
    *  Use for tests that create their own validator nodes and don't need the initial sequencer. */
   skipInitialSequencer?: boolean;
-} & Partial<AztecNodeConfig>;
+};
+
+/**
+ * Typed env-var bag passed to {@link setup}. Keys are constrained to the global {@link EnvVar} union,
+ * values are raw strings as they would appear in `process.env`. The setup function runs the real
+ * config parser against this map, so every knob exercises the same code path that production uses.
+ */
+export type AztecNodeEnvVars = Partial<Record<EnvVar, string>>;
+
+/**
+ * Convert a partial typed AztecNodeConfig into an env-var bag, by looking up each field's env var
+ * name in `aztecNodeConfigMappings`. Values are stringified with a best-effort serializer that
+ * handles numbers, booleans, arrays (CSV), strings, and known branded types (EthAddress,
+ * SecretValue). This is the escape hatch for test harnesses that still assemble typed config
+ * objects internally (e.g. P2P test fixtures constructing validator configs) — callers who can
+ * should pass env vars directly to {@link setup}.
+ *
+ * Throws if a field in `config` has no corresponding env var or can't be round-tripped safely.
+ */
+export function aztecNodeConfigToEnvVars(config: Partial<AztecNodeConfig>): AztecNodeEnvVars {
+  const env: AztecNodeEnvVars = {};
+  for (const [key, value] of Object.entries(config)) {
+    if (value === undefined) {
+      continue;
+    }
+    const mapping = (aztecNodeConfigMappings as Record<string, { env?: string } | undefined>)[key];
+    if (!mapping?.env) {
+      continue;
+    } // no env var backing — skip silently (test-only escape hatch)
+    env[mapping.env as EnvVar] = stringifyConfigValue(value);
+  }
+  return env;
+}
+
+function stringifyConfigValue(v: unknown): string {
+  if (typeof v === 'string') {
+    return v;
+  }
+  if (typeof v === 'number' || typeof v === 'bigint' || typeof v === 'boolean') {
+    return String(v);
+  }
+  if (v instanceof SecretValue) {
+    const inner = v.getValue();
+    return Array.isArray(inner) ? inner.map(x => String(x)).join(',') : String(inner);
+  }
+  if (Array.isArray(v)) {
+    return v
+      .map(item => {
+        if (item instanceof SecretValue) {
+          return String(item.getValue());
+        }
+        if (item && typeof item === 'object' && 'toString' in item) {
+          return (item as any).toString();
+        }
+        return String(item);
+      })
+      .join(',');
+  }
+  if (v && typeof v === 'object' && 'toString' in v) {
+    return (v as any).toString();
+  }
+  return String(v);
+}
+
+/**
+ * Defaults that e2e tests rely on regardless of the shell's env. Callers can still override any of
+ * these by passing the same key in the `env` arg to {@link setup}.
+ */
+const TEST_DEFAULT_ENV: AztecNodeEnvVars = {
+  P2P_PEER_CHECK_INTERVAL_MS: String(TEST_PEER_CHECK_INTERVAL_MS),
+  P2P_MAX_PENDING_TX_COUNT: String(TEST_MAX_PENDING_TX_POOL_COUNT),
+  P2P_LISTEN_ADDR: '127.0.0.1',
+  P2P_MIN_TX_POOL_AGE_MS: '0',
+  AZTEC_TARGET_COMMITTEE_SIZE: '0',
+  AZTEC_SLASHER_ENABLED: 'false',
+  PROVER_REAL_PROOFS: 'false',
+  SEQ_ENFORCE_TIME_TABLE: 'false',
+};
 
 /** Context for an end-to-end test as returned by the `setup` function */
 export type EndToEndContext = {
@@ -273,35 +355,34 @@ export type EndToEndContext = {
 /**
  * Sets up the environment for the end-to-end tests.
  * @param numberOfAccounts - The number of new accounts to be created once the PXE is initiated.
- * @param opts - Options to pass to the node initialization and to the setup script.
+ * @param env - Typed env vars used to drive AztecNodeConfig parsing. Overlays on process.env + test defaults.
+ * @param opts - Orchestration options (anvil, wallet, initial accounts, telemetry…).
  * @param pxeOpts - Options to pass to the PXE initialization.
  */
 export async function setup(
   numberOfAccounts = 1,
+  env: AztecNodeEnvVars = {},
   opts: SetupOptions = {},
   pxeOpts: Partial<PXEConfig> = {},
   chain: Chain = foundry,
 ): Promise<EndToEndContext> {
   let anvil: Anvil | undefined;
   try {
-    opts.aztecTargetCommitteeSize ??= 0;
-    opts.slasherEnabled ??= false;
+    // Build the env source the node config parser will read from. Caller env beats test defaults,
+    // which beat the ambient process.env. This routes every knob through `aztecNodeConfigMappings`
+    // so e2e tests exercise the same parser production does.
+    const resolvedEnv: AztecNodeEnvVars = { ...process.env, ...TEST_DEFAULT_ENV, ...env };
+    const config: AztecNodeConfig = getConfigFromMappings(aztecNodeConfigMappings, resolvedEnv);
 
-    const config: AztecNodeConfig & SetupOptions = { ...getConfigEnvVars(), ...opts };
-    // use initialValidators for the node config
-    config.validatorPrivateKeys = new SecretValue(opts.initialValidators?.map(v => v.privateKey) ?? []);
+    // Derive validator keys from the initialValidators orchestration opt. If the caller set
+    // VALIDATOR_PRIVATE_KEYS in env too, they'd be overwritten — that's intentional: initialValidators
+    // is the canonical way for tests to configure the validator set.
+    if (opts.initialValidators?.length) {
+      config.validatorPrivateKeys = new SecretValue(opts.initialValidators.map(v => v.privateKey));
+    }
 
-    config.peerCheckIntervalMS = TEST_PEER_CHECK_INTERVAL_MS;
-    config.maxPendingTxCount = opts.maxPendingTxCount ?? TEST_MAX_PENDING_TX_POOL_COUNT;
-    // For tests we only want proving enabled if specifically requested
-    config.realProofs = !!opts.realProofs;
-    // Only enforce the time table if requested
-    config.enforceTimeTable = !!opts.enforceTimeTable;
-    // Enable the tx delayer for tests (default config has it disabled, so we force-enable it here)
+    // enableDelayer has no env var (it is a test-only escape hatch in l1_tx_utils config).
     config.enableDelayer = true;
-    config.listenAddress = '127.0.0.1';
-
-    config.minTxPoolAgeMs = opts.minTxPoolAgeMs ?? 0;
 
     const logger = getLogger();
 
@@ -318,8 +399,14 @@ export async function setup(
       if (!isAnvilTestChain(chain.id)) {
         throw new Error(`No ETHEREUM_HOSTS set but non anvil chain requested`);
       }
+      // Only pass --block-time when the caller explicitly set ETHEREUM_SLOT_DURATION. Without it,
+      // anvil runs in automine mode, which `AnvilTestWatcher` requires to fast-forward through
+      // idle slots. Using `config.ethereumSlotDuration` here would always supply the parsed default
+      // (72s) and force interval mining, leaving the watcher dormant and blowing test hook budgets.
+      const explicitSlotDuration = env.ETHEREUM_SLOT_DURATION;
+      const l1BlockTime = explicitSlotDuration !== undefined ? Number(explicitSlotDuration) : undefined;
       const res = await startAnvil({
-        l1BlockTime: opts.ethereumSlotDuration,
+        l1BlockTime,
         accounts: opts.anvilAccounts,
         port: opts.anvilPort ?? (process.env.ANVIL_PORT ? parseInt(process.env.ANVIL_PORT) : undefined),
         slotsInAnEpoch: opts.anvilSlotsInAnEpoch,
@@ -412,8 +499,7 @@ export async function setup(
       publisherPrivKeyHex!,
       chain.id,
       {
-        ...getL1ContractsConfigEnvVars(),
-        ...opts,
+        ...getConfigFromMappings(l1ContractsConfigMappings, resolvedEnv),
         ...opts.l1ContractsArgs,
         vkTreeRoot: getVKTreeRoot(),
         protocolContractsHash,
@@ -499,7 +585,7 @@ export async function setup(
     config.minTxsPerBlock = shouldDeployAccounts ? 1 : needsEmptyBlock ? 0 : originalMinTxsPerBlock;
 
     config.p2pEnabled = opts.mockGossipSubNetwork || config.p2pEnabled;
-    config.p2pIp = opts.p2pIp ?? config.p2pIp ?? '127.0.0.1';
+    config.p2pIp = config.p2pIp ?? '127.0.0.1';
 
     if (!config.disableValidator) {
       if ((config.validatorPrivateKeys?.getValue().length ?? 0) === 0) {
@@ -543,7 +629,7 @@ export async function setup(
         proverNodePrivateKeyHex,
         config,
         {
-          ...config.proverNodeConfig,
+          ...opts.proverNodeConfig,
           dataDirectory: proverNodeDataDirectory,
         },
         { dateProvider, p2pClientDeps, telemetry: telemetryClient },
@@ -567,10 +653,7 @@ export async function setup(
 
     const cheatCodes = await CheatCodes.create(config.l1RpcUrls, aztecNodeService, dateProvider);
 
-    if (
-      (opts.aztecTargetCommitteeSize && opts.aztecTargetCommitteeSize > 0) ||
-      (opts.initialValidators && opts.initialValidators.length > 0)
-    ) {
+    if (config.aztecTargetCommitteeSize > 0 || (opts.initialValidators && opts.initialValidators.length > 0)) {
       // We need to advance such that the committee is set up.
       await cheatCodes.rollup.advanceToEpoch(
         EpochNumber.fromBigInt(

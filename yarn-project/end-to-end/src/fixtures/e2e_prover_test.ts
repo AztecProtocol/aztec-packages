@@ -126,13 +126,16 @@ export class FullProverTest {
 
   async setup() {
     this.logger.info('Setting up subsystems from fresh');
-    this.context = await setup(0, {
-      startProverNode: true,
-      coinbase: this.coinbase,
-      fundSponsoredFPC: true,
-      skipAccountDeployment: true,
-      l1ContractsArgs: { realVerifier: this.realProofs },
-    });
+    this.context = await setup(
+      0,
+      { COINBASE: String(this.coinbase) },
+      {
+        startProverNode: true,
+        fundSponsoredFPC: true,
+        skipAccountDeployment: true,
+        l1ContractsArgs: { realVerifier: this.realProofs },
+      },
+    );
 
     await this.applyBaseSetup();
     await this.applyMint();

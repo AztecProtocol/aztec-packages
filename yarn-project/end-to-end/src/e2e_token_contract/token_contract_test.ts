@@ -116,11 +116,11 @@ export class TokenContractTest {
   }
 
   async setup() {
-    this.context = await setup(0, {
-      metricsPort: this.metricsPort,
-      fundSponsoredFPC: true,
-      skipAccountDeployment: true,
-    });
+    this.context = await setup(
+      0,
+      {},
+      { metricsPort: this.metricsPort, fundSponsoredFPC: true, skipAccountDeployment: true },
+    );
 
     if (this.shouldApplyBaseSetup) {
       await this.applyBaseSetup();

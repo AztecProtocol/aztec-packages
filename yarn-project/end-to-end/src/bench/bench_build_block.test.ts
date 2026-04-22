@@ -12,8 +12,7 @@ describe('benchmarks/build_block', () => {
 
   beforeEach(async () => {
     ({ context, contract, sequencer } = await benchmarkSetup({
-      maxTxsPerBlock: 1024,
-      enforceTimeTable: false, // Let the sequencer take as much time as it needs
+      env: { SEQ_MAX_TX_PER_BLOCK: '1024', SEQ_ENFORCE_TIME_TABLE: 'false' },
       metrics: [
         Metrics.SEQUENCER_BLOCK_BUILD_DURATION,
         {

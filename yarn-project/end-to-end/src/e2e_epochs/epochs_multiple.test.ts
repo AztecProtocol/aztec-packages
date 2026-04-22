@@ -16,7 +16,7 @@ describe('e2e_epochs/epochs_multiple', () => {
   let test: EpochsTestContext;
 
   beforeEach(async () => {
-    test = await EpochsTestContext.setup({ enableProposerPipelining: true });
+    test = await EpochsTestContext.setup({ env: { SEQ_ENABLE_PROPOSER_PIPELINING: 'true' } });
     ({ rollup, logger } = test);
   });
 

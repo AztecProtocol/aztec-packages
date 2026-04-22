@@ -62,12 +62,14 @@ describe('e2e_p2p_network', () => {
       metricsPort: shouldCollectMetrics(),
       startProverNode: false, // we'll start our own using p2p
       initialConfig: {
+        env: {
+          AZTEC_SLOT_DURATION: String(AZTEC_SLOT_DURATION),
+          AZTEC_EPOCH_DURATION: String(AZTEC_EPOCH_DURATION),
+          AZTEC_SLASHING_ROUND_SIZE_IN_EPOCHS: '2',
+          AZTEC_SLASHING_QUORUM: '5',
+          P2P_LISTEN_ADDR: '127.0.0.1',
+        },
         ...SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES,
-        aztecSlotDuration: AZTEC_SLOT_DURATION,
-        aztecEpochDuration: AZTEC_EPOCH_DURATION,
-        slashingRoundSizeInEpochs: 2,
-        slashingQuorum: 5,
-        listenAddress: '127.0.0.1',
       },
     });
 
@@ -211,7 +213,9 @@ describe('e2e_p2p_network', () => {
         return provenBlock > 0;
       },
       'proven block',
-      SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES.aztecProofSubmissionEpochs * AZTEC_EPOCH_DURATION * AZTEC_SLOT_DURATION,
+      Number(SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES.AZTEC_PROOF_SUBMISSION_EPOCHS) *
+        AZTEC_EPOCH_DURATION *
+        AZTEC_SLOT_DURATION,
     );
   });
 });

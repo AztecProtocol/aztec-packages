@@ -65,20 +65,25 @@ describe('e2e_gov_proposal', () => {
     });
 
     let accounts: AztecAddress[] = [];
-    const context = await setup(1, {
-      anvilAccounts: 100,
-      aztecTargetCommitteeSize: COMMITTEE_SIZE,
-      initialValidators: validators.map(v => ({ ...v, bn254SecretKey: new SecretValue(Fr.random().toBigInt()) })),
-      validatorPrivateKeys: new SecretValue(validators.map(v => v.privateKey)), // sequencer runs with all validator keys
-      governanceProposerRoundSize: ROUND_SIZE,
-      governanceProposerQuorum: QUORUM_SIZE,
-      ethereumSlotDuration: ETHEREUM_SLOT_DURATION,
-      aztecSlotDuration: AZTEC_SLOT_DURATION,
-      aztecProofSubmissionEpochs: 128, // no pruning
-      minTxsPerBlock: TXS_PER_BLOCK,
-      enforceTimeTable: true,
-      automineL1Setup: true, // speed up setup
-    });
+    const context = await setup(
+      1,
+      {
+        AZTEC_TARGET_COMMITTEE_SIZE: String(COMMITTEE_SIZE),
+        VALIDATOR_PRIVATE_KEYS: validators.map(v => v.privateKey).join(','),
+        AZTEC_GOVERNANCE_PROPOSER_ROUND_SIZE: String(ROUND_SIZE),
+        AZTEC_GOVERNANCE_PROPOSER_QUORUM: String(QUORUM_SIZE),
+        ETHEREUM_SLOT_DURATION: String(ETHEREUM_SLOT_DURATION),
+        AZTEC_SLOT_DURATION: String(AZTEC_SLOT_DURATION),
+        AZTEC_PROOF_SUBMISSION_EPOCHS: '128',
+        SEQ_MIN_TX_PER_BLOCK: String(TXS_PER_BLOCK),
+        SEQ_ENFORCE_TIME_TABLE: 'true',
+      },
+      {
+        anvilAccounts: 100,
+        initialValidators: validators.map(v => ({ ...v, bn254SecretKey: new SecretValue(Fr.random().toBigInt()) })),
+        automineL1Setup: true,
+      },
+    );
 
     ({
       teardown,

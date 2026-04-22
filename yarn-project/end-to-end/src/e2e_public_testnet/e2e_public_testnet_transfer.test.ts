@@ -29,6 +29,7 @@ describe(`deploys and transfers a private only token`, () => {
     let accounts: AztecAddress[];
     ({ logger, teardown, wallet, accounts } = await setup(
       2, // Deploy 2 accounts.
+      {},
       {
         numberOfInitialFundedAccounts: 2, // Fund 2 accounts.
         stateLoad: undefined,

@@ -42,10 +42,10 @@ describe('e2e_pruned_blocks', () => {
       wallet,
       accounts: [admin, sender, recipient],
     } = await setup(3, {
-      worldStateCheckpointHistory: WORLD_STATE_CHECKPOINT_HISTORY,
-      worldStateBlockCheckIntervalMS: WORLD_STATE_CHECK_INTERVAL_MS,
-      archiverPollingIntervalMS: ARCHIVER_POLLING_INTERVAL_MS,
-      aztecProofSubmissionEpochs: 1024, // effectively do not reorg
+      WS_NUM_HISTORIC_CHECKPOINTS: String(WORLD_STATE_CHECKPOINT_HISTORY),
+      WS_BLOCK_CHECK_INTERVAL_MS: String(WORLD_STATE_CHECK_INTERVAL_MS),
+      ARCHIVER_POLLING_INTERVAL_MS: String(ARCHIVER_POLLING_INTERVAL_MS),
+      AZTEC_PROOF_SUBMISSION_EPOCHS: '1024',
     }));
 
     ({ contract: token } = await TokenContract.deploy(wallet, admin, 'TEST', '$TST', 18).send({ from: admin }));

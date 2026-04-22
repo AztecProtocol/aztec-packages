@@ -88,14 +88,16 @@ describe('e2e_publisher_funding_multi', () => {
       logger,
       sequencer: sequencerClient,
       ethCheatCodes,
-    } = await setup(0, {
-      initialValidators,
-      keyStoreDirectory,
-      publisherFundingThreshold: FUNDING_THRESHOLD,
-      publisherFundingAmount: FUNDING_AMOUNT,
-      minTxsPerBlock: 0,
-      l1PublisherKey: new SecretValue(toPrivateKeyHex(DEPLOYER_KEY_INDEX)),
-    }));
+    } = await setup(
+      0,
+      {
+        KEY_STORE_DIRECTORY: String(keyStoreDirectory),
+        PUBLISHER_FUNDING_THRESHOLD: String(FUNDING_THRESHOLD),
+        PUBLISHER_FUNDING_AMOUNT: String(FUNDING_AMOUNT),
+        SEQ_MIN_TX_PER_BLOCK: '0',
+      },
+      { initialValidators, l1PublisherKey: new SecretValue(toPrivateKeyHex(DEPLOYER_KEY_INDEX)) },
+    ));
 
     publisherManager = (sequencerClient! as TestSequencerClient).publisherManager;
   });

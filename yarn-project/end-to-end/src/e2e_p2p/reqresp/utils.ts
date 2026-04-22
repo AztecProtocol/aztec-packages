@@ -38,17 +38,19 @@ export async function createReqrespTest(options: ReqrespOptions = {}): Promise<P
     // To collect metrics - run in aztec-packages `docker compose --profile metrics up`
     metricsPort: shouldCollectMetrics(),
     initialConfig: {
-      ethereumSlotDuration: 8,
-      aztecSlotDuration: 36,
-      blockDurationMs: 6000,
-      l1PublishingTime: 8,
-      minTxsPerBlock: 1,
-      maxTxsPerBlock: 2,
-      enforceTimeTable: true,
-      aztecProofSubmissionEpochs: 1024, // effectively do not reorg
+      env: {
+        ETHEREUM_SLOT_DURATION: '8',
+        AZTEC_SLOT_DURATION: '36',
+        SEQ_BLOCK_DURATION_MS: '6000',
+        SEQ_L1_PUBLISHING_TIME_ALLOWANCE_IN_SLOT: '8',
+        SEQ_MIN_TX_PER_BLOCK: '1',
+        SEQ_MAX_TX_PER_BLOCK: '2',
+        SEQ_ENFORCE_TIME_TABLE: 'true',
+        AZTEC_PROOF_SUBMISSION_EPOCHS: '1024',
+        P2P_LISTEN_ADDR: '127.0.0.1',
+        AZTEC_EPOCH_DURATION: '64',
+      },
       ...(disableStatusHandshake ? { p2pDisableStatusHandshake: true } : {}),
-      listenAddress: '127.0.0.1',
-      aztecEpochDuration: 64, // stable committee
     },
   });
   await t.setup();

@@ -10,11 +10,11 @@ describe('e2e_slasher_config', () => {
   let teardown: EndToEndContext['teardown'];
 
   beforeAll(async () => {
-    ({ aztecNodeAdmin, aztecNode, teardown } = await setup(0, {
-      anvilSlotsInAnEpoch: 4,
-      slashInactivityTargetPercentage: 1,
-      slashInactivityPenalty: 42n,
-    }));
+    ({ aztecNodeAdmin, aztecNode, teardown } = await setup(
+      0,
+      { SLASH_INACTIVITY_TARGET_PERCENTAGE: '1', SLASH_INACTIVITY_PENALTY: String(42n) },
+      { anvilSlotsInAnEpoch: 4 },
+    ));
 
     if (!aztecNodeAdmin) {
       throw new Error('Aztec node admin API must be available for this test');

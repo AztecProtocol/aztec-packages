@@ -60,7 +60,7 @@ const itShouldBehaveLikeAnAccountContract = (
         address,
       };
 
-      ({ logger, teardown, aztecNode } = await setup(0, { initialFundedAccounts: [accountData] }));
+      ({ logger, teardown, aztecNode } = await setup(0, {}, { initialFundedAccounts: [accountData] }));
       wallet = await TestWalletInternals.create(aztecNode);
 
       const accountManager = await wallet.createAccount({ secret, contract, salt });

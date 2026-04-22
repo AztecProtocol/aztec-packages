@@ -11,19 +11,22 @@ import type { BenchmarkDataPoint, BenchmarkMetricsType, BenchmarkTelemetryClient
 import { mkdirSync, writeFileSync } from 'fs';
 import path from 'path';
 
-import { type EndToEndContext, type SetupOptions, setup } from '../fixtures/utils.js';
+import { type AztecNodeEnvVars, type EndToEndContext, type SetupOptions, setup } from '../fixtures/utils.js';
 
 /**
  * Setup for benchmarks. Initializes a remote node with a single account and deploys a benchmark contract.
  */
 export async function benchmarkSetup(
   opts: Partial<SetupOptions> & {
+    /** Env vars to drive AztecNodeConfig parsing (e.g. SEQ_MAX_TX_PER_BLOCK). */
+    env?: AztecNodeEnvVars;
     /** What metrics to export */ metrics: (MetricDefinition | MetricFilter)[];
     /** Where to output the benchmark data (defaults to BENCH_OUTPUT or bench.json) */
     benchOutput?: string;
   },
 ) {
-  const context = await setup(1, { ...opts, telemetryConfig: { benchmark: true } });
+  const { env, ...behavioral } = opts;
+  const context = await setup(1, env ?? {}, { ...behavioral, telemetryConfig: { benchmark: true } });
   const defaultAccountAddress = context.accounts[0];
   const { contract } = await BenchmarkingContract.deploy(context.wallet).send({ from: defaultAccountAddress });
   context.logger.info(`Deployed benchmarking contract at ${contract.address}`);

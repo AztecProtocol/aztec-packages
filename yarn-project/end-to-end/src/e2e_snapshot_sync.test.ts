@@ -31,14 +31,17 @@ describe('e2e_snapshot_sync', () => {
   let cleanupDirs: string[];
 
   beforeAll(async () => {
-    context = await setup(0, {
-      minTxsPerBlock: 0,
-      ethereumSlotDuration: L1_BLOCK_TIME_IN_S,
-      aztecSlotDuration: L1_BLOCK_TIME_IN_S * 2,
-      aztecEpochDuration: 64,
-      startProverNode: false,
-      realProofs: false,
-    });
+    context = await setup(
+      0,
+      {
+        SEQ_MIN_TX_PER_BLOCK: '0',
+        ETHEREUM_SLOT_DURATION: String(L1_BLOCK_TIME_IN_S),
+        AZTEC_SLOT_DURATION: String(L1_BLOCK_TIME_IN_S * 2),
+        AZTEC_EPOCH_DURATION: '64',
+        PROVER_REAL_PROOFS: 'false',
+      },
+      { startProverNode: false },
+    );
 
     log = context.logger;
     snapshotDir = await mkdtemp(join(tmpdir(), 'snapshots-'));

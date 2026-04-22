@@ -154,6 +154,7 @@ export const slasherConfigMappings: ConfigMappingsType<SlasherConfig> = {
     ...numberConfigHelper(DefaultSlasherConfig.slashExecuteRoundsLookBack),
   },
   slashSelfAllowed: {
+    env: 'SLASH_SELF_ALLOWED',
     description: 'Whether to allow slashes to own validators',
     ...booleanConfigHelper(DefaultSlasherConfig.slashSelfAllowed),
   },

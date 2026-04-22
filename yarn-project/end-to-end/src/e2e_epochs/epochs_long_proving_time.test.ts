@@ -28,8 +28,10 @@ describe('e2e_epochs/epochs_long_proving_time', () => {
       aztecEpochDuration,
       aztecProofSubmissionEpochs: 1000, // Effectively don't re-org
       proverTestDelayMs,
-      proverNodeMaxPendingJobs: 1, // We test for only a single job at once
-      enableProposerPipelining: true,
+      env: {
+        PROVER_NODE_MAX_PENDING_JOBS: '1', // We test for only a single job at once
+        SEQ_ENABLE_PROPOSER_PIPELINING: 'true',
+      },
     });
     ({ logger, monitor, L1_BLOCK_TIME_IN_S } = test);
     logger.warn(`Initialized with prover delay set to ${proverTestDelayMs}ms (epoch is ${epochDurationInSeconds}s)`);

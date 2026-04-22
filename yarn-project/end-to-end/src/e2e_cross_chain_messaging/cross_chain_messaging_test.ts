@@ -22,6 +22,7 @@ import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 
 import { MNEMONIC } from '../fixtures/fixtures.js';
 import {
+  type AztecNodeEnvVars,
   type EndToEndContext,
   type SetupOptions,
   deployAccounts,
@@ -35,6 +36,7 @@ import type { TestWallet } from '../test-wallet/test_wallet.js';
 export class CrossChainMessagingTest {
   private requireEpochProven: boolean;
   private setupOptions: SetupOptions;
+  private setupEnv: AztecNodeEnvVars;
   private deployL1ContractsArgs: Partial<DeployAztecL1ContractsArgs>;
   logger: Logger;
   context!: EndToEndContext;
@@ -62,11 +64,13 @@ export class CrossChainMessagingTest {
 
   constructor(
     testName: string,
-    opts: SetupOptions = {},
+    opts: SetupOptions & { env?: AztecNodeEnvVars } = {},
     deployL1ContractsArgs: Partial<DeployAztecL1ContractsArgs> = {},
   ) {
     this.logger = createLogger(`e2e:e2e_cross_chain_messaging:${testName}`);
-    this.setupOptions = opts;
+    const { env, ...behavioralOpts } = opts;
+    this.setupOptions = behavioralOpts;
+    this.setupEnv = env ?? {};
     this.deployL1ContractsArgs = {
       initialValidators: [],
       ...deployL1ContractsArgs,
@@ -76,7 +80,7 @@ export class CrossChainMessagingTest {
 
   async setup() {
     this.logger.info('Setting up cross chain messaging test');
-    this.context = await setup(0, {
+    this.context = await setup(0, this.setupEnv, {
       ...this.setupOptions,
       fundSponsoredFPC: true,
       skipAccountDeployment: true,

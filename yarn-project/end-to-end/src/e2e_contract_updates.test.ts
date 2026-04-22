@@ -96,10 +96,7 @@ describe('e2e_contract_updates', () => {
       wallet,
       accounts: [defaultAccountAddress],
       cheatCodes,
-    } = await setup(1, {
-      genesisPublicData,
-      initialFundedAccounts,
-    }));
+    } = await setup(1, {}, { genesisPublicData, initialFundedAccounts }));
 
     ({ contract, instance } = await UpdatableContract.deploy(wallet, constructorArgs[0]).send({
       from: defaultAccountAddress,

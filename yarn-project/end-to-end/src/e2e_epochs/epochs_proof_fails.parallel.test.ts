@@ -40,11 +40,13 @@ describe('e2e_epochs/epochs_proof_fails', () => {
     // (via proverDelayer/sequencerDelayer with cancelTxOnTimeout: false and maxSpeedUpAttempts: 0),
     // which conflicts with pipelining's assumption that previous checkpoints land on L1 promptly.
     test = await EpochsTestContext.setup({
-      maxSpeedUpAttempts: 0, // No speed ups
-      startProverNode: false, // Avoid early proving
-      ethereumSlotDuration: 8,
-      aztecEpochDuration: 8, // Bump empoch duration so we can land at least one block in epoch 0
-      cancelTxOnTimeout: false,
+      env: {
+        L1_TX_MONITOR_MAX_ATTEMPTS: '0',
+        ETHEREUM_SLOT_DURATION: '8',
+        AZTEC_EPOCH_DURATION: '8',
+        L1_TX_MONITOR_CANCEL_TX_ON_TIMEOUT: 'false',
+      },
+      startProverNode: false,
     });
     ({ sequencerDelayer, context, l1Client, rollup, constants, logger, monitor } = test);
     ({ L1_BLOCK_TIME_IN_S, L2_SLOT_DURATION_IN_S } = test);

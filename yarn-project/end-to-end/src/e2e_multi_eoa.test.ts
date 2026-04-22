@@ -75,15 +75,18 @@ describe('e2e_multi_eoa', () => {
         accounts: [defaultAccountAddress],
         sequencer: sequencerClient,
         ethCheatCodes,
-      } = await setup(2, {
-        archiverPollingIntervalMS: 200,
-        sequencerPollingIntervalMS: 200,
-        worldStateBlockCheckIntervalMS: 200,
-        blockCheckIntervalMS: 200,
-        sequencerPublisherPrivateKeys: sequencerKeysAndAddresses.map(k => k.key),
-        l1PublisherKey: allKeysAndAddresses[0].key,
-        maxSpeedUpAttempts: 0, // Disable speed ups, so that cancellation txs never make it through
-      }));
+      } = await setup(
+        2,
+        {
+          ARCHIVER_POLLING_INTERVAL_MS: '200',
+          SEQ_POLLING_INTERVAL_MS: '200',
+          WS_BLOCK_CHECK_INTERVAL_MS: '200',
+          P2P_BLOCK_CHECK_INTERVAL_MS: '200',
+          SEQ_PUBLISHER_PRIVATE_KEYS: sequencerKeysAndAddresses.map(k => k.key.getValue()).join(','),
+          L1_TX_MONITOR_MAX_ATTEMPTS: '0',
+        },
+        { l1PublisherKey: allKeysAndAddresses[0].key },
+      ));
       sequencer = sequencerClient! as TestSequencerClient;
       publisherManager = sequencer.publisherManager;
       aztecNodeAdmin = maybeAztecNodeAdmin!;

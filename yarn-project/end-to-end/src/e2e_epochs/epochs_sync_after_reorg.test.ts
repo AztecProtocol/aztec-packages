@@ -19,7 +19,10 @@ describe('e2e_epochs/epochs_sync_after_reorg', () => {
   let test: EpochsTestContext;
 
   beforeEach(async () => {
-    test = await EpochsTestContext.setup({ startProverNode: false, enableProposerPipelining: true }); // no prover!
+    test = await EpochsTestContext.setup({
+      startProverNode: false,
+      env: { SEQ_ENABLE_PROPOSER_PIPELINING: 'true' },
+    }); // no prover!
     ({ context, logger } = test);
     ({ L2_SLOT_DURATION_IN_S } = test);
   });

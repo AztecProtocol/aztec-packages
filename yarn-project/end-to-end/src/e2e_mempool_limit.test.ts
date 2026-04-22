@@ -23,9 +23,7 @@ describe('e2e_mempool_limit', () => {
       aztecNodeAdmin,
       wallet,
       accounts: [defaultAccountAddress],
-    } = await setup(1, {
-      proverTestVerificationDelayMs: undefined,
-    }));
+    } = await setup(1, { PROVER_TEST_VERIFICATION_DELAY_MS: String(undefined) }, {}));
 
     if (!aztecNodeAdmin) {
       throw new Error('Aztec node admin API must be available for this test');

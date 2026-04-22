@@ -94,6 +94,29 @@ describe('Config', () => {
         consoleSpy.mockRestore();
       });
 
+      it('reads from explicit env source when provided, falling back to default when key absent', () => {
+        interface TestConfig {
+          minimumPriorityFeePerGas: number;
+        }
+        const configMappings: ConfigMappingsType<TestConfig> = {
+          minimumPriorityFeePerGas: {
+            env: 'L1_MINIMUM_PRIORITY_FEE_PER_GAS_GWEI',
+            description: 'fee',
+            ...numberConfigHelper(7),
+          },
+        };
+        // process.env has the key but our override does not — override wins and yields default
+        process.env.L1_MINIMUM_PRIORITY_FEE_PER_GAS_GWEI = '123';
+        const fromProcessEnv = getConfigFromMappings(configMappings);
+        expect(fromProcessEnv.minimumPriorityFeePerGas).toBe(123);
+
+        const fromExplicitEnv = getConfigFromMappings(configMappings, {});
+        expect(fromExplicitEnv.minimumPriorityFeePerGas).toBe(7);
+
+        const withOverride = getConfigFromMappings(configMappings, { L1_MINIMUM_PRIORITY_FEE_PER_GAS_GWEI: '42' });
+        expect(withOverride.minimumPriorityFeePerGas).toBe(42);
+      });
+
       it('uses default deprecation message when custom message is not provided', () => {
         const consoleSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
 

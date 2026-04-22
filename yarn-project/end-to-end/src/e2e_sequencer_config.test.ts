@@ -34,11 +34,11 @@ describe('e2e_sequencer_config', () => {
     const manaTarget = 200e6;
     beforeAll(async () => {
       const [botAccount] = await getInitialTestAccountsData();
-      ({ teardown, sequencer, aztecNode, logger } = await setup(0, {
-        maxL2BlockGas: manaTarget * 2,
-        manaTarget: BigInt(manaTarget),
-        initialFundedAccounts: [botAccount],
-      }));
+      ({ teardown, sequencer, aztecNode, logger } = await setup(
+        0,
+        { SEQ_MAX_L2_BLOCK_GAS: String(manaTarget * 2), AZTEC_MANA_TARGET: String(BigInt(manaTarget)) },
+        { initialFundedAccounts: [botAccount] },
+      ));
       config = {
         ...getBotDefaultConfig(),
         followChain: 'CHECKPOINTED',

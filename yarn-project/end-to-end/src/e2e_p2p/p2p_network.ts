@@ -34,8 +34,10 @@ import {
   SchnorrHardcodedKeyAccountContract,
 } from '../fixtures/schnorr_hardcoded_account_contract.js';
 import {
+  type AztecNodeEnvVars,
   type EndToEndContext,
   type SetupOptions,
+  aztecNodeConfigToEnvVars,
   getPrivateKeyFromIndex,
   getSponsoredFPCAddress,
   setup,
@@ -54,11 +56,14 @@ const BOOTSTRAP_NODE_PRIVATE_KEY = '080212208f988fc0899e4a73a5aee4d271a5f2067060
 const l1ContractsConfig = getL1ContractsConfigEnvVars();
 export const WAIT_FOR_TX_TIMEOUT = l1ContractsConfig.aztecSlotDuration * 3;
 
-export const SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES = {
-  aztecSlotDuration: 12,
-  ethereumSlotDuration: 4,
-  aztecProofSubmissionEpochs: 640,
+export const SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES: AztecNodeEnvVars = {
+  AZTEC_SLOT_DURATION: '12',
+  ETHEREUM_SLOT_DURATION: '4',
+  AZTEC_PROOF_SUBMISSION_EPOCHS: '640',
 };
+
+/** Shape for P2P network test config: behavioral opts plus an env bag for AztecNodeConfig. */
+export type P2PInitialConfig = SetupOptions & { env?: AztecNodeEnvVars };
 
 export class P2PNetworkTest {
   public context!: EndToEndContext;
@@ -86,6 +91,7 @@ export class P2PNetworkTest {
 
   // Store setup options for use in setup()
   private setupOptions: SetupOptions;
+  private setupEnv: AztecNodeEnvVars;
   private deployL1ContractsArgs: any;
 
   constructor(
@@ -93,7 +99,8 @@ export class P2PNetworkTest {
     public bootstrapNodeEnr: string,
     public bootNodePort: number,
     public numberOfValidators: number,
-    initialValidatorConfig: SetupOptions,
+    initialValidatorConfig: P2PInitialConfig,
+    initialValidatorNodeConfig: Partial<AztecNodeConfig>,
     public numberOfNodes = 0,
     // If set enable metrics collection
     private metricsPort?: number,
@@ -112,34 +119,45 @@ export class P2PNetworkTest {
 
     const zkPassportParams = ZkPassportProofParams.random();
 
-    // Store setup options for later use
+    // `initialValidatorNodeConfig` is a typed AztecNodeConfig constructed by createValidatorConfig
+    // (private keys, bootstrap nodes, p2p settings). Serialize it into an env bag so it flows
+    // through the real config parser instead of bypassing it.
+    const env: AztecNodeEnvVars = {
+      ETHEREUM_SLOT_DURATION: String(l1ContractsConfig.ethereumSlotDuration),
+      AZTEC_EPOCH_DURATION: String(l1ContractsConfig.aztecEpochDuration),
+      AZTEC_SLOT_DURATION: String(l1ContractsConfig.aztecSlotDuration),
+      AZTEC_PROOF_SUBMISSION_EPOCHS: String(l1ContractsConfig.aztecProofSubmissionEpochs),
+      AZTEC_SLASHING_ROUND_SIZE_IN_EPOCHS: String(l1ContractsConfig.slashingRoundSizeInEpochs),
+      AZTEC_SLASHER_ENABLED: 'true',
+      AZTEC_TARGET_COMMITTEE_SIZE: String(numberOfValidators),
+      ...aztecNodeConfigToEnvVars(initialValidatorNodeConfig),
+      ...(initialValidatorConfig.env ?? {}),
+    };
+    this.setupEnv = env;
+
+    // Strip env so spread into SetupOptions stays clean.
+    const { env: _ignored, ...initialBehavioralConfig } = initialValidatorConfig;
     this.setupOptions = {
-      ...initialValidatorConfig,
-      ethereumSlotDuration: initialValidatorConfig.ethereumSlotDuration ?? l1ContractsConfig.ethereumSlotDuration,
-      aztecEpochDuration: initialValidatorConfig.aztecEpochDuration ?? l1ContractsConfig.aztecEpochDuration,
-      aztecSlotDuration: initialValidatorConfig.aztecSlotDuration ?? l1ContractsConfig.aztecSlotDuration,
-      aztecProofSubmissionEpochs:
-        initialValidatorConfig.aztecProofSubmissionEpochs ?? l1ContractsConfig.aztecProofSubmissionEpochs,
-      slashingRoundSizeInEpochs:
-        initialValidatorConfig.slashingRoundSizeInEpochs ?? l1ContractsConfig.slashingRoundSizeInEpochs,
-      slasherEnabled: initialValidatorConfig.slasherEnabled ?? true,
-      aztecTargetCommitteeSize: numberOfValidators,
+      ...initialBehavioralConfig,
       metricsPort: metricsPort,
       numberOfInitialFundedAccounts: 2,
       startProverNode,
     };
 
+    const readNum = (k: keyof AztecNodeEnvVars, fallback: number) => (env[k] !== undefined ? Number(env[k]) : fallback);
     this.deployL1ContractsArgs = {
-      ...initialValidatorConfig,
-      aztecEpochDuration: initialValidatorConfig.aztecEpochDuration ?? l1ContractsConfig.aztecEpochDuration,
-      slashingRoundSizeInEpochs:
-        initialValidatorConfig.slashingRoundSizeInEpochs ?? l1ContractsConfig.slashingRoundSizeInEpochs,
-      slasherEnabled: initialValidatorConfig.slasherEnabled ?? true,
-
-      ethereumSlotDuration: initialValidatorConfig.ethereumSlotDuration ?? l1ContractsConfig.ethereumSlotDuration,
-      aztecSlotDuration: initialValidatorConfig.aztecSlotDuration ?? l1ContractsConfig.aztecSlotDuration,
-      aztecProofSubmissionEpochs:
-        initialValidatorConfig.aztecProofSubmissionEpochs ?? l1ContractsConfig.aztecProofSubmissionEpochs,
+      aztecEpochDuration: readNum('AZTEC_EPOCH_DURATION', l1ContractsConfig.aztecEpochDuration),
+      slashingRoundSizeInEpochs: readNum(
+        'AZTEC_SLASHING_ROUND_SIZE_IN_EPOCHS',
+        l1ContractsConfig.slashingRoundSizeInEpochs,
+      ),
+      slasherEnabled: (env.AZTEC_SLASHER_ENABLED ?? 'true') === 'true',
+      ethereumSlotDuration: readNum('ETHEREUM_SLOT_DURATION', l1ContractsConfig.ethereumSlotDuration),
+      aztecSlotDuration: readNum('AZTEC_SLOT_DURATION', l1ContractsConfig.aztecSlotDuration),
+      aztecProofSubmissionEpochs: readNum(
+        'AZTEC_PROOF_SUBMISSION_EPOCHS',
+        l1ContractsConfig.aztecProofSubmissionEpochs,
+      ),
       aztecTargetCommitteeSize: numberOfValidators,
       initialValidators: [],
       zkPassportArgs: {
@@ -163,7 +181,7 @@ export class P2PNetworkTest {
     numberOfValidators: number;
     basePort?: number;
     metricsPort?: number;
-    initialConfig?: SetupOptions;
+    initialConfig?: P2PInitialConfig;
     startProverNode?: boolean;
   }) {
     const port = basePort || (await getPort());
@@ -171,7 +189,7 @@ export class P2PNetworkTest {
     const bootstrapNodeENR = await getBootstrapNodeEnr(BOOTSTRAP_NODE_PRIVATE_KEY, port);
     const bootstrapNodeEnr = bootstrapNodeENR.encodeTxt();
 
-    const initialValidatorConfig = await createValidatorConfig(
+    const initialValidatorNodeConfig = await createValidatorConfig(
       (initialConfig ?? {}) as AztecNodeConfig,
       bootstrapNodeEnr,
     );
@@ -181,7 +199,8 @@ export class P2PNetworkTest {
       bootstrapNodeEnr,
       port,
       numberOfValidators,
-      initialValidatorConfig,
+      initialConfig ?? {},
+      initialValidatorNodeConfig,
       numberOfNodes,
       metricsPort,
       startProverNode,
@@ -374,13 +393,16 @@ export class P2PNetworkTest {
     this.context = await setup(
       0,
       {
+        ...this.setupEnv,
+        AZTEC_SLASHER_ENABLED: String(this.deployL1ContractsArgs.slasherEnabled ?? false),
+        AZTEC_TARGET_COMMITTEE_SIZE: '0',
+      },
+      {
         ...this.setupOptions,
         fundSponsoredFPC: true,
         skipAccountDeployment: true,
         skipInitialSequencer: true,
         initialFundedAccounts: [...regularAccounts, this.hardcodedAccountData],
-        slasherEnabled: this.setupOptions.slasherEnabled ?? this.deployL1ContractsArgs.slasherEnabled ?? false,
-        aztecTargetCommitteeSize: 0,
         l1ContractsArgs: this.deployL1ContractsArgs,
       },
       // Use checkpointed chain tip for PXE to avoid issues with blocks being dropped due to pruned anchor blocks.

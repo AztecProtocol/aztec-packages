@@ -25,7 +25,10 @@ describe('e2e_epochs/epochs_multi_proof', () => {
   beforeEach(async () => {
     // Don't start prover node during setup - we'll create and manage all prover nodes in the test
     // This ensures we can apply delay patches before any prover starts proving
-    test = await EpochsTestContext.setup({ startProverNode: false, enableProposerPipelining: true });
+    test = await EpochsTestContext.setup({
+      startProverNode: false,
+      env: { SEQ_ENABLE_PROPOSER_PIPELINING: 'true' },
+    });
     ({ context, rollup, constants, logger, L1_BLOCK_TIME_IN_S } = test);
   });
 

@@ -3,9 +3,11 @@
  * Tests that previously used utils.ts should continue to work.
  */
 export {
+  type AztecNodeEnvVars,
   type BalancesFn,
   type EndToEndContext,
   type SetupOptions,
+  aztecNodeConfigToEnvVars,
   createAndSyncProverNode,
   deployAccounts,
   ensureAccountContractsPublished,

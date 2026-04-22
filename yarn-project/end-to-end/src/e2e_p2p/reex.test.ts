@@ -43,10 +43,12 @@ describe('e2e_p2p_reex', () => {
       // To collect metrics - run in aztec-packages `docker compose --profile metrics up` and set COLLECT_METRICS=true
       metricsPort: shouldCollectMetrics(),
       initialConfig: {
-        enforceTimeTable: true,
-        txTimeoutMs: 30_000,
-        listenAddress: '127.0.0.1',
-        aztecProofSubmissionEpochs: 1024, // effectively do not reorg
+        env: {
+          SEQ_ENFORCE_TIME_TABLE: 'true',
+          L1_TX_MONITOR_TX_TIMEOUT_MS: '30000',
+          P2P_LISTEN_ADDR: '127.0.0.1',
+          AZTEC_PROOF_SUBMISSION_EPOCHS: '1024',
+        },
       },
     });
 

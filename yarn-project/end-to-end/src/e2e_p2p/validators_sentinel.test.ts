@@ -39,17 +39,19 @@ describe('e2e_p2p_validators_sentinel', () => {
       basePort: BOOT_NODE_UDP_PORT,
       startProverNode: true,
       initialConfig: {
+        env: {
+          AZTEC_TARGET_COMMITTEE_SIZE: String(NUM_VALIDATORS),
+          AZTEC_SLOT_DURATION: String(AZTEC_SLOT_DURATION),
+          ETHEREUM_SLOT_DURATION: String(ETHEREUM_SLOT_DURATION),
+          AZTEC_PROOF_SUBMISSION_EPOCHS: '1024',
+          P2P_LISTEN_ADDR: '127.0.0.1',
+          SEQ_MIN_TX_PER_BLOCK: '0',
+          AZTEC_EPOCH_DURATION: String(EPOCH_DURATION),
+          AZTEC_SLASHING_ROUND_SIZE_IN_EPOCHS: '2',
+          SENTINEL_ENABLED: 'true',
+          SLASH_INACTIVITY_PENALTY: String(0n),
+        },
         anvilSlotsInAnEpoch: 4,
-        aztecTargetCommitteeSize: NUM_VALIDATORS,
-        aztecSlotDuration: AZTEC_SLOT_DURATION,
-        ethereumSlotDuration: ETHEREUM_SLOT_DURATION,
-        aztecProofSubmissionEpochs: 1024, // effectively do not reorg
-        listenAddress: '127.0.0.1',
-        minTxsPerBlock: 0,
-        aztecEpochDuration: EPOCH_DURATION,
-        slashingRoundSizeInEpochs: 2,
-        sentinelEnabled: true,
-        slashInactivityPenalty: 0n, // Set to 0 to disable
       },
     });
 

@@ -45,13 +45,13 @@ describe('e2e_debug_trace_transaction', () => {
       sequencer: sequencerClient,
       config,
     } = await setup(2, {
-      archiverPollingIntervalMS: 200,
-      sequencerPollingIntervalMS: 200,
-      worldStateBlockCheckIntervalMS: 200,
-      blockCheckIntervalMS: 200,
-      maxSpeedUpAttempts: 0, // Disable speed ups, so that cancellation txs never make it through
-      minTxsPerBlock: 0,
-      coinbase: coinbase,
+      ARCHIVER_POLLING_INTERVAL_MS: '200',
+      SEQ_POLLING_INTERVAL_MS: '200',
+      WS_BLOCK_CHECK_INTERVAL_MS: '200',
+      P2P_BLOCK_CHECK_INTERVAL_MS: '200',
+      L1_TX_MONITOR_MAX_ATTEMPTS: '0',
+      SEQ_MIN_TX_PER_BLOCK: '0',
+      COINBASE: String(coinbase),
     }));
     sequencer = sequencerClient! as TestSequencerClient;
     publisherManager = sequencer.publisherManager;

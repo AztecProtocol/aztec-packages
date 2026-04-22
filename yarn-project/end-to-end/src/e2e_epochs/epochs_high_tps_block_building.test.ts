@@ -58,22 +58,26 @@ describe('e2e_epochs/epochs_high_tps_block_building', () => {
 
     // Setup context with the given set of validators, no reorgs, mocked gossip sub network, and no anvil test watcher.
     test = await EpochsTestContext.setup({
+      env: {
+        AZTEC_PROOF_SUBMISSION_EPOCHS: '1024',
+        SEQ_ENFORCE_TIME_TABLE: 'true',
+        ETHEREUM_SLOT_DURATION: '8',
+        SEQ_L1_PUBLISHING_TIME_ALLOWANCE_IN_SLOT: '8',
+        AZTEC_SLOT_DURATION: '24',
+        SEQ_ATTESTATION_PROPAGATION_TIME: '1',
+        SEQ_MIN_TX_PER_BLOCK: '1',
+        SEQ_MAX_TX_PER_BLOCK: '100',
+      },
       numberOfAccounts: 0,
       initialValidators: validators,
       mockGossipSubNetwork: true,
       disableAnvilTestWatcher: true,
-      aztecProofSubmissionEpochs: 1024,
       startProverNode: false,
-      enforceTimeTable: true,
-      ethereumSlotDuration: 8,
-      l1PublishingTime: 8,
-      aztecSlotDuration: 24,
-      fakeProcessingDelayPerTxMs: TX_DURATION_MS,
-      attestationPropagationTime: 1,
-      minTxsPerBlock: 1,
-      maxTxsPerBlock: 100,
       skipInitialSequencer: true,
     });
+    // fakeProcessingDelayPerTxMs has no env-var binding (it's a test-only escape hatch), so apply it
+    // after parsing via the admin API.
+    await test.context.aztecNodeAdmin.setConfig({ fakeProcessingDelayPerTxMs: TX_DURATION_MS });
 
     ({ context, logger } = test);
     from = context.accounts[0]; // auto-created by setup

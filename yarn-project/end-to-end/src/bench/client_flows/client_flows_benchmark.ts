@@ -133,13 +133,19 @@ export class ClientFlowsBenchmark {
     this.logger.info('Setting up subsystems from fresh');
     // Token allowlist entries are test-only: FPC-based fee payment with custom tokens won't work on mainnet alpha.
     const tokenAllowList = await getTokenAllowedSetupFunctions();
-    this.context = await setup(0, {
-      ...this.setupOptions,
-      fundSponsoredFPC: true,
-      skipAccountDeployment: true,
-      l1ContractsArgs: this.setupOptions,
-      txPublicSetupAllowListExtend: [...(this.setupOptions.txPublicSetupAllowListExtend ?? []), ...tokenAllowList],
-    });
+    this.context = await setup(
+      0,
+      {},
+      {
+        ...this.setupOptions,
+        fundSponsoredFPC: true,
+        skipAccountDeployment: true,
+        l1ContractsArgs: this.setupOptions,
+      },
+    );
+    // Apply the test-only allowlist extensions after parsing. See fees_test.ts for the
+    // same pattern — AllowedElement serialization into env var format is non-trivial.
+    await this.context.aztecNodeAdmin.setConfig({ txPublicSetupAllowListExtend: [...tokenAllowList] });
     await this.applyBaseSetup();
 
     await this.context.aztecNodeService.setConfig({ feeRecipient: this.sequencerAddress, coinbase: this.coinbase });

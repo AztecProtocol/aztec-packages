@@ -30,13 +30,11 @@ describe('e2e_epochs/epochs_missed_l1_slot', () => {
     // to simulate missed L1 slots, which conflicts with pipelining's assumption that previous
     // checkpoints land on L1 promptly.
     test = await EpochsTestContext.setup({
+      env: { SEQ_MIN_TX_PER_BLOCK: '0', AZTEC_PROOF_SUBMISSION_EPOCHS: '1024', SEQ_ENFORCE_TIME_TABLE: 'true' },
       numberOfAccounts: 0,
-      minTxsPerBlock: 0,
       aztecSlotDurationInL1Slots: L1_SLOTS_PER_L2_SLOT,
       startProverNode: false,
-      aztecProofSubmissionEpochs: 1024,
       disableAnvilTestWatcher: true,
-      enforceTimeTable: true,
     });
   });
 

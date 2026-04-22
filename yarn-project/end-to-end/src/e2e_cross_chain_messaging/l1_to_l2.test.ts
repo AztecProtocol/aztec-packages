@@ -28,7 +28,7 @@ describe('e2e_cross_chain_messaging l1_to_l2', () => {
   beforeEach(async () => {
     t = new CrossChainMessagingTest(
       'l1_to_l2',
-      { minTxsPerBlock: 1 },
+      { env: { SEQ_MIN_TX_PER_BLOCK: '1' } },
       { aztecProofSubmissionEpochs: 2, aztecEpochDuration: 4, inboxLag: 2 },
     );
     await t.setup();

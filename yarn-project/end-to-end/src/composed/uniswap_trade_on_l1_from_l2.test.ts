@@ -10,7 +10,7 @@ const EXPECTED_FORKED_BLOCK = 0; //17514288;
 let teardown: () => Promise<void>;
 
 const testSetup = async () => {
-  const context = await e2eSetup(2, { stateLoad: dumpedState, startProverNode: true });
+  const context = await e2eSetup(2, {}, { stateLoad: dumpedState, startProverNode: true });
 
   teardown = context.teardown;
 

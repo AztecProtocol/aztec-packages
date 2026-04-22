@@ -18,7 +18,6 @@ import { GovernanceProposerContract } from '@aztec/ethereum/contracts';
 import type { DeployAztecL1ContractsReturnType } from '@aztec/ethereum/deploy-aztec-l1-contracts';
 import { BlockNumber, CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { Buffer32 } from '@aztec/foundation/buffer';
-import { SecretValue } from '@aztec/foundation/config';
 import { withLoggerBindings } from '@aztec/foundation/log/server';
 import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
@@ -147,26 +146,24 @@ describe('HA Full Setup', () => {
       dateProvider,
       deployL1ContractsValues,
       genesis,
-    } = await setup(1, {
-      initialValidators,
-      sequencerPublisherPrivateKeys: [new SecretValue(publisherPrivateKeys[0])],
-      aztecTargetCommitteeSize: COMMITTEE_SIZE,
-      minTxsPerBlock: 1,
-      archiverPollingIntervalMS: 200,
-      sequencerPollingIntervalMS: 200,
-      worldStateBlockCheckIntervalMS: 200,
-      blockCheckIntervalMS: 200,
-      startProverNode: true,
-      // Disable validation on this node
-      disableValidator: true,
-      skipAccountDeployment: true,
-      // Enable P2P for transaction gossip
-      p2pEnabled: true,
-      // Enable slashing for testing governance + slashing vote coordination
-      slasherEnabled: true,
-      slashingRoundSizeInEpochs: 1, // 32 slots (1 epoch)
-      slashingQuorum: 17, // >50% of 32 slots for tally quorum,
-    }));
+    } = await setup(
+      1,
+      {
+        SEQ_PUBLISHER_PRIVATE_KEYS: publisherPrivateKeys[0],
+        AZTEC_TARGET_COMMITTEE_SIZE: String(COMMITTEE_SIZE),
+        SEQ_MIN_TX_PER_BLOCK: '1',
+        ARCHIVER_POLLING_INTERVAL_MS: '200',
+        SEQ_POLLING_INTERVAL_MS: '200',
+        WS_BLOCK_CHECK_INTERVAL_MS: '200',
+        P2P_BLOCK_CHECK_INTERVAL_MS: '200',
+        VALIDATOR_DISABLED: 'true',
+        P2P_ENABLED: 'true',
+        AZTEC_SLASHER_ENABLED: 'true',
+        AZTEC_SLASHING_ROUND_SIZE_IN_EPOCHS: '1',
+        AZTEC_SLASHING_QUORUM: '17',
+      },
+      { initialValidators, startProverNode: true, skipAccountDeployment: true },
+    ));
 
     if (!dateProvider) {
       throw new Error('dateProvider must be provided by setup for HA tests');

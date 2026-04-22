@@ -60,22 +60,26 @@ describe('e2e_escape_hatch_vote_only', () => {
       return { attester: address, withdrawer: address, privateKey };
     });
 
-    const context = await setup(1, {
-      anvilAccounts: 10,
-      aztecTargetCommitteeSize: COMMITTEE_SIZE,
-      initialValidators: validators.map(v => ({ ...v, bn254SecretKey: new SecretValue(Fr.random().toBigInt()) })),
-      validatorPrivateKeys: new SecretValue(validators.map(v => v.privateKey)),
-      governanceProposerRoundSize: ROUND_SIZE,
-      governanceProposerQuorum: QUORUM_SIZE,
-      ethereumSlotDuration: ETHEREUM_SLOT_DURATION,
-      aztecSlotDuration: AZTEC_SLOT_DURATION,
-      aztecEpochDuration: AZTEC_EPOCH_DURATION,
-      // Keep pruning far away for this test.
-      aztecProofSubmissionEpochs: 15, // needed so ACTIVE_DURATION=2 is a valid EscapeHatch config
-      minTxsPerBlock: 0,
-      enforceTimeTable: true,
-      automineL1Setup: true,
-    });
+    const context = await setup(
+      1,
+      {
+        AZTEC_TARGET_COMMITTEE_SIZE: String(COMMITTEE_SIZE),
+        VALIDATOR_PRIVATE_KEYS: validators.map(v => v.privateKey).join(','),
+        AZTEC_GOVERNANCE_PROPOSER_ROUND_SIZE: String(ROUND_SIZE),
+        AZTEC_GOVERNANCE_PROPOSER_QUORUM: String(QUORUM_SIZE),
+        ETHEREUM_SLOT_DURATION: String(ETHEREUM_SLOT_DURATION),
+        AZTEC_SLOT_DURATION: String(AZTEC_SLOT_DURATION),
+        AZTEC_EPOCH_DURATION: String(AZTEC_EPOCH_DURATION),
+        AZTEC_PROOF_SUBMISSION_EPOCHS: '15',
+        SEQ_MIN_TX_PER_BLOCK: '0',
+        SEQ_ENFORCE_TIME_TABLE: 'true',
+      },
+      {
+        anvilAccounts: 10,
+        initialValidators: validators.map(v => ({ ...v, bn254SecretKey: new SecretValue(Fr.random().toBigInt()) })),
+        automineL1Setup: true,
+      },
+    );
 
     ({
       teardown,

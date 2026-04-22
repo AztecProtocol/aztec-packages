@@ -55,20 +55,22 @@ describe('e2e_epochs/epochs_first_slot', () => {
 
     // Setup context with the given set of validators, no reorgs, mocked gossip sub network, and no anvil test watcher.
     test = await EpochsTestContext.setup({
+      env: {
+        AZTEC_PROOF_SUBMISSION_EPOCHS: '1024',
+        AZTEC_EPOCH_DURATION: '32',
+        AZTEC_TARGET_COMMITTEE_SIZE: String(COMMITTEE_SIZE),
+        SEQ_ENFORCE_TIME_TABLE: 'true',
+        SEQ_MIN_TX_PER_BLOCK: '1',
+        SEQ_MAX_TX_PER_BLOCK: '1',
+        SEQ_ATTESTATION_PROPAGATION_TIME: String(0.5),
+        ARCHIVER_POLLING_INTERVAL_MS: '200',
+      },
       numberOfAccounts: 0,
       initialValidators: validators,
       mockGossipSubNetwork: true,
       disableAnvilTestWatcher: true,
-      aztecProofSubmissionEpochs: 1024,
-      aztecEpochDuration: 32,
       aztecSlotDurationInL1Slots: 3,
       startProverNode: false,
-      aztecTargetCommitteeSize: COMMITTEE_SIZE,
-      enforceTimeTable: true,
-      minTxsPerBlock: 1,
-      maxTxsPerBlock: 1,
-      attestationPropagationTime: 0.5,
-      archiverPollingIntervalMS: 200,
       skipInitialSequencer: true,
     });
 

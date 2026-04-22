@@ -339,11 +339,15 @@ describe('e2e_synching', () => {
         accounts: [defaultAccountAddress],
         initialFundedAccounts,
         cheatCodes,
-      } = await setup(1, {
-        l1StartTime: START_TIME,
-        l2StartTime: START_TIME + 200 * ETHEREUM_SLOT_DURATION,
-        numberOfInitialFundedAccounts: variant.txCount + 1,
-      });
+      } = await setup(
+        1,
+        {},
+        {
+          l1StartTime: START_TIME,
+          l2StartTime: START_TIME + 200 * ETHEREUM_SLOT_DURATION,
+          numberOfInitialFundedAccounts: variant.txCount + 1,
+        },
+      );
       variant.setWallet(wallet);
 
       // Deploy a token, such that we could use it
@@ -409,10 +413,7 @@ describe('e2e_synching', () => {
       wallet,
       initialFundedAccounts,
       dateProvider,
-    } = await setup(0, {
-      l1StartTime: START_TIME,
-      numberOfInitialFundedAccounts: 10,
-    });
+    } = await setup(0, {}, { l1StartTime: START_TIME, numberOfInitialFundedAccounts: 10 });
 
     await (aztecNode as any).stop();
     await (sequencer as any).stop();

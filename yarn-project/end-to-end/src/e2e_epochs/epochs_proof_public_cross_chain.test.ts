@@ -29,11 +29,13 @@ describe('e2e_epochs/epochs_proof_public_cross_chain', () => {
 
   beforeEach(async () => {
     test = await EpochsTestContext.setup({
+      env: {
+        SEQ_MIN_TX_PER_BLOCK: '1',
+        SEQ_PUBLISHER_ALLOW_INVALID_STATES: 'true',
+        SEQ_ENABLE_PROPOSER_PIPELINING: 'true',
+      },
       numberOfAccounts: 1,
-      minTxsPerBlock: 1,
       disableAnvilTestWatcher: true,
-      sequencerPublisherAllowInvalidStates: true,
-      enableProposerPipelining: true,
     });
     ({ context, logger } = test);
   });

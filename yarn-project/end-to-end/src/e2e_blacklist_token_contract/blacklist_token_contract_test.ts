@@ -141,10 +141,7 @@ export class BlacklistTokenContractTest {
 
   async setup() {
     this.logger.info('Setting up fresh context');
-    this.context = await setup(0, {
-      fundSponsoredFPC: true,
-      skipAccountDeployment: true,
-    });
+    this.context = await setup(0, {}, { fundSponsoredFPC: true, skipAccountDeployment: true });
     await this.applyBaseSetup();
   }
 

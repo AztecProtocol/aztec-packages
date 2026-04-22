@@ -88,31 +88,25 @@ describe('e2e_epochs/epochs_mbps', () => {
     // - finalBlockDuration = 8s
     // - Total: 0.5 + 24 + 8 + 2.5 = 35s → use 36s for margin
     test = await EpochsTestContext.setup({
+      env: {
+        AZTEC_EPOCH_DURATION: '4',
+        SEQ_ENFORCE_TIME_TABLE: 'true',
+        ETHEREUM_SLOT_DURATION: '4',
+        AZTEC_SLOT_DURATION: '36',
+        SEQ_BLOCK_DURATION_MS: '8000',
+        SEQ_L1_PUBLISHING_TIME_ALLOWANCE_IN_SLOT: '2',
+        SEQ_ATTESTATION_PROPAGATION_TIME: String(0.5),
+        AZTEC_TARGET_COMMITTEE_SIZE: '3',
+        AZTEC_INBOX_LAG: '2',
+      },
       numberOfAccounts: 0,
       initialValidators: validators,
       mockGossipSubNetwork: true,
       disableAnvilTestWatcher: true,
       startProverNode: true,
-      aztecEpochDuration: 4,
-      enforceTimeTable: true,
-      // L1 slot duration - using < 8 to enable test mode optimizations
-      ethereumSlotDuration: 4,
-      // L2 slot duration - should fit 3 blocks (8s each) + overhead
-      aztecSlotDuration: 36,
-      // Block duration of 8s as specified
-      blockDurationMs: 8000,
-      // L1 publishing time
-      l1PublishingTime: 2,
-      // Reduce attestation propagation time for tests
-      attestationPropagationTime: 0.5,
-      // Committee size of 3
-      aztecTargetCommitteeSize: 3,
-      // Additional options (minTxsPerBlock, maxTxsPerBlock, etc.)
       ...setupOpts,
-      // PXE options for chain tip syncing
       pxeOpts: { syncChainTip },
       skipInitialSequencer: true,
-      inboxLag: 2,
     });
 
     ({ context, logger, rollup } = test);

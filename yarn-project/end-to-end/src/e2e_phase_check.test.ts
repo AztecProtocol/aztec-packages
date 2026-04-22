@@ -33,7 +33,7 @@ describe('Phase check', () => {
       teardown,
       wallet,
       accounts: [defaultAccountAddress],
-    } = await setup(1, { genesisPublicData: [genesisBalanceEntry] }));
+    } = await setup(1, {}, { genesisPublicData: [genesisBalanceEntry] }));
 
     ({ contract } = await TestContract.deploy(wallet).send({ from: defaultAccountAddress }));
     sponsoredFPC = await SponsoredFPCNoEndSetupContract.deploy(wallet).register({

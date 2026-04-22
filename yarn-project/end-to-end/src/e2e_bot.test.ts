@@ -36,7 +36,7 @@ describe('e2e_bot', () => {
 
   beforeAll(async () => {
     const [botAccount] = await getInitialTestAccountsData();
-    const setupResult = await setup(0, { initialFundedAccounts: [botAccount] });
+    const setupResult = await setup(0, {}, { initialFundedAccounts: [botAccount] });
     ({
       teardown,
       aztecNode,

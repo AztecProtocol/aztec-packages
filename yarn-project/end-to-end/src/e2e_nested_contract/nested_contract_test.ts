@@ -52,10 +52,7 @@ export class NestedContractTest {
 
   async setup() {
     this.logger.info('Setting up fresh subsystems');
-    this.context = await setup(0, {
-      fundSponsoredFPC: true,
-      skipAccountDeployment: true,
-    });
+    this.context = await setup(0, {}, { fundSponsoredFPC: true, skipAccountDeployment: true });
     await this.applyBaseSetup();
   }
 

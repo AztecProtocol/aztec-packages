@@ -62,12 +62,16 @@ describe('e2e_block_building', () => {
         wallet,
         accounts: [ownerAddress, minterAddress],
         sequencer: sequencerClient,
-      } = await setup(2, {
-        archiverPollingIntervalMS: 200,
-        sequencerPollingIntervalMS: 200,
-        worldStateBlockCheckIntervalMS: 200,
-        blockCheckIntervalMS: 200,
-      }));
+      } = await setup(
+        2,
+        {
+          ARCHIVER_POLLING_INTERVAL_MS: '200',
+          SEQ_POLLING_INTERVAL_MS: '200',
+          WS_BLOCK_CHECK_INTERVAL_MS: '200',
+          P2P_BLOCK_CHECK_INTERVAL_MS: '200',
+        },
+        {},
+      ));
       sequencer = sequencerClient! as TestSequencerClient;
     });
 
@@ -487,19 +491,14 @@ describe('e2e_block_building', () => {
 
     // Regression for https://github.com/AztecProtocol/aztec-packages/issues/7918
     it('publishes two empty blocks', async () => {
-      ({ teardown, wallet, logger, aztecNode } = await setup(0, {
-        minTxsPerBlock: 0,
-      }));
+      ({ teardown, wallet, logger, aztecNode } = await setup(0, { SEQ_MIN_TX_PER_BLOCK: '0' }, {}));
 
       await retryUntil(async () => (await aztecNode.getBlockNumber()) >= 3, 'wait-block', 10, 1);
     });
 
     // Regression for https://github.com/AztecProtocol/aztec-packages/issues/7537
     it('sends a tx on the first block', async () => {
-      const context = await setup(0, {
-        minTxsPerBlock: 0,
-        numberOfInitialFundedAccounts: 1,
-      });
+      const context = await setup(0, { SEQ_MIN_TX_PER_BLOCK: '0' }, { numberOfInitialFundedAccounts: 1 });
       ({ teardown, logger, aztecNode, wallet } = context);
       await sleep(1000);
 
@@ -520,9 +519,7 @@ describe('e2e_block_building', () => {
         wallet,
         aztecNodeAdmin,
         accounts: [ownerAddress],
-      } = await setup(1, {
-        minTxsPerBlock: 1,
-      }));
+      } = await setup(1, { SEQ_MIN_TX_PER_BLOCK: '1' }, {}));
 
       logger.info('Deploying token contract');
       const { contract: token } = await TokenContract.deploy(wallet, ownerAddress, 'TokenName', 'TokenSymbol', 18).send(
@@ -550,10 +547,7 @@ describe('e2e_block_building', () => {
     // which translates in an incorrect end state for world state. We can easily detect this by checking whether the nullifier
     // tree next available leaf index is a multiple of 64.
     it('clears up all nullifiers if tx processing fails', async () => {
-      const context = await setup(1, {
-        minTxsPerBlock: 1,
-        numberOfInitialFundedAccounts: 1,
-      });
+      const context = await setup(1, { SEQ_MIN_TX_PER_BLOCK: '1' }, { numberOfInitialFundedAccounts: 1 });
       ({
         teardown,
         logger,

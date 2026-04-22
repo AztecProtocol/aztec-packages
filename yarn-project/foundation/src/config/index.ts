@@ -36,6 +36,12 @@ export type ConfigMappingsType<T> = {
 };
 
 /**
+ * Env map used to drive config parsing. Defaults to `process.env`; e2e tests and worker threads
+ * pass their own map to exercise the parser without mutating process-wide state.
+ */
+export type EnvSource = Record<string, string | undefined>;
+
+/**
  * Shared utility function to get a value from environment variables with fallback support.
  * This can be used by both getConfigFromMappings and CLI utilities.
  *
@@ -43,6 +49,9 @@ export type ConfigMappingsType<T> = {
  * @param fallback - Optional array of fallback environment variable names
  * @param parseFunc - Optional function to parse the environment variable value
  * @param defaultValue - Optional default value to use if no environment variable is set
+ * @param source - Env map to read from. Defaults to process.env. Useful for injecting env vars
+ *                 from callers that want to drive config parsing without mutating process.env
+ *                 (e.g. e2e test harness, worker-thread boots).
  * @returns The parsed value from environment variables or the default value
  */
 export function getValueFromEnvWithFallback<T>(
@@ -50,18 +59,19 @@ export function getValueFromEnvWithFallback<T>(
   parseFunc: ((val: string) => T) | undefined,
   defaultValue: T | undefined,
   fallback?: EnvVar[],
+  source: EnvSource = process.env,
 ): T | undefined {
   let value: string | undefined;
 
   // Try primary env var
   if (env) {
-    value = process.env[env];
+    value = source[env];
   }
 
   // If primary not found, try fallbacks
   if (value === undefined && fallback && fallback.length > 0) {
     for (const fallbackEnv of fallback) {
-      const fallbackVal = process.env[fallbackEnv];
+      const fallbackVal = source[fallbackEnv];
       if (fallbackVal !== undefined) {
         value = fallbackVal;
         break;
@@ -78,17 +88,17 @@ export function getValueFromEnvWithFallback<T>(
   return defaultValue;
 }
 
-export function getConfigFromMappings<T>(configMappings: ConfigMappingsType<T>): T {
+export function getConfigFromMappings<T>(configMappings: ConfigMappingsType<T>, source: EnvSource = process.env): T {
   const config = {} as T;
 
   for (const key in configMappings) {
     const { env, parseEnv, defaultValue, nested, fallback, deprecatedFallback } = configMappings[key];
     if (nested) {
-      (config as any)[key] = getConfigFromMappings(nested);
+      (config as any)[key] = getConfigFromMappings(nested, source);
     } else {
       // Use the shared utility function
       try {
-        (config as any)[key] = getValueFromEnvWithFallback(env, parseEnv, defaultValue, fallback);
+        (config as any)[key] = getValueFromEnvWithFallback(env, parseEnv, defaultValue, fallback, source);
       } catch (e: any) {
         throw new Error(`Failed to parse config '${key}' (env: ${env ?? 'none'}): ${e.message}`);
       }
@@ -97,7 +107,7 @@ export function getConfigFromMappings<T>(configMappings: ConfigMappingsType<T>):
       if (deprecatedFallback?.length) {
         const userLog = createConsoleLogger('[DEPRECATED]');
         for (const { env: deprecatedEnv, message } of deprecatedFallback) {
-          if (process.env[deprecatedEnv]) {
+          if (source[deprecatedEnv]) {
             const warningMessage =
               message ?? `Environment variable ${deprecatedEnv} is deprecated. Please use ${env} instead.`;
             userLog(warningMessage, { deprecatedEnvVar: deprecatedEnv, newEnvVar: env });

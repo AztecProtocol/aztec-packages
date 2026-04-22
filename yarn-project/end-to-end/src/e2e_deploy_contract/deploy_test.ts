@@ -26,10 +26,7 @@ export class DeployTest {
 
   async setup() {
     this.logger.info('Setting up test environment');
-    this.context = await setup(0, {
-      fundSponsoredFPC: true,
-      skipAccountDeployment: true,
-    });
+    this.context = await setup(0, {}, { fundSponsoredFPC: true, skipAccountDeployment: true });
     this.aztecNode = this.context.aztecNodeService;
     this.wallet = this.context.wallet;
     this.aztecNodeAdmin = this.context.aztecNodeService;

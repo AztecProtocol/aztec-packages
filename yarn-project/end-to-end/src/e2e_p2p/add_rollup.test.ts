@@ -77,9 +77,8 @@ describe('e2e_p2p_add_rollup', () => {
       // To collect metrics - run in aztec-packages `docker compose --profile metrics up`
       metricsPort: shouldCollectMetrics(),
       initialConfig: {
+        env: { P2P_LISTEN_ADDR: '127.0.0.1', AZTEC_GOVERNANCE_PROPOSER_ROUND_SIZE: '10' },
         ...SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES,
-        listenAddress: '127.0.0.1',
-        governanceProposerRoundSize: 10,
       },
       startProverNode: false, // Start one later using p2p.
     });

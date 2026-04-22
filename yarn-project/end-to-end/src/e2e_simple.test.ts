@@ -36,18 +36,21 @@ describe('e2e_simple', () => {
         accounts: [ownerAddress],
         config,
         aztecNode,
-      } = await setup(1, {
-        archiverPollingIntervalMS: 200,
-        sequencerPollingIntervalMS: 200,
-        worldStateBlockCheckIntervalMS: 200,
-        blockCheckIntervalMS: 200,
-        minTxsPerBlock: 1,
-        aztecEpochDuration: 4,
-        aztecSlotDuration: 12,
-        ethereumSlotDuration: 4,
-        aztecTargetCommitteeSize: 0,
-        startProverNode: true,
-      }));
+      } = await setup(
+        1,
+        {
+          ARCHIVER_POLLING_INTERVAL_MS: '200',
+          SEQ_POLLING_INTERVAL_MS: '200',
+          WS_BLOCK_CHECK_INTERVAL_MS: '200',
+          P2P_BLOCK_CHECK_INTERVAL_MS: '200',
+          SEQ_MIN_TX_PER_BLOCK: '1',
+          AZTEC_EPOCH_DURATION: '4',
+          AZTEC_SLOT_DURATION: '12',
+          ETHEREUM_SLOT_DURATION: '4',
+          AZTEC_TARGET_COMMITTEE_SIZE: '0',
+        },
+        { startProverNode: true },
+      ));
     });
 
     afterAll(() => teardown());

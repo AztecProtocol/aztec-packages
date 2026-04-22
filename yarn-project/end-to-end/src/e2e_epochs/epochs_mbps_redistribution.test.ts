@@ -92,26 +92,23 @@ describe('e2e_epochs/epochs_mbps_redistribution', () => {
     // - finalBlockDuration = 8s (re-execution)
     // - Total: 0.5 + 24 + 8 + 2.5 = 35s => use 36s
     test = await EpochsTestContext.setup({
+      env: {
+        AZTEC_EPOCH_DURATION: '4',
+        SEQ_ENFORCE_TIME_TABLE: 'true',
+        ETHEREUM_SLOT_DURATION: '4',
+        AZTEC_SLOT_DURATION: '36',
+        SEQ_BLOCK_DURATION_MS: '8000',
+        SEQ_L1_PUBLISHING_TIME_ALLOWANCE_IN_SLOT: '2',
+        SEQ_ATTESTATION_PROPAGATION_TIME: String(0.5),
+        AZTEC_TARGET_COMMITTEE_SIZE: '3',
+        SEQ_MIN_TX_PER_BLOCK: '0',
+        SEQ_MAX_TX_PER_CHECKPOINT: String(TOTAL_TX_COUNT),
+      },
       numberOfAccounts: 0,
       initialValidators: validators,
       mockGossipSubNetwork: true,
       disableAnvilTestWatcher: true,
       startProverNode: true,
-      aztecEpochDuration: 4,
-      enforceTimeTable: true,
-      ethereumSlotDuration: 4,
-      aztecSlotDuration: 36,
-      blockDurationMs: 8000,
-      l1PublishingTime: 2,
-      attestationPropagationTime: 0.5,
-      aztecTargetCommitteeSize: 3,
-      // Allow empty blocks so that early sub-slots without txs still produce blocks.
-      minTxsPerBlock: 0,
-      // Tight checkpoint-level tx limit: forces redistribution to matter.
-      // With 3 blocks and multiplier 1.2: maxTxsPerBlock = ceil(TOTAL_TX_COUNT/3*1.2).
-      // The redistribution should cap early blocks, preserving budget for the last block.
-      maxTxsPerCheckpoint: TOTAL_TX_COUNT,
-      // PXE syncs on checkpointed chain tip.
       pxeOpts: { syncChainTip: 'checkpointed' },
       ...contextConfigOverride,
       skipInitialSequencer: true,

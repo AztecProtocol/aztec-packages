@@ -32,9 +32,8 @@ describe('e2e_p2p_rediscovery', () => {
       // To collect metrics - run in aztec-packages `docker compose --profile metrics up` and set COLLECT_METRICS=true
       metricsPort: shouldCollectMetrics(),
       initialConfig: {
+        env: { AZTEC_SLOT_DURATION: '24', P2P_LISTEN_ADDR: '127.0.0.1' },
         ...SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES,
-        aztecSlotDuration: 24,
-        listenAddress: '127.0.0.1',
       },
     });
     await t.setup();

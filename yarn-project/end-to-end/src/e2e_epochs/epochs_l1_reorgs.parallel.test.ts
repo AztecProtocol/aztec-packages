@@ -64,19 +64,20 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
     // (reorgs, tx cancellation) with cancelTxOnTimeout: false and maxSpeedUpAttempts: 0,
     // which conflicts with pipelining's assumption that previous checkpoints land on L1 promptly.
     test = await EpochsTestContext.setup({
+      env: {
+        L1_TX_MONITOR_MAX_ATTEMPTS: '0',
+        L1_TX_MONITOR_CANCEL_TX_ON_TIMEOUT: 'false',
+        AZTEC_EPOCH_DURATION: '4',
+        ETHEREUM_SLOT_DURATION: '4',
+        AZTEC_SLOT_DURATION: '36',
+        SEQ_BLOCK_DURATION_MS: '8000',
+        SEQ_L1_PUBLISHING_TIME_ALLOWANCE_IN_SLOT: '2',
+        SEQ_MIN_TX_PER_BLOCK: '0',
+        SEQ_MAX_TX_PER_BLOCK: '1',
+        SEQ_ENFORCE_TIME_TABLE: 'true',
+        AZTEC_PROOF_SUBMISSION_EPOCHS: '1',
+      },
       numberOfAccounts: 1,
-      maxSpeedUpAttempts: 0, // Do not speed up l1 txs, we dont want them to land
-      cancelTxOnTimeout: false,
-      aztecEpochDuration: 4,
-      ethereumSlotDuration: 4,
-      aztecSlotDuration: 36,
-      blockDurationMs: 8000,
-      l1PublishingTime: 2,
-      minTxsPerBlock: 0,
-      maxTxsPerBlock: 1,
-      enforceTimeTable: true,
-      aztecProofSubmissionEpochs: 1,
-      // Use 32 slots/epoch (matching real Ethereum mainnet)
       anvilSlotsInAnEpoch: 32,
     });
     ({ proverDelayer, sequencerDelayer, context, logger, monitor, L1_BLOCK_TIME_IN_S, L2_SLOT_DURATION_IN_S } = test);

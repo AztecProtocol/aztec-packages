@@ -68,22 +68,24 @@ describe('e2e_epochs/epochs_mbps_pipeline', () => {
     });
 
     test = await EpochsTestContext.setup({
+      env: {
+        SEQ_ENABLE_PROPOSER_PIPELINING: 'true',
+        SEQ_PER_BLOCK_ALLOCATION_MULTIPLIER: '8',
+        AZTEC_EPOCH_DURATION: '4',
+        SEQ_ENFORCE_TIME_TABLE: 'true',
+        ETHEREUM_SLOT_DURATION: '12',
+        AZTEC_SLOT_DURATION: '72',
+        SEQ_BLOCK_DURATION_MS: '5500',
+        SEQ_MAX_TX_PER_CHECKPOINT: '24',
+        AZTEC_TARGET_COMMITTEE_SIZE: '3',
+        AZTEC_INBOX_LAG: '2',
+      },
       numberOfAccounts: 0,
       initialValidators: validators,
-      enableProposerPipelining: true, // <- yehaw
       mockGossipSubNetwork: true,
-      mockGossipSubNetworkLatency: 500, // adverse network conditions
+      mockGossipSubNetworkLatency: 500,
       disableAnvilTestWatcher: true,
       startProverNode: true,
-      perBlockAllocationMultiplier: 8,
-      aztecEpochDuration: 4,
-      enforceTimeTable: true,
-      ethereumSlotDuration: 12,
-      aztecSlotDuration: 72,
-      blockDurationMs: 5500,
-      maxTxsPerCheckpoint: 24,
-      aztecTargetCommitteeSize: 3,
-      inboxLag: 2,
       ...setupOpts,
       pxeOpts: { syncChainTip },
       skipInitialSequencer: true,

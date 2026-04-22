@@ -43,10 +43,7 @@ describe('e2e_l1_with_wall_time', () => {
       wallet,
       aztecNode,
       accounts: [defaultAccountAddress],
-    } = await setup(1, {
-      initialValidators,
-      ethereumSlotDuration,
-    }));
+    } = await setup(1, { ETHEREUM_SLOT_DURATION: String(ethereumSlotDuration) }, { initialValidators }));
   });
 
   afterEach(() => teardown());

@@ -38,7 +38,7 @@ describe('e2e_multiple_accounts_1_enc_key', () => {
       }),
     );
 
-    ({ teardown, logger, wallet, accounts } = await setup(numAccounts, { initialFundedAccounts }));
+    ({ teardown, logger, wallet, accounts } = await setup(numAccounts, {}, { initialFundedAccounts }));
     logger.info('Account contracts deployed');
 
     ({ contract: token } = await deployToken(wallet, accounts[0], initialBalance, logger));

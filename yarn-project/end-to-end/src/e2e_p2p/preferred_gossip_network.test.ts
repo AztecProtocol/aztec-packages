@@ -134,13 +134,15 @@ describe('e2e_p2p_preferred_network', () => {
       basePort: BOOT_NODE_UDP_PORT,
       metricsPort: shouldCollectMetrics(),
       initialConfig: {
-        ...SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES,
-        aztecSlotDuration: 24,
-        aztecEpochDuration: 4,
-        listenAddress: '127.0.0.1',
-        p2pDisableStatusHandshake: false,
-        // Just for testing be aggressive here, don't allow any auth handshake failures
-        p2pMaxFailedAuthAttemptsAllowed: 0,
+        env: {
+          ...SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES,
+          AZTEC_SLOT_DURATION: '24',
+          AZTEC_EPOCH_DURATION: '4',
+          P2P_LISTEN_ADDR: '127.0.0.1',
+          P2P_DISABLE_STATUS_HANDSHAKE: 'false',
+          // Just for testing be aggressive here, don't allow any auth handshake failures
+          P2P_MAX_AUTH_FAILED_ATTEMPTS_ALLOWED: '0',
+        },
       },
     });
 

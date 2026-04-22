@@ -143,13 +143,17 @@ describe('e2e_node_rpc_perf', () => {
       wallet,
       accounts: [ownerAddress],
       cheatCodes: { rollup: rollupCheatCodes },
-    } = await setup(1, {
-      archiverPollingIntervalMS: 200,
-      sequencerPollingIntervalMS: 200,
-      worldStateBlockCheckIntervalMS: 200,
-      blockCheckIntervalMS: 200,
-      minTxsPerBlock: 1,
-    }));
+    } = await setup(
+      1,
+      {
+        ARCHIVER_POLLING_INTERVAL_MS: '200',
+        SEQ_POLLING_INTERVAL_MS: '200',
+        WS_BLOCK_CHECK_INTERVAL_MS: '200',
+        P2P_BLOCK_CHECK_INTERVAL_MS: '200',
+        SEQ_MIN_TX_PER_BLOCK: '1',
+      },
+      {},
+    ));
 
     logger.info('Deploying token contract...');
     ({ contract: tokenContract } = await TokenContract.deploy(wallet, ownerAddress, 'TestToken', 'TST', 18n).send({

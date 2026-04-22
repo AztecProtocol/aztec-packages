@@ -48,15 +48,17 @@ describe('e2e_epochs/epochs_simple_block_building', () => {
     // Setup context with no initial sequencer (lightweight RPC-only node).
     // The hardcoded account is funded via genesis without needing on-chain deployment.
     test = await EpochsTestContext.setup({
+      env: {
+        AZTEC_PROOF_SUBMISSION_EPOCHS: '1024',
+        SEQ_ENFORCE_TIME_TABLE: 'true',
+        AZTEC_INBOX_LAG: '2',
+      },
       numberOfAccounts: 0,
       initialValidators: validators,
       mockGossipSubNetwork: true,
       disableAnvilTestWatcher: true,
-      aztecProofSubmissionEpochs: 1024,
       startProverNode: false,
-      enforceTimeTable: true,
       skipInitialSequencer: true,
-      inboxLag: 2,
     });
 
     ({ context, logger } = test);

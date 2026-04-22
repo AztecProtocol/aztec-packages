@@ -52,7 +52,7 @@ describe('e2e_2_pxes', () => {
       accounts: [accountAAddress],
       logger,
       teardown: teardownA,
-    } = await setup(1, { numberOfInitialFundedAccounts: 3 }));
+    } = await setup(1, {}, { numberOfInitialFundedAccounts: 3 }));
 
     ({
       wallet: walletB,

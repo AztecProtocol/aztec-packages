@@ -56,21 +56,23 @@ describe('e2e_p2p_broadcasted_invalid_block_proposal_slash', () => {
       basePort: BOOT_NODE_UDP_PORT,
       metricsPort: shouldCollectMetrics(),
       initialConfig: {
+        env: {
+          P2P_LISTEN_ADDR: '127.0.0.1',
+          AZTEC_EPOCH_DURATION: String(aztecEpochDuration),
+          ETHEREUM_SLOT_DURATION: String(ETHEREUM_SLOT_DURATION),
+          AZTEC_SLOT_DURATION: String(AZTEC_SLOT_DURATION),
+          AZTEC_TARGET_COMMITTEE_SIZE: String(COMMITTEE_SIZE),
+          AZTEC_PROOF_SUBMISSION_EPOCHS: '1024',
+          SLASH_INACTIVITY_CONSECUTIVE_EPOCH_THRESHOLD: '32',
+          SEQ_MIN_TX_PER_BLOCK: '0',
+          AZTEC_SLASHING_QUORUM: String(slashingQuorum),
+          AZTEC_SLASHING_ROUND_SIZE_IN_EPOCHS: String(slashingRoundSize / aztecEpochDuration),
+          AZTEC_SLASH_AMOUNT_SMALL: String(slashingUnit),
+          AZTEC_SLASH_AMOUNT_MEDIUM: String(slashingUnit * 2n),
+          AZTEC_SLASH_AMOUNT_LARGE: String(slashingUnit * 3n),
+        },
         anvilSlotsInAnEpoch: 4,
-        listenAddress: '127.0.0.1',
-        aztecEpochDuration,
-        ethereumSlotDuration: ETHEREUM_SLOT_DURATION,
-        aztecSlotDuration: AZTEC_SLOT_DURATION,
-        aztecTargetCommitteeSize: COMMITTEE_SIZE,
-        aztecProofSubmissionEpochs: 1024, // effectively do not reorg
-        slashInactivityConsecutiveEpochThreshold: 32, // effectively do not slash for inactivity
-        minTxsPerBlock: 0, // always be building
-        mockGossipSubNetwork: true, // do not worry about p2p connectivity issues
-        slashingQuorum,
-        slashingRoundSizeInEpochs: slashingRoundSize / aztecEpochDuration,
-        slashAmountSmall: slashingUnit,
-        slashAmountMedium: slashingUnit * 2n,
-        slashAmountLarge: slashingUnit * 3n,
+        mockGossipSubNetwork: true,
       },
     });
 

@@ -41,6 +41,7 @@ import {
   SchnorrHardcodedKeyAccountContract,
 } from '../fixtures/schnorr_hardcoded_account_contract.js';
 import {
+  type AztecNodeEnvVars,
   type EndToEndContext,
   type SetupOptions,
   createAndSyncProverNode,
@@ -60,6 +61,15 @@ export type EpochsTestOpts = Partial<SetupOptions> & {
   aztecSlotDurationInL1Slots?: number;
   /** Skip creating/registering the hardcoded account during setup (for tests that handle accounts themselves). */
   skipHardcodedAccount?: boolean;
+  /** Env vars passed through to setup() for AztecNodeConfig parsing. */
+  env?: AztecNodeEnvVars;
+  /** Inline overrides for slot durations / proof submission timings (mirrored into the env map). */
+  ethereumSlotDuration?: number;
+  aztecSlotDuration?: number;
+  aztecEpochDuration?: number;
+  aztecProofSubmissionEpochs?: number;
+  l1PublishingTime?: number;
+  proverTestDelayMs?: number;
 };
 
 export type TrackedSequencerEvent = {
@@ -138,31 +148,55 @@ export class EpochsTestContext {
       hardcodedAccountData = await EpochsTestContext.getHardcodedAccountData(Fr.random(), Fr.random());
     }
 
+    // Env vars for the node config parser — these drive the "fast block times, short epochs" profile.
+    // Callers can override any of them via `opts.env`.
+    const epochsTestEnv: AztecNodeEnvVars = {
+      L1_TX_MONITOR_CHECK_INTERVAL_MS: '50',
+      ARCHIVER_POLLING_INTERVAL_MS: String(ARCHIVER_POLL_INTERVAL),
+      WS_BLOCK_CHECK_INTERVAL_MS: String(WORLD_STATE_BLOCK_CHECK_INTERVAL),
+      AZTEC_EPOCH_DURATION: String(aztecEpochDuration),
+      AZTEC_SLOT_DURATION: String(aztecSlotDuration),
+      ETHEREUM_SLOT_DURATION: String(ethereumSlotDuration),
+      AZTEC_PROOF_SUBMISSION_EPOCHS: String(aztecProofSubmissionEpochs),
+      AZTEC_TARGET_COMMITTEE_SIZE: String(opts.initialValidators?.length ?? 0),
+      SEQ_MIN_TX_PER_BLOCK: '0',
+      PROVER_REAL_PROOFS: 'false',
+      PROVER_TEST_DELAY_MS: String(opts.proverTestDelayMs ?? 0),
+      PROVER_ID: EthAddress.fromNumber(1).toString(),
+      WS_NUM_HISTORIC_CHECKPOINTS: String(WORLD_STATE_CHECKPOINT_HISTORY),
+      AZTEC_EXIT_DELAY_SECONDS: String(DefaultL1ContractsConfig.exitDelaySeconds),
+      AZTEC_SLASHER_ENABLED: 'false',
+      SEQ_L1_PUBLISHING_TIME_ALLOWANCE_IN_SLOT: String(l1PublishingTime),
+      ...opts.env,
+    };
+
+    // Strip the non-SetupOptions keys before spreading. These are handled inline above
+    // (env routes into epochsTestEnv; duration/delay fields feed into getSlotDurations).
+    const {
+      env: _env,
+      numberOfAccounts: _numberOfAccounts,
+      pxeOpts: _pxeOpts,
+      aztecSlotDurationInL1Slots: _aztecSlotDurationInL1Slots,
+      skipHardcodedAccount: _skipHardcodedAccount,
+      ethereumSlotDuration: _ethereumSlotDuration,
+      aztecSlotDuration: _aztecSlotDuration,
+      aztecEpochDuration: _aztecEpochDuration,
+      aztecProofSubmissionEpochs: _aztecProofSubmissionEpochs,
+      l1PublishingTime: _l1PublishingTime,
+      proverTestDelayMs: _proverTestDelayMs,
+      ...setupOptsRest
+    } = opts;
+
     // Set up system without any account nor protocol contracts
     // and with faster block times and shorter epochs.
     const context = await setup(
       useHardcodedAccount ? 0 : (opts.numberOfAccounts ?? 0),
+      epochsTestEnv,
       {
         automineL1Setup: true,
-        checkIntervalMs: 50,
-        archiverPollingIntervalMS: ARCHIVER_POLL_INTERVAL,
-        worldStateBlockCheckIntervalMS: WORLD_STATE_BLOCK_CHECK_INTERVAL,
-        aztecEpochDuration,
-        aztecSlotDuration,
-        ethereumSlotDuration,
-        aztecProofSubmissionEpochs,
-        aztecTargetCommitteeSize: opts.initialValidators?.length ?? 0,
-        minTxsPerBlock: 0,
-        realProofs: false,
         startProverNode: true,
-        proverTestDelayMs: opts.proverTestDelayMs ?? 0,
-        proverId: EthAddress.fromNumber(1),
-        worldStateCheckpointHistory: WORLD_STATE_CHECKPOINT_HISTORY,
-        exitDelaySeconds: DefaultL1ContractsConfig.exitDelaySeconds,
-        slasherEnabled: false,
-        l1PublishingTime,
-        ...opts,
-        ...(hardcodedAccountData ? { initialFundedAccounts: [hardcodedAccountData], numberOfAccounts: 0 } : {}),
+        ...setupOptsRest,
+        ...(hardcodedAccountData ? { initialFundedAccounts: [hardcodedAccountData] } : {}),
       },
       // Use checkpointed chain tip for PXE by default to avoid issues with blocks being dropped due to pruned anchor blocks.
       // Can be overridden via opts.pxeOpts.

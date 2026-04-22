@@ -60,7 +60,12 @@ describe('Aztec persistence', () => {
   beforeAll(async () => {
     dataDirectory = await mkdtemp(join(tmpdir(), 'aztec-node-'));
 
-    const initialContext = await setup(1, { dataDirectory, numberOfInitialFundedAccounts: 3 }, { dataDirectory });
+    const initialContext = await setup(
+      1,
+      { DATA_DIRECTORY: String(dataDirectory) },
+      { numberOfInitialFundedAccounts: 3 },
+      { dataDirectory },
+    );
     aztecNode = initialContext.aztecNode;
     deployL1ContractsValues = initialContext.deployL1ContractsValues;
     initialFundedAccounts = initialContext.initialFundedAccounts;
@@ -113,13 +118,19 @@ describe('Aztec persistence', () => {
     [
       // ie we were shutdown and now starting back up. Initial sync should be ~instant
       'when starting Node and PXE with existing databases',
-      () => setup(0, { dataDirectory, deployL1ContractsValues, initialFundedAccounts }, { dataDirectory }),
+      () =>
+        setup(
+          0,
+          { DATA_DIRECTORY: dataDirectory },
+          { deployL1ContractsValues, initialFundedAccounts },
+          { dataDirectory },
+        ),
       1000,
     ],
     [
       // ie our PXE was restarted, data kept intact and now connects to a "new" Node. Initial synch will synch from scratch
       'when starting a PXE with an existing database, connected to a Node with database synched from scratch',
-      () => setup(0, { deployL1ContractsValues, initialFundedAccounts }, { dataDirectory }),
+      () => setup(0, {}, { deployL1ContractsValues, initialFundedAccounts }, { dataDirectory }),
       10_000,
     ],
   ])('%s', (_, contextSetup, timeout) => {
@@ -207,13 +218,13 @@ describe('Aztec persistence', () => {
     [
       // ie. I'm setting up a new full node, sync from scratch and restore wallets/notes
       'when starting the Node and PXE with empty databases',
-      () => setup(0, { deployL1ContractsValues, initialFundedAccounts }, {}),
+      () => setup(0, {}, { deployL1ContractsValues, initialFundedAccounts }),
       10_000,
     ],
     [
       // ie. I'm setting up a new PXE, restore wallets/notes from a Node
       'when starting a PXE with an empty database connected to a Node with an existing database',
-      () => setup(0, { dataDirectory, deployL1ContractsValues, initialFundedAccounts }, {}),
+      () => setup(0, { DATA_DIRECTORY: dataDirectory }, { deployL1ContractsValues, initialFundedAccounts }),
       10_000,
     ],
   ])('%s', (_, contextSetup, timeout) => {
@@ -285,7 +296,7 @@ describe('Aztec persistence', () => {
     // Then shutdown the temporary components and restart the original components
     // They should sync up from where they left off and be able to see the actions performed by the temporary node & PXE.
     beforeAll(async () => {
-      const temporaryContext = await setup(0, { deployL1ContractsValues }, {});
+      const temporaryContext = await setup(0, {}, { deployL1ContractsValues });
 
       await temporaryContext.wallet.registerContract(contractInstance, TokenBlacklistContract.artifact);
 
@@ -313,7 +324,12 @@ describe('Aztec persistence', () => {
     let contract: TokenBlacklistContract;
 
     beforeEach(async () => {
-      context = await setup(0, { dataDirectory, deployL1ContractsValues }, { dataDirectory });
+      context = await setup(
+        0,
+        { DATA_DIRECTORY: String(dataDirectory) },
+        { deployL1ContractsValues },
+        { dataDirectory },
+      );
       const account = initialFundedAccounts[0];
       await context.wallet.createSchnorrAccount(account.secret, account.salt);
       contract = TokenBlacklistContract.at(contractAddress, context.wallet);

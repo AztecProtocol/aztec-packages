@@ -16,12 +16,8 @@ describe('e2e_genesis_timestamp', () => {
     // (tests do not spin up a prover, so nothing will ever be proven and the anchor stays at genesis).
     context = await setup(
       0,
-      {
-        skipAccountDeployment: true,
-        minTxsPerBlock: 1,
-        startProverNode: false,
-        anvilTestWatcherOpts: { isMarkingAsProven: false },
-      },
+      { SEQ_MIN_TX_PER_BLOCK: '1' },
+      { skipAccountDeployment: true, startProverNode: false, anvilTestWatcherOpts: { isMarkingAsProven: false } },
       { syncChainTip: 'proven' },
     );
 

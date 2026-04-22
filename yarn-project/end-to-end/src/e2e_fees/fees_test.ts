@@ -25,6 +25,7 @@ import { getContract } from 'viem';
 
 import { MNEMONIC, getPaddedMaxFeesPerGas } from '../fixtures/fixtures.js';
 import {
+  type AztecNodeEnvVars,
   type EndToEndContext,
   type SetupOptions,
   deployAccounts,
@@ -92,7 +93,10 @@ export class FeesTest {
   constructor(
     testName: string,
     private numberOfAccounts = 3,
-    private setupOptions: Partial<SetupOptions & DeployAztecL1ContractsArgs> = {},
+    private setupOptions: Partial<SetupOptions & DeployAztecL1ContractsArgs> & {
+      coinbase?: EthAddress;
+      env?: AztecNodeEnvVars;
+    } = {},
   ) {
     if (!numberOfAccounts) {
       throw new Error('There must be at least 1 initial account.');
@@ -106,14 +110,21 @@ export class FeesTest {
     this.logger.verbose('Setting up fresh context...');
     // Token allowlist entries are test-only: FPC-based fee payment with custom tokens won't work on mainnet alpha.
     const tokenAllowList = await getTokenAllowedSetupFunctions();
-    this.context = await setup(0, {
-      startProverNode: true,
-      ...this.setupOptions,
-      fundSponsoredFPC: true,
-      skipAccountDeployment: true,
-      l1ContractsArgs: { ...this.setupOptions },
-      txPublicSetupAllowListExtend: [...(this.setupOptions.txPublicSetupAllowListExtend ?? []), ...tokenAllowList],
-    });
+    const { coinbase, env, ...restOpts } = this.setupOptions;
+    this.context = await setup(
+      0,
+      { COINBASE: coinbase!.toString(), ...env },
+      {
+        startProverNode: true,
+        ...restOpts,
+        fundSponsoredFPC: true,
+        skipAccountDeployment: true,
+        l1ContractsArgs: { ...this.setupOptions },
+      },
+    );
+    // Apply the test-only allowlist extensions after parsing. The env-serialization format for
+    // AllowedElement is non-trivial; this is simpler than round-tripping through env.
+    await this.context.aztecNodeAdmin.setConfig({ txPublicSetupAllowListExtend: [...tokenAllowList] });
 
     this.rollupContract = RollupContract.getFromConfig(this.context.config);
     this.chainMonitor = new ChainMonitor(this.rollupContract, this.context.dateProvider, this.logger, 200).start();
