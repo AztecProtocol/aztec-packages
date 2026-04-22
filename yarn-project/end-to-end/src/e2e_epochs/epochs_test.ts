@@ -12,7 +12,7 @@ import { EpochCache } from '@aztec/epoch-cache';
 import { createExtendedL1Client } from '@aztec/ethereum/client';
 import { DefaultL1ContractsConfig } from '@aztec/ethereum/config';
 import { RollupContract } from '@aztec/ethereum/contracts';
-import { Delayer, createDelayer, waitUntilL1Timestamp, wrapClientWithDelayer } from '@aztec/ethereum/l1-tx-utils';
+import { createDelayer, waitUntilL1Timestamp, wrapClientWithDelayer } from '@aztec/ethereum/l1-tx-utils';
 import { ChainMonitor } from '@aztec/ethereum/test';
 import type { ExtendedViemWalletClient } from '@aztec/ethereum/types';
 import { BlockNumber, CheckpointNumber, EpochNumber } from '@aztec/foundation/branded-types';
@@ -93,10 +93,10 @@ export class EpochsTestContext {
   public logger!: Logger;
   public monitor!: ChainMonitor;
   public epochCache!: EpochCache;
-  public proverDelayer!: Delayer;
-  public sequencerDelayer!: Delayer;
 
+  /** Prover nodes spawned by this harness (inline only). Does not include setup()'s prover — reach that via `context.proverNode`. */
   public proverNodes: AztecNodeService[] = [];
+  /** Extra nodes spawned ad-hoc for multi-validator tests (inline). The initial node lives at `context.aztecNode` / `context.node`. */
   public nodes: AztecNodeService[] = [];
 
   public epochDuration!: number;
@@ -209,8 +209,11 @@ export class EpochsTestContext {
     if (hardcodedAccountData) {
       await this.registerHardcodedAccount(hardcodedAccountData);
     }
-    this.proverNodes = context.proverNode ? [context.proverNode] : [];
-    this.nodes = context.aztecNode ? [context.aztecNode as AztecNodeService] : [];
+    // Populate the inline-only arrays from the context's in-process handles. Worker-backed nodes
+    // expose nothing here; tests that iterate these arrays are always inline (multi-validator
+    // setups, bench runs, or explicit `inlineNode: true`).
+    this.proverNodes = context.proverNode?.service ? [context.proverNode.service] : [];
+    this.nodes = context.node.service ? [context.node.service] : [];
     this.logger = context.logger;
     this.l1Client = context.deployL1ContractsValues.l1Client;
     this.rollup = RollupContract.getFromConfig(context.config);
@@ -218,13 +221,6 @@ export class EpochsTestContext {
 
     // Loop that tracks L1 and L2 block numbers and logs whenever there's a new one.
     this.monitor = new ChainMonitor(this.rollup, context.dateProvider, this.logger).start();
-
-    this.proverDelayer = context.proverDelayer!;
-    this.sequencerDelayer = context.sequencerDelayer!;
-
-    if ((context.proverNode && !this.proverDelayer) || (context.sequencer && !this.sequencerDelayer)) {
-      throw new Error(`Could not find prover or sequencer delayer`);
-    }
 
     // Constants used for time calculation
     this.epochDuration = aztecEpochDuration;
@@ -498,7 +494,11 @@ export class EpochsTestContext {
 
   /** Verifies at least one checkpoint has the target number of blocks (for MBPS validation). */
   public async assertMultipleBlocksPerSlot(targetBlockCount: number) {
-    const archiver = (this.context.aztecNode as AztecNodeService).getBlockSource() as Archiver;
+    // Archiver is only reachable on an in-process node. Tests that call this helper must opt into inline mode.
+    const archiver = this.context.node.service?.getBlockSource() as Archiver | undefined;
+    if (!archiver) {
+      throw new Error('assertMultipleBlocksPerSlot requires inlineNode mode on the initial node');
+    }
     const checkpoints = await archiver.getCheckpoints(CheckpointNumber(1), 50);
 
     this.logger.warn(`Retrieved ${checkpoints.length} checkpoints from archiver`, {

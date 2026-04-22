@@ -70,7 +70,9 @@ describe('e2e_block_building', () => {
           WS_BLOCK_CHECK_INTERVAL_MS: '200',
           P2P_BLOCK_CHECK_INTERVAL_MS: '200',
         },
-        {},
+        // Pins to main thread: the test casts the sequencer to `TestSequencerClient` and reaches
+        // into concrete-class state.
+        { inlineNode: true },
       ));
       sequencer = sequencerClient! as TestSequencerClient;
     });
@@ -561,7 +563,7 @@ describe('e2e_block_building', () => {
 
       // We want the sequencer to wait until both txs have arrived (so minTxsPerBlock=2), but agree to build
       // a block with 1 tx only. We also want to simulate an AVM failure in tx processing for only one of the txs.
-      context.sequencer?.updateConfig({
+      await context.aztecNodeAdmin.setConfig({
         minTxsPerBlock: 2,
         minValidTxsPerBlock: 1,
         fakeThrowAfterProcessingTxCount: 2,

@@ -91,7 +91,7 @@ export class BlacklistTokenContractTest {
     });
 
     this.cheatCodes = this.context.cheatCodes;
-    this.aztecNode = this.context.aztecNodeService;
+    this.aztecNode = this.context.aztecNode;
     this.sequencer = this.context.sequencer!;
     this.wallet = this.context.wallet;
     this.adminAddress = deployedAccounts[0].address;
@@ -141,7 +141,12 @@ export class BlacklistTokenContractTest {
 
   async setup() {
     this.logger.info('Setting up fresh context');
-    this.context = await setup(0, {}, { fundSponsoredFPC: true, skipAccountDeployment: true });
+    this.context = await setup(
+      0,
+      {},
+      // Inline: the test uses `context.sequencer` (concrete `SequencerClient`) directly.
+      { fundSponsoredFPC: true, skipAccountDeployment: true, inlineNode: true },
+    );
     await this.applyBaseSetup();
   }
 

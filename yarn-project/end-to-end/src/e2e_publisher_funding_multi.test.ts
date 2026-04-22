@@ -96,7 +96,8 @@ describe('e2e_publisher_funding_multi', () => {
         PUBLISHER_FUNDING_AMOUNT: String(FUNDING_AMOUNT),
         SEQ_MIN_TX_PER_BLOCK: '0',
       },
-      { initialValidators, l1PublisherKey: new SecretValue(toPrivateKeyHex(DEPLOYER_KEY_INDEX)) },
+      // Inline: test reaches into `TestSequencerClient.publisherManager`.
+      { initialValidators, l1PublisherKey: new SecretValue(toPrivateKeyHex(DEPLOYER_KEY_INDEX)), inlineNode: true },
     ));
 
     publisherManager = (sequencerClient! as TestSequencerClient).publisherManager;

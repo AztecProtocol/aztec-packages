@@ -202,8 +202,8 @@ export class FeesTest {
     });
 
     this.wallet = this.context.wallet;
-    this.aztecNode = this.context.aztecNodeService;
-    this.aztecNodeAdmin = this.context.aztecNodeService;
+    this.aztecNode = this.context.aztecNode;
+    this.aztecNodeAdmin = this.context.aztecNodeAdmin;
     this.gasSettings = GasSettings.fallback({
       maxFeesPerGas: await getPaddedMaxFeesPerGas(this.aztecNode),
     });
@@ -232,8 +232,8 @@ export class FeesTest {
     this.getGasBalanceFn = getBalancesFn('⛽', this.feeJuiceContract.methods.balance_of_public, this.logger);
 
     this.feeJuiceBridgeTestHarness = await FeeJuicePortalTestingHarnessFactory.create({
-      aztecNode: this.context.aztecNodeService,
-      aztecNodeAdmin: this.context.aztecNodeService,
+      aztecNode: this.context.aztecNode,
+      aztecNodeAdmin: this.context.aztecNodeAdmin,
       l1Client: this.context.deployL1ContractsValues.l1Client,
       wallet: this.wallet,
       logger: this.logger,

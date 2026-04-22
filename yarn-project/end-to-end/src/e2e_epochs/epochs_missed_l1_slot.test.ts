@@ -35,6 +35,8 @@ describe('e2e_epochs/epochs_missed_l1_slot', () => {
       aztecSlotDurationInL1Slots: L1_SLOTS_PER_L2_SLOT,
       startProverNode: false,
       disableAnvilTestWatcher: true,
+      // Inline: subscribes to sequencer `state-changed` events, which require the concrete class.
+      inlineNode: true,
     });
   });
 

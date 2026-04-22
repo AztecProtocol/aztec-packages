@@ -151,7 +151,9 @@ describe('e2e_p2p_preferred_network', () => {
   });
 
   afterEach(async () => {
-    await t.stopNodes([t.ctx.aztecNodeService].concat(nodes).concat(validators).concat(preferredNodes));
+    await t.stopNodes(
+      (t.ctx.node.service ? [t.ctx.node.service] : []).concat(nodes).concat(validators).concat(preferredNodes),
+    );
     await t.teardown();
     for (let i = 0; i < NUM_NODES + NUM_VALIDATORS + NUM_PREFERRED_NODES; i++) {
       fs.rmSync(`${DATA_DIR}-${i}`, { recursive: true, force: true, maxRetries: 3 });

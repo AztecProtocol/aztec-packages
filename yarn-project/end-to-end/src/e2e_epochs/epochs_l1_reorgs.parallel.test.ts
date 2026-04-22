@@ -1,5 +1,4 @@
 import type { Archiver } from '@aztec/archiver';
-import type { AztecNodeService } from '@aztec/aztec-node';
 import { AztecAddress } from '@aztec/aztec.js/addresses';
 import { NO_WAIT } from '@aztec/aztec.js/contracts';
 import { Fr } from '@aztec/aztec.js/fields';
@@ -35,8 +34,6 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
   let node: AztecNode;
   let archiver: Archiver;
   let monitor: ChainMonitor;
-  let proverDelayer: Delayer;
-  let sequencerDelayer: Delayer;
 
   let L1_BLOCK_TIME_IN_S: number;
   let L2_SLOT_DURATION_IN_S: number;
@@ -79,10 +76,12 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
       },
       numberOfAccounts: 1,
       anvilSlotsInAnEpoch: 32,
+      // Archiver access + assertMultipleBlocksPerSlot pin this test to main thread for now.
+      inlineNode: true,
     });
-    ({ proverDelayer, sequencerDelayer, context, logger, monitor, L1_BLOCK_TIME_IN_S, L2_SLOT_DURATION_IN_S } = test);
+    ({ context, logger, monitor, L1_BLOCK_TIME_IN_S, L2_SLOT_DURATION_IN_S } = test);
     node = context.aztecNode;
-    archiver = (node as AztecNodeService).getBlockSource() as Archiver;
+    archiver = context.node.service!.getBlockSource() as Archiver;
     from = context.accounts[0];
     contract = await test.registerTestContract(context.wallet);
   });
@@ -268,7 +267,7 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
       const initialCheckpoint = monitor.checkpointNumber;
 
       // Next proof shall not land
-      proverDelayer.cancelNextTx();
+      await context.aztecNodeDebug.cancelNextL1Tx('prover');
 
       // Expect pending chain to advance, so there's something to be pruned
       await retryUntil(() => getCheckpointNumber(node).then(cp => cp > initialCheckpoint), 'node sync', 60, 0.1);
@@ -284,7 +283,7 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
       );
 
       // Grab the prover's tx to submit it later as part of a reorg and stop the prover (by stopping its hosting aztec node)
-      const [proofTx] = proverDelayer.getCancelledTxs();
+      const [proofTx] = await context.aztecNodeDebug.getCancelledL1Txs('prover');
       expect(proofTx).toBeDefined();
       await test.proverNodes[0].stop();
       logger.warn(`Prover node stopped.`);
@@ -384,9 +383,14 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
       await test.assertMultipleBlocksPerSlot(2);
 
       // Cancel the next tx to be mined and pause the sequencer
-      sequencerDelayer.cancelNextTx();
-      await retryUntil(() => sequencerDelayer.getCancelledTxs().length, 'next block', L2_SLOT_DURATION_IN_S * 2, 0.1);
-      const [l2BlockTx] = sequencerDelayer.getCancelledTxs();
+      await context.aztecNodeDebug.cancelNextL1Tx('sequencer');
+      await retryUntil(
+        async () => (await context.aztecNodeDebug.getCancelledL1Txs('sequencer')).length,
+        'next block',
+        L2_SLOT_DURATION_IN_S * 2,
+        0.1,
+      );
+      const [l2BlockTx] = await context.aztecNodeDebug.getCancelledL1Txs('sequencer');
       await context.aztecNodeAdmin.setConfig({ minTxsPerBlock: 100 });
 
       // Save the L1 block number when the L2 block would have been mined

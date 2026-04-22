@@ -22,6 +22,7 @@ import { TokenSimulator } from '../simulators/token_simulator.js';
 import { TestWallet } from '../test-wallet/test_wallet.js';
 import { getACVMConfig } from './get_acvm_config.js';
 import { getBBConfig } from './get_bb_config.js';
+import type { NodeHandle } from './node-worker/node_handle.js';
 import {
   type EndToEndContext,
   deployAccounts,
@@ -70,7 +71,7 @@ export class FullProverTest {
   provenAsset!: TokenContract;
   context!: EndToEndContext;
   private proverAztecNode!: AztecNodeService;
-  private simulatedProverAztecNode!: AztecNodeService;
+  private simulatedProverAztecNode!: NodeHandle;
   public l1Contracts!: DeployAztecL1ContractsReturnType;
   public proverAddress!: EthAddress;
   private minNumberOfTxsPerBlock: number;
@@ -151,7 +152,7 @@ export class FullProverTest {
       deployL1ContractsValues: this.l1Contracts,
       cheatCodes: this.cheatCodes,
     } = this.context);
-    this.aztecNodeAdmin = this.context.aztecNodeService;
+    this.aztecNodeAdmin = this.context.aztecNodeAdmin;
 
     const config = this.context.aztecNodeConfig;
 

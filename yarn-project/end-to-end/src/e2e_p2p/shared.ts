@@ -4,6 +4,7 @@ import { AztecAddress } from '@aztec/aztec.js/addresses';
 import { NO_WAIT, getContractInstanceFromInstantiationParams } from '@aztec/aztec.js/contracts';
 import { Fr } from '@aztec/aztec.js/fields';
 import type { Logger } from '@aztec/aztec.js/log';
+import type { AztecNode } from '@aztec/aztec.js/node';
 import { TxHash } from '@aztec/aztec.js/tx';
 import type { RollupCheatCodes } from '@aztec/aztec/testing';
 import type { EpochCacheInterface } from '@aztec/epoch-cache';
@@ -72,7 +73,7 @@ export const submitTransactions = async (
 
 export async function prepareTransactions(
   logger: Logger,
-  node: AztecNodeService,
+  node: AztecNode,
   numTxs: number,
   fundedAccount: InitialAccountData,
 ): Promise<ProvenTx[]> {

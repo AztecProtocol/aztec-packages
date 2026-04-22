@@ -150,6 +150,7 @@ export const l1TxUtilsConfigMappings: ConfigMappingsType<L1TxUtilsConfig> = {
     ...numberConfigHelper(6 * 12 * 1000), // 6 L1 blocks
   },
   enableDelayer: {
+    env: 'L1_TX_ENABLE_DELAYER',
     description: 'Enable tx delayer for testing.',
     ...booleanConfigHelper(false),
   },

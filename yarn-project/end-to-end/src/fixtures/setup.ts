@@ -31,7 +31,6 @@ import {
   type ZKPassportArgs,
   deployAztecL1Contracts,
 } from '@aztec/ethereum/deploy-aztec-l1-contracts';
-import type { Delayer } from '@aztec/ethereum/l1-tx-utils';
 import { EthCheatCodes, EthCheatCodesWithState, startAnvil } from '@aztec/ethereum/test';
 import type { Anvil } from '@aztec/ethereum/test';
 import { BlockNumber, EpochNumber } from '@aztec/foundation/branded-types';
@@ -83,6 +82,9 @@ import { MNEMONIC, TEST_MAX_PENDING_TX_POOL_COUNT, TEST_PEER_CHECK_INTERVAL_MS }
 import { getACVMConfig } from './get_acvm_config.js';
 import { getBBConfig } from './get_bb_config.js';
 import { isMetricsLoggingRequested, setupMetricsLogger } from './logging.js';
+import { DateProviderBridge } from './node-worker/date_provider_bridge.js';
+import { type NodeHandle, nodeHandleFromInProcess, nodeHandleFromWorker } from './node-worker/node_handle.js';
+import { NodeWorker } from './node-worker/node_worker.js';
 import { getEndToEndTestTelemetryClient } from './with_telemetry_utils.js';
 
 export { startAnvil };
@@ -217,6 +219,13 @@ export type SetupOptions = {
   /** Whether the initial node should be a lightweight RPC-only node (no sequencer, no validator).
    *  Use for tests that create their own validator nodes and don't need the initial sequencer. */
   skipInitialSequencer?: boolean;
+  /**
+   * Keep the initial node (and prover node) in-process on the main thread instead of offloading to
+   * a worker thread. Auto-enabled for bench runs (telemetry introspection requires in-process) and
+   * for tests that use `mockGossipSubNetwork` (the mock bus holds main-thread references that
+   * cannot cross the worker boundary).
+   */
+  inlineNode?: boolean;
 };
 
 /**
@@ -238,17 +247,35 @@ export type AztecNodeEnvVars = Partial<Record<EnvVar, string>>;
  */
 export function aztecNodeConfigToEnvVars(config: Partial<AztecNodeConfig>): AztecNodeEnvVars {
   const env: AztecNodeEnvVars = {};
+  serializeConfigToEnv(
+    aztecNodeConfigMappings as Record<string, ConfigMapping>,
+    config as Record<string, unknown>,
+    env,
+  );
+  return env;
+}
+
+type ConfigMapping = { env?: string; nested?: Record<string, ConfigMapping> };
+
+function serializeConfigToEnv(
+  mappings: Record<string, ConfigMapping | undefined>,
+  config: Record<string, unknown>,
+  out: AztecNodeEnvVars,
+): void {
   for (const [key, value] of Object.entries(config)) {
     if (value === undefined) {
       continue;
     }
-    const mapping = (aztecNodeConfigMappings as Record<string, { env?: string } | undefined>)[key];
-    if (!mapping?.env) {
+    const mapping = mappings[key];
+    if (!mapping) {
       continue;
-    } // no env var backing — skip silently (test-only escape hatch)
-    env[mapping.env as EnvVar] = stringifyConfigValue(value);
+    }
+    if (mapping.env) {
+      out[mapping.env as EnvVar] = stringifyConfigValue(value);
+    } else if (mapping.nested && value && typeof value === 'object') {
+      serializeConfigToEnv(mapping.nested, value as Record<string, unknown>, out);
+    }
   }
-  return env;
 }
 
 function stringifyConfigValue(v: unknown): string {
@@ -300,15 +327,22 @@ const TEST_DEFAULT_ENV: AztecNodeEnvVars = {
 export type EndToEndContext = {
   /** The Anvil instance (only set if anvil was started locally). */
   anvil: Anvil | undefined;
-  /** The Aztec Node service or client a connected to it. */
-  aztecNode: AztecNode & AztecNodeDebug;
-  /** The Aztec Node as a service. */
-  aztecNodeService: AztecNodeService;
-  /** Client to the Aztec Node admin interface. */
+  /** The initial Aztec node handle. Wraps either a worker-thread node or an in-process service. */
+  node: NodeHandle;
+  /** JSON-RPC-safe node client (shorthand for `node.client`). All three sub-interfaces point at the same underlying node. */
+  aztecNode: AztecNode & AztecNodeAdmin & AztecNodeDebug;
+  /** Admin sub-interface of the initial node. Alias of `node.client`. */
   aztecNodeAdmin: AztecNodeAdmin;
-  /** The aztec node running the prover node subsystem (only set if startProverNode is true). */
-  proverNode: AztecNodeService | undefined;
-  /** A client to the sequencer service. */
+  /** Debug sub-interface of the initial node. Alias of `node.client`. */
+  aztecNodeDebug: AztecNodeDebug;
+  /** The prover-node-subsystem handle (only set if startProverNode is true). Always runs in-process in Tier A. */
+  proverNode: NodeHandle | undefined;
+  /**
+   * The concrete `SequencerClient` of the initial node, for tests that need to reach into its
+   * inner `Sequencer` (event subscriptions, internal state). Populated only when the initial node
+   * runs in-process (`inlineNode: true` or auto-inlined — see `SetupOptions`). Worker-backed
+   * initial nodes expose `undefined` here; use `aztecNodeAdmin` / `aztecNodeDebug` instead.
+   */
   sequencer: SequencerClient | undefined;
   /** Return values from deployAztecL1Contracts function. */
   deployL1ContractsValues: DeployAztecL1ContractsReturnType;
@@ -336,10 +370,6 @@ export type EndToEndContext = {
   telemetryClient: TelemetryClient;
   /** Mock gossip sub network used for gossipping messages (only if mockGossipSubNetwork was set to true in opts) */
   mockGossipSubNetwork: MockGossipSubNetwork | undefined;
-  /** Delayer for sequencer L1 txs (only when enableDelayer is true). */
-  sequencerDelayer: Delayer | undefined;
-  /** Delayer for prover node L1 txs (only when enableDelayer and startProverNode are true). */
-  proverDelayer: Delayer | undefined;
   /** Genesis data used for setting up nodes. */
   genesis: GenesisData | undefined;
   /** ACVM config (only set if running locally). */
@@ -604,54 +634,80 @@ export async function setup(
         }
       : config;
 
-    const aztecNodeService = await withLoggerBindings({ actor: 'node-0' }, () =>
-      AztecNodeService.createAndSync(
-        initialNodeConfig,
-        { dateProvider, telemetry: telemetryClient, p2pClientDeps },
-        { genesis, dontStartSequencer: opts.skipInitialSequencer },
-      ),
-    );
-    const sequencerClient = aztecNodeService.getSequencer();
+    // The mock gossipsub bus, bench telemetry meter introspection, and explicit opt-out all pin
+    // the node to the main thread. Everything else gets the worker path (Tier A).
+    const forceInline = !!opts.mockGossipSubNetwork || !!opts.telemetryConfig?.benchmark;
+    const useWorker = !(opts.inlineNode || forceInline);
 
-    let proverNode: AztecNodeService | undefined = undefined;
+    const dateProviderBridge = new DateProviderBridge(dateProvider);
+
+    let node: NodeHandle;
+    if (useWorker) {
+      const workerEnv: AztecNodeEnvVars = {
+        ...resolvedEnv,
+        ...aztecNodeConfigToEnvVars(initialNodeConfig),
+        REGISTRY_CONTRACT_ADDRESS: config.l1Contracts.registryAddress.toString(),
+      };
+      const worker = await NodeWorker.create({
+        env: workerEnv,
+        genesis,
+        dateProvider,
+        dateProviderBridge,
+        dontStartSequencer: opts.skipInitialSequencer,
+        actor: 'node-0',
+      });
+      node = nodeHandleFromWorker(worker);
+    } else {
+      const service = await withLoggerBindings({ actor: 'node-0' }, () =>
+        AztecNodeService.createAndSync(
+          initialNodeConfig,
+          { dateProvider, telemetry: telemetryClient, p2pClientDeps },
+          { genesis, dontStartSequencer: opts.skipInitialSequencer },
+        ),
+      );
+      node = nodeHandleFromInProcess(service);
+    }
+
+    // Prover node always runs inline in Tier A. Its p2p layer pulls txs from the initial node via
+    // `node.client` — that reference is a main-thread JSON-RPC proxy in the worker path and the
+    // concrete service in the inline path; both satisfy `AztecNode`.
+    let proverNode: NodeHandle | undefined = undefined;
     if (opts.startProverNode) {
-      logger.verbose('Creating and syncing a simulated prover node...');
+      logger.verbose('Creating and syncing a simulated prover node (in-process)...');
       const proverNodePrivateKey = getPrivateKeyFromIndex(2);
       const proverNodePrivateKeyHex: Hex = `0x${proverNodePrivateKey!.toString('hex')}`;
       const proverNodeDataDirectory = path.join(directoryToCleanup, randomBytes(8).toString('hex'));
 
-      const p2pClientDeps: Partial<P2PClientDeps> = {
+      const proverP2pClientDeps: Partial<P2PClientDeps> = {
         p2pServiceFactory: mockGossipSubNetwork && getMockPubSubP2PServiceFactory(mockGossipSubNetwork!),
-        rpcTxProviders: [aztecNodeService],
+        rpcTxProviders: [node.client],
       };
 
-      ({ proverNode } = await createAndSyncProverNode(
+      const { proverNode: proverService } = await createAndSyncProverNode(
         proverNodePrivateKeyHex,
         config,
         {
           ...opts.proverNodeConfig,
           dataDirectory: proverNodeDataDirectory,
         },
-        { dateProvider, p2pClientDeps, telemetry: telemetryClient },
+        { dateProvider, p2pClientDeps: proverP2pClientDeps, telemetry: telemetryClient },
         { genesis },
-      ));
+      );
+      proverNode = nodeHandleFromInProcess(proverService);
     }
-
-    const sequencerDelayer = sequencerClient?.getDelayer();
-    const proverDelayer = proverNode?.getProverNode()?.getDelayer();
 
     logger.verbose('Creating a pxe...');
     const pxeConfig = { ...getPXEConfig(), ...pxeOpts };
     pxeConfig.dataDirectory = path.join(directoryToCleanup, randomBytes(8).toString('hex'));
     // For tests we only want proving enabled if specifically requested
     pxeConfig.proverEnabled = !!pxeOpts.proverEnabled;
-    const wallet = await TestWallet.create(aztecNodeService, pxeConfig, { loggerActorLabel: 'pxe-0' });
+    const wallet = await TestWallet.create(node.client, pxeConfig, { loggerActorLabel: 'pxe-0' });
 
     if (opts.walletMinFeePadding !== undefined) {
       wallet.setMinFeePadding(opts.walletMinFeePadding);
     }
 
-    const cheatCodes = await CheatCodes.create(config.l1RpcUrls, aztecNodeService, dateProvider);
+    const cheatCodes = await CheatCodes.create(config.l1RpcUrls, node.client, dateProvider);
 
     if (config.aztecTargetCommitteeSize > 0 || (opts.initialValidators && opts.initialValidators.length > 0)) {
       // We need to advance such that the committee is set up.
@@ -677,15 +733,15 @@ export async function setup(
       accounts = accountManagers.map(accountManager => accountManager.address);
     } else if (needsEmptyBlock) {
       logger.info('No accounts are being deployed, waiting for an empty block 1 to be mined');
-      while ((await aztecNodeService.getBlockNumber()) === 0) {
+      while ((await node.client.getBlockNumber()) === 0) {
         await sleep(2000);
       }
     }
     // If skipAccountDeployment is true, we don't deploy or wait - tests will handle account deployment later
 
     // Now we restore the original minTxsPerBlock setting if we changed it.
-    if (sequencerClient && config.minTxsPerBlock !== originalMinTxsPerBlock) {
-      sequencerClient.getSequencer().updateConfig({ minTxsPerBlock: originalMinTxsPerBlock });
+    if (!opts.skipInitialSequencer && config.minTxsPerBlock !== originalMinTxsPerBlock) {
+      await node.client.setConfig({ minTxsPerBlock: originalMinTxsPerBlock });
     }
 
     if (initialFundedAccounts.length < numberOfAccounts) {
@@ -697,8 +753,10 @@ export async function setup(
     const teardown = async () => {
       try {
         await tryStop(wallet, logger);
-        await tryStop(aztecNodeService, logger);
-        await tryStop(proverNode, logger);
+        await node.stop();
+        if (proverNode) {
+          await proverNode.stop();
+        }
 
         if (acvmConfig?.cleanup) {
           await acvmConfig.cleanup();
@@ -725,9 +783,11 @@ export async function setup(
 
     return {
       anvil,
-      aztecNode: aztecNodeService,
-      aztecNodeService,
-      aztecNodeAdmin: aztecNodeService,
+      node,
+      aztecNode: node.client,
+      aztecNodeAdmin: node.client,
+      aztecNodeDebug: node.client,
+      sequencer: node.service?.getSequencer(),
       cheatCodes,
       ethCheatCodes,
       config,
@@ -739,9 +799,6 @@ export async function setup(
       mockGossipSubNetwork,
       genesis,
       proverNode,
-      sequencerDelayer,
-      proverDelayer,
-      sequencer: sequencerClient,
       teardown,
       telemetryClient,
       wallet,

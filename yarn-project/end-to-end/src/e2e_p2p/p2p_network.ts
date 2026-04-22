@@ -358,7 +358,7 @@ export class P2PNetworkTest {
     });
     this.context.dateProvider.setTime(Number(block.timestamp) * 1000);
 
-    await this.context.aztecNodeService.stop();
+    await this.context.node.stop();
   }
 
   async sendDummyTx() {

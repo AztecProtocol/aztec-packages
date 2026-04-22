@@ -31,7 +31,7 @@ describe('e2e_epochs/epochs_empty_blocks_proof', () => {
   });
 
   it('submits proof even if there are no txs to build a block', async () => {
-    context.sequencer?.updateConfig({ minTxsPerBlock: 1 });
+    await context.aztecNodeAdmin.setConfig({ minTxsPerBlock: 1 });
     await test.waitUntilEpochStarts(1);
 
     // Sleep to make sure any pending checkpoints are published

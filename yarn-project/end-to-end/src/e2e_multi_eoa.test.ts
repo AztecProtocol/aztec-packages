@@ -85,7 +85,8 @@ describe('e2e_multi_eoa', () => {
           SEQ_PUBLISHER_PRIVATE_KEYS: sequencerKeysAndAddresses.map(k => k.key.getValue()).join(','),
           L1_TX_MONITOR_MAX_ATTEMPTS: '0',
         },
-        { l1PublisherKey: allKeysAndAddresses[0].key },
+        // Inline: test uses `TestSequencerClient.publisherManager` and concrete sequencer state.
+        { l1PublisherKey: allKeysAndAddresses[0].key, inlineNode: true },
       ));
       sequencer = sequencerClient! as TestSequencerClient;
       publisherManager = sequencer.publisherManager;

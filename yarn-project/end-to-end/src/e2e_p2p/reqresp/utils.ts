@@ -103,7 +103,7 @@ export async function runReqrespTxTest(params: {
 
   await t.setupAccount();
 
-  const targetBlockNumber = await t.ctx.aztecNodeService.getBlockNumber();
+  const targetBlockNumber = await t.ctx.aztecNode.getBlockNumber();
   await retryUntil(
     async () => {
       const blockNumbers = await Promise.all(nodes.map(node => node.getBlockNumber()));
@@ -116,7 +116,7 @@ export async function runReqrespTxTest(params: {
 
   t.logger.info('Preparing transactions to send');
   const txBatches = await timesAsync(2, () =>
-    prepareTransactions(t.logger, t.ctx.aztecNodeService, NUM_TXS_PER_NODE, t.fundedAccount),
+    prepareTransactions(t.logger, t.ctx.aztecNode, NUM_TXS_PER_NODE, t.fundedAccount),
   );
 
   t.logger.info('Removing initial node');

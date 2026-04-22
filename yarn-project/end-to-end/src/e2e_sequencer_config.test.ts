@@ -37,7 +37,8 @@ describe('e2e_sequencer_config', () => {
       ({ teardown, sequencer, aztecNode, logger } = await setup(
         0,
         { SEQ_MAX_L2_BLOCK_GAS: String(manaTarget * 2), AZTEC_MANA_TARGET: String(BigInt(manaTarget)) },
-        { initialFundedAccounts: [botAccount] },
+        // Inline: the test reads `sequencer.maxL2BlockGas` directly (concrete `SequencerClient`).
+        { initialFundedAccounts: [botAccount], inlineNode: true },
       ));
       config = {
         ...getBotDefaultConfig(),

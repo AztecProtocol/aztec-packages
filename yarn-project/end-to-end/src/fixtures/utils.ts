@@ -29,4 +29,5 @@ export {
   waitForProvenChain,
 } from './setup.js';
 
+export { type NodeHandle, nodeHandleFromInProcess, nodeHandleFromWorker } from './node-worker/node_handle.js';
 export { deployAndInitializeTokenAndBridgeContracts } from '../shared/cross_chain_test_harness.js';

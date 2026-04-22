@@ -15,6 +15,7 @@ import { RootRollupPublicInputs } from '@aztec/stdlib/rollup';
 
 import { jest } from '@jest/globals';
 
+import { nodeHandleFromInProcess } from '../fixtures/node-worker/node_handle.js';
 import type { EndToEndContext } from '../fixtures/utils.js';
 import { EpochsTestContext } from './epochs_test.js';
 
@@ -27,7 +28,6 @@ describe('e2e_epochs/epochs_proof_fails', () => {
   let constants: L1RollupConstants;
   let logger: Logger;
   let proverDelayer: Delayer;
-  let sequencerDelayer: Delayer;
   let monitor: ChainMonitor;
 
   let L1_BLOCK_TIME_IN_S: number;
@@ -48,7 +48,7 @@ describe('e2e_epochs/epochs_proof_fails', () => {
       },
       startProverNode: false,
     });
-    ({ sequencerDelayer, context, l1Client, rollup, constants, logger, monitor } = test);
+    ({ context, l1Client, rollup, constants, logger, monitor } = test);
     ({ L1_BLOCK_TIME_IN_S, L2_SLOT_DURATION_IN_S } = test);
   });
 
@@ -72,9 +72,9 @@ describe('e2e_epochs/epochs_proof_fails', () => {
 
     // Create prover node after test setup to avoid early proving. We ensure the prover does not retry txs.
     const proverNode = await test.createProverNode({ cancelTxOnTimeout: false, maxSpeedUpAttempts: 0 });
-    context.proverNode = proverNode;
+    context.proverNode = nodeHandleFromInProcess(proverNode);
 
-    // Get the prover delayer from the newly created prover node
+    // Get the prover delayer from the newly created prover node (always inline in Tier A).
     proverDelayer = proverNode.getProverNode()!.getDelayer()!;
 
     // Hold off prover tx until end epoch 1
@@ -92,7 +92,7 @@ describe('e2e_epochs/epochs_proof_fails', () => {
       CheckpointNumber(checkpointNumberAtEndOfEpoch0 + test.epochDuration),
       test.L2_SLOT_DURATION_IN_S * (test.epochDuration + 4),
     );
-    sequencerDelayer.pauseNextTxUntilTimestamp(epoch2Start + BigInt(L1_BLOCK_TIME_IN_S));
+    await context.aztecNodeDebug.pauseNextL1TxUntilTimestamp('sequencer', epoch2Start + BigInt(L1_BLOCK_TIME_IN_S));
 
     // Next sequencer to publish a block should trigger a rollback to block 1
     await waitUntilL1Timestamp(l1Client, epoch2Start + BigInt(L1_BLOCK_TIME_IN_S));
@@ -104,7 +104,7 @@ describe('e2e_epochs/epochs_proof_fails', () => {
     const lastProverTxReceipt = await l1Client.getTransactionReceipt({ hash: lastProverTxHash! });
     expect(lastProverTxReceipt.status).toEqual('reverted');
 
-    const lastL2BlockTxHash = sequencerDelayer.getSentTxHashes().at(-1);
+    const lastL2BlockTxHash = (await context.aztecNodeDebug.getSentL1TxHashes('sequencer')).at(-1);
     const lastL2BlockTxReceipt = await l1Client.getTransactionReceipt({ hash: lastL2BlockTxHash! });
     expect(lastL2BlockTxReceipt.status).toEqual('success');
     expect(lastL2BlockTxReceipt.blockNumber).toBeGreaterThan(lastProverTxReceipt!.blockNumber);
@@ -148,7 +148,7 @@ describe('e2e_epochs/epochs_proof_fails', () => {
       });
       return prover;
     });
-    context.proverNode = proverNode;
+    context.proverNode = nodeHandleFromInProcess(proverNode);
 
     await test.waitUntilEpochStarts(1);
     logger.info(`Starting epoch 1`);

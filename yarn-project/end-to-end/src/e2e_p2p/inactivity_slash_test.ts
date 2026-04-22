@@ -100,7 +100,7 @@ export class P2PInactivityTest {
     this.rollup = rollup;
 
     if (!this.keepInitialNode) {
-      await this.test.ctx.aztecNodeService.stop();
+      await this.test.ctx.node.stop();
     }
 
     // Create all active nodes
@@ -131,7 +131,7 @@ export class P2PInactivityTest {
     );
 
     this.nodes = [
-      ...(this.keepInitialNode ? [this.test.ctx.aztecNodeService] : []),
+      ...(this.keepInitialNode && this.test.ctx.node.service ? [this.test.ctx.node.service] : []),
       ...this.activeNodes,
       ...this.inactiveNodes,
     ];
