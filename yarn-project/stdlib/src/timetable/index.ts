@@ -61,8 +61,6 @@ export interface CheckpointTiming {
 export interface PipelinedCheckpointTiming extends CheckpointTiming {
   readonly proposalWindowIntoTargetSlot: number;
   readonly attestationWindowIntoTargetSlot: number;
-  readonly proposalEarlyWindow: number;
-  readonly attestationEarlyWindow: number;
 }
 
 /**
@@ -182,19 +180,6 @@ class PipelinedCheckpointTimingModel extends BaseCheckpointTiming implements Pip
   public get attestationWindowIntoTargetSlot(): number {
     // Straggler grace: attestations aim to complete by build-slot end. Allow a
     // small window into the target slot for late arrivals (round-trip p2p).
-    return 2 * this.p2pPropagationTime;
-  }
-
-  public get proposalEarlyWindow(): number {
-    // The build-slot window in which we expect to see checkpoint proposals for
-    // the next target slot. Proposals are broadcast roughly `timeReservedAtEnd`
-    // seconds before the slot boundary, so accept for that stretch.
-    return this.timeReservedAtEnd;
-  }
-
-  public get attestationEarlyWindow(): number {
-    // Attestations for the next target slot are gossiped in the last moments of
-    // the build slot (after validators finish re-executing the last block).
     return 2 * this.p2pPropagationTime;
   }
 

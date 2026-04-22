@@ -20,21 +20,13 @@ export class ProposalValidator {
 
   constructor(
     epochCache: EpochCacheInterface,
-    opts: {
-      txsPermitted: boolean;
-      maxTxsPerBlock?: number;
-      p2pPropagationTime?: number;
-      blockDurationMs?: number;
-    },
+    opts: { txsPermitted: boolean; maxTxsPerBlock?: number; p2pPropagationTime?: number },
     loggerName: string,
   ) {
     this.epochCache = epochCache;
     this.txsPermitted = opts.txsPermitted;
     this.maxTxsPerBlock = opts.maxTxsPerBlock;
-    this.pipeliningWindow = new PipeliningWindow(epochCache, {
-      p2pPropagationTime: opts.p2pPropagationTime,
-      blockDurationMs: opts.blockDurationMs,
-    });
+    this.pipeliningWindow = new PipeliningWindow(epochCache, { p2pPropagationTime: opts.p2pPropagationTime });
     this.logger = createLogger(loggerName);
   }
 

@@ -79,9 +79,6 @@ describe('timetable validation', () => {
     expect(timing.proposalWindowIntoTargetSlot).toBe(0);
     // Attestation straggler grace is bounded by round-trip p2p
     expect(timing.attestationWindowIntoTargetSlot).toBe(4);
-    // Early-acceptance windows
-    expect(timing.proposalEarlyWindow).toBe(11);
-    expect(timing.attestationEarlyWindow).toBe(4);
     // Assembly deadline sits at slot boundary
     expect(timing.checkpointAssemblyDeadline).toBe(72);
   });

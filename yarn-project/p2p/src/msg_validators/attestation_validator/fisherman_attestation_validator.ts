@@ -23,7 +23,6 @@ export class FishermanAttestationValidator extends CheckpointAttestationValidato
     opts: {
       l1PublishingTime?: number;
       p2pPropagationTime?: number;
-      blockDurationMs?: number;
     } = {},
   ) {
     super(epochCache, opts);

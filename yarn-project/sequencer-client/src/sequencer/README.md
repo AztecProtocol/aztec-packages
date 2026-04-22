@@ -132,7 +132,7 @@ So the work is split like this:
 - **During slot N-1**: Initialization, block building, last-block re-execution, proposal broadcast, and attestation collection
 - **At the start of slot N**: The L1 transaction is submitted — attestations are already in hand
 
-In other words, pipelining moves **block production, block re-execution, proposal broadcast, and attestation collection** into the build slot, while **L1 submission** happens aligned with slot `N`. With default values (72s slot, 6s block, 2s p2p, 1s assemble), the proposer broadcasts at roughly `T=slotDuration - timeReservedAtEnd = 61s` into the build slot, and attestations complete by `T=72s` (the slot boundary).
+In other words, pipelining moves **block production, block re-execution, proposal broadcast, and attestation collection** into the build slot, while **L1 submission** happens aligned with slot `N`. With default values (72s slot, 6s block, 2s p2p, 1s assemble), the last build-slot block finishes at `T = slotDuration - timeReservedAtEnd = 61s`, the proposer broadcasts the checkpoint at `T=62s` after `assembleTime=1s`, and attestations are in hand by `T=72s` (the slot boundary).
 
 **Example: building checkpoint 12 while wall-clock time is in slot 11**
 ```

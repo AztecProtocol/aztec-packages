@@ -8,12 +8,7 @@ export class BlockProposalValidator implements P2PValidator<BlockProposal> {
 
   constructor(
     epochCache: EpochCacheInterface,
-    opts: {
-      txsPermitted: boolean;
-      maxTxsPerBlock?: number;
-      p2pPropagationTime?: number;
-      blockDurationMs?: number;
-    },
+    opts: { txsPermitted: boolean; maxTxsPerBlock?: number; p2pPropagationTime?: number },
   ) {
     this.proposalValidator = new ProposalValidator(epochCache, opts, 'p2p:block_proposal_validator');
   }
