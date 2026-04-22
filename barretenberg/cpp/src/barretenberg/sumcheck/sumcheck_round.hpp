@@ -5,6 +5,7 @@
 // =====================
 
 #pragma once
+#include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/common/thread.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/polynomials/gate_separator.hpp"

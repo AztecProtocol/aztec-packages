@@ -250,27 +250,27 @@ void GlobalBenchStatsContainer::add_entry(const char* key, const std::shared_ptr
     entries.push_back(entry);
 }
 
-void GlobalBenchStatsContainer::register_thread_event_buffer(ThreadEventBuffer* buf)
+ThreadEventBuffer& GlobalBenchStatsContainer::register_thread_event_buffer(uint64_t tid)
 {
     std::unique_lock<std::mutex> lock(event_mutex);
+    auto buf = std::make_unique<ThreadEventBuffer>();
+    buf->tid = tid;
     // Reserve up front: avoids reallocation churn when a worker thread emits
     // tens of thousands of events over a full Chonk prove.
     buf->events.reserve(1U << 14U);
-    thread_event_buffers.push_back(buf);
+    ThreadEventBuffer& result = *buf;
+    thread_event_buffers.push_back(std::move(buf));
+    return result;
 }
 
 ThreadEventBuffer& get_thread_event_buffer()
 {
-    // Lifetime: thread_local; the pointer registered into GLOBAL_BENCH_STATS is expected
-    // to outlive serialize_trace_events_json. In practice bb is a one-shot CLI, so the
-    // program exits after serialization and no thread has been joined in between.
-    static thread_local ThreadEventBuffer tl_buf;
-    if (!tl_buf.registered) {
-        tl_buf.tid = static_cast<uint64_t>(std::hash<std::thread::id>{}(std::this_thread::get_id()));
-        tl_buf.registered = true;
-        GLOBAL_BENCH_STATS.register_thread_event_buffer(&tl_buf);
+    static thread_local ThreadEventBuffer* tl_buf = nullptr;
+    if (tl_buf == nullptr) {
+        const uint64_t tid = static_cast<uint64_t>(std::hash<std::thread::id>{}(std::this_thread::get_id()));
+        tl_buf = &GLOBAL_BENCH_STATS.register_thread_event_buffer(tid);
     }
-    return tl_buf;
+    return *tl_buf;
 }
 
 void GlobalBenchStatsContainer::print() const
@@ -410,7 +410,7 @@ void GlobalBenchStatsContainer::serialize_trace_events_json(std::ostream& os) co
     // Find the earliest start across all threads so the timeline begins at ts=0 —
     // absolute ns-since-epoch values are huge and make Perfetto's axis awkward.
     uint64_t min_ts = UINT64_MAX;
-    for (const ThreadEventBuffer* buf : thread_event_buffers) {
+    for (const auto& buf : thread_event_buffers) {
         for (const PerCallEvent& e : buf->events) {
             if (e.ts_ns < min_ts) {
                 min_ts = e.ts_ns;
@@ -421,7 +421,7 @@ void GlobalBenchStatsContainer::serialize_trace_events_json(std::ostream& os) co
         min_ts = 0;
     }
 
-    os << "{\n  \"displayTimeUnit\":\"ns\",\n  \"traceEvents\":[";
+    os << "{\n  \"displayTimeUnit\":\"us\",\n  \"traceEvents\":[";
     bool first = true;
 
     // Remap each thread's raw pthread-hash tid to a small integer. Native
@@ -431,7 +431,7 @@ void GlobalBenchStatsContainer::serialize_trace_events_json(std::ostream& os) co
     std::unordered_map<uint64_t, uint64_t> tid_remap;
     uint64_t main_raw_tid = UINT64_MAX;
     uint64_t main_start = UINT64_MAX;
-    for (const ThreadEventBuffer* buf : thread_event_buffers) {
+    for (const auto& buf : thread_event_buffers) {
         if (!buf->events.empty() && buf->events.front().ts_ns < main_start) {
             main_start = buf->events.front().ts_ns;
             main_raw_tid = buf->tid;
@@ -440,7 +440,7 @@ void GlobalBenchStatsContainer::serialize_trace_events_json(std::ostream& os) co
     // Main gets tid=1 (sorted first). Workers get 2..N.
     tid_remap[main_raw_tid] = 1;
     uint64_t next_worker_tid = 2;
-    for (const ThreadEventBuffer* buf : thread_event_buffers) {
+    for (const auto& buf : thread_event_buffers) {
         if (buf->tid == main_raw_tid) {
             continue;
         }
@@ -452,7 +452,7 @@ void GlobalBenchStatsContainer::serialize_trace_events_json(std::ostream& os) co
     }
     first = false;
     os << "\n    {\"name\":\"process_name\",\"ph\":\"M\",\"pid\":0,\"tid\":0,\"args\":{\"name\":\"bb\"}}";
-    for (const ThreadEventBuffer* buf : thread_event_buffers) {
+    for (const auto& buf : thread_event_buffers) {
         uint64_t small_tid = tid_remap[buf->tid];
         std::string label = (buf->tid == main_raw_tid) ? "main" : ("worker-" + std::to_string(small_tid - 1));
         os << ",\n    {\"name\":\"thread_name\",\"ph\":\"M\",\"pid\":0,\"tid\":" << small_tid
@@ -461,7 +461,7 @@ void GlobalBenchStatsContainer::serialize_trace_events_json(std::ostream& os) co
            << ",\"args\":{\"sort_index\":" << small_tid << "}}";
     }
 
-    for (const ThreadEventBuffer* buf : thread_event_buffers) {
+    for (const auto& buf : thread_event_buffers) {
         for (const PerCallEvent& e : buf->events) {
             double ts_us = static_cast<double>(e.ts_ns - min_ts) / 1000.0;
             double dur_us = static_cast<double>(e.dur_ns) / 1000.0;
@@ -475,7 +475,7 @@ void GlobalBenchStatsContainer::serialize_aggregate_trace_json(std::ostream& os)
 {
     AggregateData data = aggregate();
 
-    os << "{\n  \"displayTimeUnit\":\"ns\",\n  \"traceEvents\":[";
+    os << "{\n  \"displayTimeUnit\":\"us\",\n  \"traceEvents\":[";
     bool first = true;
 
     // Map each (key, parent) aggregate entry to a synthesized ph:"X" block. We DFS from
@@ -811,6 +811,10 @@ void GlobalBenchStatsContainer::clear()
     std::unique_lock<std::mutex> lock(mutex);
     for (std::shared_ptr<TimeStatsEntry>& entry : entries) {
         entry->count = TimeStats();
+    }
+    std::unique_lock<std::mutex> event_lock(event_mutex);
+    for (const auto& buf : thread_event_buffers) {
+        buf->events.clear();
     }
 }
 

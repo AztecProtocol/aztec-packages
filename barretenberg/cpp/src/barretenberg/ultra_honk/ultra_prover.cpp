@@ -62,7 +62,6 @@ template <typename Flavor> void UltraProver_<Flavor>::generate_gate_challenges()
 template <typename Flavor> typename UltraProver_<Flavor>::Proof UltraProver_<Flavor>::construct_proof()
 {
     BB_BENCH_NAME("UltraProver::construct_proof");
-    BB_BENCH_ENABLE_NESTING();
     size_t key_size = prover_instance->polynomials.max_end_index();
     if constexpr (Flavor::HasZK) {
         // SmallSubgroupIPA commits polynomials up to SUBGROUP_SIZE + 3.
@@ -131,7 +130,6 @@ template <typename Flavor> void UltraProver_<Flavor>::execute_sumcheck_iop()
 template <typename Flavor> void UltraProver_<Flavor>::execute_pcs()
 {
     BB_BENCH_NAME("UltraProver::execute_pcs");
-    BB_BENCH_ENABLE_NESTING();
     using OpeningClaim = ProverOpeningClaim<Curve>;
     using PolynomialBatcher = GeminiProver_<Curve>::PolynomialBatcher;
 

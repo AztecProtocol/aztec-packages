@@ -233,7 +233,6 @@ Chonk::recursive_verification_and_consistency_checks(
     const std::shared_ptr<RecursiveTranscript>& accumulation_recursive_transcript)
 {
     BB_BENCH_NAME("Chonk::recursive_verification_and_consistency_checks");
-    BB_BENCH_ENABLE_NESTING();
     using MergeCommitments = Goblin::MergeRecursiveVerifier::InputCommitments;
 
     auto verifier_instance = std::make_shared<RecursiveVerifierInstance>(verifier_inputs.honk_vk_and_hash);

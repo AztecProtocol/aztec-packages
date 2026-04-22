@@ -426,7 +426,6 @@ void TranslatorCircuitBuilder::create_accumulation_gate(const AccumulationInput&
 void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(const std::shared_ptr<ECCOpQueue>& ecc_op_queue)
 {
     BB_BENCH_NAME("TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit");
-    BB_BENCH_ENABLE_NESTING();
     using Fq = bb::fq;
     const auto& ultra_ops = ecc_op_queue->get_ultra_ops();
     std::vector<Fq> accumulator_trace;

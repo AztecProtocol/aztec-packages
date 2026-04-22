@@ -93,12 +93,10 @@ struct PerCallEvent {
     uint64_t tid;    // hashed thread id
 };
 
-// Per-thread event buffer. Lives in a thread_local; a pointer is registered with the
-// global container on first use so we can iterate all threads' events at serialize time.
-// The hot path (BenchReporter dtor) only does a lock-free vector push_back.
+// Per-thread event buffer. Owned by the global container so serialized traces can safely
+// include events from worker threads that have already exited.
 struct ThreadEventBuffer {
     uint64_t tid = 0;
-    bool registered = false;
     std::vector<PerCallEvent> events;
 };
 
@@ -115,12 +113,12 @@ struct GlobalBenchStatsContainer {
     // Protects thread_event_buffers. Separate from `mutex` so serializers can iterate
     // thread buffers without contending with active threads registering new TimeStatsEntries.
     std::mutex event_mutex;
-    std::vector<ThreadEventBuffer*> thread_event_buffers;
+    std::vector<std::unique_ptr<ThreadEventBuffer>> thread_event_buffers;
     void print() const;
     // NOTE: Should be called when other threads aren't active
     void clear();
     void add_entry(const char* key, const std::shared_ptr<TimeStatsEntry>& entry);
-    void register_thread_event_buffer(ThreadEventBuffer* buf);
+    ThreadEventBuffer& register_thread_event_buffer(uint64_t tid);
     void print_stats_recursive(const OperationKey& key, const TimeStats* stats, const std::string& indent) const;
     void print_aggregate_counts(std::ostream&, size_t) const;
     void print_aggregate_counts_hierarchical(std::ostream&) const;

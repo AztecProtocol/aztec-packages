@@ -179,7 +179,6 @@ MergeProver::OpeningClaim MergeProver::compute_shplonk_opening_claim(
 MergeProver::MergeProof MergeProver::construct_proof()
 {
     BB_BENCH_NAME("MergeProver::construct_proof");
-    BB_BENCH_ENABLE_NESTING();
 
     // Construct L and R with FULL_SHIFT leading zeros to match the circuit's ecc_op_wire layout.
     // Derive M from the full merged table with the appropriate shift for Translator/chain propagation.

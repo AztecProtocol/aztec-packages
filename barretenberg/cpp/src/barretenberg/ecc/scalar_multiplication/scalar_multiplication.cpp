@@ -45,7 +45,7 @@ void MSM<Curve>::transform_scalar_and_get_nonzero_scalar_indices(std::span<typen
     std::vector<std::vector<uint32_t>> thread_indices(get_num_cpus());
 
     // Pass 1: Each thread converts from Montgomery and collects nonzero indices into its own vector
-    parallel_for([&](const ThreadChunk& chunk) { // NOLINT
+    parallel_for([&](const ThreadChunk& chunk) {
         BB_BENCH_TRACY_NAME("MSM::convert_scalars");
         BB_ASSERT_EQ(chunk.total_threads, thread_indices.size());
         auto range = chunk.range(scalars.size());

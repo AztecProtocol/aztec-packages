@@ -157,6 +157,7 @@ std::pair<HonkProof, HypernovaFoldingProver::Accumulator> HypernovaFoldingProver
     BB_BENCH_NAME("HypernovaFoldingProver::fold");
     Accumulator incoming_accumulator = instance_to_accumulator(instance, honk_vk);
 
+    // Sumcheck
     MultilinearBatchingProver batching_prover(std::move(accumulator), std::move(incoming_accumulator), transcript);
 
     HonkProof proof = batching_prover.construct_proof();
