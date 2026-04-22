@@ -16,7 +16,7 @@ The `aztec-up` installer used to add `$HOME/.aztec/current/node_modules/.bin` to
 If you had an Aztec version installed before this release, your shell profile (`~/.bashrc` or `~/.zshrc`) still contains the old `PATH` line. Re-run the installer once (replacing `[VERSION]` with whichever toolchain version you're on, e.g. `4.2.0`) to replace it:
 
 ```bash
-VERSION=[VERSION] bash -i <(curl -sL https://install.aztec.network/[VERSION])
+VERSION=[VERSION] bash -i <(curl -sL https://install.aztec.network)
 ```
 
 Open a fresh shell and confirm the leak is gone:
