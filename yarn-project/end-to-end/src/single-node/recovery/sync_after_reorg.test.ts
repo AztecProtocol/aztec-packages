@@ -5,6 +5,7 @@ import type { Logger } from '@aztec/aztec.js/log';
 import { CheckpointNumber, EpochNumber } from '@aztec/foundation/branded-types';
 import { retryUntil } from '@aztec/foundation/retry';
 import { executeTimeout } from '@aztec/foundation/timer';
+import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 
 import type { EndToEndContext } from '../../fixtures/utils.js';
 import { SingleNodeTestContext, jest, setupWithProver } from './setup.js';
@@ -21,7 +22,7 @@ describe('single-node/recovery/sync_after_reorg', () => {
   let L2_SLOT_DURATION_IN_S: number;
 
   let test: SingleNodeTestContext;
-  let primaryArchiver: Archiver;
+  let primaryNode: AztecNode;
   let rpcSyncArchiver: RpcSyncArchiver;
 
   beforeEach(async () => {
@@ -29,10 +30,10 @@ describe('single-node/recovery/sync_after_reorg', () => {
     ({ context, logger } = test);
     ({ L2_SLOT_DURATION_IN_S } = test);
 
-    // Spin up an RpcSyncArchiver pointed at the primary node's archiver as soon as the nodes
+    // Spin up an RpcSyncArchiver pointed at the primary node as soon as the nodes
     // are live, so we can assert that it follows along at every checkpoint-number assertion.
-    primaryArchiver = (context.aztecNode as AztecNodeService).getBlockSource() as Archiver;
-    rpcSyncArchiver = await createRpcSyncArchiverFromPrimary(primaryArchiver);
+    primaryNode = context.aztecNode;
+    rpcSyncArchiver = await createRpcSyncArchiverFromPrimary(primaryNode);
   });
 
   afterEach(async () => {
@@ -97,22 +98,27 @@ describe('single-node/recovery/sync_after_reorg', () => {
    */
   async function assertRpcSyncArchiverAtCheckpoint(checkpoint: CheckpointNumber) {
     await rpcSyncArchiver.syncImmediate();
-    const [primaryTips, followerTips] = await Promise.all([primaryArchiver.getL2Tips(), rpcSyncArchiver.getL2Tips()]);
+    const [primaryTips, followerTips] = await Promise.all([primaryNode.getL2Tips(), rpcSyncArchiver.getL2Tips()]);
     expect(followerTips.checkpointed.checkpoint.number).toBeGreaterThanOrEqual(checkpoint);
     expect(followerTips.checkpointed.block.number).toEqual(primaryTips.checkpointed.block.number);
     expect(followerTips.checkpointed.block.hash).toEqual(primaryTips.checkpointed.block.hash);
   }
 
   /**
-   * Creates an RpcSyncArchiver pointed at the given primary archiver, reusing its L1 constants
-   * and addresses (the RPC-sync archiver does not read L1 on its own).
+   * Creates an RpcSyncArchiver pointed at the given primary node, reusing the primary archiver's
+   * L1 constants and addresses (the RPC-sync archiver does not read L1 on its own). The source
+   * passed to the factory is the `AztecNode` itself, proving the subset relationship expressed by
+   * `RpcSyncArchiverSource`.
    */
-  async function createRpcSyncArchiverFromPrimary(primary: Archiver): Promise<RpcSyncArchiver> {
+  async function createRpcSyncArchiverFromPrimary(primary: AztecNode): Promise<RpcSyncArchiver> {
+    // L1 constants and addresses are not part of the `AztecNode` interface, so we reach into the
+    // primary's underlying archiver to obtain them for test wiring.
+    const primaryArchiver = (primary as AztecNodeService).getBlockSource() as Archiver;
     const [l1Constants, genesisValues, rollupAddress, registryAddress] = await Promise.all([
-      primary.getL1Constants(),
-      primary.getGenesisValues(),
-      primary.getRollupAddress(),
-      primary.getRegistryAddress(),
+      primaryArchiver.getL1Constants(),
+      primaryArchiver.getGenesisValues(),
+      primaryArchiver.getRollupAddress(),
+      primaryArchiver.getRegistryAddress(),
     ]);
     const followerConfig = {
       ...test.context.config,

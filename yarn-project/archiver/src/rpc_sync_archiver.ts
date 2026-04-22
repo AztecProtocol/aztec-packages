@@ -6,7 +6,6 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import {
   type ArchiverEmitter,
-  type L2BlockSource,
   L2BlockSourceEvents,
   type L2BlockStreamEvent,
   type L2BlockStreamEventHandler,
@@ -16,7 +15,7 @@ import {
 import { L2BlockStream } from '@aztec/stdlib/block';
 import type { PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 import { type L1RollupConstants, getEpochAtSlot, getSlotRangeForEpoch } from '@aztec/stdlib/epoch-helpers';
-import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
+import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import { InboxLeaf } from '@aztec/stdlib/messaging';
 import { type TelemetryClient, type Traceable, type Tracer, getTelemetryClient } from '@aztec/telemetry-client';
 
@@ -31,10 +30,9 @@ import { type InboxMessage, updateRollingHash } from './structs/inbox_message.js
  * (including an in-process `Archiver` or an RPC client) satisfies this.
  */
 export type RpcSyncArchiverSource = Pick<
-  L2BlockSource,
-  'getBlocks' | 'getBlockHeader' | 'getL2Tips' | 'getCheckpoints' | 'getCheckpointedBlocks'
-> &
-  Pick<L1ToL2MessageSource, 'getL1ToL2Messages'>;
+  AztecNode,
+  'getBlocks' | 'getBlockHeader' | 'getL2Tips' | 'getCheckpoints' | 'getCheckpointedBlocks' | 'getL1ToL2Messages'
+>;
 
 export type RpcSyncArchiverL1Addresses = Pick<
   L1ContractAddresses,

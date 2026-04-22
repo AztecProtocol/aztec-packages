@@ -666,6 +666,10 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     return this.worldStateQueries.getL1ToL2MessageCheckpoint(l1ToL2Message);
   }
 
+  public getL1ToL2Messages(checkpointNumber: CheckpointNumber): Promise<Fr[]> {
+    return this.l1ToL2MessageSource.getL1ToL2Messages(checkpointNumber);
+  }
+
   /**
    * Returns all the L2 to L1 messages in an epoch.
    *

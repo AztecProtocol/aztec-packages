@@ -53,6 +53,7 @@ import {
   type PublicLogsQuery,
   PublicLogsQuerySchema,
 } from '../logs/logs_query.js';
+import type { L1ToL2MessageSource } from '../messaging/l1_to_l2_message_source.js';
 import { type L2ToL1MembershipWitness, L2ToL1MembershipWitnessSchema } from '../messaging/l2_to_l1_membership.js';
 import { CheckpointAttestation } from '../p2p/checkpoint_attestation.js';
 import { type ApiSchemaFor, optional, schemas } from '../schemas/schemas.js';
@@ -105,7 +106,7 @@ export { GetTxByHashOptionsSchema } from './get_tx_by_hash_options.js';
  * The aztec node.
  * We will probably implement the additional interfaces by means other than Aztec Node as it's currently a privacy leak
  */
-export interface AztecNode {
+export interface AztecNode extends Pick<L1ToL2MessageSource, 'getL1ToL2Messages'> {
   /**
    * Returns the sync status of the node's world state
    */
@@ -623,6 +624,8 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
     input: z.tuple([TxHash.schema, schemas.Fr, optional(schemas.Integer)]),
     output: L2ToL1MembershipWitnessSchema.optional(),
   }),
+
+  getL1ToL2Messages: z.function({ input: z.tuple([CheckpointNumberSchema]), output: z.array(schemas.Fr) }),
 
   getBlockNumber: z.function({ input: z.tuple([optional(BlockTagWithoutLatestSchema)]), output: BlockNumberSchema }),
 
