@@ -31,16 +31,11 @@ case $cmd in
     aztec start --txe --port 8081 &
     server_pid=$!
     set +m
-    cleanup() {
-      kill -s TERM -- "-$server_pid" 2>/dev/null || true
-      for _ in 1 2 3 4 5; do
-        kill -s 0 -- "-$server_pid" 2>/dev/null || break
-        sleep 0.2
-      done
-      kill -s KILL -- "-$server_pid" 2>/dev/null || true
+    function cleanup {
+      kill -TERM -- "-$server_pid" &>/dev/null || true
       wait "$server_pid" 2>/dev/null || true
     }
-    trap cleanup EXIT INT TERM HUP
+    trap cleanup EXIT
     if ! command -v nc &>/dev/null; then
       echo "Error: 'nc' (netcat) is required but not installed." >&2
       exit 1
