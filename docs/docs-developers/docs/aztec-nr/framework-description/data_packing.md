@@ -124,7 +124,7 @@ The bit layout you choose is arbitrary; the only requirement is that `pack` and 
 
 ### Step 3: Unpack by extracting from lowest bits upward
 
-Extract values from lowest bits first, subtracting each extracted value before extracting the next:
+Extract values from lowest bits first, to match how we packed them, subtracting each extracted value before extracting the next:
 
 #include_code game_state_unpack /docs/examples/contracts/packing_example/src/types.nr rust
 
