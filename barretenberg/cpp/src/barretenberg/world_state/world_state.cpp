@@ -257,12 +257,16 @@ void WorldState::delete_fork(const uint64_t& forkId)
     if (forkId == 0) {
         throw std::runtime_error("Unable to delete canonical fork");
     }
-    // Idempotent: the fork may have already been removed (e.g. consumed by commit_fork).
     Fork::SharedPtr fork;
     {
         std::unique_lock lock(mtx);
         auto it = _forks.find(forkId);
         if (it == _forks.end()) {
+            // Idempotent: a previously-allocated fork may have already been removed
+            // (e.g. consumed by commit_fork). Only throw for fork ids that never existed.
+            if (forkId >= _forkId) {
+                throw std::runtime_error("Fork not found");
+            }
             return;
         }
         fork = it->second;

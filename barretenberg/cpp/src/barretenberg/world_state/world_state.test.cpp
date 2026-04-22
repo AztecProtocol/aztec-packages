@@ -1060,9 +1060,11 @@ TEST_F(WorldStateTest, CommitForkDestroysFork)
 
     ws.commit_fork(fork_id);
 
-    // Fork should be destroyed — operations on it should fail
-    EXPECT_THROW(ws.delete_fork(fork_id), std::runtime_error);
+    // Fork is destroyed — operations on it should fail, but delete_fork is idempotent for
+    // previously-allocated ids so it silently succeeds. A never-allocated id still throws.
+    EXPECT_NO_THROW(ws.delete_fork(fork_id));
     EXPECT_THROW(ws.append_leaves<bb::fr>(MerkleTreeId::NOTE_HASH_TREE, { 99 }, fork_id), std::runtime_error);
+    EXPECT_THROW(ws.delete_fork(fork_id + 1000), std::runtime_error);
 }
 
 TEST_F(WorldStateTest, CommitForkDoesNotRollBackOldestHistoricBlock)
