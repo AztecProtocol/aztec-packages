@@ -717,6 +717,24 @@ export const L1_PUBLISHER_TX_TOTAL_FEE: MetricDefinition = {
   unit: 'eth',
   valueType: ValueType.DOUBLE,
 };
+export const PROVER_NODE_ESTIMATED_SUBMISSION_GAS: MetricDefinition = {
+  name: 'aztec.prover_node.estimated_submission.gas',
+  description: 'Estimated gas for a proof submission tx (proof publishing disabled, not actually sent)',
+  unit: 'gas',
+  valueType: ValueType.INT,
+};
+export const PROVER_NODE_ESTIMATED_SUBMISSION_GAS_PRICE: MetricDefinition = {
+  name: 'aztec.prover_node.estimated_submission.gas_price',
+  description: 'Estimated effective gas price for a proof submission tx (proof publishing disabled, not actually sent)',
+  unit: 'gwei',
+  valueType: ValueType.DOUBLE,
+};
+export const PROVER_NODE_ESTIMATED_SUBMISSION_TOTAL_FEE: MetricDefinition = {
+  name: 'aztec.prover_node.estimated_submission.total_fee',
+  description: 'Estimated total L1 fee for a proof submission tx (proof publishing disabled, not actually sent)',
+  unit: 'eth',
+  valueType: ValueType.DOUBLE,
+};
 
 export const L1_BLOCK_HEIGHT: MetricDefinition = {
   name: 'aztec.l1.block_height',
