@@ -379,7 +379,8 @@ std::vector<std::pair<C, FF>> handle_nullifier_append(const PrivateAppendTreeEve
              { C::tx_write_nullifier_pi_offset,
                AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_NULLIFIERS_ROW_IDX +
                    state_before.tree_states.nullifier_tree.counter },
-             { C::tx_nullifier_tree_height, NULLIFIER_TREE_HEIGHT } };
+             { C::tx_nullifier_tree_height, NULLIFIER_TREE_HEIGHT },
+             { C::tx_nullifier_merkle_separator, DOM_SEP__NULLIFIER_MERKLE } };
 }
 
 /**

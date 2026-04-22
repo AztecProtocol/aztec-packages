@@ -1,6 +1,6 @@
-import { BLOBS_PER_CHECKPOINT, FIELDS_PER_BLOB } from '@aztec/constants';
+import { BLOBS_PER_CHECKPOINT, DomainSeparator, FIELDS_PER_BLOB } from '@aztec/constants';
 import { fromHex } from '@aztec/foundation/bigint-buffer';
-import { poseidon2Hash } from '@aztec/foundation/crypto/poseidon';
+import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto/poseidon';
 import { randomInt } from '@aztec/foundation/crypto/random';
 import { sha256ToField } from '@aztec/foundation/crypto/sha256';
 import { BLS12Fr, BLS12Point } from '@aztec/foundation/curves/bls12';
@@ -71,8 +71,13 @@ describe('Blob Batching', () => {
     const finalBlobCommitmentsHash = sha256ToField([onlyBlob.commitment]);
 
     // Challenge gamma
-    const hashedEval = await poseidon2Hash(y.toNoirBigNum().limbs.map(Fr.fromHexString));
-    const expectedFinalGamma = BLS12Fr.fromBN254Fr(await poseidon2Hash([hashedEval, finalZ]));
+    const hashedEval = await poseidon2HashWithSeparator(
+      y.toNoirBigNum().limbs.map(Fr.fromHexString),
+      DomainSeparator.BLOB_HASHED_Y_LIMBS,
+    );
+    const expectedFinalGamma = BLS12Fr.fromBN254Fr(
+      await poseidon2HashWithSeparator([hashedEval, finalZ], DomainSeparator.BLOB_GAMMA_FINAL),
+    );
     expect(finalGamma).toEqual(expectedFinalGamma);
 
     const batchedBlob = await BatchedBlobAccumulator.batch([blobFields], true /* verifyProof */);
@@ -83,7 +88,7 @@ describe('Blob Batching', () => {
     expect(batchedBlob.blobCommitmentsHash).toEqual(finalBlobCommitmentsHash);
 
     // If the snapshot has changed, update the noir test data as well.
-    expect(y.toString()).toMatchInlineSnapshot(`"0x27842c004486b1796de6f1403c71acdba4fc33eee32e4cfe0cb39ef7578a85c6"`);
+    expect(y.toString()).toMatchInlineSnapshot(`"0x4ce55c5064c1c1115988f901a3928433a4f63403f694f4e5f9341d1fc274a09c"`);
 
     // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data.
     updateInlineTestData(
@@ -119,11 +124,11 @@ describe('Blob Batching', () => {
   });
 
   it.each([
-    [3, 2 * FIELDS_PER_BLOB + 123, '0x0338a65e19e250e80342e1b1c9ea3a5a7edd96a38e51f8550be2a4c5ad587664', false],
+    [3, 2 * FIELDS_PER_BLOB + 123, '0x6632ec1be7b72f4d498565159353969b292efdd5c643e35c174ad283728606d0', false],
     [
       BLOBS_PER_CHECKPOINT,
       BLOBS_PER_CHECKPOINT * FIELDS_PER_BLOB,
-      '0x344cd1654b68e5ab9c592df2e6fbe6b619415b276db449810d95e318d78ac950',
+      '0x58c0c161c9db997aeceaeb8eb4c54b2872345fda79213b9c7b7919c3035cf82c',
       true,
     ],
   ])(
@@ -144,7 +149,7 @@ describe('Blob Batching', () => {
       const zis = await Promise.all(blobs.map(b => b.computeChallengeZ(blobFieldsHash)));
       let finalZ = zis[0];
       for (let i = 1; i < numBlobs; i++) {
-        finalZ = await poseidon2Hash([finalZ, zis[i]]);
+        finalZ = await poseidon2HashWithSeparator([finalZ, zis[i]], DomainSeparator.BLOB_Z_ACC);
       }
       expect(finalZ).toEqual(finalChallenges.z);
 
@@ -159,12 +164,21 @@ describe('Blob Batching', () => {
 
       // Challenge gamma
       const evalYsToBLSBignum = evalYs.map(y => y.toNoirBigNum());
-      const hashedEvals = await Promise.all(evalYsToBLSBignum.map(e => poseidon2Hash(e.limbs.map(Fr.fromHexString))));
+      const hashedEvals = await Promise.all(
+        evalYsToBLSBignum.map(e =>
+          poseidon2HashWithSeparator(e.limbs.map(Fr.fromHexString), DomainSeparator.BLOB_HASHED_Y_LIMBS),
+        ),
+      );
       let evaluationsHash = hashedEvals[0];
       for (let i = 1; i < numBlobs; i++) {
-        evaluationsHash = await poseidon2Hash([evaluationsHash, hashedEvals[i]]);
+        evaluationsHash = await poseidon2HashWithSeparator(
+          [evaluationsHash, hashedEvals[i]],
+          DomainSeparator.BLOB_GAMMA_ACC,
+        );
       }
-      const finalGamma = BLS12Fr.fromBN254Fr(await poseidon2Hash([evaluationsHash, finalZ]));
+      const finalGamma = BLS12Fr.fromBN254Fr(
+        await poseidon2HashWithSeparator([evaluationsHash, finalZ], DomainSeparator.BLOB_GAMMA_FINAL),
+      );
       expect(finalGamma).toEqual(finalChallenges.gamma);
 
       let batchedC = BLS12Point.ZERO;

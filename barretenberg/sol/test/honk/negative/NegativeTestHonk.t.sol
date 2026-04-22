@@ -4,7 +4,6 @@ pragma solidity ^0.8.21;
 import {NegativeTestBase} from "./NegativeTestBase.sol";
 import {IVerifier} from "src/interfaces/IVerifier.sol";
 import {BlakeHonkVerifier} from "src/honk/instance/BlakeHonk.sol";
-import {BaseHonkVerifier} from "src/honk/BaseHonkVerifier.sol";
 
 /**
  * @title NegativeTestHonk

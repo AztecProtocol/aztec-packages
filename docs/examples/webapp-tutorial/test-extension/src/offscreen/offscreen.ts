@@ -1,4 +1,3 @@
-// docs:start:offscreen
 /** Offscreen document for the Aztec Tutorial Wallet. */
 
 // CRITICAL: console-intercept MUST be the very first import.
@@ -99,7 +98,6 @@ onConsoleInfo((args) => {
   }
 });
 
-// docs:start:master-key
 /**
  * Master CryptoKey — cached in memory after unlock. (#2)
  *
@@ -121,7 +119,6 @@ function getCachedMasterKey(): CryptoKey {
 export function clearCachedKey(): void {
   cachedMasterKey = null;
 }
-// docs:end:master-key
 
 // docs:start:pxe-instance
 /**
@@ -264,7 +261,6 @@ async function getWallet() {
     }
     // docs:end:complete-fee-options
 
-    // docs:start:auto-authwit
     /**
      * Overrides sendTx to auto-extract auth witnesses from offchain effects.
      *
@@ -365,7 +361,6 @@ async function getWallet() {
 
       log.info(`[offscreen] Auth witness extraction complete: ${count} witness(es) from ${effects.length} effect(s)`);
     }
-    // docs:end:auto-authwit
   }
 
   walletInstance = new OffscreenWallet(pxe, node);
@@ -453,7 +448,6 @@ async function handleMessage(message: any): Promise<any> {
 }
 // docs:end:message-handler
 
-// docs:start:handlers
 async function handleGetAccounts() {
   return getAccounts();
 }
@@ -523,9 +517,7 @@ async function handleWalletMethod(method: string, args: any[]): Promise<any> {
   return jsonSafe;
 }
 // docs:end:wallet-method-handler
-// docs:end:handlers
 
-// docs:start:pxe-handlers
 /**
  * Sets the master password for the first time. (#1, #2)
  * Returns the CryptoKey (which we cache), never stores the password.
@@ -777,5 +769,3 @@ async function handleInitPXE(nodeUrl?: string) {
   await ensurePXE(nodeUrl);
   return { success: true };
 }
-// docs:end:pxe-handlers
-// docs:end:offscreen

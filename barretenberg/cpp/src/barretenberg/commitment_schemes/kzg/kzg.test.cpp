@@ -208,15 +208,10 @@ TEST_F(KZGTest, ShpleminiKzgWithShift)
 
     // Gemini verifier output:
     // - claim: d+1 commitments to Fold_{r}^(0), Fold_{-r}^(0), Fold^(l), d+1 evaluations a_0_pos, a_l, l = 0:d-1
-    std::array<Fr, log_n> padding_indicator_array;
-    std::ranges::fill(padding_indicator_array, Fr{ 1 });
-
-    auto batch_opening_claim = ShpleminiVerifier::compute_batch_opening_claim(padding_indicator_array,
-                                                                              mock_claims.claim_batcher,
-                                                                              mle_opening_point,
-                                                                              vk.get_g1_identity(),
-                                                                              verifier_transcript)
-                                   .batch_opening_claim;
+    auto batch_opening_claim =
+        ShpleminiVerifier::compute_batch_opening_claim(
+            mock_claims.claim_batcher, mle_opening_point, vk.get_g1_identity(), verifier_transcript)
+            .batch_opening_claim;
 
     const auto pairing_points =
         PCS::reduce_verify_batch_opening_claim(std::move(batch_opening_claim), verifier_transcript);
@@ -261,11 +256,7 @@ TEST_F(KZGTest, ShpleminiKzgWithShiftAndInterleaving)
 
     // Gemini verifier output:
     // - claim: d+1 commitments to Fold_{r}^(0), Fold_{-r}^(0), Fold^(l), d+1 evaluations a_0_pos, a_l, l = 0:d-1
-    std::array<Fr, log_n> padding_indicator_array;
-    std::ranges::fill(padding_indicator_array, Fr{ 1 });
-
-    auto batch_opening_claim = ShpleminiVerifier::compute_batch_opening_claim(padding_indicator_array,
-                                                                              mock_claims.claim_batcher,
+    auto batch_opening_claim = ShpleminiVerifier::compute_batch_opening_claim(mock_claims.claim_batcher,
                                                                               mle_opening_point,
                                                                               vk.get_g1_identity(),
                                                                               verifier_transcript,
@@ -330,11 +321,7 @@ TEST_F(KZGTest, ShpleminiKzgShiftsRemoval)
 
     // Gemini verifier output:
     // - claim: d+1 commitments to Fold_{r}^(0), Fold_{-r}^(0), Fold^(l), d+1 evaluations a_0_pos, a_l, l = 0:d-1
-    std::array<Fr, log_n> padding_indicator_array;
-    std::ranges::fill(padding_indicator_array, Fr{ 1 });
-
-    auto batch_opening_claim = ShpleminiVerifier::compute_batch_opening_claim(padding_indicator_array,
-                                                                              mock_claims.claim_batcher,
+    auto batch_opening_claim = ShpleminiVerifier::compute_batch_opening_claim(mock_claims.claim_batcher,
                                                                               mle_opening_point,
                                                                               vk.get_g1_identity(),
                                                                               verifier_transcript,

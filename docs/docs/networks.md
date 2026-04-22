@@ -76,7 +76,7 @@ The developer SDK/aztec-nr version (used for writing and compiling contracts) ma
 | **Proposer Quorum** | 600/1000 | 60/100 |
 | **Voting Delay** | 3 days | 12 hours |
 | **Voting Duration** | 7 days | 24 hours |
-| **Execution Delay** | 7 days | 12 hours |
+| **Execution Delay** | 30 days | 12 hours |
 | **Slashing Quorum** | 65% | 33% |
 | **Slashing Round Size** | 128 epochs | 64 epochs |
 
@@ -94,7 +94,7 @@ The developer SDK/aztec-nr version (used for writing and compiling contracts) ma
 
 ### Alpha (Mainnet)
 
-Alpha is the Aztec **mainnet** in its initial operational phase, with governance, networking, and transaction processing fully active.
+Alpha is the Aztec **mainnet** in its initial operational phase, with governance, networking, and transaction processing fully active. Alpha is live but early — bugs, including critical ones, are expected. For a full explanation of what this means, see the **[Alpha Network](/participate/alpha)** page.
 
 #### Overview
 

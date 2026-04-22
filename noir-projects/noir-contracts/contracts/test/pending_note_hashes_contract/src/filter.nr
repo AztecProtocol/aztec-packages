@@ -1,6 +1,4 @@
-// docs:start:custom_filter_imports
 use aztec::{note::HintedNote, protocol::constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL};
-// docs:end:custom_filter_imports
 use field_note::FieldNote;
 
 // docs:start:custom_filter

@@ -20,7 +20,7 @@ describe('PrivateFunction', () => {
   it('computes merkle tree root', async () => {
     const root = await computePrivateFunctionsRoot(privateFunctions);
     expect(root.toString()).toMatchInlineSnapshot(
-      `"0x1816decdf5cec4a1f78ba6d965fc38d7c52dd21664d1b4266603cf767ff5563e"`,
+      `"0x23f5c127984bd1322de5cadb8aaa52c21932985cd6e0d767b3d3f605a1b0df81"`,
     );
   });
 

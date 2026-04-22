@@ -1,4 +1,3 @@
-// docs:start:popup
 /**
  * Popup UI for the Aztec Tutorial Wallet.
  *
@@ -466,4 +465,3 @@ function App() {
 // Mount the app
 const root = createRoot(document.getElementById('root')!);
 root.render(<App />);
-// docs:end:popup

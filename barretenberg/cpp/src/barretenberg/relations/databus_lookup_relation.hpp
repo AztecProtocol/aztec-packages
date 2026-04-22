@@ -12,6 +12,7 @@
 #include "barretenberg/common/thread.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
 #include "barretenberg/relations/relation_types.hpp"
+#include "barretenberg/stdlib_circuit_builders/databus.hpp"
 
 namespace bb {
 
@@ -32,43 +33,26 @@ namespace bb {
  * (idx, value) pair comes from the "table" (bus column), and for the lookup term the (idx, value) pair comes from
  * wires 1 and 2 which should contain a valid entry in the table.
  *
- * In practice, we must rephrase this expression in terms of polynomials, one of which is a polynomial \f$I\f$
- * containing (indirectly) the rational functions in the above expression:
- * \f$I_i = 1/[(\text{lookup_term}_i) \cdot (\text{table_term}_i)]\f$. This leads to two subrelations. The first
- * demonstrates that the inverse polynomial \f$I\f$ is correctly formed. The second is the primary lookup identity,
- * where the rational functions are replaced by the use of the inverse polynomial \f$I\f$. These two subrelations can
- * be expressed as follows:
+ * Each column of the DataBus requires its own set of subrelations. The column being read is selected via a unique
+ * product, i.e. a lookup from bus column \f$j\f$ is selected via \f$q_{\text{busread}} \cdot q_j\f$ (j = 1,2,...).
  *
- * <b>Subrelation 1 (Inverse correctness):</b>
- * \f[
- * I_i \cdot (\text{lookup_term}_i) \cdot (\text{table_term}_i) - 1 = 0
- * \f]
+ * For each bus column j, the inverse polynomial \f$I_j\f$ stores \f$1/(L \cdot T_j)\f$ at active rows. Inverse
+ * correctness is enforced by two separate subrelations gated by disjoint conditions:
  *
- * In reality this relation is \f$I_i \cdot (\text{lookup_term}_i) \cdot (\text{table_term}_i) -
- * \text{inverse_exists} = 0\f$, i.e. it is only checked for active gates (more explanation below).
+ * <b>Subrelation 1a (Inverse correctness on read rows):</b>
+ * \f[ (I_j \cdot L \cdot T_j - 1) \cdot \text{is\_read}_j = 0 \f]
+ *
+ * <b>Subrelation 1b (Inverse correctness on write rows):</b>
+ * \f[ (I_j \cdot L \cdot T_j - 1) \cdot \text{count}_j = 0 \f]
  *
  * <b>Subrelation 2 (Lookup identity):</b>
  * \f[
- * \sum_{i=0}^{n-1} [q_{\text{logderiv_lookup}} \cdot I_i \cdot \text{table_term}_i -
- *                                  \text{read_count}_i \cdot I_i \cdot \text{lookup_term}_i] = 0
+ * \sum_{i=0}^{n-1} [\text{is\_read}_j \cdot T_j - \text{count}_j \cdot L] \cdot I_j = 0
  * \f]
  *
- * Each column of the DataBus requires its own pair of subrelations. The column being read is selected via a unique
- * product, i.e. a lookup from bus column \f$j\f$ is selected via \f$q_{\text{busread}} \cdot q_j\f$ (j = 1,2,...).
- *
- * To not compute the inverse terms packed in \f$I_i\f$ for indices not included in the sum we introduce a
- * witness called inverse_exists, which is zero when either \f$\text{read_count}_i\f$ is nonzero (a boolean called
- * read_tag) or we have a read gate. This is represented by setting \f$\text{inverse_exists} = 1 - (1 -
- * \text{read_tag}) \cdot (1 - \text{is_read_gate})\f$. Since read_gate is only dependent on selector values, we can
- * assume that the verifier can check that it is boolean. However, if read_tag (which is a derived witness), is not
- * constrained to be boolean, one can set the inverse_exists to any value when is_read_gate = 0, because
- * inverse_exists is a linear function of read_tag then. Thus we have a third subrelation, that ensures that read_tag
- * is a boolean value.
- *
- * <b>Subrelation 3 (Boolean check):</b>
- * \f[
- *  \text{read_tag} \cdot \text{read_tag} - \text{read_tag} = 0
- * \f]
+ * At inactive rows
+ * (is_read = 0, count = 0), neither (1a) nor (1b) constrains I, but the lookup identity contribution is
+ * zero regardless. The prover gets no free degrees of freedom.
  *
  * @note Subrelation (2) is "linearly dependent" in the sense that it establishes that a sum across all rows of the
  * execution trace is zero, rather than that some expression holds independently at each row. Accordingly, this
@@ -77,49 +61,52 @@ namespace bb {
 template <typename FF_> class DatabusLookupRelationImpl {
   public:
     using FF = FF_;
-    static constexpr size_t NUM_BUS_COLUMNS = 3; // calldata, return data
-    // the actual degree of this subrelation is 3, and requires a degree adjustment of 1.
-    // however as we reuse the accumulators used to compute this subrelation for the lookup subrelation, we set the
-    // degree to 4 which removes the need of having degree adjustments for folding.
-    static constexpr size_t INVERSE_SUBREL_LENGTH = 5; // deg + 1 of inverse correctness subrelation
-    static constexpr size_t INVERSE_SUBREL_LENGTH_ADJUSTMENT = 0;
-    // the max degree of this subrelation is 4
-    static constexpr size_t LOOKUP_SUBREL_LENGTH = 5; // deg + 1 of log-deriv lookup subrelation
-    static constexpr size_t LOOKUP_SUBREL_LENGTH_ADJUSTMENT = 0;
-    static constexpr size_t READ_TAG_BOOLEAN_CHECK_SUBREL_LENGTH =
-        3; // deg + 1 of the relation checking that read_tag_m is a boolean value
-    static constexpr size_t READ_TAG_BOOLEAN_CHECK_SUBREL_LENGTH_ADJUSTMENT = 0;
-    static constexpr size_t NUM_SUB_RELATION_PER_IDX = 3; // the number of subrelations per bus column
 
-    static constexpr std::array<size_t, NUM_SUB_RELATION_PER_IDX * NUM_BUS_COLUMNS> SUBRELATION_PARTIAL_LENGTHS{
-        INVERSE_SUBREL_LENGTH,                // inverse polynomial correctness subrelation (bus_idx 0)
-        LOOKUP_SUBREL_LENGTH,                 // log-derivative lookup argument subrelation (bus_idx 0)
-        READ_TAG_BOOLEAN_CHECK_SUBREL_LENGTH, // read_tag_m* read_tag_m - read_tag_m (bus_idx 0)
-        INVERSE_SUBREL_LENGTH,                // inverse polynomial correctness subrelation (bus_idx 1)
-        LOOKUP_SUBREL_LENGTH,                 // log-derivative lookup argument subrelation (bus_idx 1)
-        READ_TAG_BOOLEAN_CHECK_SUBREL_LENGTH, // read_tag_m* read_tag_m - read_tag_m (bus_idx 1)
-        INVERSE_SUBREL_LENGTH,                // inverse polynomial correctness subrelation (bus_idx 2)
-        LOOKUP_SUBREL_LENGTH,                 // log-derivative lookup argument subrelation (bus_idx 2)
-        READ_TAG_BOOLEAN_CHECK_SUBREL_LENGTH, // read_tag_m* read_tag_m - read_tag_m (bus_idx 2)
+    // Note: All three subrelations use length 6 to make efficient use of shared computation. Shortening (1b)/(2) to
+    // length 5 forces the shared factors (lookup_term, table_term, read_selector, inverses, `I*L*T - 1`) to be
+    // recomputed and is a net loss in performance.
+    static constexpr size_t INVERSE_READ_SUBREL_LENGTH = 6;  // deg 5: (I*L*T - 1) * is_read
+    static constexpr size_t INVERSE_WRITE_SUBREL_LENGTH = 6; // deg 4: (I*L*T - 1) * count
+    static constexpr size_t LOOKUP_SUBREL_LENGTH = 6;        // deg 4: (is_read*T - count*L) * I
+    static constexpr size_t NUM_SUB_RELATION_PER_IDX = 3;    // the number of subrelations per bus column
+
+    // Per-bus subrelation layout: (1a) inverse-on-read, (1b) inverse-on-write, (2) lookup identity.
+    // The whole-relation arrays below repeat this layout once per bus column.
+    static constexpr std::array<size_t, NUM_SUB_RELATION_PER_IDX> PER_BUS_SUBREL_LENGTHS{
+        INVERSE_READ_SUBREL_LENGTH,
+        INVERSE_WRITE_SUBREL_LENGTH,
+        LOOKUP_SUBREL_LENGTH,
     };
+    // (1a) and (1b) are per-row identities; (2) is a sum across the trace.
+    static constexpr std::array<bool, NUM_SUB_RELATION_PER_IDX> PER_BUS_LIN_INDEPENDENT{ true, true, false };
 
-    static constexpr bool INVERSE_SUBREL_LIN_INDEPENDENT = true;         // to be satisfied independently at each row
-    static constexpr bool LOOKUP_SUBREL_LIN_INDEPENDENT = false;         // to be satisfied as a sum across all rows
-    static constexpr bool READ_TAG_BOOLEAN_CHECK_LIN_INDEPENDENT = true; // to be satisfied independently at each row
+    template <typename T, size_t N>
+    static constexpr std::array<T, N * NUM_BUS_COLUMNS> repeat_per_bus(const std::array<T, N>& pattern)
+    {
+        std::array<T, N * NUM_BUS_COLUMNS> out{};
+        for (size_t bus = 0; bus < NUM_BUS_COLUMNS; ++bus) {
+            for (size_t i = 0; i < N; ++i) {
+                out[(bus * N) + i] = pattern[i];
+            }
+        }
+        return out;
+    }
 
-    // The lookup subrelations are "linearly dependent" in the sense that they establish the value of a sum across the
-    // entire execution trace rather than a per-row identity.
-    static constexpr std::array<bool, NUM_SUB_RELATION_PER_IDX * NUM_BUS_COLUMNS> SUBRELATION_LINEARLY_INDEPENDENT = {
-        INVERSE_SUBREL_LIN_INDEPENDENT, LOOKUP_SUBREL_LIN_INDEPENDENT, READ_TAG_BOOLEAN_CHECK_LIN_INDEPENDENT,
-        INVERSE_SUBREL_LIN_INDEPENDENT, LOOKUP_SUBREL_LIN_INDEPENDENT, READ_TAG_BOOLEAN_CHECK_LIN_INDEPENDENT,
-        INVERSE_SUBREL_LIN_INDEPENDENT, LOOKUP_SUBREL_LIN_INDEPENDENT, READ_TAG_BOOLEAN_CHECK_LIN_INDEPENDENT
-    };
+    static constexpr std::array<size_t, NUM_SUB_RELATION_PER_IDX * NUM_BUS_COLUMNS> SUBRELATION_PARTIAL_LENGTHS =
+        repeat_per_bus(PER_BUS_SUBREL_LENGTHS);
+    static constexpr std::array<bool, NUM_SUB_RELATION_PER_IDX * NUM_BUS_COLUMNS> SUBRELATION_LINEARLY_INDEPENDENT =
+        repeat_per_bus(PER_BUS_LIN_INDEPENDENT);
 
     template <typename AllEntities> inline static bool skip([[maybe_unused]] const AllEntities& in)
     {
         // Ensure the input does not contain a read gate or data that is being read
-        return in.q_busread.is_zero() && in.calldata_read_counts.is_zero() &&
-               in.secondary_calldata_read_counts.is_zero() && in.return_data_read_counts.is_zero();
+        if (!in.q_busread.is_zero()) {
+            return false;
+        }
+        bool all_counts_zero = true;
+        bb::constexpr_for<0, NUM_BUS_COLUMNS, 1>(
+            [&]<size_t bus_idx>() { all_counts_zero &= BusData<bus_idx, AllEntities>::read_counts(in).is_zero(); });
+        return all_counts_zero;
     }
 
     // Interface for easy access of databus components by column (bus_idx)
@@ -132,7 +119,6 @@ template <typename FF_> class DatabusLookupRelationImpl {
         static auto& inverses(AllEntities& in) { return in.calldata_inverses; }
         static auto& inverses(const AllEntities& in) { return in.calldata_inverses; } // const version
         static auto& read_counts(const AllEntities& in) { return in.calldata_read_counts; }
-        static auto& read_tags(const AllEntities& in) { return in.calldata_read_tags; }
     };
 
     // Specialization for secondary_calldata (bus_idx = 1)
@@ -142,7 +128,6 @@ template <typename FF_> class DatabusLookupRelationImpl {
         static auto& inverses(AllEntities& in) { return in.secondary_calldata_inverses; }
         static auto& inverses(const AllEntities& in) { return in.secondary_calldata_inverses; } // const version
         static auto& read_counts(const AllEntities& in) { return in.secondary_calldata_read_counts; }
-        static auto& read_tags(const AllEntities& in) { return in.secondary_calldata_read_tags; }
     };
 
     // Specialization for return data (bus_idx = 2)
@@ -152,52 +137,7 @@ template <typename FF_> class DatabusLookupRelationImpl {
         static auto& inverses(AllEntities& in) { return in.return_data_inverses; }
         static auto& inverses(const AllEntities& in) { return in.return_data_inverses; } // const version
         static auto& read_counts(const AllEntities& in) { return in.return_data_read_counts; }
-        static auto& read_tags(const AllEntities& in) { return in.return_data_read_tags; }
     };
-
-    /**
-     * @brief Determine whether the inverse I needs to be computed at a given row for a given bus column
-     * @details The value of the inverse polynomial I(X) only needs to be computed when the databus lookup gate is
-     * "active". Otherwise it is set to 0. This method allows for determination of when the inverse should be computed.
-     *
-     * @tparam AllValues
-     * @param row
-     */
-    template <size_t bus_idx, typename AllValues> static bool operation_exists_at_row(const AllValues& row)
-    {
-        auto read_selector = get_read_selector<FF, bus_idx>(row);
-        auto read_tag = BusData<bus_idx, AllValues>::read_tags(row);
-        return (read_selector == 1 || read_tag == 1);
-    }
-
-    /**
-     * @brief Compute the Accumulator whose values indicate whether the inverse is computed or not
-     *
-     * @details This is needed for efficiency since we don't need to compute the inverse unless the log derivative
-     * lookup relation is active at a given row. We skip the inverse computation for all the rows that
-     * \f$\text{read_count}_i = 0\f$ AND \f$\text{read_selector}$ is 0.
-     *
-     * @note \f$\text{read_tag}\f$ is constructed such that \f$\text{read_tag}_i \in \{0, 1\}\f$. We add a subrelation
-     * to check that \f$\text{read_tag}$ is a boolean value.
-     *
-     */
-    template <typename Accumulator, size_t bus_idx, typename AllEntities>
-    static Accumulator compute_inverse_exists(const AllEntities& in)
-    {
-        using CoefficientAccumulator = typename Accumulator::CoefficientAccumulator;
-
-        const auto is_read_gate = get_read_selector<Accumulator, bus_idx>(in); // is this a read gate
-        const auto read_tag_m =
-            CoefficientAccumulator(BusData<bus_idx, AllEntities>::read_tags(in)); // does row contain data being read
-        const Accumulator read_tag(read_tag_m);
-        // Relation checking: is_read_gate == 1 || read_tag == 1
-        // Important note: the relation written below assumes that is_read_gate and read_tag are boolean values, which
-        // is guaranteed by the boolean_check subrelation. If not, fixing one of the two, the return value is a linear
-        // function in the other variable and can be set to an arbitrary value independent of the fixed value. See the
-        // boolean_check subrelation for more explanation.
-        //         degree 2(2)   1             2 (2)        1       // Degree 3 (3)
-        return is_read_gate + read_tag - (is_read_gate * read_tag); // Degree 3 (5)
-    }
 
     /**
      * @brief Compute scalar for read term in log derivative lookup argument
@@ -273,32 +213,24 @@ template <typename FF_> class DatabusLookupRelationImpl {
     template <size_t bus_idx, typename Polynomials>
     static void compute_logderivative_inverse(Polynomials& polynomials,
                                               auto& relation_parameters,
-                                              const size_t circuit_size)
+                                              const size_t circuit_size,
+                                              const size_t start_index = 0)
     {
         BB_BENCH_NAME("Databus::compute_logderivative_inverse");
         auto& inverse_polynomial = BusData<bus_idx, Polynomials>::inverses(polynomials);
+        const auto& column_selector = BusData<bus_idx, Polynomials>::selector(polynomials);
+        const auto& read_counts = BusData<bus_idx, Polynomials>::read_counts(polynomials);
 
+        const size_t num_rows = circuit_size - start_index;
         size_t min_iterations_per_thread = 1 << 6; // min number of iterations for which we'll spin up a unique thread
-        size_t num_threads = bb::calculate_num_threads(circuit_size, min_iterations_per_thread);
+        size_t num_threads = bb::calculate_num_threads(num_rows, min_iterations_per_thread);
 
         parallel_for(num_threads, [&](ThreadChunk chunk) {
-            bool is_read = false;
-            bool nonzero_read_count = false;
-            for (size_t i : chunk.range(circuit_size)) {
+            for (size_t j : chunk.range(num_rows)) {
+                size_t i = j + start_index;
                 // Determine if the present row contains a databus operation
-                auto q_busread = polynomials.q_busread[i];
-                if constexpr (bus_idx == 0) { // calldata
-                    is_read = q_busread == 1 && polynomials.q_l[i] == 1;
-                    nonzero_read_count = polynomials.calldata_read_counts[i] > 0;
-                }
-                if constexpr (bus_idx == 1) { // secondary_calldata
-                    is_read = q_busread == 1 && polynomials.q_r[i] == 1;
-                    nonzero_read_count = polynomials.secondary_calldata_read_counts[i] > 0;
-                }
-                if constexpr (bus_idx == 2) { // return data
-                    is_read = q_busread == 1 && polynomials.q_o[i] == 1;
-                    nonzero_read_count = polynomials.return_data_read_counts[i] > 0;
-                }
+                const bool is_read = polynomials.q_busread[i] == 1 && column_selector[i] == 1;
+                const bool nonzero_read_count = read_counts[i] > 0;
                 // We only compute the inverse if this row contains a read gate or data that has been read
                 if (is_read || nonzero_read_count) {
                     // TODO(https://github.com/AztecProtocol/barretenberg/issues/940): avoid get_row if possible.
@@ -317,13 +249,10 @@ template <typename FF_> class DatabusLookupRelationImpl {
 
     /**
      * @brief Accumulate the subrelation contributions for reads from a single databus column
-     * @details Three subrelations are required per bus column, one to establish correctness of the precomputed
-     * inverses, one to establish the validity of the read, and one to ensure read_tags is a boolean value
-     *
-     * @param accumulator
-     * @param in
-     * @param params
-     * @param scaling_factor
+     * @details Three subrelations are required per bus column:
+     *   (1a) Inverse correctness on read rows: (I*L*T - 1) * is_read = 0
+     *   (1b) Inverse correctness on write rows: (I*L*T - 1) * count = 0
+     *   (2)  Lookup identity (linearly dependent): (is_read*T - count*L) * I = 0
      */
     template <typename FF,
               size_t bus_idx,
@@ -335,46 +264,38 @@ template <typename FF_> class DatabusLookupRelationImpl {
                                                      const Parameters& params,
                                                      const FF& scaling_factor)
     {
-        using Accumulator = typename std::tuple_element_t<4, ContainerOverSubrelations>;
+        // Subrelation indices for this bus column
+        constexpr size_t subrel_idx_inv_read = NUM_SUB_RELATION_PER_IDX * bus_idx;      // (1a)
+        constexpr size_t subrel_idx_inv_write = NUM_SUB_RELATION_PER_IDX * bus_idx + 1; // (1b)
+        constexpr size_t subrel_idx_lookup = NUM_SUB_RELATION_PER_IDX * bus_idx + 2;    // (2)
+
+        using Accumulator = typename std::tuple_element_t<subrel_idx_inv_read, ContainerOverSubrelations>;
         using CoefficientAccumulator = typename Accumulator::CoefficientAccumulator;
-        using ShortAccumulator = std::tuple_element_t<2, ContainerOverSubrelations>;
-        const auto inverses_m = CoefficientAccumulator(BusData<bus_idx, AllEntities>::inverses(in)); // Degree 1
-        Accumulator inverses(inverses_m);
-        const auto read_counts_m = CoefficientAccumulator(BusData<bus_idx, AllEntities>::read_counts(in)); // Degree 1
-        const auto lookup_term = compute_lookup_term<Accumulator>(in, params);                             // Degree 1
-        const auto table_term = compute_table_term<Accumulator, bus_idx>(in, params);                      // Degree 1
-        const auto inverse_exists = compute_inverse_exists<Accumulator, bus_idx>(in);                      // Degree 3
-        const auto read_selector = get_read_selector<Accumulator, bus_idx>(in);                            // Degree 2
 
-        // Determine which pair of subrelations to update based on which bus column is being read
-        // The inverse relation subrelation index
-        constexpr size_t subrel_idx_1 = NUM_SUB_RELATION_PER_IDX * bus_idx;
-        // The lookup relation subrelation index
-        constexpr size_t subrel_idx_2 = NUM_SUB_RELATION_PER_IDX * bus_idx + 1;
-        // The read_tag boolean check subrelation index
-        constexpr size_t subrel_idx_3 = NUM_SUB_RELATION_PER_IDX * bus_idx + 2;
+        const auto inverses_m = CoefficientAccumulator(BusData<bus_idx, AllEntities>::inverses(in));
+        const auto read_counts_m = CoefficientAccumulator(BusData<bus_idx, AllEntities>::read_counts(in));
 
-        // Establish the correctness of the polynomial of inverses I. Note: inverses is computed so that the value
-        // is 0 if !inverse_exists. Degree 3
-        // degrees            3    =              1           1              1           3
-        std::get<subrel_idx_1>(accumulator) += (lookup_term * table_term * inverses - inverse_exists) * scaling_factor;
+        const Accumulator inverses(inverses_m);
+        const Accumulator read_counts(read_counts_m);
+        const auto lookup_term = compute_lookup_term<Accumulator>(in, params);
+        const auto table_term = compute_table_term<Accumulator, bus_idx>(in, params);
+        const auto read_selector = get_read_selector<Accumulator, bus_idx>(in);
 
-        // Establish validity of the read. Note: no scaling factor here since this constraint is enforced across the
-        // entire trace, not on a per-row basis.
+        // Shared factor in (1a) and (1b): I*L*T - 1
+        const auto common = lookup_term * table_term * inverses - FF(1);
 
-        // degree  3   =         2          1
+        // (1a) Inverse correctness on read rows: (I*L*T - 1) * is_read = 0
+        std::get<subrel_idx_inv_read>(accumulator) += (common * read_selector) * scaling_factor;
+
+        // (1b) Inverse correctness on write rows: (I*L*T - 1) * count = 0
+        std::get<subrel_idx_inv_write>(accumulator) += (common * read_counts) * scaling_factor;
+
+        // (2) Lookup identity: (is_read*T - count*L) * I = 0.
+        // No scaling factor here since this constraint is enforced across the entire trace, not per-row.
         Accumulator tmp = read_selector * table_term;
-        // degree 2 =             1           1
-        tmp -= Accumulator(read_counts_m) * lookup_term;
-        // degree 1
+        tmp -= read_counts * lookup_term;
         tmp *= inverses;
-        std::get<subrel_idx_2>(accumulator) += tmp; // Deg 4 (4)
-
-        const auto read_tag_m = CoefficientAccumulator(BusData<bus_idx, AllEntities>::read_tags(in));
-        const auto read_tag = ShortAccumulator(read_tag_m);
-        // // this is done by row so we have to multiply by the scaling factor
-        // degree                                    1        1            1      =      2
-        std::get<subrel_idx_3>(accumulator) += (read_tag * read_tag - read_tag) * scaling_factor;
+        std::get<subrel_idx_lookup>(accumulator) += tmp;
     }
 
     /**

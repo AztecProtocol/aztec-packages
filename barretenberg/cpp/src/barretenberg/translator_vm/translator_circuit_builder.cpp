@@ -432,41 +432,37 @@ void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(const std::shared_
         return;
     }
 
-    // Handle the initial UltraOp (a no-op) by filling the start of all other wire polynomials with zeros. This ensures
-    // all translator wire polynomials begin with 0, which is necessary for shifted polynomials in the proving system.
-    // Although only the first index needs to be zero, we add two zeros to maintain consistency since each actual
-    // UltraOp populates two polynomial indices.
+    // Fill the start of all wire polynomials with two zeros for polynomial shiftability. The merge protocol's
+    // partial shift (APPEND_OUTPUT_SHIFT = 2) in Chonk mode, or the ecc_op_wire layout (TRACE_OFFSET +
+    // NUM_ZERO_ROWS = 2) in AVM mode, provides matching leading zeros in the commitment.
     for (auto& wire : wires) {
         wire.push_back(zero_idx());
         wire.push_back(zero_idx());
     }
     increment_num_gates(2);
 
-    // When encountering the random operations in the op queue, populate the op wire without creating accumulation gates
-    // These are present in the op queue at the beginning and end to ensure commitments and evaluations to op queue
-    // polynomials do not reveal information about data in the op queue
-    // The position and number of these random ops are explained in Chonk::hide_op_queue_content_tail_kernel
-    // and Chonk::hide_op_queue_content_hiding_kernel
-    for (size_t i = NUM_NO_OPS_START; i <= NUM_RANDOM_OPS_START; ++i) {
+    // Process random operations at the start of the op queue (no accumulation gates needed).
+    // These ensure commitments and evaluations do not reveal information about op queue content.
+    for (size_t i = 0; i < NUM_RANDOM_OPS_START; ++i) {
         process_random_op(ultra_ops[i]);
     }
 
     // Guard against unsigned wraparound when computing ops_end below
-    const size_t min_ops = NUM_NO_OPS_START + NUM_RANDOM_OPS_START + (avm_mode ? 0 : NUM_RANDOM_OPS_END);
+    const size_t min_ops = NUM_RANDOM_OPS_START + (avm_mode ? 0 : NUM_RANDOM_OPS_END);
     BB_ASSERT(ultra_ops.size() >= min_ops, "Op queue too small for Translator circuit construction");
 
     const size_t ops_end = avm_mode ? ultra_ops.size() : ultra_ops.size() - NUM_RANDOM_OPS_END;
     // Range of UltraOps for which we should construct accumulation gates
-    std::span ultra_ops_span(ultra_ops.begin() + static_cast<std::ptrdiff_t>(NUM_NO_OPS_START + NUM_RANDOM_OPS_START),
+    std::span ultra_ops_span(ultra_ops.begin() + static_cast<std::ptrdiff_t>(NUM_RANDOM_OPS_START),
                              ultra_ops.begin() + static_cast<std::ptrdiff_t>(ops_end));
 
     // Pre-compute accumulator values for each step since the circuit processes values in reverse order
     // and requires knowledge of the previous accumulator to construct each gate. Both accumulator computation
-    // and gate creation skip the initial no-ops and also the random operations at the beginning and end of the oqueue ,
-    // as these should not influence the final accumulation result (located at index RESULT_ROW). The accumulation
-    // result is sent as part of the Chonk proof, and so we add a genuine operation with randomly generated values
-    // during Chonk execution to ensure no information about the rest of the ops is leaked. Acccumulator pre-computation
-    // is achieved by processing the queue in reverse order.
+    // and gate creation skip the random operations at the beginning and end of the op queue and any zero-opcode
+    // padding ops, as these should not influence the final accumulation result (located at index RESULT_ROW).
+    // The accumulation result is sent as part of the Chonk proof, and so we add a genuine operation with
+    // randomly generated values during Chonk execution to ensure no information about the rest of the ops is
+    // leaked. Accumulator pre-computation is achieved by processing the queue in reverse order.
     for (const auto& ultra_op : std::ranges::reverse_view(ultra_ops_span)) {
         if (ultra_op.op_code.value() == 0) {
             //  Skip no-ops as they should not affect the computation of the accumulator

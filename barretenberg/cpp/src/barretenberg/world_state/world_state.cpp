@@ -966,34 +966,35 @@ bb::fr WorldState::compute_initial_block_header_hash(const StateReference& initi
 {
     // NOTE: this hash operations needs to match the one in
     // noir-project/noir-protocol-circuits/crates/types/src/abis/block_header.nr
-    return HashPolicy::hash({ generator_point,
-                              // last archive - which, at genesis, is all 0s
-                              0, // root
-                              0, // next_available_leaf_index
-                              // state reference - the initial state for all the trees (accept the archive tree)
-                              initial_state_ref.at(MerkleTreeId::L1_TO_L2_MESSAGE_TREE).first,
-                              initial_state_ref.at(MerkleTreeId::L1_TO_L2_MESSAGE_TREE).second,
-                              initial_state_ref.at(MerkleTreeId::NOTE_HASH_TREE).first,
-                              initial_state_ref.at(MerkleTreeId::NOTE_HASH_TREE).second,
-                              initial_state_ref.at(MerkleTreeId::NULLIFIER_TREE).first,
-                              initial_state_ref.at(MerkleTreeId::NULLIFIER_TREE).second,
-                              initial_state_ref.at(MerkleTreeId::PUBLIC_DATA_TREE).first,
-                              initial_state_ref.at(MerkleTreeId::PUBLIC_DATA_TREE).second,
-                              0, // sponge_blob_hash
-                              // global variables
-                              0,                         // chain_id
-                              0,                         // version
-                              0,                         // block_number
-                              0,                         // slot_number
-                              bb::fr(genesis_timestamp), // timestamp
-                              0,                         // coinbase
-                              0,                         // fee_recipient
-                              0,                         // gas_fee.fee_per_da_gas
-                              0,                         // gas_fee.fee_per_l2_gas
-                              // total fees
-                              0,
-                              // total mana used
-                              0 });
+    return AppendOnlyHashPolicy::hash(
+        { generator_point,
+          // last archive - which, at genesis, is all 0s
+          0, // root
+          0, // next_available_leaf_index
+          // state reference - the initial state for all the trees (accept the archive tree)
+          initial_state_ref.at(MerkleTreeId::L1_TO_L2_MESSAGE_TREE).first,
+          initial_state_ref.at(MerkleTreeId::L1_TO_L2_MESSAGE_TREE).second,
+          initial_state_ref.at(MerkleTreeId::NOTE_HASH_TREE).first,
+          initial_state_ref.at(MerkleTreeId::NOTE_HASH_TREE).second,
+          initial_state_ref.at(MerkleTreeId::NULLIFIER_TREE).first,
+          initial_state_ref.at(MerkleTreeId::NULLIFIER_TREE).second,
+          initial_state_ref.at(MerkleTreeId::PUBLIC_DATA_TREE).first,
+          initial_state_ref.at(MerkleTreeId::PUBLIC_DATA_TREE).second,
+          0, // sponge_blob_hash
+          // global variables
+          0,                         // chain_id
+          0,                         // version
+          0,                         // block_number
+          0,                         // slot_number
+          bb::fr(genesis_timestamp), // timestamp
+          0,                         // coinbase
+          0,                         // fee_recipient
+          0,                         // gas_fee.fee_per_da_gas
+          0,                         // gas_fee.fee_per_l2_gas
+          // total fees
+          0,
+          // total mana used
+          0 });
 }
 
 bool WorldState::is_archive_tip(const WorldStateRevision& revision, const bb::fr& block_header_hash) const

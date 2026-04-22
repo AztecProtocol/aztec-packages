@@ -36,7 +36,10 @@ use types::{
     },
     data::public_data_tree_leaf_preimage::PublicDataTreeLeafPreimage,
     hash::compute_l2_to_l1_message_hash,
-    merkle_tree::{LeafPreimage, MembershipWitness, test_utils::SingleSubtreeMerkleTree},
+    merkle_tree::{
+        LeafPreimage, MembershipWitness, nullifier_merkle_hash, public_data_merkle_hash,
+        test_utils::SingleSubtreeMerkleTree,
+    },
     traits::FromField,
     utils::arrays::{find_first_index, get_sorted_tuples, subarray},
 };
@@ -207,8 +210,11 @@ impl TestBuilder {
 
     pub fn build_nullifier_tree(&mut self, start_index: Field) {
         let leaf_values = self.pre_existing_nullifiers.map(|nullifier| nullifier.as_leaf());
-        self.nullifier_tree =
-            SingleSubtreeMerkleTree::new_at_index(pad_end(leaf_values), start_index);
+        self.nullifier_tree = SingleSubtreeMerkleTree::new_with_hasher_at_index(
+            pad_end(leaf_values),
+            start_index,
+            nullifier_merkle_hash,
+        );
 
         self.start_tree_snapshots.nullifier_tree = AppendOnlyTreeSnapshot {
             root: self.nullifier_tree.get_root(),
@@ -272,9 +278,10 @@ impl TestBuilder {
     }
 
     pub fn build_public_data_tree(&mut self, start_index: Field) {
-        self.public_data_tree = SingleSubtreeMerkleTree::new_at_index(
+        self.public_data_tree = SingleSubtreeMerkleTree::new_with_hasher_at_index(
             self.pre_existing_public_data_preimages.map(|leaf| leaf.as_leaf()),
             start_index,
+            public_data_merkle_hash,
         );
 
         self.start_tree_snapshots.public_data_tree = AppendOnlyTreeSnapshot {

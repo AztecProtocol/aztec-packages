@@ -222,13 +222,22 @@ namespace note_hash_tree_check;
     pol commit note_hash_tree_height;
     sel * (constants.NOTE_HASH_TREE_HEIGHT - note_hash_tree_height) = 0;
 
+    // Per-tree merkle-node domain separator. The note hash tree is append-only and always
+    // uses DOM_SEP__MERKLE_HASH. Bound internally so callers (tx.pil / opcodes) don't need
+    // to plumb a separator column. Forwarded into merkle_check via #[MERKLE_CHECK].
+    pol commit merkle_hash_separator;
+    #[MERKLE_HASH_SEPARATOR_CONSTANT]
+    sel * (merkle_hash_separator - constants.DOM_SEP__MERKLE_HASH) = 0;
+
     #[MERKLE_CHECK]
     sel {
         write, prev_leaf_value, next_leaf_value,
-        leaf_index, note_hash_tree_height, prev_root, next_root
+        leaf_index, note_hash_tree_height, prev_root, next_root,
+        merkle_hash_separator
     } in merkle_check.start {
         merkle_check.write, merkle_check.read_node, merkle_check.write_node,
-        merkle_check.index, merkle_check.path_len, merkle_check.read_root, merkle_check.write_root
+        merkle_check.index, merkle_check.path_len, merkle_check.read_root, merkle_check.write_root,
+        merkle_check.merkle_hash_separator
     };
 
 
