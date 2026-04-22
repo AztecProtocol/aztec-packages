@@ -4,4 +4,4 @@ type = "contract"
 authors = [""]
 
 [dependencies]
-aztec = { path = "../../../aztec" }
+aztec = { path = "../../../aztec-nr/aztec" }
