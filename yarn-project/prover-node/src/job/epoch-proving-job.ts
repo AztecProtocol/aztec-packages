@@ -58,7 +58,7 @@ export class EpochProvingJob implements Traceable {
     private dbProvider: Pick<ForkMerkleTreeOperations, 'fork'>,
     private prover: EpochProver,
     private publicProcessorFactory: PublicProcessorFactory,
-    private publisher: Pick<ProverNodePublisher, 'submitEpochProof'>,
+    private publisher: Pick<ProverNodePublisher, 'submitEpochProof' | 'analyzeEpochProofSubmission'>,
     private l2BlockSource: L2BlockSource | undefined,
     private metrics: ProverNodeJobMetrics,
     private deadline: Date | undefined,
@@ -270,8 +270,21 @@ export class EpochProvingJob implements Traceable {
 
       if (this.config.skipSubmitProof) {
         this.log.info(
-          `Proof publishing is disabled. Dropping valid proof for epoch ${epochNumber} (checkpoints ${fromCheckpoint} to ${toCheckpoint})`,
+          `Proof publishing is disabled. Analyzing estimated L1 fees for epoch ${epochNumber} (checkpoints ${fromCheckpoint} to ${toCheckpoint})`,
         );
+        try {
+          await this.publisher.analyzeEpochProofSubmission({
+            fromCheckpoint,
+            toCheckpoint,
+            epochNumber,
+            publicInputs,
+            proof,
+            batchedBlobInputs,
+            attestations,
+          });
+        } catch (err) {
+          this.log.warn(`Failed to analyze estimated L1 fees for epoch ${epochNumber}`, err);
+        }
         this.state = 'completed';
         this.metrics.recordProvingJob(executionTime, timer.ms(), epochSizeCheckpoints, epochSizeBlocks, epochSizeTxs);
         return;
