@@ -140,6 +140,13 @@ export class ProverNodeRewardsMetrics {
   };
 }
 
+export type EstimatedSubmitProofStats = {
+  gasLimit: bigint;
+  baseFeePerGas: bigint;
+  maxPriorityFeePerGas: bigint;
+  estimatedTotalFee: bigint;
+};
+
 export class ProverNodePublisherMetrics {
   gasPrice: Histogram;
   txCount: UpDownCounter;
@@ -150,6 +157,10 @@ export class ProverNodePublisherMetrics {
   txBlobDataGasUsed: Histogram;
   txBlobDataGasCost: Histogram;
   txTotalFee: Histogram;
+
+  private txGasEstimated: Histogram;
+  private gasPriceEstimated: Histogram;
+  private txTotalFeeEstimated: Histogram;
 
   private senderBalance: Gauge;
   private meter: Meter;
@@ -182,6 +193,12 @@ export class ProverNodePublisherMetrics {
 
     this.txTotalFee = this.meter.createHistogram(Metrics.L1_PUBLISHER_TX_TOTAL_FEE);
 
+    this.txGasEstimated = this.meter.createHistogram(Metrics.PROVER_NODE_ESTIMATED_SUBMISSION_GAS);
+
+    this.gasPriceEstimated = this.meter.createHistogram(Metrics.PROVER_NODE_ESTIMATED_SUBMISSION_GAS_PRICE);
+
+    this.txTotalFeeEstimated = this.meter.createHistogram(Metrics.PROVER_NODE_ESTIMATED_SUBMISSION_TOTAL_FEE);
+
     this.senderBalance = this.meter.createGauge(Metrics.L1_PUBLISHER_BALANCE);
   }
 
@@ -194,6 +211,26 @@ export class ProverNodePublisherMetrics {
 
   recordSubmitProof(durationMs: number, stats: L1PublishProofStats) {
     this.recordTx(durationMs, stats);
+  }
+
+  public recordEstimatedSubmitProof(stats: EstimatedSubmitProofStats) {
+    const attributes = { [Attributes.L1_TX_TYPE]: 'submitProof' } as const;
+
+    this.txGasEstimated.record(Number(stats.gasLimit), attributes);
+
+    try {
+      this.gasPriceEstimated.record(
+        parseInt(formatEther(stats.baseFeePerGas + stats.maxPriorityFeePerGas, 'gwei'), 10),
+      );
+    } catch {
+      // ignore
+    }
+
+    try {
+      this.txTotalFeeEstimated.record(parseFloat(formatEther(stats.estimatedTotalFee)));
+    } catch {
+      // ignore
+    }
   }
 
   public recordSenderBalance(wei: bigint, senderAddress: string) {

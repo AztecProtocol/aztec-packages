@@ -52,7 +52,12 @@ export default defineConfig({
     reporters: ['verbose'],
     include: [
       './src/indexeddb/**/*.test.ts',
-      './src/sqlite-opfs/**/*.test.ts',
+      // sqlite-opfs browser tests hang intermittently in the 2-CPU CI container
+      // (see https://github.com/AztecProtocol/aztec-packages/pull/22693). The
+      // backend is still experimental — gate these behind VITE_SQLITE_OPFS=1
+      // so they run in dev but don't block the merge-train until the hang is
+      // root-caused.
+      ...(process.env.VITE_SQLITE_OPFS === '1' ? ['./src/sqlite-opfs/**/*.test.ts'] : []),
       // Benchmarks self-skip unless VITE_BENCH=1; include so they're discoverable.
       './src/bench/indexeddb/**/*.test.ts',
       './src/bench/sqlite-opfs/**/*.test.ts',
