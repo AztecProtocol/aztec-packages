@@ -278,31 +278,25 @@ export class RpcSyncArchiver extends ArchiverDataSourceBase implements L2BlockSt
         ? checkpointNumber
         : CheckpointNumber(Math.max(checkpointNumber - 1, 0));
 
-    // Gather the blocks that will be removed so we can populate the prune event.
-    const provenCheckpointNumber = await this.store.getProvenCheckpointNumber();
-    const blocksBeingRemoved = await this.store.getBlocks(
-      BlockNumber(targetBlockNumber + 1),
-      (await this.store.getLatestBlockNumber()) - targetBlockNumber,
-    );
+    // Compute the first block that will actually be removed. If the target is at a checkpoint
+    // boundary we keep its containing checkpoint, so we start removing at targetBlockNumber + 1.
+    // Otherwise the whole containing checkpoint is removed, so we start at its first block.
+    const firstRemovedBlock =
+      targetBlockNumber === lastBlockInCheckpoint ? BlockNumber(targetBlockNumber + 1) : checkpointData.startBlock;
+    const latestBlockNumber = await this.store.getLatestBlockNumber();
+    const blocksBeingRemoved = await this.store.getBlocks(firstRemovedBlock, latestBlockNumber - firstRemovedBlock + 1);
 
     this.log.info(`Pruning checkpoints after ${targetCheckpoint} due to upstream chain-pruned event`);
     await this.updater.removeCheckpointsAfter(targetCheckpoint);
 
-    if (provenCheckpointNumber > targetCheckpoint) {
-      // Crossing the proven boundary means an unproven epoch was pruned.
-      const epochNumber = getEpochAtSlot(
-        blocksBeingRemoved[0]?.header.globalVariables.slotNumber ?? SlotNumber.ZERO,
-        this.l1Constants,
-      );
+    // Any removal in this branch drops at least one checkpointed block, so this is always
+    // L2PruneUnproven (L2PruneUncheckpointed applies only when the proposed tail — no checkpoints —
+    // is pruned, which is handled by the early-return branch above).
+    if (blocksBeingRemoved.length > 0) {
+      const epochNumber = getEpochAtSlot(blocksBeingRemoved[0].header.globalVariables.slotNumber, this.l1Constants);
       this.events.emit(L2BlockSourceEvents.L2PruneUnproven, {
         type: 'l2PruneUnproven',
         epochNumber,
-        blocks: blocksBeingRemoved,
-      });
-    } else if (blocksBeingRemoved.length > 0) {
-      this.events.emit(L2BlockSourceEvents.L2PruneUncheckpointed, {
-        type: 'l2PruneUncheckpointed',
-        slotNumber: blocksBeingRemoved.at(-1)!.header.globalVariables.slotNumber,
         blocks: blocksBeingRemoved,
       });
     }

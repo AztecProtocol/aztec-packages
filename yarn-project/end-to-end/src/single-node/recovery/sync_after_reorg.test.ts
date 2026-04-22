@@ -21,15 +21,23 @@ describe('single-node/recovery/sync_after_reorg', () => {
   let L2_SLOT_DURATION_IN_S: number;
 
   let test: SingleNodeTestContext;
+  let primaryArchiver: Archiver;
+  let rpcSyncArchiver: RpcSyncArchiver;
 
   beforeEach(async () => {
     test = await setupWithProver({ startProverNode: false }); // no prover!
     ({ context, logger } = test);
     ({ L2_SLOT_DURATION_IN_S } = test);
+
+    // Spin up an RpcSyncArchiver pointed at the primary node's archiver as soon as the nodes
+    // are live, so we can assert that it follows along at every checkpoint-number assertion.
+    primaryArchiver = (context.aztecNode as AztecNodeService).getBlockSource() as Archiver;
+    rpcSyncArchiver = await createRpcSyncArchiverFromPrimary(primaryArchiver);
   });
 
   afterEach(async () => {
     jest.restoreAllMocks();
+    await rpcSyncArchiver?.stop();
     await test.teardown();
   });
 
@@ -43,21 +51,7 @@ describe('single-node/recovery/sync_after_reorg', () => {
     // With pipelining, each checkpoint takes ~2 L2 slots (the sequencer must wait for
     // the L1 tx of the previous checkpoint to land before it can build the next one).
     await test.waitUntilCheckpointNumber(CheckpointNumber(5), L2_SLOT_DURATION_IN_S * 12 + 30);
-
-    // Before stopping the node, verify that an RpcSyncArchiver can sync from the primary archiver
-    // and ends up with tips matching the primary. This exercises the same non-L1 sync path that a
-    // light read-only node would use in production.
-    const primaryArchiver = (context.aztecNode as AztecNodeService).getBlockSource() as Archiver;
-    const rpcSyncArchiver = await createRpcSyncArchiverFromPrimary(primaryArchiver);
-    try {
-      const [primaryTips, followerTips] = await Promise.all([primaryArchiver.getL2Tips(), rpcSyncArchiver.getL2Tips()]);
-      expect(followerTips.checkpointed.block.number).toEqual(primaryTips.checkpointed.block.number);
-      expect(followerTips.checkpointed.block.hash).toEqual(primaryTips.checkpointed.block.hash);
-      expect(followerTips.proposed.number).toEqual(primaryTips.proposed.number);
-      expect(followerTips.proposed.hash).toEqual(primaryTips.proposed.hash);
-    } finally {
-      await rpcSyncArchiver.stop();
-    }
+    await assertRpcSyncArchiverAtCheckpoint(CheckpointNumber(5));
 
     // Stop the node generating blocks
     logger.warn(`Stopping the main node`);
@@ -97,6 +91,19 @@ describe('single-node/recovery/sync_after_reorg', () => {
   });
 
   /**
+   * Triggers an immediate sync on the RpcSyncArchiver and asserts that its checkpointed tip is at
+   * least the given checkpoint. We compare on the `checkpointed` tip (not `proposed`) because the
+   * primary keeps producing blocks and the `proposed` tip can drift by one between the two calls.
+   */
+  async function assertRpcSyncArchiverAtCheckpoint(checkpoint: CheckpointNumber) {
+    await rpcSyncArchiver.syncImmediate();
+    const [primaryTips, followerTips] = await Promise.all([primaryArchiver.getL2Tips(), rpcSyncArchiver.getL2Tips()]);
+    expect(followerTips.checkpointed.checkpoint.number).toBeGreaterThanOrEqual(checkpoint);
+    expect(followerTips.checkpointed.block.number).toEqual(primaryTips.checkpointed.block.number);
+    expect(followerTips.checkpointed.block.hash).toEqual(primaryTips.checkpointed.block.hash);
+  }
+
+  /**
    * Creates an RpcSyncArchiver pointed at the given primary archiver, reusing its L1 constants
    * and addresses (the RPC-sync archiver does not read L1 on its own).
    */
@@ -116,9 +123,12 @@ describe('single-node/recovery/sync_after_reorg', () => {
         registryAddress,
       },
     };
-    return createRpcSyncArchiver(followerConfig, primary, {
-      ...l1Constants,
-      genesisArchiveRoot: genesisValues.genesisArchiveRoot,
-    });
+    return createRpcSyncArchiver(
+      followerConfig,
+      primary,
+      { ...l1Constants, genesisArchiveRoot: genesisValues.genesisArchiveRoot },
+      {},
+      { blockUntilSync: false },
+    );
   }
 });
