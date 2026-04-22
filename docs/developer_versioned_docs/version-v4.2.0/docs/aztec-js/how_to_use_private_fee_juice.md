@@ -7,9 +7,9 @@ description: Learn how private fee payment works on Aztec and walk through an ex
 
 import { General, Fees } from '@site/src/components/Snippets/general_snippets';
 
-This guide explains how private fee payment works on Aztec and walks through a concrete example. A fully private FPC can pay transaction fees without revealing the payer — it has no public functions, no owner, and no offchain agent. Because the contract is fully private, **no onchain deployment transaction is required**. Every app just derives the address deterministically from the class hash and a shared salt, and users interact with it privately.
+This guide explains how private fee payment works on Aztec and walks through a concrete example. A fully private FPC can pay transaction fees without revealing the payer: it has no public functions, no owner, and no offchain agent. Because the contract is fully private, **no onchain deployment transaction is required**. Every app just derives the address deterministically from the class hash and a shared salt, and users interact with it privately.
 
-To illustrate the pattern, this guide uses [`PrivateFPC`](https://github.com/defi-wonderland/aztec-fee-payment) — a community-built implementation by [DeFi Wonderland](https://github.com/defi-wonderland). You could write your own private FPC following the same design principles.
+To illustrate the pattern, this guide uses [`PrivateFPC`](https://github.com/defi-wonderland/aztec-fee-payment), a community-built implementation by [Wonderland](https://github.com/defi-wonderland). You could write your own private FPC following the same design principles.
 
 ## Prerequisites
 
@@ -22,9 +22,9 @@ To illustrate the pattern, this guide uses [`PrivateFPC`](https://github.com/def
 
 ## Why a fully private FPC?
 
-The `PrivateFeePaymentMethod` shipped in `@aztec/aztec.js/fee` (now deprecated) targets the reference [`FPC` contract](https://github.com/AztecProtocol/aztec-packages/blob/v4.2.0/noir-projects/noir-contracts/contracts/fees/fpc_contract/src/main.nr), which accepts an arbitrary asset and calls custom token functions (like `transfer_to_public`) during the setup phase of a transaction. Since Aztec v4.2.0, token functions are no longer in the default public setup allowlist, so that flow is rejected on public networks. See the [migration note](../resources/migration_notes.md#custom-token-fpcs-removed-from-default-public-setup-allowlist) for details.
+On Aztec, the transaction's setup phase is non-revertible, and a protocol-level allowlist controls which public function calls are permitted during it. Since v4.2.0, public token functions (like `transfer_in_public` and `_increase_public_balance`) have been removed from the default allowlist; custom FPCs may only call protocol-contract setup functions like those on `AuthRegistry` and `FeeJuice`. The reference [`FPC` contract](https://github.com/AztecProtocol/aztec-packages/blob/v4.2.0/noir-projects/noir-contracts/contracts/fees/fpc_contract/src/main.nr) collects user payment during setup by calling those token functions, so its flow is now rejected on public networks. The `PrivateFeePaymentMethod` shipped in `@aztec/aztec.js/fee` (which targets that contract) is therefore deprecated. See the [migration note](../resources/migration_notes.md#custom-token-fpcs-removed-from-default-public-setup-allowlist) for details.
 
-A fully private FPC avoids the problem entirely by holding Fee Juice claimed from L1 as an internal private balance and never making cross-contract calls during setup — it only verifies a Fee Juice nullifier exists and deducts from its own private balance, so it passes the allowlist on every network.
+A fully private FPC side-steps the allowlist entirely. Instead of collecting payment from the user during setup, it holds Fee Juice as its own internal private balance (funded earlier by the user through the Fee Juice portal). When a transaction runs, the FPC just verifies that a Fee Juice claim nullifier exists in the nullifier tree (proof that the L1 deposit was consumed on L2) and deducts from its private note-based balance. No public cross-contract token calls happen during setup, so the allowlist never blocks anything.
 
 ## How a private FPC works
 
@@ -32,14 +32,14 @@ This section describes the design pattern using Wonderland's `PrivateFPC` as an 
 
 Two flows are supported:
 
-1. **Bridge + mint + pay** (recommended steady state):
-    1. On L1, deposit Fee Juice to the `FeeJuicePortal`, targeting the FPC's Aztec address as the recipient and using a claimer-bound secret hash.
-    2. On L2, call `FeeJuice.claim(...)` to emit the Fee Juice nullifier.
-    3. Call `PrivateFPC.mint(amount, salt, leaf_index)` to convert the bridge claim into private Fee Juice balance inside the FPC, credited to the claimer.
+1. **Bridge + mint + pay** (for recurring use, once the account already has a private Fee Juice balance with the FPC):
+    1. On L1, deposit Fee Juice to the `FeeJuicePortal`, targeting the FPC's Aztec address as the recipient. Pass a **claimer-bound secret hash**: a hash whose preimage only the claimer knows, which the L2 claim transaction must reveal to consume the resulting L1-to-L2 message. This is the same pattern used by any Fee Juice bridge; the FPC is the *recipient* of the deposit, the user is the *claimer*.
+    2. On L2, consume the L1-to-L2 message with [`FeeJuicePaymentMethodWithClaim`](./how_to_pay_fees.md#bridge-fee-juice-from-l1). The payment method claims the bridged Fee Juice during setup (the claim itself funds the transaction's fee) and the claim nullifier lands onchain.
+    3. Call `PrivateFPC.mint(amount, salt, leaf_index)` to convert the bridge claim into a private Fee Juice balance inside the FPC, credited to the claimer. (The `salt` here is the deployment salt used to derive the FPC address; see [Recommended salt](#recommended-salt-0) below.)
     4. From that point on, every transaction can call `PrivateFPC.pay_fee()` to deduct `max_gas_cost` from the internal balance and have the FPC set itself as the transaction's fee payer.
-2. **Cold-start:** First call `FeeJuice.claim(...)` so the Fee Juice nullifier lands onchain, then in a follow-up transaction call `PrivateFPC.mint_and_pay_fee(amount, salt, leaf_index)`. The contract verifies the nullifier exists, credits `amount - max_gas_cost` to the claimer, and pays the fee — useful when the user has no prior balance with the FPC.
+2. **Cold-start** (when the account has never minted a private Fee Juice balance into the FPC before): deposit Fee Juice on L1 (same as step 1.1 above), then send an L2 transaction that claims the bridged Fee Juice using `FeeJuicePaymentMethodWithClaim` (same as step 1.2), so the claim nullifier lands onchain. In a follow-up transaction, call `PrivateFPC.mint_and_pay_fee(amount, salt, leaf_index)`. The contract verifies the nullifier exists, credits `amount - max_gas_cost` to the claimer, and pays this transaction's fee in one step. This avoids having to top up a balance first and then spend it later.
 
-Because `pay_fee` never makes cross-contract calls — it only deducts from the FPC's internal private balance and calls `set_as_fee_payer` — no custom token calls ever happen during the setup phase.
+Because `pay_fee` never makes cross-contract calls (it only deducts from the FPC's internal private balance and calls `set_as_fee_payer`), no custom token calls ever happen during the setup phase.
 
 :::note No refund
 `PrivateFPC.pay_fee()` deducts the full `max_gas_cost` and does not refund unused gas. Use `estimateGas` (see [Estimate mana costs](./how_to_pay_fees.md#estimate-mana-costs)) to right-size your limits.
@@ -47,9 +47,11 @@ Because `pay_fee` never makes cross-contract calls — it only deducts from the 
 
 ## Share one FPC address across the ecosystem
 
-Privacy on Aztec comes from indistinguishability. When two transactions call the *same* contract with the *same* function selector and argument shape, they are indistinguishable to an outside observer. If your app derives its own copy of a private FPC with a unique salt, that copy has its own (tiny) anonymity set. If every app derives the *same* FPC address and routes fees through it, every private fee payment in the ecosystem looks the same, and they all share a single, much larger privacy set.
+Privacy on Aztec comes from indistinguishability. Private calldata and user identities are hidden. What an observer sees of a private call is its onchain *footprint*: the number of nullifiers and note commitments it emits, any logs, and its public gas usage. They do not learn which contract or which function produced those. Any two transactions whose footprints match are indistinguishable, even if they originated from entirely different contracts or functions, so an anonymity set at the private layer can span many unrelated contract–function pairs.
 
-This is the whole point of a fully private FPC: because you don't have to deploy it on L2, there is no race to "be the deployer" — the only thing that matters is that everyone agrees on the address.
+Fee payments add one extra observable: the transaction's fee payer address, set via `set_as_fee_payer()`, is recorded onchain by the protocol. Every fee paid through a given FPC address is therefore publicly tagged with that address. If your app uses its own copy of the private FPC at a unique address, that tag distinguishes your users' fee payments from everyone else's. If every app derives the *same* FPC address and routes fees through it, every private fee payment in the ecosystem shares the same public fee-payer tag and joins a single, much larger shared set.
+
+This is the whole point of a fully private FPC. Because you don't have to deploy it on L2, there is no race to "be the deployer": the only thing that matters is that everyone agrees on the address.
 
 ## Recommended salt: `0`
 
@@ -63,14 +65,14 @@ The `PrivateFPC` address depends on the compiled contract bytecode. A different 
 
 ## Example: pay fees with Wonderland's `PrivateFPC`
 
-The SDK exports two payment methods (`FPCFeePaymentMethod` for users who already have a private balance, and `PrivateMintAndPayFeePaymentMethod` for cold-start) plus a `registerPrivateContract` helper that registers the FPC with your PXE using the shared salt — no deployment transaction needed.
+The SDK exports two payment methods (`FPCFeePaymentMethod` for users who already have a private balance, and `PrivateMintAndPayFeePaymentMethod` for cold-start) plus a `registerPrivateContract` helper that registers the FPC with your PXE using the shared salt, with no deployment transaction needed.
 
 For installation, the complete bridge-claim-mint-pay flow, required `send()` options (including `additionalScopes` and `gasSettings`), and a runnable end-to-end example, see the [SDK README](https://github.com/defi-wonderland/aztec-fee-payment/blob/dev/src/ts/README.md) and the [integration test](https://github.com/defi-wonderland/aztec-fee-payment/blob/dev/src/ts/test/private.test.ts).
 
 :::note Transaction behavior
 | Scenario | Status | Execution result | Fee paid? |
 | --- | --- | --- | --- |
-| Private revert | `DROPPED` (not included in block) | — | No |
+| Private revert | `DROPPED` (not included in block) | N/A | No |
 | Public revert | `PROPOSED` | `REVERTED` | Yes (FPC pays) |
 | Success | `PROPOSED` | `SUCCESS` | Yes (FPC pays) |
 :::
@@ -79,10 +81,10 @@ For installation, the complete bridge-claim-mint-pay flow, required `send()` opt
 
 Wonderland's repository ships detailed documentation for this design and its security properties:
 
-- [Private FPC Product Requirements](https://github.com/defi-wonderland/aztec-fee-payment/blob/dev/docs/private-product-requirements.md) — problem statement, requirements matrix, cryptographic design (secret derivation, nullifier reconstruction, double-spend prevention), and security properties
-- [`PrivateFPC` Noir source](https://github.com/defi-wonderland/aztec-fee-payment/blob/dev/src/nr/private_contract/src/main.nr) — the contract itself, annotated with the full bridge-to-mint-to-pay flow
-- [`src/ts/README.md`](https://github.com/defi-wonderland/aztec-fee-payment/blob/dev/src/ts/README.md) — SDK reference with every exported class and utility
-- [Integration test `private.test.ts`](https://github.com/defi-wonderland/aztec-fee-payment/blob/dev/src/ts/test/private.test.ts) — canonical end-to-end example of the bridge → claim → mint → sponsor flow
+- [Private FPC Product Requirements](https://github.com/defi-wonderland/aztec-fee-payment/blob/dev/docs/private-product-requirements.md): problem statement, requirements matrix, cryptographic design (secret derivation, nullifier reconstruction, double-spend prevention), and security properties
+- [`PrivateFPC` Noir source](https://github.com/defi-wonderland/aztec-fee-payment/blob/dev/src/nr/private_contract/src/main.nr): the contract itself, annotated with the full bridge-to-mint-to-pay flow
+- [`src/ts/README.md`](https://github.com/defi-wonderland/aztec-fee-payment/blob/dev/src/ts/README.md): SDK reference with every exported class and utility
+- [Integration test `private.test.ts`](https://github.com/defi-wonderland/aztec-fee-payment/blob/dev/src/ts/test/private.test.ts): canonical end-to-end example of the bridge, claim, mint, sponsor flow
 
 ## Next steps
 
