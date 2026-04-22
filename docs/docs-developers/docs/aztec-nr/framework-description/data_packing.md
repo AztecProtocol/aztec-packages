@@ -14,11 +14,9 @@ Picking the wrong trait, or missing a chance to pack, can waste gas, storage slo
 
 ## When to use Serialize and Deserialize
 
-Reach for `Serialize` / `Deserialize` when a struct is used as a function argument, return value, or event payload.
+`Deserialize` is needed for any struct accepted as a function argument; `Serialize` is needed for any struct returned from a function or emitted as an event. Because args and returns often share the same struct, `#[derive(Serialize, Deserialize)]` is the convenient default.
 
 The encoding must follow Noir's intrinsic serialization: each struct member becomes one or more `Field` values, with no packing or compression. When a transaction calls a public function, TypeScript serializes the arguments into an initial witness using Noir's built-in format. If your Noir-side implementation produces a different layout, you get an "arguments hash mismatch" error.
-
-Use `#[derive(Serialize, Deserialize)]`:
 
 ```rust
 // Matches Noir's intrinsic format automatically.
@@ -51,6 +49,8 @@ When a note's members are already `Field`-sized, deriving is enough:
 
 #include_code field_like_note /docs/examples/contracts/packing_example/src/types.nr rust
 
+`Eq` is a Noir standard trait for equality comparisons (see [Noir's `Eq` trait](https://noir-lang.org/docs/noir/concepts/data_types/traits)). `#[note]` does not require it, but deriving it is idiomatic because it enables `assert_eq` in tests and note-equality checks. `Serialize` and `Deserialize` are similarly optional here, and useful when a note type crosses a function boundary.
+
 This is how the built-in note types work too: [`AddressNote`](pathname:///aztec-nr-api/#api_ref_version/address_note/struct.AddressNote) and [`FieldNote`](pathname:///aztec-nr-api/#api_ref_version/field_note/struct.FieldNote) both derive `Packable` directly because their members are already `Field` or `AztecAddress`.
 
 When a note has members smaller than a `Field` (`bool`, `u8`, `u32`, `u64`), you can skip the `Packable` derive and write a custom implementation that packs multiple values into a single `Field`:
@@ -61,13 +61,19 @@ Derived `Packable` would give `CardNote` an `N = 2`; the custom impl halves that
 
 ### Case 2: a struct used as a state variable's data type
 
+Primitive types (`bool`, `u8` through `u128`, `Field`, `AztecAddress`) already implement `Packable`, so `PublicMutable<u64>` or `PublicImmutable<AztecAddress>` works out of the box. This section applies when the data type is a user-defined struct, for example `PublicMutable<MyStruct, Context>`.
+
 `#[storage]` requires every state variable's data type to implement `Packable`, but it does not add it for you. Put `#[derive(Packable)]` on the struct yourself.
+
+:::note
+`PublicImmutable<T>` and `DelayedPublicMutable<T>` also require `T: Eq`, because they verify stored values against a hash. Add `Eq` to the derive list (`#[derive(Eq, Packable)]`) for structs used in these state variables. `PublicMutable<T>` only needs `Packable`.
+:::
 
 When all members are already `Field`-sized (`Field`, `AztecAddress`, and types built from them), deriving is sufficient:
 
 #include_code derived_packable /docs/examples/contracts/packing_example/src/types.nr rust
 
-Each element in the packed `[Field; N]` array maps to one AVM storage opcode. For [`PublicMutable`](pathname:///aztec-nr-api/#api_ref_version/noir_aztec/state_vars/struct.PublicMutable) and [`PublicImmutable`](pathname:///aztec-nr-api/#api_ref_version/noir_aztec/state_vars/struct.PublicImmutable), that opcode is `SLOAD` on read or `SSTORE` on write. [`DelayedPublicMutable`](pathname:///aztec-nr-api/#api_ref_version/noir_aztec/state_vars/struct.DelayedPublicMutable) works the same way. Fewer elements means fewer storage operations, reducing L2 gas and DA cost.
+For [`PublicMutable<T>`](pathname:///aztec-nr-api/#api_ref_version/noir_aztec/state_vars/struct.PublicMutable), each element of the packed `[Field; N]` array maps directly to one `SLOAD` on read and one `SSTORE` on write, so a smaller `N` is a direct gas saving. [`PublicImmutable<T>`](pathname:///aztec-nr-api/#api_ref_version/noir_aztec/state_vars/struct.PublicImmutable) and [`DelayedPublicMutable<T>`](pathname:///aztec-nr-api/#api_ref_version/noir_aztec/state_vars/struct.DelayedPublicMutable) have additional overhead on top (see [Cost impact](#cost-impact) below), but also benefit from a smaller `N`.
 
 When your struct has members smaller than a `Field`, deriving still uses one whole `Field` per member, which is wasteful. The next section shows how to write a manual implementation that collapses them.
 
@@ -158,14 +164,9 @@ Always test custom `Packable` implementations at boundary values:
 
 ### Public storage
 
-Every element in the `Packable` array maps to one AVM storage opcode:
+Each state variable type has a different storage-op profile, but all of them scale with `N`, the length of the packed `[Field; N]` array for the data type `T`. Reducing `N` reduces cost for every type.
 
-| Operation        | Cost per slot    |
-| ---------------- | ---------------- |
-| `SLOAD` (read)   | L2 gas           |
-| `SSTORE` (write) | L2 gas + DA cost |
-
-If a struct has `Packable::N = 4` with derived packing but could be manually packed to `N = 2`, you halve the number of storage operations on every read and write.
+If a struct has `Packable::N = 4` with derived packing but could be manually packed to `N = 2`, you halve the public `SLOAD` / `SSTORE` count on every read and write.
 
 ### Note hashing (private state)
 
