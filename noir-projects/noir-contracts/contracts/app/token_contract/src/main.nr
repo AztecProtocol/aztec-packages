@@ -319,7 +319,7 @@ pub contract Token {
     }
     // docs:end:transfer_in_private
 
-    // docs:start:transfer_in_private_deliver_offchain
+    // docs:start:transfer_in_private_with_offchain_delivery
     /// Mirrors `transfer_in_private` but delivers the resulting notes via offchain messages.
     ///
     /// Offchain messages are returned to the caller as encrypted payloads. The sender is responsible for getting the
@@ -329,7 +329,7 @@ pub contract Token {
     /// A `Transfer` event is also emitted to be delivered offchain.
     #[authorize_once("from", "authwit_nonce")]
     #[external("private")]
-    fn transfer_in_private_deliver_offchain(
+    fn transfer_in_private_with_offchain_delivery(
         from: AztecAddress,
         to: AztecAddress,
         amount: u128,
@@ -340,7 +340,7 @@ pub contract Token {
 
         self.emit(Transfer { from, to, amount }).deliver_to(to, MessageDelivery.OFFCHAIN);
     }
-    // docs:end:transfer_in_private_deliver_offchain
+    // docs:end:transfer_in_private_with_offchain_delivery
 
     #[authorize_once("from", "authwit_nonce")]
     #[external("private")]

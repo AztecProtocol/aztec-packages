@@ -103,16 +103,21 @@ pub unconstrained fn get_last_call_offchain_effects() -> BoundedVec<BoundedVec<F
 #[oracle(aztec_txe_getLastCallOffchainEffects)]
 unconstrained fn get_last_call_offchain_effects_oracle() -> ([[Field; MAX_OFFCHAIN_EFFECT_LEN]; MAX_OFFCHAIN_EFFECTS_PER_TXE_QUERY], [u32; MAX_OFFCHAIN_EFFECTS_PER_TXE_QUERY], u32) {}
 
-/// Returns the tx hash of the last top-level call, or `None` if the call was tx-less
-/// (`execute_utility`, context setters, etc).
-#[oracle(aztec_txe_getLastCallTxHash)]
-pub unconstrained fn get_last_call_tx_hash() -> Option<Field> {}
+/// The context of the last top-level call into TXE, as captured by the call executor. Refreshed on
+/// every top-level call.
+pub struct TXECallContext {
+    /// Tx hash of the top-level call, or `None` if the call was tx-less (`execute_utility`, context
+    /// setters, etc.).
+    pub tx_hash: Option<Field>,
+    /// Anchor block timestamp captured at the *start* of the call. Note: this is not the timestamp
+    /// of the block where a transaction produced by this call is included, which does not exist at
+    /// the moment TXE runs the call.
+    pub anchor_block_timestamp: u64,
+}
 
-/// Returns the anchor block timestamp captured at the start of the top-level call that last
-/// populated the offchain effect buffer. This is the timestamp used for offchain message expiry
-/// (`MAX_MSG_TTL`) when the inbox stores the `PendingOffchainMsg`.
-#[oracle(aztec_txe_getLastCallAnchorBlockTimestamp)]
-pub unconstrained fn get_last_call_anchor_block_timestamp() -> u64 {}
+/// Returns the context of the last top-level call into TXE. See [`TXECallContext`].
+#[oracle(aztec_txe_getLastCallContext)]
+pub unconstrained fn get_last_call_context() -> TXECallContext {}
 
 #[oracle(aztec_txe_getDefaultAddress)]
 pub unconstrained fn get_default_address() -> AztecAddress {}

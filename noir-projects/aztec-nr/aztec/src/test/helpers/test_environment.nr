@@ -629,7 +629,7 @@ impl TestEnvironment {
     /// # Example
     ///
     /// ```noir
-    /// env.call_private(sender, Token::at(token).transfer_in_private_deliver_offchain(...));
+    /// env.call_private(sender, Token::at(token).transfer_in_private_with_offchain_delivery(...));
     /// let messages = env.offchain_messages();
     /// let mut batch: BoundedVec<_, MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL> = BoundedVec::new();
     /// for i in 0..messages.len() { batch.push(messages.get(i)); }
@@ -639,8 +639,7 @@ impl TestEnvironment {
         _self: Self,
     ) -> BoundedVec<OffchainMessage, txe_oracles::MAX_OFFCHAIN_EFFECTS_PER_TXE_QUERY> {
         let raw_effects = txe_oracles::get_last_call_offchain_effects();
-        let tx_hash = txe_oracles::get_last_call_tx_hash();
-        let anchor_block_timestamp = txe_oracles::get_last_call_anchor_block_timestamp();
+        let txe_oracles::TXECallContext { tx_hash, anchor_block_timestamp } = txe_oracles::get_last_call_context();
 
         let mut messages: BoundedVec<OffchainMessage, txe_oracles::MAX_OFFCHAIN_EFFECTS_PER_TXE_QUERY> =
             BoundedVec::new();

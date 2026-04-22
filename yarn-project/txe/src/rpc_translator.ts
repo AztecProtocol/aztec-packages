@@ -102,40 +102,24 @@ export class RPCTranslator {
     return this.oracleHandler;
   }
 
-  /**
-   * Wipes the offchain effects buffer and captures the anchor block timestamp of the block
-   * the call is about to execute against.
-   */
-  private beginOffchainEffectCapture(): Promise<bigint> {
-    this.stateHandler.resetLastCallOffchainEffects();
+  private captureLastCallContextBegin(): Promise<bigint> {
+    this.stateHandler.resetLastCall();
     return this.handlerAsTxe().getLastBlockTimestamp();
   }
 
-  /**
-   * Completes offchain capture for a top-level call that produced a transaction. Reads
-   * the tx hash from the archiver (populated once the call's block is mined) and commits
-   * it alongside the pre-captured anchor block timestamp.
-   */
-  private async finishOffchainCaptureWithTxHash(anchorBlockTimestamp: bigint): Promise<void> {
-    const { txHash } = await this.handlerAsTxe().getLastTxEffects();
-    this.stateHandler.setLastCallOffchainContext(txHash.hash, anchorBlockTimestamp);
+  private captureLastCallContextEnd(anchorBlockTimestamp: bigint, txHash?: Fr): void {
+    this.stateHandler.setLastCallContext(txHash ?? Fr.ZERO, anchorBlockTimestamp);
   }
 
-  /**
-   * Completes offchain capture for a top-level call that did not produce a transaction.
-   */
-  private finishOffchainCaptureWithoutTxHash(anchorBlockTimestamp: bigint) {
-    this.stateHandler.setLastCallOffchainContext(Fr.ZERO, anchorBlockTimestamp);
+  private async resetLastCallContext(): Promise<void> {
+    this.captureLastCallContextEnd(await this.captureLastCallContextBegin());
   }
 
-  /**
-   * One-shot bookkeeping for top-level entry points that don't execute a transaction:
-   * wipes the buffer and commits a tx-less context (`Fr.ZERO`) paired with the current
-   * anchor block timestamp.
-   */
-  private async resetOffchainMessageContext(): Promise<void> {
-    this.stateHandler.resetLastCallOffchainEffects();
-    this.stateHandler.setLastCallOffchainContext(Fr.ZERO, await this.handlerAsTxe().getLastBlockTimestamp());
+  private async captureCallContext<T>(work: () => Promise<{ result: T; txHash?: Fr }>): Promise<T> {
+    const anchorBlockTimestamp = await this.captureLastCallContextBegin();
+    const { result, txHash } = await work();
+    this.captureLastCallContextEnd(anchorBlockTimestamp, txHash);
+    return result;
   }
 
   // TXE session state transition functions - these get handled by the state handler
@@ -154,7 +138,7 @@ export class RPCTranslator {
     foreignAnchorBlockNumberIsSome: ForeignCallSingle,
     foreignAnchorBlockNumberValue: ForeignCallSingle,
   ) {
-    await this.resetOffchainMessageContext();
+    await this.resetLastCallContext();
 
     const contractAddress = fromSingle(foreignContractAddressIsSome).toBool()
       ? AztecAddress.fromField(fromSingle(foreignContractAddressValue))
@@ -174,7 +158,7 @@ export class RPCTranslator {
     foreignContractAddressIsSome: ForeignCallSingle,
     foreignContractAddressValue: ForeignCallSingle,
   ) {
-    await this.resetOffchainMessageContext();
+    await this.resetLastCallContext();
 
     const contractAddress = fromSingle(foreignContractAddressIsSome).toBool()
       ? AztecAddress.fromField(fromSingle(foreignContractAddressValue))
@@ -190,7 +174,7 @@ export class RPCTranslator {
     foreignContractAddressIsSome: ForeignCallSingle,
     foreignContractAddressValue: ForeignCallSingle,
   ) {
-    await this.resetOffchainMessageContext();
+    await this.resetLastCallContext();
 
     const contractAddress = fromSingle(foreignContractAddressIsSome).toBool()
       ? AztecAddress.fromField(fromSingle(foreignContractAddressValue))
@@ -374,17 +358,10 @@ export class RPCTranslator {
   }
 
   // eslint-disable-next-line camelcase
-  aztec_txe_getLastCallTxHash() {
-    const { txHash } = this.stateHandler.getLastCallOffchainEffects();
-    // Return a Noir Option<Field>: [is_some, value]
+  aztec_txe_getLastCallContext() {
+    const { txHash, anchorBlockTimestamp } = this.stateHandler.getLastCallContext();
     const isSome = txHash.isZero() ? 0 : 1;
-    return toForeignCallResult([toSingle(isSome), toSingle(txHash)]);
-  }
-
-  // eslint-disable-next-line camelcase
-  aztec_txe_getLastCallAnchorBlockTimestamp() {
-    const { anchorBlockTimestamp } = this.stateHandler.getLastCallOffchainEffects();
-    return toForeignCallResult([toSingle(new Fr(anchorBlockTimestamp))]);
+    return toForeignCallResult([toSingle(isSome), toSingle(txHash), toSingle(new Fr(anchorBlockTimestamp))]);
   }
 
   // eslint-disable-next-line camelcase
@@ -1368,8 +1345,6 @@ export class RPCTranslator {
     foreignArgsHash: ForeignCallSingle,
     foreignIsStaticCall: ForeignCallSingle,
   ) {
-    const anchorBlockTimestamp = await this.beginOffchainEffectCapture();
-
     const from = addressFromSingle(foreignFrom);
     const targetContractAddress = addressFromSingle(foreignTargetContractAddress);
     const functionSelector = FunctionSelector.fromField(fromSingle(foreignFunctionSelector));
@@ -1377,28 +1352,31 @@ export class RPCTranslator {
     const argsHash = fromSingle(foreignArgsHash);
     const isStaticCall = fromSingle(foreignIsStaticCall).toBool();
 
-    const { returnValues, offchainEffects } = await this.handlerAsTxe().privateCallNewFlow(
-      from,
-      targetContractAddress,
-      functionSelector,
-      args,
-      argsHash,
-      isStaticCall,
-      this.stateHandler.getCurrentJob(),
-    );
+    const returnValues = await this.captureCallContext(async () => {
+      const { returnValues, offchainEffects } = await this.handlerAsTxe().privateCallNewFlow(
+        from,
+        targetContractAddress,
+        functionSelector,
+        args,
+        argsHash,
+        isStaticCall,
+        this.stateHandler.getCurrentJob(),
+      );
 
-    // Private execution collects offchain effects inside PXE's PrivateExecutionOracle rather than
-    // round-tripping them through `aztec_utl_emitOffchainEffect`, so the session buffer is empty
-    // at this point. Drain the effects from the execution tree into the session buffer so the
-    // next `env.offchain_messages()` call in the test sees them.
-    for (const data of offchainEffects) {
-      this.stateHandler.recordOffchainEffect(data);
-    }
+      // Private execution collects offchain effects inside PXE's PrivateExecutionOracle rather than
+      // round-tripping them through `aztec_utl_emitOffchainEffect`, so the session buffer is empty
+      // at this point. Drain the effects from the execution tree into the session buffer so the
+      // next `env.offchain_messages()` call in the test sees them.
+      for (const data of offchainEffects) {
+        this.stateHandler.recordOffchainEffect(data);
+      }
 
-    // TODO(F-335): Avoid doing the following call here.
-    await this.stateHandler.cycleJob();
+      // TODO(F-335): Avoid doing the following call here.
+      await this.stateHandler.cycleJob();
 
-    await this.finishOffchainCaptureWithTxHash(anchorBlockTimestamp);
+      const { txHash } = await this.handlerAsTxe().getLastTxEffects();
+      return { result: returnValues, txHash: txHash.hash };
+    });
 
     return toForeignCallResult([toArray(returnValues)]);
   }
@@ -1409,24 +1387,23 @@ export class RPCTranslator {
     foreignFunctionSelector: ForeignCallSingle,
     foreignArgs: ForeignCallArray,
   ) {
-    const anchorBlockTimestamp = await this.beginOffchainEffectCapture();
-
     const targetContractAddress = addressFromSingle(foreignTargetContractAddress);
     const functionSelector = FunctionSelector.fromField(fromSingle(foreignFunctionSelector));
     const args = fromArray(foreignArgs);
 
-    const returnValues = await this.handlerAsTxe().executeUtilityFunction(
-      targetContractAddress,
-      functionSelector,
-      args,
-      this.stateHandler.getCurrentJob(),
-    );
+    const returnValues = await this.captureCallContext(async () => {
+      const returnValues = await this.handlerAsTxe().executeUtilityFunction(
+        targetContractAddress,
+        functionSelector,
+        args,
+        this.stateHandler.getCurrentJob(),
+      );
 
-    // TODO(F-335): Avoid doing the following call here.
-    await this.stateHandler.cycleJob();
+      // TODO(F-335): Avoid doing the following call here.
+      await this.stateHandler.cycleJob();
 
-    // Utility calls are tx-less.
-    this.finishOffchainCaptureWithoutTxHash(anchorBlockTimestamp);
+      return { result: returnValues };
+    });
 
     return toForeignCallResult([toArray(returnValues)]);
   }
@@ -1438,19 +1415,20 @@ export class RPCTranslator {
     foreignCalldata: ForeignCallArray,
     foreignIsStaticCall: ForeignCallSingle,
   ) {
-    const anchorBlockTimestamp = await this.beginOffchainEffectCapture();
-
     const from = addressFromSingle(foreignFrom);
     const address = addressFromSingle(foreignAddress);
     const calldata = fromArray(foreignCalldata);
     const isStaticCall = fromSingle(foreignIsStaticCall).toBool();
 
-    const returnValues = await this.handlerAsTxe().publicCallNewFlow(from, address, calldata, isStaticCall);
+    const returnValues = await this.captureCallContext(async () => {
+      const returnValues = await this.handlerAsTxe().publicCallNewFlow(from, address, calldata, isStaticCall);
 
-    // TODO(F-335): Avoid doing the following call here.
-    await this.stateHandler.cycleJob();
+      // TODO(F-335): Avoid doing the following call here.
+      await this.stateHandler.cycleJob();
 
-    await this.finishOffchainCaptureWithTxHash(anchorBlockTimestamp);
+      const { txHash } = await this.handlerAsTxe().getLastTxEffects();
+      return { result: returnValues, txHash: txHash.hash };
+    });
 
     return toForeignCallResult([toArray(returnValues)]);
   }
