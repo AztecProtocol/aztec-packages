@@ -852,10 +852,4 @@ export class Oracle {
     // Return [1, address] for Some(address), [0, 0] for None
     return sender ? [toACVMField(1n), toACVMField(sender)] : [toACVMField(0n), toACVMField(0n)];
   }
-
-  // eslint-disable-next-line camelcase
-  async aztec_prv_setSenderForTags([senderForTags]: ACVMField[]): Promise<ACVMField[]> {
-    await this.handlerAsPrivate().setSenderForTags(AztecAddress.fromField(Fr.fromString(senderForTags)));
-    return [];
-  }
 }

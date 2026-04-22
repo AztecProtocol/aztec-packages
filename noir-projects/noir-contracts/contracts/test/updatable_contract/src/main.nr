@@ -28,7 +28,7 @@ contract Updatable {
         let owner = self.msg_sender();
         let note = FieldNote { value: initial_value };
         self.storage.private_value.at(owner).initialize(note).deliver(
-            MessageDelivery.ONCHAIN_CONSTRAINED,
+            MessageDelivery::onchain_constrained(),
         );
         self.enqueue_self._initialize_public_value(initial_value);
     }

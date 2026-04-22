@@ -178,7 +178,7 @@ contract CustomMessage {
             || msg0,
             Option::none(),
             recipient,
-            MessageDelivery.ONCHAIN_UNCONSTRAINED,
+            MessageDelivery::onchain_unconstrained(),
         );
 
         // Part 1: randomness (message_id) and remaining event fields
@@ -192,7 +192,7 @@ contract CustomMessage {
             || msg1,
             Option::none(),
             recipient,
-            MessageDelivery.ONCHAIN_UNCONSTRAINED,
+            MessageDelivery::onchain_unconstrained(),
         );
     }
 }

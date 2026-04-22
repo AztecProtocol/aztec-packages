@@ -50,7 +50,7 @@ contract OffchainEffect {
 
     #[external("private")]
     fn emit_event_as_offchain_message_for_msg_sender(a: u64, b: u64, c: u64) {
-        self.emit(TestEvent { a, b, c }).deliver_to(self.msg_sender(), MessageDelivery.OFFCHAIN);
+        self.emit(TestEvent { a, b, c }).deliver_to(self.msg_sender(), MessageDelivery::offchain());
     }
 
     #[external("private")]
@@ -59,7 +59,7 @@ contract OffchainEffect {
 
         self.storage.balances.at(owner).insert(note).deliver_to(
             self.msg_sender(),
-            MessageDelivery.OFFCHAIN,
+            MessageDelivery::offchain(),
         );
     }
 

@@ -190,33 +190,14 @@ pub unconstrained fn get_next_app_tag_as_sender(sender: AztecAddress, recipient:
 #[oracle(aztec_prv_getNextAppTagAsSender)]
 unconstrained fn get_next_app_tag_as_sender_oracle(_sender: AztecAddress, _recipient: AztecAddress) -> Field {}
 
-/// Gets the sender for tags.
+/// Returns the transaction-wide sender-for-tags supplied by the wallet when building the tx, if any.
 ///
-/// This unconstrained value is used as the sender when computing an unconstrained shared secret for a tag in order to
-/// emit a log. Constrained tagging should not use this as there is no guarantee that the recipient knows about the
-/// sender, and hence about the shared secret.
-///
-/// The value persists through nested calls, meaning all calls down the stack will use the same 'senderForTags' value
-/// (unless it is replaced).
-pub unconstrained fn get_sender_for_tags() -> Option<AztecAddress> {
+/// This is an internal helper used to resolve [`crate::messages::logs::sender_for_tags::SenderForTags::tx_default`].
+/// Contract code should not call this directly; pick a [`crate::messages::logs::sender_for_tags::SenderForTags`]
+/// variant at the log emission site instead.
+pub(crate) unconstrained fn get_sender_for_tags() -> Option<AztecAddress> {
     get_sender_for_tags_oracle()
 }
 
 #[oracle(aztec_prv_getSenderForTags)]
 unconstrained fn get_sender_for_tags_oracle() -> Option<AztecAddress> {}
-
-/// Sets the sender for tags.
-///
-/// This unconstrained value is used as the sender when computing an unconstrained shared secret for a tag in order to
-/// emit a log. Constrained tagging should not use this as there is no guarantee that the recipient knows about the
-/// sender, and hence about the shared secret.
-///
-/// Account contracts typically set this value before calling other contracts. The value persists through nested calls,
-/// meaning all calls down the stack will use the same 'senderForTags' value (unless it is replaced by another call to
-/// this setter).
-pub unconstrained fn set_sender_for_tags(sender_for_tags: AztecAddress) {
-    set_sender_for_tags_oracle(sender_for_tags);
-}
-
-#[oracle(aztec_prv_setSenderForTags)]
-unconstrained fn set_sender_for_tags_oracle(_sender_for_tags: AztecAddress) {}

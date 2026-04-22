@@ -135,7 +135,7 @@ impl NFTNote {
             },
             Option::none(),
             recipient,
-            MessageDelivery.ONCHAIN_UNCONSTRAINED,
+            MessageDelivery::onchain_unconstrained(),
         );
 
         let partial_note = PartialNFTNote { commitment };

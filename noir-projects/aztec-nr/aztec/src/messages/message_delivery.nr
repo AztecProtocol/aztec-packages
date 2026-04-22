@@ -2,17 +2,31 @@ use crate::{
     context::PrivateContext,
     messages::{
         encryption::{aes128::AES128, message_encryption::MessageEncryption},
-        logs::utils::compute_discovery_tag,
+        logs::{sender_for_tags::SenderForTags, utils::compute_discovery_tag},
         offchain_messages::deliver_offchain_message,
     },
     utils::remove_constraints::remove_constraints_if,
 };
 use crate::protocol::{address::AztecAddress, constants::DOM_SEP__UNCONSTRAINED_MSG_LOG_TAG, hash::compute_log_tag};
 
-/// Placeholder struct until Noir adds `enum` support.
+global VARIANT_OFFCHAIN: u8 = 1;
+global VARIANT_ONCHAIN_UNCONSTRAINED: u8 = 2;
+global VARIANT_ONCHAIN_CONSTRAINED: u8 = 3;
+
+/// Specifies how to deliver a message to a recipient.
 ///
-/// See [`MessageDelivery`] instead.
-pub struct MessageDeliveryEnum {
+/// All messages are delivered encrypted to their recipient's public address key, so no other account will be able to
+/// read their contents. This type configures which **guarantees** exist regarding delivery, and in the on-chain
+/// unconstrained case, which sender identity is used to derive the discovery tag.
+pub struct MessageDelivery {
+    /// The delivery-mode discriminator. Must be a compile-time constant because it drives dead-code elimination in
+    /// [`do_private_message_delivery`].
+    pub(crate) variant: u8,
+    /// The tagging identity used when deriving the discovery tag for on-chain deliveries.
+    pub(crate) sender_for_tags: SenderForTags,
+}
+
+impl MessageDelivery {
     /// Delivers the message fully off-chain, with no guarantees whatsoever.
     ///
     /// ## Use Cases
@@ -59,7 +73,9 @@ pub struct MessageDeliveryEnum {
     /// No information is revelead on-chain about sender, recipient, or the message contents. The message itself
     /// reveals no information about the sender or recipient, and requires knowledge of the recipient's private address
     /// keys in order to obtain the plaintext.
-    pub OFFCHAIN: u8,
+    pub fn offchain() -> Self {
+        Self { variant: VARIANT_OFFCHAIN, sender_for_tags: SenderForTags::tx_default() }
+    }
 
     /// Delivers the message on-chain, but with no guarantees on the content.
     ///
@@ -109,7 +125,21 @@ pub struct MessageDeliveryEnum {
     ///
     /// Identifying that a log corresponds to a message between a given sender and recipient requires, among other
     /// things, knowledge of both of their addresses **and** either the sender's or recipient's private address key.
-    pub ONCHAIN_UNCONSTRAINED: u8,
+    ///
+    /// ## Sender for tags
+    ///
+    /// The discovery tag is derived from the transaction-wide default sender-for-tags (typically the account the
+    /// wallet signed with). Use [`onchain_unconstrained_with_sender`](Self::onchain_unconstrained_with_sender) to
+    /// override.
+    pub fn onchain_unconstrained() -> Self {
+        Self { variant: VARIANT_ONCHAIN_UNCONSTRAINED, sender_for_tags: SenderForTags::tx_default() }
+    }
+
+    /// Same as [`onchain_unconstrained`](Self::onchain_unconstrained), but the discovery tag is derived from the
+    /// supplied [`SenderForTags`] instead of the wallet default.
+    pub fn onchain_unconstrained_with_sender(sender_for_tags: SenderForTags) -> Self {
+        Self { variant: VARIANT_ONCHAIN_UNCONSTRAINED, sender_for_tags }
+    }
 
     /// Delivers the message on-chain, guaranteeing the recipient will receive the correct content.
     ///
@@ -120,8 +150,8 @@ pub struct MessageDeliveryEnum {
     /// ## Use Cases
     ///
     /// This delivery method is suitable for all use cases, since it always works as expected. It is however the most
-    /// costly method, and there are multiple scenarios where alternatives such as [`MessageDeliveryEnum::OFFCHAIN`] or
-    /// [`MessageDeliveryEnum::ONCHAIN_UNCONSTRAINED`] will suffice.
+    /// costly method, and there are multiple scenarios where alternatives such as [`offchain`](Self::offchain) or
+    /// [`onchain_unconstrained`](Self::onchain_unconstrained) will suffice.
     ///
     /// If the sender cannot be relied on to correctly send the message to the recipient (e.g. because they have no
     /// incentive to do so, such as when paying a fee to a protocol, creating the change note after spending a third
@@ -160,25 +190,23 @@ pub struct MessageDeliveryEnum {
     ///
     /// Identifying that a log corresponds to a message between a given sender and recipient requires, among other
     /// things, knowledge of both of their addresses **and** either the sender's or recipient's private address key.
-    pub ONCHAIN_CONSTRAINED: u8,
-}
+    ///
+    /// ## Sender for tags
+    ///
+    /// Until constrained tagging is implemented (#14565), this mode still derives the discovery tag from the
+    /// transaction-wide default sender-for-tags. Once #14565 lands, constrained delivery will use a handshake-based
+    /// tagging secret and the sender will be ignored for this variant.
+    pub fn onchain_constrained() -> Self {
+        Self { variant: VARIANT_ONCHAIN_CONSTRAINED, sender_for_tags: SenderForTags::tx_default() }
+    }
 
-/// Specifies how to deliver a message to a recipient.
-///
-/// All messages are delivered encrypted to their recipient's public address key, so no other account will be able to
-/// read their contents. This enum instead configures which **guarantees** exist regarding delivery.
-///
-/// There are two aspects to delivery guarantees:
-/// - the medium on which the message is sent (off-chain or on-chain)
-/// - whether the contract constrains the message to be constructed correctly
-///
-/// For scenarios where the sender is incentivized to deliver the message correctly, use
-/// [`MessageDeliveryEnum::OFFCHAIN`] (the cheapest delivery option, but requiring that sender and recipient can
-/// communicate off-chain) or [`MessageDeliveryEnum::ONCHAIN_UNCONSTRAINED`]. If the sender cannot be trusted to send
-/// the
-/// message to the recipient, use [`MessageDeliveryEnum::ONCHAIN_CONSTRAINED`].
-pub global MessageDelivery: MessageDeliveryEnum =
-    MessageDeliveryEnum { OFFCHAIN: 1, ONCHAIN_UNCONSTRAINED: 2, ONCHAIN_CONSTRAINED: 3 };
+    /// Same as [`onchain_constrained`](Self::onchain_constrained), but the (currently-unconstrained) discovery tag is
+    /// derived from the supplied [`SenderForTags`] instead of the wallet default. This override will be removed once
+    /// #14565 lands and constrained tagging uses handshake-based secrets.
+    pub fn onchain_constrained_with_sender(sender_for_tags: SenderForTags) -> Self {
+        Self { variant: VARIANT_ONCHAIN_CONSTRAINED, sender_for_tags }
+    }
+}
 
 /// Performs private delivery of a message to `recipient` according to `delivery_mode`.
 ///
@@ -191,8 +219,6 @@ pub global MessageDelivery: MessageDeliveryEnum =
 /// emitted in the current transaction. This is typically only used for note messages: since the note will not actually
 /// be created, there is no point in delivering the message.
 ///
-/// `delivery_mode` must be one of [`MessageDeliveryEnum`].
-///
 /// ## Privacy
 ///
 /// The emitted log always has the same length regardless of `MESSAGE_PLAINTEXT_LEN`, because all message ciphertexts
@@ -202,18 +228,18 @@ pub fn do_private_message_delivery<Env, let MESSAGE_PLAINTEXT_LEN: u32>(
     encode_into_message_plaintext: fn[Env]() -> [Field; MESSAGE_PLAINTEXT_LEN],
     maybe_note_hash_counter: Option<u32>,
     recipient: AztecAddress,
-    delivery_mode: u8,
+    delivery_mode: MessageDelivery,
 ) {
-    // This function relies on `delivery_mode` being a constant in order to reduce circuit constraints when
-    // unconstrained usage is requested. If `delivery_mode` were a runtime value the compiler would be unable to
-    // perform dead-code elimination.
-    assert_constant(delivery_mode);
+    // Both variant fields must be compile-time constants. `delivery_mode.variant` drives code-path selection in
+    // constrained code (enabling dead-code elimination).
+    assert_constant(delivery_mode.variant);
+    assert_constant(delivery_mode.sender_for_tags.variant);
 
     // The following maps out the 3 dimensions across which we configure message delivery.
-    let constrained_encryption = delivery_mode == MessageDelivery.ONCHAIN_CONSTRAINED;
-    let deliver_as_offchain_message = delivery_mode == MessageDelivery.OFFCHAIN;
+    let constrained_encryption = delivery_mode.variant == VARIANT_ONCHAIN_CONSTRAINED;
+    let deliver_as_offchain_message = delivery_mode.variant == VARIANT_OFFCHAIN;
     // TODO(#14565): Add constrained tagging
-    let _constrained_tagging = delivery_mode == MessageDelivery.ONCHAIN_CONSTRAINED;
+    let _constrained_tagging = delivery_mode.variant == VARIANT_ONCHAIN_CONSTRAINED;
 
     let contract_address = context.this_address();
 
@@ -227,8 +253,9 @@ pub fn do_private_message_delivery<Env, let MESSAGE_PLAINTEXT_LEN: u32>(
     } else {
         // TODO(#14565): constrained tagging is not yet implemented. Both modes currently use the unconstrained
         // domain separator because the discovery tag always comes from an oracle. Once constrained tagging lands,
-        // this should branch on `constrained_tagging` to select the appropriate separator.
-        let discovery_tag = compute_discovery_tag(recipient);
+        // this should branch on `constrained_tagging` to select the appropriate separator, and drop the
+        // sender-for-tags input for the constrained branch.
+        let discovery_tag = compute_discovery_tag(recipient, delivery_mode.sender_for_tags);
         let log_tag = compute_log_tag(discovery_tag, DOM_SEP__UNCONSTRAINED_MSG_LOG_TAG);
 
         // We forbid this value not being constant to avoid predicating the context calls below, which might result in

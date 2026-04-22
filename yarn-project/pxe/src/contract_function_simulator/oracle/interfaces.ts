@@ -208,6 +208,5 @@ export interface IPrivateExecutionOracle {
   notifyRevertiblePhaseStart(minRevertibleSideEffectCounter: number): Promise<void>;
   isExecutionInRevertiblePhase(sideEffectCounter: number): Promise<boolean>;
   getSenderForTags(): Promise<AztecAddress | undefined>;
-  setSenderForTags(senderForTags: AztecAddress): Promise<void>;
   getNextAppTagAsSender(sender: AztecAddress, recipient: AztecAddress): Promise<Tag>;
 }

@@ -82,7 +82,11 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
   private readonly senderTaggingStore: SenderTaggingStore;
   private totalPublicCalldataCount: number;
   private readonly initialSideEffectCounter: number;
-  private senderForTags?: AztecAddress;
+  /**
+   * The transaction-wide sender-for-tags supplied by the wallet when building the tx. Returned as-is by
+   * `getSenderForTags` to resolve `SenderForTags::tx_default()` on the Noir side.
+   */
+  private readonly senderForTags: AztecAddress | undefined;
   private readonly simulator?: CircuitSimulator;
 
   constructor(args: PrivateExecutionOracleArgs) {
@@ -172,33 +176,13 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
   }
 
   /**
-   * Get the sender for tags.
+   * Returns the transaction-wide sender-for-tags supplied by the wallet when building the tx.
    *
-   * This unconstrained value is used as the sender when computing an unconstrained shared secret
-   * for a tag in order to emit a log. Constrained tagging should not use this as there is no
-   * guarantee that the recipient knows about the sender, and hence about the shared secret.
-   *
-   * The value persists through nested calls, meaning all calls down the stack will use the same
-   * 'senderForTags' value (unless it is replaced).
+   * Used by the Noir-side `SenderForTags::tx_default()` resolution path. Contracts that want to override the
+   * sender for a specific log pick a non-default `SenderForTags` variant at the emission site.
    */
   public getSenderForTags(): Promise<AztecAddress | undefined> {
     return Promise.resolve(this.senderForTags);
-  }
-
-  /**
-   * Set the sender for tags.
-   *
-   * This unconstrained value is used as the sender when computing an unconstrained shared secret
-   * for a tag in order to emit a log. Constrained tagging should not use this as there is no
-   * guarantee that the recipient knows about the sender, and hence about the shared secret.
-   *
-   * Account contracts typically set this value before calling other contracts. The value persists
-   * through nested calls, meaning all calls down the stack will use the same 'senderForTags'
-   * value (unless it is replaced by another call to this setter).
-   */
-  public setSenderForTags(senderForTags: AztecAddress): Promise<void> {
-    this.senderForTags = senderForTags;
-    return Promise.resolve();
   }
 
   /**
