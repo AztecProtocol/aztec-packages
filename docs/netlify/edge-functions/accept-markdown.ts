@@ -76,7 +76,9 @@ export default async function handler(req: Request, ctx: Context): Promise<Respo
     return ctx.next();
   }
 
-  // Serve markdown only if it is strictly preferred over HTML.
+  // Serve markdown when it is at least as preferred as HTML. A client that explicitly
+  // lists `text/markdown` is signalling it can consume markdown, so ties go to markdown
+  // rather than HTML.
   if (qMarkdown < qHtml) return ctx.next();
 
   const mdUrl = mdSiblingUrl(url);

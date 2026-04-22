@@ -73,6 +73,8 @@ function renderReactToHtml(element) {
 /**
  * Convert the small HTML subset produced by snippet components into markdown.
  * Snippets only use <p>, <span>, <b>, <code>, <a>, <ul>, <li>, <br/>.
+ * Lists get a leading newline so text like `...so the settings are:<ul>...` doesn't
+ * collapse into `...so the settings are:- item`.
  */
 function snippetHtmlToMarkdown(html) {
   let out = html
@@ -82,8 +84,10 @@ function snippetHtmlToMarkdown(html) {
     .replace(/<(i|em)[^>]*>([\s\S]*?)<\/\1>/gi, "*$2*")
     .replace(/<code[^>]*>([\s\S]*?)<\/code>/gi, "`$1`")
     .replace(/<a\s+[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi, "[$2]($1)")
-    .replace(/<li[^>]*>([\s\S]*?)<\/li>/gi, "- $1\n")
-    .replace(/<\/?(ul|ol|span)[^>]*>/gi, "")
+    .replace(/<(ul|ol)[^>]*>/gi, "\n")
+    .replace(/<\/(ul|ol)>/gi, "\n")
+    .replace(/<li[^>]*>([\s\S]*?)<\/li>/gi, "\n- $1")
+    .replace(/<\/?span[^>]*>/gi, "")
     .replace(/&nbsp;/g, " ")
     .replace(/&lt;/g, "<")
     .replace(/&gt;/g, ">")
@@ -96,19 +100,29 @@ function snippetHtmlToMarkdown(html) {
 /**
  * Build a map of snippet-name -> rendered markdown.
  * Keys: "General.Foo", "Fees.Bar", "TopLevel" for default-exported components.
+ * Components that throw during render (e.g. a future helper export, required props,
+ * client-only hook) are logged and skipped rather than failing the whole build.
  */
 function buildSnippetMap() {
   const snippets = loadSnippetsModule();
   const map = new Map();
+  const render = (key, fn) => {
+    try {
+      const html = renderReactToHtml(React.createElement(fn));
+      map.set(key, snippetHtmlToMarkdown(html));
+    } catch (err) {
+      console.warn(
+        `[markdown-variants] snippet ${key} could not be rendered; leaving occurrences unchanged: ${err.message}`
+      );
+    }
+  };
   for (const [exportName, value] of Object.entries(snippets)) {
     if (typeof value === "function") {
-      const html = renderReactToHtml(React.createElement(value));
-      map.set(exportName, snippetHtmlToMarkdown(html));
+      render(exportName, value);
     } else if (value && typeof value === "object") {
       for (const [subName, subValue] of Object.entries(value)) {
         if (typeof subValue === "function") {
-          const html = renderReactToHtml(React.createElement(subValue));
-          map.set(`${exportName}.${subName}`, snippetHtmlToMarkdown(html));
+          render(`${exportName}.${subName}`, subValue);
         }
       }
     }
@@ -121,10 +135,13 @@ function buildSnippetMap() {
 // ---------------------------------------------------------------------------
 
 /**
- * @site/static/img/foo.png -> /img/foo.png
- * /img/foo.png stays the same.
- * Relative paths are preserved as-is; the image server (Netlify) resolves them via the
- * surrounding directory when the .md is fetched from /developers/<path>.md.
+ * Resolve an image path for inclusion in plain markdown:
+ *   @site/static/img/foo.png -> /img/foo.png (alias stripped)
+ *   /img/foo.png             -> /img/foo.png (kept)
+ *   http(s)://...            -> kept
+ *   ./foo.png / ../foo.png   -> rewritten to absolute /foo.png so the .md is portable
+ *                               (relative paths would resolve against the .md's URL,
+ *                                which doesn't line up with the HTML page's asset tree)
  */
 function resolveImagePath(raw) {
   let p = raw.trim().replace(/^["']|["']$/g, "");
@@ -136,11 +153,22 @@ function resolveImagePath(raw) {
 }
 
 function transformImages(content) {
+  let out = content;
   // <Image ... img={require("PATH")} ... /> (possibly multi-line with extra attrs).
-  return content.replace(
+  out = out.replace(
     /<Image\b[^>]*?img=\{require\(\s*["']([^"']+)["']\s*\)\}[^>]*?\/?>(?:\s*<\/Image>)?/gs,
     (_m, p) => `![](${resolveImagePath(p)})`
   );
+  // Plain markdown images: rewrite @site/static aliases so generated .md doesn't leak
+  // the Docusaurus-only alias. Leave http(s) and /img paths intact.
+  out = out.replace(
+    /!\[([^\]]*)\]\(([^)\s]+)(\s+"[^"]*")?\)/g,
+    (match, alt, url, title) => {
+      if (!url.startsWith("@site/")) return match;
+      return `![${alt}](${resolveImagePath(url)}${title ?? ""})`;
+    }
+  );
+  return out;
 }
 
 function transformTabs(content) {
@@ -205,13 +233,33 @@ function transformFileLocalComponents(content, localNames) {
 function transformSnippets(content, snippetMap) {
   // <General.node_ver />, <Fees.FPC />, <TopLevel />, <TopLevel/>
   // Second segment may be lowercase (e.g. General.node_ver).
+  //
+  // Context-aware replacement:
+  //   - List-item context (e.g. `- <General.X />`): flatten the rendered snippet to a
+  //     single line so it reads as the body of the list item.
+  //   - Block context (tag alone on a line): pad with blank lines.
+  //   - Inline context (tag mid-prose): drop in without padding newlines.
   return content.replace(
     /<([A-Z][A-Za-z0-9_]*(?:\.[A-Za-z][A-Za-z0-9_]*)?)\s*\/?>/g,
-    (match, name) => {
-      if (snippetMap.has(name)) {
-        return "\n\n" + snippetMap.get(name) + "\n\n";
+    (match, name, offset, source) => {
+      if (!snippetMap.has(name)) return match;
+      const rendered = snippetMap.get(name);
+
+      const lineStart = source.lastIndexOf("\n", offset - 1) + 1;
+      const before = source.slice(lineStart, offset);
+      const nextNewline = source.indexOf("\n", offset + match.length);
+      const after = source.slice(
+        offset + match.length,
+        nextNewline === -1 ? source.length : nextNewline
+      );
+
+      const listMarker = before.match(/^(\s*(?:[-*+]|\d+\.)\s+)$/);
+      if (listMarker) {
+        return rendered.replace(/\s+/g, " ").trim();
       }
-      return match;
+      const isBlock = /^\s*$/.test(before) && /^\s*$/.test(after);
+      if (isBlock) return "\n\n" + rendered + "\n\n";
+      return rendered.replace(/\s+/g, " ").trim();
     }
   );
 }
@@ -219,10 +267,6 @@ function transformSnippets(content, snippetMap) {
 // ---------------------------------------------------------------------------
 // Per-file processing.
 // ---------------------------------------------------------------------------
-const KNOWN_BENIGN_TAGS = new Set([
-  // Tags that legitimately appear inside code blocks in the source. We strip code blocks
-  // from the drift-check scan so these don't matter, but keep the list for documentation.
-]);
 
 /**
  * Remove fenced code blocks and inline code so we don't false-positive on things like
@@ -286,32 +330,38 @@ async function transformFile(filePath, snippetMap) {
 // ---------------------------------------------------------------------------
 // Version -> URL-prefix resolution.
 // ---------------------------------------------------------------------------
-function resolveVersionPrefixes(versionConfig) {
-  // Matches docusaurus.config.js logic:
-  //   mainnet version -> path: ""
-  //   testnet version (if != mainnet) -> path: "testnet"
-  // Returns [{ version, urlSegment }, ...] for versions that actually have a docs dir.
+function resolveVersionPrefixes(versionConfig, routePrefix) {
+  // Mirrors the `versions` block in docs/docusaurus.config.js.
+  //   developer mainnet -> path: "" (always)
+  //   operate  mainnet  -> path: "" in production, "alpha" elsewhere
+  //   testnet  (if != mainnet) -> path: "testnet"
+  // Devnet/nightly only ship in non-production builds and aren't materialised here.
   const entries = [];
   const mainnet = versionConfig.mainnet || null;
   const testnet = versionConfig.testnet || null;
-  if (mainnet) entries.push({ version: mainnet, urlSegment: "" });
+  const isProduction = process.env.CONTEXT === "production";
+  if (mainnet) {
+    const urlSegment =
+      routePrefix === "operate" && !isProduction ? "alpha" : "";
+    entries.push({ version: mainnet, urlSegment });
+  }
   if (testnet && testnet !== mainnet) {
     entries.push({ version: testnet, urlSegment: "testnet" });
   }
-  // Additional release types (devnet/nightly) currently only served in non-production;
-  // skip them for markdown generation.
   return entries;
 }
 
-function outputPathFor(versionedDocsDir, versionDir, relativeInVersion, routePrefix, urlSegment) {
-  // relativeInVersion e.g. "overview.md" or "docs/aztec-js/how_to_pay_fees.md".
-  // Docusaurus serves these at `/${routePrefix}/${urlSegment ? urlSegment+"/" : ""}${slug}`.
-  const slug = relativeInVersion.replace(/\.mdx?$/, "");
+function outputPathFor(relativeInVersion, routePrefix, urlSegment) {
+  // relativeInVersion e.g. "overview.md" or "docs/aztec-js/index.md".
+  // Docusaurus serves `foo/index.md` at `/prefix/foo/` (no `/index`), so the URL-matched
+  // sibling is `/prefix/foo.md`. Strip a trailing `/index` from the slug to match.
+  const slug = relativeInVersion
+    .replace(/\.mdx?$/, "")
+    .replace(/(^|\/)index$/, "");
   const segments = [routePrefix];
   if (urlSegment) segments.push(urlSegment);
-  segments.push(slug);
-  const url = "/" + segments.filter(Boolean).join("/");
-  return path.join(BUILD_DIR, url.slice(1) + ".md");
+  if (slug) segments.push(slug);
+  return path.join(BUILD_DIR, segments.join("/") + ".md");
 }
 
 // ---------------------------------------------------------------------------
@@ -322,7 +372,7 @@ async function processInstance({ instanceName, versionedDocsDir, routePrefix, ve
     console.log(`[markdown-variants] ${instanceName}: no versioned docs dir at ${versionedDocsDir}, skipping`);
     return { written: 0, skipped: 0 };
   }
-  const prefixes = resolveVersionPrefixes(versionConfig);
+  const prefixes = resolveVersionPrefixes(versionConfig, routePrefix);
   let written = 0;
   let skipped = 0;
   for (const { version, urlSegment } of prefixes) {
@@ -334,7 +384,7 @@ async function processInstance({ instanceName, versionedDocsDir, routePrefix, ve
     const files = await readMarkdownFiles(versionDir, versionDir, []);
     for (const filePath of files) {
       const relativeInVersion = path.relative(versionDir, filePath);
-      const outPath = outputPathFor(versionedDocsDir, versionDir, relativeInVersion, routePrefix, urlSegment);
+      const outPath = outputPathFor(relativeInVersion, routePrefix, urlSegment);
       try {
         const transformed = await transformFile(filePath, snippetMap);
         await fsp.mkdir(path.dirname(outPath), { recursive: true });
