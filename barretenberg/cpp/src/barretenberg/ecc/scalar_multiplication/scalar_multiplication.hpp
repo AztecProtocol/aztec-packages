@@ -296,7 +296,7 @@ template <typename Curve> class MSM {
     static size_t compute_scalar_slice_weights(std::span<const ScalarField> scalars,
                                                std::span<const uint32_t> nonzero_indices,
                                                uint32_t bits_per_slice,
-                                               std::vector<uint8_t>& weights) noexcept;
+                                               std::vector<uint16_t>& weights) noexcept;
 
     /** @brief Distribute multiple MSMs across threads with balanced bucket-accumulation work.
      *  @details Per-thread assignment is a contiguous range of each MSM's nonzero-scalar

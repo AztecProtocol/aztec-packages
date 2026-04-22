@@ -86,11 +86,16 @@ template <typename Curve>
 size_t MSM<Curve>::compute_scalar_slice_weights(std::span<const typename Curve::ScalarField> scalars,
                                                 std::span<const uint32_t> nonzero_indices,
                                                 uint32_t bits_per_slice,
-                                                std::vector<uint8_t>& weights) noexcept
+                                                std::vector<uint16_t>& weights) noexcept
 {
-    // weight = ceil(bit_length / bps); max is ceil(NUM_BITS_IN_FIELD / 1) = NUM_BITS_IN_FIELD.
-    static_assert(NUM_BITS_IN_FIELD <= std::numeric_limits<uint8_t>::max(),
-                  "slice-count weight stored as uint8_t; widen the type if a larger scalar field is added");
+    // weight = ceil(bit_length / bps) + FIXED_PER_SCALAR_WEIGHT. The fixed term approximates the
+    // O(num_rounds) per-scalar overhead in build_schedule, sort_schedule, and reduce_buckets that
+    // doesn't scale with bit_length. Without it, threads assigned many lightweight scalars end up
+    // with disproportionate build/sort/reduce work (empirically observed via per-phase profiling).
+    // Max is ceil(NUM_BITS_IN_FIELD / 1) + FIXED.
+    static constexpr uint16_t FIXED_PER_SCALAR_WEIGHT = 4;
+    static_assert(NUM_BITS_IN_FIELD + FIXED_PER_SCALAR_WEIGHT <= std::numeric_limits<uint16_t>::max(),
+                  "slice-count weight overflows uint16_t");
     BB_ASSERT_GT(bits_per_slice, 0U);
 
     const size_t n = nonzero_indices.size();
@@ -112,7 +117,8 @@ size_t MSM<Curve>::compute_scalar_slice_weights(std::span<const typename Curve::
             // returns a valid bit index in [0, NUM_BITS_IN_FIELD).
             const uint64_t msb = uint256_t{ scalar.data[0], scalar.data[1], scalar.data[2], scalar.data[3] }.get_msb();
             const size_t bit_length = static_cast<size_t>(msb) + 1;
-            const uint8_t weight = static_cast<uint8_t>((bit_length + bits_per_slice - 1) / bits_per_slice);
+            const uint16_t weight =
+                static_cast<uint16_t>((bit_length + bits_per_slice - 1) / bits_per_slice) + FIXED_PER_SCALAR_WEIGHT;
             weights[k] = weight;
             local_sum += weight;
         }
@@ -140,7 +146,7 @@ std::vector<typename MSM<Curve>::ThreadWorkUnits> MSM<Curve>::get_work_units(
     // count when scalar bit-sizes are spatially clustered (e.g. small witness values packed
     // in one region of a wire polynomial next to full-field randomness). bits_per_slice is
     // per-MSM since it depends on the MSM's nonzero-scalar count.
-    std::vector<std::vector<uint8_t>> msm_scalar_weights(num_msms);
+    std::vector<std::vector<uint16_t>> msm_scalar_weights(num_msms);
     size_t grand_total_weight = 0;
     size_t total_work = 0;
     for (size_t i = 0; i < num_msms; ++i) {
