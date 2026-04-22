@@ -180,8 +180,9 @@ describe('ProposalValidator', () => {
       expect(result).toEqual({ result: 'accept' });
     });
 
-    it('accepts proposal for current slot within pipelining grace period', async () => {
-      // Simulate pipelining: targetSlot = 101, but proposal is for slot 100 (current wallclock slot)
+    it('accepts proposal for current slot within pipelining clock-disparity grace', async () => {
+      // Simulate pipelining: targetSlot = 101, but proposal is for slot 100 (current wallclock slot).
+      // Under early pipelining, proposalWindowIntoTargetSlot = 0, so only the 500ms clock-disparity grace applies.
       epochCache.getTargetAndNextSlot.mockReturnValue({
         targetSlot: SlotNumber(101),
         nextSlot: SlotNumber(102),
@@ -189,12 +190,11 @@ describe('ProposalValidator', () => {
       epochCache.getSlotNow.mockReturnValue(currentSlot); // slot 100
       epochCache.isProposerPipeliningEnabled.mockReturnValue(true);
 
-      // Within grace period: 1000ms elapsed < configured propagation window 2000ms
       epochCache.getEpochAndSlotNow.mockReturnValue({
         epoch: EpochNumber(1),
         slot: currentSlot,
         ts: 1000n,
-        nowMs: 1001000n, // 1000ms elapsed
+        nowMs: 1000400n, // 400ms elapsed, within 500ms grace
       });
 
       const signer = Secp256k1Signer.random();
@@ -205,8 +205,7 @@ describe('ProposalValidator', () => {
       expect(result).toEqual({ result: 'accept' });
     });
 
-    it('rejects proposal for current slot outside pipelining grace period', async () => {
-      // Simulate pipelining: targetSlot = 101, but proposal is for slot 100 (current wallclock slot)
+    it('rejects proposal for current slot outside pipelining clock-disparity grace', async () => {
       epochCache.getTargetAndNextSlot.mockReturnValue({
         targetSlot: SlotNumber(101),
         nextSlot: SlotNumber(102),
@@ -215,12 +214,11 @@ describe('ProposalValidator', () => {
       epochCache.getSlotNow.mockReturnValue(currentSlot); // slot 100
       epochCache.isProposerPipeliningEnabled.mockReturnValue(true);
 
-      // Outside grace period: 7000ms elapsed > configured propagation window 2000ms
       epochCache.getEpochAndSlotNow.mockReturnValue({
         epoch: EpochNumber(1),
         slot: currentSlot,
         ts: 1000n,
-        nowMs: 1007000n, // 7000ms elapsed
+        nowMs: 1007000n, // 7000ms elapsed, well past 500ms grace
       });
 
       const signer = Secp256k1Signer.random();
@@ -229,6 +227,40 @@ describe('ProposalValidator', () => {
       epochCache.getProposerAttesterAddressInSlot.mockResolvedValue(signer.address);
       const result = await validator.validate(proposal);
       expect(result).toEqual({ result: 'reject', severity: PeerErrorSeverity.HighToleranceError });
+    });
+
+    it('accepts proposal for slotNow+1 in the early-acceptance window via PipeliningWindow', async () => {
+      // Force a mock where neither targetSlot nor nextSlot matches the message, so validation
+      // falls through to the pipelining windows and specifically the new early window.
+      const pipelinedValidator = new ProposalValidator(
+        epochCache,
+        { txsPermitted: true, maxTxsPerBlock: undefined, p2pPropagationTime: 2, blockDurationMs: 6000 },
+        'test',
+      );
+      epochCache.getTargetAndNextSlot.mockReturnValue({
+        targetSlot: SlotNumber(98),
+        nextSlot: SlotNumber(99),
+      });
+      epochCache.getSlotNow.mockReturnValue(currentSlot);
+      epochCache.isProposerPipeliningEnabled.mockReturnValue(true);
+
+      // threshold = 72 - timeReservedAtEnd(11) - 0.5 = 60.5s; 65s elapsed > threshold ⇒ early-accept.
+      epochCache.getEpochAndSlotNow.mockReturnValue({
+        epoch: EpochNumber(1),
+        slot: currentSlot,
+        ts: 1000n,
+        nowMs: 1065000n,
+      });
+
+      const signer = Secp256k1Signer.random();
+      const earlySlot = SlotNumber(currentSlot + 1);
+      const proposal = await factory(earlySlot, signer);
+
+      epochCache.getProposerAttesterAddressInSlot.mockImplementation(slot =>
+        slot === earlySlot ? Promise.resolve(signer.address) : Promise.resolve(EthAddress.random()),
+      );
+      const result = await pipelinedValidator.validate(proposal);
+      expect(result).toEqual({ result: 'accept' });
     });
   });
 

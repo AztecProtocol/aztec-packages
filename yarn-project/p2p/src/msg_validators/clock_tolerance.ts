@@ -87,15 +87,55 @@ function isWithinPipeliningWindow(
   return elapsedMs < windowMs;
 }
 
+/**
+ * Checks if a message for `slotNow + 1` should be accepted under early pipelining.
+ *
+ * Under the early-pipelining timing model, proposals and attestations for target
+ * slot N are gossiped inside the build slot (N-1). Receivers are still in slot
+ * N-1 when these messages arrive. Accept messages for `slotNow + 1` during the
+ * last `windowSeconds` seconds of the current slot.
+ *
+ * @param messageSlot - The slot number from the received message
+ * @param epochCache - EpochCache to get timing and pipelining state
+ * @param windowSeconds - The window at the end of the current slot during which we accept next-slot messages
+ * @returns true if pipelining is enabled, the message is for the next slot, and we're inside the early window
+ */
+function isWithinEarlyPipeliningWindow(
+  messageSlot: SlotNumber,
+  epochCache: EpochCacheInterface,
+  windowSeconds: number,
+): boolean {
+  if (!epochCache.isProposerPipeliningEnabled()) {
+    return false;
+  }
+
+  const currentSlot = epochCache.getSlotNow();
+  if (messageSlot !== SlotNumber(currentSlot + 1)) {
+    return false;
+  }
+
+  const { ts: slotStartTs, nowMs } = epochCache.getEpochAndSlotNow();
+  const l1Constants = epochCache.getL1Constants();
+  const slotStartMs = slotStartTs * 1000n;
+  const elapsedMs = Number(nowMs - slotStartMs);
+  const slotDurationMs = l1Constants.slotDuration * 1000;
+  const thresholdMs = slotDurationMs - windowSeconds * 1000 - MAXIMUM_GOSSIP_CLOCK_DISPARITY_MS;
+
+  return elapsedMs >= thresholdMs;
+}
+
 export class PipeliningWindow {
   private readonly proposalWindowIntoTargetSlot: number;
   private readonly attestationWindowIntoTargetSlot: number;
+  private readonly proposalEarlyWindow: number;
+  private readonly attestationEarlyWindow: number;
 
   constructor(
     private readonly epochCache: EpochCacheInterface,
     opts: {
       p2pPropagationTime?: number;
       l1PublishingTime?: number;
+      blockDurationMs?: number;
     } = {},
   ) {
     const l1Constants = epochCache.getL1Constants();
@@ -104,17 +144,26 @@ export class PipeliningWindow {
       ethereumSlotDuration: l1Constants.ethereumSlotDuration,
       l1PublishingTime: opts.l1PublishingTime ?? l1Constants.ethereumSlotDuration,
       p2pPropagationTime: opts.p2pPropagationTime ?? DEFAULT_P2P_PROPAGATION_TIME,
+      blockDuration: opts.blockDurationMs !== undefined ? opts.blockDurationMs / 1000 : undefined,
     });
 
     this.proposalWindowIntoTargetSlot = checkpointTiming.proposalWindowIntoTargetSlot;
     this.attestationWindowIntoTargetSlot = checkpointTiming.attestationWindowIntoTargetSlot;
+    this.proposalEarlyWindow = checkpointTiming.proposalEarlyWindow;
+    this.attestationEarlyWindow = checkpointTiming.attestationEarlyWindow;
   }
 
   public acceptsProposal(messageSlot: SlotNumber): boolean {
-    return isWithinPipeliningWindow(messageSlot, this.epochCache, this.proposalWindowIntoTargetSlot);
+    return (
+      isWithinPipeliningWindow(messageSlot, this.epochCache, this.proposalWindowIntoTargetSlot) ||
+      isWithinEarlyPipeliningWindow(messageSlot, this.epochCache, this.proposalEarlyWindow)
+    );
   }
 
   public acceptsAttestation(messageSlot: SlotNumber): boolean {
-    return isWithinPipeliningWindow(messageSlot, this.epochCache, this.attestationWindowIntoTargetSlot);
+    return (
+      isWithinPipeliningWindow(messageSlot, this.epochCache, this.attestationWindowIntoTargetSlot) ||
+      isWithinEarlyPipeliningWindow(messageSlot, this.epochCache, this.attestationEarlyWindow)
+    );
   }
 }
