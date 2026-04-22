@@ -2,8 +2,18 @@ import { createSafeJsonRpcClient, defaultFetch } from '@aztec/foundation/json-rp
 
 import { z } from 'zod';
 
-import type { ApiSchemaFor } from '../schemas/schemas.js';
+import { type ApiSchemaFor, schemas } from '../schemas/schemas.js';
 import { type ComponentsVersions, getVersioningResponseHandler } from '../versioning/index.js';
+
+/**
+ * Role of an L1 tx publisher inside the node. Used by the delayer debug RPCs to select which
+ * underlying publisher (sequencer or prover-node) the call targets.
+ */
+export const L1TxDelayerRoles = ['sequencer', 'prover'] as const;
+export type L1TxDelayerRole = (typeof L1TxDelayerRoles)[number];
+export const L1TxDelayerRoleSchema = z.enum(L1TxDelayerRoles);
+
+const Hex = z.custom<`0x${string}`>(val => typeof val === 'string' && /^0x[0-9a-fA-F]*$/.test(val));
 
 /**
  * Debug interface for Aztec node available in sandbox/local-network mode.
@@ -19,10 +29,46 @@ export interface AztecNodeDebug {
    * @throws If no sequencer is running.
    */
   mineBlock(): Promise<void>;
+
+  /**
+   * Delays the next L1 tx that the given role's publisher sends so it lands at or after `timestamp`.
+   * Subsequent txs are unaffected — each call delays only the next one.
+   * @throws If the delayer for the role is not enabled.
+   */
+  pauseNextL1TxUntilTimestamp(role: L1TxDelayerRole, timestamp: bigint): Promise<void>;
+
+  /**
+   * Delays the next L1 tx that the given role's publisher sends so it lands at or after `blockNumber`.
+   * @throws If the delayer for the role is not enabled.
+   */
+  pauseNextL1TxUntilBlock(role: L1TxDelayerRole, blockNumber: bigint): Promise<void>;
+
+  /**
+   * Cancels (silently drops) the next L1 tx the given role's publisher attempts to send.
+   * @throws If the delayer for the role is not enabled.
+   */
+  cancelNextL1Tx(role: L1TxDelayerRole): Promise<void>;
+
+  /**
+   * Returns the hashes of L1 txs successfully sent by the given role's publisher since node start.
+   * @throws If the delayer for the role is not enabled.
+   */
+  getSentL1TxHashes(role: L1TxDelayerRole): Promise<`0x${string}`[]>;
+
+  /**
+   * Returns the raw hex for L1 txs that were cancelled by the given role's publisher since node start.
+   * @throws If the delayer for the role is not enabled.
+   */
+  getCancelledL1Txs(role: L1TxDelayerRole): Promise<`0x${string}`[]>;
 }
 
 export const AztecNodeDebugApiSchema: ApiSchemaFor<AztecNodeDebug> = {
   mineBlock: z.function().returns(z.void()),
+  pauseNextL1TxUntilTimestamp: z.function().args(L1TxDelayerRoleSchema, schemas.BigInt).returns(z.void()),
+  pauseNextL1TxUntilBlock: z.function().args(L1TxDelayerRoleSchema, schemas.BigInt).returns(z.void()),
+  cancelNextL1Tx: z.function().args(L1TxDelayerRoleSchema).returns(z.void()),
+  getSentL1TxHashes: z.function().args(L1TxDelayerRoleSchema).returns(z.array(Hex)),
+  getCancelledL1Txs: z.function().args(L1TxDelayerRoleSchema).returns(z.array(Hex)),
 };
 
 export function createAztecNodeDebugClient(

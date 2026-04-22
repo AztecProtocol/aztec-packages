@@ -75,6 +75,7 @@ import {
   type AztecNodeDebug,
   type GetContractClassLogsResponse,
   type GetPublicLogsResponse,
+  type L1TxDelayerRole,
 } from '@aztec/stdlib/interfaces/client';
 import {
   type AllowedElement,
@@ -1699,6 +1700,49 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     } finally {
       this.sequencer.updateConfig({ minTxsPerBlock: originalMinTxsPerBlock });
     }
+  }
+
+  /**
+   * Resolves the `Delayer` instance for a given role. Kept private so the `AztecNodeDebug`
+   * RPC methods remain the only way for out-of-process callers (e.g. the e2e worker-thread
+   * harness) to poke at delayer state.
+   */
+  #getDelayerForRole(role: L1TxDelayerRole) {
+    if (role === 'sequencer') {
+      const delayer = this.sequencer?.getDelayer();
+      if (!delayer) {
+        throw new BadRequestError('Sequencer delayer is not enabled on this node');
+      }
+      return delayer;
+    }
+    const delayer = this.proverNode?.getDelayer();
+    if (!delayer) {
+      throw new BadRequestError('Prover node delayer is not enabled on this node');
+    }
+    return delayer;
+  }
+
+  public pauseNextL1TxUntilTimestamp(role: L1TxDelayerRole, timestamp: bigint): Promise<void> {
+    this.#getDelayerForRole(role).pauseNextTxUntilTimestamp(timestamp);
+    return Promise.resolve();
+  }
+
+  public pauseNextL1TxUntilBlock(role: L1TxDelayerRole, blockNumber: bigint): Promise<void> {
+    this.#getDelayerForRole(role).pauseNextTxUntilBlock(blockNumber);
+    return Promise.resolve();
+  }
+
+  public cancelNextL1Tx(role: L1TxDelayerRole): Promise<void> {
+    this.#getDelayerForRole(role).cancelNextTx();
+    return Promise.resolve();
+  }
+
+  public getSentL1TxHashes(role: L1TxDelayerRole): Promise<`0x${string}`[]> {
+    return Promise.resolve(this.#getDelayerForRole(role).getSentTxHashes());
+  }
+
+  public getCancelledL1Txs(role: L1TxDelayerRole): Promise<`0x${string}`[]> {
+    return Promise.resolve(this.#getDelayerForRole(role).getCancelledTxs());
   }
 
   #getInitialHeaderHash(): Promise<BlockHash> {
