@@ -212,6 +212,10 @@ function symlink_aztec_bins {
     # npm writes relative symlinks like ../@aztec/aztec/... for scoped packages.
     [[ "$target" == ../@aztec/* ]] || continue
     bin_name=$(basename "$bin_link")
+    if [ -e "$version_bin_path/$bin_name" ] && [ ! -L "$version_bin_path/$bin_name" ]; then
+      echo_yellow "refusing to overwrite non-symlink $bin_name; @aztec package bin collides with a hand-installed toolchain binary" >&2
+      exit 1
+    fi
     ln -sfn "../node_modules/.bin/$bin_name" "$version_bin_path/$bin_name"
   done
 }
@@ -249,7 +253,9 @@ function main {
   echo_green "done."
 
   # Expose only @aztec-owned bins on PATH (drops transitive npm deps).
-  symlink_aztec_bins
+  echo -n "Making aztec commands available... "
+  dump_fail retry symlink_aztec_bins
+  echo_green "done."
 }
 
 main "$@"
