@@ -1,6 +1,6 @@
 ## Noir Contracts Compilation Failures
 
-Aztec-nr contracts that are expected to fail to compile. Each case asserts both that compilation fails *and* that the error message contains the expected substring, so an unrelated regression that breaks compilation for a different reason does not silently pass.
+Aztec-nr contracts that are expected to fail to compile. Each case asserts that compilation fails *and* that the full set of `error:` diagnostics nargo emits matches a committed snapshot, so an unrelated regression that breaks compilation for a different reason does not silently pass.
 
 ### Layout
 
@@ -8,15 +8,21 @@ Each contract lives in `contracts/<case>/` with:
 
 - `Nargo.toml` — `type = "contract"`, depends on `aztec = { path = "../../../aztec-nr/aztec" }`.
 - `src/main.nr` — the intentionally invalid contract.
-- `expected_error` — a substring that must appear in `nargo compile` stderr.
+- `expected_error` — one line per nargo `error:` headline (stripped of the `error: ` prefix), in emission order.
 
 ### Running
 
 ```sh
-./bootstrap.sh test
+./bootstrap.sh test                          # all cases
+./bootstrap.sh test reserved_public_dispatch # one case
+./bootstrap.sh test 'panic_on_*'             # glob subset
 ```
 
-Runs `nargo compile --silence-warnings` in each contract directory, asserts it fails, and `grep -F`s the captured stderr for the `expected_error` substring.
+For each contract the runner:
+
+1. Runs `nargo compile --silence-warnings` and asserts it fails.
+2. Extracts every `error: <headline>` line from stderr in order and strips the `error: ` prefix.
+3. Requires the extracted list to equal, line for line, the non-blank lines of `expected_error`. Any difference — text, count, or order — fails the test.
 
 ### Updating expected errors
 
@@ -26,6 +32,6 @@ When a compiler or macro error message changes intentionally, regenerate snapsho
 ACCEPT_SNAPSHOTS=1 ./bootstrap.sh test
 ```
 
-This writes the full stderr from each case into its `expected_error` file. Before committing, trim each file down to a stable substring — typically the error headline — because raw stderr includes paths and line numbers that churn across refactors.
+The runner extracts each `error: ` headline, strips the prefix, and writes one per line — no manual trimming needed. If nargo emits no `error: ` diagnostics (e.g. an internal compiler panic), the full stderr is written and a `⚠` warning is printed; those cases need a manual trim before committing.
 
-CI refuses to run with `ACCEPT_SNAPSHOTS` set (`CI=true ACCEPT_SNAPSHOTS=1` exits non-zero), so any drift between committed snapshots and actual stderr must be resolved intentionally by a developer.
+CI refuses to run with `ACCEPT_SNAPSHOTS` set (`CI=1 ACCEPT_SNAPSHOTS=1` exits non-zero), so any drift between committed snapshots and actual stderr must be resolved intentionally by a developer.
