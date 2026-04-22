@@ -1731,19 +1731,19 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     if (BlockHash.isBlockHash(block)) {
       const initialBlockHash = await this.#getInitialHeaderHash();
       if (block.equals(initialBlockHash)) {
-        // Block 0 has no historical snapshot in world state — its state only lives in the
-        // committed/uncommitted view via the tree's initial values. Since the anchor hash matches
-        // the known genesis hash, there is no reorg risk here and we can safely return committed.
-        this.log.debug(`Using committed db for block hash matching genesis header`);
-        return this.worldStateSynchronizer.getCommitted();
+        // Block 0 is a first-class historical block: its state lives in the trees' persisted
+        // block-0 payload. Resolving the genesis hash to block number 0 lets the snapshot path
+        // pin reads to genesis state even after the node has advanced past it.
+        blockNumber = BlockNumber.ZERO;
+      } else {
+        const header = await this.blockSource.getBlockHeaderByHash(block);
+        if (!header) {
+          throw new Error(
+            `Block hash ${block.toString()} not found when querying world state. If the node API has been queried with anchor block hash possibly a reorg has occurred.`,
+          );
+        }
+        blockNumber = header.getBlockNumber();
       }
-      const header = await this.blockSource.getBlockHeaderByHash(block);
-      if (!header) {
-        throw new Error(
-          `Block hash ${block.toString()} not found when querying world state. If the node API has been queried with anchor block hash possibly a reorg has occurred.`,
-        );
-      }
-      blockNumber = header.getBlockNumber();
     } else {
       blockNumber = block as BlockNumber;
     }

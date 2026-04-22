@@ -17,7 +17,7 @@ import { Fr } from '@aztec/aztec.js/fields';
 import { type Logger, createLogger } from '@aztec/aztec.js/log';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import type { Wallet } from '@aztec/aztec.js/wallet';
-import { AnvilTestWatcher, CheatCodes } from '@aztec/aztec/testing';
+import { AnvilTestWatcher, type AnvilTestWatcherOpts, CheatCodes } from '@aztec/aztec/testing';
 import { SPONSORED_FPC_SALT } from '@aztec/constants';
 import { isAnvilTestChain } from '@aztec/ethereum/chain';
 import { createExtendedL1Client } from '@aztec/ethereum/client';
@@ -185,6 +185,7 @@ export type SetupOptions = {
   mockGossipSubNetworkLatency?: number;
   /** Whether to disable the anvil test watcher (can still be manually started) */
   disableAnvilTestWatcher?: boolean;
+  anvilTestWatcherOpts?: AnvilTestWatcherOpts;
   /** Whether to enable anvil automine during deployment of L1 contracts (consider defaulting this to true). */
   automineL1Setup?: boolean;
   /** How many accounts to seed and unlock in anvil. */
@@ -447,6 +448,7 @@ export async function setup(
       deployL1ContractsValues.l1ContractAddresses.rollupAddress,
       deployL1ContractsValues.l1Client,
       dateProvider,
+      opts.anvilTestWatcherOpts,
     );
     if (!opts.disableAnvilTestWatcher) {
       await watcher.start();
