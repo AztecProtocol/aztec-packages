@@ -53,12 +53,14 @@ include "opcodes/sstore.pil";
 /**
  * EXECUTION TRACE
  *
- * This is the main trace for AVM execution. Each active row corresponds to the execution of
- * exactly one opcode. The active rows are organized in contiguous blocks, where each block
- * corresponds to the execution of a public call request (enqueued call) dispatched by tx.pil.
- * A block starts with `enqueued_call_start == 1` and ends with `enqueued_call_end == 1`.
- * Within a block, nested calls (CALL/STATICCALL) switch context without breaking the contiguous
- * row sequence — the context stack (context_stack.pil) tracks saved/restored state.
+ *   This is the main trace for AVM execution. Each active row corresponds to the execution of
+ *   exactly one opcode. The active rows are organized in contiguous blocks, where each block
+ *   corresponds to the execution of a public call request (enqueued call) dispatched by tx.pil.
+ *   A block starts with `enqueued_call_start == 1` and ends with `enqueued_call_end == 1`.
+ *   A context represents the per-call execution state (contract address, pc, gas, memory, etc.)
+ *   identified by a `context_id`.
+ *   Within a block, nested calls (CALL/STATICCALL) switch context without breaking the contiguous
+ *   row sequence — the context stack (context_stack.pil) tracks saved/restored state.
  *
  * TRACE SHAPE
  *
@@ -87,19 +89,15 @@ include "opcodes/sstore.pil";
  *   group stops processing for subsequent groups on that row:
  *
  *   TG1: Bytecode retrieval   — retrieve bytecode (first row in context only).
- *                                Error: BYTECODE_RETRIEVAL.
  *   TG2: Instruction fetching — fetch and decode instruction, resolve operand addresses.
- *                                Errors: INSTRUCTION_FETCHING, ADDRESSING.
  *   TG3: Register read        — read input registers from memory, validate tags.
- *                                Error: REGISTER_READ.
  *   TG4: Gas                  — consume base + dynamic gas.
- *                                Error: GAS (out of gas).
  *   TG5: Opcode execution     — execute opcode logic, dispatch to subtraces.
- *                                Error: OPCODE_EXECUTION.
  *   TG6: Register write       — write output registers to memory. Cannot error.
  *
  *   The temporality group selectors form a deactivation cascade (see SELECTOR DEACTIVATION CASCADE
  *   below): sel == 0 deactivates all of them, and an error in group N deactivates subsequent groups.
+ *   See ERRORS below for the per-group error labels.
  *
  * ERRORS
  *
@@ -109,18 +107,20 @@ include "opcodes/sstore.pil";
  *   error in group N deactivates all subsequent groups, preventing later errors. See the comment
  *   at `sel_error` for the full proof.
  *
- *   The 6 error types, in temporality group order:
- *     1. sel_bytecode_retrieval_failure (TG1): Bytecode for the contract could not be retrieved
- *        (e.g., contract not deployed, too many unique bytecodes).
- *     2. sel_instruction_fetching_failure (TG2): Instruction at the current PC could not be
- *        decoded (e.g., invalid opcode, PC out of bounds).
- *     3. sel_addressing_error (TG2): Operand address resolution failed (e.g., invalid base
- *        address tag, relative overflow, invalid tag after indirection).
- *     4. sel_register_read_error (TG3): Input register tag does not match the expected tag
- *        for the opcode.
- *     5. sel_out_of_gas (TG4): Cumulative gas usage exceeds the gas limit (L2 or DA).
- *     6. sel_opcode_error (TG5): Opcode-specific execution error (e.g., division by zero,
- *        static context violation, nullifier collision, maximum side effects reached).
+ *   The 6 error types, in temporality group order (selector | ExecutionError label):
+ *     1. sel_bytecode_retrieval_failure   | BYTECODE_RETRIEVAL   (TG1): Bytecode for the contract
+ *        could not be retrieved (e.g., contract not deployed, too many unique bytecodes).
+ *     2. sel_instruction_fetching_failure | INSTRUCTION_FETCHING (TG2): Instruction at the current
+ *        PC could not be decoded (e.g., invalid opcode, PC out of bounds).
+ *     3. sel_addressing_error             | ADDRESSING           (TG2): Operand address resolution
+ *        failed (e.g., invalid base address tag, relative overflow, invalid tag after indirection).
+ *     4. sel_register_read_error          | REGISTER_READ        (TG3): Input register tag does
+ *        not match the expected tag for the opcode.
+ *     5. sel_out_of_gas                   | GAS                  (TG4): Cumulative gas usage
+ *        exceeds the gas limit (L2 or DA).
+ *     6. sel_opcode_error                 | OPCODE_EXECUTION     (TG5): Opcode-specific execution
+ *        error (e.g., division by zero, static context violation, nullifier collision,
+ *        maximum side effects reached).
  *
  * INTERACTIONS (outgoing — this trace as source)
  *
@@ -139,8 +139,7 @@ include "opcodes/sstore.pil";
  *       written (sstore gas).
  *
  *   Opcode dispatch (lookups for pure/deduplicated computations):
- *     - #[DISPATCH_TO_ALU] -> alu: arithmetic operations
- *       (ADD, SUB, MUL, DIV, FDIV, EQ, LT, LTE, NOT, SHL, SHR).
+ *     - #[DISPATCH_TO_ALU] -> alu (arithmetic): ADD, SUB, MUL, DIV, FDIV, EQ, LT, LTE, NOT, SHL, SHR.
  *     - #[DISPATCH_TO_BITWISE] -> bitwise: AND, OR, XOR.
  *     - #[DISPATCH_TO_CAST] -> alu (truncate): CAST.
  *     - #[DISPATCH_TO_SET] -> alu (truncate): SET.
@@ -223,18 +222,18 @@ sel * (1 - sel) = 0;
 
 // Selector indicating enqueued call boundaries.
 // Used by TX trace for lookups to dispatch and retrieve results/reverted.
-pol commit enqueued_call_start; // @boolean
-pol commit enqueued_call_end; // @boolean
+pol commit enqueued_call_start; // @boolean (see below)
+pol commit enqueued_call_end; // @boolean (see below)
 
-// enqueued_call_end is boolean:
-//   enqueued_call_end = sel_exit_call * (1 - has_parent_ctx) where has_parent_ctx is explicitly boolean.
-//   sel_exit_call is shown to be boolean in context.pil.
-//
 // enqueued_call_start is boolean:
 //   enqueued_call_start' = (precomputed.first_row + enqueued_call_end) * sel'. Since sel' is explicitly
 //   boolean, we show that enqueued_call_end is mutually exclusive with precomputed.first_row.
 //   This follows from `sel == 0 ==> enqueued_call_end == 0` (proven below) and the fact that
 //   sel cannot be 1 on the first row.
+//
+// enqueued_call_end is boolean:
+//   enqueued_call_end = sel_exit_call * (1 - has_parent_ctx) where has_parent_ctx is explicitly boolean.
+//   sel_exit_call is shown to be boolean in context.pil.
 
 // (enqueued_call_start == 1) <==> (is first active execution row)
 //                               or (is first active row after an enqueued call ends)
@@ -259,11 +258,12 @@ sel_first_row_in_context' = sel_enter_call + enqueued_call_start';
 //       Therefore sel_exit_call = 0, giving enqueued_call_end = 0.
 //     - sel_enter_call == 1 requires sel == 1 and therefore it cannot be the first row.
 //     - By definition (#[ENQUEUED_CALL_START]), enqueued_call_start' = 0.
+//
+// Note on row 0: sel_first_row_in_context is a shifted column, so the proving system guarantees
+// it is 0 on the first row.
 
 
 // `sel` can change only at the first row or at the end of an enqueued call.
-// Since `sel == 0 ==> enqueued_call_end == 0`, this implies that `sel` can only be toggled
-// over a contiguous block of rows starting after the first row until the end of an enqueued call.
 #[TRACE_CONTINUITY]
 (1 - precomputed.first_row - enqueued_call_end) * (sel - sel') = 0;
 
@@ -930,6 +930,9 @@ sel_execute_send_l2_to_l1_msg * constants.AVM_EXEC_OP_ID_SENDL2TOL1MSG
 
 // While we use pc' in the relation, there is no need to condition by sel' because
 // sel_execute_internal_call and sel_execute_jump are infallible opcodes.
+// Complementary pc constraints in context.pil:
+//   - #[PC_NEW_CONTEXT_INIT]: pc = 0 on the first row of a context (sel_first_row_in_context == 1).
+//   - #[PC_NEXT_ROW_DEFAULT]: pc' = next_pc on non-jump default context rows (DEFAULT_CTX_ROW).
 #[PC_NEXT_ROW_INT_CALL_JUMP]
 (sel_execute_internal_call + sel_execute_jump) * (pc' - rop[0]) = 0;
 

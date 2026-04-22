@@ -291,19 +291,25 @@ uint32_t dying_context_for_phase(TransactionPhase phase, const FailingContexts& 
 } // namespace
 
 /**
- * @brief Process the execution events and populate the relevant columns in the trace. ExecutionError enum
- *        is used to track the error type of the event. Each error type is mutually exclusive and pertains
- *        to a specific temporality group. Each temporality group is processed sequentially and an error
- *        prevents the processing of the subsequent temporality groups.
+ * @brief Process the execution events and populate the relevant columns in the trace.
+ *        ExecutionError enum is used to track the error type of the event. Each error
+ *        type is mutually exclusive and pertains to a specific temporality group. Each
+ *        temporality group is processed sequentially and an error prevents the processing
+ *        of the subsequent temporality groups.
  *
- * Events are emitted in the following flavors (ExecutionError enum):
- * - Normal execution: all fields populated. (ExecutionError::NONE)
- * - Bytecode retrieval error: only context fields and error populated, no instruction/addressing/....
- * - Instruction fetching error: context and bytecode fields populated, no addressing/gas/...
- * - Addressing error: instruction fetched but operand resolution failed, no gas/opcode/... execution.
- * - Register read error: addressing succeeded but tag validation failed, no gas/opcode execution.
- * - Out of gas error: registers read but gas check failed, no opcode execution.
- * - Opcode execution error: gas consumed but opcode logic failed, no register write.
+ * Events are emitted in the following flavors (keyed by ExecutionError enum value).
+ * The error field is populated in all failing variants; the bullets below describe
+ * which additional (non-error) fields are populated:
+ *   1. ExecutionError::NONE                 — normal execution: all fields populated.
+ *   2. ExecutionError::BYTECODE_RETRIEVAL   — TG1 failure: only context fields populated.
+ *   3. ExecutionError::INSTRUCTION_FETCHING — TG2 failure: context and bytecode fields populated.
+ *   4. ExecutionError::ADDRESSING           — TG2 failure: instruction fetched but operand
+ *                                              resolution failed.
+ *   5. ExecutionError::REGISTER_READ        — TG3 failure: addressing succeeded but tag
+ *                                              validation failed.
+ *   6. ExecutionError::GAS                  — TG4 failure: registers read but gas check failed.
+ *   7. ExecutionError::OPCODE_EXECUTION     — TG5 failure: gas consumed but opcode logic
+ *                                              failed, no register write.
  *
  * @param ex_events Container of ExecutionEvent to process.
  * @param trace The trace container to populate.
@@ -640,9 +646,8 @@ void ExecutionTraceBuilder::process(
                               { C::execution_remaining_data_writes_inv,
                                 remaining_data_writes }, // Will be inverted in batch later.
                               { C::execution_sel_write_public_data, opcode_execution_failed ? 0 : 1 },
-                              { C::execution_written_slots_tree_height, AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_HEIGHT },
-                              { C::execution_written_slots_merkle_separator, DOM_SEP__WRITTEN_SLOTS_MERKLE },
-                              { C::execution_written_slots_tree_siloing_separator, DOM_SEP__PUBLIC_LEAF_SLOT },
+                              // written_slots_tree_height, _merkle_separator, _tree_siloing_separator
+                              // are set in the check_gas SSTORE branch above (check_gas covers execute_opcode).
                           } });
             } else if (*exec_opcode == ExecutionOpCode::NOTEHASHEXISTS) {
                 uint64_t leaf_index = registers[1].as<uint64_t>();

@@ -235,11 +235,9 @@ TEST(ExecutionConstrainingTest, SideEffectStateNotChanged)
 TEST(ExecutionConstrainingTest, NoFetchingNoInstrFetchError)
 {
     // sel_bytecode_retrieval_success == 0 => sel_instruction_fetching_failure == 0
-    // clang-format off
     TestTraceContainer trace({
-        {{ C::execution_sel_bytecode_retrieval_success, 0 }, { C::execution_sel_instruction_fetching_failure, 0 }},
+        { { C::execution_sel_bytecode_retrieval_success, 0 }, { C::execution_sel_instruction_fetching_failure, 0 } },
     });
-    // clang-format on
 
     check_relation<execution>(trace, execution::SR_NO_FETCHING_NO_INSTR_FETCH_ERROR);
 
@@ -257,11 +255,9 @@ TEST(ExecutionConstrainingTest, NoAddressingErrorIfNotResolving)
 {
     // sel_instruction_fetching_success == 0 => sel_addressing_error == 0
     // (SEL_RESOLVE_ADDRESS is an alias for sel_instruction_fetching_success)
-    // clang-format off
     TestTraceContainer trace({
-        {{ C::execution_sel_instruction_fetching_success, 0 }, { C::execution_sel_addressing_error, 0 }},
+        { { C::execution_sel_instruction_fetching_success, 0 }, { C::execution_sel_addressing_error, 0 } },
     });
-    // clang-format on
 
     check_relation<addressing>(trace, addressing::SR_NO_ADDRESSING_ERROR_IF_NOT_RESOLVING);
 
@@ -280,11 +276,9 @@ TEST(ExecutionConstrainingTest, NoRegisterReadErrorIfNotReading)
     // sel_read_registers == 0 => sel_register_read_error == 0
     // Via #[REGISTER_READ_TAG_CHECK]: when sel_read_registers == 0, BATCHED_TAGS_DIFF_X_REG == 0,
     // which forces sel_register_read_error == 0.
-    // clang-format off
     TestTraceContainer trace({
-        {{ C::execution_sel_read_registers, 0 }, { C::execution_sel_register_read_error, 0 }},
+        { { C::execution_sel_read_registers, 0 }, { C::execution_sel_register_read_error, 0 } },
     });
-    // clang-format on
 
     check_relation<registers>(trace, registers::SR_REGISTER_READ_TAG_CHECK);
 
@@ -297,11 +291,9 @@ TEST(ExecutionConstrainingTest, NoRegisterReadErrorIfNotReading)
 TEST(ExecutionConstrainingTest, NoOogIfNoGasCheck)
 {
     // sel_check_gas == 0 => sel_out_of_gas == 0
-    // clang-format off
     TestTraceContainer trace({
-        {{ C::execution_sel_check_gas, 0 }, { C::execution_sel_out_of_gas, 0 }},
+        { { C::execution_sel_check_gas, 0 }, { C::execution_sel_out_of_gas, 0 } },
     });
-    // clang-format on
 
     check_relation<gas>(trace, gas::SR_NO_OOG_IF_NO_GAS_CHECK);
 
@@ -317,11 +309,9 @@ TEST(ExecutionConstrainingTest, NoOogIfNoGasCheck)
 TEST(ExecutionConstrainingTest, NoOpcodeErrorIfNotExecuting)
 {
     // sel_execute_opcode == 0 => sel_opcode_error == 0
-    // clang-format off
     TestTraceContainer trace({
-        {{ C::execution_sel_execute_opcode, 0 }, { C::execution_sel_opcode_error, 0 }},
+        { { C::execution_sel_execute_opcode, 0 }, { C::execution_sel_opcode_error, 0 } },
     });
-    // clang-format on
 
     check_relation<execution>(trace, execution::SR_NO_OPCODE_ERROR_IF_NOT_EXECUTING);
 
