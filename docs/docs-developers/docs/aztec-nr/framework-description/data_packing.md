@@ -39,7 +39,7 @@ Do not hand-roll `Serialize` or `Deserialize` for types passed as function argum
 
 ## When to use Packable
 
-Use `Packable` when a struct is used as a note or as the data type of a state variable (`PublicMutable<T>`, `PublicImmutable<T>`, `DelayedPublicMutable<T>`). `Packable` defines how the value is encoded when written to storage or hashed into a note. It never needs to match any external format; it only needs to roundtrip: `unpack(pack(x)) == x`.
+Use `Packable` for note `structs` when creating custom notes or as the data type of a state variable (`PublicMutable<T>`, `PublicImmutable<T>`, `DelayedPublicMutable<T>`). `Packable` defines how the value is encoded when written to storage or hashed into a note. It never needs to match any external format; it only needs to roundtrip: `unpack(pack(x)) == x`.
 
 There are two cases.
 
