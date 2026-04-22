@@ -81,16 +81,16 @@ Internal-block S-box total: $3 + 13 \cdot 7 + 4 = \mathbf{98}$ per permutation, 
 Same K=4 layout as above, but instead of *deriving* the non-S-boxed state cells $(s_1, s_2, s_3)$ at row-start via a $3 \times 3$ Vandermonde inversion, they are committed as **three extra witness columns** in the Mega trace:
 
 $$
-w_{p2,s_1} \;=\; s_1 \text{ at round } 4i, \qquad w_{p2,s_2} \;=\; s_2 \text{ at round } 4i, \qquad w_{p2,s_3} \;=\; s_3 \text{ at round } 4i.
+y_1 \;=\; s_1 \text{ at round } 4i, \qquad y_2 \;=\; s_2 \text{ at round } 4i, \qquad y_3 \;=\; s_3 \text{ at round } 4i.
 $$
 
-The relation's $7$ subrelations (up from $4$) now read $s_1, s_2, s_3$ directly from $w_{p2,s_{1..3}}$ and check each of the four $s_0$ outputs plus three $s_j$ outputs against the shifted wires:
+The relation's $7$ subrelations (up from $4$) now read $s_1, s_2, s_3$ directly from $y_1, y_2, y_3$ and check each of the four $s_0$ outputs plus three $s_j$ outputs against the shifted wires:
 
 $$
 \begin{aligned}
 A_0, A_1, A_2 &:& D_1 \cdot u_k + \mathrm{sum}_k \;&=\; w_r, w_o, w_4 \quad && (s_0 \text{ at rounds } 1, 2, 3)\\
 A_3           &:& D_1 \cdot u_3 + \mathrm{sum}_3 \;&=\; w_l^{\mathrm{shift}} \quad && (s_0 \text{ at round } 4 = \text{next row's } w_l)\\
-A_4, A_5, A_6 &:& s_j \text{ at round } 4 \;&=\; w_{p2,s_j}^{\mathrm{shift}} \quad && (s_j \text{ at round } 4 = \text{next row's } s_j\text{-wire})
+A_4, A_5, A_6 &:& s_j \text{ at round } 4 \;&=\; y_j^{\mathrm{shift}} \quad && (s_j \text{ at round } 4 = \text{next row's } s_j\text{-wire})
 \end{aligned}
 $$
 
@@ -98,11 +98,11 @@ What this buys:
 
 - **No Vandermonde inversion** (saves $63$ muls per interior row).
 - **No shift-side Vandermonde** (saves the $3$ shift-side S-boxes $+\ 44$ muls of $b_k^{\mathrm{next}}$ RHS $\approx 107$ muls per interior row).
-- Still need the $4$ S-boxes on the current row and the $4$ `step()` recurrence iterations (rewritten to consume the committed $w_{p2,s_\ast}$).
+- Still need the $4$ S-boxes on the current row and the $4$ `step()` recurrence iterations (rewritten to consume the committed $y_j$).
 
 What it costs:
 
-- **$3$ additional committed polynomials** on the Mega trace ($w_{p2,s_1}, w_{p2,s_2}, w_{p2,s_3}$). These add their own MSM/commitment cost and take bytes in the CRS.
+- **$3$ additional committed polynomials** on the Mega trace ($y_1, y_2, y_3$ above). These add their own MSM/commitment cost and take bytes in the CRS.
 - $7$ subrelations instead of $4$ ($3$ extra Acc$\times$Acc output scalings per row, $\approx 21$ muls).
 
 **Empirical result:** this variant did not improve on the 4-wire K=4 (`si/poseidon2-opt-attempt`) in end-to-end app-proving wall time. The trace-width increase offsets the per-row sumcheck savings: the MSMs and commitments for the three extra committed polynomials cost about as much as the Vandermonde inversion work saved per row.
@@ -133,7 +133,8 @@ $$
 
 What this buys:
 
-- Every `Accumulator.sqr()` / `Acc` $\times$ `Acc` / `Acc` $\times$ `Fr` previously costing $7$ elementwise muls now costs $\mathbf{5}$ muls (or $4$ for the z-checks). That's a uniform ${\sim}29\%$ shrink on all the Acc-level arithmetic — not just the S-box, but every scaling, Vandermonde RHS term, Lagrange solve product, and recurrence `step()`.
+- Every `Accumulator.sqr()` / `Acc` $\times$ `Acc` / `Acc` $\times$ `Fr` previously costing $7$ element-wise muls now costs $\mathbf{5}$ muls (or $4$ for the z-checks). That's a uniform ~29% shrink on all the Acc-level arithmetic — not just the S-box, but every scaling, Vandermonde RHS term, Lagrange solve product, and recurrence `step()`.
+
 - Shorter per-round sumcheck univariates $\Rightarrow$ fewer evaluations to compute, serialise, and verify per round.
 
 What it costs:
@@ -146,10 +147,10 @@ What it costs:
 **Prover cost has two dominant buckets** — MSM commitments and sumcheck relation work — both scaling with the active support of the relevant polynomials / rows:
 
 $$
-T_{\mathrm{prover}} \;\approx\; \underbrace{\sum_{p \in \mathrm{polys}} c_{\mathrm{msm}} \cdot N_{\mathrm{active},p}}_{\text{MSM (Pippenger filters zero scalars)}} \;+\; \underbrace{2 \sum_{\tau} R_{\tau} \cdot N_{\mathrm{active},\tau}}_{\text{sumcheck (relations }\texttt{skip()}\text{ on zero selectors)}}
+T_{\mathrm{prover}} \;\approx\; \underbrace{c_{\mathrm{msm}} \sum_{p} N_p}_{\text{MSM (Pippenger filters zero scalars)}} \;+\; \underbrace{2 \sum_{\tau} R_\tau \cdot N_\tau}_{\text{sumcheck (relations }\texttt{skip()}\text{ on zero selectors)}}
 $$
 
-$N_{\mathrm{active},p}$ = number of non-zero scalars on committed polynomial $p$; $R_\tau$ = per-active-row mult count of relation $\tau$; $N_{\mathrm{active},\tau}$ = rows where relation $\tau$ fires. The factor $2$ is the geometric sum over sumcheck rounds. Both terms exploit sparsity (Pippenger drops zeros, relation `skip()` drops rows with zero selector), so a Poseidon2-local optimisation's costs and savings all flow through "Poseidon2-row count".
+$N_p$ = non-zero scalars on committed polynomial $p$; $R_\tau$ = per-active-row mult count of relation $\tau$; $N_\tau$ = rows where relation $\tau$ fires. The factor $2$ is the geometric sum over sumcheck rounds. Both terms exploit sparsity (Pippenger drops zeros, relation `skip()` drops rows with zero selector), so a Poseidon2-local optimisation's costs and savings all flow through "Poseidon2-row count".
 
 **$c_{\mathrm{msm}}$ calibration.** Barretenberg's own Pippenger cost model (`scalar_multiplication.cpp`) evaluates $\lceil 254 / c \rceil \cdot (N + 5 \cdot 2^c)$ for optimal window $c$. Averaging over $N \in \{2^{15}, \ldots, 2^{19}\}$ (the range relevant for Poseidon2-populated polys at app-proving scale) gives $\sim 25.6$ EC adds per scalar; with the affine trick active ($N \geq 128$), each batched affine add is $\sim 6$ field muls. So $c_{\mathrm{msm}} \approx \mathbf{150 \text{ muls/scalar}}$ in total work.
 
@@ -163,9 +164,9 @@ $N_{\mathrm{active},p}$ = number of non-zero scalars on committed polynomial $p$
 | 7-wire K=4 (var. A) | $24$ rows but $+3$ polys active on the $14$ compressed rows | low + $3 \cdot 14$ | $268$ | $\sim 9{,}400$ |
 | low-deg K=4 (var. B) | $24$ rows but $+4$ polys active on the $23$ Poseidon-tagged rows | low + $4 \cdot 23$ | $310$ | $\sim 11{,}700$ |
 
-**K=1 → K=2.** Rows $64 \to 38$ ($-41\%$); per-internal-round sumcheck $55 \to 77$ muls ($+40\%$, from reconstructing $s_1$ and the added shift-side S-box). MSM savings outweigh the sumcheck tax.
+**K=1 → K=2.** Rows $64 \to 38$ (−41%); per-internal-round sumcheck $55 \to 77$ muls (+40%, from reconstructing $s_1$ and the added shift-side S-box). MSM savings outweigh the sumcheck tax.
 
-**K=2 → 4-wire K=4.** Rows $38 \to 24$ ($-37\%$); per-round sumcheck $77 \to \sim 115$ muls ($+50\%$, from the $3 \times 3$ Vandermonde inversion and 4 recurrence steps). The two effects roughly cancel.
+**K=2 → 4-wire K=4.** Rows $38 \to 24$ (−37%); per-round sumcheck $77 \to \sim 115$ muls (+50%, from the $3 \times 3$ Vandermonde inversion and 4 recurrence steps). The two effects roughly cancel.
 
 **Plain K=4 → variant A (7-wire).** Same rows as K=4. $\Delta R = 193$ (drop $461 \to 268$ per interior row, from removing the Vandermonde inversion and shift-side S-boxes), $\Delta C = 3$. Break-even $\Delta R > (c_{\mathrm{msm}}/2) \cdot \Delta C = 225$; measured $193$.
 
@@ -181,7 +182,7 @@ $N_{\mathrm{active},p}$ = number of non-zero scalars on committed polynomial $p$
 
 Backing numbers for the per-variant analysis above. Each entry is a full BN254 $\mathrm{Fr}$ multiplication, counted straight from the committed `accumulate()` bodies using this accounting:
 
-- $\mathrm{Acc.sqr()}$ / $\mathrm{Acc} \times \mathrm{Acc}$ / $\mathrm{Acc} \times \mathrm{Fr}$ → **$7$ muls** (elementwise over the length-$7$ Lagrange array)
+- $\mathrm{Acc.sqr()}$ / $\mathrm{Acc} \times \mathrm{Acc}$ / $\mathrm{Acc} \times \mathrm{Fr}$ → **$7$ muls** (elementwise over the length-7 Lagrange array)
 - $\mathrm{CoeffAcc} \times \mathrm{Fr}$ (scale a degree-$1$ monomial) → **$2$ muls**
 - $\mathrm{CoeffAcc} \times \mathrm{CoeffAcc}$ (Karatsuba via the precomputed $a_0 + a_1$) → **$3$ muls**
 - $\mathrm{Acc}(\mathrm{CoeffAcc})$ extrapolation → **$0$ muls** (pure adds)
@@ -275,8 +276,8 @@ Per-permutation totals (Mega, one hash):
 ## Summary
 
 - **Time.** Both compressed variants beat `mt` on every flow. `56→28` is uniformly ahead of `56→14`.
-  - Native total: `56→28` $-6.3\%$, `56→14` $-5.0\%$ vs. `mt`.
-  - WASM total: `56→28` $-6.0\%$, `56→14` $-3.8\%$ vs. `mt`.
-- **Native memory.** Both variants cut peak RSS by $10$–$19\%$ on the larger flows (`amm`, `transfer_1+private_fpc`, `schnorr+deploy_token`); small flows are within noise. The totals look flat because the `storage_proof_7_layers` peak dominates and is slightly higher on both variants than on `mt` (${\sim}\!+3$–$5\%$).
-- **WASM memory.** `56→28` reduces peak like native. `56→14` *increases* WASM peak by $+10$–$25\%$ on most flows — this is wasm-specific (its native numbers are fine) and worth investigating before taking the more aggressive compression.
+  - Native total: `56→28` −6.3%, `56→14` −5.0% vs. `mt`.
+  - WASM total: `56→28` −6.0%, `56→14` −3.8% vs. `mt`.
+- **Native memory.** Both variants cut peak RSS by 10–19% on the larger flows (`amm`, `transfer_1+private_fpc`, `schnorr+deploy_token`); small flows are within noise. The totals look flat because the `storage_proof_7_layers` peak dominates and is slightly higher on both variants than on `mt` (~+3–5%).
+- **WASM memory.** `56→28` reduces peak like native. `56→14` *increases* WASM peak by +10–25% on most flows — this is wasm-specific (its native numbers are fine) and worth investigating before taking the more aggressive compression.
 - **Closed variants.** The 7-wire committed-state variant (`#22655`) and the committed-square z-commit / length-$5$ variant (`#22670`) both reduce per-row relation work, but in practice neither improves end-to-end proving. Even with scalar sparsity (Pippenger drops zeros, new wires only pay for their active support), the added committed polynomials bring enough extra prover overhead that the local sumcheck savings don't translate into a wall-time win. The missing cost likely isn't fully captured by the MSM-vs-sumcheck model — extra per-subrelation overhead, PCS opening/batching cost, and constant factors in sparse-commit handling are all candidates.
