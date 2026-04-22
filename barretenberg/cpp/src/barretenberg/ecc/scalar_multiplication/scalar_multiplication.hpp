@@ -284,22 +284,25 @@ template <typename Curve> class MSM {
   private:
     // ======================= Private Implementation =======================
 
-    /** @brief Convert scalars from Montgomery form; collect indices and bit-lengths of nonzero scalars.
-     *  @details Bit-lengths are emitted alongside indices so thread-partitioning can weight
-     *           each scalar by its contribution to bucket-accumulation work without a second
-     *           serial pass over the scalar limbs.
-     *  @return Sum of bit-lengths across all nonzero scalars (used to compute per-thread targets). */
-    static size_t transform_scalar_and_get_nonzero_scalar_indices(
-        std::span<ScalarField> scalars,
-        std::vector<uint32_t>& nonzero_scalar_indices,
-        std::vector<uint8_t>& nonzero_scalar_bit_lengths) noexcept;
+    /** @brief Convert scalars from Montgomery form and collect indices of nonzero scalars */
+    static void transform_scalar_and_get_nonzero_scalar_indices(std::span<ScalarField> scalars,
+                                                                std::vector<uint32_t>& nonzero_scalar_indices) noexcept;
+
+    /** @brief Compute per-scalar slice-count weights ceil(bit_length / bits_per_slice).
+     *  @details Parallel over nonzero_indices. Scalars must be in non-Montgomery form (as left
+     *           by transform_scalar_and_get_nonzero_scalar_indices). Weights drive thread
+     *           partitioning in get_work_units.
+     *  @return Sum of weights across all nonzero scalars (used to compute per-thread targets). */
+    static size_t compute_scalar_slice_weights(std::span<const ScalarField> scalars,
+                                               std::span<const uint32_t> nonzero_indices,
+                                               uint32_t bits_per_slice,
+                                               std::vector<uint8_t>& weights) noexcept;
 
     /** @brief Distribute multiple MSMs across threads with balanced bucket-accumulation work.
      *  @details Per-thread assignment is a contiguous range of each MSM's nonzero-scalar
-     *           indices, sized by cumulative bit-length. Weighting by bit_length is
-     *           proportional to the per-scalar slice count ceil(bit_length / c) up to a
-     *           per-MSM scale factor c that cancels out when MSMs share a point count
-     *           (as in Chonk wire/z_perm polynomials). */
+     *           indices, sized by cumulative slice-count weight ceil(bit_length / c). This is
+     *           the actual number of nonzero c-bit slices a scalar contributes — the quantity
+     *           that drives bucket-accumulation cost. */
     static std::vector<ThreadWorkUnits> get_work_units(std::span<std::span<ScalarField>> scalars,
                                                        std::vector<std::vector<uint32_t>>& msm_scalar_indices) noexcept;
 
