@@ -56,6 +56,7 @@ describe('e2e_epochs/epochs_simple_block_building', () => {
       startProverNode: false,
       enforceTimeTable: true,
       skipInitialSequencer: true,
+      inboxLag: 2,
     });
 
     ({ context, logger } = test);
