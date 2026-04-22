@@ -81,7 +81,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
   private readonly taggingIndexCache: ExecutionTaggingIndexCache;
   private readonly senderTaggingStore: SenderTaggingStore;
   private totalPublicCalldataCount: number;
-  protected sideEffectCounter: number;
+  private readonly initialSideEffectCounter: number;
   private senderForTags?: AztecAddress;
   private readonly simulator?: CircuitSimulator;
 
@@ -100,13 +100,18 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
     this.taggingIndexCache = args.taggingIndexCache;
     this.senderTaggingStore = args.senderTaggingStore;
     this.totalPublicCalldataCount = args.totalPublicCalldataCount ?? 0;
-    this.sideEffectCounter = args.sideEffectCounter ?? 0;
+    this.initialSideEffectCounter = args.sideEffectCounter ?? 0;
     this.senderForTags = args.senderForTags;
     this.simulator = args.simulator;
   }
 
   public getPrivateContextInputs(): PrivateContextInputs {
-    return new PrivateContextInputs(this.callContext, this.anchorBlockHeader, this.txContext, this.sideEffectCounter);
+    return new PrivateContextInputs(
+      this.callContext,
+      this.anchorBlockHeader,
+      this.txContext,
+      this.initialSideEffectCounter,
+    );
   }
 
   // We still need this function until we can get user-defined ordering of structs for fn arguments
@@ -588,6 +593,9 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
       functionSelector,
     );
 
+    // Propagate the nested call's calldata count so the parent sees its increments on subsequent enqueues.
+    this.totalPublicCalldataCount = privateExecutionOracle.getTotalPublicCalldataCount();
+
     if (isStaticCall) {
       this.#checkValidStaticCall(childExecutionResult);
     }
@@ -619,6 +627,10 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
       throw new Error(`Too many total args to all enqueued public calls! (> ${MAX_FR_CALLDATA_TO_ALL_ENQUEUED_CALLS})`);
     }
     return Promise.resolve();
+  }
+
+  public getTotalPublicCalldataCount(): number {
+    return this.totalPublicCalldataCount;
   }
 
   public notifyRevertiblePhaseStart(minRevertibleSideEffectCounter: number): Promise<void> {

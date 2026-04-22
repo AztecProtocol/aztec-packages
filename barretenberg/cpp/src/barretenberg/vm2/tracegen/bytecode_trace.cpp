@@ -286,6 +286,7 @@ void BytecodeTraceBuilder::process_retrieval(
 
                 // Retrieved bytecodes tree context (for lookup into indexed_tree_check)
                 { C::bc_retrieval_retrieved_bytecodes_tree_height, AVM_RETRIEVED_BYTECODES_TREE_HEIGHT },
+                { C::bc_retrieval_retrieved_bytecodes_merkle_separator, DOM_SEP__RETRIEVED_BYTECODES_MERKLE },
                 { C::bc_retrieval_prev_retrieved_bytecodes_tree_root, event.retrieved_bytecodes_snapshot_before.root },
                 { C::bc_retrieval_prev_retrieved_bytecodes_tree_size,
                   event.retrieved_bytecodes_snapshot_before.next_available_leaf_index },

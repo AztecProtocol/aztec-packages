@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity >=0.8.27;
 
-// docs:start:example_erc20
 import {ERC20} from "@oz/token/ERC20/ERC20.sol";
 
 /// @title ExampleERC20
@@ -14,4 +13,3 @@ contract ExampleERC20 is ERC20 {
         _mint(to, amount);
     }
 }
-// docs:end:example_erc20

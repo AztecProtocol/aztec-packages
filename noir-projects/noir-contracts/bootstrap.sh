@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# TODO: THIS SCRIPT SHOULD NOW BE ABLE TO REPLACE TRANSPILATION AND VK GENERATION WITH 'bb aztec_process'.
 #
 # Some notes if you have to work on this script.
 # - First of all, I'm sorry (edit: not sorry). It's a beautiful script but it's no fun to debug. I got carried away.
@@ -30,76 +29,11 @@ export PLATFORM_TAG=any
 
 export BB=${BB:-../../barretenberg/cpp/build/bin/bb}
 export NARGO=${NARGO:-../../noir/noir-repo/target/release/nargo}
-export TRANSPILER=${TRANSPILER:-../../avm-transpiler/target/release/avm-transpiler}
-export STRIP_AZTEC_NR_PREFIX=${STRIP_AZTEC_NR_PREFIX:-./scripts/strip_aztec_nr_prefix.sh}
 export BB_HASH=${BB_HASH:-$(../../barretenberg/cpp/bootstrap.sh hash)}
 export NOIR_HASH=${NOIR_HASH:-$(../../noir/bootstrap.sh hash)}
 
-export tmp_dir=./target/tmp
-
-# Remove our tmp dir from last run.
-# Note: This can use BASH 'trap' for better cleanliness, but the script has been hitting edge-cases so is (temporarily?) simplified.
-rm -rf $tmp_dir
-mkdir -p $tmp_dir
-
 # Set common flags for parallel.
 export PARALLEL_FLAGS="-j${PARALLELISM:-16} --halt now,fail=1 --memsuspend $(memsuspend_limit)"
-
-# This computes a vk and adds it to the input function json if it's private, else returns same input.
-# stdin has the function json.
-# stdout receives the function json with the vk added (if private).
-# The function is exported and called by a sub-shell in parallel, so we must "set -eu" etc..
-# If debugging, a set -x at the start can help.
-function process_function {
-  set -euo pipefail
-  local func name bytecode_b64 hash vk
-
-  contract_hash=$1
-  # Read the function json.
-  func="$(cat)"
-  name=$(echo "$func" | jq -r '.name')
-  echo_stderr "Processing function: $name..."
-
-  # Check if the function is neither public nor unconstrained.
-  # TODO: Why do we need to gen keys for functions that are not marked private?
-  # We allow the jq call to error (set +e) because it returns an error code if the result is false.
-  # We then differentiate between a real error, and the result being false.
-  set +e
-  make_vk=$(echo "$func" | jq -e '(.custom_attributes | index("public") == null) and (.is_unconstrained == false)')
-  if [ $? -ne 0 ] && [ "$make_vk" != "false" ]; then
-    echo_stderr "Failed to check function $name is neither public nor unconstrained."
-    exit 1
-  fi
-  set -e
-
-  if [ "$make_vk" == "true" ]; then
-    # It's a private function.
-    # Build hash, check if in cache.
-    # If it's in the cache it's extracted to $tmp_dir/$hash
-    bytecode_b64=$(echo "$func" | jq -r '.bytecode')
-    hash=$((echo "$BB_HASH"; echo "$bytecode_b64") | sha256sum | tr -d ' -')
-
-    if ! cache_download vk-$contract_hash-$hash.tar.gz >&2; then
-      # It's not in the cache. Generate the vk file and upload it to the cache.
-      echo_stderr "Generating vk for function: $name..."
-
-      local outdir=$(mktemp -d -p $tmp_dir)
-      echo "$bytecode_b64" | base64 -d | gunzip | $BB write_vk --scheme chonk -b - -o $outdir -v
-      mv $outdir/vk $tmp_dir/$contract_hash/$hash
-
-      cache_upload vk-$contract_hash-$hash.tar.gz $tmp_dir/$contract_hash/$hash
-    fi
-
-    # Return (echo) json containing the base64 encoded verification key.
-    vk=$(cat $tmp_dir/$contract_hash/$hash | base64 -w 0)
-    echo "$func" | jq -c --arg vk "$vk" '. + {verification_key: $vk}'
-  else
-    echo_stderr "Function $name is neither public nor unconstrained, skipping."
-    # Not a private function. Return the original function json.
-    echo "$func"
-  fi
-}
-export -f process_function
 
 # Compute hash for a given contract.
 # $1 is the contract name, $2 is the folder name (e.g. "contracts" or "examples")
@@ -159,51 +93,26 @@ function get_contract_path {
 }
 export -f get_contract_path
 
-# This compiles a noir contract, transpile's public functions, and generates vk's for private functions.
+# This compiles a noir contract, transpiles public functions, strips internal prefixes,
+# and generates verification keys for private functions via 'bb aztec_process'.
 # $1 is the input package name, $2 is the folder name (e.g. "contracts" or "examples")
-# On exit it's fully processed json artifact is in the target dir.
+# On exit its fully processed json artifact is in the target dir.
 # The function is exported and called by a sub-shell in parallel, so we must "set -eu" etc..
 function compile {
   set -euo pipefail
-  local contract_name contract_hash
 
   local contract_path=$(get_contract_path "$1" "$2")
   local contract=$(grep -oP '(?<=^name = ")[^"]+' "$2/$contract_path/Nargo.toml")
   # Calculate filename because nargo...
-  contract_name=$(cat $2/$contract_path/src/main.nr | awk '/^contract / { print $2 } /^pub contract / { print $3 }')
+  local contract_name=$(cat $2/$contract_path/src/main.nr | awk '/^contract / { print $2 } /^pub contract / { print $3 }')
   local filename="$contract-$contract_name.json"
   local json_path="./target/$filename"
-  contract_hash=$(get_contract_hash $1 $2)
+  local contract_hash=$(get_contract_hash $1 $2)
   if ! cache_download contract-$contract_hash.tar.gz; then
-    $NARGO compile --package $contract --inliner-aggressiveness 0  --deny-warnings
-    $TRANSPILER $json_path $json_path
-    $STRIP_AZTEC_NR_PREFIX $json_path
+    $NARGO compile --package $contract --inliner-aggressiveness 0 --deny-warnings
+    $BB aztec_process -i $json_path
     cache_upload contract-$contract_hash.tar.gz $json_path
   fi
-
-  # We segregate equivalent vk's created by process_function. This was done to narrow down potential edge cases with identical VKs
-  # reading from cache at the same time. Create this folder up-front.
-  mkdir -p $tmp_dir/$contract_hash
-
-  # Pipe each contract function, one per line (jq -c), into parallel calls of process_function.
-  # The returned jsons from process_function are converted back to a json array in the second jq -s call.
-  # When slurping (-s) in the last jq, we get an array of two elements:
-  # .[0] is the original json (at $json_path)
-  # .[1] is the updated functions on stdin (-)
-  # * merges their fields.
-  # Write each function to a separate temp file to avoid pipe/stdin issues with large JSON
-  local func_dir=$(mktemp -d -p $tmp_dir)
-  local i=0
-  while IFS= read -r func_json; do
-    echo "$func_json" > "$func_dir/$i.json"
-    ((i++)) || true
-  done < <(jq -c '.functions[]' $json_path)
-
-  # Process each function file in parallel
-  ls "$func_dir"/*.json | sort -V | \
-    parallel $PARALLEL_FLAGS --keep-order 'cat {} | process_function '"$contract_hash" | \
-    jq -s '{functions: .}' | jq -s '.[0] * {functions: .[1].functions}' $json_path - > $tmp_dir/$filename
-  mv $tmp_dir/$filename $json_path
 }
 export -f compile
 
@@ -220,7 +129,6 @@ function build {
 
   if [ "$#" -eq 0 ]; then
     rm -rf target
-    mkdir -p $tmp_dir
     local contracts=$(grep -oP "(?<=$folder_name/)[^\"]+" Nargo.toml)
   else
     local contracts="$@"

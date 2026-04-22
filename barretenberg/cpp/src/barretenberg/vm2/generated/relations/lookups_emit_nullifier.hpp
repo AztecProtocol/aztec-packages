@@ -16,7 +16,7 @@ namespace bb::avm2 {
 struct lookup_emit_nullifier_write_nullifier_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_EMIT_NULLIFIER_WRITE_NULLIFIER";
     static constexpr std::string_view RELATION_NAME = "emit_nullifier";
-    static constexpr size_t LOOKUP_TUPLE_SIZE = 11;
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 12;
     static constexpr Column SRC_SELECTOR = Column::execution_sel_write_nullifier;
     static constexpr Column DST_SELECTOR = Column::indexed_tree_check_write;
     static constexpr Column COUNTS = Column::lookup_emit_nullifier_write_nullifier_counts;
@@ -30,6 +30,7 @@ struct lookup_emit_nullifier_write_nullifier_settings_ {
         ColumnAndShifts::execution_discard,
         ColumnAndShifts::execution_nullifier_pi_offset,
         ColumnAndShifts::execution_nullifier_tree_height,
+        ColumnAndShifts::execution_nullifier_merkle_separator,
         ColumnAndShifts::execution_sel_write_nullifier,
         ColumnAndShifts::execution_nullifier_siloing_separator,
         ColumnAndShifts::execution_contract_address
@@ -43,6 +44,7 @@ struct lookup_emit_nullifier_write_nullifier_settings_ {
         ColumnAndShifts::indexed_tree_check_discard,
         ColumnAndShifts::indexed_tree_check_public_inputs_index,
         ColumnAndShifts::indexed_tree_check_tree_height,
+        ColumnAndShifts::indexed_tree_check_merkle_hash_separator,
         ColumnAndShifts::indexed_tree_check_sel_silo,
         ColumnAndShifts::indexed_tree_check_siloing_separator,
         ColumnAndShifts::indexed_tree_check_address

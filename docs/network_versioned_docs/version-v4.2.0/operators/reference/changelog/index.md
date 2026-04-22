@@ -11,6 +11,19 @@ This changelog documents all configuration changes, new features, and breaking c
 
 ## Version history
 
+### [v4.2.0](./v4.2.md)
+
+New features and configuration options for node operators.
+
+**Key changes:**
+- Blob retrieval improvements with unified retry loop
+
+**Migration difficulty**: Low
+
+[View full changelog →](./v4.2.md)
+
+---
+
 ### [v4.x (Upgrade from Ignition)](./v4.md)
 
 Major upgrade from Ignition (v2.x) to Alpha (v4.x) with significant architectural changes.

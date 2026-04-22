@@ -1,4 +1,3 @@
-// docs:start:fees
 import { AztecAddress } from '@aztec/aztec.js/addresses';
 import { getContractInstanceFromInstantiationParams } from '@aztec/aztec.js/contracts';
 import { SponsoredFeePaymentMethod } from '@aztec/aztec.js/fee';
@@ -46,4 +45,3 @@ export async function createSponsoredFeePayment() {
   return new SponsoredFeePaymentMethod(contract.instance.address);
 }
 // docs:end:create-fee-payment
-// docs:end:fees

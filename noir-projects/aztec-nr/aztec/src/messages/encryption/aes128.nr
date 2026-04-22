@@ -23,8 +23,8 @@ use crate::{
     utils::{
         array,
         conversion::{
-            bytes_to_fields::{bytes_from_fields, bytes_to_fields},
-            fields_to_bytes::{fields_to_bytes, try_fields_from_bytes},
+            bytes_as_fields::{decode_bytes_from_fields, encode_bytes_as_fields},
+            fields_as_bytes::{encode_fields_as_bytes, try_decode_fields_from_bytes},
         },
         point::point_from_x_coord_and_sign,
     },
@@ -231,7 +231,7 @@ impl MessageEncryption for AES128 {
 
         // AES 128 operates on bytes, not fields, so we need to convert the fields to bytes. (This process is then
         // reversed when processing the message in `process_message_ciphertext`)
-        let plaintext_bytes = fields_to_bytes(plaintext);
+        let plaintext_bytes = encode_fields_as_bytes(plaintext);
 
         // Derive ECDH shared secret with recipient using a fresh ephemeral keypair.
         let (eph_sk, eph_pk) = generate_positive_ephemeral_key_pair();
@@ -335,7 +335,7 @@ impl MessageEncryption for AES128 {
         assert(offset == message_bytes.len(), "unexpected encrypted message length");
 
         // Pack message bytes into fields (31 bytes per field) and prepend eph_pk.x.
-        let message_bytes_as_fields = bytes_to_fields(message_bytes);
+        let message_bytes_as_fields = encode_bytes_as_fields(message_bytes);
 
         let mut ciphertext: [Field; MESSAGE_CIPHERTEXT_LEN] = [0; MESSAGE_CIPHERTEXT_LEN];
 
@@ -386,7 +386,7 @@ impl MessageEncryption for AES128 {
                         // later, so we can simply set it to 0
                         unmasked.unwrap_or(0)
                     });
-                    let ciphertext_without_eph_pk_x = bytes_from_fields(unmasked_fields);
+                    let ciphertext_without_eph_pk_x = decode_bytes_from_fields(unmasked_fields);
 
                     // Derive symmetric keys:
                     let pairs = derive_aes_symmetric_key_and_iv_from_shared_secret::<2>(s_app);
@@ -419,7 +419,7 @@ impl MessageEncryption for AES128 {
                         .and_then(|ciphertext| try_aes128_decrypt(ciphertext, body_iv, body_sym_key))
                         // Convert bytes back to fields (32 bytes per field). Returns None if the actual bytes are
                         // not valid.
-                        .and_then(|plaintext_bytes| try_fields_from_bytes(plaintext_bytes))
+                        .and_then(|plaintext_bytes| try_decode_fields_from_bytes(plaintext_bytes))
                 })
             })
     }

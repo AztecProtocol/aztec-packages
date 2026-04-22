@@ -65,6 +65,8 @@ LOG_LEVEL="info;debug:simulator:client_execution_context;debug:simulator:client_
 :::info Log filter format
 `LOG_LEVEL` is a semicolon-delimited list. The **first segment must be a bare log level** — it sets the default level for all modules. Subsequent segments are `level:module` (or `level:module:submodule`) overrides.
 
+**The default-level filter must be the first segment.** A bare `level:module` with no preceding default (e.g. `LOG_LEVEL="warn:simulator"`) is invalid and throws `Invalid log level`, because the parser reads everything before the first `;` as the default level. To filter only specific modules, lead with a default level — use `silent` to suppress everything else.
+
 ```bash
 # Default level only
 LOG_LEVEL="debug"

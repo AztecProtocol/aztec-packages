@@ -16,7 +16,7 @@ namespace bb::avm2 {
 struct lookup_l1_to_l2_message_tree_check_merkle_check_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_L1_TO_L2_MESSAGE_TREE_CHECK_MERKLE_CHECK";
     static constexpr std::string_view RELATION_NAME = "l1_to_l2_message_tree_check";
-    static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 5;
     static constexpr Column SRC_SELECTOR = Column::l1_to_l2_message_tree_check_sel;
     static constexpr Column DST_SELECTOR = Column::merkle_check_start;
     static constexpr Column COUNTS = Column::lookup_l1_to_l2_message_tree_check_merkle_check_counts;
@@ -25,13 +25,15 @@ struct lookup_l1_to_l2_message_tree_check_merkle_check_settings_ {
         ColumnAndShifts::l1_to_l2_message_tree_check_leaf_value,
         ColumnAndShifts::l1_to_l2_message_tree_check_leaf_index,
         ColumnAndShifts::l1_to_l2_message_tree_check_l1_to_l2_message_tree_height,
-        ColumnAndShifts::l1_to_l2_message_tree_check_root
+        ColumnAndShifts::l1_to_l2_message_tree_check_root,
+        ColumnAndShifts::l1_to_l2_message_tree_check_merkle_hash_separator
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
         ColumnAndShifts::merkle_check_read_node,
         ColumnAndShifts::merkle_check_index,
         ColumnAndShifts::merkle_check_path_len,
-        ColumnAndShifts::merkle_check_read_root
+        ColumnAndShifts::merkle_check_read_root,
+        ColumnAndShifts::merkle_check_merkle_hash_separator
     };
 };
 

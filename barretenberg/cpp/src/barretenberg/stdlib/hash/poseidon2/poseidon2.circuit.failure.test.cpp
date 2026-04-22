@@ -100,8 +100,7 @@ class Poseidon2FailureTests : public ::testing::Test {
 
         // Run sumcheck verifier
         SumcheckVerifier verifier(verifier_transcript, verifier_subrelation_separator, virtual_log_n);
-        auto result = verifier.verify(
-            prover_instance->relation_parameters, verifier_gate_challenges, std::vector<FF>(virtual_log_n, 1));
+        auto result = verifier.verify(prover_instance->relation_parameters, verifier_gate_challenges);
         EXPECT_EQ(result.verified, expected_result);
     };
 };
