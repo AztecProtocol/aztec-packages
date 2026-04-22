@@ -50,11 +50,15 @@ export const archiverConfigMappings: ConfigMappingsType<ArchiverConfig> = {
   },
   archiverStoreMapSizeKb: {
     env: 'ARCHIVER_STORE_MAP_SIZE_KB',
-    parseEnv: (val: string | undefined) => (val ? +val : undefined),
+    parseEnv: (val: string) => +val,
     description: 'The maximum possible size of the archiver DB in KB. Overwrites the general dataStoreMapSizeKb.',
   },
   skipValidateCheckpointAttestations: {
     description: 'Skip validating checkpoint attestations (for testing purposes only)',
+    ...booleanConfigHelper(false),
+  },
+  skipPromoteProposedCheckpointDuringL1Sync: {
+    description: 'Skip promoting proposed checkpoints during L1 sync (for testing purposes only)',
     ...booleanConfigHelper(false),
   },
   maxAllowedEthClientDriftSeconds: {
@@ -66,6 +70,13 @@ export const archiverConfigMappings: ConfigMappingsType<ArchiverConfig> = {
     env: 'ETHEREUM_ALLOW_NO_DEBUG_HOSTS',
     description: 'Whether to allow starting the archiver without debug/trace method support on Ethereum hosts',
     ...booleanConfigHelper(true),
+  },
+  archiverSkipHistoricalLogsCheck: {
+    env: 'ARCHIVER_SKIP_HISTORICAL_LOGS_CHECK',
+    description:
+      'Skip the startup check that probes the L1 RPC for historical Rollup contract logs. ' +
+      'Set to true to bypass the check when the connected RPC node is known to prune old logs.',
+    ...booleanConfigHelper(false),
   },
   ...chainConfigMappings,
   ...l1ReaderConfigMappings,
@@ -96,7 +107,9 @@ export function mapArchiverConfig(config: Partial<ArchiverConfig>) {
     pollingIntervalMs: config.archiverPollingIntervalMS,
     batchSize: config.archiverBatchSize,
     skipValidateCheckpointAttestations: config.skipValidateCheckpointAttestations,
+    skipPromoteProposedCheckpointDuringL1Sync: config.skipPromoteProposedCheckpointDuringL1Sync,
     maxAllowedEthClientDriftSeconds: config.maxAllowedEthClientDriftSeconds,
     ethereumAllowNoDebugHosts: config.ethereumAllowNoDebugHosts,
+    skipHistoricalLogsCheck: config.archiverSkipHistoricalLogsCheck,
   };
 }

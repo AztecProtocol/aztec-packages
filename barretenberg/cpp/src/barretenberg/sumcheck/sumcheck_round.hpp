@@ -13,7 +13,6 @@
 #include "barretenberg/relations/relation_types.hpp"
 #include "barretenberg/relations/utils.hpp"
 #include "barretenberg/stdlib/primitives/bool/bool.hpp"
-#include "barretenberg/sumcheck/masking_tail_data.hpp"
 #include "zk_sumcheck_data.hpp"
 
 namespace bb {
@@ -60,9 +59,10 @@ template <typename Flavor> class SumcheckProverRound {
     size_t round_size;
 
     // Number of rows excluded from the main sumcheck loop and handled by compute_disabled_contribution.
-    // In round 0, the RowDisablingPolynomial disables 4 rows (2 edge pairs). After partial evaluation
-    // in round 1+, this collapses to 2 rows (1 edge pair). Only non-zero for ZK flavors that use row disabling.
-    size_t excluded_tail_size = (Flavor::HasZK && UseRowDisablingPolynomial<Flavor>) ? 4 : 0;
+    // In round 0, the RowDisablingPolynomial disables TRACE_OFFSET rows (2 edge pairs for TRACE_OFFSET=4)
+    // at the TOP of the trace. After partial evaluation in round 1+, this collapses to 2 rows (1 edge pair).
+    // Only non-zero for ZK flavors: non-ZK disabled rows are all zeros and handled by the main loop.
+    size_t excluded_head_size = Flavor::HasZK ? Flavor::TRACE_OFFSET : 0;
 
     /**
      * @brief Number of batched sub-relations in \f$F\f$ specified by Flavor.
@@ -100,8 +100,8 @@ template <typename Flavor> class SumcheckProverRound {
     /**
      * @brief Compute the effective round size by finding the maximum end_index() across witness polynomials.
      * @details Witness polynomials only contain meaningful data up to their end_index(), and we can avoid
-     * iterating over the zero region beyond that point. For ZK flavors, we also cap at
-     * round_size - excluded_tail_size to exclude disabled rows (handled by compute_disabled_contribution).
+     * iterating over the zero region beyond that point. The disabled head rows are handled separately by
+     * compute_disabled_contribution, so we don't include them here.
      */
     template <typename ProverPolynomialsOrPartiallyEvaluatedMultivariates>
     size_t compute_effective_round_size(const ProverPolynomialsOrPartiallyEvaluatedMultivariates& multivariates) const
@@ -112,20 +112,17 @@ template <typename Flavor> class SumcheckProverRound {
                 max_end_index = std::max(max_end_index, witness_poly.end_index());
             }
         } else {
-            return (excluded_tail_size > 0) ? round_size - excluded_tail_size : round_size;
+            return round_size;
         }
 
         size_t effective = max_end_index + (max_end_index % 2); // round up to next even
-        if (excluded_tail_size > 0) {
-            // Exclude disabled rows at the end; their contribution is handled by compute_disabled_contribution.
-            size_t cap = round_size - excluded_tail_size;
-            return std::min(cap, effective);
-        } else if constexpr (Flavor::HasZK) {
-            // ZK flavors without row disabling (e.g. Translator) must iterate over the full round_size.
-            return round_size;
-        } else {
-            return std::min(round_size, effective);
+        if constexpr (Flavor::HasZK) {
+            if constexpr (!UseRowDisablingPolynomial<Flavor>) {
+                // ZK flavors without row disabling (e.g. Translator) must iterate over the full round_size.
+                return round_size;
+            }
         }
+        return std::min(round_size, effective);
     }
 
     /**
@@ -214,52 +211,45 @@ template <typename Flavor> class SumcheckProverRound {
         // Note: effective_round_size is expected to be even.
         BB_ASSERT(effective_round_size % 2 == 0, "effective_round_size must be even");
 
-        // Determine number of threads for multithreading.
-        // Note: Multithreading is "on" for every round but we reduce the number of threads from the max available based
-        // on a specified minimum number of iterations per thread. This eventually leads to the use of a single thread.
-        size_t min_iterations_per_thread = 1 << 6; // min number of iterations for which we'll spin up a unique thread
-        size_t num_threads = bb::calculate_num_threads(effective_round_size, min_iterations_per_thread);
+        // The AVM trace is very non-uniform: some rows are dense while others are nearly empty.
+        // To balance the load, we break the trace into fixed-size chunks (rows_per_chunk rows)
+        // and hand them out dynamically to workers via the atomic thread pool: each worker
+        // atomically grabs the next chunk when it finishes the previous one.
+        constexpr size_t rows_per_chunk = 16;
+        static_assert((rows_per_chunk >= 2) && (rows_per_chunk % 2 == 0), "rows_per_chunk must be at least 2 and even");
 
-        // In the AVM, the trace is more dense at the top and therefore it is worth to split the work per thread
-        // in a more distributed way over the edges. To achieve this, we split the trace into chunks and each chunk is
-        // evenly divided among the threads.
+        // One accumulator slot per outer task; each outer task's iteration index IS its slot.
+        // No state is shared with other SumcheckProverRound invocations.
+        const size_t num_slots = bb::get_num_cpus();
+        std::vector<SumcheckTupleOfTuplesOfUnivariates> thread_univariate_accumulators(num_slots);
 
-        // Pattern over edges is now (note that horizontal direction here is edge direction, i.e., vertical direction in
-        // the trace):
-        //
-        //          chunk_0             |           chunk_1             |         chunk_2 ....
-        //  thread_0 | thread_1 ...     | thread_0 | thread_1 ...       | thread_0 | thread_1 ...
-        //
-        // Any thread now processes edges which are distributed at different locations in the trace contrary
-        // to the "standard" method where thread_0 processes all the low indices and the last thread processes
-        // all the high indices.
+        const size_t total_chunks =
+            (effective_round_size / rows_per_chunk) + (effective_round_size % rows_per_chunk > 0 ? 1 : 0);
 
-        constexpr size_t rows_per_thread = 2; // Measured in rows, not edges.
-        static_assert((rows_per_thread >= 2) && (rows_per_thread % 2 == 0),
-                      "rows_per_thread must be at least 2 and even, because edges are processed in pairs");
-        size_t chunk_size = rows_per_thread * num_threads;
-        size_t num_chunks = (effective_round_size / chunk_size) +            // This rounds down.
-                            (effective_round_size % chunk_size > 0 ? 1 : 0); // If there's a remainder, add 1.
+        // Chunks are consumed dynamically via an atomic counter: faster threads naturally pick up
+        // more chunks while the slot they write to stays fixed for the life of their outer task.
+        std::atomic<size_t> next_chunk(0);
 
-        // Construct univariate accumulator containers; one per thread
-        // Note: std::vector will trigger {}-initialization of the contents. Therefore no need to zero the univariates.
-        std::vector<SumcheckTupleOfTuplesOfUnivariates> thread_univariate_accumulators(num_threads);
-
-        // Accumulate the contribution from each sub-relation across each edge of the hyper-cube
-        parallel_for(num_threads, [&](size_t thread_idx) {
+        // Accumulate the contribution from each sub-relation across each edge of the hyper-cube.
+        parallel_for(num_slots, [&](size_t slot_id) {
             ExtendedEdges lazy_extended_edges(polynomials);
 
-            for (size_t chunk_idx = 0; chunk_idx < num_chunks; chunk_idx++) {
-                size_t start = (chunk_idx * chunk_size) + (thread_idx * rows_per_thread);
-                size_t end = std::min(start + rows_per_thread, effective_round_size);
+            while (true) {
+                const size_t chunk_id = next_chunk.fetch_add(1, std::memory_order_relaxed);
+                if (chunk_id >= total_chunks) {
+                    break;
+                }
+                size_t start = chunk_id * rows_per_chunk;
+                size_t end = std::min(start + rows_per_chunk, effective_round_size);
+
                 for (size_t edge_idx = start; edge_idx < end; edge_idx += 2) {
                     lazy_extended_edges.set_current_edge(edge_idx);
                     // Compute the \f$ \ell \f$-th edge's univariate contribution,
-                    // scale it by the corresponding \f$ pow_{\beta} \f$ contribution and add it to the accumulators for
-                    // \f$ \tilde{S}^i(X_i) \f$. If \f$ \ell \f$'s binary representation is given by \f$
+                    // scale it by the corresponding \f$ pow_{\beta} \f$ contribution and add it to the accumulators
+                    // for \f$ \tilde{S}^i(X_i) \f$. If \f$ \ell \f$'s binary representation is given by \f$
                     // (\ell_{i+1},\ldots, \ell_{d-1})\f$, the \f$ pow_{\beta}\f$-contribution is
                     // \f$\beta_{i+1}^{\ell_{i+1}} \cdot \ldots \cdot \beta_{d-1}^{\ell_{d-1}}\f$.
-                    accumulate_relation_univariates(thread_univariate_accumulators[thread_idx],
+                    accumulate_relation_univariates(thread_univariate_accumulators[slot_id],
                                                     lazy_extended_edges,
                                                     relation_parameters,
                                                     gate_separators[edge_idx]);
@@ -304,12 +294,15 @@ template <typename Flavor> class SumcheckProverRound {
         // When !HasZK, compute the effective round size to avoid iterating over zero regions
         const size_t effective_round_size = compute_effective_round_size(polynomials);
 
+        // The disabled head rows are handled by compute_disabled_contribution, so skip them here
+        const size_t start_edge_idx = excluded_head_size;
+
         std::vector<BlockOfContiguousRows> result;
         constexpr bool can_skip_rows = (isRowSkippable<Flavor, decltype(polynomials), size_t>);
 
         if constexpr (can_skip_rows) {
             // Iterate over edge-pairs (stride-2) so each thread gets an even-aligned range
-            const size_t num_edge_pairs = effective_round_size / 2;
+            const size_t num_edge_pairs = (effective_round_size - start_edge_idx) / 2;
             // Cost per iteration: skip_entire_row reads across polynomial columns.
             // Overestimates by using total entity count (skip_entire_row only checks a subset).
             constexpr size_t heuristic_cost = bb::thread_heuristics::FF_COPY_COST * 2 * Flavor::NUM_ALL_ENTITIES;
@@ -328,7 +321,7 @@ template <typename Flavor> class SumcheckProverRound {
                     size_t current_block_size = 0;
                     std::vector<BlockOfContiguousRows> thread_blocks;
                     for (size_t pair_idx : range) {
-                        size_t edge_idx = pair_idx * 2;
+                        size_t edge_idx = start_edge_idx + pair_idx * 2;
                         if (!Flavor::skip_entire_row(polynomials, edge_idx)) {
                             // Non-skippable row: begin a new block or extend the current one
                             if (current_block_size == 0) {
@@ -359,7 +352,8 @@ template <typename Flavor> class SumcheckProverRound {
                 }
             }
         } else {
-            result.push_back(BlockOfContiguousRows{ .starting_edge_idx = 0, .size = effective_round_size });
+            result.push_back(BlockOfContiguousRows{ .starting_edge_idx = start_edge_idx,
+                                                    .size = effective_round_size - start_edge_idx });
         }
         return result;
     }
@@ -448,10 +442,10 @@ template <typename Flavor> class SumcheckProverRound {
     };
 
     /**
-     * @brief Compute the disabled rows' contribution using masking values from MaskingTailData.
-     * @details The main sumcheck loop excludes disabled edge pairs. This method computes the
-     * relation evaluation at those positions, overriding masked witness poly values with folded
-     * masking values from MaskingTailData.
+     * @brief Compute the disabled rows' contribution to the round univariate.
+     * @details The main sumcheck loop excludes disabled head edge pairs. This method computes the
+     * relation evaluation at those positions directly from the (partially evaluated) polynomials,
+     * multiplied by the (1-L) row-disabling factor. Masking values are already in the polynomials.
      *
      * Result is H_disabled * (1-L), to be ADDED to S_active.
      * In round 0, (1-L) = 0, so this returns zero.
@@ -462,48 +456,15 @@ template <typename Flavor> class SumcheckProverRound {
         const bb::RelationParameters<FF>& relation_parameters,
         const bb::GateSeparatorPolynomial<FF>& gate_separators,
         const SubrelationSeparators& alphas,
-        const RowDisablingPolynomial<FF> row_disabling_polynomial,
-        const MaskingTailData<Flavor>& masking_tail_data)
+        const RowDisablingPolynomial<FF> row_disabling_polynomial)
         requires UseRowDisablingPolynomial<Flavor>
     {
         SumcheckTupleOfTuplesOfUnivariates univariate_accumulator{};
         ExtendedEdges extended_edges;
         SumcheckRoundUnivariate result{};
 
-        // In round 0, 4 disabled rows = 2 edge pairs. In rounds 1+, 1 edge pair.
-        size_t start_edge_idx = round_size - excluded_tail_size;
-        size_t num_folded_values = masking_tail_data.get_num_folded_values();
-
-        // Hoist invariant refs outside the edge loop
-        auto all_masked = masking_tail_data.is_masked.get_all();
-        auto all_folded = masking_tail_data.folded.get_all();
-        auto all_poly_vals = polynomials.get_all();
-
-        for (size_t edge_idx = start_edge_idx; edge_idx < round_size; edge_idx += 2) {
-            // Extend edges from polynomials (gets zeros for short witness polys at disabled positions)
+        for (size_t edge_idx = 0; edge_idx < excluded_head_size; edge_idx += 2) {
             extend_edges(extended_edges, polynomials, edge_idx);
-
-            // Override masked witness poly edges with correct folded masking values.
-            // Round 0 (num_folded_values=0): (1-L)=0 zeroes the tail → skip overrides.
-            // Round 1 (num_folded_values=2): both f[0],f[1] are valid; both edges from folded.
-            // Round 2+ (num_folded_values=1): only f[0] is valid; even edge from PE, odd from folded.
-            if (num_folded_values > 0) {
-                auto all_edges = extended_edges.get_all();
-                for (size_t i = 0; i < all_masked.size(); i++) {
-                    if (!all_masked[i]) {
-                        continue;
-                    }
-                    FF even_val = (num_folded_values == 2) ? all_folded[i][0] : all_poly_vals[i][edge_idx];
-                    FF odd_val = (num_folded_values == 2) ? all_folded[i][1] : all_folded[i][0];
-                    auto base = bb::Univariate<FF, 2>({ even_val, odd_val });
-                    if constexpr (Flavor::USE_SHORT_MONOMIALS) {
-                        all_edges[i] = base;
-                    } else {
-                        all_edges[i] = base.template extend_to<MAX_PARTIAL_RELATION_LENGTH>();
-                    }
-                }
-            }
-
             accumulate_relation_univariates(
                 univariate_accumulator, extended_edges, relation_parameters, gate_separators[edge_idx]);
         }
@@ -511,7 +472,6 @@ template <typename Flavor> class SumcheckProverRound {
         result = batch_over_relations<SumcheckRoundUnivariate>(univariate_accumulator, alphas, gate_separators);
 
         // Multiply by (1-L) factor.
-        // (1-L) has: eval_at_0 = 1 - L.eval_at_0, eval_at_1 = 1 - L.eval_at_1
         bb::Univariate<FF, 2> one_minus_L(
             { FF::one() - row_disabling_polynomial.eval_at_0, FF::one() - row_disabling_polynomial.eval_at_1 });
         SumcheckRoundUnivariate one_minus_L_extended =
@@ -774,7 +734,7 @@ template <typename Flavor, bool CommittedSumcheck = UsesCommittedSumcheck<Flavor
     /**
      * @brief Check that the round target sum is correct
      */
-    void check_sum(bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>& univariate, const FF& indicator)
+    void check_sum(bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>& univariate)
     {
         // OriginTag false positive: The univariate is constrained by the sumcheck relation S^i(0) + S^i(1) =
         // S^{i-1}(u_{i-1}).
@@ -785,13 +745,10 @@ template <typename Flavor, bool CommittedSumcheck = UsesCommittedSumcheck<Flavor
             }
         }
 
-        FF total_sum =
-            (FF(1) - indicator) * target_total_sum + indicator * (univariate.value_at(0) + univariate.value_at(1));
+        FF total_sum = univariate.value_at(0) + univariate.value_at(1);
         bool sumcheck_round_failed(false);
         if constexpr (IsRecursiveFlavor<Flavor>) {
-            if (indicator.get_value() == FF{ 1 }.get_value()) {
-                sumcheck_round_failed = (target_total_sum.get_value() != total_sum.get_value());
-            }
+            sumcheck_round_failed = (target_total_sum.get_value() != total_sum.get_value());
             target_total_sum.assert_equal(total_sum);
         } else {
             sumcheck_round_failed = (target_total_sum != total_sum);
@@ -802,11 +759,9 @@ template <typename Flavor, bool CommittedSumcheck = UsesCommittedSumcheck<Flavor
     /**
      * @brief Compute the next target sum
      */
-    void compute_next_target_sum(bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>& univariate,
-                                 FF& round_challenge,
-                                 const FF& indicator)
+    void compute_next_target_sum(bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>& univariate, FF& round_challenge)
     {
-        target_total_sum = (FF(1) - indicator) * target_total_sum + indicator * univariate.evaluate(round_challenge);
+        target_total_sum = univariate.evaluate(round_challenge);
     }
 
     /**
@@ -833,7 +788,6 @@ template <typename Flavor, bool CommittedSumcheck = UsesCommittedSumcheck<Flavor
     void process_round(const std::shared_ptr<Transcript>& transcript,
                        std::vector<FF>& multivariate_challenge,
                        bb::GateSeparatorPolynomial<FF>& gate_separators,
-                       const FF& padding_indicator,
                        size_t round_idx)
     {
         // Obtain the round univariate from the transcript
@@ -845,10 +799,10 @@ template <typename Flavor, bool CommittedSumcheck = UsesCommittedSumcheck<Flavor
         multivariate_challenge.emplace_back(round_challenge);
         // Check that $\tilde{S}^{i-1}(u_{i-1}) == \tilde{S}^{i}(0) + \tilde{S}^{i}(1)$
         // For i = 0, check that $\tilde{S}^0(u_0) == target_total_sum$
-        check_sum(round_univariate, padding_indicator);
+        check_sum(round_univariate);
         // Evaluate $\tilde{S}^{i}(u_i)$
-        compute_next_target_sum(round_univariate, round_challenge, padding_indicator);
-        gate_separators.partially_evaluate(round_challenge, padding_indicator);
+        compute_next_target_sum(round_univariate, round_challenge);
+        gate_separators.partially_evaluate(round_challenge);
     }
 
     /**
@@ -935,10 +889,8 @@ template <typename Flavor> class SumcheckVerifierRound<Flavor, true> {
     void process_round(const std::shared_ptr<Transcript>& transcript,
                        std::vector<FF>& multivariate_challenge,
                        bb::GateSeparatorPolynomial<FF>& gate_separators,
-                       const FF& /*padding_indicator*/,
                        size_t round_idx)
     {
-        // For Grumpkin, we don't use padding_indicator
         const std::string round_univariate_comm_label = "Sumcheck:univariate_comm_" + std::to_string(round_idx);
         const std::string univariate_eval_label_0 = "Sumcheck:univariate_" + std::to_string(round_idx) + "_eval_0";
         const std::string univariate_eval_label_1 = "Sumcheck:univariate_" + std::to_string(round_idx) + "_eval_1";

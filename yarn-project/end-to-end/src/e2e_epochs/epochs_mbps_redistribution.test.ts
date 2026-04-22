@@ -92,7 +92,7 @@ describe('e2e_epochs/epochs_mbps_redistribution', () => {
     // - finalBlockDuration = 8s (re-execution)
     // - Total: 0.5 + 24 + 8 + 2.5 = 35s => use 36s
     test = await EpochsTestContext.setup({
-      numberOfAccounts: 1,
+      numberOfAccounts: 0,
       initialValidators: validators,
       mockGossipSubNetwork: true,
       disableAnvilTestWatcher: true,
@@ -114,17 +114,14 @@ describe('e2e_epochs/epochs_mbps_redistribution', () => {
       // PXE syncs on checkpointed chain tip.
       pxeOpts: { syncChainTip: 'checkpointed' },
       ...contextConfigOverride,
+      skipInitialSequencer: true,
     });
 
     ({ context, logger, rollup } = test);
     wallet = context.wallet;
-    from = context.accounts[0];
+    from = context.accounts[0]; // auto-created by setup
 
-    // Halt the default sequencer (it's not a validator).
-    logger.warn(`Stopping sequencer in initial aztec node.`);
-    await context.sequencer!.stop();
-
-    // Start validator nodes (sequencers not started yet).
+    // Start validator nodes.
     logger.warn(`Starting ${NODE_COUNT} validator nodes.`);
     nodes = await asyncMap(validators, ({ privateKey }, i) =>
       test.createValidatorNode([privateKey], { dontStartSequencer: true, ...nodeConfigOverride?.(i) }),
@@ -164,17 +161,32 @@ describe('e2e_epochs/epochs_mbps_redistribution', () => {
     logger.warn(`Warping to L1 timestamp ${warpTo} (one L1 slot before L2 slot ${nextSlot})`);
     await waitUntilL1Timestamp(test.l1Client, warpTo, undefined, 60);
 
+    // Send first early tx to the mempool before starting sequencers, so the first block isn't empty.
+    // With skipInitialSequencer, there are no pre-existing blocks, and sequencers build block 1
+    // immediately on start. Without a tx in the pool, block 1 would be empty, wasting a sub-slot
+    // and pushing late txs into the next checkpoint where redistribution doesn't carry over.
+    logger.warn(`Sending early transaction 1/${EARLY_TX_COUNT} before starting sequencers`);
+    const earlyTxHashes = [await provenTxs[0].send({ wait: NO_WAIT })];
+
     // Start sequencers.
     await Promise.all(nodes.map(n => n.getSequencer()!.start()));
     logger.warn(`Started all sequencers`);
 
-    // Feed one tx per sub-slot for the early blocks, waiting for each to be proposed before sending the next.
-    const earlyTxHashes = [];
-    for (let i = 0; i < EARLY_TX_COUNT; i++) {
+    // Wait for the first early tx to be proposed before sending the next.
+    await retryUntil(
+      async () =>
+        (await Promise.all(nodes.map(n => n.getTxReceipt(earlyTxHashes[0])))).some(receipt => receipt.isMined()),
+      'tx proposed',
+      30,
+      0.5,
+    );
+    logger.warn(`Early transaction 1/${EARLY_TX_COUNT} confirmed proposed`);
+
+    // Feed remaining early txs one per sub-slot, waiting for each to be proposed.
+    for (let i = 1; i < EARLY_TX_COUNT; i++) {
       logger.warn(`Sending early transaction ${i + 1}/${EARLY_TX_COUNT}`);
       const txHash = await provenTxs[i].send({ wait: NO_WAIT });
       earlyTxHashes.push(txHash);
-      // Wait until the tx is proposed (mined) before sending the next one.
       await retryUntil(
         async () => (await Promise.all(nodes.map(n => n.getTxReceipt(txHash)))).some(receipt => receipt.isMined()),
         'tx proposed',

@@ -10,7 +10,7 @@ REPO_ROOT=$(git rev-parse --show-toplevel)
 SCRIPT_DIR="$REPO_ROOT/barretenberg/sol/scripts"
 CPP_DIR="$REPO_ROOT/barretenberg/cpp/src/barretenberg/dsl/acir_proofs"
 
-FILES=(honk_contract.hpp honk_zk_contract.hpp honk_optimized_contract.hpp)
+FILES=(honk_contract.hpp honk_zk_contract.hpp honk_optimized_contract.hpp honk_zk_optimized_contract.hpp)
 
 # Save copies of the current generated files
 TEMP_DIR=$(mktemp -d)
@@ -44,7 +44,7 @@ done
 
 if [ "$FAILED" -eq 1 ]; then
     echo "Generated contract templates are out of sync with Solidity sources."
-    echo "Run './barretenberg/sol/scripts/copy_to_cpp.sh -f' and './barretenberg/sol/scripts/copy_optimized_to_cpp.sh -f' to regenerate."
+    echo "Run './barretenberg/sol/scripts/copy_to_cpp.sh --all' and './barretenberg/sol/scripts/copy_optimized_to_cpp.sh -f' to regenerate (both scripts now handle ZK and non-ZK by default)."
     exit 1
 fi
 

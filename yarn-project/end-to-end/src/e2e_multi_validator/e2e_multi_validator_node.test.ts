@@ -112,9 +112,8 @@ describe('e2e_multi_validator_node', () => {
   it('should build blocks & attest with multiple validator keys', async () => {
     const deployer = new ContractDeployer(artifact, wallet);
 
-    const sender = ownerAddress;
-    logger.info(`Deploying contract from ${sender}`);
-    const { receipt: tx } = await deployer.deploy(ownerAddress, sender, 1).send({
+    logger.info(`Deploying contract from ${ownerAddress}`);
+    const { receipt: tx } = await deployer.deploy(ownerAddress, 1).send({
       from: ownerAddress,
       contractAddressSalt: new Fr(BigInt(1)),
     });
@@ -170,11 +169,9 @@ describe('e2e_multi_validator_node', () => {
     expect(committee?.length).toBe(COMMITTEE_SIZE);
 
     // new aztec transaction
-    const sender = ownerAddress;
-
-    logger.info(`Deploying contract from ${sender}`);
+    logger.info(`Deploying contract from ${ownerAddress}`);
     const deployer = new ContractDeployer(artifact, wallet);
-    const { receipt: tx } = await deployer.deploy(ownerAddress, sender, 1).send({
+    const { receipt: tx } = await deployer.deploy(ownerAddress, 1).send({
       from: ownerAddress,
       contractAddressSalt: new Fr(BigInt(1)),
     });

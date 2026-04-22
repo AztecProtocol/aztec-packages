@@ -46,6 +46,7 @@ export class SequencerMetrics {
   private slashingAttempts: UpDownCounter;
   private pipelineDepth: Gauge;
   private pipelineDiscards: UpDownCounter;
+  private pipelineParentCheckpointMismatches: UpDownCounter;
 
   // Fisherman fee analysis metrics
   private fishermanWouldBeIncluded: UpDownCounter;
@@ -141,6 +142,19 @@ export class SequencerMetrics {
 
     this.pipelineDepth = this.meter.createGauge(Metrics.SEQUENCER_PIPELINE_DEPTH);
     this.pipelineDiscards = createUpDownCounterWithDefault(this.meter, Metrics.SEQUENCER_PIPELINE_DISCARDS_COUNT);
+    this.pipelineParentCheckpointMismatches = createUpDownCounterWithDefault(
+      this.meter,
+      Metrics.SEQUENCER_PIPELINE_PARENT_CHECKPOINT_MISMATCH_COUNT,
+      {
+        [Attributes.ERROR_TYPE]: [
+          'archiver-sync-timeout',
+          'parent-not-on-l1',
+          'parent-hash-mismatch',
+          'parent-invalid-attestations',
+          'unexpected-parent-appeared',
+        ],
+      },
+    );
     this.pipelineDepth.record(0);
 
     // Fisherman fee analysis metrics
@@ -244,6 +258,12 @@ export class SequencerMetrics {
 
   recordPipelineDiscard(count = 1) {
     this.pipelineDiscards.add(count);
+  }
+
+  recordPipelineParentCheckpointMismatch(reason: string) {
+    this.pipelineParentCheckpointMismatches.add(1, {
+      [Attributes.ERROR_TYPE]: reason,
+    });
   }
 
   incOpenSlot(slot: SlotNumber, proposer: string) {

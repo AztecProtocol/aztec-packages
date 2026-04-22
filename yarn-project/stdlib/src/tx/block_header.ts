@@ -172,8 +172,8 @@ export class BlockHeader {
   }
 
   /** Manually set the hash for this block header if already computed */
-  setHash(hashed: Fr) {
-    this._cachedHash = Promise.resolve(new BlockHash(hashed));
+  setHash(hashed: BlockHash) {
+    this._cachedHash = Promise.resolve(hashed);
   }
 
   /** Recomputes the cached hash. Used for testing when header fields are mutated via unfreeze. */

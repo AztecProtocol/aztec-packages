@@ -1,4 +1,3 @@
-// docs:start:contract
 import { AztecAddress } from '@aztec/aztec.js/addresses';
 import type { Wallet } from '@aztec/aztec.js/wallet';
 // @ts-ignore — generated artifact, may not exist until compiled
@@ -6,7 +5,6 @@ import { PodRacingContract, PodRacingContractArtifact } from './artifacts/PodRac
 import { createSponsoredFeePayment } from './fees';
 import { EmbeddedWallet } from './embedded-wallet';
 
-// docs:start:deploy-contract
 /**
  * Deploys a new Pod Racing contract.
  * The deployer becomes the game admin.
@@ -19,9 +17,7 @@ export async function deployContract(wallet: Wallet, deployer: AztecAddress): Pr
   console.log('Pod Racing contract deployed at:', contract.address.toString());
   return contract;
 }
-// docs:end:deploy-contract
 
-// docs:start:attach-contract
 /**
  * Attaches to an existing deployed Pod Racing contract.
  * Registers the contract with PXE so private functions can execute locally.
@@ -35,9 +31,7 @@ export async function attachToContract(
   }
   return PodRacingContract.at(contractAddress, wallet);
 }
-// docs:end:attach-contract
 
-// docs:start:game-actions
 /**
  * Creates a new game with the given game_id.
  */
@@ -124,5 +118,3 @@ export async function finalizeGame(
   console.log('Game finalized, tx hash:', receipt.receipt.txHash.toString());
   return receipt;
 }
-// docs:end:game-actions
-// docs:end:contract

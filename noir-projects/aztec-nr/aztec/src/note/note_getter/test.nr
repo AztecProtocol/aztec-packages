@@ -2,13 +2,21 @@ use crate::{
     note::{
         ConfirmedNote,
         HintedNote,
-        note_getter::{confirm_hinted_note, confirm_hinted_notes, extract_property_value_from_selector},
-        note_getter_options::{NoteGetterOptions, PropertySelector, SortOrder},
+        note_getter::{
+            assert_notes_order, confirm_hinted_note, confirm_hinted_notes, extract_property_value_from_selector,
+        },
+        note_getter_options::{NoteGetterOptions, PropertySelector, Sort, SortOrder},
     },
     oracle::random::random,
     test::{helpers::test_environment::TestEnvironment, mocks::mock_note::MockNote},
     utils::comparison::Comparator,
 };
+
+fn sort_criterion(index: u8, order: u8) -> Option<Sort> {
+    Option::some(
+        Sort::new(PropertySelector { index, offset: 0, length: 32 }, order),
+    )
+}
 
 use crate::protocol::{address::AztecAddress, traits::FromField};
 
@@ -387,4 +395,64 @@ unconstrained fn extract_property_value_fails_on_oob_index() {
     let packed = [1 as Field];
     let selector = PropertySelector { index: 1, offset: 0, length: 1 };
     let _ = extract_property_value_from_selector(packed, selector);
+}
+
+global ASC_DESC_CRITERIA: BoundedVec<Option<Sort>, 2> = BoundedVec::from_array([
+    sort_criterion(0, SortOrder.ASC),
+    sort_criterion(1, SortOrder.DESC),
+]);
+
+#[test]
+unconstrained fn assert_notes_order_passes_when_first_criterion_satisfied() {
+    assert_notes_order([1, 10], [2, 999], ASC_DESC_CRITERIA);
+}
+
+#[test]
+unconstrained fn assert_notes_order_passes_when_second_criterion_satisfied_after_tie() {
+    assert_notes_order([1, 10], [1, 5], ASC_DESC_CRITERIA);
+}
+
+#[test(should_fail_with = "Return notes not sorted in descending order.")]
+unconstrained fn assert_notes_order_fails_when_second_criterion_violated_after_tie() {
+    assert_notes_order([1, 5], [1, 10], ASC_DESC_CRITERIA);
+}
+
+#[test]
+unconstrained fn assert_notes_order_passes_when_all_fields_equal() {
+    assert_notes_order([1, 10], [1, 10], ASC_DESC_CRITERIA);
+}
+
+global DESC_ONLY_CRITERIA: BoundedVec<Option<Sort>, 2> = BoundedVec::from_array([sort_criterion(0, SortOrder.DESC)]);
+
+#[test]
+unconstrained fn assert_notes_order_passes_with_single_criterion() {
+    assert_notes_order([10, 1], [5, 20], DESC_ONLY_CRITERIA);
+}
+
+#[test]
+unconstrained fn assert_notes_order_passes_with_single_criterion_when_field_ties() {
+    assert_notes_order([5, 1], [5, 20], DESC_ONLY_CRITERIA);
+}
+
+global REVERSED_CRITERIA: BoundedVec<Option<Sort>, 2> = BoundedVec::from_array([
+    sort_criterion(1, SortOrder.ASC),
+    sort_criterion(0, SortOrder.DESC),
+]);
+
+#[test]
+unconstrained fn assert_notes_order_uses_criterion_order_not_field_order() {
+    // field_0 is 10 > 5 (would fail ASC), but the first criterion targets field_1
+    assert_notes_order([10, 1], [5, 2], REVERSED_CRITERIA);
+}
+
+#[test(should_fail_with = "Return notes not sorted in ascending order.")]
+unconstrained fn assert_notes_order_fails_when_criterion_order_not_field_order() {
+    // First criterion is field_1 ASC: 5 > 2 violates ASC
+    assert_notes_order([1, 5], [2, 2], REVERSED_CRITERIA);
+}
+
+#[test]
+unconstrained fn assert_notes_order_passes_with_no_criteria() {
+    let criteria: BoundedVec<Option<Sort>, 2> = BoundedVec::new();
+    assert_notes_order([2, 5], [1, 10], criteria);
 }

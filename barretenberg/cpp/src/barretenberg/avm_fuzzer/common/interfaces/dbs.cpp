@@ -205,14 +205,14 @@ void FuzzerWorldStateManager::initialize_world_state()
 
 WorldStateRevision FuzzerWorldStateManager::get_current_revision() const
 {
-    return WorldStateRevision{ .forkId = fork_ids.top(), .blockNumber = 0, .includeUncommitted = true };
+    return WorldStateRevision{ .forkId = fork_ids.top(), .includeUncommitted = true };
 }
 
 WorldStateRevision FuzzerWorldStateManager::fork()
 {
     auto fork_id = ws->create_fork(std::nullopt);
     fork_ids.push(fork_id);
-    return WorldStateRevision{ .forkId = fork_id, .blockNumber = 0, .includeUncommitted = true };
+    return WorldStateRevision{ .forkId = fork_id, .includeUncommitted = true };
 }
 void FuzzerWorldStateManager::reset_world_state()
 {

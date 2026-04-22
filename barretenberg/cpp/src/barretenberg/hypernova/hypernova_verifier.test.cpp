@@ -146,10 +146,16 @@ class HypernovaFoldingVerifierTests : public ::testing::Test {
         switch (mode) {
         case TamperingMode::None:
             break;
-        case TamperingMode::Instance:
-            // Tamper with the instance by changing w_l. This should invalidate the first sumcheck
-            instance->polynomials.w_l.at(1) = NativeFF::random_element();
-            break;
+        case TamperingMode::Instance: {
+            // Tamper with w_l at the first row where q_arith is non-zero (an active arithmetic gate).
+            auto& q_arith = instance->polynomials.q_arith;
+            for (size_t i = ProverInstance::TRACE_OFFSET; i < q_arith.end_index(); i++) {
+                if (!q_arith[i].is_zero()) {
+                    instance->polynomials.w_l.at(i) = NativeFF::random_element();
+                    break;
+                }
+            }
+        } break;
         }
     };
 
@@ -186,7 +192,6 @@ class HypernovaFoldingVerifierTests : public ::testing::Test {
         for (const auto& bus : { "CALLDATA", "SECONDARY_CALLDATA", "RETURN_DATA" }) {
             manifest.add_entry(round, bus, frs_per_G);
             manifest.add_entry(round, std::string(bus) + "_READ_COUNTS", frs_per_G);
-            manifest.add_entry(round, std::string(bus) + "_READ_TAGS", frs_per_G);
         }
         round++;
 
@@ -221,7 +226,7 @@ class HypernovaFoldingVerifierTests : public ::testing::Test {
         for (size_t i = 0; i < MegaFlavor::NUM_SHIFTED_ENTITIES - 1; ++i) {
             manifest.add_challenge(round, "shifted_challenge_" + std::to_string(i));
         }
-        manifest.add_entry(round, "Sumcheck:evaluations", 60);
+        manifest.add_entry(round, "Sumcheck:evaluations", 57);
         round++;
 
         // Round 25: Sumcheck:alpha + MLB accumulator data (Sumcheck:alpha is consecutive challenge)

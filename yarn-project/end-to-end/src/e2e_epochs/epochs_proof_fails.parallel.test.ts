@@ -36,6 +36,9 @@ describe('e2e_epochs/epochs_proof_fails', () => {
   let test: EpochsTestContext;
 
   beforeEach(async () => {
+    // Note: pipelining is NOT enabled for this test because it deliberately manipulates L1 tx timing
+    // (via proverDelayer/sequencerDelayer with cancelTxOnTimeout: false and maxSpeedUpAttempts: 0),
+    // which conflicts with pipelining's assumption that previous checkpoints land on L1 promptly.
     test = await EpochsTestContext.setup({
       maxSpeedUpAttempts: 0, // No speed ups
       startProverNode: false, // Avoid early proving

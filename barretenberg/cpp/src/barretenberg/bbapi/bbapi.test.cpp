@@ -1,7 +1,9 @@
 #include "barretenberg/bbapi/bbapi.hpp"
 #include "barretenberg/api/file_io.hpp"
+#include "barretenberg/bbapi/bbapi_crypto.hpp"
 #include "barretenberg/bbapi/bbapi_shared.hpp"
 #include "barretenberg/chonk/private_execution_steps.hpp"
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/common/utils.hpp"
 #include "barretenberg/serialize/test_helper.hpp"
@@ -183,4 +185,36 @@ TEST(BBApiInputValidation, MsgpackLoadRejectsTrailingData)
 
     EXPECT_THROW(PrivateExecutionStepRaw::load(tmp), std::invalid_argument);
     std::filesystem::remove(tmp);
+}
+
+// Regression tests for AesEncrypt/AesDecrypt input validation.
+// Without these guards, a socket client could force a ~4 GB allocation via the
+// uint32_t `length` field, or pass `length != plaintext.size()` and silently
+// encrypt zero-padded tail bytes.
+TEST(BBApiInputValidation, AesEncryptRejectsLengthMismatch)
+{
+    bbapi::BBApiRequest request{};
+    bbapi::AesEncrypt cmd{ .plaintext = std::vector<uint8_t>(16, 0), .iv = {}, .key = {}, .length = 32 };
+    EXPECT_THROW_OR_ABORT(std::move(cmd).execute(request), ".*length must equal plaintext.*");
+}
+
+TEST(BBApiInputValidation, AesEncryptRejectsNonBlockAlignedLength)
+{
+    bbapi::BBApiRequest request{};
+    bbapi::AesEncrypt cmd{ .plaintext = std::vector<uint8_t>(17, 0), .iv = {}, .key = {}, .length = 17 };
+    EXPECT_THROW_OR_ABORT(std::move(cmd).execute(request), ".*multiple of 16.*");
+}
+
+TEST(BBApiInputValidation, AesDecryptRejectsLengthMismatch)
+{
+    bbapi::BBApiRequest request{};
+    bbapi::AesDecrypt cmd{ .ciphertext = std::vector<uint8_t>(16, 0), .iv = {}, .key = {}, .length = 32 };
+    EXPECT_THROW_OR_ABORT(std::move(cmd).execute(request), ".*length must equal ciphertext.*");
+}
+
+TEST(BBApiInputValidation, AesDecryptRejectsNonBlockAlignedLength)
+{
+    bbapi::BBApiRequest request{};
+    bbapi::AesDecrypt cmd{ .ciphertext = std::vector<uint8_t>(17, 0), .iv = {}, .key = {}, .length = 17 };
+    EXPECT_THROW_OR_ABORT(std::move(cmd).execute(request), ".*multiple of 16.*");
 }

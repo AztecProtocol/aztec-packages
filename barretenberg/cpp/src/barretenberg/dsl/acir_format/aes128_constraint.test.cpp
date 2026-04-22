@@ -7,6 +7,7 @@
 #include "aes128_constraint.hpp"
 #include "acir_format.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/crypto/aes128/aes128.hpp"
 #include "barretenberg/dsl/acir_format/test_class.hpp"
 #include "barretenberg/dsl/acir_format/utils.hpp"
@@ -660,4 +661,66 @@ TEST_F(AES128RangeConstraintTest, OutputOutOfRangeFails)
     create_aes128_constraints(builder, constraint);
     EXPECT_TRUE(builder.failed()) << "Circuit should fail when output has byte > 255";
     EXPECT_FALSE(CircuitChecker::check(builder));
+}
+
+// =============================================================================
+// Shape Validation Regression Tests
+// =============================================================================
+// Guards in create_aes128_constraints enforce:
+//   - inputs.size() % 16 == 0
+//   - outputs.size() == inputs.size()
+// Malformed ACIR violating either invariant would otherwise produce circuits
+// with undefined behaviour (span OOB) or under-constrained output witnesses.
+// =============================================================================
+
+class AES128ShapeValidationTest : public ::testing::Test {
+  protected:
+    using Builder = UltraCircuitBuilder;
+    using FF = Builder::FF;
+
+    // Build a well-formed AES128Constraint with `num_input_bytes` input and
+    // `num_output_bytes` output witnesses. Values are zero; we only exercise
+    // the shape guards, which run before any AES math.
+    static std::pair<Builder, AES128Constraint> make_constraint(size_t num_input_bytes, size_t num_output_bytes)
+    {
+        Builder builder;
+        auto add_witness = [&builder](FF value) { return builder.add_variable(value); };
+
+        std::vector<WitnessOrConstant<FF>> input_witnesses;
+        for (size_t i = 0; i < num_input_bytes; ++i) {
+            input_witnesses.push_back(WitnessOrConstant<FF>::from_index(add_witness(FF(0))));
+        }
+
+        std::array<WitnessOrConstant<FF>, 16> key_witnesses{};
+        std::array<WitnessOrConstant<FF>, 16> iv_witnesses{};
+        for (size_t i = 0; i < 16; ++i) {
+            key_witnesses[i] = WitnessOrConstant<FF>::from_index(add_witness(FF(0)));
+            iv_witnesses[i] = WitnessOrConstant<FF>::from_index(add_witness(FF(0)));
+        }
+
+        std::vector<uint32_t> output_indices;
+        for (size_t i = 0; i < num_output_bytes; ++i) {
+            output_indices.push_back(add_witness(FF(0)));
+        }
+
+        AES128Constraint constraint{
+            .inputs = std::move(input_witnesses),
+            .iv = iv_witnesses,
+            .key = key_witnesses,
+            .outputs = std::move(output_indices),
+        };
+        return { std::move(builder), std::move(constraint) };
+    }
+};
+
+TEST_F(AES128ShapeValidationTest, InputsNotBlockAlignedRejected)
+{
+    auto [builder, constraint] = make_constraint(/*num_input_bytes=*/17, /*num_output_bytes=*/17);
+    EXPECT_THROW_OR_ABORT(create_aes128_constraints(builder, constraint), ".*multiple of 16.*");
+}
+
+TEST_F(AES128ShapeValidationTest, OutputsSizeMismatchRejected)
+{
+    auto [builder, constraint] = make_constraint(/*num_input_bytes=*/16, /*num_output_bytes=*/32);
+    EXPECT_THROW_OR_ABORT(create_aes128_constraints(builder, constraint), ".*same length as inputs.*");
 }

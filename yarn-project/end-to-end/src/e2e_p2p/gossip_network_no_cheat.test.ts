@@ -8,6 +8,7 @@ import { addL1Validator } from '@aztec/cli/l1/validators';
 import { RollupContract } from '@aztec/ethereum/contracts';
 import { EpochNumber } from '@aztec/foundation/branded-types';
 import { Signature } from '@aztec/foundation/eth-signature';
+import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 import { MockZKPassportVerifierAbi } from '@aztec/l1-artifacts/MockZKPassportVerifierAbi';
 import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
@@ -63,6 +64,10 @@ describe('e2e_p2p_network', () => {
         ...SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES,
         aztecSlotDuration: 24,
         listenAddress: '127.0.0.1',
+        // Allow empty blocks so the first checkpoint can be published before any txs are submitted.
+        // Without this, no blocks are built until txs arrive, and a failed checkpoint during tx
+        // submission causes block pruning that invalidates tx references.
+        minTxsPerBlock: 0,
       },
     });
 
@@ -195,6 +200,14 @@ describe('e2e_p2p_network', () => {
 
     // wait a bit for peers to discover each other
     await sleep(8000);
+
+    // Wait for the first checkpoint to be published to L1 before submitting transactions.
+    // With skipInitialSequencer, no blocks exist from setup, so the first blocks are built by the
+    // validator committee. If we submit txs before a checkpoint lands on L1, a failed checkpoint
+    // publish can prune locally-proposed blocks, causing txs to reference pruned block headers.
+    t.logger.info('Waiting for first checkpoint to be published');
+    await retryUntil(async () => (await nodes[0].getCheckpointedBlockNumber()) > 0, 'first checkpoint published', 120);
+    t.logger.info('First checkpoint published');
 
     // We need to `createNodes` before we setup account, because
     // those nodes actually form the committee, and so we cannot build

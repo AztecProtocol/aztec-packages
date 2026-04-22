@@ -132,6 +132,40 @@ export class ProposedCheckpointNotSequentialError extends Error {
   }
 }
 
+/** Thrown when attempting to promote a proposed checkpoint but no proposed checkpoint exists in the store. */
+export class NoProposedCheckpointToPromoteError extends Error {
+  constructor() {
+    super('Cannot promote proposed checkpoint: no proposed checkpoint exists');
+    this.name = 'NoProposedCheckpointToPromoteError';
+  }
+}
+
+/** Thrown when the archive root of the proposed checkpoint does not match the expected one. */
+export class ProposedCheckpointArchiveRootMismatchError extends Error {
+  constructor(
+    public readonly expectedArchiveRoot: Fr,
+    public readonly actualArchiveRoot: Fr,
+  ) {
+    super(
+      `Cannot promote proposed checkpoint: archive root mismatch (expected ${expectedArchiveRoot}, got ${actualArchiveRoot})`,
+    );
+    this.name = 'ProposedCheckpointArchiveRootMismatchError';
+  }
+}
+
+/** Thrown when the proposed checkpoint does not directly follow the latest confirmed checkpoint. */
+export class ProposedCheckpointPromotionNotSequentialError extends Error {
+  constructor(
+    public readonly proposedCheckpointNumber: number,
+    public readonly latestCheckpointNumber: number,
+  ) {
+    super(
+      `Cannot promote proposed checkpoint: not sequential (latest ${latestCheckpointNumber}, proposed ${proposedCheckpointNumber})`,
+    );
+    this.name = 'ProposedCheckpointPromotionNotSequentialError';
+  }
+}
+
 /** Thrown when a proposed block conflicts with an already checkpointed block (different content). */
 export class CannotOverwriteCheckpointedBlockError extends Error {
   constructor(

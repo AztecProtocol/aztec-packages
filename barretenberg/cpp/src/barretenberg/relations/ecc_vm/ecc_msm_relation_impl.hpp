@@ -497,7 +497,7 @@ void ECCVMMSMRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulator
     //     be preserved. This is safe because the set relation constrains (pc, acc_x, acc_y, msm_size)
     //     at transitions. (NOTE: this is a design choice specified by the builder; we could equivalently propagate the
     //     accumulator one past the last MSM row and then not turn off the constraint when `msm_transition == 1`.)
-    //   - lagrange_first = 1 (row 0): the first row of the trace is zero-padded and the next row
+    //   - lagrange_first = 1 (row TRACE_OFFSET): the first active row of the trace is zero-padded and the next row
     //     starts a fresh MSM whose accumulator is initialized via first_add, not by continuity.
     auto no_op_selector =
         (-q_add + 1) * (-q_double + 1) * (-q_skew + 1) * (-msm_transition + 1) * (-lagrange_first + 1); // degree 5

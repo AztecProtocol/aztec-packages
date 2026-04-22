@@ -129,21 +129,6 @@ template <typename FF> ecc_op_tuple MegaCircuitBuilder_<FF>::queue_ecc_eq(bool i
 }
 
 /**
- * @brief Logic for a no-op operation.
- *
- * @return ecc_op_tuple with all its fields set to zero
- */
-template <typename FF> ecc_op_tuple MegaCircuitBuilder_<FF>::queue_ecc_no_op()
-{
-    // Add the operation to the op queue
-    auto ultra_op = op_queue->no_op_ultra_only();
-
-    // Add corresponding gates for the operation
-    ecc_op_tuple op_tuple = populate_ecc_op_wires(ultra_op);
-    return op_tuple;
-}
-
-/**
  * @brief Add goblin ecc op gates for a single operation
  *
  * @details Given an `UltraOp`, corresponding to a point (x,y) on the curve and a scalar z, write this data in an
@@ -290,26 +275,11 @@ void MegaCircuitBuilder_<FF>::create_databus_read_gate(const databus_lookup_gate
 template <typename FF> void MegaCircuitBuilder_<FF>::apply_databus_selectors(const BusId bus_idx)
 {
     auto& block = this->blocks.busread;
-    switch (bus_idx) {
-    case BusId::CALLDATA: {
-        block.q_1().emplace_back(1);
-        block.q_2().emplace_back(0);
-        block.q_3().emplace_back(0);
-        break;
-    }
-    case BusId::SECONDARY_CALLDATA: {
-        block.q_1().emplace_back(0);
-        block.q_2().emplace_back(1);
-        block.q_3().emplace_back(0);
-        break;
-    }
-    case BusId::RETURNDATA: {
-        block.q_1().emplace_back(0);
-        block.q_2().emplace_back(0);
-        block.q_3().emplace_back(1);
-        break;
-    }
-    }
+    // Bus column k is selected by q_{k+1}; all other wire-linear selectors stay zero on this row.
+    const size_t idx = static_cast<size_t>(bus_idx);
+    block.q_1().emplace_back(idx == 0 ? 1 : 0);
+    block.q_2().emplace_back(idx == 1 ? 1 : 0);
+    block.q_3().emplace_back(idx == 2 ? 1 : 0);
     block.q_4().emplace_back(0);
     block.q_m().emplace_back(0);
     block.q_c().emplace_back(0);

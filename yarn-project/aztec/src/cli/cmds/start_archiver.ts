@@ -20,7 +20,13 @@ export async function startArchiver(
   const envConfig = getArchiverConfigFromEnv();
   const cliOptions = extractRelevantOptions<ArchiverConfig & DataStoreConfig & BlobClientConfig>(
     options,
-    { ...archiverConfigMappings, ...dataConfigMappings, ...blobClientConfigMapping },
+    {
+      // dataConfigMappings must come first: its l1Contracts only maps rollupAddress,
+      // while archiverConfigMappings (spread later) maps all L1 contract addresses.
+      ...dataConfigMappings,
+      ...archiverConfigMappings,
+      ...blobClientConfigMapping,
+    },
     'archiver',
   );
 

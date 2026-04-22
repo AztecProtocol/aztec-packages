@@ -49,7 +49,7 @@ export class StoredPrivateEvent {
     const msgContentLength = reader.readNumber();
     const msgContent = reader.readArray(msgContentLength, Fr);
     const l2BlockNumber = reader.readNumber();
-    const l2BlockHash = new BlockHash(Fr.fromBuffer(reader));
+    const l2BlockHash = BlockHash.fromBuffer(reader);
     const txHash = TxHash.fromBuffer(reader);
     const txIndexInBlock = reader.readNumber();
     const eventIndexInTx = reader.readNumber();

@@ -296,7 +296,7 @@ export function stubTxMetaValidationData(
     expirationTimestamp: overrides.expirationTimestamp ?? 0n,
     constants: {
       anchorBlockHeader: {
-        hash: () => Promise.resolve(new BlockHash(Fr.ZERO)),
+        hash: () => Promise.resolve(BlockHash.ZERO),
         globalVariables: { blockNumber: BlockNumber(0) },
       },
       txContext: {

@@ -271,13 +271,7 @@ template <class base_uint> class uintx {
     base_uint lo;
     base_uint hi;
 
-    // `modulus` is passed as a pointer NTTP rather than a class-type value NTTP. The latter
-    // would cause Clang to materialize a template parameter object in `.rodata` at the section's
-    // natural alignment (16 bytes), which under-aligns an `alignas(32)` type and is UB under
-    // UBSan's alignment check. A pointer NTTP has no synthesized storage; it just names an
-    // existing static object, whose `alignas(32)` is honored normally. We therefore pass `&X` where `X` is a named
-    // `static constexpr base_uint` (see uses in `divmod`).
-    template <const base_uint* modulus_ptr> std::pair<uintx, uintx> barrett_reduction() const;
+    template <base_uint modulus> std::pair<uintx, uintx> barrett_reduction() const;
 
     // This only works (and is only used) for uint256_t
     std::pair<uintx, uintx> divmod(const uintx& b) const;
