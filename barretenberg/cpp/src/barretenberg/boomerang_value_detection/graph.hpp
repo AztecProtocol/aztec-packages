@@ -6,6 +6,7 @@
 
 #pragma once
 #include "./gate_patterns.hpp"
+#include "barretenberg/stdlib/primitives/field/field_utils.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 #include <list>
@@ -161,6 +162,25 @@ template <typename FF, typename CircuitBuilder> class StaticAnalyzer_ {
     std::pair<std::vector<ConnectedComponent>, std::unordered_set<uint32_t>> analyze_circuit(bool filter_cc = true);
 
     std::vector<std::pair<size_t, size_t>> get_variable_gates(uint32_t var_idx) const;
+
+    /**
+     * @brief Overload that takes a stdlib field_t and uses its raw witness_index
+     * (via bb::stdlib::raw_witness_index) to avoid normalization.
+     *
+     * Useful for diagnostic tooling where calling .get_witness_index() would
+     * mutate the circuit by creating a normalization gate when the field_t has
+     * non-trivial multiplicative_constant or additive_constant.
+     *
+     * Returns empty vector if the field_t is a constant.
+     */
+    std::vector<std::pair<size_t, size_t>> get_variable_gates(
+        const bb::stdlib::field_t<CircuitBuilder>& f) const
+    {
+        if (f.is_constant()) {
+            return {};
+        }
+        return get_variable_gates(bb::stdlib::raw_witness_index(f));
+    }
 
     void print_connected_components_info();
     void print_arithmetic_gate_info(size_t gate_idx, auto& block);

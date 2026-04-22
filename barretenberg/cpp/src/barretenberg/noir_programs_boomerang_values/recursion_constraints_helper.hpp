@@ -14,6 +14,7 @@
 
 #include "barretenberg/crypto/poseidon2/poseidon2.hpp"
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
+#include "barretenberg/honk/library/grand_product_delta.hpp"
 #include "barretenberg/honk/types/public_inputs_type.hpp"
 #include "barretenberg/noir_programs_boomerang_values/poseidon2s_helpers.hpp"
 #include "barretenberg/noir_programs_boomerang_values/sha256_circuit_helpers.hpp"
@@ -31,6 +32,143 @@ static constexpr size_t COMMITMENT_NNF_SELECTOR_HASH = 0xc1a6844b2411792bULL;
 static constexpr size_t EXPECTED_NNF_GATES_PER_COMMITMENT = 16;
 static constexpr size_t COMPUTE_PADDING_INDICATOR_ARRAY_NUM_GATES = 58;
 static constexpr size_t COMPUTE_PADDING_INDICATOR_ARRAY_SELECTORS_HASH = 0xbfbd88904266e6d5;
+
+template <typename FF, typename CircuitBuilder>
+uint32_t find_sqr_of(uint32_t w_real, CircuitBuilder& builder, cdg::StaticAnalyzer_<FF, CircuitBuilder>& analyzer)
+{
+    auto& arith = builder.blocks.arithmetic;
+    auto gates = analyzer.get_variable_gates(w_real);
+    for (auto [blk_idx, g] : gates) {
+        if (&builder.blocks.get()[blk_idx] != &arith) {
+            continue;
+        }
+        bool correct_selectors =
+            !arith.q_m()[g].is_zero() && arith.q_arith()[g] == FF::one() && arith.q_3()[g] == FF::neg_one();
+        bool correct_wires = builder.real_variable_index[arith.w_l()[g]] == w_real &&
+                             builder.real_variable_index[arith.w_r()[g]] == w_real;
+        if (correct_wires && correct_selectors) {
+            return analyzer.to_real(arith.w_o()[g]);
+        }
+    }
+    return UINT32_MAX;
+};
+
+/**
+ * @brief Find cube of a witness given its square: mul gate {w_l, w_r} = {w, w_sqr}, output w_o = w³.
+ */
+template <typename FF, typename CircuitBuilder>
+uint32_t find_cube_of(uint32_t w_real,
+                      uint32_t w_real_sqr,
+                      CircuitBuilder& builder,
+                      cdg::StaticAnalyzer_<FF, CircuitBuilder>& analyzer)
+{
+    auto& arith = builder.blocks.arithmetic;
+    for (auto [blk, g] : analyzer.get_variable_gates(w_real_sqr)) {
+        if (&builder.blocks.get()[blk] != &arith) {
+            continue;
+        }
+        bool correct_selectors =
+            !arith.q_m()[g].is_zero() && arith.q_arith()[g] == FF::one() && arith.q_3()[g] == FF::neg_one();
+        uint32_t wl = builder.real_variable_index[arith.w_l()[g]];
+        uint32_t wr = builder.real_variable_index[arith.w_r()[g]];
+        bool correct_wires = (wl == w_real_sqr && wr == w_real) || (wl == w_real && wr == w_real_sqr);
+        if (correct_wires && correct_selectors) {
+            return analyzer.to_real(arith.w_o()[g]);
+        }
+    }
+    return UINT32_MAX;
+}
+
+/**
+ * @brief Find cube of a witness: locates square first, then cube.
+ * @return real_idx of w³, or UINT32_MAX on failure.
+ */
+template <typename FF, typename CircuitBuilder>
+uint32_t find_cube_of(uint32_t w_real, CircuitBuilder& builder, cdg::StaticAnalyzer_<FF, CircuitBuilder>& analyzer)
+{
+    uint32_t w_sqr = find_sqr_of<FF>(w_real, builder, analyzer);
+    if (w_sqr == UINT32_MAX) {
+        return UINT32_MAX;
+    }
+    return find_cube_of<FF>(w_real, w_sqr, builder, analyzer);
+}
+
+/**
+ * @brief Validate square + cube computation gates for a witness.
+ *
+ * Structural checks beyond "gate exists":
+ *   - sqr gate: exactly ONE mul gate with w_l == w_r == base_real, selectors q_m=1, q_arith=1, q_3=-1,
+ *     all other selectors zero.
+ *   - cube gate: exactly ONE mul gate with {w_l, w_r} = {base, sqr}, selectors identical to sqr.
+ *   - Value check: variable(w²) == variable(w)² and variable(w³) == variable(w²) * variable(w).
+ *
+ * @return true if both gates are uniquely identifiable and values consistent.
+ */
+template <typename FF, typename CircuitBuilder>
+bool validate_square_and_cube(uint32_t base_real,
+                              uint32_t sqr_real,
+                              uint32_t cube_real,
+                              CircuitBuilder& builder,
+                              cdg::StaticAnalyzer_<FF, CircuitBuilder>& analyzer)
+{
+    if (base_real == UINT32_MAX || sqr_real == UINT32_MAX || cube_real == UINT32_MAX) {
+        return false;
+    }
+    auto& arith = builder.blocks.arithmetic;
+
+    auto is_pure_mul = [&](size_t g) {
+        return arith.q_m()[g] == FF::one() && arith.q_arith()[g] == FF::one() && arith.q_3()[g] == FF::neg_one() &&
+               arith.q_1()[g].is_zero() && arith.q_2()[g].is_zero() && arith.q_4()[g].is_zero() &&
+               arith.q_c()[g].is_zero();
+    };
+
+    // Find unique sqr gate: w_l == w_r == base, w_o == sqr
+    size_t sqr_gate_count = 0;
+    for (auto [blk, g] : analyzer.get_variable_gates(base_real)) {
+        if (&builder.blocks.get()[blk] != &arith) {
+            continue;
+        }
+        uint32_t wl = builder.real_variable_index[arith.w_l()[g]];
+        uint32_t wr = builder.real_variable_index[arith.w_r()[g]];
+        uint32_t wo = builder.real_variable_index[arith.w_o()[g]];
+        if (wl == base_real && wr == base_real && wo == sqr_real && is_pure_mul(g)) {
+            sqr_gate_count++;
+        }
+    }
+    if (sqr_gate_count != 1) {
+        return false;
+    }
+
+    // Find unique cube gate: {w_l, w_r} = {base, sqr}, w_o == cube
+    size_t cube_gate_count = 0;
+    for (auto [blk, g] : analyzer.get_variable_gates(sqr_real)) {
+        if (&builder.blocks.get()[blk] != &arith) {
+            continue;
+        }
+        uint32_t wl = builder.real_variable_index[arith.w_l()[g]];
+        uint32_t wr = builder.real_variable_index[arith.w_r()[g]];
+        uint32_t wo = builder.real_variable_index[arith.w_o()[g]];
+        bool wires_ok = ((wl == sqr_real && wr == base_real) || (wl == base_real && wr == sqr_real)) && wo == cube_real;
+        if (wires_ok && is_pure_mul(g)) {
+            cube_gate_count++;
+        }
+    }
+    if (cube_gate_count != 1) {
+        return false;
+    }
+
+    // Value consistency: variable(w²) == variable(w)² and variable(w³) == variable(w²)·variable(w)
+    FF base_val = builder.get_variable(base_real);
+    FF sqr_val = builder.get_variable(sqr_real);
+    FF cube_val = builder.get_variable(cube_real);
+    if (sqr_val != base_val * base_val) {
+        return false;
+    }
+    if (cube_val != sqr_val * base_val) {
+        return false;
+    }
+    return true;
+}
 
 /**
  * @brief Validate VK hash computation and copy constraint.
@@ -213,6 +351,37 @@ bool validate_commitment_transcript_absorption(CircuitBuilder& builder,
 }
 
 /**
+ * @brief Return the w_o real_idx of the transcript absorption gate for a given fr witness.
+ *
+ * The absorption gate has pattern q_arith=1, q_1=1, q_2=1, q_3=-1 with the fr on w_r.
+ * Its w_o = current_sponge_component + fr — i.e., the updated sponge state element after
+ * absorbing this fr. Useful as an anchor for locating the next Poseidon2 permutation.
+ *
+ * @return real_idx of w_o, or UINT32_MAX if no matching gate found.
+ */
+template <typename FF, typename CircuitBuilder>
+uint32_t find_absorption_gate_output(CircuitBuilder& builder,
+                                     cdg::StaticAnalyzer_<FF, CircuitBuilder>& analyzer,
+                                     uint32_t fr_idx)
+{
+    auto& arith = builder.blocks.arithmetic;
+    uint32_t fr_real = builder.real_variable_index[fr_idx];
+    for (const auto& [blk, gi] : analyzer.get_variable_gates(fr_real)) {
+        if (&builder.blocks.get()[blk] != &arith) {
+            continue;
+        }
+        if (builder.real_variable_index[arith.w_r()[gi]] != fr_real) {
+            continue;
+        }
+        if (!is_transcript_add_gate<FF>(arith, gi)) {
+            continue;
+        }
+        return builder.real_variable_index[arith.w_o()[gi]];
+    }
+    return UINT32_MAX;
+}
+
+/**
  * @brief Find NNF gates belonging to a specific commitment by tracing from ACIR witnesses
  * through the decompose (evaluate_linear_identity) gate.
  *
@@ -366,17 +535,6 @@ size_t compute_range_selector_hash(CircuitBuilder& builder,
     return combined_hash;
 }
 
-// ============================================================================
-// Post-OinkVerifier selector hash constants
-// ============================================================================
-
-// Hash of all selectors for gates created by steps 2-4 (Padding + Sumcheck + Shplemini).
-// This region is deterministic — gate structure depends only on VIRTUAL_LOG_N and flavor constants,
-// not on witness values or num_public_inputs.
-// KZG (step 5) is excluded because it has a marginal 1-gate variation for large num_public_inputs.
-// Discovered via MegaZkPostOinkHashDiscovery test.
-static constexpr size_t STEPS_2_4_SELECTOR_HASH = 0x7cd4c4c02bf54814ULL;
-
 /**
  * Step 2 (padding indicator array + dyadic gate challenges) — locating builder variables.
  *
@@ -436,66 +594,6 @@ inline void print_block_deltas(const std::string& label, const BlockSnapshot& be
     for (const auto& d : deltas) {
         info("    block[", d.block_index, "] (", d.block_name, "): +", d.delta);
     }
-}
-
-// ============================================================================
-// Block boundary tracking
-// ============================================================================
-
-/**
- * @brief Tracks the last gate index seen per block during validation.
- *
- * After validating a subcircuit (e.g., OinkVerifier), this struct records the exclusive
- * upper bound of gate indices touched in each block. Used to anchor the start of the
- * next subcircuit (e.g., sumcheck) without needing a BlockSnapshot.
- *
- * Values are exclusive: the next subcircuit's gates start at these indices.
- */
-struct BlockBoundary {
-    size_t arithmetic = 0;
-    size_t nnf = 0;
-    size_t poseidon2_ext = 0;
-    size_t poseidon2_int = 0;
-
-    bool valid = false; // true if successfully computed
-};
-
-/**
- * @brief Compute block boundaries by scanning all gates reachable from a set of ACIR witnesses.
- *
- * For each witness, finds all gates via get_variable_gates(), and records the max gate index + 1
- * per block. This gives the exclusive upper bound of gates that these witnesses participate in.
- */
-template <typename FF, typename CircuitBuilder>
-BlockBoundary compute_block_boundary(CircuitBuilder& builder,
-                                     cdg::StaticAnalyzer_<FF, CircuitBuilder>& analyzer,
-                                     const std::vector<uint32_t>& acir_witness_indices)
-{
-    BlockBoundary boundary;
-    auto blocks = builder.blocks.get();
-    auto& arith = builder.blocks.arithmetic;
-    auto& nnf = builder.blocks.nnf;
-    auto& p2ext = builder.blocks.poseidon2_external;
-    auto& p2int = builder.blocks.poseidon2_internal;
-
-    for (uint32_t idx : acir_witness_indices) {
-        uint32_t real = builder.real_variable_index[idx];
-        for (const auto& [blk_idx, gate_idx] : analyzer.get_variable_gates(real)) {
-            auto* blk = &blocks[blk_idx];
-            size_t exclusive = gate_idx + 1;
-            if (blk == &arith) {
-                boundary.arithmetic = std::max(boundary.arithmetic, exclusive);
-            } else if (blk == &nnf) {
-                boundary.nnf = std::max(boundary.nnf, exclusive);
-            } else if (blk == &p2ext) {
-                boundary.poseidon2_ext = std::max(boundary.poseidon2_ext, exclusive);
-            } else if (blk == &p2int) {
-                boundary.poseidon2_int = std::max(boundary.poseidon2_int, exclusive);
-            }
-        }
-    }
-    boundary.valid = true;
-    return boundary;
 }
 
 // ============================================================================
@@ -741,6 +839,226 @@ bool validate_commitment_groups(CircuitBuilder& builder,
 }
 
 /**
+ * @brief Scan arithmetic block for the unique transcript squeeze decomposition pattern and
+ *        extract all challenge witness indices in chronological order.
+ *
+ * Each transcript squeeze (`get_challenge` / `get_challenges`) creates a bigfield-limb combine
+ * gate with selectors: q_arith=1, q_1=1, q_2=2^127, q_3=-1, q_4=1, q_m=0.
+ * The low limb (w_l) is the first challenge; for pair-challenges, w_r is the second.
+ *
+ * For MegaZK oink+step2 (HasZK=true, USE_PADDING=true), exactly 4 such gates exist:
+ *   [0] sorted_list_accumulator_round → eta (w_l); w_r discarded
+ *   [1] log_derivative_inverse_round → beta (w_l), gamma (w_r)  [pair-challenge]
+ *   [2] alpha_round → alpha (w_l); w_r discarded
+ *   [3] step2 dyadic gate_challenge → gate_challenge[0] (w_l); w_r discarded
+ */
+
+/**
+ * @brief Result of sorted_list_accumulator_round validation.
+ */
+struct SortedListAccumulatorResult {
+    bool valid = false;
+    uint32_t eta = UINT32_MAX;       // real_idx of eta challenge
+    uint32_t eta_two = UINT32_MAX;   // real_idx of eta²
+    uint32_t eta_three = UINT32_MAX; // real_idx of eta³
+};
+
+struct OinkTranscriptSqueezeChallenges {
+    bool valid = false;
+    uint32_t eta = UINT32_MAX; // real_idx
+    uint32_t beta = UINT32_MAX;
+    uint32_t gamma = UINT32_MAX;
+    uint32_t alpha = UINT32_MAX;
+    std::set<size_t> squeeze_gate_indices;
+};
+
+/**
+ * @brief Return gate indices of ALL transcript squeeze decomposition gates in the arithmetic block.
+ *
+ * Pattern (q_arith=1, q_1=1, q_2=2^127, q_3=-1, q_4=1, q_m=0) is emitted once per `get_challenge`
+ * squeeze, regardless of origin (oink / step2 / sumcheck / shplemini). Callers partition the result
+ * by chronological index.
+ *
+ * MegaZK full recursive verification (steps 0..4) expected counts:
+ *   - 3 oink (eta, beta/gamma pair, alpha)
+ *   - 1 step2 gate_challenge[0]
+ *   - 17 sumcheck (u_0..u_15 + 1 ZK correction)
+ *   - 4 shplemini (rho, Gemini:r, Shplonk:nu, Shplonk:z)
+ *   Total: 25
+ */
+template <typename CircuitBuilder> std::vector<size_t> find_all_transcript_squeeze_gates(CircuitBuilder& builder)
+{
+    using NativeFF = bb::fr;
+    auto& arith = builder.blocks.arithmetic;
+    const NativeFF two_127 = NativeFF(2).pow(127);
+    std::vector<size_t> gates;
+    for (size_t g = 0; g < arith.size(); g++) {
+        if (arith.q_arith()[g] == NativeFF::one() && arith.q_1()[g] == NativeFF::one() && arith.q_2()[g] == two_127 &&
+            arith.q_3()[g] == -NativeFF::one() && arith.q_4()[g] == NativeFF::one() && arith.q_m()[g].is_zero()) {
+            gates.push_back(g);
+        }
+    }
+    return gates;
+}
+
+// Expected squeeze-gate counts per phase in MegaZK full recursive verification (steps 0..4).
+static constexpr size_t NUM_OINK_SQUEEZES = 3;      // eta, beta/gamma pair, alpha
+static constexpr size_t NUM_STEP2_SQUEEZES = 1;     // gate_challenge[0]
+static constexpr size_t NUM_SUMCHECK_SQUEEZES = 17; // u_0..u_15 + ZK correction
+static constexpr size_t NUM_SHPLEMINI_SQUEEZES = 4; // rho, Gemini:r, Shplonk:nu, Shplonk:z
+static constexpr size_t NUM_TOTAL_SQUEEZES =
+    NUM_OINK_SQUEEZES + NUM_STEP2_SQUEEZES + NUM_SUMCHECK_SQUEEZES + NUM_SHPLEMINI_SQUEEZES;
+
+struct Step2Challenge {
+    bool valid = false;
+    uint32_t gate_challenge_0 = UINT32_MAX;
+    size_t squeeze_gate = 0;
+    std::set<size_t> squeeze_gate_indices;
+};
+
+struct SumcheckChallenges {
+    bool valid = false;
+    std::array<uint32_t, 16> u{}; // u_0..u_15
+    uint32_t zk_correction = UINT32_MAX;
+    std::set<size_t> squeeze_gate_indices;
+};
+
+struct ShpleminiChallenges {
+    bool valid = false;
+    uint32_t rho = UINT32_MAX;
+    uint32_t gemini_r = UINT32_MAX;
+    uint32_t shplonk_nu = UINT32_MAX;
+    uint32_t shplonk_z = UINT32_MAX;
+    std::set<size_t> squeeze_gate_indices;
+};
+
+/**
+ * @brief Take the first N squeeze gates from `all_squeezes` not in `consumed`.
+ * @return vector of size N, or empty vector if fewer than N remain.
+ */
+inline std::vector<size_t> take_unclaimed_squeezes(const std::vector<size_t>& all_squeezes,
+                                                   const std::set<size_t>& consumed,
+                                                   size_t n)
+{
+    std::vector<size_t> out;
+    out.reserve(n);
+    for (size_t g : all_squeezes) {
+        if (consumed.contains(g)) {
+            continue;
+        }
+        out.push_back(g);
+        if (out.size() == n) {
+            return out;
+        }
+    }
+    return {};
+}
+
+/**
+ * @brief Extract oink challenges (eta, beta/gamma pair, alpha) from the first 3 unclaimed squeeze gates.
+ */
+template <typename CircuitBuilder>
+OinkTranscriptSqueezeChallenges oink_challenges(CircuitBuilder& builder,
+                                                const std::vector<size_t>& all_squeezes,
+                                                const std::set<size_t>& consumed = {})
+{
+    OinkTranscriptSqueezeChallenges out;
+    auto gates = take_unclaimed_squeezes(all_squeezes, consumed, NUM_OINK_SQUEEZES);
+    if (gates.empty()) {
+        return out;
+    }
+    auto& arith = builder.blocks.arithmetic;
+    auto to_real = [&](uint32_t w) { return builder.real_variable_index[w]; };
+    out.eta = to_real(arith.w_l()[gates[0]]);
+    out.beta = to_real(arith.w_l()[gates[1]]);
+    out.gamma = to_real(arith.w_r()[gates[1]]);
+    out.alpha = to_real(arith.w_l()[gates[2]]);
+    out.squeeze_gate_indices = std::set(gates.begin(), gates.end());
+    out.valid = true;
+    return out;
+}
+
+/**
+ * @brief Extract step2 gate_challenge[0] from the next unclaimed squeeze gate.
+ */
+template <typename CircuitBuilder>
+Step2Challenge step2_challenge(CircuitBuilder& builder,
+                               const std::vector<size_t>& all_squeezes,
+                               const std::set<size_t>& consumed)
+{
+    Step2Challenge out;
+    auto gates = take_unclaimed_squeezes(all_squeezes, consumed, NUM_STEP2_SQUEEZES);
+    if (gates.empty()) {
+        return out;
+    }
+    auto& arith = builder.blocks.arithmetic;
+    out.squeeze_gate = gates[0];
+    out.gate_challenge_0 = builder.real_variable_index[arith.w_l()[out.squeeze_gate]];
+    out.squeeze_gate_indices = { out.squeeze_gate };
+    out.valid = true;
+    return out;
+}
+
+/**
+ * @brief Extract 17 sumcheck challenges (u_0..u_15 + ZK correction) from the next unclaimed squeeze gates.
+ */
+template <typename CircuitBuilder>
+SumcheckChallenges sumcheck_challenges(CircuitBuilder& builder,
+                                       const std::vector<size_t>& all_squeezes,
+                                       const std::set<size_t>& consumed)
+{
+    SumcheckChallenges out;
+    auto gates = take_unclaimed_squeezes(all_squeezes, consumed, NUM_SUMCHECK_SQUEEZES);
+    if (gates.empty()) {
+        return out;
+    }
+    auto& arith = builder.blocks.arithmetic;
+    auto to_real = [&](uint32_t w) { return builder.real_variable_index[w]; };
+    for (size_t i = 0; i < 16; i++) {
+        out.u[i] = to_real(arith.w_l()[gates[i]]);
+    }
+    out.zk_correction = to_real(arith.w_l()[gates[16]]);
+    out.squeeze_gate_indices = std::set(gates.begin(), gates.end());
+    out.valid = true;
+    return out;
+}
+
+/**
+ * @brief Extract 4 shplemini challenges (rho, Gemini:r, Shplonk:nu, Shplonk:z) from the next unclaimed squeeze gates.
+ */
+template <typename CircuitBuilder>
+ShpleminiChallenges shplemini_challenges(CircuitBuilder& builder,
+                                         const std::vector<size_t>& all_squeezes,
+                                         const std::set<size_t>& consumed)
+{
+    ShpleminiChallenges out;
+    auto gates = take_unclaimed_squeezes(all_squeezes, consumed, NUM_SHPLEMINI_SQUEEZES);
+    if (gates.empty()) {
+        return out;
+    }
+    auto& arith = builder.blocks.arithmetic;
+    auto to_real = [&](uint32_t w) { return builder.real_variable_index[w]; };
+    out.rho = to_real(arith.w_l()[gates[0]]);
+    out.gemini_r = to_real(arith.w_l()[gates[1]]);
+    out.shplonk_nu = to_real(arith.w_l()[gates[2]]);
+    out.shplonk_z = to_real(arith.w_l()[gates[3]]);
+    out.squeeze_gate_indices = std::set(gates.begin(), gates.end());
+    out.valid = true;
+    return out;
+}
+
+/**
+ * @brief Back-compat: extract oink challenges using the original signature.
+ */
+template <typename FF, typename CircuitBuilder>
+OinkTranscriptSqueezeChallenges find_transcript_squeeze_challenges(
+    CircuitBuilder& builder, [[maybe_unused]] cdg::StaticAnalyzer_<FF, CircuitBuilder>& analyzer)
+{
+    auto all_squeezes = find_all_transcript_squeeze_gates(builder);
+    return oink_challenges(builder, all_squeezes);
+}
+
+/**
  * @brief Validate wire_commitments_round of OinkVerifier.
  *
  * This round receives w_l, w_r, w_o commitments (3 core commitments, groups 0-2).
@@ -763,18 +1081,47 @@ bool validate_wire_commitments_round(CircuitBuilder& builder,
  *   2. Computes eta powers (eta, eta², eta³)
  *   3. Receives w_4, lookup_read_counts, lookup_read_tags (groups 3, 6, 7)
  *
- * Validates commitment deserialization and transcript absorption for
- * the 3 received commitments. The eta challenge and power computation
- * are internal intermediate variables.
+ * On success, returns the eta / eta² / eta³ challenge witness real indices extracted
+ * via the unique transcript squeeze decompose-gate pattern.
  */
 template <typename FF, typename CircuitBuilder>
-bool validate_sorted_list_accumulator_round(CircuitBuilder& builder,
-                                            cdg::StaticAnalyzer_<FF, CircuitBuilder>& analyzer,
-                                            const std::vector<uint32_t>& proof_body_witnesses)
+SortedListAccumulatorResult validate_sorted_list_accumulator_round(CircuitBuilder& builder,
+                                                                   cdg::StaticAnalyzer_<FF, CircuitBuilder>& analyzer,
+                                                                   const std::vector<uint32_t>& proof_body_witnesses,
+                                                                   const uint32_t& eta)
 {
-    return validate_commitment_groups<FF>(
-        builder, analyzer, proof_body_witnesses, SORTED_LIST_GROUPS, std::size(SORTED_LIST_GROUPS));
+    SortedListAccumulatorResult out;
+    if (!validate_commitment_groups<FF>(
+            builder, analyzer, proof_body_witnesses, SORTED_LIST_GROUPS, std::size(SORTED_LIST_GROUPS))) {
+        return out;
+    }
+    out.eta = eta;
+    uint32_t eta_sqr = find_sqr_of<FF>(eta, builder, analyzer);
+    if (eta_sqr == UINT32_MAX) {
+        return out;
+    }
+    uint32_t eta_cube = find_cube_of<FF>(eta, eta_sqr, builder, analyzer);
+    if (eta_cube == UINT32_MAX) {
+        return out;
+    }
+    if (!validate_square_and_cube<FF>(eta, eta_sqr, eta_cube, builder, analyzer)) {
+        return out;
+    }
+    out.eta_two = eta_sqr;
+    out.eta_three = eta_cube;
+    out.valid = true;
+    return out;
 }
+
+/**
+ * @brief Result of log_derivative_inverse_round validation.
+ */
+struct LogDerivativeInverseResult {
+    bool valid = false;
+    uint32_t beta = UINT32_MAX;     // real_idx
+    uint32_t beta_sqr = UINT32_MAX; // real_idx
+    uint32_t beta_cube = UINT32_MAX;
+};
 
 /**
  * @brief Validate log_derivative_inverse_round of OinkVerifier.
@@ -784,26 +1131,155 @@ bool validate_sorted_list_accumulator_round(CircuitBuilder& builder,
  *   2. Computes beta powers
  *   3. Receives lookup_inverses commitment (group 5, core)
  *
- * DataBus inverses (groups 15, 18, 21) are Goblin-related and validated separately.
+ * On success, returns beta and gamma challenge real indices (extracted via the unique
+ * pair-challenge decompose gate — wl=beta, wr=gamma).
  */
 template <typename FF, typename CircuitBuilder>
-bool validate_log_derivative_inverse_round(CircuitBuilder& builder,
-                                           cdg::StaticAnalyzer_<FF, CircuitBuilder>& analyzer,
-                                           const std::vector<uint32_t>& proof_body_witnesses)
+LogDerivativeInverseResult validate_log_derivative_inverse_round(CircuitBuilder& builder,
+                                                                 cdg::StaticAnalyzer_<FF, CircuitBuilder>& analyzer,
+                                                                 const std::vector<uint32_t>& proof_body_witnesses,
+                                                                 const uint32_t& beta)
 {
-    return validate_commitment_groups<FF>(
-        builder, analyzer, proof_body_witnesses, LOG_DERIV_CORE_GROUPS, std::size(LOG_DERIV_CORE_GROUPS));
+    LogDerivativeInverseResult out;
+    if (!validate_commitment_groups<FF>(
+            builder, analyzer, proof_body_witnesses, LOG_DERIV_CORE_GROUPS, std::size(LOG_DERIV_CORE_GROUPS))) {
+        return out;
+    }
+    out.beta = beta;
+    uint32_t beta_sqr = find_sqr_of<FF>(beta, builder, analyzer);
+    if (beta_sqr == UINT32_MAX) {
+        return out;
+    }
+    uint32_t beta_cube = find_cube_of<FF>(beta, beta_sqr, builder, analyzer);
+    if (beta_cube == UINT32_MAX) {
+        return out;
+    }
+    // Structurally validate sqr + cube gates (uniqueness, strict selectors, value consistency)
+    if (!validate_square_and_cube<FF>(beta, beta_sqr, beta_cube, builder, analyzer)) {
+        return out;
+    }
+    out.beta_sqr = beta_sqr;
+    out.beta_cube = beta_cube;
+    out.valid = true;
+    return out;
 }
+
+/**
+ * @brief Find and validate the public_input_delta witness produced by compute_public_input_delta.
+ *
+ * Algorithm:
+ *   1. Read raw values of beta, gamma, pub_inputs_offset, and all public_input witnesses.
+ *   2. Natively replay compute_public_input_delta to obtain the expected delta value.
+ *   3. Scan arithmetic block for the UNIQUE gate matching the division pattern:
+ *      q_m=1, q_arith=1, q_3=-1, q_1=q_2=q_4=q_c=0, with variable(w_l) == expected_delta.
+ *      The gate encodes: delta * denom = numerator, so delta is on w_l.
+ *
+ * @return real_idx of public_input_delta witness, or UINT32_MAX if not found / ambiguous.
+ */
+template <typename FF, typename CircuitBuilder>
+uint32_t find_and_validate_public_input_delta(CircuitBuilder& builder,
+                                              cdg::StaticAnalyzer_<FF, CircuitBuilder>& analyzer,
+                                              uint32_t beta_real,
+                                              uint32_t gamma_real,
+                                              uint32_t pub_inputs_offset_real,
+                                              const std::vector<uint32_t>& public_input_reals)
+{
+    (void)analyzer; // not needed — we scan the arithmetic block directly
+
+    if (beta_real == UINT32_MAX || gamma_real == UINT32_MAX || pub_inputs_offset_real == UINT32_MAX) {
+        return UINT32_MAX;
+    }
+
+    // Replay native computation using raw witness values
+    FF beta_val = builder.get_variable(beta_real);
+    FF gamma_val = builder.get_variable(gamma_real);
+    FF offset_val = builder.get_variable(pub_inputs_offset_real);
+
+    std::vector<FF> pub_input_values;
+    pub_input_values.reserve(public_input_reals.size());
+    for (uint32_t r : public_input_reals) {
+        pub_input_values.push_back(builder.get_variable(r));
+    }
+
+    // Native compute_public_input_delta using the MegaZK flavor path.
+    // The flavor parameter is only used for the FF type, so any MegaFlavor-compatible type works.
+    FF expected_delta =
+        bb::compute_public_input_delta<bb::MegaFlavor>(pub_input_values, beta_val, gamma_val, offset_val);
+
+    // Search arithmetic block for the unique division gate:
+    //   q_m=1, q_arith=1, q_3=-1, q_1=q_2=q_4=q_c=0, variable(w_l) == expected_delta
+    auto& arith = builder.blocks.arithmetic;
+    uint32_t found = UINT32_MAX;
+    size_t match_count = 0;
+    for (size_t g = 0; g < arith.size(); g++) {
+        if (arith.q_m()[g] != FF::one() || arith.q_arith()[g] != FF::one() || arith.q_3()[g] != FF::neg_one()) {
+            continue;
+        }
+        if (!arith.q_1()[g].is_zero() || !arith.q_2()[g].is_zero() || !arith.q_4()[g].is_zero() ||
+            !arith.q_c()[g].is_zero()) {
+            continue;
+        }
+        uint32_t wl_real = builder.real_variable_index[arith.w_l()[g]];
+        if (builder.get_variable(wl_real) == expected_delta) {
+            found = wl_real;
+            match_count++;
+            if (match_count > 1) {
+                // Ambiguous — more than one pure-mul gate matches the expected value
+                return UINT32_MAX;
+            }
+        }
+    }
+    return found;
+}
+
+/**
+ * @brief Result of grand_product_computation_round validation.
+ */
+struct GrandProductComputationResult {
+    bool valid = false;
+    uint32_t public_input_delta = UINT32_MAX;
+};
 
 /**
  * @brief Validate grand_product_computation_round of OinkVerifier.
  *
  * This round:
- *   1. Computes public_input_delta from beta, gamma, and public inputs
+ *   1. Computes public_input_delta from beta, gamma, pub_inputs_offset, and public inputs
  *   2. Receives z_perm commitment (group 4, core)
  *
- * The public_input_delta computation uses previously squeezed challenges
- * and is an internal intermediate variable.
+ * @param beta_real real_idx of beta (from prior log_derivative_round validation)
+ * @param gamma_real real_idx of gamma
+ * @param pub_inputs_offset_real real_idx of pub_inputs_offset (= constraint.key[2])
+ * @param public_input_reals vector of real_idx values for all mega public inputs
+ */
+template <typename FF, typename CircuitBuilder>
+GrandProductComputationResult validate_grand_product_computation_round(
+    CircuitBuilder& builder,
+    cdg::StaticAnalyzer_<FF, CircuitBuilder>& analyzer,
+    const std::vector<uint32_t>& proof_body_witnesses,
+    uint32_t beta_real,
+    uint32_t gamma_real,
+    uint32_t pub_inputs_offset_real,
+    const std::vector<uint32_t>& public_input_reals)
+{
+    GrandProductComputationResult out;
+    if (!validate_commitment_groups<FF>(
+            builder, analyzer, proof_body_witnesses, GRAND_PRODUCT_GROUPS, std::size(GRAND_PRODUCT_GROUPS))) {
+        return out;
+    }
+    uint32_t delta = find_and_validate_public_input_delta<FF>(
+        builder, analyzer, beta_real, gamma_real, pub_inputs_offset_real, public_input_reals);
+    if (delta == UINT32_MAX) {
+        return out;
+    }
+    out.public_input_delta = delta;
+    out.valid = true;
+    return out;
+}
+
+/**
+ * @brief Compatibility overload: validate grand_product round without delta finding.
+ *        Used when caller doesn't yet provide beta/gamma/offset/pub_inputs.
  */
 template <typename FF, typename CircuitBuilder>
 bool validate_grand_product_computation_round(CircuitBuilder& builder,
@@ -879,45 +1355,49 @@ bool validate_oink_nnf_consistency(CircuitBuilder& builder,
  *        The first OINK_PROOF_COMMITMENT_WITNESSES elements are commitment frs.
  */
 /**
- * @brief Validate OinkVerifier subcircuit and return block boundaries.
+ * @brief Validate OinkVerifier subcircuit.
  *
- * @return BlockBoundary with valid=true on success, valid=false on validation failure.
- *         On success, boundary fields contain the exclusive upper bound of gate indices
- *         touched by oink witnesses in each block — usable as start anchors for step2/sumcheck.
+ * @return true if all 6 oink rounds validate successfully, false otherwise.
  */
 template <typename FF, typename CircuitBuilder>
-BlockBoundary validate_oink_subcircuit(CircuitBuilder& builder,
-                                       cdg::StaticAnalyzer_<FF, CircuitBuilder>& analyzer,
-                                       const acir_format::RecursionConstraint& constraint,
-                                       const std::vector<uint32_t>& proof_body_witnesses)
+bool validate_oink_subcircuit(CircuitBuilder& builder,
+                              cdg::StaticAnalyzer_<FF, CircuitBuilder>& analyzer,
+                              const acir_format::RecursionConstraint& constraint,
+                              const std::vector<uint32_t>& proof_body_witnesses)
 {
     if (proof_body_witnesses.size() < OINK_PROOF_COMMITMENT_WITNESSES) {
-        return {};
+        return false;
+    }
+
+    // Locate oink squeeze challenges (eta, beta, gamma, alpha) in one pass
+    OinkTranscriptSqueezeChallenges challenges = find_transcript_squeeze_challenges<FF>(builder, analyzer);
+    if (!challenges.valid) {
+        return false;
     }
 
     // Round 1: Preamble
     if (!validate_oink_preamble<FF>(builder, analyzer, constraint)) {
-        return {};
+        return false;
     }
 
     // Round 2: Wire commitments (core)
     if (!validate_wire_commitments_round<FF>(builder, analyzer, proof_body_witnesses)) {
-        return {};
+        return false;
     }
 
     // Round 3: Sorted list accumulator
-    if (!validate_sorted_list_accumulator_round<FF>(builder, analyzer, proof_body_witnesses)) {
-        return {};
+    if (!validate_sorted_list_accumulator_round<FF>(builder, analyzer, proof_body_witnesses, challenges.eta).valid) {
+        return false;
     }
 
     // Round 4: Log derivative inverse
-    if (!validate_log_derivative_inverse_round<FF>(builder, analyzer, proof_body_witnesses)) {
-        return {};
+    if (!validate_log_derivative_inverse_round<FF>(builder, analyzer, proof_body_witnesses, challenges.beta).valid) {
+        return false;
     }
 
     // Round 5: Grand product computation
     if (!validate_grand_product_computation_round<FF>(builder, analyzer, proof_body_witnesses)) {
-        return {};
+        return false;
     }
 
     // All commitment groups: deserialization validation (decompose + combine + accumulate + NNF)
@@ -929,29 +1409,42 @@ BlockBoundary validate_oink_subcircuit(CircuitBuilder& builder,
                                           proof_body_witnesses[base + 1],
                                           proof_body_witnesses[base + 2],
                                           proof_body_witnesses[base + 3])) {
-            return {};
+            return false;
         }
     }
 
-    // Compute block boundaries from all oink ACIR witnesses (key, key_hash, proof body, public inputs)
-    std::vector<uint32_t> all_oink_witnesses;
-    all_oink_witnesses.reserve(constraint.key.size() + 1 + proof_body_witnesses.size());
-    all_oink_witnesses.push_back(constraint.key_hash);
-    all_oink_witnesses.insert(all_oink_witnesses.end(), constraint.key.begin(), constraint.key.end());
-    all_oink_witnesses.insert(
-        all_oink_witnesses.end(), proof_body_witnesses.begin(), proof_body_witnesses.end());
-
-    return compute_block_boundary<FF>(builder, analyzer, all_oink_witnesses);
+    return true;
 }
 
+/**
+ * @brief Result of compute_padding_indicator_array validation.
+ *
+ * On success, padding_indicator_reals contains the 16 real variable indices of
+ * the witnesses produced by compute_padding_indicator_array:
+ *   - [0..14]: second-loop add outputs (result[idx-1] += result[idx])
+ *              Ordered so index i maps to padding_indicator[i].
+ *   - [15]:    first-loop output (result[15] = inv[15] * prefix[15] * suffix[16])
+ *              Note: this witness is backed by a field_t with mul_c != 1.
+ */
+struct PaddingArrayValidationResult {
+    bool valid = false;
+    size_t start_gate = SIZE_MAX;
+    std::array<uint32_t, 16> padding_indicator_reals{};
+};
+
+/**
+ * @brief Locate and validate the compute_padding_indicator_array subcircuit starting from log_n.
+ *
+ * @param log_n_witness_idx ACIR witness index (or any witness index) for log_circuit_size.
+ *                           Typically constraint.key[0].
+ */
 template <typename FF, typename CircuitBuilder>
-bool validate_compute_padding_array_step(CircuitBuilder& builder,
-                                         cdg::StaticAnalyzer_<FF, CircuitBuilder>& analyzer,
-                                         const acir_format::RecursionConstraint& constraint)
+PaddingArrayValidationResult validate_compute_padding_array_from_log_n(
+    CircuitBuilder& builder, cdg::StaticAnalyzer_<FF, CircuitBuilder>& analyzer, uint32_t log_n_witness_idx)
 {
-    uint32_t log_circuit_size_idx = analyzer.to_real(constraint.key[0]);
+    PaddingArrayValidationResult out;
+    uint32_t log_circuit_size_idx = analyzer.to_real(log_n_witness_idx);
     auto& ab = builder.blocks.arithmetic;
-    bool found = false;
     std::vector<std::pair<size_t, size_t>> log_gates = analyzer.get_variable_gates(log_circuit_size_idx);
     for (const auto& [block_idx, gate_idx] : log_gates) {
         if (&builder.blocks.get()[block_idx] != &ab) {
@@ -967,19 +1460,922 @@ bool validate_compute_padding_array_step(CircuitBuilder& builder,
         }
         // Boundary check: need 58 consecutive gates starting at gate_idx
         if (gate_idx + COMPUTE_PADDING_INDICATOR_ARRAY_NUM_GATES > ab.size()) {
-            return false;
+            return out;
         }
-        // Find start of compute_padding_array part of recursive verification. It always creates 58 sequential
-        // arithmetic gates. Hash and compare with precomputed value.
+        // Hash selectors across the 58-gate window and compare against pinned value.
         std::size_t selectors_hash = sha256_helpers::compute_selector_hash(
             0, ab, gate_idx, gate_idx + COMPUTE_PADDING_INDICATOR_ARRAY_NUM_GATES - 1);
         if (selectors_hash != COMPUTE_PADDING_INDICATOR_ARRAY_SELECTORS_HASH) {
-            return false;
+            return out;
         }
-        found = true;
-        break; // First-gate pattern is unique; one match is sufficient
+
+        // Extract padding_indicator_array witnesses.
+        // Second loop `result[idx-1] += result[idx]` produces 15 adds — the LAST 15 gates
+        // in the 58-gate window. Most have pattern q_arith=1, q_1=1, q_2=1, q_3=-1, q_m=0.
+        // The first of them bakes inv[15] into q_2 because result[15] has multiplicative_constant=inv[15]
+        // (view on prefix[15] with scaling). The last may have a baked constant in q_1 from rescaling.
+        // Order in ascending gate_idx: result[14], result[13], ..., result[0].
+        constexpr size_t NUM_ADDS = 15;
+        size_t window_end = gate_idx + COMPUTE_PADDING_INDICATOR_ARRAY_NUM_GATES;
+        size_t add_start = window_end - NUM_ADDS;
+        for (size_t i = 0; i < NUM_ADDS; i++) {
+            size_t g = add_start + i;
+            // Sanity: each must be an arithmetic gate with q_arith=1, q_3=-1, q_m=0
+            if (ab.q_arith()[g] != FF::one() || ab.q_3()[g] != FF::neg_one() || !ab.q_m()[g].is_zero()) {
+                return out;
+            }
+            out.padding_indicator_reals[14 - i] = analyzer.to_real(ab.w_o()[g]);
+        }
+
+        // padding_indicator[15]: input of first add (add_start) whose coefficient is NOT 1.
+        // result[15] is a field_t view on prefix[15] with multiplicative_constant = inv[15],
+        // so its scalar coefficient (q_1 for wl or q_2 for wr) at the first add gate equals inv[15].
+        // The other input (result[14]_old) has mul_const=1 and coefficient = 1.
+        size_t first_add = add_start;
+        if (ab.q_1()[first_add] != FF::one()) {
+            // wl has non-unit coefficient → wl is result[15]
+            out.padding_indicator_reals[15] = analyzer.to_real(ab.w_l()[first_add]);
+        } else if (ab.q_2()[first_add] != FF::one()) {
+            // wr has non-unit coefficient → wr is result[15]
+            out.padding_indicator_reals[15] = analyzer.to_real(ab.w_r()[first_add]);
+        } else {
+            // Shouldn't happen for MegaZK; return invalid
+            return out;
+        }
+
+        out.valid = true;
+        out.start_gate = gate_idx;
+        return out;
+    }
+    return out;
+}
+
+/**
+ * @brief Convenience overload — takes a RecursionConstraint and uses its key[0] as log_n.
+ */
+template <typename FF, typename CircuitBuilder>
+PaddingArrayValidationResult validate_compute_padding_array_step(CircuitBuilder& builder,
+                                                                 cdg::StaticAnalyzer_<FF, CircuitBuilder>& analyzer,
+                                                                 const acir_format::RecursionConstraint& constraint)
+{
+    return validate_compute_padding_array_from_log_n<FF>(builder, analyzer, constraint.key[0]);
+}
+
+// ============================================================================
+// Step2: gate_challenge dyadic powers (transcript squeeze + sqr chain)
+// ============================================================================
+
+static constexpr size_t NUM_GATE_CHALLENGES = 16; // VIRTUAL_LOG_N
+
+struct GateChallengesResult {
+    bool valid = false;
+    std::array<uint32_t, NUM_GATE_CHALLENGES> gate_challenges{}; // real_idx of each power
+};
+
+/**
+ * @brief Find the step2 transcript squeeze gate that produces `gate_challenge[0]`.
+ *
+ * `step2_padding_and_challenges` calls `get_dyadic_powers_of_challenge<FF>("Sumcheck:gate_challenge", log_n)`
+ * which squeezes ONE challenge and then squares it iteratively. The squeeze creates ONE additional
+ * transcript decompose gate beyond the 3 produced by oink (eta, beta/gamma, alpha).
+ *
+ * @param oink_squeeze_gates Set of gate indices already claimed by oink squeezes (from
+ *                           OinkTranscriptSqueezeChallenges::squeeze_gate_indices).
+ * @return real_idx of gate_challenge[0], or UINT32_MAX if no matching gate found / ambiguous.
+ */
+template <typename FF, typename CircuitBuilder>
+uint32_t find_step2_gate_challenge_0(CircuitBuilder& builder, const std::set<size_t>& oink_squeeze_gates)
+{
+    auto& arith = builder.blocks.arithmetic;
+    const FF two_127 = FF(2).pow(127);
+    uint32_t found = UINT32_MAX;
+    size_t match_count = 0;
+    for (size_t g = 0; g < arith.size(); g++) {
+        if (oink_squeeze_gates.count(g)) {
+            continue; // skip oink's squeezes
+        }
+        if (arith.q_arith()[g] == FF::one() && arith.q_1()[g] == FF::one() && arith.q_2()[g] == two_127 &&
+            arith.q_3()[g] == -FF::one() && arith.q_4()[g] == FF::one() && arith.q_m()[g].is_zero()) {
+            found = builder.real_variable_index[arith.w_l()[g]];
+            match_count++;
+            if (match_count > 1) {
+                return UINT32_MAX; // ambiguous — more than one extra decompose gate
+            }
+        }
     }
     return found;
+}
+
+/**
+ * @brief Find the dyadic power chain gate_challenge[0..N-1].
+ *
+ * `get_dyadic_powers_of_challenge` computes `pows[i] = pows[i-1].sqr()`, so each subsequent
+ * challenge is the square of the previous. This chains `find_sqr_of` N-1 times starting from
+ * `gate_challenge[0]`.
+ *
+ * @param gc0_real real_idx of gate_challenge[0] (from find_step2_gate_challenge_0).
+ * @return array of 16 real_idx values; `valid=false` if any sqr in the chain fails.
+ */
+template <typename FF, typename CircuitBuilder>
+GateChallengesResult find_gate_challenge_dyadic_powers(uint32_t gc0_real,
+                                                       CircuitBuilder& builder,
+                                                       cdg::StaticAnalyzer_<FF, CircuitBuilder>& analyzer)
+{
+    GateChallengesResult out;
+    if (gc0_real == UINT32_MAX) {
+        return out;
+    }
+    out.gate_challenges[0] = gc0_real;
+    for (size_t i = 1; i < NUM_GATE_CHALLENGES; i++) {
+        uint32_t next = find_sqr_of<FF>(out.gate_challenges[i - 1], builder, analyzer);
+        if (next == UINT32_MAX) {
+            return out;
+        }
+        out.gate_challenges[i] = next;
+    }
+    out.valid = true;
+    return out;
+}
+
+/**
+ * @brief Combined step2 padding + dyadic gate_challenge validation.
+ *
+ * step2_padding_and_challenges creates:
+ *   1. padding_indicator_array (16 witnesses) via compute_padding_indicator_array(log_n)
+ *   2. gate_challenges[0..15] via get_dyadic_powers_of_challenge (1 transcript squeeze + 15 sqr)
+ *
+ * Both are anchored by the oink squeeze challenges (to distinguish step2's squeeze from oink's).
+ *
+ * @param constraint RecursionConstraint (provides key[0] = log_circuit_size)
+ * @param oink_squeeze_gates The `squeeze_gate_indices` from OinkTranscriptSqueezeChallenges
+ */
+struct Step2ValidationResult {
+    bool valid = false;
+    PaddingArrayValidationResult padding;
+    GateChallengesResult challenges;
+};
+
+template <typename FF, typename CircuitBuilder>
+Step2ValidationResult validate_step2_padding_and_challenges(CircuitBuilder& builder,
+                                                            cdg::StaticAnalyzer_<FF, CircuitBuilder>& analyzer,
+                                                            const acir_format::RecursionConstraint& constraint,
+                                                            const std::set<size_t>& oink_squeeze_gates)
+{
+    Step2ValidationResult out;
+    out.padding = validate_compute_padding_array_step<FF>(builder, analyzer, constraint);
+    if (!out.padding.valid) {
+        return out;
+    }
+    uint32_t gc0 = find_step2_gate_challenge_0<FF>(builder, oink_squeeze_gates);
+    if (gc0 == UINT32_MAX) {
+        return out;
+    }
+    out.challenges = find_gate_challenge_dyadic_powers<FF>(gc0, builder, analyzer);
+    if (!out.challenges.valid) {
+        return out;
+    }
+    out.valid = true;
+    return out;
+}
+
+template <typename FF, typename CircuitBuilder>
+bool validate_sumcheck_transcript_hashing(CircuitBuilder& builder,
+                                          cdg::StaticAnalyzer_<FF, CircuitBuilder>& analyzer,
+                                          const acir_format::RecursionConstraint& constraint)
+{
+    (void)builder;
+    (void)analyzer;
+    (void)constraint;
+    return true;
+}
+
+// ============================================================================
+// Sumcheck verification stuff
+// ============================================================================
+
+// Round 0 math is special: partial_evaluation_result is the constant FF(1), so partially_evaluate
+// emits fewer gates (3 vs 4 for rounds 1..15 where p_res is a witness).
+// Round 15 math differs from 1..14 because padding_indicator[15] has a constant-folded form
+// (see compute_padding_indicator_array: result[14] == result[15]).
+static constexpr size_t SUMCHECK_MATH_GATES_ROUND_0 = 54;
+static constexpr size_t SUMCHECK_MATH_GATES_ROUND_MID = 56; // rounds 1..14
+static constexpr size_t SUMCHECK_MATH_GATES_ROUND_15 = 56;
+
+static constexpr size_t SUMCHECK_MATH_HASH_ROUND_0 = 0x4e091a52c601faf8;
+static constexpr size_t SUMCHECK_MATH_HASH_ROUND_MID = 0x19e42b4856f92b90;
+static constexpr size_t SUMCHECK_MATH_HASH_ROUND_15 = 0x1080f1bf9d3487ad;
+
+inline std::pair<size_t, size_t> sumcheck_math_expected(size_t round_idx)
+{
+    if (round_idx == 0) {
+        return { SUMCHECK_MATH_GATES_ROUND_0, SUMCHECK_MATH_HASH_ROUND_0 };
+    }
+    if (round_idx == 15) {
+        return { SUMCHECK_MATH_GATES_ROUND_15, SUMCHECK_MATH_HASH_ROUND_15 };
+    }
+    return { SUMCHECK_MATH_GATES_ROUND_MID, SUMCHECK_MATH_HASH_ROUND_MID };
+}
+
+template <typename FF, typename CircuitBuilder>
+bool find_and_validate_sumcheck_math_round(size_t round_idx,
+                                           uint32_t padding_indicator,
+                                           CircuitBuilder& builder,
+                                           cdg::StaticAnalyzer_<FF, CircuitBuilder>& analyzer)
+{
+    // Sumcheck round math = check_sum + compute_next_target_sum + partially_evaluate. All three
+    // use padding_indicator as a witness. The FIRST pad-touching arithmetic gate is the first
+    // gate of check_sum (encodes (1-pad)*target) with pattern:
+    //   q_arith=1, q_m=-1, q_2=1, q_3=-1, w_l = padding_indicator
+    // From that anchor, the math spans a fixed number of gates per round class.
+    auto& ab = builder.blocks.arithmetic;
+    size_t first_pad = SIZE_MAX;
+    // Anchor = check_sum's first gate encoding `wo = (1 - pad_logical) * wr`.
+    // Raw gate constraint: q_m*wl*wr + q_2*wr + q_3*wo = 0  with q_2=1, q_3=-1, q_1=q_4=q_c=0.
+    // For the gate to realize (1-pad_logical)*wr, we need q_m * variable(wl) == -1 — this holds
+    // both when padding_indicator has unit mul_const (q_m=-1) and when it has a non-unit view
+    // (round 15 case: padding_indicator[15] constant-folded, q_m is an arbitrary constant).
+    for (const auto& [blk, g] : analyzer.get_variable_gates(padding_indicator)) {
+        if (&builder.blocks.get()[blk] != &ab) {
+            continue;
+        }
+        bool selector_shape_ok = ab.q_arith()[g] == FF::one() && ab.q_2()[g] == FF::one() &&
+                                 ab.q_3()[g] == FF::neg_one() && ab.q_1()[g].is_zero() && ab.q_4()[g].is_zero() &&
+                                 ab.q_c()[g].is_zero() && analyzer.to_real(ab.w_l()[g]) == padding_indicator;
+        if (!selector_shape_ok) {
+            continue;
+        }
+        FF q_m_times_wl = ab.q_m()[g] * builder.get_variable(ab.w_l()[g]);
+        if (q_m_times_wl != FF::neg_one()) {
+            continue;
+        }
+        if (g < first_pad) {
+            first_pad = g;
+        }
+    }
+    if (first_pad == SIZE_MAX) {
+        return false;
+    }
+    auto [expected_gates, expected_hash] = sumcheck_math_expected(round_idx);
+    if (first_pad + expected_gates > ab.size()) {
+        return false;
+    }
+    size_t hash = sha256_helpers::compute_selector_hash(0, ab, first_pad, first_pad + expected_gates - 1);
+    return hash == expected_hash;
+}
+
+template <typename FF, typename CircuitBuilder>
+bool validate_sumcheck_math(const std::array<uint32_t, 16>& padding_indicator_reals,
+                            CircuitBuilder& builder,
+                            cdg::StaticAnalyzer_<FF, CircuitBuilder>& analyzer)
+{
+    bool correct_math = true;
+    for (size_t r = 0; r < padding_indicator_reals.size(); r++) {
+        correct_math &= find_and_validate_sumcheck_math_round(r, padding_indicator_reals[r], builder, analyzer);
+    }
+    return correct_math;
+}
+
+/**
+ * @brief Result of validating Shplemini's powers_of_evaluation_challenge sub-phase.
+ *
+ * The function computes r, r², r⁴, ..., r^{2^{log_n-1}} as log_n - 1 consecutive
+ * squaring gates. On success, returns the anchor gate index and the real witness
+ * index of the final power output (r^{2^{log_n-1}}).
+ */
+struct PowersOfEvaluationChallengeResult {
+    bool valid = false;
+    size_t anchor_gate = SIZE_MAX;
+    uint32_t final_power_real = UINT32_MAX;
+};
+
+/**
+ * @brief Validate Shplemini::powers_of_evaluation_challenge.
+ *
+ * Algorithm:
+ *   1. Scan the arithmetic block range [arith_range_begin, arith_range_end) for the first gate
+ *      where w_l == w_r == gemini_r_real with the squaring selector pattern
+ *      (q_arith=1, q_m=1, q_3=-1, others zero).
+ *   2. Walk (log_n - 1) consecutive gates, verifying each is a squaring gate whose
+ *      w_l == w_r equals the previous gate's w_o.
+ *
+ * @param builder Circuit builder.
+ * @param gemini_r_real Real witness index of the Gemini evaluation challenge r.
+ * @param log_n log of circuit size (virtual_log_n for padded MegaZK).
+ * @param arith_range_begin First arith-block gate index to scan (typically post_oink_arith).
+ * @param arith_range_end One past last arith-block gate to scan (typically post_shplemini_arith).
+ * @return PowersOfEvaluationChallengeResult.
+ */
+template <typename FF, typename CircuitBuilder>
+PowersOfEvaluationChallengeResult validate_powers_of_evaluation_challenge(
+    CircuitBuilder& builder, uint32_t gemini_r_real, size_t log_n, size_t arith_range_begin, size_t arith_range_end)
+{
+    PowersOfEvaluationChallengeResult out;
+    if (log_n == 0) {
+        return out;
+    }
+    auto& ab = builder.blocks.arithmetic;
+    if (arith_range_end > ab.size()) {
+        arith_range_end = ab.size();
+    }
+    auto to_real = [&](uint32_t w) { return builder.real_variable_index[w]; };
+
+    auto is_squaring_gate = [&](size_t g) {
+        return ab.q_arith()[g] == FF::one() && ab.q_m()[g] == FF::one() && ab.q_3()[g] == FF::neg_one() &&
+               ab.q_1()[g].is_zero() && ab.q_2()[g].is_zero() && ab.q_4()[g].is_zero() && ab.q_c()[g].is_zero();
+    };
+
+    size_t anchor = SIZE_MAX;
+    for (size_t g = arith_range_begin; g < arith_range_end; g++) {
+        if (is_squaring_gate(g) && to_real(ab.w_l()[g]) == gemini_r_real && to_real(ab.w_r()[g]) == gemini_r_real) {
+            anchor = g;
+            break;
+        }
+    }
+    if (anchor == SIZE_MAX) {
+        return out;
+    }
+
+    const size_t expected_gates = log_n - 1;
+    uint32_t prev = gemini_r_real;
+    for (size_t i = 0; i < expected_gates; i++) {
+        size_t g = anchor + i;
+        if (g >= ab.size()) {
+            return out;
+        }
+        if (!is_squaring_gate(g)) {
+            return out;
+        }
+        if (to_real(ab.w_l()[g]) != prev || to_real(ab.w_r()[g]) != prev) {
+            return out;
+        }
+        prev = to_real(ab.w_o()[g]);
+    }
+    out.valid = true;
+    out.anchor_gate = anchor;
+    out.final_power_real = prev;
+    return out;
+}
+
+/**
+ * @brief Result of validating ClaimBatcher::compute_scalars_for_each_batch.
+ *
+ * On success, exposes the real witness indices of the computed scalars + intermediates
+ * for downstream validators (notably update_batch_mul_inputs, which consumes them).
+ */
+struct ComputeScalarsForEachBatchResult {
+    bool valid = false;
+    size_t anchor_gate = SIZE_MAX;
+    uint32_t inv_pos_real = UINT32_MAX; // 1/(z - r), discovered from gate 1
+    uint32_t inv_neg_real = UINT32_MAX; // 1/(z + r), discovered from gate 0
+    uint32_t r_inv_real = UINT32_MAX;   // r⁻¹, introduced by gate 2
+    uint32_t unshifted_scalar_real = UINT32_MAX;
+    uint32_t shifted_scalar_real = UINT32_MAX;
+};
+
+/**
+ * @brief Validate ClaimBatcher::compute_scalars_for_each_batch.
+ *
+ * Non-interleaved path (Chonk / Mega rollups), exactly 6 consecutive arith gates:
+ *   gate 0: mul    ν · inv_neg = tmp1                 (q_m=1, q_3=-1)
+ *   gate 1: add    inv_pos + tmp1 = unshifted_scalar  (q_1=1, q_2=1, q_3=-1)
+ *   gate 2: invert r_inv · gemini_r = 1               (q_m=1, q_c=-1)
+ *   gate 3: mul    ν · inv_neg = tmp2  (recomputed)   (q_m=1, q_3=-1)
+ *   gate 4: sub    inv_pos - tmp2 = diff              (q_1=1, q_2=-1, q_3=-1)
+ *   gate 5: mul    r_inv · diff = shifted_scalar      (q_m=1, q_3=-1)
+ *
+ * Anchor: first arith gate in [arith_range_begin, arith_range_end) with gate-0's exact
+ * selector pattern AND w_l == shplonk_nu_real. The companion w_r (inv_neg) and the w_l
+ * of gate 1 (inv_pos) are discovered from the circuit. gate 2 binds r_inv to gemini_r.
+ *
+ * @param builder Circuit builder.
+ * @param analyzer StaticAnalyzer for gate tracing.
+ * @param shplonk_nu_real Real witness index of Shplonk:nu.
+ * @param gemini_r_real Real witness index of Gemini:r.
+ * @return ComputeScalarsForEachBatchResult.
+ */
+template <typename FF, typename CircuitBuilder>
+ComputeScalarsForEachBatchResult validate_compute_scalars_for_each_batch(
+    CircuitBuilder& builder,
+    cdg::StaticAnalyzer_<FF, CircuitBuilder>& analyzer,
+    uint32_t shplonk_nu_real,
+    uint32_t gemini_r_real)
+{
+    ComputeScalarsForEachBatchResult out;
+    auto& ab = builder.blocks.arithmetic;
+    auto to_real = [&](uint32_t w) { return builder.real_variable_index[w]; };
+
+    // Define selector patterns using poseidon2_helpers::all_equal (same approach as
+    // find_and_validate_compute_invert_gemini_denominators)
+    auto mul_pattern = [](const FF& q_arith,
+                          const FF& q_1,
+                          const FF& q_2,
+                          const FF& q_3,
+                          const FF& q_4,
+                          const FF& q_m,
+                          const FF& q_c) {
+        return poseidon2_helpers::all_equal(FF::one(), q_arith, q_m) && q_3 == FF::neg_one() &&
+               poseidon2_helpers::all_equal(FF::zero(), q_1, q_2, q_4, q_c);
+    };
+
+    auto add_pattern = [](const FF& q_arith,
+                          const FF& q_1,
+                          const FF& q_2,
+                          const FF& q_3,
+                          const FF& q_4,
+                          const FF& q_m,
+                          const FF& q_c) {
+        return poseidon2_helpers::all_equal(FF::one(), q_arith, q_1, q_2) && q_3 == FF::neg_one() &&
+               poseidon2_helpers::all_equal(FF::zero(), q_m, q_4, q_c);
+    };
+
+    auto invert_pattern = [](const FF& q_arith,
+                             const FF& q_1,
+                             const FF& q_2,
+                             const FF& q_3,
+                             const FF& q_4,
+                             const FF& q_m,
+                             const FF& q_c) {
+        return poseidon2_helpers::all_equal(FF::one(), q_arith, q_m) && q_c == FF::neg_one() &&
+               poseidon2_helpers::all_equal(FF::zero(), q_1, q_2, q_3, q_4);
+    };
+
+    auto sub_pattern = [](const FF& q_arith,
+                          const FF& q_1,
+                          const FF& q_2,
+                          const FF& q_3,
+                          const FF& q_4,
+                          const FF& q_m,
+                          const FF& q_c) {
+        return poseidon2_helpers::all_equal(FF::one(), q_arith, q_1) &&
+               poseidon2_helpers::all_equal(FF::neg_one(), q_2, q_3) &&
+               poseidon2_helpers::all_equal(FF::zero(), q_m, q_4, q_c);
+    };
+
+    auto gates = analyzer.get_variable_gates(shplonk_nu_real);
+    std::vector<size_t> anchors;
+
+    for (const auto& [blk_idx, g] : gates) {
+        if (&builder.blocks.get()[blk_idx] != &ab) {
+            continue;
+        }
+        if (g + 5 >= ab.size()) {
+            continue;
+        }
+
+        // Check gate 0 pattern: mul with shplonk_nu on w_l
+        if (!mul_pattern(
+                ab.q_arith()[g], ab.q_1()[g], ab.q_2()[g], ab.q_3()[g], ab.q_4()[g], ab.q_m()[g], ab.q_c()[g])) {
+            continue;
+        }
+        if (to_real(ab.w_l()[g]) != shplonk_nu_real) {
+            continue;
+        }
+
+        anchors.push_back(g);
+    }
+
+    if (anchors.empty()) {
+        return out;
+    }
+
+    // Validate the full 6-gate chain starting from the first anchor
+    size_t anchor = anchors[0];
+
+    // Extract inv_neg from gate 0 w_r.
+    uint32_t inv_neg_real = to_real(ab.w_r()[anchor]);
+    uint32_t tmp1_real = to_real(ab.w_o()[anchor]);
+
+    // gate 1: add pattern
+    size_t g1 = anchor + 1;
+    if (!add_pattern(
+            ab.q_arith()[g1], ab.q_1()[g1], ab.q_2()[g1], ab.q_3()[g1], ab.q_4()[g1], ab.q_m()[g1], ab.q_c()[g1])) {
+        return out;
+    }
+    if (to_real(ab.w_r()[g1]) != tmp1_real) {
+        return out;
+    }
+    uint32_t inv_pos_real = to_real(ab.w_l()[g1]);
+    uint32_t unshifted_scalar_real = to_real(ab.w_o()[g1]);
+
+    // gate 2: invert pattern with gemini_r on w_r
+    size_t g2 = anchor + 2;
+    if (!invert_pattern(
+            ab.q_arith()[g2], ab.q_1()[g2], ab.q_2()[g2], ab.q_3()[g2], ab.q_4()[g2], ab.q_m()[g2], ab.q_c()[g2])) {
+        return out;
+    }
+    if (to_real(ab.w_r()[g2]) != gemini_r_real) {
+        return out;
+    }
+    uint32_t r_inv_real = to_real(ab.w_l()[g2]);
+
+    // gate 3: mul pattern with shplonk_nu on w_l and inv_neg on w_r
+    size_t g3 = anchor + 3;
+    if (!mul_pattern(
+            ab.q_arith()[g3], ab.q_1()[g3], ab.q_2()[g3], ab.q_3()[g3], ab.q_4()[g3], ab.q_m()[g3], ab.q_c()[g3])) {
+        return out;
+    }
+    if (to_real(ab.w_l()[g3]) != shplonk_nu_real || to_real(ab.w_r()[g3]) != inv_neg_real) {
+        return out;
+    }
+    uint32_t tmp2_real = to_real(ab.w_o()[g3]);
+
+    // gate 4: sub pattern with inv_pos on w_l and tmp2 on w_r
+    size_t g4 = anchor + 4;
+    if (!sub_pattern(
+            ab.q_arith()[g4], ab.q_1()[g4], ab.q_2()[g4], ab.q_3()[g4], ab.q_4()[g4], ab.q_m()[g4], ab.q_c()[g4])) {
+        return out;
+    }
+    if (to_real(ab.w_l()[g4]) != inv_pos_real || to_real(ab.w_r()[g4]) != tmp2_real) {
+        return out;
+    }
+    uint32_t diff_real = to_real(ab.w_o()[g4]);
+
+    // gate 5: mul pattern with r_inv on w_l and diff on w_r
+    size_t g5 = anchor + 5;
+    if (!mul_pattern(
+            ab.q_arith()[g5], ab.q_1()[g5], ab.q_2()[g5], ab.q_3()[g5], ab.q_4()[g5], ab.q_m()[g5], ab.q_c()[g5])) {
+        return out;
+    }
+    if (to_real(ab.w_l()[g5]) != r_inv_real || to_real(ab.w_r()[g5]) != diff_real) {
+        return out;
+    }
+    uint32_t shifted_scalar_real = to_real(ab.w_o()[g5]);
+
+    out.valid = true;
+    out.anchor_gate = anchor;
+    out.inv_pos_real = inv_pos_real;
+    out.inv_neg_real = inv_neg_real;
+    out.r_inv_real = r_inv_real;
+    out.unshifted_scalar_real = unshifted_scalar_real;
+    out.shifted_scalar_real = shifted_scalar_real;
+    return out;
+}
+
+static constexpr size_t INVERTED_GEMINI_DENOMINATORS_COMPUTATION_GATES = 64;
+static constexpr size_t INVERTED_GEMINI_DENOMINATORS_COMPUTATION_HASH = 0x83b998dcc114ff96;
+template <typename FF, typename CircuitBuilder>
+bool find_and_validate_compute_invert_gemini_denominators(CircuitBuilder& builder,
+                                                          cdg::StaticAnalyzer_<FF, CircuitBuilder>& analyzer,
+                                                          uint32_t shplonk_z_real,
+                                                          uint32_t gemini_r_real)
+{
+    // 1. find 2 sequentitive gates for shplonk_challenge + gemini_r_challenge, shplonk_challenge - gemini_r_challenge
+    auto& ab = builder.blocks.arithmetic;
+    auto sub_pattern = [](const FF& q_arith,
+                          const FF& q_1,
+                          const FF& q_2,
+                          const FF& q_3,
+                          const FF& q_4,
+                          const FF& q_m,
+                          const FF& q_c) {
+        return poseidon2_helpers::all_equal(FF::one(), q_arith, q_1) &&
+               poseidon2_helpers::all_equal(FF::zero(), q_m, q_4, q_c) &&
+               poseidon2_helpers::all_equal(FF::neg_one(), q_2, q_3);
+    };
+    auto add_pattern = [](const FF& q_arith,
+                          const FF& q_1,
+                          const FF& q_2,
+                          const FF& q_3,
+                          const FF& q_4,
+                          const FF& q_m,
+                          const FF& q_c) {
+        return poseidon2_helpers::all_equal(FF::one(), q_1, q_2, q_arith) &&
+               poseidon2_helpers::all_equal(FF::zero(), q_m, q_4, q_c) && q_3 == FF::neg_one();
+    };
+    std::vector<std::pair<size_t, size_t>> gates = analyzer.get_variable_gates(shplonk_z_real);
+    std::vector<size_t> start;
+    for (const auto& [blk_idx, g] : gates) {
+        if (&builder.blocks.get()[blk_idx] != &ab) {
+            continue;
+        }
+        if (g + INVERTED_GEMINI_DENOMINATORS_COMPUTATION_GATES > ab.size()) {
+            continue;
+        }
+        bool correct_selectors =
+            sub_pattern(
+                ab.q_arith()[g], ab.q_1()[g], ab.q_2()[g], ab.q_3()[g], ab.q_4()[g], ab.q_m()[g], ab.q_c()[g]) &&
+            add_pattern(ab.q_arith()[g + 1],
+                        ab.q_1()[g + 1],
+                        ab.q_2()[g + 1],
+                        ab.q_3()[g + 1],
+                        ab.q_4()[g + 1],
+                        ab.q_m()[g + 1],
+                        ab.q_c()[g + 1]);
+        bool correct_wires = poseidon2_helpers::all_equal(shplonk_z_real, ab.w_l()[g], ab.w_l()[g + 1]) &&
+                             poseidon2_helpers::all_equal(gemini_r_real, ab.w_r()[g], ab.w_r()[g + 1]);
+        if (correct_wires && correct_selectors) {
+            start.emplace_back(g);
+        }
+    }
+    BB_ASSERT_EQ(start.size(), 1U);
+    std::size_t selectors_hash = sha256_helpers::compute_selector_hash(
+        0, ab, start[0], start[0] + INVERTED_GEMINI_DENOMINATORS_COMPUTATION_GATES - 1);
+    return selectors_hash == INVERTED_GEMINI_DENOMINATORS_COMPUTATION_HASH;
+}
+
+// -----------------------------------------------------------------------------
+// update_batch_mul_inputs_and_batched_evaluation validator (MegaZK flavor only).
+// Gate-count and hash constants are flavor-specific; extend later for other flavors.
+// -----------------------------------------------------------------------------
+
+// MegaZK: NUM_UNSHIFTED_ENTITIES = 55 (54 base + gemini_masking_poly), NUM_SHIFTED_ENTITIES = 5
+// N = 60 total iterations → 4N - 1 = 239 gates.
+static constexpr size_t UPDATE_BATCH_MUL_INPUTS_MEGA_ZK_NUM_UNSHIFTED = 55;
+static constexpr size_t UPDATE_BATCH_MUL_INPUTS_MEGA_ZK_NUM_SHIFTED = 5;
+static constexpr size_t UPDATE_BATCH_MUL_INPUTS_MEGA_ZK_GATE_COUNT = 239;
+static constexpr size_t UPDATE_BATCH_MUL_INPUTS_MEGA_ZK_HASH = 0xc445150c5806279d;
+
+/**
+ * @brief Validate ClaimBatcher::update_batch_mul_inputs_and_batched_evaluation for MegaZK flavor.
+ *
+ * Algorithm:
+ *   1. Pre-filter candidates via analyzer.get_variable_gates(rho_real). rho appears ONLY on w_r.
+ *   2. First anchor: arith gate with pattern B (q_m=-1, q_3=-1, others 0), w_l=unshifted_scalar_real,
+ *      w_r=rho_real. Must be exactly 1 such gate in the circuit.
+ *   3. Boundary: gate_count == 239 and start + 239 <= arith.size().
+ *   4. Witness-role counts across the 239-gate range:
+ *        - w_r == rho_real                    : 61 hits (N+1 = 60 + 1 = 61)
+ *        - w_l == unshifted_scalar_real       : 55 hits
+ *        - w_l == shifted_scalar_real         : 5 hits
+ *   5. Selector hash of the 239-gate range matches UPDATE_BATCH_MUL_INPUTS_MEGA_ZK_HASH.
+ *
+ * @param builder Circuit builder.
+ * @param analyzer Analyzer (for get_variable_gates).
+ * @param rho_real Real witness index of rho (from shplemini_challenges).
+ * @param unshifted_scalar_real Real witness index of claim_batcher.unshifted->scalar
+ *   (from validate_compute_scalars_for_each_batch result).
+ * @param shifted_scalar_real Real witness index of claim_batcher.shifted->scalar
+ *   (from validate_compute_scalars_for_each_batch result).
+ * @return true if all structural + hash checks pass.
+ */
+template <typename FF, typename CircuitBuilder>
+bool find_and_validate_update_batch_mul_inputs_mega_zk(CircuitBuilder& builder,
+                                                       cdg::StaticAnalyzer_<FF, CircuitBuilder>& analyzer,
+                                                       uint32_t rho_real,
+                                                       uint32_t unshifted_scalar_real,
+                                                       uint32_t shifted_scalar_real)
+{
+    auto& ab = builder.blocks.arithmetic;
+    auto to_real = [&](uint32_t w) { return builder.real_variable_index[w]; };
+
+    // Pattern B (mul-neg): q_arith=1, q_m=-1, q_3=-1, q_1=q_2=q_4=q_c=0.
+    auto pattern_b = [](const FF& q_arith, const FF& q_1, const FF& q_2, const FF& q_3, const FF& q_4, const FF& q_m,
+                        const FF& q_c) {
+        return q_arith == FF::one() && q_m == FF::neg_one() && q_3 == FF::neg_one() && q_1.is_zero() &&
+               q_2.is_zero() && q_4.is_zero() && q_c.is_zero();
+    };
+
+    // Scan rho's gate list for first-gate anchor.
+    std::vector<size_t> anchors;
+    for (const auto& [blk_idx, g] : analyzer.get_variable_gates(rho_real)) {
+        if (&builder.blocks.get()[blk_idx] != &ab) {
+            continue;
+        }
+        if (g + UPDATE_BATCH_MUL_INPUTS_MEGA_ZK_GATE_COUNT > ab.size()) {
+            continue;
+        }
+        if (!pattern_b(ab.q_arith()[g], ab.q_1()[g], ab.q_2()[g], ab.q_3()[g], ab.q_4()[g], ab.q_m()[g], ab.q_c()[g])) {
+            continue;
+        }
+        if (to_real(ab.w_l()[g]) != unshifted_scalar_real || to_real(ab.w_r()[g]) != rho_real) {
+            continue;
+        }
+        anchors.push_back(g);
+    }
+    if (anchors.size() != 1) {
+        return false;
+    }
+    size_t start = anchors[0];
+    size_t end = start + UPDATE_BATCH_MUL_INPUTS_MEGA_ZK_GATE_COUNT;
+
+    // Witness-role counts across the range.
+    size_t rho_on_wr = 0;
+    size_t unshifted_on_wl = 0;
+    size_t shifted_on_wl = 0;
+    for (size_t g = start; g < end; g++) {
+        if (to_real(ab.w_r()[g]) == rho_real) {
+            rho_on_wr++;
+        }
+        if (to_real(ab.w_l()[g]) == unshifted_scalar_real) {
+            unshifted_on_wl++;
+        }
+        if (to_real(ab.w_l()[g]) == shifted_scalar_real) {
+            shifted_on_wl++;
+        }
+    }
+    // N + 1 = 60 + 1 = 61 for MegaZK.
+    const size_t expected_rho_on_wr = UPDATE_BATCH_MUL_INPUTS_MEGA_ZK_NUM_UNSHIFTED +
+                                       UPDATE_BATCH_MUL_INPUTS_MEGA_ZK_NUM_SHIFTED + 1;
+    if (rho_on_wr != expected_rho_on_wr) {
+        return false;
+    }
+    if (unshifted_on_wl != UPDATE_BATCH_MUL_INPUTS_MEGA_ZK_NUM_UNSHIFTED) {
+        return false;
+    }
+    if (shifted_on_wl != UPDATE_BATCH_MUL_INPUTS_MEGA_ZK_NUM_SHIFTED) {
+        return false;
+    }
+
+    // Selector hash over the full range.
+    std::size_t selectors_hash = sha256_helpers::compute_selector_hash(0, ab, start, end - 1);
+    return selectors_hash == UPDATE_BATCH_MUL_INPUTS_MEGA_ZK_HASH;
+}
+
+// -----------------------------------------------------------------------------
+// add_zk_data validator (MegaZK flavor only).
+// Uses 4-gate multi-anchor:
+//   gate 0 : FP-E (SUB, q_1=1, q_2=-1, q_3=-1)                wl=shplonk_z, wr=gemini_r
+//   gate 1 : FP-B (INV, q_m=1, q_c=-1)
+//   gate 3 : FP-D (FUSED, q_1=1, q_2=-subgroup_gen, q_3=-1)   wl=shplonk_z, wr=gemini_r
+//   gate 18 (last): FP-F (NEG-SUM, q_1=-1, q_2=-1, q_3=-1)
+// Plus: gate count = 19 and full-range selector hash match.
+// -----------------------------------------------------------------------------
+
+static constexpr size_t ADD_ZK_DATA_MEGA_ZK_GATE_COUNT = 19;
+static constexpr size_t ADD_ZK_DATA_MEGA_ZK_HASH = 0x63ca33aacd8fa26a;
+
+/**
+ * @brief Validate ShpleminiVerifier::add_zk_data for MegaZK flavor.
+ *
+ * @param builder Circuit builder.
+ * @param analyzer Static analyzer (for get_variable_gates pre-filter).
+ * @param shplonk_z_real Real witness index of Shplonk:z challenge.
+ * @param gemini_r_real Real witness index of Gemini:r challenge.
+ * @return true if 4-gate multi-anchor + count + selector hash all match.
+ */
+template <typename FF, typename CircuitBuilder>
+bool find_and_validate_add_zk_data_mega_zk(CircuitBuilder& builder,
+                                           cdg::StaticAnalyzer_<FF, CircuitBuilder>& analyzer,
+                                           uint32_t shplonk_z_real,
+                                           uint32_t gemini_r_real)
+{
+    auto& ab = builder.blocks.arithmetic;
+    auto to_real = [&](uint32_t w) { return builder.real_variable_index[w]; };
+
+    // For stdlib::bn254<Builder> (Chonk recursion context), subgroup_generator is the BN254
+    // 256th root of unity. q_2 in gate +3 carries its negation modulo p.
+    const FF neg_subgroup_generator = -stdlib::bn254<CircuitBuilder>::subgroup_generator;
+
+    // Pattern E: q_arith=1, q_1=1, q_2=-1, q_3=-1, others 0.
+    auto is_fp_e = [&](size_t g) {
+        return ab.q_arith()[g] == FF::one() && ab.q_1()[g] == FF::one() && ab.q_2()[g] == FF::neg_one() &&
+               ab.q_3()[g] == FF::neg_one() && ab.q_4()[g].is_zero() && ab.q_m()[g].is_zero() &&
+               ab.q_c()[g].is_zero();
+    };
+    // Pattern B (invert): q_arith=1, q_m=1, q_c=-1, others 0.
+    auto is_fp_b = [&](size_t g) {
+        return ab.q_arith()[g] == FF::one() && ab.q_m()[g] == FF::one() && ab.q_c()[g] == FF::neg_one() &&
+               ab.q_1()[g].is_zero() && ab.q_2()[g].is_zero() && ab.q_3()[g].is_zero() && ab.q_4()[g].is_zero();
+    };
+    // Pattern D (fused with -g constant in q_2).
+    auto is_fp_d = [&](size_t g) {
+        return ab.q_arith()[g] == FF::one() && ab.q_1()[g] == FF::one() &&
+               ab.q_2()[g] == neg_subgroup_generator && ab.q_3()[g] == FF::neg_one() &&
+               ab.q_4()[g].is_zero() && ab.q_m()[g].is_zero() && ab.q_c()[g].is_zero();
+    };
+    // Pattern F (neg-sum): q_arith=1, q_1=-1, q_2=-1, q_3=-1, others 0.
+    auto is_fp_f = [&](size_t g) {
+        return ab.q_arith()[g] == FF::one() && ab.q_1()[g] == FF::neg_one() && ab.q_2()[g] == FF::neg_one() &&
+               ab.q_3()[g] == FF::neg_one() && ab.q_4()[g].is_zero() && ab.q_m()[g].is_zero() &&
+               ab.q_c()[g].is_zero();
+    };
+
+    // Pre-filter candidate start gates via shplonk_z's arithmetic-block appearances.
+    std::vector<size_t> candidates;
+    for (const auto& [blk_idx, g] : analyzer.get_variable_gates(shplonk_z_real)) {
+        if (&builder.blocks.get()[blk_idx] != &ab) {
+            continue;
+        }
+        if (g + ADD_ZK_DATA_MEGA_ZK_GATE_COUNT > ab.size()) {
+            continue;
+        }
+        // Gate 0: FP-E with (z, r) on (wl, wr).
+        if (!is_fp_e(g)) {
+            continue;
+        }
+        if (to_real(ab.w_l()[g]) != shplonk_z_real || to_real(ab.w_r()[g]) != gemini_r_real) {
+            continue;
+        }
+        // Gate 1: FP-B (invert).
+        if (!is_fp_b(g + 1)) {
+            continue;
+        }
+        // Gate 3: FP-D (fused, -g in q_2) with (z, r) on (wl, wr).
+        if (!is_fp_d(g + 3)) {
+            continue;
+        }
+        if (to_real(ab.w_l()[g + 3]) != shplonk_z_real || to_real(ab.w_r()[g + 3]) != gemini_r_real) {
+            continue;
+        }
+        // Gate 18 (last): FP-F (neg-sum).
+        if (!is_fp_f(g + ADD_ZK_DATA_MEGA_ZK_GATE_COUNT - 1)) {
+            continue;
+        }
+        candidates.push_back(g);
+    }
+    if (candidates.size() != 1) {
+        return false;
+    }
+    size_t start = candidates[0];
+    size_t end = start + ADD_ZK_DATA_MEGA_ZK_GATE_COUNT;
+
+    std::size_t selectors_hash = sha256_helpers::compute_selector_hash(0, ab, start, end - 1);
+    return selectors_hash == ADD_ZK_DATA_MEGA_ZK_HASH;
+}
+
+// -----------------------------------------------------------------------------
+// check_libra_evaluations_consistency validator (MegaZK flavor only).
+// Strategy:
+//   1. Find unique `claimed_libra` gate (w_r=claim, w_l=libra[2]=grand_sum, SUB pattern).
+//   2. Derive start = claim_gate - 1429 (pinned offset).
+//   3. Check start gate: r·r squaring (FP-A MUL, w_l=w_r=gemini_r).
+//   4. Check last gate (start + 1433): ADD with w_o == w_4 (diff → zero_witness).
+//   5. Hash 1434-gate range, compare to CHECK_LIBRA_MEGA_ZK_HASH.
+// -----------------------------------------------------------------------------
+
+static constexpr size_t CHECK_LIBRA_MEGA_ZK_GATE_COUNT = 1434;
+static constexpr size_t CHECK_LIBRA_MEGA_ZK_CLAIM_OFFSET = 1429;
+static constexpr size_t CHECK_LIBRA_MEGA_ZK_HASH = 0x2c4dc2e92738e11b;
+
+/**
+ * @brief Validate SmallSubgroupIPAVerifier::check_libra_evaluations_consistency for MegaZK.
+ *
+ * @param builder Circuit builder.
+ * @param analyzer Static analyzer.
+ * @param gemini_r_real Real witness index of Gemini:r.
+ * @param grand_sum_real Real witness index of libra_evaluations[2] (grand_sum_eval).
+ * @param claimed_libra_real Real witness index of claimed_libra_evaluation (sumcheck output).
+ * @return true if all checks pass.
+ */
+template <typename FF, typename CircuitBuilder>
+bool find_and_validate_check_libra_consistency_mega_zk(CircuitBuilder& builder,
+                                                       cdg::StaticAnalyzer_<FF, CircuitBuilder>& analyzer,
+                                                       uint32_t gemini_r_real,
+                                                       uint32_t grand_sum_real,
+                                                       uint32_t claimed_libra_real)
+{
+    auto& ab = builder.blocks.arithmetic;
+    auto to_real = [&](uint32_t w) { return builder.real_variable_index[w]; };
+
+    // Step 1: locate unique claim gate in arith block matching (SUB, w_l=grand_sum, w_r=claim).
+    // claimed_libra may appear elsewhere (sumcheck) — filter by gate signature, expect exactly 1.
+    auto matches_claim_sub = [&](size_t g) {
+        return ab.q_arith()[g] == FF::one() && ab.q_1()[g] == FF::one() && ab.q_2()[g] == FF::neg_one() &&
+               ab.q_3()[g] == FF::neg_one() && ab.q_m()[g].is_zero() && ab.q_4()[g].is_zero() &&
+               ab.q_c()[g].is_zero() && to_real(ab.w_l()[g]) == grand_sum_real &&
+               to_real(ab.w_r()[g]) == claimed_libra_real;
+    };
+    size_t claim_gate = SIZE_MAX;
+    for (const auto& [blk_idx, g] : analyzer.get_variable_gates(claimed_libra_real)) {
+        if (&builder.blocks.get()[blk_idx] != &ab) {
+            continue;
+        }
+        if (!matches_claim_sub(g)) {
+            continue;
+        }
+        if (claim_gate != SIZE_MAX) {
+            return false; // duplicate match → tampered
+        }
+        claim_gate = g;
+    }
+    if (claim_gate == SIZE_MAX) {
+        return false;
+    }
+
+    // Step 2: derive start + end.
+    if (claim_gate < CHECK_LIBRA_MEGA_ZK_CLAIM_OFFSET) {
+        return false;
+    }
+    size_t start = claim_gate - CHECK_LIBRA_MEGA_ZK_CLAIM_OFFSET;
+    size_t end = start + CHECK_LIBRA_MEGA_ZK_GATE_COUNT;
+    if (end > ab.size()) {
+        return false;
+    }
+
+    // Step 3: start gate = r·r squaring. FP-A MUL: q_arith=1, q_m=1, q_3=-1, rest=0.
+    if (!(ab.q_arith()[start] == FF::one() && ab.q_m()[start] == FF::one() && ab.q_3()[start] == FF::neg_one() &&
+          ab.q_1()[start].is_zero() && ab.q_2()[start].is_zero() && ab.q_4()[start].is_zero() &&
+          ab.q_c()[start].is_zero())) {
+        return false;
+    }
+    if (to_real(ab.w_l()[start]) != gemini_r_real || to_real(ab.w_r()[start]) != gemini_r_real) {
+        return false;
+    }
+
+    // Step 4: last gate = ADD with w_o == w_4 (diff → zero).
+    size_t last = end - 1;
+    if (!(ab.q_arith()[last] == FF::one() && ab.q_1()[last] == FF::one() && ab.q_2()[last] == FF::one() &&
+          ab.q_3()[last] == FF::neg_one() && ab.q_m()[last].is_zero() && ab.q_4()[last].is_zero() &&
+          ab.q_c()[last].is_zero())) {
+        return false;
+    }
+    if (to_real(ab.w_o()[last]) != to_real(ab.w_4()[last])) {
+        return false;
+    }
+
+    // Step 5: selector hash.
+    std::size_t selectors_hash = sha256_helpers::compute_selector_hash(0, ab, start, end - 1);
+    return selectors_hash == CHECK_LIBRA_MEGA_ZK_HASH;
 }
 
 } // namespace recursion_helpers
