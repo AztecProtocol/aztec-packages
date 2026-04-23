@@ -18,7 +18,15 @@ Aztec is in active development. Each version may introduce breaking changes that
 + pxe.proveTx(txRequest, { scopes });
 ```
 
-The new `senderForTags` field sets the address recipients use to find private messages (notes, events, logs) emitted by this tx. Most wallets don't need to set it, the wallet SDK derives it from the tx's `from` address.
+The new `senderForTags` field sets the address recipients use to find private messages (notes, events, logs) emitted by this tx. Most wallets don't need to set it; the wallet SDK derives it from the tx's `from` address:
+
+```typescript
+// Most callers: just migrate scopes
+pxe.proveTx(txRequest, { scopes });
+
+// When from === NO_FROM (e.g. self-paid account deploy), supply the tag sender explicitly:
+pxe.proveTx(txRequest, { scopes, senderForTags: deployedAddress });
+```
 
 ### [Aztec.nr] `set_sender_for_tags` is now scoped to the calling contract
 

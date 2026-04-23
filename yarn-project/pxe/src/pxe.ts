@@ -93,7 +93,7 @@ export type PackedPrivateEvent = InTx & {
 export type ProveTxOpts = {
   /** Addresses whose private state and keys are accessible during private execution. */
   scopes: AztecAddress[];
-  /** Sender address PXE uses when deriving discovery tags for private messages (notes, events, logs) this tx emits. */
+  /** Sender address used to derive discovery tags for private messages (notes, events, logs) this tx emits. */
   senderForTags?: AztecAddress;
 };
 
@@ -105,7 +105,7 @@ export type ProfileTxOpts = {
   skipProofGeneration?: boolean;
   /** Addresses whose private state and keys are accessible during private execution. */
   scopes: AztecAddress[];
-  /** Sender address PXE uses when deriving discovery tags for private messages (notes, events, logs) this tx emits. */
+  /** Sender address used to derive discovery tags for private messages (notes, events, logs) this tx emits. */
   senderForTags?: AztecAddress;
 };
 
@@ -123,7 +123,7 @@ export type SimulateTxOpts = {
   overrides?: SimulationOverrides;
   /** Addresses whose private state and keys are accessible during private execution */
   scopes: AztecAddress[];
-  /** Sender address PXE uses when deriving discovery tags for private messages (notes, events, logs) this tx emits. */
+  /** Sender address used to derive discovery tags for private messages (notes, events, logs) this tx emits. */
   senderForTags?: AztecAddress;
 };
 

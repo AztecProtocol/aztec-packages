@@ -84,14 +84,10 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
   private readonly initialSideEffectCounter: number;
   /**
    * Default sender for tags supplied when this oracle was constructed. Immutable for the lifetime of this call and
-   * propagated unchanged to every nested call. Used as the starting value of `currentSenderForTags` for each child,
-   * so a contract's `setSenderForTags` override never leaks to its descendants, siblings, or parents.
+   * propagated unchanged to every nested call. Returned by `getSenderForTags` when no override is active.
    */
   private readonly defaultSenderForTags: AztecAddress | undefined;
-  /**
-   * The current sender-for-tags value visible to this contract call. Initialised from `defaultSenderForTags` and
-   * mutated only by `setSenderForTags`. Scoped to this call: nested calls do not see this override.
-   */
+  /** Sender-for-tags override for this call, set by `setSenderForTags`. Nested calls are unaffected. */
   private currentSenderForTags: AztecAddress | undefined;
   private readonly simulator?: CircuitSimulator;
 
@@ -112,7 +108,6 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
     this.totalPublicCalldataCount = args.totalPublicCalldataCount ?? 0;
     this.initialSideEffectCounter = args.sideEffectCounter ?? 0;
     this.defaultSenderForTags = args.senderForTags;
-    this.currentSenderForTags = args.senderForTags;
     this.simulator = args.simulator;
   }
 
@@ -192,6 +187,10 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
    * Returns the default supplied when this oracle was constructed unless this contract call has
    * overridden it via `setSenderForTags`. Overrides are scoped to the current contract call and
    * never propagate to nested calls, siblings, or parents.
+   *
+   * Note: `setSenderForTags` accepts a concrete `AztecAddress` (not an `Option`), so once it has
+   * been called, `currentSenderForTags` is permanently set for this call and there is no way to
+   * revert to the default.
    */
   public getSenderForTags(): Promise<AztecAddress | undefined> {
     return Promise.resolve(this.currentSenderForTags ?? this.defaultSenderForTags);

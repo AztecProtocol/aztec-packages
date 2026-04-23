@@ -121,10 +121,10 @@ export type SendInteractionOptionsWithoutWait = RequestInteractionOptions & {
    */
   additionalScopes?: AztecAddress[];
   /**
-   * Address used to tag private messages (notes, events, logs) emitted by this tx so recipients can discover them.
-   * Defaults to `from`; unset when `from === NO_FROM`. Provide it explicitly when `from === NO_FROM` and the tx will
-   * emit private messages, e.g. `DeployAccountMethod` sets it for self-paid account deploys so the account being
-   * deployed can discover the fee-payment messages in its own PXE.
+   * Overrides the sender address used to derive discovery tags for private messages (notes, events, logs).
+   * Recipients use these tags to find messages addressed to them.
+   *
+   * Defaults to `from`. Typically set when `from === NO_FROM`, since there is no account address to derive tags from.
    */
   sendMessagesAs?: AztecAddress;
 };
