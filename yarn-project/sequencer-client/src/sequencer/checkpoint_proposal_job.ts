@@ -79,7 +79,8 @@ const TXS_POLLING_MS = 500;
 /** Result from proposeCheckpoint when a checkpoint was successfully built and broadcast. */
 type CheckpointProposalBroadcast = {
   checkpoint: Checkpoint;
-  proposal: CheckpointProposal;
+  /** Undefined in fisherman mode, where the checkpoint is built but not broadcast. */
+  proposal?: CheckpointProposal;
   blockProposedAt: number;
 };
 
@@ -621,8 +622,8 @@ export class CheckpointProposalJob implements Traceable {
           },
         );
         this.metrics.recordCheckpointSuccess();
-        // Return a broadcast result with a dummy proposal — fisherman mode skips attestation collection
-        return { checkpoint, proposal: undefined!, blockProposedAt: this.dateProvider.now() };
+        // Fisherman mode skips attestation collection, so no proposal is produced.
+        return { checkpoint, blockProposedAt: this.dateProvider.now() };
       }
 
       // Create the checkpoint proposal and broadcast it
@@ -1068,6 +1069,9 @@ export class CheckpointProposalJob implements Traceable {
     broadcast: CheckpointProposalBroadcast,
   ): Promise<{ attestations: CommitteeAttestationsAndSigners; attestationsSignature: Signature } | undefined> {
     const { proposal, blockProposedAt } = broadcast;
+    if (!proposal) {
+      return undefined;
+    }
     this.setStateFn(SequencerState.COLLECTING_ATTESTATIONS, this.targetSlot);
     const attestations = await this.waitForAttestations(proposal);
     if (!attestations) {
