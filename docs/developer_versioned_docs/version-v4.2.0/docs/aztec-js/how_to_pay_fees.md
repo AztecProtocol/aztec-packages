@@ -215,7 +215,7 @@ const fpcClient = new FpcClient({
 // Estimate gas, fetch a signed quote, and build the payment method
 const payment = await fpcClient.createPaymentMethod({
   wallet,
-  user: wallet.getAddress(),
+  user: aliceAddress, // the account paying the fee
   tokenAddress,     // the token you want to pay in
   estimatedGas,     // from a prior estimateGas call
 });
