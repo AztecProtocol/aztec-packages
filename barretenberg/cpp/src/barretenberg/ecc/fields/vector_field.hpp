@@ -172,6 +172,35 @@ template <class Params> struct alignas(32) VectorField {
 
 namespace vector_field_detail {
 
+// Compiler scheduling barrier — prevents LLVM from reordering the scalar and
+// quad statements around this point.
+//
+// The gist's schedule (https://gist.github.com/AztecBot/b8e2e1d5c85d54e10fb34b48461361e0)
+// REQUIRES that scalar and quad ops stay textually adjacent in the compiled
+// WAT: V8's register allocator only keeps v128 live-ranges short if it sees
+// the scalar int ops interleaved with the SIMD ops on the issue queue. If the
+// WAT serializes all scalar muls first, then all SIMD muls, V8 sees a
+// long-lived fan-out of ~130 v128 partial products and spills most of them.
+//
+// Clang's WASM backend has no dependency between the two streams (i64 ops vs
+// v128 ops), so its instruction scheduler happily hoists all of one kind
+// before the other. An `asm volatile` barrier with BOTH a scalar output and a
+// quad output forces LLVM to keep the pair adjacent, which gets us back to
+// the gist's intended schedule.
+//
+// Verified experimentally: single-value barriers allow reordering; joint
+// (scalar+quad) barriers preserve per-statement adjacency.
+
+[[gnu::always_inline]] inline void bb_vf_barrier_sq(uint64_t& s, v128_t& q) noexcept
+{
+    asm volatile("" : "+r"(s), "+r"(q));
+}
+
+[[gnu::always_inline]] inline void bb_vf_barrier_sqq(uint64_t& s, v128_t& q_lo, v128_t& q_hi) noexcept
+{
+    asm volatile("" : "+r"(s), "+r"(q_lo), "+r"(q_hi));
+}
+
 // Pack 4 × u64 (little-endian 256-bit value) into 9 × 29-bit limbs.
 inline void pack_4u64_to_9x29(const uint64_t in[4], uint64_t out[9]) noexcept
 {
@@ -265,6 +294,8 @@ template <class Params>
     qcarry = wasm_u32x4_shr(qr1, 29);
     sr1 &= MASK;
     qr1 = wasm_v128_and(qr1, mask_splat);
+    vector_field_detail::bb_vf_barrier_sqq(sr1, qr1, qcarry);
+    asm volatile("" : "+r"(scarry));
 
     uint64_t sr2 = scalar_data[2] + other.scalar_data[2] + scarry;
     v128_t qr2 = wasm_i32x4_add(wasm_i32x4_add(quad_data[2], other.quad_data[2]), qcarry);
@@ -272,6 +303,8 @@ template <class Params>
     qcarry = wasm_u32x4_shr(qr2, 29);
     sr2 &= MASK;
     qr2 = wasm_v128_and(qr2, mask_splat);
+    vector_field_detail::bb_vf_barrier_sqq(sr2, qr2, qcarry);
+    asm volatile("" : "+r"(scarry));
 
     uint64_t sr3 = scalar_data[3] + other.scalar_data[3] + scarry;
     v128_t qr3 = wasm_i32x4_add(wasm_i32x4_add(quad_data[3], other.quad_data[3]), qcarry);
@@ -279,6 +312,8 @@ template <class Params>
     qcarry = wasm_u32x4_shr(qr3, 29);
     sr3 &= MASK;
     qr3 = wasm_v128_and(qr3, mask_splat);
+    vector_field_detail::bb_vf_barrier_sqq(sr3, qr3, qcarry);
+    asm volatile("" : "+r"(scarry));
 
     uint64_t sr4 = scalar_data[4] + other.scalar_data[4] + scarry;
     v128_t qr4 = wasm_i32x4_add(wasm_i32x4_add(quad_data[4], other.quad_data[4]), qcarry);
@@ -286,6 +321,8 @@ template <class Params>
     qcarry = wasm_u32x4_shr(qr4, 29);
     sr4 &= MASK;
     qr4 = wasm_v128_and(qr4, mask_splat);
+    vector_field_detail::bb_vf_barrier_sqq(sr4, qr4, qcarry);
+    asm volatile("" : "+r"(scarry));
 
     uint64_t sr5 = scalar_data[5] + other.scalar_data[5] + scarry;
     v128_t qr5 = wasm_i32x4_add(wasm_i32x4_add(quad_data[5], other.quad_data[5]), qcarry);
@@ -293,6 +330,8 @@ template <class Params>
     qcarry = wasm_u32x4_shr(qr5, 29);
     sr5 &= MASK;
     qr5 = wasm_v128_and(qr5, mask_splat);
+    vector_field_detail::bb_vf_barrier_sqq(sr5, qr5, qcarry);
+    asm volatile("" : "+r"(scarry));
 
     uint64_t sr6 = scalar_data[6] + other.scalar_data[6] + scarry;
     v128_t qr6 = wasm_i32x4_add(wasm_i32x4_add(quad_data[6], other.quad_data[6]), qcarry);
@@ -300,6 +339,8 @@ template <class Params>
     qcarry = wasm_u32x4_shr(qr6, 29);
     sr6 &= MASK;
     qr6 = wasm_v128_and(qr6, mask_splat);
+    vector_field_detail::bb_vf_barrier_sqq(sr6, qr6, qcarry);
+    asm volatile("" : "+r"(scarry));
 
     uint64_t sr7 = scalar_data[7] + other.scalar_data[7] + scarry;
     v128_t qr7 = wasm_i32x4_add(wasm_i32x4_add(quad_data[7], other.quad_data[7]), qcarry);
@@ -307,6 +348,8 @@ template <class Params>
     qcarry = wasm_u32x4_shr(qr7, 29);
     sr7 &= MASK;
     qr7 = wasm_v128_and(qr7, mask_splat);
+    vector_field_detail::bb_vf_barrier_sqq(sr7, qr7, qcarry);
+    asm volatile("" : "+r"(scarry));
 
     uint64_t sr8 = scalar_data[8] + other.scalar_data[8] + scarry;
     v128_t qr8 = wasm_i32x4_add(wasm_i32x4_add(quad_data[8], other.quad_data[8]), qcarry);
@@ -319,6 +362,8 @@ template <class Params>
     qcarry = wasm_u32x4_shr(qt0, 29);
     st0 &= MASK;
     qt0 = wasm_v128_and(qt0, mask_splat);
+    vector_field_detail::bb_vf_barrier_sqq(st0, qt0, qcarry);
+    asm volatile("" : "+r"(scarry));
 
     uint64_t st1 = sr1 + TNM_WASM[1] + scarry;
     v128_t qt1 = wasm_i32x4_add(wasm_i32x4_add(qr1, wasm_i32x4_splat(static_cast<int32_t>(TNM_WASM[1]))), qcarry);
@@ -326,6 +371,8 @@ template <class Params>
     qcarry = wasm_u32x4_shr(qt1, 29);
     st1 &= MASK;
     qt1 = wasm_v128_and(qt1, mask_splat);
+    vector_field_detail::bb_vf_barrier_sqq(st1, qt1, qcarry);
+    asm volatile("" : "+r"(scarry));
 
     uint64_t st2 = sr2 + TNM_WASM[2] + scarry;
     v128_t qt2 = wasm_i32x4_add(wasm_i32x4_add(qr2, wasm_i32x4_splat(static_cast<int32_t>(TNM_WASM[2]))), qcarry);
@@ -333,6 +380,8 @@ template <class Params>
     qcarry = wasm_u32x4_shr(qt2, 29);
     st2 &= MASK;
     qt2 = wasm_v128_and(qt2, mask_splat);
+    vector_field_detail::bb_vf_barrier_sqq(st2, qt2, qcarry);
+    asm volatile("" : "+r"(scarry));
 
     uint64_t st3 = sr3 + TNM_WASM[3] + scarry;
     v128_t qt3 = wasm_i32x4_add(wasm_i32x4_add(qr3, wasm_i32x4_splat(static_cast<int32_t>(TNM_WASM[3]))), qcarry);
@@ -340,6 +389,8 @@ template <class Params>
     qcarry = wasm_u32x4_shr(qt3, 29);
     st3 &= MASK;
     qt3 = wasm_v128_and(qt3, mask_splat);
+    vector_field_detail::bb_vf_barrier_sqq(st3, qt3, qcarry);
+    asm volatile("" : "+r"(scarry));
 
     uint64_t st4 = sr4 + TNM_WASM[4] + scarry;
     v128_t qt4 = wasm_i32x4_add(wasm_i32x4_add(qr4, wasm_i32x4_splat(static_cast<int32_t>(TNM_WASM[4]))), qcarry);
@@ -347,6 +398,8 @@ template <class Params>
     qcarry = wasm_u32x4_shr(qt4, 29);
     st4 &= MASK;
     qt4 = wasm_v128_and(qt4, mask_splat);
+    vector_field_detail::bb_vf_barrier_sqq(st4, qt4, qcarry);
+    asm volatile("" : "+r"(scarry));
 
     uint64_t st5 = sr5 + TNM_WASM[5] + scarry;
     v128_t qt5 = wasm_i32x4_add(wasm_i32x4_add(qr5, wasm_i32x4_splat(static_cast<int32_t>(TNM_WASM[5]))), qcarry);
@@ -354,6 +407,8 @@ template <class Params>
     qcarry = wasm_u32x4_shr(qt5, 29);
     st5 &= MASK;
     qt5 = wasm_v128_and(qt5, mask_splat);
+    vector_field_detail::bb_vf_barrier_sqq(st5, qt5, qcarry);
+    asm volatile("" : "+r"(scarry));
 
     uint64_t st6 = sr6 + TNM_WASM[6] + scarry;
     v128_t qt6 = wasm_i32x4_add(wasm_i32x4_add(qr6, wasm_i32x4_splat(static_cast<int32_t>(TNM_WASM[6]))), qcarry);
@@ -361,6 +416,8 @@ template <class Params>
     qcarry = wasm_u32x4_shr(qt6, 29);
     st6 &= MASK;
     qt6 = wasm_v128_and(qt6, mask_splat);
+    vector_field_detail::bb_vf_barrier_sqq(st6, qt6, qcarry);
+    asm volatile("" : "+r"(scarry));
 
     uint64_t st7 = sr7 + TNM_WASM[7] + scarry;
     v128_t qt7 = wasm_i32x4_add(wasm_i32x4_add(qr7, wasm_i32x4_splat(static_cast<int32_t>(TNM_WASM[7]))), qcarry);
@@ -368,6 +425,8 @@ template <class Params>
     qcarry = wasm_u32x4_shr(qt7, 29);
     st7 &= MASK;
     qt7 = wasm_v128_and(qt7, mask_splat);
+    vector_field_detail::bb_vf_barrier_sqq(st7, qt7, qcarry);
+    asm volatile("" : "+r"(scarry));
 
     uint64_t st8 = sr8 + TNM_WASM[8] + scarry;
     v128_t qt8 = wasm_i32x4_add(wasm_i32x4_add(qr8, wasm_i32x4_splat(static_cast<int32_t>(TNM_WASM[8]))), qcarry);
@@ -445,6 +504,8 @@ template <class Params>
     v128_t qr1 = wasm_v128_and(qdiff1, mask_splat);
     sborrow = (sdiff1 < 0) ? 1 : 0;
     qborrow = wasm_u32x4_shr(qdiff1, 31);
+    vector_field_detail::bb_vf_barrier_sq(sr1, qr1);
+    asm volatile("" : "+r"(sborrow), "+r"(qborrow));
 
     int64_t sdiff2 = static_cast<int64_t>(scalar_data[2]) - static_cast<int64_t>(other.scalar_data[2]) - sborrow;
     v128_t qdiff2 = wasm_i32x4_sub(wasm_i32x4_sub(quad_data[2], other.quad_data[2]), qborrow);
@@ -452,6 +513,8 @@ template <class Params>
     v128_t qr2 = wasm_v128_and(qdiff2, mask_splat);
     sborrow = (sdiff2 < 0) ? 1 : 0;
     qborrow = wasm_u32x4_shr(qdiff2, 31);
+    vector_field_detail::bb_vf_barrier_sq(sr2, qr2);
+    asm volatile("" : "+r"(sborrow), "+r"(qborrow));
 
     int64_t sdiff3 = static_cast<int64_t>(scalar_data[3]) - static_cast<int64_t>(other.scalar_data[3]) - sborrow;
     v128_t qdiff3 = wasm_i32x4_sub(wasm_i32x4_sub(quad_data[3], other.quad_data[3]), qborrow);
@@ -459,6 +522,8 @@ template <class Params>
     v128_t qr3 = wasm_v128_and(qdiff3, mask_splat);
     sborrow = (sdiff3 < 0) ? 1 : 0;
     qborrow = wasm_u32x4_shr(qdiff3, 31);
+    vector_field_detail::bb_vf_barrier_sq(sr3, qr3);
+    asm volatile("" : "+r"(sborrow), "+r"(qborrow));
 
     int64_t sdiff4 = static_cast<int64_t>(scalar_data[4]) - static_cast<int64_t>(other.scalar_data[4]) - sborrow;
     v128_t qdiff4 = wasm_i32x4_sub(wasm_i32x4_sub(quad_data[4], other.quad_data[4]), qborrow);
@@ -466,6 +531,8 @@ template <class Params>
     v128_t qr4 = wasm_v128_and(qdiff4, mask_splat);
     sborrow = (sdiff4 < 0) ? 1 : 0;
     qborrow = wasm_u32x4_shr(qdiff4, 31);
+    vector_field_detail::bb_vf_barrier_sq(sr4, qr4);
+    asm volatile("" : "+r"(sborrow), "+r"(qborrow));
 
     int64_t sdiff5 = static_cast<int64_t>(scalar_data[5]) - static_cast<int64_t>(other.scalar_data[5]) - sborrow;
     v128_t qdiff5 = wasm_i32x4_sub(wasm_i32x4_sub(quad_data[5], other.quad_data[5]), qborrow);
@@ -473,6 +540,8 @@ template <class Params>
     v128_t qr5 = wasm_v128_and(qdiff5, mask_splat);
     sborrow = (sdiff5 < 0) ? 1 : 0;
     qborrow = wasm_u32x4_shr(qdiff5, 31);
+    vector_field_detail::bb_vf_barrier_sq(sr5, qr5);
+    asm volatile("" : "+r"(sborrow), "+r"(qborrow));
 
     int64_t sdiff6 = static_cast<int64_t>(scalar_data[6]) - static_cast<int64_t>(other.scalar_data[6]) - sborrow;
     v128_t qdiff6 = wasm_i32x4_sub(wasm_i32x4_sub(quad_data[6], other.quad_data[6]), qborrow);
@@ -480,6 +549,8 @@ template <class Params>
     v128_t qr6 = wasm_v128_and(qdiff6, mask_splat);
     sborrow = (sdiff6 < 0) ? 1 : 0;
     qborrow = wasm_u32x4_shr(qdiff6, 31);
+    vector_field_detail::bb_vf_barrier_sq(sr6, qr6);
+    asm volatile("" : "+r"(sborrow), "+r"(qborrow));
 
     int64_t sdiff7 = static_cast<int64_t>(scalar_data[7]) - static_cast<int64_t>(other.scalar_data[7]) - sborrow;
     v128_t qdiff7 = wasm_i32x4_sub(wasm_i32x4_sub(quad_data[7], other.quad_data[7]), qborrow);
@@ -487,6 +558,8 @@ template <class Params>
     v128_t qr7 = wasm_v128_and(qdiff7, mask_splat);
     sborrow = (sdiff7 < 0) ? 1 : 0;
     qborrow = wasm_u32x4_shr(qdiff7, 31);
+    vector_field_detail::bb_vf_barrier_sq(sr7, qr7);
+    asm volatile("" : "+r"(sborrow), "+r"(qborrow));
 
     int64_t sdiff8 = static_cast<int64_t>(scalar_data[8]) - static_cast<int64_t>(other.scalar_data[8]) - sborrow;
     v128_t qdiff8 = wasm_i32x4_sub(wasm_i32x4_sub(quad_data[8], other.quad_data[8]), qborrow);
@@ -505,6 +578,8 @@ template <class Params>
     v128_t qcarry = wasm_u32x4_shr(qs0, 29);
     ss0 &= MASK;
     qs0 = wasm_v128_and(qs0, mask_splat);
+    vector_field_detail::bb_vf_barrier_sqq(ss0, qs0, qcarry);
+    asm volatile("" : "+r"(scarry));
 
     uint64_t ss1 = sr1 + TWOP_WASM[1] + scarry;
     v128_t qs1 = wasm_i32x4_add(wasm_i32x4_add(qr1, wasm_i32x4_splat(static_cast<int32_t>(TWOP_WASM[1]))), qcarry);
@@ -512,6 +587,8 @@ template <class Params>
     qcarry = wasm_u32x4_shr(qs1, 29);
     ss1 &= MASK;
     qs1 = wasm_v128_and(qs1, mask_splat);
+    vector_field_detail::bb_vf_barrier_sqq(ss1, qs1, qcarry);
+    asm volatile("" : "+r"(scarry));
 
     uint64_t ss2 = sr2 + TWOP_WASM[2] + scarry;
     v128_t qs2 = wasm_i32x4_add(wasm_i32x4_add(qr2, wasm_i32x4_splat(static_cast<int32_t>(TWOP_WASM[2]))), qcarry);
@@ -519,6 +596,8 @@ template <class Params>
     qcarry = wasm_u32x4_shr(qs2, 29);
     ss2 &= MASK;
     qs2 = wasm_v128_and(qs2, mask_splat);
+    vector_field_detail::bb_vf_barrier_sqq(ss2, qs2, qcarry);
+    asm volatile("" : "+r"(scarry));
 
     uint64_t ss3 = sr3 + TWOP_WASM[3] + scarry;
     v128_t qs3 = wasm_i32x4_add(wasm_i32x4_add(qr3, wasm_i32x4_splat(static_cast<int32_t>(TWOP_WASM[3]))), qcarry);
@@ -526,6 +605,8 @@ template <class Params>
     qcarry = wasm_u32x4_shr(qs3, 29);
     ss3 &= MASK;
     qs3 = wasm_v128_and(qs3, mask_splat);
+    vector_field_detail::bb_vf_barrier_sqq(ss3, qs3, qcarry);
+    asm volatile("" : "+r"(scarry));
 
     uint64_t ss4 = sr4 + TWOP_WASM[4] + scarry;
     v128_t qs4 = wasm_i32x4_add(wasm_i32x4_add(qr4, wasm_i32x4_splat(static_cast<int32_t>(TWOP_WASM[4]))), qcarry);
@@ -533,6 +614,8 @@ template <class Params>
     qcarry = wasm_u32x4_shr(qs4, 29);
     ss4 &= MASK;
     qs4 = wasm_v128_and(qs4, mask_splat);
+    vector_field_detail::bb_vf_barrier_sqq(ss4, qs4, qcarry);
+    asm volatile("" : "+r"(scarry));
 
     uint64_t ss5 = sr5 + TWOP_WASM[5] + scarry;
     v128_t qs5 = wasm_i32x4_add(wasm_i32x4_add(qr5, wasm_i32x4_splat(static_cast<int32_t>(TWOP_WASM[5]))), qcarry);
@@ -540,6 +623,8 @@ template <class Params>
     qcarry = wasm_u32x4_shr(qs5, 29);
     ss5 &= MASK;
     qs5 = wasm_v128_and(qs5, mask_splat);
+    vector_field_detail::bb_vf_barrier_sqq(ss5, qs5, qcarry);
+    asm volatile("" : "+r"(scarry));
 
     uint64_t ss6 = sr6 + TWOP_WASM[6] + scarry;
     v128_t qs6 = wasm_i32x4_add(wasm_i32x4_add(qr6, wasm_i32x4_splat(static_cast<int32_t>(TWOP_WASM[6]))), qcarry);
@@ -547,6 +632,8 @@ template <class Params>
     qcarry = wasm_u32x4_shr(qs6, 29);
     ss6 &= MASK;
     qs6 = wasm_v128_and(qs6, mask_splat);
+    vector_field_detail::bb_vf_barrier_sqq(ss6, qs6, qcarry);
+    asm volatile("" : "+r"(scarry));
 
     uint64_t ss7 = sr7 + TWOP_WASM[7] + scarry;
     v128_t qs7 = wasm_i32x4_add(wasm_i32x4_add(qr7, wasm_i32x4_splat(static_cast<int32_t>(TWOP_WASM[7]))), qcarry);
@@ -554,6 +641,8 @@ template <class Params>
     qcarry = wasm_u32x4_shr(qs7, 29);
     ss7 &= MASK;
     qs7 = wasm_v128_and(qs7, mask_splat);
+    vector_field_detail::bb_vf_barrier_sqq(ss7, qs7, qcarry);
+    asm volatile("" : "+r"(scarry));
 
     uint64_t ss8 = sr8 + TWOP_WASM[8] + scarry;
     v128_t qs8 = wasm_i32x4_add(wasm_i32x4_add(qr8, wasm_i32x4_splat(static_cast<int32_t>(TWOP_WASM[8]))), qcarry);
@@ -607,46 +696,64 @@ template <class Params>
     v128_t qacc_z = d.quad_data[0];
     uint64_t sacc_p = d.scalar_data[0] ^ P_WASM[0];
     v128_t qacc_p = wasm_v128_xor(d.quad_data[0], wasm_i32x4_splat(static_cast<int32_t>(P_WASM[0])));
+    vector_field_detail::bb_vf_barrier_sq(sacc_z, qacc_z);
+    vector_field_detail::bb_vf_barrier_sq(sacc_p, qacc_p);
 
     sacc_z |= d.scalar_data[1];
     qacc_z = wasm_v128_or(qacc_z, d.quad_data[1]);
     sacc_p |= d.scalar_data[1] ^ P_WASM[1];
     qacc_p = wasm_v128_or(qacc_p, wasm_v128_xor(d.quad_data[1], wasm_i32x4_splat(static_cast<int32_t>(P_WASM[1]))));
+    vector_field_detail::bb_vf_barrier_sq(sacc_z, qacc_z);
+    vector_field_detail::bb_vf_barrier_sq(sacc_p, qacc_p);
 
     sacc_z |= d.scalar_data[2];
     qacc_z = wasm_v128_or(qacc_z, d.quad_data[2]);
     sacc_p |= d.scalar_data[2] ^ P_WASM[2];
     qacc_p = wasm_v128_or(qacc_p, wasm_v128_xor(d.quad_data[2], wasm_i32x4_splat(static_cast<int32_t>(P_WASM[2]))));
+    vector_field_detail::bb_vf_barrier_sq(sacc_z, qacc_z);
+    vector_field_detail::bb_vf_barrier_sq(sacc_p, qacc_p);
 
     sacc_z |= d.scalar_data[3];
     qacc_z = wasm_v128_or(qacc_z, d.quad_data[3]);
     sacc_p |= d.scalar_data[3] ^ P_WASM[3];
     qacc_p = wasm_v128_or(qacc_p, wasm_v128_xor(d.quad_data[3], wasm_i32x4_splat(static_cast<int32_t>(P_WASM[3]))));
+    vector_field_detail::bb_vf_barrier_sq(sacc_z, qacc_z);
+    vector_field_detail::bb_vf_barrier_sq(sacc_p, qacc_p);
 
     sacc_z |= d.scalar_data[4];
     qacc_z = wasm_v128_or(qacc_z, d.quad_data[4]);
     sacc_p |= d.scalar_data[4] ^ P_WASM[4];
     qacc_p = wasm_v128_or(qacc_p, wasm_v128_xor(d.quad_data[4], wasm_i32x4_splat(static_cast<int32_t>(P_WASM[4]))));
+    vector_field_detail::bb_vf_barrier_sq(sacc_z, qacc_z);
+    vector_field_detail::bb_vf_barrier_sq(sacc_p, qacc_p);
 
     sacc_z |= d.scalar_data[5];
     qacc_z = wasm_v128_or(qacc_z, d.quad_data[5]);
     sacc_p |= d.scalar_data[5] ^ P_WASM[5];
     qacc_p = wasm_v128_or(qacc_p, wasm_v128_xor(d.quad_data[5], wasm_i32x4_splat(static_cast<int32_t>(P_WASM[5]))));
+    vector_field_detail::bb_vf_barrier_sq(sacc_z, qacc_z);
+    vector_field_detail::bb_vf_barrier_sq(sacc_p, qacc_p);
 
     sacc_z |= d.scalar_data[6];
     qacc_z = wasm_v128_or(qacc_z, d.quad_data[6]);
     sacc_p |= d.scalar_data[6] ^ P_WASM[6];
     qacc_p = wasm_v128_or(qacc_p, wasm_v128_xor(d.quad_data[6], wasm_i32x4_splat(static_cast<int32_t>(P_WASM[6]))));
+    vector_field_detail::bb_vf_barrier_sq(sacc_z, qacc_z);
+    vector_field_detail::bb_vf_barrier_sq(sacc_p, qacc_p);
 
     sacc_z |= d.scalar_data[7];
     qacc_z = wasm_v128_or(qacc_z, d.quad_data[7]);
     sacc_p |= d.scalar_data[7] ^ P_WASM[7];
     qacc_p = wasm_v128_or(qacc_p, wasm_v128_xor(d.quad_data[7], wasm_i32x4_splat(static_cast<int32_t>(P_WASM[7]))));
+    vector_field_detail::bb_vf_barrier_sq(sacc_z, qacc_z);
+    vector_field_detail::bb_vf_barrier_sq(sacc_p, qacc_p);
 
     sacc_z |= d.scalar_data[8];
     qacc_z = wasm_v128_or(qacc_z, d.quad_data[8]);
     sacc_p |= d.scalar_data[8] ^ P_WASM[8];
     qacc_p = wasm_v128_or(qacc_p, wasm_v128_xor(d.quad_data[8], wasm_i32x4_splat(static_cast<int32_t>(P_WASM[8]))));
+    vector_field_detail::bb_vf_barrier_sq(sacc_z, qacc_z);
+    vector_field_detail::bb_vf_barrier_sq(sacc_p, qacc_p);
 
     // For the quad stream, we want a 4-bit lane-equal mask. bitmask extracts
     // the top bit of each i32 lane. To make "acc == 0" produce top-bit-set,
@@ -671,46 +778,64 @@ template <class Params>
     v128_t qacc_z = quad_data[0];
     uint64_t sacc_p = scalar_data[0] ^ P_WASM[0];
     v128_t qacc_p = wasm_v128_xor(quad_data[0], wasm_i32x4_splat(static_cast<int32_t>(P_WASM[0])));
+    vector_field_detail::bb_vf_barrier_sq(sacc_z, qacc_z);
+    vector_field_detail::bb_vf_barrier_sq(sacc_p, qacc_p);
 
     sacc_z |= scalar_data[1];
     qacc_z = wasm_v128_or(qacc_z, quad_data[1]);
     sacc_p |= scalar_data[1] ^ P_WASM[1];
     qacc_p = wasm_v128_or(qacc_p, wasm_v128_xor(quad_data[1], wasm_i32x4_splat(static_cast<int32_t>(P_WASM[1]))));
+    vector_field_detail::bb_vf_barrier_sq(sacc_z, qacc_z);
+    vector_field_detail::bb_vf_barrier_sq(sacc_p, qacc_p);
 
     sacc_z |= scalar_data[2];
     qacc_z = wasm_v128_or(qacc_z, quad_data[2]);
     sacc_p |= scalar_data[2] ^ P_WASM[2];
     qacc_p = wasm_v128_or(qacc_p, wasm_v128_xor(quad_data[2], wasm_i32x4_splat(static_cast<int32_t>(P_WASM[2]))));
+    vector_field_detail::bb_vf_barrier_sq(sacc_z, qacc_z);
+    vector_field_detail::bb_vf_barrier_sq(sacc_p, qacc_p);
 
     sacc_z |= scalar_data[3];
     qacc_z = wasm_v128_or(qacc_z, quad_data[3]);
     sacc_p |= scalar_data[3] ^ P_WASM[3];
     qacc_p = wasm_v128_or(qacc_p, wasm_v128_xor(quad_data[3], wasm_i32x4_splat(static_cast<int32_t>(P_WASM[3]))));
+    vector_field_detail::bb_vf_barrier_sq(sacc_z, qacc_z);
+    vector_field_detail::bb_vf_barrier_sq(sacc_p, qacc_p);
 
     sacc_z |= scalar_data[4];
     qacc_z = wasm_v128_or(qacc_z, quad_data[4]);
     sacc_p |= scalar_data[4] ^ P_WASM[4];
     qacc_p = wasm_v128_or(qacc_p, wasm_v128_xor(quad_data[4], wasm_i32x4_splat(static_cast<int32_t>(P_WASM[4]))));
+    vector_field_detail::bb_vf_barrier_sq(sacc_z, qacc_z);
+    vector_field_detail::bb_vf_barrier_sq(sacc_p, qacc_p);
 
     sacc_z |= scalar_data[5];
     qacc_z = wasm_v128_or(qacc_z, quad_data[5]);
     sacc_p |= scalar_data[5] ^ P_WASM[5];
     qacc_p = wasm_v128_or(qacc_p, wasm_v128_xor(quad_data[5], wasm_i32x4_splat(static_cast<int32_t>(P_WASM[5]))));
+    vector_field_detail::bb_vf_barrier_sq(sacc_z, qacc_z);
+    vector_field_detail::bb_vf_barrier_sq(sacc_p, qacc_p);
 
     sacc_z |= scalar_data[6];
     qacc_z = wasm_v128_or(qacc_z, quad_data[6]);
     sacc_p |= scalar_data[6] ^ P_WASM[6];
     qacc_p = wasm_v128_or(qacc_p, wasm_v128_xor(quad_data[6], wasm_i32x4_splat(static_cast<int32_t>(P_WASM[6]))));
+    vector_field_detail::bb_vf_barrier_sq(sacc_z, qacc_z);
+    vector_field_detail::bb_vf_barrier_sq(sacc_p, qacc_p);
 
     sacc_z |= scalar_data[7];
     qacc_z = wasm_v128_or(qacc_z, quad_data[7]);
     sacc_p |= scalar_data[7] ^ P_WASM[7];
     qacc_p = wasm_v128_or(qacc_p, wasm_v128_xor(quad_data[7], wasm_i32x4_splat(static_cast<int32_t>(P_WASM[7]))));
+    vector_field_detail::bb_vf_barrier_sq(sacc_z, qacc_z);
+    vector_field_detail::bb_vf_barrier_sq(sacc_p, qacc_p);
 
     sacc_z |= scalar_data[8];
     qacc_z = wasm_v128_or(qacc_z, quad_data[8]);
     sacc_p |= scalar_data[8] ^ P_WASM[8];
     qacc_p = wasm_v128_or(qacc_p, wasm_v128_xor(quad_data[8], wasm_i32x4_splat(static_cast<int32_t>(P_WASM[8]))));
+    vector_field_detail::bb_vf_barrier_sq(sacc_z, qacc_z);
+    vector_field_detail::bb_vf_barrier_sq(sacc_p, qacc_p);
 
     const v128_t qzero = wasm_i32x4_splat(0);
     const uint32_t lanes_z = wasm_i32x4_bitmask(wasm_i32x4_eq(qacc_z, qzero));
@@ -755,7 +880,7 @@ template <class Params>
 // whole point of Karatsuba — schoolbook 9x9 would need 81.
 
 template <class Params>
-[[gnu::always_inline]] inline VectorField<Params> VectorField<Params>::operator*(const VectorField& other) const noexcept
+[[gnu::noinline]] inline VectorField<Params> VectorField<Params>::operator*(const VectorField& other) const noexcept
 {
     VectorField result;
 
@@ -783,94 +908,119 @@ template <class Params>
     uint64_t pl0 = sl0 * sri0;
     v128_t pl0_lo = wasm_u64x2_extmul_low_u32x4(ql0, qri0);
     v128_t pl0_hi = wasm_u64x2_extmul_high_u32x4(ql0, qri0);
+    vector_field_detail::bb_vf_barrier_sqq(pl0, pl0_lo, pl0_hi);
 
     // pl1 = l0*r1 + l1*r0
     uint64_t pl1 = sl0 * sri1;
     v128_t pl1_lo = wasm_u64x2_extmul_low_u32x4(ql0, qri1);
     v128_t pl1_hi = wasm_u64x2_extmul_high_u32x4(ql0, qri1);
+    vector_field_detail::bb_vf_barrier_sqq(pl1, pl1_lo, pl1_hi);
     pl1 += sl1 * sri0;
     pl1_lo = wasm_i64x2_add(pl1_lo, wasm_u64x2_extmul_low_u32x4(ql1, qri0));
     pl1_hi = wasm_i64x2_add(pl1_hi, wasm_u64x2_extmul_high_u32x4(ql1, qri0));
+    vector_field_detail::bb_vf_barrier_sqq(pl1, pl1_lo, pl1_hi);
 
     // pl2 = l0*r2 + l1*r1 + l2*r0
     uint64_t pl2 = sl0 * sri2;
     v128_t pl2_lo = wasm_u64x2_extmul_low_u32x4(ql0, qri2);
     v128_t pl2_hi = wasm_u64x2_extmul_high_u32x4(ql0, qri2);
+    vector_field_detail::bb_vf_barrier_sqq(pl2, pl2_lo, pl2_hi);
     pl2 += sl1 * sri1;
     pl2_lo = wasm_i64x2_add(pl2_lo, wasm_u64x2_extmul_low_u32x4(ql1, qri1));
     pl2_hi = wasm_i64x2_add(pl2_hi, wasm_u64x2_extmul_high_u32x4(ql1, qri1));
+    vector_field_detail::bb_vf_barrier_sqq(pl2, pl2_lo, pl2_hi);
     pl2 += sl2 * sri0;
     pl2_lo = wasm_i64x2_add(pl2_lo, wasm_u64x2_extmul_low_u32x4(ql2, qri0));
     pl2_hi = wasm_i64x2_add(pl2_hi, wasm_u64x2_extmul_high_u32x4(ql2, qri0));
+    vector_field_detail::bb_vf_barrier_sqq(pl2, pl2_lo, pl2_hi);
 
     // pl3 = l0*r3 + l1*r2 + l2*r1 + l3*r0
     uint64_t pl3 = sl0 * sri3;
     v128_t pl3_lo = wasm_u64x2_extmul_low_u32x4(ql0, qri3);
     v128_t pl3_hi = wasm_u64x2_extmul_high_u32x4(ql0, qri3);
+    vector_field_detail::bb_vf_barrier_sqq(pl3, pl3_lo, pl3_hi);
     pl3 += sl1 * sri2;
     pl3_lo = wasm_i64x2_add(pl3_lo, wasm_u64x2_extmul_low_u32x4(ql1, qri2));
     pl3_hi = wasm_i64x2_add(pl3_hi, wasm_u64x2_extmul_high_u32x4(ql1, qri2));
+    vector_field_detail::bb_vf_barrier_sqq(pl3, pl3_lo, pl3_hi);
     pl3 += sl2 * sri1;
     pl3_lo = wasm_i64x2_add(pl3_lo, wasm_u64x2_extmul_low_u32x4(ql2, qri1));
     pl3_hi = wasm_i64x2_add(pl3_hi, wasm_u64x2_extmul_high_u32x4(ql2, qri1));
+    vector_field_detail::bb_vf_barrier_sqq(pl3, pl3_lo, pl3_hi);
     pl3 += sl3 * sri0;
     pl3_lo = wasm_i64x2_add(pl3_lo, wasm_u64x2_extmul_low_u32x4(ql3, qri0));
     pl3_hi = wasm_i64x2_add(pl3_hi, wasm_u64x2_extmul_high_u32x4(ql3, qri0));
+    vector_field_detail::bb_vf_barrier_sqq(pl3, pl3_lo, pl3_hi);
 
     // pl4 = l0*r4 + l1*r3 + l2*r2 + l3*r1 + l4*r0
     uint64_t pl4 = sl0 * sri4;
     v128_t pl4_lo = wasm_u64x2_extmul_low_u32x4(ql0, qri4);
     v128_t pl4_hi = wasm_u64x2_extmul_high_u32x4(ql0, qri4);
+    vector_field_detail::bb_vf_barrier_sqq(pl4, pl4_lo, pl4_hi);
     pl4 += sl1 * sri3;
     pl4_lo = wasm_i64x2_add(pl4_lo, wasm_u64x2_extmul_low_u32x4(ql1, qri3));
     pl4_hi = wasm_i64x2_add(pl4_hi, wasm_u64x2_extmul_high_u32x4(ql1, qri3));
+    vector_field_detail::bb_vf_barrier_sqq(pl4, pl4_lo, pl4_hi);
     pl4 += sl2 * sri2;
     pl4_lo = wasm_i64x2_add(pl4_lo, wasm_u64x2_extmul_low_u32x4(ql2, qri2));
     pl4_hi = wasm_i64x2_add(pl4_hi, wasm_u64x2_extmul_high_u32x4(ql2, qri2));
+    vector_field_detail::bb_vf_barrier_sqq(pl4, pl4_lo, pl4_hi);
     pl4 += sl3 * sri1;
     pl4_lo = wasm_i64x2_add(pl4_lo, wasm_u64x2_extmul_low_u32x4(ql3, qri1));
     pl4_hi = wasm_i64x2_add(pl4_hi, wasm_u64x2_extmul_high_u32x4(ql3, qri1));
+    vector_field_detail::bb_vf_barrier_sqq(pl4, pl4_lo, pl4_hi);
     pl4 += sl4 * sri0;
     pl4_lo = wasm_i64x2_add(pl4_lo, wasm_u64x2_extmul_low_u32x4(ql4, qri0));
     pl4_hi = wasm_i64x2_add(pl4_hi, wasm_u64x2_extmul_high_u32x4(ql4, qri0));
+    vector_field_detail::bb_vf_barrier_sqq(pl4, pl4_lo, pl4_hi);
 
     // pl5 = l1*r4 + l2*r3 + l3*r2 + l4*r1
     uint64_t pl5 = sl1 * sri4;
     v128_t pl5_lo = wasm_u64x2_extmul_low_u32x4(ql1, qri4);
     v128_t pl5_hi = wasm_u64x2_extmul_high_u32x4(ql1, qri4);
+    vector_field_detail::bb_vf_barrier_sqq(pl5, pl5_lo, pl5_hi);
     pl5 += sl2 * sri3;
     pl5_lo = wasm_i64x2_add(pl5_lo, wasm_u64x2_extmul_low_u32x4(ql2, qri3));
     pl5_hi = wasm_i64x2_add(pl5_hi, wasm_u64x2_extmul_high_u32x4(ql2, qri3));
+    vector_field_detail::bb_vf_barrier_sqq(pl5, pl5_lo, pl5_hi);
     pl5 += sl3 * sri2;
     pl5_lo = wasm_i64x2_add(pl5_lo, wasm_u64x2_extmul_low_u32x4(ql3, qri2));
     pl5_hi = wasm_i64x2_add(pl5_hi, wasm_u64x2_extmul_high_u32x4(ql3, qri2));
+    vector_field_detail::bb_vf_barrier_sqq(pl5, pl5_lo, pl5_hi);
     pl5 += sl4 * sri1;
     pl5_lo = wasm_i64x2_add(pl5_lo, wasm_u64x2_extmul_low_u32x4(ql4, qri1));
     pl5_hi = wasm_i64x2_add(pl5_hi, wasm_u64x2_extmul_high_u32x4(ql4, qri1));
+    vector_field_detail::bb_vf_barrier_sqq(pl5, pl5_lo, pl5_hi);
 
     // pl6 = l2*r4 + l3*r3 + l4*r2
     uint64_t pl6 = sl2 * sri4;
     v128_t pl6_lo = wasm_u64x2_extmul_low_u32x4(ql2, qri4);
     v128_t pl6_hi = wasm_u64x2_extmul_high_u32x4(ql2, qri4);
+    vector_field_detail::bb_vf_barrier_sqq(pl6, pl6_lo, pl6_hi);
     pl6 += sl3 * sri3;
     pl6_lo = wasm_i64x2_add(pl6_lo, wasm_u64x2_extmul_low_u32x4(ql3, qri3));
     pl6_hi = wasm_i64x2_add(pl6_hi, wasm_u64x2_extmul_high_u32x4(ql3, qri3));
+    vector_field_detail::bb_vf_barrier_sqq(pl6, pl6_lo, pl6_hi);
     pl6 += sl4 * sri2;
     pl6_lo = wasm_i64x2_add(pl6_lo, wasm_u64x2_extmul_low_u32x4(ql4, qri2));
     pl6_hi = wasm_i64x2_add(pl6_hi, wasm_u64x2_extmul_high_u32x4(ql4, qri2));
+    vector_field_detail::bb_vf_barrier_sqq(pl6, pl6_lo, pl6_hi);
 
     // pl7 = l3*r4 + l4*r3
     uint64_t pl7 = sl3 * sri4;
     v128_t pl7_lo = wasm_u64x2_extmul_low_u32x4(ql3, qri4);
     v128_t pl7_hi = wasm_u64x2_extmul_high_u32x4(ql3, qri4);
+    vector_field_detail::bb_vf_barrier_sqq(pl7, pl7_lo, pl7_hi);
     pl7 += sl4 * sri3;
     pl7_lo = wasm_i64x2_add(pl7_lo, wasm_u64x2_extmul_low_u32x4(ql4, qri3));
     pl7_hi = wasm_i64x2_add(pl7_hi, wasm_u64x2_extmul_high_u32x4(ql4, qri3));
+    vector_field_detail::bb_vf_barrier_sqq(pl7, pl7_lo, pl7_hi);
 
     // pl8 = l4*r4
     uint64_t pl8 = sl4 * sri4;
     v128_t pl8_lo = wasm_u64x2_extmul_low_u32x4(ql4, qri4);
     v128_t pl8_hi = wasm_u64x2_extmul_high_u32x4(ql4, qri4);
+    vector_field_detail::bb_vf_barrier_sqq(pl8, pl8_lo, pl8_hi);
 
     // ============================================================
     // Stage 2: P_hi = left[5..8] * right[5..8]  (4x4 schoolbook, 16 muls)
@@ -880,63 +1030,79 @@ template <class Params>
     uint64_t ph0 = sl5 * sri5;
     v128_t ph0_lo = wasm_u64x2_extmul_low_u32x4(ql5, qri5);
     v128_t ph0_hi = wasm_u64x2_extmul_high_u32x4(ql5, qri5);
+    vector_field_detail::bb_vf_barrier_sqq(ph0, ph0_lo, ph0_hi);
 
     // ph1 = l5*r6 + l6*r5
     uint64_t ph1 = sl5 * sri6;
     v128_t ph1_lo = wasm_u64x2_extmul_low_u32x4(ql5, qri6);
     v128_t ph1_hi = wasm_u64x2_extmul_high_u32x4(ql5, qri6);
+    vector_field_detail::bb_vf_barrier_sqq(ph1, ph1_lo, ph1_hi);
     ph1 += sl6 * sri5;
     ph1_lo = wasm_i64x2_add(ph1_lo, wasm_u64x2_extmul_low_u32x4(ql6, qri5));
     ph1_hi = wasm_i64x2_add(ph1_hi, wasm_u64x2_extmul_high_u32x4(ql6, qri5));
+    vector_field_detail::bb_vf_barrier_sqq(ph1, ph1_lo, ph1_hi);
 
     // ph2 = l5*r7 + l6*r6 + l7*r5
     uint64_t ph2 = sl5 * sri7;
     v128_t ph2_lo = wasm_u64x2_extmul_low_u32x4(ql5, qri7);
     v128_t ph2_hi = wasm_u64x2_extmul_high_u32x4(ql5, qri7);
+    vector_field_detail::bb_vf_barrier_sqq(ph2, ph2_lo, ph2_hi);
     ph2 += sl6 * sri6;
     ph2_lo = wasm_i64x2_add(ph2_lo, wasm_u64x2_extmul_low_u32x4(ql6, qri6));
     ph2_hi = wasm_i64x2_add(ph2_hi, wasm_u64x2_extmul_high_u32x4(ql6, qri6));
+    vector_field_detail::bb_vf_barrier_sqq(ph2, ph2_lo, ph2_hi);
     ph2 += sl7 * sri5;
     ph2_lo = wasm_i64x2_add(ph2_lo, wasm_u64x2_extmul_low_u32x4(ql7, qri5));
     ph2_hi = wasm_i64x2_add(ph2_hi, wasm_u64x2_extmul_high_u32x4(ql7, qri5));
+    vector_field_detail::bb_vf_barrier_sqq(ph2, ph2_lo, ph2_hi);
 
     // ph3 = l5*r8 + l6*r7 + l7*r6 + l8*r5
     uint64_t ph3 = sl5 * sri8;
     v128_t ph3_lo = wasm_u64x2_extmul_low_u32x4(ql5, qri8);
     v128_t ph3_hi = wasm_u64x2_extmul_high_u32x4(ql5, qri8);
+    vector_field_detail::bb_vf_barrier_sqq(ph3, ph3_lo, ph3_hi);
     ph3 += sl6 * sri7;
     ph3_lo = wasm_i64x2_add(ph3_lo, wasm_u64x2_extmul_low_u32x4(ql6, qri7));
     ph3_hi = wasm_i64x2_add(ph3_hi, wasm_u64x2_extmul_high_u32x4(ql6, qri7));
+    vector_field_detail::bb_vf_barrier_sqq(ph3, ph3_lo, ph3_hi);
     ph3 += sl7 * sri6;
     ph3_lo = wasm_i64x2_add(ph3_lo, wasm_u64x2_extmul_low_u32x4(ql7, qri6));
     ph3_hi = wasm_i64x2_add(ph3_hi, wasm_u64x2_extmul_high_u32x4(ql7, qri6));
+    vector_field_detail::bb_vf_barrier_sqq(ph3, ph3_lo, ph3_hi);
     ph3 += sl8 * sri5;
     ph3_lo = wasm_i64x2_add(ph3_lo, wasm_u64x2_extmul_low_u32x4(ql8, qri5));
     ph3_hi = wasm_i64x2_add(ph3_hi, wasm_u64x2_extmul_high_u32x4(ql8, qri5));
+    vector_field_detail::bb_vf_barrier_sqq(ph3, ph3_lo, ph3_hi);
 
     // ph4 = l6*r8 + l7*r7 + l8*r6
     uint64_t ph4 = sl6 * sri8;
     v128_t ph4_lo = wasm_u64x2_extmul_low_u32x4(ql6, qri8);
     v128_t ph4_hi = wasm_u64x2_extmul_high_u32x4(ql6, qri8);
+    vector_field_detail::bb_vf_barrier_sqq(ph4, ph4_lo, ph4_hi);
     ph4 += sl7 * sri7;
     ph4_lo = wasm_i64x2_add(ph4_lo, wasm_u64x2_extmul_low_u32x4(ql7, qri7));
     ph4_hi = wasm_i64x2_add(ph4_hi, wasm_u64x2_extmul_high_u32x4(ql7, qri7));
+    vector_field_detail::bb_vf_barrier_sqq(ph4, ph4_lo, ph4_hi);
     ph4 += sl8 * sri6;
     ph4_lo = wasm_i64x2_add(ph4_lo, wasm_u64x2_extmul_low_u32x4(ql8, qri6));
     ph4_hi = wasm_i64x2_add(ph4_hi, wasm_u64x2_extmul_high_u32x4(ql8, qri6));
+    vector_field_detail::bb_vf_barrier_sqq(ph4, ph4_lo, ph4_hi);
 
     // ph5 = l7*r8 + l8*r7
     uint64_t ph5 = sl7 * sri8;
     v128_t ph5_lo = wasm_u64x2_extmul_low_u32x4(ql7, qri8);
     v128_t ph5_hi = wasm_u64x2_extmul_high_u32x4(ql7, qri8);
+    vector_field_detail::bb_vf_barrier_sqq(ph5, ph5_lo, ph5_hi);
     ph5 += sl8 * sri7;
     ph5_lo = wasm_i64x2_add(ph5_lo, wasm_u64x2_extmul_low_u32x4(ql8, qri7));
     ph5_hi = wasm_i64x2_add(ph5_hi, wasm_u64x2_extmul_high_u32x4(ql8, qri7));
+    vector_field_detail::bb_vf_barrier_sqq(ph5, ph5_lo, ph5_hi);
 
     // ph6 = l8*r8
     uint64_t ph6 = sl8 * sri8;
     v128_t ph6_lo = wasm_u64x2_extmul_low_u32x4(ql8, qri8);
     v128_t ph6_hi = wasm_u64x2_extmul_high_u32x4(ql8, qri8);
+    vector_field_detail::bb_vf_barrier_sqq(ph6, ph6_lo, ph6_hi);
 
     // ============================================================
     // Stage 3: sums  sl_i = l_i + l_{5+i}  for i in 0..3, sl_4 = l_4.
@@ -977,94 +1143,119 @@ template <class Params>
     uint64_t pc0 = ssl0 * ssr0;
     v128_t pc0_lo = wasm_u64x2_extmul_low_u32x4(qsl0, qsr0);
     v128_t pc0_hi = wasm_u64x2_extmul_high_u32x4(qsl0, qsr0);
+    vector_field_detail::bb_vf_barrier_sqq(pc0, pc0_lo, pc0_hi);
 
     // pc1 = sl0*sr1 + sl1*sr0
     uint64_t pc1 = ssl0 * ssr1;
     v128_t pc1_lo = wasm_u64x2_extmul_low_u32x4(qsl0, qsr1);
     v128_t pc1_hi = wasm_u64x2_extmul_high_u32x4(qsl0, qsr1);
+    vector_field_detail::bb_vf_barrier_sqq(pc1, pc1_lo, pc1_hi);
     pc1 += ssl1 * ssr0;
     pc1_lo = wasm_i64x2_add(pc1_lo, wasm_u64x2_extmul_low_u32x4(qsl1, qsr0));
     pc1_hi = wasm_i64x2_add(pc1_hi, wasm_u64x2_extmul_high_u32x4(qsl1, qsr0));
+    vector_field_detail::bb_vf_barrier_sqq(pc1, pc1_lo, pc1_hi);
 
     // pc2 = sl0*sr2 + sl1*sr1 + sl2*sr0
     uint64_t pc2 = ssl0 * ssr2;
     v128_t pc2_lo = wasm_u64x2_extmul_low_u32x4(qsl0, qsr2);
     v128_t pc2_hi = wasm_u64x2_extmul_high_u32x4(qsl0, qsr2);
+    vector_field_detail::bb_vf_barrier_sqq(pc2, pc2_lo, pc2_hi);
     pc2 += ssl1 * ssr1;
     pc2_lo = wasm_i64x2_add(pc2_lo, wasm_u64x2_extmul_low_u32x4(qsl1, qsr1));
     pc2_hi = wasm_i64x2_add(pc2_hi, wasm_u64x2_extmul_high_u32x4(qsl1, qsr1));
+    vector_field_detail::bb_vf_barrier_sqq(pc2, pc2_lo, pc2_hi);
     pc2 += ssl2 * ssr0;
     pc2_lo = wasm_i64x2_add(pc2_lo, wasm_u64x2_extmul_low_u32x4(qsl2, qsr0));
     pc2_hi = wasm_i64x2_add(pc2_hi, wasm_u64x2_extmul_high_u32x4(qsl2, qsr0));
+    vector_field_detail::bb_vf_barrier_sqq(pc2, pc2_lo, pc2_hi);
 
     // pc3 = sl0*sr3 + sl1*sr2 + sl2*sr1 + sl3*sr0
     uint64_t pc3 = ssl0 * ssr3;
     v128_t pc3_lo = wasm_u64x2_extmul_low_u32x4(qsl0, qsr3);
     v128_t pc3_hi = wasm_u64x2_extmul_high_u32x4(qsl0, qsr3);
+    vector_field_detail::bb_vf_barrier_sqq(pc3, pc3_lo, pc3_hi);
     pc3 += ssl1 * ssr2;
     pc3_lo = wasm_i64x2_add(pc3_lo, wasm_u64x2_extmul_low_u32x4(qsl1, qsr2));
     pc3_hi = wasm_i64x2_add(pc3_hi, wasm_u64x2_extmul_high_u32x4(qsl1, qsr2));
+    vector_field_detail::bb_vf_barrier_sqq(pc3, pc3_lo, pc3_hi);
     pc3 += ssl2 * ssr1;
     pc3_lo = wasm_i64x2_add(pc3_lo, wasm_u64x2_extmul_low_u32x4(qsl2, qsr1));
     pc3_hi = wasm_i64x2_add(pc3_hi, wasm_u64x2_extmul_high_u32x4(qsl2, qsr1));
+    vector_field_detail::bb_vf_barrier_sqq(pc3, pc3_lo, pc3_hi);
     pc3 += ssl3 * ssr0;
     pc3_lo = wasm_i64x2_add(pc3_lo, wasm_u64x2_extmul_low_u32x4(qsl3, qsr0));
     pc3_hi = wasm_i64x2_add(pc3_hi, wasm_u64x2_extmul_high_u32x4(qsl3, qsr0));
+    vector_field_detail::bb_vf_barrier_sqq(pc3, pc3_lo, pc3_hi);
 
     // pc4 = sl0*sr4 + sl1*sr3 + sl2*sr2 + sl3*sr1 + sl4*sr0
     uint64_t pc4 = ssl0 * ssr4;
     v128_t pc4_lo = wasm_u64x2_extmul_low_u32x4(qsl0, qsr4);
     v128_t pc4_hi = wasm_u64x2_extmul_high_u32x4(qsl0, qsr4);
+    vector_field_detail::bb_vf_barrier_sqq(pc4, pc4_lo, pc4_hi);
     pc4 += ssl1 * ssr3;
     pc4_lo = wasm_i64x2_add(pc4_lo, wasm_u64x2_extmul_low_u32x4(qsl1, qsr3));
     pc4_hi = wasm_i64x2_add(pc4_hi, wasm_u64x2_extmul_high_u32x4(qsl1, qsr3));
+    vector_field_detail::bb_vf_barrier_sqq(pc4, pc4_lo, pc4_hi);
     pc4 += ssl2 * ssr2;
     pc4_lo = wasm_i64x2_add(pc4_lo, wasm_u64x2_extmul_low_u32x4(qsl2, qsr2));
     pc4_hi = wasm_i64x2_add(pc4_hi, wasm_u64x2_extmul_high_u32x4(qsl2, qsr2));
+    vector_field_detail::bb_vf_barrier_sqq(pc4, pc4_lo, pc4_hi);
     pc4 += ssl3 * ssr1;
     pc4_lo = wasm_i64x2_add(pc4_lo, wasm_u64x2_extmul_low_u32x4(qsl3, qsr1));
     pc4_hi = wasm_i64x2_add(pc4_hi, wasm_u64x2_extmul_high_u32x4(qsl3, qsr1));
+    vector_field_detail::bb_vf_barrier_sqq(pc4, pc4_lo, pc4_hi);
     pc4 += ssl4 * ssr0;
     pc4_lo = wasm_i64x2_add(pc4_lo, wasm_u64x2_extmul_low_u32x4(qsl4, qsr0));
     pc4_hi = wasm_i64x2_add(pc4_hi, wasm_u64x2_extmul_high_u32x4(qsl4, qsr0));
+    vector_field_detail::bb_vf_barrier_sqq(pc4, pc4_lo, pc4_hi);
 
     // pc5 = sl1*sr4 + sl2*sr3 + sl3*sr2 + sl4*sr1
     uint64_t pc5 = ssl1 * ssr4;
     v128_t pc5_lo = wasm_u64x2_extmul_low_u32x4(qsl1, qsr4);
     v128_t pc5_hi = wasm_u64x2_extmul_high_u32x4(qsl1, qsr4);
+    vector_field_detail::bb_vf_barrier_sqq(pc5, pc5_lo, pc5_hi);
     pc5 += ssl2 * ssr3;
     pc5_lo = wasm_i64x2_add(pc5_lo, wasm_u64x2_extmul_low_u32x4(qsl2, qsr3));
     pc5_hi = wasm_i64x2_add(pc5_hi, wasm_u64x2_extmul_high_u32x4(qsl2, qsr3));
+    vector_field_detail::bb_vf_barrier_sqq(pc5, pc5_lo, pc5_hi);
     pc5 += ssl3 * ssr2;
     pc5_lo = wasm_i64x2_add(pc5_lo, wasm_u64x2_extmul_low_u32x4(qsl3, qsr2));
     pc5_hi = wasm_i64x2_add(pc5_hi, wasm_u64x2_extmul_high_u32x4(qsl3, qsr2));
+    vector_field_detail::bb_vf_barrier_sqq(pc5, pc5_lo, pc5_hi);
     pc5 += ssl4 * ssr1;
     pc5_lo = wasm_i64x2_add(pc5_lo, wasm_u64x2_extmul_low_u32x4(qsl4, qsr1));
     pc5_hi = wasm_i64x2_add(pc5_hi, wasm_u64x2_extmul_high_u32x4(qsl4, qsr1));
+    vector_field_detail::bb_vf_barrier_sqq(pc5, pc5_lo, pc5_hi);
 
     // pc6 = sl2*sr4 + sl3*sr3 + sl4*sr2
     uint64_t pc6 = ssl2 * ssr4;
     v128_t pc6_lo = wasm_u64x2_extmul_low_u32x4(qsl2, qsr4);
     v128_t pc6_hi = wasm_u64x2_extmul_high_u32x4(qsl2, qsr4);
+    vector_field_detail::bb_vf_barrier_sqq(pc6, pc6_lo, pc6_hi);
     pc6 += ssl3 * ssr3;
     pc6_lo = wasm_i64x2_add(pc6_lo, wasm_u64x2_extmul_low_u32x4(qsl3, qsr3));
     pc6_hi = wasm_i64x2_add(pc6_hi, wasm_u64x2_extmul_high_u32x4(qsl3, qsr3));
+    vector_field_detail::bb_vf_barrier_sqq(pc6, pc6_lo, pc6_hi);
     pc6 += ssl4 * ssr2;
     pc6_lo = wasm_i64x2_add(pc6_lo, wasm_u64x2_extmul_low_u32x4(qsl4, qsr2));
     pc6_hi = wasm_i64x2_add(pc6_hi, wasm_u64x2_extmul_high_u32x4(qsl4, qsr2));
+    vector_field_detail::bb_vf_barrier_sqq(pc6, pc6_lo, pc6_hi);
 
     // pc7 = sl3*sr4 + sl4*sr3
     uint64_t pc7 = ssl3 * ssr4;
     v128_t pc7_lo = wasm_u64x2_extmul_low_u32x4(qsl3, qsr4);
     v128_t pc7_hi = wasm_u64x2_extmul_high_u32x4(qsl3, qsr4);
+    vector_field_detail::bb_vf_barrier_sqq(pc7, pc7_lo, pc7_hi);
     pc7 += ssl4 * ssr3;
     pc7_lo = wasm_i64x2_add(pc7_lo, wasm_u64x2_extmul_low_u32x4(qsl4, qsr3));
     pc7_hi = wasm_i64x2_add(pc7_hi, wasm_u64x2_extmul_high_u32x4(qsl4, qsr3));
+    vector_field_detail::bb_vf_barrier_sqq(pc7, pc7_lo, pc7_hi);
 
     // pc8 = sl4*sr4
     uint64_t pc8 = ssl4 * ssr4;
     v128_t pc8_lo = wasm_u64x2_extmul_low_u32x4(qsl4, qsr4);
     v128_t pc8_hi = wasm_u64x2_extmul_high_u32x4(qsl4, qsr4);
+    vector_field_detail::bb_vf_barrier_sqq(pc8, pc8_lo, pc8_hi);
 
     // ============================================================
     // Stage 5: Combine into temp_0..temp_16.
@@ -1160,16 +1351,24 @@ template <class Params>
     const v128_t mask29_i64x2 = wasm_i64x2_splat(0x1fffffff);
     const v128_t mask29_i32x4 = wasm_i32x4_splat(0x1fffffff);
 
-    // r_inv splats (i32x4) — compile-time constants.
-    const v128_t r_inv0 = wasm_i32x4_splat(static_cast<int32_t>(R_INV_WASM[0]));
-    const v128_t r_inv1 = wasm_i32x4_splat(static_cast<int32_t>(R_INV_WASM[1]));
-    const v128_t r_inv2 = wasm_i32x4_splat(static_cast<int32_t>(R_INV_WASM[2]));
-    const v128_t r_inv3 = wasm_i32x4_splat(static_cast<int32_t>(R_INV_WASM[3]));
-    const v128_t r_inv4 = wasm_i32x4_splat(static_cast<int32_t>(R_INV_WASM[4]));
-    const v128_t r_inv5 = wasm_i32x4_splat(static_cast<int32_t>(R_INV_WASM[5]));
-    const v128_t r_inv6 = wasm_i32x4_splat(static_cast<int32_t>(R_INV_WASM[6]));
-    const v128_t r_inv7 = wasm_i32x4_splat(static_cast<int32_t>(R_INV_WASM[7]));
-    const v128_t r_inv8 = wasm_i32x4_splat(static_cast<int32_t>(R_INV_WASM[8]));
+    // r_inv splats (i32x4). These are what the Yuval reductions multiply km_q
+    // by. Marked volatile-via-asm-barrier so LLVM keeps them as i32x4 locals
+    // (like the gist's WAT's `local.get $K32_...` pattern) instead of folding
+    // them into i64x2 pre-extended constants. Without the barriers, LLVM
+    // emits slow `i64x2.mul` against a pre-extended i64x2 constant; with the
+    // barriers, LLVM is forced to use `i64x2.extmul_low/high_i32x4_u`
+    // (pmuludq), which is ~3-5× faster on Zen3/V8.
+    v128_t r_inv0 = wasm_i32x4_splat(static_cast<int32_t>(R_INV_WASM[0]));
+    v128_t r_inv1 = wasm_i32x4_splat(static_cast<int32_t>(R_INV_WASM[1]));
+    v128_t r_inv2 = wasm_i32x4_splat(static_cast<int32_t>(R_INV_WASM[2]));
+    v128_t r_inv3 = wasm_i32x4_splat(static_cast<int32_t>(R_INV_WASM[3]));
+    v128_t r_inv4 = wasm_i32x4_splat(static_cast<int32_t>(R_INV_WASM[4]));
+    v128_t r_inv5 = wasm_i32x4_splat(static_cast<int32_t>(R_INV_WASM[5]));
+    v128_t r_inv6 = wasm_i32x4_splat(static_cast<int32_t>(R_INV_WASM[6]));
+    v128_t r_inv7 = wasm_i32x4_splat(static_cast<int32_t>(R_INV_WASM[7]));
+    v128_t r_inv8 = wasm_i32x4_splat(static_cast<int32_t>(R_INV_WASM[8]));
+    asm volatile("" : "+r"(r_inv0), "+r"(r_inv1), "+r"(r_inv2), "+r"(r_inv3), "+r"(r_inv4));
+    asm volatile("" : "+r"(r_inv5), "+r"(r_inv6), "+r"(r_inv7), "+r"(r_inv8));
 
     // Macro-expanded Yuval reduction for one "lo" position. Scalar then quad.
     //
@@ -1177,63 +1376,74 @@ template <class Params>
     // (each lane's low 29 bits). Then multiply by each r_inv[j] constant (i32x4
     // broadcast) using extmul_low/high to produce i64x2 partials, accumulate.
 
+// Yuval reduction step. For each position `lo`:
+//   km_q = (temp_lo & mask29) shuffled into i32x4 (takes low 32 bits of each
+//          i64x2 lane from tlo_lo/thi_lo)
+//   temp_{lo+1} += km_q * r_inv[0] + carry
+//   temp_{lo+k} += km_q * r_inv[k-1]   for k in 2..9
+//
+// IMPORTANT: the scalar/quad barriers after every partial-add prevent LLVM
+// from (a) reordering the scalar and quad streams across the iteration, and
+// (b) CSE-ing the `extend_low_u32x4(km_q)` subexpression — without the
+// barriers, LLVM extends km_q once to i64x2 then emits 9× slow `i64x2.mul`
+// instead of 9× fast `extmul_low/high_u32x4` (pmuludq).
 #define BB_VF_YUVAL_REDUCE(lo)                                                                                         \
     {                                                                                                                  \
-        /* Scalar */                                                                                                   \
         const uint64_t km_s = temp_##lo & MASK29;                                                                      \
         const uint64_t carry_s = temp_##lo >> 29;                                                                      \
-        /* Quad: mask and shuffle into i32x4 km */                                                                     \
-        const v128_t tlo_##lo##_m = wasm_v128_and(tlo_##lo, mask29_i64x2);                                             \
-        const v128_t thi_##lo##_m = wasm_v128_and(thi_##lo, mask29_i64x2);                                             \
-        const v128_t km_q = wasm_i8x16_shuffle(tlo_##lo##_m,                                                           \
-                                                thi_##lo##_m,                                                          \
-                                                0,                                                                     \
-                                                1,                                                                     \
-                                                2,                                                                     \
-                                                3,                                                                     \
-                                                8,                                                                     \
-                                                9,                                                                     \
-                                                10,                                                                    \
-                                                11,                                                                    \
-                                                16,                                                                    \
-                                                17,                                                                    \
-                                                18,                                                                    \
-                                                19,                                                                    \
-                                                24,                                                                    \
-                                                25,                                                                    \
-                                                26,                                                                    \
-                                                27);                                                                   \
-        const v128_t carry_q_lo = wasm_u64x2_shr(tlo_##lo, 29);                                                        \
-        const v128_t carry_q_hi = wasm_u64x2_shr(thi_##lo, 29);                                                        \
+        v128_t tlo_##lo##_m = wasm_v128_and(tlo_##lo, mask29_i64x2);                                                   \
+        v128_t thi_##lo##_m = wasm_v128_and(thi_##lo, mask29_i64x2);                                                   \
+        v128_t km_q = wasm_i8x16_shuffle(tlo_##lo##_m,                                                                 \
+                                          thi_##lo##_m,                                                                \
+                                          0, 1, 2, 3, 8, 9, 10, 11, 16, 17, 18, 19, 24, 25, 26, 27);                   \
+        v128_t carry_q_lo = wasm_u64x2_shr(tlo_##lo, 29);                                                              \
+        v128_t carry_q_hi = wasm_u64x2_shr(thi_##lo, 29);                                                              \
         temp_##lo##_plus1 += km_s * R_INV_WASM[0] + carry_s;                                                           \
         tlo_##lo##_plus1 = wasm_i64x2_add(wasm_i64x2_add(tlo_##lo##_plus1, wasm_u64x2_extmul_low_u32x4(km_q, r_inv0)), \
                                           carry_q_lo);                                                                 \
         thi_##lo##_plus1 = wasm_i64x2_add(wasm_i64x2_add(thi_##lo##_plus1, wasm_u64x2_extmul_high_u32x4(km_q, r_inv0)),\
                                           carry_q_hi);                                                                 \
+        vector_field_detail::bb_vf_barrier_sqq(temp_##lo##_plus1, tlo_##lo##_plus1, thi_##lo##_plus1);                 \
+        asm volatile("" : "+r"(km_q));                                                                                 \
         temp_##lo##_plus2 += km_s * R_INV_WASM[1];                                                                     \
         tlo_##lo##_plus2 = wasm_i64x2_add(tlo_##lo##_plus2, wasm_u64x2_extmul_low_u32x4(km_q, r_inv1));                \
         thi_##lo##_plus2 = wasm_i64x2_add(thi_##lo##_plus2, wasm_u64x2_extmul_high_u32x4(km_q, r_inv1));               \
+        vector_field_detail::bb_vf_barrier_sqq(temp_##lo##_plus2, tlo_##lo##_plus2, thi_##lo##_plus2);                 \
+        asm volatile("" : "+r"(km_q));                                                                                 \
         temp_##lo##_plus3 += km_s * R_INV_WASM[2];                                                                     \
         tlo_##lo##_plus3 = wasm_i64x2_add(tlo_##lo##_plus3, wasm_u64x2_extmul_low_u32x4(km_q, r_inv2));                \
         thi_##lo##_plus3 = wasm_i64x2_add(thi_##lo##_plus3, wasm_u64x2_extmul_high_u32x4(km_q, r_inv2));               \
+        vector_field_detail::bb_vf_barrier_sqq(temp_##lo##_plus3, tlo_##lo##_plus3, thi_##lo##_plus3);                 \
+        asm volatile("" : "+r"(km_q));                                                                                 \
         temp_##lo##_plus4 += km_s * R_INV_WASM[3];                                                                     \
         tlo_##lo##_plus4 = wasm_i64x2_add(tlo_##lo##_plus4, wasm_u64x2_extmul_low_u32x4(km_q, r_inv3));                \
         thi_##lo##_plus4 = wasm_i64x2_add(thi_##lo##_plus4, wasm_u64x2_extmul_high_u32x4(km_q, r_inv3));               \
+        vector_field_detail::bb_vf_barrier_sqq(temp_##lo##_plus4, tlo_##lo##_plus4, thi_##lo##_plus4);                 \
+        asm volatile("" : "+r"(km_q));                                                                                 \
         temp_##lo##_plus5 += km_s * R_INV_WASM[4];                                                                     \
         tlo_##lo##_plus5 = wasm_i64x2_add(tlo_##lo##_plus5, wasm_u64x2_extmul_low_u32x4(km_q, r_inv4));                \
         thi_##lo##_plus5 = wasm_i64x2_add(thi_##lo##_plus5, wasm_u64x2_extmul_high_u32x4(km_q, r_inv4));               \
+        vector_field_detail::bb_vf_barrier_sqq(temp_##lo##_plus5, tlo_##lo##_plus5, thi_##lo##_plus5);                 \
+        asm volatile("" : "+r"(km_q));                                                                                 \
         temp_##lo##_plus6 += km_s * R_INV_WASM[5];                                                                     \
         tlo_##lo##_plus6 = wasm_i64x2_add(tlo_##lo##_plus6, wasm_u64x2_extmul_low_u32x4(km_q, r_inv5));                \
         thi_##lo##_plus6 = wasm_i64x2_add(thi_##lo##_plus6, wasm_u64x2_extmul_high_u32x4(km_q, r_inv5));               \
+        vector_field_detail::bb_vf_barrier_sqq(temp_##lo##_plus6, tlo_##lo##_plus6, thi_##lo##_plus6);                 \
+        asm volatile("" : "+r"(km_q));                                                                                 \
         temp_##lo##_plus7 += km_s * R_INV_WASM[6];                                                                     \
         tlo_##lo##_plus7 = wasm_i64x2_add(tlo_##lo##_plus7, wasm_u64x2_extmul_low_u32x4(km_q, r_inv6));                \
         thi_##lo##_plus7 = wasm_i64x2_add(thi_##lo##_plus7, wasm_u64x2_extmul_high_u32x4(km_q, r_inv6));               \
+        vector_field_detail::bb_vf_barrier_sqq(temp_##lo##_plus7, tlo_##lo##_plus7, thi_##lo##_plus7);                 \
+        asm volatile("" : "+r"(km_q));                                                                                 \
         temp_##lo##_plus8 += km_s * R_INV_WASM[7];                                                                     \
         tlo_##lo##_plus8 = wasm_i64x2_add(tlo_##lo##_plus8, wasm_u64x2_extmul_low_u32x4(km_q, r_inv7));                \
         thi_##lo##_plus8 = wasm_i64x2_add(thi_##lo##_plus8, wasm_u64x2_extmul_high_u32x4(km_q, r_inv7));               \
+        vector_field_detail::bb_vf_barrier_sqq(temp_##lo##_plus8, tlo_##lo##_plus8, thi_##lo##_plus8);                 \
+        asm volatile("" : "+r"(km_q));                                                                                 \
         temp_##lo##_plus9 += km_s * R_INV_WASM[8];                                                                     \
         tlo_##lo##_plus9 = wasm_i64x2_add(tlo_##lo##_plus9, wasm_u64x2_extmul_low_u32x4(km_q, r_inv8));                \
         thi_##lo##_plus9 = wasm_i64x2_add(thi_##lo##_plus9, wasm_u64x2_extmul_high_u32x4(km_q, r_inv8));               \
+        vector_field_detail::bb_vf_barrier_sqq(temp_##lo##_plus9, tlo_##lo##_plus9, thi_##lo##_plus9);                 \
     }
 
     // Unrolled Yuval reductions for lo = 0..7. Need alias names for the macro.
@@ -1722,54 +1932,65 @@ template <class Params>
                                                     27);
         const v128_t rk_q = wasm_v128_and(wasm_i32x4_mul(t8_i32x4, rinv_splat), mask29_i32x4);
 
-        // p_splat constants
-        const v128_t p0_splat = wasm_i32x4_splat(static_cast<int32_t>(P_WASM[0]));
-        const v128_t p1_splat = wasm_i32x4_splat(static_cast<int32_t>(P_WASM[1]));
-        const v128_t p2_splat = wasm_i32x4_splat(static_cast<int32_t>(P_WASM[2]));
-        const v128_t p3_splat = wasm_i32x4_splat(static_cast<int32_t>(P_WASM[3]));
-        const v128_t p4_splat = wasm_i32x4_splat(static_cast<int32_t>(P_WASM[4]));
-        const v128_t p5_splat = wasm_i32x4_splat(static_cast<int32_t>(P_WASM[5]));
-        const v128_t p6_splat = wasm_i32x4_splat(static_cast<int32_t>(P_WASM[6]));
-        const v128_t p7_splat = wasm_i32x4_splat(static_cast<int32_t>(P_WASM[7]));
-        const v128_t p8_splat = wasm_i32x4_splat(static_cast<int32_t>(P_WASM[8]));
+        // p_splat constants (i32x4 with asm barrier — see r_inv comment above).
+        v128_t p0_splat = wasm_i32x4_splat(static_cast<int32_t>(P_WASM[0]));
+        v128_t p1_splat = wasm_i32x4_splat(static_cast<int32_t>(P_WASM[1]));
+        v128_t p2_splat = wasm_i32x4_splat(static_cast<int32_t>(P_WASM[2]));
+        v128_t p3_splat = wasm_i32x4_splat(static_cast<int32_t>(P_WASM[3]));
+        v128_t p4_splat = wasm_i32x4_splat(static_cast<int32_t>(P_WASM[4]));
+        v128_t p5_splat = wasm_i32x4_splat(static_cast<int32_t>(P_WASM[5]));
+        v128_t p6_splat = wasm_i32x4_splat(static_cast<int32_t>(P_WASM[6]));
+        v128_t p7_splat = wasm_i32x4_splat(static_cast<int32_t>(P_WASM[7]));
+        v128_t p8_splat = wasm_i32x4_splat(static_cast<int32_t>(P_WASM[8]));
+        asm volatile("" : "+r"(p0_splat), "+r"(p1_splat), "+r"(p2_splat), "+r"(p3_splat), "+r"(p4_splat));
+        asm volatile("" : "+r"(p5_splat), "+r"(p6_splat), "+r"(p7_splat), "+r"(p8_splat));
 
         temp_8 += rk_s * P_WASM[0];
         tlo_8 = wasm_i64x2_add(tlo_8, wasm_u64x2_extmul_low_u32x4(rk_q, p0_splat));
         thi_8 = wasm_i64x2_add(thi_8, wasm_u64x2_extmul_high_u32x4(rk_q, p0_splat));
+        vector_field_detail::bb_vf_barrier_sqq(temp_8, tlo_8, thi_8);
 
         temp_9 += rk_s * P_WASM[1] + (temp_8 >> 29);
         tlo_9 = wasm_i64x2_add(wasm_i64x2_add(tlo_9, wasm_u64x2_extmul_low_u32x4(rk_q, p1_splat)),
                                wasm_u64x2_shr(tlo_8, 29));
         thi_9 = wasm_i64x2_add(wasm_i64x2_add(thi_9, wasm_u64x2_extmul_high_u32x4(rk_q, p1_splat)),
                                wasm_u64x2_shr(thi_8, 29));
+        vector_field_detail::bb_vf_barrier_sqq(temp_9, tlo_9, thi_9);
 
         temp_10 += rk_s * P_WASM[2];
         tlo_10 = wasm_i64x2_add(tlo_10, wasm_u64x2_extmul_low_u32x4(rk_q, p2_splat));
         thi_10 = wasm_i64x2_add(thi_10, wasm_u64x2_extmul_high_u32x4(rk_q, p2_splat));
+        vector_field_detail::bb_vf_barrier_sqq(temp_10, tlo_10, thi_10);
 
         temp_11 += rk_s * P_WASM[3];
         tlo_11 = wasm_i64x2_add(tlo_11, wasm_u64x2_extmul_low_u32x4(rk_q, p3_splat));
         thi_11 = wasm_i64x2_add(thi_11, wasm_u64x2_extmul_high_u32x4(rk_q, p3_splat));
+        vector_field_detail::bb_vf_barrier_sqq(temp_11, tlo_11, thi_11);
 
         temp_12 += rk_s * P_WASM[4];
         tlo_12 = wasm_i64x2_add(tlo_12, wasm_u64x2_extmul_low_u32x4(rk_q, p4_splat));
         thi_12 = wasm_i64x2_add(thi_12, wasm_u64x2_extmul_high_u32x4(rk_q, p4_splat));
+        vector_field_detail::bb_vf_barrier_sqq(temp_12, tlo_12, thi_12);
 
         temp_13 += rk_s * P_WASM[5];
         tlo_13 = wasm_i64x2_add(tlo_13, wasm_u64x2_extmul_low_u32x4(rk_q, p5_splat));
         thi_13 = wasm_i64x2_add(thi_13, wasm_u64x2_extmul_high_u32x4(rk_q, p5_splat));
+        vector_field_detail::bb_vf_barrier_sqq(temp_13, tlo_13, thi_13);
 
         temp_14 += rk_s * P_WASM[6];
         tlo_14 = wasm_i64x2_add(tlo_14, wasm_u64x2_extmul_low_u32x4(rk_q, p6_splat));
         thi_14 = wasm_i64x2_add(thi_14, wasm_u64x2_extmul_high_u32x4(rk_q, p6_splat));
+        vector_field_detail::bb_vf_barrier_sqq(temp_14, tlo_14, thi_14);
 
         temp_15 += rk_s * P_WASM[7];
         tlo_15 = wasm_i64x2_add(tlo_15, wasm_u64x2_extmul_low_u32x4(rk_q, p7_splat));
         thi_15 = wasm_i64x2_add(thi_15, wasm_u64x2_extmul_high_u32x4(rk_q, p7_splat));
+        vector_field_detail::bb_vf_barrier_sqq(temp_15, tlo_15, thi_15);
 
         temp_16 += rk_s * P_WASM[8];
         tlo_16 = wasm_i64x2_add(tlo_16, wasm_u64x2_extmul_low_u32x4(rk_q, p8_splat));
         thi_16 = wasm_i64x2_add(thi_16, wasm_u64x2_extmul_high_u32x4(rk_q, p8_splat));
+        vector_field_detail::bb_vf_barrier_sqq(temp_16, tlo_16, thi_16);
     }
 
     // ============================================================
