@@ -90,9 +90,6 @@ export class CheckpointBuilder implements ICheckpointBlockBuilder {
       currentTime: new Date(this.dateProvider.now()),
     });
 
-    // Point the internal LightweightCheckpointBuilder at this block's fork.
-    this.checkpointBuilder.setDb(fork);
-
     const constants = this.checkpointBuilder.constants;
     const globalVariables = GlobalVariables.from({
       chainId: constants.chainId,
@@ -133,7 +130,7 @@ export class CheckpointBuilder implements ICheckpointBlockBuilder {
       await forkCheckpoint.commit();
 
       // Add block to checkpoint
-      const { block } = await this.checkpointBuilder.addBlock(globalVariables, processedTxs, {
+      const { block } = await this.checkpointBuilder.addBlock(fork, globalVariables, processedTxs, {
         expectedEndState: opts.expectedEndState,
       });
 
@@ -395,7 +392,6 @@ export class FullNodeCheckpointsBuilder implements ICheckpointsBuilder {
       feeAssetPriceModifier,
       l1ToL2Messages,
       previousCheckpointOutHashes,
-      fork,
       existingBlocks,
       bindings,
     );

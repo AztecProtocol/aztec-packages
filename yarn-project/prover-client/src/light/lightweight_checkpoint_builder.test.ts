@@ -113,7 +113,7 @@ describe('LightweightCheckpointBuilder', () => {
 
       // Build empty block
       const globalVariables = makeGlobalVariables(blockNumber, slotNumber);
-      const { block } = await checkpointBuilder.addBlock(globalVariables, [], { insertTxsEffects: true });
+      const { block } = await checkpointBuilder.addBlock(fork, globalVariables, [], { insertTxsEffects: true });
 
       expect(block.header.globalVariables.blockNumber).toEqual(blockNumber);
 
@@ -159,7 +159,7 @@ describe('LightweightCheckpointBuilder', () => {
       tx.txEffect.l2ToL1Msgs.push(...msgs);
 
       // Build block with tx - insertTxsEffects will handle inserting side effects
-      const { block } = await checkpointBuilder.addBlock(globalVariables, [tx], {
+      const { block } = await checkpointBuilder.addBlock(fork, globalVariables, [tx], {
         insertTxsEffects: true,
       });
 
@@ -206,7 +206,7 @@ describe('LightweightCheckpointBuilder', () => {
       const txs = await timesAsync(3, i => makeProcessedTx(globalVariables, 1000 + i));
 
       // Build block with txs - insertTxsEffects will handle inserting side effects
-      const { block } = await checkpointBuilder.addBlock(globalVariables, txs, {
+      const { block } = await checkpointBuilder.addBlock(fork, globalVariables, txs, {
         insertTxsEffects: true,
       });
 
@@ -252,7 +252,7 @@ describe('LightweightCheckpointBuilder', () => {
         const txs = await timesAsync(txsPerBlock, j => makeProcessedTx(globalVariables, 2000 + i * 10 + j));
 
         // Build block - insertTxsEffects will handle inserting side effects
-        const { block } = await checkpointBuilder.addBlock(globalVariables, txs, {
+        const { block } = await checkpointBuilder.addBlock(fork, globalVariables, txs, {
           insertTxsEffects: true,
         });
 
@@ -320,13 +320,13 @@ describe('LightweightCheckpointBuilder', () => {
       // Add first block with txs - insertTxsEffects will handle inserting side effects
       const globalVariables1 = makeGlobalVariables(BlockNumber(1), slotNumber);
       const txs1 = await timesAsync(2, i => makeProcessedTx(globalVariables1, 3000 + i));
-      await checkpointBuilder.addBlock(globalVariables1, txs1, {
+      await checkpointBuilder.addBlock(fork, globalVariables1, txs1, {
         insertTxsEffects: true,
       });
 
       // Try to add second block with no txs - this should fail
       const globalVariables2 = makeGlobalVariables(BlockNumber(2), slotNumber);
-      await expect(checkpointBuilder.addBlock(globalVariables2, [], { insertTxsEffects: true })).rejects.toThrow(
+      await expect(checkpointBuilder.addBlock(fork, globalVariables2, [], { insertTxsEffects: true })).rejects.toThrow(
         /first block/,
       );
 
@@ -356,7 +356,7 @@ describe('LightweightCheckpointBuilder', () => {
       const wrongBlockNumber = BlockNumber(5);
       const globalVariables = makeGlobalVariables(wrongBlockNumber, slotNumber);
 
-      await expect(checkpointBuilder.addBlock(globalVariables, [], { insertTxsEffects: true })).rejects.toThrow(
+      await expect(checkpointBuilder.addBlock(fork, globalVariables, [], { insertTxsEffects: true })).rejects.toThrow(
         /Archive tree next leaf index mismatch/,
       );
 
