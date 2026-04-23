@@ -20,7 +20,7 @@ import {Timestamp} from "@aztec/shared/libraries/TimeMath.sol";
 
 library TestConstants {
   uint256 internal constant ETHEREUM_SLOT_DURATION = 12;
-  uint256 internal constant AZTEC_SLOT_DURATION = 36;
+  uint256 internal constant AZTEC_SLOT_DURATION = 72;
   uint256 internal constant AZTEC_EPOCH_DURATION = 32;
   uint256 internal constant AZTEC_TARGET_COMMITTEE_SIZE = 48;
   uint256 internal constant AZTEC_LAG_IN_EPOCHS_FOR_VALIDATOR_SET = 3;
