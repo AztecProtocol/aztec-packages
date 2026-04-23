@@ -120,26 +120,15 @@ export interface TXESessionStateHandler {
   getCurrentJob(): string;
 
   /**
-   * Resets state associated with the last top-level call: clears the offchain effect buffer and the stored context
-   * (tx hash + anchor block timestamp).
+   * Runs an executor-style top-level call (private/public call, utility execution) with last-call tracking.
    */
-  resetLastCall(): void;
+  withTopLevelCallTracking<T>(work: () => Promise<{ result: T; txHash?: Fr }>): Promise<T>;
 
   /**
    * Captures a raw offchain effect payload for consumption from test environment. Called by the `emit_offchain_effect`
    * oracle handler whenever a contract function emits an offchain message, at any call depth.
    */
   recordOffchainEffect(data: Fr[]): void;
-
-  /**
-   * Records the tx hash and anchor block timestamp of the last top-level call. Called by the call executor handlers
-   * after execution completes. Refreshed on every top-level call, independently of whether the call produced offchain
-   * effects.
-   *
-   * For top-level entry points that don't produce a tx (e.g. context setters, `execute_utility`), pass `Fr.ZERO` for
-   * `txHash` to indicate "tx-less".
-   */
-  setLastCallContext(txHash: Fr, anchorBlockTimestamp: bigint): void;
 
   /**
    * Returns the raw offchain effect payloads emitted by the last top-level call. Each payload follows the protocol
@@ -346,7 +335,7 @@ export class TXESession implements TXESessionStateHandler {
     return this.currentJobId;
   }
 
-  resetLastCall(): void {
+  private resetLastCall(): void {
     const notQueriedMessageCount = this.lastCallInfo.queried
       ? 0
       : this.lastCallInfo.offchainEffects.filter(payload => payload[0]?.equals(OFFCHAIN_MESSAGE_IDENTIFIER)).length;
@@ -365,9 +354,19 @@ export class TXESession implements TXESessionStateHandler {
     this.lastCallInfo.offchainEffects.push(data);
   }
 
-  setLastCallContext(txHash: Fr, anchorBlockTimestamp: bigint): void {
+  private setLastCallContext(txHash: Fr, anchorBlockTimestamp: bigint): void {
     this.lastCallInfo.txHash = txHash;
     this.lastCallInfo.anchorBlockTimestamp = anchorBlockTimestamp;
+  }
+
+  async withTopLevelCallTracking<T>(work: () => Promise<{ result: T; txHash?: Fr }>): Promise<T> {
+    this.resetLastCall();
+    // Capture the anchor *before* `work` runs: private/public executor calls mine a new block as a
+    // side effect, and that block's timestamp should not be attributed to this call's anchor.
+    const anchorBlockTimestamp = (await this.stateMachine.node.getBlockHeader('latest'))!.globalVariables.timestamp;
+    const { result, txHash } = await work();
+    this.setLastCallContext(txHash ?? Fr.ZERO, anchorBlockTimestamp);
+    return result;
   }
 
   getLastCallOffchainEffects(): { effects: Fr[][] } {
@@ -433,6 +432,7 @@ export class TXESession implements TXESessionStateHandler {
     anchorBlockNumber?: BlockNumber,
   ): Promise<PrivateContextInputs> {
     this.exitTopLevelState();
+    this.resetLastCall();
 
     // Private execution has two associated block numbers: the anchor block (i.e. the historical block that is used to
     // build the proof), and the *next* block, i.e. the one we'll create once the execution ends, and which will contain
@@ -494,17 +494,22 @@ export class TXESession implements TXESessionStateHandler {
     this.state = { name: 'PRIVATE', nextBlockGlobalVariables, noteCache, taggingIndexCache };
     this.logger.debug(`Entered state ${this.state.name}`);
 
+    // Record the *resolved* anchor's timestamp — if the caller pinned the anchor to a past block
+    // via `anchorBlockNumber`, "latest" would be the wrong anchor for offchain-message semantics.
+    this.setLastCallContext(Fr.ZERO, anchorBlock!.globalVariables.timestamp);
+
     return (this.oracleHandler as PrivateExecutionOracle).getPrivateContextInputs();
   }
 
   async enterPublicState(contractAddress?: AztecAddress) {
     this.exitTopLevelState();
+    this.resetLastCall();
 
     // The PublicContext will create a block with a single transaction in it, containing the effects of what was done in
     // the test. The block therefore gets the *next* block number and timestamp.
-    const latestBlockNumber = (await this.stateMachine.node.getBlockHeader('latest'))!.globalVariables.blockNumber;
+    const latestHeader = (await this.stateMachine.node.getBlockHeader('latest'))!;
     const globalVariables = makeGlobalVariables(undefined, {
-      blockNumber: BlockNumber(latestBlockNumber + 1),
+      blockNumber: BlockNumber(latestHeader.globalVariables.blockNumber + 1),
       timestamp: this.nextBlockTimestamp,
       version: this.version,
       chainId: this.chainId,
@@ -519,10 +524,14 @@ export class TXESession implements TXESessionStateHandler {
 
     this.state = { name: 'PUBLIC' };
     this.logger.debug(`Entered state ${this.state.name}`);
+
+    // Public state is anchored at the latest block.
+    this.setLastCallContext(Fr.ZERO, latestHeader.globalVariables.timestamp);
   }
 
   async enterUtilityState(contractAddress: AztecAddress = DEFAULT_ADDRESS) {
     this.exitTopLevelState();
+    this.resetLastCall();
 
     const anchorBlockHeader = await this.stateMachine.anchorBlockStore.getBlockHeader();
 
@@ -561,6 +570,9 @@ export class TXESession implements TXESessionStateHandler {
 
     this.state = { name: 'UTILITY' };
     this.logger.debug(`Entered state ${this.state.name}`);
+
+    // Utility state anchors at whatever the anchor block store is pointing to (tracked as latest).
+    this.setLastCallContext(Fr.ZERO, anchorBlockHeader.globalVariables.timestamp);
   }
 
   private exitTopLevelState() {

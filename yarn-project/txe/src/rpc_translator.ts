@@ -102,26 +102,6 @@ export class RPCTranslator {
     return this.oracleHandler;
   }
 
-  /**
-   * Resets call context session recording to initial state
-   */
-  private async resetLastCallContext(): Promise<void> {
-    this.stateHandler.resetLastCall();
-    const anchorBlockTimestamp = await this.handlerAsTxe().getLastBlockTimestamp();
-    this.stateHandler.setLastCallContext(Fr.ZERO, anchorBlockTimestamp);
-  }
-
-  /**
-   * Runs a call that may yield a txHash, capturing the context of the call in the session state handler for future usage.
-   */
-  private async captureCallContext<T>(work: () => Promise<{ result: T; txHash?: Fr }>): Promise<T> {
-    this.stateHandler.resetLastCall();
-    const anchorBlockTimestamp = await this.handlerAsTxe().getLastBlockTimestamp();
-    const { result, txHash } = await work();
-    this.stateHandler.setLastCallContext(txHash ?? Fr.ZERO, anchorBlockTimestamp);
-    return result;
-  }
-
   // TXE session state transition functions - these get handled by the state handler
 
   // eslint-disable-next-line camelcase
@@ -138,8 +118,6 @@ export class RPCTranslator {
     foreignAnchorBlockNumberIsSome: ForeignCallSingle,
     foreignAnchorBlockNumberValue: ForeignCallSingle,
   ) {
-    await this.resetLastCallContext();
-
     const contractAddress = fromSingle(foreignContractAddressIsSome).toBool()
       ? AztecAddress.fromField(fromSingle(foreignContractAddressValue))
       : undefined;
@@ -158,8 +136,6 @@ export class RPCTranslator {
     foreignContractAddressIsSome: ForeignCallSingle,
     foreignContractAddressValue: ForeignCallSingle,
   ) {
-    await this.resetLastCallContext();
-
     const contractAddress = fromSingle(foreignContractAddressIsSome).toBool()
       ? AztecAddress.fromField(fromSingle(foreignContractAddressValue))
       : undefined;
@@ -174,8 +150,6 @@ export class RPCTranslator {
     foreignContractAddressIsSome: ForeignCallSingle,
     foreignContractAddressValue: ForeignCallSingle,
   ) {
-    await this.resetLastCallContext();
-
     const contractAddress = fromSingle(foreignContractAddressIsSome).toBool()
       ? AztecAddress.fromField(fromSingle(foreignContractAddressValue))
       : undefined;
@@ -1352,7 +1326,7 @@ export class RPCTranslator {
     const argsHash = fromSingle(foreignArgsHash);
     const isStaticCall = fromSingle(foreignIsStaticCall).toBool();
 
-    const returnValues = await this.captureCallContext(async () => {
+    const returnValues = await this.stateHandler.withTopLevelCallTracking(async () => {
       const { returnValues, offchainEffects } = await this.handlerAsTxe().privateCallNewFlow(
         from,
         targetContractAddress,
@@ -1397,7 +1371,7 @@ export class RPCTranslator {
     const functionSelector = FunctionSelector.fromField(fromSingle(foreignFunctionSelector));
     const args = fromArray(foreignArgs);
 
-    const returnValues = await this.captureCallContext(async () => {
+    const returnValues = await this.stateHandler.withTopLevelCallTracking(async () => {
       const returnValues = await this.handlerAsTxe().executeUtilityFunction(
         targetContractAddress,
         functionSelector,
@@ -1426,7 +1400,7 @@ export class RPCTranslator {
     const calldata = fromArray(foreignCalldata);
     const isStaticCall = fromSingle(foreignIsStaticCall).toBool();
 
-    const returnValues = await this.captureCallContext(async () => {
+    const returnValues = await this.stateHandler.withTopLevelCallTracking(async () => {
       const returnValues = await this.handlerAsTxe().publicCallNewFlow(from, address, calldata, isStaticCall);
 
       // TODO(F-335): Avoid doing the following call here.

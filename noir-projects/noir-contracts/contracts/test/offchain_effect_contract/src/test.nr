@@ -1,8 +1,9 @@
 use crate::OffchainEffect;
 
 use aztec::{
-    messages::encoding::MESSAGE_CIPHERTEXT_LEN, protocol::address::AztecAddress,
-    test::helpers::test_environment::TestEnvironment,
+    messages::{encoding::MESSAGE_CIPHERTEXT_LEN, offchain_messages::deliver_offchain_message},
+    protocol::address::AztecAddress,
+    test::helpers::test_environment::{PrivateContextOptions, TestEnvironment},
 };
 
 unconstrained fn setup() -> (TestEnvironment, AztecAddress, AztecAddress) {
@@ -45,4 +46,31 @@ unconstrained fn static_call_offchain_message_has_no_tx_hash() {
     // view is run after a regular private call. Note `tx_hash` was *some value* before the static call, and now is
     // none.
     assert(view_messages.get(0).tx_hash.is_none());
+}
+
+/// TXE regression test: when a private context is entered with a user-supplied `anchor_block_number`,
+/// offchain messages emitted during that context must carry the timestamp of the *anchor* block,
+/// not the latest block.
+#[test]
+unconstrained fn private_context_offchain_message_uses_anchor_block_timestamp() {
+    let (env, _, caller) = setup();
+
+    env.mine_block();
+    let anchor_block_number = env.last_block_number();
+    let anchor_timestamp = env.last_block_timestamp();
+
+    env.advance_next_block_timestamp_by(1000);
+    env.mine_block();
+    let latest_timestamp = env.last_block_timestamp();
+    assert(latest_timestamp != anchor_timestamp);
+
+    env.private_context_opts(
+        PrivateContextOptions::new().at_anchor_block_number(anchor_block_number),
+        |_context| deliver_offchain_message(dummy_ciphertext(), caller),
+    );
+
+    let messages = env.offchain_messages();
+    assert(messages.len() == 1);
+    assert(messages.get(0).anchor_block_timestamp == anchor_timestamp);
+    assert(messages.get(0).anchor_block_timestamp != latest_timestamp);
 }
