@@ -5,8 +5,8 @@
 #include <cstdint>
 #include <vector>
 
+#include "barretenberg/aztec/aztec_constants.hpp"
 #include "barretenberg/common/serialize.hpp"
-#include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/common/instruction_spec.hpp"
 #include "barretenberg/vm2/common/opcodes.hpp"

@@ -9,6 +9,24 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
+### [CLI] `aztec-up` no longer exposes transitive npm bins on PATH
+
+The `aztec-up` installer used to add `$HOME/.aztec/current/node_modules/.bin` to your shell `PATH`, which put ~40 transitive npm bins (`jest`, `tsc`, `tsserver`, `semver`, `uuid`, `json5`, ...) onto your interactive shell and silently shadowed your own installed versions of those tools. Only the seven `@aztec/*`-owned bins (`aztec`, `aztec-wallet`, `bb`, `bb-cli`, `blob-client`, `noir-codegen`, `txe`) are now exposed.
+
+If you had an Aztec version installed before this release, your shell profile (`~/.bashrc` or `~/.zshrc`) still contains the old `PATH` line. Re-run the installer once (replacing `[VERSION]` with whichever toolchain version you're on, e.g. `4.2.0`) to replace it:
+
+```bash
+VERSION=[VERSION] bash -i <(curl -sL https://install.aztec.network)
+```
+
+Open a fresh shell and confirm the leak is gone:
+
+```bash
+echo $PATH
+```
+
+`$HOME/.aztec/current/node_modules/.bin` should no longer appear in the output. You'll also see your own `jest`, `tsc`, etc. again instead of the ones bundled with the Aztec toolchain.
+
 ### [Protocol] Domain separators introduced for merkle-node, block-headers, and blob hashes
 
 Several protocol hashes that previously used bare `poseidon2_hash` are now domain-separated via `poseidon2_hash_with_separator`. This is a security hardening change — it prevents a value produced by one hash context from being reinterpreted in another (e.g. a sibling path from one tree being transported to another).
