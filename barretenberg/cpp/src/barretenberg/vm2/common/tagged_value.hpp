@@ -6,8 +6,8 @@
 #include <string>
 #include <variant>
 
+#include "barretenberg/aztec/aztec_constants.hpp"
 #include "barretenberg/numeric/uint128/uint128.hpp"
-#include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/common/uint1.hpp"
 

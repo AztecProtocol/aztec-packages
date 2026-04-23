@@ -30,10 +30,7 @@ namespace bb {
  *
  */
 template <typename FF, typename Relation, typename Polynomials, bool UseMultithreading = false>
-void compute_logderivative_inverse(Polynomials& polynomials,
-                                   auto& relation_parameters,
-                                   const size_t circuit_size,
-                                   const size_t start_index = 0)
+void compute_logderivative_inverse(Polynomials& polynomials, auto& relation_parameters, const size_t start_index = 0)
 {
     using Accumulator = typename Relation::ValueAccumulator0;
     constexpr size_t NUM_LOOKUP_TERMS = Relation::NUM_LOOKUP_TERMS;
@@ -41,7 +38,6 @@ void compute_logderivative_inverse(Polynomials& polynomials,
 
     auto& inverse_polynomial = Relation::get_inverse_polynomial(polynomials);
     const size_t offset = std::max(inverse_polynomial.start_index(), start_index);
-    const size_t num_rows = circuit_size - offset;
     // Clamp to the polynomial's actual (non-virtual) data extent; beyond end_index() everything is virtual zero.
     const size_t actual_size = inverse_polynomial.end_index() > offset ? inverse_polynomial.end_index() - offset : 0;
     const auto compute_inverses = [&](size_t start, size_t end) {
@@ -66,19 +62,16 @@ void compute_logderivative_inverse(Polynomials& polynomials,
             });
             inverse_polynomial.at(row_idx) = denominator;
         }
-        // Batch invert only the range we wrote to, clamped to actual (non-virtual) data
-        const size_t clamped_start = std::min(start, actual_size);
-        const size_t clamped_end = std::min(end, actual_size);
-        if (clamped_start < clamped_end) {
-            FF* ffstart = &inverse_polynomial.data()[clamped_start + offset - inverse_polynomial.start_index()];
-            std::span<FF> to_invert(ffstart, clamped_end - clamped_start);
+        if (start < end) {
+            FF* ffstart = &inverse_polynomial.data()[start + offset - inverse_polynomial.start_index()];
+            std::span<FF> to_invert(ffstart, end - start);
             // Note: zeroes are ignored as they are not used anyway
             FF::batch_invert(to_invert);
         }
     };
     if constexpr (UseMultithreading) {
         parallel_for([&](const ThreadChunk& chunk) {
-            auto range = chunk.range(num_rows);
+            auto range = chunk.range(actual_size);
             if (!range.empty()) {
                 size_t start = *range.begin();
                 size_t end = start + range.size();
@@ -86,7 +79,7 @@ void compute_logderivative_inverse(Polynomials& polynomials,
             }
         });
     } else {
-        compute_inverses(0, num_rows);
+        compute_inverses(0, actual_size);
     }
 }
 
