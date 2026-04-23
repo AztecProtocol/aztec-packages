@@ -8,7 +8,7 @@ Each contract lives in `contracts/<case>/` with:
 
 - `Nargo.toml` — `type = "contract"`, depends on `aztec = { path = "../../../aztec-nr/aztec" }`.
 - `src/main.nr` — the intentionally invalid contract.
-- `expected_error` — one line per nargo `error:` headline (stripped of the `error: ` prefix), in emission order.
+- `expected_error` — one line per nargo `error:` headline (stripped of the `error: ` prefix), in emission order. An empty file means the contract is expected to compile successfully; see its `src/main.nr` doc comment for context.
 
 ### Running
 

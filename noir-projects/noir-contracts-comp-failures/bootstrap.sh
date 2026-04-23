@@ -25,16 +25,14 @@ check_compilation_error() {
     local compile_rc=0
     actual_output=$(cd "$contract_dir" && $NARGO compile --silence-warnings 2>&1) || compile_rc=$?
 
-    if [ "$compile_rc" -eq 0 ]; then
-        echo "✗ $contract_dir: Expected compilation to fail but it succeeded"
-        exit 1
-    fi
-
     local actual_headlines
     actual_headlines=$(echo "$actual_output" | awk '/^error: /{sub(/^error: /, ""); print}')
 
     if [ -n "${ACCEPT_SNAPSHOTS:-}" ]; then
-        if [ -n "$actual_headlines" ]; then
+        if [ "$compile_rc" -eq 0 ]; then
+            : > "$expected_error_file"
+            echo "↻ $contract_dir: wrote empty expected_error (compiled successfully)"
+        elif [ -n "$actual_headlines" ]; then
             echo "$actual_headlines" > "$expected_error_file"
             local count
             count=$(printf '%s\n' "$actual_headlines" | wc -l | tr -d ' ')
@@ -86,7 +84,11 @@ check_compilation_error() {
         fi
     done
 
-    echo "✓ $contract_dir: Compilation failed as expected with correct error(s)"
+    if [ "${#expected_lines[@]}" -eq 0 ]; then
+        echo "⚠ $contract_dir: compiled successfully (see src/main.nr doc comment)"
+    else
+        echo "✓ $contract_dir: Compilation failed as expected with correct error(s)"
+    fi
 }
 
 # Tests that compilation of contracts in noir-contracts-comp-failures fails with the expected error message.

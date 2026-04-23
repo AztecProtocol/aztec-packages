@@ -1,0 +1,1 @@
+Function 'foo' is marked as #[internal("utility")], but 'utility' is not a valid internal function type. Internal functions must be one of 'private', 'public'
