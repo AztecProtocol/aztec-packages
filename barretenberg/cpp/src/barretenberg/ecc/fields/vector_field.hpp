@@ -1108,32 +1108,51 @@ template <class Params>
     // Stage 3: sums  sl_i = l_i + l_{5+i}  for i in 0..3, sl_4 = l_4.
     // Same for sr. CRITICAL: must be i32x4 add (NOT i64x2), else carry bleeds
     // across lanes and breaks independence.
+    //
+    // Each qsl_i / qsr_i gets its own barrier so LLVM doesn't keep all 10
+    // simultaneously live across the 25 P_cross extmuls (which would force
+    // spill).
     // ============================================================
 
-    const uint64_t ssl0 = sl0 + sl5;
-    const v128_t qsl0 = wasm_i32x4_add(ql0, ql5);
-    const uint64_t ssr0 = sri0 + sri5;
-    const v128_t qsr0 = wasm_i32x4_add(qri0, qri5);
+    uint64_t ssl0 = sl0 + sl5;
+    v128_t qsl0 = wasm_i32x4_add(ql0, ql5);
+    uint64_t ssr0 = sri0 + sri5;
+    v128_t qsr0 = wasm_i32x4_add(qri0, qri5);
+    vector_field_detail::bb_vf_barrier_sq(ssl0, qsl0);
+    vector_field_detail::bb_vf_barrier_sq(ssr0, qsr0);
 
-    const uint64_t ssl1 = sl1 + sl6;
-    const v128_t qsl1 = wasm_i32x4_add(ql1, ql6);
-    const uint64_t ssr1 = sri1 + sri6;
-    const v128_t qsr1 = wasm_i32x4_add(qri1, qri6);
+    uint64_t ssl1 = sl1 + sl6;
+    v128_t qsl1 = wasm_i32x4_add(ql1, ql6);
+    uint64_t ssr1 = sri1 + sri6;
+    v128_t qsr1 = wasm_i32x4_add(qri1, qri6);
+    vector_field_detail::bb_vf_barrier_sq(ssl1, qsl1);
+    vector_field_detail::bb_vf_barrier_sq(ssr1, qsr1);
 
-    const uint64_t ssl2 = sl2 + sl7;
-    const v128_t qsl2 = wasm_i32x4_add(ql2, ql7);
-    const uint64_t ssr2 = sri2 + sri7;
-    const v128_t qsr2 = wasm_i32x4_add(qri2, qri7);
+    uint64_t ssl2 = sl2 + sl7;
+    v128_t qsl2 = wasm_i32x4_add(ql2, ql7);
+    uint64_t ssr2 = sri2 + sri7;
+    v128_t qsr2 = wasm_i32x4_add(qri2, qri7);
+    vector_field_detail::bb_vf_barrier_sq(ssl2, qsl2);
+    vector_field_detail::bb_vf_barrier_sq(ssr2, qsr2);
 
-    const uint64_t ssl3 = sl3 + sl8;
-    const v128_t qsl3 = wasm_i32x4_add(ql3, ql8);
-    const uint64_t ssr3 = sri3 + sri8;
-    const v128_t qsr3 = wasm_i32x4_add(qri3, qri8);
+    uint64_t ssl3 = sl3 + sl8;
+    v128_t qsl3 = wasm_i32x4_add(ql3, ql8);
+    uint64_t ssr3 = sri3 + sri8;
+    v128_t qsr3 = wasm_i32x4_add(qri3, qri8);
+    vector_field_detail::bb_vf_barrier_sq(ssl3, qsl3);
+    vector_field_detail::bb_vf_barrier_sq(ssr3, qsr3);
 
-    const uint64_t ssl4 = sl4;
-    const v128_t qsl4 = ql4;
-    const uint64_t ssr4 = sri4;
-    const v128_t qsr4 = qri4;
+    // Fix 3 — break the qsl4 == ql4 / qsr4 == qri4 alias so LLVM doesn't
+    // eliminate the sl4*sr4 extmul pair by rewriting it to l4*r4 and CSE-ing
+    // with the existing pl8 (= l4*r4). The barriers force qsl4 and qsr4 into
+    // distinct locals, which keeps pc8 emitted as its own extmul pair and
+    // recovers the 4 missing extmuls our previous WAT was dropping.
+    uint64_t ssl4 = sl4;
+    v128_t qsl4 = ql4;
+    uint64_t ssr4 = sri4;
+    v128_t qsr4 = qri4;
+    vector_field_detail::bb_vf_barrier_sq(ssl4, qsl4);
+    vector_field_detail::bb_vf_barrier_sq(ssr4, qsr4);
 
     // ============================================================
     // Stage 4: P_cross = sl * sr  (5x5 schoolbook, 25 muls)
@@ -1332,6 +1351,40 @@ template <class Params>
     uint64_t temp_16 = ph6;
     v128_t tlo_16 = ph6_lo;
     v128_t thi_16 = ph6_hi;
+
+    // ============================================================
+    // Stage 5.5: Break the live-range pileup between Stage 5 and Stage 6.
+    //
+    // At the Stage 5→6 boundary, all 17 `temp_*` v128 pairs (34 v128 values)
+    // are simultaneously live. LLVM's register allocator coalesces these into
+    // a small pool of locals, which forces V8 TurboFan to spill to stack
+    // because it only has 16 XMM registers. The gist's WAT gives each partial
+    // its OWN write-once-read-once local → short live ranges → fits in
+    // register.
+    //
+    // Force LLVM to refresh each temp by passing it through an
+    // `asm volatile("" : "+r"(x))` barrier. The "+r" constraint forces the
+    // compiler to treat the value as used & modified at that point, which
+    // gives each variable a fresh definition afterwards. Doing this for all
+    // 34 v128 values clears LLVM's liveness analysis state and lets the
+    // Yuval reductions schedule freely.
+    //
+    // We emit each barrier as a standalone asm volatile so LLVM cannot
+    // merge them or elide any of them.
+    asm volatile("" : "+r"(tlo_0), "+r"(thi_0), "+r"(tlo_1), "+r"(thi_1));
+    asm volatile("" : "+r"(tlo_2), "+r"(thi_2), "+r"(tlo_3), "+r"(thi_3));
+    asm volatile("" : "+r"(tlo_4), "+r"(thi_4), "+r"(tlo_5), "+r"(thi_5));
+    asm volatile("" : "+r"(tlo_6), "+r"(thi_6), "+r"(tlo_7), "+r"(thi_7));
+    asm volatile("" : "+r"(tlo_8), "+r"(thi_8), "+r"(tlo_9), "+r"(thi_9));
+    asm volatile("" : "+r"(tlo_10), "+r"(thi_10), "+r"(tlo_11), "+r"(thi_11));
+    asm volatile("" : "+r"(tlo_12), "+r"(thi_12), "+r"(tlo_13), "+r"(thi_13));
+    asm volatile("" : "+r"(tlo_14), "+r"(thi_14), "+r"(tlo_15), "+r"(thi_15));
+    asm volatile("" : "+r"(tlo_16), "+r"(thi_16));
+    asm volatile("" : "+r"(temp_0), "+r"(temp_1), "+r"(temp_2), "+r"(temp_3));
+    asm volatile("" : "+r"(temp_4), "+r"(temp_5), "+r"(temp_6), "+r"(temp_7));
+    asm volatile("" : "+r"(temp_8), "+r"(temp_9), "+r"(temp_10), "+r"(temp_11));
+    asm volatile("" : "+r"(temp_12), "+r"(temp_13), "+r"(temp_14), "+r"(temp_15));
+    asm volatile("" : "+r"(temp_16));
 
     // ============================================================
     // Stage 6: 8 x Yuval reductions.
