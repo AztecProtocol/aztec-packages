@@ -108,6 +108,22 @@ TYPED_TEST(PolynomialTests, evaluation_domain)
     EXPECT_EQ(domain.log2_size, 8UL);
 }
 
+// EvaluationDomain::operator=(EvaluationDomain&&) is a no-op under self-assignment and preserves
+// the precomputed round-roots tables.
+TYPED_TEST(PolynomialTests, EvaluationDomainMoveSelfAssign)
+{
+    using FF = TypeParam;
+    auto domain = EvaluationDomain<FF>(256);
+    domain.compute_lookup_table();
+    const size_t round_roots_before = domain.get_round_roots().size();
+    EXPECT_GT(round_roots_before, 0UL);
+
+    domain = std::move(domain);
+
+    EXPECT_EQ(domain.size, 256UL);
+    EXPECT_EQ(domain.get_round_roots().size(), round_roots_before);
+}
+
 TYPED_TEST(PolynomialTests, domain_roots)
 {
     using FF = TypeParam;
