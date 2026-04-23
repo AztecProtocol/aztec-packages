@@ -194,7 +194,8 @@ template <typename Flavor> class SumcheckProverRound {
      * @brief Shared chunk scheduler for dynamic work-stealing in the sumcheck prover's main loop.
      * @details Splits the edge range [start_edge_idx, end_edge_idx) into fixed-size chunks and hands them out via an
      * atomic counter. Workers call `pop()` in a loop; each call returns the next chunk to process (or nullopt when the
-     * range is exhausted). Spawns at most as many threads as there are chunks.
+     * range is exhausted). Spawns at most as many threads as there are chunks. Designed to balance thread-work by
+     * accounting for the non-uniform cost of relation algebra execution across different rows of the trace.
      */
     struct ChunkStealer {
         const size_t start_edge_idx;
@@ -246,11 +247,9 @@ template <typename Flavor> class SumcheckProverRound {
         // Compute the effective round size. If the trace is short, we don't need to iterate over the full round_size.
         const size_t effective_round_size = compute_effective_round_size(polynomials);
 
-        // The AVM trace is very non-uniform: some rows are dense while others are nearly empty.
-        // To balance the load, we break the trace into fixed-size chunks (rows_per_chunk rows)
-        // and hand them out dynamically to workers via the atomic thread pool: each worker
-        // atomically grabs the next chunk when it finishes the previous one.
-        ChunkStealer chunks{ excluded_head_size, effective_round_size, /*rows_per_chunk=*/16 };
+        // Prepare for work-stealing across chunks of edges
+        constexpr size_t rows_per_chunk = 16; // empirically chosen for good load balance in AVM
+        ChunkStealer chunks{ excluded_head_size, effective_round_size, rows_per_chunk };
 
         // One accumulator slot per outer task; each outer task's iteration index IS its slot.
         // No state is shared with other SumcheckProverRound invocations.
@@ -413,7 +412,8 @@ template <typename Flavor> class SumcheckProverRound {
             // dispatch to balance per-row cost variance from selector-gated relation skipping.
             // Short traces don't need to iterate over the zero tail of the polynomial.
             const size_t effective_round_size = compute_effective_round_size(polynomials);
-            ChunkStealer chunks{ excluded_head_size, effective_round_size, /*rows_per_chunk=*/64 };
+            constexpr size_t rows_per_chunk = 64; // empirically chosen for good load balance
+            ChunkStealer chunks{ excluded_head_size, effective_round_size, rows_per_chunk };
 
             // Construct univariate accumulator containers; one per slot.
             // Note: std::vector will trigger {}-initialization of the contents. Therefore no need to zero the
