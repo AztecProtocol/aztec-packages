@@ -109,6 +109,10 @@ if(CMAKE_SYSTEM_PROCESSOR MATCHES "wasm32")
     set(OMP_MULTITHREADING OFF)
     set(ENABLE_PAR_ALGOS 0)
     add_compile_definitions(_WASI_EMULATED_PROCESS_CLOCKS=1)
+    # Enable WebAssembly SIMD (v128 ops). Used by VectorField's quad stream
+    # and available on all modern WASM runtimes (V8, SpiderMonkey, WAMR, ...)
+    # since 2021. Defines `__wasm_simd128__` for headers that want to branch.
+    add_compile_options(-msimd128)
     if(ENABLE_WASM_BENCH)
         message(STATUS "Enabling WASM benchmarking support (ENABLE_WASM_BENCH)")
         add_compile_definitions(ENABLE_WASM_BENCH)
