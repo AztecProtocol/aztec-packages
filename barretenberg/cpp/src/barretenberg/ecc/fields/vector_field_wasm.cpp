@@ -510,7 +510,6 @@ VectorField<Bn254FrParams> VectorField<Bn254FrParams>::operator*(const VectorFie
     // ============================================================
 
     constexpr uint64_t MASK29 = 0x1fffffffULL;
-    const v128_t mask29_i64x2 = wasm_i64x2_splat(0x1fffffff);
     const v128_t mask29_i32x4 = wasm_i32x4_splat(0x1fffffff);
 
     // r_inv splats (i32x4). These are what the Yuval reductions multiply km_q
@@ -559,11 +558,19 @@ VectorField<Bn254FrParams> VectorField<Bn254FrParams>::operator*(const VectorFie
     {                                                                                                                  \
         const uint64_t km_s = temp_##lo & MASK29;                                                                      \
         const uint64_t carry_s = temp_##lo >> 29;                                                                      \
-        v128_t tlo_##lo##_m = wasm_v128_and(tlo_##lo, mask29_i64x2);                                                   \
-        v128_t thi_##lo##_m = wasm_v128_and(thi_##lo, mask29_i64x2);                                                   \
-        v128_t km_q = wasm_i8x16_shuffle(tlo_##lo##_m,                                                                 \
-                                          thi_##lo##_m,                                                                \
-                                          0, 1, 2, 3, 8, 9, 10, 11, 16, 17, 18, 19, 24, 25, 26, 27);                   \
+        /* Build km_q as i32x4. Shuffle first (packs low 32 bits of each i64x2 lane), */                               \
+        /* then mask to 29 bits. This saves one quad AND per Yuval: the old code masked */                             \
+        /* tlo and thi as i64x2 BEFORE the shuffle (2 ops), then shuffled (1 op). New */                               \
+        /* version shuffles (1 op), then ANDs the i32x4 result (1 op). Total 2 ops vs 3. */                            \
+        /* Correctness: `(x & 0xFFFFFFFF) & 0x1fffffff = x & 0x1fffffff`, so the */                                    \
+        /* shuffle-then-mask yields the same lane values as mask-then-shuffle. Unlike */                               \
+        /* Stage 7's rk_q (which only needs the final mod-2^29 of the product), Yuval's */                             \
+        /* km_q structurally requires the 29-bit mask because wasm_r_inv[j] is */                                      \
+        /* precomputed assuming k = temp_lo & MASK29. */                                                               \
+        v128_t km_q_raw = wasm_i8x16_shuffle(tlo_##lo,                                                                 \
+                                              thi_##lo,                                                                \
+                                              0, 1, 2, 3, 8, 9, 10, 11, 16, 17, 18, 19, 24, 25, 26, 27);               \
+        v128_t km_q = wasm_v128_and(km_q_raw, mask29_i32x4);                                                           \
         v128_t carry_q_lo = wasm_u64x2_shr(tlo_##lo, 29);                                                              \
         v128_t carry_q_hi = wasm_u64x2_shr(thi_##lo, 29);                                                              \
         temp_##lo##_plus1 += km_s * R_INV_WASM[0] + carry_s;                                                           \
@@ -576,7 +583,6 @@ VectorField<Bn254FrParams> VectorField<Bn254FrParams>::operator*(const VectorFie
         temp_##lo##_plus2 += km_s * R_INV_WASM[1];                                                                     \
         tlo_##lo##_plus2 = wasm_i64x2_add(tlo_##lo##_plus2, wasm_u64x2_extmul_low_u32x4(km_q, r_inv1));                \
         thi_##lo##_plus2 = wasm_i64x2_add(thi_##lo##_plus2, wasm_u64x2_extmul_high_u32x4(km_q, r_inv1));               \
-        vector_field_detail::bb_vf_barrier_sqq(temp_##lo##_plus2, tlo_##lo##_plus2, thi_##lo##_plus2);                 \
         asm volatile("" : "+r"(km_q));                                                                                                                                   \
         temp_##lo##_plus3 += km_s * R_INV_WASM[2];                                                                     \
         tlo_##lo##_plus3 = wasm_i64x2_add(tlo_##lo##_plus3, wasm_u64x2_extmul_low_u32x4(km_q, r_inv2));                \
@@ -586,7 +592,6 @@ VectorField<Bn254FrParams> VectorField<Bn254FrParams>::operator*(const VectorFie
         temp_##lo##_plus4 += km_s * R_INV_WASM[3];                                                                     \
         tlo_##lo##_plus4 = wasm_i64x2_add(tlo_##lo##_plus4, wasm_u64x2_extmul_low_u32x4(km_q, r_inv3));                \
         thi_##lo##_plus4 = wasm_i64x2_add(thi_##lo##_plus4, wasm_u64x2_extmul_high_u32x4(km_q, r_inv3));               \
-        vector_field_detail::bb_vf_barrier_sqq(temp_##lo##_plus4, tlo_##lo##_plus4, thi_##lo##_plus4);                 \
         asm volatile("" : "+r"(km_q));                                                                                                                                   \
         temp_##lo##_plus5 += km_s * R_INV_WASM[4];                                                                     \
         tlo_##lo##_plus5 = wasm_i64x2_add(tlo_##lo##_plus5, wasm_u64x2_extmul_low_u32x4(km_q, r_inv4));                \
@@ -596,7 +601,6 @@ VectorField<Bn254FrParams> VectorField<Bn254FrParams>::operator*(const VectorFie
         temp_##lo##_plus6 += km_s * R_INV_WASM[5];                                                                     \
         tlo_##lo##_plus6 = wasm_i64x2_add(tlo_##lo##_plus6, wasm_u64x2_extmul_low_u32x4(km_q, r_inv5));                \
         thi_##lo##_plus6 = wasm_i64x2_add(thi_##lo##_plus6, wasm_u64x2_extmul_high_u32x4(km_q, r_inv5));               \
-        vector_field_detail::bb_vf_barrier_sqq(temp_##lo##_plus6, tlo_##lo##_plus6, thi_##lo##_plus6);                 \
         asm volatile("" : "+r"(km_q));                                                                                                                                   \
         temp_##lo##_plus7 += km_s * R_INV_WASM[6];                                                                     \
         tlo_##lo##_plus7 = wasm_i64x2_add(tlo_##lo##_plus7, wasm_u64x2_extmul_low_u32x4(km_q, r_inv6));                \
@@ -606,7 +610,6 @@ VectorField<Bn254FrParams> VectorField<Bn254FrParams>::operator*(const VectorFie
         temp_##lo##_plus8 += km_s * R_INV_WASM[7];                                                                     \
         tlo_##lo##_plus8 = wasm_i64x2_add(tlo_##lo##_plus8, wasm_u64x2_extmul_low_u32x4(km_q, r_inv7));                \
         thi_##lo##_plus8 = wasm_i64x2_add(thi_##lo##_plus8, wasm_u64x2_extmul_high_u32x4(km_q, r_inv7));               \
-        vector_field_detail::bb_vf_barrier_sqq(temp_##lo##_plus8, tlo_##lo##_plus8, thi_##lo##_plus8);                 \
         asm volatile("" : "+r"(km_q));                                                                                                                                   \
         temp_##lo##_plus9 += km_s * R_INV_WASM[8];                                                                     \
         tlo_##lo##_plus9 = wasm_i64x2_add(tlo_##lo##_plus9, wasm_u64x2_extmul_low_u32x4(km_q, r_inv8));                \
@@ -1078,10 +1081,15 @@ VectorField<Bn254FrParams> VectorField<Bn254FrParams>::operator*(const VectorFie
         // Quad: rk = (temp_8_i32x4 * r_inv_mod_2_29) & mask29
         const v128_t rinv_splat = wasm_i32x4_splat(static_cast<int32_t>(R_INV_MOD_2_29));
         // Build temp_8 as i32x4 (take low 32 bits of each i64x2 lane).
-        const v128_t tlo_8_m = wasm_v128_and(tlo_8, mask29_i64x2);
-        const v128_t thi_8_m = wasm_v128_and(thi_8, mask29_i64x2);
-        const v128_t t8_i32x4 = wasm_i8x16_shuffle(tlo_8_m,
-                                                    thi_8_m,
+        // Correctness: `rk = (temp_8 * r_inv) mod 2^29` = `((temp_8 mod 2^32) *
+        // r_inv) mod 2^29`. So pre-masking tlo_8/thi_8 to 29 bits is redundant
+        // — the final `mask29_i32x4 AND` below clamps rk to 29 bits regardless
+        // of whether high bits were present in the shuffle input. Unlike Yuval
+        // (which structurally requires km = temp_lo & mask29 because it
+        // precomputes r_inv_wasm[i] assuming that), wasm_reduce only needs the
+        // final mod-2^29 of rk.
+        const v128_t t8_i32x4 = wasm_i8x16_shuffle(tlo_8,
+                                                    thi_8,
                                                     0,
                                                     1,
                                                     2,
@@ -1166,67 +1174,63 @@ VectorField<Bn254FrParams> VectorField<Bn254FrParams>::operator*(const VectorFie
 
     // ============================================================
     // Stage 8: Carry propagation temp_9..temp_16, out to temp_17.
+    //
+    // Optimization: defer the "strip low 29 bits" AND from each step to
+    // Stage 9. After `temp_{k+1} += temp_k >> 29`, temp_k retains its carry
+    // bits in positions 29..63. This is HARMLESS for the carry chain because:
+    //   - Step k+1 reads temp_{k+1} (not temp_k again). temp_{k+1}'s high
+    //     bits represent the correct accumulated carry to extract next.
+    //   - temp_k is only READ downstream by Stage 9 output, which applies
+    //     a mask at store time (i32x4_and after the shuffle for quad, and
+    //     `& MASK29` for scalar).
+    // The VALUE represented by the output limbs `sum (temp_k & MASK29) *
+    // 2^{29(k-9)}` equals the value before Stage 8. Equivalent to the
+    // strip-every-step version but saves the i64x2 AND on tlo_k/thi_k per
+    // step. The scalar AND per step is likewise deferred to match the
+    // scalar/quad interleaving (V8 relies on it).
+    //
+    // Overflow: temp_k ≤ ~2^63 before Stage 8. `(temp_k) >> 29` ≤ 2^34.
+    // Adding to temp_{k+1} (≤ 2^63) stays in u64. i64x2 lanes follow the
+    // same bound.
+    //
+    // Saves 16 i64x2 AND ops (2 per step × 8 steps); Stage 9 reintroduces
+    // 8 i32x4 AND ops; net save = 8 quad ops.
     // ============================================================
-
-    uint64_t temp_17 = 0;
-    v128_t tlo_17 = wasm_i64x2_splat(0);
-    v128_t thi_17 = wasm_i64x2_splat(0);
 
     temp_10 += temp_9 >> 29;
     tlo_10 = wasm_i64x2_add(tlo_10, wasm_u64x2_shr(tlo_9, 29));
     thi_10 = wasm_i64x2_add(thi_10, wasm_u64x2_shr(thi_9, 29));
-    temp_9 &= MASK29;
-    tlo_9 = wasm_v128_and(tlo_9, mask29_i64x2);
-    thi_9 = wasm_v128_and(thi_9, mask29_i64x2);
 
     temp_11 += temp_10 >> 29;
     tlo_11 = wasm_i64x2_add(tlo_11, wasm_u64x2_shr(tlo_10, 29));
     thi_11 = wasm_i64x2_add(thi_11, wasm_u64x2_shr(thi_10, 29));
-    temp_10 &= MASK29;
-    tlo_10 = wasm_v128_and(tlo_10, mask29_i64x2);
-    thi_10 = wasm_v128_and(thi_10, mask29_i64x2);
 
     temp_12 += temp_11 >> 29;
     tlo_12 = wasm_i64x2_add(tlo_12, wasm_u64x2_shr(tlo_11, 29));
     thi_12 = wasm_i64x2_add(thi_12, wasm_u64x2_shr(thi_11, 29));
-    temp_11 &= MASK29;
-    tlo_11 = wasm_v128_and(tlo_11, mask29_i64x2);
-    thi_11 = wasm_v128_and(thi_11, mask29_i64x2);
 
     temp_13 += temp_12 >> 29;
     tlo_13 = wasm_i64x2_add(tlo_13, wasm_u64x2_shr(tlo_12, 29));
     thi_13 = wasm_i64x2_add(thi_13, wasm_u64x2_shr(thi_12, 29));
-    temp_12 &= MASK29;
-    tlo_12 = wasm_v128_and(tlo_12, mask29_i64x2);
-    thi_12 = wasm_v128_and(thi_12, mask29_i64x2);
 
     temp_14 += temp_13 >> 29;
     tlo_14 = wasm_i64x2_add(tlo_14, wasm_u64x2_shr(tlo_13, 29));
     thi_14 = wasm_i64x2_add(thi_14, wasm_u64x2_shr(thi_13, 29));
-    temp_13 &= MASK29;
-    tlo_13 = wasm_v128_and(tlo_13, mask29_i64x2);
-    thi_13 = wasm_v128_and(thi_13, mask29_i64x2);
 
     temp_15 += temp_14 >> 29;
     tlo_15 = wasm_i64x2_add(tlo_15, wasm_u64x2_shr(tlo_14, 29));
     thi_15 = wasm_i64x2_add(thi_15, wasm_u64x2_shr(thi_14, 29));
-    temp_14 &= MASK29;
-    tlo_14 = wasm_v128_and(tlo_14, mask29_i64x2);
-    thi_14 = wasm_v128_and(thi_14, mask29_i64x2);
 
     temp_16 += temp_15 >> 29;
     tlo_16 = wasm_i64x2_add(tlo_16, wasm_u64x2_shr(tlo_15, 29));
     thi_16 = wasm_i64x2_add(thi_16, wasm_u64x2_shr(thi_15, 29));
-    temp_15 &= MASK29;
-    tlo_15 = wasm_v128_and(tlo_15, mask29_i64x2);
-    thi_15 = wasm_v128_and(thi_15, mask29_i64x2);
 
-    temp_17 += temp_16 >> 29;
-    tlo_17 = wasm_i64x2_add(tlo_17, wasm_u64x2_shr(tlo_16, 29));
-    thi_17 = wasm_i64x2_add(thi_17, wasm_u64x2_shr(thi_16, 29));
-    temp_16 &= MASK29;
-    tlo_16 = wasm_v128_and(tlo_16, mask29_i64x2);
-    thi_16 = wasm_v128_and(thi_16, mask29_i64x2);
+    // temp_17 initialized directly from the final carry out of temp_16 —
+    // this saves the splat(0) + i64x2_add pair (both scalar and quad) that
+    // a "temp_17 = 0; temp_17 += temp_16 >> 29" pattern would generate.
+    const uint64_t temp_17 = temp_16 >> 29;
+    const v128_t tlo_17 = wasm_u64x2_shr(tlo_16, 29);
+    const v128_t thi_17 = wasm_u64x2_shr(thi_16, 29);
 
     // ============================================================
     // Stage 9/10: Store output (no conditional subtract needed).
@@ -1237,34 +1241,54 @@ VectorField<Bn254FrParams> VectorField<Bn254FrParams>::operator*(const VectorFie
     // scalar reference (field<>::montgomery_mul WASM path, line 892-896)
     // similarly skips any conditional subtract.
     //
-    // Quad output: shuffle (tlo_lo, thi_hi) back into i32x4 form. The low 32
-    // bits of each i64x2 lane hold the 29-bit limb value.
+    // Quad output: shuffle (tlo_lo, thi_hi) back into i32x4 form, then AND
+    // with mask29_i32x4 to strip the deferred carry bits from Stage 8 (see
+    // Stage 8 comment). The low 29 bits of each i32x4 lane are the limb.
+    //
+    // Scalar output: `& MASK29` to strip the deferred carry bits from
+    // Stage 8. (The static_cast<uint32_t> takes bits 0..31; without the
+    // mask, bits 29..31 — part of the carry chain — would leak into the
+    // output limb.)
+    //
+    // temp_17 (final carry slot) does NOT need a mask: it is `temp_16 >> 29`
+    // directly, and since the result value ≤ p < 2^254 spreads across 9×29
+    // bit limbs, limb 8 ≤ 2^22 < 2^29. (Formally: temp_17 = bits 29..63 of
+    // temp_16 post-step-7 = total carry out of position 8 in the result,
+    // which is bounded by p/2^232 < 2^22.)
     // ============================================================
 
-    result.scalar_data[0] = static_cast<uint32_t>(temp_9);
-    result.quad_data[0] = wasm_i8x16_shuffle(
-        tlo_9, thi_9, 0, 1, 2, 3, 8, 9, 10, 11, 16, 17, 18, 19, 24, 25, 26, 27);
-    result.scalar_data[1] = static_cast<uint32_t>(temp_10);
-    result.quad_data[1] = wasm_i8x16_shuffle(
-        tlo_10, thi_10, 0, 1, 2, 3, 8, 9, 10, 11, 16, 17, 18, 19, 24, 25, 26, 27);
-    result.scalar_data[2] = static_cast<uint32_t>(temp_11);
-    result.quad_data[2] = wasm_i8x16_shuffle(
-        tlo_11, thi_11, 0, 1, 2, 3, 8, 9, 10, 11, 16, 17, 18, 19, 24, 25, 26, 27);
-    result.scalar_data[3] = static_cast<uint32_t>(temp_12);
-    result.quad_data[3] = wasm_i8x16_shuffle(
-        tlo_12, thi_12, 0, 1, 2, 3, 8, 9, 10, 11, 16, 17, 18, 19, 24, 25, 26, 27);
-    result.scalar_data[4] = static_cast<uint32_t>(temp_13);
-    result.quad_data[4] = wasm_i8x16_shuffle(
-        tlo_13, thi_13, 0, 1, 2, 3, 8, 9, 10, 11, 16, 17, 18, 19, 24, 25, 26, 27);
-    result.scalar_data[5] = static_cast<uint32_t>(temp_14);
-    result.quad_data[5] = wasm_i8x16_shuffle(
-        tlo_14, thi_14, 0, 1, 2, 3, 8, 9, 10, 11, 16, 17, 18, 19, 24, 25, 26, 27);
-    result.scalar_data[6] = static_cast<uint32_t>(temp_15);
-    result.quad_data[6] = wasm_i8x16_shuffle(
-        tlo_15, thi_15, 0, 1, 2, 3, 8, 9, 10, 11, 16, 17, 18, 19, 24, 25, 26, 27);
-    result.scalar_data[7] = static_cast<uint32_t>(temp_16);
-    result.quad_data[7] = wasm_i8x16_shuffle(
-        tlo_16, thi_16, 0, 1, 2, 3, 8, 9, 10, 11, 16, 17, 18, 19, 24, 25, 26, 27);
+    result.scalar_data[0] = static_cast<uint32_t>(temp_9) & static_cast<uint32_t>(MASK29);
+    result.quad_data[0] = wasm_v128_and(
+        wasm_i8x16_shuffle(tlo_9, thi_9, 0, 1, 2, 3, 8, 9, 10, 11, 16, 17, 18, 19, 24, 25, 26, 27),
+        mask29_i32x4);
+    result.scalar_data[1] = static_cast<uint32_t>(temp_10) & static_cast<uint32_t>(MASK29);
+    result.quad_data[1] = wasm_v128_and(
+        wasm_i8x16_shuffle(tlo_10, thi_10, 0, 1, 2, 3, 8, 9, 10, 11, 16, 17, 18, 19, 24, 25, 26, 27),
+        mask29_i32x4);
+    result.scalar_data[2] = static_cast<uint32_t>(temp_11) & static_cast<uint32_t>(MASK29);
+    result.quad_data[2] = wasm_v128_and(
+        wasm_i8x16_shuffle(tlo_11, thi_11, 0, 1, 2, 3, 8, 9, 10, 11, 16, 17, 18, 19, 24, 25, 26, 27),
+        mask29_i32x4);
+    result.scalar_data[3] = static_cast<uint32_t>(temp_12) & static_cast<uint32_t>(MASK29);
+    result.quad_data[3] = wasm_v128_and(
+        wasm_i8x16_shuffle(tlo_12, thi_12, 0, 1, 2, 3, 8, 9, 10, 11, 16, 17, 18, 19, 24, 25, 26, 27),
+        mask29_i32x4);
+    result.scalar_data[4] = static_cast<uint32_t>(temp_13) & static_cast<uint32_t>(MASK29);
+    result.quad_data[4] = wasm_v128_and(
+        wasm_i8x16_shuffle(tlo_13, thi_13, 0, 1, 2, 3, 8, 9, 10, 11, 16, 17, 18, 19, 24, 25, 26, 27),
+        mask29_i32x4);
+    result.scalar_data[5] = static_cast<uint32_t>(temp_14) & static_cast<uint32_t>(MASK29);
+    result.quad_data[5] = wasm_v128_and(
+        wasm_i8x16_shuffle(tlo_14, thi_14, 0, 1, 2, 3, 8, 9, 10, 11, 16, 17, 18, 19, 24, 25, 26, 27),
+        mask29_i32x4);
+    result.scalar_data[6] = static_cast<uint32_t>(temp_15) & static_cast<uint32_t>(MASK29);
+    result.quad_data[6] = wasm_v128_and(
+        wasm_i8x16_shuffle(tlo_15, thi_15, 0, 1, 2, 3, 8, 9, 10, 11, 16, 17, 18, 19, 24, 25, 26, 27),
+        mask29_i32x4);
+    result.scalar_data[7] = static_cast<uint32_t>(temp_16) & static_cast<uint32_t>(MASK29);
+    result.quad_data[7] = wasm_v128_and(
+        wasm_i8x16_shuffle(tlo_16, thi_16, 0, 1, 2, 3, 8, 9, 10, 11, 16, 17, 18, 19, 24, 25, 26, 27),
+        mask29_i32x4);
     result.scalar_data[8] = static_cast<uint32_t>(temp_17);
     result.quad_data[8] = wasm_i8x16_shuffle(
         tlo_17, thi_17, 0, 1, 2, 3, 8, 9, 10, 11, 16, 17, 18, 19, 24, 25, 26, 27);
