@@ -39,9 +39,15 @@ We'll create BOB tokens with:
 Let's create a simple yarn + aztec.nr project:
 
 ```bash
+<<<<<<< HEAD:docs/developer_versioned_docs/version-v4.1.0-rc.2/docs/tutorials/contract_tutorials/token_contract.md
 mkdir bob_token_contract
 cd bob_token_contract
 yarn init
+=======
+aztec new bob_token
+cd bob_token
+yarn init -y
+>>>>>>> 31fedbddff (docs: fix v4.2.0 developer tutorial/guide bugs (#22618)):docs/developer_versioned_docs/version-v4.2.0/docs/tutorials/contract_tutorials/token_contract.md
 # This is to ensure yarn uses node_modules instead of pnp for dependency installation
 yarn config set nodeLinker node-modules
 yarn add @aztec/aztec.js@v4.1.0-rc.2 @aztec/accounts@v4.1.0-rc.2 @aztec/test-wallet@v4.1.0-rc.2 @aztec/kv-store@v4.1.0-rc.2
@@ -89,6 +95,10 @@ pub contract BobToken {
 ```
 
 These are the different macros we need to define the visibility of functions, and some handy types and functions.
+
+:::note
+You may see "unused import" warnings from your IDE or compiler for `only_self`, `MessageDelivery`, and `Owned`. That's expected at this stage — we'll start using them in Part 2 when we add the private half of the contract.
+:::
 
 ## Building the Mental Health Token System
 
@@ -270,7 +280,9 @@ async function main() {
   // Connect to local network
   const node = createAztecNodeClient("http://localhost:8080");
 
-  const wallet = await EmbeddedWallet.create(node);
+  // `ephemeral: true` keeps PXE state in memory, so restarting the local
+  // network won't leave this script pointing at stale block hashes.
+  const wallet = await EmbeddedWallet.create(node, { ephemeral: true });
 
   const [giggleWalletData, aliceWalletData, bobClinicWalletData] =
     await getInitialTestAccountsData();
@@ -319,6 +331,14 @@ What's this `tsx` dark magic? Well, it just compiles and runs typescript using r
 
 :::
 
+:::tip Ephemeral PXE state
+
+We pass `{ ephemeral: true }` to `EmbeddedWallet.create`. This tells the PXE to keep its state in memory instead of writing it to `pxe_data_*` / `wallet_data_*` folders on disk. If you ever stop and restart your local network (or wipe its state), the next run starts clean instead of failing with errors like `No local block hash for block number …` because on-disk PXE state no longer matches the chain.
+
+For real applications you typically want persistent state, but for tutorials that spin up a fresh network each run, ephemeral is the safer default.
+
+:::
+
 ### 🎉 Celebrate
 
 Congratulations! You've just deployed a working token contract on Aztec! You can:
@@ -353,11 +373,19 @@ When Alice spends 40 BOB tokens at Bob's clinic:
 3. She creates a "change" note for herself (40 BOB)
 4. The consumed notes are nullified (marked as spent)
 
+:::info What is a nullifier?
+A **nullifier** is a unique, one-way tag emitted when a private note is spent. The network adds it to a nullifier tree so the same note can't be spent twice, but because the nullifier is derived from secrets only the note's owner knows, nobody can link a nullifier back to the note it invalidated. See [State Management](../../foundational-topics/state_management.md#private-state) for more.
+:::
+
 In this case, all that the network sees (including Giggle) is just "something happening to some state in some contract". How cool is that?
 
 ### Updating Storage for Privacy
 
+<<<<<<< HEAD:docs/developer_versioned_docs/version-v4.1.0-rc.2/docs/tutorials/contract_tutorials/token_contract.md
 For something like balances, you can use a simple library called `easy_private_state` which abstracts away a custom private Note. A Note is at the core of how private state works in Aztec and you can read about it [here](../../foundational-topics/state_management.md). For now, let's just import the library in `Nargo.toml`:
+=======
+For something like balances, you can use a simple library called `balance_set` which abstracts away a custom private Note. A Note is at the core of how private state works in Aztec and you can read about it [here](../../foundational-topics/state_management.md). For now, let's add it by replacing the `[dependencies]` section in `Nargo.toml`:
+>>>>>>> 31fedbddff (docs: fix v4.2.0 developer tutorial/guide bugs (#22618)):docs/developer_versioned_docs/version-v4.2.0/docs/tutorials/contract_tutorials/token_contract.md
 
 ```toml
 [dependencies]
@@ -580,6 +608,14 @@ aztec codegen target --outdir artifacts
 
 ## Testing the Complete Privacy System
 
+Before running the updated script, double-check your local network is still running:
+
+```bash
+aztec start --local-network
+```
+
+If you stopped it between parts of the tutorial, start it again here. Because we set `ephemeral: true` when creating the wallet, restarting the network is safe — the script won't try to reuse stale PXE state from a previous run.
+
 Now that you've implemented all the privacy features, let's update our test script to showcase the full privacy flow:
 
 ### Update Your Test Script
@@ -680,7 +716,14 @@ Let's give it a try:
 npx tsx index.ts
 ```
 
-You should see the complete privacy journey from transparent allocation to confidential usage!
+You should see the complete privacy journey from transparent allocation to confidential usage. The final pair of log lines should look like:
+
+```text
+📊 Alice has 100 public BOB tokens and 130 private BOB tokens
+📊 Bob's Clinic has 20 public BOB tokens and 50 private BOB tokens
+```
+
+If your output doesn't match, double-check that the local network is running and that you started this run with a fresh `aztec start --local-network`.
 
 ## Summary
 

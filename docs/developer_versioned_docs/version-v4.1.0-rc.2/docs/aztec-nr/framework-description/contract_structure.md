@@ -10,6 +10,7 @@ High-level structure of how Aztec smart contracts including the different compon
 
 ## Directory structure
 
+<<<<<<< HEAD:docs/developer_versioned_docs/version-v4.1.0-rc.2/docs/aztec-nr/framework-description/contract_structure.md
 Here's a common layout for a basic Aztec.nr Contract project:
 
 ```text title="layout of an aztec contract project"
@@ -19,6 +20,21 @@ Here's a common layout for a basic Aztec.nr Contract project:
        └── Nargo.toml          <-- package and dependency management
 ```
 
+=======
+When you create a new project with `aztec new my_project`, it generates a single-crate Noir contract project:
+
+```text title="layout of an aztec contract project"
+─── my_project
+       ├── Nargo.toml                    <-- contract package and dependencies
+       └── src
+             └── main.nr                 <-- your contract
+```
+
+`Nargo.toml` declares the contract package (with `type = "contract"`) and its dependencies. Your contract code lives in `src/main.nr`. Noir tests using `#[test]` live alongside the contract in the same crate — see [Testing Contracts](../testing_contracts.md).
+
+To add another contract as a sibling of an existing one, run `aztec new <name>` from the parent directory (each contract is its own crate). To initialize a contract project inside an existing empty directory instead, `cd` into it and run `aztec init` (it takes no positional argument; pass `--name <name>` if you want the package name to differ from the directory name).
+
+>>>>>>> 31fedbddff (docs: fix v4.2.0 developer tutorial/guide bugs (#22618)):docs/developer_versioned_docs/version-v4.2.0/docs/aztec-nr/framework-description/contract_structure.md
 See the vanilla Noir docs for [more info on packages](https://noir-lang.org/docs/noir/modules_packages_crates/crates_and_packages).
 
 ## Contract block
@@ -44,7 +60,11 @@ The `#[aztec]` macro performs a lot of the low-level operations required to take
 
 ## Imports
 
+<<<<<<< HEAD:docs/developer_versioned_docs/version-v4.1.0-rc.2/docs/aztec-nr/framework-description/contract_structure.md
 Aside from the [`#[aztec]`](pathname:///aztec-nr-api/testnet/noir_aztec/macros/aztec/fn.aztec) macro import, all other imports need to go _inside_ the `contract` block - this is because `contract` acts like `mod`, creating a new [module](https://noir-lang.org/docs/noir/modules_packages_crates/modules).
+=======
+Aside from the [`#[aztec]`](pathname:///aztec-nr-api/mainnet/noir_aztec/macros/fn.aztec) macro import, all other imports need to go _inside_ the `contract` block - this is because `contract` acts like `mod`, creating a new [module](https://noir-lang.org/docs/noir/modules_packages_crates/modules).
+>>>>>>> 31fedbddff (docs: fix v4.2.0 developer tutorial/guide bugs (#22618)):docs/developer_versioned_docs/version-v4.2.0/docs/aztec-nr/framework-description/contract_structure.md
 
 ```rust
 use aztec::macros::aztec;

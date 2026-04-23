@@ -167,9 +167,53 @@ Third-party FPCs can pay for your fees using custom logic, such as accepting dif
 ```typescript
 import { GasSettings } from "@aztec/stdlib/gas";
 
+<<<<<<< HEAD:docs/developer_versioned_docs/version-v4.2.0-aztecnr-rc.2/docs/aztec-js/how_to_pay_fees.md
 // node is from createAztecNodeClient() in the connection guide (see prerequisites)
 const maxFeesPerGas = (await node.getCurrentMinFees()).mul(1.5); //adjust this to your needs
 const gasSettings = GasSettings.default({ maxFeesPerGas });
+=======
+On networks where the Sponsored FPC is unavailable, third-party FPCs deployed by ecosystem teams let you pay fees in tokens other than Fee Juice. Each FPC provider typically offers an SDK or API that handles payment method construction on the client side — this may include quote fetching and authwit creation, though the exact flow depends on the FPC design. For background on how FPCs work at the protocol level, see [How FPCs work](../foundational-topics/fees.md#how-fpcs-work).
+
+#### Example: Nethermind Private Multi Asset FPC
+
+To illustrate how a third-party FPC integration works, the following walkthrough uses Nethermind's [Private Multi Asset FPC](https://github.com/NethermindEth/aztec-fpc) as a reference. This is one implementation — other FPCs may differ in design and API.
+
+This FPC is quote-based and operates privately:
+
+- A single deployment accepts many tokens — the asset is selected per quote rather than hard-coded at deploy time.
+- Fee payments are transferred as private notes, so fee activity is not visible onchain.
+- An operator-run attestation service signs per-user quotes binding the FPC address, accepted asset, amounts, expiry, and user.
+- A cold-start entrypoint allows a brand-new account to bridge tokens from L1, claim on L2, and pay the fee in a single transaction. Note that the cold-start path calls `Token::mint_to_private`, which enqueues a public call to update the token's total supply — so the minted amount is visible onchain even though the user's identity and balances remain private.
+
+:::warning Third-party software
+This FPC is developed and maintained by Nethermind, not by Aztec Labs. The SDK (`@nethermindeth/aztec-fpc-sdk`) may not yet be published to npm — check the [repository README](https://github.com/NethermindEth/aztec-fpc/blob/main/sdk/README.md) for current install instructions. Review the [protocol spec](https://github.com/NethermindEth/aztec-fpc/blob/main/docs/spec/protocol-spec.md) and evaluate independently before integrating.
+:::
+
+The SDK wraps the quote-and-pay flow into a single call. The snippet below shows the general shape of the integration (illustrative — verify against the current SDK API before using):
+
+```ts
+import { FpcClient } from "@nethermindeth/aztec-fpc-sdk";
+
+// Point the client at the FPC's attestation service
+const fpcClient = new FpcClient({
+  fpcAddress,       // the deployed FPC contract address
+  operator,         // operator's Aztec address
+  node,             // PXE or node connection
+  attestationBaseUrl: "https://...",  // attestation service URL from the FPC provider
+});
+
+// Estimate gas, fetch a signed quote, and build the payment method
+const payment = await fpcClient.createPaymentMethod({
+  wallet,
+  user: aliceAddress, // the account paying the fee
+  tokenAddress,     // the token you want to pay in
+  estimatedGas,     // from a prior estimateGas call
+});
+
+// Use it like any other payment method
+const tx = await myContract.methods.myMethod(args).send({ fee: payment.fee });
+await tx.wait();
+>>>>>>> 31fedbddff (docs: fix v4.2.0 developer tutorial/guide bugs (#22618)):docs/developer_versioned_docs/version-v4.2.0/docs/aztec-js/how_to_pay_fees.md
 ```
 
 Private FPCs enable fee payments without revealing the payer's identity onchain:
