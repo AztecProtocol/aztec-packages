@@ -87,18 +87,18 @@ concept isRowSkippable =
     };
 
 /**
- * @brief A relation is "offset-only" if its subrelations are meant to fire ONLY on the
- * disabled head rows (rows 0 .. NUM_DISABLED_ROWS_IN_SUMCHECK - 1), i.e. the offset area.
+ * @brief A relation is "offset-only" if its contribution enters the round univariate scaled by
+ * `L(x) = L_0 + L_1 + L_2 + L_3` — the indicator of the offset-area rows
+ * `0 .. NUM_DISABLED_ROWS_IN_SUMCHECK - 1`.
  *
- * @details Ordinary (main-domain) relations are implicitly multiplied by (1 - L) in sumcheck,
- * where L = L_0 + L_1 + L_2 + L_3 is the indicator of the offset area. Offset-only relations
- * are dually multiplied by L. A relation opts in to this dispatch by declaring
- * `static constexpr bool IS_OFFSET_ONLY = true;`. When this tag is absent, relations default
- * to main-domain.
+ * @details Main-domain relations are scaled by `(1 - L)`; offset-only relations by `L`. Per
+ * Lagrange orthogonality, main-domain contributions vanish on the offset area and offset-only
+ * contributions vanish elsewhere. A relation opts in by declaring
+ * `static constexpr bool IS_OFFSET_ONLY = true;`; without the tag it defaults to main-domain.
  *
- * Typical use: enforcing boundary conditions like "entity = 0 on rows 0..3" in a
- * verifier-checkable way, without changing sumcheck behavior for flavors that don't opt in.
- * Not compatible with ZK flavors that populate rows 1..3 with random masks.
+ * Typical use: boundary conditions of the form "entity = 0 on rows 0..3", made
+ * verifier-checkable without altering sumcheck behavior for flavors that omit the tag.
+ * Incompatible with constrained entities that carry random masks on rows 1..3 in ZK flavors.
  */
 template <typename Relation>
 concept IsOffsetOnlyRelation = requires {

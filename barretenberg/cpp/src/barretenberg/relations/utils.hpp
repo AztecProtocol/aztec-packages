@@ -212,60 +212,55 @@ template <typename Flavor> class RelationUtils {
      * scaled)
      * @param result Batched result
      */
-    static FF scale_and_batch_elements(auto& tuple, const SubrelationSeparators& subrelation_separators)
-    {
-        // Initialize result with the contribution from the first subrelation
-        FF result = std::get<0>(tuple)[0];
-
-        size_t idx = 0;
-
-        auto scale_by_challenges_and_accumulate = [&]<size_t outer_idx, size_t inner_idx>(auto& element) {
-            if constexpr (!(outer_idx == 0 && inner_idx == 0)) {
-                // Accumulate scaled subrelation contribution
-                result += element * subrelation_separators[idx++];
-            }
-        };
-        apply_to_tuple_of_arrays_elements(scale_by_challenges_and_accumulate, tuple);
-        return result;
-    }
-
     /**
-     * @brief Verifier-side variant of `scale_and_batch_elements` that folds the row-disabling
-     * factors into the per-relation batching.
+     * @brief Scale per-subrelation evaluations by `α` powers (and optionally by row-disabling
+     * factors) and sum them.
      *
-     * @details For every relation R in Flavor::Relations, each subrelation's α-scaled value is
-     * additionally multiplied by:
-     *   - `L_at_u`          if `IsOffsetOnlyRelation<R>`,
-     *   - `one_minus_L_at_u` otherwise.
-     * Equivalent to calling `scale_and_batch_elements` and then multiplying the whole result by
-     * `one_minus_L_at_u` when no relation is offset-only; diverges only for flavors that list
-     * an offset-only relation in their `Relations` tuple.
+     * @details Returns
+     * \f[
+     *   \sum_R \Lambda_R(u) \cdot \sum_j \alpha_{R,j} \cdot v_{R,j}
+     * \f]
+     * where `v_{R,j}` are the per-subrelation claimed evaluations, `α_{R,j}` are the α powers
+     * (with `α_{0,0} = 1`), and `Λ_R(u)` is the row-disabling factor:
+     *   - when `ApplyRowDisabling = false` (default): `Λ_R ≡ 1`;
+     *   - when `ApplyRowDisabling = true`: `Λ_R(u) = L(u)` if `IsOffsetOnlyRelation<R>`, else
+     *     `(1 - L)(u)`.
      *
-     * Used by verifiers of flavors that employ `RowDisablingPolynomial`, in place of the
-     * "batch then multiply by (1-L)(u)" pattern.
+     * When the flavor lists no offset-only relation, the row-disabling form reduces to
+     * `scale_and_batch_elements · (1 - L)(u)`.
      *
      * @param tuple             Tuple of arrays of per-subrelation FF evaluations (RelationEvaluations).
-     * @param subrelation_separators  α powers, same as `scale_and_batch_elements`.
-     * @param one_minus_L_at_u  `RowDisablingPolynomial::evaluate_at_challenge(u, log_n)`.
+     * @param subrelation_separators  α powers.
+     * @param one_minus_L_at_u  `RowDisablingPolynomial::evaluate_at_challenge(u, log_n)`, used when
+     *                          `ApplyRowDisabling = true`.
      * @param L_at_u            Dual factor, typically `FF{1} - one_minus_L_at_u`.
      */
-    static FF scale_and_batch_elements_with_row_disabling(auto& tuple,
-                                                          const SubrelationSeparators& subrelation_separators,
-                                                          const FF& one_minus_L_at_u,
-                                                          const FF& L_at_u)
+    template <bool ApplyRowDisabling = false>
+    static FF scale_and_batch_elements(auto& tuple,
+                                       const SubrelationSeparators& subrelation_separators,
+                                       const FF& one_minus_L_at_u = FF{ 0 },
+                                       const FF& L_at_u = FF{ 0 })
     {
         FF result{ 0 };
         size_t idx = 0;
 
         auto process = [&]<size_t outer_idx, size_t inner_idx>(auto& element) {
-            using Relation = std::tuple_element_t<outer_idx, Relations>;
-            const FF& rd_factor = IsOffsetOnlyRelation<Relation> ? L_at_u : one_minus_L_at_u;
-
-            // The first subrelation (outer=0, inner=0) is not α-scaled; all others use α powers.
-            if constexpr (outer_idx == 0 && inner_idx == 0) {
-                result += element * rd_factor;
+            constexpr bool is_first = (outer_idx == 0 && inner_idx == 0);
+            if constexpr (ApplyRowDisabling) {
+                using Relation = std::tuple_element_t<outer_idx, Relations>;
+                const FF& rd_factor = IsOffsetOnlyRelation<Relation> ? L_at_u : one_minus_L_at_u;
+                if constexpr (is_first) {
+                    result += element * rd_factor;
+                } else {
+                    result += element * subrelation_separators[idx++] * rd_factor;
+                }
             } else {
-                result += element * subrelation_separators[idx++] * rd_factor;
+                // α_{0,0} = 1 by convention.
+                if constexpr (is_first) {
+                    result += element;
+                } else {
+                    result += element * subrelation_separators[idx++];
+                }
             }
         };
         apply_to_tuple_of_arrays_elements(process, tuple);

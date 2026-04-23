@@ -31,14 +31,11 @@ template <typename Tuple> void fill_with_sequential_values(Tuple& tuple, uint64_
 
 } // namespace
 
-// Invariant: for a flavor with no offset-only relations,
-//   scale_and_batch_elements_with_row_disabling(tuple, α, one_minus_L, L)
-//   == scale_and_batch_elements(tuple, α) * one_minus_L
-// (since the L-tagged branch is never taken, every relation multiplies by (1-L)).
+// For a flavor with no offset-only relations,
+//   scale_and_batch_elements<true>(tuple, α, one_minus_L, L) == scale_and_batch_elements(tuple, α) * one_minus_L.
 TEST(ScaleAndBatchWithRowDisabling, MatchesLegacyPathWhenNoOffsetOnlyRelation)
 {
     Utils::RelationEvaluations tuple{};
-    // Note: sequential values; we only need them to be non-zero and distinct.
     fill_with_sequential_values(tuple, /*seed=*/1);
 
     Utils::SubrelationSeparators alphas{};
@@ -53,13 +50,12 @@ TEST(ScaleAndBatchWithRowDisabling, MatchesLegacyPathWhenNoOffsetOnlyRelation)
     const FF expected = Utils::scale_and_batch_elements(tuple_copy, alphas) * one_minus_L;
 
     auto tuple_copy2 = tuple;
-    const FF actual = Utils::scale_and_batch_elements_with_row_disabling(tuple_copy2, alphas, one_minus_L, L);
+    const FF actual = Utils::template scale_and_batch_elements<true>(tuple_copy2, alphas, one_minus_L, L);
 
     EXPECT_EQ(actual, expected);
 }
 
-// Edge case: one_minus_L == 1, L == 0 collapses to plain scale_and_batch_elements
-// (since all relations are main-domain for UltraFlavor).
+// Edge case: one_minus_L == 1, L == 0 collapses to plain scale_and_batch_elements.
 TEST(ScaleAndBatchWithRowDisabling, CollapsesToPlainBatchWhenOneMinusLIsOne)
 {
     Utils::RelationEvaluations tuple{};
@@ -74,7 +70,7 @@ TEST(ScaleAndBatchWithRowDisabling, CollapsesToPlainBatchWhenOneMinusLIsOne)
     const FF plain = Utils::scale_and_batch_elements(tuple_copy, alphas);
 
     auto tuple_copy2 = tuple;
-    const FF rd = Utils::scale_and_batch_elements_with_row_disabling(tuple_copy2, alphas, FF{ 1 }, FF{ 0 });
+    const FF rd = Utils::template scale_and_batch_elements<true>(tuple_copy2, alphas, FF{ 1 }, FF{ 0 });
 
     EXPECT_EQ(rd, plain);
 }

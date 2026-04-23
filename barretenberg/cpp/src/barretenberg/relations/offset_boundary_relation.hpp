@@ -12,25 +12,24 @@
 namespace bb {
 
 /**
- * @brief Reusable "entities vanish on offset rows" relation.
+ * @brief Offset-area boundary relation: enforces `e_i(x) = 0` on the offset rows for a
+ * user-supplied list of entities `e_1, ..., e_N`.
  *
  * @details Parametrized by a Policy that supplies:
- *   - using FF = ...;
- *   - static constexpr size_t NUM_SUBRELATIONS = N;
- *   - template <typename AllEntities>
- *     static auto entities(const AllEntities& in);
- *       // returns a std::tuple (or any indexable pack) of N references to entities
- *       // that must vanish on rows 0 .. NUM_DISABLED_ROWS_IN_SUMCHECK - 1.
+ *   - `using FF = ...;`
+ *   - `static constexpr size_t NUM_SUBRELATIONS = N;`
+ *   - `template <typename AllEntities> static auto entities(const AllEntities& in);` — returns a
+ *     std::tuple of N entity references. Subrelation `i` is the identity `e_i = 0` of degree 1.
  *
- * Each subrelation is the identity check `entity_i = 0`, degree 1 (partial length 2).
+ * The relation is tagged `IS_OFFSET_ONLY = true`, so sumcheck scales its contribution by
+ * `L = L_0 + L_1 + L_2 + L_3` (the indicator of rows 0..3) instead of `(1 - L)`. A flavor opts
+ * in by listing an instantiation in its `Relations` tuple.
  *
- * The relation is tagged `IS_OFFSET_ONLY = true` so sumcheck applies the `L` factor
- * (not `(1 - L)`) when batching its contributions. Flavors opt in by listing an
- * instantiation in their `Relations` tuple. No flavor that omits the instantiation
- * is affected.
- *
- * Not safe to use in ZK flavors: rows 1..3 carry random masks there, so "= 0" checks
- * would fail.
+ * Correctness precondition: each `e_i` must vanish on rows 0..3 by construction (e.g. the
+ * trace places real data starting at row `TRACE_OFFSET`). In ZK flavors that fill rows 1..3
+ * with random masks, the listed entities must not be among the masked ones (Mega's
+ * `ecc_op_wire_j` qualifies since ECC-op masking is performed by inserting random ops, not
+ * by masked polynomial rows).
  */
 template <typename Policy> class OffsetBoundaryRelationImpl {
   public:
