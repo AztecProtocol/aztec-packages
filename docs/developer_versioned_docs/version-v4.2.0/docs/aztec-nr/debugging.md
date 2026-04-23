@@ -31,7 +31,7 @@ Log values from your contract using `debug_log`:
 
 ```rust
 // Import debug logging
-use dep::aztec::oracle::logging::{ debug_log, debug_log_format };
+use aztec::oracle::logging::{ debug_log, debug_log_format };
 
 // Log simple messages
 debug_log("checkpoint reached");
@@ -63,11 +63,7 @@ LOG_LEVEL="info;debug:simulator:client_execution_context;debug:simulator:client_
 ```
 
 :::info Log filter format
-`LOG_LEVEL` accepts a semicolon-delimited list of filters. Each filter can be:
-
-- `level` - Sets default level for all modules
-- `level:module` - Sets level for a specific module
-- `level:module:submodule` - Sets level for a specific submodule
+`LOG_LEVEL` is a semicolon-delimited list. The **first segment must be a bare log level** — it sets the default level for all modules. Subsequent segments are `level:module` (or `level:module:submodule`) overrides.
 
 **The default-level filter must be the first segment.** A bare `level:module` with no preceding default (e.g. `LOG_LEVEL="warn:simulator"`) is invalid and throws `Invalid log level`, because the parser reads everything before the first `;` as the default level. To filter only specific modules, lead with a default level — use `silent` to suppress everything else.
 
@@ -75,16 +71,17 @@ LOG_LEVEL="info;debug:simulator:client_execution_context;debug:simulator:client_
 # Default level only
 LOG_LEVEL="debug"
 
-# Default level + specific module overrides
+# Default level + module overrides
 LOG_LEVEL="info;debug:simulator;debug:execution"
 
-# Default level + specific submodule overrides
+# Default level + submodule overrides
 LOG_LEVEL="info;debug:simulator:client_execution_context;debug:simulator:client_view_context"
 
 # Silence everything except one module
 LOG_LEVEL="silent;debug:simulator"
 ```
 
+A bare `level:module` (e.g. `LOG_LEVEL="warn:simulator"`) is **not valid** — the parser reads the first segment as the default level and rejects it with `Invalid log level: warn:simulator`.
 :::
 
 ## Debugging common errors
@@ -116,9 +113,12 @@ LOG_LEVEL="silent;debug:simulator"
 ### Quick Fixes for Common Issues
 
 ```bash
-# Archiver sync issues - force progress with dummy transactions
-aztec-wallet send transfer --from test0 --to test0 --amount 0
-aztec-wallet send transfer --from test0 --to test0 --amount 0
+# Archiver sync issues - force progress with dummy transactions.
+# Assumes you have imported the local network test accounts
+# (aztec-wallet import-test-accounts) and have a deployed token
+# aliased as `testtoken`.
+aztec-wallet send transfer --from test0 --contract-address testtoken --args accounts:test0 0
+aztec-wallet send transfer --from test0 --contract-address testtoken --args accounts:test0 0
 
 # L1 to L2 message pending - wait for inclusion
 # Messages need 2 blocks to be processed
@@ -210,7 +210,7 @@ LOG_LEVEL=verbose aztec start --local-network
 ### Common debug imports
 
 ```rust
-use dep::aztec::oracle::logging::{ debug_log, debug_log_format };
+use aztec::oracle::logging::{ debug_log, debug_log_format };
 ```
 
 ### Check contract registration
