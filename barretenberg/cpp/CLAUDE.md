@@ -1,7 +1,5 @@
 # barretenberg/cpp
 
-The core proving system library.
-
 Bootstrap modes:
 
 - `./bootstrap.sh` => full build, needed for other components
@@ -63,6 +61,15 @@ All C++ files must be formatted with clang-format before committing:
 ```bash
 clang-format-20 -i <files>
 ```
+
+## C++ invariants
+
+These are load-bearing: violating them will compile on native but break WASM, or skew test output in CI. Use the listed alternative unconditionally.
+
+- **Logging: use `info(...)` / `vinfo(...)` from `barretenberg/common/log.hpp`, never `std::cout` or `std::cerr`.** The macros route through `log_function` and respect `bb_log_level`; direct `std::cout` is unfiltered, uncaptured in CI logs, and skews benchmark output.
+- **Aborts and exceptions: use `throw_or_abort(msg)` from `barretenberg/common/throw_or_abort.hpp`, never bare `throw` or `std::abort()`.** WASM builds set `BB_NO_EXCEPTIONS`, which turns `throw` into `abort()` — bare `throw` compiles differently and misformats the message, and raw `std::abort()` drops the message entirely. For header-only libraries that must use exception syntax, use the `THROW`/`RETHROW` macros from `common/try_catch_shim.hpp`.
+- **Assertions: use `BB_ASSERT(cond, msg)` / `BB_ASSERT_EQ` / `BB_ASSERT_NEQ` / `BB_ASSERT_GT` / etc. from `barretenberg/common/assert.hpp`, never bare `assert(...)`.** `BB_ASSERT` hooks into the benchmark-assertion framework and has distinct debug/release behavior; `assert` is stripped in release builds and silently diverges in WASM.
+- **Release builds: do not reach for the `release` CMake preset unless the user is reproducing a performance issue.** Debug/default presets are much faster to compile and sufficient for correctness work.
 
 ## Benchmarking:
 
