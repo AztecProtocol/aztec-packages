@@ -37,6 +37,12 @@ export type NodeWorkerOptions = {
 const log = createLogger('e2e:node-worker');
 
 const WORKER_READY_TIMEOUT_MS = 180_000;
+/**
+ * How long we give the worker to run `node.stop()` + `process.exit(0)` before we
+ * forcibly `worker.terminate()`. `node.stop()` joins the native world-state thread pool,
+ * which can take a few seconds under load; 60s is generous but bounded.
+ */
+const GRACEFUL_STOP_TIMEOUT_MS = 60_000;
 
 /**
  * Spawns an {@link AztecNodeService} in a worker thread and exposes a JSON-RPC proxy to it.
@@ -155,10 +161,32 @@ export class NodeWorker {
     return this.proxy;
   }
 
-  /** Closes the transport, detaches the date-provider port, and terminates the worker. */
+  /**
+   * Drains the node in-worker (releasing native thread pools and LMDB handles) and waits
+   * for the worker to exit naturally. Falls back to `worker.terminate()` if the graceful
+   * path stalls past {@link GRACEFUL_STOP_TIMEOUT_MS}.
+   *
+   * `worker.terminate()` alone rips the V8 isolate, leaving C++ threads (`bb::ThreadPool`
+   * owned by `world_state::WorldState`, libuv `AsyncWorker`s, etc.) to post back to a
+   * destroyed Napi::Env — the suspected source of the intermittent `free(): invalid pointer`
+   * and `Napi::Error: [no message]` aborts in CI.
+   */
   public async stop(): Promise<void> {
     this.bridge.removeObserver(this.mainPort);
     this.mainPort.close();
+
+    const exited = new Promise<void>(resolve => this.worker.once('exit', () => resolve()));
+    // Fire the graceful stop but don't await it directly — the worker may exit before
+    // the RPC response is flushed, which would reject the client call.
+    (this.proxy as unknown as { stop: () => Promise<void> })
+      .stop()
+      .catch(err => log.debug('Graceful stop RPC settled with error', { error: String(err) }));
+
+    const timedOut = await Promise.race([exited.then(() => false), sleep(GRACEFUL_STOP_TIMEOUT_MS).then(() => true)]);
+    if (timedOut) {
+      log.warn('Worker did not exit gracefully; falling back to terminate');
+    }
+
     this.transport.close();
     await this.worker.terminate();
   }

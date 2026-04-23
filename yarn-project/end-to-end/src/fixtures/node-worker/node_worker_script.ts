@@ -64,6 +64,12 @@ try {
     const jsonParams = JSON.parse(msg.args) as unknown[];
     const args: any[] = await parseWithOptionals(jsonParams, schema[msg.fn].parameters());
     const result = await (node as any)[msg.fn](...args);
+    // `stop` drains native resources (world-state thread pool, LMDB handles, etc.).
+    // Exit the worker after the response flushes so the main thread doesn't have to
+    // `worker.terminate()` a live Napi::Env and orphan C++ threads.
+    if (msg.fn === 'stop') {
+      setImmediate(() => process.exit(0));
+    }
     return jsonStringify(result);
   });
   server.start();
