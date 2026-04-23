@@ -73,30 +73,55 @@ TEST(polynomials, ifft_consistency)
     }
 }
 
-TEST(polynomials, linear_poly_product)
-{
-    constexpr size_t n = 64;
-    std::array<fr, n> roots;
-
-    fr z = fr::random_element();
-    fr expected = 1;
-    for (size_t i = 0; i < n; ++i) {
-        roots[i] = fr::random_element();
-        expected *= (z - roots[i]);
-    }
-
-    fr dest[n + 1];
-    polynomial_arithmetic::compute_linear_polynomial_product(roots.data(), dest, n);
-    fr result = polynomial_arithmetic::evaluate(dest, z, n + 1);
-
-    EXPECT_EQ(result, expected);
-}
-
 template <typename FF> class PolynomialTests : public ::testing::Test {};
 
 using FieldTypes = ::testing::Types<bb::fr, grumpkin::fr>;
 
 TYPED_TEST_SUITE(PolynomialTests, FieldTypes);
+
+TYPED_TEST(PolynomialTests, linear_poly_product)
+{
+    using FF = TypeParam;
+    // Cover both BN254 and Grumpkin for the production SUBGROUP_SIZE range (87 Grumpkin, 256 BN254).
+    constexpr size_t n = 256;
+    std::array<FF, n> roots;
+
+    FF z = FF::random_element();
+    FF expected = 1;
+    for (size_t i = 0; i < n; ++i) {
+        roots[i] = FF::random_element();
+        expected *= (z - roots[i]);
+    }
+
+    std::array<FF, n + 1> dest{};
+    polynomial_arithmetic::compute_linear_polynomial_product(roots.data(), dest.data(), n);
+    FF result = polynomial_arithmetic::evaluate(dest.data(), z, n + 1);
+
+    EXPECT_EQ(result, expected);
+}
+
+// compute_linear_polynomial_product handles the n=1 and n=2 boundaries of the incremental update.
+TYPED_TEST(PolynomialTests, LinearPolyProductSmallN)
+{
+    using FF = TypeParam;
+    // n=1: dest should represent (X - roots[0]) = [-r0, 1].
+    {
+        std::array<FF, 1> roots = { FF(7) };
+        std::array<FF, 2> dest{};
+        polynomial_arithmetic::compute_linear_polynomial_product(roots.data(), dest.data(), 1);
+        EXPECT_EQ(dest[0], -FF(7));
+        EXPECT_EQ(dest[1], FF(1));
+    }
+    // n=2: (X - 1)(X - 2) = X^2 - 3X + 2 → [2, -3, 1].
+    {
+        std::array<FF, 2> roots = { FF(1), FF(2) };
+        std::array<FF, 3> dest{};
+        polynomial_arithmetic::compute_linear_polynomial_product(roots.data(), dest.data(), 2);
+        EXPECT_EQ(dest[0], FF(2));
+        EXPECT_EQ(dest[1], -FF(3));
+        EXPECT_EQ(dest[2], FF(1));
+    }
+}
 
 TYPED_TEST(PolynomialTests, evaluation_domain)
 {
