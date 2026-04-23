@@ -10,12 +10,6 @@ use crate::protocol::constants::{
     MAX_L2_TO_L1_MSGS_PER_TX, MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, MAX_PRIVATE_LOGS_PER_TX,
     MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PRIVATE_LOG_LENGTH, PUBLIC_DATA_WRITE_LENGTH,
 };
-use crate::protocol::traits::Deserialize;
-use crate::protocol::utils::reader::Reader;
-use protocol_types::abis::{
-    contract_class_log::ContractClassLog, private_log::PrivateLog, public_data_write::PublicDataWrite,
-    public_logs::PublicLogs,
-};
 
 /// Finds new private logs that may have been sent to all registered accounts in PXE in the current contract and
 /// returns them in an ephemeral array with an oracle-allocated base slot.
