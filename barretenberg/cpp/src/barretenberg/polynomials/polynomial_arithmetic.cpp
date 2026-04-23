@@ -283,6 +283,16 @@ void compute_efficient_interpolation(const Fr* src, Fr* dest, const Fr* evaluati
         algorithm used in Kate commitment scheme, as the coefficients of N(X)/X are given by numerator_polynomial[j]
         for j=1,...,n.
     */
+    // Lagrange interpolation is mathematically ill-defined when any two evaluation points coincide:
+    // the denominator d_i contains a zero factor. batch_invert silently skips zero entries, so
+    // without this check duplicate points produce an incorrect result.
+    for (size_t i = 0; i < n; ++i) {
+        for (size_t j = i + 1; j < n; ++j) {
+            BB_ASSERT_DEBUG(evaluation_points[i] != evaluation_points[j],
+                            "compute_efficient_interpolation requires distinct evaluation points");
+        }
+    }
+
     std::vector<Fr> numerator_polynomial(n + 1);
     polynomial_arithmetic::compute_linear_polynomial_product(evaluation_points, numerator_polynomial.data(), n);
     // First half contains roots, second half contains denominators (to be inverted)

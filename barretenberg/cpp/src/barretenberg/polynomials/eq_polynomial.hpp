@@ -61,6 +61,13 @@ template <typename FF> class ProverEqPolynomial {
                       log_num_monomials,
                       "ProverEqPolynomial::construct: challenges.size() must be >= log_num_monomials");
 
+        // eq over 0 variables is the empty product 1.
+        if (log_num_monomials == 0) {
+            Polynomial<FF> result(/*size=*/1, /*virtual_size=*/1);
+            result.at(0) = FF(1);
+            return result;
+        }
+
         // Compute scaling factor C = ∏_i (1 - r_i)
         FF scaling_factor = compute_scaling_factor(challenges);
 
