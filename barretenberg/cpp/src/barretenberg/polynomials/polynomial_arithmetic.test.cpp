@@ -1,13 +1,19 @@
 #include "polynomial_arithmetic.hpp"
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/mem.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
 #include "barretenberg/numeric/random/engine.hpp"
+#include "barretenberg/polynomials/backing_memory.hpp"
 #include "barretenberg/polynomials/evaluation_domain.hpp"
 #include "polynomial.hpp"
 #include <algorithm>
+#include <array>
 #include <cstddef>
 #include <gtest/gtest.h>
+#include <limits>
+#include <span>
 #include <utility>
+#include <vector>
 
 using namespace bb;
 
@@ -365,4 +371,65 @@ TYPED_TEST(PolynomialTests, default_construct_then_assign)
         EXPECT_EQ(poly[i], interesting_poly[i]);
     }
     EXPECT_EQ(poly.size(), interesting_poly.size());
+}
+
+// factor_roots produces the correct quotient when (X - r) divides p(X) cleanly.
+TEST(polynomials, FactorRootsExactDivisionRegression)
+{
+    using FF = fr;
+    // p(X) = X^2 - 1 = (X - 1)(X + 1): exact division by (X - 1) produces q(X) = X + 1.
+    std::array<FF, 3> exact_poly = { -FF(1), FF(0), FF(1) };
+    polynomial_arithmetic::factor_roots(std::span<FF>(exact_poly), FF(1));
+    EXPECT_EQ(exact_poly[0], FF(1));
+    EXPECT_EQ(exact_poly[1], FF(1));
+    EXPECT_EQ(exact_poly[2], FF(0));
+}
+
+// factor_roots asserts when the exact-divisibility precondition is violated.
+TEST(polynomials, FactorRootsNonExactDivisionAsserts)
+{
+    GTEST_FLAG_SET(death_test_style, "threadsafe");
+    using FF = fr;
+    std::array<FF, 3> bad_poly = { FF(1), FF(0), FF(1) }; // p(X) = X^2 + 1, p(1) = 2 != 0
+    ASSERT_THROW_OR_ABORT(polynomial_arithmetic::factor_roots(std::span<FF>(bad_poly), FF(1)), ".*");
+}
+
+// Polynomial's interpolation constructor asserts when interpolation_points and evaluations differ in size.
+TEST(polynomials, InterpolationCtorMismatchedSpansAsserts)
+{
+    GTEST_FLAG_SET(death_test_style, "threadsafe");
+    using FF = fr;
+    std::vector<FF> points = { FF(1), FF(2), FF(3), FF(4) };
+    std::vector<FF> evals = { FF(10), FF(20) }; // shorter than points
+    ASSERT_THROW_OR_ABORT(
+        bb::Polynomial<FF>(std::span<const FF>(points), std::span<const FF>(evals), /*virtual_size=*/4), ".*");
+}
+
+// parse_size_string throws when value * multiplier overflows size_t.
+TEST(polynomials, ParseSizeStringOverflowAsserts)
+{
+    // Sanity: well-formed inputs still parse correctly.
+    EXPECT_EQ(parse_size_string("1k"), 1024U);
+    EXPECT_EQ(parse_size_string("2g"), 2UL * 1024 * 1024 * 1024);
+
+    // 2^54 * 1024 == 2^64 wraps to 0 without a guard.
+    ASSERT_THROW_OR_ABORT(parse_size_string("18014398509481984k"), ".*");
+}
+
+// fft_inner_parallel asserts when called in-place (coeffs == target).
+TEST(polynomials, FftInnerParallelInPlaceAsserts)
+{
+    GTEST_FLAG_SET(death_test_style, "threadsafe");
+    using FF = fr;
+    constexpr size_t n = 16;
+    auto domain = bb::EvaluationDomain<FF>(n);
+    domain.compute_lookup_table();
+
+    std::array<FF, n> coeffs{};
+    for (size_t i = 0; i < n; ++i) {
+        coeffs[i] = FF(i + 1);
+    }
+    ASSERT_THROW_OR_ABORT(
+        polynomial_arithmetic::fft_inner_parallel(coeffs.data(), coeffs.data(), domain, FF(), domain.get_round_roots()),
+        ".*");
 }
