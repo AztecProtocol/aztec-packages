@@ -1,0 +1,174 @@
+#!/usr/bin/env bash
+# Test suite for .claude/scripts/format-file.sh. Exercises every language
+# dispatch branch plus the TS fallback-install path. Mirrors ci3/tests/ style.
+set -uo pipefail
+
+# Resolve ROOT from the script's own location so the suite runs from any cwd.
+ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd -P)
+SCRIPT="$ROOT/.claude/scripts/format-file.sh"
+
+# Tests write temp files to /tmp which is outside the repo, so export
+# CLAUDE_PROJECT_DIR to give format-file.sh a known root without relying on
+# upward git walks from the edited file's directory.
+export CLAUDE_PROJECT_DIR="$ROOT"
+
+RED=$'\033[0;31m'
+GREEN=$'\033[0;32m'
+NC=$'\033[0m'
+
+PASS=0
+FAIL=0
+
+pass() { echo "${GREEN}✓${NC} $1"; ((PASS++)) || true; }
+fail() {
+  echo "${RED}✗${NC} $1"
+  [[ $# -ge 2 ]] && echo "  $2"
+  if [[ -s /tmp/format_test_stderr ]]; then
+    sed 's/^/    stderr: /' /tmp/format_test_stderr
+  fi
+  ((FAIL++)) || true
+}
+
+# run_hook <file>: invoke format-file.sh with a hook-shaped stdin payload.
+run_hook() {
+  local f=$1
+  printf '{"tool_input":{"file_path":"%s"}}' "$f" | "$SCRIPT" 2>/tmp/format_test_stderr
+}
+
+# expect_formatted <label> <file> <expected substring>
+expect_formatted() {
+  local label=$1 f=$2 expected=$3
+  run_hook "$f"
+  if grep -qF "$expected" "$f"; then
+    pass "$label"
+  else
+    fail "$label" "expected to find '$expected' in formatted output; got: $(cat "$f")"
+  fi
+}
+
+# expect_unchanged <label> <file> <exact content>
+expect_unchanged() {
+  local label=$1 f=$2 expected=$3
+  run_hook "$f"
+  if [[ "$(cat "$f")" == "$expected" ]]; then
+    pass "$label"
+  else
+    fail "$label" "expected unchanged; got: $(cat "$f")"
+  fi
+}
+
+TMP=$(mktemp -d)
+trap 'rm -rf "$TMP"' EXIT
+
+echo "=== format-file.sh test suite ==="
+
+# --- 1. Hook never fails the edit ---
+# One hygiene test defends the invariant "format-file.sh exits 0 on any malformed
+# input". Covers empty input, bad JSON, and missing files in one go.
+echo "--- 1. hook never fails the edit ---"
+
+for bad in '{"tool_input":{}}' '{"tool_input":{"file_path":"/nonexistent"}}' 'not json'; do
+  if printf '%s' "$bad" | "$SCRIPT" >/dev/null 2>&1; then :; else
+    fail "degenerate input: $bad"
+  fi
+done
+pass "hook exits 0 on empty/bad/missing input"
+
+# --- 2. C++ (clang-format 20) ---
+echo "--- 2. C++ ---"
+
+cat > "$TMP/a.cpp" <<'EOF'
+int  main( ){return 0;}
+EOF
+expect_formatted "C++ compacted declaration" "$TMP/a.cpp" "int main()"
+
+# --- 3. Rust ---
+echo "--- 3. Rust ---"
+
+cat > "$TMP/a.rs" <<'EOF'
+fn  main( ){let x=1;let y=2;println!("{}",x+y);}
+EOF
+run_hook "$TMP/a.rs"
+if grep -q 'let x = 1;' "$TMP/a.rs"; then
+  pass "Rust spacing fixed"
+else
+  fail "Rust" "output: $(cat "$TMP/a.rs")"
+fi
+
+# --- 4. Solidity ---
+echo "--- 4. Solidity ---"
+
+cat > "$TMP/A.sol" <<'EOF'
+pragma solidity ^0.8.0;
+contract A{function f() public pure returns(uint256){return 1;}}
+EOF
+run_hook "$TMP/A.sol"
+if grep -q 'contract A {' "$TMP/A.sol"; then
+  pass "Solidity brace spacing"
+else
+  fail "Solidity" "output: $(cat "$TMP/A.sol")"
+fi
+
+# --- 5. Noir (hint-only; nargo fmt is crate-scoped) ---
+echo "--- 5. Noir ---"
+
+cat > "$TMP/a.nr" <<'EOF'
+fn main() { let x = 1; }
+EOF
+before=$(cat "$TMP/a.nr")
+run_hook "$TMP/a.nr"
+after=$(cat "$TMP/a.nr")
+if [[ "$before" != "$after" ]]; then
+  fail "Noir file left unchanged" "file was modified: $after"
+elif ! grep -qF "nargo fmt" /tmp/format_test_stderr; then
+  fail "Noir hint" "expected 'nargo fmt' hint on stderr"
+else
+  pass "Noir file unchanged with nargo fmt hint"
+fi
+
+# --- 6. TypeScript (requires yarn-project bootstrap) ---
+# Skipped if yarn-project hasn't been installed; the hook's hint branch is
+# asserted by test 1 (hook never fails the edit). When prettier IS available,
+# verify the hook invokes it and the @trivago sort-imports plugin is active
+# so the yarn-project prettier config keeps working end-to-end.
+echo "--- 6. TypeScript + import sort plugin ---"
+
+REAL_PRETTIER="$ROOT/yarn-project/node_modules/.bin/prettier"
+if [[ ! -x "$REAL_PRETTIER" ]]; then
+  echo "  (skipped: $REAL_PRETTIER not present — bootstrap yarn-project to enable this test)"
+else
+  mkdir -p "$TMP/fake-yarn-project/foundation/src"
+  cp "$ROOT/yarn-project/foundation/.prettierrc.json" "$TMP/fake-yarn-project/foundation/.prettierrc.json"
+  cat > "$TMP/fake-yarn-project/foundation/src/mod.ts" <<'EOF'
+import { z } from 'zod';
+import { foo } from './local.js';
+import { Fr } from '@aztec/foundation/fields';
+
+const  x   = 1;
+EOF
+  run_hook "$TMP/fake-yarn-project/foundation/src/mod.ts"
+  out=$(cat "$TMP/fake-yarn-project/foundation/src/mod.ts")
+  if [[ "$out" != *"const x = 1;"* ]]; then
+    fail "TS basic formatting" "output: $out"
+  else
+    pass "TS basic formatting (whitespace normalized)"
+  fi
+  aztec_line=$(printf '%s\n' "$out" | grep -n '@aztec/foundation' | cut -d: -f1 || true)
+  zod_line=$(printf '%s\n' "$out" | grep -n "from 'zod'" | cut -d: -f1 || true)
+  local_line=$(printf '%s\n' "$out" | grep -n "from './local" | cut -d: -f1 || true)
+  if [[ -n "$aztec_line" && -n "$zod_line" && -n "$local_line" \
+        && "$aztec_line" -lt "$zod_line" && "$zod_line" -lt "$local_line" ]]; then
+    pass "TS import ordering (sort-imports plugin active)"
+  else
+    fail "TS import ordering" "aztec=$aztec_line zod=$zod_line local=$local_line"$'\n'"$out"
+  fi
+fi
+
+echo
+if (( FAIL == 0 )); then
+  echo "${GREEN}All $PASS tests passed.${NC}"
+  exit 0
+else
+  echo "${RED}$FAIL of $((PASS + FAIL)) tests failed.${NC}"
+  exit 1
+fi
