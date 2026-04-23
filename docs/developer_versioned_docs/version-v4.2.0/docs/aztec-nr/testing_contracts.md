@@ -46,16 +46,19 @@ Always use `aztec test` instead of `nargo test`. The `TestEnvironment` requires 
 
 ## Basic test structure
 
-Tests live in the same crate as your contract — `aztec new` creates a single-crate project, and `#[test]` functions go inside the same `src/main.nr` (or in submodules alongside it):
+Tests live in the same crate as your contract. `aztec new` creates a single-crate project, and the convention is to place `#[test]` functions in a `mod tests` block alongside the contract (or in submodules of the crate):
 
 ```rust
 use aztec::macros::aztec;
 
 #[aztec]
 pub contract MyContract {
-    use aztec::test::helpers::test_environment::TestEnvironment;
-
     // ...contract functions...
+}
+
+mod tests {
+    use super::MyContract;
+    use aztec::test::helpers::test_environment::TestEnvironment;
 
     #[test]
     unconstrained fn test_basic_flow() {
@@ -82,7 +85,9 @@ For larger test suites, split tests into submodules of your crate rather than ke
 - Create modules like `src/transfer_tests.nr`, `src/auth_tests.nr`
 - Declare them from `src/main.nr` with `mod transfer_tests;`, `mod auth_tests;`
 - Share setup functions in `src/test_utils.nr`
-  :::
+
+See the [aztec-standards token contract](https://github.com/defi-wonderland/aztec-standards/tree/dev/src/token_contract) for a worked example of this layout.
+:::
 
 ## Deploying contracts
 

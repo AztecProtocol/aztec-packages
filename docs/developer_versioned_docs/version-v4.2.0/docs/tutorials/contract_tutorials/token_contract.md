@@ -367,7 +367,7 @@ When Alice spends 40 BOB tokens at Bob's clinic:
 4. The consumed notes are nullified (marked as spent)
 
 :::info What is a nullifier?
-A **nullifier** is a unique, one-way tag emitted when a private note is spent. The network adds it to a nullifier tree so the same note can't be spent twice, but because the tag is derived from secrets only the note's owner knows, nobody can link a nullifier back to the note it invalidated. See [State Management](../../foundational-topics/state_management.md#private-state) for more.
+A **nullifier** is a unique, one-way tag emitted when a private note is spent. The network adds it to a nullifier tree so the same note can't be spent twice, but because the nullifier is derived from secrets only the note's owner knows, nobody can link a nullifier back to the note it invalidated. See [State Management](../../foundational-topics/state_management.md#private-state) for more.
 :::
 
 In this case, all that the network sees (including Giggle) is just "something happening to some state in some contract". How cool is that?
@@ -524,7 +524,7 @@ Private functions can't directly read current public state (like who the owner i
 
 We want Giggle to mint BOB tokens directly to employees' private balances (for maximum privacy), but we need to ensure only Giggle can do this. The challenge: ownership is stored publicly, but private functions can't read current public state.
 
-Let's use a clever pattern where private functions enqueue public validation checks. First we make a little helper function in public.
+Let's use a clever pattern where private functions enqueue public validation checks. First we make a little helper function in public. Remember, public functions always run _after_ private functions, since private functions run client-side.
 
 ```rust title="_assert_is_owner" showLineNumbers 
 #[external("public")]
