@@ -1374,6 +1374,12 @@ export class RPCTranslator {
       // TODO(F-335): Avoid doing the following call here.
       await this.stateHandler.cycleJob();
 
+      if (isStaticCall) {
+        // Static calls revert their checkpoint and mine no block, so there is no tx hash to tag
+        // offchain effects with. Querying `getLastTxEffects()` here would return an unrelated
+        // predecessor tx.
+        return { result: returnValues };
+      }
       const { txHash } = await this.handlerAsTxe().getLastTxEffects();
       return { result: returnValues, txHash: txHash.hash };
     });
@@ -1426,6 +1432,10 @@ export class RPCTranslator {
       // TODO(F-335): Avoid doing the following call here.
       await this.stateHandler.cycleJob();
 
+      if (isStaticCall) {
+        // See equivalent branch in `aztec_txe_privateCallNewFlow`.
+        return { result: returnValues };
+      }
       const { txHash } = await this.handlerAsTxe().getLastTxEffects();
       return { result: returnValues, txHash: txHash.hash };
     });
