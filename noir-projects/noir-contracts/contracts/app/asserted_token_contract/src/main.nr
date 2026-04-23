@@ -7,11 +7,16 @@ mod validation;
 mod delivery;
 mod da;
 mod balance;
+mod content_hash;
 
 #[aztec(::aztec::macros::AztecConfig::new().custom_message_handler(crate::delivery::note_handler))]
 pub contract AssertedTokenContract {
     use crate::{
         asserted_note::AssertedNote,
+        content_hash::{
+            compute_stealth_recipient_hash, get_claim_content_hash, get_withdraw_content_hash,
+            CONSTANT_SECRET,
+        },
         da::{
             load_tee_metadata_da_capsule, load_tee_notes_da_capsule,
             load_tee_required_nullifiers_da_capsule, TEEMetadata,
@@ -62,6 +67,70 @@ pub contract AssertedTokenContract {
             self.context,
             self.storage.balances.at(to).insert(AssertedNote::create(self.context, amount)),
         );
+    }
+
+    // Consumes one L1 -> L2 claim message and credits `amount` into `recipient`'s
+    // private balance. The caller must know `shared_secret` - the L1 depositor
+    // derived `recipientHash` from the same shared_secret, so supplying the wrong
+    // one produces a content hash that does not match any message in the inbox and
+    // the `consume_l1_to_l2_message` call below reverts.
+    //
+    // The L1 content-hash encoding (`sha256("claim(bytes32,uint256)" || recipientHash
+    // || amount)`) must match `Portal.sol::deposit` byte-for-byte. The token's
+    // L1 portal is the depositor side of this message and is read from the
+    // `portal_address` public immutable set at construction.
+    #[external("private")]
+    fn claim(
+        recipient: AztecAddress,
+        amount: u128,
+        shared_secret: Field,
+        message_leaf_index: Field,
+    ) {
+        let portal = self.storage.portal_address.read();
+
+        let recipient_hash = compute_stealth_recipient_hash(
+            shared_secret,
+            recipient,
+            portal,
+            self.context.chain_id(),
+        );
+
+        let content_hash = get_claim_content_hash(recipient_hash, amount);
+
+        self.context.consume_l1_to_l2_message(
+            content_hash,
+            CONSTANT_SECRET,
+            portal,
+            message_leaf_index,
+        );
+
+        deliver(
+            self.context,
+            self.storage.balances.at(recipient).insert(AssertedNote::create(self.context, amount)),
+        );
+    }
+
+    // Debits `amount` from `from`'s private balance and emits an L2 -> L1 message the
+    // L1 `Portal.withdraw` will consume. The caller's PXE must own enough notes under
+    // `from` to cover `amount` - `_subtract_balance` will fail to find spendable notes
+    // otherwise.
+    #[external("private")]
+    fn withdraw(from: AztecAddress, l1_recipient: EthAddress, amount: u128) {
+        assert(from == self.msg_sender(), "caller must be sender");
+
+        let portal = self.storage.portal_address.read();
+
+        let change = self.internal._subtract_balance(from, amount, INITIAL_TRANSFER_CALL_MAX_NOTES);
+
+        if change > 0 {
+            deliver(
+                self.context,
+                self.storage.balances.at(from).insert(AssertedNote::create(self.context, change)),
+            );
+        }
+
+        let content_hash = get_withdraw_content_hash(l1_recipient, amount);
+        self.context.message_portal(portal, content_hash);
     }
 
     #[external("private")]
