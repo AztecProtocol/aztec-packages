@@ -160,12 +160,10 @@ template <typename Flavor> struct VerifierZKCorrectionHandler<Flavor, true> {
 
     void apply_zk_corrections(FF& full_honk_purported_value, std::vector<FF>& multivariate_challenge)
     {
-        if constexpr (UseRowDisablingPolynomial<Flavor>) {
-            // The row-disabling polynomial 1 - ∏_{i≥2}(1-u_i) is circuit-size
-            // independent. The verifier evaluates it over ALL challenges.
-            full_honk_purported_value *= RowDisablingPolynomial<FF>::evaluate_at_challenge(
-                multivariate_challenge, multivariate_challenge.size());
-        }
+        // Row-disabling factor is applied per-relation inside
+        // `compute_full_relation_purported_value_with_row_disabling` (called upstream), so nothing
+        // to do for it here. Only Libra correction is applied below.
+        (void)multivariate_challenge;
 
         // Get the claimed evaluation of the Libra multivariate evaluated at the sumcheck challenge
         libra_evaluation = transcript->template receive_from_prover<FF>("Libra:claimed_evaluation");
@@ -531,7 +529,7 @@ template <typename Flavor> class SumcheckProver {
 
         // Handle disabled rows contribution
         if constexpr (UseRowDisablingPolynomial<Flavor>) {
-            round_univariate += round.compute_disabled_contribution(
+            round_univariate += round.compute_offset_area_contribution(
                 full_polynomials, relation_parameters, gate_separators, alphas, row_disabling_polynomial);
         }
 
@@ -566,11 +564,11 @@ template <typename Flavor> class SumcheckProver {
             round_univariate += hiding_univariate;
             // Handle disabled rows contribution
             if constexpr (UseRowDisablingPolynomial<Flavor>) {
-                round_univariate += round.compute_disabled_contribution(partially_evaluated_polynomials,
-                                                                        relation_parameters,
-                                                                        gate_separators,
-                                                                        alphas,
-                                                                        row_disabling_polynomial);
+                round_univariate += round.compute_offset_area_contribution(partially_evaluated_polynomials,
+                                                                           relation_parameters,
+                                                                           gate_separators,
+                                                                           alphas,
+                                                                           row_disabling_polynomial);
             }
 
             handler.process_round_univariate(round_idx, round_univariate);
@@ -737,14 +735,15 @@ template <typename Flavor> class SumcheckProver {
         const Alphas& alphas,
         RowDisablingPolynomial<FF>& row_disabling_polynomial)
     {
-        auto univariate = round.compute_virtual_contribution(
-            partially_evaluated_polynomials, relation_parameters, gate_separator, alphas);
         if constexpr (UseRowDisablingPolynomial<Flavor>) {
-            bb::Univariate<FF, 2> one_minus_L(
-                { FF::one() - row_disabling_polynomial.eval_at_0, FF::one() - row_disabling_polynomial.eval_at_1 });
-            univariate *= one_minus_L.template extend_to<Flavor::BATCHED_RELATION_PARTIAL_LENGTH>();
+            // Per-relation L vs (1-L) dispatch is done inside. When no relation is offset-only,
+            // this is equivalent to `compute_virtual_contribution(...) * (1 - L)`.
+            return round.compute_virtual_contribution_with_row_disabling(
+                partially_evaluated_polynomials, relation_parameters, gate_separator, alphas, row_disabling_polynomial);
+        } else {
+            return round.compute_virtual_contribution(
+                partially_evaluated_polynomials, relation_parameters, gate_separator, alphas);
         }
-        return univariate;
     }
 
     /**
@@ -914,12 +913,21 @@ template <typename Flavor> class SumcheckVerifier {
         }
 
         // Evaluate the Honk relation at the point (u_0, ..., u_{d-1}) using claimed evaluations of prover polynomials.
-        // In ZK Flavors, the evaluation is corrected by full_libra_purported_value
-        FF full_honk_purported_value = round.compute_full_relation_purported_value(
-            purported_evaluations, relation_parameters, gate_separators, alphas);
+        // For ZK flavors with row-disabling, fold `(1 - L)(u)` (main relations) and `L(u)` (offset-only
+        // relations) into per-relation batching.
+        FF full_honk_purported_value;
+        if constexpr (UseRowDisablingPolynomial<Flavor> && Flavor::HasZK) {
+            const FF one_minus_L_at_u = RowDisablingPolynomial<FF>::evaluate_at_challenge(
+                multivariate_challenge, multivariate_challenge.size());
+            const FF L_at_u = FF{ 1 } - one_minus_L_at_u;
+            full_honk_purported_value = round.compute_full_relation_purported_value_with_row_disabling(
+                purported_evaluations, relation_parameters, gate_separators, alphas, one_minus_L_at_u, L_at_u);
+        } else {
+            full_honk_purported_value = round.compute_full_relation_purported_value(
+                purported_evaluations, relation_parameters, gate_separators, alphas);
+        }
 
-        // For ZK Flavors: compute the evaluation of the Row Disabling Polynomial at the sumcheck challenge and of the
-        // libra univariate used to hide the contribution from the actual Honk relation
+        // Libra correction (ZK only); the row-disabling factor is already folded in above.
         zk_correction_handler.apply_zk_corrections(full_honk_purported_value, multivariate_challenge);
 
         //! [Final Verification Step]

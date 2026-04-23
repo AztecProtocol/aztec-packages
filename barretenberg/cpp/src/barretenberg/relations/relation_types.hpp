@@ -87,6 +87,26 @@ concept isRowSkippable =
     };
 
 /**
+ * @brief A relation is "offset-only" if its subrelations are meant to fire ONLY on the
+ * disabled head rows (rows 0 .. NUM_DISABLED_ROWS_IN_SUMCHECK - 1), i.e. the offset area.
+ *
+ * @details Ordinary (main-domain) relations are implicitly multiplied by (1 - L) in sumcheck,
+ * where L = L_0 + L_1 + L_2 + L_3 is the indicator of the offset area. Offset-only relations
+ * are dually multiplied by L. A relation opts in to this dispatch by declaring
+ * `static constexpr bool IS_OFFSET_ONLY = true;`. When this tag is absent, relations default
+ * to main-domain.
+ *
+ * Typical use: enforcing boundary conditions like "entity = 0 on rows 0..3" in a
+ * verifier-checkable way, without changing sumcheck behavior for flavors that don't opt in.
+ * Not compatible with ZK flavors that populate rows 1..3 with random masks.
+ */
+template <typename Relation>
+concept IsOffsetOnlyRelation = requires {
+    { Relation::IS_OFFSET_ONLY } -> std::convertible_to<bool>;
+    requires Relation::IS_OFFSET_ONLY;
+};
+
+/**
  * @brief A wrapper for Relations to expose methods used by the Sumcheck prover or verifier to add the
  * contribution of a given relation to the corresponding accumulator.
  *

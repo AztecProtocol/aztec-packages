@@ -230,6 +230,56 @@ template <typename Flavor> class RelationUtils {
     }
 
     /**
+     * @brief Verifier-side variant of `scale_and_batch_elements` that folds the row-disabling
+     * factors into the per-relation batching.
+     *
+     * @details For every relation R in Flavor::Relations, each subrelation's α-scaled value is
+     * additionally multiplied by:
+     *   - `L_at_u`          if `IsOffsetOnlyRelation<R>`,
+     *   - `one_minus_L_at_u` otherwise.
+     * Equivalent to calling `scale_and_batch_elements` and then multiplying the whole result by
+     * `one_minus_L_at_u` when no relation is offset-only; diverges only for flavors that list
+     * an offset-only relation in their `Relations` tuple.
+     *
+     * Used by verifiers of flavors that employ `RowDisablingPolynomial`, in place of the
+     * "batch then multiply by (1-L)(u)" pattern.
+     *
+     * @param tuple             Tuple of arrays of per-subrelation FF evaluations (RelationEvaluations).
+     * @param subrelation_separators  α powers, same as `scale_and_batch_elements`.
+     * @param one_minus_L_at_u  `RowDisablingPolynomial::evaluate_at_challenge(u, log_n)`.
+     * @param L_at_u            `RowDisablingPolynomial::evaluate_L_at_challenge(u, log_n)`.
+     */
+    static FF scale_and_batch_elements_with_row_disabling(auto& tuple,
+                                                          const SubrelationSeparators& subrelation_separators,
+                                                          const FF& one_minus_L_at_u,
+                                                          const FF& L_at_u)
+    {
+        FF result{ 0 };
+        size_t idx = 0;
+
+        auto process = [&]<size_t outer_idx, size_t inner_idx>(auto& element) {
+            using Relation = std::tuple_element_t<outer_idx, Relations>;
+            // Pick the row-disabling factor based on the relation domain (tag-dispatched).
+            const FF& rd_factor = [&]() -> const FF& {
+                if constexpr (IsOffsetOnlyRelation<Relation>) {
+                    return L_at_u;
+                } else {
+                    return one_minus_L_at_u;
+                }
+            }();
+
+            // The first subrelation (outer=0, inner=0) is not α-scaled; all others use α powers.
+            if constexpr (outer_idx == 0 && inner_idx == 0) {
+                result += element * rd_factor;
+            } else {
+                result += element * subrelation_separators[idx++] * rd_factor;
+            }
+        };
+        apply_to_tuple_of_arrays_elements(process, tuple);
+        return result;
+    }
+
+    /**
      * @brief General purpose method for applying a tuple of arrays (of FFs)
      *
      * @tparam Operation Any operation valid on elements of the inner arrays (FFs)

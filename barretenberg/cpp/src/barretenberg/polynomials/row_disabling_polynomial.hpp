@@ -120,11 +120,20 @@ namespace bb {
  */
 
 template <typename FF> struct RowDisablingPolynomial {
-    // initialized as a constant linear polynomial = 1
+    // Evaluations of L^{(i)}, the per-round image of L = L_0 + L_1 + L_2 + L_3.
+    // (1 - L) is the factor applied to main-domain relations at the head edges.
+    // Initialized as a constant linear polynomial = 1.
     FF eval_at_0{ 1 };
     FF eval_at_1{ 1 };
 
     RowDisablingPolynomial() = default;
+
+    // Dual evaluations of L itself: L(X) = 1 - (1-L)(X).
+    // Used by offset-only relations, whose head-edge contributions are scaled by L
+    // rather than (1-L). Exposed as a pair of accessors to avoid duplicating state.
+    FF L_eval_at_0() const { return FF{ 1 } - eval_at_0; }
+    FF L_eval_at_1() const { return FF{ 1 } - eval_at_1; }
+
     /**
      * @brief Compute the evaluations of L^{(i)} at 0 and 1.
      *
@@ -160,6 +169,21 @@ template <typename FF> struct RowDisablingPolynomial {
         }
 
         return FF{ 1 } - evaluation_at_multivariate_challenge;
+    }
+
+    /**
+     * @brief Compute the evaluation of \f$ L \f$ at the sumcheck challenge
+     *
+     * @details Dual of `evaluate_at_challenge`. Used by offset-only relations on the
+     * verifier side to scale their relation contributions to the full Honk relation value.
+     *
+     * @param multivariate_challenge
+     * @param log_circuit_size
+     * @return FF
+     */
+    static FF evaluate_L_at_challenge(std::span<const FF> multivariate_challenge, const size_t log_circuit_size)
+    {
+        return FF{ 1 } - evaluate_at_challenge(multivariate_challenge, log_circuit_size);
     }
 };
 
