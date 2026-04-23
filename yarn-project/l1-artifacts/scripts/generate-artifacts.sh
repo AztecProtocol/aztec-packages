@@ -47,6 +47,10 @@ contracts=(
   "GSE"
   "MockZKPassportVerifier"
   "DateGatedRelayer"
+  "TEEPortal"
+  "TeeRegistry"
+  "MockERC20"
+  "MockPredicate"
 )
 
 # Combine error ABIs once, removing duplicates by {type, name}.

@@ -76,7 +76,7 @@ pub contract AssertedTokenContract {
     // the `consume_l1_to_l2_message` call below reverts.
     //
     // The L1 content-hash encoding (`sha256("claim(bytes32,uint256)" || recipientHash
-    // || amount)`) must match `Portal.sol::deposit` byte-for-byte. The token's
+    // || amount)`) must match `TEEPortal.sol::deposit` byte-for-byte. The token's
     // L1 portal is the depositor side of this message and is read from the
     // `portal_address` public immutable set at construction.
     #[external("private")]
@@ -111,7 +111,7 @@ pub contract AssertedTokenContract {
     }
 
     // Debits `amount` from `from`'s private balance and emits an L2 -> L1 message the
-    // L1 `Portal.withdraw` will consume. The caller's PXE must own enough notes under
+    // L1 `TEEPortal.withdraw` will consume. The caller's PXE must own enough notes under
     // `from` to cover `amount` - `_subtract_balance` will fail to find spendable notes
     // otherwise.
     #[external("private")]

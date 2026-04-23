@@ -5,9 +5,9 @@ use aztec::protocol::{
 };
 
 // Oxide deposit/withdraw uses a constant zero-secret since there is no per-deposit secret
-// to exchange. `compute_secret_hash(CONSTANT_SECRET)` must equal the Portal.sol
+// to exchange. `compute_secret_hash(CONSTANT_SECRET)` must equal the TEEPortal.sol
 // `CONSTANT_SECRET_HASH` constant (0x1f8eff65d91ed781c2e7a28a2ff99b7f7506b7293121b5ffcf3cd339c84d2250).
-// The Portal.sol value is the poseidon2 output of this secret under `DOM_SEP__SECRET_HASH`;
+// The TEEPortal.sol value is the poseidon2 output of this secret under `DOM_SEP__SECRET_HASH`;
 // do not rederive it here.
 pub global CONSTANT_SECRET: Field = 0;
 
@@ -20,7 +20,7 @@ pub global DOMAIN_MAGIC: [u8; 16] = [
     0x49, 0x44, 0x47, 0x45, 0x5f, 0x56, 0x31, 0x00,
 ];
 
-// L1 -> L2 claim message content hash. Must match `Portal.sol::deposit`, which calls
+// L1 -> L2 claim message content hash. Must match `TEEPortal.sol::deposit`, which calls
 // `sha256ToField(abi.encodeWithSignature("claim(bytes32,uint256)", recipientHash, amount))`
 // byte-for-byte: 4-byte selector || 32-byte recipient hash || 32-byte amount = 68 bytes.
 pub fn get_claim_content_hash(recipient_hash: Field, amount: u128) -> Field {
@@ -78,7 +78,7 @@ pub fn compute_stealth_tag(shared_secret: Field, recipient: AztecAddress) -> Fie
     sha256_to_field(bytes)
 }
 
-// The `recipientHash` the depositor passes to Portal.sol must be derived from
+// The `recipientHash` the depositor passes to TEEPortal.sol must be derived from
 // this exact formula. The TS helper must be a byte-for-byte mirror of this,
 // pinned by a shared test vector.
 // Layout: DOMAIN_MAGIC(16) || chain_id(32) || portal(32) || stealth_tag(32) = 112 bytes.
