@@ -18,7 +18,7 @@ namespace bb::avm2::tracegen {
  *
  *  This trace is non memory-aware and does not handle any errors. It relies on the poseidon2,
  *  scalar_mul, and ecc traces to constrain correctness of the address, which is derived as:
- *   1. salted_init_hash  = Poseidon2(DOM_SEP__PARTIAL_ADDRESS, salt, init_hash, deployer_addr)
+ *   1. salted_init_hash  = Poseidon2(DOM_SEP__SALTED_INITIALIZATION_HASH, salt, init_hash, deployer_addr)
  *   2. partial_address   = Poseidon2(DOM_SEP__PARTIAL_ADDRESS, class_id, salted_init_hash)
  *   3. public_keys_hash  = Poseidon2(DOM_SEP__PUBLIC_KEYS_HASH, [...public_keys.to_fields()])
  *   4. preaddress        = Poseidon2(DOM_SEP__CONTRACT_ADDRESS_V1, public_keys_hash, partial_address)
@@ -67,6 +67,7 @@ void AddressDerivationTraceBuilder::process(
                 { C::address_derivation_preaddress_public_key_y, event.preaddress_public_key.y() },
                 { C::address_derivation_address_y, event.address_point.y() },
                 // Constant columns (this is temp because aliasing is not allowed in lookups).
+                { C::address_derivation_salted_init_hash_domain_separator, DOM_SEP__SALTED_INITIALIZATION_HASH },
                 { C::address_derivation_partial_address_domain_separator, DOM_SEP__PARTIAL_ADDRESS },
                 { C::address_derivation_public_keys_hash_domain_separator, DOM_SEP__PUBLIC_KEYS_HASH },
                 { C::address_derivation_preaddress_domain_separator, DOM_SEP__CONTRACT_ADDRESS_V1 },
