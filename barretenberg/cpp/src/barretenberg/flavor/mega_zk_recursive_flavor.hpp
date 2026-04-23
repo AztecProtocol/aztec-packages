@@ -7,7 +7,6 @@
 #pragma once
 #include "barretenberg/flavor/mega_recursive_flavor.hpp"
 #include "barretenberg/flavor/mega_zk_flavor.hpp"
-#include "barretenberg/relations/mega_offset_boundary_relation.hpp"
 
 namespace bb {
 
@@ -28,14 +27,15 @@ template <typename BuilderType> class MegaZKRecursiveFlavor_ : public MegaRecurs
 
     static constexpr size_t VIRTUAL_LOG_N = NativeFlavor::VIRTUAL_LOG_N;
 
-    // Match MegaZKFlavor: append the ecc-op offset-boundary relation so the recursive
-    // verifier accumulates the same relation set as the native prover.
-    using Relations = decltype(std::tuple_cat(std::declval<MegaFlavor::Relations_<FF>>(),
-                                              std::declval<std::tuple<MegaEccOpBoundaryRelation<FF>>>()));
-
-    static constexpr size_t NUM_RELATIONS = std::tuple_size_v<Relations>;
-    static constexpr size_t NUM_SUBRELATIONS = compute_number_of_subrelations<Relations>();
-    static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = compute_max_partial_relation_length<Relations>();
+    // Reuse NativeFlavor's relation set (including the ecc-op offset-boundary relation)
+    // instantiated at the recursive FF. The derived counts are FF-independent so they
+    // are inherited unchanged from NativeFlavor; without these explicit shadows, the
+    // values from MegaRecursiveFlavor_ (which uses the un-augmented relation set) would
+    // take effect.
+    using Relations = MegaZKFlavor::Relations_<FF>;
+    static constexpr size_t NUM_RELATIONS = NativeFlavor::NUM_RELATIONS;
+    static constexpr size_t NUM_SUBRELATIONS = NativeFlavor::NUM_SUBRELATIONS;
+    static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = NativeFlavor::MAX_PARTIAL_RELATION_LENGTH;
     using SubrelationSeparators = std::array<FF, NUM_SUBRELATIONS - 1>;
 
     static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = NativeFlavor::BATCHED_RELATION_PARTIAL_LENGTH;
