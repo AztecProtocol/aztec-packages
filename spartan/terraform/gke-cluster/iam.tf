@@ -33,7 +33,8 @@ resource "google_project_iam_member" "helm_sa_roles" {
     "roles/container.admin",
     "roles/storage.admin",
     "roles/secretmanager.admin",
-    "roles/compute.loadBalancerAdmin"
+    "roles/compute.loadBalancerAdmin",
+    "roles/dns.admin"
   ])
   project = var.project
   role    = each.key
