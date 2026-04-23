@@ -24,18 +24,9 @@ case $cmd in
     node --no-warnings "$script_dir/../dest/bin/index.js" compile
 
     export LOG_LEVEL="${LOG_LEVEL:-"error;trace:contract"}"
-    # Enable job control so the backgrounded TXE gets its own process group.
-    # Signalling the group on cleanup reaches node + any bb descendants, which
-    # otherwise get orphaned to init and keep the port bound after Ctrl-C.
-    set -m
     aztec start --txe --port 8081 &
     server_pid=$!
-    set +m
-    function cleanup {
-      kill -TERM -- "-$server_pid" &>/dev/null || true
-      wait "$server_pid" 2>/dev/null || true
-    }
-    trap cleanup EXIT
+    trap 'kill $server_pid &>/dev/null || true' EXIT
     if ! command -v nc &>/dev/null; then
       echo "Error: 'nc' (netcat) is required but not installed." >&2
       exit 1
