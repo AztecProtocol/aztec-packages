@@ -477,54 +477,8 @@ template <typename Flavor> class SumcheckProverRound {
                 univariate_accumulator, extended_edges, relation_parameters, gate_separators[edge_idx]);
         }
 
-        // α-scale each subrelation accumulator (same as `batch_over_relations` first step).
-        Utils::scale_univariates(univariate_accumulator, alphas);
-
-        // Linear factors (1 - L) and L as 2-point univariates, extended to round-univariate length.
-        bb::Univariate<FF, 2> one_minus_L(
-            { FF::one() - row_disabling_polynomial.eval_at_0, FF::one() - row_disabling_polynomial.eval_at_1 });
-        bb::Univariate<FF, 2> L_uv({ row_disabling_polynomial.eval_at_0, row_disabling_polynomial.eval_at_1 });
-        SumcheckRoundUnivariate one_minus_L_extended =
-            one_minus_L.template extend_to<SumcheckRoundUnivariate::LENGTH>();
-        SumcheckRoundUnivariate L_extended = L_uv.template extend_to<SumcheckRoundUnivariate::LENGTH>();
-
-        // pow-β factor, same as in `extend_and_batch_univariates`.
-        auto random_polynomial = bb::Univariate<FF, 2>({ 1, gate_separators.current_element() });
-        auto extended_random_polynomial = random_polynomial.template extend_to<SumcheckRoundUnivariate::LENGTH>();
-
-        SumcheckRoundUnivariate result(0);
-
-        // Walk relations, batch each relation's subrelations into a per-relation univariate,
-        // then scale by the appropriate row-disabling factor before summing.
-        constexpr_for<0, std::tuple_size_v<SumcheckTupleOfTuplesOfUnivariates>, 1>([&]<size_t relation_idx>() {
-            using Relation = typename std::tuple_element_t<relation_idx, Relations>;
-            const auto& outer_element = std::get<relation_idx>(univariate_accumulator);
-
-            SumcheckRoundUnivariate per_relation(0);
-            constexpr_for<0, std::tuple_size_v<std::decay_t<decltype(outer_element)>>, 1>(
-                [&]<size_t subrelation_idx>() {
-                    const auto& element = std::get<subrelation_idx>(outer_element);
-                    auto extended = element.template extend_to<SumcheckRoundUnivariate::LENGTH>();
-                    constexpr bool is_subrelation_linearly_independent =
-                        bb::subrelation_is_linearly_independent<Relation, subrelation_idx>();
-                    if constexpr (!is_subrelation_linearly_independent) {
-                        per_relation += extended;
-                    } else {
-                        per_relation +=
-                            extended * extended_random_polynomial * gate_separators.partial_evaluation_result;
-                    }
-                });
-
-            if constexpr (IsOffsetOnlyRelation<Relation>) {
-                result += per_relation * L_extended;
-            } else {
-                result += per_relation * one_minus_L_extended;
-            }
-        });
-
-        // Match `batch_over_relations`: reset accumulators before the next round.
-        Utils::zero_univariates(univariate_accumulator);
-        return result;
+        return batch_over_relations_with_row_disabling(
+            univariate_accumulator, alphas, gate_separators, row_disabling_polynomial);
     }
 
     template <typename ProverPolynomialsOrPartiallyEvaluatedMultivariates>
@@ -598,25 +552,46 @@ template <typename Flavor> class SumcheckProverRound {
             }
         }();
 
+        // The tail of G(X) = ∏_k (1 + X_k(β_k - 1)) evaluated at the edge (0, ..., 0).
         const FF gate_separator_tail{ 1 };
         // IsMainLoop = false: include offset-only relations so they can be batched with L.
         accumulate_relation_univariates</*IsMainLoop=*/false>(
             univariate_accumulator, extended_edges, relation_parameters, gate_separator_tail);
 
+        return batch_over_relations_with_row_disabling(
+            univariate_accumulator, alphas, gate_separator, row_disabling_polynomial);
+    }
+
+    /**
+     * @brief Per-relation batching with row-disabling factors: each relation's α-scaled,
+     * pow-β-weighted subrelation-sum is multiplied by `L` or `(1 - L)` depending on whether it is
+     * `IsOffsetOnlyRelation`. The resulting per-relation univariates are summed into the returned
+     * round univariate. Mirrors `batch_over_relations` + per-relation L/(1-L) scaling, in one pass.
+     *
+     * @details Used by both `compute_offset_area_contribution` (head edges across rows 0..3) and
+     * `compute_virtual_contribution_with_row_disabling` (virtual zero-extension edge). When no
+     * relation is offset-only, this is equivalent to `batch_over_relations` * (1 - L).
+     */
+    SumcheckRoundUnivariate batch_over_relations_with_row_disabling(
+        SumcheckTupleOfTuplesOfUnivariates& univariate_accumulator,
+        const SubrelationSeparators& alphas,
+        const bb::GateSeparatorPolynomial<FF>& gate_separators,
+        const RowDisablingPolynomial<FF>& row_disabling_polynomial)
+    {
         Utils::scale_univariates(univariate_accumulator, alphas);
 
+        // Linear row-disabling factors, extended to round-univariate length.
         bb::Univariate<FF, 2> one_minus_L(
             { FF::one() - row_disabling_polynomial.eval_at_0, FF::one() - row_disabling_polynomial.eval_at_1 });
         bb::Univariate<FF, 2> L_uv({ row_disabling_polynomial.eval_at_0, row_disabling_polynomial.eval_at_1 });
-        SumcheckRoundUnivariate one_minus_L_extended =
-            one_minus_L.template extend_to<SumcheckRoundUnivariate::LENGTH>();
-        SumcheckRoundUnivariate L_extended = L_uv.template extend_to<SumcheckRoundUnivariate::LENGTH>();
+        auto one_minus_L_extended = one_minus_L.template extend_to<SumcheckRoundUnivariate::LENGTH>();
+        auto L_extended = L_uv.template extend_to<SumcheckRoundUnivariate::LENGTH>();
 
-        auto random_polynomial = bb::Univariate<FF, 2>({ 1, gate_separator.current_element() });
+        // pow-β factor, same as in `extend_and_batch_univariates`.
+        auto random_polynomial = bb::Univariate<FF, 2>({ 1, gate_separators.current_element() });
         auto extended_random_polynomial = random_polynomial.template extend_to<SumcheckRoundUnivariate::LENGTH>();
 
         SumcheckRoundUnivariate result(0);
-
         constexpr_for<0, std::tuple_size_v<SumcheckTupleOfTuplesOfUnivariates>, 1>([&]<size_t relation_idx>() {
             using Relation = typename std::tuple_element_t<relation_idx, Relations>;
             const auto& outer_element = std::get<relation_idx>(univariate_accumulator);
@@ -632,7 +607,7 @@ template <typename Flavor> class SumcheckProverRound {
                         per_relation += extended;
                     } else {
                         per_relation +=
-                            extended * extended_random_polynomial * gate_separator.partial_evaluation_result;
+                            extended * extended_random_polynomial * gate_separators.partial_evaluation_result;
                     }
                 });
 
@@ -643,6 +618,7 @@ template <typename Flavor> class SumcheckProverRound {
             }
         });
 
+        // Match `batch_over_relations`: reset accumulators before the next round.
         Utils::zero_univariates(univariate_accumulator);
         return result;
     }

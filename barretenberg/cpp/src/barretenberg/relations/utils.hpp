@@ -259,14 +259,7 @@ template <typename Flavor> class RelationUtils {
 
         auto process = [&]<size_t outer_idx, size_t inner_idx>(auto& element) {
             using Relation = std::tuple_element_t<outer_idx, Relations>;
-            // Pick the row-disabling factor based on the relation domain (tag-dispatched).
-            const FF& rd_factor = [&]() -> const FF& {
-                if constexpr (IsOffsetOnlyRelation<Relation>) {
-                    return L_at_u;
-                } else {
-                    return one_minus_L_at_u;
-                }
-            }();
+            const FF& rd_factor = IsOffsetOnlyRelation<Relation> ? L_at_u : one_minus_L_at_u;
 
             // The first subrelation (outer=0, inner=0) is not α-scaled; all others use α powers.
             if constexpr (outer_idx == 0 && inner_idx == 0) {
