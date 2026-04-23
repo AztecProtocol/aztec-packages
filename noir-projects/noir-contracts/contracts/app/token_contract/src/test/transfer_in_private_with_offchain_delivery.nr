@@ -39,7 +39,6 @@ unconstrained fn transfer_in_private_with_offchain_delivery_updates_both_balance
 
 #[test(should_fail_with = "Assertion failed: Invalid authwit nonce. When 'from' and 'msg_sender' are the same, 'authwit_nonce' must be zero")]
 unconstrained fn transfer_in_private_with_offchain_delivery_failure_on_behalf_of_self_non_zero_nonce() {
-    // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
     let (env, token_contract_address, owner, recipient, _) =
         utils::setup_and_mint_to_private(/* with_account_contracts */ false);
     let transfer_amount = 1000 as u128;
@@ -51,7 +50,6 @@ unconstrained fn transfer_in_private_with_offchain_delivery_failure_on_behalf_of
 
 #[test(should_fail_with = "Balance too low")]
 unconstrained fn transfer_in_private_with_offchain_delivery_failure_on_behalf_of_more_than_balance() {
-    // Setup with account contracts. Slower since we actually deploy them, but needed for authwits.
     let (env, token_contract_address, owner, recipient, mint_amount, proxy) =
         utils::setup_and_mint_to_private_with_proxy();
     let transfer_amount = mint_amount + (1 as u128);
@@ -70,7 +68,6 @@ unconstrained fn transfer_in_private_with_offchain_delivery_failure_on_behalf_of
 
 #[test(should_fail_with = "Unknown auth witness for message hash")]
 unconstrained fn transfer_in_private_with_offchain_delivery_failure_on_behalf_of_other_without_approval() {
-    // Setup with account contracts. Slower since we actually deploy them, but needed for authwits.
     let (env, token_contract_address, owner, recipient, _, proxy) =
         utils::setup_and_mint_to_private_with_proxy();
     let transfer_amount = 1000 as u128;
@@ -88,7 +85,6 @@ unconstrained fn transfer_in_private_with_offchain_delivery_failure_on_behalf_of
 
 #[test(should_fail_with = "Unknown auth witness for message hash")]
 unconstrained fn transfer_in_private_with_offchain_delivery_failure_on_behalf_of_other_wrong_caller() {
-    // Setup with account contracts. Slower since we actually deploy them, but needed for authwits.
     let (env, token_contract_address, owner, recipient, _, proxy) =
         utils::setup_and_mint_to_private_with_proxy();
     let transfer_amount = 1000 as u128;

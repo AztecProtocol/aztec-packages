@@ -6,6 +6,10 @@ use crate::macros::{
         create_utility_stub_from_parts,
     },
     internals_functions_generation::external_functions_registry,
+    offchain_receive::{
+        OFFCHAIN_RECEIVE_FN_NAME, OFFCHAIN_RECEIVE_PARAM_NAME, offchain_receive_param_type,
+        OFFCHAIN_RECEIVE_RETURN_TYPE,
+    },
     utils::is_fn_view,
 };
 
@@ -52,19 +56,14 @@ pub(crate) comptime fn generate_external_function_calls(m: Module) -> Quoted {
     }
 }
 
-/// Builds the interface stub for the macro-injected `offchain_receive` utility. The signature here must
-/// match the function emitted by `generate_offchain_receive` in `macros/aztec.nr` so that the computed
-/// selector matches.
+/// Builds the interface stub for the macro-injected `offchain_receive` utility. Pulls the signature
+/// from `crate::macros::offchain_receive` so it stays in lockstep with `generate_offchain_receive`.
 comptime fn create_offchain_receive_stub() -> Quoted {
-    let fn_name = quote { offchain_receive };
-    let messages_type = quote {
-        BoundedVec<crate::messages::processing::offchain::OffchainMessage, crate::messages::processing::offchain::MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL>
-    }
-        .as_type();
-    let fn_parameters = @[(quote { messages }, messages_type)];
-    let fn_return_type = quote { () }.as_type();
+    let param_type = offchain_receive_param_type(quote { crate }).as_type();
+    let fn_parameters = @[(OFFCHAIN_RECEIVE_PARAM_NAME, param_type)];
+    let fn_return_type = OFFCHAIN_RECEIVE_RETURN_TYPE.as_type();
 
-    create_utility_stub_from_parts(fn_name, fn_parameters, fn_return_type)
+    create_utility_stub_from_parts(OFFCHAIN_RECEIVE_FN_NAME, fn_parameters, fn_return_type)
 }
 
 /// Generates helper structs for convenient self-invocation of contract functions:
