@@ -78,6 +78,8 @@ class ECCOpQueue {
         ultra_ops_table.create_new_subtable();
     }
 
+    size_t num_subtables() const { return eccvm_ops_table.num_subtables(); }
+
     size_t get_current_subtable_size() const { return ultra_ops_table.get_current_subtable_size(); }
 
     /**
@@ -96,6 +98,11 @@ class ECCOpQueue {
     {
         eccvm_ops_table.merge(settings);
         ultra_ops_table.merge(settings, ultra_fixed_offset);
+    }
+
+    std::vector<std::array<Polynomial<Fr>, ULTRA_TABLE_WIDTH>> construct_subtable_columns(size_t start_offset = 0) const
+    {
+        return ultra_ops_table.construct_subtable_columns(start_offset);
     }
 
     // Construct column polynomials for the full aggregate ultra ops table

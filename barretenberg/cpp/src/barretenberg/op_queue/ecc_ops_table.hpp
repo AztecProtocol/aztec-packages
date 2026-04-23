@@ -346,6 +346,22 @@ class UltraEccOpsTable {
         return reconstructed_table;
     }
 
+    // Construct column polynomials for all subtables
+    std::vector<ColumnPolynomials> construct_subtable_columns(size_t start_offset = 0) const
+    {
+        std::vector<ColumnPolynomials> subtable_columns;
+
+        for (size_t idx = 0; idx < table.num_subtables(); idx++) {
+            const auto& subtable = table.get()[idx];
+            const size_t poly_size = (subtable.size() * NUM_ROWS_PER_OP) + start_offset;
+            ColumnPolynomials columns =
+                construct_column_polynomials_from_subtables(poly_size, idx, idx + 1, start_offset);
+            subtable_columns.push_back(std::move(columns));
+        }
+
+        return subtable_columns;
+    }
+
     // Construct column polynomials for the full ultra ecc ops table
     ColumnPolynomials construct_table_columns() const
     {
