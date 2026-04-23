@@ -114,11 +114,25 @@ struct EccFuzzerInput {
 
     static EccFuzzerInput from_buffer(const uint8_t* buffer)
     {
+        // Note: we cannot use AffinePoint::serialize_from_buffer() because this now throws if the point is not on the
+        // curve. We want to test such points so have to deserialize manually:
+        auto read_point = [](const uint8_t* src) -> AffinePoint {
+            bool is_point_at_infinity =
+                std::all_of(src, src + (sizeof(Fq) * 2), [](uint8_t val) { return val == 255; });
+            if (is_point_at_infinity) {
+                return AffinePoint::infinity();
+            }
+            AffinePoint result;
+            read(src, result.x);
+            read(src, result.y);
+            return result;
+        };
+
         EccFuzzerInput input;
         size_t offset = 0;
-        input.p = AffinePoint::serialize_from_buffer(buffer + offset);
+        input.p = read_point(buffer + offset);
         offset += sizeof(AffinePoint);
-        input.q = AffinePoint::serialize_from_buffer(buffer + offset);
+        input.q = read_point(buffer + offset);
         offset += sizeof(AffinePoint);
         input.scalar = Fq::serialize_from_buffer(buffer + offset);
         offset += sizeof(Fq);
