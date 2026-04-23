@@ -41,7 +41,7 @@ TEST(AvmSimulationAddressDerivationTest, Positive)
     ContractInstance instance = testing::random_contract_instance();
     AztecAddress derived_address = compute_contract_address(instance);
     std::vector<FF> salted_init_hash_inputs = {
-        DOM_SEP__PARTIAL_ADDRESS, instance.salt, instance.initialization_hash, instance.deployer
+        DOM_SEP__SALTED_INITIALIZATION_HASH, instance.salt, instance.initialization_hash, instance.deployer
     };
     FF salted_init_hash = poseidon2::hash(salted_init_hash_inputs);
 
@@ -94,7 +94,7 @@ TEST(AvmSimulationAddressDerivationTest, Negative)
     AztecAddress derived_address = compute_contract_address(instance);
 
     std::vector<FF> salted_init_hash_inputs = {
-        DOM_SEP__PARTIAL_ADDRESS, instance.salt, instance.initialization_hash, instance.deployer
+        DOM_SEP__SALTED_INITIALIZATION_HASH, instance.salt, instance.initialization_hash, instance.deployer
     };
     FF salted_init_hash = poseidon2::hash(salted_init_hash_inputs);
 
