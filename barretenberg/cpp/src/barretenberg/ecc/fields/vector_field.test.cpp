@@ -72,7 +72,9 @@ TEST(VectorFieldTest, SubtractionMatchesScalarFieldSub)
 
 TEST(VectorFieldTest, MultiplicationMatchesScalarFieldMul)
 {
-    for (int trial = 0; trial < 16; ++trial) {
+    // 150 random trials — matches the correctness-harness requirement for the
+    // q1s1 kernel. See https://gist.github.com/AztecBot/b8e2e1d5c85d54e10fb34b48461361e0
+    for (int trial = 0; trial < 150; ++trial) {
         auto a = random_five();
         auto b = random_five();
         std::array<fr, 5> expected;
