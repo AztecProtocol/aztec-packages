@@ -6,10 +6,6 @@ use crate::protocol::{address::AztecAddress, hash::poseidon2_hash_bytes, traits:
 pub global OFFCHAIN_MESSAGE_IDENTIFIER: Field =
     comptime { poseidon2_hash_bytes("aztecnr_offchain_message".as_bytes()) };
 
-/// Wire length of an offchain message effect payload:
-/// `[OFFCHAIN_MESSAGE_IDENTIFIER, recipient, ...ciphertext]`.
-pub global OFFCHAIN_MESSAGE_EFFECT_LEN: u32 = 2 + MESSAGE_CIPHERTEXT_LEN;
-
 /// Emits a message that will be delivered offchain rather than through the data availability layer.
 ///
 /// Sends data through an alternative app-specific channel without incurring data availability (DA) costs. After
