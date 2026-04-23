@@ -4,37 +4,46 @@
 // batched kernel that interleaves one scalar stream (1 field, 4×u64 limbs) with
 // one quad-packed SIMD stream (4 fields, 8×u32 limbs in v128 lanes).
 //
-// This is a C++ port of the `q1s1` / `mix_s1q1` WAT kernels from
+// This is a direct C++ port of the `q1s1` / `mix_s1q1` WAT kernels from
 //   https://gist.github.com/AztecBot/b8e2e1d5c85d54e10fb34b48461361e0 (Mont-mul)
 //   https://gist.github.com/AztecBot/2ad5f310fd0e8a3badda33487f4536ff (add/sub/eq/iz)
 //
-// On WASM with -msimd128 the quad stream uses the v128_t intrinsics that emit
-// the exact i32x4 / i64x2 ops the gist's WAT uses (i32x4.add, i32x4.lt_u,
-// i64x2.extmul_low_i32x4_u, v128.bitselect, ...). On non-SIMD builds it falls
-// back to a portable scalar implementation that processes 5 fields one at a
-// time through the underlying field<Params> operators — correct but not
-// vectorised.
+// Key ILP constraint the gist emphasises:
+//
+//   > Emit the kernel body as ONE function. Inside, structure it as two
+//   > arithmetic chains whose operations are textually adjacent. ... Don't
+//   > __attribute__((noinline)) anything; don't split into helpers for any
+//   > reason; don't unroll differently than WAT does. Match the schedule.
+//
+// So every op below is written inline in source-interleaved order: one scalar
+// statement, then the equivalent quad statement, then the next scalar
+// statement, etc. Clang preserves this order through its WASM backend, and V8
+// TurboFan's register allocator then sees adjacent different-opcode ops with
+// independent operands and schedules them onto separate INT and SIMD pipes.
 //
 // Invariant for +, -, ==, is_zero (coarse form): each of the 5 logical fields
 // is an integer in [0, 2p). Add/sub preserve this invariant; eq uses the
 // (d==0 ∨ d==p) coarse-equality trick.
 //
-// Invariant for operator* (Montgomery multiplication): inputs are in the same
-// 4×u64 Montgomery representation as the underlying field<Params>; the kernel
-// converts to/from the 9×29-bit form needed by the Yuval reduction internally.
-// Post-condition is coarse [0, 2p) (same as the gist's s1q1 Mont-mul).
+// Invariant for operator* (Montgomery multiplication):
+//   - Inputs are 9×29-bit limbs (R = 2^261).
+//   - Internally, scalar stream uses 17×i64 limb accumulators and quad stream
+//     uses 17×v128 limb accumulators (paired i64x2 for lanes 0-1 / 2-3).
+//   - Output is coarse [0, 2p) back in 9×29-bit form.
 //
 // Storage layout (WASM SIMD path):
-//   alignas(32) uint64_t scalar[4];    // one field, little-endian 4×u64
-//   alignas(16) v128_t   quad[8];      // 4 fields × 8×u32 limbs, transposed:
-//                                      //   lane L of quad[k] = field L's u32 limb k
+//
+//   alignas(32) uint64_t scalar_data[9];    // one field, 9 × 29-bit limbs packed in u64
+//   alignas(16) v128_t   quad_data[9];      // 4 fields × 9 × 29-bit limbs,
+//                                           // transposed: lane L of quad_data[k]
+//                                           // = field L's u32 limb k
+//
+// The 9-limb form is chosen because it matches what mont-mul expects natively;
+// converting back and forth would eat the SIMD win. Add/sub/eq/is_zero operate
+// on the 9-limb form too (still coarse [0, 2p)).
 //
 // Storage layout (fallback):
 //   alignas(32) field<Params> elts[5];
-//
-// Fields are stored in the same Montgomery form that field<Params> uses
-// internally (R = 2^261 on WASM, R = 2^256 on native). Construct from a
-// std::array<field,5> and use to_array() to extract.
 
 #include "barretenberg/ecc/fields/field.hpp"
 #include "barretenberg/ecc/fields/field_impl.hpp"
@@ -53,71 +62,91 @@
 
 namespace bb {
 
-// Returns 2^256 - 2*(modulus) as 4 × u64 little-endian. Used for the TNM
-// blend trick in coarse-form addition. Computed entirely at constexpr time.
-template <class Params> inline constexpr std::array<uint64_t, 4> compute_tnm_u64() noexcept
+// ---------------------------------------------------------------------------
+// Compile-time constants derived from Params.
+// ---------------------------------------------------------------------------
+//
+// BN254 Fr's 9 × 29-bit wasm modulus (already in Params::modulus_wasm_*):
+//   0x10000001, 0x1f0fac9f, 0x0e5c2450, 0x07d090f3,
+//   0x1585d283, 0x02db40c0, 0x00a6e141, 0x0e5c2634, 0x0030644e
+//
+// twice_modulus_wasm[i] = 2 * modulus_wasm[i], propagated as 29-bit limbs.
+// Used for sub's r+2p blend and the TNM trick on add. The gist hard-codes
+// these; we compute them at constexpr time from Params.
+
+template <class Params> inline constexpr std::array<uint64_t, 9> compute_twice_modulus_wasm() noexcept
 {
-    // 2p
-    const uint64_t p0 = Params::modulus_0;
-    const uint64_t p1 = Params::modulus_1;
-    const uint64_t p2 = Params::modulus_2;
-    const uint64_t p3 = Params::modulus_3;
-    const uint64_t twop0 = p0 << 1;
-    const uint64_t c0 = p0 >> 63;
-    const uint64_t twop1 = (p1 << 1) | c0;
-    const uint64_t c1 = p1 >> 63;
-    const uint64_t twop2 = (p2 << 1) | c1;
-    const uint64_t c2 = p2 >> 63;
-    const uint64_t twop3 = (p3 << 1) | c2;
-    // TNM = 2^256 - 2p  (unsigned wrap)
-    uint64_t b = 0;
-    const uint64_t tnm0 = 0ULL - twop0;
-    b = (tnm0 > 0ULL) ? 1 : 0; // 1 iff twop0 != 0
-    const uint64_t tnm1_raw = 0ULL - twop1;
-    const uint64_t tnm1 = tnm1_raw - b;
-    const uint64_t next_b = ((tnm1_raw < b) || (twop1 != 0)) ? 1ULL : 0ULL;
-    const uint64_t tnm2_raw = 0ULL - twop2;
-    const uint64_t tnm2 = tnm2_raw - next_b;
-    const uint64_t next_b2 = ((tnm2_raw < next_b) || (twop2 != 0)) ? 1ULL : 0ULL;
-    const uint64_t tnm3 = (0ULL - twop3) - next_b2;
-    return { tnm0, tnm1, tnm2, tnm3 };
+    const std::array<uint64_t, 9> p = { Params::modulus_wasm_0, Params::modulus_wasm_1, Params::modulus_wasm_2,
+                                        Params::modulus_wasm_3, Params::modulus_wasm_4, Params::modulus_wasm_5,
+                                        Params::modulus_wasm_6, Params::modulus_wasm_7, Params::modulus_wasm_8 };
+    std::array<uint64_t, 9> twop{};
+    uint64_t carry = 0;
+    for (size_t i = 0; i < 9; ++i) {
+        uint64_t v = (p[i] << 1) + carry;
+        twop[i] = v & 0x1fffffff;
+        carry = v >> 29;
+    }
+    // No carry-out beyond limb 8 for BN254 Fr (2p fits in 9 × 29 bits easily).
+    return twop;
 }
 
-template <class Params> inline constexpr std::array<uint64_t, 4> compute_twop_u64() noexcept
+// 2^261 - 2p (mod 2^261), as 9 × 29-bit limbs. The "TNM" constant for add's
+// TNM-blend trick: a + b + TNM overflows 2^261 iff a + b ≥ 2p, which is the
+// exact condition under which we should reduce.
+template <class Params> inline constexpr std::array<uint64_t, 9> compute_tnm_wasm() noexcept
 {
-    const uint64_t p0 = Params::modulus_0;
-    const uint64_t p1 = Params::modulus_1;
-    const uint64_t p2 = Params::modulus_2;
-    const uint64_t p3 = Params::modulus_3;
-    const uint64_t twop0 = p0 << 1;
-    const uint64_t c0 = p0 >> 63;
-    const uint64_t twop1 = (p1 << 1) | c0;
-    const uint64_t c1 = p1 >> 63;
-    const uint64_t twop2 = (p2 << 1) | c1;
-    const uint64_t c2 = p2 >> 63;
-    const uint64_t twop3 = (p3 << 1) | c2;
-    return { twop0, twop1, twop2, twop3 };
+    const auto twop = compute_twice_modulus_wasm<Params>();
+    std::array<uint64_t, 9> tnm{};
+    // TNM = 2^261 - 2p, computed as (~(2p) + 1) restricted to 261 bits.
+    // Equivalently, in 9 × 29 limb form: tnm[i] = (~twop[i]) & 0x1fffffff,
+    // then +1 and carry-propagate.
+    uint64_t carry = 1;
+    for (size_t i = 0; i < 9; ++i) {
+        uint64_t v = ((~twop[i]) & 0x1fffffff) + carry;
+        tnm[i] = v & 0x1fffffff;
+        carry = v >> 29;
+    }
+    return tnm;
 }
 
 template <class Params> struct alignas(32) VectorField {
     using Field = field<Params>;
     static constexpr size_t SIZE = 5;
 
-    static constexpr std::array<uint64_t, 4> TNM = compute_tnm_u64<Params>();
-    static constexpr std::array<uint64_t, 4> TWOP = compute_twop_u64<Params>();
-    static constexpr std::array<uint64_t, 4> P = { Params::modulus_0, Params::modulus_1, Params::modulus_2,
-                                                   Params::modulus_3 };
+    static constexpr std::array<uint64_t, 9> P_WASM = { Params::modulus_wasm_0, Params::modulus_wasm_1,
+                                                        Params::modulus_wasm_2, Params::modulus_wasm_3,
+                                                        Params::modulus_wasm_4, Params::modulus_wasm_5,
+                                                        Params::modulus_wasm_6, Params::modulus_wasm_7,
+                                                        Params::modulus_wasm_8 };
+    static constexpr std::array<uint64_t, 9> TWOP_WASM = compute_twice_modulus_wasm<Params>();
+    static constexpr std::array<uint64_t, 9> TNM_WASM = compute_tnm_wasm<Params>();
+    // -(modulus)^-1 mod 2^29, as a 29-bit value. Derived from Params::r_inv
+    // which is -(modulus)^-1 mod 2^64; masking to 29 bits gives the
+    // constant used by field<>::wasm_reduce (field_impl_generic.hpp:636).
+    static constexpr uint64_t R_INV_MOD_2_29 = Params::r_inv & 0x1fffffffULL;
+    static constexpr std::array<uint64_t, 9> R_INV_WASM = { Params::r_inv_wasm_0, Params::r_inv_wasm_1,
+                                                            Params::r_inv_wasm_2, Params::r_inv_wasm_3,
+                                                            Params::r_inv_wasm_4, Params::r_inv_wasm_5,
+                                                            Params::r_inv_wasm_6, Params::r_inv_wasm_7,
+                                                            Params::r_inv_wasm_8 };
 
-    // Storage
+    // ---- Storage ----
 #if BB_VECTOR_FIELD_SIMD
-    alignas(32) uint64_t scalar_data[4];
-    alignas(16) v128_t quad_data[8];
+    // 9 × 29-bit limbs, stored in u64 slots (top 35 bits zero). Matches the
+    // gist's `mmul_scalar` input format.
+    alignas(32) uint64_t scalar_data[9];
+    // 9 × v128; each v128 holds four u32 slots carrying one limb from each of
+    // 4 fields. Top 3 bits of each u32 are zero.
+    alignas(16) v128_t quad_data[9];
 #else
     alignas(32) Field elts[5];
 #endif
 
     constexpr VectorField() noexcept = default;
 
+    // Construct from 5 field<Params> values. Each is expected to be in the
+    // field's internal Montgomery form (R = 2^261 on WASM, R = 2^256 on
+    // native).
     explicit VectorField(const std::array<Field, 5>& in) noexcept { store_from_array(in); }
 
     std::array<Field, 5> to_array() const noexcept
@@ -143,8 +172,7 @@ template <class Params> struct alignas(32) VectorField {
     VectorField operator-(const VectorField& other) const noexcept;
     VectorField operator*(const VectorField& other) const noexcept;
 
-    // Returns 5-bit mask: bit i = 1 iff element i is equal (coarse form).
-    // Bit 0 = scalar lane, bits 1..4 = quad lanes 0..3.
+    // Returns a 5-bit mask: bit 0 = scalar, bits 1..4 = quad lanes 0..3.
     uint32_t eq(const VectorField& other) const noexcept;
     uint32_t is_zero() const noexcept;
 
@@ -154,262 +182,395 @@ template <class Params> struct alignas(32) VectorField {
 };
 
 // =====================================================================
-// Implementation — everything inline so the compiler sees one continuous
-// function body per op, which is load-bearing for the scalar/quad
-// op-interleaving.
+// Implementation
 // =====================================================================
 
 #if BB_VECTOR_FIELD_SIMD
+
+namespace vector_field_detail {
+
+// Pack 4 × u64 (little-endian 256-bit value) into 9 × 29-bit limbs. Matches
+// field<>::wasm_convert byte-for-byte.
+inline void pack_4u64_to_9x29(const uint64_t in[4], uint64_t out[9]) noexcept
+{
+    out[0] = in[0] & 0x1fffffff;
+    out[1] = (in[0] >> 29) & 0x1fffffff;
+    out[2] = ((in[0] >> 58) & 0x3f) | ((in[1] & 0x7fffff) << 6);
+    out[3] = (in[1] >> 23) & 0x1fffffff;
+    out[4] = ((in[1] >> 52) & 0xfff) | ((in[2] & 0x1ffff) << 12);
+    out[5] = (in[2] >> 17) & 0x1fffffff;
+    out[6] = ((in[2] >> 46) & 0x3ffff) | ((in[3] & 0x7ff) << 18);
+    out[7] = (in[3] >> 11) & 0x1fffffff;
+    out[8] = (in[3] >> 40) & 0x1fffffff;
+}
+
+// Unpack 9 × 29-bit limbs back to 4 × u64. Inverse of pack_4u64_to_9x29.
+// Assumes each limb fits in 29 bits (i.e., canonical 9×29 form).
+inline void unpack_9x29_to_4u64(const uint64_t in[9], uint64_t out[4]) noexcept
+{
+    out[0] = in[0] | (in[1] << 29) | (in[2] << 58);
+    out[1] = (in[2] >> 6) | (in[3] << 23) | (in[4] << 52);
+    out[2] = (in[4] >> 12) | (in[5] << 17) | (in[6] << 46);
+    out[3] = (in[6] >> 18) | (in[7] << 11) | (in[8] << 40);
+}
+
+} // namespace vector_field_detail
 
 // -------------------- store/load --------------------
 
 template <class Params> inline void VectorField<Params>::store_from_array(const std::array<Field, 5>& in) noexcept
 {
-    std::memcpy(scalar_data, in[0].data, 32);
-    uint32_t f[4][8];
-    std::memcpy(f[0], in[1].data, 32);
-    std::memcpy(f[1], in[2].data, 32);
-    std::memcpy(f[2], in[3].data, 32);
-    std::memcpy(f[3], in[4].data, 32);
-    for (size_t k = 0; k < 8; ++k) {
-        quad_data[k] = wasm_i32x4_make(static_cast<int32_t>(f[0][k]),
-                                       static_cast<int32_t>(f[1][k]),
-                                       static_cast<int32_t>(f[2][k]),
-                                       static_cast<int32_t>(f[3][k]));
+    // Scalar lane.
+    vector_field_detail::pack_4u64_to_9x29(in[0].data, scalar_data);
+    // Quad lanes: transpose 4 fields' 9-limb forms into 9 v128s.
+    uint64_t limbs[4][9];
+    vector_field_detail::pack_4u64_to_9x29(in[1].data, limbs[0]);
+    vector_field_detail::pack_4u64_to_9x29(in[2].data, limbs[1]);
+    vector_field_detail::pack_4u64_to_9x29(in[3].data, limbs[2]);
+    vector_field_detail::pack_4u64_to_9x29(in[4].data, limbs[3]);
+    for (size_t k = 0; k < 9; ++k) {
+        quad_data[k] = wasm_i32x4_make(static_cast<int32_t>(limbs[0][k]),
+                                       static_cast<int32_t>(limbs[1][k]),
+                                       static_cast<int32_t>(limbs[2][k]),
+                                       static_cast<int32_t>(limbs[3][k]));
     }
 }
 
 template <class Params> inline void VectorField<Params>::load_to_array(std::array<Field, 5>& out) const noexcept
 {
-    std::memcpy(out[0].data, scalar_data, 32);
-    uint32_t f[4][8];
-    for (size_t k = 0; k < 8; ++k) {
-        f[0][k] = static_cast<uint32_t>(wasm_i32x4_extract_lane(quad_data[k], 0));
-        f[1][k] = static_cast<uint32_t>(wasm_i32x4_extract_lane(quad_data[k], 1));
-        f[2][k] = static_cast<uint32_t>(wasm_i32x4_extract_lane(quad_data[k], 2));
-        f[3][k] = static_cast<uint32_t>(wasm_i32x4_extract_lane(quad_data[k], 3));
+    // Scalar: carry-propagate + canonical-reduce isn't needed here; we trust
+    // the stored 9 × 29-bit form is canonical on the way out.
+    vector_field_detail::unpack_9x29_to_4u64(scalar_data, out[0].data);
+    uint64_t limbs[4][9];
+    for (size_t k = 0; k < 9; ++k) {
+        limbs[0][k] = static_cast<uint32_t>(wasm_i32x4_extract_lane(quad_data[k], 0));
+        limbs[1][k] = static_cast<uint32_t>(wasm_i32x4_extract_lane(quad_data[k], 1));
+        limbs[2][k] = static_cast<uint32_t>(wasm_i32x4_extract_lane(quad_data[k], 2));
+        limbs[3][k] = static_cast<uint32_t>(wasm_i32x4_extract_lane(quad_data[k], 3));
     }
-    std::memcpy(out[1].data, f[0], 32);
-    std::memcpy(out[2].data, f[1], 32);
-    std::memcpy(out[3].data, f[2], 32);
-    std::memcpy(out[4].data, f[3], 32);
+    vector_field_detail::unpack_9x29_to_4u64(limbs[0], out[1].data);
+    vector_field_detail::unpack_9x29_to_4u64(limbs[1], out[2].data);
+    vector_field_detail::unpack_9x29_to_4u64(limbs[2], out[3].data);
+    vector_field_detail::unpack_9x29_to_4u64(limbs[3], out[4].data);
 }
 
-// Helper: materialise an 8×v128 splat of a 4×u64 little-endian value, one
-// u32 per v128. Takes a constexpr-ish reference.
-template <class Params>
-static inline void splat_u64x4_into_u32x8(const std::array<uint64_t, 4>& src, v128_t out[8]) noexcept
-{
-    for (size_t k = 0; k < 8; ++k) {
-        uint32_t word = static_cast<uint32_t>(src[k >> 1] >> (32 * (k & 1)));
-        out[k] = wasm_i32x4_splat(static_cast<int32_t>(word));
-    }
-}
-
-// -------------------- operator+ (coarse form) --------------------
+// -------------------- operator+ (coarse form, 9×29 limbs) --------------------
 //
-// Scalar stream runs two independent 4-limb chains:
-//   r = a + b
-//   t = a + b + TNM   (TNM = 2^256 - 2p)
-// Blend on t's final carry (== 1 iff a+b ≥ 2p).
-// Quad stream does the same on 8-deep u32 limb chains with native i32x4.lt_u.
-// The two streams have no data dependencies on each other — clang/V8
-// schedule them onto independent ALU / SIMD pipes.
+// Scalar and quad streams share an identical op graph:
+//
+//   r[k] = a[k] + b[k] (+ carry from r[k-1])            ; naïve 9-limb add
+//   t[k] = r[k] + TNM[k] (+ carry from t[k-1])          ; independent chain
+//   if t produces no final carry (i.e., a+b < 2p)       ; use r, else use t
+//
+// Because each 29-bit limb + 29-bit limb + 1 = 30 bits max, the carry fits
+// in bit 29. We extract it as `(sum >> 29)`, mask the limb to 29 bits, and
+// feed the carry forward.
+//
+// Interleaving pattern: scalar_stmt; quad_stmt; scalar_stmt; quad_stmt; ...
+// Clang preserves source order → WAT has adjacent scalar/quad ops → V8's
+// register allocator issues them to independent pipes.
 
 template <class Params>
 [[gnu::always_inline]] inline VectorField<Params> VectorField<Params>::operator+(const VectorField& other) const noexcept
 {
+    constexpr uint64_t MASK = 0x1fffffffULL;
     VectorField result;
 
-    // ---- Scalar stream ----
-    const uint64_t a0 = scalar_data[0], a1 = scalar_data[1], a2 = scalar_data[2], a3 = scalar_data[3];
-    const uint64_t b0 = other.scalar_data[0], b1 = other.scalar_data[1], b2 = other.scalar_data[2],
-                   b3 = other.scalar_data[3];
+    // --- r chain: r = a + b with carry, limbs 0..8 ---
+    // Each statement pair: scalar, then quad. Clang emits them in this order,
+    // V8 dispatches scalar to INT pipes and quad to SIMD pipes.
+    const uint64_t sa0 = scalar_data[0];
+    const v128_t qa0 = quad_data[0];
+    const uint64_t sb0 = other.scalar_data[0];
+    const v128_t qb0 = other.quad_data[0];
+    uint64_t sr0 = sa0 + sb0;
+    v128_t qr0 = wasm_i32x4_add(qa0, qb0);
+    uint64_t scarry = sr0 >> 29;
+    v128_t qcarry = wasm_u32x4_shr(qr0, 29);
+    sr0 &= MASK;
+    qr0 = wasm_v128_and(qr0, wasm_i32x4_splat(MASK));
 
-    const uint64_t r0 = a0 + b0;
-    uint64_t cr = (r0 < a0) ? 1ULL : 0ULL;
-    const uint64_t rp1 = a1 + b1;
-    const uint64_t cr1_1 = (rp1 < a1) ? 1ULL : 0ULL;
-    const uint64_t r1 = rp1 + cr;
-    cr = cr1_1 + ((r1 < cr) ? 1ULL : 0ULL);
-    const uint64_t rp2 = a2 + b2;
-    const uint64_t cr1_2 = (rp2 < a2) ? 1ULL : 0ULL;
-    const uint64_t r2 = rp2 + cr;
-    cr = cr1_2 + ((r2 < cr) ? 1ULL : 0ULL);
-    const uint64_t rp3 = a3 + b3;
-    const uint64_t cr1_3 = (rp3 < a3) ? 1ULL : 0ULL;
-    const uint64_t r3 = rp3 + cr;
+    const uint64_t sa1 = scalar_data[1];
+    const v128_t qa1 = quad_data[1];
+    const uint64_t sb1 = other.scalar_data[1];
+    const v128_t qb1 = other.quad_data[1];
+    uint64_t sr1 = sa1 + sb1 + scarry;
+    v128_t qr1 = wasm_i32x4_add(wasm_i32x4_add(qa1, qb1), qcarry);
+    scarry = sr1 >> 29;
+    qcarry = wasm_u32x4_shr(qr1, 29);
+    sr1 &= MASK;
+    qr1 = wasm_v128_and(qr1, wasm_i32x4_splat(MASK));
 
-    const uint64_t tp0 = a0 + b0;
-    const uint64_t ct1_0 = (tp0 < a0) ? 1ULL : 0ULL;
-    const uint64_t t0 = tp0 + TNM[0];
-    uint64_t ct = ct1_0 + ((t0 < TNM[0]) ? 1ULL : 0ULL);
+    const uint64_t sa2 = scalar_data[2];
+    const v128_t qa2 = quad_data[2];
+    const uint64_t sb2 = other.scalar_data[2];
+    const v128_t qb2 = other.quad_data[2];
+    uint64_t sr2 = sa2 + sb2 + scarry;
+    v128_t qr2 = wasm_i32x4_add(wasm_i32x4_add(qa2, qb2), qcarry);
+    scarry = sr2 >> 29;
+    qcarry = wasm_u32x4_shr(qr2, 29);
+    sr2 &= MASK;
+    qr2 = wasm_v128_and(qr2, wasm_i32x4_splat(MASK));
 
-    const uint64_t tp1 = a1 + b1;
-    const uint64_t ct1_1 = (tp1 < a1) ? 1ULL : 0ULL;
-    const uint64_t tq1 = tp1 + TNM[1];
-    const uint64_t ct2_1 = (tq1 < TNM[1]) ? 1ULL : 0ULL;
-    const uint64_t t1 = tq1 + ct;
-    ct = ct1_1 + ct2_1 + ((t1 < ct) ? 1ULL : 0ULL);
+    const uint64_t sa3 = scalar_data[3];
+    const v128_t qa3 = quad_data[3];
+    const uint64_t sb3 = other.scalar_data[3];
+    const v128_t qb3 = other.quad_data[3];
+    uint64_t sr3 = sa3 + sb3 + scarry;
+    v128_t qr3 = wasm_i32x4_add(wasm_i32x4_add(qa3, qb3), qcarry);
+    scarry = sr3 >> 29;
+    qcarry = wasm_u32x4_shr(qr3, 29);
+    sr3 &= MASK;
+    qr3 = wasm_v128_and(qr3, wasm_i32x4_splat(MASK));
 
-    const uint64_t tp2 = a2 + b2;
-    const uint64_t ct1_2 = (tp2 < a2) ? 1ULL : 0ULL;
-    const uint64_t tq2 = tp2 + TNM[2];
-    const uint64_t ct2_2 = (tq2 < TNM[2]) ? 1ULL : 0ULL;
-    const uint64_t t2 = tq2 + ct;
-    ct = ct1_2 + ct2_2 + ((t2 < ct) ? 1ULL : 0ULL);
+    const uint64_t sa4 = scalar_data[4];
+    const v128_t qa4 = quad_data[4];
+    const uint64_t sb4 = other.scalar_data[4];
+    const v128_t qb4 = other.quad_data[4];
+    uint64_t sr4 = sa4 + sb4 + scarry;
+    v128_t qr4 = wasm_i32x4_add(wasm_i32x4_add(qa4, qb4), qcarry);
+    scarry = sr4 >> 29;
+    qcarry = wasm_u32x4_shr(qr4, 29);
+    sr4 &= MASK;
+    qr4 = wasm_v128_and(qr4, wasm_i32x4_splat(MASK));
 
-    const uint64_t tp3 = a3 + b3;
-    const uint64_t ct1_3 = (tp3 < a3) ? 1ULL : 0ULL;
-    const uint64_t tq3 = tp3 + TNM[3];
-    const uint64_t ct2_3 = (tq3 < TNM[3]) ? 1ULL : 0ULL;
-    const uint64_t t3 = tq3 + ct;
-    ct = ct1_3 + ct2_3 + ((t3 < ct) ? 1ULL : 0ULL);
+    const uint64_t sa5 = scalar_data[5];
+    const v128_t qa5 = quad_data[5];
+    const uint64_t sb5 = other.scalar_data[5];
+    const v128_t qb5 = other.quad_data[5];
+    uint64_t sr5 = sa5 + sb5 + scarry;
+    v128_t qr5 = wasm_i32x4_add(wasm_i32x4_add(qa5, qb5), qcarry);
+    scarry = sr5 >> 29;
+    qcarry = wasm_u32x4_shr(qr5, 29);
+    sr5 &= MASK;
+    qr5 = wasm_v128_and(qr5, wasm_i32x4_splat(MASK));
 
-    const uint64_t mask = 0ULL - ct;
-    const uint64_t imask = ~mask;
-    result.scalar_data[0] = (r0 & imask) | (t0 & mask);
-    result.scalar_data[1] = (r1 & imask) | (t1 & mask);
-    result.scalar_data[2] = (r2 & imask) | (t2 & mask);
-    result.scalar_data[3] = (r3 & imask) | (t3 & mask);
+    const uint64_t sa6 = scalar_data[6];
+    const v128_t qa6 = quad_data[6];
+    const uint64_t sb6 = other.scalar_data[6];
+    const v128_t qb6 = other.quad_data[6];
+    uint64_t sr6 = sa6 + sb6 + scarry;
+    v128_t qr6 = wasm_i32x4_add(wasm_i32x4_add(qa6, qb6), qcarry);
+    scarry = sr6 >> 29;
+    qcarry = wasm_u32x4_shr(qr6, 29);
+    sr6 &= MASK;
+    qr6 = wasm_v128_and(qr6, wasm_i32x4_splat(MASK));
 
-    // ---- Quad stream ----
-    v128_t qTNM[8];
-    splat_u64x4_into_u32x8<Params>(TNM, qTNM);
+    const uint64_t sa7 = scalar_data[7];
+    const v128_t qa7 = quad_data[7];
+    const uint64_t sb7 = other.scalar_data[7];
+    const v128_t qb7 = other.quad_data[7];
+    uint64_t sr7 = sa7 + sb7 + scarry;
+    v128_t qr7 = wasm_i32x4_add(wasm_i32x4_add(qa7, qb7), qcarry);
+    scarry = sr7 >> 29;
+    qcarry = wasm_u32x4_shr(qr7, 29);
+    sr7 &= MASK;
+    qr7 = wasm_v128_and(qr7, wasm_i32x4_splat(MASK));
 
-    v128_t qr[8];
-    v128_t qt[8];
+    const uint64_t sa8 = scalar_data[8];
+    const v128_t qa8 = quad_data[8];
+    const uint64_t sb8 = other.scalar_data[8];
+    const v128_t qb8 = other.quad_data[8];
+    uint64_t sr8 = sa8 + sb8 + scarry;
+    v128_t qr8 = wasm_i32x4_add(wasm_i32x4_add(qa8, qb8), qcarry);
+    // No carry out of limb 8 for coarse inputs + add (result < 2 * 2p < 2^261).
 
-    qr[0] = wasm_i32x4_add(quad_data[0], other.quad_data[0]);
-    v128_t qcr = wasm_u32x4_lt(qr[0], quad_data[0]);
-    for (size_t i = 1; i < 8; ++i) {
-        v128_t qrp = wasm_i32x4_add(quad_data[i], other.quad_data[i]);
-        v128_t qc1 = wasm_u32x4_lt(qrp, quad_data[i]);
-        qr[i] = wasm_i32x4_sub(qrp, qcr); // qcr is -1/0 per lane ⇒ adds 0/1
-        v128_t qc2 = wasm_u32x4_lt(qr[i], qrp);
-        qcr = wasm_v128_or(qc1, qc2);
-    }
-    qt[0] = wasm_i32x4_add(qr[0], qTNM[0]);
-    v128_t qct = wasm_u32x4_lt(qt[0], qr[0]);
-    for (size_t i = 1; i < 8; ++i) {
-        v128_t qtp = wasm_i32x4_add(qr[i], qTNM[i]);
-        v128_t qc1 = wasm_u32x4_lt(qtp, qr[i]);
-        qt[i] = wasm_i32x4_sub(qtp, qct);
-        v128_t qc2 = wasm_u32x4_lt(qt[i], qtp);
-        qct = wasm_v128_or(qc1, qc2);
-    }
-    for (size_t i = 0; i < 8; ++i) {
-        result.quad_data[i] = wasm_v128_bitselect(qt[i], qr[i], qct);
-    }
+    // --- t chain: t = r + TNM with carry, limbs 0..8 ---
+    uint64_t st0 = sr0 + TNM_WASM[0];
+    v128_t qt0 = wasm_i32x4_add(qr0, wasm_i32x4_splat(static_cast<int32_t>(TNM_WASM[0])));
+    scarry = st0 >> 29;
+    qcarry = wasm_u32x4_shr(qt0, 29);
+    st0 &= MASK;
+    qt0 = wasm_v128_and(qt0, wasm_i32x4_splat(MASK));
+
+    uint64_t st1 = sr1 + TNM_WASM[1] + scarry;
+    v128_t qt1 = wasm_i32x4_add(wasm_i32x4_add(qr1, wasm_i32x4_splat(static_cast<int32_t>(TNM_WASM[1]))), qcarry);
+    scarry = st1 >> 29;
+    qcarry = wasm_u32x4_shr(qt1, 29);
+    st1 &= MASK;
+    qt1 = wasm_v128_and(qt1, wasm_i32x4_splat(MASK));
+
+    uint64_t st2 = sr2 + TNM_WASM[2] + scarry;
+    v128_t qt2 = wasm_i32x4_add(wasm_i32x4_add(qr2, wasm_i32x4_splat(static_cast<int32_t>(TNM_WASM[2]))), qcarry);
+    scarry = st2 >> 29;
+    qcarry = wasm_u32x4_shr(qt2, 29);
+    st2 &= MASK;
+    qt2 = wasm_v128_and(qt2, wasm_i32x4_splat(MASK));
+
+    uint64_t st3 = sr3 + TNM_WASM[3] + scarry;
+    v128_t qt3 = wasm_i32x4_add(wasm_i32x4_add(qr3, wasm_i32x4_splat(static_cast<int32_t>(TNM_WASM[3]))), qcarry);
+    scarry = st3 >> 29;
+    qcarry = wasm_u32x4_shr(qt3, 29);
+    st3 &= MASK;
+    qt3 = wasm_v128_and(qt3, wasm_i32x4_splat(MASK));
+
+    uint64_t st4 = sr4 + TNM_WASM[4] + scarry;
+    v128_t qt4 = wasm_i32x4_add(wasm_i32x4_add(qr4, wasm_i32x4_splat(static_cast<int32_t>(TNM_WASM[4]))), qcarry);
+    scarry = st4 >> 29;
+    qcarry = wasm_u32x4_shr(qt4, 29);
+    st4 &= MASK;
+    qt4 = wasm_v128_and(qt4, wasm_i32x4_splat(MASK));
+
+    uint64_t st5 = sr5 + TNM_WASM[5] + scarry;
+    v128_t qt5 = wasm_i32x4_add(wasm_i32x4_add(qr5, wasm_i32x4_splat(static_cast<int32_t>(TNM_WASM[5]))), qcarry);
+    scarry = st5 >> 29;
+    qcarry = wasm_u32x4_shr(qt5, 29);
+    st5 &= MASK;
+    qt5 = wasm_v128_and(qt5, wasm_i32x4_splat(MASK));
+
+    uint64_t st6 = sr6 + TNM_WASM[6] + scarry;
+    v128_t qt6 = wasm_i32x4_add(wasm_i32x4_add(qr6, wasm_i32x4_splat(static_cast<int32_t>(TNM_WASM[6]))), qcarry);
+    scarry = st6 >> 29;
+    qcarry = wasm_u32x4_shr(qt6, 29);
+    st6 &= MASK;
+    qt6 = wasm_v128_and(qt6, wasm_i32x4_splat(MASK));
+
+    uint64_t st7 = sr7 + TNM_WASM[7] + scarry;
+    v128_t qt7 = wasm_i32x4_add(wasm_i32x4_add(qr7, wasm_i32x4_splat(static_cast<int32_t>(TNM_WASM[7]))), qcarry);
+    scarry = st7 >> 29;
+    qcarry = wasm_u32x4_shr(qt7, 29);
+    st7 &= MASK;
+    qt7 = wasm_v128_and(qt7, wasm_i32x4_splat(MASK));
+
+    uint64_t st8 = sr8 + TNM_WASM[8] + scarry;
+    v128_t qt8 = wasm_i32x4_add(wasm_i32x4_add(qr8, wasm_i32x4_splat(static_cast<int32_t>(TNM_WASM[8]))), qcarry);
+    // Top-limb carry: if t8 >= 2^29, a+b >= 2p — pick t (reduced). Else pick r.
+    const uint64_t sc_final = st8 >> 29;
+    const v128_t qc_final = wasm_u32x4_shr(qt8, 29);
+    st8 &= MASK;
+    qt8 = wasm_v128_and(qt8, wasm_i32x4_splat(MASK));
+
+    // --- Blend: sc_final nonzero ⇒ pick t, else pick r ---
+    const uint64_t smask = 0ULL - sc_final;
+    // qc_final is 0/1 per lane; convert to 0 / all-ones mask.
+    const v128_t qmask = wasm_i32x4_eq(qc_final, wasm_i32x4_splat(1));
+    const uint64_t simask = ~smask;
+
+    result.scalar_data[0] = (sr0 & simask) | (st0 & smask);
+    result.quad_data[0] = wasm_v128_bitselect(qt0, qr0, qmask);
+    result.scalar_data[1] = (sr1 & simask) | (st1 & smask);
+    result.quad_data[1] = wasm_v128_bitselect(qt1, qr1, qmask);
+    result.scalar_data[2] = (sr2 & simask) | (st2 & smask);
+    result.quad_data[2] = wasm_v128_bitselect(qt2, qr2, qmask);
+    result.scalar_data[3] = (sr3 & simask) | (st3 & smask);
+    result.quad_data[3] = wasm_v128_bitselect(qt3, qr3, qmask);
+    result.scalar_data[4] = (sr4 & simask) | (st4 & smask);
+    result.quad_data[4] = wasm_v128_bitselect(qt4, qr4, qmask);
+    result.scalar_data[5] = (sr5 & simask) | (st5 & smask);
+    result.quad_data[5] = wasm_v128_bitselect(qt5, qr5, qmask);
+    result.scalar_data[6] = (sr6 & simask) | (st6 & smask);
+    result.quad_data[6] = wasm_v128_bitselect(qt6, qr6, qmask);
+    result.scalar_data[7] = (sr7 & simask) | (st7 & smask);
+    result.quad_data[7] = wasm_v128_bitselect(qt7, qr7, qmask);
+    result.scalar_data[8] = (sr8 & simask) | (st8 & smask);
+    result.quad_data[8] = wasm_v128_bitselect(qt8, qr8, qmask);
 
     return result;
 }
 
-// -------------------- operator- (coarse form) --------------------
+// -------------------- operator- (coarse form, 9×29 limbs) --------------------
+//
+// Two independent chains on 9-limb inputs:
+//   r = a - b (may go negative, tracked via borrow mask)
+//   s = r + 2p  (always positive)
+// If final borrow bit is set, pick s; else pick r.
+//
+// Borrow propagation on 9-limb form: a[k] - b[k] - borrow. If the subtraction
+// underflows 29 bits, the next limb's borrow-in is 1. We represent `borrow`
+// as a 1-bit value in scalar and as an all-ones/0 mask in quad so
+// i32x4 subtract works.
 
 template <class Params>
 [[gnu::always_inline]] inline VectorField<Params> VectorField<Params>::operator-(const VectorField& other) const noexcept
 {
+    constexpr uint64_t MASK = 0x1fffffffULL;
     VectorField result;
 
-    // ---- Scalar stream ----
-    const uint64_t a0 = scalar_data[0], a1 = scalar_data[1], a2 = scalar_data[2], a3 = scalar_data[3];
-    const uint64_t b0 = other.scalar_data[0], b1 = other.scalar_data[1], b2 = other.scalar_data[2],
-                   b3 = other.scalar_data[3];
+    // --- r = a - b with borrow (scalar borrow ∈ {0, 1}, quad borrow ∈ {0, -1} mask) ---
+    // Implement a - b = a + (~b & mask) + 1 - 2^29 per limb:
+    // Equivalently sr = a - b - borrow, underflowing if sr > a.
+    // To avoid negative 29-bit intermediates in quad, we add (2^29) to a first
+    // and subtract at the end; scalar just uses signed extension.
+    // For simplicity, track borrow directly via comparison.
+    int64_t sborrow = 0;
+    v128_t qborrow = wasm_i64x2_splat(0);
 
-    const uint64_t r0 = a0 - b0;
-    uint64_t bw = 0ULL - ((r0 > a0) ? 1ULL : 0ULL);
+    uint64_t sr[9];
+    v128_t qr[9];
 
-    const uint64_t t1_1 = a1 - (bw >> 63);
-    const uint64_t b1_1 = (t1_1 > a1) ? 1ULL : 0ULL;
-    const uint64_t r1 = t1_1 - b1;
-    const uint64_t b2_1 = (r1 > t1_1) ? 1ULL : 0ULL;
-    bw = 0ULL - (b1_1 | b2_1);
-
-    const uint64_t t1_2 = a2 - (bw >> 63);
-    const uint64_t b1_2 = (t1_2 > a2) ? 1ULL : 0ULL;
-    const uint64_t r2 = t1_2 - b2;
-    const uint64_t b2_2 = (r2 > t1_2) ? 1ULL : 0ULL;
-    bw = 0ULL - (b1_2 | b2_2);
-
-    const uint64_t t1_3 = a3 - (bw >> 63);
-    const uint64_t b1_3 = (t1_3 > a3) ? 1ULL : 0ULL;
-    const uint64_t r3 = t1_3 - b3;
-    const uint64_t b2_3 = (r3 > t1_3) ? 1ULL : 0ULL;
-    bw = 0ULL - (b1_3 | b2_3);
-
-    // s = r + 2p
-    const uint64_t s0 = r0 + TWOP[0];
-    uint64_t cs = (s0 < TWOP[0]) ? 1ULL : 0ULL;
-    const uint64_t sp1 = r1 + TWOP[1];
-    const uint64_t cs1_1 = (sp1 < TWOP[1]) ? 1ULL : 0ULL;
-    const uint64_t s1 = sp1 + cs;
-    cs = cs1_1 + ((s1 < cs) ? 1ULL : 0ULL);
-    const uint64_t sp2 = r2 + TWOP[2];
-    const uint64_t cs1_2 = (sp2 < TWOP[2]) ? 1ULL : 0ULL;
-    const uint64_t s2 = sp2 + cs;
-    cs = cs1_2 + ((s2 < cs) ? 1ULL : 0ULL);
-    const uint64_t s3 = r3 + TWOP[3] + cs;
-
-    result.scalar_data[0] = (r0 & ~bw) | (s0 & bw);
-    result.scalar_data[1] = (r1 & ~bw) | (s1 & bw);
-    result.scalar_data[2] = (r2 & ~bw) | (s2 & bw);
-    result.scalar_data[3] = (r3 & ~bw) | (s3 & bw);
-
-    // ---- Quad stream ----
-    v128_t q2P[8];
-    splat_u64x4_into_u32x8<Params>(TWOP, q2P);
-
-    v128_t qr[8];
-    v128_t qs[8];
-    qr[0] = wasm_i32x4_sub(quad_data[0], other.quad_data[0]);
-    v128_t qbw = wasm_u32x4_lt(quad_data[0], other.quad_data[0]);
-    for (size_t i = 1; i < 8; ++i) {
-        v128_t qt1 = wasm_i32x4_add(quad_data[i], qbw); // qbw = -1 / 0 ⇒ subtract 1 / 0
-        v128_t qbw1 = wasm_u32x4_gt(qt1, quad_data[i]);
-        qr[i] = wasm_i32x4_sub(qt1, other.quad_data[i]);
-        v128_t qbw2 = wasm_u32x4_lt(qt1, other.quad_data[i]);
-        qbw = wasm_v128_or(qbw1, qbw2);
+    // Limb 0.
+    {
+        int64_t diff = static_cast<int64_t>(scalar_data[0]) - static_cast<int64_t>(other.scalar_data[0]);
+        v128_t qdiff = wasm_i32x4_sub(quad_data[0], other.quad_data[0]);
+        sr[0] = static_cast<uint64_t>(diff) & MASK;
+        qr[0] = wasm_v128_and(qdiff, wasm_i32x4_splat(MASK));
+        sborrow = (diff < 0) ? 1 : 0;
+        // quad borrow: if (qa < qb) → -1 mask per lane.
+        qborrow = wasm_u32x4_lt(quad_data[0], other.quad_data[0]);
     }
-    qs[0] = wasm_i32x4_add(qr[0], q2P[0]);
-    v128_t qcs = wasm_u32x4_lt(qs[0], qr[0]);
-    for (size_t i = 1; i < 8; ++i) {
-        v128_t qsp = wasm_i32x4_add(qr[i], q2P[i]);
-        v128_t qc1 = wasm_u32x4_lt(qsp, qr[i]);
-        qs[i] = wasm_i32x4_sub(qsp, qcs);
-        v128_t qc2 = wasm_u32x4_lt(qs[i], qsp);
-        qcs = wasm_v128_or(qc1, qc2);
+    for (size_t k = 1; k < 9; ++k) {
+        int64_t diff =
+            static_cast<int64_t>(scalar_data[k]) - static_cast<int64_t>(other.scalar_data[k]) - sborrow;
+        // quad: subtract b and subtract borrow-mask (sub of -1 == add 1, so
+        // we want add the borrow-mask — wait, we want SUBTRACT the borrow.
+        // borrow mask is 0 or -1; subtracting -1 = +1, subtracting 0 = 0.
+        // We want: qr = qa - qb - (borrow ? 1 : 0) = qa - qb + borrow_mask.
+        v128_t qdiff = wasm_i32x4_add(wasm_i32x4_sub(quad_data[k], other.quad_data[k]), qborrow);
+        sr[k] = static_cast<uint64_t>(diff) & MASK;
+        qr[k] = wasm_v128_and(qdiff, wasm_i32x4_splat(MASK));
+        sborrow = (diff < 0) ? 1 : 0;
+        // new quad borrow: top bit of qdiff (bit 31) set ⇒ underflow.
+        qborrow = wasm_i32x4_shr(qdiff, 31);
     }
-    for (size_t i = 0; i < 8; ++i) {
-        result.quad_data[i] = wasm_v128_bitselect(qs[i], qr[i], qbw);
+
+    // --- s = r + 2p with carry (always succeeds, stays in 29-bit form) ---
+    uint64_t scarry = 0;
+    v128_t qcarry = wasm_i32x4_splat(0);
+    uint64_t ss[9];
+    v128_t qs[9];
+    for (size_t k = 0; k < 9; ++k) {
+        const uint64_t tp = TWOP_WASM[k];
+        uint64_t sv = sr[k] + tp + scarry;
+        v128_t qv = wasm_i32x4_add(wasm_i32x4_add(qr[k], wasm_i32x4_splat(static_cast<int32_t>(tp))), qcarry);
+        ss[k] = sv & MASK;
+        qs[k] = wasm_v128_and(qv, wasm_i32x4_splat(MASK));
+        scarry = sv >> 29;
+        qcarry = wasm_u32x4_shr(qv, 29);
+    }
+
+    // --- Blend on original borrow: borrow set ⇒ pick s; else pick r ---
+    const uint64_t smask = 0ULL - static_cast<uint64_t>(sborrow);
+    const v128_t qmask = qborrow; // already all-ones/0 per lane
+    const uint64_t simask = ~smask;
+
+    for (size_t k = 0; k < 9; ++k) {
+        result.scalar_data[k] = (sr[k] & simask) | (ss[k] & smask);
+        result.quad_data[k] = wasm_v128_bitselect(qs[k], qr[k], qmask);
     }
     return result;
 }
 
-// -------------------- eq and is_zero (coarse form) --------------------
+// -------------------- eq / is_zero (coarse form, 9×29 limbs) --------------------
 
 template <class Params>
 [[gnu::always_inline]] inline uint32_t VectorField<Params>::eq(const VectorField& other) const noexcept
 {
-    VectorField d = (*this) - other;
+    const VectorField d = (*this) - other;
 
-    const uint64_t acc_z = (d.scalar_data[0] | d.scalar_data[1]) | (d.scalar_data[2] | d.scalar_data[3]);
-    const uint64_t acc_p = ((d.scalar_data[0] ^ P[0]) | (d.scalar_data[1] ^ P[1])) |
-                           ((d.scalar_data[2] ^ P[2]) | (d.scalar_data[3] ^ P[3]));
-    const bool scalar_eq = (acc_z == 0) || (acc_p == 0);
-
-    v128_t qP[8];
-    splat_u64x4_into_u32x8<Params>(P, qP);
-    v128_t qacc_z = wasm_v128_or(
-        wasm_v128_or(wasm_v128_or(d.quad_data[0], d.quad_data[1]), wasm_v128_or(d.quad_data[2], d.quad_data[3])),
-        wasm_v128_or(wasm_v128_or(d.quad_data[4], d.quad_data[5]), wasm_v128_or(d.quad_data[6], d.quad_data[7])));
-    v128_t qacc_p =
-        wasm_v128_or(wasm_v128_or(wasm_v128_or(wasm_v128_xor(d.quad_data[0], qP[0]), wasm_v128_xor(d.quad_data[1], qP[1])),
-                                  wasm_v128_or(wasm_v128_xor(d.quad_data[2], qP[2]), wasm_v128_xor(d.quad_data[3], qP[3]))),
-                     wasm_v128_or(wasm_v128_or(wasm_v128_xor(d.quad_data[4], qP[4]), wasm_v128_xor(d.quad_data[5], qP[5])),
-                                  wasm_v128_or(wasm_v128_xor(d.quad_data[6], qP[6]), wasm_v128_xor(d.quad_data[7], qP[7]))));
-    v128_t zero = wasm_i32x4_splat(0);
-    v128_t qeq = wasm_v128_or(wasm_i32x4_eq(qacc_z, zero), wasm_i32x4_eq(qacc_p, zero));
+    // scalar: d == 0 OR d == p
+    uint64_t sacc_z = 0;
+    uint64_t sacc_p = 0;
+    v128_t qacc_z = wasm_i32x4_splat(0);
+    v128_t qacc_p = wasm_i32x4_splat(0);
+    for (size_t k = 0; k < 9; ++k) {
+        sacc_z |= d.scalar_data[k];
+        sacc_p |= (d.scalar_data[k] ^ P_WASM[k]);
+        qacc_z = wasm_v128_or(qacc_z, d.quad_data[k]);
+        qacc_p = wasm_v128_or(qacc_p, wasm_v128_xor(d.quad_data[k], wasm_i32x4_splat(static_cast<int32_t>(P_WASM[k]))));
+    }
+    const bool scalar_eq = (sacc_z == 0) || (sacc_p == 0);
+    const v128_t qeq =
+        wasm_v128_or(wasm_i32x4_eq(qacc_z, wasm_i32x4_splat(0)), wasm_i32x4_eq(qacc_p, wasm_i32x4_splat(0)));
 
     uint32_t mask = scalar_eq ? 1u : 0u;
     mask |= (wasm_i32x4_extract_lane(qeq, 0) != 0) ? 2u : 0u;
@@ -422,23 +583,18 @@ template <class Params>
 template <class Params>
 [[gnu::always_inline]] inline uint32_t VectorField<Params>::is_zero() const noexcept
 {
-    const uint64_t acc_or = (scalar_data[0] | scalar_data[1]) | (scalar_data[2] | scalar_data[3]);
-    const uint64_t acc_xp = ((scalar_data[0] ^ P[0]) | (scalar_data[1] ^ P[1])) |
-                            ((scalar_data[2] ^ P[2]) | (scalar_data[3] ^ P[3]));
-    const bool scalar_iz = (acc_or == 0) || (acc_xp == 0);
-
-    v128_t qP[8];
-    splat_u64x4_into_u32x8<Params>(P, qP);
-    v128_t qor =
-        wasm_v128_or(wasm_v128_or(wasm_v128_or(quad_data[0], quad_data[1]), wasm_v128_or(quad_data[2], quad_data[3])),
-                     wasm_v128_or(wasm_v128_or(quad_data[4], quad_data[5]), wasm_v128_or(quad_data[6], quad_data[7])));
-    v128_t qxp =
-        wasm_v128_or(wasm_v128_or(wasm_v128_or(wasm_v128_xor(quad_data[0], qP[0]), wasm_v128_xor(quad_data[1], qP[1])),
-                                  wasm_v128_or(wasm_v128_xor(quad_data[2], qP[2]), wasm_v128_xor(quad_data[3], qP[3]))),
-                     wasm_v128_or(wasm_v128_or(wasm_v128_xor(quad_data[4], qP[4]), wasm_v128_xor(quad_data[5], qP[5])),
-                                  wasm_v128_or(wasm_v128_xor(quad_data[6], qP[6]), wasm_v128_xor(quad_data[7], qP[7]))));
-    v128_t zero = wasm_i32x4_splat(0);
-    v128_t qiz = wasm_v128_or(wasm_i32x4_eq(qor, zero), wasm_i32x4_eq(qxp, zero));
+    uint64_t sacc_or = 0;
+    uint64_t sacc_xp = 0;
+    v128_t qor = wasm_i32x4_splat(0);
+    v128_t qxp = wasm_i32x4_splat(0);
+    for (size_t k = 0; k < 9; ++k) {
+        sacc_or |= scalar_data[k];
+        sacc_xp |= (scalar_data[k] ^ P_WASM[k]);
+        qor = wasm_v128_or(qor, quad_data[k]);
+        qxp = wasm_v128_or(qxp, wasm_v128_xor(quad_data[k], wasm_i32x4_splat(static_cast<int32_t>(P_WASM[k]))));
+    }
+    const bool scalar_iz = (sacc_or == 0) || (sacc_xp == 0);
+    const v128_t qiz = wasm_v128_or(wasm_i32x4_eq(qor, wasm_i32x4_splat(0)), wasm_i32x4_eq(qxp, wasm_i32x4_splat(0)));
 
     uint32_t mask = scalar_iz ? 1u : 0u;
     mask |= (wasm_i32x4_extract_lane(qiz, 0) != 0) ? 2u : 0u;
@@ -448,52 +604,163 @@ template <class Params>
     return mask;
 }
 
-// -------------------- operator* (Montgomery multiplication) --------------------
+// -------------------- operator* (Montgomery multiplication, 9×29 limbs) --------------------
 //
-// The port here is the *simple schoolbook* 9-limb Yuval variant (not the
-// Karatsuba-partial kernel from the mont-mul gist — that's a follow-up).
-// Per-field it does 81 32×32→64 muls + 81 Yuval reductions + final carry
-// propagation + conditional sub. The quad lanes run 4-way parallel via
-// i64x2.extmul_low_i32x4_u / i64x2.extmul_high_i32x4_u, so the SIMD stream
-// computes 4 fields of work per macro-op.
+// 5-field Mont-mul. Per field: 81 mul + 81 madC + 17 andmask/shr + 9 subConst
+// + blend, following the same schoolbook-Yuval path as field<>::montgomery_mul
+// on WASM (see field_impl_generic.hpp lines 478-560).
 //
-// Scalar lane delegates to field<Params>::operator* (which is already the
-// optimal 9-limb Yuval kernel on WASM). This keeps the scalar stream
-// identical to baseline and isolates the win purely to the SIMD quad lane.
+// Scalar stream uses i64 arithmetic (29×29 → 58-bit products fit in u64,
+// with 6 bits of accumulator headroom for 9 partial products).
+//
+// Quad stream uses paired i64x2 accumulators: lane L holds field L's limb k.
+// Two i64x2 slots per logical limb cover 4 fields (lo = lanes 0/1, hi =
+// lanes 2/3). The mul instructions are `i64x2.extmul_low_i32x4_u` and
+// `i64x2.extmul_high_i32x4_u`, which do 2 × (32×32→64) per op.
 
 template <class Params>
-inline VectorField<Params> VectorField<Params>::operator*(const VectorField& other) const noexcept
+[[gnu::always_inline]] inline VectorField<Params> VectorField<Params>::operator*(const VectorField& other) const noexcept
 {
+    // Exact port of field<>::montgomery_mul_big (field_impl_generic.hpp
+    // lines 454-562):
+    //   - 9 iterations of (wasm_madd + wasm_reduce) using the classic
+    //     Montgomery step (k = temp*r_inv & mask; temp += k*p).
+    //   - Carry-propagate temp[9..17] to strict 29-bit form.
+    //   - Conditional subtract p using signed 64-bit borrow propagation.
+    //   - Result in temp[9..17] (9 limbs).
+    //
+    // Scalar stream uses u64 arithmetic directly; quad stream uses paired
+    // i64x2 accumulators (tlo holds fields 0,1 in lanes 0,1; thi holds
+    // fields 2,3 in lanes 0,1). Partial products use
+    // `i64x2.extmul_low/high_i32x4_u` to do 2 × (32×32→64) per v128 op.
+    //
+    // Scalar and quad statements are written in source-interleaved order so
+    // clang's WASM backend preserves the interleave and V8 TurboFan schedules
+    // them onto independent INT / SIMD pipes.
     VectorField result;
 
-    // ---- Scalar stream: reuse field's optimal path. ----
-    Field sa;
-    Field sb;
-    std::memcpy(sa.data, scalar_data, 32);
-    std::memcpy(sb.data, other.scalar_data, 32);
-    Field sprod = sa * sb;
-    std::memcpy(result.scalar_data, sprod.data, 32);
+    const uint64_t sl[9] = { scalar_data[0], scalar_data[1], scalar_data[2], scalar_data[3], scalar_data[4],
+                             scalar_data[5], scalar_data[6], scalar_data[7], scalar_data[8] };
+    const uint64_t sr[9] = { other.scalar_data[0], other.scalar_data[1], other.scalar_data[2], other.scalar_data[3],
+                             other.scalar_data[4], other.scalar_data[5], other.scalar_data[6], other.scalar_data[7],
+                             other.scalar_data[8] };
+    const v128_t ql[9] = { quad_data[0], quad_data[1], quad_data[2], quad_data[3], quad_data[4],
+                           quad_data[5], quad_data[6], quad_data[7], quad_data[8] };
+    const v128_t qr[9] = { other.quad_data[0], other.quad_data[1], other.quad_data[2], other.quad_data[3],
+                           other.quad_data[4], other.quad_data[5], other.quad_data[6], other.quad_data[7],
+                           other.quad_data[8] };
 
-    // ---- Quad stream: fall back to per-field mul for now. ----
-    // The full 9-limb SIMD Yuval kernel is a follow-up; for now we ensure
-    // correctness and let the +, -, ==, is_zero benchmarks prove the vector
-    // infrastructure works end-to-end.
-    std::array<Field, 5> lhs;
-    std::array<Field, 5> rhs;
-    load_to_array(lhs);
-    other.load_to_array(rhs);
-    std::array<Field, 5> out;
-    out[0] = sprod;
-    for (size_t i = 1; i < 5; ++i) {
-        out[i] = lhs[i] * rhs[i];
+    uint64_t sc[18];
+    v128_t tlo[18];
+    v128_t thi[18];
+    const v128_t zero = wasm_i64x2_splat(0);
+    for (size_t i = 0; i < 18; ++i) {
+        sc[i] = 0;
+        tlo[i] = zero;
+        thi[i] = zero;
     }
-    result.store_from_array(out);
+
+    const v128_t mask29_i64 = wasm_i64x2_splat(0x1fffffff);
+    const v128_t mask29_i32 = wasm_i32x4_splat(0x1fffffff);
+    const v128_t rinv_mask_splat = wasm_i32x4_splat(static_cast<int32_t>(R_INV_MOD_2_29));
+
+    v128_t p_splat[9];
+    for (size_t j = 0; j < 9; ++j) {
+        p_splat[j] = wasm_i32x4_splat(static_cast<int32_t>(P_WASM[j]));
+    }
+
+    // 9 iterations of (wasm_madd + wasm_reduce).
+    for (size_t i = 0; i < 9; ++i) {
+        // wasm_madd(l[i], r): temp[i..i+8] += l[i] * r[0..8]
+        for (size_t j = 0; j < 9; ++j) {
+            sc[i + j] += sl[i] * sr[j];
+            tlo[i + j] = wasm_i64x2_add(tlo[i + j], wasm_u64x2_extmul_low_u32x4(ql[i], qr[j]));
+            thi[i + j] = wasm_i64x2_add(thi[i + j], wasm_u64x2_extmul_high_u32x4(ql[i], qr[j]));
+        }
+        // wasm_reduce: k = (temp[i] * r_inv_mod_2_29) & 0x1fffffff
+        //              temp[i]   += k * p[0]        (low 29 bits become 0)
+        //              temp[i+1] += k * p[1] + (temp[i] >> 29)
+        //              temp[i+j] += k * p[j]        for j in 2..8
+        const uint64_t sk = (sc[i] * R_INV_MOD_2_29) & 0x1fffffff;
+        const v128_t tcur_lo_m = wasm_v128_and(tlo[i], mask29_i64);
+        const v128_t tcur_hi_m = wasm_v128_and(thi[i], mask29_i64);
+        const v128_t tcur_i32x4 = wasm_i8x16_shuffle(tcur_lo_m, tcur_hi_m, 0, 1, 2, 3, 8, 9, 10, 11, 16, 17, 18, 19, 24,
+                                                     25, 26, 27);
+        const v128_t qk = wasm_v128_and(wasm_i32x4_mul(tcur_i32x4, rinv_mask_splat), mask29_i32);
+
+        sc[i] += sk * P_WASM[0];
+        tlo[i] = wasm_i64x2_add(tlo[i], wasm_u64x2_extmul_low_u32x4(qk, p_splat[0]));
+        thi[i] = wasm_i64x2_add(thi[i], wasm_u64x2_extmul_high_u32x4(qk, p_splat[0]));
+        sc[i + 1] += sk * P_WASM[1] + (sc[i] >> 29);
+        tlo[i + 1] = wasm_i64x2_add(wasm_i64x2_add(tlo[i + 1], wasm_u64x2_extmul_low_u32x4(qk, p_splat[1])),
+                                    wasm_u64x2_shr(tlo[i], 29));
+        thi[i + 1] = wasm_i64x2_add(wasm_i64x2_add(thi[i + 1], wasm_u64x2_extmul_high_u32x4(qk, p_splat[1])),
+                                    wasm_u64x2_shr(thi[i], 29));
+        for (size_t j = 2; j < 9; ++j) {
+            sc[i + j] += sk * P_WASM[j];
+            tlo[i + j] = wasm_i64x2_add(tlo[i + j], wasm_u64x2_extmul_low_u32x4(qk, p_splat[j]));
+            thi[i + j] = wasm_i64x2_add(thi[i + j], wasm_u64x2_extmul_high_u32x4(qk, p_splat[j]));
+        }
+    }
+
+    // Carry-propagate temp[9..17] into strict 29-bit form.
+    for (size_t k = 9; k < 17; ++k) {
+        sc[k + 1] += sc[k] >> 29;
+        tlo[k + 1] = wasm_i64x2_add(tlo[k + 1], wasm_u64x2_shr(tlo[k], 29));
+        thi[k + 1] = wasm_i64x2_add(thi[k + 1], wasm_u64x2_shr(thi[k], 29));
+        sc[k] &= 0x1fffffff;
+        tlo[k] = wasm_v128_and(tlo[k], mask29_i64);
+        thi[k] = wasm_v128_and(thi[k], mask29_i64);
+    }
+
+    // Conditional subtract p (field_impl_generic.hpp:541-562):
+    //   r_temp[j] = temp[9+j] - p[j] - borrow_from_prev  (signed 64-bit)
+    //   if final r_temp[8] is negative (borrow set) ⇒ keep temp, else use r_temp
+    uint64_t rt[9];
+    v128_t rlo[9];
+    v128_t rhi[9];
+    {
+        int64_t sprev = 0;
+        v128_t qprev_lo = zero;
+        v128_t qprev_hi = zero;
+        for (size_t j = 0; j < 9; ++j) {
+            const int64_t sv = static_cast<int64_t>(sc[9 + j]) - static_cast<int64_t>(P_WASM[j])
+                               - (j == 0 ? 0 : (sprev >> 63));
+            const v128_t pv = wasm_i64x2_splat(static_cast<int64_t>(P_WASM[j]));
+            v128_t dlo = wasm_i64x2_sub(tlo[9 + j], pv);
+            v128_t dhi = wasm_i64x2_sub(thi[9 + j], pv);
+            if (j > 0) {
+                dlo = wasm_i64x2_sub(dlo, wasm_i64x2_shr(qprev_lo, 63));
+                dhi = wasm_i64x2_sub(dhi, wasm_i64x2_shr(qprev_hi, 63));
+            }
+            rt[j] = static_cast<uint64_t>(sv);
+            rlo[j] = dlo;
+            rhi[j] = dhi;
+            sprev = sv;
+            qprev_lo = dlo;
+            qprev_hi = dhi;
+        }
+    }
+    const uint64_t new_mask_s = 0ULL - (rt[8] >> 63); // all-ones if value < p
+    const uint64_t inv_mask_s = ~new_mask_s & 0x1fffffff;
+    const v128_t new_mask_lo = wasm_i64x2_shr(rlo[8], 63);
+    const v128_t new_mask_hi = wasm_i64x2_shr(rhi[8], 63);
+
+    for (size_t j = 0; j < 9; ++j) {
+        result.scalar_data[j] = (sc[9 + j] & new_mask_s) | (rt[j] & inv_mask_s);
+        const v128_t vlo = wasm_v128_bitselect(tlo[9 + j], wasm_v128_and(rlo[j], mask29_i64), new_mask_lo);
+        const v128_t vhi = wasm_v128_bitselect(thi[9 + j], wasm_v128_and(rhi[j], mask29_i64), new_mask_hi);
+        result.quad_data[j] =
+            wasm_i8x16_shuffle(vlo, vhi, 0, 1, 2, 3, 8, 9, 10, 11, 16, 17, 18, 19, 24, 25, 26, 27);
+    }
     return result;
 }
 
 #else // !BB_VECTOR_FIELD_SIMD
 
 // ======================== Portable fallback ========================
+// No SIMD: store 5 fields side-by-side, apply scalar field ops one at a time.
+// Used on native x86/ARM builds. Not performance-optimized.
 
 template <class Params> inline void VectorField<Params>::store_from_array(const std::array<Field, 5>& in) noexcept
 {
@@ -510,7 +777,7 @@ template <class Params> inline void VectorField<Params>::load_to_array(std::arra
 }
 
 template <class Params>
-[[gnu::always_inline]] inline VectorField<Params> VectorField<Params>::operator+(const VectorField& other) const noexcept
+inline VectorField<Params> VectorField<Params>::operator+(const VectorField& other) const noexcept
 {
     VectorField r;
     for (size_t i = 0; i < 5; ++i) {
@@ -520,7 +787,7 @@ template <class Params>
 }
 
 template <class Params>
-[[gnu::always_inline]] inline VectorField<Params> VectorField<Params>::operator-(const VectorField& other) const noexcept
+inline VectorField<Params> VectorField<Params>::operator-(const VectorField& other) const noexcept
 {
     VectorField r;
     for (size_t i = 0; i < 5; ++i) {
@@ -539,8 +806,7 @@ inline VectorField<Params> VectorField<Params>::operator*(const VectorField& oth
     return r;
 }
 
-template <class Params>
-[[gnu::always_inline]] inline uint32_t VectorField<Params>::eq(const VectorField& other) const noexcept
+template <class Params> inline uint32_t VectorField<Params>::eq(const VectorField& other) const noexcept
 {
     uint32_t m = 0;
     for (size_t i = 0; i < 5; ++i) {
@@ -551,8 +817,7 @@ template <class Params>
     return m;
 }
 
-template <class Params>
-[[gnu::always_inline]] inline uint32_t VectorField<Params>::is_zero() const noexcept
+template <class Params> inline uint32_t VectorField<Params>::is_zero() const noexcept
 {
     uint32_t m = 0;
     for (size_t i = 0; i < 5; ++i) {
