@@ -416,6 +416,21 @@ TEST(polynomials, ParseSizeStringOverflowAsserts)
     ASSERT_THROW_OR_ABORT(parse_size_string("18014398509481984k"), ".*");
 }
 
+#ifndef NDEBUG
+// compute_efficient_interpolation asserts (debug-only) when evaluation points are not all distinct.
+TEST(polynomials, ComputeEfficientInterpolationDuplicatePointsAsserts)
+{
+    GTEST_FLAG_SET(death_test_style, "threadsafe");
+    using FF = fr;
+    constexpr size_t n = 3;
+    std::array<FF, n> src = { FF(10), FF(20), FF(30) };
+    std::array<FF, n> dest{};
+    std::array<FF, n> points = { FF(1), FF(2), FF(2) }; // duplicate
+    ASSERT_THROW_OR_ABORT(
+        polynomial_arithmetic::compute_efficient_interpolation<FF>(src.data(), dest.data(), points.data(), n), ".*");
+}
+#endif
+
 // fft_inner_parallel asserts when called in-place (coeffs == target).
 TEST(polynomials, FftInnerParallelInPlaceAsserts)
 {

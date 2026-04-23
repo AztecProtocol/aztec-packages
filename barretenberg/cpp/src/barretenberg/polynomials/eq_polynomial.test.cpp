@@ -376,3 +376,12 @@ TEST_F(EqPolyTest, ConstructAcceptsExtraChallenges)
     const auto coeffs = ProverEqPolynomial<FF>::construct(r, log_num_monomials);
     EXPECT_EQ(coeffs.size(), 1UL << log_num_monomials);
 }
+
+// ProverEqPolynomial::construct returns the empty-product constant [1] for log_num_monomials=0.
+TEST_F(EqPolyTest, ConstructZeroVariablesReturnsOne)
+{
+    std::vector<FF> empty_challenges;
+    const auto coeffs = ProverEqPolynomial<FF>::construct(empty_challenges, /*log_num_monomials=*/0);
+    ASSERT_EQ(coeffs.size(), 1UL);
+    EXPECT_EQ(coeffs.get(0), FF(1));
+}
