@@ -92,7 +92,7 @@ FF hash_public_keys(const PublicKeys& public_keys)
 // AztecAddress::compute()).
 FF compute_contract_address(const ContractInstance& contract_instance)
 {
-    FF salted_initialization_hash = poseidon2::hash({ DOM_SEP__PARTIAL_ADDRESS,
+    FF salted_initialization_hash = poseidon2::hash({ DOM_SEP__SALTED_INITIALIZATION_HASH,
                                                       contract_instance.salt,
                                                       contract_instance.initialization_hash,
                                                       contract_instance.deployer });
