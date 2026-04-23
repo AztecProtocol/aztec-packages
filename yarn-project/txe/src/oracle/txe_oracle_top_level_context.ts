@@ -15,7 +15,6 @@ import {
   CapsuleService,
   CapsuleStore,
   type ContractStore,
-  type ContractSyncService,
   NoteStore,
   ORACLE_VERSION_MAJOR,
   PrivateEventStore,
@@ -116,7 +115,6 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     private version: Fr,
     private chainId: Fr,
     private authwits: Map<string, AuthWitness>,
-    private readonly contractSyncService: ContractSyncService,
   ) {
     this.logger = createLogger('txe:top_level_context');
     this.logger.debug('Entering Top Level Context');
