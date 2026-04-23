@@ -246,7 +246,7 @@ template <typename Fr> void Polynomial<Fr>::shrink_end_index(const size_t new_en
 
 template <typename Fr> Polynomial<Fr> Polynomial<Fr>::full() const
 {
-    Polynomial result = *this;
+    Polynomial result;
     // Make 0..virtual_size usable
     result.coefficients_ = _clone(coefficients_, virtual_size() - end_index(), start_index());
     return result;
