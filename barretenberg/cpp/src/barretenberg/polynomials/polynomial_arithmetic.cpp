@@ -74,6 +74,7 @@ template <typename Fr>
 void fft_inner_parallel(
     Fr* coeffs, Fr* target, const EvaluationDomain<Fr>& domain, const Fr&, const std::vector<Fr*>& root_table)
 {
+    BB_ASSERT(coeffs != target, "fft_inner_parallel does not support in-place operation");
     parallel_for(domain.num_threads, [&](size_t j) {
         Fr temp_1;
         Fr temp_2;
