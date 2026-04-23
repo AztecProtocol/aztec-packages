@@ -247,7 +247,7 @@ template <typename Flavor> class RelationUtils {
      * @param tuple             Tuple of arrays of per-subrelation FF evaluations (RelationEvaluations).
      * @param subrelation_separators  α powers, same as `scale_and_batch_elements`.
      * @param one_minus_L_at_u  `RowDisablingPolynomial::evaluate_at_challenge(u, log_n)`.
-     * @param L_at_u            `RowDisablingPolynomial::evaluate_L_at_challenge(u, log_n)`.
+     * @param L_at_u            Dual factor, typically `FF{1} - one_minus_L_at_u`.
      */
     static FF scale_and_batch_elements_with_row_disabling(auto& tuple,
                                                           const SubrelationSeparators& subrelation_separators,

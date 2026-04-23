@@ -734,15 +734,12 @@ template <typename Flavor> class SumcheckProver {
         const Alphas& alphas,
         RowDisablingPolynomial<FF>& row_disabling_polynomial)
     {
-        if constexpr (UseRowDisablingPolynomial<Flavor>) {
-            // Per-relation L vs (1-L) dispatch is done inside. When no relation is offset-only,
-            // this is equivalent to `compute_virtual_contribution(...) * (1 - L)`.
-            return round.compute_virtual_contribution_with_row_disabling(
-                partially_evaluated_polynomials, relation_parameters, gate_separator, alphas, row_disabling_polynomial);
-        } else {
-            return round.compute_virtual_contribution(
-                partially_evaluated_polynomials, relation_parameters, gate_separator, alphas);
-        }
+        // Passing `&row_disabling_polynomial` enables per-relation L / (1-L) dispatch inside.
+        // When no relation is offset-only, this is equivalent to
+        // `compute_virtual_contribution(...) * (1 - L)`.
+        const RowDisablingPolynomial<FF>* rd = UseRowDisablingPolynomial<Flavor> ? &row_disabling_polynomial : nullptr;
+        return round.compute_virtual_contribution(
+            partially_evaluated_polynomials, relation_parameters, gate_separator, alphas, rd);
     }
 
     /**

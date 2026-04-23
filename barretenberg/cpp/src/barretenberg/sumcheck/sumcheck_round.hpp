@@ -481,65 +481,32 @@ template <typename Flavor> class SumcheckProverRound {
             univariate_accumulator, alphas, gate_separators, row_disabling_polynomial);
     }
 
+    /**
+     * @brief Compute the virtual (zero-extension) edge's contribution to the round univariate.
+     *
+     * @details For a prover polynomial P_i(X_0, ..., X_{d-1}) extended by zero, i.e. multiplied by
+     * τ(X_d, ..., X_{virtual_log_n - 1}) = ∏_{k=d..}(1 - X_k), the round univariate computation
+     * reduces to the edge (0, ..., 0).
+     *
+     * When `row_disabling_polynomial` is non-null, offset-only relations are included and batching
+     * applies per-relation `L` / `(1 - L)` factors (see `batch_over_relations_with_row_disabling`).
+     * When null, only main-domain relations contribute and plain α-batching is used — the path
+     * taken by AVM and any flavor without row-disabling.
+     */
     template <typename ProverPolynomialsOrPartiallyEvaluatedMultivariates>
     SumcheckRoundUnivariate compute_virtual_contribution(
         ProverPolynomialsOrPartiallyEvaluatedMultivariates& polynomials,
         const bb::RelationParameters<FF>& relation_parameters,
         const GateSeparatorPolynomial<FF>& gate_separator,
-        const SubrelationSeparators& alphas)
+        const SubrelationSeparators& alphas,
+        const RowDisablingPolynomial<FF>* row_disabling_polynomial = nullptr)
     {
         // Note: {} is required to initialize the tuple contents. Otherwise the univariates contain garbage.
         SumcheckTupleOfTuplesOfUnivariates univariate_accumulator{};
 
-        // For a given prover polynomial P_i(X_0, ..., X_{d-1}) extended by zero, i.e. multiplied by
-        //      \tau(X_d, ..., X_{virtual_log_n - 1}) =  \prod (1 - X_k)
-        // for k = d, ..., virtual_log_n - 1, the computation of the virtual sumcheck round univariate reduces to the
-        // edge (0, ...,0).
         const size_t virtual_contribution_edge_idx = 0;
 
         // Perform the usual sumcheck accumulation, but for a single edge.
-        // Note: we use a combination of `auto`, constexpr and a lambda to construct different types.
-        auto extended_edges = [&]() {
-            if constexpr (isAvmFlavor<Flavor>) {
-                auto lazy_extended_edges = ExtendedEdges(polynomials);
-                lazy_extended_edges.set_current_edge(virtual_contribution_edge_idx);
-                return lazy_extended_edges;
-            } else {
-                ExtendedEdges extended_edges;
-                extend_edges(extended_edges, polynomials, virtual_contribution_edge_idx);
-                return extended_edges;
-            }
-        }();
-
-        // The tail of G(X) = \prod_{k} (1 + X_k(\beta_k - 1) ) evaluated at the edge (0, ..., 0).
-        const FF gate_separator_tail{ 1 };
-        accumulate_relation_univariates(
-            univariate_accumulator, extended_edges, relation_parameters, gate_separator_tail);
-
-        return batch_over_relations<SumcheckRoundUnivariate>(univariate_accumulator, alphas, gate_separator);
-    };
-
-    /**
-     * @brief Variant of `compute_virtual_contribution` that folds the row-disabling factors into
-     * per-relation batching. Analogous to `compute_offset_area_contribution`: main-domain relations
-     * are scaled by `(1 - L)`, offset-only relations by `L`.
-     *
-     * @details The (0,...,0) virtual edge contribution is accumulated once. When the flavor has no
-     * offset-only relation, distributivity makes this equivalent to
-     * `compute_virtual_contribution(...) * (1 - L)`.
-     */
-    template <typename ProverPolynomialsOrPartiallyEvaluatedMultivariates>
-    SumcheckRoundUnivariate compute_virtual_contribution_with_row_disabling(
-        ProverPolynomialsOrPartiallyEvaluatedMultivariates& polynomials,
-        const bb::RelationParameters<FF>& relation_parameters,
-        const GateSeparatorPolynomial<FF>& gate_separator,
-        const SubrelationSeparators& alphas,
-        const RowDisablingPolynomial<FF>& row_disabling_polynomial)
-        requires UseRowDisablingPolynomial<Flavor>
-    {
-        SumcheckTupleOfTuplesOfUnivariates univariate_accumulator{};
-
-        const size_t virtual_contribution_edge_idx = 0;
         auto extended_edges = [&]() {
             if constexpr (isAvmFlavor<Flavor>) {
                 auto lazy_extended_edges = ExtendedEdges(polynomials);
@@ -554,12 +521,20 @@ template <typename Flavor> class SumcheckProverRound {
 
         // The tail of G(X) = ∏_k (1 + X_k(β_k - 1)) evaluated at the edge (0, ..., 0).
         const FF gate_separator_tail{ 1 };
-        // IsMainLoop = false: include offset-only relations so they can be batched with L.
-        accumulate_relation_univariates</*IsMainLoop=*/false>(
-            univariate_accumulator, extended_edges, relation_parameters, gate_separator_tail);
 
-        return batch_over_relations_with_row_disabling(
-            univariate_accumulator, alphas, gate_separator, row_disabling_polynomial);
+        if constexpr (UseRowDisablingPolynomial<Flavor>) {
+            if (row_disabling_polynomial != nullptr) {
+                // Include offset-only relations and apply per-relation L / (1-L) at batching.
+                accumulate_relation_univariates</*IsMainLoop=*/false>(
+                    univariate_accumulator, extended_edges, relation_parameters, gate_separator_tail);
+                return batch_over_relations_with_row_disabling(
+                    univariate_accumulator, alphas, gate_separator, *row_disabling_polynomial);
+            }
+        }
+
+        accumulate_relation_univariates(
+            univariate_accumulator, extended_edges, relation_parameters, gate_separator_tail);
+        return batch_over_relations<SumcheckRoundUnivariate>(univariate_accumulator, alphas, gate_separator);
     }
 
     /**
