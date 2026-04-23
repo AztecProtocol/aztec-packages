@@ -1,0 +1,120 @@
+name: Node build / image build issue
+description: Report problems building the Aztec node (or related Docker images) from source.
+title: "[Node build] <short summary>"
+labels:
+  - support
+  - build
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this template if you are following the official "build node
+        from source" or image build guides and the build fails or behaves
+        unexpectedly.
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Describe the machine and OS where you are running the build.
+      placeholder: |
+        Example:
+        - Ubuntu 22.04 on bare metal, 16 cores, 64 GiB RAM
+        - or: cloud VM (provider, instance type)
+    validations:
+      required: true
+
+  - type: textarea
+    id: node_and_docker_versions
+    attributes:
+      label: Node.js and Docker versions
+      description: Include Node.js, Docker, and docker compose versions.
+      placeholder: |
+        Example:
+        - node --version: v22.x.x
+        - docker --version: Docker version ...
+        - docker compose version: ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: branch_and_commit
+    attributes:
+      label: Repository branch and commit
+      description: Specify which branch and commit of aztec-packages you are building.
+      placeholder: |
+        Example:
+        - Branch: next
+        - Commit: <hash>
+    validations:
+      required: true
+
+  - type: textarea
+    id: build_command
+    attributes:
+      label: Exact build command(s)
+      description: Paste the exact command(s) you used to start the build.
+      placeholder: |
+        Example:
+        - ./bootstrap.sh build-node
+        - or: specific docker build / make targets
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected_result
+    attributes:
+      label: Expected result
+      description: Briefly describe what you expected the build to do.
+      placeholder: |
+        Example:
+        - Build completes successfully and produces a node Docker image
+        - No errors in the terminal output
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual_result
+    attributes:
+      label: Actual result / error
+      description: Describe what actually happened (errors, timeouts, hangs).
+      placeholder: |
+        Example:
+        - Build fails with a specific error message
+        - Build hangs at a particular step for a very long time
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs
+      description: Paste relevant excerpts from the build logs (trimmed), removing any secrets.
+      placeholder: |
+        Include:
+        - The last ~50 lines around the error
+        - Any repeated warnings that might be related
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps_to_reproduce
+    attributes:
+      label: Steps to reproduce
+      description: Explain how someone else can reproduce the issue starting from a fresh clone.
+      placeholder: |
+        1. Clone aztec-packages at the specified branch/commit
+        2. Install prerequisites (Node.js, Docker, etc.)
+        3. Run the build command(s) described above
+        4. Observe the error or unexpected behaviour
+    validations:
+      required: true
+
+  - type: textarea
+    id: additional_context
+    attributes:
+      label: Additional context
+      description: Any extra details that might be relevant (proxies, corporate network, low disk space, etc.).
+      placeholder: "Optional extra context, including screenshots or links if helpful."
+    validations:
+      required: false
