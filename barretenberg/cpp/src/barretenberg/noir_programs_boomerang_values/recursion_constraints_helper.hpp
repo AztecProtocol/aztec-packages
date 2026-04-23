@@ -2387,6 +2387,7 @@ bool validate_shplonk_batching_challenges_powers(uint32_t shplonk_nu,
                                                  bool has_zk = true,
                                                  bool committed_sumcheck = true)
 {
+    (void)shplonk_nu;
     size_t num_powers = 2 * virtual_log_n + bb::NUM_INTERLEAVING_CLAIMS;
     // Each round univariate is opened at 0, 1, and a round challenge.
     static constexpr size_t NUM_COMMITTED_SUMCHECK_CLAIMS_PER_ROUND = 3;
@@ -2400,7 +2401,7 @@ bool validate_shplonk_batching_challenges_powers(uint32_t shplonk_nu,
     if (committed_sumcheck) {
         num_powers += NUM_COMMITTED_SUMCHECK_CLAIMS_PER_ROUND * virtual_log_n;
     }
-    //
+    (void)num_powers;
     auto mul_pattern = [](const FF& q_arith,
                           const FF& q_1,
                           const FF& q_2,
@@ -2411,6 +2412,188 @@ bool validate_shplonk_batching_challenges_powers(uint32_t shplonk_nu,
         return poseidon2_helpers::all_equal(FF::one(), q_arith, q_m) && q_3 == FF::neg_one() &&
                poseidon2_helpers::all_equal(FF::zero(), q_1, q_2, q_4, q_c);
     };
+    (void)mul_pattern;
+    return false;
+}
+
+// ============================================================================
+// Shplemini reverse fingerprint scanner — MegaZK
+// ============================================================================
+
+static constexpr size_t SCANNER_FINGERPRINT_SIZE = 20;
+
+struct FunctionFingerprint {
+    size_t gate_count;
+    size_t prefix_hash;
+    size_t full_hash;
+    size_t fingerprint_size;
+};
+
+static constexpr FunctionFingerprint GEMINI_TRANSCRIPT_READ_MEGA_ZK = {
+    1621, 0xb227062eafc20463ULL, 0x459ebe8f362836e8ULL, SCANNER_FINGERPRINT_SIZE
+};
+static constexpr FunctionFingerprint SHPLONK_NU_PLUS_POWERS_MEGA_ZK = {
+    116, 0x5d3db2a5af5e1fbeULL, 0xfd73152facfbeffcULL, SCANNER_FINGERPRINT_SIZE
+};
+static constexpr FunctionFingerprint SHPLONK_Q_AND_Z_MEGA_ZK = {
+    113, 0xb44f41ca2be07184ULL, 0xede24734d188ca38ULL, SCANNER_FINGERPRINT_SIZE
+};
+static constexpr FunctionFingerprint COMPUTE_FOLD_POS_EVALS_MEGA_ZK = {
+    208, 0x669b3642d78ab780ULL, 0x8a12dcbc539c6f19ULL, SCANNER_FINGERPRINT_SIZE
+};
+static constexpr FunctionFingerprint BATCH_GEMINI_CLAIMS_MEGA_ZK = {
+    119, 0x291fb9770ec5d0d9ULL, 0x90fd4c369e36706bULL, SCANNER_FINGERPRINT_SIZE
+};
+
+struct FunctionMatch {
+    size_t arith_start = 0;
+    bool found = false;
+    bool valid = false;
+};
+
+struct PreZScanResult {
+    bool all_found = false;
+    FunctionMatch gemini_transcript_read;
+    FunctionMatch shplonk_nu_plus_powers;
+    FunctionMatch shplonk_Q_and_z;
+};
+
+struct PostZScanResult {
+    bool all_found = false;
+    FunctionMatch compute_fold_pos_evals;
+    FunctionMatch batch_gemini_claims;
+};
+
+/**
+ * @brief Find z's first arithmetic gate via get_variable_gates, then scan backwards
+ * matching 20-gate selector prefix hashes against known pre-z function fingerprints.
+ * On prefix match, validate full function hash. Jump backward on confirmed match.
+ */
+template <typename FF, typename CircuitBuilder>
+PreZScanResult scan_pre_z_functions_mega_zk(CircuitBuilder& builder,
+                                            cdg::StaticAnalyzer_<FF, CircuitBuilder>& analyzer,
+                                            uint32_t shplonk_z_real)
+{
+    PreZScanResult result;
+    auto& ab = builder.blocks.arithmetic;
+
+    size_t z_first_arith = ab.size();
+    for (const auto& [blk_idx, g] : analyzer.get_variable_gates(shplonk_z_real)) {
+        if (&builder.blocks.get()[blk_idx] == &ab && g < z_first_arith) {
+            z_first_arith = g;
+        }
+    }
+    if (z_first_arith >= ab.size()) {
+        return result;
+    }
+
+    struct Entry {
+        const FunctionFingerprint* fp;
+        FunctionMatch* out;
+    };
+    std::array<Entry, 3> entries = { {
+        { &SHPLONK_Q_AND_Z_MEGA_ZK, &result.shplonk_Q_and_z },
+        { &SHPLONK_NU_PLUS_POWERS_MEGA_ZK, &result.shplonk_nu_plus_powers },
+        { &GEMINI_TRANSCRIPT_READ_MEGA_ZK, &result.gemini_transcript_read },
+    } };
+
+    size_t i = z_first_arith;
+    while (i > 0) {
+        bool matched = false;
+        for (auto& [fp, out] : entries) {
+            if (out->found) {
+                continue;
+            }
+            if (i < fp->fingerprint_size) {
+                continue;
+            }
+            size_t candidate_start = i - fp->fingerprint_size;
+            size_t pfx = sha256_helpers::compute_selector_hash(
+                0, ab, candidate_start, candidate_start + fp->fingerprint_size - 1);
+            if (pfx != fp->prefix_hash) {
+                continue;
+            }
+            if (candidate_start + fp->gate_count > ab.size()) {
+                continue;
+            }
+            size_t full =
+                sha256_helpers::compute_selector_hash(0, ab, candidate_start, candidate_start + fp->gate_count - 1);
+            if (full == fp->full_hash) {
+                out->arith_start = candidate_start;
+                out->found = true;
+                out->valid = true;
+                i = candidate_start;
+                matched = true;
+                break;
+            }
+        }
+        if (!matched) {
+            i--;
+        }
+    }
+
+    result.all_found =
+        result.gemini_transcript_read.found && result.shplonk_nu_plus_powers.found && result.shplonk_Q_and_z.found;
+    return result;
+}
+
+/**
+ * @brief From the end of the last known post-z function, scan forward matching fingerprints
+ * for compute_fold_pos_evaluations and batch_gemini_claims_received_from_prover.
+ *
+ * @param post_z_start First arithmetic gate after shplonk_Q_and_z (= start of
+ *                     compute_inverted_gemini_denominators). Already validated by existing
+ *                     validators; this scans the region AFTER those validated functions.
+ */
+template <typename FF, typename CircuitBuilder>
+PostZScanResult scan_post_z_functions_mega_zk(CircuitBuilder& builder, size_t scan_start)
+{
+    PostZScanResult result;
+    auto& ab = builder.blocks.arithmetic;
+
+    struct Entry {
+        const FunctionFingerprint* fp;
+        FunctionMatch* out;
+    };
+    std::array<Entry, 2> entries = { {
+        { &COMPUTE_FOLD_POS_EVALS_MEGA_ZK, &result.compute_fold_pos_evals },
+        { &BATCH_GEMINI_CLAIMS_MEGA_ZK, &result.batch_gemini_claims },
+    } };
+
+    size_t i = scan_start;
+    while (i + SCANNER_FINGERPRINT_SIZE <= ab.size()) {
+        bool matched = false;
+        for (auto& [fp, out] : entries) {
+            if (out->found) {
+                continue;
+            }
+            if (i + fp->fingerprint_size > ab.size()) {
+                continue;
+            }
+            size_t pfx = sha256_helpers::compute_selector_hash(0, ab, i, i + fp->fingerprint_size - 1);
+            if (pfx != fp->prefix_hash) {
+                continue;
+            }
+            if (i + fp->gate_count > ab.size()) {
+                continue;
+            }
+            size_t full = sha256_helpers::compute_selector_hash(0, ab, i, i + fp->gate_count - 1);
+            if (full == fp->full_hash) {
+                out->arith_start = i;
+                out->found = true;
+                out->valid = true;
+                i += fp->gate_count;
+                matched = true;
+                break;
+            }
+        }
+        if (!matched) {
+            i++;
+        }
+    }
+
+    result.all_found = result.compute_fold_pos_evals.found && result.batch_gemini_claims.found;
+    return result;
 }
 
 } // namespace recursion_helpers
