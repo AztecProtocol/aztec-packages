@@ -1,3 +1,5 @@
+![Node Version](https://img.shields.io/badge/node-%3E%3D18.x-green)
+
 # Aztec Monorepo
 
 All the packages that make up [Aztec](https://docs.aztec.network).
