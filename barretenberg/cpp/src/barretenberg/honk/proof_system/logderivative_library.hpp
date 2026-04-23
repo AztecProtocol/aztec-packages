@@ -30,18 +30,21 @@ namespace bb {
  *
  */
 template <typename FF, typename Relation, typename Polynomials, bool UseMultithreading = false>
-void compute_logderivative_inverse(Polynomials& polynomials, auto& relation_parameters, const size_t circuit_size)
+void compute_logderivative_inverse(Polynomials& polynomials, auto& relation_parameters, const size_t start_index = 0)
 {
     using Accumulator = typename Relation::ValueAccumulator0;
     constexpr size_t NUM_LOOKUP_TERMS = Relation::NUM_LOOKUP_TERMS;
     constexpr size_t NUM_TABLE_TERMS = Relation::NUM_TABLE_TERMS;
 
     auto& inverse_polynomial = Relation::get_inverse_polynomial(polynomials);
-    const size_t offset = inverse_polynomial.start_index();
+    const size_t offset = std::max(inverse_polynomial.start_index(), start_index);
+    // Clamp to the polynomial's actual (non-virtual) data extent; beyond end_index() everything is virtual zero.
+    const size_t actual_size = inverse_polynomial.end_index() > offset ? inverse_polynomial.end_index() - offset : 0;
     const auto compute_inverses = [&](size_t start, size_t end) {
         for (size_t i = start; i < end; ++i) {
+            const size_t row_idx = i + offset;
             // TODO(https://github.com/AztecProtocol/barretenberg/issues/940): avoid get_row if possible.
-            auto row = polynomials.get_row(i + offset);
+            auto row = polynomials.get_row(row_idx);
             bool has_inverse = Relation::operation_exists_at_row(row);
             if (!has_inverse) {
                 continue;
@@ -57,23 +60,18 @@ void compute_logderivative_inverse(Polynomials& polynomials, auto& relation_para
                     Relation::template compute_table_term<Accumulator, table_index>(row, relation_parameters);
                 denominator *= denominator_term;
             });
-            inverse_polynomial.at(i) = denominator;
+            inverse_polynomial.at(row_idx) = denominator;
         }
-        // Clamp to the polynomial's actual (non-virtual) data range; virtual zero elements need no inversion.
-        const size_t actual_size = inverse_polynomial.size();
-        const size_t clamped_start = std::min(start, actual_size);
-        const size_t clamped_end = std::min(end, actual_size);
-        if (clamped_start < clamped_end) {
-            FF* ffstart = &inverse_polynomial.coeffs()[clamped_start];
-            std::span<FF> to_invert(ffstart, clamped_end - clamped_start);
-            // Compute inverse polynomial I in place by inverting the product at each row
+        if (start < end) {
+            FF* ffstart = &inverse_polynomial.data()[start + offset - inverse_polynomial.start_index()];
+            std::span<FF> to_invert(ffstart, end - start);
             // Note: zeroes are ignored as they are not used anyway
             FF::batch_invert(to_invert);
         }
     };
     if constexpr (UseMultithreading) {
         parallel_for([&](const ThreadChunk& chunk) {
-            auto range = chunk.range(circuit_size);
+            auto range = chunk.range(actual_size);
             if (!range.empty()) {
                 size_t start = *range.begin();
                 size_t end = start + range.size();
@@ -81,7 +79,7 @@ void compute_logderivative_inverse(Polynomials& polynomials, auto& relation_para
             }
         });
     } else {
-        compute_inverses(0, inverse_polynomial.size());
+        compute_inverses(0, actual_size);
     }
 }
 

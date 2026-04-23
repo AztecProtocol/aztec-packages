@@ -11,7 +11,10 @@ use crate::{
 use bigcurve::BigCurve;
 use bignum::BLS12_381_Fr;
 use types::{
-    constants::FIELDS_PER_BLOB, hash::poseidon2_hash, traits::Empty, utils::arrays::subarray,
+    constants::{DOM_SEP__BLOB_CHALLENGE_Z, FIELDS_PER_BLOB},
+    hash::poseidon2_hash_with_separator,
+    traits::Empty,
+    utils::arrays::subarray,
 };
 
 // Note: fracs and factor are computed once in the checkpoint root rollup and shared across all blobs.
@@ -45,7 +48,7 @@ fn compute_blob_challenge(
 ) -> Field {
     let compressed_fields = kzg_commitment.to_compressed_fields();
     let preimage = [blob_fields_hash, compressed_fields[0], compressed_fields[1]];
-    let challenge = poseidon2_hash(preimage);
+    let challenge = poseidon2_hash_with_separator(preimage, DOM_SEP__BLOB_CHALLENGE_Z);
     challenge
 }
 
@@ -167,11 +170,11 @@ mod tests {
             0x3faea573187a84ffda9855c15596b8,
             0x1962ca,
         ];
-        let z_blob_400_from_ts = 0x2386cdc1cd34e082e14fa1410694c58b99c7c9b93b8effd9ae3a6b2d819854f7;
+        let z_blob_400_from_ts = 0x0385a84e8d5e59bde136bb296dbda99180c409974a07b2d7084d9c4e3b06dc69;
         let gamma_limbs_blob_400_from_ts =
-            [0x0f8e4bdfc88b8bad985c43ef399030, 0xa6111cf46305c115d0c5d3ac38c51a, 0x262d];
+            [0xe2d69fdf2deace017adcce741873ca, 0x11e4e4c9035c35acd8ea601d46f020, 0x08e5];
         let y_limbs_blob_400_from_ts =
-            [0xfc33eee32e4cfe0cb39ef7578a85c6, 0x2c004486b1796de6f1403c71acdba4, 0x2784];
+            [0xf63403f694f4e5f9341d1fc274a09c, 0x5c5064c1c1115988f901a3928433a4, 0x4ce5];
 
         let kzg_commitment = BatchingBlobCommitment::from_limbs(
             kzg_commitment_x_limbs_blob_400_from_ts,
@@ -269,22 +272,22 @@ mod tests {
             0x59dcc1d2a509604b557950b349a9f5,
             0x0c6b4d,
         ];
-        let z_3_blobs_from_ts = 0x1d6f81c9ee5724f7e9d8eea03ba0c9e29e53913151a395a301e17b0901bfa68e;
+        let z_3_blobs_from_ts = 0x1f4a21e3a1ab23739c164d0df1596c870180aab5f810c548097dd6371ac3186d;
         let gamma_limbs_3_blobs_from_ts =
-            [0xcaac06f034aff18046f72a833b5e56, 0x14d28092a1b7b9b3a7f541251733c2, 0x1863];
+            [0xf8b8cfdf51c20cc6ffc9820eb0d204, 0x36482d033a8c01a3089bba6714ca12, 0x14e8];
         let y_limbs_3_blobs_from_ts =
-            [0xdd96a38e51f8550be2a4c5ad587664, 0xa65e19e250e80342e1b1c9ea3a5a7e, 0x0338];
+            [0x2efdd5c643e35c174ad283728606d0, 0xec1be7b72f4d498565159353969b29, 0x6632];
         let batched_c_x_limbs_3_blobs_from_ts = [
-            0xba3b9220d2b505a37963a53b388fbb,
-            0x105b5d6a410c8e44a923538967bcf8,
-            0x415f4e2efbad9d9a9f461bddcc5863,
-            0x11c03e,
+            0x5101f24f9f437af987af28c702c041,
+            0x468ab01b44deaac4082cace7b65ced,
+            0x78ee78fa48e49ce445e26440d58e49,
+            0x0d9f26,
         ];
         let batched_c_y_limbs_3_blobs_from_ts = [
-            0x2f053c58fd82b21f0203ed94078699,
-            0x8c9d5eeaf252eed94085bd7897c3c2,
-            0x91605fcb7bb8f16d6f01a33c0fc9d4,
-            0x0c1b2f,
+            0x4f9c2645c3b2236aeffb03a639a0ee,
+            0x3697b5fc6b7a457acc63250b8a0737,
+            0x2b3bdc8e5c90079309b3b3c8370bc7,
+            0x16ed67,
         ];
         let blob_commitments_hash_3_blobs_from_ts =
             0x00993920f366febbb5cd05c6436eda28a447447f58a1b7d713c21423790c395b;

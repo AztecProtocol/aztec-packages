@@ -3,7 +3,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import { getOriginHost } from '../utils';
 import type { ConnectedSite } from './types';
 
-// docs:start:header
 export function Header({ pendingCount, onApprovalClick, connectedSites, onDisconnect, onSettingsClick }: {
   pendingCount: number;
   onApprovalClick: () => void;
@@ -92,9 +91,7 @@ export function Header({ pendingCount, onApprovalClick, connectedSites, onDiscon
     </div>
   );
 }
-// docs:end:header
 
-// docs:start:sub-header
 export function SubHeader({ title, onBack }: { title: string; onBack: () => void }) {
   return (
     <div className="sub-header">
@@ -105,4 +102,3 @@ export function SubHeader({ title, onBack }: { title: string; onBack: () => void
     </div>
   );
 }
-// docs:end:sub-header

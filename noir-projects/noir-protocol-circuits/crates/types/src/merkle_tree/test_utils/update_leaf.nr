@@ -3,6 +3,16 @@ use crate::merkle_tree::{merkle_hash, merkle_tree::sibling_index, MerkleTree};
 impl<let N: u32> MerkleTree<N> {
     /// This function is intended for testing purposes only. It is neither optimized nor audited.
     pub fn update_leaf_unsafe<let TreeHeight: u32>(&mut self, index: u32, value: Field) {
+        self.update_leaf_unsafe_with_hasher::<TreeHeight>(index, value, merkle_hash);
+    }
+
+    /// This function is intended for testing purposes only. It is neither optimized nor audited.
+    pub fn update_leaf_unsafe_with_hasher<let TreeHeight: u32>(
+        &mut self,
+        index: u32,
+        value: Field,
+        hasher: fn(Field, Field) -> Field,
+    ) {
         assert(index < N, "index must be less than the number of leaves");
 
         self.leaves[index] = value;
@@ -18,7 +28,7 @@ impl<let N: u32> MerkleTree<N> {
         let mut layer_offset: u32 = 0;
         let mut node_index: u32 = index / 2 + layer_offset;
         for _ in 0..TreeHeight {
-            self.nodes[node_index] = merkle_hash(left_node, right_node);
+            self.nodes[node_index] = hasher(left_node, right_node);
             sibling_idx = sibling_index(node_index);
             let (left_index, right_index) = if node_index % 2 == 0 {
                 (node_index, sibling_idx)

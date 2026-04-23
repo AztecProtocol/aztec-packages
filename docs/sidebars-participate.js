@@ -6,6 +6,7 @@
 const sidebars = {
   participateSidebar: [
     { type: "doc", id: "index", label: "Overview" },
+    { type: "doc", id: "alpha", label: "Alpha Network" },
     {
       type: "html",
       value: '<span class="sidebar-title">Basics of Aztec</span>',

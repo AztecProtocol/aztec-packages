@@ -416,9 +416,6 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::get_sibling_path(cons
     auto job = [=, this]() {
         execute_and_report<GetSiblingPathResponse>(
             [=, this](TypedResponse<GetSiblingPathResponse>& response) {
-                if (blockNumber == 0) {
-                    throw std::runtime_error("Unable to get sibling path at block 0");
-                }
                 ReadTransactionPtr tx = store_->create_read_transaction();
                 BlockPayload blockData;
                 if (!store_->get_block_data(blockNumber, blockData, *tx)) {
@@ -729,9 +726,6 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::get_leaf(const index_
     auto job = [=, this]() {
         execute_and_report<GetLeafResponse>(
             [=, this](TypedResponse<GetLeafResponse>& response) {
-                if (blockNumber == 0) {
-                    throw std::runtime_error("Unable to get leaf at block 0");
-                }
                 ReadTransactionPtr tx = store_->create_read_transaction();
                 BlockPayload blockData;
                 if (!store_->get_block_data(blockNumber, blockData, *tx)) {
@@ -842,9 +836,6 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::find_leaf_indices_fro
         execute_and_report<FindLeafIndexResponse>(
             [=, this](TypedResponse<FindLeafIndexResponse>& response) {
                 response.inner.leaf_indices.reserve(leaves.size());
-                if (blockNumber == 0) {
-                    throw std::runtime_error("Unable to find leaf index for block number 0");
-                }
                 ReadTransactionPtr tx = store_->create_read_transaction();
                 BlockPayload blockData;
                 if (!store_->get_block_data(blockNumber, blockData, *tx)) {
@@ -917,9 +908,6 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::find_leaf_sibling_pat
         execute_and_report<FindLeafPathResponse>(
             [=, this](TypedResponse<FindLeafPathResponse>& response) {
                 response.inner.leaf_paths.reserve(leaves.size());
-                if (blockNumber == 0) {
-                    throw std::runtime_error("Unable to find leaf index for block number 0");
-                }
                 ReadTransactionPtr tx = store_->create_read_transaction();
                 BlockPayload blockData;
                 if (!store_->get_block_data(blockNumber, blockData, *tx)) {

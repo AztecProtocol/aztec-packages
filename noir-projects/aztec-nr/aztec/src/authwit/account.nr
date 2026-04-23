@@ -52,7 +52,6 @@ impl AccountActions<&mut PrivateContext> {
     /// transaction to be sent with a higher priority fee. This can be used to cancel the first transaction sent,
     /// assuming it hasn't been mined yet.
     ///
-    // docs:start:entrypoint
     pub fn entrypoint(self, app_payload: AppPayload, fee_payment_method: u8, cancellable: bool) {
         let valid_fn = self.is_valid_impl;
 

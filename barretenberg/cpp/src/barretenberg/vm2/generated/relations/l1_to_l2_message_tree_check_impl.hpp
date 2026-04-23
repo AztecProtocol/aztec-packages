@@ -16,6 +16,7 @@ void l1_to_l2_message_tree_checkImpl<FF_>::accumulate(ContainerOverSubrelations&
     using C = ColumnAndShifts;
 
     const auto constants_L1_TO_L2_MSG_TREE_HEIGHT = FF(36);
+    const auto constants_DOM_SEP__MERKLE_HASH = FF(2982624097UL);
     const auto l1_to_l2_message_tree_check_LEAF_VALUE_MSG_HASH_DIFF =
         (in.get(C::l1_to_l2_message_tree_check_leaf_value) - in.get(C::l1_to_l2_message_tree_check_msg_hash));
 
@@ -49,6 +50,13 @@ void l1_to_l2_message_tree_checkImpl<FF_>::accumulate(ContainerOverSubrelations&
                    (CView(constants_L1_TO_L2_MSG_TREE_HEIGHT) -
                     static_cast<View>(in.get(C::l1_to_l2_message_tree_check_l1_to_l2_message_tree_height)));
         std::get<3>(evals) += (tmp * scaling_factor);
+    }
+    { // MERKLE_HASH_SEPARATOR_CONSTANT
+        using View = typename std::tuple_element_t<4, ContainerOverSubrelations>::View;
+        auto tmp = static_cast<View>(in.get(C::l1_to_l2_message_tree_check_sel)) *
+                   (static_cast<View>(in.get(C::l1_to_l2_message_tree_check_merkle_hash_separator)) -
+                    CView(constants_DOM_SEP__MERKLE_HASH));
+        std::get<4>(evals) += (tmp * scaling_factor);
     }
 }
 

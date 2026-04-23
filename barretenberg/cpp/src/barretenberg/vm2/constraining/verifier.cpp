@@ -114,10 +114,6 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
 
     // ========== Execute relation check rounds ==========
 
-    // Construct padding indicator array: it is a vector of constant ones as the AVM verifier performs verification of
-    // the AVM circuit, so the number of rounds is fixed.
-    std::vector<FF> padding_indicator_array(MAX_AVM_TRACE_LOG_SIZE, 1);
-
     // Multiply each linearly independent subrelation contribution by `alpha^i` for i = 0, ..., NUM_SUBRELATIONS - 1.
     const FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
 
@@ -126,7 +122,7 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
     // Get the gate challenges for sumcheck computation
     std::vector<FF> gate_challenges =
         transcript->template get_dyadic_powers_of_challenge<FF>("Sumcheck:gate_challenge", MAX_AVM_TRACE_LOG_SIZE);
-    SumcheckOutput<Flavor> output = sumcheck.verify(relation_parameters, gate_challenges, padding_indicator_array);
+    SumcheckOutput<Flavor> output = sumcheck.verify(relation_parameters, gate_challenges);
 
     // If Sumcheck did not verify, return false
     if (!output.verified) {
@@ -192,8 +188,7 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
                                         .shifted = ClaimBatch{ .commitments = RefVector(batched_shifted),
                                                                .evaluations = RefVector(batched_shifted_eval) } };
     auto opening_claim =
-        Shplemini::compute_batch_opening_claim(
-            padding_indicator_array, batched_claim_batcher, output.challenge, Commitment::one(), transcript)
+        Shplemini::compute_batch_opening_claim(batched_claim_batcher, output.challenge, Commitment::one(), transcript)
             .batch_opening_claim;
 
     const auto pairing_points = PCS::reduce_verify_batch_opening_claim(std::move(opening_claim), transcript);

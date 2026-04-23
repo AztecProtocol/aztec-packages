@@ -41,6 +41,7 @@ members = [
     "contracts/test/avm_initializer_test_contract",
     "contracts/test/avm_test_contract",
     "contracts/test/benchmarking_contract",
+    "contracts/test/calldata_limit_test_contract",
     "contracts/test/child_contract",
     "contracts/test/counter/counter_contract",
     "contracts/test/custom_message_contract",

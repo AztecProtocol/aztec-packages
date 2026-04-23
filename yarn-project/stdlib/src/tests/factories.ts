@@ -9,7 +9,6 @@ import {
   AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED,
   CHONK_PROOF_LENGTH,
   CONTRACT_CLASS_LOG_SIZE_IN_FIELDS,
-  DomainSeparator,
   L1_TO_L2_MSG_SUBTREE_ROOT_SIBLING_PATH_LENGTH,
   MAX_CHECKPOINTS_PER_EPOCH,
   MAX_CONTRACT_CLASS_LOGS_PER_TX,
@@ -46,7 +45,6 @@ import { type FieldsOf, makeTuple } from '@aztec/foundation/array';
 import { BlockNumber, CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { compact } from '@aztec/foundation/collection';
 import { Grumpkin } from '@aztec/foundation/crypto/grumpkin';
-import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto/poseidon';
 import { SchnorrSignature } from '@aztec/foundation/crypto/schnorr';
 import { sha256 } from '@aztec/foundation/crypto/sha256';
 import { Fq, Fr } from '@aztec/foundation/curves/bn254';
@@ -95,6 +93,7 @@ import {
   type PrivateFunction,
   SerializableContractInstance,
   computeContractClassId,
+  computePartialAddress,
   computePublicBytecodeCommitment,
 } from '../contract/index.js';
 import { Gas, GasFees, GasSettings } from '../gas/index.js';
@@ -176,7 +175,7 @@ import { TxHash } from '../tx/tx_hash.js';
 import { TxRequest } from '../tx/tx_request.js';
 import { Vector } from '../types/index.js';
 import { VkData } from '../vks/index.js';
-import { VerificationKey, VerificationKeyAsFields, VerificationKeyData } from '../vks/verification_key.js';
+import { VerificationKeyAsFields, VerificationKeyData } from '../vks/verification_key.js';
 
 /**
  * Creates an arbitrary side effect object with the given seed.
@@ -571,14 +570,6 @@ export function makeMembershipWitness<N extends number>(size: N, start: number):
  */
 export function makeVerificationKeyAsFields(size: number): VerificationKeyAsFields {
   return VerificationKeyAsFields.makeFake(size);
-}
-
-/**
- * Creates arbitrary/mocked verification key.
- * @returns A verification key object
- */
-export function makeVerificationKey(): VerificationKey {
-  return VerificationKey.makeFake();
 }
 
 /**
@@ -1253,14 +1244,12 @@ export async function makeContractInstanceFromClassId(
   const deployer = overrides?.deployer ?? new AztecAddress(new Fr(seed + 2));
   const publicKeys = overrides?.publicKeys ?? (await makePublicKeys(seed + 3));
 
-  const saltedInitializationHash = await poseidon2HashWithSeparator(
-    [salt, initializationHash, deployer],
-    DomainSeparator.PARTIAL_ADDRESS,
-  );
-  const partialAddress = await poseidon2HashWithSeparator(
-    [classId, saltedInitializationHash],
-    DomainSeparator.PARTIAL_ADDRESS,
-  );
+  const partialAddress = await computePartialAddress({
+    originalContractClassId: classId,
+    salt,
+    initializationHash,
+    deployer,
+  });
   const address = await computeAddress(publicKeys, partialAddress);
   return new SerializableContractInstance({
     version: 1,

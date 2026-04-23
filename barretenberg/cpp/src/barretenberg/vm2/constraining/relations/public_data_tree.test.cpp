@@ -4,6 +4,7 @@
 #include <cmath>
 #include <cstdint>
 
+#include "barretenberg/aztec/aztec_hash_policy.hpp"
 #include "barretenberg/crypto/poseidon2/poseidon2.hpp"
 #include "barretenberg/vm2/common/avm_io.hpp"
 #include "barretenberg/vm2/constraining/flavor_settings.hpp"
@@ -154,7 +155,7 @@ TEST_P(PublicDataReadPositiveTests, Positive)
     for (size_t i = 0; i < PUBLIC_DATA_TREE_HEIGHT; ++i) {
         sibling_path.emplace_back(i);
     }
-    FF root = unconstrained_root_from_path(low_leaf_hash, leaf_index, sibling_path);
+    FF root = unconstrained_root_from_path(DOM_SEP__PUBLIC_DATA_MERKLE, low_leaf_hash, leaf_index, sibling_path);
 
     public_data_tree_check_simulator.assert_read(param.slot,
                                                  contract_address,
@@ -312,7 +313,7 @@ TEST_F(PublicDataTreeCheckConstrainingTest, PositiveWriteExists)
     FF slot = 40;
     FF leaf_slot = unconstrained_compute_leaf_slot(contract_address, slot);
     FF new_value = 27;
-    TestMemoryTree<Poseidon2HashPolicy> public_data_tree(8, PUBLIC_DATA_TREE_HEIGHT);
+    TestMemoryTree<aztec::PublicDataMerkleHashPolicy> public_data_tree(8, PUBLIC_DATA_TREE_HEIGHT);
 
     AvmAccumulatedData accumulated_data = {};
     accumulated_data.public_data_writes[0] = PublicDataWrite{
@@ -437,7 +438,7 @@ TEST_F(PublicDataTreeCheckConstrainingTest, PositiveSquashing)
     ASSERT_GT(dummy_leaf_slot, leaf_slot + 1);
 
     FF low_leaf_slot = 40;
-    TestMemoryTree<Poseidon2HashPolicy> public_data_tree(8, PUBLIC_DATA_TREE_HEIGHT);
+    TestMemoryTree<aztec::PublicDataMerkleHashPolicy> public_data_tree(8, PUBLIC_DATA_TREE_HEIGHT);
 
     AvmAccumulatedData accumulated_data = {};
     accumulated_data.public_data_writes[0] = PublicDataWrite{
