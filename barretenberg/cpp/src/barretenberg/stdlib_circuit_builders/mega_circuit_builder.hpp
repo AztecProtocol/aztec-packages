@@ -39,7 +39,6 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<M
     ecc_op_tuple queue_ecc_add_accum(const g1::affine_element& point);
     ecc_op_tuple queue_ecc_mul_accum(const g1::affine_element& point, const FF& scalar, bool in_finalize = false);
     ecc_op_tuple queue_ecc_eq(bool in_finalize = true);
-    ecc_op_tuple queue_ecc_no_op();
     void queue_ecc_random_op();
     void queue_ecc_hiding_op(const curve::BN254::BaseField& Px, const curve::BN254::BaseField& Py);
 
@@ -191,6 +190,8 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<M
     const BusVector& get_calldata() const { return databus[static_cast<size_t>(BusId::CALLDATA)]; }
     const BusVector& get_secondary_calldata() const { return databus[static_cast<size_t>(BusId::SECONDARY_CALLDATA)]; }
     const BusVector& get_return_data() const { return databus[static_cast<size_t>(BusId::RETURNDATA)]; }
+    // Indexed access to the databus columns; enables NUM_BUS_COLUMNS-driven iteration over bus vectors.
+    const BusVector& get_bus_vector(size_t bus_idx) const { return databus[bus_idx]; }
 
     /**
      * @brief Compute a hash of the circuit

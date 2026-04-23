@@ -5,6 +5,8 @@
 // =====================
 
 #pragma once
+#include <utility>
+
 #include "barretenberg/commitment_schemes/kzg/kzg.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/flavor/flavor_macros.hpp"
@@ -220,65 +222,48 @@ class MegaFlavor {
         {
             return RefArray{ this->ecc_op_wire_1, this->ecc_op_wire_2, this->ecc_op_wire_3, this->ecc_op_wire_4 };
         }
+
+        // Per-bus entity groups. Keeps the mapping from bus_idx to the named DerivedEntities members
+        // in one place; the indexed getters below build their RefArrays by unpacking over 0..NUM_BUS_COLUMNS-1.
+        template <size_t bus_idx> auto databus_entities_for_bus()
+        {
+            if constexpr (bus_idx == 0) {
+                return RefArray{ this->calldata, this->calldata_read_counts };
+            } else if constexpr (bus_idx == 1) {
+                return RefArray{ this->secondary_calldata, this->secondary_calldata_read_counts };
+            } else {
+                static_assert(bus_idx == 2);
+                return RefArray{ this->return_data, this->return_data_read_counts };
+            }
+        }
+        template <size_t bus_idx> auto databus_inverse_for_bus()
+        {
+            if constexpr (bus_idx == 0) {
+                return RefArray{ this->calldata_inverses };
+            } else if constexpr (bus_idx == 1) {
+                return RefArray{ this->secondary_calldata_inverses };
+            } else {
+                static_assert(bus_idx == 2);
+                return RefArray{ this->return_data_inverses };
+            }
+        }
+
         auto get_databus_entities() // Excludes the derived inverse polynomials
         {
-            return RefArray{ this->calldata,           this->calldata_read_counts,
-                             this->secondary_calldata, this->secondary_calldata_read_counts,
-                             this->return_data,        this->return_data_read_counts };
+            return [this]<size_t... Is>(std::index_sequence<Is...>) {
+                return concatenate(this->template databus_entities_for_bus<Is>()...);
+            }(std::make_index_sequence<NUM_BUS_COLUMNS>{});
         }
 
         auto get_databus_inverses()
         {
-            return RefArray{
-                this->calldata_inverses,
-                this->secondary_calldata_inverses,
-                this->return_data_inverses,
-            };
+            return [this]<size_t... Is>(std::index_sequence<Is...>) {
+                return concatenate(this->template databus_inverse_for_bus<Is>()...);
+            }(std::make_index_sequence<NUM_BUS_COLUMNS>{});
         }
         auto get_to_be_shifted()
         {
             return concatenate(WireEntities<DataType>::get_all(), DerivedEntities<DataType>::get_to_be_shifted());
-        }
-
-        // Entities masked in ZK mode: all witness except ECC op wires (masked via random ops)
-        // and calldata (left unmasked).
-        auto get_masked()
-        {
-            return RefArray{ this->w_l,
-                             this->w_r,
-                             this->w_o,
-                             this->w_4,
-                             this->z_perm,
-                             this->lookup_inverses,
-                             this->lookup_read_counts,
-                             this->lookup_read_tags,
-                             this->calldata_read_counts,
-                             this->calldata_inverses,
-                             this->secondary_calldata,
-                             this->secondary_calldata_read_counts,
-                             this->secondary_calldata_inverses,
-                             this->return_data,
-                             this->return_data_read_counts,
-                             this->return_data_inverses };
-        }
-        auto get_masked() const
-        {
-            return RefArray{ this->w_l,
-                             this->w_r,
-                             this->w_o,
-                             this->w_4,
-                             this->z_perm,
-                             this->lookup_inverses,
-                             this->lookup_read_counts,
-                             this->lookup_read_tags,
-                             this->calldata_read_counts,
-                             this->calldata_inverses,
-                             this->secondary_calldata,
-                             this->secondary_calldata_read_counts,
-                             this->secondary_calldata_inverses,
-                             this->return_data,
-                             this->return_data_read_counts,
-                             this->return_data_inverses };
         }
     };
 
@@ -333,6 +318,10 @@ class MegaFlavor {
     static constexpr size_t NUM_SHIFTED_ENTITIES = ShiftedEntities<FF>::_members_size;
     static constexpr size_t NUM_UNSHIFTED_ENTITIES = NUM_PRECOMPUTED_ENTITIES + NUM_WITNESS_ENTITIES;
     static constexpr size_t NUM_ALL_ENTITIES = NUM_UNSHIFTED_ENTITIES + NUM_SHIFTED_ENTITIES;
+
+    // Rows reserved at the top of the trace for row-disabling / ZK masking.
+    // MegaAvmFlavor overrides to 0 (no masking needed).
+    static constexpr size_t TRACE_OFFSET = NUM_DISABLED_ROWS_IN_SUMCHECK;
 
     static constexpr RepeatedCommitmentsData REPEATED_COMMITMENTS = RepeatedCommitmentsData(
         NUM_PRECOMPUTED_ENTITIES, NUM_PRECOMPUTED_ENTITIES + NUM_WITNESS_ENTITIES, NUM_SHIFTED_ENTITIES);

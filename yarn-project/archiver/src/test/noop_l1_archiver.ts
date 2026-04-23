@@ -70,7 +70,9 @@ export class NoopL1Archiver extends Archiver {
       debugClient,
       rollup,
       {
+        rollupAddress: EthAddress.ZERO,
         registryAddress: EthAddress.ZERO,
+        inboxAddress: EthAddress.ZERO,
         governanceProposerAddress: EthAddress.ZERO,
         slashingProposerAddress: EthAddress.ZERO,
       },
@@ -81,6 +83,7 @@ export class NoopL1Archiver extends Archiver {
         skipValidateCheckpointAttestations: true,
         maxAllowedEthClientDriftSeconds: 300,
         ethereumAllowNoDebugHosts: true, // Skip trace validation
+        skipHistoricalLogsCheck: true, // Skip historical logs validation
       },
       blobClient,
       instrumentation,

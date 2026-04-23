@@ -35,11 +35,11 @@ describe('buildBlobHints', () => {
     const blobFieldsHash = await computeBlobFieldsHash(blobFields);
     const challengeZ = await onlyBlob.computeChallengeZ(blobFieldsHash);
     const zStr = challengeZ.toString();
-    expect(zStr).toMatchInlineSnapshot(`"0x11d6daed56531bd5c5acf341663d21089bb96913f4e716dca3cdb01b8d5735a3"`);
+    expect(zStr).toMatchInlineSnapshot(`"0x0a3c46459eb1496fb668371f5a418f65a40c0d35b0aac56585b37d80024c124a"`);
 
     const proof = await onlyBlob.evaluate(challengeZ, true /* verifyProof */);
     const yStr = proof.y.toString();
-    expect(yStr).toMatchInlineSnapshot(`"0x6033e46c697b3de1a5ddedb940ae6ccdb6efc0adeb255336b0220d3fd4b76720"`);
+    expect(yStr).toMatchInlineSnapshot(`"0x1b1e010b93e259b5f5f51a5d7d75bc99494d94bc221b867eaa938c83c82e679d"`);
 
     // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data.
     updateInlineTestData(

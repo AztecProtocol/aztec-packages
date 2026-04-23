@@ -154,10 +154,8 @@ class ShpleminiConcatenatedTest : public CommitmentTest<curve::BN254> {
             .shifted = ClaimBatch{ RefArray<Commitment, N>(commitments), RefArray<Fr, N>(shifted_evals) }
         };
 
-        std::vector<Fr> padding_indicator(challenge.size(), Fr{ 1 });
-
         auto shplemini_output = ShpleminiVerifier_<Curve>::compute_batch_opening_claim(
-            padding_indicator, claim_batcher, challenge, Commitment::one(), verifier_transcript);
+            claim_batcher, challenge, Commitment::one(), verifier_transcript);
 
         auto pairing_points = KZG<Curve>::reduce_verify_batch_opening_claim(
             std::move(shplemini_output.batch_opening_claim), verifier_transcript);

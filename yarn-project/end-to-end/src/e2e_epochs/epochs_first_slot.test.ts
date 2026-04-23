@@ -1,4 +1,5 @@
 import type { AztecNodeService } from '@aztec/aztec-node';
+import type { AztecAddress } from '@aztec/aztec.js/addresses';
 import { EthAddress } from '@aztec/aztec.js/addresses';
 import { getTimestampRangeForEpoch } from '@aztec/aztec.js/block';
 import { NO_WAIT } from '@aztec/aztec.js/contracts';
@@ -43,6 +44,7 @@ describe('e2e_epochs/epochs_first_slot', () => {
   let validators: (Operator & { privateKey: `0x${string}` })[];
   let nodes: AztecNodeService[];
   let contract: SpamContract;
+  let from: AztecAddress;
 
   beforeEach(async () => {
     validators = times(NODE_COUNT, i => {
@@ -53,7 +55,7 @@ describe('e2e_epochs/epochs_first_slot', () => {
 
     // Setup context with the given set of validators, no reorgs, mocked gossip sub network, and no anvil test watcher.
     test = await EpochsTestContext.setup({
-      numberOfAccounts: 1,
+      numberOfAccounts: 0,
       initialValidators: validators,
       mockGossipSubNetwork: true,
       disableAnvilTestWatcher: true,
@@ -67,13 +69,11 @@ describe('e2e_epochs/epochs_first_slot', () => {
       maxTxsPerBlock: 1,
       attestationPropagationTime: 0.5,
       archiverPollingIntervalMS: 200,
+      skipInitialSequencer: true,
     });
 
     ({ context, logger } = test);
-
-    // Halt block building in initial aztec node, which was not set up as a validator.
-    logger.warn(`Stopping sequencer in initial aztec node.`);
-    await context.sequencer!.stop();
+    from = context.accounts[0]; // auto-created by setup
 
     // Start the validator nodes
     logger.warn(`Initial setup complete. Starting ${NODE_COUNT} validator nodes.`);
@@ -100,7 +100,7 @@ describe('e2e_epochs/epochs_first_slot', () => {
     // Create and submit txs for the first two slots of the epoch
     // We set maxTxsPerBlock to 1, so two txs mean two consecutive blocks
     const txs = await timesAsync(TX_COUNT, i =>
-      proveInteraction(context.wallet, contract.methods.spam(i, 1n, false), { from: context.accounts[0] }),
+      proveInteraction(context.wallet, contract.methods.spam(i, 1n, false), { from }),
     );
     const txHashes = await Promise.all(txs.map(tx => tx.send({ wait: NO_WAIT })));
     logger.warn(`Sent ${txHashes.length} transactions`, {

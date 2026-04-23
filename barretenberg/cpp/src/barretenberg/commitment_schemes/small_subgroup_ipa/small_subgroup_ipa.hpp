@@ -329,7 +329,10 @@ template <typename Curve> class SmallSubgroupIPAVerifier {
 
         return check_consistency(small_ipa_evaluations,
                                  evaluation_challenge,
-                                 compute_eccvm_challenge_coeffs<Curve>(evaluation_challenge_x, batching_challenge_v),
+                                 compute_eccvm_challenge_coeffs<Curve>(evaluation_challenge_x,
+                                                                       batching_challenge_v,
+                                                                       NUM_TRANSLATION_EVALUATIONS,
+                                                                       NUM_DISABLED_ROWS_IN_SUMCHECK),
                                  inner_product_eval_claim,
                                  vanishing_poly_eval);
     }
@@ -465,20 +468,18 @@ static std::vector<typename Curve::ScalarField> compute_challenge_polynomial_coe
 }
 
 /**
- * @brief Denote \f$ M = \text{NUM_DISABLED_ROWS_IN_SUMCHECK} \f$ and \f$ N = NUM_SMALL_IPA_EVALUTIONS\f$. Given an
- * evaluation challenge \f$ x \f$ and a batching challenge \f$v\f$, compute the polynomial whose  coefficients are given
- * by the vector \f$ (1, x , x^2 , \ldots, x^{M - 1 }, v\cdot x, \ldots, v^{N-1} \cdot x^{M-2}, v^{N-1}, \cdot x^{M-1},
- * 0, \ldots, 0)\f$ in the Lagrange basis over the Small Subgroup.
- *
- * @tparam FF
- * @param evaluation_challenge_x
- * @param batching_challenge_v
- * @param subgroup_size
- * @return std::vector<FF>
+ * @brief Given \p num_polys polynomials each contributing \p num_coeffs_per_poly masking coefficients, an evaluation
+ * challenge \f$ x \f$ and a batching challenge \f$ v \f$, compute the challenge polynomial whose coefficients (in the
+ * Lagrange basis over the Small Subgroup) are
+ * \f$ (1, x, \ldots, x^{M-1},\; v, vx, \ldots, vx^{M-1},\; \ldots,\; v^{N-1}x^{M-1},\; 0, \ldots, 0) \f$
+ * where \f$ M = \text{num\_coeffs\_per\_poly} \f$ and \f$ N = \text{num\_polys} \f$.
  */
 template <typename Curve>
 std::vector<typename Curve::ScalarField> compute_eccvm_challenge_coeffs(
-    const typename Curve::ScalarField& evaluation_challenge_x, const typename Curve::ScalarField& batching_challenge_v)
+    const typename Curve::ScalarField& evaluation_challenge_x,
+    const typename Curve::ScalarField& batching_challenge_v,
+    size_t num_polys,
+    size_t num_coeffs_per_poly)
 {
     using FF = typename Curve::ScalarField;
     std::vector<FF> coeffs_lagrange_basis(Curve::SUBGROUP_SIZE);
@@ -490,18 +491,18 @@ std::vector<typename Curve::ScalarField> compute_eccvm_challenge_coeffs(
         zero.convert_constant_to_fixed_witness(builder);
     }
     FF v_power = one;
-    for (size_t poly_idx = 0; poly_idx < NUM_TRANSLATION_EVALUATIONS; poly_idx++) {
-        const size_t start = NUM_DISABLED_ROWS_IN_SUMCHECK * poly_idx;
+    for (size_t poly_idx = 0; poly_idx < num_polys; poly_idx++) {
+        const size_t start = num_coeffs_per_poly * poly_idx;
         coeffs_lagrange_basis[start] = v_power;
 
-        for (size_t idx = start + 1; idx < start + NUM_DISABLED_ROWS_IN_SUMCHECK; idx++) {
+        for (size_t idx = start + 1; idx < start + num_coeffs_per_poly; idx++) {
             coeffs_lagrange_basis[idx] = coeffs_lagrange_basis[idx - 1] * evaluation_challenge_x;
         }
 
         v_power *= batching_challenge_v;
     }
 
-    static constexpr size_t challenge_poly_length = NUM_TRANSLATION_EVALUATIONS * NUM_DISABLED_ROWS_IN_SUMCHECK;
+    const size_t challenge_poly_length = num_polys * num_coeffs_per_poly;
 
     // Ensure that the coefficients are padded with fixed witnesses obtained from 0
     for (size_t idx = challenge_poly_length; idx < Curve::SUBGROUP_SIZE; idx++) {

@@ -1,5 +1,3 @@
-// docs:start:game-board
-// docs:start:game-board-imports
 import React, { useState } from 'react';
 import { AztecAddress } from '@aztec/aztec.js/addresses';
 import type { PodRacingContract } from '../artifacts/PodRacing';
@@ -14,9 +12,7 @@ interface GameBoardProps {
   currentRound: number;
   onRoundPlayed: () => void;
 }
-// docs:end:game-board-imports
 
-// docs:start:game-board-component
 export function GameBoard({
   contract,
   account,
@@ -153,5 +149,3 @@ export function GameBoard({
     </div>
   );
 }
-// docs:end:game-board-component
-// docs:end:game-board

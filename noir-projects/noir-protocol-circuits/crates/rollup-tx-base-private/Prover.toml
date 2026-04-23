@@ -4398,7 +4398,7 @@ contract_class_log_fields = [
           next_available_leaf_index = "0x0000000000000000000000000000000000000000000000000000000000000008"
 
 [inputs.hiding_kernel_proof_data.public_inputs.constants.anchor_block_header.state.l1_to_l2_message_tree]
-root = "0x0d582c10ff8115413aa5b70564fdd2f3cefe1f33a1e43a47bc495081e91e73e5"
+root = "0x0fef6d80d31109ddb56d6b3f607cbc9c0af0bff3ea0d43e8f278983c64c11f7a"
 next_available_leaf_index = "0x0000000000000000000000000000000000000000000000000000000000002000"
 
 [inputs.hiding_kernel_proof_data.public_inputs.constants.anchor_block_header.state.partial.note_hash_tree]
@@ -9808,7 +9808,7 @@ next_available_leaf_index = "0x0000000000000000000000000000000000000000000000000
     next_available_leaf_index = "0x0000000000000000000000000000000000000000000000000000000000000009"
 
     [inputs.constants.l1_to_l2_tree_snapshot]
-    root = "0x0d582c10ff8115413aa5b70564fdd2f3cefe1f33a1e43a47bc495081e91e73e5"
+    root = "0x0fef6d80d31109ddb56d6b3f607cbc9c0af0bff3ea0d43e8f278983c64c11f7a"
     next_available_leaf_index = "0x0000000000000000000000000000000000000000000000000000000000002400"
 
     [inputs.constants.global_variables]

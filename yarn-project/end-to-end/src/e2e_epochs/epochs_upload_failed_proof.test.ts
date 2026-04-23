@@ -37,7 +37,10 @@ describe('e2e_epochs/epochs_upload_failed_proof', () => {
     uploadPath = await mkdtemp(join(tmpdir(), 'failed-proofs-'));
     uploadUrl = `file://${uploadPath}`;
 
-    test = await EpochsTestContext.setup({ proverNodeConfig: { proverNodeFailedEpochStore: uploadUrl } });
+    test = await EpochsTestContext.setup({
+      proverNodeConfig: { proverNodeFailedEpochStore: uploadUrl },
+      enableProposerPipelining: true,
+    });
     ({ context, logger } = test);
     ({ config } = context);
   });

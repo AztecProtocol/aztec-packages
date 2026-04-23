@@ -45,7 +45,8 @@ template <typename Flavor> class RelationChecker {
     template <typename Relation, bool has_linearly_dependent = false>
     static FirstSubrelationFailures check(const auto& polynomials,
                                           const auto& params,
-                                          [[maybe_unused]] std::string label = "Relation")
+                                          [[maybe_unused]] std::string label = "Relation",
+                                          uint32_t start_row = 0)
     {
         FirstSubrelationFailures first_failure_per_subrelation;
         // Define the appropriate accumulator type for the relation and initialize to zero
@@ -54,7 +55,7 @@ template <typename Flavor> class RelationChecker {
             element = 0;
         }
 
-        for (uint32_t i = 0; i < polynomials.get_polynomial_size(); i++) {
+        for (uint32_t i = start_row; i < polynomials.get_polynomial_size(); i++) {
 
             Relation::accumulate(result, polynomials.get_row(i), params, 1);
             size_t subrelation_idx = 0;

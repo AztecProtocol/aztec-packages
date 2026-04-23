@@ -52,6 +52,8 @@ class TranslatorFlavor {
 
     // Indicates that this flavor runs with ZK Sumcheck.
     static constexpr bool HasZK = true;
+    // Translator has no disabled rows at the top of the trace.
+    static constexpr size_t TRACE_OFFSET = 0;
     // Translator proof size and its recursive verifier circuit are genuinely fixed, hence no padding is needed.
     static constexpr bool USE_PADDING = false;
     // Important: these constants cannot be arbitrarily changed - please consult with a member of the Crypto team if
@@ -102,26 +104,16 @@ class TranslatorFlavor {
     // This is the space reserved at the end of each ordered polynomial (contiguous)
     static constexpr size_t MAX_RANDOM_VALUES_PER_ORDERED = CONCATENATION_GROUP_SIZE * NUM_MASKED_ROWS_END;
 
-    // Index at which random coefficients start (for zk) within Translator trace
-    static constexpr size_t RANDOMNESS_START = 2 * CircuitBuilder::NUM_NO_OPS_START;
+    // Index at which random coefficients start (for zk) within Translator trace.
+    // The first 2 rows are zeros for polynomial shiftability (one op's worth of rows).
+    static constexpr size_t RANDOMNESS_START = 2;
 
     // The bitness of the range constraint
     static constexpr size_t MICRO_LIMB_BITS = CircuitBuilder::MICRO_LIMB_BITS;
 
-    // The number of "steps" inserted in ordered range constraint polynomials to ensure that the
-    // DeltaRangeConstraintRelation can always be satisfied if the polynomial is within the appropriate range.
-    static constexpr size_t SORTED_STEPS_COUNT = ((1 << MICRO_LIMB_BITS) / SORT_STEP) + 1;
-    static_assert(SORTED_STEPS_COUNT * (NUM_CONCATENATED_POLYS + 1) < MINI_CIRCUIT_SIZE * CONCATENATION_GROUP_SIZE,
-                  "Translator circuit is too small for defined number of steps "
-                  "(TranslatorDeltaRangeConstraintRelation). ");
-
     // Number of bits in a binary limb
     // This is not a configurable value. Relations are sepcifically designed for it to be 68
     static constexpr size_t NUM_LIMB_BITS = CircuitBuilder::NUM_LIMB_BITS;
-
-    // Lowest possible size of the Translator mini circuit due to the desing of range constraints.
-    static constexpr size_t MINIMUM_MINI_CIRCUIT_SIZE = 2048;
-    static_assert(MINI_CIRCUIT_SIZE > MINIMUM_MINI_CIRCUIT_SIZE);
 
     using GrandProductRelations = std::tuple<TranslatorPermutationRelation<FF>>;
     // define the tuple of Relations that comprise the Sumcheck relation
@@ -780,6 +772,23 @@ class TranslatorFlavor {
         PROOF_LENGTH +
         CONST_TRANSLATOR_LOG_N * (num_frs_comm + 2 * num_frs_fr - BATCHED_RELATION_PARTIAL_LENGTH * num_frs_fr);
 
+    // ===== Static assert to ensure a valid trace can be proven ======
+
+    // The number of "steps" inserted in ordered range constraint polynomials to ensure that the
+    // DeltaRangeConstraintRelation can always be satisfied if the polynomial is within the appropriate range.
+    static constexpr size_t SORTED_STEPS_COUNT = ((1 << MICRO_LIMB_BITS) / SORT_STEP) + 1;
+
+    // The number of masking values in the overflow columns used for the ordered range constraint
+    static constexpr size_t MASKING_OVERFLOW_COLUMN =
+        MAX_RANDOM_VALUES_PER_ORDERED * (NUM_ORDERED_RANGE - 1) / NUM_ORDERED_RANGE;
+
+    static_assert(SORTED_STEPS_COUNT * NUM_ORDERED_RANGE + MASKING_OVERFLOW_COLUMN <
+                      MINI_CIRCUIT_SIZE * CONCATENATION_GROUP_SIZE,
+                  "Translator circuit is too small for defined number of steps "
+                  "(TranslatorDeltaRangeConstraintRelation). ");
+
+    // ================================================================
+
     /**
      * @brief Partition minicircuit wire references into concatenation groups.
      * @details Takes a flat list of minicircuit wire refs (NonRangeMain followed by RangeConstraint)
@@ -1079,7 +1088,7 @@ class TranslatorFlavor {
                                              /*virtual_size*/ circuit_size,
                                              /*start_index*/ circuit_size - MAX_RANDOM_VALUES_PER_ORDERED - 1 };
             ordered_extra_range_constraints_numerator =
-                Polynomial{ /*size*/ SORTED_STEPS_COUNT * (NUM_CONCATENATED_POLYS + 1),
+                Polynomial{ /*size*/ SORTED_STEPS_COUNT * NUM_CONCATENATED_POLYS + MASKING_OVERFLOW_COLUMN,
                             /*virtual_size*/ circuit_size,
                             /*start_index*/ 0 };
 
