@@ -1241,31 +1241,31 @@ VectorField<Bn254FrParams> VectorField<Bn254FrParams>::operator*(const VectorFie
     // bits of each i64x2 lane hold the 29-bit limb value.
     // ============================================================
 
-    result.scalar_data[0] = temp_9;
+    result.scalar_data[0] = static_cast<uint32_t>(temp_9);
     result.quad_data[0] = wasm_i8x16_shuffle(
         tlo_9, thi_9, 0, 1, 2, 3, 8, 9, 10, 11, 16, 17, 18, 19, 24, 25, 26, 27);
-    result.scalar_data[1] = temp_10;
+    result.scalar_data[1] = static_cast<uint32_t>(temp_10);
     result.quad_data[1] = wasm_i8x16_shuffle(
         tlo_10, thi_10, 0, 1, 2, 3, 8, 9, 10, 11, 16, 17, 18, 19, 24, 25, 26, 27);
-    result.scalar_data[2] = temp_11;
+    result.scalar_data[2] = static_cast<uint32_t>(temp_11);
     result.quad_data[2] = wasm_i8x16_shuffle(
         tlo_11, thi_11, 0, 1, 2, 3, 8, 9, 10, 11, 16, 17, 18, 19, 24, 25, 26, 27);
-    result.scalar_data[3] = temp_12;
+    result.scalar_data[3] = static_cast<uint32_t>(temp_12);
     result.quad_data[3] = wasm_i8x16_shuffle(
         tlo_12, thi_12, 0, 1, 2, 3, 8, 9, 10, 11, 16, 17, 18, 19, 24, 25, 26, 27);
-    result.scalar_data[4] = temp_13;
+    result.scalar_data[4] = static_cast<uint32_t>(temp_13);
     result.quad_data[4] = wasm_i8x16_shuffle(
         tlo_13, thi_13, 0, 1, 2, 3, 8, 9, 10, 11, 16, 17, 18, 19, 24, 25, 26, 27);
-    result.scalar_data[5] = temp_14;
+    result.scalar_data[5] = static_cast<uint32_t>(temp_14);
     result.quad_data[5] = wasm_i8x16_shuffle(
         tlo_14, thi_14, 0, 1, 2, 3, 8, 9, 10, 11, 16, 17, 18, 19, 24, 25, 26, 27);
-    result.scalar_data[6] = temp_15;
+    result.scalar_data[6] = static_cast<uint32_t>(temp_15);
     result.quad_data[6] = wasm_i8x16_shuffle(
         tlo_15, thi_15, 0, 1, 2, 3, 8, 9, 10, 11, 16, 17, 18, 19, 24, 25, 26, 27);
-    result.scalar_data[7] = temp_16;
+    result.scalar_data[7] = static_cast<uint32_t>(temp_16);
     result.quad_data[7] = wasm_i8x16_shuffle(
         tlo_16, thi_16, 0, 1, 2, 3, 8, 9, 10, 11, 16, 17, 18, 19, 24, 25, 26, 27);
-    result.scalar_data[8] = temp_17;
+    result.scalar_data[8] = static_cast<uint32_t>(temp_17);
     result.quad_data[8] = wasm_i8x16_shuffle(
         tlo_17, thi_17, 0, 1, 2, 3, 8, 9, 10, 11, 16, 17, 18, 19, 24, 25, 26, 27);
 

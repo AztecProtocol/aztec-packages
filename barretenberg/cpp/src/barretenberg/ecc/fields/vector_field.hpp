@@ -25,7 +25,11 @@
 //
 // Storage layout (WASM SIMD path): 9 × 29-bit limbs (R = 2^261)
 //
-//   alignas(32) uint64_t scalar_data[9];    // one field, 9 × 29-bit limbs in u64
+//   alignas(16) uint32_t scalar_data[9];    // one field, 9 × 29-bit limbs in u32.
+//                                           // Top 3 bits of each u32 are always 0.
+//                                           // Each read zero-extends to u64 at use
+//                                           // site (mirroring the gist's
+//                                           // `i64.extend_i32_u (i32.load …)`).
 //   alignas(16) v128_t   quad_data[9];      // 4 fields × 9 × 29-bit limbs,
 //                                           // transposed: lane L of quad_data[k]
 //                                           // = field L's u32 limb k
@@ -115,9 +119,10 @@ template <class Params> struct alignas(32) VectorField {
 
     // ---- Storage ----
 #if BB_VECTOR_FIELD_SIMD
-    // 9 × 29-bit limbs, stored in u64 slots (top 35 bits zero). Matches the
-    // gist's `mmul_scalar` input format.
-    alignas(32) uint64_t scalar_data[9];
+    // 9 × 29-bit limbs, stored in u32 slots (top 3 bits zero). This matches
+    // bb::fr's internal WASM limb layout and compiles scalar-lane reads to the
+    // gist's `(i64.extend_i32_u (i32.load offset=… …))` pattern directly.
+    alignas(16) uint32_t scalar_data[9];
     // 9 × v128; each v128 holds four u32 slots carrying one limb from each of
     // 4 fields. Top 3 bits of each u32 are zero.
     alignas(16) v128_t quad_data[9];
@@ -218,27 +223,31 @@ namespace vector_field_detail {
     asm volatile("" : "+r"(s), "+r"(q_lo), "+r"(q_hi));
 }
 
-// Pack 4 × u64 (little-endian 256-bit value) into 9 × 29-bit limbs.
-inline void pack_4u64_to_9x29(const uint64_t in[4], uint64_t out[9]) noexcept
+// Pack 4 × u64 (little-endian 256-bit value) into 9 × 29-bit limbs, each stored
+// in a u32 slot.
+inline void pack_4u64_to_9x29(const uint64_t in[4], uint32_t out[9]) noexcept
 {
-    out[0] = in[0] & 0x1fffffff;
-    out[1] = (in[0] >> 29) & 0x1fffffff;
-    out[2] = ((in[0] >> 58) & 0x3f) | ((in[1] & 0x7fffff) << 6);
-    out[3] = (in[1] >> 23) & 0x1fffffff;
-    out[4] = ((in[1] >> 52) & 0xfff) | ((in[2] & 0x1ffff) << 12);
-    out[5] = (in[2] >> 17) & 0x1fffffff;
-    out[6] = ((in[2] >> 46) & 0x3ffff) | ((in[3] & 0x7ff) << 18);
-    out[7] = (in[3] >> 11) & 0x1fffffff;
-    out[8] = (in[3] >> 40) & 0x1fffffff;
+    out[0] = static_cast<uint32_t>(in[0] & 0x1fffffff);
+    out[1] = static_cast<uint32_t>((in[0] >> 29) & 0x1fffffff);
+    out[2] = static_cast<uint32_t>(((in[0] >> 58) & 0x3f) | ((in[1] & 0x7fffff) << 6));
+    out[3] = static_cast<uint32_t>((in[1] >> 23) & 0x1fffffff);
+    out[4] = static_cast<uint32_t>(((in[1] >> 52) & 0xfff) | ((in[2] & 0x1ffff) << 12));
+    out[5] = static_cast<uint32_t>((in[2] >> 17) & 0x1fffffff);
+    out[6] = static_cast<uint32_t>(((in[2] >> 46) & 0x3ffff) | ((in[3] & 0x7ff) << 18));
+    out[7] = static_cast<uint32_t>((in[3] >> 11) & 0x1fffffff);
+    out[8] = static_cast<uint32_t>((in[3] >> 40) & 0x1fffffff);
 }
 
-// Unpack 9 × 29-bit limbs back to 4 × u64.
-inline void unpack_9x29_to_4u64(const uint64_t in[9], uint64_t out[4]) noexcept
+// Unpack 9 × 29-bit limbs (stored in u32 slots) back to 4 × u64. Each input
+// lane is zero-extended to u64 before shifting.
+inline void unpack_9x29_to_4u64(const uint32_t in[9], uint64_t out[4]) noexcept
 {
-    out[0] = in[0] | (in[1] << 29) | (in[2] << 58);
-    out[1] = (in[2] >> 6) | (in[3] << 23) | (in[4] << 52);
-    out[2] = (in[4] >> 12) | (in[5] << 17) | (in[6] << 46);
-    out[3] = (in[6] >> 18) | (in[7] << 11) | (in[8] << 40);
+    const uint64_t i0 = in[0], i1 = in[1], i2 = in[2], i3 = in[3], i4 = in[4];
+    const uint64_t i5 = in[5], i6 = in[6], i7 = in[7], i8 = in[8];
+    out[0] = i0 | (i1 << 29) | (i2 << 58);
+    out[1] = (i2 >> 6) | (i3 << 23) | (i4 << 52);
+    out[2] = (i4 >> 12) | (i5 << 17) | (i6 << 46);
+    out[3] = (i6 >> 18) | (i7 << 11) | (i8 << 40);
 }
 
 } // namespace vector_field_detail
@@ -250,7 +259,7 @@ template <class Params> inline void VectorField<Params>::store_from_array(const 
     // Scalar lane.
     vector_field_detail::pack_4u64_to_9x29(in[0].data, scalar_data);
     // Quad lanes: transpose 4 fields' 9-limb forms into 9 v128s.
-    uint64_t limbs[4][9];
+    uint32_t limbs[4][9];
     vector_field_detail::pack_4u64_to_9x29(in[1].data, limbs[0]);
     vector_field_detail::pack_4u64_to_9x29(in[2].data, limbs[1]);
     vector_field_detail::pack_4u64_to_9x29(in[3].data, limbs[2]);
@@ -266,7 +275,7 @@ template <class Params> inline void VectorField<Params>::store_from_array(const 
 template <class Params> inline void VectorField<Params>::load_to_array(std::array<Field, 5>& out) const noexcept
 {
     vector_field_detail::unpack_9x29_to_4u64(scalar_data, out[0].data);
-    uint64_t limbs[4][9];
+    uint32_t limbs[4][9];
     for (size_t k = 0; k < 9; ++k) {
         limbs[0][k] = static_cast<uint32_t>(wasm_i32x4_extract_lane(quad_data[k], 0));
         limbs[1][k] = static_cast<uint32_t>(wasm_i32x4_extract_lane(quad_data[k], 1));
@@ -460,23 +469,23 @@ template <class Params>
     const v128_t qmask = wasm_i32x4_eq(qc_final, wasm_i32x4_splat(1));
     const uint64_t simask = ~smask;
 
-    result.scalar_data[0] = (sr0 & simask) | (st0 & smask);
+    result.scalar_data[0] = static_cast<uint32_t>((sr0 & simask) | (st0 & smask));
     result.quad_data[0] = wasm_v128_bitselect(qt0, qr0, qmask);
-    result.scalar_data[1] = (sr1 & simask) | (st1 & smask);
+    result.scalar_data[1] = static_cast<uint32_t>((sr1 & simask) | (st1 & smask));
     result.quad_data[1] = wasm_v128_bitselect(qt1, qr1, qmask);
-    result.scalar_data[2] = (sr2 & simask) | (st2 & smask);
+    result.scalar_data[2] = static_cast<uint32_t>((sr2 & simask) | (st2 & smask));
     result.quad_data[2] = wasm_v128_bitselect(qt2, qr2, qmask);
-    result.scalar_data[3] = (sr3 & simask) | (st3 & smask);
+    result.scalar_data[3] = static_cast<uint32_t>((sr3 & simask) | (st3 & smask));
     result.quad_data[3] = wasm_v128_bitselect(qt3, qr3, qmask);
-    result.scalar_data[4] = (sr4 & simask) | (st4 & smask);
+    result.scalar_data[4] = static_cast<uint32_t>((sr4 & simask) | (st4 & smask));
     result.quad_data[4] = wasm_v128_bitselect(qt4, qr4, qmask);
-    result.scalar_data[5] = (sr5 & simask) | (st5 & smask);
+    result.scalar_data[5] = static_cast<uint32_t>((sr5 & simask) | (st5 & smask));
     result.quad_data[5] = wasm_v128_bitselect(qt5, qr5, qmask);
-    result.scalar_data[6] = (sr6 & simask) | (st6 & smask);
+    result.scalar_data[6] = static_cast<uint32_t>((sr6 & simask) | (st6 & smask));
     result.quad_data[6] = wasm_v128_bitselect(qt6, qr6, qmask);
-    result.scalar_data[7] = (sr7 & simask) | (st7 & smask);
+    result.scalar_data[7] = static_cast<uint32_t>((sr7 & simask) | (st7 & smask));
     result.quad_data[7] = wasm_v128_bitselect(qt7, qr7, qmask);
-    result.scalar_data[8] = (sr8 & simask) | (st8 & smask);
+    result.scalar_data[8] = static_cast<uint32_t>((sr8 & simask) | (st8 & smask));
     result.quad_data[8] = wasm_v128_bitselect(qt8, qr8, qmask);
 
     return result;
@@ -671,23 +680,23 @@ template <class Params>
     const uint64_t simask = ~smask;
     const v128_t qmask = q_final_borrow_mask;
 
-    result.scalar_data[0] = (sr0 & simask) | (ss0 & smask);
+    result.scalar_data[0] = static_cast<uint32_t>((sr0 & simask) | (ss0 & smask));
     result.quad_data[0] = wasm_v128_bitselect(qs0, qr0, qmask);
-    result.scalar_data[1] = (sr1 & simask) | (ss1 & smask);
+    result.scalar_data[1] = static_cast<uint32_t>((sr1 & simask) | (ss1 & smask));
     result.quad_data[1] = wasm_v128_bitselect(qs1, qr1, qmask);
-    result.scalar_data[2] = (sr2 & simask) | (ss2 & smask);
+    result.scalar_data[2] = static_cast<uint32_t>((sr2 & simask) | (ss2 & smask));
     result.quad_data[2] = wasm_v128_bitselect(qs2, qr2, qmask);
-    result.scalar_data[3] = (sr3 & simask) | (ss3 & smask);
+    result.scalar_data[3] = static_cast<uint32_t>((sr3 & simask) | (ss3 & smask));
     result.quad_data[3] = wasm_v128_bitselect(qs3, qr3, qmask);
-    result.scalar_data[4] = (sr4 & simask) | (ss4 & smask);
+    result.scalar_data[4] = static_cast<uint32_t>((sr4 & simask) | (ss4 & smask));
     result.quad_data[4] = wasm_v128_bitselect(qs4, qr4, qmask);
-    result.scalar_data[5] = (sr5 & simask) | (ss5 & smask);
+    result.scalar_data[5] = static_cast<uint32_t>((sr5 & simask) | (ss5 & smask));
     result.quad_data[5] = wasm_v128_bitselect(qs5, qr5, qmask);
-    result.scalar_data[6] = (sr6 & simask) | (ss6 & smask);
+    result.scalar_data[6] = static_cast<uint32_t>((sr6 & simask) | (ss6 & smask));
     result.quad_data[6] = wasm_v128_bitselect(qs6, qr6, qmask);
-    result.scalar_data[7] = (sr7 & simask) | (ss7 & smask);
+    result.scalar_data[7] = static_cast<uint32_t>((sr7 & simask) | (ss7 & smask));
     result.quad_data[7] = wasm_v128_bitselect(qs7, qr7, qmask);
-    result.scalar_data[8] = (sr8 & simask) | (ss8 & smask);
+    result.scalar_data[8] = static_cast<uint32_t>((sr8 & simask) | (ss8 & smask));
     result.quad_data[8] = wasm_v128_bitselect(qs8, qr8, qmask);
 
     return result;
