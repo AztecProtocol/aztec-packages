@@ -245,9 +245,19 @@ template <typename Flavor> class RelationUtils {
         size_t idx = 0;
 
         auto process = [&]<size_t outer_idx, size_t inner_idx>(auto& element) {
+            using Relation = std::tuple_element_t<outer_idx, Relations>;
+            // Offset-only relations only enter the sum via their `L` factor. In the plain path
+            // they are discarded — the α-index is advanced to keep the α-power bookkeeping aligned
+            // across all subrelations (matching the prover's transcript ordering).
+            if constexpr (!ApplyRowDisabling && IsOffsetOnlyRelation<Relation>) {
+                if constexpr (!(outer_idx == 0 && inner_idx == 0)) {
+                    ++idx;
+                }
+                return;
+            }
+
             constexpr bool is_first = (outer_idx == 0 && inner_idx == 0);
             if constexpr (ApplyRowDisabling) {
-                using Relation = std::tuple_element_t<outer_idx, Relations>;
                 const FF& rd_factor = IsOffsetOnlyRelation<Relation> ? L_at_u : one_minus_L_at_u;
                 if constexpr (is_first) {
                     result += element * rd_factor;

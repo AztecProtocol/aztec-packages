@@ -190,7 +190,7 @@ template <typename Curve> bool BatchedHonkTranslatorVerifier_<Curve>::verify_joi
     const FF one_minus_L_at_u =
         RowDisablingPolynomial<FF>::evaluate_at_challenge(joint_challenge, joint_challenge.size());
     const FF L_at_u = FF{ 1 } - one_minus_L_at_u;
-    FF frv_mega_zk = mega_zk_frv_round.compute_full_relation_purported_value_with_row_disabling(
+    FF frv_mega_zk = mega_zk_frv_round.template compute_full_relation_purported_value</*ApplyRowDisabling=*/true>(
         mega_zk_evals, mega_zk_relation_parameters, final_gate_sep, mega_zk_alphas, one_minus_L_at_u, L_at_u);
 
     // Translator FRV (no row-disabling).

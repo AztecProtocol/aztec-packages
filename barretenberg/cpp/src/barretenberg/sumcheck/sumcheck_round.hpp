@@ -475,8 +475,7 @@ template <typename Flavor> class SumcheckProverRound {
 
         for (size_t edge_idx = 0; edge_idx < excluded_head_size; edge_idx += 2) {
             extend_edges(extended_edges, polynomials, edge_idx);
-            // IsMainLoop = false: include offset-only relations so they get batched with L below.
-            accumulate_relation_univariates</*IsMainLoop=*/false>(
+            accumulate_relation_univariates(
                 univariate_accumulator, extended_edges, relation_parameters, gate_separators[edge_idx]);
         }
 
@@ -492,12 +491,11 @@ template <typename Flavor> class SumcheckProverRound {
      * `τ(X_d, ..., X_{virtual_log_n - 1}) = ∏_{k ≥ d}(1 - X_k)`, the round univariate reduces to
      * the single head-0 edge contribution.
      *
-     * Row-disabling dispatch: when `row_disabling_polynomial != nullptr` (and the flavor uses
-     * row-disabling), offset-only relations are included in the accumulation and `batch_over_relations`
-     * applies per-relation `L` / `(1 - L)` factors. Otherwise the accumulation skips offset-only
-     * relations and plain α-batching applies.
+     * Batching uses per-relation `L` / `(1 - L)` factors when `ApplyRowDisabling = true` (the
+     * `row_disabling_polynomial` argument is then required), otherwise plain α-batching applies
+     * and offset-only relations are dropped.
      */
-    template <typename ProverPolynomialsOrPartiallyEvaluatedMultivariates>
+    template <bool ApplyRowDisabling = false, typename ProverPolynomialsOrPartiallyEvaluatedMultivariates>
     SumcheckRoundUnivariate compute_virtual_contribution(
         ProverPolynomialsOrPartiallyEvaluatedMultivariates& polynomials,
         const bb::RelationParameters<FF>& relation_parameters,
@@ -526,19 +524,11 @@ template <typename Flavor> class SumcheckProverRound {
         // The tail of G(X) = ∏_k (1 + X_k(β_k - 1)) evaluated at the edge (0, ..., 0).
         const FF gate_separator_tail{ 1 };
 
-        if constexpr (UseRowDisablingPolynomial<Flavor>) {
-            if (row_disabling_polynomial != nullptr) {
-                // Include offset-only relations; batching will apply per-relation L / (1 - L).
-                accumulate_relation_univariates</*IsMainLoop=*/false>(
-                    univariate_accumulator, extended_edges, relation_parameters, gate_separator_tail);
-                return batch_over_relations<SumcheckRoundUnivariate, /*ApplyRowDisabling=*/true>(
-                    univariate_accumulator, alphas, gate_separator, row_disabling_polynomial);
-            }
-        }
-
         accumulate_relation_univariates(
             univariate_accumulator, extended_edges, relation_parameters, gate_separator_tail);
-        return batch_over_relations<SumcheckRoundUnivariate>(univariate_accumulator, alphas, gate_separator);
+
+        return batch_over_relations<SumcheckRoundUnivariate, ApplyRowDisabling>(
+            univariate_accumulator, alphas, gate_separator, row_disabling_polynomial);
     }
 
     /**
@@ -619,8 +609,13 @@ template <typename Flavor> class SumcheckProverRound {
 
         constexpr_for<0, std::tuple_size_v<TupleOfTuplesOfUnivariates>, 1>([&]<size_t relation_idx>() {
             using Relation = typename std::tuple_element_t<relation_idx, Relations>;
-            const auto& outer_element = std::get<relation_idx>(tuple);
+            // Offset-only relations only enter the round univariate via their `L` factor
+            // (ApplyRowDisabling = true). The main-loop path discards their accumulated data.
+            if constexpr (!ApplyRowDisabling && IsOffsetOnlyRelation<Relation>) {
+                return;
+            }
 
+            const auto& outer_element = std::get<relation_idx>(tuple);
             ExtendedUnivariate per_relation(0);
             constexpr_for<0, std::tuple_size_v<std::decay_t<decltype(outer_element)>>, 1>(
                 [&]<size_t subrelation_idx>() {
@@ -716,11 +711,9 @@ template <typename Flavor> class SumcheckProverRound {
      * @result #univariate_accumulators are updated with the contribution from the current group of edges.  For each
      * relation, a univariate of some degree is computed by accumulating the contributions of each group of edges.
      */
-    // `IsMainLoop = true` (default) skips offset-only relations: their support is the offset area
-    // and their contribution enters the round univariate exclusively through the `L` factor in
-    // `compute_offset_area_contribution` / `compute_virtual_contribution`. `IsMainLoop = false`
-    // includes them, for use from those head-edge paths.
-    template <bool IsMainLoop = true>
+    // Offset-only relations are accumulated here unconditionally; they are filtered out at
+    // batching time when `ApplyRowDisabling = false` (main-loop path), so their data never enters
+    // the plain round univariate.
     void accumulate_relation_univariates(SumcheckTupleOfTuplesOfUnivariates& univariate_accumulators,
                                          const auto& extended_edges,
                                          const bb::RelationParameters<FF>& relation_parameters,
@@ -728,10 +721,6 @@ template <typename Flavor> class SumcheckProverRound {
     {
         constexpr_for<0, NUM_RELATIONS, 1>([&]<size_t relation_idx>() {
             using Relation = std::tuple_element_t<relation_idx, Relations>;
-            // Offset-only relations are handled exclusively by compute_offset_area_contribution.
-            if constexpr (IsMainLoop && IsOffsetOnlyRelation<Relation>) {
-                return;
-            }
             // Check if the relation is skippable to speed up accumulation
             if constexpr (!isSkippable<Relation, decltype(extended_edges)>) {
                 // If not, accumulate normally
@@ -825,40 +814,26 @@ template <typename Flavor, bool CommittedSumcheck = UsesCommittedSumcheck<Flavor
     }
 
     /**
-     * @brief Compute the full relation purported value
+     * @brief Evaluate the full Honk relation at the sumcheck challenge `u`.
+     *
+     * @details When `ApplyRowDisabling = true`, main-domain relations are scaled by
+     * `(1 - L)(u)` and offset-only relations by `L(u)` (the `one_minus_L_at_u` / `L_at_u`
+     * arguments are then required). When `ApplyRowDisabling = false` (default), offset-only
+     * relations are dropped and the plain α-batch is returned.
      */
+    template <bool ApplyRowDisabling = false>
     FF compute_full_relation_purported_value(const ClaimedEvaluations& purported_evaluations,
                                              const bb::RelationParameters<FF>& relation_parameters,
                                              const bb::GateSeparatorPolynomial<FF>& gate_separators,
-                                             const SubrelationSeparators& alphas)
+                                             const SubrelationSeparators& alphas,
+                                             const FF& one_minus_L_at_u = FF{ 0 },
+                                             const FF& L_at_u = FF{ 0 })
     {
         Utils::template accumulate_relation_evaluations_without_skipping<>(purported_evaluations,
                                                                            relation_evaluations,
                                                                            relation_parameters,
                                                                            gate_separators.partial_evaluation_result);
-        return Utils::scale_and_batch_elements(relation_evaluations, alphas);
-    }
-
-    /**
-     * @brief Row-disabling variant of `compute_full_relation_purported_value`.
-     *
-     * @details Evaluates the full Honk relation at the sumcheck challenge `u` with per-relation
-     * row-disabling factors: main-domain relations are scaled by `(1 - L)(u)`, offset-only
-     * relations by `L(u)`. When the flavor lists no offset-only relation the result equals
-     * `compute_full_relation_purported_value(...) · (1 - L)(u)`.
-     */
-    FF compute_full_relation_purported_value_with_row_disabling(const ClaimedEvaluations& purported_evaluations,
-                                                                const bb::RelationParameters<FF>& relation_parameters,
-                                                                const bb::GateSeparatorPolynomial<FF>& gate_separators,
-                                                                const SubrelationSeparators& alphas,
-                                                                const FF& one_minus_L_at_u,
-                                                                const FF& L_at_u)
-    {
-        Utils::template accumulate_relation_evaluations_without_skipping<>(purported_evaluations,
-                                                                           relation_evaluations,
-                                                                           relation_parameters,
-                                                                           gate_separators.partial_evaluation_result);
-        return Utils::template scale_and_batch_elements</*ApplyRowDisabling=*/true>(
+        return Utils::template scale_and_batch_elements<ApplyRowDisabling>(
             relation_evaluations, alphas, one_minus_L_at_u, L_at_u);
     }
 
@@ -951,36 +926,22 @@ template <typename Flavor> class SumcheckVerifierRound<Flavor, true> {
     };
 
     /**
-     * @brief Compute the full relation purported value
+     * @brief Evaluate the full Honk relation at the sumcheck challenge `u` (Grumpkin variant).
+     * @details See the analogous method in the non-Grumpkin `SumcheckVerifierRound` above.
      */
+    template <bool ApplyRowDisabling = false>
     FF compute_full_relation_purported_value(const ClaimedEvaluations& purported_evaluations,
                                              const bb::RelationParameters<FF>& relation_parameters,
                                              const bb::GateSeparatorPolynomial<FF>& gate_separators,
-                                             const SubrelationSeparators& alphas)
+                                             const SubrelationSeparators& alphas,
+                                             const FF& one_minus_L_at_u = FF{ 0 },
+                                             const FF& L_at_u = FF{ 0 })
     {
         Utils::template accumulate_relation_evaluations_without_skipping<>(purported_evaluations,
                                                                            relation_evaluations,
                                                                            relation_parameters,
                                                                            gate_separators.partial_evaluation_result);
-        return Utils::scale_and_batch_elements(relation_evaluations, alphas);
-    }
-
-    /**
-     * @brief Row-disabling variant of `compute_full_relation_purported_value` (Grumpkin variant).
-     * @details See the analogous method in the non-Grumpkin `SumcheckVerifierRound` above.
-     */
-    FF compute_full_relation_purported_value_with_row_disabling(const ClaimedEvaluations& purported_evaluations,
-                                                                const bb::RelationParameters<FF>& relation_parameters,
-                                                                const bb::GateSeparatorPolynomial<FF>& gate_separators,
-                                                                const SubrelationSeparators& alphas,
-                                                                const FF& one_minus_L_at_u,
-                                                                const FF& L_at_u)
-    {
-        Utils::template accumulate_relation_evaluations_without_skipping<>(purported_evaluations,
-                                                                           relation_evaluations,
-                                                                           relation_parameters,
-                                                                           gate_separators.partial_evaluation_result);
-        return Utils::template scale_and_batch_elements</*ApplyRowDisabling=*/true>(
+        return Utils::template scale_and_batch_elements<ApplyRowDisabling>(
             relation_evaluations, alphas, one_minus_L_at_u, L_at_u);
     }
 
