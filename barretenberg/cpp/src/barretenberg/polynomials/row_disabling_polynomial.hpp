@@ -120,9 +120,7 @@ namespace bb {
  */
 
 template <typename FF> struct RowDisablingPolynomial {
-    // Per-round evaluations of (1 - L), the factor applied to main-domain relations at the head
-    // edges. Initialized as the constant linear polynomial = 1.
-    // The dual factor L used by offset-only relations is obtained as `FF{1} - eval_at_0/1`.
+    // initialized as a constant linear polynomial = 1
     FF eval_at_0{ 1 };
     FF eval_at_1{ 1 };
 

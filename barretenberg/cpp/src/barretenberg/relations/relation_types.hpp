@@ -98,7 +98,6 @@ concept isRowSkippable =
  *
  * Typical use: boundary conditions of the form "entity = 0 on rows 0..3", made
  * verifier-checkable without altering sumcheck behavior for flavors that omit the tag.
- * Incompatible with constrained entities that carry random masks on rows 1..3 in ZK flavors.
  */
 template <typename Relation>
 concept IsOffsetOnlyRelation = requires {
