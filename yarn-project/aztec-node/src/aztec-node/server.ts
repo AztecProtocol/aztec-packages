@@ -67,6 +67,14 @@ import type {
 } from '@aztec/stdlib/contract';
 import { GasFees, type ManaUsageEstimate } from '@aztec/stdlib/gas';
 import { computePublicDataTreeLeafSlot } from '@aztec/stdlib/hash';
+import type {
+  BlockIncludeOptions,
+  BlockResponse,
+  ChainTip,
+  CheckpointIncludeOptions,
+  CheckpointParameter,
+  CheckpointResponse,
+} from '@aztec/stdlib/interfaces/client';
 import {
   type AztecNode,
   type AztecNodeAdmin,
@@ -129,6 +137,12 @@ import { createPublicClient } from 'viem';
 
 import { createSentinel } from '../sentinel/factory.js';
 import { Sentinel } from '../sentinel/sentinel.js';
+import {
+  blockResponseFromBlockData,
+  blockResponseFromL2Block,
+  checkpointResponseFromCheckpointData,
+  checkpointResponseFromPublishedCheckpoint,
+} from './block_response_helpers.js';
 import { type AztecNodeConfig, createKeyStoreForValidator } from './config.js';
 import { NodeMetrics } from './node_metrics.js';
 
@@ -199,6 +213,258 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
 
   public getL2Tips() {
     return this.blockSource.getL2Tips();
+  }
+
+  public getChainTips() {
+    return this.blockSource.getL2Tips();
+  }
+
+  public async getBlockNumberForTip(tip: ChainTip): Promise<BlockNumber> {
+    switch (tip) {
+      case 'proposed':
+        return await this.blockSource.getBlockNumber();
+      case 'checkpointed':
+        return await this.blockSource.getCheckpointedL2BlockNumber();
+      case 'proven':
+        return await this.blockSource.getProvenBlockNumber();
+      case 'finalized':
+        return await this.blockSource.getFinalizedL2BlockNumber();
+    }
+  }
+
+  public async getCheckpointNumberForTip(tip: ChainTip): Promise<CheckpointNumber> {
+    const tips = await this.blockSource.getL2Tips();
+    switch (tip) {
+      case 'proposed':
+      case 'checkpointed':
+        return await this.blockSource.getCheckpointNumber();
+      case 'proven':
+        return tips.proven.checkpoint.number;
+      case 'finalized':
+        return tips.finalized.checkpoint.number;
+    }
+  }
+
+  private isChainTip(value: unknown): value is ChainTip {
+    return value === 'proposed' || value === 'checkpointed' || value === 'proven' || value === 'finalized';
+  }
+
+  private async resolveBlockParameter(
+    param: BlockParameter,
+  ): Promise<{ number?: BlockNumber; hash?: BlockHash; archive?: Fr }> {
+    if (BlockHash.isBlockHash(param)) {
+      return { hash: param };
+    }
+    if (typeof param === 'number') {
+      return { number: param as BlockNumber };
+    }
+    if (param === 'latest') {
+      return { number: await this.blockSource.getBlockNumber() };
+    }
+    if (this.isChainTip(param)) {
+      return { number: await this.getBlockNumberForTip(param) };
+    }
+    if (typeof param === 'object' && param !== null) {
+      if ('number' in param) {
+        return { number: param.number };
+      }
+      if ('hash' in param) {
+        return { hash: param.hash };
+      }
+      if ('archive' in param) {
+        return { archive: param.archive };
+      }
+    }
+    throw new BadRequestError(`Invalid BlockParameter: ${JSON.stringify(param)}`);
+  }
+
+  private async resolveCheckpointParameter(
+    param: CheckpointParameter,
+  ): Promise<{ number?: CheckpointNumber; slot?: SlotNumber }> {
+    if (typeof param === 'number') {
+      return { number: param as CheckpointNumber };
+    }
+    if (param === 'latest') {
+      return { number: await this.blockSource.getCheckpointNumber() };
+    }
+    if (this.isChainTip(param)) {
+      return { number: await this.getCheckpointNumberForTip(param) };
+    }
+    if (typeof param === 'object' && param !== null) {
+      if ('number' in param) {
+        return { number: param.number };
+      }
+      if ('slot' in param) {
+        return { slot: param.slot };
+      }
+    }
+    throw new BadRequestError(`Invalid CheckpointParameter: ${JSON.stringify(param)}`);
+  }
+
+  public async getBlockResponse<Opts extends BlockIncludeOptions = {}>(
+    param: BlockParameter,
+    options: Opts = {} as Opts,
+  ): Promise<BlockResponse<Opts> | undefined> {
+    const resolved = await this.resolveBlockParameter(param);
+    const wantTxs = !!options.includeTransactions;
+    const wantContext = !!options.includeL1PublishInfo || !!options.includeAttestations;
+
+    if (resolved.hash !== undefined) {
+      const initial = await this.#getInitialHeaderHash();
+      if (resolved.hash.equals(initial)) {
+        return (await this.buildGenesisBlockResponse(options)) as BlockResponse<Opts>;
+      }
+      if (wantTxs) {
+        const block = await this.blockSource.getL2BlockByHash(resolved.hash);
+        if (!block) {
+          return undefined;
+        }
+        const ctx = wantContext ? await this.blockSource.getBlockDataWithCheckpointContext(block.number) : undefined;
+        return (await blockResponseFromL2Block(block, options, ctx)) as BlockResponse<Opts>;
+      }
+      const data = await this.blockSource.getBlockHeaderByHash(resolved.hash);
+      if (!data) {
+        return undefined;
+      }
+      const blockNumber = data.globalVariables.blockNumber;
+      const ctx = wantContext ? await this.blockSource.getBlockDataWithCheckpointContext(blockNumber) : undefined;
+      if (ctx) {
+        return blockResponseFromBlockData(ctx.data, blockNumber, options, ctx) as BlockResponse<Opts>;
+      }
+      const blockData = await this.blockSource.getBlockData(blockNumber);
+      if (!blockData) {
+        return undefined;
+      }
+      return blockResponseFromBlockData(blockData, blockNumber, options) as BlockResponse<Opts>;
+    }
+
+    if (resolved.archive !== undefined) {
+      if (wantTxs) {
+        const block = await this.blockSource.getL2BlockByArchive(resolved.archive);
+        if (!block) {
+          return undefined;
+        }
+        const ctx = wantContext ? await this.blockSource.getBlockDataWithCheckpointContext(block.number) : undefined;
+        return (await blockResponseFromL2Block(block, options, ctx)) as BlockResponse<Opts>;
+      }
+      const data = await this.blockSource.getBlockDataByArchive(resolved.archive);
+      if (!data) {
+        return undefined;
+      }
+      const blockNumber = data.header.globalVariables.blockNumber;
+      const ctx = wantContext ? await this.blockSource.getBlockDataWithCheckpointContext(blockNumber) : undefined;
+      return blockResponseFromBlockData(data, blockNumber, options, ctx) as BlockResponse<Opts>;
+    }
+
+    const blockNumber = resolved.number!;
+    if (blockNumber === BlockNumber.ZERO) {
+      return (await this.buildGenesisBlockResponse(options)) as BlockResponse<Opts>;
+    }
+    if (wantTxs) {
+      const block = await this.blockSource.getL2Block(blockNumber);
+      if (!block) {
+        return undefined;
+      }
+      const ctx = wantContext ? await this.blockSource.getBlockDataWithCheckpointContext(blockNumber) : undefined;
+      return (await blockResponseFromL2Block(block, options, ctx)) as BlockResponse<Opts>;
+    }
+    const ctx = await this.blockSource.getBlockDataWithCheckpointContext(blockNumber);
+    if (!ctx) {
+      return undefined;
+    }
+    return blockResponseFromBlockData(ctx.data, blockNumber, options, ctx) as BlockResponse<Opts>;
+  }
+
+  public async getBlockResponses<Opts extends BlockIncludeOptions = {}>(
+    from: BlockNumber,
+    limit: number,
+    options: Opts = {} as Opts,
+  ): Promise<BlockResponse<Opts>[]> {
+    const wantTxs = !!options.includeTransactions;
+    const wantContext = !!options.includeL1PublishInfo || !!options.includeAttestations;
+    if (wantTxs) {
+      const blocks = await this.blockSource.getBlocks(from, limit);
+      return (await Promise.all(
+        blocks.map(async block => {
+          const ctx = wantContext ? await this.blockSource.getBlockDataWithCheckpointContext(block.number) : undefined;
+          return blockResponseFromL2Block(block, options, ctx);
+        }),
+      )) as BlockResponse<Opts>[];
+    }
+    const results: BlockResponse<Opts>[] = [];
+    for (let i = 0; i < limit; i++) {
+      const blockNumber = BlockNumber(from + i);
+      const ctx = await this.blockSource.getBlockDataWithCheckpointContext(blockNumber);
+      if (!ctx) {
+        break;
+      }
+      results.push(blockResponseFromBlockData(ctx.data, blockNumber, options, ctx) as BlockResponse<Opts>);
+    }
+    return results;
+  }
+
+  public async getCheckpointResponse<Opts extends CheckpointIncludeOptions = {}>(
+    param: CheckpointParameter,
+    options: Opts = {} as Opts,
+  ): Promise<CheckpointResponse<Opts> | undefined> {
+    const resolved = await this.resolveCheckpointParameter(param);
+    let checkpointNumber = resolved.number;
+    if (checkpointNumber === undefined && resolved.slot !== undefined) {
+      checkpointNumber = await this.blockSource.getCheckpointNumberBySlot(resolved.slot);
+    }
+    if (checkpointNumber === undefined) {
+      return undefined;
+    }
+    if (options.includeBlocks) {
+      const [checkpoint] = await this.blockSource.getCheckpoints(checkpointNumber, 1);
+      if (!checkpoint) {
+        return undefined;
+      }
+      return (await checkpointResponseFromPublishedCheckpoint(checkpoint, options)) as CheckpointResponse<Opts>;
+    }
+    const data = await this.blockSource.getCheckpointData(checkpointNumber);
+    if (!data) {
+      return undefined;
+    }
+    return checkpointResponseFromCheckpointData(data, options) as CheckpointResponse<Opts>;
+  }
+
+  public async getCheckpointResponses<Opts extends CheckpointIncludeOptions = {}>(
+    from: CheckpointNumber,
+    limit: number,
+    options: Opts = {} as Opts,
+  ): Promise<CheckpointResponse<Opts>[]> {
+    if (options.includeBlocks) {
+      const checkpoints = await this.blockSource.getCheckpoints(from, limit);
+      return (await Promise.all(
+        checkpoints.map(cp => checkpointResponseFromPublishedCheckpoint(cp, options)),
+      )) as CheckpointResponse<Opts>[];
+    }
+    const datas = await this.blockSource.getCheckpointDataRange(from, limit);
+    return datas.map(d => checkpointResponseFromCheckpointData(d, options)) as CheckpointResponse<Opts>[];
+  }
+
+  private async buildGenesisBlockResponse(options: BlockIncludeOptions): Promise<BlockResponse> {
+    const initial = this.worldStateSynchronizer.getCommitted().getInitialHeader();
+    const empty = L2Block.empty(initial);
+    const response: BlockResponse = {
+      header: empty.header,
+      archive: empty.archive,
+      hash: await this.#getInitialHeaderHash(),
+      checkpointNumber: empty.checkpointNumber,
+      indexWithinCheckpoint: empty.indexWithinCheckpoint,
+      number: empty.number,
+    };
+    if (options.includeTransactions) {
+      (response as BlockResponse).body = empty.body;
+    }
+    if (options.includeL1PublishInfo) {
+      (response as BlockResponse).l1 = { published: false };
+    }
+    if (options.includeAttestations) {
+      (response as BlockResponse).attestations = [];
+    }
+    return response;
   }
 
   /**
@@ -1282,14 +1548,23 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
         return this.worldStateSynchronizer.getCommitted().getInitialHeader();
       }
       return this.blockSource.getBlockHeaderByHash(block);
-    } else {
-      // Block source doesn't handle initial header so we need to handle the case separately.
-      const blockNumber = block === 'latest' ? await this.getBlockNumber() : (block as BlockNumber);
-      if (blockNumber === BlockNumber.ZERO) {
+    }
+    const resolved = await this.resolveBlockParameter(block);
+    if (resolved.hash !== undefined) {
+      const initial = await this.#getInitialHeaderHash();
+      if (resolved.hash.equals(initial)) {
         return this.worldStateSynchronizer.getCommitted().getInitialHeader();
       }
-      return this.blockSource.getBlockHeader(block);
+      return this.blockSource.getBlockHeaderByHash(resolved.hash);
     }
+    if (resolved.archive !== undefined) {
+      return this.blockSource.getBlockHeaderByArchive(resolved.archive);
+    }
+    const blockNumber = resolved.number!;
+    if (blockNumber === BlockNumber.ZERO) {
+      return this.worldStateSynchronizer.getCommitted().getInitialHeader();
+    }
+    return this.blockSource.getBlockHeader(blockNumber);
   }
 
   /**

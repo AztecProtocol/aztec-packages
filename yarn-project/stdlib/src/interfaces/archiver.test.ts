@@ -571,10 +571,23 @@ class MockArchiver implements ArchiverApi {
         checkpointOutHash: checkpoint.getCheckpointOutHash(),
         startBlock: BlockNumber(1),
         blockCount: checkpoint.blocks.length,
+        feeAssetPriceModifier: 0n,
         attestations: [CommitteeAttestation.random()],
         l1: L1PublishedData.random(),
       },
     ];
+  }
+  getCheckpointData(_n: CheckpointNumber): Promise<CheckpointData | undefined> {
+    return Promise.resolve(undefined);
+  }
+  getCheckpointDataRange(_from: CheckpointNumber, _limit: number): Promise<CheckpointData[]> {
+    return Promise.resolve([]);
+  }
+  getCheckpointNumberBySlot(_slot: SlotNumber): Promise<CheckpointNumber | undefined> {
+    return Promise.resolve(undefined);
+  }
+  getBlockDataWithCheckpointContext(_n: BlockNumber) {
+    return Promise.resolve(undefined);
   }
   async getCheckpointedBlocksForEpoch(epochNumber: EpochNumber): Promise<CheckpointedL2Block[]> {
     expect(epochNumber).toEqual(EpochNumber(1));

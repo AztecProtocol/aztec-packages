@@ -127,6 +127,22 @@ export abstract class ArchiverDataSourceBase
     return this.store.getCheckpointedBlocks(from, limit);
   }
 
+  public getCheckpointData(checkpointNumber: CheckpointNumber): Promise<CheckpointData | undefined> {
+    return this.store.getCheckpointData(checkpointNumber);
+  }
+
+  public getCheckpointDataRange(from: CheckpointNumber, limit: number): Promise<CheckpointData[]> {
+    return this.store.getCheckpointDataRange(from, limit);
+  }
+
+  public getCheckpointNumberBySlot(slot: SlotNumber): Promise<CheckpointNumber | undefined> {
+    return this.store.getCheckpointNumberBySlot(slot);
+  }
+
+  public getBlockDataWithCheckpointContext(blockNumber: BlockNumber) {
+    return this.store.getBlockDataWithCheckpointContext(blockNumber);
+  }
+
   public getBlockHeaderByHash(blockHash: BlockHash): Promise<BlockHeader | undefined> {
     return this.store.getBlockHeaderByHash(blockHash);
   }
@@ -263,6 +279,7 @@ export abstract class ArchiverDataSourceBase
       checkpoint.header,
       blocksForCheckpoint,
       checkpoint.checkpointNumber,
+      checkpoint.feeAssetPriceModifier,
     );
     return new PublishedCheckpoint(fullCheckpoint, checkpoint.l1, checkpoint.attestations);
   }

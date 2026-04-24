@@ -1,0 +1,84 @@
+import { BlockNumberSchema, CheckpointNumberSchema } from '@aztec/foundation/branded-types';
+import type { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
+import { Fr } from '@aztec/foundation/curves/bn254';
+import { schemas } from '@aztec/foundation/schemas';
+
+import { z } from 'zod';
+
+import { CommitteeAttestation } from '../block/proposal/committee_attestation.js';
+import { CheckpointHeader } from '../rollup/checkpoint_header.js';
+import { AppendOnlyTreeSnapshot } from '../trees/append_only_tree_snapshot.js';
+import { type BlockResponse, BlockResponseSchema } from './block_response.js';
+import { type L1PublishInfo, L1PublishInfoSchema } from './l1_publish_info.js';
+
+/** Options for narrowing the response of `getCheckpoint` / `getCheckpoints`. */
+export type CheckpointIncludeOptions = {
+  /** Include the nested blocks. Off by default. */
+  includeBlocks?: boolean;
+  /** When `includeBlocks` is true, include each block's body (tx effects). Off by default. No-op if `includeBlocks` is false. */
+  includeTransactions?: boolean;
+  /** Include L1 publish info. Off by default. */
+  includeL1PublishInfo?: boolean;
+  /** Include committee attestations. Off by default. */
+  includeAttestations?: boolean;
+};
+
+export const CheckpointIncludeOptionsSchema: z.ZodType<CheckpointIncludeOptions> = z.object({
+  includeBlocks: z.boolean().optional(),
+  includeTransactions: z.boolean().optional(),
+  includeL1PublishInfo: z.boolean().optional(),
+  includeAttestations: z.boolean().optional(),
+});
+
+/** Required metadata always present on a {@link CheckpointResponse}. */
+export type CheckpointResponseBase = {
+  /** Checkpoint number. */
+  number: CheckpointNumber;
+  /** Checkpoint header. */
+  header: CheckpointHeader;
+  /** Archive tree snapshot after this checkpoint. */
+  archive: AppendOnlyTreeSnapshot;
+  /** Hash of the checkpoint out messages. */
+  checkpointOutHash: Fr;
+  /** First block number in this checkpoint. */
+  startBlock: BlockNumber;
+  /** Number of blocks in this checkpoint. */
+  blockCount: number;
+  /** Fee asset price modifier in basis points applied during this checkpoint. */
+  feeAssetPriceModifier: bigint;
+};
+
+type IfFlag<Opts, Key extends keyof CheckpointIncludeOptions, Field extends object> = Opts extends {
+  [K in Key]: true;
+}
+  ? Field
+  : Partial<Field>;
+
+/**
+ * RPC-surface representation of an L2 checkpoint.
+ *
+ * Generic over the include-options so that flagged fields become required when the caller passes a
+ * literal `true`. The nested block array inherits `Opts`, so `includeTransactions` applies to
+ * nested blocks when `includeBlocks` is also set. The default type argument
+ * ({@link CheckpointIncludeOptions}) yields the widest shape — what the JSON-RPC wire layer
+ * validates against.
+ */
+export type CheckpointResponse<Opts extends CheckpointIncludeOptions = CheckpointIncludeOptions> =
+  CheckpointResponseBase &
+    IfFlag<Opts, 'includeBlocks', { blocks: BlockResponse<Opts>[] }> &
+    IfFlag<Opts, 'includeL1PublishInfo', { l1: L1PublishInfo }> &
+    IfFlag<Opts, 'includeAttestations', { attestations: CommitteeAttestation[] }>;
+
+/** Zod schema for the widest {@link CheckpointResponse} shape (all include-gated fields optional). */
+export const CheckpointResponseSchema = z.object({
+  number: CheckpointNumberSchema,
+  header: CheckpointHeader.schema,
+  archive: AppendOnlyTreeSnapshot.schema,
+  checkpointOutHash: schemas.Fr,
+  startBlock: BlockNumberSchema,
+  blockCount: z.number(),
+  feeAssetPriceModifier: schemas.BigInt,
+  blocks: z.array(BlockResponseSchema).optional(),
+  l1: L1PublishInfoSchema.optional(),
+  attestations: z.array(CommitteeAttestation.schema).optional(),
+});

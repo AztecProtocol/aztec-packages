@@ -53,6 +53,10 @@ import type { SingleValidatorStats, ValidatorsStats } from '../validators/types.
 import type { AllowedElement } from './allowed_element.js';
 import { MAX_RPC_LEN } from './api_limit.js';
 import { type AztecNode, AztecNodeApiSchema } from './aztec-node.js';
+import type { BlockIncludeOptions, BlockResponse } from './block_response.js';
+import type { ChainTip } from './chain_tips.js';
+import type { CheckpointParameter } from './checkpoint_parameter.js';
+import type { CheckpointIncludeOptions, CheckpointResponse } from './checkpoint_response.js';
 import type { SequencerConfig } from './configs.js';
 import type { GetContractClassLogsResponse, GetPublicLogsResponse } from './get_logs_response.js';
 import type { ProverConfig } from './prover-client.js';
@@ -539,6 +543,48 @@ class MockAztecNode implements AztecNode {
       proven: tipId,
       finalized: tipId,
     });
+  }
+
+  getChainTips() {
+    return this.getL2Tips();
+  }
+
+  getBlockNumberForTip(_tip: ChainTip): Promise<BlockNumber> {
+    return Promise.resolve(BlockNumber(1));
+  }
+
+  getCheckpointNumberForTip(_tip: ChainTip): Promise<CheckpointNumber> {
+    return Promise.resolve(CheckpointNumber(1));
+  }
+
+  getBlockResponse<Opts extends BlockIncludeOptions = {}>(
+    _param: BlockParameter,
+    _options?: Opts,
+  ): Promise<BlockResponse<Opts> | undefined> {
+    return Promise.resolve(undefined);
+  }
+
+  getBlockResponses<Opts extends BlockIncludeOptions = {}>(
+    _from: BlockNumber,
+    _limit: number,
+    _options?: Opts,
+  ): Promise<BlockResponse<Opts>[]> {
+    return Promise.resolve([]);
+  }
+
+  getCheckpointResponse<Opts extends CheckpointIncludeOptions = {}>(
+    _param: CheckpointParameter,
+    _options?: Opts,
+  ): Promise<CheckpointResponse<Opts> | undefined> {
+    return Promise.resolve(undefined);
+  }
+
+  getCheckpointResponses<Opts extends CheckpointIncludeOptions = {}>(
+    _from: CheckpointNumber,
+    _limit: number,
+    _options?: Opts,
+  ): Promise<CheckpointResponse<Opts>[]> {
+    return Promise.resolve([]);
   }
 
   getCheckpointedBlocks(_from: BlockNumber, _limit: number) {

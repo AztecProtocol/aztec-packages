@@ -62,6 +62,20 @@ import { type ComponentsVersions, getVersioningResponseHandler } from '../versio
 import { type AllowedElement, AllowedElementSchema } from './allowed_element.js';
 import { MAX_RPC_BLOCKS_LEN, MAX_RPC_CHECKPOINTS_LEN, MAX_RPC_LEN, MAX_RPC_TXS_LEN } from './api_limit.js';
 import {
+  type BlockIncludeOptions,
+  BlockIncludeOptionsSchema,
+  type BlockResponse,
+  BlockResponseSchema,
+} from './block_response.js';
+import { type ChainTip, ChainTipSchema, type ChainTips, ChainTipsSchema } from './chain_tips.js';
+import { type CheckpointParameter, CheckpointParameterSchema } from './checkpoint_parameter.js';
+import {
+  type CheckpointIncludeOptions,
+  CheckpointIncludeOptionsSchema,
+  type CheckpointResponse,
+  CheckpointResponseSchema,
+} from './checkpoint_response.js';
+import {
   type GetContractClassLogsResponse,
   GetContractClassLogsResponseSchema,
   type GetPublicLogsResponse,
@@ -85,6 +99,7 @@ export interface AztecNode
   > {
   /**
    * Returns the tips of the L2 chain.
+   * @deprecated Use `getChainTips()` instead.
    */
   getL2Tips(): Promise<L2Tips>;
 
@@ -205,6 +220,7 @@ export interface AztecNode
    * Get a block specified by its block number or 'latest'.
    * @param blockParameter - The block parameter (block number, block hash, or 'latest').
    * @returns The requested block.
+   * @deprecated Use `getBlockResponse` instead (returns a {@link BlockResponse} shape).
    */
   getBlock(blockParameter: BlockParameter): Promise<L2Block | undefined>;
 
@@ -212,6 +228,7 @@ export interface AztecNode
    * Get a block specified by its hash.
    * @param blockHash - The block hash being requested.
    * @returns The requested block.
+   * @deprecated Use `getBlockResponse(hash)` instead.
    */
   getBlockByHash(blockHash: BlockHash): Promise<L2Block | undefined>;
 
@@ -219,6 +236,7 @@ export interface AztecNode
    * Get a block specified by its archive root.
    * @param archive - The archive root being requested.
    * @returns The requested block.
+   * @deprecated Use `getBlockResponse({ archive })` instead.
    */
   getBlockByArchive(archive: Fr): Promise<L2Block | undefined>;
 
@@ -231,12 +249,14 @@ export interface AztecNode
   /**
    * Fetches the latest proven block number.
    * @returns The block number.
+   * @deprecated Use `getBlockNumberForTip('proven')` instead.
    */
   getProvenBlockNumber(): Promise<BlockNumber>;
 
   /**
    * Fetches the latest checkpointed block number.
    * @returns The block number.
+   * @deprecated Use `getBlockNumberForTip('checkpointed')` instead.
    */
   getCheckpointedBlockNumber(): Promise<BlockNumber>;
 
@@ -245,6 +265,61 @@ export interface AztecNode
    * @returns The checkpoint number.
    */
   getCheckpointNumber(): Promise<CheckpointNumber>;
+
+  /** Returns the block number at a given chain tip (`'proposed'`, `'checkpointed'`, `'proven'`, or `'finalized'`). */
+  getBlockNumberForTip(tip: ChainTip): Promise<BlockNumber>;
+
+  /**
+   * Returns the checkpoint number at a given chain tip.
+   *
+   * @remarks **Semantic foot-gun**: block-side `'proposed'` means "latest proposed block" (chain
+   * head), but checkpoint-side `'proposed'` means "latest confirmed checkpoint" — pre-L1-confirm
+   * checkpoints are not exposed over RPC. `'checkpointed'` on the checkpoint side is equivalent.
+   */
+  getCheckpointNumberForTip(tip: ChainTip): Promise<CheckpointNumber>;
+
+  /** Returns the tips of the L2 chain. */
+  getChainTips(): Promise<ChainTips>;
+
+  /**
+   * Unified block fetch. Returns the block identified by `param`, with optional fields controlled
+   * by `options`.
+   * @param param - A block number, block hash, archive root, chain-tip name, or object variant.
+   * @param options - Narrowing options: `includeTransactions`, `includeL1PublishInfo`, `includeAttestations`.
+   */
+  getBlockResponse<Opts extends BlockIncludeOptions = {}>(
+    param: BlockParameter,
+    options?: Opts,
+  ): Promise<BlockResponse<Opts> | undefined>;
+
+  /**
+   * Returns up to `limit` blocks starting from `from`, projected to the {@link BlockResponse}
+   * shape determined by `options`.
+   */
+  getBlockResponses<Opts extends BlockIncludeOptions = {}>(
+    from: BlockNumber,
+    limit: number,
+    options?: Opts,
+  ): Promise<BlockResponse<Opts>[]>;
+
+  /**
+   * Unified checkpoint fetch. Returns the checkpoint identified by `param`, with optional fields
+   * controlled by `options`.
+   */
+  getCheckpointResponse<Opts extends CheckpointIncludeOptions = {}>(
+    param: CheckpointParameter,
+    options?: Opts,
+  ): Promise<CheckpointResponse<Opts> | undefined>;
+
+  /**
+   * Returns up to `limit` checkpoints starting from `from`, projected to the
+   * {@link CheckpointResponse} shape determined by `options`.
+   */
+  getCheckpointResponses<Opts extends CheckpointIncludeOptions = {}>(
+    from: CheckpointNumber,
+    limit: number,
+    options?: Opts,
+  ): Promise<CheckpointResponse<Opts>[]>;
 
   /**
    * Method to determine if the node is ready to accept transactions.
@@ -258,14 +333,6 @@ export interface AztecNode
    * @returns - The node information.
    */
   getNodeInfo(): Promise<NodeInfo>;
-
-  /**
-   * Method to request blocks. Will attempt to return all requested blocks but will return only those available.
-   * @param from - The start of the range of blocks to return.
-   * @param limit - The maximum number of blocks to return.
-   * @returns The blocks requested.
-   */
-  getBlocks(from: BlockNumber, limit: number): Promise<L2Block[]>;
 
   /**
    * Method to fetch the current min fees.
@@ -564,6 +631,36 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
   getProvenBlockNumber: z.function().returns(BlockNumberSchema),
 
   getCheckpointedBlockNumber: z.function().returns(BlockNumberSchema),
+
+  getBlockNumberForTip: z.function().args(ChainTipSchema).returns(BlockNumberSchema),
+
+  getCheckpointNumberForTip: z.function().args(ChainTipSchema).returns(CheckpointNumberSchema),
+
+  getChainTips: z.function().args().returns(ChainTipsSchema),
+
+  getBlockResponse: z
+    .function()
+    .args(BlockParameterSchema, optional(BlockIncludeOptionsSchema))
+    .returns(BlockResponseSchema.optional()),
+
+  getBlockResponses: z
+    .function()
+    .args(BlockNumberPositiveSchema, z.number().gt(0).lte(MAX_RPC_BLOCKS_LEN), optional(BlockIncludeOptionsSchema))
+    .returns(z.array(BlockResponseSchema)),
+
+  getCheckpointResponse: z
+    .function()
+    .args(CheckpointParameterSchema, optional(CheckpointIncludeOptionsSchema))
+    .returns(CheckpointResponseSchema.optional()),
+
+  getCheckpointResponses: z
+    .function()
+    .args(
+      CheckpointNumberPositiveSchema,
+      z.number().gt(0).lte(MAX_RPC_CHECKPOINTS_LEN),
+      optional(CheckpointIncludeOptionsSchema),
+    )
+    .returns(z.array(CheckpointResponseSchema)),
 
   isReady: z.function().returns(z.boolean()),
 
