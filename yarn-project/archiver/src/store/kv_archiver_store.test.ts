@@ -3621,8 +3621,8 @@ describe('KVArchiverDataStore', () => {
   });
 
   describe('proposedCheckpointNumber', () => {
-    /** Adds proposed blocks to the store so setProposedCheckpoint can validate them.
-     *  Uses force: true to skip addProposedBlock's own chaining checks (we only want to test setProposedCheckpoint). */
+    /** Adds proposed blocks to the store so addProposedCheckpoint can validate them.
+     *  Uses force: true to skip addProposedBlock's own chaining checks (we only want to test addProposedCheckpoint). */
     async function addBlocksForProposedCheckpoint(
       startBlock: number,
       blockCount: number,
@@ -3649,7 +3649,7 @@ describe('KVArchiverDataStore', () => {
 
     it('stores and retrieves proposed checkpoint number', async () => {
       await addBlocksForProposedCheckpoint(1, 1, 1);
-      await store.blockStore.setProposedCheckpoint({
+      await store.blockStore.addProposedCheckpoint({
         checkpointNumber: CheckpointNumber(1),
         header: CheckpointHeader.empty(),
         startBlock: BlockNumber(1),
@@ -3663,7 +3663,7 @@ describe('KVArchiverDataStore', () => {
 
     it('stores and retrieves proposed checkpoint data with fee fields', async () => {
       await addBlocksForProposedCheckpoint(1, 1, 1);
-      await store.blockStore.setProposedCheckpoint({
+      await store.blockStore.addProposedCheckpoint({
         checkpointNumber: CheckpointNumber(1),
         header: CheckpointHeader.empty(),
         startBlock: BlockNumber(1),
@@ -3671,7 +3671,7 @@ describe('KVArchiverDataStore', () => {
         totalManaUsed: 12345n,
         feeAssetPriceModifier: -75n,
       });
-      const pending = await store.blockStore.getProposedCheckpointOnly();
+      const pending = await store.blockStore.getLastProposedCheckpoint();
       expect(pending).toBeDefined();
       expect(pending!.checkpointNumber).toBe(1);
       expect(pending!.totalManaUsed).toBe(12345n);
@@ -3690,7 +3690,7 @@ describe('KVArchiverDataStore', () => {
       await addBlocksForProposedCheckpoint(2, 1, 2, checkpoint1.checkpoint.blocks[0].archive);
 
       // Set proposed checkpoint to 2 (attested but not yet on L1)
-      await store.blockStore.setProposedCheckpoint({
+      await store.blockStore.addProposedCheckpoint({
         checkpointNumber: CheckpointNumber(2),
         header: CheckpointHeader.empty(),
         startBlock: BlockNumber(2),
@@ -3725,7 +3725,7 @@ describe('KVArchiverDataStore', () => {
 
       // Try to set proposed checkpoint to 3 (confirmed=1, expected=2)
       await expect(
-        store.blockStore.setProposedCheckpoint({
+        store.blockStore.addProposedCheckpoint({
           checkpointNumber: CheckpointNumber(3),
           header: CheckpointHeader.empty(),
           startBlock: BlockNumber(1),
@@ -3747,10 +3747,9 @@ describe('KVArchiverDataStore', () => {
       );
       await store.addCheckpoints([checkpoint1]);
 
-      // Try to set proposed checkpoint to 1 (confirmed=1, expected=2).
-      // With fallback behavior, getProposedCheckpointNumber returns 1 (confirmed), so this triggers the stale check.
+      // Try to set proposed checkpoint to 1 (confirmed=1, expected=2). Not sequential.
       await expect(
-        store.blockStore.setProposedCheckpoint({
+        store.blockStore.addProposedCheckpoint({
           checkpointNumber: CheckpointNumber(1),
           header: CheckpointHeader.empty(),
           startBlock: BlockNumber(1),
@@ -3758,7 +3757,7 @@ describe('KVArchiverDataStore', () => {
           totalManaUsed: 100n,
           feeAssetPriceModifier: 50n,
         }),
-      ).rejects.toThrow('Stale');
+      ).rejects.toThrow('not sequential');
 
       // Proposed checkpoint should remain unset
       expect(await store.blockStore.hasProposedCheckpoint()).toBe(false);
@@ -3784,7 +3783,7 @@ describe('KVArchiverDataStore', () => {
       await addBlocksForProposedCheckpoint(3, 1, 3, checkpoint2.checkpoint.blocks[0].archive);
 
       // Set proposed checkpoint to 3
-      await store.blockStore.setProposedCheckpoint({
+      await store.blockStore.addProposedCheckpoint({
         checkpointNumber: CheckpointNumber(3),
         header: CheckpointHeader.empty(),
         startBlock: BlockNumber(3),
@@ -3819,7 +3818,7 @@ describe('KVArchiverDataStore', () => {
       await addBlocksForProposedCheckpoint(3, 1, 3, checkpoint2.checkpoint.blocks[0].archive);
 
       // Set pending to 3 (confirmed=2, 3===2+1 ✓)
-      await store.blockStore.setProposedCheckpoint({
+      await store.blockStore.addProposedCheckpoint({
         checkpointNumber: CheckpointNumber(3),
         header: CheckpointHeader.empty(),
         startBlock: BlockNumber(3),
@@ -3846,7 +3845,7 @@ describe('KVArchiverDataStore', () => {
       await addBlocksForProposedCheckpoint(2, 1, 2, checkpoint1.checkpoint.blocks[0].archive);
 
       // Set proposed checkpoint to 2 (attested but not on L1 yet)
-      await store.blockStore.setProposedCheckpoint({
+      await store.blockStore.addProposedCheckpoint({
         checkpointNumber: CheckpointNumber(2),
         header: CheckpointHeader.empty(),
         startBlock: BlockNumber(2),
@@ -3879,7 +3878,7 @@ describe('KVArchiverDataStore', () => {
       await addBlocksForProposedCheckpoint(2, 1, 2, checkpoint1.checkpoint.blocks[0].archive);
 
       // Set proposed checkpoint to 2
-      await store.blockStore.setProposedCheckpoint({
+      await store.blockStore.addProposedCheckpoint({
         checkpointNumber: CheckpointNumber(2),
         header: CheckpointHeader.empty(),
         startBlock: BlockNumber(2),
@@ -3951,7 +3950,7 @@ describe('KVArchiverDataStore', () => {
       await addBlocksForProposedCheckpoint(2, 1, 2, checkpoint1.checkpoint.blocks[0].archive);
 
       // Set proposed checkpoint
-      await store.blockStore.setProposedCheckpoint({
+      await store.blockStore.addProposedCheckpoint({
         checkpointNumber: CheckpointNumber(2),
         header: CheckpointHeader.empty(),
         startBlock: BlockNumber(2),
@@ -3977,7 +3976,7 @@ describe('KVArchiverDataStore', () => {
 
       // Add blocks and set proposed checkpoint 2
       await addBlocksForProposedCheckpoint(2, 1, 2, checkpoint1.checkpoint.blocks[0].archive);
-      await store.blockStore.setProposedCheckpoint({
+      await store.blockStore.addProposedCheckpoint({
         checkpointNumber: CheckpointNumber(2),
         header: CheckpointHeader.empty(),
         startBlock: BlockNumber(2),
@@ -4024,7 +4023,7 @@ describe('KVArchiverDataStore', () => {
       await store.addProposedBlock(block2, { force: true });
 
       // Set proposed checkpoint 2
-      await store.blockStore.setProposedCheckpoint({
+      await store.blockStore.addProposedCheckpoint({
         checkpointNumber: CheckpointNumber(2),
         header: CheckpointHeader.empty(),
         startBlock: BlockNumber(2),
@@ -4033,7 +4032,7 @@ describe('KVArchiverDataStore', () => {
         feeAssetPriceModifier: 50n,
       });
 
-      const proposed = await store.getProposedCheckpointOnly();
+      const proposed = await store.getLastProposedCheckpoint();
       return { checkpoint1, proposed: proposed! };
     }
 
@@ -4042,24 +4041,24 @@ describe('KVArchiverDataStore', () => {
       const l1 = makeL1PublishedData(20);
       const attestations = [CommitteeAttestation.random()];
 
-      await store.promoteProposedToCheckpointed(l1, attestations, proposed.archive.root);
+      await store.promoteProposedToCheckpointed(CheckpointNumber(2), l1, attestations, proposed.archive.root);
 
       expect(await store.blockStore.hasProposedCheckpoint()).toBe(false);
       expect(await store.blockStore.getLatestCheckpointNumber()).toBe(2);
     });
 
     it('throws when no proposed checkpoint exists', async () => {
-      await expect(store.promoteProposedToCheckpointed(makeL1PublishedData(20), [], Fr.random())).rejects.toThrow(
-        'no proposed checkpoint exists',
-      );
+      await expect(
+        store.promoteProposedToCheckpointed(CheckpointNumber(2), makeL1PublishedData(20), [], Fr.random()),
+      ).rejects.toThrow('no proposed checkpoint exists');
     });
 
     it('throws on archive root mismatch', async () => {
       await setupProposedCheckpoint();
 
-      await expect(store.promoteProposedToCheckpointed(makeL1PublishedData(20), [], Fr.random())).rejects.toThrow(
-        'archive root mismatch',
-      );
+      await expect(
+        store.promoteProposedToCheckpointed(CheckpointNumber(2), makeL1PublishedData(20), [], Fr.random()),
+      ).rejects.toThrow('archive root mismatch');
 
       // Proposed checkpoint should still exist (transaction rolled back)
       expect(await store.blockStore.hasProposedCheckpoint()).toBe(true);
@@ -4102,7 +4101,7 @@ describe('KVArchiverDataStore', () => {
       await store.addProposedBlock(block2, { force: true });
 
       // Set proposed checkpoint
-      await store.blockStore.setProposedCheckpoint({
+      await store.blockStore.addProposedCheckpoint({
         checkpointNumber: CheckpointNumber(2),
         header: CheckpointHeader.empty(),
         startBlock: BlockNumber(2),

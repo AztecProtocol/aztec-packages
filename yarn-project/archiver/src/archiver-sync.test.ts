@@ -1867,7 +1867,7 @@ describe('Archiver Sync', () => {
         totalManaUsed: 0n,
         feeAssetPriceModifier: 0n,
       };
-      await archiver.setProposedCheckpoint(proposedCheckpoint);
+      await archiver.addProposedCheckpoint(proposedCheckpoint);
 
       // Advance L1 to block 2 (still in slot 1) — proposed checkpoint is still current
       fake.setL1BlockNumber(2n);
@@ -1878,7 +1878,7 @@ describe('Archiver Sync', () => {
       expect(await archiver.getBlockNumber()).toEqual(lastProvisionalBlockNumber);
 
       // Proposed checkpoint should still be set
-      expect(await archiverStore.blockStore.getProposedCheckpointOnly()).toBeDefined();
+      expect(await archiverStore.blockStore.getLastProposedCheckpoint()).toBeDefined();
 
       // Proposed tip should be ahead of the checkpointed tip
       const tips = await archiver.getL2Tips();
@@ -1928,7 +1928,7 @@ describe('Archiver Sync', () => {
         totalManaUsed: 0n,
         feeAssetPriceModifier: 0n,
       };
-      await archiver.setProposedCheckpoint(proposedCheckpoint);
+      await archiver.addProposedCheckpoint(proposedCheckpoint);
 
       // Advance L1 to block 4 (slot 2), ending slot 1 without checkpoint on L1
       fake.setL1BlockNumber(4n);
@@ -1948,7 +1948,7 @@ describe('Archiver Sync', () => {
       expect(await archiver.getSynchedCheckpointNumber()).toEqual(CheckpointNumber(1));
 
       // Proposed checkpoint should be cleared, so proposed tip falls back to checkpointed tip
-      expect(await archiverStore.blockStore.getProposedCheckpointOnly()).toBeUndefined();
+      expect(await archiverStore.blockStore.getLastProposedCheckpoint()).toBeUndefined();
       const tips = await archiver.getL2Tips();
       expect(tips.proposedCheckpoint.checkpoint.number).toEqual(tips.checkpointed.checkpoint.number);
       expect(tips.proposedCheckpoint.block.number).toEqual(tips.checkpointed.block.number);

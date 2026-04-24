@@ -315,7 +315,7 @@ describe('sequencer', () => {
       getCheckpointsForEpoch: mockFn().mockResolvedValue([]),
       getCheckpointsDataForEpoch: mockFn().mockResolvedValue([]),
       getSyncedL2SlotNumber: mockFn().mockResolvedValue(SlotNumber(Number.MAX_SAFE_INTEGER)),
-      getProposedCheckpoint: mockFn().mockResolvedValue(undefined),
+      getLastCheckpoint: mockFn().mockResolvedValue(undefined),
     });
 
     l1ToL2MessageSource = mock<L1ToL2MessageSource>({
@@ -1060,7 +1060,7 @@ describe('sequencer', () => {
         checkpointNumber: CheckpointNumber(1),
         indexWithinCheckpoint: IndexWithinCheckpoint(0),
       } satisfies BlockData);
-      l2BlockSource.getProposedCheckpoint.mockResolvedValue({
+      l2BlockSource.getLastCheckpoint.mockResolvedValue({
         checkpointNumber: CheckpointNumber(1),
       } as any);
 
@@ -1121,7 +1121,7 @@ describe('sequencer', () => {
         checkpointNumber: CheckpointNumber(3),
         indexWithinCheckpoint: IndexWithinCheckpoint(0),
       } satisfies BlockData);
-      l2BlockSource.getProposedCheckpoint.mockResolvedValue({
+      l2BlockSource.getLastCheckpoint.mockResolvedValue({
         checkpointNumber: CheckpointNumber(2),
       } as any);
 
