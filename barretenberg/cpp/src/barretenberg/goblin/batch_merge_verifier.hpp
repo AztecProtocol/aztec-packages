@@ -45,10 +45,6 @@ template <typename Curve, size_t MaxMergeSize> class BatchMergeVerifier_ {
     static constexpr size_t NUM_WIRES = MegaExecutionTraceBlocks::NUM_WIRES;
     static constexpr size_t MAX_MERGE_SIZE = MaxMergeSize;
     static constexpr size_t LOG_MAX_MERGE_SIZE = static_cast<size_t>(numeric::get_msb(MAX_MERGE_SIZE));
-    static constexpr size_t MERGE_BATCHED_CLAIM_SIZE =
-        /*subtables*/ (MAX_MERGE_SIZE * NUM_WIRES) + /*merged table*/ NUM_WIRES +
-        /*degree check, shplonk quotient, identity*/ 3;
-
     static constexpr bool IsRecursive = Curve::is_stdlib_type;
 
     using TableCommitments = std::array<Commitment, NUM_WIRES>;
@@ -63,10 +59,19 @@ template <typename Curve, size_t MaxMergeSize> class BatchMergeVerifier_ {
     };
 
     std::shared_ptr<Transcript> transcript;
+    bool is_zk;
 
-    explicit BatchMergeVerifier_(std::shared_ptr<Transcript> transcript = std::make_shared<Transcript>())
+    explicit BatchMergeVerifier_(std::shared_ptr<Transcript> transcript = std::make_shared<Transcript>(),
+                                 bool is_zk = false)
         : transcript(std::move(transcript))
+        , is_zk(is_zk)
     {}
+
+    [[nodiscard]] size_t get_merge_batched_claim_size() const
+    {
+        return /*subtables*/ ((MAX_MERGE_SIZE * NUM_WIRES) + (is_zk ? NUM_WIRES : 0)) +
+               /*merged table*/ NUM_WIRES + /*degree check, shplonk quotient, identity*/ 3;
+    }
 
     /**
      * @brief Reduce the batch merge proof to a pairing check.
@@ -92,8 +97,7 @@ template <typename Curve, size_t MaxMergeSize> class BatchMergeVerifier_ {
 
   private:
     /**
-     * @brief Compute array of length M := MaxMergeSize s.t. indicator_array[i] = (i >= (M - N)), where N is the number
-     * of subtables to merge (sent by the prover).
+     * @brief Compute array of length M := MaxMergeSize s.t. indicator_array[i] = (i < N).
      *
      * @param N
      * @return std::vector<FF>
@@ -136,16 +140,15 @@ template <typename Curve, size_t MaxMergeSize> class BatchMergeVerifier_ {
                                 const std::vector<FF>& calculated_hashes,
                                 const std::vector<FF>& indicator_array) const;
 
-    BatchOpeningClaim<Curve> compute_shplonk_opening_claim(
-        const std::vector<std::vector<Commitment>>& subtable_commitments,
-        const TableCommitments& merged_commitments,
-        const Commitment& degree_check_commitment,
-        const Commitment& shplonk_batched_quotient,
-        const FF& shplonk_opening_challenge,
-        const std::vector<FF>& shplonk_batching_challenges,
-        const FF& kappa,
-        const FF& kappa_inv,
-        const std::vector<FF>& evals) const;
+    BatchOpeningClaim<Curve> compute_shplonk_opening_claim(const std::vector<Commitment>& flattened_cols,
+                                                           const TableCommitments& merged_commitments,
+                                                           const Commitment& degree_check_commitment,
+                                                           const Commitment& shplonk_batched_quotient,
+                                                           const FF& shplonk_opening_challenge,
+                                                           const std::vector<FF>& shplonk_batching_challenges,
+                                                           const FF& kappa,
+                                                           const FF& kappa_inv,
+                                                           const std::vector<FF>& evals) const;
 };
 
 // Type aliases for convenience

@@ -100,15 +100,20 @@ class ECCOpQueue {
         ultra_ops_table.merge(settings, ultra_fixed_offset);
     }
 
-    std::vector<std::array<Polynomial<Fr>, ULTRA_TABLE_WIDTH>> construct_subtable_columns(size_t start_offset = 0) const
+    std::array<Polynomial<Fr>, ULTRA_TABLE_WIDTH> construct_zk_columns()
     {
-        return ultra_ops_table.construct_subtable_columns(start_offset);
+        return ultra_ops_table.construct_zk_columns();
+    }
+
+    std::vector<std::array<Polynomial<Fr>, ULTRA_TABLE_WIDTH>> construct_subtable_columns() const
+    {
+        return ultra_ops_table.construct_subtable_columns();
     }
 
     // Construct column polynomials for the full aggregate ultra ops table
-    std::array<Polynomial<Fr>, ULTRA_TABLE_WIDTH> construct_ultra_ops_table_columns() const
+    std::array<Polynomial<Fr>, ULTRA_TABLE_WIDTH> construct_ultra_ops_table_columns(bool include_zk_ops = false) const
     {
-        return ultra_ops_table.construct_table_columns();
+        return ultra_ops_table.construct_table_columns(include_zk_ops);
     }
 
     // Construct column polynomials for the aggregate table excluding the most recent subtable

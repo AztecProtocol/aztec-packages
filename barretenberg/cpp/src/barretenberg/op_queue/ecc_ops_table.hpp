@@ -15,6 +15,9 @@
 #include <deque>
 namespace bb {
 
+static constexpr size_t ECC_NUM_RANDOM_OPS_START = 3;
+static constexpr size_t ECC_NUM_NO_OPS_START = 1;
+
 /**
  * @brief The MergeSettings define whether an current subtable will be added at the beginning (PREPEND) or at the end
  * (APPEND) of the EccOpQueue.
@@ -224,6 +227,7 @@ class UltraEccOpsTable {
   public:
     static constexpr size_t TABLE_WIDTH = 4;     // dictated by the number of wires in the Ultra arithmetization
     static constexpr size_t NUM_ROWS_PER_OP = 2; // A single ECC op is split across two width-4 rows
+    static constexpr size_t ZK_ULTRA_OPS = (ECC_NUM_RANDOM_OPS_START + ECC_NUM_NO_OPS_START) * NUM_ROWS_PER_OP;
 
     // Leading-zero preamble on the APPEND subtable. Matches the appender flavor's TRACE_OFFSET, i.e. the
     // number of leading zeros carried by its ecc_op_wire polynomial commitments. Sourced from
@@ -240,6 +244,7 @@ class UltraEccOpsTable {
 
     std::optional<size_t> current_subtable_idx; // index of the most recently merged subtable (nullopt if empty merge)
     UltraOpsTable table;
+    std::vector<UltraOp> zk_ops; // ops used to mask real ops in Chonk
 
     // For fixed-location append functionality.
     // APPEND mode places the current subtable at a fixed position at the end of the table, ensuring a
@@ -346,16 +351,54 @@ class UltraEccOpsTable {
         return reconstructed_table;
     }
 
+    ColumnPolynomials construct_zk_columns()
+    {
+        // Construct the table of ops
+        for (size_t idx = 0; idx < ECC_NUM_NO_OPS_START; idx++) {
+            zk_ops.push_back(UltraOp{ /* no_op */ });
+        }
+
+        UltraOp random_op{ .op_code = EccOpCode{ .is_random_op = true,
+                                                 .random_value_1 = Fr::random_element(),
+                                                 .random_value_2 = Fr::random_element() },
+                           .x_lo = Fr::random_element(),
+                           .x_hi = Fr::random_element(),
+                           .y_lo = Fr::random_element(),
+                           .y_hi = Fr::random_element(),
+                           .z_1 = Fr::random_element(),
+                           .z_2 = Fr::random_element(),
+                           .return_is_infinity = false };
+        for (size_t idx = 0; idx < ECC_NUM_RANDOM_OPS_START; idx++) {
+            zk_ops.push_back(random_op);
+        }
+
+        const size_t poly_size = (zk_ops.size() * NUM_ROWS_PER_OP);
+        BB_ASSERT_EQ(poly_size, ZK_ULTRA_OPS);
+
+        // Construct the column polynomials
+        ColumnPolynomials column_polynomials;
+        for (auto& poly : column_polynomials) {
+            poly = Polynomial<Fr>(poly_size);
+        }
+
+        size_t i = 0;
+        for (const auto& op : zk_ops) {
+            write_op_to_polynomials(column_polynomials, op, i);
+            i += NUM_ROWS_PER_OP;
+        }
+
+        return column_polynomials;
+    }
+
     // Construct column polynomials for all subtables
-    std::vector<ColumnPolynomials> construct_subtable_columns(size_t start_offset = 0) const
+    std::vector<ColumnPolynomials> construct_subtable_columns() const
     {
         std::vector<ColumnPolynomials> subtable_columns;
 
         for (size_t idx = 0; idx < table.num_subtables(); idx++) {
             const auto& subtable = table.get()[idx];
-            const size_t poly_size = (subtable.size() * NUM_ROWS_PER_OP) + start_offset;
-            ColumnPolynomials columns =
-                construct_column_polynomials_from_subtables(poly_size, idx, idx + 1, start_offset);
+            const size_t poly_size = (subtable.size() * NUM_ROWS_PER_OP);
+            ColumnPolynomials columns = construct_column_polynomials_from_subtables(poly_size, idx, idx + 1);
             subtable_columns.push_back(std::move(columns));
         }
 
@@ -363,7 +406,7 @@ class UltraEccOpsTable {
     }
 
     // Construct column polynomials for the full ultra ecc ops table
-    ColumnPolynomials construct_table_columns() const
+    ColumnPolynomials construct_table_columns(bool include_zk_ops = false) const
     {
         const size_t poly_size = num_ultra_rows();
 
@@ -371,7 +414,7 @@ class UltraEccOpsTable {
             return construct_column_polynomials_with_fixed_append(poly_size);
         }
 
-        return construct_column_polynomials_from_subtables(poly_size, 0, table.num_subtables());
+        return construct_column_polynomials_from_subtables(poly_size, 0, table.num_subtables(), include_zk_ops);
     }
 
     // Construct column polynomials for the aggregate table excluding the most recent subtable
@@ -484,17 +527,29 @@ class UltraEccOpsTable {
      */
     ColumnPolynomials construct_column_polynomials_from_subtables(const size_t poly_size,
                                                                   const size_t subtable_start_idx,
-                                                                  const size_t subtable_end_idx) const
+                                                                  const size_t subtable_end_idx,
+                                                                  const bool include_zk_ops = false) const
     {
+        size_t final_poly_size = poly_size + (include_zk_ops ? ZK_ULTRA_OPS : 0);
+
         ColumnPolynomials column_polynomials;
         if (poly_size == 0) {
             return column_polynomials;
         }
         for (auto& poly : column_polynomials) {
-            poly = Polynomial<Fr>(poly_size);
+            poly = Polynomial<Fr>(final_poly_size);
         }
 
         size_t i = 0;
+
+        if (include_zk_ops) {
+            BB_ASSERT(!zk_ops.empty(), "ZK ops should have been constructed before including them in the columns");
+            for (const auto& op : zk_ops) {
+                write_op_to_polynomials(column_polynomials, op, i);
+                i += NUM_ROWS_PER_OP;
+            }
+        }
+
         for (size_t subtable_idx = subtable_start_idx; subtable_idx < subtable_end_idx; ++subtable_idx) {
             const auto& subtable = table.get()[subtable_idx];
             for (const auto& op : subtable) {

@@ -25,9 +25,35 @@ typename BatchMergeVerifier_<Curve, MaxMergeSize>::ReductionResult BatchMergeVer
     for (size_t idx = 0; idx < MAX_MERGE_SIZE; ++idx) {
         for (size_t col = 0; col < NUM_WIRES; ++col) {
             subtable_cols[idx][col] = transcript->template receive_from_prover<Commitment>(
-                "COLUMN_" + std::to_string((idx * NUM_WIRES) + col));
+                "COLUMN_" + std::to_string(col) + "_" + std::to_string(idx));
         }
         calculated_hashes.push_back(transcript->template get_challenge<FF>("HASH_" + std::to_string(idx)));
+    }
+
+    // -------------------------------------------------------------------------
+    // Step 1.b: If zk, receive commitments to the masking table
+    // -------------------------------------------------------------------------
+    std::array<Commitment, NUM_WIRES> zk_columns;
+    if (is_zk) {
+        for (size_t col = 0; col < NUM_WIRES; ++col) {
+            zk_columns[col] = transcript->template receive_from_prover<Commitment>("ZK_COLUMN_" + std::to_string(col));
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // Step 1.c: Flatten the columns for easier utilisation
+    // -------------------------------------------------------------------------
+    std::vector<Commitment> flattened_cols;
+    flattened_cols.reserve((MAX_MERGE_SIZE * NUM_WIRES) + (is_zk ? NUM_WIRES : 0));
+    if (is_zk) {
+        for (size_t col = 0; col < NUM_WIRES; ++col) {
+            flattened_cols.push_back(std::move(zk_columns[col]));
+        }
+    }
+    for (auto& subtable_col : subtable_cols) {
+        for (size_t col = 0; col < NUM_WIRES; col++) {
+            flattened_cols.push_back(std::move(subtable_col[col]));
+        }
     }
 
     // -------------------------------------------------------------------------
@@ -35,13 +61,18 @@ typename BatchMergeVerifier_<Curve, MaxMergeSize>::ReductionResult BatchMergeVer
     // -------------------------------------------------------------------------
     const FF N = transcript->template receive_from_prover<FF>("NUM_SUBTABLES");
 
-    std::vector<FF> shift_sizes(MAX_MERGE_SIZE);
+    std::vector<FF> shift_sizes;
+    shift_sizes.reserve((MAX_MERGE_SIZE + (is_zk ? 1 : 0)));
+    if (is_zk) {
+        shift_sizes.push_back(FF(UltraEccOpsTable::ZK_ULTRA_OPS));
+    }
     // Array s.t. indicator_array[i] = (i < N)
     std::vector<FF> indicator_array = compute_indicator_array(N);
 
     for (size_t i = 0; i < MAX_MERGE_SIZE; ++i) {
-        shift_sizes[i] = transcript->template receive_from_prover<FF>("SHIFT_SIZE_" + std::to_string(i));
-        shift_sizes[i] = shift_sizes[i] * indicator_array[i]; // zero out shift sizes for unused subtables
+        size_t idx = (is_zk ? 1 : 0) + i;
+        shift_sizes.push_back(transcript->template receive_from_prover<FF>("SHIFT_SIZE_" + std::to_string(i)));
+        shift_sizes[idx] = shift_sizes[idx] * indicator_array[i]; // zero out shift sizes for unused subtables
     }
 
     // -------------------------------------------------------------------------
@@ -57,10 +88,11 @@ typename BatchMergeVerifier_<Curve, MaxMergeSize>::ReductionResult BatchMergeVer
     // Step 4: Compute degree check challenges 1, α, α^2, .., α^{M * NUM_WIRES-1}
     // -------------------------------------------------------------------------
     std::vector<FF> degree_check_challenges;
-    degree_check_challenges.reserve(NUM_WIRES * MAX_MERGE_SIZE);
+    size_t num_degree_check_challenges = (MAX_MERGE_SIZE * NUM_WIRES) + (is_zk ? NUM_WIRES : 0);
+    degree_check_challenges.reserve(num_degree_check_challenges);
     const FF degree_check_challenge = transcript->template get_challenge<FF>("DEGREE_CHECK_CHALLENGE");
     degree_check_challenges = { FF(1), degree_check_challenge };
-    for (size_t idx = 2; idx < NUM_WIRES * MAX_MERGE_SIZE; idx++) {
+    for (size_t idx = 2; idx < num_degree_check_challenges; idx++) {
         degree_check_challenges.push_back(degree_check_challenges.back() * degree_check_challenge);
     }
 
@@ -72,7 +104,7 @@ typename BatchMergeVerifier_<Curve, MaxMergeSize>::ReductionResult BatchMergeVer
     // -------------------------------------------------------------------------
     // Step 6: Compute Shplonk batching challenges
     // -------------------------------------------------------------------------
-    const size_t num_shplonk_challenges = ((MAX_MERGE_SIZE + 1) * NUM_WIRES) + 1;
+    const size_t num_shplonk_challenges = ((MAX_MERGE_SIZE + 1) * NUM_WIRES) + 1 + (is_zk ? NUM_WIRES : 0);
     const FF shplonk_batching_challenge = transcript->template get_challenge<FF>("SHPLONK_BATCHING_CHALLENGE");
     std::vector<FF> shplonk_challenges = { FF(1), shplonk_batching_challenge };
     shplonk_challenges.reserve(num_shplonk_challenges);
@@ -87,22 +119,22 @@ typename BatchMergeVerifier_<Curve, MaxMergeSize>::ReductionResult BatchMergeVer
     const FF kappa_inv = kappa.invert();
 
     std::vector<FF> powers_of_kappa;
-    powers_of_kappa.reserve(MAX_MERGE_SIZE);
-    for (size_t idx = 0; idx < MAX_MERGE_SIZE; idx++) {
+    powers_of_kappa.reserve(shift_sizes.size());
+    for (const FF& shift_size : shift_sizes) {
         if constexpr (IsRecursive) {
             // Shift sizes are at most 2^CONST_ECCVM_LOG_N so the implicit range constraint enforced by pow is always
             // satisfied
-            powers_of_kappa.push_back(kappa.template pow<CONST_ECCVM_LOG_N>(shift_sizes[idx]));
+            powers_of_kappa.push_back(kappa.template pow<CONST_ECCVM_LOG_N>(shift_size));
         } else {
-            powers_of_kappa.push_back(kappa.pow(shift_sizes[idx]));
+            powers_of_kappa.push_back(kappa.pow(shift_size));
         }
     }
 
     std::vector<FF> powers_of_kappa_inv;
-    powers_of_kappa_inv.reserve(MAX_MERGE_SIZE);
+    powers_of_kappa_inv.reserve(powers_of_kappa.size());
     if constexpr (IsRecursive) {
-        for (size_t idx = 0; idx < MAX_MERGE_SIZE; idx++) {
-            powers_of_kappa_inv.push_back(powers_of_kappa[idx].invert());
+        for (const FF& kappa_pow : powers_of_kappa) {
+            powers_of_kappa_inv.push_back(kappa_pow.invert());
         }
     } else {
         powers_of_kappa_inv = powers_of_kappa;
@@ -114,13 +146,12 @@ typename BatchMergeVerifier_<Curve, MaxMergeSize>::ReductionResult BatchMergeVer
     // -------------------------------------------------------------------------
     // C_i_col(κ)
     std::vector<FF> evals;
-    evals.reserve((MAX_MERGE_SIZE * NUM_WIRES) + NUM_WIRES + 1);
-    for (size_t i = 0; i < MAX_MERGE_SIZE; ++i) {
-        for (size_t col = 0; col < NUM_WIRES; ++col) {
-            const FF received_eval =
-                transcript->template receive_from_prover<FF>("C_EVAL_" + std::to_string(i) + "_" + std::to_string(col));
-            evals.push_back(received_eval);
-        }
+    size_t num_evals = (MAX_MERGE_SIZE * NUM_WIRES) + NUM_WIRES + 1 + (is_zk ? NUM_WIRES : 0);
+    size_t num_evals_from_cols = (MAX_MERGE_SIZE * NUM_WIRES) + (is_zk ? NUM_WIRES : 0);
+    evals.reserve(num_evals);
+    for (size_t i = 0; i < num_evals_from_cols; ++i) {
+        const FF received_eval = transcript->template receive_from_prover<FF>("C_EVAL_" + std::to_string(i));
+        evals.push_back(received_eval);
     }
 
     // T_col(κ)
@@ -162,9 +193,9 @@ typename BatchMergeVerifier_<Curve, MaxMergeSize>::ReductionResult BatchMergeVer
     //                          for G, -constant_sum for ONE]
     // -------------------------------------------------------------------------
     const Commitment shplonk_batched_quotient = transcript->template receive_from_prover<Commitment>("SHPLONK_Q");
-    const FF z = transcript->template get_challenge<FF>("Z");
+    const FF z = transcript->template get_challenge<FF>("SHPLONK_OPENING_CHALLENGE");
 
-    BatchOpeningClaim<Curve> batch_claim = compute_shplonk_opening_claim(subtable_cols,
+    BatchOpeningClaim<Curve> batch_claim = compute_shplonk_opening_claim(flattened_cols,
                                                                          merged_commitments,
                                                                          degree_check_commitment,
                                                                          shplonk_batched_quotient,
@@ -174,8 +205,8 @@ typename BatchMergeVerifier_<Curve, MaxMergeSize>::ReductionResult BatchMergeVer
                                                                          kappa_inv,
                                                                          evals);
 
-    BB_ASSERT(batch_claim.commitments.size() == MERGE_BATCHED_CLAIM_SIZE);
-    BB_ASSERT(batch_claim.scalars.size() == MERGE_BATCHED_CLAIM_SIZE);
+    BB_ASSERT(batch_claim.commitments.size() == get_merge_batched_claim_size());
+    BB_ASSERT(batch_claim.scalars.size() == get_merge_batched_claim_size());
 
     PairingPoints pairing_points = PCS::reduce_verify_batch_opening_claim(std::move(batch_claim), transcript);
 
@@ -242,14 +273,15 @@ template <typename Curve, size_t MaxMergeSize>
 bool BatchMergeVerifier_<Curve, MaxMergeSize>::check_concatenation_identity(
     std::vector<FF>& evals, const std::vector<FF>& pow_kappa_subtable_size) const
 {
-    const size_t merged_eval_base = MAX_MERGE_SIZE * NUM_WIRES;
+    const size_t num_column_tables = MAX_MERGE_SIZE + (is_zk ? 1 : 0);
+    const size_t merged_eval_base = num_column_tables * NUM_WIRES;
 
     bool concatenation_verified = true;
     for (size_t j = 0; j < NUM_WIRES; ++j) {
-        FF concatenation_diff = evals[((MAX_MERGE_SIZE - 1) * NUM_WIRES) + j];
+        FF concatenation_diff = evals[((num_column_tables - 1) * NUM_WIRES) + j];
         // Horner: i from N-1 down to 0 — accum ← accum · κ^{size_i} + T_{i,j}(κ).
-        for (size_t i_rev = 1; i_rev < MAX_MERGE_SIZE; ++i_rev) {
-            const size_t i = MAX_MERGE_SIZE - 1 - i_rev;
+        for (size_t i_rev = 1; i_rev < num_column_tables; ++i_rev) {
+            const size_t i = num_column_tables - 1 - i_rev;
             concatenation_diff *= pow_kappa_subtable_size[i];
             concatenation_diff += evals[(i * NUM_WIRES) + j];
         }
@@ -274,7 +306,7 @@ bool BatchMergeVerifier_<Curve, MaxMergeSize>::check_degree_identity(
     const std::vector<FF>& degree_check_challenges) const
 {
     FF degree_check_diff(0);
-    for (size_t i = 0; i < MAX_MERGE_SIZE; ++i) {
+    for (size_t i = 0; i < powers_of_kappa_inv.size(); ++i) {
         const FF power_of_kappa = powers_of_kappa_inv[i] * kappa;
         for (size_t j = 0; j < NUM_WIRES; ++j) {
             degree_check_diff +=
@@ -355,7 +387,7 @@ bool BatchMergeVerifier_<Curve, MaxMergeSize>::check_hash_consistency(const FF& 
 
 template <typename Curve, size_t MaxMergeSize>
 BatchOpeningClaim<Curve> BatchMergeVerifier_<Curve, MaxMergeSize>::compute_shplonk_opening_claim(
-    const std::vector<std::vector<Commitment>>& subtable_commitments,
+    const std::vector<Commitment>& flattened_cols,
     const TableCommitments& merged_commitments,
     const Commitment& degree_check_commitment,
     const Commitment& shplonk_batched_quotient,
@@ -371,10 +403,8 @@ BatchOpeningClaim<Curve> BatchMergeVerifier_<Curve, MaxMergeSize>::compute_shplo
 
     // Commitments: [Q], table_commitments (T_i's, M, G in canonical order), [1]
     batch_opening_claim.commitments = { std::move(shplonk_batched_quotient) };
-    for (auto& subtable : subtable_commitments) {
-        for (auto& commitment : subtable) {
-            batch_opening_claim.commitments.emplace_back(std::move(commitment));
-        }
+    for (auto& commitment : flattened_cols) {
+        batch_opening_claim.commitments.emplace_back(std::move(commitment));
     }
     for (auto& commitment : merged_commitments) {
         batch_opening_claim.commitments.emplace_back(commitment);

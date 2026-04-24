@@ -58,7 +58,8 @@ class BatchMergeProver {
      */
     explicit BatchMergeProver(const std::shared_ptr<ECCOpQueue>& op_queue,
                               std::shared_ptr<Transcript> transcript,
-                              size_t max_subtables);
+                              size_t max_subtables,
+                              bool is_zk);
 
     /**
      * @brief Construct the batch merge proof.
@@ -85,29 +86,29 @@ class BatchMergeProver {
     std::shared_ptr<Transcript> transcript;
     std::shared_ptr<ECCOpQueue> op_queue;
     size_t max_subtables; // M
+    bool is_zk;
 
-    static Polynomial compute_degree_check_polynomial(
-        const std::vector<std::array<Polynomial, NUM_WIRES>>& subtable_columns,
-        const std::vector<FF>& degree_check_challenges,
-        const size_t max_size);
+    static Polynomial compute_degree_check_polynomial(const std::vector<Polynomial>& flattened_columns,
+                                                      const std::vector<FF>& degree_check_challenges,
+                                                      const size_t max_size);
 
-    Polynomial compute_shplonk_batched_quotient(const std::vector<std::array<Polynomial, NUM_WIRES>>& subtables,
+    Polynomial compute_shplonk_batched_quotient(const std::vector<Polynomial>& flattened_columns,
                                                 const std::array<Polynomial, NUM_WIRES>& merged_table,
                                                 const std::vector<FF>& shplonk_batching_challenges,
                                                 const FF& kappa,
                                                 const FF& kappa_inv,
                                                 const Polynomial& degree_check_poly,
-                                                const std::vector<FF>& evals);
+                                                const std::vector<FF>& evals) const;
 
     OpeningClaim compute_shplonk_opening_claim(Polynomial& shplonk_batched_quotient,
                                                const FF& shplonk_opening_challenge,
-                                               const std::vector<std::array<Polynomial, NUM_WIRES>>& subtables,
+                                               const std::vector<Polynomial>& flattened_columns,
                                                const std::array<Polynomial, NUM_WIRES>& merged_table,
                                                const std::vector<FF>& shplonk_batching_challenges,
                                                const FF& kappa,
                                                const FF& kappa_inv,
                                                Polynomial& degree_check_poly,
-                                               const std::vector<FF>& evals);
+                                               const std::vector<FF>& evals) const;
 };
 
 } // namespace bb

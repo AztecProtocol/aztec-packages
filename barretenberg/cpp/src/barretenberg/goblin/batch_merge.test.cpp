@@ -17,12 +17,10 @@
 #include "barretenberg/transcript/transcript.hpp"
 
 namespace bb {
-namespace {
 
 using NativeCurve = curve::BN254;
 using NativeG1 = NativeCurve::AffineElement;
 
-static constexpr size_t MAX_SUBTABLES = 9;
 static constexpr size_t NUM_WIRES = MegaExecutionTraceBlocks::NUM_WIRES;
 static constexpr size_t NUM_FRS_COMM = NativeTranscript::Codec::template calc_num_fields<NativeG1>();
 
@@ -35,12 +33,13 @@ template <typename Curve> struct BuilderTypeHelper<Curve, std::enable_if_t<Curve
     using type = typename Curve::Builder;
 };
 
-enum class FaultMode {
+enum class FaultMode : uint8_t {
     NONE,
-    WRONG_MERGED_TABLE,    // merged table commitment/evals/opening are self-consistent but table is wrong
-    BAD_DEGREE_CHECK_POLY, // degree-check commitment/eval/opening are self-consistent but polynomial is wrong
-    PADDING_NOT_INFINITY,  // padded slot sends non-zero shift size and non-zero commitment/eval
-    SHIFT_SIZE_MINUS_ONE   // send k-1 as shift size for a subtable polynomial of size k
+    WRONG_MERGED_TABLE,      // merged table commitment/evals/opening are self-consistent but table is wrong
+    BAD_DEGREE_CHECK_POLY,   // degree-check commitment/eval/opening are self-consistent but polynomial is wrong
+    PADDING_NOT_INFINITY,    // padded slot sends non-zero shift size and non-zero commitment/eval
+    SHIFT_SIZE_MINUS_ONE,    // send k-1 as shift size for a subtable polynomial of size k
+    ZK_TABLE_DEGREE_TOO_HIGH // zk table has degree above verifier hard-coded ZK shift
 };
 
 void populate_subtable(const std::shared_ptr<ECCOpQueue>& op_queue, size_t num_ops)
@@ -115,19 +114,22 @@ class TweakableBatchMergeProver : public BatchMergeProver {
     explicit TweakableBatchMergeProver(const std::shared_ptr<ECCOpQueue>& op_queue,
                                        std::shared_ptr<Transcript> transcript,
                                        size_t max_subtables,
-                                       FaultMode mode = FaultMode::NONE)
-        : BatchMergeProver(op_queue, std::move(transcript), max_subtables)
+                                       FaultMode mode = FaultMode::NONE,
+                                       bool is_zk = false)
+        : BatchMergeProver(op_queue, std::move(transcript), max_subtables, is_zk)
         , fault_mode(mode)
     {}
 
     MergeProof construct_proof()
     {
-        const size_t N = op_queue->num_subtables();
         const size_t M = max_subtables;
-        BB_ASSERT_LTE(N, M, "TweakableBatchMergeProver: more subtables than max_subtables");
 
         // Step 1
         std::vector<std::array<Polynomial, NUM_WIRES>> subtable_cols = op_queue->construct_subtable_columns();
+
+        size_t N = subtable_cols.size();
+        BB_ASSERT_LTE(N, M, "TweakableBatchMergeProver: more subtables than max_subtables");
+
         std::vector<size_t> shift_sizes(N);
         size_t max_shift_size = 0;
         for (size_t i = 0; i < N; ++i) {
@@ -157,6 +159,42 @@ class TweakableBatchMergeProver : public BatchMergeProver {
             [[maybe_unused]] FF _ = transcript->template get_challenge<FF>("HASH_" + std::to_string(idx));
         }
 
+        // Step 2.b: If zk, send the masking table
+        std::array<Polynomial, NUM_WIRES> zk_columns;
+        if (is_zk) {
+            zk_columns = op_queue->construct_zk_columns();
+
+            if (fault_mode == FaultMode::ZK_TABLE_DEGREE_TOO_HIGH) {
+                for (size_t col = 0; col < NUM_WIRES; ++col) {
+                    // Make zk column degree exceed verifier's hard-coded ZK shift (= ZK_ULTRA_OPS).
+                    Polynomial larger_zk_col(zk_columns[col], zk_columns[col].size() + 1);
+                    larger_zk_col.at(larger_zk_col.size() - 1) = FF(1);
+                    zk_columns[col] = std::move(larger_zk_col);
+                }
+            }
+
+            for (size_t col = 0; col < NUM_WIRES; ++col) {
+                transcript->send_to_verifier("ZK_COLUMN_" + std::to_string(col),
+                                             pcs_commitment_key.commit(zk_columns[col]));
+            }
+
+            max_shift_size = std::max(max_shift_size, zk_columns[0].size());
+        }
+
+        // Step 2.c: Flatten the columns for easier utilisation
+        std::vector<Polynomial> flattened_cols;
+        flattened_cols.reserve((subtable_cols.size() * NUM_WIRES) + (is_zk ? NUM_WIRES : 0));
+        if (is_zk) {
+            for (size_t col = 0; col < NUM_WIRES; ++col) {
+                flattened_cols.push_back(std::move(zk_columns[col]));
+            }
+        }
+        for (auto& subtable_col : subtable_cols) {
+            for (size_t col = 0; col < NUM_WIRES; ++col) {
+                flattened_cols.push_back(std::move(subtable_col[col]));
+            }
+        }
+
         // Step 3
         transcript->send_to_verifier("NUM_SUBTABLES", static_cast<uint32_t>(N));
         for (size_t i = 0; i < M; ++i) {
@@ -172,7 +210,7 @@ class TweakableBatchMergeProver : public BatchMergeProver {
         }
 
         // Step 4: merged table
-        std::array<Polynomial, NUM_WIRES> merged_table(op_queue->construct_ultra_ops_table_columns());
+        std::array<Polynomial, NUM_WIRES> merged_table(op_queue->construct_ultra_ops_table_columns(0, is_zk));
         if (fault_mode == FaultMode::WRONG_MERGED_TABLE && !merged_table[0].is_empty()) {
             merged_table[0].at(0) += FF(1);
         }
@@ -183,21 +221,22 @@ class TweakableBatchMergeProver : public BatchMergeProver {
 
         // Step 5
         const FF degree_check_challenge = transcript->template get_challenge<FF>("DEGREE_CHECK_CHALLENGE");
+        const size_t num_degree_check_challenges = (M * NUM_WIRES) + (is_zk ? NUM_WIRES : 0);
         std::vector<FF> degree_check_challenges = { FF(1), degree_check_challenge };
-        for (size_t idx = 2; idx < M * NUM_WIRES; ++idx) {
+        for (size_t idx = 2; idx < num_degree_check_challenges; ++idx) {
             degree_check_challenges.push_back(degree_check_challenges.back() * degree_check_challenge);
         }
 
         // Step 6: degree-check poly
         Polynomial degree_check_poly =
-            compute_degree_check_polynomial(subtable_cols, degree_check_challenges, max_shift_size);
+            compute_degree_check_polynomial(flattened_cols, degree_check_challenges, max_shift_size);
         if (fault_mode == FaultMode::BAD_DEGREE_CHECK_POLY && !degree_check_poly.is_empty()) {
             degree_check_poly.at(0) += FF(1);
         }
         transcript->send_to_verifier("DEGREE_CHECK_POLY", pcs_commitment_key.commit(degree_check_poly));
 
         // Step 7
-        const size_t num_shplonk_challenges = ((M + 1) * NUM_WIRES) + 1;
+        const size_t num_shplonk_challenges = ((M + 1) * NUM_WIRES) + 1 + (is_zk ? NUM_WIRES : 0);
         const FF shplonk_batching_challenge = transcript->template get_challenge<FF>("SHPLONK_BATCHING_CHALLENGE");
         std::vector<FF> betas = { FF(1), shplonk_batching_challenge };
         for (size_t idx = 2; idx < num_shplonk_challenges; ++idx) {
@@ -210,17 +249,17 @@ class TweakableBatchMergeProver : public BatchMergeProver {
 
         // Step 9: evals
         std::vector<FF> evals;
-        for (size_t i = 0; i < M; ++i) {
-            for (size_t col = 0; col < NUM_WIRES; ++col) {
-                FF eval = FF(0);
-                if (i < N) {
-                    eval = subtable_cols[i][col].evaluate(kappa);
-                } else if ((fault_mode == FaultMode::PADDING_NOT_INFINITY && i == N && col == 0)) {
-                    eval = FF(1); // matches one_poly commitment at padded slot
-                }
-                evals.push_back(eval);
-                transcript->send_to_verifier("C_EVAL_" + std::to_string(i) + "_" + std::to_string(col), eval);
+        const size_t num_actual_flattened_cols = (N * NUM_WIRES) + (is_zk ? NUM_WIRES : 0);
+        const size_t num_flattened_col_evals = (M * NUM_WIRES) + (is_zk ? NUM_WIRES : 0);
+        for (size_t flat_idx = 0; flat_idx < num_flattened_col_evals; ++flat_idx) {
+            FF eval = FF(0);
+            if (flat_idx < num_actual_flattened_cols) {
+                eval = flattened_cols[flat_idx].evaluate(kappa);
+            } else if (fault_mode == FaultMode::PADDING_NOT_INFINITY && flat_idx == num_actual_flattened_cols) {
+                eval = FF(1); // matches one_poly commitment at the first padded slot
             }
+            evals.push_back(eval);
+            transcript->send_to_verifier("C_EVAL_" + std::to_string(flat_idx), eval);
         }
 
         for (size_t col = 0; col < NUM_WIRES; ++col) {
@@ -233,14 +272,14 @@ class TweakableBatchMergeProver : public BatchMergeProver {
 
         // Step 10: shplonk quotient
         Polynomial shplonk_batched_quotient = compute_shplonk_batched_quotient(
-            subtable_cols, merged_table, betas, kappa, kappa_inv, degree_check_poly, evals);
+            flattened_cols, merged_table, betas, kappa, kappa_inv, degree_check_poly, evals);
         transcript->send_to_verifier("SHPLONK_Q", pcs_commitment_key.commit(shplonk_batched_quotient));
 
         // Step 11: opening
         const FF z = transcript->template get_challenge<FF>("SHPLONK_OPENING_CHALLENGE");
         OpeningClaim shplonk_opening_claim = compute_shplonk_opening_claim(shplonk_batched_quotient,
                                                                            z,
-                                                                           subtable_cols,
+                                                                           flattened_cols,
                                                                            merged_table,
                                                                            betas,
                                                                            kappa,
@@ -256,16 +295,26 @@ class TweakableBatchMergeProver : public BatchMergeProver {
     FaultMode fault_mode;
 };
 
-} // namespace
+// Custom parameter struct to hold both Curve type and NumSubtables value
+template <typename Curve, size_t N> struct TestParam {
+    using CurveType = Curve;
+    static constexpr size_t NumSubtables = N;
+};
 
-template <typename Curve> class BatchMergeSoundnessTests : public testing::Test {
+// Specialize the fixture to extract both template parameters from TypeParam
+template <typename Param> class BatchMergeTests : public testing::Test {
   public:
+    using Curve = typename Param::CurveType;
+    static constexpr size_t NumSubtables = Param::NumSubtables;
     using FF = typename Curve::ScalarField;
-    using Verifier = BatchMergeVerifier_<Curve, MAX_SUBTABLES>;
+    using Verifier = BatchMergeVerifier_<Curve, NumSubtables>;
     using Proof = typename Verifier::Proof;
     using Transcript = typename Verifier::Transcript;
     static constexpr bool IsRecursive = Curve::is_stdlib_type;
     using BuilderType = typename BuilderTypeHelper<Curve>::type;
+
+    static constexpr size_t VERIFIER_NUM_GATES = NumSubtables == 9 ? 10457 : 38941;
+    static constexpr size_t ZK_OFFSET = 576;
 
     struct VerifyResult {
         bool reduction_ok;
@@ -310,15 +359,17 @@ template <typename Curve> class BatchMergeSoundnessTests : public testing::Test 
 
     static VerifyResult prove_and_verify(const std::shared_ptr<ECCOpQueue>& op_queue,
                                          FaultMode fault_mode = FaultMode::NONE,
-                                         bool wrong_hash = false)
+                                         bool wrong_hash = false,
+                                         bool is_zk = false)
     {
         auto prover_transcript = std::make_shared<NativeTranscript>();
+        prover_transcript->enable_manifest();
         std::vector<bb::fr> native_proof;
         if (fault_mode == FaultMode::NONE) {
-            BatchMergeProver prover{ op_queue, prover_transcript, MAX_SUBTABLES };
+            BatchMergeProver prover{ op_queue, prover_transcript, NumSubtables, is_zk };
             native_proof = prover.construct_proof();
         } else {
-            TweakableBatchMergeProver prover{ op_queue, prover_transcript, MAX_SUBTABLES, fault_mode };
+            TweakableBatchMergeProver prover{ op_queue, prover_transcript, NumSubtables, fault_mode, is_zk };
             native_proof = prover.construct_proof();
         }
 
@@ -332,19 +383,35 @@ template <typename Curve> class BatchMergeSoundnessTests : public testing::Test 
         FF hash = create_hash(builder, native_hash);
 
         auto verifier_transcript = std::make_shared<Transcript>();
-        Verifier verifier{ verifier_transcript };
+        verifier_transcript->enable_manifest();
+        Verifier verifier{ verifier_transcript, is_zk };
         auto result = verifier.reduce_to_pairing_check(proof, hash);
+
+        // Check consistency of manifests
+        auto prover_manifest = prover_transcript->get_manifest();
+        auto verifier_manifest = verifier_transcript->get_manifest();
+        EXPECT_EQ(prover_manifest.size(), verifier_manifest.size());
+        for (size_t i = 0; i < prover_manifest.size(); ++i) {
+            EXPECT_EQ(prover_manifest[i], verifier_manifest[i]);
+        }
+
+        if constexpr (Curve::is_stdlib_type) {
+            EXPECT_EQ(builder.get_num_finalized_gates_inefficient(), VERIFIER_NUM_GATES + (is_zk ? ZK_OFFSET : 0));
+        }
 
         return { result.reduction_succeeded, result.pairing_points.check(), check_circuit(builder) };
     }
 };
 
-using CurveTypes = ::testing::Types<curve::BN254, stdlib::bn254<MegaCircuitBuilder>>;
-TYPED_TEST_SUITE(BatchMergeSoundnessTests, CurveTypes);
+using TestParams = ::testing::Types<TestParam<curve::BN254, 9>,
+                                    TestParam<curve::BN254, CHONK_MAX_NUM_CIRCUITS>,
+                                    TestParam<stdlib::bn254<MegaCircuitBuilder>, 9>,
+                                    TestParam<stdlib::bn254<MegaCircuitBuilder>, CHONK_MAX_NUM_CIRCUITS>>;
+TYPED_TEST_SUITE(BatchMergeTests, TestParams);
 
 // Completeness
 
-TYPED_TEST(BatchMergeSoundnessTests, CompletenessValidProofPassesWithPadding)
+TYPED_TEST(BatchMergeTests, ValidProofPassesWithPadding)
 {
     auto op_queue = make_op_queue_with_n_subtables(3);
     auto res = TestFixture::prove_and_verify(op_queue);
@@ -353,9 +420,27 @@ TYPED_TEST(BatchMergeSoundnessTests, CompletenessValidProofPassesWithPadding)
     EXPECT_TRUE(res.circuit_ok);
 }
 
-TYPED_TEST(BatchMergeSoundnessTests, CompletenessValidProofPassesWithoutPadding)
+TYPED_TEST(BatchMergeTests, ValidProofPassesWithZK)
 {
-    auto op_queue = make_op_queue_with_n_subtables(MAX_SUBTABLES);
+    auto op_queue = make_op_queue_with_n_subtables(5);
+    auto res = TestFixture::prove_and_verify(op_queue, FaultMode::NONE, false, /*is zk*/ true);
+    EXPECT_TRUE(res.reduction_ok);
+    EXPECT_TRUE(res.pairing_ok);
+    EXPECT_TRUE(res.circuit_ok);
+}
+
+TYPED_TEST(BatchMergeTests, ValidProofMaxSizePassesWithZK)
+{
+    auto op_queue = make_op_queue_with_n_subtables(TestFixture::NumSubtables);
+    auto res = TestFixture::prove_and_verify(op_queue, FaultMode::NONE, false, /*is zk*/ true);
+    EXPECT_TRUE(res.reduction_ok);
+    EXPECT_TRUE(res.pairing_ok);
+    EXPECT_TRUE(res.circuit_ok);
+}
+
+TYPED_TEST(BatchMergeTests, ValidProofPassesWithoutPadding)
+{
+    auto op_queue = make_op_queue_with_n_subtables(TestFixture::NumSubtables);
     auto res = TestFixture::prove_and_verify(op_queue);
     EXPECT_TRUE(res.reduction_ok);
     EXPECT_TRUE(res.pairing_ok);
@@ -364,7 +449,7 @@ TYPED_TEST(BatchMergeSoundnessTests, CompletenessValidProofPassesWithoutPadding)
 
 // Soundness
 
-TYPED_TEST(BatchMergeSoundnessTests, SoundnessWrongMergedTableFails)
+TYPED_TEST(BatchMergeTests, WrongMergedTableFails)
 {
     auto op_queue = make_op_queue_with_n_subtables(2);
     auto res = TestFixture::prove_and_verify(op_queue, FaultMode::WRONG_MERGED_TABLE);
@@ -375,9 +460,9 @@ TYPED_TEST(BatchMergeSoundnessTests, SoundnessWrongMergedTableFails)
     }
 }
 
-TYPED_TEST(BatchMergeSoundnessTests, SoundnessWrongHashFails)
+TYPED_TEST(BatchMergeTests, WrongHashFails)
 {
-    auto op_queue = make_op_queue_with_n_subtables(2);
+    auto op_queue = make_op_queue_with_n_subtables(4);
     auto res = TestFixture::prove_and_verify(op_queue, FaultMode::NONE, true);
     EXPECT_FALSE(res.reduction_ok); // Caught by the hash check
     EXPECT_TRUE(res.pairing_ok);
@@ -386,9 +471,9 @@ TYPED_TEST(BatchMergeSoundnessTests, SoundnessWrongHashFails)
     }
 }
 
-TYPED_TEST(BatchMergeSoundnessTests, SoundnessBadSubtableDegreeCheckFails)
+TYPED_TEST(BatchMergeTests, BadSubtableDegreeCheckFails)
 {
-    auto op_queue = make_op_queue_with_n_subtables(2);
+    auto op_queue = make_op_queue_with_n_subtables(6);
     auto res = TestFixture::prove_and_verify(op_queue, FaultMode::BAD_DEGREE_CHECK_POLY);
     EXPECT_FALSE(res.reduction_ok); // Caught by the degree check
     EXPECT_TRUE(res.pairing_ok);
@@ -397,9 +482,9 @@ TYPED_TEST(BatchMergeSoundnessTests, SoundnessBadSubtableDegreeCheckFails)
     }
 }
 
-TYPED_TEST(BatchMergeSoundnessTests, SoundnessPaddingTableNotInfinityFails)
+TYPED_TEST(BatchMergeTests, PaddingTableNotInfinityFails)
 {
-    auto op_queue = make_op_queue_with_n_subtables(2);
+    auto op_queue = make_op_queue_with_n_subtables(3);
     auto res = TestFixture::prove_and_verify(op_queue, FaultMode::PADDING_NOT_INFINITY);
     EXPECT_FALSE(res.reduction_ok); // Caught by the degree check: shift sizes are zeroed out >= N
     EXPECT_TRUE(res.pairing_ok);    // PCS is consistent
@@ -408,12 +493,23 @@ TYPED_TEST(BatchMergeSoundnessTests, SoundnessPaddingTableNotInfinityFails)
     }
 }
 
-TYPED_TEST(BatchMergeSoundnessTests, SoundnessShiftSizeMinusOneFailsReductionOnly)
+TYPED_TEST(BatchMergeTests, ShiftSizeMinusOneFailsReductionOnly)
 {
-    auto op_queue = make_op_queue_with_n_subtables(2);
+    auto op_queue = make_op_queue_with_n_subtables(7);
     auto res = TestFixture::prove_and_verify(op_queue, FaultMode::SHIFT_SIZE_MINUS_ONE);
     EXPECT_FALSE(res.reduction_ok); // Caught by the degree check
     EXPECT_TRUE(res.pairing_ok);
+    if constexpr (TestFixture::IsRecursive) {
+        EXPECT_FALSE(res.circuit_ok);
+    }
+}
+
+TYPED_TEST(BatchMergeTests, ZKTableDegreeTooHighFailsReductionOnly)
+{
+    auto op_queue = make_op_queue_with_n_subtables(5);
+    auto res = TestFixture::prove_and_verify(op_queue, FaultMode::ZK_TABLE_DEGREE_TOO_HIGH, false, true);
+    EXPECT_FALSE(res.reduction_ok); // Caught by degree/concatenation reductions via hard-coded ZK shift.
+    EXPECT_TRUE(res.pairing_ok);    // PCS opening remains self-consistent with sent commitments/evals.
     if constexpr (TestFixture::IsRecursive) {
         EXPECT_FALSE(res.circuit_ok);
     }
