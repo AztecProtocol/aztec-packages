@@ -72,11 +72,16 @@ include "constants_gen.pil";
  *
  * Usage is of the form:
  *
- * sel_XXX { a, b, c, xor_sel, tag_a }
+ * sel_XXX { a, b, c, xor_sel, tag, tag }
  * in
- * bitwise.start_XXX { bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.op_id, bitwise.tag_a };
+ * bitwise.start_XXX { bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.op_id, bitwise.tag_a, bitwise.tag_b };
  *
  * where start_XXX is either start_keccak or start_sha256.
+ * The caller passes the same tag column twice on the source side (u32_tag for sha256,
+ * tag_u64 for keccak) so that the source tuple matches the (tag_a, tag_b) pair on the
+ * destination. This constrains the target row's tag_b to equal tag_a, preventing a malicious
+ * prover from aiming a valid-looking keccak/sha256 lookup at a bitwise error row (which
+ * would otherwise match because its tag_b is unconstrained on the source side).
  * Note that the order of the tuple columns might differ though. As long as the correct columns
  * are passed, the usage is sound.
  *

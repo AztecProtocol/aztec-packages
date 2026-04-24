@@ -26,7 +26,9 @@ include "sha256_mem.pil";
  *   - gt.sel_sha256: range checks for rotation limbs and modular addition limbs.
  *     Tuple: { bound, value, result }, where result = 1 iff bound > value.
  *   - bitwise.start_sha256: XOR and AND operations for compression computation.
- *     Tuple: { input_a, input_b, output_c, op_id, tag }.
+ *     Tuple: { input_a, input_b, output_c, op_id, tag_a, tag_b }.
+ *     Note: tag_a and tag_b are both passed u32_tag since inputs are known to share the same tag;
+ *     duplicating the tag makes the source tuple match the (tag_a, tag_b) pair on the destination.
  *   - precomputed.sel_sha256_compression: round constant lookup by round index.
  *     Tuple: { round_index, constant }.
  *
@@ -257,15 +259,15 @@ namespace sha256;
     // s0 := (w[i-15] `rotr` 7) `xor` (w[i-15] `rotr` 18) `xor` (w[i-15] `rightshift`  3)
     pol commit w_15_rotr_7_xor_w_15_rotr_18;
     #[W_S_0_XOR_0]
-    sel_compute_w { w_15_rotr_7, w_15_rotr_18, w_15_rotr_7_xor_w_15_rotr_18, xor_op_id, u32_tag }
+    sel_compute_w { w_15_rotr_7, w_15_rotr_18, w_15_rotr_7_xor_w_15_rotr_18, xor_op_id, u32_tag, u32_tag }
     in
-    bitwise.start_sha256 { bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.op_id, bitwise.tag_a };
+    bitwise.start_sha256 { bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.op_id, bitwise.tag_a, bitwise.tag_b };
 
     pol commit w_s_0;
     #[W_S_0_XOR_1]
-    sel_compute_w { w_15_rotr_7_xor_w_15_rotr_18, lhs_w_3, w_s_0, xor_op_id, u32_tag }
+    sel_compute_w { w_15_rotr_7_xor_w_15_rotr_18, lhs_w_3, w_s_0, xor_op_id, u32_tag, u32_tag }
     in
-    bitwise.start_sha256 { bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.op_id, bitwise.tag_a };
+    bitwise.start_sha256 { bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.op_id, bitwise.tag_a, bitwise.tag_b };
 
     // ========== Compute w_s1 ===================
     // w[i-2] `rotr` 17 — combined constraint (see NOTE_ON_ROTATIONS)
@@ -312,15 +314,15 @@ namespace sha256;
     // s1 := (w[i-2] `rotr` 17) `xor` (w[i-2] `rotr` 19) `xor` (w[i-2] `rightshift` 10)
     pol commit w_2_rotr_17_xor_w_2_rotr_19;
     #[W_S_1_XOR_0]
-    sel_compute_w { w_2_rotr_17, w_2_rotr_19, w_2_rotr_17_xor_w_2_rotr_19, xor_op_id, u32_tag }
+    sel_compute_w { w_2_rotr_17, w_2_rotr_19, w_2_rotr_17_xor_w_2_rotr_19, xor_op_id, u32_tag, u32_tag }
     in
-    bitwise.start_sha256 { bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.op_id, bitwise.tag_a };
+    bitwise.start_sha256 { bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.op_id, bitwise.tag_a, bitwise.tag_b };
 
     pol commit w_s_1;
     #[W_S_1_XOR_1]
-    sel_compute_w { w_2_rotr_17_xor_w_2_rotr_19, lhs_w_10, w_s_1, xor_op_id, u32_tag }
+    sel_compute_w { w_2_rotr_17_xor_w_2_rotr_19, lhs_w_10, w_s_1, xor_op_id, u32_tag, u32_tag }
     in
-    bitwise.start_sha256 { bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.op_id, bitwise.tag_a };
+    bitwise.start_sha256 { bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.op_id, bitwise.tag_a, bitwise.tag_b };
 
     // ========== START OF COMPRESSION BLOCK ==================
 
@@ -367,24 +369,24 @@ namespace sha256;
 
     pol commit e_rotr_6_xor_e_rotr_11;
     #[S_1_XOR_0]
-    perform_round { e_rotr_6, e_rotr_11, e_rotr_6_xor_e_rotr_11, xor_op_id, u32_tag }
+    perform_round { e_rotr_6, e_rotr_11, e_rotr_6_xor_e_rotr_11, xor_op_id, u32_tag, u32_tag }
     in
-    bitwise.start_sha256 { bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.op_id, bitwise.tag_a };
+    bitwise.start_sha256 { bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.op_id, bitwise.tag_a, bitwise.tag_b };
 
     pol commit s_1;
     #[S_1_XOR_1]
-    perform_round { e_rotr_6_xor_e_rotr_11, e_rotr_25, s_1, xor_op_id, u32_tag }
+    perform_round { e_rotr_6_xor_e_rotr_11, e_rotr_25, s_1, xor_op_id, u32_tag, u32_tag }
     in
-    bitwise.start_sha256 { bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.op_id, bitwise.tag_a };
+    bitwise.start_sha256 { bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.op_id, bitwise.tag_a, bitwise.tag_b };
 
     // ==== COMPUTING CH ===========
     // pol CH = (E `and` F) `xor` ((`not` E) `and` G);
     pol commit e_and_f;
 
     #[CH_AND_0]
-    perform_round { e, f, e_and_f, and_op_id, u32_tag }
+    perform_round { e, f, e_and_f, and_op_id, u32_tag, u32_tag }
     in
-    bitwise.start_sha256 { bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.op_id, bitwise.tag_a };
+    bitwise.start_sha256 { bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.op_id, bitwise.tag_a, bitwise.tag_b };
 
     // Bitwise NOT of e: not_e = (2^32 - 1) - e, i.e. the ones' complement for 32-bit values.
     pol commit not_e;
@@ -392,15 +394,15 @@ namespace sha256;
 
     pol commit not_e_and_g;
     #[CH_AND_1]
-    perform_round { not_e, g, not_e_and_g, and_op_id, u32_tag }
+    perform_round { not_e, g, not_e_and_g, and_op_id, u32_tag, u32_tag }
     in
-    bitwise.start_sha256 { bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.op_id, bitwise.tag_a };
+    bitwise.start_sha256 { bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.op_id, bitwise.tag_a, bitwise.tag_b };
 
     pol commit ch;
     #[CH_XOR]
-    perform_round { e_and_f, not_e_and_g, ch, xor_op_id, u32_tag }
+    perform_round { e_and_f, not_e_and_g, ch, xor_op_id, u32_tag, u32_tag }
     in
-    bitwise.start_sha256 { bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.op_id, bitwise.tag_a };
+    bitwise.start_sha256 { bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.op_id, bitwise.tag_a, bitwise.tag_b };
 
     // ===== COMPUTING TMP 1 ===========
     // Lookup round constants
@@ -456,47 +458,47 @@ namespace sha256;
     // (A_0 `rotr` 2) `xor` (A_0 `rotr` 13)
     pol commit a_rotr_2_xor_a_rotr_13;
     #[S_0_XOR_0]
-    perform_round { a_rotr_2, a_rotr_13, a_rotr_2_xor_a_rotr_13, xor_op_id, u32_tag }
+    perform_round { a_rotr_2, a_rotr_13, a_rotr_2_xor_a_rotr_13, xor_op_id, u32_tag, u32_tag }
     in
-    bitwise.start_sha256 { bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.op_id, bitwise.tag_a };
+    bitwise.start_sha256 { bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.op_id, bitwise.tag_a, bitwise.tag_b };
 
     pol commit s_0;
     #[S_0_XOR_1]
-    perform_round { a_rotr_2_xor_a_rotr_13, a_rotr_22, s_0, xor_op_id, u32_tag }
+    perform_round { a_rotr_2_xor_a_rotr_13, a_rotr_22, s_0, xor_op_id, u32_tag, u32_tag }
     in
-    bitwise.start_sha256 { bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.op_id, bitwise.tag_a };
+    bitwise.start_sha256 { bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.op_id, bitwise.tag_a, bitwise.tag_b };
 
     // ====== Computing Maj =========
     // pol MAJ = (A `and` B) `xor` (A `and` C) `xor` (B `and` C);
     pol commit a_and_b;
     #[MAJ_AND_0]
-    perform_round { a, b, a_and_b, and_op_id, u32_tag }
+    perform_round { a, b, a_and_b, and_op_id, u32_tag, u32_tag }
     in
-    bitwise.start_sha256 { bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.op_id, bitwise.tag_a };
+    bitwise.start_sha256 { bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.op_id, bitwise.tag_a, bitwise.tag_b };
 
     pol commit a_and_c;
     #[MAJ_AND_1]
-    perform_round { a, c, a_and_c, and_op_id, u32_tag }
+    perform_round { a, c, a_and_c, and_op_id, u32_tag, u32_tag }
     in
-    bitwise.start_sha256 { bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.op_id, bitwise.tag_a };
+    bitwise.start_sha256 { bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.op_id, bitwise.tag_a, bitwise.tag_b };
 
     pol commit b_and_c;
     #[MAJ_AND_2]
-    perform_round { b, c, b_and_c, and_op_id, u32_tag }
+    perform_round { b, c, b_and_c, and_op_id, u32_tag, u32_tag }
     in
-    bitwise.start_sha256 { bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.op_id, bitwise.tag_a };
+    bitwise.start_sha256 { bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.op_id, bitwise.tag_a, bitwise.tag_b };
 
     pol commit a_and_b_xor_a_and_c;
     #[MAJ_XOR_0]
-    perform_round { a_and_b, a_and_c, a_and_b_xor_a_and_c, xor_op_id, u32_tag }
+    perform_round { a_and_b, a_and_c, a_and_b_xor_a_and_c, xor_op_id, u32_tag, u32_tag }
     in
-    bitwise.start_sha256 { bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.op_id, bitwise.tag_a };
+    bitwise.start_sha256 { bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.op_id, bitwise.tag_a, bitwise.tag_b };
 
     pol commit maj;
     #[MAJ_XOR_1]
-    perform_round { a_and_b_xor_a_and_c, b_and_c, maj, xor_op_id, u32_tag }
+    perform_round { a_and_b_xor_a_and_c, b_and_c, maj, xor_op_id, u32_tag, u32_tag }
     in
-    bitwise.start_sha256 { bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.op_id, bitwise.tag_a };
+    bitwise.start_sha256 { bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.op_id, bitwise.tag_a, bitwise.tag_b };
 
     // ==== Compute TMP 2 ====
     pol NEXT_A = s_0 + maj + TMP_1;

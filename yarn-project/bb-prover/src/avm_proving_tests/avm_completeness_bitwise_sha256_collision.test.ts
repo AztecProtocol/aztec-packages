@@ -13,7 +13,7 @@ import { AvmProvingTester } from './avm_proving_tester.js';
 
 const BB_PATH = path.resolve('../../barretenberg/cpp/build/bin/bb-avm');
 
-describe('AVM completeness — bitwise/sha256 error row collision', () => {
+describe('AVM completeness — bitwise/sha256 error row collision (regression guard)', () => {
   let tester: AvmProvingTester;
   let worldStateService: NativeWorldStateService;
   const logger = createLogger('avm-completeness-bitwise-sha256');
@@ -27,22 +27,29 @@ describe('AVM completeness — bitwise/sha256 error row collision', () => {
     await worldStateService.close();
   });
 
-  it('confirms completeness bug: honest transaction cannot be proven (BITW_NO_EXTERNAL_START_ON_ERROR violated)', async () => {
+  // Guards against regression of the completeness bug where an honest tx whose inner call
+  // emits a bitwise error row (XOR with tag mismatch) and whose outer call runs
+  // SHA256COMPRESSION with sigma0(w[1]=0) → XOR(U32(0), U32(0)) could not be proven: the
+  // sha256 bitwise lookup collided with the inner's error row on the 5-tuple
+  // (0, 0, 0, XOR, U32), violating BITW_NO_EXTERNAL_START_ON_ERROR. The fix adds a second
+  // input tag to the bitwise lookup from keccakf1600.pil/sha256.pil so the caller passes
+  // (u32_tag, u32_tag) while error rows have (tag_a, tag_b) with tag_a != tag_b, making
+  // the collision impossible.
+  it('proves honest tx with sha256 XOR(U32(0), U32(0)) after inner bitwise error', async () => {
     const { innerContract, outerContract } = await deployBitwiseSha256ErrorRowCollisionContracts(tester);
     const sender = AztecAddress.fromNumber(42);
 
-    // 1. Simulation — inner call reverts (tag mismatch), outer runs SHA256, outer RETURNs OK.
-    //    The tx is valid from the node's perspective.
+    // Inner call reverts (tag mismatch), outer runs SHA256, outer RETURNs OK.
     const simRes = await tester.simulateTx(
       sender,
       /*setupCalls=*/ [],
       /*appCalls=*/ [{ address: outerContract.address, args: [innerContract.address.toField()] }],
     );
     expect(simRes.revertCode.isOK()).toBe(true);
-    logger.info('Simulation succeeded — transaction is valid from the node perspective');
 
-    // 2. Proving — call generateAvmProof directly to bypass AvmProvingTester.prove()'s
-    //    internal expect(SUCCESS). We want to ASSERT that proving FAILS.
+    // Call generateAvmProof directly (AvmProvingTester.prove() asserts SUCCESS internally,
+    // which would work here, but calling directly keeps this test symmetric with the
+    // original bug-reproducer and lets us log the failure reason on regression).
     const bbWorkingDirectory = await fs.mkdtemp(path.join(tmpdir(), 'bb-'));
     const avmCircuitInputs = new AvmCircuitInputs(simRes.hints!, simRes.publicInputs!);
     const proofRes = await generateAvmProof(
@@ -54,9 +61,8 @@ describe('AVM completeness — bitwise/sha256 error row collision', () => {
     );
 
     if (proofRes.status === BB_RESULT.FAILURE) {
-      logger.info(`Proving FAILED — completeness bug confirmed: honest prover cannot prove valid tx`);
-      logger.info(`Failure reason: ${proofRes.reason}`);
+      logger.error(`Proving FAILED — completeness regression: ${proofRes.reason}`);
     }
-    expect(proofRes.status).toBe(BB_RESULT.FAILURE);
+    expect(proofRes.status).toBe(BB_RESULT.SUCCESS);
   }, 180_000);
 });
