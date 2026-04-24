@@ -21,7 +21,6 @@
     "test:preprocess": "node --test src/preprocess/__tests__/*.test.js"
   },
   "dependencies": {
-    "@cookbookdev/docsbot": "^4.25.15",
     "@docusaurus/core": "3.9.1",
     "@docusaurus/plugin-content-docs": "3.9.1",
     "@docusaurus/plugin-ideal-image": "3.9.1",

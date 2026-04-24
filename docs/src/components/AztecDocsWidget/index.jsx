@@ -67,6 +67,22 @@ const Icons = {
       <path d="M14 2v6h6" />
     </svg>
   ),
+  expand: (p) => (
+    <svg viewBox="0 0 24 24" width={p.size || 14} height={p.size || 14} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M15 3h6v6" />
+      <path d="M9 21H3v-6" />
+      <path d="M21 3l-7 7" />
+      <path d="M3 21l7-7" />
+    </svg>
+  ),
+  collapse: (p) => (
+    <svg viewBox="0 0 24 24" width={p.size || 14} height={p.size || 14} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 14h6v6" />
+      <path d="M20 10h-6V4" />
+      <path d="M14 10l7-7" />
+      <path d="M3 21l7-7" />
+    </svg>
+  ),
 };
 
 const DEFAULT_SUGGESTED = [
@@ -182,6 +198,7 @@ export default function AztecDocsWidget({
   motif = true,
 }) {
   const [open, setOpen] = useState(false);
+  const [expanded, setExpanded] = useState(false);
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState([]);
   const [streaming, setStreaming] = useState(false);
@@ -283,6 +300,7 @@ export default function AztecDocsWidget({
       bottom: 32,
       cursor: 'pointer',
       border: 'none',
+      zIndex: 2147483000,
       transition: 'transform 200ms var(--azw-ease), box-shadow 200ms var(--azw-ease)',
     };
 
@@ -680,17 +698,20 @@ export default function AztecDocsWidget({
     <div
       style={{
         position: 'fixed',
-        ...side,
-        bottom: 32,
-        width: panelWidth,
-        height: panelHeight,
-        maxHeight: 'calc(100vh - 64px)',
+        ...(expanded
+          ? { right: 32, left: 32, top: 32, bottom: 32 }
+          : { ...side, bottom: 32 }),
+        width: expanded ? 'auto' : panelWidth,
+        height: expanded ? 'auto' : panelHeight,
+        maxWidth: expanded ? undefined : 'calc(100vw - 64px)',
+        maxHeight: expanded ? undefined : 'calc(100vh - 64px)',
         background: panelBg,
         border: `1.5px solid ${panelBorder}`,
         boxShadow: isInk ? `4px 4px 0 ${accentColor}` : '4px 4px 0 var(--azw-ink)',
         display: 'flex',
         flexDirection: 'column',
         overflow: 'hidden',
+        zIndex: 2147483000,
       }}
     >
       {/* Header */}
@@ -751,7 +772,7 @@ export default function AztecDocsWidget({
                   boxShadow: `0 0 6px ${accentColor}`,
                 }}
               />
-              Online · Powered by DocsGPT
+              Online
             </div>
           </div>
         </div>
@@ -775,6 +796,24 @@ export default function AztecDocsWidget({
               <Icons.refresh size={14} />
             </button>
           )}
+          <button
+            onClick={() => setExpanded((v) => !v)}
+            title={expanded ? 'Collapse' : 'Expand'}
+            aria-label={expanded ? 'Collapse widget' : 'Expand widget'}
+            style={{
+              width: 28,
+              height: 28,
+              border: 'none',
+              background: 'transparent',
+              color: panelFg2,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            {expanded ? <Icons.collapse size={14} /> : <Icons.expand size={14} />}
+          </button>
           <button
             onClick={() => setOpen(false)}
             title="Close"
@@ -801,10 +840,12 @@ export default function AztecDocsWidget({
         style={{
           flex: 1,
           overflowY: 'auto',
+          overflowX: 'hidden',
           background: panelBg,
           color: panelFg,
         }}
       >
+        <div style={{ maxWidth: expanded ? 760 : '100%', margin: '0 auto' }}>
         {showHero && renderHero()}
         {messages.length > 0 && (
           <div style={{ padding: '18px 18px 4px' }}>
@@ -827,6 +868,7 @@ export default function AztecDocsWidget({
             })}
           </div>
         )}
+        </div>
       </div>
 
       {/* Composer */}
@@ -837,6 +879,7 @@ export default function AztecDocsWidget({
           background: isInk ? 'rgba(0,0,0,0.15)' : 'var(--azw-parchment-tint-2)',
         }}
       >
+        <div style={{ maxWidth: expanded ? 760 : '100%', margin: '0 auto' }}>
         <form
           onSubmit={(e) => {
             e.preventDefault();
@@ -896,6 +939,7 @@ export default function AztecDocsWidget({
           }}
         >
           AI-generated · Verify important facts
+        </div>
         </div>
       </div>
     </div>
