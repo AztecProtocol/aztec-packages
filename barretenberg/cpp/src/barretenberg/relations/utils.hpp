@@ -213,64 +213,38 @@ template <typename Flavor> class RelationUtils {
      * @param result Batched result
      */
     /**
-     * @brief Scale per-subrelation evaluations by `α` powers (and optionally by row-disabling
-     * factors) and sum them.
+     * @brief Scale per-subrelation evaluations by α powers and row-disabling factors, then sum.
      *
      * @details Returns
      * \f[
-     *   \sum_R \Lambda_R(u) \cdot \sum_j \alpha_{R,j} \cdot v_{R,j}
+     *   \sum_R \Lambda_R \cdot \sum_j \alpha_{R,j} \cdot v_{R,j}
      * \f]
      * where `v_{R,j}` are the per-subrelation claimed evaluations, `α_{R,j}` are the α powers
-     * (with `α_{0,0} = 1`), and `Λ_R(u)` is the row-disabling factor:
-     *   - when `ApplyRowDisabling = false` (default): `Λ_R ≡ 1`;
-     *   - when `ApplyRowDisabling = true`: `Λ_R(u) = L(u)` if `IsOffsetOnlyRelation<R>`, else
-     *     `(1 - L)(u)`.
+     * (with `α_{0,0} = 1`), and `Λ_R ∈ {main_factor, offset_factor}` selected by
+     * `IsOffsetOnlyRelation<R>`. The defaults `(main_factor, offset_factor) = (1, 0)` encode
+     * "no row disabling" — main relations pass through unscaled and offset-only relations
+     * collapse to zero (matching the prover's main-loop path). For the row-disabling path pass
+     * `main_factor = (1 - L)(u)` and `offset_factor = L(u)`.
      *
-     * When the flavor lists no offset-only relation, the row-disabling form reduces to
-     * `scale_and_batch_elements · (1 - L)(u)`.
-     *
-     * @param tuple             Tuple of arrays of per-subrelation FF evaluations (RelationEvaluations).
-     * @param subrelation_separators  α powers.
-     * @param one_minus_L_at_u  `RowDisablingPolynomial::evaluate_at_challenge(u, log_n)`, used when
-     *                          `ApplyRowDisabling = true`.
-     * @param L_at_u            Dual factor, typically `FF{1} - one_minus_L_at_u`.
+     * The α counter advances through every subrelation regardless of `Λ_R`, matching the
+     * prover's `scale_univariates` which α-scales every accumulator.
      */
-    template <bool ApplyRowDisabling = false>
     static FF scale_and_batch_elements(auto& tuple,
                                        const SubrelationSeparators& subrelation_separators,
-                                       const FF& one_minus_L_at_u = FF{ 0 },
-                                       const FF& L_at_u = FF{ 0 })
+                                       const FF& main_factor = FF{ 1 },
+                                       const FF& offset_factor = FF{ 0 })
     {
         FF result{ 0 };
         size_t idx = 0;
 
         auto process = [&]<size_t outer_idx, size_t inner_idx>(auto& element) {
             using Relation = std::tuple_element_t<outer_idx, Relations>;
-            // Offset-only relations only enter the sum via their `L` factor. In the plain path
-            // they are discarded — the α-index is advanced to keep the α-power bookkeeping aligned
-            // across all subrelations (matching the prover's transcript ordering).
-            if constexpr (!ApplyRowDisabling && IsOffsetOnlyRelation<Relation>) {
-                if constexpr (!(outer_idx == 0 && inner_idx == 0)) {
-                    ++idx;
-                }
-                return;
-            }
-
-            constexpr bool is_first = (outer_idx == 0 && inner_idx == 0);
-            if constexpr (ApplyRowDisabling) {
-                const FF& rd_factor = IsOffsetOnlyRelation<Relation> ? L_at_u : one_minus_L_at_u;
-                if constexpr (is_first) {
-                    result += element * rd_factor;
-                } else {
-                    result += element * subrelation_separators[idx++] * rd_factor;
-                }
-            } else {
+            const FF& rd_factor = IsOffsetOnlyRelation<Relation> ? offset_factor : main_factor;
+            if constexpr (outer_idx == 0 && inner_idx == 0) {
                 // α_{0,0} = 1 by convention.
-                if constexpr (is_first) {
-                    result += element;
-                } else {
-                    result += element * subrelation_separators[idx++];
-                }
+                result += element * rd_factor;
+            } else {
+                result += element * subrelation_separators[idx++] * rd_factor;
             }
         };
         apply_to_tuple_of_arrays_elements(process, tuple);

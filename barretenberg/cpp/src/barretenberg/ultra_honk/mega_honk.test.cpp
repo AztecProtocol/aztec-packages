@@ -388,7 +388,7 @@ TYPED_TEST(MegaHonkTests, MaliciousEccOpWireInOffsetAreaRejected)
         using Builder = Flavor::CircuitBuilder;
         using FF = Flavor::FF;
 
-        auto prove_and_verify = [this](bool tamper) {
+        auto prove_and_verify = [](bool tamper) {
             Builder builder;
             GoblinMockCircuits::construct_simple_circuit(builder);
 

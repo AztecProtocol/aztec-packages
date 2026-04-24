@@ -818,25 +818,22 @@ template <typename Flavor, bool CommittedSumcheck = UsesCommittedSumcheck<Flavor
     /**
      * @brief Evaluate the full Honk relation at the sumcheck challenge `u`.
      *
-     * @details When `ApplyRowDisabling = true`, main-domain relations are scaled by
-     * `(1 - L)(u)` and offset-only relations by `L(u)` (the `one_minus_L_at_u` / `L_at_u`
-     * arguments are then required). When `ApplyRowDisabling = false` (default), offset-only
-     * relations are dropped and the plain α-batch is returned.
+     * @details Defaults `(main_factor, offset_factor) = (1, 0)` encode "no row disabling";
+     * passing `((1 - L)(u), L(u))` selects the row-disabling batching (main-domain rels scaled
+     * by `(1 - L)(u)`, offset-only rels by `L(u)`).
      */
-    template <bool ApplyRowDisabling = false>
     FF compute_full_relation_purported_value(const ClaimedEvaluations& purported_evaluations,
                                              const bb::RelationParameters<FF>& relation_parameters,
                                              const bb::GateSeparatorPolynomial<FF>& gate_separators,
                                              const SubrelationSeparators& alphas,
-                                             const FF& one_minus_L_at_u = FF{ 0 },
-                                             const FF& L_at_u = FF{ 0 })
+                                             const FF& main_factor = FF{ 1 },
+                                             const FF& offset_factor = FF{ 0 })
     {
         Utils::template accumulate_relation_evaluations_without_skipping<>(purported_evaluations,
                                                                            relation_evaluations,
                                                                            relation_parameters,
                                                                            gate_separators.partial_evaluation_result);
-        return Utils::template scale_and_batch_elements<ApplyRowDisabling>(
-            relation_evaluations, alphas, one_minus_L_at_u, L_at_u);
+        return Utils::scale_and_batch_elements(relation_evaluations, alphas, main_factor, offset_factor);
     }
 
     /**
@@ -931,20 +928,18 @@ template <typename Flavor> class SumcheckVerifierRound<Flavor, true> {
      * @brief Evaluate the full Honk relation at the sumcheck challenge `u` (Grumpkin variant).
      * @details See the analogous method in the non-Grumpkin `SumcheckVerifierRound` above.
      */
-    template <bool ApplyRowDisabling = false>
     FF compute_full_relation_purported_value(const ClaimedEvaluations& purported_evaluations,
                                              const bb::RelationParameters<FF>& relation_parameters,
                                              const bb::GateSeparatorPolynomial<FF>& gate_separators,
                                              const SubrelationSeparators& alphas,
-                                             const FF& one_minus_L_at_u = FF{ 0 },
-                                             const FF& L_at_u = FF{ 0 })
+                                             const FF& main_factor = FF{ 1 },
+                                             const FF& offset_factor = FF{ 0 })
     {
         Utils::template accumulate_relation_evaluations_without_skipping<>(purported_evaluations,
                                                                            relation_evaluations,
                                                                            relation_parameters,
                                                                            gate_separators.partial_evaluation_result);
-        return Utils::template scale_and_batch_elements<ApplyRowDisabling>(
-            relation_evaluations, alphas, one_minus_L_at_u, L_at_u);
+        return Utils::scale_and_batch_elements(relation_evaluations, alphas, main_factor, offset_factor);
     }
 
     /**

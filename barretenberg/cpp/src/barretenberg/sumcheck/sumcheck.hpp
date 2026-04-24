@@ -905,14 +905,17 @@ template <typename Flavor> class SumcheckVerifier {
 
         // Evaluate the Honk relation at the sumcheck challenge using the claimed evaluations. For
         // ZK flavors with row-disabling, main-domain relations are scaled by (1 - L)(u) and
-        // offset-only relations by L(u); otherwise plain α-batching applies.
-        constexpr bool apply_row_disabling = UseRowDisablingPolynomial<Flavor> && Flavor::HasZK;
-        const FF one_minus_L_at_u = apply_row_disabling ? RowDisablingPolynomial<FF>::evaluate_at_challenge(
-                                                              multivariate_challenge, multivariate_challenge.size())
-                                                        : FF{ 0 };
-        const FF L_at_u = apply_row_disabling ? FF{ 1 } - one_minus_L_at_u : FF{ 0 };
-        FF full_honk_purported_value = round.template compute_full_relation_purported_value<apply_row_disabling>(
-            purported_evaluations, relation_parameters, gate_separators, alphas, one_minus_L_at_u, L_at_u);
+        // offset-only relations by L(u); otherwise the defaults (1, 0) reduce to plain α-batching
+        // with offset-only relations dropped.
+        FF main_factor{ 1 };
+        FF offset_factor{ 0 };
+        if constexpr (UseRowDisablingPolynomial<Flavor> && Flavor::HasZK) {
+            main_factor = RowDisablingPolynomial<FF>::evaluate_at_challenge(multivariate_challenge,
+                                                                            multivariate_challenge.size());
+            offset_factor = FF{ 1 } - main_factor;
+        }
+        FF full_honk_purported_value = round.compute_full_relation_purported_value(
+            purported_evaluations, relation_parameters, gate_separators, alphas, main_factor, offset_factor);
 
         // Libra correction (ZK only).
         zk_correction_handler.apply_zk_corrections(full_honk_purported_value, multivariate_challenge);

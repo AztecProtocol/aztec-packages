@@ -186,11 +186,10 @@ template <typename Curve> bool BatchedHonkTranslatorVerifier_<Curve>::verify_joi
     // row-disabling, so row-disabling factors at the sumcheck challenge are passed to the
     // verifier's full-relation evaluation.
     SumcheckVerifierRound<MegaZKFlavorT> mega_zk_frv_round;
-    const FF one_minus_L_at_u =
-        RowDisablingPolynomial<FF>::evaluate_at_challenge(joint_challenge, joint_challenge.size());
-    const FF L_at_u = FF{ 1 } - one_minus_L_at_u;
-    FF frv_mega_zk = mega_zk_frv_round.template compute_full_relation_purported_value</*ApplyRowDisabling=*/true>(
-        mega_zk_evals, mega_zk_relation_parameters, final_gate_sep, mega_zk_alphas, one_minus_L_at_u, L_at_u);
+    const FF main_factor = RowDisablingPolynomial<FF>::evaluate_at_challenge(joint_challenge, joint_challenge.size());
+    const FF offset_factor = FF{ 1 } - main_factor;
+    FF frv_mega_zk = mega_zk_frv_round.compute_full_relation_purported_value(
+        mega_zk_evals, mega_zk_relation_parameters, final_gate_sep, mega_zk_alphas, main_factor, offset_factor);
 
     // Translator FRV (no row-disabling).
     SumcheckVerifierRound<TransFlavor> trans_frv_round;
