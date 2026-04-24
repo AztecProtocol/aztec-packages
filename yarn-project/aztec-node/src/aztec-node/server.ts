@@ -743,8 +743,6 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
         validatorClient,
         keyStoreManager,
         debugLogStore,
-        avmPool,
-        cdbServer,
       );
 
       // Register IPC backends for cleanup on stop

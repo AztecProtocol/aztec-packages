@@ -103,21 +103,13 @@ describe('Public TX simulator apps tests: bytecode flow unhappy paths', () => {
   });
 });
 
-describe.each([
-  { useCppSimulator: false, simulatorName: 'TS Simulator' },
-  { useCppSimulator: true, simulatorName: 'Cpp Simulator' },
-])('Public TX simulator apps tests: custom bytecodes truncation ($simulatorName)', ({ useCppSimulator }) => {
+describe('Public TX simulator apps tests: custom bytecodes truncation', () => {
   let worldStateService: NativeWorldStateService;
   let tester: PublicTxSimulationTester;
 
   beforeEach(async () => {
     worldStateService = await NativeWorldStateService.tmp();
-    tester = await PublicTxSimulationTester.create(
-      worldStateService,
-      /*globals=*/ undefined,
-      /*metrics=*/ undefined,
-      useCppSimulator,
-    );
+    tester = await PublicTxSimulationTester.create(worldStateService);
   });
 
   afterEach(async () => {
