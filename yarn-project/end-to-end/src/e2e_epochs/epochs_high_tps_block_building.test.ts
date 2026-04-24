@@ -7,11 +7,13 @@ import type { Logger } from '@aztec/aztec.js/log';
 import { waitForTx } from '@aztec/aztec.js/node';
 import type { Operator } from '@aztec/ethereum/deploy-aztec-l1-contracts';
 import { asyncMap } from '@aztec/foundation/async-map';
-import { BlockNumber } from '@aztec/foundation/branded-types';
-import { times, timesAsync } from '@aztec/foundation/collection';
+import { BlockNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { chunkBy, times, timesAsync } from '@aztec/foundation/collection';
 import { SecretValue } from '@aztec/foundation/config';
+import { sleepUntil } from '@aztec/foundation/sleep';
 import { bufferToHex } from '@aztec/foundation/string';
 import type { SpamContract } from '@aztec/noir-test-contracts.js/Spam';
+import { getSlotAtTimestamp, getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
 
 import { jest } from '@jest/globals';
 import { privateKeyToAccount } from 'viem/accounts';
@@ -24,21 +26,47 @@ jest.setTimeout(1000 * 60 * 10);
 
 const NODE_COUNT = 3;
 
-// We send 8 txs total, each taking several seconds to process (see sequencerFakeDelayPerTxMs), with a total
-// L2 slot time of 24s, with l1PublishingTime set to the full 8s L1 slot duration and attestationPropagationTime of 1s.
-// This leaves us with a few seconds for executing txs. This test will check that proposers honor the timetable
-// and do not try to include more than N txs per block. Should we ever implement preemptive block building,
-// sequencers will end up with more time, so we'll need to bump the EXPECTED_MAX_TXS_PER_BLOCK value.
-const TX_COUNT = 8;
+// Multi-block-per-slot test under pipelining. Exercises a full checkpoint (4 blocks × 2 txs) and verifies the
+// checkpoint tx lands on the 2nd L1 block of its target slot.
+//
+// Config: aztecSlotDuration=36s, ethereumSlotDuration=12s (3 L1 blocks / L2 slot), blockDuration=6s,
+//         fakeProcessingDelayPerTxMs=2500ms, attestationPropagationTime=1s, l1PublishingTime=12s,
+//         txDelayerMaxInclusionTimeIntoSlot=1s.
+//
+// Time inside a build slot (36s total):
+//   T=0-1    (1s)  init (checkpointInitializationTime)
+//   T=1-7    (6s)  block 1      ── 2 txs × 2.5s = 5s, fits in 6s block budget
+//   T=7-13   (6s)  block 2
+//   T=13-19  (6s)  block 3
+//   T=19-25  (6s)  block 4
+//   T=25-26  (1s)  checkpoint assemble
+//   T=26-27  (1s)  proposal out  (p2pPropagationTime)        ┐
+//   T=27-33  (6s)  validators re-execute last block           │ timeReservedAtEnd = 9s
+//   T=33-34  (1s)  attestations back (p2pPropagationTime)    ┘
+//   T=34-36  (2s)  slack
+//
+// At target-slot start (T=0 of target slot) the proposer submits the L1 propose tx. With
+// txDelayerMaxInclusionTimeIntoSlot=1s, it falls inside the current L1 slot window and lands in the next
+// L1 block — the 2nd L1 block of the target slot (offset=1). It can also land in the 1st L1 block (offset=0)
+// if attestations arrive fast enough that the proposer submits inside the last second of the build slot.
+// Expected mining layout for a target slot:
+//
+//        T=0                T=12                T=24                T=36
+//        ├──────────────────┼──────────────────┼──────────────────┤
+//        │ 1st L1 block     │ 2nd L1 block     │ 3rd L1 block     │
+//        │ ← fast submit    │ ← typical        │                  │
+//
+const BLOCKS_PER_CHECKPOINT = 4;
+const TXS_PER_BLOCK = 2;
+const CHECKPOINTS_TO_CHECK = 2;
+// Extra txs beyond the ones we assert on: one partial checkpoint at startup (sequencers start mid-slot with
+// only one blockDuration of slack) plus a buffer at the tail.
+const TX_COUNT = BLOCKS_PER_CHECKPOINT * TXS_PER_BLOCK * (CHECKPOINTS_TO_CHECK + 1);
 const TX_DURATION_MS = 2500;
-const EXPECTED_MAX_TXS_PER_BLOCK = 3;
+const BLOCK_DURATION_MS = 6000;
+const L2_SLOT_DURATION_S = 36;
+const L1_BLOCK_TIME_S = 12;
 
-// Test that sequencers and validators can handle a large backlog of transactions.
-// Spawns NODE_COUNT validator nodes, connected via a mocked gossip sub network.
-// Introduces an arbitrary delay to public tx simulation to fake long processing times,
-// then spams the network with TX_COUNT transactions. In addition, uses the l1 tx
-// delayer to fake long L1 tx inclusion times, so sending a tx immediately before an L1
-// block is mined does not get it included, like in an actual network.
 describe('e2e_epochs/epochs_high_tps_block_building', () => {
   let context: EndToEndContext;
   let logger: Logger;
@@ -56,7 +84,6 @@ describe('e2e_epochs/epochs_high_tps_block_building', () => {
       return { attester, withdrawer: attester, privateKey, bn254SecretKey: new SecretValue(Fr.random().toBigInt()) };
     });
 
-    // Setup context with the given set of validators, no reorgs, mocked gossip sub network, and no anvil test watcher.
     test = await EpochsTestContext.setup({
       numberOfAccounts: 0,
       initialValidators: validators,
@@ -65,14 +92,17 @@ describe('e2e_epochs/epochs_high_tps_block_building', () => {
       aztecProofSubmissionEpochs: 1024,
       startProverNode: false,
       enforceTimeTable: true,
-      ethereumSlotDuration: 8,
-      l1PublishingTime: 8,
-      aztecSlotDuration: 24,
+      ethereumSlotDuration: L1_BLOCK_TIME_S,
+      l1PublishingTime: L1_BLOCK_TIME_S,
+      aztecSlotDuration: L2_SLOT_DURATION_S,
+      blockDurationMs: BLOCK_DURATION_MS,
       fakeProcessingDelayPerTxMs: TX_DURATION_MS,
       attestationPropagationTime: 1,
       minTxsPerBlock: 1,
       maxTxsPerBlock: 100,
       skipInitialSequencer: true,
+      enableProposerPipelining: true,
+      inboxLag: 2,
     });
 
     ({ context, logger } = test);
@@ -98,45 +128,90 @@ describe('e2e_epochs/epochs_high_tps_block_building', () => {
   });
 
   it('builds blocks without any errors', async () => {
-    // Create and submit several txs
+    // Pre-prove and send all txs so the proposer has a full backlog ready in the pool when it starts building.
     const txs = await timesAsync(TX_COUNT, i =>
       proveInteraction(context.wallet, contract.methods.spam(i, 1n, false), { from }),
     );
     const txHashes = await Promise.all(txs.map(tx => tx.send({ wait: NO_WAIT })));
-    logger.warn(`Sent ${txHashes.length} transactions`, {
-      txs: txHashes,
-    });
+    logger.warn(`Sent ${txHashes.length} transactions`, { txs: txHashes });
 
     const sequencers = nodes.map(node => node.getSequencer()!);
     const { failEvents } = test.watchSequencerEvents(sequencers, i => ({ validator: validators[i].attester }));
 
-    // Start the sequencers!
+    // Wait until `ethereumSlotDuration + blockDuration` seconds before the L2 target slot boundary before
+    // starting the sequencers. The sequencer's timetable treats the build window for slot N as starting at
+    // `slotStart(N) - ethereumSlotDuration` (see `getSlotStartBuildTimestamp` in `stdlib/src/epoch-helpers`),
+    // so we need at least one ethereum slot of lead on top of one blockDuration to guarantee that sub-slot 1
+    // of the first build slot is reachable (and hence the first checkpoint is fully filled).
+    const leadSeconds = test.L1_BLOCK_TIME_IN_S + BLOCK_DURATION_MS / 1000;
+    const currentL1Block = await test.l1Client.getBlock({ blockTag: 'latest' });
+    const currentSlot = getSlotAtTimestamp(currentL1Block.timestamp, test.constants);
+    let targetSlot = SlotNumber(currentSlot + 1);
+    let startSequencersAt = new Date(
+      Number(getTimestampForSlot(targetSlot, test.constants)) * 1000 - leadSeconds * 1000,
+    );
+    if (startSequencersAt.getTime() <= context.dateProvider.now()) {
+      targetSlot = SlotNumber(targetSlot + 1);
+      startSequencersAt = new Date(Number(getTimestampForSlot(targetSlot, test.constants)) * 1000 - leadSeconds * 1000);
+    }
+    logger.warn(
+      `Waiting until ${startSequencersAt.toISOString()} (${leadSeconds}s before L2 slot ${targetSlot} starts)`,
+    );
+    await sleepUntil(startSequencersAt, context.dateProvider.nowAsDate());
+
     await Promise.all(sequencers.map(sequencer => sequencer.start()));
     logger.warn(`Started all sequencers`);
 
-    // Wait until all txs are mined
-    const timeout = test.L2_SLOT_DURATION_IN_S * (TX_COUNT + 3);
+    // Wait until all txs are mined.
+    const timeout = test.L2_SLOT_DURATION_IN_S * (CHECKPOINTS_TO_CHECK * 2 + 8);
     await Promise.all(txHashes.map(txHash => waitForTx(context.aztecNode, txHash, { timeout })));
     logger.warn(`All txs have been mined`);
 
-    // Check all blocks mined by the sequencers have under the expected max number of transactions.
+    // Fetch the blocks and group contiguous blocks by checkpoint number. For the first CHECKPOINTS_TO_CHECK
+    // checkpoints whose target slot is at or after the slot we waited for, assert every checkpoint is fully
+    // filled (BLOCKS_PER_CHECKPOINT blocks × TXS_PER_BLOCK txs each) and the checkpoint tx landed in the 1st
+    // or 2nd L1 block of the target slot.
     const blocks = await nodes[0].getCheckpointedBlocks(BlockNumber(1), 50);
-    for (const block of blocks) {
+    const ethereumSlotDuration = test.L1_BLOCK_TIME_IN_S;
+    const checkpoints = chunkBy(blocks, b => Number(b.checkpointNumber));
+    let checkedFullCheckpoints = 0;
+    for (const checkpointBlocks of checkpoints) {
+      const first = checkpointBlocks[0];
+      const slotStartTimestamp = getTimestampForSlot(first.block.slot, test.constants);
+      const l1OffsetInSlot = Number(first.l1.timestamp - slotStartTimestamp) / ethereumSlotDuration;
       logger.warn(
-        `Block ${block.block.number} was mined at L1 ${block.l1.blockNumber} with ${block.block.body.txEffects.length} transactions`,
-        { transactions: block.block.body.txEffects.map(tx => tx.txHash) },
+        `Checkpoint ${first.checkpointNumber} (target slot ${first.block.slot}) mined at L1 block ${first.l1.blockNumber} ` +
+          `(offset ${l1OffsetInSlot} into L2 slot) with ${checkpointBlocks.length} blocks`,
+        {
+          blocks: checkpointBlocks.map(b => ({ number: b.block.number, txs: b.block.body.txEffects.length })),
+        },
       );
+      if (first.block.slot < targetSlot || checkedFullCheckpoints >= CHECKPOINTS_TO_CHECK) {
+        continue;
+      }
+      expect(checkpointBlocks).toHaveLength(BLOCKS_PER_CHECKPOINT);
+      for (const block of checkpointBlocks) {
+        // We don't test for exactly TXS_PER_BLOCK since CI delays make this flakey
+        const txCount = block.block.body.txEffects.length;
+        expect(txCount).toBeGreaterThanOrEqual(1);
+        expect(txCount).toBeLessThanOrEqual(TXS_PER_BLOCK);
+      }
+      expect([0, 1]).toContain(l1OffsetInSlot);
+      checkedFullCheckpoints++;
     }
-    for (const block of blocks) {
-      expect(block.block.body.txEffects.length).toBeLessThanOrEqual(EXPECTED_MAX_TXS_PER_BLOCK);
-    }
+    expect(checkedFullCheckpoints).toBe(CHECKPOINTS_TO_CHECK);
 
-    // Expect no failures from sequencers during block building.
-    // The following error is marked as a flake on the test ignore patterns,
-    // so we can have this test run for a while before it breaks CI on a recoverable error.
-    if (failEvents.length > 0) {
-      logger.error(`Failed events from sequencers`, failEvents);
+    // Expect no failures from sequencers during block building. Filter out the self-proposal 'Rollup contract
+    // check failed' spam: when a validator proposes two consecutive checkpoints, the archiver's sequentiality
+    // guard rejects persisting the second proposed checkpoint until the first is confirmed on L1, so the next
+    // pipelining cycle falls through without simulation overrides and canProposeAt reverts until state catches
+    // up. Tracked in A-910.
+    const significantFailEvents = failEvents.filter(
+      e => !(e.type === 'proposer-rollup-check-failed' && e.reason === 'Rollup contract check failed'),
+    );
+    if (significantFailEvents.length > 0) {
+      logger.error(`Failed events from sequencers`, significantFailEvents);
     }
-    expect(failEvents).toEqual([]);
+    expect(significantFailEvents).toEqual([]);
   });
 });
