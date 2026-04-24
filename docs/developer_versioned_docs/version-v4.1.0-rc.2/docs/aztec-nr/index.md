@@ -42,27 +42,15 @@ storage.votes.insert(new_vote).deliver(vote_counter); // the vote counter accoun
 
 ### Flow
 
-<<<<<<< HEAD:docs/developer_versioned_docs/version-v4.1.0-rc.2/docs/aztec-nr/index.md
-1. Write your contract and specify your contract dependencies. Every contract written for Aztec will have
-   aztec-nr as a dependency. Add it to your `Nargo.toml` with
-
-```toml
-# Nargo.toml
-=======
 1. Write your contract and specify your contract dependencies. Create a new project with `aztec new my_project`, which creates a single-crate Noir contract project (`Nargo.toml` + `src/main.nr`) with the `aztec` dependency already configured. If you need additional dependencies, add them to `my_project/Nargo.toml`:
 
 ```toml
 # my_project/Nargo.toml
->>>>>>> 31fedbddff (docs: fix v4.2.0 developer tutorial/guide bugs (#22618)):docs/developer_versioned_docs/version-v4.2.0/docs/aztec-nr/index.md
 [dependencies]
 aztec = { git="https://github.com/AztecProtocol/aztec-nr/", tag="v4.1.0-rc.2", directory="aztec" }
 ```
 
-<<<<<<< HEAD:docs/developer_versioned_docs/version-v4.1.0-rc.2/docs/aztec-nr/index.md
-Update your `main.nr` contract file to use the Aztec.nr macros for writing contracts.
-=======
 Update your `my_project/src/main.nr` contract file to use the Aztec.nr macros for writing contracts.
->>>>>>> 31fedbddff (docs: fix v4.2.0 developer tutorial/guide bugs (#22618)):docs/developer_versioned_docs/version-v4.2.0/docs/aztec-nr/index.md
 
 ```rust title="setup" showLineNumbers 
 use aztec::macros::aztec;

@@ -269,11 +269,7 @@ In this case, all that the network sees (including Giggle) is just "something ha
 
 ### Updating Storage for Privacy
 
-<<<<<<< HEAD
-For something like balances, you can use a simple library called `easy_private_state` which abstracts away a custom private Note. A Note is at the core of how private state works in Aztec and you can read about it [here](../../foundational-topics/state_management.md). For now, let's just import the library in `bob_token_contract/Nargo.toml`:
-=======
 For something like balances, you can use a simple library called `balance_set` which abstracts away a custom private Note. A Note is at the core of how private state works in Aztec and you can read about it [here](../../foundational-topics/state_management.md). For now, let's add it by replacing the `[dependencies]` section in `Nargo.toml`:
->>>>>>> 31fedbddff (docs: fix v4.2.0 developer tutorial/guide bugs (#22618))
 
 ```toml
 [dependencies]

@@ -33,11 +33,7 @@ Log values from your contract using `debug_log`:
 
 ```rust
 // Import debug logging
-<<<<<<< HEAD:docs/developer_versioned_docs/version-v4.1.0-rc.2/docs/aztec-nr/debugging.md
-use dep::aztec::oracle::debug_log::{ debug_log, debug_log_format };
-=======
 use aztec::oracle::logging::{ debug_log, debug_log_format };
->>>>>>> 31fedbddff (docs: fix v4.2.0 developer tutorial/guide bugs (#22618)):docs/developer_versioned_docs/version-v4.2.0/docs/aztec-nr/debugging.md
 
 // Log simple messages
 debug_log("checkpoint reached");
@@ -211,11 +207,7 @@ LOG_LEVEL=verbose aztec start --local-network
 ### Common debug imports
 
 ```rust
-<<<<<<< HEAD:docs/developer_versioned_docs/version-v4.1.0-rc.2/docs/aztec-nr/debugging.md
-use dep::aztec::oracle::debug_log::{ debug_log, debug_log_format };
-=======
 use aztec::oracle::logging::{ debug_log, debug_log_format };
->>>>>>> 31fedbddff (docs: fix v4.2.0 developer tutorial/guide bugs (#22618)):docs/developer_versioned_docs/version-v4.2.0/docs/aztec-nr/debugging.md
 ```
 
 ### Check contract registration

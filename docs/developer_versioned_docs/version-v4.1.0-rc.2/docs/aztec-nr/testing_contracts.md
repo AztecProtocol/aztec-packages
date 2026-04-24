@@ -46,19 +46,10 @@ Always use `aztec test` instead of `nargo test`. The `TestEnvironment` requires 
 
 ## Basic test structure
 
-<<<<<<< HEAD:docs/developer_versioned_docs/version-v4.1.0-rc.2/docs/aztec-nr/testing_contracts.md
-```rust
-use crate::MyContract;
-use aztec::{
-    protocol::address::AztecAddress,
-    test::helpers::test_environment::TestEnvironment,
-};
-=======
 Tests live in the same crate as your contract. `aztec new` creates a single-crate project, and the convention is to place `#[test]` functions in a `mod tests` block alongside the contract (or in submodules of the crate):
 
 ```rust
 use aztec::macros::aztec;
->>>>>>> 31fedbddff (docs: fix v4.2.0 developer tutorial/guide bugs (#22618)):docs/developer_versioned_docs/version-v4.2.0/docs/aztec-nr/testing_contracts.md
 
 #[aztec]
 pub contract MyContract {
@@ -89,15 +80,6 @@ mod tests {
 :::
 
 :::tip Organizing test files
-<<<<<<< HEAD:docs/developer_versioned_docs/version-v4.1.0-rc.2/docs/aztec-nr/testing_contracts.md
-You can organize tests in separate files:
-
-- Create `src/test.nr` with `mod utils;` to import helper functions
-- Split tests into modules like `src/test/transfer_tests.nr`, `src/test/auth_tests.nr`
-- Import the test module in `src/main.nr` with `mod test;`
-- Share setup functions in `src/test/utils.nr`
-  :::
-=======
 For larger test suites, split tests into submodules of your crate rather than keeping them all inside `main.nr`:
 
 - Create modules like `src/transfer_tests.nr`, `src/auth_tests.nr`
@@ -106,7 +88,6 @@ For larger test suites, split tests into submodules of your crate rather than ke
 
 See the [aztec-standards token contract](https://github.com/defi-wonderland/aztec-standards/tree/dev/src/token_contract) for a worked example of this layout.
 :::
->>>>>>> 31fedbddff (docs: fix v4.2.0 developer tutorial/guide bugs (#22618)):docs/developer_versioned_docs/version-v4.2.0/docs/aztec-nr/testing_contracts.md
 
 ## Deploying contracts
 

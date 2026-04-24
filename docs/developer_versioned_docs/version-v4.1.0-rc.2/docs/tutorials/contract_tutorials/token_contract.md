@@ -39,15 +39,9 @@ We'll create BOB tokens with:
 Let's create a simple yarn + aztec.nr project:
 
 ```bash
-<<<<<<< HEAD:docs/developer_versioned_docs/version-v4.1.0-rc.2/docs/tutorials/contract_tutorials/token_contract.md
-mkdir bob_token_contract
-cd bob_token_contract
-yarn init
-=======
 aztec new bob_token
 cd bob_token
 yarn init -y
->>>>>>> 31fedbddff (docs: fix v4.2.0 developer tutorial/guide bugs (#22618)):docs/developer_versioned_docs/version-v4.2.0/docs/tutorials/contract_tutorials/token_contract.md
 # This is to ensure yarn uses node_modules instead of pnp for dependency installation
 yarn config set nodeLinker node-modules
 yarn add @aztec/aztec.js@v4.1.0-rc.2 @aztec/accounts@v4.1.0-rc.2 @aztec/test-wallet@v4.1.0-rc.2 @aztec/kv-store@v4.1.0-rc.2
@@ -381,11 +375,7 @@ In this case, all that the network sees (including Giggle) is just "something ha
 
 ### Updating Storage for Privacy
 
-<<<<<<< HEAD:docs/developer_versioned_docs/version-v4.1.0-rc.2/docs/tutorials/contract_tutorials/token_contract.md
-For something like balances, you can use a simple library called `easy_private_state` which abstracts away a custom private Note. A Note is at the core of how private state works in Aztec and you can read about it [here](../../foundational-topics/state_management.md). For now, let's just import the library in `Nargo.toml`:
-=======
 For something like balances, you can use a simple library called `balance_set` which abstracts away a custom private Note. A Note is at the core of how private state works in Aztec and you can read about it [here](../../foundational-topics/state_management.md). For now, let's add it by replacing the `[dependencies]` section in `Nargo.toml`:
->>>>>>> 31fedbddff (docs: fix v4.2.0 developer tutorial/guide bugs (#22618)):docs/developer_versioned_docs/version-v4.2.0/docs/tutorials/contract_tutorials/token_contract.md
 
 ```toml
 [dependencies]

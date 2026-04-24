@@ -211,25 +211,15 @@ Use `aztec new` to generate the contract project structure:
 aztec new --name ValueNotEqual contract
 ```
 
-<<<<<<< HEAD
-This creates a workspace with two crates:
-=======
 The `aztec new` wrapper stops parsing arguments at the first positional, so `--name` must come **before** the `contract` path — otherwise the flag is silently dropped and the Nargo package ends up named `contract`. The Nargo package name (`--name`) is independent of the Noir contract name declared inside `main.nr`; the artifact filename downstream is driven by the contract name.
 
 This creates:
->>>>>>> 31fedbddff (docs: fix v4.2.0 developer tutorial/guide bugs (#22618))
 
 ```tree
 contract/
-├── Nargo.toml           # Workspace root
-├── contract/
-│   ├── src/
-│   │   └── main.nr      # Contract code
-│   └── Nargo.toml       # Contract configuration
-└── test/
-    ├── src/
-    │   └── lib.nr        # Test code
-    └── Nargo.toml        # Test configuration
+├── src/
+│   └── main.nr      # Contract code
+└── Nargo.toml       # Contract configuration
 ```
 
 ### Contract Configuration
