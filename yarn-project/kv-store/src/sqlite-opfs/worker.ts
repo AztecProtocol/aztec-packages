@@ -20,6 +20,7 @@ const SCHEMA_SQL = `
 
 const DEFAULT_SAH_POOL_DIRECTORY = '.aztec-kv';
 const SAH_POOL_VFS_NAME = 'aztec-kv-opfs';
+const MC_SAH_POOL_VFS_NAME = `multipleciphers-${SAH_POOL_VFS_NAME}`;
 
 let sqlite3: Sqlite3Static | undefined;
 let pool: SAHPoolUtil | undefined;
@@ -27,16 +28,23 @@ let db: Database | undefined;
 let dbPath: string | undefined;
 
 async function ensurePool(directory: string): Promise<SAHPoolUtil> {
-  const s = (sqlite3 ??= await sqlite3InitModule());
+  sqlite3 ??= await sqlite3InitModule();
+  const s = sqlite3;
   if (!pool) {
     pool = await s.installOpfsSAHPoolVfs({
       name: SAH_POOL_VFS_NAME,
       directory,
       initialCapacity: 8,
     });
+    // Register a sqlite3mc-wrapped VFS pointing at our SAH Pool VFS.
+    // Encrypted DBs must be opened through this wrapper so sqlite3mc can
+    // intercept file I/O; plain DBs continue using the SAH Pool VFS directly.
+    // The wrapper name is `multipleciphers-<underlying>`.
+    (s.capi as unknown as { sqlite3mc_vfs_create(name: string, makeDefault: number): number }).sqlite3mc_vfs_create(
+      SAH_POOL_VFS_NAME,
+      0,
+    );
   }
-  // pool is guaranteed to be defined here; TypeScript loses narrowing of module-level
-  // variables across await checkpoints, so we assert non-null explicitly.
   return pool!;
 }
 
@@ -61,15 +69,20 @@ async function handleInit(
 ): Promise<void> {
   sqlite3 ??= await sqlite3InitModule();
   const s = sqlite3;
+  if (encryptionKey !== undefined && ephemeral) {
+    throw new Error('encryptionKey is not supported for ephemeral (:memory:) stores');
+  }
   if (ephemeral) {
     db = new s.oo1.DB(':memory:', 'c');
   } else {
-    const p = await ensurePool(directory ?? DEFAULT_SAH_POOL_DIRECTORY);
+    await ensurePool(directory ?? DEFAULT_SAH_POOL_DIRECTORY);
     dbPath = normalizeDbPath(dbName);
-    db = new p.OpfsSAHPoolDb(dbPath);
-  }
-  if (encryptionKey !== undefined) {
-    applyEncryptionKey(db, encryptionKey);
+    if (encryptionKey !== undefined) {
+      db = new s.oo1.DB({ filename: dbPath, flags: 'c', vfs: MC_SAH_POOL_VFS_NAME });
+      applyEncryptionKey(db, encryptionKey);
+    } else {
+      db = new pool!.OpfsSAHPoolDb(dbPath);
+    }
   }
   runSql(SCHEMA_SQL);
 }
