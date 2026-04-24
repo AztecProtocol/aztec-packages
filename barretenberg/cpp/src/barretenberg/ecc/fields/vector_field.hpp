@@ -111,11 +111,10 @@ template <class Params> struct alignas(32) VectorField {
     static constexpr std::array<uint64_t, 9> TNM_WASM = compute_tnm_wasm<Params>();
     // -(modulus)^-1 mod 2^29.
     static constexpr uint64_t R_INV_MOD_2_29 = Params::r_inv & 0x1fffffffULL;
-    static constexpr std::array<uint64_t, 9> R_INV_WASM = { Params::r_inv_wasm_0, Params::r_inv_wasm_1,
-                                                            Params::r_inv_wasm_2, Params::r_inv_wasm_3,
-                                                            Params::r_inv_wasm_4, Params::r_inv_wasm_5,
-                                                            Params::r_inv_wasm_6, Params::r_inv_wasm_7,
-                                                            Params::r_inv_wasm_8 };
+    static constexpr std::array<uint64_t, 9> R_INV_WASM = {
+        Params::r_inv_wasm_0, Params::r_inv_wasm_1, Params::r_inv_wasm_2, Params::r_inv_wasm_3, Params::r_inv_wasm_4,
+        Params::r_inv_wasm_5, Params::r_inv_wasm_6, Params::r_inv_wasm_7, Params::r_inv_wasm_8
+    };
 
     // ---- Storage ----
 #if BB_VECTOR_FIELD_SIMD
@@ -159,6 +158,49 @@ template <class Params> struct alignas(32) VectorField {
     VectorField operator+(const VectorField& other) const noexcept;
     VectorField operator-(const VectorField& other) const noexcept;
     VectorField operator*(const VectorField& other) const noexcept;
+
+    // dot_product<K>((a_0,b_0), ..., (a_{K-1},b_{K-1})) == sum_k a_k * b_k (mod p).
+    //
+    // The speedup over K independent muls comes from running the Karatsuba
+    // Stages 1-5 for each pair, SUMMING the 17 per-position temp_k accumulators
+    // across pairs, then running ONE Yuval+wasm_reduce+carry-propagate reduction
+    // on the summed accumulators. K Yuval reductions collapse to 1.
+    //
+    // K_max analysis (Bn254Fr, 9 * 29-bit limbs, u64 scalars / i64x2 quads):
+    //
+    //   (a) Per-limb u64-overflow bound.
+    //       - Each temp_k at Stage-5 output is a sum of min(k+1, 9, 17-k) standard
+    //         limb products l_i * r_j, each <= (2^29 - 1)^2 < 2^58.
+    //       - Max partials per position: 9 (at temp_8). Single-mul temp_8 bound
+    //         is 9 * (2^29-1)^2 ~= 2^61.17.
+    //       - Yuval reductions (8 steps) add at most 1 (2^29-1)^2 partial per
+    //         position per step. Max position (temp_8) receives all 8 Yuvals.
+    //       - After K-sum and all Yuvals, bound at temp_8 is (9K + 8) * (2^29-1)^2.
+    //       - For u64 safety: (9K + 8) * (2^29-1)^2 < 2^64  =>  9K + 8 <= 62.
+    //       - Solving: K <= 6. So K_max = 6.
+    //
+    //   (b) Output coarse-form bound. The coarse invariant required by downstream
+    //       operator+/-/*/==/is_zero is result in [0, 2p).
+    //       - Pre-reduction value is sum_k (a_k * R) * (b_k * R), with each term
+    //         <= 4p^2 (since each input is in coarse form [0, 2p)), so the whole
+    //         sum is <= K * 4p^2.
+    //       - After the 8 Yuval + 1 wasm_reduce steps (total value k_*r_inv + k_8*p
+    //         accumulated, following the same algebra as field_impl_generic.hpp
+    //         montgomery_mul_wasm lines 862..870), the output is bounded by
+    //             (K * 4p^2 + (2^261 - 1) * p) / 2^261
+    //           = K * 4p^2 / 2^261  +  p * (1 - 1/2^261)
+    //           ~= K * p / 32  +  p                (since 4p^2/2^261 < p/32 for BN254 Fr).
+    //       - So output <= (1 + K/32) * p. For K=6: 1.1875 * p < 2p. All K in
+    //         [1, 6] preserve the coarse [0, 2p) invariant — no conditional
+    //         subtract of p is required at output.
+    //       - Empirically verified by DotProductK6WorstCaseOutputIsCoarseForm in
+    //         vector_field.test.cpp (150 random trials that chain the result
+    //         through +, -, *, eq, is_zero and confirm consistency).
+    //
+    // WASM-SIMD specializations are provided for K in {1, 2, 3, 4, 5, 6}. The
+    // native/fallback path uses the naive K-muls-then-sum implementation below.
+    template <size_t K>
+    static VectorField dot_product(const std::array<std::pair<VectorField, VectorField>, K>& pairs) noexcept;
 
     // Returns a 5-bit mask: bit 0 = scalar, bits 1..4 = quad lanes 0..3.
     uint32_t eq(const VectorField& other) const noexcept;
@@ -299,7 +341,8 @@ template <class Params> inline void VectorField<Params>::load_to_array(std::arra
 // carries fit in bit 29.
 
 template <class Params>
-[[gnu::always_inline]] inline VectorField<Params> VectorField<Params>::operator+(const VectorField& other) const noexcept
+[[gnu::always_inline]] inline VectorField<Params> VectorField<Params>::operator+(
+    const VectorField& other) const noexcept
 {
     constexpr uint64_t MASK = 0x1fffffffULL;
     const v128_t mask_splat = wasm_i32x4_splat(MASK);
@@ -499,7 +542,8 @@ template <class Params>
 // If final borrow from r is set, pick s; else pick r.
 
 template <class Params>
-[[gnu::always_inline]] inline VectorField<Params> VectorField<Params>::operator-(const VectorField& other) const noexcept
+[[gnu::always_inline]] inline VectorField<Params> VectorField<Params>::operator-(
+    const VectorField& other) const noexcept
 {
     constexpr uint64_t MASK = 0x1fffffffULL;
     const v128_t mask_splat = wasm_i32x4_splat(MASK);
@@ -796,8 +840,7 @@ template <class Params>
     return scalar_eq | (lanes_eq << 1);
 }
 
-template <class Params>
-[[gnu::always_inline]] inline uint32_t VectorField<Params>::is_zero() const noexcept
+template <class Params> [[gnu::always_inline]] inline uint32_t VectorField<Params>::is_zero() const noexcept
 {
     // Same pattern as eq, but on (*this) directly (no subtract).
     uint64_t sacc_z = scalar_data[0];
@@ -920,7 +963,6 @@ template <class Params>
 // (On non-SIMD builds, the portable fallback below uses the generic
 // template.)
 
-
 #else // !BB_VECTOR_FIELD_SIMD
 
 // ======================== Portable fallback ========================
@@ -991,6 +1033,26 @@ template <class Params> inline uint32_t VectorField<Params>::is_zero() const noe
         }
     }
     return m;
+}
+
+// Portable dot_product: naive K scalar muls per lane, then per-lane sum.
+// The WASM SIMD path has fused specializations (share one Yuval reduction
+// across K pairs) defined in vector_field_wasm.cpp.
+template <class Params>
+template <size_t K>
+inline VectorField<Params> VectorField<Params>::dot_product(
+    const std::array<std::pair<VectorField, VectorField>, K>& pairs) noexcept
+{
+    static_assert(K >= 1, "dot_product requires at least one pair");
+    VectorField r;
+    for (size_t i = 0; i < 5; ++i) {
+        Field acc = pairs[0].first.elts[i] * pairs[0].second.elts[i];
+        for (size_t k = 1; k < K; ++k) {
+            acc += pairs[k].first.elts[i] * pairs[k].second.elts[i];
+        }
+        r.elts[i] = acc;
+    }
+    return r;
 }
 
 #endif // BB_VECTOR_FIELD_SIMD
