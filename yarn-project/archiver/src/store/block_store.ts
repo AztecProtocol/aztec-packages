@@ -209,8 +209,11 @@ export class BlockStore {
       // Accept the block if either the confirmed checkpoint or a pending checkpoint matches
       // the expected predecessor. We look for a pending entry at exactly blockCheckpointNumber - 1.
       const expectedCheckpointNumber = blockCheckpointNumber - 1;
-      if (!opts.force && latestCheckpointNumber !== expectedCheckpointNumber) {
-        throw new BlockCheckpointNumberNotSequentialError(blockNumber, blockCheckpointNumber, latestCheckpointNumber);
+      const hasPendingAtExpected = await this.#proposedCheckpoints.hasAsync(expectedCheckpointNumber);
+      if (!opts.force && latestCheckpointNumber !== expectedCheckpointNumber && !hasPendingAtExpected) {
+        const [latestPendingKey] = await toArray(this.#proposedCheckpoints.keysAsync({ reverse: true, limit: 1 }));
+        const previous = CheckpointNumber(Math.max(latestCheckpointNumber, latestPendingKey ?? 0));
+        throw new BlockCheckpointNumberNotSequentialError(blockNumber, blockCheckpointNumber, previous);
       }
 
       // Extract the previous block if there is one and see if it is for the same checkpoint or not

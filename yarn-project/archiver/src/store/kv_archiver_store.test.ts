@@ -45,6 +45,7 @@ import { type IndexedTxEffect, TxHash } from '@aztec/stdlib/tx';
 import {
   BlockAlreadyCheckpointedError,
   BlockArchiveNotConsistentError,
+  BlockCheckpointNumberNotSequentialError,
   BlockIndexNotSequentialError,
   BlockNumberNotSequentialError,
   CannotOverwriteCheckpointedBlockError,
@@ -1173,7 +1174,7 @@ describe('KVArchiverDataStore', () => {
         indexWithinCheckpoint: IndexWithinCheckpoint(0),
       });
 
-      await expect(store.addProposedBlock(block3)).rejects.toThrow(CheckpointNumberNotSequentialError);
+      await expect(store.addProposedBlock(block3)).rejects.toThrow(BlockCheckpointNumberNotSequentialError);
     });
 
     it('allows blocks with the same checkpoint number for the current checkpoint', async () => {
@@ -1246,7 +1247,7 @@ describe('KVArchiverDataStore', () => {
         indexWithinCheckpoint: IndexWithinCheckpoint(0),
       });
 
-      await expect(store.addProposedBlock(block1)).rejects.toThrow(CheckpointNumberNotSequentialError);
+      await expect(store.addProposedBlock(block1)).rejects.toThrow(BlockCheckpointNumberNotSequentialError);
     });
 
     it('allows adding more blocks to the same checkpoint in separate calls', async () => {
@@ -1328,7 +1329,7 @@ describe('KVArchiverDataStore', () => {
         indexWithinCheckpoint: IndexWithinCheckpoint(0),
         lastArchive: block3.archive,
       });
-      await expect(store.addProposedBlock(block4)).rejects.toThrow(CheckpointNumberNotSequentialError);
+      await expect(store.addProposedBlock(block4)).rejects.toThrow(BlockCheckpointNumberNotSequentialError);
     });
 
     it('force option bypasses checkpoint number validation', async () => {
@@ -3896,8 +3897,8 @@ describe('KVArchiverDataStore', () => {
       });
 
       await expect(store.addProposedBlock(block3)).rejects.toThrow(
-        // Error should report the proposed checkpoint number (2), not the confirmed one (1)
-        'Cannot insert new checkpoint 4 given previous proposed checkpoint number is 2',
+        // Error should report the latest known checkpoint number (the pending one, 2), not the confirmed (1)
+        'Cannot insert new block 3 for checkpoint 4 given previous checkpoint number is 2',
       );
     });
 
@@ -3919,7 +3920,7 @@ describe('KVArchiverDataStore', () => {
       });
 
       await expect(store.addProposedBlock(block2)).rejects.toThrow(
-        'Cannot insert new checkpoint 4 given previous confirmed checkpoint number is 1',
+        'Cannot insert new block 2 for checkpoint 4 given previous checkpoint number is 1',
       );
     });
 
