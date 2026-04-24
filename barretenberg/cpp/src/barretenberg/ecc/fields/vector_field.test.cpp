@@ -729,4 +729,127 @@ TEST(VectorFieldTest, DotProductKMWorstCaseOutputIsCoarseForm)
     }
 }
 
+// Empirical bound check for dot_product<K, M> with the pre-Yuval linear-add
+// structure. Each lane's output limbs are reconstructed into a 256-bit integer
+// and checked against 2*p. The binary-search normalization tail is supposed to
+// restore the coarse [0, 2p) invariant regardless of how close to worst-case
+// the inputs are; this test exercises inputs chosen to push the pre-
+// normalization value near (1 + K/32 + 2M)*p and confirms the tail does its
+// job.
+//
+// Worst-case construction: pick each a_k, b_k, c_j to be the max-integer coarse
+// representative we can reach from random_element() (which lands uniformly in
+// [0, p), i.e. a single "canonical" coarse representative). We additionally
+// stress via (a + b) - b style chaining to get less-canonical representatives.
+TEST(VectorFieldTest, DotProductKMPreYuvalBoundCheck)
+{
+    // 2*p as 4 × u64 limbs (little-endian). p = BN254 Fr modulus.
+    const uint64_t two_p[4] = { bb::Bn254FrParams::modulus_0 << 1,
+                                (bb::Bn254FrParams::modulus_1 << 1) | (bb::Bn254FrParams::modulus_0 >> 63),
+                                (bb::Bn254FrParams::modulus_2 << 1) | (bb::Bn254FrParams::modulus_1 >> 63),
+                                (bb::Bn254FrParams::modulus_3 << 1) | (bb::Bn254FrParams::modulus_2 >> 63) };
+
+    // Compare 4×u64 little-endian integer < other.
+    auto less_than_2p = [&](const uint64_t v[4]) {
+        for (int i = 3; i >= 0; --i) {
+            if (v[i] < two_p[i])
+                return true;
+            if (v[i] > two_p[i])
+                return false;
+        }
+        return false; // v == 2p is NOT in coarse [0, 2p)
+    };
+
+    auto check_coarse = [&](const Vec& v, const char* label, int trial) {
+        std::array<fr, 5> arr = v.to_array();
+        for (size_t lane = 0; lane < 5; ++lane) {
+            EXPECT_TRUE(less_than_2p(arr[lane].data))
+                << "lane " << lane << " of " << label << " exceeds 2p at trial " << trial << " data=["
+                << arr[lane].data[0] << "," << arr[lane].data[1] << "," << arr[lane].data[2] << "," << arr[lane].data[3]
+                << "]";
+        }
+    };
+
+    // Sweep all (K, M) combos with K >= 1, K + M <= 6.
+    for (int trial = 0; trial < 50; ++trial) {
+        // Construct near-worst-case by chaining adds/subs: (r1 + r2) leaves a
+        // non-canonical representative in [0, 2p). Mix and match to hit varied
+        // high-bit patterns.
+        auto near_worst_five = [&]() {
+            auto a = random_five();
+            auto b = random_five();
+            std::array<fr, 5> out;
+            for (size_t i = 0; i < 5; ++i) {
+                // Add then subtract same random — result has non-canonical
+                // limbs that can be close to 2p (field_impl's add doesn't
+                // reduce mod p, it reduces to coarse [0, 2p)).
+                out[i] = (a[i] + b[i]) + (a[i] - b[i]);
+            }
+            return out;
+        };
+
+        {
+            std::array<std::pair<Vec, Vec>, 1> p1{ { { Vec(near_worst_five()), Vec(near_worst_five()) } } };
+            std::array<Vec, 5> l5{ Vec(near_worst_five()),
+                                   Vec(near_worst_five()),
+                                   Vec(near_worst_five()),
+                                   Vec(near_worst_five()),
+                                   Vec(near_worst_five()) };
+            check_coarse(Vec::dot_product<1, 5>(p1, l5), "K=1,M=5", trial);
+            std::array<Vec, 4> l4{ l5[0], l5[1], l5[2], l5[3] };
+            check_coarse(Vec::dot_product<1, 4>(p1, l4), "K=1,M=4", trial);
+            std::array<Vec, 3> l3{ l5[0], l5[1], l5[2] };
+            check_coarse(Vec::dot_product<1, 3>(p1, l3), "K=1,M=3", trial);
+            std::array<Vec, 2> l2{ l5[0], l5[1] };
+            check_coarse(Vec::dot_product<1, 2>(p1, l2), "K=1,M=2", trial);
+            std::array<Vec, 1> l1{ l5[0] };
+            check_coarse(Vec::dot_product<1, 1>(p1, l1), "K=1,M=1", trial);
+        }
+        {
+            std::array<std::pair<Vec, Vec>, 2> p2{ { { Vec(near_worst_five()), Vec(near_worst_five()) },
+                                                     { Vec(near_worst_five()), Vec(near_worst_five()) } } };
+            std::array<Vec, 4> l4{
+                Vec(near_worst_five()), Vec(near_worst_five()), Vec(near_worst_five()), Vec(near_worst_five())
+            };
+            check_coarse(Vec::dot_product<2, 4>(p2, l4), "K=2,M=4", trial);
+            std::array<Vec, 3> l3{ l4[0], l4[1], l4[2] };
+            check_coarse(Vec::dot_product<2, 3>(p2, l3), "K=2,M=3", trial);
+            std::array<Vec, 2> l2{ l4[0], l4[1] };
+            check_coarse(Vec::dot_product<2, 2>(p2, l2), "K=2,M=2", trial);
+            std::array<Vec, 1> l1{ l4[0] };
+            check_coarse(Vec::dot_product<2, 1>(p2, l1), "K=2,M=1", trial);
+        }
+        {
+            std::array<std::pair<Vec, Vec>, 3> p3{ { { Vec(near_worst_five()), Vec(near_worst_five()) },
+                                                     { Vec(near_worst_five()), Vec(near_worst_five()) },
+                                                     { Vec(near_worst_five()), Vec(near_worst_five()) } } };
+            std::array<Vec, 3> l3{ Vec(near_worst_five()), Vec(near_worst_five()), Vec(near_worst_five()) };
+            check_coarse(Vec::dot_product<3, 3>(p3, l3), "K=3,M=3", trial);
+            std::array<Vec, 2> l2{ l3[0], l3[1] };
+            check_coarse(Vec::dot_product<3, 2>(p3, l2), "K=3,M=2", trial);
+            std::array<Vec, 1> l1{ l3[0] };
+            check_coarse(Vec::dot_product<3, 1>(p3, l1), "K=3,M=1", trial);
+        }
+        {
+            std::array<std::pair<Vec, Vec>, 4> p4{ { { Vec(near_worst_five()), Vec(near_worst_five()) },
+                                                     { Vec(near_worst_five()), Vec(near_worst_five()) },
+                                                     { Vec(near_worst_five()), Vec(near_worst_five()) },
+                                                     { Vec(near_worst_five()), Vec(near_worst_five()) } } };
+            std::array<Vec, 2> l2{ Vec(near_worst_five()), Vec(near_worst_five()) };
+            check_coarse(Vec::dot_product<4, 2>(p4, l2), "K=4,M=2", trial);
+            std::array<Vec, 1> l1{ l2[0] };
+            check_coarse(Vec::dot_product<4, 1>(p4, l1), "K=4,M=1", trial);
+        }
+        {
+            std::array<std::pair<Vec, Vec>, 5> p5{ { { Vec(near_worst_five()), Vec(near_worst_five()) },
+                                                     { Vec(near_worst_five()), Vec(near_worst_five()) },
+                                                     { Vec(near_worst_five()), Vec(near_worst_five()) },
+                                                     { Vec(near_worst_five()), Vec(near_worst_five()) },
+                                                     { Vec(near_worst_five()), Vec(near_worst_five()) } } };
+            std::array<Vec, 1> l1{ Vec(near_worst_five()) };
+            check_coarse(Vec::dot_product<5, 1>(p5, l1), "K=5,M=1", trial);
+        }
+    }
+}
+
 } // namespace

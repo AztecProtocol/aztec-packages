@@ -285,27 +285,34 @@ template <class Params> struct alignas(32) VectorField {
     //      == sum_k a_k * b_k + sum_j c_j   (mod p).
     //
     // This is dot_product<K> with M extra "linear" terms c_j folded into the
-    // SAME kernel's output — specifically, the M adds are injected BETWEEN
-    // Stage 7 (wasm_reduce) and Stage 8 (carry-propagate). Doing it here (vs
-    // as M separate operator+ calls) saves M-1 independent carry-propagation
-    // loops (~48 quad ops each).
+    // SAME kernel's output. Each c_j's 9 × 29-bit limbs are added at positions
+    // 9..17 of the 18-limb pre-Yuval accumulator — equivalent (as an integer)
+    // to adding [c_j] * R, where [c_j] is c_j's coarse-form integer value.
+    // After Yuval divides the accumulator by R, each such term contributes
+    // [c_j] to the output (up to the Yuval residue of at most p). Stacking M
+    // terms adds at most 2M*p on top of the dot_product<K> output bound.
     //
-    // Bound analysis additions for K + M:
+    // Doing the adds in-kernel (vs M separate operator+ calls) saves M-1
+    // independent carry-propagation loops (~48 quad ops each), and placing
+    // the adds PRE-Yuval (vs between Stage 7 and Stage 8) lets V8 schedule
+    // them alongside the Stage 5 accumulate tail instead of serializing them
+    // against the Yuval output.
     //
-    //   (a) Per-limb u64-overflow bound. Each c_j limb <= 2^29 - 1. After
-    //       Stage 7, temp_9..temp_16 are bounded by (9K + 9) * (2^29-1)^2
-    //       (same Yuval-count bound as before). Adding M limbs adds at most
-    //       M * (2^29-1). Bound remains (9K + 9) * (2^29-1)^2 + M * (2^29-1)
-    //       < (9K + 9) * 2^58 + M * 2^29. For u64 safety:
-    //           (9K + 9) * 2^58 + M * 2^29 < 2^64
-    //       The M term is dominated (M * 2^29 << 2^58 for any reasonable M),
-    //       so the binding constraint is still K <= 6.
-    //       Practical unified bound (simpler to reason about): K + M <= 6.
+    // Bound analysis for K + M <= 6:
+    //
+    //   (a) Per-limb u64-overflow bound. Each c_j's limb <= 2^29 - 1, added
+    //       once per M at the pre-Yuval stage. During Yuval the accumulator
+    //       at position 9..16 receives at most 8 Yuval contributions of
+    //       (2^29-1)^2 each on top of the K-Karatsuba products (at most
+    //       9K * (2^29-1)^2). Total bound at the tightest position (post-
+    //       Stage-7, pre-Stage-8-carry): (9K + 9) * (2^29-1)^2 + M * (2^29-1).
+    //       For K + M <= 6 this stays comfortably under 2^64 (the M term is
+    //       dominated by the K-mul term).
     //
     //   (b) Output bound and binary-search normalization.
-    //       Pre-linear-add value <= (1 + K/32) * p. Adding M coarse-form terms
-    //       (each <= 2p) gives V <= (1 + K/32 + 2M) * p. For M >= 1 this
-    //       exceeds 2p, violating the coarse invariant.
+    //       Pre-linear-add output <= (1 + K/32) * p (dot_product<K>). Adding
+    //       M coarse-form terms (each <= 2p) gives V <= (1 + K/32 + 2M) * p.
+    //       For M >= 1 this exceeds 2p, violating the coarse invariant.
     //
     //       Let Q = max(0, ceil(2M + K/32 - 1)) be the max excess multiples
     //       of p beyond 2p (V <= (Q+2) * p). To restore coarse [0, 2p), we

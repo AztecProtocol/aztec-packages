@@ -2374,23 +2374,85 @@ struct KaratsubaPartials {
     }
 
 // Body of Stages 6..10 for dot_product<K, M> with M >= 1 linear terms.
-// Identical to BB_VF_RUN_STAGES_6_THROUGH_10 up to and including Stage 7, then
-// injects M linear adds into temp_9..temp_17 (where temp_17 is NEW: it
-// accumulates each linear term's top limb AND the carry from temp_16 >> 29).
 //
-// Caller must define named locals `temp_0..temp_16`, `tlo_0..tlo_16`,
-// `thi_0..thi_16`, plus `result`, plus supply a `std::array<VectorField, M>
-// linears` that this macro reads from. The macro tail runs N_SUB conditional
-// `result -= p` steps to restore the coarse [0, 2p) invariant. For K >= 1,
-// `N_SUB = 2 * M` is the minimum required (see bound analysis in the header).
+// PRE-YUVAL structural add (Zac's proposal): each linear term c_j is added at
+// positions 9..17 of the 18-limb temp accumulator BEFORE the Yuval reductions
+// run. This is mathematically equivalent to a post-Yuval add:
+//
+//   Pre-Yuval, adding the limbs of c_j (Mont form, integer value [c_j] < 2p)
+//   at positions 9..17 is equivalent to adding [c_j] * 2^(29*9) = [c_j] * R as
+//   an integer. After Yuval divides by R, this contributes [c_j] to the output
+//   (modulo the Yuval residue of at most p). Stacking M such terms adds at
+//   most 2M*p on top of the K-muls output, giving the same output bound:
+//       V' <= (1 + K/32 + 2M) * p
+//   as the post-Yuval approach.
+//
+// Per-limb u64 safety: at Yuval entry the linear adds contribute at most
+// M * (2^29 - 1) per limb at positions 9..16, which is dominated by the
+// K-karatsuba contribution 9K * (2^29 - 1)^2 ~= K * 2^61. For K + M <= 6 the
+// bound of (9K + 8)*(2^29-1)^2 + M*(2^29-1) stays comfortably under 2^64.
+//
+// The structural win over the old post-Yuval variant: the adds sit earlier in
+// the pipeline, so they can be scheduled by V8 alongside Stage 5's trailing
+// accumulate ops rather than serializing against the Yuval output. temp_17
+// is now a first-class temp slot, seeded from the linear terms only (the ab
+// Karatsuba product has zero weight at position 17), and the Yuval + Stage 7
+// + Stage 8 pipeline runs unchanged over 18 limbs.
+//
+// The tail runs N_SUB conditional `result -= p` steps to restore the coarse
+// [0, 2p) invariant. N_SUB = dp_norm_rounds(K, M) rounds of binary-search
+// subtract (2^k * p) suffices (see header bound analysis).
 //
 // This is separate from BB_VF_RUN_STAGES_6_THROUGH_10 (the M = 0 macro) so that
 // the hot M = 0 path is unaffected. The two macros share no code; duplicating
 // is cheaper than parameterizing one macro with if-constexpr M branches.
+//
+// Caller must define named locals `temp_0..temp_16`, `tlo_0..tlo_16`,
+// `thi_0..thi_16`, plus `result`, plus supply a `std::array<VectorField, M>
+// linears` that this macro reads from.
 #define BB_VF_RUN_STAGES_6_THROUGH_10_WITH_M_LINEARS(LINEARS_ARR, M_COUNT, N_SUB)                                      \
     do {                                                                                                               \
         constexpr uint64_t MASK29 = 0x1fffffffULL;                                                                     \
         const v128_t mask29_i32x4 = wasm_i32x4_splat(0x1fffffff);                                                      \
+                                                                                                                       \
+        /* --- Pre-Yuval linear add: inject M linear terms into temp_9..temp_16 */                                     \
+        /* (limbs 0..7 of each c_j) and accumulate limb 8 into a separate */                                           \
+        /* temp_17_linear_acc. This slot is NEW relative to dot_product<K>: the */                                     \
+        /* K-mul Karatsuba accumulator has zero weight at position 17, so we */                                        \
+        /* track it on the side and fold it in at Stage 8 (below). */                                                  \
+        uint64_t temp_17_linear_acc = 0;                                                                               \
+        v128_t tlo_17_linear_acc = wasm_i64x2_splat(0);                                                                \
+        v128_t thi_17_linear_acc = wasm_i64x2_splat(0);                                                                \
+        for (size_t _j = 0; _j < (M_COUNT); ++_j) {                                                                    \
+            const VectorField<Bn254FrParams>& _c = (LINEARS_ARR)[_j];                                                  \
+            temp_9 += _c.scalar_data[0];                                                                               \
+            tlo_9 = wasm_i64x2_add(tlo_9, wasm_u64x2_extend_low_u32x4(_c.quad_data[0]));                               \
+            thi_9 = wasm_i64x2_add(thi_9, wasm_u64x2_extend_high_u32x4(_c.quad_data[0]));                              \
+            temp_10 += _c.scalar_data[1];                                                                              \
+            tlo_10 = wasm_i64x2_add(tlo_10, wasm_u64x2_extend_low_u32x4(_c.quad_data[1]));                             \
+            thi_10 = wasm_i64x2_add(thi_10, wasm_u64x2_extend_high_u32x4(_c.quad_data[1]));                            \
+            temp_11 += _c.scalar_data[2];                                                                              \
+            tlo_11 = wasm_i64x2_add(tlo_11, wasm_u64x2_extend_low_u32x4(_c.quad_data[2]));                             \
+            thi_11 = wasm_i64x2_add(thi_11, wasm_u64x2_extend_high_u32x4(_c.quad_data[2]));                            \
+            temp_12 += _c.scalar_data[3];                                                                              \
+            tlo_12 = wasm_i64x2_add(tlo_12, wasm_u64x2_extend_low_u32x4(_c.quad_data[3]));                             \
+            thi_12 = wasm_i64x2_add(thi_12, wasm_u64x2_extend_high_u32x4(_c.quad_data[3]));                            \
+            temp_13 += _c.scalar_data[4];                                                                              \
+            tlo_13 = wasm_i64x2_add(tlo_13, wasm_u64x2_extend_low_u32x4(_c.quad_data[4]));                             \
+            thi_13 = wasm_i64x2_add(thi_13, wasm_u64x2_extend_high_u32x4(_c.quad_data[4]));                            \
+            temp_14 += _c.scalar_data[5];                                                                              \
+            tlo_14 = wasm_i64x2_add(tlo_14, wasm_u64x2_extend_low_u32x4(_c.quad_data[5]));                             \
+            thi_14 = wasm_i64x2_add(thi_14, wasm_u64x2_extend_high_u32x4(_c.quad_data[5]));                            \
+            temp_15 += _c.scalar_data[6];                                                                              \
+            tlo_15 = wasm_i64x2_add(tlo_15, wasm_u64x2_extend_low_u32x4(_c.quad_data[6]));                             \
+            thi_15 = wasm_i64x2_add(thi_15, wasm_u64x2_extend_high_u32x4(_c.quad_data[6]));                            \
+            temp_16 += _c.scalar_data[7];                                                                              \
+            tlo_16 = wasm_i64x2_add(tlo_16, wasm_u64x2_extend_low_u32x4(_c.quad_data[7]));                             \
+            thi_16 = wasm_i64x2_add(thi_16, wasm_u64x2_extend_high_u32x4(_c.quad_data[7]));                            \
+            temp_17_linear_acc += _c.scalar_data[8];                                                                   \
+            tlo_17_linear_acc = wasm_i64x2_add(tlo_17_linear_acc, wasm_u64x2_extend_low_u32x4(_c.quad_data[8]));       \
+            thi_17_linear_acc = wasm_i64x2_add(thi_17_linear_acc, wasm_u64x2_extend_high_u32x4(_c.quad_data[8]));      \
+        }                                                                                                              \
                                                                                                                        \
         v128_t r_inv0 = wasm_i32x4_splat(static_cast<int32_t>(R_INV_WASM[0]));                                         \
         v128_t r_inv1 = wasm_i32x4_splat(static_cast<int32_t>(R_INV_WASM[1]));                                         \
@@ -2480,47 +2542,9 @@ struct KaratsubaPartials {
             bb_vf_barrier_sqq(temp_16, tlo_16, thi_16);                                                                \
         }                                                                                                              \
                                                                                                                        \
-        /* --- Inject M linear adds into temp_9..temp_16 (limbs 0..7) and */                                           \
-        /* temp_17_linear_acc (limb 8 contribution). Quad: each c_j's limb k */                                        \
-        /* is an i32x4 (4 lanes); extend-low gets lanes 0,1 as i64x2 -> tlo; */                                        \
-        /* extend-high gets lanes 2,3 as i64x2 -> thi. */                                                              \
-        uint64_t temp_17_linear_acc = 0;                                                                               \
-        v128_t tlo_17_linear_acc = wasm_i64x2_splat(0);                                                                \
-        v128_t thi_17_linear_acc = wasm_i64x2_splat(0);                                                                \
-        for (size_t _j = 0; _j < (M_COUNT); ++_j) {                                                                    \
-            const VectorField<Bn254FrParams>& _c = (LINEARS_ARR)[_j];                                                  \
-            temp_9 += _c.scalar_data[0];                                                                               \
-            tlo_9 = wasm_i64x2_add(tlo_9, wasm_u64x2_extend_low_u32x4(_c.quad_data[0]));                               \
-            thi_9 = wasm_i64x2_add(thi_9, wasm_u64x2_extend_high_u32x4(_c.quad_data[0]));                              \
-            temp_10 += _c.scalar_data[1];                                                                              \
-            tlo_10 = wasm_i64x2_add(tlo_10, wasm_u64x2_extend_low_u32x4(_c.quad_data[1]));                             \
-            thi_10 = wasm_i64x2_add(thi_10, wasm_u64x2_extend_high_u32x4(_c.quad_data[1]));                            \
-            temp_11 += _c.scalar_data[2];                                                                              \
-            tlo_11 = wasm_i64x2_add(tlo_11, wasm_u64x2_extend_low_u32x4(_c.quad_data[2]));                             \
-            thi_11 = wasm_i64x2_add(thi_11, wasm_u64x2_extend_high_u32x4(_c.quad_data[2]));                            \
-            temp_12 += _c.scalar_data[3];                                                                              \
-            tlo_12 = wasm_i64x2_add(tlo_12, wasm_u64x2_extend_low_u32x4(_c.quad_data[3]));                             \
-            thi_12 = wasm_i64x2_add(thi_12, wasm_u64x2_extend_high_u32x4(_c.quad_data[3]));                            \
-            temp_13 += _c.scalar_data[4];                                                                              \
-            tlo_13 = wasm_i64x2_add(tlo_13, wasm_u64x2_extend_low_u32x4(_c.quad_data[4]));                             \
-            thi_13 = wasm_i64x2_add(thi_13, wasm_u64x2_extend_high_u32x4(_c.quad_data[4]));                            \
-            temp_14 += _c.scalar_data[5];                                                                              \
-            tlo_14 = wasm_i64x2_add(tlo_14, wasm_u64x2_extend_low_u32x4(_c.quad_data[5]));                             \
-            thi_14 = wasm_i64x2_add(thi_14, wasm_u64x2_extend_high_u32x4(_c.quad_data[5]));                            \
-            temp_15 += _c.scalar_data[6];                                                                              \
-            tlo_15 = wasm_i64x2_add(tlo_15, wasm_u64x2_extend_low_u32x4(_c.quad_data[6]));                             \
-            thi_15 = wasm_i64x2_add(thi_15, wasm_u64x2_extend_high_u32x4(_c.quad_data[6]));                            \
-            temp_16 += _c.scalar_data[7];                                                                              \
-            tlo_16 = wasm_i64x2_add(tlo_16, wasm_u64x2_extend_low_u32x4(_c.quad_data[7]));                             \
-            thi_16 = wasm_i64x2_add(thi_16, wasm_u64x2_extend_high_u32x4(_c.quad_data[7]));                            \
-            temp_17_linear_acc += _c.scalar_data[8];                                                                   \
-            tlo_17_linear_acc = wasm_i64x2_add(tlo_17_linear_acc, wasm_u64x2_extend_low_u32x4(_c.quad_data[8]));       \
-            thi_17_linear_acc = wasm_i64x2_add(thi_17_linear_acc, wasm_u64x2_extend_high_u32x4(_c.quad_data[8]));      \
-        }                                                                                                              \
-                                                                                                                       \
         /* --- Stage 8 carry propagation (same as operator* / dot_product<K>), */                                      \
-        /* but temp_17 is seeded from temp_17_linear_acc and then adds the */                                          \
-        /* carry from temp_16 >> 29. */                                                                                \
+        /* but temp_17 folds in temp_17_linear_acc (the limb-8 linear */                                               \
+        /* contribution) on top of the carry from temp_16 >> 29. */                                                    \
         temp_10 += temp_9 >> 29;                                                                                       \
         tlo_10 = wasm_i64x2_add(tlo_10, wasm_u64x2_shr(tlo_9, 29));                                                    \
         thi_10 = wasm_i64x2_add(thi_10, wasm_u64x2_shr(thi_9, 29));                                                    \
