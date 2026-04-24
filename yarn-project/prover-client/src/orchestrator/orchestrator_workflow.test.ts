@@ -87,8 +87,7 @@ describe('prover/orchestrator', () => {
           }
         });
 
-        const finalBlobChallenges = await context.getFinalBlobChallenges();
-        orchestrator.startNewEpoch(EpochNumber(1), 1, finalBlobChallenges);
+        orchestrator.startNewEpoch(EpochNumber(1));
 
         await orchestrator.startNewCheckpoint(
           0, // checkpointIndex
@@ -140,7 +139,7 @@ describe('prover/orchestrator', () => {
         } = await context.makeCheckpoint(numBlocks);
 
         const finalBlobChallenges = await context.getFinalBlobChallenges();
-        orchestrator.startNewEpoch(EpochNumber(1), 1, finalBlobChallenges);
+        orchestrator.startNewEpoch(EpochNumber(1));
 
         await orchestrator.startNewCheckpoint(
           0, // checkpointIndex
@@ -156,6 +155,7 @@ describe('prover/orchestrator', () => {
         // now finish the block
         await orchestrator.setBlockCompleted(blockNumber);
 
+        await orchestrator.finalizeEpochStructure(1, finalBlobChallenges);
         const result = await orchestrator.finalizeEpoch();
         expect(result.proof).toBeDefined();
       });
@@ -169,7 +169,7 @@ describe('prover/orchestrator', () => {
         } = await context.makeCheckpoint(numBlocks);
 
         const finalBlobChallenges = await context.getFinalBlobChallenges();
-        orchestrator.startNewEpoch(EpochNumber(1), 1, finalBlobChallenges);
+        orchestrator.startNewEpoch(EpochNumber(1));
 
         await orchestrator.startNewCheckpoint(
           0, // checkpointIndex
@@ -185,6 +185,7 @@ describe('prover/orchestrator', () => {
         // now finish the block
         await orchestrator.setBlockCompleted(blockNumber);
 
+        await orchestrator.finalizeEpochStructure(1, finalBlobChallenges);
         const result = await orchestrator.finalizeEpoch();
         expect(result.proof).toBeDefined();
         // Forks are closed deterministically in setBlockCompleted, so no cancel() needed.
@@ -205,7 +206,7 @@ describe('prover/orchestrator', () => {
         });
 
         const finalBlobChallenges = await context.getFinalBlobChallenges();
-        orchestrator.startNewEpoch(EpochNumber(1), 1, finalBlobChallenges);
+        orchestrator.startNewEpoch(EpochNumber(1));
 
         await orchestrator.startNewCheckpoint(
           0, // checkpointIndex
@@ -236,6 +237,7 @@ describe('prover/orchestrator', () => {
         await orchestrator.addTxs(txs);
         await orchestrator.setBlockCompleted(blockNumber);
 
+        await orchestrator.finalizeEpochStructure(1, finalBlobChallenges);
         const result = await orchestrator.finalizeEpoch();
         expect(result.proof).toBeDefined();
         expect(getChonkVerifierSpy).toHaveBeenCalledTimes(0);
@@ -252,9 +254,9 @@ describe('prover/orchestrator', () => {
         );
 
         const finalBlobChallenges = await context.getFinalBlobChallenges();
-        context.orchestrator.startNewEpoch(EpochNumber(1), numCheckpoints, finalBlobChallenges);
+        context.orchestrator.startNewEpoch(EpochNumber(1));
 
-        // Start checkpoint in reverse order.
+        // Start checkpoints in reverse order.
         for (let checkpointIndex = numCheckpoints - 1; checkpointIndex >= 0; checkpointIndex--) {
           const { constants, blocks, l1ToL2Messages, previousBlockHeader } = checkpoints[checkpointIndex];
           await context.orchestrator.startNewCheckpoint(
@@ -276,6 +278,7 @@ describe('prover/orchestrator', () => {
         }
 
         logger.info('Finalizing epoch');
+        await context.orchestrator.finalizeEpochStructure(numCheckpoints, finalBlobChallenges);
         const epoch = await context.orchestrator.finalizeEpoch();
         expect(epoch.proof).toBeDefined();
       });
@@ -289,7 +292,7 @@ describe('prover/orchestrator', () => {
         );
 
         const finalBlobChallenges = await context.getFinalBlobChallenges();
-        context.orchestrator.startNewEpoch(EpochNumber(1), numCheckpoints, finalBlobChallenges);
+        context.orchestrator.startNewEpoch(EpochNumber(1));
 
         await Promise.all(
           checkpoints.map(async (checkpoint, checkpointIndex) => {
@@ -312,6 +315,10 @@ describe('prover/orchestrator', () => {
             }
           }),
         );
+
+        await context.orchestrator.finalizeEpochStructure(numCheckpoints, finalBlobChallenges);
+        const epoch = await context.orchestrator.finalizeEpoch();
+        expect(epoch.proof).toBeDefined();
       });
     });
   });

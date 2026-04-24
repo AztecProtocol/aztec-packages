@@ -47,8 +47,7 @@ describe('prover/orchestrator/lifecycle', () => {
         numTxsPerBlock: 0,
       });
 
-      const finalBlobChallenges = await context.getFinalBlobChallenges();
-      orchestrator.startNewEpoch(EpochNumber(1), 1, finalBlobChallenges);
+      orchestrator.startNewEpoch(EpochNumber(1));
 
       await orchestrator.startNewCheckpoint(
         0, // checkpointIndex
@@ -91,8 +90,7 @@ describe('prover/orchestrator/lifecycle', () => {
         numTxsPerBlock: 0,
       });
 
-      const finalBlobChallenges = await context.getFinalBlobChallenges();
-      orchestrator.startNewEpoch(EpochNumber(1), 1, finalBlobChallenges);
+      orchestrator.startNewEpoch(EpochNumber(1));
 
       await orchestrator.startNewCheckpoint(0, constants, [], 1, previousBlockHeader);
 

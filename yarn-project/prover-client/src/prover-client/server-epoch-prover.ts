@@ -18,13 +18,19 @@ export class ServerEpochProver implements EpochProver {
     private orchestrator: ProvingOrchestrator,
   ) {}
 
-  startNewEpoch(
-    epochNumber: EpochNumber,
+  startNewEpoch(epochNumber: EpochNumber): void {
+    this.orchestrator.startNewEpoch(epochNumber);
+    this.facade.start();
+  }
+
+  finalizeEpochStructure(
     totalNumCheckpoints: number,
     finalBlobBatchingChallenges: FinalBlobBatchingChallenges,
-  ): void {
-    this.orchestrator.startNewEpoch(epochNumber, totalNumCheckpoints, finalBlobBatchingChallenges);
-    this.facade.start();
+  ): Promise<void> {
+    return this.orchestrator.finalizeEpochStructure(totalNumCheckpoints, finalBlobBatchingChallenges);
+  }
+  waitForAllCheckpointsReady(): Promise<void> {
+    return this.orchestrator.waitForAllCheckpointsReady();
   }
   startNewCheckpoint(
     checkpointIndex: number,

@@ -53,7 +53,7 @@ describe('prover/bb_prover/full-rollup', () => {
       );
 
       const finalBlobChallenges = await context.getFinalBlobChallenges();
-      context.orchestrator.startNewEpoch(EpochNumber(1), numCheckpoints, finalBlobChallenges);
+      context.orchestrator.startNewEpoch(EpochNumber(1));
 
       for (let checkpointIndex = 0; checkpointIndex < numCheckpoints; checkpointIndex++) {
         const { constants, blocks, l1ToL2Messages, previousBlockHeader } = checkpoints[checkpointIndex];
@@ -81,6 +81,7 @@ describe('prover/bb_prover/full-rollup', () => {
       }
 
       log.info(`Awaiting proofs`);
+      await context.orchestrator.finalizeEpochStructure(numCheckpoints, finalBlobChallenges);
       const epochResult = await context.orchestrator.finalizeEpoch();
 
       if (prover) {

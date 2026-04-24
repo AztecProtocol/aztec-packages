@@ -8,6 +8,7 @@ import {
 } from '@aztec/constants';
 import { BlockNumber, EpochNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { createLogger } from '@aztec/foundation/log';
 import type { Tuple } from '@aztec/foundation/serialize';
 import {
   MerkleTreeCalculator,
@@ -51,18 +52,26 @@ export type ProvingResult = { status: 'success' } | { status: 'failure'; reason:
  * Captures resolve and reject callbacks to provide a promise base interface to the consumer of our proving.
  */
 export class EpochProvingState {
-  private checkpointProofs: UnbalancedTreeStore<
-    ProofState<CheckpointRollupPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
-  >;
+  private checkpointProofs:
+    | UnbalancedTreeStore<ProofState<CheckpointRollupPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>>
+    | undefined;
   private checkpointPaddingProof:
     | ProofState<CheckpointRollupPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
     | undefined;
   private rootRollupProof: ProofState<RootRollupPublicInputs, typeof NESTED_RECURSIVE_PROOF_LENGTH> | undefined;
   private checkpoints: (CheckpointProvingState | undefined)[] = [];
-  private startBlobAccumulator: BatchedBlobAccumulator;
+  private startBlobAccumulator: BatchedBlobAccumulator | undefined;
   private endBlobAccumulator: BatchedBlobAccumulator | undefined;
   private finalBatchedBlob: BatchedBlob | undefined;
   private provingStateLifecycle = PROVING_STATE_LIFECYCLE.PROVING_STATE_CREATED;
+
+  /** Set after `finalizeEpochStructure` is called. */
+  private _totalNumCheckpoints: number | undefined;
+  /** Set after `finalizeEpochStructure` is called. */
+  private _finalBlobBatchingChallenges: FinalBlobBatchingChallenges | undefined;
+
+  /** All callbacks waiting for checkpoints to be block-level ready. */
+  private checkpointsReadyCallbacks: Array<{ resolve: () => void; reject: (reason: string) => void }> = [];
 
   // Map from tx hash to chonk verifier proof promise. Used when kickstarting chonk verifier proofs before tx processing.
   public readonly cachedChonkVerifierProofs = new Map<
@@ -72,20 +81,150 @@ export class EpochProvingState {
     >
   >();
 
+  private log = createLogger('prover-client:epoch-proving-state');
+
   constructor(
     public readonly epochNumber: EpochNumber,
-    public readonly totalNumCheckpoints: number,
-    private readonly finalBlobBatchingChallenges: FinalBlobBatchingChallenges,
     private onCheckpointBlobAccumulatorSet: (checkpoint: CheckpointProvingState) => Promise<void>,
     private completionCallback: (result: ProvingResult) => void,
     private rejectionCallback: (reason: string) => void,
-  ) {
-    this.checkpointProofs = new UnbalancedTreeStore(totalNumCheckpoints);
-    this.startBlobAccumulator = BatchedBlobAccumulator.newWithChallenges(finalBlobBatchingChallenges);
+  ) {}
+
+  /** Returns the total number of checkpoints, or undefined if not yet finalized. */
+  public get totalNumCheckpoints(): number | undefined {
+    return this._totalNumCheckpoints;
   }
 
-  // Adds a block to the proving state, returns its index
-  // Will update the proving life cycle if this is the last block
+  /** Returns whether the epoch structure has been finalized. */
+  public get isEpochStructureFinalized(): boolean {
+    return this.totalNumCheckpoints != undefined;
+  }
+
+  /**
+   * Finalizes the epoch structure after all checkpoints have been added.
+   * Sets the final checkpoint count and blob batching challenges, creates the
+   * UnbalancedTreeStore for checkpoint merges, and triggers checkpoint root
+   * enqueue for any checkpoints whose block merge proofs are already complete.
+   */
+  public async finalizeEpochStructure(
+    totalNumCheckpoints: number,
+    finalBlobBatchingChallenges: FinalBlobBatchingChallenges,
+  ) {
+    if (this.isEpochStructureFinalized) {
+      throw new Error('Epoch structure has already been finalized.');
+    }
+
+    this._totalNumCheckpoints = totalNumCheckpoints;
+    this._finalBlobBatchingChallenges = finalBlobBatchingChallenges;
+    this.checkpointProofs = new UnbalancedTreeStore(totalNumCheckpoints);
+    this.startBlobAccumulator = BatchedBlobAccumulator.newWithChallenges(finalBlobBatchingChallenges);
+
+    // Transition to FULL if all checkpoints are added.
+    if (this.checkpoints.filter(c => !!c).length === totalNumCheckpoints) {
+      this.provingStateLifecycle = PROVING_STATE_LIFECYCLE.PROVING_STATE_FULL;
+    }
+
+    // Set blob batching challenges on all existing checkpoints.
+    for (const checkpoint of this.checkpoints) {
+      if (checkpoint) {
+        checkpoint.setFinalBlobBatchingChallenges(finalBlobBatchingChallenges);
+      }
+    }
+
+    // Accumulate out hashes and blob data now that structure is known.
+    await this.accumulateCheckpointOutHashes();
+    await this.setBlobAccumulators();
+
+    // For any checkpoints whose block merge proofs are already complete, trigger checkpoint root enqueue.
+    for (const checkpoint of this.checkpoints) {
+      if (checkpoint && checkpoint.isReadyForCheckpointRoot()) {
+        await this.onCheckpointBlobAccumulatorSet(checkpoint);
+      }
+    }
+  }
+
+  /**
+   * Removes the last checkpoint from the epoch. Only valid before `finalizeEpochStructure` has been called.
+   * Returns the removed checkpoint, or undefined if there are no checkpoints.
+   */
+  public removeLastCheckpoint(): CheckpointProvingState | undefined {
+    if (this.isEpochStructureFinalized) {
+      throw new Error('Cannot remove checkpoints after epoch structure has been finalized.');
+    }
+
+    // Find the last non-undefined checkpoint.
+    let lastIndex = -1;
+    for (let i = this.checkpoints.length - 1; i >= 0; i--) {
+      if (this.checkpoints[i]) {
+        lastIndex = i;
+        break;
+      }
+    }
+
+    if (lastIndex === -1) {
+      return undefined;
+    }
+
+    const removed = this.checkpoints[lastIndex]!;
+    this.checkpoints[lastIndex] = undefined;
+    // Trim trailing undefined entries.
+    while (this.checkpoints.length > 0 && !this.checkpoints[this.checkpoints.length - 1]) {
+      this.checkpoints.pop();
+    }
+
+    // Re-evaluate: removing a checkpoint may mean all remaining are now ready.
+    this.notifyCheckpointBlockLevelComplete();
+
+    return removed;
+  }
+
+  /**
+   * Returns a promise that resolves when all current checkpoints have completed block-level proving.
+   * Block-level proving complete means the checkpoint's block merge tree is fully resolved.
+   */
+  public waitForAllCheckpointsReady(): Promise<void> {
+    if (!this.verifyState()) {
+      return Promise.reject(new Error('Epoch proving state is no longer valid'));
+    }
+    if (this.areAllCheckpointsBlockLevelReady()) {
+      this.log.debug(`All checkpoints already block-level ready`);
+      return Promise.resolve();
+    }
+    this.log.debug(`Waiting for all checkpoints to complete block-level proving`);
+    return new Promise<void>((resolve, reject) => {
+      this.checkpointsReadyCallbacks.push({ resolve, reject });
+    });
+  }
+
+  /** Called when a checkpoint completes block-level proving. Re-evaluates readiness and notifies waiters. */
+  public notifyCheckpointBlockLevelComplete() {
+    if (this.areAllCheckpointsBlockLevelReady()) {
+      this.log.info(`All checkpoints block-level ready, notifying ${this.checkpointsReadyCallbacks.length} waiters`);
+      for (const { resolve } of this.checkpointsReadyCallbacks) {
+        resolve();
+      }
+      this.checkpointsReadyCallbacks = [];
+    }
+  }
+
+  /** Rejects all checkpoint-ready waiters. Called when the epoch is cancelled. */
+  private rejectCheckpointsReadyWaiters(reason: string) {
+    for (const { reject } of this.checkpointsReadyCallbacks) {
+      reject(reason);
+    }
+    this.checkpointsReadyCallbacks = [];
+  }
+
+  private areAllCheckpointsBlockLevelReady(): boolean {
+    const activeCheckpoints = this.checkpoints.filter(c => !!c);
+    if (activeCheckpoints.length === 0) {
+      return false;
+    }
+    return activeCheckpoints.every(c => c!.isBlockMergeTreeComplete());
+  }
+
+  // Adds a checkpoint to the proving state.
+  // Will update the proving life cycle if this is the last checkpoint (only when epoch structure is finalized).
   public startNewCheckpoint(
     checkpointIndex: number,
     constants: CheckpointConstantData,
@@ -98,9 +237,9 @@ export class EpochProvingState {
     newL1ToL2MessageTreeSnapshot: AppendOnlyTreeSnapshot,
     newL1ToL2MessageSubtreeRootSiblingPath: Tuple<Fr, typeof L1_TO_L2_MSG_SUBTREE_ROOT_SIBLING_PATH_LENGTH>,
   ): CheckpointProvingState {
-    if (checkpointIndex >= this.totalNumCheckpoints) {
+    if (this._totalNumCheckpoints !== undefined && checkpointIndex >= this._totalNumCheckpoints) {
       throw new Error(
-        `Unable to start a new checkpoint at index ${checkpointIndex}. Expected at most ${this.totalNumCheckpoints} checkpoints.`,
+        `Unable to start a new checkpoint at index ${checkpointIndex}. Expected at most ${this._totalNumCheckpoints} checkpoints.`,
       );
     }
 
@@ -108,7 +247,7 @@ export class EpochProvingState {
       checkpointIndex,
       constants,
       totalNumBlocks,
-      this.finalBlobBatchingChallenges,
+      this._finalBlobBatchingChallenges,
       previousBlockHeader,
       lastArchiveSiblingPath,
       l1ToL2Messages,
@@ -121,7 +260,10 @@ export class EpochProvingState {
     );
     this.checkpoints[checkpointIndex] = checkpoint;
 
-    if (this.checkpoints.filter(c => !!c).length === this.totalNumCheckpoints) {
+    if (
+      this._totalNumCheckpoints !== undefined &&
+      this.checkpoints.filter(c => !!c).length === this._totalNumCheckpoints
+    ) {
       this.provingStateLifecycle = PROVING_STATE_LIFECYCLE.PROVING_STATE_FULL;
     }
 
@@ -155,7 +297,11 @@ export class EpochProvingState {
 
   // Returns true if we are still able to accept checkpoints, false otherwise.
   public isAcceptingCheckpoints() {
-    return this.checkpoints.filter(c => !!c).length < this.totalNumCheckpoints;
+    // Before finalization, always accept checkpoints.
+    if (this._totalNumCheckpoints === undefined) {
+      return true;
+    }
+    return this.checkpoints.filter(c => !!c).length < this._totalNumCheckpoints;
   }
 
   public setCheckpointRootRollupProof(
@@ -165,10 +311,16 @@ export class EpochProvingState {
       typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH
     >,
   ): TreeNodeLocation {
+    if (!this.checkpointProofs) {
+      throw new Error('Checkpoint proofs store not initialized. Call finalizeEpochStructure first.');
+    }
     return this.checkpointProofs.setLeaf(checkpointIndex, { provingOutput });
   }
 
   public tryStartProvingCheckpointMerge(location: TreeNodeLocation) {
+    if (!this.checkpointProofs) {
+      throw new Error('Checkpoint proofs store not initialized. Call finalizeEpochStructure first.');
+    }
     if (this.checkpointProofs.getNode(location)?.isProving) {
       return false;
     } else {
@@ -184,6 +336,9 @@ export class EpochProvingState {
       typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH
     >,
   ) {
+    if (!this.checkpointProofs) {
+      throw new Error('Checkpoint proofs store not initialized. Call finalizeEpochStructure first.');
+    }
     this.checkpointProofs.setNode(location, { provingOutput });
   }
 
@@ -219,6 +374,10 @@ export class EpochProvingState {
   }
 
   public async accumulateCheckpointOutHashes() {
+    if (this._totalNumCheckpoints === undefined) {
+      return;
+    }
+
     const treeCalculator = await MerkleTreeCalculator.create(OUT_HASH_TREE_HEIGHT, undefined, (left, right) =>
       Promise.resolve(shaMerkleHash(left, right)),
     );
@@ -237,11 +396,9 @@ export class EpochProvingState {
 
     let hint = this.checkpoints[0]?.getOutHashHint();
     const outHashes = [];
-    for (let i = 0; i < this.totalNumCheckpoints; i++) {
-      const checkpoint = this.checkpoints[i];
-      if (!checkpoint) {
-        break;
-      }
+    const activeCheckpoints = this.checkpoints.filter(c => !!c) as CheckpointProvingState[];
+    for (let i = 0; i < activeCheckpoints.length; i++) {
+      const checkpoint = activeCheckpoints[i];
 
       // If hints are not set yet, it must be the first checkpoint. Compute the hints with an empty tree.
       hint ??= await computeOutHashHint([]);
@@ -255,7 +412,7 @@ export class EpochProvingState {
       outHashes.push(outHash);
 
       // If this is NOT the last checkpoint, get or create the hint for the next checkpoint.
-      if (i !== this.totalNumCheckpoints - 1) {
+      if (i !== activeCheckpoints.length - 1) {
         hint = checkpoint.getOutHashHintForNextCheckpoint() ?? (await computeOutHashHint(outHashes));
         checkpoint.setOutHashHintForNextCheckpoint(hint);
       }
@@ -263,13 +420,15 @@ export class EpochProvingState {
   }
 
   public async setBlobAccumulators() {
+    if (!this.startBlobAccumulator || this._totalNumCheckpoints === undefined) {
+      return;
+    }
+
     let previousAccumulator = this.startBlobAccumulator;
     // Accumulate blobs as far as we can for this epoch.
-    for (let i = 0; i < this.totalNumCheckpoints; i++) {
-      const checkpoint = this.checkpoints[i];
-      if (!checkpoint) {
-        break;
-      }
+    const activeCheckpoints = this.checkpoints.filter(c => !!c) as CheckpointProvingState[];
+    for (let i = 0; i < activeCheckpoints.length; i++) {
+      const checkpoint = activeCheckpoints[i];
 
       const endAccumulator =
         checkpoint.getEndBlobAccumulator() || (await checkpoint.accumulateBlobs(previousAccumulator));
@@ -280,7 +439,7 @@ export class EpochProvingState {
       previousAccumulator = endAccumulator;
 
       // If this is the last checkpoint, set the end blob accumulator.
-      if (i === this.totalNumCheckpoints - 1) {
+      if (i === activeCheckpoints.length - 1) {
         this.endBlobAccumulator = endAccumulator;
       }
     }
@@ -294,10 +453,16 @@ export class EpochProvingState {
   }
 
   public getParentLocation(location: TreeNodeLocation) {
+    if (!this.checkpointProofs) {
+      throw new Error('Checkpoint proofs store not initialized. Call finalizeEpochStructure first.');
+    }
     return this.checkpointProofs.getParentLocation(location);
   }
 
   public getCheckpointMergeRollupInputs(mergeLocation: TreeNodeLocation) {
+    if (!this.checkpointProofs) {
+      throw new Error('Checkpoint proofs store not initialized. Call finalizeEpochStructure first.');
+    }
     const [left, right] = this.checkpointProofs.getChildren(mergeLocation).map(c => c?.provingOutput);
     if (!left || !right) {
       throw new Error('At least one child is not ready for the checkpoint merge rollup.');
@@ -336,11 +501,17 @@ export class EpochProvingState {
   }
 
   public isReadyForCheckpointMerge(location: TreeNodeLocation) {
+    if (!this.checkpointProofs) {
+      return false;
+    }
     return !!this.checkpointProofs.getSibling(location)?.provingOutput;
   }
 
   // Returns true if we have sufficient inputs to execute the block root rollup
   public isReadyForRootRollup() {
+    if (!this.checkpointProofs || !this.isEpochStructureFinalized) {
+      return false;
+    }
     const childProofs = this.#getChildProofsForRoot();
     return childProofs.every(p => !!p);
   }
@@ -357,6 +528,7 @@ export class EpochProvingState {
       return;
     }
     this.provingStateLifecycle = PROVING_STATE_LIFECYCLE.PROVING_STATE_REJECTED;
+    this.rejectCheckpointsReadyWaiters(reason);
     this.rejectionCallback(reason);
   }
 
@@ -371,9 +543,12 @@ export class EpochProvingState {
   }
 
   #getChildProofsForRoot() {
+    if (!this.checkpointProofs || this._totalNumCheckpoints === undefined) {
+      return [undefined, undefined];
+    }
     const rootLocation = { level: 0, index: 0 };
-    // If there's only 1 block, its block root proof will be stored at the root.
-    return this.totalNumCheckpoints === 1
+    // If there's only 1 checkpoint, its checkpoint root proof will be stored at the root.
+    return this._totalNumCheckpoints === 1
       ? [this.checkpointProofs.getNode(rootLocation)?.provingOutput, this.checkpointPaddingProof?.provingOutput]
       : this.checkpointProofs.getChildren(rootLocation).map(c => c?.provingOutput);
   }

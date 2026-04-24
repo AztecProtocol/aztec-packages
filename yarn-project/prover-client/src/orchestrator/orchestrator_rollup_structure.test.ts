@@ -122,7 +122,7 @@ describe('prover/orchestrator/rollup-structure', () => {
       });
 
       const finalBlobChallenges = await context.getFinalBlobChallenges();
-      context.orchestrator.startNewEpoch(EpochNumber(1) /* epochNumber */, numCheckpoints, finalBlobChallenges);
+      context.orchestrator.startNewEpoch(EpochNumber(1));
 
       for (let checkpointIndex = 0; checkpointIndex < checkpoints.length; checkpointIndex++) {
         const { constants, blocks, l1ToL2Messages, previousBlockHeader } = checkpoints[checkpointIndex];
@@ -143,6 +143,7 @@ describe('prover/orchestrator/rollup-structure', () => {
         }
       }
 
+      await context.orchestrator.finalizeEpochStructure(numCheckpoints, finalBlobChallenges);
       const result = await context.orchestrator.finalizeEpoch();
 
       expect(result.publicInputs.previousArchiveRoot).toEqual(epochStartArchive.root);
@@ -194,7 +195,7 @@ describe('prover/orchestrator/rollup-structure', () => {
       });
 
       const finalBlobChallenges = await context.getFinalBlobChallenges();
-      context.orchestrator.startNewEpoch(EpochNumber(1), 1, finalBlobChallenges);
+      context.orchestrator.startNewEpoch(EpochNumber(1));
 
       await context.orchestrator.startNewCheckpoint(
         0, // checkpointIndex
@@ -208,6 +209,7 @@ describe('prover/orchestrator/rollup-structure', () => {
       await context.orchestrator.startNewBlock(blockNumber, timestamp, block.txs.length);
       await context.orchestrator.setBlockCompleted(blockNumber, block.header);
 
+      await context.orchestrator.finalizeEpochStructure(1, finalBlobChallenges);
       const result = await context.orchestrator.finalizeEpoch();
 
       expect(result.publicInputs.previousArchiveRoot).toEqual(epochStartArchive.root);

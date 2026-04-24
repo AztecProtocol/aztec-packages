@@ -149,12 +149,7 @@ export class EpochProvingJob implements Traceable {
     this.runPromise = promise;
 
     try {
-      const blobTimer = new Timer();
-      const blobFieldsPerCheckpoint = this.checkpoints.map(checkpoint => checkpoint.toBlobFields());
-      const finalBlobBatchingChallenges = await buildFinalBlobChallenges(blobFieldsPerCheckpoint);
-      this.metrics.recordBlobProcessing(blobTimer.ms());
-
-      this.prover.startNewEpoch(epochNumber, epochSizeCheckpoints, finalBlobBatchingChallenges);
+      this.prover.startNewEpoch(epochNumber);
       const chonkTimer = new Timer();
       await this.prover.startChonkVerifierCircuits(Array.from(this.txs.values()));
       this.metrics.recordChonkVerifier(chonkTimer.ms());
@@ -259,6 +254,18 @@ export class EpochProvingJob implements Traceable {
         this.metrics.recordCheckpointProcessing(checkpointTimer.ms());
       });
       this.metrics.recordAllCheckpointsProcessing(allCheckpointsTimer.ms());
+
+      // Wait for all checkpoints to complete block-level proving before finalizing the epoch structure.
+      // In the current non-optimistic flow this will resolve once all block merge proofs complete.
+      // In the future optimistic flow, this will be awaited alongside the epoch-end signal.
+      await this.prover.waitForAllCheckpointsReady();
+
+      const blobTimer = new Timer();
+      const blobFieldsPerCheckpoint = this.checkpoints.map(checkpoint => checkpoint.toBlobFields());
+      const finalBlobBatchingChallenges = await buildFinalBlobChallenges(blobFieldsPerCheckpoint);
+      this.metrics.recordBlobProcessing(blobTimer.ms());
+
+      await this.prover.finalizeEpochStructure(epochSizeCheckpoints, finalBlobBatchingChallenges);
 
       const executionTime = timer.ms();
 

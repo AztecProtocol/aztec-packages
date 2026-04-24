@@ -54,7 +54,7 @@ describe('prover/orchestrator/failures', () => {
       );
 
       const finalBlobChallenges = await context.getFinalBlobChallenges();
-      orchestrator.startNewEpoch(EpochNumber(1), 1, finalBlobChallenges);
+      orchestrator.startNewEpoch(EpochNumber(1));
 
       for (let checkpointIndex = 0; checkpointIndex < checkpoints.length; checkpointIndex++) {
         const { constants, blocks, l1ToL2Messages, previousBlockHeader } = checkpoints[checkpointIndex];
@@ -91,6 +91,12 @@ describe('prover/orchestrator/failures', () => {
         } catch {
           break;
         }
+      }
+
+      try {
+        await orchestrator.finalizeEpochStructure(checkpoints.length, finalBlobChallenges);
+      } catch {
+        // Epoch structure finalization may fail if the proving state was already rejected.
       }
     };
 

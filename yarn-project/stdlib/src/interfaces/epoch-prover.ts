@@ -16,14 +16,26 @@ export interface EpochProver extends Omit<IBlockFactory, 'setBlockCompleted' | '
   /**
    * Starts a new epoch. Must be the first method to be called.
    * @param epochNumber - The epoch number.
-   * @param totalNumCheckpoints - The total number of checkpoints expected in the epoch (must be at least one).
-   * @param finalBlobBatchingChallenges - The final blob batching challenges for the epoch.
    **/
-  startNewEpoch(
-    epochNumber: EpochNumber,
+  startNewEpoch(epochNumber: EpochNumber): void;
+
+  /**
+   * Finalizes the epoch structure after all checkpoints have been processed.
+   * Sets the final checkpoint count and blob batching challenges, creates the checkpoint
+   * merge tree, and triggers checkpoint root enqueue for any checkpoints already ready.
+   * @param totalNumCheckpoints - The total number of checkpoints in the epoch.
+   * @param finalBlobBatchingChallenges - The final blob batching challenges for the epoch.
+   */
+  finalizeEpochStructure(
     totalNumCheckpoints: number,
     finalBlobBatchingChallenges: FinalBlobBatchingChallenges,
-  ): void;
+  ): Promise<void>;
+
+  /**
+   * Returns a promise that resolves when all current checkpoints have completed block-level proving
+   * (everything up to but not including checkpoint roots).
+   */
+  waitForAllCheckpointsReady(): Promise<void>;
 
   /**
    * Starts a new checkpoint.

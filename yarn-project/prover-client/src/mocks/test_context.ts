@@ -159,6 +159,29 @@ export class TestContext {
     this.epochNumber++;
   }
 
+  /** Removes the last checkpoint from the test context, rolling back state changes from makeCheckpoint. */
+  public async removeLastCheckpoint() {
+    const removed = this.checkpoints.pop();
+    this.checkpointOutHashes.pop();
+    if (!removed) {
+      return;
+    }
+
+    const numBlocks = removed.blocks.length;
+    this.nextCheckpointIndex--;
+    this.nextCheckpointNumber = CheckpointNumber(Number(this.nextCheckpointNumber) - 1);
+    this.nextBlockNumber -= numBlocks;
+
+    // Remove block headers.
+    for (const block of removed.blocks) {
+      this.headers.delete(block.number);
+    }
+
+    // Unwind world state to before the removed checkpoint's blocks.
+    const firstBlockNumber = removed.blocks[0].number;
+    await this.worldState.unwindBlocks(BlockNumber(firstBlockNumber - 1));
+  }
+
   // Return blob fields of all checkpoints in the epoch.
   public getBlobFields() {
     return this.checkpoints.map(checkpoint => checkpoint.toBlobFields());

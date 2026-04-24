@@ -26,7 +26,7 @@ describe('prover/orchestrator/blocks', () => {
       } = await context.makeCheckpoint(1, { numTxsPerBlock: 0 });
 
       const finalBlobChallenges = await context.getFinalBlobChallenges();
-      context.orchestrator.startNewEpoch(EpochNumber(1), 1, finalBlobChallenges);
+      context.orchestrator.startNewEpoch(EpochNumber(1));
 
       await context.orchestrator.startNewCheckpoint(
         0, // checkpointIndex
@@ -40,6 +40,7 @@ describe('prover/orchestrator/blocks', () => {
       await context.orchestrator.startNewBlock(blockNumber, timestamp, 0 /* numTxs */);
 
       const header = await context.orchestrator.setBlockCompleted(blockNumber, emptyBlock.header);
+      await context.orchestrator.finalizeEpochStructure(1, finalBlobChallenges);
       await context.orchestrator.finalizeEpoch();
       expect(header).toEqual(emptyBlock.header);
     });
@@ -52,7 +53,7 @@ describe('prover/orchestrator/blocks', () => {
       } = await context.makeCheckpoint(1, { numTxsPerBlock: 1 });
 
       const finalBlobChallenges = await context.getFinalBlobChallenges();
-      context.orchestrator.startNewEpoch(EpochNumber(1), 1, finalBlobChallenges);
+      context.orchestrator.startNewEpoch(EpochNumber(1));
 
       await context.orchestrator.startNewCheckpoint(
         0, // checkpointIndex
@@ -67,6 +68,7 @@ describe('prover/orchestrator/blocks', () => {
       await context.orchestrator.addTxs(block.txs);
 
       const header = await context.orchestrator.setBlockCompleted(blockNumber, block.header);
+      await context.orchestrator.finalizeEpochStructure(1, finalBlobChallenges);
       await context.orchestrator.finalizeEpoch();
       expect(header).toEqual(block.header);
     });
@@ -84,7 +86,7 @@ describe('prover/orchestrator/blocks', () => {
       });
 
       const finalBlobChallenges = await context.getFinalBlobChallenges();
-      context.orchestrator.startNewEpoch(EpochNumber(1), 1, finalBlobChallenges);
+      context.orchestrator.startNewEpoch(EpochNumber(1));
 
       await context.orchestrator.startNewCheckpoint(
         0, // checkpointIndex
@@ -100,6 +102,7 @@ describe('prover/orchestrator/blocks', () => {
       await context.orchestrator.addTxs(block.txs);
 
       const header = await context.orchestrator.setBlockCompleted(blockNumber, block.header);
+      await context.orchestrator.finalizeEpochStructure(1, finalBlobChallenges);
       await context.orchestrator.finalizeEpoch();
       expect(header).toEqual(block.header);
     });
