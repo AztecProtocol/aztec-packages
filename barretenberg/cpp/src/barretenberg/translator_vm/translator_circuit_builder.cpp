@@ -442,6 +442,10 @@ void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(const std::shared_
     }
     increment_num_gates(2);
 
+    for (size_t i = 0; i < NUM_NO_OPS_START; i++) {
+        BB_ASSERT(ultra_ops[i].op_code.value() == 0, "Expected no-op at the start of the op queue");
+    }
+
     // Process random operations at the start of the op queue (after the initial no-op), no accumulation gates needed.
     // These ensure commitments and evaluations do not reveal information about op queue content.
     for (size_t i = NUM_NO_OPS_START; i < NUM_NO_OPS_START + NUM_RANDOM_OPS_START; ++i) {

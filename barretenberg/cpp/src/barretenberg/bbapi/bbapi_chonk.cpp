@@ -95,9 +95,10 @@ ChonkAccumulate::Response ChonkAccumulate::execute(BBApiRequest& request) &&
             precomputed_vk = from_buffer<std::shared_ptr<Chonk::MegaVerificationKey>>(loaded_vk);
 
             if (request.vk_policy == VkPolicy::CHECK) {
-                // The hiding kernel is proven as MegaZK; its precomputed VK depends on MegaZKFlavor's TRACE_OFFSET.
+                // Note that MegaZKVerificationKey = MegaVerificationKey as C++ classes but their content differs
+                // because of the different TRACE_OFFSET
                 auto computed_vk = is_hiding_kernel ? std::make_shared<Chonk::MegaVerificationKey>(
-                                                          ProverInstance_<MegaZKFlavor>(circuit).get_precomputed())
+                                                          Chonk::HidingKernelProverInstance(circuit).get_precomputed())
                                                     : std::make_shared<Chonk::MegaVerificationKey>(
                                                           Chonk::ProverInstance(circuit).get_precomputed());
 
@@ -236,15 +237,13 @@ ChonkBatchVerify::Response ChonkBatchVerify::execute(const BBApiRequest& /*reque
     return { .valid = verified };
 }
 
-// Build a Chonk::MegaVerificationKey from an AcirProgram. Branches on is_hiding_kernel: the hiding kernel is proven
-// as MegaZK, so its precomputed polynomials (lagrange_ecc_op, gate selectors, lagrange_first, lagrange_last) depend
-// on MegaZKFlavor::TRACE_OFFSET rather than MegaFlavor::TRACE_OFFSET.
 static std::shared_ptr<Chonk::MegaVerificationKey> compute_chonk_vk_from_program(acir_format::AcirProgram& program,
                                                                                  bool is_hiding_kernel)
 {
     Chonk::ClientCircuit builder = acir_format::create_circuit<Chonk::ClientCircuit>(program);
     if (is_hiding_kernel) {
-        return std::make_shared<Chonk::MegaVerificationKey>(ProverInstance_<MegaZKFlavor>(builder).get_precomputed());
+        return std::make_shared<Chonk::MegaVerificationKey>(
+            Chonk::HidingKernelProverInstance(builder).get_precomputed());
     }
     return std::make_shared<Chonk::MegaVerificationKey>(Chonk::ProverInstance(builder).get_precomputed());
 }

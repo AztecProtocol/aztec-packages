@@ -74,12 +74,8 @@ struct ChonkLoad {
 
     /** @brief Circuit to be loaded with its bytecode and verification key */
     CircuitInput circuit;
-    /**
-     * @brief Whether this circuit is the Chonk hiding kernel (proven as MegaZK).
-     * @details The hiding kernel's precomputed VK differs from other circuits' because MegaZKFlavor has a
-     * different TRACE_OFFSET (= 4) than MegaFlavor (= 0), so its lagrange_ecc_op / gate-selector polys differ.
-     * Callers must set this to true when loading the final (hiding) kernel so VK-check paths use the right flavor.
-     */
+    /** @brief Differentiate between hiding kernel (using MegaZK with TRACE_OFFSET = 4) and other circuits (using Mega
+     * with TRACE_OFFSET = 0) */
     bool is_hiding_kernel = false;
     Response execute(BBApiRequest& request) &&;
     SERIALIZATION_FIELDS(circuit, is_hiding_kernel);
@@ -191,11 +187,6 @@ struct ChonkComputeVk {
     };
 
     CircuitInputNoVK circuit;
-    /**
-     * @brief Whether to compute the VK for the Chonk hiding kernel (MegaZKFlavor) rather than a regular
-     * app/kernel circuit (MegaFlavor). The two flavors produce different precomputed polynomials
-     * (different TRACE_OFFSET), so the VK must be computed with the matching flavor.
-     */
     bool is_hiding_kernel = false;
     Response execute([[maybe_unused]] const BBApiRequest& request = {}) &&;
     SERIALIZATION_FIELDS(circuit, is_hiding_kernel);
@@ -226,10 +217,8 @@ struct ChonkCheckPrecomputedVk {
 
     /** @brief Circuit with its precomputed verification key */
     CircuitInput circuit;
-    /**
-     * @brief Whether the precomputed VK is for the Chonk hiding kernel (MegaZKFlavor).
-     * Must match the flavor used to compute the VK originally (see ChonkComputeVk::is_hiding_kernel).
-     */
+    /** @brief Differentiate between hiding kernel (using MegaZK with TRACE_OFFSET = 4) and other circuits (using Mega
+     * with TRACE_OFFSET = 0) */
     bool is_hiding_kernel = false;
 
     Response execute(const BBApiRequest& request = {}) &&;

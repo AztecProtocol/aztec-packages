@@ -100,7 +100,7 @@ void TraceToPolynomials<Flavor>::add_ecc_op_wires_to_prover_instance(Builder& bu
     // The EccOpQueueRelation constrains ecc_op_wire[row] == w_shift[row] where lagrange_ecc_op == 1;
     // equivalently, ecc_op_wire[row] == w[row + NUM_ZERO_ROWS] (since w has a leading zero row for shiftability).
     // So ecc_op_wire is written starting at (ecc_op_block.trace_offset() - NUM_ZERO_ROWS): this is row 0 for non-ZK
-    // Mega and row TRACE_OFFSET (= 4) for MegaZK, matching the number of leading zeros in ecc_op_wire commitments.
+    // Mega and row 4 for MegaZK, matching the number of leading zeros in ecc_op_wire commitments.
     const auto& ecc_op_block = builder.blocks.ecc_op;
     const size_t wire_start = ecc_op_block.trace_offset();
     const size_t op_wire_start = wire_start - NUM_ZERO_ROWS;

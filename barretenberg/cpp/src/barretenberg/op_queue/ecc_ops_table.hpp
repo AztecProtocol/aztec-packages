@@ -248,12 +248,12 @@ class UltraEccOpsTable {
     bool has_fixed_append = false;
 
     // Size of the appended subtable (including its HIDING_KERNEL_LEADING_ZEROS preamble) in rows, if any.
-    size_t appended_subtable_span() const
+    size_t hiding_kernel_subtable_span() const
     {
-        if (!has_fixed_append || table.get().empty()) {
-            return 0;
-        }
-        return HIDING_KERNEL_LEADING_ZEROS + table.get().back().size() * NUM_ROWS_PER_OP;
+        BB_ASSERT(has_fixed_append, "Hiding kernel subtable span called without fixed append");
+        BB_ASSERT(!table.get().empty(), "Hiding kernel subtable span called on empty table");
+
+        return HIDING_KERNEL_LEADING_ZEROS + (table.get().back().size() * NUM_ROWS_PER_OP);
     }
 
   public:
@@ -263,10 +263,10 @@ class UltraEccOpsTable {
     // Returns the number of rows in the Ultra execution trace (each op occupies NUM_ROWS_PER_OP rows)
     size_t num_ultra_rows() const
     {
-        size_t base_size = table.size() * NUM_ROWS_PER_OP + (has_fixed_append ? HIDING_KERNEL_LEADING_ZEROS : 0);
+        size_t base_size = (table.size() * NUM_ROWS_PER_OP) + (has_fixed_append ? HIDING_KERNEL_LEADING_ZEROS : 0);
         if (has_fixed_append && fixed_append_offset.has_value()) {
             // Include zeros gap and final subtable at fixed location (subtable span includes preamble)
-            return std::max(base_size, fixed_append_offset.value() * NUM_ROWS_PER_OP + appended_subtable_span());
+            return std::max(base_size, (fixed_append_offset.value() * NUM_ROWS_PER_OP) + hiding_kernel_subtable_span());
         }
         return base_size;
     }
@@ -326,9 +326,8 @@ class UltraEccOpsTable {
             }
         }
 
-        // Fill gap with no-ops up to fixed_append_offset, then add the HIDING_KERNEL_LEADING_ZEROS preamble of
-        // the appended subtable (as two no-ops) so the flattened ordering matches the column polynomial layout
-        // produced by construct_column_polynomials_with_fixed_append.
+        // Fill gap with no-ops up to fixed_append_offset, then add no-ops to match the HIDING_KERNEL_LEADING_ZEROS
+        // preamble
         if (has_fixed_append && fixed_append_offset.has_value()) {
             size_t current_size = reconstructed_table.size();
             size_t target_offset = fixed_append_offset.value();
@@ -339,7 +338,7 @@ class UltraEccOpsTable {
                 reconstructed_table.end(), target_offset + preamble_op_slots - current_size, UltraOp{ /*no-op*/ });
         }
 
-        // Add the final subtable (appended at fixed location, after its leading-zero preamble)
+        // Add the final subtable (appended at fixed location)
         const auto& final_subtable = table.get()[table.num_subtables() - 1];
         for (const auto& op : final_subtable) {
             reconstructed_table.push_back(op);
@@ -426,8 +425,7 @@ class UltraEccOpsTable {
     /**
      * @brief Construct polynomials with fixed-location append
      * @details Process prepended subtables first, then place the appended subtable at the fixed offset. The appended
-     * subtable's ops are preceded by HIDING_KERNEL_LEADING_ZEROS zero rows so its range in M matches the polynomial
-     * produced by construct_current_ultra_ops_subtable_columns(), which also carries those leading zeros.
+     * subtable's ops are preceded by HIDING_KERNEL_LEADING_ZEROS zero rows.
      */
     ColumnPolynomials construct_column_polynomials_with_fixed_append(const size_t poly_size) const
     {

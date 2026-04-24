@@ -454,7 +454,6 @@ TEST_F(TranslatorRelationCorrectnessTests, NonNative)
     auto& engine = numeric::get_debug_randomness();
 
     auto op_queue = std::make_shared<bb::ECCOpQueue>();
-    // Seed a no-op for Translator shiftability (2 leading zero rows).
     op_queue->no_op_ultra_only();
     op_queue->random_op_ultra_only();
     op_queue->random_op_ultra_only();

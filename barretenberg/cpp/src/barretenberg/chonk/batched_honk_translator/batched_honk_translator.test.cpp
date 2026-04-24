@@ -68,8 +68,6 @@ class BatchedHonkTranslatorTests : public ::testing::Test {
                                                                       size_t circuit_size_param = 500)
     {
         auto op_queue = std::make_shared<ECCOpQueue>();
-        // Seed a no-op so the Translator's op-queue wires have 2 leading zeros for shiftability (matches what the
-        // tail kernel does in the real Chonk flow).
         op_queue->no_op_ultra_only();
         add_random_ops(op_queue, TranslatorCircuitBuilder::NUM_RANDOM_OPS_START);
         add_mixed_ops(op_queue, circuit_size_param / 2);

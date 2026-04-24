@@ -185,9 +185,8 @@ struct BBApiRequest {
     std::optional<acir_format::AcirFormat> loaded_circuit_constraints;
     // Store the verification key passed with the circuit
     std::vector<uint8_t> loaded_circuit_vk;
-    // Whether the last loaded circuit is the Chonk hiding kernel (proven as MegaZK).
-    // Needed because the hiding kernel's precomputed VK is flavor-sensitive (MegaZKFlavor::TRACE_OFFSET = 4
-    // vs MegaFlavor = 0), so its VK must be computed with MegaZKFlavor rather than MegaFlavor.
+    // Differentiate between hiding kernel (using MegaZK with TRACE_OFFSET = 4) and other circuits (using Mega with
+    // TRACE_OFFSET = 0)
     bool loaded_circuit_is_hiding_kernel = false;
     // Policy for handling verification keys during accumulation
     VkPolicy vk_policy = VkPolicy::DEFAULT;

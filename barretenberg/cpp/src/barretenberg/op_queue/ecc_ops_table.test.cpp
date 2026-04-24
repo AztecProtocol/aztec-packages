@@ -61,9 +61,7 @@ class EccOpsTableTest : public ::testing::Test {
         }
     };
 
-    // Mock ultra ops table that constructs a concatenated table from successively prepended subtables.
-    // When `last_subtable_has_preamble` is set, HIDING_KERNEL_LEADING_ZEROS zero rows are inserted before
-    // the final subtable's ops to mirror the hiding-kernel append layout in UltraEccOpsTable.
+    // Mock ultra ops table that constructs a concatenated table from successively prepended subtables
     struct MockUltraOpsTable {
         std::array<std::vector<Scalar>, 4> columns;
         void append(const UltraOp& op)

@@ -56,9 +56,7 @@ class HypernovaRecursionConstraintTest : public ::testing::Test {
         // Deepcopy the opqueue to avoid modifying the original one
         builder.op_queue = std::make_shared<ECCOpQueue>(*builder.op_queue);
         if (is_hiding_kernel) {
-            // The hiding kernel is proven as MegaZK; its precomputed polynomials (e.g. lagrange_ecc_op)
-            // depend on MegaZKFlavor::TRACE_OFFSET, which differs from MegaFlavor's.
-            auto prover_instance = std::make_shared<ProverInstance_<MegaZKFlavor>>(builder);
+            auto prover_instance = std::make_shared<Chonk::HidingKernelProverInstance>(builder);
             return std::make_shared<VerificationKey>(prover_instance->get_precomputed());
         }
         std::shared_ptr<Chonk::ProverInstance> prover_instance = std::make_shared<Chonk::ProverInstance>(builder);
@@ -252,7 +250,7 @@ class HypernovaRecursionConstraintTest : public ::testing::Test {
         // Create kernel circuit from the kernel program
         auto kernel = acir_format::create_circuit<Builder>(program);
         if (is_hiding_kernel) {
-            auto prover_instance = std::make_shared<ProverInstance_<MegaZKFlavor>>(kernel);
+            auto prover_instance = std::make_shared<Chonk::HidingKernelProverInstance>(kernel);
             return std::make_shared<Chonk::MegaVerificationKey>(prover_instance->get_precomputed());
         }
         auto prover_instance = std::make_shared<Chonk::ProverInstance>(kernel);
@@ -263,7 +261,7 @@ class HypernovaRecursionConstraintTest : public ::testing::Test {
                                                                                   bool is_hiding_kernel = false)
     {
         if (is_hiding_kernel) {
-            auto prover_instance = std::make_shared<ProverInstance_<MegaZKFlavor>>(kernel);
+            auto prover_instance = std::make_shared<Chonk::HidingKernelProverInstance>(kernel);
             return std::make_shared<Chonk::MegaVerificationKey>(prover_instance->get_precomputed());
         }
         auto prover_instance = std::make_shared<Chonk::ProverInstance>(kernel);

@@ -135,8 +135,6 @@ class PrivateFunctionExecutionMockCircuitProducer {
 
     /**
      * @brief Precompute the verification key for the given circuit.
-     * @param is_hiding_kernel If true, compute the VK using MegaZKFlavor (needed because the hiding kernel is
-     * proven as MegaZK and its precomputed polynomials — e.g. lagrange_ecc_op — depend on MegaZKFlavor::TRACE_OFFSET).
      */
     static std::shared_ptr<VerificationKey> get_verification_key(ClientCircuit& builder_in,
                                                                  bool is_hiding_kernel = false)
@@ -150,7 +148,7 @@ class PrivateFunctionExecutionMockCircuitProducer {
         builder.op_queue = std::make_shared<ECCOpQueue>(*builder.op_queue);
 
         if (is_hiding_kernel) {
-            auto prover_instance = std::make_shared<ProverInstance_<MegaZKFlavor>>(builder);
+            auto prover_instance = std::make_shared<Chonk::HidingKernelProverInstance>(builder);
             return std::make_shared<VerificationKey>(prover_instance->get_precomputed());
         }
         auto prover_instance = std::make_shared<Chonk::ProverInstance>(builder);
