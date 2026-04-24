@@ -77,6 +77,11 @@ TEST_F(KZGTest, ZeroEvaluation)
 
 TEST_F(KZGTest, WrongEvaluationFails)
 {
+    // compute_opening_proof internally divides (p(X) - claimed_eval) by (X - challenge) via factor_roots,
+    // which asserts exact divisibility. This test deliberately passes a wrong evaluation to exercise the
+    // verifier's rejection path, so downgrade that assert to a warning for the duration of the test.
+    BB_DISABLE_ASSERTS();
+
     auto witness = bb::Polynomial<Fr>::random(n);
     const Fr challenge = Fr::random_element();
     const Fr evaluation = witness.evaluate(challenge);
