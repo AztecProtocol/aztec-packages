@@ -2,9 +2,11 @@
 #pragma once
 
 #include "barretenberg/common/compiler_hints.hpp"
+#include <atomic>
 #include <iostream>
 #include <map>
 #include <memory>
+#include <mutex>
 #include <ostream>
 #include <string_view>
 #include <tracy/Tracy.hpp>
@@ -19,6 +21,10 @@
 namespace bb::detail {
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 extern bool use_bb_bench;
+// When true, BenchReporter pushes a {name, parent, ts, dur, tid} record into a per-thread
+// event buffer on every scope exit, for Chrome Trace Event / Perfetto-style output.
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
+extern std::atomic<bool> capture_per_call_events;
 
 // Compile-time string
 // See e.g. https://www.reddit.com/r/cpp_questions/comments/pumi9r/does_c20_not_support_string_literals_as_template/
@@ -77,6 +83,26 @@ struct AggregateEntry {
 // Empty string is used as key if the entry has no parent.
 using AggregateData = std::unordered_map<OperationKey, std::map<OperationKey, AggregateEntry>>;
 
+// A single scope entry/exit pair — captured only when capture_per_call_events is true.
+// name and parent are stable string_views into OperationLabel static storage or entry->key.
+struct PerCallEvent {
+    OperationKey name;
+    OperationKey parent;
+    uint64_t ts_ns;  // start wall-clock nanoseconds
+    uint64_t dur_ns; // end - start
+    uint64_t tid;    // hashed thread id
+};
+
+// Per-thread event buffer. Owned by the global container so serialized traces can safely
+// include events from worker threads that have already exited.
+struct ThreadEventBuffer {
+    uint64_t tid = 0;
+    std::vector<PerCallEvent> events;
+};
+
+// Access the current thread's event buffer, registering it on first touch.
+ThreadEventBuffer& get_thread_event_buffer();
+
 // Contains all statically known op counts
 struct GlobalBenchStatsContainer {
   public:
@@ -84,14 +110,27 @@ struct GlobalBenchStatsContainer {
     ~GlobalBenchStatsContainer();
     std::mutex mutex;
     std::vector<std::shared_ptr<TimeStatsEntry>> entries;
+    // Protects thread_event_buffers. Separate from `mutex` so serializers can iterate
+    // thread buffers without contending with active threads registering new TimeStatsEntries.
+    std::mutex event_mutex;
+    std::vector<std::unique_ptr<ThreadEventBuffer>> thread_event_buffers;
     void print() const;
     // NOTE: Should be called when other threads aren't active
     void clear();
     void add_entry(const char* key, const std::shared_ptr<TimeStatsEntry>& entry);
+    ThreadEventBuffer& register_thread_event_buffer(uint64_t tid);
     void print_stats_recursive(const OperationKey& key, const TimeStats* stats, const std::string& indent) const;
     void print_aggregate_counts(std::ostream&, size_t) const;
     void print_aggregate_counts_hierarchical(std::ostream&) const;
     void serialize_aggregate_data_json(std::ostream&) const;
+    // Chrome Trace Event Format output for Perfetto / chrome://tracing.
+    // serialize_trace_events_json emits every captured per-call event (requires
+    // capture_per_call_events to have been true during the run).
+    void serialize_trace_events_json(std::ostream&) const;
+    // Synthesizes Chrome Trace Event entries from the aggregate stats — one "X" event per
+    // (name, parent, thread_slot) laid out in DFS order. Lossy about individual call timing
+    // but tiny and works even without per-call capture.
+    void serialize_aggregate_trace_json(std::ostream&) const;
 
     // Normalize the raw benchmark data into a clean structure for display
     AggregateData aggregate() const;
