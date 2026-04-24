@@ -18,7 +18,7 @@ import { type MockProxy, mock } from 'jest-mock-extended';
 import { Archiver, type ArchiverEmitter } from './archiver.js';
 import type { ArchiverInstrumentation } from './modules/instrumentation.js';
 import { ArchiverL1Synchronizer } from './modules/l1_synchronizer.js';
-import { KVArchiverDataStore } from './store/kv_archiver_store.js';
+import { createArchiverDataStores } from './store/data_stores.js';
 import { L2TipsCache } from './store/l2_tips_cache.js';
 
 describe('Archiver misc', () => {
@@ -55,7 +55,7 @@ describe('Archiver misc', () => {
 
     const tracer = getTelemetryClient().getTracer('');
     const instrumentation = mock<ArchiverInstrumentation>({ isEnabled: () => true, tracer });
-    const archiverStore = new KVArchiverDataStore(await openTmpStore('archiver_misc_test'), 1000);
+    const archiverStore = createArchiverDataStores(await openTmpStore('archiver_misc_test'), { logsMaxPageSize: 1000 });
     const events = new EventEmitter() as ArchiverEmitter;
     const l2TipsCache = new L2TipsCache(archiverStore.blockStore);
 

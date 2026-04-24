@@ -24,19 +24,19 @@ import type { BlockHeader, IndexedTxEffect, TxHash, TxReceipt } from '@aztec/std
 import type { UInt64 } from '@aztec/stdlib/types';
 
 import type { ArchiverDataSource } from '../interfaces.js';
-import type { KVArchiverDataStore } from '../store/kv_archiver_store.js';
+import { type ArchiverDataStores, registerContractFunctionSignatures } from '../store/data_stores.js';
 import type { ValidateCheckpointResult } from './validation.js';
 
 /**
- * Abstract base class implementing ArchiverDataSource using a KVArchiverDataStore.
- * Provides implementations for all store-delegating methods and declares abstract methods
- * for L1-dependent functionality that subclasses must implement.
+ * Abstract base class implementing ArchiverDataSource using a bundle of archiver substores.
+ * Provides implementations for all read-side methods and declares abstract methods for
+ * L1-dependent functionality that subclasses must implement.
  */
 export abstract class ArchiverDataSourceBase
   implements ArchiverDataSource, L2LogsSource, ContractDataSource, L1ToL2MessageSource
 {
   constructor(
-    protected readonly store: KVArchiverDataStore,
+    protected readonly stores: ArchiverDataStores,
     protected readonly l1Constants?: L1RollupConstants,
   ) {}
 
@@ -61,54 +61,54 @@ export abstract class ArchiverDataSourceBase
   abstract syncImmediate(): Promise<void>;
 
   public getCheckpointNumber(): Promise<CheckpointNumber> {
-    return this.store.getSynchedCheckpointNumber();
+    return this.stores.blockStore.getLatestCheckpointNumber();
   }
 
   public getSynchedCheckpointNumber(): Promise<CheckpointNumber> {
-    return this.store.getSynchedCheckpointNumber();
+    return this.stores.blockStore.getLatestCheckpointNumber();
   }
 
   public getProvenCheckpointNumber(): Promise<CheckpointNumber> {
-    return this.store.getProvenCheckpointNumber();
+    return this.stores.blockStore.getProvenCheckpointNumber();
   }
 
   public getBlockNumber(): Promise<BlockNumber> {
-    return this.store.getLatestBlockNumber();
+    return this.stores.blockStore.getLatestL2BlockNumber();
   }
 
   public getProvenBlockNumber(): Promise<BlockNumber> {
-    return this.store.getProvenBlockNumber();
+    return this.stores.blockStore.getProvenBlockNumber();
   }
 
   public async getBlockHeader(number: BlockNumber | 'latest'): Promise<BlockHeader | undefined> {
-    const blockNumber = number === 'latest' ? await this.store.getLatestBlockNumber() : number;
+    const blockNumber = number === 'latest' ? await this.stores.blockStore.getLatestL2BlockNumber() : number;
     if (blockNumber === 0) {
       return undefined;
     }
-    const headers = await this.store.getBlockHeaders(blockNumber, 1);
+    const headers = await this.stores.blockStore.getBlockHeaders(blockNumber, 1);
     return headers.length === 0 ? undefined : headers[0];
   }
 
   public getCheckpointedBlock(number: BlockNumber): Promise<CheckpointedL2Block | undefined> {
-    return this.store.getCheckpointedBlock(number);
+    return this.stores.blockStore.getCheckpointedBlock(number);
   }
 
   public getCheckpointedL2BlockNumber(): Promise<BlockNumber> {
-    return this.store.getCheckpointedL2BlockNumber();
+    return this.stores.blockStore.getCheckpointedL2BlockNumber();
   }
 
   public getFinalizedL2BlockNumber(): Promise<BlockNumber> {
-    return this.store.getFinalizedL2BlockNumber();
+    return this.stores.blockStore.getFinalizedL2BlockNumber();
   }
 
   public async getCheckpointHeader(number: CheckpointNumber | 'latest'): Promise<CheckpointHeader | undefined> {
     if (number === 'latest') {
-      number = await this.store.getSynchedCheckpointNumber();
+      number = await this.stores.blockStore.getLatestCheckpointNumber();
     }
     if (number === 0) {
       return undefined;
     }
-    const checkpoint = await this.store.getCheckpointData(number);
+    const checkpoint = await this.stores.blockStore.getCheckpointData(number);
     if (!checkpoint) {
       return undefined;
     }
@@ -116,7 +116,7 @@ export abstract class ArchiverDataSourceBase
   }
 
   public async getLastBlockNumberInCheckpoint(checkpointNumber: CheckpointNumber): Promise<BlockNumber | undefined> {
-    const checkpointData = await this.store.getCheckpointData(checkpointNumber);
+    const checkpointData = await this.stores.blockStore.getCheckpointData(checkpointNumber);
     if (!checkpointData) {
       return undefined;
     }
@@ -124,67 +124,66 @@ export abstract class ArchiverDataSourceBase
   }
 
   public getCheckpointedBlocks(from: BlockNumber, limit: number): Promise<CheckpointedL2Block[]> {
-    return this.store.getCheckpointedBlocks(from, limit);
+    return this.stores.blockStore.getCheckpointedBlocks(from, limit);
   }
 
   public getCheckpointData(checkpointNumber: CheckpointNumber): Promise<CheckpointData | undefined> {
-    return this.store.getCheckpointData(checkpointNumber);
+    return this.stores.blockStore.getCheckpointData(checkpointNumber);
   }
 
   public getCheckpointDataRange(from: CheckpointNumber, limit: number): Promise<CheckpointData[]> {
-    return this.store.getCheckpointDataRange(from, limit);
+    return this.stores.blockStore.getRangeOfCheckpoints(from, limit);
   }
 
   public getCheckpointNumberBySlot(slot: SlotNumber): Promise<CheckpointNumber | undefined> {
-    return this.store.getCheckpointNumberBySlot(slot);
+    return this.stores.blockStore.getCheckpointNumberBySlot(slot);
   }
 
   public getBlockDataWithCheckpointContext(blockNumber: BlockNumber) {
-    return this.store.getBlockDataWithCheckpointContext(blockNumber);
+    return this.stores.blockStore.getBlockDataWithCheckpointContext(blockNumber);
   }
 
   public getBlockHeaderByHash(blockHash: BlockHash): Promise<BlockHeader | undefined> {
-    return this.store.getBlockHeaderByHash(blockHash);
+    return this.stores.blockStore.getBlockHeaderByHash(blockHash);
   }
 
   public getBlockHeaderByArchive(archive: Fr): Promise<BlockHeader | undefined> {
-    return this.store.getBlockHeaderByArchive(archive);
+    return this.stores.blockStore.getBlockHeaderByArchive(archive);
   }
 
   public getBlockData(number: BlockNumber): Promise<BlockData | undefined> {
-    return this.store.getBlockData(number);
+    return this.stores.blockStore.getBlockData(number);
   }
 
   public getBlockDataByArchive(archive: Fr): Promise<BlockData | undefined> {
-    return this.store.getBlockDataByArchive(archive);
+    return this.stores.blockStore.getBlockDataByArchive(archive);
   }
 
   public async getL2Block(number: BlockNumber): Promise<L2Block | undefined> {
     // If the number provided is -ve, then return the latest block.
     if (number < 0) {
-      number = await this.store.getLatestBlockNumber();
+      number = await this.stores.blockStore.getLatestL2BlockNumber();
     }
     if (number === 0) {
       return undefined;
     }
-    const publishedBlock = await this.store.getBlock(number);
-    return publishedBlock;
+    return this.stores.blockStore.getBlock(number);
   }
 
   public getTxEffect(txHash: TxHash): Promise<IndexedTxEffect | undefined> {
-    return this.store.getTxEffect(txHash);
+    return this.stores.blockStore.getTxEffect(txHash);
   }
 
   public getSettledTxReceipt(txHash: TxHash): Promise<TxReceipt | undefined> {
-    return this.store.getSettledTxReceipt(txHash, this.l1Constants);
+    return this.stores.blockStore.getSettledTxReceipt(txHash, this.l1Constants);
   }
 
   public getLastCheckpoint(): Promise<CommonCheckpointData | undefined> {
-    return this.store.getLastCheckpoint();
+    return this.stores.blockStore.getLastCheckpoint();
   }
 
   public getLastProposedCheckpoint(): Promise<ProposedCheckpointData | undefined> {
-    return this.store.getLastProposedCheckpoint();
+    return this.stores.blockStore.getLastProposedCheckpoint();
   }
 
   public isPendingChainInvalid(): Promise<boolean> {
@@ -192,7 +191,7 @@ export abstract class ArchiverDataSourceBase
   }
 
   public async getPendingChainValidationStatus(): Promise<ValidateCheckpointResult> {
-    return (await this.store.getPendingChainValidationStatus()) ?? { valid: true };
+    return (await this.stores.blockStore.getPendingChainValidationStatus()) ?? { valid: true };
   }
 
   public getPrivateLogsByTags(
@@ -200,7 +199,7 @@ export abstract class ArchiverDataSourceBase
     page?: number,
     upToBlockNumber?: BlockNumber,
   ): Promise<TxScopedL2Log[][]> {
-    return this.store.getPrivateLogsByTags(tags, page, upToBlockNumber);
+    return this.stores.logStore.getPrivateLogsByTags(tags, page, upToBlockNumber);
   }
 
   public getPublicLogsByTagsFromContract(
@@ -209,23 +208,23 @@ export abstract class ArchiverDataSourceBase
     page?: number,
     upToBlockNumber?: BlockNumber,
   ): Promise<TxScopedL2Log[][]> {
-    return this.store.getPublicLogsByTagsFromContract(contractAddress, tags, page, upToBlockNumber);
+    return this.stores.logStore.getPublicLogsByTagsFromContract(contractAddress, tags, page, upToBlockNumber);
   }
 
   public getPublicLogs(filter: LogFilter): Promise<GetPublicLogsResponse> {
-    return this.store.getPublicLogs(filter);
+    return this.stores.logStore.getPublicLogs(filter);
   }
 
   public getContractClassLogs(filter: LogFilter): Promise<GetContractClassLogsResponse> {
-    return this.store.getContractClassLogs(filter);
+    return this.stores.logStore.getContractClassLogs(filter);
   }
 
   public getContractClass(id: Fr): Promise<ContractClassPublic | undefined> {
-    return this.store.getContractClass(id);
+    return this.stores.contractClassStore.getContractClass(id);
   }
 
   public getBytecodeCommitment(id: Fr): Promise<Fr | undefined> {
-    return this.store.getBytecodeCommitment(id);
+    return this.stores.contractClassStore.getBytecodeCommitment(id);
   }
 
   public async getContract(
@@ -241,36 +240,38 @@ export abstract class ArchiverDataSourceBase
       timestamp = maybeTimestamp;
     }
 
-    return this.store.getContractInstance(address, timestamp);
+    return this.stores.contractInstanceStore.getContractInstance(address, timestamp);
   }
 
   public getContractClassIds(): Promise<Fr[]> {
-    return this.store.getContractClassIds();
+    return this.stores.contractClassStore.getContractClassIds();
   }
 
-  public getDebugFunctionName(address: AztecAddress, selector: FunctionSelector): Promise<string | undefined> {
-    return this.store.getDebugFunctionName(address, selector);
+  /** Looks up a public function name given a selector. */
+  public getDebugFunctionName(_address: AztecAddress, selector: FunctionSelector): Promise<string | undefined> {
+    return Promise.resolve(this.stores.functionNames.get(selector.toString()));
   }
 
+  /** Register public function signatures so they can be looked up by selector. */
   public registerContractFunctionSignatures(signatures: string[]): Promise<void> {
-    return this.store.registerContractFunctionSignatures(signatures);
+    return registerContractFunctionSignatures(this.stores, signatures);
   }
 
   public getL1ToL2Messages(checkpointNumber: CheckpointNumber): Promise<Fr[]> {
-    return this.store.getL1ToL2Messages(checkpointNumber);
+    return this.stores.messageStore.getL1ToL2Messages(checkpointNumber);
   }
 
   public getL1ToL2MessageIndex(l1ToL2Message: Fr): Promise<bigint | undefined> {
-    return this.store.getL1ToL2MessageIndex(l1ToL2Message);
+    return this.stores.messageStore.getL1ToL2MessageIndex(l1ToL2Message);
   }
 
   public async getCheckpoints(checkpointNumber: CheckpointNumber, limit: number): Promise<PublishedCheckpoint[]> {
-    const checkpoints = await this.store.getRangeOfCheckpoints(checkpointNumber, limit);
+    const checkpoints = await this.stores.blockStore.getRangeOfCheckpoints(checkpointNumber, limit);
     return Promise.all(checkpoints.map(ch => this.getPublishedCheckpointFromCheckpointData(ch)));
   }
 
   private async getPublishedCheckpointFromCheckpointData(checkpoint: CheckpointData): Promise<PublishedCheckpoint> {
-    const blocksForCheckpoint = await this.store.getBlocksForCheckpoint(checkpoint.checkpointNumber);
+    const blocksForCheckpoint = await this.stores.blockStore.getBlocksForCheckpoint(checkpoint.checkpointNumber);
     if (!blocksForCheckpoint) {
       throw new Error(`Blocks for checkpoint ${checkpoint.checkpointNumber} not found`);
     }
@@ -285,7 +286,7 @@ export abstract class ArchiverDataSourceBase
   }
 
   public getBlocksForSlot(slotNumber: SlotNumber): Promise<L2Block[]> {
-    return this.store.getBlocksForSlot(slotNumber);
+    return this.stores.blockStore.getBlocksForSlot(slotNumber);
   }
 
   public async getCheckpointedBlocksForEpoch(epochNumber: EpochNumber): Promise<CheckpointedL2Block[]> {
@@ -326,39 +327,39 @@ export abstract class ArchiverDataSourceBase
     }
 
     const [start, end] = getSlotRangeForEpoch(epochNumber, this.l1Constants);
-    return this.store.getCheckpointDataForSlotRange(start, end);
+    return this.stores.blockStore.getCheckpointDataForSlotRange(start, end);
   }
 
   public async getBlock(number: BlockNumber): Promise<L2Block | undefined> {
     // If the number provided is -ve, then return the latest block.
     if (number < 0) {
-      number = await this.store.getLatestBlockNumber();
+      number = await this.stores.blockStore.getLatestL2BlockNumber();
     }
     if (number === 0) {
       return undefined;
     }
-    return this.store.getBlock(number);
+    return this.stores.blockStore.getBlock(number);
   }
 
   public getBlocks(from: BlockNumber, limit: number): Promise<L2Block[]> {
-    return this.store.getBlocks(from, limit);
+    return this.stores.blockStore.getBlocks(from, limit);
   }
 
   public getCheckpointedBlockByHash(blockHash: BlockHash): Promise<CheckpointedL2Block | undefined> {
-    return this.store.getCheckpointedBlockByHash(blockHash);
+    return this.stores.blockStore.getCheckpointedBlockByHash(blockHash);
   }
 
   public getCheckpointedBlockByArchive(archive: Fr): Promise<CheckpointedL2Block | undefined> {
-    return this.store.getCheckpointedBlockByArchive(archive);
+    return this.stores.blockStore.getCheckpointedBlockByArchive(archive);
   }
 
   public async getL2BlockByHash(blockHash: BlockHash): Promise<L2Block | undefined> {
-    const checkpointedBlock = await this.store.getCheckpointedBlockByHash(blockHash);
+    const checkpointedBlock = await this.stores.blockStore.getCheckpointedBlockByHash(blockHash);
     return checkpointedBlock?.block;
   }
 
   public async getL2BlockByArchive(archive: Fr): Promise<L2Block | undefined> {
-    const checkpointedBlock = await this.store.getCheckpointedBlockByArchive(archive);
+    const checkpointedBlock = await this.stores.blockStore.getCheckpointedBlockByArchive(archive);
     return checkpointedBlock?.block;
   }
 }
