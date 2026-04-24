@@ -82,6 +82,8 @@ check_compilation_error() {
             echo "✗ $contract_dir: error $((i + 1)) does not match"
             echo "  Expected: ${expected_lines[$i]}"
             echo "  Actual:   ${actual_lines[$i]}"
+            echo "Full stderr:"
+            echo "$actual_output"
             exit 1
         fi
     done
