@@ -383,6 +383,7 @@ impl RollupFixtureBuilder {
             sha_root: slot_number * 85831493,
             converted_root: self.get_l1_to_l2_message_subtree_root(slot_number),
             vk_tree_root: self.vk_tree_root,
+            prover_id: self.prover_id,
         }
     }
 
