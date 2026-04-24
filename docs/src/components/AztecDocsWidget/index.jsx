@@ -1,6 +1,22 @@
 import React, { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import "./styles.css";
+
+const REMARK_PLUGINS = [remarkGfm];
+
+// DocsGPT sometimes returns GFM tables as a single line with no
+// newlines between rows. Restore the structural newlines so remark-gfm
+// can parse the table.
+function repairInlineTables(md) {
+  if (!md || !md.includes("|")) return md;
+  let out = md;
+  // Put the separator row (|---|---|---|) on its own line.
+  out = out.replace(/ +(\|(?:\s*:?-+:?\s*\|)+) +/g, "\n$1\n");
+  // Split " | |" boundary between rows whose first cell is empty.
+  out = out.replace(/ \| \|/g, " |\n|");
+  return out;
+}
 
 function AztecMark({ size = 24, color = "currentColor", stroke = 0 }) {
   const c = size / 2;
@@ -932,7 +948,12 @@ export default function AztecDocsWidget({
           }}
         >
           {text ? (
-            <ReactMarkdown components={mdComponents}>{text}</ReactMarkdown>
+            <ReactMarkdown
+              components={mdComponents}
+              remarkPlugins={REMARK_PLUGINS}
+            >
+              {repairInlineTables(text)}
+            </ReactMarkdown>
           ) : null}
         </div>
         {sources?.length > 0 && (
