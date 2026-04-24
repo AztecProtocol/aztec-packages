@@ -2,7 +2,7 @@
 
 #include <cstdint>
 
-#include "barretenberg/vm2/common/aztec_constants.hpp"
+#include "barretenberg/aztec/aztec_constants.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
@@ -38,7 +38,8 @@ void L1ToL2MessageTreeCheckTraceBuilder::process(
                       { C::l1_to_l2_message_tree_check_leaf_value, event.leaf_value },
                       { C::l1_to_l2_message_tree_check_leaf_value_msg_hash_diff_inv,
                         leaf_value_msg_hash_diff }, // Will be inverted in batch later
-                      { C::l1_to_l2_message_tree_check_l1_to_l2_message_tree_height, L1_TO_L2_MSG_TREE_HEIGHT } } });
+                      { C::l1_to_l2_message_tree_check_l1_to_l2_message_tree_height, L1_TO_L2_MSG_TREE_HEIGHT },
+                      { C::l1_to_l2_message_tree_check_merkle_hash_separator, DOM_SEP__MERKLE_HASH } } });
         row++;
     }
 

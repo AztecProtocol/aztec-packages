@@ -94,7 +94,7 @@ The developer SDK/aztec-nr version (used for writing and compiling contracts) ma
 
 ### Alpha (Mainnet)
 
-Alpha is the Aztec **mainnet** in its initial operational phase, with governance, networking, and transaction processing fully active.
+Alpha is the Aztec **mainnet** in its initial operational phase, with governance, networking, and transaction processing fully active. Alpha is live but early — bugs, including critical ones, are expected. For a full explanation of what this means, see the **[Alpha Network](/participate/alpha)** page.
 
 #### Overview
 

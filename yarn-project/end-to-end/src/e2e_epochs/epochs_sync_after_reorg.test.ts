@@ -19,7 +19,7 @@ describe('e2e_epochs/epochs_sync_after_reorg', () => {
   let test: EpochsTestContext;
 
   beforeEach(async () => {
-    test = await EpochsTestContext.setup({ startProverNode: false }); // no prover!
+    test = await EpochsTestContext.setup({ startProverNode: false, enableProposerPipelining: true }); // no prover!
     ({ context, logger } = test);
     ({ L2_SLOT_DURATION_IN_S } = test);
   });
@@ -32,7 +32,9 @@ describe('e2e_epochs/epochs_sync_after_reorg', () => {
   // Regression for https://github.com/AztecProtocol/aztec-packages/issues/12206
   it('new node can sync world-state after unpruned reorg', async () => {
     // Wait until there are a few checkpoints in there
-    await test.waitUntilCheckpointNumber(CheckpointNumber(5), L2_SLOT_DURATION_IN_S * 5 + 30);
+    // With pipelining, each checkpoint takes ~2 L2 slots (the sequencer must wait for
+    // the L1 tx of the previous checkpoint to land before it can build the next one).
+    await test.waitUntilCheckpointNumber(CheckpointNumber(5), L2_SLOT_DURATION_IN_S * 12 + 30);
 
     // Stop the node generating blocks
     logger.warn(`Stopping the main node`);

@@ -3,7 +3,6 @@ import React from 'react';
 import type { StoredAccount } from './types';
 import { truncateAddress } from './helpers';
 
-// docs:start:account-switcher
 interface AccountSwitcherProps {
   accounts: StoredAccount[];
   activeAccount: string | null;
@@ -50,4 +49,3 @@ export function AccountSwitcher({ accounts, activeAccount, onSelect, onCreateNew
     </div>
   );
 }
-// docs:end:account-switcher

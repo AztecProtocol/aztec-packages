@@ -2,7 +2,7 @@
 
 #include <cassert>
 
-#include "barretenberg/vm2/common/aztec_constants.hpp"
+#include "barretenberg/aztec/aztec_constants.hpp"
 #include "barretenberg/vm2/simulation/gadgets/poseidon2.hpp"
 
 namespace bb::avm2::simulation {

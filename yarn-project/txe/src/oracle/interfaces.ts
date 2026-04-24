@@ -68,7 +68,7 @@ export interface ITxeExecutionOracle {
     argsHash: Fr,
     isStaticCall: boolean,
     jobId: string,
-  ): Promise<Fr[]>;
+  ): Promise<{ returnValues: Fr[]; offchainEffects: Fr[][] }>;
   executeUtilityFunction(
     targetContractAddress: AztecAddress,
     functionSelector: FunctionSelector,

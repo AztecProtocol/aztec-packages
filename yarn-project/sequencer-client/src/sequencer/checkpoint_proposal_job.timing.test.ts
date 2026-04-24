@@ -1072,6 +1072,28 @@ describe('CheckpointProposalJob Timing Tests', () => {
 
     beforeEach(() => {
       epochCache.isProposerPipeliningEnabled.mockReturnValue(true);
+
+      // Mock l2BlockSource methods needed by waitForValidParentCheckpointOnL1
+      l2BlockSource.getSyncedL2SlotNumber.mockResolvedValue(slotNumber);
+      l2BlockSource.getL2Tips.mockResolvedValue({
+        proposed: { number: BlockNumber.ZERO, hash: '' },
+        checkpointed: {
+          block: { number: BlockNumber.ZERO, hash: '' },
+          checkpoint: { number: CheckpointNumber(0), hash: '' },
+        },
+        proposedCheckpoint: {
+          block: { number: BlockNumber.ZERO, hash: '' },
+          checkpoint: { number: CheckpointNumber(0), hash: '' },
+        },
+        proven: {
+          block: { number: BlockNumber.ZERO, hash: '' },
+          checkpoint: { number: CheckpointNumber(0), hash: '' },
+        },
+        finalized: {
+          block: { number: BlockNumber.ZERO, hash: '' },
+          checkpoint: { number: CheckpointNumber(0), hash: '' },
+        },
+      });
     });
 
     it('sets attestation deadline to the target-slot publish cutoff when pipelining', async () => {

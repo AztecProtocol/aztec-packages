@@ -32,9 +32,9 @@ void public_data_squashImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     }
     { // TRACE_CONTINUITY
         using View = typename std::tuple_element_t<1, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::public_data_squash_sel_shift)) *
-                   (FF(1) - static_cast<View>(in.get(C::public_data_squash_sel))) *
-                   (FF(1) - static_cast<View>(in.get(C::precomputed_first_row)));
+        auto tmp = ((FF(1) - static_cast<View>(in.get(C::public_data_squash_sel))) -
+                    static_cast<View>(in.get(C::precomputed_first_row))) *
+                   static_cast<View>(in.get(C::public_data_squash_sel_shift));
         std::get<1>(evals) += (tmp * scaling_factor);
     }
     {

@@ -331,50 +331,53 @@ class UltraEccOpsTable {
         return reconstructed_table;
     }
 
-    // Construct the columns of the full ultra ecc ops table
-    ColumnPolynomials construct_table_columns() const
+    // Construct column polynomials for the full ultra ecc ops table
+    ColumnPolynomials construct_table_columns(size_t start_offset = 0) const
     {
-        const size_t poly_size = num_ultra_rows();
+        const size_t poly_size = num_ultra_rows() + start_offset;
 
         if (has_fixed_append) {
-            // Handle fixed-location append: prepended tables first, then appended table at fixed offset
-            return construct_column_polynomials_with_fixed_append(poly_size);
+            return construct_column_polynomials_with_fixed_append(poly_size, start_offset);
         }
 
-        // Normal case: all subtables in order
-        const size_t subtable_start_idx = 0; // include all subtables
-        const size_t subtable_end_idx = table.num_subtables();
-        return construct_column_polynomials_from_subtables(poly_size, subtable_start_idx, subtable_end_idx);
+        return construct_column_polynomials_from_subtables(poly_size, 0, table.num_subtables(), start_offset);
     }
 
-    // Construct the columns of the previous full ultra ecc ops table
-    ColumnPolynomials construct_previous_table_columns() const
+    // Construct column polynomials for the aggregate table excluding the most recent subtable
+    ColumnPolynomials construct_previous_table_columns(size_t start_offset = 0) const
     {
-        const size_t poly_size = previous_ultra_table_size();
+        const size_t poly_size = previous_ultra_table_size() + start_offset;
         if (!current_subtable_idx.has_value()) {
             // Empty merge: the entire table is "previous"
-            return construct_column_polynomials_from_subtables(poly_size, 0, table.num_subtables());
+            return construct_column_polynomials_from_subtables(poly_size, 0, table.num_subtables(), start_offset);
         }
         const size_t idx = current_subtable_idx.value();
         const size_t subtable_start_idx = idx == 0 ? 1 : 0;
         const size_t subtable_end_idx = idx == 0 ? table.num_subtables() : table.num_subtables() - 1;
 
-        return construct_column_polynomials_from_subtables(poly_size, subtable_start_idx, subtable_end_idx);
+        return construct_column_polynomials_from_subtables(
+            poly_size, subtable_start_idx, subtable_end_idx, start_offset);
     }
 
-    // Construct the columns of the current ultra ecc ops subtable which is either the first or the last one
-    // depening on whether it has been prepended or appended
-    ColumnPolynomials construct_current_ultra_ops_subtable_columns() const
+    // Construct the columns of the current subtable (first or last depending on prepend/append)
+    ColumnPolynomials construct_current_ultra_ops_subtable_columns(size_t start_offset = 0) const
     {
         if (!current_subtable_idx.has_value()) {
-            // Empty merge: return empty column polynomials
-            return ColumnPolynomials{};
+            // Empty merge: return zero polynomials sized to accommodate the start_offset
+            ColumnPolynomials column_polynomials;
+            if (start_offset > 0) {
+                for (auto& poly : column_polynomials) {
+                    poly = Polynomial<Fr>(start_offset);
+                }
+            }
+            return column_polynomials;
         }
-        const size_t poly_size = current_ultra_subtable_size();
+        const size_t poly_size = current_ultra_subtable_size() + start_offset;
         const size_t subtable_start_idx = current_subtable_idx.value();
         const size_t subtable_end_idx = current_subtable_idx.value() + 1;
 
-        return construct_column_polynomials_from_subtables(poly_size, subtable_start_idx, subtable_end_idx);
+        return construct_column_polynomials_from_subtables(
+            poly_size, subtable_start_idx, subtable_end_idx, start_offset);
     }
 
   private:
@@ -401,7 +404,8 @@ class UltraEccOpsTable {
      * @brief Construct polynomials with fixed-location append
      * @details Process prepended subtables first, then place the appended subtable at the fixed offset
      */
-    ColumnPolynomials construct_column_polynomials_with_fixed_append(const size_t poly_size) const
+    ColumnPolynomials construct_column_polynomials_with_fixed_append(const size_t poly_size,
+                                                                     const size_t start_offset = 0) const
     {
         ColumnPolynomials column_polynomials;
         if (poly_size == 0) {
@@ -412,7 +416,7 @@ class UltraEccOpsTable {
         }
 
         // Process all prepended subtables (all except last)
-        size_t i = 0;
+        size_t i = start_offset;
         for (size_t subtable_idx = 0; subtable_idx < table.num_subtables() - 1; subtable_idx++) {
             const auto& subtable = table.get()[subtable_idx];
             for (const auto& op : subtable) {
@@ -421,8 +425,9 @@ class UltraEccOpsTable {
             }
         }
 
-        // Place the appended subtable at the fixed offset
-        size_t append_position = fixed_append_offset.has_value() ? fixed_append_offset.value() * NUM_ROWS_PER_OP : i;
+        // Place the appended subtable at the fixed offset (adjusted by start_offset)
+        size_t append_position =
+            fixed_append_offset.has_value() ? start_offset + fixed_append_offset.value() * NUM_ROWS_PER_OP : i;
         const auto& appended_subtable = table.get()[table.num_subtables() - 1];
 
         size_t j = append_position;
@@ -442,7 +447,8 @@ class UltraEccOpsTable {
      */
     ColumnPolynomials construct_column_polynomials_from_subtables(const size_t poly_size,
                                                                   const size_t subtable_start_idx,
-                                                                  const size_t subtable_end_idx) const
+                                                                  const size_t subtable_end_idx,
+                                                                  const size_t start_offset = 0) const
     {
         ColumnPolynomials column_polynomials;
         if (poly_size == 0) {
@@ -452,7 +458,7 @@ class UltraEccOpsTable {
             poly = Polynomial<Fr>(poly_size);
         }
 
-        size_t i = 0;
+        size_t i = start_offset;
         for (size_t subtable_idx = subtable_start_idx; subtable_idx < subtable_end_idx; ++subtable_idx) {
             const auto& subtable = table.get()[subtable_idx];
             for (const auto& op : subtable) {

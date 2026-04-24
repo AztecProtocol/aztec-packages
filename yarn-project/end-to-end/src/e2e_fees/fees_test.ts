@@ -23,7 +23,7 @@ import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 
 import { getContract } from 'viem';
 
-import { MNEMONIC } from '../fixtures/fixtures.js';
+import { MNEMONIC, getPaddedMaxFeesPerGas } from '../fixtures/fixtures.js';
 import {
   type EndToEndContext,
   type SetupOptions,
@@ -193,7 +193,9 @@ export class FeesTest {
     this.wallet = this.context.wallet;
     this.aztecNode = this.context.aztecNodeService;
     this.aztecNodeAdmin = this.context.aztecNodeService;
-    this.gasSettings = GasSettings.fallback({ maxFeesPerGas: (await this.aztecNode.getCurrentMinFees()).mul(2) });
+    this.gasSettings = GasSettings.fallback({
+      maxFeesPerGas: await getPaddedMaxFeesPerGas(this.aztecNode),
+    });
     this.cheatCodes = this.context.cheatCodes;
     this.accounts = deployedAccounts.map(a => a.address);
     this.accounts.forEach((a, i) => this.logger.verbose(`Account ${i} address: ${a}`));
