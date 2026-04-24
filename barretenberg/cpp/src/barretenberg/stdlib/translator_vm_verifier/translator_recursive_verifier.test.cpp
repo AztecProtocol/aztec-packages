@@ -73,6 +73,7 @@ class TranslatorRecursiveTests : public ::testing::Test {
 
         // Add the same operations to the ECC op queue; the native computation is performed under the hood.
         auto op_queue = std::make_shared<bb::ECCOpQueue>();
+        op_queue->no_op_ultra_only();
         add_random_ops(op_queue, InnerBuilder::NUM_RANDOM_OPS_START);
         add_mixed_ops(op_queue, circuit_size_parameter / 2);
         op_queue->merge();

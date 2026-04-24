@@ -9,7 +9,6 @@
 #include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/eccvm/eccvm_builder_types.hpp"
-#include "barretenberg/goblin/merge_constants.hpp"
 #include "barretenberg/op_queue/ecc_ops_table.hpp"
 #include "barretenberg/op_queue/eccvm_row_tracker.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
@@ -83,16 +82,13 @@ class ECCOpQueue {
 
     /**
      * @brief Compute the fixed append offset for the final APPEND merge.
-     * @details Places the appended subtable so the merged polynomial fits exactly in MINI_CIRCUIT_SIZE
-     * rows, reserving MERGE_APPEND_OUTPUT_SHIFT rows of leading zeros at the start (for the Translator's
-     * shiftability layout). The reservation is converted to an op-slot count via NUM_ROWS_PER_OP.
+     * @details Places the appended subtable so the merged polynomial fits exactly in MINI_CIRCUIT_SIZE rows.
+     * The appended subtable carries UltraEccOpsTable::APPEND_TRACE_OFFSET leading zero rows internally,
+     * matching the appender flavor's ecc_op_wire layout.
      */
     size_t get_append_offset() const
     {
-        static_assert(MERGE_APPEND_OUTPUT_SHIFT % UltraEccOpsTable::NUM_ROWS_PER_OP == 0,
-                      "MERGE_APPEND_OUTPUT_SHIFT must be a multiple of NUM_ROWS_PER_OP so that ops land "
-                      "on even row boundaries after the shift");
-        constexpr size_t reserved_op_slots = MERGE_APPEND_OUTPUT_SHIFT / UltraEccOpsTable::NUM_ROWS_PER_OP;
+        constexpr size_t reserved_op_slots = UltraEccOpsTable::APPEND_TRACE_OFFSET / UltraEccOpsTable::NUM_ROWS_PER_OP;
         return OP_QUEUE_SIZE - get_current_subtable_size() - reserved_op_slots;
     }
 
@@ -103,23 +99,21 @@ class ECCOpQueue {
     }
 
     // Construct column polynomials for the full aggregate ultra ops table
-    std::array<Polynomial<Fr>, ULTRA_TABLE_WIDTH> construct_ultra_ops_table_columns(size_t start_offset = 0) const
+    std::array<Polynomial<Fr>, ULTRA_TABLE_WIDTH> construct_ultra_ops_table_columns() const
     {
-        return ultra_ops_table.construct_table_columns(start_offset);
+        return ultra_ops_table.construct_table_columns();
     }
 
     // Construct column polynomials for the aggregate table excluding the most recent subtable
-    std::array<Polynomial<Fr>, ULTRA_TABLE_WIDTH> construct_previous_ultra_ops_table_columns(
-        size_t start_offset = 0) const
+    std::array<Polynomial<Fr>, ULTRA_TABLE_WIDTH> construct_previous_ultra_ops_table_columns() const
     {
-        return ultra_ops_table.construct_previous_table_columns(start_offset);
+        return ultra_ops_table.construct_previous_table_columns();
     }
 
     // Construct column polynomials for the most recently merged subtable
-    std::array<Polynomial<Fr>, ULTRA_TABLE_WIDTH> construct_current_ultra_ops_subtable_columns(
-        size_t start_offset = 0) const
+    std::array<Polynomial<Fr>, ULTRA_TABLE_WIDTH> construct_current_ultra_ops_subtable_columns() const
     {
-        return ultra_ops_table.construct_current_ultra_ops_subtable_columns(start_offset);
+        return ultra_ops_table.construct_current_ultra_ops_subtable_columns();
     }
 
     // Reconstruct the full table of eccvm ops in contiguous memory from the independent subtables
@@ -250,6 +244,20 @@ class ECCOpQueue {
         });
 
         return ultra_op;
+    }
+
+    /**
+     * @brief Writes a no-op to the ultra ops table but adds no eccvm operations.
+     *
+     * @details Used by the tail kernel to ensure the op queue wires in Translator are shiftable: the no-op
+     * contributes two zero rows at the start of the tail subtable, which ends up at the top of the final aggregate
+     * table (because the tail is prepended last), giving the Translator's op queue wires two leading zero rows.
+     */
+    UltraOp no_op_ultra_only()
+    {
+        UltraOp no_op{};
+        ultra_ops_table.push(no_op);
+        return no_op;
     }
 
     /**
