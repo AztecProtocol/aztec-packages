@@ -85,8 +85,10 @@ template <typename FF_> class Poseidon2DoubleInternalTerminalRelationImpl {
         auto u_3 = pow5(Accumulator(w_4 + q_4));
 
         // ── Vandermonde RHS for the current row ──
-        auto b_1 = Accumulator(w_r) - u_0 * D1;
-        auto b_2 = Accumulator(w_o - w_r - w_r) + u_0 * TWO_D1_MINUS_3 - u_1 * D1;
+        // Share u_0 * D_1 between b_1 and b_2: u_0*(2 D_1 - 3) = 2*(u_0*D_1) - 3*u_0
+        auto u_0_D1 = u_0 * D1;
+        auto b_1 = Accumulator(w_r) - u_0_D1;
+        auto b_2 = Accumulator(w_o - w_r - w_r) + (u_0_D1 + u_0_D1) - (u_0 + u_0 + u_0) - u_1 * D1;
         auto b_3 = Accumulator(w_4 - w_o - w_r * SIGMA_PLUS_2) + u_0 * B3_U0_COEF + u_1 * D1_MINUS_3 - u_2 * D1;
 
         // ── Lagrange solve for (s_1, s_2, s_3) at row start ──

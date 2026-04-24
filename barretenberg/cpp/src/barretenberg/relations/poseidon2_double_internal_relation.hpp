@@ -127,10 +127,12 @@ template <typename FF_> class Poseidon2DoubleInternalRelationImpl {
         auto u_3 = pow5(Accumulator(w_4 + q_4));
 
         // ── Compute b_1, b_2, b_3 (RHS of the 3x3 Vandermonde) ──
+        // Share u_0 * D_1 between b_1 and b_2: u_0*(2 D_1 - 3) = 2*(u_0*D_1) - 3*u_0
+        auto u_0_D1 = u_0 * D1;
         // b_1 = w_r - D_1 u_0
-        auto b_1 = Accumulator(w_r) - u_0 * D1;
+        auto b_1 = Accumulator(w_r) - u_0_D1;
         // b_2 = w_o - 2 w_r + (2 D_1 - 3) u_0 - D_1 u_1
-        auto b_2 = Accumulator(w_o - w_r - w_r) + u_0 * TWO_D1_MINUS_3 - u_1 * D1;
+        auto b_2 = Accumulator(w_o - w_r - w_r) + (u_0_D1 + u_0_D1) - (u_0 + u_0 + u_0) - u_1 * D1;
         // b_3 = w_4 - w_o - (Σ+2) w_r + ((Σ+2) D_1 - Σ - 3) u_0 + (D_1 - 3) u_1 - D_1 u_2
         auto b_3 = Accumulator(w_4 - w_o - w_r * SIGMA_PLUS_2) + u_0 * B3_U0_COEF + u_1 * D1_MINUS_3 - u_2 * D1;
 
@@ -172,8 +174,10 @@ template <typename FF_> class Poseidon2DoubleInternalRelationImpl {
         auto u_1_next = pow5(Accumulator(w_r_shift + q_c));
         auto u_2_next = pow5(Accumulator(w_o_shift + q_5));
 
-        auto b_1_next = Accumulator(w_r_shift) - u_0_next * D1;
-        auto b_2_next = Accumulator(w_o_shift - w_r_shift - w_r_shift) + u_0_next * TWO_D1_MINUS_3 - u_1_next * D1;
+        auto u_0_next_D1 = u_0_next * D1;
+        auto b_1_next = Accumulator(w_r_shift) - u_0_next_D1;
+        auto b_2_next = Accumulator(w_o_shift - w_r_shift - w_r_shift) + (u_0_next_D1 + u_0_next_D1) -
+                        (u_0_next + u_0_next + u_0_next) - u_1_next * D1;
         auto b_3_next = Accumulator(w_4_shift - w_o_shift - w_r_shift * SIGMA_PLUS_2) + u_0_next * B3_U0_COEF +
                         u_1_next * D1_MINUS_3 - u_2_next * D1;
 
