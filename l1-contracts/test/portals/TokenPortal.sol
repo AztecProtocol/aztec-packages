@@ -79,7 +79,6 @@ contract TokenPortal {
     return (key, index);
   }
 
-  // docs:start:deposit_private
   /**
    * @notice Deposit funds into the portal and adds an L2 message which can only be consumed privately on Aztec
    * @param _amount - The amount to deposit
@@ -90,7 +89,6 @@ contract TokenPortal {
   function depositToAztecPrivate(uint256 _amount, bytes32 _secretHashForL2MessageConsumption)
     external
     returns (bytes32, uint256)
-  // docs:end:deposit_private
   {
     // Preamble
     DataStructures.L2Actor memory actor = DataStructures.L2Actor(l2Bridge, rollupVersion);

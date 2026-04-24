@@ -16,7 +16,7 @@ describe('e2e_epochs/epochs_partial_proof', () => {
   let test: EpochsTestContext;
 
   beforeEach(async () => {
-    test = await EpochsTestContext.setup({ aztecEpochDuration: 1000 });
+    test = await EpochsTestContext.setup({ aztecEpochDuration: 1000, enableProposerPipelining: true });
     ({ monitor, logger } = test);
   });
 
@@ -26,7 +26,8 @@ describe('e2e_epochs/epochs_partial_proof', () => {
   });
 
   it('submits partial proofs when instructed manually', async () => {
-    await test.waitUntilCheckpointNumber(CheckpointNumber(4), test.L2_SLOT_DURATION_IN_S * 6);
+    // With pipelining, each checkpoint takes ~2 L2 slots on a solo-sequencer setup.
+    await test.waitUntilCheckpointNumber(CheckpointNumber(4), test.L2_SLOT_DURATION_IN_S * 12);
     logger.info(`Kicking off partial proof`);
 
     await test.context.proverNode!.getProverNode()!.startProof(EpochNumber(0));

@@ -11,14 +11,13 @@
 #include <memory>
 #include <numeric>
 
+#include "barretenberg/aztec/aztec_constants.hpp"
 #include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/polynomials/shared_shifted_virtual_zeroes_array.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
-#include "barretenberg/stdlib/primitives/padding_indicator_array/padding_indicator_array.hpp"
 #include "barretenberg/transcript/transcript.hpp"
-#include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/common/constants.hpp"
 #include "barretenberg/vm2/constraining/avm_fixed_vk.hpp"
 
@@ -142,10 +141,6 @@ AvmRecursiveVerifier::PairingPoints AvmRecursiveVerifier::verify_proof(
 
     // ========== Execute relation check rounds ==========
 
-    // Construct padding indicator array: it is a vector of constant ones as the AVM verifier performs verification of
-    // the AVM circuit, so the number of rounds is fixed.
-    std::vector<FF> padding_indicator_array(MAX_AVM_TRACE_LOG_SIZE, FF(1));
-
     // Multiply each linearly independent subrelation contribution by `alpha^i` for i = 0, ..., NUM_SUBRELATIONS - 1.
     const FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
 
@@ -154,7 +149,7 @@ AvmRecursiveVerifier::PairingPoints AvmRecursiveVerifier::verify_proof(
     std::vector<FF> gate_challenges =
         transcript->template get_dyadic_powers_of_challenge<FF>("Sumcheck:gate_challenge", MAX_AVM_TRACE_LOG_SIZE);
 
-    SumcheckOutput<Flavor> output = sumcheck.verify(relation_parameters, gate_challenges, padding_indicator_array);
+    SumcheckOutput<Flavor> output = sumcheck.verify(relation_parameters, gate_challenges);
     vinfo("verified sumcheck: ", (output.verified));
 
     // Validate that the public inputs committed in the public input columns match the public inputs sent in the clear
@@ -221,10 +216,9 @@ AvmRecursiveVerifier::PairingPoints AvmRecursiveVerifier::verify_proof(
                                                                  .evaluations = RefVector(batched_unshifted_eval) },
                                         .shifted = ClaimBatch{ .commitments = RefVector(batched_shifted),
                                                                .evaluations = RefVector(batched_shifted_eval) } };
-    auto opening_claim =
-        Shplemini::compute_batch_opening_claim(
-            padding_indicator_array, batched_claim_batcher, output.challenge, Commitment::one(&builder), transcript)
-            .batch_opening_claim;
+    auto opening_claim = Shplemini::compute_batch_opening_claim(
+                             batched_claim_batcher, output.challenge, Commitment::one(&builder), transcript)
+                             .batch_opening_claim;
 
     PairingPoints pairing_points(PCS::reduce_verify_batch_opening_claim(std::move(opening_claim), transcript));
 

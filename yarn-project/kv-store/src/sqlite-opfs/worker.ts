@@ -23,14 +23,12 @@ const SAH_POOL_VFS_NAME = 'aztec-kv-opfs';
 
 let sqlite3: Sqlite3Static | undefined;
 let pool: SAHPoolUtil | undefined;
-let poolDirectory: string | undefined;
 let db: Database | undefined;
 let dbPath: string | undefined;
 
 async function ensurePool(directory: string): Promise<SAHPoolUtil> {
   sqlite3 ??= await sqlite3InitModule();
   if (!pool) {
-    poolDirectory = directory;
     pool = await sqlite3.installOpfsSAHPoolVfs({
       name: SAH_POOL_VFS_NAME,
       directory,
@@ -68,16 +66,23 @@ async function handleExport(): Promise<Uint8Array> {
   return await pool.exportFile(dbPath);
 }
 
-async function handleDeleteDb(dbName: string): Promise<void> {
+function handleDeleteDb(dbName: string): void {
   const path = normalizeDbPath(dbName);
   if (db && dbPath === path) {
     db.close();
     db = undefined;
     dbPath = undefined;
   }
-  const p = await ensurePool(poolDirectory ?? DEFAULT_SAH_POOL_DIRECTORY);
+  // Ephemeral :memory: DBs never back a file — skip installing a pool just to unlink
+  // nothing. installOpfsSAHPoolVfs acquires an exclusive lock on the OPFS SAH
+  // directory, and under heavy test churn that can contend with workers from
+  // previous tests whose OPFS handles Chromium hasn't yet released, hanging the RPC
+  // and then the whole test run.
+  if (!pool) {
+    return;
+  }
   try {
-    p.unlink(path);
+    pool.unlink(path);
   } catch {
     // File may not exist; ignore.
   }
@@ -122,7 +127,7 @@ function respond(msg: WorkerResponse): void {
         handleClose();
         return respond({ type: 'ok', id: req.id });
       case 'deleteDb':
-        await handleDeleteDb(req.dbName);
+        handleDeleteDb(req.dbName);
         return respond({ type: 'ok', id: req.id });
       case 'run': {
         const { changes } = runSql(req.sql, req.bind);

@@ -5,7 +5,6 @@
 #include "barretenberg/commitment_schemes/small_subgroup_ipa/small_subgroup_ipa.hpp"
 #include "barretenberg/polynomials/gate_separator.hpp"
 #include "barretenberg/polynomials/row_disabling_polynomial.hpp"
-#include "barretenberg/sumcheck/masking_tail_data.hpp"
 #include "barretenberg/translator_vm/translator_prover.hpp"
 
 namespace bb {
@@ -59,9 +58,9 @@ void BatchedHonkTranslatorProver::execute_translator_oink()
  *
  * For rounds mega_zk_log_n..JOINT_LOG_N-1 ("virtual rounds"), the MegaZK polynomials are treated as
  * zero-padded to 2^JOINT_LOG_N. The contribution is computed via compute_virtual_contribution
- * (evaluating the relation at the only non-zero edge), scaled by the RDP factor from real rounds.
- * After each virtual round, the partially-evaluated MegaZK polynomials are updated by multiplying
- * by (1 - u_k), so the final claimed evaluations include the tau factor ∏(1 - u_k).
+ * (evaluating the relation at the only non-zero edge), multiplied by the per-round (1-L) factor
+ * from the row-disabling polynomial. Libra masking covers all JOINT_LOG_N rounds uniformly.
+ * After each virtual round, PE values are folded by (1-u_k) for zero-extension.
  */
 void BatchedHonkTranslatorProver::execute_joint_sumcheck_rounds()
 {
@@ -145,8 +144,6 @@ void BatchedHonkTranslatorProver::execute_joint_sumcheck_rounds()
         translator_round.round_size >>= 1;
     };
 
-    auto& masking_tail = mega_zk_inst->masking_tail_data;
-
     // Per-round helper: compute U_joint = U_MZK + α^{K_H}·U_translator from given polynomial
     // sources, add Libra masking, send to verifier, and return the round challenge.
     // hpolys/tpolys are the full tables on round 0, the partial-eval tables on subsequent rounds.
@@ -154,8 +151,7 @@ void BatchedHonkTranslatorProver::execute_joint_sumcheck_rounds()
         U_joint = SumcheckRoundUnivariate::zero();
 
         auto U_H = mega_zk_round.compute_univariate(hpolys, mega_zk_params, gate_sep, mega_zk_alphas);
-        U_H += mega_zk_round.compute_disabled_contribution(
-            hpolys, mega_zk_params, gate_sep, mega_zk_alphas, rdp, masking_tail);
+        U_H += mega_zk_round.compute_disabled_contribution(hpolys, mega_zk_params, gate_sep, mega_zk_alphas, rdp);
         U_joint += U_H;
 
         auto U_T =
@@ -175,17 +171,14 @@ void BatchedHonkTranslatorProver::execute_joint_sumcheck_rounds()
         MegaZKSumcheck::partially_evaluate(mega_zk_polys, mega_zk_partial, u);
         TransSumcheck::partially_evaluate(translator_polys, translator_partial, u);
         rdp.update_evaluations(u, 0);
-        masking_tail.fold_masking_values(u, 0, mega_zk_round.round_size, &mega_zk_polys);
         mega_zk_round.round_size >>= 1;
-        mega_zk_round.excluded_tail_size = 2; // After round 0, disabled zone collapses to 1 edge pair
+        mega_zk_round.excluded_head_size = 2; // After round 0, disabled zone collapses to 1 edge pair
         update_round_state(0, u);
     }
 
     // ==================== Real rounds 1..mega_zk_log_n-1 ====================
     for (size_t round_idx = 1; round_idx < mega_zk_log_n; round_idx++) {
         const FF u = do_round(mega_zk_partial, translator_partial, round_idx);
-        // Fold masking values BEFORE partially_evaluate (rounds 2+ read PE at active positions)
-        masking_tail.fold_masking_values(u, round_idx, mega_zk_round.round_size, &mega_zk_partial);
         MegaZKSumcheck::partially_evaluate_in_place(mega_zk_partial, u);
         TransSumcheck::partially_evaluate_in_place(translator_partial, u);
         rdp.update_evaluations(u, round_idx);
@@ -193,46 +186,13 @@ void BatchedHonkTranslatorProver::execute_joint_sumcheck_rounds()
         update_round_state(round_idx, u);
     }
 
-    // Capture RDP scalar after all real rounds for use in virtual rounds.
-    // rdp_scalar = RDP(u_0,...,u_{d-1}) = 1 - u_2*...*u_{d-1}.
-    const FF rdp_scalar = FF(1) - rdp.eval_at_1;
-
-    // Send MegaZK circuit evaluations immediately after the real rounds.
-    // These are P_j(u_0,...,u_{d-1}) — the natural d-variable evaluations without the tau factor.
-    // The verifier will extend them by zero (multiply by τ = ∏(1-u_k)) after drawing virtual-round challenges.
-    // This eliminates any prover freedom in the zero-padded region: the extension is verifier-determined.
-    for (auto [eval, poly] : zip_view(mega_zk_claimed_evals.get_all(), mega_zk_partial.get_all())) {
-        eval = poly[0];
-    }
-
-    // Apply masking tail corrections: short witness polys have zeros at tail positions,
-    // so claimed evals need Lagrange-basis corrections using the first mega_zk_log_n challenges.
-    if (masking_tail.is_active()) {
-        auto real_challenges = std::span<const FF>(joint_challenge.data(), mega_zk_log_n);
-        masking_tail.apply_claimed_eval_corrections(mega_zk_claimed_evals, real_challenges);
-
-        // Write corrected values back into mega_zk_partial so that compute_virtual_contribution
-        // in virtual rounds uses the corrected evaluations.
-        for (auto [eval, poly] : zip_view(mega_zk_claimed_evals.get_all(), mega_zk_partial.get_all())) {
-            if (poly.end_index() > 0) {
-                poly.at(0) = eval;
-            }
-        }
-    }
-
-    transcript->send_to_verifier("Sumcheck:evaluations", mega_zk_claimed_evals.get_all());
-
     // ==================== Virtual rounds mega_zk_log_n..JOINT_LOG_N-1 ====================
-    // The MegaZK polynomials are zero-padded beyond 2^mega_zk_log_n. The virtual contribution
-    // is compute_virtual_contribution * rdp_scalar. The polynomial values are updated by
-    // (1-u_k) after each round for the virtual contribution computation.
+    // MegaZK contributes a virtual (zero-extended) univariate with RDP factor; translator contributes a real round.
     for (size_t round_idx = mega_zk_log_n; round_idx < JOINT_LOG_N; round_idx++) {
         U_joint = SumcheckRoundUnivariate::zero();
 
-        auto U_H =
-            mega_zk_round.compute_virtual_contribution(mega_zk_partial, mega_zk_params, gate_sep, mega_zk_alphas);
-        U_H *= rdp_scalar;
-        U_joint += U_H;
+        U_joint += MegaZKSumcheck::compute_virtual_round_univariate(
+            mega_zk_round, mega_zk_partial, mega_zk_params, gate_sep, mega_zk_alphas, rdp);
 
         auto U_T = translator_round.compute_univariate(
             translator_partial, translator_relation_parameters, gate_sep, translator_alphas);
@@ -241,22 +201,24 @@ void BatchedHonkTranslatorProver::execute_joint_sumcheck_rounds()
         }
         U_joint += U_T;
 
+        // send_round adds libra masking, sends univariate, and returns the challenge
         const FF u = send_round(round_idx);
 
-        // Virtual: poly values *= (1 - u_k) for the next virtual contribution computation.
-        for (auto& poly : mega_zk_partial.get_all()) {
-            if (poly.end_index() > 0) {
-                poly.at(0) *= (FF(1) - u);
-            }
-        }
+        MegaZKSumcheck::fold_for_zero_extension(mega_zk_partial, u);
         TransSumcheck::partially_evaluate_in_place(translator_partial, u);
+        rdp.update_evaluations(u, round_idx);
         update_round_state(round_idx, u);
     }
 
-    // Finalize committed sumcheck: populate the last round's evaluation at the final challenge.
     handler.finalize_last_round(JOINT_LOG_N, U_joint, joint_challenge.back());
     round_univariates_list = std::move(handler.round_univariates);
     round_evaluations_list = std::move(handler.round_evaluations);
+
+    // Extract and send MegaZK evaluations after all rounds — full N-variable evaluations.
+    for (auto [eval, poly] : zip_view(mega_zk_claimed_evals.get_all(), mega_zk_partial.get_all())) {
+        eval = poly[0];
+    }
+    transcript->send_to_verifier("Sumcheck:evaluations", mega_zk_claimed_evals.get_all());
 
     // Extract and send translator evaluations after all rounds.
     for (auto [eval, poly] : zip_view(trans_claimed_evals.get_all(), translator_partial.get_all())) {
@@ -265,7 +227,7 @@ void BatchedHonkTranslatorProver::execute_joint_sumcheck_rounds()
     transcript->send_to_verifier("Sumcheck:evaluations_translator",
                                  TranslatorFlavor::get_full_circuit_evaluations(trans_claimed_evals));
 
-    // Compute and send the claimed Libra evaluation.
+    // Compute and send the claimed Libra evaluation (covers all JOINT_LOG_N rounds).
     claimed_libra_evaluation = zk_sumcheck_data.constant_term;
     for (const auto& libra_eval : zk_sumcheck_data.libra_evaluations) {
         claimed_libra_evaluation += libra_eval;
@@ -316,11 +278,6 @@ void BatchedHonkTranslatorProver::execute_joint_pcs()
     auto trans_shifted = translator_key->proving_key->polynomials.get_pcs_to_be_shifted();
     auto joint_shifted = concatenate(mega_zk_shifted, trans_shifted);
     polynomial_batcher.set_to_be_shifted_by_one(joint_shifted);
-
-    // Register MegaZK masking tails with the joint batcher
-    if (mega_zk_inst->masking_tail_data.is_active()) {
-        mega_zk_inst->masking_tail_data.add_tails_to_batcher(mega_zk_inst->polynomials, polynomial_batcher);
-    }
 
     const OpeningClaim prover_opening_claim =
         ShpleminiProver_<Curve>::prove(joint_circuit_size,

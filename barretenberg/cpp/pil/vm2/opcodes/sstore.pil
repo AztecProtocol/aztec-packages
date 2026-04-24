@@ -91,6 +91,7 @@ namespace execution;
         prev_written_public_data_slots_tree_size,
         written_public_data_slots_tree_size,
         written_slots_tree_height,  // From execution.pil. Gated by sel_gas_sstore, which is a requirement for sel_write_public_data.
+        written_slots_merkle_separator, // From execution.pil. Gated by sel_gas_sstore, which is a requirement for sel_write_public_data.
         sel_write_public_data, // sel_silo = 1
         written_slots_tree_siloing_separator, // From execution.pil. Gated by sel_gas_sstore, which is a requirement for sel_write_public_data.
         contract_address
@@ -101,6 +102,7 @@ namespace execution;
         indexed_tree_check.tree_size_before_write,
         indexed_tree_check.tree_size_after_write,
         indexed_tree_check.tree_height,
+        indexed_tree_check.merkle_hash_separator,
         indexed_tree_check.sel_silo,
         indexed_tree_check.siloing_separator,
         indexed_tree_check.address

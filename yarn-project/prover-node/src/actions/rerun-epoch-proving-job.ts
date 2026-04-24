@@ -61,7 +61,10 @@ export async function rerunEpochProvingJob(
     log.getBindings(),
   );
 
-  const publisher = { submitEpochProof: () => Promise.resolve(true) };
+  const publisher = {
+    submitEpochProof: () => Promise.resolve(true),
+    analyzeEpochProofSubmission: () => Promise.resolve(),
+  };
   const l2BlockSourceForReorgDetection = undefined;
   const deadline = undefined;
 

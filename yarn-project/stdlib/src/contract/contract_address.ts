@@ -13,7 +13,7 @@ import type { ContractInstance } from './interfaces/contract_instance.js';
 /**
  * Returns the deployment address for a given contract instance.
  * ```
- * salted_initialization_hash = poseidon2(DOM_SEP__PARTIAL_ADDRESS, [salt, initialization_hash, deployer])
+ * salted_initialization_hash = poseidon2(DOM_SEP__SALTED_INITIALIZATION_HASH, [salt, initialization_hash, deployer])
  * partial_address = poseidon2(DOM_SEP__PARTIAL_ADDRESS, [contract_class_id, salted_initialization_hash])
  * address = ((poseidon2(DOM_SEP__CONTRACT_ADDRESS_V1, [public_keys_hash, partial_address]) * G) + ivpk_m).x <- the x-coordinate of the address point
  * ```
@@ -57,7 +57,7 @@ export function computeSaltedInitializationHash(
 ): Promise<Fr> {
   return poseidon2HashWithSeparator(
     [instance.salt, instance.initializationHash, instance.deployer],
-    DomainSeparator.PARTIAL_ADDRESS,
+    DomainSeparator.SALTED_INITIALIZATION_HASH,
   );
 }
 

@@ -22,7 +22,7 @@ This tutorial is compatible with the Aztec version `v4.2.0`. Install the correct
 Run this to create a new contract project:
 
 ```bash
-aztec new --contract counter
+aztec new counter
 ```
 
 Your structure should look like this:
@@ -90,7 +90,7 @@ use balance_set::BalanceSet;
 - `messages::message_delivery::MessageDelivery`
   Imports `MessageDelivery` for specifying how note delivery should be handled (e.g., constrained onchain delivery).
 
-- `oracle::debug_log::debug_log_format`
+- `oracle::logging::debug_log_format`
   Imports a debug logging utility for printing formatted messages during contract execution.
 
 - `protocol::{address::AztecAddress, traits::ToField}`
@@ -125,8 +125,8 @@ Let’s create a constructor method to run on deployment that assigns an initial
 #[initializer]
 #[external("private")]
 // We can name our initializer anything we want as long as it's marked as aztec(initializer)
-fn initialize(headstart: u64, owner: AztecAddress) {
-    self.storage.counters.at(owner).add(headstart as u128).deliver(
+fn initialize(headstart: u128, owner: AztecAddress) {
+    self.storage.counters.at(owner).add(headstart).deliver(
         MessageDelivery.ONCHAIN_CONSTRAINED,
     );
 }

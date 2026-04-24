@@ -454,7 +454,6 @@ TEST_F(TranslatorRelationCorrectnessTests, NonNative)
     auto& engine = numeric::get_debug_randomness();
 
     auto op_queue = std::make_shared<bb::ECCOpQueue>();
-    op_queue->no_op_ultra_only();
     op_queue->random_op_ultra_only();
     op_queue->random_op_ultra_only();
     op_queue->random_op_ultra_only();
@@ -462,41 +461,35 @@ TEST_F(TranslatorRelationCorrectnessTests, NonNative)
     // Generate random EccOpQueue actions
 
     for (size_t i = 0; i < (mini_circuit_size >> 1) / 2; i++) {
-        switch (engine.get_random_uint8() & 3) {
+        switch (engine.get_random_uint8() % 3) {
         case 0:
-            op_queue->no_op_ultra_only();
-            break;
-        case 1:
             op_queue->eq_and_reset();
             break;
-        case 2:
+        case 1:
             op_queue->add_accumulate(GroupElement::random_element(&engine));
             break;
-        case 3:
+        case 2:
             op_queue->mul_accumulate(GroupElement::random_element(&engine), FF::random_element(&engine));
             break;
         }
     }
     op_queue->merge();
     for (size_t i = 0; i < 100; i++) {
-        switch (engine.get_random_uint8() & 3) {
+        switch (engine.get_random_uint8() % 3) {
         case 0:
-            op_queue->no_op_ultra_only();
-            break;
-        case 1:
             op_queue->eq_and_reset();
             break;
-        case 2:
+        case 1:
             op_queue->add_accumulate(GroupElement::random_element(&engine));
             break;
-        case 3:
+        case 2:
             op_queue->mul_accumulate(GroupElement::random_element(&engine), FF::random_element(&engine));
             break;
         }
     }
     op_queue->random_op_ultra_only();
     op_queue->random_op_ultra_only();
-    op_queue->merge(MergeSettings::APPEND, ECCOpQueue::OP_QUEUE_SIZE - op_queue->get_current_subtable_size());
+    op_queue->merge(MergeSettings::APPEND, op_queue->get_append_offset());
 
     const auto batching_challenge_v = BF::random_element(&engine);
     const auto evaluation_input_x = BF::random_element(&engine);
@@ -526,9 +519,7 @@ TEST_F(TranslatorRelationCorrectnessTests, NonNative)
     // Create storage for polynomials
     ProverPolynomials prover_polynomials = TranslatorFlavor::ProverPolynomials();
     // Copy values of wires used in the non-native field relation from the circuit builder
-    for (size_t i = Builder::NUM_NO_OPS_START + Builder::NUM_RANDOM_OPS_START;
-         i < circuit_builder.num_gates() - Builder::NUM_RANDOM_OPS_END;
-         i++) {
+    for (size_t i = Builder::NUM_RANDOM_OPS_START; i < circuit_builder.num_gates() - Builder::NUM_RANDOM_OPS_END; i++) {
         prover_polynomials.op.at(i) = circuit_builder.get_variable(circuit_builder.wires[circuit_builder.OP][i]);
         prover_polynomials.p_x_low_limbs.at(i) =
             circuit_builder.get_variable(circuit_builder.wires[circuit_builder.P_X_LOW_LIMBS][i]);
