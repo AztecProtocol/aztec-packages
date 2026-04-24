@@ -3,9 +3,9 @@
 
 #include <cstdint>
 
-#include "barretenberg/crypto/merkle_tree/aztec_hash_policy.hpp"
+#include "barretenberg/aztec/aztec_constants.hpp"
+#include "barretenberg/aztec/aztec_hash_policy.hpp"
 #include "barretenberg/crypto/poseidon2/poseidon2.hpp"
-#include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/constraining/flavor_settings.hpp"
 #include "barretenberg/vm2/constraining/testing/check_relation.hpp"
 #include "barretenberg/vm2/generated/relations/indexed_tree_check.hpp"
@@ -163,7 +163,7 @@ TEST(IndexedTreeCheckConstrainingTest, PositiveWriteAppend)
 
     FF value = 100;
     FF low_value = 40;
-    TestMemoryTree<crypto::merkle_tree::NullifierMerkleHashPolicy> tree(8, NULLIFIER_TREE_HEIGHT);
+    TestMemoryTree<aztec::NullifierMerkleHashPolicy> tree(8, NULLIFIER_TREE_HEIGHT);
 
     IndexedTreeLeafData low_leaf = { .value = low_value, .next_value = value + 1, .next_index = 10 };
     FF low_leaf_hash = RawPoseidon2::hash(low_leaf.get_hash_inputs());

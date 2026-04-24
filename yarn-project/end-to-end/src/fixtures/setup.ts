@@ -17,7 +17,7 @@ import { Fr } from '@aztec/aztec.js/fields';
 import { type Logger, createLogger } from '@aztec/aztec.js/log';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import type { Wallet } from '@aztec/aztec.js/wallet';
-import { AnvilTestWatcher, CheatCodes } from '@aztec/aztec/testing';
+import { AnvilTestWatcher, type AnvilTestWatcherOpts, CheatCodes } from '@aztec/aztec/testing';
 import { SPONSORED_FPC_SALT } from '@aztec/constants';
 import { isAnvilTestChain } from '@aztec/ethereum/chain';
 import { createExtendedL1Client } from '@aztec/ethereum/client';
@@ -185,6 +185,7 @@ export type SetupOptions = {
   mockGossipSubNetworkLatency?: number;
   /** Whether to disable the anvil test watcher (can still be manually started) */
   disableAnvilTestWatcher?: boolean;
+  anvilTestWatcherOpts?: AnvilTestWatcherOpts;
   /** Whether to enable anvil automine during deployment of L1 contracts (consider defaulting this to true). */
   automineL1Setup?: boolean;
   /** How many accounts to seed and unlock in anvil. */
@@ -206,8 +207,11 @@ export type SetupOptions = {
   skipAccountDeployment?: boolean;
   /** L1 contracts deployment arguments. */
   l1ContractsArgs?: Partial<DeployAztecL1ContractsArgs>;
-  /** Wallet minimum fee padding multiplier (defaults to 0.5, which is 50% padding). */
+  /** Wallet minimum fee padding multiplier */
   walletMinFeePadding?: number;
+  /** Whether the initial node should be a lightweight RPC-only node (no sequencer, no validator).
+   *  Use for tests that create their own validator nodes and don't need the initial sequencer. */
+  skipInitialSequencer?: boolean;
 } & Partial<AztecNodeConfig>;
 
 /** Context for an end-to-end test as returned by the `setup` function */
@@ -444,6 +448,7 @@ export async function setup(
       deployL1ContractsValues.l1ContractAddresses.rollupAddress,
       deployL1ContractsValues.l1Client,
       dateProvider,
+      opts.anvilTestWatcherOpts,
     );
     if (!opts.disableAnvilTestWatcher) {
       await watcher.start();
@@ -502,8 +507,23 @@ export async function setup(
       }
     }
 
+    // When skipInitialSequencer is set, the initial node is a lightweight RPC-only node.
+    // We apply these overrides to a copy so they don't leak into the returned config.
+    // Keep P2P enabled if mockGossipSubNetwork is used (needed for tx propagation to validators).
+    const initialNodeConfig = opts.skipInitialSequencer
+      ? {
+          ...config,
+          disableValidator: true,
+          ...(opts.mockGossipSubNetwork ? {} : { p2pEnabled: false, bootstrapNodes: [] as string[] }),
+        }
+      : config;
+
     const aztecNodeService = await withLoggerBindings({ actor: 'node-0' }, () =>
-      AztecNodeService.createAndSync(config, { dateProvider, telemetry: telemetryClient, p2pClientDeps }, { genesis }),
+      AztecNodeService.createAndSync(
+        initialNodeConfig,
+        { dateProvider, telemetry: telemetryClient, p2pClientDeps },
+        { genesis, dontStartSequencer: opts.skipInitialSequencer },
+      ),
     );
     const sequencerClient = aztecNodeService.getSequencer();
 
@@ -563,7 +583,9 @@ export async function setup(
 
     let accounts: AztecAddress[] = [];
 
-    if (shouldDeployAccounts) {
+    if (opts.skipInitialSequencer) {
+      logger.info('Sequencer not started on initial node, skipping block progression');
+    } else if (shouldDeployAccounts) {
       logger.info(
         `${numberOfAccounts} accounts are being deployed. Reliably progressing past genesis by setting minTxsPerBlock to 1 and waiting for the accounts to be deployed`,
       );

@@ -2,7 +2,7 @@ import { strict as assert } from 'assert';
 
 import { TypeTag } from '../avm/avm_memory_types.js';
 import { Addressing, AddressingMode } from '../avm/opcodes/addressing_mode.js';
-import { Add, CalldataCopy, Jump, Return, Set } from '../avm/opcodes/index.js';
+import { Add, CalldataCopy, Cast, Jump, Return, Set } from '../avm/opcodes/index.js';
 import { encodeToBytecode } from '../avm/serialization/bytecode_serialization.js';
 import {
   MAX_OPCODE_VALUE,
@@ -205,6 +205,144 @@ export async function invalidTagValueAndInstructionTruncatedTest(tester: PublicT
   bytecode[tagOffset] = 0x6f; // Invalid tag value.
 
   const txLabel = 'InvalidTagValueAndInstructionTruncated';
+  return await deployAndExecuteCustomBytecode(bytecode, tester, txLabel);
+}
+
+// Exercise SET truncation: set values whose widths exceed the target tag and
+// rely on `buildFromTagTruncating` to truncate to the low bits of the tag.
+// Covers sources larger than 128 bits (via SET_FF) and sources in (32, 128]
+// bits (via SET_64) against destination tags U1/U8/U16/U32/U64/U128.
+export async function setTruncationTest(tester: PublicTxSimulationTester) {
+  // 200-bit value: forces truncation for every target tag up to U128.
+  const LARGE_FIELD_VALUE = (1n << 200n) + 0x1234567890abcdef1234567890abcdefn;
+  // 40-bit value: forces truncation for target tags up to U32.
+  const LARGE_U64_VALUE = (1n << 40n) + 0xdeadbeefn;
+
+  const bytecode = encodeToBytecode([
+    // Zero U32 at offset 0 — used as the Return copy-size slot.
+    new Set(/*addressing_mode=*/ 0, /*dstOffset=*/ 0, TypeTag.UINT32, /*value=*/ 0).as(Opcode.SET_8, Set.wireFormat8),
+
+    // Source >128 bits (via SET_FF) truncated to smaller target tags.
+    new Set(/*addressing_mode=*/ 0, /*dstOffset=*/ 1, TypeTag.UINT128, LARGE_FIELD_VALUE).as(
+      Opcode.SET_FF,
+      Set.wireFormatFF,
+    ),
+    new Set(/*addressing_mode=*/ 0, /*dstOffset=*/ 2, TypeTag.UINT64, LARGE_FIELD_VALUE).as(
+      Opcode.SET_FF,
+      Set.wireFormatFF,
+    ),
+    new Set(/*addressing_mode=*/ 0, /*dstOffset=*/ 3, TypeTag.UINT32, LARGE_FIELD_VALUE).as(
+      Opcode.SET_FF,
+      Set.wireFormatFF,
+    ),
+    new Set(/*addressing_mode=*/ 0, /*dstOffset=*/ 4, TypeTag.UINT16, LARGE_FIELD_VALUE).as(
+      Opcode.SET_FF,
+      Set.wireFormatFF,
+    ),
+    new Set(/*addressing_mode=*/ 0, /*dstOffset=*/ 5, TypeTag.UINT8, LARGE_FIELD_VALUE).as(
+      Opcode.SET_FF,
+      Set.wireFormatFF,
+    ),
+    new Set(/*addressing_mode=*/ 0, /*dstOffset=*/ 6, TypeTag.UINT1, LARGE_FIELD_VALUE).as(
+      Opcode.SET_FF,
+      Set.wireFormatFF,
+    ),
+
+    // Source in (32, 128] bits (via SET_64) truncated to smaller target tags.
+    new Set(/*addressing_mode=*/ 0, /*dstOffset=*/ 7, TypeTag.UINT32, LARGE_U64_VALUE).as(
+      Opcode.SET_64,
+      Set.wireFormat64,
+    ),
+    new Set(/*addressing_mode=*/ 0, /*dstOffset=*/ 8, TypeTag.UINT16, LARGE_U64_VALUE).as(
+      Opcode.SET_64,
+      Set.wireFormat64,
+    ),
+    new Set(/*addressing_mode=*/ 0, /*dstOffset=*/ 9, TypeTag.UINT8, LARGE_U64_VALUE).as(
+      Opcode.SET_64,
+      Set.wireFormat64,
+    ),
+    new Set(/*addressing_mode=*/ 0, /*dstOffset=*/ 10, TypeTag.UINT1, LARGE_U64_VALUE).as(
+      Opcode.SET_64,
+      Set.wireFormat64,
+    ),
+
+    new Return(/*addressing_mode=*/ 0, /*copySizeOffset=*/ 0, /*returnOffset=*/ 0),
+  ]);
+
+  const txLabel = 'SetTruncation';
+  return await deployAndExecuteCustomBytecode(bytecode, tester, txLabel);
+}
+
+// Exercise CAST truncation: store a wide source value in memory then CAST it
+// to smaller destination tags. Covers sources larger than 128 bits (FIELD
+// source) and sources in (32, 128] bits (UINT64 source) against destination
+// tags U1/U8/U16/U32/U64/U128.
+export async function castTruncationTest(tester: PublicTxSimulationTester) {
+  // 200-bit source: stored as FIELD so that CASTs to any integer tag truncate.
+  const LARGE_FIELD_VALUE = (1n << 200n) + 0x1234567890abcdef1234567890abcdefn;
+  // 40-bit source: stored as UINT64 so CASTs to U1/U8/U16/U32 truncate.
+  const LARGE_U64_VALUE = (1n << 40n) + 0xdeadbeefn;
+
+  const bytecode = encodeToBytecode([
+    // Zero U32 at offset 0 — used as the Return copy-size slot.
+    new Set(/*addressing_mode=*/ 0, /*dstOffset=*/ 0, TypeTag.UINT32, /*value=*/ 0).as(Opcode.SET_8, Set.wireFormat8),
+
+    // Store wide FIELD source at offset 10, then CAST to smaller tags.
+    new Set(/*addressing_mode=*/ 0, /*dstOffset=*/ 10, TypeTag.FIELD, LARGE_FIELD_VALUE).as(
+      Opcode.SET_FF,
+      Set.wireFormatFF,
+    ),
+    new Cast(/*addressing_mode=*/ 0, /*srcOffset=*/ 10, /*dstOffset=*/ 11, TypeTag.UINT128).as(
+      Opcode.CAST_8,
+      Cast.wireFormat8,
+    ),
+    new Cast(/*addressing_mode=*/ 0, /*srcOffset=*/ 10, /*dstOffset=*/ 12, TypeTag.UINT64).as(
+      Opcode.CAST_8,
+      Cast.wireFormat8,
+    ),
+    new Cast(/*addressing_mode=*/ 0, /*srcOffset=*/ 10, /*dstOffset=*/ 13, TypeTag.UINT32).as(
+      Opcode.CAST_8,
+      Cast.wireFormat8,
+    ),
+    new Cast(/*addressing_mode=*/ 0, /*srcOffset=*/ 10, /*dstOffset=*/ 14, TypeTag.UINT16).as(
+      Opcode.CAST_8,
+      Cast.wireFormat8,
+    ),
+    new Cast(/*addressing_mode=*/ 0, /*srcOffset=*/ 10, /*dstOffset=*/ 15, TypeTag.UINT8).as(
+      Opcode.CAST_8,
+      Cast.wireFormat8,
+    ),
+    new Cast(/*addressing_mode=*/ 0, /*srcOffset=*/ 10, /*dstOffset=*/ 16, TypeTag.UINT1).as(
+      Opcode.CAST_8,
+      Cast.wireFormat8,
+    ),
+
+    // Store UINT64 source at offset 20, then CAST to smaller integer tags.
+    new Set(/*addressing_mode=*/ 0, /*dstOffset=*/ 20, TypeTag.UINT64, LARGE_U64_VALUE).as(
+      Opcode.SET_64,
+      Set.wireFormat64,
+    ),
+    new Cast(/*addressing_mode=*/ 0, /*srcOffset=*/ 20, /*dstOffset=*/ 21, TypeTag.UINT32).as(
+      Opcode.CAST_8,
+      Cast.wireFormat8,
+    ),
+    new Cast(/*addressing_mode=*/ 0, /*srcOffset=*/ 20, /*dstOffset=*/ 22, TypeTag.UINT16).as(
+      Opcode.CAST_8,
+      Cast.wireFormat8,
+    ),
+    new Cast(/*addressing_mode=*/ 0, /*srcOffset=*/ 20, /*dstOffset=*/ 23, TypeTag.UINT8).as(
+      Opcode.CAST_8,
+      Cast.wireFormat8,
+    ),
+    new Cast(/*addressing_mode=*/ 0, /*srcOffset=*/ 20, /*dstOffset=*/ 24, TypeTag.UINT1).as(
+      Opcode.CAST_8,
+      Cast.wireFormat8,
+    ),
+
+    new Return(/*addressing_mode=*/ 0, /*copySizeOffset=*/ 0, /*returnOffset=*/ 0),
+  ]);
+
+  const txLabel = 'CastTruncation';
   return await deployAndExecuteCustomBytecode(bytecode, tester, txLabel);
 }
 

@@ -199,6 +199,65 @@ describe('prover-node-publisher', () => {
     },
   );
 
+  it('analyzeEpochProofSubmission validates, estimates, and does not send tx', async () => {
+    const fromCheckpoint = 33;
+    const toCheckpoint = 64;
+
+    rollup.getTips.mockResolvedValue({ pending: CheckpointNumber(65), proven: CheckpointNumber(32) });
+
+    const checkpoints = Array.from({ length: 100 }, () => RootRollupPublicInputs.random());
+    rollup.getCheckpoint.mockImplementation((n: CheckpointNumber) =>
+      Promise.resolve({
+        archive: checkpoints[n - 1].endArchiveRoot,
+        attestationsHash: Buffer32.ZERO,
+        payloadDigest: Buffer32.ZERO,
+        headerHash: Buffer32.ZERO,
+        blobCommitmentsHash: Buffer32.ZERO,
+        outHash: '0x',
+        slotNumber: SlotNumber(0),
+        feeHeader: { excessMana: 0n, manaUsed: 0n, ethPerFeeAsset: 0n, congestionCost: 0n, proverCost: 0n },
+      }),
+    );
+
+    const ourPublicInputs = RootRollupPublicInputs.random();
+    ourPublicInputs.previousArchiveRoot = checkpoints[fromCheckpoint - 2].endArchiveRoot;
+    ourPublicInputs.endArchiveRoot = checkpoints[toCheckpoint - 1].endArchiveRoot;
+    rollup.getEpochProofPublicInputs.mockResolvedValue([...ourPublicInputs.toFields()]);
+
+    jest.spyOn(l1Utils, 'getSenderAddress').mockReturnValue(EthAddress.random());
+    jest.spyOn(l1Utils, 'estimateGas').mockResolvedValue(500_000n);
+    jest
+      .spyOn(l1Utils, 'getGasPrice')
+      .mockResolvedValue({ maxFeePerGas: 20_000_000_000n, maxPriorityFeePerGas: 1_000_000_000n });
+    (l1Utils as any).client = {
+      getBlock: jest
+        .fn<() => Promise<{ baseFeePerGas: bigint }>>()
+        .mockResolvedValue({ baseFeePerGas: 10_000_000_000n }),
+    };
+
+    const batchedBlob = new BatchedBlob(
+      ourPublicInputs.blobPublicInputs.blobCommitmentsHash,
+      ourPublicInputs.blobPublicInputs.z,
+      ourPublicInputs.blobPublicInputs.y,
+      ourPublicInputs.blobPublicInputs.c,
+      ourPublicInputs.blobPublicInputs.c.negate(),
+    );
+
+    await publisher.analyzeEpochProofSubmission({
+      epochNumber: EpochNumber(2),
+      fromCheckpoint: CheckpointNumber(fromCheckpoint),
+      toCheckpoint: CheckpointNumber(toCheckpoint),
+      publicInputs: ourPublicInputs,
+      proof: Proof.empty(),
+      batchedBlobInputs: batchedBlob,
+      attestations: [],
+    });
+
+    expect(l1Utils.estimateGas).toHaveBeenCalled();
+    expect(l1Utils.getGasPrice).toHaveBeenCalled();
+    expect(l1Utils.sendAndMonitorTransaction).not.toHaveBeenCalled();
+  });
+
   it('handles reverted txs correctly', async () => {
     const checkpoints = [RootRollupPublicInputs.random(), RootRollupPublicInputs.random()];
 

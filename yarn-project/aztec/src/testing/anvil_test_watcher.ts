@@ -9,6 +9,11 @@ import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
 
 import { type GetContractReturnType, getAddress, getContract } from 'viem';
 
+export type AnvilTestWatcherOpts = {
+  isLocalNetwork?: boolean;
+  isMarkingAsProven?: boolean;
+};
+
 /**
  * Represents a watcher for a rollup contract.
  *
@@ -17,7 +22,8 @@ import { type GetContractReturnType, getAddress, getContract } from 'viem';
  * block within the slot. And if so, it will time travel into the next slot.
  */
 export class AnvilTestWatcher {
-  private isLocalNetwork: boolean = false;
+  private isLocalNetwork;
+  private isMarkingAsProven;
 
   private rollup: GetContractReturnType<typeof RollupAbi, ViemClient>;
   private rollupCheatCodes: RollupCheatCodes;
@@ -28,8 +34,6 @@ export class AnvilTestWatcher {
   private markingAsProvenRunningPromise?: RunningPromise;
 
   private logger: Logger = createLogger(`aztecjs:utils:watcher`);
-
-  private isMarkingAsProven = true;
 
   // Optional callback to check if there are pending txs in the mempool.
   private getPendingTxCount?: () => Promise<number>;
@@ -45,6 +49,7 @@ export class AnvilTestWatcher {
     rollupAddress: EthAddress,
     l1Client: ViemClient,
     private dateProvider?: TestDateProvider,
+    opts: AnvilTestWatcherOpts = {},
   ) {
     this.rollup = getContract({
       address: getAddress(rollupAddress.toString()),
@@ -55,6 +60,9 @@ export class AnvilTestWatcher {
     this.rollupCheatCodes = new RollupCheatCodes(this.cheatcodes, {
       rollupAddress,
     });
+
+    this.isLocalNetwork = opts.isLocalNetwork ?? false;
+    this.isMarkingAsProven = opts.isMarkingAsProven ?? true;
 
     this.logger.debug(`Watcher created for rollup at ${rollupAddress}`);
   }

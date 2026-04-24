@@ -4,7 +4,7 @@ import { fileURLToPath } from 'url';
 
 const NOIR_CONSTANTS_FILE = '../../../../noir-projects/noir-protocol-circuits/crates/types/src/constants.nr';
 const TS_CONSTANTS_FILE = '../constants.gen.ts';
-const CPP_AZTEC_CONSTANTS_FILE = '../../../../barretenberg/cpp/src/barretenberg/vm2/common/aztec_constants.hpp';
+const CPP_AZTEC_CONSTANTS_FILE = '../../../../barretenberg/cpp/src/barretenberg/aztec/aztec_constants.hpp';
 const PIL_AZTEC_CONSTANTS_FILE = '../../../../barretenberg/cpp/pil/vm2/constants_gen.pil';
 const SOLIDITY_CONSTANTS_FILE = '../../../../l1-contracts/src/core/libraries/ConstantsGen.sol';
 
@@ -120,6 +120,7 @@ const CPP_CONSTANTS = [
 
 const CPP_GENERATORS: string[] = [
   'BLOCK_HEADER_HASH',
+  'SALTED_INITIALIZATION_HASH',
   'PARTIAL_ADDRESS',
   'CONTRACT_ADDRESS_V1',
   'CONTRACT_CLASS_ID',
@@ -313,6 +314,7 @@ const PIL_CONSTANTS = [
 ];
 
 const PIL_GENERATORS: string[] = [
+  'SALTED_INITIALIZATION_HASH',
   'PARTIAL_ADDRESS',
   'CONTRACT_ADDRESS_V1',
   'CONTRACT_CLASS_ID',

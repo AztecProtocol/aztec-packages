@@ -4,7 +4,7 @@
 #include <gtest/gtest.h>
 #include <iostream>
 
-#include "barretenberg/crypto/merkle_tree/aztec_hash_policy.hpp"
+#include "barretenberg/aztec/aztec_hash_policy.hpp"
 #include "barretenberg/crypto/poseidon2/poseidon2.hpp"
 #include "barretenberg/vm2/simulation/lib/merkle.hpp"
 #include "barretenberg/vm2/testing/macros.hpp"
@@ -83,8 +83,8 @@ struct UpdatableLeafValue {
     }
 };
 
-using Tree = IndexedMemoryTree<LeafValue, crypto::merkle_tree::NullifierMerkleHashPolicy>;
-using UpdatableTree = IndexedMemoryTree<UpdatableLeafValue, crypto::merkle_tree::NullifierMerkleHashPolicy>;
+using Tree = IndexedMemoryTree<LeafValue, aztec::NullifierMerkleHashPolicy>;
+using UpdatableTree = IndexedMemoryTree<UpdatableLeafValue, aztec::NullifierMerkleHashPolicy>;
 
 TEST(IndexedMemoryTree, Append)
 {

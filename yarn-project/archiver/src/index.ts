@@ -10,4 +10,5 @@ export { KVArchiverDataStore, ARCHIVER_DB_VERSION } from './store/kv_archiver_st
 export { ContractInstanceStore } from './store/contract_instance_store.js';
 export { L2TipsCache } from './store/l2_tips_cache.js';
 
-export { retrieveCheckpointsFromRollup, retrieveL2ProofVerifiedEvents } from './l1/data_retrieval.js';
+export { retrieveL2ProofVerifiedEvents } from './l1/data_retrieval.js';
+export { CalldataRetriever } from './l1/calldata_retriever.js';
