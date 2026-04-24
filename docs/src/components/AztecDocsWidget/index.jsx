@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
+import ReactMarkdown from "react-markdown";
 import "./styles.css";
 
 function AztecMark({ size = 24, color = "currentColor", stroke = 0 }) {
@@ -170,28 +171,191 @@ const ACCENT_VARS = {
   aqua: "var(--azw-aqua)",
 };
 
-function renderWithCode(text, isInk) {
-  return text.split(/(`[^`]+`)/g).map((chunk, j) =>
-    chunk.startsWith("`") ? (
-      <code
-        key={j}
-        style={{
-          fontFamily: "var(--azw-font-mono)",
-          fontSize: 12,
-          background: isInk
-            ? "rgba(212,255,40,0.12)"
-            : "var(--azw-chartreuse-tint-2)",
-          color: isInk ? "var(--azw-chartreuse)" : "var(--azw-ink)",
-          padding: "1px 5px",
-          border: `1px solid ${isInk ? "rgba(212,255,40,0.25)" : "var(--azw-ink-tint-1)"}`,
-        }}
-      >
-        {chunk.slice(1, -1)}
-      </code>
-    ) : (
-      <span key={j}>{chunk}</span>
+function makeMarkdownComponents(isInk, accentColor) {
+  const codeBg = isInk
+    ? "rgba(212,255,40,0.12)"
+    : "var(--azw-chartreuse-tint-2)";
+  const codeFg = isInk ? "var(--azw-chartreuse)" : "var(--azw-ink)";
+  const codeBorder = isInk ? "rgba(212,255,40,0.25)" : "var(--azw-ink-tint-1)";
+  const preBg = isInk ? "rgba(0,0,0,0.45)" : "var(--azw-ink)";
+  const preFg = isInk ? "var(--azw-parchment)" : "var(--azw-parchment)";
+  const linkColor = isInk ? accentColor : "var(--azw-ink)";
+  const dividerColor = isInk
+    ? "rgba(242,238,225,0.15)"
+    : "var(--azw-ink-tint-1)";
+  const quoteColor = isInk
+    ? "var(--azw-ink-tint-1)"
+    : "var(--azw-parchment-shade-1)";
+
+  const inlineCode = {
+    fontFamily: "var(--azw-font-mono)",
+    fontSize: 12,
+    background: codeBg,
+    color: codeFg,
+    padding: "1px 5px",
+    border: `1px solid ${codeBorder}`,
+  };
+
+  return {
+    p: ({ node, ...props }) => (
+      <p style={{ margin: "0 0 10px", lineHeight: 1.5 }} {...props} />
     ),
-  );
+    a: ({ node, ...props }) => (
+      <a
+        target="_blank"
+        rel="noreferrer"
+        style={{
+          color: linkColor,
+          textDecoration: "underline",
+          textUnderlineOffset: 2,
+        }}
+        {...props}
+      />
+    ),
+    ul: ({ node, ordered, ...props }) => (
+      <ul style={{ margin: "0 0 10px", paddingLeft: 20 }} {...props} />
+    ),
+    ol: ({ node, ordered, ...props }) => (
+      <ol style={{ margin: "0 0 10px", paddingLeft: 20 }} {...props} />
+    ),
+    li: ({ node, ordered, checked, ...props }) => (
+      <li style={{ margin: "2px 0" }} {...props} />
+    ),
+    h1: ({ node, ...props }) => (
+      <h1
+        style={{
+          fontSize: 16,
+          fontWeight: 600,
+          margin: "8px 0 6px",
+          lineHeight: 1.25,
+        }}
+        {...props}
+      />
+    ),
+    h2: ({ node, ...props }) => (
+      <h2
+        style={{
+          fontSize: 15,
+          fontWeight: 600,
+          margin: "8px 0 6px",
+          lineHeight: 1.25,
+        }}
+        {...props}
+      />
+    ),
+    h3: ({ node, ...props }) => (
+      <h3
+        style={{
+          fontSize: 14,
+          fontWeight: 600,
+          margin: "8px 0 4px",
+          lineHeight: 1.25,
+          fontFamily: "var(--azw-font-sans)",
+          textTransform: "none",
+        }}
+        {...props}
+      />
+    ),
+    h4: ({ node, ...props }) => (
+      <h4
+        style={{
+          fontSize: 13.5,
+          fontWeight: 600,
+          margin: "6px 0 4px",
+          lineHeight: 1.25,
+        }}
+        {...props}
+      />
+    ),
+    blockquote: ({ node, ...props }) => (
+      <blockquote
+        style={{
+          margin: "0 0 10px",
+          padding: "2px 0 2px 10px",
+          borderLeft: `2px solid ${accentColor}`,
+          color: quoteColor,
+        }}
+        {...props}
+      />
+    ),
+    hr: () => (
+      <hr
+        style={{
+          border: 0,
+          borderTop: `1px solid ${dividerColor}`,
+          margin: "10px 0",
+        }}
+      />
+    ),
+    code: ({ node, inline, className, children, ...props }) => {
+      if (inline) {
+        return (
+          <code style={inlineCode} {...props}>
+            {children}
+          </code>
+        );
+      }
+      return (
+        <code
+          style={{
+            fontFamily: "var(--azw-font-mono)",
+            fontSize: 12,
+            color: preFg,
+            display: "block",
+          }}
+          className={className}
+          {...props}
+        >
+          {children}
+        </code>
+      );
+    },
+    pre: ({ node, children, ...props }) => (
+      <pre
+        style={{
+          background: preBg,
+          color: preFg,
+          padding: 10,
+          margin: "0 0 10px",
+          borderRadius: 4,
+          overflowX: "auto",
+          border: `1px solid ${codeBorder}`,
+          fontSize: 12,
+          lineHeight: 1.45,
+        }}
+        {...props}
+      >
+        {children}
+      </pre>
+    ),
+    table: ({ node, ...props }) => (
+      <div style={{ overflowX: "auto", margin: "0 0 10px" }}>
+        <table
+          style={{ borderCollapse: "collapse", width: "100%", fontSize: 12 }}
+          {...props}
+        />
+      </div>
+    ),
+    th: ({ node, ...props }) => (
+      <th
+        style={{
+          textAlign: "left",
+          borderBottom: `1px solid ${dividerColor}`,
+          padding: "4px 8px",
+        }}
+        {...props}
+      />
+    ),
+    td: ({ node, ...props }) => (
+      <td
+        style={{
+          borderBottom: `1px solid ${dividerColor}`,
+          padding: "4px 8px",
+        }}
+        {...props}
+      />
+    ),
+  };
 }
 
 async function streamAnswer({
@@ -288,6 +452,10 @@ export default function AztecDocsWidget({
 
   const isInk = theme === "ink";
   const accentColor = ACCENT_VARS[accent] || ACCENT_VARS.chartreuse;
+  const mdComponents = React.useMemo(
+    () => makeMarkdownComponents(isInk, accentColor),
+    [isInk, accentColor],
+  );
 
   const panelBg = isInk ? "var(--azw-ink)" : "var(--azw-parchment)";
   const panelFg = isInk ? "var(--azw-parchment)" : "var(--azw-ink)";
@@ -761,23 +929,11 @@ export default function AztecDocsWidget({
             lineHeight: 1.5,
             color: panelFg,
             letterSpacing: "-0.01em",
-            whiteSpace: "pre-wrap",
           }}
         >
-          {renderWithCode(text, isInk)}
-          {thinking && (
-            <span
-              style={{
-                display: "inline-block",
-                width: 8,
-                height: 14,
-                background: accentColor,
-                marginLeft: 2,
-                verticalAlign: "middle",
-                animation: "azw-blink 1s steps(2) infinite",
-              }}
-            />
-          )}
+          {text ? (
+            <ReactMarkdown components={mdComponents}>{text}</ReactMarkdown>
+          ) : null}
         </div>
         {sources?.length > 0 && (
           <div style={{ marginTop: 10 }}>
