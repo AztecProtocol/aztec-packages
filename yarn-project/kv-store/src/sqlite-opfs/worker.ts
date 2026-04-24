@@ -40,14 +40,36 @@ async function ensurePool(directory: string): Promise<SAHPoolUtil> {
   return pool!;
 }
 
-async function handleInit(dbName: string, ephemeral: boolean, directory?: string): Promise<void> {
-  const s = (sqlite3 ??= await sqlite3InitModule());
+/**
+ * Applies sqlite3mc's ChaCha20 page cipher using a pre-derived 32-byte key.
+ * The PRAGMAs must run before any schema DDL so sqlite3mc can decrypt existing
+ * pages and encrypt new ones. Zeroes the caller-held key array after the PRAGMA
+ * completes to minimize residency of the raw key bytes outside sqlite3mc's heap.
+ */
+function applyEncryptionKey(conn: Database, key: Uint8Array): void {
+  const hex = Array.from(key, b => b.toString(16).padStart(2, '0')).join('');
+  conn.exec(`PRAGMA cipher = 'chacha20'`);
+  conn.exec(`PRAGMA key = "x'${hex}'"`);
+  key.fill(0);
+}
+
+async function handleInit(
+  dbName: string,
+  ephemeral: boolean,
+  directory?: string,
+  encryptionKey?: Uint8Array,
+): Promise<void> {
+  sqlite3 ??= await sqlite3InitModule();
+  const s = sqlite3;
   if (ephemeral) {
     db = new s.oo1.DB(':memory:', 'c');
   } else {
     const p = await ensurePool(directory ?? DEFAULT_SAH_POOL_DIRECTORY);
     dbPath = normalizeDbPath(dbName);
     db = new p.OpfsSAHPoolDb(dbPath);
+  }
+  if (encryptionKey !== undefined) {
+    applyEncryptionKey(db, encryptionKey);
   }
   runSql(SCHEMA_SQL);
 }
@@ -123,7 +145,7 @@ function respond(msg: WorkerResponse): void {
   try {
     switch (req.type) {
       case 'init':
-        await handleInit(req.dbName, req.ephemeral, req.poolDirectory);
+        await handleInit(req.dbName, req.ephemeral, req.poolDirectory, req.encryptionKey);
         return respond({ type: 'ok', id: req.id });
       case 'close':
         handleClose();
