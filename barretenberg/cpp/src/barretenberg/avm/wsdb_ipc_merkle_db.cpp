@@ -1,8 +1,8 @@
 #include "barretenberg/avm/wsdb_ipc_merkle_db.hpp"
+#include "barretenberg/aztec/aztec_constants.hpp"
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
 #include "barretenberg/serialize/msgpack_impl.hpp"
-#include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/wsdb/wsdb_commands.hpp"
 
 namespace bb::avm {
