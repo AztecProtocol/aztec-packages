@@ -378,4 +378,483 @@ static void bench_vector_dot_product_K6(State& state)
 }
 BENCHMARK(bench_vector_dot_product_K6);
 
+// ---------------------------------------------------------------------------
+// dot_product<K, M> — K pair muls + M linear adds folded into one kernel's
+// post-Yuval carry chain. Compared against the naive alternative of
+// dot_product<K> followed by M independent operator+ calls.
+// ---------------------------------------------------------------------------
+
+static void bench_vector_dot_product_K3_M2(State& state)
+{
+    std::array<Vec, 3> a, b;
+    std::array<Vec, 2> c;
+    for (size_t k = 0; k < 3; ++k) {
+        std::array<fr, 5> av{
+            fr::random_element(), fr::random_element(), fr::random_element(), fr::random_element(), fr::random_element()
+        };
+        std::array<fr, 5> bv{
+            fr::random_element(), fr::random_element(), fr::random_element(), fr::random_element(), fr::random_element()
+        };
+        a[k] = Vec(av);
+        b[k] = Vec(bv);
+    }
+    for (size_t j = 0; j < 2; ++j) {
+        std::array<fr, 5> cv{
+            fr::random_element(), fr::random_element(), fr::random_element(), fr::random_element(), fr::random_element()
+        };
+        c[j] = Vec(cv);
+    }
+    for (auto _ : state) {
+        for (int64_t it = 0; it < ITERATIONS; ++it) {
+            std::array<std::pair<Vec, Vec>, 3> pairs{ { { a[0], b[0] }, { a[1], b[1] }, { a[2], b[2] } } };
+            std::array<Vec, 2> linears{ c[0], c[1] };
+            a[0] = Vec::dot_product<3, 2>(pairs, linears);
+            DoNotOptimize(a[0]);
+        }
+    }
+    state.SetItemsProcessed(static_cast<int64_t>(state.iterations()) * ITERATIONS * 5);
+}
+BENCHMARK(bench_vector_dot_product_K3_M2);
+
+static void bench_vector_dot_product_K2_M4(State& state)
+{
+    std::array<Vec, 2> a, b;
+    std::array<Vec, 4> c;
+    for (size_t k = 0; k < 2; ++k) {
+        std::array<fr, 5> av{
+            fr::random_element(), fr::random_element(), fr::random_element(), fr::random_element(), fr::random_element()
+        };
+        std::array<fr, 5> bv{
+            fr::random_element(), fr::random_element(), fr::random_element(), fr::random_element(), fr::random_element()
+        };
+        a[k] = Vec(av);
+        b[k] = Vec(bv);
+    }
+    for (size_t j = 0; j < 4; ++j) {
+        std::array<fr, 5> cv{
+            fr::random_element(), fr::random_element(), fr::random_element(), fr::random_element(), fr::random_element()
+        };
+        c[j] = Vec(cv);
+    }
+    for (auto _ : state) {
+        for (int64_t it = 0; it < ITERATIONS; ++it) {
+            std::array<std::pair<Vec, Vec>, 2> pairs{ { { a[0], b[0] }, { a[1], b[1] } } };
+            std::array<Vec, 4> linears{ c[0], c[1], c[2], c[3] };
+            a[0] = Vec::dot_product<2, 4>(pairs, linears);
+            DoNotOptimize(a[0]);
+        }
+    }
+    state.SetItemsProcessed(static_cast<int64_t>(state.iterations()) * ITERATIONS * 5);
+}
+BENCHMARK(bench_vector_dot_product_K2_M4);
+
+static void bench_vector_dot_product_K1_M5(State& state)
+{
+    Vec a0, b0;
+    std::array<Vec, 5> c;
+    {
+        std::array<fr, 5> av{
+            fr::random_element(), fr::random_element(), fr::random_element(), fr::random_element(), fr::random_element()
+        };
+        std::array<fr, 5> bv{
+            fr::random_element(), fr::random_element(), fr::random_element(), fr::random_element(), fr::random_element()
+        };
+        a0 = Vec(av);
+        b0 = Vec(bv);
+    }
+    for (size_t j = 0; j < 5; ++j) {
+        std::array<fr, 5> cv{
+            fr::random_element(), fr::random_element(), fr::random_element(), fr::random_element(), fr::random_element()
+        };
+        c[j] = Vec(cv);
+    }
+    for (auto _ : state) {
+        for (int64_t it = 0; it < ITERATIONS; ++it) {
+            std::array<std::pair<Vec, Vec>, 1> pairs{ { { a0, b0 } } };
+            std::array<Vec, 5> linears{ c[0], c[1], c[2], c[3], c[4] };
+            a0 = Vec::dot_product<1, 5>(pairs, linears);
+            DoNotOptimize(a0);
+        }
+    }
+    state.SetItemsProcessed(static_cast<int64_t>(state.iterations()) * ITERATIONS * 5);
+}
+BENCHMARK(bench_vector_dot_product_K1_M5);
+
+// Baselines: same work done as dot_product<K> followed by M independent
+// operator+ calls (what callers would write without the K,M fused kernel).
+
+static void bench_vector_dot_product_K3_plus_M2_addops(State& state)
+{
+    std::array<Vec, 3> a, b;
+    std::array<Vec, 2> c;
+    for (size_t k = 0; k < 3; ++k) {
+        std::array<fr, 5> av{
+            fr::random_element(), fr::random_element(), fr::random_element(), fr::random_element(), fr::random_element()
+        };
+        std::array<fr, 5> bv{
+            fr::random_element(), fr::random_element(), fr::random_element(), fr::random_element(), fr::random_element()
+        };
+        a[k] = Vec(av);
+        b[k] = Vec(bv);
+    }
+    for (size_t j = 0; j < 2; ++j) {
+        std::array<fr, 5> cv{
+            fr::random_element(), fr::random_element(), fr::random_element(), fr::random_element(), fr::random_element()
+        };
+        c[j] = Vec(cv);
+    }
+    for (auto _ : state) {
+        for (int64_t it = 0; it < ITERATIONS; ++it) {
+            std::array<std::pair<Vec, Vec>, 3> pairs{ { { a[0], b[0] }, { a[1], b[1] }, { a[2], b[2] } } };
+            Vec r = Vec::dot_product<3>(pairs);
+            r = r + c[0];
+            r = r + c[1];
+            a[0] = r;
+            DoNotOptimize(a[0]);
+        }
+    }
+    state.SetItemsProcessed(static_cast<int64_t>(state.iterations()) * ITERATIONS * 5);
+}
+BENCHMARK(bench_vector_dot_product_K3_plus_M2_addops);
+
+static void bench_vector_dot_product_K2_plus_M4_addops(State& state)
+{
+    std::array<Vec, 2> a, b;
+    std::array<Vec, 4> c;
+    for (size_t k = 0; k < 2; ++k) {
+        std::array<fr, 5> av{
+            fr::random_element(), fr::random_element(), fr::random_element(), fr::random_element(), fr::random_element()
+        };
+        std::array<fr, 5> bv{
+            fr::random_element(), fr::random_element(), fr::random_element(), fr::random_element(), fr::random_element()
+        };
+        a[k] = Vec(av);
+        b[k] = Vec(bv);
+    }
+    for (size_t j = 0; j < 4; ++j) {
+        std::array<fr, 5> cv{
+            fr::random_element(), fr::random_element(), fr::random_element(), fr::random_element(), fr::random_element()
+        };
+        c[j] = Vec(cv);
+    }
+    for (auto _ : state) {
+        for (int64_t it = 0; it < ITERATIONS; ++it) {
+            std::array<std::pair<Vec, Vec>, 2> pairs{ { { a[0], b[0] }, { a[1], b[1] } } };
+            Vec r = Vec::dot_product<2>(pairs);
+            r = r + c[0];
+            r = r + c[1];
+            r = r + c[2];
+            r = r + c[3];
+            a[0] = r;
+            DoNotOptimize(a[0]);
+        }
+    }
+    state.SetItemsProcessed(static_cast<int64_t>(state.iterations()) * ITERATIONS * 5);
+}
+BENCHMARK(bench_vector_dot_product_K2_plus_M4_addops);
+
+static void bench_vector_dot_product_K1_plus_M5_addops(State& state)
+{
+    Vec a0, b0;
+    std::array<Vec, 5> c;
+    {
+        std::array<fr, 5> av{
+            fr::random_element(), fr::random_element(), fr::random_element(), fr::random_element(), fr::random_element()
+        };
+        std::array<fr, 5> bv{
+            fr::random_element(), fr::random_element(), fr::random_element(), fr::random_element(), fr::random_element()
+        };
+        a0 = Vec(av);
+        b0 = Vec(bv);
+    }
+    for (size_t j = 0; j < 5; ++j) {
+        std::array<fr, 5> cv{
+            fr::random_element(), fr::random_element(), fr::random_element(), fr::random_element(), fr::random_element()
+        };
+        c[j] = Vec(cv);
+    }
+    for (auto _ : state) {
+        for (int64_t it = 0; it < ITERATIONS; ++it) {
+            std::array<std::pair<Vec, Vec>, 1> pairs{ { { a0, b0 } } };
+            Vec r = Vec::dot_product<1>(pairs);
+            r = r + c[0];
+            r = r + c[1];
+            r = r + c[2];
+            r = r + c[3];
+            r = r + c[4];
+            a0 = r;
+            DoNotOptimize(a0);
+        }
+    }
+    state.SetItemsProcessed(static_cast<int64_t>(state.iterations()) * ITERATIONS * 5);
+}
+BENCHMARK(bench_vector_dot_product_K1_plus_M5_addops);
+
+// Additional (K, M) grid for Round-2 binary-search normalization coverage.
+
+static void bench_vector_dot_product_K5_M1(State& state)
+{
+    std::array<Vec, 5> a, b;
+    for (size_t k = 0; k < 5; ++k) {
+        std::array<fr, 5> av{
+            fr::random_element(), fr::random_element(), fr::random_element(), fr::random_element(), fr::random_element()
+        };
+        std::array<fr, 5> bv{
+            fr::random_element(), fr::random_element(), fr::random_element(), fr::random_element(), fr::random_element()
+        };
+        a[k] = Vec(av);
+        b[k] = Vec(bv);
+    }
+    std::array<fr, 5> cv{
+        fr::random_element(), fr::random_element(), fr::random_element(), fr::random_element(), fr::random_element()
+    };
+    Vec c0(cv);
+    for (auto _ : state) {
+        for (int64_t it = 0; it < ITERATIONS; ++it) {
+            std::array<std::pair<Vec, Vec>, 5> pairs{
+                { { a[0], b[0] }, { a[1], b[1] }, { a[2], b[2] }, { a[3], b[3] }, { a[4], b[4] } }
+            };
+            std::array<Vec, 1> linears{ c0 };
+            a[0] = Vec::dot_product<5, 1>(pairs, linears);
+            DoNotOptimize(a[0]);
+        }
+    }
+    state.SetItemsProcessed(static_cast<int64_t>(state.iterations()) * ITERATIONS * 5);
+}
+BENCHMARK(bench_vector_dot_product_K5_M1);
+
+static void bench_vector_dot_product_K5_plus_M1_addops(State& state)
+{
+    std::array<Vec, 5> a, b;
+    for (size_t k = 0; k < 5; ++k) {
+        std::array<fr, 5> av{
+            fr::random_element(), fr::random_element(), fr::random_element(), fr::random_element(), fr::random_element()
+        };
+        std::array<fr, 5> bv{
+            fr::random_element(), fr::random_element(), fr::random_element(), fr::random_element(), fr::random_element()
+        };
+        a[k] = Vec(av);
+        b[k] = Vec(bv);
+    }
+    std::array<fr, 5> cv{
+        fr::random_element(), fr::random_element(), fr::random_element(), fr::random_element(), fr::random_element()
+    };
+    Vec c0(cv);
+    for (auto _ : state) {
+        for (int64_t it = 0; it < ITERATIONS; ++it) {
+            std::array<std::pair<Vec, Vec>, 5> pairs{
+                { { a[0], b[0] }, { a[1], b[1] }, { a[2], b[2] }, { a[3], b[3] }, { a[4], b[4] } }
+            };
+            Vec r = Vec::dot_product<5>(pairs);
+            r = r + c0;
+            a[0] = r;
+            DoNotOptimize(a[0]);
+        }
+    }
+    state.SetItemsProcessed(static_cast<int64_t>(state.iterations()) * ITERATIONS * 5);
+}
+BENCHMARK(bench_vector_dot_product_K5_plus_M1_addops);
+
+static void bench_vector_dot_product_K4_M2(State& state)
+{
+    std::array<Vec, 4> a, b;
+    std::array<Vec, 2> c;
+    for (size_t k = 0; k < 4; ++k) {
+        std::array<fr, 5> av{
+            fr::random_element(), fr::random_element(), fr::random_element(), fr::random_element(), fr::random_element()
+        };
+        std::array<fr, 5> bv{
+            fr::random_element(), fr::random_element(), fr::random_element(), fr::random_element(), fr::random_element()
+        };
+        a[k] = Vec(av);
+        b[k] = Vec(bv);
+    }
+    for (size_t j = 0; j < 2; ++j) {
+        std::array<fr, 5> cv{
+            fr::random_element(), fr::random_element(), fr::random_element(), fr::random_element(), fr::random_element()
+        };
+        c[j] = Vec(cv);
+    }
+    for (auto _ : state) {
+        for (int64_t it = 0; it < ITERATIONS; ++it) {
+            std::array<std::pair<Vec, Vec>, 4> pairs{
+                { { a[0], b[0] }, { a[1], b[1] }, { a[2], b[2] }, { a[3], b[3] } }
+            };
+            std::array<Vec, 2> linears{ c[0], c[1] };
+            a[0] = Vec::dot_product<4, 2>(pairs, linears);
+            DoNotOptimize(a[0]);
+        }
+    }
+    state.SetItemsProcessed(static_cast<int64_t>(state.iterations()) * ITERATIONS * 5);
+}
+BENCHMARK(bench_vector_dot_product_K4_M2);
+
+static void bench_vector_dot_product_K4_plus_M2_addops(State& state)
+{
+    std::array<Vec, 4> a, b;
+    std::array<Vec, 2> c;
+    for (size_t k = 0; k < 4; ++k) {
+        std::array<fr, 5> av{
+            fr::random_element(), fr::random_element(), fr::random_element(), fr::random_element(), fr::random_element()
+        };
+        std::array<fr, 5> bv{
+            fr::random_element(), fr::random_element(), fr::random_element(), fr::random_element(), fr::random_element()
+        };
+        a[k] = Vec(av);
+        b[k] = Vec(bv);
+    }
+    for (size_t j = 0; j < 2; ++j) {
+        std::array<fr, 5> cv{
+            fr::random_element(), fr::random_element(), fr::random_element(), fr::random_element(), fr::random_element()
+        };
+        c[j] = Vec(cv);
+    }
+    for (auto _ : state) {
+        for (int64_t it = 0; it < ITERATIONS; ++it) {
+            std::array<std::pair<Vec, Vec>, 4> pairs{
+                { { a[0], b[0] }, { a[1], b[1] }, { a[2], b[2] }, { a[3], b[3] } }
+            };
+            Vec r = Vec::dot_product<4>(pairs);
+            r = r + c[0];
+            r = r + c[1];
+            a[0] = r;
+            DoNotOptimize(a[0]);
+        }
+    }
+    state.SetItemsProcessed(static_cast<int64_t>(state.iterations()) * ITERATIONS * 5);
+}
+BENCHMARK(bench_vector_dot_product_K4_plus_M2_addops);
+
+static void bench_vector_dot_product_K2_M2(State& state)
+{
+    std::array<Vec, 2> a, b;
+    std::array<Vec, 2> c;
+    for (size_t k = 0; k < 2; ++k) {
+        std::array<fr, 5> av{
+            fr::random_element(), fr::random_element(), fr::random_element(), fr::random_element(), fr::random_element()
+        };
+        std::array<fr, 5> bv{
+            fr::random_element(), fr::random_element(), fr::random_element(), fr::random_element(), fr::random_element()
+        };
+        a[k] = Vec(av);
+        b[k] = Vec(bv);
+    }
+    for (size_t j = 0; j < 2; ++j) {
+        std::array<fr, 5> cv{
+            fr::random_element(), fr::random_element(), fr::random_element(), fr::random_element(), fr::random_element()
+        };
+        c[j] = Vec(cv);
+    }
+    for (auto _ : state) {
+        for (int64_t it = 0; it < ITERATIONS; ++it) {
+            std::array<std::pair<Vec, Vec>, 2> pairs{ { { a[0], b[0] }, { a[1], b[1] } } };
+            std::array<Vec, 2> linears{ c[0], c[1] };
+            a[0] = Vec::dot_product<2, 2>(pairs, linears);
+            DoNotOptimize(a[0]);
+        }
+    }
+    state.SetItemsProcessed(static_cast<int64_t>(state.iterations()) * ITERATIONS * 5);
+}
+BENCHMARK(bench_vector_dot_product_K2_M2);
+
+static void bench_vector_dot_product_K2_plus_M2_addops(State& state)
+{
+    std::array<Vec, 2> a, b;
+    std::array<Vec, 2> c;
+    for (size_t k = 0; k < 2; ++k) {
+        std::array<fr, 5> av{
+            fr::random_element(), fr::random_element(), fr::random_element(), fr::random_element(), fr::random_element()
+        };
+        std::array<fr, 5> bv{
+            fr::random_element(), fr::random_element(), fr::random_element(), fr::random_element(), fr::random_element()
+        };
+        a[k] = Vec(av);
+        b[k] = Vec(bv);
+    }
+    for (size_t j = 0; j < 2; ++j) {
+        std::array<fr, 5> cv{
+            fr::random_element(), fr::random_element(), fr::random_element(), fr::random_element(), fr::random_element()
+        };
+        c[j] = Vec(cv);
+    }
+    for (auto _ : state) {
+        for (int64_t it = 0; it < ITERATIONS; ++it) {
+            std::array<std::pair<Vec, Vec>, 2> pairs{ { { a[0], b[0] }, { a[1], b[1] } } };
+            Vec r = Vec::dot_product<2>(pairs);
+            r = r + c[0];
+            r = r + c[1];
+            a[0] = r;
+            DoNotOptimize(a[0]);
+        }
+    }
+    state.SetItemsProcessed(static_cast<int64_t>(state.iterations()) * ITERATIONS * 5);
+}
+BENCHMARK(bench_vector_dot_product_K2_plus_M2_addops);
+
+static void bench_vector_dot_product_K1_M2(State& state)
+{
+    Vec a0, b0;
+    std::array<Vec, 2> c;
+    {
+        std::array<fr, 5> av{
+            fr::random_element(), fr::random_element(), fr::random_element(), fr::random_element(), fr::random_element()
+        };
+        std::array<fr, 5> bv{
+            fr::random_element(), fr::random_element(), fr::random_element(), fr::random_element(), fr::random_element()
+        };
+        a0 = Vec(av);
+        b0 = Vec(bv);
+    }
+    for (size_t j = 0; j < 2; ++j) {
+        std::array<fr, 5> cv{
+            fr::random_element(), fr::random_element(), fr::random_element(), fr::random_element(), fr::random_element()
+        };
+        c[j] = Vec(cv);
+    }
+    for (auto _ : state) {
+        for (int64_t it = 0; it < ITERATIONS; ++it) {
+            std::array<std::pair<Vec, Vec>, 1> pairs{ { { a0, b0 } } };
+            std::array<Vec, 2> linears{ c[0], c[1] };
+            a0 = Vec::dot_product<1, 2>(pairs, linears);
+            DoNotOptimize(a0);
+        }
+    }
+    state.SetItemsProcessed(static_cast<int64_t>(state.iterations()) * ITERATIONS * 5);
+}
+BENCHMARK(bench_vector_dot_product_K1_M2);
+
+static void bench_vector_dot_product_K1_plus_M2_addops(State& state)
+{
+    Vec a0, b0;
+    std::array<Vec, 2> c;
+    {
+        std::array<fr, 5> av{
+            fr::random_element(), fr::random_element(), fr::random_element(), fr::random_element(), fr::random_element()
+        };
+        std::array<fr, 5> bv{
+            fr::random_element(), fr::random_element(), fr::random_element(), fr::random_element(), fr::random_element()
+        };
+        a0 = Vec(av);
+        b0 = Vec(bv);
+    }
+    for (size_t j = 0; j < 2; ++j) {
+        std::array<fr, 5> cv{
+            fr::random_element(), fr::random_element(), fr::random_element(), fr::random_element(), fr::random_element()
+        };
+        c[j] = Vec(cv);
+    }
+    for (auto _ : state) {
+        for (int64_t it = 0; it < ITERATIONS; ++it) {
+            std::array<std::pair<Vec, Vec>, 1> pairs{ { { a0, b0 } } };
+            Vec r = Vec::dot_product<1>(pairs);
+            r = r + c[0];
+            r = r + c[1];
+            a0 = r;
+            DoNotOptimize(a0);
+        }
+    }
+    state.SetItemsProcessed(static_cast<int64_t>(state.iterations()) * ITERATIONS * 5);
+}
+BENCHMARK(bench_vector_dot_product_K1_plus_M2_addops);
+
 BENCHMARK_MAIN();

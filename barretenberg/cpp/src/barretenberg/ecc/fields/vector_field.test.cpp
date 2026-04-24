@@ -439,4 +439,294 @@ TEST(VectorFieldTest, DotProductK6WorstCaseOutputIsCoarseForm)
     }
 }
 
+// ---- dot_product<K, M> ----
+//
+// Tests the extended API:
+//   dot_product<K, M>(pairs, linears) == sum_k a_k*b_k + sum_j c_j  (mod p)
+//
+// Combinations cover the corners of the K+M <= 6 / K >= 1 / M >= 1 constraint.
+
+TEST(VectorFieldTest, DotProductK1M1MatchesNaiveSum)
+{
+    for (int trial = 0; trial < 100; ++trial) {
+        auto a0 = random_five();
+        auto b0 = random_five();
+        auto c0 = random_five();
+        Vec va0(a0), vb0(b0), vc0(c0);
+
+        std::array<std::pair<Vec, Vec>, 1> pairs{ { { va0, vb0 } } };
+        std::array<Vec, 1> linears{ vc0 };
+        auto got = Vec::dot_product<1, 1>(pairs, linears).to_array();
+
+        std::array<fr, 5> expected;
+        for (size_t i = 0; i < 5; ++i) {
+            expected[i] = a0[i] * b0[i] + c0[i];
+        }
+        EXPECT_TRUE(field_array_eq(expected, got)) << "trial " << trial;
+    }
+}
+
+TEST(VectorFieldTest, DotProductK2M2MatchesNaiveSum)
+{
+    for (int trial = 0; trial < 100; ++trial) {
+        auto a0 = random_five();
+        auto b0 = random_five();
+        auto a1 = random_five();
+        auto b1 = random_five();
+        auto c0 = random_five();
+        auto c1 = random_five();
+        Vec va0(a0), vb0(b0), va1(a1), vb1(b1), vc0(c0), vc1(c1);
+
+        std::array<std::pair<Vec, Vec>, 2> pairs{ { { va0, vb0 }, { va1, vb1 } } };
+        std::array<Vec, 2> linears{ vc0, vc1 };
+        auto got = Vec::dot_product<2, 2>(pairs, linears).to_array();
+
+        std::array<fr, 5> expected;
+        for (size_t i = 0; i < 5; ++i) {
+            expected[i] = a0[i] * b0[i] + a1[i] * b1[i] + c0[i] + c1[i];
+        }
+        EXPECT_TRUE(field_array_eq(expected, got)) << "trial " << trial;
+    }
+}
+
+TEST(VectorFieldTest, DotProductK3M3MatchesNaiveSum)
+{
+    for (int trial = 0; trial < 100; ++trial) {
+        std::array<std::array<fr, 5>, 3> a, b;
+        std::array<std::array<fr, 5>, 3> c;
+        for (size_t k = 0; k < 3; ++k) {
+            a[k] = random_five();
+            b[k] = random_five();
+            c[k] = random_five();
+        }
+        std::array<std::pair<Vec, Vec>, 3> pairs{
+            { { Vec(a[0]), Vec(b[0]) }, { Vec(a[1]), Vec(b[1]) }, { Vec(a[2]), Vec(b[2]) } }
+        };
+        std::array<Vec, 3> linears{ Vec(c[0]), Vec(c[1]), Vec(c[2]) };
+        auto got = Vec::dot_product<3, 3>(pairs, linears).to_array();
+
+        std::array<fr, 5> expected;
+        for (size_t i = 0; i < 5; ++i) {
+            expected[i] = a[0][i] * b[0][i];
+            for (size_t k = 1; k < 3; ++k) {
+                expected[i] = expected[i] + a[k][i] * b[k][i];
+            }
+            for (size_t j = 0; j < 3; ++j) {
+                expected[i] = expected[i] + c[j][i];
+            }
+        }
+        EXPECT_TRUE(field_array_eq(expected, got)) << "trial " << trial;
+    }
+}
+
+TEST(VectorFieldTest, DotProductK4M2MatchesNaiveSum)
+{
+    for (int trial = 0; trial < 100; ++trial) {
+        std::array<std::array<fr, 5>, 4> a, b;
+        std::array<std::array<fr, 5>, 2> c;
+        for (size_t k = 0; k < 4; ++k) {
+            a[k] = random_five();
+            b[k] = random_five();
+        }
+        for (size_t j = 0; j < 2; ++j) {
+            c[j] = random_five();
+        }
+        std::array<std::pair<Vec, Vec>, 4> pairs{
+            { { Vec(a[0]), Vec(b[0]) }, { Vec(a[1]), Vec(b[1]) }, { Vec(a[2]), Vec(b[2]) }, { Vec(a[3]), Vec(b[3]) } }
+        };
+        std::array<Vec, 2> linears{ Vec(c[0]), Vec(c[1]) };
+        auto got = Vec::dot_product<4, 2>(pairs, linears).to_array();
+
+        std::array<fr, 5> expected;
+        for (size_t i = 0; i < 5; ++i) {
+            expected[i] = a[0][i] * b[0][i];
+            for (size_t k = 1; k < 4; ++k) {
+                expected[i] = expected[i] + a[k][i] * b[k][i];
+            }
+            for (size_t j = 0; j < 2; ++j) {
+                expected[i] = expected[i] + c[j][i];
+            }
+        }
+        EXPECT_TRUE(field_array_eq(expected, got)) << "trial " << trial;
+    }
+}
+
+TEST(VectorFieldTest, DotProductK2M4MatchesNaiveSum)
+{
+    for (int trial = 0; trial < 100; ++trial) {
+        std::array<std::array<fr, 5>, 2> a, b;
+        std::array<std::array<fr, 5>, 4> c;
+        for (size_t k = 0; k < 2; ++k) {
+            a[k] = random_five();
+            b[k] = random_five();
+        }
+        for (size_t j = 0; j < 4; ++j) {
+            c[j] = random_five();
+        }
+        std::array<std::pair<Vec, Vec>, 2> pairs{ { { Vec(a[0]), Vec(b[0]) }, { Vec(a[1]), Vec(b[1]) } } };
+        std::array<Vec, 4> linears{ Vec(c[0]), Vec(c[1]), Vec(c[2]), Vec(c[3]) };
+        auto got = Vec::dot_product<2, 4>(pairs, linears).to_array();
+
+        std::array<fr, 5> expected;
+        for (size_t i = 0; i < 5; ++i) {
+            expected[i] = a[0][i] * b[0][i] + a[1][i] * b[1][i];
+            for (size_t j = 0; j < 4; ++j) {
+                expected[i] = expected[i] + c[j][i];
+            }
+        }
+        EXPECT_TRUE(field_array_eq(expected, got)) << "trial " << trial;
+    }
+}
+
+TEST(VectorFieldTest, DotProductK1M5MatchesNaiveSum)
+{
+    for (int trial = 0; trial < 100; ++trial) {
+        auto a0 = random_five();
+        auto b0 = random_five();
+        std::array<std::array<fr, 5>, 5> c;
+        for (size_t j = 0; j < 5; ++j) {
+            c[j] = random_five();
+        }
+        std::array<std::pair<Vec, Vec>, 1> pairs{ { { Vec(a0), Vec(b0) } } };
+        std::array<Vec, 5> linears{ Vec(c[0]), Vec(c[1]), Vec(c[2]), Vec(c[3]), Vec(c[4]) };
+        auto got = Vec::dot_product<1, 5>(pairs, linears).to_array();
+
+        std::array<fr, 5> expected;
+        for (size_t i = 0; i < 5; ++i) {
+            expected[i] = a0[i] * b0[i];
+            for (size_t j = 0; j < 5; ++j) {
+                expected[i] = expected[i] + c[j][i];
+            }
+        }
+        EXPECT_TRUE(field_array_eq(expected, got)) << "trial " << trial;
+    }
+}
+
+TEST(VectorFieldTest, DotProductK5M1MatchesNaiveSum)
+{
+    for (int trial = 0; trial < 100; ++trial) {
+        std::array<std::array<fr, 5>, 5> a, b;
+        for (size_t k = 0; k < 5; ++k) {
+            a[k] = random_five();
+            b[k] = random_five();
+        }
+        auto c0 = random_five();
+        std::array<std::pair<Vec, Vec>, 5> pairs{ { { Vec(a[0]), Vec(b[0]) },
+                                                    { Vec(a[1]), Vec(b[1]) },
+                                                    { Vec(a[2]), Vec(b[2]) },
+                                                    { Vec(a[3]), Vec(b[3]) },
+                                                    { Vec(a[4]), Vec(b[4]) } } };
+        std::array<Vec, 1> linears{ Vec(c0) };
+        auto got = Vec::dot_product<5, 1>(pairs, linears).to_array();
+
+        std::array<fr, 5> expected;
+        for (size_t i = 0; i < 5; ++i) {
+            expected[i] = a[0][i] * b[0][i];
+            for (size_t k = 1; k < 5; ++k) {
+                expected[i] = expected[i] + a[k][i] * b[k][i];
+            }
+            expected[i] = expected[i] + c0[i];
+        }
+        EXPECT_TRUE(field_array_eq(expected, got)) << "trial " << trial;
+    }
+}
+
+TEST(VectorFieldTest, DotProductK6M0MatchesKOnlyOverload)
+{
+    // dot_product<6, 0> must produce the same result as dot_product<6>.
+    for (int trial = 0; trial < 50; ++trial) {
+        std::array<std::array<fr, 5>, 6> a, b;
+        for (size_t k = 0; k < 6; ++k) {
+            a[k] = random_five();
+            b[k] = random_five();
+        }
+        std::array<std::pair<Vec, Vec>, 6> pairs{ { { Vec(a[0]), Vec(b[0]) },
+                                                    { Vec(a[1]), Vec(b[1]) },
+                                                    { Vec(a[2]), Vec(b[2]) },
+                                                    { Vec(a[3]), Vec(b[3]) },
+                                                    { Vec(a[4]), Vec(b[4]) },
+                                                    { Vec(a[5]), Vec(b[5]) } } };
+        std::array<Vec, 0> empty_linears{};
+        auto got_k_only = Vec::dot_product<6>(pairs).to_array();
+        auto got_km = Vec::dot_product<6, 0>(pairs, empty_linears).to_array();
+        EXPECT_TRUE(field_array_eq(got_k_only, got_km)) << "trial " << trial;
+    }
+}
+
+// Stress the output's coarse [0, 2p) invariant after dot_product<K, M>: the
+// N_SUB = 2M conditional subtracts in the tail must restore the coarse form so
+// downstream operator+/-/*/eq/is_zero behave correctly.
+TEST(VectorFieldTest, DotProductKMWorstCaseOutputIsCoarseForm)
+{
+    struct TestCase {
+        const char* name;
+    };
+
+    // Test several (K, M) combos chaining the result through downstream ops.
+    for (int trial = 0; trial < 100; ++trial) {
+        // (K=3, M=3) — mid-range.
+        {
+            std::array<std::array<fr, 5>, 3> a, b, c;
+            for (size_t k = 0; k < 3; ++k) {
+                a[k] = random_five();
+                b[k] = random_five();
+                c[k] = random_five();
+            }
+            std::array<std::pair<Vec, Vec>, 3> pairs{
+                { { Vec(a[0]), Vec(b[0]) }, { Vec(a[1]), Vec(b[1]) }, { Vec(a[2]), Vec(b[2]) } }
+            };
+            std::array<Vec, 3> linears{ Vec(c[0]), Vec(c[1]), Vec(c[2]) };
+            Vec dp = Vec::dot_product<3, 3>(pairs, linears);
+
+            std::array<fr, 5> expected;
+            for (size_t i = 0; i < 5; ++i) {
+                expected[i] = a[0][i] * b[0][i] + a[1][i] * b[1][i] + a[2][i] * b[2][i];
+                for (size_t j = 0; j < 3; ++j) {
+                    expected[i] = expected[i] + c[j][i];
+                }
+            }
+            Vec expected_v(expected);
+
+            EXPECT_EQ(dp.eq(expected_v), 0b11111u) << "(3,3) eq failed trial " << trial;
+            Vec rnd(random_five());
+            Vec rt = (dp + rnd) - rnd;
+            EXPECT_EQ(rt.eq(dp), 0b11111u) << "(3,3) add/sub round-trip failed trial " << trial;
+            Vec zeroed = dp - dp;
+            EXPECT_EQ(zeroed.is_zero(), 0b11111u) << "(3,3) self-sub not zero trial " << trial;
+        }
+
+        // (K=1, M=5) — max linear adds.
+        {
+            std::array<fr, 5> a0 = random_five();
+            std::array<fr, 5> b0 = random_five();
+            std::array<std::array<fr, 5>, 5> c;
+            for (size_t j = 0; j < 5; ++j) {
+                c[j] = random_five();
+            }
+            std::array<std::pair<Vec, Vec>, 1> pairs{ { { Vec(a0), Vec(b0) } } };
+            std::array<Vec, 5> linears{ Vec(c[0]), Vec(c[1]), Vec(c[2]), Vec(c[3]), Vec(c[4]) };
+            Vec dp = Vec::dot_product<1, 5>(pairs, linears);
+
+            std::array<fr, 5> expected;
+            for (size_t i = 0; i < 5; ++i) {
+                expected[i] = a0[i] * b0[i];
+                for (size_t j = 0; j < 5; ++j) {
+                    expected[i] = expected[i] + c[j][i];
+                }
+            }
+            Vec expected_v(expected);
+
+            EXPECT_EQ(dp.eq(expected_v), 0b11111u) << "(1,5) eq failed trial " << trial;
+            Vec rnd(random_five());
+            Vec rt = (dp + rnd) - rnd;
+            EXPECT_EQ(rt.eq(dp), 0b11111u) << "(1,5) add/sub round-trip failed trial " << trial;
+            // Multiply by one
+            std::array<fr, 5> ones{ fr::one(), fr::one(), fr::one(), fr::one(), fr::one() };
+            Vec vone(ones);
+            Vec mul1 = dp * vone;
+            EXPECT_EQ(mul1.eq(dp), 0b11111u) << "(1,5) mul-by-one failed trial " << trial;
+        }
+    }
+}
+
 } // namespace

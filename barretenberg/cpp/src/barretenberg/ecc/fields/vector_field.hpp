@@ -98,6 +98,78 @@ template <class Params> inline constexpr std::array<uint64_t, 9> compute_tnm_was
     return tnm;
 }
 
+// 2^k · modulus as 9 × 29-bit limbs. Used by dot_product<K, M>'s binary-search
+// normalization tail: for k = 0..3, (2^k · p) is the "big-step" conditional
+// subtract value so that R = ceil(log2(Q+2)) rounds cover any V in
+// [0, (Q+2)·p), where Q = max excess multiples of p beyond 2p.
+// For BN254 Fr, 8p < 2^257 < 2^261, so the 9×29-bit form has headroom up to k=3.
+template <class Params, size_t K_SHIFT> inline constexpr std::array<uint64_t, 9> compute_2k_modulus_wasm() noexcept
+{
+    const std::array<uint64_t, 9> p = { Params::modulus_wasm_0, Params::modulus_wasm_1, Params::modulus_wasm_2,
+                                        Params::modulus_wasm_3, Params::modulus_wasm_4, Params::modulus_wasm_5,
+                                        Params::modulus_wasm_6, Params::modulus_wasm_7, Params::modulus_wasm_8 };
+    std::array<uint64_t, 9> r{};
+    uint64_t carry = 0;
+    for (size_t i = 0; i < 9; ++i) {
+        uint64_t v = (p[i] << K_SHIFT) + carry;
+        r[i] = v & 0x1fffffff;
+        carry = v >> 29;
+    }
+    return r;
+}
+
+// Compile-time helper: number of binary-search normalization rounds R needed
+// to reduce a value V ≤ (1 + K/32 + 2M)·p into [0, p) using conditional
+// subtracts of 2^k · p for k = R-1 down to 0.
+//
+// Derivation: Q = max(0, ceil(2M + K/32 - 1)) = max excess multiples of p
+// beyond 2p. V ≤ (Q+2)·p. R = ceil(log2(Q + 2)). After each round (descending),
+// conditional sub 2^k·p if result ≥ 2^k·p. Invariant: after round k, result <
+// 2^k·p. After round 0, result < p ⊂ [0, 2p).
+//
+// For K in [1, 6] and M in [0, 5] with K+M <= 6:
+//   M=0 -> R=0
+//   M=1 -> Q=2, R=2
+//   M=2 -> Q=4, R=3
+//   M=3 -> Q=6, R=3
+//   M=4 -> Q=8, R=4
+//   M=5 -> Q=10, R=4
+inline constexpr size_t dp_norm_rounds(size_t K, size_t M) noexcept
+{
+    if (M == 0) {
+        return 0;
+    }
+    // Q = ceil(2M + K/32 - 1). In integer arithmetic:
+    //   32 * (2M + K/32 - 1) = 64M + K - 32
+    const size_t num_times_32 = 64 * M + K;
+    if (num_times_32 <= 32) {
+        return 0;
+    }
+    const size_t excess_times_32 = num_times_32 - 32; // 32 * (2M + K/32 - 1)
+    const size_t Q = (excess_times_32 + 31) / 32;     // ceil(2M + K/32 - 1)
+    // R = ceil(log2(Q + 2)) = smallest R with 2^R >= Q + 2.
+    size_t r = 0;
+    size_t x = Q + 1; // 2^R >= Q + 2  <=>  2^R > Q + 1.
+    while (x > 0) {
+        ++r;
+        x >>= 1;
+    }
+    return r;
+}
+
+// Static sanity checks on dp_norm_rounds for BN254Fr-relevant (K, M) combos.
+static_assert(dp_norm_rounds(6, 0) == 0, "dp_norm_rounds(6,0) expected 0");
+static_assert(dp_norm_rounds(5, 1) == 2, "dp_norm_rounds(5,1) expected 2");
+static_assert(dp_norm_rounds(4, 1) == 2, "dp_norm_rounds(4,1) expected 2");
+static_assert(dp_norm_rounds(1, 1) == 2, "dp_norm_rounds(1,1) expected 2");
+static_assert(dp_norm_rounds(3, 2) == 3, "dp_norm_rounds(3,2) expected 3");
+static_assert(dp_norm_rounds(2, 2) == 3, "dp_norm_rounds(2,2) expected 3");
+static_assert(dp_norm_rounds(1, 2) == 3, "dp_norm_rounds(1,2) expected 3");
+static_assert(dp_norm_rounds(3, 3) == 3, "dp_norm_rounds(3,3) expected 3");
+static_assert(dp_norm_rounds(2, 4) == 4, "dp_norm_rounds(2,4) expected 4");
+static_assert(dp_norm_rounds(1, 4) == 4, "dp_norm_rounds(1,4) expected 4");
+static_assert(dp_norm_rounds(1, 5) == 4, "dp_norm_rounds(1,5) expected 4");
+
 template <class Params> struct alignas(32) VectorField {
     using Field = field<Params>;
     static constexpr size_t SIZE = 5;
@@ -109,6 +181,13 @@ template <class Params> struct alignas(32) VectorField {
                                                         Params::modulus_wasm_8 };
     static constexpr std::array<uint64_t, 9> TWOP_WASM = compute_twice_modulus_wasm<Params>();
     static constexpr std::array<uint64_t, 9> TNM_WASM = compute_tnm_wasm<Params>();
+    // (2^k) · p as 9 × 29-bit limbs, for k = 0..3. Used by dot_product<K, M>'s
+    // binary-search normalization tail (one conditional subtract of 2^k·p per
+    // round, k descending from R-1 to 0).
+    static constexpr std::array<uint64_t, 9> P1_WASM = compute_2k_modulus_wasm<Params, 0>();
+    static constexpr std::array<uint64_t, 9> P2_WASM = compute_2k_modulus_wasm<Params, 1>();
+    static constexpr std::array<uint64_t, 9> P4_WASM = compute_2k_modulus_wasm<Params, 2>();
+    static constexpr std::array<uint64_t, 9> P8_WASM = compute_2k_modulus_wasm<Params, 3>();
     // -(modulus)^-1 mod 2^29.
     static constexpr uint64_t R_INV_MOD_2_29 = Params::r_inv & 0x1fffffffULL;
     static constexpr std::array<uint64_t, 9> R_INV_WASM = {
@@ -201,6 +280,57 @@ template <class Params> struct alignas(32) VectorField {
     // native/fallback path uses the naive K-muls-then-sum implementation below.
     template <size_t K>
     static VectorField dot_product(const std::array<std::pair<VectorField, VectorField>, K>& pairs) noexcept;
+
+    // dot_product<K, M>((a_0,b_0), ..., (a_{K-1},b_{K-1}), c_0, ..., c_{M-1})
+    //      == sum_k a_k * b_k + sum_j c_j   (mod p).
+    //
+    // This is dot_product<K> with M extra "linear" terms c_j folded into the
+    // SAME kernel's output — specifically, the M adds are injected BETWEEN
+    // Stage 7 (wasm_reduce) and Stage 8 (carry-propagate). Doing it here (vs
+    // as M separate operator+ calls) saves M-1 independent carry-propagation
+    // loops (~48 quad ops each).
+    //
+    // Bound analysis additions for K + M:
+    //
+    //   (a) Per-limb u64-overflow bound. Each c_j limb <= 2^29 - 1. After
+    //       Stage 7, temp_9..temp_16 are bounded by (9K + 9) * (2^29-1)^2
+    //       (same Yuval-count bound as before). Adding M limbs adds at most
+    //       M * (2^29-1). Bound remains (9K + 9) * (2^29-1)^2 + M * (2^29-1)
+    //       < (9K + 9) * 2^58 + M * 2^29. For u64 safety:
+    //           (9K + 9) * 2^58 + M * 2^29 < 2^64
+    //       The M term is dominated (M * 2^29 << 2^58 for any reasonable M),
+    //       so the binding constraint is still K <= 6.
+    //       Practical unified bound (simpler to reason about): K + M <= 6.
+    //
+    //   (b) Output bound and binary-search normalization.
+    //       Pre-linear-add value <= (1 + K/32) * p. Adding M coarse-form terms
+    //       (each <= 2p) gives V <= (1 + K/32 + 2M) * p. For M >= 1 this
+    //       exceeds 2p, violating the coarse invariant.
+    //
+    //       Let Q = max(0, ceil(2M + K/32 - 1)) be the max excess multiples
+    //       of p beyond 2p (V <= (Q+2) * p). To restore coarse [0, 2p), we
+    //       run R = ceil(log2(Q+2)) binary-search normalization rounds: for
+    //       k descending from R-1 to 0, conditionally subtract (2^k) * p if
+    //       result >= (2^k) * p. Invariant: after round k, result < (2^k)*p,
+    //       so after round 0, result < p.
+    //
+    //       R per (K, M) (with K+M <= 6, K >= 1):
+    //           M=0: R=0  (dot_product<K> output is already in [0, 2p))
+    //           M=1: R=2  (Q=2)
+    //           M=2: R=3  (Q=4)
+    //           M=3: R=3  (Q=6)
+    //           M=4: R=4  (Q=8)
+    //           M=5: R=4  (Q=10)
+    //       This is strictly cheaper than the linear 2M-step approach for
+    //       M >= 2 (log2 vs 2M), and matches for M = 1. Benchmarks confirm
+    //       fused<K, M> beats naive dot_product<K> + M * operator+ across
+    //       all M >= 1 combos (see vector_field.bench.cpp).
+    //
+    // WASM-SIMD specializations are provided for (K, M) with K >= 1, M >= 0,
+    // K + M <= 6. The native/fallback path uses the naive implementation.
+    template <size_t K, size_t M>
+    static VectorField dot_product(const std::array<std::pair<VectorField, VectorField>, K>& pairs,
+                                   const std::array<VectorField, M>& linears) noexcept;
 
     // Returns a 5-bit mask: bit 0 = scalar, bits 1..4 = quad lanes 0..3.
     uint32_t eq(const VectorField& other) const noexcept;
@@ -1049,6 +1179,30 @@ inline VectorField<Params> VectorField<Params>::dot_product(
         Field acc = pairs[0].first.elts[i] * pairs[0].second.elts[i];
         for (size_t k = 1; k < K; ++k) {
             acc += pairs[k].first.elts[i] * pairs[k].second.elts[i];
+        }
+        r.elts[i] = acc;
+    }
+    return r;
+}
+
+// Portable dot_product<K, M>: naive K muls + K-1 adds + M adds per lane.
+// The WASM SIMD path has fused specializations in vector_field_wasm.cpp that
+// fold the M linear adds into the mul kernel's post-Yuval carry chain.
+template <class Params>
+template <size_t K, size_t M>
+inline VectorField<Params> VectorField<Params>::dot_product(
+    const std::array<std::pair<VectorField, VectorField>, K>& pairs, const std::array<VectorField, M>& linears) noexcept
+{
+    static_assert(K >= 1, "dot_product requires at least one pair");
+    static_assert(K + M <= 6, "K + M must not exceed 6 (u64-overflow + output-bound constraint)");
+    VectorField r;
+    for (size_t i = 0; i < 5; ++i) {
+        Field acc = pairs[0].first.elts[i] * pairs[0].second.elts[i];
+        for (size_t k = 1; k < K; ++k) {
+            acc += pairs[k].first.elts[i] * pairs[k].second.elts[i];
+        }
+        for (size_t j = 0; j < M; ++j) {
+            acc += linears[j].elts[i];
         }
         r.elts[i] = acc;
     }
