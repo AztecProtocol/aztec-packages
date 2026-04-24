@@ -107,7 +107,7 @@ void GetContractInstanceTraceBuilder::process(
 
 const InteractionDefinition GetContractInstanceTraceBuilder::interactions =
     InteractionDefinition()
-        .add<lookup_get_contract_instance_precomputed_info_settings, InteractionType::LookupIntoIndexedByRow>()
-        .add<lookup_get_contract_instance_contract_instance_retrieval_settings, InteractionType::LookupSequential>();
+        .add<InteractionType::LookupIntoIndexedByRow, lookup_get_contract_instance_precomputed_info_settings>()
+        .add<InteractionType::LookupSequential, lookup_get_contract_instance_contract_instance_retrieval_settings>();
 
 } // namespace bb::avm2::tracegen

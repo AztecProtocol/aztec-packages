@@ -351,13 +351,13 @@ void EccTraceBuilder::process_add_with_memory(
 const InteractionDefinition EccTraceBuilder::interactions =
     InteractionDefinition()
         // Scalar Mul Interactions
-        .add<lookup_scalar_mul_double_settings, InteractionType::LookupGeneric>()
-        .add<lookup_scalar_mul_add_settings, InteractionType::LookupGeneric>()
-        .add<lookup_scalar_mul_to_radix_settings, InteractionType::LookupGeneric>()
+        .add<InteractionType::LookupGeneric, lookup_scalar_mul_double_settings>()
+        .add<InteractionType::LookupGeneric, lookup_scalar_mul_add_settings>()
+        .add<InteractionType::LookupGeneric, lookup_scalar_mul_to_radix_settings>()
         // Memory Aware Interactions
         // Comparison
-        .add<lookup_ecc_mem_check_dst_addr_in_range_settings, InteractionType::LookupGeneric>(Column::gt_sel)
+        .add<InteractionType::LookupGeneric, lookup_ecc_mem_check_dst_addr_in_range_settings>(Column::gt_sel)
         // Lookup into ECC Add Subtrace
-        .add<lookup_ecc_mem_input_output_ecc_add_settings, InteractionType::LookupGeneric>();
+        .add<InteractionType::LookupGeneric, lookup_ecc_mem_input_output_ecc_add_settings>();
 
 } // namespace bb::avm2::tracegen
