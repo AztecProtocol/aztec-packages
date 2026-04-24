@@ -26,6 +26,7 @@ The setup phase contains critical operations that **must succeed** for the trans
 - No state changes from the transaction are preserved
 - The transaction never appears on-chain
 - Even teardown does not execute
+- **Fee**: No fee is charged. The fee payer's balance is not touched because the transaction never lands
 
 ### APP_LOGIC Phase (Revertible)
 
@@ -36,6 +37,7 @@ The app logic phase contains the main application functionality. This is where m
 - Side effects from private's revertible portion are also discarded
 - Teardown still executes
 - The transaction appears on-chain with `APP_LOGIC_REVERTED` status
+- **Fee**: The fee payer is charged the full transaction fee, including the entire reserved teardown gas limit (see [Billed Gas vs Actual Gas](#billed-gas-vs-actual-gas))
 
 ### TEARDOWN Phase (Revertible, Always Runs)
 
@@ -44,6 +46,9 @@ The teardown phase always executes, even if app logic reverted.
 - Has its own separate gas allocation
 - Only phase that can access the actual transaction fee
 - If teardown reverts, its state changes are rolled back
+- **Fee**: The fee payer is charged the full transaction fee **regardless of whether teardown succeeded or reverted**. The top-level fee deduction happens after (and outside of) the teardown call's rollback scope, so a teardown revert only undoes teardown's own state changes (e.g. refund logic). The fee payer has already been billed for the teardown gas limit, not teardown's actual consumption
+
+> **FPC authors, take note.** Teardown is a best-effort refund/settlement mechanism, not a gate. If your FPC relies on an assertion in teardown (e.g. "did the user stay under their fee allowance?"), the revert rolls back the FPC's bookkeeping but **does not reverse the fee payment** — the FPC is the fee payer, so it still pays for the entire transaction. Enforcement that must be binding should live in private, where a failed assertion makes the transaction unprovable.
 
 ### Phase Execution Order
 
@@ -126,6 +131,24 @@ When a revertible phase reverts:
 | L2→L1 messages from the phase | Execution logs (for debugging) |
 | Public logs from the phase | The fact that a revert occurred |
 
+### Summary: Failure Consequences by Phase
+
+This table unifies what happens to the transaction, the fee, and each category of side effect depending on where the failure occurs. **"Full fee"** always means `billedGas = privateGas + setupGas + appLogicGas + teardownGasLimit` — teardown is billed for its limit, not its actual consumption (see [Billed Gas vs Actual Gas](#billed-gas-vs-actual-gas)).
+
+| Failure point | On-chain? | Fee charged | Non-revertible private side effects | Revertible private side effects | Setup state | App logic state | Teardown state |
+|---|---|---|---|---|---|---|---|
+| Non-revertible private insertion fails (e.g. nullifier collision) | No | None | Discarded | Discarded | — | — | — |
+| SETUP reverts | No | None | Discarded | Discarded | Discarded | — | — |
+| Revertible private nullifier collision | No | None | Discarded | Discarded | Discarded | — | — |
+| Revertible side-effect limit exceeded (e.g. max nullifiers) | Yes | Full fee | Preserved | Discarded | Preserved | Skipped | Runs |
+| APP_LOGIC reverts | Yes | Full fee | Preserved | Discarded | Preserved | Discarded | Runs |
+| TEARDOWN reverts | Yes | Full fee | Preserved | Discarded | Preserved | Discarded | Discarded |
+| All phases succeed | Yes | Full fee | Preserved | Preserved | Preserved | Preserved | Preserved |
+
+Two facts that surprise people:
+
+1. **Any revert after the post-setup checkpoint costs the full fee.** The transaction lands on-chain and the fee payer is billed for all of private + setup + app logic + the full teardown gas limit — even if app logic or teardown reverted and rolled back their writes.
+2. **A teardown revert does not reverse the fee payment.** Teardown's rollback scope covers its own public data writes (including any refund it tried to record). The top-level fee deduction from the fee payer's Fee Juice balance happens outside that scope.
 
 ## Private Side Effect Integration
 
@@ -198,6 +221,8 @@ The protocol distinguishes between:
 
 This distinction exists because teardown needs to know the transaction fee before it executes. If fees depended on teardown's actual consumption, there would be a circular dependency. By using the teardown gas limit for billing, the fee is deterministic before teardown runs.
 
+A consequence: **teardown is always billed for its full limit, even if teardown consumes less — or reverts entirely**. A teardown revert does not reduce the fee.
+
 ## Fee Payment
 
 Every transaction must pay a fee based on gas consumption.
@@ -234,6 +259,8 @@ After all phases complete:
 1. The transaction fee is computed from billed gas and effective fees
 2. The fee is deducted from the fee payer's Fee Juice balance
 3. This deduction is recorded as a public data write
+
+This deduction is **outside the teardown rollback scope**. If teardown reverts, its own public data writes (including any refund it recorded) are discarded, but the fee-payer deduction above still lands. In other words, the fee is charged for any transaction that makes it past setup — whether app logic and teardown succeeded or not.
 
 If the fee payer has insufficient balance:
 - During simulation for fee estimation: can be skipped
