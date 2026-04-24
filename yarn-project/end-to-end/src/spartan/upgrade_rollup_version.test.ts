@@ -61,7 +61,7 @@ function parseDeployResult(output: string): DeployResult {
 }
 
 /**
- * Temporarily sets AZTEC_MANA_TARGET in network-defaults.yml to (currentManaTarget + 1)
+ * Temporarily sets AZTEC_MANA_TARGET in common.env to (currentManaTarget + 1)
  * to force a different rollup version hash.
  *
  * The rollup version is computed from a hash of configuration parameters including mana target.
@@ -76,29 +76,27 @@ function parseDeployResult(output: string): DeployResult {
  * @returns A cleanup function to restore the original file content
  */
 function bumpManaTargetInNetworkDefaults(currentManaTarget: bigint): () => void {
-  const networkDefaultsPath = path.join(getGitProjectRoot(), 'spartan/environments/network-defaults.yml');
-  const originalContent = fs.readFileSync(networkDefaultsPath, 'utf-8');
+  const commonEnvPath = path.join(getGitProjectRoot(), 'spartan/environments/common.env');
+  const originalContent = fs.readFileSync(commonEnvPath, 'utf-8');
 
-  // Find and replace the AZTEC_MANA_TARGET in the l1-contracts section (first occurrence)
-  const manaTargetRegex = /^(\s*AZTEC_MANA_TARGET:\s*)(\d+)/m;
+  const manaTargetRegex = /^(AZTEC_MANA_TARGET=)(\d+)/m;
   const match = originalContent.match(manaTargetRegex);
   if (!match) {
-    throw new Error('Could not find AZTEC_MANA_TARGET in network-defaults.yml');
+    throw new Error('Could not find AZTEC_MANA_TARGET in common.env');
   }
 
   const fileValue = parseInt(match[2], 10);
   const newValue = currentManaTarget + 1n;
   const newContent = originalContent.replace(manaTargetRegex, `$1${newValue}`);
 
-  fs.writeFileSync(networkDefaultsPath, newContent);
+  fs.writeFileSync(commonEnvPath, newContent);
   debugLogger.info(
-    `Set AZTEC_MANA_TARGET to ${newValue} in network-defaults.yml (was ${fileValue}, current rollup has ${currentManaTarget})`,
+    `Set AZTEC_MANA_TARGET to ${newValue} in common.env (was ${fileValue}, current rollup has ${currentManaTarget})`,
   );
 
-  // Return cleanup function to restore original content
   return () => {
-    fs.writeFileSync(networkDefaultsPath, originalContent);
-    debugLogger.info(`Restored AZTEC_MANA_TARGET to ${fileValue} in network-defaults.yml`);
+    fs.writeFileSync(commonEnvPath, originalContent);
+    debugLogger.info(`Restored AZTEC_MANA_TARGET to ${fileValue} in common.env`);
   };
 }
 
@@ -158,7 +156,7 @@ describe('spartan_upgrade_rollup_version', () => {
     const oldVersion = await oldRollup.getVersion();
     debugLogger.info(`Old rollup version: ${oldVersion}, address: ${oldRollupAddress}`);
 
-    // Get the current rollup's mana target and bump it in network-defaults.yml
+    // Get the current rollup's mana target and bump it in common.env
     // This ensures the newly deployed rollup will have a different version hash
     const currentManaTarget = await oldRollup.getManaTarget();
     debugLogger.info(`Current rollup mana target: ${currentManaTarget}`);
@@ -183,7 +181,7 @@ describe('spartan_upgrade_rollup_version', () => {
         },
       );
     } finally {
-      // Always restore network-defaults.yml after deploy attempt
+      // Always restore common.env after deploy attempt
       restoreNetworkDefaults();
     }
 

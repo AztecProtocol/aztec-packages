@@ -8,7 +8,7 @@ tfplan
 *_override.tf
 mnemonic.tmp
 environments/*
-!environments/network-defaults.yml
+!environments/common.env
 !environments/prove-n-tps-fake.env
 !environments/prove-n-tps-real.env
 !environments/ten-tps-short-epoch.env

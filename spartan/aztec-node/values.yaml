@@ -42,9 +42,6 @@ global:
   # -- Use GCP logging
   useGcloudLogging: false
 
-  sponsoredFPC: false
-  testAccounts: false
-
 # -- Use host network - this will disable nodePort service and use host networking instead
 hostNetwork: false
 
@@ -71,9 +68,6 @@ topologySpreadConstraints: []
 
 # -- Aztec node configuration
 node:
-  # -- Log level - info, verbose, debug, trace
-  logLevel: "info"
-
   preStartScript: null
 
   startCmd:
@@ -84,7 +78,10 @@ node:
     repository: ""
     tag: ""
 
-  env: {}
+  env:
+    LOG_LEVEL: "info"
+    DATA_STORE_MAP_SIZE_KB: "134217728"
+    WS_DB_MAP_SIZE_KB: "134217728"
 
   envFrom:
     configMapEnabled: false
@@ -117,10 +114,6 @@ node:
   storage:
     # -- Data directory
     dataDirectory: /data
-    # -- Data store map size in kB. (per database)
-    dataStoreMapSize: "134217728" # 128 GB
-    # -- World state map size in kB (per merkle tree)
-    worldStateMapSize: "134217728" # 128 GB
 
   nodeJsOptions:
     - --no-warnings
@@ -138,28 +131,6 @@ node:
     failureThreshold: 40
 
   resources: {}
-
-  proverRealProofs: true
-
-  sentinel:
-    enabled: true
-  slash:
-    # Validator allowlists/denylists
-    validatorsAlways: []
-    validatorsNever: []
-    # Penalty amounts for different offense types
-    prunePenalty: ""
-    dataWithholdingPenalty: ""
-    inactivityPenalty: ""
-    inactivityTargetPercentage: ""
-    invalidBlockPenalty: ""
-    proposeInvalidAttestationsPenalty: ""
-    attestDescendantOfInvalidPenalty: ""
-    unknownPenalty: ""
-    # Slasher behavior configuration
-    gracePeriodL2Slots: ""
-    offenseExpirationRounds: ""
-    maxPayloadSize: ""
 
 persistence:
   # -- Uses an emptyDir when not enabled

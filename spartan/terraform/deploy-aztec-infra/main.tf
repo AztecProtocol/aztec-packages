@@ -118,8 +118,6 @@ locals {
     "global.customAztecNetwork.feeAssetHandlerContractAddress" = var.FEE_ASSET_HANDLER_CONTRACT_ADDRESS
     "global.customAztecNetwork.l1ChainId"                      = var.L1_CHAIN_ID
     "global.otelCollectorEndpoint"                             = var.OTEL_COLLECTOR_ENDPOINT
-    "global.sponsoredFPC"                                      = var.SPONSORED_FPC
-    "global.testAccounts"                                      = var.TEST_ACCOUNTS
   }
 
   common_inline_values = yamlencode({
@@ -167,9 +165,6 @@ locals {
         service = {
           p2p = { publicIP = var.P2P_PUBLIC_IP }
         }
-        node = {
-          logLevel = var.LOG_LEVEL
-        }
         # spread validator pods to different nodes to avoid having two validators with the same attester keys on the same physical node
         topologySpreadConstraints = [{
           maxSkew           = 1
@@ -190,63 +185,66 @@ locals {
   }
 
   validator_common_settings = {
-    "validator.service.p2p.nodePortEnabled"                       = var.P2P_NODEPORT_ENABLED
-    "validator.web3signerUrl"                                     = "http://${var.RELEASE_PREFIX}-signer-web3signer.${var.NAMESPACE}.svc.cluster.local:9000/"
-    "validator.mnemonic"                                          = var.VALIDATOR_MNEMONIC
-    "validator.mnemonicStartIndex"                                = var.VALIDATOR_MNEMONIC_START_INDEX
-    "validator.validatorsPerNode"                                 = var.VALIDATORS_PER_NODE
-    "validator.publishersPerReplica"                              = var.VALIDATOR_PUBLISHERS_PER_REPLICA
-    "validator.publisherMnemonicStartIndex"                       = var.VALIDATOR_PUBLISHER_MNEMONIC_START_INDEX
-    "validator.sentinel.enabled"                                  = var.SENTINEL_ENABLED
-    "validator.slash.inactivityTargetPercentage"                  = var.SLASH_INACTIVITY_TARGET_PERCENTAGE
-    "validator.slash.inactivityPenalty"                           = var.SLASH_INACTIVITY_PENALTY
-    "validator.slash.prunePenalty"                                = var.SLASH_PRUNE_PENALTY
-    "validator.slash.dataWithholdingPenalty"                      = var.SLASH_DATA_WITHHOLDING_PENALTY
-    "validator.slash.proposeInvalidAttestationsPenalty"           = var.SLASH_PROPOSE_INVALID_ATTESTATIONS_PENALTY
-    "validator.slash.duplicateProposalPenalty"                    = var.SLASH_DUPLICATE_PROPOSAL_PENALTY
-    "validator.slash.duplicateAttestationPenalty"                 = var.SLASH_DUPLICATE_ATTESTATION_PENALTY
-    "validator.slash.attestDescendantOfInvalidPenalty"            = var.SLASH_ATTEST_DESCENDANT_OF_INVALID_PENALTY
-    "validator.slash.unknownPenalty"                              = var.SLASH_UNKNOWN_PENALTY
-    "validator.slash.invalidBlockPenalty"                         = var.SLASH_INVALID_BLOCK_PENALTY
-    "validator.slash.offenseExpirationRounds"                     = var.SLASH_OFFENSE_EXPIRATION_ROUNDS
-    "validator.slash.maxPayloadSize"                              = var.SLASH_MAX_PAYLOAD_SIZE
-    "validator.node.env.TRANSACTIONS_DISABLED"                    = var.TRANSACTIONS_DISABLED
-    "validator.node.env.DEBUG_FORCE_TX_PROOF_VERIFICATION"        = var.DEBUG_FORCE_TX_PROOF_VERIFICATION
-    "validator.node.env.KEY_INDEX_START"                          = var.VALIDATOR_MNEMONIC_START_INDEX
-    "validator.node.env.PUBLISHER_KEY_INDEX_START"                = var.VALIDATOR_PUBLISHER_MNEMONIC_START_INDEX
-    "validator.node.env.VALIDATORS_PER_NODE"                      = var.VALIDATORS_PER_NODE
-    "validator.node.env.VALIDATOR_PUBLISHERS_PER_REPLICA"         = var.VALIDATOR_PUBLISHERS_PER_REPLICA
-    "validator.node.proverRealProofs"                             = var.PROVER_REAL_PROOFS
-    "validator.node.env.SEQ_MIN_TX_PER_BLOCK"                     = var.SEQ_MIN_TX_PER_BLOCK
-    "validator.node.env.SEQ_MAX_TX_PER_BLOCK"                     = var.SEQ_MAX_TX_PER_BLOCK
-    "validator.node.env.SEQ_MAX_TX_PER_CHECKPOINT"                = var.SEQ_MAX_TX_PER_CHECKPOINT
-    "validator.node.env.SEQ_PER_BLOCK_ALLOCATION_MULTIPLIER"      = var.SEQ_PER_BLOCK_ALLOCATION_MULTIPLIER
-    "validator.node.env.SEQ_BLOCK_DURATION_MS"                    = var.SEQ_BLOCK_DURATION_MS
-    "validator.node.env.SEQ_L1_PUBLISHING_TIME_ALLOWANCE_IN_SLOT" = var.SEQ_L1_PUBLISHING_TIME_ALLOWANCE_IN_SLOT
-    "validator.node.env.SEQ_BUILD_CHECKPOINT_IF_EMPTY"            = var.SEQ_BUILD_CHECKPOINT_IF_EMPTY
-    "validator.node.env.SEQ_ENABLE_PROPOSER_PIPELINING"           = var.SEQ_ENABLE_PROPOSER_PIPELINING
-    "validator.node.env.AZTEC_EPOCHS_LAG"                         = var.AZTEC_EPOCHS_LAG
-    "validator.node.env.SEQ_ENFORCE_TIME_TABLE"                   = var.SEQ_ENFORCE_TIME_TABLE
-    "validator.node.env.P2P_TX_POOL_DELETE_TXS_AFTER_REORG"       = var.P2P_TX_POOL_DELETE_TXS_AFTER_REORG
-    "validator.node.env.L1_PRIORITY_FEE_BUMP_PERCENTAGE"          = var.VALIDATOR_L1_PRIORITY_FEE_BUMP_PERCENTAGE
-    "validator.node.env.L1_PRIORITY_FEE_RETRY_BUMP_PERCENTAGE"    = var.VALIDATOR_L1_PRIORITY_FEE_RETRY_BUMP_PERCENTAGE
-    "validator.node.env.BLOB_ALLOW_EMPTY_SOURCES"                 = var.BLOB_ALLOW_EMPTY_SOURCES
-    "validator.node.env.PROVER_TEST_VERIFICATION_DELAY_MS"        = var.PROVER_TEST_VERIFICATION_DELAY_MS
-    "validator.node.env.BB_CHONK_VERIFY_MAX_BATCH"                = var.BB_CHONK_VERIFY_MAX_BATCH
-    "validator.node.env.BB_CHONK_VERIFY_BATCH_CONCURRENCY"        = var.BB_CHONK_VERIFY_BATCH_CONCURRENCY
-    "validator.node.env.DEBUG_P2P_INSTRUMENT_MESSAGES"            = var.DEBUG_P2P_INSTRUMENT_MESSAGES
-    "validator.node.secret.envEnabled"                            = true
-    "validator.node.secret.mnemonic"                              = var.VALIDATOR_MNEMONIC
-    "validator.node.secret.mnemonicIndex"                         = var.VALIDATOR_MNEMONIC_START_INDEX
-    "validator.node.env.P2P_GOSSIPSUB_D"                          = var.P2P_GOSSIPSUB_D
-    "validator.node.env.P2P_GOSSIPSUB_DLO"                        = var.P2P_GOSSIPSUB_DLO
-    "validator.node.env.P2P_GOSSIPSUB_DHI"                        = var.P2P_GOSSIPSUB_DHI
-    "validator.node.env.P2P_DROP_TX_CHANCE"                       = var.P2P_DROP_TX_CHANCE
-    "validator.node.env.WS_NUM_HISTORIC_CHECKPOINTS"              = var.WS_NUM_HISTORIC_CHECKPOINTS
-    "validator.node.env.TX_COLLECTION_FILE_STORE_URLS"            = var.TX_COLLECTION_FILE_STORE_URLS
-    "validator.node.env.SEQ_SKIP_CHECKPOINT_PUBLISH_PERCENT"      = var.SEQ_SKIP_CHECKPOINT_PUBLISH_PERCENT
-    "validator.node.env.L1_TX_FAILED_STORE"                       = var.L1_TX_FAILED_STORE
-    "validator.node.adminApiKeyHash"                              = var.ADMIN_API_KEY_HASH
+    "validator.service.p2p.nodePortEnabled"                         = var.P2P_NODEPORT_ENABLED
+    "validator.web3signerUrl"                                       = "http://${var.RELEASE_PREFIX}-signer-web3signer.${var.NAMESPACE}.svc.cluster.local:9000/"
+    "validator.mnemonic"                                            = var.VALIDATOR_MNEMONIC
+    "validator.mnemonicStartIndex"                                  = var.VALIDATOR_MNEMONIC_START_INDEX
+    "validator.validatorsPerNode"                                   = var.VALIDATORS_PER_NODE
+    "validator.publishersPerReplica"                                = var.VALIDATOR_PUBLISHERS_PER_REPLICA
+    "validator.publisherMnemonicStartIndex"                         = var.VALIDATOR_PUBLISHER_MNEMONIC_START_INDEX
+    "validator.node.env.SENTINEL_ENABLED"                           = var.SENTINEL_ENABLED
+    "validator.node.env.SLASH_INACTIVITY_TARGET_PERCENTAGE"         = var.SLASH_INACTIVITY_TARGET_PERCENTAGE
+    "validator.node.env.SLASH_INACTIVITY_PENALTY"                   = var.SLASH_INACTIVITY_PENALTY
+    "validator.node.env.SLASH_PRUNE_PENALTY"                        = var.SLASH_PRUNE_PENALTY
+    "validator.node.env.SLASH_DATA_WITHHOLDING_PENALTY"             = var.SLASH_DATA_WITHHOLDING_PENALTY
+    "validator.node.env.SLASH_PROPOSE_INVALID_ATTESTATIONS_PENALTY" = var.SLASH_PROPOSE_INVALID_ATTESTATIONS_PENALTY
+    "validator.node.env.SLASH_DUPLICATE_PROPOSAL_PENALTY"           = var.SLASH_DUPLICATE_PROPOSAL_PENALTY
+    "validator.node.env.SLASH_DUPLICATE_ATTESTATION_PENALTY"        = var.SLASH_DUPLICATE_ATTESTATION_PENALTY
+    "validator.node.env.SLASH_ATTEST_DESCENDANT_OF_INVALID_PENALTY" = var.SLASH_ATTEST_DESCENDANT_OF_INVALID_PENALTY
+    "validator.node.env.SLASH_UNKNOWN_PENALTY"                      = var.SLASH_UNKNOWN_PENALTY
+    "validator.node.env.SLASH_INVALID_BLOCK_PENALTY"                = var.SLASH_INVALID_BLOCK_PENALTY
+    "validator.node.env.SLASH_OFFENSE_EXPIRATION_ROUNDS"            = var.SLASH_OFFENSE_EXPIRATION_ROUNDS
+    "validator.node.env.SLASH_MAX_PAYLOAD_SIZE"                     = var.SLASH_MAX_PAYLOAD_SIZE
+    "validator.node.env.SPONSORED_FPC"                              = var.SPONSORED_FPC
+    "validator.node.env.TEST_ACCOUNTS"                              = var.TEST_ACCOUNTS
+    "validator.node.env.TRANSACTIONS_DISABLED"                      = var.TRANSACTIONS_DISABLED
+    "validator.node.env.DEBUG_FORCE_TX_PROOF_VERIFICATION"          = var.DEBUG_FORCE_TX_PROOF_VERIFICATION
+    "validator.node.env.KEY_INDEX_START"                            = var.VALIDATOR_MNEMONIC_START_INDEX
+    "validator.node.env.PUBLISHER_KEY_INDEX_START"                  = var.VALIDATOR_PUBLISHER_MNEMONIC_START_INDEX
+    "validator.node.env.VALIDATORS_PER_NODE"                        = var.VALIDATORS_PER_NODE
+    "validator.node.env.VALIDATOR_PUBLISHERS_PER_REPLICA"           = var.VALIDATOR_PUBLISHERS_PER_REPLICA
+    "validator.node.env.PROVER_REAL_PROOFS"                         = var.PROVER_REAL_PROOFS
+    "validator.node.env.LOG_LEVEL"                                  = var.LOG_LEVEL
+    "validator.node.env.SEQ_MIN_TX_PER_BLOCK"                       = var.SEQ_MIN_TX_PER_BLOCK
+    "validator.node.env.SEQ_MAX_TX_PER_BLOCK"                       = var.SEQ_MAX_TX_PER_BLOCK
+    "validator.node.env.SEQ_MAX_TX_PER_CHECKPOINT"                  = var.SEQ_MAX_TX_PER_CHECKPOINT
+    "validator.node.env.SEQ_PER_BLOCK_ALLOCATION_MULTIPLIER"        = var.SEQ_PER_BLOCK_ALLOCATION_MULTIPLIER
+    "validator.node.env.SEQ_BLOCK_DURATION_MS"                      = var.SEQ_BLOCK_DURATION_MS
+    "validator.node.env.SEQ_L1_PUBLISHING_TIME_ALLOWANCE_IN_SLOT"   = var.SEQ_L1_PUBLISHING_TIME_ALLOWANCE_IN_SLOT
+    "validator.node.env.SEQ_BUILD_CHECKPOINT_IF_EMPTY"              = var.SEQ_BUILD_CHECKPOINT_IF_EMPTY
+    "validator.node.env.SEQ_ENABLE_PROPOSER_PIPELINING"             = var.SEQ_ENABLE_PROPOSER_PIPELINING
+    "validator.node.env.AZTEC_EPOCHS_LAG"                           = var.AZTEC_EPOCHS_LAG
+    "validator.node.env.SEQ_ENFORCE_TIME_TABLE"                     = var.SEQ_ENFORCE_TIME_TABLE
+    "validator.node.env.P2P_TX_POOL_DELETE_TXS_AFTER_REORG"         = var.P2P_TX_POOL_DELETE_TXS_AFTER_REORG
+    "validator.node.env.L1_PRIORITY_FEE_BUMP_PERCENTAGE"            = var.VALIDATOR_L1_PRIORITY_FEE_BUMP_PERCENTAGE
+    "validator.node.env.L1_PRIORITY_FEE_RETRY_BUMP_PERCENTAGE"      = var.VALIDATOR_L1_PRIORITY_FEE_RETRY_BUMP_PERCENTAGE
+    "validator.node.env.BLOB_ALLOW_EMPTY_SOURCES"                   = var.BLOB_ALLOW_EMPTY_SOURCES
+    "validator.node.env.PROVER_TEST_VERIFICATION_DELAY_MS"          = var.PROVER_TEST_VERIFICATION_DELAY_MS
+    "validator.node.env.BB_CHONK_VERIFY_MAX_BATCH"                  = var.BB_CHONK_VERIFY_MAX_BATCH
+    "validator.node.env.BB_CHONK_VERIFY_BATCH_CONCURRENCY"          = var.BB_CHONK_VERIFY_BATCH_CONCURRENCY
+    "validator.node.env.DEBUG_P2P_INSTRUMENT_MESSAGES"              = var.DEBUG_P2P_INSTRUMENT_MESSAGES
+    "validator.node.secret.envEnabled"                              = true
+    "validator.node.secret.mnemonic"                                = var.VALIDATOR_MNEMONIC
+    "validator.node.secret.mnemonicIndex"                           = var.VALIDATOR_MNEMONIC_START_INDEX
+    "validator.node.env.P2P_GOSSIPSUB_D"                            = var.P2P_GOSSIPSUB_D
+    "validator.node.env.P2P_GOSSIPSUB_DLO"                          = var.P2P_GOSSIPSUB_DLO
+    "validator.node.env.P2P_GOSSIPSUB_DHI"                          = var.P2P_GOSSIPSUB_DHI
+    "validator.node.env.P2P_DROP_TX_CHANCE"                         = var.P2P_DROP_TX_CHANCE
+    "validator.node.env.WS_NUM_HISTORIC_CHECKPOINTS"                = var.WS_NUM_HISTORIC_CHECKPOINTS
+    "validator.node.env.TX_COLLECTION_FILE_STORE_URLS"              = var.TX_COLLECTION_FILE_STORE_URLS
+    "validator.node.env.SEQ_SKIP_CHECKPOINT_PUBLISH_PERCENT"        = var.SEQ_SKIP_CHECKPOINT_PUBLISH_PERCENT
+    "validator.node.env.L1_TX_FAILED_STORE"                         = var.L1_TX_FAILED_STORE
+    "validator.node.adminApiKeyHash"                                = var.ADMIN_API_KEY_HASH
   }
 
   # Note: nonsensitive() is required here because helm_releases is used in for_each,
@@ -338,19 +336,6 @@ locals {
           service = {
             p2p = { publicIP = var.P2P_PUBLIC_IP }
           }
-          node = {
-            logLevel = var.LOG_LEVEL
-          }
-        }
-        broker = {
-          node = {
-            logLevel = var.LOG_LEVEL
-          }
-        }
-        agent = {
-          node = {
-            logLevel = var.LOG_LEVEL
-          }
         }
         })], local.is_kind ? [yamlencode({
         agent = {
@@ -363,7 +348,10 @@ locals {
         {
           "node.mnemonic"                                       = var.PROVER_MNEMONIC
           "node.mnemonicStartIndex"                             = var.PROVER_PUBLISHER_MNEMONIC_START_INDEX
-          "node.node.proverRealProofs"                          = var.PROVER_REAL_PROOFS
+          "node.node.env.PROVER_REAL_PROOFS"                    = var.PROVER_REAL_PROOFS
+          "node.node.env.LOG_LEVEL"                             = var.LOG_LEVEL
+          "broker.node.env.LOG_LEVEL"                           = var.LOG_LEVEL
+          "agent.node.env.LOG_LEVEL"                            = var.LOG_LEVEL
           "node.node.env.PROVER_FAILED_PROOF_STORE"             = var.PROVER_FAILED_PROOF_STORE
           "node.node.env.PROVER_PROOF_STORE"                    = var.PROVER_PROOF_STORE
           "node.node.env.L1_TX_FAILED_STORE"                    = var.L1_TX_FAILED_STORE
@@ -377,13 +365,13 @@ locals {
           "node.node.secret.envEnabled"                         = true
           "node.node.secret.mnemonic"                           = var.PROVER_MNEMONIC
           "node.node.secret.mnemonicIndex"                      = var.PROVER_PUBLISHER_MNEMONIC_START_INDEX
-          "broker.node.proverRealProofs"                        = var.PROVER_REAL_PROOFS
+          "broker.node.env.PROVER_REAL_PROOFS"                  = var.PROVER_REAL_PROOFS
           "broker.node.env.BOOTSTRAP_NODES"                     = "asdf"
           "broker.node.env.PROVER_BROKER_DEBUG_REPLAY_ENABLED"  = var.PROVER_BROKER_DEBUG_REPLAY_ENABLED
           "agent.node.image.repository"                         = local.prover_agent_image.repository
           "agent.node.image.tag"                                = local.prover_agent_image.tag
           "agent.node.env.CRS_PATH"                             = "/usr/src/crs"
-          "agent.node.proverRealProofs"                         = var.PROVER_REAL_PROOFS
+          "agent.node.env.PROVER_REAL_PROOFS"                   = var.PROVER_REAL_PROOFS
           "agent.node.env.PROVER_AGENT_POLL_INTERVAL_MS"        = var.PROVER_AGENT_POLL_INTERVAL_MS
           "agent.replicaCount"                                  = var.PROVER_REPLICAS
           "agent.node.env.BOOTSTRAP_NODES"                      = "asdf"
@@ -466,7 +454,7 @@ locals {
         "service.p2p.port"            = local.p2p_port_rpc
 
         # Ensure the JSON-RPC server binds the same port the probe checks
-        "node.proverRealProofs"                       = var.PROVER_REAL_PROOFS
+        "node.env.PROVER_REAL_PROOFS"                 = var.PROVER_REAL_PROOFS
         "ingress.rpc.enabled"                         = var.RPC_INGRESS_ENABLED
         "node.env.AWS_ACCESS_KEY_ID"                  = var.R2_ACCESS_KEY_ID
         "node.env.AWS_SECRET_ACCESS_KEY"              = var.R2_SECRET_ACCESS_KEY
@@ -503,16 +491,14 @@ locals {
         service = {
           p2p = { publicIP = var.P2P_PUBLIC_IP }
         }
-        node = {
-          logLevel = var.FISHERMAN_LOG_LEVEL
-        }
       })]
       custom_settings = {
         "replicaCount"                                = var.FISHERMAN_REPLICAS
         "service.p2p.nodePortEnabled"                 = var.P2P_NODEPORT_ENABLED
+        "node.env.LOG_LEVEL"                          = var.FISHERMAN_LOG_LEVEL
         "service.p2p.announcePort"                    = local.p2p_port_fisherman
         "service.p2p.port"                            = local.p2p_port_fisherman
-        "node.proverRealProofs"                       = var.PROVER_REAL_PROOFS
+        "node.env.PROVER_REAL_PROOFS"                 = var.PROVER_REAL_PROOFS
         "node.env.BLOB_ALLOW_EMPTY_SOURCES"           = var.BLOB_ALLOW_EMPTY_SOURCES
         "node.env.WS_NUM_HISTORIC_CHECKPOINTS"        = var.WS_NUM_HISTORIC_CHECKPOINTS
         "node.env.P2P_TX_POOL_DELETE_TXS_AFTER_REORG" = var.P2P_TX_POOL_DELETE_TXS_AFTER_REORG
@@ -549,7 +535,7 @@ locals {
         "service.p2p.nodePortEnabled"                 = var.P2P_NODEPORT_ENABLED
         "service.p2p.announcePort"                    = local.p2p_port_full_node
         "service.p2p.port"                            = local.p2p_port_full_node
-        "node.proverRealProofs"                       = var.PROVER_REAL_PROOFS
+        "node.env.PROVER_REAL_PROOFS"                 = var.PROVER_REAL_PROOFS
         "node.env.AWS_ACCESS_KEY_ID"                  = var.R2_ACCESS_KEY_ID
         "node.env.DEBUG_FORCE_TX_PROOF_VERIFICATION"  = var.DEBUG_FORCE_TX_PROOF_VERIFICATION
         "node.env.AWS_SECRET_ACCESS_KEY"              = var.R2_SECRET_ACCESS_KEY
@@ -592,7 +578,7 @@ locals {
         "service.p2p.announcePort"                    = local.p2p_port_archive
         "service.p2p.port"                            = local.p2p_port_archive
         "node.env.P2P_ARCHIVED_TX_LIMIT"              = "10000000"
-        "node.proverRealProofs"                       = var.PROVER_REAL_PROOFS
+        "node.env.PROVER_REAL_PROOFS"                 = var.PROVER_REAL_PROOFS
         "node.env.PROVER_TEST_VERIFICATION_DELAY_MS"  = var.PROVER_TEST_VERIFICATION_DELAY_MS
         "node.env.BB_CHONK_VERIFY_MAX_BATCH"          = var.BB_CHONK_VERIFY_MAX_BATCH
         "node.env.BB_CHONK_VERIFY_BATCH_CONCURRENCY"  = var.BB_CHONK_VERIFY_BATCH_CONCURRENCY
@@ -630,7 +616,7 @@ locals {
       custom_settings = {
         "nodeType"                                   = "blob-sink"
         "service.p2p.nodePortEnabled"                = var.P2P_NODEPORT_ENABLED
-        "node.proverRealProofs"                      = var.PROVER_REAL_PROOFS
+        "node.env.PROVER_REAL_PROOFS"                = var.PROVER_REAL_PROOFS
         "node.env.BLOB_FILE_STORE_UPLOAD_URL"        = var.BLOB_FILE_STORE_UPLOAD_URL
         "node.env.AWS_ACCESS_KEY_ID"                 = var.R2_ACCESS_KEY_ID
         "node.env.AWS_SECRET_ACCESS_KEY"             = var.R2_SECRET_ACCESS_KEY

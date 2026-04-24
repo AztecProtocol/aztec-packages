@@ -82,7 +82,8 @@ function build_verifier {
     mkdir -p generated
 
     # Generate network defaults from spartan (canonical source of truth for config values)
-    yq -o json 'explode(.) | ."l1-contracts" // {}' ../spartan/environments/network-defaults.yml > generated/default.json
+    source ../spartan/scripts/codegen_helper.sh
+    extract_codegen_keys "l1-contracts" ../spartan/environments/common.env | format_json_object > generated/default.json
 
     # Copy from noir-projects. Bootstrap must have ran in noir-projects.
     local rollup_verifier_path=../noir-projects/noir-protocol-circuits/target/keys/rollup_root_verifier.sol

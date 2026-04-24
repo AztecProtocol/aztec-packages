@@ -1,6 +1,5 @@
 validator:
   node:
-    logLevel: "debug; info: aztec:simulator, json-rpc"
     # Validators can take a long time to come up (CRS download, heavy init, catch-up).
     # Keep startupProbe generous to avoid kubelet killing the container mid-boot.
     startupProbe:

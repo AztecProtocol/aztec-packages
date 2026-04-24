@@ -1,32 +1,29 @@
 #!/usr/bin/env bash
-# Generates l1-contracts-defaults.ts from network-defaults.yml.
+# Generates l1-contracts-defaults.ts from common.env.
 #
-# Source: spartan/environments/network-defaults.yml -> l1-contracts
+# Source: spartan/environments/common.env (codegen:l1-contracts section)
 # Output: yarn-project/ethereum/src/generated/l1-contracts-defaults.ts
 set -euo pipefail
 
 cd $(git rev-parse --show-toplevel)
+source spartan/scripts/codegen_helper.sh
 
 mkdir -p yarn-project/ethereum/src/generated
 
-echo "Generating l1-contracts-defaults.ts from spartan/environments/network-defaults.yml..."
+echo "Generating l1-contracts-defaults.ts from spartan/environments/common.env..."
 
-# Generate TypeScript file with typed defaults
-cat > yarn-project/ethereum/src/generated/l1-contracts-defaults.ts << 'HEADER'
-// Auto-generated from spartan/environments/network-defaults.yml
+{
+  cat << 'HEADER'
+// Auto-generated from spartan/environments/common.env
 // Do not edit manually - run yarn generate to regenerate
 
-/** Default L1 contracts configuration values from network-defaults.yml */
+/** Default L1 contracts configuration values from common.env */
 export const l1ContractsDefaultEnv = {
 HEADER
 
-# Extract l1-contracts section and format as TypeScript object properties (single quotes for strings)
-yq -o json '."l1-contracts"' spartan/environments/network-defaults.yml | \
-  jq -r "to_entries | .[] | \"  \\(.key): \\(.value | if type == \"string\" then \"'\\(.)'\" else . end),\"" \
-  >> yarn-project/ethereum/src/generated/l1-contracts-defaults.ts
+  extract_codegen_keys "l1-contracts" spartan/environments/common.env | format_ts_properties
 
-cat >> yarn-project/ethereum/src/generated/l1-contracts-defaults.ts << 'FOOTER'
-} as const;
-FOOTER
+  echo "} as const;"
+} > yarn-project/ethereum/src/generated/l1-contracts-defaults.ts
 
 echo "Done!"

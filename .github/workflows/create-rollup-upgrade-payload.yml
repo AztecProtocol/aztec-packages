@@ -1,7 +1,7 @@
 # Deploys a new Rollup and creates a RegisterNewRollupVersionPayload for governance.
 # Spins up an EC2 instance to build yarn-project and deploy the upgrade.
 #
-# Contract defaults are loaded from spartan/environments/network-defaults.yml
+# Contract defaults are loaded from spartan/environments/*.env files
 # based on the selected network (mainnet/testnet/devnet).
 
 name: Deploy Rollup Upgrade
