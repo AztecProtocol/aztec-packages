@@ -6,6 +6,7 @@
 
 #include "merge_prover.hpp"
 #include "barretenberg/commitment_schemes/shplonk/shplonk.hpp"
+#include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/flavor/mega_zk_flavor.hpp"
 #include "barretenberg/translator_vm/translator_flavor.hpp"
 
@@ -177,6 +178,7 @@ MergeProver::OpeningClaim MergeProver::compute_shplonk_opening_claim(
  */
 MergeProver::MergeProof MergeProver::construct_proof()
 {
+    BB_BENCH_NAME("MergeProver::construct_proof");
 
     // Construct L and R with FULL_SHIFT leading zeros to match the circuit's ecc_op_wire layout.
     // Derive M from the full merged table with the appropriate shift for Translator/chain propagation.
