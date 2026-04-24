@@ -1242,78 +1242,78 @@ void ExecutionTraceBuilder::process_get_env_var_opcode(Operand envvar_enum,
 const InteractionDefinition ExecutionTraceBuilder::interactions =
     InteractionDefinition()
         // Execution specification (precomputed)
-        .add<lookup_execution_exec_spec_read_settings, InteractionType::LookupIntoIndexedByRow>()
+        .add<InteractionType::LookupIntoIndexedByRow, lookup_execution_exec_spec_read_settings>()
         // Bytecode retrieval
-        .add<lookup_execution_bytecode_retrieval_result_settings, InteractionType::LookupGeneric>()
+        .add<InteractionType::LookupGeneric, lookup_execution_bytecode_retrieval_result_settings>()
         // Instruction fetching
-        .add<lookup_execution_instruction_fetching_result_settings, InteractionType::LookupGeneric>()
-        .add<lookup_execution_instruction_fetching_body_settings, InteractionType::LookupGeneric>()
+        .add<InteractionType::LookupGeneric, lookup_execution_instruction_fetching_result_settings>()
+        .add<InteractionType::LookupGeneric, lookup_execution_instruction_fetching_body_settings>()
         // Addressing
-        .add<lookup_addressing_relative_overflow_result_0_settings, InteractionType::LookupGeneric>(C::gt_sel)
-        .add<lookup_addressing_relative_overflow_result_1_settings, InteractionType::LookupGeneric>(C::gt_sel)
-        .add<lookup_addressing_relative_overflow_result_2_settings, InteractionType::LookupGeneric>(C::gt_sel)
-        .add<lookup_addressing_relative_overflow_result_3_settings, InteractionType::LookupGeneric>(C::gt_sel)
-        .add<lookup_addressing_relative_overflow_result_4_settings, InteractionType::LookupGeneric>(C::gt_sel)
-        .add<lookup_addressing_relative_overflow_result_5_settings, InteractionType::LookupGeneric>(C::gt_sel)
-        .add<lookup_addressing_relative_overflow_result_6_settings, InteractionType::LookupGeneric>(C::gt_sel)
+        .add<InteractionType::LookupGeneric, lookup_addressing_relative_overflow_result_0_settings>(C::gt_sel)
+        .add<InteractionType::LookupGeneric, lookup_addressing_relative_overflow_result_1_settings>(C::gt_sel)
+        .add<InteractionType::LookupGeneric, lookup_addressing_relative_overflow_result_2_settings>(C::gt_sel)
+        .add<InteractionType::LookupGeneric, lookup_addressing_relative_overflow_result_3_settings>(C::gt_sel)
+        .add<InteractionType::LookupGeneric, lookup_addressing_relative_overflow_result_4_settings>(C::gt_sel)
+        .add<InteractionType::LookupGeneric, lookup_addressing_relative_overflow_result_5_settings>(C::gt_sel)
+        .add<InteractionType::LookupGeneric, lookup_addressing_relative_overflow_result_6_settings>(C::gt_sel)
         // Internal Call Stack
-        .add<perm_internal_call_push_call_stack_settings, InteractionType::Permutation>()
-        .add<lookup_internal_call_unwind_call_stack_settings, InteractionType::LookupGeneric>()
+        .add<InteractionType::Permutation, perm_internal_call_push_call_stack_settings>()
+        .add<InteractionType::LookupGeneric, lookup_internal_call_unwind_call_stack_settings>()
         // Gas
-        .add<lookup_gas_addressing_gas_read_settings, InteractionType::LookupIntoIndexedByRow>()
-        .add<lookup_gas_is_out_of_gas_l2_settings, InteractionType::LookupGeneric>(C::gt_sel)
-        .add<lookup_gas_is_out_of_gas_da_settings, InteractionType::LookupGeneric>(C::gt_sel)
-        .add<lookup_execution_dyn_l2_factor_bitwise_settings, InteractionType::LookupIntoIndexedByRow>()
+        .add<InteractionType::LookupIntoIndexedByRow, lookup_gas_addressing_gas_read_settings>()
+        .add<InteractionType::LookupGeneric, lookup_gas_is_out_of_gas_l2_settings>(C::gt_sel)
+        .add<InteractionType::LookupGeneric, lookup_gas_is_out_of_gas_da_settings>(C::gt_sel)
+        .add<InteractionType::LookupIntoIndexedByRow, lookup_execution_dyn_l2_factor_bitwise_settings>()
         // Gas - ToRadix BE
-        .add<lookup_execution_check_radix_gt_256_settings, InteractionType::LookupGeneric>(C::gt_sel)
-        .add<lookup_execution_get_p_limbs_settings, InteractionType::LookupIntoIndexedByRow>()
-        .add<lookup_execution_get_max_limbs_settings, InteractionType::LookupGeneric>(C::gt_sel)
+        .add<InteractionType::LookupGeneric, lookup_execution_check_radix_gt_256_settings>(C::gt_sel)
+        .add<InteractionType::LookupIntoIndexedByRow, lookup_execution_get_p_limbs_settings>()
+        .add<InteractionType::LookupGeneric, lookup_execution_get_max_limbs_settings>(C::gt_sel)
         // Dynamic Gas - SStore
-        .add<lookup_execution_check_written_storage_slot_settings, InteractionType::LookupSequential>()
+        .add<InteractionType::LookupSequential, lookup_execution_check_written_storage_slot_settings>()
         // Context Stack
-        .add<perm_context_ctx_stack_call_settings, InteractionType::Permutation>()
-        .add<lookup_context_ctx_stack_rollback_settings, InteractionType::LookupGeneric>()
-        .add<lookup_context_ctx_stack_return_settings, InteractionType::LookupGeneric>()
+        .add<InteractionType::Permutation, perm_context_ctx_stack_call_settings>()
+        .add<InteractionType::LookupGeneric, lookup_context_ctx_stack_rollback_settings>()
+        .add<InteractionType::LookupGeneric, lookup_context_ctx_stack_return_settings>()
         // External Call
-        .add<lookup_external_call_is_l2_gas_left_gt_allocated_settings, InteractionType::LookupGeneric>(C::gt_sel)
-        .add<lookup_external_call_is_da_gas_left_gt_allocated_settings, InteractionType::LookupGeneric>(C::gt_sel)
+        .add<InteractionType::LookupGeneric, lookup_external_call_is_l2_gas_left_gt_allocated_settings>(C::gt_sel)
+        .add<InteractionType::LookupGeneric, lookup_external_call_is_da_gas_left_gt_allocated_settings>(C::gt_sel)
         // GetEnvVar opcode
-        .add<lookup_get_env_var_precomputed_info_settings, InteractionType::LookupIntoIndexedByRow>()
-        .add<lookup_get_env_var_read_from_public_inputs_col0_settings, InteractionType::LookupIntoIndexedByRow>()
-        .add<lookup_get_env_var_read_from_public_inputs_col1_settings, InteractionType::LookupIntoIndexedByRow>()
+        .add<InteractionType::LookupIntoIndexedByRow, lookup_get_env_var_precomputed_info_settings>()
+        .add<InteractionType::LookupIntoIndexedByRow, lookup_get_env_var_read_from_public_inputs_col0_settings>()
+        .add<InteractionType::LookupIntoIndexedByRow, lookup_get_env_var_read_from_public_inputs_col1_settings>()
         // Sload opcode (cannot be sequential as public data tree check trace is sorted in tracegen)
-        .add<lookup_sload_storage_read_settings, InteractionType::LookupGeneric>()
+        .add<InteractionType::LookupGeneric, lookup_sload_storage_read_settings>()
         // Sstore opcode
-        .add<lookup_sstore_record_written_storage_slot_settings, InteractionType::LookupSequential>()
+        .add<InteractionType::LookupSequential, lookup_sstore_record_written_storage_slot_settings>()
         // NoteHashExists
-        .add<lookup_notehash_exists_note_hash_read_settings, InteractionType::LookupSequential>()
-        .add<lookup_notehash_exists_note_hash_leaf_index_in_range_settings, InteractionType::LookupGeneric>(C::gt_sel)
+        .add<InteractionType::LookupSequential, lookup_notehash_exists_note_hash_read_settings>()
+        .add<InteractionType::LookupGeneric, lookup_notehash_exists_note_hash_leaf_index_in_range_settings>(C::gt_sel)
         // NullifierExists opcode
-        .add<lookup_nullifier_exists_nullifier_exists_check_settings, InteractionType::LookupSequential>()
+        .add<InteractionType::LookupSequential, lookup_nullifier_exists_nullifier_exists_check_settings>()
         // EmitNullifier
-        .add<lookup_emit_nullifier_write_nullifier_settings, InteractionType::LookupSequential>()
+        .add<InteractionType::LookupSequential, lookup_emit_nullifier_write_nullifier_settings>()
         // EmitNoteHash
-        .add<lookup_emit_notehash_notehash_tree_write_settings, InteractionType::LookupSequential>()
+        .add<InteractionType::LookupSequential, lookup_emit_notehash_notehash_tree_write_settings>()
         // L1ToL2MsgExists
-        .add<lookup_l1_to_l2_message_exists_l1_to_l2_msg_leaf_index_in_range_settings, InteractionType::LookupGeneric>(
+        .add<InteractionType::LookupGeneric, lookup_l1_to_l2_message_exists_l1_to_l2_msg_leaf_index_in_range_settings>(
             C::gt_sel)
-        .add<lookup_l1_to_l2_message_exists_l1_to_l2_msg_read_settings, InteractionType::LookupSequential>()
+        .add<InteractionType::LookupSequential, lookup_l1_to_l2_message_exists_l1_to_l2_msg_read_settings>()
         // SendL2ToL1Msg
-        .add<lookup_send_l2_to_l1_msg_recipient_check_settings, InteractionType::LookupGeneric>()
-        .add<lookup_send_l2_to_l1_msg_write_l2_to_l1_msg_settings, InteractionType::LookupIntoIndexedByRow>()
+        .add<InteractionType::LookupGeneric, lookup_send_l2_to_l1_msg_recipient_check_settings>()
+        .add<InteractionType::LookupIntoIndexedByRow, lookup_send_l2_to_l1_msg_write_l2_to_l1_msg_settings>()
         // Dispatching to other sub-traces
-        .add<lookup_execution_dispatch_to_alu_settings, InteractionType::LookupGeneric>()
-        .add<lookup_execution_dispatch_to_bitwise_settings, InteractionType::LookupGeneric>()
-        .add<perm_execution_dispatch_to_cd_copy_settings, InteractionType::Permutation>()
-        .add<perm_execution_dispatch_to_rd_copy_settings, InteractionType::Permutation>()
-        .add<lookup_execution_dispatch_to_cast_settings, InteractionType::LookupGeneric>()
-        .add<lookup_execution_dispatch_to_set_settings, InteractionType::LookupGeneric>()
-        .add<perm_execution_dispatch_to_get_contract_instance_settings, InteractionType::Permutation>()
-        .add<perm_execution_dispatch_to_emit_public_log_settings, InteractionType::Permutation>()
-        .add<perm_execution_dispatch_to_poseidon2_perm_settings, InteractionType::Permutation>()
-        .add<perm_execution_dispatch_to_sha256_compression_settings, InteractionType::Permutation>()
-        .add<perm_execution_dispatch_to_keccakf1600_settings, InteractionType::Permutation>()
-        .add<perm_execution_dispatch_to_ecc_add_settings, InteractionType::Permutation>()
-        .add<perm_execution_dispatch_to_to_radix_settings, InteractionType::Permutation>();
+        .add<InteractionType::LookupGeneric, lookup_execution_dispatch_to_alu_settings>()
+        .add<InteractionType::LookupGeneric, lookup_execution_dispatch_to_bitwise_settings>()
+        .add<InteractionType::Permutation, perm_execution_dispatch_to_cd_copy_settings>()
+        .add<InteractionType::Permutation, perm_execution_dispatch_to_rd_copy_settings>()
+        .add<InteractionType::LookupGeneric, lookup_execution_dispatch_to_cast_settings>()
+        .add<InteractionType::LookupGeneric, lookup_execution_dispatch_to_set_settings>()
+        .add<InteractionType::Permutation, perm_execution_dispatch_to_get_contract_instance_settings>()
+        .add<InteractionType::Permutation, perm_execution_dispatch_to_emit_public_log_settings>()
+        .add<InteractionType::Permutation, perm_execution_dispatch_to_poseidon2_perm_settings>()
+        .add<InteractionType::Permutation, perm_execution_dispatch_to_sha256_compression_settings>()
+        .add<InteractionType::Permutation, perm_execution_dispatch_to_keccakf1600_settings>()
+        .add<InteractionType::Permutation, perm_execution_dispatch_to_ecc_add_settings>()
+        .add<InteractionType::Permutation, perm_execution_dispatch_to_to_radix_settings>();
 
 } // namespace bb::avm2::tracegen

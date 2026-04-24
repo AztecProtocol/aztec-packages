@@ -118,7 +118,7 @@ void FieldGreaterThanTraceBuilder::process(
 
 const InteractionDefinition FieldGreaterThanTraceBuilder::interactions =
     InteractionDefinition()
-        .add<lookup_ff_gt_a_lo_range_settings, InteractionType::LookupGeneric>()
-        .add<lookup_ff_gt_a_hi_range_settings, InteractionType::LookupGeneric>();
+        .add<InteractionType::LookupGeneric, lookup_ff_gt_a_lo_range_settings>()
+        .add<InteractionType::LookupGeneric, lookup_ff_gt_a_hi_range_settings>();
 
 } // namespace bb::avm2::tracegen

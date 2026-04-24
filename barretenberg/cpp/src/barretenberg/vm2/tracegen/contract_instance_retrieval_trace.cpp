@@ -108,11 +108,11 @@ void ContractInstanceRetrievalTraceBuilder::process(
 
 const InteractionDefinition ContractInstanceRetrievalTraceBuilder::interactions =
     InteractionDefinition()
-        .add<lookup_contract_instance_retrieval_deployment_nullifier_read_settings, InteractionType::LookupSequential>()
-        .add<lookup_contract_instance_retrieval_address_derivation_settings, InteractionType::LookupGeneric>()
-        .add<lookup_contract_instance_retrieval_update_check_settings, InteractionType::LookupSequential>()
-        .add<lookup_contract_instance_retrieval_check_protocol_address_range_settings, InteractionType::LookupGeneric>()
-        .add<lookup_contract_instance_retrieval_read_derived_address_from_public_inputs_settings,
-             InteractionType::LookupIntoIndexedByRow>();
+        .add<InteractionType::LookupSequential, lookup_contract_instance_retrieval_deployment_nullifier_read_settings>()
+        .add<InteractionType::LookupGeneric, lookup_contract_instance_retrieval_address_derivation_settings>()
+        .add<InteractionType::LookupSequential, lookup_contract_instance_retrieval_update_check_settings>()
+        .add<InteractionType::LookupGeneric, lookup_contract_instance_retrieval_check_protocol_address_range_settings>()
+        .add<InteractionType::LookupIntoIndexedByRow,
+             lookup_contract_instance_retrieval_read_derived_address_from_public_inputs_settings>();
 
 } // namespace bb::avm2::tracegen
