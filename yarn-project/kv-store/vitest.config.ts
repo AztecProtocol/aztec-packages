@@ -61,6 +61,7 @@ export default defineConfig({
       // Benchmarks self-skip unless VITE_BENCH=1; include so they're discoverable.
       './src/bench/indexeddb/**/*.test.ts',
       './src/bench/sqlite-opfs/**/*.test.ts',
+      './src/bench/sqlite-opfs-encrypted/**/*.test.ts',
     ],
     // Bench suites do full-population + N-iteration work; default 30s is too tight.
     testTimeout: process.env.VITE_BENCH === '1' ? 300_000 : 30_000,
