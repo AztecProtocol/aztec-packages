@@ -160,8 +160,6 @@ template <typename Flavor> struct VerifierZKCorrectionHandler<Flavor, true> {
 
     void apply_zk_corrections(FF& full_honk_purported_value, std::vector<FF>& multivariate_challenge)
     {
-        // Row-disabling factors are applied per-relation inside `compute_full_relation_purported_value`
-        // (when `ApplyRowDisabling = true`); only the Libra correction is applied here.
 
         // Get the claimed evaluation of the Libra multivariate evaluated at the sumcheck challenge
         libra_evaluation = transcript->template receive_from_prover<FF>("Libra:claimed_evaluation");
