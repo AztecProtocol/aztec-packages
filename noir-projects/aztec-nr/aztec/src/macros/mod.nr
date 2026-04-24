@@ -6,6 +6,7 @@ pub use aztec::{aztec, AztecConfig};
 pub mod dispatch;
 pub(crate) mod calls_generation;
 pub(crate) mod emit_public_init_nullifier;
+pub(crate) mod offchain_receive;
 pub mod internals_functions_generation;
 pub mod functions;
 pub mod utils;

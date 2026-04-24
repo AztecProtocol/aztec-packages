@@ -308,6 +308,29 @@ pub contract Token {
     }
     // docs:end:transfer_in_private
 
+    // docs:start:transfer_in_private_with_offchain_delivery
+    /// Mirrors `transfer_in_private` but delivers the resulting notes via offchain messages.
+    ///
+    /// Offchain messages are returned to the caller as encrypted payloads. The sender is responsible for getting the
+    /// recipient's note to them (typically by encoding it into a link, QR code, or direct message). The recipient
+    /// ingests it by calling `offchain_receive` on their environment.
+    ///
+    /// A `Transfer` event is also emitted to be delivered offchain.
+    #[authorize_once("from", "authwit_nonce")]
+    #[external("private")]
+    fn transfer_in_private_with_offchain_delivery(
+        from: AztecAddress,
+        to: AztecAddress,
+        amount: u128,
+        authwit_nonce: Field,
+    ) {
+        self.storage.balances.at(from).sub(amount).deliver(MessageDelivery.OFFCHAIN);
+        self.storage.balances.at(to).add(amount).deliver(MessageDelivery.OFFCHAIN);
+
+        self.emit(Transfer { from, to, amount }).deliver_to(to, MessageDelivery.OFFCHAIN);
+    }
+    // docs:end:transfer_in_private_with_offchain_delivery
+
     #[authorize_once("from", "authwit_nonce")]
     #[external("private")]
     fn burn_private(from: AztecAddress, amount: u128, authwit_nonce: Field) {

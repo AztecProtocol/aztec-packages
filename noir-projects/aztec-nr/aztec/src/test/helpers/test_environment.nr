@@ -1,7 +1,7 @@
 use crate::protocol::{
     abis::function_selector::FunctionSelector,
     address::AztecAddress,
-    traits::{Deserialize, Packable, Serialize},
+    traits::{Deserialize, FromField, Packable, Serialize},
 };
 
 use crate::{
@@ -15,9 +15,10 @@ use crate::{
         discovery::{
             ComputeNoteHash, ComputeNoteNullifier, CustomMessageHandler, process_message::process_message_plaintext,
         },
-        encoding::MESSAGE_PLAINTEXT_LEN,
+        encoding::{MESSAGE_CIPHERTEXT_LEN, MESSAGE_PLAINTEXT_LEN},
         logs::{event::encode_private_event_message, note::encode_private_note_message},
-        processing::{MessageContext, validate_and_store_enqueued_notes_and_events},
+        offchain_messages::OFFCHAIN_MESSAGE_IDENTIFIER,
+        processing::{MessageContext, offchain::OffchainMessage, validate_and_store_enqueued_notes_and_events},
     },
     note::{note_interface::{NoteHash, NoteType}, NoteMessage},
     oracle::version::assert_compatible_oracle_version,
@@ -606,6 +607,63 @@ impl TestEnvironment {
             txe_oracles::execute_utility_function(call.target_contract, call.selector, call.args);
 
         T::deserialize(serialized_return_values)
+    }
+
+    /// Returns offchain messages emitted by the last top-level call into TXE.
+    ///
+    /// The returned `BoundedVec<OffchainMessage, _>` can be passed directly to a contract's `offchain_receive`
+    /// utility function to ingest the messages into the recipient's private state.
+    ///
+    /// Each returned message is populated with:
+    /// - `ciphertext`, `recipient`: decoded from the raw emitted payload.
+    /// - `tx_hash`: `Option::some(hash)` for tx-producing entry points (`call_private`,
+    ///   `call_public`); `Option::none()` for tx-less entry points (`execute_utility`,
+    ///   `private_context`, `utility_context`).
+    /// - `anchor_block_timestamp`: the timestamp of the block the top-level call was
+    ///   anchored against, matching the value the production flow would produce.
+    ///
+    /// Returns up to `MAX_OFFCHAIN_EFFECTS_PER_TXE_QUERY` messages. The caller is responsible for
+    /// splitting the result into batches that fit `MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL` before
+    /// forwarding each batch to `offchain_receive`.
+    ///
+    /// # Example
+    ///
+    /// ```noir
+    /// env.call_private(sender, Token::at(token).transfer_in_private_with_offchain_delivery(...));
+    /// let messages = env.offchain_messages();
+    /// let mut batch: BoundedVec<_, MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL> = BoundedVec::new();
+    /// for i in 0..messages.len() { batch.push(messages.get(i)); }
+    /// env.execute_utility(Token::at(token).offchain_receive(batch));
+    /// ```
+    pub unconstrained fn offchain_messages(
+        _self: Self,
+    ) -> BoundedVec<OffchainMessage, txe_oracles::MAX_OFFCHAIN_EFFECTS_PER_TXE_QUERY> {
+        let raw_effects = txe_oracles::get_last_call_offchain_effects();
+        let txe_oracles::TXECallContext { tx_hash, anchor_block_timestamp } = txe_oracles::get_last_call_context();
+
+        let mut messages: BoundedVec<OffchainMessage, txe_oracles::MAX_OFFCHAIN_EFFECTS_PER_TXE_QUERY> =
+            BoundedVec::new();
+
+        for i in 0..raw_effects.len() {
+            let payload = raw_effects.get(i);
+
+            // The raw payload layout produced by `deliver_offchain_message` is:
+            //   [OFFCHAIN_MESSAGE_IDENTIFIER, recipient, ...ciphertext]
+            // A call may also emit offchain effects that are *not* `OffchainMessage`s (e.g. authwit requests
+            // via `auth.nr::emit_offchain_effect`). We only concern ourselves with offchain messages here.
+            if payload.get(0) == OFFCHAIN_MESSAGE_IDENTIFIER {
+                let recipient = AztecAddress::from_field(payload.get(1));
+
+                let mut ciphertext: BoundedVec<Field, MESSAGE_CIPHERTEXT_LEN> = BoundedVec::new();
+                for j in 0..MESSAGE_CIPHERTEXT_LEN {
+                    ciphertext.push(payload.get(2 + j));
+                }
+
+                messages.push(OffchainMessage { ciphertext, recipient, tx_hash, anchor_block_timestamp });
+            }
+        }
+
+        messages
     }
 
     /// Performs a public contract function call, including the processing of any nested public calls. Returns the
