@@ -68,18 +68,25 @@ export class AztecSQLiteOPFSStore implements AztecAsyncKVStore {
    * Pass `poolDirectory` to place the SAH Pool in a non-default OPFS subdirectory —
    * required when multiple stores coexist in the same tab, because the SAH Pool holds
    * an exclusive lock on its directory.
+   * Pass `encryptionKey` (exactly 32 bytes) to enable at-rest encryption via SQLCipher.
    */
   static async open(
     log: Logger,
     name?: string,
     ephemeral: boolean = false,
     poolDirectory?: string,
+    encryptionKey?: Uint8Array,
   ): Promise<AztecSQLiteOPFSStore> {
+    if (encryptionKey !== undefined && encryptionKey.length !== 32) {
+      throw new Error(`encryptionKey must be 32 bytes (got ${encryptionKey.length})`);
+    }
     const dbName = name && !ephemeral ? name : `tmp-${globalThis.crypto.getRandomValues(new Uint8Array(8)).join('')}`;
-    log.debug(`Opening SQLite-OPFS ${ephemeral ? 'ephemeral ' : ''}database ${dbName}`);
+    log.debug(
+      `Opening SQLite-OPFS ${ephemeral ? 'ephemeral ' : ''}${encryptionKey ? 'encrypted ' : ''}database ${dbName}`,
+    );
     const worker = new Worker(new URL('./worker.js', import.meta.url), { type: 'module' });
     const store = new AztecSQLiteOPFSStore(worker, dbName, log, ephemeral);
-    await store.#sendRequest({ type: 'init', id: store.#allocId(), dbName, ephemeral, poolDirectory });
+    await store.#sendRequest({ type: 'init', id: store.#allocId(), dbName, ephemeral, poolDirectory, encryptionKey });
     return store;
   }
 
