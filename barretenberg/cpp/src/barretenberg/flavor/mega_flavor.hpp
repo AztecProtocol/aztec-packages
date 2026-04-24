@@ -23,8 +23,10 @@
 #include "barretenberg/relations/memory_relation.hpp"
 #include "barretenberg/relations/non_native_field_relation.hpp"
 #include "barretenberg/relations/permutation_relation.hpp"
+#include "barretenberg/relations/poseidon2_double_internal_relation.hpp"
+#include "barretenberg/relations/poseidon2_double_internal_terminal_relation.hpp"
 #include "barretenberg/relations/poseidon2_external_relation.hpp"
-#include "barretenberg/relations/poseidon2_internal_relation.hpp"
+#include "barretenberg/relations/poseidon2_transition_entry_relation.hpp"
 #include "barretenberg/relations/relation_tuple_helpers.hpp"
 #include "barretenberg/relations/ultra_arithmetic_relation.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
@@ -71,7 +73,9 @@ class MegaFlavor {
                                   bb::EccOpQueueRelation<FF>,
                                   bb::DatabusLookupRelation<FF>,
                                   bb::Poseidon2ExternalRelation<FF>,
-                                  bb::Poseidon2InternalRelation<FF>>;
+                                  bb::Poseidon2DoubleInternalRelation<FF>,
+                                  bb::Poseidon2DoubleInternalTerminalRelation<FF>,
+                                  bb::Poseidon2TransitionEntryRelation<FF>>;
     using Relations = Relations_<FF>;
 
     static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = compute_max_partial_relation_length<Relations>();
@@ -109,37 +113,39 @@ class MegaFlavor {
         bool operator==(const PrecomputedEntities&) const = default;
         using DataType = DataType_;
         DEFINE_FLAVOR_MEMBERS(DataType,
-                              q_m,                  // column 0
-                              q_c,                  // column 1
-                              q_l,                  // column 2
-                              q_r,                  // column 3
-                              q_o,                  // column 4
-                              q_4,                  // column 5
-                              q_busread,            // column 6
-                              q_lookup,             // column 7
-                              q_arith,              // column 8
-                              q_delta_range,        // column 9
-                              q_elliptic,           // column 10
-                              q_memory,             // column 11
-                              q_nnf,                // column 12
-                              q_poseidon2_external, // column 13
-                              q_poseidon2_internal, // column 14
-                              sigma_1,              // column 15
-                              sigma_2,              // column 16
-                              sigma_3,              // column 17
-                              sigma_4,              // column 18
-                              id_1,                 // column 19
-                              id_2,                 // column 20
-                              id_3,                 // column 21
-                              id_4,                 // column 22
-                              table_1,              // column 23
-                              table_2,              // column 24
-                              table_3,              // column 25
-                              table_4,              // column 26
-                              lagrange_first,       // column 27
-                              lagrange_last,        // column 28
-                              lagrange_ecc_op,      // column 29 // indicator poly for ecc op gates
-                              databus_id            // column 30 // id polynomial, i.e. id_i = i
+                              q_m,                                  // column 0
+                              q_c,                                  // column 1
+                              q_l,                                  // column 2
+                              q_r,                                  // column 3
+                              q_o,                                  // column 4
+                              q_4,                                  // column 5
+                              q_busread,                            // column 6
+                              q_lookup,                             // column 7
+                              q_arith,                              // column 8
+                              q_delta_range,                        // column 9
+                              q_elliptic,                           // column 10
+                              q_memory,                             // column 11
+                              q_nnf,                                // column 12
+                              q_poseidon2_external,                 // column 13
+                              q_poseidon2_double_internal,          // column 14
+                              q_poseidon2_double_internal_terminal, // column 15
+                              q_poseidon2_transition_entry,         // column 16
+                              sigma_1,                              // column 17
+                              sigma_2,                              // column 18
+                              sigma_3,                              // column 19
+                              sigma_4,                              // column 20
+                              id_1,                                 // column 21
+                              id_2,                                 // column 22
+                              id_3,                                 // column 23
+                              id_4,                                 // column 24
+                              table_1,                              // column 25
+                              table_2,                              // column 26
+                              table_3,                              // column 27
+                              table_4,                              // column 28
+                              lagrange_first,                       // column 29
+                              lagrange_last,                        // column 30
+                              lagrange_ecc_op,                      // column 31 // indicator poly for ecc op gates
+                              databus_id                            // column 32 // id polynomial, i.e. id_i = i
         )
 
         auto get_non_gate_selectors() { return RefArray{ q_m, q_c, q_l, q_r, q_o, q_4 }; };
@@ -154,7 +160,9 @@ class MegaFlavor {
                 q_memory,
                 q_nnf,
                 q_poseidon2_external,
-                q_poseidon2_internal,
+                q_poseidon2_double_internal,
+                q_poseidon2_double_internal_terminal,
+                q_poseidon2_transition_entry,
             };
         }
         auto get_selectors() { return concatenate(get_non_gate_selectors(), get_gate_selectors()); }
@@ -414,7 +422,9 @@ class MegaFlavor {
             q_memory = "Q_MEMORY";
             q_nnf = "Q_NNF";
             q_poseidon2_external = "Q_POSEIDON2_EXTERNAL";
-            q_poseidon2_internal = "Q_POSEIDON2_INTERNAL";
+            q_poseidon2_double_internal = "Q_POSEIDON2_DOUBLE_INTERNAL";
+            q_poseidon2_double_internal_terminal = "Q_POSEIDON2_DOUBLE_INTERNAL_TERMINAL";
+            q_poseidon2_transition_entry = "Q_POSEIDON2_TRANSITION_ENTRY";
             sigma_1 = "SIGMA_1";
             sigma_2 = "SIGMA_2";
             sigma_3 = "SIGMA_3";

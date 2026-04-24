@@ -6,6 +6,7 @@
 
 #pragma once
 #include "barretenberg/crypto/poseidon2/poseidon2_params.hpp"
+#include "barretenberg/relations/poseidon2_sbox.hpp"
 #include "relation_types.hpp"
 
 namespace bb {
@@ -126,13 +127,10 @@ template <typename FF_> class Poseidon2InternalRelationImpl {
 
         Accumulator barycentric_term;
 
-        // Add ĉ₀⁽ⁱ⁾ stored in the selector and convert to Lagrange basis
-        auto s1 = Accumulator(w_1 + c_0_int);
-
-        // Apply S-box. Note that the multiplication is performed point-wise
-        auto u1 = s1.sqr();
-        u1 = u1.sqr();
-        u1 *= s1;
+        // Apply S-box to (w_1 + round-constant). Instead of the naive "extrapolate to Lagrange, then
+        // sqr;sqr;mul" (21 full field mults), we expand (a1*X + a0)^5 in the monomial basis and
+        // extrapolate via finite-differences. See `poseidon2_sbox.hpp`.
+        auto u1 = poseidon2_sbox_lagrange_7<FF>(w_1 + c_0_int);
 
         const auto q_pos_by_scaling_m = (q_poseidon2_internal_m * scaling_factor);
         const auto q_pos_by_scaling = Accumulator(q_pos_by_scaling_m);

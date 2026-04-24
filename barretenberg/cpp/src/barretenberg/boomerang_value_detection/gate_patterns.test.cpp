@@ -288,8 +288,17 @@ TEST(PatternTest, MemoryRamConsistency)
 
 TEST(PatternTest, Poseidon2Internal)
 {
-    verify_pattern<Poseidon2InternalRelation<FF>>(POSEIDON2_INTERNAL,
-                                                  [](Entities& e) { return e.q_poseidon2_internal = FF(1); });
+    // Wrapped in a templated generic lambda so the `if constexpr` branch is discarded at
+    // instantiation time on flavors that lack `q_poseidon2_internal` (e.g. MegaFlavor, which
+    // covers all internal rounds via the compressed double-internal block).
+    [&]<typename E = Entities>() {
+        if constexpr (requires(E e) { e.q_poseidon2_internal; }) {
+            verify_pattern<Poseidon2InternalRelation<FF>>(POSEIDON2_INTERNAL,
+                                                          [](E& e) { return e.q_poseidon2_internal = FF(1); });
+        } else {
+            GTEST_SKIP() << "q_poseidon2_internal not in flavor (covered by compressed block)";
+        }
+    }();
 }
 
 TEST(PatternTest, Poseidon2External)

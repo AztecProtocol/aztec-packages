@@ -213,21 +213,59 @@ void UltraCircuitBuilder_<ExecutionTrace>::add_gates_to_ensure_all_polys_are_non
     create_unconstrained_gate(
         blocks.poseidon2_external, this->zero_idx(), this->zero_idx(), this->zero_idx(), this->zero_idx());
 
-    // mock a poseidon internal gate, with all zeros as input
-    blocks.poseidon2_internal.populate_wires(this->zero_idx(), this->zero_idx(), this->zero_idx(), this->zero_idx());
-    blocks.poseidon2_internal.q_m().emplace_back(0);
-    blocks.poseidon2_internal.q_1().emplace_back(0);
-    blocks.poseidon2_internal.q_2().emplace_back(0);
-    blocks.poseidon2_internal.q_3().emplace_back(0);
-    blocks.poseidon2_internal.q_c().emplace_back(0);
-    blocks.poseidon2_internal.q_4().emplace_back(0);
-    blocks.poseidon2_internal.set_gate_selector(1);
-    check_selector_length_consistency();
-    this->increment_num_gates();
+    // mock a poseidon internal gate (Ultra-only; Mega covers all internal rounds via the compressed block)
+    if constexpr (requires { blocks.poseidon2_internal; }) {
+        blocks.poseidon2_internal.populate_wires(
+            this->zero_idx(), this->zero_idx(), this->zero_idx(), this->zero_idx());
+        blocks.poseidon2_internal.q_m().emplace_back(0);
+        blocks.poseidon2_internal.q_1().emplace_back(0);
+        blocks.poseidon2_internal.q_2().emplace_back(0);
+        blocks.poseidon2_internal.q_3().emplace_back(0);
+        blocks.poseidon2_internal.q_c().emplace_back(0);
+        blocks.poseidon2_internal.q_4().emplace_back(0);
+        blocks.poseidon2_internal.set_gate_selector(1);
+        check_selector_length_consistency();
+        this->increment_num_gates();
 
-    // dummy gate to be read into by previous poseidon internal gate via shifts
-    create_unconstrained_gate(
-        blocks.poseidon2_internal, this->zero_idx(), this->zero_idx(), this->zero_idx(), this->zero_idx());
+        // dummy gate to be read into by previous poseidon internal gate via shifts
+        create_unconstrained_gate(
+            blocks.poseidon2_internal, this->zero_idx(), this->zero_idx(), this->zero_idx(), this->zero_idx());
+    }
+
+    // Mock the Mega-only compressed-block selectors so each has at least one non-zero row.
+    if constexpr (requires { blocks.poseidon2_double_internal; }) {
+        auto& dbl = blocks.poseidon2_double_internal;
+        const auto mock_common = [&]() {
+            dbl.populate_wires(this->zero_idx(), this->zero_idx(), this->zero_idx(), this->zero_idx());
+            dbl.q_m().emplace_back(0);
+            dbl.q_1().emplace_back(0);
+            dbl.q_2().emplace_back(0);
+            dbl.q_3().emplace_back(0);
+            dbl.q_c().emplace_back(0);
+            dbl.q_4().emplace_back(0);
+        };
+
+        // Entry transition: q_poseidon2_transition_entry = 1.
+        mock_common();
+        dbl.set_entry_gate_selector(1);
+        check_selector_length_consistency();
+        this->increment_num_gates();
+
+        // Interior: q_poseidon2_double_internal = 1.
+        mock_common();
+        dbl.set_gate_selector(1);
+        check_selector_length_consistency();
+        this->increment_num_gates();
+
+        // Terminal: q_poseidon2_double_internal_terminal = 1.
+        mock_common();
+        dbl.set_terminal_gate_selector(1);
+        check_selector_length_consistency();
+        this->increment_num_gates();
+
+        // Dummy successor row so the terminal row's shifted wires land on something.
+        create_unconstrained_gate(dbl, this->zero_idx(), this->zero_idx(), this->zero_idx(), this->zero_idx());
+    }
 }
 
 /**
@@ -1954,22 +1992,91 @@ void UltraCircuitBuilder_<FF>::create_poseidon2_external_gate(const poseidon2_ex
 }
 
 /**
- * @brief Poseidon2 internal round gate, activates the q_poseidon2_internal selector and relation
+ * @brief Poseidon2 internal round gate, activates the q_poseidon2_internal selector and relation.
+ *        Ultra-only: Mega covers all internal rounds via the compressed double-internal block.
  */
 template <typename FF>
 void UltraCircuitBuilder_<FF>::create_poseidon2_internal_gate(const poseidon2_internal_gate_<FF>& in)
 {
-    auto& block = this->blocks.poseidon2_internal;
-    block.populate_wires(in.a, in.b, in.c, in.d);
-    block.q_m().emplace_back(0);
-    block.q_1().emplace_back(crypto::Poseidon2Bn254ScalarFieldParams::round_constants[in.round_idx][0]);
-    block.q_2().emplace_back(0);
-    block.q_3().emplace_back(0);
-    block.q_c().emplace_back(0);
-    block.q_4().emplace_back(0);
-    block.set_gate_selector(1);
-    this->check_selector_length_consistency();
-    this->increment_num_gates();
+    if constexpr (!requires { this->blocks.poseidon2_internal; }) {
+        throw_or_abort("create_poseidon2_internal_gate is Ultra-only (Mega uses the compressed block)");
+    } else {
+        auto& block = this->blocks.poseidon2_internal;
+        block.populate_wires(in.a, in.b, in.c, in.d);
+        block.q_m().emplace_back(0);
+        block.q_1().emplace_back(crypto::Poseidon2Bn254ScalarFieldParams::round_constants[in.round_idx][0]);
+        block.q_2().emplace_back(0);
+        block.q_3().emplace_back(0);
+        block.q_c().emplace_back(0);
+        block.q_4().emplace_back(0);
+        block.set_gate_selector(1);
+        this->check_selector_length_consistency();
+        this->increment_num_gates();
+    }
+}
+
+/**
+ * @brief Poseidon2 double internal round gate: processes two consecutive internal rounds per row.
+ * @details Mega-only. Wires: w_l = state[0] at even round, w_r = state[0] at odd round (intermediate),
+ *          w_o = state[2] at even round, w_4 = state[3] at even round.
+ *          state[1] is reconstructed inside the relation.
+ *          Interior rows use q_poseidon2_double_internal and need q_3 = c_{next_even}.
+ *          Terminal rows use q_poseidon2_double_internal_terminal and ignore q_3 (the successor
+ *          is a standard-encoded transition row).
+ */
+template <typename FF>
+void UltraCircuitBuilder_<FF>::create_poseidon2_double_internal_gate(const poseidon2_double_internal_gate_<FF>& in)
+{
+    if constexpr (requires { this->blocks.poseidon2_double_internal; }) {
+        auto& block = this->blocks.poseidon2_double_internal;
+        block.populate_wires(in.a, in.b, in.c, in.d);
+        block.q_m().emplace_back(0);
+        block.q_1().emplace_back(crypto::Poseidon2Bn254ScalarFieldParams::round_constants[in.round_idx_even][0]);
+        block.q_2().emplace_back(crypto::Poseidon2Bn254ScalarFieldParams::round_constants[in.round_idx_odd][0]);
+        block.q_4().emplace_back(0);
+        block.q_c().emplace_back(0);
+        if (in.is_terminal) {
+            // q_3 is unused on terminal rows.
+            block.q_3().emplace_back(0);
+            block.set_terminal_gate_selector(1);
+        } else {
+            block.q_3().emplace_back(crypto::Poseidon2Bn254ScalarFieldParams::round_constants[in.round_idx_next][0]);
+            block.set_gate_selector(1);
+        }
+        this->check_selector_length_consistency();
+        this->increment_num_gates();
+    } else {
+        throw_or_abort("create_poseidon2_double_internal_gate is Mega-only");
+    }
+}
+
+/**
+ * @brief Poseidon2 transition-entry gate: standard -> compressed encoding boundary.
+ * @details Mega-only. Placed immediately before the first compressed double-internal row.
+ *          Wires (a, b, c, d) = (s_0, s_1, s_2, s_3) at round `round_idx`, in standard encoding.
+ *          The selector q_1 carries c_{round_idx}. The relation enforces:
+ *            w_r_shift = D_1 * (w_l + q_l)^5 + w_r + w_o + w_4
+ *          where (w_l, w_r, w_o, w_4) are this row's standard wires and w_r_shift is the
+ *          successor's compressed w_r (= `intermediate_s0` of the first compressed row).
+ */
+template <typename FF>
+void UltraCircuitBuilder_<FF>::create_poseidon2_transition_entry_gate(const poseidon2_transition_entry_gate_<FF>& in)
+{
+    if constexpr (requires { this->blocks.poseidon2_double_internal; }) {
+        auto& block = this->blocks.poseidon2_double_internal;
+        block.populate_wires(in.a, in.b, in.c, in.d);
+        block.q_m().emplace_back(0);
+        block.q_1().emplace_back(crypto::Poseidon2Bn254ScalarFieldParams::round_constants[in.round_idx][0]);
+        block.q_2().emplace_back(0);
+        block.q_3().emplace_back(0);
+        block.q_4().emplace_back(0);
+        block.q_c().emplace_back(0);
+        block.set_entry_gate_selector(1);
+        this->check_selector_length_consistency();
+        this->increment_num_gates();
+    } else {
+        throw_or_abort("create_poseidon2_transition_entry_gate is Mega-only");
+    }
 }
 
 /**

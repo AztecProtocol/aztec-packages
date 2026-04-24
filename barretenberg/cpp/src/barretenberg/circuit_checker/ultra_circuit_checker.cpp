@@ -175,9 +175,13 @@ bool UltraCircuitChecker::check_block(Builder& builder,
         if (!result) {
             return report_fail("Failed Lookup check relation at row idx = ", idx);
         }
-        result = result && check_relation<PoseidonInternal>(values, params);
-        if (!result) {
-            return report_fail("Failed PoseidonInternal relation at row idx = ", idx);
+        if constexpr (!IsMegaBuilder<Builder>) {
+            // Mega covers all internal rounds via the compressed block; there is no
+            // q_poseidon2_internal selector in MegaFlavor.
+            result = result && check_relation<PoseidonInternal>(values, params);
+            if (!result) {
+                return report_fail("Failed PoseidonInternal relation at row idx = ", idx);
+            }
         }
         result = result && check_relation<PoseidonExternal>(values, params);
         if (!result) {
@@ -185,6 +189,18 @@ bool UltraCircuitChecker::check_block(Builder& builder,
         }
 
         if constexpr (IsMegaBuilder<Builder>) {
+            result = result && check_relation<PoseidonDoubleInternal>(values, params);
+            if (!result) {
+                return report_fail("Failed PoseidonDoubleInternal relation at row idx = ", idx);
+            }
+            result = result && check_relation<PoseidonDoubleInternalTerminal>(values, params);
+            if (!result) {
+                return report_fail("Failed PoseidonDoubleInternalTerminal relation at row idx = ", idx);
+            }
+            result = result && check_relation<PoseidonTransitionEntry>(values, params);
+            if (!result) {
+                return report_fail("Failed PoseidonTransitionEntry relation at row idx = ", idx);
+            }
             result = result && check_databus_read(values, builder);
             if (!result) {
                 return report_fail("Failed databus read at row idx = ", idx);
@@ -360,8 +376,19 @@ void UltraCircuitChecker::populate_values(
     values.q_memory = block.q_memory()[idx];
     values.q_nnf = block.q_nnf()[idx];
     values.q_lookup = block.q_lookup()[idx];
-    values.q_poseidon2_internal = block.q_poseidon2_internal()[idx];
+    if constexpr (requires { values.q_poseidon2_internal; }) {
+        values.q_poseidon2_internal = block.q_poseidon2_internal()[idx];
+    }
     values.q_poseidon2_external = block.q_poseidon2_external()[idx];
+    if constexpr (requires { values.q_poseidon2_double_internal; }) {
+        values.q_poseidon2_double_internal = block.q_poseidon2_double_internal()[idx];
+    }
+    if constexpr (requires { values.q_poseidon2_double_internal_terminal; }) {
+        values.q_poseidon2_double_internal_terminal = block.q_poseidon2_double_internal_terminal()[idx];
+    }
+    if constexpr (requires { values.q_poseidon2_transition_entry; }) {
+        values.q_poseidon2_transition_entry = block.q_poseidon2_transition_entry()[idx];
+    }
     if constexpr (IsMegaBuilder<Builder>) {
         values.q_busread = block.q_busread()[idx];
     }

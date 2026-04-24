@@ -5,6 +5,7 @@
 // =====================
 
 #pragma once
+#include "barretenberg/relations/poseidon2_sbox.hpp"
 #include "barretenberg/relations/relation_types.hpp"
 namespace bb {
 
@@ -113,18 +114,13 @@ template <typename FF_> class Poseidon2ExternalRelationImpl {
         // Poseidon2 external relation selector
         const auto q_poseidon2_external = CoefficientAccumulator(in.q_poseidon2_external);
 
-        // add round constants which are loaded in selectors
-
-        auto sbox = [](const Accumulator& x) {
-            auto t2 = x.sqr();  // x^2
-            auto t4 = t2.sqr(); // x^4
-            return t4 * x;      // x^5
-        };
-        // apply s-box round
-        auto u1 = sbox(Accumulator(w_1 + c_1));
-        auto u2 = sbox(Accumulator(w_2 + c_2));
-        auto u3 = sbox(Accumulator(w_3 + c_3));
-        auto u4 = sbox(Accumulator(w_4 + c_4));
+        // Apply S-box to (w_i + c_i) for each lane. See `poseidon2_sbox.hpp` — we expand (a1*X + a0)^5
+        // in the monomial basis (12 full mults) and extrapolate to 7 Lagrange points using only
+        // additions, which is cheaper than the naive "extrapolate then sqr;sqr;mul" (21 full mults).
+        auto u1 = poseidon2_sbox_lagrange_7<FF>(w_1 + c_1);
+        auto u2 = poseidon2_sbox_lagrange_7<FF>(w_2 + c_2);
+        auto u3 = poseidon2_sbox_lagrange_7<FF>(w_3 + c_3);
+        auto u4 = poseidon2_sbox_lagrange_7<FF>(w_4 + c_4);
         // Matrix mul v = M_E * u with 14 additions.
         // Precompute common summands.
         auto t0 = u1 + u2; // u_1 + u_2

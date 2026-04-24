@@ -272,7 +272,14 @@ template <typename FF, typename CircuitBuilder> void StaticAnalyzer_<FF, Circuit
             try_pattern(ARITHMETIC, blk.q_arith());
             try_pattern(ELLIPTIC, blk.q_elliptic());
             try_pattern(LOOKUP, blk.q_lookup());
-            try_pattern(POSEIDON2_INTERNAL, blk.q_poseidon2_internal());
+            if constexpr (requires { blk.q_poseidon2_internal(); }) {
+                try_pattern(POSEIDON2_INTERNAL, blk.q_poseidon2_internal());
+            }
+            if constexpr (requires { blk.q_poseidon2_double_internal(); }) {
+                try_pattern(POSEIDON2_DOUBLE_INTERNAL, blk.q_poseidon2_double_internal());
+                try_pattern(POSEIDON2_DOUBLE_INTERNAL_TERMINAL, blk.q_poseidon2_double_internal_terminal());
+                try_pattern(POSEIDON2_TRANSITION_ENTRY, blk.q_poseidon2_transition_entry());
+            }
             try_pattern(POSEIDON2_EXTERNAL, blk.q_poseidon2_external());
             try_pattern(NON_NATIVE_FIELD, blk.q_nnf());
             try_pattern(MEMORY, blk.q_memory()); // consistency gates only; access gates via ROM/RAM transcripts
@@ -1244,10 +1251,15 @@ void StaticAnalyzer_<FF, CircuitBuilder>::print_delta_range_gate_info(size_t gat
 template <typename FF, typename CircuitBuilder>
 void StaticAnalyzer_<FF, CircuitBuilder>::print_poseidon2s_gate_info(size_t gate_index, auto& block)
 {
-    auto internal_selector = block.q_poseidon2_internal()[gate_index];
     auto external_selector = block.q_poseidon2_external()[gate_index];
-    if (!internal_selector.is_zero() || !external_selector.is_zero()) {
-        info("q_poseidon2_internal == ", internal_selector);
+    bool has_internal = false;
+    if constexpr (requires { block.q_poseidon2_internal(); }) {
+        has_internal = !block.q_poseidon2_internal()[gate_index].is_zero();
+    }
+    if (has_internal || !external_selector.is_zero()) {
+        if constexpr (requires { block.q_poseidon2_internal(); }) {
+            info("q_poseidon2_internal == ", block.q_poseidon2_internal()[gate_index]);
+        }
         info("q_poseidon2_external == ", external_selector);
         info("w_1 == ", block.w_l()[gate_index]);
         info("w_2 == ", block.w_r()[gate_index]);
