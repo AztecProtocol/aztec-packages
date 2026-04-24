@@ -485,9 +485,6 @@ template <typename Flavor> class SumcheckProverRound {
 
     /**
      * @brief Virtual (zero-extension) round univariate contribution.
-     * @details Batching uses per-relation `L` / `(1 - L)` factors when `ApplyRowDisabling = true`
-     * (the `row_disabling_polynomial` argument is then required), otherwise plain α-batching
-     * applies and offset-only relations are dropped.
      */
     template <bool ApplyRowDisabling = false, typename ProverPolynomialsOrPartiallyEvaluatedMultivariates>
     SumcheckRoundUnivariate compute_virtual_contribution(
@@ -522,7 +519,6 @@ template <typename Flavor> class SumcheckProverRound {
 
         // The tail of G(X) = \prod_{k} (1 + X_k(\beta_k - 1) ) evaluated at the edge (0, ..., 0).
         const FF gate_separator_tail{ 1 };
-
         accumulate_relation_univariates(
             univariate_accumulator, extended_edges, relation_parameters, gate_separator_tail);
 
@@ -588,7 +584,7 @@ template <typename Flavor> class SumcheckProverRound {
                                              const bb::GateSeparatorPolynomial<FF>& gate_separators,
                                              const RowDisablingPolynomial<FF>* row_disabling_polynomial = nullptr)
     {
-        // pow_β = (1 - X) + X · β_i
+        // Pow-Factor  \f$ (1-X) + X\beta_i \f$
         auto random_polynomial = bb::Univariate<FF, 2>({ 1, gate_separators.current_element() });
         ExtendedUnivariate extended_random_polynomial =
             random_polynomial.template extend_to<ExtendedUnivariate::LENGTH>();
@@ -597,9 +593,15 @@ template <typename Flavor> class SumcheckProverRound {
         [[maybe_unused]] ExtendedUnivariate main_factor;
         [[maybe_unused]] ExtendedUnivariate offset_factor;
         if constexpr (ApplyRowDisabling) {
+            // L^{(i)}(X) = L(u_0, ..., u_{i-1}, X, 0, ..., 0) is a linear univariate in X; its
+            // evaluations at X = 0, 1 are cached in `row_disabling_polynomial->eval_at_0/1`.
+            // Main-domain factor: (1 - L^{(i)})(X), with evals (1 - eval_at_0, 1 - eval_at_1).
+            // Offset-only factor:      L^{(i)}(X), with evals (eval_at_0, eval_at_1).
             bb::Univariate<FF, 2> one_minus_L(
                 { FF::one() - row_disabling_polynomial->eval_at_0, FF::one() - row_disabling_polynomial->eval_at_1 });
             bb::Univariate<FF, 2> L_uv({ row_disabling_polynomial->eval_at_0, row_disabling_polynomial->eval_at_1 });
+            // Extend to the round-univariate length so the factors can be multiplied with the
+            // α-scaled, pow-β-weighted per-relation sums at the round-univariate degree.
             main_factor = one_minus_L.template extend_to<ExtendedUnivariate::LENGTH>();
             offset_factor = L_uv.template extend_to<ExtendedUnivariate::LENGTH>();
         }
@@ -618,6 +620,7 @@ template <typename Flavor> class SumcheckProverRound {
                 [&]<size_t subrelation_idx>() {
                     const auto& element = std::get<subrelation_idx>(outer_element);
                     auto extended = element.template extend_to<ExtendedUnivariate::LENGTH>();
+
                     constexpr bool is_subrelation_linearly_independent =
                         bb::subrelation_is_linearly_independent<Relation, subrelation_idx>();
                     // Except for the log-derivative subrelation, each subrelation is required to

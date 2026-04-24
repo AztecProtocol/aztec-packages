@@ -127,7 +127,6 @@ template <typename FF> struct RowDisablingPolynomial {
     FF eval_at_1{ 1 };
 
     RowDisablingPolynomial() = default;
-
     /**
      * @brief Compute the evaluations of L^{(i)} at 0 and 1.
      *

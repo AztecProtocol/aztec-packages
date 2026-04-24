@@ -119,4 +119,35 @@ template <typename FF_> class EccOpQueueRelationImpl {
 
 template <typename FF> using EccOpQueueRelation = Relation<EccOpQueueRelationImpl<FF>>;
 
+/**
+ * @brief Enforces that MegaZK's ecc op wires start with four zeros: `ecc_op_wire_j(x) = 0` for
+ * `j = 1..4` on rows 0..3.
+ */
+template <typename FF_> class MegaEccOpBoundaryRelationImpl {
+  public:
+    using FF = FF_;
+
+    static constexpr bool IS_OFFSET_ONLY = true;
+
+    // Four subrelations `ecc_op_wire_j = 0`, each degree 1 (partial length 2).
+    static constexpr std::array<size_t, 4> SUBRELATION_PARTIAL_LENGTHS{ 2, 2, 2, 2 };
+
+    template <typename ContainerOverSubrelations, typename AllEntities, typename Parameters>
+    inline static void accumulate(ContainerOverSubrelations& evals,
+                                  const AllEntities& in,
+                                  const Parameters& /*params*/,
+                                  const FF& scaling_factor)
+    {
+        using Accumulator = std::tuple_element_t<0, ContainerOverSubrelations>;
+        using CoefficientAccumulator = typename Accumulator::CoefficientAccumulator;
+
+        std::get<0>(evals) += Accumulator(CoefficientAccumulator(in.ecc_op_wire_1)) * scaling_factor;
+        std::get<1>(evals) += Accumulator(CoefficientAccumulator(in.ecc_op_wire_2)) * scaling_factor;
+        std::get<2>(evals) += Accumulator(CoefficientAccumulator(in.ecc_op_wire_3)) * scaling_factor;
+        std::get<3>(evals) += Accumulator(CoefficientAccumulator(in.ecc_op_wire_4)) * scaling_factor;
+    }
+};
+
+template <typename FF> using MegaEccOpBoundaryRelation = Relation<MegaEccOpBoundaryRelationImpl<FF>>;
+
 } // namespace bb

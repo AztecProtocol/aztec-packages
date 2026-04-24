@@ -26,11 +26,6 @@ template <typename BuilderType> class MegaZKRecursiveFlavor_ : public MegaRecurs
     static constexpr bool HasGeminiMasking = false;
 
     static constexpr size_t VIRTUAL_LOG_N = NativeFlavor::VIRTUAL_LOG_N;
-
-    // Instantiate `NativeFlavor`'s relation set (which includes the ecc-op offset-boundary
-    // relation) at the recursive FF. The derived counts are structural and match
-    // `NativeFlavor`'s exactly; the explicit shadows are required because the values inherited
-    // from `MegaRecursiveFlavor_` would otherwise refer to the un-augmented Mega relation set.
     using Relations = MegaZKFlavor::Relations_<FF>;
     static constexpr size_t NUM_RELATIONS = NativeFlavor::NUM_RELATIONS;
     static constexpr size_t NUM_SUBRELATIONS = NativeFlavor::NUM_SUBRELATIONS;

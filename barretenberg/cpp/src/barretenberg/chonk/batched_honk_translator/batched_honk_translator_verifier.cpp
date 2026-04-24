@@ -182,10 +182,9 @@ template <typename Curve> bool BatchedHonkTranslatorVerifier_<Curve>::verify_joi
 
     GateSeparatorPolynomial<FF> final_gate_sep(gate_challenges, joint_challenge);
 
-    // MegaZK circuit FRV: evaluations are full N-variable multilinear evaluations.
-    // Main-domain relations are scaled by (1 - L)(u), offset-only relations (e.g. the ecc-op
-    // boundary) by L(u). A uniform (1 - L)(u) multiply would mis-scale the offset-only
-    // contributions.
+    // MegaZK circuit FRV: evaluations are full N-variable multilinear evaluations. MegaZK uses
+    // row-disabling, so row-disabling factors at the sumcheck challenge are passed to the
+    // verifier's full-relation evaluation.
     SumcheckVerifierRound<MegaZKFlavorT> mega_zk_frv_round;
     const FF one_minus_L_at_u =
         RowDisablingPolynomial<FF>::evaluate_at_challenge(joint_challenge, joint_challenge.size());
