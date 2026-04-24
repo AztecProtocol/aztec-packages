@@ -3,7 +3,10 @@
   "version": "0.1.0",
   "type": "module",
   "exports": {
-    ".": "./dest/index.js",
+    ".": {
+      "types": "./dest/src/index.d.ts",
+      "import": "./dest/index.js"
+    },
     "./vendor/jswasm/sqlite3.wasm": "./vendor/jswasm/sqlite3.wasm",
     "./vendor/jswasm/sqlite3-opfs-async-proxy.js": "./vendor/jswasm/sqlite3-opfs-async-proxy.js"
   },

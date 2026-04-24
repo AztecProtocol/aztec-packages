@@ -1,5 +1,5 @@
 /// <reference lib="webworker" />
-import sqlite3InitModule, { type Database, type SAHPoolUtil, type Sqlite3Static } from '@sqlite.org/sqlite-wasm';
+import sqlite3InitModule, { type Database, type SAHPoolUtil, type Sqlite3Static } from '@aztec/sqlite3mc-wasm';
 
 import type { ResultRow, SqlValue, WorkerRequest, WorkerResponse } from './messages.js';
 
@@ -27,21 +27,23 @@ let db: Database | undefined;
 let dbPath: string | undefined;
 
 async function ensurePool(directory: string): Promise<SAHPoolUtil> {
-  sqlite3 ??= await sqlite3InitModule();
+  const s = (sqlite3 ??= await sqlite3InitModule());
   if (!pool) {
-    pool = await sqlite3.installOpfsSAHPoolVfs({
+    pool = await s.installOpfsSAHPoolVfs({
       name: SAH_POOL_VFS_NAME,
       directory,
       initialCapacity: 8,
     });
   }
-  return pool;
+  // pool is guaranteed to be defined here; TypeScript loses narrowing of module-level
+  // variables across await checkpoints, so we assert non-null explicitly.
+  return pool!;
 }
 
 async function handleInit(dbName: string, ephemeral: boolean, directory?: string): Promise<void> {
-  sqlite3 ??= await sqlite3InitModule();
+  const s = (sqlite3 ??= await sqlite3InitModule());
   if (ephemeral) {
-    db = new sqlite3.oo1.DB(':memory:', 'c');
+    db = new s.oo1.DB(':memory:', 'c');
   } else {
     const p = await ensurePool(directory ?? DEFAULT_SAH_POOL_DIRECTORY);
     dbPath = normalizeDbPath(dbName);

@@ -1479,6 +1479,7 @@ __metadata:
     "@aztec/ethereum": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@aztec/native": "workspace:^"
+    "@aztec/sqlite3mc-wasm": "workspace:^"
     "@aztec/stdlib": "workspace:^"
     "@jest/globals": "npm:^30.0.0"
     "@sqlite.org/sqlite-wasm": "npm:3.50.4-build1"
@@ -2059,7 +2060,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@aztec/sqlite3mc-wasm@workspace:sqlite3mc-wasm":
+"@aztec/sqlite3mc-wasm@workspace:^, @aztec/sqlite3mc-wasm@workspace:sqlite3mc-wasm":
   version: 0.0.0-use.local
   resolution: "@aztec/sqlite3mc-wasm@workspace:sqlite3mc-wasm"
   dependencies:
