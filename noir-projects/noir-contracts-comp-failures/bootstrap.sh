@@ -120,7 +120,7 @@ test() {
     done
 
     if [ -n "$pattern" ] && [ "$matched" -eq 0 ]; then
-        echo "no contracts matched '$pattern'" >&2
+        echo "✗ no contracts matched pattern '$pattern'" >&2
         exit 1
     fi
 }
