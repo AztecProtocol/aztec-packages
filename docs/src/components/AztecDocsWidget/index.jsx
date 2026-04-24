@@ -513,10 +513,13 @@ export default function AztecDocsWidget({
   const panelWidth = size === "compact" ? 380 : 420;
   const panelHeight = size === "compact" ? 540 : 620;
 
+  // Only auto-scroll to the bottom when a new message is appended (user
+  // sends a question). Don't follow streaming tokens — the user should
+  // be free to scroll away while the response is generating.
   useEffect(() => {
     if (scrollRef.current)
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-  }, [messages, streamText, streaming]);
+  }, [messages.length]);
 
   useEffect(() => () => abortRef.current?.abort(), []);
 
