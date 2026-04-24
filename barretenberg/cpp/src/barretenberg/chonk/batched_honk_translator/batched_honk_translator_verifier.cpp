@@ -183,13 +183,10 @@ template <typename Curve> bool BatchedHonkTranslatorVerifier_<Curve>::verify_joi
     GateSeparatorPolynomial<FF> final_gate_sep(gate_challenges, joint_challenge);
 
     // MegaZK circuit FRV: evaluations are full N-variable multilinear evaluations. MegaZK uses
-    // row-disabling, so row-disabling factors at the sumcheck challenge are passed to the
-    // verifier's full-relation evaluation.
+    // row-disabling — factors are applied per-relation inside the call.
     SumcheckVerifierRound<MegaZKFlavorT> mega_zk_frv_round;
-    const FF main_factor = RowDisablingPolynomial<FF>::evaluate_at_challenge(joint_challenge, joint_challenge.size());
-    const FF offset_factor = FF{ 1 } - main_factor;
     FF frv_mega_zk = mega_zk_frv_round.compute_full_relation_purported_value(
-        mega_zk_evals, mega_zk_relation_parameters, final_gate_sep, mega_zk_alphas, main_factor, offset_factor);
+        mega_zk_evals, mega_zk_relation_parameters, final_gate_sep, mega_zk_alphas, joint_challenge);
 
     // Translator FRV (no row-disabling).
     SumcheckVerifierRound<TransFlavor> trans_frv_round;

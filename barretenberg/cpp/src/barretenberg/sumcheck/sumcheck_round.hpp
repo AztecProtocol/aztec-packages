@@ -818,21 +818,27 @@ template <typename Flavor, bool CommittedSumcheck = UsesCommittedSumcheck<Flavor
     /**
      * @brief Evaluate the full Honk relation at the sumcheck challenge `u`.
      *
-     * @details Defaults `(main_factor, offset_factor) = (1, 0)` encode "no row disabling";
-     * passing `((1 - L)(u), L(u))` selects the row-disabling batching (main-domain rels scaled
-     * by `(1 - L)(u)`, offset-only rels by `L(u)`).
+     * @details Row-disabling gating is internal: for `UseRowDisablingPolynomial<Flavor> &&
+     * Flavor::HasZK`, main-domain rels are scaled by `(1 - L)(u)` and offset-only rels by `L(u)`;
+     * otherwise factors collapse to `(1, 0)` (offset-only rels drop out).
      */
     FF compute_full_relation_purported_value(const ClaimedEvaluations& purported_evaluations,
                                              const bb::RelationParameters<FF>& relation_parameters,
                                              const bb::GateSeparatorPolynomial<FF>& gate_separators,
                                              const SubrelationSeparators& alphas,
-                                             const FF& main_factor = FF{ 1 },
-                                             const FF& offset_factor = FF{ 0 })
+                                             std::span<const FF> multivariate_challenge = {})
     {
         Utils::template accumulate_relation_evaluations_without_skipping<>(purported_evaluations,
                                                                            relation_evaluations,
                                                                            relation_parameters,
                                                                            gate_separators.partial_evaluation_result);
+        FF main_factor{ 1 };
+        FF offset_factor{ 0 };
+        if constexpr (UseRowDisablingPolynomial<Flavor> && Flavor::HasZK) {
+            main_factor = RowDisablingPolynomial<FF>::evaluate_at_challenge(multivariate_challenge,
+                                                                            multivariate_challenge.size());
+            offset_factor = FF{ 1 } - main_factor;
+        }
         return Utils::scale_and_batch_elements(relation_evaluations, alphas, main_factor, offset_factor);
     }
 
@@ -932,13 +938,19 @@ template <typename Flavor> class SumcheckVerifierRound<Flavor, true> {
                                              const bb::RelationParameters<FF>& relation_parameters,
                                              const bb::GateSeparatorPolynomial<FF>& gate_separators,
                                              const SubrelationSeparators& alphas,
-                                             const FF& main_factor = FF{ 1 },
-                                             const FF& offset_factor = FF{ 0 })
+                                             std::span<const FF> multivariate_challenge = {})
     {
         Utils::template accumulate_relation_evaluations_without_skipping<>(purported_evaluations,
                                                                            relation_evaluations,
                                                                            relation_parameters,
                                                                            gate_separators.partial_evaluation_result);
+        FF main_factor{ 1 };
+        FF offset_factor{ 0 };
+        if constexpr (UseRowDisablingPolynomial<Flavor> && Flavor::HasZK) {
+            main_factor = RowDisablingPolynomial<FF>::evaluate_at_challenge(multivariate_challenge,
+                                                                            multivariate_challenge.size());
+            offset_factor = FF{ 1 } - main_factor;
+        }
         return Utils::scale_and_batch_elements(relation_evaluations, alphas, main_factor, offset_factor);
     }
 
