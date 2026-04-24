@@ -112,6 +112,7 @@ prometheus:
 # Enable and configure Grafana
 # https://artifacthub.io/packages/helm/grafana/grafana
 grafana:
+  enabled: true
   image:
     tag: "12.3"
   grafana.ini:
@@ -146,49 +147,13 @@ grafana:
           jsonData:
             timeout: 60
             timeInterval: 15s
-  dashboardProviders:
-    dashboardproviders.yaml:
-      apiVersion: 1
-      providers:
-        - name: "default"
-          orgId: 1
-          folder: ""
-          type: file
-          disableDeletion: false
-          editable: true
-          options:
-            path: /var/lib/grafana/dashboards/default
-        - name: "aztec"
-          orgId: 1
-          folder: "Aztec"
-          type: file
-          disableDeletion: false
-          editable: true
-          options:
-            path: /var/lib/grafana/dashboards/aztec
-        - name: "metrics"
-          orgId: 1
-          folder: "Metrics"
-          type: file
-          disableDeletion: false
-          editable: true
-          options:
-            path: /var/lib/grafana/dashboards/metrics
-        - name: "cloudprover"
-          orgId: 1
-          folder: "Cloud Prover"
-          type: file
-          disableDeletion: false
-          editable: true
-          options:
-            path: /var/lib/grafana/dashboards/cloudprover
-  # unfortunately, we can't use the `file` helper in values.yaml, so we have to inline the dashboard
-  # json. This is a limitation of Helm.
-  # See the install scripts: we inject the dashboard json into a copy of this file, which is the
-  # version that actually gets helm installed.
-  alerting:
-  dashboards:
-    default:
-    aztec:
-    metrics:
-    cloudprover:
+  sidecar:
+    dashboards:
+      enabled: true
+      label: grafana_dashboard
+      folderAnnotation: grafana_dashboard_folder
+      provider:
+        foldersFromFilesStructure: false
+    alerts:
+      enabled: true
+      label: grafana_alert
