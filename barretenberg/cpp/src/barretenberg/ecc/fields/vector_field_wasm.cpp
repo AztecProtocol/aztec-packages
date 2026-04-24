@@ -537,533 +537,87 @@ VectorField<Bn254FrParams> VectorField<Bn254FrParams>::operator*(const VectorFie
     asm volatile("" : "+r"(r_inv0), "+r"(r_inv1), "+r"(r_inv2), "+r"(r_inv3), "+r"(r_inv4));
     asm volatile("" : "+r"(r_inv5), "+r"(r_inv6), "+r"(r_inv7), "+r"(r_inv8));
 
-    // Macro-expanded Yuval reduction for one "lo" position. Scalar then quad.
+    // Yuval reduction step. For position `lo`, with `p1..p9` being lo+1..lo+9
+    // (passed explicitly because the preprocessor cannot compute N+1):
+    //   km_q = (temp_lo & mask29) shuffled into i32x4 (low 32 bits of each
+    //          i64x2 lane from tlo_lo/thi_lo)
+    //   temp_{p1} += km_q * r_inv[0] + carry
+    //   temp_{pk} += km_q * r_inv[k-1]   for k in 2..9
     //
-    // On the quad side, we need to build km as an i32x4 from tlo and thi
-    // (each lane's low 29 bits). Then multiply by each r_inv[j] constant (i32x4
-    // broadcast) using extmul_low/high to produce i64x2 partials, accumulate.
-
-// Yuval reduction step. For each position `lo`:
-//   km_q = (temp_lo & mask29) shuffled into i32x4 (takes low 32 bits of each
-//          i64x2 lane from tlo_lo/thi_lo)
-//   temp_{lo+1} += km_q * r_inv[0] + carry
-//   temp_{lo+k} += km_q * r_inv[k-1]   for k in 2..9
-//
-// IMPORTANT: the scalar/quad barriers after every partial-add prevent LLVM
-// from (a) reordering the scalar and quad streams across the iteration, and
-// (b) CSE-ing the `extend_low_u32x4(km_q)` subexpression — without the
-// barriers, LLVM extends km_q once to i64x2 then emits 9× slow `i64x2.mul`
-// instead of 9× fast `extmul_low/high_u32x4` (pmuludq).
-#define BB_VF_YUVAL_REDUCE(lo)                                                                                         \
+    // Build km_q as i32x4. Shuffle first (packs low 32 bits of each i64x2
+    // lane), then mask to 29 bits. Saves one quad AND per Yuval: the old
+    // variant masked tlo and thi as i64x2 BEFORE the shuffle (2 ops), then
+    // shuffled (1 op); shuffle-then-AND is 2 ops. Correctness:
+    // `(x & 0xFFFFFFFF) & 0x1fffffff == x & 0x1fffffff`. Unlike Stage 7's
+    // rk_q (which only needs the final mod-2^29 of the product), Yuval's km_q
+    // structurally requires the 29-bit mask because R_INV_WASM[j] is
+    // precomputed assuming k = temp_lo & MASK29.
+    //
+    // IMPORTANT: the scalar/quad barriers after every partial-add prevent
+    // LLVM from (a) reordering the scalar and quad streams across the
+    // iteration, and (b) CSE-ing the `extend_low_u32x4(km_q)` subexpression —
+    // without them, LLVM extends km_q once to i64x2 then emits 9× slow
+    // `i64x2.mul` instead of 9× fast `extmul_low/high_u32x4` (pmuludq).
+#define BB_VF_YUVAL_REDUCE(lo, p1, p2, p3, p4, p5, p6, p7, p8, p9)                                                     \
     {                                                                                                                  \
         const uint64_t km_s = temp_##lo & MASK29;                                                                      \
         const uint64_t carry_s = temp_##lo >> 29;                                                                      \
-        /* Build km_q as i32x4. Shuffle first (packs low 32 bits of each i64x2 lane), */                               \
-        /* then mask to 29 bits. This saves one quad AND per Yuval: the old code masked */                             \
-        /* tlo and thi as i64x2 BEFORE the shuffle (2 ops), then shuffled (1 op). New */                               \
-        /* version shuffles (1 op), then ANDs the i32x4 result (1 op). Total 2 ops vs 3. */                            \
-        /* Correctness: `(x & 0xFFFFFFFF) & 0x1fffffff = x & 0x1fffffff`, so the */                                    \
-        /* shuffle-then-mask yields the same lane values as mask-then-shuffle. Unlike */                               \
-        /* Stage 7's rk_q (which only needs the final mod-2^29 of the product), Yuval's */                             \
-        /* km_q structurally requires the 29-bit mask because wasm_r_inv[j] is */                                      \
-        /* precomputed assuming k = temp_lo & MASK29. */                                                               \
         v128_t km_q_raw =                                                                                              \
             wasm_i8x16_shuffle(tlo_##lo, thi_##lo, 0, 1, 2, 3, 8, 9, 10, 11, 16, 17, 18, 19, 24, 25, 26, 27);          \
         v128_t km_q = wasm_v128_and(km_q_raw, mask29_i32x4);                                                           \
         v128_t carry_q_lo = wasm_u64x2_shr(tlo_##lo, 29);                                                              \
         v128_t carry_q_hi = wasm_u64x2_shr(thi_##lo, 29);                                                              \
-        temp_##lo##_plus1 += km_s * R_INV_WASM[0] + carry_s;                                                           \
-        tlo_##lo##_plus1 =                                                                                             \
-            wasm_i64x2_add(wasm_i64x2_add(tlo_##lo##_plus1, wasm_u64x2_extmul_low_u32x4(km_q, r_inv0)), carry_q_lo);   \
-        thi_##lo##_plus1 =                                                                                             \
-            wasm_i64x2_add(wasm_i64x2_add(thi_##lo##_plus1, wasm_u64x2_extmul_high_u32x4(km_q, r_inv0)), carry_q_hi);  \
-        vector_field_detail::bb_vf_barrier_sqq(temp_##lo##_plus1, tlo_##lo##_plus1, thi_##lo##_plus1);                 \
+        temp_##p1 += km_s * R_INV_WASM[0] + carry_s;                                                                   \
+        tlo_##p1 = wasm_i64x2_add(wasm_i64x2_add(tlo_##p1, wasm_u64x2_extmul_low_u32x4(km_q, r_inv0)), carry_q_lo);    \
+        thi_##p1 = wasm_i64x2_add(wasm_i64x2_add(thi_##p1, wasm_u64x2_extmul_high_u32x4(km_q, r_inv0)), carry_q_hi);   \
+        vector_field_detail::bb_vf_barrier_sqq(temp_##p1, tlo_##p1, thi_##p1);                                         \
         asm volatile("" : "+r"(km_q));                                                                                 \
-        temp_##lo##_plus2 += km_s * R_INV_WASM[1];                                                                     \
-        tlo_##lo##_plus2 = wasm_i64x2_add(tlo_##lo##_plus2, wasm_u64x2_extmul_low_u32x4(km_q, r_inv1));                \
-        thi_##lo##_plus2 = wasm_i64x2_add(thi_##lo##_plus2, wasm_u64x2_extmul_high_u32x4(km_q, r_inv1));               \
+        temp_##p2 += km_s * R_INV_WASM[1];                                                                             \
+        tlo_##p2 = wasm_i64x2_add(tlo_##p2, wasm_u64x2_extmul_low_u32x4(km_q, r_inv1));                                \
+        thi_##p2 = wasm_i64x2_add(thi_##p2, wasm_u64x2_extmul_high_u32x4(km_q, r_inv1));                               \
         asm volatile("" : "+r"(km_q));                                                                                 \
-        temp_##lo##_plus3 += km_s * R_INV_WASM[2];                                                                     \
-        tlo_##lo##_plus3 = wasm_i64x2_add(tlo_##lo##_plus3, wasm_u64x2_extmul_low_u32x4(km_q, r_inv2));                \
-        thi_##lo##_plus3 = wasm_i64x2_add(thi_##lo##_plus3, wasm_u64x2_extmul_high_u32x4(km_q, r_inv2));               \
-        vector_field_detail::bb_vf_barrier_sqq(temp_##lo##_plus3, tlo_##lo##_plus3, thi_##lo##_plus3);                 \
+        temp_##p3 += km_s * R_INV_WASM[2];                                                                             \
+        tlo_##p3 = wasm_i64x2_add(tlo_##p3, wasm_u64x2_extmul_low_u32x4(km_q, r_inv2));                                \
+        thi_##p3 = wasm_i64x2_add(thi_##p3, wasm_u64x2_extmul_high_u32x4(km_q, r_inv2));                               \
+        vector_field_detail::bb_vf_barrier_sqq(temp_##p3, tlo_##p3, thi_##p3);                                         \
         asm volatile("" : "+r"(km_q));                                                                                 \
-        temp_##lo##_plus4 += km_s * R_INV_WASM[3];                                                                     \
-        tlo_##lo##_plus4 = wasm_i64x2_add(tlo_##lo##_plus4, wasm_u64x2_extmul_low_u32x4(km_q, r_inv3));                \
-        thi_##lo##_plus4 = wasm_i64x2_add(thi_##lo##_plus4, wasm_u64x2_extmul_high_u32x4(km_q, r_inv3));               \
+        temp_##p4 += km_s * R_INV_WASM[3];                                                                             \
+        tlo_##p4 = wasm_i64x2_add(tlo_##p4, wasm_u64x2_extmul_low_u32x4(km_q, r_inv3));                                \
+        thi_##p4 = wasm_i64x2_add(thi_##p4, wasm_u64x2_extmul_high_u32x4(km_q, r_inv3));                               \
         asm volatile("" : "+r"(km_q));                                                                                 \
-        temp_##lo##_plus5 += km_s * R_INV_WASM[4];                                                                     \
-        tlo_##lo##_plus5 = wasm_i64x2_add(tlo_##lo##_plus5, wasm_u64x2_extmul_low_u32x4(km_q, r_inv4));                \
-        thi_##lo##_plus5 = wasm_i64x2_add(thi_##lo##_plus5, wasm_u64x2_extmul_high_u32x4(km_q, r_inv4));               \
-        vector_field_detail::bb_vf_barrier_sqq(temp_##lo##_plus5, tlo_##lo##_plus5, thi_##lo##_plus5);                 \
+        temp_##p5 += km_s * R_INV_WASM[4];                                                                             \
+        tlo_##p5 = wasm_i64x2_add(tlo_##p5, wasm_u64x2_extmul_low_u32x4(km_q, r_inv4));                                \
+        thi_##p5 = wasm_i64x2_add(thi_##p5, wasm_u64x2_extmul_high_u32x4(km_q, r_inv4));                               \
+        vector_field_detail::bb_vf_barrier_sqq(temp_##p5, tlo_##p5, thi_##p5);                                         \
         asm volatile("" : "+r"(km_q));                                                                                 \
-        temp_##lo##_plus6 += km_s * R_INV_WASM[5];                                                                     \
-        tlo_##lo##_plus6 = wasm_i64x2_add(tlo_##lo##_plus6, wasm_u64x2_extmul_low_u32x4(km_q, r_inv5));                \
-        thi_##lo##_plus6 = wasm_i64x2_add(thi_##lo##_plus6, wasm_u64x2_extmul_high_u32x4(km_q, r_inv5));               \
+        temp_##p6 += km_s * R_INV_WASM[5];                                                                             \
+        tlo_##p6 = wasm_i64x2_add(tlo_##p6, wasm_u64x2_extmul_low_u32x4(km_q, r_inv5));                                \
+        thi_##p6 = wasm_i64x2_add(thi_##p6, wasm_u64x2_extmul_high_u32x4(km_q, r_inv5));                               \
         asm volatile("" : "+r"(km_q));                                                                                 \
-        temp_##lo##_plus7 += km_s * R_INV_WASM[6];                                                                     \
-        tlo_##lo##_plus7 = wasm_i64x2_add(tlo_##lo##_plus7, wasm_u64x2_extmul_low_u32x4(km_q, r_inv6));                \
-        thi_##lo##_plus7 = wasm_i64x2_add(thi_##lo##_plus7, wasm_u64x2_extmul_high_u32x4(km_q, r_inv6));               \
-        vector_field_detail::bb_vf_barrier_sqq(temp_##lo##_plus7, tlo_##lo##_plus7, thi_##lo##_plus7);                 \
+        temp_##p7 += km_s * R_INV_WASM[6];                                                                             \
+        tlo_##p7 = wasm_i64x2_add(tlo_##p7, wasm_u64x2_extmul_low_u32x4(km_q, r_inv6));                                \
+        thi_##p7 = wasm_i64x2_add(thi_##p7, wasm_u64x2_extmul_high_u32x4(km_q, r_inv6));                               \
+        vector_field_detail::bb_vf_barrier_sqq(temp_##p7, tlo_##p7, thi_##p7);                                         \
         asm volatile("" : "+r"(km_q));                                                                                 \
-        temp_##lo##_plus8 += km_s * R_INV_WASM[7];                                                                     \
-        tlo_##lo##_plus8 = wasm_i64x2_add(tlo_##lo##_plus8, wasm_u64x2_extmul_low_u32x4(km_q, r_inv7));                \
-        thi_##lo##_plus8 = wasm_i64x2_add(thi_##lo##_plus8, wasm_u64x2_extmul_high_u32x4(km_q, r_inv7));               \
+        temp_##p8 += km_s * R_INV_WASM[7];                                                                             \
+        tlo_##p8 = wasm_i64x2_add(tlo_##p8, wasm_u64x2_extmul_low_u32x4(km_q, r_inv7));                                \
+        thi_##p8 = wasm_i64x2_add(thi_##p8, wasm_u64x2_extmul_high_u32x4(km_q, r_inv7));                               \
         asm volatile("" : "+r"(km_q));                                                                                 \
-        temp_##lo##_plus9 += km_s * R_INV_WASM[8];                                                                     \
-        tlo_##lo##_plus9 = wasm_i64x2_add(tlo_##lo##_plus9, wasm_u64x2_extmul_low_u32x4(km_q, r_inv8));                \
-        thi_##lo##_plus9 = wasm_i64x2_add(thi_##lo##_plus9, wasm_u64x2_extmul_high_u32x4(km_q, r_inv8));               \
-        vector_field_detail::bb_vf_barrier_sqq(temp_##lo##_plus9, tlo_##lo##_plus9, thi_##lo##_plus9);                 \
+        temp_##p9 += km_s * R_INV_WASM[8];                                                                             \
+        tlo_##p9 = wasm_i64x2_add(tlo_##p9, wasm_u64x2_extmul_low_u32x4(km_q, r_inv8));                                \
+        thi_##p9 = wasm_i64x2_add(thi_##p9, wasm_u64x2_extmul_high_u32x4(km_q, r_inv8));                               \
+        vector_field_detail::bb_vf_barrier_sqq(temp_##p9, tlo_##p9, thi_##p9);                                         \
     }
 
-    // Unrolled Yuval reductions for lo = 0..7. Need alias names for the macro.
-#define temp_0_plus1 temp_1
-#define temp_0_plus2 temp_2
-#define temp_0_plus3 temp_3
-#define temp_0_plus4 temp_4
-#define temp_0_plus5 temp_5
-#define temp_0_plus6 temp_6
-#define temp_0_plus7 temp_7
-#define temp_0_plus8 temp_8
-#define temp_0_plus9 temp_9
-#define tlo_0_plus1 tlo_1
-#define tlo_0_plus2 tlo_2
-#define tlo_0_plus3 tlo_3
-#define tlo_0_plus4 tlo_4
-#define tlo_0_plus5 tlo_5
-#define tlo_0_plus6 tlo_6
-#define tlo_0_plus7 tlo_7
-#define tlo_0_plus8 tlo_8
-#define tlo_0_plus9 tlo_9
-#define thi_0_plus1 thi_1
-#define thi_0_plus2 thi_2
-#define thi_0_plus3 thi_3
-#define thi_0_plus4 thi_4
-#define thi_0_plus5 thi_5
-#define thi_0_plus6 thi_6
-#define thi_0_plus7 thi_7
-#define thi_0_plus8 thi_8
-#define thi_0_plus9 thi_9
-    BB_VF_YUVAL_REDUCE(0)
-#undef temp_0_plus1
-#undef temp_0_plus2
-#undef temp_0_plus3
-#undef temp_0_plus4
-#undef temp_0_plus5
-#undef temp_0_plus6
-#undef temp_0_plus7
-#undef temp_0_plus8
-#undef temp_0_plus9
-#undef tlo_0_plus1
-#undef tlo_0_plus2
-#undef tlo_0_plus3
-#undef tlo_0_plus4
-#undef tlo_0_plus5
-#undef tlo_0_plus6
-#undef tlo_0_plus7
-#undef tlo_0_plus8
-#undef tlo_0_plus9
-#undef thi_0_plus1
-#undef thi_0_plus2
-#undef thi_0_plus3
-#undef thi_0_plus4
-#undef thi_0_plus5
-#undef thi_0_plus6
-#undef thi_0_plus7
-#undef thi_0_plus8
-#undef thi_0_plus9
-
-#define temp_1_plus1 temp_2
-#define temp_1_plus2 temp_3
-#define temp_1_plus3 temp_4
-#define temp_1_plus4 temp_5
-#define temp_1_plus5 temp_6
-#define temp_1_plus6 temp_7
-#define temp_1_plus7 temp_8
-#define temp_1_plus8 temp_9
-#define temp_1_plus9 temp_10
-#define tlo_1_plus1 tlo_2
-#define tlo_1_plus2 tlo_3
-#define tlo_1_plus3 tlo_4
-#define tlo_1_plus4 tlo_5
-#define tlo_1_plus5 tlo_6
-#define tlo_1_plus6 tlo_7
-#define tlo_1_plus7 tlo_8
-#define tlo_1_plus8 tlo_9
-#define tlo_1_plus9 tlo_10
-#define thi_1_plus1 thi_2
-#define thi_1_plus2 thi_3
-#define thi_1_plus3 thi_4
-#define thi_1_plus4 thi_5
-#define thi_1_plus5 thi_6
-#define thi_1_plus6 thi_7
-#define thi_1_plus7 thi_8
-#define thi_1_plus8 thi_9
-#define thi_1_plus9 thi_10
-    BB_VF_YUVAL_REDUCE(1)
-#undef temp_1_plus1
-#undef temp_1_plus2
-#undef temp_1_plus3
-#undef temp_1_plus4
-#undef temp_1_plus5
-#undef temp_1_plus6
-#undef temp_1_plus7
-#undef temp_1_plus8
-#undef temp_1_plus9
-#undef tlo_1_plus1
-#undef tlo_1_plus2
-#undef tlo_1_plus3
-#undef tlo_1_plus4
-#undef tlo_1_plus5
-#undef tlo_1_plus6
-#undef tlo_1_plus7
-#undef tlo_1_plus8
-#undef tlo_1_plus9
-#undef thi_1_plus1
-#undef thi_1_plus2
-#undef thi_1_plus3
-#undef thi_1_plus4
-#undef thi_1_plus5
-#undef thi_1_plus6
-#undef thi_1_plus7
-#undef thi_1_plus8
-#undef thi_1_plus9
-
-#define temp_2_plus1 temp_3
-#define temp_2_plus2 temp_4
-#define temp_2_plus3 temp_5
-#define temp_2_plus4 temp_6
-#define temp_2_plus5 temp_7
-#define temp_2_plus6 temp_8
-#define temp_2_plus7 temp_9
-#define temp_2_plus8 temp_10
-#define temp_2_plus9 temp_11
-#define tlo_2_plus1 tlo_3
-#define tlo_2_plus2 tlo_4
-#define tlo_2_plus3 tlo_5
-#define tlo_2_plus4 tlo_6
-#define tlo_2_plus5 tlo_7
-#define tlo_2_plus6 tlo_8
-#define tlo_2_plus7 tlo_9
-#define tlo_2_plus8 tlo_10
-#define tlo_2_plus9 tlo_11
-#define thi_2_plus1 thi_3
-#define thi_2_plus2 thi_4
-#define thi_2_plus3 thi_5
-#define thi_2_plus4 thi_6
-#define thi_2_plus5 thi_7
-#define thi_2_plus6 thi_8
-#define thi_2_plus7 thi_9
-#define thi_2_plus8 thi_10
-#define thi_2_plus9 thi_11
-    BB_VF_YUVAL_REDUCE(2)
-#undef temp_2_plus1
-#undef temp_2_plus2
-#undef temp_2_plus3
-#undef temp_2_plus4
-#undef temp_2_plus5
-#undef temp_2_plus6
-#undef temp_2_plus7
-#undef temp_2_plus8
-#undef temp_2_plus9
-#undef tlo_2_plus1
-#undef tlo_2_plus2
-#undef tlo_2_plus3
-#undef tlo_2_plus4
-#undef tlo_2_plus5
-#undef tlo_2_plus6
-#undef tlo_2_plus7
-#undef tlo_2_plus8
-#undef tlo_2_plus9
-#undef thi_2_plus1
-#undef thi_2_plus2
-#undef thi_2_plus3
-#undef thi_2_plus4
-#undef thi_2_plus5
-#undef thi_2_plus6
-#undef thi_2_plus7
-#undef thi_2_plus8
-#undef thi_2_plus9
-
-#define temp_3_plus1 temp_4
-#define temp_3_plus2 temp_5
-#define temp_3_plus3 temp_6
-#define temp_3_plus4 temp_7
-#define temp_3_plus5 temp_8
-#define temp_3_plus6 temp_9
-#define temp_3_plus7 temp_10
-#define temp_3_plus8 temp_11
-#define temp_3_plus9 temp_12
-#define tlo_3_plus1 tlo_4
-#define tlo_3_plus2 tlo_5
-#define tlo_3_plus3 tlo_6
-#define tlo_3_plus4 tlo_7
-#define tlo_3_plus5 tlo_8
-#define tlo_3_plus6 tlo_9
-#define tlo_3_plus7 tlo_10
-#define tlo_3_plus8 tlo_11
-#define tlo_3_plus9 tlo_12
-#define thi_3_plus1 thi_4
-#define thi_3_plus2 thi_5
-#define thi_3_plus3 thi_6
-#define thi_3_plus4 thi_7
-#define thi_3_plus5 thi_8
-#define thi_3_plus6 thi_9
-#define thi_3_plus7 thi_10
-#define thi_3_plus8 thi_11
-#define thi_3_plus9 thi_12
-    BB_VF_YUVAL_REDUCE(3)
-#undef temp_3_plus1
-#undef temp_3_plus2
-#undef temp_3_plus3
-#undef temp_3_plus4
-#undef temp_3_plus5
-#undef temp_3_plus6
-#undef temp_3_plus7
-#undef temp_3_plus8
-#undef temp_3_plus9
-#undef tlo_3_plus1
-#undef tlo_3_plus2
-#undef tlo_3_plus3
-#undef tlo_3_plus4
-#undef tlo_3_plus5
-#undef tlo_3_plus6
-#undef tlo_3_plus7
-#undef tlo_3_plus8
-#undef tlo_3_plus9
-#undef thi_3_plus1
-#undef thi_3_plus2
-#undef thi_3_plus3
-#undef thi_3_plus4
-#undef thi_3_plus5
-#undef thi_3_plus6
-#undef thi_3_plus7
-#undef thi_3_plus8
-#undef thi_3_plus9
-
-#define temp_4_plus1 temp_5
-#define temp_4_plus2 temp_6
-#define temp_4_plus3 temp_7
-#define temp_4_plus4 temp_8
-#define temp_4_plus5 temp_9
-#define temp_4_plus6 temp_10
-#define temp_4_plus7 temp_11
-#define temp_4_plus8 temp_12
-#define temp_4_plus9 temp_13
-#define tlo_4_plus1 tlo_5
-#define tlo_4_plus2 tlo_6
-#define tlo_4_plus3 tlo_7
-#define tlo_4_plus4 tlo_8
-#define tlo_4_plus5 tlo_9
-#define tlo_4_plus6 tlo_10
-#define tlo_4_plus7 tlo_11
-#define tlo_4_plus8 tlo_12
-#define tlo_4_plus9 tlo_13
-#define thi_4_plus1 thi_5
-#define thi_4_plus2 thi_6
-#define thi_4_plus3 thi_7
-#define thi_4_plus4 thi_8
-#define thi_4_plus5 thi_9
-#define thi_4_plus6 thi_10
-#define thi_4_plus7 thi_11
-#define thi_4_plus8 thi_12
-#define thi_4_plus9 thi_13
-    BB_VF_YUVAL_REDUCE(4)
-#undef temp_4_plus1
-#undef temp_4_plus2
-#undef temp_4_plus3
-#undef temp_4_plus4
-#undef temp_4_plus5
-#undef temp_4_plus6
-#undef temp_4_plus7
-#undef temp_4_plus8
-#undef temp_4_plus9
-#undef tlo_4_plus1
-#undef tlo_4_plus2
-#undef tlo_4_plus3
-#undef tlo_4_plus4
-#undef tlo_4_plus5
-#undef tlo_4_plus6
-#undef tlo_4_plus7
-#undef tlo_4_plus8
-#undef tlo_4_plus9
-#undef thi_4_plus1
-#undef thi_4_plus2
-#undef thi_4_plus3
-#undef thi_4_plus4
-#undef thi_4_plus5
-#undef thi_4_plus6
-#undef thi_4_plus7
-#undef thi_4_plus8
-#undef thi_4_plus9
-
-#define temp_5_plus1 temp_6
-#define temp_5_plus2 temp_7
-#define temp_5_plus3 temp_8
-#define temp_5_plus4 temp_9
-#define temp_5_plus5 temp_10
-#define temp_5_plus6 temp_11
-#define temp_5_plus7 temp_12
-#define temp_5_plus8 temp_13
-#define temp_5_plus9 temp_14
-#define tlo_5_plus1 tlo_6
-#define tlo_5_plus2 tlo_7
-#define tlo_5_plus3 tlo_8
-#define tlo_5_plus4 tlo_9
-#define tlo_5_plus5 tlo_10
-#define tlo_5_plus6 tlo_11
-#define tlo_5_plus7 tlo_12
-#define tlo_5_plus8 tlo_13
-#define tlo_5_plus9 tlo_14
-#define thi_5_plus1 thi_6
-#define thi_5_plus2 thi_7
-#define thi_5_plus3 thi_8
-#define thi_5_plus4 thi_9
-#define thi_5_plus5 thi_10
-#define thi_5_plus6 thi_11
-#define thi_5_plus7 thi_12
-#define thi_5_plus8 thi_13
-#define thi_5_plus9 thi_14
-    BB_VF_YUVAL_REDUCE(5)
-#undef temp_5_plus1
-#undef temp_5_plus2
-#undef temp_5_plus3
-#undef temp_5_plus4
-#undef temp_5_plus5
-#undef temp_5_plus6
-#undef temp_5_plus7
-#undef temp_5_plus8
-#undef temp_5_plus9
-#undef tlo_5_plus1
-#undef tlo_5_plus2
-#undef tlo_5_plus3
-#undef tlo_5_plus4
-#undef tlo_5_plus5
-#undef tlo_5_plus6
-#undef tlo_5_plus7
-#undef tlo_5_plus8
-#undef tlo_5_plus9
-#undef thi_5_plus1
-#undef thi_5_plus2
-#undef thi_5_plus3
-#undef thi_5_plus4
-#undef thi_5_plus5
-#undef thi_5_plus6
-#undef thi_5_plus7
-#undef thi_5_plus8
-#undef thi_5_plus9
-
-#define temp_6_plus1 temp_7
-#define temp_6_plus2 temp_8
-#define temp_6_plus3 temp_9
-#define temp_6_plus4 temp_10
-#define temp_6_plus5 temp_11
-#define temp_6_plus6 temp_12
-#define temp_6_plus7 temp_13
-#define temp_6_plus8 temp_14
-#define temp_6_plus9 temp_15
-#define tlo_6_plus1 tlo_7
-#define tlo_6_plus2 tlo_8
-#define tlo_6_plus3 tlo_9
-#define tlo_6_plus4 tlo_10
-#define tlo_6_plus5 tlo_11
-#define tlo_6_plus6 tlo_12
-#define tlo_6_plus7 tlo_13
-#define tlo_6_plus8 tlo_14
-#define tlo_6_plus9 tlo_15
-#define thi_6_plus1 thi_7
-#define thi_6_plus2 thi_8
-#define thi_6_plus3 thi_9
-#define thi_6_plus4 thi_10
-#define thi_6_plus5 thi_11
-#define thi_6_plus6 thi_12
-#define thi_6_plus7 thi_13
-#define thi_6_plus8 thi_14
-#define thi_6_plus9 thi_15
-    BB_VF_YUVAL_REDUCE(6)
-#undef temp_6_plus1
-#undef temp_6_plus2
-#undef temp_6_plus3
-#undef temp_6_plus4
-#undef temp_6_plus5
-#undef temp_6_plus6
-#undef temp_6_plus7
-#undef temp_6_plus8
-#undef temp_6_plus9
-#undef tlo_6_plus1
-#undef tlo_6_plus2
-#undef tlo_6_plus3
-#undef tlo_6_plus4
-#undef tlo_6_plus5
-#undef tlo_6_plus6
-#undef tlo_6_plus7
-#undef tlo_6_plus8
-#undef tlo_6_plus9
-#undef thi_6_plus1
-#undef thi_6_plus2
-#undef thi_6_plus3
-#undef thi_6_plus4
-#undef thi_6_plus5
-#undef thi_6_plus6
-#undef thi_6_plus7
-#undef thi_6_plus8
-#undef thi_6_plus9
-
-#define temp_7_plus1 temp_8
-#define temp_7_plus2 temp_9
-#define temp_7_plus3 temp_10
-#define temp_7_plus4 temp_11
-#define temp_7_plus5 temp_12
-#define temp_7_plus6 temp_13
-#define temp_7_plus7 temp_14
-#define temp_7_plus8 temp_15
-#define temp_7_plus9 temp_16
-#define tlo_7_plus1 tlo_8
-#define tlo_7_plus2 tlo_9
-#define tlo_7_plus3 tlo_10
-#define tlo_7_plus4 tlo_11
-#define tlo_7_plus5 tlo_12
-#define tlo_7_plus6 tlo_13
-#define tlo_7_plus7 tlo_14
-#define tlo_7_plus8 tlo_15
-#define tlo_7_plus9 tlo_16
-#define thi_7_plus1 thi_8
-#define thi_7_plus2 thi_9
-#define thi_7_plus3 thi_10
-#define thi_7_plus4 thi_11
-#define thi_7_plus5 thi_12
-#define thi_7_plus6 thi_13
-#define thi_7_plus7 thi_14
-#define thi_7_plus8 thi_15
-#define thi_7_plus9 thi_16
-    BB_VF_YUVAL_REDUCE(7)
-#undef temp_7_plus1
-#undef temp_7_plus2
-#undef temp_7_plus3
-#undef temp_7_plus4
-#undef temp_7_plus5
-#undef temp_7_plus6
-#undef temp_7_plus7
-#undef temp_7_plus8
-#undef temp_7_plus9
-#undef tlo_7_plus1
-#undef tlo_7_plus2
-#undef tlo_7_plus3
-#undef tlo_7_plus4
-#undef tlo_7_plus5
-#undef tlo_7_plus6
-#undef tlo_7_plus7
-#undef tlo_7_plus8
-#undef tlo_7_plus9
-#undef thi_7_plus1
-#undef thi_7_plus2
-#undef thi_7_plus3
-#undef thi_7_plus4
-#undef thi_7_plus5
-#undef thi_7_plus6
-#undef thi_7_plus7
-#undef thi_7_plus8
-#undef thi_7_plus9
+    // Unrolled Yuval reductions for lo = 0..7.
+    BB_VF_YUVAL_REDUCE(0, 1, 2, 3, 4, 5, 6, 7, 8, 9)
+    BB_VF_YUVAL_REDUCE(1, 2, 3, 4, 5, 6, 7, 8, 9, 10)
+    BB_VF_YUVAL_REDUCE(2, 3, 4, 5, 6, 7, 8, 9, 10, 11)
+    BB_VF_YUVAL_REDUCE(3, 4, 5, 6, 7, 8, 9, 10, 11, 12)
+    BB_VF_YUVAL_REDUCE(4, 5, 6, 7, 8, 9, 10, 11, 12, 13)
+    BB_VF_YUVAL_REDUCE(5, 6, 7, 8, 9, 10, 11, 12, 13, 14)
+    BB_VF_YUVAL_REDUCE(6, 7, 8, 9, 10, 11, 12, 13, 14, 15)
+    BB_VF_YUVAL_REDUCE(7, 8, 9, 10, 11, 12, 13, 14, 15, 16)
 #undef BB_VF_YUVAL_REDUCE
 
     // ============================================================
