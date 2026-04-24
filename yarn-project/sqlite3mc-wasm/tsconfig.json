@@ -2,9 +2,9 @@
   "extends": "..",
   "compilerOptions": {
     "outDir": "dest",
-    "rootDir": "src",
+    "rootDir": ".",
     "tsBuildInfoFile": ".tsbuildinfo",
     "composite": true
   },
-  "include": ["src"]
+  "include": ["src", "vendor/jswasm/*.d.mts"]
 }
