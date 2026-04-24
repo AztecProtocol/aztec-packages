@@ -191,14 +191,9 @@ export class DeployAccountMethod<TContract extends ContractBase = Contract> exte
 
   protected override convertDeployOptionsToSendOptions<W extends DeployInteractionWaitOptions>(
     options: DeployOptions<W>,
-<<<<<<< HEAD
     // eslint-disable-next-line jsdoc/require-jsdoc
   ): SendOptions<W extends { returnReceipt: true } ? WaitOpts : W> {
-    return super.convertDeployOptionsToSendOptions(this.injectContractAddressIntoScopes(options));
-=======
-  ): SendOptions<W> {
     return super.convertDeployOptionsToSendOptions(this.prepareDeployOptions(options));
->>>>>>> efc29f75ba (fix(pxe): restrict setSenderForTags override to current call (F-564) (#22672))
   }
 
   protected override convertDeployOptionsToSimulateOptions(options: SimulateDeployOptions): SimulateOptions {

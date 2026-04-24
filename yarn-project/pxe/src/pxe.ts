@@ -378,30 +378,19 @@ export class PXE {
 
   // Executes the entrypoint private function, as well as all nested private
   // functions that might arise.
-<<<<<<< HEAD
-  async #executePrivate(
-    contractFunctionSimulator: ContractFunctionSimulator,
-    txRequest: TxExecutionRequest,
-    scopes: AztecAddress[],
-    jobId: string,
-  ): Promise<PrivateExecutionResult> {
-=======
   async #executePrivate({
     contractFunctionSimulator,
     txRequest,
-    anchorBlockHeader,
     scopes,
     jobId,
     senderForTags,
   }: {
     contractFunctionSimulator: ContractFunctionSimulator;
     txRequest: TxExecutionRequest;
-    anchorBlockHeader: BlockHeader;
     scopes: AztecAddress[];
     jobId: string;
     senderForTags?: AztecAddress;
   }): Promise<PrivateExecutionResult> {
->>>>>>> efc29f75ba (fix(pxe): restrict setSenderForTags override to current call (F-564) (#22672))
     const { origin: contractAddress, functionSelector } = txRequest;
 
     try {
@@ -781,18 +770,13 @@ export class PXE {
         await this.blockStateSynchronizer.sync();
         const syncTime = syncTimer.ms();
         const contractFunctionSimulator = this.#getSimulatorForTx();
-<<<<<<< HEAD
-        privateExecutionResult = await this.#executePrivate(contractFunctionSimulator, txRequest, scopes, jobId);
-=======
         privateExecutionResult = await this.#executePrivate({
           contractFunctionSimulator,
           txRequest,
-          anchorBlockHeader,
           scopes,
           jobId,
           senderForTags,
         });
->>>>>>> efc29f75ba (fix(pxe): restrict setSenderForTags override to current call (F-564) (#22672))
 
         const {
           publicInputs,
@@ -885,18 +869,13 @@ export class PXE {
         const syncTime = syncTimer.ms();
 
         const contractFunctionSimulator = this.#getSimulatorForTx();
-<<<<<<< HEAD
-        const privateExecutionResult = await this.#executePrivate(contractFunctionSimulator, txRequest, scopes, jobId);
-=======
         const privateExecutionResult = await this.#executePrivate({
           contractFunctionSimulator,
           txRequest,
-          anchorBlockHeader,
           scopes,
           jobId,
           senderForTags,
         });
->>>>>>> efc29f75ba (fix(pxe): restrict setSenderForTags override to current call (F-564) (#22672))
 
         const { executionSteps, timings: { proving } = {} } = await this.#prove(
           txRequest,
@@ -1011,18 +990,13 @@ export class PXE {
         }
 
         // Execution of private functions only; no proving, and no kernel logic.
-<<<<<<< HEAD
-        const privateExecutionResult = await this.#executePrivate(contractFunctionSimulator, txRequest, scopes, jobId);
-=======
         const privateExecutionResult = await this.#executePrivate({
           contractFunctionSimulator,
           txRequest,
-          anchorBlockHeader,
           scopes,
           jobId,
           senderForTags,
         });
->>>>>>> efc29f75ba (fix(pxe): restrict setSenderForTags override to current call (F-564) (#22672))
 
         let publicInputs: PrivateKernelTailCircuitPublicInputs | undefined;
         let executionSteps: PrivateExecutionStep[] = [];

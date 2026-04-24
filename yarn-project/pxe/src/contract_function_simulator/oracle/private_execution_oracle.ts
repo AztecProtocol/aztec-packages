@@ -581,12 +581,8 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
       totalPublicCalldataCount: this.totalPublicCalldataCount,
       sideEffectCounter,
       scopes: this.scopes,
-<<<<<<< HEAD
       log: this.logger,
-      senderForTags: this.senderForTags,
-=======
       senderForTags: this.defaultSenderForTags,
->>>>>>> efc29f75ba (fix(pxe): restrict setSenderForTags override to current call (F-564) (#22672))
       simulator: this.simulator!,
       l2TipsStore: this.l2TipsStore,
     });
