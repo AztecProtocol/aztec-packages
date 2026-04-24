@@ -121,8 +121,8 @@ void EmitPublicLogTraceBuilder::process(
 
 const InteractionDefinition EmitPublicLogTraceBuilder::interactions =
     InteractionDefinition()
-        .add<lookup_emit_public_log_check_log_fields_count_settings, InteractionType::LookupGeneric>(Column::gt_sel)
-        .add<lookup_emit_public_log_check_memory_out_of_bounds_settings, InteractionType::LookupGeneric>(Column::gt_sel)
-        .add<lookup_emit_public_log_write_data_to_public_inputs_settings, InteractionType::LookupIntoIndexedByRow>();
+        .add<InteractionType::LookupGeneric, lookup_emit_public_log_check_log_fields_count_settings>(Column::gt_sel)
+        .add<InteractionType::LookupGeneric, lookup_emit_public_log_check_memory_out_of_bounds_settings>(Column::gt_sel)
+        .add<InteractionType::LookupIntoIndexedByRow, lookup_emit_public_log_write_data_to_public_inputs_settings>();
 
 } // namespace bb::avm2::tracegen
