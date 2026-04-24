@@ -2,7 +2,7 @@
 
 #include "barretenberg/avm_fuzzer/fuzz_lib/constants.hpp"
 #include "barretenberg/avm_fuzzer/fuzz_lib/simulator.hpp"
-#include "barretenberg/vm2/common/aztec_constants.hpp"
+#include "barretenberg/aztec/aztec_constants.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/simulation/events/update_check.hpp"
 #include "barretenberg/vm2/simulation/gadgets/bytecode_manager.hpp"

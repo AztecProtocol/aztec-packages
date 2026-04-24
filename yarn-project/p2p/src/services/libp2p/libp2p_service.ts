@@ -8,7 +8,7 @@ import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import { protocolContractsHash } from '@aztec/protocol-contracts';
 import type { EthAddress, L2BlockSource } from '@aztec/stdlib/block';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
-import { GasFees } from '@aztec/stdlib/gas';
+import { type BlockMinFeesProvider, GasFees } from '@aztec/stdlib/gas';
 import type { ClientProtocolCircuitVerifier, PeerInfo, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import {
   BlockProposal,
@@ -146,8 +146,6 @@ export class LibP2PService extends WithTracer implements P2PService {
   private protocolVersion = '';
   private topicStrings: Record<TopicType, string> = {} as Record<TopicType, string>;
 
-  private feesCache: { blockNumber: BlockNumber; gasFees: GasFees } | undefined;
-
   /** Callback invoked when a duplicate proposal is detected (triggers slashing). */
   private duplicateProposalCallback?: (info: {
     slot: SlotNumber;
@@ -197,6 +195,7 @@ export class LibP2PService extends WithTracer implements P2PService {
     private epochCache: EpochCacheInterface,
     private proofVerifier: ClientProtocolCircuitVerifier,
     private worldStateSynchronizer: WorldStateSynchronizer,
+    private blockMinFeesProvider: BlockMinFeesProvider,
     telemetry: TelemetryClient,
     logger: Logger = createLogger('p2p:libp2p_service'),
   ) {
@@ -285,6 +284,7 @@ export class LibP2PService extends WithTracer implements P2PService {
       proofVerifier: ClientProtocolCircuitVerifier;
       worldStateSynchronizer: WorldStateSynchronizer;
       peerStore: AztecAsyncKVStore;
+      blockMinFeesProvider: BlockMinFeesProvider;
       telemetry: TelemetryClient;
       logger: Logger;
       packageVersion: string;
@@ -297,6 +297,7 @@ export class LibP2PService extends WithTracer implements P2PService {
       mempools,
       proofVerifier,
       peerStore,
+      blockMinFeesProvider,
       telemetry,
       logger,
       packageVersion,
@@ -503,6 +504,7 @@ export class LibP2PService extends WithTracer implements P2PService {
       epochCache,
       proofVerifier,
       worldStateSynchronizer,
+      blockMinFeesProvider,
       telemetry,
       logger,
     );
@@ -1616,15 +1618,8 @@ export class LibP2PService extends WithTracer implements P2PService {
     });
   }
 
-  private async getGasFees(blockNumber: BlockNumber): Promise<GasFees> {
-    if (blockNumber === this.feesCache?.blockNumber) {
-      return this.feesCache.gasFees;
-    }
-
-    const header = await this.archiver.getBlockHeader(blockNumber);
-    const gasFees = header?.globalVariables.gasFees ?? GasFees.empty();
-    this.feesCache = { blockNumber, gasFees };
-    return gasFees;
+  private getGasFees(): Promise<GasFees> {
+    return this.blockMinFeesProvider.getCurrentMinFees();
   }
 
   /**
@@ -1666,7 +1661,7 @@ export class LibP2PService extends WithTracer implements P2PService {
     currentBlockNumber: BlockNumber,
     nextSlotTimestamp: UInt64,
   ): Promise<Record<string, TransactionValidator>> {
-    const gasFees = await this.getGasFees(currentBlockNumber);
+    const gasFees = await this.getGasFees();
     const allowedInSetup = [
       ...(await getDefaultAllowedSetupFunctions()),
       ...(this.config.txPublicSetupAllowListExtend ?? []),

@@ -3,8 +3,13 @@ use crate::macros::{
         create_private_self_call_stub, create_private_static_stub, create_private_stub,
         create_public_self_call_static_stub, create_public_self_call_stub, create_public_self_enqueue_static_stub,
         create_public_self_enqueue_stub, create_public_static_stub, create_public_stub, create_utility_stub,
+        create_utility_stub_from_parts,
     },
     internals_functions_generation::external_functions_registry,
+    offchain_receive::{
+        OFFCHAIN_RECEIVE_FN_NAME, OFFCHAIN_RECEIVE_PARAM_NAME, offchain_receive_param_type,
+        OFFCHAIN_RECEIVE_RETURN_TYPE,
+    },
     utils::is_fn_view,
 };
 
@@ -37,13 +42,28 @@ pub(crate) comptime fn generate_external_function_calls(m: Module) -> Quoted {
         })
         .join(quote {});
 
-    let utility_contract_methods = utility_functions.map(|function| create_utility_stub(function)).join(quote {});
+    // `offchain_receive` is injected into every contract by `#[aztec]` as quoted code rather than via the
+    // `#[external("utility")]` attribute that populates `UTILITY_REGISTRY`, so it doesn't appear in
+    // `utility_functions`. We append its stub so it shows up in the interface like any other utility.
+    let utility_stubs =
+        utility_functions.map(|function| create_utility_stub(function)).push_back(create_offchain_receive_stub());
+    let utility_contract_methods = utility_stubs.join(quote {});
 
     quote {
         $private_contract_methods
         $public_contract_methods
         $utility_contract_methods
     }
+}
+
+/// Builds the interface stub for the macro-injected `offchain_receive` utility. Pulls the signature
+/// from `crate::macros::offchain_receive` so it stays in lockstep with `generate_offchain_receive`.
+comptime fn create_offchain_receive_stub() -> Quoted {
+    let param_type = offchain_receive_param_type(quote { crate }).as_type();
+    let fn_parameters = @[(OFFCHAIN_RECEIVE_PARAM_NAME, param_type)];
+    let fn_return_type = OFFCHAIN_RECEIVE_RETURN_TYPE.as_type();
+
+    create_utility_stub_from_parts(OFFCHAIN_RECEIVE_FN_NAME, fn_parameters, fn_return_type)
 }
 
 /// Generates helper structs for convenient self-invocation of contract functions:

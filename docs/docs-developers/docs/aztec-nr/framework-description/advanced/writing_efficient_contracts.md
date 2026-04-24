@@ -61,6 +61,10 @@ Measuring gate counts is explained in the [profiling guide](./how_to_profile_tra
 
 Of the L2 costs, the public/private data being updated is most significant. As L2 functions create notes, nullifiers, encrypted logs, all of this get posted into blobs on ethereum and will be quite expensive
 
+:::tip Data packing
+You can reduce storage operation costs by implementing custom `Packable` for your structs, packing multiple sub-`Field` values into fewer `Field` elements. See [Data Packing and Serialization](../data_packing.md) for details.
+:::
+
 ### L1 Limits
 
 While most zk rollups don't leverage the zero-knowledge property like Aztec, they do leverage the succinctness property.
@@ -179,11 +183,11 @@ See [this example](https://github.com/noir-lang/noir-examples/blob/master/noir_b
 Consider the following example of an implementation of the `sqrt` function:
 
 ```rust
-use dep::aztec::macros::aztec;
+use aztec::macros::aztec;
 
 #[aztec]
 pub contract OptimisationExample {
-    use dep::aztec::macros::{functions::{external, initializer}, storage::storage};
+    use aztec::macros::{functions::{external, initializer}, storage::storage};
 
     #[storage]
     struct Storage<Context> {}
