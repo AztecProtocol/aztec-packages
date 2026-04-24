@@ -307,6 +307,7 @@ namespace address_derivation;
 
     // Enforces address_point = preaddress_public_key + incoming_viewing_key on Grumpkin, and that
     // address = address_point.x.
+    // TODO(MW): Remove result_infinity?
     #[ADDRESS_ECADD]
     sel {
         preaddress_public_key_x, preaddress_public_key_y, precomputed.zero,
@@ -315,7 +316,7 @@ namespace address_derivation;
     } in ecc.sel {
         ecc.p_x, ecc.p_y, ecc.p_is_inf,
         ecc.q_x, ecc.q_y, ecc.q_is_inf,
-        ecc.r_x, ecc.r_y, ecc.r_is_inf
+        ecc.r_x, ecc.r_y, ecc.result_infinity
     };
 
     // Note: We can safely assume the address point is not infinity since that would imply either

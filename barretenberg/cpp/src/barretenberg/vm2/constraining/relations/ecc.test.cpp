@@ -103,7 +103,6 @@ TEST(EccAddConstrainingTest, EccAdd)
         { C::ecc_q_y, q.y() },
 
         // Resulting Point
-        { C::ecc_r_is_inf, static_cast<int>(r.is_infinity()) },
         { C::ecc_r_x, r.x() },
         { C::ecc_r_y, r.y() },
 
@@ -147,7 +146,6 @@ TEST(EccAddConstrainingTest, EccDouble)
         { C::ecc_q_y, p.y() },
 
         // Resulting Point
-        { C::ecc_r_is_inf, static_cast<int>(r.is_infinity()) },
         { C::ecc_r_x, r.x() },
         { C::ecc_r_y, r.y() },
 
@@ -246,7 +244,6 @@ TEST(EccAddConstrainingTest, EccAddResultingInInfinity)
         { C::ecc_q_y, q.y() },
 
         // Resulting Point
-        { C::ecc_r_is_inf, static_cast<int>(r.is_infinity()) },
         { C::ecc_r_x, r.x() },
         { C::ecc_r_y, r.y() },
 
@@ -289,7 +286,6 @@ TEST(EccAddConstrainingTest, EccAddingToInfinity)
         { C::ecc_q_y, q.y() },
 
         // Resulting Point
-        { C::ecc_r_is_inf, static_cast<int>(r.is_infinity()) },
         { C::ecc_r_x, r.x() },
         { C::ecc_r_y, r.y() },
 
@@ -331,7 +327,6 @@ TEST(EccAddConstrainingTest, EccAddingInfinity)
         { C::ecc_q_y, q.y() },
 
         // Resulting Point
-        { C::ecc_r_is_inf, static_cast<int>(r.is_infinity()) },
         { C::ecc_r_x, r.x() },
         { C::ecc_r_y, r.y() },
 
@@ -374,7 +369,6 @@ TEST(EccAddConstrainingTest, EccDoublingInf)
         { C::ecc_q_y, p.y() },
 
         // Resulting Point
-        { C::ecc_r_is_inf, static_cast<int>(r.is_infinity()) },
         { C::ecc_r_x, r.x() },
         { C::ecc_r_y, r.y() },
 
@@ -415,7 +409,6 @@ TEST(EccAddConstrainingTest, EccTwoOps)
                                           { C::ecc_q_y, q.y() },
 
                                           // Resulting Point
-                                          { C::ecc_r_is_inf, static_cast<int>(r1.is_infinity()) },
                                           { C::ecc_r_x, r1.x() },
                                           { C::ecc_r_y, r1.y() },
 
@@ -448,7 +441,6 @@ TEST(EccAddConstrainingTest, EccTwoOps)
                                           { C::ecc_q_y, r1.y() },
 
                                           // Resulting Point
-                                          { C::ecc_r_is_inf, static_cast<int>(r2.is_infinity()) },
                                           { C::ecc_r_x, r2.x() },
                                           { C::ecc_r_y, r2.y() },
 
@@ -493,7 +485,6 @@ TEST(EccAddConstrainingTest, EccNegativeBadAdd)
         { C::ecc_q_y, q.y() },
 
         // Resulting Point
-        { C::ecc_r_is_inf, static_cast<int>(r.is_infinity()) },
         { C::ecc_r_x, r.x() },
         { C::ecc_r_y, r.y() },
 
@@ -537,7 +528,6 @@ TEST(EccAddConstrainingTest, EccNegativeBadDouble)
         { C::ecc_q_y, p.y() },
 
         // Resulting Point
-        { C::ecc_r_is_inf, static_cast<int>(r.is_infinity()) },
         { C::ecc_r_x, r.x() },
         { C::ecc_r_y, r.y() },
 
@@ -1144,16 +1134,14 @@ TEST(EccAddMemoryConstrainingTest, EccAddMemoryInteractions)
             // Execution
             { C::execution_sel, 1 },
             { C::execution_sel_exec_dispatch_ecc_add, 1 },
-            { C::execution_rop_6_, dst_address },
+            { C::execution_rop_4_, dst_address },
             { C::execution_register_0_, p.x() },
             { C::execution_register_1_, p.y() },
-            { C::execution_register_2_, p.is_infinity() ? 1 : 0 },
-            { C::execution_register_3_, q.x() },
-            { C::execution_register_4_, q.y() },
-            { C::execution_register_5_, q.is_infinity() ? 1 : 0 },
+            { C::execution_register_2_, q.x() },
+            { C::execution_register_3_, q.y() },
             // GT - dst out of range check
             { C::gt_sel, 1 },
-            { C::gt_input_a, dst_address + 2 }, // highest write address is dst_address + 2
+            { C::gt_input_a, dst_address + 1 }, // highest write address is dst_address + 1
             { C::gt_input_b, AVM_HIGHEST_MEM_ADDRESS },
             { C::gt_res, 0 },
             // Memory Writes
@@ -1170,14 +1158,6 @@ TEST(EccAddMemoryConstrainingTest, EccAddMemoryInteractions)
             { C::memory_sel, 1 },
             { C::memory_rw, 1 }, // write
             { C::memory_tag, static_cast<uint8_t>(MemoryTag::FF) },
-        },
-        {
-            // Memory Writes
-            { C::memory_address, dst_address + 2 },
-            { C::memory_value, result.is_infinity() },
-            { C::memory_sel, 1 },
-            { C::memory_rw, 1 }, // write
-            { C::memory_tag, static_cast<uint8_t>(MemoryTag::U1) },
         },
     });
 
@@ -1222,17 +1202,15 @@ TEST(EccAddMemoryConstrainingTest, EccAddMemoryInvalidDstRange)
             // Execution
             { C::execution_sel, 1 },
             { C::execution_sel_exec_dispatch_ecc_add, 1 },
-            { C::execution_rop_6_, dst_address },
+            { C::execution_rop_4_, dst_address },
             { C::execution_register_0_, p.x() },
             { C::execution_register_1_, p.y() },
-            { C::execution_register_2_, p.is_infinity() ? 1 : 0 },
-            { C::execution_register_3_, q.x() },
-            { C::execution_register_4_, q.y() },
-            { C::execution_register_5_, q.is_infinity() ? 1 : 0 },
+            { C::execution_register_2_, q.x() },
+            { C::execution_register_3_, q.y() },
             { C::execution_sel_opcode_error, 1 },
             // GT - dst out of range check
             { C::gt_sel, 1 },
-            { C::gt_input_a, static_cast<uint64_t>(dst_address) + 2 },
+            { C::gt_input_a, static_cast<uint64_t>(dst_address) + 1 },
             { C::gt_input_b, AVM_HIGHEST_MEM_ADDRESS },
             { C::gt_res, 1 },
         },
@@ -1284,17 +1262,15 @@ TEST(EccAddMemoryConstrainingTest, EccAddMemoryPointError)
             // Execution
             { C::execution_sel, 1 },
             { C::execution_sel_exec_dispatch_ecc_add, 1 },
-            { C::execution_rop_6_, dst_address },
+            { C::execution_rop_4_, dst_address },
             { C::execution_register_0_, p.x() },
             { C::execution_register_1_, p.y() },
-            { C::execution_register_2_, p.is_infinity() ? 1 : 0 },
-            { C::execution_register_3_, q.x() },
-            { C::execution_register_4_, q.y() },
-            { C::execution_register_5_, q.is_infinity() ? 1 : 0 },
+            { C::execution_register_2_, q.x() },
+            { C::execution_register_3_, q.y() },
             { C::execution_sel_opcode_error, 1 }, // Indicate an error in the operation
             // GT - dst out of range check
             { C::gt_sel, 1 },
-            { C::gt_input_a, dst_address + 2 }, // highest write address is dst_address + 2
+            { C::gt_input_a, dst_address + 1 }, // highest write address is dst_address + 1
             { C::gt_input_b, AVM_HIGHEST_MEM_ADDRESS },
             { C::gt_res, 0 },
         },

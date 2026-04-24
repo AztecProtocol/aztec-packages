@@ -131,7 +131,6 @@ void EccTraceBuilder::process_add(const simulation::EventEmitterInterface<simula
                       // Resulting point
                       { C::ecc_r_x, result.x() },
                       { C::ecc_r_y, result.y() },
-                      { C::ecc_r_is_inf, result.is_infinity() ? 1 : 0 },
 
                       // Temporary result boolean to decrease relation degree
                       { C::ecc_use_computed_result, use_computed_result },
@@ -150,8 +149,7 @@ void EccTraceBuilder::process_add(const simulation::EventEmitterInterface<simula
 
                       // Witness for add operation
                       { C::ecc_add_op, add_predicate },
-                      // This is a witness for the result(r) being the point at infinity
-                      // It is used to constrain that ecc_r_is_inf is correctly set.
+                      // This is a witness for the result(r) being the point at infinity.
                       { C::ecc_result_infinity, result_is_infinity },
                       // The computed 'slope' between points P and Q.
                       { C::ecc_lambda, lambda },
@@ -321,24 +319,20 @@ void EccTraceBuilder::process_add_with_memory(
                 // Memory Writes
                 { C::ecc_add_mem_dst_addr_0_, dst_addr },
                 { C::ecc_add_mem_dst_addr_1_, dst_addr + 1 },
-                { C::ecc_add_mem_dst_addr_2_, dst_addr + 2 },
                 // Input - Point P
                 { C::ecc_add_mem_p_x, event.p.x() },
                 { C::ecc_add_mem_p_y, event.p.y() },
                 { C::ecc_add_mem_p_is_inf,
                   event.p.is_infinity() ? 1 : 0 }, // TODO(#AVM-266): If committed, Will be p.x() == 0 && p.y() == 0
-                { C::ecc_add_mem_p_is_inf_, event.p.is_infinity() ? 1 : 0 }, // TODO(#AVM-266): Remove is_infinity flag
                 // Input - Point Q
                 { C::ecc_add_mem_q_x, event.q.x() },
                 { C::ecc_add_mem_q_y, event.q.y() },
                 { C::ecc_add_mem_q_is_inf,
                   event.q.is_infinity() ? 1 : 0 }, // TODO(#AVM-266): If committed, Will be q.x() == 0 && q.y() == 0
-                { C::ecc_add_mem_q_is_inf_, event.q.is_infinity() ? 1 : 0 }, // TODO(#AVM-266): Remove is_infinity flag
                 // Output
                 { C::ecc_add_mem_sel_should_exec, error ? 0 : 1 },
                 { C::ecc_add_mem_res_x, event.result.x() },
                 { C::ecc_add_mem_res_y, event.result.y() },
-                { C::ecc_add_mem_res_is_inf, event.result.is_infinity() ? 1 : 0 },
             } });
 
         row++;
