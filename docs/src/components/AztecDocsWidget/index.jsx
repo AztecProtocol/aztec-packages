@@ -6,10 +6,16 @@ import "./styles.css";
 
 const REMARK_PLUGINS = [remarkGfm];
 
+const LANGUAGE_ALIASES = {
+  noir: "rust",
+  nr: "rust",
+};
+
 function CodeBlock({ code, language, isInk, codeBorder }) {
   const theme = isInk ? prismThemes.vsDark : prismThemes.github;
+  const resolved = LANGUAGE_ALIASES[language] || language || "text";
   return (
-    <Highlight code={code} language={language || "text"} theme={theme}>
+    <Highlight code={code} language={resolved} theme={theme}>
       {({ className, style, tokens, getLineProps, getTokenProps }) => (
         <pre
           className={className}
