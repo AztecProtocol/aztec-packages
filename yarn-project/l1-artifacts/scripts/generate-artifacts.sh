@@ -48,7 +48,6 @@ contracts=(
   "MockZKPassportVerifier"
   "DateGatedRelayer"
   "TEEPortal"
-  "TeeRegistry"
   "MockERC20"
   "MockPredicate"
 )

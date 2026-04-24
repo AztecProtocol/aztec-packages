@@ -35,23 +35,52 @@ export interface AncestorEffectsHints {
 }
 
 export const MAX_EFFECTS = 10;
+// TEE-side caps on the bridge primitives we accept per TokenOperation. Not part of the
+// signed preimage today (Noir side still verifies the 5-field shape); these bound how
+// many deposits / exits a caller may assert off-chain.
+export const MAX_DEPOSITS = 1;
+export const MAX_EXITS = 1;
 
+/**
+ * Domain separator for TEE signatures. Prepended to the signed preimage so a
+ * signature produced for a note attestation cannot be reused as an exit
+ * attestation (or vice versa) even if the remaining fields collide.
+ */
+export enum TeeSigDomain {
+  NOTE = 0,
+  EXIT = 1,
+}
+
+/**
+ * Preimage the TEE signs per (created-note | exit-message) in a TokenOperation.
+ *
+ * The `signedCommitment` slot carries a siloed note hash for a per-note signature,
+ * or an L2->L1 message hash for a per-exit signature. `exitMessageHashes` is the
+ * full padded set of exits the operation produces, so every signature (note or exit)
+ * binds to the same exit set - a verifier rebuilding the preimage from DA must
+ * recover this array too. `domain` separates the two signature types so they
+ * cannot be cross-used.
+ */
 export class TeeSignedData {
   constructor(
+    public readonly domain: TeeSigDomain,
     public readonly anchorBlockHash: BlockHash,
     public readonly tokenAddress: AztecAddress,
-    public readonly siloedNoteHash: Fr,
+    public readonly signedCommitment: Fr,
     public readonly requiredNullifiers: Tuple<Fr, typeof MAX_EFFECTS>,
     public readonly committedSiloedNoteHashes: Tuple<Fr, typeof MAX_EFFECTS>,
+    public readonly exitMessageHashes: Tuple<Fr, typeof MAX_EXITS>,
   ) {}
 
   toFields(): Fr[] {
     return [
+      new Fr(this.domain),
       this.anchorBlockHash.toField(),
       this.tokenAddress.toField(),
-      this.siloedNoteHash,
+      this.signedCommitment,
       ...this.requiredNullifiers,
       ...this.committedSiloedNoteHashes,
+      ...this.exitMessageHashes,
     ];
   }
 }

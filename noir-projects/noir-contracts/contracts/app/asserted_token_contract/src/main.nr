@@ -14,18 +14,19 @@ pub contract AssertedTokenContract {
     use crate::{
         asserted_note::AssertedNote,
         content_hash::{
-            compute_stealth_recipient_hash, get_claim_content_hash, get_withdraw_content_hash,
-            CONSTANT_SECRET,
+            compute_stealth_recipient_hash, get_claim_content_hash,
+            get_register_signer_content_hash, get_withdraw_content_hash, CONSTANT_SECRET,
         },
         da::{
-            load_tee_metadata_da_capsule, load_tee_notes_da_capsule,
-            load_tee_required_nullifiers_da_capsule, TEEMetadata,
+            load_tee_exit_message_hashes_da_capsule, load_tee_metadata_da_capsule,
+            load_tee_notes_da_capsule, load_tee_required_nullifiers_da_capsule, TEEMetadata,
         },
         delivery::deliver,
         effects::emit_nullification_effect,
     };
     use super::da::{
-        TEE_METADATA_DA_TAG, TEE_NOTES_DA_TAG, TEE_REQUIRED_NULLIFIERS_DA_TAG, to_log_ciphertext,
+        TEE_EXIT_MESSAGE_HASHES_DA_TAG, TEE_METADATA_DA_TAG, TEE_NOTES_DA_TAG,
+        TEE_REQUIRED_NULLIFIERS_DA_TAG, to_log_ciphertext,
     };
     use aztec::{
         macros::{functions::{external, initializer, internal, only_self}, storage::storage},
@@ -50,9 +51,42 @@ pub contract AssertedTokenContract {
         self.storage.portal_address.initialize(portal_address);
     }
 
+    // Test-only fallback for flows that do not go through the L1 portal (e.g. the mint-only
+    // e2e_asserted_token test). Production signer approval must flow through
+    // `consume_signer_registration` below so the Grumpkin identity is bound on L1.
+    // TODO(oxide/registry): remove once all tests use the L1 -> L2 registration path.
     #[external("public")]
-    fn add_approved_signer(pub_key_x: Field, pub_key_y: Field) {
-        // TODO: read from l1.
+    fn add_approved_signer_unchecked(pub_key_x: Field, pub_key_y: Field) {
+        self.storage.approved_signers.at(poseidon2_hash([pub_key_x, pub_key_y])).write(true);
+    }
+
+    // Consumes an L1 -> L2 registration message emitted by `TEEPortal.sol::addTee` and writes
+    // the approved-signer entry on L2. The caller supplies the `(tee, pub_key_x, pub_key_y)`
+    // tuple that was stored on L1; this function rebuilds the content hash from it and asks
+    // `consume_l1_to_l2_message` to prove the message exists. If the tuple has been tampered
+    // with, the content hash will not match any inbox leaf and consumption reverts.
+    //
+    // `tee` is only used to bind the content hash to the same Secp256k1 identity the L1
+    // portal registered; the L2 contract itself only needs the Grumpkin pubkey to populate
+    // `approved_signers`.
+    #[external("public")]
+    fn consume_signer_registration(
+        tee: EthAddress,
+        pub_key_x: Field,
+        pub_key_y: Field,
+        message_leaf_index: Field,
+    ) {
+        let portal = self.storage.portal_address.read();
+
+        let content_hash = get_register_signer_content_hash(tee, pub_key_x, pub_key_y);
+
+        self.context.consume_l1_to_l2_message(
+            content_hash,
+            CONSTANT_SECRET,
+            portal,
+            message_leaf_index,
+        );
+
         self.storage.approved_signers.at(poseidon2_hash([pub_key_x, pub_key_y])).write(true);
     }
 
@@ -175,6 +209,14 @@ pub contract AssertedTokenContract {
             0, // We don't use tags
             to_log_ciphertext(TEE_METADATA_DA_TAG, tee_metadata.serialize()),
             <TEEMetadata as Serialize>::N + 1, // +1 for the da tag
+        );
+        // Safety: DA components are unconstrained.
+        let tee_exit_message_hashes =
+            unsafe { load_tee_exit_message_hashes_da_capsule(self.context.this_address()) };
+        self.context.emit_private_log_unsafe(
+            0, // We don't use tags
+            to_log_ciphertext(TEE_EXIT_MESSAGE_HASHES_DA_TAG, tee_exit_message_hashes),
+            tee_exit_message_hashes.len() + 1, // +1 for the da tag
         );
     }
 

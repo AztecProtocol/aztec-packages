@@ -7,7 +7,6 @@ import { deriveKeys } from '@aztec/aztec.js/keys';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import type { DeployAztecL1ContractsReturnType } from '@aztec/ethereum/deploy-aztec-l1-contracts';
 import { deployL1Contract } from '@aztec/ethereum/deploy-l1-contract';
-import { Buffer32 } from '@aztec/foundation/buffer';
 import { poseidon2Hash } from '@aztec/foundation/crypto/poseidon';
 import { sha256ToField } from '@aztec/foundation/crypto/sha256';
 import { retryUntil } from '@aztec/foundation/retry';
@@ -19,8 +18,6 @@ import {
   MockPredicateBytecode,
   TEEPortalAbi,
   TEEPortalBytecode,
-  TeeRegistryAbi,
-  TeeRegistryBytecode,
 } from '@aztec/l1-artifacts';
 import { AssertedTokenContractContract } from '@aztec/noir-contracts.js/AssertedTokenContract';
 import { CompleteAddress, getContractInstanceFromInstantiationParams } from '@aztec/stdlib/contract';
@@ -32,13 +29,10 @@ import { jest } from '@jest/globals';
 import { type Hex, decodeEventLog, getContract } from 'viem';
 
 import { getLogger, setup } from './fixtures/utils.js';
-import { generateGrumpkinKeypair } from './tee/grumpkin_schnorr.js';
-import { TeeSigner } from './tee/signer.js';
 import { computeStealthRecipientHash, getWithdrawContentHash } from './tee/oxide/content_hash.js';
-import { buildWithdrawalFinalDigest } from './tee/oxide/digest.js';
-import { LocalSigner } from './tee/oxide/local_signer.js';
+import { type SignTokenOperationOutput, TeeSigner, type TokenOperation } from './tee/signer.js';
 import { type SpendMetadata, buildTokenOperation, collectTokenEffects } from './tee/token_operations_collector.js';
-import { type MAX_EFFECTS, TEEMetadata } from './tee/types.js';
+import { type MAX_EFFECTS, type MAX_EXITS, TEEMetadata } from './tee/types.js';
 import type { TestWallet } from './test-wallet/test_wallet.js';
 
 const TIMEOUT = 600_000;
@@ -106,6 +100,7 @@ describe('e2e_oxide_bridge', () => {
   const TEE_NOTES_DA_CAPSULE_KEY = sha256ToField([Buffer.from('oxideTeeNotesCapsuleKey')]);
   const TEE_REQUIRED_NULLIFIERS_DA_CAPSULE_KEY = sha256ToField([Buffer.from('oxideTeeRequiredNullifiersCapsuleKey')]);
   const TEE_METADATA_DA_CAPSULE_KEY = sha256ToField([Buffer.from('oxideTeeMetadataCapsuleKey')]);
+  const TEE_EXIT_MESSAGE_HASHES_DA_CAPSULE_KEY = sha256ToField([Buffer.from('oxideTeeExitMessageHashesCapsuleKey')]);
   const NOTE_SIGNATURE_CAPSULE_SLOT = sha256ToField([Buffer.from('ASSERTED_TOKEN::NOTE_SIGNATURE')]);
 
   function buildSeedCapsule(): Capsule {
@@ -124,9 +119,12 @@ describe('e2e_oxide_bridge', () => {
     return new Capsule(contract.address, TEE_METADATA_DA_CAPSULE_KEY, metadata.toFields());
   }
 
+  function buildTeeExitMessageHashesCapsule(exitMessageHashes: Tuple<Fr, typeof MAX_EXITS>): Capsule {
+    return new Capsule(contract.address, TEE_EXIT_MESSAGE_HASHES_DA_CAPSULE_KEY, exitMessageHashes);
+  }
+
   async function createTeeSigner() {
-    const { privateKey, publicKey } = await generateGrumpkinKeypair();
-    return new TeeSigner(privateKey, publicKey);
+    return TeeSigner.random();
   }
 
   beforeAll(async () => {
@@ -160,7 +158,10 @@ describe('e2e_oxide_bridge', () => {
       [],
     );
 
-    const { signatures, requiredNullifiers, teeNotes } = await signer.signTokenOperation(tokenOperation, true);
+    const { signatures, requiredNullifiers, teeNotes, exitMessageHashes } = await signer.signTokenOperation(
+      tokenOperation,
+      true,
+    );
 
     const signatureCapsules = await Promise.all(
       tokenOperation.createdNotes.map(async (note, i) => {
@@ -175,13 +176,14 @@ describe('e2e_oxide_bridge', () => {
     const metadataCapsule = buildTeeMetadataCapsule(
       new TEEMetadata(signer.publicKey.x, signer.publicKey.y, await tokenOperation.anchorBlockHeader.hash()),
     );
+    const exitMessageHashesCapsule = buildTeeExitMessageHashesCapsule(exitMessageHashes);
 
     const claimCall = contract.methods
       .claim(owner, amount, sharedSecret, new Fr(messageLeafIndex))
       .with({ capsules: [randomnessSeedCapsule, ...signatureCapsules] });
     const publishDaCall = contract.methods
       .publish_da()
-      .with({ capsules: [teeNotesCapsule, requiredNullifiersCapsule, metadataCapsule] });
+      .with({ capsules: [teeNotesCapsule, requiredNullifiersCapsule, metadataCapsule, exitMessageHashesCapsule] });
 
     const { receipt } = await new BatchCall(wallet, [claimCall, publishDaCall]).send({ from: owner });
     recordCreatedNotes(receipt.txHash, tokenOperation.createdNotes);
@@ -193,7 +195,7 @@ describe('e2e_oxide_bridge', () => {
     from: AztecAddress,
     l1Recipient: EthAddress,
     amount: bigint,
-  ): Promise<TxReceipt> {
+  ): Promise<{ receipt: TxReceipt; operation: TokenOperation; initiation: SignTokenOperationOutput }> {
     const randomnessSeedCapsule = buildSeedCapsule();
 
     logger.info(`Withdrawing ${amount} from ${from} to L1 ${l1Recipient}`);
@@ -216,32 +218,33 @@ describe('e2e_oxide_bridge', () => {
       spendMetadata,
     );
 
-    const { signatures, requiredNullifiers, teeNotes } = await signer.signTokenOperation(tokenOperation, false);
+    const initiation = await signer.signTokenOperation(tokenOperation, false);
 
     const signatureCapsules = await Promise.all(
       tokenOperation.createdNotes.map(async (note, i) => {
         const slot = await poseidon2Hash([NOTE_SIGNATURE_CAPSULE_SLOT, note.randomness]);
-        const sig = signatures[i];
+        const sig = initiation.signatures[i];
         return new Capsule(contract.address, slot, [sig.sLo, sig.sHi, sig.eLo, sig.eHi]);
       }),
     );
 
-    const teeNotesCapsule = buildTeeNotesCapsule(teeNotes);
-    const requiredNullifiersCapsule = buildTeeRequiredNullifiersCapsule(requiredNullifiers);
+    const teeNotesCapsule = buildTeeNotesCapsule(initiation.teeNotes);
+    const requiredNullifiersCapsule = buildTeeRequiredNullifiersCapsule(initiation.requiredNullifiers);
     const metadataCapsule = buildTeeMetadataCapsule(
       new TEEMetadata(signer.publicKey.x, signer.publicKey.y, await tokenOperation.anchorBlockHeader.hash()),
     );
+    const exitMessageHashesCapsule = buildTeeExitMessageHashesCapsule(initiation.exitMessageHashes);
 
     const withdrawCall = contract.methods
       .withdraw(from, l1Recipient, amount)
       .with({ capsules: [randomnessSeedCapsule, ...signatureCapsules] });
     const publishDaCall = contract.methods
       .publish_da()
-      .with({ capsules: [teeNotesCapsule, requiredNullifiersCapsule, metadataCapsule] });
+      .with({ capsules: [teeNotesCapsule, requiredNullifiersCapsule, metadataCapsule, exitMessageHashesCapsule] });
 
     const { receipt } = await new BatchCall(wallet, [withdrawCall, publishDaCall]).send({ from });
     recordCreatedNotes(receipt.txHash, tokenOperation.createdNotes);
-    return receipt;
+    return { receipt, operation: tokenOperation, initiation };
   }
 
   async function balanceOf(owner: AztecAddress): Promise<bigint> {
@@ -252,12 +255,12 @@ describe('e2e_oxide_bridge', () => {
     // Mirror `CrossChainTestHarness.makeMessageConsumable`: first wait for the archiver
     // to index the inbox message, then push two public L2 txs so the subtree containing
     // the message is included in a block and the tree advances once more. A sentinel
-    // `add_approved_signer` is used as the no-op public tx since `AssertedTokenContract`
-    // has no public mint.
+    // `add_approved_signer_unchecked` is used as the no-op public tx since
+    // `AssertedTokenContract` has no public mint.
     await retryUntil(() => aztecNode.isL1ToL2MessageSynced(messageKey), 'inbox message sync', 60, 1);
     const dummy = new Fr(1n);
-    await contract.methods.add_approved_signer(dummy, dummy).send({ from: owner }).wait();
-    await contract.methods.add_approved_signer(dummy, dummy).send({ from: owner }).wait();
+    await contract.methods.add_approved_signer_unchecked(dummy, dummy).send({ from: owner }).wait();
+    await contract.methods.add_approved_signer_unchecked(dummy, dummy).send({ from: owner }).wait();
   }
 
   it(
@@ -270,13 +273,10 @@ describe('e2e_oxide_bridge', () => {
       const l1ChainId = BigInt(l1Client.chain.id);
       const l1Recipient = EthAddress.fromString(l1Client.account.address);
 
-      logger.info('Deploying L1 contracts (MockERC20, MockPredicate, TeeRegistry, TEEPortal)');
+      logger.info('Deploying L1 contracts (MockERC20, MockPredicate, TEEPortal)');
       const { address: tokenAddress } = await deployL1Contract(l1Client, MockERC20Abi, MockERC20Bytecode, []);
       const { address: predicateAddress } = await deployL1Contract(l1Client, MockPredicateAbi, MockPredicateBytecode, [
         true,
-      ]);
-      const { address: teeRegistryAddress } = await deployL1Contract(l1Client, TeeRegistryAbi, TeeRegistryBytecode, [
-        l1Client.account.address,
       ]);
       const { address: portalAddress } = await deployL1Contract(l1Client, TEEPortalAbi, TEEPortalBytecode, [
         l1Client.account.address,
@@ -284,43 +284,76 @@ describe('e2e_oxide_bridge', () => {
         tokenAddress.toString(),
         inboxAddress.toString(),
         outboxAddress.toString(),
-        teeRegistryAddress.toString(),
         BigInt(rollupVersion),
         RATE,
         GLOBAL_LIMIT,
         TX_LIMIT,
       ]);
-      logger.info(
-        `Deployed token=${tokenAddress} predicate=${predicateAddress} teeRegistry=${teeRegistryAddress} portal=${portalAddress}`,
-      );
+      logger.info(`Deployed token=${tokenAddress} predicate=${predicateAddress} portal=${portalAddress}`);
 
       const portal = getContract({ address: portalAddress.toString(), abi: TEEPortalAbi, client: l1Client });
       const token = getContract({ address: tokenAddress.toString(), abi: MockERC20Abi, client: l1Client });
-      const teeRegistry = getContract({
-        address: teeRegistryAddress.toString(),
-        abi: TeeRegistryAbi,
-        client: l1Client,
-      });
-
-      // Stub TEE: a registered ECDSA puppet that signs the final digest for
-      // `TEEPortal.withdraw`. No breakfast/afternoon/evening runs here.
-      const stubTeeSigner = new LocalSigner(Buffer32.random());
-      await l1Client.waitForTransactionReceipt({
-        hash: await teeRegistry.write.addTee([stubTeeSigner.ethAddress.toString() as Hex]),
-      });
 
       logger.info('Deploying L2 AssertedTokenContract bound to the L1 portal');
       ({ contract } = await AssertedTokenContractContract.deploy(wallet, portalAddress).send({ from: alice }));
       logger.info(`AssertedTokenContract deployed at ${contract.address}`);
-
-      const signer = await createTeeSigner();
-      await contract.methods.add_approved_signer(signer.publicKey.x, signer.publicKey.y).send({ from: alice }).wait();
 
       logger.info('Initializing portal with the L2 bridge address');
       const bridgeBytes32 = contract.address.toField().toBuffer();
       await l1Client.waitForTransactionReceipt({
         hash: await portal.write.initialize([`0x${bridgeBytes32.toString('hex')}` as Hex]),
       });
+
+      const signer = await createTeeSigner();
+
+      // Register TEE on L1. This stores the binding (secp <-> grumpkin) and emits an L1 -> L2
+      // message whose consumption on L2 populates `approved_signers`. The L2 map entry must
+      // flow from L1 registry state, never from arbitrary public writes.
+      logger.info('Registering TEE on L1 portal');
+      const addTeeReceipt = await l1Client.waitForTransactionReceipt({
+        hash: await portal.write.addTee([
+          signer.ethAddress.toString() as Hex,
+          `0x${signer.publicKey.x.toBuffer().toString('hex')}` as Hex,
+          `0x${signer.publicKey.y.toBuffer().toString('hex')}` as Hex,
+        ]),
+      });
+
+      let registrationMessageKey: Fr | undefined;
+      let registrationLeafIndex: bigint | undefined;
+      for (const log of addTeeReceipt.logs) {
+        if (log.address.toLowerCase() !== portalAddress.toString().toLowerCase()) {
+          continue;
+        }
+        try {
+          const decoded = decodeEventLog({ abi: TEEPortalAbi, data: log.data, topics: log.topics });
+          if (decoded.eventName === 'TeeAdded') {
+            const args = decoded.args as { tee: Hex; grumpkinX: Hex; grumpkinY: Hex; key: Hex; index: bigint };
+            registrationMessageKey = Fr.fromHexString(args.key);
+            registrationLeafIndex = args.index;
+            break;
+          }
+        } catch {
+          // Not a TEEPortal event we care about.
+        }
+      }
+      if (registrationMessageKey === undefined || registrationLeafIndex === undefined) {
+        throw new Error('Could not locate TeeAdded event in L1 receipt');
+      }
+      logger.info(`TeeAdded emitted leafIndex=${registrationLeafIndex} key=${registrationMessageKey}`);
+
+      logger.info('Advancing L2 so the registration message is indexed and consumable');
+      await makeInboxMessageConsumable(alice, registrationMessageKey);
+
+      logger.info('Consuming registration message on L2');
+      await contract.methods
+        .consume_signer_registration(
+          signer.ethAddress,
+          signer.publicKey.x,
+          signer.publicKey.y,
+          new Fr(registrationLeafIndex),
+        )
+        .send({ from: alice })
+        .wait();
 
       logger.info('Minting underlying ERC20 and approving portal');
       await l1Client.waitForTransactionReceipt({
@@ -373,7 +406,11 @@ describe('e2e_oxide_bridge', () => {
       const portalBalanceAfterDeposit = (await token.read.balanceOf([portalAddress.toString()])) as bigint;
       expect(portalBalanceAfterDeposit).toBe(DEPOSIT_AMOUNT);
 
-      const withdrawReceipt = await withdraw(signer, alice, l1Recipient, DEPOSIT_AMOUNT);
+      const {
+        receipt: withdrawReceipt,
+        operation: withdrawOperation,
+        initiation: withdrawInitiation,
+      } = await withdraw(signer, alice, l1Recipient, DEPOSIT_AMOUNT);
       expect(await balanceOf(alice)).toBe(0n);
 
       // Reconstruct the L2->L1 message hash so we can look up the membership witness.
@@ -403,30 +440,18 @@ describe('e2e_oxide_bridge', () => {
       const leafIndex = witness.leafIndex;
       const siblingPath = witness.siblingPath.toFields().map(field => field.toString() as Hex);
 
-      // Stub afternoon attestation: `withdrawalDigest` is a constant 32-byte pattern.
-      // `TEEPortal.withdraw` treats it as an opaque replay key and commits to it inside the
-      // final digest preimage, so a constant is enough to exercise the L1 guards while
-      // Phase 5 is in flight. The real three-phase TEE will replace this with a digest
-      // produced by `runAfternoon`.
-      const stubL1BlockNumber = (await l1Client.getBlockNumber()) - 1n;
-      const stubL1Block = await l1Client.getBlock({ blockNumber: stubL1BlockNumber });
-      const stubWithdrawalDigest = Buffer.alloc(32, 1);
-      const stubFinalDigest = buildWithdrawalFinalDigest({
-        withdrawalDigest: stubWithdrawalDigest,
-        l1BlockNumber: stubL1BlockNumber,
-        l1BlockHash: Buffer.from(stubL1Block.hash.slice(2), 'hex'),
-        messageHash: expectedMessageHash.toBuffer(),
-        epochNumber,
-        leafIndex,
-        config: {
-          l2Bridge: contract.address,
-          tokenAddress: EthAddress.fromString(tokenAddress.toString()),
-          l1Portal: EthAddress.fromString(portalAddress.toString()),
-          l1ChainId,
-          rollupVersion: BigInt(rollupVersion),
-        },
+      // `freshAnchorBlockHash` is the TEE's current L2-state anchor. L1 binds it into
+      // the final-digest preimage today but does not yet validate it against the rollup
+      // archive (see TODO in `TEEPortal.sol::withdraw`), so using the latest synced
+      // block header's hash here is sufficient to exercise the real flow.
+      const freshAnchorBlockHash = (await (await wallet.getSyncedBlockHeader()).hash()).toBuffer();
+      const finalization = await signer.signExitFinalization({
+        operation: withdrawOperation,
+        exitIndex: 0,
+        initiation: withdrawInitiation,
+        freshAnchorBlockHash,
       });
-      const stubTeeSignature = stubTeeSigner.sign(stubFinalDigest);
+      expect(finalization.messageHash.equals(expectedMessageHash.toBuffer())).toBe(true);
 
       const l1BalanceBefore = (await token.read.balanceOf([l1Client.account.address])) as bigint;
 
@@ -438,9 +463,9 @@ describe('e2e_oxide_bridge', () => {
           epochNumber,
           leafIndex,
           siblingPath,
-          stubL1BlockNumber,
-          `0x${stubWithdrawalDigest.toString('hex')}` as Hex,
-          `0x${stubTeeSignature.toString('hex')}` as Hex,
+          `0x${freshAnchorBlockHash.toString('hex')}` as Hex,
+          `0x${finalization.initiationDigest.toString('hex')}` as Hex,
+          `0x${finalization.signature.toString('hex')}` as Hex,
         ]),
       });
 

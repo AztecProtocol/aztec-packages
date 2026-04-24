@@ -11,7 +11,14 @@ import type { BlockHeader, OffchainEffect, TxHash } from '@aztec/stdlib/tx';
 import { extractMetadata } from './da_extractors.js';
 import type { GrumpkinPoseidonSignature } from './grumpkin_schnorr.js';
 import { produceAncestorEffectsHints } from './produce_ancestor_effects_hints.js';
-import type { NoteData, SpendValidationData, TokenOperation } from './signer.js';
+import type {
+  BridgeContext,
+  DepositClaim,
+  NoteData,
+  OutboxExit,
+  SpendValidationData,
+  TokenOperation,
+} from './signer.js';
 
 const NULLIFICATION_EFFECT_TYPE = 1;
 const INSERTION_EFFECT_TYPE = 2;
@@ -147,12 +154,19 @@ export function collectTokenEffects(
  *
  * `spendMetadata` MUST be in the same order and have the same length as `collected.nullifiedNotes`.
  */
+export interface BridgeAssertions {
+  deposits: DepositClaim[];
+  exits: OutboxExit[];
+  bridgeContext: BridgeContext;
+}
+
 export async function buildTokenOperation(
   node: AztecNode,
   tokenAddress: AztecAddress,
   anchorBlockHeader: BlockHeader,
   collected: CollectedTokenEffects,
   spendMetadata: SpendMetadata[],
+  bridge?: BridgeAssertions,
 ): Promise<TokenOperation> {
   if (spendMetadata.length !== collected.nullifiedNotes.length) {
     throw new Error(
@@ -210,5 +224,8 @@ export async function buildTokenOperation(
     tokenAddress,
     spentNotes,
     createdNotes: collected.createdNotes,
+    deposits: bridge?.deposits ?? [],
+    exits: bridge?.exits ?? [],
+    bridgeContext: bridge?.bridgeContext,
   };
 }

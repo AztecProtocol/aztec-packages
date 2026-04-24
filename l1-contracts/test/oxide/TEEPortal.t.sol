@@ -5,7 +5,6 @@ import {Test} from "forge-std/Test.sol";
 import {TEEPortal} from "@aztec/oxide/TEEPortal.sol";
 import {Caps} from "@aztec/oxide/Caps.sol";
 import {IPredicate} from "@aztec/oxide/IPredicate.sol";
-import {TeeRegistry} from "@aztec/oxide/TeeRegistry.sol";
 import {MockPredicate} from "@aztec/oxide/mocks/MockPredicate.sol";
 import {MockERC20} from "@aztec/oxide/mocks/MockERC20.sol";
 import {MockInbox} from "./fixtures/MockInbox.sol";
@@ -23,7 +22,6 @@ contract TEEPortalTest is Test {
   MockInbox internal inbox;
   MockOutbox internal outbox;
   MockPredicate internal predicate;
-  TeeRegistry internal registry;
 
   bytes32 internal constant L2_BRIDGE = bytes32(uint256(0xB12D6E));
   uint256 internal constant ROLLUP_VERSION = 7;
@@ -35,26 +33,25 @@ contract TEEPortalTest is Test {
   address internal constant OWNER = address(0x0FFE);
   address internal constant USER = address(0xA11CE);
 
-  // Mirrors `TEEPortal.HISTORY_CONTRACT` (EIP-2935 predeploy address).
-  address internal constant HISTORY_CONTRACT = 0x0000F90827F1C53a10cb7A02335B175320002935;
-
   event Initialized(bytes32 l2Bridge);
   event Deposit(bytes32 indexed recipientHash, uint256 amount, bytes32 key, uint256 index);
   event WithdrawFromAztec(address indexed recipient, uint256 amount);
+  event TeeAdded(address indexed tee, bytes32 grumpkinX, bytes32 grumpkinY, bytes32 key, uint256 index);
+
+  bytes32 internal constant DUMMY_GRUMPKIN_X = bytes32(uint256(0xA1));
+  bytes32 internal constant DUMMY_GRUMPKIN_Y = bytes32(uint256(0xA2));
 
   function setUp() public {
     underlying = new MockERC20();
     inbox = new MockInbox();
     outbox = new MockOutbox();
     predicate = new MockPredicate(true);
-    registry = new TeeRegistry(OWNER);
     portal = new TEEPortal(
       OWNER,
       IPredicate(address(predicate)),
       IERC20(address(underlying)),
       IInbox(address(inbox)),
       IOutbox(address(outbox)),
-      registry,
       ROLLUP_VERSION,
       RATE,
       GLOBAL_LIMIT,
@@ -157,8 +154,8 @@ contract TEEPortalTest is Test {
 
   // ---------------------------------------------------------------------
   // TEE_SEAM withdraw path. Helpers below drive the same preimage layout
-  // the portal rebuilds and a mocked EIP-2935 history contract so each
-  // named error can be pinned down without a real L1 chain context.
+  // the portal rebuilds so each named error can be pinned down without a
+  // real L1 chain context.
   // ---------------------------------------------------------------------
 
   struct WithdrawParams {
@@ -166,8 +163,7 @@ contract TEEPortalTest is Test {
     uint256 amount;
     uint256 epochNumber;
     uint256 leafIndex;
-    uint256 l1BlockNumber;
-    bytes32 l1BlockHash;
+    bytes32 freshAnchorBlockHash;
     bytes32 withdrawalDigest;
   }
 
@@ -177,14 +173,9 @@ contract TEEPortalTest is Test {
       amount: 75 ether,
       epochNumber: 9,
       leafIndex: 3,
-      l1BlockNumber: 123_456,
-      l1BlockHash: bytes32(uint256(0xABCDEF)),
+      freshAnchorBlockHash: bytes32(uint256(0xA11CE)),
       withdrawalDigest: bytes32(uint256(0xDEADBEEF))
     });
-  }
-
-  function _mockHistory(uint256 _blockNumber, bytes32 _hash) internal {
-    vm.mockCall(HISTORY_CONTRACT, abi.encode(_blockNumber), abi.encode(_hash));
   }
 
   function _messageHash(address _recipient, uint256 _amount) internal view returns (bytes32) {
@@ -197,33 +188,12 @@ contract TEEPortalTest is Test {
   }
 
   function _finalDigest(WithdrawParams memory p) internal view returns (bytes32) {
-    return _finalDigestWithConfig(p, L2_BRIDGE, address(underlying), address(portal), block.chainid, ROLLUP_VERSION);
-  }
-
-  // Like `_finalDigest` but lets a test sign over a tampered config blob
-  // while the portal rebuilds the digest with its own (correct) config
-  // inline. Used by the `test_withdraw_revertsOnTamperedConfig*` cases.
-  function _finalDigestWithConfig(
-    WithdrawParams memory p,
-    bytes32 _l2Bridge,
-    address _token,
-    address _portal,
-    uint256 _chainId,
-    uint256 _rollupVersion
-  ) internal view returns (bytes32) {
     return sha256(
       abi.encodePacked(
+        portal.TEE_SIG_DOMAIN_EXIT_FINALIZED(),
+        p.freshAnchorBlockHash,
         p.withdrawalDigest,
-        p.l1BlockNumber,
-        p.l1BlockHash,
-        _messageHash(p.recipient, p.amount),
-        p.epochNumber,
-        p.leafIndex,
-        _l2Bridge,
-        _token,
-        _portal,
-        _chainId,
-        _rollupVersion
+        _messageHash(p.recipient, p.amount)
       )
     );
   }
@@ -243,13 +213,13 @@ contract TEEPortalTest is Test {
 
   function _registerSigner(address _signer) internal {
     vm.prank(OWNER);
-    registry.addTee(_signer);
+    portal.addTee(_signer, DUMMY_GRUMPKIN_X, DUMMY_GRUMPKIN_Y);
   }
 
   function test_withdraw_revertsWhenUninitialized() public {
     bytes32[] memory path = new bytes32[](0);
     vm.expectRevert(TEEPortal.Uninitialized.selector);
-    portal.withdraw(USER, 1 ether, 0, 0, path, 0, bytes32(0), "");
+    portal.withdraw(USER, 1 ether, 0, 0, path, bytes32(0), bytes32(0), "");
   }
 
   function test_withdraw_happyPath() public {
@@ -264,13 +234,14 @@ contract TEEPortalTest is Test {
     underlying.mint(address(portal), p.amount);
     uint256 userBalanceBefore = underlying.balanceOf(p.recipient);
 
-    _mockHistory(p.l1BlockNumber, p.l1BlockHash);
     bytes memory sig = _signTee(teePk, _finalDigest(p));
 
     vm.expectEmit(true, true, true, true, address(portal));
     emit WithdrawFromAztec(p.recipient, p.amount);
 
-    portal.withdraw(p.recipient, p.amount, p.epochNumber, p.leafIndex, path, p.l1BlockNumber, p.withdrawalDigest, sig);
+    portal.withdraw(
+      p.recipient, p.amount, p.epochNumber, p.leafIndex, path, p.freshAnchorBlockHash, p.withdrawalDigest, sig
+    );
 
     assertEq(underlying.balanceOf(p.recipient), userBalanceBefore + p.amount);
     assertEq(underlying.balanceOf(address(portal)), 0);
@@ -307,31 +278,33 @@ contract TEEPortalTest is Test {
     WithdrawParams memory p = _defaultWithdrawParams();
     bytes32[] memory path = _dummyPath();
     underlying.mint(address(portal), p.amount * 2);
-    _mockHistory(p.l1BlockNumber, p.l1BlockHash);
     bytes memory sig = _signTee(teePk, _finalDigest(p));
 
-    portal.withdraw(p.recipient, p.amount, p.epochNumber, p.leafIndex, path, p.l1BlockNumber, p.withdrawalDigest, sig);
+    portal.withdraw(
+      p.recipient, p.amount, p.epochNumber, p.leafIndex, path, p.freshAnchorBlockHash, p.withdrawalDigest, sig
+    );
 
     vm.expectRevert(TEEPortal.WithdrawalAlreadyClaimed.selector);
-    portal.withdraw(p.recipient, p.amount, p.epochNumber, p.leafIndex, path, p.l1BlockNumber, p.withdrawalDigest, sig);
+    portal.withdraw(
+      p.recipient, p.amount, p.epochNumber, p.leafIndex, path, p.freshAnchorBlockHash, p.withdrawalDigest, sig
+    );
   }
 
   function test_withdraw_revertsWhenSignerUnregistered() public {
     _initialize();
-    (address teeSigner, uint256 teePk) = makeAddrAndKey("tee-unreg");
-    _registerSigner(teeSigner);
+    // Sign with a key that is never registered. Recovered address is not in the
+    // registry so the withdraw must revert with `UnregisteredTee`.
+    (, uint256 teePk) = makeAddrAndKey("tee-unreg");
 
     WithdrawParams memory p = _defaultWithdrawParams();
     bytes32[] memory path = _dummyPath();
     underlying.mint(address(portal), p.amount);
-    _mockHistory(p.l1BlockNumber, p.l1BlockHash);
     bytes memory sig = _signTee(teePk, _finalDigest(p));
 
-    vm.prank(OWNER);
-    registry.removeTee(teeSigner);
-
     vm.expectRevert(TEEPortal.UnregisteredTee.selector);
-    portal.withdraw(p.recipient, p.amount, p.epochNumber, p.leafIndex, path, p.l1BlockNumber, p.withdrawalDigest, sig);
+    portal.withdraw(
+      p.recipient, p.amount, p.epochNumber, p.leafIndex, path, p.freshAnchorBlockHash, p.withdrawalDigest, sig
+    );
   }
 
   // Tampering with any signed field recovers a *different* address that is
@@ -348,12 +321,11 @@ contract TEEPortalTest is Test {
     WithdrawParams memory p = _defaultWithdrawParams();
     bytes32[] memory path = _dummyPath();
     underlying.mint(address(portal), p.amount);
-    _mockHistory(p.l1BlockNumber, p.l1BlockHash);
     bytes memory sig = _signTee(teePk, _finalDigest(p));
 
     vm.expectRevert(TEEPortal.UnregisteredTee.selector);
     portal.withdraw(
-      address(0xBEEF), p.amount, p.epochNumber, p.leafIndex, path, p.l1BlockNumber, p.withdrawalDigest, sig
+      address(0xBEEF), p.amount, p.epochNumber, p.leafIndex, path, p.freshAnchorBlockHash, p.withdrawalDigest, sig
     );
   }
 
@@ -365,64 +337,11 @@ contract TEEPortalTest is Test {
     WithdrawParams memory p = _defaultWithdrawParams();
     bytes32[] memory path = _dummyPath();
     underlying.mint(address(portal), p.amount);
-    _mockHistory(p.l1BlockNumber, p.l1BlockHash);
     bytes memory sig = _signTee(teePk, _finalDigest(p));
 
     vm.expectRevert(TEEPortal.UnregisteredTee.selector);
     portal.withdraw(
-      p.recipient, p.amount + 1, p.epochNumber, p.leafIndex, path, p.l1BlockNumber, p.withdrawalDigest, sig
-    );
-  }
-
-  function test_withdraw_revertsOnTamperedEpochNumber() public {
-    _initialize();
-    (address teeSigner, uint256 teePk) = makeAddrAndKey("tee-tamper-epoch");
-    _registerSigner(teeSigner);
-
-    WithdrawParams memory p = _defaultWithdrawParams();
-    bytes32[] memory path = _dummyPath();
-    underlying.mint(address(portal), p.amount);
-    _mockHistory(p.l1BlockNumber, p.l1BlockHash);
-    bytes memory sig = _signTee(teePk, _finalDigest(p));
-
-    vm.expectRevert(TEEPortal.UnregisteredTee.selector);
-    portal.withdraw(
-      p.recipient, p.amount, p.epochNumber + 1, p.leafIndex, path, p.l1BlockNumber, p.withdrawalDigest, sig
-    );
-  }
-
-  function test_withdraw_revertsOnTamperedLeafIndex() public {
-    _initialize();
-    (address teeSigner, uint256 teePk) = makeAddrAndKey("tee-tamper-leaf");
-    _registerSigner(teeSigner);
-
-    WithdrawParams memory p = _defaultWithdrawParams();
-    bytes32[] memory path = _dummyPath();
-    underlying.mint(address(portal), p.amount);
-    _mockHistory(p.l1BlockNumber, p.l1BlockHash);
-    bytes memory sig = _signTee(teePk, _finalDigest(p));
-
-    vm.expectRevert(TEEPortal.UnregisteredTee.selector);
-    portal.withdraw(
-      p.recipient, p.amount, p.epochNumber, p.leafIndex + 1, path, p.l1BlockNumber, p.withdrawalDigest, sig
-    );
-  }
-
-  function test_withdraw_revertsOnTamperedL1BlockNumber() public {
-    _initialize();
-    (address teeSigner, uint256 teePk) = makeAddrAndKey("tee-tamper-l1block");
-    _registerSigner(teeSigner);
-
-    WithdrawParams memory p = _defaultWithdrawParams();
-    bytes32[] memory path = _dummyPath();
-    underlying.mint(address(portal), p.amount);
-    _mockHistory(p.l1BlockNumber, p.l1BlockHash);
-    _mockHistory(p.l1BlockNumber + 1, p.l1BlockHash);
-    bytes memory sig = _signTee(teePk, _finalDigest(p));
-
-    vm.expectRevert(TEEPortal.UnregisteredTee.selector);
-    portal.withdraw(
-      p.recipient, p.amount, p.epochNumber, p.leafIndex, path, p.l1BlockNumber + 1, p.withdrawalDigest, sig
+      p.recipient, p.amount + 1, p.epochNumber, p.leafIndex, path, p.freshAnchorBlockHash, p.withdrawalDigest, sig
     );
   }
 
@@ -434,29 +353,28 @@ contract TEEPortalTest is Test {
     WithdrawParams memory p = _defaultWithdrawParams();
     bytes32[] memory path = _dummyPath();
     underlying.mint(address(portal), p.amount);
-    _mockHistory(p.l1BlockNumber, p.l1BlockHash);
     bytes memory sig = _signTee(teePk, _finalDigest(p));
 
     vm.expectRevert(TEEPortal.UnregisteredTee.selector);
     portal.withdraw(
-      p.recipient, p.amount, p.epochNumber, p.leafIndex, path, p.l1BlockNumber, bytes32(uint256(0xFEEDFACE)), sig
+      p.recipient, p.amount, p.epochNumber, p.leafIndex, path, p.freshAnchorBlockHash, bytes32(uint256(0xFEEDFACE)), sig
     );
   }
 
-  function test_withdraw_revertsOnUnknownL1BlockNumber() public {
+  function test_withdraw_revertsOnTamperedFreshAnchorBlockHash() public {
     _initialize();
-    (address teeSigner, uint256 teePk) = makeAddrAndKey("tee-unknown-block");
+    (address teeSigner, uint256 teePk) = makeAddrAndKey("tee-tamper-anchor");
     _registerSigner(teeSigner);
 
     WithdrawParams memory p = _defaultWithdrawParams();
     bytes32[] memory path = _dummyPath();
     underlying.mint(address(portal), p.amount);
-    // History contract returns zero for blocks outside the 8192-slot window.
-    _mockHistory(p.l1BlockNumber, bytes32(0));
     bytes memory sig = _signTee(teePk, _finalDigest(p));
 
-    vm.expectRevert(TEEPortal.UnknownL1BlockHash.selector);
-    portal.withdraw(p.recipient, p.amount, p.epochNumber, p.leafIndex, path, p.l1BlockNumber, p.withdrawalDigest, sig);
+    vm.expectRevert(TEEPortal.UnregisteredTee.selector);
+    portal.withdraw(
+      p.recipient, p.amount, p.epochNumber, p.leafIndex, path, bytes32(uint256(0xDECAFBAD)), p.withdrawalDigest, sig
+    );
   }
 
   function test_withdraw_propagatesOutboxRevert() public {
@@ -467,7 +385,6 @@ contract TEEPortalTest is Test {
     WithdrawParams memory p = _defaultWithdrawParams();
     bytes32[] memory path = _dummyPath();
     underlying.mint(address(portal), p.amount);
-    _mockHistory(p.l1BlockNumber, p.l1BlockHash);
     bytes memory sig = _signTee(teePk, _finalDigest(p));
 
     // Any outbox-side revert (unproven epoch, bad path, already consumed) should
@@ -476,59 +393,74 @@ contract TEEPortalTest is Test {
     outbox.primeRevert(customErr);
 
     vm.expectRevert(customErr);
-    portal.withdraw(p.recipient, p.amount, p.epochNumber, p.leafIndex, path, p.l1BlockNumber, p.withdrawalDigest, sig);
-  }
-
-  // Config-mismatch coverage for §1.4: each of the five `TeeConfig` fields
-  // the portal rebuilds inline must be part of the signed preimage. A TEE
-  // that signs with the wrong value produces a final digest the portal
-  // cannot match; `ECDSA.recover` returns a garbage signer that is not in
-  // the registry, so `UnregisteredTee()` fires. All five fields are
-  // exercised to pin the byte layout and ordering of `abi.encodePacked`.
-
-  function _withdrawWithTamperedConfig(
-    bytes32 _l2Bridge,
-    address _token,
-    address _portal,
-    uint256 _chainId,
-    uint256 _rollupVersion
-  ) internal {
-    _initialize();
-    (, uint256 teePk) = makeAddrAndKey("tee-config-mismatch");
-    // Deliberately do NOT register the signer: the recovered address is
-    // garbage anyway, so the registry check is what we are actually
-    // asserting against.
-
-    WithdrawParams memory p = _defaultWithdrawParams();
-    bytes32[] memory path = _dummyPath();
-    underlying.mint(address(portal), p.amount);
-    _mockHistory(p.l1BlockNumber, p.l1BlockHash);
-
-    bytes memory sig = _signTee(teePk, _finalDigestWithConfig(p, _l2Bridge, _token, _portal, _chainId, _rollupVersion));
-
-    vm.expectRevert(TEEPortal.UnregisteredTee.selector);
-    portal.withdraw(p.recipient, p.amount, p.epochNumber, p.leafIndex, path, p.l1BlockNumber, p.withdrawalDigest, sig);
-  }
-
-  function test_withdraw_revertsOnTamperedConfigL2Bridge() public {
-    _withdrawWithTamperedConfig(
-      bytes32(uint256(0xBAD)), address(underlying), address(portal), block.chainid, ROLLUP_VERSION
+    portal.withdraw(
+      p.recipient, p.amount, p.epochNumber, p.leafIndex, path, p.freshAnchorBlockHash, p.withdrawalDigest, sig
     );
   }
 
-  function test_withdraw_revertsOnTamperedConfigToken() public {
-    _withdrawWithTamperedConfig(L2_BRIDGE, address(0xBAD), address(portal), block.chainid, ROLLUP_VERSION);
+  // Network-identity coverage: the portal no longer folds `TeeConfig` into the
+  // final preimage directly - `l2Bridge`, `portal(this)`, `chainId`, and
+  // `rollupVersion` are bound transitively through `_messageHash` (which is
+  // built from those exact fields via `DataStructures.L2ToL1Msg`). A TEE that
+  // signs with a `_messageHash` built from different network constants produces
+  // a digest the portal cannot match; `ECDSA.recover` returns garbage and the
+  // registry check rejects it. The caller-supplied fields `_recipient`,
+  // `_amount`, `_freshAnchorBlockHash`, and `_withdrawalDigest` already have
+  // dedicated tamper tests above.
+
+  // ---------------------------------------------------------------------
+  // Registry unit tests (previously in TeeRegistry.t.sol, now inlined
+  // against the portal since `addTee`/`removeTee` live on the portal).
+  // ---------------------------------------------------------------------
+
+  function test_addTee_registersAndEmits() public {
+    _initialize();
+    address tee = address(0xA11);
+    // Only the indexed topic and the grumpkin coords are load-bearing here.
+    // The inbox key/index come from MockInbox internals, so assert only that the
+    // event shape is right; the check flags leave topic data unchecked.
+    vm.expectEmit(true, false, false, false, address(portal));
+    emit TeeAdded(tee, DUMMY_GRUMPKIN_X, DUMMY_GRUMPKIN_Y, bytes32(0), 0);
+
+    vm.prank(OWNER);
+    portal.addTee(tee, DUMMY_GRUMPKIN_X, DUMMY_GRUMPKIN_Y);
+
+    assertTrue(portal.isRegisteredTee(tee));
+    assertFalse(portal.isRegisteredTee(address(0xB12)));
+    (bool registered, bytes32 x, bytes32 y) = portal.$teeBindings(tee);
+    assertTrue(registered);
+    assertEq(x, DUMMY_GRUMPKIN_X);
+    assertEq(y, DUMMY_GRUMPKIN_Y);
   }
 
-  function test_withdraw_revertsOnTamperedConfigPortal() public {
-    _withdrawWithTamperedConfig(L2_BRIDGE, address(underlying), address(0xBAD), block.chainid, ROLLUP_VERSION);
+  function test_addTee_revertsWhenNotOwner() public {
+    _initialize();
+    vm.prank(USER);
+    vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, USER));
+    portal.addTee(address(0xA11), DUMMY_GRUMPKIN_X, DUMMY_GRUMPKIN_Y);
   }
 
-  function test_withdraw_revertsOnTamperedConfigChainId() public {
-    _withdrawWithTamperedConfig(L2_BRIDGE, address(underlying), address(portal), block.chainid + 1, ROLLUP_VERSION);
+  function test_addTee_revertsWhenUninitialized() public {
+    vm.prank(OWNER);
+    vm.expectRevert(TEEPortal.Uninitialized.selector);
+    portal.addTee(address(0xA11), DUMMY_GRUMPKIN_X, DUMMY_GRUMPKIN_Y);
   }
 
-  function test_withdraw_revertsOnTamperedConfigRollupVersion() public {
-    _withdrawWithTamperedConfig(L2_BRIDGE, address(underlying), address(portal), block.chainid, ROLLUP_VERSION + 1);
+  function test_addTee_revertsOnZeroAddress() public {
+    _initialize();
+    vm.prank(OWNER);
+    vm.expectRevert(TEEPortal.ZeroTee.selector);
+    portal.addTee(address(0), DUMMY_GRUMPKIN_X, DUMMY_GRUMPKIN_Y);
+  }
+
+  function test_addTee_revertsIfAlreadyRegistered() public {
+    _initialize();
+    address tee = address(0xA11);
+    vm.prank(OWNER);
+    portal.addTee(tee, DUMMY_GRUMPKIN_X, DUMMY_GRUMPKIN_Y);
+
+    vm.prank(OWNER);
+    vm.expectRevert(TEEPortal.AlreadyRegistered.selector);
+    portal.addTee(tee, DUMMY_GRUMPKIN_X, DUMMY_GRUMPKIN_Y);
   }
 }

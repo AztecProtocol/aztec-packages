@@ -11,6 +11,8 @@ use aztec::{
 };
 
 pub global MAX_EFFECTS: u32 = 10;
+// Mirrors MAX_EXITS in yarn-project/end-to-end/src/tee/types.ts. Keep in sync.
+pub global MAX_EXITS: u32 = 1;
 
 global TEE_NOTES_DA_COMPONENT_CAPSULE_KEY: Field =
     sha256_to_field("oxideTeeNotesCapsuleKey".as_bytes());
@@ -24,6 +26,11 @@ pub global TEE_REQUIRED_NULLIFIERS_DA_TAG: Field =
 global TEE_METADATA_DA_COMPONENT_CAPSULE_KEY: Field =
     sha256_to_field("oxideTeeMetadataCapsuleKey".as_bytes());
 pub global TEE_METADATA_DA_TAG: Field = sha256_to_field("oxideTeeMetadata".as_bytes());
+
+global TEE_EXIT_MESSAGE_HASHES_DA_COMPONENT_CAPSULE_KEY: Field =
+    sha256_to_field("oxideTeeExitMessageHashesCapsuleKey".as_bytes());
+pub global TEE_EXIT_MESSAGE_HASHES_DA_TAG: Field =
+    sha256_to_field("oxideTeeExitMessageHashes".as_bytes());
 
 pub fn to_log_ciphertext<let N: u32>(
     da_tag: Field,
@@ -70,6 +77,24 @@ pub fn extract_tee_required_nullifiers_da_component(
 ) -> Option<[Field; MAX_EFFECTS]> {
     let nullifiers_index = find_tagged_da_component(tx_effect, TEE_REQUIRED_NULLIFIERS_DA_TAG);
     nullifiers_index.map(|index| subarray(tx_effect.private_logs[index].fields, 2))
+}
+
+pub unconstrained fn load_tee_exit_message_hashes_da_capsule(
+    address: AztecAddress,
+) -> [Field; MAX_EXITS] {
+    capsules::load(
+        address,
+        TEE_EXIT_MESSAGE_HASHES_DA_COMPONENT_CAPSULE_KEY,
+        AztecAddress::zero(),
+    )
+        .unwrap()
+}
+
+pub fn extract_tee_exit_message_hashes_da_component(
+    tx_effect: TxEffect,
+) -> Option<[Field; MAX_EXITS]> {
+    let exits_index = find_tagged_da_component(tx_effect, TEE_EXIT_MESSAGE_HASHES_DA_TAG);
+    exits_index.map(|index| subarray(tx_effect.private_logs[index].fields, 2))
 }
 
 #[derive(Deserialize, Eq, Serialize)]

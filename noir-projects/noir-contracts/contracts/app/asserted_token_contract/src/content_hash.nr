@@ -41,6 +41,41 @@ pub fn get_claim_content_hash(recipient_hash: Field, amount: u128) -> Field {
     sha256_to_field(hash_bytes)
 }
 
+// L1 -> L2 signer-registration message content hash. Must match
+// `TEEPortal.sol::addTee`, which calls
+// `sha256ToField(abi.encodeWithSignature("register_signer(address,bytes32,bytes32)", tee, x, y))`
+// byte-for-byte: 4-byte selector || 32-byte left-padded tee address || 32-byte x || 32-byte y = 100 bytes.
+// `EthAddress.to_field().to_be_bytes::<32>()` left-pads the 20-byte address with zeros, matching
+// Solidity ABI encoding of `address` into a 32-byte slot.
+pub fn get_register_signer_content_hash(
+    tee: EthAddress,
+    pub_key_x: Field,
+    pub_key_y: Field,
+) -> Field {
+    let mut hash_bytes = [0 as u8; 100];
+    let tee_bytes: [u8; 32] = tee.to_field().to_be_bytes();
+    let x_bytes: [u8; 32] = pub_key_x.to_be_bytes();
+    let y_bytes: [u8; 32] = pub_key_y.to_be_bytes();
+
+    let selector = comptime {
+        keccak256::keccak256(
+            "register_signer(address,bytes32,bytes32)".as_bytes(),
+            40,
+        )
+    };
+
+    for i in 0..4 {
+        hash_bytes[i] = selector[i];
+    }
+    for i in 0..32 {
+        hash_bytes[i + 4] = tee_bytes[i];
+        hash_bytes[i + 36] = x_bytes[i];
+        hash_bytes[i + 68] = y_bytes[i];
+    }
+
+    sha256_to_field(hash_bytes)
+}
+
 // L2 -> L1 withdraw message content hash. Must match the Solidity decode on the
 // portal side: `sha256ToField(abi.encodeWithSignature("withdraw(address,uint256)", recipient, amount))`
 // byte-for-byte. Layout: 4-byte selector || 32-byte left-padded address || 32-byte amount = 68 bytes.

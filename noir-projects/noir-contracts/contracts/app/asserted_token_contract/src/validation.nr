@@ -1,8 +1,9 @@
 use super::{
     asserted_note::AssertedNote,
     da::{
-        extract_metadata_da_component, extract_tee_notes_da_component,
-        extract_tee_required_nullifiers_da_component, MAX_EFFECTS, TEEMetadata,
+        extract_metadata_da_component, extract_tee_exit_message_hashes_da_component,
+        extract_tee_notes_da_component, extract_tee_required_nullifiers_da_component, MAX_EFFECTS,
+        MAX_EXITS, TEEMetadata,
     },
     schnorr::Signature,
 };
@@ -22,18 +23,27 @@ use aztec::{
     state_vars::{Map, PublicMutable, StateVariable},
 };
 
+// Domain separator for TEE signatures. Prepended to the signed preimage so a signature produced
+// for a note attestation cannot be reused as an exit attestation (or vice versa). Mirrors
+// TeeSigDomain in yarn-project/end-to-end/src/tee/types.ts - keep in sync.
+pub global TEE_SIG_DOMAIN_NOTE: Field = 0;
+pub global TEE_SIG_DOMAIN_EXIT: Field = 1;
+
 #[derive(Deserialize, Eq, Serialize)]
 struct TeeSignedData {
+    domain: Field,
     anchor_block_hash: Field,
     token_address: AztecAddress,
-    siloed_note_hash: Field,
+    signed_commitment: Field,
     required_nullifiers: [Field; MAX_EFFECTS],
     tee_notes: [Field; MAX_EFFECTS],
+    exit_message_hashes: [Field; MAX_EXITS],
 }
 
 struct DAComponents {
     tee_notes: [Field; MAX_EFFECTS],
     required_nullifiers: [Field; MAX_EFFECTS],
+    exit_message_hashes: [Field; MAX_EXITS],
     metadata: TEEMetadata,
 }
 
@@ -42,8 +52,12 @@ impl DAComponents {
         let tee_notes = extract_tee_notes_da_component(effect);
         let metadata = extract_metadata_da_component(effect);
         let required_nullifiers = extract_tee_required_nullifiers_da_component(effect);
+        let exit_message_hashes = extract_tee_exit_message_hashes_da_component(effect);
 
-        if tee_notes.is_none() | metadata.is_none() | required_nullifiers.is_none() {
+        if tee_notes.is_none()
+            | metadata.is_none()
+            | required_nullifiers.is_none()
+            | exit_message_hashes.is_none() {
             Option::none()
         } else {
             Option::some(
@@ -51,6 +65,7 @@ impl DAComponents {
                     tee_notes: tee_notes.unwrap_unchecked(),
                     metadata: metadata.unwrap_unchecked(),
                     required_nullifiers: required_nullifiers.unwrap_unchecked(),
+                    exit_message_hashes: exit_message_hashes.unwrap_unchecked(),
                 },
             )
         }
@@ -59,16 +74,19 @@ impl DAComponents {
 
 fn validate_signature(
     signature: Signature,
+    domain: Field,
     contract_address: AztecAddress,
-    siloed_note_hash: Field,
+    signed_commitment: Field,
     da_components: DAComponents,
 ) -> bool {
     let signed_data = TeeSignedData {
+        domain,
         anchor_block_hash: da_components.metadata.anchor_block_hash,
         token_address: contract_address,
-        siloed_note_hash,
+        signed_commitment,
         required_nullifiers: da_components.required_nullifiers,
         tee_notes: da_components.tee_notes,
+        exit_message_hashes: da_components.exit_message_hashes,
     };
 
     aztec::protocol::logging::debug_log("Validating signature");
@@ -122,6 +140,25 @@ fn validate_siloed_note_hash_in_tee_notes<let N: u32>(
     tee_notes: [Field; N],
 ) -> bool {
     count_appearances_in_array(tee_notes, siloed_note_hash) == 1
+}
+
+// Mirrors validateExitMessageHashesInL2ToL1Msgs in yarn-project/end-to-end/src/tee/signer.ts.
+// We do the whole TEE dance because we can't fully trust the outbox - it inherits trust from
+// circuits that may be buggy. So independently verify that every exit the TEE attested in the
+// creation preimage actually shows up as an L2->L1 message in the creation tx's effects.
+fn validate_exit_message_hashes_in_l2_to_l1_msgs<let N: u32>(
+    exit_message_hashes: [Field; N],
+    effect: TxEffect,
+) -> bool {
+    let mut valid = true;
+    for i in 0..N {
+        let exit_message_hash = exit_message_hashes[i];
+        if (exit_message_hash != 0) {
+            valid = valid
+                & (count_appearances_in_array(effect.l2_to_l1_msgs, exit_message_hash) == 1);
+        }
+    }
+    valid
 }
 
 global APPROVED_SIGNERS_SLOT: Field = 4;
@@ -179,6 +216,7 @@ pub unconstrained fn validate_note(
 
             validate_signature(
                 note.signature,
+                TEE_SIG_DOMAIN_NOTE,
                 contract_address,
                 siloed_note_hash,
                 da_components,
@@ -186,6 +224,10 @@ pub unconstrained fn validate_note(
                 & validate_siloed_vs_unique_note_hash(siloed_note_hash, effect)
                 & validate_required_nullifiers(da_components.required_nullifiers, effect)
                 & validate_siloed_note_hash_in_tee_notes(siloed_note_hash, da_components.tee_notes)
+                & validate_exit_message_hashes_in_l2_to_l1_msgs(
+                    da_components.exit_message_hashes,
+                    effect,
+                )
                 & validate_signer_registration(da_components.metadata)
                 & validate_anchor_block_hash_in_the_past(da_components.metadata)
         }

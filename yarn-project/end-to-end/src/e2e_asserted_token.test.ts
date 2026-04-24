@@ -16,11 +16,10 @@ import { Capsule, type TxHash, type TxReceipt } from '@aztec/stdlib/tx';
 import { jest } from '@jest/globals';
 
 import { getLogger, setup } from './fixtures/utils.js';
-import { generateGrumpkinKeypair } from './tee/grumpkin_schnorr.js';
 import { checkAncestorEffectsHints, produceAncestorEffectsHints } from './tee/index.js';
 import { TeeSigner } from './tee/signer.js';
 import { type SpendMetadata, buildTokenOperation, collectTokenEffects } from './tee/token_operations_collector.js';
-import { type MAX_EFFECTS, TEEMetadata } from './tee/types.js';
+import { type MAX_EFFECTS, type MAX_EXITS, TEEMetadata } from './tee/types.js';
 import type { TestWallet } from './test-wallet/test_wallet.js';
 
 const TIMEOUT = 300_000;
@@ -87,6 +86,7 @@ describe('e2e_asserted_token', () => {
   const TEE_NOTES_DA_CAPSULE_KEY = sha256ToField([Buffer.from('oxideTeeNotesCapsuleKey')]);
   const TEE_REQUIRED_NULLIFIERS_DA_CAPSULE_KEY = sha256ToField([Buffer.from('oxideTeeRequiredNullifiersCapsuleKey')]);
   const TEE_METADATA_DA_CAPSULE_KEY = sha256ToField([Buffer.from('oxideTeeMetadataCapsuleKey')]);
+  const TEE_EXIT_MESSAGE_HASHES_DA_CAPSULE_KEY = sha256ToField([Buffer.from('oxideTeeExitMessageHashesCapsuleKey')]);
 
   /** Capsule slot matching ASSERTED_TOKEN_NOTE_SIGNATURE_CAPSULE_SLOT in the Noir contract. */
   const NOTE_SIGNATURE_CAPSULE_SLOT = sha256ToField([Buffer.from('ASSERTED_TOKEN::NOTE_SIGNATURE')]);
@@ -108,6 +108,10 @@ describe('e2e_asserted_token', () => {
     return new Capsule(contract.address, TEE_METADATA_DA_CAPSULE_KEY, metadata.toFields());
   }
 
+  function buildTeeExitMessageHashesCapsule(exitMessageHashes: Tuple<Fr, typeof MAX_EXITS>): Capsule {
+    return new Capsule(contract.address, TEE_EXIT_MESSAGE_HASHES_DA_CAPSULE_KEY, exitMessageHashes);
+  }
+
   /**
    * Smoke-tests the ancestor effects proof system: produces hints for the given tx
    * and verifies them against the anchor block.
@@ -120,8 +124,7 @@ describe('e2e_asserted_token', () => {
   }
 
   async function createTeeSigner() {
-    const { privateKey, publicKey } = await generateGrumpkinKeypair();
-    return new TeeSigner(privateKey, publicKey);
+    return TeeSigner.random();
   }
 
   beforeAll(async () => {
@@ -152,7 +155,10 @@ describe('e2e_asserted_token', () => {
       [],
     );
 
-    const { signatures, requiredNullifiers, teeNotes } = await signer.signTokenOperation(tokenOperation, true);
+    const { signatures, requiredNullifiers, teeNotes, exitMessageHashes } = await signer.signTokenOperation(
+      tokenOperation,
+      true,
+    );
 
     // Build a signature capsule for each created note, keyed by poseidon2_hash([NOTE_SIGNATURE_SLOT, randomness]).
     const signatureCapsules = await Promise.all(
@@ -168,13 +174,14 @@ describe('e2e_asserted_token', () => {
     const metadataCapsule = buildTeeMetadataCapsule(
       new TEEMetadata(signer.publicKey.x, signer.publicKey.y, await tokenOperation.anchorBlockHeader.hash()),
     );
+    const exitMessageHashesCapsule = buildTeeExitMessageHashesCapsule(exitMessageHashes);
 
     const mintCall = contract.methods
       .mint(owner, amount)
       .with({ capsules: [randomnessSeedCapsule, ...signatureCapsules] });
     const publishDaCall = contract.methods
       .publish_da()
-      .with({ capsules: [teeNotesCapsule, requiredNullifiersCapsule, metadataCapsule] });
+      .with({ capsules: [teeNotesCapsule, requiredNullifiersCapsule, metadataCapsule, exitMessageHashesCapsule] });
 
     const { receipt: mintReceipt } = await new BatchCall(wallet, [mintCall, publishDaCall]).send({
       from: owner,
@@ -208,7 +215,10 @@ describe('e2e_asserted_token', () => {
       spendMetadata,
     );
 
-    const { signatures, requiredNullifiers, teeNotes } = await signer.signTokenOperation(tokenOperation, false);
+    const { signatures, requiredNullifiers, teeNotes, exitMessageHashes } = await signer.signTokenOperation(
+      tokenOperation,
+      false,
+    );
 
     const signatureCapsules = await Promise.all(
       tokenOperation.createdNotes.map(async (note, i) => {
@@ -223,13 +233,14 @@ describe('e2e_asserted_token', () => {
     const metadataCapsule = buildTeeMetadataCapsule(
       new TEEMetadata(signer.publicKey.x, signer.publicKey.y, await tokenOperation.anchorBlockHeader.hash()),
     );
+    const exitMessageHashesCapsule = buildTeeExitMessageHashesCapsule(exitMessageHashes);
 
     const transferCall = contract.methods
       .transfer(from, to, amount)
       .with({ capsules: [randomnessSeedCapsule, ...signatureCapsules] });
     const publishDaCall = contract.methods
       .publish_da()
-      .with({ capsules: [teeNotesCapsule, requiredNullifiersCapsule, metadataCapsule] });
+      .with({ capsules: [teeNotesCapsule, requiredNullifiersCapsule, metadataCapsule, exitMessageHashesCapsule] });
 
     const { receipt: transferReceipt } = await new BatchCall(wallet, [transferCall, publishDaCall]).send({ from });
 
@@ -258,7 +269,9 @@ describe('e2e_asserted_token', () => {
 
       // Create and register the signer.
       const signer = await createTeeSigner();
-      await contract.methods.add_approved_signer(signer.publicKey.x, signer.publicKey.y).send({ from: alice });
+      await contract.methods
+        .add_approved_signer_unchecked(signer.publicKey.x, signer.publicKey.y)
+        .send({ from: alice });
 
       // Initial balances: both zero.
       await assertBalance(alice, 0n);

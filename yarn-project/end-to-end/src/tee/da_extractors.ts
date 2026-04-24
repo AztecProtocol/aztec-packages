@@ -4,12 +4,13 @@ import type { Tuple } from '@aztec/foundation/serialize';
 import { BlockHash } from '@aztec/stdlib/block';
 import type { TxEffect } from '@aztec/stdlib/tx';
 
-import { MAX_EFFECTS, TEEMetadata } from './types.js';
+import { MAX_EFFECTS, MAX_EXITS, TEEMetadata } from './types.js';
 
 /** DA tags: must match those in `contracts/app/asserted_token_contract/src/da.nr`. */
 const TEE_NOTES_DA_TAG = sha256ToField([Buffer.from('oxideTeeNotes')]);
 const TEE_REQUIRED_NULLIFIERS_DA_TAG = sha256ToField([Buffer.from('oxideTeeRequiredNullifiers')]);
 const TEE_METADATA_DA_TAG = sha256ToField([Buffer.from('oxideTeeMetadata')]);
+const TEE_EXIT_MESSAGE_HASHES_DA_TAG = sha256ToField([Buffer.from('oxideTeeExitMessageHashes')]);
 
 /** Layout of each private log carrying a DA component (mirrors da.nr):
  *   fields[0]: note tagging (unused here)
@@ -52,6 +53,13 @@ export function extractRequiredNullifiers(effect: TxEffect): Tuple<Fr, typeof MA
   const index = findTaggedDaComponentIndex(effect, TEE_REQUIRED_NULLIFIERS_DA_TAG);
   const fields = effect.privateLogs[index].fields;
   return fields.slice(DA_PAYLOAD_OFFSET, DA_PAYLOAD_OFFSET + MAX_EFFECTS) as Tuple<Fr, typeof MAX_EFFECTS>;
+}
+
+/** Returns the MAX_EXITS-sized payload of the private log tagged as the exit message hashes component. */
+export function extractExitMessageHashes(effect: TxEffect): Tuple<Fr, typeof MAX_EXITS> {
+  const index = findTaggedDaComponentIndex(effect, TEE_EXIT_MESSAGE_HASHES_DA_TAG);
+  const fields = effect.privateLogs[index].fields;
+  return fields.slice(DA_PAYLOAD_OFFSET, DA_PAYLOAD_OFFSET + MAX_EXITS) as Tuple<Fr, typeof MAX_EXITS>;
 }
 
 /** Deserializes the TEEMetadata struct (pubKeyX, pubKeyY, anchorBlockHash) from the metadata log. */
