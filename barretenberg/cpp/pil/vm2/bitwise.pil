@@ -149,6 +149,8 @@ start_sha256 * (1 - start_sha256) = 0;
 // and forging arbitrary bitwise operation results.
 // keccak and sha256 only enforce that tag_a = U64/U32 respectively. An attacker is free to
 // set tag_b to any tag value and use the resulting tag mismatch error to return an invalid result
+// Note: sha256/keccak now invokes bitwise lookups with both input tags so that this
+// relation is not required anymore but we keep it as a defensive measure.
 #[BITW_NO_EXTERNAL_START_ON_ERROR]
 (start_keccak + start_sha256) * err = 0;
 
