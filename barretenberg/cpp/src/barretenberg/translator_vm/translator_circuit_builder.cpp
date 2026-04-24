@@ -15,6 +15,7 @@
  */
 #include "translator_circuit_builder.hpp"
 #include "barretenberg/common/assert.hpp"
+#include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/op_queue/ecc_op_queue.hpp"
@@ -424,6 +425,7 @@ void TranslatorCircuitBuilder::create_accumulation_gate(const AccumulationInput&
 
 void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(const std::shared_ptr<ECCOpQueue>& ecc_op_queue)
 {
+    BB_BENCH_NAME("TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit");
     using Fq = bb::fq;
     const auto& ultra_ops = ecc_op_queue->get_ultra_ops();
     std::vector<Fq> accumulator_trace;

@@ -1038,6 +1038,17 @@ export const PUBLIC_PROCESSOR_TREE_INSERTION: MetricDefinition = {
   unit: 'ms',
   valueType: ValueType.INT,
 };
+export const PUBLIC_PROCESSOR_SILENTLY_SKIPPED_COUNT: MetricDefinition = {
+  name: 'aztec.public_processor.silently_skipped_count',
+  description: 'Public txs fully processed then skipped (e.g. blob-field limit); not counted as processed or failed',
+  valueType: ValueType.INT,
+};
+export const PUBLIC_PROCESSOR_SILENTLY_SKIPPED_DURATION: MetricDefinition = {
+  name: 'aztec.public_processor.silently_skipped_duration',
+  description: 'Wall-clock time spent processing txs that were then silently skipped',
+  unit: 'ms',
+  valueType: ValueType.INT,
+};
 
 export const PUBLIC_EXECUTOR_PREFIX = 'aztec.public_executor.';
 export const PUBLIC_EXECUTOR_SIMULATION_COUNT: MetricDefinition = {

@@ -6,6 +6,7 @@
 
 #include "merge_prover.hpp"
 #include "barretenberg/commitment_schemes/shplonk/shplonk.hpp"
+#include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/flavor/mega_zk_flavor.hpp"
 
 namespace bb {
@@ -160,6 +161,7 @@ MergeProver::OpeningClaim MergeProver::compute_shplonk_opening_claim(
  */
 MergeProver::MergeProof MergeProver::construct_proof()
 {
+    BB_BENCH_NAME("MergeProver::construct_proof");
     std::array<Polynomial, NUM_WIRES> left_table;
     std::array<Polynomial, NUM_WIRES> right_table;
     std::array<Polynomial, NUM_WIRES> merged_table = op_queue->construct_ultra_ops_table_columns(); // T

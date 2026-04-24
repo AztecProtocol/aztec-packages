@@ -49,6 +49,6 @@ void L1ToL2MessageTreeCheckTraceBuilder::process(
 
 const InteractionDefinition L1ToL2MessageTreeCheckTraceBuilder::interactions =
     InteractionDefinition()
-        .add<lookup_l1_to_l2_message_tree_check_merkle_check_settings, InteractionType::LookupSequential>();
+        .add<InteractionType::LookupSequential, lookup_l1_to_l2_message_tree_check_merkle_check_settings>();
 
 } // namespace bb::avm2::tracegen

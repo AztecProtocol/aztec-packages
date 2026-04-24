@@ -14,6 +14,7 @@
 #pragma once
 
 #include "barretenberg/common/assert.hpp"
+#include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/common/ref_span.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
@@ -80,6 +81,7 @@ template <size_t NUM_WIRES> struct PermutationMapping {
         }
 
         parallel_for([&](const ThreadChunk& chunk) {
+            BB_BENCH_TRACY_NAME("Permutation::init_mappings");
             // Initialize every element to point to itself
             for (uint8_t col_idx = 0; col_idx < NUM_WIRES; ++col_idx) {
                 for (size_t i : chunk.range(circuit_size)) {
@@ -124,6 +126,7 @@ PermutationMapping<Flavor::NUM_WIRES> compute_permutation_mapping(
     const size_t dyadic_size,
     const std::vector<CyclicPermutation>& wire_copy_cycles)
 {
+    BB_BENCH_NAME("compute_permutation_mapping");
 
     // Initialize the table of permutations so that every element points to itself
     PermutationMapping<Flavor::NUM_WIRES> mapping(dyadic_size);
@@ -215,6 +218,7 @@ void compute_honk_style_permutation_lagrange_polynomials_from_mapping(
     size_t wire_idx = 0;
     for (auto& current_permutation_poly : permutation_polynomials) {
         parallel_for(thread_data.num_threads, [&](size_t j) {
+            BB_BENCH_TRACY_NAME("Permutation::compute_polys");
             const size_t start = thread_data.start[j];
             const size_t end = thread_data.end[j];
             for (size_t i = start; i < end; ++i) {
@@ -230,22 +234,22 @@ void compute_honk_style_permutation_lagrange_polynomials_from_mapping(
                     // We intentionally want to break the cycles of the public input variables as an optimization.
                     // During the witness generation, both the left and right wire polynomials (w_l and w_r
                     // respectively) at row idx i contain the i-th public input. Let n = SEPARATOR. The initial
-                    // CyclicPermutation created for these variables copy-constrained to the ith public input therefore
-                    // always starts with (i) -> (n+i), followed by the indices of the variables in the "real" gates
-                    // (i.e., the gates not merely present to set-up inputs).
+                    // CyclicPermutation created for these variables copy-constrained to the ith public input
+                    // therefore always starts with (i) -> (n+i), followed by the indices of the variables in the
+                    // "real" gates (i.e., the gates not merely present to set-up inputs).
                     //
-                    // We change this and make i point to -(i+1). This choice "unbalances" the grand product argument,
-                    // so that the final result of the grand product is _not_ 1. These indices are chosen so they can
-                    // easily be computed by the verifier (just knowing the public inputs), and this algorithm
-                    // constitutes a specification of the "permutation argument with public inputs" optimization due to
-                    // Gabizon and Williamson. The verifier can expect the final product to be equal to the "public
-                    // input delta" that is computed in <honk/library/grand_product_delta.hpp>.
+                    // We change this and make i point to -(i+1). This choice "unbalances" the grand product
+                    // argument, so that the final result of the grand product is _not_ 1. These indices are chosen
+                    // so they can easily be computed by the verifier (just knowing the public inputs), and this
+                    // algorithm constitutes a specification of the "permutation argument with public inputs"
+                    // optimization due to Gabizon and Williamson. The verifier can expect the final product to be
+                    // equal to the "public input delta" that is computed in <honk/library/grand_product_delta.hpp>.
                     current_permutation_poly.at(poly_idx) = -FF(current_row_idx + 1 + SEPARATOR * current_col_idx);
                 } else if (current_is_tag) {
                     // Set evaluations to (arbitrary) values disjoint from non-tag values. This is for the
-                    // multiset-equality part of the generalized permutation argument, which requires auxiliary values
-                    // which have not been used as indices. In particular, these are the actual tags assigned to the
-                    // cycle.
+                    // multiset-equality part of the generalized permutation argument, which requires auxiliary
+                    // values which have not been used as indices. In particular, these are the actual tags assigned
+                    // to the cycle.
                     current_permutation_poly.at(poly_idx) = SEPARATOR * Flavor::NUM_WIRES + current_row_idx;
                 } else {
                     // For the regular permutation we simply point to the next location by setting the

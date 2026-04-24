@@ -44,7 +44,11 @@ pub struct BlockRootEmptyTxFirstRollupPrivateInputs {
 ///
 /// VkIndex: BLOCK_ROOT_EMPTY_TX_FIRST_ROLLUP_VK_INDEX
 pub fn execute(inputs: BlockRootEmptyTxFirstRollupPrivateInputs) -> BlockRollupPublicInputs {
-    validate_parity_root(inputs.parity_root, inputs.constants.vk_tree_root);
+    validate_parity_root(
+        inputs.parity_root,
+        inputs.constants.vk_tree_root,
+        inputs.constants.prover_id,
+    );
 
     BlockRollupPublicInputsComposer::new_from_no_rollups(
         inputs.previous_archive,

@@ -109,6 +109,7 @@ void compute_grand_product(typename Flavor::ProverPolynomials& full_polynomials,
     // Step (1)
     // Populate `numerator` and `denominator` with the algebra described by Relation
     parallel_for(thread_data.num_threads, [&](size_t thread_idx) {
+        BB_BENCH_TRACY_NAME("GrandProduct::step1_numerator_denominator");
         const size_t start = thread_data.start[thread_idx];
         const size_t end = thread_data.end[thread_idx];
         typename Flavor::AllValues row;
@@ -146,6 +147,7 @@ void compute_grand_product(typename Flavor::ProverPolynomials& full_polynomials,
     std::vector<FF> partial_denominators(thread_data.num_threads);
 
     parallel_for(thread_data.num_threads, [&](size_t thread_idx) {
+        BB_BENCH_TRACY_NAME("GrandProduct::step2a_subproducts");
         const size_t start = thread_data.start[thread_idx];
         const size_t end = thread_data.end[thread_idx];
         for (size_t i = start; i < end - 1; ++i) {
@@ -160,6 +162,7 @@ void compute_grand_product(typename Flavor::ProverPolynomials& full_polynomials,
     DEBUG_LOG_ALL(partial_denominators);
 
     parallel_for(thread_data.num_threads, [&](size_t thread_idx) {
+        BB_BENCH_TRACY_NAME("GrandProduct::step2b_scale_and_invert");
         const size_t start = thread_data.start[thread_idx];
         const size_t end = thread_data.end[thread_idx];
         if (thread_idx > 0) {
@@ -196,6 +199,7 @@ void compute_grand_product(typename Flavor::ProverPolynomials& full_polynomials,
 
     // Compute grand product values: z_perm[gp_start + i + 1] = numerator[i] / denominator[i]
     parallel_for(thread_data.num_threads, [&](size_t thread_idx) {
+        BB_BENCH_TRACY_NAME("GrandProduct::step3_quotient");
         const size_t start = thread_data.start[thread_idx];
         const size_t end = thread_data.end[thread_idx];
         for (size_t i = start; i < end; ++i) {
