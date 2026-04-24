@@ -1,9 +1,46 @@
 import React, { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { Highlight, themes as prismThemes } from "prism-react-renderer";
 import "./styles.css";
 
 const REMARK_PLUGINS = [remarkGfm];
+
+function CodeBlock({ code, language, isInk, codeBorder }) {
+  const theme = isInk ? prismThemes.vsDark : prismThemes.github;
+  return (
+    <Highlight code={code} language={language || "text"} theme={theme}>
+      {({ className, style, tokens, getLineProps, getTokenProps }) => (
+        <pre
+          className={className}
+          style={{
+            ...style,
+            margin: "0 0 10px",
+            padding: 10,
+            borderRadius: 4,
+            overflowX: "auto",
+            fontSize: 12,
+            lineHeight: 1.45,
+            fontFamily: "var(--azw-font-mono)",
+            border: `1px solid ${codeBorder}`,
+          }}
+        >
+          {tokens.map((line, i) => {
+            const { key: _lk, ...lineProps } = getLineProps({ line });
+            return (
+              <div key={i} {...lineProps}>
+                {line.map((token, j) => {
+                  const { key: _tk, ...tokenProps } = getTokenProps({ token });
+                  return <span key={j} {...tokenProps} />;
+                })}
+              </div>
+            );
+          })}
+        </pre>
+      )}
+    </Highlight>
+  );
+}
 
 // DocsGPT sometimes returns GFM tables as a single line with no
 // newlines between rows. Restore the structural newlines so remark-gfm
@@ -193,8 +230,6 @@ function makeMarkdownComponents(isInk, accentColor) {
     : "var(--azw-chartreuse-tint-2)";
   const codeFg = isInk ? "var(--azw-chartreuse)" : "var(--azw-ink)";
   const codeBorder = isInk ? "rgba(212,255,40,0.25)" : "var(--azw-ink-tint-1)";
-  const preBg = isInk ? "rgba(0,0,0,0.45)" : "var(--azw-ink)";
-  const preFg = isInk ? "var(--azw-parchment)" : "var(--azw-parchment)";
   const linkColor = isInk ? accentColor : "var(--azw-ink)";
   const dividerColor = isInk
     ? "rgba(242,238,225,0.15)"
@@ -311,39 +346,20 @@ function makeMarkdownComponents(isInk, accentColor) {
           </code>
         );
       }
+      const match = /language-(\w+)/.exec(className || "");
+      const code = String(children).replace(/\n$/, "");
       return (
-        <code
-          style={{
-            fontFamily: "var(--azw-font-mono)",
-            fontSize: 12,
-            color: preFg,
-            display: "block",
-          }}
-          className={className}
-          {...props}
-        >
-          {children}
-        </code>
+        <CodeBlock
+          code={code}
+          language={match ? match[1] : undefined}
+          isInk={isInk}
+          codeBorder={codeBorder}
+        />
       );
     },
-    pre: ({ node, children, ...props }) => (
-      <pre
-        style={{
-          background: preBg,
-          color: preFg,
-          padding: 10,
-          margin: "0 0 10px",
-          borderRadius: 4,
-          overflowX: "auto",
-          border: `1px solid ${codeBorder}`,
-          fontSize: 12,
-          lineHeight: 1.45,
-        }}
-        {...props}
-      >
-        {children}
-      </pre>
-    ),
+    // Passthrough: <CodeBlock> renders its own <pre>, so we unwrap
+    // react-markdown's default <pre> to avoid nesting.
+    pre: ({ children }) => <>{children}</>,
     table: ({ node, ...props }) => (
       <div style={{ overflowX: "auto", margin: "0 0 10px" }}>
         <table
