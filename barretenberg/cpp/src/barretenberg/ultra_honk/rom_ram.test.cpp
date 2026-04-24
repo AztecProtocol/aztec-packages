@@ -486,3 +486,135 @@ TYPED_TEST(UltraHonkTests, RamOutOfBoundsRead)
     TestFixture::prove_and_verify(good_instance, /*expected_result=*/true);
     TestFixture::prove_and_verify(bad_instance, /*expected_result=*/false);
 }
+
+// Field-wrap sorted-chain attack: before the fix, process_ROM/RAM_array used add_variable(FF(0))
+// for the first sorted gate's index_witness, which is an unconstrained free witness. The
+// index-delta sub-relation (w1 - w1_shift)^2 + (w1 - w1_shift) = 0 has roots {0, -1} over the
+// field, so a sorted chain starting at p-1 satisfies the delta check when transitioning to 0, and
+// a malicious prover could read/write fake values at index p-1. The fix uses zero_idx(), whose
+// fix_witness arithmetic gate (w1 * 1 + 0 = 0) catches any attempted mutation to p-1.
+
+// Test that a malicious prover cannot start the ROM sorted chain at p-1.
+TYPED_TEST(UltraHonkTests, RomMaliciousFieldWrap)
+{
+    using Flavor = TypeParam;
+    using Builder = typename Flavor::CircuitBuilder;
+    using FF = typename Flavor::FF;
+
+    Builder circuit_builder;
+
+    // Build a small ROM: values [1, 2, 3] at indices [0, 1, 2].
+    size_t rom_id = circuit_builder.create_ROM_array(3);
+    circuit_builder.set_ROM_element(rom_id, 0, circuit_builder.add_variable(FF(1)));
+    circuit_builder.set_ROM_element(rom_id, 1, circuit_builder.add_variable(FF(2)));
+    circuit_builder.set_ROM_element(rom_id, 2, circuit_builder.add_variable(FF(3)));
+
+    // Read at index 0 via a variable index witness so an attacker can later change it.
+    uint32_t idx_witness    = circuit_builder.add_variable(FF(0));
+    uint32_t result_witness = circuit_builder.read_ROM_array(rom_id, idx_witness);
+
+    TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(circuit_builder);
+
+    // Explicitly finalize so process_ROM_array runs and we can inspect the sorted gates.
+    circuit_builder.finalize_circuit(/*ensure_nonzero=*/true);
+
+    // Locate the first sorted ROM consistency check gate (q_memory=1, q_1=1, q_2=1, q_m=0).
+    auto& mem = circuit_builder.blocks.memory;
+    size_t sorted_0 = std::numeric_limits<size_t>::max();
+    for (size_t i = 0; i < mem.size(); ++i) {
+        if (mem.q_memory()[i] == 1 && mem.q_1()[i] == 1 && mem.q_2()[i] == 1 && mem.q_m()[i] == 0) {
+            sorted_0 = i;
+            break;
+        }
+    }
+    ASSERT_NE(sorted_0, std::numeric_limits<size_t>::max()) << "no sorted ROM consistency gate found";
+
+    // After the fix the first sorted gate must use zero_idx() as its index witness.
+    uint32_t sorted_0_idx_w = mem.w_l()[sorted_0];
+    uint32_t sorted_0_val_w = mem.w_r()[sorted_0];
+    EXPECT_EQ(sorted_0_idx_w, circuit_builder.zero_idx());
+
+    // Build the malicious copy: forge a read at index p-1 returning value 999.
+    // Sorted chain would become: [(p-1,999), (0,1), (1,2), (2,3), dummy(3)].
+    // Mutating sorted_0's index_witness (== zero_idx()) to p-1 violates the fix_witness
+    // arithmetic gate and must be rejected.
+    Builder bad_builder = circuit_builder;
+    auto& vars = const_cast<std::vector<FF>&>(bad_builder.get_variables());
+    const FF p_minus_1 = -FF(1);
+    vars[bad_builder.real_variable_index[sorted_0_idx_w]] = p_minus_1;
+    vars[bad_builder.real_variable_index[sorted_0_val_w]] = FF(999);
+    vars[bad_builder.real_variable_index[idx_witness]]    = p_minus_1;
+    vars[bad_builder.real_variable_index[result_witness]] = FF(999);
+
+    // Run CircuitChecker: expected error in the arithmetic sub-relation from zero_idx's fix_witness.
+    EXPECT_TRUE(CircuitChecker::check(circuit_builder));
+    EXPECT_FALSE(CircuitChecker::check(bad_builder));
+
+    // Run full protocol.
+    TestFixture::prove_and_verify(circuit_builder, /*expected_result=*/true);
+    TestFixture::prove_and_verify(bad_builder, /*expected_result=*/false);
+}
+
+// Test that a malicious prover cannot start the RAM sorted chain at p-1.
+TYPED_TEST(UltraHonkTests, RamMaliciousFieldWrap)
+{
+    using Flavor = TypeParam;
+    using Builder = typename Flavor::CircuitBuilder;
+    using FF = typename Flavor::FF;
+
+    Builder circuit_builder;
+
+    // Build a small RAM: initialise [1, 2, 3].
+    size_t ram_id = circuit_builder.create_RAM_array(3);
+    circuit_builder.init_RAM_element(ram_id, 0, circuit_builder.add_variable(FF(1)));
+    circuit_builder.init_RAM_element(ram_id, 1, circuit_builder.add_variable(FF(2)));
+    circuit_builder.init_RAM_element(ram_id, 2, circuit_builder.add_variable(FF(3)));
+
+    // Write using a variable index so an attacker can later change it to p-1.
+    uint32_t idx_witness = circuit_builder.add_variable(FF(0));
+    uint32_t write_val_w = circuit_builder.add_variable(FF(999));
+    circuit_builder.write_RAM_array(ram_id, idx_witness, write_val_w);
+
+    TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(circuit_builder);
+
+    // Explicitly finalize so process_RAM_array runs and we can inspect the sorted gates.
+    circuit_builder.finalize_circuit(/*ensure_nonzero=*/true);
+
+    // Locate the first sorted RAM consistency check gate (q_memory=1, q_3=1, q_1=q_2=q_m=0).
+    auto& mem = circuit_builder.blocks.memory;
+    size_t sorted_0 = std::numeric_limits<size_t>::max();
+    for (size_t i = 0; i < mem.size(); ++i) {
+        if (mem.q_memory()[i] == 1 && mem.q_3()[i] == 1 && mem.q_1()[i] == 0 && mem.q_2()[i] == 0 &&
+            mem.q_m()[i] == 0) {
+            sorted_0 = i;
+            break;
+        }
+    }
+    ASSERT_NE(sorted_0, std::numeric_limits<size_t>::max()) << "no sorted RAM consistency gate found";
+
+    // After the fix the first sorted gate must use zero_idx() as its index witness.
+    // RAM wire layout: w_l=index, w_r=timestamp, w_o=value, w_4=record.
+    uint32_t sorted_0_idx_w = mem.w_l()[sorted_0];
+    uint32_t sorted_0_val_w = mem.w_o()[sorted_0];
+    EXPECT_EQ(sorted_0_idx_w, circuit_builder.zero_idx());
+
+    // Build the malicious copy: move the write record to index p-1.
+    // Sorted chain would become: [(p-1,ts,999), (0,0,1), (1,1,2), final(2,2,3)].
+    // Mutating sorted_0's index_witness (== zero_idx()) to p-1 violates the fix_witness
+    // arithmetic gate and must be rejected.
+    Builder bad_builder = circuit_builder;
+    auto& vars = const_cast<std::vector<FF>&>(bad_builder.get_variables());
+    const FF p_minus_1 = -FF(1);
+    vars[bad_builder.real_variable_index[sorted_0_idx_w]] = p_minus_1;
+    vars[bad_builder.real_variable_index[sorted_0_val_w]] = FF(999);
+    vars[bad_builder.real_variable_index[idx_witness]]    = p_minus_1;
+    vars[bad_builder.real_variable_index[write_val_w]]    = FF(999);
+
+    // Run CircuitChecker: expected error in the arithmetic sub-relation from zero_idx's fix_witness.
+    EXPECT_TRUE(CircuitChecker::check(circuit_builder));
+    EXPECT_FALSE(CircuitChecker::check(bad_builder));
+
+    // Run full protocol.
+    TestFixture::prove_and_verify(circuit_builder, /*expected_result=*/true);
+    TestFixture::prove_and_verify(bad_builder, /*expected_result=*/false);
+}
