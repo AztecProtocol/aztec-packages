@@ -319,3 +319,15 @@ For new modules, follow the web3signer pattern:
 - `variables.tf`: Input variables
 - `outputs.tf`: Service URLs and other outputs
 - `values/`: Base Helm values if needed
+
+## Troubleshooting
+
+### "The committee does not exist on L1" after a fresh deploy
+
+For the first `AZTEC_LAG_IN_EPOCHS_FOR_VALIDATOR_SET + 1` epochs after a freshly deployed rollup, validators will log:
+
+> `Cannot propose at target slot N since the committee does not exist on L1`
+
+This is **expected, not a bug.** The committee at epoch `E` samples the validator set at the start of epoch `E - LAG`. For epochs before `LAG`, the sample time is before genesis, where no validators are registered — the L1 `getCommitteeAt` call reverts with `ValidatorSelection__InsufficientValidatorSetSize`, which the node surfaces as `NoCommitteeError`.
+
+With the typical `AZTEC_LAG_IN_EPOCHS_FOR_VALIDATOR_SET=1`, `AZTEC_EPOCH_DURATION=32`, `AZTEC_SLOT_DURATION=72` (epoch = 2304s ≈ 38 min), committee formation begins at epoch 2 — roughly **77 minutes after rollup genesis**. Do not chase this error during the warm-up window; just wait. The same reasoning applies to `AZTEC_LAG_IN_EPOCHS_FOR_RANDAO`.
