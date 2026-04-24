@@ -310,7 +310,7 @@ TEST(SumcheckRound, ComputeEffectiveRoundSize)
 /**
  * @brief Test that compute_effective_round_size excludes disabled rows for ZK flavors
  * @details For ZK flavors, we always cap at round_size - 2 (disabled rows are handled separately
- * via compute_disabled_contribution)
+ * via compute_offset_area_contribution)
  */
 TEST(SumcheckRound, ComputeEffectiveRoundSizeZK)
 {

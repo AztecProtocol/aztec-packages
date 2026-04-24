@@ -51,7 +51,7 @@ where `L(x)` is the joint Libra masking univariate. The offset `α^{K_H}` (with 
 
 The sumcheck runs for `JOINT_LOG_N = 17` rounds (the translator's fixed circuit size). The MegaZK circuit has `mega_zk_log_n ≤ 17` variables, so:
 
-- **Real rounds** (`0 .. mega_zk_log_n - 1`): Both circuits contribute normally. MegaZK uses row-disabling for ZK. After the last real round, MegaZK evaluations are sent *before* virtual-round challenges are drawn, eliminating prover freedom in the zero-padded region.
+- **Real rounds** (`0 .. mega_zk_log_n - 1`): Both circuits contribute normally. MegaZK uses row-disabling for ZK, with main-domain relations scaled by `(1 - L)` and the `MegaEccOpBoundaryRelation` (offset-only, enforcing `ecc_op_wire_j = 0` on rows 0..3) scaled by `L`. After the last real round, MegaZK evaluations are sent *before* virtual-round challenges are drawn, eliminating prover freedom in the zero-padded region.
 
 - **Virtual rounds** (`mega_zk_log_n .. 16`): The smaller MegaZK circuit is embedded into the translator's larger sumcheck domain via **extension-by-zero (EBZ)**: its contribution uses `compute_virtual_contribution`, and the verifier applies `τ = ∏_{k≥d}(1 - u_k)` to the MegaZK evaluations, which is the EBZ factor for the zero-padded region.
 
