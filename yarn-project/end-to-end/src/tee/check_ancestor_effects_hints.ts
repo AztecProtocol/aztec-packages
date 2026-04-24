@@ -35,20 +35,51 @@ export async function checkAncestorEffectsHints(
   }
   const archiveRoot = hints.anchorBlockHeader.lastArchive.root;
 
-  // 2. Verify the tx block hash is in the archive via the membership witness — or, if the tx
-  // block IS the anchor block, skip the membership check since equality is trivially sufficient.
-  const txBlockHash = await hints.txBlockHeader.hash();
-  if (!txBlockHash.equals(anchorBlockHash)) {
-    if (!hints.archiveMembershipWitness) {
-      throw new Error('Missing archive membership witness for tx block (tx block differs from anchor block)');
-    }
-    await verifyArchiveMembership(txBlockHash.toBuffer(), hints.archiveMembershipWitness, archiveRoot, 'tx block');
-  }
+  await verifyTxBlockMembership(hints, archiveRoot, anchorBlockHash);
+  await verifyTxEffectsFromHints(effects, hints, archiveRoot);
+}
 
-  // 3. Authenticate previousBlockEndSpongeBlob (and derive whether the target is first in its checkpoint)
+/**
+ * Verifies tx effects against an archive root directly. This is used by L1 finalization:
+ * the TEE signs the archive root, so the committed initiation tx must be proven under
+ * that exact root rather than under an unsigned fresh block hash.
+ */
+export async function checkAncestorEffectsHintsAtArchiveRoot(
+  effects: TxEffect,
+  hints: AncestorEffectsHints,
+  archiveRoot: Fr,
+): Promise<void> {
+  await verifyTxBlockMembership(hints, archiveRoot);
+  await verifyTxEffectsFromHints(effects, hints, archiveRoot);
+}
+
+/**
+ * Verifies the tx block is committed to `archiveRoot`. When an anchor block hash
+ * is signed separately, equality with that hash is enough; when only the archive
+ * root is signed, callers must provide an actual archive membership witness.
+ */
+async function verifyTxBlockMembership(
+  hints: AncestorEffectsHints,
+  archiveRoot: Fr,
+  anchorBlockHash?: BlockHash,
+): Promise<void> {
+  const txBlockHash = await hints.txBlockHeader.hash();
+  if (anchorBlockHash?.equals(txBlockHash)) {
+    return;
+  }
+  if (!hints.archiveMembershipWitness) {
+    throw new Error('Missing archive membership witness for tx block');
+  }
+  await verifyArchiveMembership(txBlockHash.toBuffer(), hints.archiveMembershipWitness, archiveRoot, 'tx block');
+}
+
+async function verifyTxEffectsFromHints(
+  effects: TxEffect,
+  hints: AncestorEffectsHints,
+  archiveRoot: Fr,
+): Promise<void> {
   const isFirstBlockInCheckpoint = await verifyPreviousBlockEndSponge(hints, archiveRoot);
 
-  // 4. Verify the sponge blob hash by replaying the target block's blob data
   const blockBlobData = buildBlockBlobData(hints, isFirstBlockInCheckpoint);
   const blockBlobFields = encodeBlockBlobData(blockBlobData);
   const sponge = hints.previousBlockEndSpongeBlob.clone();
@@ -56,11 +87,11 @@ export async function checkAncestorEffectsHints(
   const computedSpongeBlobHash = await sponge.squeeze();
   if (!computedSpongeBlobHash.equals(hints.txBlockHeader.spongeBlobHash)) {
     throw new Error(
-      `Sponge blob hash mismatch: computed ${computedSpongeBlobHash}, expected ${hints.txBlockHeader.spongeBlobHash}`,
+      `Sponge blob hash mismatch: computed ${computedSpongeBlobHash}, ` +
+        `expected ${hints.txBlockHeader.spongeBlobHash}`,
     );
   }
 
-  // 5. Verify the effects match the tx at the claimed index in the block body
   if (hints.txIndexInBlock < 0 || hints.txIndexInBlock >= hints.blockTxEffects.length) {
     throw new Error(`txIndexInBlock ${hints.txIndexInBlock} is out of range [0, ${hints.blockTxEffects.length})`);
   }
@@ -123,7 +154,7 @@ async function verifyPreviousBlockEndSponge(hints: AncestorEffectsHints, archive
 }
 
 /** Verifies a Merkle membership proof against the given root. */
-async function verifyArchiveMembership(
+export async function verifyArchiveMembership(
   leaf: Buffer,
   witness: MembershipWitness<typeof ARCHIVE_HEIGHT>,
   expectedRoot: Fr,

@@ -1,4 +1,4 @@
-import type { Fr } from '@aztec/aztec.js/fields';
+import { Fr } from '@aztec/aztec.js/fields';
 import type { SpongeBlob } from '@aztec/blob-lib';
 import type { ARCHIVE_HEIGHT } from '@aztec/constants';
 import type { Tuple } from '@aztec/foundation/serialize';

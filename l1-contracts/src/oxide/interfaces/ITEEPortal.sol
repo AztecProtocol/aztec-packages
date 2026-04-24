@@ -30,7 +30,7 @@ interface ITEEPortal {
     uint256 _epochNumber,
     uint256 _leafIndex,
     bytes32[] calldata _path,
-    bytes32 _freshAnchorBlockHash,
+    uint256 _checkpointNumber,
     bytes32 _withdrawalDigest,
     bytes calldata _teeSignature
   ) external;

@@ -5,32 +5,36 @@ import { BatchCall, waitForProven } from '@aztec/aztec.js/contracts';
 import { Fr } from '@aztec/aztec.js/fields';
 import { deriveKeys } from '@aztec/aztec.js/keys';
 import type { AztecNode } from '@aztec/aztec.js/node';
+import type { AnvilTestWatcher, CheatCodes } from '@aztec/aztec/testing';
+import { RollupContract } from '@aztec/ethereum/contracts';
 import type { DeployAztecL1ContractsReturnType } from '@aztec/ethereum/deploy-aztec-l1-contracts';
 import { deployL1Contract } from '@aztec/ethereum/deploy-l1-contract';
+import { BlockNumber, EpochNumber } from '@aztec/foundation/branded-types';
 import { poseidon2Hash } from '@aztec/foundation/crypto/poseidon';
 import { sha256ToField } from '@aztec/foundation/crypto/sha256';
 import { retryUntil } from '@aztec/foundation/retry';
 import type { Tuple } from '@aztec/foundation/serialize';
 import {
-  MockERC20Abi,
-  MockERC20Bytecode,
   MockPredicateAbi,
   MockPredicateBytecode,
   TEEPortalAbi,
   TEEPortalBytecode,
+  TestERC20Abi,
+  TestERC20Bytecode,
 } from '@aztec/l1-artifacts';
 import { AssertedTokenContractContract } from '@aztec/noir-contracts.js/AssertedTokenContract';
 import { CompleteAddress, getContractInstanceFromInstantiationParams } from '@aztec/stdlib/contract';
-import { computeL2ToL1MessageHash } from '@aztec/stdlib/hash';
+import { computeL2ToL1MessageHash, computeSecretHash } from '@aztec/stdlib/hash';
 import { computeL2ToL1MembershipWitness } from '@aztec/stdlib/messaging';
-import { Capsule, type TxHash, type TxReceipt } from '@aztec/stdlib/tx';
+import { Capsule, ExecutionPayload, type TxHash, type TxReceipt } from '@aztec/stdlib/tx';
 
 import { jest } from '@jest/globals';
 import { type Hex, decodeEventLog, getContract } from 'viem';
 
 import { getLogger, setup } from './fixtures/utils.js';
 import { computeStealthRecipientHash, getWithdrawContentHash } from './tee/oxide/content_hash.js';
-import { type SignTokenOperationOutput, TeeSigner, type TokenOperation } from './tee/signer.js';
+import { produceAncestorEffectsHints } from './tee/produce_ancestor_effects_hints.js';
+import { type BridgeContext, type SignTokenOperationOutput, TeeSigner, type TokenOperation } from './tee/signer.js';
 import { type SpendMetadata, buildTokenOperation, collectTokenEffects } from './tee/token_operations_collector.js';
 import { type MAX_EFFECTS, type MAX_EXITS, TEEMetadata } from './tee/types.js';
 import type { TestWallet } from './test-wallet/test_wallet.js';
@@ -51,6 +55,8 @@ describe('e2e_oxide_bridge', () => {
   let accounts: AztecAddress[];
   let initialFundedAccounts: InitialAccountData[];
   let deployL1ContractsValues: DeployAztecL1ContractsReturnType;
+  let cheatCodes: CheatCodes;
+  let watcher: AnvilTestWatcher;
   let teardown: () => Promise<void>;
   const logger = getLogger();
 
@@ -123,12 +129,24 @@ describe('e2e_oxide_bridge', () => {
     return new Capsule(contract.address, TEE_EXIT_MESSAGE_HASHES_DA_CAPSULE_KEY, exitMessageHashes);
   }
 
-  async function createTeeSigner() {
+  function createTeeSigner() {
     return TeeSigner.random();
   }
 
   beforeAll(async () => {
-    ({ teardown, wallet, accounts, initialFundedAccounts, aztecNode, deployL1ContractsValues } = await setup(2));
+    ({ teardown, wallet, accounts, initialFundedAccounts, aztecNode, deployL1ContractsValues, cheatCodes, watcher } =
+      await setup(2, { startProverNode: true }));
+    // The anvil test watcher auto-marks blocks as proven on the rollup contract, which advances
+    // the proven tip but does NOT submit a real epoch proof. Since the outbox root is only written
+    // when an actual epoch proof lands, we disable the watcher's fake proving so the real prover
+    // node (enabled by startProverNode) drives the outbox updates.
+    watcher.setIsMarkingAsProven(false);
+    // Establish a clean baseline: advance past the current epoch and mark everything built so far
+    // (account deployment etc.) as proven via cheat code. This prevents the real prover from trying
+    // to re-prove pre-test blocks whose txs may have been evicted from the main node's mempool,
+    // and confines real proving to epochs that contain the test's own withdraw block.
+    await cheatCodes.rollup.advanceToNextEpoch();
+    await cheatCodes.rollup.markAsProven();
   }, TIMEOUT);
 
   afterAll(() => teardown());
@@ -139,6 +157,8 @@ describe('e2e_oxide_bridge', () => {
     owner: AztecAddress,
     sharedSecret: Fr,
     messageLeafIndex: bigint,
+    messageKey: Fr,
+    bridgeContext: BridgeContext,
   ): Promise<TxReceipt> {
     const randomnessSeedCapsule = buildSeedCapsule();
 
@@ -149,18 +169,34 @@ describe('e2e_oxide_bridge', () => {
       .simulate({ from: owner });
 
     const collected = collectTokenEffects(contract.address, simulation.offchainEffects);
-    // Claim has no nullified notes (like mint).
-    const tokenOperation = await buildTokenOperation(
-      aztecNode,
-      contract.address,
-      await wallet.getSyncedBlockHeader(),
-      collected,
-      [],
-    );
+    const anchorBlockHeader = await wallet.getSyncedBlockHeader();
+    const anchorBlockHash = await anchorBlockHeader.hash();
+    const depositWitness = await aztecNode.getL1ToL2MessageMembershipWitness(anchorBlockHash, messageKey);
+    if (!depositWitness) {
+      throw new Error(`No L1->L2 membership witness found for deposit message ${messageKey}`);
+    }
+    const [witnessLeafIndex, siblingPath] = depositWitness;
+    if (witnessLeafIndex !== messageLeafIndex) {
+      throw new Error(`Deposit witness leaf index ${witnessLeafIndex} does not match event index ${messageLeafIndex}`);
+    }
+
+    const tokenOperation = await buildTokenOperation(aztecNode, contract.address, anchorBlockHeader, collected, [], {
+      deposits: [
+        {
+          recipient: owner,
+          amount,
+          sharedSecret,
+          messageLeafIndex,
+          siblingPath: siblingPath.toTuple(),
+        },
+      ],
+      exits: [],
+      bridgeContext,
+    });
 
     const { signatures, requiredNullifiers, teeNotes, exitMessageHashes } = await signer.signTokenOperation(
       tokenOperation,
-      true,
+      false,
     );
 
     const signatureCapsules = await Promise.all(
@@ -195,6 +231,7 @@ describe('e2e_oxide_bridge', () => {
     from: AztecAddress,
     l1Recipient: EthAddress,
     amount: bigint,
+    bridgeContext: BridgeContext,
   ): Promise<{ receipt: TxReceipt; operation: TokenOperation; initiation: SignTokenOperationOutput }> {
     const randomnessSeedCapsule = buildSeedCapsule();
 
@@ -216,6 +253,11 @@ describe('e2e_oxide_bridge', () => {
       await wallet.getSyncedBlockHeader(),
       collected,
       spendMetadata,
+      {
+        deposits: [],
+        exits: [{ l1Recipient, amount }],
+        bridgeContext,
+      },
     );
 
     const initiation = await signer.signTokenOperation(tokenOperation, false);
@@ -247,8 +289,69 @@ describe('e2e_oxide_bridge', () => {
     return { receipt, operation: tokenOperation, initiation };
   }
 
+  async function transfer(signer: TeeSigner, from: AztecAddress, to: AztecAddress, amount: bigint): Promise<TxReceipt> {
+    const randomnessSeedCapsule = buildSeedCapsule();
+
+    logger.info(`Transferring ${amount} from ${from} to ${to}`);
+    const simulation = await contract.methods
+      .transfer(from, to, amount)
+      .with({ capsules: [randomnessSeedCapsule] })
+      .simulate({ from });
+
+    const collected = collectTokenEffects(contract.address, simulation.offchainEffects);
+
+    const spendMetadata = await Promise.all(
+      collected.nullifiedNotes.map(nullified => buildSpendMetadataFor(nullified.owner, nullified.randomness)),
+    );
+
+    const tokenOperation = await buildTokenOperation(
+      aztecNode,
+      contract.address,
+      await wallet.getSyncedBlockHeader(),
+      collected,
+      spendMetadata,
+    );
+
+    const { signatures, requiredNullifiers, teeNotes, exitMessageHashes } = await signer.signTokenOperation(
+      tokenOperation,
+      false,
+    );
+
+    const signatureCapsules = await Promise.all(
+      tokenOperation.createdNotes.map(async (note, i) => {
+        const slot = await poseidon2Hash([NOTE_SIGNATURE_CAPSULE_SLOT, note.randomness]);
+        const sig = signatures[i];
+        return new Capsule(contract.address, slot, [sig.sLo, sig.sHi, sig.eLo, sig.eHi]);
+      }),
+    );
+
+    const teeNotesCapsule = buildTeeNotesCapsule(teeNotes);
+    const requiredNullifiersCapsule = buildTeeRequiredNullifiersCapsule(requiredNullifiers);
+    const metadataCapsule = buildTeeMetadataCapsule(
+      new TEEMetadata(signer.publicKey.x, signer.publicKey.y, await tokenOperation.anchorBlockHeader.hash()),
+    );
+    const exitMessageHashesCapsule = buildTeeExitMessageHashesCapsule(exitMessageHashes);
+
+    const transferCall = contract.methods
+      .transfer(from, to, amount)
+      .with({ capsules: [randomnessSeedCapsule, ...signatureCapsules] });
+    const publishDaCall = contract.methods
+      .publish_da()
+      .with({ capsules: [teeNotesCapsule, requiredNullifiersCapsule, metadataCapsule, exitMessageHashesCapsule] });
+
+    const { receipt } = await new BatchCall(wallet, [transferCall, publishDaCall]).send({ from });
+    recordCreatedNotes(receipt.txHash, tokenOperation.createdNotes);
+    return receipt;
+  }
+
   async function balanceOf(owner: AztecAddress): Promise<bigint> {
     return (await contract.methods.balance_of_private(owner).simulate({ from: owner })).result;
+  }
+
+  async function advanceL2Block(owner: AztecAddress): Promise<void> {
+    const blockNumber = await aztecNode.getBlockNumber();
+    await wallet.sendTx(ExecutionPayload.empty(), { from: owner });
+    await retryUntil(async () => (await aztecNode.getBlockNumber()) > blockNumber, 'archive block', 60, 1);
   }
 
   async function makeInboxMessageConsumable(owner: AztecAddress, messageKey: Fr) {
@@ -259,22 +362,28 @@ describe('e2e_oxide_bridge', () => {
     // `AssertedTokenContract` has no public mint.
     await retryUntil(() => aztecNode.isL1ToL2MessageSynced(messageKey), 'inbox message sync', 60, 1);
     const dummy = new Fr(1n);
-    await contract.methods.add_approved_signer_unchecked(dummy, dummy).send({ from: owner }).wait();
-    await contract.methods.add_approved_signer_unchecked(dummy, dummy).send({ from: owner }).wait();
+    await contract.methods.add_approved_signer_unchecked(dummy, dummy).send({ from: owner });
+    await contract.methods.add_approved_signer_unchecked(dummy, dummy).send({ from: owner });
   }
 
   it(
-    'deposits on L1, claims on L2, withdraws on L2, and claims on L1',
+    'L1 Alice deposits to L2 Alice, transfers to L2 Bob, then Bob withdraws to L1 Bob',
     async () => {
-      const [alice] = accounts;
+      const [alice, bob] = accounts;
       const l1Client = deployL1ContractsValues.l1Client;
       const { rollupVersion } = deployL1ContractsValues;
-      const { inboxAddress, outboxAddress } = deployL1ContractsValues.l1ContractAddresses;
+      const { inboxAddress, outboxAddress, rollupAddress } = deployL1ContractsValues.l1ContractAddresses;
       const l1ChainId = BigInt(l1Client.chain.id);
-      const l1Recipient = EthAddress.fromString(l1Client.account.address);
+      // Anvil's default account funds the L1 deposit. Bob's L1 payout goes to a distinct
+      // address so the end-state ERC20 balance check attributes the withdraw to Bob.
+      const bobL1Recipient = EthAddress.fromString('0x' + '0'.repeat(39) + '2');
 
-      logger.info('Deploying L1 contracts (MockERC20, MockPredicate, TEEPortal)');
-      const { address: tokenAddress } = await deployL1Contract(l1Client, MockERC20Abi, MockERC20Bytecode, []);
+      logger.info('Deploying L1 contracts (TestERC20, MockPredicate, TEEPortal)');
+      const { address: tokenAddress } = await deployL1Contract(l1Client, TestERC20Abi, TestERC20Bytecode, [
+        'Test',
+        'TST',
+        l1Client.account.address,
+      ]);
       const { address: predicateAddress } = await deployL1Contract(l1Client, MockPredicateAbi, MockPredicateBytecode, [
         true,
       ]);
@@ -284,6 +393,7 @@ describe('e2e_oxide_bridge', () => {
         tokenAddress.toString(),
         inboxAddress.toString(),
         outboxAddress.toString(),
+        rollupAddress.toString(),
         BigInt(rollupVersion),
         RATE,
         GLOBAL_LIMIT,
@@ -292,7 +402,7 @@ describe('e2e_oxide_bridge', () => {
       logger.info(`Deployed token=${tokenAddress} predicate=${predicateAddress} portal=${portalAddress}`);
 
       const portal = getContract({ address: portalAddress.toString(), abi: TEEPortalAbi, client: l1Client });
-      const token = getContract({ address: tokenAddress.toString(), abi: MockERC20Abi, client: l1Client });
+      const token = getContract({ address: tokenAddress.toString(), abi: TestERC20Abi, client: l1Client });
 
       logger.info('Deploying L2 AssertedTokenContract bound to the L1 portal');
       ({ contract } = await AssertedTokenContractContract.deploy(wallet, portalAddress).send({ from: alice }));
@@ -303,6 +413,18 @@ describe('e2e_oxide_bridge', () => {
       await l1Client.waitForTransactionReceipt({
         hash: await portal.write.initialize([`0x${bridgeBytes32.toString('hex')}` as Hex]),
       });
+
+      // Bound into the signed TokenOperation whenever deposits/exits are non-empty so the TEE
+      // can rebuild the L2->L1 outbox message hash. constantSecret is Fr.ZERO for the oxide
+      // bridge (L1 emits claim messages with a pre-hashed recipient slot).
+      const bridgeContext: BridgeContext = {
+        l1Portal: EthAddress.fromString(portalAddress.toString()),
+        l1ChainId,
+        l2Bridge: contract.address,
+        rollupVersion: BigInt(rollupVersion),
+        constantSecret: Fr.ZERO,
+        constantSecretHash: await computeSecretHash(Fr.ZERO),
+      };
 
       const signer = await createTeeSigner();
 
@@ -352,8 +474,7 @@ describe('e2e_oxide_bridge', () => {
           signer.publicKey.y,
           new Fr(registrationLeafIndex),
         )
-        .send({ from: alice })
-        .wait();
+        .send({ from: alice });
 
       logger.info('Minting underlying ERC20 and approving portal');
       await l1Client.waitForTransactionReceipt({
@@ -400,22 +521,35 @@ describe('e2e_oxide_bridge', () => {
       logger.info('Waiting for archiver to index the inbox message and advancing L2 by 2 blocks');
       await makeInboxMessageConsumable(alice, messageKey);
 
-      const claimReceipt = await claim(signer, DEPOSIT_AMOUNT, alice, sharedSecret, messageLeafIndex);
+      const claimReceipt = await claim(
+        signer,
+        DEPOSIT_AMOUNT,
+        alice,
+        sharedSecret,
+        messageLeafIndex,
+        messageKey,
+        bridgeContext,
+      );
       expect(await balanceOf(alice)).toBe(DEPOSIT_AMOUNT);
 
       const portalBalanceAfterDeposit = (await token.read.balanceOf([portalAddress.toString()])) as bigint;
       expect(portalBalanceAfterDeposit).toBe(DEPOSIT_AMOUNT);
 
+      // L2 Alice -> L2 Bob. Same TEE attestation flow as withdraw but with no L1 exits.
+      const transferReceipt = await transfer(signer, alice, bob, DEPOSIT_AMOUNT);
+      expect(await balanceOf(alice)).toBe(0n);
+      expect(await balanceOf(bob)).toBe(DEPOSIT_AMOUNT);
+
       const {
         receipt: withdrawReceipt,
         operation: withdrawOperation,
         initiation: withdrawInitiation,
-      } = await withdraw(signer, alice, l1Recipient, DEPOSIT_AMOUNT);
-      expect(await balanceOf(alice)).toBe(0n);
+      } = await withdraw(signer, bob, bobL1Recipient, DEPOSIT_AMOUNT, bridgeContext);
+      expect(await balanceOf(bob)).toBe(0n);
 
       // Reconstruct the L2->L1 message hash so we can look up the membership witness.
-      const expectedContent = getWithdrawContentHash(l1Recipient, DEPOSIT_AMOUNT);
-      const expectedMessageHash = await computeL2ToL1MessageHash({
+      const expectedContent = getWithdrawContentHash(bobL1Recipient, DEPOSIT_AMOUNT);
+      const expectedMessageHash = computeL2ToL1MessageHash({
         l2Sender: contract.address,
         l1Recipient: EthAddress.fromString(portalAddress.toString()),
         content: expectedContent,
@@ -423,7 +557,17 @@ describe('e2e_oxide_bridge', () => {
         chainId: new Fr(l1ChainId),
       });
 
-      logger.info('Waiting for withdraw tx to be proven');
+      // Outbox root is populated on epoch-proof submission, so we advance L1 time to the
+      // next epoch via cheat codes and wait for the proof to land before computing the
+      // membership witness. Mirrors CrossChainMessagingTest.advanceToEpochProven.
+      logger.info('Advancing L1 to next epoch and waiting for withdraw tx to be proven');
+      const rollup = new RollupContract(l1Client, rollupAddress.toString());
+      const withdrawBlock = await aztecNode.getBlock(withdrawReceipt.blockNumber!);
+      if (!withdrawBlock) {
+        throw new Error(`Could not fetch withdraw block ${withdrawReceipt.blockNumber}`);
+      }
+      const withdrawEpoch = await rollup.getEpochNumberForCheckpoint(withdrawBlock.checkpointNumber);
+      await cheatCodes.rollup.advanceToEpoch(EpochNumber(withdrawEpoch + 1));
       await waitForProven(aztecNode, withdrawReceipt, { provenTimeout: 500 });
 
       logger.info('Computing L2->L1 membership witness');
@@ -440,43 +584,84 @@ describe('e2e_oxide_bridge', () => {
       const leafIndex = witness.leafIndex;
       const siblingPath = witness.siblingPath.toFields().map(field => field.toString() as Hex);
 
-      // `freshAnchorBlockHash` is the TEE's current L2-state anchor. L1 binds it into
-      // the final-digest preimage today but does not yet validate it against the rollup
-      // archive (see TODO in `TEEPortal.sol::withdraw`), so using the latest synced
-      // block header's hash here is sufficient to exercise the real flow.
-      const freshAnchorBlockHash = (await (await wallet.getSyncedBlockHeader()).hash()).toBuffer();
+      logger.info('Advancing L2 once so the checkpoint archive root is available for witness generation');
+      await advanceL2Block(alice);
+
+      // The TEE finalization signs the archive root that L1 will read from
+      // Rollup.archiveAt(checkpointNumber). Archive membership witnesses are
+      // produced against the following block's lastArchive root, which is the
+      // checkpoint archive root from the previous block.
+      const archive = await retryUntil(
+        async () => {
+          const checkpointNumber = withdrawBlock.checkpointNumber;
+          const root = await rollup.archiveAt(checkpointNumber);
+          if (root.equals(Fr.ZERO)) {
+            return undefined;
+          }
+          const checkpointEndBlock = await aztecNode.getBlockByArchive(root);
+          if (!checkpointEndBlock) {
+            return undefined;
+          }
+          const witnessReferenceBlock = await aztecNode.getBlock(BlockNumber(checkpointEndBlock.number + 1));
+          if (!witnessReferenceBlock?.header.lastArchive.root.equals(root)) {
+            return undefined;
+          }
+          return { checkpointNumber, root, witnessReferenceBlock };
+        },
+        'archive checkpoint',
+        60,
+        1,
+      );
+      const archiveAnchorBlockHash = await archive.witnessReferenceBlock.hash();
+      const archiveRoot = archive.root;
+      const operationAnchorBlockHash = await withdrawOperation.anchorBlockHeader.hash();
+      const anchorBlockHashMembershipWitness = await aztecNode.getBlockHashMembershipWitness(
+        archiveAnchorBlockHash,
+        operationAnchorBlockHash,
+      );
+      if (!anchorBlockHashMembershipWitness) {
+        throw new Error(`Operation anchor block ${operationAnchorBlockHash} is not in archive ${archiveRoot}`);
+      }
+      const { effects: initiationEffects, hints: initiationHints } = await produceAncestorEffectsHints(
+        aztecNode,
+        withdrawReceipt.txHash,
+        archiveAnchorBlockHash,
+      );
       const finalization = await signer.signExitFinalization({
         operation: withdrawOperation,
         exitIndex: 0,
         initiation: withdrawInitiation,
-        freshAnchorBlockHash,
+        initiationEffects,
+        initiationHints,
+        archiveRoot,
+        anchorBlockHashMembershipWitness,
       });
       expect(finalization.messageHash.equals(expectedMessageHash.toBuffer())).toBe(true);
 
-      const l1BalanceBefore = (await token.read.balanceOf([l1Client.account.address])) as bigint;
+      const bobL1BalanceBefore = (await token.read.balanceOf([bobL1Recipient.toString()])) as bigint;
 
       logger.info('Claiming on L1 via TEEPortal.withdraw');
       await l1Client.waitForTransactionReceipt({
         hash: await portal.write.withdraw([
-          l1Client.account.address,
+          bobL1Recipient.toString() as Hex,
           DEPOSIT_AMOUNT,
           epochNumber,
           leafIndex,
           siblingPath,
-          `0x${freshAnchorBlockHash.toString('hex')}` as Hex,
+          BigInt(archive.checkpointNumber),
           `0x${finalization.initiationDigest.toString('hex')}` as Hex,
           `0x${finalization.signature.toString('hex')}` as Hex,
         ]),
       });
 
-      const l1BalanceAfter = (await token.read.balanceOf([l1Client.account.address])) as bigint;
-      expect(l1BalanceAfter - l1BalanceBefore).toBe(DEPOSIT_AMOUNT);
+      const bobL1BalanceAfter = (await token.read.balanceOf([bobL1Recipient.toString()])) as bigint;
+      expect(bobL1BalanceAfter - bobL1BalanceBefore).toBe(DEPOSIT_AMOUNT);
 
       const portalBalanceAfterWithdraw = (await token.read.balanceOf([portalAddress.toString()])) as bigint;
       expect(portalBalanceAfterWithdraw).toBe(0n);
 
       logger.info(
-        `Bridge round-trip succeeded: deposit=${DEPOSIT_AMOUNT} claim=${claimReceipt.txHash} withdraw=${withdrawReceipt.txHash}`,
+        `Bridge round-trip succeeded: deposit=${DEPOSIT_AMOUNT} claim=${claimReceipt.txHash} transfer=${transferReceipt.txHash} withdraw=${withdrawReceipt.txHash}`,
       );
     },
     TIMEOUT,

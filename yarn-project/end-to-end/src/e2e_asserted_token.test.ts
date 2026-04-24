@@ -123,7 +123,7 @@ describe('e2e_asserted_token', () => {
     logger.info(`Ancestor effects verification succeeded for tx ${txHash}`);
   }
 
-  async function createTeeSigner() {
+  function createTeeSigner() {
     return TeeSigner.random();
   }
 

@@ -1,8 +1,4 @@
-use aztec::protocol::{
-    address::{AztecAddress, EthAddress},
-    hash::sha256_to_field,
-    traits::ToField,
-};
+use aztec::protocol::{address::{AztecAddress, EthAddress}, hash::sha256_to_field, traits::ToField};
 
 // Oxide deposit/withdraw uses a constant zero-secret since there is no per-deposit secret
 // to exchange. `compute_secret_hash(CONSTANT_SECRET)` must equal the TEEPortal.sol
@@ -16,8 +12,7 @@ pub global CONSTANT_SECRET: Field = 0;
 // this value for any other hash in the project - that's what domain separators
 // are for.
 pub global DOMAIN_MAGIC: [u8; 16] = [
-    0x4f, 0x58, 0x49, 0x44, 0x45, 0x5f, 0x42, 0x52,
-    0x49, 0x44, 0x47, 0x45, 0x5f, 0x56, 0x31, 0x00,
+    0x4f, 0x58, 0x49, 0x44, 0x45, 0x5f, 0x42, 0x52, 0x49, 0x44, 0x47, 0x45, 0x5f, 0x56, 0x31, 0x00,
 ];
 
 // L1 -> L2 claim message content hash. Must match `TEEPortal.sol::deposit`, which calls
@@ -58,10 +53,7 @@ pub fn get_register_signer_content_hash(
     let y_bytes: [u8; 32] = pub_key_y.to_be_bytes();
 
     let selector = comptime {
-        keccak256::keccak256(
-            "register_signer(address,bytes32,bytes32)".as_bytes(),
-            40,
-        )
+        keccak256::keccak256("register_signer(address,bytes32,bytes32)".as_bytes(), 40)
     };
 
     for i in 0..4 {

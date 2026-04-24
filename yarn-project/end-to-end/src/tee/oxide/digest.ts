@@ -2,13 +2,12 @@ import { sha256 } from '@aztec/foundation/crypto/sha256';
 
 const FIELD_BYTES = 32;
 
-export type WithdrawalFinalDigestInput = {
+type WithdrawalFinalDigestInput = {
   /**
-   * The TEE's current L2-state anchor block hash. Bound into the L1-verified
-   * preimage so a future `Rollup.archiveAt(checkpointNumber)` check on L1 can
-   * reject stale anchors. Not validated against the rollup archive today.
+   * Archive root that contains the first-phase operation anchor block hash.
+   * L1 derives this from `Rollup.archiveAt(checkpointNumber)`.
    */
-  freshAnchorBlockHash: Buffer;
+  archiveRoot: Buffer;
   /**
    * Per-operation, per-exit L1 nullifier key produced by the first-phase TEE
    * Grumpkin Schnorr attestation (`TeeSigner.signExitFinalization` derives it as
@@ -25,7 +24,7 @@ export type WithdrawalFinalDigestInput = {
  * collide with any other SHA256-based digest the TEE emits. Must stay in
  * lockstep with `TEEPortal.sol::TEE_SIG_DOMAIN_EXIT_FINALIZED`.
  */
-export const TEE_SIG_DOMAIN_EXIT_FINALIZED = 2;
+const TEE_SIG_DOMAIN_EXIT_FINALIZED = 2;
 
 function assertLen(name: string, buf: Buffer, expected: number): void {
   if (buf.length !== expected) {
@@ -34,12 +33,12 @@ function assertLen(name: string, buf: Buffer, expected: number): void {
 }
 
 export function buildWithdrawalFinalDigest(input: WithdrawalFinalDigestInput): Buffer {
-  assertLen('freshAnchorBlockHash', input.freshAnchorBlockHash, FIELD_BYTES);
+  assertLen('archiveRoot', input.archiveRoot, FIELD_BYTES);
   assertLen('withdrawalDigest', input.withdrawalDigest, FIELD_BYTES);
   assertLen('messageHash', input.messageHash, FIELD_BYTES);
   const preimage = Buffer.concat([
     Buffer.of(TEE_SIG_DOMAIN_EXIT_FINALIZED),
-    input.freshAnchorBlockHash,
+    input.archiveRoot,
     input.withdrawalDigest,
     input.messageHash,
   ]);

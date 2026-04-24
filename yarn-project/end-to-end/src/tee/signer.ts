@@ -9,7 +9,7 @@ import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { Tuple } from '@aztec/foundation/serialize';
 import { type MembershipWitness, computeRootFromSiblingPath } from '@aztec/foundation/trees';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { BlockHash } from '@aztec/stdlib/block';
+import { BlockHash } from '@aztec/stdlib/block';
 import type { CompleteAddress } from '@aztec/stdlib/contract';
 import {
   computeL1ToL2MessageNullifier,
@@ -23,7 +23,11 @@ import { computeAddress, computeAppNullifierHidingKey, derivePublicKeyFromSecret
 import { L1Actor, L1ToL2Message, L2Actor } from '@aztec/stdlib/messaging';
 import type { BlockHeader, TxEffect } from '@aztec/stdlib/tx';
 
-import { checkAncestorEffectsHints } from './check_ancestor_effects_hints.js';
+import {
+  checkAncestorEffectsHints,
+  checkAncestorEffectsHintsAtArchiveRoot,
+  verifyArchiveMembership,
+} from './check_ancestor_effects_hints.js';
 import {
   extractExitMessageHashes,
   extractMetadata,
@@ -137,15 +141,23 @@ export interface SignTokenOperationOutput {
  * preimage from `operation` + `initiation` so it can re-verify the Grumpkin Schnorr
  * sig it previously produced before wrapping it in an ECDSA attestation for L1.
  *
- * `freshAnchorBlockHash` is the TEE's current L2-state anchor bound into the
- * L1-verified preimage. L1 treats it as an unvalidated pass-through today; a future
- * `Rollup.archiveAt(checkpointNumber)` check on L1 will reject stale anchors.
+ * `archiveRoot` is the TEE's current L2-state anchor for L1 finalization. The TEE
+ * verifies that the first-phase operation anchor block hash is a member of this
+ * archive before signing it.
+ *
+ * `initiationEffects` and `initiationHints` prove that the first-phase DA tuple
+ * was published by an L2 tx under the same `archiveRoot`. Without this,
+ * finalization would only prove that the TEE can rebuild a previously signed
+ * object, not that the object was committed into the rollup.
  */
 export interface ExitFinalizationInput {
   operation: TokenOperation;
   exitIndex: number;
   initiation: SignTokenOperationOutput;
-  freshAnchorBlockHash: Buffer;
+  initiationEffects: TxEffect;
+  initiationHints: AncestorEffectsHints;
+  archiveRoot: Fr;
+  anchorBlockHashMembershipWitness: MembershipWitness<typeof ARCHIVE_HEIGHT>;
 }
 
 export interface ExitFinalizationOutput {
@@ -157,7 +169,7 @@ export interface ExitFinalizationOutput {
   initiationDigest: Buffer;
   /** 32-byte outbox-leaf hash for the exit, same value L1 rebuilds from the withdraw params. */
   messageHash: Buffer;
-  /** 32-byte ECDSA preimage hash `TEEPortal._verifyTeeAttestation` recomputes. */
+  /** 32-byte ECDSA preimage hash `TEEPortal.withdraw` recomputes. */
   finalDigest: Buffer;
   /** 65-byte (r || s || v) ECDSA signature the portal recovers. */
   signature: Buffer;
@@ -304,6 +316,57 @@ export class TeeSigner {
         throw new Error(`Attested exit message hash ${exitMessageHash} not found in creation tx l2ToL1Msgs`);
       }
     }
+  }
+
+  private validateTupleEquals(actual: readonly Fr[], expected: readonly Fr[], label: string): void {
+    if (actual.length !== expected.length) {
+      throw new Error(`${label} length ${actual.length} does not match expected length ${expected.length}`);
+    }
+    for (let i = 0; i < actual.length; i++) {
+      if (!actual[i].equals(expected[i])) {
+        throw new Error(`${label}[${i}] ${actual[i]} does not match expected ${expected[i]}`);
+      }
+    }
+  }
+
+  private async validateTeeNotesInEffects(
+    teeNotes: Tuple<Fr, typeof MAX_EFFECTS>,
+    initiationEffects: TxEffect,
+  ): Promise<void> {
+    for (const teeNote of teeNotes) {
+      if (teeNote.equals(Fr.zero())) {
+        continue;
+      }
+      await this.validateSiloedVsUniqueNoteHash(teeNote, initiationEffects);
+    }
+  }
+
+  private async validateCommittedInitiation(input: ExitFinalizationInput, anchorBlockHash: BlockHash): Promise<void> {
+    await checkAncestorEffectsHintsAtArchiveRoot(input.initiationEffects, input.initiationHints, input.archiveRoot);
+
+    const metadata = extractMetadata(input.initiationEffects);
+    if (!metadata.pubKeyX.equals(this.publicKey.x) || !metadata.pubKeyY.equals(this.publicKey.y)) {
+      throw new Error('Committed initiation metadata does not match this TEE public key');
+    }
+    if (!metadata.anchorBlockHash.equals(anchorBlockHash)) {
+      throw new Error(
+        `Committed initiation anchor ${metadata.anchorBlockHash} does not match operation anchor ${anchorBlockHash}`,
+      );
+    }
+
+    const requiredNullifiers = extractRequiredNullifiers(input.initiationEffects);
+    const teeNotes = extractTeeNotes(input.initiationEffects);
+    const exitMessageHashes = extractExitMessageHashes(input.initiationEffects);
+
+    // These equality checks bind the API-level initiation object to the DA actually
+    // published by the tx. The effect checks below then bind that DA to what the tx did.
+    this.validateTupleEquals(requiredNullifiers, input.initiation.requiredNullifiers, 'requiredNullifiers');
+    this.validateTupleEquals(teeNotes, input.initiation.teeNotes, 'teeNotes');
+    this.validateTupleEquals(exitMessageHashes, input.initiation.exitMessageHashes, 'exitMessageHashes');
+
+    this.validateRequiredNullifiers(requiredNullifiers, input.initiationEffects);
+    await this.validateTeeNotesInEffects(teeNotes, input.initiationEffects);
+    this.validateExitMessageHashesInL2ToL1Msgs(exitMessageHashes, input.initiationEffects);
   }
 
   /**
@@ -492,10 +555,17 @@ export class TeeSigner {
     return { requiredNullifiers, amountSpent };
   }
 
-  public async signTokenOperation(
+  private async buildOperationCommitments(
     operation: TokenOperation,
-    mintBypass: boolean, // If true, we will allow signing non matching values (for testing mint)
-  ): Promise<SignTokenOperationOutput> {
+    mintBypass: boolean,
+  ): Promise<{
+    anchorBlockHash: BlockHash;
+    siloedNoteHashes: Fr[];
+    exitMessageHashes: Fr[];
+    requiredNullifiers: Tuple<Fr, typeof MAX_EFFECTS>;
+    teeNotes: Tuple<Fr, typeof MAX_EFFECTS>;
+    paddedExitMessageHashes: Tuple<Fr, typeof MAX_EXITS>;
+  }> {
     const anchorBlockHash = await operation.anchorBlockHeader.hash();
 
     const { requiredNullifiers: spendNullifiers, amountSpent } = await this.validateSpends(operation, anchorBlockHash);
@@ -538,6 +608,22 @@ export class TeeSigner {
     const paddedTeeNotes = padArrayEnd(teeNotes, Fr.zero(), MAX_EFFECTS);
     const paddedExitMessageHashes = padArrayEnd(exitMessageHashes, Fr.zero(), MAX_EXITS);
 
+    return {
+      anchorBlockHash,
+      siloedNoteHashes,
+      exitMessageHashes,
+      requiredNullifiers: paddedRequiredNullifiers,
+      teeNotes: paddedTeeNotes,
+      paddedExitMessageHashes,
+    };
+  }
+
+  public async signTokenOperation(
+    operation: TokenOperation,
+    mintBypass: boolean, // If true, we will allow signing non matching values (for testing mint)
+  ): Promise<SignTokenOperationOutput> {
+    const commitments = await this.buildOperationCommitments(operation, mintBypass);
+
     // Every TEE attestation for this operation (one per created note, one per exit)
     // shares the same preimage tail (requiredNullifiers, teeNotes, exitMessageHashes),
     // differing in which specific commitment lives in the `signedCommitment` slot
@@ -547,16 +633,16 @@ export class TeeSigner {
     const buildSignedData = (domain: TeeSigDomain, signedCommitment: Fr) =>
       new TeeSignedData(
         domain,
-        anchorBlockHash,
+        commitments.anchorBlockHash,
         operation.tokenAddress,
         signedCommitment,
-        paddedRequiredNullifiers,
-        paddedTeeNotes,
-        paddedExitMessageHashes,
+        commitments.requiredNullifiers,
+        commitments.teeNotes,
+        commitments.paddedExitMessageHashes,
       );
 
     const signatures = await Promise.all(
-      siloedNoteHashes.map(siloedNoteHash =>
+      commitments.siloedNoteHashes.map(siloedNoteHash =>
         grumpkinSchnorrSign(
           this.privateKey,
           this.publicKey,
@@ -566,7 +652,7 @@ export class TeeSigner {
     );
 
     const exitSignatures = await Promise.all(
-      exitMessageHashes.map(exitMessageHash =>
+      commitments.exitMessageHashes.map(exitMessageHash =>
         grumpkinSchnorrSign(
           this.privateKey,
           this.publicKey,
@@ -578,18 +664,18 @@ export class TeeSigner {
     return {
       signatures,
       exitSignatures,
-      requiredNullifiers: paddedRequiredNullifiers,
-      teeNotes: paddedTeeNotes,
-      exitMessageHashes: paddedExitMessageHashes,
+      requiredNullifiers: commitments.requiredNullifiers,
+      teeNotes: commitments.teeNotes,
+      exitMessageHashes: commitments.paddedExitMessageHashes,
     };
   }
 
   /**
    * Second-phase L1 attestation: wraps an earlier `signTokenOperation` exit sig in
-   * an ECDSA signature the Solidity `TEEPortal._verifyTeeAttestation` consumes.
+   * an ECDSA signature consumed by `TEEPortal.withdraw`.
    *
    * The L1 finalization preimage is
-   *   `domain(1) || freshAnchorBlockHash(32) || initiationDigest(32) || messageHash(32)`
+   *   `domain(1) || archiveRoot(32) || initiationDigest(32) || messageHash(32)`
    * where `initiationDigest = sha256(TeeSignedData(EXIT, ...).toFields())` - i.e. the
    * hash of the exact preimage the first-phase Grumpkin Schnorr sig was computed over.
    * Binding that digest:
@@ -602,12 +688,12 @@ export class TeeSigner {
    * `OUTBOX.consume`. It verifies only the things needed to produce a sound ECDSA sig:
    *   - `exitIndex` points at a real (non-zero-padded) exit in the signed preimage
    *   - the first-phase Grumpkin Schnorr sig over that preimage is valid under
-   *     this signer's Grumpkin pubkey.
+   *     this signer's Grumpkin pubkey
+   *   - the operation anchor block hash and exact first-phase DA tuple are committed
+   *     under `archiveRoot`, and its required nullifiers / created notes / exits
+   *     are present in that tx's effects.
    */
   public async signExitFinalization(input: ExitFinalizationInput): Promise<ExitFinalizationOutput> {
-    if (input.freshAnchorBlockHash.length !== 32) {
-      throw new Error(`freshAnchorBlockHash must be 32 bytes, got ${input.freshAnchorBlockHash.length}`);
-    }
     if (input.exitIndex < 0 || input.exitIndex >= MAX_EXITS) {
       throw new Error(`exitIndex ${input.exitIndex} out of bounds [0, ${MAX_EXITS})`);
     }
@@ -615,17 +701,41 @@ export class TeeSigner {
     if (exitMessageHash.equals(Fr.zero())) {
       throw new Error(`exitIndex ${input.exitIndex} is a zero-padded slot; no exit to finalize`);
     }
-    if (input.initiation.exitSignatures.length !== input.initiation.exitMessageHashes.length) {
+    if (input.initiation.exitSignatures.length > MAX_EXITS) {
       throw new Error(
-        `initiation.exitSignatures length ${input.initiation.exitSignatures.length} does not match ` +
-          `exitMessageHashes length ${input.initiation.exitMessageHashes.length}`,
+        `initiation.exitSignatures length ${input.initiation.exitSignatures.length} exceeds max ${MAX_EXITS}`,
+      );
+    }
+    if (input.exitIndex >= input.initiation.exitSignatures.length) {
+      throw new Error(
+        `exitIndex ${input.exitIndex} has no matching exit signature; got ` +
+          `${input.initiation.exitSignatures.length} signatures`,
       );
     }
 
-    const anchorBlockHash = await input.operation.anchorBlockHeader.hash();
+    const commitments = await this.buildOperationCommitments(input.operation, false);
+    this.validateTupleEquals(
+      commitments.requiredNullifiers,
+      input.initiation.requiredNullifiers,
+      'operation requiredNullifiers',
+    );
+    this.validateTupleEquals(commitments.teeNotes, input.initiation.teeNotes, 'operation teeNotes');
+    this.validateTupleEquals(
+      commitments.paddedExitMessageHashes,
+      input.initiation.exitMessageHashes,
+      'operation exitMessageHashes',
+    );
+    await verifyArchiveMembership(
+      commitments.anchorBlockHash.toBuffer(),
+      input.anchorBlockHashMembershipWitness,
+      input.archiveRoot,
+      'operation anchor block',
+    );
+    await this.validateCommittedInitiation(input, commitments.anchorBlockHash);
+
     const preimage = new TeeSignedData(
       TeeSigDomain.EXIT,
-      anchorBlockHash,
+      commitments.anchorBlockHash,
       input.operation.tokenAddress,
       exitMessageHash,
       input.initiation.requiredNullifiers,
@@ -644,7 +754,7 @@ export class TeeSigner {
     const messageHash = exitMessageHash.toBuffer();
 
     const finalDigest = buildWithdrawalFinalDigest({
-      freshAnchorBlockHash: input.freshAnchorBlockHash,
+      archiveRoot: input.archiveRoot.toBuffer(),
       withdrawalDigest: initiationDigest,
       messageHash,
     });

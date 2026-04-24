@@ -154,8 +154,8 @@ fn validate_exit_message_hashes_in_l2_to_l1_msgs<let N: u32>(
     for i in 0..N {
         let exit_message_hash = exit_message_hashes[i];
         if (exit_message_hash != 0) {
-            valid = valid
-                & (count_appearances_in_array(effect.l2_to_l1_msgs, exit_message_hash) == 1);
+            valid =
+                valid & (count_appearances_in_array(effect.l2_to_l1_msgs, exit_message_hash) == 1);
         }
     }
     valid

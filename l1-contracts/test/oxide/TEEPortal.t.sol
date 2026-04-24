@@ -6,7 +6,7 @@ import {TEEPortal} from "@aztec/oxide/TEEPortal.sol";
 import {Caps} from "@aztec/oxide/Caps.sol";
 import {IPredicate} from "@aztec/oxide/IPredicate.sol";
 import {MockPredicate} from "@aztec/oxide/mocks/MockPredicate.sol";
-import {MockERC20} from "@aztec/oxide/mocks/MockERC20.sol";
+import {TestERC20} from "@aztec/mock/TestERC20.sol";
 import {MockInbox} from "./fixtures/MockInbox.sol";
 import {MockOutbox} from "./fixtures/MockOutbox.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
@@ -15,16 +15,32 @@ import {IInbox} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
 import {IOutbox} from "@aztec/core/interfaces/messagebridge/IOutbox.sol";
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 import {Hash} from "@aztec/core/libraries/crypto/Hash.sol";
+import {IRollup} from "@aztec/core/interfaces/IRollup.sol";
+
+contract MockRollup {
+  mapping(uint256 checkpointNumber => bytes32 archiveRoot) internal archives;
+
+  function setArchive(uint256 _checkpointNumber, bytes32 _archiveRoot) external {
+    archives[_checkpointNumber] = _archiveRoot;
+  }
+
+  function archiveAt(uint256 _checkpointNumber) external view returns (bytes32) {
+    return archives[_checkpointNumber];
+  }
+}
 
 contract TEEPortalTest is Test {
   TEEPortal internal portal;
-  MockERC20 internal underlying;
+  TestERC20 internal underlying;
   MockInbox internal inbox;
   MockOutbox internal outbox;
+  MockRollup internal rollup;
   MockPredicate internal predicate;
 
   bytes32 internal constant L2_BRIDGE = bytes32(uint256(0xB12D6E));
   uint256 internal constant ROLLUP_VERSION = 7;
+  uint256 internal constant DEFAULT_CHECKPOINT_NUMBER = 11;
+  bytes32 internal constant DEFAULT_ARCHIVE_ROOT = bytes32(uint256(0xA11CE));
 
   uint256 internal constant RATE = 1 ether;
   uint256 internal constant GLOBAL_LIMIT = 500_000 ether;
@@ -42,9 +58,11 @@ contract TEEPortalTest is Test {
   bytes32 internal constant DUMMY_GRUMPKIN_Y = bytes32(uint256(0xA2));
 
   function setUp() public {
-    underlying = new MockERC20();
+    underlying = new TestERC20("Test", "TST", address(this));
     inbox = new MockInbox();
     outbox = new MockOutbox();
+    rollup = new MockRollup();
+    rollup.setArchive(DEFAULT_CHECKPOINT_NUMBER, DEFAULT_ARCHIVE_ROOT);
     predicate = new MockPredicate(true);
     portal = new TEEPortal(
       OWNER,
@@ -52,6 +70,7 @@ contract TEEPortalTest is Test {
       IERC20(address(underlying)),
       IInbox(address(inbox)),
       IOutbox(address(outbox)),
+      IRollup(address(rollup)),
       ROLLUP_VERSION,
       RATE,
       GLOBAL_LIMIT,
@@ -163,7 +182,8 @@ contract TEEPortalTest is Test {
     uint256 amount;
     uint256 epochNumber;
     uint256 leafIndex;
-    bytes32 freshAnchorBlockHash;
+    uint256 checkpointNumber;
+    bytes32 archiveRoot;
     bytes32 withdrawalDigest;
   }
 
@@ -173,7 +193,8 @@ contract TEEPortalTest is Test {
       amount: 75 ether,
       epochNumber: 9,
       leafIndex: 3,
-      freshAnchorBlockHash: bytes32(uint256(0xA11CE)),
+      checkpointNumber: DEFAULT_CHECKPOINT_NUMBER,
+      archiveRoot: DEFAULT_ARCHIVE_ROOT,
       withdrawalDigest: bytes32(uint256(0xDEADBEEF))
     });
   }
@@ -190,10 +211,7 @@ contract TEEPortalTest is Test {
   function _finalDigest(WithdrawParams memory p) internal view returns (bytes32) {
     return sha256(
       abi.encodePacked(
-        portal.TEE_SIG_DOMAIN_EXIT_FINALIZED(),
-        p.freshAnchorBlockHash,
-        p.withdrawalDigest,
-        _messageHash(p.recipient, p.amount)
+        portal.TEE_SIG_DOMAIN_EXIT_FINALIZED(), p.archiveRoot, p.withdrawalDigest, _messageHash(p.recipient, p.amount)
       )
     );
   }
@@ -219,7 +237,7 @@ contract TEEPortalTest is Test {
   function test_withdraw_revertsWhenUninitialized() public {
     bytes32[] memory path = new bytes32[](0);
     vm.expectRevert(TEEPortal.Uninitialized.selector);
-    portal.withdraw(USER, 1 ether, 0, 0, path, bytes32(0), bytes32(0), "");
+    portal.withdraw(USER, 1 ether, 0, 0, path, 0, bytes32(0), "");
   }
 
   function test_withdraw_happyPath() public {
@@ -240,7 +258,7 @@ contract TEEPortalTest is Test {
     emit WithdrawFromAztec(p.recipient, p.amount);
 
     portal.withdraw(
-      p.recipient, p.amount, p.epochNumber, p.leafIndex, path, p.freshAnchorBlockHash, p.withdrawalDigest, sig
+      p.recipient, p.amount, p.epochNumber, p.leafIndex, path, p.checkpointNumber, p.withdrawalDigest, sig
     );
 
     assertEq(underlying.balanceOf(p.recipient), userBalanceBefore + p.amount);
@@ -281,12 +299,12 @@ contract TEEPortalTest is Test {
     bytes memory sig = _signTee(teePk, _finalDigest(p));
 
     portal.withdraw(
-      p.recipient, p.amount, p.epochNumber, p.leafIndex, path, p.freshAnchorBlockHash, p.withdrawalDigest, sig
+      p.recipient, p.amount, p.epochNumber, p.leafIndex, path, p.checkpointNumber, p.withdrawalDigest, sig
     );
 
     vm.expectRevert(TEEPortal.WithdrawalAlreadyClaimed.selector);
     portal.withdraw(
-      p.recipient, p.amount, p.epochNumber, p.leafIndex, path, p.freshAnchorBlockHash, p.withdrawalDigest, sig
+      p.recipient, p.amount, p.epochNumber, p.leafIndex, path, p.checkpointNumber, p.withdrawalDigest, sig
     );
   }
 
@@ -303,7 +321,7 @@ contract TEEPortalTest is Test {
 
     vm.expectRevert(TEEPortal.UnregisteredTee.selector);
     portal.withdraw(
-      p.recipient, p.amount, p.epochNumber, p.leafIndex, path, p.freshAnchorBlockHash, p.withdrawalDigest, sig
+      p.recipient, p.amount, p.epochNumber, p.leafIndex, path, p.checkpointNumber, p.withdrawalDigest, sig
     );
   }
 
@@ -325,7 +343,7 @@ contract TEEPortalTest is Test {
 
     vm.expectRevert(TEEPortal.UnregisteredTee.selector);
     portal.withdraw(
-      address(0xBEEF), p.amount, p.epochNumber, p.leafIndex, path, p.freshAnchorBlockHash, p.withdrawalDigest, sig
+      address(0xBEEF), p.amount, p.epochNumber, p.leafIndex, path, p.checkpointNumber, p.withdrawalDigest, sig
     );
   }
 
@@ -341,7 +359,7 @@ contract TEEPortalTest is Test {
 
     vm.expectRevert(TEEPortal.UnregisteredTee.selector);
     portal.withdraw(
-      p.recipient, p.amount + 1, p.epochNumber, p.leafIndex, path, p.freshAnchorBlockHash, p.withdrawalDigest, sig
+      p.recipient, p.amount + 1, p.epochNumber, p.leafIndex, path, p.checkpointNumber, p.withdrawalDigest, sig
     );
   }
 
@@ -357,13 +375,31 @@ contract TEEPortalTest is Test {
 
     vm.expectRevert(TEEPortal.UnregisteredTee.selector);
     portal.withdraw(
-      p.recipient, p.amount, p.epochNumber, p.leafIndex, path, p.freshAnchorBlockHash, bytes32(uint256(0xFEEDFACE)), sig
+      p.recipient, p.amount, p.epochNumber, p.leafIndex, path, p.checkpointNumber, bytes32(uint256(0xFEEDFACE)), sig
     );
   }
 
-  function test_withdraw_revertsOnTamperedFreshAnchorBlockHash() public {
+  function test_withdraw_revertsOnTamperedCheckpointNumber() public {
     _initialize();
     (address teeSigner, uint256 teePk) = makeAddrAndKey("tee-tamper-anchor");
+    _registerSigner(teeSigner);
+
+    WithdrawParams memory p = _defaultWithdrawParams();
+    uint256 tamperedCheckpointNumber = p.checkpointNumber + 1;
+    rollup.setArchive(tamperedCheckpointNumber, bytes32(uint256(0xDECAFBAD)));
+    bytes32[] memory path = _dummyPath();
+    underlying.mint(address(portal), p.amount);
+    bytes memory sig = _signTee(teePk, _finalDigest(p));
+
+    vm.expectRevert(TEEPortal.UnregisteredTee.selector);
+    portal.withdraw(
+      p.recipient, p.amount, p.epochNumber, p.leafIndex, path, tamperedCheckpointNumber, p.withdrawalDigest, sig
+    );
+  }
+
+  function test_withdraw_revertsOnUnknownCheckpoint() public {
+    _initialize();
+    (address teeSigner, uint256 teePk) = makeAddrAndKey("tee-unknown-checkpoint");
     _registerSigner(teeSigner);
 
     WithdrawParams memory p = _defaultWithdrawParams();
@@ -371,9 +407,9 @@ contract TEEPortalTest is Test {
     underlying.mint(address(portal), p.amount);
     bytes memory sig = _signTee(teePk, _finalDigest(p));
 
-    vm.expectRevert(TEEPortal.UnregisteredTee.selector);
+    vm.expectRevert(TEEPortal.UnknownCheckpoint.selector);
     portal.withdraw(
-      p.recipient, p.amount, p.epochNumber, p.leafIndex, path, bytes32(uint256(0xDECAFBAD)), p.withdrawalDigest, sig
+      p.recipient, p.amount, p.epochNumber, p.leafIndex, path, p.checkpointNumber + 100, p.withdrawalDigest, sig
     );
   }
 
@@ -394,7 +430,7 @@ contract TEEPortalTest is Test {
 
     vm.expectRevert(customErr);
     portal.withdraw(
-      p.recipient, p.amount, p.epochNumber, p.leafIndex, path, p.freshAnchorBlockHash, p.withdrawalDigest, sig
+      p.recipient, p.amount, p.epochNumber, p.leafIndex, path, p.checkpointNumber, p.withdrawalDigest, sig
     );
   }
 
@@ -405,7 +441,7 @@ contract TEEPortalTest is Test {
   // signs with a `_messageHash` built from different network constants produces
   // a digest the portal cannot match; `ECDSA.recover` returns garbage and the
   // registry check rejects it. The caller-supplied fields `_recipient`,
-  // `_amount`, `_freshAnchorBlockHash`, and `_withdrawalDigest` already have
+  // `_amount`, `_checkpointNumber`, and `_withdrawalDigest` already have
   // dedicated tamper tests above.
 
   // ---------------------------------------------------------------------

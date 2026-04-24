@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity >=0.8.27;
 
+import {IRollup} from "@aztec/core/interfaces/IRollup.sol";
 import {IInbox} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
 import {IOutbox} from "@aztec/core/interfaces/messagebridge/IOutbox.sol";
 import {Hash} from "@aztec/core/libraries/crypto/Hash.sol";
@@ -16,35 +17,22 @@ import {IPredicate} from "./IPredicate.sol";
 
 /**
  * @title TEEPortal
- * @notice L1 escrow for deposits into and withdrawals out of the Aztec-side
- *         `OxideBridge`. Deposits enqueue an inbox message; withdrawals
- *         consume an outbox message gated by a TEE attestation.
- * @dev The content-hash encodings on both sides must stay in lockstep with
- *      `oxide_bridge_contract/src/content_hash.nr` or the L2 side cannot
- *      locate the message.
+ * @notice L1 escrow for the Oxide bridge.
+ * @dev The L1 content hashes and finalization digest are protocol interfaces:
+ *      keep them byte-for-byte aligned with Noir and the TS TEE signer.
  */
 contract TEEPortal is Caps, Ownable, ITEEPortal {
   using SafeERC20 for IERC20;
 
   /**
-   * @notice Shared secret-hash preimage pairing L1 deposits with the L2
-   *         claim flow.
-   * @dev Parity is pinned by
-   *      `oxide_bridge_test/src/lib.nr::constant_secret_matches_portal`
-   *      and the e2e test in
-   *      `packages/l2-contracts/test/e2e/claim.test.ts`. See also
-   *      `oxide_bridge_contract/src/content_hash.nr::CONSTANT_SECRET`.
+   * @notice Secret hash shared by Oxide L1 -> L2 messages.
+   * @dev The L2 side consumes these messages with the zero secret preimage. Changing this
+   *      breaks both deposits and signer-registration messages.
    */
   bytes32 public constant CONSTANT_SECRET_HASH =
     bytes32(0x1f8eff65d91ed781c2e7a28a2ff99b7f7506b7293121b5ffcf3cd339c84d2250);
 
-  /**
-   * @notice Domain separator prepended to the final-phase TEE attestation
-   *         preimage so a signature produced for this flow cannot collide
-   *         with any other SHA256-based digest the TEE emits.
-   * @dev Must stay in lockstep with
-   *      `packages/tee/src/digest.ts::TEE_SIG_DOMAIN_EXIT_FINALIZED`.
-   */
+  /// @notice Domain byte for final L1 withdrawal attestations; must match `oxide/digest.ts`.
   uint8 public constant TEE_SIG_DOMAIN_EXIT_FINALIZED = 2;
 
   /// @notice Authorisation predicate gating deposits.
@@ -52,8 +40,8 @@ contract TEEPortal is Caps, Ownable, ITEEPortal {
 
   /**
    * @notice ERC20 escrowed by this portal.
-   * @dev Must be a standard ERC20. Fee-on-transfer and rebasing tokens are not supported since the content hash
-   *      commits to the caller-supplied `_amount`.
+   * @dev Fee-on-transfer and rebasing tokens are unsupported: the bridge message commits to
+   *      `_amount`, so the escrowed balance must move by exactly that amount.
    */
   IERC20 public immutable UNDERLYING;
 
@@ -62,6 +50,9 @@ contract TEEPortal is Caps, Ownable, ITEEPortal {
 
   /// @notice Aztec outbox used to verify L2 -> L1 withdrawal messages.
   IOutbox public immutable OUTBOX;
+
+  /// @notice Aztec rollup used to authenticate archive roots.
+  IRollup public immutable ROLLUP;
 
   /// @notice Aztec rollup version this portal is paired with.
   uint256 public immutable ROLLUP_VERSION;
@@ -75,43 +66,20 @@ contract TEEPortal is Caps, Ownable, ITEEPortal {
   /// @notice Whether `initialize` has been called.
   bool public $initialized;
 
-  /**
-   * @notice Tracks withdrawal digests already consumed.
-   * @dev Prevents replay at the afternoon-digest level, independent of the
-   *      outbox's own per-leaf dedupe.
-   */
+  /// @notice Withdrawal digests already finalized on L1.
+  /// @dev This replay guard is independent of outbox leaf consumption.
   mapping(bytes32 digest => bool spent) public $isWithdrawalSpent;
 
-  /**
-   * @notice Emitted once when the portal is bound to its L2 counterpart.
-   * @param l2Bridge Address of the paired L2 bridge.
-   */
+  /// @notice Emitted once when the portal is bound to its L2 counterpart.
   event Initialized(bytes32 l2Bridge);
 
-  /**
-   * @notice Emitted on successful deposit.
-   * @param recipientHash Hash committing to the intended L2 recipient.
-   * @param amount        Amount of underlying escrowed.
-   * @param key           Inbox message key.
-   * @param index         Inbox message index.
-   */
+  /// @notice Emitted when a deposit enqueues an L1 -> L2 claim message.
   event Deposit(bytes32 indexed recipientHash, uint256 amount, bytes32 key, uint256 index);
 
-  /**
-   * @notice Emitted on successful withdrawal.
-   * @param recipient L1 address that received the underlying.
-   * @param amount    Amount released from escrow.
-   */
+  /// @notice Emitted when escrowed tokens are released on L1.
   event WithdrawFromAztec(address indexed recipient, uint256 amount);
 
-  /**
-   * @notice Emitted when a TEE signer is added to the registry.
-   * @param tee        L1 Secp256k1 address of the registered TEE.
-   * @param grumpkinX  X coordinate of the bound Grumpkin public key.
-   * @param grumpkinY  Y coordinate of the bound Grumpkin public key.
-   * @param key        Inbox message key for the L1 -> L2 registration message.
-   * @param index      Inbox message index for that message.
-   */
+  /// @notice Emitted when a TEE signer is registered and its L2 mirror message is enqueued.
   event TeeAdded(address indexed tee, bytes32 grumpkinX, bytes32 grumpkinY, bytes32 key, uint256 index);
 
   /// @notice Raised if `initialize` is called more than once.
@@ -133,24 +101,16 @@ contract TEEPortal is Caps, Ownable, ITEEPortal {
   error ZeroTee();
   /// @notice Raised when `addTee` is called for a signer already registered.
   error AlreadyRegistered();
+  /// @notice Raised when the rollup has no archive for the requested checkpoint.
+  error UnknownCheckpoint();
 
-  /**
-   * @param _owner          Contract owner authorised to call `initialize` and `addTee`.
-   * @param _predicate      Deposit authorisation predicate.
-   * @param _underlying     ERC20 to escrow.
-   * @param _inbox          Aztec inbox used for L1 -> L2 messages.
-   * @param _outbox         Aztec outbox used for L2 -> L1 messages.
-   * @param _rollupVersion  Aztec rollup version this portal binds to.
-   * @param _rate           Per-block refill rate for the rate limiter.
-   * @param _globalLimit    Global cap enforced by `Caps`.
-   * @param _txLimit        Per-transaction cap enforced by `Caps`.
-   */
   constructor(
     address _owner,
     IPredicate _predicate,
     IERC20 _underlying,
     IInbox _inbox,
     IOutbox _outbox,
+    IRollup _rollup,
     uint256 _rollupVersion,
     uint256 _rate,
     uint256 _globalLimit,
@@ -160,28 +120,13 @@ contract TEEPortal is Caps, Ownable, ITEEPortal {
     UNDERLYING = _underlying;
     INBOX = _inbox;
     OUTBOX = _outbox;
+    ROLLUP = _rollup;
     ROLLUP_VERSION = _rollupVersion;
   }
 
   /**
-   * @notice Register a TEE signer. Owner-only.
-   * @dev Stores the binding `(tee, grumpkinX, grumpkinY)` and emits an L1 -> L2
-   *      message so the paired L2 bridge can mirror the same binding in its
-   *      `approved_signers` map. L2 signer approval must flow from L1 registry
-   *      state, not from arbitrary public writes - a compromise of either
-   *      identity half is useless without the matching other half.
-   *
-   *      The L1 -> L2 content hash mirrors
-   *      `asserted_token_contract/src/content_hash.nr::get_register_signer_content_hash`
-   *      byte-for-byte: `selector || tee(32) || grumpkinX(32) || grumpkinY(32)` = 100 bytes.
-   *
-   *      Requires the portal to already be initialized so `$l2Bridge` routes the
-   *      message.
-   * @param _tee        L1 Secp256k1 address of the TEE used for `withdraw` finalization.
-   * @param _grumpkinX  X coordinate of the TEE's Grumpkin public key, used for L2 attestations.
-   * @param _grumpkinY  Y coordinate of the TEE's Grumpkin public key, used for L2 attestations.
-   * @return key        Inbox message key for the emitted registration message.
-   * @return index      Inbox message index for the emitted registration message.
+   * @notice Register a TEE's Ethereum address and separate Grumpkin key, then mirror it to L2.
+   * @dev L2 signer approval must come from this portal's inbox message, not from an L2-only write.
    */
   function addTee(address _tee, bytes32 _grumpkinX, bytes32 _grumpkinY)
     external
@@ -207,7 +152,6 @@ contract TEEPortal is Caps, Ownable, ITEEPortal {
 
   /**
    * @notice Bind this portal to its L2 counterpart. One-shot, owner-only.
-   * @param _l2Bridge Address of the paired L2 `OxideBridge` contract.
    */
   function initialize(bytes32 _l2Bridge) external override(ITEEPortal) onlyOwner {
     require(!$initialized, AlreadyInitialized());
@@ -218,16 +162,9 @@ contract TEEPortal is Caps, Ownable, ITEEPortal {
   }
 
   /**
-   * @notice  Escrow `_amount` of underlying and enqueue an L1 -> L2 claim message so the recipient committed to by
-   *          `_recipientHash` can mint on L2.
-   * @dev Mirrors `oxide_bridge_contract/src/content_hash.nr::get_claim_content_hash`:
-   *      both sides must produce the same 68-byte `selector || recipientHash || amount` preimage or the L2
-   *      `consume_l1_to_l2_message` call cannot find the message.
-   * @param _recipientHash  Hash committing to the intended L2 recipient.
-   * @param _amount         Amount of underlying to escrow.
-   * @param _predicateAuth  Opaque bytes forwarded to the predicate.
-   * @return key   Inbox message key.
-   * @return index Inbox message index.
+   * @notice Escrow underlying and enqueue an L1 -> L2 claim message.
+   * @dev The claim content hash is `claim(bytes32,uint256)`. The recipient hash hides the
+   *      L2 recipient until claim time; the amount remains public and must fit the L2 `u128`.
    */
   function deposit(bytes32 _recipientHash, uint256 _amount, bytes calldata _predicateAuth)
     external
@@ -251,36 +188,11 @@ contract TEEPortal is Caps, Ownable, ITEEPortal {
   }
 
   /**
-   * @notice Consume an L2 -> L1 withdrawal message and release the underlying to `_recipient`.
-   * @dev Reconstructs the withdrawal content hash as defined by
-   *      `oxide_bridge_contract/src/content_hash.nr::get_withdraw_content_hash`
-   *      and asks the rollup's outbox to verify the sibling path.
-   *
-   *      The trailing three arguments are the TEE's off-chain attestation
-   *      that the caller-supplied inputs are consistent with a state anchor
-   *      (`_blockhash`) and with the afternoon-signed init digest
-   *      (`_withdrawalDigest`). The call reverts unless the recovered
-   *      signer is registered via `addTee` and the digest reconstruction
-   *      matches the signature byte-for-byte; see
-   *      `packages/tee/src/digest.ts::buildWithdrawalFinalDigest` for the
-   *      preimage layout.
-   *
-   *      `$isWithdrawalSpent[_withdrawalDigest]` dedupes at the afternoon-
-   *      digest level so a TEE attestation cannot be rebound to a second
-   *      outbox leaf even if the outbox's own per-leaf dedupe were to slip.
-   *      The outbox path (`_epochNumber`, `_leafIndex`, `_path`) is verified
-   *      by `OUTBOX.consume`; it is deliberately *not* bound into the TEE
-   *      digest - the TEE has no business revalidating outbox membership.
-   * @param _recipient           L1 address to receive the underlying.
-   * @param _amount              Amount of underlying to release.
-   * @param _epochNumber         Epoch that produced the outbox leaf.
-   * @param _leafIndex           Leaf index within that epoch's outbox tree.
-   * @param _path                Sibling path proving leaf inclusion.
-   * @param _freshAnchorBlockHash TEE's fresh L2-state anchor, bound into the
-   *                              final-phase preimage. Not verified against the
-   *                              rollup archive yet - see TODO below.
-   * @param _withdrawalDigest    Afternoon-phase digest bound to this withdrawal.
-   * @param _teeSignature        TEE signature over the final digest.
+   * @notice Consume an L2 -> L1 withdrawal message and release escrowed tokens.
+   * @dev The TEE finalization digest binds an archive root containing the L2
+   *      operation anchor. L1 derives that root from `_checkpointNumber`, so callers
+   *      cannot choose an uncommitted root. The outbox path is intentionally excluded:
+   *      `OUTBOX.consume` is the source of truth for membership and leaf consumption.
    */
   function withdraw(
     address _recipient,
@@ -288,7 +200,7 @@ contract TEEPortal is Caps, Ownable, ITEEPortal {
     uint256 _epochNumber,
     uint256 _leafIndex,
     bytes32[] calldata _path,
-    bytes32 _freshAnchorBlockHash,
+    uint256 _checkpointNumber,
     bytes32 _withdrawalDigest,
     bytes calldata _teeSignature
   ) external override(ITEEPortal) {
@@ -302,12 +214,14 @@ contract TEEPortal is Caps, Ownable, ITEEPortal {
       content: Hash.sha256ToField(abi.encodeWithSignature("withdraw(address,uint256)", _recipient, _amount))
     });
 
-    // TODO(oxide/archive-migration): `_freshAnchorBlockHash` is bound into the
-    // signed preimage but not yet validated against the rollup's on-chain
-    // archive. Once the TEE produces actual archive roots, assert
-    // `Rollup.archiveAt(checkpointNumber) == _freshAnchorBlockHash` here so a
-    // compromised TEE cannot sign over stale/forged L2 state.
-    _verifyTeeAttestation(Hash.sha256ToField(message), _freshAnchorBlockHash, _withdrawalDigest, _teeSignature);
+    bytes32 archiveRoot = ROLLUP.archiveAt(_checkpointNumber);
+    require(archiveRoot != bytes32(0), UnknownCheckpoint());
+
+    bytes32 messageHash = Hash.sha256ToField(message);
+    bytes32 finalDigest =
+      sha256(abi.encodePacked(TEE_SIG_DOMAIN_EXIT_FINALIZED, archiveRoot, _withdrawalDigest, messageHash));
+    address signer = ECDSA.recover(finalDigest, _teeSignature);
+    require($teeBindings[signer].registered, UnregisteredTee());
 
     OUTBOX.consume(message, Epoch.wrap(_epochNumber), _leafIndex, _path);
 
@@ -319,40 +233,5 @@ contract TEEPortal is Caps, Ownable, ITEEPortal {
   /// @notice Convenience view mirroring the pre-binding `isRegisteredTee` shape.
   function isRegisteredTee(address _tee) external view override(ITEEPortal) returns (bool) {
     return $teeBindings[_tee].registered;
-  }
-
-  /**
-   * @dev Recompute the final digest the TEE signed and require the
-   *      recovered signer to be registered.
-   *
-   *      The preimage must match
-   *      `packages/tee/src/digest.ts::buildWithdrawalFinalDigest`
-   *      byte-for-byte:
-   *      `domain(1) || freshAnchorBlockHash(32) || withdrawalDigest(32) ||
-   *       messageHash(32)`.
-   *
-   *      Per-network config fields (`l2Bridge`, `portal`, `chainId`,
-   *      `rollupVersion`) are already bound via `_messageHash`, which is
-   *      built from `DataStructures.L2ToL1Msg` using the portal's own
-   *      immutables / storage. A TEE configured against a different
-   *      network produces a different `_messageHash`, and therefore a
-   *      final digest the portal cannot match; `ECDSA.recover` returns a
-   *      garbage signer and the registry check rejects it.
-   * @param _messageHash           Outbox leaf hash for this withdrawal.
-   * @param _freshAnchorBlockHash  TEE's fresh L2-state anchor.
-   * @param _withdrawalDigest      Afternoon-phase digest.
-   * @param _teeSignature          Signature over the final digest.
-   */
-  function _verifyTeeAttestation(
-    bytes32 _messageHash,
-    bytes32 _freshAnchorBlockHash,
-    bytes32 _withdrawalDigest,
-    bytes calldata _teeSignature
-  ) internal view {
-    bytes32 finalDigest = sha256(
-      abi.encodePacked(TEE_SIG_DOMAIN_EXIT_FINALIZED, _freshAnchorBlockHash, _withdrawalDigest, _messageHash)
-    );
-    address signer = ECDSA.recover(finalDigest, _teeSignature);
-    require($teeBindings[signer].registered, UnregisteredTee());
   }
 }

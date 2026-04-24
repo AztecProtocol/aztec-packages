@@ -8,11 +8,9 @@ import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 // with the Noir side - the bridge e2e pins this by driving the claim flow through it.
 
 // "OXIDE_BRIDGE_V1\0" - matches `DOMAIN_MAGIC` in content_hash.nr.
-export const DOMAIN_MAGIC: Uint8Array = new Uint8Array([
+const DOMAIN_MAGIC: Uint8Array = new Uint8Array([
   0x4f, 0x58, 0x49, 0x44, 0x45, 0x5f, 0x42, 0x52, 0x49, 0x44, 0x47, 0x45, 0x5f, 0x56, 0x31, 0x00,
 ]);
-
-export const CONSTANT_SECRET = Fr.ZERO;
 
 function toBe32(value: bigint): Uint8Array {
   if (value < 0n) {
@@ -44,7 +42,7 @@ function u128Slot(amount: bigint): Uint8Array {
   return out;
 }
 
-export function computeStealthTag(sharedSecret: Fr, recipient: AztecAddress): Fr {
+function computeStealthTag(sharedSecret: Fr, recipient: AztecAddress): Fr {
   const bytes = new Uint8Array(64);
   bytes.set(frToBe32(sharedSecret), 0);
   bytes.set(frToBe32(recipient.toField()), 32);

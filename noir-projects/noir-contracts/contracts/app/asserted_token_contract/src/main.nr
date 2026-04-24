@@ -14,8 +14,8 @@ pub contract AssertedTokenContract {
     use crate::{
         asserted_note::AssertedNote,
         content_hash::{
-            compute_stealth_recipient_hash, get_claim_content_hash,
-            get_register_signer_content_hash, get_withdraw_content_hash, CONSTANT_SECRET,
+            compute_stealth_recipient_hash, CONSTANT_SECRET, get_claim_content_hash,
+            get_register_signer_content_hash, get_withdraw_content_hash,
         },
         da::{
             load_tee_exit_message_hashes_da_capsule, load_tee_metadata_da_capsule,
