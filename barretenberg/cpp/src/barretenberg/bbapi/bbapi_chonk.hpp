@@ -74,11 +74,8 @@ struct ChonkLoad {
 
     /** @brief Circuit to be loaded with its bytecode and verification key */
     CircuitInput circuit;
-    /** @brief Differentiate between hiding kernel (using MegaZK with TRACE_OFFSET = 4) and other circuits (using Mega
-     * with TRACE_OFFSET = 0) */
-    bool is_hiding_kernel = false;
     Response execute(BBApiRequest& request) &&;
-    SERIALIZATION_FIELDS(circuit, is_hiding_kernel);
+    SERIALIZATION_FIELDS(circuit);
     bool operator==(const ChonkLoad&) const = default;
 };
 
@@ -187,9 +184,11 @@ struct ChonkComputeVk {
     };
 
     CircuitInputNoVK circuit;
-    bool is_hiding_kernel = false;
+    /** @brief When true, derive VK using MegaZKFlavor; otherwise MegaFlavor.
+     * The caller sets this to true for the hiding-kernel circuit. */
+    bool use_zk_flavor = false;
     Response execute([[maybe_unused]] const BBApiRequest& request = {}) &&;
-    SERIALIZATION_FIELDS(circuit, is_hiding_kernel);
+    SERIALIZATION_FIELDS(circuit, use_zk_flavor);
     bool operator==(const ChonkComputeVk&) const = default;
 };
 
@@ -217,12 +216,12 @@ struct ChonkCheckPrecomputedVk {
 
     /** @brief Circuit with its precomputed verification key */
     CircuitInput circuit;
-    /** @brief Differentiate between hiding kernel (using MegaZK with TRACE_OFFSET = 4) and other circuits (using Mega
-     * with TRACE_OFFSET = 0) */
-    bool is_hiding_kernel = false;
+    /** @brief When true, derive VK using MegaZKFlavor; otherwise MegaFlavor.
+     * The caller sets this to true for the hiding-kernel circuit. */
+    bool use_zk_flavor = false;
 
     Response execute(const BBApiRequest& request = {}) &&;
-    SERIALIZATION_FIELDS(circuit, is_hiding_kernel);
+    SERIALIZATION_FIELDS(circuit, use_zk_flavor);
     bool operator==(const ChonkCheckPrecomputedVk&) const = default;
 };
 

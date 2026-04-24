@@ -341,15 +341,12 @@ export class AztecClientBackend {
       const vk = vksBuf[i] || new Uint8Array(0);
       const functionName = this.circuitNames[i] || `circuit_${i}`;
 
-      // Load the circuit. The last circuit is the Chonk hiding kernel, which is proven as MegaZK — its
-      // precomputed VK is flavor-sensitive and must be computed/checked against MegaZKFlavor.
       this.api.chonkLoad({
         circuit: {
           name: functionName,
           bytecode: bytecode,
           verificationKey: vk,
         },
-        isHidingKernel: i === lastIdx,
       });
 
       // Accumulate with witness
@@ -368,7 +365,7 @@ export class AztecClientBackend {
         name: this.circuitNames[lastIdx] || 'circuit',
         bytecode: this.acirBuf[lastIdx],
       },
-      isHidingKernel: true,
+      useZkFlavor: true,
     });
 
     const proofFields = flattenChonkProofFields(proveResult.proof);

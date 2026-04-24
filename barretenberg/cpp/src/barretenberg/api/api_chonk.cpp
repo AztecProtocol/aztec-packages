@@ -29,13 +29,13 @@ namespace { // anonymous namespace
  *
  * @param bytecode ACIR bytecode of the circuit
  * @param output_path Directory to write the VK (or "-" for stdout)
- * @param flags API flags including output_format and is_hiding_kernel (MegaZKFlavor vs MegaFlavor)
+ * @param flags API flags including output_format and use_zk_flavor (selects MegaZKFlavor vs MegaFlavor)
  */
 void write_chonk_vk(std::vector<uint8_t> bytecode, const std::filesystem::path& output_path, const API::Flags& flags)
 {
-    auto response = bbapi::ChonkComputeVk{ .circuit = { .bytecode = std::move(bytecode) },
-                                           .is_hiding_kernel = flags.is_hiding_kernel }
-                        .execute();
+    auto response =
+        bbapi::ChonkComputeVk{ .circuit = { .bytecode = std::move(bytecode) }, .use_zk_flavor = flags.use_zk_flavor }
+            .execute();
 
     const bool is_stdout = output_path == "-";
     if (is_stdout) {
@@ -64,10 +64,8 @@ void ChonkAPI::prove(const Flags& flags,
     info("Chonk: starting with ", raw_steps.size(), " circuits");
     for (size_t i = 0; i < raw_steps.size(); ++i) {
         const auto& step = raw_steps[i];
-        const bool is_hiding_kernel = (i == raw_steps.size() - 1);
         bbapi::ChonkLoad{
             .circuit = { .name = step.function_name, .bytecode = step.bytecode, .verification_key = step.vk },
-            .is_hiding_kernel = is_hiding_kernel,
         }
             .execute(request);
 
@@ -101,9 +99,9 @@ void ChonkAPI::prove(const Flags& flags,
 
     if (flags.write_vk) {
         vinfo("writing Chonk vk in directory ", output_dir);
-        // write CHONK vk using the bytecode of the Hiding kernel (the last step of the execution)
+        // Write CHONK vk for the hiding kernel (last step) — proven as MegaZK.
         Flags hiding_flags = flags;
-        hiding_flags.is_hiding_kernel = true;
+        hiding_flags.use_zk_flavor = true;
         write_chonk_vk(raw_steps[raw_steps.size() - 1].bytecode, output_dir, hiding_flags);
     }
 }
@@ -222,11 +220,11 @@ bool ChonkAPI::check_precomputed_vks(const Flags& flags, const std::filesystem::
             info("FAIL: Expected precomputed vk for function ", step.function_name);
             return false;
         }
-        const bool is_hiding_kernel = (i == raw_steps.size() - 1);
+        const bool use_zk_flavor = (i == raw_steps.size() - 1);
         auto response =
             bbapi::ChonkCheckPrecomputedVk{
                 .circuit = { .name = step.function_name, .bytecode = step.bytecode, .verification_key = step.vk },
-                .is_hiding_kernel = is_hiding_kernel,
+                .use_zk_flavor = use_zk_flavor,
             }
                 .execute();
 

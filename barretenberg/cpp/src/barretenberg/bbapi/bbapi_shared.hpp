@@ -185,9 +185,6 @@ struct BBApiRequest {
     std::optional<acir_format::AcirFormat> loaded_circuit_constraints;
     // Store the verification key passed with the circuit
     std::vector<uint8_t> loaded_circuit_vk;
-    // Differentiate between hiding kernel (using MegaZK with TRACE_OFFSET = 4) and other circuits (using Mega with
-    // TRACE_OFFSET = 0)
-    bool loaded_circuit_is_hiding_kernel = false;
     // Policy for handling verification keys during accumulation
     VkPolicy vk_policy = VkPolicy::DEFAULT;
     // Error message - empty string means no error

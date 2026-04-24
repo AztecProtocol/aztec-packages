@@ -94,8 +94,7 @@ class GoblinAvmRecursiveVerifierTests : public testing::Test {
 
         auto goblin_proof = goblin.prove();
 
-        // Commit to op_queue columns. The Translator needs 2 leading zeros for shiftability; these come from
-        // the initial no-op seeded in the AVM op queue (see GoblinAvm constructor), so no manual padding needed.
+        // Commit to op_queue columns.
         TableCommitments table_commitments;
         auto ultra_ops_table_columns = goblin.op_queue->construct_ultra_ops_table_columns();
         CommitmentKey<curve::BN254> pcs_commitment_key(goblin.op_queue->get_ultra_ops_table_num_rows());

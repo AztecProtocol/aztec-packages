@@ -35,7 +35,6 @@ ChonkStart::Response ChonkStart::execute(BBApiRequest& request) &&
     request.loaded_circuit_name.clear();
     request.loaded_circuit_constraints.reset();
     request.loaded_circuit_vk.clear();
-    request.loaded_circuit_is_hiding_kernel = false;
 
     return Response{};
 }
@@ -50,9 +49,8 @@ ChonkLoad::Response ChonkLoad::execute(BBApiRequest& request) &&
     request.loaded_circuit_name = circuit.name;
     request.loaded_circuit_constraints = acir_format::circuit_buf_to_acir_format(std::move(circuit.bytecode));
     request.loaded_circuit_vk = circuit.verification_key;
-    request.loaded_circuit_is_hiding_kernel = is_hiding_kernel;
 
-    info("ChonkLoad - loaded circuit '", request.loaded_circuit_name, "'", is_hiding_kernel ? " (hiding kernel)" : "");
+    info("ChonkLoad - loaded circuit '", request.loaded_circuit_name, "'");
 
     return Response{};
 }
@@ -76,11 +74,13 @@ ChonkAccumulate::Response ChonkAccumulate::execute(BBApiRequest& request) &&
     // would be in a moved-from state, which is technically has_value()==true but poisoned).
     auto loaded_vk = std::move(request.loaded_circuit_vk);
     auto circuit_name = std::move(request.loaded_circuit_name);
-    const bool is_hiding_kernel = request.loaded_circuit_is_hiding_kernel;
     request.loaded_circuit_constraints.reset();
     request.loaded_circuit_vk.clear();
     request.loaded_circuit_name.clear();
-    request.loaded_circuit_is_hiding_kernel = false;
+
+    // The hiding kernel (MegaZK) is definitionally the last circuit in the IVC stack; derive flag accordingly.
+    auto chonk = std::dynamic_pointer_cast<Chonk>(request.ivc_in_progress);
+    const bool is_hiding_kernel = (request.ivc_stack_depth + 1 == chonk->get_num_circuits());
 
     const acir_format::ProgramMetadata metadata{ .ivc = request.ivc_in_progress };
     auto circuit = acir_format::create_circuit<IVCBase::ClientCircuit>(program, metadata);
@@ -96,7 +96,7 @@ ChonkAccumulate::Response ChonkAccumulate::execute(BBApiRequest& request) &&
 
             if (request.vk_policy == VkPolicy::CHECK) {
                 // Note that MegaZKVerificationKey = MegaVerificationKey as C++ classes but their content differs
-                // because of the different TRACE_OFFSET
+                // between ZK and non-ZK flavors.
                 auto computed_vk = is_hiding_kernel ? std::make_shared<Chonk::MegaVerificationKey>(
                                                           Chonk::HidingKernelProverInstance(circuit).get_precomputed())
                                                     : std::make_shared<Chonk::MegaVerificationKey>(
@@ -238,10 +238,10 @@ ChonkBatchVerify::Response ChonkBatchVerify::execute(const BBApiRequest& /*reque
 }
 
 static std::shared_ptr<Chonk::MegaVerificationKey> compute_chonk_vk_from_program(acir_format::AcirProgram& program,
-                                                                                 bool is_hiding_kernel)
+                                                                                 bool use_zk_flavor)
 {
     Chonk::ClientCircuit builder = acir_format::create_circuit<Chonk::ClientCircuit>(program);
-    if (is_hiding_kernel) {
+    if (use_zk_flavor) {
         return std::make_shared<Chonk::MegaVerificationKey>(
             Chonk::HidingKernelProverInstance(builder).get_precomputed());
     }
@@ -254,12 +254,12 @@ ChonkComputeVk::Response ChonkComputeVk::execute([[maybe_unused]] const BBApiReq
     info("ChonkComputeVk - deriving MegaVerificationKey for circuit '",
          circuit.name,
          "'",
-         is_hiding_kernel ? " (hiding kernel)" : "");
+         use_zk_flavor ? " (MegaZK)" : "");
 
     auto constraint_system = acir_format::circuit_buf_to_acir_format(std::move(circuit.bytecode));
 
     acir_format::AcirProgram program{ constraint_system, /*witness=*/{} };
-    auto verification_key = compute_chonk_vk_from_program(program, is_hiding_kernel);
+    auto verification_key = compute_chonk_vk_from_program(program, use_zk_flavor);
 
     info("ChonkComputeVk - VK derived, size: ", to_buffer(*verification_key).size(), " bytes");
 
@@ -272,7 +272,7 @@ ChonkCheckPrecomputedVk::Response ChonkCheckPrecomputedVk::execute([[maybe_unuse
     acir_format::AcirProgram program{ acir_format::circuit_buf_to_acir_format(std::move(circuit.bytecode)),
                                       /*witness=*/{} };
 
-    auto computed_vk = compute_chonk_vk_from_program(program, is_hiding_kernel);
+    auto computed_vk = compute_chonk_vk_from_program(program, use_zk_flavor);
 
     if (circuit.verification_key.empty()) {
         info("FAIL: Expected precomputed vk for function ", circuit.name);

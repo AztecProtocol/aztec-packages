@@ -83,13 +83,12 @@ class ECCOpQueue {
     /**
      * @brief Compute the fixed append offset for the final APPEND merge.
      * @details Places the appended subtable so the merged polynomial fits exactly in MINI_CIRCUIT_SIZE rows.
-     * The hiding kernel's subtable carries UltraEccOpsTable::HIDING_KERNEL_LEADING_ZEROS leading zero rows internally
-     * (matching MegaZKFlavor's ecc_op_wire layout).
+     * The appended subtable carries UltraEccOpsTable::APPEND_TRACE_OFFSET leading zero rows internally,
+     * matching the appender flavor's ecc_op_wire layout.
      */
     size_t get_append_offset() const
     {
-        constexpr size_t reserved_op_slots =
-            UltraEccOpsTable::HIDING_KERNEL_LEADING_ZEROS / UltraEccOpsTable::NUM_ROWS_PER_OP;
+        constexpr size_t reserved_op_slots = UltraEccOpsTable::APPEND_TRACE_OFFSET / UltraEccOpsTable::NUM_ROWS_PER_OP;
         return OP_QUEUE_SIZE - get_current_subtable_size() - reserved_op_slots;
     }
 

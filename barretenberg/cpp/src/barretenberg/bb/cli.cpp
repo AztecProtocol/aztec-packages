@@ -354,12 +354,12 @@ int parse_and_run_cli_command(int argc, char* argv[])
             ->group(advanced_group);
     };
 
-    const auto add_is_hiding_kernel_flag = [&](CLI::App* subcommand) {
+    const auto add_use_zk_flavor_flag = [&](CLI::App* subcommand) {
         return subcommand
-            ->add_flag("--is_hiding_kernel",
-                       flags.is_hiding_kernel,
-                       "Chonk-only: treat the circuit as the IVC hiding kernel, which is proven as MegaZKFlavor. "
-                       "When omitted, Chonk VKs are computed as MegaFlavor (used for intermediate IVC circuits).")
+            ->add_flag("--use_zk_flavor",
+                       flags.use_zk_flavor,
+                       "Chonk-only: derive the VK against MegaZKFlavor rather than MegaFlavor. "
+                       "Set this for the IVC hiding kernel (the only Chonk circuit proven as MegaZK).")
             ->group(advanced_group);
     };
 
@@ -530,7 +530,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
     add_ipa_accumulation_flag(write_vk);
     remove_zk_option(write_vk);
     add_output_format_option(write_vk);
-    add_is_hiding_kernel_flag(write_vk);
+    add_use_zk_flavor_flag(write_vk);
 
     /***************************************************************************************************************
      * Subcommand: verify

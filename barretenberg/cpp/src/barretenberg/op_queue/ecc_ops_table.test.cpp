@@ -90,7 +90,7 @@ class EccOpsTableTest : public ::testing::Test {
             const size_t last_idx = subtable_ops.size() == 0 ? 0 : subtable_ops.size() - 1;
             for (size_t i = 0; i < subtable_ops.size(); ++i) {
                 if (last_subtable_has_preamble && i == last_idx) {
-                    append_zero_rows(UltraEccOpsTable::HIDING_KERNEL_LEADING_ZEROS);
+                    append_zero_rows(UltraEccOpsTable::APPEND_TRACE_OFFSET);
                 }
                 for (const auto& op : subtable_ops[i]) {
                     append(op);
@@ -189,7 +189,7 @@ TEST(EccOpsTableTest, UltraOpsPrependThenAppend)
         ordered_subtables.insert(it, subtable);
     }
 
-    // Construct the mock ultra ops table. The final APPEND carries HIDING_KERNEL_LEADING_ZEROS preamble rows.
+    // Construct the mock ultra ops table. The final APPEND carries APPEND_TRACE_OFFSET preamble rows.
     EccOpsTableTest::MockUltraOpsTable expected_ultra_ops_table(ordered_subtables,
                                                                 /*last_subtable_has_preamble=*/true);
 
@@ -237,7 +237,7 @@ TEST(EccOpsTableTest, UltraOpsFixedLocationAppendNoGap)
     }
 
     // Expected order: subtable[1], subtable[0], subtable[2] (no gap). The final APPEND carries
-    // HIDING_KERNEL_LEADING_ZEROS preamble rows.
+    // APPEND_TRACE_OFFSET preamble rows.
     std::vector<std::vector<UltraOp>> ordered_subtables = { subtables[1], subtables[0], subtables[2] };
 
     // Construct the mock ultra ops table
@@ -304,8 +304,8 @@ TEST(EccOpsTableTest, UltraOpsFixedLocationAppendWithGap)
     auto expected_num_ops = std::accumulate(subtable_op_counts.begin(), subtable_op_counts.end(), size_t(0));
     EXPECT_EQ(ultra_ops_table.num_ops(), expected_num_ops);
 
-    // Check that the polynomials have the correct size (including gap and HIDING_KERNEL_LEADING_ZEROS preamble)
-    constexpr size_t LEADING_ZEROS = UltraEccOpsTable::HIDING_KERNEL_LEADING_ZEROS;
+    // Check that the polynomials have the correct size (including gap and APPEND_TRACE_OFFSET preamble)
+    constexpr size_t LEADING_ZEROS = UltraEccOpsTable::APPEND_TRACE_OFFSET;
     size_t expected_poly_size = fixed_offset_num_rows + LEADING_ZEROS + (subtable_op_counts[2] * ULTRA_ROWS_PER_OP);
     EXPECT_EQ(ultra_ops_table.num_ultra_rows(), expected_poly_size);
 
@@ -337,7 +337,7 @@ TEST(EccOpsTableTest, UltraOpsFixedLocationAppendWithGap)
         }
     }
 
-    // Check appended subtable is placed right after the HIDING_KERNEL_LEADING_ZEROS preamble
+    // Check appended subtable is placed right after the APPEND_TRACE_OFFSET preamble
     std::vector<std::vector<UltraOp>> appended_subtables = { subtables[2] };
     EccOpsTableTest::MockUltraOpsTable expected_appended_table(appended_subtables);
     for (auto [ultra_op_poly, expected_poly] : zip_view(ultra_ops_table_polynomials, expected_appended_table.columns)) {
@@ -352,7 +352,7 @@ TEST(EccOpsTableTest, UltraOpsFixedLocationAppendWithGap)
         std::vector<UltraOp> expected_reconstructed;
         expected_reconstructed.reserve(expected_num_ops + fixed_offset);
 
-        // Order: subtable[1], subtable[0], no-ops range (including HIDING_KERNEL_LEADING_ZEROS preamble), subtable[2]
+        // Order: subtable[1], subtable[0], no-ops range (including APPEND_TRACE_OFFSET preamble), subtable[2]
         for (const auto& op : subtables[1]) {
             expected_reconstructed.push_back(op);
         }
