@@ -80,7 +80,6 @@ export const MessageTarget = {
 } as const;
 
 
-// docs:start:logging
 /**
  * Conditional logging. (#26)
  * Strips verbose logs in production while keeping errors visible.
@@ -94,5 +93,4 @@ export const log = {
   warn: (...args: unknown[]) => console.warn(...args),
   error: (...args: unknown[]) => console.error(...args),
 };
-// docs:end:logging
 // docs:end:wallet-config

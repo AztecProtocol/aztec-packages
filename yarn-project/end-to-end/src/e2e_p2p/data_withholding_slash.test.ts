@@ -1,4 +1,5 @@
 import type { AztecNodeService } from '@aztec/aztec-node';
+import { waitForTx } from '@aztec/aztec.js/node';
 import { EpochNumber } from '@aztec/foundation/branded-types';
 import { times } from '@aztec/foundation/collection';
 import { OffenseType } from '@aztec/slasher';
@@ -10,8 +11,8 @@ import path from 'path';
 
 import { shouldCollectMetrics } from '../fixtures/fixtures.js';
 import { createNodes } from '../fixtures/setup_p2p_test.js';
-import { P2PNetworkTest } from './p2p_network.js';
-import { awaitCommitteeExists, awaitCommitteeKicked, awaitOffenseDetected } from './shared.js';
+import { P2PNetworkTest, WAIT_FOR_TX_TIMEOUT } from './p2p_network.js';
+import { awaitCommitteeExists, awaitCommitteeKicked, awaitOffenseDetected, submitTransactions } from './shared.js';
 
 jest.setTimeout(1000000);
 
@@ -147,11 +148,13 @@ describe('e2e_p2p_data_withholding_slash', () => {
     await t.sendDummyTx();
     await debugRollup();
 
-    // Send Aztec txs
-    t.logger.warn('Setup account');
-    await t.setupAccount();
+    // Send L2 txs through a validator node to ensure blocks are built (needed for pruning to trigger).
+    t.logger.warn('Sending L2 txs through a validator node');
+    const txHashes = await submitTransactions(t.logger, nodes[0], 1, t.fundedAccount);
+    await Promise.all(txHashes.map(txHash => waitForTx(nodes[0], txHash, { timeout: WAIT_FOR_TX_TIMEOUT })));
+    t.logger.warn('L2 txs mined');
+
     t.logger.warn('Stopping nodes');
-    // Note, we needed to keep the initial node running, as that is the one the txs were sent to.
     await t.removeInitialNode();
     // Now stop the nodes,
     await t.stopNodes(nodes);

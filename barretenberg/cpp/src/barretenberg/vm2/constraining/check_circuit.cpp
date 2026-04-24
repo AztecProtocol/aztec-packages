@@ -81,7 +81,7 @@ void run_check_circuit(AvmFlavor::ProverPolynomials& polys, size_t num_rows, boo
                                           Relation::Settings::DST_SELECTOR);
 
             // Compute logderivs.
-            bb::compute_logderivative_inverse<typename AvmFlavor::FF, Relation>(polys, params, num_rows);
+            bb::compute_logderivative_inverse<typename AvmFlavor::FF, Relation>(polys, params);
 
             // Check the logderivative relation
             typename Relation::SumcheckArrayOfValuesOverSubrelations lookup_result{};

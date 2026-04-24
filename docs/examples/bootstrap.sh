@@ -132,19 +132,26 @@ function validate-webapp-tutorial {
   (
     cd "$TUTORIAL_DIR"
 
-    # Backup files we'll modify
+    # Backup package.json (the only tracked file we mutate). yarn.lock is
+    # gitignored and regenerated on each run, so we don't back it up.
     cp package.json package.json.bak
-    cp yarn.lock yarn.lock.bak
 
     cleanup() {
       local exit_code=$?
       echo_stderr "Cleaning up webapp-tutorial..."
-      mv package.json.bak package.json
-      mv yarn.lock.bak yarn.lock
-      rm -rf node_modules .yarn 2>/dev/null || true
+      [ -f package.json.bak ] && mv package.json.bak package.json
+      rm -rf node_modules .yarn yarn.lock .yarnrc.yml 2>/dev/null || true
       return $exit_code
     }
     trap cleanup EXIT
+
+    # Start from a fresh node_modules / lock so we don't reuse state from
+    # a previous run that may have been interrupted mid-cleanup.
+    # An empty yarn.lock is required to mark this directory as a standalone
+    # yarn project; otherwise yarn 4 walks up to docs/ and refuses to install
+    # because webapp-tutorial isn't listed as a workspace there.
+    rm -rf node_modules .yarn .yarnrc.yml
+    : > yarn.lock
 
     # Replace #include_aztec_version with link: paths to local yarn-project packages
     echo_stderr "Linking local @aztec packages..."
@@ -166,6 +173,11 @@ function validate-webapp-tutorial {
     # Fresh yarn setup for linking
     yarn config set nodeLinker node-modules 2>/dev/null || true
     yarn install
+
+    # yarn's `link:` protocol creates portals into yarn-project/*, which require
+    # --preserve-symlinks for Node's ESM loader to resolve dependencies correctly
+    # (vite in particular fails to load its config without it).
+    export NODE_OPTIONS="${NODE_OPTIONS:-} --preserve-symlinks"
 
     # Copy compiled contract artifact and run codegen
     mkdir -p src/artifacts

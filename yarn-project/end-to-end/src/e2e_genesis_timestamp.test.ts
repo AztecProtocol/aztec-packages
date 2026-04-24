@@ -10,24 +10,30 @@ describe('e2e_genesis_timestamp', () => {
 
   const logger = createLogger('e2e:genesis_timestamp');
 
-  beforeAll(async () => {
+  beforeEach(async () => {
     // Skip account deployment and prevent the sequencer from mining empty blocks.
-    context = await setup(0, {
-      skipAccountDeployment: true,
-      minTxsPerBlock: 1,
-    });
+    // Configure PXE to sync anchor only to proven blocks so its anchor lags behind proposed blocks
+    // (tests do not spin up a prover, so nothing will ever be proven and the anchor stays at genesis).
+    context = await setup(
+      0,
+      {
+        skipAccountDeployment: true,
+        minTxsPerBlock: 1,
+        startProverNode: false,
+        anvilTestWatcherOpts: { isMarkingAsProven: false },
+      },
+      { syncChainTip: 'proven' },
+    );
+
+    context.watcher.setIsMarkingAsProven(false);
   });
 
-  afterAll(() => context.teardown());
+  afterEach(() => context.teardown());
 
-  it('can include genesis-anchored tx in a block after block 1', async () => {
-    const { wallet, aztecNode, aztecNodeAdmin, initialFundedAccounts } = context;
-
-    // We're at block 0 -- no blocks have been mined yet.
-    expect(await aztecNode.getBlockNumber()).toBe(0);
-
-    // Step 1: Prove the account deploy tx while PXE is still anchored to genesis (block 0).
-    const { secret, salt, signingKey } = initialFundedAccounts[0];
+  // Creates and proves a tx, and asserts it's anchored to the genesis block
+  const proveTxAnchoredToGenesis = async (accountIndex = 0) => {
+    const { wallet, initialFundedAccounts } = context;
+    const { secret, salt, signingKey } = initialFundedAccounts[accountIndex];
     const accountManager = await wallet.createSchnorrAccount(secret, salt, signingKey);
     const deployMethod = await accountManager.getDeployMethod();
     const provenTx = await proveInteraction(wallet, deployMethod, {
@@ -36,16 +42,31 @@ describe('e2e_genesis_timestamp', () => {
       additionalScopes: [accountManager.address],
     });
 
-    // Verify the tx is anchored to block 0 (genesis).
     const anchorBlockNumber = provenTx.data.constants.anchorBlockHeader.globalVariables.blockNumber;
     expect(anchorBlockNumber).toBe(0);
-    logger.info('Proved genesis-anchored deploy tx');
+    logger.info(`Proved genesis-anchored deploy tx for account ${accountIndex}`);
+    return provenTx;
+  };
+
+  const awaitBlockCheckpointed = async () => {
+    const { aztecNode } = context;
+    await retryUntil(async () => (await aztecNode.getBlockNumber()) >= 1, 'wait for block >= 1', 60);
+    await retryUntil(async () => (await aztecNode.getCheckpointNumber()) >= 1, 'wait for checkpoint >= 1', 60);
+    logger.info(`Block number after advancing: ${await aztecNode.getBlockNumber()}`);
+  };
+
+  it('can include genesis-anchored tx in a block after block 1', async () => {
+    const { aztecNode, aztecNodeAdmin } = context;
+
+    // We're at block 0 -- no blocks have been mined yet.
+    expect(await aztecNode.getBlockNumber()).toBe(0);
+
+    // Step 1: Prove the account deploy tx while PXE is still anchored to genesis (block 0).
+    const provenTx = await proveTxAnchoredToGenesis();
 
     // Step 2: Mine an empty block to advance past genesis.
     await aztecNodeAdmin.setConfig({ minTxsPerBlock: 0 });
-    await retryUntil(async () => (await aztecNode.getBlockNumber()) >= 1, 'wait for block >= 1', 60);
-    await retryUntil(async () => (await aztecNode.getCheckpointNumber()) >= 1, 'wait for checkpoint >= 1', 60);
-    logger.info(`Block number before sending tx: ${await aztecNode.getBlockNumber()}`);
+    await awaitBlockCheckpointed();
 
     // Step 3: Prevent further empty blocks so the next block only mines when our tx arrives.
     await aztecNodeAdmin.setConfig({ minTxsPerBlock: 1 });
@@ -58,4 +79,39 @@ describe('e2e_genesis_timestamp', () => {
     // are valid beyond the first block when the genesis has a non-zero timestamp.
     expect(receipt.blockNumber).toBeGreaterThan(1);
   }, 120_000);
+
+  // Regression for an issue where PXE failed to prove txs while anchored to block zero
+  // if there were new blocks mined that modified the public data tree.
+  it('can generate genesis-anchored tx after chain advances when PXE anchor is pinned to zero', async () => {
+    const { aztecNode } = context;
+
+    // We're at block 0 -- no blocks have been mined yet.
+    expect(await aztecNode.getBlockNumber()).toBe(0);
+
+    // Step 1: Prove and send a first genesis-anchored account deploy. This deploy publishes the
+    // contract instance to the public registry and pays fee juice, both of which modify the
+    // public data tree. Once this tx lands the node advances past genesis with real public-data
+    // changes (not an empty block).
+    const firstProvenTx = await proveTxAnchoredToGenesis(0);
+    const firstReceipt = await firstProvenTx.send();
+    logger.info(`First genesis-anchored deploy mined in block ${firstReceipt.blockNumber}`);
+    expect(firstReceipt.blockNumber).toBeGreaterThanOrEqual(1);
+
+    // Wait for the PXE to observe the new block so it syncs its notes/state to the tip, but the
+    // anchor itself should stay pinned to genesis because syncChainTip='proven' is set and no
+    // prover is marking blocks as proven.
+    await awaitBlockCheckpointed();
+
+    // Step 2: Prove a second genesis-anchored account deploy for a different funded account.
+    // PXE's anchor is still genesis (block 0) because syncChainTip='proven' only advances the
+    // anchor when an epoch is proven on L1, and no prover node is running in this test. The
+    // public data tree, however, has diverged from genesis (thanks to the first deploy).
+    const secondProvenTx = await proveTxAnchoredToGenesis(1);
+
+    // Step 3: Send the genesis-anchored proven tx
+    const secondReceipt = await secondProvenTx.send();
+    logger.info(`Second genesis-anchored deploy mined in block ${secondReceipt.blockNumber}`);
+    expect(secondReceipt.blockNumber).toBeDefined();
+    expect(secondReceipt.blockNumber!).toBeGreaterThan(firstReceipt.blockNumber!);
+  }, 180_000);
 });
