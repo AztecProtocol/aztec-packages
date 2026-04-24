@@ -80,13 +80,21 @@ export class AztecSQLiteOPFSStore implements AztecAsyncKVStore {
     if (encryptionKey !== undefined && encryptionKey.length !== 32) {
       throw new Error(`encryptionKey must be 32 bytes (got ${encryptionKey.length})`);
     }
+    if (encryptionKey !== undefined && ephemeral) {
+      throw new Error('encryptionKey is not supported for ephemeral (:memory:) stores');
+    }
     const dbName = name && !ephemeral ? name : `tmp-${globalThis.crypto.getRandomValues(new Uint8Array(8)).join('')}`;
     log.debug(
       `Opening SQLite-OPFS ${ephemeral ? 'ephemeral ' : ''}${encryptionKey ? 'encrypted ' : ''}database ${dbName}`,
     );
     const worker = new Worker(new URL('./worker.js', import.meta.url), { type: 'module' });
     const store = new AztecSQLiteOPFSStore(worker, dbName, log, ephemeral);
-    await store.#sendRequest({ type: 'init', id: store.#allocId(), dbName, ephemeral, poolDirectory, encryptionKey });
+    try {
+      await store.#sendRequest({ type: 'init', id: store.#allocId(), dbName, ephemeral, poolDirectory, encryptionKey });
+    } catch (err) {
+      worker.terminate();
+      throw err;
+    }
     return store;
   }
 
