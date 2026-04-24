@@ -322,21 +322,21 @@ void ToRadixTraceBuilder::process_with_memory(
 const InteractionDefinition ToRadixTraceBuilder::interactions =
     InteractionDefinition()
         // Non-Memory Aware To Radix (to_radix.pil)
-        .add<lookup_to_radix_limb_range_settings, InteractionType::LookupIntoIndexedByRow>()
-        .add<lookup_to_radix_limb_less_than_radix_range_settings, InteractionType::LookupIntoIndexedByRow>()
-        .add<lookup_to_radix_fetch_safe_limbs_settings, InteractionType::LookupIntoIndexedByRow>()
-        .add<lookup_to_radix_fetch_p_limb_settings, InteractionType::LookupIntoPDecomposition>()
-        .add<lookup_to_radix_limb_p_diff_range_settings, InteractionType::LookupIntoIndexedByRow>()
+        .add<InteractionType::LookupIntoIndexedByRow, lookup_to_radix_limb_range_settings>()
+        .add<InteractionType::LookupIntoIndexedByRow, lookup_to_radix_limb_less_than_radix_range_settings>()
+        .add<InteractionType::LookupIntoIndexedByRow, lookup_to_radix_fetch_safe_limbs_settings>()
+        .add<InteractionType::LookupIntoPDecomposition, lookup_to_radix_fetch_p_limb_settings>()
+        .add<InteractionType::LookupIntoIndexedByRow, lookup_to_radix_limb_p_diff_range_settings>()
         // Mem Aware To Radix (to_radix_mem.pil)
         // GT checks
-        .add<lookup_to_radix_mem_check_dst_addr_in_range_settings, InteractionType::LookupGeneric>(C::gt_sel)
-        .add<lookup_to_radix_mem_check_radix_lt_2_settings, InteractionType::LookupGeneric>(C::gt_sel)
-        .add<lookup_to_radix_mem_check_radix_gt_256_settings, InteractionType::LookupGeneric>(C::gt_sel)
+        .add<InteractionType::LookupGeneric, lookup_to_radix_mem_check_dst_addr_in_range_settings>(C::gt_sel)
+        .add<InteractionType::LookupGeneric, lookup_to_radix_mem_check_radix_lt_2_settings>(C::gt_sel)
+        .add<InteractionType::LookupGeneric, lookup_to_radix_mem_check_radix_gt_256_settings>(C::gt_sel)
         // Dispatch to To Radix
         // Cannnot be sequential because the non-memory aware to_radix subtrace rows are ordered
         // by the little endian decomposition while the memory aware to_radix subtrace rows are ordered
         // by the big endian decomposition.
-        .add<lookup_to_radix_mem_input_output_to_radix_settings,
-             InteractionType::LookupGeneric>(); // CANNOT BE SEQUENTIAL!
+        .add<InteractionType::LookupGeneric,
+             lookup_to_radix_mem_input_output_to_radix_settings>(); // CANNOT BE SEQUENTIAL!
 
 } // namespace bb::avm2::tracegen

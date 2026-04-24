@@ -232,6 +232,7 @@ Chonk::recursive_verification_and_consistency_checks(
     const TableCommitments& T_prev_commitments,
     const std::shared_ptr<RecursiveTranscript>& accumulation_recursive_transcript)
 {
+    BB_BENCH_NAME("Chonk::recursive_verification_and_consistency_checks");
     using MergeCommitments = Goblin::MergeRecursiveVerifier::InputCommitments;
 
     auto verifier_instance = std::make_shared<RecursiveVerifierInstance>(verifier_inputs.honk_vk_and_hash);
@@ -301,6 +302,7 @@ Chonk::recursive_verification_and_consistency_checks(
  */
 void Chonk::complete_kernel_circuit_logic(ClientCircuit& circuit)
 {
+    BB_BENCH_NAME("Chonk::complete_kernel_circuit_logic");
     // Step 1: SETUP - Initialize state and determine kernel type
 
     // Transcript is shared across recursive verification of the folding of K_{i-1} (kernel) and A_{i} (app)
@@ -446,6 +448,7 @@ Chonk::QUEUE_TYPE Chonk::get_queue_type() const
  */
 void Chonk::accumulate_hiding_kernel(ClientCircuit& circuit, const std::shared_ptr<MegaVerificationKey>& precomputed_vk)
 {
+    BB_BENCH_NAME("Chonk::accumulate_hiding_kernel");
     vinfo("Constructing hiding kernel instance (proving deferred to prove())");
     hiding_prover_inst = std::make_shared<DeciderZKProvingKey>(circuit);
     // Free circuit block memory now that trace data has been copied to prover polynomials
@@ -475,6 +478,7 @@ void Chonk::accumulate_and_fold(ClientCircuit& circuit,
                                 QUEUE_TYPE queue_type,
                                 std::shared_ptr<ProverInstance> prover_instance)
 {
+    BB_BENCH_NAME("Chonk::accumulate_and_fold");
     // Construct the prover instance for circuit (may already exist from debug path)
     if (!prover_instance) {
         prover_instance = std::make_shared<ProverInstance>(circuit);
@@ -562,6 +566,7 @@ void Chonk::accumulate_and_fold(ClientCircuit& circuit,
  */
 void Chonk::accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVerificationKey>& precomputed_vk)
 {
+    BB_BENCH_NAME("Chonk::accumulate");
     BB_ASSERT_LT(
         num_circuits_accumulated, num_circuits, "Chonk: Attempting to accumulate more circuits than expected.");
     BB_ASSERT(precomputed_vk != nullptr, "Chonk::accumulate - VK expected for the provided circuit");
@@ -635,6 +640,7 @@ void Chonk::hide_op_queue_content_in_hiding(ClientCircuit& circuit)
  */
 ChonkProof Chonk::prove()
 {
+    BB_BENCH_NAME("Chonk::prove");
     // Deallocate the HN accumulator — no longer needed.
     prover_accumulator = ProverAccumulator();
 

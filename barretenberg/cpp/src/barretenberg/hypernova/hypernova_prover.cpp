@@ -127,14 +127,17 @@ HypernovaFoldingProver::Accumulator HypernovaFoldingProver::instance_to_accumula
         "HypernovaFoldingProver:gate_challenge", Flavor::VIRTUAL_LOG_N);
 
     // Run Sumcheck with padding
-    MegaSumcheckProver sumcheck(instance->dyadic_size(),
-                                instance->polynomials,
-                                transcript,
-                                instance->alpha,
-                                instance->gate_challenges,
-                                instance->relation_parameters,
-                                Flavor::VIRTUAL_LOG_N);
-    auto sumcheck_output = sumcheck.prove();
+    auto sumcheck_output = [&] {
+        BB_BENCH_NAME("HypernovaFoldingProver::sumcheck");
+        MegaSumcheckProver sumcheck(instance->dyadic_size(),
+                                    instance->polynomials,
+                                    transcript,
+                                    instance->alpha,
+                                    instance->gate_challenges,
+                                    instance->relation_parameters,
+                                    Flavor::VIRTUAL_LOG_N);
+        return sumcheck.prove();
+    }();
     if (detail::use_memory_profile) {
         detail::GLOBAL_MEMORY_PROFILE.add_checkpoint("after_sumcheck");
     }
@@ -151,6 +154,7 @@ std::pair<HonkProof, HypernovaFoldingProver::Accumulator> HypernovaFoldingProver
     const std::shared_ptr<ProverInstance>& instance,
     const std::shared_ptr<VerificationKey>& honk_vk)
 {
+    BB_BENCH_NAME("HypernovaFoldingProver::fold");
     Accumulator incoming_accumulator = instance_to_accumulator(instance, honk_vk);
 
     // Sumcheck

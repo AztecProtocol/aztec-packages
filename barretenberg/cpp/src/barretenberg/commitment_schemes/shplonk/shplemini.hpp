@@ -12,6 +12,7 @@
 #include "barretenberg/commitment_schemes/shplonk/shplonk.hpp"
 #include "barretenberg/commitment_schemes/small_subgroup_ipa/small_subgroup_ipa.hpp"
 #include "barretenberg/commitment_schemes/verification_key.hpp"
+#include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/flavor/repeated_commitments_data.hpp"
 #include "barretenberg/sumcheck/zk_sumcheck_data.hpp"
 #include "barretenberg/transcript/origin_tag.hpp"
@@ -42,6 +43,7 @@ template <typename Curve> class ShpleminiProver_ {
                               const std::vector<Polynomial>& sumcheck_round_univariates = {},
                               const std::vector<std::array<FF, 3>>& sumcheck_round_evaluations = {})
     {
+        BB_BENCH_NAME("ShpleminiProver::prove");
         // While Shplemini is not templated on Flavor, we derive ZK flag this way
         const bool has_zk = (libra_polynomials[0].size() > 0);
 

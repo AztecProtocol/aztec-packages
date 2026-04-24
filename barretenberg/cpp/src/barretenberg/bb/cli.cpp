@@ -400,6 +400,27 @@ int parse_and_run_cli_command(int argc, char* argv[])
             ->group(advanced_group);
     };
 
+    std::string trace_out_perfetto;
+    const auto add_trace_out_perfetto_option = [&](CLI::App* subcommand) {
+        return subcommand
+            ->add_option("--trace_out_perfetto",
+                         trace_out_perfetto,
+                         "Path to write a Chrome Trace Event Format JSON of every instrumented "
+                         "BB_BENCH scope (per-call timeline). Drop the file into ui.perfetto.dev "
+                         "or chrome://tracing.")
+            ->group(advanced_group);
+    };
+    std::string trace_out_perfetto_aggregate;
+    const auto add_trace_out_perfetto_aggregate_option = [&](CLI::App* subcommand) {
+        return subcommand
+            ->add_option("--trace_out_perfetto_aggregate",
+                         trace_out_perfetto_aggregate,
+                         "Path to write a synthesized Chrome Trace Event Format JSON derived from the "
+                         "aggregate stats. Smaller than --trace_out_perfetto but lossy about individual "
+                         "call timing.")
+            ->group(advanced_group);
+    };
+
     /***************************************************************************************************************
      * Top-level flags
      ***************************************************************************************************************/
@@ -493,6 +514,8 @@ int parse_and_run_cli_command(int argc, char* argv[])
     add_bench_out_option(prove);
     add_bench_out_hierarchical_option(prove);
     add_memory_profile_out_option(prove);
+    add_trace_out_perfetto_option(prove);
+    add_trace_out_perfetto_aggregate_option(prove);
     add_storage_budget_option(prove);
     add_output_format_option(prove);
 
@@ -826,9 +849,14 @@ int parse_and_run_cli_command(int argc, char* argv[])
         bb::detail::use_memory_profile = true;
         vinfo("Memory profiling enabled via --memory_profile_out");
     }
-    if (print_bench || !bench_out.empty() || !bench_out_hierarchical.empty()) {
+    if (print_bench || !bench_out.empty() || !bench_out_hierarchical.empty() || !trace_out_perfetto.empty() ||
+        !trace_out_perfetto_aggregate.empty()) {
         bb::detail::use_bb_bench = true;
-        vinfo("BB_BENCH enabled via --print_bench or --bench_out");
+        vinfo("BB_BENCH enabled via --print_bench / --bench_out / --trace_out_perfetto");
+    }
+    if (!trace_out_perfetto.empty()) {
+        bb::detail::capture_per_call_events.store(true);
+        vinfo("Per-call BB_BENCH event capture enabled via --trace_out_perfetto");
     }
 #endif
 
@@ -996,6 +1024,16 @@ int parse_and_run_cli_command(int argc, char* argv[])
                     std::ofstream file(bench_out_hierarchical);
                     bb::detail::GLOBAL_BENCH_STATS.serialize_aggregate_data_json(file);
                 }
+                if (!trace_out_perfetto.empty()) {
+                    std::ofstream file(trace_out_perfetto);
+                    bb::detail::GLOBAL_BENCH_STATS.serialize_trace_events_json(file);
+                    vinfo("Perfetto per-call trace written to ", trace_out_perfetto);
+                }
+                if (!trace_out_perfetto_aggregate.empty()) {
+                    std::ofstream file(trace_out_perfetto_aggregate);
+                    bb::detail::GLOBAL_BENCH_STATS.serialize_aggregate_trace_json(file);
+                    vinfo("Perfetto aggregate trace written to ", trace_out_perfetto_aggregate);
+                }
 #endif
                 if (!memory_profile_out.empty()) {
                     std::ofstream file(memory_profile_out);
@@ -1040,6 +1078,16 @@ int parse_and_run_cli_command(int argc, char* argv[])
                 if (!bench_out_hierarchical.empty()) {
                     std::ofstream file(bench_out_hierarchical);
                     bb::detail::GLOBAL_BENCH_STATS.serialize_aggregate_data_json(file);
+                }
+                if (!trace_out_perfetto.empty()) {
+                    std::ofstream file(trace_out_perfetto);
+                    bb::detail::GLOBAL_BENCH_STATS.serialize_trace_events_json(file);
+                    vinfo("Perfetto per-call trace written to ", trace_out_perfetto);
+                }
+                if (!trace_out_perfetto_aggregate.empty()) {
+                    std::ofstream file(trace_out_perfetto_aggregate);
+                    bb::detail::GLOBAL_BENCH_STATS.serialize_aggregate_trace_json(file);
+                    vinfo("Perfetto aggregate trace written to ", trace_out_perfetto_aggregate);
                 }
 #endif
                 return 0;
