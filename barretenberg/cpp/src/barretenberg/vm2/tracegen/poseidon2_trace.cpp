@@ -360,11 +360,11 @@ void Poseidon2TraceBuilder::process_permutation_with_memory(
 
 const InteractionDefinition Poseidon2TraceBuilder::interactions =
     InteractionDefinition()
-        .add<lookup_poseidon2_hash_poseidon2_perm_settings, InteractionType::LookupSequential>()
+        .add<InteractionType::LookupSequential, lookup_poseidon2_hash_poseidon2_perm_settings>()
         // Poseidon2 Memory to Permutation Subtrace
-        .add<lookup_poseidon2_mem_input_output_poseidon2_perm_settings, InteractionType::LookupSequential>()
+        .add<InteractionType::LookupSequential, lookup_poseidon2_mem_input_output_poseidon2_perm_settings>()
         // Lookups to Greater Than Subtrace
-        .add<lookup_poseidon2_mem_check_src_addr_in_range_settings, InteractionType::LookupGeneric>(C::gt_sel)
-        .add<lookup_poseidon2_mem_check_dst_addr_in_range_settings, InteractionType::LookupGeneric>(C::gt_sel);
+        .add<InteractionType::LookupGeneric, lookup_poseidon2_mem_check_src_addr_in_range_settings>(C::gt_sel)
+        .add<InteractionType::LookupGeneric, lookup_poseidon2_mem_check_dst_addr_in_range_settings>(C::gt_sel);
 
 } // namespace bb::avm2::tracegen
