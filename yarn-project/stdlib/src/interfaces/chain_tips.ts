@@ -15,7 +15,10 @@ export const ChainTipSchema = z.union([
   z.literal('finalized'),
 ]) satisfies z.ZodType<ChainTip>;
 
-/** Tips of the L2 chain. */
-export type ChainTips = L2Tips;
+/**
+ * Tips of the L2 chain.
+ * Omits the sequencer-internal `proposedCheckpoint` from the public RPC surface.
+ */
+export type ChainTips = Omit<L2Tips, 'proposedCheckpoint'>;
 
-export const ChainTipsSchema = L2TipsSchema;
+export const ChainTipsSchema = L2TipsSchema.omit({ proposedCheckpoint: true });

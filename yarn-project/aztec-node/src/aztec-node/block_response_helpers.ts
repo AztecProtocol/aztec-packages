@@ -1,4 +1,4 @@
-import type { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber } from '@aztec/foundation/branded-types';
 import {
   type BlockData,
   type BlockDataWithCheckpointContext,
@@ -83,7 +83,7 @@ export async function checkpointResponseFromPublishedCheckpoint(
     header: pc.checkpoint.header,
     archive: pc.checkpoint.archive,
     checkpointOutHash: pc.checkpoint.getCheckpointOutHash(),
-    startBlock: pc.checkpoint.blocks[0]?.number ?? (pc.checkpoint.number as unknown as BlockNumber),
+    startBlock: pc.checkpoint.blocks[0]?.number ?? BlockNumber.ZERO,
     blockCount: pc.checkpoint.blocks.length,
     feeAssetPriceModifier: pc.checkpoint.feeAssetPriceModifier,
   };
@@ -113,7 +113,7 @@ export function checkpointResponseFromCheckpointData(
   options: CheckpointIncludeOptions,
 ): CheckpointResponse {
   const response: CheckpointResponse = {
-    number: cd.checkpointNumber as unknown as CheckpointNumber,
+    number: cd.checkpointNumber,
     header: cd.header,
     archive: cd.archive,
     checkpointOutHash: cd.checkpointOutHash,

@@ -1,13 +1,13 @@
 import { ARCHIVE_HEIGHT, L1_TO_L2_MSG_TREE_HEIGHT, NOTE_HASH_TREE_HEIGHT } from '@aztec/constants';
 import { type L1ContractAddresses, L1ContractAddressesSchema } from '@aztec/ethereum/l1-contract-addresses';
 import {
-  BlockNumber,
+  type BlockNumber,
   BlockNumberPositiveSchema,
   BlockNumberSchema,
-  CheckpointNumber,
+  type CheckpointNumber,
   CheckpointNumberPositiveSchema,
   CheckpointNumberSchema,
-  EpochNumber,
+  type EpochNumber,
   EpochNumberSchema,
   type SlotNumber,
 } from '@aztec/foundation/branded-types';
@@ -23,10 +23,8 @@ import { BlockHash } from '../block/block_hash.js';
 import { type BlockParameter, BlockParameterSchema } from '../block/block_parameter.js';
 import { CheckpointedL2Block } from '../block/checkpointed_l2_block.js';
 import { type DataInBlock, dataInBlockSchemaFor } from '../block/in_block.js';
-import { L2Block } from '../block/l2_block.js';
-import { type L2BlockSource, type L2Tips, L2TipsSchema } from '../block/l2_block_source.js';
-import { CheckpointDataSchema } from '../checkpoint/checkpoint_data.js';
-import { PublishedCheckpoint } from '../checkpoint/published_checkpoint.js';
+import { type L2Tips, L2TipsSchema } from '../block/l2_block_source.js';
+import { type CheckpointData, CheckpointDataSchema } from '../checkpoint/checkpoint_data.js';
 import {
   type ContractClassPublic,
   ContractClassPublicSchema,
@@ -87,22 +85,7 @@ import { type WorldStateSyncStatus, WorldStateSyncStatusSchema } from './world_s
  * The aztec node.
  * We will probably implement the additional interfaces by means other than Aztec Node as it's currently a privacy leak
  */
-export interface AztecNode
-  extends Pick<
-    L2BlockSource,
-    | 'getBlocks'
-    | 'getCheckpoints'
-    | 'getBlockHeader'
-    | 'getL2Tips'
-    | 'getCheckpointedBlocks'
-    | 'getCheckpointsDataForEpoch'
-  > {
-  /**
-   * Returns the tips of the L2 chain.
-   * @deprecated Use `getChainTips()` instead.
-   */
-  getL2Tips(): Promise<L2Tips>;
-
+export interface AztecNode {
   /**
    * Returns the sync status of the node's world state
    */
@@ -217,69 +200,36 @@ export interface AztecNode
   getL2ToL1Messages(epoch: EpochNumber): Promise<Fr[][][][]>;
 
   /**
-   * Get a block specified by its block number or 'latest'.
-   * @param blockParameter - The block parameter (block number, block hash, or 'latest').
-   * @returns The requested block.
-   * @deprecated Use `getBlockResponse` instead (returns a {@link BlockResponse} shape).
+   * Returns the block number at a given chain tip, or the latest proposed block number when
+   * `tip` is omitted.
    */
-  getBlock(blockParameter: BlockParameter): Promise<L2Block | undefined>;
+  getBlockNumber(tip?: ChainTip): Promise<BlockNumber>;
 
   /**
-   * Get a block specified by its hash.
-   * @param blockHash - The block hash being requested.
-   * @returns The requested block.
-   * @deprecated Use `getBlockResponse(hash)` instead.
-   */
-  getBlockByHash(blockHash: BlockHash): Promise<L2Block | undefined>;
-
-  /**
-   * Get a block specified by its archive root.
-   * @param archive - The archive root being requested.
-   * @returns The requested block.
-   * @deprecated Use `getBlockResponse({ archive })` instead.
-   */
-  getBlockByArchive(archive: Fr): Promise<L2Block | undefined>;
-
-  /**
-   * Method to fetch the latest block number synchronized by the node.
-   * @returns The block number.
-   */
-  getBlockNumber(): Promise<BlockNumber>;
-
-  /**
-   * Fetches the latest proven block number.
-   * @returns The block number.
-   * @deprecated Use `getBlockNumberForTip('proven')` instead.
-   */
-  getProvenBlockNumber(): Promise<BlockNumber>;
-
-  /**
-   * Fetches the latest checkpointed block number.
-   * @returns The block number.
-   * @deprecated Use `getBlockNumberForTip('checkpointed')` instead.
-   */
-  getCheckpointedBlockNumber(): Promise<BlockNumber>;
-
-  /**
-   * Method to fetch the latest checkpoint number synchronized by the node.
-   * @returns The checkpoint number.
-   */
-  getCheckpointNumber(): Promise<CheckpointNumber>;
-
-  /** Returns the block number at a given chain tip (`'proposed'`, `'checkpointed'`, `'proven'`, or `'finalized'`). */
-  getBlockNumberForTip(tip: ChainTip): Promise<BlockNumber>;
-
-  /**
-   * Returns the checkpoint number at a given chain tip.
+   * Returns the checkpoint number at a given chain tip, or the latest checkpoint number when
+   * `tip` is omitted.
    *
    * @remarks **Semantic foot-gun**: block-side `'proposed'` means "latest proposed block" (chain
    * head), but checkpoint-side `'proposed'` means "latest confirmed checkpoint" — pre-L1-confirm
    * checkpoints are not exposed over RPC. `'checkpointed'` on the checkpoint side is equivalent.
    */
-  getCheckpointNumberForTip(tip: ChainTip): Promise<CheckpointNumber>;
+  getCheckpointNumber(tip?: ChainTip): Promise<CheckpointNumber>;
 
   /** Returns the tips of the L2 chain. */
   getChainTips(): Promise<ChainTips>;
+
+  // TODO(spl/new-rpc-api): the following methods are kept on the interface as a stop-gap because
+  // `L2BlockStream` (used by PXE's block synchronizer) and `computeL2ToL1MembershipWitness` (used
+  // by end-to-end tests) still consume the internal archiver shapes. Remove them when those
+  // consumers are rewired to the unified `BlockResponse` / `CheckpointResponse` API.
+  /** @deprecated Scheduled for removal; use `getChainTips` for public callers. */
+  getL2Tips(): Promise<L2Tips>;
+  /** @deprecated Scheduled for removal; use `getBlock(param).then(r => r?.header)`. */
+  getBlockHeader(number: BlockNumber | 'latest'): Promise<BlockHeader | undefined>;
+  /** @deprecated Scheduled for removal; use `getBlocks(from, limit, { includeL1PublishInfo: true, includeAttestations: true })`. */
+  getCheckpointedBlocks(from: BlockNumber, limit: number): Promise<CheckpointedL2Block[]>;
+  /** @deprecated Scheduled for removal; use `getCheckpoints(from, limit)` over an explicit checkpoint range. */
+  getCheckpointsDataForEpoch(epoch: EpochNumber): Promise<CheckpointData[]>;
 
   /**
    * Unified block fetch. Returns the block identified by `param`, with optional fields controlled
@@ -287,7 +237,7 @@ export interface AztecNode
    * @param param - A block number, block hash, archive root, chain-tip name, or object variant.
    * @param options - Narrowing options: `includeTransactions`, `includeL1PublishInfo`, `includeAttestations`.
    */
-  getBlockResponse<Opts extends BlockIncludeOptions = {}>(
+  getBlock<Opts extends BlockIncludeOptions = {}>(
     param: BlockParameter,
     options?: Opts,
   ): Promise<BlockResponse<Opts> | undefined>;
@@ -296,7 +246,7 @@ export interface AztecNode
    * Returns up to `limit` blocks starting from `from`, projected to the {@link BlockResponse}
    * shape determined by `options`.
    */
-  getBlockResponses<Opts extends BlockIncludeOptions = {}>(
+  getBlocks<Opts extends BlockIncludeOptions = {}>(
     from: BlockNumber,
     limit: number,
     options?: Opts,
@@ -306,7 +256,7 @@ export interface AztecNode
    * Unified checkpoint fetch. Returns the checkpoint identified by `param`, with optional fields
    * controlled by `options`.
    */
-  getCheckpointResponse<Opts extends CheckpointIncludeOptions = {}>(
+  getCheckpoint<Opts extends CheckpointIncludeOptions = {}>(
     param: CheckpointParameter,
     options?: Opts,
   ): Promise<CheckpointResponse<Opts> | undefined>;
@@ -315,7 +265,7 @@ export interface AztecNode
    * Returns up to `limit` checkpoints starting from `from`, projected to the
    * {@link CheckpointResponse} shape determined by `options`.
    */
-  getCheckpointResponses<Opts extends CheckpointIncludeOptions = {}>(
+  getCheckpoints<Opts extends CheckpointIncludeOptions = {}>(
     from: CheckpointNumber,
     limit: number,
     options?: Opts,
@@ -501,20 +451,6 @@ export interface AztecNode
    */
   getPublicStorageAt(referenceBlock: BlockParameter, contract: AztecAddress, slot: Fr): Promise<Fr>;
 
-  /**
-   * Returns the block header for a given block number, block hash, or 'latest'.
-   * @param block - The block parameter (block number, block hash, or 'latest'). Defaults to 'latest'.
-   * @returns The requested block header.
-   */
-  getBlockHeader(block?: BlockParameter): Promise<BlockHeader | undefined>;
-
-  /**
-   * Get a block header specified by its archive root.
-   * @param archive - The archive root being requested.
-   * @returns The requested block header.
-   */
-  getBlockHeaderByArchive(archive: Fr): Promise<BlockHeader | undefined>;
-
   /** Returns stats for validators if enabled. */
   getValidatorsStats(): Promise<ValidatorsStats>;
 
@@ -570,8 +506,6 @@ const MAX_SIGNATURES_PER_REGISTER_CALL = 100;
 const MAX_SIGNATURE_LEN = 10000;
 
 export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
-  getL2Tips: z.function().args().returns(L2TipsSchema),
-
   getWorldStateSyncStatus: z.function().args().returns(WorldStateSyncStatusSchema),
 
   findLeavesIndexes: z
@@ -618,42 +552,42 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
     .args(EpochNumberSchema)
     .returns(z.array(z.array(z.array(z.array(schemas.Fr))))),
 
-  getBlock: z.function().args(BlockParameterSchema).returns(L2Block.schema.optional()),
+  getBlockNumber: z.function().args(optional(ChainTipSchema)).returns(BlockNumberSchema),
 
-  getBlockByHash: z.function().args(BlockHash.schema).returns(L2Block.schema.optional()),
-
-  getBlockByArchive: z.function().args(schemas.Fr).returns(L2Block.schema.optional()),
-
-  getBlockNumber: z.function().returns(BlockNumberSchema),
-
-  getCheckpointNumber: z.function().returns(CheckpointNumberSchema),
-
-  getProvenBlockNumber: z.function().returns(BlockNumberSchema),
-
-  getCheckpointedBlockNumber: z.function().returns(BlockNumberSchema),
-
-  getBlockNumberForTip: z.function().args(ChainTipSchema).returns(BlockNumberSchema),
-
-  getCheckpointNumberForTip: z.function().args(ChainTipSchema).returns(CheckpointNumberSchema),
+  getCheckpointNumber: z.function().args(optional(ChainTipSchema)).returns(CheckpointNumberSchema),
 
   getChainTips: z.function().args().returns(ChainTipsSchema),
 
-  getBlockResponse: z
+  getL2Tips: z.function().args().returns(L2TipsSchema),
+
+  getBlockHeader: z
+    .function()
+    .args(z.union([BlockNumberSchema, z.literal('latest')]))
+    .returns(BlockHeader.schema.optional()),
+
+  getCheckpointedBlocks: z
+    .function()
+    .args(BlockNumberPositiveSchema, z.number().gt(0).lte(MAX_RPC_BLOCKS_LEN))
+    .returns(z.array(CheckpointedL2Block.schema)),
+
+  getCheckpointsDataForEpoch: z.function().args(EpochNumberSchema).returns(z.array(CheckpointDataSchema)),
+
+  getBlock: z
     .function()
     .args(BlockParameterSchema, optional(BlockIncludeOptionsSchema))
     .returns(BlockResponseSchema.optional()),
 
-  getBlockResponses: z
+  getBlocks: z
     .function()
     .args(BlockNumberPositiveSchema, z.number().gt(0).lte(MAX_RPC_BLOCKS_LEN), optional(BlockIncludeOptionsSchema))
     .returns(z.array(BlockResponseSchema)),
 
-  getCheckpointResponse: z
+  getCheckpoint: z
     .function()
     .args(CheckpointParameterSchema, optional(CheckpointIncludeOptionsSchema))
     .returns(CheckpointResponseSchema.optional()),
 
-  getCheckpointResponses: z
+  getCheckpoints: z
     .function()
     .args(
       CheckpointNumberPositiveSchema,
@@ -665,23 +599,6 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
   isReady: z.function().returns(z.boolean()),
 
   getNodeInfo: z.function().returns(NodeInfoSchema),
-
-  getBlocks: z
-    .function()
-    .args(BlockNumberPositiveSchema, z.number().gt(0).lte(MAX_RPC_BLOCKS_LEN))
-    .returns(z.array(L2Block.schema)),
-
-  getCheckpoints: z
-    .function()
-    .args(CheckpointNumberPositiveSchema, z.number().gt(0).lte(MAX_RPC_CHECKPOINTS_LEN))
-    .returns(z.array(PublishedCheckpoint.schema)),
-
-  getCheckpointedBlocks: z
-    .function()
-    .args(BlockNumberPositiveSchema, z.number().gt(0).lte(MAX_RPC_BLOCKS_LEN))
-    .returns(z.array(CheckpointedL2Block.schema)),
-
-  getCheckpointsDataForEpoch: z.function().args(EpochNumberSchema).returns(z.array(CheckpointDataSchema)),
 
   getCurrentMinFees: z.function().returns(GasFees.schema),
 
@@ -744,10 +661,6 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
   getTxsByHash: z.function().args(z.array(TxHash.schema).max(MAX_RPC_TXS_LEN)).returns(z.array(Tx.schema)),
 
   getPublicStorageAt: z.function().args(BlockParameterSchema, schemas.AztecAddress, schemas.Fr).returns(schemas.Fr),
-
-  getBlockHeader: z.function().args(optional(BlockParameterSchema)).returns(BlockHeader.schema.optional()),
-
-  getBlockHeaderByArchive: z.function().args(schemas.Fr).returns(BlockHeader.schema.optional()),
 
   getValidatorsStats: z.function().returns(ValidatorsStatsSchema),
 

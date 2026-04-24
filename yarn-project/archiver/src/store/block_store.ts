@@ -592,7 +592,7 @@ export class BlockStore {
       checkpointNumber: CheckpointNumber(checkpointStorage.checkpointNumber),
       startBlock: BlockNumber(checkpointStorage.startBlock),
       blockCount: checkpointStorage.blockCount,
-      feeAssetPriceModifier: BigInt(checkpointStorage.feeAssetPriceModifier ?? '0'),
+      feeAssetPriceModifier: BigInt(checkpointStorage.feeAssetPriceModifier),
       l1: L1PublishedData.fromBuffer(checkpointStorage.l1),
       attestations: checkpointStorage.attestations.map(buf => CommitteeAttestation.fromBuffer(buf)),
     };

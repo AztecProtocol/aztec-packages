@@ -54,18 +54,22 @@ type IfFlag<Opts, Key extends keyof CheckpointIncludeOptions, Field extends obje
   ? Field
   : Partial<Field>;
 
+// Only forward `includeTransactions` to nested blocks — the other include-flags on the checkpoint
+// options do not apply to the nested block responses (those carry no independent L1 / attestations).
+type NestedBlockOpts<Opts> = Opts extends { includeTransactions: true } ? { includeTransactions: true } : {};
+
 /**
  * RPC-surface representation of an L2 checkpoint.
  *
  * Generic over the include-options so that flagged fields become required when the caller passes a
- * literal `true`. The nested block array inherits `Opts`, so `includeTransactions` applies to
- * nested blocks when `includeBlocks` is also set. The default type argument
- * ({@link CheckpointIncludeOptions}) yields the widest shape — what the JSON-RPC wire layer
- * validates against.
+ * literal `true`. Only `includeTransactions` is forwarded to nested blocks, so
+ * `includeL1PublishInfo` / `includeAttestations` on a checkpoint request do not imply the same on
+ * its nested blocks. The default type argument ({@link CheckpointIncludeOptions}) yields the
+ * widest shape — what the JSON-RPC wire layer validates against.
  */
 export type CheckpointResponse<Opts extends CheckpointIncludeOptions = CheckpointIncludeOptions> =
   CheckpointResponseBase &
-    IfFlag<Opts, 'includeBlocks', { blocks: BlockResponse<Opts>[] }> &
+    IfFlag<Opts, 'includeBlocks', { blocks: BlockResponse<NestedBlockOpts<Opts>>[] }> &
     IfFlag<Opts, 'includeL1PublishInfo', { l1: L1PublishInfo }> &
     IfFlag<Opts, 'includeAttestations', { attestations: CommitteeAttestation[] }>;
 

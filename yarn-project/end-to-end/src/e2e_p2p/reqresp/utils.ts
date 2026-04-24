@@ -194,8 +194,8 @@ export async function runReqrespTxTest(params: {
   // Wait for L1 checkpoint sync, which may lag behind P2P block propagation.
   const checkpoints = await retryUntil(
     async () => {
-      const cps = await nodes[0].getCheckpoints(CheckpointNumber(1), 50);
-      return cps.length > 0 && cps.some(cp => cp.checkpoint.blocks.length >= 2) ? cps : undefined;
+      const cps = await nodes[0].getCheckpoints(CheckpointNumber(1), 50, { includeBlocks: true });
+      return cps.length > 0 && cps.some(cp => (cp.blocks?.length ?? 0) >= 2) ? cps : undefined;
     },
     'waiting for multi-block checkpoint to sync from L1',
     30,
@@ -203,16 +203,17 @@ export async function runReqrespTxTest(params: {
   );
 
   let mbpsFound = false;
-  let expectedBlockNumber = checkpoints[0].checkpoint.blocks[0].number;
+  let expectedBlockNumber = checkpoints[0].blocks![0].number;
 
   for (const published of checkpoints) {
-    const blockCount = published.checkpoint.blocks.length;
+    const blocks = published.blocks!;
+    const blockCount = blocks.length;
     mbpsFound = mbpsFound || blockCount >= 2;
 
     for (let i = 0; i < blockCount; i++) {
-      const block = published.checkpoint.blocks[i];
+      const block = blocks[i];
       expect(block.indexWithinCheckpoint).toBe(i);
-      expect(block.checkpointNumber).toBe(published.checkpoint.number);
+      expect(block.checkpointNumber).toBe(published.number);
       expect(block.number).toBe(expectedBlockNumber);
       expectedBlockNumber++;
     }

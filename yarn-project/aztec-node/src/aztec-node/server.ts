@@ -57,7 +57,6 @@ import {
   L2Block,
   type L2BlockSource,
 } from '@aztec/stdlib/block';
-import type { PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 import type {
   ContractClassPublic,
   ContractDataSource,
@@ -71,6 +70,7 @@ import type {
   BlockIncludeOptions,
   BlockResponse,
   ChainTip,
+  ChainTips,
   CheckpointIncludeOptions,
   CheckpointParameter,
   CheckpointResponse,
@@ -211,16 +211,30 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     return status.syncSummary;
   }
 
+  public async getChainTips(): Promise<ChainTips> {
+    const { proposed, checkpointed, proven, finalized } = await this.blockSource.getL2Tips();
+    return { proposed, checkpointed, proven, finalized };
+  }
+
   public getL2Tips() {
     return this.blockSource.getL2Tips();
   }
 
-  public getChainTips() {
-    return this.blockSource.getL2Tips();
+  public getBlockHeader(number: BlockNumber | 'latest') {
+    return this.blockSource.getBlockHeader(number);
   }
 
-  public async getBlockNumberForTip(tip: ChainTip): Promise<BlockNumber> {
+  public async getCheckpointedBlocks(from: BlockNumber, limit: number) {
+    return (await this.blockSource.getCheckpointedBlocks(from, limit)) ?? [];
+  }
+
+  public getCheckpointsDataForEpoch(epoch: EpochNumber) {
+    return this.blockSource.getCheckpointsDataForEpoch(epoch);
+  }
+
+  public async getBlockNumber(tip?: ChainTip): Promise<BlockNumber> {
     switch (tip) {
+      case undefined:
       case 'proposed':
         return await this.blockSource.getBlockNumber();
       case 'checkpointed':
@@ -232,16 +246,17 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     }
   }
 
-  public async getCheckpointNumberForTip(tip: ChainTip): Promise<CheckpointNumber> {
-    const tips = await this.blockSource.getL2Tips();
+  public async getCheckpointNumber(tip?: ChainTip): Promise<CheckpointNumber> {
     switch (tip) {
+      case undefined:
       case 'proposed':
       case 'checkpointed':
         return await this.blockSource.getCheckpointNumber();
       case 'proven':
-        return tips.proven.checkpoint.number;
-      case 'finalized':
-        return tips.finalized.checkpoint.number;
+      case 'finalized': {
+        const tips = await this.blockSource.getL2Tips();
+        return tip === 'proven' ? tips.proven.checkpoint.number : tips.finalized.checkpoint.number;
+      }
     }
   }
 
@@ -262,7 +277,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
       return { number: await this.blockSource.getBlockNumber() };
     }
     if (this.isChainTip(param)) {
-      return { number: await this.getBlockNumberForTip(param) };
+      return { number: await this.getBlockNumber(param) };
     }
     if (typeof param === 'object' && param !== null) {
       if ('number' in param) {
@@ -288,7 +303,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
       return { number: await this.blockSource.getCheckpointNumber() };
     }
     if (this.isChainTip(param)) {
-      return { number: await this.getCheckpointNumberForTip(param) };
+      return { number: await this.getCheckpointNumber(param) };
     }
     if (typeof param === 'object' && param !== null) {
       if ('number' in param) {
@@ -301,7 +316,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     throw new BadRequestError(`Invalid CheckpointParameter: ${JSON.stringify(param)}`);
   }
 
-  public async getBlockResponse<Opts extends BlockIncludeOptions = {}>(
+  public async getBlock<Opts extends BlockIncludeOptions = {}>(
     param: BlockParameter,
     options: Opts = {} as Opts,
   ): Promise<BlockResponse<Opts> | undefined> {
@@ -375,7 +390,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     return blockResponseFromBlockData(ctx.data, blockNumber, options, ctx) as BlockResponse<Opts>;
   }
 
-  public async getBlockResponses<Opts extends BlockIncludeOptions = {}>(
+  public async getBlocks<Opts extends BlockIncludeOptions = {}>(
     from: BlockNumber,
     limit: number,
     options: Opts = {} as Opts,
@@ -403,7 +418,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     return results;
   }
 
-  public async getCheckpointResponse<Opts extends CheckpointIncludeOptions = {}>(
+  public async getCheckpoint<Opts extends CheckpointIncludeOptions = {}>(
     param: CheckpointParameter,
     options: Opts = {} as Opts,
   ): Promise<CheckpointResponse<Opts> | undefined> {
@@ -429,7 +444,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     return checkpointResponseFromCheckpointData(data, options) as CheckpointResponse<Opts>;
   }
 
-  public async getCheckpointResponses<Opts extends CheckpointIncludeOptions = {}>(
+  public async getCheckpoints<Opts extends CheckpointIncludeOptions = {}>(
     from: CheckpointNumber,
     limit: number,
     options: Opts = {} as Opts,
@@ -1002,71 +1017,6 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     return nodeInfo;
   }
 
-  /**
-   * Get a block specified by its block number, block hash, or 'latest'.
-   * @param block - The block parameter (block number, block hash, or 'latest').
-   * @returns The requested block.
-   */
-  public async getBlock(block: BlockParameter): Promise<L2Block | undefined> {
-    if (BlockHash.isBlockHash(block)) {
-      return this.getBlockByHash(block);
-    }
-    const blockNumber = block === 'latest' ? await this.getBlockNumber() : (block as BlockNumber);
-    if (blockNumber === BlockNumber.ZERO) {
-      return this.buildInitialBlock();
-    }
-    return await this.blockSource.getL2Block(blockNumber);
-  }
-
-  /**
-   * Get a block specified by its hash.
-   * @param blockHash - The block hash being requested.
-   * @returns The requested block.
-   */
-  public async getBlockByHash(blockHash: BlockHash): Promise<L2Block | undefined> {
-    const initialBlockHash = await this.#getInitialHeaderHash();
-    if (blockHash.equals(initialBlockHash)) {
-      return this.buildInitialBlock();
-    }
-    return await this.blockSource.getL2BlockByHash(blockHash);
-  }
-
-  private buildInitialBlock(): L2Block {
-    const initialHeader = this.worldStateSynchronizer.getCommitted().getInitialHeader();
-    return L2Block.empty(initialHeader);
-  }
-
-  /**
-   * Get a block specified by its archive root.
-   * @param archive - The archive root being requested.
-   * @returns The requested block.
-   */
-  public async getBlockByArchive(archive: Fr): Promise<L2Block | undefined> {
-    return await this.blockSource.getL2BlockByArchive(archive);
-  }
-
-  /**
-   * Method to request blocks. Will attempt to return all requested blocks but will return only those available.
-   * @param from - The start of the range of blocks to return.
-   * @param limit - The maximum number of blocks to obtain.
-   * @returns The blocks requested.
-   */
-  public async getBlocks(from: BlockNumber, limit: number): Promise<L2Block[]> {
-    return (await this.blockSource.getBlocks(from, BlockNumber(limit))) ?? [];
-  }
-
-  public async getCheckpoints(from: CheckpointNumber, limit: number): Promise<PublishedCheckpoint[]> {
-    return (await this.blockSource.getCheckpoints(from, limit)) ?? [];
-  }
-
-  public async getCheckpointedBlocks(from: BlockNumber, limit: number) {
-    return (await this.blockSource.getCheckpointedBlocks(from, limit)) ?? [];
-  }
-
-  public getCheckpointsDataForEpoch(epochNumber: EpochNumber) {
-    return this.blockSource.getCheckpointsDataForEpoch(epochNumber);
-  }
-
   public async getCurrentMinFees(): Promise<GasFees> {
     return await this.feeProvider.getCurrentMinFees();
   }
@@ -1082,26 +1032,6 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     }
 
     return GasFees.from({ feePerDaGas: 0n, feePerL2Gas: 0n });
-  }
-
-  /**
-   * Method to fetch the latest block number synchronized by the node.
-   * @returns The block number.
-   */
-  public async getBlockNumber(): Promise<BlockNumber> {
-    return await this.blockSource.getBlockNumber();
-  }
-
-  public async getProvenBlockNumber(): Promise<BlockNumber> {
-    return await this.blockSource.getProvenBlockNumber();
-  }
-
-  public async getCheckpointedBlockNumber(): Promise<BlockNumber> {
-    return await this.blockSource.getCheckpointedL2BlockNumber();
-  }
-
-  public getCheckpointNumber(): Promise<CheckpointNumber> {
-    return this.blockSource.getCheckpointNumber();
   }
 
   /**
@@ -1538,50 +1468,6 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
       lowLeafResult.index,
     )) as PublicDataTreeLeafPreimage;
     return preimage.leaf.value;
-  }
-
-  public async getBlockHeader(block: BlockParameter = 'latest'): Promise<BlockHeader | undefined> {
-    if (BlockHash.isBlockHash(block)) {
-      const initialBlockHash = await this.#getInitialHeaderHash();
-      if (block.equals(initialBlockHash)) {
-        // Block source doesn't handle initial header so we need to handle the case separately.
-        return this.worldStateSynchronizer.getCommitted().getInitialHeader();
-      }
-      return this.blockSource.getBlockHeaderByHash(block);
-    }
-    const resolved = await this.resolveBlockParameter(block);
-    if (resolved.hash !== undefined) {
-      const initial = await this.#getInitialHeaderHash();
-      if (resolved.hash.equals(initial)) {
-        return this.worldStateSynchronizer.getCommitted().getInitialHeader();
-      }
-      return this.blockSource.getBlockHeaderByHash(resolved.hash);
-    }
-    if (resolved.archive !== undefined) {
-      return this.blockSource.getBlockHeaderByArchive(resolved.archive);
-    }
-    const blockNumber = resolved.number!;
-    if (blockNumber === BlockNumber.ZERO) {
-      return this.worldStateSynchronizer.getCommitted().getInitialHeader();
-    }
-    return this.blockSource.getBlockHeader(blockNumber);
-  }
-
-  /**
-   * Get a block header specified by its archive root.
-   * @param archive - The archive root being requested.
-   * @returns The requested block header.
-   */
-  public async getBlockHeaderByArchive(archive: Fr): Promise<BlockHeader | undefined> {
-    return await this.blockSource.getBlockHeaderByArchive(archive);
-  }
-
-  public getBlockData(number: BlockNumber): Promise<BlockData | undefined> {
-    return this.blockSource.getBlockData(number);
-  }
-
-  public getBlockDataByArchive(archive: Fr): Promise<BlockData | undefined> {
-    return this.blockSource.getBlockDataByArchive(archive);
   }
 
   /**
@@ -2063,23 +1949,31 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     return snapshot;
   }
 
-  /** Resolves a block parameter to a block number. */
+  /** Resolves any {@link BlockParameter} variant to a concrete block number. */
   protected async resolveBlockNumber(block: BlockParameter): Promise<BlockNumber> {
-    if (block === 'latest') {
-      return BlockNumber(await this.blockSource.getBlockNumber());
+    const resolved = await this.resolveBlockParameter(block);
+    if (resolved.number !== undefined) {
+      return resolved.number;
     }
-    if (BlockHash.isBlockHash(block)) {
+    if (resolved.hash !== undefined) {
       const initialBlockHash = await this.#getInitialHeaderHash();
-      if (block.equals(initialBlockHash)) {
+      if (resolved.hash.equals(initialBlockHash)) {
         return BlockNumber.ZERO;
       }
-      const header = await this.blockSource.getBlockHeaderByHash(block);
+      const header = await this.blockSource.getBlockHeaderByHash(resolved.hash);
       if (!header) {
-        throw new Error(`Block hash ${block.toString()} not found.`);
+        throw new Error(`Block hash ${resolved.hash.toString()} not found.`);
       }
       return header.getBlockNumber();
     }
-    return block as BlockNumber;
+    if (resolved.archive !== undefined) {
+      const header = await this.blockSource.getBlockHeaderByArchive(resolved.archive);
+      if (!header) {
+        throw new Error(`Block with archive ${resolved.archive.toString()} not found.`);
+      }
+      return header.getBlockNumber();
+    }
+    throw new BadRequestError(`Invalid BlockParameter: ${JSON.stringify(block)}`);
   }
 
   /**

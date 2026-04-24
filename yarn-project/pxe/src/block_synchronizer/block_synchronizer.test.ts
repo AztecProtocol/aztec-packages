@@ -71,10 +71,17 @@ describe('BlockSynchronizer', () => {
   it('removes notes from db on a reorg', async () => {
     const rollback = jest.spyOn(noteStore, 'rollback').mockImplementation(() => Promise.resolve());
     const block3Hash = Fr.fromString('0x3');
-    aztecNode.getBlockHeader.mockImplementation(async block => {
-      // For the test, when block hash matches block 3, return block header for block 3
+    aztecNode.getBlock.mockImplementation(async (block: any) => {
       if (block instanceof BlockHash && block.equals(block3Hash)) {
-        return (await L2Block.random(BlockNumber(3))).header;
+        const b = await L2Block.random(BlockNumber(3));
+        return {
+          header: b.header,
+          archive: b.archive,
+          hash: await b.hash(),
+          checkpointNumber: b.checkpointNumber,
+          indexWithinCheckpoint: b.indexWithinCheckpoint,
+          number: b.number,
+        } as any;
       }
       return undefined;
     });
@@ -95,10 +102,17 @@ describe('BlockSynchronizer', () => {
   it('removes private events from db on a reorg', async () => {
     const rollback = jest.spyOn(privateEventStore, 'rollback').mockImplementation(() => Promise.resolve());
     const block3Hash = Fr.fromString('0x3');
-    aztecNode.getBlockHeader.mockImplementation(async block => {
-      // For the test, when block hash matches block 3, return block header for block 3
+    aztecNode.getBlock.mockImplementation(async (block: any) => {
       if (block instanceof BlockHash && block.equals(block3Hash)) {
-        return (await L2Block.random(BlockNumber(3))).header;
+        const b = await L2Block.random(BlockNumber(3));
+        return {
+          header: b.header,
+          archive: b.archive,
+          hash: await b.hash(),
+          checkpointNumber: b.checkpointNumber,
+          indexWithinCheckpoint: b.indexWithinCheckpoint,
+          number: b.number,
+        } as any;
       }
       return undefined;
     });

@@ -62,7 +62,7 @@ describe('e2e_cross_chain_messaging l1_to_l2', () => {
   const waitForBlockToCheckpoint = async (blockNumber: BlockNumber) => {
     return await retryUntil(
       async () => {
-        const checkpointedBlockNumber = await aztecNode.getCheckpointedBlockNumber();
+        const checkpointedBlockNumber = await aztecNode.getBlockNumber('checkpointed');
         const isCheckpointed = checkpointedBlockNumber >= blockNumber;
         if (!isCheckpointed) {
           return undefined;
