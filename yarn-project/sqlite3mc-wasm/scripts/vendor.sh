@@ -10,8 +10,10 @@
 # The script fetches
 #   https://github.com/utelle/SQLite3MultipleCiphers/releases/download/v<ver>/
 #     sqlite3mc-<ver>-sqlite-<sqlite-ver>-wasm.zip
-# verifies the SHA256 matches, unzips, and copies the jswasm/ contents into
-# vendor/jswasm/ replacing what was there. Exits non-zero on any failure.
+# verifies the SHA256 matches, extracts, and copies the jswasm/ contents into
+# vendor/jswasm/ replacing what was there. It preserves our locally-authored
+# sqlite3-bundler-friendly.d.mts (TypeScript companion types — see README) and
+# regenerates vendor/jswasm/SHA256SUMS from the final file set.
 #
 # After running, update README.md's provenance table with the new version/hash.
 
@@ -33,6 +35,7 @@ PKG_ROOT=$(cd "$SCRIPT_DIR/.." && pwd)
 
 ASSET="sqlite3mc-${MC_VERSION}-sqlite-${SQLITE_VERSION}-wasm.zip"
 URL="https://github.com/utelle/SQLite3MultipleCiphers/releases/download/v${MC_VERSION}/${ASSET}"
+LOCAL_DMTS="$PKG_ROOT/vendor/jswasm/sqlite3-bundler-friendly.d.mts"
 
 WORK_DIR=$(mktemp -d)
 trap 'rm -rf "$WORK_DIR"' EXIT
@@ -40,7 +43,7 @@ trap 'rm -rf "$WORK_DIR"' EXIT
 echo "==> Downloading ${ASSET}"
 curl -fsSL -o "$WORK_DIR/$ASSET" "$URL"
 
-echo "==> Verifying SHA256"
+echo "==> Verifying zip SHA256"
 ACTUAL_SHA=$(sha256sum "$WORK_DIR/$ASSET" | awk '{print $1}')
 if [[ "$ACTUAL_SHA" != "$EXPECTED_SHA" ]]; then
   echo "SHA256 mismatch!" >&2
@@ -61,10 +64,31 @@ if [[ -z "$EXTRACTED" ]]; then
   exit 1
 fi
 
-echo "==> Replacing vendor/jswasm/"
+# Preserve our locally-authored .d.mts across re-vendoring.
+DMTS_BACKUP=""
+if [[ -f "$LOCAL_DMTS" ]]; then
+  DMTS_BACKUP=$(mktemp)
+  cp "$LOCAL_DMTS" "$DMTS_BACKUP"
+fi
+
+echo "==> Replacing vendor/jswasm/ with pristine upstream files"
 rm -rf "$PKG_ROOT/vendor/jswasm"
 mkdir -p "$PKG_ROOT/vendor/jswasm"
 cp -r "$EXTRACTED/jswasm/." "$PKG_ROOT/vendor/jswasm/"
+
+# Restore our .d.mts if it existed.
+if [[ -n "$DMTS_BACKUP" ]]; then
+  cp "$DMTS_BACKUP" "$LOCAL_DMTS"
+  rm "$DMTS_BACKUP"
+  echo "==> Restored locally-authored sqlite3-bundler-friendly.d.mts"
+fi
+
+echo "==> Generating vendor/jswasm/SHA256SUMS"
+(cd "$PKG_ROOT/vendor/jswasm" && sha256sum -- * 2>/dev/null | sort -k2 > SHA256SUMS)
+# Exclude SHA256SUMS from itself (sha256sum already skipped it since it didn't exist yet,
+# but guard against re-runs where it would).
+grep -v " SHA256SUMS$" "$PKG_ROOT/vendor/jswasm/SHA256SUMS" > "$PKG_ROOT/vendor/jswasm/SHA256SUMS.tmp"
+mv "$PKG_ROOT/vendor/jswasm/SHA256SUMS.tmp" "$PKG_ROOT/vendor/jswasm/SHA256SUMS"
 
 echo "==> Done. Updated files:"
 ls "$PKG_ROOT/vendor/jswasm/" | sed 's/^/    /'
@@ -75,4 +99,4 @@ echo "  1. Update yarn-project/sqlite3mc-wasm/README.md provenance table"
 echo "     (sqlite3mc version, SQLite version, SHA256)"
 echo "  2. Re-run kv-store tests to confirm the new WASM is compatible:"
 echo "       yarn workspace @aztec/kv-store test:browser"
-echo "  3. Commit the updated vendor/ + README.md"
+echo "  3. Commit vendor/ + README.md"
