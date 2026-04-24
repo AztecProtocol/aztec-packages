@@ -37,6 +37,7 @@
  *   InRangeValueInMaskingFlowsToOrderedTail           — trace FF(42) from wire masking through
  *                                                       concatenation into ordered poly tail
  */
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/honk/library/grand_product_library.hpp"
 #include "barretenberg/honk/relation_checker.hpp"
 #include "barretenberg/translator_vm/translator_circuit_builder.hpp"
@@ -188,6 +189,15 @@ ValidTranslatorState build_valid_accumulator_transfer_state()
 class TranslatorRelationFailureTests : public ::testing::Test {
   protected:
     static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
+
+    // Corruption tests intentionally place witness values outside the ranges the relations assume
+    // (e.g. negative deltas, oversized sorted values). Evaluating the relation polynomials on such
+    // values can produce intermediate field elements that violate the debug-only
+    // `assert_coarse_form()` invariant (values must be in `[0, 2p)`), aborting the test before
+    // `RelationChecker::check` can report the expected failure. Downgrade debug field assertions
+    // to warnings — the test's `EXPECT_FALSE(failures.empty())` still validates the detection
+    // path. Same pattern as #21881 for `shplemini.test.cpp` HighDegreeAttack tests.
+    bb::AssertGuard assert_guard{ bb::AssertMode::WARN };
 };
 
 /**
