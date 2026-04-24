@@ -854,11 +854,16 @@ export function makeParityPublicInputs(seed = 0): ParityPublicInputs {
     new Fr(BigInt(seed + 0x200)),
     new Fr(BigInt(seed + 0x300)),
     new Fr(BigInt(seed + 0x400)),
+    new Fr(BigInt(seed + 0x500)),
   );
 }
 
 export function makeParityBasePrivateInputs(seed = 0): ParityBasePrivateInputs {
-  return new ParityBasePrivateInputs(makeTuple(NUM_MSGS_PER_BASE_PARITY, fr, seed + 0x3000), new Fr(seed + 0x4000));
+  return new ParityBasePrivateInputs(
+    makeTuple(NUM_MSGS_PER_BASE_PARITY, fr, seed + 0x3000),
+    new Fr(seed + 0x4000),
+    new Fr(seed + 0x5000),
+  );
 }
 
 export function makeParityRootPrivateInputs(seed = 0) {
