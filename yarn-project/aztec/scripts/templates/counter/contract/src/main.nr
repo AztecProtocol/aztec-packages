@@ -13,7 +13,7 @@ pub contract Counter {
     #[storage]
     struct Storage<Context> {
         // Each owner has their own counter, stored as private encrypted notes.
-        // Owned: only the owner can interact with their own counter.
+        // Owned: dictates who will receive the encrypted notes.
         // BalanceSet: manages the underlying notes, providing add/sub/balance_of.
         counters: Owned<BalanceSet<Context>, Context>,
     }
