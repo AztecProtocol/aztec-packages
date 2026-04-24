@@ -199,7 +199,9 @@ describe('ProposalHandler checkpoint validation', () => {
       } as any;
       blockSource.getBlockDataByArchive.mockResolvedValue(blockData);
 
-      jest.spyOn(handler, 'handleCheckpointProposal').mockResolvedValue({ isValid: true });
+      jest
+        .spyOn(handler, 'handleCheckpointProposal')
+        .mockResolvedValue({ isValid: true, checkpointNumber: CheckpointNumber(3) });
 
       handler.register(p2p, true, archiver);
       await checkpointHandler!(proposal, {} as any);
@@ -345,7 +347,7 @@ describe('ProposalHandler checkpoint validation', () => {
 
       const proposal = await makeProposal({ archiveRoot, checkpointHeader: header });
       const result = await handler.handleCheckpointProposal(proposal, proposalInfo);
-      expect(result).toEqual({ isValid: true });
+      expect(result).toEqual({ isValid: true, checkpointNumber: CheckpointNumber(1) });
       expect(mockDispose).toHaveBeenCalled();
     });
 

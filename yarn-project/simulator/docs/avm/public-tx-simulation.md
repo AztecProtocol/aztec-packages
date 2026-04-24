@@ -149,7 +149,9 @@ Inserted **after** the post-setup checkpoint:
 - **Note hashes** from private's revertible portion
 - **L2→L1 messages** from private's revertible portion
 
-If any insertion fails (e.g., nullifier collision), state rolls back to the post-setup checkpoint, and execution proceeds immediately to the TEARDOWN phase.
+If the side-effect limit is reached (e.g., max nullifiers per tx exceeded), state rolls back to the post-setup checkpoint, and execution proceeds immediately to the TEARDOWN phase.
+
+A **nullifier collision** during revertible insertion results in the transaction being discarded entirely. Nullifier collisions from privately emitted nullifiers are disallowed regardless of the phase.
 
 ## Gas Allocation and Metering
 

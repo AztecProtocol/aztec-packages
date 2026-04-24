@@ -1,4 +1,3 @@
-// docs:start:pod-racing-contract
 // Pod Racing Game Contract
 //
 // A two-player competitive racing game where players allocate points across 5 tracks
@@ -32,10 +31,8 @@ pub contract PodRacing {
 
     use crate::{game_round_note::GameRoundNote, race::Race};
 
-    // docs:start:game-constants
     global TOTAL_ROUNDS: u8 = 3;
     global GAME_LENGTH: u32 = 2; // Set to 2 for demo purposes
-    // docs:end:game-constants
 
     // docs:start:storage
     #[storage]
@@ -183,4 +180,3 @@ pub contract PodRacing {
     }
     // docs:end:finalize-game
 }
-// docs:end:pod-racing-contract

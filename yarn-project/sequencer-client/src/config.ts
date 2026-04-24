@@ -83,7 +83,7 @@ export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
   maxTxsPerCheckpoint: {
     env: 'SEQ_MAX_TX_PER_CHECKPOINT',
     description: 'The maximum number of txs across all blocks in a checkpoint.',
-    parseEnv: (val: string) => (val ? parseInt(val, 10) : undefined),
+    parseEnv: (val: string) => parseInt(val, 10),
   },
   minTxsPerBlock: {
     env: 'SEQ_MIN_TX_PER_BLOCK',
@@ -102,12 +102,12 @@ export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
   maxL2BlockGas: {
     env: 'SEQ_MAX_L2_BLOCK_GAS',
     description: 'The maximum L2 block gas.',
-    parseEnv: (val: string) => (val ? parseInt(val, 10) : undefined),
+    parseEnv: (val: string) => parseInt(val, 10),
   },
   maxDABlockGas: {
     env: 'SEQ_MAX_DA_BLOCK_GAS',
     description: 'The maximum DA block gas.',
-    parseEnv: (val: string) => (val ? parseInt(val, 10) : undefined),
+    parseEnv: (val: string) => parseInt(val, 10),
   },
   perBlockAllocationMultiplier: {
     env: 'SEQ_PER_BLOCK_ALLOCATION_MULTIPLIER',
@@ -124,7 +124,7 @@ export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
   },
   coinbase: {
     env: 'COINBASE',
-    parseEnv: (val: string) => (val ? EthAddress.fromString(val) : undefined),
+    parseEnv: (val: string) => EthAddress.fromString(val),
     description: 'Recipient of block reward.',
   },
   feeRecipient: {
@@ -153,7 +153,7 @@ export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
   l1PublishingTime: {
     env: 'SEQ_L1_PUBLISHING_TIME_ALLOWANCE_IN_SLOT',
     description: 'How much time (in seconds) we allow in the slot for publishing the L1 tx (defaults to 1 L1 slot).',
-    parseEnv: (val: string) => (val ? parseInt(val, 10) : undefined),
+    parseEnv: (val: string) => parseInt(val, 10),
   },
   fakeProcessingDelayPerTxMs: {
     description: 'Used for testing to introduce a fake delay after processing each tx',
@@ -232,13 +232,15 @@ export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
 };
 
 export const sequencerClientConfigMappings: ConfigMappingsType<SequencerClientConfig> = {
+  // chainConfigMappings must come first: its l1Contracts only maps rollupAddress,
+  // while l1ReaderConfigMappings (spread later) maps all L1 contract addresses.
+  ...chainConfigMappings,
   ...validatorClientConfigMappings,
   ...sequencerConfigMappings,
   ...keyStoreConfigMappings,
   ...l1ReaderConfigMappings,
   ...sequencerTxSenderConfigMappings,
   ...sequencerPublisherConfigMappings,
-  ...chainConfigMappings,
   ...pipelineConfigMappings,
   ...pickConfigMappings(l1ContractsConfigMappings, ['ethereumSlotDuration', 'aztecSlotDuration', 'aztecEpochDuration']),
 };

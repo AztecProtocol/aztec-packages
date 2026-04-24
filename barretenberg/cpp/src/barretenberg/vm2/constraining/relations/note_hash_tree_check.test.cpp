@@ -4,6 +4,7 @@
 #include <cmath>
 #include <cstdint>
 
+#include "barretenberg/aztec/aztec_constants.hpp"
 #include "barretenberg/crypto/poseidon2/poseidon2.hpp"
 #include "barretenberg/vm2/common/avm_io.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
@@ -87,7 +88,7 @@ TEST(NoteHashTreeCheckConstrainingTests, PositiveExists)
     for (size_t i = 0; i < NOTE_HASH_TREE_HEIGHT; ++i) {
         sibling_path.emplace_back(i);
     }
-    FF root = unconstrained_root_from_path(note_hash, leaf_index, sibling_path);
+    FF root = unconstrained_root_from_path(DOM_SEP__MERKLE_HASH, note_hash, leaf_index, sibling_path);
 
     EXPECT_TRUE(note_hash_tree_check_simulator.note_hash_exists(
         note_hash,
@@ -138,7 +139,7 @@ TEST(NoteHashTreeCheckConstrainingTests, PositiveNotExists)
     for (size_t i = 0; i < NOTE_HASH_TREE_HEIGHT; ++i) {
         sibling_path.emplace_back(i);
     }
-    FF root = unconstrained_root_from_path(actual_leaf_value, leaf_index, sibling_path);
+    FF root = unconstrained_root_from_path(DOM_SEP__MERKLE_HASH, actual_leaf_value, leaf_index, sibling_path);
 
     EXPECT_FALSE(note_hash_tree_check_simulator.note_hash_exists(
         requested_note_hash,
@@ -191,7 +192,8 @@ TEST(NoteHashTreeCheckConstrainingTests, PositiveWrite)
         sibling_path.emplace_back(i);
     }
 
-    AppendOnlyTreeSnapshot prev_snapshot{ .root = unconstrained_root_from_path(0, 128, sibling_path),
+    AppendOnlyTreeSnapshot prev_snapshot{ .root =
+                                              unconstrained_root_from_path(DOM_SEP__MERKLE_HASH, 0, 128, sibling_path),
                                           .next_available_leaf_index = 128 };
 
     note_hash_tree_check_simulator.append_note_hash(raw_note_hash, AztecAddress(7), 10, sibling_path, prev_snapshot);
@@ -285,6 +287,23 @@ TEST(NoteHashTreeCheckConstrainingTests, NegativePassthroughUniqueness)
     EXPECT_THROW_WITH_MESSAGE(
         check_relation<note_hash_tree_check>(trace, note_hash_tree_check::SR_PASSTHROUGH_UNIQUENESS),
         "PASSTHROUGH_UNIQUENESS");
+}
+
+TEST(NoteHashTreeCheckConstrainingTests, NegativeWrongMerkleHashSeparator)
+{
+    TestTraceContainer trace({ {
+        { C::note_hash_tree_check_sel, 1 },
+        { C::note_hash_tree_check_merkle_hash_separator, DOM_SEP__MERKLE_HASH },
+    } });
+
+    check_relation<note_hash_tree_check>(trace, note_hash_tree_check::SR_MERKLE_HASH_SEPARATOR_CONSTANT);
+
+    // A malicious prover picking any other value must be rejected.
+    trace.set(C::note_hash_tree_check_merkle_hash_separator, 0, DOM_SEP__NULLIFIER_MERKLE);
+
+    EXPECT_THROW_WITH_MESSAGE(
+        check_relation<note_hash_tree_check>(trace, note_hash_tree_check::SR_MERKLE_HASH_SEPARATOR_CONSTANT),
+        "MERKLE_HASH_SEPARATOR_CONSTANT");
 }
 
 } // namespace

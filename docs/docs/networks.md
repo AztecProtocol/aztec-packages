@@ -12,14 +12,14 @@ The Aztec Protocol operates across multiple networks, each serving specific purp
 Not sure which network to use? Jump to our [Network Selection Guide](#network-selection-guide).
 
 :::note Developer SDK vs Node Versions
-The developer SDK/aztec-nr version (used for writing and compiling contracts) may differ from the node version listed below. For example, aztec-nr `4.2.0-aztecnr-rc.2` and other versions may be compatible with node version `4.1.3`. Use the version from the developer docs for contract development — use the version below for running nodes.
+The developer SDK/aztec-nr version (used for writing and compiling contracts) may differ from the node version listed below. Use the version from the developer docs for contract development — use the version below for running nodes.
 :::
 
 ## Network Technical Information
 
 | Parameter | Alpha (Mainnet) | Testnet |
 |-----------|-------------------|---------|
-| **Version** | `4.1.3` (node operators)<br/>`4.2.0-aztecnr-rc.2` (developer SDK) | `4.1.3` (node operators)<br/>`4.2.0-aztecnr-rc.2` (developer SDK) |
+| **Version** | `4.2.0` | `4.2.0` |
 | **L1 Chain ID** | `1` (Mainnet) | `11155111` (Sepolia) |
 | **Rollup Version** | `2934756905` | `4127419662` |
 | **RPC Endpoint** | `https://aztec-mainnet.drpc.org` | `https://rpc.testnet.aztec-labs.com` |
@@ -28,7 +28,7 @@ The developer SDK/aztec-nr version (used for writing and compiling contracts) ma
 | **Getting Started** | [Run a sequencer →](/operate/operators/setup/sequencer_management) | [Run a node →](/operate/operators/setup/running_a_node) |
 
 :::tip Network Roles (Post-Alpha)
-**Testnet is your production path.** It's decentralized, live, and stable — treat it as your staging environment for Alpha. If you want to deploy on Alpha, validate on Testnet first. Note: Sponsored FPC is not available on Testnet.
+**Testnet is your production path.** It's decentralized, live, and stable — treat it as your staging environment for Alpha. If you want to deploy on Alpha, validate on Testnet first.
 :::
 
 ## Contract Addresses
@@ -67,7 +67,7 @@ The developer SDK/aztec-nr version (used for writing and compiling contracts) ma
 | **Class Registry** | `0x0000000000000000000000000000000000000000000000000000000000000003` | `0x0000000000000000000000000000000000000000000000000000000000000003` |
 | **MultiCall Entrypoint** | `0x0000000000000000000000000000000000000000000000000000000000000004` | `0x0000000000000000000000000000000000000000000000000000000000000004` |
 | **Fee Juice** | `0x0000000000000000000000000000000000000000000000000000000000000005` | `0x0000000000000000000000000000000000000000000000000000000000000005` |
-| **SponsoredFPC** | Not deployed | `0x2ae02a54fd254586fd628ff46b71071bd8db32b63dc5d083f844f2c208a3923c` |
+| **SponsoredFPC** | Not deployed | `0x254082b62f9108d044b8998f212bb145619d91bfcd049461d74babb840181257` |
 
 ## Governance Parameters
 
@@ -76,7 +76,7 @@ The developer SDK/aztec-nr version (used for writing and compiling contracts) ma
 | **Proposer Quorum** | 600/1000 | 60/100 |
 | **Voting Delay** | 3 days | 12 hours |
 | **Voting Duration** | 7 days | 24 hours |
-| **Execution Delay** | 7 days | 12 hours |
+| **Execution Delay** | 30 days | 12 hours |
 | **Slashing Quorum** | 65% | 33% |
 | **Slashing Round Size** | 128 epochs | 64 epochs |
 
@@ -94,7 +94,7 @@ The developer SDK/aztec-nr version (used for writing and compiling contracts) ma
 
 ### Alpha (Mainnet)
 
-Alpha is the Aztec **mainnet** in its initial operational phase, with governance, networking, and transaction processing fully active.
+Alpha is the Aztec **mainnet** in its initial operational phase, with governance, networking, and transaction processing fully active. Alpha is live but early — bugs, including critical ones, are expected. For a full explanation of what this means, see the **[Alpha Network](/participate/alpha)** page.
 
 #### Overview
 
@@ -132,7 +132,7 @@ Testnet is ideal for testing node configurations, governance proposals, and unde
 - Fully decentralized sequencer set
 - Connected to Ethereum Sepolia
 - Transactions are proven
-- No Sponsored FPC — you must handle fee payment
+- Sponsored FPC available for free transactions
 - Good environment for testing node operations
 
 ## Next Steps

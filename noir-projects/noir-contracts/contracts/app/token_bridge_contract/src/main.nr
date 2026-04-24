@@ -114,7 +114,6 @@ pub contract TokenBridge {
         self.call(Token::at(config.token).mint_to_private(recipient, amount));
     }
 
-    // docs:start:exit_to_l1_private
     // Burns the appropriate amount of tokens and creates a L2 to L1 withdraw message privately
     // Requires `msg.sender` (caller of the method) to give approval to the bridge to burn tokens on their behalf using witness signatures
     #[external("private")]
@@ -137,5 +136,4 @@ pub contract TokenBridge {
         // Burn tokens
         self.call(Token::at(token).burn_private(self.msg_sender(), amount, authwit_nonce));
     }
-    // docs:end:exit_to_l1_private
 }

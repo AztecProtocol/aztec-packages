@@ -32,7 +32,7 @@ describe('ContractAddress', () => {
     };
     const result = await computeSaltedInitializationHash(mockInstance);
     expect(result.toString()).toMatchInlineSnapshot(
-      `"0x15d6f8d1ddedee7f58e41db6a7b6e6e8f97f70574588f59a9d52de22b5605e3c"`,
+      `"0x2175c2437c52b1bfae8eed40f2e9968546a7053272f94f3937c52ed7e0018349"`,
     );
   });
 
@@ -80,7 +80,7 @@ describe('ContractAddress', () => {
     const logger = createLogger('stdlib:contract_address:test');
     logger.info(`Computed contract address from instance in ${ms}ms`);
     expect(address.toString()).toMatchInlineSnapshot(
-      `"0x2cea4bfccb4a185354cbbd9eb5a39ace117abf1f9381c5b6167b1a6f94a0672c"`,
+      `"0x260f462e7ae7b7031cdb5e41a691a265d7debe6863d8a12887b97f5f8e5d7727"`,
     );
   });
 });

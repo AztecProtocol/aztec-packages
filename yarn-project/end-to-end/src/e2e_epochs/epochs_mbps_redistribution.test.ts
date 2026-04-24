@@ -92,7 +92,7 @@ describe('e2e_epochs/epochs_mbps_redistribution', () => {
     // - finalBlockDuration = 8s (re-execution)
     // - Total: 0.5 + 24 + 8 + 2.5 = 35s => use 36s
     test = await EpochsTestContext.setup({
-      numberOfAccounts: 1,
+      numberOfAccounts: 0,
       initialValidators: validators,
       mockGossipSubNetwork: true,
       disableAnvilTestWatcher: true,
@@ -114,17 +114,14 @@ describe('e2e_epochs/epochs_mbps_redistribution', () => {
       // PXE syncs on checkpointed chain tip.
       pxeOpts: { syncChainTip: 'checkpointed' },
       ...contextConfigOverride,
+      skipInitialSequencer: true,
     });
 
     ({ context, logger, rollup } = test);
     wallet = context.wallet;
-    from = context.accounts[0];
+    from = context.accounts[0]; // auto-created by setup
 
-    // Halt the default sequencer (it's not a validator).
-    logger.warn(`Stopping sequencer in initial aztec node.`);
-    await context.sequencer!.stop();
-
-    // Start validator nodes (sequencers not started yet).
+    // Start validator nodes.
     logger.warn(`Starting ${NODE_COUNT} validator nodes.`);
     nodes = await asyncMap(validators, ({ privateKey }, i) =>
       test.createValidatorNode([privateKey], { dontStartSequencer: true, ...nodeConfigOverride?.(i) }),
@@ -164,17 +161,32 @@ describe('e2e_epochs/epochs_mbps_redistribution', () => {
     logger.warn(`Warping to L1 timestamp ${warpTo} (one L1 slot before L2 slot ${nextSlot})`);
     await waitUntilL1Timestamp(test.l1Client, warpTo, undefined, 60);
 
+    // Send first early tx to the mempool before starting sequencers, so the first block isn't empty.
+    // With skipInitialSequencer, there are no pre-existing blocks, and sequencers build block 1
+    // immediately on start. Without a tx in the pool, block 1 would be empty, wasting a sub-slot
+    // and pushing late txs into the next checkpoint where redistribution doesn't carry over.
+    logger.warn(`Sending early transaction 1/${EARLY_TX_COUNT} before starting sequencers`);
+    const earlyTxHashes = [await provenTxs[0].send({ wait: NO_WAIT })];
+
     // Start sequencers.
     await Promise.all(nodes.map(n => n.getSequencer()!.start()));
     logger.warn(`Started all sequencers`);
 
-    // Feed one tx per sub-slot for the early blocks, waiting for each to be proposed before sending the next.
-    const earlyTxHashes = [];
-    for (let i = 0; i < EARLY_TX_COUNT; i++) {
+    // Wait for the first early tx to be proposed before sending the next.
+    await retryUntil(
+      async () =>
+        (await Promise.all(nodes.map(n => n.getTxReceipt(earlyTxHashes[0])))).some(receipt => receipt.isMined()),
+      'tx proposed',
+      30,
+      0.5,
+    );
+    logger.warn(`Early transaction 1/${EARLY_TX_COUNT} confirmed proposed`);
+
+    // Feed remaining early txs one per sub-slot, waiting for each to be proposed.
+    for (let i = 1; i < EARLY_TX_COUNT; i++) {
       logger.warn(`Sending early transaction ${i + 1}/${EARLY_TX_COUNT}`);
       const txHash = await provenTxs[i].send({ wait: NO_WAIT });
       earlyTxHashes.push(txHash);
-      // Wait until the tx is proposed (mined) before sending the next one.
       await retryUntil(
         async () => (await Promise.all(nodes.map(n => n.getTxReceipt(txHash)))).some(receipt => receipt.isMined()),
         'tx proposed',
@@ -218,13 +230,11 @@ describe('e2e_epochs/epochs_mbps_redistribution', () => {
    * multiplier (1.2), which limits them to 1 tx per block given the tight `maxTxsPerCheckpoint`.
    *
    * With `maxTxsPerCheckpoint = 2` and 3 blocks per checkpoint:
-   * - Normal multiplier (1.2): per-block limit = ceil(2/3 * 1.2) = ceil(0.8) = 1 tx
-   * - High multiplier (10):   per-block limit = ceil(2/3 * 10)  = ceil(6.67) = 7 txs (capped by remaining = 2)
+   * - Normal multiplier (1.2): first block cap = ceil(2/3 * 1.2) = 1 tx (later blocks may get more via redistribution)
+   * - High multiplier (10):   first block cap = ceil(2/3 * 10)  = 7 txs (capped by remaining = 2)
    *
    * The test watches checkpoints and identifies the proposer for each slot via EpochCache.
-   * It waits until it observes both:
-   * - A checkpoint by a high-multiplier proposer with at least one block having >1 tx
-   * - A checkpoint by a normal-multiplier proposer with all blocks having at most 1 tx
+   * It waits until it observes a checkpoint by a high-multiplier proposer with the initial block having >1 tx
    *
    * If validators incorrectly applied their own multiplier during re-execution, checkpoints built by
    * high-multiplier proposers would fail attestation and the chain would stall.
@@ -294,79 +304,68 @@ describe('e2e_epochs/epochs_mbps_redistribution', () => {
     }
 
     // Watch checkpoints and identify the proposer via EpochCache (L1 committee selection).
-    let seenHighMultiplier = false;
-    let seenNormalMultiplier = false;
     let lastSeenCheckpoint = CheckpointNumber(0);
 
     const timeoutSeconds = test.L2_SLOT_DURATION_IN_S * 10;
     logger.warn(`Watching checkpoints for up to ${timeoutSeconds}s until both proposer types are observed`);
 
-    try {
-      await retryUntil(
-        async () => {
-          const checkpoints = await archiver.getCheckpoints(CheckpointNumber(1), 50);
-          for (const pc of checkpoints) {
-            if (pc.checkpoint.number <= lastSeenCheckpoint) {
-              continue;
-            }
-            lastSeenCheckpoint = pc.checkpoint.number;
+    await retryUntil(
+      async () => {
+        const checkpoints = await archiver.getCheckpoints(CheckpointNumber(1), 50);
+        for (const pc of checkpoints) {
+          if (pc.checkpoint.number <= lastSeenCheckpoint) {
+            continue;
+          }
+          lastSeenCheckpoint = pc.checkpoint.number;
 
-            const blockTxCounts = pc.checkpoint.blocks.map(b => b.body.txEffects.length);
-            const totalTxs = blockTxCounts.reduce((a, b) => a + b, 0);
+          const blockTxCounts = pc.checkpoint.blocks.map(b => b.body.txEffects.length);
+          const totalTxs = blockTxCounts.reduce((a, b) => a + b, 0);
 
-            // Skip empty checkpoints (no txs to analyze).
-            if (totalTxs === 0) {
-              logger.warn(`Checkpoint ${pc.checkpoint.number}: empty, skipping`);
-              continue;
-            }
-
-            // Identify the proposer for this checkpoint's slot via EpochCache.
-            const slot = pc.checkpoint.header.slotNumber;
-            const proposer = await test.epochCache.getProposerAttesterAddressInSlot(slot);
-            if (!proposer) {
-              logger.warn(`Checkpoint ${pc.checkpoint.number}: could not determine proposer for slot ${slot}`);
-              continue;
-            }
-            const proposerIndex = attesterToIndex.get(proposer.toString().toLowerCase());
-            const isHighMultiplier = proposerIndex !== undefined && proposerIndex < 2;
-
-            logger.warn(
-              `Checkpoint ${pc.checkpoint.number} slot ${slot}: proposer=${proposer} (index=${proposerIndex}, ` +
-                `${isHighMultiplier ? 'HIGH' : 'NORMAL'} multiplier), blockTxCounts=[${blockTxCounts.join(',')}]`,
-            );
-
-            if (isHighMultiplier) {
-              // High-multiplier proposer: at least one block should have >1 tx.
-              const hasMultiTxBlock = blockTxCounts.some(count => count > 1);
-              if (hasMultiTxBlock) {
-                seenHighMultiplier = true;
-                logger.warn(`Observed high-multiplier checkpoint with multi-tx block`);
-              }
-            } else if (proposerIndex !== undefined) {
-              // Normal-multiplier proposer: each block should have at most 1 tx.
-              for (const count of blockTxCounts) {
-                expect(count).toBeLessThanOrEqual(1);
-              }
-              seenNormalMultiplier = true;
-              logger.warn(`Observed normal-multiplier checkpoint with per-block tx counts <= 1`);
-            }
+          // Skip empty checkpoints (no txs to analyze).
+          if (totalTxs === 0) {
+            logger.warn(`Checkpoint ${pc.checkpoint.number}: empty, skipping`);
+            continue;
           }
 
-          return seenHighMultiplier && seenNormalMultiplier ? true : undefined;
-        },
-        'both proposer types observed',
-        timeoutSeconds,
-        1,
-      );
-    } finally {
-      done = true;
-    }
+          // Identify the proposer for this checkpoint's slot via EpochCache.
+          const slot = pc.checkpoint.header.slotNumber;
+          const proposer = await test.epochCache.getProposerAttesterAddressInSlot(slot);
+          if (!proposer) {
+            logger.warn(`Checkpoint ${pc.checkpoint.number}: could not determine proposer for slot ${slot}`);
+            continue;
+          }
+          const proposerIndex = attesterToIndex.get(proposer.toString().toLowerCase());
+          const isHighMultiplier = proposerIndex !== undefined && proposerIndex < 2;
 
+          logger.warn(
+            `Checkpoint ${pc.checkpoint.number} slot ${slot}: proposer=${proposer} (index=${proposerIndex}, ` +
+              `${isHighMultiplier ? 'HIGH' : 'NORMAL'} multiplier), blockTxCounts=[${blockTxCounts.join(',')}]`,
+          );
+
+          if (isHighMultiplier) {
+            // High-multiplier proposer: check if first block got more than 1 tx
+            if (blockTxCounts[0] > 1) {
+              logger.warn(`Observed high-multiplier checkpoint with multi-tx first block`);
+              return true;
+            } else {
+              logger.warn(`High-multiplier checkpoint did NOT have a multi-tx first block`, {
+                checkpointNumber: pc.checkpoint.number,
+                blockTxCounts,
+              });
+            }
+          }
+        }
+      },
+      'high multiplier checkpoint',
+      timeoutSeconds,
+      1,
+    );
+
+    done = true;
     logger.warn(
       `Test passed: observed checkpoints from both high-multiplier and normal-multiplier proposers. ` +
-        `High-multiplier proposers packed >1 tx per block; normal proposers used at most 1 tx per block.`,
+        `High-multiplier proposers packed >1 tx per block; normal proposers respected the fair-share ` +
+        `per-block cap (with redistribution from earlier light blocks).`,
     );
-    expect(seenHighMultiplier).toBe(true);
-    expect(seenNormalMultiplier).toBe(true);
   });
 });

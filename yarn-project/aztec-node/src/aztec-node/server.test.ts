@@ -638,12 +638,16 @@ describe('aztec node', () => {
       });
 
       it('returns snapshot at block 0 for initial header hash', async () => {
-        const initialHash = await initialHeader.hash();
-        const initialBlockHash = new BlockHash(initialHash);
+        // Block 0 is a first-class historical block: its state lives in the trees' persisted block-0
+        // payload. getWorldState resolves the genesis hash to block number 0 and returns the snapshot.
+        const initialBlockHash = await initialHeader.hash();
+        // The archive at block 0 contains the genesis header hash at index 0, which is what the
+        // double-check compares against after the snapshot is resolved.
+        snapshotMerkleTreeOps.getLeafValue.mockResolvedValue(initialBlockHash);
 
         const result = await node.getWorldState(initialBlockHash);
-        expect(worldState.getSnapshot).toHaveBeenCalledWith(BlockNumber.ZERO);
         expect(result).toBe(snapshotMerkleTreeOps);
+        expect(worldState.getSnapshot).toHaveBeenCalledWith(BlockNumber.ZERO);
       });
     });
 
@@ -662,8 +666,7 @@ describe('aztec node', () => {
         // The initial block (block 0) has an empty archive — no block hashes exist in it.
         // getBlockHashMembershipWitness computes referenceBlockNumber - 1, which would be 0 - 1 = -1.
         // This should return undefined (empty archive has no witnesses) rather than crashing.
-        const initialHash = await initialHeader.hash();
-        const initialBlockHash = new BlockHash(initialHash);
+        const initialBlockHash = await initialHeader.hash();
         const someBlockHash = BlockHash.random();
 
         const result = await node.getBlockHashMembershipWitness(initialBlockHash, someBlockHash);

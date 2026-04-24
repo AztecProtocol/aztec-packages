@@ -15,6 +15,7 @@ import {
   type Account,
   type GetContractReturnType,
   type Hex,
+  type Log,
   type StateOverride,
   type WatchContractEventReturnType,
   encodeAbiParameters,
@@ -1224,7 +1225,7 @@ export class RollupContract {
   }
 
   public listenToCheckpointInvalidated(
-    callback: (args: { checkpointNumber: CheckpointNumber }) => unknown,
+    callback: (args: { checkpointNumber: CheckpointNumber; event: Log }) => unknown,
   ): WatchContractEventReturnType {
     return this.rollup.watchEvent.CheckpointInvalidated(
       {},
@@ -1233,7 +1234,7 @@ export class RollupContract {
           for (const log of logs) {
             const args = log.args;
             if (args.checkpointNumber !== undefined) {
-              callback({ checkpointNumber: CheckpointNumber.fromBigInt(args.checkpointNumber) });
+              callback({ checkpointNumber: CheckpointNumber.fromBigInt(args.checkpointNumber), event: log });
             }
           }
         },
@@ -1264,6 +1265,17 @@ export class RollupContract {
         },
       },
     );
+  }
+
+  /**
+   * Fetches OwnershipTransferred events emitted on the L1 block this rollup was deployed on.
+   * The Rollup inherits from Ownable and emits this event in its constructor, so the event
+   * is guaranteed to exist on `l1StartBlock` for any correctly deployed rollup. Used as a
+   * probe to detect RPC nodes that prune historical logs.
+   */
+  async getOwnershipTransferredEventsAtDeploy() {
+    const l1StartBlock = await this.getL1StartBlock();
+    return await this.rollup.getEvents.OwnershipTransferred({}, { fromBlock: l1StartBlock, toBlock: l1StartBlock });
   }
 
   /** Fetches CheckpointProposed events within the given block range. */

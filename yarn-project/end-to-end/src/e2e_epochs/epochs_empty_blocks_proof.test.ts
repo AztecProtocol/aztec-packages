@@ -21,7 +21,7 @@ describe('e2e_epochs/epochs_empty_blocks_proof', () => {
   let test: EpochsTestContext;
 
   beforeEach(async () => {
-    test = await EpochsTestContext.setup();
+    test = await EpochsTestContext.setup({ enableProposerPipelining: true });
     ({ context, rollup, logger, monitor, L1_BLOCK_TIME_IN_S } = test);
   });
 

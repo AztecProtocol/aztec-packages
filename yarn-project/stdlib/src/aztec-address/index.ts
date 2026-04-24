@@ -1,18 +1,12 @@
-/* eslint-disable @typescript-eslint/no-unsafe-declaration-merging */
 import { Fr, fromBuffer } from '@aztec/foundation/curves/bn254';
 import { Point } from '@aztec/foundation/curves/grumpkin';
 import { type ZodFor, bufferSchemaFor, hexSchemaFor } from '@aztec/foundation/schemas';
-import { type BufferReader, FieldReader, TypeRegistry } from '@aztec/foundation/serialize';
+import { type BufferReader, FieldReader } from '@aztec/foundation/serialize';
 import { hexToBuffer } from '@aztec/foundation/string';
 
 import { inspect } from 'util';
 import { z } from 'zod';
 
-/** Branding to ensure fields are not interchangeable types. */
-export interface AztecAddress {
-  /** Brand. */
-  _branding: 'AztecAddress';
-}
 /**
  * AztecAddress represents a 32-byte address in the Aztec Protocol. It provides methods to create, manipulate, and
  * compare addresses, as well as conversion to and from strings, buffers, and other formats.
@@ -23,6 +17,9 @@ export interface AztecAddress {
  * wild.
  */
 export class AztecAddress {
+  /** Branding for nominal typing. */
+  declare private readonly _branding: 'AztecAddress';
+
   private xCoord: Fr;
 
   constructor(buffer: Buffer | Fr) {
@@ -165,6 +162,3 @@ export class AztecAddress {
     ]);
   }
 }
-
-// For deserializing JSON.
-TypeRegistry.register('AztecAddress', AztecAddress);

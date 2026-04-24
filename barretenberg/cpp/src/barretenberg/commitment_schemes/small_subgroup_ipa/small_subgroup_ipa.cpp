@@ -217,8 +217,8 @@ void SmallSubgroupIPAProver<Flavor>::compute_eccvm_challenge_polynomial(const FF
                                                                         const FF batching_challenge_v)
 {
 
-    std::vector<FF> coeffs_lagrange_basis =
-        compute_eccvm_challenge_coeffs<typename Flavor::Curve>(evaluation_challenge_x, batching_challenge_v);
+    std::vector<FF> coeffs_lagrange_basis = compute_eccvm_challenge_coeffs<typename Flavor::Curve>(
+        evaluation_challenge_x, batching_challenge_v, NUM_TRANSLATION_EVALUATIONS, NUM_DISABLED_ROWS_IN_SUMCHECK);
 
     challenge_polynomial_lagrange = Polynomial<FF>(coeffs_lagrange_basis);
 

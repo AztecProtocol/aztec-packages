@@ -207,6 +207,7 @@ describe('ValidatorClient Integration', () => {
   const buildBlockProposal = async (
     checkpointBuilder: CheckpointBuilder,
     blockNumber: BlockNumber,
+    cpNumber: CheckpointNumber,
     txs: Tx[] = [],
     l1ToL2Messages: Fr[] = [],
   ): Promise<{ block: L2Block; proposal: BlockProposal }> => {
@@ -220,11 +221,13 @@ describe('ValidatorClient Integration', () => {
 
     const proposal = await proposer.validator.createBlockProposal(
       block.header,
+      cpNumber,
       block.indexWithinCheckpoint,
       inHash,
       block.archive.root,
       usedTxs,
       proposerSigner.address,
+      {},
     );
 
     logger.warn(`Built block proposal for block ${blockNumber}`, { ...block.toBlockInfo() });
@@ -302,7 +305,7 @@ describe('ValidatorClient Integration', () => {
     for (let i = 0; i < blockCount; i++) {
       const blockNumber = BlockNumber(startBlockNumber + i);
       const txs = await getTxsForBlock(blockNumber, blocks);
-      const block = await buildBlockProposal(builder, blockNumber, txs, l1ToL2Messages);
+      const block = await buildBlockProposal(builder, blockNumber, checkpointNumber, txs, l1ToL2Messages);
       blocks.push(block);
     }
 
@@ -311,9 +314,11 @@ describe('ValidatorClient Integration', () => {
     const proposal = await proposer.validator.createCheckpointProposal(
       checkpoint.header,
       checkpoint.archive.root,
+      checkpointNumber,
       0n,
       undefined,
       proposerSigner.address,
+      {},
     );
 
     return { blocks, checkpoint, proposal, l1ToL2Messages, globalVariables };
@@ -537,6 +542,7 @@ describe('ValidatorClient Integration', () => {
       const badProposal = await CheckpointProposal.createProposalFromSigner(
         checkpoint.header,
         Fr.random(), // Wrong archive root
+        CheckpointNumber(1),
         0n,
         undefined,
         payload => Promise.resolve(proposerSigner.sign(payload)),

@@ -135,6 +135,7 @@ describe('e2e_p2p_valid_epoch_pruned_slash', () => {
 
     // Set up a wallet and keep it out of reorgs
     await t.ctx.cheatCodes.rollup.markAsProven();
+    t.setupWalletOnNode(nodes[0]);
     await t.setupAccount();
     await t.ctx.cheatCodes.rollup.markAsProven();
 
@@ -156,9 +157,7 @@ describe('e2e_p2p_valid_epoch_pruned_slash', () => {
     // t.logger.warn(`Submitting tx with public function execution to the network`);
     // await spamContract.methods.spam(1, 1, true).send({ from: t.defaultAccountAddress! });
 
-    // Initial node receives the txs, so we cannot stop it before that one is mined
-    // Yes, that means that there are probably two nodes running the same validator key (the initial node and nodes[0])
-    // This will come back and haunt us eventually, not just here but in most e2e p2p tests that make the same mistake
+    // Remove initial node (it's a lightweight archiver with no P2P/validator/sequencer, but clean up anyway)
     t.logger.warn(`Removing initial node`);
     await t.removeInitialNode();
 

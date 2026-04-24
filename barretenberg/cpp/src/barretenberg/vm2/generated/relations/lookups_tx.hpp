@@ -91,7 +91,7 @@ struct lookup_tx_read_public_call_request_phase_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_TX_READ_PUBLIC_CALL_REQUEST_PHASE";
     static constexpr std::string_view RELATION_NAME = "tx";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 5;
-    static constexpr Column SRC_SELECTOR = Column::tx_should_process_call_request;
+    static constexpr Column SRC_SELECTOR = Column::tx_sel_process_call_request;
     static constexpr Column DST_SELECTOR = Column::public_inputs_sel;
     static constexpr Column COUNTS = Column::lookup_tx_read_public_call_request_phase_counts;
     static constexpr Column INVERSES = Column::lookup_tx_read_public_call_request_phase_inv;
@@ -142,7 +142,7 @@ struct lookup_tx_note_hash_append_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_TX_NOTE_HASH_APPEND";
     static constexpr std::string_view RELATION_NAME = "tx";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 8;
-    static constexpr Column SRC_SELECTOR = Column::tx_should_note_hash_append;
+    static constexpr Column SRC_SELECTOR = Column::tx_sel_note_hash_append;
     static constexpr Column DST_SELECTOR = Column::note_hash_tree_check_write;
     static constexpr Column COUNTS = Column::lookup_tx_note_hash_append_counts;
     static constexpr Column INVERSES = Column::lookup_tx_note_hash_append_inv;
@@ -173,20 +173,21 @@ using lookup_tx_note_hash_append_relation = lookup_relation_base<FF_, lookup_tx_
 struct lookup_tx_nullifier_append_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_TX_NULLIFIER_APPEND";
     static constexpr std::string_view RELATION_NAME = "tx";
-    static constexpr size_t LOOKUP_TUPLE_SIZE = 9;
-    static constexpr Column SRC_SELECTOR = Column::tx_should_nullifier_append;
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 10;
+    static constexpr Column SRC_SELECTOR = Column::tx_sel_nullifier_append;
     static constexpr Column DST_SELECTOR = Column::indexed_tree_check_write;
     static constexpr Column COUNTS = Column::lookup_tx_nullifier_append_counts;
     static constexpr Column INVERSES = Column::lookup_tx_nullifier_append_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
         ColumnAndShifts::tx_leaf_value,
         ColumnAndShifts::tx_prev_nullifier_tree_root,
-        ColumnAndShifts::tx_reverted,
+        ColumnAndShifts::precomputed_zero,
         ColumnAndShifts::tx_next_nullifier_tree_root,
         ColumnAndShifts::tx_prev_nullifier_tree_size,
         ColumnAndShifts::tx_discard,
         ColumnAndShifts::tx_write_nullifier_pi_offset,
         ColumnAndShifts::tx_nullifier_tree_height,
+        ColumnAndShifts::tx_nullifier_merkle_separator,
         ColumnAndShifts::precomputed_zero
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
@@ -198,6 +199,7 @@ struct lookup_tx_nullifier_append_settings_ {
         ColumnAndShifts::indexed_tree_check_discard,
         ColumnAndShifts::indexed_tree_check_public_inputs_index,
         ColumnAndShifts::indexed_tree_check_tree_height,
+        ColumnAndShifts::indexed_tree_check_merkle_hash_separator,
         ColumnAndShifts::indexed_tree_check_sel_silo
     };
 };
@@ -212,7 +214,7 @@ struct lookup_tx_read_l2_l1_msg_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_TX_READ_L2_L1_MSG";
     static constexpr std::string_view RELATION_NAME = "tx";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
-    static constexpr Column SRC_SELECTOR = Column::tx_should_try_l2_l1_msg_append;
+    static constexpr Column SRC_SELECTOR = Column::tx_sel_try_l2_l1_msg_append;
     static constexpr Column DST_SELECTOR = Column::public_inputs_sel;
     static constexpr Column COUNTS = Column::lookup_tx_read_l2_l1_msg_counts;
     static constexpr Column INVERSES = Column::lookup_tx_read_l2_l1_msg_inv;
@@ -240,7 +242,7 @@ struct lookup_tx_write_l2_l1_msg_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_TX_WRITE_L2_L1_MSG";
     static constexpr std::string_view RELATION_NAME = "tx";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
-    static constexpr Column SRC_SELECTOR = Column::tx_should_l2_l1_msg_append;
+    static constexpr Column SRC_SELECTOR = Column::tx_sel_l2_l1_msg_append;
     static constexpr Column DST_SELECTOR = Column::public_inputs_sel;
     static constexpr Column COUNTS = Column::lookup_tx_write_l2_l1_msg_counts;
     static constexpr Column INVERSES = Column::lookup_tx_write_l2_l1_msg_inv;

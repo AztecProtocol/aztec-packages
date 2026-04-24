@@ -18,6 +18,7 @@ import {
 } from '@aztec/stdlib/abi';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { L2TipsProvider } from '@aztec/stdlib/block';
 import {
   CompleteAddress,
   type ContractInstanceWithAddress,
@@ -161,6 +162,7 @@ export class PXE {
     private privateEventStore: PrivateEventStore,
     private contractSyncService: ContractSyncService,
     private messageContextService: MessageContextService,
+    private l2TipsStore: L2TipsProvider,
     private simulator: CircuitSimulator,
     private proverEnabled: boolean,
     private proofCreator: PrivateKernelProver,
@@ -260,6 +262,7 @@ export class PXE {
       privateEventStore,
       contractSyncService,
       messageContextService,
+      tipsStore,
       simulator,
       proverEnabled,
       proofCreator,
@@ -294,6 +297,7 @@ export class PXE {
       keyStore: this.keyStore,
       addressStore: this.addressStore,
       aztecNode: BenchmarkedNodeFactory.create(this.node),
+      l2TipsStore: this.l2TipsStore,
       senderTaggingStore: this.senderTaggingStore,
       recipientTaggingStore: this.recipientTaggingStore,
       senderAddressBookStore: this.senderAddressBookStore,
@@ -367,14 +371,13 @@ export class PXE {
   async #executePrivate(
     contractFunctionSimulator: ContractFunctionSimulator,
     txRequest: TxExecutionRequest,
+    anchorBlockHeader: BlockHeader,
     scopes: AztecAddress[],
     jobId: string,
   ): Promise<PrivateExecutionResult> {
     const { origin: contractAddress, functionSelector } = txRequest;
 
     try {
-      const anchorBlockHeader = await this.anchorBlockStore.getBlockHeader();
-
       await this.contractSyncService.ensureContractSynced(
         contractAddress,
         functionSelector,
@@ -479,11 +482,10 @@ export class PXE {
     txExecutionRequest: TxExecutionRequest,
     proofCreator: PrivateKernelProver,
     privateExecutionResult: PrivateExecutionResult,
+    anchorBlockHeader: BlockHeader,
     config: PrivateKernelExecutionProverConfig,
   ): Promise<PrivateKernelExecutionProofOutput<PrivateKernelTailCircuitPublicInputs>> {
-    const anchorBlockHeader = await this.anchorBlockStore.getBlockHeader();
-    const anchorBlockHash = await anchorBlockHeader.hash();
-    const kernelOracle = new PrivateKernelOracle(this.contractStore, this.keyStore, this.node, anchorBlockHash);
+    const kernelOracle = new PrivateKernelOracle(this.contractStore, this.keyStore, this.node, anchorBlockHeader);
     const kernelTraceProver = new PrivateKernelExecutionProver(
       kernelOracle,
       proofCreator,
@@ -560,6 +562,12 @@ export class PXE {
    * TODO: It's strange that we return the address here and I (benesjan) think we should drop the return value.
    */
   public async registerSender(sender: AztecAddress): Promise<AztecAddress> {
+    if (!(await sender.isValid())) {
+      throw new Error(
+        `Address ${sender} is not valid: it does not correspond to a point on the Grumpkin curve. Cannot register it as a sender.`,
+      );
+    }
+
     const accounts = await this.keyStore.getAccounts();
     if (accounts.includes(sender)) {
       this.log.info(`Sender:\n "${sender.toString()}"\n already registered.`);
@@ -571,8 +579,8 @@ export class PXE {
     if (wasAdded) {
       this.log.info(`Added sender:\n ${sender.toString()}`);
       // Wipe the entire sync cache: the new sender's tagged logs could contain notes/events for any contract, so
-      // all contracts must re-sync to discover them.
-      this.contractSyncService.wipe();
+      // all contracts must re-sync to discover them. Queued to avoid wiping while a job is in flight.
+      await this.#putInJobQueue(() => Promise.resolve(this.contractSyncService.wipe()));
     } else {
       this.log.info(`Sender:\n "${sender.toString()}"\n already registered.`);
     }
@@ -741,16 +749,23 @@ export class PXE {
       try {
         const syncTimer = new Timer();
         await this.blockStateSynchronizer.sync();
+        const anchorBlockHeader = await this.anchorBlockStore.getBlockHeader();
         const syncTime = syncTimer.ms();
         const contractFunctionSimulator = this.#getSimulatorForTx();
-        privateExecutionResult = await this.#executePrivate(contractFunctionSimulator, txRequest, scopes, jobId);
+        privateExecutionResult = await this.#executePrivate(
+          contractFunctionSimulator,
+          txRequest,
+          anchorBlockHeader,
+          scopes,
+          jobId,
+        );
 
         const {
           publicInputs,
           chonkProof,
           executionSteps,
           timings: { proving } = {},
-        } = await this.#prove(txRequest, this.proofCreator, privateExecutionResult, {
+        } = await this.#prove(txRequest, this.proofCreator, privateExecutionResult, anchorBlockHeader, {
           simulate: false,
           skipFeeEnforcement: false,
           profileMode: 'none',
@@ -833,15 +848,23 @@ export class PXE {
         );
         const syncTimer = new Timer();
         await this.blockStateSynchronizer.sync();
+        const anchorBlockHeader = await this.anchorBlockStore.getBlockHeader();
         const syncTime = syncTimer.ms();
 
         const contractFunctionSimulator = this.#getSimulatorForTx();
-        const privateExecutionResult = await this.#executePrivate(contractFunctionSimulator, txRequest, scopes, jobId);
+        const privateExecutionResult = await this.#executePrivate(
+          contractFunctionSimulator,
+          txRequest,
+          anchorBlockHeader,
+          scopes,
+          jobId,
+        );
 
         const { executionSteps, timings: { proving } = {} } = await this.#prove(
           txRequest,
           this.proofCreator,
           privateExecutionResult,
+          anchorBlockHeader,
           {
             simulate: skipProofGeneration,
             skipFeeEnforcement: false,
@@ -931,6 +954,7 @@ export class PXE {
         );
         const syncTimer = new Timer();
         await this.blockStateSynchronizer.sync();
+        const anchorBlockHeader = await this.anchorBlockStore.getBlockHeader();
         const syncTime = syncTimer.ms();
 
         const overriddenContracts = overrides?.contracts ? new Set(Object.keys(overrides.contracts)) : undefined;
@@ -950,7 +974,13 @@ export class PXE {
         }
 
         // Execution of private functions only; no proving, and no kernel logic.
-        const privateExecutionResult = await this.#executePrivate(contractFunctionSimulator, txRequest, scopes, jobId);
+        const privateExecutionResult = await this.#executePrivate(
+          contractFunctionSimulator,
+          txRequest,
+          anchorBlockHeader,
+          scopes,
+          jobId,
+        );
 
         let publicInputs: PrivateKernelTailCircuitPublicInputs | undefined;
         let executionSteps: PrivateExecutionStep[] = [];
@@ -963,11 +993,17 @@ export class PXE {
           ));
         } else {
           // Kernel logic, plus proving of all private functions and kernels.
-          ({ publicInputs, executionSteps } = await this.#prove(txRequest, this.proofCreator, privateExecutionResult, {
-            simulate: true,
-            skipFeeEnforcement,
-            profileMode: 'none',
-          }));
+          ({ publicInputs, executionSteps } = await this.#prove(
+            txRequest,
+            this.proofCreator,
+            privateExecutionResult,
+            anchorBlockHeader,
+            {
+              simulate: true,
+              skipFeeEnforcement,
+              profileMode: 'none',
+            },
+          ));
         }
 
         const privateSimulationResult = new PrivateSimulationResult(privateExecutionResult, publicInputs);
@@ -1170,6 +1206,7 @@ export class PXE {
    */
   public async stop(): Promise<void> {
     await this.jobQueue.end();
+    await this.blockStateSynchronizer.stop();
     await this.db.close();
   }
 }

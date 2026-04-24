@@ -16,7 +16,7 @@ import type { Logger } from '@aztec/aztec.js/log';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import { GovernanceProposerContract } from '@aztec/ethereum/contracts';
 import type { DeployAztecL1ContractsReturnType } from '@aztec/ethereum/deploy-aztec-l1-contracts';
-import { BlockNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { SecretValue } from '@aztec/foundation/config';
 import { withLoggerBindings } from '@aztec/foundation/log/server';
@@ -104,7 +104,7 @@ describe('HA Full Setup', () => {
     databaseConfig = createHADatabaseConfig('ha-full-test');
 
     // Connect to database (migrations already run by docker-compose entrypoint)
-    mainPool = setupHADatabase(databaseConfig.databaseUrl);
+    mainPool = setupHADatabase(databaseConfig.databaseUrl.getValue()!);
 
     attesterPrivateKeys = Array.from(
       { length: VALIDATOR_COUNT },
@@ -130,7 +130,10 @@ describe('HA Full Setup', () => {
     await refreshWeb3Signer(web3SignerUrl, ...attesterAddresses, ...publisherAddresses);
 
     // Create database pools for HA nodes
-    haNodePools = Array.from({ length: NODE_COUNT }, () => new Pool({ connectionString: databaseConfig.databaseUrl }));
+    haNodePools = Array.from(
+      { length: NODE_COUNT },
+      () => new Pool({ connectionString: databaseConfig.databaseUrl.getValue()! }),
+    );
 
     const initialValidators = createInitialValidatorsFromPrivateKeys(attesterPrivateKeys);
 
@@ -322,10 +325,8 @@ describe('HA Full Setup', () => {
 
     // Deploy a contract to trigger block building
     const deployer = new ContractDeployer(StatefulTestContractArtifact, wallet);
-    const sender = ownerAddress;
-
-    logger.info(`Deploying contract from ${sender}`);
-    const { receipt } = await deployer.deploy(ownerAddress, sender, 1).send({
+    logger.info(`Deploying contract from ${ownerAddress}`);
+    const { receipt } = await deployer.deploy(ownerAddress, 1).send({
       from: ownerAddress,
       contractAddressSalt: new Fr(BigInt(1)),
     });
@@ -443,7 +444,7 @@ describe('HA Full Setup', () => {
     // Send a transaction to trigger block building which will also trigger voting
     logger.info('Sending transaction to trigger block building...');
     const deployer = new ContractDeployer(StatefulTestContractArtifact, wallet);
-    const { receipt } = await deployer.deploy(ownerAddress, ownerAddress, 42).send({
+    const { receipt } = await deployer.deploy(ownerAddress, 42).send({
       from: ownerAddress,
       contractAddressSalt: Fr.random(),
     });
@@ -600,7 +601,7 @@ describe('HA Full Setup', () => {
       }
 
       const deployer = new ContractDeployer(StatefulTestContractArtifact, wallet);
-      const receipt = await deployer.deploy(ownerAddress, ownerAddress, 201).send({
+      const receipt = await deployer.deploy(ownerAddress, 201).send({
         from: ownerAddress,
         contractAddressSalt: new Fr(201),
       });
@@ -642,7 +643,7 @@ describe('HA Full Setup', () => {
       logger.info(`Active nodes: ${haNodeServices.length - killedNodes.length}/${NODE_COUNT}`);
 
       const deployer = new ContractDeployer(StatefulTestContractArtifact, wallet);
-      const { receipt } = await deployer.deploy(ownerAddress, ownerAddress, i + 100).send({
+      const { receipt } = await deployer.deploy(ownerAddress, i + 100).send({
         from: ownerAddress,
         contractAddressSalt: new Fr(BigInt(i + 100)),
       });
@@ -815,7 +816,8 @@ describe('HA Full Setup', () => {
           rollupAddress,
           validatorAddress,
           slot: SlotNumber(100),
-          blockNumber: BlockNumber(100),
+          blockNumber: BlockNumber(0),
+          checkpointNumber: CheckpointNumber(0),
           dutyType: DutyType.ATTESTATION,
           messageHash: Buffer32.random().toString(),
           nodeId: 'node-utc',
@@ -840,7 +842,8 @@ describe('HA Full Setup', () => {
           rollupAddress,
           validatorAddress,
           slot: SlotNumber(101),
-          blockNumber: BlockNumber(101),
+          blockNumber: BlockNumber(0),
+          checkpointNumber: CheckpointNumber(0),
           dutyType: DutyType.ATTESTATION,
           messageHash: Buffer32.random().toString(),
           nodeId: 'node-tokyo',
@@ -886,7 +889,8 @@ describe('HA Full Setup', () => {
         rollupAddress,
         validatorAddress,
         slot: SlotNumber(200),
-        blockNumber: BlockNumber(200),
+        blockNumber: BlockNumber(0),
+        checkpointNumber: CheckpointNumber(0),
         dutyType: DutyType.ATTESTATION,
         messageHash: Buffer32.random().toString(),
         nodeId: 'test-node',
@@ -947,7 +951,8 @@ describe('HA Full Setup', () => {
         rollupAddress,
         validatorAddress,
         slot: SlotNumber(300),
-        blockNumber: BlockNumber(300),
+        blockNumber: BlockNumber(0),
+        checkpointNumber: CheckpointNumber(0),
         dutyType: DutyType.ATTESTATION,
         messageHash: Buffer32.random().toString(),
         nodeId: 'test-node',
@@ -1012,7 +1017,8 @@ describe('HA Full Setup', () => {
         rollupAddress,
         validatorAddress,
         slot: SlotNumber(400),
-        blockNumber: BlockNumber(400),
+        blockNumber: BlockNumber(0),
+        checkpointNumber: CheckpointNumber(0),
         dutyType: DutyType.ATTESTATION,
         messageHash: Buffer32.random().toString(),
         nodeId: 'stuck-node',

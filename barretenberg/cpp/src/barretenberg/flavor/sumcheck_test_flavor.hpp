@@ -151,6 +151,7 @@ class SumcheckTestFlavor_ {
 
     // Configuration constants from template parameters
     static constexpr bool HasZK = HasZK_;
+    static constexpr size_t TRACE_OFFSET = HasZK_ ? NUM_DISABLED_ROWS_IN_SUMCHECK : 0;
     static constexpr bool USE_SHORT_MONOMIALS = UseShortMonomials_;
     static constexpr bool USE_PADDING = false;
     static constexpr size_t NUM_WIRES = 4;
@@ -243,8 +244,6 @@ class SumcheckTestFlavor_ {
         auto get_witness() const { return WitnessEntities<DataType>::get_all(); }
         auto get_shifted() { return ShiftedEntities<DataType>::get_all(); }
         auto get_shifted() const { return ShiftedEntities<DataType>::get_all(); }
-        auto get_masked() { return WitnessEntities<DataType>::get_all(); }
-        auto get_masked() const { return WitnessEntities<DataType>::get_all(); }
     };
 
     /**

@@ -147,11 +147,11 @@ void complete_proving_key_for_test(bb::RelationParameters<FF>& relation_paramete
                                                       (gamma + beta_sqr + beta_sqr + beta_sqr + first_term_tag);
     relation_parameters.eccvm_set_permutation_delta = relation_parameters.eccvm_set_permutation_delta.invert();
 
-    const size_t unmasked_witness_size = pk->circuit_size - NUM_DISABLED_ROWS_IN_SUMCHECK;
     // Compute z_perm and inverse polynomial for our logarithmic-derivative lookup method
+    // Skip the disabled head region to preserve masking values
     compute_logderivative_inverse<FF, ECCVMFlavor::LookupRelation, ECCVMFlavor::ProverPolynomials, true>(
-        pk->polynomials, relation_parameters, unmasked_witness_size);
-    compute_grand_products<ECCVMFlavor>(pk->polynomials, relation_parameters, unmasked_witness_size);
+        pk->polynomials, relation_parameters, ECCVMFlavor::TRACE_OFFSET);
+    compute_grand_products<ECCVMFlavor>(pk->polynomials, relation_parameters);
 
     // Generate gate challenges
     for (size_t idx = 0; idx < CONST_ECCVM_LOG_N; idx++) {
@@ -371,16 +371,13 @@ TEST_F(ECCVMTests, CommittedSumcheck)
                                    CONST_ECCVM_LOG_N);
 
     ZKData zk_sumcheck_data = ZKData(CONST_ECCVM_LOG_N, prover_transcript);
-    MaskingTailData<Flavor> masking_tail;
-    auto prover_output = sumcheck_prover.prove(zk_sumcheck_data, masking_tail);
+    auto prover_output = sumcheck_prover.prove(zk_sumcheck_data);
 
     std::shared_ptr<Transcript> verifier_transcript = std::make_shared<Transcript>(prover_transcript->export_proof());
 
     // Execute Sumcheck Verifier
     SumcheckVerifier<Flavor> sumcheck_verifier(verifier_transcript, alpha, CONST_ECCVM_LOG_N);
-    std::vector<FF> padding_indicator_array(CONST_ECCVM_LOG_N, FF(1));
-    SumcheckOutput<ECCVMFlavor> verifier_output =
-        sumcheck_verifier.verify(relation_parameters, gate_challenges, padding_indicator_array);
+    SumcheckOutput<ECCVMFlavor> verifier_output = sumcheck_verifier.verify(relation_parameters, gate_challenges);
 
     // Evaluate prover's round univariates at corresponding challenges and compare them with the claimed evaluations
     // computed by the verifier
@@ -533,31 +530,30 @@ TEST_F(ECCVMTests, FixedVK)
 }
 
 /**
- * @brief Verify that ECCVM wire commitments in the proof differ from naive commits to the short polys.
- * @details All ECCVM witness wires are masked. We run the full prover, deserialize the proof to extract
- * the wire commitments that the verifier would receive, and check they differ from commit(short_poly).
+ * @brief Verify that every ECCVM witness polynomial has masking values in the reserved head region.
+ * @details All witness polynomials (wires, z_perm, lookup_inverses) should have non-zero random values
+ * at rows 1..NUM_MASKED_ROWS (the masking region). Precomputed polynomials should NOT be masked.
  */
-TEST_F(ECCVMTests, MaskingTailCommitments)
+TEST_F(ECCVMTests, WitnessPolynomialsMasked)
 {
-    std::shared_ptr<Transcript> prover_transcript = std::make_shared<Transcript>();
-    ECCVMProver prover = [&]() {
-        ECCVMCircuitBuilder builder = generate_circuit(&engine);
-        return ECCVMProver(builder, prover_transcript);
-    }();
+    ECCVMCircuitBuilder builder = generate_circuit(&engine);
+    ECCVMFlavor::ProverPolynomials polynomials(builder);
 
-    auto [proof, opening_claim] = prover.construct_proof();
+    // Every witness polynomial should have at least one non-zero masking value
+    auto check_masked = [](const auto& poly, const std::string& label) {
+        bool has_masking = false;
+        for (size_t j = 0; j < NUM_MASKED_ROWS; j++) {
+            has_masking |= !poly[NUM_ZERO_ROWS + j].is_zero();
+        }
+        EXPECT_TRUE(has_masking) << label << " should be masked but has all zeros in masking region";
+    };
 
-    // Deserialize proof to extract wire commitments as seen by the verifier
-    StructuredProof<ECCVMFlavor> structured;
-    structured.deserialize(proof, 0, CONST_ECCVM_LOG_N);
-
-    // Every wire commitment in the proof should differ from naive commit(poly)
-    auto wire_polys = prover.key->polynomials.get_wires();
-    ASSERT_EQ(wire_polys.size(), structured.wire_comms.size());
-    for (size_t i = 0; i < wire_polys.size(); i++) {
-        auto naive = prover.key->commitment_key.commit(wire_polys[i]);
-        EXPECT_NE(naive, structured.wire_comms[i]) << "Wire " << i << " commitment should be masked";
+    ECCVMFlavor::CommitmentLabels labels;
+    for (auto [poly, label] : zip_view(polynomials.get_wires(), labels.get_wires())) {
+        check_masked(poly, label);
     }
+    check_masked(polynomials.z_perm, "z_perm");
+    check_masked(polynomials.lookup_inverses, "lookup_inverses");
 }
 
 /**

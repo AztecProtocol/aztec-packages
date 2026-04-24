@@ -489,7 +489,6 @@
       },
       "cacheVariables": {
         "CMAKE_SYSTEM_NAME": "Linux",
-        "TARGET_ARCH": "skylake",
         "AVM_TRANSPILER_LIB": "${sourceDir}/../../avm-transpiler/target/x86_64-apple-darwin/release/libavm_transpiler.a"
       }
     },
@@ -503,7 +502,6 @@
       },
       "cacheVariables": {
         "CMAKE_SYSTEM_NAME": "Linux",
-        "TARGET_ARCH": "generic",
         "AVM_TRANSPILER_LIB": "${sourceDir}/../../avm-transpiler/target/aarch64-unknown-linux-gnu/release/libavm_transpiler.a"
       }
     },
@@ -554,7 +552,6 @@
       "cacheVariables": {
         "CMAKE_SYSTEM_NAME": "Windows",
         "CMAKE_SYSTEM_PROCESSOR": "x86_64",
-        "TARGET_ARCH": "skylake",
         "BB_LITE": "ON",
         "AVM_TRANSPILER_LIB": ""
       }
