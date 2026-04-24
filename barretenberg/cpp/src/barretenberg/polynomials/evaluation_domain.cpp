@@ -88,8 +88,7 @@ EvaluationDomain<Fr>::EvaluationDomain(const size_t domain_size, const size_t ta
 
 template <typename Fr> EvaluationDomain<Fr>& EvaluationDomain<Fr>::operator=(EvaluationDomain&& other)
 {
-    // Without this guard, `domain = std::move(domain)` first nulls our roots / clears our vectors
-    // and then tries to steal from ourselves, permanently destroying the precomputed FFT tables.
+    // Prevent self-corruption of data
     if (this == &other) {
         return *this;
     }
