@@ -294,7 +294,7 @@ fi
 if [[ "${DESTROY_NAMESPACE:-false}" == "true" && "${CLUSTER}" != "kind" ]]; then
   log "Clearing any stale terraform state locks under gs://aztec-terraform/${BASE_STATE_PATH}/"
   for module in deploy-eth-devnet deploy-rollup-contracts deploy-aztec-infra; do
-    gsutil -q rm "gs://aztec-terraform/${BASE_STATE_PATH}/${module}/terraform.tfstate/default.tflock" 2>/dev/null || true
+    gcloud storage rm --quiet "gs://aztec-terraform/${BASE_STATE_PATH}/${module}/terraform.tfstate/default.tflock" 2>/dev/null || true
   done
 fi
 
