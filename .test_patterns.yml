@@ -211,6 +211,15 @@ tests:
     owners:
       - *adam
 
+  # Seen on merge-train/fairies http://ci.aztec-labs.com/1777039945013629: the
+  # `bridge resume does not reuse prior bridge claims if recipient address changes`
+  # test hangs on the second Bot.create with an idle event loop, then the outer
+  # bash TIMEOUT=600s kills with code 124.
+  - regex: "yarn-project/end-to-end/scripts/run_test.sh simple src/e2e_bot.test.ts"
+    error_regex: "code: 124"
+    owners:
+      - *adam
+
   # boxes
   - regex: "vanilla-all-browsers box boxes"
     error_regex: "Error: Timed out [0-9]+ms waiting for expect\\(locator\\)"
