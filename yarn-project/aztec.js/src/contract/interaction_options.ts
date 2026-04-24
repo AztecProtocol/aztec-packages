@@ -120,6 +120,13 @@ export type SendInteractionOptionsWithoutWait = RequestInteractionOptions & {
    * its own private notes.
    */
   additionalScopes?: AztecAddress[];
+  /**
+   * Overrides the sender address used to derive discovery tags for private messages (notes, events, logs).
+   * Recipients use these tags to find messages addressed to them.
+   *
+   * Defaults to `from`. Typically set when `from === NO_FROM`, since there is no account address to derive tags from.
+   */
+  sendMessagesAs?: AztecAddress;
 };
 
 /**

@@ -1,0 +1,1 @@
+The #[allow_phase_change] attribute can only be applied to #[external("private")] functions - foo is not
