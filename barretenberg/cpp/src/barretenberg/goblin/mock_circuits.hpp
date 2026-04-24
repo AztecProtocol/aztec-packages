@@ -8,6 +8,7 @@
 #include "barretenberg/srs/global_crs.hpp"
 #include "barretenberg/stdlib/encryption/ecdsa/ecdsa.hpp"
 #include "barretenberg/stdlib/hash/keccak/keccak.hpp"
+#include "barretenberg/stdlib/hash/poseidon2/poseidon2.hpp"
 #include "barretenberg/stdlib/hash/sha256/sha256.hpp"
 #include "barretenberg/stdlib/primitives/curves/secp256k1.hpp"
 #include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
@@ -48,6 +49,24 @@ template <typename Builder> void generate_sha256_test_circuit(Builder& builder, 
     for (size_t i = 0; i < num_iterations; i++) {
         h_init = stdlib::SHA256<Builder>::sha256_block(h_init, block);
     }
+}
+
+/**
+ * @brief Generate a test circuit that computes a single poseidon2 hash over a vector of `num_inputs` field elements.
+ */
+template <typename Builder> void generate_poseidon2_hash_test_circuit(Builder& builder, size_t num_inputs)
+{
+    using field_ct = stdlib::field_t<Builder>;
+    using witness_ct = stdlib::witness_t<Builder>;
+
+    std::vector<field_ct> inputs;
+    inputs.reserve(num_inputs);
+    for (size_t i = 0; i < num_inputs; i++) {
+        inputs.emplace_back(witness_ct(&builder, bb::fr(i + 1)));
+    }
+
+    auto out = stdlib::poseidon2<Builder>::hash(inputs);
+    out.set_public();
 }
 
 class GoblinMockCircuits {

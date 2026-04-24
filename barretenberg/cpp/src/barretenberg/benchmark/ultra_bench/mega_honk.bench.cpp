@@ -41,7 +41,37 @@ static void get_row_power_of_2(State& state) noexcept
     }
 }
 
+/**
+ * @brief Benchmark: Mega Honk proof of a single poseidon2 hash over a vector of state.range(0) elements.
+ */
+static void construct_proof_megahonk_poseidon2_hash(State& state) noexcept
+{
+    const auto num_inputs = static_cast<size_t>(state.range(0));
+
+    MegaCircuitBuilder builder;
+    bb::generate_poseidon2_hash_test_circuit<MegaCircuitBuilder>(builder, num_inputs);
+    auto instance = std::make_shared<ProverInstance_<MegaFlavor>>(builder);
+    info("construct_proof_megahonk_poseidon2_hash: num_inputs=",
+         num_inputs,
+         ", actual_gates=",
+         builder.num_gates(),
+         ", dyadic_size=",
+         instance->dyadic_size());
+
+    bb::mock_circuits::construct_proof_with_specified_num_iterations<MegaProver>(
+        state, &bb::generate_poseidon2_hash_test_circuit<MegaCircuitBuilder>, num_inputs);
+}
+
 // Define benchmarks
+// Sweep input sizes so dyadic domain ranges 2^15..2^19 (Mega: ~12 gates/input).
+BENCHMARK(construct_proof_megahonk_poseidon2_hash)
+    ->Arg(1500)
+    ->Arg(3000)
+    ->Arg(6000)
+    ->Arg(12000)
+    ->Arg(24000)
+    ->Arg(50000)
+    ->Unit(kMillisecond);
 
 // This exists due to an issue where get_row was blowing up in time
 BENCHMARK_CAPTURE(construct_proof_megahonk, sha256, &generate_sha256_test_circuit<MegaCircuitBuilder>)
