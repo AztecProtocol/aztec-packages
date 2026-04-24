@@ -1,5 +1,6 @@
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
+#include "barretenberg/flavor/mega_flavor.hpp"
 #include "barretenberg/goblin/mock_circuits.hpp"
 #include "barretenberg/stdlib/primitives/bigfield/constants.hpp"
 #include <gtest/gtest.h>
@@ -228,10 +229,10 @@ TEST(MegaCircuitBuilder, EccOpBlockIsFirstInTrace)
     builder.create_add_gate({ a, b, c, 1, 1, -1, 0 });
 
     builder.finalize_circuit(true);
-    builder.blocks.compute_offsets();
+    builder.blocks.compute_offsets(MegaFlavor::TRACE_OFFSET);
 
-    // Verify ecc_op block starts at offset TRACE_OFFSET + 1 (disabled rows + zero row)
-    EXPECT_EQ(builder.blocks.ecc_op.trace_offset(), MegaExecutionTraceBlocks::TRACE_OFFSET + 1);
+    // Verify ecc_op block starts at offset TRACE_OFFSET + NUM_ZERO_ROWS = NUM_ZERO_ROWS for non-ZK Mega.
+    EXPECT_EQ(builder.blocks.ecc_op.trace_offset(), MegaFlavor::TRACE_OFFSET + NUM_ZERO_ROWS);
 
     // Verify no other non-empty block starts before ecc_op ends
     size_t ecc_op_end = builder.blocks.ecc_op.trace_end();

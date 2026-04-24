@@ -243,9 +243,12 @@ void ProverInstance_<Flavor>::allocate_databus_polynomials(const Circuit& circui
 {
     BB_BENCH_NAME("allocate_databus_and_lookup_inverse_polynomials");
 
-    // Databus data is shifted by the disabled head region for uniform layout across ZK and non-ZK.
-    // offset_size gives the allocation size for a databus column of the given content length.
-    const auto offset_size = [](size_t content) -> size_t { return TRACE_OFFSET + content; };
+    // Databus data is placed at a uniform offset across ZK and non-ZK Mega flavors so that cross-flavor commitment
+    // flow (e.g. a non-ZK kernel's return_data feeding a MegaZK hiding kernel's calldata) produces identical
+    // commitments. The offset past the masking region is required for MegaZK (rows 1..3 hold masking values); non-ZK
+    // Mega mirrors the layout even though it has no masking.
+    constexpr size_t DATABUS_OFFSET = NUM_DISABLED_ROWS_IN_SUMCHECK;
+    const auto offset_size = [](size_t content) -> size_t { return DATABUS_OFFSET + content; };
 
     // Databus inverses must cover both the databus gate block (where reads occur) and the data itself.
     const size_t q_busread_end = circuit.blocks.busread.trace_end();
@@ -301,8 +304,9 @@ template <typename Flavor>
 void ProverInstance_<Flavor>::construct_databus_polynomials(Circuit& circuit)
     requires HasDataBus<Flavor>
 {
-    // Databus data is shifted by the disabled head region for uniform layout.
-    constexpr size_t databus_offset = TRACE_OFFSET;
+    // Databus data placed past the disabled head region so MegaZK masking values don't collide with databus data.
+    // Non-ZK Mega mirrors the same offset to keep cross-flavor commitment flow consistent (see allocate_).
+    constexpr size_t databus_offset = NUM_DISABLED_ROWS_IN_SUMCHECK;
 
     size_t max_bus_size = 0;
     bb::constexpr_for<0, NUM_BUS_COLUMNS, 1>([&]<size_t bus_idx>() {

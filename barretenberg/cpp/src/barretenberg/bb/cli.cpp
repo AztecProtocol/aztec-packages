@@ -354,6 +354,15 @@ int parse_and_run_cli_command(int argc, char* argv[])
             ->group(advanced_group);
     };
 
+    const auto add_is_hiding_kernel_flag = [&](CLI::App* subcommand) {
+        return subcommand
+            ->add_flag("--is_hiding_kernel",
+                       flags.is_hiding_kernel,
+                       "Chonk-only: treat the circuit as the IVC hiding kernel, which is proven as MegaZKFlavor. "
+                       "When omitted, Chonk VKs are computed as MegaFlavor (used for intermediate IVC circuits).")
+            ->group(advanced_group);
+    };
+
     const auto add_optimized_solidity_verifier_flag = [&](CLI::App* subcommand) {
         return subcommand->add_flag(
             "--optimized", flags.optimized_solidity_verifier, "Use the optimized Solidity verifier.");
@@ -521,6 +530,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
     add_ipa_accumulation_flag(write_vk);
     remove_zk_option(write_vk);
     add_output_format_option(write_vk);
+    add_is_hiding_kernel_flag(write_vk);
 
     /***************************************************************************************************************
      * Subcommand: verify

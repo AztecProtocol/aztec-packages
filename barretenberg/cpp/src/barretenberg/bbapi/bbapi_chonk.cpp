@@ -35,6 +35,7 @@ ChonkStart::Response ChonkStart::execute(BBApiRequest& request) &&
     request.loaded_circuit_name.clear();
     request.loaded_circuit_constraints.reset();
     request.loaded_circuit_vk.clear();
+    request.loaded_circuit_is_hiding_kernel = false;
 
     return Response{};
 }
@@ -49,8 +50,9 @@ ChonkLoad::Response ChonkLoad::execute(BBApiRequest& request) &&
     request.loaded_circuit_name = circuit.name;
     request.loaded_circuit_constraints = acir_format::circuit_buf_to_acir_format(std::move(circuit.bytecode));
     request.loaded_circuit_vk = circuit.verification_key;
+    request.loaded_circuit_is_hiding_kernel = is_hiding_kernel;
 
-    info("ChonkLoad - loaded circuit '", request.loaded_circuit_name, "'");
+    info("ChonkLoad - loaded circuit '", request.loaded_circuit_name, "'", is_hiding_kernel ? " (hiding kernel)" : "");
 
     return Response{};
 }
@@ -74,9 +76,11 @@ ChonkAccumulate::Response ChonkAccumulate::execute(BBApiRequest& request) &&
     // would be in a moved-from state, which is technically has_value()==true but poisoned).
     auto loaded_vk = std::move(request.loaded_circuit_vk);
     auto circuit_name = std::move(request.loaded_circuit_name);
+    const bool is_hiding_kernel = request.loaded_circuit_is_hiding_kernel;
     request.loaded_circuit_constraints.reset();
     request.loaded_circuit_vk.clear();
     request.loaded_circuit_name.clear();
+    request.loaded_circuit_is_hiding_kernel = false;
 
     const acir_format::ProgramMetadata metadata{ .ivc = request.ivc_in_progress };
     auto circuit = acir_format::create_circuit<IVCBase::ClientCircuit>(program, metadata);
@@ -91,8 +95,11 @@ ChonkAccumulate::Response ChonkAccumulate::execute(BBApiRequest& request) &&
             precomputed_vk = from_buffer<std::shared_ptr<Chonk::MegaVerificationKey>>(loaded_vk);
 
             if (request.vk_policy == VkPolicy::CHECK) {
-                auto prover_instance = std::make_shared<Chonk::ProverInstance>(circuit);
-                auto computed_vk = std::make_shared<Chonk::MegaVerificationKey>(prover_instance->get_precomputed());
+                // The hiding kernel is proven as MegaZK; its precomputed VK depends on MegaZKFlavor's TRACE_OFFSET.
+                auto computed_vk = is_hiding_kernel ? std::make_shared<Chonk::MegaVerificationKey>(
+                                                          ProverInstance_<MegaZKFlavor>(circuit).get_precomputed())
+                                                    : std::make_shared<Chonk::MegaVerificationKey>(
+                                                          Chonk::ProverInstance(circuit).get_precomputed());
 
                 // Dereference to compare VK contents
                 if (*precomputed_vk != *computed_vk) {
@@ -229,24 +236,31 @@ ChonkBatchVerify::Response ChonkBatchVerify::execute(const BBApiRequest& /*reque
     return { .valid = verified };
 }
 
-static std::shared_ptr<Chonk::ProverInstance> get_acir_program_prover_instance(acir_format::AcirProgram& program)
+// Build a Chonk::MegaVerificationKey from an AcirProgram. Branches on is_hiding_kernel: the hiding kernel is proven
+// as MegaZK, so its precomputed polynomials (lagrange_ecc_op, gate selectors, lagrange_first, lagrange_last) depend
+// on MegaZKFlavor::TRACE_OFFSET rather than MegaFlavor::TRACE_OFFSET.
+static std::shared_ptr<Chonk::MegaVerificationKey> compute_chonk_vk_from_program(acir_format::AcirProgram& program,
+                                                                                 bool is_hiding_kernel)
 {
     Chonk::ClientCircuit builder = acir_format::create_circuit<Chonk::ClientCircuit>(program);
-
-    // Construct the verification key via the prover-constructed proving key with the proper trace settings
-    return std::make_shared<Chonk::ProverInstance>(builder);
+    if (is_hiding_kernel) {
+        return std::make_shared<Chonk::MegaVerificationKey>(ProverInstance_<MegaZKFlavor>(builder).get_precomputed());
+    }
+    return std::make_shared<Chonk::MegaVerificationKey>(Chonk::ProverInstance(builder).get_precomputed());
 }
 
 ChonkComputeVk::Response ChonkComputeVk::execute([[maybe_unused]] const BBApiRequest& request) &&
 {
     BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
-    info("ChonkComputeVk - deriving MegaVerificationKey for circuit '", circuit.name, "'");
+    info("ChonkComputeVk - deriving MegaVerificationKey for circuit '",
+         circuit.name,
+         "'",
+         is_hiding_kernel ? " (hiding kernel)" : "");
 
     auto constraint_system = acir_format::circuit_buf_to_acir_format(std::move(circuit.bytecode));
 
     acir_format::AcirProgram program{ constraint_system, /*witness=*/{} };
-    std::shared_ptr<Chonk::ProverInstance> prover_instance = get_acir_program_prover_instance(program);
-    auto verification_key = std::make_shared<Chonk::MegaVerificationKey>(prover_instance->get_precomputed());
+    auto verification_key = compute_chonk_vk_from_program(program, is_hiding_kernel);
 
     info("ChonkComputeVk - VK derived, size: ", to_buffer(*verification_key).size(), " bytes");
 
@@ -259,8 +273,7 @@ ChonkCheckPrecomputedVk::Response ChonkCheckPrecomputedVk::execute([[maybe_unuse
     acir_format::AcirProgram program{ acir_format::circuit_buf_to_acir_format(std::move(circuit.bytecode)),
                                       /*witness=*/{} };
 
-    std::shared_ptr<Chonk::ProverInstance> prover_instance = get_acir_program_prover_instance(program);
-    auto computed_vk = std::make_shared<Chonk::MegaVerificationKey>(prover_instance->get_precomputed());
+    auto computed_vk = compute_chonk_vk_from_program(program, is_hiding_kernel);
 
     if (circuit.verification_key.empty()) {
         info("FAIL: Expected precomputed vk for function ", circuit.name);

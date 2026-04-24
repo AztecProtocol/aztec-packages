@@ -311,8 +311,8 @@ class MegaFlavor {
     static constexpr size_t NUM_ALL_ENTITIES = NUM_UNSHIFTED_ENTITIES + NUM_SHIFTED_ENTITIES;
 
     // Rows reserved at the top of the trace for row-disabling / ZK masking.
-    // MegaAvmFlavor overrides to 0 (no masking needed).
-    static constexpr size_t TRACE_OFFSET = NUM_DISABLED_ROWS_IN_SUMCHECK;
+    // Non-ZK Mega has no masking preamble; MegaZKFlavor overrides to NUM_DISABLED_ROWS_IN_SUMCHECK.
+    static constexpr size_t TRACE_OFFSET = 0;
 
     static constexpr RepeatedCommitmentsData REPEATED_COMMITMENTS = RepeatedCommitmentsData(
         NUM_PRECOMPUTED_ENTITIES, NUM_PRECOMPUTED_ENTITIES + NUM_WITNESS_ENTITIES, NUM_SHIFTED_ENTITIES);

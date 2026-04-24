@@ -96,7 +96,7 @@ function compile {
     trap "rm -rf $outdir" EXIT
     function write_vk {
       if echo "$name" | grep -qE "${hiding_kernel_regex}"; then
-        $BB write_vk --scheme chonk -b - -o $outdir
+        $BB write_vk --scheme chonk --is_hiding_kernel -b - -o $outdir
       elif echo "$name" | grep -qE "${ivc_regex}"; then
         $BB write_vk --scheme chonk -b - -o $outdir
       elif echo "$name" | grep -qE "${rollup_honk_regex}"; then

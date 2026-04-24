@@ -325,11 +325,14 @@ void Chonk::complete_kernel_circuit_logic(ClientCircuit& circuit)
         stdlib_verification_queue.size() == 1 && (stdlib_verification_queue.front().type == QUEUE_TYPE::HN_FINAL);
 
     // The ECC-op subtable for a kernel begins with an eq-and-reset to ensure that the preceding circuit's subtable
-    // cannot affect the ECC-op accumulator for the kernel.
+    // cannot affect the ECC-op accumulator for the kernel. For the tail kernel, we additionally add a preceding
+    // no-op so the op queue wires in Translator are shiftable (0th coefficient = 0); the tail kernel subtable sits
+    // at the top of the final aggregate table since it is the last to be prepended.
     if (is_tail_kernel) {
         BB_ASSERT_EQ(circuit.op_queue->get_current_subtable_size(),
                      0U,
                      "tail kernel ecc ops table should be empty at this point");
+        circuit.queue_ecc_no_op();
         // Add randomness at the beginning of the tail kernel (whose ecc ops fall at the beginning of the op queue
         // table) to ensure the CHONK proof doesn't leak information about the actual content of the op queue
         hide_op_queue_content_in_tail(circuit);
