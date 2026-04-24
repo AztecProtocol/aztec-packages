@@ -479,14 +479,14 @@ template <typename Flavor> class SumcheckProverRound {
                 univariate_accumulator, extended_edges, relation_parameters, gate_separators[edge_idx]);
         }
 
-        return batch_over_relations<SumcheckRoundUnivariate, /*ApplyRowDisabling=*/true>(
+        return batch_over_relations<SumcheckRoundUnivariate>(
             univariate_accumulator, alphas, gate_separators, &row_disabling_polynomial);
     }
 
     /**
      * @brief Virtual (zero-extension) round univariate contribution.
      */
-    template <bool ApplyRowDisabling = false, typename ProverPolynomialsOrPartiallyEvaluatedMultivariates>
+    template <typename ProverPolynomialsOrPartiallyEvaluatedMultivariates>
     SumcheckRoundUnivariate compute_virtual_contribution(
         ProverPolynomialsOrPartiallyEvaluatedMultivariates& polynomials,
         const bb::RelationParameters<FF>& relation_parameters,
@@ -522,7 +522,7 @@ template <typename Flavor> class SumcheckProverRound {
         accumulate_relation_univariates(
             univariate_accumulator, extended_edges, relation_parameters, gate_separator_tail);
 
-        return batch_over_relations<SumcheckRoundUnivariate, ApplyRowDisabling>(
+        return batch_over_relations<SumcheckRoundUnivariate>(
             univariate_accumulator, alphas, gate_separator, row_disabling_polynomial);
     }
 
@@ -542,7 +542,7 @@ template <typename Flavor> class SumcheckProverRound {
      * @param challenge Challenge \f$\alpha\f$.
      * @param gate_separators Round \f$pow_{\beta}\f$-factor given by  \f$ ( (1−u_i) + u_i\cdot \beta_i )\f$.
      */
-    template <typename ExtendedUnivariate, bool ApplyRowDisabling = false, typename ContainerOverSubrelations>
+    template <typename ExtendedUnivariate, typename ContainerOverSubrelations>
     static ExtendedUnivariate batch_over_relations(ContainerOverSubrelations& univariate_accumulators,
                                                    const SubrelationSeparators& challenge,
                                                    const bb::GateSeparatorPolynomial<FF>& gate_separators,
@@ -551,7 +551,7 @@ template <typename Flavor> class SumcheckProverRound {
         Utils::scale_univariates(univariate_accumulators, challenge);
 
         auto result = ExtendedUnivariate(0);
-        extend_and_batch_univariates<ExtendedUnivariate, ApplyRowDisabling>(
+        extend_and_batch_univariates<ExtendedUnivariate>(
             univariate_accumulators, result, gate_separators, row_disabling_polynomial);
 
         // Reset all univariate accumulators to 0 before beginning accumulation in the next round
@@ -568,17 +568,18 @@ template <typename Flavor> class SumcheckProverRound {
      * constant \f$ c_i = pow_\beta(u_0,\ldots, u_{i-1}) \f$ and the current \f$pow_{\beta}\f$-factor \f$ ( (1−X_i) +
      * X_i\cdot \beta_i ) \vert_{X_i = k} \f$ for \f$ k = 0,\ldots, D\f$.
      *
-     * When `ApplyRowDisabling = true`, each relation's per-relation sum is additionally scaled by
-     * `Λ_R` — `L` for `IsOffsetOnlyRelation<R>`, `(1 - L)` otherwise — with `L` and `(1 - L)` read
-     * from `row_disabling_polynomial`. When `false`, offset-only relations are skipped entirely.
+     * Each relation's per-relation sum is then scaled by a row-disabling factor `Λ_R`:
+     * `(1 - L^{(i)})(X)` for main-domain relations and `L^{(i)}(X)` for offset-only relations.
+     * When `row_disabling_polynomial == nullptr` the factors default to the constants `(1, 0)`,
+     * so main relations pass through unscaled and offset-only relations collapse to zero.
      *
-     * @tparam ApplyRowDisabling Enables per-relation L / (1 - L) scaling.
      * @param tuple A tuple of tuples of Univariates.
      * @param result Round univariate \f$ \tilde{S}^i\f$ represented by its evaluations over \f$ \{0,\ldots, D\} \f$.
      * @param gate_separators Round \f$pow_{\beta}\f$-factor \f$ ( (1−X_i) + X_i\cdot \beta_i )\f$.
-     * @param row_disabling_polynomial Required when `ApplyRowDisabling = true`; ignored otherwise.
+     * @param row_disabling_polynomial Optional; when non-null, its `eval_at_0/1` supply `L^{(i)}`
+     *        for per-relation `L` / `(1 - L)` scaling.
      */
-    template <typename ExtendedUnivariate, bool ApplyRowDisabling = false, typename TupleOfTuplesOfUnivariates>
+    template <typename ExtendedUnivariate, typename TupleOfTuplesOfUnivariates>
     static void extend_and_batch_univariates(const TupleOfTuplesOfUnivariates& tuple,
                                              ExtendedUnivariate& result,
                                              const bb::GateSeparatorPolynomial<FF>& gate_separators,
@@ -589,32 +590,26 @@ template <typename Flavor> class SumcheckProverRound {
         ExtendedUnivariate extended_random_polynomial =
             random_polynomial.template extend_to<ExtendedUnivariate::LENGTH>();
 
-        // Row-disabling factors — materialized only when ApplyRowDisabling.
-        [[maybe_unused]] ExtendedUnivariate main_factor;
-        [[maybe_unused]] ExtendedUnivariate offset_factor;
-        if constexpr (ApplyRowDisabling) {
-            // L^{(i)}(X) = L(u_0, ..., u_{i-1}, X, 0, ..., 0) is a linear univariate in X; its
-            // evaluations at X = 0, 1 are cached in `row_disabling_polynomial->eval_at_0/1`.
-            // Main-domain factor: (1 - L^{(i)})(X), with evals (1 - eval_at_0, 1 - eval_at_1).
-            // Offset-only factor:      L^{(i)}(X), with evals (eval_at_0, eval_at_1).
-            bb::Univariate<FF, 2> one_minus_L(
+        // Row-disabling factors. Defaults (1, 0) encode "no row disabling": main relations pass
+        // through unscaled and offset-only relations collapse to zero. When a row-disabling
+        // polynomial is supplied, `L^{(i)}(X) = L(u_0, ..., u_{i-1}, X, 0, ..., 0)` is a linear
+        // univariate with evals `eval_at_0/1`; the main-domain factor is `(1 - L^{(i)})(X)` and
+        // the offset-only factor is `L^{(i)}(X)`.
+        bb::Univariate<FF, 2> main_linear({ FF::one(), FF::one() });
+        bb::Univariate<FF, 2> offset_linear({ FF::zero(), FF::zero() });
+        if (row_disabling_polynomial != nullptr) {
+            main_linear = bb::Univariate<FF, 2>(
                 { FF::one() - row_disabling_polynomial->eval_at_0, FF::one() - row_disabling_polynomial->eval_at_1 });
-            bb::Univariate<FF, 2> L_uv({ row_disabling_polynomial->eval_at_0, row_disabling_polynomial->eval_at_1 });
-            // Extend to the round-univariate length so the factors can be multiplied with the
-            // α-scaled, pow-β-weighted per-relation sums at the round-univariate degree.
-            main_factor = one_minus_L.template extend_to<ExtendedUnivariate::LENGTH>();
-            offset_factor = L_uv.template extend_to<ExtendedUnivariate::LENGTH>();
+            offset_linear =
+                bb::Univariate<FF, 2>({ row_disabling_polynomial->eval_at_0, row_disabling_polynomial->eval_at_1 });
         }
+        const ExtendedUnivariate main_factor = main_linear.template extend_to<ExtendedUnivariate::LENGTH>();
+        const ExtendedUnivariate offset_factor = offset_linear.template extend_to<ExtendedUnivariate::LENGTH>();
 
         constexpr_for<0, std::tuple_size_v<TupleOfTuplesOfUnivariates>, 1>([&]<size_t relation_idx>() {
             using Relation = typename std::tuple_element_t<relation_idx, Relations>;
-            // Offset-only relations only enter the round univariate via their `L` factor
-            // (ApplyRowDisabling = true). The main-loop path discards their accumulated data.
-            if constexpr (!ApplyRowDisabling && IsOffsetOnlyRelation<Relation>) {
-                return;
-            }
-
             const auto& outer_element = std::get<relation_idx>(tuple);
+
             ExtendedUnivariate per_relation(0);
             constexpr_for<0, std::tuple_size_v<std::decay_t<decltype(outer_element)>>, 1>(
                 [&]<size_t subrelation_idx>() {
@@ -637,14 +632,10 @@ template <typename Flavor> class SumcheckProverRound {
                     }
                 });
 
-            if constexpr (ApplyRowDisabling) {
-                if constexpr (IsOffsetOnlyRelation<Relation>) {
-                    result += per_relation * offset_factor;
-                } else {
-                    result += per_relation * main_factor;
-                }
+            if constexpr (IsOffsetOnlyRelation<Relation>) {
+                result += per_relation * offset_factor;
             } else {
-                result += per_relation;
+                result += per_relation * main_factor;
             }
         });
     }

@@ -221,13 +221,10 @@ template <typename Flavor> class RelationUtils {
      * \f]
      * where `v_{R,j}` are the per-subrelation claimed evaluations, `α_{R,j}` are the α powers
      * (with `α_{0,0} = 1`), and `Λ_R ∈ {main_factor, offset_factor}` selected by
-     * `IsOffsetOnlyRelation<R>`. The defaults `(main_factor, offset_factor) = (1, 0)` encode
-     * "no row disabling" — main relations pass through unscaled and offset-only relations
-     * collapse to zero (matching the prover's main-loop path). For the row-disabling path pass
-     * `main_factor = (1 - L)(u)` and `offset_factor = L(u)`.
-     *
-     * The α counter advances through every subrelation regardless of `Λ_R`, matching the
-     * prover's `scale_univariates` which α-scales every accumulator.
+     * `IsOffsetOnlyRelation<R>`. Defaults `(main_factor, offset_factor) = (1, 0)` encode
+     * "no row disabling": main relations pass through unscaled and offset-only relations
+     * collapse to zero. For the row-disabling path pass `main_factor = (1 - L)(u)` and
+     * `offset_factor = L(u)`.
      */
     static FF scale_and_batch_elements(auto& tuple,
                                        const SubrelationSeparators& subrelation_separators,

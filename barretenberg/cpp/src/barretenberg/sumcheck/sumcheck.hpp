@@ -731,10 +731,11 @@ template <typename Flavor> class SumcheckProver {
         const Alphas& alphas,
         RowDisablingPolynomial<FF>& row_disabling_polynomial)
     {
-        // Row-disabling flavors batch with per-relation L / (1 - L); others use plain α-batching.
-        // The `&row_disabling_polynomial` argument is read only when the template flag is true.
-        return round.template compute_virtual_contribution<UseRowDisablingPolynomial<Flavor>>(
-            partially_evaluated_polynomials, relation_parameters, gate_separator, alphas, &row_disabling_polynomial);
+        // Row-disabling flavors batch with per-relation L / (1 - L). Non-row-disabling flavors
+        // pass nullptr so the callee's factor defaults collapse to plain α-batching.
+        const RowDisablingPolynomial<FF>* rd = UseRowDisablingPolynomial<Flavor> ? &row_disabling_polynomial : nullptr;
+        return round.compute_virtual_contribution(
+            partially_evaluated_polynomials, relation_parameters, gate_separator, alphas, rd);
     }
 
     /**
