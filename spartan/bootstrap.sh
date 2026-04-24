@@ -182,6 +182,16 @@ function block_capacity_bench_cmds {
   echo "$(hash):TIMEOUT=${timeout} BENCH_OUTPUT=bench-out/block_capacity.bench.json $root/yarn-project/end-to-end/scripts/run_test.sh simple block_capacity.test.ts"
 }
 
+function bench_10tps_cmds {
+  # Single 38-min sustained 10 TPS run on the bench-10tps network. Long enough
+  # for the sequencer to hit steady state beyond the initial mempool fill-up.
+  local high_value_tps=10
+  local low_value_tps=0
+  local test_duration=2280 # 38 min
+  local timeout=3600       # 1h — test plus drain/teardown buffer
+  echo "$(hash):TIMEOUT=${timeout} BENCH_OUTPUT=bench-out/n_tps.10tps.bench.json BENCH_SCENARIO=10tps LOW_VALUE_TPS=${low_value_tps} HIGH_VALUE_TPS=${high_value_tps} TEST_DURATION_SECONDS=${test_duration} $root/yarn-project/end-to-end/scripts/run_test.sh simple n_tps.test.ts"
+}
+
 function network_bench {
   rm -rf bench-out
   mkdir -p bench-out
@@ -222,6 +232,20 @@ function block_capacity_bench {
   export_admin_api_key
   export K8S_ENRICHER=${K8S_ENRICHER:-1}
   block_capacity_bench_cmds | parallelize 1
+}
+
+function bench_10tps {
+  rm -rf bench-out
+  mkdir -p bench-out
+
+  local env_file="$1"
+  source_network_env $env_file
+
+  echo_header "spartan bench-10tps"
+  gcp_auth
+  export_admin_api_key
+  export K8S_ENRICHER=${K8S_ENRICHER:-1}
+  bench_10tps_cmds | parallelize 1
 }
 
 function ensure_eth_balances {
@@ -288,7 +312,7 @@ case "$cmd" in
     run_network_tests "$1" "$2"
     ;;
 
-  network_tests|network_tests_1|network_tests_2|network_bench|proving_bench|block_capacity_bench)
+  network_tests|network_tests_1|network_tests_2|network_bench|proving_bench|block_capacity_bench|bench_10tps)
     env_file="$1"
     $cmd "$env_file"
     ;;
