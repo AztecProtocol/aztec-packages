@@ -35,7 +35,8 @@ typename BatchMergeProver::Polynomial BatchMergeProver::compute_degree_check_pol
         // Iterate over the columns for each subtable
         for (size_t col = 0; col < NUM_WIRES; col++) {
             const FF challenge = degree_check_challenges[(idx * NUM_WIRES) + col];
-            reversed_batched_poly.add_scaled(subtable_columns[idx][col].reverse(), challenge);
+            auto reversed_poly = subtable_columns[idx][col].reverse();
+            reversed_batched_poly.add_scaled(reversed_poly, challenge);
         }
     }
 
@@ -53,30 +54,30 @@ BatchMergeProver::Polynomial BatchMergeProver::compute_shplonk_batched_quotient(
 {
     // Q such that Q·(X - κ)·(X - κ⁻¹) = (X - κ⁻¹)·(Σᵢⱼ βᵢⱼ(Tᵢⱼ - tᵢⱼ) + Σⱼ βᴹⱼ(Mⱼ - mⱼ)) + (X - κ)·βᴳ(G - g)
     const size_t N = subtables.size();
+    const size_t M = max_subtables;
     Polynomial shplonk_batched_quotient(merged_table[0].size());
 
-    auto fetch_poly = [&](size_t idx_table, size_t idx_wire) -> const Polynomial& {
-        if (idx_table > N) {
-            bb::assert_failure("Invalid table index in MergeProver.");
-        }
-
-        if (idx_table < N) {
-            return subtables[idx_table][idx_wire];
-        }
-        return merged_table[idx_wire];
-    };
-
-    for (size_t idx_table = 0; idx_table < N + 1; ++idx_table) {
+    for (size_t idx_table = 0; idx_table < N; ++idx_table) {
         for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
             const size_t flat_idx = (idx_table * NUM_WIRES) + idx;
             const FF& challenge = shplonk_batching_challenges[flat_idx];
             const FF& eval = evals[flat_idx];
-            shplonk_batched_quotient.add_scaled(fetch_poly(idx_table, idx), challenge);
+            shplonk_batched_quotient.add_scaled(subtables[idx_table][idx], challenge);
             if (!shplonk_batched_quotient.is_empty()) {
                 shplonk_batched_quotient.at(0) -= challenge * eval;
             }
         }
     }
+    for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
+        const size_t flat_idx = (M * NUM_WIRES) + idx;
+        const FF& challenge = shplonk_batching_challenges[flat_idx];
+        const FF& eval = evals[flat_idx];
+        shplonk_batched_quotient.add_scaled(merged_table[idx], challenge);
+        if (!shplonk_batched_quotient.is_empty()) {
+            shplonk_batched_quotient.at(0) -= challenge * eval;
+        }
+    }
+
     // Q /= (X - κ)
     shplonk_batched_quotient.factor_roots(kappa);
 
@@ -105,29 +106,29 @@ BatchMergeProver::OpeningClaim BatchMergeProver::compute_shplonk_opening_claim(
     // Q' (partially evaluated batched quotient) =
     //   -Q·(z - κ) + Σᵢⱼ βᵢⱼ(Tᵢⱼ - tᵢⱼ) + Σⱼ βᴹⱼ(Mⱼ - mⱼ) + (z - κ)/(z - κ⁻¹)·βᴳ(G - g)
     const size_t N = subtables.size();
+    const size_t M = max_subtables;
     Polynomial shplonk_partially_evaluated(std::move(shplonk_batched_quotient));
     shplonk_partially_evaluated *= -(shplonk_opening_challenge - kappa);
 
-    auto fetch_poly = [&](size_t idx_table, size_t idx_wire) -> const Polynomial& {
-        if (idx_table > N) {
-            bb::assert_failure("Invalid table index in MergeProver.");
-        }
-
-        if (idx_table < N) {
-            return subtables[idx_table][idx_wire];
-        }
-        return merged_table[idx_wire];
-    };
-
-    for (size_t idx_table = 0; idx_table < N + 1; ++idx_table) {
+    for (size_t idx_table = 0; idx_table < N; ++idx_table) {
         for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
             const size_t flat_idx = (idx_table * NUM_WIRES) + idx;
             const FF& challenge = shplonk_batching_challenges[flat_idx];
             const FF& eval = evals[flat_idx];
-            shplonk_partially_evaluated.add_scaled(fetch_poly(idx_table, idx), challenge);
+            shplonk_partially_evaluated.add_scaled(subtables[idx_table][idx], challenge);
             if (!shplonk_partially_evaluated.is_empty()) {
                 shplonk_partially_evaluated.at(0) -= challenge * eval;
             }
+        }
+    }
+
+    for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
+        const size_t flat_idx = (M * NUM_WIRES) + idx;
+        const FF& challenge = shplonk_batching_challenges[flat_idx];
+        const FF& eval = evals[flat_idx];
+        shplonk_partially_evaluated.add_scaled(merged_table[idx], challenge);
+        if (!shplonk_partially_evaluated.is_empty()) {
+            shplonk_partially_evaluated.at(0) -= challenge * eval;
         }
     }
 
@@ -155,8 +156,7 @@ typename BatchMergeProver::MergeProof BatchMergeProver::construct_proof()
     // -------------------------------------------------------------------------
     // Step 1: Gather subtable column polynomials and their shift sizes
     // -------------------------------------------------------------------------
-    std::vector<std::array<Polynomial, NUM_WIRES>> subtable_cols =
-        op_queue->construct_subtable_columns(MERGE_FULL_SHIFT);
+    std::vector<std::array<Polynomial, NUM_WIRES>> subtable_cols = op_queue->construct_subtable_columns();
     std::vector<size_t> shift_sizes(N);
     size_t max_shift_size = 0;
     for (size_t i = 0; i < N; ++i) {
@@ -270,7 +270,6 @@ typename BatchMergeProver::MergeProof BatchMergeProver::construct_proof()
     // -------------------------------------------------------------------------
     Polynomial shplonk_batched_quotient = compute_shplonk_batched_quotient(
         subtable_cols, merged_table, betas, kappa, kappa_inv, degree_check_poly, evals);
-
     transcript->send_to_verifier("SHPLONK_Q", pcs_commitment_key.commit(shplonk_batched_quotient));
 
     // -------------------------------------------------------------------------

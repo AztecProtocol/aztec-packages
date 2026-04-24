@@ -46,7 +46,8 @@ template <typename Curve, size_t MaxMergeSize> class BatchMergeVerifier_ {
     static constexpr size_t MAX_MERGE_SIZE = MaxMergeSize;
     static constexpr size_t LOG_MAX_MERGE_SIZE = static_cast<size_t>(numeric::get_msb(MAX_MERGE_SIZE));
     static constexpr size_t MERGE_BATCHED_CLAIM_SIZE =
-        /*subtables*/ (MAX_MERGE_SIZE * NUM_WIRES) + /*merged table*/ NUM_WIRES + /*shplonk quotient, identity*/ 2;
+        /*subtables*/ (MAX_MERGE_SIZE * NUM_WIRES) + /*merged table*/ NUM_WIRES +
+        /*degree check, shplonk quotient, identity*/ 3;
 
     static constexpr bool IsRecursive = Curve::is_stdlib_type;
 

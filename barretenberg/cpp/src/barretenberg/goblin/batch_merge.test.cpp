@@ -1,0 +1,422 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], commit: }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
+// =====================
+
+#include "barretenberg/circuit_checker/circuit_checker.hpp"
+#include "barretenberg/commitment_schemes/shplonk/shplonk.hpp"
+#include "barretenberg/common/test.hpp"
+#include "barretenberg/crypto/poseidon2/poseidon2.hpp"
+#include "barretenberg/goblin/batch_merge_prover.hpp"
+#include "barretenberg/goblin/batch_merge_verifier.hpp"
+#include "barretenberg/op_queue/ecc_op_queue.hpp"
+#include "barretenberg/srs/global_crs.hpp"
+#include "barretenberg/stdlib/primitives/curves/bn254.hpp"
+#include "barretenberg/stdlib/proof/proof.hpp"
+#include "barretenberg/transcript/transcript.hpp"
+
+namespace bb {
+namespace {
+
+using NativeCurve = curve::BN254;
+using NativeG1 = NativeCurve::AffineElement;
+
+static constexpr size_t MAX_SUBTABLES = 9;
+static constexpr size_t NUM_WIRES = MegaExecutionTraceBlocks::NUM_WIRES;
+static constexpr size_t NUM_FRS_COMM = NativeTranscript::Codec::template calc_num_fields<NativeG1>();
+
+template <typename Curve, typename = void> struct BuilderTypeHelper {
+    struct DummyBuilder {};
+    using type = DummyBuilder;
+};
+
+template <typename Curve> struct BuilderTypeHelper<Curve, std::enable_if_t<Curve::is_stdlib_type>> {
+    using type = typename Curve::Builder;
+};
+
+enum class FaultMode {
+    NONE,
+    WRONG_MERGED_TABLE,    // merged table commitment/evals/opening are self-consistent but table is wrong
+    BAD_DEGREE_CHECK_POLY, // degree-check commitment/eval/opening are self-consistent but polynomial is wrong
+    PADDING_NOT_INFINITY,  // padded slot sends non-zero shift size and non-zero commitment/eval
+    SHIFT_SIZE_MINUS_ONE   // send k-1 as shift size for a subtable polynomial of size k
+};
+
+void populate_subtable(const std::shared_ptr<ECCOpQueue>& op_queue, size_t num_ops)
+{
+    for (size_t i = 0; i < num_ops; ++i) {
+        op_queue->add_accumulate(NativeG1::random_element());
+        op_queue->mul_accumulate(NativeG1::random_element(), bb::fr::random_element());
+        op_queue->eq_and_reset();
+    }
+}
+
+std::shared_ptr<ECCOpQueue> make_op_queue_with_n_subtables(size_t n)
+{
+    auto op_queue = std::make_shared<ECCOpQueue>();
+    for (size_t i = 0; i < n; ++i) {
+        if (i > 0) {
+            op_queue->initialize_new_subtable();
+        }
+        populate_subtable(op_queue, 1 + i);
+        op_queue->merge(MergeSettings::PREPEND);
+    }
+    return op_queue;
+}
+
+/**
+ * Running hash over all MAX_SUBTABLES slots.
+ * Real subtables are in slots [0, ..., N-1]; padded slots [N, ..., MAX_SUBTABLES-1]
+ * are hashed as well (their commitments should be points at infinity).
+ */
+bb::fr compute_running_hash(const std::vector<bb::fr>& proof, size_t N)
+{
+    std::vector<bb::fr> round_inputs;
+    bb::fr previous_challenge(0);
+    bool is_first_challenge = true;
+    bb::fr hash_challenge(0);
+
+    for (size_t subtable_idx = 0; subtable_idx < N; ++subtable_idx) {
+        round_inputs.clear();
+        if (!is_first_challenge) {
+            round_inputs.push_back(previous_challenge);
+        }
+        for (size_t col = 0; col < NUM_WIRES; ++col) {
+            const size_t global_col_idx = (subtable_idx * NUM_WIRES) + col;
+            const size_t base = (global_col_idx * NUM_FRS_COMM);
+            for (size_t j = 0; j < NUM_FRS_COMM; ++j) {
+                round_inputs.push_back(proof[base + j]);
+            }
+        }
+
+        // Transcript logic: hash full round buffer, then split into two challenge parts; get_challenge uses part[0].
+        const bb::fr full_hash = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>::hash(round_inputs);
+        previous_challenge = full_hash;
+        is_first_challenge = false;
+    }
+
+    return std::get<0>(NativeTranscript::Codec::split_challenge(previous_challenge));
+}
+
+/**
+ * Local prover copy used only in tests, with controlled fault injection points.
+ * Important: faults are applied before data is sent to transcript, so Fiat–Shamir remains consistent.
+ */
+class TweakableBatchMergeProver : public BatchMergeProver {
+    using Curve = curve::BN254;
+    using FF = Curve::ScalarField;
+    using PCS = KZG<Curve>;
+    using Polynomial = bb::Polynomial<FF>;
+    using OpeningClaim = ProverOpeningClaim<Curve>;
+    using Transcript = NativeTranscript;
+
+  public:
+    explicit TweakableBatchMergeProver(const std::shared_ptr<ECCOpQueue>& op_queue,
+                                       std::shared_ptr<Transcript> transcript,
+                                       size_t max_subtables,
+                                       FaultMode mode = FaultMode::NONE)
+        : BatchMergeProver(op_queue, std::move(transcript), max_subtables)
+        , fault_mode(mode)
+    {}
+
+    MergeProof construct_proof()
+    {
+        const size_t N = op_queue->num_subtables();
+        const size_t M = max_subtables;
+        BB_ASSERT_LTE(N, M, "TweakableBatchMergeProver: more subtables than max_subtables");
+
+        // Step 1
+        std::vector<std::array<Polynomial, NUM_WIRES>> subtable_cols = op_queue->construct_subtable_columns();
+        std::vector<size_t> shift_sizes(N);
+        size_t max_shift_size = 0;
+        for (size_t i = 0; i < N; ++i) {
+            shift_sizes[i] = subtable_cols[i][0].size();
+            max_shift_size = std::max(max_shift_size, shift_sizes[i]);
+        }
+
+        // Step 2: commit subtable columns
+        for (size_t idx = 0; idx < N; ++idx) {
+            for (size_t col = 0; col < NUM_WIRES; ++col) {
+                transcript->send_to_verifier("COLUMN_" + std::to_string(col) + "_" + std::to_string(idx),
+                                             pcs_commitment_key.commit(subtable_cols[idx][col]));
+            }
+            [[maybe_unused]] FF _ = transcript->template get_challenge<FF>("HASH_" + std::to_string(idx));
+        }
+
+        Polynomial zero_poly(0);
+        Polynomial one_poly(1);
+        one_poly.at(0) = 1;
+        for (size_t idx = N; idx < M; ++idx) {
+            for (size_t col = 0; col < NUM_WIRES; ++col) {
+                const bool non_infinity_padding =
+                    (fault_mode == FaultMode::PADDING_NOT_INFINITY && idx == N && col == 0);
+                transcript->send_to_verifier("COLUMN_" + std::to_string(col) + "_" + std::to_string(idx),
+                                             pcs_commitment_key.commit(non_infinity_padding ? one_poly : zero_poly));
+            }
+            [[maybe_unused]] FF _ = transcript->template get_challenge<FF>("HASH_" + std::to_string(idx));
+        }
+
+        // Step 3
+        transcript->send_to_verifier("NUM_SUBTABLES", static_cast<uint32_t>(N));
+        for (size_t i = 0; i < M; ++i) {
+            uint32_t sent_shift_size = static_cast<uint32_t>(i < N ? shift_sizes[i] : 0);
+            if (fault_mode == FaultMode::PADDING_NOT_INFINITY && i == N && N < M) {
+                sent_shift_size = 1;
+            }
+            if (fault_mode == FaultMode::SHIFT_SIZE_MINUS_ONE && i == 0 && N > 0) {
+                BB_ASSERT_GT(shift_sizes[0], 0U);
+                sent_shift_size = static_cast<uint32_t>(shift_sizes[0] - 1);
+            }
+            transcript->send_to_verifier("SHIFT_SIZE_" + std::to_string(i), sent_shift_size);
+        }
+
+        // Step 4: merged table
+        std::array<Polynomial, NUM_WIRES> merged_table(op_queue->construct_ultra_ops_table_columns());
+        if (fault_mode == FaultMode::WRONG_MERGED_TABLE && !merged_table[0].is_empty()) {
+            merged_table[0].at(0) += FF(1);
+        }
+        for (size_t col = 0; col < NUM_WIRES; ++col) {
+            transcript->send_to_verifier("MERGED_COLUMN_" + std::to_string(col),
+                                         pcs_commitment_key.commit(merged_table[col]));
+        }
+
+        // Step 5
+        const FF degree_check_challenge = transcript->template get_challenge<FF>("DEGREE_CHECK_CHALLENGE");
+        std::vector<FF> degree_check_challenges = { FF(1), degree_check_challenge };
+        for (size_t idx = 2; idx < M * NUM_WIRES; ++idx) {
+            degree_check_challenges.push_back(degree_check_challenges.back() * degree_check_challenge);
+        }
+
+        // Step 6: degree-check poly
+        Polynomial degree_check_poly =
+            compute_degree_check_polynomial(subtable_cols, degree_check_challenges, max_shift_size);
+        if (fault_mode == FaultMode::BAD_DEGREE_CHECK_POLY && !degree_check_poly.is_empty()) {
+            degree_check_poly.at(0) += FF(1);
+        }
+        transcript->send_to_verifier("DEGREE_CHECK_POLY", pcs_commitment_key.commit(degree_check_poly));
+
+        // Step 7
+        const size_t num_shplonk_challenges = ((M + 1) * NUM_WIRES) + 1;
+        const FF shplonk_batching_challenge = transcript->template get_challenge<FF>("SHPLONK_BATCHING_CHALLENGE");
+        std::vector<FF> betas = { FF(1), shplonk_batching_challenge };
+        for (size_t idx = 2; idx < num_shplonk_challenges; ++idx) {
+            betas.push_back(betas.back() * shplonk_batching_challenge);
+        }
+
+        // Step 8
+        const FF kappa = transcript->template get_challenge<FF>("KAPPA");
+        const FF kappa_inv = kappa.invert();
+
+        // Step 9: evals
+        std::vector<FF> evals;
+        for (size_t i = 0; i < M; ++i) {
+            for (size_t col = 0; col < NUM_WIRES; ++col) {
+                FF eval = FF(0);
+                if (i < N) {
+                    eval = subtable_cols[i][col].evaluate(kappa);
+                } else if ((fault_mode == FaultMode::PADDING_NOT_INFINITY && i == N && col == 0)) {
+                    eval = FF(1); // matches one_poly commitment at padded slot
+                }
+                evals.push_back(eval);
+                transcript->send_to_verifier("C_EVAL_" + std::to_string(i) + "_" + std::to_string(col), eval);
+            }
+        }
+
+        for (size_t col = 0; col < NUM_WIRES; ++col) {
+            evals.push_back(merged_table[col].evaluate(kappa));
+            transcript->send_to_verifier("MERGED_EVAL_" + std::to_string(col), evals.back());
+        }
+
+        evals.push_back(degree_check_poly.evaluate(kappa_inv));
+        transcript->send_to_verifier("DEGREE_CHECK_EVAL", evals.back());
+
+        // Step 10: shplonk quotient
+        Polynomial shplonk_batched_quotient = compute_shplonk_batched_quotient(
+            subtable_cols, merged_table, betas, kappa, kappa_inv, degree_check_poly, evals);
+        transcript->send_to_verifier("SHPLONK_Q", pcs_commitment_key.commit(shplonk_batched_quotient));
+
+        // Step 11: opening
+        const FF z = transcript->template get_challenge<FF>("SHPLONK_OPENING_CHALLENGE");
+        OpeningClaim shplonk_opening_claim = compute_shplonk_opening_claim(shplonk_batched_quotient,
+                                                                           z,
+                                                                           subtable_cols,
+                                                                           merged_table,
+                                                                           betas,
+                                                                           kappa,
+                                                                           kappa_inv,
+                                                                           degree_check_poly,
+                                                                           evals);
+
+        PCS::compute_opening_proof(pcs_commitment_key, shplonk_opening_claim, transcript);
+        return transcript->export_proof();
+    }
+
+  private:
+    FaultMode fault_mode;
+};
+
+} // namespace
+
+template <typename Curve> class BatchMergeSoundnessTests : public testing::Test {
+  public:
+    using FF = typename Curve::ScalarField;
+    using Verifier = BatchMergeVerifier_<Curve, MAX_SUBTABLES>;
+    using Proof = typename Verifier::Proof;
+    using Transcript = typename Verifier::Transcript;
+    static constexpr bool IsRecursive = Curve::is_stdlib_type;
+    using BuilderType = typename BuilderTypeHelper<Curve>::type;
+
+    struct VerifyResult {
+        bool reduction_ok;
+        bool pairing_ok;
+        bool circuit_ok;
+    };
+
+    static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
+
+    static Proof create_proof(BuilderType& builder, const std::vector<bb::fr>& native_proof)
+    {
+        if constexpr (IsRecursive) {
+            stdlib::Proof<BuilderType> stdlib_proof(builder, native_proof);
+            return stdlib_proof;
+        } else {
+            (void)builder;
+            return native_proof;
+        }
+    }
+
+    static FF create_hash(BuilderType& builder, const bb::fr& native_hash)
+    {
+        if constexpr (IsRecursive) {
+            auto hash = FF::from_witness(&builder, native_hash);
+            hash.unset_free_witness_tag();
+            return hash;
+        } else {
+            (void)builder;
+            return native_hash;
+        }
+    }
+
+    static bool check_circuit(BuilderType& builder)
+    {
+        if constexpr (IsRecursive) {
+            return CircuitChecker::check(builder);
+        } else {
+            (void)builder;
+            return true;
+        }
+    }
+
+    static VerifyResult prove_and_verify(const std::shared_ptr<ECCOpQueue>& op_queue,
+                                         FaultMode fault_mode = FaultMode::NONE,
+                                         bool wrong_hash = false)
+    {
+        auto prover_transcript = std::make_shared<NativeTranscript>();
+        std::vector<bb::fr> native_proof;
+        if (fault_mode == FaultMode::NONE) {
+            BatchMergeProver prover{ op_queue, prover_transcript, MAX_SUBTABLES };
+            native_proof = prover.construct_proof();
+        } else {
+            TweakableBatchMergeProver prover{ op_queue, prover_transcript, MAX_SUBTABLES, fault_mode };
+            native_proof = prover.construct_proof();
+        }
+
+        bb::fr native_hash = compute_running_hash(native_proof, op_queue->num_subtables());
+        if (wrong_hash) {
+            native_hash += bb::fr(1);
+        }
+
+        BuilderType builder;
+        Proof proof = create_proof(builder, native_proof);
+        FF hash = create_hash(builder, native_hash);
+
+        auto verifier_transcript = std::make_shared<Transcript>();
+        Verifier verifier{ verifier_transcript };
+        auto result = verifier.reduce_to_pairing_check(proof, hash);
+
+        return { result.reduction_succeeded, result.pairing_points.check(), check_circuit(builder) };
+    }
+};
+
+using CurveTypes = ::testing::Types<curve::BN254, stdlib::bn254<MegaCircuitBuilder>>;
+TYPED_TEST_SUITE(BatchMergeSoundnessTests, CurveTypes);
+
+// Completeness
+
+TYPED_TEST(BatchMergeSoundnessTests, CompletenessValidProofPassesWithPadding)
+{
+    auto op_queue = make_op_queue_with_n_subtables(3);
+    auto res = TestFixture::prove_and_verify(op_queue);
+    EXPECT_TRUE(res.reduction_ok);
+    EXPECT_TRUE(res.pairing_ok);
+    EXPECT_TRUE(res.circuit_ok);
+}
+
+TYPED_TEST(BatchMergeSoundnessTests, CompletenessValidProofPassesWithoutPadding)
+{
+    auto op_queue = make_op_queue_with_n_subtables(MAX_SUBTABLES);
+    auto res = TestFixture::prove_and_verify(op_queue);
+    EXPECT_TRUE(res.reduction_ok);
+    EXPECT_TRUE(res.pairing_ok);
+    EXPECT_TRUE(res.circuit_ok);
+}
+
+// Soundness
+
+TYPED_TEST(BatchMergeSoundnessTests, SoundnessWrongMergedTableFails)
+{
+    auto op_queue = make_op_queue_with_n_subtables(2);
+    auto res = TestFixture::prove_and_verify(op_queue, FaultMode::WRONG_MERGED_TABLE);
+    EXPECT_FALSE(res.reduction_ok); // Caught by the concatenation check
+    EXPECT_TRUE(res.pairing_ok);
+    if constexpr (TestFixture::IsRecursive) {
+        EXPECT_FALSE(res.circuit_ok);
+    }
+}
+
+TYPED_TEST(BatchMergeSoundnessTests, SoundnessWrongHashFails)
+{
+    auto op_queue = make_op_queue_with_n_subtables(2);
+    auto res = TestFixture::prove_and_verify(op_queue, FaultMode::NONE, true);
+    EXPECT_FALSE(res.reduction_ok); // Caught by the hash check
+    EXPECT_TRUE(res.pairing_ok);
+    if constexpr (TestFixture::IsRecursive) {
+        EXPECT_FALSE(res.circuit_ok);
+    }
+}
+
+TYPED_TEST(BatchMergeSoundnessTests, SoundnessBadSubtableDegreeCheckFails)
+{
+    auto op_queue = make_op_queue_with_n_subtables(2);
+    auto res = TestFixture::prove_and_verify(op_queue, FaultMode::BAD_DEGREE_CHECK_POLY);
+    EXPECT_FALSE(res.reduction_ok); // Caught by the degree check
+    EXPECT_TRUE(res.pairing_ok);
+    if constexpr (TestFixture::IsRecursive) {
+        EXPECT_FALSE(res.circuit_ok);
+    }
+}
+
+TYPED_TEST(BatchMergeSoundnessTests, SoundnessPaddingTableNotInfinityFails)
+{
+    auto op_queue = make_op_queue_with_n_subtables(2);
+    auto res = TestFixture::prove_and_verify(op_queue, FaultMode::PADDING_NOT_INFINITY);
+    EXPECT_FALSE(res.reduction_ok); // Caught by the degree check: shift sizes are zeroed out >= N
+    EXPECT_TRUE(res.pairing_ok);    // PCS is consistent
+    if constexpr (TestFixture::IsRecursive) {
+        EXPECT_FALSE(res.circuit_ok); // Caught by the degree check: shift sizes are zeroed out >= N
+    }
+}
+
+TYPED_TEST(BatchMergeSoundnessTests, SoundnessShiftSizeMinusOneFailsReductionOnly)
+{
+    auto op_queue = make_op_queue_with_n_subtables(2);
+    auto res = TestFixture::prove_and_verify(op_queue, FaultMode::SHIFT_SIZE_MINUS_ONE);
+    EXPECT_FALSE(res.reduction_ok); // Caught by the degree check
+    EXPECT_TRUE(res.pairing_ok);
+    if constexpr (TestFixture::IsRecursive) {
+        EXPECT_FALSE(res.circuit_ok);
+    }
+}
+
+} // namespace bb

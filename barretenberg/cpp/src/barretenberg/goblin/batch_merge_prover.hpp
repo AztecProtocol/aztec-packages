@@ -36,6 +36,7 @@ namespace bb {
  *
  */
 class BatchMergeProver {
+  protected:
     using Curve = curve::BN254;
     using FF = Curve::ScalarField;
     using Commitment = Curve::AffineElement;
@@ -80,7 +81,7 @@ class BatchMergeProver {
     // Exposed for test access
     CommitmentKey pcs_commitment_key;
 
-  private:
+  protected:
     std::shared_ptr<Transcript> transcript;
     std::shared_ptr<ECCOpQueue> op_queue;
     size_t max_subtables; // M
@@ -90,23 +91,23 @@ class BatchMergeProver {
         const std::vector<FF>& degree_check_challenges,
         const size_t max_size);
 
-    static Polynomial compute_shplonk_batched_quotient(const std::vector<std::array<Polynomial, NUM_WIRES>>& subtables,
-                                                       const std::array<Polynomial, NUM_WIRES>& merged_table,
-                                                       const std::vector<FF>& shplonk_batching_challenges,
-                                                       const FF& kappa,
-                                                       const FF& kappa_inv,
-                                                       const Polynomial& degree_check_poly,
-                                                       const std::vector<FF>& evals);
+    Polynomial compute_shplonk_batched_quotient(const std::vector<std::array<Polynomial, NUM_WIRES>>& subtables,
+                                                const std::array<Polynomial, NUM_WIRES>& merged_table,
+                                                const std::vector<FF>& shplonk_batching_challenges,
+                                                const FF& kappa,
+                                                const FF& kappa_inv,
+                                                const Polynomial& degree_check_poly,
+                                                const std::vector<FF>& evals);
 
-    static OpeningClaim compute_shplonk_opening_claim(Polynomial& shplonk_batched_quotient,
-                                                      const FF& shplonk_opening_challenge,
-                                                      const std::vector<std::array<Polynomial, NUM_WIRES>>& subtables,
-                                                      const std::array<Polynomial, NUM_WIRES>& merged_table,
-                                                      const std::vector<FF>& shplonk_batching_challenges,
-                                                      const FF& kappa,
-                                                      const FF& kappa_inv,
-                                                      Polynomial& degree_check_poly,
-                                                      const std::vector<FF>& evals);
+    OpeningClaim compute_shplonk_opening_claim(Polynomial& shplonk_batched_quotient,
+                                               const FF& shplonk_opening_challenge,
+                                               const std::vector<std::array<Polynomial, NUM_WIRES>>& subtables,
+                                               const std::array<Polynomial, NUM_WIRES>& merged_table,
+                                               const std::vector<FF>& shplonk_batching_challenges,
+                                               const FF& kappa,
+                                               const FF& kappa_inv,
+                                               Polynomial& degree_check_poly,
+                                               const std::vector<FF>& evals);
 };
 
 } // namespace bb

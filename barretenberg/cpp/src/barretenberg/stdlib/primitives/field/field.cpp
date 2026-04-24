@@ -1349,6 +1349,12 @@ std::pair<field_t<Builder>, field_t<Builder>> field_t<Builder>::no_wrap_split_at
 }
 
 // Explicit instantations of pow
+template field_t<bb::UltraCircuitBuilder> field_t<UltraCircuitBuilder>::pow<32UL>(
+    const field_t<bb::UltraCircuitBuilder>&) const;
+
+template field_t<bb::MegaCircuitBuilder> field_t<MegaCircuitBuilder>::pow<32UL>(
+    const field_t<bb::MegaCircuitBuilder>&) const;
+
 template field_t<bb::UltraCircuitBuilder> field_t<UltraCircuitBuilder>::pow<CONST_ECCVM_LOG_N>(
     const field_t<bb::UltraCircuitBuilder>&) const;
 
