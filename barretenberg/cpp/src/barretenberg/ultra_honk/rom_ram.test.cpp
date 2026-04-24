@@ -510,7 +510,7 @@ TYPED_TEST(UltraHonkTests, RomMaliciousFieldWrap)
     circuit_builder.set_ROM_element(rom_id, 2, circuit_builder.add_variable(FF(3)));
 
     // Read at index 0 via a variable index witness so an attacker can later change it.
-    uint32_t idx_witness    = circuit_builder.add_variable(FF(0));
+    uint32_t idx_witness = circuit_builder.add_variable(FF(0));
     uint32_t result_witness = circuit_builder.read_ROM_array(rom_id, idx_witness);
 
     TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(circuit_builder);
@@ -543,7 +543,7 @@ TYPED_TEST(UltraHonkTests, RomMaliciousFieldWrap)
     const FF p_minus_1 = -FF(1);
     vars[bad_builder.real_variable_index[sorted_0_idx_w]] = p_minus_1;
     vars[bad_builder.real_variable_index[sorted_0_val_w]] = FF(999);
-    vars[bad_builder.real_variable_index[idx_witness]]    = p_minus_1;
+    vars[bad_builder.real_variable_index[idx_witness]] = p_minus_1;
     vars[bad_builder.real_variable_index[result_witness]] = FF(999);
 
     // Run CircuitChecker: expected error in the arithmetic sub-relation from zero_idx's fix_witness.
@@ -607,8 +607,8 @@ TYPED_TEST(UltraHonkTests, RamMaliciousFieldWrap)
     const FF p_minus_1 = -FF(1);
     vars[bad_builder.real_variable_index[sorted_0_idx_w]] = p_minus_1;
     vars[bad_builder.real_variable_index[sorted_0_val_w]] = FF(999);
-    vars[bad_builder.real_variable_index[idx_witness]]    = p_minus_1;
-    vars[bad_builder.real_variable_index[write_val_w]]    = FF(999);
+    vars[bad_builder.real_variable_index[idx_witness]] = p_minus_1;
+    vars[bad_builder.real_variable_index[write_val_w]] = FF(999);
 
     // Run CircuitChecker: expected error in the arithmetic sub-relation from zero_idx's fix_witness.
     EXPECT_TRUE(CircuitChecker::check(circuit_builder));
