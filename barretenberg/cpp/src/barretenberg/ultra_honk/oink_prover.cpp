@@ -186,9 +186,7 @@ template <typename Flavor> void OinkProver<Flavor>::commit_to_z_perm()
 template <typename Flavor> void OinkProver<Flavor>::commit_to_masking_poly()
 {
     if constexpr (flavor_has_gemini_masking<Flavor>()) {
-        // Gemini masking poly only needs random content up to the actual polynomial extent, but its virtual size must
-        // match the other sumcheck polynomials (dyadic_size) so that sumcheck can read padding zeros past the extent
-        // without tripping the BB_ASSERT_DEBUG bounds check in Polynomial::get.
+        // Gemini masking poly only needs random content up to the actual polynomial extent
         const size_t polynomial_size = prover_instance->polynomials.max_end_index();
         prover_instance->polynomials.gemini_masking_poly =
             Polynomial<FF>::random(polynomial_size, prover_instance->dyadic_size(), /*start_index=*/0);
