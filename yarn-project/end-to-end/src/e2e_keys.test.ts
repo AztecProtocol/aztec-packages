@@ -7,7 +7,6 @@ import { DomainSeparator, INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto/poseidon';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
-import type { L2Block } from '@aztec/stdlib/block';
 import { siloNullifier } from '@aztec/stdlib/hash';
 import {
   computeAppNullifierHidingKey,

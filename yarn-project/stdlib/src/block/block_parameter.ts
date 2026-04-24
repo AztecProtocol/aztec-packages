@@ -1,4 +1,5 @@
 import { BlockNumberSchema } from '@aztec/foundation/branded-types';
+import { jsonStringify } from '@aztec/foundation/json-rpc';
 import { schemas } from '@aztec/foundation/schemas';
 
 import { z } from 'zod';
@@ -24,3 +25,19 @@ export const BlockParameterSchema = z.union([
 ]);
 
 export type BlockParameter = z.infer<typeof BlockParameterSchema>;
+
+export function inspectBlockParameter(param: BlockParameter) {
+  if (typeof param === 'number') {
+    return param.toString();
+  } else if (typeof param === 'string') {
+    return param;
+  } else if ('number' in param) {
+    return `number=${param.number.toString()}`;
+  } else if ('hash' in param) {
+    return `hash=${param.hash.toString()}`;
+  } else if ('archive' in param) {
+    return `archive=${param.archive.toString()}`;
+  } else {
+    return jsonStringify(param);
+  }
+}

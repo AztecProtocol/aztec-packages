@@ -2,6 +2,7 @@ import { BlockNumberSchema, CheckpointNumberSchema } from '@aztec/foundation/bra
 import type { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { schemas } from '@aztec/foundation/schemas';
+import type { IfFlag, Prettify } from '@aztec/foundation/types';
 
 import { z } from 'zod';
 
@@ -48,12 +49,6 @@ export type CheckpointResponseBase = {
   feeAssetPriceModifier: bigint;
 };
 
-type IfFlag<Opts, Key extends keyof CheckpointIncludeOptions, Field extends object> = Opts extends {
-  [K in Key]: true;
-}
-  ? Field
-  : Partial<Field>;
-
 // Only forward `includeTransactions` to nested blocks — the other include-flags on the checkpoint
 // options do not apply to the nested block responses (those carry no independent L1 / attestations).
 type NestedBlockOpts<Opts> = Opts extends { includeTransactions: true } ? { includeTransactions: true } : {};
@@ -67,11 +62,12 @@ type NestedBlockOpts<Opts> = Opts extends { includeTransactions: true } ? { incl
  * its nested blocks. The default type argument ({@link CheckpointIncludeOptions}) yields the
  * widest shape — what the JSON-RPC wire layer validates against.
  */
-export type CheckpointResponse<Opts extends CheckpointIncludeOptions = CheckpointIncludeOptions> =
+export type CheckpointResponse<Opts extends CheckpointIncludeOptions = CheckpointIncludeOptions> = Prettify<
   CheckpointResponseBase &
-    IfFlag<Opts, 'includeBlocks', { blocks: BlockResponse<NestedBlockOpts<Opts>>[] }> &
-    IfFlag<Opts, 'includeL1PublishInfo', { l1: L1PublishInfo }> &
-    IfFlag<Opts, 'includeAttestations', { attestations: CommitteeAttestation[] }>;
+    IfFlag<CheckpointIncludeOptions, Opts, 'includeBlocks', { blocks: BlockResponse<NestedBlockOpts<Opts>>[] }> &
+    IfFlag<CheckpointIncludeOptions, Opts, 'includeL1PublishInfo', { l1: L1PublishInfo }> &
+    IfFlag<CheckpointIncludeOptions, Opts, 'includeAttestations', { attestations: CommitteeAttestation[] }>
+>;
 
 /** Zod schema for the widest {@link CheckpointResponse} shape (all include-gated fields optional). */
 export const CheckpointResponseSchema = z.object({

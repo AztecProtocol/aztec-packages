@@ -50,12 +50,12 @@ import {
 import { CollectionLimitsConfig, PublicSimulatorConfig } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
-  type BlockData,
   BlockHash,
   type BlockParameter,
   type DataInBlock,
   L2Block,
   type L2BlockSource,
+  inspectBlockParameter,
 } from '@aztec/stdlib/block';
 import type {
   ContractClassPublic,
@@ -67,6 +67,10 @@ import type {
 import { GasFees, type ManaUsageEstimate } from '@aztec/stdlib/gas';
 import { computePublicDataTreeLeafSlot } from '@aztec/stdlib/hash';
 import type {
+  AztecNode,
+  AztecNodeAdmin,
+  AztecNodeAdminConfig,
+  AztecNodeDebug,
   BlockIncludeOptions,
   BlockResponse,
   ChainTip,
@@ -74,16 +78,10 @@ import type {
   CheckpointIncludeOptions,
   CheckpointParameter,
   CheckpointResponse,
+  GetContractClassLogsResponse,
+  GetPublicLogsResponse,
 } from '@aztec/stdlib/interfaces/client';
-import {
-  type AztecNode,
-  type AztecNodeAdmin,
-  type AztecNodeAdminConfig,
-  AztecNodeAdminConfigSchema,
-  type AztecNodeDebug,
-  type GetContractClassLogsResponse,
-  type GetPublicLogsResponse,
-} from '@aztec/stdlib/interfaces/client';
+import { AztecNodeAdminConfigSchema } from '@aztec/stdlib/interfaces/client';
 import {
   type AllowedElement,
   type ClientProtocolCircuitVerifier,
@@ -220,9 +218,9 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     return this.blockSource.getL2Tips();
   }
 
-  public async getBlockHeader(number: BlockNumber | 'latest'): Promise<BlockHeader | undefined> {
+  public getBlockHeader(number: BlockNumber | 'latest'): Promise<BlockHeader | undefined> {
     if (number === BlockNumber.ZERO) {
-      return this.worldStateSynchronizer.getCommitted().getInitialHeader();
+      return Promise.resolve(this.worldStateSynchronizer.getCommitted().getInitialHeader());
     }
     return this.blockSource.getBlockHeader(number);
   }
@@ -235,17 +233,17 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     return this.blockSource.getCheckpointsDataForEpoch(epoch);
   }
 
-  public async getBlockNumber(tip?: ChainTip): Promise<BlockNumber> {
+  public getBlockNumber(tip?: ChainTip): Promise<BlockNumber> {
     switch (tip) {
       case undefined:
       case 'proposed':
-        return await this.blockSource.getBlockNumber();
+        return this.blockSource.getBlockNumber();
       case 'checkpointed':
-        return await this.blockSource.getCheckpointedL2BlockNumber();
+        return this.blockSource.getCheckpointedL2BlockNumber();
       case 'proven':
-        return await this.blockSource.getProvenBlockNumber();
+        return this.blockSource.getProvenBlockNumber();
       case 'finalized':
-        return await this.blockSource.getFinalizedL2BlockNumber();
+        return this.blockSource.getFinalizedL2BlockNumber();
     }
   }
 
@@ -1932,7 +1930,9 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
 
     // Check it's within world state sync range
     if (blockNumber > blockSyncedTo) {
-      throw new Error(`Queried block ${block} not yet synced by the node (node is synced upto ${blockSyncedTo}).`);
+      throw new Error(
+        `Queried block ${inspectBlockParameter(block)} not yet synced by the node (node is synced upto ${blockSyncedTo}).`,
+      );
     }
     this.log.debug(`Using snapshot for block ${blockNumber}, world state synced upto ${blockSyncedTo}`);
 

@@ -4,6 +4,7 @@ import {
   IndexWithinCheckpointSchema,
 } from '@aztec/foundation/branded-types';
 import type { BlockNumber, CheckpointNumber, IndexWithinCheckpoint } from '@aztec/foundation/branded-types';
+import type { IfFlag, Prettify } from '@aztec/foundation/types';
 
 import { z } from 'zod';
 
@@ -46,10 +47,6 @@ export type BlockResponseBase = {
   number: BlockNumber;
 };
 
-type IfFlag<Opts, Key extends keyof BlockIncludeOptions, Field extends object> = Opts extends { [K in Key]: true }
-  ? Field
-  : Partial<Field>;
-
 /**
  * RPC-surface representation of an L2 block.
  *
@@ -61,10 +58,12 @@ type IfFlag<Opts, Key extends keyof BlockIncludeOptions, Field extends object> =
  * const b: BlockResponse<{ includeTransactions: true }> = await node.getBlock(1, { includeTransactions: true });
  * b.body; // required, not optional
  */
-export type BlockResponse<Opts extends BlockIncludeOptions = BlockIncludeOptions> = BlockResponseBase &
-  IfFlag<Opts, 'includeTransactions', { body: Body }> &
-  IfFlag<Opts, 'includeL1PublishInfo', { l1: L1PublishInfo }> &
-  IfFlag<Opts, 'includeAttestations', { attestations: CommitteeAttestation[] }>;
+export type BlockResponse<Opts extends BlockIncludeOptions = BlockIncludeOptions> = Prettify<
+  BlockResponseBase &
+    IfFlag<BlockIncludeOptions, Opts, 'includeTransactions', { body: Body }> &
+    IfFlag<BlockIncludeOptions, Opts, 'includeL1PublishInfo', { l1: L1PublishInfo }> &
+    IfFlag<BlockIncludeOptions, Opts, 'includeAttestations', { attestations: CommitteeAttestation[] }>
+>;
 
 /** Zod schema for the widest {@link BlockResponse} shape (all include-gated fields optional). */
 export const BlockResponseSchema = z.object({
