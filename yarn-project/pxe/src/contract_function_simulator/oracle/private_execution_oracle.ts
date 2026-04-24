@@ -82,12 +82,9 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
   private readonly senderTaggingStore: SenderTaggingStore;
   private totalPublicCalldataCount: number;
   private readonly initialSideEffectCounter: number;
-  /**
-   * Default sender for tags supplied when this oracle was constructed. Immutable for the lifetime of this call and
-   * propagated unchanged to every nested call. Returned by `getSenderForTags` when no override is active.
-   */
+  /** Sender for tags passed in at oracle construction time. Returned by `getSenderForTags` unless overridden. */
   private readonly defaultSenderForTags: AztecAddress | undefined;
-  /** Sender-for-tags override for this call, set by `setSenderForTags`. Nested calls are unaffected. */
+  /** Per-call sender-for-tags override, set by `setSenderForTags`. Takes precedence over `defaultSenderForTags`. */
   private currentSenderForTags: AztecAddress | undefined;
   private readonly simulator?: CircuitSimulator;
 
@@ -184,13 +181,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
    * for a tag in order to emit a log. Constrained tagging should not use this as there is no
    * guarantee that the recipient knows about the sender, and hence about the shared secret.
    *
-   * Returns the default supplied when this oracle was constructed unless this contract call has
-   * overridden it via `setSenderForTags`. Overrides are scoped to the current contract call and
-   * never propagate to nested calls, siblings, or parents.
-   *
-   * Note: `setSenderForTags` accepts a concrete `AztecAddress` (not an `Option`), so once it has
-   * been called, `currentSenderForTags` is permanently set for this call and there is no way to
-   * revert to the default.
+   * Returns `currentSenderForTags` if set (via `setSenderForTags`), otherwise `defaultSenderForTags`.
    */
   public getSenderForTags(): Promise<AztecAddress | undefined> {
     return Promise.resolve(this.currentSenderForTags ?? this.defaultSenderForTags);
@@ -203,10 +194,13 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
    * for a tag in order to emit a log. Constrained tagging should not use this as there is no
    * guarantee that the recipient knows about the sender, and hence about the shared secret.
    *
-   * The override is scoped to this call. Nested calls start from the initial default, and
-   * siblings and parents calls are unaffected.
+   * Overrides `defaultSenderForTags` for the remainder of this call. Each oracle instance is
+   * independent, so this has no effect on any other call in the execution.
    */
   public setSenderForTags(senderForTags: AztecAddress): Promise<void> {
+    this.logger.debug(
+      `Sender for tags switched to ${senderForTags} by contract ${this.contractAddress} (default was ${this.defaultSenderForTags})`,
+    );
     this.currentSenderForTags = senderForTags;
     return Promise.resolve();
   }
