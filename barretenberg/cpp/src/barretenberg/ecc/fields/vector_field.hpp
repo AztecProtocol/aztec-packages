@@ -472,14 +472,18 @@ namespace vector_field_detail {
 
 } // namespace vector_field_detail
 
-template <class Params>
-[[gnu::always_inline]] inline VectorField<Params> VectorField<Params>::load_contiguous(const Field* base) noexcept
+template <class Params> [[gnu::always_inline]] inline VectorField<Params>::VectorField(const Field* base) noexcept
 {
+    // Canonical AoS → interleaved transpose. Populates `*this` directly
+    // (no temporary, no copy elision required) — earlier the ctor was a
+    // delegating ctor `: VectorField(load_contiguous(base))` which had
+    // V8/TurboFan generating an unelided 180-byte field-by-field copy of
+    // the temporary, costing ~10 % on bulk-transpose loops.
+    //
     // Field 0 → scalar slot. Plain scalar pack: the scalar slot of
     // VectorField is laid out as 9 × u32 in `scalar_data`, so we use
     // pack_4u64_to_9x29 on the field's raw u64 limbs directly.
-    VectorField result;
-    vector_field_detail::pack_4u64_to_9x29(base[0].data, result.scalar_data);
+    vector_field_detail::pack_4u64_to_9x29(base[0].data, scalar_data);
 
     // Fields 1..4 → quad lanes. Each pack input is a u64 limb; we pair up
     // {f1, f2} and {f3, f4} into i64x2 v128s so one SIMD pack handles 2
@@ -521,9 +525,18 @@ template <class Params>
     // The i32x4 shuffle picks lanes 0, 2 from a_out[k] (f1.limb_k, f2.limb_k)
     // and lanes 0, 2 of b_out[k] (= shuffle indices 4, 6) for f3, f4.
     for (size_t k = 0; k < 9; ++k) {
-        result.quad_data[k] = wasm_i32x4_shuffle(a_out[k], b_out[k], 0, 2, 4, 6);
+        quad_data[k] = wasm_i32x4_shuffle(a_out[k], b_out[k], 0, 2, 4, 6);
     }
-    return result;
+}
+
+template <class Params>
+[[gnu::always_inline]] inline VectorField<Params> VectorField<Params>::load_contiguous(const Field* base) noexcept
+{
+    // Thin wrapper around the linear-memory ctor. NRVO/RVO normally elides
+    // the return copy when the caller writes `auto v = load_contiguous(...)`;
+    // the canonical impl lives in the ctor so direct `VectorField(ptr)`
+    // construction does not pay any copy cost.
+    return VectorField(base);
 }
 
 template <class Params>
@@ -566,16 +579,9 @@ template <class Params>
     wasm_v128_store(dst + 144, wasm_i64x2_shuffle(b_u[2], b_u[3], 1, 3)); // f4 hi
 }
 
-// Linear-memory constructor and store. These are the canonical primitives
-// the loop abstraction (`vectorized_for<5>` + `Polynomial[ContiguousVectorIndex<5>]`)
-// uses in place of `gather`/`scatter` — they assume the 5 lanes live at
-// consecutive addresses, which lets us drop the per-lane scalar loads
-// `gather` does and pack via the SIMD-shuffle path above.
-template <class Params>
-[[gnu::always_inline]] inline VectorField<Params>::VectorField(const Field* base) noexcept
-    : VectorField(load_contiguous(base))
-{}
-
+// Linear-memory store paired with the linear-memory ctor above.
+// `store_contiguous` is the canonical writer; `store_to` is the matching
+// member-named entry point used by the loop abstraction.
 template <class Params> [[gnu::always_inline]] inline void VectorField<Params>::store_to(Field* base) const noexcept
 {
     store_contiguous(base);
@@ -1234,13 +1240,16 @@ template <class Params> inline void VectorField<Params>::load_to_array(std::arra
     }
 }
 
+template <class Params> inline VectorField<Params>::VectorField(const Field* base) noexcept
+{
+    for (size_t i = 0; i < 5; ++i) {
+        elts[i] = base[i];
+    }
+}
+
 template <class Params> inline VectorField<Params> VectorField<Params>::load_contiguous(const Field* base) noexcept
 {
-    VectorField r;
-    for (size_t i = 0; i < 5; ++i) {
-        r.elts[i] = base[i];
-    }
-    return r;
+    return VectorField(base);
 }
 
 template <class Params> inline void VectorField<Params>::store_contiguous(Field* base) const noexcept
@@ -1249,11 +1258,6 @@ template <class Params> inline void VectorField<Params>::store_contiguous(Field*
         base[i] = elts[i];
     }
 }
-
-template <class Params>
-inline VectorField<Params>::VectorField(const Field* base) noexcept
-    : VectorField(load_contiguous(base))
-{}
 
 template <class Params> inline void VectorField<Params>::store_to(Field* base) const noexcept
 {
