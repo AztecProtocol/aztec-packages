@@ -62,29 +62,30 @@ class ZKBoundaryTests : public ::testing::Test {
 };
 
 /**
- * @brief Verify ECC op wire alignment: ecc_op_wire[i] == w_shift[i] at the boundary.
- * @details ecc_op_wire data starts at row TRACE_OFFSET (4),
- * while wire data starts at trace_offset (5). The shift convention (w_shift[r] = w[r+1]) bridges
- * the gap. This test checks the alignment holds and that corrupting it causes relation failure.
+ * @brief Verify ECC op wire alignment: ecc_op_wire[r] == w_shift[r] = w[r+1] at the boundary.
+ * @details ecc_op_wire data starts at row TRACE_OFFSET (4 for MegaZK), while the block's data in w starts at
+ * row TRACE_OFFSET + NUM_ZERO_ROWS (5). The shift convention (w_shift[r] = w[r+1]) bridges the gap, so
+ * ecc_op_wire[TRACE_OFFSET + i] == w[TRACE_OFFSET + NUM_ZERO_ROWS + i]. This test checks the alignment
+ * holds and that corrupting it causes relation failure.
  */
 TEST_F(ZKBoundaryTests, EccOpWireAlignmentAtDisabledBoundary)
 {
     auto instance = build_instance();
     auto& polys = instance->polynomials;
 
-    // ecc_op block starts at TRACE_OFFSET + NUM_ZERO_ROWS (the block's trace_offset)
-    constexpr size_t ecc_op_start = ProverInstance::TRACE_OFFSET + NUM_ZERO_ROWS;
+    // ecc_op_wire has data starting at TRACE_OFFSET (w_shift form); lagrange_ecc_op fires there.
+    constexpr size_t ecc_op_start = ProverInstance::TRACE_OFFSET;
 
     // Sanity: lagrange_ecc_op should be 1 starting at ecc_op_start
     ASSERT_EQ(polys.lagrange_ecc_op[ecc_op_start], FF{ 1 })
         << "lagrange_ecc_op should be active at row " << ecc_op_start;
 
-    // Verify alignment: ecc_op_wire[r] == w[r] for each active ecc_op row (no shift)
+    // Verify alignment: ecc_op_wire[r] == w[r + NUM_ZERO_ROWS] = w_shift[r] for each active ecc_op row.
     auto ecc_op_wires = polys.get_ecc_op_wires();
     auto wires = polys.get_wires();
     for (size_t r = ecc_op_start; polys.lagrange_ecc_op[r] == FF{ 1 }; r++) {
         for (auto [ecc_op_wire, wire] : zip_view(ecc_op_wires, wires)) {
-            ASSERT_EQ(ecc_op_wire[r], wire[r]) << "ecc_op_wire / w mismatch at row " << r;
+            ASSERT_EQ(ecc_op_wire[r], wire[r + NUM_ZERO_ROWS]) << "ecc_op_wire / w_shift mismatch at row " << r;
         }
     }
 
@@ -181,9 +182,10 @@ TEST_F(ZKBoundaryTests, EccOpWiresZeroInDisabledRegion)
     auto instance = build_instance();
     auto& polys = instance->polynomials;
 
-    // ecc_op data now starts at TRACE_OFFSET + NUM_ZERO_ROWS; everything before should be zero
+    // ecc_op data lives at rows [TRACE_OFFSET, ...) under the w_shift relation form; everything before
+    // (rows [0, TRACE_OFFSET)) should be zero.
     for (auto ecc_op_wire : polys.get_ecc_op_wires()) {
-        for (size_t r = 0; r < ProverInstance::TRACE_OFFSET + NUM_ZERO_ROWS; r++) {
+        for (size_t r = 0; r < ProverInstance::TRACE_OFFSET; r++) {
             EXPECT_EQ(ecc_op_wire[r], FF{ 0 }) << "ecc_op_wire should be zero at row " << r << " (disabled region)";
         }
     }

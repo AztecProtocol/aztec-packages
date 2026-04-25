@@ -9,7 +9,6 @@
 #include "barretenberg/commitment_schemes/claim.hpp"
 #include "barretenberg/flavor/mega_flavor.hpp"
 #include "barretenberg/flavor/ultra_flavor.hpp"
-#include "barretenberg/goblin/merge_constants.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/op_queue/ecc_op_queue.hpp"
 #include "barretenberg/transcript/transcript.hpp"
@@ -45,12 +44,6 @@ class MergeProver {
 
     CommitmentKey pcs_commitment_key;
 
-    // Offset for L and R: matches the circuit's ecc_op_wire layout.
-    static constexpr size_t FULL_SHIFT = MERGE_FULL_SHIFT;
-
-    // In APPEND mode (final merge), M retains a partial shift for Translator shiftability.
-    static constexpr size_t APPEND_OUTPUT_SHIFT = MERGE_APPEND_OUTPUT_SHIFT;
-
   private:
     std::shared_ptr<Transcript> transcript;
     std::shared_ptr<ECCOpQueue> op_queue;
@@ -84,8 +77,7 @@ class MergeProver {
      * @return Polynomial
      */
     static Polynomial compute_degree_check_polynomial(const std::array<Polynomial, NUM_WIRES>& left_table,
-                                                      const std::vector<FF>& degree_check_challenges,
-                                                      size_t shift_size);
+                                                      const std::vector<FF>& degree_check_challenges);
 
     /**
      * @brief Compute the batched Shplonk quotient polynomial.
