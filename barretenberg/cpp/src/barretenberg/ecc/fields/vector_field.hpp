@@ -191,6 +191,22 @@ template <class Params> struct alignas(32) VectorField {
         base[idx[4]] = a[4];
     }
 
+    // Contiguous load: lane L = base[L] for L in 0..4. The canonical
+    // construction path used by the vectorised loop abstraction in place of
+    // gather — no random-access load, no scalar-pack staging, just a direct
+    // AoS→interleaved transpose driven by SIMD shuffles.
+    static VectorField load_contiguous(const Field* base) noexcept;
+
+    // Contiguous store: writes base[L] = this->get(L) for L in 0..4. The
+    // matching write half of load_contiguous; called by the loop abstraction
+    // in place of scatter.
+    void store_contiguous(Field* base) const noexcept;
+
+    // Broadcast a single Field to all 5 lanes. Much cheaper than the
+    // std::array-of-5 constructor, which re-packs the same value 5 times;
+    // this packs once and splats the 9 limbs across the 4 quad lanes.
+    static VectorField broadcast(const Field& s) noexcept;
+
     // Mixed-type operators: broadcast scalar into a VectorField and delegate.
     friend VectorField operator+(VectorField v, const Field& s) noexcept
     {
@@ -415,127 +431,113 @@ template <class Params>
 // Fast path for `vectorized_for<5>` bulk iterations: the 5 lanes always live
 // at consecutive Fr addresses, so we can transpose AoS → 9×29 interleaved
 // using only SIMD ops — no scalar pack and no staging round-trip through
-// memory. Compared to the gather/store_from_array path that processes one
-// Fr at a time, the AoS→interleaved bit-pack is parallel across 2 fields per
-// `i64x2` lane pair.
+// memory.
 //
-// Cost reduction (wasmtime):
-//   - gather + store_from_array: ~44 ns per 5-field block (5 scalar packs
-//     + 9 i32x4_make).
-//   - load_contiguous (SIMD pack): ~half of that, mostly bound by the 9
-//     i64x2 shifts + ands per pair of fields and the final 9 lane-merging
-//     i32x4 shuffles.
+// AoS layout in memory for fields 1..4 (each Fr is 8 × u32 little-endian =
+// 32 B): base[1]: u32_1[0..7], base[2]: u32_2[0..7], base[3]: u32_3[0..7],
+// base[4]: u32_4[0..7].
+//
+// Strategy: load 8 v128 (4 fields × 2 v128 per Fr, lo holds u32[0..3], hi
+// holds u32[4..7]), then run two 4×4 i32 transposes — one over the four
+// `lo` halves to build IN[0..3] and one over the four `hi` halves to build
+// IN[4..7] — so lane L of IN[m] holds field (L+1)'s u32 chunk m. Each of
+// the 9 × 29-bit output limbs is then assembled in pure i32x4 ops:
+// limbs 1..7 each cost 4 ops (shr / shl / or / and), limbs 0 and 8 cost
+// just one op each. Field 0 → scalar slot via the standard scalar pack.
+//
+// Why i32x4 (variant 1) beats the older i64x2 pair-pack on V8/TurboFan:
+//   - One transpose covers all 4 quad fields in parallel; the i64x2 path
+//     ran two pair-packs (2 fields each) and then merged the i64x2 lo32s
+//     into one i32x4 with 9 extra cross-vector shuffles per pack.
+//   - Every output limb is computed entirely in i32x4 ops, so no
+//     i64x2-to-i32x4 lane-merging needed at the end.
+// Measured on V8 (node --no-liftoff):
+//   load_contiguous_only:  ~21 ns/VF -> ~12 ns/VF (compute overhead 12 -> 3)
+//   store_contiguous_only: ~15 ns/VF -> ~9 ns/VF  (compute overhead 6 -> ~0)
 
 namespace vector_field_detail {
 
-// Pack 2 fields' 4×u64 (held as 4 v128_t i64x2 pairs, lane 0 = field A's
-// limb, lane 1 = field B's limb) into 9 × 29-bit limbs (held as 9 v128_t
-// i64x2 pairs, each lane is the corresponding 29-bit value zero-extended).
-//
-// Direct SIMD port of `pack_4u64_to_9x29`, processed across the 2 lanes in
-// parallel. Eight of the nine output limbs need only one shifted+masked
-// source u64; limbs 2/4/6 splice 2 source u64s.
-[[gnu::always_inline]] inline void pack_2fields_4u64_to_9x29_simd(
-    v128_t in0, v128_t in1, v128_t in2, v128_t in3, v128_t out[9]) noexcept
+// 4×4 i32 transpose. Given 4 i32x4 vectors with logical layout:
+//   row0 = { a0, a1, a2, a3 }
+//   row1 = { b0, b1, b2, b3 }
+//   row2 = { c0, c1, c2, c3 }
+//   row3 = { d0, d1, d2, d3 }
+// produce:
+//   col0 = { a0, b0, c0, d0 }   col1 = { a1, b1, c1, d1 }
+//   col2 = { a2, b2, c2, d2 }   col3 = { a3, b3, c3, d3 }
+// in 8 i32x4 shuffles.
+[[gnu::always_inline]] inline void transpose_4x4_i32x4(
+    v128_t r0, v128_t r1, v128_t r2, v128_t r3, v128_t& c0, v128_t& c1, v128_t& c2, v128_t& c3) noexcept
 {
-    const v128_t MASK29 = wasm_i64x2_splat(0x1fffffffLL);
-    out[0] = wasm_v128_and(in0, MASK29);
-    out[1] = wasm_v128_and(wasm_u64x2_shr(in0, 29), MASK29);
-    // limb 2 = (in0[58..63] | (in1[0..22] << 6)). Shifted halves naturally
-    // partition into bits [0..5] and [6..28], so the OR builds the 29-bit
-    // limb. The AND keeps in1's left-shifted bits within 29 bits.
-    out[2] = wasm_v128_or(wasm_u64x2_shr(in0, 58), wasm_v128_and(wasm_i64x2_shl(in1, 6), MASK29));
-    out[3] = wasm_v128_and(wasm_u64x2_shr(in1, 23), MASK29);
-    out[4] = wasm_v128_or(wasm_u64x2_shr(in1, 52), wasm_v128_and(wasm_i64x2_shl(in2, 12), MASK29));
-    out[5] = wasm_v128_and(wasm_u64x2_shr(in2, 17), MASK29);
-    out[6] = wasm_v128_or(wasm_u64x2_shr(in2, 46), wasm_v128_and(wasm_i64x2_shl(in3, 18), MASK29));
-    out[7] = wasm_v128_and(wasm_u64x2_shr(in3, 11), MASK29);
-    // limb 8 has at most 24 bits set (BN254 Fr's modulus < 2^254 < 2^261),
-    // so the high 5 bits are guaranteed zero — no mask required.
-    out[8] = wasm_u64x2_shr(in3, 40);
-}
-
-// Inverse of pack_2fields_4u64_to_9x29_simd: 9 × 29-bit limbs (i64x2 lanes
-// with the 29-bit value zero-extended) → 4 × u64 (i64x2 lanes).
-//
-// Direct SIMD port of `unpack_9x29_to_4u64`, processed across the 2 lanes
-// in parallel.
-[[gnu::always_inline]] inline void unpack_2fields_9x29_to_4u64_simd(const v128_t in[9], v128_t out[4]) noexcept
-{
-    out[0] = wasm_v128_or(wasm_v128_or(in[0], wasm_i64x2_shl(in[1], 29)), wasm_i64x2_shl(in[2], 58));
-    out[1] = wasm_v128_or(wasm_v128_or(wasm_u64x2_shr(in[2], 6), wasm_i64x2_shl(in[3], 23)), wasm_i64x2_shl(in[4], 52));
-    out[2] =
-        wasm_v128_or(wasm_v128_or(wasm_u64x2_shr(in[4], 12), wasm_i64x2_shl(in[5], 17)), wasm_i64x2_shl(in[6], 46));
-    out[3] =
-        wasm_v128_or(wasm_v128_or(wasm_u64x2_shr(in[6], 18), wasm_i64x2_shl(in[7], 11)), wasm_i64x2_shl(in[8], 40));
+    const v128_t t0 = wasm_i32x4_shuffle(r0, r1, 0, 4, 1, 5); // {a0,b0,a1,b1}
+    const v128_t t1 = wasm_i32x4_shuffle(r0, r1, 2, 6, 3, 7); // {a2,b2,a3,b3}
+    const v128_t t2 = wasm_i32x4_shuffle(r2, r3, 0, 4, 1, 5); // {c0,d0,c1,d1}
+    const v128_t t3 = wasm_i32x4_shuffle(r2, r3, 2, 6, 3, 7); // {c2,d2,c3,d3}
+    c0 = wasm_i32x4_shuffle(t0, t2, 0, 1, 4, 5);              // {a0,b0,c0,d0}
+    c1 = wasm_i32x4_shuffle(t0, t2, 2, 3, 6, 7);              // {a1,b1,c1,d1}
+    c2 = wasm_i32x4_shuffle(t1, t3, 0, 1, 4, 5);              // {a2,b2,c2,d2}
+    c3 = wasm_i32x4_shuffle(t1, t3, 2, 3, 6, 7);              // {a3,b3,c3,d3}
 }
 
 } // namespace vector_field_detail
 
 template <class Params> [[gnu::always_inline]] inline VectorField<Params>::VectorField(const Field* base) noexcept
 {
-    // Canonical AoS → interleaved transpose. Populates `*this` directly
-    // (no temporary, no copy elision required) — earlier the ctor was a
-    // delegating ctor `: VectorField(load_contiguous(base))` which had
-    // V8/TurboFan generating an unelided 180-byte field-by-field copy of
-    // the temporary, costing ~10 % on bulk-transpose loops.
-    //
-    // Field 0 → scalar slot. Plain scalar pack: the scalar slot of
-    // VectorField is laid out as 9 × u32 in `scalar_data`, so we use
-    // pack_4u64_to_9x29 on the field's raw u64 limbs directly.
+    // Field 0 → scalar slot (plain scalar pack on the raw u64 limbs).
     vector_field_detail::pack_4u64_to_9x29(base[0].data, scalar_data);
 
-    // Fields 1..4 → quad lanes. Each pack input is a u64 limb; we pair up
-    // {f1, f2} and {f3, f4} into i64x2 v128s so one SIMD pack handles 2
-    // fields at a time. The final i32x4 quad_data[k] then merges the two
-    // i64x2 pair-results.
+    // Fields 1..4 → quad lanes via a single i32x4 transpose-then-pack chain.
     const uint8_t* p = reinterpret_cast<const uint8_t*>(base);
-    // Each Fr is 32 bytes = 2 v128. f{i}_lo holds {f{i}.in[0], f{i}.in[1]},
-    // f{i}_hi holds {f{i}.in[2], f{i}.in[3]} (both as i64x2 lanes).
-    v128_t f1_lo = wasm_v128_load(p + 32);
-    v128_t f1_hi = wasm_v128_load(p + 48);
-    v128_t f2_lo = wasm_v128_load(p + 64);
-    v128_t f2_hi = wasm_v128_load(p + 80);
-    v128_t f3_lo = wasm_v128_load(p + 96);
-    v128_t f3_hi = wasm_v128_load(p + 112);
-    v128_t f4_lo = wasm_v128_load(p + 128);
-    v128_t f4_hi = wasm_v128_load(p + 144);
+    const v128_t f1_lo = wasm_v128_load(p + 32);
+    const v128_t f1_hi = wasm_v128_load(p + 48);
+    const v128_t f2_lo = wasm_v128_load(p + 64);
+    const v128_t f2_hi = wasm_v128_load(p + 80);
+    const v128_t f3_lo = wasm_v128_load(p + 96);
+    const v128_t f3_hi = wasm_v128_load(p + 112);
+    const v128_t f4_lo = wasm_v128_load(p + 128);
+    const v128_t f4_hi = wasm_v128_load(p + 144);
 
-    // Per-input-limb {f1, f2} i64x2 pairs.
-    v128_t a_in0 = wasm_i64x2_shuffle(f1_lo, f2_lo, 0, 2);
-    v128_t a_in1 = wasm_i64x2_shuffle(f1_lo, f2_lo, 1, 3);
-    v128_t a_in2 = wasm_i64x2_shuffle(f1_hi, f2_hi, 0, 2);
-    v128_t a_in3 = wasm_i64x2_shuffle(f1_hi, f2_hi, 1, 3);
-    // Per-input-limb {f3, f4} i64x2 pairs.
-    v128_t b_in0 = wasm_i64x2_shuffle(f3_lo, f4_lo, 0, 2);
-    v128_t b_in1 = wasm_i64x2_shuffle(f3_lo, f4_lo, 1, 3);
-    v128_t b_in2 = wasm_i64x2_shuffle(f3_hi, f4_hi, 0, 2);
-    v128_t b_in3 = wasm_i64x2_shuffle(f3_hi, f4_hi, 1, 3);
+    // Two 4×4 transposes (8 + 8 shuffles). After this, lane L of IN[m]
+    // holds field (L+1)'s u32 chunk m for m in 0..7.
+    v128_t IN0, IN1, IN2, IN3, IN4, IN5, IN6, IN7;
+    vector_field_detail::transpose_4x4_i32x4(f1_lo, f2_lo, f3_lo, f4_lo, IN0, IN1, IN2, IN3);
+    vector_field_detail::transpose_4x4_i32x4(f1_hi, f2_hi, f3_hi, f4_hi, IN4, IN5, IN6, IN7);
 
-    // SIMD-pack each pair of fields independently into 9 × 29-bit limbs.
-    v128_t a_out[9];
-    v128_t b_out[9];
-    vector_field_detail::pack_2fields_4u64_to_9x29_simd(a_in0, a_in1, a_in2, a_in3, a_out);
-    vector_field_detail::pack_2fields_4u64_to_9x29_simd(b_in0, b_in1, b_in2, b_in3, b_out);
-
-    // Combine the two i64x2 pair-results into one i32x4 per output limb.
-    // a_out[k] is i64x2 with {f1.limb_k, f2.limb_k}; viewed as i32x4 lanes
-    // 0/1/2/3 = {f1.limb_k_lo32, 0, f2.limb_k_lo32, 0} (the high u32 of
-    // each i64 lane is zero because the 29-bit limb fits in a u32).
-    // The i32x4 shuffle picks lanes 0, 2 from a_out[k] (f1.limb_k, f2.limb_k)
-    // and lanes 0, 2 of b_out[k] (= shuffle indices 4, 6) for f3, f4.
-    for (size_t k = 0; k < 9; ++k) {
-        quad_data[k] = wasm_i32x4_shuffle(a_out[k], b_out[k], 0, 2, 4, 6);
-    }
+    // 29-bit limb assembly. Each 29-bit limb k spans bits [29k .. 29k+28] of
+    // the 256-bit number. Within an 8 × u32 representation the boundary
+    // 29k mod 32 / 29k / 32 lookup is:
+    //
+    //   limb   bit-range        u32 chunk   lo-shift   hi-shift   bits-from-hi
+    //     0    [  0 ..  28]     IN0          0          —         0
+    //     1    [ 29 ..  57]     IN0/IN1     29           3        26
+    //     2    [ 58 ..  86]     IN1/IN2     26           6        23
+    //     3    [ 87 .. 115]     IN2/IN3     23           9        20
+    //     4    [116 .. 144]     IN3/IN4     20          12        17
+    //     5    [145 .. 173]     IN4/IN5     17          15        14
+    //     6    [174 .. 202]     IN5/IN6     14          18        11
+    //     7    [203 .. 231]     IN6/IN7     11          21         8
+    //     8    [232 .. 260]     IN7          8          —         0  (24-bit max)
+    //
+    // For limbs 1..7 we compute `((lo >> lo_shift) | (hi << hi_shift)) & MASK29`.
+    // The trailing AND lets us skip masking the source `hi`.
+    const v128_t MASK29 = wasm_i32x4_splat(0x1fffffff);
+    quad_data[0] = wasm_v128_and(IN0, MASK29);
+    quad_data[1] = wasm_v128_and(wasm_v128_or(wasm_u32x4_shr(IN0, 29), wasm_i32x4_shl(IN1, 3)), MASK29);
+    quad_data[2] = wasm_v128_and(wasm_v128_or(wasm_u32x4_shr(IN1, 26), wasm_i32x4_shl(IN2, 6)), MASK29);
+    quad_data[3] = wasm_v128_and(wasm_v128_or(wasm_u32x4_shr(IN2, 23), wasm_i32x4_shl(IN3, 9)), MASK29);
+    quad_data[4] = wasm_v128_and(wasm_v128_or(wasm_u32x4_shr(IN3, 20), wasm_i32x4_shl(IN4, 12)), MASK29);
+    quad_data[5] = wasm_v128_and(wasm_v128_or(wasm_u32x4_shr(IN4, 17), wasm_i32x4_shl(IN5, 15)), MASK29);
+    quad_data[6] = wasm_v128_and(wasm_v128_or(wasm_u32x4_shr(IN5, 14), wasm_i32x4_shl(IN6, 18)), MASK29);
+    quad_data[7] = wasm_v128_and(wasm_v128_or(wasm_u32x4_shr(IN6, 11), wasm_i32x4_shl(IN7, 21)), MASK29);
+    // limb 8: top 24 bits of IN7, no mask needed (BN254 Fr coarse form is
+    // < 2 * p < 2^255, so the top u32 has at most 23 set bits and bits
+    // 24..31 are zero; shifting right by 8 leaves at most 24 bits set).
+    quad_data[8] = wasm_u32x4_shr(IN7, 8);
 }
 
 template <class Params>
 [[gnu::always_inline]] inline VectorField<Params> VectorField<Params>::load_contiguous(const Field* base) noexcept
 {
-    // Thin wrapper around the linear-memory ctor. NRVO/RVO normally elides
-    // the return copy when the caller writes `auto v = load_contiguous(...)`;
-    // the canonical impl lives in the ctor so direct `VectorField(ptr)`
-    // construction does not pay any copy cost.
     return VectorField(base);
 }
 
@@ -545,38 +547,56 @@ template <class Params>
     // Field 0 ← scalar slot.
     vector_field_detail::unpack_9x29_to_4u64(scalar_data, base[0].data);
 
-    // Fields 1..4 ← quad lanes. Inverse of load_contiguous: split each
-    // i32x4 quad_data[k] back into two i64x2 pairs, SIMD-unpack each pair
-    // to 4×u64, and shuffle into per-Fr lo/hi v128 stores.
-    const v128_t zero_v = wasm_i64x2_splat(0);
-    v128_t a_in[9];
-    v128_t b_in[9];
-    for (size_t k = 0; k < 9; ++k) {
-        // quad_data[k] is i32x4 = {f1.limb_k, f2.limb_k, f3.limb_k, f4.limb_k}.
-        // Build i64x2 a_in[k] = {f1.limb_k, f2.limb_k} by interleaving with
-        // zeros: i32x4 view = {f1.limb_k, 0, f2.limb_k, 0}.
-        a_in[k] = wasm_i32x4_shuffle(quad_data[k], zero_v, 0, 4, 1, 5);
-        // i64x2 b_in[k] = {f3.limb_k, f4.limb_k}.
-        b_in[k] = wasm_i32x4_shuffle(quad_data[k], zero_v, 2, 4, 3, 5);
-    }
+    // Fields 1..4 ← quad lanes. Inverse of the load:
+    //   1. Reassemble each output u32 chunk as i32x4 (lane L = field (L+1)'s
+    //      chunk m), splicing two adjacent 29-bit limbs.
+    //   2. Run two 4×4 i32 transposes to demux the 8 chunks back into one
+    //      lo + hi v128 per Fr.
+    //
+    // u32 chunk → 29-bit limb mapping (inverse of the load table):
+    //
+    //   chunk   bit-range      from limbs   lo>>shift   hi<<shift
+    //     0     [  0 ..  31]   l0/l1          0           29
+    //     1     [ 32 ..  63]   l1/l2          3           26
+    //     2     [ 64 ..  95]   l2/l3          6           23
+    //     3     [ 96 .. 127]   l3/l4          9           20
+    //     4     [128 .. 159]   l4/l5         12           17
+    //     5     [160 .. 191]   l5/l6         15           14
+    //     6     [192 .. 223]   l6/l7         18           11
+    //     7     [224 .. 255]   l7/l8         21            8
+    //
+    // No mask needed on the result: each (limb >> hi_shift) << shift_lo cannot
+    // exceed 32 bits because we shift the incoming 29-bit limb left by ≤21
+    // and OR it on top of bits ≤21 of the running u32 — bit 32 is never set.
 
-    v128_t a_u[4];
-    v128_t b_u[4];
-    vector_field_detail::unpack_2fields_9x29_to_4u64_simd(a_in, a_u);
-    vector_field_detail::unpack_2fields_9x29_to_4u64_simd(b_in, b_u);
+    const v128_t l0 = quad_data[0], l1 = quad_data[1], l2 = quad_data[2];
+    const v128_t l3 = quad_data[3], l4 = quad_data[4], l5 = quad_data[5];
+    const v128_t l6 = quad_data[6], l7 = quad_data[7], l8 = quad_data[8];
 
-    // a_u[l] is i64x2 with {f1.in[l], f2.in[l]}. To store as 5 × 32-byte
-    // AoS, we need {f1.in[0], f1.in[1]} and {f1.in[2], f1.in[3]} per Fr —
-    // one i64x2 shuffle per 16-byte half-Fr.
+    const v128_t OUT0 = wasm_v128_or(l0, wasm_i32x4_shl(l1, 29));
+    const v128_t OUT1 = wasm_v128_or(wasm_u32x4_shr(l1, 3), wasm_i32x4_shl(l2, 26));
+    const v128_t OUT2 = wasm_v128_or(wasm_u32x4_shr(l2, 6), wasm_i32x4_shl(l3, 23));
+    const v128_t OUT3 = wasm_v128_or(wasm_u32x4_shr(l3, 9), wasm_i32x4_shl(l4, 20));
+    const v128_t OUT4 = wasm_v128_or(wasm_u32x4_shr(l4, 12), wasm_i32x4_shl(l5, 17));
+    const v128_t OUT5 = wasm_v128_or(wasm_u32x4_shr(l5, 15), wasm_i32x4_shl(l6, 14));
+    const v128_t OUT6 = wasm_v128_or(wasm_u32x4_shr(l6, 18), wasm_i32x4_shl(l7, 11));
+    const v128_t OUT7 = wasm_v128_or(wasm_u32x4_shr(l7, 21), wasm_i32x4_shl(l8, 8));
+
+    // 4×4 transpose of (OUT0..3) → (f1_lo, f2_lo, f3_lo, f4_lo).
+    // 4×4 transpose of (OUT4..7) → (f1_hi, f2_hi, f3_hi, f4_hi).
+    v128_t f1_lo, f2_lo, f3_lo, f4_lo, f1_hi, f2_hi, f3_hi, f4_hi;
+    vector_field_detail::transpose_4x4_i32x4(OUT0, OUT1, OUT2, OUT3, f1_lo, f2_lo, f3_lo, f4_lo);
+    vector_field_detail::transpose_4x4_i32x4(OUT4, OUT5, OUT6, OUT7, f1_hi, f2_hi, f3_hi, f4_hi);
+
     uint8_t* dst = reinterpret_cast<uint8_t*>(base);
-    wasm_v128_store(dst + 32, wasm_i64x2_shuffle(a_u[0], a_u[1], 0, 2));  // f1 lo
-    wasm_v128_store(dst + 48, wasm_i64x2_shuffle(a_u[2], a_u[3], 0, 2));  // f1 hi
-    wasm_v128_store(dst + 64, wasm_i64x2_shuffle(a_u[0], a_u[1], 1, 3));  // f2 lo
-    wasm_v128_store(dst + 80, wasm_i64x2_shuffle(a_u[2], a_u[3], 1, 3));  // f2 hi
-    wasm_v128_store(dst + 96, wasm_i64x2_shuffle(b_u[0], b_u[1], 0, 2));  // f3 lo
-    wasm_v128_store(dst + 112, wasm_i64x2_shuffle(b_u[2], b_u[3], 0, 2)); // f3 hi
-    wasm_v128_store(dst + 128, wasm_i64x2_shuffle(b_u[0], b_u[1], 1, 3)); // f4 lo
-    wasm_v128_store(dst + 144, wasm_i64x2_shuffle(b_u[2], b_u[3], 1, 3)); // f4 hi
+    wasm_v128_store(dst + 32, f1_lo);
+    wasm_v128_store(dst + 48, f1_hi);
+    wasm_v128_store(dst + 64, f2_lo);
+    wasm_v128_store(dst + 80, f2_hi);
+    wasm_v128_store(dst + 96, f3_lo);
+    wasm_v128_store(dst + 112, f3_hi);
+    wasm_v128_store(dst + 128, f4_lo);
+    wasm_v128_store(dst + 144, f4_hi);
 }
 
 // Linear-memory store paired with the linear-memory ctor above.
