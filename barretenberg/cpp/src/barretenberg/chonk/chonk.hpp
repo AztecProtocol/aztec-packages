@@ -48,7 +48,7 @@ class Chonk : public IVCBase {
     using ProverPolynomials = Flavor::ProverPolynomials;
     using Point = Flavor::Curve::AffineElement;
     using ProverInstance = ProverInstance_<Flavor>;
-    using DeciderZKProvingKey = ProverInstance_<MegaZKFlavor>;
+    using HidingKernelProverInstance = ProverInstance_<MegaZKFlavor>;
     using VerifierInstance = VerifierInstance_<Flavor>;
     using ClientCircuit = MegaCircuitBuilder; // can only be Mega
     using ECCVMVerificationKey = bb::ECCVMFlavor::VerificationKey;
@@ -181,7 +181,7 @@ class Chonk : public IVCBase {
     Goblin goblin;
 
     // Hiding kernel prover state: built during accumulate(MEGA), consumed by prove().
-    std::shared_ptr<DeciderZKProvingKey> hiding_prover_inst;
+    std::shared_ptr<HidingKernelProverInstance> hiding_prover_inst;
     std::shared_ptr<MegaZKVerificationKey> hiding_vk;
 
     size_t get_num_circuits() const { return num_circuits; }

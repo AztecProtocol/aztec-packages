@@ -332,6 +332,8 @@ void Chonk::complete_kernel_circuit_logic(ClientCircuit& circuit)
         BB_ASSERT_EQ(circuit.op_queue->get_current_subtable_size(),
                      0U,
                      "tail kernel ecc ops table should be empty at this point");
+        // Add a no-op to make the op queue wires in Translator shiftable
+        circuit.queue_ecc_no_op();
         // Add randomness at the beginning of the tail kernel (whose ecc ops fall at the beginning of the op queue
         // table) to ensure the CHONK proof doesn't leak information about the actual content of the op queue
         hide_op_queue_content_in_tail(circuit);
@@ -450,7 +452,7 @@ void Chonk::accumulate_hiding_kernel(ClientCircuit& circuit, const std::shared_p
 {
     BB_BENCH_NAME("Chonk::accumulate_hiding_kernel");
     vinfo("Constructing hiding kernel instance (proving deferred to prove())");
-    hiding_prover_inst = std::make_shared<DeciderZKProvingKey>(circuit);
+    hiding_prover_inst = std::make_shared<HidingKernelProverInstance>(circuit);
     // Free circuit block memory now that trace data has been copied to prover polynomials
     for (auto& block : circuit.blocks.get()) {
         block.free_data();
