@@ -731,11 +731,6 @@ variable "RPC_INGRESS_SESSION_AFFINITY" {
   description = "Session affinity type for the RPC BackendConfig. One of NONE, CLIENT_IP, GENERATED_COOKIE. Leave empty for no affinity (GCE default)."
   type        = string
   default     = ""
-
-  validation {
-    condition     = contains(["", "NONE", "CLIENT_IP", "GENERATED_COOKIE"], var.RPC_INGRESS_SESSION_AFFINITY)
-    error_message = "RPC_INGRESS_SESSION_AFFINITY must be empty, NONE, CLIENT_IP, or GENERATED_COOKIE."
-  }
 }
 
 variable "RPC_INGRESS_LOG_SAMPLE_RATE" {
