@@ -52,6 +52,12 @@ void Polynomial<Fr>::allocate_backing_memory(size_t size, size_t virtual_size, s
 {
     BB_BENCH_NAME("Polynomial::allocate_backing_memory");
     BB_ASSERT_LTE(start_index + size, virtual_size);
+    // Sumcheck (extend_edges, partially_evaluate) and gemini fold the polynomial in adjacent pairs.
+    // When end_index is odd, the boundary edge reads at index == end_index, which lands in the
+    // virtual-zero region. To keep that read assertion-safe without per-iteration bounds checks in
+    // hot loops, enforce virtual_size to be even — odd inputs are rounded up. Backing memory is
+    // still proportional to size (= end - start), so this costs nothing in actual allocation.
+    virtual_size += (virtual_size & 1);
     coefficients_ = SharedShiftedVirtualZeroesArray<Fr>{
         start_index,        /* start index, used for shifted polynomials and offset 'islands' of non-zeroes */
         size + start_index, /* end index, actual memory used is (end - start) */
