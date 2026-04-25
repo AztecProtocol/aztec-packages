@@ -461,6 +461,50 @@ TEST(VectorFieldTest, GatherScatterRoundTrip)
     }
 }
 
+TEST(VectorFieldTest, LinearMemoryCtorAndStoreToRoundTrip)
+{
+    // VectorField(const Field*) + store_to over 5 contiguous Fr should be
+    // the identity: it's the AoS↔interleaved transpose, applied both ways.
+    // The SIMD-fast pack uses different shuffles than the scalar pack used
+    // by gather/scatter, so this test catches any bit-level errors in the
+    // shuffle-based path.
+    std::array<fr, 5> src;
+    for (size_t i = 0; i < 5; ++i) {
+        src[i] = fr::random_element();
+    }
+    Vec v(src.data());
+    for (size_t L = 0; L < 5; ++L) {
+        EXPECT_EQ(v.get(L), src[L]) << "lane " << L;
+    }
+    std::array<fr, 5> dst;
+    for (size_t i = 0; i < 5; ++i) {
+        dst[i] = fr::zero();
+    }
+    v.store_to(dst.data());
+    for (size_t L = 0; L < 5; ++L) {
+        EXPECT_EQ(dst[L], src[L]) << "lane " << L;
+    }
+}
+
+TEST(VectorFieldTest, LinearMemoryCtorMatchesGatherForLinearIndices)
+{
+    // For consecutive indices, the linear-memory ctor and gather should
+    // produce bit-identical VectorFields. (gather goes through
+    // store_from_array's scalar pack; the linear-memory ctor goes through
+    // the SIMD-shuffle pack.)
+    std::array<fr, 5> src;
+    for (size_t i = 0; i < 5; ++i) {
+        src[i] = fr::random_element();
+    }
+    Vec a = Vec::gather(src.data(), std::array<size_t, 5>{ 0, 1, 2, 3, 4 });
+    Vec b(src.data());
+    auto aa = a.to_array();
+    auto bb = b.to_array();
+    for (size_t L = 0; L < 5; ++L) {
+        EXPECT_EQ(aa[L], bb[L]) << "lane " << L;
+    }
+}
+
 TEST(VectorFieldTest, GatherLanesMatchArray)
 {
     std::array<fr, 16> src;
